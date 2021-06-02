@@ -18,7 +18,7 @@ type Asset struct {
 }
 ```
 An asset:
-- Is owned by a single organization (`OnwerOrg` field). State-Based Endorsement is use to model ownership;
+- Is owned by a single organization (`OwnerOrg` field). State-Based Endorsement is use to model ownership;
 - Comes equipped with some private information that is stored in the `implicit collection` of the owning organization;
 
 An asset can be transferred if and only if an agreement between the current owner and the next owner is achieved.
