@@ -1,0 +1,42 @@
+/*
+Copyright IBM Corp. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
+
+package main
+
+import (
+	fscnode "github.com/hyperledger-labs/fabric-smart-client/node"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/generic/sdk"
+
+	viewregistry "github.com/hyperledger-labs/fabric-smart-client/platform/view"
+	initiator1 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/testdata/foo/initiator"
+	initiator "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/testdata/initiator"
+	responder "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/testdata/responder"
+)
+
+func main() {
+	n := fscnode.New()
+	n.InstallSDK(generic.NewSDK(n))
+	n.InstallSDK(fabric.NewSDK(n))
+	n.Execute(func() error {
+		registry := viewregistry.GetRegistry(n)
+		if err := registry.RegisterFactory("initiator", &initiator.Factory{}); err != nil {
+			return err
+		}
+		if err := registry.RegisterFactory("initiator", &initiator1.Factory{}); err != nil {
+			return err
+		}
+		if err := registry.RegisterFactory("responder", &responder.Factory{}); err != nil {
+			return err
+		}
+		if err := registry.RegisterFactory("initiator2", &initiator.Factory{}); err != nil {
+			return err
+		}
+		registry.RegisterResponder(&responder.Responder{}, &initiator.Initiator{})
+		
+		return nil
+	})
+}

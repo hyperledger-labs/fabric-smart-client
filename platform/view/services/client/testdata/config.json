@@ -1,0 +1,35 @@
+[
+  {
+    "ID": "Alice",
+    "ChannelID": "testchannel",
+    "MSPInfo": {
+      "MSPConfigPath": "",
+      "MSPID": "",
+      "MSPType": ""
+    },
+    "ViewPeer": {
+      "Address": "127.0.0.1:7051",
+      "ConnectionTimeout": 0,
+      "TLSEnabled": false,
+      "TLSRootCertFile": "",
+      "ServerNameOverride": ""
+    }
+  },
+  {
+    "ID": "Bob",
+    "ChannelID": "testchannel",
+    "MSPInfo": {
+      "MSPConfigPath": "",
+      "MSPID": "",
+      "MSPType": ""
+    },
+    "ViewPeer": {
+      "Address": "127.0.0.1:8051",
+      "ConnectionTimeout": 0,
+      "TLSEnabled": false,
+      "TLSRootCertFile": "",
+      "ServerNameOverride": ""
+    }
+  }
+]
+

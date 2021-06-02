@@ -1,0 +1,55 @@
+/*
+Copyright IBM Corp. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
+package fabric
+
+import (
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/api"
+	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+)
+
+type Channel struct {
+	sp view2.ServiceProvider
+	ch api.Channel
+}
+
+func (c *Channel) Name() string {
+	return c.ch.Name()
+}
+
+func (c *Channel) Vault() *Vault {
+	return &Vault{ch: c.ch}
+}
+
+func (c *Channel) Ledger() *Ledger {
+	return &Ledger{ch: c}
+}
+
+func (c *Channel) MSPManager() *MSPManager {
+	return &MSPManager{ch: c.ch}
+}
+
+func (c *Channel) Committer() *Committer {
+	return &Committer{ch: c.ch}
+}
+
+func (c *Channel) Finality() *Finality {
+	return &Finality{ch: c.ch}
+}
+
+func (c *Channel) Chaincode(name string) *Chaincode {
+	return &Chaincode{
+		chaincode: c.ch.Chaincode(name),
+	}
+}
+
+func (c *Channel) GetTLSRootCert(party view.Identity) ([][]byte, error) {
+	return c.ch.GetTLSRootCert(party)
+}
+
+func (c *Channel) MetadataService() *MetadataService {
+	return &MetadataService{ms: c.ch.MetadataService()}
+}

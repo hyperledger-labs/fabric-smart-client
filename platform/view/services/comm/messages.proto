@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+package comm;
+
+message ViewPacket {
+    string sessionID = 1;
+    string contextID = 2;
+    int32 status = 3;
+    bytes payload = 4;
+    string caller = 5;
+}

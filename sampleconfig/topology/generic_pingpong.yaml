@@ -1,0 +1,20 @@
+topologies:
+- name: fsc
+  peers:
+  - name: initiator
+    bootstrap: true
+    executablePath: github.com/hyperledger-labs/fabric-smart-client/integration/generic/pingpong/cmd/initiator
+  - NodeSynthesizer:
+      Aliases:
+        github.com/hyperledger-labs/fabric-smart-client/integration/generic/pingpong:
+          original: pingpong
+          alias: pingpong
+      Imports:
+      - github.com/hyperledger-labs/fabric-smart-client/integration/generic/pingpong
+      Responders:
+      - responder: '&pingpong.Responder{}'
+        initiator: '&pingpong.Initiator{}'
+    name: responder
+  logging:
+    spec: grpc=error:debug
+    format: '''%{color}%{time:2006-01-02 15:04:05.000 MST} [%{module}] %{shortfunc} -> %{level:.4s} %{id:03x}%{color:reset} %{message}'''

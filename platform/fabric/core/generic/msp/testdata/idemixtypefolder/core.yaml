@@ -1,0 +1,6 @@
+fabric:
+  msps:
+  - id: pineapple
+    mspType: idemix-folder
+    mspID: idemix
+    path: ./msps

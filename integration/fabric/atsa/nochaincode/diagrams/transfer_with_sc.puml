@@ -1,0 +1,21 @@
+@startuml
+'- force wrapping of longer text
+'skinparam wrapWidth 400
+!pragma teoz true
+hide footbox
+
+participant "Alice" as Alice
+participant "Bob" as Bob
+participant "Fabric Network" as Orderer
+
+Alice -> Orderer: Get Certification of AgreementToSpend and Asset.
+Orderer -> Alice: Certifications
+Alice -> Alice: Prepare Transaction Tx\nappending certifications
+Alice -> Bob: Collect Signature on Tx
+Bob -> Bob: Check Tx & Add Bob's Ins and Outs
+Bob -> Alice: Send back signature on Tx
+note right of Bob: Wait for Finality of Tx
+Alice -> Alice: Check Tx
+Alice -> Orderer: Send Tx to Ordering
+note right of Alice: Wait for Finality of Tx
+@enduml

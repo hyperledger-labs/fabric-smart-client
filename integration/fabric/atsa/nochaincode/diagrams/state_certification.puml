@@ -1,0 +1,14 @@
+@startuml
+'- force wrapping of longer text
+'skinparam wrapWidth 400
+!pragma teoz true
+hide footbox
+
+participant "Alice" as Alice
+participant "Fabric Network" as Orderer
+
+Alice -> Alice: Prepare Proposal for "State Certification"\nof state S.
+Alice -> Orderer: Collect enough endorsements.
+Orderer -> Alice: Endorsements
+Alice -> Alice: Assemble Endorsements in a\n"State Certification"transaction
+@enduml

@@ -1,0 +1,183 @@
+fabric:
+  enabled: true
+  networks:
+  - name: default
+    BCCSP:
+      Default: SW
+      SW:
+        Hash: SHA2
+        Security: 256
+        FileKeyStore:
+          KeyStore:
+    mspConfigPath: /Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata/crypto/peerOrganizations/org2.example.com/peers/alice.org2.example.com/msp
+    localMspId: Org2MSP
+    msps: 
+      - id: idemix
+        mspType: idemix
+        mspID: IdemixOrgMSP
+        path: /Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata/crypto/peerOrganizations/org2.example.com/peers/alice.org2.example.com/extraids/idemix
+      - id: alice.id1
+        mspType: idemix
+        mspID: IdemixOrgMSP
+        path: /Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata/crypto/peerOrganizations/org2.example.com/peers/alice.org2.example.com/extraids/alice.id1
+    tls:
+      enabled:  true
+      clientAuthRequired: false
+      cert:
+        file: /Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata/crypto/peerOrganizations/org2.example.com/peers/alice.org2.example.com/tls/server.crt
+      key:
+        file: /Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata/crypto/peerOrganizations/org2.example.com/peers/alice.org2.example.com/tls/server.key
+      clientCert:
+        file: /Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata/crypto/peerOrganizations/org2.example.com/peers/alice.org2.example.com/tls/server.crt
+      clientKey:
+        file: /Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata/crypto/peerOrganizations/org2.example.com/peers/alice.org2.example.com/tls/server.key
+      rootcert:
+        file: /Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata/crypto/peerOrganizations/org2.example.com/peers/alice.org2.example.com/tls/ca.crt
+      clientRootCAs:
+        files:
+        - /Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata/crypto/peerOrganizations/org2.example.com/peers/alice.org2.example.com/tls/ca.crt
+      rootCertFile: /Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata/crypto/ca-certs.pem
+    orderers: 
+      - address: 127.0.0.1:20000
+        connectionTimeout: 10s
+        tlsEnabled: true        
+        tlsRootCertFile: /Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata/crypto/ca-certs.pem
+        serverNameOverride: 
+    peers: 
+      - address: 127.0.0.1:20010
+        connectionTimeout: 10s
+        tlsEnabled: true        
+        tlsRootCertFile: /Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata/crypto/ca-certs.pem
+        serverNameOverride:
+    channels: 
+      - name: testchannel
+        default: true
+    vault:
+      persistence:
+        type: file
+        opts:
+          path: /Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata/fscnodes/Org2.alice/vault
+  endpoint:
+    resolves: 
+    - name: Org1_peer_0
+      domain: org1.example.com
+      identity:
+        id: Org1_peer_0
+        mspType: bccsp
+        mspID: Org1MSP
+        path: /Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata/crypto/peerOrganizations/org1.example.com/peers/Org1_peer_0.org1.example.com/msp/signcerts/Org1_peer_0.org1.example.com-cert.pem
+      addresses: 
+         View: 127.0.0.1:20004
+         Listen: 127.0.0.1:20004
+         P2P: 127.0.0.1:20009
+      aliases: 
+    - name: Org2_peer_0
+      domain: org2.example.com
+      identity:
+        id: Org2_peer_0
+        mspType: bccsp
+        mspID: Org2MSP
+        path: /Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata/crypto/peerOrganizations/org2.example.com/peers/Org2_peer_0.org2.example.com/msp/signcerts/Org2_peer_0.org2.example.com-cert.pem
+      addresses: 
+         View: 127.0.0.1:20010
+         Listen: 127.0.0.1:20010
+         P2P: 127.0.0.1:20015
+      aliases: 
+    - name: issuer
+      domain: org1.example.com
+      identity:
+        id: issuer
+        mspType: bccsp
+        mspID: Org1MSP
+        path: /Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata/crypto/peerOrganizations/org1.example.com/peers/issuer.org1.example.com/msp/signcerts/issuer.org1.example.com-cert.pem
+      addresses: 
+         View: 127.0.0.1:20016
+         Listen: 127.0.0.1:20016
+         P2P: 127.0.0.1:20017
+      aliases: 
+      - issuer
+      - issuer.owner
+      - issuer.id1
+    - name: auditor
+      domain: org1.example.com
+      identity:
+        id: auditor
+        mspType: bccsp
+        mspID: Org1MSP
+        path: /Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata/crypto/peerOrganizations/org1.example.com/peers/auditor.org1.example.com/msp/signcerts/auditor.org1.example.com-cert.pem
+      addresses: 
+         View: 127.0.0.1:20018
+         Listen: 127.0.0.1:20018
+         P2P: 127.0.0.1:20019
+      aliases: 
+      - auditor
+    - name: certifier
+      domain: org1.example.com
+      identity:
+        id: certifier
+        mspType: bccsp
+        mspID: Org1MSP
+        path: /Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata/crypto/peerOrganizations/org1.example.com/peers/certifier.org1.example.com/msp/signcerts/certifier.org1.example.com-cert.pem
+      addresses: 
+         View: 127.0.0.1:20020
+         Listen: 127.0.0.1:20020
+         P2P: 127.0.0.1:20021
+      aliases: 
+      - certifier
+    - name: alice
+      domain: org2.example.com
+      identity:
+        id: alice
+        mspType: bccsp
+        mspID: Org2MSP
+        path: /Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata/crypto/peerOrganizations/org2.example.com/peers/alice.org2.example.com/msp/signcerts/alice.org2.example.com-cert.pem
+      addresses: 
+         View: 127.0.0.1:20022
+         Listen: 127.0.0.1:20022
+         P2P: 127.0.0.1:20023
+      aliases: 
+      - alice
+      - alice.id1
+    - name: bob
+      domain: org2.example.com
+      identity:
+        id: bob
+        mspType: bccsp
+        mspID: Org2MSP
+        path: /Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata/crypto/peerOrganizations/org2.example.com/peers/bob.org2.example.com/msp/signcerts/bob.org2.example.com-cert.pem
+      addresses: 
+         View: 127.0.0.1:20024
+         Listen: 127.0.0.1:20024
+         P2P: 127.0.0.1:20025
+      aliases: 
+      - bob
+      - bob.id1
+    - name: charlie
+      domain: org2.example.com
+      identity:
+        id: charlie
+        mspType: bccsp
+        mspID: Org2MSP
+        path: /Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata/crypto/peerOrganizations/org2.example.com/peers/charlie.org2.example.com/msp/signcerts/charlie.org2.example.com-cert.pem
+      addresses: 
+         View: 127.0.0.1:20026
+         Listen: 127.0.0.1:20026
+         P2P: 127.0.0.1:20027
+      aliases: 
+      - charlie
+    - name: manager
+      domain: org2.example.com
+      identity:
+        id: manager
+        mspType: bccsp
+        mspID: Org2MSP
+        path: /Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata/crypto/peerOrganizations/org2.example.com/peers/manager.org2.example.com/msp/signcerts/manager.org2.example.com-cert.pem
+      addresses: 
+         View: 127.0.0.1:20028
+         Listen: 127.0.0.1:20028
+         P2P: 127.0.0.1:20029
+      aliases: 
+      - manager
+      - manager.id1
+      - manager.id2
+      - manager.id3

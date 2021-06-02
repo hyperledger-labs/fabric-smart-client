@@ -1,0 +1,18 @@
+@startuml
+'- force wrapping of longer text
+'skinparam wrapWidth 400
+!pragma teoz true
+hide footbox
+
+participant "Issuer" as Issuer
+participant "Alice" as Alice
+participant "Fabric Network" as Orderer
+
+Issuer -> Issuer: Prepare Transaction Tx
+Issuer -> Alice: Collect Signature on Tx
+Alice -> Alice: Check Tx
+Alice -> Issuer: Send back signature on Tx
+note right of Alice: Wait for Finality of Tx
+Issuer -> Orderer: Send Tx to Ordering
+note right of Issuer: Wait for Finality of Tx
+@enduml

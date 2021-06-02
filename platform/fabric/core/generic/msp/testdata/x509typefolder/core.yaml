@@ -1,0 +1,6 @@
+fabric:
+  msps:
+  - id: pineapple
+    mspType: bccsp-folder
+    mspID: bccsp
+    path: ./msps

@@ -1,0 +1,307 @@
+/*
+Copyright IBM Corp. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
+package comm
+
+import (
+	"bufio"
+	"context"
+	"encoding/binary"
+	"errors"
+	io2 "io"
+	"sync"
+	"sync/atomic"
+
+	"github.com/gogo/protobuf/io"
+	protoio "github.com/gogo/protobuf/io"
+	"github.com/gogo/protobuf/proto"
+	"github.com/libp2p/go-libp2p-core/host"
+	"github.com/libp2p/go-libp2p-core/network"
+	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p-core/protocol"
+	discovery "github.com/libp2p/go-libp2p-discovery"
+	dht "github.com/libp2p/go-libp2p-kad-dht"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+)
+
+const (
+	viewProtocol     = "/fsc/view/1.0.0"
+	rendezVousString = "fsc"
+	masterSession    = "master of puppets I'm pulling your strings"
+)
+
+var errStreamNotFound = errors.New("stream not found")
+
+var logger = flogging.MustGetLogger("view-sdk")
+
+type messageWithStream struct {
+	message *view.Message
+	stream  *streamHandler
+}
+
+type P2PNode struct {
+	host             host.Host
+	dht              *dht.IpfsDHT
+	finder           *discovery.RoutingDiscovery
+	peersMutex       sync.RWMutex
+	peers            map[string]peer.AddrInfo
+	incomingMessages chan *messageWithStream
+	streamsMutex     sync.RWMutex
+	streams          map[peer.ID][]*streamHandler
+	dispatchMutex    sync.Mutex
+	sessionsMutex    sync.Mutex
+	sessions         map[string]*NetworkStreamSession
+	stopFinder       int32
+	finderWg         sync.WaitGroup
+	isStopping       bool
+}
+
+func (p *P2PNode) Start(ctx context.Context) {
+	go p.dispatchMessages(ctx)
+	go func() {
+		<-ctx.Done()
+		p.Stop()
+	}()
+}
+
+func (p *P2PNode) Stop() {
+	p.streamsMutex.Lock()
+	p.isStopping = true
+	p.streamsMutex.Unlock()
+
+	p.host.Close()
+	atomic.StoreInt32(&p.stopFinder, 1)
+
+	for _, streams := range p.streams {
+		for _, stream := range streams {
+			stream.close()
+		}
+	}
+
+	close(p.incomingMessages)
+	p.finderWg.Wait()
+}
+
+func (p *P2PNode) dispatchMessages(ctx context.Context) {
+	for {
+		select {
+		case msg, ok := <-p.incomingMessages:
+			if !ok {
+				logger.Debugf("channel closed, returning")
+				return
+			}
+
+			logger.Debugf("dispatch message from [%s,%s] on session [%s]", msg.message.FromEndpoint, view.Identity(msg.message.FromPKID).String(), msg.message.SessionID)
+
+			p.dispatchMutex.Lock()
+
+			p.sessionsMutex.Lock()
+			internalSessionID := computeInternalSessionID(msg.message.SessionID, msg.message.FromEndpoint, msg.message.FromPKID)
+			logger.Debugf("dispatch message on internal session [%s]", internalSessionID)
+			session, in := p.sessions[internalSessionID]
+			if in {
+				logger.Debugf("internal session exists [%s]", internalSessionID)
+				session.mutex.Lock()
+				session.callerViewID = msg.message.Caller
+				session.contextID = msg.message.ContextID
+				session.endpointAddress = msg.message.FromEndpoint
+				// here we know that msg.stream is used for session:
+				// 1) increment the used counter for msg.stream
+				msg.stream.refCtr++
+				// 2) add msg.stream to the list of streams used by session
+				session.streams[msg.stream] = struct{}{}
+				session.mutex.Unlock()
+			}
+			p.sessionsMutex.Unlock()
+
+			if !in {
+				// create session but redirect this first message to master
+				//_, _ = p.getOrCreateSession(
+				//	msg.message.SessionID,
+				//	msg.message.FromEndpoint,
+				//	msg.message.ContextID,
+				//	"",
+				//	nil,
+				//	msg.message.FromPKID,
+				//	nil,
+				//)
+
+				logger.Debugf("internal session does not exists [%s], dispatching to master session", internalSessionID)
+				session, _ = p.getOrCreateSession(masterSession, "", "", "", nil, []byte{}, nil)
+			}
+			p.dispatchMutex.Unlock()
+
+			logger.Debugf("pushing message to [%s], [%s]", internalSessionID, msg.message)
+			session.incoming <- msg.message
+		case <-ctx.Done():
+			logger.Info("closing p2p comm...")
+			return
+		}
+	}
+}
+
+func (p *P2PNode) sendWithCachedStreams(ID peer.ID, msg proto.Message) error {
+	p.streamsMutex.RLock()
+	defer p.streamsMutex.RUnlock()
+	for _, stream := range p.streams[ID] {
+		if err := stream.send(msg); err == nil {
+			return nil
+		} // TODO: handle the case in which there's an error
+	}
+
+	return errStreamNotFound
+}
+
+func (p *P2PNode) sendTo(IDString string, msg proto.Message) error {
+	ID, err := peer.Decode(IDString)
+	if err != nil {
+		return err
+	}
+
+	if err := p.sendWithCachedStreams(ID, msg); err != errStreamNotFound {
+		return err
+	}
+
+	nwStream, err := p.host.NewStream(context.Background(), ID, protocol.ID(viewProtocol))
+	if err != nil {
+		return err
+	}
+
+	p.handleStream()(nwStream)
+
+	return p.sendWithCachedStreams(ID, msg)
+}
+
+func (p *P2PNode) handleStream() network.StreamHandler {
+	return func(stream network.Stream) {
+		sh := &streamHandler{
+			stream: stream,
+			reader: NewDelimitedReader(stream, 655360*2),
+			writer: io.NewDelimitedWriter(stream),
+			node:   p,
+		}
+
+		p.streamsMutex.Lock()
+		p.streams[sh.stream.Conn().RemotePeer()] = append(p.streams[sh.stream.Conn().RemotePeer()], sh)
+		p.streamsMutex.Unlock()
+
+		go sh.handleIncoming()
+	}
+}
+
+func (p *P2PNode) Lookup(peerID string) (peer.AddrInfo, bool) {
+	p.peersMutex.RLock()
+	defer p.peersMutex.RUnlock()
+
+	peer, in := p.peers[peerID]
+	return peer, in
+}
+
+type streamHandler struct {
+	stream network.Stream
+	reader protoio.ReadCloser
+	writer protoio.WriteCloser
+	node   *P2PNode
+	wg     sync.WaitGroup
+	refCtr int
+}
+
+func (s *streamHandler) send(msg proto.Message) error {
+	return s.writer.WriteMsg(msg)
+}
+
+func (s *streamHandler) handleIncoming() {
+	s.wg.Add(1)
+	for {
+		msg := &ViewPacket{}
+		err := s.reader.ReadMsg(msg)
+		if err != nil {
+			s.node.streamsMutex.Lock()
+			if s.node.isStopping {
+				logger.Debugf("error reading message while closing. ignoring.", err.Error())
+				break
+			}
+			logger.Errorf("caught error: %s", err.Error())
+			defer s.node.streamsMutex.Unlock()
+
+			for i, thisSH := range s.node.streams[s.stream.Conn().RemotePeer()] {
+				if thisSH == s {
+					s.node.streams[s.stream.Conn().RemotePeer()] = append(s.node.streams[s.stream.Conn().RemotePeer()][:i], s.node.streams[s.stream.Conn().RemotePeer()][i+1:]...)
+					s.wg.Done()
+					return
+				}
+			}
+
+			panic("couldn't find stream handler to remove")
+		}
+		logger.Debugf("incoming message from [%s] on session [%s]", msg.Caller, msg.SessionID)
+
+		s.node.incomingMessages <- &messageWithStream{
+			message: &view.Message{
+				ContextID:    msg.ContextID,
+				SessionID:    msg.SessionID,
+				Status:       msg.Status,
+				Payload:      msg.Payload,
+				Caller:       msg.Caller,
+				FromEndpoint: s.stream.Conn().RemoteMultiaddr().String(),
+				FromPKID:     []byte(s.stream.Conn().RemotePeer().String()),
+			},
+			stream: s,
+		}
+	}
+}
+
+func (s *streamHandler) close() {
+	s.reader.Close()
+	s.writer.Close()
+	s.stream.Close()
+	//s.wg.Wait()
+}
+
+func NewDelimitedReader(r io2.Reader, maxSize int) io.ReadCloser {
+	var closer io2.Closer
+	if c, ok := r.(io2.Closer); ok {
+		closer = c
+	}
+	return &varintReader{r: bufio.NewReader(r), closer: closer, maxSize: maxSize}
+}
+
+type varintReader struct {
+	r       *bufio.Reader
+	buf     []byte
+	closer  io2.Closer
+	maxSize int
+}
+
+func (r *varintReader) ReadMsg(msg proto.Message) error {
+	length64, err := binary.ReadUvarint(r.r)
+	if err != nil {
+		return err
+	}
+	length := int(length64)
+	if length < 0 {
+		return io2.ErrShortBuffer
+	}
+	if len(r.buf) < length {
+		r.buf = make([]byte, length)
+	}
+	if len(r.buf) >= r.maxSize {
+		logger.Warnf("reading message length [%d]", length64)
+	}
+	buf := r.buf[:length]
+	if _, err := io2.ReadFull(r.r, buf); err != nil {
+		return err
+	}
+	return proto.Unmarshal(buf, msg)
+}
+
+func (r *varintReader) Close() error {
+	if r.closer != nil {
+		return r.closer.Close()
+	}
+	return nil
+}

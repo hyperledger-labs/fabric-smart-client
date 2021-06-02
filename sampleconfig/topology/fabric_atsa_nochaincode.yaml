@@ -1,0 +1,218 @@
+topologies:
+- name: fabric
+  logging:
+    spec: grpc=error:chaincode=debug:endorser=debug:info
+    format: '''%{color}%{time:2006-01-02 15:04:05.000 MST} [%{module}] %{shortfunc} -> %{level:.4s} %{id:03x}%{color:reset} %{message}'''
+  organizations:
+  - msp_id: OrdererMSP
+    name: OrdererOrg
+    domain: example.com
+    enable_node_organizational_units: false
+    ca:
+      hostname: ca
+  - id: Org1
+    msp_id: Org1MSP
+    name: Org1
+    domain: org1.example.com
+    enable_node_organizational_units: false
+    users: 1
+    ca:
+      hostname: ca
+  - id: Org2
+    msp_id: Org2MSP
+    name: Org2
+    domain: org2.example.com
+    enable_node_organizational_units: false
+    users: 1
+    ca:
+      hostname: ca
+  - id: Org3
+    msp_id: Org3MSP
+    name: Org3
+    domain: org3.example.com
+    enable_node_organizational_units: false
+    users: 1
+    ca:
+      hostname: ca
+  peers:
+  - name: Org1_peer_0
+    organization: Org1
+    type: FabricPeer
+    channels:
+    - name: testchannel
+      anchor: true
+    devmode: false
+  - name: Org2_peer_0
+    organization: Org2
+    type: FabricPeer
+    channels:
+    - name: testchannel
+      anchor: true
+    devmode: false
+  - name: Org3_peer_0
+    organization: Org3
+    type: FabricPeer
+    channels:
+    - name: testchannel
+      anchor: true
+    devmode: false
+  consortiums:
+  - name: SampleConsortium
+    organizations:
+    - Org1
+    - Org2
+    - Org3
+  system_channel:
+    name: systemchannel
+    profile: OrgsOrdererGenesis
+  channels:
+  - name: testchannel
+    profile: OrgsChannel
+    default: true
+  consensus:
+    type: solo
+  orderers:
+  - name: orderer
+    organization: OrdererOrg
+  profiles:
+  - name: OrgsOrdererGenesis
+    orderers:
+    - orderer
+  - name: OrgsChannel
+    consortium: SampleConsortium
+    organizations:
+    - Org1
+    - Org2
+    - Org3
+    policies:
+    - name: Readers
+      type: ImplicitMeta
+      rule: ANY Readers
+    - name: Writers
+      type: ImplicitMeta
+      rule: ANY Writers
+    - name: Admins
+      type: ImplicitMeta
+      rule: ANY Admins
+    - name: LifecycleEndorsement
+      type: Signature
+      rule: AND ('Org1MSP.member')
+    - name: Endorsement
+      type: ImplicitMeta
+      rule: ANY Endorsement
+  chaincodes:
+  - chaincode:
+      name: asset_transfer
+      version: Version-0.0
+      path: github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state/cc/query
+      ctor: '{"Args":["init"]}'
+      policy: AND ('Org1MSP.member')
+      lang: golang
+      collectionsconfig: ""
+      packagefile: ""
+      codefiles: {}
+      sequence: "1"
+      endorsementplugin: ""
+      validationplugin: ""
+      initrequired: true
+      label: asset_transfer
+      signaturepolicy: AND ('Org1MSP.member')
+      channelconfigpolicy: ""
+    channel: testchannel
+    peers:
+    - Org1_peer_0
+  chaincodemode: net
+- name: fsc
+  peers:
+  - NodeSynthesizer:
+      Aliases:
+        github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/nochaincode/views:
+          original: views
+          alias: views
+      Imports:
+      - github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/nochaincode/views
+      Responders:
+      - responder: '&views.ApproveView{}'
+        initiator: '&views.IssueView{}'
+      - responder: '&views.ApproveView{}'
+        initiator: '&views.AgreeToSellView{}'
+      - responder: '&views.ApproveView{}'
+        initiator: '&views.AgreeToBuyView{}'
+      - responder: '&views.ApproveView{}'
+        initiator: '&views.TransferView{}'
+    name: approver
+    bootstrap: true
+    options:
+      mapping:
+        fabric:
+          mapping:
+            Organization: Org1
+  - NodeSynthesizer:
+      Aliases:
+        github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/nochaincode/views:
+          original: views
+          alias: views
+      Imports:
+      - github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/nochaincode/views
+      Factories:
+      - id: issue
+        type: '&views.IssueViewFactory{}'
+    name: issuer
+    options:
+      mapping:
+        fabric:
+          mapping:
+            Organization: Org3
+  - NodeSynthesizer:
+      Aliases:
+        github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/nochaincode/views:
+          original: views
+          alias: views
+      Imports:
+      - github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/nochaincode/views
+      Factories:
+      - id: transfer
+        type: '&views.TransferViewFactory{}'
+      - id: agreeToSell
+        type: '&views.AgreeToSellViewFactory{}'
+      - id: agreeToBuy
+        type: '&views.AgreeToBuyViewFactory{}'
+      Responders:
+      - responder: '&views.AcceptAssetView{}'
+        initiator: '&views.IssueView{}'
+      - responder: '&views.TransferResponderView{}'
+        initiator: '&views.TransferView{}'
+    name: alice
+    options:
+      mapping:
+        fabric:
+          mapping:
+            Organization: Org2
+  - NodeSynthesizer:
+      Aliases:
+        github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/nochaincode/views:
+          original: views
+          alias: views
+      Imports:
+      - github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/nochaincode/views
+      Factories:
+      - id: transfer
+        type: '&views.TransferViewFactory{}'
+      - id: agreeToSell
+        type: '&views.AgreeToSellViewFactory{}'
+      - id: agreeToBuy
+        type: '&views.AgreeToBuyViewFactory{}'
+      Responders:
+      - responder: '&views.AcceptAssetView{}'
+        initiator: '&views.IssueView{}'
+      - responder: '&views.TransferResponderView{}'
+        initiator: '&views.TransferView{}'
+    name: bob
+    options:
+      mapping:
+        fabric:
+          mapping:
+            Organization: Org2
+  logging:
+    spec: grpc=error:debug
+    format: '''%{color}%{time:2006-01-02 15:04:05.000 MST} [%{module}] %{shortfunc} -> %{level:.4s} %{id:03x}%{color:reset} %{message}'''
