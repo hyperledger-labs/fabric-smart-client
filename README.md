@@ -34,11 +34,7 @@ A Fabric network consists of a set of network nodes. As Fabric is permissioned, 
 - `Peers` execute transaction proposals and validate transactions. All peers maintain the blockchain ledger, an append-only data structure recording all transactions in the form of a hash chain, as well as the state, a succinct representation of the latest ledger state. Not all peers execute all transaction proposals, only a subset of them called endorsing peers (or, simply, endorsers) does, as specified by the policy of the chaincode to which the transaction pertains.
 - `Ordering Service Nodes (OSN)` are the nodes that collectively form the ordering service. In short, the ordering service establishes the total order of all transactions in Fabric, where each transaction contains state updates and dependencies computed during the execution phase, along with cryptographic signatures of the endorsing peers.
 
-In a Fabric network, sta
-
-Fabric Nodes interact to achieve pre-defined goals.
-Let's give a quick look at the transaction lifecycle, and the interactive protocols used
-by Fabric nodes. It can be split in three phases:
+Fabric Nodes interact to achieve pre-defined goals. Let's give a quick look at the transaction lifecycle, and the interactive protocols used by Fabric nodes. It can be split in three phases:
 
 - `Execution Phase`: In the execution phase, clients sign and send a transaction proposal (or, simply, proposal) to one or more endorsers for execution. The endorsers simulate the proposal, by executing the operation of the specified chaincode, which has been installed on the blockchain. After the simulation, the endorser cryptographically signs a message called endorsement, which contains readset and writeset (RWSet, for short) (together with metadata such as transaction ID, endorser ID, and endorser signature) and sends it back to the client in a proposal response. The client collects endorsements until they satisfy the endorsement policy of the chaincode, which the transaction invokes.
 - `Ordering Phase`: When a client has collected enough endorsements on a proposal, it assembles a transaction and submits this to the ordering service.
