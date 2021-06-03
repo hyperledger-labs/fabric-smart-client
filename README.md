@@ -43,7 +43,7 @@ Fabric Nodes interact to achieve pre-defined goals. Let's give a quick look at t
 Notice that, each phase is essentially an interactive protocol, executed by given parties, used to achieve a specific goal.
 A few remarks on the above protocol will help the reader to understand the reasons why we decided to revise it, and the directions we want to follow:
 - `Each party should be able to run its own business logic`: The endorsement policy does not say anything about the process that should be used to assemble the RWSet. In particular, it does not say that all endorsers of a given chaincode should run the same business logic. Nor it says that the RWSet should be produced by endorsers. Indeed, the execution phase can be implemented in other ways. For example, the clients could assemble the RWSet directly and then ask the endorsers to `approve` the transaction.
-- `Free players`: Fabric nodes have a precise role in the network. In other words, Fabric nodes are not interchangeable. This means that a client cannot endorser, an endorser cannot submit transactions to the ordering service, and so on. Indeed, an endorser is just a network node that possesses a signing secret key accepted by some endorsement policy.
+- `Free players`: Fabric nodes have a precise role in the network. In other words, Fabric nodes are not interchangeable. This means that a client cannot endorse the transaction, an endorser cannot submit transactions to the ordering service, and so on. Indeed, an endorser is just a network node that possesses a signing secret key accepted by some endorsement policy.
 
 The above remarks guided us during the design of the Fabric Smart Client.
 
