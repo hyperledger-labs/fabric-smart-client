@@ -9,21 +9,22 @@ package nochaincode_test
 import (
 	"time"
 
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/nochaincode"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/nochaincode/views"
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("EndToEnd", func() {
 	var (
-		network *integration.Network
+		ii *integration.Infrastructure
 	)
 
 	AfterEach(func() {
-		// Stop the network
-		network.Stop()
+		// Stop the ii
+		ii.Stop()
 	})
 
 	Describe("Asset Transfer Secured Agreement", func() {
@@ -35,24 +36,24 @@ var _ = Describe("EndToEnd", func() {
 
 		BeforeEach(func() {
 			var err error
-			// Create the integration network
-			network, err = integration.GenNetwork(StartPort(), nochaincode.Topology()...)
+			// Create the integration ii
+			ii, err = integration.Generate(StartPort(), nochaincode.Topology()...)
 			Expect(err).NotTo(HaveOccurred())
-			// Start the integration network
-			network.Start()
+			// Start the integration ii
+			ii.Start()
 
-			approver := network.Identity("approver")
+			approver := ii.Identity("approver")
 
-			issuer = nochaincode.NewClient(network.Client("issuer"), network.Identity("issuer"), approver)
-			alice = nochaincode.NewClient(network.Client("alice"), network.Identity("alice"), approver)
-			bob = nochaincode.NewClient(network.Client("bob"), network.Identity("bob"), approver)
+			issuer = nochaincode.NewClient(ii.Client("issuer"), ii.Identity("issuer"), approver)
+			alice = nochaincode.NewClient(ii.Client("alice"), ii.Identity("alice"), approver)
+			bob = nochaincode.NewClient(ii.Client("bob"), ii.Identity("bob"), approver)
 		})
 
 		It("succeeded", func() {
 			assetID, err := issuer.Issue(&views.Asset{
 				ObjectType:        "coin",
 				ID:                "1234",
-				Owner:             network.Identity("alice"),
+				Owner:             ii.Identity("alice"),
 				PublicDescription: "Coin",
 				PrivateProperties: []byte("Hello World!!!"),
 			})
@@ -75,7 +76,7 @@ var _ = Describe("EndToEnd", func() {
 			Expect(err).ToNot(HaveOccurred())
 			time.Sleep(5 * time.Second)
 
-			err = alice.Transfer(assetID, agreementID, network.Identity("bob"))
+			err = alice.Transfer(assetID, agreementID, ii.Identity("bob"))
 			Expect(err).ToNot(HaveOccurred())
 		})
 	})

@@ -4,7 +4,7 @@ Copyright IBM Corp All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package generic
+package common
 
 import (
 	"context"
@@ -18,12 +18,31 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
 	"gopkg.in/src-d/go-git.v4"
 	"gopkg.in/src-d/go-git.v4/plumbing"
 )
+
+type BuilderClient struct {
+	ServerAddress string `json:"server_address"`
+}
+
+func (c *BuilderClient) Build(path string) string {
+	Expect(c.ServerAddress).NotTo(BeEmpty(), "build server address is empty")
+
+	resp, err := http.Get(fmt.Sprintf("http://%s/%s", c.ServerAddress, path))
+	Expect(err).NotTo(HaveOccurred())
+
+	body, err := ioutil.ReadAll(resp.Body)
+	Expect(err).NotTo(HaveOccurred())
+
+	if resp.StatusCode != http.StatusOK {
+		Expect(resp.StatusCode).To(Equal(http.StatusOK), fmt.Sprintf("%s", body))
+	}
+
+	return string(body)
+}
 
 type BuildServer struct {
 	server *http.Server
@@ -54,10 +73,10 @@ func (s *BuildServer) Shutdown() {
 	s.server.Shutdown(ctx)
 }
 
-func (s *BuildServer) Components() *common.Components {
+func (s *BuildServer) Client() *BuilderClient {
 	Expect(s.lis).NotTo(BeNil())
 
-	return &common.Components{
+	return &BuilderClient{
 		ServerAddress: s.lis.Addr().String(),
 	}
 }

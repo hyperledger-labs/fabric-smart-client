@@ -11,10 +11,11 @@ import (
 	"os"
 	"strings"
 
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/artifactgen/gen"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/artifactgen/version"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+
+	gen2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/artifactgen/gen"
+	version2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/artifactgen/version"
 )
 
 const CmdRoot = "core"
@@ -38,8 +39,8 @@ func main() {
 	viper.BindPFlag("logging_level", mainFlags.Lookup("logging-level"))
 	mainFlags.MarkHidden("logging-level")
 
-	mainCmd.AddCommand(gen.Cmd())
-	mainCmd.AddCommand(version.Cmd())
+	mainCmd.AddCommand(gen2.Cmd())
+	mainCmd.AddCommand(version2.Cmd())
 
 	// On failure Cobra prints the usage message and error string, so we only
 	// need to exit with a non-0 status

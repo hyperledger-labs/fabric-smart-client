@@ -20,8 +20,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cryptogen/csp"
 	"github.com/stretchr/testify/assert"
+
+	csp2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/cryptogen/csp"
 )
 
 func TestLoadPrivateKey(t *testing.T) {
@@ -30,14 +31,14 @@ func TestLoadPrivateKey(t *testing.T) {
 		t.Fatalf("Failed to create test directory: %s", err)
 	}
 	defer os.RemoveAll(testDir)
-	priv, err := csp.GeneratePrivateKey(testDir)
+	priv, err := csp2.GeneratePrivateKey(testDir)
 	if err != nil {
 		t.Fatalf("Failed to generate private key: %s", err)
 	}
 	pkFile := filepath.Join(testDir, "priv_sk")
 	assert.Equal(t, true, checkForFile(pkFile),
 		"Expected to find private key file")
-	loadedPriv, err := csp.LoadPrivateKey(testDir)
+	loadedPriv, err := csp2.LoadPrivateKey(testDir)
 	assert.NoError(t, err, "Failed to load private key")
 	assert.NotNil(t, loadedPriv, "Should have returned an *ecdsa.PrivateKey")
 	assert.Equal(t, priv, loadedPriv, "Expected private keys to match")
@@ -99,7 +100,7 @@ func TestLoadPrivateKey_BadPEM(t *testing.T) {
 			if err != nil {
 				t.Fatalf("failed to write to wrong encoding file: %s", err)
 			}
-			_, err = csp.LoadPrivateKey(badPEMFile)
+			_, err = csp2.LoadPrivateKey(badPEMFile)
 			assert.Contains(t, err.Error(), test.errMsg)
 			os.Remove(badPEMFile)
 		})
@@ -114,13 +115,13 @@ func TestGeneratePrivateKey(t *testing.T) {
 	defer os.RemoveAll(testDir)
 
 	expectedFile := filepath.Join(testDir, "priv_sk")
-	priv, err := csp.GeneratePrivateKey(testDir)
+	priv, err := csp2.GeneratePrivateKey(testDir)
 	assert.NoError(t, err, "Failed to generate private key")
 	assert.NotNil(t, priv, "Should have returned an *ecdsa.Key")
 	assert.Equal(t, true, checkForFile(expectedFile),
 		"Expected to find private key file")
 
-	_, err = csp.GeneratePrivateKey("notExist")
+	_, err = csp2.GeneratePrivateKey("notExist")
 	assert.Contains(t, err.Error(), "no such file or directory")
 }
 
@@ -130,7 +131,7 @@ func TestECDSASigner(t *testing.T) {
 		t.Fatalf("Failed to generate private key: %s", err)
 	}
 
-	signer := csp.ECDSASigner{
+	signer := csp2.ECDSASigner{
 		PrivateKey: priv,
 	}
 	assert.Equal(t, priv.Public(), signer.Public().(*ecdsa.PublicKey))
@@ -141,7 +142,7 @@ func TestECDSASigner(t *testing.T) {
 	}
 
 	// unmarshal signature
-	ecdsaSig := &csp.ECDSASignature{}
+	ecdsaSig := &csp2.ECDSASignature{}
 	_, err = asn1.Unmarshal(sig, ecdsaSig)
 	if err != nil {
 		t.Fatalf("Failed to unmarshal signature: %s", err)

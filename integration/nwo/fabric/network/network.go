@@ -18,12 +18,11 @@ import (
 	"github.com/spf13/viper"
 	"github.com/tedsuo/ifrit/grouper"
 
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
+	registry2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/registry"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/commands"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/fabricconfig"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/identity"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/registry"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 )
 
@@ -32,10 +31,10 @@ type ChaincodeProcessor interface {
 }
 
 type Network struct {
-	Registry           *registry.Registry
+	Registry           *registry2.Registry
 	topology           *topology.Topology
 	RootDir            string
-	Components         *common.Components
+	Builder            *Builder
 	DockerClient       *docker.Client
 	ExternalBuilders   []fabricconfig.ExternalBuilder
 	NetworkID          string
@@ -44,8 +43,8 @@ type Network struct {
 	StatsdEndpoint     string
 	ClientAuthRequired bool
 
-	PortsByBrokerID   map[string]registry.Ports
-	PortsByOrdererID  map[string]registry.Ports
+	PortsByBrokerID   map[string]registry2.Ports
+	PortsByOrdererID  map[string]registry2.Ports
 	Logging           *topology.Logging
 	ChaincodeMode     string
 	PvtTxSupport      bool
@@ -70,7 +69,7 @@ type Network struct {
 	ccps       []ChaincodeProcessor
 }
 
-func New(reg *registry.Registry, components *common.Components, ccps []ChaincodeProcessor) *Network {
+func New(reg *registry2.Registry, builderClient BuilderClient, ccps []ChaincodeProcessor) *Network {
 	topologyBoxed := reg.TopologyByName("fabric")
 	if topologyBoxed == nil {
 		topologyBoxed = NewEmptyTopology()
@@ -89,7 +88,7 @@ func New(reg *registry.Registry, components *common.Components, ccps []Chaincode
 	fabricTopology := topologyBoxed.(*topology.Topology)
 	network := &Network{
 		Registry:     reg,
-		Components:   components,
+		Builder:      &Builder{builderClient},
 		DockerClient: client,
 		RootDir:      reg.RootDir,
 		topology:     fabricTopology,
@@ -97,8 +96,8 @@ func New(reg *registry.Registry, components *common.Components, ccps []Chaincode
 		NetworkID:         reg.NetworkID,
 		EventuallyTimeout: 10 * time.Minute,
 		MetricsProvider:   "prometheus",
-		PortsByBrokerID:   map[string]registry.Ports{},
-		PortsByOrdererID:  map[string]registry.Ports{},
+		PortsByBrokerID:   map[string]registry2.Ports{},
+		PortsByOrdererID:  map[string]registry2.Ports{},
 
 		Organizations:     fabricTopology.Organizations,
 		Consensus:         fabricTopology.Consensus,
@@ -301,7 +300,7 @@ func (n *Network) DeployChaincode(chaincode *topology.ChannelChaincode) {
 
 	if len(chaincode.Chaincode.PackageFile) == 0 {
 		if len(chaincode.Path) != 0 {
-			chaincodePath := n.Components.Build(chaincode.Path)
+			chaincodePath := n.Builder.Build(chaincode.Path)
 			chaincode.Chaincode.Path = chaincodePath
 			chaincode.Chaincode.Lang = "binary"
 		}

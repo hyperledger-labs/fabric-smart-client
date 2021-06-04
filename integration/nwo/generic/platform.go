@@ -20,6 +20,7 @@ import (
 
 	"github.com/spf13/viper"
 
+	registry2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/registry"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 
 	"github.com/onsi/ginkgo"
@@ -29,29 +30,23 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/registry"
 )
 
-type Builder interface {
-	Cryptogen() string
-	Build(path string) string
-}
-
 type platform struct {
-	Registry           *registry.Registry
+	Registry           *registry2.Registry
 	Organizations      []*Organization
 	Peers              []*Peer
-	Builder            Builder
+	Builder            *Builder
 	EventuallyTimeout  time.Duration
 	colorIndex         int
 	Resolvers          []*Resolver
 	ClientAuthRequired bool
 }
 
-func NewPlatform(registry *registry.Registry, Builder Builder) *platform {
+func NewPlatform(registry *registry2.Registry, builderClient BuilderClient) *platform {
 	p := &platform{
 		Registry:          registry,
-		Builder:           Builder,
+		Builder:           &Builder{client: builderClient},
 		EventuallyTimeout: 10 * time.Minute,
 	}
 	p.CheckTopology()
@@ -235,7 +230,7 @@ func (p *platform) GenerateCoreConfig(peer *Peer) {
 	//pw := gexec.NewPrefixedWriter(fmt.Sprintf("[%s#extension#core.yaml] ", p.ID()), ginkgo.GinkgoWriter)
 	extension := bytes.NewBuffer([]byte{})
 	err = t.Execute(io.MultiWriter(extension), p)
-	p.Registry.AddExtension(peer.Name, registry.GenericExtension, extension.String())
+	p.Registry.AddExtension(peer.Name, registry2.GenericExtension, extension.String())
 	Expect(err).NotTo(HaveOccurred())
 }
 
@@ -295,11 +290,11 @@ func (p *platform) PeersInOrg(orgName string) []*Peer {
 	return peers
 }
 
-func (p *platform) PeerAddressByName(peer *Peer, portName registry.PortName) string {
+func (p *platform) PeerAddressByName(peer *Peer, portName registry2.PortName) string {
 	return fmt.Sprintf("127.0.0.1:%d", p.PeerPortByName(peer, portName))
 }
 
-func (p *platform) PeerPortByName(peer *Peer, portName registry.PortName) uint16 {
+func (p *platform) PeerPortByName(peer *Peer, portName registry2.PortName) uint16 {
 	peerPorts := p.Registry.PortsByPeerID[peer.Name]
 	Expect(peerPorts).NotTo(BeNil())
 	return peerPorts[portName]

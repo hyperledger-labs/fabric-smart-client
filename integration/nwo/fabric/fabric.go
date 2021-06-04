@@ -6,19 +6,35 @@ SPDX-License-Identifier: Apache-2.0
 package fabric
 
 import (
+	"github.com/hyperledger/fabric/integration/runner"
 	"github.com/tedsuo/ifrit/grouper"
 
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
+	registry2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/registry"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/helpers"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/network"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/registry"
 )
+
+const CCEnvDefaultImage = "hyperledger/fabric-ccenv:latest"
+
+var RequiredImages = []string{
+	CCEnvDefaultImage,
+	runner.CouchDBDefaultImage,
+	runner.KafkaDefaultImage,
+	runner.ZooKeeperDefaultImage,
+}
+
+type BuilderClient interface {
+	Build(path string) string
+}
 
 type platform struct {
 	Network *network.Network
 }
 
-func NewPlatform(registry *registry.Registry, components *common.Components) *platform {
+func NewPlatform(registry *registry2.Registry, components BuilderClient) *platform {
+	helpers.AssertImagesExist(RequiredImages...)
+
 	return &platform{
 		Network: network.New(
 			registry,

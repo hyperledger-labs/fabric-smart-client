@@ -71,14 +71,11 @@ clean:
 	rm -rf ./integration/fabric/iou/cmd/
 	rm -rf ./integration/generic/stoprestart/cmd
 	rm -rf ./integration/generic/pingpong/cmd/responder
+	rm -rf ./integration/fscnodes
 
 .PHONY: artifactsgen
 artifactsgen:
 	@go install github.com/hyperledger-labs/fabric-smart-client/cmd/artifactsgen
-
-.PHONY: zkatgen
-zkatgen:
-	@go install github.com/hyperledger-labs/fabric-smart-client/cmd/zkatgen
 
 .PHONY: topologies
 topologies:

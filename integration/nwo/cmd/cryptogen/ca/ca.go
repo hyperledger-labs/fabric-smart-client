@@ -22,8 +22,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cryptogen/csp"
 	"github.com/pkg/errors"
+
+	csp2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/cryptogen/csp"
 )
 
 type CA struct {
@@ -59,7 +60,7 @@ func NewCA(
 		return nil, err
 	}
 
-	priv, err := csp.GeneratePrivateKey(baseDir)
+	priv, err := csp2.GeneratePrivateKey(baseDir)
 	if err != nil {
 		return nil, err
 	}
@@ -96,7 +97,7 @@ func NewCA(
 	}
 	ca = &CA{
 		Name: name,
-		Signer: &csp.ECDSASigner{
+		Signer: &csp2.ECDSASigner{
 			PrivateKey: priv,
 		},
 		SignCert:           x509Cert,

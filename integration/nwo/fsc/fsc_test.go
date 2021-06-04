@@ -13,25 +13,26 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo"
-	fooinitiator "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/testdata/foo/initiator"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/testdata/initiator"
+	registry2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/registry"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/testdata/foo/initiator"
+	initiator2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/testdata/initiator"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/testdata/responder"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/registry"
 )
 
 var _ = Describe("EndToEnd", func() {
 	Describe("generate main", func() {
 		It("should not fail", func() {
-			p := NewPlatform(&registry.Registry{
+			p := NewPlatform(&registry2.Registry{
 				TopologiesByName: map[string]nwo.Topology{TopologyName: NewTopology()},
 			}, nil)
 
-			n := NewNode("test")
+			n := node.NewNode("test")
+			n.RegisterViewFactory("initiator", &initiator2.Factory{})
 			n.RegisterViewFactory("initiator", &initiator.Factory{})
-			n.RegisterViewFactory("initiator", &fooinitiator.Factory{})
 			n.RegisterViewFactory("responder", &responder.Factory{})
-			n.RegisterViewFactory("initiator2", &initiator.Factory{})
-			n.RegisterResponder(&responder.Responder{}, &initiator.Initiator{})
+			n.RegisterViewFactory("initiator2", &initiator2.Factory{})
+			n.RegisterResponder(&responder.Responder{}, &initiator2.Initiator{})
 			buf := bytes.NewBuffer(nil)
 			p.GenerateCmd(buf, n)
 

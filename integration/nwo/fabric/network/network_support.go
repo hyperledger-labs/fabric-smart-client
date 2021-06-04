@@ -33,12 +33,12 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
+	registry2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/registry"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/commands"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/fabricconfig"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/opts"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/registry"
 )
 
 func (n *Network) LogSpec() string {
@@ -58,7 +58,7 @@ func (n *Network) LogFormat() string {
 // AddOrg adds an organization to a network.
 func (n *Network) AddOrg(o *topology.Organization, peers ...*topology.Peer) {
 	for _, p := range peers {
-		ports := registry.Ports{}
+		ports := registry2.Ports{}
 		for _, portName := range PeerPortNames() {
 			ports[portName] = n.Registry.ReservePort()
 		}
@@ -610,7 +610,7 @@ func (n *Network) CheckTopology() {
 	}
 
 	for i := 0; i < n.Consensus.Brokers; i++ {
-		ports := registry.Ports{}
+		ports := registry2.Ports{}
 		for _, portName := range BrokerPortNames() {
 			ports[portName] = n.Registry.ReservePort()
 		}
@@ -618,7 +618,7 @@ func (n *Network) CheckTopology() {
 	}
 
 	for _, o := range n.Orderers {
-		ports := registry.Ports{}
+		ports := registry2.Ports{}
 		for _, portName := range OrdererPortNames() {
 			ports[portName] = n.Registry.ReservePort()
 		}
@@ -697,7 +697,7 @@ func (n *Network) CheckTopology() {
 		if p.Type == topology.ViewPeer {
 			continue
 		}
-		ports := registry.Ports{}
+		ports := registry2.Ports{}
 		for _, portName := range PeerPortNames() {
 			ports[portName] = n.Registry.ReservePort()
 		}
@@ -928,25 +928,25 @@ func (n *Network) JoinChannel(name string, o *topology.Orderer, peers ...*topolo
 
 // Cryptogen starts a gexec.Session for the provided cryptogen command.
 func (n *Network) Cryptogen(command common.Command) (*gexec.Session, error) {
-	cmd := common.NewCommand(n.Components.Cryptogen(), command)
+	cmd := common.NewCommand(n.Builder.Cryptogen(), command)
 	return n.StartSession(cmd, command.SessionName())
 }
 
 // Idemixgen starts a gexec.Session for the provided idemixgen command.
 func (n *Network) Idemixgen(command common.Command) (*gexec.Session, error) {
-	cmd := common.NewCommand(n.Components.Idemixgen(), command)
+	cmd := common.NewCommand(n.Builder.Idemixgen(), command)
 	return n.StartSession(cmd, command.SessionName())
 }
 
 // ConfigTxGen starts a gexec.Session for the provided configtxgen command.
 func (n *Network) ConfigTxGen(command common.Command) (*gexec.Session, error) {
-	cmd := common.NewCommand(n.Components.ConfigTxGen(), command)
+	cmd := common.NewCommand(n.Builder.ConfigTxGen(), command)
 	return n.StartSession(cmd, command.SessionName())
 }
 
 // Discover starts a gexec.Session for the provided discover command.
 func (n *Network) Discover(command common.Command) (*gexec.Session, error) {
-	cmd := common.NewCommand(n.Components.Discover(), command)
+	cmd := common.NewCommand(n.Builder.Discover(), command)
 	cmd.Args = append(cmd.Args, "--peerTLSCA", n.CACertsBundlePath())
 	return n.StartSession(cmd, command.SessionName())
 }
@@ -1039,7 +1039,7 @@ func (n *Network) BrokerGroupRunner() ifrit.Runner {
 // OrdererRunner returns an ifrit.Runner for the specified orderer. The runner
 // can be used to start and manage an orderer process.
 func (n *Network) OrdererRunner(o *topology.Orderer) *ginkgomon.Runner {
-	cmd := exec.Command(n.Components.Orderer())
+	cmd := exec.Command(n.Builder.Orderer())
 	cmd.Env = os.Environ()
 	cmd.Env = append(cmd.Env, fmt.Sprintf("FABRIC_CFG_PATH=%s", n.OrdererDir(o)))
 
@@ -1111,7 +1111,7 @@ func (n *Network) PeerGroupRunner() ifrit.Runner {
 }
 
 func (n *Network) peerCommand(executablePath string, command common.Command, tlsDir string, env ...string) *exec.Cmd {
-	cmd := common.NewCommand(n.Components.Peer(executablePath), command)
+	cmd := common.NewCommand(n.Builder.Peer(executablePath), command)
 	cmd.Env = append(cmd.Env, env...)
 	cmd.Env = append(cmd.Env, "FABRIC_LOGGING_SPEC="+n.Logging.Spec)
 
@@ -1432,36 +1432,36 @@ func (n *Network) PeersInOrg(orgName string) []*topology.Peer {
 }
 
 const (
-	ChaincodePort  registry.PortName = "Chaincode"
-	EventsPort     registry.PortName = "Events"
-	HostPort       registry.PortName = "HostPort"
-	ListenPort     registry.PortName = "Listen"
-	ProfilePort    registry.PortName = "Profile"
-	OperationsPort registry.PortName = "Operations"
-	ViewPort       registry.PortName = "View"
-	P2PPort        registry.PortName = "P2P"
-	ClusterPort    registry.PortName = "Cluster"
+	ChaincodePort  registry2.PortName = "Chaincode"
+	EventsPort     registry2.PortName = "Events"
+	HostPort       registry2.PortName = "HostPort"
+	ListenPort     registry2.PortName = "Listen"
+	ProfilePort    registry2.PortName = "Profile"
+	OperationsPort registry2.PortName = "Operations"
+	ViewPort       registry2.PortName = "View"
+	P2PPort        registry2.PortName = "P2P"
+	ClusterPort    registry2.PortName = "Cluster"
 )
 
 // PeerPortNames returns the list of ports that need to be reserved for a Peer.
-func PeerPortNames() []registry.PortName {
-	return []registry.PortName{ListenPort, ChaincodePort, EventsPort, ProfilePort, OperationsPort, P2PPort}
+func PeerPortNames() []registry2.PortName {
+	return []registry2.PortName{ListenPort, ChaincodePort, EventsPort, ProfilePort, OperationsPort, P2PPort}
 }
 
 // OrdererPortNames  returns the list of ports that need to be reserved for an
 // Orderer.
-func OrdererPortNames() []registry.PortName {
-	return []registry.PortName{ListenPort, ProfilePort, OperationsPort, ClusterPort}
+func OrdererPortNames() []registry2.PortName {
+	return []registry2.PortName{ListenPort, ProfilePort, OperationsPort, ClusterPort}
 }
 
 // BrokerPortNames returns the list of ports that need to be reserved for a
 // Kafka broker.
-func BrokerPortNames() []registry.PortName {
-	return []registry.PortName{HostPort}
+func BrokerPortNames() []registry2.PortName {
+	return []registry2.PortName{HostPort}
 }
 
 // BrokerAddresses returns the list of broker addresses for the network.
-func (n *Network) BrokerAddresses(portName registry.PortName) []string {
+func (n *Network) BrokerAddresses(portName registry2.PortName) []string {
 	addresses := []string{}
 	for _, ports := range n.PortsByBrokerID {
 		addresses = append(addresses, fmt.Sprintf("127.0.0.1:%d", ports[portName]))
@@ -1475,12 +1475,12 @@ func (n *Network) BrokerAddresses(portName registry.PortName) []string {
 //
 // This assumes that the orderer is listening on 0.0.0.0 or 127.0.0.1 and is
 // available on the loopback address.
-func (n *Network) OrdererAddress(o *topology.Orderer, portName registry.PortName) string {
+func (n *Network) OrdererAddress(o *topology.Orderer, portName registry2.PortName) string {
 	return fmt.Sprintf("127.0.0.1:%d", n.OrdererPort(o, portName))
 }
 
 // OrdererPort returns the named port reserved for the Orderer instance.
-func (n *Network) OrdererPort(o *topology.Orderer, portName registry.PortName) uint16 {
+func (n *Network) OrdererPort(o *topology.Orderer, portName registry2.PortName) uint16 {
 	ordererPorts := n.PortsByOrdererID[o.ID()]
 	Expect(ordererPorts).NotTo(BeNil())
 	return ordererPorts[portName]
@@ -1492,16 +1492,16 @@ func (n *Network) OrdererPort(o *topology.Orderer, portName registry.PortName) u
 //
 // This assumes that the peer is listening on 0.0.0.0 and is available on the
 // loopback address.
-func (n *Network) PeerAddress(p *topology.Peer, portName registry.PortName) string {
+func (n *Network) PeerAddress(p *topology.Peer, portName registry2.PortName) string {
 	return fmt.Sprintf("127.0.0.1:%d", n.PeerPort(p, portName))
 }
 
-func (n *Network) PeerAddressByName(p *topology.Peer, portName registry.PortName) string {
+func (n *Network) PeerAddressByName(p *topology.Peer, portName registry2.PortName) string {
 	return fmt.Sprintf("127.0.0.1:%d", n.PeerPortByName(p, portName))
 }
 
 // PeerPort returns the named port reserved for the Peer instance.
-func (n *Network) PeerPort(p *topology.Peer, portName registry.PortName) uint16 {
+func (n *Network) PeerPort(p *topology.Peer, portName registry2.PortName) uint16 {
 	peerPorts := n.Registry.PortsByPeerID[p.ID()]
 	if peerPorts == nil {
 		fmt.Printf("PeerPort [%s,%s] not found", p.ID(), portName)
@@ -1510,7 +1510,7 @@ func (n *Network) PeerPort(p *topology.Peer, portName registry.PortName) uint16 
 	return peerPorts[portName]
 }
 
-func (n *Network) PeerPortByName(p *topology.Peer, portName registry.PortName) uint16 {
+func (n *Network) PeerPortByName(p *topology.Peer, portName registry2.PortName) uint16 {
 	peerPorts := n.Registry.PortsByPeerID[p.Name]
 	Expect(peerPorts).NotTo(BeNil())
 	return peerPorts[portName]
@@ -1637,7 +1637,7 @@ func (n *Network) GenerateCoreConfig(p *topology.Peer) {
 		//pw := gexec.NewPrefixedWriter(fmt.Sprintf("[%s#core.yaml] ", p.ID()), ginkgo.GinkgoWriter)
 		extension := bytes.NewBuffer([]byte{})
 		err = t.Execute(io.MultiWriter(core, extension), n)
-		n.Registry.AddExtension(p.ID(), registry.FabricExtension, extension.String())
+		n.Registry.AddExtension(p.ID(), registry2.FabricExtension, extension.String())
 		Expect(err).NotTo(HaveOccurred())
 	case topology.ViewPeer:
 		err := os.MkdirAll(n.PeerDir(p), 0755)
@@ -1662,8 +1662,8 @@ func (n *Network) GenerateCoreConfig(p *topology.Peer) {
 			"ToLower":                   func(s string) string { return strings.ToLower(s) },
 			"ReplaceAll":                func(s, old, new string) string { return strings.Replace(s, old, new, -1) },
 			"Peers":                     func() []*topology.Peer { return refPeers },
-			"OrdererAddress":            func(o *topology.Orderer, portName registry.PortName) string { return n.OrdererAddress(o, portName) },
-			"PeerAddress":               func(o *topology.Peer, portName registry.PortName) string { return n.PeerAddress(o, portName) },
+			"OrdererAddress":            func(o *topology.Orderer, portName registry2.PortName) string { return n.OrdererAddress(o, portName) },
+			"PeerAddress":               func(o *topology.Peer, portName registry2.PortName) string { return n.PeerAddress(o, portName) },
 			"CACertsBundlePath":         func() string { return n.CACertsBundlePath() },
 			"NodeVaultPath":             func() string { return n.NodeVaultDir(p) },
 		}).Parse(coreTemplate)
@@ -1673,7 +1673,7 @@ func (n *Network) GenerateCoreConfig(p *topology.Peer) {
 		extension := bytes.NewBuffer([]byte{})
 		err = t.Execute(io.MultiWriter(extension), n)
 		Expect(err).NotTo(HaveOccurred())
-		n.Registry.AddExtension(p.Name, registry.FabricExtension, extension.String())
+		n.Registry.AddExtension(p.Name, registry2.FabricExtension, extension.String())
 	}
 }
 

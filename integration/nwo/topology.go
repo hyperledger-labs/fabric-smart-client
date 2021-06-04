@@ -7,7 +7,9 @@ package nwo
 
 import "gopkg.in/yaml.v2"
 
+// Topology represents a topology of a given network type (fabric, fsc, etc...)
 type Topology interface {
+	// Name returns the name of the type of network this topology refers to
 	Name() string
 }
 
