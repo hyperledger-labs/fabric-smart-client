@@ -583,10 +583,10 @@ func (n *Network) CheckTopology() {
 	cwd, err := os.Getwd()
 	Expect(err).NotTo(HaveOccurred())
 
-	substring := "github.com/hyperledger-labs/fabric-smart-client"
+	substring := "fabric-smart-client"
 	n.ExternalBuilders = []fabricconfig.ExternalBuilder{{
 		Path: filepath.Join(
-			cwd[:strings.Index(cwd, substring)],
+			cwd[:strings.LastIndex(cwd, substring)],
 			substring,
 			"integration",
 			"nwo",
