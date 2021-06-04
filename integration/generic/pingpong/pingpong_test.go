@@ -57,24 +57,24 @@ var _ = Describe("EndToEnd", func() {
 
 	Describe("Network-based Ping pong", func() {
 		var (
-			network *integration.Network
+			ii *integration.Infrastructure
 		)
 
 		AfterEach(func() {
-			// Stop the network
-			network.Stop()
+			// Stop the ii
+			ii.Stop()
 		})
 
 		It("generate artifacts & successful pingpong", func() {
 			var err error
-			// Create the integration network
-			network, err = integration.GenNetwork(StartPort2(), pingpong.Topology()...)
+			// Create the integration ii
+			ii, err = integration.Generate(StartPort2(), pingpong.Topology()...)
 			Expect(err).NotTo(HaveOccurred())
-			// Start the integration network
-			network.Start()
+			// Start the integration ii
+			ii.Start()
 			time.Sleep(3 * time.Second)
 			// Get a client for the fsc node labelled initiator
-			initiator := network.Client("initiator")
+			initiator := ii.Client("initiator")
 			// Initiate a view and check the output
 			res, err := initiator.CallView("init", nil)
 			Expect(err).NotTo(HaveOccurred())
@@ -83,14 +83,14 @@ var _ = Describe("EndToEnd", func() {
 
 		It("load artifact & successful pingpong", func() {
 			var err error
-			// Create the integration network
-			network, err = integration.LoadNetwork("./testdata", pingpong.Topology()...)
+			// Create the integration ii
+			ii, err = integration.Load("./testdata", pingpong.Topology()...)
 			Expect(err).NotTo(HaveOccurred())
-			// Start the integration network
-			network.Start()
+			// Start the integration ii
+			ii.Start()
 			time.Sleep(3 * time.Second)
 			// Get a client for the fsc node labelled initiator
-			initiator := network.Client("initiator")
+			initiator := ii.Client("initiator")
 			// Initiate a view and check the output
 			res, err := initiator.CallView("init", nil)
 			Expect(err).NotTo(HaveOccurred())

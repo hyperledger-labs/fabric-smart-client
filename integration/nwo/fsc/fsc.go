@@ -23,17 +23,18 @@ import (
 	"github.com/tedsuo/ifrit/grouper"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
+	registry2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/registry"
+	runner2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/runner"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/commands"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/registry"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/runner"
+	node2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/crypto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client"
 )
 
 const (
-	ListenPort registry.PortName = "Listen" // Port at which the fsc node might listen for some service
-	ViewPort   registry.PortName = "View"   // Port at which the View Service Server respond
-	P2PPort    registry.PortName = "P2P"    // Port at which the P2P Communication Layer respond
+	ListenPort registry2.PortName = "Listen" // Port at which the fsc node might listen for some service
+	ViewPort   registry2.PortName = "View"   // Port at which the View Service Server respond
+	P2PPort    registry2.PortName = "P2P"    // Port at which the P2P Communication Layer respond
 )
 
 type Builder interface {
@@ -41,12 +42,12 @@ type Builder interface {
 }
 
 type platform struct {
-	Registry *registry.Registry
+	Registry *registry2.Registry
 	Builder  Builder
 	Topology *Topology
 }
 
-func NewPlatform(Registry *registry.Registry, Builder Builder) *platform {
+func NewPlatform(Registry *registry2.Registry, Builder Builder) *platform {
 	return &platform{
 		Registry: Registry,
 		Builder:  Builder,
@@ -63,7 +64,7 @@ func (p *platform) GenerateConfigTree() {
 	bootstrapNodeFound := false
 	for _, node := range p.Topology.Nodes {
 		// Reserve ports
-		ports := registry.Ports{}
+		ports := registry2.Ports{}
 		for _, portName := range PeerPortNames() {
 			ports[portName] = p.Registry.ReservePort()
 		}
@@ -135,7 +136,7 @@ func (p *platform) PostRun() {
 func (p *platform) Cleanup() {
 }
 
-func (p *platform) GenerateCoreConfig(peer *Node) {
+func (p *platform) GenerateCoreConfig(peer *node2.Node) {
 	err := os.MkdirAll(p.NodeDir(peer), 0755)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -149,15 +150,15 @@ func (p *platform) GenerateCoreConfig(peer *Node) {
 	}
 
 	t, err := template.New("peer").Funcs(template.FuncMap{
-		"Peer":          func() *Node { return peer },
-		"Registry":      func() *registry.Registry { return p.Registry },
+		"Peer":          func() *node2.Node { return peer },
+		"Registry":      func() *registry2.Registry { return p.Registry },
 		"FabricEnabled": func() bool { return p.Registry.TopologyByName("fabric") != nil },
 		"Topology":      func() *Topology { return p.Topology },
 		"Extensions":    func() []string { return extensions },
 		"ToLower":       func(s string) string { return strings.ToLower(s) },
 		"ReplaceAll":    func(s, old, new string) string { return strings.Replace(s, old, new, -1) },
 		"NodeKVSPath":   func() string { return p.NodeKVSDir(peer) },
-	}).Parse(CoreTemplate)
+	}).Parse(node2.CoreTemplate)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(t.Execute(io.MultiWriter(core), p)).NotTo(HaveOccurred())
 }
@@ -169,7 +170,7 @@ func (p *platform) BootstrapViewNodeGroupRunner() ifrit.Runner {
 			members = append(members, grouper.Member{Name: node.ID(), Runner: p.ViewNodeRunner(node)})
 		}
 	}
-	return runner.NewParallel(syscall.SIGTERM, members)
+	return runner2.NewParallel(syscall.SIGTERM, members)
 }
 
 func (p *platform) ViewNodeGroupRunner() ifrit.Runner {
@@ -179,10 +180,10 @@ func (p *platform) ViewNodeGroupRunner() ifrit.Runner {
 			members = append(members, grouper.Member{Name: node.ID(), Runner: p.ViewNodeRunner(node)})
 		}
 	}
-	return runner.NewParallel(syscall.SIGTERM, members)
+	return runner2.NewParallel(syscall.SIGTERM, members)
 }
 
-func (p *platform) ViewNodeRunner(node *Node, env ...string) *runner.Runner {
+func (p *platform) ViewNodeRunner(node *node2.Node, env ...string) *runner2.Runner {
 	cmd := p.fscNodeCommand(
 		node,
 		commands.NodeStart{NodeID: node.ID()},
@@ -191,7 +192,7 @@ func (p *platform) ViewNodeRunner(node *Node, env ...string) *runner.Runner {
 	)
 	cmd.Env = append(cmd.Env, env...)
 
-	return runner.New(runner.Config{
+	return runner2.New(runner2.Config{
 		AnsiColorCode:     common.NextColor(),
 		Name:              node.ID(),
 		Command:           cmd,
@@ -200,7 +201,7 @@ func (p *platform) ViewNodeRunner(node *Node, env ...string) *runner.Runner {
 	})
 }
 
-func (p *platform) fscNodeCommand(node *Node, command common.Command, tlsDir string, env ...string) *exec.Cmd {
+func (p *platform) fscNodeCommand(node *node2.Node, command common.Command, tlsDir string, env ...string) *exec.Cmd {
 	if len(node.ExecutablePath) == 0 {
 		node.ExecutablePath = p.GenerateCmd(nil, node)
 	}
@@ -225,7 +226,7 @@ func (p *platform) fscNodeCommand(node *Node, command common.Command, tlsDir str
 	return cmd
 }
 
-func (p *platform) GenerateCmd(output io.Writer, node *Node) string {
+func (p *platform) GenerateCmd(output io.Writer, node *node2.Node) string {
 	err := os.MkdirAll(p.NodeCmdDir(node), 0755)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -239,33 +240,33 @@ func (p *platform) GenerateCmd(output io.Writer, node *Node) string {
 	t, err := template.New("node").Funcs(template.FuncMap{
 		"Alias":       func(s string) string { return node.Alias(s) },
 		"InstallView": func() bool { return len(node.Responders) != 0 || len(node.Factories) != 0 },
-	}).Parse(DefaultTemplate)
+	}).Parse(node2.DefaultTemplate)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(t.Execute(io.MultiWriter(output), node)).NotTo(HaveOccurred())
 
 	return p.NodeCmdPackage(node)
 }
 
-func (p *platform) NodeDir(peer *Node) string {
+func (p *platform) NodeDir(peer *node2.Node) string {
 	return filepath.Join(p.Registry.RootDir, "fscnodes", peer.ID())
 }
 
-func (p *platform) NodeKVSDir(peer *Node) string {
+func (p *platform) NodeKVSDir(peer *node2.Node) string {
 	return filepath.Join(p.Registry.RootDir, "fscnodes", peer.ID(), "kvs")
 }
 
-func (p *platform) NodeConfigPath(peer *Node) string {
+func (p *platform) NodeConfigPath(peer *node2.Node) string {
 	return filepath.Join(p.NodeDir(peer), "core.yaml")
 }
 
-func (p *platform) NodeCmdDir(peer *Node) string {
+func (p *platform) NodeCmdDir(peer *node2.Node) string {
 	wd, err := os.Getwd()
 	Expect(err).ToNot(HaveOccurred())
 
 	return filepath.Join(wd, "cmd", peer.Name)
 }
 
-func (p *platform) NodeCmdPackage(peer *Node) string {
+func (p *platform) NodeCmdPackage(peer *node2.Node) string {
 	gopath := os.Getenv("GOPATH")
 	if gopath == "" {
 		gopath = build.Default.GOPATH
@@ -279,17 +280,17 @@ func (p *platform) NodeCmdPackage(peer *Node) string {
 	)
 }
 
-func (p *platform) NodeCmdPath(peer *Node) string {
+func (p *platform) NodeCmdPath(peer *node2.Node) string {
 	return filepath.Join(p.NodeCmdDir(peer), "main.go")
 }
 
-func (p *platform) NodePort(node *Node, portName registry.PortName) uint16 {
+func (p *platform) NodePort(node *node2.Node, portName registry2.PortName) uint16 {
 	peerPorts := p.Registry.PortsByPeerID[node.ID()]
 	Expect(peerPorts).NotTo(BeNil())
 	return peerPorts[portName]
 }
 
-func (p *platform) BootstrapNode(me *Node) string {
+func (p *platform) BootstrapNode(me *node2.Node) string {
 	for _, node := range p.Topology.Nodes {
 		if node.Bootstrap {
 			if node.Name == me.Name {
@@ -309,19 +310,19 @@ func (p *platform) CACertsBundlePath() string {
 	return filepath.Join(p.Registry.RootDir, "crypto", "ca-certs.pem")
 }
 
-func (p *platform) NodeLocalTLSDir(node *Node) string {
+func (p *platform) NodeLocalTLSDir(node *node2.Node) string {
 	return node.Options.Mapping["NodeLocalTLSDir"].(string)
 }
 
-func (p *platform) NodeLocalCertPath(node *Node) string {
+func (p *platform) NodeLocalCertPath(node *node2.Node) string {
 	return node.Options.Mapping["NodeLocalCertPath"].(string)
 }
 
-func (p *platform) NodeLocalPrivateKeyPath(node *Node) string {
+func (p *platform) NodeLocalPrivateKeyPath(node *node2.Node) string {
 	return node.Options.Mapping["NodeLocalPrivateKeyPath"].(string)
 }
 
 // PeerPortNames returns the list of ports that need to be reserved for a Peer.
-func PeerPortNames() []registry.PortName {
-	return []registry.PortName{ListenPort, P2PPort}
+func PeerPortNames() []registry2.PortName {
+	return []registry2.PortName{ListenPort, P2PPort}
 }

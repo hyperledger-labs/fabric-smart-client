@@ -8,13 +8,13 @@ package generic
 import (
 	"fmt"
 
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/registry"
+	registry2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/registry"
 )
 
 const (
-	ListenPort registry.PortName = "Listen"
-	ViewPort   registry.PortName = "View"
-	P2PPort    registry.PortName = "P2P"
+	ListenPort registry2.PortName = "Listen"
+	ViewPort   registry2.PortName = "View"
+	P2PPort    registry2.PortName = "P2P"
 )
 
 type ResolverIdentity struct {
@@ -26,7 +26,7 @@ type Resolver struct {
 	Name      string
 	Domain    string
 	Identity  ResolverIdentity
-	Addresses map[registry.PortName]string
+	Addresses map[registry2.PortName]string
 	Port      int
 }
 
@@ -35,7 +35,7 @@ func (p *platform) GenerateResolverMap() {
 	for _, peer := range p.Peers {
 		org := p.Organization(peer.Organization)
 
-		addresses := map[registry.PortName]string{
+		addresses := map[registry2.PortName]string{
 			ViewPort:   fmt.Sprintf("127.0.0.1:%d", p.Registry.PortsByPeerID[peer.Name][ListenPort]),
 			ListenPort: fmt.Sprintf("127.0.0.1:%d", p.Registry.PortsByPeerID[peer.Name][ListenPort]),
 			P2PPort:    fmt.Sprintf("127.0.0.1:%d", p.Registry.PortsByPeerID[peer.Name][P2PPort]),

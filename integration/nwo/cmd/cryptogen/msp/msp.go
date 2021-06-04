@@ -11,11 +11,12 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cryptogen/ca"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cryptogen/csp"
 	fabricmsp "github.com/hyperledger/fabric/msp"
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
+
+	ca2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/cryptogen/ca"
+	csp2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/cryptogen/csp"
 )
 
 const (
@@ -43,8 +44,8 @@ func GenerateLocalMSP(
 	baseDir,
 	name string,
 	sans []string,
-	signCA *ca.CA,
-	tlsCA *ca.CA,
+	signCA *ca2.CA,
+	tlsCA *ca2.CA,
 	nodeType int,
 	nodeOUs bool,
 ) error {
@@ -70,7 +71,7 @@ func GenerateLocalMSP(
 	keystore := filepath.Join(mspDir, "keystore")
 
 	// generate private key
-	priv, err := csp.GeneratePrivateKey(keystore)
+	priv, err := csp2.GeneratePrivateKey(keystore)
 	if err != nil {
 		return err
 	}
@@ -137,7 +138,7 @@ func GenerateLocalMSP(
 	*/
 
 	// generate private key
-	tlsPrivKey, err := csp.GeneratePrivateKey(tlsDir)
+	tlsPrivKey, err := csp2.GeneratePrivateKey(tlsDir)
 	if err != nil {
 		return err
 	}
@@ -183,7 +184,7 @@ func GenerateLocalMSP(
 func GenerateVerifyingMSP(
 	baseDir string,
 	signCA,
-	tlsCA *ca.CA,
+	tlsCA *ca2.CA,
 	nodeOUs bool,
 ) error {
 
@@ -229,7 +230,7 @@ func GenerateVerifyingMSP(
 	if err != nil {
 		return errors.WithMessage(err, "failed to create keystore directory")
 	}
-	priv, err := csp.GeneratePrivateKey(ksDir)
+	priv, err := csp2.GeneratePrivateKey(ksDir)
 	if err != nil {
 		return err
 	}

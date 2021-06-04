@@ -14,10 +14,11 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cryptogen/ca"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cryptogen/csp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	ca2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/cryptogen/ca"
+	csp2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/cryptogen/csp"
 )
 
 const (
@@ -48,12 +49,12 @@ func TestLoadCertificateECDSA(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create certs directory: %s", err)
 	}
-	priv, err := csp.GeneratePrivateKey(certDir)
+	priv, err := csp2.GeneratePrivateKey(certDir)
 	assert.NoError(t, err, "Failed to generate signed certificate")
 
 	// create our CA
 	caDir := filepath.Join(testDir, "ca")
-	rootCA, err := ca.NewCA(
+	rootCA, err := ca2.NewCA(
 		caDir,
 		testCA3Name,
 		testCA3Name,
@@ -81,7 +82,7 @@ func TestLoadCertificateECDSA(t *testing.T) {
 		cert.KeyUsage)
 	assert.Contains(t, cert.ExtKeyUsage, x509.ExtKeyUsageAny)
 
-	loadedCert, err := ca.LoadCertificateECDSA(certDir)
+	loadedCert, err := ca2.LoadCertificateECDSA(certDir)
 	assert.NoError(t, err)
 	assert.NotNil(t, loadedCert, "Should load cert")
 	assert.Equal(t, cert.SerialNumber, loadedCert.SerialNumber, "Should have same serial number")
@@ -97,7 +98,7 @@ func TestLoadCertificateECDSA_wrongEncoding(t *testing.T) {
 	err = ioutil.WriteFile(filename, []byte("wrong_encoding"), 0644) // Wrong encoded cert
 	require.NoErrorf(t, err, "failed to create file %s", filename)
 
-	_, err = ca.LoadCertificateECDSA(testDir)
+	_, err = ca2.LoadCertificateECDSA(testDir)
 	assert.NotNil(t, err)
 	assert.EqualError(t, err, filename+": wrong PEM encoding")
 }
@@ -112,7 +113,7 @@ func TestLoadCertificateECDSA_empty_DER_cert(t *testing.T) {
 	err = ioutil.WriteFile(filename, []byte(empty_cert), 0644)
 	require.NoErrorf(t, err, "failed to create file %s", filename)
 
-	cert, err := ca.LoadCertificateECDSA(testDir)
+	cert, err := ca2.LoadCertificateECDSA(testDir)
 	assert.Nil(t, cert)
 	assert.NotNil(t, err)
 	assert.EqualError(t, err, filename+": wrong DER encoding")
@@ -126,7 +127,7 @@ func TestNewCA(t *testing.T) {
 	defer os.RemoveAll(testDir)
 
 	caDir := filepath.Join(testDir, "ca")
-	rootCA, err := ca.NewCA(
+	rootCA, err := ca2.NewCA(
 		caDir,
 		testCAName,
 		testCAName,
@@ -175,12 +176,12 @@ func TestGenerateSignCertificate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create certs directory: %s", err)
 	}
-	priv, err := csp.GeneratePrivateKey(certDir)
+	priv, err := csp2.GeneratePrivateKey(certDir)
 	assert.NoError(t, err, "Failed to generate signed certificate")
 
 	// create our CA
 	caDir := filepath.Join(testDir, "ca")
-	rootCA, err := ca.NewCA(
+	rootCA, err := ca2.NewCA(
 		caDir,
 		testCA2Name,
 		testCA2Name,
@@ -248,7 +249,7 @@ func TestGenerateSignCertificate(t *testing.T) {
 	assert.Error(t, err, "Bad name should fail")
 
 	// use an empty CA to test error path
-	badCA := &ca.CA{
+	badCA := &ca2.CA{
 		Name:     "badCA",
 		SignCert: &x509.Certificate{},
 	}

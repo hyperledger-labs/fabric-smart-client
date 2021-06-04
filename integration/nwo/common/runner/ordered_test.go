@@ -12,13 +12,14 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/runner"
 	"github.com/tedsuo/ifrit"
 	"github.com/tedsuo/ifrit/fake_runner"
 	"github.com/tedsuo/ifrit/grouper"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+
+	runner2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/runner"
 )
 
 var _ = Describe("Ordered Group", func() {
@@ -48,7 +49,7 @@ var _ = Describe("Ordered Group", func() {
 				{Name: "child3", Runner: childRunner3},
 			}
 
-			groupRunner = runner.NewOrdered(os.Interrupt, members)
+			groupRunner = runner2.NewOrdered(os.Interrupt, members)
 		})
 
 		AfterEach(func() {
@@ -307,7 +308,7 @@ var _ = Describe("Ordered Group", func() {
 			})
 
 			JustBeforeEach(func() {
-				groupRunner = runner.NewOrdered(os.Interrupt, members)
+				groupRunner = runner2.NewOrdered(os.Interrupt, members)
 
 				started = make(chan struct{})
 				go func() {
@@ -388,7 +389,7 @@ var _ = Describe("Ordered Group", func() {
 			})
 
 			JustBeforeEach(func() {
-				groupRunner = runner.NewOrdered(os.Interrupt, members)
+				groupRunner = runner2.NewOrdered(os.Interrupt, members)
 
 				started = make(chan struct{})
 				go func() {

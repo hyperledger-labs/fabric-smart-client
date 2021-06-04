@@ -5,6 +5,8 @@ SPDX-License-Identifier: Apache-2.0
 */
 package fsc
 
+import "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
+
 const (
 	TopologyName = "fsc"
 )
@@ -15,16 +17,16 @@ type Logging struct {
 }
 
 type Topology struct {
-	TopologyName string   `yaml:"name,omitempty"`
-	Nodes        []*Node  `yaml:"peers,omitempty"`
-	GRPCLogging  bool     `yaml:"grpcLogging,omitempty"`
-	Logging      *Logging `yaml:"logging,omitempty"`
+	TopologyName string       `yaml:"name,omitempty"`
+	Nodes        []*node.Node `yaml:"peers,omitempty"`
+	GRPCLogging  bool         `yaml:"grpcLogging,omitempty"`
+	Logging      *Logging     `yaml:"logging,omitempty"`
 }
 
 func NewTopology() *Topology {
 	return &Topology{
 		TopologyName: TopologyName,
-		Nodes:        []*Node{},
+		Nodes:        []*node.Node{},
 		Logging: &Logging{
 			Spec:   "grpc=error:debug",
 			Format: "'%{color}%{time:2006-01-02 15:04:05.000 MST} [%{module}] %{shortfunc} -> %{level:.4s} %{id:03x}%{color:reset} %{message}'",
@@ -44,18 +46,18 @@ func (t *Topology) Name() string {
 }
 
 // AddNodeByTemplate adds a new node with the passed name and template
-func (t *Topology) AddNodeByTemplate(name string, template *Node) *Node {
-	n := NewNodeFromTemplate(name, template)
+func (t *Topology) AddNodeByTemplate(name string, template *node.Node) *node.Node {
+	n := node.NewNodeFromTemplate(name, template)
 	return t.addNode(n)
 }
 
 // AddNodeByName adds a new node with the passed name
-func (t *Topology) AddNodeByName(name string) *Node {
-	n := NewNode(name)
+func (t *Topology) AddNodeByName(name string) *node.Node {
+	n := node.NewNode(name)
 	return t.addNode(n)
 }
 
-func (t *Topology) addNode(node *Node) *Node {
+func (t *Topology) addNode(node *node.Node) *node.Node {
 	if len(t.Nodes) == 0 {
 		node.Bootstrap = true
 	}

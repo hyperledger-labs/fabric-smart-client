@@ -6,7 +6,11 @@ SPDX-License-Identifier: Apache-2.0
 
 package fabric
 
-import "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
+import (
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/opts"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
+)
 
 var (
 	ImplicitMetaReaders              = &topology.Policy{Name: "Readers", Type: "ImplicitMeta", Rule: "ANY Readers"}
@@ -19,6 +23,43 @@ var (
 const (
 	TopologyName = "fabric"
 )
+
+const (
+	ClientRole = "client"
+	PeerRole   = "peer"
+)
+
+func Options(o *node.Options) *opts.Options {
+	return opts.Get(o)
+}
+
+func WithClientRole() node.Option {
+	return func(o *node.Options) error {
+		Options(o).SetRole(ClientRole)
+		return nil
+	}
+}
+
+func WithPeerRole() node.Option {
+	return func(o *node.Options) error {
+		Options(o).SetRole(PeerRole)
+		return nil
+	}
+}
+
+func WithOrganization(Organization string) node.Option {
+	return func(o *node.Options) error {
+		Options(o).SetOrganization(Organization)
+		return nil
+	}
+}
+
+func WithAnonymousIdentity() node.Option {
+	return func(o *node.Options) error {
+		Options(o).SetAnonymousIdentity(true)
+		return nil
+	}
+}
 
 // NewDefaultTopology is a configuration with two organizations and one peer per org.
 func NewDefaultTopology() *topology.Topology {

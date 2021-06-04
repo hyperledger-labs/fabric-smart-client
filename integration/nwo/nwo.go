@@ -14,24 +14,23 @@ import (
 	"github.com/tedsuo/ifrit"
 	"github.com/tedsuo/ifrit/grouper"
 
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/runner"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/runner"
 )
 
 var logger = flogging.MustGetLogger("fsc.integration")
 
+// Platform models a bootstrappable external component (fabric network, any third party service)
 type Platform interface {
 	Name() string
-
 	GenerateConfigTree()
 	GenerateArtifacts()
 	Load()
-
 	Members() []grouper.Member
 	PostRun()
 	Cleanup()
 }
 
-type Network struct {
+type NWO struct {
 	Processes []ifrit.Process
 	Members   grouper.Members
 
@@ -41,15 +40,15 @@ type Network struct {
 	ViewMembers            grouper.Members
 }
 
-func New(platforms ...Platform) *Network {
-	return &Network{
+func New(platforms ...Platform) *NWO {
+	return &NWO{
 		Platforms:              platforms,
 		StartEventuallyTimeout: 10 * time.Minute,
 		StopEventuallyTimeout:  time.Minute,
 	}
 }
 
-func (n *Network) Generate() {
+func (n *NWO) Generate() {
 	logger.Infof("Generate Configuration...")
 	for _, platform := range n.Platforms {
 		platform.GenerateConfigTree()
@@ -61,7 +60,7 @@ func (n *Network) Generate() {
 	logger.Infof("Generate Configuration...done!")
 }
 
-func (n *Network) Load() {
+func (n *NWO) Load() {
 	logger.Infof("Load Configuration...")
 	for _, platform := range n.Platforms {
 		platform.Load()
@@ -69,7 +68,7 @@ func (n *Network) Load() {
 	logger.Infof("Load Configuration...done")
 }
 
-func (n *Network) Start() {
+func (n *NWO) Start() {
 	logger.Infof("Starting...")
 
 	logger.Infof("Collect members...")
@@ -99,7 +98,7 @@ func (n *Network) Start() {
 	logger.Infof("Run nodes...")
 
 	// Execute members on their own stuff...
-	Runner := runner.NewOrdered(syscall.SIGTERM, members)
+	Runner := grouper.NewOrdered(syscall.SIGTERM, members)
 	process := ifrit.Invoke(Runner)
 	n.Processes = append(n.Processes, process)
 	Eventually(process.Ready(), n.StartEventuallyTimeout).Should(BeClosed())
@@ -118,7 +117,7 @@ func (n *Network) Start() {
 	}
 }
 
-func (n *Network) Stop() {
+func (n *NWO) Stop() {
 	logger.Infof("Stopping...")
 	if len(n.Processes) != 0 {
 		logger.Infof("Sending sigtem signal...")
@@ -135,7 +134,7 @@ func (n *Network) Stop() {
 	logger.Infof("Stopping...done!")
 }
 
-func (n *Network) StopViewNode(id string) {
+func (n *NWO) StopFSCNode(id string) {
 	logger.Infof("Stopping fsc node [%s]...", id)
 	for _, member := range n.ViewMembers {
 		if member.Name == id {
@@ -147,7 +146,7 @@ func (n *Network) StopViewNode(id string) {
 	logger.Errorf("Stopping fsc node [%s]...not found", id)
 }
 
-func (n *Network) StartViewNode(id string) {
+func (n *NWO) StartFSCNode(id string) {
 	logger.Infof("Starting fsc node [%s]...", id)
 	for _, member := range n.ViewMembers {
 		if member.Name == id {

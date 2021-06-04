@@ -11,30 +11,31 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cryptogen/metadata"
 	"github.com/stretchr/testify/assert"
+
+	metadata2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/cryptogen/metadata"
 )
 
 func TestGetVersionInfo(t *testing.T) {
 	expected := fmt.Sprintf(
 		"%s:\n Version: %s\n Commit SHA: %s\n Go version: %s\n OS/Arch: %s",
-		metadata.ProgramName,
-		metadata.Version,
+		metadata2.ProgramName,
+		metadata2.Version,
 		"development build",
 		runtime.Version(),
 		fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH),
 	)
-	assert.Equal(t, expected, metadata.GetVersionInfo())
+	assert.Equal(t, expected, metadata2.GetVersionInfo())
 
 	testSHA := "abcdefg"
-	metadata.CommitSHA = testSHA
+	metadata2.CommitSHA = testSHA
 	expected = fmt.Sprintf(
 		"%s:\n Version: %s\n Commit SHA: %s\n Go version: %s\n OS/Arch: %s",
-		metadata.ProgramName,
-		metadata.Version,
+		metadata2.ProgramName,
+		metadata2.Version,
 		testSHA,
 		runtime.Version(),
 		fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH),
 	)
-	assert.Equal(t, expected, metadata.GetVersionInfo())
+	assert.Equal(t, expected, metadata2.GetVersionInfo())
 }

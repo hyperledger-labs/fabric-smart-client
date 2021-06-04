@@ -29,13 +29,6 @@ const (
 	IOUPort
 	AssetTransferSecuredAgreementS1
 	AssetTransferSecuredAgreementS3
-	TokenZKATCCDLogBasePort
-	TokenZKATCCSnarkBasePort
-	TokenZKATCCSnarkGHBasePort
-	TokenZKATCCFabTokenBasePort
-	TokenDVPZKATDLogBasePort
-	TokenDVPZKATSnarksBasePort
-	TokenDVPZKATFabTokenBasePort
 )
 
 // StartPortForNode On linux, the default ephemeral port range is 32768-60999 and can be

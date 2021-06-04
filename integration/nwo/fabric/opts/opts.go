@@ -6,7 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 package opts
 
 import (
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
 )
 
 type Options struct {
@@ -89,7 +89,7 @@ func (o *Options) SetIdemixIdentities(ids []string) {
 	o.Mapping["IdemixIdentities"] = ids
 }
 
-func Get(o *fsc.Options) *Options {
+func Get(o *node.Options) *Options {
 	opt, ok := o.Mapping["fabric"]
 	if !ok {
 		opt = &Options{Mapping: map[string]interface{}{}}

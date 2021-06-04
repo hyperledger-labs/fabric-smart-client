@@ -9,23 +9,23 @@ package chaincode_test
 import (
 	"encoding/base64"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/chaincode"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/chaincode/views"
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
 )
 
 var _ = Describe("EndToEnd", func() {
 	var (
-		network *integration.Network
+		ii *integration.Infrastructure
 	)
 
 	AfterEach(func() {
-		// Stop the network
-		network.Stop()
+		// Stop the ii
+		ii.Stop()
 	})
 
 	Describe("Asset Transfer Secured Agreement", func() {
@@ -36,14 +36,14 @@ var _ = Describe("EndToEnd", func() {
 
 		BeforeEach(func() {
 			var err error
-			// Create the integration network
-			network, err = integration.GenNetwork(StartPort(), chaincode.Topology()...)
+			// Create the integration ii
+			ii, err = integration.Generate(StartPort(), chaincode.Topology()...)
 			Expect(err).NotTo(HaveOccurred())
-			// Start the integration network
-			network.Start()
+			// Start the integration ii
+			ii.Start()
 
-			alice = chaincode.NewClient(network.Client("alice"), network.Identity("alice"))
-			bob = chaincode.NewClient(network.Client("bob"), network.Identity("bob"))
+			alice = chaincode.NewClient(ii.Client("alice"), ii.Identity("alice"))
+			bob = chaincode.NewClient(ii.Client("bob"), ii.Identity("bob"))
 		})
 
 		It("succeeded", func() {
