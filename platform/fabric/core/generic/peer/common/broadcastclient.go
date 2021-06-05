@@ -15,10 +15,14 @@ import (
 type BroadcastClient interface {
 	//Send data to orderer
 	Send(env *cb.Envelope) error
+
 	Close() error
+
+	CloseConn()
 }
 
 type BroadcastGRPCClient struct {
+	oc     *OrdererClient
 	Client ab.AtomicBroadcast_BroadcastClient
 }
 
@@ -33,7 +37,7 @@ func GetBroadcastClient() (BroadcastClient, error) {
 		return nil, err
 	}
 
-	return &BroadcastGRPCClient{Client: bc}, nil
+	return &BroadcastGRPCClient{oc: oc, Client: bc}, nil
 }
 
 func (s *BroadcastGRPCClient) getAck() error {
@@ -60,4 +64,8 @@ func (s *BroadcastGRPCClient) Send(env *cb.Envelope) error {
 
 func (s *BroadcastGRPCClient) Close() error {
 	return s.Client.CloseSend()
+}
+
+func (s *BroadcastGRPCClient) CloseConn() {
+	go s.oc.Close()
 }

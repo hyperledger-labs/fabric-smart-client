@@ -39,6 +39,8 @@ type OrdererClient interface {
 
 	// Certificate returns tls certificate for the orderer client
 	Certificate() *tls.Certificate
+
+	Close()
 }
 
 // ordererClient implements OrdererClient interface
@@ -66,6 +68,11 @@ func NewOrdererClient(config *grpc2.ConnectionConfig) (OrdererClient, error) {
 		grpcClient:         grpcClient,
 		conn:               conn,
 	}, nil
+}
+
+// TODO: improve by providing grpc connection pool
+func (oc *ordererClient) Close() {
+	go oc.grpcClient.Close()
 }
 
 // NewBroadcast creates a Broadcast

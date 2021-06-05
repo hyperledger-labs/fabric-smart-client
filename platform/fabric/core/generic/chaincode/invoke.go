@@ -13,6 +13,7 @@ import (
 	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/api"
+	peer2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
@@ -89,6 +90,14 @@ func NewQuery(ServiceProvider view2.ServiceProvider, network Network, channel Ch
 }
 
 func (i *Invoke) Call() (interface{}, error) {
+	// TODO: improve by providing grpc connection pool
+	var peerClients []peer2.PeerClient
+	defer func() {
+		for _, pCli := range peerClients {
+			pCli.Close()
+		}
+	}()
+
 	if i.SignerIdentity.IsNone() {
 		return nil, errors.Errorf("no invoker specified")
 	}
@@ -105,6 +114,8 @@ func (i *Invoke) Call() (interface{}, error) {
 			if err != nil {
 				return nil, err
 			}
+			peerClients = append(peerClients, peerClient)
+
 			endorserClient, err := peerClient.Endorser()
 			if err != nil {
 				return nil, errors.WithMessagef(err, "error getting endorser client for config %v", config)
@@ -136,6 +147,8 @@ func (i *Invoke) Call() (interface{}, error) {
 		if err != nil {
 			return nil, err
 		}
+		peerClients = append(peerClients, peerClient)
+
 		endorserClient, err := peerClient.Endorser()
 		if err != nil {
 			return nil, errors.WithMessagef(err, "error getting endorser client for %s", endorser)

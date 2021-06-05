@@ -73,7 +73,7 @@ func (ctx *ctx) RunView(view view.View) (res interface{}, err error) {
 			wContext.cleanup()
 			res = nil
 
-			logger.Debugf("caught panic while running view with [%v][%s]", r, debug.Stack())
+			logger.Warningf("caught panic while running flow with [%v][%s]", r, debug.Stack())
 
 			switch e := r.(type) {
 			case error:

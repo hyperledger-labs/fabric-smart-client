@@ -11,6 +11,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"io/ioutil"
+	"sync"
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
@@ -33,12 +34,19 @@ type GRPCClient struct {
 	maxRecvMsgSize int
 	// Maximum message size the client can send
 	maxSendMsgSize int
+	// TODO: improve by providing grpc connection pool
+	// Opened GRPC client connections to be closed
+	grpcConns []*grpc.ClientConn
+	// Mutex on grpcConns
+	grpcCMux sync.Mutex
 }
 
 // NewGRPCClient creates a new implementation of GRPCClient given an address
 // and client configuration
 func NewGRPCClient(config ClientConfig) (*GRPCClient, error) {
-	client := &GRPCClient{}
+	client := &GRPCClient{
+		grpcConns: []*grpc.ClientConn{},
+	}
 
 	// parse secure options
 	err := client.parseSecureOptions(config.SecOpts)
@@ -214,7 +222,20 @@ func (client *GRPCClient) NewConnection(address string, tlsOptions ...TLSOption)
 		commLogger.Debugf("failed to create new connection to [%s][%v]: [%s]", address, dialOpts, errors.WithStack(err))
 		return nil, errors.WithMessage(errors.WithStack(err), "failed to create new connection")
 	}
+
+	client.grpcCMux.Lock()
+	client.grpcConns = append(client.grpcConns, conn)
+	client.grpcCMux.Unlock()
 	return conn, nil
+}
+
+func (client *GRPCClient) Close() {
+	commLogger.Debugf("closing %d grpc connections", len(client.grpcConns))
+	for _, grpcCon := range client.grpcConns {
+		if err := grpcCon.Close(); err != nil {
+			commLogger.Warningf("unable to close grpc conn but continue. Reason: %s", err.Error())
+		}
+	}
 }
 
 // CreateGRPCClient returns a comm.GRPCClient based on toke client config

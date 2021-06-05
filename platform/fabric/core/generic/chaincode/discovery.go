@@ -17,6 +17,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/api"
+	peer2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -47,7 +48,15 @@ func NewDiscovery(network Network, channel Channel, chaincode string) *Discovery
 	return &Discovery{network: network, channel: channel, chaincode: chaincode}
 }
 
-func (d *Discovery) Call() ([]view.Identity, error) {
+func (d *Discovery) Call() ([]flow.Identity, error) {
+	// TODO: improve by providing grpc connection pool
+	var peerClients []peer2.PeerClient
+	defer func() {
+		for _, pCli := range peerClients {
+			pCli.Close()
+		}
+	}()
+
 	if len(d.chaincode) == 0 {
 		return nil, errors.New("no chaincode specified")
 	}
@@ -67,6 +76,8 @@ func (d *Discovery) Call() ([]view.Identity, error) {
 	if err != nil {
 		return nil, err
 	}
+	peerClients = append(peerClients, pc)
+
 	signer := d.network.LocalMembership().DefaultSigningIdentity()
 	signerRaw, err := signer.Serialize()
 	if err != nil {

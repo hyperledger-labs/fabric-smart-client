@@ -18,4 +18,7 @@ type PeerClient interface {
 	Endorser() (pb.EndorserClient, error)
 
 	Discovery() (discovery.DiscoveryClient, error)
+
+	// TODO: improve by providing grpc connection pool
+	Close()
 }

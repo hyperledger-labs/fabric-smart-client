@@ -94,6 +94,11 @@ func newPeerClientForClientConfig(address, override string, clientConfig grpc.Cl
 	return pClient, nil
 }
 
+// TODO: improve by providing grpc connection pool
+func (pc *PeerClient) Close() {
+	go pc.CommonClient.GRPCClient.Close()
+}
+
 // Endorser returns a client for the Endorser service
 func (pc *PeerClient) Endorser() (pb.EndorserClient, error) {
 	conn, err := pc.CommonClient.NewConnection(pc.Address, grpc.ServerNameOverride(pc.Sn))

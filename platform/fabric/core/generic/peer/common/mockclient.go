@@ -11,7 +11,7 @@ import (
 
 	cb "github.com/hyperledger/fabric-protos-go/common"
 	pb "github.com/hyperledger/fabric-protos-go/peer"
-	grpc "google.golang.org/grpc"
+	"google.golang.org/grpc"
 )
 
 // GetMockEndorserClient return a endorser client return specified ProposalResponse and err(nil or error)
@@ -46,4 +46,8 @@ func (m *mockBroadcastClient) Send(env *cb.Envelope) error {
 
 func (m *mockBroadcastClient) Close() error {
 	return nil
+}
+
+func (m *mockBroadcastClient) CloseConn() {
+	return
 }
