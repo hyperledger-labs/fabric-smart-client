@@ -127,6 +127,7 @@ func Load(dir string, topologies ...nwo.Topology) (*Infrastructure, error) {
 	if err != nil {
 		return nil, err
 	}
+	n.deleteOnStop = false
 	n.Load()
 
 	return n, nil

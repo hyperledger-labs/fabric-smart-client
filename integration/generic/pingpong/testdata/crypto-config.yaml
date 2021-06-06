@@ -1,0 +1,24 @@
+---
+PeerOrgs:
+- Name: fsc
+  Domain: fsc.example.com
+  EnableNodeOUs: false
+  Users:
+    Count: 4
+    Names: 
+    - initiator
+    - responder
+    - User1
+    - User2
+
+  Specs:
+  - Hostname: initiator
+    SANS:
+    - localhost
+    - 127.0.0.1
+    - ::1
+  - Hostname: responder
+    SANS:
+    - localhost
+    - 127.0.0.1
+    - ::1

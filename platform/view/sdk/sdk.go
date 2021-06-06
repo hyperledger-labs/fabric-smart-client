@@ -15,7 +15,9 @@ import (
 	"github.com/hyperledger/fabric/common/grpclogging"
 	"github.com/pkg/errors"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/id"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/identity"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/crypto"
 	endpoint2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 
@@ -60,6 +62,8 @@ func (p *p) Install() error {
 	assert.NoError(err, "failed instantiating config provider")
 	assert.NoError(p.registry.RegisterService(configProvider), "failed registering config provider")
 
+	assert.NoError(p.registry.RegisterService(crypto.NewProvider()))
+
 	// Sig Service
 	des, err := sig.NewMultiplexDeserializer(p.registry)
 	if err != nil {
@@ -76,6 +80,11 @@ func (p *p) Install() error {
 	resolverService, err := endpoint2.NewResolverService(configProvider, endpointService)
 	assert.NoError(err, "failed instantiating endpoint resolver service")
 	assert.NoError(resolverService.LoadResolvers(), "failed loading resolvers")
+
+	// Set Identity Provider
+	idProvider := id.NewProvider(configProvider, signerService, endpointService, nil)
+	assert.NoError(idProvider.LoadIdentities(), "failed loading identities")
+	assert.NoError(p.registry.RegisterService(idProvider))
 
 	// Server
 	marshaller, err := server.NewResponseMarshaler(p.registry)

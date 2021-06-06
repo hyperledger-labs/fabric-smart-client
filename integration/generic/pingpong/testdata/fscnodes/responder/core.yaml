@@ -1,0 +1,75 @@
+---
+logging:
+ spec: grpc=error:debug
+ format: '%{color}%{time:2006-01-02 15:04:05.000 MST} [%{module}] %{shortfunc} -> %{level:.4s} %{id:03x}%{color:reset} %{message}'
+fsc:
+  id: responder
+  networkId: t6rswacqibcq7kqylol7awpd5e
+  address: 127.0.0.1:20002
+  addressAutoDetect: true
+  listenAddress: 127.0.0.1:20002
+  identity:
+    cert:
+      file: ./../../crypto/peerOrganizations/fsc.example.com/peers/responder.fsc.example.com/msp/signcerts/responder.fsc.example.com-cert.pem
+    key:
+      file: ./../../crypto/peerOrganizations/fsc.example.com/peers/responder.fsc.example.com/msp/keystore/priv_sk
+  tls:
+    enabled:  true
+    clientAuthRequired: false
+    cert:
+      file: ./../../crypto/peerOrganizations/fsc.example.com/peers/responder.fsc.example.com/tls/server.crt
+    key:
+      file: ./../../crypto/peerOrganizations/fsc.example.com/peers/responder.fsc.example.com/tls/server.key
+    clientCert:
+      file: ./../../crypto/peerOrganizations/fsc.example.com/peers/responder.fsc.example.com/tls/server.crt
+    clientKey:
+      file: ./../../crypto/peerOrganizations/fsc.example.com/peers/responder.fsc.example.com/tls/server.key
+    rootcert:
+      file: ./../../crypto/peerOrganizations/fsc.example.com/peers/responder.fsc.example.com/tls/ca.crt
+    clientRootCAs:
+      files:
+      - ./../../crypto/peerOrganizations/fsc.example.com/peers/responder.fsc.example.com/tls/ca.crt
+    rootCertFile: ./../../crypto/ca-certs.pem
+  keepalive:
+    minInterval: 60s
+    interval: 300s
+    timeout: 600s
+  p2p:
+    listenAddress: /ip4/127.0.0.1/tcp/20003
+    bootstrapNode: initiator
+  kvs:
+    persistence:
+      type: badger
+      opts:
+        path: ./../../fscnodes/responder/kvs
+
+
+
+generic:
+  enabled: true
+  identity:
+    cert:
+      file: ./../../crypto/peerOrganizations/fsc.example.com/peers/responder.fsc.example.com/msp/signcerts/responder.fsc.example.com-cert.pem
+    key:
+      file: ./../../crypto/peerOrganizations/fsc.example.com/peers/responder.fsc.example.com/msp/keystore/priv_sk
+  endpoint:
+    resolves: 
+    - name: initiator
+      domain: fsc.example.com
+      identity:
+        id: initiator
+        path: ./../../crypto/peerOrganizations/fsc.example.com/peers/initiator.fsc.example.com/msp/signcerts/initiator.fsc.example.com-cert.pem
+      addresses: 
+         Listen: 127.0.0.1:20000
+         P2P: 127.0.0.1:20001
+         View: 127.0.0.1:20000
+    - name: responder
+      domain: fsc.example.com
+      identity:
+        id: responder
+        path: ./../../crypto/peerOrganizations/fsc.example.com/peers/responder.fsc.example.com/msp/signcerts/responder.fsc.example.com-cert.pem
+      addresses: 
+         Listen: 127.0.0.1:20002
+         P2P: 127.0.0.1:20003
+         View: 127.0.0.1:20002
+

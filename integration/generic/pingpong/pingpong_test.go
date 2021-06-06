@@ -16,7 +16,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/generic/pingpong"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/node"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/generic/sdk"
 )
 
 var _ = Describe("EndToEnd", func() {
@@ -27,11 +26,9 @@ var _ = Describe("EndToEnd", func() {
 			// Init and Start fsc nodes
 			initiator := node.NewFromConfPath("./testdata/fscnodes/initiator")
 			Expect(initiator).NotTo(BeNil())
-			Expect(initiator.InstallSDK(generic.NewSDK(initiator))).ToNot(HaveOccurred())
 
 			responder := node.NewFromConfPath("./testdata/fscnodes/responder")
 			Expect(responder).NotTo(BeNil())
-			Expect(responder.InstallSDK(generic.NewSDK(responder))).ToNot(HaveOccurred())
 
 			err := initiator.Start()
 			Expect(err).NotTo(HaveOccurred())

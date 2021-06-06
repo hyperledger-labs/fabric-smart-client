@@ -10,18 +10,16 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-
-	"github.com/hyperledger-labs/fabric-smart-client/platform/generic"
-
+	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 type Initiator struct{}
 
 func (p *Initiator) Call(context view.Context) (interface{}, error) {
 	// Retrieve responder identity
-	responder := generic.GetIdentityProvider(context).Identity("bob")
+	responder := view2.GetIdentityProvider(context).Identity("bob")
 
 	// Open a session to the responder
 	session, err := context.GetSession(context.Initiator(), responder)
