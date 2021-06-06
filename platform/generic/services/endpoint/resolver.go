@@ -13,11 +13,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
-const (
-	bccspMSP = "bccsp"
-)
-
-var logger = flogging.MustGetLogger("fabric-sdk.endpoint")
+var logger = flogging.MustGetLogger("generic-sdk.endpoint")
 
 type IdentityConf struct {
 	ID   string `yaml:"id"`
@@ -77,10 +73,10 @@ func NewResolverService(config ConfigService, service Service) (*resolverService
 
 func (r *resolverService) LoadResolvers() error {
 	// Load entry
-	if r.config.IsSet("fabric.endpoint.resolves") {
+	if r.config.IsSet("generic.endpoint.resolves") {
 		logger.Infof("loading resolvers")
 		var resolvers []*resolver
-		err := r.config.UnmarshalKey("fabric.endpoint.resolves", &resolvers)
+		err := r.config.UnmarshalKey("generic.endpoint.resolves", &resolvers)
 		if err != nil {
 			logger.Errorf("failed loading resolves [%s]", err)
 			return err

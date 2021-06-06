@@ -163,6 +163,7 @@ func (r *service) GetIdentity(endpoint string, pkid []byte) (view.Identity, erro
 }
 
 func (r *service) AddResolver(name string, domain string, addresses map[string]string, aliases []string, id []byte) error {
+	logger.Debugf("adding resolver [%s,%s,%v,%v,%s]", name, domain, addresses, aliases, view.Identity(id).String())
 	r.resolvers = append(r.resolvers, &resolver{
 		Name:      name,
 		Domain:    domain,
