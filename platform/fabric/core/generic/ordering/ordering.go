@@ -150,12 +150,15 @@ func (o *service) broadcastEnvelope(env *common2.Envelope) error {
 	if err != nil {
 		return err
 	}
-
 	broadcastClient, err := ordererClient.NewBroadcast(context.Background())
-	defer broadcastClient.CloseSend()
 	if err != nil {
+		ordererClient.Close()
 		return err
 	}
+	defer func() {
+		broadcastClient.CloseSend()
+		ordererClient.Close()
+	}()
 
 	// send the envelope for ordering
 	err = BroadcastSend(broadcastClient, OrdererConfig.Address, env)
@@ -170,6 +173,7 @@ func (o *service) broadcastEnvelope(env *common2.Envelope) error {
 	if status != common2.Status_SUCCESS {
 		err = errors.Wrapf(err, "failed broadcasting, status %s", common2.Status_name[int32(status)])
 	}
+
 	return err
 }
 
