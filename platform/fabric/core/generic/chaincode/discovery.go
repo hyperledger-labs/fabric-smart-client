@@ -48,7 +48,7 @@ func NewDiscovery(network Network, channel Channel, chaincode string) *Discovery
 	return &Discovery{network: network, channel: channel, chaincode: chaincode}
 }
 
-func (d *Discovery) Call() ([]flow.Identity, error) {
+func (d *Discovery) Call() ([]view.Identity, error) {
 	// TODO: improve by providing grpc connection pool
 	var peerClients []peer2.PeerClient
 	defer func() {
