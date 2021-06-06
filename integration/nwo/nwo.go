@@ -139,11 +139,11 @@ func (n *NWO) StopFSCNode(id string) {
 	for _, member := range n.ViewMembers {
 		if member.Name == id {
 			member.Runner.(*runner.Runner).Stop()
-			logger.Infof("Stopping fsc node [%s]...done", id)
+			logger.Infof("Stopping fsc node [%s] done", id)
 			return
 		}
 	}
-	logger.Errorf("Stopping fsc node [%s]...not found", id)
+	logger.Errorf("Stopping fsc node [%s] done", id)
 }
 
 func (n *NWO) StartFSCNode(id string) {

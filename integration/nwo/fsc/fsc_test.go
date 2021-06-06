@@ -34,7 +34,11 @@ var _ = Describe("EndToEnd", func() {
 			n.RegisterViewFactory("initiator2", &initiator2.Factory{})
 			n.RegisterResponder(&responder.Responder{}, &initiator2.Initiator{})
 			buf := bytes.NewBuffer(nil)
-			p.GenerateCmd(buf, n)
+			p.GenerateCmd(buf, &node.Peer{
+				Name:         "initiator",
+				Organization: "fsc",
+				Node:         n,
+			})
 
 			ExpectedMainOne, err := ioutil.ReadFile("./testdata/main/main.go.output")
 			Expect(err).ToNot(HaveOccurred())

@@ -20,7 +20,6 @@ import (
 	registry2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/registry"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/generic"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -212,8 +211,6 @@ func (i *Infrastructure) initNWO() {
 		switch label {
 		case "fabric":
 			platforms = append(platforms, fabric.NewPlatform(i.registry, i.buildServer.Client()))
-		case "generic":
-			platforms = append(platforms, generic.NewPlatform(i.registry, i.buildServer.Client()))
 		case "fsc":
 			// skip
 			continue
@@ -222,10 +219,6 @@ func (i *Infrastructure) initNWO() {
 			Expect(ok).To(BeTrue(), "expected to find platform [%s]", label)
 			platforms = append(platforms, factory.New(i.registry, i.buildServer.Client()))
 		}
-	}
-	if len(platforms) == 0 {
-		//  Add generic by default if no other platform has been added
-		platforms = append(platforms, generic.NewPlatform(i.registry, i.buildServer.Client()))
 	}
 	platforms = append(platforms, fsc.NewPlatform(i.registry, i.buildServer.Client()))
 	i.nwo = nwo.New(platforms...)

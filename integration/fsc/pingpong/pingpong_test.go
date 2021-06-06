@@ -24,10 +24,10 @@ var _ = Describe("EndToEnd", func() {
 
 		It("successful pingpong", func() {
 			// Init and Start fsc nodes
-			initiator := node.NewFromConfPath("./testdata/fscnodes/initiator")
+			initiator := node.NewFromConfPath("./testdata/fsc/fscnodes/fsc.initiator")
 			Expect(initiator).NotTo(BeNil())
 
-			responder := node.NewFromConfPath("./testdata/fscnodes/responder")
+			responder := node.NewFromConfPath("./testdata/fsc/fscnodes/fsc.responder")
 			Expect(responder).NotTo(BeNil())
 
 			err := initiator.Start()

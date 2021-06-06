@@ -50,6 +50,17 @@ fsc:
       type: badger
       opts:
         path: {{ NodeKVSPath }}
+  endpoint:
+    resolves: {{ range .Resolvers }}
+    - name: {{ .Name }}
+      domain: {{ .Domain }}
+      identity:
+        id: {{ .Identity.ID }}
+        path: {{ .Identity.Path }}
+      addresses: {{ range $key, $value := .Addresses }}
+         {{ $key }}: {{ $value }} 
+      {{- end }}
+  {{- end }}
 
 {{ range Extensions }}
 {{.}}
