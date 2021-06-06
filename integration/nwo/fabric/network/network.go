@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package network
 
 import (
-	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -15,15 +14,12 @@ import (
 	docker "github.com/fsouza/go-dockerclient"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
-	"github.com/spf13/viper"
 	"github.com/tedsuo/ifrit/grouper"
 
 	registry2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/registry"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/commands"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/fabricconfig"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/identity"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 )
 
 type ChaincodeProcessor interface {
@@ -152,7 +148,7 @@ func (n *Network) GenerateArtifacts() {
 		sess, err = n.ConfigTxGen(commands.OutputBlock{
 			ChannelID:   n.SystemChannel.Name,
 			Profile:     n.SystemChannel.Profile,
-			ConfigPath:  n.Registry.RootDir,
+			ConfigPath:  filepath.Join(n.Registry.RootDir, "fabric"),
 			OutputBlock: n.OutputBlockPath(n.SystemChannel.Name),
 		})
 		Expect(err).NotTo(HaveOccurred())
@@ -164,7 +160,7 @@ func (n *Network) GenerateArtifacts() {
 			ChannelID:             c.Name,
 			Profile:               c.Profile,
 			BaseProfile:           c.BaseProfile,
-			ConfigPath:            n.Registry.RootDir,
+			ConfigPath:            filepath.Join(n.Registry.RootDir, "fabric"),
 			OutputCreateChannelTx: n.CreateChannelTxPath(c.Name),
 		})
 		Expect(err).NotTo(HaveOccurred())
@@ -182,41 +178,7 @@ func (n *Network) GenerateArtifacts() {
 }
 
 func (n *Network) Load() {
-	for _, p := range n.Peers {
-		switch p.Type {
-		case topology.ViewPeer:
-			v := viper.New()
-			v.SetConfigFile(n.NodeConfigPath(p))
-			err := v.ReadInConfig() // Find and read the config file
-			Expect(err).NotTo(HaveOccurred())
-
-			cc := &grpc.ConnectionConfig{
-				Address:           v.GetString("fsc.address"),
-				TLSEnabled:        true,
-				TLSRootCertFile:   path.Join(n.PeerLocalTLSDir(n.Peer(p.Organization, p.Name)), "ca.crt"),
-				ConnectionTimeout: 10 * time.Minute,
-			}
-			n.Registry.ConnectionConfigs[p.Name] = cc
-
-			clientID, err := identity.GetSigningIdentity(
-				n.PeerUserMSPDir(n.Peer(p.Organization, p.Name), p.Name),
-				n.Organization(p.Organization).MSPID,
-				"bccsp",
-			)
-			Expect(err).ToNot(HaveOccurred())
-			n.Registry.ClientSigningIdentities[p.Name] = clientID
-
-			peerID, err := identity.GetSigningIdentity(
-				n.PeerLocalMSPDir(p),
-				n.Organization(p.Organization).MSPID,
-				"bccsp",
-			)
-			Expect(err).ToNot(HaveOccurred())
-			raw, err := peerID.Serialize()
-			Expect(err).ToNot(HaveOccurred())
-			n.Registry.ViewIdentities[p.Name] = raw
-		}
-	}
+	// Nothing to do here
 }
 
 func (n *Network) Members() []grouper.Member {
@@ -304,7 +266,7 @@ func (n *Network) DeployChaincode(chaincode *topology.ChannelChaincode) {
 			chaincode.Chaincode.Path = chaincodePath
 			chaincode.Chaincode.Lang = "binary"
 		}
-		chaincode.Chaincode.PackageFile = filepath.Join(n.Registry.RootDir, chaincode.Chaincode.Name+".tar.gz")
+		chaincode.Chaincode.PackageFile = filepath.Join(n.Registry.RootDir, "fabric", chaincode.Chaincode.Name+".tar.gz")
 		PackageChaincode(n, &chaincode.Chaincode, peers[0])
 	}
 
