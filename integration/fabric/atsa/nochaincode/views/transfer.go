@@ -8,6 +8,7 @@ package views
 import (
 	"encoding/json"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -54,7 +55,7 @@ func (f *TransferView) Call(context view.Context) (interface{}, error) {
 	assert.NoError(inputState.VerifyCertification(), "failed certifying agreement to buy")
 	assert.NoError(inputState.State(agreementToBuy), "failed unmarshalling agreement to buy")
 
-	_, err = context.RunView(state.NewCollectEndorsementsView(tx2, context.Me(), f.Recipient))
+	_, err = context.RunView(state.NewCollectEndorsementsView(tx2, fabric.GetIdentityProvider(context).DefaultIdentity(), f.Recipient))
 	assert.NoError(err, "failed collecting endorsement")
 
 	_, err = context.RunView(state.NewCollectApprovesView(tx2, f.Approver))
@@ -100,7 +101,7 @@ func (t *TransferResponderView) Call(context view.Context) (interface{}, error) 
 
 	assetOut := &Asset{}
 	assert.NoError(tx.Outputs().Written().At(0).State(assetOut), "failed unmarshalling asset out")
-	assert.True(assetOut.Owner.Equal(context.Me()), "expected me to be the owner, got [%s]", assetOut.Owner)
+	assert.True(assetOut.Owner.Equal(fabric.GetIdentityProvider(context).DefaultIdentity()), "expected me to be the owner, got [%s]", assetOut.Owner)
 
 	assert.Equal(assetIn.PrivateProperties, assetOut.PrivateProperties)
 	assert.Equal([]byte("Hello World!!!"), assetOut.PrivateProperties)

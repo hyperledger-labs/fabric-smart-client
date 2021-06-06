@@ -8,6 +8,7 @@ package views
 import (
 	"encoding/json"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -28,12 +29,13 @@ func (a *AgreeToSellView) Call(context view.Context) (interface{}, error) {
 	tx, err := state.NewTransaction(context)
 	assert.NoError(err, "failed creating transaction")
 	tx.SetNamespace("asset_transfer")
-	assert.NoError(tx.AddCommand("agreeToSell", context.Me()), "failed adding issue command")
+	me := fabric.GetIdentityProvider(context).DefaultIdentity()
+	assert.NoError(tx.AddCommand("agreeToSell", me), "failed adding issue command")
 
-	a.Agreement.Owner = context.Me()
+	a.Agreement.Owner = me
 	assert.NoError(tx.AddOutput(a.Agreement, state.WithHashHiding()), "failed adding output")
 
-	_, err = context.RunView(state.NewCollectEndorsementsView(tx, context.Me()))
+	_, err = context.RunView(state.NewCollectEndorsementsView(tx, me))
 	assert.NoError(err, "failed collecting endorsement")
 
 	_, err = context.RunView(state.NewCollectApprovesView(tx, a.Approver))
@@ -70,12 +72,13 @@ func (a *AgreeToBuyView) Call(context view.Context) (interface{}, error) {
 	tx, err := state.NewTransaction(context)
 	assert.NoError(err, "failed creating transaction")
 	tx.SetNamespace("asset_transfer")
-	assert.NoError(tx.AddCommand("agreeToBuy", context.Me()), "failed adding issue command")
+	me := fabric.GetIdentityProvider(context).DefaultIdentity()
+	assert.NoError(tx.AddCommand("agreeToBuy", me), "failed adding issue command")
 
-	a.Agreement.Owner = context.Me()
+	a.Agreement.Owner = me
 	assert.NoError(tx.AddOutput(a.Agreement, state.WithHashHiding()), "failed adding output")
 
-	_, err = context.RunView(state.NewCollectEndorsementsView(tx, context.Me()))
+	_, err = context.RunView(state.NewCollectEndorsementsView(tx, me))
 	assert.NoError(err, "failed collecting endorsement")
 
 	_, err = context.RunView(state.NewCollectApprovesView(tx, a.Approver))

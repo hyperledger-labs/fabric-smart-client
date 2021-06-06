@@ -159,7 +159,7 @@ type endorseView struct {
 
 func (s *endorseView) Call(context view.Context) (interface{}, error) {
 	if len(s.identities) == 0 {
-		s.identities = []view.Identity{context.Me()}
+		s.identities = []view.Identity{fabric.GetFabricNetworkService(context, s.tx.Network()).IdentityProvider().DefaultIdentity()}
 	}
 
 	var responses [][]byte

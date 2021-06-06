@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/generic/core/id"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/generic/sdk/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/generic/services/crypto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/generic/services/endpoint"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
@@ -45,9 +46,11 @@ func (p *p) Install() error {
 	assert.NoError(p.registry.RegisterService(crypto.NewProvider()))
 
 	logger.Infof("Set Endpoint Service")
-	endpointService, err := endpoint.NewService(p.registry, nil, endpoint.NewPKIResolver())
-	assert.NoError(err, "failed instantiating endpoint resolver")
-	assert.NoError(p.registry.RegisterService(endpointService))
+	es, err := view.NewEndpointService(p.registry)
+	assert.NoError(err, "failed wrapping endpoint service")
+	resolverService, err := endpoint.NewResolverService(view2.GetConfigService(p.registry), es)
+	assert.NoError(err, "failed instantiating fabric endpoint resolver")
+	assert.NoError(resolverService.LoadResolvers(), "failed loading fabric endpoint resolvers")
 
 	logger.Infof("Set Identity Service")
 	idProvider, err := id.NewProvider(p.registry)

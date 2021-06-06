@@ -6,6 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 package views
 
 import (
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -24,7 +25,7 @@ func (a *AcceptAssetView) Call(context view.Context) (interface{}, error) {
 
 	asset := &Asset{}
 	assert.NoError(tx.Outputs().At(0).State(asset), "failed unmarshalling asset")
-	assert.True(asset.Owner.Equal(context.Me()), "expected me to be the owner, got [%s]", asset.Owner)
+	assert.True(asset.Owner.Equal(fabric.GetIdentityProvider(context).DefaultIdentity()), "expected me to be the owner, got [%s]", asset.Owner)
 	//assert.Equal([]byte("Hello World!!!"), asset.PrivateProperties)
 
 	// Accept and send back

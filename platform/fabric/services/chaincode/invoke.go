@@ -46,12 +46,13 @@ func (i *invokeChaincodeView) Call(context view.Context) (interface{}, error) {
 		return nil, errors.Errorf("no chaincode specified")
 	}
 
-	if i.InvokerIdentity.IsNone() {
-		i.InvokerIdentity = context.Me()
-	}
-	channel, err := fabric.GetFabricNetworkService(context, i.Network).Channel(i.Channel)
+	fNetwork := fabric.GetFabricNetworkService(context, i.Network)
+	channel, err := fNetwork.Channel(i.Channel)
 	if err != nil {
 		return nil, errors.WithMessagef(err, "failed getting channel [%s:%s]", i.Network, i.Channel)
+	}
+	if i.InvokerIdentity.IsNone() {
+		i.InvokerIdentity = fNetwork.IdentityProvider().DefaultIdentity()
 	}
 	invocation := channel.Chaincode(i.ChaincodeName).Invoke(i.Function, i.Args...).WithSignerIdentity(i.InvokerIdentity)
 	for k, v := range i.TransientMap {

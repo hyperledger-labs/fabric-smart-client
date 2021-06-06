@@ -16,6 +16,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/identity"
+	endpoint2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
@@ -67,6 +68,14 @@ func (p *p) Install() error {
 	assert.NoError(p.registry.RegisterService(des))
 	signerService := sig.NewSignService(p.registry, des)
 	assert.NoError(p.registry.RegisterService(signerService))
+
+	// Set Endpoint Service
+	endpointService, err := endpoint2.NewService(p.registry, nil)
+	assert.NoError(err, "failed instantiating endpoint service")
+	assert.NoError(p.registry.RegisterService(endpointService), "failed registering endpoint service")
+	resolverService, err := endpoint2.NewResolverService(configProvider, endpointService)
+	assert.NoError(err, "failed instantiating endpoint resolver service")
+	assert.NoError(resolverService.LoadResolvers(), "failed loading resolvers")
 
 	// Server
 	marshaller, err := server.NewResponseMarshaler(p.registry)

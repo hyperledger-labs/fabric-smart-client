@@ -10,17 +10,17 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/id"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
-
 	fabric2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/id"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/crypto"
-	endpoint2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/endpoint"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/endpoint"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state/impl"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracker"
 )
 
@@ -51,17 +51,15 @@ func (p *p) Install() error {
 	assert.NoError(p.registry.RegisterService(cryptoProvider))
 
 	logger.Infof("Set Endpoint Service")
-	endpointService, err := endpoint2.NewService(p.registry, nil, endpoint2.NewPKIResolver())
-	if err != nil {
-		return errors.Wrap(err, "failed instantiating endpoint resolver")
-	}
-	assert.NoError(p.registry.RegisterService(endpointService))
+	es, err := view.NewEndpointService(p.registry)
+	assert.NoError(err, "failed wrapping endpoint service")
+	resolverService, err := endpoint.NewResolverService(view2.GetConfigService(p.registry), es)
+	assert.NoError(err, "failed instantiating fabric endpoint resolver")
+	assert.NoError(resolverService.LoadResolvers(), "failed loading fabric endpoint resolvers")
 
 	logger.Infof("Set Fabric Network Service Provider")
 	fnsProvider, err := core.NewFabricNetworkServiceProvider(p.registry)
-	if err != nil {
-		return errors.Wrap(err, "failed instantiating fabric network service provider")
-	}
+	assert.NoError(err, "failed instantiating fabric network service provider")
 	assert.NoError(p.registry.RegisterService(fnsProvider))
 	assert.NoError(fabric2.GetDefaultNetwork(p.registry).ProcessorManager().SetDefaultProcessor(
 		state.NewRWSetProcessor(fabric2.GetDefaultNetwork(p.registry)),

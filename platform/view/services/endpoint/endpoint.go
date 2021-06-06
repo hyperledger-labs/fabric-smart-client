@@ -12,7 +12,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/x509"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/api"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
@@ -20,26 +19,13 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
-const (
-	idemixMSP = "idemix"
-	bccspMSP  = "bccsp"
-)
-
-var logger = flogging.MustGetLogger("fabric-sdk.endpoint")
-
-type MspConf struct {
-	ID      string `yaml:"id"`
-	MSPType string `yaml:"mspType"`
-	MSPID   string `yaml:"mspID"`
-	Path    string `yaml:"path"`
-}
+var logger = flogging.MustGetLogger("view-sdk.endpoint")
 
 type resolver struct {
-	Name           string            `yaml:"name,omitempty"`
-	Domain         string            `yaml:"domain,omitempty"`
-	Identity       MspConf           `yaml:"identity,omitempty"`
-	Addresses      map[string]string `yaml:"addresses,omitempty"`
-	Aliases        []string          `yaml:"aliases,omitempty"`
+	Name           string
+	Domain         string
+	Addresses      map[string]string
+	Aliases        []string
 	Id             []byte
 	IdentityGetter func() (view.Identity, []byte, error)
 }
@@ -49,7 +35,6 @@ func (r *resolver) GetIdentity() (view.Identity, error) {
 		id, _, err := r.IdentityGetter()
 		return id, err
 	}
-
 	return r.Id, nil
 }
 
@@ -76,21 +61,18 @@ type endpointEntry struct {
 }
 
 type service struct {
-	sp          view2.ServiceProvider
-	resolvers   []*resolver
-	Discovery   Discovery
-	pkiResolver PKIResolver
+	sp           view2.ServiceProvider
+	resolvers    []*resolver
+	Discovery    Discovery
+	pkiResolvers []PKIResolver
 }
 
 // NewService returns a new instance of the view-sdk endpoint service
-func NewService(sp view2.ServiceProvider, discovery Discovery, pkiResolver PKIResolver) (*service, error) {
+func NewService(sp view2.ServiceProvider, discovery Discovery) (*service, error) {
 	er := &service{
-		sp:          sp,
-		Discovery:   discovery,
-		pkiResolver: pkiResolver,
-	}
-	if err := er.init(); err != nil {
-		return nil, err
+		sp:           sp,
+		Discovery:    discovery,
+		pkiResolvers: []PKIResolver{},
 	}
 	return er, nil
 }
@@ -110,11 +92,9 @@ func (r *service) Endpoint(party view.Identity) (map[api.PortName]string, error)
 }
 
 func (r *service) Resolve(party view.Identity) (view.Identity, map[api.PortName]string, []byte, error) {
-	pkiR := r.pkiResolver
-
 	e, err := r.endpointInternal(party)
 	if err != nil {
-		logger.Debugf("resolving via binding for %s", view.Identity(pkiR.GetPKIidOfCert(party)))
+		logger.Debugf("resolving via binding for %s", party)
 		ee, err := r.getBinding(party.UniqueID())
 		if err != nil {
 			return nil, nil, nil, errors.Wrapf(err, "endpoint not found for identity [%s,%s]", string(party), party.UniqueID())
@@ -129,11 +109,12 @@ func (r *service) Resolve(party view.Identity) (view.Identity, map[api.PortName]
 			}
 		}
 
-		logger.Debugf("resolved to [%s,%s,%s]", view.Identity(pkiR.GetPKIidOfCert(party)), e, pkiR.GetPKIidOfCert(ee.Identity))
-		return ee.Identity, e, pkiR.GetPKIidOfCert(ee.Identity), nil
+		logger.Debugf("resolved to [%s,%s,%s]", party, e, ee.Identity)
+
+		return ee.Identity, e, r.pkiResolve(ee.Identity), nil
 	}
 
-	return party, e, pkiR.GetPKIidOfCert(party.Bytes()), nil
+	return party, e, r.pkiResolve(party.Bytes()), nil
 }
 
 func (r *service) Bind(longTerm view.Identity, ephemeral view.Identity) error {
@@ -150,10 +131,8 @@ func (r *service) Bind(longTerm view.Identity, ephemeral view.Identity) error {
 
 func (r *service) GetIdentity(endpoint string, pkid []byte) (view.Identity, error) {
 	// search in the resolver list
-	pkiResolver := r.pkiResolver
 	for _, resolver := range r.resolvers {
-		resolverPKID := pkiResolver.GetPKIidOfCert(resolver.Id)
-
+		resolverPKID := r.pkiResolve(resolver.Id)
 		found := false
 		for _, addr := range resolver.Addresses {
 			if endpoint == addr {
@@ -161,7 +140,6 @@ func (r *service) GetIdentity(endpoint string, pkid []byte) (view.Identity, erro
 				break
 			}
 		}
-
 		if endpoint == resolver.Name ||
 			found ||
 			endpoint == resolver.Name+"."+resolver.Domain ||
@@ -176,21 +154,23 @@ func (r *service) GetIdentity(endpoint string, pkid []byte) (view.Identity, erro
 			return id, nil
 		}
 	}
-
 	// ask the msp service
 	id, err := fabric.GetDefaultNetwork(r.sp).LocalMembership().GetIdentityByID(endpoint)
 	if err != nil {
 		return nil, errors.Errorf("identity not found at [%s,%s] %s [%s]", endpoint, view.Identity(pkid), debug.Stack(), err)
 	}
 	return id, nil
+}
 
-	// ask discovery
-	//for _, member := range r.Discovery.Peers() {
-	//	if endpoint == member.Endpoint ||
-	//		bytes.Equal(pkid, member.PKIid) {
-	//		return []byte(member.PKIid), nil
-	//	}
-	//}
+func (r *service) AddResolver(name string, domain string, addresses map[string]string, aliases []string, id []byte) error {
+	r.resolvers = append(r.resolvers, &resolver{
+		Name:      name,
+		Domain:    domain,
+		Addresses: addresses,
+		Aliases:   aliases,
+		Id:        id,
+	})
+	return nil
 }
 
 func (r *service) AddLongTermIdentity(identity view.Identity) error {
@@ -199,46 +179,20 @@ func (r *service) AddLongTermIdentity(identity view.Identity) error {
 	})
 }
 
-func (r *service) init() error {
-	// Load resolver
-	configProvider := view2.GetConfigService(r.sp)
+func (r *service) AddPKIResolver(pkiResolver PKIResolver) error {
+	if pkiResolver == nil {
+		return errors.New("pki resolver should not be nil")
+	}
+	r.pkiResolvers = append(r.pkiResolvers, pkiResolver)
+	return nil
+}
 
-	if configProvider.IsSet("fabric.endpoint.resolves") {
-		logger.Infof("loading resolvers")
-		err := configProvider.UnmarshalKey("fabric.endpoint.resolves", &r.resolvers)
-		if err != nil {
-			logger.Errorf("failed loading resolves [%s]", err)
-			return err
-		}
-		logger.Infof("loaded resolves successfully, number of entries found %d", len(r.resolvers))
-
-		for _, resolver := range r.resolvers {
-			// Load identity
-			var raw []byte
-			switch resolver.Identity.MSPType {
-			case bccspMSP:
-				raw, err = x509.Serialize(resolver.Identity.MSPID, configProvider.TranslatePath(resolver.Identity.Path))
-				if err != nil {
-					return errors.Wrapf(err, "failed serializing x509 identity")
-				}
-			default:
-				return errors.Errorf("expected bccsp type, got %s", resolver.Identity.MSPType)
-			}
-			resolver.Id = raw
-			logger.Infof("resolver [%s,%s][%s] %s",
-				resolver.Name, resolver.Domain, resolver.Addresses,
-				view.Identity(resolver.Id).UniqueID(),
-			)
-
-			for _, alias := range resolver.Aliases {
-				logger.Debugf("binging [%s] to [%s]", resolver.Name, alias)
-				if err := r.Bind(resolver.Id, []byte(alias)); err != nil {
-					return errors.WithMessagef(err, "failed binding identity [%s] to alias [%s]", resolver.Name, alias)
-				}
-			}
+func (r *service) pkiResolve(id view.Identity) []byte {
+	for _, pkiResolver := range r.pkiResolvers {
+		if res := pkiResolver.GetPKIidOfCert(id); len(res) != 0 {
+			return res
 		}
 	}
-
 	return nil
 }
 
@@ -253,7 +207,7 @@ func (r *service) endpointInternal(party view.Identity) (map[api.PortName]string
 
 func (r *service) putBinding(key string, entry *endpointEntry) error {
 	k := kvs.CreateCompositeKeyOrPanic(
-		"platform.fabric.endpoint.binding",
+		"platform.fsc.endpoint.binding",
 		[]string{key},
 	)
 	kvss := kvs.GetService(r.sp)
@@ -265,7 +219,7 @@ func (r *service) putBinding(key string, entry *endpointEntry) error {
 
 func (r *service) getBinding(key string) (*endpointEntry, error) {
 	k := kvs.CreateCompositeKeyOrPanic(
-		"platform.fabric.endpoint.binding",
+		"platform.fsc.endpoint.binding",
 		[]string{key},
 	)
 	kvss := kvs.GetService(r.sp)

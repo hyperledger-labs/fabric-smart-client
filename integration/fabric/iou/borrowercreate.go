@@ -30,7 +30,7 @@ func (i *CreateIOUInitiatorView) Call(context view.Context) (interface{}, error)
 	lender := fabric.GetIdentityProvider(context).Identity("lender")
 	iou := &IOUState{
 		Amount:  i.Amount,
-		Parties: []view.Identity{context.Me(), lender},
+		Parties: []view.Identity{fabric.GetIdentityProvider(context).DefaultIdentity(), lender},
 	}
 
 	// Add the state to the transaction
