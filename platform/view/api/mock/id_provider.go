@@ -18,6 +18,17 @@ type IdentityProvider struct {
 	defaultIdentityReturnsOnCall map[int]struct {
 		result1 view.Identity
 	}
+	IdentityStub        func(label string) view.Identity
+	identityMutex       sync.RWMutex
+	identityArgsForCall []struct {
+		label string
+	}
+	identityReturns struct {
+		result1 view.Identity
+	}
+	identityReturnsOnCall map[int]struct {
+		result1 view.Identity
+	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
@@ -62,11 +73,61 @@ func (fake *IdentityProvider) DefaultIdentityReturnsOnCall(i int, result1 view.I
 	}{result1}
 }
 
+func (fake *IdentityProvider) Identity(label string) view.Identity {
+	fake.identityMutex.Lock()
+	ret, specificReturn := fake.identityReturnsOnCall[len(fake.identityArgsForCall)]
+	fake.identityArgsForCall = append(fake.identityArgsForCall, struct {
+		label string
+	}{label})
+	fake.recordInvocation("Identity", []interface{}{label})
+	fake.identityMutex.Unlock()
+	if fake.IdentityStub != nil {
+		return fake.IdentityStub(label)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fake.identityReturns.result1
+}
+
+func (fake *IdentityProvider) IdentityCallCount() int {
+	fake.identityMutex.RLock()
+	defer fake.identityMutex.RUnlock()
+	return len(fake.identityArgsForCall)
+}
+
+func (fake *IdentityProvider) IdentityArgsForCall(i int) string {
+	fake.identityMutex.RLock()
+	defer fake.identityMutex.RUnlock()
+	return fake.identityArgsForCall[i].label
+}
+
+func (fake *IdentityProvider) IdentityReturns(result1 view.Identity) {
+	fake.IdentityStub = nil
+	fake.identityReturns = struct {
+		result1 view.Identity
+	}{result1}
+}
+
+func (fake *IdentityProvider) IdentityReturnsOnCall(i int, result1 view.Identity) {
+	fake.IdentityStub = nil
+	if fake.identityReturnsOnCall == nil {
+		fake.identityReturnsOnCall = make(map[int]struct {
+			result1 view.Identity
+		})
+	}
+	fake.identityReturnsOnCall[i] = struct {
+		result1 view.Identity
+	}{result1}
+}
+
 func (fake *IdentityProvider) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
 	fake.defaultIdentityMutex.RLock()
 	defer fake.defaultIdentityMutex.RUnlock()
+	fake.identityMutex.RLock()
+	defer fake.identityMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

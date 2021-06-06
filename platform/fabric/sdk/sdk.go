@@ -8,11 +8,8 @@ package fabric
 import (
 	"context"
 
-	"github.com/pkg/errors"
-
 	fabric2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/id"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/crypto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/endpoint"
@@ -64,14 +61,6 @@ func (p *p) Install() error {
 	assert.NoError(fabric2.GetDefaultNetwork(p.registry).ProcessorManager().SetDefaultProcessor(
 		state.NewRWSetProcessor(fabric2.GetDefaultNetwork(p.registry)),
 	))
-
-	// id provider
-	logger.Infof("Set Identity Service")
-	idProvider, err := id.NewProvider(p.registry, fabric2.GetDefaultNetwork(p.registry).IdentityProvider().DefaultIdentity())
-	if err != nil {
-		return errors.Wrap(err, "failed creating id provider")
-	}
-	assert.NoError(p.registry.RegisterService(idProvider))
 
 	// TODO: remove this
 	assert.NoError(p.registry.RegisterService(tracker.NewTracker()))

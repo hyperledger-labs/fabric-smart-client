@@ -16,7 +16,7 @@ func Topology() []nwo.Topology {
 
 	// Add the initiator fsc node
 	topology.AddNodeByName("initiator").SetExecutable(
-		"github.com/hyperledger-labs/fabric-smart-client/integration/generic/pingpong/cmd/initiator",
+		"github.com/hyperledger-labs/fabric-smart-client/integration/fsc/pingpong/cmd/initiator",
 	)
 	// Add the responder fsc node
 	topology.AddNodeByName("responder").RegisterResponder(

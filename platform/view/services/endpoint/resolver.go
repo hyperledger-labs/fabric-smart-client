@@ -8,12 +8,8 @@ package endpoint
 import (
 	"github.com/pkg/errors"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/generic/core/id"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/id"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-)
-
-const (
-	bccspMSP = "bccsp"
 )
 
 type MspConf struct {
@@ -85,7 +81,7 @@ func (r *resolverService) LoadResolvers() error {
 
 		for _, resolver := range resolvers {
 			// Load identity
-			raw, err := id.Serialize(r.config.TranslatePath(resolver.Identity.Path))
+			raw, err := id.LoadIdentity(r.config.TranslatePath(resolver.Identity.Path))
 			if err != nil {
 				return err
 			}

@@ -8,13 +8,14 @@ package main
 import (
 	"io/ioutil"
 
+	"github.com/onsi/ginkgo"
+	"github.com/onsi/gomega"
+
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/chaincode"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/nochaincode"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/generic/pingpong"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/fsc/pingpong"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo"
-	"github.com/onsi/ginkgo"
-	"github.com/onsi/gomega"
 )
 
 func main() {

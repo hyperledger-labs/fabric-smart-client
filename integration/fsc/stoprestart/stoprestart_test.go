@@ -13,7 +13,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/generic/stoprestart"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/fsc/stoprestart"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 )
 

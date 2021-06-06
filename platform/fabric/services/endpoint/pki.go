@@ -18,7 +18,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
-// TODO: move under generic
 type pkiResolver struct {
 }
 

@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package main
 
 import (
-	"github.com/hyperledger-labs/fabric-smart-client/integration/generic/pingpong"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/fsc/pingpong"
 	fscnode "github.com/hyperledger-labs/fabric-smart-client/node"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 )
