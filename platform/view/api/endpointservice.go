@@ -11,13 +11,23 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
+// PortName is the type variable for the socket ports
 type PortName string
 
 const (
-	ListenPort PortName = "Listen" // Port at which the FSC node might listen for some service
-	ViewPort   PortName = "View"   // Port at which the View Service Server respond
-	P2PPort    PortName = "P2P"    // Port at which the P2P Communication Layer respond
+	// ListenPort is the port at which the FSC node might listen for some service
+	ListenPort PortName = "Listen"
+	// ViewPort is the port on which the View Service Server respond
+	ViewPort PortName = "View"
+	// P2PPort is the port on which the P2P Communication Layer respond
+	P2PPort PortName = "P2P"
 )
+
+// PKIResolver extracts public key ids from identities
+type PKIResolver interface {
+	// GetPKIidOfCert returns the id of the public key contained in the passed identity
+	GetPKIidOfCert(peerIdentity view.Identity) []byte
+}
 
 //go:generate counterfeiter -o mock/resolver.go -fake-name EndpointService . EndpointService
 
@@ -33,7 +43,20 @@ type EndpointService interface {
 	// GetIdentity returns an identity bound to either the passed label or public-key identifier.
 	GetIdentity(label string, pkiID []byte) (view.Identity, error)
 
-	Bind(term view.Identity, ephemeral view.Identity) error
+	// Bind binds b to identity a
+	Bind(b view.Identity, a view.Identity) error
+
+	// IsBoundTo returns true if b was bound to a
+	IsBoundTo(a view.Identity, b view.Identity) bool
+
+	// AddResolver adds a resolver for tha passed parameters. The passed id can be retrieved by using the passed name in a call to GetIdentity method.
+	// The addresses can retrieved by passing the identity in a call to Resolve.
+	// If a resolver is already bound to the passed name, then the passed identity is linked to the already existing identity. The already existing
+	// identity is returned
+	AddResolver(name string, domain string, addresses map[string]string, aliases []string, id []byte) (view.Identity, error)
+
+	// AddPKIResolver add a new PKI resolver
+	AddPKIResolver(pkiResolver PKIResolver) error
 }
 
 func GetEndpointService(ctx ServiceProvider) EndpointService {

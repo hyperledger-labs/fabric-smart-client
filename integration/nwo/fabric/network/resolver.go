@@ -42,12 +42,8 @@ func (n *Network) GenerateResolverMap() {
 
 		var addresses map[registry2.PortName]string
 		var path string
-		if peer.Type == topology.ViewPeer {
-			addresses = map[registry2.PortName]string{
-				ViewPort:   fmt.Sprintf("127.0.0.1:%d", n.Registry.PortsByPeerID[peer.Name][ListenPort]),
-				ListenPort: fmt.Sprintf("127.0.0.1:%d", n.Registry.PortsByPeerID[peer.Name][ListenPort]),
-				P2PPort:    fmt.Sprintf("127.0.0.1:%d", n.Registry.PortsByPeerID[peer.Name][P2PPort]),
-			}
+		if peer.Type == topology.FSCPeer {
+			addresses = map[registry2.PortName]string{}
 			if n.topology.NodeOUs {
 				switch peer.Role {
 				case "":

@@ -13,7 +13,7 @@ type PeerType string
 
 const (
 	FabricPeer PeerType = "FabricPeer"
-	ViewPeer   PeerType = "FSCNode"
+	FSCPeer    PeerType = "FSCNode"
 )
 
 type Logging struct {

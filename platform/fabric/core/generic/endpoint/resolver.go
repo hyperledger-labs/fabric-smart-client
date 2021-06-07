@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/x509"
+	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -33,6 +34,7 @@ type entry struct {
 	Addresses      map[string]string `yaml:"addresses,omitempty"`
 	Aliases        []string          `yaml:"aliases,omitempty"`
 	Id             []byte
+	RootID         view.Identity
 	IdentityGetter func() (view.Identity, []byte, error)
 }
 
@@ -45,10 +47,6 @@ func (r *entry) GetIdentity() (view.Identity, error) {
 	return r.Id, nil
 }
 
-type PKIResolver interface {
-	GetPKIidOfCert(peerIdentity view.Identity) []byte
-}
-
 type ConfigService interface {
 	IsSet(s string) bool
 	UnmarshalKey(s string, i interface{}) error
@@ -57,13 +55,14 @@ type ConfigService interface {
 
 type Service interface {
 	Bind(longTerm view.Identity, ephemeral view.Identity) error
-	AddResolver(name string, domain string, addresses map[string]string, aliases []string, id []byte) error
-	AddPKIResolver(resolver PKIResolver) error
+	AddResolver(name string, domain string, addresses map[string]string, aliases []string, id []byte) (view.Identity, error)
+	AddPKIResolver(resolver view2.PKIResolver) error
 }
 
 type resolverService struct {
-	config  ConfigService
-	service Service
+	config    ConfigService
+	service   Service
+	resolvers []*entry
 }
 
 // NewResolverService returns a new instance of the view-sdk endpoint resolverService
@@ -109,9 +108,11 @@ func (r *resolverService) LoadResolvers() error {
 			)
 
 			// Add entry
-			if err := r.service.AddResolver(resolver.Name, resolver.Domain, resolver.Addresses, resolver.Aliases, resolver.Id); err != nil {
+			rootID, err := r.service.AddResolver(resolver.Name, resolver.Domain, resolver.Addresses, resolver.Aliases, resolver.Id)
+			if err != nil {
 				return errors.Wrapf(err, "failed adding resolver")
 			}
+			resolver.RootID = rootID
 
 			// Bind Aliases
 			for _, alias := range resolver.Aliases {
@@ -120,6 +121,27 @@ func (r *resolverService) LoadResolvers() error {
 					return errors.WithMessagef(err, "failed binding identity [%s] to alias [%s]", resolver.Name, alias)
 				}
 			}
+		}
+		r.resolvers = resolvers
+	}
+	return nil
+}
+
+func (r *resolverService) GetIdentity(label string) view.Identity {
+	for _, resolver := range r.resolvers {
+		if resolver.Name == label {
+			return resolver.Id
+		}
+		for _, alias := range resolver.Aliases {
+			if alias == label {
+				return resolver.Id
+			}
+		}
+		if view.Identity(resolver.Id).UniqueID() == label {
+			return resolver.Id
+		}
+		if resolver.RootID.UniqueID() == label {
+			return resolver.Id
 		}
 	}
 	return nil

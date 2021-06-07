@@ -27,6 +27,9 @@ type TransferView struct {
 }
 
 func (f *TransferView) Call(context view.Context) (interface{}, error) {
+	assetOwner, err := state.RequestRecipientIdentity(context, f.Recipient)
+	assert.NoError(err, "failed getting recipient identity")
+
 	// Prepare transaction
 	tx, err := state.NewTransaction(context)
 	assert.NoError(err, "failed creating transaction")
@@ -36,13 +39,13 @@ func (f *TransferView) Call(context view.Context) (interface{}, error) {
 	assert.NoError(tx.AddInputByLinearID(f.AgreementId, agreementToSell, state.WithCertification()), "failed adding input")
 	asset := &Asset{}
 	assert.NoError(tx.AddInputByLinearID(f.AssetId, asset, state.WithCertification()), "failed adding input")
-	assert.NoError(tx.AddCommand("transfer", asset.Owner, f.Recipient), "failed adding issue command")
-	asset.Owner = f.Recipient
+	assert.NoError(tx.AddCommand("transfer", asset.Owner, assetOwner), "failed adding issue command")
+	asset.Owner = assetOwner
 	assert.NoError(tx.AddOutput(asset), "failed adding output")
 	assert.NoError(tx.Delete(agreementToSell), "failed deleting")
 
 	// Send tx and receive the modified transaction
-	tx2, err := state.SendAndReceiveTransaction(context, tx, f.Recipient)
+	tx2, err := state.SendAndReceiveTransaction(context, tx, assetOwner)
 	assert.NoError(err, "failed sending and received transaction")
 
 	// Check that tx2 is as expected
@@ -55,7 +58,7 @@ func (f *TransferView) Call(context view.Context) (interface{}, error) {
 	assert.NoError(inputState.VerifyCertification(), "failed certifying agreement to buy")
 	assert.NoError(inputState.State(agreementToBuy), "failed unmarshalling agreement to buy")
 
-	_, err = context.RunView(state.NewCollectEndorsementsView(tx2, fabric.GetIdentityProvider(context).DefaultIdentity(), f.Recipient))
+	_, err = context.RunView(state.NewCollectEndorsementsView(tx2, fabric.GetIdentityProvider(context).DefaultIdentity(), assetOwner))
 	assert.NoError(err, "failed collecting endorsement")
 
 	_, err = context.RunView(state.NewCollectApprovesView(tx2, f.Approver))
@@ -80,13 +83,17 @@ func (p *TransferViewFactory) NewView(in []byte) (view.View, error) {
 type TransferResponderView struct{}
 
 func (t *TransferResponderView) Call(context view.Context) (interface{}, error) {
+	// First, respond to a request for an identity
+	id, err := state.RespondRequestRecipientIdentity(context)
+	assert.NoError(err, "failed to respond to identity request")
+
 	// Expect an state transaction
 	tx, err := state.ReceiveTransaction(context)
 	assert.NoError(err)
 
 	// Check that the transaction is as expected
-	assert.Equal(2, tx.Inputs().Count(), "expected two input, got [%d]", tx.Inputs().Count())
-	assert.Equal(2, tx.Outputs().Count(), "expected two output, got [%d]", tx.Outputs().Count())
+	assert.Equal(2, tx.Inputs().Count(), "expected two inputs, got [%d]", tx.Inputs().Count())
+	assert.Equal(2, tx.Outputs().Count(), "expected two outputs, got [%d]", tx.Outputs().Count())
 	assert.Equal(1, tx.Outputs().Deleted().Count(), "expected one delete, got [%d]", tx.Outputs().Deleted().Count())
 
 	agreementToSell := &AgreementToSell{}
@@ -101,7 +108,7 @@ func (t *TransferResponderView) Call(context view.Context) (interface{}, error) 
 
 	assetOut := &Asset{}
 	assert.NoError(tx.Outputs().Written().At(0).State(assetOut), "failed unmarshalling asset out")
-	assert.True(assetOut.Owner.Equal(fabric.GetIdentityProvider(context).DefaultIdentity()), "expected me to be the owner, got [%s]", assetOut.Owner)
+	assert.True(assetOut.Owner.Equal(id), "expected me to be the owner, got [%s]", assetOut.Owner)
 
 	assert.Equal(assetIn.PrivateProperties, assetOut.PrivateProperties)
 	assert.Equal([]byte("Hello World!!!"), assetOut.PrivateProperties)

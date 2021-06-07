@@ -15,8 +15,9 @@ import (
 )
 
 type Issue struct {
-	Asset    *Asset
-	Approver view.Identity
+	Asset     *Asset
+	Recipient view.Identity
+	Approver  view.Identity
 }
 
 type IssueView struct {
@@ -24,11 +25,17 @@ type IssueView struct {
 }
 
 func (f *IssueView) Call(context view.Context) (interface{}, error) {
+	assetOwner, err := state.RequestRecipientIdentity(context, f.Recipient)
+	assert.NoError(err, "failed getting recipient identity")
+
 	// Prepare transaction
 	tx, err := state.NewTransaction(context)
 	assert.NoError(err, "failed creating transaction")
 	tx.SetNamespace("asset_transfer")
+
+	f.Asset.Owner = assetOwner
 	me := fabric.GetIdentityProvider(context).DefaultIdentity()
+
 	assert.NoError(tx.AddCommand("issue", me, f.Asset.Owner), "failed adding issue command")
 	assert.NoError(tx.AddOutput(f.Asset), "failed adding output")
 

@@ -682,7 +682,7 @@ func (n *Network) CheckTopology() {
 		p := &topology.Peer{
 			Name:            node.Name,
 			Organization:    opts.Organization(),
-			Type:            topology.ViewPeer,
+			Type:            topology.FSCPeer,
 			Role:            opts.Role(),
 			Bootstrap:       node.Bootstrap,
 			ExecutablePath:  node.ExecutablePath,
@@ -703,7 +703,7 @@ func (n *Network) CheckTopology() {
 	}
 
 	for _, p := range n.Peers {
-		if p.Type == topology.ViewPeer {
+		if p.Type == topology.FSCPeer {
 			continue
 		}
 		ports := registry2.Ports{}
@@ -1551,6 +1551,14 @@ func (n *Network) NodeVaultDir(peer *topology.Peer) string {
 	return filepath.Join(n.Registry.RootDir, "fsc", "fscnodes", peer.ID(), "vault")
 }
 
+func (n *Network) OrdererBootstrapFile() string {
+	return filepath.Join(
+		n.Registry.RootDir,
+		"fabric",
+		n.SystemChannel.Name+"_block.pb",
+	)
+}
+
 // StartSession executes a command session. This should be used to launch
 // command line tools that are expected to run to completion.
 func (n *Network) StartSession(cmd *exec.Cmd, name string) (*gexec.Session, error) {
@@ -1649,13 +1657,13 @@ func (n *Network) GenerateCoreConfig(p *topology.Peer) {
 		err = t.Execute(io.MultiWriter(core, extension), n)
 		n.Registry.AddExtension(p.ID(), registry2.FabricExtension, extension.String())
 		Expect(err).NotTo(HaveOccurred())
-	case topology.ViewPeer:
+	case topology.FSCPeer:
 		err := os.MkdirAll(n.PeerDir(p), 0755)
 		Expect(err).NotTo(HaveOccurred())
 
 		var refPeers []*topology.Peer
 		coreTemplate := n.Templates.CoreTemplate()
-		if p.Type == topology.ViewPeer {
+		if p.Type == topology.FSCPeer {
 			coreTemplate = n.Templates.ViewExtensionTemplate()
 			peers := n.PeersInOrg(p.Organization)
 			for _, peer := range peers {

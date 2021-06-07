@@ -11,9 +11,7 @@ import (
 
 // IdentityProvider models the identity provider
 type IdentityProvider interface {
-	// DefaultIdentity returns the default identity known by this provider
-	DefaultIdentity() view.Identity
-
-	// Identity returns the identity bound to the passed label
+	// Identity returns the Fabric identity bound to the passed label.
+	// If not Fabric identity is associated to the label, it returns the the SFC identity bound to that label.
 	Identity(label string) view.Identity
 }

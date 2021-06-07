@@ -8,6 +8,7 @@ package endpoint
 import (
 	"github.com/pkg/errors"
 
+	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/id"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -46,8 +47,8 @@ type ConfigService interface {
 
 type Service interface {
 	Bind(longTerm view.Identity, ephemeral view.Identity) error
-	AddResolver(name string, domain string, addresses map[string]string, aliases []string, id []byte) error
-	AddPKIResolver(resolver PKIResolver) error
+	AddResolver(name string, domain string, addresses map[string]string, aliases []string, id []byte) (view.Identity, error)
+	AddPKIResolver(resolver view2.PKIResolver) error
 }
 
 type resolverService struct {
@@ -92,7 +93,7 @@ func (r *resolverService) LoadResolvers() error {
 			)
 
 			// Add entry
-			if err := r.service.AddResolver(resolver.Name, resolver.Domain, resolver.Addresses, resolver.Aliases, resolver.Id); err != nil {
+			if _, err := r.service.AddResolver(resolver.Name, resolver.Domain, resolver.Addresses, resolver.Aliases, resolver.Id); err != nil {
 				return errors.Wrapf(err, "failed adding resolver")
 			}
 

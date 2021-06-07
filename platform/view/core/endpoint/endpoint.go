@@ -46,10 +46,6 @@ type NetworkMember struct {
 	InternalEndpoint string
 }
 
-type PKIResolver interface {
-	GetPKIidOfCert(peerIdentity view.Identity) []byte
-}
-
 type Discovery interface {
 	Peers() []NetworkMember
 }
@@ -64,7 +60,7 @@ type service struct {
 	sp           view2.ServiceProvider
 	resolvers    []*resolver
 	Discovery    Discovery
-	pkiResolvers []PKIResolver
+	pkiResolvers []api.PKIResolver
 }
 
 // NewService returns a new instance of the view-sdk endpoint service
@@ -72,7 +68,7 @@ func NewService(sp view2.ServiceProvider, discovery Discovery) (*service, error)
 	er := &service{
 		sp:           sp,
 		Discovery:    discovery,
-		pkiResolvers: []PKIResolver{},
+		pkiResolvers: []api.PKIResolver{},
 	}
 	return er, nil
 }
@@ -94,6 +90,7 @@ func (r *service) Endpoint(party view.Identity) (map[api.PortName]string, error)
 func (r *service) Resolve(party view.Identity) (view.Identity, map[api.PortName]string, []byte, error) {
 	e, err := r.endpointInternal(party)
 	if err != nil {
+		// TODO: follow bindings
 		logger.Debugf("resolving via binding for %s", party)
 		ee, err := r.getBinding(party.UniqueID())
 		if err != nil {
@@ -129,6 +126,22 @@ func (r *service) Bind(longTerm view.Identity, ephemeral view.Identity) error {
 	return nil
 }
 
+func (r *service) IsBoundTo(a view.Identity, b view.Identity) bool {
+	if a.Equal(b) {
+		return true
+	}
+	// TODO: Recursion
+	next, err := r.getBinding(a.UniqueID())
+	if err != nil {
+		return false
+	}
+	if next.Identity.Equal(b) {
+		return true
+	}
+
+	return false
+}
+
 func (r *service) GetIdentity(endpoint string, pkid []byte) (view.Identity, error) {
 	// search in the resolver list
 	for _, resolver := range r.resolvers {
@@ -162,8 +175,19 @@ func (r *service) GetIdentity(endpoint string, pkid []byte) (view.Identity, erro
 	return id, nil
 }
 
-func (r *service) AddResolver(name string, domain string, addresses map[string]string, aliases []string, id []byte) error {
+func (r *service) AddResolver(name string, domain string, addresses map[string]string, aliases []string, id []byte) (view.Identity, error) {
 	logger.Debugf("adding resolver [%s,%s,%v,%v,%s]", name, domain, addresses, aliases, view.Identity(id).String())
+
+	// is there a resolver with the same name?
+	for _, resolver := range r.resolvers {
+		if resolver.Name == name {
+			// TODO: perform additional checks
+
+			// Then bind
+			return resolver.Id, r.Bind(resolver.Id, id)
+		}
+	}
+
 	r.resolvers = append(r.resolvers, &resolver{
 		Name:      name,
 		Domain:    domain,
@@ -171,6 +195,14 @@ func (r *service) AddResolver(name string, domain string, addresses map[string]s
 		Aliases:   aliases,
 		Id:        id,
 	})
+	return nil, nil
+}
+
+func (r *service) AddPKIResolver(pkiResolver api.PKIResolver) error {
+	if pkiResolver == nil {
+		return errors.New("pki resolver should not be nil")
+	}
+	r.pkiResolvers = append(r.pkiResolvers, pkiResolver)
 	return nil
 }
 
@@ -178,14 +210,6 @@ func (r *service) AddLongTermIdentity(identity view.Identity) error {
 	return r.putBinding(identity.String(), &endpointEntry{
 		Identity: identity,
 	})
-}
-
-func (r *service) AddPKIResolver(pkiResolver PKIResolver) error {
-	if pkiResolver == nil {
-		return errors.New("pki resolver should not be nil")
-	}
-	r.pkiResolvers = append(r.pkiResolvers, pkiResolver)
-	return nil
 }
 
 func (r *service) pkiResolve(id view.Identity) []byte {

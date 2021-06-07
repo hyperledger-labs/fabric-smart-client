@@ -194,6 +194,10 @@ func (p *platform) CheckTopology() {
 	userNames := map[string][]string{}
 	bootstrapNodeFound := false
 
+	if len(p.Topology.Nodes) == 0 {
+		return
+	}
+
 	for _, node := range p.Topology.Nodes {
 		var extraIdentities []*node2.PeerIdentity
 		peer := &node2.Peer{

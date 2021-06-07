@@ -12,6 +12,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/api"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/endpoint"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/finality"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/id"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp"
@@ -50,20 +51,39 @@ func (m *fnsProvider) FabricNetworkService(network string) (api.FabricNetworkSer
 }
 
 func (m *fnsProvider) newFNS(network string) (api.FabricNetworkService, error) {
+	// bridge services
 	config := generic.NewConfig(view.GetConfigService(m.sp))
 	sigService := generic.NewSigService(m.sp)
 
-	mspService := msp.NewLocalMSPManager(m.sp, config, sigService, view.GetEndpointService(m.sp))
-	if err := mspService.Load(); err != nil {
-		return nil, err
+	// Endpoint service
+	resolverService, err := endpoint.NewResolverService(
+		view.GetConfigService(m.sp),
+		view.GetEndpointService(m.sp),
+	)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed instantiating fabric endpoint resolver")
+	}
+	if err := resolverService.LoadResolvers(); err != nil {
+		return nil, errors.Wrap(err, "failed loading fabric endpoint resolvers")
+	}
+	endpointService, err := generic.NewEndpointResolver(resolverService, view.GetEndpointService(m.sp))
+	if err != nil {
+		return nil, errors.Wrap(err, "failed loading endpoint service")
 	}
 
-	me, _ := mspService.GetDefaultIdentity()
-	idProvider, err := id.NewProvider(m.sp, me)
+	// Local MSP Manager
+	mspService := msp.NewLocalMSPManager(m.sp, config, sigService, view.GetEndpointService(m.sp), view.GetIdentityProvider(m.sp).DefaultIdentity())
+	if err := mspService.Load(); err != nil {
+		return nil, errors.Wrap(err, "failed loading local msp service")
+	}
+
+	// Identity Manager
+	idProvider, err := id.NewProvider(endpointService)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed creating id provider")
 	}
 
+	// New Network
 	net, err := generic.NewNetwork(
 		m.sp,
 		network,

@@ -57,6 +57,7 @@ require (
 	github.com/tedsuo/ifrit v0.0.0-20191009134036-9a97d0632f00
 	github.com/test-go/testify v1.1.4
 	github.com/willf/bitset v1.1.11 // indirect
+	github.ibm.com/fabric-security-research/fabflownode v0.4.4
 	go.uber.org/atomic v1.7.0
 	go.uber.org/multierr v1.6.0 // indirect
 	go.uber.org/zap v1.16.0

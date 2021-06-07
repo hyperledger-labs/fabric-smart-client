@@ -171,7 +171,7 @@ func (n *Network) GenerateArtifacts() {
 	n.GenerateResolverMap()
 	for _, p := range n.Peers {
 		switch p.Type {
-		case topology.ViewPeer:
+		case topology.FSCPeer:
 			n.GenerateCoreConfig(p)
 		}
 	}
