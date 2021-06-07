@@ -6,10 +6,12 @@ SPDX-License-Identifier: Apache-2.0
 package iou
 
 import (
+	"github.com/pkg/errors"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"github.com/pkg/errors"
 )
 
 type UpdateIOUResponderView struct{}
@@ -42,7 +44,9 @@ func (i *UpdateIOUResponderView) Call(context view.Context) (interface{}, error)
 		}
 		assert.True(inState.Owners().Match(outState.Owners()), "invalid owners, "+
 			"input and output should have the same owners")
-		assert.NoError(tx.HasBeenEndorsedBy(inState.Owners().Others(context.Me())...),
+		assert.NoError(tx.HasBeenEndorsedBy(inState.Owners().Others(
+			fabric.GetIdentityProvider(context).DefaultIdentity(),
+		)...),
 			"the borrower has not endorsed")
 	default:
 		return nil, errors.Errorf("invalid command, "+

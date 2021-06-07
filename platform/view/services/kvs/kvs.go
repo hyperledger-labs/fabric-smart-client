@@ -41,6 +41,7 @@ func New(driverName, namespace string, sp view.ServiceProvider) (*KVS, error) {
 	}
 	path := filepath.Join(opts.Path, namespace)
 
+	logger.Debugf("opening kvs at [%s]", path)
 	persistence, err := db.Open(driverName, path)
 	if err != nil {
 		return nil, errors.WithMessagef(err, "no driver found for [%s]", driverName)

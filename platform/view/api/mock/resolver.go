@@ -53,16 +53,56 @@ type EndpointService struct {
 		result1 view.Identity
 		result2 error
 	}
-	BindStub        func(term view.Identity, ephemeral view.Identity) error
+	BindStub        func(b view.Identity, a view.Identity) error
 	bindMutex       sync.RWMutex
 	bindArgsForCall []struct {
-		term      view.Identity
-		ephemeral view.Identity
+		b view.Identity
+		a view.Identity
 	}
 	bindReturns struct {
 		result1 error
 	}
 	bindReturnsOnCall map[int]struct {
+		result1 error
+	}
+	IsBoundToStub        func(a view.Identity, b view.Identity) bool
+	isBoundToMutex       sync.RWMutex
+	isBoundToArgsForCall []struct {
+		a view.Identity
+		b view.Identity
+	}
+	isBoundToReturns struct {
+		result1 bool
+	}
+	isBoundToReturnsOnCall map[int]struct {
+		result1 bool
+	}
+	AddResolverStub        func(name string, domain string, addresses map[string]string, aliases []string, id []byte) (view.Identity, error)
+	addResolverMutex       sync.RWMutex
+	addResolverArgsForCall []struct {
+		name      string
+		domain    string
+		addresses map[string]string
+		aliases   []string
+		id        []byte
+	}
+	addResolverReturns struct {
+		result1 view.Identity
+		result2 error
+	}
+	addResolverReturnsOnCall map[int]struct {
+		result1 view.Identity
+		result2 error
+	}
+	AddPKIResolverStub        func(pkiResolver api.PKIResolver) error
+	addPKIResolverMutex       sync.RWMutex
+	addPKIResolverArgsForCall []struct {
+		pkiResolver api.PKIResolver
+	}
+	addPKIResolverReturns struct {
+		result1 error
+	}
+	addPKIResolverReturnsOnCall map[int]struct {
 		result1 error
 	}
 	invocations      map[string][][]interface{}
@@ -234,17 +274,17 @@ func (fake *EndpointService) GetIdentityReturnsOnCall(i int, result1 view.Identi
 	}{result1, result2}
 }
 
-func (fake *EndpointService) Bind(term view.Identity, ephemeral view.Identity) error {
+func (fake *EndpointService) Bind(b view.Identity, a view.Identity) error {
 	fake.bindMutex.Lock()
 	ret, specificReturn := fake.bindReturnsOnCall[len(fake.bindArgsForCall)]
 	fake.bindArgsForCall = append(fake.bindArgsForCall, struct {
-		term      view.Identity
-		ephemeral view.Identity
-	}{term, ephemeral})
-	fake.recordInvocation("Bind", []interface{}{term, ephemeral})
+		b view.Identity
+		a view.Identity
+	}{b, a})
+	fake.recordInvocation("Bind", []interface{}{b, a})
 	fake.bindMutex.Unlock()
 	if fake.BindStub != nil {
-		return fake.BindStub(term, ephemeral)
+		return fake.BindStub(b, a)
 	}
 	if specificReturn {
 		return ret.result1
@@ -261,7 +301,7 @@ func (fake *EndpointService) BindCallCount() int {
 func (fake *EndpointService) BindArgsForCall(i int) (view.Identity, view.Identity) {
 	fake.bindMutex.RLock()
 	defer fake.bindMutex.RUnlock()
-	return fake.bindArgsForCall[i].term, fake.bindArgsForCall[i].ephemeral
+	return fake.bindArgsForCall[i].b, fake.bindArgsForCall[i].a
 }
 
 func (fake *EndpointService) BindReturns(result1 error) {
@@ -283,6 +323,168 @@ func (fake *EndpointService) BindReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
+func (fake *EndpointService) IsBoundTo(a view.Identity, b view.Identity) bool {
+	fake.isBoundToMutex.Lock()
+	ret, specificReturn := fake.isBoundToReturnsOnCall[len(fake.isBoundToArgsForCall)]
+	fake.isBoundToArgsForCall = append(fake.isBoundToArgsForCall, struct {
+		a view.Identity
+		b view.Identity
+	}{a, b})
+	fake.recordInvocation("IsBoundTo", []interface{}{a, b})
+	fake.isBoundToMutex.Unlock()
+	if fake.IsBoundToStub != nil {
+		return fake.IsBoundToStub(a, b)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fake.isBoundToReturns.result1
+}
+
+func (fake *EndpointService) IsBoundToCallCount() int {
+	fake.isBoundToMutex.RLock()
+	defer fake.isBoundToMutex.RUnlock()
+	return len(fake.isBoundToArgsForCall)
+}
+
+func (fake *EndpointService) IsBoundToArgsForCall(i int) (view.Identity, view.Identity) {
+	fake.isBoundToMutex.RLock()
+	defer fake.isBoundToMutex.RUnlock()
+	return fake.isBoundToArgsForCall[i].a, fake.isBoundToArgsForCall[i].b
+}
+
+func (fake *EndpointService) IsBoundToReturns(result1 bool) {
+	fake.IsBoundToStub = nil
+	fake.isBoundToReturns = struct {
+		result1 bool
+	}{result1}
+}
+
+func (fake *EndpointService) IsBoundToReturnsOnCall(i int, result1 bool) {
+	fake.IsBoundToStub = nil
+	if fake.isBoundToReturnsOnCall == nil {
+		fake.isBoundToReturnsOnCall = make(map[int]struct {
+			result1 bool
+		})
+	}
+	fake.isBoundToReturnsOnCall[i] = struct {
+		result1 bool
+	}{result1}
+}
+
+func (fake *EndpointService) AddResolver(name string, domain string, addresses map[string]string, aliases []string, id []byte) (view.Identity, error) {
+	var aliasesCopy []string
+	if aliases != nil {
+		aliasesCopy = make([]string, len(aliases))
+		copy(aliasesCopy, aliases)
+	}
+	var idCopy []byte
+	if id != nil {
+		idCopy = make([]byte, len(id))
+		copy(idCopy, id)
+	}
+	fake.addResolverMutex.Lock()
+	ret, specificReturn := fake.addResolverReturnsOnCall[len(fake.addResolverArgsForCall)]
+	fake.addResolverArgsForCall = append(fake.addResolverArgsForCall, struct {
+		name      string
+		domain    string
+		addresses map[string]string
+		aliases   []string
+		id        []byte
+	}{name, domain, addresses, aliasesCopy, idCopy})
+	fake.recordInvocation("AddResolver", []interface{}{name, domain, addresses, aliasesCopy, idCopy})
+	fake.addResolverMutex.Unlock()
+	if fake.AddResolverStub != nil {
+		return fake.AddResolverStub(name, domain, addresses, aliases, id)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fake.addResolverReturns.result1, fake.addResolverReturns.result2
+}
+
+func (fake *EndpointService) AddResolverCallCount() int {
+	fake.addResolverMutex.RLock()
+	defer fake.addResolverMutex.RUnlock()
+	return len(fake.addResolverArgsForCall)
+}
+
+func (fake *EndpointService) AddResolverArgsForCall(i int) (string, string, map[string]string, []string, []byte) {
+	fake.addResolverMutex.RLock()
+	defer fake.addResolverMutex.RUnlock()
+	return fake.addResolverArgsForCall[i].name, fake.addResolverArgsForCall[i].domain, fake.addResolverArgsForCall[i].addresses, fake.addResolverArgsForCall[i].aliases, fake.addResolverArgsForCall[i].id
+}
+
+func (fake *EndpointService) AddResolverReturns(result1 view.Identity, result2 error) {
+	fake.AddResolverStub = nil
+	fake.addResolverReturns = struct {
+		result1 view.Identity
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *EndpointService) AddResolverReturnsOnCall(i int, result1 view.Identity, result2 error) {
+	fake.AddResolverStub = nil
+	if fake.addResolverReturnsOnCall == nil {
+		fake.addResolverReturnsOnCall = make(map[int]struct {
+			result1 view.Identity
+			result2 error
+		})
+	}
+	fake.addResolverReturnsOnCall[i] = struct {
+		result1 view.Identity
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *EndpointService) AddPKIResolver(pkiResolver api.PKIResolver) error {
+	fake.addPKIResolverMutex.Lock()
+	ret, specificReturn := fake.addPKIResolverReturnsOnCall[len(fake.addPKIResolverArgsForCall)]
+	fake.addPKIResolverArgsForCall = append(fake.addPKIResolverArgsForCall, struct {
+		pkiResolver api.PKIResolver
+	}{pkiResolver})
+	fake.recordInvocation("AddPKIResolver", []interface{}{pkiResolver})
+	fake.addPKIResolverMutex.Unlock()
+	if fake.AddPKIResolverStub != nil {
+		return fake.AddPKIResolverStub(pkiResolver)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fake.addPKIResolverReturns.result1
+}
+
+func (fake *EndpointService) AddPKIResolverCallCount() int {
+	fake.addPKIResolverMutex.RLock()
+	defer fake.addPKIResolverMutex.RUnlock()
+	return len(fake.addPKIResolverArgsForCall)
+}
+
+func (fake *EndpointService) AddPKIResolverArgsForCall(i int) api.PKIResolver {
+	fake.addPKIResolverMutex.RLock()
+	defer fake.addPKIResolverMutex.RUnlock()
+	return fake.addPKIResolverArgsForCall[i].pkiResolver
+}
+
+func (fake *EndpointService) AddPKIResolverReturns(result1 error) {
+	fake.AddPKIResolverStub = nil
+	fake.addPKIResolverReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *EndpointService) AddPKIResolverReturnsOnCall(i int, result1 error) {
+	fake.AddPKIResolverStub = nil
+	if fake.addPKIResolverReturnsOnCall == nil {
+		fake.addPKIResolverReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.addPKIResolverReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
+}
+
 func (fake *EndpointService) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
@@ -294,6 +496,12 @@ func (fake *EndpointService) Invocations() map[string][][]interface{} {
 	defer fake.getIdentityMutex.RUnlock()
 	fake.bindMutex.RLock()
 	defer fake.bindMutex.RUnlock()
+	fake.isBoundToMutex.RLock()
+	defer fake.isBoundToMutex.RUnlock()
+	fake.addResolverMutex.RLock()
+	defer fake.addResolverMutex.RUnlock()
+	fake.addPKIResolverMutex.RLock()
+	defer fake.addPKIResolverMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

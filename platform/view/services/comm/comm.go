@@ -74,18 +74,15 @@ func (s *Service) init() error {
 	p2pBootstrapNode := s.ConfigService.GetString("fsc.p2p.bootstrapNode")
 	if len(p2pBootstrapNode) == 0 {
 		// this is a bootstrap node
-		_, endpoint, pkid, err := s.EndpointService.Resolve(s.DefaultIdentity)
-		if err != nil {
-			return errors.Wrapf(err, "failed resolving bootstrap p2p identity [%s]", p2pListenAddress)
-		}
-		logger.Infof("new p2p bootstrap node [%s,%s,%s]", p2pListenAddress, endpoint, pkid)
+		logger.Infof("new p2p bootstrap node [%s]", p2pListenAddress)
 
+		var err error
 		s.Node, err = NewBootstrapNode(
 			p2pListenAddress,
 			s.PrivateKeyDispenser,
 		)
 		if err != nil {
-			return errors.Wrapf(err, "failed initializing bootstrap p2p manager [%s,%s,%s]", p2pListenAddress, endpoint, pkid)
+			return errors.Wrapf(err, "failed initializing bootstrap p2p manager [%s]", p2pListenAddress)
 		}
 	} else {
 		bootstrapNodeID, err := s.EndpointService.GetIdentity(p2pBootstrapNode, nil)

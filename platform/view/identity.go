@@ -20,6 +20,11 @@ func (i *IdentityProvider) DefaultIdentity() view.Identity {
 	return i.ip.DefaultIdentity()
 }
 
+// Identity returns the identity bound to the passed label
+func (i *IdentityProvider) Identity(label string) view.Identity {
+	return i.ip.Identity(label)
+}
+
 // GetIdentityProvider returns an instance of the identity provider
 func GetIdentityProvider(sp ServiceProvider) *IdentityProvider {
 	return &IdentityProvider{ip: api.GetIdentityProvider(sp)}

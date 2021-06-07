@@ -27,7 +27,7 @@ import (
 
 // GetConfigBlock retrieves the current config block for a channel.
 func GetConfigBlock(n *Network, peer *topology.Peer, orderer *topology.Orderer, channel string) *common.Block {
-	tempDir, err := ioutil.TempDir(n.Registry.RootDir, "getConfigBlock")
+	tempDir, err := ioutil.TempDir(filepath.Join(n.Registry.RootDir, "fabric"), "getConfigBlock")
 	Expect(err).NotTo(HaveOccurred())
 	defer os.RemoveAll(tempDir)
 
@@ -141,7 +141,7 @@ func UpdateConfig(n *Network, orderer *topology.Orderer, channel string, current
 // has completed. If an orderer is not provided, the current config block will
 // be fetched from the peer.
 func CurrentConfigBlockNumber(n *Network, peer *topology.Peer, orderer *topology.Orderer, channel string) uint64 {
-	tempDir, err := ioutil.TempDir(n.Registry.RootDir, "currentConfigBlock")
+	tempDir, err := ioutil.TempDir(filepath.Join(n.Registry.RootDir, "fabric"), "currentConfigBlock")
 	Expect(err).NotTo(HaveOccurred())
 	defer os.RemoveAll(tempDir)
 
@@ -200,7 +200,7 @@ func FetchConfigBlock(n *Network, peer *topology.Peer, orderer *topology.Orderer
 // UpdateOrdererConfig computes, signs, and submits a configuration update
 // which requires orderers signature and waits for the update to complete.
 func UpdateOrdererConfig(n *Network, orderer *topology.Orderer, channel string, current, updated *common.Config, submitter *topology.Peer, additionalSigners ...*topology.Orderer) {
-	tempDir, err := ioutil.TempDir(n.Registry.RootDir, "updateConfig")
+	tempDir, err := ioutil.TempDir(filepath.Join(n.Registry.RootDir, "fabric"), "updateConfig")
 	Expect(err).NotTo(HaveOccurred())
 	updateFile := filepath.Join(tempDir, "update.pb")
 	defer os.RemoveAll(tempDir)
@@ -234,7 +234,7 @@ func UpdateOrdererConfig(n *Network, orderer *topology.Orderer, channel string, 
 // update which requires orderer signatures. The caller should wait on the
 // returned seession retrieve the exit code.
 func UpdateOrdererConfigSession(n *Network, orderer *topology.Orderer, channel string, current, updated *common.Config, submitter *topology.Peer, additionalSigners ...*topology.Orderer) *gexec.Session {
-	tempDir, err := ioutil.TempDir(n.Registry.RootDir, "updateConfig")
+	tempDir, err := ioutil.TempDir(filepath.Join(n.Registry.RootDir, "fabric"), "updateConfig")
 	Expect(err).NotTo(HaveOccurred())
 	updateFile := filepath.Join(tempDir, "update.pb")
 

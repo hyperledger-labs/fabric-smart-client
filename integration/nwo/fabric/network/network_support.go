@@ -73,37 +73,37 @@ func (n *Network) AddOrg(o *topology.Organization, peers ...*topology.Peer) {
 // ConfigTxPath returns the path to the generated configtxgen configuration
 // file.
 func (n *Network) ConfigTxConfigPath() string {
-	return filepath.Join(n.Registry.RootDir, "configtx.yaml")
+	return filepath.Join(n.Registry.RootDir, "fabric", "configtx.yaml")
 }
 
 // CryptoPath returns the path to the directory where cryptogen will place its
 // generated artifacts.
 func (n *Network) CryptoPath() string {
-	return filepath.Join(n.Registry.RootDir, "crypto")
+	return filepath.Join(n.Registry.RootDir, "fabric", "crypto")
 }
 
 // CryptoConfigPath returns the path to the generated cryptogen configuration
 // file.
 func (n *Network) CryptoConfigPath() string {
-	return filepath.Join(n.Registry.RootDir, "crypto-config.yaml")
+	return filepath.Join(n.Registry.RootDir, "fabric", "crypto-config.yaml")
 }
 
 // OutputBlockPath returns the path to the genesis block for the named system
 // channel.
 func (n *Network) OutputBlockPath(channelName string) string {
-	return filepath.Join(n.Registry.RootDir, fmt.Sprintf("%s_block.pb", channelName))
+	return filepath.Join(n.Registry.RootDir, "fabric", fmt.Sprintf("%s_block.pb", channelName))
 }
 
 // CreateChannelTxPath returns the path to the create channel transaction for
 // the named channel.
 func (n *Network) CreateChannelTxPath(channelName string) string {
-	return filepath.Join(n.Registry.RootDir, fmt.Sprintf("%s_tx.pb", channelName))
+	return filepath.Join(n.Registry.RootDir, "fabric", fmt.Sprintf("%s_tx.pb", channelName))
 }
 
 // OrdererDir returns the path to the configuration directory for the specified
 // Orderer.
 func (n *Network) OrdererDir(o *topology.Orderer) string {
-	return filepath.Join(n.Registry.RootDir, "orderers", o.ID())
+	return filepath.Join(n.Registry.RootDir, "fabric", "orderers", o.ID())
 }
 
 // OrdererConfigPath returns the path to the orderer configuration document for
@@ -160,7 +160,7 @@ func (n *Network) WriteConfigTxConfig(config *fabricconfig.ConfigTx) {
 // PeerDir returns the path to the configuration directory for the specified
 // Peer.
 func (n *Network) PeerDir(p *topology.Peer) string {
-	return filepath.Join(n.Registry.RootDir, "peers", p.ID())
+	return filepath.Join(n.Registry.RootDir, "fabric", "peers", p.ID())
 }
 
 // PeerConfigPath returns the path to the peer configuration document for the
@@ -220,6 +220,7 @@ func (n *Network) ordererUserCryptoDir(o *topology.Orderer, user, cryptoMaterial
 func (n *Network) userCryptoDir(org *topology.Organization, nodeOrganizationType, user, cryptoMaterialType string) string {
 	return filepath.Join(
 		n.Registry.RootDir,
+		"fabric",
 		"crypto",
 		nodeOrganizationType,
 		org.Domain,
@@ -356,6 +357,7 @@ func (n *Network) peerLocalCryptoDir(p *topology.Peer, cryptoType string) string
 
 	return filepath.Join(
 		n.Registry.RootDir,
+		"fabric",
 		"crypto",
 		"peerOrganizations",
 		org.Domain,
@@ -371,6 +373,7 @@ func (n *Network) peerUserLocalCryptoDir(p *topology.Peer, user, cryptoType stri
 
 	return filepath.Join(
 		n.Registry.RootDir,
+		"fabric",
 		"crypto",
 		"peerOrganizations",
 		org.Domain,
@@ -444,6 +447,7 @@ func (n *Network) PeerCert(p *topology.Peer) string {
 func (n *Network) PeerOrgMSPDir(org *topology.Organization) string {
 	return filepath.Join(
 		n.Registry.RootDir,
+		"fabric",
 		"crypto",
 		"peerOrganizations",
 		org.Domain,
@@ -460,6 +464,7 @@ func (n *Network) DefaultIdemixOrgMSPDir() string {
 		if organization.MSPType == "idemix" {
 			return filepath.Join(
 				n.Registry.RootDir,
+				"fabric",
 				"crypto",
 				"peerOrganizations",
 				organization.Domain,
@@ -472,6 +477,7 @@ func (n *Network) DefaultIdemixOrgMSPDir() string {
 func (n *Network) IdemixOrgMSPDir(org *topology.Organization) string {
 	return filepath.Join(
 		n.Registry.RootDir,
+		"fabric",
 		"crypto",
 		"peerOrganizations",
 		org.Domain,
@@ -483,6 +489,7 @@ func (n *Network) IdemixOrgMSPDir(org *topology.Organization) string {
 func (n *Network) OrdererOrgMSPDir(o *topology.Organization) string {
 	return filepath.Join(
 		n.Registry.RootDir,
+		"fabric",
 		"crypto",
 		"ordererOrganizations",
 		o.Domain,
@@ -498,6 +505,7 @@ func (n *Network) OrdererLocalCryptoDir(o *topology.Orderer, cryptoType string) 
 
 	return filepath.Join(
 		n.Registry.RootDir,
+		"fabric",
 		"crypto",
 		"ordererOrganizations",
 		org.Domain,
@@ -535,6 +543,7 @@ func (n *Network) ProfileForChannel(channelName string) string {
 func (n *Network) CACertsBundlePath() string {
 	return filepath.Join(
 		n.Registry.RootDir,
+		"fabric",
 		"crypto",
 		"ca-certs.pem",
 	)
@@ -673,7 +682,7 @@ func (n *Network) CheckTopology() {
 		p := &topology.Peer{
 			Name:            node.Name,
 			Organization:    opts.Organization(),
-			Type:            topology.ViewPeer,
+			Type:            topology.FSCPeer,
 			Role:            opts.Role(),
 			Bootstrap:       node.Bootstrap,
 			ExecutablePath:  node.ExecutablePath,
@@ -694,7 +703,7 @@ func (n *Network) CheckTopology() {
 	}
 
 	for _, p := range n.Peers {
-		if p.Type == topology.ViewPeer {
+		if p.Type == topology.FSCPeer {
 			continue
 		}
 		ports := registry2.Ports{}
@@ -726,7 +735,7 @@ func (n *Network) ConcatenateTLSCACertificates() {
 // network, across all organizations.
 func (n *Network) listTLSCACertificates() []string {
 	fileName2Path := make(map[string]string)
-	filepath.Walk(filepath.Join(n.Registry.RootDir, "crypto"), func(path string, info os.FileInfo, err error) error {
+	filepath.Walk(filepath.Join(n.Registry.RootDir, "fabric", "crypto"), func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -789,7 +798,7 @@ func (n *Network) UpdateChannelAnchors(o *topology.Orderer, channelName string) 
 			OutputAnchorPeersUpdate: tempFile.Name(),
 			ChannelID:               channelName,
 			Profile:                 n.ProfileForChannel(channelName),
-			ConfigPath:              n.Registry.RootDir,
+			ConfigPath:              filepath.Join(n.Registry.RootDir, "fabric"),
 			AsOrg:                   orgName,
 		}
 		sess, err := n.ConfigTxGen(anchorUpdate)
@@ -1539,7 +1548,15 @@ func (n *Network) nextColor() string {
 }
 
 func (n *Network) NodeVaultDir(peer *topology.Peer) string {
-	return filepath.Join(n.Registry.RootDir, "fscnodes", peer.ID(), "vault")
+	return filepath.Join(n.Registry.RootDir, "fsc", "fscnodes", peer.ID(), "vault")
+}
+
+func (n *Network) OrdererBootstrapFile() string {
+	return filepath.Join(
+		n.Registry.RootDir,
+		"fabric",
+		n.SystemChannel.Name+"_block.pb",
+	)
 }
 
 // StartSession executes a command session. This should be used to launch
@@ -1568,6 +1585,7 @@ func (n *Network) StartSession(cmd *exec.Cmd, name string) (*gexec.Session, erro
 }
 
 func (n *Network) GenerateCryptoConfig() {
+	Expect(os.MkdirAll(n.CryptoPath(), 0770)).NotTo(HaveOccurred())
 	crypto, err := os.Create(n.CryptoConfigPath())
 	Expect(err).NotTo(HaveOccurred())
 	defer crypto.Close()
@@ -1639,13 +1657,13 @@ func (n *Network) GenerateCoreConfig(p *topology.Peer) {
 		err = t.Execute(io.MultiWriter(core, extension), n)
 		n.Registry.AddExtension(p.ID(), registry2.FabricExtension, extension.String())
 		Expect(err).NotTo(HaveOccurred())
-	case topology.ViewPeer:
+	case topology.FSCPeer:
 		err := os.MkdirAll(n.PeerDir(p), 0755)
 		Expect(err).NotTo(HaveOccurred())
 
 		var refPeers []*topology.Peer
 		coreTemplate := n.Templates.CoreTemplate()
-		if p.Type == topology.ViewPeer {
+		if p.Type == topology.FSCPeer {
 			coreTemplate = n.Templates.ViewExtensionTemplate()
 			peers := n.PeersInOrg(p.Organization)
 			for _, peer := range peers {

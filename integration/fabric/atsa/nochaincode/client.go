@@ -8,7 +8,7 @@ package nochaincode
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/nochaincode/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
-	view "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 type ViewClient interface {
@@ -32,8 +32,9 @@ func (c *Client) Identity() view.Identity {
 
 func (c *Client) Issue(asset *views.Asset) (string, error) {
 	_, err := c.c.CallView("issue", common.JSONMarshall(&views.Issue{
-		Asset:    asset,
-		Approver: c.approver,
+		Asset:     asset,
+		Recipient: asset.Owner,
+		Approver:  c.approver,
 	}))
 	if err != nil {
 		return "", err

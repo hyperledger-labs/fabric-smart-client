@@ -81,6 +81,7 @@ type service struct {
 	defaultSigningIdentity x5092.SigningIdentity
 	signerService          SignerService
 	binderService          BinderService
+	defaultViewIdentity    view.Identity
 	config                 Config
 
 	resolversMutex           sync.RWMutex
@@ -91,12 +92,13 @@ type service struct {
 	bccspResolversByIdentity map[string]*Resolver
 }
 
-func NewLocalMSPManager(sp view2.ServiceProvider, config Config, signerService SignerService, binderService BinderService) *service {
+func NewLocalMSPManager(sp view2.ServiceProvider, config Config, signerService SignerService, binderService BinderService, defaultViewIdentity view.Identity) *service {
 	return &service{
 		sp:                       sp,
 		config:                   config,
 		signerService:            signerService,
 		binderService:            binderService,
+		defaultViewIdentity:      defaultViewIdentity,
 		resolversByTypeAndName:   map[string]*Resolver{},
 		bccspResolversByIdentity: map[string]*Resolver{},
 		resolversByEnrollmentID:  map[string]*Resolver{},
@@ -130,7 +132,7 @@ func (s *service) AnonymousIdentity() view.Identity {
 	id := s.Identity("idemix")
 
 	resolver := view2.GetEndpointService(s.sp)
-	if err := resolver.Bind(s.defaultIdentity, id); err != nil {
+	if err := resolver.Bind(s.defaultViewIdentity, id); err != nil {
 		panic(err)
 	}
 
@@ -295,7 +297,7 @@ func (s *service) addResolver(Name string, Type string, EnrollmentID string, Ide
 		if err != nil {
 			panic(fmt.Sprintf("cannot get identity for [%s,%s,%s][%s]", Name, Type, EnrollmentID, err))
 		}
-		if err := s.binderService.Bind(s.defaultIdentity, id); err != nil {
+		if err := s.binderService.Bind(s.defaultViewIdentity, id); err != nil {
 			panic(fmt.Sprintf("cannot bing identity for [%s,%s,%s][%s]", Name, Type, EnrollmentID, err))
 		}
 	}

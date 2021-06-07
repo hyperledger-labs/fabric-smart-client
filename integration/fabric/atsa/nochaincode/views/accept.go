@@ -14,6 +14,10 @@ import (
 type AcceptAssetView struct{}
 
 func (a *AcceptAssetView) Call(context view.Context) (interface{}, error) {
+	// Respond to a request for an identity
+	id, err := state.RespondRequestRecipientIdentity(context)
+	assert.NoError(err, "failed to respond to identity request")
+
 	// Expect an state transaction
 	tx, err := state.ReceiveTransaction(context)
 	assert.NoError(err)
@@ -24,7 +28,7 @@ func (a *AcceptAssetView) Call(context view.Context) (interface{}, error) {
 
 	asset := &Asset{}
 	assert.NoError(tx.Outputs().At(0).State(asset), "failed unmarshalling asset")
-	assert.True(asset.Owner.Equal(context.Me()), "expected me to be the owner, got [%s]", asset.Owner)
+	assert.True(asset.Owner.Equal(id), "expected me to be the owner, got [%s]", asset.Owner)
 	//assert.Equal([]byte("Hello World!!!"), asset.PrivateProperties)
 
 	// Accept and send back

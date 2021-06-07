@@ -12,13 +12,23 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
+// PortName is the type variable for the socket ports
 type PortName string
 
 const (
-	ListenPort PortName = "Listen" // Port at which the FSC node might listen for some service
-	ViewPort   PortName = "View"   // Port at which the View Service Server respond
-	P2PPort    PortName = "P2P"    // Port at which the P2P Communication Layer respond
+	// ListenPort is the port at which the FSC node might listen for some service
+	ListenPort PortName = "Listen"
+	// ViewPort is the port on which the View Service Server respond
+	ViewPort PortName = "View"
+	// P2PPort is the port on which the P2P Communication Layer respond
+	P2PPort PortName = "P2P"
 )
+
+// PKIResolver extracts public key ids from identities
+type PKIResolver interface {
+	// GetPKIidOfCert returns the id of the public key contained in the passed identity
+	GetPKIidOfCert(peerIdentity view.Identity) []byte
+}
 
 // EndpointService provides endpoint-related services
 type EndpointService struct {
@@ -75,6 +85,24 @@ func (e *EndpointService) GetIdentity(label string, pkiID []byte) (view.Identity
 // In more general terms, Bind binds any identity to another.
 func (e *EndpointService) Bind(longTerm view.Identity, ephemeral view.Identity) error {
 	return e.es.Bind(longTerm, ephemeral)
+}
+
+// IsBoundTo returns true if b was bound to a
+func (e *EndpointService) IsBoundTo(a view.Identity, b view.Identity) bool {
+	return e.es.IsBoundTo(a, b)
+}
+
+// AddResolver adds a resolver for tha passed parameters. The passed id can be retrieved by using the passed name in a call to GetIdentity method.
+// The addresses can retrieved by passing the identity in a call to Resolve.
+// If a resolver is already bound to the passed name, then the passed identity is linked to the already existing identity. The already existing
+// identity is returned
+func (e *EndpointService) AddResolver(name string, domain string, addresses map[string]string, aliases []string, id []byte) (view.Identity, error) {
+	return e.es.AddResolver(name, domain, addresses, aliases, id)
+}
+
+// AddPKIResolver add a new PKI resolver
+func (e *EndpointService) AddPKIResolver(pkiResolver PKIResolver) error {
+	return e.es.AddPKIResolver(pkiResolver)
 }
 
 func GetEndpointService(sp ServiceProvider) *EndpointService {

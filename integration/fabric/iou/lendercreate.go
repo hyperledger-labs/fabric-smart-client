@@ -6,6 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 package iou
 
 import (
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -36,13 +37,14 @@ func (i *CreateIOUResponderView) Call(context view.Context) (interface{}, error)
 			return nil, errors.Errorf("invalid amount, "+
 				"expected at least 5, was %d", iouState.Amount)
 		}
+		me := fabric.GetIdentityProvider(context).DefaultIdentity()
 		assert.Equal(2, iouState.Owners().Count(), "invalid state, "+
 			"expected 2 identities, was %d", iouState.Owners().Count())
-		assert.True(iouState.Owners().Contain(context.Me()), "invalid state,"+
+		assert.True(iouState.Owners().Contain(me), "invalid state,"+
 			"it does not contain lender identity")
-		assert.False(iouState.Owners().Others(context.Me()).Contain(context.Me()), "invalid state,"+
+		assert.False(iouState.Owners().Others(me).Contain(me), "invalid state,"+
 			"it does not contain borrower identity")
-		assert.NoError(tx.HasBeenEndorsedBy(iouState.Owners().Others(context.Me())...),
+		assert.NoError(tx.HasBeenEndorsedBy(iouState.Owners().Others(me)...),
 			"the borrower has not endorsed")
 	default:
 		return nil, errors.Errorf("invalid command, "+

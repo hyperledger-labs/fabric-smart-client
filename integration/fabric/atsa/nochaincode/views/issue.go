@@ -8,14 +8,16 @@ package views
 import (
 	"encoding/json"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 type Issue struct {
-	Asset    *Asset
-	Approver view.Identity
+	Asset     *Asset
+	Recipient view.Identity
+	Approver  view.Identity
 }
 
 type IssueView struct {
@@ -23,14 +25,21 @@ type IssueView struct {
 }
 
 func (f *IssueView) Call(context view.Context) (interface{}, error) {
+	assetOwner, err := state.RequestRecipientIdentity(context, f.Recipient)
+	assert.NoError(err, "failed getting recipient identity")
+
 	// Prepare transaction
 	tx, err := state.NewTransaction(context)
 	assert.NoError(err, "failed creating transaction")
 	tx.SetNamespace("asset_transfer")
-	assert.NoError(tx.AddCommand("issue", context.Me(), f.Asset.Owner), "failed adding issue command")
+
+	f.Asset.Owner = assetOwner
+	me := fabric.GetIdentityProvider(context).DefaultIdentity()
+
+	assert.NoError(tx.AddCommand("issue", me, f.Asset.Owner), "failed adding issue command")
 	assert.NoError(tx.AddOutput(f.Asset), "failed adding output")
 
-	_, err = context.RunView(state.NewCollectEndorsementsView(tx, context.Me(), f.Asset.Owner))
+	_, err = context.RunView(state.NewCollectEndorsementsView(tx, me, f.Asset.Owner))
 	assert.NoError(err, "failed collecting endorsement")
 
 	_, err = context.RunView(state.NewCollectApprovesView(tx, f.Approver))

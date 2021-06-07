@@ -95,7 +95,7 @@ type endorsementsOnProposalResponderView struct {
 }
 
 func (s *endorsementsOnProposalResponderView) Call(context view.Context) (interface{}, error) {
-	err := s.tx.EndorseProposalResponseWithIdentity(context.Me())
+	err := s.tx.EndorseProposalResponseWithIdentity(fabric.GetFabricNetworkService(context, s.tx.Network()).IdentityProvider().DefaultIdentity())
 	if err != nil {
 		return nil, err
 	}

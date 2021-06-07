@@ -10,7 +10,6 @@ import (
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/session"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -18,14 +17,13 @@ var logger = flogging.MustGetLogger("fabric-sdk.services.endorser")
 
 type Builder struct {
 	sp view2.ServiceProvider
-	me view.Identity
 }
 
 func NewBuilder(context view.Context) *Builder {
 	if context == nil {
 		panic("context must be set")
 	}
-	return &Builder{sp: context, me: context.Me()}
+	return &Builder{sp: context}
 }
 
 func NewBuilderWithServiceProvider(sp view2.ServiceProvider) *Builder {
@@ -40,15 +38,11 @@ func (t *Builder) NewTransaction() (*Transaction, error) {
 }
 
 func (t *Builder) NewTransactionForChannel(channel string) (*Transaction, error) {
-	logger.Debugf("NewTransaction with identity %s\n", t.me.UniqueID())
-
-	return t.newTransaction(t.me, "", channel, nil, nil, false)
+	return t.newTransaction(nil, "", channel, nil, nil, false)
 }
 
 func (t *Builder) NewTransactionFromBytes(bytes []byte) (*Transaction, error) {
-	logger.Debugf("NewTransactionFromBytes with identity %s\n", t.me.UniqueID())
-
-	tx, err := t.newTransaction(t.me, "", "", nil, bytes, false)
+	tx, err := t.newTransaction(nil, "", "", nil, bytes, false)
 	if err != nil {
 		return nil, err
 	}
@@ -57,9 +51,7 @@ func (t *Builder) NewTransactionFromBytes(bytes []byte) (*Transaction, error) {
 }
 
 func (t *Builder) NewTransactionFromEnvelopeBytes(bytes []byte) (*Transaction, error) {
-	logger.Debugf("NewTransactionFromEnvelopeBytes with identity %s\n", t.me.UniqueID())
-
-	tx, err := t.newTransaction(t.me, "", "", nil, bytes, true)
+	tx, err := t.newTransaction(nil, "", "", nil, bytes, true)
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +74,11 @@ func (t *Builder) newTransaction(creator []byte, network, channel string, nonce,
 	logger.Debugf("NewTransaction [%s,%s,%s]", view.Identity(creator).UniqueID(), channel, hash.Hashable(raw).String())
 	defer logger.Debugf("NewTransaction...done.")
 
-	fabricTransaction, err := fabric.GetFabricNetworkService(t.sp, network).TransactionManager().NewTransaction(
+	fNetwork := fabric.GetFabricNetworkService(t.sp, network)
+	if len(creator) == 0 {
+		creator = fNetwork.IdentityProvider().DefaultIdentity()
+	}
+	fabricTransaction, err := fNetwork.TransactionManager().NewTransaction(
 		fabric.WithCreator(creator),
 		fabric.WithNonce(nonce),
 		fabric.WithChannel(channel),
@@ -143,18 +139,4 @@ func NewTransactionFromEnvelopeBytes(sp view2.ServiceProvider, bytes []byte) (*B
 		return nil, nil, err
 	}
 	return txBuilder, tx, nil
-}
-
-func NewTransactionFromBytesWithServiceProvider(sp view2.ServiceProvider, bytes []byte) (*Builder, *Transaction, error) {
-	txBuilder := NewBuilderWithServiceProvider(sp)
-	tx, err := txBuilder.NewTransactionFromBytes(bytes)
-	if err != nil {
-		return nil, nil, err
-	}
-	return txBuilder, tx, nil
-}
-
-func ReceiveTransaction(context view.Context) (*Transaction, error) {
-	_, tx, err := NewTransactionFromBytes(context, session.ReadFirstMessageOrPanic(context))
-	return tx, err
 }

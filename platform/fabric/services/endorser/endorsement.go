@@ -14,7 +14,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
-
+	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracker"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -109,7 +109,7 @@ func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error
 			endorser := view.Identity(proposalResponse.Endorser())
 
 			// Check the validity of the response
-			if bytes.Equal(endorser, party) {
+			if view2.GetEndpointService(context).IsBoundTo(endorser, party) {
 				found = true
 			}
 
@@ -159,7 +159,7 @@ type endorseView struct {
 
 func (s *endorseView) Call(context view.Context) (interface{}, error) {
 	if len(s.identities) == 0 {
-		s.identities = []view.Identity{context.Me()}
+		s.identities = []view.Identity{fabric.GetFabricNetworkService(context, s.tx.Network()).IdentityProvider().DefaultIdentity()}
 	}
 
 	var responses [][]byte

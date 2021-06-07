@@ -3,14 +3,14 @@ topologies:
   peers:
   - name: initiator
     bootstrap: true
-    executablePath: github.com/hyperledger-labs/fabric-smart-client/integration/generic/pingpong/cmd/initiator
+    executablePath: github.com/hyperledger-labs/fabric-smart-client/integration/fsc/pingpong/cmd/initiator
   - NodeSynthesizer:
       Aliases:
-        github.com/hyperledger-labs/fabric-smart-client/integration/generic/pingpong:
+        github.com/hyperledger-labs/fabric-smart-client/integration/fsc/pingpong:
           original: pingpong
           alias: pingpong
       Imports:
-      - github.com/hyperledger-labs/fabric-smart-client/integration/generic/pingpong
+      - github.com/hyperledger-labs/fabric-smart-client/integration/fsc/pingpong
       Responders:
       - responder: '&pingpong.Responder{}'
         initiator: '&pingpong.Initiator{}'

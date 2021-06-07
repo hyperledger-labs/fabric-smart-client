@@ -6,25 +6,23 @@ SPDX-License-Identifier: Apache-2.0
 package id
 
 import (
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
+type EndpointService interface {
+	GetIdentity(label string) (view.Identity, error)
+}
+
 type provider struct {
-	defaultID view.Identity
-	sp        view2.ServiceProvider
+	endpointService EndpointService
 }
 
-func NewProvider(sp view2.ServiceProvider, defaultID view.Identity) (*provider, error) {
-	return &provider{sp: sp, defaultID: defaultID}, nil
-}
-
-func (p *provider) DefaultIdentity() view.Identity {
-	return p.defaultID
+func NewProvider(endpointService EndpointService) (*provider, error) {
+	return &provider{endpointService: endpointService}, nil
 }
 
 func (p *provider) Identity(label string) view.Identity {
-	id, err := view2.GetEndpointService(p.sp).GetIdentity(label, nil)
+	id, err := p.endpointService.GetIdentity(label)
 	if err != nil {
 		panic(err)
 	}
