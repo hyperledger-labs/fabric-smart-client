@@ -23,10 +23,8 @@ require (
 	github.com/gogo/protobuf v1.3.1
 	github.com/golang/protobuf v1.4.3
 	github.com/golang/snappy v0.0.3-0.20201103224600-674baa8c7fc3 // indirect
-	github.com/google/addlicense v0.0.0-20210428195630-6d92264d7170 // indirect
 	github.com/google/go-cmp v0.5.0
 	github.com/google/uuid v1.2.0 // indirect
-	github.com/gordonklaus/ineffassign v0.0.0-20210522101830-0589229737b2 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware v1.2.0
 	github.com/hashicorp/go-version v1.2.0
 	github.com/hyperledger/fabric v1.4.0-rc1.0.20200930182727-344fda602252
@@ -57,7 +55,6 @@ require (
 	github.com/tedsuo/ifrit v0.0.0-20191009134036-9a97d0632f00
 	github.com/test-go/testify v1.1.4
 	github.com/willf/bitset v1.1.11 // indirect
-	github.ibm.com/fabric-security-research/fabflownode v0.4.4
 	go.uber.org/atomic v1.7.0
 	go.uber.org/multierr v1.6.0 // indirect
 	go.uber.org/zap v1.16.0
