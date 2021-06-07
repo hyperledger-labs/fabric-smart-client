@@ -52,7 +52,8 @@ integration-tests: docker-images dependencies
 	cd ./integration/fabric/iou; ginkgo -keepGoing --slowSpecThreshold 60 .
 	cd ./integration/fabric/atsa/chaincode; ginkgo -keepGoing --slowSpecThreshold 60 .
 	cd ./integration/fabric/atsa/nochaincode; ginkgo -keepGoing --slowSpecThreshold 60 .
-	cd ./integration/generic/pingpong/; ginkgo -keepGoing --slowSpecThreshold 60 .
+	cd ./integration/fsc/pingpong/; ginkgo -keepGoing --slowSpecThreshold 60 .
+	cd ./integration/fsc/stoprestart; ginkgo -keepGoing --slowSpecThreshold 60 .
 
 .PHONY: tidy
 tidy:
@@ -69,8 +70,8 @@ clean:
 	rm -rf ./integration/fabric/atsa/chaincode/cmd
 	rm -rf ./integration/fabric/atsa/nochaincode/cmd
 	rm -rf ./integration/fabric/iou/cmd/
-	rm -rf ./integration/generic/stoprestart/cmd
-	rm -rf ./integration/generic/pingpong/cmd/responder
+	rm -rf ./integration/fsc/stoprestart/cmd
+	rm -rf ./integration/fsc/pingpong/cmd/responder
 	rm -rf ./integration/fscnodes
 
 .PHONY: artifactsgen
