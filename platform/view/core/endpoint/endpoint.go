@@ -74,44 +74,57 @@ func NewService(sp view2.ServiceProvider, discovery Discovery) (*service, error)
 }
 
 func (r *service) Endpoint(party view.Identity) (map[api.PortName]string, error) {
-	for _, resolver := range r.resolvers {
-		if bytes.Equal(resolver.Id, party) {
-			return convert(resolver.Addresses), nil
+	cursor := party
+	for {
+		// root endpoints have addresses
+		// is this a root endpoint
+		e, err := r.rootEndpoint(cursor)
+		if err != nil {
+			logger.Debugf("resolving via binding for %s", cursor)
+			ee, err := r.getBinding(cursor.UniqueID())
+			if err != nil {
+				return nil, errors.Wrapf(err, "endpoint not found for identity [%s,%s]", string(cursor), cursor.UniqueID())
+			}
+
+			// if len(ee.Endpoints) != 0 {
+			// 	logger.Debugf("resolved to [%s,%s,%s]", cursor, ee.Endpoints, ee.Identity)
+			// 	return ee.Endpoints, nil
+			// }
+
+			cursor = ee.Identity
+			logger.Debugf("continue to [%s,%s,%s]", cursor, ee.Endpoints, ee.Identity)
+			continue
 		}
+
+		return e, nil
 	}
-	// lookup for the binding
-	endpointEntry, err := r.getBinding(party.UniqueID())
-	if err != nil {
-		return nil, errors.Wrapf(err, "endpoint not found for identity %s", party.UniqueID())
-	}
-	return endpointEntry.Endpoints, nil
 }
 
 func (r *service) Resolve(party view.Identity) (view.Identity, map[api.PortName]string, []byte, error) {
-	e, err := r.endpointInternal(party)
-	if err != nil {
-		// TODO: follow bindings
-		logger.Debugf("resolving via binding for %s", party)
-		ee, err := r.getBinding(party.UniqueID())
+	cursor := party
+	for {
+		// root endpoints have addresses
+		// is this a root endpoint
+		e, err := r.rootEndpoint(cursor)
 		if err != nil {
-			return nil, nil, nil, errors.Wrapf(err, "endpoint not found for identity [%s,%s]", string(party), party.UniqueID())
-		}
-
-		if len(ee.Endpoints) != 0 {
-			e = ee.Endpoints
-		} else {
-			e, err = r.Endpoint(ee.Identity)
+			logger.Debugf("resolving via binding for %s", cursor)
+			ee, err := r.getBinding(cursor.UniqueID())
 			if err != nil {
-				return nil, nil, nil, errors.Errorf("endpoint not found for identity [%s]", party.UniqueID())
+				return nil, nil, nil, errors.Wrapf(err, "endpoint not found for identity [%s,%s]", string(cursor), cursor.UniqueID())
 			}
+
+			// if len(ee.Endpoints) != 0 {
+			// 	logger.Debugf("resolved to [%s,%s,%s]", cursor, ee.Endpoints, ee.Identity)
+			// 	return ee.Identity, ee.Endpoints, r.pkiResolve(ee.Identity), nil
+			// }
+
+			cursor = ee.Identity
+			logger.Debugf("continue to [%s,%s,%s]", cursor, ee.Endpoints, ee.Identity)
+			continue
 		}
 
-		logger.Debugf("resolved to [%s,%s,%s]", party, e, ee.Identity)
-
-		return ee.Identity, e, r.pkiResolve(ee.Identity), nil
+		return cursor, e, r.pkiResolve(cursor), nil
 	}
-
-	return party, e, r.pkiResolve(party.Bytes()), nil
 }
 
 func (r *service) Bind(longTerm view.Identity, ephemeral view.Identity) error {
@@ -119,6 +132,7 @@ func (r *service) Bind(longTerm view.Identity, ephemeral view.Identity) error {
 	if err != nil {
 		return errors.Errorf("long term identity not found for identity [%s]", longTerm.UniqueID())
 	}
+	logger.Debugf("bind [%s] to [%s]", ephemeral.String(), longTerm.String())
 	if err := r.putBinding(ephemeral.UniqueID(), &endpointEntry{Endpoints: e, Identity: longTerm, Ephemeral: ephemeral}); err != nil {
 		return errors.WithMessagef(err, "failed storing binding of [%s]  to [%s]", ephemeral.UniqueID(), longTerm.UniqueID())
 	}
@@ -127,19 +141,19 @@ func (r *service) Bind(longTerm view.Identity, ephemeral view.Identity) error {
 }
 
 func (r *service) IsBoundTo(a view.Identity, b view.Identity) bool {
-	if a.Equal(b) {
-		return true
+	for {
+		if a.Equal(b) {
+			return true
+		}
+		next, err := r.getBinding(a.UniqueID())
+		if err != nil {
+			return false
+		}
+		if next.Identity.Equal(b) {
+			return true
+		}
+		a = next.Identity
 	}
-	// TODO: Recursion
-	next, err := r.getBinding(a.UniqueID())
-	if err != nil {
-		return false
-	}
-	if next.Identity.Equal(b) {
-		return true
-	}
-
-	return false
 }
 
 func (r *service) GetIdentity(endpoint string, pkid []byte) (view.Identity, error) {
@@ -215,13 +229,15 @@ func (r *service) AddLongTermIdentity(identity view.Identity) error {
 func (r *service) pkiResolve(id view.Identity) []byte {
 	for _, pkiResolver := range r.pkiResolvers {
 		if res := pkiResolver.GetPKIidOfCert(id); len(res) != 0 {
+			logger.Debugf("pki resolved for [%s]", id)
 			return res
 		}
 	}
+	logger.Warnf("cannot resolve pki for [%s]", id)
 	return nil
 }
 
-func (r *service) endpointInternal(party view.Identity) (map[api.PortName]string, error) {
+func (r *service) rootEndpoint(party view.Identity) (map[api.PortName]string, error) {
 	for _, resolver := range r.resolvers {
 		if bytes.Equal(resolver.Id, party) {
 			return convert(resolver.Addresses), nil

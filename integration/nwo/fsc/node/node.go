@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/api"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -58,6 +59,11 @@ type ResponderEntry struct {
 	Initiator string
 }
 
+type SDKEntry struct {
+	Id   string
+	Type string
+}
+
 type Alias struct {
 	Original string
 	Alias    string
@@ -67,6 +73,7 @@ type NodeSynthesizer struct {
 	Aliases    map[string]Alias `yaml:"Aliases,omitempty"`
 	Imports    []string         `yaml:"Imports,omitempty"`
 	Factories  []FactoryEntry   `yaml:"Factories,omitempty"`
+	SDKs       []SDKEntry       `yaml:"SDKs,omitempty"`
 	Responders []ResponderEntry `yaml:"Responders,omitempty"`
 }
 
@@ -123,6 +130,19 @@ func (n *Node) SetBootstrap() *Node {
 
 func (n *Node) SetExecutable(ExecutablePath string) *Node {
 	n.ExecutablePath = ExecutablePath
+
+	return n
+}
+
+// AddSDK adds a reference to the passed SDK. AddSDK expects to find a constructor named
+// 'New' followed by the type name of the passed reference.
+func (n *Node) AddSDK(sdk api.SDK) *Node {
+	sdkType := reflect.Indirect(reflect.ValueOf(sdk)).Type()
+
+	alias := n.addImport(sdkType.PkgPath())
+	sdkStr := alias + ".New" + sdkType.Name() + "(n)"
+
+	n.SDKs = append(n.SDKs, SDKEntry{Type: sdkStr})
 
 	return n
 }

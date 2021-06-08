@@ -7,6 +7,7 @@ package fsc
 
 import (
 	"bytes"
+	"context"
 	"io/ioutil"
 
 	. "github.com/onsi/ginkgo"
@@ -20,6 +21,21 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/testdata/responder"
 )
 
+type DummySDK struct {
+}
+
+func NewDummySDK() *DummySDK {
+	return &DummySDK{}
+}
+
+func (d *DummySDK) Install() error {
+	panic("implement me")
+}
+
+func (d *DummySDK) Start(ctx context.Context) error {
+	panic("implement me")
+}
+
 var _ = Describe("EndToEnd", func() {
 	Describe("generate main", func() {
 		It("should not fail", func() {
@@ -28,6 +44,7 @@ var _ = Describe("EndToEnd", func() {
 			}, nil)
 
 			n := node.NewNode("test")
+			n.AddSDK(&DummySDK{})
 			n.RegisterViewFactory("initiator", &initiator2.Factory{})
 			n.RegisterViewFactory("initiator", &initiator.Factory{})
 			n.RegisterViewFactory("responder", &responder.Factory{})

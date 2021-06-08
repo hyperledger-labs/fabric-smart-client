@@ -10,6 +10,7 @@ import (
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/session"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -139,4 +140,9 @@ func NewTransactionFromEnvelopeBytes(sp view2.ServiceProvider, bytes []byte) (*B
 		return nil, nil, err
 	}
 	return txBuilder, tx, nil
+}
+
+func ReceiveTransaction(context view.Context) (*Transaction, error) {
+	_, tx, err := NewTransactionFromBytes(context, session.ReadFirstMessageOrPanic(context))
+	return tx, err
 }

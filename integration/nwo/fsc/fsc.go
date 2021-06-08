@@ -172,6 +172,12 @@ func (p *platform) PostRun() {
 		for _, identity := range p.Registry.ViewIdentityAliases[node.ID()] {
 			p.Registry.ViewClients[identity] = c
 		}
+		for _, identity := range p.Registry.ViewIdentityAliases[node.Name] {
+			p.Registry.ViewClients[identity] = c
+		}
+		for _, alias := range node.Aliases {
+			p.Registry.ViewClients[alias.Alias] = c
+		}
 	}
 }
 

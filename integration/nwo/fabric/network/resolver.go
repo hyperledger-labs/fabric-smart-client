@@ -43,7 +43,6 @@ func (n *Network) GenerateResolverMap() {
 		var addresses map[registry2.PortName]string
 		var path string
 		if peer.Type == topology.FSCPeer {
-			addresses = map[registry2.PortName]string{}
 			if n.topology.NodeOUs {
 				switch peer.Role {
 				case "":

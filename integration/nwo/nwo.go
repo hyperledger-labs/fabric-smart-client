@@ -143,7 +143,7 @@ func (n *NWO) StopFSCNode(id string) {
 			return
 		}
 	}
-	logger.Errorf("Stopping fsc node [%s] done", id)
+	logger.Errorf("Stopping fsc node [%s]...done", id)
 }
 
 func (n *NWO) StartFSCNode(id string) {
@@ -161,5 +161,5 @@ func (n *NWO) StartFSCNode(id string) {
 			return
 		}
 	}
-	logger.Errorf("Starting fsc node [%s]...not found", id)
+	logger.Errorf("Starting fsc node [%s]...done", id)
 }
