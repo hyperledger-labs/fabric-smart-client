@@ -9,8 +9,11 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/api"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
+
+var logger = flogging.MustGetLogger("view-sdk")
 
 // PortName is the type variable for the socket ports
 type PortName string
@@ -56,6 +59,7 @@ func (e *EndpointService) Resolve(party view.Identity) (view.Identity, map[PortN
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	logger.Debugf("resolved [%s] to [%s] with ports [%v]", party, id, ports)
 	out := map[PortName]string{}
 	for name, s := range ports {
 		out[PortName(name)] = s

@@ -86,19 +86,19 @@ func (r *service) Endpoint(party view.Identity) (map[api.PortName]string, error)
 				return nil, errors.Wrapf(err, "endpoint not found for identity [%s,%s]", string(cursor), cursor.UniqueID())
 			}
 
-			// if len(ee.Endpoints) != 0 {
-			// 	logger.Debugf("resolved to [%s,%s,%s]", cursor, ee.Endpoints, ee.Identity)
-			// 	return ee.Endpoints, nil
-			// }
-
 			cursor = ee.Identity
 			logger.Debugf("continue to [%s,%s,%s]", cursor, ee.Endpoints, ee.Identity)
 			continue
 		}
 
+		logger.Debugf("endpoint for [%s] to [%s] with ports [%v]", party, cursor, e)
 		return e, nil
 	}
 }
+
+var (
+	resolved = make(map[string]view.Identity)
+)
 
 func (r *service) Resolve(party view.Identity) (view.Identity, map[api.PortName]string, []byte, error) {
 	cursor := party
@@ -113,16 +113,17 @@ func (r *service) Resolve(party view.Identity) (view.Identity, map[api.PortName]
 				return nil, nil, nil, errors.Wrapf(err, "endpoint not found for identity [%s,%s]", string(cursor), cursor.UniqueID())
 			}
 
-			// if len(ee.Endpoints) != 0 {
-			// 	logger.Debugf("resolved to [%s,%s,%s]", cursor, ee.Endpoints, ee.Identity)
-			// 	return ee.Identity, ee.Endpoints, r.pkiResolve(ee.Identity), nil
-			// }
-
 			cursor = ee.Identity
 			logger.Debugf("continue to [%s,%s,%s]", cursor, ee.Endpoints, ee.Identity)
 			continue
 		}
 
+		logger.Debugf("resolved [%s] to [%s] with ports [%v]", party, cursor, e)
+		alreadyResolved, ok := resolved[party.UniqueID()]
+		if ok && !alreadyResolved.Equal(cursor) {
+			return nil, nil, nil, errors.Errorf("[%s] already resolved to [%s], resolved to [%s] this time", party, alreadyResolved, cursor)
+		}
+		resolved[party.UniqueID()] = cursor
 		return cursor, e, r.pkiResolve(cursor), nil
 	}
 }

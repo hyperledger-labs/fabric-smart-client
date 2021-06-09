@@ -119,30 +119,36 @@ func (ctx *ctx) GetSession(f view.View, party view.Identity) (view.Session, erro
 
 	var err error
 	id := party
+
+	logger.Debugf("get session for [%s:%s]", id.UniqueID(), getIdentifier(f))
 	s, ok := ctx.sessions[id.UniqueID()]
 	if !ok {
-		// TODO: do we need a recursion here?
+		logger.Debugf("session for [%s] does not exists, resolve", id.UniqueID())
 		id, _, _, err = view2.GetEndpointService(ctx).Resolve(party)
 		if err == nil {
 			s, ok = ctx.sessions[id.UniqueID()]
+			logger.Debugf("session resolved for [%s] exists? [%v]", id.UniqueID(), ok)
 		}
+	} else {
+		logger.Debugf("session for [%s] found", id.UniqueID())
 	}
 
 	if ok && s.Info().Closed {
 		// Remove this session cause it is closed
+		logger.Debugf("removing session [%s], it is closed", id.UniqueID(), ok)
 		delete(ctx.sessions, id.UniqueID())
 		ok = false
 	}
 
 	if !ok {
-		logger.Debugf("[%s] Creating new session [to:%s]", ctx.me, party)
-		s, err = ctx.newSession(f, ctx.id, party)
+		logger.Debugf("[%s] Creating new session [to:%s]", ctx.me, id)
+		s, err = ctx.newSession(f, ctx.id, id)
 		if err != nil {
 			return nil, err
 		}
-		ctx.sessions[party.UniqueID()] = s
+		ctx.sessions[id.UniqueID()] = s
 	} else {
-		logger.Debugf("[%s] Reusing session [to:%s]", ctx.me, party)
+		logger.Debugf("[%s] Reusing session [to:%s]", ctx.me, id)
 	}
 	return s, nil
 }
@@ -151,6 +157,7 @@ func (ctx *ctx) GetSessionByID(id string, party view.Identity) (view.Session, er
 	ctx.sessionsLock.Lock()
 	defer ctx.sessionsLock.Unlock()
 
+	// TODO: do we need to resolve?
 	var err error
 	key := id + "." + party.UniqueID()
 	s, ok := ctx.sessions[key]
