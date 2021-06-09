@@ -56,20 +56,20 @@ func (r *RecipientRequest) FromBytes(raw []byte) error {
 	return json.Unmarshal(raw, r)
 }
 
-type requestPseudonymFlow struct {
+type requestPseudonymView struct {
 	Channel string
 	Other   view.Identity
 }
 
 func RequestRecipientIdentity(context view.Context, other view.Identity) (view.Identity, error) {
-	pseudonymBoxed, err := context.RunView(&requestPseudonymFlow{Other: other})
+	pseudonymBoxed, err := context.RunView(&requestPseudonymView{Other: other})
 	if err != nil {
 		return nil, err
 	}
 	return pseudonymBoxed.(view.Identity), nil
 }
 
-func (f requestPseudonymFlow) Call(context view.Context) (interface{}, error) {
+func (f requestPseudonymView) Call(context view.Context) (interface{}, error) {
 	session, err := context.GetSession(context.Initiator(), f.Other)
 	if err != nil {
 		return nil, err
@@ -89,7 +89,7 @@ func (f requestPseudonymFlow) Call(context view.Context) (interface{}, error) {
 		return nil, err
 	}
 
-	// Wait to receive a flow identity
+	// Wait to receive an identity
 	ch := session.Receive()
 	var payload []byte
 	select {
@@ -112,11 +112,11 @@ func (f requestPseudonymFlow) Call(context view.Context) (interface{}, error) {
 	return recipientData.Identity, nil
 }
 
-type respondPseudonymFlow struct {
+type respondPseudonymView struct {
 	Wallet string
 }
 
-func (s *respondPseudonymFlow) Call(context view.Context) (interface{}, error) {
+func (s *respondPseudonymView) Call(context view.Context) (interface{}, error) {
 	session, payload, err := session2.ReadFirstMessage(context)
 	if err != nil {
 		return nil, err
@@ -151,26 +151,26 @@ func (s *respondPseudonymFlow) Call(context view.Context) (interface{}, error) {
 	return recipientData.Identity, nil
 }
 
-func NewRespondRequestRecipientIdentityFlow() view.View {
-	return &respondPseudonymFlow{}
+func NewRespondRequestRecipientIdentityView() view.View {
+	return &respondPseudonymView{}
 }
 
 func RespondRequestRecipientIdentity(context view.Context) (view.Identity, error) {
-	id, err := context.RunView(NewRespondRequestRecipientIdentityFlow())
+	id, err := context.RunView(NewRespondRequestRecipientIdentityView())
 	if err != nil {
 		return nil, err
 	}
 	return id.(view.Identity), nil
 }
 
-type exchangePseudonymFlow struct {
+type exchangePseudonymView struct {
 	Network string
 	Channel string
 	Wallet  string
 	Other   view.Identity
 }
 
-func (f *exchangePseudonymFlow) Call(context view.Context) (interface{}, error) {
+func (f *exchangePseudonymView) Call(context view.Context) (interface{}, error) {
 	session, err := context.GetSession(context.Initiator(), f.Other)
 	if err != nil {
 		return nil, err
@@ -193,7 +193,7 @@ func (f *exchangePseudonymFlow) Call(context view.Context) (interface{}, error) 
 		return nil, err
 	}
 
-	// Wait to receive a flow identity
+	// Wait to receive an identity
 	payload, err := session2.ReadMessageWithTimeout(session, 30*time.Second)
 	if err != nil {
 		return nil, err
@@ -221,11 +221,11 @@ func (f *exchangePseudonymFlow) Call(context view.Context) (interface{}, error) 
 	return []view.Identity{me, recipientData.Identity}, nil
 }
 
-type respondExchangePseudonymFlow struct {
+type respondExchangePseudonymView struct {
 	Wallet string
 }
 
-func (s *respondExchangePseudonymFlow) Call(context view.Context) (interface{}, error) {
+func (s *respondExchangePseudonymView) Call(context view.Context) (interface{}, error) {
 	session, requestRaw, err := session2.ReadFirstMessage(context)
 	if err != nil {
 		return nil, err
@@ -267,7 +267,7 @@ func (s *respondExchangePseudonymFlow) Call(context view.Context) (interface{}, 
 }
 
 func ExchangeRecipientIdentitiesInitiator(context view.Context, myWalletID string, recipient view.Identity) (view.Identity, view.Identity, error) {
-	ids, err := context.RunView(&exchangePseudonymFlow{
+	ids, err := context.RunView(&exchangePseudonymView{
 		Channel: "",
 		Wallet:  myWalletID,
 		Other:   recipient,
@@ -280,7 +280,7 @@ func ExchangeRecipientIdentitiesInitiator(context view.Context, myWalletID strin
 }
 
 func ExchangeRecipientIdentitiesResponder(context view.Context) (view.Identity, view.Identity, error) {
-	ids, err := context.RunView(&respondExchangePseudonymFlow{})
+	ids, err := context.RunView(&respondExchangePseudonymView{})
 	if err != nil {
 		return nil, nil, err
 	}

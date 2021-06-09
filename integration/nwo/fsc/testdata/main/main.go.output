@@ -11,6 +11,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk"
 
 	viewregistry "github.com/hyperledger-labs/fabric-smart-client/platform/view"
+	fsc "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	initiator1 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/testdata/foo/initiator"
 	initiator "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/testdata/initiator"
 	responder "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/testdata/responder"
@@ -19,6 +20,8 @@ import (
 func main() {
 	n := fscnode.New()
 	n.InstallSDK(fabric.NewSDK(n))
+	n.InstallSDK(fsc.NewDummySDK(n))
+	
 	n.Execute(func() error {
 		registry := viewregistry.GetRegistry(n)
 		if err := registry.RegisterFactory("initiator", &initiator.Factory{}); err != nil {

@@ -589,24 +589,6 @@ func (n *Network) bootstrapExtraIdentities() {
 }
 
 func (n *Network) CheckTopology() {
-	cwd, err := os.Getwd()
-	Expect(err).NotTo(HaveOccurred())
-
-	substring := "fabric-smart-client"
-	n.ExternalBuilders = []fabricconfig.ExternalBuilder{{
-		Path: filepath.Join(
-			cwd[:strings.LastIndex(cwd, substring)],
-			substring,
-			"integration",
-			"nwo",
-			"fabric",
-			"externalbuilders",
-			"external",
-		),
-		Name:                 "external",
-		PropagateEnvironment: []string{"GOPATH", "GOCACHE", "GOPROXY", "HOME", "PATH"},
-	}}
-
 	if n.Templates == nil {
 		n.Templates = &topology.Templates{}
 	}

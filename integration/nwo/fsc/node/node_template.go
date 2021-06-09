@@ -26,6 +26,9 @@ import (
 func main() {
 	n := fscnode.New()
 	n.InstallSDK(fabric.NewSDK(n))
+	{{- range .SDKs }}
+	n.InstallSDK({{ .Type }})
+	{{ end }}
 	n.Execute(func() error {
 		{{- if InstallView }}
 		registry := viewregistry.GetRegistry(n)

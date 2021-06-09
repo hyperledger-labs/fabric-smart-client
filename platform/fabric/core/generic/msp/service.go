@@ -157,8 +157,10 @@ func (s *service) DefaultSigningIdentity() api2.SigningIdentity {
 }
 
 func (s *service) GetIdentityInfoByLabel(mspType string, label string) *api2.IdentityInfo {
+	logger.Debugf("get identity info by label [%s:%s]", mspType, label)
 	r, ok := s.resolversByTypeAndName[mspType+label]
 	if !ok {
+		logger.Debugf("identity info not found for label [%s:%s][%v]", mspType, label, s.resolversByTypeAndName)
 		return nil
 	}
 	return &api2.IdentityInfo{

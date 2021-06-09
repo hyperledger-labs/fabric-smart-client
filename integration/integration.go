@@ -221,6 +221,9 @@ func (i *Infrastructure) initNWO() {
 		}
 	}
 	platforms = append(platforms, fsc.NewPlatform(i.registry, i.buildServer.Client()))
+	for _, platform := range platforms {
+		i.registry.AddPlatform(platform.Name(), platform)
+	}
 	i.nwo = nwo.New(platforms...)
 }
 

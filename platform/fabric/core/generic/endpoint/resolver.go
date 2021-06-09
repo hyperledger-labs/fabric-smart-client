@@ -102,7 +102,7 @@ func (r *resolverService) LoadResolvers() error {
 				return errors.Errorf("expected bccsp type, got %s", resolver.Identity.MSPType)
 			}
 			resolver.Id = raw
-			logger.Infof("entry [%s,%s][%s] %s",
+			logger.Debugf("entry [%s,%s][%s] %s",
 				resolver.Name, resolver.Domain, resolver.Addresses,
 				view.Identity(resolver.Id).UniqueID(),
 			)
@@ -112,6 +112,7 @@ func (r *resolverService) LoadResolvers() error {
 			if err != nil {
 				return errors.Wrapf(err, "failed adding resolver")
 			}
+			logger.Debugf("added resolver [root-id:%s]", rootID.String())
 			resolver.RootID = rootID
 
 			// Bind Aliases

@@ -227,7 +227,7 @@ func (cm *manager) respond(responder view.View, id view.Identity, msg *view.Mess
 		}
 	}()
 
-	logger.Debugf("[%s] Respond [from:%s], [sessionID:%s], [contextID:%s]\n", id, msg.FromEndpoint, msg.SessionID, msg.ContextID)
+	logger.Debugf("[%s] Respond [from:%s], [sessionID:%s], [contextID:%s], [view:%s]", id, msg.FromEndpoint, msg.SessionID, msg.ContextID, getIdentifier(responder))
 
 	// get context
 	ctx, err = cm.newContext(id, msg)
