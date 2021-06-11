@@ -17,9 +17,9 @@ import (
 
 func TestEndToEnd(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Asset Transfer Secured Agreement (S1)")
+	RunSpecs(t, "Asset Transfer Secured Agreement (With Chaincode)")
 }
 
 func StartPort() int {
-	return integration.AssetTransferSecuredAgreementS1.StartPortForNode()
+	return integration.AssetTransferSecuredAgreementWithChaincode.StartPortForNode()
 }

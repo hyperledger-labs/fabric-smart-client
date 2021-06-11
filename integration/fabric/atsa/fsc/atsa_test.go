@@ -4,7 +4,7 @@ Copyright IBM Corp All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package nochaincode_test
+package fsc_test
 
 import (
 	"time"
@@ -13,8 +13,8 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/nochaincode"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/nochaincode/views"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/fsc"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/fsc/views"
 )
 
 var _ = Describe("EndToEnd", func() {
@@ -27,26 +27,26 @@ var _ = Describe("EndToEnd", func() {
 		ii.Stop()
 	})
 
-	Describe("Asset Transfer Secured Agreement", func() {
+	Describe("Asset Transfer Secured Agreement (With Approvers)", func() {
 		var (
-			issuer *nochaincode.Client
-			alice  *nochaincode.Client
-			bob    *nochaincode.Client
+			issuer *fsc.Client
+			alice  *fsc.Client
+			bob    *fsc.Client
 		)
 
 		BeforeEach(func() {
 			var err error
 			// Create the integration ii
-			ii, err = integration.Generate(StartPort(), nochaincode.Topology()...)
+			ii, err = integration.Generate(StartPort(), fsc.Topology()...)
 			Expect(err).NotTo(HaveOccurred())
 			// Start the integration ii
 			ii.Start()
 
 			approver := ii.Identity("approver")
 
-			issuer = nochaincode.NewClient(ii.Client("issuer"), ii.Identity("issuer"), approver)
-			alice = nochaincode.NewClient(ii.Client("alice"), ii.Identity("alice"), approver)
-			bob = nochaincode.NewClient(ii.Client("bob"), ii.Identity("bob"), approver)
+			issuer = fsc.NewClient(ii.Client("issuer"), ii.Identity("issuer"), approver)
+			alice = fsc.NewClient(ii.Client("alice"), ii.Identity("alice"), approver)
+			bob = fsc.NewClient(ii.Client("bob"), ii.Identity("bob"), approver)
 		})
 
 		It("succeeded", func() {

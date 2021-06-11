@@ -17,7 +17,7 @@ import (
 
 func TestEndToEnd(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Ping Pong Suite (on Generic Platform")
+	RunSpecs(t, "Ping Pong Suite")
 }
 
 func StartPort() int {

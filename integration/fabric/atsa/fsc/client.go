@@ -3,10 +3,10 @@ Copyright IBM Corp. All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
 */
-package nochaincode
+package fsc
 
 import (
-	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/nochaincode/views"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/fsc/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
