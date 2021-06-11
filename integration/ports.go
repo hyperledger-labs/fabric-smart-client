@@ -27,8 +27,8 @@ const (
 	PingPongPort
 	PingPong2Port
 	IOUPort
-	AssetTransferSecuredAgreementS1
-	AssetTransferSecuredAgreementS3
+	AssetTransferSecuredAgreementWithChaincode
+	AssetTransferSecuredAgreementWithApprovers
 )
 
 // StartPortForNode On linux, the default ephemeral port range is 32768-60999 and can be

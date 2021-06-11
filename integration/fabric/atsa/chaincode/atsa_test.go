@@ -28,7 +28,7 @@ var _ = Describe("EndToEnd", func() {
 		ii.Stop()
 	})
 
-	Describe("Asset Transfer Secured Agreement", func() {
+	Describe("Asset Transfer Secured Agreement (With Chaincode)", func() {
 		var (
 			alice *chaincode.Client
 			bob   *chaincode.Client

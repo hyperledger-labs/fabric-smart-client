@@ -4,7 +4,7 @@ Copyright IBM Corp All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package nochaincode_test
+package fsc_test
 
 import (
 	"testing"
@@ -17,9 +17,9 @@ import (
 
 func TestEndToEnd(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Asset Transfer Secured Agreement (S3)")
+	RunSpecs(t, "Asset Transfer Secured Agreement (With Approvers)")
 }
 
 func StartPort() int {
-	return integration.AssetTransferSecuredAgreementS3.StartPortForNode()
+	return integration.AssetTransferSecuredAgreementWithApprovers.StartPortForNode()
 }

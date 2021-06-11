@@ -12,7 +12,7 @@ import (
 	"github.com/onsi/gomega"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/chaincode"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/nochaincode"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fsc/pingpong"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo"
@@ -23,7 +23,7 @@ func main() {
 	topologies := map[string][]nwo.Topology{}
 
 	topologies["fabric_atsa_chaincode.yaml"] = chaincode.Topology()
-	topologies["fabric_atsa_nochaincode.yaml"] = nochaincode.Topology()
+	topologies["fabric_atsa_nochaincode.yaml"] = fsc.Topology()
 	topologies["fabric_iou.yaml"] = iou.Topology()
 
 	topologies["generic_pingpong.yaml"] = pingpong.Topology()
