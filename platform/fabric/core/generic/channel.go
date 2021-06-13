@@ -298,7 +298,7 @@ func (c *channel) init() error {
 	logger.Infof("looking up the latest config block available")
 	var sequence uint64 = 1
 	for {
-		txid := "configtx_" + strconv.FormatUint(sequence, 10)
+		txid := committer.ConfigTXPrefix + strconv.FormatUint(sequence, 10)
 		vc, err := c.vault.Status(txid)
 		if err != nil {
 			panic(fmt.Sprintf("failed getting tx's status [%s], with err [%s]", txid, err))
@@ -306,7 +306,7 @@ func (c *channel) init() error {
 		done := false
 		switch vc {
 		case api.Valid:
-			txid := "configtx_" + strconv.FormatUint(sequence, 10)
+			txid := committer.ConfigTXPrefix + strconv.FormatUint(sequence, 10)
 			logger.Infof("config block available, txid [%s], loading...", txid)
 
 			key, err := rwset.CreateCompositeKey(channelConfigKey, []string{strconv.FormatUint(sequence, 10)})

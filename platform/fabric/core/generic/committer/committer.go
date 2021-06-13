@@ -10,13 +10,18 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger/fabric-protos-go/common"
 	pb "github.com/hyperledger/fabric-protos-go/peer"
 	"github.com/pkg/errors"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/api"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
+)
+
+const (
+	ConfigTXPrefix = "configtx_"
 )
 
 var logger = flogging.MustGetLogger("fabric-sdk.committer")

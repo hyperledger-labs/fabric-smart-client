@@ -16,6 +16,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/api"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/rwset"
 )
 
@@ -46,7 +47,7 @@ func (c *channel) CommitConfig(blockNumber uint64, envelope []byte) error {
 		return err
 	}
 
-	txid := "configtx_" + strconv.FormatUint(ctx.Config.Sequence, 10)
+	txid := committer.ConfigTXPrefix + strconv.FormatUint(ctx.Config.Sequence, 10)
 	vc, err := c.vault.Status(txid)
 	if err != nil {
 		panic(fmt.Sprintf("failed getting tx's status [%s], with err [%s]", txid, err))
