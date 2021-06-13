@@ -1,4 +1,4 @@
-# Teh Fabric Smart Client
+# The Fabric Smart Client
 
 The `Fabric Smart Client` (FSC, for short) is the `Next-Generation Fabric Client SDK`. FSC simplifies the development 
 of Fabric-based distributed applications by putting at the centre the `business processes`, and by 
@@ -176,6 +176,7 @@ This means preparing the RW set, and collecting endorsements. Moreover, the endo
   signing keys compatible with the endorsement policy of the chaincode the transaction targets. 
 
 Let us explore the above two possibilities in the following Sections.
+Also, please, find concrete examples in our Section dedicated to the Integration Tests [`here`](../integration/README.md).
 
 ### A Chaincode Mediated Example
 

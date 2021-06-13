@@ -153,9 +153,6 @@ A few questions remained unanswered there though. Namely:
 A way to answer the first question is to imagine Alice connecting to her FSC node and ask the node
 to instantiate a given view, to execute it, and return the generated output.
 
-
-
-
 To do so, we use factories to create new instances of the view to be executed.
 Here is the View Factory for the initiator's View.
 ```go
@@ -172,9 +169,22 @@ func (i *InitiatorViewFactory) NewView(in []byte) (view.View, error) {
 To answer the second question, we need a way to tell the FSC node which view to execute
 in response to a first message from an incoming session opened by a remote party.
 
-## Network Topology
+## Testing
 
-The above example induces an FSC network topology with two FSC nodes.
+Normally, to run the `Ping Pong` sample, one would have to deploy the Fabric Smart Client nodes,
+invoke the view, and so on, by using a bunch of scripts.
+This is not the most convenient way to test programmatically an application.
+
+FSC provides an `Integration Test Infrastructure` that allow the developer to:
+- Describe the topology of the networks used (FSC network, in this case);
+- Boostrap these networks;
+- Initiate interactive protocols to complete given business tasks.
+
+Let us go step by step.
+
+### Describe the topology of the networks used
+
+The `Ping Pong` example induces an FSC network topology with two FSC nodes.
 One node for the `initiator` and another node for the `responder`.
 We can describe the network topology programmatically as follows:
 
@@ -201,12 +211,23 @@ func Topology() []nwo.Topology {
 	return []nwo.Topology{topology}
 }
 ```
-Step by step, this is what happens:
 
-- **Create an empty FSC network topology**: We start by creating an empty topology to which FSC node definitions will be added.
-- **Add the `initiator` view node (Executable's Package Path)**: One way to add an FSC node to the topology is to use the `AddNodeByName` method.
+Before we describe the meaning of the above piece of code, let us stress the following point that is crucial 
+to keep in mind.
+One limitation of golang is that it cannot load code at runtime. This means that all views
+that a node might use must be burned inside the FSC node executable (We will solve this problem
+by adding support for YAEGI, [`Issue 19`](https://github.com/hyperledger-labs/fabric-smart-client/issues/19)).
+
+Now, let us go step by step and explain the meaning of the above code. Our goal is to describe 
+the nodes in the network we want to boostrap. Each node will have its own definition.
+We have two nodes here, the `initiator`, Alice, and the `responder`, Bob. 
+
+- **Create an empty FSC network topology**: We start by creating an empty topology to which FSC node 
+  definitions will be added.
+- **Add the `initiator` FSC node (Executable's Package Path)**: One way to add an FSC node to the topology 
+  is to use the `AddNodeByName` method.
   This method creates and returns an empty description of an FSC node and assign it a name.
-  Once a node description is created, it can be populated in multiple ways.
+  When the node description is ready, it can be populated in multiple ways.
   In the above example, the `initiator` node is populated by setting the `Executable's Package Path`.
   Indeed, the method `SetExecutable` allows the developer to specify the package path that contains the main go file.
   Here is the content of the main file:
@@ -222,6 +243,7 @@ import (
 func main() {
 	node := fscnode.New()
 	node.Execute(func() error {
+		// Here, register view factories and responders as needed
 		registry := view.GetRegistry(node)
 		if err := registry.RegisterFactory("init", &pingpong.InitiatorViewFactory{}); err != nil {
 			return err
@@ -230,12 +252,11 @@ func main() {
 	})
 }
 ```
-- **Add the responder view node (Executable Synthesizer)** as : The responder node is added to the view network
-  as it has been done for the `initiator`.
-  Though, the responder node is populated differently.
-  Indeed, in the case of the responder, the node definition can be populated directly with the view factories
-  and responders needed.
-  Then, then the network is bootstrapped, the responder's main go file will be synthesize on the fly.
+- **Add the responder FSC node (Executable Synthesizer)** as : Again, we start by adding a new FSC node definition 
+  to the topology for the `responder`.
+  However, we describe the responder node differently.
+  Indeed, the node definition can be populated directly with the view factories and responders.
+  Then, at network bootstrap, the integration infrastructure synthesise the responder's `main` file on the fly.
   This is the output of the synthesization:
 ```go
 package main
@@ -252,6 +273,7 @@ func main() {
 	n := fscnode.New()
 	n.InstallSDK(fabric.NewSDK(n))
 	n.Execute(func() error {
+		// Here, register view factories and responders as needed
 		registry := viewregistry.GetRegistry(n)
 		registry.RegisterResponder(&pingpong.Responder{}, &pingpong.Initiator{})
 
@@ -260,16 +282,19 @@ func main() {
 }
 ```
 
+Once the topology is ready, the relative networks can be bootstrapped by creating a new integration test infrastructure.
+Now, it is time for Alice to initiate the ping pong. To do so, Alice must contact her 
+FSC node and ask the node to create a new instance of the `init` view, and run it.
+Now, recall that each FSC node exposes a GRPC service, the `View Service`, to do exactly this. Alice just needs to have a client to connect
+to this GRPC service and send the proper command. Fortunately enough, the Integration Test Infrastructure
+take care also of this.
 
-\subsection{Network}\label{subsec:network}
+To get the View Service client for Alice, we can do the following:
+```go
+alice := ii.Client("initiator")
+```
 
-Once all topologies are defined, then the relative networks can be bootstrapped by
-creating a new integration network.
-For each view node, the integration network gives access to an instance of the
-\textsf{view.Client} interface that allows the developer to initiate views on that node.
-\newline
-
-\noindent We are now ready to put together all components in a BDD test.
+We are now ready to put together all components in a BDD test.
 To make everything more concrete, let us take an example and see how its BDD test looks like.
 For this purpose, the ping-pong example will do the job.
 
@@ -305,17 +330,16 @@ Describe("Network-based Ping pong", func() {
 Let us describe what is happening in the above BDD test:
 
 - **Create the integration network**: This steps creates the
-  integration network consisting of all networks described by the passed topologies.
-  Each node in each network is assigned one or more network ports starting from
-  initial network port number used to construct the integration network.
-- **Start the integration network**: Once the network is created,
-  it can be started.
-  Depending on the specific network, configuration files, crypto material, and so on
+  integration test infrastructure consisting of all networks described by the passed topologies.
+  Each node in each network gets one or more network ports starting from
+  initial network port number used to construct the integration infrastructure.
+- **Start the integration infrastructure**: To do this, simply call the `Start` function.
+  Depending on the specific networks, configuration files, crypto material, and so on
   will be generated.
   Finally, the nodes will be executed in their own process.
-- **Get a client for the view node labelled initiator**:
-  To access a view node, the test developers can get an instance of the
-  \textsf{view.Client} interface by the node's name.
+- **Get a client for the FSC node labelled `initiator`**:
+  To access a FSC node, the test developers can get an instance of the
+  View Service client by the node's name.
 - **Initiate a view and check the output**:
-  With the client interface in hand, the test developers can initiate a view on the given node
+  With the View Service client in hand, the test developers can initiate a view on the given node
   and get the result.
