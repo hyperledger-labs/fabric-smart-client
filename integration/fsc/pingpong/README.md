@@ -72,9 +72,11 @@ func (p *Initiator) Call(context view.Context) (interface{}, error) {
 ```
 
 Let us go through the main steps:
-- **Retrieve responder identity**: The initiator is supposed to send a ping to the responder.
+- **Retrieve responder identity**: The initiator should send a ping to the responder.
   The first step is therefore to retrieve the responder's identity.
   This can be done by using the identity service.
+  If you are asking yourself: Where is defined the responder's identity?
+  It is in the initiator's configuration file. More information in this [Section](#FSC node's Configuration File).
 - **Open a session to the responder**: With the responder's identity, the initiator
   can open a session.
   The context allows the initiator to do that.
