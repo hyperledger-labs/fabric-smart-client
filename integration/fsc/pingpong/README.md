@@ -176,13 +176,13 @@ invoke the view, and so on, by using a bunch of scripts.
 This is not the most convenient way to test programmatically an application.
 
 FSC provides an `Integration Test Infrastructure` that allow the developer to:
-- Describe the topology of the networks used (FSC network, in this case);
+- Describe the topology of the networks (FSC network, in this case);
 - Boostrap these networks;
 - Initiate interactive protocols to complete given business tasks.
 
 Let us go step by step.
 
-### Describe the topology of the networks used
+### Describe the topology of the networks
 
 The `Ping Pong` example induces an FSC network topology with two FSC nodes.
 One node for the `initiator` and another node for the `responder`.
@@ -282,7 +282,21 @@ func main() {
 }
 ```
 
+### Boostrap these networks
+
 Once the topology is ready, the relative networks can be bootstrapped by creating a new integration test infrastructure.
+
+```go
+var err error
+// Create the integration ii
+ii, err = integration.Generate(StartPort2(), pingpong.Topology()...)
+Expect(err).NotTo(HaveOccurred())
+// Start the integration ii
+ii.Start()
+```
+
+### Initiate interactive protocols to complete given business tasks
+
 Now, it is time for Alice to initiate the ping pong. To do so, Alice must contact her 
 FSC node and ask the node to create a new instance of the `init` view, and run it.
 Now, recall that each FSC node exposes a GRPC service, the `View Service`, to do exactly this. Alice just needs to have a client to connect
@@ -343,3 +357,134 @@ Let us describe what is happening in the above BDD test:
 - **Initiate a view and check the output**:
   With the View Service client in hand, the test developers can initiate a view on the given node
   and get the result.
+  
+## Deeper Dive
+
+There are still questions to answers. Here are some:
+- How do I configure an FSC node?
+- How does an FSC node know where are the other nodes and who they are (their PKs)?
+- Where are information stored?
+
+The above questions can be answered by looking at an FSC node's configuration file. 
+
+### FSC node's Configuration File
+
+Let's start from the configuration file. 
+Here is the annotated configuration file used for the `initiator`, Alice. 
+You can find it [`here`](./testdata/fsc/fscnodes/fsc.initiator/core.yaml) too.
+
+````yaml
+---
+# Logging section
+logging:
+ # Spec
+ spec: grpc=error:debug
+ # Format
+ format: '%{color}%{time:2006-01-02 15:04:05.000 MST} [%{module}] %{shortfunc} -> %{level:.4s} %{id:03x}%{color:reset} %{message}'
+fsc:
+  # The FSC id provides a name for this peer instance and is used when
+  # naming docker resources.
+  id: fsc.initiator
+  # The networkId allows for logical separation of networks and is used when
+  # naming docker resources.
+  networkId: 2bhw25xuircy7mqvyxwllcnzsq
+  # This represents the endpoint to other FSC nodes in the same organization.
+  address: 127.0.0.1:20000
+  # Whether the FSC node should programmatically determine its address
+  # This case is useful for docker containers.
+  # When set to true, will override FSC address.
+  addressAutoDetect: true
+  # GRPC Server listener address   
+  listenAddress: 127.0.0.1:20000
+  # Identity of this node, used to connect to other nodes
+  identity:
+    # X.509 certificate used as identity of this node
+    cert:
+      file: ./../../crypto/peerOrganizations/fsc.example.com/peers/initiator.fsc.example.com/msp/signcerts/initiator.fsc.example.com-cert.pem
+    # Private key matching the X.509 certificate
+    key:
+      file: ./../../crypto/peerOrganizations/fsc.example.com/peers/initiator.fsc.example.com/msp/keystore/priv_sk
+  # TLS Settings
+  # (We use here the same set of properties as Hyperledger Fabric)
+  tls:
+    # Require server-side TLS
+    enabled:  true
+    # Require client certificates / mutual TLS for inbound connections.
+    # Note that clients that are not configured to use a certificate will
+    # fail to connect to the peer.
+    clientAuthRequired: false
+    # X.509 certificate used for TLS server
+    cert:
+      file: ./../../crypto/peerOrganizations/fsc.example.com/peers/initiator.fsc.example.com/tls/server.crt
+    # Private key used for TLS server
+    key:
+      file: ./../../crypto/peerOrganizations/fsc.example.com/peers/initiator.fsc.example.com/tls/server.key
+    # X.509 certificate used for TLS when making client connections.
+    # If not set, fsc.tls.cert.file will be used instead
+    clientCert:
+      file: ./../../crypto/peerOrganizations/fsc.example.com/peers/initiator.fsc.example.com/tls/server.crt
+    # Private key used for TLS when making client connections.
+    # If not set, fsc.tls.key.file will be used instead
+    clientKey:
+      file: ./../../crypto/peerOrganizations/fsc.example.com/peers/initiator.fsc.example.com/tls/server.key
+    # rootcert.file represents the trusted root certificate chain used for verifying certificates
+    # of other nodes during outbound connections.
+    rootcert:
+      file: ./../../crypto/peerOrganizations/fsc.example.com/peers/initiator.fsc.example.com/tls/ca.crt
+    # If mutual TLS is enabled, clientRootCAs.files contains a list of additional root certificates
+    # used for verifying certificates of client connections.
+    clientRootCAs:
+      files:
+      - ./../../crypto/peerOrganizations/fsc.example.com/peers/initiator.fsc.example.com/tls/ca.crt
+    rootCertFile: ./../../crypto/ca-certs.pem
+  # Keepalive settings for node server and clients
+  keepalive:
+    # MinInterval is the minimum permitted time between client pings.
+    # If clients send pings more frequently, the peer server will
+    # disconnect them
+    minInterval: 60s
+    # Interval is the duration after which if the server does not see
+    # any activity from the client it pings the client to see if it's alive
+    interval: 300s
+    # Timeout is the duration the server waits for a response
+    # from the client after sending a ping before closing the connection
+    timeout: 600s
+  # P2P configuration
+  p2p:
+    # Listening address
+    listenAddress: /ip4/127.0.0.1/tcp/20001
+    # If empty, this is a P2P boostrap node. Otherwise, it contains the name of the FCS node that is a bootstrap node
+    bootstrapNode: 
+  # The Key-Value Store is used to store various information related to the FSC node
+  kvs:
+    persistence:
+      # Persistence type can be `badger` (on disk) or `memory`
+      type: badger
+      opts:
+        path: ./../../fscnodes/fsc.initiator/kvs
+  # The endpoint section tells how to reach other FSC node in the network.
+  # For each node, the name, the domain, the identity of the node, and its addresses must be specified.
+  endpoint:
+    resolves: 
+    - name: initiator
+      domain: fsc.example.com
+      identity:
+        id: initiator
+        path: ./../../crypto/peerOrganizations/fsc.example.com/peers/initiator.fsc.example.com/msp/signcerts/initiator.fsc.example.com-cert.pem
+      addresses:
+         Listen: 127.0.0.1:20000
+         P2P: 127.0.0.1:20001
+         View: 127.0.0.1:20000
+    - name: responder
+      domain: fsc.example.com
+      identity:
+        id: responder
+        path: ./../../crypto/peerOrganizations/fsc.example.com/peers/responder.fsc.example.com/msp/signcerts/responder.fsc.example.com-cert.pem
+      addresses:
+         # GRPC Server listening address
+         Listen: 127.0.0.1:20002
+         # P2P listening address
+         P2P: 127.0.0.1:20003
+         # View Service listening address (usually the same as Listen)
+         View: 127.0.0.1:20002
+````
