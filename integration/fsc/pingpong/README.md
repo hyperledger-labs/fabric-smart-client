@@ -295,6 +295,15 @@ Expect(err).NotTo(HaveOccurred())
 ii.Start()
 ```
 
+Depending on the specific networks, configuration files, crypto material, and so on will be generated.
+Finally, the FSC nodes will be executed in their own process.
+
+You can find all the generated material for the `ping pong` example [`here`](./testdata/fsc).
+There, you will find the following folders 
+- `crypto` that contains all the crypto material (we use a customized version
+of Fabric's `cryptogen`), and 
+- `fscnodes` that contains the FSC nodes' configurations.
+
 ### Initiate interactive protocols to complete given business tasks
 
 Now, it is time for Alice to initiate the ping pong. To do so, Alice must contact her 
