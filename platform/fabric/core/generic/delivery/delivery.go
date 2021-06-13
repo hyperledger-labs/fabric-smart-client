@@ -7,6 +7,7 @@ package delivery
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/hyperledger/fabric-protos-go/common"
@@ -14,6 +15,7 @@ import (
 	pb "github.com/hyperledger/fabric-protos-go/peer"
 	"github.com/pkg/errors"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/api"
@@ -145,7 +147,7 @@ func (d *delivery) connect() (DeliverFiltered, error) {
 	}
 
 	start := &ab.SeekPosition{}
-	if len(lastTxID) != 0 {
+	if len(lastTxID) != 0 && !strings.HasPrefix(lastTxID, committer.ConfigTXPrefix) {
 		// Retrieve block from Fabric
 		ch, err := d.network.Channel(d.channel)
 		if err != nil {
