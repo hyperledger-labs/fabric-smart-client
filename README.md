@@ -18,7 +18,7 @@ Fabric Smart Client has not been audited and is provided as-is, use at your own 
 - [`Documentation`](./docs/design.md): Discover the design principles of the Fabric Smart Client based on the
 `Hidden Gems` of Hyperledger Fabric.
 - [`Examples`](./integration/README.md): Learn how to use the Fabric Smart Client via examples. There is nothing better than this.
-- `Feedback`: Your help is the key to the success of the Fabric Smart Client. Submit your issues [`here`][`fabric-smart-client` Issues]
+- [`Feedback`][`fabric-smart-client` Issues]: Your help is the key to the success of the Fabric Smart Client. Submit your issues [`here`][`fabric-smart-client` Issues]
 - [`Fabric Token SDK`](https://github.com/hyperledger-labs/fabric-token-sdk): Do you want to develop Token-Based Distributed
 application with simplicity and joy? Check our Token SDK out [`here`](https://github.com/hyperledger-labs/fabric-token-sdk).
 

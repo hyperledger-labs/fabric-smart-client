@@ -14,13 +14,13 @@ We will start from the above sample to:
 - Second, highlights the limitations of the current sample and show how these limitations can be overcome
   using the `Fabric Smart Client`'s advanced capabilities and the Hyperledger Fabric hidden gems.
   
-Let us start with first bullet, ['here'](./chaincode/README.md). 
+Let us start with first bullet, [`here`](./chaincode/README.md). 
 There, we will learn:
 - The design of the solution used in the sample `Secured asset transfer in Fabric`.
 - How to write business views that invoke chaincodes.
 - How to write an integration test using the Fabric Smart Client's integration infrastructure.
 
-Then, let us move to the second buller, ['here'](./nochaincode/README.md).
+Then, let us move to the second bullet, [`here`](./fsc/README.md).
 There, we will learn:
 - The shortcomings of the current approach to solve the problem.
 - How to implement a new solution based on the `Fabric Smart Client`'s advanced capabilities.
