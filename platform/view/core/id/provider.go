@@ -29,7 +29,7 @@ type ConfigProvider interface {
 //go:generate counterfeiter -o mock/sig_service.go -fake-name SigService . SigService
 
 type SigService interface {
-	RegisterSignerWithType(typ api.IdentityType, identity view.Identity, signer api.Signer, verifier api.Verifier) error
+	RegisterSigner(identity view.Identity, signer api.Signer, verifier api.Verifier) error
 }
 
 type EndpointService interface {
@@ -97,7 +97,7 @@ func (p *provider) loadDefaultIdentity() error {
 	if err != nil {
 		return errors.Wrapf(err, "failed loading default signer")
 	}
-	if err := p.sigService.RegisterSignerWithType(api.ECDSAIdentity, id, signer, verifier); err != nil {
+	if err := p.sigService.RegisterSigner(id, signer, verifier); err != nil {
 		return errors.Wrapf(err, "failed registering default identity signer")
 	}
 	p.defaultID = defaultID

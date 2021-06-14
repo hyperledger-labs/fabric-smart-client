@@ -48,17 +48,6 @@ type SigService struct {
 		result1 api.SigningIdentity
 		result2 error
 	}
-	IdentityTypeStub        func(identity view.Identity) api.IdentityType
-	identityTypeMutex       sync.RWMutex
-	identityTypeArgsForCall []struct {
-		identity view.Identity
-	}
-	identityTypeReturns struct {
-		result1 api.IdentityType
-	}
-	identityTypeReturnsOnCall map[int]struct {
-		result1 api.IdentityType
-	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
@@ -216,54 +205,6 @@ func (fake *SigService) GetSigningIdentityReturnsOnCall(i int, result1 api.Signi
 	}{result1, result2}
 }
 
-func (fake *SigService) IdentityType(identity view.Identity) api.IdentityType {
-	fake.identityTypeMutex.Lock()
-	ret, specificReturn := fake.identityTypeReturnsOnCall[len(fake.identityTypeArgsForCall)]
-	fake.identityTypeArgsForCall = append(fake.identityTypeArgsForCall, struct {
-		identity view.Identity
-	}{identity})
-	fake.recordInvocation("IdentityType", []interface{}{identity})
-	fake.identityTypeMutex.Unlock()
-	if fake.IdentityTypeStub != nil {
-		return fake.IdentityTypeStub(identity)
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	return fake.identityTypeReturns.result1
-}
-
-func (fake *SigService) IdentityTypeCallCount() int {
-	fake.identityTypeMutex.RLock()
-	defer fake.identityTypeMutex.RUnlock()
-	return len(fake.identityTypeArgsForCall)
-}
-
-func (fake *SigService) IdentityTypeArgsForCall(i int) view.Identity {
-	fake.identityTypeMutex.RLock()
-	defer fake.identityTypeMutex.RUnlock()
-	return fake.identityTypeArgsForCall[i].identity
-}
-
-func (fake *SigService) IdentityTypeReturns(result1 api.IdentityType) {
-	fake.IdentityTypeStub = nil
-	fake.identityTypeReturns = struct {
-		result1 api.IdentityType
-	}{result1}
-}
-
-func (fake *SigService) IdentityTypeReturnsOnCall(i int, result1 api.IdentityType) {
-	fake.IdentityTypeStub = nil
-	if fake.identityTypeReturnsOnCall == nil {
-		fake.identityTypeReturnsOnCall = make(map[int]struct {
-			result1 api.IdentityType
-		})
-	}
-	fake.identityTypeReturnsOnCall[i] = struct {
-		result1 api.IdentityType
-	}{result1}
-}
-
 func (fake *SigService) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
@@ -273,8 +214,6 @@ func (fake *SigService) Invocations() map[string][][]interface{} {
 	defer fake.getVerifierMutex.RUnlock()
 	fake.getSigningIdentityMutex.RLock()
 	defer fake.getSigningIdentityMutex.RUnlock()
-	fake.identityTypeMutex.RLock()
-	defer fake.identityTypeMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

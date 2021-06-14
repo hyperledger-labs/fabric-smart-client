@@ -11,15 +11,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
-type IdentityType int
-
-const (
-	Unknown IdentityType = iota
-	MSPIdentity
-	ECDSAIdentity
-	IdemixIdentity
-)
-
 type Identity interface {
 	Serialize() ([]byte, error)
 
@@ -58,9 +49,6 @@ type SigService interface {
 
 	// GetSigningIdentity returns the signer identity bound to the passed identity
 	GetSigningIdentity(identity view.Identity) (SigningIdentity, error)
-
-	// IdentityType returns the type of the passed identity
-	IdentityType(identity view.Identity) IdentityType
 }
 
 func GetSigService(sp ServiceProvider) SigService {
@@ -91,12 +79,6 @@ type SigRegistry interface {
 
 	// RegisterVerifier binds the passed identity to the passed verifier
 	RegisterVerifier(identity view.Identity, verifier Verifier) error
-
-	// RegisterSignerWithType binds the passed identity to the passed signer and verifier
-	RegisterSignerWithType(typ IdentityType, identity view.Identity, signer Signer, verifier Verifier) error
-
-	// RegisterVerifierWithType binds the passed identity to the passed verifier
-	RegisterVerifierWithType(typ IdentityType, identity view.Identity, verifier Verifier) error
 }
 
 func GetSigRegistry(sp ServiceProvider) SigRegistry {

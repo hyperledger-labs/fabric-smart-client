@@ -10,71 +10,69 @@ import (
 )
 
 type SigService struct {
-	RegisterSignerWithTypeStub        func(typ api.IdentityType, identity view.Identity, signer api.Signer, verifier api.Verifier) error
-	registerSignerWithTypeMutex       sync.RWMutex
-	registerSignerWithTypeArgsForCall []struct {
-		typ      api.IdentityType
+	RegisterSignerStub        func(identity view.Identity, signer api.Signer, verifier api.Verifier) error
+	registerSignerMutex       sync.RWMutex
+	registerSignerArgsForCall []struct {
 		identity view.Identity
 		signer   api.Signer
 		verifier api.Verifier
 	}
-	registerSignerWithTypeReturns struct {
+	registerSignerReturns struct {
 		result1 error
 	}
-	registerSignerWithTypeReturnsOnCall map[int]struct {
+	registerSignerReturnsOnCall map[int]struct {
 		result1 error
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *SigService) RegisterSignerWithType(typ api.IdentityType, identity view.Identity, signer api.Signer, verifier api.Verifier) error {
-	fake.registerSignerWithTypeMutex.Lock()
-	ret, specificReturn := fake.registerSignerWithTypeReturnsOnCall[len(fake.registerSignerWithTypeArgsForCall)]
-	fake.registerSignerWithTypeArgsForCall = append(fake.registerSignerWithTypeArgsForCall, struct {
-		typ      api.IdentityType
+func (fake *SigService) RegisterSigner(identity view.Identity, signer api.Signer, verifier api.Verifier) error {
+	fake.registerSignerMutex.Lock()
+	ret, specificReturn := fake.registerSignerReturnsOnCall[len(fake.registerSignerArgsForCall)]
+	fake.registerSignerArgsForCall = append(fake.registerSignerArgsForCall, struct {
 		identity view.Identity
 		signer   api.Signer
 		verifier api.Verifier
-	}{typ, identity, signer, verifier})
-	fake.recordInvocation("RegisterSignerWithType", []interface{}{typ, identity, signer, verifier})
-	fake.registerSignerWithTypeMutex.Unlock()
-	if fake.RegisterSignerWithTypeStub != nil {
-		return fake.RegisterSignerWithTypeStub(typ, identity, signer, verifier)
+	}{identity, signer, verifier})
+	fake.recordInvocation("RegisterSigner", []interface{}{identity, signer, verifier})
+	fake.registerSignerMutex.Unlock()
+	if fake.RegisterSignerStub != nil {
+		return fake.RegisterSignerStub(identity, signer, verifier)
 	}
 	if specificReturn {
 		return ret.result1
 	}
-	return fake.registerSignerWithTypeReturns.result1
+	return fake.registerSignerReturns.result1
 }
 
-func (fake *SigService) RegisterSignerWithTypeCallCount() int {
-	fake.registerSignerWithTypeMutex.RLock()
-	defer fake.registerSignerWithTypeMutex.RUnlock()
-	return len(fake.registerSignerWithTypeArgsForCall)
+func (fake *SigService) RegisterSignerCallCount() int {
+	fake.registerSignerMutex.RLock()
+	defer fake.registerSignerMutex.RUnlock()
+	return len(fake.registerSignerArgsForCall)
 }
 
-func (fake *SigService) RegisterSignerWithTypeArgsForCall(i int) (api.IdentityType, view.Identity, api.Signer, api.Verifier) {
-	fake.registerSignerWithTypeMutex.RLock()
-	defer fake.registerSignerWithTypeMutex.RUnlock()
-	return fake.registerSignerWithTypeArgsForCall[i].typ, fake.registerSignerWithTypeArgsForCall[i].identity, fake.registerSignerWithTypeArgsForCall[i].signer, fake.registerSignerWithTypeArgsForCall[i].verifier
+func (fake *SigService) RegisterSignerArgsForCall(i int) (view.Identity, api.Signer, api.Verifier) {
+	fake.registerSignerMutex.RLock()
+	defer fake.registerSignerMutex.RUnlock()
+	return fake.registerSignerArgsForCall[i].identity, fake.registerSignerArgsForCall[i].signer, fake.registerSignerArgsForCall[i].verifier
 }
 
-func (fake *SigService) RegisterSignerWithTypeReturns(result1 error) {
-	fake.RegisterSignerWithTypeStub = nil
-	fake.registerSignerWithTypeReturns = struct {
+func (fake *SigService) RegisterSignerReturns(result1 error) {
+	fake.RegisterSignerStub = nil
+	fake.registerSignerReturns = struct {
 		result1 error
 	}{result1}
 }
 
-func (fake *SigService) RegisterSignerWithTypeReturnsOnCall(i int, result1 error) {
-	fake.RegisterSignerWithTypeStub = nil
-	if fake.registerSignerWithTypeReturnsOnCall == nil {
-		fake.registerSignerWithTypeReturnsOnCall = make(map[int]struct {
+func (fake *SigService) RegisterSignerReturnsOnCall(i int, result1 error) {
+	fake.RegisterSignerStub = nil
+	if fake.registerSignerReturnsOnCall == nil {
+		fake.registerSignerReturnsOnCall = make(map[int]struct {
 			result1 error
 		})
 	}
-	fake.registerSignerWithTypeReturnsOnCall[i] = struct {
+	fake.registerSignerReturnsOnCall[i] = struct {
 		result1 error
 	}{result1}
 }
@@ -82,8 +80,8 @@ func (fake *SigService) RegisterSignerWithTypeReturnsOnCall(i int, result1 error
 func (fake *SigService) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.registerSignerWithTypeMutex.RLock()
-	defer fake.registerSignerWithTypeMutex.RUnlock()
+	fake.registerSignerMutex.RLock()
+	defer fake.registerSignerMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

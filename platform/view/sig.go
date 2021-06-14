@@ -10,15 +10,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
-type IdentityType int
-
-const (
-	Unknown IdentityType = iota
-	X509MSPIdentity
-	IdemixMSPIdentity
-	ECDSAIdentity
-)
-
 // Signer is an interface which wraps the Sign method.
 type Signer interface {
 	// Sign signs message bytes and returns the signature or an error on failure.
@@ -85,14 +76,6 @@ func (s *SigService) RegisterVerifier(identity view.Identity, verifier Verifier)
 	return s.sigRegistry.RegisterVerifier(identity, verifier)
 }
 
-func (s *SigService) RegisterSignerWithType(typ IdentityType, identity view.Identity, signer Signer, verifier Verifier) error {
-	return s.sigRegistry.RegisterSignerWithType(api.IdentityType(typ), identity, signer, verifier)
-}
-
-func (s *SigService) RegisterVerifierWithType(typ IdentityType, identity view.Identity, verifier Verifier) error {
-	return s.sigRegistry.RegisterVerifierWithType(api.IdentityType(typ), identity, verifier)
-}
-
 func (s *SigService) GetSigner(identity view.Identity) (Signer, error) {
 	return s.sigService.GetSigner(identity)
 }
@@ -107,10 +90,6 @@ func (s *SigService) GetSigningIdentity(identity view.Identity) (*SigningIdentit
 		return nil, err
 	}
 	return &SigningIdentity{si: si}, nil
-}
-
-func (s *SigService) IdentityType(identity view.Identity) IdentityType {
-	return IdentityType(s.sigService.IdentityType(identity))
 }
 
 func GetSigService(sp ServiceProvider) *SigService {

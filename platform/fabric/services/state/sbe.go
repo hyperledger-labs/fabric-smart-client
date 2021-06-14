@@ -16,13 +16,8 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
-
-type TypeIdentifier interface {
-	IdentityType(identity view.Identity) view2.IdentityType
-}
 
 type sbeMetaHandler struct {
 	forceSBE bool
