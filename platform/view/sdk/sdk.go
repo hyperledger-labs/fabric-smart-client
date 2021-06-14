@@ -17,6 +17,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/endpoint"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/id"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/id/x509"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/identity"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/crypto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
@@ -66,9 +67,8 @@ func (p *p) Install() error {
 
 	// Sig Service
 	des, err := sig.NewMultiplexDeserializer(p.registry)
-	if err != nil {
-		return errors.Wrap(err, "failed loading sig verifier deserializer service")
-	}
+	assert.NoError(err, "failed loading sig verifier deserializer service")
+	des.AddDeserializer(&x509.Deserializer{})
 	assert.NoError(p.registry.RegisterService(des))
 	signerService := sig.NewSignService(p.registry, des)
 	assert.NoError(p.registry.RegisterService(signerService))
@@ -82,8 +82,8 @@ func (p *p) Install() error {
 	assert.NoError(resolverService.LoadResolvers(), "failed loading resolvers")
 
 	// Set Identity Provider
-	idProvider := id.NewProvider(configProvider, signerService, endpointService, nil)
-	assert.NoError(idProvider.LoadIdentities(), "failed loading identities")
+	idProvider := id.NewProvider(configProvider, signerService, endpointService)
+	assert.NoError(idProvider.Load(), "failed loading identities")
 	assert.NoError(p.registry.RegisterService(idProvider))
 
 	// Server
@@ -92,7 +92,12 @@ func (p *p) Install() error {
 		return fmt.Errorf("error creating view service response marshaller: %s", err)
 	}
 
-	p.viewServer, err = server.NewServer(marshaller, server.YesPolicyChecker{})
+	p.viewServer, err = server.NewServer(marshaller,
+		server.NewAccessControlChecker(
+			idProvider,
+			view.GetSigService(p.registry),
+		),
+	)
 	if err != nil {
 		return fmt.Errorf("error creating view service server: %s", err)
 	}

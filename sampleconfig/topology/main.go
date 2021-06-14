@@ -26,7 +26,7 @@ func main() {
 	topologies["fabric_atsa_nochaincode.yaml"] = fsc.Topology()
 	topologies["fabric_iou.yaml"] = iou.Topology()
 
-	topologies["generic_pingpong.yaml"] = pingpong.Topology()
+	topologies["fsc_pingpong.yaml"] = pingpong.Topology()
 
 	for name, topologies := range topologies {
 		t := nwo.Topologies{Topologies: topologies}

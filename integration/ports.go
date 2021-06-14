@@ -26,6 +26,7 @@ const (
 	BasePort TestPortRange = basePort + portsPerSuite*iota
 	PingPongPort
 	PingPong2Port
+	PingPongWithAdminPort
 	IOUPort
 	AssetTransferSecuredAgreementWithChaincode
 	AssetTransferSecuredAgreementWithApprovers

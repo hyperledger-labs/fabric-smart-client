@@ -29,6 +29,15 @@ type IdentityProvider struct {
 	identityReturnsOnCall map[int]struct {
 		result1 view.Identity
 	}
+	AdminsStub        func() []view.Identity
+	adminsMutex       sync.RWMutex
+	adminsArgsForCall []struct{}
+	adminsReturns     struct {
+		result1 []view.Identity
+	}
+	adminsReturnsOnCall map[int]struct {
+		result1 []view.Identity
+	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
@@ -121,6 +130,46 @@ func (fake *IdentityProvider) IdentityReturnsOnCall(i int, result1 view.Identity
 	}{result1}
 }
 
+func (fake *IdentityProvider) Admins() []view.Identity {
+	fake.adminsMutex.Lock()
+	ret, specificReturn := fake.adminsReturnsOnCall[len(fake.adminsArgsForCall)]
+	fake.adminsArgsForCall = append(fake.adminsArgsForCall, struct{}{})
+	fake.recordInvocation("Admins", []interface{}{})
+	fake.adminsMutex.Unlock()
+	if fake.AdminsStub != nil {
+		return fake.AdminsStub()
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fake.adminsReturns.result1
+}
+
+func (fake *IdentityProvider) AdminsCallCount() int {
+	fake.adminsMutex.RLock()
+	defer fake.adminsMutex.RUnlock()
+	return len(fake.adminsArgsForCall)
+}
+
+func (fake *IdentityProvider) AdminsReturns(result1 []view.Identity) {
+	fake.AdminsStub = nil
+	fake.adminsReturns = struct {
+		result1 []view.Identity
+	}{result1}
+}
+
+func (fake *IdentityProvider) AdminsReturnsOnCall(i int, result1 []view.Identity) {
+	fake.AdminsStub = nil
+	if fake.adminsReturnsOnCall == nil {
+		fake.adminsReturnsOnCall = make(map[int]struct {
+			result1 []view.Identity
+		})
+	}
+	fake.adminsReturnsOnCall[i] = struct {
+		result1 []view.Identity
+	}{result1}
+}
+
 func (fake *IdentityProvider) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
@@ -128,6 +177,8 @@ func (fake *IdentityProvider) Invocations() map[string][][]interface{} {
 	defer fake.defaultIdentityMutex.RUnlock()
 	fake.identityMutex.RLock()
 	defer fake.identityMutex.RUnlock()
+	fake.adminsMutex.RLock()
+	defer fake.adminsMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

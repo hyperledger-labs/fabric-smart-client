@@ -19,6 +19,8 @@ type IdentityProvider interface {
 	DefaultIdentity() view.Identity
 	// Identity returns the identity bound to the passed label
 	Identity(label string) view.Identity
+	// Admins returns the identities of the administrators
+	Admins() []view.Identity
 }
 
 func GetIdentityProvider(sp ServiceProvider) IdentityProvider {

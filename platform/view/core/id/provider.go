@@ -11,13 +11,22 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/api"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id/ecdsa"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
+var logger = flogging.MustGetLogger("view-sdk.id")
+
+//go:generate counterfeiter -o mock/config_provider.go -fake-name ConfigProvider . ConfigProvider
+
 type ConfigProvider interface {
 	GetPath(s string) string
+	GetStringSlice(key string) []string
+	TranslatePath(path string) string
 }
+
+//go:generate counterfeiter -o mock/sig_service.go -fake-name SigService . SigService
 
 type SigService interface {
 	RegisterSignerWithType(typ api.IdentityType, identity view.Identity, signer api.Signer, verifier api.Verifier) error
@@ -32,13 +41,46 @@ type provider struct {
 	sigService      SigService
 	endpointService EndpointService
 	defaultID       view.Identity
+	admins          []view.Identity
 }
 
-func NewProvider(configProvider ConfigProvider, sigService SigService, endpointService EndpointService, defaultID view.Identity) *provider {
-	return &provider{configProvider: configProvider, sigService: sigService, endpointService: endpointService, defaultID: defaultID}
+func NewProvider(configProvider ConfigProvider, sigService SigService, endpointService EndpointService) *provider {
+	return &provider{
+		configProvider:  configProvider,
+		sigService:      sigService,
+		endpointService: endpointService,
+	}
 }
 
-func (p *provider) LoadIdentities() error {
+func (p *provider) Load() error {
+	if err := p.loadDefaultIdentity(); err != nil {
+		return errors.WithMessagef(err, "failed loading default identity")
+	}
+
+	if err := p.loadAdminIdentities(); err != nil {
+		return errors.WithMessagef(err, "failed loading admin identities")
+	}
+
+	return nil
+}
+
+func (p *provider) DefaultIdentity() view.Identity {
+	return p.defaultID
+}
+
+func (p *provider) Identity(label string) view.Identity {
+	id, err := p.endpointService.GetIdentity(label, nil)
+	if err != nil {
+		panic(err)
+	}
+	return id
+}
+
+func (p *provider) Admins() []view.Identity {
+	return p.admins
+}
+
+func (p *provider) loadDefaultIdentity() error {
 	defaultID, err := LoadIdentity(p.configProvider.GetPath("fsc.identity.cert.file"))
 	if err != nil {
 		return errors.Wrapf(err, "failed loading SFC Node Identity")
@@ -62,14 +104,21 @@ func (p *provider) LoadIdentities() error {
 	return nil
 }
 
-func (p *provider) DefaultIdentity() view.Identity {
-	return p.defaultID
-}
-
-func (p *provider) Identity(label string) view.Identity {
-	id, err := p.endpointService.GetIdentity(label, nil)
-	if err != nil {
-		panic(err)
+func (p *provider) loadAdminIdentities() error {
+	certs := p.configProvider.GetStringSlice("fsc.admin.certs")
+	var admins []view.Identity
+	for _, cert := range certs {
+		// TODO: support cert as a folder
+		certPath := p.configProvider.TranslatePath(cert)
+		admin, err := LoadIdentity(certPath)
+		if err != nil {
+			logger.Errorf("failed loading admin cert at [%s]: [%s]", certPath, err)
+			continue
+		}
+		logger.Infof("loaded admin cert at [%s]: [%s]", certPath, err)
+		admins = append(admins, admin)
 	}
-	return id
+	logger.Infof("loaded [%d] admin identities", len(admins))
+	p.admins = admins
+	return nil
 }

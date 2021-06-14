@@ -20,6 +20,11 @@ func (i *IdentityProvider) DefaultIdentity() view.Identity {
 	return i.ip.DefaultIdentity()
 }
 
+// Admins returns the identities of the administrators
+func (i *IdentityProvider) Admins() []view.Identity {
+	return i.ip.Admins()
+}
+
 // Identity returns the identity bound to the passed label
 func (i *IdentityProvider) Identity(label string) view.Identity {
 	return i.ip.Identity(label)

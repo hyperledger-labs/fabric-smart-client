@@ -65,7 +65,7 @@ var _ = Describe("EndToEnd", func() {
 		It("generate artifacts & successful pingpong", func() {
 			var err error
 			// Create the integration ii
-			ii, err = integration.Generate(StartPort2(), pingpong.Topology()...)
+			ii, err = integration.Generate(StartPortWithGeneration(), pingpong.Topology()...)
 			Expect(err).NotTo(HaveOccurred())
 			// Start the integration ii
 			ii.Start()
@@ -74,6 +74,22 @@ var _ = Describe("EndToEnd", func() {
 			initiator := ii.Client("initiator")
 			// Initiate a view and check the output
 			res, err := initiator.CallView("init", nil)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
+		})
+
+		It("generate artifacts & successful pingpong with Admin", func() {
+			var err error
+			// Create the integration ii
+			ii, err = integration.Generate(StartPortWithAdmin(), pingpong.Topology()...)
+			Expect(err).NotTo(HaveOccurred())
+			// Start the integration ii
+			ii.Start()
+			time.Sleep(3 * time.Second)
+			// Get an admin client for the fsc node labelled initiator
+			initiatorAdmin := ii.Admin("initiator")
+			// Initiate a view and check the output
+			res, err := initiatorAdmin.CallView("init", nil)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
 		})

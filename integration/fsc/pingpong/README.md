@@ -393,7 +393,7 @@ logging:
  # Format
  format: '%{color}%{time:2006-01-02 15:04:05.000 MST} [%{module}] %{shortfunc} -> %{level:.4s} %{id:03x}%{color:reset} %{message}'
 fsc:
-  # The FSC id provides a name for this peer instance and is used when
+  # The FSC id provides a name for this node instance and is used when
   # naming docker resources.
   id: fsc.initiator
   # The networkId allows for logical separation of networks and is used when
@@ -422,7 +422,7 @@ fsc:
     enabled:  true
     # Require client certificates / mutual TLS for inbound connections.
     # Note that clients that are not configured to use a certificate will
-    # fail to connect to the peer.
+    # fail to connect to the node.
     clientAuthRequired: false
     # X.509 certificate used for TLS server
     cert:
