@@ -23,7 +23,6 @@ var logger = flogging.MustGetLogger("view-sdk.sig")
 
 type service struct {
 	sp           api.ServiceProvider
-	types        map[string]api.IdentityType
 	signers      map[string]api.Signer
 	verifiers    map[string]api.Verifier
 	deserializer Deserializer
@@ -33,14 +32,13 @@ type service struct {
 func NewSignService(sp api.ServiceProvider, deserializer Deserializer) *service {
 	return &service{
 		sp:           sp,
-		types:        map[string]api.IdentityType{},
 		signers:      map[string]api.Signer{},
 		verifiers:    map[string]api.Verifier{},
 		deserializer: deserializer,
 	}
 }
 
-func (o *service) RegisterSignerWithType(typ api.IdentityType, identity view.Identity, signer api.Signer, verifier api.Verifier) error {
+func (o *service) RegisterSigner(identity view.Identity, signer api.Signer, verifier api.Verifier) error {
 	if signer == nil {
 		return errors.New("invalid signer, expected a valid instance")
 	}
@@ -58,13 +56,12 @@ func (o *service) RegisterSignerWithType(typ api.IdentityType, identity view.Ide
 	logger.Debugf("add signer for [id:%s]", identity.UniqueID())
 	o.viewsSync.Lock()
 	o.signers[identity.UniqueID()] = signer
-	o.types[identity.UniqueID()] = typ
 	o.viewsSync.Unlock()
 
-	return o.RegisterVerifierWithType(typ, identity, verifier)
+	return o.RegisterVerifier(identity, verifier)
 }
 
-func (o *service) RegisterVerifierWithType(typ api.IdentityType, identity view.Identity, verifier api.Verifier) error {
+func (o *service) RegisterVerifier(identity view.Identity, verifier api.Verifier) error {
 	if verifier == nil {
 		return errors.New("invalid verifier, expected a valid instance")
 	}
@@ -79,18 +76,9 @@ func (o *service) RegisterVerifierWithType(typ api.IdentityType, identity view.I
 	logger.Debugf("add verifier for [%s]", identity.UniqueID())
 	o.viewsSync.Lock()
 	o.verifiers[identity.UniqueID()] = verifier
-	o.types[identity.UniqueID()] = typ
 	o.viewsSync.Unlock()
 
 	return nil
-}
-
-func (o *service) RegisterSigner(identity view.Identity, signer api.Signer, verifier api.Verifier) error {
-	return o.RegisterSignerWithType(api.MSPIdentity, identity, signer, verifier)
-}
-
-func (o *service) RegisterVerifier(identity view.Identity, verifier api.Verifier) error {
-	return o.RegisterVerifierWithType(api.MSPIdentity, identity, verifier)
 }
 
 func (o *service) RegisterAuditInfo(identity view.Identity, info []byte) error {
@@ -197,14 +185,6 @@ func (o *service) GetSigningIdentity(identity view.Identity) (api.SigningIdentit
 		id:     identity,
 		signer: signer,
 	}, nil
-}
-
-func (o *service) IdentityType(identity view.Identity) api.IdentityType {
-	t, ok := o.types[identity.UniqueID()]
-	if !ok {
-		return api.Unknown
-	}
-	return t
 }
 
 type si struct {
