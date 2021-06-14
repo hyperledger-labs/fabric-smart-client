@@ -24,6 +24,10 @@ func StartPort() int {
 	return integration.PingPongPort.StartPortForNode()
 }
 
-func StartPort2() int {
+func StartPortWithGeneration() int {
 	return integration.PingPong2Port.StartPortForNode()
+}
+
+func StartPortWithAdmin() int {
+	return integration.PingPongWithAdminPort.StartPortForNode()
 }

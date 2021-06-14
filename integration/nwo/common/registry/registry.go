@@ -53,6 +53,7 @@ type Registry struct {
 	ViewIdentityAliases     map[string][]string
 	ConnectionConfigs       map[string]*grpc.ConnectionConfig
 	ClientSigningIdentities map[string]SigningIdentity
+	AdminSigningIdentities  map[string]SigningIdentity
 }
 
 func NewRegistry(topologies ...nwo.Topology) *Registry {
@@ -67,6 +68,7 @@ func NewRegistry(topologies ...nwo.Topology) *Registry {
 		ViewIdentityAliases:     map[string][]string{},
 		ConnectionConfigs:       map[string]*grpc.ConnectionConfig{},
 		ClientSigningIdentities: map[string]SigningIdentity{},
+		AdminSigningIdentities:  map[string]SigningIdentity{},
 		PortsByPeerID:           map[string]Ports{},
 		ExtensionsByPeerID:      map[string]Extensions{},
 		TopologiesByName:        topologiesByName,

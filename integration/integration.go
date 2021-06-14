@@ -172,6 +172,14 @@ func (i *Infrastructure) Client(name string) ViewClient {
 	return i.registry.ViewClients[name]
 }
 
+func (i *Infrastructure) Admin(name string) ViewClient {
+	if i.nwo == nil {
+		panic("call generate or load first")
+	}
+
+	return i.registry.ViewClients[name+".admin"]
+}
+
 func (i *Infrastructure) Identity(name string) view.Identity {
 	if i.nwo == nil {
 		panic("call generate or load first")

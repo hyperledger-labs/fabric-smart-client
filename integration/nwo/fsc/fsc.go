@@ -7,6 +7,9 @@ package fsc
 
 import (
 	"bytes"
+	"crypto/ecdsa"
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"go/build"
 	"io"
@@ -31,6 +34,7 @@ import (
 	registry2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/registry"
 	runner2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/runner"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/commands"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/identity"
 	node2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/crypto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client"
@@ -92,7 +96,7 @@ func (p *platform) GenerateArtifacts() {
 		cc := &grpc.ConnectionConfig{
 			Address:           p.PeerAddress(peer, ListenPort),
 			TLSEnabled:        true,
-			TLSRootCertFile:   path.Join(p.PeerLocalTLSDir(peer), "ca.crt"),
+			TLSRootCertFile:   path.Join(p.NodeLocalTLSDir(peer), "ca.crt"),
 			ConnectionTimeout: 10 * time.Minute,
 		}
 		p.Registry.ConnectionConfigs[peer.Name] = cc
@@ -101,7 +105,11 @@ func (p *platform) GenerateArtifacts() {
 		Expect(err).ToNot(HaveOccurred())
 		p.Registry.ClientSigningIdentities[peer.Name] = clientID
 
-		cert, err := ioutil.ReadFile(p.PeerLocalMSPIdentityCert(peer))
+		adminID, err := p.GetAdminSigningIdentity(peer)
+		Expect(err).ToNot(HaveOccurred())
+		p.Registry.AdminSigningIdentities[peer.Name] = adminID
+
+		cert, err := ioutil.ReadFile(p.LocalMSPIdentityCert(peer))
 		Expect(err).ToNot(HaveOccurred())
 		p.Registry.ViewIdentities[peer.Name] = cert
 
@@ -119,7 +127,7 @@ func (p *platform) Load() {
 		cc := &grpc.ConnectionConfig{
 			Address:           v.GetString("fsc.address"),
 			TLSEnabled:        true,
-			TLSRootCertFile:   path.Join(p.PeerLocalTLSDir(peer), "ca.crt"),
+			TLSRootCertFile:   path.Join(p.NodeLocalTLSDir(peer), "ca.crt"),
 			ConnectionTimeout: 10 * time.Minute,
 		}
 		p.Registry.ConnectionConfigs[peer.Name] = cc
@@ -128,7 +136,11 @@ func (p *platform) Load() {
 		Expect(err).ToNot(HaveOccurred())
 		p.Registry.ClientSigningIdentities[peer.Name] = clientID
 
-		cert, err := ioutil.ReadFile(p.PeerLocalMSPIdentityCert(peer))
+		adminID, err := p.GetAdminSigningIdentity(peer)
+		Expect(err).ToNot(HaveOccurred())
+		p.Registry.AdminSigningIdentities[peer.Name] = adminID
+
+		cert, err := ioutil.ReadFile(p.LocalMSPIdentityCert(peer))
 		Expect(err).ToNot(HaveOccurred())
 		p.Registry.ViewIdentities[peer.Name] = cert
 	}
@@ -138,12 +150,12 @@ func (p *platform) Members() []grouper.Member {
 	members := grouper.Members{}
 	for _, node := range p.Peers {
 		if node.Bootstrap {
-			members = append(members, grouper.Member{Name: node.ID(), Runner: p.ViewNodeRunner(node)})
+			members = append(members, grouper.Member{Name: node.ID(), Runner: p.FSCNodeRunner(node)})
 		}
 	}
 	for _, node := range p.Peers {
 		if !node.Bootstrap {
-			members = append(members, grouper.Member{Name: node.ID(), Runner: p.ViewNodeRunner(node)})
+			members = append(members, grouper.Member{Name: node.ID(), Runner: p.FSCNodeRunner(node)})
 		}
 	}
 	return members
@@ -177,6 +189,22 @@ func (p *platform) PostRun() {
 		}
 		for _, alias := range node.Aliases {
 			p.Registry.ViewClients[alias.Alias] = c
+		}
+
+		// Setup admins
+		if id, ok := p.Registry.AdminSigningIdentities[node.Name]; ok {
+			c, err := client.New(
+				&client.Config{
+					ID:      v.GetString("fsc.id"),
+					FSCNode: p.Registry.ConnectionConfigs[node.Name],
+				},
+				id,
+				crypto.NewProvider(),
+			)
+			Expect(err).NotTo(HaveOccurred())
+
+			p.Registry.ViewClients[node.Name+".admin"] = c
+			p.Registry.ViewClients[node.ID()+".admin"] = c
 		}
 	}
 }
@@ -213,6 +241,9 @@ func (p *platform) CheckTopology() {
 			ExecutablePath:  node.ExecutablePath,
 			ExtraIdentities: extraIdentities,
 			Node:            node,
+		}
+		peer.Admins = []string{
+			p.AdminLocalMSPIdentityCert(peer),
 		}
 		p.Peers = append(p.Peers, peer)
 		ports := registry2.Ports{}
@@ -315,23 +346,23 @@ func (p *platform) BootstrapViewNodeGroupRunner() ifrit.Runner {
 	members := grouper.Members{}
 	for _, node := range p.Peers {
 		if node.Bootstrap {
-			members = append(members, grouper.Member{Name: node.ID(), Runner: p.ViewNodeRunner(node)})
+			members = append(members, grouper.Member{Name: node.ID(), Runner: p.FSCNodeRunner(node)})
 		}
 	}
 	return runner2.NewParallel(syscall.SIGTERM, members)
 }
 
-func (p *platform) ViewNodeGroupRunner() ifrit.Runner {
+func (p *platform) FSCNodeGroupRunner() ifrit.Runner {
 	members := grouper.Members{}
 	for _, node := range p.Peers {
 		if !node.Bootstrap {
-			members = append(members, grouper.Member{Name: node.ID(), Runner: p.ViewNodeRunner(node)})
+			members = append(members, grouper.Member{Name: node.ID(), Runner: p.FSCNodeRunner(node)})
 		}
 	}
 	return runner2.NewParallel(syscall.SIGTERM, members)
 }
 
-func (p *platform) ViewNodeRunner(node *node2.Peer, env ...string) *runner2.Runner {
+func (p *platform) FSCNodeRunner(node *node2.Peer, env ...string) *runner2.Runner {
 	cmd := p.fscNodeCommand(
 		node,
 		commands.NodeStart{NodeID: node.ID()},
@@ -458,23 +489,19 @@ func (p *platform) CACertsBundlePath() string {
 	return filepath.Join(p.Registry.RootDir, "fsc", "crypto", "ca-certs.pem")
 }
 
-func (p *platform) NodeLocalTLSDir(node *node2.Peer) string {
-	return p.PeerLocalTLSDir(node)
-}
-
-func (p *platform) NodeLocalCertPath(node *node2.Peer) string {
-	return p.PeerLocalMSPIdentityCert(node)
-}
-
-func (p *platform) NodeLocalPrivateKeyPath(node *node2.Peer) string {
-	return p.PeerLocalMSPPrivateKey(node)
-}
-
-func (p *platform) PeerLocalTLSDir(peer *node2.Peer) string {
+func (p *platform) NodeLocalTLSDir(peer *node2.Peer) string {
 	return p.peerLocalCryptoDir(peer, "tls")
 }
 
-func (p *platform) PeerLocalMSPIdentityCert(peer *node2.Peer) string {
+func (p *platform) NodeLocalCertPath(node *node2.Peer) string {
+	return p.LocalMSPIdentityCert(node)
+}
+
+func (p *platform) NodeLocalPrivateKeyPath(node *node2.Peer) string {
+	return p.LocalMSPPrivateKey(node)
+}
+
+func (p *platform) LocalMSPIdentityCert(peer *node2.Peer) string {
 	return filepath.Join(
 		p.peerLocalCryptoDir(peer, "msp"),
 		"signcerts",
@@ -482,9 +509,25 @@ func (p *platform) PeerLocalMSPIdentityCert(peer *node2.Peer) string {
 	)
 }
 
-func (p *platform) PeerLocalMSPPrivateKey(peer *node2.Peer) string {
+func (p *platform) AdminLocalMSPIdentityCert(peer *node2.Peer) string {
+	return filepath.Join(
+		p.userLocalCryptoDir(peer, "Admin", "msp"),
+		"signcerts",
+		"Admin"+"@"+p.Organization(peer.Organization).Domain+"-cert.pem",
+	)
+}
+
+func (p *platform) LocalMSPPrivateKey(peer *node2.Peer) string {
 	return filepath.Join(
 		p.peerLocalCryptoDir(peer, "msp"),
+		"keystore",
+		"priv_sk",
+	)
+}
+
+func (p *platform) AdminLocalMSPPrivateKey(peer *node2.Peer) string {
+	return filepath.Join(
+		p.userLocalCryptoDir(peer, "Admin", "msp"),
 		"keystore",
 		"priv_sk",
 	)
@@ -560,6 +603,46 @@ func (p *platform) Peer(orgName, peerName string) *node2.Peer {
 	return nil
 }
 
+func (p *platform) GetSigningIdentity(peer *node2.Peer) (identity.SigningIdentity, error) {
+	cert, err := ioutil.ReadFile(p.LocalMSPIdentityCert(peer))
+	if err != nil {
+		return nil, err
+	}
+	sk, err := ioutil.ReadFile(p.LocalMSPPrivateKey(peer))
+	if err != nil {
+		return nil, err
+	}
+	block, _ := pem.Decode(sk)
+	if block == nil {
+		return nil, fmt.Errorf("failed decoding PEM. Block must be different from nil. [% x]", sk)
+	}
+	k, err := x509.ParsePKCS8PrivateKey(block.Bytes)
+	if err != nil {
+		return nil, err
+	}
+	return identity.NewSigningIdentity(cert, k.(*ecdsa.PrivateKey)), nil
+}
+
+func (p *platform) GetAdminSigningIdentity(peer *node2.Peer) (identity.SigningIdentity, error) {
+	cert, err := ioutil.ReadFile(p.AdminLocalMSPIdentityCert(peer))
+	if err != nil {
+		return nil, err
+	}
+	sk, err := ioutil.ReadFile(p.AdminLocalMSPPrivateKey(peer))
+	if err != nil {
+		return nil, err
+	}
+	block, _ := pem.Decode(sk)
+	if block == nil {
+		return nil, fmt.Errorf("failed decoding PEM. Block must be different from nil. [% x]", sk)
+	}
+	k, err := x509.ParsePKCS8PrivateKey(block.Bytes)
+	if err != nil {
+		return nil, err
+	}
+	return identity.NewSigningIdentity(cert, k.(*ecdsa.PrivateKey)), nil
+}
+
 func (p *platform) listTLSCACertificates() []string {
 	fileName2Path := make(map[string]string)
 	filepath.Walk(filepath.Join(p.Registry.RootDir, "fsc", "crypto"), func(path string, info os.FileInfo, err error) error {
@@ -594,6 +677,22 @@ func (p *platform) peerLocalCryptoDir(peer *node2.Peer, cryptoType string) strin
 		"peers",
 		fmt.Sprintf("%s.%s", peer.Name, org.Domain),
 		cryptoType,
+	)
+}
+
+func (p *platform) userLocalCryptoDir(peer *node2.Peer, user, cryptoMaterialType string) string {
+	org := p.Organization(peer.Organization)
+	Expect(org).NotTo(BeNil())
+
+	return filepath.Join(
+		p.Registry.RootDir,
+		"fsc",
+		"crypto",
+		"peerOrganizations",
+		org.Domain,
+		"users",
+		fmt.Sprintf("%s@%s", user, org.Domain),
+		cryptoMaterialType,
 	)
 }
 

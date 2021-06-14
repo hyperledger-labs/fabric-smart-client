@@ -126,11 +126,11 @@ topologies:
   peers:
   - NodeSynthesizer:
       Aliases:
-        github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/nochaincode/views:
+        github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/fsc/views:
           original: views
           alias: views
       Imports:
-      - github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/nochaincode/views
+      - github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/fsc/views
       Responders:
       - responder: '&views.ApproveView{}'
         initiator: '&views.IssueView{}'
@@ -149,11 +149,11 @@ topologies:
             Organization: Org1
   - NodeSynthesizer:
       Aliases:
-        github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/nochaincode/views:
+        github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/fsc/views:
           original: views
           alias: views
       Imports:
-      - github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/nochaincode/views
+      - github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/fsc/views
       Factories:
       - id: issue
         type: '&views.IssueViewFactory{}'
@@ -165,11 +165,11 @@ topologies:
             Organization: Org3
   - NodeSynthesizer:
       Aliases:
-        github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/nochaincode/views:
+        github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/fsc/views:
           original: views
           alias: views
       Imports:
-      - github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/nochaincode/views
+      - github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/fsc/views
       Factories:
       - id: transfer
         type: '&views.TransferViewFactory{}'
@@ -190,11 +190,11 @@ topologies:
             Organization: Org2
   - NodeSynthesizer:
       Aliases:
-        github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/nochaincode/views:
+        github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/fsc/views:
           original: views
           alias: views
       Imports:
-      - github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/nochaincode/views
+      - github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/fsc/views
       Factories:
       - id: transfer
         type: '&views.TransferViewFactory{}'
