@@ -11,6 +11,9 @@ import (
 	"testing"
 	"time"
 
+	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger"
+	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
+
 	"github.com/stretchr/testify/assert"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"

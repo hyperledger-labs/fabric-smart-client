@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
+
 	idemix2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/idemix"
 	x5092 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/x509"
 	sig2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/core/sig"

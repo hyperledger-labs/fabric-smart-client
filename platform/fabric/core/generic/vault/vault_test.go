@@ -22,6 +22,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/vault/txidstore"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger"
+	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
 )
 
 var tempDir string

@@ -15,6 +15,8 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/api"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db"
+	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger"
+	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
 )
 
 func TestTXIDStoreMem(t *testing.T) {
