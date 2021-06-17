@@ -4,18 +4,18 @@ package mock
 import (
 	"sync"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/api"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/id"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 type SigService struct {
-	RegisterSignerStub        func(identity view.Identity, signer api.Signer, verifier api.Verifier) error
+	RegisterSignerStub        func(identity view.Identity, signer driver.Signer, verifier driver.Verifier) error
 	registerSignerMutex       sync.RWMutex
 	registerSignerArgsForCall []struct {
 		identity view.Identity
-		signer   api.Signer
-		verifier api.Verifier
+		signer   driver.Signer
+		verifier driver.Verifier
 	}
 	registerSignerReturns struct {
 		result1 error
@@ -27,13 +27,13 @@ type SigService struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *SigService) RegisterSigner(identity view.Identity, signer api.Signer, verifier api.Verifier) error {
+func (fake *SigService) RegisterSigner(identity view.Identity, signer driver.Signer, verifier driver.Verifier) error {
 	fake.registerSignerMutex.Lock()
 	ret, specificReturn := fake.registerSignerReturnsOnCall[len(fake.registerSignerArgsForCall)]
 	fake.registerSignerArgsForCall = append(fake.registerSignerArgsForCall, struct {
 		identity view.Identity
-		signer   api.Signer
-		verifier api.Verifier
+		signer   driver.Signer
+		verifier driver.Verifier
 	}{identity, signer, verifier})
 	fake.recordInvocation("RegisterSigner", []interface{}{identity, signer, verifier})
 	fake.registerSignerMutex.Unlock()
@@ -52,7 +52,7 @@ func (fake *SigService) RegisterSignerCallCount() int {
 	return len(fake.registerSignerArgsForCall)
 }
 
-func (fake *SigService) RegisterSignerArgsForCall(i int) (view.Identity, api.Signer, api.Verifier) {
+func (fake *SigService) RegisterSignerArgsForCall(i int) (view.Identity, driver.Signer, driver.Verifier) {
 	fake.registerSignerMutex.RLock()
 	defer fake.registerSignerMutex.RUnlock()
 	return fake.registerSignerArgsForCall[i].identity, fake.registerSignerArgsForCall[i].signer, fake.registerSignerArgsForCall[i].verifier

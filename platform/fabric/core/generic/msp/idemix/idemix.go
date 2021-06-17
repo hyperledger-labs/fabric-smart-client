@@ -22,7 +22,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/csp/idemix/bridge"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/csp/idemix/handlers"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/api"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -107,7 +107,7 @@ func (s *support) Deserialize(raw []byte, checkValidity bool) (*deserialized, er
 }
 
 type SignerService interface {
-	RegisterSigner(identity view.Identity, signer api.Signer, verifier api.Verifier) error
+	RegisterSigner(identity view.Identity, signer driver.Signer, verifier driver.Verifier) error
 }
 
 func GetSignerService(ctx view2.ServiceProvider) SignerService {
@@ -303,7 +303,7 @@ func (p *provider) Identity() (view.Identity, []byte, error) {
 	return raw, infoRaw, nil
 }
 
-func (p *provider) SignerIdentity() (api.SigningIdentity, error) {
+func (p *provider) SignerIdentity() (driver.SigningIdentity, error) {
 	logger.Debug("getting new idemix identity")
 
 	// Derive NymPublicKey
@@ -382,7 +382,7 @@ func (p *provider) SignerIdentity() (api.SigningIdentity, error) {
 	}, nil
 }
 
-func (p *provider) DeserializeVerifier(raw []byte) (api.Verifier, error) {
+func (p *provider) DeserializeVerifier(raw []byte) (driver.Verifier, error) {
 	r, err := p.Deserialize(raw, true)
 	if err != nil {
 		return nil, err
@@ -391,7 +391,7 @@ func (p *provider) DeserializeVerifier(raw []byte) (api.Verifier, error) {
 	return r.id, nil
 }
 
-func (p *provider) DeserializeSigner(raw []byte) (api.Signer, error) {
+func (p *provider) DeserializeSigner(raw []byte) (driver.Signer, error) {
 	r, err := p.Deserialize(raw, true)
 	if err != nil {
 		return nil, err
@@ -440,7 +440,7 @@ func (p *provider) EnrollmentID() string {
 	return p.conf.Signer.EnrollmentId
 }
 
-func (p *provider) DeserializeSigningIdentity(raw []byte) (api.SigningIdentity, error) {
+func (p *provider) DeserializeSigningIdentity(raw []byte) (driver.SigningIdentity, error) {
 	si := &m.SerializedIdentity{}
 	err := proto.Unmarshal(raw, si)
 	if err != nil {

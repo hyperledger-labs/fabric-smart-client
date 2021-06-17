@@ -20,7 +20,6 @@ import (
 	"github.com/hyperledger/fabric/common/configtx"
 	"github.com/pkg/errors"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/api"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
 	delivery2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/delivery"
 	finality2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/finality"
@@ -29,8 +28,9 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/rwset"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/vault"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
-	api2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/api"
+	api2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -50,16 +50,16 @@ const (
 type channel struct {
 	sp                 view2.ServiceProvider
 	config             *Config
-	network            api.FabricNetworkService
+	network            driver.FabricNetworkService
 	name               string
-	finality           api.Finality
+	finality           driver.Finality
 	vault              *vault.Vault
 	processNamespaces  []string
 	externalCommitter  *committer.ExternalCommitter
-	envelopeService    api.EnvelopeService
-	transactionService api.EndorserTransactionService
-	metadataService    api.MetadataService
-	api.TXIDStore
+	envelopeService    driver.EnvelopeService
+	transactionService driver.EndorserTransactionService
+	metadataService    driver.MetadataService
+	driver.TXIDStore
 
 	// applyLock is used to serialize calls to CommitConfig and bundle update processing.
 	applyLock sync.Mutex
@@ -253,8 +253,8 @@ func (c *channel) GetClientConfig(tlsRootCerts [][]byte) (*grpc.ClientConfig, st
 	return clientConfig, override, nil
 }
 
-func (c *channel) GetTransactionByID(txID string) (api.ProcessedTransaction, error) {
-	res, err := c.Chaincode("qscc").NewInvocation(api.ChaincodeQuery, GetTransactionByID, c.name, txID).WithSignerIdentity(
+func (c *channel) GetTransactionByID(txID string) (driver.ProcessedTransaction, error) {
+	res, err := c.Chaincode("qscc").NewInvocation(driver.ChaincodeQuery, GetTransactionByID, c.name, txID).WithSignerIdentity(
 		c.network.LocalMembership().DefaultIdentity(),
 	).WithEndorsersByConnConfig(c.network.Peers()...).Call()
 	if err != nil {
@@ -270,7 +270,7 @@ func (c *channel) GetTransactionByID(txID string) (api.ProcessedTransaction, err
 }
 
 func (c *channel) GetBlockNumberByTxID(txID string) (uint64, error) {
-	res, err := c.Chaincode("qscc").NewInvocation(api.ChaincodeQuery, GetBlockByTxID, c.name, txID).WithSignerIdentity(
+	res, err := c.Chaincode("qscc").NewInvocation(driver.ChaincodeQuery, GetBlockByTxID, c.name, txID).WithSignerIdentity(
 		c.network.LocalMembership().DefaultIdentity(),
 	).WithEndorsersByConnConfig(c.network.Peers()...).Call()
 	if err != nil {
@@ -305,7 +305,7 @@ func (c *channel) init() error {
 		}
 		done := false
 		switch vc {
-		case api.Valid:
+		case driver.Valid:
 			txid := committer.ConfigTXPrefix + strconv.FormatUint(sequence, 10)
 			logger.Infof("config block available, txid [%s], loading...", txid)
 
@@ -353,7 +353,7 @@ func (c *channel) init() error {
 
 			sequence = sequence + 1
 			continue
-		case api.Unknown:
+		case driver.Unknown:
 			done = true
 		default:
 			panic(fmt.Sprintf("invalid configtx's [%s] status [%d]", txid, vc))

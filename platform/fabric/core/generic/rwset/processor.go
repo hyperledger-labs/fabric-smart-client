@@ -12,19 +12,19 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/api"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 )
 
 var logger = flogging.MustGetLogger("fabric-sdk.rwset")
 
 type Network interface {
-	Channel(name string) (api.Channel, error)
-	TransactionManager() api.TransactionManager
+	Channel(name string) (driver.Channel, error)
+	TransactionManager() driver.TransactionManager
 }
 
 type RWSExtractor interface {
-	Extract(tx []byte) (api.ProcessTransaction, api.RWSet, error)
+	Extract(tx []byte) (driver.ProcessTransaction, driver.RWSet, error)
 }
 
 type request struct {
@@ -38,18 +38,18 @@ func (r *request) ID() string {
 type processorManager struct {
 	sp                view2.ServiceProvider
 	network           Network
-	defaultProcessor  api.Processor
-	processors        map[string]api.Processor
-	channelProcessors map[string]map[string]api.Processor
+	defaultProcessor  driver.Processor
+	processors        map[string]driver.Processor
+	channelProcessors map[string]map[string]driver.Processor
 }
 
-func NewProcessorManager(sp view2.ServiceProvider, network Network, defaultProcessor api.Processor) *processorManager {
+func NewProcessorManager(sp view2.ServiceProvider, network Network, defaultProcessor driver.Processor) *processorManager {
 	return &processorManager{
 		sp:                sp,
 		network:           network,
 		defaultProcessor:  defaultProcessor,
-		processors:        map[string]api.Processor{},
-		channelProcessors: map[string]map[string]api.Processor{},
+		processors:        map[string]driver.Processor{},
+		channelProcessors: map[string]map[string]driver.Processor{},
 	}
 }
 
@@ -64,8 +64,8 @@ func (r *processorManager) ProcessByID(channel, txid string) error {
 	req := &request{id: txid}
 	logger.Debugf("load transaction content [%s,%s]", channel, txid)
 
-	var rws api.RWSet
-	var tx api.ProcessTransaction
+	var rws driver.RWSet
+	var tx driver.ProcessTransaction
 	switch {
 	case ch.EnvelopeService().Exists(txid):
 		rws, tx, err = r.getTxFromEvn(ch, txid)
@@ -104,22 +104,22 @@ func (r *processorManager) ProcessByID(channel, txid string) error {
 	return nil
 }
 
-func (r *processorManager) AddProcessor(ns string, processor api.Processor) error {
+func (r *processorManager) AddProcessor(ns string, processor driver.Processor) error {
 	r.processors[ns] = processor
 	return nil
 }
 
-func (r *processorManager) SetDefaultProcessor(processor api.Processor) error {
+func (r *processorManager) SetDefaultProcessor(processor driver.Processor) error {
 	r.defaultProcessor = processor
 	return nil
 }
 
-func (r *processorManager) AddChannelProcessor(channel string, ns string, processor api.Processor) error {
+func (r *processorManager) AddChannelProcessor(channel string, ns string, processor driver.Processor) error {
 	r.channelProcessors[channel][ns] = processor
 	return nil
 }
 
-func (r *processorManager) getTxFromEvn(ch api.Channel, txid string) (api.RWSet, api.ProcessTransaction, error) {
+func (r *processorManager) getTxFromEvn(ch driver.Channel, txid string) (driver.RWSet, driver.ProcessTransaction, error) {
 	rawEnv, err := ch.EnvelopeService().LoadEnvelope(txid)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "cannot load envelope [%s]", txid)
@@ -145,7 +145,7 @@ func (r *processorManager) getTxFromEvn(ch api.Channel, txid string) (api.RWSet,
 	return rws, upe, nil
 }
 
-func (r *processorManager) getTxFromETx(ch api.Channel, txid string) (api.RWSet, api.ProcessTransaction, error) {
+func (r *processorManager) getTxFromETx(ch driver.Channel, txid string) (driver.RWSet, driver.ProcessTransaction, error) {
 	raw, err := ch.TransactionService().LoadTransaction(txid)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "cannot load etx [%s]", txid)

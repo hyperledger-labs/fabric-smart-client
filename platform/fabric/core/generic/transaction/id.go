@@ -11,10 +11,10 @@ import (
 	"github.com/hyperledger/fabric/protoutil"
 	"github.com/pkg/errors"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/api"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
 
-func ComputeTxID(id *api.TxID) string {
+func ComputeTxID(id *driver.TxID) string {
 	if len(id.Nonce) == 0 {
 		n, err := GetRandomNonce()
 		if err != nil {

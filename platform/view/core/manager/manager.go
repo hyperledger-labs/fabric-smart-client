@@ -13,7 +13,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/api"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -27,7 +27,7 @@ type viewEntry struct {
 }
 
 type manager struct {
-	sp api.ServiceProvider
+	sp driver.ServiceProvider
 
 	ctx context.Context
 
@@ -38,17 +38,17 @@ type manager struct {
 	contexts   map[string]view.Context
 	views      map[string][]*viewEntry
 	initiators map[string]string
-	factories  map[string]api.Factory
+	factories  map[string]driver.Factory
 }
 
-func New(serviceProvider api.ServiceProvider) *manager {
+func New(serviceProvider driver.ServiceProvider) *manager {
 	return &manager{
 		sp: serviceProvider,
 
 		contexts:   map[string]view.Context{},
 		views:      map[string][]*viewEntry{},
 		initiators: map[string]string{},
-		factories:  map[string]api.Factory{},
+		factories:  map[string]driver.Factory{},
 	}
 }
 
@@ -56,7 +56,7 @@ func (cm *manager) GetService(typ reflect.Type) (interface{}, error) {
 	return cm.sp.GetService(typ)
 }
 
-func (cm *manager) RegisterFactory(id string, factory api.Factory) error {
+func (cm *manager) RegisterFactory(id string, factory driver.Factory) error {
 	logger.Debugf("Register View Factory [%s,%t]", id, factory)
 	cm.factoriesSync.Lock()
 	defer cm.factoriesSync.Unlock()
@@ -126,7 +126,7 @@ func (cm *manager) InitiateViewWithIdentity(view view.View, id view.Identity) (i
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	viewContext, err := NewContextForInitiator(ctx, cm.sp, GetCommLayer(cm.sp), api.GetEndpointService(cm.sp), id, view)
+	viewContext, err := NewContextForInitiator(ctx, cm.sp, GetCommLayer(cm.sp), driver.GetEndpointService(cm.sp), id, view)
 	if err != nil {
 		return nil, err
 	}
@@ -157,7 +157,7 @@ func (cm *manager) InitiateContextWithIdentity(view view.View, id view.Identity)
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	viewContext, err := NewContextForInitiator(ctx, cm.sp, GetCommLayer(cm.sp), api.GetEndpointService(cm.sp), id, view)
+	viewContext, err := NewContextForInitiator(ctx, cm.sp, GetCommLayer(cm.sp), driver.GetEndpointService(cm.sp), id, view)
 	if err != nil {
 		return nil, err
 	}
@@ -203,7 +203,7 @@ func (cm *manager) Context(contextID string) (view.Context, error) {
 
 func (cm *manager) ResolveIdentities(endpoints ...string) ([]view.Identity, error) {
 	var ids []view.Identity
-	resolver := api.GetEndpointService(cm.sp)
+	resolver := driver.GetEndpointService(cm.sp)
 	for _, endpoint := range endpoints {
 		id, err := resolver.GetIdentity(endpoint, nil)
 		if err != nil {
@@ -247,7 +247,7 @@ func (cm *manager) newContext(id view.Identity, msg *view.Message) (view.Context
 	cm.contextsSync.Lock()
 	defer cm.contextsSync.Unlock()
 
-	caller, err := api.GetEndpointService(cm.sp).GetIdentity(msg.FromEndpoint, msg.FromPKID)
+	caller, err := driver.GetEndpointService(cm.sp).GetIdentity(msg.FromEndpoint, msg.FromPKID)
 	if err != nil {
 		return nil, err
 	}
@@ -275,7 +275,7 @@ func (cm *manager) newContext(id view.Identity, msg *view.Message) (view.Context
 		if ctx == nil {
 			ctx = context.Background()
 		}
-		newCtx, err := NewContext(ctx, cm.sp, contextID, GetCommLayer(cm.sp), api.GetEndpointService(cm.sp), id, backend, caller)
+		newCtx, err := NewContext(ctx, cm.sp, contextID, GetCommLayer(cm.sp), driver.GetEndpointService(cm.sp), id, backend, caller)
 		if err != nil {
 			return nil, err
 		}
@@ -342,7 +342,7 @@ func (cm *manager) callView(msg *view.Message) {
 }
 
 func (cm *manager) me() view.Identity {
-	return api.GetIdentityProvider(cm.sp).DefaultIdentity()
+	return driver.GetIdentityProvider(cm.sp).DefaultIdentity()
 }
 
 func getIdentifier(f view.View) string {

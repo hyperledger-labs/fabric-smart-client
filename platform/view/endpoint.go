@@ -8,7 +8,7 @@ package view
 import (
 	"github.com/pkg/errors"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/api"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -35,7 +35,7 @@ type PKIResolver interface {
 
 // EndpointService provides endpoint-related services
 type EndpointService struct {
-	es api.EndpointService
+	es driver.EndpointService
 }
 
 // Endpoint returns the endpoint of the passed identity
@@ -110,5 +110,5 @@ func (e *EndpointService) AddPKIResolver(pkiResolver PKIResolver) error {
 }
 
 func GetEndpointService(sp ServiceProvider) *EndpointService {
-	return &EndpointService{es: api.GetEndpointService(sp)}
+	return &EndpointService{es: driver.GetEndpointService(sp)}
 }

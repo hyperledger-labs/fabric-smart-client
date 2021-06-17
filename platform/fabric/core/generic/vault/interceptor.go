@@ -11,7 +11,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/api"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger/fabric-protos-go/ledger/rwset"
 	"github.com/hyperledger/fabric-protos-go/ledger/rwset/kvrwset"
 	"github.com/hyperledger/fabric/core/ledger/kvledger/txmgmt/rwsetutil"
@@ -60,7 +60,7 @@ func (i *Interceptor) IsValid() error {
 	if err != nil {
 		return err
 	}
-	if code == api.Valid {
+	if code == driver.Valid {
 		return errors.Errorf("duplicate txid %s", i.txid)
 	}
 
@@ -115,7 +115,7 @@ func (i *Interceptor) GetReadAt(ns string, pos int) (string, []byte, error) {
 		return "", nil, errors.Errorf("no read at position %d for namespace %s", pos, ns)
 	}
 
-	val, err := i.GetState(ns, key, api.FromStorage)
+	val, err := i.GetState(ns, key, driver.FromStorage)
 	if err != nil {
 		return "", nil, err
 	}
@@ -187,7 +187,7 @@ func (i *Interceptor) SetStateMetadata(namespace string, key string, value map[s
 	return i.rws.metaWriteSet.add(namespace, key, value)
 }
 
-func (i *Interceptor) GetStateMetadata(namespace, key string, opts ...api.GetStateOpt) (map[string][]byte, error) {
+func (i *Interceptor) GetStateMetadata(namespace, key string, opts ...driver.GetStateOpt) (map[string][]byte, error) {
 	if i.closed {
 		return nil, errors.New("this instance was closed")
 	}
@@ -196,13 +196,13 @@ func (i *Interceptor) GetStateMetadata(namespace, key string, opts ...api.GetSta
 		return nil, errors.Errorf("a single getoption is supported, %d provided", len(opts))
 	}
 
-	opt := api.FromStorage
+	opt := driver.FromStorage
 	if len(opts) == 1 {
 		opt = opts[0]
 	}
 
 	switch opt {
-	case api.FromStorage:
+	case driver.FromStorage:
 		val, block, txnum, err := i.qe.GetStateMetadata(namespace, key)
 		if err != nil {
 			return nil, err
@@ -219,23 +219,23 @@ func (i *Interceptor) GetStateMetadata(namespace, key string, opts ...api.GetSta
 
 		return val, nil
 
-	case api.FromIntermediate:
+	case driver.FromIntermediate:
 		return i.rws.metaWriteSet.get(namespace, key), nil
 
-	case api.FromBoth:
-		val, err := i.GetStateMetadata(namespace, key, api.FromIntermediate)
+	case driver.FromBoth:
+		val, err := i.GetStateMetadata(namespace, key, driver.FromIntermediate)
 		if err != nil || val != nil || i.rws.writeSet.in(namespace, key) {
 			return val, err
 		}
 
-		return i.GetStateMetadata(namespace, key, api.FromStorage)
+		return i.GetStateMetadata(namespace, key, driver.FromStorage)
 
 	default:
 		return nil, errors.Errorf("invalid get option %+v", opts)
 	}
 }
 
-func (i *Interceptor) GetState(namespace string, key string, opts ...api.GetStateOpt) ([]byte, error) {
+func (i *Interceptor) GetState(namespace string, key string, opts ...driver.GetStateOpt) ([]byte, error) {
 	if i.closed {
 		return nil, errors.New("this instance was closed")
 	}
@@ -244,13 +244,13 @@ func (i *Interceptor) GetState(namespace string, key string, opts ...api.GetStat
 		return nil, errors.Errorf("a single getoption is supported, %d provided", len(opts))
 	}
 
-	opt := api.FromStorage
+	opt := driver.FromStorage
 	if len(opts) == 1 {
 		opt = opts[0]
 	}
 
 	switch opt {
-	case api.FromStorage:
+	case driver.FromStorage:
 		val, block, txnum, err := i.qe.GetState(namespace, key)
 		if err != nil {
 			return nil, err
@@ -267,16 +267,16 @@ func (i *Interceptor) GetState(namespace string, key string, opts ...api.GetStat
 
 		return val, nil
 
-	case api.FromIntermediate:
+	case driver.FromIntermediate:
 		return i.rws.writeSet.get(namespace, key), nil
 
-	case api.FromBoth:
-		val, err := i.GetState(namespace, key, api.FromIntermediate)
+	case driver.FromBoth:
+		val, err := i.GetState(namespace, key, driver.FromIntermediate)
 		if err != nil || val != nil || i.rws.writeSet.in(namespace, key) {
 			return val, err
 		}
 
-		return i.GetState(namespace, key, api.FromStorage)
+		return i.GetState(namespace, key, driver.FromStorage)
 
 	default:
 		return nil, errors.Errorf("invalid get option %+v", opts)

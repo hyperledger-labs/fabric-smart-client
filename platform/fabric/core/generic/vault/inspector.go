@@ -6,7 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 package vault
 
 import (
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/api"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/pkg/errors"
 )
 
@@ -40,7 +40,7 @@ func (i *Inspector) SetState(namespace string, key string, value []byte) error {
 	panic("programming error: the rwset inspector is read-only")
 }
 
-func (i *Inspector) GetState(namespace string, key string, opts ...api.GetStateOpt) ([]byte, error) {
+func (i *Inspector) GetState(namespace string, key string, opts ...driver.GetStateOpt) ([]byte, error) {
 	return i.rws.writeSet.get(namespace, key), nil
 }
 
@@ -48,7 +48,7 @@ func (i *Inspector) DeleteState(namespace string, key string) error {
 	panic("programming error: the rwset inspector is read-only")
 }
 
-func (i *Inspector) GetStateMetadata(namespace, key string, opts ...api.GetStateOpt) (map[string][]byte, error) {
+func (i *Inspector) GetStateMetadata(namespace, key string, opts ...driver.GetStateOpt) (map[string][]byte, error) {
 	return i.rws.metaWriteSet.get(namespace, key), nil
 }
 

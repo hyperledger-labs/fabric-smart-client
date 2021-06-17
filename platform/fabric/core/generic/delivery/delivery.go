@@ -18,7 +18,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/api"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
@@ -35,9 +35,9 @@ type Vault interface {
 }
 
 type Network interface {
-	Channel(name string) (api.Channel, error)
+	Channel(name string) (driver.Channel, error)
 	Peers() []*grpc.ConnectionConfig
-	LocalMembership() api.LocalMembership
+	LocalMembership() driver.LocalMembership
 }
 
 type delivery struct {

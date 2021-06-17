@@ -11,14 +11,14 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/api"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 type Deserializer struct {
 }
 
-func (x *Deserializer) DeserializeVerifier(raw []byte) (api.Verifier, error) {
+func (x *Deserializer) DeserializeVerifier(raw []byte) (driver.Verifier, error) {
 	genericPublicKey, err := PemDecodeKey(raw)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed parsing received public key")
@@ -31,7 +31,7 @@ func (x *Deserializer) DeserializeVerifier(raw []byte) (api.Verifier, error) {
 	return NewVerifier(publicKey), nil
 }
 
-func (x *Deserializer) DeserializeSigner(raw []byte) (api.Signer, error) {
+func (x *Deserializer) DeserializeSigner(raw []byte) (driver.Signer, error) {
 	return nil, errors.New("not supported")
 }
 

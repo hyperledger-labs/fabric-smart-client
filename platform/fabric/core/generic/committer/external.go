@@ -13,8 +13,8 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/api"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer/driver"
+	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -61,14 +61,14 @@ type ExternalCommitter struct {
 	c driver.Committer
 }
 
-func (c *ExternalCommitter) Status(txid string) (api.ValidationCode, []string, []view.Identity, error) {
+func (c *ExternalCommitter) Status(txid string) (fdriver.ValidationCode, []string, []view.Identity, error) {
 	if c.c == nil {
-		return api.Unknown, nil, nil, nil
+		return fdriver.Unknown, nil, nil, nil
 	}
 	return c.c.Status(txid)
 }
 
-func (c *ExternalCommitter) Validate(txid string) (api.ValidationCode, error) {
+func (c *ExternalCommitter) Validate(txid string) (fdriver.ValidationCode, error) {
 	if c.c == nil {
 		panic("no external committer defined, programming error")
 	}

@@ -13,7 +13,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/api"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -51,7 +51,7 @@ type Discovery interface {
 }
 
 type endpointEntry struct {
-	Endpoints map[api.PortName]string
+	Endpoints map[driver.PortName]string
 	Ephemeral view.Identity
 	Identity  view.Identity
 }
@@ -60,7 +60,7 @@ type service struct {
 	sp           view2.ServiceProvider
 	resolvers    []*resolver
 	Discovery    Discovery
-	pkiResolvers []api.PKIResolver
+	pkiResolvers []driver.PKIResolver
 }
 
 // NewService returns a new instance of the view-sdk endpoint service
@@ -68,12 +68,12 @@ func NewService(sp view2.ServiceProvider, discovery Discovery) (*service, error)
 	er := &service{
 		sp:           sp,
 		Discovery:    discovery,
-		pkiResolvers: []api.PKIResolver{},
+		pkiResolvers: []driver.PKIResolver{},
 	}
 	return er, nil
 }
 
-func (r *service) Endpoint(party view.Identity) (map[api.PortName]string, error) {
+func (r *service) Endpoint(party view.Identity) (map[driver.PortName]string, error) {
 	cursor := party
 	for {
 		// root endpoints have addresses
@@ -100,7 +100,7 @@ var (
 	resolved = make(map[string]view.Identity)
 )
 
-func (r *service) Resolve(party view.Identity) (view.Identity, map[api.PortName]string, []byte, error) {
+func (r *service) Resolve(party view.Identity) (view.Identity, map[driver.PortName]string, []byte, error) {
 	cursor := party
 	for {
 		// root endpoints have addresses
@@ -213,7 +213,7 @@ func (r *service) AddResolver(name string, domain string, addresses map[string]s
 	return nil, nil
 }
 
-func (r *service) AddPKIResolver(pkiResolver api.PKIResolver) error {
+func (r *service) AddPKIResolver(pkiResolver driver.PKIResolver) error {
 	if pkiResolver == nil {
 		return errors.New("pki resolver should not be nil")
 	}
@@ -238,7 +238,7 @@ func (r *service) pkiResolve(id view.Identity) []byte {
 	return nil
 }
 
-func (r *service) rootEndpoint(party view.Identity) (map[api.PortName]string, error) {
+func (r *service) rootEndpoint(party view.Identity) (map[driver.PortName]string, error) {
 	for _, resolver := range r.resolvers {
 		if bytes.Equal(resolver.Id, party) {
 			return convert(resolver.Addresses), nil
@@ -275,10 +275,10 @@ func (r *service) getBinding(key string) (*endpointEntry, error) {
 	return entry, nil
 }
 
-func convert(o map[string]string) map[api.PortName]string {
-	r := map[api.PortName]string{}
+func convert(o map[string]string) map[driver.PortName]string {
+	r := map[driver.PortName]string{}
 	for k, v := range o {
-		r[api.PortName(k)] = v
+		r[driver.PortName(k)] = v
 	}
 	return r
 }

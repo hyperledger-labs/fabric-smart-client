@@ -12,10 +12,10 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/api"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/api/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/manager"
 	mock2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/core/manager/mock"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver/mock"
 	registry2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/registry"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -23,7 +23,7 @@ import (
 type Manager interface {
 	InitiateView(f view.View) (interface{}, error)
 	Context(id string) (view.Context, error)
-	RegisterFactory(id string, factory api.Factory) error
+	RegisterFactory(id string, factory driver.Factory) error
 	NewView(id string, in []byte) (f view.View, err error)
 	Initiate(id string) (interface{}, error)
 	RegisterResponderWithIdentity(responder view.View, id view.Identity, initiatedBy view.View)

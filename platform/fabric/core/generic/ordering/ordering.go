@@ -11,8 +11,8 @@ import (
 	"encoding/base64"
 	"encoding/json"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/api"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 
@@ -50,19 +50,19 @@ type Configuration interface {
 type Network interface {
 	Configuration
 	Peers() []*grpc.ConnectionConfig
-	LocalMembership() api.LocalMembership
+	LocalMembership() driver.LocalMembership
 	// Broadcast sends the passed blob to the ordering service to be ordered
 	Broadcast(blob interface{}) error
-	Channel(name string) (api.Channel, error)
-	SigService() api.SigService
+	Channel(name string) (driver.Channel, error)
+	SigService() driver.SigService
 }
 
 type Transaction interface {
 	Channel() string
 	ID() string
 	Creator() view.Identity
-	Proposal() api.Proposal
-	ProposalResponses() []api.ProposalResponse
+	Proposal() driver.Proposal
+	ProposalResponses() []driver.ProposalResponse
 	Bytes() ([]byte, error)
 }
 
@@ -181,7 +181,7 @@ func (o *service) broadcastEnvelope(env *common2.Envelope) error {
 // and a signer. This function should be called by a client when it has
 // collected enough endorsements for a proposal to create a transaction and
 // submit it to peers for ordering
-func createSignedTx(proposal api.Proposal, signer SerializableSigner, resps ...api.ProposalResponse) (*common2.Envelope, error) {
+func createSignedTx(proposal driver.Proposal, signer SerializableSigner, resps ...driver.ProposalResponse) (*common2.Envelope, error) {
 	if len(resps) == 0 {
 		return nil, errors.New("at least one proposal response is required")
 	}
@@ -216,7 +216,7 @@ func createSignedTx(proposal api.Proposal, signer SerializableSigner, resps ...a
 
 	// ensure that all actions are bitwise equal and that they are successful
 	var a1 []byte
-	var first api.ProposalResponse
+	var first driver.ProposalResponse
 	for n, r := range resps {
 		if r.ResponseStatus() < 200 || r.ResponseStatus() >= 400 {
 			return nil, errors.Errorf("proposal response was not successful, error code %d, msg %s", r.ResponseStatus(), r.ResponseMessage())

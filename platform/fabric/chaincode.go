@@ -8,12 +8,12 @@ package fabric
 import (
 	"encoding/json"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/api"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 type Envelope struct {
-	e api.Envelope
+	e driver.Envelope
 }
 
 func (e *Envelope) Bytes() ([]byte, error) {
@@ -54,19 +54,19 @@ func (e *Envelope) UnmarshalJSON(raw []byte) error {
 }
 
 type Chaincode struct {
-	chaincode api.Chaincode
+	chaincode driver.Chaincode
 }
 
 func (c *Chaincode) Invoke(function string, args ...interface{}) *ChaincodeInvocation {
-	return &ChaincodeInvocation{ChaincodeInvocation: c.chaincode.NewInvocation(api.ChaincodeInvoke, function, args...)}
+	return &ChaincodeInvocation{ChaincodeInvocation: c.chaincode.NewInvocation(driver.ChaincodeInvoke, function, args...)}
 }
 
 func (c *Chaincode) Query(function string, args ...interface{}) *ChaincodeInvocation {
-	return &ChaincodeInvocation{ChaincodeInvocation: c.chaincode.NewInvocation(api.ChaincodeQuery, function, args...)}
+	return &ChaincodeInvocation{ChaincodeInvocation: c.chaincode.NewInvocation(driver.ChaincodeQuery, function, args...)}
 }
 
 func (c *Chaincode) Endorse(function string, args ...interface{}) *ChaincodeEndorse {
-	return &ChaincodeEndorse{ci: c.chaincode.NewInvocation(api.ChaincodeEndorse, function, args...)}
+	return &ChaincodeEndorse{ci: c.chaincode.NewInvocation(driver.ChaincodeEndorse, function, args...)}
 }
 
 func (c *Chaincode) Discover() *ChaincodeDiscover {
@@ -74,7 +74,7 @@ func (c *Chaincode) Discover() *ChaincodeDiscover {
 }
 
 type ChaincodeDiscover struct {
-	api.ChaincodeDiscover
+	driver.ChaincodeDiscover
 }
 
 func (i *ChaincodeDiscover) Call() ([]view.Identity, error) {
@@ -87,7 +87,7 @@ func (i *ChaincodeDiscover) WithFilterByMSPIDs(mspIDs ...string) *ChaincodeDisco
 }
 
 type ChaincodeInvocation struct {
-	api.ChaincodeInvocation
+	driver.ChaincodeInvocation
 }
 
 func (i *ChaincodeInvocation) Call() (interface{}, error) {
@@ -120,7 +120,7 @@ func (i *ChaincodeInvocation) WithInvokerIdentity(id view.Identity) *ChaincodeIn
 }
 
 type ChaincodeEndorse struct {
-	ci api.ChaincodeInvocation
+	ci driver.ChaincodeInvocation
 }
 
 func (i *ChaincodeEndorse) Call() (*Envelope, error) {
@@ -128,7 +128,7 @@ func (i *ChaincodeEndorse) Call() (*Envelope, error) {
 	if err != nil {
 		return nil, err
 	}
-	env, ok := envBoxed.(api.Envelope)
+	env, ok := envBoxed.(driver.Envelope)
 	if !ok {
 		panic("programming error")
 	}
@@ -161,7 +161,7 @@ func (i *ChaincodeEndorse) WithInvokerIdentity(id view.Identity) *ChaincodeEndor
 }
 
 func (i *ChaincodeEndorse) WithTxID(id TxID) *ChaincodeEndorse {
-	i.ci.WithTxID(api.TxID{
+	i.ci.WithTxID(driver.TxID{
 		Nonce:   id.Nonce,
 		Creator: id.Creator,
 	})

@@ -8,21 +8,21 @@ package sig
 import (
 	"github.com/pkg/errors"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/api"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 )
 
 type Deserializer interface {
-	DeserializeVerifier(raw []byte) (api.Verifier, error)
-	DeserializeSigner(raw []byte) (api.Signer, error)
+	DeserializeVerifier(raw []byte) (driver.Verifier, error)
+	DeserializeSigner(raw []byte) (driver.Signer, error)
 	Info(raw []byte, auditInfo []byte) (string, error)
 }
 
 type deserializer struct {
-	sp            api.ServiceProvider
+	sp            driver.ServiceProvider
 	deserializers []Deserializer
 }
 
-func NewMultiplexDeserializer(sp api.ServiceProvider) (*deserializer, error) {
+func NewMultiplexDeserializer(sp driver.ServiceProvider) (*deserializer, error) {
 	return &deserializer{
 		sp:            sp,
 		deserializers: []Deserializer{},
@@ -33,7 +33,7 @@ func (d *deserializer) AddDeserializer(newD Deserializer) {
 	d.deserializers = append(d.deserializers, newD)
 }
 
-func (d *deserializer) DeserializeVerifier(raw []byte) (api.Verifier, error) {
+func (d *deserializer) DeserializeVerifier(raw []byte) (driver.Verifier, error) {
 	var errs []error
 	for _, des := range d.deserializers {
 		logger.Debugf("trying deserialization with [%v]", des)
@@ -50,7 +50,7 @@ func (d *deserializer) DeserializeVerifier(raw []byte) (api.Verifier, error) {
 	return nil, errors.Errorf("failed deserialization [%v]", errs)
 }
 
-func (d *deserializer) DeserializeSigner(raw []byte) (api.Signer, error) {
+func (d *deserializer) DeserializeSigner(raw []byte) (driver.Signer, error) {
 	var errs []error
 	for _, des := range d.deserializers {
 		logger.Debugf("trying signer deserialization with [%s]", des)

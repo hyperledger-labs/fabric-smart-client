@@ -6,11 +6,11 @@ SPDX-License-Identifier: Apache-2.0
 package fabric
 
 import (
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/api"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
 
 type Block struct {
-	b api.Block
+	b driver.Block
 }
 
 func (b *Block) DataAt(i int) []byte {
@@ -18,7 +18,7 @@ func (b *Block) DataAt(i int) []byte {
 }
 
 type ProcessedTransaction struct {
-	pt api.ProcessedTransaction
+	pt driver.ProcessedTransaction
 }
 
 func (pt *ProcessedTransaction) Results() []byte {

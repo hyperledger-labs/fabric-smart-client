@@ -13,8 +13,8 @@ import (
 	"github.com/hyperledger/fabric-protos-go/msp"
 	"github.com/pkg/errors"
 
-	api2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/api"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/api"
+	api2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -59,7 +59,7 @@ func (p *provider) EnrollmentID() string {
 	return p.enrollmentID
 }
 
-func (p *provider) DeserializeVerifier(raw []byte) (api.Verifier, error) {
+func (p *provider) DeserializeVerifier(raw []byte) (driver.Verifier, error) {
 	si := &msp.SerializedIdentity{}
 	err := proto.Unmarshal(raw, si)
 	if err != nil {
@@ -79,7 +79,7 @@ func (p *provider) DeserializeVerifier(raw []byte) (api.Verifier, error) {
 	return NewVerifier(publicKey), nil
 }
 
-func (p *provider) DeserializeSigner(raw []byte) (api.Signer, error) {
+func (p *provider) DeserializeSigner(raw []byte) (driver.Signer, error) {
 	return nil, errors.New("not supported")
 }
 

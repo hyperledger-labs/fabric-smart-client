@@ -6,8 +6,8 @@ SPDX-License-Identifier: Apache-2.0
 package fabric
 
 import (
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/api"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -15,7 +15,7 @@ import (
 
 type NetworkService struct {
 	sp  view2.ServiceProvider
-	fns api.FabricNetworkService
+	fns driver.FabricNetworkService
 }
 
 func (n *NetworkService) DefaultChannel() string {

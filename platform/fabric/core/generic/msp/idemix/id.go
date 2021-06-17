@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/api"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 
 	"github.com/golang/protobuf/proto"
 	m "github.com/hyperledger/fabric-protos-go/msp"
@@ -195,6 +195,6 @@ func (id *signingIdentity) Sign(msg []byte) ([]byte, error) {
 	return sig, nil
 }
 
-func (id *signingIdentity) GetPublicVersion() api.Identity {
+func (id *signingIdentity) GetPublicVersion() driver.Identity {
 	return id.identity
 }

@@ -5,10 +5,10 @@ SPDX-License-Identifier: Apache-2.0
 */
 package fabric
 
-import "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/api"
+import "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 
 type Committer struct {
-	ch api.Channel
+	ch driver.Channel
 }
 
 func (c *Committer) ProcessNamespace(nss ...string) error {

@@ -13,17 +13,17 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/api"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/delivery"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 )
 
 type Network interface {
 	Peers() []*grpc.ConnectionConfig
-	LocalMembership() api.LocalMembership
-	Comm(channel string) (api.Comm, error)
-	Channel(id string) (api.Channel, error)
-	IdentityProvider() api.IdentityProvider
+	LocalMembership() driver.LocalMembership
+	Comm(channel string) (driver.Comm, error)
+	Channel(id string) (driver.Channel, error)
+	IdentityProvider() driver.IdentityProvider
 }
 
 type Hasher interface {

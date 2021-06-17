@@ -15,10 +15,10 @@ import (
 	"github.com/hyperledger/fabric/idemix"
 	m "github.com/hyperledger/fabric/msp"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/api"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 )
 
-func NewEphemeralSigningIdentity() ([]byte, api.SigningIdentity, error) {
+func NewEphemeralSigningIdentity() ([]byte, driver.SigningIdentity, error) {
 	isk, ipkBytes, err := idemixca.GenerateIssuerKey()
 	if err != nil {
 		return nil, nil, err

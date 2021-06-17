@@ -15,9 +15,9 @@ import (
 	"github.com/hyperledger/fabric/common/configtx"
 	"github.com/pkg/errors"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/api"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/rwset"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
 
 const (
@@ -53,9 +53,9 @@ func (c *channel) CommitConfig(blockNumber uint64, envelope []byte) error {
 		panic(fmt.Sprintf("failed getting tx's status [%s], with err [%s]", txid, err))
 	}
 	switch vc {
-	case api.Valid:
+	case driver.Valid:
 		return nil
-	case api.Unknown:
+	case driver.Unknown:
 		// this is okay
 	default:
 		panic(fmt.Sprintf("invalid configtx's [%s] status [%d]", txid, vc))

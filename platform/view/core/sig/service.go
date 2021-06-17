@@ -14,7 +14,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/api"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -22,23 +22,23 @@ import (
 var logger = flogging.MustGetLogger("view-sdk.sig")
 
 type service struct {
-	sp           api.ServiceProvider
-	signers      map[string]api.Signer
-	verifiers    map[string]api.Verifier
+	sp           driver.ServiceProvider
+	signers      map[string]driver.Signer
+	verifiers    map[string]driver.Verifier
 	deserializer Deserializer
 	viewsSync    sync.RWMutex
 }
 
-func NewSignService(sp api.ServiceProvider, deserializer Deserializer) *service {
+func NewSignService(sp driver.ServiceProvider, deserializer Deserializer) *service {
 	return &service{
 		sp:           sp,
-		signers:      map[string]api.Signer{},
-		verifiers:    map[string]api.Verifier{},
+		signers:      map[string]driver.Signer{},
+		verifiers:    map[string]driver.Verifier{},
 		deserializer: deserializer,
 	}
 }
 
-func (o *service) RegisterSigner(identity view.Identity, signer api.Signer, verifier api.Verifier) error {
+func (o *service) RegisterSigner(identity view.Identity, signer driver.Signer, verifier driver.Verifier) error {
 	if signer == nil {
 		return errors.New("invalid signer, expected a valid instance")
 	}
@@ -61,7 +61,7 @@ func (o *service) RegisterSigner(identity view.Identity, signer api.Signer, veri
 	return o.RegisterVerifier(identity, verifier)
 }
 
-func (o *service) RegisterVerifier(identity view.Identity, verifier api.Verifier) error {
+func (o *service) RegisterVerifier(identity view.Identity, verifier driver.Verifier) error {
 	if verifier == nil {
 		return errors.New("invalid verifier, expected a valid instance")
 	}
@@ -127,7 +127,7 @@ func (o *service) Info(id view.Identity) string {
 	return info
 }
 
-func (o *service) GetSigner(identity view.Identity) (api.Signer, error) {
+func (o *service) GetSigner(identity view.Identity) (driver.Signer, error) {
 	o.viewsSync.Lock()
 	signer, ok := o.signers[identity.UniqueID()]
 	o.viewsSync.Unlock()
@@ -148,7 +148,7 @@ func (o *service) GetSigner(identity view.Identity) (api.Signer, error) {
 	return signer, nil
 }
 
-func (o *service) GetVerifier(identity view.Identity) (api.Verifier, error) {
+func (o *service) GetVerifier(identity view.Identity) (driver.Verifier, error) {
 	o.viewsSync.Lock()
 	verifier, ok := o.verifiers[identity.UniqueID()]
 	o.viewsSync.Unlock()
@@ -171,14 +171,14 @@ func (o *service) GetVerifier(identity view.Identity) (api.Verifier, error) {
 	return verifier, nil
 }
 
-func (o *service) GetSigningIdentity(identity view.Identity) (api.SigningIdentity, error) {
+func (o *service) GetSigningIdentity(identity view.Identity) (driver.SigningIdentity, error) {
 	signer, err := o.GetSigner(identity)
 	if err != nil {
 		return nil, err
 	}
 
-	if _, ok := signer.(api.SigningIdentity); ok {
-		return signer.(api.SigningIdentity), nil
+	if _, ok := signer.(driver.SigningIdentity); ok {
+		return signer.(driver.SigningIdentity), nil
 	}
 
 	return &si{
@@ -189,14 +189,14 @@ func (o *service) GetSigningIdentity(identity view.Identity) (api.SigningIdentit
 
 type si struct {
 	id     view.Identity
-	signer api.Signer
+	signer driver.Signer
 }
 
 func (s *si) Verify(message []byte, signature []byte) error {
 	panic("implement me")
 }
 
-func (s *si) GetPublicVersion() api.Identity {
+func (s *si) GetPublicVersion() driver.Identity {
 	return s
 }
 

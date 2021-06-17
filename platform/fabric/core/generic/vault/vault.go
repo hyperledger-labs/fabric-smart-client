@@ -9,11 +9,12 @@ import (
 	"encoding/json"
 	"sync"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/pkg/errors"
 	"go.uber.org/atomic"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/api"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+
+	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 )
@@ -21,12 +22,12 @@ import (
 var logger = flogging.MustGetLogger("fabric-sdk.vault")
 
 type TXIDStoreReader interface {
-	Get(txid string) (api.ValidationCode, error)
+	Get(txid string) (fdriver.ValidationCode, error)
 }
 
 type TXIDStore interface {
 	TXIDStoreReader
-	Set(txid string, code api.ValidationCode) error
+	Set(txid string, code fdriver.ValidationCode) error
 }
 
 type Vault struct {
@@ -56,7 +57,7 @@ func New(store driver.VersionedPersistence, txidStore TXIDStore) *Vault {
 	}
 }
 
-func (db *Vault) NewQueryExecutor() (api.QueryExecutor, error) {
+func (db *Vault) NewQueryExecutor() (fdriver.QueryExecutor, error) {
 	logger.Debugf("getting lock for query executor")
 	db.counter.Inc()
 	db.storeLock.RLock()
@@ -86,13 +87,13 @@ func (db *Vault) unmapInterceptor(txid string) (*Interceptor, error) {
 	return i, nil
 }
 
-func (db *Vault) Status(txid string) (api.ValidationCode, error) {
+func (db *Vault) Status(txid string) (fdriver.ValidationCode, error) {
 	code, err := db.txidStore.Get(txid)
 	if err != nil {
 		return 0, nil
 	}
 
-	if code != api.Unknown {
+	if code != fdriver.Unknown {
 		return code, nil
 	}
 
@@ -100,10 +101,10 @@ func (db *Vault) Status(txid string) (api.ValidationCode, error) {
 	defer db.interceptorsLock.Unlock()
 
 	if _, in := db.interceptors[txid]; in {
-		return api.Busy, nil
+		return fdriver.Busy, nil
 	}
 
-	return api.Unknown, nil
+	return fdriver.Unknown, nil
 }
 
 func (db *Vault) DiscardTx(txid string) error {
@@ -117,7 +118,7 @@ func (db *Vault) DiscardTx(txid string) error {
 		return errors.WithMessagef(err, "begin update for txid '%s' failed", txid)
 	}
 
-	err = db.txidStore.Set(txid, api.Invalid)
+	err = db.txidStore.Set(txid, fdriver.Invalid)
 	if err != nil {
 		return err
 	}
@@ -187,7 +188,7 @@ func (db *Vault) CommitTX(txid string, block uint64, indexInBloc int) error {
 	}
 
 	logger.Debugf("set state to valid [%s]", txid)
-	err = db.txidStore.Set(txid, api.Valid)
+	err = db.txidStore.Set(txid, fdriver.Valid)
 	if err != nil {
 		if err1 := db.store.Discard(); err1 != nil {
 			logger.Errorf("got error %s; discarding caused %s", err.Error(), err1.Error())

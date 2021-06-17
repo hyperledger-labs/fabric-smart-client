@@ -9,7 +9,7 @@ import (
 	"encoding/binary"
 	"math"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/api"
+	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
@@ -114,20 +114,20 @@ func (s *TXIDStore) get(txid string) (*ByTxid, error) {
 	return bt, nil
 }
 
-func (s *TXIDStore) Get(txid string) (api.ValidationCode, error) {
+func (s *TXIDStore) Get(txid string) (fdriver.ValidationCode, error) {
 	bt, err := s.get(txid)
 	if err != nil {
-		return api.Unknown, err
+		return fdriver.Unknown, err
 	}
 
 	if bt == nil {
-		return api.Unknown, nil
+		return fdriver.Unknown, nil
 	}
 
-	return api.ValidationCode(bt.Code), nil
+	return fdriver.ValidationCode(bt.Code), nil
 }
 
-func (s *TXIDStore) Set(txid string, code api.ValidationCode) error {
+func (s *TXIDStore) Set(txid string, code fdriver.ValidationCode) error {
 	// NOTE: we assume that the commit is in progress so no need to update/commit
 	// err := s.persistence.BeginUpdate()
 	// if err != nil {
@@ -183,7 +183,7 @@ func (s *TXIDStore) Set(txid string, code api.ValidationCode) error {
 }
 
 func (s *TXIDStore) GetLastTxID() (string, error) {
-	it, err := s.Iterator(&api.SeekEnd{})
+	it, err := s.Iterator(&fdriver.SeekEnd{})
 	if err != nil {
 		return "", errors.Wrapf(err, "failed getting last transaction ID")
 	}
@@ -198,15 +198,15 @@ func (s *TXIDStore) GetLastTxID() (string, error) {
 	return next.Txid, nil
 }
 
-func (s *TXIDStore) Iterator(pos interface{}) (api.TxidIterator, error) {
+func (s *TXIDStore) Iterator(pos interface{}) (fdriver.TxidIterator, error) {
 	var startKey string
 	var endKey string
 
 	switch ppos := pos.(type) {
-	case *api.SeekStart:
+	case *fdriver.SeekStart:
 		startKey = keyByCtr(0)
 		endKey = keyByCtr(math.MaxUint64)
-	case *api.SeekEnd:
+	case *fdriver.SeekEnd:
 		ctr, err := getCtr(s.persistence)
 		if err != nil {
 			return nil, err
@@ -214,7 +214,7 @@ func (s *TXIDStore) Iterator(pos interface{}) (api.TxidIterator, error) {
 
 		startKey = keyByCtr(ctr - 1)
 		endKey = keyByCtr(math.MaxUint64)
-	case *api.SeekPos:
+	case *fdriver.SeekPos:
 		bt, err := s.get(ppos.Txid)
 		if err != nil {
 			return nil, err
@@ -242,7 +242,7 @@ type TxidIterator struct {
 	t driver.ResultsIterator
 }
 
-func (i *TxidIterator) Next() (*api.ByNum, error) {
+func (i *TxidIterator) Next() (*fdriver.ByNum, error) {
 	d, err := i.t.Next()
 	if err != nil {
 		return nil, err
@@ -258,9 +258,9 @@ func (i *TxidIterator) Next() (*api.ByNum, error) {
 		return nil, err
 	}
 
-	return &api.ByNum{
+	return &fdriver.ByNum{
 		Txid: bn.Txid,
-		Code: api.ValidationCode(bn.Code),
+		Code: fdriver.ValidationCode(bn.Code),
 	}, nil
 }
 

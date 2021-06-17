@@ -6,12 +6,12 @@ SPDX-License-Identifier: Apache-2.0
 package fabric
 
 import (
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/api"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 )
 
 type Ordering struct {
-	network api.FabricNetworkService
+	network driver.FabricNetworkService
 }
 
 // Orderers returns the list of known Orderer nodes

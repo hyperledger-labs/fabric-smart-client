@@ -13,7 +13,7 @@ import (
 
 	"github.com/test-go/testify/assert"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/api"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db"
 	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger"
 	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
@@ -60,16 +60,16 @@ func TestTXIDStoreBadger(t *testing.T) {
 func testOneMore(t *testing.T, store *TXIDStore) {
 	err := store.persistence.BeginUpdate()
 	assert.NoError(t, err)
-	err = store.Set("txid3", api.Valid)
+	err = store.Set("txid3", driver.Valid)
 	assert.NoError(t, err)
 	err = store.persistence.Commit()
 	assert.NoError(t, err)
 
 	status, err := store.Get("txid3")
 	assert.NoError(t, err)
-	assert.Equal(t, api.Valid, status)
+	assert.Equal(t, driver.Valid, status)
 
-	it, err := store.Iterator(&api.SeekStart{})
+	it, err := store.Iterator(&driver.SeekStart{})
 	assert.NoError(t, err)
 	txids := []string{}
 	for {
@@ -85,7 +85,7 @@ func testOneMore(t *testing.T, store *TXIDStore) {
 	}
 	assert.Equal(t, []string{"txid1", "txid2", "txid10", "txid12", "txid21", "txid100", "txid200", "txid1025", "txid3"}, txids)
 
-	it, err = store.Iterator(&api.SeekEnd{})
+	it, err = store.Iterator(&driver.SeekEnd{})
 	assert.NoError(t, err)
 	txids = []string{}
 	for {
@@ -115,11 +115,11 @@ func testTXIDStore(t *testing.T, store *TXIDStore) {
 			}
 		}()
 
-		store.Set("txid1", api.Valid)
+		store.Set("txid1", driver.Valid)
 	}()
 	assert.EqualError(t, err, "programming error, writing without ongoing update")
 
-	it, err := store.Iterator(&api.SeekEnd{})
+	it, err := store.Iterator(&driver.SeekEnd{})
 	assert.NoError(t, err)
 	next, err := it.Next()
 	assert.NoError(t, err)
@@ -127,36 +127,36 @@ func testTXIDStore(t *testing.T, store *TXIDStore) {
 
 	err = store.persistence.BeginUpdate()
 	assert.NoError(t, err)
-	err = store.Set("txid1", api.Valid)
+	err = store.Set("txid1", driver.Valid)
 	assert.NoError(t, err)
-	err = store.Set("txid2", api.Valid)
+	err = store.Set("txid2", driver.Valid)
 	assert.NoError(t, err)
-	err = store.Set("txid10", api.Valid)
+	err = store.Set("txid10", driver.Valid)
 	assert.NoError(t, err)
-	err = store.Set("txid12", api.Valid)
+	err = store.Set("txid12", driver.Valid)
 	assert.NoError(t, err)
-	err = store.Set("txid21", api.Valid)
+	err = store.Set("txid21", driver.Valid)
 	assert.NoError(t, err)
-	err = store.Set("txid100", api.Valid)
+	err = store.Set("txid100", driver.Valid)
 	assert.NoError(t, err)
-	err = store.Set("txid200", api.Valid)
+	err = store.Set("txid200", driver.Valid)
 	assert.NoError(t, err)
-	err = store.Set("txid1025", api.Valid)
+	err = store.Set("txid1025", driver.Valid)
 	assert.NoError(t, err)
 	err = store.persistence.Commit()
 	assert.NoError(t, err)
 
 	status, err := store.Get("txid3")
 	assert.NoError(t, err)
-	assert.Equal(t, api.Unknown, status)
+	assert.Equal(t, driver.Unknown, status)
 	status, err = store.Get("txid10")
 	assert.NoError(t, err)
-	assert.Equal(t, api.Valid, status)
+	assert.Equal(t, driver.Valid, status)
 
 	_, err = store.Iterator(&struct{}{})
 	assert.EqualError(t, err, "invalid position *struct {}")
 
-	it, err = store.Iterator(&api.SeekEnd{})
+	it, err = store.Iterator(&driver.SeekEnd{})
 	assert.NoError(t, err)
 	txids := []string{}
 	for {
@@ -172,7 +172,7 @@ func testTXIDStore(t *testing.T, store *TXIDStore) {
 	}
 	assert.Equal(t, []string{"txid1025"}, txids)
 
-	it, err = store.Iterator(&api.SeekStart{})
+	it, err = store.Iterator(&driver.SeekStart{})
 	assert.NoError(t, err)
 	txids = []string{}
 	for {
@@ -188,10 +188,10 @@ func testTXIDStore(t *testing.T, store *TXIDStore) {
 	}
 	assert.Equal(t, []string{"txid1", "txid2", "txid10", "txid12", "txid21", "txid100", "txid200", "txid1025"}, txids)
 
-	it, err = store.Iterator(&api.SeekPos{Txid: "boh"})
+	it, err = store.Iterator(&driver.SeekPos{Txid: "boh"})
 	assert.EqualError(t, err, "txid boh was not found")
 
-	it, err = store.Iterator(&api.SeekPos{Txid: "txid12"})
+	it, err = store.Iterator(&driver.SeekPos{Txid: "txid12"})
 	assert.NoError(t, err)
 	txids = []string{}
 	for {

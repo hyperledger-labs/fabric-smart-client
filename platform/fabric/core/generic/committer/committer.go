@@ -16,7 +16,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/api"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 )
 
@@ -31,9 +31,9 @@ type Finality interface {
 }
 
 type Network interface {
-	Committer(channel string) (api.Committer, error)
+	Committer(channel string) (driver.Committer, error)
 	Peers() []*grpc.ConnectionConfig
-	Ledger(channel string) (api.Ledger, error)
+	Ledger(channel string) (driver.Ledger, error)
 }
 
 type committer struct {
@@ -99,13 +99,13 @@ func (c *committer) IsFinal(txid string) error {
 	vd, deps, err := committer.Status(txid)
 	if err == nil {
 		switch vd {
-		case api.Valid:
+		case driver.Valid:
 			logger.Debugf("Tx [%s] is valid", txid)
 			return nil
-		case api.Invalid:
+		case driver.Invalid:
 			logger.Debugf("Tx [%s] is not valid", txid)
 			return errors.Errorf("transaction [%s] is not valid", txid)
-		case api.Busy:
+		case driver.Busy:
 			logger.Debugf("Tx [%s] is known with deps [%v]", txid, deps)
 			if len(deps) != 0 {
 				for _, id := range deps {
@@ -118,7 +118,7 @@ func (c *committer) IsFinal(txid string) error {
 				}
 				return nil
 			}
-		case api.HasDependencies:
+		case driver.HasDependencies:
 			logger.Debugf("Tx [%s] is unknown with deps [%v]", txid, deps)
 			if len(deps) != 0 {
 				for _, id := range deps {
@@ -132,7 +132,7 @@ func (c *committer) IsFinal(txid string) error {
 				return nil
 			}
 			return c.finality.IsFinal(txid, c.peerConnectionConfig.Address)
-		case api.Unknown:
+		case driver.Unknown:
 			return c.finality.IsFinal(txid, c.peerConnectionConfig.Address)
 		default:
 			panic(fmt.Sprintf("invalid status code, got %c", vd))
@@ -219,10 +219,10 @@ func (c *committer) listenTo(txid string, timeout time.Duration) error {
 		vd, _, err := committer.Status(txid)
 		if err == nil {
 			switch vd {
-			case api.Valid:
+			case driver.Valid:
 				logger.Debugf("Listen to finality of [%s]. VALID", txid)
 				return nil
-			case api.Invalid:
+			case driver.Invalid:
 				logger.Debugf("Listen to finality of [%s]. NOT VALID", txid)
 				return errors.Errorf("transaction [%s] is not valid", txid)
 			}

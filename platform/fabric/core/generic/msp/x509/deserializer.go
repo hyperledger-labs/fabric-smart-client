@@ -13,13 +13,13 @@ import (
 	"github.com/hyperledger/fabric-protos-go/msp"
 	"github.com/pkg/errors"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/api"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 type Deserializer struct{}
 
-func (i *Deserializer) DeserializeVerifier(raw []byte) (api.Verifier, error) {
+func (i *Deserializer) DeserializeVerifier(raw []byte) (driver.Verifier, error) {
 	si := &msp.SerializedIdentity{}
 	err := proto.Unmarshal(raw, si)
 	if err != nil {
@@ -37,7 +37,7 @@ func (i *Deserializer) DeserializeVerifier(raw []byte) (api.Verifier, error) {
 	return NewVerifier(publicKey), nil
 }
 
-func (i *Deserializer) DeserializeSigner(raw []byte) (api.Signer, error) {
+func (i *Deserializer) DeserializeSigner(raw []byte) (driver.Signer, error) {
 	return nil, errors.New("not supported")
 }
 

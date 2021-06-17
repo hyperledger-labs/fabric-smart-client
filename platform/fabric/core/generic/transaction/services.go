@@ -6,7 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 package transaction
 
 import (
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/api"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
@@ -36,7 +36,7 @@ func (s *mds) Exists(txid string) bool {
 	return kvs.GetService(s.sp).Exists(key)
 }
 
-func (s *mds) StoreTransient(txid string, transientMap api.TransientMap) error {
+func (s *mds) StoreTransient(txid string, transientMap driver.TransientMap) error {
 	key, err := kvs.CreateCompositeKey("metadata", []string{s.channel, s.network, txid})
 	if err != nil {
 		return err
@@ -46,14 +46,14 @@ func (s *mds) StoreTransient(txid string, transientMap api.TransientMap) error {
 	return kvs.GetService(s.sp).Put(key, transientMap)
 }
 
-func (s *mds) LoadTransient(txid string) (api.TransientMap, error) {
+func (s *mds) LoadTransient(txid string) (driver.TransientMap, error) {
 	logger.Debugf("load transient for [%s]", txid)
 
 	key, err := kvs.CreateCompositeKey("metadata", []string{s.channel, s.network, txid})
 	if err != nil {
 		return nil, err
 	}
-	transientMap := api.TransientMap{}
+	transientMap := driver.TransientMap{}
 	err = kvs.GetService(s.sp).Get(key, &transientMap)
 	if err != nil {
 		return nil, err

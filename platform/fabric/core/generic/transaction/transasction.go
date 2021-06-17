@@ -15,7 +15,7 @@ import (
 	"github.com/hyperledger/fabric/protoutil"
 	"github.com/pkg/errors"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/api"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -72,9 +72,9 @@ func (p *SignedProposal) ChaincodeVersion() string {
 
 type Transaction struct {
 	sp               view2.ServiceProvider
-	fns              api.FabricNetworkService
-	rwset            api.RWSet
-	vault            api.Channel
+	fns              driver.FabricNetworkService
+	rwset            driver.RWSet
+	vault            driver.Channel
 	signedProposal   *SignedProposal
 	proposalResponse *pb.ProposalResponse
 
@@ -90,7 +90,7 @@ type Transaction struct {
 	TParameters       [][]byte
 
 	RWSet      []byte
-	TTransient api.TransientMap
+	TTransient driver.TransientMap
 
 	TProposal          *pb.Proposal
 	TSignedProposal    *pb.SignedProposal
@@ -150,7 +150,7 @@ func (t *Transaction) Results() ([]byte, error) {
 	return upr.Results(), nil
 }
 
-func (t *Transaction) From(tx api.Transaction) (err error) {
+func (t *Transaction) From(tx driver.Transaction) (err error) {
 	payload := tx.(*Transaction)
 
 	t.TCreator = payload.TCreator
@@ -252,13 +252,13 @@ func (t *Transaction) SetFromEnvelopeBytes(raw []byte) error {
 	return nil
 }
 
-func (t *Transaction) Proposal() api.Proposal {
+func (t *Transaction) Proposal() driver.Proposal {
 	return &Proposal{
 		p: t.TProposal,
 	}
 }
 
-func (t *Transaction) SignedProposal() api.SignedProposal {
+func (t *Transaction) SignedProposal() driver.SignedProposal {
 	if t.signedProposal == nil {
 		return nil
 	}
@@ -288,7 +288,7 @@ func (t *Transaction) SetParameterAt(i int, p []byte) error {
 	return nil
 }
 
-func (t *Transaction) Transient() api.TransientMap {
+func (t *Transaction) Transient() driver.TransientMap {
 	return t.TTransient
 }
 
@@ -327,7 +327,7 @@ func (t *Transaction) SetRWSet() error {
 	return nil
 }
 
-func (t *Transaction) RWS() api.RWSet {
+func (t *Transaction) RWS() driver.RWSet {
 	return t.rwset
 }
 
@@ -365,7 +365,7 @@ func (t *Transaction) Raw() ([]byte, error) {
 	return json.Marshal(t)
 }
 
-func (t *Transaction) GetRWSet() (api.RWSet, error) {
+func (t *Transaction) GetRWSet() (driver.RWSet, error) {
 	if t.rwset == nil {
 		err := t.SetRWSet()
 		if err != nil {
@@ -440,7 +440,7 @@ func (t *Transaction) EndorseWithIdentity(identity view.Identity) error {
 	return nil
 }
 
-func (t *Transaction) EndorseWithSigner(identity view.Identity, s api.Signer) error {
+func (t *Transaction) EndorseWithSigner(identity view.Identity, s driver.Signer) error {
 	// prepare signer
 	var err error
 	signer := &signerWrapper{creator: identity, signer: s}
@@ -515,7 +515,7 @@ func (t *Transaction) EndorseProposalResponseWithIdentity(identity view.Identity
 	return t.appendProposalResponse(t.proposalResponse)
 }
 
-func (t *Transaction) AppendProposalResponse(response api.ProposalResponse) error {
+func (t *Transaction) AppendProposalResponse(response driver.ProposalResponse) error {
 	return t.appendProposalResponse(response.(*ProposalResponse).pr)
 }
 
@@ -532,8 +532,8 @@ func (t *Transaction) StoreTransient() error {
 	return t.vault.MetadataService().StoreTransient(t.ID(), t.TTransient)
 }
 
-func (t *Transaction) ProposalResponses() []api.ProposalResponse {
-	var res []api.ProposalResponse
+func (t *Transaction) ProposalResponses() []driver.ProposalResponse {
+	var res []driver.ProposalResponse
 	for _, resp := range t.TProposalResponses {
 		r, err := NewProposalResponseFromResponse(resp)
 		if err != nil {
