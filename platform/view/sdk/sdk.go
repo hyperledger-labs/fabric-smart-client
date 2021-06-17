@@ -12,6 +12,9 @@ import (
 	"io/ioutil"
 	"net"
 
+	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger"
+	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
+
 	"github.com/hyperledger/fabric/common/grpclogging"
 	"github.com/pkg/errors"
 

@@ -220,7 +220,7 @@ func TestSimpleReadWrite(t *testing.T) {
 	assert.Equal(t, uint64(0), tn)
 }
 
-func populateDB(t *testing.T, ns, key, keyWithSuffix string) *db {
+func populateDB(t *testing.T, ns, key, keyWithSuffix string) *database {
 	db := New()
 
 	err := db.BeginUpdate()
