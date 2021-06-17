@@ -99,7 +99,7 @@ Here is a pictorial representation of these networks.
 ![img.png](imgs/networks.png)
 
 Then, a network node running FSC is a `Business Party` at the Application/Business Layer.
-Business Parties run Views to orchestrate a Business Process and achieve a Business Goal
+Business Parties run Views to orchestrate a Business Process and achieve a Business Goal.
 Each FSC node exposes a GRPC service that allows the owner/administrator of the node to `initiate` business processes.
 A business process is started by an `initiator view`.
 
@@ -121,9 +121,9 @@ FSC comes equipped with two default SDKs :
     as she would do with the Fabric Client SDK.
   - `Identity Management`: The Fabric platform allows an FSC node to play the role of an `Endorser`, 
     not just that of a `Fabric Client`.
-  - `State-Based Programming Model API` (`SPM`, for short): Instead of dealing directly with a Read-Write Set (RWS, for short), 
+  - `State-Based Programming Model API` (`SPM`, for short): Instead of dealing directly with a Read-Write Set (RWSet, for short), 
     the SPM API allows the developer to think directly in terms of business objects. The SPM API takes care of translating 
-    these business objects to a well-formed RWS. Therefore, FSC nodes can collaboratively assemble a Fabric Transaction and its RWS, 
+    these business objects to a well-formed RWSet. Therefore, FSC nodes can collaboratively assemble a Fabric Transaction and its RWSet, 
     and then other FSC nodes, playing the role of endorsers, endorse the assembled transaction. 
     This gives much more flexibility than the default chaincode-centric protocol to assemble transactions, that Fabric offers.
   - `Vault`: The Fabric platform equips an FSC node with a local storage system that contains only the transactions 
@@ -138,14 +138,10 @@ This is the `View SDK` stack:
 ![img.png](imgs/view-sdk.png)
 
 It consists of the following layers:
-- `Services` (light-blue boxes): Services offer pre-packaged functionalities,
-  like `Token Transaction` assembling, Token Selectors, and so on.
-  They are built of top of the `Token API` abstraction. Therefore, they are independent of the underlying token technology.
-- `View API`: This API offers a useful abstraction to deal with tokens in an implementation-independent way.
-- `Driver API`: This API takes the burden of translating calls of the Token API into API calls that are implementation-specific.
-- `Driver Implementations`: This is the lowest level of the Token SDK. A driver implementation is responsible for
-  defining the representation of tokens on the ledger, what it means to perform certain token actions,
-  and when a token transaction is valid, among other things.
+- `Services` (light-blue boxes): Services offer the core building blocks to enable interaction between `FSC nodes` and maintain state throughout the execution of a Business Process.
+- `View API`: This API offers a useful abstraction to implement Business Processes as interactive protocols in an implementation and blockchain independent way.
+- `Driver API`: This API takes the burden of translating calls of the View API into API calls that are implementation-specific.
+- `Driver Implementations`: This is the lowest level of the View SDK. A driver implementation is responsible to define and realize the executing and the data of a specified business logic. We provide a `Generic View Driver` that implements the primitives used by the `View API`, such as identities, networking, and ledger-specific details.
   
 ### The Fabric SDK
 
@@ -154,14 +150,10 @@ This is the `Fabric SDK` stack:
 ![img.png](imgs/fabric-sdk.png)
 
 It consists of the following layers:
-- `Services` (light-blue boxes): Services offer pre-packaged functionalities,
-  like `Token Transaction` assembling, Token Selectors, and so on.
-  They are built of top of the `Token API` abstraction. Therefore, they are independent of the underlying token technology.
-- `View API`: This API offers a useful abstraction to deal with tokens in an implementation-independent way.
-- `Driver API`: This API takes the burden of translating calls of the Token API into API calls that are implementation-specific.
-- `Driver Implementations`: This is the lowest level of the Token SDK. A driver implementation is responsible for
-  defining the representation of tokens on the ledger, what it means to perform certain token actions,
-  and when a token transaction is valid, among other things.
+- `Services` (light-blue boxes): Services offer access to Fabric-specific functionality, such as transaction endorsement, state-based endorsement, and the execution of Chaincode.
+- `Fabric API`: This API follows the same abstraction paradigm as the `View API` but provides Fabric-specific functionality to enable `FSC nodes` to communicate with Fabric. Even though this API is specific for Fabric, it allows to abstract away certain details when dealing with a specific Fabric version.
+- `Driver API`: This API translates the `Fabric API` to a concrete driver implementation.
+- `Driver Implementations`: The Fabric SDK comes with a driver implementation for Fabric V2+.
 
 ## Transaction Lifecycle or How to orchestrate a business process
 
@@ -171,7 +163,7 @@ There are two ways to orchestrate transactions using the Fabric Smart Client:
 of a given chaincode. Once the parties agree on the input, one of them can start the endorsement process
   while the other wait for the confirmation that Fabric committed the transaction.
 - The other possibility is to have the business parties assemble directly a Fabric transaction.
-This means preparing the RW set, and collecting endorsements. Moreover, the endorsements can be produced 
+This means preparing the RWSet, and collecting endorsements. Moreover, the endorsements can be produced 
   directly by other Fabric Smart Client nodes, that we call `Approvers`, equipped with
   signing keys compatible with the endorsement policy of the chaincode the transaction targets. 
 
@@ -208,7 +200,7 @@ that can be used to endorse the chaincode Alice and Bob use to track their data.
 Notice that, an approver is not a Fabric peer.
 
 The difference with the previous case is that Alice and Bob now agree directly on the content of the transaction.
-Indeed, Alice and Bob assemble a full-fledged Fabric transaction with its own RW set.
+Indeed, Alice and Bob assemble a full-fledged Fabric transaction with its own RWSet.
 At the end of this process, Alice sends the transaction to the approvers.
 Each approver can run its own business logic to inspect the transaction and then decide if to endorse it. 
 
