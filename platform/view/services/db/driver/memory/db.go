@@ -23,7 +23,7 @@ type versionedValue struct {
 	metadata map[string][]byte
 }
 
-type db struct {
+type database struct {
 	keys  map[string]map[string]*versionedValue
 	mutex sync.Mutex
 	txn   map[string]map[string]*versionedValue
@@ -34,7 +34,7 @@ type rangeIterator struct {
 	cur  int
 	end  int
 	keys []string
-	db   *db
+	db   *database
 	ns   string
 }
 
@@ -59,18 +59,18 @@ func (r *rangeIterator) Next() (*driver.VersionedRead, error) {
 
 func (r *rangeIterator) Close() {}
 
-func New() *db {
-	return &db{
+func New() *database {
+	return &database{
 		keys:  map[string]map[string]*versionedValue{},
 		mutex: sync.Mutex{},
 	}
 }
 
-func (db *db) Close() error {
+func (db *database) Close() error {
 	return nil
 }
 
-func (db *db) BeginUpdate() error {
+func (db *database) BeginUpdate() error {
 	db.mutex.Lock()
 	defer db.mutex.Unlock()
 
@@ -106,7 +106,7 @@ func (db *db) BeginUpdate() error {
 	return nil
 }
 
-func (db *db) Commit() error {
+func (db *database) Commit() error {
 	db.mutex.Lock()
 	defer db.mutex.Unlock()
 
@@ -120,7 +120,7 @@ func (db *db) Commit() error {
 	return nil
 }
 
-func (db *db) Discard() error {
+func (db *database) Discard() error {
 	db.mutex.Lock()
 	defer db.mutex.Unlock()
 
@@ -133,15 +133,15 @@ func (db *db) Discard() error {
 	return nil
 }
 
-func (db *db) mapForNamespaceForReading(ns string, add bool) map[string]*versionedValue {
+func (db *database) mapForNamespaceForReading(ns string, add bool) map[string]*versionedValue {
 	return db.mapForNamespace(ns, add, db.keys)
 }
 
-func (db *db) mapForNamespaceForWriting(ns string, add bool) map[string]*versionedValue {
+func (db *database) mapForNamespaceForWriting(ns string, add bool) map[string]*versionedValue {
 	return db.mapForNamespace(ns, add, db.txn)
 }
 
-func (db *db) mapForNamespace(ns string, add bool, mm map[string]map[string]*versionedValue) map[string]*versionedValue {
+func (db *database) mapForNamespace(ns string, add bool, mm map[string]map[string]*versionedValue) map[string]*versionedValue {
 	m, in := mm[ns]
 	if !in && add {
 		m = map[string]*versionedValue{}
@@ -151,7 +151,7 @@ func (db *db) mapForNamespace(ns string, add bool, mm map[string]map[string]*ver
 	return m
 }
 
-func (db *db) GetStateRangeScanIterator(namespace string, startKey string, endKey string) (driver.VersionedResultsIterator, error) {
+func (db *database) GetStateRangeScanIterator(namespace string, startKey string, endKey string) (driver.VersionedResultsIterator, error) {
 	vv := db.mapForNamespaceForReading(namespace, false)
 	sortedKeys := make([]string, 0, len(vv))
 	for k := range vv {
@@ -179,7 +179,7 @@ func (db *db) GetStateRangeScanIterator(namespace string, startKey string, endKe
 	}, nil
 }
 
-func (db *db) GetState(namespace string, key string) ([]byte, uint64, uint64, error) {
+func (db *database) GetState(namespace string, key string) ([]byte, uint64, uint64, error) {
 	db.mutex.Lock()
 	defer db.mutex.Unlock()
 
@@ -191,7 +191,7 @@ func (db *db) GetState(namespace string, key string) ([]byte, uint64, uint64, er
 	return append([]byte(nil), vv.value...), vv.block, vv.txnum, nil
 }
 
-func (db *db) GetStateMetadata(namespace, key string) (map[string][]byte, uint64, uint64, error) {
+func (db *database) GetStateMetadata(namespace, key string) (map[string][]byte, uint64, uint64, error) {
 	db.mutex.Lock()
 	defer db.mutex.Unlock()
 
@@ -207,7 +207,7 @@ func (db *db) GetStateMetadata(namespace, key string) (map[string][]byte, uint64
 	return metadata, vv.block, vv.txnum, nil
 }
 
-func (db *db) SetState(namespace string, key string, value []byte, block, txnum uint64) error {
+func (db *database) SetState(namespace string, key string, value []byte, block, txnum uint64) error {
 	db.mutex.Lock()
 	defer db.mutex.Unlock()
 
@@ -230,7 +230,7 @@ func (db *db) SetState(namespace string, key string, value []byte, block, txnum 
 	return nil
 }
 
-func (db *db) SetStateMetadata(namespace, key string, metadata map[string][]byte, block, txnum uint64) error {
+func (db *database) SetStateMetadata(namespace, key string, metadata map[string][]byte, block, txnum uint64) error {
 	db.mutex.Lock()
 	defer db.mutex.Unlock()
 
@@ -254,7 +254,7 @@ func (db *db) SetStateMetadata(namespace, key string, metadata map[string][]byte
 	return nil
 }
 
-func (db *db) DeleteState(namespace string, key string) error {
+func (db *database) DeleteState(namespace string, key string) error {
 	db.mutex.Lock()
 	defer db.mutex.Unlock()
 
