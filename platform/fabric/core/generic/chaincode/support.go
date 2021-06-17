@@ -6,8 +6,8 @@ SPDX-License-Identifier: Apache-2.0
 package chaincode
 
 import (
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/api"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
@@ -28,10 +28,10 @@ type SerializableSigner interface {
 
 type Network interface {
 	Peers() []*grpc.ConnectionConfig
-	LocalMembership() api.LocalMembership
+	LocalMembership() driver.LocalMembership
 	// Broadcast sends the passed blob to the ordering service to be ordered
 	Broadcast(blob interface{}) error
-	SigService() api.SigService
+	SigService() driver.SigService
 }
 
 type Channel interface {
@@ -47,5 +47,5 @@ type Channel interface {
 	// IsFinal takes in input a transaction id and waits for its confirmation.
 	IsFinal(txID string) error
 
-	MSPManager() api.MSPManager
+	MSPManager() driver.MSPManager
 }

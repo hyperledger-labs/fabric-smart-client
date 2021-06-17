@@ -12,10 +12,10 @@ import (
 	"reflect"
 	"sync"
 
-	api2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/api"
 	idemix2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/idemix"
 	x5092 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/x509"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/api"
+	api2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 
 	"github.com/hyperledger/fabric/msp"
 	"github.com/pkg/errors"
@@ -23,8 +23,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
-	api3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/api"
 	sig2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/core/sig"
+	api3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -377,8 +377,8 @@ func (s *service) loadExtraResolvers() error {
 	type Provider interface {
 		EnrollmentID() string
 		Identity() (view.Identity, []byte, error)
-		DeserializeVerifier(raw []byte) (api.Verifier, error)
-		DeserializeSigner(raw []byte) (api.Signer, error)
+		DeserializeVerifier(raw []byte) (driver.Verifier, error)
+		DeserializeSigner(raw []byte) (driver.Signer, error)
 		Info(raw []byte, auditInfo []byte) (string, error)
 	}
 	var provider Provider

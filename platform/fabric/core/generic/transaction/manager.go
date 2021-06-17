@@ -11,33 +11,33 @@ import (
 	"github.com/hyperledger/fabric/protoutil"
 	"github.com/pkg/errors"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/api"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 type Manager struct {
 	sp  view.ServiceProvider
-	fns api.FabricNetworkService
+	fns driver.FabricNetworkService
 }
 
-func NewManager(sp view.ServiceProvider, fns api.FabricNetworkService) *Manager {
+func NewManager(sp view.ServiceProvider, fns driver.FabricNetworkService) *Manager {
 	return &Manager{sp: sp, fns: fns}
 }
 
-func (m *Manager) ComputeTxID(id *api.TxID) string {
+func (m *Manager) ComputeTxID(id *driver.TxID) string {
 	return ComputeTxID(id)
 }
 
-func (m *Manager) NewEnvelope() api.Envelope {
+func (m *Manager) NewEnvelope() driver.Envelope {
 	return NewEnvelope()
 }
 
-func (m *Manager) NewProposalResponseFromBytes(raw []byte) (api.ProposalResponse, error) {
+func (m *Manager) NewProposalResponseFromBytes(raw []byte) (driver.ProposalResponse, error) {
 	return NewProposalResponseFromBytes(raw)
 }
 
-func (m *Manager) NewTransaction(creator view2.Identity, nonce []byte, txid string, channel string) (api.Transaction, error) {
+func (m *Manager) NewTransaction(creator view2.Identity, nonce []byte, txid string, channel string) (driver.Transaction, error) {
 	ch, err := m.fns.Channel(channel)
 	if err != nil {
 		return nil, err
@@ -65,7 +65,7 @@ func (m *Manager) NewTransaction(creator view2.Identity, nonce []byte, txid stri
 	}, nil
 }
 
-func (m *Manager) NewTransactionFromBytes(channel string, raw []byte) (api.Transaction, error) {
+func (m *Manager) NewTransactionFromBytes(channel string, raw []byte) (driver.Transaction, error) {
 	ch, err := m.fns.Channel(channel)
 	if err != nil {
 		return nil, err

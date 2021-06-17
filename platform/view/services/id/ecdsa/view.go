@@ -9,7 +9,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/api"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 
@@ -42,7 +42,7 @@ func (f twoPartyCollectEphemeralKeyView) Call(context view.Context) (interface{}
 	if err != nil {
 		return nil, err
 	}
-	sigService := api.GetSigRegistry(context)
+	sigService := driver.GetSigRegistry(context)
 	err = sigService.RegisterSigner(id, signer, verifier)
 	if err != nil {
 		return nil, err
@@ -98,7 +98,7 @@ func (s *twoPartyEphemeralKeyResponderView) Call(context view.Context) (interfac
 		return nil, err
 	}
 
-	sigService := api.GetSigRegistry(context)
+	sigService := driver.GetSigRegistry(context)
 
 	// Parse received identity
 	id2, verifier, err := NewIdentityFromBytes(payload)

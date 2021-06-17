@@ -10,7 +10,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/api"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id/ecdsa"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -29,7 +29,7 @@ type ConfigProvider interface {
 //go:generate counterfeiter -o mock/sig_service.go -fake-name SigService . SigService
 
 type SigService interface {
-	RegisterSigner(identity view.Identity, signer api.Signer, verifier api.Verifier) error
+	RegisterSigner(identity view.Identity, signer driver.Signer, verifier driver.Verifier) error
 }
 
 type EndpointService interface {

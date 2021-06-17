@@ -9,13 +9,13 @@ import (
 	pb "github.com/hyperledger/fabric-protos-go/peer"
 	"github.com/pkg/errors"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/api"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
 
-func (c *channel) Status(txid string) (api.ValidationCode, []string, error) {
+func (c *channel) Status(txid string) (driver.ValidationCode, []string, error) {
 	vc, err := c.vault.Status(txid)
 	if err != nil {
-		return api.Unknown, nil, err
+		return driver.Unknown, nil, err
 	}
 	if c.externalCommitter == nil {
 		return vc, nil, nil
@@ -23,10 +23,10 @@ func (c *channel) Status(txid string) (api.ValidationCode, []string, error) {
 
 	_, dependantTxIDs, _, err := c.externalCommitter.Status(txid)
 	if err != nil {
-		return api.Unknown, nil, err
+		return driver.Unknown, nil, err
 	}
-	if vc == api.Unknown && len(dependantTxIDs) != 0 {
-		return api.HasDependencies, dependantTxIDs, nil
+	if vc == driver.Unknown && len(dependantTxIDs) != 0 {
+		return driver.HasDependencies, dependantTxIDs, nil
 	}
 	return vc, dependantTxIDs, nil
 }
@@ -47,7 +47,7 @@ func (c *channel) DiscardTx(txid string) error {
 	if err != nil {
 		return errors.WithMessagef(err, "failed getting tx's status in state db [%s]", txid)
 	}
-	if vc == api.Unknown {
+	if vc == driver.Unknown {
 		return nil
 	}
 
@@ -71,19 +71,19 @@ func (c *channel) CommitTX(txid string, block uint64, indexInBlock int) (err err
 	}
 
 	switch vc {
-	case api.Valid:
+	case driver.Valid:
 		// This should generate a panic
 		logger.Debugf("[%s] is already valid", txid)
 		return errors.Errorf("[%s] is already valid", txid)
-	case api.Invalid:
+	case driver.Invalid:
 		// This should generate a panic
 		logger.Debugf("[%s] is invalid", txid)
 		return errors.Errorf("[%s] is invalid", txid)
-	case api.Unknown:
+	case driver.Unknown:
 		return c.commitUnknown(txid, block, indexInBlock)
-	case api.HasDependencies:
+	case driver.HasDependencies:
 		return c.commitDeps(txid, block, indexInBlock)
-	case api.Busy:
+	case driver.Busy:
 		return c.commit(txid, deps, block, indexInBlock)
 	default:
 		return errors.Errorf("invalid status code [%d] for [%s]", vc, txid)
@@ -146,12 +146,12 @@ func (c *channel) commitDeps(txid string, block uint64, indexInBlock int) error 
 		return errors.WithMessagef(err, "failed validating transaction [%s]", txid)
 	}
 	switch vc {
-	case api.Valid:
+	case driver.Valid:
 		if err := c.externalCommitter.CommitTX(txid, block, indexInBlock); err != nil {
 			return errors.WithMessagef(err, "failed committing tx [%s]", txid)
 		}
 		return nil
-	case api.Invalid:
+	case driver.Invalid:
 		if err := c.externalCommitter.DiscardTX(txid); err != nil {
 			logger.Errorf("failed committing tx [%s] with err [%s]", txid, err)
 		}
@@ -182,12 +182,12 @@ func (c *channel) commit(txid string, deps []string, block uint64, indexInBlock 
 			return errors.WithMessagef(err, "failed validating transaction [%s]", txid)
 		}
 		switch vc {
-		case api.Valid:
+		case driver.Valid:
 			if err := c.externalCommitter.CommitTX(txid, block, indexInBlock); err != nil {
 				return errors.WithMessagef(err, "failed committing tx [%s]", txid)
 			}
 			return nil
-		case api.Invalid:
+		case driver.Invalid:
 			if err := c.externalCommitter.DiscardTX(txid); err != nil {
 				logger.Errorf("failed committing tx [%s] with err [%s]", txid, err)
 			}

@@ -8,7 +8,7 @@ package generic
 import (
 	"github.com/hyperledger/fabric/msp"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/api"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
 
 // GetMSPIDs retrieves the MSP IDs of the organizations in the current channel
@@ -29,7 +29,7 @@ func (c *channel) GetMSPIDs() []string {
 
 // MSPManager returns the msp.MSPManager that reflects the current channel
 // configuration. Users should not memoize references to this object.
-func (c *channel) MSPManager() api.MSPManager {
+func (c *channel) MSPManager() driver.MSPManager {
 	return &mspManager{MSPManager: c.Resources().MSPManager()}
 }
 
@@ -37,6 +37,6 @@ type mspManager struct {
 	msp.MSPManager
 }
 
-func (m *mspManager) DeserializeIdentity(serializedIdentity []byte) (api.MSPIdentity, error) {
+func (m *mspManager) DeserializeIdentity(serializedIdentity []byte) (driver.MSPIdentity, error) {
 	return m.MSPManager.DeserializeIdentity(serializedIdentity)
 }

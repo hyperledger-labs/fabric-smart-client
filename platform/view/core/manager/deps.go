@@ -8,7 +8,7 @@ package manager
 import (
 	"reflect"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/api"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -22,7 +22,7 @@ type CommLayer interface {
 	MasterSession() (view.Session, error)
 }
 
-func GetCommLayer(sp api.ServiceProvider) CommLayer {
+func GetCommLayer(sp driver.ServiceProvider) CommLayer {
 	s, err := sp.GetService(reflect.TypeOf((*CommLayer)(nil)))
 	if err != nil {
 		panic(err)

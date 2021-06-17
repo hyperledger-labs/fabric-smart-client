@@ -6,12 +6,12 @@ SPDX-License-Identifier: Apache-2.0
 package fabric
 
 import (
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/api"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 type SigService struct {
-	sigService api.SigService
+	sigService driver.SigService
 }
 
 func (s *SigService) GetVerifier(id view.Identity) (Verifier, error) {

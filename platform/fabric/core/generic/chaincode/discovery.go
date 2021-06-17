@@ -16,8 +16,8 @@ import (
 	"github.com/hyperledger/fabric/protoutil"
 	"github.com/pkg/errors"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/api"
 	peer2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -164,7 +164,7 @@ func (d *Discovery) Call() ([]view.Identity, error) {
 	return endorsers, nil
 }
 
-func (d *Discovery) WithFilterByMSPIDs(mspIDs ...string) api.ChaincodeDiscover {
+func (d *Discovery) WithFilterByMSPIDs(mspIDs ...string) driver.ChaincodeDiscover {
 	d.filterByMSPIDs = mspIDs
 	return d
 }

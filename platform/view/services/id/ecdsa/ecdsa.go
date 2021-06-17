@@ -15,7 +15,7 @@ import (
 	"encoding/pem"
 	"math/big"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/api"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
@@ -72,7 +72,7 @@ func (d dsaVerifier) Verify(message, sigma []byte) error {
 	return nil
 }
 
-func NewSigner() (view.Identity, api.Signer, api.Verifier, error) {
+func NewSigner() (view.Identity, driver.Signer, driver.Verifier, error) {
 	// Create ephemeral key and store it in the context
 	sk, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
@@ -86,7 +86,7 @@ func NewSigner() (view.Identity, api.Signer, api.Verifier, error) {
 	return pkRaw, &dsaSigner{sk: sk}, &dsaVerifier{pk: &sk.PublicKey}, nil
 }
 
-func NewSignerFromPEM(raw []byte) (api.Signer, error) {
+func NewSignerFromPEM(raw []byte) (driver.Signer, error) {
 	p, _ := pem.Decode(raw)
 	// Create ephemeral key and store it in the context
 	sk, err := x509.ParsePKCS8PrivateKey(p.Bytes)
@@ -97,7 +97,7 @@ func NewSignerFromPEM(raw []byte) (api.Signer, error) {
 	return &dsaSigner{sk: sk.(*ecdsa.PrivateKey)}, nil
 }
 
-func NewIdentityFromBytes(raw []byte) (view.Identity, api.Verifier, error) {
+func NewIdentityFromBytes(raw []byte) (view.Identity, driver.Verifier, error) {
 	genericPublicKey, err := x509.ParsePKIXPublicKey(raw)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "failed parsing received public key")
@@ -110,7 +110,7 @@ func NewIdentityFromBytes(raw []byte) (view.Identity, api.Verifier, error) {
 	return raw, &dsaVerifier{pk: publicKey}, nil
 }
 
-func NewIdentityFromPEMCert(raw []byte) (view.Identity, api.Verifier, error) {
+func NewIdentityFromPEMCert(raw []byte) (view.Identity, driver.Verifier, error) {
 	p, _ := pem.Decode(raw)
 	cert, err := x509.ParseCertificate(p.Bytes)
 	if err != nil {

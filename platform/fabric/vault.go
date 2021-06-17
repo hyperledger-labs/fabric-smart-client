@@ -10,7 +10,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/api"
+	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 )
 
@@ -66,7 +66,7 @@ const (
 )
 
 type RWSet struct {
-	rws api.RWSet
+	rws fdriver.RWSet
 }
 
 func (r *RWSet) IsValid() error {
@@ -82,9 +82,9 @@ func (r *RWSet) SetState(namespace string, key string, value []byte) error {
 }
 
 func (r *RWSet) GetState(namespace string, key string, opts ...GetStateOpt) ([]byte, error) {
-	var o []api.GetStateOpt
+	var o []fdriver.GetStateOpt
 	for _, opt := range opts {
-		o = append(o, api.GetStateOpt(opt))
+		o = append(o, fdriver.GetStateOpt(opt))
 	}
 	return r.rws.GetState(namespace, key, o...)
 }
@@ -94,9 +94,9 @@ func (r *RWSet) DeleteState(namespace string, key string) error {
 }
 
 func (r *RWSet) GetStateMetadata(namespace, key string, opts ...GetStateOpt) (map[string][]byte, error) {
-	var o []api.GetStateOpt
+	var o []fdriver.GetStateOpt
 	for _, opt := range opts {
-		o = append(o, api.GetStateOpt(opt))
+		o = append(o, fdriver.GetStateOpt(opt))
 	}
 	return r.rws.GetStateMetadata(namespace, key, o...)
 }
@@ -153,7 +153,7 @@ func (r *RWSet) Equals(rws interface{}, nss ...string) error {
 	return r.rws.Equals(r.rws, nss...)
 }
 
-func (r *RWSet) RWS() api.RWSet {
+func (r *RWSet) RWS() fdriver.RWSet {
 	return r.rws
 }
 
@@ -193,7 +193,7 @@ func (r *ResultsIterator) Close() {
 }
 
 type QueryExecutor struct {
-	qe api.QueryExecutor
+	qe fdriver.QueryExecutor
 }
 
 func (qe *QueryExecutor) GetState(namespace string, key string) ([]byte, error) {
@@ -241,7 +241,7 @@ type TxIDEntry struct {
 }
 
 type TxIDIterator struct {
-	api.TxidIterator
+	fdriver.TxidIterator
 }
 
 func (t *TxIDIterator) Next() (*TxIDEntry, error) {
@@ -263,7 +263,7 @@ func (t *TxIDIterator) Close() {
 }
 
 type Vault struct {
-	ch api.Channel
+	ch fdriver.Channel
 }
 
 func (c *Vault) GetLastTxID() (string, error) {
@@ -273,12 +273,12 @@ func (c *Vault) GetLastTxID() (string, error) {
 func (c *Vault) TxIDIterator(pos interface{}) (*TxIDIterator, error) {
 	var iPos interface{}
 	switch p := pos.(type) {
-	case *api.SeekStart:
-		iPos = &api.SeekStart{}
-	case *api.SeekEnd:
-		iPos = &api.SeekEnd{}
-	case *api.SeekPos:
-		iPos = &api.SeekPos{Txid: p.Txid}
+	case *fdriver.SeekStart:
+		iPos = &fdriver.SeekStart{}
+	case *fdriver.SeekEnd:
+		iPos = &fdriver.SeekEnd{}
+	case *fdriver.SeekPos:
+		iPos = &fdriver.SeekPos{Txid: p.Txid}
 	default:
 		return nil, errors.Errorf("invalid position %T", pos)
 	}
@@ -346,5 +346,5 @@ func (c *Vault) StoreTransaction(id string, raw []byte) error {
 }
 
 func (c *Vault) StoreTransient(id string, tm TransientMap) error {
-	return c.ch.MetadataService().StoreTransient(id, api.TransientMap(tm))
+	return c.ch.MetadataService().StoreTransient(id, fdriver.TransientMap(tm))
 }

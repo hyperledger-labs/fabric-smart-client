@@ -15,8 +15,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/api"
 	viperutil "github.com/hyperledger-labs/fabric-smart-client/platform/view/core/config/viper"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 )
 
@@ -58,7 +58,7 @@ func (p *provider) GetStringSlice(key string) []string {
 	return p.v.GetStringSlice(key)
 }
 
-func (p *provider) AddDecodeHook(f api.DecodeHookFuncType) error {
+func (p *provider) AddDecodeHook(f driver.DecodeHookFuncType) error {
 	return nil
 }
 

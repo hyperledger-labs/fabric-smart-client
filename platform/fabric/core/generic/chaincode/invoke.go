@@ -12,9 +12,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/api"
 	peer2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 
@@ -39,7 +39,7 @@ type Invoke struct {
 	ServiceProvider       view2.ServiceProvider
 	Network               Network
 	Channel               Channel
-	TxID                  api.TxID
+	TxID                  driver.TxID
 	SignerIdentity        view.Identity
 	ChaincodePath         string
 	ChaincodeName         string
@@ -212,7 +212,7 @@ func (i *Invoke) Call() (interface{}, error) {
 	return []interface{}{txid, proposalResp}, nil
 }
 
-func (i *Invoke) WithTransientEntry(k string, v interface{}) api.ChaincodeInvocation {
+func (i *Invoke) WithTransientEntry(k string, v interface{}) driver.ChaincodeInvocation {
 	if i.TransientMap == nil {
 		i.TransientMap = map[string][]byte{}
 	}
@@ -224,32 +224,32 @@ func (i *Invoke) WithTransientEntry(k string, v interface{}) api.ChaincodeInvoca
 	return i
 }
 
-func (i *Invoke) WithEndorsers(ids ...view.Identity) api.ChaincodeInvocation {
+func (i *Invoke) WithEndorsers(ids ...view.Identity) driver.ChaincodeInvocation {
 	i.Endorsers = ids
 	return i
 }
 
-func (i *Invoke) WithEndorsersByMSPIDs(mspIDs ...string) api.ChaincodeInvocation {
+func (i *Invoke) WithEndorsersByMSPIDs(mspIDs ...string) driver.ChaincodeInvocation {
 	i.EndorsersMSPIDs = mspIDs
 	return i
 }
 
-func (i *Invoke) WithEndorsersFromMyOrg() api.ChaincodeInvocation {
+func (i *Invoke) WithEndorsersFromMyOrg() driver.ChaincodeInvocation {
 	i.EndorsersFromMyOrg = true
 	return i
 }
 
-func (i *Invoke) WithSignerIdentity(id view.Identity) api.ChaincodeInvocation {
+func (i *Invoke) WithSignerIdentity(id view.Identity) driver.ChaincodeInvocation {
 	i.SignerIdentity = id
 	return i
 }
 
-func (i *Invoke) WithEndorsersByConnConfig(ccs ...*grpc.ConnectionConfig) api.ChaincodeInvocation {
+func (i *Invoke) WithEndorsersByConnConfig(ccs ...*grpc.ConnectionConfig) driver.ChaincodeInvocation {
 	i.EndorsersByConnConfig = ccs
 	return i
 }
 
-func (i *Invoke) WithTxID(id api.TxID) api.ChaincodeInvocation {
+func (i *Invoke) WithTxID(id driver.TxID) driver.ChaincodeInvocation {
 	i.TxID = id
 	return i
 }

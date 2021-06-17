@@ -13,10 +13,10 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/api"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/ordering"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/rwset"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -35,11 +35,11 @@ type network struct {
 
 	config *Config
 
-	localMembership    api.LocalMembership
-	idProvider         api.IdentityProvider
-	processorManager   api.ProcessorManager
-	transactionManager api.TransactionManager
-	sigService         api.SigService
+	localMembership    driver.LocalMembership
+	idProvider         driver.IdentityProvider
+	processorManager   driver.ProcessorManager
+	transactionManager driver.TransactionManager
+	sigService         driver.SigService
 
 	tlsRootCerts   [][]byte
 	orderers       []*grpc.ConnectionConfig
@@ -47,8 +47,8 @@ type network struct {
 	defaultChannel string
 	channelDefs    []*Channel
 
-	ordering api.Ordering
-	channels map[string]api.Channel
+	ordering driver.Ordering
+	channels map[string]driver.Channel
 	mutex    sync.Mutex
 	name     string
 }
@@ -57,16 +57,16 @@ func NewNetwork(
 	sp view2.ServiceProvider,
 	name string,
 	config *Config,
-	idProvider api.IdentityProvider,
-	localMembership api.LocalMembership,
-	sigService api.SigService,
+	idProvider driver.IdentityProvider,
+	localMembership driver.LocalMembership,
+	sigService driver.SigService,
 ) (*network, error) {
 	// Load configuration
 	fsp := &network{
 		sp:              sp,
 		name:            name,
 		config:          config,
-		channels:        map[string]api.Channel{},
+		channels:        map[string]driver.Channel{},
 		mutex:           sync.Mutex{},
 		localMembership: localMembership,
 		idProvider:      idProvider,
@@ -103,7 +103,7 @@ func (f *network) Peers() []*grpc.ConnectionConfig {
 	return f.peers
 }
 
-func (f *network) Channel(name string) (api.Channel, error) {
+func (f *network) Channel(name string) (driver.Channel, error) {
 	logger.Debugf("Getting channel [%s]", name)
 
 	if len(name) == 0 {
@@ -138,31 +138,31 @@ func (f *network) Channel(name string) (api.Channel, error) {
 	return ch, nil
 }
 
-func (f *network) Ledger(name string) (api.Ledger, error) {
+func (f *network) Ledger(name string) (driver.Ledger, error) {
 	return f.Channel(name)
 }
 
-func (f *network) Committer(name string) (api.Committer, error) {
+func (f *network) Committer(name string) (driver.Committer, error) {
 	return f.Channel(name)
 }
 
-func (f *network) Comm(name string) (api.Comm, error) {
+func (f *network) Comm(name string) (driver.Comm, error) {
 	return f.Channel(name)
 }
 
-func (f *network) IdentityProvider() api.IdentityProvider {
+func (f *network) IdentityProvider() driver.IdentityProvider {
 	return f.idProvider
 }
 
-func (f *network) LocalMembership() api.LocalMembership {
+func (f *network) LocalMembership() driver.LocalMembership {
 	return f.localMembership
 }
 
-func (f *network) ProcessorManager() api.ProcessorManager {
+func (f *network) ProcessorManager() driver.ProcessorManager {
 	return f.processorManager
 }
 
-func (f *network) TransactionManager() api.TransactionManager {
+func (f *network) TransactionManager() driver.TransactionManager {
 	return f.transactionManager
 }
 
@@ -174,7 +174,7 @@ func (f *network) Broadcast(blob interface{}) error {
 	return f.ordering.Broadcast(blob)
 }
 
-func (f *network) SigService() api.SigService {
+func (f *network) SigService() driver.SigService {
 	return f.sigService
 }
 

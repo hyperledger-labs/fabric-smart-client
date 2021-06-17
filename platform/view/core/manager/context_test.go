@@ -11,10 +11,10 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/api"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/api/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/manager"
 	mock2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/core/manager/mock"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver/mock"
 	registry2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/registry"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -42,7 +42,7 @@ func TestContext(t *testing.T) {
 	assert.Equal(t, session, ctx.Session())
 
 	// GetService
-	assert.NotNil(t, api.GetEndpointService(ctx))
+	assert.NotNil(t, driver.GetEndpointService(ctx))
 
 	// Id
 	assert.Equal(t, "pineapple", ctx.ID())

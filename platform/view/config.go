@@ -6,13 +6,13 @@ SPDX-License-Identifier: Apache-2.0
 package view
 
 import (
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/api"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 
 	"time"
 )
 
 type ConfigService struct {
-	cp api.ConfigProvider
+	cp driver.ConfigProvider
 }
 
 func (c *ConfigService) GetString(key string) string {
@@ -53,6 +53,6 @@ func (c *ConfigService) TranslatePath(path string) string {
 
 func GetConfigService(sp ServiceProvider) *ConfigService {
 	return &ConfigService{
-		cp: api.GetConfigProvider(sp),
+		cp: driver.GetConfigProvider(sp),
 	}
 }

@@ -6,7 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 package fabric
 
 import (
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/api"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
 
 type ProcessTransaction interface {
@@ -25,7 +25,7 @@ type Processor interface {
 }
 
 type ProcessorManager struct {
-	pm api.ProcessorManager
+	pm driver.ProcessorManager
 }
 
 func (pm *ProcessorManager) AddProcessor(ns string, p Processor) error {
@@ -44,7 +44,7 @@ type processor struct {
 	p Processor
 }
 
-func (p *processor) Process(req api.Request, tx api.ProcessTransaction, r api.RWSet, ns string) error {
+func (p *processor) Process(req driver.Request, tx driver.ProcessTransaction, r driver.RWSet, ns string) error {
 	return p.p.Process(
 		&request{Request: req},
 		&transaction{ProcessTransaction: tx},
@@ -54,9 +54,9 @@ func (p *processor) Process(req api.Request, tx api.ProcessTransaction, r api.RW
 }
 
 type request struct {
-	api.Request
+	driver.Request
 }
 
 type transaction struct {
-	api.ProcessTransaction
+	driver.ProcessTransaction
 }

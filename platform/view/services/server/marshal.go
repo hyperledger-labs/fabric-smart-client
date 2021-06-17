@@ -15,7 +15,7 @@ import (
 	"github.com/pkg/errors"
 
 	view "github.com/hyperledger-labs/fabric-smart-client/platform/view"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/api"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	hash2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/protos"
 )
@@ -35,11 +35,11 @@ type TimeFunc func() time.Time
 
 // ResponseMarshaler produces SignedCommandResponse
 type ResponseMarshaler struct {
-	sp   api.ServiceProvider
+	sp   driver.ServiceProvider
 	time TimeFunc
 }
 
-func NewResponseMarshaler(sp api.ServiceProvider) (*ResponseMarshaler, error) {
+func NewResponseMarshaler(sp driver.ServiceProvider) (*ResponseMarshaler, error) {
 	return &ResponseMarshaler{
 		sp:   sp,
 		time: time.Now,
@@ -57,7 +57,7 @@ func (s *ResponseMarshaler) MarshalCommandResponse(command []byte, responsePaylo
 		return nil, err
 	}
 
-	did := api.GetIdentityProvider(s.sp).DefaultIdentity()
+	did := driver.GetIdentityProvider(s.sp).DefaultIdentity()
 	cr.Header = &protos.CommandResponseHeader{
 		Creator:     did,
 		CommandHash: s.computeHash(command),
@@ -73,7 +73,7 @@ func (s *ResponseMarshaler) createSignedCommandResponse(cr *protos.CommandRespon
 		return nil, err
 	}
 
-	did := api.GetIdentityProvider(s.sp).DefaultIdentity()
+	did := driver.GetIdentityProvider(s.sp).DefaultIdentity()
 	dSigner, err := view.GetSigService(s.sp).GetSigner(did)
 	if err != nil {
 		return nil, err

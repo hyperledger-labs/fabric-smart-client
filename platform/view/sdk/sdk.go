@@ -26,10 +26,10 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
-	api2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/api"
 	config2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/core/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/manager"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/sig"
+	api2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
 	comm2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm"
 	grpc2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"

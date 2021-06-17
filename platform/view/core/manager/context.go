@@ -13,27 +13,27 @@ import (
 	"github.com/pkg/errors"
 
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/api"
 	sig2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/core/sig"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 type ctx struct {
 	context        context.Context
-	sp             api.ServiceProvider
+	sp             driver.ServiceProvider
 	id             string
 	session        view.Session
 	initiator      view.View
 	me             view.Identity
 	caller         view.Identity
-	resolver       api.EndpointService
+	resolver       driver.EndpointService
 	sessionFactory SessionFactory
 
 	sessionsLock sync.RWMutex
 	sessions     map[string]view.Session
 }
 
-func NewContextForInitiator(context context.Context, sp api.ServiceProvider, sessionFactory SessionFactory, resolver api.EndpointService, party view.Identity, initiator view.View) (*ctx, error) {
+func NewContextForInitiator(context context.Context, sp driver.ServiceProvider, sessionFactory SessionFactory, resolver driver.EndpointService, party view.Identity, initiator view.View) (*ctx, error) {
 	ctx, err := NewContext(context, sp, GenerateUUID(), sessionFactory, resolver, party, nil, nil)
 	if err != nil {
 		return nil, err
@@ -43,7 +43,7 @@ func NewContextForInitiator(context context.Context, sp api.ServiceProvider, ses
 	return ctx, nil
 }
 
-func NewContext(context context.Context, sp api.ServiceProvider, contextID string, sessionFactory SessionFactory, resolver api.EndpointService, party view.Identity, session view.Session, caller view.Identity) (*ctx, error) {
+func NewContext(context context.Context, sp driver.ServiceProvider, contextID string, sessionFactory SessionFactory, resolver driver.EndpointService, party view.Identity, session view.Session, caller view.Identity) (*ctx, error) {
 	ctx := &ctx{
 		context:        context,
 		id:             contextID,
@@ -99,7 +99,7 @@ func (ctx *ctx) Me() view.Identity {
 
 // TODO: remove this
 func (ctx *ctx) Identity(ref string) (view.Identity, error) {
-	return api.GetEndpointService(ctx.sp).GetIdentity(ref, nil)
+	return driver.GetEndpointService(ctx.sp).GetIdentity(ref, nil)
 }
 
 func (ctx *ctx) IsMe(id view.Identity) bool {
@@ -200,7 +200,7 @@ func (ctx *ctx) newSession(view view.View, contextID string, party view.Identity
 	if err != nil {
 		return nil, err
 	}
-	return ctx.sessionFactory.NewSession(getIdentifier(view), contextID, endpoints[api.P2PPort], pkid)
+	return ctx.sessionFactory.NewSession(getIdentifier(view), contextID, endpoints[driver.P2PPort], pkid)
 }
 
 func (ctx *ctx) newSessionByID(sessionID, contextID string, party view.Identity) (view.Session, error) {
@@ -208,5 +208,5 @@ func (ctx *ctx) newSessionByID(sessionID, contextID string, party view.Identity)
 	if err != nil {
 		return nil, err
 	}
-	return ctx.sessionFactory.NewSessionWithID(sessionID, contextID, endpoints[api.P2PPort], pkid, nil, nil)
+	return ctx.sessionFactory.NewSessionWithID(sessionID, contextID, endpoints[driver.P2PPort], pkid, nil, nil)
 }

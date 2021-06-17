@@ -6,7 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 package driver
 
 import (
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/api"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -17,8 +17,8 @@ type Vault interface {
 }
 
 type Committer interface {
-	Status(txid string) (api.ValidationCode, []string, []view.Identity, error)
-	Validate(txid string) (api.ValidationCode, error)
+	Status(txid string) (driver.ValidationCode, []string, []view.Identity, error)
+	Validate(txid string) (driver.ValidationCode, error)
 	CommitTX(txid string, block uint64, indexInBloc int) error
 	DiscardTX(txid string) error
 }

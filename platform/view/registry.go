@@ -8,7 +8,7 @@ package view
 import (
 	"reflect"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/api"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -22,7 +22,7 @@ type Factory interface {
 }
 
 type Registry struct {
-	registry api.Registry
+	registry driver.Registry
 }
 
 func (r *Registry) GetIdentifier(f View) string {
@@ -42,9 +42,9 @@ func (r *Registry) RegisterResponderWithIdentity(responder View, id view.Identit
 }
 
 func GetRegistry(sp ServiceProvider) *Registry {
-	s, err := sp.GetService(reflect.TypeOf((*api.Registry)(nil)))
+	s, err := sp.GetService(reflect.TypeOf((*driver.Registry)(nil)))
 	if err != nil {
 		panic(err)
 	}
-	return &Registry{registry: s.(api.Registry)}
+	return &Registry{registry: s.(driver.Registry)}
 }

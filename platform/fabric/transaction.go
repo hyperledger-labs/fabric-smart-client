@@ -9,7 +9,7 @@ import (
 	"encoding/base64"
 	"fmt"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/api"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -70,7 +70,7 @@ func (t *TxID) String() string {
 }
 
 type ProposalResponse struct {
-	pr api.ProposalResponse
+	pr driver.ProposalResponse
 }
 
 func (r *ProposalResponse) ResponseStatus() int32 {
@@ -98,7 +98,7 @@ func (r *ProposalResponse) Results() []byte {
 }
 
 type Proposal struct {
-	p api.Proposal
+	p driver.Proposal
 }
 
 func (p *Proposal) Header() []byte {
@@ -110,7 +110,7 @@ func (p *Proposal) Payload() []byte {
 }
 
 type SignedProposal struct {
-	s api.SignedProposal
+	s driver.SignedProposal
 }
 
 func (p *SignedProposal) ProposalBytes() []byte {
@@ -139,7 +139,7 @@ type Signer interface {
 
 type Transaction struct {
 	fns *NetworkService
-	tx  api.Transaction
+	tx  driver.Transaction
 }
 
 func (t *Transaction) Creator() view.Identity {
@@ -373,7 +373,7 @@ func (t *TransactionManager) NewTransactionFromBytes(raw []byte, opts ...Transac
 }
 
 func (t *TransactionManager) ComputeTxID(id *TxID) string {
-	txID := &api.TxID{
+	txID := &driver.TxID{
 		Nonce: id.Nonce, Creator: id.Creator,
 	}
 	res := t.fns.fns.TransactionManager().ComputeTxID(txID)
@@ -383,7 +383,7 @@ func (t *TransactionManager) ComputeTxID(id *TxID) string {
 }
 
 type MetadataService struct {
-	ms api.MetadataService
+	ms driver.MetadataService
 }
 
 func (m *MetadataService) Exists(txid string) bool {
@@ -391,7 +391,7 @@ func (m *MetadataService) Exists(txid string) bool {
 }
 
 func (m *MetadataService) StoreTransient(txid string, transientMap TransientMap) error {
-	return m.ms.StoreTransient(txid, api.TransientMap(transientMap))
+	return m.ms.StoreTransient(txid, driver.TransientMap(transientMap))
 }
 
 func (m *MetadataService) LoadTransient(txid string) (TransientMap, error) {

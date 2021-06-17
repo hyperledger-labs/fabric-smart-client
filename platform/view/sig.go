@@ -6,7 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 package view
 
 import (
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/api"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -23,7 +23,7 @@ type Verifier interface {
 }
 
 type Identity struct {
-	i api.Identity
+	i driver.Identity
 }
 
 func (i *Identity) Serialize() ([]byte, error) {
@@ -35,7 +35,7 @@ func (i *Identity) Verify(message []byte, signature []byte) error {
 }
 
 type SigningIdentity struct {
-	si api.SigningIdentity
+	si driver.SigningIdentity
 }
 
 func (s *SigningIdentity) Serialize() ([]byte, error) {
@@ -55,9 +55,9 @@ func (s *SigningIdentity) GetPublicVersion() *Identity {
 }
 
 type SigService struct {
-	sigService    api.SigService
-	sigRegistry   api.SigRegistry
-	auditRegistry api.AuditRegistry
+	sigService    driver.SigService
+	sigRegistry   driver.SigRegistry
+	auditRegistry driver.AuditRegistry
 }
 
 func (s *SigService) RegisterAuditInfo(identity view.Identity, info []byte) error {
@@ -94,8 +94,8 @@ func (s *SigService) GetSigningIdentity(identity view.Identity) (*SigningIdentit
 
 func GetSigService(sp ServiceProvider) *SigService {
 	return &SigService{
-		sigService:    api.GetSigService(sp),
-		sigRegistry:   api.GetSigRegistry(sp),
-		auditRegistry: api.GetAuditRegistry(sp),
+		sigService:    driver.GetSigService(sp),
+		sigRegistry:   driver.GetSigRegistry(sp),
+		auditRegistry: driver.GetAuditRegistry(sp),
 	}
 }

@@ -18,8 +18,8 @@ import (
 	"github.com/hyperledger/fabric/core/ledger/kvledger/txmgmt/rwsetutil"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/api"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/vault/txidstore"
+	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger"
@@ -231,7 +231,7 @@ func testRun(t *testing.T, db1, db2 driver.VersionedPersistence) {
 	assert.NoError(t, err)
 
 	// GET K1
-	v, err := rws.GetState(ns, k1, api.FromIntermediate)
+	v, err := rws.GetState(ns, k1, fdriver.FromIntermediate)
 	assert.NoError(t, err)
 	assert.Nil(t, v)
 
@@ -239,12 +239,12 @@ func testRun(t *testing.T, db1, db2 driver.VersionedPersistence) {
 	assert.NoError(t, err)
 	assert.Equal(t, []byte("v1"), v)
 
-	v, err = rws.GetState(ns, k1, api.FromBoth)
+	v, err = rws.GetState(ns, k1, fdriver.FromBoth)
 	assert.NoError(t, err)
 	assert.Equal(t, []byte("v1"), v)
 
 	// GET K1Meta
-	vMap, err := rws.GetStateMetadata(ns, k1Meta, api.FromIntermediate)
+	vMap, err := rws.GetStateMetadata(ns, k1Meta, fdriver.FromIntermediate)
 	assert.NoError(t, err)
 	assert.Nil(t, vMap)
 
@@ -252,7 +252,7 @@ func testRun(t *testing.T, db1, db2 driver.VersionedPersistence) {
 	assert.NoError(t, err)
 	assert.Equal(t, map[string][]byte{"metakey": []byte("metavalue")}, vMap)
 
-	vMap, err = rws.GetStateMetadata(ns, k1Meta, api.FromBoth)
+	vMap, err = rws.GetStateMetadata(ns, k1Meta, fdriver.FromBoth)
 	assert.NoError(t, err)
 	assert.Equal(t, map[string][]byte{"metakey": []byte("metavalue")}, vMap)
 
@@ -261,15 +261,15 @@ func testRun(t *testing.T, db1, db2 driver.VersionedPersistence) {
 	assert.NoError(t, err)
 
 	// GET K1 after setting it
-	v, err = rws.GetState(ns, k1, api.FromIntermediate)
+	v, err = rws.GetState(ns, k1, fdriver.FromIntermediate)
 	assert.NoError(t, err)
 	assert.Equal(t, []byte("v1_updated"), v)
 
-	v, err = rws.GetState(ns, k1, api.FromStorage)
+	v, err = rws.GetState(ns, k1, fdriver.FromStorage)
 	assert.NoError(t, err)
 	assert.Equal(t, []byte("v1"), v)
 
-	v, err = rws.GetState(ns, k1, api.FromBoth)
+	v, err = rws.GetState(ns, k1, fdriver.FromBoth)
 	assert.NoError(t, err)
 	assert.Equal(t, []byte("v1_updated"), v)
 
@@ -278,7 +278,7 @@ func testRun(t *testing.T, db1, db2 driver.VersionedPersistence) {
 	assert.NoError(t, err)
 
 	// GET K1Meta after setting it
-	vMap, err = rws.GetStateMetadata(ns, k1Meta, api.FromIntermediate)
+	vMap, err = rws.GetStateMetadata(ns, k1Meta, fdriver.FromIntermediate)
 	assert.NoError(t, err)
 	assert.Equal(t, map[string][]byte{"newmetakey": []byte("newmetavalue")}, vMap)
 
@@ -286,20 +286,20 @@ func testRun(t *testing.T, db1, db2 driver.VersionedPersistence) {
 	assert.NoError(t, err)
 	assert.Equal(t, map[string][]byte{"metakey": []byte("metavalue")}, vMap)
 
-	vMap, err = rws.GetStateMetadata(ns, k1Meta, api.FromBoth)
+	vMap, err = rws.GetStateMetadata(ns, k1Meta, fdriver.FromBoth)
 	assert.NoError(t, err)
 	assert.Equal(t, map[string][]byte{"newmetakey": []byte("newmetavalue")}, vMap)
 
 	// GET K2
-	v, err = rws.GetState(ns, k2, api.FromIntermediate)
+	v, err = rws.GetState(ns, k2, fdriver.FromIntermediate)
 	assert.NoError(t, err)
 	assert.Nil(t, v)
 
-	v, err = rws.GetState(ns, k2, api.FromStorage)
+	v, err = rws.GetState(ns, k2, fdriver.FromStorage)
 	assert.NoError(t, err)
 	assert.Nil(t, v)
 
-	v, err = rws.GetState(ns, k2, api.FromBoth)
+	v, err = rws.GetState(ns, k2, fdriver.FromBoth)
 	assert.NoError(t, err)
 	assert.Nil(t, v)
 
@@ -308,15 +308,15 @@ func testRun(t *testing.T, db1, db2 driver.VersionedPersistence) {
 	assert.NoError(t, err)
 
 	// GET K2 after setting it
-	v, err = rws.GetState(ns, k2, api.FromIntermediate)
+	v, err = rws.GetState(ns, k2, fdriver.FromIntermediate)
 	assert.NoError(t, err)
 	assert.Equal(t, []byte("v2_updated"), v)
 
-	v, err = rws.GetState(ns, k2, api.FromStorage)
+	v, err = rws.GetState(ns, k2, fdriver.FromStorage)
 	assert.NoError(t, err)
 	assert.Nil(t, v)
 
-	v, err = rws.GetState(ns, k2, api.FromBoth)
+	v, err = rws.GetState(ns, k2, fdriver.FromBoth)
 	assert.NoError(t, err)
 	assert.Equal(t, []byte("v2_updated"), v)
 
@@ -367,33 +367,33 @@ func testRun(t *testing.T, db1, db2 driver.VersionedPersistence) {
 	assert.EqualError(t, err, "no write at position 2 for namespace namespace")
 
 	// GET K1
-	v, err = rws.GetState(ns, k1, api.FromIntermediate)
+	v, err = rws.GetState(ns, k1, fdriver.FromIntermediate)
 	assert.NoError(t, err)
 	assert.Equal(t, []byte("v1_updated"), v)
 
-	v, err = rws.GetState(ns, k1, api.FromStorage)
+	v, err = rws.GetState(ns, k1, fdriver.FromStorage)
 	assert.NoError(t, err)
 	assert.Equal(t, []byte("v1"), v)
 
-	v, err = rws.GetState(ns, k1, api.FromBoth)
+	v, err = rws.GetState(ns, k1, fdriver.FromBoth)
 	assert.NoError(t, err)
 	assert.Equal(t, []byte("v1_updated"), v)
 
 	// GET K2
-	v, err = rws.GetState(ns, k2, api.FromIntermediate)
+	v, err = rws.GetState(ns, k2, fdriver.FromIntermediate)
 	assert.NoError(t, err)
 	assert.Equal(t, []byte("v2_updated"), v)
 
-	v, err = rws.GetState(ns, k2, api.FromStorage)
+	v, err = rws.GetState(ns, k2, fdriver.FromStorage)
 	assert.NoError(t, err)
 	assert.Nil(t, v)
 
-	v, err = rws.GetState(ns, k2, api.FromBoth)
+	v, err = rws.GetState(ns, k2, fdriver.FromBoth)
 	assert.NoError(t, err)
 	assert.Equal(t, []byte("v2_updated"), v)
 
 	// GET K1Meta
-	vMap, err = rws.GetStateMetadata(ns, k1Meta, api.FromIntermediate)
+	vMap, err = rws.GetStateMetadata(ns, k1Meta, fdriver.FromIntermediate)
 	assert.NoError(t, err)
 	assert.Equal(t, map[string][]byte{"newmetakey": []byte("newmetavalue")}, vMap)
 
@@ -401,7 +401,7 @@ func testRun(t *testing.T, db1, db2 driver.VersionedPersistence) {
 	assert.NoError(t, err)
 	assert.Equal(t, map[string][]byte{"metakey": []byte("metavalue")}, vMap)
 
-	vMap, err = rws.GetStateMetadata(ns, k1Meta, api.FromBoth)
+	vMap, err = rws.GetStateMetadata(ns, k1Meta, fdriver.FromBoth)
 	assert.NoError(t, err)
 	assert.Equal(t, map[string][]byte{"newmetakey": []byte("newmetavalue")}, vMap)
 
@@ -410,15 +410,15 @@ func testRun(t *testing.T, db1, db2 driver.VersionedPersistence) {
 	assert.NoError(t, err)
 
 	// GET K1
-	v, err = rws.GetState(ns, k1, api.FromIntermediate)
+	v, err = rws.GetState(ns, k1, fdriver.FromIntermediate)
 	assert.NoError(t, err)
 	assert.Nil(t, v)
 
-	v, err = rws.GetState(ns, k1, api.FromStorage)
+	v, err = rws.GetState(ns, k1, fdriver.FromStorage)
 	assert.NoError(t, err)
 	assert.Equal(t, []byte("v1"), v)
 
-	v, err = rws.GetState(ns, k1, api.FromBoth)
+	v, err = rws.GetState(ns, k1, fdriver.FromBoth)
 	assert.NoError(t, err)
 	assert.Nil(t, v)
 
@@ -469,33 +469,33 @@ func testRun(t *testing.T, db1, db2 driver.VersionedPersistence) {
 	assert.EqualError(t, err, "no write at position 2 for namespace namespace")
 
 	// GET K2
-	v, err = rws.GetState(ns, k2, api.FromIntermediate)
+	v, err = rws.GetState(ns, k2, fdriver.FromIntermediate)
 	assert.NoError(t, err)
 	assert.Equal(t, []byte("v2_updated"), v)
 
-	v, err = rws.GetState(ns, k2, api.FromStorage)
+	v, err = rws.GetState(ns, k2, fdriver.FromStorage)
 	assert.NoError(t, err)
 	assert.Nil(t, v)
 
-	v, err = rws.GetState(ns, k2, api.FromBoth)
+	v, err = rws.GetState(ns, k2, fdriver.FromBoth)
 	assert.NoError(t, err)
 	assert.Equal(t, []byte("v2_updated"), v)
 
 	// GET K1
-	v, err = rws.GetState(ns, k1, api.FromIntermediate)
+	v, err = rws.GetState(ns, k1, fdriver.FromIntermediate)
 	assert.NoError(t, err)
 	assert.Nil(t, v)
 
-	v, err = rws.GetState(ns, k1, api.FromStorage)
+	v, err = rws.GetState(ns, k1, fdriver.FromStorage)
 	assert.NoError(t, err)
 	assert.Equal(t, []byte("v1"), v)
 
-	v, err = rws.GetState(ns, k1, api.FromBoth)
+	v, err = rws.GetState(ns, k1, fdriver.FromBoth)
 	assert.NoError(t, err)
 	assert.Nil(t, v)
 
 	// GET K1Meta
-	vMap, err = rws.GetStateMetadata(ns, k1Meta, api.FromIntermediate)
+	vMap, err = rws.GetStateMetadata(ns, k1Meta, fdriver.FromIntermediate)
 	assert.NoError(t, err)
 	assert.Equal(t, map[string][]byte{"newmetakey": []byte("newmetavalue")}, vMap)
 
@@ -503,7 +503,7 @@ func testRun(t *testing.T, db1, db2 driver.VersionedPersistence) {
 	assert.NoError(t, err)
 	assert.Equal(t, map[string][]byte{"metakey": []byte("metavalue")}, vMap)
 
-	vMap, err = rws.GetStateMetadata(ns, k1Meta, api.FromBoth)
+	vMap, err = rws.GetStateMetadata(ns, k1Meta, fdriver.FromBoth)
 	assert.NoError(t, err)
 	assert.Equal(t, map[string][]byte{"newmetakey": []byte("newmetavalue")}, vMap)
 
@@ -513,10 +513,10 @@ func testRun(t *testing.T, db1, db2 driver.VersionedPersistence) {
 	// we expect a busy txid in the store
 	code, err := vault1.Status(txid)
 	assert.NoError(t, err)
-	assert.Equal(t, api.Busy, code)
+	assert.Equal(t, fdriver.Busy, code)
 	code, err = vault2.Status(txid)
 	assert.NoError(t, err)
-	assert.Equal(t, api.Busy, code)
+	assert.Equal(t, fdriver.Busy, code)
 
 	// we commit it in both
 	err = vault1.CommitTX(txid, 35, 2)
@@ -531,10 +531,10 @@ func testRun(t *testing.T, db1, db2 driver.VersionedPersistence) {
 	// we expect a valid txid in the store
 	code, err = vault1.Status(txid)
 	assert.NoError(t, err)
-	assert.Equal(t, api.Valid, code)
+	assert.Equal(t, fdriver.Valid, code)
 	code, err = vault2.Status(txid)
 	assert.NoError(t, err)
-	assert.Equal(t, api.Valid, code)
+	assert.Equal(t, fdriver.Valid, code)
 
 	// we expect the underlying databases to be identical
 	itr, err := db1.GetStateRangeScanIterator(ns, "", "")
@@ -654,7 +654,7 @@ func TestVaultErr(t *testing.T) {
 
 	code, err := vault1.Status("unknown-txid")
 	assert.NoError(t, err)
-	assert.Equal(t, api.Unknown, code)
+	assert.Equal(t, fdriver.Unknown, code)
 }
 
 func TestInterceptorErr(t *testing.T) {
@@ -863,7 +863,7 @@ func TestShardLikeCommit(t *testing.T) {
 	// check the status, it should be busy
 	code, err := vault.Status("txid-invalid")
 	assert.NoError(t, err)
-	assert.Equal(t, api.Busy, code)
+	assert.Equal(t, fdriver.Busy, code)
 
 	// now in case of error we won't commit the read-write set, so we should discard it
 	err = vault.DiscardTx("txid-invalid")
@@ -872,7 +872,7 @@ func TestShardLikeCommit(t *testing.T) {
 	// check the status, it should be invalid
 	code, err = vault.Status("txid-invalid")
 	assert.NoError(t, err)
-	assert.Equal(t, api.Invalid, code)
+	assert.Equal(t, fdriver.Invalid, code)
 
 	// SCENARIO 2: there is no read conflict
 	// create the read-write set
@@ -901,7 +901,7 @@ func TestShardLikeCommit(t *testing.T) {
 	// check the status, it should be busy
 	code, err = vault.Status("txid-valid")
 	assert.NoError(t, err)
-	assert.Equal(t, api.Busy, code)
+	assert.Equal(t, fdriver.Busy, code)
 
 	// we're now asked to really commit
 	err = vault.CommitTX("txid-valid", 38, 10)
@@ -910,7 +910,7 @@ func TestShardLikeCommit(t *testing.T) {
 	// check the status, it should be valid
 	code, err = vault.Status("txid-valid")
 	assert.NoError(t, err)
-	assert.Equal(t, api.Valid, code)
+	assert.Equal(t, fdriver.Valid, code)
 
 	// check the content of the kvs after that
 	v, b, tx, err := ddb.GetState(ns, k1)

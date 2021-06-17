@@ -6,13 +6,13 @@ SPDX-License-Identifier: Apache-2.0
 package view
 
 import (
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/api"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 // IdentityProvider provides identity services
 type IdentityProvider struct {
-	ip api.IdentityProvider
+	ip driver.IdentityProvider
 }
 
 // DefaultIdentity returns the default identity
@@ -32,5 +32,5 @@ func (i *IdentityProvider) Identity(label string) view.Identity {
 
 // GetIdentityProvider returns an instance of the identity provider
 func GetIdentityProvider(sp ServiceProvider) *IdentityProvider {
-	return &IdentityProvider{ip: api.GetIdentityProvider(sp)}
+	return &IdentityProvider{ip: driver.GetIdentityProvider(sp)}
 }

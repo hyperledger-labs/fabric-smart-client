@@ -15,7 +15,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/csp"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/csp/idemix"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/api"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -60,7 +60,7 @@ func NewDeserializer(ipk []byte) (*idd, error) {
 	}, nil
 }
 
-func (i *idd) DeserializeVerifier(raw []byte) (api.Verifier, error) {
+func (i *idd) DeserializeVerifier(raw []byte) (driver.Verifier, error) {
 	r, err := i.Deserialize(raw, false)
 	if err != nil {
 		return nil, err
@@ -72,7 +72,7 @@ func (i *idd) DeserializeVerifier(raw []byte) (api.Verifier, error) {
 	}, nil
 }
 
-func (i *idd) DeserializeSigner(raw []byte) (api.Signer, error) {
+func (i *idd) DeserializeSigner(raw []byte) (driver.Signer, error) {
 	return nil, errors.New("not supported")
 }
 
