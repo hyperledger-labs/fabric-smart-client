@@ -12,6 +12,8 @@ import (
 	"io/ioutil"
 	"net"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/rest"
+
 	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger"
 	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
 
@@ -47,6 +49,8 @@ type Registry interface {
 }
 
 type p struct {
+	s          *rest.Server
+	h          *rest.HttpHandler
 	confPath   string
 	registry   Registry
 	grpcServer *grpc2.GRPCServer
@@ -130,6 +134,7 @@ func (p *p) Install() error {
 func (p *p) Start(ctx context.Context) error {
 	p.context = ctx
 
+	p.startHTTPServer()
 	assert.NoError(p.startGRPCServer(), "failed starting grpc server")
 	assert.NoError(p.startCommLayer(), "failed starting comm layer")
 	assert.NoError(p.startViewServer(), "failed starting view server")
@@ -197,6 +202,36 @@ func (p *p) startCommLayer() error {
 	return nil
 }
 
+func (p *p) startHTTPServer() {
+	configProvider := view.GetConfigService(p.registry)
+
+	var clientRootCAs []string
+	for _, path := range configProvider.GetStringSlice("fsc.tls.clientRootCAs.files") {
+		clientRootCAs = append(clientRootCAs, configProvider.TranslatePath(path))
+	}
+
+	listenAddr := configProvider.GetString("fsc.webAddress")
+	p.s = rest.NewServer(rest.Options{
+		ListenAddress: listenAddr,
+		Logger:        logger,
+		TLS: rest.TLS{
+			Enabled:           configProvider.GetBool("fsc.tls.enabled"),
+			CertFile:          configProvider.GetPath("fsc.tls.cert.file"),
+			KeyFile:           configProvider.GetPath("fsc.tls.key.file"),
+			ClientCACertFiles: clientRootCAs,
+		},
+	})
+
+	p.h = rest.NewHttpHandler(logger)
+
+	p.s.RegisterHandler("/", p.h)
+
+	err := p.s.Start()
+	if err != nil {
+		logger.Fatalf("Failed starting HTTP server: %v", err)
+	}
+}
+
 func (p *p) startViewServer() error {
 	// Register the ViewService server
 	protos.RegisterViewServiceServer(p.grpcServer.Server(), p.viewServer)
@@ -205,7 +240,10 @@ func (p *p) startViewServer() error {
 }
 
 func (p *p) startViewManager() error {
-	server.InstallViewHandler(p.registry, p.viewServer)
+	d := &server.RestDispatcher{
+		Handler: p.h,
+	}
+	server.InstallViewHandler(p.registry, p.viewServer, d)
 	go api2.GetViewManager(p.registry).Start(p.context)
 
 	return nil
@@ -222,6 +260,7 @@ func (p *p) serve() error {
 	go func() {
 		select {
 		case <-p.context.Done():
+			p.s.Stop()
 			logger.Info("Server stopping...")
 			p.grpcServer.Stop()
 			logger.Info("KVS stopping...")
