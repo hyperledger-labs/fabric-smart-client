@@ -54,7 +54,7 @@ type BinderService interface {
 }
 
 type ConfigProvider interface {
-	api3.ConfigProvider
+	api3.ConfigService
 }
 
 type DeserializerManager interface {

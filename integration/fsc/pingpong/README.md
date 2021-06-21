@@ -162,10 +162,12 @@ package pingpong
 
 import "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 
+// InitiatorViewFactory is the factory of Initiator views
 type InitiatorViewFactory struct{}
 
+// NewView returns a new instance of the Initiator view
 func (i *InitiatorViewFactory) NewView(in []byte) (view.View, error) {
-	return &Initiator{}, nil
+  return &Initiator{}, nil
 }
 ```
 To answer the second question, we need a way to tell the FSC node which view to execute
@@ -371,7 +373,7 @@ Let us describe what is happening in the above BDD test:
   
 ## Deeper Dive
 
-There are still questions to answers. Here are some:
+There are still questions to answer. Here are some:
 - How do I configure an FSC node?
 - How does an FSC node know where are the other nodes and who they are (their PKs)?
 - Where are information stored?

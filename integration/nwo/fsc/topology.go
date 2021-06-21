@@ -23,6 +23,7 @@ type Topology struct {
 	Logging      *Logging     `yaml:"logging,omitempty"`
 }
 
+// NewTopology returns an empty FSC network topology.
 func NewTopology() *Topology {
 	return &Topology{
 		TopologyName: TopologyName,
@@ -51,7 +52,7 @@ func (t *Topology) AddNodeByTemplate(name string, template *node.Node) *node.Nod
 	return t.addNode(n)
 }
 
-// AddNodeByName adds a new node with the passed name
+// AddNodeByName adds an empty new node with the passed name
 func (t *Topology) AddNodeByName(name string) *node.Node {
 	n := node.NewNode(name)
 	return t.addNode(n)

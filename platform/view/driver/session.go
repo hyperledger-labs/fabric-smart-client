@@ -11,6 +11,7 @@ import (
 
 //go:generate counterfeiter -o mock/session.go -fake-name Session . Session
 
+// Session encapsulates a communication channel to an endpoint
 type Session interface {
 	view.Session
 }

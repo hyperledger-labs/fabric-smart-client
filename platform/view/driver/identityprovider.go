@@ -23,6 +23,8 @@ type IdentityProvider interface {
 	Admins() []view.Identity
 }
 
+// GetIdentityProvider returns an instance of the IdentityProvider interface.
+// It panics, if no instance is found.
 func GetIdentityProvider(sp ServiceProvider) IdentityProvider {
 	s, err := sp.GetService(reflect.TypeOf((*IdentityProvider)(nil)))
 	if err != nil {

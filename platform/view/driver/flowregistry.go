@@ -13,6 +13,7 @@ import (
 
 // Registry keeps track of the available view and view factories
 type Registry interface {
+	// GetIdentifier returns the identifier of the passed view
 	GetIdentifier(f view.View) string
 
 	// RegisterFactory binds an id to a View Factory
