@@ -109,6 +109,8 @@ func (e *EndpointService) AddPKIResolver(pkiResolver PKIResolver) error {
 	return e.es.AddPKIResolver(pkiResolver)
 }
 
+// GetEndpointService returns an instance of the endpoint service.
+// It panics, if no instance is found.
 func GetEndpointService(sp ServiceProvider) *EndpointService {
 	return &EndpointService{es: driver.GetEndpointService(sp)}
 }

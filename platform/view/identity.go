@@ -30,7 +30,8 @@ func (i *IdentityProvider) Identity(label string) view.Identity {
 	return i.ip.Identity(label)
 }
 
-// GetIdentityProvider returns an instance of the identity provider
+// GetIdentityProvider returns an instance of the identity provider.
+// It panics, if no instance is found.
 func GetIdentityProvider(sp ServiceProvider) *IdentityProvider {
 	return &IdentityProvider{ip: driver.GetIdentityProvider(sp)}
 }

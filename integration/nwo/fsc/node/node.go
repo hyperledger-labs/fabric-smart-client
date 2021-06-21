@@ -128,6 +128,7 @@ func (n *Node) SetBootstrap() *Node {
 	return n
 }
 
+// SetExecutable sets the executable path of this node
 func (n *Node) SetExecutable(ExecutablePath string) *Node {
 	n.ExecutablePath = ExecutablePath
 
@@ -163,6 +164,7 @@ func (n *Node) RegisterViewFactory(id string, factory Factory) *Node {
 	return n
 }
 
+// RegisterResponder registers the passed responder to the passed initiator
 func (n *Node) RegisterResponder(responder view.View, initiator view.View) *Node {
 	isResponderPtr := reflect.ValueOf(responder).Kind() == reflect.Ptr
 	isInitiatorPtr := reflect.ValueOf(initiator).Kind() == reflect.Ptr

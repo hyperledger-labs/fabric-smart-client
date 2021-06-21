@@ -59,6 +59,8 @@ type EndpointService interface {
 	AddPKIResolver(pkiResolver PKIResolver) error
 }
 
+// GetEndpointService returns an instance of the endpoint service.
+// It panics, if no instance is found.
 func GetEndpointService(ctx ServiceProvider) EndpointService {
 	s, err := ctx.GetService(reflect.TypeOf((*EndpointService)(nil)))
 	if err != nil {
