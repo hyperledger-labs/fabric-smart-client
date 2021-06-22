@@ -10,6 +10,9 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
-func NewOrderingView(tx *Transaction) view.View {
-	return endorser.NewOrderingView(tx.tx)
+// NewOrderingAndFinalityView returns a view that does the following:
+// 1. Sends the passed transaction to the ordering service.
+// 2. Waits for the finality of the transaction.
+func NewOrderingAndFinalityView(tx *Transaction) view.View {
+	return endorser.NewOrderingAndFinalityView(tx.tx)
 }

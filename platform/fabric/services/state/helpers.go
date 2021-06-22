@@ -13,16 +13,16 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 )
 
-func GetWorldStateService(ctx view2.ServiceProvider) WorldStateService {
-	s, err := ctx.GetService(reflect.TypeOf((*WorldStateService)(nil)))
+func GetVaultService(ctx view2.ServiceProvider) VaultService {
+	s, err := ctx.GetService(reflect.TypeOf((*VaultService)(nil)))
 	if err != nil {
 		panic(err)
 	}
-	return s.(WorldStateService)
+	return s.(VaultService)
 }
 
-func GetWorldState(ctx view2.ServiceProvider) WorldState {
-	ws, err := GetWorldStateService(ctx).GetWorldState(
+func GetVault(ctx view2.ServiceProvider) Vault {
+	ws, err := GetVaultService(ctx).Vault(
 		fabric.GetDefaultNetwork(ctx).Name(),
 		fabric.GetDefaultChannel(ctx).Name(),
 	)
@@ -32,8 +32,8 @@ func GetWorldState(ctx view2.ServiceProvider) WorldState {
 	return ws
 }
 
-func GetWorldStateForChannel(ctx view2.ServiceProvider, channel string) WorldState {
-	ws, err := GetWorldStateService(ctx).GetWorldState(
+func GetVaultForChannel(ctx view2.ServiceProvider, channel string) Vault {
+	ws, err := GetVaultService(ctx).Vault(
 		fabric.GetDefaultNetwork(ctx).Name(),
 		channel,
 	)

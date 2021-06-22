@@ -184,6 +184,8 @@ FSC provides an `Integration Test Infrastructure` that allow the developer to:
 - Boostrap these networks;
 - Initiate interactive protocols to complete given business tasks.
 
+To run the test, it is just enough to run `go test` from the folder containing the test.
+
 Let us go step by step.
 
 ### Describe the topology of the networks

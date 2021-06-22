@@ -3,29 +3,54 @@ Copyright IBM Corp. All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
 */
-package impl
+package vault
 
 import (
 	"encoding/json"
+
+	"github.com/pkg/errors"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/endorser"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
-	"github.com/pkg/errors"
 )
+
+type ListStateQueryIteratorInterface struct {
+	it   *fabric.ResultsIterator
+	next *fabric.Read
+}
+
+func (l *ListStateQueryIteratorInterface) HasNext() bool {
+	var err error
+	l.next, err = l.it.Next()
+	if err != nil || l.next == nil {
+		return false
+	}
+	return true
+}
+
+func (l *ListStateQueryIteratorInterface) Close() error {
+	l.it.Close()
+	return nil
+}
+
+func (l *ListStateQueryIteratorInterface) Next(state interface{}) error {
+	//log.Printf("It at %s\n", string(l.List[l.Index].Raw))
+	return json.Unmarshal(l.next.Raw, state)
+}
 
 type NewQueryExecutorFunc func() (*fabric.QueryExecutor, error)
 
-type wss struct {
+type vault struct {
 	sp               view2.ServiceProvider
 	network          string
 	channel          string
 	NewQueryExecutor NewQueryExecutorFunc
 }
 
-func NewWorldState(sp view2.ServiceProvider, network, channel string, NewQueryExecutor func() (*fabric.QueryExecutor, error)) *wss {
-	return &wss{
+func New(sp view2.ServiceProvider, network, channel string, NewQueryExecutor func() (*fabric.QueryExecutor, error)) *vault {
+	return &vault{
 		sp:               sp,
 		network:          network,
 		channel:          channel,
@@ -33,7 +58,7 @@ func NewWorldState(sp view2.ServiceProvider, network, channel string, NewQueryEx
 	}
 }
 
-func (f *wss) GetState(namespace string, id string, state interface{}) error {
+func (f *vault) GetState(namespace string, id string, state interface{}) error {
 	q, err := f.NewQueryExecutor()
 	if err != nil {
 		return errors.Wrap(err, "failed getting query executor")
@@ -55,7 +80,7 @@ func (f *wss) GetState(namespace string, id string, state interface{}) error {
 	return nil
 }
 
-func (f *wss) GetStateByPartialCompositeID(ns string, prefix string, attrs []string) (state.StateQueryIteratorInterface, error) {
+func (f *vault) GetStateByPartialCompositeID(ns string, prefix string, attrs []string) (state.QueryIteratorInterface, error) {
 	startKey, err := state.CreateCompositeKey(prefix, attrs)
 	if err != nil {
 		return nil, err
@@ -75,7 +100,7 @@ func (f *wss) GetStateByPartialCompositeID(ns string, prefix string, attrs []str
 	return &ListStateQueryIteratorInterface{it: it}, nil
 }
 
-func (f *wss) GetStateCertification(namespace string, key string) ([]byte, error) {
+func (f *vault) GetStateCertification(namespace string, key string) ([]byte, error) {
 	_, tx, err := endorser.NewTransactionWith(
 		f.sp,
 		f.network,
@@ -110,48 +135,24 @@ func (f *wss) GetStateCertification(namespace string, key string) ([]byte, error
 
 type VaultFunc func(ctx view2.ServiceProvider, id string) *fabric.Vault
 
-type worldStateService struct {
+type service struct {
 	sp view2.ServiceProvider
 }
 
-func NewWorldStateService(sp view2.ServiceProvider) *worldStateService {
-	return &worldStateService{sp: sp}
+func NewService(sp view2.ServiceProvider) *service {
+	return &service{sp: sp}
 }
 
-func (w *worldStateService) GetWorldState(network string, channel string) (state.WorldState, error) {
+func (w *service) Vault(network string, channel string) (state.Vault, error) {
 	ch, err := fabric.GetFabricNetworkService(w.sp, network).Channel(channel)
 	if err != nil {
 		return nil, err
 	}
 
-	return NewWorldState(
+	return New(
 		w.sp,
 		network,
 		channel,
 		ch.Vault().NewQueryExecutor,
 	), nil
-}
-
-type ListStateQueryIteratorInterface struct {
-	it   *fabric.ResultsIterator
-	next *fabric.Read
-}
-
-func (l *ListStateQueryIteratorInterface) HasNext() bool {
-	var err error
-	l.next, err = l.it.Next()
-	if err != nil || l.next == nil {
-		return false
-	}
-	return true
-}
-
-func (l *ListStateQueryIteratorInterface) Close() error {
-	l.it.Close()
-	return nil
-}
-
-func (l *ListStateQueryIteratorInterface) Next(state interface{}) error {
-	//log.Printf("It at %s\n", string(l.List[l.Index].Raw))
-	return json.Unmarshal(l.next.Raw, state)
 }

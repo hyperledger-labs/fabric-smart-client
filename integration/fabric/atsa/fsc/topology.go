@@ -19,7 +19,7 @@ func Topology() []nwo.Topology {
 	fabricTopology.AddOrganizationsByName("Org1", "Org2", "Org3")
 	// Deploy a dummy chaincode to setup the namespace
 	fabricTopology.SetNamespaceApproverOrgs("Org1")
-	fabricTopology.AddNamespaceWithUnanimity("asset_transfer", "Org1").SetStateQuery()
+	fabricTopology.AddNamespaceWithUnanimity("asset_transfer", "Org1").SetStateChaincode()
 
 	// Create an empty FSC topology
 	fscTopology := fsc.NewTopology()

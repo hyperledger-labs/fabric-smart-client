@@ -144,6 +144,7 @@ func (t *Transaction) AppendProposalResponse(response *fabric.ProposalResponse) 
 	return t.Transaction.AppendProposalResponse(response)
 }
 
+// HasBeenEndorsedBy returns nil if each passed party has signed this transaction
 func (t *Transaction) HasBeenEndorsedBy(parties ...view.Identity) error {
 	for _, party := range parties {
 		found := false
@@ -169,6 +170,7 @@ func (t *Transaction) GetSignatureOf(party view.Identity) []byte {
 	return nil
 }
 
+// Namespaces returns the list of namespaces this transaction contains.
 func (t *Transaction) Namespaces() Namespaces {
 	rwSet, err := t.RWSet()
 	if err != nil {

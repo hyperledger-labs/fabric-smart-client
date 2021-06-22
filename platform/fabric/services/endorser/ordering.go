@@ -31,6 +31,10 @@ func (o *orderingView) Call(context view.Context) (interface{}, error) {
 	return tx, nil
 }
 
-func NewOrderingView(tx *Transaction) *orderingView {
+func NewOrderingAndFinalityView(tx *Transaction) *orderingView {
 	return &orderingView{tx: tx, finality: true}
+}
+
+func NewOrderingView(tx *Transaction) *orderingView {
+	return &orderingView{tx: tx, finality: false}
 }

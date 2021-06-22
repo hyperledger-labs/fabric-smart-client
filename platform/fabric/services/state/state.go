@@ -13,8 +13,17 @@ type State interface {
 	SetFromBytes(raw []byte) error
 }
 
+// LinearState models a state with a unique identifier that does not change throught the evolution
+// of the state.
 type LinearState interface {
+	// SetLinearID assigns the passed id to the state
 	SetLinearID(id string) string
+}
+
+// Ownable models an ownable state
+type Ownable interface {
+	// Owners returns the identities of the owners of this state
+	Owners() Identities
 }
 
 type AutoLinearState interface {
