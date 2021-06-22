@@ -241,10 +241,12 @@ func (o *commandStream) Filter(f func(t *Command) bool) *commandStream {
 	return &commandStream{namespace: o.namespace, commands: filtered}
 }
 
+// Count returns the number of commands in this stream
 func (o *commandStream) Count() int {
 	return len(o.commands)
 }
 
+// At returns the command at the passed position
 func (o *commandStream) At(i int) *Command {
 	return o.commands[i]
 }

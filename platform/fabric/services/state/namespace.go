@@ -32,9 +32,12 @@ type ViewManager interface {
 	InitiateView(view view.View) (interface{}, error)
 }
 
+// Command models an operation that involve given business parties
 type Command struct {
+	// Name of the commands
 	Name string
-	Ids  Identities
+	// Ids contains the identities that the command involves
+	Ids Identities
 }
 
 type Header struct {
@@ -89,10 +92,12 @@ func (n *Namespace) Present() bool {
 	return false
 }
 
+// SetNamespace sets the name of this namespace
 func (n *Namespace) SetNamespace(ns string) {
 	n.tx.SetProposal(ns, "Version-0.0", "_state")
 }
 
+// AddCommand appends a new Command to this namespace
 func (n *Namespace) AddCommand(command string, ids ...view.Identity) error {
 	tx := &Header{}
 	params := n.tx.Parameters()
@@ -126,6 +131,10 @@ func (n *Namespace) AddCommand(command string, ids ...view.Identity) error {
 	return nil
 }
 
+// AddInputByLinearID add a reference to the state with the passed id.
+// In addition, the function pupulates the passed state with the content of state associated to the passed id and
+// stored in the vault.
+// Options can be passed to change the behaviour of the function.
 func (n *Namespace) AddInputByLinearID(id string, state interface{}, opts ...AddInputOption) error {
 	rwSet, err := n.tx.RWSet()
 	if err != nil {
@@ -181,6 +190,8 @@ func (n *Namespace) AddInputByLinearID(id string, state interface{}, opts ...Add
 	return nil
 }
 
+// AddOutput adds the passed state following the passed options.
+// This corresponds to a write entry in the RWSet
 func (n *Namespace) AddOutput(st interface{}, opts ...AddOutputOption) error {
 	var err error
 	rwSet, err := n.tx.RWSet()
@@ -251,6 +262,7 @@ func (n *Namespace) AddOutput(st interface{}, opts ...AddOutputOption) error {
 	return nil
 }
 
+// GetOutputAt populates the passed state with the content of the output in the passed position
 func (n *Namespace) GetOutputAt(index int, state interface{}) error {
 	rwSet, err := n.tx.RWSet()
 	if err != nil {
@@ -285,6 +297,8 @@ func (n *Namespace) GetOutputAt(index int, state interface{}) error {
 	return nil
 }
 
+// GetInputAt populates the passed state with the content of the input in the passed position.
+// The content of the input is loaded from the vault.
 func (n *Namespace) GetInputAt(index int, state interface{}) error {
 	rwSet, err := n.tx.RWSet()
 	if err != nil {
@@ -354,6 +368,7 @@ func (n *Namespace) Delete(state interface{}) error {
 	return nil
 }
 
+// NumInputs returns the number of inputs (or reads in the RWSet) contained in this namespace
 func (n *Namespace) NumInputs() int {
 	rwSet, err := n.tx.RWSet()
 	if err != nil {
@@ -363,6 +378,7 @@ func (n *Namespace) NumInputs() int {
 	return rwSet.NumReads(n.namespace())
 }
 
+// NumOutputs returns the number of outputs (or writes in the RWSet) contained in this namespace
 func (n *Namespace) NumOutputs() int {
 	rwSet, err := n.tx.RWSet()
 	if err != nil {
@@ -372,6 +388,7 @@ func (n *Namespace) NumOutputs() int {
 	return rwSet.NumWrites(n.namespace())
 }
 
+// Commands returns a stream containing the commands in this namespace
 func (n *Namespace) Commands() *commandStream {
 	params := n.tx.Parameters()
 	if len(params) == 0 {

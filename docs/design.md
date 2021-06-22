@@ -114,7 +114,7 @@ FSC comes equipped with two default SDKs :
     - To connect to each other in a peer to peer fashion.
     - To manage and execute business views.
     - To handle node identities.
-- The [`Fabric SDK'](./fabric-sdk.md) builds on top of the `View` platform and offers API and services to allow FSC nodes to communicate 
+- The [`Fabric SDK`](./fabric-sdk.md) builds on top of the `View` platform and offers API and services to allow FSC nodes to communicate 
   with Fabric. The Fabric module is not just the usual Fabric Client SDK, it is more. 
   Indeed, we can identify the following components that make the Fabric module different from the current Fabric Client SDKs:
   - `Chaincode API`: These are APIs that allow the developer to invoke any chaincode and assemble Fabric transactions 
@@ -144,7 +144,7 @@ This means preparing the RWSet, and collecting endorsements. Moreover, the endor
   signing keys compatible with the endorsement policy of the chaincode the transaction targets. 
 
 Let us explore the above two possibilities in the following Sections.
-Also, please, find concrete examples in our Section dedicated to the Integration Tests [`here`](../integration/README.md).
+If you want to jump ahead, find some examples [`here`](../integration/README.md).
 
 ### A Chaincode Mediated Example
 

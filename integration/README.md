@@ -11,7 +11,7 @@ Here is a list of available examples:
 
 - [`Ping Pong`](./fsc/pingpong/README.md): A simple ping-pong between two FSC nodes to start with the basics.
 - [`I Owe You`](./fabric/iou/README.md): In this example, we orchestrate a simple
-  `I Owe You` use case between a lender and a borrower.
+  `I Owe You` use case between a `lender` and a `borrower`, mediated by an `approver`.
 - [`Secured Asset Transfer`](./fabric/atsa/README.md): 
   In this example, our starting point is the [`Secured asset transfer in Fabric`](https://hyperledger-fabric.readthedocs.io/en/release-2.2/secured_asset_transfer/secured_private_asset_transfer_tutorial.html) 
   sample. 

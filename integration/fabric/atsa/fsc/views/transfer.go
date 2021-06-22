@@ -65,7 +65,7 @@ func (f *TransferView) Call(context view.Context) (interface{}, error) {
 	assert.NoError(err, "failed collecting approves")
 
 	// Send to the ordering service and wait for confirmation
-	_, err = context.RunView(state.NewOrderingView(tx2))
+	_, err = context.RunView(state.NewOrderingAndFinalityView(tx2))
 	assert.NoError(err, "failed asking ordering")
 
 	return tx.ID(), nil

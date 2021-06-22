@@ -42,7 +42,7 @@ func (a *AgreeToSellView) Call(context view.Context) (interface{}, error) {
 	assert.NoError(err, "failed collecting approves")
 
 	// Send to the ordering service and wait for confirmation
-	_, err = context.RunView(state.NewOrderingView(tx))
+	_, err = context.RunView(state.NewOrderingAndFinalityView(tx))
 	assert.NoError(err, "failed asking ordering")
 
 	return tx.ID(), nil
@@ -85,7 +85,7 @@ func (a *AgreeToBuyView) Call(context view.Context) (interface{}, error) {
 	assert.NoError(err, "failed collecting approves")
 
 	// Send to the ordering service and wait for confirmation
-	_, err = context.RunView(state.NewOrderingView(tx))
+	_, err = context.RunView(state.NewOrderingAndFinalityView(tx))
 	assert.NoError(err, "failed asking ordering")
 
 	return tx.ID(), nil

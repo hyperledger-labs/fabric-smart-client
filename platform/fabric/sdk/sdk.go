@@ -12,7 +12,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/crypto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state/impl"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state/vault"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
@@ -56,7 +56,7 @@ func (p *p) Install() error {
 	// TODO: remove this
 	assert.NoError(p.registry.RegisterService(tracker.NewTracker()))
 	// TODO: change this
-	assert.NoError(p.registry.RegisterService(impl.NewWorldStateService(p.registry)))
+	assert.NoError(p.registry.RegisterService(vault.NewService(p.registry)))
 
 	return nil
 }

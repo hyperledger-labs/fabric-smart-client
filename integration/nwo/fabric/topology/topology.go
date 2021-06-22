@@ -345,7 +345,7 @@ type namespace struct {
 	cc *ChannelChaincode
 }
 
-func (n *namespace) SetStateQuery() *namespace {
+func (n *namespace) SetStateChaincode() *namespace {
 	n.cc.Chaincode.Path = "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state/cc/query"
 	return n
 }

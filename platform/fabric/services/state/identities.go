@@ -9,6 +9,7 @@ import "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 
 type Identities []view.Identity
 
+// Count returns the number of identities in the list
 func (i Identities) Count() int {
 	return len(i)
 }
@@ -24,6 +25,8 @@ func (i Identities) Others(me view.Identity) Identities {
 	return res
 }
 
+// Match returns true if the list of passed identities is equal to this set of identities modulo the position
+// of each identity.
 func (i Identities) Match(ids []view.Identity) bool {
 	if len(ids) != len(i) {
 		return false

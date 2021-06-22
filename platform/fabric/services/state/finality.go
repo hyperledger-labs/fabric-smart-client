@@ -23,6 +23,7 @@ func (f *finalityView) Call(context view.Context) (interface{}, error) {
 	return nil, fs.IsFinal(f.tx.ID())
 }
 
+// NewFinalityView returns a new instance of the finality view that waits for the finality of the passed transaction.
 func NewFinalityView(tx *Transaction) *finalityView {
 	return &finalityView{tx: tx}
 }

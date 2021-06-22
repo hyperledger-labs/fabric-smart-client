@@ -15,25 +15,25 @@ type CommonIteratorInterface interface {
 	Close() error
 }
 
-// StateQueryIteratorInterface models a state iterator
-type StateQueryIteratorInterface interface {
+// QueryIteratorInterface models a state iterator
+type QueryIteratorInterface interface {
 	CommonIteratorInterface
 
 	Next(state interface{}) error
 }
 
-// WorldState models the world state
-type WorldState interface {
+// Vault models a container of states
+type Vault interface {
 	// GetState loads the state identified by the tuple [namespace, id] into the passed state reference.
 	GetState(namespace string, id string, state interface{}) error
 
 	GetStateCertification(namespace string, key string) ([]byte, error)
 
-	GetStateByPartialCompositeID(ns string, prefix string, attrs []string) (StateQueryIteratorInterface, error)
+	GetStateByPartialCompositeID(ns string, prefix string, attrs []string) (QueryIteratorInterface, error)
 }
 
-// WorldStateService models the world state
-type WorldStateService interface {
-	// GetWorldState returns the world state for the passed channel.
-	GetWorldState(network string, channel string) (WorldState, error)
+// VaultService models a vault instance provider
+type VaultService interface {
+	// Vault returns the world state for the passed channel.
+	Vault(network string, channel string) (Vault, error)
 }
