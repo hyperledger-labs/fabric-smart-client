@@ -152,7 +152,7 @@ func TestAudit(t *testing.T) {
 	assert.NotNil(t, id)
 	assert.NotNil(t, audit)
 
-	id2, audit2, err := p.Identity()
+	id2, audit2, err := p2.Identity()
 	assert.NoError(t, err)
 	assert.NotNil(t, id2)
 	assert.NotNil(t, audit2)
@@ -166,4 +166,62 @@ func TestAudit(t *testing.T) {
 	assert.NoError(t, auditInfo.FromBytes(audit2))
 	assert.NoError(t, auditInfo.Match(id2))
 	assert.Error(t, auditInfo.Match(id))
+}
+
+func TestProvider_DeserializeSigner(t *testing.T) {
+	registry := registry2.New()
+	registry.RegisterService(&fakeProv{typ: "memory"})
+
+	kvss, err := kvs.New("memory", "", registry)
+	assert.NoError(t, err)
+	assert.NoError(t, registry.RegisterService(kvss))
+	sigService := sig2.NewSignService(registry, nil)
+	assert.NoError(t, registry.RegisterService(sigService))
+
+	config, err := msp2.GetLocalMspConfigWithType("./testdata/sameissuer/idemix", nil, "idemix", "idemix")
+	assert.NoError(t, err)
+	p, err := idemix2.NewProvider(config, registry)
+	assert.NoError(t, err)
+	assert.NotNil(t, p)
+
+	config, err = msp2.GetLocalMspConfigWithType("./testdata/sameissuer/idemix2", nil, "idemix", "idemix")
+	assert.NoError(t, err)
+	p2, err := idemix2.NewProvider(config, registry)
+	assert.NoError(t, err)
+	assert.NotNil(t, p2)
+
+	id, _, err := p.Identity()
+	assert.NoError(t, err)
+
+	id2, _, err := p2.Identity()
+	assert.NoError(t, err)
+
+	// This must work
+	signer, err := p.DeserializeSigner(id)
+	assert.NoError(t, err)
+	verifier, err := p.DeserializeVerifier(id)
+	assert.NoError(t, err)
+	msg := []byte("Hello World!!!")
+	sigma, err := signer.Sign(msg)
+	assert.NoError(t, err)
+	assert.NoError(t, verifier.Verify(msg, sigma))
+
+	// Try to deserialize id2 with provider for id, must fail
+	signer, err = p.DeserializeSigner(id2)
+	assert.Error(t, err)
+	verifier, err = p.DeserializeVerifier(id2)
+	assert.NoError(t, err)
+
+	// this must work
+	des, err := sig2.NewMultiplexDeserializer(registry)
+	assert.NoError(t, err)
+	des.AddDeserializer(p)
+	des.AddDeserializer(p2)
+	signer, err = des.DeserializeSigner(id)
+	assert.NoError(t, err)
+	verifier, err = des.DeserializeVerifier(id)
+	assert.NoError(t, err)
+	sigma, err = signer.Sign(msg)
+	assert.NoError(t, err)
+	assert.NoError(t, verifier.Verify(msg, sigma))
 }
