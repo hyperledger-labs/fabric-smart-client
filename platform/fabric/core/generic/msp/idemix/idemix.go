@@ -11,11 +11,12 @@ import (
 	"strconv"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	m "github.com/hyperledger/fabric-protos-go/msp"
 	"github.com/hyperledger/fabric/bccsp"
 	"github.com/hyperledger/fabric/msp"
 	"github.com/pkg/errors"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/csp"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/csp/idemix"
@@ -402,13 +403,22 @@ func (p *provider) DeserializeSigner(raw []byte) (driver.Signer, error) {
 		return nil, errors.Wrap(err, "cannot find nym secret key")
 	}
 
-	return &signingIdentity{
+	si := &signingIdentity{
 		identity:     r.id,
 		Cred:         p.conf.Signer.Cred,
 		UserKey:      p.userKey,
 		NymKey:       nymKey,
 		enrollmentId: p.conf.Signer.EnrollmentId,
-	}, nil
+	}
+	msg := []byte("hello world!!!")
+	sigma, err := si.Sign(msg)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed generating verification signature")
+	}
+	if err := si.Verify(msg, sigma); err != nil {
+		return nil, errors.Wrap(err, "failed verifying verification signature")
+	}
+	return si, nil
 }
 
 func (p *provider) Info(raw []byte, auditInfo []byte) (string, error) {
