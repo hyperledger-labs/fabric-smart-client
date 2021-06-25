@@ -14,6 +14,16 @@ func (i Identities) Count() int {
 	return len(i)
 }
 
+func (i Identities) Filter(f func(identity view.Identity) bool) Identities {
+	res := []view.Identity{}
+	for _, identity := range i {
+		if f(identity) {
+			res = append(res, identity)
+		}
+	}
+	return res
+}
+
 func (i Identities) Others(me view.Identity) Identities {
 	res := []view.Identity{}
 	for _, identity := range i {
