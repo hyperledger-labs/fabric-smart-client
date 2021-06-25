@@ -63,7 +63,7 @@ func (i *ApproverView) Call(context view.Context) (interface{}, error) {
 		assert.True(inState.Owners().Match(outState.Owners()), "invalid owners, input and output should have the same owners")
 		assert.NoError(tx.HasBeenEndorsedBy(outState.Owners()...), "signatures are missing")
 	default:
-		return nil, errors.Errorf("invalid command, expected [create] or [update], was [%s]", command)
+		return nil, errors.Errorf("invalid command, expected [create] or [update], was [%s]", command.Name)
 	}
 
 	// The approver is ready to send back the transaction signed

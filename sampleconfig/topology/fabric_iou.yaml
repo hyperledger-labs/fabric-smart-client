@@ -26,16 +26,31 @@ topologies:
     users: 1
     ca:
       hostname: ca
+  - id: Org3
+    msp_id: Org3MSP
+    name: Org3
+    domain: org3.example.com
+    enable_node_organizational_units: false
+    users: 1
+    ca:
+      hostname: ca
   peers:
-  - name: alice
+  - name: Org1_peer_0
     organization: Org1
     type: FabricPeer
     channels:
     - name: testchannel
       anchor: true
     devmode: false
-  - name: bob
+  - name: Org2_peer_0
     organization: Org2
+    type: FabricPeer
+    channels:
+    - name: testchannel
+      anchor: true
+    devmode: false
+  - name: Org3_peer_0
+    organization: Org3
     type: FabricPeer
     channels:
     - name: testchannel
@@ -46,6 +61,7 @@ topologies:
     organizations:
     - Org1
     - Org2
+    - Org3
   system_channel:
     name: systemchannel
     profile: OrgsOrdererGenesis
@@ -67,6 +83,7 @@ topologies:
     organizations:
     - Org1
     - Org2
+    - Org3
     policies:
     - name: Readers
       type: ImplicitMeta
@@ -78,8 +95,8 @@ topologies:
       type: ImplicitMeta
       rule: ANY Admins
     - name: LifecycleEndorsement
-      type: ImplicitMeta
-      rule: MAJORITY Endorsement
+      type: Signature
+      rule: AND ('Org1MSP.member')
     - name: Endorsement
       type: ImplicitMeta
       rule: ANY Endorsement
@@ -89,7 +106,7 @@ topologies:
       version: Version-0.0
       path: github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/chaincode/base
       ctor: '{"Args":["init"]}'
-      policy: AND ('Org1MSP.member','Org2MSP.member')
+      policy: AND ('Org1MSP.member')
       lang: golang
       collectionsconfig: ""
       packagefile: ""
@@ -99,30 +116,27 @@ topologies:
       validationplugin: ""
       initrequired: true
       label: iou
-      signaturepolicy: AND ('Org1MSP.member','Org2MSP.member')
+      signaturepolicy: AND ('Org1MSP.member')
       channelconfigpolicy: ""
     channel: testchannel
     peers:
-    - alice
-    - bob
+    - Org1_peer_0
   chaincodemode: net
 - name: fsc
   peers:
   - NodeSynthesizer:
       Aliases:
-        github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou:
-          original: iou
-          alias: iou
+        github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou/views:
+          original: views
+          alias: views
       Imports:
-      - github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou
-      Factories:
-      - id: create
-        type: '&iou.CreateIOUInitiatorViewFactory{}'
-      - id: update
-        type: '&iou.UpdateIOUInitiatorViewFactory{}'
-      - id: query
-        type: '&iou.QueryViewFactory{}'
-    name: borrower
+      - github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou/views
+      Responders:
+      - responder: '&views.ApproverView{}'
+        initiator: '&views.CreateIOUView{}'
+      - responder: '&views.ApproverView{}'
+        initiator: '&views.UpdateIOUView{}'
+    name: approver
     bootstrap: true
     options:
       mapping:
@@ -131,25 +145,45 @@ topologies:
             Organization: Org1
   - NodeSynthesizer:
       Aliases:
-        github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou:
-          original: iou
-          alias: iou
+        github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou/views:
+          original: views
+          alias: views
       Imports:
-      - github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou
+      - github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou/views
       Factories:
+      - id: create
+        type: '&views.CreateIOUViewFactory{}'
+      - id: update
+        type: '&views.UpdateIOUViewFactory{}'
       - id: query
-        type: '&iou.QueryViewFactory{}'
-      Responders:
-      - responder: '&iou.CreateIOUResponderView{}'
-        initiator: '&iou.CreateIOUInitiatorView{}'
-      - responder: '&iou.UpdateIOUResponderView{}'
-        initiator: '&iou.UpdateIOUInitiatorView{}'
-    name: lender
+        type: '&views.QueryViewFactory{}'
+    name: borrower
     options:
       mapping:
         fabric:
           mapping:
             Organization: Org2
+  - NodeSynthesizer:
+      Aliases:
+        github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou/views:
+          original: views
+          alias: views
+      Imports:
+      - github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou/views
+      Factories:
+      - id: query
+        type: '&views.QueryViewFactory{}'
+      Responders:
+      - responder: '&views.CreateIOUResponderView{}'
+        initiator: '&views.CreateIOUView{}'
+      - responder: '&views.UpdateIOUResponderView{}'
+        initiator: '&views.UpdateIOUView{}'
+    name: lender
+    options:
+      mapping:
+        fabric:
+          mapping:
+            Organization: Org3
   logging:
     spec: grpc=error:debug
     format: '''%{color}%{time:2006-01-02 15:04:05.000 MST} [%{module}] %{shortfunc} -> %{level:.4s} %{id:03x}%{color:reset} %{message}'''

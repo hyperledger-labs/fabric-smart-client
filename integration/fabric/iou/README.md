@@ -6,11 +6,18 @@ The borrower owes the lender a certain amount of money.
 Both parties want to track the evolution of this amount.
 Moreover, the parties want an `approver` to validate their operations. 
 We can think about the approver as a mediator between the parties.
+(Looking ahead, the approver plays the role of the endorser of the namespace
+in a Fabric channel that contains the IOU state.)
 
-Looking ahead, the approver plays the role of the endorser of the namespace
-in a Fabric channel that contains the IOU state. 
-
-Let us begin by modelling the state the parties want to track:
+For this example, we will employ the `State-Based Programming Model` (SPM, for short) that the FSC introduces.
+This model provides an API that helps the developer to think in terms of states rather than
+RWSet. A Transaction in SPM wraps a Fabric Transaction and let the developer:
+- Add `references` to input states. The equivalent of a read-dependency in the RWSet.
+- `Delete` states. A write-entry in the RWSet that `deletes a key`.
+- `Update` states. A write-entry in the RWSet that `updates a key's value`.
+With the above, it is easy to model a UTXO-based with reference states on top of a Fabric transaction.
+  
+It is time to deep dive. Let us begin by modelling the state the parties want to track:
 
 ## Business States
 
@@ -57,8 +64,9 @@ Let us look more closely at the anatomy of this state:
   - `Owners` that returns the identities of the owners of the state.
     Indeed, `IOU` implements the [`Ownable` interface](./../../../platform/fabric/services/state/state.go)
     
-
 ## Business Processes or Interactions
+
+### Create the IOU State
 
 The very first operation is to create the IOU state. 
 Let us assume that the borrower is the initiation of the interactive protocol to create this state.
@@ -132,12 +140,12 @@ func (i *CreateIOUResponderView) Call(context view.Context) (interface{}, error)
 	lender, borrower, err := state.RespondExchangeRecipientIdentities(context)
 	assert.NoError(err, "failed exchanging recipient identities")
 
-	// When the borrower runs the CollectEndorsementsView, at some point, the borrower sends the assembled transaction
+	// When the leneder runs the CollectEndorsementsView, at some point, the borrower sends the assembled transaction
 	// to the lender. Therefore, the lender waits to receive the transaction.
 	tx, err := state.ReceiveTransaction(context)
 	assert.NoError(err, "failed receiving transaction")
 
-	// The borrower can now inspect the transaction to ensure it is as expected.
+	// The lender can now inspect the transaction to ensure it is as expected.
 	// Here are examples of possible checks
 
 	// Namespaces are properly populated
@@ -239,6 +247,125 @@ func (i *ApproverView) Call(context view.Context) (interface{}, error) {
 }
 
 ```
+
+### Update the IOU State
+
+Once the IOU state has been created, the parties can agree on the changes to the state
+to reflect the evolution of the amount the borrower owes the lender. 
+
+Indeed, this is the view the borrower executes to update the IOU state's amount field. 
+
+```go
+
+// Update contains the input to update an IOU state
+type Update struct {
+	// LinearID is the unique identifier of the IOU state
+	LinearID string
+	// Amount is the new amount. It should smaller than the current amount
+	Amount uint
+	// Approver is the identity of the approver's FSC node
+	Approver view.Identity
+}
+
+type UpdateIOUView struct {
+	Update
+}
+
+func (u UpdateIOUView) Call(context view.Context) (interface{}, error) {
+	// The borrower starts by creating a new transaction to update the IOU state
+	tx, err := state.NewTransaction(context)
+	assert.NoError(err)
+
+	// Sets the namespace where the state is stored
+	tx.SetNamespace("iou")
+
+	// To update the state, the borrower, first add a dependency to the IOU state of interest.
+	iouState := &states.IOU{}
+	assert.NoError(tx.AddInputByLinearID(u.LinearID, iouState))
+	// The borrower sets the command to the operation to be performed
+	assert.NoError(tx.AddCommand("update", iouState.Owners()...))
+
+	// Then, the borrower updates the amount,
+	iouState.Amount = u.Amount
+
+	// and add the modified IOU state as output of the transaction.
+	err = tx.AddOutput(iouState)
+	assert.NoError(err)
+
+	// The borrower is ready to collect all the required signatures.
+	// Namely from the borrower itself, the lender, and the approver. In this order.
+	// All signatures are required.
+	_, err = context.RunView(state.NewCollectEndorsementsView(tx, iouState.Owners()[0], iouState.Owners()[1], u.Approver))
+	assert.NoError(err)
+
+	// At this point the borrower can send the transaction to the ordering service and wait for finality.
+	return context.RunView(state.NewOrderingAndFinalityView(tx))
+}
+
+```
+
+On the other hand, the lender responds to request of endorsement from the borrower running the following view:
+
+```go
+
+type UpdateIOUResponderView struct{}
+
+func (i *UpdateIOUResponderView) Call(context view.Context) (interface{}, error) {
+	// When the borrower runs the CollectEndorsementsView, at some point, the borrower sends the assembled transaction
+	// to the lender. Therefore, the lender waits to receive the transaction.
+	tx, err := state.ReceiveTransaction(context)
+	assert.NoError(err, "failed receiving transaction")
+
+	// The lender can now inspect the transaction to ensure it is as expected.
+	// Here are examples of possible checks
+
+	// Namespaces are properly populated
+	assert.Equal(1, len(tx.Namespaces()), "expected only one namespace")
+	assert.Equal("iou", tx.Namespaces()[0], "expected the [iou] namespace, got [%s]", tx.Namespaces()[0])
+
+	switch command := tx.Commands().At(0); command.Name {
+	case "update":
+		// If the update command is attached to the transaction then...
+
+		// One input and one output containing IOU states are expected
+		assert.Equal(1, tx.NumInputs(), "invalid number of inputs, expected 1, was %d", tx.NumInputs())
+		assert.Equal(1, tx.NumOutputs(), "invalid number of outputs, expected 1, was %d", tx.NumInputs())
+		inState := &states.IOU{}
+		assert.NoError(tx.GetInputAt(0, inState))
+		outState := &states.IOU{}
+		assert.NoError(tx.GetOutputAt(0, outState))
+
+		// Additional checks
+		// Same IDs
+		assert.Equal(inState.LinearID, outState.LinearID, "invalid state id, [%s] != [%s]", inState.LinearID, outState.LinearID)
+		// Valid Amount
+		assert.False(outState.Amount >= inState.Amount, "invalid amount, [%d] expected to be less or equal [%d]", outState.Amount, inState.Amount)
+		// Same owners
+		assert.True(inState.Owners().Match(outState.Owners()), "invalid owners, input and output should have the same owners")
+		assert.Equal(2, inState.Owners().Count(), "invalid state, expected 2 identities, was [%d]", inState.Owners().Count())
+		// Is the lender one of the owners?
+		lenderFound := fabric.GetLocalMembership(context).IsMe(inState.Owners()[0]) != fabric.GetLocalMembership(context).IsMe(inState.Owners()[1])
+		assert.True(lenderFound, "lender identity not found")
+		// Did the borrower sign?
+		assert.NoError(tx.HasBeenEndorsedBy(inState.Owners().Filter(
+			func(identity view.Identity) bool {
+				return !fabric.GetLocalMembership(context).IsMe(identity)
+			})...), "the borrower has not endorsed")
+	default:
+		return nil, errors.Errorf("invalid command, expected [create], was [%s]", command.Name)
+	}
+
+	// The lender is ready to send back the transaction signed
+	_, err = context.RunView(state.NewEndorseView(tx))
+	assert.NoError(err)
+
+	// Finally, the lender waits that the transaction completes its lifecycle
+	return context.RunView(state.NewFinalityView(tx))
+}
+
+```
+
+We have seen already what the approver does. 
 
 ## Testing
 

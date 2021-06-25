@@ -77,9 +77,13 @@ func (c *CreateIOUViewFactory) NewView(in []byte) (view.View, error) {
 	return f, nil
 }
 
+// Update contains the input to update an IOU state
 type Update struct {
+	// LinearID is the unique identifier of the IOU state
 	LinearID string
-	Amount   uint
+	// Amount is the new amount. It should smaller than the current amount
+	Amount uint
+	// Approver is the identity of the approver's FSC node
 	Approver view.Identity
 }
 
@@ -88,28 +92,33 @@ type UpdateIOUView struct {
 }
 
 func (u UpdateIOUView) Call(context view.Context) (interface{}, error) {
-	// Create a new transaction
+	// The borrower starts by creating a new transaction to update the IOU state
 	tx, err := state.NewTransaction(context)
 	assert.NoError(err)
+
+	// Sets the namespace where the state is stored
 	tx.SetNamespace("iou")
 
-	// let's update the IOU on the worldstate
+	// To update the state, the borrower, first add a dependency to the IOU state of interest.
 	iouState := &states.IOU{}
 	assert.NoError(tx.AddInputByLinearID(u.LinearID, iouState))
+	// The borrower sets the command to the operation to be performed
 	assert.NoError(tx.AddCommand("update", iouState.Owners()...))
 
-	// Modify the amount
+	// Then, the borrower updates the amount,
 	iouState.Amount = u.Amount
 
-	// Append the modified state
+	// and add the modified IOU state as output of the transaction.
 	err = tx.AddOutput(iouState)
 	assert.NoError(err)
 
-	// Collect signature from the owners of the state and the approver
+	// The borrower is ready to collect all the required signatures.
+	// Namely from the borrower itself, the lender, and the approver. In this order.
+	// All signatures are required.
 	_, err = context.RunView(state.NewCollectEndorsementsView(tx, iouState.Owners()[0], iouState.Owners()[1], u.Approver))
 	assert.NoError(err)
 
-	// Send to the ordering service and wait for confirmation
+	// At this point the borrower can send the transaction to the ordering service and wait for finality.
 	return context.RunView(state.NewOrderingAndFinalityView(tx))
 }
 

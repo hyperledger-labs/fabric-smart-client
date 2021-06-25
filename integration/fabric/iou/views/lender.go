@@ -27,7 +27,7 @@ func (i *CreateIOUResponderView) Call(context view.Context) (interface{}, error)
 	tx, err := state.ReceiveTransaction(context)
 	assert.NoError(err, "failed receiving transaction")
 
-	// The borrower can now inspect the transaction to ensure it is as expected.
+	// The lender can now inspect the transaction to ensure it is as expected.
 	// Here are examples of possible checks
 
 	// Namespaces are properly populated
@@ -53,7 +53,7 @@ func (i *CreateIOUResponderView) Call(context view.Context) (interface{}, error)
 		assert.True(iouState.Owners().Match([]view.Identity{lender, borrower}), "the state does not contain the lender and borrower identities")
 		assert.NoError(tx.HasBeenEndorsedBy(borrower), "the borrower has not endorsed")
 	default:
-		return nil, errors.Errorf("invalid command, expected [create], was [%s]", command)
+		return nil, errors.Errorf("invalid command, expected [create], was [%s]", command.Name)
 	}
 
 	// The lender is ready to send back the transaction signed
@@ -67,15 +67,23 @@ func (i *CreateIOUResponderView) Call(context view.Context) (interface{}, error)
 type UpdateIOUResponderView struct{}
 
 func (i *UpdateIOUResponderView) Call(context view.Context) (interface{}, error) {
-	// Unmarshall the received transaction
+	// When the borrower runs the CollectEndorsementsView, at some point, the borrower sends the assembled transaction
+	// to the lender. Therefore, the lender waits to receive the transaction.
 	tx, err := state.ReceiveTransaction(context)
 	assert.NoError(err, "failed receiving transaction")
 
-	// Inspect Transaction
-	assert.Equal(1, tx.Commands().Count(), "expected only a single command, got [%s]", tx.Commands().Count())
+	// The lender can now inspect the transaction to ensure it is as expected.
+	// Here are examples of possible checks
 
-	switch command := tx.Commands().At(0).Name; command {
+	// Namespaces are properly populated
+	assert.Equal(1, len(tx.Namespaces()), "expected only one namespace")
+	assert.Equal("iou", tx.Namespaces()[0], "expected the [iou] namespace, got [%s]", tx.Namespaces()[0])
+
+	switch command := tx.Commands().At(0); command.Name {
 	case "update":
+		// If the update command is attached to the transaction then...
+
+		// One input and one output containing IOU states are expected
 		assert.Equal(1, tx.NumInputs(), "invalid number of inputs, expected 1, was %d", tx.NumInputs())
 		assert.Equal(1, tx.NumOutputs(), "invalid number of outputs, expected 1, was %d", tx.NumInputs())
 		inState := &states.IOU{}
@@ -83,26 +91,30 @@ func (i *UpdateIOUResponderView) Call(context view.Context) (interface{}, error)
 		outState := &states.IOU{}
 		assert.NoError(tx.GetOutputAt(0, outState))
 
-		assert.Equal(inState.LinearID, outState.LinearID, "invalid state id, "+
-			"[%s] != [%s]", inState.LinearID, outState.LinearID)
-		if outState.Amount >= inState.Amount {
-			return nil, errors.Errorf("invalid amount, "+
-				"[%d] expected to be less or equal [%d]", outState.Amount, inState.Amount)
-		}
-		assert.True(inState.Owners().Match(outState.Owners()), "invalid owners, "+
-			"input and output should have the same owners")
-		assert.NoError(tx.HasBeenEndorsedBy(inState.Owners().Others(
-			fabric.GetIdentityProvider(context).DefaultIdentity(),
-		)...),
-			"the borrower has not endorsed")
+		// Additional checks
+		// Same IDs
+		assert.Equal(inState.LinearID, outState.LinearID, "invalid state id, [%s] != [%s]", inState.LinearID, outState.LinearID)
+		// Valid Amount
+		assert.False(outState.Amount >= inState.Amount, "invalid amount, [%d] expected to be less or equal [%d]", outState.Amount, inState.Amount)
+		// Same owners
+		assert.True(inState.Owners().Match(outState.Owners()), "invalid owners, input and output should have the same owners")
+		assert.Equal(2, inState.Owners().Count(), "invalid state, expected 2 identities, was [%d]", inState.Owners().Count())
+		// Is the lender one of the owners?
+		lenderFound := fabric.GetLocalMembership(context).IsMe(inState.Owners()[0]) != fabric.GetLocalMembership(context).IsMe(inState.Owners()[1])
+		assert.True(lenderFound, "lender identity not found")
+		// Did the borrower sign?
+		assert.NoError(tx.HasBeenEndorsedBy(inState.Owners().Filter(
+			func(identity view.Identity) bool {
+				return !fabric.GetLocalMembership(context).IsMe(identity)
+			})...), "the borrower has not endorsed")
 	default:
-		return nil, errors.Errorf("invalid command, expected [create], was [%s]", command)
+		return nil, errors.Errorf("invalid command, expected [create], was [%s]", command.Name)
 	}
 
-	// Send it back to the sender signed
+	// The lender is ready to send back the transaction signed
 	_, err = context.RunView(state.NewEndorseView(tx))
 	assert.NoError(err)
 
-	// Wait for confirmation from the ordering service
+	// Finally, the lender waits that the transaction completes its lifecycle
 	return context.RunView(state.NewFinalityView(tx))
 }
