@@ -13,7 +13,7 @@ type State interface {
 	SetFromBytes(raw []byte) error
 }
 
-// LinearState models a state with a unique identifier that does not change throught the evolution
+// LinearState models a state with a unique identifier that does not change through the evolution
 // of the state.
 type LinearState interface {
 	// SetLinearID assigns the passed id to the state

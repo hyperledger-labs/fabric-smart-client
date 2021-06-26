@@ -27,10 +27,10 @@ func Topology() []nwo.Topology {
 	// Approver
 	approver := fscTopology.AddNodeByName("approver")
 	approver.AddOptions(fabric.WithOrganization("Org1"))
-	approver.RegisterResponder(&views.ApproveView{}, &views.IssueView{})
-	approver.RegisterResponder(&views.ApproveView{}, &views.AgreeToSellView{})
-	approver.RegisterResponder(&views.ApproveView{}, &views.AgreeToBuyView{})
-	approver.RegisterResponder(&views.ApproveView{}, &views.TransferView{})
+	approver.RegisterResponder(&views.ApproverView{}, &views.IssueView{})
+	approver.RegisterResponder(&views.ApproverView{}, &views.AgreeToSellView{})
+	approver.RegisterResponder(&views.ApproverView{}, &views.AgreeToBuyView{})
+	approver.RegisterResponder(&views.ApproverView{}, &views.TransferView{})
 
 	// Issuer
 	issuer := fscTopology.AddNodeByName("issuer")
