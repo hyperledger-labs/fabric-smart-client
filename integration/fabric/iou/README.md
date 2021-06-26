@@ -1,13 +1,18 @@
 # I O(we) (yo)U
 
-In this section, we will cover a classic use-case, the `I O(we) (yo)U`.
+In this section, we will cover a classic use-case, the `I O(we) (yo)U`. 
 Let us consider two parties: a `lender` and a `borrower`. 
 The borrower owes the lender a certain amount of money. 
 Both parties want to track the evolution of this amount.
 Moreover, the parties want an `approver` to validate their operations. 
 We can think about the approver as a mediator between the parties.
-(Looking ahead, the approver plays the role of the endorser of the namespace
-in a Fabric channel that contains the IOU state.)
+
+Looking ahead, the approver plays the role of the endorser of the namespace
+in a Fabric channel that contains the IOU state.
+We have already learned, when exploring the ['Fabric's hidden gems'](./../../../docs/design.md#fabric-and-its-hidden-gems),
+that an endorser is just a network node that executes `some code` and possesses a signing key compatible with an endorsement policy.
+The node produces a signature to signal its approval. Therefore, if we equip an FSC node with
+a signing secret key accepted by our endorsement policy, that FSC node can endorse Fabric transactions.
 
 For this example, we will employ the `State-Based Programming Model` (SPM, for short) that the FSC introduces.
 This model provides an API that helps the developer to think in terms of states rather than
@@ -388,12 +393,13 @@ To test the above views, we have to first clarify the topology of the networks w
 Namely, Fabric and FSC networks.
 
 For Fabric, we can define a topology with the following characteristics:
-1. Three organization: Org1, Org2, and Org3
-2. A namespace whose changes can be endorsed by Org1.
+1. Three organization: Org1, Org2, and Org3;
+2. Single channel;  
+2. A namespace `iou` whose changes can be endorsed by endorsers from Org1.
 
 For the FSC network, we have a topology with: 
 1. 3 FCS nodes. One for the approver, one for the borrower, and one for the lender.
-2. The approver's FSC node is equipped with an additional Fabric identity belonging to Org1.
+2. The approver's FSC node has an additional Fabric identity belonging to Org1.
 Therefore, the approver is an endorser of the Fabric namespace we defined above.
    
 We can describe the network topology programmatically as follows:

@@ -59,10 +59,6 @@ integration-tests: docker-images dependencies
 tidy:
 	@go mod tidy
 
-.PHONY: whitepaper
-whitepaper:
-	./docs/whitepaper/build.sh
-
 .PHONY: clean
 clean:
 	docker network prune -f
