@@ -34,15 +34,15 @@ func NewOrdererClientFromEnv() (*OrdererClient, error) {
 	}
 	oClient := &OrdererClient{
 		CommonClient: CommonClient{
-			GRPCClient: gClient,
-			Address:    address,
-			Sn:         override}}
+			Client:  gClient,
+			Address: address,
+			Sn:      override}}
 	return oClient, nil
 }
 
 // TODO: improve by providing grpc connection pool
 func (oc *OrdererClient) Close() {
-	go oc.CommonClient.GRPCClient.Close()
+	go oc.CommonClient.Client.Close()
 }
 
 // Broadcast returns a broadcast client for the AtomicBroadcast service

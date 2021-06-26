@@ -23,7 +23,8 @@ import (
 
 var commLogger = flogging.MustGetLogger("view-sdk.comm")
 
-type GRPCClient struct {
+// Client models a GRPC client
+type Client struct {
 	// TLS configuration used by the grpc.ClientConn
 	tlsConfig *tls.Config
 	// Options for setting up new connections
@@ -41,10 +42,10 @@ type GRPCClient struct {
 	grpcCMux sync.Mutex
 }
 
-// NewGRPCClient creates a new implementation of GRPCClient given an address
+// NewGRPCClient creates a new implementation of Client given an address
 // and client configuration
-func NewGRPCClient(config ClientConfig) (*GRPCClient, error) {
-	client := &GRPCClient{
+func NewGRPCClient(config ClientConfig) (*Client, error) {
+	client := &Client{
 		grpcConns: []*grpc.ClientConn{},
 	}
 
@@ -76,7 +77,7 @@ func NewGRPCClient(config ClientConfig) (*GRPCClient, error) {
 	return client, nil
 }
 
-func (client *GRPCClient) parseSecureOptions(opts SecureOptions) error {
+func (client *Client) parseSecureOptions(opts SecureOptions) error {
 	// if TLS is not enabled, return
 	if !opts.UseTLS {
 		return nil
@@ -125,7 +126,7 @@ func (client *GRPCClient) parseSecureOptions(opts SecureOptions) error {
 
 // Certificate returns the tls.Certificate used to make TLS connections
 // when client certificates are required by the server
-func (client *GRPCClient) Certificate() tls.Certificate {
+func (client *Client) Certificate() tls.Certificate {
 	cert := tls.Certificate{}
 	if client.tlsConfig != nil && len(client.tlsConfig.Certificates) > 0 {
 		cert = client.tlsConfig.Certificates[0]
@@ -135,30 +136,30 @@ func (client *GRPCClient) Certificate() tls.Certificate {
 
 // TLSEnabled is a flag indicating whether to use TLS for client
 // connections
-func (client *GRPCClient) TLSEnabled() bool {
+func (client *Client) TLSEnabled() bool {
 	return client.tlsConfig != nil
 }
 
 // MutualTLSRequired is a flag indicating whether the client
 // must send a certificate when making TLS connections
-func (client *GRPCClient) MutualTLSRequired() bool {
+func (client *Client) MutualTLSRequired() bool {
 	return client.tlsConfig != nil &&
 		len(client.tlsConfig.Certificates) > 0
 }
 
 // SetMaxRecvMsgSize sets the maximum message size the client can receive
-func (client *GRPCClient) SetMaxRecvMsgSize(size int) {
+func (client *Client) SetMaxRecvMsgSize(size int) {
 	client.maxRecvMsgSize = size
 }
 
 // SetMaxSendMsgSize sets the maximum message size the client can send
-func (client *GRPCClient) SetMaxSendMsgSize(size int) {
+func (client *Client) SetMaxSendMsgSize(size int) {
 	client.maxSendMsgSize = size
 }
 
 // SetServerRootCAs sets the list of authorities used to verify server
 // certificates based on a list of PEM-encoded X509 certificate authorities
-func (client *GRPCClient) SetServerRootCAs(serverRoots [][]byte) error {
+func (client *Client) SetServerRootCAs(serverRoots [][]byte) error {
 
 	// NOTE: if no serverRoots are specified, the current cert pool will be
 	// replaced with an empty one
@@ -190,7 +191,7 @@ func CertPoolOverride(pool *x509.CertPool) TLSOption {
 // NewConnection returns a grpc.ClientConn for the target address and
 // overrides the server name used to verify the hostname on the
 // certificate returned by a server when using TLS
-func (client *GRPCClient) NewConnection(address string, tlsOptions ...TLSOption) (*grpc.ClientConn, error) {
+func (client *Client) NewConnection(address string, tlsOptions ...TLSOption) (*grpc.ClientConn, error) {
 
 	var dialOpts []grpc.DialOption
 	dialOpts = append(dialOpts, client.dialOpts...)
@@ -229,7 +230,7 @@ func (client *GRPCClient) NewConnection(address string, tlsOptions ...TLSOption)
 	return conn, nil
 }
 
-func (client *GRPCClient) Close() {
+func (client *Client) Close() {
 	commLogger.Debugf("closing %d grpc connections", len(client.grpcConns))
 	for _, grpcCon := range client.grpcConns {
 		if err := grpcCon.Close(); err != nil {
@@ -238,8 +239,8 @@ func (client *GRPCClient) Close() {
 	}
 }
 
-// CreateGRPCClient returns a comm.GRPCClient based on toke client config
-func CreateGRPCClient(config *ConnectionConfig) (*GRPCClient, error) {
+// CreateGRPCClient returns a comm.Client based on toke client config
+func CreateGRPCClient(config *ConnectionConfig) (*Client, error) {
 	timeout := config.ConnectionTimeout
 	if timeout <= 0 {
 		timeout = DefaultConnectionTimeout

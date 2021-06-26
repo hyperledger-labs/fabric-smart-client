@@ -3,6 +3,7 @@ Copyright IBM Corp. All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
 */
+
 package delivery
 
 import (
@@ -62,14 +63,14 @@ type DeliverClient interface {
 type deliverClient struct {
 	peerAddr           string
 	serverNameOverride string
-	grpcClient         *grpc2.GRPCClient
+	grpcClient         *grpc2.Client
 	conn               *grpc.ClientConn
 }
 
 func NewDeliverClient(config *grpc2.ConnectionConfig) (DeliverClient, error) {
 	grpcClient, err := grpc2.CreateGRPCClient(config)
 	if err != nil {
-		err = errors.WithMessagef(err, "failed to create a GRPCClient to peer %s", config.Address)
+		err = errors.WithMessagef(err, "failed to create a Client to peer %s", config.Address)
 		return nil, err
 	}
 	conn, err := grpcClient.NewConnection(config.Address)
@@ -114,7 +115,7 @@ func (d *deliverClient) Certificate() *tls.Certificate {
 }
 
 // CreateDeliverEnvelope creates a signed envelope with SeekPosition_Newest for block
-func CreateDeliverEnvelope(channelId string, signingIdentity SigningIdentity, cert *tls.Certificate, hasher Hasher, start *ab.SeekPosition) (*common.Envelope, error) {
+func CreateDeliverEnvelope(channelID string, signingIdentity SigningIdentity, cert *tls.Certificate, hasher Hasher, start *ab.SeekPosition) (*common.Envelope, error) {
 	logger.Debugf("create delivery envelope starting from: [%s]", start.String())
 	creator, err := signingIdentity.Serialize()
 	if err != nil {
@@ -127,7 +128,7 @@ func CreateDeliverEnvelope(channelId string, signingIdentity SigningIdentity, ce
 		return nil, err
 	}
 
-	_, header, err := CreateHeader(common.HeaderType_DELIVER_SEEK_INFO, channelId, creator, tlsCertHash)
+	_, header, err := CreateHeader(common.HeaderType_DELIVER_SEEK_INFO, channelID, creator, tlsCertHash)
 	if err != nil {
 		return nil, err
 	}
@@ -235,7 +236,7 @@ func DeliverWaitForResponse(ctx context.Context, eventCh <-chan TxEvent, txid st
 
 // CreateHeader creates common.Header for a token transaction
 // tlsCertHash is for client TLS cert, only applicable when ClientAuthRequired is true
-func CreateHeader(txType common.HeaderType, channelId string, creator []byte, tlsCertHash []byte) (string, *common.Header, error) {
+func CreateHeader(txType common.HeaderType, channelID string, creator []byte, tlsCertHash []byte) (string, *common.Header, error) {
 	ts, err := ptypes.TimestampProto(time.Now())
 	if err != nil {
 		return "", nil, err
@@ -246,12 +247,12 @@ func CreateHeader(txType common.HeaderType, channelId string, creator []byte, tl
 		return "", nil, err
 	}
 
-	txId := protoutil.ComputeTxID(nonce, creator)
+	txID := protoutil.ComputeTxID(nonce, creator)
 
 	chdr := &common.ChannelHeader{
 		Type:        int32(txType),
-		ChannelId:   channelId,
-		TxId:        txId,
+		ChannelId:   channelID,
+		TxId:        txID,
 		Epoch:       0,
 		Timestamp:   ts,
 		TlsCertHash: tlsCertHash,
@@ -275,7 +276,7 @@ func CreateHeader(txType common.HeaderType, channelId string, creator []byte, tl
 		SignatureHeader: shdrBytes,
 	}
 
-	return txId, header, nil
+	return txID, header, nil
 }
 
 // CreateEnvelope creates a common.Envelope with given tx bytes, header, and SigningIdentity

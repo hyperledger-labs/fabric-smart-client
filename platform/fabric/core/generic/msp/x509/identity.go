@@ -3,6 +3,7 @@ Copyright IBM Corp. All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
 */
+
 package x509
 
 import (
@@ -32,8 +33,8 @@ func Serialize(mspID string, certPath string) ([]byte, error) {
 	}
 
 	// We serialize identities by prepending the MSPID and appending the ASN.1 DER content of the cert
-	sId := &msp.SerializedIdentity{Mspid: mspID, IdBytes: pemBytes}
-	idBytes, err := proto.Marshal(sId)
+	sID := &msp.SerializedIdentity{Mspid: mspID, IdBytes: pemBytes}
+	idBytes, err := proto.Marshal(sID)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not marshal a SerializedIdentity structure for identity %s", mspID)
 	}

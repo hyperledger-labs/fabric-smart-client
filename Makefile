@@ -4,6 +4,7 @@ checks: dependencies
 	find . -name '*.go' | xargs addlicense -check || (echo "Missing license headers"; exit 1)
 	@go vet -all $(shell go list -f '{{.Dir}}' ./...)
 	@ineffassign $(shell go list -f '{{.Dir}}' ./...)
+	@misspell $(shell go list -f '{{.Dir}}' ./...)
 
 .PHONY: lint
 lint:
