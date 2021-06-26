@@ -3,6 +3,7 @@ Copyright IBM Corp. All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
 */
+
 package chaincode
 
 import (
@@ -84,13 +85,13 @@ func (d *Discovery) Call() ([]view.Identity, error) {
 		return nil, err
 	}
 
-	var ClientTlsCertHash []byte
+	var ClientTLSCertHash []byte
 	if len(pc.Certificate().Certificate) != 0 {
-		ClientTlsCertHash = util.ComputeSHA256(pc.Certificate().Certificate[0])
+		ClientTLSCertHash = util.ComputeSHA256(pc.Certificate().Certificate[0])
 	}
 	req.Authentication = &discovery2.AuthInfo{
 		ClientIdentity:    signerRaw,
-		ClientTlsCertHash: ClientTlsCertHash,
+		ClientTlsCertHash: ClientTLSCertHash,
 	}
 	payload := protoutil.MarshalOrPanic(req.Request)
 	sig, err := signer.Sign(payload)

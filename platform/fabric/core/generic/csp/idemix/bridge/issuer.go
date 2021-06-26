@@ -3,6 +3,7 @@ Copyright IBM Corp. All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
 */
+
 package bridge
 
 import (
@@ -31,7 +32,7 @@ func (o *IssuerPublicKey) Hash() []byte {
 	return o.PK.Hash
 }
 
-// IssuerPublicKey encapsulate an idemix issuer secret key.
+// IssuerSecretKey encapsulate an idemix issuer secret key.
 type IssuerSecretKey struct {
 	SK *crypto.IssuerKey
 }

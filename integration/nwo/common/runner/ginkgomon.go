@@ -33,7 +33,7 @@ type Config struct {
 }
 
 /*
-The ginkgomon Runner invokes a new process using gomega's gexec package.
+Runner invokes a new process using gomega's gexec package.
 
 If a start check is defined, the runner will wait until it sees the start check
 before declaring ready.

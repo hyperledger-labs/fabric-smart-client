@@ -3,6 +3,7 @@ Copyright IBM Corp. All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
 */
+
 package generic
 
 import (
@@ -379,9 +380,9 @@ func newPeerClientForClientConfig(address, override string, clientConfig grpc.Cl
 	}
 	pClient := &common2.PeerClient{
 		CommonClient: common2.CommonClient{
-			GRPCClient: gClient,
-			Address:    address,
-			Sn:         override}}
+			Client:  gClient,
+			Address: address,
+			Sn:      override}}
 	return pClient, nil
 }
 

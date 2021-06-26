@@ -184,12 +184,12 @@ func (up *UnpackedProposal) Validate(idDeserializer msp.IdentityDeserializer) er
 		return errors.Errorf("empty signature bytes")
 	}
 
-	sId, err := protoutil.UnmarshalSerializedIdentity(up.SignatureHeader.Creator)
+	sID, err := protoutil.UnmarshalSerializedIdentity(up.SignatureHeader.Creator)
 	if err != nil {
 		return errors.Errorf("access denied: channel [%s] creator org unknown, creator is malformed", up.ChannelID())
 	}
 
-	genericAuthError := errors.Errorf("access denied: channel [%s] creator org [%s]", up.ChannelID(), sId.Mspid)
+	genericAuthError := errors.Errorf("access denied: channel [%s] creator org [%s]", up.ChannelID(), sID.Mspid)
 
 	// get the identity of the creator
 	creator, err := idDeserializer.DeserializeIdentity(up.SignatureHeader.Creator)

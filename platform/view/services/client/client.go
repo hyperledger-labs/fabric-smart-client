@@ -50,7 +50,7 @@ type ViewServiceClient interface {
 type ViewServiceClientImpl struct {
 	Address            string
 	ServerNameOverride string
-	GRPCClient         *grpc2.GRPCClient
+	GRPCClient         *grpc2.Client
 }
 
 func (pc *ViewServiceClientImpl) CreateViewClient() (*grpc.ClientConn, protos.ViewServiceClient, error) {

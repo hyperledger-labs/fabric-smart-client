@@ -37,7 +37,7 @@ func (configs *Configs) ToJSon() ([]byte, error) {
 	return json.MarshalIndent(configs, "", " ")
 }
 
-func FromJSon(raw []byte) (Configs, error) {
+func FromJSON(raw []byte) (Configs, error) {
 	configs := &Configs{}
 	err := json.Unmarshal(raw, configs)
 	if err != nil {

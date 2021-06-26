@@ -4,6 +4,7 @@ checks: dependencies
 	find . -name '*.go' | xargs addlicense -check || (echo "Missing license headers"; exit 1)
 	@go vet -all $(shell go list -f '{{.Dir}}' ./...)
 	@ineffassign $(shell go list -f '{{.Dir}}' ./...)
+	@misspell $(shell go list -f '{{.Dir}}' ./...)
 
 .PHONY: lint
 lint:
@@ -46,6 +47,7 @@ dependencies:
 	go get -u github.com/onsi/ginkgo/ginkgo
 	go get -u github.com/gordonklaus/ineffassign
 	go get -u github.com/google/addlicense
+	go get -u github.com/client9/misspell/cmd/misspell
 
 .PHONY: integration-tests
 integration-tests: docker-images dependencies

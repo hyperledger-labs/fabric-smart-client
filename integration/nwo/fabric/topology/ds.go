@@ -3,6 +3,7 @@ Copyright IBM Corp. All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
 */
+
 package topology
 
 import (
@@ -137,7 +138,7 @@ type PeerChannel struct {
 	Anchor bool   `yaml:"anchor"`
 }
 
-// A profile encapsulates basic information for a configtxgen profile.
+// Profile encapsulates basic information for a configtxgen profile.
 type Profile struct {
 	Name                string    `yaml:"name,omitempty"`
 	Orderers            []string  `yaml:"orderers,omitempty"`

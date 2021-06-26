@@ -3,6 +3,7 @@ Copyright IBM Corp. All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
 */
+
 package idemix
 
 import (
@@ -226,7 +227,7 @@ func (p *provider) Identity() (view.Identity, []byte, error) {
 		CertifiersIdentifier:         p.issuerPublicKey.SKI(),
 	}
 
-	enrollmentId := p.conf.Signer.EnrollmentId
+	enrollmentID := p.conf.Signer.EnrollmentId
 
 	// Verify credential
 	valid, err := p.csp.Verify(
@@ -238,7 +239,7 @@ func (p *provider) Identity() (view.Identity, []byte, error) {
 			Attributes: []csp.IdemixAttribute{
 				{Type: csp.IdemixBytesAttribute, Value: []byte(p.conf.Signer.OrganizationalUnitIdentifier)},
 				{Type: csp.IdemixIntAttribute, Value: getIdemixRoleFromMSPRole(role)},
-				{Type: csp.IdemixBytesAttribute, Value: []byte(enrollmentId)},
+				{Type: csp.IdemixBytesAttribute, Value: []byte(enrollmentID)},
 				{Type: csp.IdemixHiddenAttribute},
 			},
 		},
@@ -276,7 +277,7 @@ func (p *provider) Identity() (view.Identity, []byte, error) {
 		Cred:         p.conf.Signer.Cred,
 		UserKey:      p.userKey,
 		NymKey:       nymKey,
-		enrollmentId: enrollmentId}
+		enrollmentId: enrollmentID}
 
 	raw, err := sID.Serialize()
 	if err != nil {
@@ -293,7 +294,7 @@ func (p *provider) Identity() (view.Identity, []byte, error) {
 		Attributes: [][]byte{
 			[]byte(p.conf.Signer.OrganizationalUnitIdentifier),
 			[]byte(strconv.Itoa(getIdemixRoleFromMSPRole(role))),
-			[]byte(enrollmentId),
+			[]byte(enrollmentID),
 		},
 	}
 	infoRaw, err := auditInfo.Bytes()
@@ -331,7 +332,7 @@ func (p *provider) SignerIdentity() (driver.SigningIdentity, error) {
 		CertifiersIdentifier:         p.issuerPublicKey.SKI(),
 	}
 
-	enrollmentId := p.conf.Signer.EnrollmentId
+	enrollmentID := p.conf.Signer.EnrollmentId
 
 	// Verify credential
 	valid, err := p.csp.Verify(
@@ -343,7 +344,7 @@ func (p *provider) SignerIdentity() (driver.SigningIdentity, error) {
 			Attributes: []csp.IdemixAttribute{
 				{Type: csp.IdemixBytesAttribute, Value: []byte(p.conf.Signer.OrganizationalUnitIdentifier)},
 				{Type: csp.IdemixIntAttribute, Value: getIdemixRoleFromMSPRole(role)},
-				{Type: csp.IdemixBytesAttribute, Value: []byte(enrollmentId)},
+				{Type: csp.IdemixBytesAttribute, Value: []byte(enrollmentID)},
 				{Type: csp.IdemixHiddenAttribute},
 			},
 		},
@@ -379,7 +380,7 @@ func (p *provider) SignerIdentity() (driver.SigningIdentity, error) {
 		Cred:         p.conf.Signer.Cred,
 		UserKey:      p.userKey,
 		NymKey:       nymKey,
-		enrollmentId: enrollmentId,
+		enrollmentId: enrollmentID,
 	}, nil
 }
 

@@ -3,6 +3,7 @@ Copyright IBM Corp. All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
 */
+
 package session
 
 import (
@@ -29,7 +30,7 @@ type jsonSession struct {
 	context context.Context
 }
 
-func NewJSon(context view.Context, caller view.View, party view.Identity) (*jsonSession, error) {
+func NewJSON(context view.Context, caller view.View, party view.Identity) (*jsonSession, error) {
 	s, err := context.GetSession(caller, party)
 	if err != nil {
 		return nil, err
@@ -37,7 +38,7 @@ func NewJSon(context view.Context, caller view.View, party view.Identity) (*json
 	return &jsonSession{s: s, context: context.Context()}, nil
 }
 
-func JSon(context view.Context) *jsonSession {
+func JSON(context view.Context) *jsonSession {
 	return &jsonSession{s: context.Session(), context: context.Context()}
 }
 
