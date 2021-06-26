@@ -47,6 +47,7 @@ dependencies:
 	go get -u github.com/onsi/ginkgo/ginkgo
 	go get -u github.com/gordonklaus/ineffassign
 	go get -u github.com/google/addlicense
+	go get -u github.com/client9/misspell/cmd/misspell
 
 .PHONY: integration-tests
 integration-tests: docker-images dependencies
