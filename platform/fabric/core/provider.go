@@ -53,12 +53,15 @@ func (m *fnsProvider) FabricNetworkService(network string) (driver.FabricNetwork
 
 func (m *fnsProvider) newFNS(network string) (driver.FabricNetworkService, error) {
 	// bridge services
-	config := generic.NewConfig(view.GetConfigService(m.sp))
+	config, err := generic.NewConfig(view.GetConfigService(m.sp), network)
+	if err != nil {
+		return nil, err
+	}
 	sigService := generic.NewSigService(m.sp)
 
 	// Endpoint service
 	resolverService, err := endpoint.NewResolverService(
-		view.GetConfigService(m.sp),
+		config,
 		view.GetEndpointService(m.sp),
 	)
 	if err != nil {

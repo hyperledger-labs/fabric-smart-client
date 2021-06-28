@@ -302,7 +302,7 @@ fabric:
       opts:
         path: {{ NodeVaultPath }}
   endpoint:
-    resolves: {{ range .Resolvers }}
+    resolvers: {{ range .Resolvers }}
     - name: {{ .Name }}
       domain: {{ .Domain }}
       identity:
@@ -380,7 +380,7 @@ fabric:
         opts:
           path: {{ NodeVaultPath }}
   endpoint:
-    resolves: {{ range .Resolvers }}
+    resolvers: {{ range .Resolvers }}
     - name: {{ .Name }}
       domain: {{ .Domain }}
       identity:
