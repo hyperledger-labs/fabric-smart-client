@@ -50,7 +50,6 @@ type Channel struct {
 }
 
 type Network struct {
-	Default       bool                `yaml:"default,omitempty"`
 	BCCSP         *BCCSP              `yaml:"BCCSP,omitempty"`
 	MSPConfigPath string              `yaml:"mspConfigPath,omitempty"`
 	LocalMspId    string              `yaml:"localMspId,omitempty"`
@@ -60,4 +59,5 @@ type Network struct {
 	Peers         []*ConnectionConfig `yaml:"peers"`
 	Channels      []*Channel          `yaml:"channels"`
 	Vault         Vault               `yaml:"vault"`
+	Endpoint      *Endpoint           `yaml:"endpoint,omitempty"`
 }

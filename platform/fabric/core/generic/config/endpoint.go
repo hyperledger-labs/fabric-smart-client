@@ -19,3 +19,7 @@ type Resolver struct {
 	// Aliases is a list of alias for this resolver
 	Aliases []string `yaml:"aliases,omitempty"`
 }
+
+type Endpoint struct {
+	Resolvers []Resolver `yaml:"resolvers,omitempty"`
+}

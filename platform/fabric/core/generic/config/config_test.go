@@ -24,7 +24,7 @@ func TestLoad(t *testing.T) {
 	v.SetEnvKeyReplacer(replacer)
 	require.NoError(t, v.ReadInConfig())
 
-	var networks Network
-	require.NoError(t, viperutil.EnhancedExactUnmarshal(v, "fabric.default", &networks))
+	var network Network
+	require.NoError(t, viperutil.EnhancedExactUnmarshal(v, "fabric.default", &network))
 
 }

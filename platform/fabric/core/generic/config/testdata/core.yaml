@@ -49,7 +49,7 @@ fabric:
         opts:
           path: /Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata/fsc/fscnodes/Org1.approver/vault
     endpoint:
-      resolves:
+      resolvers:
         - name: Org1_peer_0
           domain: org1.example.com
           identity:

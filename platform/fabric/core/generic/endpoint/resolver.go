@@ -69,10 +69,10 @@ func (r *resolverService) LoadResolvers() error {
 	logger.Infof("loading resolvers")
 	cfgResolvers, err := r.config.Resolvers()
 	if err != nil {
-		logger.Errorf("failed loading resolves [%s]", err)
+		logger.Errorf("failed loading resolvers [%s]", err)
 		return err
 	}
-	logger.Infof("loaded resolves successfully, number of entries found %d", len(cfgResolvers))
+	logger.Infof("loaded resolvers successfully, number of entries found %d", len(cfgResolvers))
 
 	var resolvers []*Resolver
 	for _, cfgResolver := range cfgResolvers {

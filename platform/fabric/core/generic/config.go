@@ -147,7 +147,7 @@ func (c *Config) TranslatePath(path string) string {
 
 func (c *Config) Resolvers() ([]config.Resolver, error) {
 	var resolvers []config.Resolver
-	if err := c.configService.UnmarshalKey("fabric."+c.prefix+"endpoint.resolves", &resolvers); err != nil {
+	if err := c.configService.UnmarshalKey("fabric."+c.prefix+"endpoint.resolvers", &resolvers); err != nil {
 		return nil, err
 	}
 	return resolvers, nil
