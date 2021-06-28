@@ -30,6 +30,7 @@ func NotNil(object interface{}, msgAndArgs ...interface{}) {
 	assert.NotNil(&panickier{releasers: releasers}, object, ma...)
 }
 
+// NoError checks that the passed error is nil, it panics otherwise
 func NoError(err error, msgAndArgs ...interface{}) {
 	ma, releasers := extractReleasers(msgAndArgs...)
 	assert.NoError(&panickier{releasers: releasers}, err, ma...)
@@ -40,6 +41,7 @@ func NotEmpty(o interface{}, msgAndArgs ...interface{}) {
 	assert.NotEmpty(&panickier{releasers: releasers}, o, ma...)
 }
 
+// Equal checks that actual is as expected, it panics otherwise
 func Equal(expected, actual interface{}, msgAndArgs ...interface{}) {
 	ma, releasers := extractReleasers(msgAndArgs...)
 	assert.Equal(&panickier{releasers: releasers}, expected, actual, ma...)
