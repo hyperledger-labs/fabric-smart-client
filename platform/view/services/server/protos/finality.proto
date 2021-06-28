@@ -12,18 +12,10 @@ option cc_generic_services = true;
 package protos;
 
 message IsTxFinal {
-    string txid = 1;
+    string channel = 1;
+    string txid = 2;
 }
 
 message IsTxFinalResponse {
     bytes payload = 1;
-}
-
-message IsHashFinal {
-    bytes Hash = 1;
-}
-
-message IsHashFinalResponse {
-    bool belief = 1;
-    bool isFinal = 2;
 }

@@ -163,54 +163,6 @@ func (s *client) IsTxFinal(txid string) error {
 	return errors.New(string(respPayload))
 }
 
-func (s *client) IsHashFinal(hash []byte) (<-chan *protos.IsHashFinalResponse, error) {
-	payload := &protos.Command_IsHashFinal{IsHashFinal: &protos.IsHashFinal{
-		Hash: hash,
-	}}
-	sc, err := s.CreateSignedCommand(payload, s.SigningIdentity)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed creating signed command to ask for finality of hash [%s] at [%s]", hash2.Hashable(hash).String(), s.Address)
-	}
-
-	scc, err := s.streamCommand(context.Background(), sc)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed process command to ask for finality of hash [%s] at [%s]", hash2.Hashable(hash).String(), s.Address)
-	}
-
-	receiver := make(chan *protos.IsHashFinalResponse, 10)
-	go func(stream protos.ViewService_StreamCommandClient, receiver chan *protos.IsHashFinalResponse) {
-		defer close(receiver)
-		for {
-			scr, err := stream.Recv()
-			logger.Debugf("Is Hash [%s] final, got a message to parse [%s]", hash2.Hashable(hash).String(), err)
-			if err == io.EOF {
-				logger.Warnf("Is Hash [%s] final, stream EOF", hash2.Hashable(hash).String())
-				break
-			}
-			if err != nil {
-				logger.Errorf("Is Hash [%s] final, this should not happen [%s]", hash2.Hashable(hash).String(), err)
-				break
-			}
-
-			commandResp := &protos.CommandResponse{}
-			err = proto.Unmarshal(scr.Response, commandResp)
-			if err != nil {
-				logger.Errorf("failed to unmarshal command response [%s]", err)
-				return
-			}
-			if commandResp.GetErr() != nil {
-				logger.Errorf("Is Hash [%s] final, error from view during process command [%s]", commandResp.GetErr().GetMessage())
-				return
-			}
-
-			logger.Debugf("Is Hash [%s] final, got response [%v]", commandResp.GetIsHashFinalResponse())
-			receiver <- commandResp.GetIsHashFinalResponse()
-		}
-	}(scc, receiver)
-
-	return receiver, nil
-}
-
 // processCommand calls view client to send grpc request and returns a CommandResponse
 func (s *client) processCommand(ctx context.Context, sc *protos.SignedCommand) (*protos.CommandResponse, error) {
 	logger.Debugf("get view service client...")
@@ -332,8 +284,6 @@ func commandFromPayload(payload interface{}) (*protos.Command, error) {
 	case *protos.Command_CallView:
 		return &protos.Command{Payload: t}, nil
 	case *protos.Command_IsTxFinal:
-		return &protos.Command{Payload: t}, nil
-	case *protos.Command_IsHashFinal:
 		return &protos.Command{Payload: t}, nil
 	default:
 		return nil, errors.Errorf("command type not recognized: %T", t)

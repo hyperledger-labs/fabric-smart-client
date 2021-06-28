@@ -18,6 +18,7 @@ require (
 	github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751 // indirect
 	github.com/alecthomas/units v0.0.0-20190717042225-c3de453c63f4 // indirect
 	github.com/btcsuite/btcd v0.21.0-beta // indirect
+	github.com/client9/misspell v0.3.4 // indirect
 	github.com/dgraph-io/badger/v3 v3.2011.1
 	github.com/fsouza/go-dockerclient v1.6.1
 	github.com/gogo/protobuf v1.3.1
