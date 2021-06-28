@@ -15,6 +15,7 @@ type EndpointService interface {
 }
 
 type Resolver interface {
+	// GetIdentity returns the identity associated to the passed label
 	GetIdentity(label string) view.Identity
 }
 

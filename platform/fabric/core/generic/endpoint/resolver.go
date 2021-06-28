@@ -9,6 +9,8 @@ package endpoint
 import (
 	"github.com/pkg/errors"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/x509"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
@@ -21,37 +23,20 @@ const (
 
 var logger = flogging.MustGetLogger("fabric-sdk.endpoint")
 
-type MspConf struct {
-	ID      string `yaml:"id"`
-	MSPType string `yaml:"mspType"`
-	MSPID   string `yaml:"mspID"`
-	Path    string `yaml:"path"`
-}
-
-type entry struct {
-	Name           string            `yaml:"name,omitempty"`
-	Domain         string            `yaml:"domain,omitempty"`
-	Identity       MspConf           `yaml:"identity,omitempty"`
-	Addresses      map[string]string `yaml:"addresses,omitempty"`
-	Aliases        []string          `yaml:"aliases,omitempty"`
+type Resolver struct {
+	config.Resolver
 	Id             []byte
 	RootID         view.Identity
 	IdentityGetter func() (view.Identity, []byte, error)
 }
 
-func (r *entry) GetIdentity() (view.Identity, error) {
+func (r *Resolver) GetIdentity() (view.Identity, error) {
 	if r.IdentityGetter != nil {
 		id, _, err := r.IdentityGetter()
 		return id, err
 	}
 
 	return r.Id, nil
-}
-
-type ConfigService interface {
-	IsSet(s string) bool
-	UnmarshalKey(s string, i interface{}) error
-	TranslatePath(path string) string
 }
 
 type Service interface {
@@ -61,13 +46,13 @@ type Service interface {
 }
 
 type resolverService struct {
-	config    ConfigService
+	config    *generic.Config
 	service   Service
-	resolvers []*entry
+	resolvers []*Resolver
 }
 
 // NewResolverService returns a new instance of the view-sdk endpoint resolverService
-func NewResolverService(config ConfigService, service Service) (*resolverService, error) {
+func NewResolverService(config *generic.Config, service Service) (*resolverService, error) {
 	er := &resolverService{
 		config:  config,
 		service: service,
@@ -78,57 +63,61 @@ func NewResolverService(config ConfigService, service Service) (*resolverService
 	return er, nil
 }
 
+// LoadResolvers loads the resolvers specificed in the configuration file, if any
 func (r *resolverService) LoadResolvers() error {
-	// Load entry
-	if r.config.IsSet("fabric.endpoint.resolves") {
-		logger.Infof("loading resolvers")
-		var resolvers []*entry
-		err := r.config.UnmarshalKey("fabric.endpoint.resolves", &resolvers)
-		if err != nil {
-			logger.Errorf("failed loading resolves [%s]", err)
-			return err
-		}
-		logger.Infof("loaded resolves successfully, number of entries found %d", len(resolvers))
-
-		for _, resolver := range resolvers {
-			// Load identity
-			var raw []byte
-			switch resolver.Identity.MSPType {
-			case bccspMSP:
-				raw, err = x509.Serialize(resolver.Identity.MSPID, r.config.TranslatePath(resolver.Identity.Path))
-				if err != nil {
-					return errors.Wrapf(err, "failed serializing x509 identity")
-				}
-			default:
-				return errors.Errorf("expected bccsp type, got %s", resolver.Identity.MSPType)
-			}
-			resolver.Id = raw
-			logger.Debugf("entry [%s,%s][%s] %s",
-				resolver.Name, resolver.Domain, resolver.Addresses,
-				view.Identity(resolver.Id).UniqueID(),
-			)
-
-			// Add entry
-			rootID, err := r.service.AddResolver(resolver.Name, resolver.Domain, resolver.Addresses, resolver.Aliases, resolver.Id)
-			if err != nil {
-				return errors.Wrapf(err, "failed adding resolver")
-			}
-			logger.Debugf("added resolver [root-id:%s]", rootID.String())
-			resolver.RootID = rootID
-
-			// Bind Aliases
-			for _, alias := range resolver.Aliases {
-				logger.Debugf("binging [%s] to [%s]", resolver.Name, alias)
-				if err := r.service.Bind(resolver.Id, []byte(alias)); err != nil {
-					return errors.WithMessagef(err, "failed binding identity [%s] to alias [%s]", resolver.Name, alias)
-				}
-			}
-		}
-		r.resolvers = resolvers
+	// Load Resolver
+	logger.Infof("loading resolvers")
+	cfgResolvers, err := r.config.Resolvers()
+	if err != nil {
+		logger.Errorf("failed loading resolves [%s]", err)
+		return err
 	}
+	logger.Infof("loaded resolves successfully, number of entries found %d", len(cfgResolvers))
+
+	var resolvers []*Resolver
+	for _, cfgResolver := range cfgResolvers {
+		resolver := &Resolver{Resolver: cfgResolver}
+		// Load identity
+		var raw []byte
+		switch resolver.Identity.MSPType {
+		case bccspMSP:
+			raw, err = x509.Serialize(resolver.Identity.MSPID, r.config.TranslatePath(resolver.Identity.Path))
+			if err != nil {
+				return errors.Wrapf(err, "failed serializing x509 identity")
+			}
+		default:
+			return errors.Errorf("expected bccsp type, got %s", resolver.Identity.MSPType)
+		}
+
+		resolver.Id = raw
+		logger.Debugf("Resolver [%s,%s][%s] %s",
+			resolver.Name, resolver.Domain, resolver.Addresses,
+			view.Identity(resolver.Id).UniqueID(),
+		)
+
+		// Add Resolver
+		rootID, err := r.service.AddResolver(resolver.Name, resolver.Domain, resolver.Addresses, resolver.Aliases, resolver.Id)
+		if err != nil {
+			return errors.Wrapf(err, "failed adding resolver")
+		}
+		logger.Debugf("added resolver [root-id:%s]", rootID.String())
+		resolver.RootID = rootID
+
+		// Bind Aliases
+		for _, alias := range resolver.Aliases {
+			logger.Debugf("binging [%s] to [%s]", resolver.Name, alias)
+			if err := r.service.Bind(resolver.Id, []byte(alias)); err != nil {
+				return errors.WithMessagef(err, "failed binding identity [%s] to alias [%s]", resolver.Name, alias)
+			}
+		}
+		resolvers = append(resolvers, resolver)
+	}
+	r.resolvers = resolvers
 	return nil
 }
 
+// GetIdentity returns the identity associated to the passed label.
+// The label is matched against the name
 func (r *resolverService) GetIdentity(label string) view.Identity {
 	for _, resolver := range r.resolvers {
 		if resolver.Name == label {
