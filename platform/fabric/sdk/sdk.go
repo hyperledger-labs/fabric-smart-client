@@ -9,6 +9,8 @@ package fabric
 import (
 	"context"
 
+	"github.com/pkg/errors"
+
 	fabric2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/crypto"
@@ -28,8 +30,14 @@ type Registry interface {
 	RegisterService(service interface{}) error
 }
 
+type Startable interface {
+	Start(ctx context.Context) error
+	Stop() error
+}
+
 type p struct {
-	registry Registry
+	registry    Registry
+	fnsProvider Startable
 }
 
 func NewSDK(registry Registry) *p {
@@ -47,11 +55,12 @@ func (p *p) Install() error {
 	assert.NoError(p.registry.RegisterService(cryptoProvider))
 
 	logger.Infof("Set Fabric Network Service Provider")
-	fnsProvider, err := core.NewFabricNetworkServiceProvider(p.registry)
+	var err error
+	p.fnsProvider, err = core.NewFabricNetworkServiceProvider(p.registry)
 	assert.NoError(err, "failed instantiating fabric network service provider")
-	assert.NoError(p.registry.RegisterService(fnsProvider))
-	assert.NoError(fabric2.GetDefaultNetwork(p.registry).ProcessorManager().SetDefaultProcessor(
-		state.NewRWSetProcessor(fabric2.GetDefaultNetwork(p.registry)),
+	assert.NoError(p.registry.RegisterService(p.fnsProvider))
+	assert.NoError(fabric2.GetDefaultFNS(p.registry).ProcessorManager().SetDefaultProcessor(
+		state.NewRWSetProcessor(fabric2.GetDefaultFNS(p.registry)),
 	))
 
 	// TODO: remove this
@@ -68,9 +77,8 @@ func (p *p) Start(ctx context.Context) error {
 		return nil
 	}
 
-	// TODO: add listener to fabric service when a channel is opened.
-	for _, ch := range fabric2.GetDefaultNetwork(p.registry).Channels() {
-		fabric2.GetChannelDefaultNetwork(p.registry, ch)
+	if err := p.fnsProvider.Start(ctx); err != nil {
+		return errors.WithMessagef(err, "failed starting fabric network service provider")
 	}
 
 	return nil

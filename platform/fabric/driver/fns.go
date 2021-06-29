@@ -18,6 +18,8 @@ type FabricNetworkService interface {
 	Config
 	Ordering
 
+	Name() string
+
 	TransactionManager() TransactionManager
 
 	ProcessorManager() ProcessorManager

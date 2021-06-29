@@ -15,8 +15,9 @@ import (
 )
 
 type NetworkService struct {
-	sp  view2.ServiceProvider
-	fns driver.FabricNetworkService
+	sp   view2.ServiceProvider
+	fns  driver.FabricNetworkService
+	name string
 }
 
 func (n *NetworkService) DefaultChannel() string {
@@ -45,6 +46,7 @@ func (n *NetworkService) Channel(id string) (*Channel, error) {
 	return &Channel{sp: n.sp, ch: ch}, nil
 }
 
+// IdentityProvider returns the identity provider of this network
 func (n *NetworkService) IdentityProvider() *IdentityProvider {
 	return &IdentityProvider{
 		localMembership: n.fns.LocalMembership(),
@@ -52,54 +54,56 @@ func (n *NetworkService) IdentityProvider() *IdentityProvider {
 	}
 }
 
+// LocalMembership returns the local membership of this network
 func (n *NetworkService) LocalMembership() *LocalMembership {
 	return &LocalMembership{
 		network: n.fns,
 	}
 }
 
+// Ordering returns the list of known Orderer nodes
 func (n *NetworkService) Ordering() *Ordering {
 	return &Ordering{network: n.fns}
 }
 
+// Name of this network
 func (n *NetworkService) Name() string {
-	// TODO: fix
-	return "default"
+	return n.name
 }
 
+// ProcessorManager returns the processor manager of this network
 func (n *NetworkService) ProcessorManager() *ProcessorManager {
 	return &ProcessorManager{pm: n.fns.ProcessorManager()}
 }
 
+// TransactionManager returns the transaction manager of this network
 func (n *NetworkService) TransactionManager() *TransactionManager {
 	return &TransactionManager{fns: n}
 }
 
+// SigService returns the signature service of this network
 func (n *NetworkService) SigService() *SigService {
 	return &SigService{sigService: n.fns.SigService()}
 }
 
+// GetFabricNetworkService returns the Fabric Network Service for the passed id, nil if not found
 func GetFabricNetworkService(sp view2.ServiceProvider, id string) *NetworkService {
 	fns, err := core.GetFabricNetworkServiceProvider(sp).FabricNetworkService(id)
 	if err != nil {
-		panic(err)
+		return nil
 	}
-	return &NetworkService{sp: sp, fns: fns}
+	return &NetworkService{name: fns.Name(), sp: sp, fns: fns}
 }
 
-func GetDefaultNetwork(sp view2.ServiceProvider) *NetworkService {
+// GetDefaultFNS returns the default Fabric Network Service
+func GetDefaultFNS(sp view2.ServiceProvider) *NetworkService {
 	return GetFabricNetworkService(sp, "")
 }
 
 // GetDefaultChannel returns the default channel of the default fns
 func GetDefaultChannel(sp view2.ServiceProvider) *Channel {
-	return GetChannelDefaultNetwork(sp, "")
-}
-
-// GetChannelDefaultNetwork returns the channel of the the default fns with the passed if
-func GetChannelDefaultNetwork(sp view2.ServiceProvider, id string) *Channel {
-	network := GetDefaultNetwork(sp)
-	channel, err := network.Channel(id)
+	network := GetDefaultFNS(sp)
+	channel, err := network.Channel("")
 	if err != nil {
 		panic(err)
 	}
@@ -107,40 +111,12 @@ func GetChannelDefaultNetwork(sp view2.ServiceProvider, id string) *Channel {
 	return channel
 }
 
-func GetVaultDefaultNetwork(sp view2.ServiceProvider, id string) *Vault {
-	network := GetDefaultNetwork(sp)
-	channel, err := network.Channel(id)
-	if err != nil {
-		panic(err)
-	}
-
-	return channel.Vault()
-}
-
-func GetChannel(sp view2.ServiceProvider, networkID, channelID string) *Channel {
-	network := GetFabricNetworkService(sp, networkID)
-	channel, err := network.Channel(channelID)
-	if err != nil {
-		panic(err)
-	}
-
-	return channel
-}
-
-func GetVault(sp view2.ServiceProvider, networkID, channelID string) *Vault {
-	network := GetFabricNetworkService(sp, networkID)
-	channel, err := network.Channel(channelID)
-	if err != nil {
-		panic(err)
-	}
-
-	return channel.Vault()
-}
-
+// GetIdentityProvider returns the identity provider of the default fabric network service
 func GetIdentityProvider(sp view2.ServiceProvider) *IdentityProvider {
-	return GetDefaultNetwork(sp).IdentityProvider()
+	return GetDefaultFNS(sp).IdentityProvider()
 }
 
+// GetLocalMembership returns the local membership of the default fabric network service
 func GetLocalMembership(sp view2.ServiceProvider) *LocalMembership {
-	return GetDefaultNetwork(sp).LocalMembership()
+	return GetDefaultFNS(sp).LocalMembership()
 }

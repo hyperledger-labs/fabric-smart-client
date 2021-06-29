@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package core
 
 import (
+	"context"
 	"reflect"
 
 	"github.com/pkg/errors"
@@ -32,6 +33,25 @@ func NewFabricNetworkServiceProvider(sp view.ServiceProvider) (*fnsProvider, err
 		networks: map[string]driver.FabricNetworkService{},
 	}
 	return provider, nil
+}
+
+func (m *fnsProvider) Start(ctx context.Context) error {
+	// TODO: add listener to fabric service when a channel is opened.
+	fns, err := m.FabricNetworkService("")
+	if err != nil {
+		return err
+	}
+	for _, ch := range fns.Channels() {
+		_, err := fns.Channel(ch)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (m *fnsProvider) Stop() error {
+	return nil
 }
 
 func (m *fnsProvider) FabricNetworkService(network string) (driver.FabricNetworkService, error) {
