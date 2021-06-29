@@ -24,7 +24,7 @@ func GetVaultService(ctx view2.ServiceProvider) VaultService {
 
 func GetVault(ctx view2.ServiceProvider) Vault {
 	ws, err := GetVaultService(ctx).Vault(
-		fabric.GetDefaultNetwork(ctx).Name(),
+		fabric.GetDefaultFNS(ctx).Name(),
 		fabric.GetDefaultChannel(ctx).Name(),
 	)
 	if err != nil {
@@ -35,7 +35,7 @@ func GetVault(ctx view2.ServiceProvider) Vault {
 
 func GetVaultForChannel(ctx view2.ServiceProvider, channel string) Vault {
 	ws, err := GetVaultService(ctx).Vault(
-		fabric.GetDefaultNetwork(ctx).Name(),
+		fabric.GetDefaultFNS(ctx).Name(),
 		channel,
 	)
 	if err != nil {

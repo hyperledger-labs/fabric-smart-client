@@ -56,7 +56,7 @@ type TransferView struct {
 
 func (a *TransferView) Call(context view.Context) (interface{}, error) {
 	mspID, err := fabric.GetDefaultChannel(context).MSPManager().GetMSPIdentifier(
-		fabric.GetDefaultNetwork(context).IdentityProvider().Identity(a.Recipient.UniqueID()),
+		fabric.GetDefaultFNS(context).IdentityProvider().Identity(a.Recipient.UniqueID()),
 	)
 	assert.NoError(err, "failed deserializing identity")
 

@@ -9,6 +9,8 @@ package endorser
 import (
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -20,13 +22,18 @@ type orderingView struct {
 }
 
 func (o *orderingView) Call(context view.Context) (interface{}, error) {
+	fns := fabric.GetFabricNetworkService(context, o.tx.Network())
 	tx := o.tx
-	if err := fabric.GetDefaultNetwork(context).Ordering().Broadcast(tx.Transaction); err != nil {
-		return nil, err
+	if err := fns.Ordering().Broadcast(tx.Transaction); err != nil {
+		return nil, errors.WithMessagef(err, "failed broadcasting to [%s:%s]", o.tx.Network(), o.tx.Channel())
 	}
 	if o.finality {
-		if err := fabric.GetChannelDefaultNetwork(context, tx.Channel()).Finality().IsFinal(tx.ID()); err != nil {
-			return nil, err
+		ch, err := fns.Channel(o.tx.Channel())
+		if err != nil {
+			return nil, errors.WithMessagef(err, "failed getting channel [%s:%s]", o.tx.Network(), o.tx.Channel())
+		}
+		if err := ch.Finality().IsFinal(tx.ID()); err != nil {
+			return nil, errors.WithMessagef(err, "failed asking finality of [%s] to [%s:%s]", tx.ID(), o.tx.Network(), o.tx.Channel())
 		}
 	}
 	return tx, nil

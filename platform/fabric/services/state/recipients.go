@@ -129,7 +129,7 @@ func (s *respondPseudonymView) Call(context view.Context) (interface{}, error) {
 	}
 
 	recipientData := &RecipientData{
-		Identity: fabric.GetDefaultNetwork(context).IdentityProvider().DefaultIdentity(),
+		Identity: fabric.GetDefaultFNS(context).IdentityProvider().DefaultIdentity(),
 	}
 	recipientDataRaw, err := recipientData.Bytes()
 	if err != nil {
@@ -176,7 +176,7 @@ func (f *ExchangeRecipientIdentitiesView) Call(context view.Context) (interface{
 		return nil, err
 	}
 
-	me := fabric.GetDefaultNetwork(context).IdentityProvider().DefaultIdentity()
+	me := fabric.GetDefaultFNS(context).IdentityProvider().DefaultIdentity()
 
 	// Send request
 	request := &ExchangeRecipientRequest{
@@ -237,7 +237,7 @@ func (s *respondExchangePseudonymView) Call(context view.Context) (interface{}, 
 		return nil, err
 	}
 
-	me := fabric.GetDefaultNetwork(context).IdentityProvider().DefaultIdentity()
+	me := fabric.GetDefaultFNS(context).IdentityProvider().DefaultIdentity()
 	other := request.RecipientData.Identity
 
 	recipientData := &RecipientData{

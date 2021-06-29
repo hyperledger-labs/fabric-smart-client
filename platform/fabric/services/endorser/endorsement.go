@@ -181,7 +181,7 @@ func (s *endorseView) Call(context view.Context) (interface{}, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "failed marshalling tx")
 	}
-	ch, err := fabric.GetDefaultNetwork(context).Channel(s.tx.Channel())
+	ch, err := fabric.GetDefaultFNS(context).Channel(s.tx.Channel())
 	if err != nil {
 		return nil, errors.WithMessagef(err, "failed getting channel [%s]", s.tx.Channel())
 	}
