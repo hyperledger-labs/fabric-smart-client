@@ -409,6 +409,7 @@ func (n *Namespace) Commands() *commandStream {
 	}
 }
 
+// Outputs returns a stream containing the outputs in this namespace
 func (n *Namespace) Outputs() *outputStream {
 	rwSet, err := n.tx.RWSet()
 	if err != nil {
@@ -432,6 +433,7 @@ func (n *Namespace) Outputs() *outputStream {
 	return &outputStream{namespace: n, outputs: outputs}
 }
 
+// Inputs returns a stream containing the inputs in this namespace
 func (n *Namespace) Inputs() *inputStream {
 	rwSet, err := n.tx.RWSet()
 	if err != nil {
