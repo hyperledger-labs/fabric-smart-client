@@ -19,6 +19,7 @@ type Logging struct {
 
 type Topology struct {
 	TopologyName string       `yaml:"name,omitempty"`
+	TopologyType string       `yaml:"type,omitempty"`
 	Nodes        []*node.Node `yaml:"peers,omitempty"`
 	GRPCLogging  bool         `yaml:"grpcLogging,omitempty"`
 	Logging      *Logging     `yaml:"logging,omitempty"`
@@ -28,6 +29,7 @@ type Topology struct {
 func NewTopology() *Topology {
 	return &Topology{
 		TopologyName: TopologyName,
+		TopologyType: TopologyName,
 		Nodes:        []*node.Node{},
 		Logging: &Logging{
 			Spec:   "grpc=error:debug",
@@ -45,6 +47,10 @@ func (t *Topology) SetLogging(spec, format string) {
 
 func (t *Topology) Name() string {
 	return t.TopologyName
+}
+
+func (t *Topology) Type() string {
+	return t.TopologyType
 }
 
 // AddNodeByTemplate adds a new node with the passed name and template

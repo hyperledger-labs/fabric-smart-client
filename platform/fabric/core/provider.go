@@ -9,6 +9,7 @@ package core
 import (
 	"context"
 	"reflect"
+	"sync"
 
 	"github.com/pkg/errors"
 
@@ -23,8 +24,10 @@ import (
 )
 
 type fnsProvider struct {
-	sp       view.ServiceProvider
-	networks map[string]driver.FabricNetworkService
+	sp view.ServiceProvider
+
+	networksMutex sync.Mutex
+	networks      map[string]driver.FabricNetworkService
 }
 
 func NewFabricNetworkServiceProvider(sp view.ServiceProvider) (*fnsProvider, error) {
@@ -36,6 +39,7 @@ func NewFabricNetworkServiceProvider(sp view.ServiceProvider) (*fnsProvider, err
 }
 
 func (m *fnsProvider) Start(ctx context.Context) error {
+	// What's the default network?
 	// TODO: add listener to fabric service when a channel is opened.
 	fns, err := m.FabricNetworkService("")
 	if err != nil {
@@ -55,6 +59,9 @@ func (m *fnsProvider) Stop() error {
 }
 
 func (m *fnsProvider) FabricNetworkService(network string) (driver.FabricNetworkService, error) {
+	m.networksMutex.Lock()
+	defer m.networksMutex.Unlock()
+
 	if len(network) == 0 {
 		network = "default"
 	}

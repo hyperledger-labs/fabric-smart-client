@@ -33,8 +33,8 @@ import (
 	"github.com/tedsuo/ifrit/grouper"
 	"gopkg.in/yaml.v2"
 
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
-	registry2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/registry"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/commands"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/fabricconfig"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/opts"
@@ -59,11 +59,11 @@ func (n *Network) LogFormat() string {
 // AddOrg adds an organization to a network.
 func (n *Network) AddOrg(o *topology.Organization, peers ...*topology.Peer) {
 	for _, p := range peers {
-		ports := registry2.Ports{}
+		ports := api.Ports{}
 		for _, portName := range PeerPortNames() {
-			ports[portName] = n.Registry.ReservePort()
+			ports[portName] = n.Context.ReservePort()
 		}
-		n.Registry.PortsByPeerID[p.ID()] = ports
+		n.Context.SetPortsByPeerID(n.Prefix, p.ID(), ports)
 		n.Peers = append(n.Peers, p)
 	}
 
@@ -74,37 +74,37 @@ func (n *Network) AddOrg(o *topology.Organization, peers ...*topology.Peer) {
 // ConfigTxPath returns the path to the generated configtxgen configuration
 // file.
 func (n *Network) ConfigTxConfigPath() string {
-	return filepath.Join(n.Registry.RootDir, "fabric", "configtx.yaml")
+	return filepath.Join(n.Context.RootDir(), n.Prefix, "configtx.yaml")
 }
 
 // CryptoPath returns the path to the directory where cryptogen will place its
 // generated artifacts.
 func (n *Network) CryptoPath() string {
-	return filepath.Join(n.Registry.RootDir, "fabric", "crypto")
+	return filepath.Join(n.Context.RootDir(), n.Prefix, "crypto")
 }
 
 // CryptoConfigPath returns the path to the generated cryptogen configuration
 // file.
 func (n *Network) CryptoConfigPath() string {
-	return filepath.Join(n.Registry.RootDir, "fabric", "crypto-config.yaml")
+	return filepath.Join(n.Context.RootDir(), n.Prefix, "crypto-config.yaml")
 }
 
 // OutputBlockPath returns the path to the genesis block for the named system
 // channel.
 func (n *Network) OutputBlockPath(channelName string) string {
-	return filepath.Join(n.Registry.RootDir, "fabric", fmt.Sprintf("%s_block.pb", channelName))
+	return filepath.Join(n.Context.RootDir(), n.Prefix, fmt.Sprintf("%s_block.pb", channelName))
 }
 
 // CreateChannelTxPath returns the path to the create channel transaction for
 // the named channel.
 func (n *Network) CreateChannelTxPath(channelName string) string {
-	return filepath.Join(n.Registry.RootDir, "fabric", fmt.Sprintf("%s_tx.pb", channelName))
+	return filepath.Join(n.Context.RootDir(), n.Prefix, fmt.Sprintf("%s_tx.pb", channelName))
 }
 
 // OrdererDir returns the path to the configuration directory for the specified
 // Orderer.
 func (n *Network) OrdererDir(o *topology.Orderer) string {
-	return filepath.Join(n.Registry.RootDir, "fabric", "orderers", o.ID())
+	return filepath.Join(n.Context.RootDir(), n.Prefix, "orderers", o.ID())
 }
 
 // OrdererConfigPath returns the path to the orderer configuration document for
@@ -161,7 +161,7 @@ func (n *Network) WriteConfigTxConfig(config *fabricconfig.ConfigTx) {
 // PeerDir returns the path to the configuration directory for the specified
 // Peer.
 func (n *Network) PeerDir(p *topology.Peer) string {
-	return filepath.Join(n.Registry.RootDir, "fabric", "peers", p.ID())
+	return filepath.Join(n.Context.RootDir(), n.Prefix, "peers", p.ID())
 }
 
 // PeerConfigPath returns the path to the peer configuration document for the
@@ -220,8 +220,8 @@ func (n *Network) ordererUserCryptoDir(o *topology.Orderer, user, cryptoMaterial
 // specific user
 func (n *Network) userCryptoDir(org *topology.Organization, nodeOrganizationType, user, cryptoMaterialType string) string {
 	return filepath.Join(
-		n.Registry.RootDir,
-		"fabric",
+		n.Context.RootDir(),
+		n.Prefix,
 		"crypto",
 		nodeOrganizationType,
 		org.Domain,
@@ -357,8 +357,8 @@ func (n *Network) peerLocalCryptoDir(p *topology.Peer, cryptoType string) string
 	Expect(org).NotTo(BeNil())
 
 	return filepath.Join(
-		n.Registry.RootDir,
-		"fabric",
+		n.Context.RootDir(),
+		n.Prefix,
 		"crypto",
 		"peerOrganizations",
 		org.Domain,
@@ -373,8 +373,8 @@ func (n *Network) peerUserLocalCryptoDir(p *topology.Peer, user, cryptoType stri
 	Expect(org).NotTo(BeNil())
 
 	return filepath.Join(
-		n.Registry.RootDir,
-		"fabric",
+		n.Context.RootDir(),
+		n.Prefix,
 		"crypto",
 		"peerOrganizations",
 		org.Domain,
@@ -447,8 +447,8 @@ func (n *Network) PeerCert(p *topology.Peer) string {
 // PeerOrgMSPDir returns the path to the MSP directory of the Peer organization.
 func (n *Network) PeerOrgMSPDir(org *topology.Organization) string {
 	return filepath.Join(
-		n.Registry.RootDir,
-		"fabric",
+		n.Context.RootDir(),
+		n.Prefix,
 		"crypto",
 		"peerOrganizations",
 		org.Domain,
@@ -464,8 +464,8 @@ func (n *Network) DefaultIdemixOrgMSPDir() string {
 	for _, organization := range n.Organizations {
 		if organization.MSPType == "idemix" {
 			return filepath.Join(
-				n.Registry.RootDir,
-				"fabric",
+				n.Context.RootDir(),
+				n.Prefix,
 				"crypto",
 				"peerOrganizations",
 				organization.Domain,
@@ -477,8 +477,8 @@ func (n *Network) DefaultIdemixOrgMSPDir() string {
 
 func (n *Network) IdemixOrgMSPDir(org *topology.Organization) string {
 	return filepath.Join(
-		n.Registry.RootDir,
-		"fabric",
+		n.Context.RootDir(),
+		n.Prefix,
 		"crypto",
 		"peerOrganizations",
 		org.Domain,
@@ -489,8 +489,8 @@ func (n *Network) IdemixOrgMSPDir(org *topology.Organization) string {
 // organization.
 func (n *Network) OrdererOrgMSPDir(o *topology.Organization) string {
 	return filepath.Join(
-		n.Registry.RootDir,
-		"fabric",
+		n.Context.RootDir(),
+		n.Prefix,
 		"crypto",
 		"ordererOrganizations",
 		o.Domain,
@@ -505,8 +505,8 @@ func (n *Network) OrdererLocalCryptoDir(o *topology.Orderer, cryptoType string) 
 	Expect(org).NotTo(BeNil())
 
 	return filepath.Join(
-		n.Registry.RootDir,
-		"fabric",
+		n.Context.RootDir(),
+		n.Prefix,
 		"crypto",
 		"ordererOrganizations",
 		org.Domain,
@@ -543,8 +543,8 @@ func (n *Network) ProfileForChannel(channelName string) string {
 // network. This bundle is used when connecting to peers.
 func (n *Network) CACertsBundlePath() string {
 	return filepath.Join(
-		n.Registry.RootDir,
-		"fabric",
+		n.Context.RootDir(),
+		n.Prefix,
 		"crypto",
 		"ca-certs.pem",
 	)
@@ -556,7 +556,8 @@ func (n *Network) bootstrapIdemix() {
 		output := n.IdemixOrgMSPDir(org)
 		// - ca-keygen
 		sess, err := n.Idemixgen(commands.CAKeyGen{
-			Output: output,
+			NetworkPrefix: n.Prefix,
+			Output:        output,
 		})
 		Expect(err).NotTo(HaveOccurred())
 		Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
@@ -572,6 +573,7 @@ func (n *Network) bootstrapExtraIdentities() {
 				output := n.IdemixOrgMSPDir(org)
 				userOutput := filepath.Join(n.PeerLocalIdemixExtraIdentitiesDir(peer), identity.ID)
 				sess, err := n.Idemixgen(commands.SignerConfig{
+					NetworkPrefix:    n.Prefix,
 					CAInput:          output,
 					Output:           userOutput,
 					OrgUnit:          org.Domain,
@@ -602,22 +604,22 @@ func (n *Network) CheckTopology() {
 	}
 
 	for i := 0; i < n.Consensus.Brokers; i++ {
-		ports := registry2.Ports{}
+		ports := api.Ports{}
 		for _, portName := range BrokerPortNames() {
-			ports[portName] = n.Registry.ReservePort()
+			ports[portName] = n.Context.ReservePort()
 		}
 		n.PortsByBrokerID[strconv.Itoa(i)] = ports
 	}
 
 	for _, o := range n.Orderers {
-		ports := registry2.Ports{}
+		ports := api.Ports{}
 		for _, portName := range OrdererPortNames() {
-			ports[portName] = n.Registry.ReservePort()
+			ports[portName] = n.Context.ReservePort()
 		}
 		n.PortsByOrdererID[o.ID()] = ports
 	}
 
-	fscTopology := n.Registry.TopologyByName("fsc").(*fsc.Topology)
+	fscTopology := n.Context.TopologyByName("fsc").(*fsc.Topology)
 	users := map[string]int{}
 	userNames := map[string][]string{}
 	for _, node := range fscTopology.Nodes {
@@ -626,6 +628,11 @@ func (n *Network) CheckTopology() {
 		po := node.PlatformOpts()
 		opts := opts.Get(po)
 		Expect(opts.Organization()).NotTo(BeEmpty())
+
+		if opts.Network() != "" && opts.Network() != n.topology.TopologyName {
+			// no need to do anything here
+			continue
+		}
 
 		userNames[opts.Organization()] = append(userNames[opts.Organization()], node.Name)
 
@@ -637,7 +644,7 @@ func (n *Network) CheckTopology() {
 				MSPID:        "IdemixOrgMSP",
 				Org:          "IdemixOrg",
 			})
-			n.Registry.AddIdentityAlias(node.Name, "idemix")
+			n.Context.AddIdentityAlias(node.Name, "idemix")
 		}
 		for _, label := range opts.IdemixIdentities() {
 			extraIdentities = append(extraIdentities, &topology.PeerIdentity{
@@ -647,7 +654,7 @@ func (n *Network) CheckTopology() {
 				MSPID:        "IdemixOrgMSP",
 				Org:          "IdemixOrg",
 			})
-			n.Registry.AddIdentityAlias(node.Name, label)
+			n.Context.AddIdentityAlias(node.Name, label)
 		}
 		for _, label := range opts.X509Identities() {
 			extraIdentities = append(extraIdentities, &topology.PeerIdentity{
@@ -659,7 +666,7 @@ func (n *Network) CheckTopology() {
 			})
 			users[opts.Organization()] = users[opts.Organization()] + 1
 			userNames[opts.Organization()] = append(userNames[opts.Organization()], label)
-			n.Registry.AddIdentityAlias(node.Name, label)
+			n.Context.AddIdentityAlias(node.Name, label)
 		}
 
 		p := &topology.Peer{
@@ -672,7 +679,7 @@ func (n *Network) CheckTopology() {
 			ExtraIdentities: extraIdentities,
 		}
 		n.Peers = append(n.Peers, p)
-		n.Registry.PortsByPeerID[p.ID()] = n.Registry.PortsByPeerID[node.Name]
+		n.Context.SetPortsByPeerID("fsc", p.ID(), n.Context.PortsByPeerID(n.Prefix, node.Name))
 
 		// Set paths
 		po.Put("NodeLocalCertPath", n.ViewNodeLocalCertPath(p))
@@ -689,11 +696,11 @@ func (n *Network) CheckTopology() {
 		if p.Type == topology.FSCPeer {
 			continue
 		}
-		ports := registry2.Ports{}
+		ports := api.Ports{}
 		for _, portName := range PeerPortNames() {
-			ports[portName] = n.Registry.ReservePort()
+			ports[portName] = n.Context.ReservePort()
 		}
-		n.Registry.PortsByPeerID[p.ID()] = ports
+		n.Context.SetPortsByPeerID(n.Prefix, p.ID(), ports)
 	}
 }
 
@@ -718,7 +725,7 @@ func (n *Network) ConcatenateTLSCACertificates() {
 // network, across all organizations.
 func (n *Network) listTLSCACertificates() []string {
 	fileName2Path := make(map[string]string)
-	filepath.Walk(filepath.Join(n.Registry.RootDir, "fabric", "crypto"), func(path string, info os.FileInfo, err error) error {
+	filepath.Walk(filepath.Join(n.Context.RootDir(), n.Prefix, "crypto"), func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -778,10 +785,11 @@ func (n *Network) UpdateChannelAnchors(o *topology.Orderer, channelName string) 
 
 	for orgName, p := range peersByOrg {
 		anchorUpdate := commands.OutputAnchorPeersUpdate{
+			NetworkPrefix:           n.Prefix,
 			OutputAnchorPeersUpdate: tempFile.Name(),
 			ChannelID:               channelName,
 			Profile:                 n.ProfileForChannel(channelName),
-			ConfigPath:              filepath.Join(n.Registry.RootDir, "fabric"),
+			ConfigPath:              filepath.Join(n.Context.RootDir(), n.Prefix),
 			AsOrg:                   orgName,
 		}
 		sess, err := n.ConfigTxGen(anchorUpdate)
@@ -789,10 +797,11 @@ func (n *Network) UpdateChannelAnchors(o *topology.Orderer, channelName string) 
 		Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
 
 		sess, err = n.PeerAdminSession(p, commands.ChannelUpdate{
-			ChannelID:  channelName,
-			Orderer:    n.OrdererAddress(o, ListenPort),
-			File:       tempFile.Name(),
-			ClientAuth: n.ClientAuthRequired,
+			NetworkPrefix: n.Prefix,
+			ChannelID:     channelName,
+			Orderer:       n.OrdererAddress(o, ListenPort),
+			File:          tempFile.Name(),
+			ClientAuth:    n.ClientAuthRequired,
 		})
 		Expect(err).NotTo(HaveOccurred())
 		Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
@@ -826,11 +835,12 @@ func (n *Network) CreateChannel(channelName string, o *topology.Orderer, p *topo
 
 	createChannel := func() int {
 		sess, err := n.PeerAdminSession(p, commands.ChannelCreate{
-			ChannelID:   channelName,
-			Orderer:     n.OrdererAddress(o, ListenPort),
-			File:        channelCreateTxPath,
-			OutputBlock: "/dev/null",
-			ClientAuth:  n.ClientAuthRequired,
+			NetworkPrefix: n.Prefix,
+			ChannelID:     channelName,
+			Orderer:       n.OrdererAddress(o, ListenPort),
+			File:          channelCreateTxPath,
+			OutputBlock:   "/dev/null",
+			ClientAuth:    n.ClientAuthRequired,
 		})
 		Expect(err).NotTo(HaveOccurred())
 		return sess.Wait(n.EventuallyTimeout).ExitCode()
@@ -849,11 +859,12 @@ func (n *Network) CreateChannelExitCode(channelName string, o *topology.Orderer,
 	n.signConfigTransaction(channelCreateTxPath, p, additionalSigners...)
 
 	sess, err := n.PeerAdminSession(p, commands.ChannelCreate{
-		ChannelID:   channelName,
-		Orderer:     n.OrdererAddress(o, ListenPort),
-		File:        channelCreateTxPath,
-		OutputBlock: "/dev/null",
-		ClientAuth:  n.ClientAuthRequired,
+		NetworkPrefix: n.Prefix,
+		ChannelID:     channelName,
+		Orderer:       n.OrdererAddress(o, ListenPort),
+		File:          channelCreateTxPath,
+		OutputBlock:   "/dev/null",
+		ClientAuth:    n.ClientAuthRequired,
 	})
 	Expect(err).NotTo(HaveOccurred())
 	return sess.Wait(n.EventuallyTimeout).ExitCode()
@@ -864,16 +875,18 @@ func (n *Network) signConfigTransaction(channelTxPath string, submittingPeer *to
 		switch signer := signer.(type) {
 		case *topology.Peer:
 			sess, err := n.PeerAdminSession(signer, commands.SignConfigTx{
-				File:       channelTxPath,
-				ClientAuth: n.ClientAuthRequired,
+				NetworkPrefix: n.Prefix,
+				File:          channelTxPath,
+				ClientAuth:    n.ClientAuthRequired,
 			})
 			Expect(err).NotTo(HaveOccurred())
 			Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
 
 		case *topology.Orderer:
 			sess, err := n.OrdererAdminSession(signer, submittingPeer, commands.SignConfigTx{
-				File:       channelTxPath,
-				ClientAuth: n.ClientAuthRequired,
+				NetworkPrefix: n.Prefix,
+				File:          channelTxPath,
+				ClientAuth:    n.ClientAuthRequired,
 			})
 			Expect(err).NotTo(HaveOccurred())
 			Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
@@ -899,19 +912,21 @@ func (n *Network) JoinChannel(name string, o *topology.Orderer, peers ...*topolo
 	defer os.Remove(tempFile.Name())
 
 	sess, err := n.PeerAdminSession(peers[0], commands.ChannelFetch{
-		Block:      "0",
-		ChannelID:  name,
-		Orderer:    n.OrdererAddress(o, ListenPort),
-		OutputFile: tempFile.Name(),
-		ClientAuth: n.ClientAuthRequired,
+		NetworkPrefix: n.Prefix,
+		Block:         "0",
+		ChannelID:     name,
+		Orderer:       n.OrdererAddress(o, ListenPort),
+		OutputFile:    tempFile.Name(),
+		ClientAuth:    n.ClientAuthRequired,
 	})
 	Expect(err).NotTo(HaveOccurred())
 	Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
 
 	for _, p := range peers {
 		sess, err := n.PeerAdminSession(p, commands.ChannelJoin{
-			BlockPath:  tempFile.Name(),
-			ClientAuth: n.ClientAuthRequired,
+			NetworkPrefix: n.Prefix,
+			BlockPath:     tempFile.Name(),
+			ClientAuth:    n.ClientAuthRequired,
 		})
 		Expect(err).NotTo(HaveOccurred())
 		Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
@@ -1037,7 +1052,7 @@ func (n *Network) OrdererRunner(o *topology.Orderer) *ginkgomon.Runner {
 
 	config := ginkgomon.Config{
 		AnsiColorCode:     n.nextColor(),
-		Name:              o.ID(),
+		Name:              n.Prefix + "-" + o.ID(),
 		Command:           cmd,
 		StartCheck:        "Beginning to serve requests",
 		StartCheckTimeout: 1 * time.Minute,
@@ -1071,7 +1086,11 @@ func (n *Network) OrdererGroupRunner() ifrit.Runner {
 func (n *Network) PeerRunner(p *topology.Peer, env ...string) *ginkgomon.Runner {
 	cmd := n.peerCommand(
 		p.ExecutablePath,
-		commands.NodeStart{PeerID: p.ID(), DevMode: p.DevMode},
+		commands.NodeStart{
+			NetworkPrefix: n.Prefix,
+			PeerID:        p.ID(),
+			DevMode:       p.DevMode,
+		},
 		"",
 		fmt.Sprintf("FABRIC_CFG_PATH=%s", n.PeerDir(p)),
 	)
@@ -1079,7 +1098,7 @@ func (n *Network) PeerRunner(p *topology.Peer, env ...string) *ginkgomon.Runner 
 
 	return ginkgomon.New(ginkgomon.Config{
 		AnsiColorCode:     n.nextColor(),
-		Name:              p.ID(),
+		Name:              n.Prefix + "-" + p.ID(),
 		Command:           cmd,
 		StartCheck:        `Started peer with ID=.*, .*, address=`,
 		StartCheckTimeout: 1 * time.Minute,
@@ -1424,36 +1443,36 @@ func (n *Network) PeersInOrg(orgName string) []*topology.Peer {
 }
 
 const (
-	ChaincodePort  registry2.PortName = "Chaincode"
-	EventsPort     registry2.PortName = "Events"
-	HostPort       registry2.PortName = "HostPort"
-	ListenPort     registry2.PortName = "Listen"
-	ProfilePort    registry2.PortName = "Profile"
-	OperationsPort registry2.PortName = "Operations"
-	ViewPort       registry2.PortName = "View"
-	P2PPort        registry2.PortName = "P2P"
-	ClusterPort    registry2.PortName = "Cluster"
+	ChaincodePort  api.PortName = "Chaincode"
+	EventsPort     api.PortName = "Events"
+	HostPort       api.PortName = "HostPort"
+	ListenPort     api.PortName = "Listen"
+	ProfilePort    api.PortName = "Profile"
+	OperationsPort api.PortName = "Operations"
+	ViewPort       api.PortName = "View"
+	P2PPort        api.PortName = "P2P"
+	ClusterPort    api.PortName = "Cluster"
 )
 
 // PeerPortNames returns the list of ports that need to be reserved for a Peer.
-func PeerPortNames() []registry2.PortName {
-	return []registry2.PortName{ListenPort, ChaincodePort, EventsPort, ProfilePort, OperationsPort, P2PPort}
+func PeerPortNames() []api.PortName {
+	return []api.PortName{ListenPort, ChaincodePort, EventsPort, ProfilePort, OperationsPort, P2PPort}
 }
 
 // OrdererPortNames  returns the list of ports that need to be reserved for an
 // Orderer.
-func OrdererPortNames() []registry2.PortName {
-	return []registry2.PortName{ListenPort, ProfilePort, OperationsPort, ClusterPort}
+func OrdererPortNames() []api.PortName {
+	return []api.PortName{ListenPort, ProfilePort, OperationsPort, ClusterPort}
 }
 
 // BrokerPortNames returns the list of ports that need to be reserved for a
 // Kafka broker.
-func BrokerPortNames() []registry2.PortName {
-	return []registry2.PortName{HostPort}
+func BrokerPortNames() []api.PortName {
+	return []api.PortName{HostPort}
 }
 
 // BrokerAddresses returns the list of broker addresses for the network.
-func (n *Network) BrokerAddresses(portName registry2.PortName) []string {
+func (n *Network) BrokerAddresses(portName api.PortName) []string {
 	addresses := []string{}
 	for _, ports := range n.PortsByBrokerID {
 		addresses = append(addresses, fmt.Sprintf("127.0.0.1:%d", ports[portName]))
@@ -1467,12 +1486,12 @@ func (n *Network) BrokerAddresses(portName registry2.PortName) []string {
 //
 // This assumes that the orderer is listening on 0.0.0.0 or 127.0.0.1 and is
 // available on the loopback address.
-func (n *Network) OrdererAddress(o *topology.Orderer, portName registry2.PortName) string {
+func (n *Network) OrdererAddress(o *topology.Orderer, portName api.PortName) string {
 	return fmt.Sprintf("127.0.0.1:%d", n.OrdererPort(o, portName))
 }
 
 // OrdererPort returns the named port reserved for the Orderer instance.
-func (n *Network) OrdererPort(o *topology.Orderer, portName registry2.PortName) uint16 {
+func (n *Network) OrdererPort(o *topology.Orderer, portName api.PortName) uint16 {
 	ordererPorts := n.PortsByOrdererID[o.ID()]
 	Expect(ordererPorts).NotTo(BeNil())
 	return ordererPorts[portName]
@@ -1484,17 +1503,17 @@ func (n *Network) OrdererPort(o *topology.Orderer, portName registry2.PortName) 
 //
 // This assumes that the peer is listening on 0.0.0.0 and is available on the
 // loopback address.
-func (n *Network) PeerAddress(p *topology.Peer, portName registry2.PortName) string {
+func (n *Network) PeerAddress(p *topology.Peer, portName api.PortName) string {
 	return fmt.Sprintf("127.0.0.1:%d", n.PeerPort(p, portName))
 }
 
-func (n *Network) PeerAddressByName(p *topology.Peer, portName registry2.PortName) string {
+func (n *Network) PeerAddressByName(p *topology.Peer, portName api.PortName) string {
 	return fmt.Sprintf("127.0.0.1:%d", n.PeerPortByName(p, portName))
 }
 
 // PeerPort returns the named port reserved for the Peer instance.
-func (n *Network) PeerPort(p *topology.Peer, portName registry2.PortName) uint16 {
-	peerPorts := n.Registry.PortsByPeerID[p.ID()]
+func (n *Network) PeerPort(p *topology.Peer, portName api.PortName) uint16 {
+	peerPorts := n.Context.PortsByPeerID(n.Prefix, p.ID())
 	if peerPorts == nil {
 		fmt.Printf("PeerPort [%s,%s] not found", p.ID(), portName)
 	}
@@ -1502,8 +1521,8 @@ func (n *Network) PeerPort(p *topology.Peer, portName registry2.PortName) uint16
 	return peerPorts[portName]
 }
 
-func (n *Network) PeerPortByName(p *topology.Peer, portName registry2.PortName) uint16 {
-	peerPorts := n.Registry.PortsByPeerID[p.Name]
+func (n *Network) PeerPortByName(p *topology.Peer, portName api.PortName) uint16 {
+	peerPorts := n.Context.PortsByPeerID(n.Prefix, p.Name)
 	Expect(peerPorts).NotTo(BeNil())
 	return peerPorts[portName]
 }
@@ -1531,13 +1550,13 @@ func (n *Network) nextColor() string {
 }
 
 func (n *Network) NodeVaultDir(peer *topology.Peer) string {
-	return filepath.Join(n.Registry.RootDir, "fsc", "fscnodes", peer.ID(), "vault")
+	return filepath.Join(n.Context.RootDir(), "fsc", "fscnodes", peer.ID(), "vault")
 }
 
 func (n *Network) OrdererBootstrapFile() string {
 	return filepath.Join(
-		n.Registry.RootDir,
-		"fabric",
+		n.Context.RootDir(),
+		n.Prefix,
 		n.SystemChannel.Name+"_block.pb",
 	)
 }
@@ -1635,10 +1654,9 @@ func (n *Network) GenerateCoreConfig(p *topology.Peer) {
 		}).Parse(coreTemplate)
 		Expect(err).NotTo(HaveOccurred())
 
-		//pw := gexec.NewPrefixedWriter(fmt.Sprintf("[%s#core.yaml] ", p.ID()), ginkgo.GinkgoWriter)
 		extension := bytes.NewBuffer([]byte{})
 		err = t.Execute(io.MultiWriter(core, extension), n)
-		n.Registry.AddExtension(p.ID(), registry2.FabricExtension, extension.String())
+		n.Context.AddExtension(p.ID(), api.FabricExtension, extension.String())
 		Expect(err).NotTo(HaveOccurred())
 	case topology.FSCPeer:
 		err := os.MkdirAll(n.PeerDir(p), 0755)
@@ -1663,18 +1681,17 @@ func (n *Network) GenerateCoreConfig(p *topology.Peer) {
 			"ToLower":                   func(s string) string { return strings.ToLower(s) },
 			"ReplaceAll":                func(s, old, new string) string { return strings.Replace(s, old, new, -1) },
 			"Peers":                     func() []*topology.Peer { return refPeers },
-			"OrdererAddress":            func(o *topology.Orderer, portName registry2.PortName) string { return n.OrdererAddress(o, portName) },
-			"PeerAddress":               func(o *topology.Peer, portName registry2.PortName) string { return n.PeerAddress(o, portName) },
+			"OrdererAddress":            func(o *topology.Orderer, portName api.PortName) string { return n.OrdererAddress(o, portName) },
+			"PeerAddress":               func(o *topology.Peer, portName api.PortName) string { return n.PeerAddress(o, portName) },
 			"CACertsBundlePath":         func() string { return n.CACertsBundlePath() },
 			"NodeVaultPath":             func() string { return n.NodeVaultDir(p) },
 		}).Parse(coreTemplate)
 		Expect(err).NotTo(HaveOccurred())
 
-		//pw := gexec.NewPrefixedWriter(fmt.Sprintf("[%s#extension#core.yaml] ", p.ID()), ginkgo.GinkgoWriter)
 		extension := bytes.NewBuffer([]byte{})
 		err = t.Execute(io.MultiWriter(extension), n)
 		Expect(err).NotTo(HaveOccurred())
-		n.Registry.AddExtension(p.Name, registry2.FabricExtension, extension.String())
+		n.Context.AddExtension(p.Name, api.FabricExtension, extension.String())
 	}
 }
 

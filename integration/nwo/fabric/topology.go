@@ -54,6 +54,13 @@ func WithOrganization(Organization string) node.Option {
 	}
 }
 
+func WithNetwork(Network string) node.Option {
+	return func(o *node.Options) error {
+		Options(o).SetNetwork(Network)
+		return nil
+	}
+}
+
 func WithAnonymousIdentity() node.Option {
 	return func(o *node.Options) error {
 		Options(o).SetAnonymousIdentity(true)
@@ -63,8 +70,14 @@ func WithAnonymousIdentity() node.Option {
 
 // NewDefaultTopology is a configuration with two organizations and one peer per org.
 func NewDefaultTopology() *topology.Topology {
+	return NewTopology("default").SetDefault()
+}
+
+// NewTopology is a configuration with two organizations and one peer per org
+func NewTopology(name string) *topology.Topology {
 	return &topology.Topology{
-		TopologyName: "fabric",
+		TopologyName: name,
+		TopologyType: "fabric",
 		Logging: &topology.Logging{
 			Spec:   "grpc=error:chaincode=debug:endorser=debug:info",
 			Format: "'%{color}%{time:2006-01-02 15:04:05.000 MST} [%{module}] %{shortfunc} -> %{level:.4s} %{id:03x}%{color:reset} %{message}'",

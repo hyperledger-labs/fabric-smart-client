@@ -14,6 +14,18 @@ type Options struct {
 	Mapping map[string]interface{}
 }
 
+func (o *Options) Network() string {
+	res := o.Mapping["Network"]
+	if res == nil {
+		return ""
+	}
+	return res.(string)
+}
+
+func (o *Options) SetNetwork(network string) {
+	o.Mapping["Network"] = network
+}
+
 func (o *Options) Organization() string {
 	res := o.Mapping["Organization"]
 	if res == nil {

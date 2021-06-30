@@ -7,11 +7,12 @@ SPDX-License-Identifier: Apache-2.0
 package commands
 
 type CAKeyGen struct {
-	Output string
+	NetworkPrefix string
+	Output        string
 }
 
 func (c CAKeyGen) SessionName() string {
-	return "idemixgen-ca-key-gen"
+	return c.NetworkPrefix + "-idemixgen-ca-key-gen"
 }
 
 func (c CAKeyGen) Args() []string {
@@ -22,6 +23,7 @@ func (c CAKeyGen) Args() []string {
 }
 
 type SignerConfig struct {
+	NetworkPrefix    string
 	CAInput          string
 	Output           string
 	OrgUnit          string
@@ -31,7 +33,7 @@ type SignerConfig struct {
 }
 
 func (c SignerConfig) SessionName() string {
-	return "idemixgen-signerconfig"
+	return c.NetworkPrefix + "idemixgen-signerconfig"
 }
 
 func (c SignerConfig) Args() []string {

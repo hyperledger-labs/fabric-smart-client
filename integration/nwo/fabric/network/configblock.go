@@ -12,13 +12,13 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/commands"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric-protos-go/common"
 	"github.com/hyperledger/fabric-protos-go/msp"
 	protosorderer "github.com/hyperledger/fabric-protos-go/orderer"
-	"github.com/hyperledger/fabric/integration/nwo/commands"
 	"github.com/hyperledger/fabric/protoutil"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
@@ -27,18 +27,19 @@ import (
 
 // GetConfigBlock retrieves the current config block for a channel.
 func GetConfigBlock(n *Network, peer *topology.Peer, orderer *topology.Orderer, channel string) *common.Block {
-	tempDir, err := ioutil.TempDir(filepath.Join(n.Registry.RootDir, "fabric"), "getConfigBlock")
+	tempDir, err := ioutil.TempDir(filepath.Join(n.Context.RootDir(), n.Prefix), "getConfigBlock")
 	Expect(err).NotTo(HaveOccurred())
 	defer os.RemoveAll(tempDir)
 
 	// fetch the config block
 	output := filepath.Join(tempDir, "config_block.pb")
 	sess, err := n.OrdererAdminSession(orderer, peer, commands.ChannelFetch{
-		ChannelID:  channel,
-		Block:      "config",
-		Orderer:    n.OrdererAddress(orderer, ListenPort),
-		OutputFile: output,
-		ClientAuth: n.ClientAuthRequired,
+		NetworkPrefix: n.Prefix,
+		ChannelID:     channel,
+		Block:         "config",
+		Orderer:       n.OrdererAddress(orderer, ListenPort),
+		OutputFile:    output,
+		ClientAuth:    n.ClientAuthRequired,
 	})
 	Expect(err).NotTo(HaveOccurred())
 	Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
@@ -98,8 +99,9 @@ func UpdateConfig(n *Network, orderer *topology.Orderer, channel string, current
 
 	for _, signer := range additionalSigners {
 		sess, err := n.PeerAdminSession(signer, commands.SignConfigTx{
-			File:       updateFile,
-			ClientAuth: n.ClientAuthRequired,
+			NetworkPrefix: n.Prefix,
+			File:          updateFile,
+			ClientAuth:    n.ClientAuthRequired,
 		})
 		Expect(err).NotTo(HaveOccurred())
 		Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
@@ -114,10 +116,11 @@ func UpdateConfig(n *Network, orderer *topology.Orderer, channel string, current
 	}
 
 	sess, err := n.PeerAdminSession(submitter, commands.ChannelUpdate{
-		ChannelID:  channel,
-		Orderer:    n.OrdererAddress(orderer, ListenPort),
-		File:       updateFile,
-		ClientAuth: n.ClientAuthRequired,
+		NetworkPrefix: n.Prefix,
+		ChannelID:     channel,
+		Orderer:       n.OrdererAddress(orderer, ListenPort),
+		File:          updateFile,
+		ClientAuth:    n.ClientAuthRequired,
 	})
 	Expect(err).NotTo(HaveOccurred())
 	Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
@@ -141,7 +144,7 @@ func UpdateConfig(n *Network, orderer *topology.Orderer, channel string, current
 // has completed. If an orderer is not provided, the current config block will
 // be fetched from the peer.
 func CurrentConfigBlockNumber(n *Network, peer *topology.Peer, orderer *topology.Orderer, channel string) uint64 {
-	tempDir, err := ioutil.TempDir(filepath.Join(n.Registry.RootDir, "fabric"), "currentConfigBlock")
+	tempDir, err := ioutil.TempDir(filepath.Join(n.Context.RootDir(), n.Prefix), "currentConfigBlock")
 	Expect(err).NotTo(HaveOccurred())
 	defer os.RemoveAll(tempDir)
 
@@ -163,10 +166,11 @@ func CurrentConfigBlockNumber(n *Network, peer *topology.Peer, orderer *topology
 // of the peer's current config block.
 func CurrentConfigBlockNumberFromPeer(n *Network, peer *topology.Peer, channel, output string) uint64 {
 	sess, err := n.PeerAdminSession(peer, commands.ChannelFetch{
-		ChannelID:  channel,
-		Block:      "config",
-		OutputFile: output,
-		ClientAuth: n.ClientAuthRequired,
+		NetworkPrefix: n.Prefix,
+		ChannelID:     channel,
+		Block:         "config",
+		OutputFile:    output,
+		ClientAuth:    n.ClientAuthRequired,
 	})
 	Expect(err).NotTo(HaveOccurred())
 	Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
@@ -181,11 +185,12 @@ func CurrentConfigBlockNumberFromPeer(n *Network, peer *topology.Peer, channel, 
 func FetchConfigBlock(n *Network, peer *topology.Peer, orderer *topology.Orderer, channel string, output string) {
 	fetch := func() int {
 		sess, err := n.OrdererAdminSession(orderer, peer, commands.ChannelFetch{
-			ChannelID:  channel,
-			Block:      "config",
-			Orderer:    n.OrdererAddress(orderer, ListenPort),
-			OutputFile: output,
-			ClientAuth: n.ClientAuthRequired,
+			NetworkPrefix: n.Prefix,
+			ChannelID:     channel,
+			Block:         "config",
+			Orderer:       n.OrdererAddress(orderer, ListenPort),
+			OutputFile:    output,
+			ClientAuth:    n.ClientAuthRequired,
 		})
 		Expect(err).NotTo(HaveOccurred())
 		code := sess.Wait(n.EventuallyTimeout).ExitCode()
@@ -200,7 +205,7 @@ func FetchConfigBlock(n *Network, peer *topology.Peer, orderer *topology.Orderer
 // UpdateOrdererConfig computes, signs, and submits a configuration update
 // which requires orderers signature and waits for the update to complete.
 func UpdateOrdererConfig(n *Network, orderer *topology.Orderer, channel string, current, updated *common.Config, submitter *topology.Peer, additionalSigners ...*topology.Orderer) {
-	tempDir, err := ioutil.TempDir(filepath.Join(n.Registry.RootDir, "fabric"), "updateConfig")
+	tempDir, err := ioutil.TempDir(filepath.Join(n.Context.RootDir(), n.Prefix), "updateConfig")
 	Expect(err).NotTo(HaveOccurred())
 	updateFile := filepath.Join(tempDir, "update.pb")
 	defer os.RemoveAll(tempDir)
@@ -210,10 +215,11 @@ func UpdateOrdererConfig(n *Network, orderer *topology.Orderer, channel string, 
 
 	Eventually(func() bool {
 		sess, err := n.OrdererAdminSession(orderer, submitter, commands.ChannelUpdate{
-			ChannelID:  channel,
-			Orderer:    n.OrdererAddress(orderer, ListenPort),
-			File:       updateFile,
-			ClientAuth: n.ClientAuthRequired,
+			NetworkPrefix: n.Prefix,
+			ChannelID:     channel,
+			Orderer:       n.OrdererAddress(orderer, ListenPort),
+			File:          updateFile,
+			ClientAuth:    n.ClientAuthRequired,
 		})
 		Expect(err).NotTo(HaveOccurred())
 
@@ -234,7 +240,7 @@ func UpdateOrdererConfig(n *Network, orderer *topology.Orderer, channel string, 
 // update which requires orderer signatures. The caller should wait on the
 // returned seession retrieve the exit code.
 func UpdateOrdererConfigSession(n *Network, orderer *topology.Orderer, channel string, current, updated *common.Config, submitter *topology.Peer, additionalSigners ...*topology.Orderer) *gexec.Session {
-	tempDir, err := ioutil.TempDir(filepath.Join(n.Registry.RootDir, "fabric"), "updateConfig")
+	tempDir, err := ioutil.TempDir(filepath.Join(n.Context.RootDir(), n.Prefix), "updateConfig")
 	Expect(err).NotTo(HaveOccurred())
 	updateFile := filepath.Join(tempDir, "update.pb")
 
@@ -242,10 +248,11 @@ func UpdateOrdererConfigSession(n *Network, orderer *topology.Orderer, channel s
 
 	// session should not return with a zero exit code nor with a success response
 	sess, err := n.OrdererAdminSession(orderer, submitter, commands.ChannelUpdate{
-		ChannelID:  channel,
-		Orderer:    n.OrdererAddress(orderer, ListenPort),
-		File:       updateFile,
-		ClientAuth: n.ClientAuthRequired,
+		NetworkPrefix: n.Prefix,
+		ChannelID:     channel,
+		Orderer:       n.OrdererAddress(orderer, ListenPort),
+		File:          updateFile,
+		ClientAuth:    n.ClientAuthRequired,
 	})
 	Expect(err).NotTo(HaveOccurred())
 	return sess
@@ -272,7 +279,10 @@ func ComputeUpdateOrdererConfig(updateFile string, n *Network, channel string, c
 	Expect(err).NotTo(HaveOccurred())
 
 	for _, signer := range additionalSigners {
-		sess, err := n.OrdererAdminSession(signer, submitter, commands.SignConfigTx{File: updateFile})
+		sess, err := n.OrdererAdminSession(signer, submitter, commands.SignConfigTx{
+			NetworkPrefix: n.Prefix,
+			File:          updateFile,
+		})
 		Expect(err).NotTo(HaveOccurred())
 		Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
 	}

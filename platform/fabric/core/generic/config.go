@@ -47,7 +47,13 @@ func NewConfig(configService ConfigService, name string) (*Config, error) {
 			configService: configService,
 		}, nil
 	}
+
 	if name == "default" {
+		// TODO: If we are here, it means that "fabric.default" is not set.
+		// Now, it can be that:
+		// 1. the default network has a different name, or
+		// 2. the old configuration format is used.
+		// Figure the above out.
 		return &Config{
 			name:          name,
 			prefix:        "",
