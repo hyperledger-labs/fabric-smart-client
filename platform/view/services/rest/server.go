@@ -21,9 +21,14 @@ import (
 	"github.com/hyperledger/fabric/core/middleware"
 )
 
+//go:generate counterfeiter -o fakes/logger.go -fake-name Logger . Logger
+
 type Logger interface {
-	Warn(args ...interface{})
+	Debugf(template string, args ...interface{})
 	Warnf(template string, args ...interface{})
+	Infof(template string, args ...interface{})
+	Errorf(template string, args ...interface{})
+	Warn(args ...interface{})
 }
 
 type TLS struct {

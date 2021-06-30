@@ -10,10 +10,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"github.com/gorilla/mux"
 	"io/ioutil"
 	"net/http"
 	"strings"
+
+	"github.com/gorilla/mux"
 )
 
 const (
@@ -35,7 +36,10 @@ type HttpHandler struct {
 }
 
 type logger interface {
+	Debugf(template string, args ...interface{})
 	Warnf(template string, args ...interface{})
+	Infof(template string, args ...interface{})
+	Errorf(template string, args ...interface{})
 }
 
 type ReqContext struct {

@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/api"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/protos"
 
 	config2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/core/config"
@@ -31,13 +32,24 @@ import (
 var _ = Describe("EndToEnd", func() {
 
 	Describe("Node-based Ping pong", func() {
+		var (
+			initiator api.FabricSmartClientNode
+			responder api.FabricSmartClientNode
+		)
+
+		AfterEach(func() {
+			// Stop the ii
+			initiator.Stop()
+			responder.Stop()
+			time.Sleep(5 * time.Second)
+		})
 
 		It("successful pingpong based on REST API", func() {
 			// Init and Start fsc nodes
-			initiator := node.NewFromConfPath("./testdata/fsc/fscnodes/fsc.initiator")
+			initiator = node.NewFromConfPath("./testdata/fsc/fscnodes/fsc.initiator")
 			Expect(initiator).NotTo(BeNil())
 
-			responder := node.NewFromConfPath("./testdata/fsc/fscnodes/fsc.responder")
+			responder = node.NewFromConfPath("./testdata/fsc/fscnodes/fsc.responder")
 			Expect(responder).NotTo(BeNil())
 
 			err := initiator.Start()
@@ -54,7 +66,7 @@ var _ = Describe("EndToEnd", func() {
 
 			client := newHTTPClient("./testdata/fsc/fscnodes/fsc.initiator")
 
-			url := "https://127.0.0.1:19999/v1/mychannel/Views/init"
+			url := "https://127.0.0.1:19999/v1/Views/init"
 			req, err := http.NewRequest(http.MethodPut, url, bytes.NewBuffer([]byte("hi")))
 			Expect(err).NotTo(HaveOccurred())
 
@@ -68,16 +80,14 @@ var _ = Describe("EndToEnd", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(string(response.CallViewResponse.Result)).To(Equal("\"OK\""))
 
-			initiator.Stop()
-			responder.Stop()
 		})
 
 		It("successful pingpong", func() {
 			// Init and Start fsc nodes
-			initiator := node.NewFromConfPath("./testdata/fsc/fscnodes/fsc.initiator")
+			initiator = node.NewFromConfPath("./testdata/fsc/fscnodes/fsc.initiator")
 			Expect(initiator).NotTo(BeNil())
 
-			responder := node.NewFromConfPath("./testdata/fsc/fscnodes/fsc.responder")
+			responder = node.NewFromConfPath("./testdata/fsc/fscnodes/fsc.responder")
 			Expect(responder).NotTo(BeNil())
 
 			err := initiator.Start()
@@ -95,9 +105,6 @@ var _ = Describe("EndToEnd", func() {
 			res, err := initiator.CallView("init", nil)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
-
-			initiator.Stop()
-			responder.Stop()
 		})
 
 	})

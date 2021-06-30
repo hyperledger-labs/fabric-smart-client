@@ -19,13 +19,15 @@ import (
 	"syscall"
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc/tlsgen"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/rest"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/rest/mocks"
 	"github.com/hyperledger/fabric/core/operations/fakes"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/tedsuo/ifrit"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc/tlsgen"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/rest"
+	fakes2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/rest/fakes"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/rest/mocks"
 )
 
 var (
@@ -90,7 +92,7 @@ var _ = Describe("Server", func() {
 	const someURL = "/some-URL"
 
 	var (
-		fakeLogger *fakes.Logger
+		fakeLogger *fakes2.Logger
 		tempDir    string
 
 		client  *http.Client
@@ -106,7 +108,7 @@ var _ = Describe("Server", func() {
 		generateCertificates(tempDir)
 		client = newHTTPClient(tempDir, true)
 
-		fakeLogger = &fakes.Logger{}
+		fakeLogger = &fakes2.Logger{}
 		options = rest.Options{
 			Logger:        fakeLogger,
 			ListenAddress: "127.0.0.1:0",

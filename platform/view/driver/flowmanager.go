@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package driver
 
 import (
-	"context"
 	"reflect"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -23,8 +22,6 @@ type ViewManager interface {
 	InitiateView(view view.View) (interface{}, error)
 	// InitiateContext initiates a new context for the passed view
 	InitiateContext(view view.View) (view.Context, error)
-	// TODO: remove this method
-	Start(ctx context.Context)
 }
 
 // GetViewManager returns an instance of the view manager.

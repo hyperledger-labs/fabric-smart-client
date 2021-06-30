@@ -23,22 +23,11 @@ type viewHandler struct {
 	sp view.ServiceProvider
 }
 
-type viewCallFunc func(ctx context.Context, command *protos.Command) (interface{}, error)
-
-func (vcf viewCallFunc) CallView(command *protos.Command) (interface{}, error) {
-	return vcf(context.Background(), command)
-}
-
-type Dispatcher interface {
-	WireViewCaller(vc ViewCaller)
-}
-
-func InstallViewHandler(sp view.ServiceProvider, server Server, d Dispatcher) {
+func InstallViewHandler(sp view.ServiceProvider, server ViewServiceServer) {
 	fh := &viewHandler{sp: sp}
 	server.RegisterProcessor(reflect.TypeOf(&protos.Command_InitiateView{}), fh.initiateView)
 	server.RegisterProcessor(reflect.TypeOf(&protos.Command_TrackView{}), fh.trackView)
 	server.RegisterProcessor(reflect.TypeOf(&protos.Command_CallView{}), fh.callView)
-	d.WireViewCaller(viewCallFunc(fh.callView))
 }
 
 func (s *viewHandler) initiateView(ctx context.Context, command *protos.Command) (interface{}, error) {

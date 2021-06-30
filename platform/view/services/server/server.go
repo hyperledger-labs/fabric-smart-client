@@ -23,17 +23,17 @@ type Processor func(ctx context.Context, command *protos.Command) (interface{}, 
 
 type Streamer func(sc *protos.SignedCommand, command *protos.Command, commandServer protos.ViewService_StreamCommandServer, marshaler Marshaler) error
 
-type Server interface {
+type ViewServiceServer interface {
 	protos.ViewServiceServer
 
 	RegisterProcessor(typ reflect.Type, p Processor)
 	RegisterStreamer(typ reflect.Type, streamer Streamer)
 }
 
-func GetServer(sp view.ServiceProvider) Server {
-	s, err := sp.GetService(reflect.TypeOf((*Server)(nil)))
+func GetServer(sp view.ServiceProvider) ViewServiceServer {
+	s, err := sp.GetService(reflect.TypeOf((*ViewServiceServer)(nil)))
 	if err != nil {
 		panic(err)
 	}
-	return s.(Server)
+	return s.(ViewServiceServer)
 }

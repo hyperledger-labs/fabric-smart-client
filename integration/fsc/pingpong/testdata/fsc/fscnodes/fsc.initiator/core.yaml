@@ -18,9 +18,7 @@ fsc:
   # This case is useful for docker containers.
   # When set to true, will override FSC address.
   addressAutoDetect: true
-  # HTTPS server listener address
-  webAddress: 127.0.0.1:19999
-  # GRPC Server listener address   
+  # GRPC Server listener address
   listenAddress: 127.0.0.1:20000
   # Identity of this node, used to connect to other nodes
   identity:
@@ -92,6 +90,10 @@ fsc:
       type: memory
       opts:
         path: ./../../fscnodes/fsc.initiator/kvs
+  http:
+    enabled: true
+    # HTTPS server listener address
+    address: 127.0.0.1:19999
   # The endpoint section tells how to reach other FSC node in the network.
   # For each node, the name, the domain, the identity of the node, and its addresses must be specified.
   endpoint:

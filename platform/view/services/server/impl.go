@@ -37,7 +37,7 @@ type server struct {
 	streamers  map[reflect.Type]Streamer
 }
 
-func NewServer(Marshaler Marshaler, PolicyChecker PolicyChecker) (*server, error) {
+func NewViewServiceServer(Marshaler Marshaler, PolicyChecker PolicyChecker) (*server, error) {
 	return &server{
 		Marshaler:     Marshaler,
 		PolicyChecker: PolicyChecker,
