@@ -39,7 +39,7 @@ func (d *DummySDK) Start(ctx context.Context) error {
 var _ = Describe("EndToEnd", func() {
 	Describe("generate main", func() {
 		It("should not fail", func() {
-			p := NewPlatform(context2.New("", 0, nil, nil), NewTopology(), nil)
+			p := NewPlatform(context2.New("", 0, nil), NewTopology(), nil)
 
 			n := node.NewNode("test")
 			n.AddSDK(&DummySDK{})
