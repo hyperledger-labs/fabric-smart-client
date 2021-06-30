@@ -284,12 +284,12 @@ func (p *p) serve() error {
 		select {
 		case <-p.context.Done():
 			if p.s != nil {
-				logger.Info("html server stopping...")
+				logger.Info("web server stopping...")
 				if err := p.s.Stop(); err != nil {
-					logger.Errorf("failed stopping html server [%s]", err)
+					logger.Errorf("failed stopping web server [%s]", err)
 				}
 			}
-			logger.Info("html server stopping...done")
+			logger.Info("web server stopping...done")
 
 			logger.Info("grpc server stopping...")
 			p.grpcServer.Stop()
