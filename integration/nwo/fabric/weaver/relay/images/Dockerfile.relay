@@ -1,0 +1,13 @@
+# Copyright IBM Corp. All Rights Reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Build core/relay
+FROM rust:1.52
+RUN rustup component add rustfmt
+RUN git clone https://github.com/hyperledger-labs/weaver-dlt-interoperability.git
+WORKDIR /weaver-dlt-interoperability/core/relay
+RUN make
+COPY fabric_relay.toml config/
+
+CMD ["RELAY_CONFIG=config/fabric_relay.toml cargo run --bin server"]
