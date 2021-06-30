@@ -29,9 +29,6 @@ func (rd *RestDispatcher) HandleRequest(context *rest.ReqContext) (response inte
 	}
 
 	cmd := &protos.Command{
-		Header: &protos.Header{
-			ChannelId: context.Vars["Channel"],
-		},
 		Payload: &protos.Command_CallView{
 			CallView: &protos.CallView{
 				Fid:   context.Vars["View"],
