@@ -17,9 +17,8 @@ import (
 )
 
 const (
-	apiVersion          = "/v1"
+	apiVersion = "/v1"
 )
-
 
 type ResponseErr struct {
 	Reason string
@@ -30,9 +29,9 @@ type Config struct {
 }
 
 type HttpHandler struct {
-	conf    Config
-	r       *mux.Router
-	Logger  logger
+	conf   Config
+	r      *mux.Router
+	Logger logger
 }
 
 type logger interface {
@@ -40,8 +39,8 @@ type logger interface {
 }
 
 type ReqContext struct {
-	Req *http.Request
-	Vars map[string]string
+	Req   *http.Request
+	Vars  map[string]string
 	Query interface{}
 }
 
@@ -69,7 +68,7 @@ func (h *HttpHandler) RegisterURI(uri string, method string, rh RequestHandler) 
 		h.handle(backToClient, req, rh)
 	}
 
-	h.r.HandleFunc(apiVersion + uri, f).Methods(method)
+	h.r.HandleFunc(apiVersion+uri, f).Methods(method)
 }
 
 func (h *HttpHandler) handle(backToClient http.ResponseWriter, req *http.Request, rh RequestHandler) {
@@ -92,10 +91,9 @@ func (h *HttpHandler) handle(backToClient http.ResponseWriter, req *http.Request
 
 	reqCtx := &ReqContext{
 		Query: o,
-		Req: req,
-		Vars: mux.Vars(req),
+		Req:   req,
+		Vars:  mux.Vars(req),
 	}
-
 
 	resultFromBackend, statusCode := rh.HandleRequest(reqCtx)
 
@@ -108,7 +106,7 @@ func (h *HttpHandler) handle(backToClient http.ResponseWriter, req *http.Request
 		return
 	}
 
-	if statusCode / 100 != 2 {
+	if statusCode/100 != 2 {
 		sendErr(backToClient, statusCode, response.String(), h.Logger, nil)
 		return
 	}
