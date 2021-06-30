@@ -3,9 +3,11 @@ Copyright IBM Corp. All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
 */
-package fsc
+
+package client
 
 import (
+	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/fsc/states"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/fsc/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -22,7 +24,7 @@ type Client struct {
 	approver view.Identity
 }
 
-func NewClient(c ViewClient, id view.Identity, approver view.Identity) *Client {
+func New(c ViewClient, id view.Identity, approver view.Identity) *Client {
 	return &Client{c: c, id: id, approver: approver}
 }
 
@@ -30,8 +32,8 @@ func (c *Client) Identity() view.Identity {
 	return c.id
 }
 
-func (c *Client) Issue(asset *views.Asset) (string, error) {
-	_, err := c.c.CallView("issue", common.JSONMarshall(&views.Issue{
+func (c *Client) Issue(asset *states.Asset) (string, error) {
+	txIDBoxed, err := c.c.CallView("issue", common.JSONMarshall(&views.Issue{
 		Asset:     asset,
 		Recipient: asset.Owner,
 		Approver:  c.approver,
@@ -39,10 +41,10 @@ func (c *Client) Issue(asset *views.Asset) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return asset.GetLinearID()
+	return common.JSONUnmarshalString(txIDBoxed), err
 }
 
-func (c *Client) AgreeToSell(agreement *views.AgreementToSell) (string, error) {
+func (c *Client) AgreeToSell(agreement *states.AgreementToSell) (string, error) {
 	_, err := c.c.CallView("agreeToSell", common.JSONMarshall(&views.AgreeToSell{
 		Agreement: agreement,
 		Approver:  c.approver,
@@ -53,7 +55,7 @@ func (c *Client) AgreeToSell(agreement *views.AgreementToSell) (string, error) {
 	return agreement.GetLinearID()
 }
 
-func (c *Client) AgreeToBuy(agreement *views.AgreementToBuy) (string, error) {
+func (c *Client) AgreeToBuy(agreement *states.AgreementToBuy) (string, error) {
 	_, err := c.c.CallView("agreeToBuy", common.JSONMarshall(&views.AgreeToBuy{
 		Agreement: agreement,
 		Approver:  c.approver,
@@ -75,4 +77,8 @@ func (c *Client) Transfer(assetID string, agreementID string, recipient view.Ide
 		return err
 	}
 	return nil
+}
+
+func (c *Client) IsTxFinal(id string) error {
+	return c.c.IsTxFinal(id)
 }

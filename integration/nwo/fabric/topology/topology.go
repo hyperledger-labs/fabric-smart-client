@@ -16,6 +16,8 @@ import (
 // fabric configuration files.
 type Topology struct {
 	TopologyName      string              `yaml:"name,omitempty"`
+	TopologyType      string              `yaml:"type,omitempty"`
+	Default           bool                `yaml:"default,omitempty"`
 	Logging           *Logging            `yaml:"logging,omitempty"`
 	Organizations     []*Organization     `yaml:"organizations,omitempty"`
 	Peers             []*Peer             `yaml:"peers,omitempty"`
@@ -40,6 +42,15 @@ type Topology struct {
 
 func (c *Topology) Name() string {
 	return c.TopologyName
+}
+
+func (c *Topology) Type() string {
+	return c.TopologyType
+}
+
+func (c *Topology) SetDefault() *Topology {
+	c.Default = true
+	return c
 }
 
 func (c *Topology) SetLogging(spec, format string) {
@@ -345,7 +356,7 @@ type namespace struct {
 	cc *ChannelChaincode
 }
 
-func (n *namespace) SetStateQuery() *namespace {
+func (n *namespace) SetStateChaincode() *namespace {
 	n.cc.Chaincode.Path = "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state/cc/query"
 	return n
 }

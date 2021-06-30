@@ -246,84 +246,7 @@ metrics:
 const DefaultViewExtensionTemplate = `
 fabric:
   enabled: true
-  BCCSP:
-    Default: SW
-    SW:
-      Hash: SHA2
-      Security: 256
-      FileKeyStore:
-        KeyStore:
-  mspConfigPath: {{ .ViewNodeMSPDir Peer }}
-  localMspId: {{ (.Organization Peer.Organization).MSPID }}
-  msps: {{ range Peer.ExtraIdentities }}
-    - id: {{ .ID }}
-      mspType: {{ .MSPType }}
-      mspID: {{ .MSPID }}
-      path: {{ PeerLocalExtraIdentityDir Peer .ID }}
-  {{- end }}
-  tls:
-    enabled:  true
-    clientAuthRequired: {{ .ClientAuthRequired }}
-    cert:
-      file: {{ .PeerLocalTLSDir Peer }}/server.crt
-    key:
-      file: {{ .PeerLocalTLSDir Peer }}/server.key
-    clientCert:
-      file: {{ .PeerLocalTLSDir Peer }}/server.crt
-    clientKey:
-      file: {{ .PeerLocalTLSDir Peer }}/server.key
-    rootcert:
-      file: {{ .PeerLocalTLSDir Peer }}/ca.crt
-    clientRootCAs:
-      files:
-      - {{ .PeerLocalTLSDir Peer }}/ca.crt
-    rootCertFile: {{ .CACertsBundlePath }}
-  orderers: {{ range Orderers }}
-    - address: {{ OrdererAddress . "Listen" }}
-      connectionTimeout: 10s
-      tlsEnabled: true        
-      tlsRootCertFile: {{ CACertsBundlePath }}
-      serverNameOverride:
-  {{- end }} 
-  peers: {{ range Peers }}
-    - address: {{ PeerAddress . "Listen" }}
-      connectionTimeout: 10s
-      tlsEnabled: true        
-      tlsRootCertFile: {{ CACertsBundlePath }}
-      serverNameOverride:
-  {{- end }}
-  channels: {{ range .Channels }}
-    - name: {{ .Name }}
-      default: {{ .Default }}
-  {{- end }}
-  vault:
-    persistence:
-      type: file
-      opts:
-        path: {{ NodeVaultPath }}
-  endpoint:
-    resolves: {{ range .Resolvers }}
-    - name: {{ .Name }}
-      domain: {{ .Domain }}
-      identity:
-        id: {{ .Identity.ID }}
-        mspType: {{ .Identity.MSPType }}
-        mspID: {{ .Identity.MSPID }}
-        path: {{ .Identity.Path }}
-      addresses: {{ range $key, $value := .Addresses }}
-         {{ $key }}: {{ $value }} 
-      {{- end }}
-      aliases: {{ range .Aliases }}
-      - {{ . }} 
-      {{- end }}
-  {{- end }}
-`
-
-const NewDefaultViewExtensionTemplate = `
-fabric:
-  enabled: true
-  networks:
-  - name: default
+  default:
     BCCSP:
       Default: SW
       SW:
@@ -379,20 +302,20 @@ fabric:
         type: file
         opts:
           path: {{ NodeVaultPath }}
-  endpoint:
-    resolves: {{ range .Resolvers }}
-    - name: {{ .Name }}
-      domain: {{ .Domain }}
-      identity:
-        id: {{ .Identity.ID }}
-        mspType: {{ .Identity.MSPType }}
-        mspID: {{ .Identity.MSPID }}
-        path: {{ .Identity.Path }}
-      addresses: {{ range $key, $value := .Addresses }}
-         {{ $key }}: {{ $value }} 
-      {{- end }}
-      aliases: {{ range .Aliases }}
-      - {{ . }} 
-      {{- end }}
-  {{- end }}
+    endpoint:
+      resolvers: {{ range .Resolvers }}
+      - name: {{ .Name }}
+        domain: {{ .Domain }}
+        identity:
+          id: {{ .Identity.ID }}
+          mspType: {{ .Identity.MSPType }}
+          mspID: {{ .Identity.MSPID }}
+          path: {{ .Identity.Path }}
+        addresses: {{ range $key, $value := .Addresses }}
+           {{ $key }}: {{ $value }} 
+        {{- end }}
+        aliases: {{ range .Aliases }}
+        - {{ . }} 
+        {{- end }}
+    {{- end }}
 `

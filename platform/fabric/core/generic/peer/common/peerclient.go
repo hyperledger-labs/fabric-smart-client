@@ -88,15 +88,15 @@ func newPeerClientForClientConfig(address, override string, clientConfig grpc.Cl
 	}
 	pClient := &PeerClient{
 		CommonClient: CommonClient{
-			GRPCClient: gClient,
-			Address:    address,
-			Sn:         override}}
+			Client:  gClient,
+			Address: address,
+			Sn:      override}}
 	return pClient, nil
 }
 
 // TODO: improve by providing grpc connection pool
 func (pc *PeerClient) Close() {
-	go pc.CommonClient.GRPCClient.Close()
+	go pc.CommonClient.Client.Close()
 }
 
 // Endorser returns a client for the Endorser service

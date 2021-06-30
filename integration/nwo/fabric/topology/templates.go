@@ -3,6 +3,7 @@ Copyright IBM Corp. All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
 */
+
 package topology
 
 // Templates can be used to provide custom templates to GenerateConfigTree.

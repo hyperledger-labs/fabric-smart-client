@@ -3,6 +3,7 @@ Copyright IBM Corp. All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
 */
+
 package driver
 
 import (
@@ -11,6 +12,7 @@ import (
 
 //go:generate counterfeiter -o mock/session.go -fake-name Session . Session
 
+// Session encapsulates a communication channel to an endpoint
 type Session interface {
 	view.Session
 }

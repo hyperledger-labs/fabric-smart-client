@@ -3,6 +3,7 @@ Copyright IBM Corp. All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
 */
+
 package idemix
 
 import (
@@ -11,11 +12,12 @@ import (
 	"strconv"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	m "github.com/hyperledger/fabric-protos-go/msp"
 	"github.com/hyperledger/fabric/bccsp"
 	"github.com/hyperledger/fabric/msp"
 	"github.com/pkg/errors"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/csp"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/csp/idemix"
@@ -225,7 +227,7 @@ func (p *provider) Identity() (view.Identity, []byte, error) {
 		CertifiersIdentifier:         p.issuerPublicKey.SKI(),
 	}
 
-	enrollmentId := p.conf.Signer.EnrollmentId
+	enrollmentID := p.conf.Signer.EnrollmentId
 
 	// Verify credential
 	valid, err := p.csp.Verify(
@@ -237,7 +239,7 @@ func (p *provider) Identity() (view.Identity, []byte, error) {
 			Attributes: []csp.IdemixAttribute{
 				{Type: csp.IdemixBytesAttribute, Value: []byte(p.conf.Signer.OrganizationalUnitIdentifier)},
 				{Type: csp.IdemixIntAttribute, Value: getIdemixRoleFromMSPRole(role)},
-				{Type: csp.IdemixBytesAttribute, Value: []byte(enrollmentId)},
+				{Type: csp.IdemixBytesAttribute, Value: []byte(enrollmentID)},
 				{Type: csp.IdemixHiddenAttribute},
 			},
 		},
@@ -275,7 +277,7 @@ func (p *provider) Identity() (view.Identity, []byte, error) {
 		Cred:         p.conf.Signer.Cred,
 		UserKey:      p.userKey,
 		NymKey:       nymKey,
-		enrollmentId: enrollmentId}
+		enrollmentId: enrollmentID}
 
 	raw, err := sID.Serialize()
 	if err != nil {
@@ -292,7 +294,7 @@ func (p *provider) Identity() (view.Identity, []byte, error) {
 		Attributes: [][]byte{
 			[]byte(p.conf.Signer.OrganizationalUnitIdentifier),
 			[]byte(strconv.Itoa(getIdemixRoleFromMSPRole(role))),
-			[]byte(enrollmentId),
+			[]byte(enrollmentID),
 		},
 	}
 	infoRaw, err := auditInfo.Bytes()
@@ -330,7 +332,7 @@ func (p *provider) SignerIdentity() (driver.SigningIdentity, error) {
 		CertifiersIdentifier:         p.issuerPublicKey.SKI(),
 	}
 
-	enrollmentId := p.conf.Signer.EnrollmentId
+	enrollmentID := p.conf.Signer.EnrollmentId
 
 	// Verify credential
 	valid, err := p.csp.Verify(
@@ -342,7 +344,7 @@ func (p *provider) SignerIdentity() (driver.SigningIdentity, error) {
 			Attributes: []csp.IdemixAttribute{
 				{Type: csp.IdemixBytesAttribute, Value: []byte(p.conf.Signer.OrganizationalUnitIdentifier)},
 				{Type: csp.IdemixIntAttribute, Value: getIdemixRoleFromMSPRole(role)},
-				{Type: csp.IdemixBytesAttribute, Value: []byte(enrollmentId)},
+				{Type: csp.IdemixBytesAttribute, Value: []byte(enrollmentID)},
 				{Type: csp.IdemixHiddenAttribute},
 			},
 		},
@@ -378,7 +380,7 @@ func (p *provider) SignerIdentity() (driver.SigningIdentity, error) {
 		Cred:         p.conf.Signer.Cred,
 		UserKey:      p.userKey,
 		NymKey:       nymKey,
-		enrollmentId: enrollmentId,
+		enrollmentId: enrollmentID,
 	}, nil
 }
 
@@ -402,13 +404,22 @@ func (p *provider) DeserializeSigner(raw []byte) (driver.Signer, error) {
 		return nil, errors.Wrap(err, "cannot find nym secret key")
 	}
 
-	return &signingIdentity{
+	si := &signingIdentity{
 		identity:     r.id,
 		Cred:         p.conf.Signer.Cred,
 		UserKey:      p.userKey,
 		NymKey:       nymKey,
 		enrollmentId: p.conf.Signer.EnrollmentId,
-	}, nil
+	}
+	msg := []byte("hello world!!!")
+	sigma, err := si.Sign(msg)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed generating verification signature")
+	}
+	if err := si.Verify(msg, sigma); err != nil {
+		return nil, errors.Wrap(err, "failed verifying verification signature")
+	}
+	return si, nil
 }
 
 func (p *provider) Info(raw []byte, auditInfo []byte) (string, error) {

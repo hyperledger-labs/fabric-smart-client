@@ -3,10 +3,13 @@ Copyright IBM Corp. All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
 */
+
 package core
 
 import (
+	"context"
 	"reflect"
+	"sync"
 
 	"github.com/pkg/errors"
 
@@ -21,8 +24,10 @@ import (
 )
 
 type fnsProvider struct {
-	sp       view.ServiceProvider
-	networks map[string]driver.FabricNetworkService
+	sp view.ServiceProvider
+
+	networksMutex sync.Mutex
+	networks      map[string]driver.FabricNetworkService
 }
 
 func NewFabricNetworkServiceProvider(sp view.ServiceProvider) (*fnsProvider, error) {
@@ -33,7 +38,30 @@ func NewFabricNetworkServiceProvider(sp view.ServiceProvider) (*fnsProvider, err
 	return provider, nil
 }
 
+func (m *fnsProvider) Start(ctx context.Context) error {
+	// What's the default network?
+	// TODO: add listener to fabric service when a channel is opened.
+	fns, err := m.FabricNetworkService("")
+	if err != nil {
+		return err
+	}
+	for _, ch := range fns.Channels() {
+		_, err := fns.Channel(ch)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (m *fnsProvider) Stop() error {
+	return nil
+}
+
 func (m *fnsProvider) FabricNetworkService(network string) (driver.FabricNetworkService, error) {
+	m.networksMutex.Lock()
+	defer m.networksMutex.Unlock()
+
 	if len(network) == 0 {
 		network = "default"
 	}
@@ -52,12 +80,15 @@ func (m *fnsProvider) FabricNetworkService(network string) (driver.FabricNetwork
 
 func (m *fnsProvider) newFNS(network string) (driver.FabricNetworkService, error) {
 	// bridge services
-	config := generic.NewConfig(view.GetConfigService(m.sp))
+	config, err := generic.NewConfig(view.GetConfigService(m.sp), network)
+	if err != nil {
+		return nil, err
+	}
 	sigService := generic.NewSigService(m.sp)
 
 	// Endpoint service
 	resolverService, err := endpoint.NewResolverService(
-		view.GetConfigService(m.sp),
+		config,
 		view.GetEndpointService(m.sp),
 	)
 	if err != nil {

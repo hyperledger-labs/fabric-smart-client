@@ -3,6 +3,7 @@ Copyright IBM Corp. All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
 */
+
 package handlers
 
 import (
@@ -22,7 +23,7 @@ type IssuerPublicKey interface {
 	Hash() []byte
 }
 
-// IssuerPublicKey is the issuer secret key
+// IssuerSecretKey is the issuer secret key
 type IssuerSecretKey interface {
 
 	// Bytes returns the byte representation of this key
@@ -80,7 +81,7 @@ type CredRequest interface {
 	Verify(credRequest []byte, ipk IssuerPublicKey, nonce []byte) error
 }
 
-// CredRequest is a local interface to decouple from the idemix implementation
+// Credential is a local interface to decouple from the idemix implementation
 // of the issuance of credentials.
 type Credential interface {
 

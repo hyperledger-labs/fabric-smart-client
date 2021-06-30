@@ -3,6 +3,7 @@ Copyright IBM Corp. All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
 */
+
 package state
 
 import (
@@ -131,6 +132,7 @@ type outputStream struct {
 	outputs   []*output
 }
 
+// Filter returns a stream of output filtered applying the passed filter
 func (o *outputStream) Filter(f func(t *output) bool) *outputStream {
 	var filtered []*output
 	for _, output := range o.outputs {
@@ -141,6 +143,7 @@ func (o *outputStream) Filter(f func(t *output) bool) *outputStream {
 	return &outputStream{namespace: o.namespace, outputs: filtered}
 }
 
+// Deleted returns the outputs that are deletes
 func (o *outputStream) Deleted() *outputStream {
 	var filtered []*output
 	for _, output := range o.outputs {
@@ -151,6 +154,7 @@ func (o *outputStream) Deleted() *outputStream {
 	return &outputStream{namespace: o.namespace, outputs: filtered}
 }
 
+// Written returns the outputs that are not deletes
 func (o *outputStream) Written() *outputStream {
 	var filtered []*output
 	for _, output := range o.outputs {
@@ -161,14 +165,17 @@ func (o *outputStream) Written() *outputStream {
 	return &outputStream{namespace: o.namespace, outputs: filtered}
 }
 
+// Count returns the number of outputs in this stream
 func (o *outputStream) Count() int {
 	return len(o.outputs)
 }
 
+// At returns the output at the passed position
 func (o *outputStream) At(index int) *output {
 	return o.outputs[index]
 }
 
+// IDs returns the IDs of the outputs in this stream
 func (o *outputStream) IDs() IDs {
 	var filtered []ID
 	for _, output := range o.outputs {
@@ -200,6 +207,7 @@ type inputStream struct {
 	inputs    []*input
 }
 
+// Filter returns a stream of inputs filtered applying the passed filter
 func (o *inputStream) Filter(f func(t *input) bool) *inputStream {
 	var filtered []*input
 	for _, output := range o.inputs {
@@ -210,14 +218,17 @@ func (o *inputStream) Filter(f func(t *input) bool) *inputStream {
 	return &inputStream{namespace: o.namespace, inputs: filtered}
 }
 
+// Count returns the number of inputs in this stream
 func (o *inputStream) Count() int {
 	return len(o.inputs)
 }
 
+// At returns the inputs at the passed position
 func (o *inputStream) At(i int) *input {
 	return o.inputs[i]
 }
 
+// IDs returns the IDs of the inputs in this stream
 func (o *inputStream) IDs() IDs {
 	var filtered []ID
 	for _, i := range o.inputs {
@@ -231,6 +242,7 @@ type commandStream struct {
 	commands  []*Command
 }
 
+// Filter returns a stream of commands filtered applying the passed filter
 func (o *commandStream) Filter(f func(t *Command) bool) *commandStream {
 	var filtered []*Command
 	for _, command := range o.commands {
@@ -241,10 +253,12 @@ func (o *commandStream) Filter(f func(t *Command) bool) *commandStream {
 	return &commandStream{namespace: o.namespace, commands: filtered}
 }
 
+// Count returns the number of commands in this stream
 func (o *commandStream) Count() int {
 	return len(o.commands)
 }
 
+// At returns the command at the passed position
 func (o *commandStream) At(i int) *Command {
 	return o.commands[i]
 }

@@ -14,12 +14,12 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/commands"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric-protos-go/common"
 	"github.com/hyperledger/fabric-protos-go/peer/lifecycle"
-	"github.com/hyperledger/fabric/integration/nwo/commands"
 	"github.com/hyperledger/fabric/protoutil"
 	"github.com/onsi/gomega/gbytes"
 	"github.com/onsi/gomega/gexec"
@@ -120,11 +120,12 @@ func PackageAndInstallChaincode(n *Network, chaincode *topology.Chaincode, peers
 
 func PackageChaincode(n *Network, chaincode *topology.Chaincode, peer *topology.Peer) {
 	sess, err := n.PeerAdminSession(peer, commands.ChaincodePackage{
-		Path:       chaincode.Path,
-		Lang:       chaincode.Lang,
-		Label:      chaincode.Label,
-		OutputFile: chaincode.PackageFile,
-		ClientAuth: n.ClientAuthRequired,
+		NetworkPrefix: n.Prefix,
+		Path:          chaincode.Path,
+		Lang:          chaincode.Lang,
+		Label:         chaincode.Label,
+		OutputFile:    chaincode.PackageFile,
+		ClientAuth:    n.ClientAuthRequired,
 	})
 	Expect(err).NotTo(HaveOccurred())
 	Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
@@ -132,12 +133,13 @@ func PackageChaincode(n *Network, chaincode *topology.Chaincode, peer *topology.
 
 func PackageChaincodeLegacy(n *Network, chaincode topology.Chaincode, peer *topology.Peer) {
 	sess, err := n.PeerAdminSession(peer, commands.ChaincodePackageLegacy{
-		Name:       chaincode.Name,
-		Version:    chaincode.Version,
-		Path:       chaincode.Path,
-		Lang:       chaincode.Lang,
-		OutputFile: chaincode.PackageFile,
-		ClientAuth: n.ClientAuthRequired,
+		NetworkPrefix: n.Prefix,
+		Name:          chaincode.Name,
+		Version:       chaincode.Version,
+		Path:          chaincode.Path,
+		Lang:          chaincode.Lang,
+		OutputFile:    chaincode.PackageFile,
+		ClientAuth:    n.ClientAuthRequired,
 	})
 	Expect(err).NotTo(HaveOccurred())
 	Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
@@ -150,8 +152,9 @@ func InstallChaincode(n *Network, chaincode *topology.Chaincode, peers ...*topol
 
 	for _, p := range peers {
 		sess, err := n.PeerAdminSession(p, commands.ChaincodeInstall{
-			PackageFile: chaincode.PackageFile,
-			ClientAuth:  n.ClientAuthRequired,
+			NetworkPrefix: n.Prefix,
+			PackageFile:   chaincode.PackageFile,
+			ClientAuth:    n.ClientAuthRequired,
 		})
 		Expect(err).NotTo(HaveOccurred())
 		Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
@@ -163,18 +166,20 @@ func InstallChaincode(n *Network, chaincode *topology.Chaincode, peers ...*topol
 func InstallChaincodeLegacy(n *Network, chaincode topology.Chaincode, peers ...*topology.Peer) {
 	for _, p := range peers {
 		sess, err := n.PeerAdminSession(p, commands.ChaincodeInstallLegacy{
-			Name:        chaincode.Name,
-			Version:     chaincode.Version,
-			Path:        chaincode.Path,
-			Lang:        chaincode.Lang,
-			PackageFile: chaincode.PackageFile,
-			ClientAuth:  n.ClientAuthRequired,
+			NetworkPrefix: n.Prefix,
+			Name:          chaincode.Name,
+			Version:       chaincode.Version,
+			Path:          chaincode.Path,
+			Lang:          chaincode.Lang,
+			PackageFile:   chaincode.PackageFile,
+			ClientAuth:    n.ClientAuthRequired,
 		})
 		Expect(err).NotTo(HaveOccurred())
 		Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
 
 		sess, err = n.PeerAdminSession(p, commands.ChaincodeListInstalledLegacy{
-			ClientAuth: n.ClientAuthRequired,
+			NetworkPrefix: n.Prefix,
+			ClientAuth:    n.ClientAuthRequired,
 		})
 		Expect(err).NotTo(HaveOccurred())
 		Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
@@ -192,6 +197,7 @@ func ApproveChaincodeForMyOrg(n *Network, channel string, orderer *topology.Orde
 	for _, p := range peers {
 		if _, ok := approvedOrgs[p.Organization]; !ok {
 			sess, err := n.PeerAdminSession(p, commands.ChaincodeApproveForMyOrg{
+				NetworkPrefix:       n.Prefix,
 				ChannelID:           channel,
 				Orderer:             n.OrdererAddress(orderer, ListenPort),
 				Name:                chaincode.Name,
@@ -236,6 +242,7 @@ func CommitChaincode(n *Network, channel string, orderer *topology.Orderer, chai
 	}
 
 	sess, err := n.PeerAdminSession(peer, commands.ChaincodeCommit{
+		NetworkPrefix:       n.Prefix,
 		ChannelID:           channel,
 		Orderer:             n.OrdererAddress(orderer, ListenPort),
 		Name:                chaincode.Name,
@@ -294,6 +301,7 @@ func InitChaincode(n *Network, channel string, orderer *topology.Orderer, chainc
 	}
 
 	sess, err := n.PeerUserSession(peers[0], "User1", commands.ChaincodeInvoke{
+		NetworkPrefix: n.Prefix,
 		ChannelID:     channel,
 		Orderer:       n.OrdererAddress(orderer, ListenPort),
 		Name:          chaincode.Name,
@@ -313,6 +321,7 @@ func InitChaincode(n *Network, channel string, orderer *topology.Orderer, chainc
 
 func InstantiateChaincodeLegacy(n *Network, channel string, orderer *topology.Orderer, chaincode topology.Chaincode, peer *topology.Peer, checkPeers ...*topology.Peer) {
 	sess, err := n.PeerAdminSession(peer, commands.ChaincodeInstantiateLegacy{
+		NetworkPrefix:     n.Prefix,
 		ChannelID:         channel,
 		Orderer:           n.OrdererAddress(orderer, ListenPort),
 		Name:              chaincode.Name,
@@ -350,6 +359,7 @@ func UpgradeChaincodeLegacy(n *Network, channel string, orderer *topology.Ordere
 
 	// upgrade from the first peer
 	sess, err := n.PeerAdminSession(peers[0], commands.ChaincodeUpgradeLegacy{
+		NetworkPrefix:     n.Prefix,
 		ChannelID:         channel,
 		Orderer:           n.OrdererAddress(orderer, ListenPort),
 		Name:              chaincode.Name,
@@ -412,7 +422,8 @@ type queryInstalledOutput struct {
 func QueryInstalled(n *Network, peer *topology.Peer) func() []lifecycle.QueryInstalledChaincodesResult_InstalledChaincode {
 	return func() []lifecycle.QueryInstalledChaincodesResult_InstalledChaincode {
 		sess, err := n.PeerAdminSession(peer, commands.ChaincodeQueryInstalled{
-			ClientAuth: n.ClientAuthRequired,
+			NetworkPrefix: n.Prefix,
+			ClientAuth:    n.ClientAuthRequired,
 		})
 		Expect(err).NotTo(HaveOccurred())
 		Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
@@ -430,6 +441,7 @@ type checkCommitReadinessOutput struct {
 func checkCommitReadiness(n *Network, peer *topology.Peer, channel string, chaincode *topology.Chaincode) func() map[string]bool {
 	return func() map[string]bool {
 		sess, err := n.PeerAdminSession(peer, commands.ChaincodeCheckCommitReadiness{
+			NetworkPrefix:       n.Prefix,
 			ChannelID:           channel,
 			Name:                chaincode.Name,
 			Version:             chaincode.Version,
@@ -463,9 +475,10 @@ type queryCommittedOutput struct {
 func listCommitted(n *Network, peer *topology.Peer, channel, name string) func() queryCommittedOutput {
 	return func() queryCommittedOutput {
 		sess, err := n.PeerAdminSession(peer, commands.ChaincodeListCommitted{
-			ChannelID:  channel,
-			Name:       name,
-			ClientAuth: n.ClientAuthRequired,
+			NetworkPrefix: n.Prefix,
+			ChannelID:     channel,
+			Name:          name,
+			ClientAuth:    n.ClientAuthRequired,
 		})
 		Expect(err).NotTo(HaveOccurred())
 		Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit())
@@ -483,8 +496,9 @@ func listCommitted(n *Network, peer *topology.Peer, channel, name string) func()
 func listInstantiatedLegacy(n *Network, peer *topology.Peer, channel string) func() *gbytes.Buffer {
 	return func() *gbytes.Buffer {
 		sess, err := n.PeerAdminSession(peer, commands.ChaincodeListInstantiatedLegacy{
-			ChannelID:  channel,
-			ClientAuth: n.ClientAuthRequired,
+			NetworkPrefix: n.Prefix,
+			ChannelID:     channel,
+			ClientAuth:    n.ClientAuthRequired,
 		})
 		Expect(err).NotTo(HaveOccurred())
 		Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
@@ -532,8 +546,9 @@ func WaitUntilEqualLedgerHeight(n *Network, channel string, height int, peers ..
 // a channel
 func GetLedgerHeight(n *Network, peer *topology.Peer, channel string) int {
 	sess, err := n.PeerUserSession(peer, "User1", commands.ChannelInfo{
-		ChannelID:  channel,
-		ClientAuth: n.ClientAuthRequired,
+		NetworkPrefix: n.Prefix,
+		ChannelID:     channel,
+		ClientAuth:    n.ClientAuthRequired,
 	})
 	Expect(err).NotTo(HaveOccurred())
 	Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit())

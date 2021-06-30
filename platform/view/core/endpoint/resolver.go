@@ -3,6 +3,7 @@ Copyright IBM Corp. All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
 */
+
 package endpoint
 
 import (
@@ -70,15 +71,15 @@ func NewResolverService(config ConfigService, service Service) (*resolverService
 
 func (r *resolverService) LoadResolvers() error {
 	// Load entry
-	if r.config.IsSet("fsc.endpoint.resolves") {
+	if r.config.IsSet("fsc.endpoint.resolvers") {
 		logger.Infof("loading resolvers")
 		var resolvers []*entry
-		err := r.config.UnmarshalKey("fsc.endpoint.resolves", &resolvers)
+		err := r.config.UnmarshalKey("fsc.endpoint.resolvers", &resolvers)
 		if err != nil {
-			logger.Errorf("failed loading resolves [%s]", err)
+			logger.Errorf("failed loading resolvers [%s]", err)
 			return err
 		}
-		logger.Infof("loaded resolves successfully, number of entries found %d", len(resolvers))
+		logger.Infof("loaded resolvers successfully, number of entries found %d", len(resolvers))
 
 		for _, resolver := range resolvers {
 			// Load identity

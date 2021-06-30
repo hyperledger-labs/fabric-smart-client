@@ -3,6 +3,7 @@ Copyright IBM Corp. All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
 */
+
 package state
 
 import (
@@ -17,59 +18,69 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
+// RecipientData models the answer to a request of recipient identity
 type RecipientData struct {
+	// Identity is the recipient identity
 	Identity view.Identity
 }
 
+// Bytes returns the byte representation of this struct
 func (r *RecipientData) Bytes() ([]byte, error) {
 	return json.Marshal(r)
 }
 
+// FromBytes unmarshalls the passed bytes into this struct
 func (r *RecipientData) FromBytes(raw []byte) error {
 	return json.Unmarshal(raw, r)
 }
 
+// ExchangeRecipientRequest models a request of exchange of recipient identities
 type ExchangeRecipientRequest struct {
 	Channel       string
 	WalletID      []byte
 	RecipientData *RecipientData
 }
 
+// Bytes returns the byte representation of this struct
 func (r *ExchangeRecipientRequest) Bytes() ([]byte, error) {
 	return json.Marshal(r)
 }
 
+// FromBytes unmarshalls the passed bytes into this struct
 func (r *ExchangeRecipientRequest) FromBytes(raw []byte) error {
 	return json.Unmarshal(raw, r)
 }
 
+// RecipientRequest models a request of recipient identity
 type RecipientRequest struct {
-	Channel  string
-	WalletID []byte
+	// Network identifier
+	Network string
 }
 
+// Bytes returns the byte representation of this struct
 func (r *RecipientRequest) Bytes() ([]byte, error) {
 	return json.Marshal(r)
 }
 
+// FromBytes unmarshalls the passed bytes into this struct
 func (r *RecipientRequest) FromBytes(raw []byte) error {
 	return json.Unmarshal(raw, r)
 }
 
-type requestPseudonymView struct {
-	Channel string
+type RequestRecipientIdentityView struct {
+	Network string
 	Other   view.Identity
 }
 
 func RequestRecipientIdentity(context view.Context, other view.Identity) (view.Identity, error) {
-	pseudonymBoxed, err := context.RunView(&requestPseudonymView{Other: other})
+	recipientIdentityBoxed, err := context.RunView(&RequestRecipientIdentityView{Other: other})
 	if err != nil {
 		return nil, err
 	}
-	return pseudonymBoxed.(view.Identity), nil
+	return recipientIdentityBoxed.(view.Identity), nil
 }
 
-func (f requestPseudonymView) Call(context view.Context) (interface{}, error) {
+func (f RequestRecipientIdentityView) Call(context view.Context) (interface{}, error) {
 	session, err := context.GetSession(context.Initiator(), f.Other)
 	if err != nil {
 		return nil, err
@@ -77,8 +88,7 @@ func (f requestPseudonymView) Call(context view.Context) (interface{}, error) {
 
 	// Ask for identity
 	rr := &RecipientRequest{
-		Channel:  f.Channel,
-		WalletID: f.Other,
+		Network: f.Network,
 	}
 	rrRaw, err := rr.Bytes()
 	if err != nil {
@@ -112,11 +122,17 @@ func (f requestPseudonymView) Call(context view.Context) (interface{}, error) {
 	return recipientData.Identity, nil
 }
 
-type respondPseudonymView struct {
-	Wallet string
+// RespondRequestRecipientIdentityView models a view of a responder to a request of recipient identity
+type RespondRequestRecipientIdentityView struct {
+	Identity view.Identity
 }
 
-func (s *respondPseudonymView) Call(context view.Context) (interface{}, error) {
+// Call does the following:
+// 1. Reads a first message from the context's session
+// 2. Unmarshall the message into rr = RecipientRequest
+// 3. If the identity to send back is not set, it is set to fabric.GetFabricNetworkService(context, rr.Network).IdentityProvider().DefaultIdentity()
+// 4. Send back marshalled RecipientData struct
+func (s *RespondRequestRecipientIdentityView) Call(context view.Context) (interface{}, error) {
 	session, payload, err := session2.ReadFirstMessage(context)
 	if err != nil {
 		return nil, err
@@ -127,8 +143,12 @@ func (s *respondPseudonymView) Call(context view.Context) (interface{}, error) {
 		return nil, errors.Wrapf(err, "failed unmarshalling recipient request")
 	}
 
+	if s.Identity.IsNone() {
+		s.Identity = fabric.GetFabricNetworkService(context, rr.Network).IdentityProvider().DefaultIdentity()
+	}
+
 	recipientData := &RecipientData{
-		Identity: fabric.GetDefaultNetwork(context).IdentityProvider().DefaultIdentity(),
+		Identity: s.Identity,
 	}
 	recipientDataRaw, err := recipientData.Bytes()
 	if err != nil {
@@ -151,10 +171,14 @@ func (s *respondPseudonymView) Call(context view.Context) (interface{}, error) {
 	return recipientData.Identity, nil
 }
 
+// NewRespondRequestRecipientIdentityView returns a new instance of RespondRequestRecipientIdentityView
 func NewRespondRequestRecipientIdentityView() view.View {
-	return &respondPseudonymView{}
+	return &RespondRequestRecipientIdentityView{}
 }
 
+// RespondRequestRecipientIdentity runs the RespondRequestRecipientIdentityView and
+// returns the identity sent to the requester. In this case, the identity used is the one returned by
+// fabric.GetFabricNetworkService(context, rr.Network).IdentityProvider().DefaultIdentity()a
 func RespondRequestRecipientIdentity(context view.Context) (view.Identity, error) {
 	id, err := context.RunView(NewRespondRequestRecipientIdentityView())
 	if err != nil {
@@ -163,20 +187,19 @@ func RespondRequestRecipientIdentity(context view.Context) (view.Identity, error
 	return id.(view.Identity), nil
 }
 
-type exchangePseudonymView struct {
+// ExchangeRecipientIdentitiesView models the view of the initiator of an exchange of recipient identities.
+type ExchangeRecipientIdentitiesView struct {
 	Network string
-	Channel string
-	Wallet  string
 	Other   view.Identity
 }
 
-func (f *exchangePseudonymView) Call(context view.Context) (interface{}, error) {
+func (f *ExchangeRecipientIdentitiesView) Call(context view.Context) (interface{}, error) {
 	session, err := context.GetSession(context.Initiator(), f.Other)
 	if err != nil {
 		return nil, err
 	}
 
-	me := fabric.GetDefaultNetwork(context).IdentityProvider().DefaultIdentity()
+	me := fabric.GetFabricNetworkService(context, f.Network).IdentityProvider().DefaultIdentity()
 
 	// Send request
 	request := &ExchangeRecipientRequest{
@@ -221,11 +244,12 @@ func (f *exchangePseudonymView) Call(context view.Context) (interface{}, error) 
 	return []view.Identity{me, recipientData.Identity}, nil
 }
 
-type respondExchangePseudonymView struct {
-	Wallet string
+// RespondExchangeRecipientIdentitiesView models the view of the responder of an exchange of recipient identities.
+type RespondExchangeRecipientIdentitiesView struct {
+	Network string
 }
 
-func (s *respondExchangePseudonymView) Call(context view.Context) (interface{}, error) {
+func (s *RespondExchangeRecipientIdentitiesView) Call(context view.Context) (interface{}, error) {
 	session, requestRaw, err := session2.ReadFirstMessage(context)
 	if err != nil {
 		return nil, err
@@ -237,7 +261,7 @@ func (s *respondExchangePseudonymView) Call(context view.Context) (interface{}, 
 		return nil, err
 	}
 
-	me := fabric.GetDefaultNetwork(context).IdentityProvider().DefaultIdentity()
+	me := fabric.GetFabricNetworkService(context, s.Network).IdentityProvider().DefaultIdentity()
 	other := request.RecipientData.Identity
 
 	recipientData := &RecipientData{
@@ -266,10 +290,11 @@ func (s *respondExchangePseudonymView) Call(context view.Context) (interface{}, 
 	return []view.Identity{me, other}, nil
 }
 
-func ExchangeRecipientIdentitiesInitiator(context view.Context, myWalletID string, recipient view.Identity) (view.Identity, view.Identity, error) {
-	ids, err := context.RunView(&exchangePseudonymView{
-		Channel: "",
-		Wallet:  myWalletID,
+// ExchangeRecipientIdentities runs the ExchangeRecipientIdentitiesView against the passed receiver.
+// The function returns, the recipient identity of the sender, the recipient identity of the receiver.
+func ExchangeRecipientIdentities(context view.Context, recipient view.Identity) (view.Identity, view.Identity, error) {
+	ids, err := context.RunView(&ExchangeRecipientIdentitiesView{
+		Network: "",
 		Other:   recipient,
 	})
 	if err != nil {
@@ -279,8 +304,9 @@ func ExchangeRecipientIdentitiesInitiator(context view.Context, myWalletID strin
 	return ids.([]view.Identity)[0], ids.([]view.Identity)[1], nil
 }
 
-func ExchangeRecipientIdentitiesResponder(context view.Context) (view.Identity, view.Identity, error) {
-	ids, err := context.RunView(&respondExchangePseudonymView{})
+// RespondExchangeRecipientIdentities runs the RespondExchangeRecipientIdentitiesView
+func RespondExchangeRecipientIdentities(context view.Context) (view.Identity, view.Identity, error) {
+	ids, err := context.RunView(&RespondExchangeRecipientIdentitiesView{})
 	if err != nil {
 		return nil, nil, err
 	}

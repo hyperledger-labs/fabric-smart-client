@@ -51,15 +51,11 @@ message Header {
     // by the sender
     google.protobuf.Timestamp timestamp = 1;
 
-    // ChannelId identifies the channel this message is meant for
-    string channel_id = 2;
-
-    // Nonce is a sufficientley long random value
+    // Nonce is a sufficiently long random value
     // used to ensure the request has enough entropy.
     bytes nonce = 3;
 
     // Creator of the message.
-    // Typically, a marshaled msp.SerializedIdentity
     bytes creator = 4;
 
     // TlsCertHash represents the hash of the client's TLS certificate
@@ -78,7 +74,6 @@ message Command {
         TrackView trackView = 3;
         CallView callView = 4;
         IsTxFinal isTxFinal = 5;
-        IsHashFinal isHashFinal = 6;
     }
 }
 
@@ -127,7 +122,6 @@ message CommandResponse {
         TrackViewResponse trackViewResponse = 4;
         CallViewResponse callViewResponse = 5;
         IsTxFinalResponse isTxFinalResponse = 6;
-        IsHashFinalResponse isHashFinalResponse = 7;
     }
 }
 

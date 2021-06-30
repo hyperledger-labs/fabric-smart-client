@@ -90,7 +90,7 @@ func Deliver(n *Network, o *topology.Orderer, env *common.Envelope) (*common.Blo
 	return blk, nil
 }
 
-func createOrdererGRPCClient(n *Network, o *topology.Orderer) (*grpc.GRPCClient, error) {
+func createOrdererGRPCClient(n *Network, o *topology.Orderer) (*grpc.Client, error) {
 	config := grpc.ClientConfig{}
 	config.Timeout = 5 * time.Second
 

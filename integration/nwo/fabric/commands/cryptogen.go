@@ -7,12 +7,13 @@ SPDX-License-Identifier: Apache-2.0
 package commands
 
 type Generate struct {
-	Config string
-	Output string
+	NetworkPrefix string
+	Config        string
+	Output        string
 }
 
 func (c Generate) SessionName() string {
-	return "cryptogen-generate"
+	return c.NetworkPrefix + "-cryptogen-generate"
 }
 
 func (c Generate) Args() []string {

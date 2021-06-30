@@ -3,6 +3,7 @@ Copyright IBM Corp. All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
 */
+
 package finality
 
 import (
@@ -29,25 +30,23 @@ func InstallHandler(server Server, network Network) {
 }
 
 func (s *finalityHandler) isTxFinal(ctx context.Context, command *protos.Command) (interface{}, error) {
-	header := command.Header
-	final := command.Payload.(*protos.Command_IsTxFinal).IsTxFinal
+	isTxFinalCommand := command.Payload.(*protos.Command_IsTxFinal).IsTxFinal
 
-	channelID := header.ChannelId
-	logger.Debugf("Answering: Is [%s] final?", final.Txid)
+	logger.Debugf("Answering: Is [%s] final?", isTxFinalCommand.Txid)
 
-	fs, err := s.network.Channel(channelID)
+	ch, err := s.network.Channel(isTxFinalCommand.Channel)
 	if err != nil {
-		return nil, errors.Errorf("failed getting finality service for channel %s, err %s", channelID, err)
+		return nil, errors.Errorf("failed getting finality service for channel [%s], err [%s]", isTxFinalCommand.Channel, err)
 	}
 
-	err = fs.IsFinal(final.Txid)
+	err = ch.IsFinal(isTxFinalCommand.Txid)
 	if err != nil {
-		logger.Debugf("Answering: Is [%s] final? No", final.Txid)
+		logger.Debugf("Answering: Is [%s] final? No", isTxFinalCommand.Txid)
 		return &protos.CommandResponse_IsTxFinalResponse{IsTxFinalResponse: &protos.IsTxFinalResponse{
 			Payload: []byte(err.Error()),
 		}}, nil
 	}
 
-	logger.Debugf("Answering: Is [%s] final? Yes", final.Txid)
+	logger.Debugf("Answering: Is [%s] final? Yes", isTxFinalCommand.Txid)
 	return &protos.CommandResponse_IsTxFinalResponse{IsTxFinalResponse: &protos.IsTxFinalResponse{}}, nil
 }

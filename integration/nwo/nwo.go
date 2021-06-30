@@ -3,6 +3,7 @@ Copyright IBM Corp. All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
 */
+
 package nwo
 
 import (
@@ -14,33 +15,23 @@ import (
 	"github.com/tedsuo/ifrit"
 	"github.com/tedsuo/ifrit/grouper"
 
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/runner"
 )
 
 var logger = flogging.MustGetLogger("fsc.integration")
 
-// Platform models a bootstrappable external component (fabric network, any third party service)
-type Platform interface {
-	Name() string
-	GenerateConfigTree()
-	GenerateArtifacts()
-	Load()
-	Members() []grouper.Member
-	PostRun()
-	Cleanup()
-}
-
 type NWO struct {
 	Processes []ifrit.Process
 	Members   grouper.Members
 
-	Platforms              []Platform
+	Platforms              []api.Platform
 	StartEventuallyTimeout time.Duration
 	StopEventuallyTimeout  time.Duration
 	ViewMembers            grouper.Members
 }
 
-func New(platforms ...Platform) *NWO {
+func New(platforms ...api.Platform) *NWO {
 	return &NWO{
 		Platforms:              platforms,
 		StartEventuallyTimeout: 10 * time.Minute,
@@ -76,7 +67,7 @@ func (n *NWO) Start() {
 
 	fscMembers := grouper.Members{}
 	for _, platform := range n.Platforms {
-		logger.Infof("From [%s]...", platform.Name())
+		logger.Infof("From [%s]...", platform.Type())
 		m := platform.Members()
 		if m == nil {
 			continue
@@ -85,7 +76,7 @@ func (n *NWO) Start() {
 			logger.Infof("Adding member [%s]", member.Name)
 		}
 
-		if platform.Name() == "fsc" {
+		if platform.Type() == "fsc" {
 			fscMembers = append(fscMembers, m...)
 		} else {
 			members = append(members, m...)
@@ -104,7 +95,10 @@ func (n *NWO) Start() {
 	Eventually(process.Ready(), n.StartEventuallyTimeout).Should(BeClosed())
 
 	// Execute the fsc members in isolation so can be stopped and restarted as needed
+	logger.Infof("Run FSC nodes...")
 	for _, member := range fscMembers {
+		logger.Infof("Run FSC node [%s]...", member)
+
 		runner := runner.NewOrdered(syscall.SIGTERM, []grouper.Member{member})
 		process := ifrit.Invoke(runner)
 		Eventually(process.Ready(), n.StartEventuallyTimeout).Should(BeClosed())

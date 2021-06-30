@@ -3,12 +3,13 @@ Copyright IBM Corp. All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
 */
+
 package fsc
 
 import (
 	"fmt"
 
-	registry2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/registry"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 )
 
 type ResolverIdentity struct {
@@ -20,7 +21,7 @@ type Resolver struct {
 	Name      string
 	Domain    string
 	Identity  ResolverIdentity
-	Addresses map[registry2.PortName]string
+	Addresses map[api.PortName]string
 	Port      int
 }
 
@@ -29,10 +30,10 @@ func (p *platform) GenerateResolverMap() {
 	for _, peer := range p.Peers {
 		org := p.Organization(peer.Organization)
 
-		addresses := map[registry2.PortName]string{
-			ViewPort:   fmt.Sprintf("127.0.0.1:%d", p.Registry.PortsByPeerID[peer.ID()][ListenPort]),
-			ListenPort: fmt.Sprintf("127.0.0.1:%d", p.Registry.PortsByPeerID[peer.ID()][ListenPort]),
-			P2PPort:    fmt.Sprintf("127.0.0.1:%d", p.Registry.PortsByPeerID[peer.ID()][P2PPort]),
+		addresses := map[api.PortName]string{
+			ViewPort:   fmt.Sprintf("127.0.0.1:%d", p.Context.PortsByPeerID("fsc", peer.ID())[ListenPort]),
+			ListenPort: fmt.Sprintf("127.0.0.1:%d", p.Context.PortsByPeerID("fsc", peer.ID())[ListenPort]),
+			P2PPort:    fmt.Sprintf("127.0.0.1:%d", p.Context.PortsByPeerID("fsc", peer.ID())[P2PPort]),
 		}
 
 		p.Resolvers = append(p.Resolvers, &Resolver{

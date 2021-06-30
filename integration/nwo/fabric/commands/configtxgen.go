@@ -7,14 +7,15 @@ SPDX-License-Identifier: Apache-2.0
 package commands
 
 type OutputBlock struct {
-	ChannelID   string
-	Profile     string
-	ConfigPath  string
-	OutputBlock string
+	NetworkPrefix string
+	ChannelID     string
+	Profile       string
+	ConfigPath    string
+	OutputBlock   string
 }
 
 func (o OutputBlock) SessionName() string {
-	return "configtxgen-output-block"
+	return o.NetworkPrefix + "-configtxgen-output-block"
 }
 
 func (o OutputBlock) Args() []string {
@@ -27,6 +28,7 @@ func (o OutputBlock) Args() []string {
 }
 
 type CreateChannelTx struct {
+	NetworkPrefix         string
 	ChannelID             string
 	Profile               string
 	ConfigPath            string
@@ -35,7 +37,7 @@ type CreateChannelTx struct {
 }
 
 func (c CreateChannelTx) SessionName() string {
-	return "configtxgen-create-channel-tx"
+	return c.NetworkPrefix + "-configtxgen-create-channel-tx"
 }
 
 func (c CreateChannelTx) Args() []string {
@@ -49,6 +51,7 @@ func (c CreateChannelTx) Args() []string {
 }
 
 type OutputAnchorPeersUpdate struct {
+	NetworkPrefix           string
 	ChannelID               string
 	Profile                 string
 	ConfigPath              string
@@ -57,7 +60,7 @@ type OutputAnchorPeersUpdate struct {
 }
 
 func (o OutputAnchorPeersUpdate) SessionName() string {
-	return "configtxgen-output-anchor-peers-update"
+	return o.NetworkPrefix + "-configtxgen-output-anchor-peers-update"
 }
 
 func (o OutputAnchorPeersUpdate) Args() []string {
@@ -67,23 +70,5 @@ func (o OutputAnchorPeersUpdate) Args() []string {
 		"-configPath", o.ConfigPath,
 		"-asOrg", o.AsOrg,
 		"-outputAnchorPeersUpdate", o.OutputAnchorPeersUpdate,
-	}
-}
-
-type PrintOrg struct {
-	ConfigPath string
-	ChannelID  string
-	PrintOrg   string
-}
-
-func (p PrintOrg) SessionName() string {
-	return "configtxgen-print-org"
-}
-
-func (p PrintOrg) Args() []string {
-	return []string{
-		"-configPath", p.ConfigPath,
-		"-channelID", p.ChannelID,
-		"-printOrg", p.PrintOrg,
 	}
 }

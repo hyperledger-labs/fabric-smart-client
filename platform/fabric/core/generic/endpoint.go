@@ -3,6 +3,7 @@ Copyright IBM Corp. All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
 */
+
 package generic
 
 import (
@@ -14,6 +15,7 @@ type EndpointService interface {
 }
 
 type Resolver interface {
+	// GetIdentity returns the identity associated to the passed label
 	GetIdentity(label string) view.Identity
 }
 

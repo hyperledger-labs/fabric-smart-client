@@ -6,14 +6,15 @@ hide footbox
 
 actor "Borrower" as Borrower
 actor "Lender" as Lender
-participant "Ordering Service" as Orderer
+actor "Approver" as Approver
+participant "Fabric" as Fabric
 
 Borrower -> Borrower: Create IOU State
 Borrower -> Borrower: Prepare Transaction
 Borrower -> Lender: Run CollectEndorsementsView
 Lender -> Lender: Check Transaction
 Lender -> Borrower: Run EndorseView
-Borrower -> Orderer: Run OrderingView
+Borrower -> Fabric: Run OrderingView
 Lender -> Borrower: Run EndorseView
 
 @enduml

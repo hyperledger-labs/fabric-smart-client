@@ -14,7 +14,7 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"github.com/pkg/errors"
 
-	view "github.com/hyperledger-labs/fabric-smart-client/platform/view"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	hash2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/protos"
@@ -108,8 +108,6 @@ func commandResponseFromPayload(payload interface{}) (*protos.CommandResponse, e
 	case *protos.CommandResponse_CallViewResponse:
 		return &protos.CommandResponse{Payload: t}, nil
 	case *protos.CommandResponse_IsTxFinalResponse:
-		return &protos.CommandResponse{Payload: t}, nil
-	case *protos.CommandResponse_IsHashFinalResponse:
 		return &protos.CommandResponse{Payload: t}, nil
 	default:
 		return nil, errors.Errorf("command type not recognized: %T", t)

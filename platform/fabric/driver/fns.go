@@ -3,6 +3,7 @@ Copyright IBM Corp. All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
 */
+
 package driver
 
 import (
@@ -16,6 +17,8 @@ type FabricNetworkService interface {
 	Comm
 	Config
 	Ordering
+
+	Name() string
 
 	TransactionManager() TransactionManager
 

@@ -3,6 +3,7 @@ Copyright IBM Corp. All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
 */
+
 package driver
 
 import (
@@ -23,6 +24,8 @@ type IdentityProvider interface {
 	Admins() []view.Identity
 }
 
+// GetIdentityProvider returns an instance of the IdentityProvider interface.
+// It panics, if no instance is found.
 func GetIdentityProvider(sp ServiceProvider) IdentityProvider {
 	s, err := sp.GetService(reflect.TypeOf((*IdentityProvider)(nil)))
 	if err != nil {

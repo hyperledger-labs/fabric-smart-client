@@ -3,6 +3,7 @@ Copyright IBM Corp. All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
 */
+
 package server
 
 import (
@@ -41,22 +42,20 @@ func InstallViewHandler(sp view.ServiceProvider, server Server, d Dispatcher) {
 }
 
 func (s *viewHandler) initiateView(ctx context.Context, command *protos.Command) (interface{}, error) {
-	header := command.Header
 	initiateView := command.Payload.(*protos.Command_InitiateView).InitiateView
 
-	channelID := header.ChannelId
 	fid := initiateView.Fid
 	input := initiateView.Input
-	log.Printf("Initiate view %s on channel %s\n", fid, channelID)
+	log.Printf("Initiate view [%s]", fid)
 
 	viewManager := view.GetManager(s.sp)
 	f, err := viewManager.NewView(fid, input)
 	if err != nil {
-		return nil, errors.Errorf("failed instantiating view [%s] on channel [%s], err [%s]", fid, channelID, err)
+		return nil, errors.Errorf("failed instantiating view [%s], err [%s]", fid, err)
 	}
 	contextID, err := s.RunView(viewManager, f)
 	if err != nil {
-		return nil, errors.Errorf("failed running view [%s] on channel [%s], err %s", fid, channelID, err)
+		return nil, errors.Errorf("failed running view [%s], err %s", fid, err)
 	}
 	return &protos.CommandResponse_InitiateViewResponse{InitiateViewResponse: &protos.InitiateViewResponse{
 		Cid: contextID,
@@ -64,24 +63,22 @@ func (s *viewHandler) initiateView(ctx context.Context, command *protos.Command)
 }
 
 func (s *viewHandler) trackView(ctx context.Context, command *protos.Command) (interface{}, error) {
-	header := command.Header
 	trackView := command.Payload.(*protos.Command_TrackView).TrackView
 
-	channelID := header.ChannelId
 	cid := trackView.Cid
-	log.Printf("Track context %s on channel %s\n", cid, channelID)
+	log.Printf("Track context [%s]", cid)
 
 	_, err := view.GetManager(s.sp).Context(cid)
 	if err != nil {
-		return nil, errors.Errorf("failed retrieving context %s on channel %s, err %s", cid, channelID, err)
+		return nil, errors.Errorf("failed retrieving context [%s], err [%s]", cid, err)
 	}
 	viewTracker, err := tracker.GetViewTracker(s.sp)
 	if err != nil {
-		return nil, errors.Errorf("failed getting tracker for context %s on channel %s, err %s", cid, channelID, err)
+		return nil, errors.Errorf("failed getting tracker for context [%s], err [%s]", cid, err)
 	}
 	payload, err := json.Marshal(viewTracker.ViewStatus())
 	if err != nil {
-		return nil, errors.Errorf("failed marshalling view status for context %s on channel %s, err %s", cid, channelID, err)
+		return nil, errors.Errorf("failed marshalling view status for context [%s], err [%s]", cid, err)
 	}
 	log.Printf("Context id '%s', status '%s'\n", cid, string(payload))
 
@@ -91,31 +88,29 @@ func (s *viewHandler) trackView(ctx context.Context, command *protos.Command) (i
 }
 
 func (s *viewHandler) callView(ctx context.Context, command *protos.Command) (interface{}, error) {
-	header := command.Header
 	callView := command.Payload.(*protos.Command_CallView).CallView
 
-	channelID := header.ChannelId
 	fid := callView.Fid
 	input := callView.Input
-	logger.Debugf("Call view [%s] on channel [%s] and on input [%v]", fid, channelID, string(input))
+	logger.Debugf("Call view [%s] on input [%v]", fid, string(input))
 
 	viewManager := view.GetManager(s.sp)
 	f, err := viewManager.NewView(fid, input)
 	if err != nil {
-		return nil, errors.Errorf("failed instantiating view [%s] on channel [%s], err [%s]", fid, channelID, err)
+		return nil, errors.Errorf("failed instantiating view [%s], err [%s]", fid, err)
 	}
 	result, err := viewManager.InitiateView(f)
 	if err != nil {
-		return nil, errors.Errorf("failed running view [%s] on channel [%s], err %s", fid, channelID, err)
+		return nil, errors.Errorf("failed running view [%s], err %s", fid, err)
 	}
 	raw, ok := result.([]byte)
 	if !ok {
 		raw, err = json.Marshal(result)
 		if err != nil {
-			return nil, errors.Errorf("failed marshalling result produced by view %s on channel %s, err %s", fid, channelID, err)
+			return nil, errors.Errorf("failed marshalling result produced by view [%s], err [%s]", fid, err)
 		}
 	}
-	logger.Debugf("Finished call view [%s] on channel [%s] and on input [%v]", fid, channelID, string(input))
+	logger.Debugf("Finished call view [%s] on channel [%s] and on input [%v]", fid, string(input))
 	return &protos.CommandResponse_CallViewResponse{CallViewResponse: &protos.CallViewResponse{
 		Result: raw,
 	}}, nil

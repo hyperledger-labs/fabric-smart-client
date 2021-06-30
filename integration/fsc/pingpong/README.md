@@ -162,10 +162,12 @@ package pingpong
 
 import "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 
+// InitiatorViewFactory is the factory of Initiator views
 type InitiatorViewFactory struct{}
 
+// NewView returns a new instance of the Initiator view
 func (i *InitiatorViewFactory) NewView(in []byte) (view.View, error) {
-	return &Initiator{}, nil
+  return &Initiator{}, nil
 }
 ```
 To answer the second question, we need a way to tell the FSC node which view to execute
@@ -181,6 +183,8 @@ FSC provides an `Integration Test Infrastructure` that allow the developer to:
 - Describe the topology of the networks (FSC network, in this case);
 - Boostrap these networks;
 - Initiate interactive protocols to complete given business tasks.
+
+To run the test, it is just enough to run `go test` from the folder containing the test.
 
 Let us go step by step.
 
@@ -371,7 +375,7 @@ Let us describe what is happening in the above BDD test:
   
 ## Deeper Dive
 
-There are still questions to answers. Here are some:
+There are still questions to answer. Here are some:
 - How do I configure an FSC node?
 - How does an FSC node know where are the other nodes and who they are (their PKs)?
 - Where are information stored?
@@ -476,7 +480,7 @@ fsc:
   # The endpoint section tells how to reach other FSC node in the network.
   # For each node, the name, the domain, the identity of the node, and its addresses must be specified.
   endpoint:
-    resolves: 
+    resolvers: 
     - name: initiator
       domain: fsc.example.com
       identity:

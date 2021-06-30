@@ -7,14 +7,13 @@ SPDX-License-Identifier: Apache-2.0
 package fsc_test
 
 import (
-	"time"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/fsc"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/fsc/views"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/fsc/client"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/fsc/states"
 )
 
 var _ = Describe("EndToEnd", func() {
@@ -29,9 +28,9 @@ var _ = Describe("EndToEnd", func() {
 
 	Describe("Asset Transfer Secured Agreement (With Approvers)", func() {
 		var (
-			issuer *fsc.Client
-			alice  *fsc.Client
-			bob    *fsc.Client
+			issuer *client.Client
+			alice  *client.Client
+			bob    *client.Client
 		)
 
 		BeforeEach(func() {
@@ -44,13 +43,13 @@ var _ = Describe("EndToEnd", func() {
 
 			approver := ii.Identity("approver")
 
-			issuer = fsc.NewClient(ii.Client("issuer"), ii.Identity("issuer"), approver)
-			alice = fsc.NewClient(ii.Client("alice"), ii.Identity("alice"), approver)
-			bob = fsc.NewClient(ii.Client("bob"), ii.Identity("bob"), approver)
+			issuer = client.New(ii.Client("issuer"), ii.Identity("issuer"), approver)
+			alice = client.New(ii.Client("alice"), ii.Identity("alice"), approver)
+			bob = client.New(ii.Client("bob"), ii.Identity("bob"), approver)
 		})
 
 		It("succeeded", func() {
-			assetID, err := issuer.Issue(&views.Asset{
+			txID, err := issuer.Issue(&states.Asset{
 				ObjectType:        "coin",
 				ID:                "1234",
 				Owner:             ii.Identity("alice"),
@@ -58,25 +57,23 @@ var _ = Describe("EndToEnd", func() {
 				PrivateProperties: []byte("Hello World!!!"),
 			})
 			Expect(err).ToNot(HaveOccurred())
-			time.Sleep(5 * time.Second)
+			Expect(alice.IsTxFinal(txID)).NotTo(HaveOccurred())
 
-			agreementID, err := alice.AgreeToSell(&views.AgreementToSell{
+			agreementID, err := alice.AgreeToSell(&states.AgreementToSell{
 				TradeID: "1234",
 				ID:      "1234",
 				Price:   100,
 			})
 			Expect(err).ToNot(HaveOccurred())
-			time.Sleep(5 * time.Second)
 
-			_, err = bob.AgreeToBuy(&views.AgreementToBuy{
+			_, err = bob.AgreeToBuy(&states.AgreementToBuy{
 				TradeID: "1234",
 				ID:      "1234",
 				Price:   100,
 			})
 			Expect(err).ToNot(HaveOccurred())
-			time.Sleep(5 * time.Second)
 
-			err = alice.Transfer(assetID, agreementID, ii.Identity("bob"))
+			err = alice.Transfer("1234", agreementID, ii.Identity("bob"))
 			Expect(err).ToNot(HaveOccurred())
 		})
 	})

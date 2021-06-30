@@ -16,20 +16,24 @@ import (
 	"github.com/onsi/gomega/gexec"
 	"github.com/tedsuo/ifrit/grouper"
 
-	registry2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/registry"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/commands"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/fabricconfig"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 )
+
+var logger = flogging.MustGetLogger("fsc.integration.fabric")
 
 type ChaincodeProcessor interface {
 	Process(network *Network, cc *topology.ChannelChaincode) *topology.ChannelChaincode
 }
 
 type Network struct {
-	Registry           *registry2.Registry
+	Context            api.Context
 	topology           *topology.Topology
 	RootDir            string
+	Prefix             string
 	Builder            *Builder
 	DockerClient       *docker.Client
 	ExternalBuilders   []fabricconfig.ExternalBuilder
@@ -39,8 +43,8 @@ type Network struct {
 	StatsdEndpoint     string
 	ClientAuthRequired bool
 
-	PortsByBrokerID   map[string]registry2.Ports
-	PortsByOrdererID  map[string]registry2.Ports
+	PortsByBrokerID   map[string]api.Ports
+	PortsByOrdererID  map[string]api.Ports
 	Logging           *topology.Logging
 	ChaincodeMode     string
 	PvtTxSupport      bool
@@ -65,54 +69,43 @@ type Network struct {
 	ccps       []ChaincodeProcessor
 }
 
-func New(reg *registry2.Registry, builderClient BuilderClient, ccps []ChaincodeProcessor) *Network {
-	topologyBoxed := reg.TopologyByName("fabric")
-	if topologyBoxed == nil {
-		topologyBoxed = NewEmptyTopology()
+func New(reg api.Context, topology *topology.Topology, dockerClient *docker.Client, builderClient BuilderClient, ccps []ChaincodeProcessor) *Network {
+	if topology == nil {
+		topology = NewEmptyTopology()
 	}
 
-	client, err := docker.NewClientFromEnv()
-	Expect(err).NotTo(HaveOccurred())
-	_, err = client.CreateNetwork(
-		docker.CreateNetworkOptions{
-			Name:   reg.NetworkID,
-			Driver: "bridge",
-		},
-	)
-	Expect(err).NotTo(HaveOccurred())
-
-	fabricTopology := topologyBoxed.(*topology.Topology)
 	network := &Network{
-		Registry:     reg,
+		Context:      reg,
 		Builder:      &Builder{builderClient},
-		DockerClient: client,
-		RootDir:      reg.RootDir,
-		topology:     fabricTopology,
+		DockerClient: dockerClient,
+		RootDir:      reg.RootDir(),
+		Prefix:       "fabric." + topology.Name(),
+		topology:     topology,
 
-		NetworkID:         reg.NetworkID,
+		NetworkID:         reg.NetworkID(),
 		EventuallyTimeout: 10 * time.Minute,
 		MetricsProvider:   "prometheus",
-		PortsByBrokerID:   map[string]registry2.Ports{},
-		PortsByOrdererID:  map[string]registry2.Ports{},
+		PortsByBrokerID:   map[string]api.Ports{},
+		PortsByOrdererID:  map[string]api.Ports{},
 
-		Organizations:     fabricTopology.Organizations,
-		Consensus:         fabricTopology.Consensus,
-		Orderers:          fabricTopology.Orderers,
-		Peers:             fabricTopology.Peers,
-		SystemChannel:     fabricTopology.SystemChannel,
-		Channels:          fabricTopology.Channels,
-		Profiles:          fabricTopology.Profiles,
-		Consortiums:       fabricTopology.Consortiums,
-		Templates:         fabricTopology.Templates,
-		Logging:           fabricTopology.Logging,
-		ChaincodeMode:     fabricTopology.ChaincodeMode,
-		MSPvtTxSupport:    fabricTopology.MSPvtTxSupport,
-		MSPvtCCSupport:    fabricTopology.MSPvtCCSupport,
-		FabTokenSupport:   fabricTopology.FabTokenSupport,
-		FabTokenCCSupport: fabricTopology.FabTokenCCSupport,
-		GRPCLogging:       fabricTopology.GRPCLogging,
-		PvtTxSupport:      fabricTopology.PvtTxSupport,
-		PvtTxCCSupport:    fabricTopology.PvtTxCCSupport,
+		Organizations:     topology.Organizations,
+		Consensus:         topology.Consensus,
+		Orderers:          topology.Orderers,
+		Peers:             topology.Peers,
+		SystemChannel:     topology.SystemChannel,
+		Channels:          topology.Channels,
+		Profiles:          topology.Profiles,
+		Consortiums:       topology.Consortiums,
+		Templates:         topology.Templates,
+		Logging:           topology.Logging,
+		ChaincodeMode:     topology.ChaincodeMode,
+		MSPvtTxSupport:    topology.MSPvtTxSupport,
+		MSPvtCCSupport:    topology.MSPvtCCSupport,
+		FabTokenSupport:   topology.FabTokenSupport,
+		FabTokenCCSupport: topology.FabTokenCCSupport,
+		GRPCLogging:       topology.GRPCLogging,
+		PvtTxSupport:      topology.PvtTxSupport,
+		PvtTxCCSupport:    topology.PvtTxCCSupport,
 		ccps:              ccps,
 	}
 	return network
@@ -136,8 +129,9 @@ func (n *Network) GenerateConfigTree() {
 
 func (n *Network) GenerateArtifacts() {
 	sess, err := n.Cryptogen(commands.Generate{
-		Config: n.CryptoConfigPath(),
-		Output: n.CryptoPath(),
+		NetworkPrefix: n.Prefix,
+		Config:        n.CryptoConfigPath(),
+		Output:        n.CryptoPath(),
 	})
 	Expect(err).NotTo(HaveOccurred())
 	Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
@@ -146,10 +140,11 @@ func (n *Network) GenerateArtifacts() {
 
 	if len(n.SystemChannel.Name) != 0 {
 		sess, err = n.ConfigTxGen(commands.OutputBlock{
-			ChannelID:   n.SystemChannel.Name,
-			Profile:     n.SystemChannel.Profile,
-			ConfigPath:  filepath.Join(n.Registry.RootDir, "fabric"),
-			OutputBlock: n.OutputBlockPath(n.SystemChannel.Name),
+			NetworkPrefix: n.Prefix,
+			ChannelID:     n.SystemChannel.Name,
+			Profile:       n.SystemChannel.Profile,
+			ConfigPath:    filepath.Join(n.Context.RootDir(), n.Prefix),
+			OutputBlock:   n.OutputBlockPath(n.SystemChannel.Name),
 		})
 		Expect(err).NotTo(HaveOccurred())
 		Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
@@ -157,10 +152,11 @@ func (n *Network) GenerateArtifacts() {
 
 	for _, c := range n.Channels {
 		sess, err := n.ConfigTxGen(commands.CreateChannelTx{
+			NetworkPrefix:         n.Prefix,
 			ChannelID:             c.Name,
 			Profile:               c.Profile,
 			BaseProfile:           c.BaseProfile,
-			ConfigPath:            filepath.Join(n.Registry.RootDir, "fabric"),
+			ConfigPath:            filepath.Join(n.Context.RootDir(), n.Prefix),
 			OutputCreateChannelTx: n.CreateChannelTxPath(c.Name),
 		})
 		Expect(err).NotTo(HaveOccurred())
@@ -185,18 +181,19 @@ func (n *Network) Members() []grouper.Member {
 	members := grouper.Members{}
 
 	if r := n.BrokerGroupRunner(); r != nil {
-		members = append(members, grouper.Member{Name: "brokers", Runner: r})
+		members = append(members, grouper.Member{Name: n.Prefix + ".brokers", Runner: r})
 	}
 	if r := n.OrdererGroupRunner(); r != nil {
-		members = append(members, grouper.Member{Name: "orderers", Runner: r})
+		members = append(members, grouper.Member{Name: n.Prefix + ".orderers", Runner: r})
 	}
 	if r := n.PeerGroupRunner(); r != nil {
-		members = append(members, grouper.Member{Name: "peers", Runner: r})
+		members = append(members, grouper.Member{Name: n.Prefix + ".peers", Runner: r})
 	}
 	return members
 }
 
 func (n *Network) PostRun() {
+	logger.Infof("Post execution [%s]...", n.Prefix)
 	orderer := n.Orderer("orderer")
 	for _, channel := range n.Channels {
 		n.CreateAndJoinChannel(orderer, channel.Name)
@@ -218,6 +215,7 @@ func (n *Network) PostRun() {
 
 	// Wait a few second to make peers discovering each other
 	time.Sleep(5 * time.Second)
+	logger.Infof("Post execution [%s]...done.", n.Prefix)
 }
 
 func (n *Network) Cleanup() {
@@ -226,6 +224,9 @@ func (n *Network) Cleanup() {
 	}
 
 	nw, err := n.DockerClient.NetworkInfo(n.NetworkID)
+	if _, ok := err.(*docker.NoSuchNetwork); err != nil && ok {
+		return
+	}
 	Expect(err).NotTo(HaveOccurred())
 
 	err = n.DockerClient.RemoveNetwork(nw.ID)
@@ -266,7 +267,7 @@ func (n *Network) DeployChaincode(chaincode *topology.ChannelChaincode) {
 			chaincode.Chaincode.Path = chaincodePath
 			chaincode.Chaincode.Lang = "binary"
 		}
-		chaincode.Chaincode.PackageFile = filepath.Join(n.Registry.RootDir, "fabric", chaincode.Chaincode.Name+".tar.gz")
+		chaincode.Chaincode.PackageFile = filepath.Join(n.Context.RootDir(), n.Prefix, chaincode.Chaincode.Name+".tar.gz")
 		PackageChaincode(n, &chaincode.Chaincode, peers[0])
 	}
 

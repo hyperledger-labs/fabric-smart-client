@@ -4,6 +4,7 @@ checks: dependencies
 	find . -name '*.go' | xargs addlicense -check || (echo "Missing license headers"; exit 1)
 	@go vet -all $(shell go list -f '{{.Dir}}' ./...)
 	@ineffassign $(shell go list -f '{{.Dir}}' ./...)
+	@misspell $(shell go list -f '{{.Dir}}' ./...)
 
 .PHONY: lint
 lint:
@@ -46,22 +47,20 @@ dependencies:
 	go get -u github.com/onsi/ginkgo/ginkgo
 	go get -u github.com/gordonklaus/ineffassign
 	go get -u github.com/google/addlicense
+	go get -u github.com/client9/misspell/cmd/misspell
 
 .PHONY: integration-tests
 integration-tests: docker-images dependencies
 	cd ./integration/fabric/iou; ginkgo -keepGoing --slowSpecThreshold 60 .
 	cd ./integration/fabric/atsa/chaincode; ginkgo -keepGoing --slowSpecThreshold 60 .
 	cd ./integration/fabric/atsa/fsc; ginkgo -keepGoing --slowSpecThreshold 60 .
+	cd ./integration/fabric/twonets; ginkgo -keepGoing --slowSpecThreshold 60 .
 	cd ./integration/fsc/pingpong/; ginkgo -keepGoing --slowSpecThreshold 60 .
 	cd ./integration/fsc/stoprestart; ginkgo -keepGoing --slowSpecThreshold 60 .
 
 .PHONY: tidy
 tidy:
 	@go mod tidy
-
-.PHONY: whitepaper
-whitepaper:
-	./docs/whitepaper/build.sh
 
 .PHONY: clean
 clean:
@@ -70,6 +69,7 @@ clean:
 	rm -rf ./integration/fabric/atsa/chaincode/cmd
 	rm -rf ./integration/fabric/atsa/fsc/cmd
 	rm -rf ./integration/fabric/iou/cmd/
+	rm -rf ./integration/fabric/twonets/cmd
 	rm -rf ./integration/fsc/stoprestart/cmd
 	rm -rf ./integration/fsc/pingpong/cmd/responder
 	rm -rf ./integration/fscnodes

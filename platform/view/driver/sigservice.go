@@ -3,6 +3,7 @@ Copyright IBM Corp. All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
 */
+
 package driver
 
 import (
@@ -12,15 +13,18 @@ import (
 )
 
 type Identity interface {
+	// Serialize returns the byte representation of this identity
 	Serialize() ([]byte, error)
 
+	// Verify verifies the signature over the passed message.
 	Verify(message []byte, signature []byte) error
 }
 
 type SigningIdentity interface {
 	Identity
 
-	Sign(raw []byte) ([]byte, error)
+	// Sign signs message bytes and returns the signature or an error on failure.
+	Sign(message []byte) ([]byte, error)
 
 	GetPublicVersion() Identity
 }
@@ -59,9 +63,12 @@ func GetSigService(sp ServiceProvider) SigService {
 	return s.(SigService)
 }
 
+// AuditRegistry models a repository of identities' audit information
 type AuditRegistry interface {
+	// RegisterAuditInfo binds the passed audit info to the passed identity
 	RegisterAuditInfo(identity view.Identity, info []byte) error
 
+	// GetAuditInfo returns the audit info associated to the passed identity, nil if not found
 	GetAuditInfo(identity view.Identity) ([]byte, error)
 }
 

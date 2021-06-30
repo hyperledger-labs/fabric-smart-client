@@ -3,6 +3,7 @@ Copyright IBM Corp. All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
 */
+
 package endpoint
 
 import (
@@ -183,7 +184,7 @@ func (r *service) GetIdentity(endpoint string, pkid []byte) (view.Identity, erro
 		}
 	}
 	// ask the msp service
-	id, err := fabric.GetDefaultNetwork(r.sp).LocalMembership().GetIdentityByID(endpoint)
+	id, err := fabric.GetDefaultFNS(r.sp).LocalMembership().GetIdentityByID(endpoint)
 	if err != nil {
 		return nil, errors.Errorf("identity not found at [%s,%s] %s [%s]", endpoint, view.Identity(pkid), debug.Stack(), err)
 	}

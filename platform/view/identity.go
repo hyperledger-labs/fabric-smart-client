@@ -3,6 +3,7 @@ Copyright IBM Corp. All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
 */
+
 package view
 
 import (
@@ -30,7 +31,8 @@ func (i *IdentityProvider) Identity(label string) view.Identity {
 	return i.ip.Identity(label)
 }
 
-// GetIdentityProvider returns an instance of the identity provider
+// GetIdentityProvider returns an instance of the identity provider.
+// It panics, if no instance is found.
 func GetIdentityProvider(sp ServiceProvider) *IdentityProvider {
 	return &IdentityProvider{ip: driver.GetIdentityProvider(sp)}
 }

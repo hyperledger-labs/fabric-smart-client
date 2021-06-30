@@ -3,6 +3,7 @@ Copyright IBM Corp. All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
 */
+
 package state
 
 import (
@@ -212,8 +213,8 @@ type CertificationView struct {
 }
 
 func (c *CertificationView) Call(context view.Context) (interface{}, error) {
-	ws := GetWorldStateForChannel(context, c.Channel)
-	cert, err := ws.GetStateCertification(c.Namespace, c.Key)
+	vault := GetVaultForChannel(context, c.Channel)
+	cert, err := vault.GetStateCertification(c.Namespace, c.Key)
 	assert.NoError(err, "failed getting certification")
 
 	return cert, nil

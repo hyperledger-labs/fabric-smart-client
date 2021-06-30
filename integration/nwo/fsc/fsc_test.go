@@ -3,6 +3,7 @@ Copyright IBM Corp. All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
 */
+
 package fsc
 
 import (
@@ -13,8 +14,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo"
-	registry2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/registry"
+	context2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/context"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/testdata/foo/initiator"
 	initiator2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/testdata/initiator"
@@ -39,9 +39,7 @@ func (d *DummySDK) Start(ctx context.Context) error {
 var _ = Describe("EndToEnd", func() {
 	Describe("generate main", func() {
 		It("should not fail", func() {
-			p := NewPlatform(&registry2.Registry{
-				TopologiesByName: map[string]nwo.Topology{TopologyName: NewTopology()},
-			}, nil)
+			p := NewPlatform(context2.New("", 0, nil), NewTopology(), nil)
 
 			n := node.NewNode("test")
 			n.AddSDK(&DummySDK{})

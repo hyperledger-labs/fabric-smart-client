@@ -3,6 +3,7 @@ Copyright IBM Corp. All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
 */
+
 package state
 
 import (
@@ -33,6 +34,7 @@ func Wrap(tx *endorser.Transaction) (*Transaction, error) {
 	}, nil
 }
 
+// NewTransaction returns a new instance of a state-based transaction that embeds a single namespace.
 func NewTransaction(context view.Context) (*Transaction, error) {
 	_, tx, err := endorser.NewTransaction(context)
 	if err != nil {
@@ -61,6 +63,20 @@ func NewTransactionFromBytes(context view.Context, raw []byte) (*Transaction, er
 	}, nil
 }
 
+type receiveTransactionView struct {
+	party view.Identity
+}
+
+func NewReceiveTransactionView() *receiveTransactionView {
+	return &receiveTransactionView{}
+}
+
+func NewReceiveTransactionFromView(party view.Identity) *receiveTransactionView {
+	return &receiveTransactionView{party: party}
+}
+
+// ReceiveTransaction runs the receiveTransactionView that expects on the context's session
+// a byte representation of a state transaction.
 func ReceiveTransaction(context view.Context) (*Transaction, error) {
 	txBoxed, err := context.RunView(NewReceiveTransactionView())
 	if err != nil {
@@ -79,18 +95,6 @@ func ReceiveTransactionFrom(context view.Context, party view.Identity) (*Transac
 
 	cctx := txBoxed.(*Transaction)
 	return cctx, nil
-}
-
-type receiveTransactionView struct {
-	party view.Identity
-}
-
-func NewReceiveTransactionView() *receiveTransactionView {
-	return &receiveTransactionView{}
-}
-
-func NewReceiveTransactionFromView(party view.Identity) *receiveTransactionView {
-	return &receiveTransactionView{party: party}
 }
 
 func (f *receiveTransactionView) Call(context view.Context) (interface{}, error) {

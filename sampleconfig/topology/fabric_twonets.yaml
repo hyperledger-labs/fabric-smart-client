@@ -1,0 +1,237 @@
+topologies:
+- name: alpha
+  type: fabric
+  default: true
+  logging:
+    spec: grpc=error:chaincode=debug:endorser=debug:info
+    format: '''%{color}%{time:2006-01-02 15:04:05.000 MST} [%{module}] %{shortfunc} -> %{level:.4s} %{id:03x}%{color:reset} %{message}'''
+  organizations:
+  - msp_id: OrdererMSP
+    name: OrdererOrg
+    domain: example.com
+    enable_node_organizational_units: false
+    ca:
+      hostname: ca
+  - id: Org1
+    msp_id: Org1MSP
+    name: Org1
+    domain: org1.example.com
+    enable_node_organizational_units: false
+    users: 1
+    ca:
+      hostname: ca
+  - id: Org2
+    msp_id: Org2MSP
+    name: Org2
+    domain: org2.example.com
+    enable_node_organizational_units: false
+    users: 1
+    ca:
+      hostname: ca
+  peers:
+  - name: Org1_peer_0
+    organization: Org1
+    type: FabricPeer
+    channels:
+    - name: testchannel
+      anchor: true
+    devmode: false
+  - name: Org2_peer_0
+    organization: Org2
+    type: FabricPeer
+    channels:
+    - name: testchannel
+      anchor: true
+    devmode: false
+  consortiums:
+  - name: SampleConsortium
+    organizations:
+    - Org1
+    - Org2
+  system_channel:
+    name: systemchannel
+    profile: OrgsOrdererGenesis
+  channels:
+  - name: testchannel
+    profile: OrgsChannel
+    default: true
+  consensus:
+    type: solo
+  orderers:
+  - name: orderer
+    organization: OrdererOrg
+  profiles:
+  - name: OrgsOrdererGenesis
+    orderers:
+    - orderer
+  - name: OrgsChannel
+    consortium: SampleConsortium
+    organizations:
+    - Org1
+    - Org2
+    policies:
+    - name: Readers
+      type: ImplicitMeta
+      rule: ANY Readers
+    - name: Writers
+      type: ImplicitMeta
+      rule: ANY Writers
+    - name: Admins
+      type: ImplicitMeta
+      rule: ANY Admins
+    - name: LifecycleEndorsement
+      type: Signature
+      rule: AND ('Org1MSP.member')
+    - name: Endorsement
+      type: ImplicitMeta
+      rule: ANY Endorsement
+  chaincodes:
+  - chaincode:
+      name: ns1
+      version: Version-0.0
+      path: github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/chaincode/base
+      ctor: '{"Args":["init"]}'
+      policy: AND ('Org1MSP.member')
+      lang: golang
+      collectionsconfig: ""
+      packagefile: ""
+      codefiles: {}
+      sequence: "1"
+      endorsementplugin: ""
+      validationplugin: ""
+      initrequired: true
+      label: ns1
+      signaturepolicy: AND ('Org1MSP.member')
+      channelconfigpolicy: ""
+    channel: testchannel
+    peers:
+    - Org1_peer_0
+  chaincodemode: net
+- name: beta
+  type: fabric
+  logging:
+    spec: grpc=error:chaincode=debug:endorser=debug:info
+    format: '''%{color}%{time:2006-01-02 15:04:05.000 MST} [%{module}] %{shortfunc} -> %{level:.4s} %{id:03x}%{color:reset} %{message}'''
+  organizations:
+  - msp_id: OrdererMSP
+    name: OrdererOrg
+    domain: example.com
+    enable_node_organizational_units: false
+    ca:
+      hostname: ca
+  - id: Org3
+    msp_id: Org3MSP
+    name: Org3
+    domain: org3.example.com
+    enable_node_organizational_units: false
+    users: 1
+    ca:
+      hostname: ca
+  - id: Org4
+    msp_id: Org4MSP
+    name: Org4
+    domain: org4.example.com
+    enable_node_organizational_units: false
+    users: 1
+    ca:
+      hostname: ca
+  peers:
+  - name: Org3_peer_0
+    organization: Org3
+    type: FabricPeer
+    channels:
+    - name: testchannel
+      anchor: true
+    devmode: false
+  - name: Org4_peer_0
+    organization: Org4
+    type: FabricPeer
+    channels:
+    - name: testchannel
+      anchor: true
+    devmode: false
+  consortiums:
+  - name: SampleConsortium
+    organizations:
+    - Org3
+    - Org4
+  system_channel:
+    name: systemchannel
+    profile: OrgsOrdererGenesis
+  channels:
+  - name: testchannel
+    profile: OrgsChannel
+    default: true
+  consensus:
+    type: solo
+  orderers:
+  - name: orderer
+    organization: OrdererOrg
+  profiles:
+  - name: OrgsOrdererGenesis
+    orderers:
+    - orderer
+  - name: OrgsChannel
+    consortium: SampleConsortium
+    organizations:
+    - Org3
+    - Org4
+    policies:
+    - name: Readers
+      type: ImplicitMeta
+      rule: ANY Readers
+    - name: Writers
+      type: ImplicitMeta
+      rule: ANY Writers
+    - name: Admins
+      type: ImplicitMeta
+      rule: ANY Admins
+    - name: LifecycleEndorsement
+      type: Signature
+      rule: AND ('Org3MSP.member')
+    - name: Endorsement
+      type: ImplicitMeta
+      rule: ANY Endorsement
+  chaincodes:
+  - chaincode:
+      name: ns2
+      version: Version-0.0
+      path: github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/chaincode/base
+      ctor: '{"Args":["init"]}'
+      policy: AND ('Org3MSP.member')
+      lang: golang
+      collectionsconfig: ""
+      packagefile: ""
+      codefiles: {}
+      sequence: "1"
+      endorsementplugin: ""
+      validationplugin: ""
+      initrequired: true
+      label: ns2
+      signaturepolicy: AND ('Org3MSP.member')
+      channelconfigpolicy: ""
+    channel: testchannel
+    peers:
+    - Org3_peer_0
+  chaincodemode: net
+- name: fsc
+  type: fsc
+  peers:
+  - name: alice
+    bootstrap: true
+    options:
+      mapping:
+        fabric:
+          mapping:
+            Network: alpha
+            Organization: Org1
+  - name: bob
+    options:
+      mapping:
+        fabric:
+          mapping:
+            Network: beta
+            Organization: Org3
+  logging:
+    spec: grpc=error:debug
+    format: '''%{color}%{time:2006-01-02 15:04:05.000 MST} [%{module}] %{shortfunc} -> %{level:.4s} %{id:03x}%{color:reset} %{message}'''

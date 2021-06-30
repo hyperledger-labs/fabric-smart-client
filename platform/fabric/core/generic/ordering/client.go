@@ -3,6 +3,7 @@ Copyright IBM Corp. All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
 */
+
 package ordering
 
 import (
@@ -47,14 +48,14 @@ type OrdererClient interface {
 type ordererClient struct {
 	ordererAddr        string
 	serverNameOverride string
-	grpcClient         *grpc2.GRPCClient
+	grpcClient         *grpc2.Client
 	conn               *grpc.ClientConn
 }
 
 func NewOrdererClient(config *grpc2.ConnectionConfig) (OrdererClient, error) {
 	grpcClient, err := grpc2.CreateGRPCClient(config)
 	if err != nil {
-		err = errors.WithMessagef(err, "failed to create a GRPCClient to orderer %s", config.Address)
+		err = errors.WithMessagef(err, "failed to create a Client to orderer %s", config.Address)
 		return nil, err
 	}
 	conn, err := grpcClient.NewConnection(config.Address)

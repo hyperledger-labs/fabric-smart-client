@@ -3,6 +3,7 @@ Copyright IBM Corp. All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
 */
+
 package fsc
 
 import "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
@@ -18,14 +19,17 @@ type Logging struct {
 
 type Topology struct {
 	TopologyName string       `yaml:"name,omitempty"`
+	TopologyType string       `yaml:"type,omitempty"`
 	Nodes        []*node.Node `yaml:"peers,omitempty"`
 	GRPCLogging  bool         `yaml:"grpcLogging,omitempty"`
 	Logging      *Logging     `yaml:"logging,omitempty"`
 }
 
+// NewTopology returns an empty FSC network topology.
 func NewTopology() *Topology {
 	return &Topology{
 		TopologyName: TopologyName,
+		TopologyType: TopologyName,
 		Nodes:        []*node.Node{},
 		Logging: &Logging{
 			Spec:   "grpc=error:debug",
@@ -45,13 +49,17 @@ func (t *Topology) Name() string {
 	return t.TopologyName
 }
 
+func (t *Topology) Type() string {
+	return t.TopologyType
+}
+
 // AddNodeByTemplate adds a new node with the passed name and template
 func (t *Topology) AddNodeByTemplate(name string, template *node.Node) *node.Node {
 	n := node.NewNodeFromTemplate(name, template)
 	return t.addNode(n)
 }
 
-// AddNodeByName adds a new node with the passed name
+// AddNodeByName adds an empty new node with the passed name
 func (t *Topology) AddNodeByName(name string) *node.Node {
 	n := node.NewNode(name)
 	return t.addNode(n)

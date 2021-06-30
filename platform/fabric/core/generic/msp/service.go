@@ -3,6 +3,7 @@ Copyright IBM Corp. All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
 */
+
 package msp
 
 import (
@@ -12,6 +13,7 @@ import (
 	"reflect"
 	"sync"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	idemix2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/idemix"
 	x5092 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/x509"
 	api2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
@@ -39,7 +41,7 @@ var logger = flogging.MustGetLogger("fabric-sdk.msp")
 
 type Config interface {
 	MSPConfigPath() string
-	MSPs(confs *[]Configuration) error
+	MSPs() ([]config.MSP, error)
 	LocalMSPID() string
 	LocalMSPType() string
 	TranslatePath(path string) string
@@ -54,7 +56,7 @@ type BinderService interface {
 }
 
 type ConfigProvider interface {
-	api3.ConfigProvider
+	api3.ConfigService
 }
 
 type DeserializerManager interface {
@@ -368,8 +370,8 @@ func (s *service) loadDefaultResolver() error {
 }
 
 func (s *service) loadExtraResolvers() error {
-	var configs []Configuration
-	if err := s.config.MSPs(&configs); err != nil {
+	configs, err := s.config.MSPs()
+	if err != nil {
 		return err
 	}
 	logger.Debugf("Found extra identities %d", len(configs))
@@ -382,7 +384,6 @@ func (s *service) loadExtraResolvers() error {
 		Info(raw []byte, auditInfo []byte) (string, error)
 	}
 	var provider Provider
-	var err error
 	dm := s.deserializerManager()
 
 	for _, config := range configs {

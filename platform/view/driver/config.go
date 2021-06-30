@@ -3,6 +3,7 @@ Copyright IBM Corp. All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
 */
+
 package driver
 
 import (
@@ -12,8 +13,8 @@ import (
 
 type DecodeHookFuncType func(reflect.Type, reflect.Type, interface{}) (interface{}, error)
 
-// ConfigProvider models a configuration registry
-type ConfigProvider interface {
+// ConfigService models a configuration registry
+type ConfigService interface {
 	// GetString returns the value associated with the key as a string
 	GetString(key string) string
 	// GetDuration returns the value associated with the key as a duration
@@ -34,10 +35,12 @@ type ConfigProvider interface {
 	TranslatePath(path string) string
 }
 
-func GetConfigProvider(sp ServiceProvider) ConfigProvider {
-	s, err := sp.GetService(reflect.TypeOf((*ConfigProvider)(nil)))
+// GetConfigService returns an instance of the config service.
+// It panics, if no instance is found.
+func GetConfigService(sp ServiceProvider) ConfigService {
+	s, err := sp.GetService(reflect.TypeOf((*ConfigService)(nil)))
 	if err != nil {
 		panic(err)
 	}
-	return s.(ConfigProvider)
+	return s.(ConfigService)
 }

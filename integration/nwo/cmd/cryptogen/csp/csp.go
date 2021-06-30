@@ -3,6 +3,7 @@ Copyright IBM Corp. All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
 */
+
 package csp
 
 import (
@@ -98,13 +99,11 @@ func GeneratePrivateKey(keystorePath string) (*ecdsa.PrivateKey, error) {
 	return priv, err
 }
 
-/**
-ECDSA signer implements the crypto.Signer interface for ECDSA keys.  The
-Sign method ensures signatures are created with Low S values since Fabric
-normalizes all signatures to Low S.
-See https://github.com/bitcoin/bips/blob/master/bip-0146.mediawiki#low_s
-for more detail.
-*/
+// ECDSASigner implements the crypto.Signer interface for ECDSA keys.  The
+// Sign method ensures signatures are created with Low S values since Fabric
+// normalizes all signatures to Low S.
+// See https://github.com/bitcoin/bips/blob/master/bip-0146.mediawiki#low_s
+// for more detail.
 type ECDSASigner struct {
 	PrivateKey *ecdsa.PrivateKey
 }

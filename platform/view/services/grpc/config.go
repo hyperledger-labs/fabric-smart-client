@@ -76,7 +76,7 @@ type ServerConfig struct {
 	ServerStatsHandler *ServerStatsHandler
 }
 
-// ClientConfig defines the parameters for configuring a GRPCClient instance
+// ClientConfig defines the parameters for configuring a Client instance
 type ClientConfig struct {
 	// SecOpts defines the security parameters
 	SecOpts SecureOptions
@@ -96,7 +96,7 @@ func (cc ClientConfig) Clone() ClientConfig {
 }
 
 // SecureOptions defines the security parameters (e.g. TLS) for a
-// GRPCServer or GRPCClient instance
+// GRPCServer or Client instance
 type SecureOptions struct {
 	// VerifyCertificate, if not nil, is called after normal
 	// certificate verification by either a TLS client or server.

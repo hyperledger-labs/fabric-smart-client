@@ -3,16 +3,17 @@ Copyright IBM Corp. All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
 */
+
 package chaincode
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/chaincode/views"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 )
 
-func Topology() []nwo.Topology {
+func Topology() []api.Topology {
 	// Define a new Fabric topology starting from a Default configuration with a single channel `testchannel`
 	// and solo ordering.
 	fabricTopology := fabric.NewDefaultTopology()
@@ -62,5 +63,5 @@ func Topology() []nwo.Topology {
 	bob.RegisterViewFactory("Transfer", &views.TransferViewFactory{})
 
 	// Done
-	return []nwo.Topology{fabricTopology, fscTopology}
+	return []api.Topology{fabricTopology, fscTopology}
 }

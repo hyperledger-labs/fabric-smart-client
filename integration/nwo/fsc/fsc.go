@@ -3,6 +3,7 @@ Copyright IBM Corp. All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
 */
+
 package fsc
 
 import (
@@ -30,8 +31,8 @@ import (
 	"github.com/tedsuo/ifrit"
 	"github.com/tedsuo/ifrit/grouper"
 
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
-	registry2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/registry"
 	runner2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/runner"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/commands"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/identity"
@@ -42,13 +43,13 @@ import (
 )
 
 const (
-	ListenPort registry2.PortName = "Listen" // Port at which the fsc node might listen for some service
-	ViewPort   registry2.PortName = "View"   // Port at which the View Service Server respond
-	P2PPort    registry2.PortName = "P2P"    // Port at which the P2P Communication Layer respond
+	ListenPort api.PortName = "Listen" // Port at which the fsc node might listen for some service
+	ViewPort   api.PortName = "View"   // Port at which the View Service Server respond
+	P2PPort    api.PortName = "P2P"    // Port at which the P2P Communication Layer respond
 )
 
 type platform struct {
-	Registry          *registry2.Registry
+	Context           api.Context
 	Builder           *Builder
 	Topology          *Topology
 	EventuallyTimeout time.Duration
@@ -59,11 +60,11 @@ type platform struct {
 	colorIndex    int
 }
 
-func NewPlatform(Registry *registry2.Registry, builderClient BuilderClient) *platform {
+func NewPlatform(Registry api.Context, t api.Topology, builderClient BuilderClient) *platform {
 	p := &platform{
-		Registry:          Registry,
+		Context:           Registry,
 		Builder:           &Builder{client: builderClient},
-		Topology:          Registry.TopologyByName(TopologyName).(*Topology),
+		Topology:          t.(*Topology),
 		EventuallyTimeout: 10 * time.Minute,
 	}
 	p.CheckTopology()
@@ -71,6 +72,10 @@ func NewPlatform(Registry *registry2.Registry, builderClient BuilderClient) *pla
 }
 
 func (p *platform) Name() string {
+	return TopologyName
+}
+
+func (p *platform) Type() string {
 	return TopologyName
 }
 
@@ -99,19 +104,19 @@ func (p *platform) GenerateArtifacts() {
 			TLSRootCertFile:   path.Join(p.NodeLocalTLSDir(peer), "ca.crt"),
 			ConnectionTimeout: 10 * time.Minute,
 		}
-		p.Registry.ConnectionConfigs[peer.Name] = cc
+		p.Context.SetConnectionConfig(peer.Name, cc)
 
 		clientID, err := p.GetSigningIdentity(peer)
 		Expect(err).ToNot(HaveOccurred())
-		p.Registry.ClientSigningIdentities[peer.Name] = clientID
+		p.Context.SetClientSigningIdentity(peer.Name, clientID)
 
 		adminID, err := p.GetAdminSigningIdentity(peer)
 		Expect(err).ToNot(HaveOccurred())
-		p.Registry.AdminSigningIdentities[peer.Name] = adminID
+		p.Context.SetAdminSigningIdentity(peer.Name, adminID)
 
 		cert, err := ioutil.ReadFile(p.LocalMSPIdentityCert(peer))
 		Expect(err).ToNot(HaveOccurred())
-		p.Registry.ViewIdentities[peer.Name] = cert
+		p.Context.SetViewIdentity(peer.Name, cert)
 
 		p.GenerateCoreConfig(peer)
 	}
@@ -130,19 +135,19 @@ func (p *platform) Load() {
 			TLSRootCertFile:   path.Join(p.NodeLocalTLSDir(peer), "ca.crt"),
 			ConnectionTimeout: 10 * time.Minute,
 		}
-		p.Registry.ConnectionConfigs[peer.Name] = cc
+		p.Context.SetConnectionConfig(peer.Name, cc)
 
 		clientID, err := p.GetSigningIdentity(peer)
 		Expect(err).ToNot(HaveOccurred())
-		p.Registry.ClientSigningIdentities[peer.Name] = clientID
+		p.Context.SetClientSigningIdentity(peer.Name, clientID)
 
 		adminID, err := p.GetAdminSigningIdentity(peer)
 		Expect(err).ToNot(HaveOccurred())
-		p.Registry.AdminSigningIdentities[peer.Name] = adminID
+		p.Context.SetAdminSigningIdentity(peer.Name, adminID)
 
 		cert, err := ioutil.ReadFile(p.LocalMSPIdentityCert(peer))
 		Expect(err).ToNot(HaveOccurred())
-		p.Registry.ViewIdentities[peer.Name] = cert
+		p.Context.SetViewIdentity(peer.Name, cert)
 	}
 }
 
@@ -172,39 +177,39 @@ func (p *platform) PostRun() {
 		c, err := client.New(
 			&client.Config{
 				ID:      v.GetString("fsc.id"),
-				FSCNode: p.Registry.ConnectionConfigs[node.Name],
+				FSCNode: p.Context.ConnectionConfig(node.Name),
 			},
-			p.Registry.ClientSigningIdentities[node.Name],
+			p.Context.ClientSigningIdentity(node.Name),
 			crypto.NewProvider(),
 		)
 		Expect(err).NotTo(HaveOccurred())
 
-		p.Registry.ViewClients[node.Name] = c
-		p.Registry.ViewClients[node.ID()] = c
-		for _, identity := range p.Registry.ViewIdentityAliases[node.ID()] {
-			p.Registry.ViewClients[identity] = c
+		p.Context.SetViewClient(node.Name, c)
+		p.Context.SetViewClient(node.ID(), c)
+		for _, identity := range p.Context.GetViewIdentityAliases(node.ID()) {
+			p.Context.SetViewClient(identity, c)
 		}
-		for _, identity := range p.Registry.ViewIdentityAliases[node.Name] {
-			p.Registry.ViewClients[identity] = c
+		for _, identity := range p.Context.GetViewIdentityAliases(node.Name) {
+			p.Context.SetViewClient(identity, c)
 		}
 		for _, alias := range node.Aliases {
-			p.Registry.ViewClients[alias.Alias] = c
+			p.Context.SetViewClient(alias.Alias, c)
 		}
 
 		// Setup admins
-		if id, ok := p.Registry.AdminSigningIdentities[node.Name]; ok {
+		if id := p.Context.AdminSigningIdentity(node.Name); id != nil {
 			c, err := client.New(
 				&client.Config{
 					ID:      v.GetString("fsc.id"),
-					FSCNode: p.Registry.ConnectionConfigs[node.Name],
+					FSCNode: p.Context.ConnectionConfig(node.Name),
 				},
 				id,
 				crypto.NewProvider(),
 			)
 			Expect(err).NotTo(HaveOccurred())
 
-			p.Registry.ViewClients[node.Name+".admin"] = c
-			p.Registry.ViewClients[node.ID()+".admin"] = c
+			p.Context.SetViewClient(node.Name+".admin", c)
+			p.Context.SetViewClient(node.ID()+".admin", c)
 		}
 	}
 }
@@ -246,11 +251,11 @@ func (p *platform) CheckTopology() {
 			p.AdminLocalMSPIdentityCert(peer),
 		}
 		p.Peers = append(p.Peers, peer)
-		ports := registry2.Ports{}
+		ports := api.Ports{}
 		for _, portName := range PeerPortNames() {
-			ports[portName] = p.Registry.ReservePort()
+			ports[portName] = p.Context.ReservePort()
 		}
-		p.Registry.PortsByPeerID[peer.ID()] = ports
+		p.Context.SetPortsByPeerID("fsc", peer.ID(), ports)
 		users[orgName] = users[orgName] + 1
 		userNames[orgName] = append(userNames[orgName], node.Name)
 
@@ -299,7 +304,7 @@ func (p *platform) StartSession(cmd *exec.Cmd, name string) (*gexec.Session, err
 }
 
 func (p *platform) CryptoConfigPath() string {
-	return filepath.Join(p.Registry.RootDir, "fsc", "crypto-config.yaml")
+	return filepath.Join(p.Context.RootDir(), "fsc", "crypto-config.yaml")
 }
 
 func (p *platform) GenerateCryptoConfig() {
@@ -324,19 +329,18 @@ func (p *platform) GenerateCoreConfig(peer *node2.Peer) {
 	defer core.Close()
 
 	var extensions []string
-	for _, ext := range p.Registry.ExtensionsByPeerID[peer.Name] {
+	for _, ext := range p.Context.ExtensionsByPeerID(peer.Name) {
 		extensions = append(extensions, ext)
 	}
 
 	t, err := template.New("peer").Funcs(template.FuncMap{
-		"Peer":          func() *node2.Peer { return peer },
-		"Registry":      func() *registry2.Registry { return p.Registry },
-		"FabricEnabled": func() bool { return p.Registry.TopologyByName("fabric") != nil },
-		"Topology":      func() *Topology { return p.Topology },
-		"Extensions":    func() []string { return extensions },
-		"ToLower":       func(s string) string { return strings.ToLower(s) },
-		"ReplaceAll":    func(s, old, new string) string { return strings.Replace(s, old, new, -1) },
-		"NodeKVSPath":   func() string { return p.NodeKVSDir(peer) },
+		"Peer":        func() *node2.Peer { return peer },
+		"Context":     func() api.Context { return p.Context },
+		"Topology":    func() *Topology { return p.Topology },
+		"Extensions":  func() []string { return extensions },
+		"ToLower":     func(s string) string { return strings.ToLower(s) },
+		"ReplaceAll":  func(s, old, new string) string { return strings.Replace(s, old, new, -1) },
+		"NodeKVSPath": func() string { return p.NodeKVSDir(peer) },
 	}).Parse(node2.CoreTemplate)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(t.Execute(io.MultiWriter(core), p)).NotTo(HaveOccurred())
@@ -427,11 +431,11 @@ func (p *platform) GenerateCmd(output io.Writer, node *node2.Peer) string {
 }
 
 func (p *platform) NodeDir(peer *node2.Peer) string {
-	return filepath.Join(p.Registry.RootDir, "fsc", "fscnodes", peer.ID())
+	return filepath.Join(p.Context.RootDir(), "fsc", "fscnodes", peer.ID())
 }
 
 func (p *platform) NodeKVSDir(peer *node2.Peer) string {
-	return filepath.Join(p.Registry.RootDir, "fsc", "fscnodes", peer.ID(), "kvs")
+	return filepath.Join(p.Context.RootDir(), "fsc", "fscnodes", peer.ID(), "kvs")
 }
 
 func (p *platform) NodeConfigPath(peer *node2.Peer) string {
@@ -463,9 +467,9 @@ func (p *platform) NodeCmdPath(peer *node2.Peer) string {
 	return filepath.Join(p.NodeCmdDir(peer), "main.go")
 }
 
-func (p *platform) NodePort(node *node2.Peer, portName registry2.PortName) uint16 {
-	peerPorts := p.Registry.PortsByPeerID[node.ID()]
-	Expect(peerPorts).NotTo(BeNil(), "cannot find ports for [%s][%v]", node.ID(), p.Registry.PortsByPeerID)
+func (p *platform) NodePort(node *node2.Peer, portName api.PortName) uint16 {
+	peerPorts := p.Context.PortsByPeerID("fsc", node.ID())
+	Expect(peerPorts).NotTo(BeNil(), "cannot find ports for [%s][%v]", node.ID(), p.Context.PortsByPeerID)
 	return peerPorts[portName]
 }
 
@@ -486,7 +490,7 @@ func (p *platform) ClientAuthRequired() bool {
 }
 
 func (p *platform) CACertsBundlePath() string {
-	return filepath.Join(p.Registry.RootDir, "fsc", "crypto", "ca-certs.pem")
+	return filepath.Join(p.Context.RootDir(), "fsc", "crypto", "ca-certs.pem")
 }
 
 func (p *platform) NodeLocalTLSDir(peer *node2.Peer) string {
@@ -534,7 +538,7 @@ func (p *platform) AdminLocalMSPPrivateKey(peer *node2.Peer) string {
 }
 
 func (p *platform) CryptoPath() string {
-	return filepath.Join(p.Registry.RootDir, "fsc", "crypto")
+	return filepath.Join(p.Context.RootDir(), "fsc", "crypto")
 }
 
 func (p *platform) Organization(orgName string) *node2.Organization {
@@ -584,12 +588,12 @@ func (p *platform) PeersInOrg(orgName string) []*node2.Peer {
 	return peers
 }
 
-func (p *platform) PeerAddress(peer *node2.Peer, portName registry2.PortName) string {
+func (p *platform) PeerAddress(peer *node2.Peer, portName api.PortName) string {
 	return fmt.Sprintf("127.0.0.1:%d", p.PeerPort(peer, portName))
 }
 
-func (p *platform) PeerPort(peer *node2.Peer, portName registry2.PortName) uint16 {
-	peerPorts := p.Registry.PortsByPeerID[peer.ID()]
+func (p *platform) PeerPort(peer *node2.Peer, portName api.PortName) uint16 {
+	peerPorts := p.Context.PortsByPeerID("fsc", peer.ID())
 	Expect(peerPorts).NotTo(BeNil())
 	return peerPorts[portName]
 }
@@ -645,7 +649,7 @@ func (p *platform) GetAdminSigningIdentity(peer *node2.Peer) (identity.SigningId
 
 func (p *platform) listTLSCACertificates() []string {
 	fileName2Path := make(map[string]string)
-	filepath.Walk(filepath.Join(p.Registry.RootDir, "fsc", "crypto"), func(path string, info os.FileInfo, err error) error {
+	filepath.Walk(filepath.Join(p.Context.RootDir(), "fsc", "crypto"), func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -669,7 +673,7 @@ func (p *platform) peerLocalCryptoDir(peer *node2.Peer, cryptoType string) strin
 	Expect(org).NotTo(BeNil())
 
 	return filepath.Join(
-		p.Registry.RootDir,
+		p.Context.RootDir(),
 		"fsc",
 		"crypto",
 		"peerOrganizations",
@@ -685,7 +689,7 @@ func (p *platform) userLocalCryptoDir(peer *node2.Peer, user, cryptoMaterialType
 	Expect(org).NotTo(BeNil())
 
 	return filepath.Join(
-		p.Registry.RootDir,
+		p.Context.RootDir(),
 		"fsc",
 		"crypto",
 		"peerOrganizations",
@@ -707,6 +711,6 @@ func (p *platform) nextColor() string {
 }
 
 // PeerPortNames returns the list of ports that need to be reserved for a Peer.
-func PeerPortNames() []registry2.PortName {
-	return []registry2.PortName{ListenPort, P2PPort}
+func PeerPortNames() []api.PortName {
+	return []api.PortName{ListenPort, P2PPort}
 }

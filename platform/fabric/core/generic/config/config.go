@@ -3,6 +3,7 @@ Copyright IBM Corp. All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
 */
+
 package config
 
 import "time"
@@ -49,9 +50,6 @@ type Channel struct {
 }
 
 type Network struct {
-	Name    string `yaml:"name"`
-	Default bool   `yaml:"default,omitempty"`
-
 	BCCSP         *BCCSP              `yaml:"BCCSP,omitempty"`
 	MSPConfigPath string              `yaml:"mspConfigPath,omitempty"`
 	LocalMspId    string              `yaml:"localMspId,omitempty"`
@@ -61,4 +59,5 @@ type Network struct {
 	Peers         []*ConnectionConfig `yaml:"peers"`
 	Channels      []*Channel          `yaml:"channels"`
 	Vault         Vault               `yaml:"vault"`
+	Endpoint      *Endpoint           `yaml:"endpoint,omitempty"`
 }

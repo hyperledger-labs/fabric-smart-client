@@ -10,9 +10,9 @@ import (
 	"encoding/json"
 	"path/filepath"
 
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/commands"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 
-	"github.com/hyperledger/fabric/integration/nwo/commands"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
 )
@@ -31,11 +31,12 @@ type DiscoveredPeer struct {
 func DiscoverPeers(n *Network, p *topology.Peer, user, channelName string) func() []DiscoveredPeer {
 	return func() []DiscoveredPeer {
 		peers := commands.Peers{
-			UserCert: n.PeerUserCert(p, user),
-			UserKey:  n.PeerUserKey(p, user),
-			MSPID:    n.Organization(p.Organization).MSPID,
-			Server:   n.PeerAddress(p, ListenPort),
-			Channel:  channelName,
+			NetworkPrefix: n.Prefix,
+			UserCert:      n.PeerUserCert(p, user),
+			UserKey:       n.PeerUserKey(p, user),
+			MSPID:         n.Organization(p.Organization).MSPID,
+			Server:        n.PeerAddress(p, ListenPort),
+			Channel:       channelName,
 		}
 		if n.ClientAuthRequired {
 			peers.ClientCert = filepath.Join(n.PeerUserTLSDir(p, user), "client.crt")

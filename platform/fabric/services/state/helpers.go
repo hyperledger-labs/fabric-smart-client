@@ -3,6 +3,7 @@ Copyright IBM Corp. All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
 */
+
 package state
 
 import (
@@ -13,17 +14,17 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 )
 
-func GetWorldStateService(ctx view2.ServiceProvider) WorldStateService {
-	s, err := ctx.GetService(reflect.TypeOf((*WorldStateService)(nil)))
+func GetVaultService(ctx view2.ServiceProvider) VaultService {
+	s, err := ctx.GetService(reflect.TypeOf((*VaultService)(nil)))
 	if err != nil {
 		panic(err)
 	}
-	return s.(WorldStateService)
+	return s.(VaultService)
 }
 
-func GetWorldState(ctx view2.ServiceProvider) WorldState {
-	ws, err := GetWorldStateService(ctx).GetWorldState(
-		fabric.GetDefaultNetwork(ctx).Name(),
+func GetVault(ctx view2.ServiceProvider) Vault {
+	ws, err := GetVaultService(ctx).Vault(
+		fabric.GetDefaultFNS(ctx).Name(),
 		fabric.GetDefaultChannel(ctx).Name(),
 	)
 	if err != nil {
@@ -32,9 +33,9 @@ func GetWorldState(ctx view2.ServiceProvider) WorldState {
 	return ws
 }
 
-func GetWorldStateForChannel(ctx view2.ServiceProvider, channel string) WorldState {
-	ws, err := GetWorldStateService(ctx).GetWorldState(
-		fabric.GetDefaultNetwork(ctx).Name(),
+func GetVaultForChannel(ctx view2.ServiceProvider, channel string) Vault {
+	ws, err := GetVaultService(ctx).Vault(
+		fabric.GetDefaultFNS(ctx).Name(),
 		channel,
 	)
 	if err != nil {

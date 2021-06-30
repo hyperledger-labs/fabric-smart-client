@@ -80,7 +80,7 @@ var (
 )
 
 type CommonClient struct {
-	*grpc.GRPCClient
+	*grpc.Client
 	Address string
 	Sn      string
 }
