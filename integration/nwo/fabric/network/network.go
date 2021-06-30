@@ -224,6 +224,9 @@ func (n *Network) Cleanup() {
 	}
 
 	nw, err := n.DockerClient.NetworkInfo(n.NetworkID)
+	if _, ok := err.(*docker.NoSuchNetwork); err != nil && ok {
+		return
+	}
 	Expect(err).NotTo(HaveOccurred())
 
 	err = n.DockerClient.RemoveNetwork(nw.ID)
