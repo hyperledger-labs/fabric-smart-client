@@ -1,5 +1,6 @@
 topologies:
 - name: fsc
+  type: fsc
   peers:
   - name: initiator
     bootstrap: true

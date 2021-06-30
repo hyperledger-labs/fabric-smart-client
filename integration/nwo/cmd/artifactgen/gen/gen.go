@@ -14,7 +14,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 
@@ -22,7 +22,7 @@ import (
 )
 
 type Topology struct {
-	Name string `yaml:"name,omitempty"`
+	Type string `yaml:"type,omitempty"`
 }
 
 type Topologies struct {
@@ -80,9 +80,9 @@ func gen(args []string) error {
 	if err := yaml.Unmarshal(raw, t); err != nil {
 		return errors.Wrapf(err, "failed unmarshalling topology file [%s]", topologyFile)
 	}
-	t2 := []nwo.Topology{}
+	t2 := []api.Topology{}
 	for i, topology := range names.Topologies {
-		switch topology.Name {
+		switch topology.Type {
 		case fabric.TopologyName:
 			top := fabric.NewDefaultTopology()
 			r, err := yaml.Marshal(t.Topologies[i])

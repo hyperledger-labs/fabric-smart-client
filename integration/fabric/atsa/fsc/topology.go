@@ -8,12 +8,12 @@ package fsc
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/fsc/views"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 )
 
-func Topology() []nwo.Topology {
+func Topology() []api.Topology {
 	// Create an empty fabric topology
 	fabricTopology := fabric.NewDefaultTopology()
 	// Add two organizations with one peer each
@@ -56,5 +56,5 @@ func Topology() []nwo.Topology {
 	bob.RegisterResponder(&views.AcceptAssetView{}, &views.IssueView{})
 	bob.RegisterResponder(&views.TransferResponderView{}, &views.TransferView{})
 
-	return []nwo.Topology{fabricTopology, fscTopology}
+	return []api.Topology{fabricTopology, fscTopology}
 }

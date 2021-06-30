@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"path/filepath"
 
-	registry2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/registry"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 )
 
@@ -25,7 +25,7 @@ type Resolver struct {
 	Name      string
 	Domain    string
 	Identity  ResolverIdentity
-	Addresses map[registry2.PortName]string
+	Addresses map[api.PortName]string
 	Port      int
 	Aliases   []string
 }
@@ -41,7 +41,7 @@ func (n *Network) GenerateResolverMap() {
 	for _, peer := range n.Peers {
 		org := n.Organization(peer.Organization)
 
-		var addresses map[registry2.PortName]string
+		var addresses map[api.PortName]string
 		var path string
 		if peer.Type == topology.FSCPeer {
 			if n.topology.NodeOUs {
@@ -57,10 +57,10 @@ func (n *Network) GenerateResolverMap() {
 				path = n.PeerLocalMSPIdentityCert(peer)
 			}
 		} else {
-			addresses = map[registry2.PortName]string{
-				ViewPort:   fmt.Sprintf("127.0.0.1:%d", n.Registry.PortsByPeerID[peer.ID()][ListenPort]),
-				ListenPort: fmt.Sprintf("127.0.0.1:%d", n.Registry.PortsByPeerID[peer.ID()][ListenPort]),
-				P2PPort:    fmt.Sprintf("127.0.0.1:%d", n.Registry.PortsByPeerID[peer.ID()][P2PPort]),
+			addresses = map[api.PortName]string{
+				ViewPort:   fmt.Sprintf("127.0.0.1:%d", n.Context.PortsByPeerID(n.Prefix, peer.ID())[ListenPort]),
+				ListenPort: fmt.Sprintf("127.0.0.1:%d", n.Context.PortsByPeerID(n.Prefix, peer.ID())[ListenPort]),
+				P2PPort:    fmt.Sprintf("127.0.0.1:%d", n.Context.PortsByPeerID(n.Prefix, peer.ID())[P2PPort]),
 			}
 			path = n.PeerLocalMSPIdentityCert(peer)
 		}

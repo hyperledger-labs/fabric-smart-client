@@ -10,7 +10,8 @@ import "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/t
 
 func NewEmptyTopology() *topology.Topology {
 	return &topology.Topology{
-		TopologyName:  "fabric",
+		TopologyName:  "default",
+		TopologyType:  "fabric",
 		Organizations: []*topology.Organization{},
 		Consortiums:   []*topology.Consortium{},
 		Consensus:     &topology.Consensus{},

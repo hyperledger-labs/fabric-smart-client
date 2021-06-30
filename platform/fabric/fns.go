@@ -11,25 +11,23 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
+// NetworkService models a Fabric Network
 type NetworkService struct {
 	sp   view2.ServiceProvider
 	fns  driver.FabricNetworkService
 	name string
 }
 
+// DefaultChannel returns the name of the default channel
 func (n *NetworkService) DefaultChannel() string {
 	return n.fns.DefaultChannel()
 }
 
+// Channels returns the channel names
 func (n *NetworkService) Channels() []string {
 	return n.fns.Channels()
-}
-
-func (n *NetworkService) GetTLSRootCert(party view.Identity) ([][]byte, error) {
-	return n.fns.GetTLSRootCert(party)
 }
 
 // Peers returns the list of known Peer nodes

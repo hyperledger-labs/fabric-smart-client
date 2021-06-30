@@ -1,5 +1,7 @@
 topologies:
-- name: fabric
+- name: default
+  type: fabric
+  default: true
   logging:
     spec: grpc=error:chaincode=debug:endorser=debug:info
     format: '''%{color}%{time:2006-01-02 15:04:05.000 MST} [%{module}] %{shortfunc} -> %{level:.4s} %{id:03x}%{color:reset} %{message}'''
@@ -123,6 +125,7 @@ topologies:
     - Org1_peer_0
   chaincodemode: net
 - name: fsc
+  type: fsc
   peers:
   - NodeSynthesizer:
       Aliases:
@@ -132,13 +135,13 @@ topologies:
       Imports:
       - github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/fsc/views
       Responders:
-      - responder: '&views.ApproveView{}'
+      - responder: '&views.ApproverView{}'
         initiator: '&views.IssueView{}'
-      - responder: '&views.ApproveView{}'
+      - responder: '&views.ApproverView{}'
         initiator: '&views.AgreeToSellView{}'
-      - responder: '&views.ApproveView{}'
+      - responder: '&views.ApproverView{}'
         initiator: '&views.AgreeToBuyView{}'
-      - responder: '&views.ApproveView{}'
+      - responder: '&views.ApproverView{}'
         initiator: '&views.TransferView{}'
     name: approver
     bootstrap: true

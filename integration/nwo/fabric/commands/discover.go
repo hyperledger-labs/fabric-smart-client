@@ -7,17 +7,18 @@ SPDX-License-Identifier: Apache-2.0
 package commands
 
 type Peers struct {
-	UserCert   string
-	UserKey    string
-	MSPID      string
-	Server     string
-	Channel    string
-	ClientCert string
-	ClientKey  string
+	NetworkPrefix string
+	UserCert      string
+	UserKey       string
+	MSPID         string
+	Server        string
+	Channel       string
+	ClientCert    string
+	ClientKey     string
 }
 
 func (p Peers) SessionName() string {
-	return "discover-peers"
+	return p.NetworkPrefix + "-discover-peers"
 }
 
 func (p Peers) Args() []string {

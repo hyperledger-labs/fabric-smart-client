@@ -8,12 +8,12 @@ package iou
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou/views"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 )
 
-func Topology() []nwo.Topology {
+func Topology() []api.Topology {
 	// Define a Fabric topology with:
 	// 1. Three organization: Org1, Org2, and Org3
 	// 2. A namespace whose changes can be endorsed by Org1.
@@ -48,5 +48,5 @@ func Topology() []nwo.Topology {
 	lender.RegisterResponder(&views.UpdateIOUResponderView{}, &views.UpdateIOUView{})
 	lender.RegisterViewFactory("query", &views.QueryViewFactory{})
 
-	return []nwo.Topology{fabricTopology, fscTopology}
+	return []api.Topology{fabricTopology, fscTopology}
 }

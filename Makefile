@@ -54,6 +54,7 @@ integration-tests: docker-images dependencies
 	cd ./integration/fabric/iou; ginkgo -keepGoing --slowSpecThreshold 60 .
 	cd ./integration/fabric/atsa/chaincode; ginkgo -keepGoing --slowSpecThreshold 60 .
 	cd ./integration/fabric/atsa/fsc; ginkgo -keepGoing --slowSpecThreshold 60 .
+	cd ./integration/fabric/twonets; ginkgo -keepGoing --slowSpecThreshold 60 .
 	cd ./integration/fsc/pingpong/; ginkgo -keepGoing --slowSpecThreshold 60 .
 	cd ./integration/fsc/stoprestart; ginkgo -keepGoing --slowSpecThreshold 60 .
 
@@ -68,6 +69,7 @@ clean:
 	rm -rf ./integration/fabric/atsa/chaincode/cmd
 	rm -rf ./integration/fabric/atsa/fsc/cmd
 	rm -rf ./integration/fabric/iou/cmd/
+	rm -rf ./integration/fabric/twonets/cmd
 	rm -rf ./integration/fsc/stoprestart/cmd
 	rm -rf ./integration/fsc/pingpong/cmd/responder
 	rm -rf ./integration/fscnodes

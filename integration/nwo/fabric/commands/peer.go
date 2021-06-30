@@ -9,12 +9,13 @@ package commands
 import "strconv"
 
 type NodeStart struct {
-	PeerID  string
-	DevMode bool
+	NetworkPrefix string
+	PeerID        string
+	DevMode       bool
 }
 
 func (n NodeStart) SessionName() string {
-	return n.PeerID
+	return n.NetworkPrefix + "-" + n.PeerID
 }
 
 func (n NodeStart) Args() []string {
@@ -26,10 +27,11 @@ func (n NodeStart) Args() []string {
 }
 
 type NodeReset struct {
+	NetworkPrefix string
 }
 
 func (n NodeReset) SessionName() string {
-	return "peer-node-reset"
+	return n.NetworkPrefix + "-peer-node-reset"
 }
 
 func (n NodeReset) Args() []string {
@@ -39,12 +41,13 @@ func (n NodeReset) Args() []string {
 }
 
 type NodeRollback struct {
-	ChannelID   string
-	BlockNumber int
+	NetworkPrefix string
+	ChannelID     string
+	BlockNumber   int
 }
 
 func (n NodeRollback) SessionName() string {
-	return "peer-node-rollback"
+	return n.NetworkPrefix + "-peer-node-rollback"
 }
 
 func (n NodeRollback) Args() []string {
@@ -56,11 +59,12 @@ func (n NodeRollback) Args() []string {
 }
 
 type NodePause struct {
-	ChannelID string
+	NetworkPrefix string
+	ChannelID     string
 }
 
 func (n NodePause) SessionName() string {
-	return "peer-node-pause"
+	return n.NetworkPrefix + "-peer-node-pause"
 }
 
 func (n NodePause) Args() []string {
@@ -71,11 +75,12 @@ func (n NodePause) Args() []string {
 }
 
 type NodeResume struct {
-	ChannelID string
+	NetworkPrefix string
+	ChannelID     string
 }
 
 func (n NodeResume) SessionName() string {
-	return "peer-node-resume"
+	return n.NetworkPrefix + "-peer-node-resume"
 }
 
 func (n NodeResume) Args() []string {
@@ -86,15 +91,16 @@ func (n NodeResume) Args() []string {
 }
 
 type ChannelCreate struct {
-	ChannelID   string
-	Orderer     string
-	File        string
-	OutputBlock string
-	ClientAuth  bool
+	NetworkPrefix string
+	ChannelID     string
+	Orderer       string
+	File          string
+	OutputBlock   string
+	ClientAuth    bool
 }
 
 func (c ChannelCreate) SessionName() string {
-	return "peer-channel-create"
+	return c.NetworkPrefix + "-peer-channel-create"
 }
 
 func (c ChannelCreate) Args() []string {
@@ -113,12 +119,13 @@ func (c ChannelCreate) Args() []string {
 }
 
 type ChannelJoin struct {
-	BlockPath  string
-	ClientAuth bool
+	NetworkPrefix string
+	BlockPath     string
+	ClientAuth    bool
 }
 
 func (c ChannelJoin) SessionName() string {
-	return "peer-channel-join"
+	return c.NetworkPrefix + "-peer-channel-join"
 }
 
 func (c ChannelJoin) Args() []string {
@@ -133,15 +140,16 @@ func (c ChannelJoin) Args() []string {
 }
 
 type ChannelFetch struct {
-	ChannelID  string
-	Block      string
-	Orderer    string
-	OutputFile string
-	ClientAuth bool
+	NetworkPrefix string
+	ChannelID     string
+	Block         string
+	Orderer       string
+	OutputFile    string
+	ClientAuth    bool
 }
 
 func (c ChannelFetch) SessionName() string {
-	return "peer-channel-fetch"
+	return c.NetworkPrefix + "-peer-channel-fetch"
 }
 
 func (c ChannelFetch) Args() []string {
@@ -165,15 +173,16 @@ func (c ChannelFetch) Args() []string {
 }
 
 type ChaincodePackage struct {
-	Path       string
-	Lang       string
-	Label      string
-	OutputFile string
-	ClientAuth bool
+	NetworkPrefix string
+	Path          string
+	Lang          string
+	Label         string
+	OutputFile    string
+	ClientAuth    bool
 }
 
 func (c ChaincodePackage) SessionName() string {
-	return "peer-lifecycle-chaincode-package"
+	return c.NetworkPrefix + "-peer-lifecycle-chaincode-package"
 }
 
 func (c ChaincodePackage) Args() []string {
@@ -193,16 +202,17 @@ func (c ChaincodePackage) Args() []string {
 }
 
 type ChaincodePackageLegacy struct {
-	Name       string
-	Version    string
-	Path       string
-	Lang       string
-	OutputFile string
-	ClientAuth bool
+	NetworkPrefix string
+	Name          string
+	Version       string
+	Path          string
+	Lang          string
+	OutputFile    string
+	ClientAuth    bool
 }
 
 func (c ChaincodePackageLegacy) SessionName() string {
-	return "peer-chaincode-package"
+	return c.NetworkPrefix + "-peer-chaincode-package"
 }
 
 func (c ChaincodePackageLegacy) Args() []string {
@@ -225,13 +235,14 @@ func (c ChaincodePackageLegacy) Args() []string {
 }
 
 type ChaincodeInstall struct {
+	NetworkPrefix string
 	PackageFile   string
 	PeerAddresses []string
 	ClientAuth    bool
 }
 
 func (c ChaincodeInstall) SessionName() string {
-	return "peer-lifecycle-chaincode-install"
+	return c.NetworkPrefix + "-peer-lifecycle-chaincode-install"
 }
 
 func (c ChaincodeInstall) Args() []string {
@@ -251,13 +262,14 @@ func (c ChaincodeInstall) Args() []string {
 }
 
 type ChaincodeGetInstalledPackage struct {
+	NetworkPrefix   string
 	PackageID       string
 	OutputDirectory string
 	ClientAuth      bool
 }
 
 func (c ChaincodeGetInstalledPackage) SessionName() string {
-	return "peer-lifecycle-chaincode-getinstalledpackage"
+	return c.NetworkPrefix + "-peer-lifecycle-chaincode-getinstalledpackage"
 }
 
 func (c ChaincodeGetInstalledPackage) Args() []string {
@@ -274,16 +286,17 @@ func (c ChaincodeGetInstalledPackage) Args() []string {
 }
 
 type ChaincodeInstallLegacy struct {
-	Name        string
-	Version     string
-	Path        string
-	Lang        string
-	PackageFile string
-	ClientAuth  bool
+	NetworkPrefix string
+	Name          string
+	Version       string
+	Path          string
+	Lang          string
+	PackageFile   string
+	ClientAuth    bool
 }
 
 func (c ChaincodeInstallLegacy) SessionName() string {
-	return "peer-chaincode-install"
+	return c.NetworkPrefix + "-peer-chaincode-install"
 }
 
 func (c ChaincodeInstallLegacy) Args() []string {
@@ -314,6 +327,7 @@ func (c ChaincodeInstallLegacy) Args() []string {
 }
 
 type ChaincodeApproveForMyOrg struct {
+	NetworkPrefix       string
 	ChannelID           string
 	Orderer             string
 	Name                string
@@ -332,7 +346,7 @@ type ChaincodeApproveForMyOrg struct {
 }
 
 func (c ChaincodeApproveForMyOrg) SessionName() string {
-	return "peer-lifecycle-chaincode-approveformyorg"
+	return c.NetworkPrefix + "-peer-lifecycle-chaincode-approveformyorg"
 }
 
 func (c ChaincodeApproveForMyOrg) Args() []string {
@@ -370,6 +384,7 @@ func (c ChaincodeApproveForMyOrg) Args() []string {
 }
 
 type ChaincodeCheckCommitReadiness struct {
+	NetworkPrefix       string
 	ChannelID           string
 	Name                string
 	Version             string
@@ -385,7 +400,7 @@ type ChaincodeCheckCommitReadiness struct {
 }
 
 func (c ChaincodeCheckCommitReadiness) SessionName() string {
-	return "peer-lifecycle-chaincode-checkcommitreadiness"
+	return c.NetworkPrefix + "-peer-lifecycle-chaincode-checkcommitreadiness"
 }
 
 func (c ChaincodeCheckCommitReadiness) Args() []string {
@@ -421,6 +436,7 @@ func (c ChaincodeCheckCommitReadiness) Args() []string {
 }
 
 type ChaincodeCommit struct {
+	NetworkPrefix       string
 	ChannelID           string
 	Orderer             string
 	Name                string
@@ -438,7 +454,7 @@ type ChaincodeCommit struct {
 }
 
 func (c ChaincodeCommit) SessionName() string {
-	return "peer-lifecycle-chaincode-commit"
+	return c.NetworkPrefix + "-peer-lifecycle-chaincode-commit"
 }
 
 func (c ChaincodeCommit) Args() []string {
@@ -470,6 +486,7 @@ func (c ChaincodeCommit) Args() []string {
 }
 
 type ChaincodeInstantiateLegacy struct {
+	NetworkPrefix     string
 	ChannelID         string
 	Orderer           string
 	Name              string
@@ -482,7 +499,7 @@ type ChaincodeInstantiateLegacy struct {
 }
 
 func (c ChaincodeInstantiateLegacy) SessionName() string {
-	return "peer-chaincode-instantiate"
+	return c.NetworkPrefix + "-peer-chaincode-instantiate"
 }
 
 func (c ChaincodeInstantiateLegacy) Args() []string {
@@ -510,11 +527,12 @@ func (c ChaincodeInstantiateLegacy) Args() []string {
 }
 
 type ChaincodeQueryInstalled struct {
-	ClientAuth bool
+	NetworkPrefix string
+	ClientAuth    bool
 }
 
 func (c ChaincodeQueryInstalled) SessionName() string {
-	return "peer-lifecycle-chaincode-queryinstalled"
+	return c.NetworkPrefix + "-peer-lifecycle-chaincode-queryinstalled"
 }
 
 func (c ChaincodeQueryInstalled) Args() []string {
@@ -529,11 +547,12 @@ func (c ChaincodeQueryInstalled) Args() []string {
 }
 
 type ChaincodeListInstalledLegacy struct {
-	ClientAuth bool
+	NetworkPrefix string
+	ClientAuth    bool
 }
 
 func (c ChaincodeListInstalledLegacy) SessionName() string {
-	return "peer-chaincode-list-installed"
+	return c.NetworkPrefix + "-peer-chaincode-list-installed"
 }
 
 func (c ChaincodeListInstalledLegacy) Args() []string {
@@ -547,13 +566,14 @@ func (c ChaincodeListInstalledLegacy) Args() []string {
 }
 
 type ChaincodeListCommitted struct {
-	ChannelID  string
-	Name       string
-	ClientAuth bool
+	NetworkPrefix string
+	ChannelID     string
+	Name          string
+	ClientAuth    bool
 }
 
 func (c ChaincodeListCommitted) SessionName() string {
-	return "peer-lifecycle-chaincode-querycommitted"
+	return c.NetworkPrefix + "-peer-lifecycle-chaincode-querycommitted"
 }
 
 func (c ChaincodeListCommitted) Args() []string {
@@ -570,12 +590,13 @@ func (c ChaincodeListCommitted) Args() []string {
 }
 
 type ChaincodeListInstantiatedLegacy struct {
-	ChannelID  string
-	ClientAuth bool
+	NetworkPrefix string
+	ChannelID     string
+	ClientAuth    bool
 }
 
 func (c ChaincodeListInstantiatedLegacy) SessionName() string {
-	return "peer-chaincode-list-instantiated"
+	return c.NetworkPrefix + "-peer-chaincode-list-instantiated"
 }
 
 func (c ChaincodeListInstantiatedLegacy) Args() []string {
@@ -590,14 +611,15 @@ func (c ChaincodeListInstantiatedLegacy) Args() []string {
 }
 
 type ChaincodeQuery struct {
-	ChannelID  string
-	Name       string
-	Ctor       string
-	ClientAuth bool
+	NetworkPrefix string
+	ChannelID     string
+	Name          string
+	Ctor          string
+	ClientAuth    bool
 }
 
 func (c ChaincodeQuery) SessionName() string {
-	return "peer-chaincode-query"
+	return c.NetworkPrefix + "-peer-chaincode-query"
 }
 
 func (c ChaincodeQuery) Args() []string {
@@ -614,6 +636,7 @@ func (c ChaincodeQuery) Args() []string {
 }
 
 type ChaincodeInvoke struct {
+	NetworkPrefix string
 	ChannelID     string
 	Orderer       string
 	Name          string
@@ -626,7 +649,7 @@ type ChaincodeInvoke struct {
 }
 
 func (c ChaincodeInvoke) SessionName() string {
-	return "peer-chaincode-invoke"
+	return c.NetworkPrefix + "-peer-chaincode-invoke"
 }
 
 func (c ChaincodeInvoke) Args() []string {
@@ -657,6 +680,7 @@ func (c ChaincodeInvoke) Args() []string {
 }
 
 type ChaincodeUpgradeLegacy struct {
+	NetworkPrefix     string
 	Name              string
 	Version           string
 	Path              string // optional
@@ -669,7 +693,7 @@ type ChaincodeUpgradeLegacy struct {
 }
 
 func (c ChaincodeUpgradeLegacy) SessionName() string {
-	return "peer-chaincode-upgrade"
+	return c.NetworkPrefix + "-peer-chaincode-upgrade"
 }
 
 func (c ChaincodeUpgradeLegacy) Args() []string {
@@ -695,12 +719,13 @@ func (c ChaincodeUpgradeLegacy) Args() []string {
 }
 
 type SignConfigTx struct {
-	File       string
-	ClientAuth bool
+	NetworkPrefix string
+	File          string
+	ClientAuth    bool
 }
 
 func (s SignConfigTx) SessionName() string {
-	return "peer-channel-signconfigtx"
+	return s.NetworkPrefix + "-peer-channel-signconfigtx"
 }
 
 func (s SignConfigTx) Args() []string {
@@ -715,14 +740,15 @@ func (s SignConfigTx) Args() []string {
 }
 
 type ChannelUpdate struct {
-	ChannelID  string
-	Orderer    string
-	File       string
-	ClientAuth bool
+	NetworkPrefix string
+	ChannelID     string
+	Orderer       string
+	File          string
+	ClientAuth    bool
 }
 
 func (c ChannelUpdate) SessionName() string {
-	return "peer-channel-update"
+	return c.NetworkPrefix + "-peer-channel-update"
 }
 
 func (c ChannelUpdate) Args() []string {
@@ -739,12 +765,13 @@ func (c ChannelUpdate) Args() []string {
 }
 
 type ChannelInfo struct {
-	ChannelID  string
-	ClientAuth bool
+	NetworkPrefix string
+	ChannelID     string
+	ClientAuth    bool
 }
 
 func (c ChannelInfo) SessionName() string {
-	return "peer-channel-info"
+	return c.NetworkPrefix + "-peer-channel-info"
 }
 
 func (c ChannelInfo) Args() []string {
