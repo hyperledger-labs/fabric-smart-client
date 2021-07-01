@@ -9,13 +9,13 @@ package finality
 import (
 	"time"
 
+	view3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -83,8 +83,8 @@ func (f *finality) IsFinalForParties(txID string, parties ...view.Identity) erro
 			}
 		}
 
-		c, err := client.New(
-			&client.Config{
+		c, err := view3.New(
+			&view3.Config{
 				ID: "",
 				FSCNode: &grpc.ConnectionConfig{
 					Address:           endpoints[view2.ViewPort],

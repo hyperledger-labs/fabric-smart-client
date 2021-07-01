@@ -4,7 +4,7 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package server
+package view
 
 import (
 	"context"
@@ -15,7 +15,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/protos"
+	protos2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view/protos"
 )
 
 var logger = flogging.MustGetLogger("view-sdk.server")
@@ -25,7 +25,7 @@ var logger = flogging.MustGetLogger("view-sdk.server")
 // A PolicyChecker is responsible for performing policy based access control
 // checks related to view commands.
 type PolicyChecker interface {
-	Check(sc *protos.SignedCommand, c *protos.Command) error
+	Check(sc *protos2.SignedCommand, c *protos2.Command) error
 }
 
 // Service is responsible for processing view commands.
@@ -37,7 +37,7 @@ type server struct {
 	streamers  map[reflect.Type]Streamer
 }
 
-func NewServer(Marshaler Marshaler, PolicyChecker PolicyChecker) (*server, error) {
+func NewViewServiceServer(Marshaler Marshaler, PolicyChecker PolicyChecker) (*server, error) {
 	return &server{
 		Marshaler:     Marshaler,
 		PolicyChecker: PolicyChecker,
@@ -46,7 +46,7 @@ func NewServer(Marshaler Marshaler, PolicyChecker PolicyChecker) (*server, error
 	}, nil
 }
 
-func (s *server) ProcessCommand(ctx context.Context, sc *protos.SignedCommand) (cr *protos.SignedCommandResponse, err error) {
+func (s *server) ProcessCommand(ctx context.Context, sc *protos2.SignedCommand) (cr *protos2.SignedCommandResponse, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Printf("ProcessCommand triggered panic: %s\n%s\n", r, debug.Stack())
@@ -81,8 +81,8 @@ func (s *server) ProcessCommand(ctx context.Context, sc *protos.SignedCommand) (
 	}
 	if err != nil {
 		logger.Errorf("command execution failed with err [%s]", err)
-		payload = &protos.CommandResponse_Err{
-			Err: &protos.Error{Message: err.Error()},
+		payload = &protos2.CommandResponse_Err{
+			Err: &protos2.Error{Message: err.Error()},
 		}
 	}
 
@@ -93,7 +93,7 @@ func (s *server) ProcessCommand(ctx context.Context, sc *protos.SignedCommand) (
 	return
 }
 
-func (s *server) StreamCommand(sc *protos.SignedCommand, commandServer protos.ViewService_StreamCommandServer) (err error) {
+func (s *server) StreamCommand(sc *protos2.SignedCommand, commandServer protos2.ViewService_StreamCommandServer) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Printf("ProcessCommand triggered panic: %s\n%s\n", r, debug.Stack())
@@ -134,7 +134,7 @@ func (s *server) StreamCommand(sc *protos.SignedCommand, commandServer protos.Vi
 	return nil
 }
 
-func (s *server) ValidateHeader(header *protos.Header) error {
+func (s *server) ValidateHeader(header *protos2.Header) error {
 	if header == nil {
 		return errors.New("command header is required")
 	}
@@ -150,11 +150,11 @@ func (s *server) ValidateHeader(header *protos.Header) error {
 	return nil
 }
 
-func (s *server) MarshalErrorResponse(command []byte, e error) (*protos.SignedCommandResponse, error) {
+func (s *server) MarshalErrorResponse(command []byte, e error) (*protos2.SignedCommandResponse, error) {
 	return s.Marshaler.MarshalCommandResponse(
 		command,
-		&protos.CommandResponse_Err{
-			Err: &protos.Error{Message: e.Error()},
+		&protos2.CommandResponse_Err{
+			Err: &protos2.Error{Message: e.Error()},
 		})
 }
 
@@ -166,7 +166,7 @@ func (s *server) RegisterStreamer(typ reflect.Type, streamer Streamer) {
 	s.streamers[typ] = streamer
 }
 
-func (s *server) streamError(err error, sc *protos.SignedCommand, commandServer protos.ViewService_StreamCommandServer) error {
+func (s *server) streamError(err error, sc *protos2.SignedCommand, commandServer protos2.ViewService_StreamCommandServer) error {
 	r, err2 := s.MarshalErrorResponse(sc.Command, err)
 	if err2 != nil {
 		return errors.WithMessagef(err, "failed creating resposse [%s]", err2)

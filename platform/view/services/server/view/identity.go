@@ -4,7 +4,7 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package server
+package view
 
 //go:generate counterfeiter -o client/mock/identity.go -fake-name Identity . Identity
 

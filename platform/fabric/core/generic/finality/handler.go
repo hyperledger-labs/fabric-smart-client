@@ -12,12 +12,12 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/protos"
+	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view"
+	protos2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view/protos"
 )
 
 type Server interface {
-	RegisterProcessor(typ reflect.Type, p server.Processor)
+	RegisterProcessor(typ reflect.Type, p view2.Processor)
 }
 
 type finalityHandler struct {
@@ -26,11 +26,11 @@ type finalityHandler struct {
 
 func InstallHandler(server Server, network Network) {
 	fh := &finalityHandler{network: network}
-	server.RegisterProcessor(reflect.TypeOf(&protos.Command_IsTxFinal{}), fh.isTxFinal)
+	server.RegisterProcessor(reflect.TypeOf(&protos2.Command_IsTxFinal{}), fh.isTxFinal)
 }
 
-func (s *finalityHandler) isTxFinal(ctx context.Context, command *protos.Command) (interface{}, error) {
-	isTxFinalCommand := command.Payload.(*protos.Command_IsTxFinal).IsTxFinal
+func (s *finalityHandler) isTxFinal(ctx context.Context, command *protos2.Command) (interface{}, error) {
+	isTxFinalCommand := command.Payload.(*protos2.Command_IsTxFinal).IsTxFinal
 
 	logger.Debugf("Answering: Is [%s] final?", isTxFinalCommand.Txid)
 
@@ -42,11 +42,11 @@ func (s *finalityHandler) isTxFinal(ctx context.Context, command *protos.Command
 	err = ch.IsFinal(isTxFinalCommand.Txid)
 	if err != nil {
 		logger.Debugf("Answering: Is [%s] final? No", isTxFinalCommand.Txid)
-		return &protos.CommandResponse_IsTxFinalResponse{IsTxFinalResponse: &protos.IsTxFinalResponse{
+		return &protos2.CommandResponse_IsTxFinalResponse{IsTxFinalResponse: &protos2.IsTxFinalResponse{
 			Payload: []byte(err.Error()),
 		}}, nil
 	}
 
 	logger.Debugf("Answering: Is [%s] final? Yes", isTxFinalCommand.Txid)
-	return &protos.CommandResponse_IsTxFinalResponse{IsTxFinalResponse: &protos.IsTxFinalResponse{}}, nil
+	return &protos2.CommandResponse_IsTxFinalResponse{IsTxFinalResponse: &protos2.IsTxFinalResponse{}}, nil
 }

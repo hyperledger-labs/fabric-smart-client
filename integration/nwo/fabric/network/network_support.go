@@ -1452,11 +1452,12 @@ const (
 	ViewPort       api.PortName = "View"
 	P2PPort        api.PortName = "P2P"
 	ClusterPort    api.PortName = "Cluster"
+	WebPort        api.PortName = "Web"
 )
 
 // PeerPortNames returns the list of ports that need to be reserved for a Peer.
 func PeerPortNames() []api.PortName {
-	return []api.PortName{ListenPort, ChaincodePort, EventsPort, ProfilePort, OperationsPort, P2PPort}
+	return []api.PortName{ListenPort, ChaincodePort, EventsPort, ProfilePort, OperationsPort, P2PPort, WebPort}
 }
 
 // OrdererPortNames  returns the list of ports that need to be reserved for an

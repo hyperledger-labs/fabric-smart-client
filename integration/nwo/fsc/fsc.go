@@ -38,7 +38,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/identity"
 	node2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/crypto"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 )
 
@@ -174,8 +174,8 @@ func (p *platform) PostRun() {
 		Expect(err).NotTo(HaveOccurred())
 
 		// Get from the registry the signing identity and the connection config
-		c, err := client.New(
-			&client.Config{
+		c, err := view.New(
+			&view.Config{
 				ID:      v.GetString("fsc.id"),
 				FSCNode: p.Context.ConnectionConfig(node.Name),
 			},
@@ -198,8 +198,8 @@ func (p *platform) PostRun() {
 
 		// Setup admins
 		if id := p.Context.AdminSigningIdentity(node.Name); id != nil {
-			c, err := client.New(
-				&client.Config{
+			c, err := view.New(
+				&view.Config{
 					ID:      v.GetString("fsc.id"),
 					FSCNode: p.Context.ConnectionConfig(node.Name),
 				},

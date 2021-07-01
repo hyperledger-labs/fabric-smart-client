@@ -28,6 +28,7 @@ require (
 	github.com/google/go-cmp v0.5.0
 	github.com/google/uuid v1.2.0 // indirect
 	github.com/gordonklaus/ineffassign v0.0.0-20210522101830-0589229737b2 // indirect
+	github.com/gorilla/mux v1.8.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.2.0
 	github.com/hashicorp/go-version v1.2.0
 	github.com/hyperledger/fabric v1.4.0-rc1.0.20200930182727-344fda602252

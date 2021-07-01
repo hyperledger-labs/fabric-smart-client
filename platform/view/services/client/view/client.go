@@ -4,7 +4,7 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package client
+package view
 
 import (
 	"context"
@@ -19,10 +19,10 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	protos2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view/protos"
 
 	grpc2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	hash2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/protos"
 )
 
 var logger = flogging.MustGetLogger("view-sdk.client")
@@ -40,7 +40,7 @@ type SigningIdentity interface {
 // ViewServiceClient defines an interface that creates a client to communicate with the view service in a peer
 type ViewServiceClient interface {
 	// CreateViewClient creates a grpc connection and client to view peer
-	CreateViewClient() (*grpc.ClientConn, protos.ViewServiceClient, error)
+	CreateViewClient() (*grpc.ClientConn, protos2.ViewServiceClient, error)
 
 	// Certificate returns tls client certificate
 	Certificate() *tls.Certificate
@@ -53,7 +53,7 @@ type ViewServiceClientImpl struct {
 	GRPCClient         *grpc2.Client
 }
 
-func (pc *ViewServiceClientImpl) CreateViewClient() (*grpc.ClientConn, protos.ViewServiceClient, error) {
+func (pc *ViewServiceClientImpl) CreateViewClient() (*grpc.ClientConn, protos2.ViewServiceClient, error) {
 	logger.Debugf("opening connection to [%s]", pc.Address)
 	conn, err := pc.GRPCClient.NewConnection(pc.Address)
 	if err != nil {
@@ -62,7 +62,7 @@ func (pc *ViewServiceClientImpl) CreateViewClient() (*grpc.ClientConn, protos.Vi
 	}
 	logger.Debugf("opening connection to [%s], done.", pc.Address)
 
-	return conn, protos.NewViewServiceClient(conn), nil
+	return conn, protos2.NewViewServiceClient(conn), nil
 }
 
 func (pc *ViewServiceClientImpl) Certificate() *tls.Certificate {
@@ -103,7 +103,7 @@ func New(config *Config, sID SigningIdentity, hasher hash2.Hasher) (*client, err
 
 func (s *client) CallView(fid string, input []byte) (interface{}, error) {
 	logger.Debugf("Calling view [%s] on input [%s]", fid, string(input))
-	payload := &protos.Command_CallView{CallView: &protos.CallView{
+	payload := &protos2.Command_CallView{CallView: &protos2.CallView{
 		Fid:   fid,
 		Input: input,
 	}}
@@ -133,7 +133,7 @@ func (s *client) Track(cid string) string {
 
 func (s *client) IsTxFinal(txid string) error {
 	logger.Debugf("Calling IsTxFinal on txid [%s]", txid)
-	payload := &protos.Command_IsTxFinal{IsTxFinal: &protos.IsTxFinal{
+	payload := &protos2.Command_IsTxFinal{IsTxFinal: &protos2.IsTxFinal{
 		Txid: txid,
 	}}
 	sc, err := s.CreateSignedCommand(payload, s.SigningIdentity)
@@ -164,7 +164,7 @@ func (s *client) IsTxFinal(txid string) error {
 }
 
 // processCommand calls view client to send grpc request and returns a CommandResponse
-func (s *client) processCommand(ctx context.Context, sc *protos.SignedCommand) (*protos.CommandResponse, error) {
+func (s *client) processCommand(ctx context.Context, sc *protos2.SignedCommand) (*protos2.CommandResponse, error) {
 	logger.Debugf("get view service client...")
 	conn, client, err := s.ViewServiceClient.CreateViewClient()
 	logger.Debugf("get view service client...done")
@@ -185,7 +185,7 @@ func (s *client) processCommand(ctx context.Context, sc *protos.SignedCommand) (
 	}
 
 	logger.Debugf("parse answer [%s]", hash2.Hashable(scr.Response).String())
-	commandResp := &protos.CommandResponse{}
+	commandResp := &protos2.CommandResponse{}
 	err = proto.Unmarshal(scr.Response, commandResp)
 	if err != nil {
 		logger.Errorf("failed to unmarshal command response [%s]", err)
@@ -200,7 +200,7 @@ func (s *client) processCommand(ctx context.Context, sc *protos.SignedCommand) (
 	return commandResp, nil
 }
 
-func (s *client) streamCommand(ctx context.Context, sc *protos.SignedCommand, opts ...grpc.CallOption) (protos.ViewService_StreamCommandClient, error) {
+func (s *client) streamCommand(ctx context.Context, sc *protos2.SignedCommand, opts ...grpc.CallOption) (protos2.ViewService_StreamCommandClient, error) {
 	logger.Debugf("[stream] get view service client...")
 	conn, client, err := s.ViewServiceClient.CreateViewClient()
 	logger.Debugf("[stream] get view service client...done")
@@ -224,7 +224,7 @@ func (s *client) streamCommand(ctx context.Context, sc *protos.SignedCommand, op
 	return scc, nil
 }
 
-func (s *client) CreateSignedCommand(payload interface{}, signingIdentity SigningIdentity) (*protos.SignedCommand, error) {
+func (s *client) CreateSignedCommand(payload interface{}, signingIdentity SigningIdentity) (*protos2.SignedCommand, error) {
 	command, err := commandFromPayload(payload)
 	if err != nil {
 		return nil, err
@@ -251,7 +251,7 @@ func (s *client) CreateSignedCommand(payload interface{}, signingIdentity Signin
 	if err != nil {
 		return nil, err
 	}
-	command.Header = &protos.Header{
+	command.Header = &protos2.Header{
 		Timestamp:   ts,
 		Nonce:       nonce,
 		Creator:     creator,
@@ -268,23 +268,23 @@ func (s *client) CreateSignedCommand(payload interface{}, signingIdentity Signin
 		return nil, err
 	}
 
-	sc := &protos.SignedCommand{
+	sc := &protos2.SignedCommand{
 		Command:   raw,
 		Signature: signature,
 	}
 	return sc, nil
 }
 
-func commandFromPayload(payload interface{}) (*protos.Command, error) {
+func commandFromPayload(payload interface{}) (*protos2.Command, error) {
 	switch t := payload.(type) {
-	case *protos.Command_InitiateView:
-		return &protos.Command{Payload: t}, nil
-	case *protos.Command_TrackView:
-		return &protos.Command{Payload: t}, nil
-	case *protos.Command_CallView:
-		return &protos.Command{Payload: t}, nil
-	case *protos.Command_IsTxFinal:
-		return &protos.Command{Payload: t}, nil
+	case *protos2.Command_InitiateView:
+		return &protos2.Command{Payload: t}, nil
+	case *protos2.Command_TrackView:
+		return &protos2.Command{Payload: t}, nil
+	case *protos2.Command_CallView:
+		return &protos2.Command{Payload: t}, nil
+	case *protos2.Command_IsTxFinal:
+		return &protos2.Command{Payload: t}, nil
 	default:
 		return nil, errors.Errorf("command type not recognized: %T", t)
 	}
