@@ -11,18 +11,19 @@ import (
 	"reflect"
 	"strconv"
 
+	"github.com/IBM/idemix"
+	csp "github.com/IBM/idemix/bccsp"
+	"github.com/IBM/idemix/bccsp/keystore"
+	bccsp "github.com/IBM/idemix/bccsp/schemes"
+	ip "github.com/IBM/idemix/bccsp/schemes/dlog/crypto"
+	"github.com/IBM/idemix/bccsp/schemes/dlog/crypto/translator/amcl"
+	math "github.com/IBM/mathlib"
 	"github.com/golang/protobuf/proto"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	m "github.com/hyperledger/fabric-protos-go/msp"
-	"github.com/hyperledger/fabric/bccsp"
-	"github.com/hyperledger/fabric/msp"
 	"github.com/pkg/errors"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
-
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/csp"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/csp/idemix"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/csp/idemix/bridge"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/csp/idemix/handlers"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
@@ -31,7 +32,10 @@ import (
 
 var logger = flogging.MustGetLogger("fabric-sdk.msp.idemix")
 
-const rhIndex = 3
+const (
+	eidIndex = 2
+	rhIndex  = 3
+)
 
 type deserialized struct {
 	id           *identity
@@ -43,9 +47,9 @@ type deserialized struct {
 
 type support struct {
 	name            string
-	ipk             []byte
-	csp             bccsp.BCCSP
-	issuerPublicKey bccsp.Key
+	Ipk             []byte
+	Csp             bccsp.BCCSP
+	IssuerPublicKey bccsp.Key
 	revocationPK    bccsp.Key
 	epoch           int
 }
@@ -70,9 +74,9 @@ func (s *support) Deserialize(raw []byte, checkValidity bool) (*deserialized, er
 	var rawNymPublicKey []byte
 	rawNymPublicKey = append(rawNymPublicKey, serialized.NymX...)
 	rawNymPublicKey = append(rawNymPublicKey, serialized.NymY...)
-	NymPublicKey, err := s.csp.KeyImport(
+	NymPublicKey, err := s.Csp.KeyImport(
 		rawNymPublicKey,
-		&csp.IdemixNymPublicKeyImportOpts{Temporary: true},
+		&bccsp.IdemixNymPublicKeyImportOpts{Temporary: true},
 	)
 	if err != nil {
 		return nil, errors.WithMessage(err, "failed to import nym public key")
@@ -134,7 +138,16 @@ func NewProvider(conf1 *m.MSPConfig, sp view2.ServiceProvider) (*provider, error
 		return nil, errors.Errorf("setup error: nil conf reference")
 	}
 
-	cryptoProvider, err := idemix.New(handlers.NewStore(sp, &bridge.User{NewRand: bridge.NewRandOrPanic}))
+	curve := math.Curves[math.FP256BN_AMCL]
+	translator := &amcl.Fp256bn{C: curve}
+	kvss := kvs.GetService(sp)
+	keystore := &keystore.KVSStore{
+		KVS:        kvss,
+		Curve:      curve,
+		Translator: translator,
+	}
+
+	cryptoProvider, err := csp.New(keystore, curve, translator, true)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed getting crypto provider")
 	}
@@ -150,13 +163,13 @@ func NewProvider(conf1 *m.MSPConfig, sp view2.ServiceProvider) (*provider, error
 	// Import Issuer Public Key
 	issuerPublicKey, err := cryptoProvider.KeyImport(
 		conf.Ipk,
-		&csp.IdemixIssuerPublicKeyImportOpts{
+		&bccsp.IdemixIssuerPublicKeyImportOpts{
 			Temporary: true,
 			AttributeNames: []string{
-				msp.AttributeNameOU,
-				msp.AttributeNameRole,
-				msp.AttributeNameEnrollmentId,
-				msp.AttributeNameRevocationHandle,
+				idemix.AttributeNameOU,
+				idemix.AttributeNameRole,
+				idemix.AttributeNameEnrollmentId,
+				idemix.AttributeNameRevocationHandle,
 			},
 		})
 	if err != nil {
@@ -166,7 +179,7 @@ func NewProvider(conf1 *m.MSPConfig, sp view2.ServiceProvider) (*provider, error
 	// Import revocation public key
 	RevocationPublicKey, err := cryptoProvider.KeyImport(
 		conf.RevocationPk,
-		&csp.IdemixRevocationPublicKeyImportOpts{Temporary: true},
+		&bccsp.IdemixRevocationPublicKeyImportOpts{Temporary: true},
 	)
 	if err != nil {
 		return nil, errors.WithMessage(err, "failed to import revocation public key")
@@ -181,7 +194,7 @@ func NewProvider(conf1 *m.MSPConfig, sp view2.ServiceProvider) (*provider, error
 	// A credential is present in the config, so we setup a default signer
 
 	// Import User secret key
-	userKey, err := cryptoProvider.KeyImport(conf.Signer.Sk, &csp.IdemixUserSecretKeyImportOpts{Temporary: true})
+	userKey, err := cryptoProvider.KeyImport(conf.Signer.Sk, &bccsp.IdemixUserSecretKeyImportOpts{Temporary: true})
 	if err != nil {
 		return nil, errors.WithMessage(err, "failed importing signer secret key")
 	}
@@ -189,8 +202,8 @@ func NewProvider(conf1 *m.MSPConfig, sp view2.ServiceProvider) (*provider, error
 	return &provider{
 		support: &support{
 			name:            conf.Name,
-			csp:             cryptoProvider,
-			issuerPublicKey: issuerPublicKey,
+			Csp:             cryptoProvider,
+			IssuerPublicKey: issuerPublicKey,
 			revocationPK:    RevocationPublicKey,
 			epoch:           0,
 		},
@@ -204,7 +217,13 @@ func (p *provider) Identity() (view.Identity, []byte, error) {
 	logger.Debug("getting new idemix identity")
 
 	// Derive NymPublicKey
-	nymKey, err := p.csp.KeyDeriv(p.userKey, &csp.IdemixNymKeyDerivationOpts{Temporary: false, IssuerPK: p.issuerPublicKey})
+	nymKey, err := p.Csp.KeyDeriv(
+		p.userKey,
+		&bccsp.IdemixNymKeyDerivationOpts{
+			Temporary: false,
+			IssuerPK:  p.IssuerPublicKey,
+		},
+	)
 	if err != nil {
 		return nil, nil, errors.WithMessage(err, "failed deriving nym")
 	}
@@ -224,23 +243,23 @@ func (p *provider) Identity() (view.Identity, []byte, error) {
 	ou := &m.OrganizationUnit{
 		MspIdentifier:                p.name,
 		OrganizationalUnitIdentifier: p.conf.Signer.OrganizationalUnitIdentifier,
-		CertifiersIdentifier:         p.issuerPublicKey.SKI(),
+		CertifiersIdentifier:         p.IssuerPublicKey.SKI(),
 	}
 
 	enrollmentID := p.conf.Signer.EnrollmentId
 
 	// Verify credential
-	valid, err := p.csp.Verify(
+	valid, err := p.Csp.Verify(
 		p.userKey,
 		p.conf.Signer.Cred,
 		nil,
-		&csp.IdemixCredentialSignerOpts{
-			IssuerPK: p.issuerPublicKey,
-			Attributes: []csp.IdemixAttribute{
-				{Type: csp.IdemixBytesAttribute, Value: []byte(p.conf.Signer.OrganizationalUnitIdentifier)},
-				{Type: csp.IdemixIntAttribute, Value: getIdemixRoleFromMSPRole(role)},
-				{Type: csp.IdemixBytesAttribute, Value: []byte(enrollmentID)},
-				{Type: csp.IdemixHiddenAttribute},
+		&bccsp.IdemixCredentialSignerOpts{
+			IssuerPK: p.IssuerPublicKey,
+			Attributes: []bccsp.IdemixAttribute{
+				{Type: bccsp.IdemixBytesAttribute, Value: []byte(p.conf.Signer.OrganizationalUnitIdentifier)},
+				{Type: bccsp.IdemixIntAttribute, Value: getIdemixRoleFromMSPRole(role)},
+				{Type: bccsp.IdemixBytesAttribute, Value: []byte(enrollmentID)},
+				{Type: bccsp.IdemixHiddenAttribute},
 			},
 		},
 	)
@@ -249,20 +268,22 @@ func (p *provider) Identity() (view.Identity, []byte, error) {
 	}
 
 	// Create the cryptographic evidence that this identity is valid
-	opts := &csp.IdemixSignerOpts{
-		Nym:        nymKey,
-		IssuerPK:   p.issuerPublicKey,
+	opts := &bccsp.IdemixSignerOpts{
 		Credential: p.conf.Signer.Cred,
-		Attributes: []csp.IdemixAttribute{
-			{Type: csp.IdemixBytesAttribute},
-			{Type: csp.IdemixIntAttribute},
-			{Type: csp.IdemixHiddenAttribute},
-			{Type: csp.IdemixHiddenAttribute},
+		Nym:        nymKey,
+		IssuerPK:   p.IssuerPublicKey,
+		Attributes: []bccsp.IdemixAttribute{
+			{Type: bccsp.IdemixBytesAttribute},
+			{Type: bccsp.IdemixIntAttribute},
+			{Type: bccsp.IdemixHiddenAttribute},
+			{Type: bccsp.IdemixHiddenAttribute},
 		},
-		RhIndex: rhIndex,
-		CRI:     p.conf.Signer.CredentialRevocationInformation,
+		RhIndex:  rhIndex,
+		EidIndex: eidIndex,
+		CRI:      p.conf.Signer.CredentialRevocationInformation,
+		SigType:  bccsp.EidNym,
 	}
-	proof, err := p.csp.Sign(
+	proof, err := p.Csp.Sign(
 		p.userKey,
 		nil,
 		opts,
@@ -289,8 +310,16 @@ func (p *provider) Identity() (view.Identity, []byte, error) {
 		return nil, nil, err
 	}
 
+	ipk := new(ip.IssuerPublicKey)
+	err = proto.Unmarshal(p.conf.Ipk, ipk)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	auditInfo := &AuditInfo{
-		IdemixSignatureInfo: opts.Info,
+		Csp:             p.Csp,
+		IssuerPublicKey: p.IssuerPublicKey,
+		NymEIDAuditData: opts.Metadata.NymEIDAuditData,
 		Attributes: [][]byte{
 			[]byte(p.conf.Signer.OrganizationalUnitIdentifier),
 			[]byte(strconv.Itoa(getIdemixRoleFromMSPRole(role))),
@@ -303,85 +332,6 @@ func (p *provider) Identity() (view.Identity, []byte, error) {
 	}
 
 	return raw, infoRaw, nil
-}
-
-func (p *provider) SignerIdentity() (driver.SigningIdentity, error) {
-	logger.Debug("getting new idemix identity")
-
-	// Derive NymPublicKey
-	nymKey, err := p.csp.KeyDeriv(p.userKey, &csp.IdemixNymKeyDerivationOpts{Temporary: true, IssuerPK: p.issuerPublicKey})
-	if err != nil {
-		return nil, errors.WithMessage(err, "failed deriving nym")
-	}
-	NymPublicKey, err := nymKey.PublicKey()
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed getting public nym key")
-	}
-
-	role := &m.MSPRole{
-		MspIdentifier: p.name,
-		Role:          m.MSPRole_MEMBER,
-	}
-	if checkRole(int(p.conf.Signer.Role), ADMIN) {
-		role.Role = m.MSPRole_ADMIN
-	}
-
-	ou := &m.OrganizationUnit{
-		MspIdentifier:                p.name,
-		OrganizationalUnitIdentifier: p.conf.Signer.OrganizationalUnitIdentifier,
-		CertifiersIdentifier:         p.issuerPublicKey.SKI(),
-	}
-
-	enrollmentID := p.conf.Signer.EnrollmentId
-
-	// Verify credential
-	valid, err := p.csp.Verify(
-		p.userKey,
-		p.conf.Signer.Cred,
-		nil,
-		&csp.IdemixCredentialSignerOpts{
-			IssuerPK: p.issuerPublicKey,
-			Attributes: []csp.IdemixAttribute{
-				{Type: csp.IdemixBytesAttribute, Value: []byte(p.conf.Signer.OrganizationalUnitIdentifier)},
-				{Type: csp.IdemixIntAttribute, Value: getIdemixRoleFromMSPRole(role)},
-				{Type: csp.IdemixBytesAttribute, Value: []byte(enrollmentID)},
-				{Type: csp.IdemixHiddenAttribute},
-			},
-		},
-	)
-	if err != nil || !valid {
-		return nil, errors.WithMessage(err, "Credential is not cryptographically valid")
-	}
-
-	// Create the cryptographic evidence that this identity is valid
-	proof, err := p.csp.Sign(
-		p.userKey,
-		nil,
-		&csp.IdemixSignerOpts{
-			Credential: p.conf.Signer.Cred,
-			Nym:        nymKey,
-			IssuerPK:   p.issuerPublicKey,
-			Attributes: []csp.IdemixAttribute{
-				{Type: csp.IdemixBytesAttribute},
-				{Type: csp.IdemixIntAttribute},
-				{Type: csp.IdemixHiddenAttribute},
-				{Type: csp.IdemixHiddenAttribute},
-			},
-			RhIndex: rhIndex,
-			CRI:     p.conf.Signer.CredentialRevocationInformation,
-		},
-	)
-	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to setup cryptographic proof of identity")
-	}
-
-	return &signingIdentity{
-		identity:     newIdentity(p.support, NymPublicKey, role, ou, proof),
-		Cred:         p.conf.Signer.Cred,
-		UserKey:      p.userKey,
-		NymKey:       nymKey,
-		enrollmentId: enrollmentID,
-	}, nil
 }
 
 func (p *provider) DeserializeVerifier(raw []byte) (driver.Verifier, error) {
@@ -399,7 +349,7 @@ func (p *provider) DeserializeSigner(raw []byte) (driver.Signer, error) {
 		return nil, err
 	}
 
-	nymKey, err := p.csp.GetKey(r.NymPublicKey.SKI())
+	nymKey, err := p.Csp.GetKey(r.NymPublicKey.SKI())
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot find nym secret key")
 	}
@@ -430,7 +380,10 @@ func (p *provider) Info(raw []byte, auditInfo []byte) (string, error) {
 
 	eid := ""
 	if len(auditInfo) != 0 {
-		ai := &AuditInfo{}
+		ai := &AuditInfo{
+			Csp:             p.Csp,
+			IssuerPublicKey: p.IssuerPublicKey,
+		}
 		if err := ai.FromBytes(auditInfo); err != nil {
 			return "", err
 		}
@@ -444,7 +397,7 @@ func (p *provider) Info(raw []byte, auditInfo []byte) (string, error) {
 }
 
 func (p *provider) String() string {
-	return fmt.Sprintf("Idemix Provider [%s]", hash.Hashable(p.ipk).String())
+	return fmt.Sprintf("Idemix Provider [%s]", hash.Hashable(p.Ipk).String())
 }
 
 func (p *provider) EnrollmentID() string {
@@ -471,9 +424,9 @@ func (p *provider) DeserializeSigningIdentity(raw []byte) (driver.SigningIdentit
 	var rawNymPublicKey []byte
 	rawNymPublicKey = append(rawNymPublicKey, serialized.NymX...)
 	rawNymPublicKey = append(rawNymPublicKey, serialized.NymY...)
-	NymPublicKey, err := p.csp.KeyImport(
+	NymPublicKey, err := p.Csp.KeyImport(
 		rawNymPublicKey,
-		&csp.IdemixNymPublicKeyImportOpts{Temporary: true},
+		&bccsp.IdemixNymPublicKeyImportOpts{Temporary: true},
 	)
 	if err != nil {
 		return nil, errors.WithMessage(err, "failed to import nym public key")
@@ -498,7 +451,7 @@ func (p *provider) DeserializeSigningIdentity(raw []byte) (driver.SigningIdentit
 		return nil, errors.Wrap(err, "cannot deserialize, invalid identity")
 	}
 
-	nymKey, err := p.csp.GetKey(NymPublicKey.SKI())
+	nymKey, err := p.Csp.GetKey(NymPublicKey.SKI())
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot find nym secret key")
 	}

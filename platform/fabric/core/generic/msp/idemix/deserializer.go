@@ -9,13 +9,15 @@ package idemix
 import (
 	"fmt"
 
-	"github.com/hyperledger/fabric/bccsp"
-	"github.com/hyperledger/fabric/bccsp/sw"
+	idemix "github.com/IBM/idemix/bccsp"
+	"github.com/IBM/idemix/bccsp/keystore"
+	bccsp "github.com/IBM/idemix/bccsp/schemes"
+	csp "github.com/IBM/idemix/bccsp/schemes"
+	"github.com/IBM/idemix/bccsp/schemes/dlog/crypto/translator/amcl"
+	math "github.com/IBM/mathlib"
 	"github.com/hyperledger/fabric/msp"
 	"github.com/pkg/errors"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/csp"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/csp/idemix"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -28,13 +30,14 @@ type idd struct {
 func NewDeserializer(ipk []byte) (*idd, error) {
 	logger.Debugf("Setting up Idemix-based MSP instance")
 
-	cryptoProvider, err := idemix.New(sw.NewDummyKeyStore())
+	curve := math.Curves[math.FP256BN_AMCL]
+	cryptoProvider, err := idemix.New(&keystore.Dummy{}, curve, &amcl.Fp256bn{C: curve}, true)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed getting crypto provider")
 	}
 
 	// Import Issuer Public Key
-	var issuerPublicKey bccsp.Key
+	var issuerPublicKey csp.Key
 	if len(ipk) != 0 {
 		issuerPublicKey, err = cryptoProvider.KeyImport(
 			ipk,
@@ -54,9 +57,9 @@ func NewDeserializer(ipk []byte) (*idd, error) {
 
 	return &idd{
 		&support{
-			ipk:             ipk,
-			csp:             cryptoProvider,
-			issuerPublicKey: issuerPublicKey,
+			Ipk:             ipk,
+			Csp:             cryptoProvider,
+			IssuerPublicKey: issuerPublicKey,
 		},
 	}, nil
 }
@@ -99,7 +102,7 @@ func (i *idd) Info(raw []byte, auditInfo []byte) (string, error) {
 }
 
 func (i *idd) String() string {
-	return fmt.Sprintf("Idemix with IPK [%s]", hash.Hashable(i.ipk).String())
+	return fmt.Sprintf("Idemix with IPK [%s]", hash.Hashable(i.Ipk).String())
 }
 
 type verifier struct {
@@ -108,12 +111,12 @@ type verifier struct {
 }
 
 func (v *verifier) Verify(message, sigma []byte) error {
-	_, err := v.idd.csp.Verify(
+	_, err := v.idd.Csp.Verify(
 		v.nymPublicKey,
 		sigma,
 		message,
 		&csp.IdemixNymSignerOpts{
-			IssuerPK: v.idd.issuerPublicKey,
+			IssuerPK: v.idd.IssuerPublicKey,
 		},
 	)
 	return err
