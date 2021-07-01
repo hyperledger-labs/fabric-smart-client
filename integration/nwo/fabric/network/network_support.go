@@ -626,17 +626,33 @@ func (n *Network) CheckTopology() {
 		var extraIdentities []*topology.PeerIdentity
 
 		po := node.PlatformOpts()
-		opts := opts.Get(po)
-		Expect(opts.Organization()).NotTo(BeEmpty())
+		nodeOpts := opts.Get(po)
+		orgs := nodeOpts.Organizations()
+		Expect(orgs).NotTo(BeEmpty())
 
-		if opts.Network() != "" && opts.Network() != n.topology.TopologyName {
-			// no need to do anything here
+		var org opts.Organization
+		found := false
+		for _, o := range orgs {
+			if o.Network != "" && o.Network == n.topology.TopologyName {
+				found = true
+				org = o
+			}
+		}
+		if !found {
+			for _, o := range orgs {
+				if o.Network == "" {
+					found = true
+					org = o
+				}
+			}
+		}
+		if !found {
 			continue
 		}
 
-		userNames[opts.Organization()] = append(userNames[opts.Organization()], node.Name)
+		userNames[org.Org] = append(userNames[org.Org], node.Name)
 
-		if opts.AnonymousIdentity() {
+		if nodeOpts.AnonymousIdentity() {
 			extraIdentities = append(extraIdentities, &topology.PeerIdentity{
 				ID:           "idemix",
 				EnrollmentID: node.Name,
@@ -646,7 +662,7 @@ func (n *Network) CheckTopology() {
 			})
 			n.Context.AddIdentityAlias(node.Name, "idemix")
 		}
-		for _, label := range opts.IdemixIdentities() {
+		for _, label := range nodeOpts.IdemixIdentities() {
 			extraIdentities = append(extraIdentities, &topology.PeerIdentity{
 				ID:           label,
 				EnrollmentID: label,
@@ -656,35 +672,30 @@ func (n *Network) CheckTopology() {
 			})
 			n.Context.AddIdentityAlias(node.Name, label)
 		}
-		for _, label := range opts.X509Identities() {
+		for _, label := range nodeOpts.X509Identities() {
 			extraIdentities = append(extraIdentities, &topology.PeerIdentity{
 				ID:           label,
 				MSPType:      "bccsp",
 				EnrollmentID: label,
-				MSPID:        opts.Organization() + "MSP",
-				Org:          opts.Organization(),
+				MSPID:        org.Org + "MSP",
+				Org:          org.Org,
 			})
-			users[opts.Organization()] = users[opts.Organization()] + 1
-			userNames[opts.Organization()] = append(userNames[opts.Organization()], label)
+			users[org.Org] = users[org.Org] + 1
+			userNames[org.Org] = append(userNames[org.Org], label)
 			n.Context.AddIdentityAlias(node.Name, label)
 		}
 
 		p := &topology.Peer{
 			Name:            node.Name,
-			Organization:    opts.Organization(),
+			Organization:    org.Org,
 			Type:            topology.FSCPeer,
-			Role:            opts.Role(),
+			Role:            nodeOpts.Role(),
 			Bootstrap:       node.Bootstrap,
 			ExecutablePath:  node.ExecutablePath,
 			ExtraIdentities: extraIdentities,
 		}
 		n.Peers = append(n.Peers, p)
 		n.Context.SetPortsByPeerID("fsc", p.ID(), n.Context.PortsByPeerID(n.Prefix, node.Name))
-
-		// Set paths
-		po.Put("NodeLocalCertPath", n.ViewNodeLocalCertPath(p))
-		po.Put("NodeLocalPrivateKeyPath", n.ViewNodeLocalPrivateKeyPath(p))
-		po.Put("NodeLocalTLSDir", n.PeerLocalTLSDir(p))
 	}
 
 	for _, organization := range n.Organizations {
@@ -1550,7 +1561,7 @@ func (n *Network) nextColor() string {
 	return fmt.Sprintf("%dm", color)
 }
 
-func (n *Network) NodeVaultDir(peer *topology.Peer) string {
+func (n *Network) FSCNodeVaultDir(peer *topology.Peer) string {
 	return filepath.Join(n.Context.RootDir(), "fsc", "fscnodes", peer.ID(), "vault")
 }
 
@@ -1666,7 +1677,7 @@ func (n *Network) GenerateCoreConfig(p *topology.Peer) {
 		var refPeers []*topology.Peer
 		coreTemplate := n.Templates.CoreTemplate()
 		if p.Type == topology.FSCPeer {
-			coreTemplate = n.Templates.ViewExtensionTemplate()
+			coreTemplate = n.Templates.FSCNodeConfigExtensionTemplate()
 			peers := n.PeersInOrg(p.Organization)
 			for _, peer := range peers {
 				if peer.Type == topology.FabricPeer {
@@ -1685,7 +1696,9 @@ func (n *Network) GenerateCoreConfig(p *topology.Peer) {
 			"OrdererAddress":            func(o *topology.Orderer, portName api.PortName) string { return n.OrdererAddress(o, portName) },
 			"PeerAddress":               func(o *topology.Peer, portName api.PortName) string { return n.PeerAddress(o, portName) },
 			"CACertsBundlePath":         func() string { return n.CACertsBundlePath() },
-			"NodeVaultPath":             func() string { return n.NodeVaultDir(p) },
+			"FSCNodeVaultPath":          func() string { return n.FSCNodeVaultDir(p) },
+			"FabricName":                func() string { return n.topology.Name() },
+			"DefaultNetwork":            func() bool { return n.topology.Default },
 		}).Parse(coreTemplate)
 		Expect(err).NotTo(HaveOccurred())
 

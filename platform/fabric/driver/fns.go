@@ -45,6 +45,8 @@ type FabricNetworkService interface {
 }
 
 type FabricNetworkServiceProvider interface {
+	Names() []string
+	DefaultName() string
 	// FabricNetworkService returns a FabricNetworkService instance for the passed parameters
 	FabricNetworkService(id string) (FabricNetworkService, error)
 }

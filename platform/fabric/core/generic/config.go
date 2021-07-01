@@ -39,7 +39,7 @@ type Config struct {
 	configService ConfigService
 }
 
-func NewConfig(configService ConfigService, name string) (*Config, error) {
+func NewConfig(configService ConfigService, name string, defaultConfig bool) (*Config, error) {
 	if configService.IsSet("fabric." + name) {
 		return &Config{
 			name:          name,
@@ -48,12 +48,7 @@ func NewConfig(configService ConfigService, name string) (*Config, error) {
 		}, nil
 	}
 
-	if name == "default" {
-		// TODO: If we are here, it means that "fabric.default" is not set.
-		// Now, it can be that:
-		// 1. the default network has a different name, or
-		// 2. the old configuration format is used.
-		// Figure the above out.
+	if defaultConfig {
 		return &Config{
 			name:          name,
 			prefix:        "",

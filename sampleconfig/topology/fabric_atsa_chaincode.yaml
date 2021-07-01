@@ -12,14 +12,6 @@ topologies:
     enable_node_organizational_units: true
     ca:
       hostname: ca
-  - id: Org1
-    msp_id: Org1MSP
-    name: Org1
-    domain: org1.example.com
-    enable_node_organizational_units: true
-    users: 1
-    ca:
-      hostname: ca
   - id: Org2
     msp_id: Org2MSP
     name: Org2
@@ -28,16 +20,24 @@ topologies:
     users: 1
     ca:
       hostname: ca
+  - id: Org1
+    msp_id: Org1MSP
+    name: Org1
+    domain: org1.example.com
+    enable_node_organizational_units: true
+    users: 1
+    ca:
+      hostname: ca
   peers:
-  - name: org1_peer
-    organization: Org1
+  - name: org2_peer
+    organization: Org2
     type: FabricPeer
     channels:
     - name: testchannel
       anchor: true
     devmode: false
-  - name: org2_peer
-    organization: Org2
+  - name: org1_peer
+    organization: Org1
     type: FabricPeer
     channels:
     - name: testchannel
@@ -46,8 +46,8 @@ topologies:
   consortiums:
   - name: SampleConsortium
     organizations:
-    - Org1
     - Org2
+    - Org1
   system_channel:
     name: systemchannel
     profile: OrgsOrdererGenesis
@@ -67,8 +67,8 @@ topologies:
   - name: OrgsChannel
     consortium: SampleConsortium
     organizations:
-    - Org1
     - Org2
+    - Org1
     policies:
     - name: Readers
       type: ImplicitMeta
@@ -140,7 +140,9 @@ topologies:
       mapping:
         fabric:
           mapping:
-            Organization: Org1
+            Organization:
+            - Network: ""
+              Org: Org1
             Role: client
   - NodeSynthesizer:
       Aliases:
@@ -169,7 +171,9 @@ topologies:
       mapping:
         fabric:
           mapping:
-            Organization: Org2
+            Organization:
+            - Network: ""
+              Org: Org2
             Role: client
   logging:
     spec: grpc=error:debug

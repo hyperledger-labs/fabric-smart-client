@@ -217,21 +217,47 @@ topologies:
 - name: fsc
   type: fsc
   peers:
-  - name: alice
+  - NodeSynthesizer:
+      Aliases:
+        github.com/hyperledger-labs/fabric-smart-client/integration/fabric/twonets/views:
+          original: views
+          alias: views
+      Imports:
+      - github.com/hyperledger-labs/fabric-smart-client/integration/fabric/twonets/views
+      Factories:
+      - id: ping
+        type: '&views.PingFactory{}'
+    name: alice
     bootstrap: true
     options:
       mapping:
         fabric:
           mapping:
-            Network: alpha
-            Organization: Org1
-  - name: bob
+            Organization:
+            - Network: alpha
+              Org: Org1
+            - Network: beta
+              Org: Org3
+  - NodeSynthesizer:
+      Aliases:
+        github.com/hyperledger-labs/fabric-smart-client/integration/fabric/twonets/views:
+          original: views
+          alias: views
+      Imports:
+      - github.com/hyperledger-labs/fabric-smart-client/integration/fabric/twonets/views
+      Responders:
+      - responder: '&views.Pong{}'
+        initiator: '&views.Ping{}'
+    name: bob
     options:
       mapping:
         fabric:
           mapping:
-            Network: beta
-            Organization: Org3
+            Organization:
+            - Network: alpha
+              Org: Org1
+            - Network: beta
+              Org: Org3
   logging:
     spec: grpc=error:debug
     format: '''%{color}%{time:2006-01-02 15:04:05.000 MST} [%{module}] %{shortfunc} -> %{level:.4s} %{id:03x}%{color:reset} %{message}'''

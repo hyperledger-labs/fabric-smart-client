@@ -84,7 +84,7 @@ func gen(args []string) error {
 	for i, topology := range names.Topologies {
 		switch topology.Type {
 		case fabric.TopologyName:
-			top := fabric.NewDefaultTopology()
+			top := fabric.NewTopology()
 			r, err := yaml.Marshal(t.Topologies[i])
 			if err != nil {
 				return errors.Wrapf(err, "failed remarshalling topology configuration [%s]", topologyFile)

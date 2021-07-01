@@ -51,6 +51,7 @@ require (
 	github.com/otiai10/copy v1.5.1
 	github.com/pierrec/lz4 v2.5.2+incompatible // indirect
 	github.com/pkg/errors v0.9.1
+	github.com/prometheus/common v0.6.0
 	github.com/spf13/cobra v1.1.1
 	github.com/spf13/viper v1.7.0
 	github.com/stretchr/testify v1.7.0

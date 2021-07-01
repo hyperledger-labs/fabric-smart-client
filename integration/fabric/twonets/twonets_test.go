@@ -12,6 +12,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/twonets"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 )
 
 var _ = Describe("EndToEnd", func() {
@@ -35,6 +36,9 @@ var _ = Describe("EndToEnd", func() {
 		})
 
 		It("succeeded", func() {
+			res, err := ii.Client("alice").CallView("ping", nil)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
 		})
 	})
 })
