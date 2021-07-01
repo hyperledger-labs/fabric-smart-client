@@ -1,6 +1,7 @@
 fabric:
   enabled: true
   default:
+    default: true
     BCCSP:
       Default: SW
       SW:

@@ -50,6 +50,7 @@ type Channel struct {
 }
 
 type Network struct {
+	Default       bool                `yaml:"default,omitempty"`
 	BCCSP         *BCCSP              `yaml:"BCCSP,omitempty"`
 	MSPConfigPath string              `yaml:"mspConfigPath,omitempty"`
 	LocalMspId    string              `yaml:"localMspId,omitempty"`

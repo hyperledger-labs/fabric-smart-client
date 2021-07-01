@@ -145,7 +145,9 @@ topologies:
       mapping:
         fabric:
           mapping:
-            Organization: Org1
+            Organization:
+            - Network: ""
+              Org: Org1
   - NodeSynthesizer:
       Aliases:
         github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou/views:
@@ -165,7 +167,9 @@ topologies:
       mapping:
         fabric:
           mapping:
-            Organization: Org2
+            Organization:
+            - Network: ""
+              Org: Org2
   - NodeSynthesizer:
       Aliases:
         github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou/views:
@@ -186,7 +190,9 @@ topologies:
       mapping:
         fabric:
           mapping:
-            Organization: Org3
+            Organization:
+            - Network: ""
+              Org: Org3
   logging:
     spec: grpc=error:debug
     format: '''%{color}%{time:2006-01-02 15:04:05.000 MST} [%{module}] %{shortfunc} -> %{level:.4s} %{id:03x}%{color:reset} %{message}'''

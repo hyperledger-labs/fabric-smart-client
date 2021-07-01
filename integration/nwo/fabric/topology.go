@@ -49,14 +49,14 @@ func WithPeerRole() node.Option {
 
 func WithOrganization(Organization string) node.Option {
 	return func(o *node.Options) error {
-		Options(o).SetOrganization(Organization)
+		Options(o).AddOrganization(Organization)
 		return nil
 	}
 }
 
-func WithNetwork(Network string) node.Option {
+func WithNetworkOrganization(Network, Organization string) node.Option {
 	return func(o *node.Options) error {
-		Options(o).SetNetwork(Network)
+		Options(o).AddNetworkOrganization(Network, Organization)
 		return nil
 	}
 }
@@ -70,11 +70,16 @@ func WithAnonymousIdentity() node.Option {
 
 // NewDefaultTopology is a configuration with two organizations and one peer per org.
 func NewDefaultTopology() *topology.Topology {
-	return NewTopology("default").SetDefault()
+	return NewTopologyWithName("default").SetDefault()
 }
 
-// NewTopology is a configuration with two organizations and one peer per org
-func NewTopology(name string) *topology.Topology {
+// NewTopology returns a new topology whose name is empty
+func NewTopology() *topology.Topology {
+	return NewTopologyWithName("")
+}
+
+// NewTopologyWithName is a configuration with two organizations and one peer per org
+func NewTopologyWithName(name string) *topology.Topology {
 	return &topology.Topology{
 		TopologyName: name,
 		TopologyType: "fabric",

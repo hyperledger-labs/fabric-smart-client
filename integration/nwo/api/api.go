@@ -19,7 +19,7 @@ type PortName string
 type Ports map[PortName]uint16
 
 type ExtensionName string
-type Extensions map[ExtensionName]string
+type Extensions map[ExtensionName][]string
 
 const (
 	FabricExtension  ExtensionName = "FabricExtension"
@@ -42,10 +42,11 @@ func (t *Topologies) Export() ([]byte, error) {
 }
 
 type Context interface {
-	NetworkID() string
 	RootDir() string
-	AddExtension(id string, extension ExtensionName, s string)
 	ReservePort() uint16
+
+	AddExtension(id string, extension ExtensionName, s string)
+	ExtensionsByPeerID(name string) Extensions
 
 	PortsByPeerID(prefix string, id string) Ports
 	SetPortsByPeerID(prefix string, id string, ports Ports)
@@ -61,7 +62,6 @@ type Context interface {
 	SetViewClient(name string, c ViewClient)
 	GetViewIdentityAliases(name string) []string
 	AdminSigningIdentity(name string) view.SigningIdentity
-	ExtensionsByPeerID(name string) Extensions
 }
 
 type Builder interface {

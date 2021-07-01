@@ -56,7 +56,9 @@ func (p *p) Install() error {
 
 	logger.Infof("Set Fabric Network Service Provider")
 	var err error
-	p.fnsProvider, err = core.NewFabricNetworkServiceProvider(p.registry)
+	fnspConfig, err := core.NewConfig(view2.GetConfigService(p.registry))
+	assert.NoError(err, "failed parsing configuration")
+	p.fnsProvider, err = core.NewFabricNetworkServiceProvider(p.registry, fnspConfig)
 	assert.NoError(err, "failed instantiating fabric network service provider")
 	assert.NoError(p.registry.RegisterService(p.fnsProvider))
 	assert.NoError(fabric2.GetDefaultFNS(p.registry).ProcessorManager().SetDefaultProcessor(

@@ -246,7 +246,8 @@ metrics:
 const DefaultViewExtensionTemplate = `
 fabric:
   enabled: true
-  default:
+  {{ FabricName }}:
+    default: {{ DefaultNetwork }}
     BCCSP:
       Default: SW
       SW:
@@ -301,7 +302,7 @@ fabric:
       persistence:
         type: file
         opts:
-          path: {{ NodeVaultPath }}
+          path: {{ FSCNodeVaultPath }}
     endpoint:
       resolvers: {{ range .Resolvers }}
       - name: {{ .Name }}

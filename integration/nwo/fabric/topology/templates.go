@@ -28,7 +28,7 @@ func (t *Templates) CoreTemplate() string {
 	return DefaultCoreTemplate
 }
 
-func (t *Templates) ViewExtensionTemplate() string {
+func (t *Templates) FSCNodeConfigExtensionTemplate() string {
 	return DefaultViewExtensionTemplate
 }
 

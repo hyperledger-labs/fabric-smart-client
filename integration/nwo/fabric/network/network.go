@@ -69,7 +69,7 @@ type Network struct {
 	ccps       []ChaincodeProcessor
 }
 
-func New(reg api.Context, topology *topology.Topology, dockerClient *docker.Client, builderClient BuilderClient, ccps []ChaincodeProcessor) *Network {
+func New(reg api.Context, topology *topology.Topology, dockerClient *docker.Client, builderClient BuilderClient, ccps []ChaincodeProcessor, NetworkID string) *Network {
 	if topology == nil {
 		topology = NewEmptyTopology()
 	}
@@ -82,7 +82,7 @@ func New(reg api.Context, topology *topology.Topology, dockerClient *docker.Clie
 		Prefix:       "fabric." + topology.Name(),
 		topology:     topology,
 
-		NetworkID:         reg.NetworkID(),
+		NetworkID:         NetworkID,
 		EventuallyTimeout: 10 * time.Minute,
 		MetricsProvider:   "prometheus",
 		PortsByBrokerID:   map[string]api.Ports{},

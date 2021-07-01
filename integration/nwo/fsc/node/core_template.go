@@ -19,7 +19,7 @@ fsc:
   id: {{ Peer.ID }}
   # The networkId allows for logical separation of networks and is used when
   # naming docker resources.
-  networkId: {{ Context.NetworkID }}
+  networkId: {{ NetworkID }}
   # This represents the endpoint to other FSC nodes in the same organization.
   address: 127.0.0.1:{{ .NodePort Peer "Listen" }}
   # Whether the FSC node should programmatically determine its address

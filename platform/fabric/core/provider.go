@@ -20,76 +20,91 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	view3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view"
 )
 
+var logger = flogging.MustGetLogger("fabric-sdk.core")
+
 type fnsProvider struct {
-	sp view.ServiceProvider
+	sp     view.ServiceProvider
+	config *Config
 
 	networksMutex sync.Mutex
 	networks      map[string]driver.FabricNetworkService
 }
 
-func NewFabricNetworkServiceProvider(sp view.ServiceProvider) (*fnsProvider, error) {
+func NewFabricNetworkServiceProvider(sp view.ServiceProvider, config *Config) (*fnsProvider, error) {
 	provider := &fnsProvider{
 		sp:       sp,
+		config:   config,
 		networks: map[string]driver.FabricNetworkService{},
 	}
 	return provider, nil
 }
 
-func (m *fnsProvider) Start(ctx context.Context) error {
+func (p *fnsProvider) Start(ctx context.Context) error {
 	// What's the default network?
 	// TODO: add listener to fabric service when a channel is opened.
-	fns, err := m.FabricNetworkService("")
-	if err != nil {
-		return err
-	}
-	for _, ch := range fns.Channels() {
-		_, err := fns.Channel(ch)
+	for _, name := range p.config.Names() {
+		fns, err := p.FabricNetworkService(name)
 		if err != nil {
 			return err
 		}
+		for _, ch := range fns.Channels() {
+			_, err := fns.Channel(ch)
+			if err != nil {
+				return err
+			}
+		}
 	}
 	return nil
 }
 
-func (m *fnsProvider) Stop() error {
+func (p *fnsProvider) Stop() error {
 	return nil
 }
 
-func (m *fnsProvider) FabricNetworkService(network string) (driver.FabricNetworkService, error) {
-	m.networksMutex.Lock()
-	defer m.networksMutex.Unlock()
+func (p *fnsProvider) Names() []string {
+	return p.config.Names()
+}
+
+func (p *fnsProvider) DefaultName() string {
+	return p.config.DefaultName()
+}
+
+func (p *fnsProvider) FabricNetworkService(network string) (driver.FabricNetworkService, error) {
+	p.networksMutex.Lock()
+	defer p.networksMutex.Unlock()
 
 	if len(network) == 0 {
-		network = "default"
+		network = p.config.DefaultName()
 	}
 
-	net, ok := m.networks[network]
+	net, ok := p.networks[network]
 	if !ok {
 		var err error
-		net, err = m.newFNS(network)
+		net, err = p.newFNS(network)
 		if err != nil {
 			return nil, err
 		}
-		m.networks[network] = net
+		p.networks[network] = net
 	}
 	return net, nil
 }
 
-func (m *fnsProvider) newFNS(network string) (driver.FabricNetworkService, error) {
+func (p *fnsProvider) newFNS(network string) (driver.FabricNetworkService, error) {
 	// bridge services
-	config, err := generic.NewConfig(view.GetConfigService(m.sp), network)
+	config, err := generic.NewConfig(view.GetConfigService(p.sp), network, network == p.config.defaultName)
 	if err != nil {
 		return nil, err
 	}
-	sigService := generic.NewSigService(m.sp)
+	sigService := generic.NewSigService(p.sp)
 
 	// Endpoint service
 	resolverService, err := endpoint.NewResolverService(
 		config,
-		view.GetEndpointService(m.sp),
+		view.GetEndpointService(p.sp),
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed instantiating fabric endpoint resolver")
@@ -97,13 +112,13 @@ func (m *fnsProvider) newFNS(network string) (driver.FabricNetworkService, error
 	if err := resolverService.LoadResolvers(); err != nil {
 		return nil, errors.Wrap(err, "failed loading fabric endpoint resolvers")
 	}
-	endpointService, err := generic.NewEndpointResolver(resolverService, view.GetEndpointService(m.sp))
+	endpointService, err := generic.NewEndpointResolver(resolverService, view.GetEndpointService(p.sp))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed loading endpoint service")
 	}
 
 	// Local MSP Manager
-	mspService := msp.NewLocalMSPManager(m.sp, config, sigService, view.GetEndpointService(m.sp), view.GetIdentityProvider(m.sp).DefaultIdentity())
+	mspService := msp.NewLocalMSPManager(p.sp, config, sigService, view.GetEndpointService(p.sp), view.GetIdentityProvider(p.sp).DefaultIdentity())
 	if err := mspService.Load(); err != nil {
 		return nil, errors.Wrap(err, "failed loading local msp service")
 	}
@@ -116,7 +131,7 @@ func (m *fnsProvider) newFNS(network string) (driver.FabricNetworkService, error
 
 	// New Network
 	net, err := generic.NewNetwork(
-		m.sp,
+		p.sp,
 		network,
 		config,
 		idProvider,
@@ -127,7 +142,7 @@ func (m *fnsProvider) newFNS(network string) (driver.FabricNetworkService, error
 		return nil, errors.Wrap(err, "failed instantiating fabric service provider")
 	}
 
-	finality.InstallHandler(view3.GetService(m.sp), net)
+	finality.InstallHandler(view3.GetService(p.sp), net)
 
 	return net, nil
 }

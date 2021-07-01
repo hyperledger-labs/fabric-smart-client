@@ -10,32 +10,73 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
 )
 
+type Organization struct {
+	Network string
+	Org     string
+}
+
 type Options struct {
 	Mapping map[string]interface{}
 }
 
-func (o *Options) Network() string {
-	res := o.Mapping["Network"]
-	if res == nil {
-		return ""
+func (o *Options) Organizations() []Organization {
+	boxed, ok := o.Mapping["Organization"]
+	if !ok {
+		return nil
 	}
-	return res.(string)
-}
-
-func (o *Options) SetNetwork(network string) {
-	o.Mapping["Network"] = network
-}
-
-func (o *Options) Organization() string {
-	res := o.Mapping["Organization"]
-	if res == nil {
-		return ""
+	var res []Organization
+	list, ok := boxed.([]interface{})
+	if ok {
+		for _, entry := range list {
+			m := entry.(map[interface{}]interface{})
+			res = append(res, Organization{
+				Network: m["Network"].(string),
+				Org:     m["Org"].(string),
+			})
+		}
+		return res
 	}
-	return res.(string)
+
+	list2 := boxed.([]map[string]string)
+	for _, entry := range list2 {
+		m := entry
+		res = append(res, Organization{
+			Network: m["Network"],
+			Org:     m["Org"],
+		})
+	}
+	return res
+
 }
 
-func (o *Options) SetOrganization(org string) {
-	o.Mapping["Organization"] = org
+func (o *Options) AddOrganization(org string) {
+	var m []interface{}
+	boxed, ok := o.Mapping["Organization"]
+	if !ok {
+		m = []interface{}{}
+	} else {
+		m = boxed.([]interface{})
+	}
+	m = append(m, map[interface{}]interface{}{
+		"Network": "",
+		"Org":     org,
+	})
+	o.Mapping["Organization"] = m
+}
+
+func (o *Options) AddNetworkOrganization(network, org string) {
+	var m []map[string]string
+	boxed, ok := o.Mapping["Organization"]
+	if !ok {
+		m = []map[string]string{}
+	} else {
+		m = boxed.([]map[string]string)
+	}
+	m = append(m, map[string]string{
+		"Network": network,
+		"Org":     org,
+	})
+	o.Mapping["Organization"] = m
 }
 
 func (o *Options) Role() string {

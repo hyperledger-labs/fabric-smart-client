@@ -15,6 +15,7 @@ import (
 	"github.com/tedsuo/ifrit/grouper"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/helpers"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/network"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
@@ -58,18 +59,17 @@ type platform struct {
 func NewPlatform(context api.Context, t api.Topology, components BuilderClient) *platform {
 	helpers.AssertImagesExist(RequiredImages...)
 
-	once.Do(func() {
-		var err error
-		dockerClient, err = docker.NewClientFromEnv()
-		Expect(err).NotTo(HaveOccurred())
-		_, err = dockerClient.CreateNetwork(
-			docker.CreateNetworkOptions{
-				Name:   context.NetworkID(),
-				Driver: "bridge",
-			},
-		)
-		Expect(err).NotTo(HaveOccurred())
-	})
+	var err error
+	dockerClient, err = docker.NewClientFromEnv()
+	Expect(err).NotTo(HaveOccurred())
+	networkID := common.UniqueName()
+	_, err = dockerClient.CreateNetwork(
+		docker.CreateNetworkOptions{
+			Name:   networkID,
+			Driver: "bridge",
+		},
+	)
+	Expect(err).NotTo(HaveOccurred())
 
 	return &platform{
 		Network: network.New(
@@ -78,6 +78,7 @@ func NewPlatform(context api.Context, t api.Topology, components BuilderClient) 
 			dockerClient,
 			components,
 			[]network.ChaincodeProcessor{},
+			networkID,
 		),
 	}
 }

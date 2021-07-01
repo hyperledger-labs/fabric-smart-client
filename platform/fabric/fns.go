@@ -84,6 +84,10 @@ func (n *NetworkService) SigService() *SigService {
 	return &SigService{sigService: n.fns.SigService()}
 }
 
+func GetFabricNetworkNames(sp view2.ServiceProvider) []string {
+	return core.GetFabricNetworkServiceProvider(sp).Names()
+}
+
 // GetFabricNetworkService returns the Fabric Network Service for the passed id, nil if not found
 func GetFabricNetworkService(sp view2.ServiceProvider, id string) *NetworkService {
 	fns, err := core.GetFabricNetworkServiceProvider(sp).FabricNetworkService(id)
