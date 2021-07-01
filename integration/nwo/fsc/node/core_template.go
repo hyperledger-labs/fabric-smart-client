@@ -101,7 +101,7 @@ fsc:
       opts:
         path: {{ NodeKVSPath }}
   # HTML Server configuration for REST calls
-  http:
+  web:
     enabled: true
     # HTTPS server listener address
     address: 127.0.0.1:{{ .NodePort Peer "Web" }}

@@ -90,7 +90,7 @@ fsc:
       type: memory
       opts:
         path: ./../../fscnodes/fsc.initiator/kvs
-  http:
+  web:
     enabled: true
     # HTTPS server listener address
     address: 127.0.0.1:19999

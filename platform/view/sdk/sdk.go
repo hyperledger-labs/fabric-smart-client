@@ -13,31 +13,29 @@ import (
 	"io/ioutil"
 	"net"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/rest"
-
 	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger"
 	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
+	protos2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view/protos"
+	web2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/web"
 
 	"github.com/hyperledger/fabric/common/grpclogging"
 	"github.com/pkg/errors"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
+	config2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/core/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/endpoint"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/id"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/id/x509"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/identity"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/crypto"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
-
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
-	config2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/core/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/manager"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/sig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
 	comm2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/identity"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/crypto"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	grpc2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/protos"
+	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view"
 )
 
 var logger = flogging.MustGetLogger("view-sdk")
@@ -57,13 +55,14 @@ type Stoppable interface {
 }
 
 type p struct {
-	s                 *rest.Server
-	h                 *rest.HttpHandler
-	confPath          string
-	registry          Registry
-	grpcServer        *grpc2.GRPCServer
-	viewServiceServer server.ViewServiceServer
-	viewManager       Startable
+	confPath string
+	registry Registry
+
+	webServer *web2.Server
+
+	grpcServer  *grpc2.GRPCServer
+	viewService view2.Service
+	viewManager Startable
 
 	context context.Context
 }
@@ -103,21 +102,21 @@ func (p *p) Install() error {
 	assert.NoError(p.registry.RegisterService(idProvider))
 
 	// View Service Server
-	marshaller, err := server.NewResponseMarshaler(p.registry)
+	marshaller, err := view2.NewResponseMarshaler(p.registry)
 	if err != nil {
-		return fmt.Errorf("error creating view service response marshaller: %s", err)
+		return fmt.Errorf("error creating view service response marshaller: %webServer", err)
 	}
 
-	p.viewServiceServer, err = server.NewViewServiceServer(marshaller,
-		server.NewAccessControlChecker(
+	p.viewService, err = view2.NewViewServiceServer(marshaller,
+		view2.NewAccessControlChecker(
 			idProvider,
 			view.GetSigService(p.registry),
 		),
 	)
 	if err != nil {
-		return fmt.Errorf("error creating view service server: %s", err)
+		return fmt.Errorf("error creating view service server: %webServer", err)
 	}
-	if err := p.registry.RegisterService(p.viewServiceServer); err != nil {
+	if err := p.registry.RegisterService(p.viewService); err != nil {
 		return err
 	}
 
@@ -145,22 +144,22 @@ func (p *p) Install() error {
 func (p *p) Start(ctx context.Context) error {
 	p.context = ctx
 
-	assert.NoError(p.initHTTPServer(), "failed initializing http server")
+	assert.NoError(p.initWEBServer(), "failed initializing web server")
 	assert.NoError(p.initGRPCServer(), "failed initializing grpc server")
 	assert.NoError(p.startCommLayer(), "failed starting comm layer")
 	assert.NoError(p.registerViewServiceServer(), "failed registering view service server")
 	assert.NoError(p.startViewManager(), "failed starting view manager")
 
-	logger.Infof("Started peer with ID=[%s], network ID=[%s], address=[%s]", view.GetConfigService(p.registry).GetString("fsc.id"))
+	logger.Infof("Started peer with ID=[%webServer], network ID=[%webServer], address=[%webServer]", view.GetConfigService(p.registry).GetString("fsc.id"))
 
 	return p.serve()
 }
 
-func (p *p) initHTTPServer() error {
+func (p *p) initWEBServer() error {
 	configProvider := view.GetConfigService(p.registry)
 
-	if !configProvider.GetBool("fsc.http.enabled") {
-		logger.Info("rest server not enabled")
+	if !configProvider.GetBool("fsc.web.enabled") {
+		logger.Info("web server not enabled")
 		return nil
 	}
 
@@ -169,32 +168,32 @@ func (p *p) initHTTPServer() error {
 		clientRootCAs = append(clientRootCAs, configProvider.TranslatePath(path))
 	}
 
-	listenAddr := configProvider.GetString("fsc.http.address")
-	p.s = rest.NewServer(rest.Options{
+	listenAddr := configProvider.GetString("fsc.web.address")
+	p.webServer = web2.NewServer(web2.Options{
 		ListenAddress: listenAddr,
 		Logger:        logger,
-		TLS: rest.TLS{
+		TLS: web2.TLS{
 			Enabled:           configProvider.GetBool("fsc.tls.enabled"),
 			CertFile:          configProvider.GetPath("fsc.tls.cert.file"),
 			KeyFile:           configProvider.GetPath("fsc.tls.key.file"),
 			ClientCACertFiles: clientRootCAs,
 		},
 	})
-	p.h = rest.NewHttpHandler(logger)
-	p.s.RegisterHandler("/", p.h)
+	h := web2.NewHttpHandler(logger)
+	p.webServer.RegisterHandler("/", h)
 
-	d := &rest.Dispatcher{
+	d := &web2.Dispatcher{
 		Logger:  logger,
-		Handler: p.h,
+		Handler: h,
 	}
-	rest.InstallViewHandler(logger, p.registry, d)
+	web2.InstallViewHandler(logger, p.registry, d)
 
 	return nil
 }
 
 func (p *p) registerViewServiceServer() error {
 	// Register the ViewService server
-	protos.RegisterViewServiceServer(p.grpcServer.Server(), p.viewServiceServer)
+	protos2.RegisterViewServiceServer(p.grpcServer.Server(), p.viewService)
 
 	return nil
 }
@@ -205,7 +204,7 @@ func (p *p) initGRPCServer() error {
 	listenAddr := configProvider.GetString("fsc.listenAddress")
 	serverConfig, err := p.getServerConfig()
 	if err != nil {
-		logger.Fatalf("Error loading secure config for peer (%s)", err)
+		logger.Fatalf("Error loading secure config for peer (%webServer)", err)
 	}
 
 	serverConfig.Logger = flogging.MustGetLogger("core.comm").With("server", "PeerServer")
@@ -226,7 +225,7 @@ func (p *p) initGRPCServer() error {
 		// set the cert to use if client auth is requested by remote endpoints
 		clientCert, err := p.getClientCertificate()
 		if err != nil {
-			logger.Fatalf("Failed to set TLS client certificate (%s)", err)
+			logger.Fatalf("Failed to set TLS client certificate (%webServer)", err)
 		}
 		cs.SetClientCertificate(clientCert)
 	}
@@ -257,7 +256,7 @@ func (p *p) startCommLayer() error {
 }
 
 func (p *p) startViewManager() error {
-	server.InstallViewHandler(p.registry, p.viewServiceServer)
+	view2.InstallViewHandler(p.registry, p.viewService)
 	go p.viewManager.Start(p.context)
 
 	return nil
@@ -268,25 +267,25 @@ func (p *p) serve() error {
 	go func() {
 		logger.Info("Starting GRPC server...")
 		if err := p.grpcServer.Start(); err != nil {
-			logger.Fatalf("grpc server stopped with err [%s]", err)
+			logger.Fatalf("grpc server stopped with err [%webServer]", err)
 		}
 	}()
 	go func() {
-		if p.s == nil {
+		if p.webServer == nil {
 			return
 		}
-		logger.Info("Starting HTTP server...")
-		if err := p.s.Start(); err != nil {
-			logger.Fatalf("Failed starting HTTP server: %v", err)
+		logger.Info("Starting WEB server...")
+		if err := p.webServer.Start(); err != nil {
+			logger.Fatalf("Failed starting WEB server: %v", err)
 		}
 	}()
 	go func() {
 		select {
 		case <-p.context.Done():
-			if p.s != nil {
+			if p.webServer != nil {
 				logger.Info("web server stopping...")
-				if err := p.s.Stop(); err != nil {
-					logger.Errorf("failed stopping web server [%s]", err)
+				if err := p.webServer.Stop(); err != nil {
+					logger.Errorf("failed stopping web server [%webServer]", err)
 				}
 			}
 			logger.Info("web server stopping...done")
@@ -317,7 +316,7 @@ func (p *p) getLocalAddress() (string, error) {
 
 	localIP, err := grpc2.GetLocalIP()
 	if err != nil {
-		logger.Errorf("local IP address not auto-detectable: %s", err)
+		logger.Errorf("local IP address not auto-detectable: %webServer", err)
 		return "", err
 	}
 	autoDetectedIPAndPort := net.JoinHostPort(localIP, port)
@@ -350,11 +349,11 @@ func (p *p) getServerConfig() (grpc2.ServerConfig, error) {
 		// get the certs from the file system
 		serverKey, err := ioutil.ReadFile(configProvider.GetPath("fsc.tls.key.file"))
 		if err != nil {
-			return serverConfig, fmt.Errorf("error loading TLS key (%s)", err)
+			return serverConfig, fmt.Errorf("error loading TLS key (%webServer)", err)
 		}
 		serverCert, err := ioutil.ReadFile(configProvider.GetPath("fsc.tls.cert.file"))
 		if err != nil {
-			return serverConfig, fmt.Errorf("error loading TLS certificate (%s)", err)
+			return serverConfig, fmt.Errorf("error loading TLS certificate (%webServer)", err)
 		}
 		serverConfig.SecOpts.Certificate = serverCert
 		serverConfig.SecOpts.Key = serverKey
@@ -364,7 +363,7 @@ func (p *p) getServerConfig() (grpc2.ServerConfig, error) {
 			for _, file := range configProvider.GetStringSlice("fsc.tls.clientRootCAs.files") {
 				clientRoot, err := ioutil.ReadFile(configProvider.TranslatePath(file))
 				if err != nil {
-					return serverConfig, fmt.Errorf("error loading client root CAs (%s)", err)
+					return serverConfig, fmt.Errorf("error loading client root CAs (%webServer)", err)
 				}
 				clientRoots = append(clientRoots, clientRoot)
 			}
@@ -374,7 +373,7 @@ func (p *p) getServerConfig() (grpc2.ServerConfig, error) {
 		if configProvider.GetPath("fsc.tls.rootcert.file") != "" {
 			rootCert, err := ioutil.ReadFile(configProvider.GetPath("fsc.tls.rootcert.file"))
 			if err != nil {
-				return serverConfig, fmt.Errorf("error loading TLS root certificate (%s)", err)
+				return serverConfig, fmt.Errorf("error loading TLS root certificate (%webServer)", err)
 			}
 			serverConfig.SecOpts.ServerRootCAs = [][]byte{rootCert}
 		}

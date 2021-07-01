@@ -4,7 +4,7 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package rest_test
+package web_test
 
 import (
 	"bytes"
@@ -13,10 +13,11 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/rest"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/rest/mocks"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+
+	web2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/web"
+	mocks2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/web/mocks"
 )
 
 type Fruit struct {
@@ -32,10 +33,10 @@ func TestHttpHandler(t *testing.T) {
 	l, err := zap.NewDevelopment()
 	require.NoError(t, err)
 
-	h := rest.NewHttpHandler(l.Sugar())
+	h := web2.NewHttpHandler(l.Sugar())
 
-	rh := &mocks.FakeRequestHandler{}
-	rh.HandleRequestStub = func(ctx *rest.ReqContext) (interface{}, int) {
+	rh := &mocks2.FakeRequestHandler{}
+	rh.HandleRequestStub = func(ctx *web2.ReqContext) (interface{}, int) {
 		query := ctx.Query.(*Fruit)
 
 		var res FruitBasket

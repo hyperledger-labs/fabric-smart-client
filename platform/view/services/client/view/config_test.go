@@ -4,23 +4,23 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package client_test
+package view_test
 
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 )
 
 var _ = Describe("Config", func() {
 	var (
-		config client.Config
+		config view.Config
 	)
 
 	BeforeEach(func() {
-		config = client.Config{
+		config = view.Config{
 			FSCNode: &grpc.ConnectionConfig{
 				Address:         "127.0.0.1:0",
 				TLSEnabled:      true,
@@ -31,7 +31,7 @@ var _ = Describe("Config", func() {
 
 	Describe("ValidateConfig", func() {
 		It("returns no error for validate config", func() {
-			err := client.ValidateClientConfig(config)
+			err := view.ValidateClientConfig(config)
 			Expect(err).NotTo(HaveOccurred())
 		})
 	})
@@ -42,7 +42,7 @@ var _ = Describe("Config", func() {
 		})
 
 		It("returns missing fsc address error", func() {
-			err := client.ValidateClientConfig(config)
+			err := view.ValidateClientConfig(config)
 			Expect(err).To(MatchError("missing fsc peer address"))
 		})
 	})
@@ -53,7 +53,7 @@ var _ = Describe("Config", func() {
 		})
 
 		It("returns fsc TLSRootCertFile error", func() {
-			err := client.ValidateClientConfig(config)
+			err := view.ValidateClientConfig(config)
 			Expect(err).To(MatchError("missing fsc peer TLSRootCertFile"))
 		})
 	})

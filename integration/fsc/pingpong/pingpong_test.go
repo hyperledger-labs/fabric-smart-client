@@ -10,13 +10,12 @@ import (
 	"bytes"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/json"
 	"io/ioutil"
 	"net/http"
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/api"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/protos"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/web"
 
 	config2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/core/config"
 
@@ -64,22 +63,13 @@ var _ = Describe("EndToEnd", func() {
 
 			time.Sleep(3 * time.Second)
 
-			client := newHTTPClient("./testdata/fsc/fscnodes/fsc.initiator")
-
-			url := "https://127.0.0.1:19999/v1/Views/init"
-			req, err := http.NewRequest(http.MethodPut, url, bytes.NewBuffer([]byte("hi")))
+			webClientConfig, err := web.NewConfigFromFSC("./testdata/fsc/fscnodes/fsc.initiator")
 			Expect(err).NotTo(HaveOccurred())
-
-			resp, err := client.Do(req)
+			initiatorWebClient, err := web.NewClient(webClientConfig)
 			Expect(err).NotTo(HaveOccurred())
-			buff, err := ioutil.ReadAll(resp.Body)
+			res, err := initiatorWebClient.CallView("init", bytes.NewBuffer([]byte("hi")).Bytes())
 			Expect(err).NotTo(HaveOccurred())
-
-			response := &protos.CommandResponse_CallViewResponse{}
-			err = json.Unmarshal(buff, response)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(string(response.CallViewResponse.Result)).To(Equal("\"OK\""))
-
+			Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
 		})
 
 		It("successful pingpong", func() {

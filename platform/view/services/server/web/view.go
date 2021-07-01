@@ -4,7 +4,7 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package rest
+package web
 
 import (
 	"encoding/json"
@@ -13,7 +13,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/protos"
+	protos2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view/protos"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracker"
 )
 
@@ -57,7 +57,7 @@ func (s *viewHandler) callView(fid string, input []byte) (interface{}, error) {
 		}
 	}
 	s.logger.Debugf("Finished call view [%s] on channel [%s] and on input [%v]", fid, string(input))
-	return &protos.CommandResponse_CallViewResponse{CallViewResponse: &protos.CallViewResponse{
+	return &protos2.CommandResponse_CallViewResponse{CallViewResponse: &protos2.CallViewResponse{
 		Result: raw,
 	}}, nil
 }

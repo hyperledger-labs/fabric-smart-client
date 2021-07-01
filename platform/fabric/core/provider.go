@@ -20,7 +20,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server"
+	view3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view"
 )
 
 type fnsProvider struct {
@@ -127,7 +127,7 @@ func (m *fnsProvider) newFNS(network string) (driver.FabricNetworkService, error
 		return nil, errors.Wrap(err, "failed instantiating fabric service provider")
 	}
 
-	finality.InstallHandler(server.GetServer(m.sp), net)
+	finality.InstallHandler(view3.GetService(m.sp), net)
 
 	return net, nil
 }

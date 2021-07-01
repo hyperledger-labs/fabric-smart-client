@@ -4,7 +4,7 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package rest
+package web
 
 type ViewCaller interface {
 	CallView(fid string, input []byte) (interface{}, error)

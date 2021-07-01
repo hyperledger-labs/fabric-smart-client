@@ -4,7 +4,7 @@ package fakes
 import (
 	"sync"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/rest"
+	web2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/web"
 )
 
 type Logger struct {
@@ -197,4 +197,4 @@ func (fake *Logger) recordInvocation(key string, args []interface{}) {
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ rest.Logger = new(Logger)
+var _ web2.Logger = new(Logger)

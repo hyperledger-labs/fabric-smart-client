@@ -4,7 +4,7 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package rest_test
+package web_test
 
 import (
 	"crypto/tls"
@@ -25,9 +25,9 @@ import (
 	"github.com/tedsuo/ifrit"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc/tlsgen"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/rest"
-	fakes2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/rest/fakes"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/rest/mocks"
+	web2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/web"
+	fakes3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/web/fakes"
+	mocks2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/web/mocks"
 )
 
 var (
@@ -92,12 +92,12 @@ var _ = Describe("Server", func() {
 	const someURL = "/some-URL"
 
 	var (
-		fakeLogger *fakes2.Logger
+		fakeLogger *fakes3.Logger
 		tempDir    string
 
 		client  *http.Client
-		options rest.Options
-		server  *rest.Server
+		options web2.Options
+		server  *web2.Server
 	)
 
 	BeforeEach(func() {
@@ -108,11 +108,11 @@ var _ = Describe("Server", func() {
 		generateCertificates(tempDir)
 		client = newHTTPClient(tempDir, true)
 
-		fakeLogger = &fakes2.Logger{}
-		options = rest.Options{
+		fakeLogger = &fakes3.Logger{}
+		options = web2.Options{
 			Logger:        fakeLogger,
 			ListenAddress: "127.0.0.1:0",
-			TLS: rest.TLS{
+			TLS: web2.TLS{
 				Enabled:           true,
 				CertFile:          filepath.Join(tempDir, "server-cert.pem"),
 				KeyFile:           filepath.Join(tempDir, "server-key.pem"),
@@ -120,7 +120,7 @@ var _ = Describe("Server", func() {
 			},
 		}
 
-		server = rest.NewServer(options)
+		server = web2.NewServer(options)
 	})
 
 	AfterEach(func() {
@@ -132,14 +132,14 @@ var _ = Describe("Server", func() {
 
 	When("the HttpHandler is mounted on the server", func() {
 		It("succeeds in servicing", func() {
-			handler := rest.NewHttpHandler(fakeLogger)
+			handler := web2.NewHttpHandler(fakeLogger)
 			server.RegisterHandler("/", handler)
 			err := server.Start()
 			Expect(err).NotTo(HaveOccurred())
 
-			rh := &mocks.FakeRequestHandler{}
+			rh := &mocks2.FakeRequestHandler{}
 
-			rh.HandleRequestStub = func(ctx *rest.ReqContext) (interface{}, int) {
+			rh.HandleRequestStub = func(ctx *web2.ReqContext) (interface{}, int) {
 				m := make(map[string]interface{})
 				m["status"] = "OK"
 				return m, 200
@@ -198,7 +198,7 @@ var _ = Describe("Server", func() {
 	Context("when TLS is disabled", func() {
 		BeforeEach(func() {
 			options.TLS.Enabled = false
-			server = rest.NewServer(options)
+			server = web2.NewServer(options)
 		})
 
 		It("does not host an insecure endpoint for additional APIs by default", func() {
@@ -222,7 +222,7 @@ var _ = Describe("Server", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			options.ListenAddress = listener.Addr().String()
-			server = rest.NewServer(options)
+			server = web2.NewServer(options)
 		})
 
 		AfterEach(func() {
@@ -238,7 +238,7 @@ var _ = Describe("Server", func() {
 	Context("when a bad TLS configuration is provided", func() {
 		BeforeEach(func() {
 			options.TLS.CertFile = "cert-file-does-not-exist"
-			server = rest.NewServer(options)
+			server = web2.NewServer(options)
 		})
 
 		It("returns an error", func() {
@@ -258,7 +258,7 @@ var _ = Describe("Server", func() {
 	Context("when start fails and ifrit is used", func() {
 		BeforeEach(func() {
 			options.TLS.CertFile = "non-existent-file"
-			server = rest.NewServer(options)
+			server = web2.NewServer(options)
 		})
 
 		It("does not close the ready chan", func() {

@@ -11,7 +11,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/identity"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 )
 
@@ -57,10 +57,10 @@ type Context interface {
 	SetAdminSigningIdentity(name string, id identity.SigningIdentity)
 	SetViewIdentity(name string, cert []byte)
 	ConnectionConfig(name string) *grpc.ConnectionConfig
-	ClientSigningIdentity(name string) client.SigningIdentity
+	ClientSigningIdentity(name string) view.SigningIdentity
 	SetViewClient(name string, c ViewClient)
 	GetViewIdentityAliases(name string) []string
-	AdminSigningIdentity(name string) client.SigningIdentity
+	AdminSigningIdentity(name string) view.SigningIdentity
 	ExtensionsByPeerID(name string) Extensions
 }
 

@@ -11,19 +11,19 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 )
 
 func main() {
-	configs := make(client.Configs, 2)
-	configs[0] = client.Config{
+	configs := make(view.Configs, 2)
+	configs[0] = view.Config{
 		ID: "Alice",
 		FSCNode: &grpc.ConnectionConfig{
 			Address: "127.0.0.1:7051",
 		},
 	}
-	configs[1] = client.Config{
+	configs[1] = view.Config{
 		ID: "Bob",
 		FSCNode: &grpc.ConnectionConfig{
 			Address: "127.0.0.1:8051",
@@ -31,7 +31,7 @@ func main() {
 	}
 	raw, _ := configs.ToJSon()
 
-	configs2 := &client.Configs{}
+	configs2 := &view.Configs{}
 	err := json.Unmarshal(raw, configs2)
 	if err != nil {
 		panic(err)

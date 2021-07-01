@@ -4,13 +4,13 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package server
+package view
 
 import (
 	"github.com/pkg/errors"
 
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/protos"
+	protos2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view/protos"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -32,7 +32,7 @@ func NewAccessControlChecker(identityProvider IdentityProvider, verifierProvider
 	return &AccessControlChecker{IdentityProvider: identityProvider, VerifierProvider: verifierProvider}
 }
 
-func (a *AccessControlChecker) Check(sc *protos.SignedCommand, c *protos.Command) error {
+func (a *AccessControlChecker) Check(sc *protos2.SignedCommand, c *protos2.Command) error {
 	// Is the creator recognized
 	validIdentities := []view.Identity{a.IdentityProvider.DefaultIdentity()}
 	admins := a.IdentityProvider.Admins()

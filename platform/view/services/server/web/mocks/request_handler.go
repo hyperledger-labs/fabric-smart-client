@@ -4,14 +4,14 @@ package mocks
 import (
 	"sync"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/rest"
+	web2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/web"
 )
 
 type FakeRequestHandler struct {
-	HandleRequestStub        func(*rest.ReqContext) (interface{}, int)
+	HandleRequestStub        func(*web2.ReqContext) (interface{}, int)
 	handleRequestMutex       sync.RWMutex
 	handleRequestArgsForCall []struct {
-		arg1 *rest.ReqContext
+		arg1 *web2.ReqContext
 	}
 	handleRequestReturns struct {
 		result1 interface{}
@@ -38,11 +38,11 @@ type FakeRequestHandler struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *FakeRequestHandler) HandleRequest(arg1 *rest.ReqContext) (interface{}, int) {
+func (fake *FakeRequestHandler) HandleRequest(arg1 *web2.ReqContext) (interface{}, int) {
 	fake.handleRequestMutex.Lock()
 	ret, specificReturn := fake.handleRequestReturnsOnCall[len(fake.handleRequestArgsForCall)]
 	fake.handleRequestArgsForCall = append(fake.handleRequestArgsForCall, struct {
-		arg1 *rest.ReqContext
+		arg1 *web2.ReqContext
 	}{arg1})
 	fake.recordInvocation("HandleRequest", []interface{}{arg1})
 	fake.handleRequestMutex.Unlock()
@@ -62,13 +62,13 @@ func (fake *FakeRequestHandler) HandleRequestCallCount() int {
 	return len(fake.handleRequestArgsForCall)
 }
 
-func (fake *FakeRequestHandler) HandleRequestCalls(stub func(*rest.ReqContext) (interface{}, int)) {
+func (fake *FakeRequestHandler) HandleRequestCalls(stub func(*web2.ReqContext) (interface{}, int)) {
 	fake.handleRequestMutex.Lock()
 	defer fake.handleRequestMutex.Unlock()
 	fake.HandleRequestStub = stub
 }
 
-func (fake *FakeRequestHandler) HandleRequestArgsForCall(i int) *rest.ReqContext {
+func (fake *FakeRequestHandler) HandleRequestArgsForCall(i int) *web2.ReqContext {
 	fake.handleRequestMutex.RLock()
 	defer fake.handleRequestMutex.RUnlock()
 	argsForCall := fake.handleRequestArgsForCall[i]
@@ -195,4 +195,4 @@ func (fake *FakeRequestHandler) recordInvocation(key string, args []interface{})
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ rest.RequestHandler = new(FakeRequestHandler)
+var _ web2.RequestHandler = new(FakeRequestHandler)
