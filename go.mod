@@ -12,6 +12,8 @@ replace (
 
 require (
 	github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 // indirect
+	github.com/IBM/idemix v0.0.0-20210903191256-c586b3a13886
+	github.com/IBM/mathlib v0.0.0-20210604113841-9a8b168120be
 	github.com/OneOfOne/xxhash v1.2.5 // indirect
 	github.com/Shopify/sarama v1.26.3
 	github.com/btcsuite/btcd v0.21.0-beta // indirect
@@ -23,7 +25,6 @@ require (
 	github.com/fsouza/go-dockerclient v1.6.1
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/protobuf v1.5.2
-	github.com/golang/snappy v0.0.3-0.20201103224600-674baa8c7fc3 // indirect
 	github.com/google/go-cmp v0.5.5
 	github.com/gorilla/mux v1.8.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.2.0
@@ -31,7 +32,6 @@ require (
 	github.com/hyperledger-labs/weaver-dlt-interoperability/common/protos-go v1.2.3-alpha.1
 	github.com/hyperledger-labs/weaver-dlt-interoperability/sdks/fabric/go-sdk v1.2.3-alpha.1.0.20210812140206-37f430515b8c
 	github.com/hyperledger/fabric v1.4.0-rc1.0.20210722174351-9815a7a8f0f7
-	github.com/hyperledger/fabric-amcl v0.0.0-20200424173818-327c9e2cf77a
 	github.com/hyperledger/fabric-chaincode-go v0.0.0-20210718160520-38d29fabecb9
 	github.com/hyperledger/fabric-contract-api-go v1.1.1
 	github.com/hyperledger/fabric-private-chaincode v0.0.0-20210907122433-d56466264e4d
@@ -49,7 +49,7 @@ require (
 	github.com/morikuni/aec v1.0.0 // indirect
 	github.com/multiformats/go-multiaddr v0.2.0
 	github.com/onsi/ginkgo v1.16.4
-	github.com/onsi/gomega v1.10.3
+	github.com/onsi/gomega v1.11.0
 	github.com/otiai10/copy v1.5.1
 	github.com/pierrec/lz4 v2.5.2+incompatible // indirect
 	github.com/pkg/errors v0.9.1

@@ -9,17 +9,17 @@ package idemix
 import (
 	"encoding/json"
 
+	csp "github.com/IBM/idemix/bccsp/schemes"
 	"github.com/golang/protobuf/proto"
 	m "github.com/hyperledger/fabric-protos-go/msp"
 	"github.com/pkg/errors"
-
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/csp"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/csp/idemix/crypto"
 )
 
 type AuditInfo struct {
-	*csp.IdemixSignatureInfo
-	Attributes [][]byte
+	*csp.NymEIDAuditData
+	Attributes      [][]byte
+	Csp             csp.BCCSP `json:"-"`
+	IssuerPublicKey csp.Key   `json:"-"`
 }
 
 func (a *AuditInfo) Bytes() ([]byte, error) {
@@ -28,16 +28,6 @@ func (a *AuditInfo) Bytes() ([]byte, error) {
 
 func (a *AuditInfo) FromBytes(raw []byte) error {
 	return json.Unmarshal(raw, a)
-}
-
-func (a *AuditInfo) HiddenIndices() []int {
-	HiddenIndices := make([]int, 0)
-	for index, disclose := range a.Disclosure {
-		if disclose == 0 {
-			HiddenIndices = append(HiddenIndices, index)
-		}
-	}
-	return HiddenIndices
 }
 
 func (a *AuditInfo) EnrollmentID() string {
@@ -57,8 +47,23 @@ func (a *AuditInfo) Match(id []byte) error {
 		return errors.Wrap(err, "could not deserialize a SerializedIdemixIdentity")
 	}
 
-	if _, err := crypto.VerifyAuditingInfo(serialized.Proof, a.IdemixSignatureInfo); err != nil {
-		return err
+	valid, err := a.Csp.Verify(
+		a.IssuerPublicKey,
+		serialized.Proof,
+		nil,
+		&csp.EidNymAuditOpts{
+			EidIndex:     eidIndex,
+			EnrollmentID: string(a.Attributes[eidIndex]),
+			RNymEid:      a.RNymEid,
+		},
+	)
+	if err != nil {
+		return errors.Wrap(err, "error while verifying the nym eid")
 	}
+
+	if !valid {
+		return errors.New("invalid nym eid")
+	}
+
 	return nil
 }
