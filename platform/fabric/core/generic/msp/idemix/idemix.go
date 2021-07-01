@@ -11,18 +11,18 @@ import (
 	"reflect"
 	"strconv"
 
+	idemix "github.com/IBM/idemix/bccsp"
+	"github.com/IBM/idemix/bccsp/keystore"
+	"github.com/IBM/idemix/bccsp/schemes/dlog/crypto/translator/amcl"
+	math "github.com/IBM/mathlib"
 	"github.com/golang/protobuf/proto"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	m "github.com/hyperledger/fabric-protos-go/msp"
 	"github.com/hyperledger/fabric/bccsp"
+	"github.com/hyperledger/fabric/bccsp/idemix/bridge"
 	"github.com/hyperledger/fabric/msp"
 	"github.com/pkg/errors"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
-
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/csp"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/csp/idemix"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/csp/idemix/bridge"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/csp/idemix/handlers"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
@@ -133,6 +133,9 @@ func NewProvider(conf1 *m.MSPConfig, sp view2.ServiceProvider) (*provider, error
 	if conf1 == nil {
 		return nil, errors.Errorf("setup error: nil conf reference")
 	}
+
+	curve := math.Curves[math.FP256BN_AMCL]
+	csp, err := idemix.New(&keystore.Dummy{}, curve, &amcl.Fp256bn{C: curve}, true)
 
 	cryptoProvider, err := idemix.New(handlers.NewStore(sp, &bridge.User{NewRand: bridge.NewRandOrPanic}))
 	if err != nil {
