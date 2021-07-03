@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package vault
 
 import (
+	"bytes"
 	"encoding/json"
 	"sync"
 
@@ -31,6 +32,7 @@ type TXIDStore interface {
 	Set(txid string, code fdriver.ValidationCode) error
 }
 
+// Vault models a key-value store that can be modified by committing rwsets
 type Vault struct {
 	txidStore        TXIDStore
 	interceptorsLock sync.Mutex
@@ -50,11 +52,12 @@ type Vault struct {
 	storeLock sync.RWMutex
 }
 
-func New(store driver.VersionedPersistence, txidStore TXIDStore) *Vault {
+// New returns a new instance of Vault
+func New(store driver.VersionedPersistence, txIDStore TXIDStore) *Vault {
 	return &Vault{
 		interceptors: make(map[string]*Interceptor),
 		store:        store,
-		txidStore:    txidStore,
+		txidStore:    txIDStore,
 	}
 }
 
@@ -256,4 +259,35 @@ func (db *Vault) InspectRWSet(rwsetBytes []byte) (*Inspector, error) {
 	}
 
 	return i, nil
+}
+
+func (db *Vault) Match(txid string, rwsRaw []byte) error {
+	if len(rwsRaw) == 0 {
+		return errors.Errorf("passed empty rwset")
+	}
+
+	logger.Debugf("unmapInterceptor [%s]", txid)
+	db.interceptorsLock.Lock()
+	defer db.interceptorsLock.Unlock()
+	i, in := db.interceptors[txid]
+	if !in {
+		return errors.Errorf("read-write set for txid %s could not be found", txid)
+	}
+	if !i.closed {
+		return errors.Errorf("attempted to retrieve read-write set for %s when done has not been called", txid)
+	}
+
+	logger.Debugf("get lock [%s][%d]", txid, db.counter.Load())
+	db.storeLock.Lock()
+	defer db.storeLock.Unlock()
+
+	rwsRaw2, err := i.Bytes()
+	if err != nil {
+		return err
+	}
+
+	if !bytes.Equal(rwsRaw, rwsRaw2) {
+		return errors.Errorf("rwsets do not match")
+	}
+	return nil
 }

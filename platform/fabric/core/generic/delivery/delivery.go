@@ -27,11 +27,15 @@ import (
 
 var logger = flogging.MustGetLogger("fabric-sdk.delivery")
 
+// Committer models a filtered block committer
 type Committer interface {
+	// Commit commits the transaction in the passed block
 	Commit(block *pb.FilteredBlock)
 }
 
+// Vault models a key-value store that can be updated by committing rwsets
 type Vault interface {
+	// GetLastTxID returns the last transaction id committed
 	GetLastTxID() (string, error)
 }
 

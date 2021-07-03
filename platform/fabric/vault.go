@@ -78,6 +78,7 @@ func (r *RWSet) Clear(ns string) error {
 	return r.rws.Clear(ns)
 }
 
+// SetState sets the given value for the given namespace and key.
 func (r *RWSet) SetState(namespace string, key string, value []byte) error {
 	return r.rws.SetState(namespace, key, value)
 }
@@ -90,6 +91,7 @@ func (r *RWSet) GetState(namespace string, key string, opts ...GetStateOpt) ([]b
 	return r.rws.GetState(namespace, key, o...)
 }
 
+// DeleteState deletes the given namespace and key
 func (r *RWSet) DeleteState(namespace string, key string) error {
 	return r.rws.DeleteState(namespace, key)
 }
@@ -102,6 +104,7 @@ func (r *RWSet) GetStateMetadata(namespace, key string, opts ...GetStateOpt) (ma
 	return r.rws.GetStateMetadata(namespace, key, o...)
 }
 
+// SetStateMetadata sets the metadata associated with an existing key-tuple <namespace, key>
 func (r *RWSet) SetStateMetadata(namespace, key string, metadata map[string][]byte) error {
 	return r.rws.SetStateMetadata(namespace, key, metadata)
 }
@@ -110,22 +113,29 @@ func (r *RWSet) GetReadKeyAt(ns string, i int) (string, error) {
 	return r.rws.GetReadKeyAt(ns, i)
 }
 
+// GetReadAt returns the i-th read (key, value) in the namespace ns  of this rwset.
+// The value is loaded from the ledger, if present. If the key's version in the ledger
+// does not match the key's version in the read, then it returns an error.
 func (r *RWSet) GetReadAt(ns string, i int) (string, []byte, error) {
 	return r.rws.GetReadAt(ns, i)
 }
 
+// GetWriteAt returns the i-th write (key, value) in the namespace ns of this rwset.
 func (r *RWSet) GetWriteAt(ns string, i int) (string, []byte, error) {
 	return r.rws.GetWriteAt(ns, i)
 }
 
+// NumReads returns the number of reads in the namespace ns  of this rwset.
 func (r *RWSet) NumReads(ns string) int {
 	return r.rws.NumReads(ns)
 }
 
+// NumWrites returns the number of writes in the namespace ns of this rwset.
 func (r *RWSet) NumWrites(ns string) int {
 	return r.rws.NumWrites(ns)
 }
 
+// Namespaces returns the namespace labels in this rwset.
 func (r *RWSet) Namespaces() []string {
 	return r.rws.Namespaces()
 }
@@ -165,6 +175,7 @@ type Read struct {
 	IndexInBlock int
 }
 
+// ResultsIterator models an query result iterator
 type ResultsIterator struct {
 	ri driver.VersionedResultsIterator
 }
@@ -263,10 +274,12 @@ func (t *TxIDIterator) Close() {
 	t.TxidIterator.Close()
 }
 
+// Vault models a key-value store that can be updated by committing rwsets
 type Vault struct {
 	ch fdriver.Channel
 }
 
+// GetLastTxID returns the last transaction id committed
 func (c *Vault) GetLastTxID() (string, error) {
 	return c.ch.GetLastTxID()
 }
@@ -303,9 +316,12 @@ func (c *Vault) DiscardTx(txid string) error {
 }
 
 func (c *Vault) CommitTX(txid string, block uint64, indexInBloc int) error {
-	return c.ch.CommitTX(txid, block, indexInBloc)
+	return c.ch.CommitTX(txid, block, indexInBloc, nil)
 }
 
+// NewQueryExecutor gives handle to a query executor.
+// A client can obtain more than one 'QueryExecutor's for parallel execution.
+// Any synchronization should be performed at the implementation level if required
 func (c *Vault) NewQueryExecutor() (*QueryExecutor, error) {
 	qe, err := c.ch.NewQueryExecutor()
 	if err != nil {
@@ -314,6 +330,9 @@ func (c *Vault) NewQueryExecutor() (*QueryExecutor, error) {
 	return &QueryExecutor{qe: qe}, nil
 }
 
+// NewRWSet returns a RWSet for this ledger.
+// A client may obtain more than one such simulator; they are made unique
+// by way of the supplied txid
 func (c *Vault) NewRWSet(txid string) (*RWSet, error) {
 	rws, err := c.ch.NewRWSet(txid)
 	if err != nil {
@@ -322,6 +341,10 @@ func (c *Vault) NewRWSet(txid string) (*RWSet, error) {
 	return &RWSet{rws: rws}, nil
 }
 
+// GetRWSet returns a RWSet for this ledger whose content is unmarshalled
+// from the passed bytes.
+// A client may obtain more than one such simulator; they are made unique
+// by way of the supplied txid
 func (c *Vault) GetRWSet(txid string, rwset []byte) (*RWSet, error) {
 	rws, err := c.ch.GetRWSet(txid, rwset)
 	if err != nil {
@@ -330,6 +353,8 @@ func (c *Vault) GetRWSet(txid string, rwset []byte) (*RWSet, error) {
 	return &RWSet{rws: rws}, nil
 }
 
+// GetEphemeralRWSet returns an ephemeral RWSet for this ledger whose content is unmarshalled
+// from the passed bytes.
 func (c *Vault) GetEphemeralRWSet(rwset []byte) (*RWSet, error) {
 	rws, err := c.ch.GetEphemeralRWSet(rwset)
 	if err != nil {

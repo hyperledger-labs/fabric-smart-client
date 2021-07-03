@@ -59,10 +59,7 @@ func (c *channel) DiscardTx(txid string) error {
 	return nil
 }
 
-func (c *channel) CommitTX(txid string, block uint64, indexInBlock int) (err error) {
-	// When committing a multi-shard pvt, the transaction might be not valid.
-	// In this case, the fsc node should not panic but just mov on.
-
+func (c *channel) CommitTX(txid string, block uint64, indexInBlock int, envelope []byte) (err error) {
 	logger.Debugf("Committing transaction [%s,%d,%d]", txid, block, indexInBlock)
 	defer logger.Debugf("Committing transaction [%s,%d,%d] done [%s]", txid, block, indexInBlock, err)
 
@@ -85,7 +82,7 @@ func (c *channel) CommitTX(txid string, block uint64, indexInBlock int) (err err
 	case driver.HasDependencies:
 		return c.commitDeps(txid, block, indexInBlock)
 	case driver.Busy:
-		return c.commit(txid, deps, block, indexInBlock)
+		return c.commit(txid, deps, block, indexInBlock, envelope)
 	default:
 		return errors.Errorf("invalid status code [%d] for [%s]", vc, txid)
 	}
@@ -134,7 +131,23 @@ func (c *channel) commitUnknown(txid string, block uint64, indexInBlock int) err
 
 	// commit this transaction because it contains one of ne namespace to be processed anyway
 	logger.Debugf("[%s] known namespaces found, commit", txid)
-	return c.commit(txid, nil, block, indexInBlock)
+	return c.commit(txid, nil, block, indexInBlock, nil)
+}
+
+func (c *channel) commit(txid string, deps []string, block uint64, indexInBlock int, envelope []byte) error {
+	logger.Debugf("[%s] is known.", txid)
+
+	switch {
+	case len(deps) != 0:
+		if err := c.commitExternal(txid, block, indexInBlock); err != nil {
+			return err
+		}
+	default:
+		if err := c.commitLocal(txid, block, indexInBlock, envelope); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (c *channel) commitDeps(txid string, block uint64, indexInBlock int) error {
@@ -161,59 +174,70 @@ func (c *channel) commitDeps(txid string, block uint64, indexInBlock int) error 
 	return nil
 }
 
-func (c *channel) commit(txid string, deps []string, block uint64, indexInBlock int) error {
-	logger.Debugf("[%s] is known.", txid)
+func (c *channel) commitExternal(txid string, block uint64, indexInBlock int) error {
+	logger.Debugf("[%s] Committing as multi-shard pvt.", txid)
 
-	switch {
-	case len(deps) != 0:
-		logger.Debugf("[%s] Committing as multi-shard pvt.", txid)
+	// Ask for finality
+	_, _, parties, err := c.externalCommitter.Status(txid)
+	if err != nil {
+		return errors.Wrapf(err, "failed getting parties for [%s]", txid)
+	}
+	if err := c.IsFinalForParties(txid, parties...); err != nil {
+		return err
+	}
 
-		// Ask for finality
-		_, _, shards, err := c.externalCommitter.Status(txid)
-		if err != nil {
-			return errors.Wrapf(err, "failed getting shards for [%s]", txid)
+	// Validate and commit
+	vc, err := c.externalCommitter.Validate(txid)
+	if err != nil {
+		return errors.WithMessagef(err, "failed validating transaction [%s]", txid)
+	}
+	switch vc {
+	case driver.Valid:
+		if err := c.externalCommitter.CommitTX(txid, block, indexInBlock); err != nil {
+			return errors.WithMessagef(err, "failed committing tx [%s]", txid)
 		}
-		if err := c.IsFinalForParties(txid, shards...); err != nil {
+		return nil
+	case driver.Invalid:
+		if err := c.externalCommitter.DiscardTX(txid); err != nil {
+			logger.Errorf("failed committing tx [%s] with err [%s]", txid, err)
+		}
+		return nil
+	}
+	return nil
+}
+
+func (c *channel) commitLocal(txid string, block uint64, indexInBlock int, envelope []byte) error {
+	// This is a normal transaction, validated by Fabric.
+	// Commit it cause Fabric says it is valid.
+	logger.Debugf("[%s] Committing", txid)
+
+	// Match rwsets if envelope is not empty
+	if len(envelope) != 0 {
+		pt, err := newProcessedTransactionFromEnvelopeRaw(envelope)
+		if err != nil {
 			return err
 		}
 
-		// Validate and commit
-		vc, err := c.externalCommitter.Validate(txid)
-		if err != nil {
-			return errors.WithMessagef(err, "failed validating transaction [%s]", txid)
-		}
-		switch vc {
-		case driver.Valid:
-			if err := c.externalCommitter.CommitTX(txid, block, indexInBlock); err != nil {
-				return errors.WithMessagef(err, "failed committing tx [%s]", txid)
-			}
-			return nil
-		case driver.Invalid:
-			if err := c.externalCommitter.DiscardTX(txid); err != nil {
-				logger.Errorf("failed committing tx [%s] with err [%s]", txid, err)
-			}
-			return nil
-		}
-	default:
-		// This is a normal transaction, validated by Fabric.
-		// Commit it cause Fabric says it is valid.
-		logger.Debugf("[%s] Committing", txid)
-
-		// Post-Processes
-		logger.Debugf("[%s] Post Processes", txid)
-
-		if err := c.postProcessTx(txid); err != nil {
-			// This should generate a panic
-			return err
-		}
-
-		// Commit
-		logger.Debugf("[%s] Commit in vault", txid)
-		if err := c.vault.CommitTX(txid, block, indexInBlock); err != nil {
-			// This should generate a panic
+		if err := c.vault.Match(txid, pt.Results()); err != nil {
 			return err
 		}
 	}
+
+	// Post-Processes
+	logger.Debugf("[%s] Post Processes", txid)
+
+	if err := c.postProcessTx(txid); err != nil {
+		// This should generate a panic
+		return err
+	}
+
+	// Commit
+	logger.Debugf("[%s] Commit in vault", txid)
+	if err := c.vault.CommitTX(txid, block, indexInBlock); err != nil {
+		// This should generate a panic
+		return err
+	}
+
 	return nil
 }
 

@@ -387,8 +387,16 @@ func newPeerClientForClientConfig(address, override string, clientConfig grpc.Cl
 }
 
 type processedTransaction struct {
-	pt *peer.ProcessedTransaction
+	vc int32
 	ue *transaction.UnpackedEnvelope
+}
+
+func newProcessedTransactionFromEnvelopeRaw(env []byte) (*processedTransaction, error) {
+	ue, err := transaction.UnpackEnvelopeFromBytes(env)
+	if err != nil {
+		return nil, err
+	}
+	return &processedTransaction{ue: ue}, nil
 }
 
 func newProcessedTransaction(pt *peer.ProcessedTransaction) (*processedTransaction, error) {
@@ -396,7 +404,7 @@ func newProcessedTransaction(pt *peer.ProcessedTransaction) (*processedTransacti
 	if err != nil {
 		return nil, err
 	}
-	return &processedTransaction{pt: pt, ue: ue}, nil
+	return &processedTransaction{vc: pt.ValidationCode, ue: ue}, nil
 }
 
 func (p *processedTransaction) Results() []byte {
@@ -404,9 +412,9 @@ func (p *processedTransaction) Results() []byte {
 }
 
 func (p *processedTransaction) IsValid() bool {
-	return p.pt.ValidationCode == int32(peer.TxValidationCode_VALID)
+	return p.vc == int32(peer.TxValidationCode_VALID)
 }
 
 func (p *processedTransaction) ValidationCode() int32 {
-	return p.pt.ValidationCode
+	return p.vc
 }

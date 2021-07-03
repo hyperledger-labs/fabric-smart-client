@@ -6,13 +6,21 @@ SPDX-License-Identifier: Apache-2.0
 
 package driver
 
+// Block models a block of the ledger
 type Block interface {
+	// DataAt returns the data stored at the passed index
 	DataAt(i int) []byte
+	// ProcessedTransaction returns the ProcessedTransaction at passed index
+	ProcessedTransaction(i int) (ProcessedTransaction, error)
 }
 
+// ProcessedTransaction models a transaction that has been processed by Fabric
 type ProcessedTransaction interface {
+	// Results return the rwset marshaled
 	Results() []byte
+	// ValidationCode of this transaction
 	ValidationCode() int32
+	// IsValid returns true if the transaction is valid, false otherwise
 	IsValid() bool
 }
 

@@ -6,6 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 
 package driver
 
+// Vault models a key value store that can be updated by committing rwsets
 type Vault interface {
 	// NewQueryExecutor gives handle to a query executor.
 	// A client can obtain more than one 'QueryExecutor's for parallel execution.
@@ -23,5 +24,7 @@ type Vault interface {
 	// by way of the supplied txid
 	GetRWSet(txid string, rwset []byte) (RWSet, error)
 
+	// GetEphemeralRWSet returns an ephemeral RWSet for this ledger whose content is unmarshalled
+	// from the passed bytes.
 	GetEphemeralRWSet(rwset []byte) (RWSet, error)
 }

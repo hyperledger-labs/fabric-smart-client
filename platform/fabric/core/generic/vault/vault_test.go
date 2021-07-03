@@ -327,6 +327,9 @@ func testRun(t *testing.T, db1, db2 driver.VersionedPersistence) {
 	assert.NoError(t, err)
 	assert.NotNil(t, rwsBytes)
 
+	assert.NoError(t, vault1.Match(txid, rwsBytes))
+	assert.Error(t, vault1.Match(txid, []byte("pineapple")))
+
 	// we open the read-write set fabric.From the other kvs
 	rws, err = vault2.GetRWSet(txid, rwsBytes)
 	assert.NoError(t, err)
