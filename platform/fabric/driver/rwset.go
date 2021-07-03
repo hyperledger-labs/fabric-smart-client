@@ -29,8 +29,7 @@ type RWSet interface {
 
 	GetStateMetadata(namespace, key string, opts ...GetStateOpt) (map[string][]byte, error)
 
-	// SetStateMetadata sets the metadata associated with an existing k
-	// ey-tuple <namespace, key>
+	// SetStateMetadata sets the metadata associated with an existing key-tuple <namespace, key>
 	SetStateMetadata(namespace, key string, metadata map[string][]byte) error
 
 	GetReadKeyAt(ns string, i int) (string, error)

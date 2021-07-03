@@ -68,10 +68,20 @@ func New(channel string, network Network, finality Finality, waitForEventTimeout
 	return d, nil
 }
 
-func (c *committer) Commit(block *pb.FilteredBlock) {
-	filteredTransactions := block.FilteredTransactions
+// Commit commits the transaction in the passed block
+func (c *committer) Commit(filteredBlock *pb.FilteredBlock) {
+	ledger, err := c.network.Ledger(c.channel)
+	if err != nil {
+		logger.Panicf("cannot get ledger [%s]", err)
+	}
+	block, err := ledger.GetBlockByNumber(filteredBlock.Number)
+	if err != nil {
+		logger.Panicf("cannot get filteredBlock [%s]", err)
+	}
+
+	filteredTransactions := filteredBlock.FilteredTransactions
 	for i, tx := range filteredTransactions {
-		logger.Debugf("commit transaction [%s] in block [%d]", tx.Txid, block.Number)
+		logger.Debugf("commit transaction [%s] in filteredBlock [%d]", tx.Txid, filteredBlock.Number)
 
 		event := &TxEvent{
 			Committed:      false,
@@ -80,15 +90,16 @@ func (c *committer) Commit(block *pb.FilteredBlock) {
 
 		switch tx.Type {
 		case common.HeaderType_CONFIG:
-			c.handleConfig(block, filteredTransactions, i, event)
+			c.handleConfig(block, filteredBlock, filteredTransactions, i, event)
 		case common.HeaderType_ENDORSER_TRANSACTION:
-			c.handleEndorserTransaction(block, filteredTransactions, i, event)
+			c.handleEndorserTransaction(block, filteredBlock, filteredTransactions, i, event)
 		}
 
 		c.notify(*event)
 	}
 }
 
+// IsFinal takes in input a transaction id and waits for its confirmation.
 func (c *committer) IsFinal(txid string) error {
 	logger.Debugf("Is [%s] final?", txid)
 

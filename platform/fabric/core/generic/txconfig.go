@@ -14,6 +14,7 @@ import (
 	"github.com/hyperledger/fabric/bccsp/factory"
 	"github.com/hyperledger/fabric/common/channelconfig"
 	"github.com/hyperledger/fabric/common/configtx"
+	"github.com/hyperledger/fabric/protoutil"
 	"github.com/pkg/errors"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
@@ -41,7 +42,17 @@ func (c *channel) CommitConfig(blockNumber uint64, envelope []byte) error {
 		return errors.Errorf("channel config found nil")
 	}
 
-	ctx, err := configtx.UnmarshalConfigEnvelope(envelope)
+	env, err := protoutil.UnmarshalEnvelope(envelope)
+	if err != nil {
+		logger.Panicf("Cannot get payload from config transaction [%s]: [%s]", blockNumber, err)
+	}
+
+	payload, err := protoutil.UnmarshalPayload(env.Payload)
+	if err != nil {
+		logger.Panicf("Cannot get payload from config transaction [%s]: [%s]", blockNumber, err)
+	}
+
+	ctx, err := configtx.UnmarshalConfigEnvelope(payload.Data)
 	if err != nil {
 		err = errors.WithMessage(err, "error unmarshalling config which passed initial validity checks")
 		logger.Criticalf("%+v", err)
@@ -119,7 +130,7 @@ func (c *channel) commitConfig(txid string, blockNumber uint64, seq uint64, enve
 		return errors.Wrapf(err, "failed setting configtx state in rws")
 	}
 	rws.Done()
-	if err := c.CommitTX(txid, blockNumber, 0); err != nil {
+	if err := c.CommitTX(txid, blockNumber, 0, nil); err != nil {
 		if err2 := c.DiscardTx(txid); err2 != nil {
 			logger.Errorf("failed committing configtx rws [%s]", err2)
 		}
