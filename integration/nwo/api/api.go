@@ -45,6 +45,9 @@ type Context interface {
 	RootDir() string
 	ReservePort() uint16
 
+	AddPlatform(platform Platform)
+	PlatformByName(name string) Platform
+
 	AddExtension(id string, extension ExtensionName, s string)
 	ExtensionsByPeerID(name string) Extensions
 

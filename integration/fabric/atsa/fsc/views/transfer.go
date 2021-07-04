@@ -65,7 +65,7 @@ func (f *TransferView) Call(context view.Context) (interface{}, error) {
 	assert.NoError(inputState.VerifyCertification(), "failed certifying agreement to buy")
 	assert.NoError(inputState.State(agreementToBuy), "failed unmarshalling agreement to buy")
 
-	_, err = context.RunView(state.NewCollectEndorsementsView(tx2, fabric.GetIdentityProvider(context).DefaultIdentity(), assetOwner))
+	_, err = context.RunView(state.NewCollectEndorsementsView(tx2, fabric.GetDefaultIdentityProvider(context).DefaultIdentity(), assetOwner))
 	assert.NoError(err, "failed collecting endorsement")
 
 	_, err = context.RunView(state.NewCollectApprovesView(tx2, f.Approver))

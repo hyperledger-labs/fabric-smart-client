@@ -113,12 +113,44 @@ func GetDefaultChannel(sp view2.ServiceProvider) *Channel {
 	return channel
 }
 
-// GetIdentityProvider returns the identity provider of the default fabric network service
-func GetIdentityProvider(sp view2.ServiceProvider) *IdentityProvider {
+// GetDefaultIdentityProvider returns the identity provider of the default fabric network service
+func GetDefaultIdentityProvider(sp view2.ServiceProvider) *IdentityProvider {
 	return GetDefaultFNS(sp).IdentityProvider()
 }
 
-// GetLocalMembership returns the local membership of the default fabric network service
-func GetLocalMembership(sp view2.ServiceProvider) *LocalMembership {
+// GetDefaultLocalMembership returns the local membership of the default fabric network service
+func GetDefaultLocalMembership(sp view2.ServiceProvider) *LocalMembership {
 	return GetDefaultFNS(sp).LocalMembership()
+}
+
+// GetChannel returns the requested channel for the passed network
+func GetChannel(sp view2.ServiceProvider, network, channel string) *Channel {
+	fns := GetFabricNetworkService(sp, network)
+	ch, err := fns.Channel(channel)
+	if err != nil {
+		panic(err)
+	}
+
+	return ch
+}
+
+// GetVault returns the vualt for the requested channel for the passed network
+func GetVault(sp view2.ServiceProvider, network, channel string) *Vault {
+	fns := GetFabricNetworkService(sp, network)
+	ch, err := fns.Channel(channel)
+	if err != nil {
+		panic(err)
+	}
+
+	return ch.Vault()
+}
+
+// GetIdentityProvider returns the identity provider for the passed network
+func GetIdentityProvider(sp view2.ServiceProvider, network string) *IdentityProvider {
+	return GetFabricNetworkService(sp, network).IdentityProvider()
+}
+
+// GetLocalMembership returns the local membership for the passed network
+func GetLocalMembership(sp view2.ServiceProvider, network string) *LocalMembership {
+	return GetFabricNetworkService(sp, network).LocalMembership()
 }
