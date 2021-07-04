@@ -134,6 +134,17 @@ func GetChannel(sp view2.ServiceProvider, network, channel string) *Channel {
 	return ch
 }
 
+// GetVault returns the vualt for the requested channel for the passed network
+func GetVault(sp view2.ServiceProvider, network, channel string) *Vault {
+	fns := GetFabricNetworkService(sp, network)
+	ch, err := fns.Channel(channel)
+	if err != nil {
+		panic(err)
+	}
+
+	return ch.Vault()
+}
+
 // GetIdentityProvider returns the identity provider for the passed network
 func GetIdentityProvider(sp view2.ServiceProvider, network string) *IdentityProvider {
 	return GetFabricNetworkService(sp, network).IdentityProvider()
