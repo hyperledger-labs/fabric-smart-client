@@ -143,6 +143,6 @@ func (c *Context) PlatformByName(name string) api.Platform {
 	return c.PlatformsByName[name]
 }
 
-func (c *Context) AddPlatform(name string, platform api.Platform) {
-	c.PlatformsByName[name] = platform
+func (c *Context) AddPlatform(platform api.Platform) {
+	c.PlatformsByName[platform.Name()] = platform
 }

@@ -95,7 +95,7 @@ func (a *AgreeToBuyView) Call(context view.Context) (interface{}, error) {
 	tx, err := state.NewTransaction(context)
 	assert.NoError(err, "failed creating transaction")
 	tx.SetNamespace("asset_transfer")
-	me := fabric.GetIdentityProvider(context).DefaultIdentity()
+	me := fabric.GetDefaultIdentityProvider(context).DefaultIdentity()
 	assert.NoError(tx.AddCommand("agreeToBuy", me), "failed adding issue command")
 
 	a.Agreement.Owner = me

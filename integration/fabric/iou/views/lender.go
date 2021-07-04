@@ -100,12 +100,12 @@ func (i *UpdateIOUResponderView) Call(context view.Context) (interface{}, error)
 		assert.True(inState.Owners().Match(outState.Owners()), "invalid owners, input and output should have the same owners")
 		assert.Equal(2, inState.Owners().Count(), "invalid state, expected 2 identities, was [%d]", inState.Owners().Count())
 		// Is the lender one of the owners?
-		lenderFound := fabric.GetLocalMembership(context).IsMe(inState.Owners()[0]) != fabric.GetLocalMembership(context).IsMe(inState.Owners()[1])
+		lenderFound := fabric.GetDefaultLocalMembership(context).IsMe(inState.Owners()[0]) != fabric.GetDefaultLocalMembership(context).IsMe(inState.Owners()[1])
 		assert.True(lenderFound, "lender identity not found")
 		// Did the borrower sign?
 		assert.NoError(tx.HasBeenEndorsedBy(inState.Owners().Filter(
 			func(identity view.Identity) bool {
-				return !fabric.GetLocalMembership(context).IsMe(identity)
+				return !fabric.GetDefaultLocalMembership(context).IsMe(identity)
 			})...), "the borrower has not endorsed")
 	default:
 		return nil, errors.Errorf("invalid command, expected [create], was [%s]", command.Name)
