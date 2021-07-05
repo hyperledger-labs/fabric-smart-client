@@ -4,7 +4,8 @@ topologies:
   default: true
   logging:
     spec: grpc=error:chaincode=debug:endorser=debug:info
-    format: '''%{color}%{time:2006-01-02 15:04:05.000 MST} [%{module}] %{shortfunc} -> %{level:.4s} %{id:03x}%{color:reset} %{message}'''
+    format: '''%{color}%{time:2006-01-02 15:04:05.000 MST} [%{module}] %{shortfunc}
+      -> %{level:.4s} %{id:03x}%{color:reset} %{message}'''
   organizations:
   - msp_id: OrdererMSP
     name: OrdererOrg
@@ -177,4 +178,5 @@ topologies:
             Role: client
   logging:
     spec: grpc=error:debug
-    format: '''%{color}%{time:2006-01-02 15:04:05.000 MST} [%{module}] %{shortfunc} -> %{level:.4s} %{id:03x}%{color:reset} %{message}'''
+    format: '''%{color}%{time:2006-01-02 15:04:05.000 MST} [%{module}] %{shortfunc}
+      -> %{level:.4s} %{id:03x}%{color:reset} %{message}'''

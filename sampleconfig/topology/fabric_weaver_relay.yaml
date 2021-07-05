@@ -216,6 +216,25 @@ topologies:
     peers:
     - Org3_peer_0
   chaincodemode: net
+- name: weaver
+  type: weaver
+  relays:
+  - name: Fabric_alpha
+    hostname: localhost
+    networks:
+    - type: Fabric
+      name: Fabric_beta
+    drivers:
+    - name: Fabric
+      hostname: localhost
+  - name: Fabric_beta
+    hostname: localhost
+    networks:
+    - type: Fabric
+      name: Fabric_alpha
+    drivers:
+    - name: Fabric
+      hostname: localhost
 - name: fsc
   type: fsc
   peers:
@@ -235,7 +254,6 @@ topologies:
       mapping:
         fabric:
           mapping:
-            DefaultNetwork: alpha
             Organization:
             - Network: alpha
               Org: Org1
@@ -256,7 +274,6 @@ topologies:
       mapping:
         fabric:
           mapping:
-            DefaultNetwork: beta
             Organization:
             - Network: alpha
               Org: Org1
