@@ -13,12 +13,23 @@ import (
 )
 
 func (c *committer) handleConfig(block driver.Block, fBlock *pb.FilteredBlock, transactions []*pb.FilteredTransaction, i int, event *TxEvent) {
+	if block == nil {
+		// Fetch it
+		ledger, err := c.network.Ledger(c.channel)
+		if err != nil {
+			logger.Panicf("cannot get ledger [%s]", err)
+		}
+		block, err = ledger.GetBlockByNumber(fBlock.Number)
+		if err != nil {
+			logger.Panicf("cannot get filteredBlock [%s]", err)
+		}
+	}
 	tx := transactions[i]
 
 	logger.Debugf("Committing config transaction [%s]", tx.Txid)
 
 	if len(transactions) != 1 {
-		logger.Panicf("Config fBlock should contain only one transaction [%s]", tx.Txid)
+		logger.Panicf("Config block should contain only one transaction [%s]", tx.Txid)
 	}
 
 	switch tx.TxValidationCode {

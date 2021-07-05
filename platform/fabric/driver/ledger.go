@@ -22,6 +22,8 @@ type ProcessedTransaction interface {
 	ValidationCode() int32
 	// IsValid returns true if the transaction is valid, false otherwise
 	IsValid() bool
+	// Envelope returns the Fabric envelope
+	Envelope() []byte
 }
 
 // Ledger gives access to the remote ledger
