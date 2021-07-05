@@ -19,6 +19,7 @@ import (
 	"github.com/hyperledger/fabric/bccsp/factory"
 	"github.com/hyperledger/fabric/common/channelconfig"
 	"github.com/hyperledger/fabric/common/configtx"
+	"github.com/hyperledger/fabric/protoutil"
 	"github.com/pkg/errors"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
@@ -262,8 +263,12 @@ func (c *channel) GetTransactionByID(txID string) (driver.ProcessedTransaction, 
 		return nil, err
 	}
 
+	raw := res.([]byte)
+
+	logger.Debugf("got transaction by id [%s] of len [%d]", txID, len(raw))
+
 	pt := &peer.ProcessedTransaction{}
-	err = proto.Unmarshal(res.([]byte), pt)
+	err = proto.Unmarshal(raw, pt)
 	if err != nil {
 		return nil, err
 	}
@@ -387,8 +392,9 @@ func newPeerClientForClientConfig(address, override string, clientConfig grpc.Cl
 }
 
 type processedTransaction struct {
-	vc int32
-	ue *transaction.UnpackedEnvelope
+	vc  int32
+	ue  *transaction.UnpackedEnvelope
+	env []byte
 }
 
 func newProcessedTransactionFromEnvelopeRaw(env []byte) (*processedTransaction, error) {
@@ -396,7 +402,7 @@ func newProcessedTransactionFromEnvelopeRaw(env []byte) (*processedTransaction, 
 	if err != nil {
 		return nil, err
 	}
-	return &processedTransaction{ue: ue}, nil
+	return &processedTransaction{ue: ue, env: env}, nil
 }
 
 func newProcessedTransaction(pt *peer.ProcessedTransaction) (*processedTransaction, error) {
@@ -404,7 +410,11 @@ func newProcessedTransaction(pt *peer.ProcessedTransaction) (*processedTransacti
 	if err != nil {
 		return nil, err
 	}
-	return &processedTransaction{vc: pt.ValidationCode, ue: ue}, nil
+	env, err := protoutil.Marshal(pt.TransactionEnvelope)
+	if err != nil {
+		return nil, err
+	}
+	return &processedTransaction{vc: pt.ValidationCode, ue: ue, env: env}, nil
 }
 
 func (p *processedTransaction) Results() []byte {
@@ -413,6 +423,10 @@ func (p *processedTransaction) Results() []byte {
 
 func (p *processedTransaction) IsValid() bool {
 	return p.vc == int32(peer.TxValidationCode_VALID)
+}
+
+func (p *processedTransaction) Envelope() []byte {
+	return p.env
 }
 
 func (p *processedTransaction) ValidationCode() int32 {

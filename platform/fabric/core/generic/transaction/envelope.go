@@ -88,6 +88,7 @@ type UnpackedEnvelope struct {
 	ChannelHeader     *common.ChannelHeader
 	SignatureHeader   *common.SignatureHeader
 	ProposalResponses []*peer.ProposalResponse
+	Envelope          []byte
 }
 
 func UnpackEnvelopeFromBytes(raw []byte) (*UnpackedEnvelope, error) {
