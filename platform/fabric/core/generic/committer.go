@@ -7,9 +7,12 @@ SPDX-License-Identifier: Apache-2.0
 package generic
 
 import (
+	"strings"
+
 	pb "github.com/hyperledger/fabric-protos-go/peer"
 	"github.com/pkg/errors"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
 
@@ -82,6 +85,14 @@ func (c *channel) CommitTX(txid string, block uint64, indexInBlock int, envelope
 	case driver.HasDependencies:
 		return c.commitDeps(txid, block, indexInBlock)
 	case driver.Busy:
+		if len(envelope) == 0 && !strings.HasPrefix(txid, committer.ConfigTXPrefix) {
+			logger.Debugf("[%s] will be fetched", txid)
+			pt, err := c.GetTransactionByID(txid)
+			if err != nil {
+				return errors.WithMessagef(err, "failed fetching tx [%s]", txid)
+			}
+			envelope = pt.Envelope()
+		}
 		return c.commit(txid, deps, block, indexInBlock, envelope)
 	default:
 		return errors.Errorf("invalid status code [%d] for [%s]", vc, txid)

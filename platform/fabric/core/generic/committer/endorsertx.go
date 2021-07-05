@@ -53,16 +53,7 @@ func (c *committer) handleEndorserTransaction(block driver.Block, fBlock *pb.Fil
 				return
 			}
 
-			// Fetch it
-			ledger, err := c.network.Ledger(c.channel)
-			if err != nil {
-				logger.Panicf("cannot get ledger [%s]", err)
-			}
-			pt, err := ledger.GetTransactionByID(event.Txid)
-			if err != nil {
-				logger.Panicf("cannot fetch transaction with id [%s], [%s]", event.Txid, err)
-			}
-			if err := committer.CommitTX(event.Txid, event.Block, event.IndexInBlock, pt.Envelope()); err != nil {
+			if err := committer.CommitTX(event.Txid, event.Block, event.IndexInBlock, nil); err != nil {
 				logger.Panicf("failed committing transaction [%s] with deps [%v] with err [%s]", tx.Txid, deps, err)
 			}
 		}
