@@ -25,15 +25,26 @@ type Driver struct {
 	Port     uint16 `yaml:"port,omitempty"`
 }
 
-type Relay struct {
-	Name     string
-	Hostname string
-	Port     uint16 `yaml:"port,omitempty"`
-	Networks []*Network
-	Drivers  []*Driver
+type InteropChaincode struct {
+	Label     string
+	Channel   string
+	Namespace string
+	Path      string
 }
 
-func (w *Relay) AddFabricNetwork(ft *topology.Topology) *Relay {
+type RelayServer struct {
+	FabricTopology     *topology.Topology `yaml:"-"`
+	FabricTopologyName string
+	Name               string
+	Hostname           string
+	Port               uint16 `yaml:"port,omitempty"`
+	Organization       string
+	Networks           []*Network
+	Drivers            []*Driver
+	InteropChaincode   InteropChaincode
+}
+
+func (w *RelayServer) AddFabricNetwork(ft *topology.Topology) *RelayServer {
 	w.Networks = append(w.Networks, &Network{
 		Type: "Fabric",
 		Name: "Fabric_" + ft.Name(),
@@ -44,14 +55,14 @@ func (w *Relay) AddFabricNetwork(ft *topology.Topology) *Relay {
 type Topology struct {
 	TopologyName string `yaml:"name,omitempty"`
 	TopologyType string `yaml:"type,omitempty"`
-	Relays       []*Relay
+	Relays       []*RelayServer
 }
 
 func NewTopology() *Topology {
 	return &Topology{
 		TopologyName: TopologyName,
 		TopologyType: TopologyName,
-		Relays:       []*Relay{},
+		Relays:       []*RelayServer{},
 	}
 }
 
@@ -63,15 +74,25 @@ func (t *Topology) Type() string {
 	return t.TopologyType
 }
 
-func (t *Topology) AddRelay(ft *topology.Topology) *Relay {
-	r := &Relay{
-		Name:     "Fabric_" + ft.Name(),
-		Hostname: "localhost",
+func (t *Topology) AddRelayServer(ft *topology.Topology, org string) *RelayServer {
+	ft.EnableWeaver()
+	r := &RelayServer{
+		FabricTopology:     ft,
+		FabricTopologyName: ft.Name(),
+		Name:               "Fabric_" + ft.Name(),
+		Hostname:           "localhost",
+		Organization:       org,
 		Drivers: []*Driver{
 			{
 				Name:     "Fabric",
 				Hostname: "localhost",
 			},
+		},
+		InteropChaincode: InteropChaincode{
+			Label:     "interop",
+			Channel:   ft.Channels[0].Name,
+			Namespace: "interop",
+			Path:      "github.com/hyperledger-labs/weaver-dlt-interoperability/core/network/fabric-interop-cc/contracts/interop",
 		},
 	}
 	t.Relays = append(t.Relays, r)

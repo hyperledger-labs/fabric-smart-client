@@ -93,10 +93,12 @@ tidy:
 clean:
 	docker network prune -f
 	docker container prune -f
+	rm -rf ./build
 	rm -rf ./integration/fabric/atsa/chaincode/cmd
 	rm -rf ./integration/fabric/atsa/fsc/cmd
 	rm -rf ./integration/fabric/iou/cmd/
 	rm -rf ./integration/fabric/twonets/cmd
+	rm -rf ./integration/fabric/waever/relay/cmd
 	rm -rf ./integration/fsc/stoprestart/cmd
 	rm -rf ./integration/fsc/pingpong/cmd/responder
 	rm -rf ./integration/fscnodes

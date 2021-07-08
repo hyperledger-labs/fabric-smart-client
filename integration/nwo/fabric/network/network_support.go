@@ -710,7 +710,11 @@ func (n *Network) CheckTopology() {
 
 	for _, organization := range n.Organizations {
 		organization.Users += users[organization.Name]
-		organization.UserNames = append(userNames[organization.Name], "User1", "User2")
+		if n.topology.Weaver {
+			organization.UserNames = append(userNames[organization.Name], "User1", "User2", "Relay", "RelayAdmin")
+		} else {
+			organization.UserNames = append(userNames[organization.Name], "User1", "User2")
+		}
 	}
 
 	for _, p := range n.Peers {
@@ -729,7 +733,7 @@ func (n *Network) CheckTopology() {
 // single file to be used by peer CLI.
 func (n *Network) ConcatenateTLSCACertificates() {
 	bundle := &bytes.Buffer{}
-	for _, tlsCertPath := range n.listTLSCACertificates() {
+	for _, tlsCertPath := range n.ListTLSCACertificates() {
 		certBytes, err := ioutil.ReadFile(tlsCertPath)
 		Expect(err).NotTo(HaveOccurred())
 		bundle.Write(certBytes)
@@ -742,9 +746,9 @@ func (n *Network) ConcatenateTLSCACertificates() {
 	Expect(err).NotTo(HaveOccurred())
 }
 
-// listTLSCACertificates returns the paths of all TLS CA certificates in the
+// ListTLSCACertificates returns the paths of all TLS CA certificates in the
 // network, across all organizations.
-func (n *Network) listTLSCACertificates() []string {
+func (n *Network) ListTLSCACertificates() []string {
 	fileName2Path := make(map[string]string)
 	filepath.Walk(filepath.Join(n.Context.RootDir(), n.Prefix, "crypto"), func(path string, info os.FileInfo, err error) error {
 		if err != nil {

@@ -11,7 +11,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/twonets"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/weaver/relay"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 )
 
@@ -29,7 +29,7 @@ var _ = Describe("EndToEnd", func() {
 		BeforeEach(func() {
 			var err error
 			// Create the integration ii
-			ii, err = integration.Generate(StartPort(), twonets.Topology()...)
+			ii, err = integration.GenerateAt(StartPort(), "./testdata", relay.Topology()...)
 			Expect(err).NotTo(HaveOccurred())
 			// Start the integration ii
 			ii.Start()

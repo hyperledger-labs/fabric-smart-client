@@ -39,21 +39,3 @@ hostname="{{ .Hostname }}"
 port="{{ .Port }}"
 {{- end }}
 `
-
-const RelayFabricDriverConnectionConfig = ``
-
-const RelayFabricDriverConfig = `{
-    "admin":{
-        "name":"admin",
-        "secret":"adminpw"
-    },
-    "relay": {
-        "name":"relay",
-        "affiliation":"org1.department1",
-        "role": "client",
-        "attrs": [{ "name": "relay", "value": "true", "ecert": true }]
-    },
-    "mspId":"Org1MSP",
-    "caUrl":""
-}
-`

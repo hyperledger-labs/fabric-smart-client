@@ -38,6 +38,7 @@ type Topology struct {
 	FabTokenCCSupport bool                `yaml:"fabtokenccsupport,omitempty"`
 	GRPCLogging       bool                `yaml:"grpcLogging,omitempty"`
 	NodeOUs           bool                `yaml:"nodeous,omitempty"`
+	Weaver            bool                `yaml:"weaver,omitempty"`
 }
 
 func (c *Topology) Name() string {
@@ -339,6 +340,10 @@ func (c *Topology) EnableGRPCLogging() {
 
 func (c *Topology) DevChaincodeMode() {
 	c.ChaincodeMode = "dev"
+}
+
+func (c *Topology) EnableWeaver() {
+	c.Weaver = true
 }
 
 type fscOrg struct {

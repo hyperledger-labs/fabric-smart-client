@@ -7,9 +7,14 @@ SPDX-License-Identifier: Apache-2.0
 package weaver
 
 import (
+	"encoding/json"
+	"fmt"
+	"go/build"
 	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strconv"
 	"text/template"
 	"time"
 
@@ -17,7 +22,9 @@ import (
 	"github.com/tedsuo/ifrit/grouper"
 
 	api2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/weaver/interop"
 )
 
 type Builder interface {
@@ -29,6 +36,13 @@ type FabricNetwork interface {
 	DefaultIdemixOrgMSPDir() string
 	Topology() *topology.Topology
 	PeerChaincodeAddress(peerName string) string
+	PeerOrgs() []*fabric.Org
+	OrgMSPID(orgName string) string
+	PeersByOrg(orgName string) []*fabric.Peer
+	UserByOrg(organization string, user string) *fabric.User
+	UsersByOrg(organization string) []*fabric.User
+	Channels() []*fabric.Channel
+	InvokeChaincode(cc *topology.ChannelChaincode, method string, args ...[]byte)
 }
 
 type platformFactory struct{}
@@ -83,7 +97,10 @@ func (p *Platform) GenerateConfigTree() {
 func (p *Platform) GenerateArtifacts() {
 	for _, relay := range p.Topology.Relays {
 		p.generateRelayServerTOML(relay)
+		p.generateFabricDriverConfigFiles(relay)
+		p.generateInteropChaincodeConfigFiles(relay)
 	}
+	p.copyInteropChaincode()
 }
 
 func (p *Platform) Load() {
@@ -94,12 +111,48 @@ func (p *Platform) Members() []grouper.Member {
 }
 
 func (p *Platform) PostRun() {
+	for _, relay := range p.Topology.Relays {
+		cc, _ := p.PrepareInteropChaincode(relay)
+		fabric := p.Fabric(relay)
+		fabric.DeployChaincode(cc)
+
+		raw, err := ioutil.ReadFile(p.RelayServerInteropAccessControl(relay))
+		Expect(err).NotTo(HaveOccurred())
+		fabric.InvokeChaincode(cc, "CreateAccessControlPolicy", raw)
+
+		raw, err = ioutil.ReadFile(p.RelayServerInteropVerificationPolicy(relay))
+		Expect(err).NotTo(HaveOccurred())
+		fabric.InvokeChaincode(cc, "CreateVerificationPolicy", raw)
+
+		raw, err = ioutil.ReadFile(p.RelayServerInteropMembership(relay))
+		Expect(err).NotTo(HaveOccurred())
+		fabric.InvokeChaincode(cc, "CreateMembership", raw)
+	}
+
+	for _, relay := range p.Topology.Relays {
+		for _, driver := range relay.Drivers {
+			RunRelayFabricDriver(
+				relay.FabricTopologyName,
+				"localhost", strconv.Itoa(int(relay.Port)),
+				"localhost", strconv.Itoa(int(driver.Port)),
+				relay.InteropChaincode.Label,
+				p.FabricDriverConnectionProfilePath(relay),
+				p.FabricDriverConfigPath(relay),
+				p.FabricDriverWalletDir(relay),
+			)
+		}
+		RunRelayServer(
+			relay.Name,
+			p.RelayServerConfigPath(relay),
+			strconv.Itoa(int(relay.Port)),
+		)
+	}
 }
 
 func (p *Platform) Cleanup() {
 }
 
-func (p *Platform) generateRelayServerTOML(relay *Relay) {
+func (p *Platform) generateRelayServerTOML(relay *RelayServer) {
 	err := os.MkdirAll(p.RelayServerDir(relay), 0755)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -107,7 +160,7 @@ func (p *Platform) generateRelayServerTOML(relay *Relay) {
 	Expect(err).NotTo(HaveOccurred())
 	defer relayServerFile.Close()
 
-	var relays []*Relay
+	var relays []*RelayServer
 	for _, r := range p.Topology.Relays {
 		if r != relay {
 			relays = append(relays, r)
@@ -120,7 +173,7 @@ func (p *Platform) generateRelayServerTOML(relay *Relay) {
 		"Hostname": func() string { return relay.Hostname },
 		"Networks": func() []*Network { return relay.Networks },
 		"Drivers":  func() []*Driver { return relay.Drivers },
-		"Relays":   func() []*Relay { return relays },
+		"Relays":   func() []*RelayServer { return relays },
 	}).Parse(RelayServerTOML)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -128,7 +181,7 @@ func (p *Platform) generateRelayServerTOML(relay *Relay) {
 	Expect(err).NotTo(HaveOccurred())
 }
 
-func (p *Platform) RelayServerDir(relay *Relay) string {
+func (p *Platform) RelayServerDir(relay *RelayServer) string {
 	return filepath.Join(
 		p.Context.RootDir(),
 		"weaver",
@@ -138,13 +191,367 @@ func (p *Platform) RelayServerDir(relay *Relay) string {
 	)
 }
 
-func (p *Platform) RelayServerConfigPath(relay *Relay) string {
+func (p *Platform) RelayServerConfigPath(relay *RelayServer) string {
+	return filepath.Join(
+		p.RelayServerDir(relay),
+		"server.toml",
+	)
+}
+
+func (p *Platform) FabricDriverDir(relay *RelayServer) string {
+	return filepath.Join(
+		p.Context.RootDir(),
+		"weaver",
+		"relay",
+		"fabric-driver",
+		relay.Name,
+	)
+}
+
+func (p *Platform) FabricDriverConnectionProfilePath(relay *RelayServer) string {
+	return filepath.Join(
+		p.FabricDriverDir(relay),
+		"cp.json",
+	)
+}
+
+func (p *Platform) FabricDriverConfigPath(relay *RelayServer) string {
+	return filepath.Join(
+		p.FabricDriverDir(relay),
+		"config.json",
+	)
+}
+
+func (p *Platform) FabricDriverWalletDir(relay *RelayServer) string {
+	return filepath.Join(
+		p.Context.RootDir(),
+		"weaver",
+		"relay",
+		"fabric-driver",
+		relay.Name,
+		"wallet-"+relay.FabricTopologyName,
+	)
+}
+
+func (p *Platform) FabricDriverWalletId(relay *RelayServer, id string) string {
+	return filepath.Join(
+		p.FabricDriverWalletDir(relay),
+		id+".id",
+	)
+}
+
+func (p *Platform) RelayServerInteropDir(relay *RelayServer) string {
 	return filepath.Join(
 		p.Context.RootDir(),
 		"weaver",
 		"relay",
 		"server",
 		relay.Name,
-		"server.toml",
+		"interop-chaincode",
 	)
+}
+
+func (p *Platform) RelayServerInteropAccessControl(relay *RelayServer) string {
+	return filepath.Join(
+		p.RelayServerInteropDir(relay),
+		"access_control.json",
+	)
+}
+
+func (p *Platform) RelayServerInteropMembership(relay *RelayServer) string {
+	return filepath.Join(
+		p.RelayServerInteropDir(relay),
+		"membership.json",
+	)
+}
+
+func (p *Platform) RelayServerInteropVerificationPolicy(relay *RelayServer) string {
+	return filepath.Join(
+		p.RelayServerInteropDir(relay),
+		"verification_policy.json",
+	)
+}
+
+func (p *Platform) RelayDir() string {
+	return filepath.Join(
+		p.Context.RootDir(),
+		"weaver",
+		"relay",
+	)
+}
+
+func (p *Platform) Fabric(relay *RelayServer) FabricNetwork {
+	return p.Context.PlatformByName(relay.FabricTopologyName).(FabricNetwork)
+}
+
+func (p *Platform) generateFabricDriverConfigFiles(relay *RelayServer) {
+	p.generateFabricDriverCPFile(relay)
+	p.generateFabricDriverConfigFile(relay)
+	p.generateFabricDriverWallet(relay)
+}
+
+func (p *Platform) generateFabricDriverCPFile(relay *RelayServer) {
+	cp := &ConnectionProfile{
+		Name:    relay.Name,
+		Version: "1.0.0",
+		Client: Client{
+			Organization: relay.Organization,
+			Connection: Connection{
+				Timeout: Timeout{
+					Peer: map[string]string{
+						"endorser": "300",
+					},
+				},
+			},
+		},
+		Organizations:          map[string]Organization{},
+		Peers:                  map[string]Peer{},
+		CertificateAuthorities: map[string]CertificationAuthority{},
+	}
+
+	fabric := p.Fabric(relay)
+	orgs := fabric.PeerOrgs()
+	for _, org := range orgs {
+		peers := fabric.PeersByOrg(org.Name)
+		var names []string
+		for _, peer := range peers {
+			names = append(names, peer.FullName)
+		}
+		cp.Organizations[org.Name] = Organization{
+			MSPID: org.MSPID,
+			Peers: names,
+			CertificateAuthorities: []string{
+				"ca." + relay.Name,
+			},
+		}
+		cp.CertificateAuthorities["ca."+relay.Name] = CertificationAuthority{
+			Url:        "https://localhost:7054",
+			CaName:     "ca." + relay.Name,
+			TLSCACerts: nil,
+			HttpOptions: HttpOptions{
+				Verify: true,
+			},
+		}
+		for _, peer := range peers {
+			var certificates []string
+			for _, cert := range peer.TLSCACerts {
+				raw, err := ioutil.ReadFile(cert)
+				Expect(err).NotTo(HaveOccurred())
+				certificates = append(certificates, string(raw))
+			}
+			Expect(len(certificates)).ToNot(BeZero())
+
+			cp.Peers[peer.FullName] = Peer{
+				URL: "grpcs://" + peer.ListeningAddress,
+				TLSCACerts: map[string]string{
+					"pem": certificates[0],
+				},
+				GrpcOptions: map[string]string{
+					"ssl-target-name-override": peer.FullName,
+					"hostnameOverride":         peer.FullName,
+				},
+			}
+		}
+
+	}
+
+	raw, err := json.MarshalIndent(cp, "", "  ")
+	Expect(err).NotTo(HaveOccurred())
+
+	Expect(os.MkdirAll(p.FabricDriverDir(relay), 0755)).NotTo(HaveOccurred())
+	Expect(ioutil.WriteFile(p.FabricDriverConnectionProfilePath(relay), raw, 0755)).NotTo(HaveOccurred())
+}
+
+func (p *Platform) generateFabricDriverConfigFile(relay *RelayServer) {
+	fabric := p.Fabric(relay)
+	relayUser := fabric.UserByOrg(relay.Organization, "Relay")
+	relayAdmin := fabric.UserByOrg(relay.Organization, "RelayAdmin")
+	config := &Config{
+		Admin: Admin{
+			Name:   relayAdmin.Name,
+			Secret: "adminpw",
+		},
+		Relay: Relay{
+			Name:        relayUser.Name,
+			Affiliation: "",
+			Role:        "client",
+			Attrs: []Attr{
+				{
+					Name:  "relay",
+					Value: "true",
+					Ecert: true,
+				},
+			},
+		},
+		MspId: fabric.OrgMSPID(relay.Organization),
+		CaUrl: "",
+	}
+	raw, err := json.MarshalIndent(config, "", "  ")
+	Expect(err).NotTo(HaveOccurred())
+	Expect(os.MkdirAll(p.FabricDriverDir(relay), 0755)).NotTo(HaveOccurred())
+	Expect(ioutil.WriteFile(p.FabricDriverConfigPath(relay), raw, 0755)).NotTo(HaveOccurred())
+}
+
+func (p *Platform) generateFabricDriverWallet(relay *RelayServer) {
+	fabric := p.Fabric(relay)
+
+	// User
+	relayUser := fabric.UserByOrg(relay.Organization, "Relay")
+	cert, err := ioutil.ReadFile(relayUser.Cert)
+	Expect(err).NotTo(HaveOccurred())
+	key, err := ioutil.ReadFile(relayUser.Key)
+	Expect(err).NotTo(HaveOccurred())
+
+	identity := &Identity{
+		Credentials: Credentials{
+			Certificate: string(cert),
+			PrivateKey:  string(key),
+		},
+		MspId:   fabric.OrgMSPID(relay.Organization),
+		Type:    "X.509",
+		Version: 1,
+	}
+	raw, err := json.MarshalIndent(identity, "", "  ")
+	Expect(err).NotTo(HaveOccurred())
+	Expect(os.MkdirAll(p.FabricDriverWalletDir(relay), 0755)).NotTo(HaveOccurred())
+	Expect(ioutil.WriteFile(p.FabricDriverWalletId(relay, relayUser.Name), raw, 0755)).NotTo(HaveOccurred())
+
+	// Admin
+	relayAdmin := fabric.UserByOrg(relay.Organization, "RelayAdmin")
+	cert, err = ioutil.ReadFile(relayAdmin.Cert)
+	Expect(err).NotTo(HaveOccurred())
+	key, err = ioutil.ReadFile(relayAdmin.Key)
+	Expect(err).NotTo(HaveOccurred())
+
+	identity = &Identity{
+		Credentials: Credentials{
+			Certificate: string(cert),
+			PrivateKey:  string(key),
+		},
+		MspId:   fabric.OrgMSPID(relay.Organization),
+		Type:    "X.509",
+		Version: 1,
+	}
+	raw, err = json.MarshalIndent(identity, "", "  ")
+	Expect(err).NotTo(HaveOccurred())
+	Expect(os.MkdirAll(p.FabricDriverWalletDir(relay), 0755)).NotTo(HaveOccurred())
+	Expect(ioutil.WriteFile(p.FabricDriverWalletId(relay, relayAdmin.Name), raw, 0755)).NotTo(HaveOccurred())
+}
+
+func (p *Platform) generateInteropChaincodeConfigFiles(relay *RelayServer) {
+	p.generateInteropChaincodeAccessControlFile(relay)
+	p.generateInteropChaincodeMembershipFile(relay)
+	p.generateInteropChaincodeVerificationPolicyFile(relay)
+}
+
+func (p *Platform) generateInteropChaincodeAccessControlFile(relay *RelayServer) {
+	fabric := p.Fabric(relay)
+
+	// For all users in all organizations, add a rule per chaincode deployed
+	var rules []*interop.Rule
+	for _, ch := range fabric.Channels() {
+		for _, chaincode := range ch.Chaincodes {
+			for _, org := range fabric.PeerOrgs() {
+				for _, user := range fabric.UsersByOrg(org.Name) {
+					raw, err := ioutil.ReadFile(user.Cert)
+					Expect(err).NotTo(HaveOccurred())
+					rules = append(rules, &interop.Rule{
+						Principal:     string(raw),
+						PrincipalType: "ca",
+						Resource:      fmt.Sprintf("%s:%s:Read:*", ch.Name, chaincode.Name),
+						Read:          false,
+					})
+
+				}
+			}
+		}
+	}
+	accessControl := &interop.AccessControl{
+		SecurityDomain: relay.Name,
+		Rules:          rules,
+	}
+	raw, err := json.MarshalIndent(accessControl, "", "  ")
+	Expect(err).ToNot(HaveOccurred())
+
+	Expect(err).NotTo(HaveOccurred())
+	Expect(os.MkdirAll(p.RelayServerInteropDir(relay), 0755)).NotTo(HaveOccurred())
+	Expect(ioutil.WriteFile(p.RelayServerInteropAccessControl(relay), raw, 0755)).NotTo(HaveOccurred())
+}
+
+func (p *Platform) generateInteropChaincodeMembershipFile(relay *RelayServer) {
+	fabric := p.Fabric(relay)
+
+	// For all users in all organizations, add a rule per chaincode deployed
+	members := map[string]*interop.Member{}
+	for _, org := range fabric.PeerOrgs() {
+		raw, err := ioutil.ReadFile(org.CACertsBundlePat)
+		Expect(err).NotTo(HaveOccurred())
+		members[org.MSPID] = &interop.Member{
+			Type:  "ca",
+			Value: string(raw),
+		}
+	}
+	membership := &interop.Membership{
+		SecurityDomain: relay.Name,
+		Members:        members,
+	}
+	raw, err := json.MarshalIndent(membership, "", "  ")
+	Expect(err).ToNot(HaveOccurred())
+
+	Expect(err).NotTo(HaveOccurred())
+	Expect(os.MkdirAll(p.RelayServerInteropDir(relay), 0755)).NotTo(HaveOccurred())
+	Expect(ioutil.WriteFile(p.RelayServerInteropMembership(relay), raw, 0755)).NotTo(HaveOccurred())
+}
+
+func (p *Platform) generateInteropChaincodeVerificationPolicyFile(relay *RelayServer) {
+	fabric := p.Fabric(relay)
+
+	// For all users in all organizations, add a rule per chaincode deployed
+	var identifiers []*interop.Identifier
+	var orgMSPIDs []string
+	for _, org := range fabric.PeerOrgs() {
+		orgMSPIDs = append(orgMSPIDs, org.MSPID)
+	}
+	for _, ch := range fabric.Channels() {
+		for _, chaincode := range ch.Chaincodes {
+			identifiers = append(identifiers, &interop.Identifier{
+				Pattern: fmt.Sprintf("%s:%s:Read:*", ch.Name, chaincode.Name),
+				Policy: &interop.Policy{
+					Type:     "Signature",
+					Criteria: orgMSPIDs,
+				},
+			})
+		}
+	}
+	verificationPolicy := &interop.VerificationPolicy{
+		SecurityDomain: relay.Name,
+		Identifiers:    identifiers,
+	}
+	raw, err := json.MarshalIndent(verificationPolicy, "", "  ")
+	Expect(err).ToNot(HaveOccurred())
+
+	Expect(err).NotTo(HaveOccurred())
+	Expect(os.MkdirAll(p.RelayServerInteropDir(relay), 0755)).NotTo(HaveOccurred())
+	Expect(ioutil.WriteFile(p.RelayServerInteropVerificationPolicy(relay), raw, 0755)).NotTo(HaveOccurred())
+}
+
+func (p *Platform) copyInteropChaincode() {
+	src := filepath.Join(
+		build.Default.GOPATH,
+		"src",
+		"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/weaver/chaincode/interop.tar.gz",
+	)
+	dst := p.InteropChaincodeFile()
+	sourceFileStat, err := os.Stat(src)
+	Expect(err).ToNot(HaveOccurred())
+
+	Expect(sourceFileStat.Mode().IsRegular()).To(BeTrue())
+	source, err := os.Open(src)
+	Expect(err).ToNot(HaveOccurred())
+	defer source.Close()
+	destination, err := os.Create(dst)
+	Expect(err).ToNot(HaveOccurred())
+	defer destination.Close()
+	_, err = io.Copy(destination, source)
+	Expect(err).ToNot(HaveOccurred())
 }

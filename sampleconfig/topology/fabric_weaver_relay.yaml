@@ -108,6 +108,7 @@ topologies:
     peers:
     - Org1_peer_0
   chaincodemode: net
+  weaver: true
 - name: beta
   type: fabric
   logging:
@@ -216,25 +217,40 @@ topologies:
     peers:
     - Org3_peer_0
   chaincodemode: net
+  weaver: true
 - name: weaver
   type: weaver
   relays:
-  - name: Fabric_alpha
+  - fabrictopologyname: alpha
+    name: Fabric_alpha
     hostname: localhost
+    organization: Org1
     networks:
     - type: Fabric
       name: Fabric_beta
     drivers:
     - name: Fabric
       hostname: localhost
-  - name: Fabric_beta
+    interopchaincode:
+      label: interop
+      channel: testchannel
+      namespace: interop
+      path: github.com/hyperledger-labs/weaver-dlt-interoperability/core/network/fabric-interop-cc/contracts/interop
+  - fabrictopologyname: beta
+    name: Fabric_beta
     hostname: localhost
+    organization: Org3
     networks:
     - type: Fabric
       name: Fabric_alpha
     drivers:
     - name: Fabric
       hostname: localhost
+    interopchaincode:
+      label: interop
+      channel: testchannel
+      namespace: interop
+      path: github.com/hyperledger-labs/weaver-dlt-interoperability/core/network/fabric-interop-cc/contracts/interop
 - name: fsc
   type: fsc
   peers:
