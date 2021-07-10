@@ -39,3 +39,14 @@ hostname="{{ .Hostname }}"
 port="{{ .Port }}"
 {{- end }}
 `
+
+const FabricExtensionTemplate = `
+fabric:{{ range Servers }}
+  {{ .FabricTopologyName }}:
+    weaver:
+      relay:
+        address: {{ .Hostname }}:{{ .Port }}
+        tls:
+          enabled: false
+{{- end }}
+`

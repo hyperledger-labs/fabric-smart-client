@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package weaver
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"go/build"
@@ -24,6 +25,7 @@ import (
 	api2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/weaver/interop"
 )
 
@@ -100,6 +102,7 @@ func (p *Platform) GenerateArtifacts() {
 		p.generateFabricDriverConfigFiles(relay)
 		p.generateInteropChaincodeConfigFiles(relay)
 	}
+	p.generateFabricExtension()
 	p.copyInteropChaincode()
 }
 
@@ -554,4 +557,19 @@ func (p *Platform) copyInteropChaincode() {
 	defer destination.Close()
 	_, err = io.Copy(destination, source)
 	Expect(err).ToNot(HaveOccurred())
+}
+
+func (p *Platform) generateFabricExtension() {
+	t, err := template.New("view_extension").Funcs(template.FuncMap{
+		"Servers": func() []*RelayServer { return p.Topology.Relays },
+	}).Parse(FabricExtensionTemplate)
+	Expect(err).NotTo(HaveOccurred())
+
+	extension := bytes.NewBuffer([]byte{})
+	err = t.Execute(io.MultiWriter(extension), p)
+	Expect(err).NotTo(HaveOccurred())
+	fscTopology := p.Context.TopologyByName("fsc").(*fsc.Topology)
+	for _, node := range fscTopology.Nodes {
+		p.Context.AddExtension(node.ID(), api2.FabricExtension, extension.String())
+	}
 }
