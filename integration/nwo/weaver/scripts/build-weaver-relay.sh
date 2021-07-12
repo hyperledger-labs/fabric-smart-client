@@ -6,6 +6,10 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
+DOCKER_IMAGE_NAME ?= dlt-interop/relay
+DOCKER_TAG ?= latest
+DOCKER_IMAGE_INTEROPCHAINCODE = $(DOCKER_IMAGE_NAME)-interopchaincode:$(DOCKER_TAG)
+
 ### Check if a directory does not exist ###
 if [ ! -d ".build" ]
 then
@@ -30,6 +34,9 @@ echo Build Fabric driver docker image...
 cd $WEAVER_DIR/weaver-dlt-interoperability/core/drivers/fabric-driver
 cp .env.template .env
 make build-image-local
+
+echo Package Interop Chaincode...
+docker build . -f images/Dockerfile.interopchaincode -t $(DOCKER_IMAGE_INTEROPCHAINCODE)
 
 echo Cleanup...
 cd $WEAVER_DIR/..
