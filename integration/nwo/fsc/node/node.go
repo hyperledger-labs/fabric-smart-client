@@ -172,20 +172,20 @@ func (n *Node) RegisterResponder(responder view.View, initiator view.View) *Node
 	responderType := reflect.Indirect(reflect.ValueOf(responder)).Type()
 	initiatorType := reflect.Indirect(reflect.ValueOf(initiator)).Type()
 
-	n.addImport(responderType.PkgPath())
-	n.addImport(initiatorType.PkgPath())
+	aliasResponder := n.addImport(responderType.PkgPath())
+	aliasInitator := n.addImport(initiatorType.PkgPath())
 
 	responderStr := ""
 	if isResponderPtr {
 		responderStr += "&"
 	}
-	responderStr += responderType.String() + "{}"
+	responderStr += aliasResponder + "." + responderType.Name() + "{}"
 
 	initiatorStr := ""
 	if isInitiatorPtr {
 		initiatorStr += "&"
 	}
-	initiatorStr += initiatorType.String() + "{}"
+	initiatorStr += aliasInitator + "." + initiatorType.Name() + "{}"
 
 	n.Responders = append(n.Responders, ResponderEntry{Responder: responderStr, Initiator: initiatorStr})
 
