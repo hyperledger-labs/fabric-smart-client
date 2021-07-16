@@ -22,6 +22,7 @@ var logger = flogging.MustGetLogger("fabric-sdk.rwset")
 type Network interface {
 	Channel(name string) (driver.Channel, error)
 	TransactionManager() driver.TransactionManager
+	Name() string
 }
 
 type RWSExtractor interface {
@@ -132,7 +133,7 @@ func (r *processorManager) getTxFromEvn(ch driver.Channel, txid string) (driver.
 		return nil, nil, errors.Wrapf(err, "failed unmarshalling envelope [%s]", txid)
 	}
 	logger.Debugf("unpack envelope [%s,%s]", ch.Name(), txid)
-	upe, err := UnpackEnvelope(env)
+	upe, err := UnpackEnvelope(r.network.Name(), env)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "failed unpacking envelope [%s]", txid)
 	}

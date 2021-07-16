@@ -58,6 +58,9 @@ func (p *fnsProvider) Start(ctx context.Context) error {
 			}
 		}
 	}
+
+	finality.InstallHandler(view3.GetService(p.sp), p)
+
 	return nil
 }
 
@@ -141,8 +144,6 @@ func (p *fnsProvider) newFNS(network string) (driver.FabricNetworkService, error
 	if err != nil {
 		return nil, errors.Wrap(err, "failed instantiating fabric service provider")
 	}
-
-	finality.InstallHandler(view3.GetService(p.sp), net)
 
 	return net, nil
 }

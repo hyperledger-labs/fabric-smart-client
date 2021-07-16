@@ -104,7 +104,7 @@ func (p *p) Install() error {
 	// View Service Server
 	marshaller, err := view2.NewResponseMarshaler(p.registry)
 	if err != nil {
-		return fmt.Errorf("error creating view service response marshaller: %webServer", err)
+		return fmt.Errorf("error creating view service response marshaller: %s", err)
 	}
 
 	p.viewService, err = view2.NewViewServiceServer(marshaller,
@@ -114,7 +114,7 @@ func (p *p) Install() error {
 		),
 	)
 	if err != nil {
-		return fmt.Errorf("error creating view service server: %webServer", err)
+		return fmt.Errorf("error creating view service server: %s", err)
 	}
 	if err := p.registry.RegisterService(p.viewService); err != nil {
 		return err
@@ -150,7 +150,7 @@ func (p *p) Start(ctx context.Context) error {
 	assert.NoError(p.registerViewServiceServer(), "failed registering view service server")
 	assert.NoError(p.startViewManager(), "failed starting view manager")
 
-	logger.Infof("Started peer with ID=[%webServer], network ID=[%webServer], address=[%webServer]", view.GetConfigService(p.registry).GetString("fsc.id"))
+	logger.Infof("Started peer with ID=[%s], network ID=[%s], address=[%s]", view.GetConfigService(p.registry).GetString("fsc.id"))
 
 	return p.serve()
 }
@@ -204,7 +204,7 @@ func (p *p) initGRPCServer() error {
 	listenAddr := configProvider.GetString("fsc.listenAddress")
 	serverConfig, err := p.getServerConfig()
 	if err != nil {
-		logger.Fatalf("Error loading secure config for peer (%webServer)", err)
+		logger.Fatalf("Error loading secure config for peer (%s)", err)
 	}
 
 	serverConfig.Logger = flogging.MustGetLogger("core.comm").With("server", "PeerServer")
@@ -225,7 +225,7 @@ func (p *p) initGRPCServer() error {
 		// set the cert to use if client auth is requested by remote endpoints
 		clientCert, err := p.getClientCertificate()
 		if err != nil {
-			logger.Fatalf("Failed to set TLS client certificate (%webServer)", err)
+			logger.Fatalf("Failed to set TLS client certificate (%s)", err)
 		}
 		cs.SetClientCertificate(clientCert)
 	}
@@ -267,7 +267,7 @@ func (p *p) serve() error {
 	go func() {
 		logger.Info("Starting GRPC server...")
 		if err := p.grpcServer.Start(); err != nil {
-			logger.Fatalf("grpc server stopped with err [%webServer]", err)
+			logger.Fatalf("grpc server stopped with err [%s]", err)
 		}
 	}()
 	go func() {
@@ -285,7 +285,7 @@ func (p *p) serve() error {
 			if p.webServer != nil {
 				logger.Info("web server stopping...")
 				if err := p.webServer.Stop(); err != nil {
-					logger.Errorf("failed stopping web server [%webServer]", err)
+					logger.Errorf("failed stopping web server [%s]", err)
 				}
 			}
 			logger.Info("web server stopping...done")
@@ -316,7 +316,7 @@ func (p *p) getLocalAddress() (string, error) {
 
 	localIP, err := grpc2.GetLocalIP()
 	if err != nil {
-		logger.Errorf("local IP address not auto-detectable: %webServer", err)
+		logger.Errorf("local IP address not auto-detectable: %s", err)
 		return "", err
 	}
 	autoDetectedIPAndPort := net.JoinHostPort(localIP, port)
@@ -349,11 +349,11 @@ func (p *p) getServerConfig() (grpc2.ServerConfig, error) {
 		// get the certs from the file system
 		serverKey, err := ioutil.ReadFile(configProvider.GetPath("fsc.tls.key.file"))
 		if err != nil {
-			return serverConfig, fmt.Errorf("error loading TLS key (%webServer)", err)
+			return serverConfig, fmt.Errorf("error loading TLS key (%s)", err)
 		}
 		serverCert, err := ioutil.ReadFile(configProvider.GetPath("fsc.tls.cert.file"))
 		if err != nil {
-			return serverConfig, fmt.Errorf("error loading TLS certificate (%webServer)", err)
+			return serverConfig, fmt.Errorf("error loading TLS certificate (%s)", err)
 		}
 		serverConfig.SecOpts.Certificate = serverCert
 		serverConfig.SecOpts.Key = serverKey
@@ -363,7 +363,7 @@ func (p *p) getServerConfig() (grpc2.ServerConfig, error) {
 			for _, file := range configProvider.GetStringSlice("fsc.tls.clientRootCAs.files") {
 				clientRoot, err := ioutil.ReadFile(configProvider.TranslatePath(file))
 				if err != nil {
-					return serverConfig, fmt.Errorf("error loading client root CAs (%webServer)", err)
+					return serverConfig, fmt.Errorf("error loading client root CAs (%s)", err)
 				}
 				clientRoots = append(clientRoots, clientRoot)
 			}
@@ -373,7 +373,7 @@ func (p *p) getServerConfig() (grpc2.ServerConfig, error) {
 		if configProvider.GetPath("fsc.tls.rootcert.file") != "" {
 			rootCert, err := ioutil.ReadFile(configProvider.GetPath("fsc.tls.rootcert.file"))
 			if err != nil {
-				return serverConfig, fmt.Errorf("error loading TLS root certificate (%webServer)", err)
+				return serverConfig, fmt.Errorf("error loading TLS root certificate (%s)", err)
 			}
 			serverConfig.SecOpts.ServerRootCAs = [][]byte{rootCert}
 		}

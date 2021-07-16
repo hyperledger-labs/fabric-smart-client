@@ -11,6 +11,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/identity"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/api"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 )
@@ -73,7 +74,7 @@ type Builder interface {
 
 type ViewClient interface {
 	CallView(fid string, in []byte) (interface{}, error)
-	IsTxFinal(txid string) error
+	IsTxFinal(txid string, opts ...api.ServiceOption) error
 }
 
 type Platform interface {

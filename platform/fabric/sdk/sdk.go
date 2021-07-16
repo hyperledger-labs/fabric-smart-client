@@ -61,6 +61,7 @@ func (p *p) Install() error {
 	p.fnsProvider, err = core.NewFabricNetworkServiceProvider(p.registry, fnspConfig)
 	assert.NoError(err, "failed instantiating fabric network service provider")
 	assert.NoError(p.registry.RegisterService(p.fnsProvider))
+
 	assert.NoError(fabric2.GetDefaultFNS(p.registry).ProcessorManager().SetDefaultProcessor(
 		state.NewRWSetProcessor(fabric2.GetDefaultFNS(p.registry)),
 	))

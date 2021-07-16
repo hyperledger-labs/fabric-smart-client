@@ -18,6 +18,7 @@ import (
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/api"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	protos2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view/protos"
 
@@ -131,10 +132,17 @@ func (s *client) Track(cid string) string {
 	panic("implement me")
 }
 
-func (s *client) IsTxFinal(txid string) error {
+func (s *client) IsTxFinal(txid string, opts ...api.ServiceOption) error {
+	options, err := api.CompileServiceOptions(opts...)
+	if err != nil {
+		return err
+	}
+
 	logger.Debugf("Calling IsTxFinal on txid [%s]", txid)
 	payload := &protos2.Command_IsTxFinal{IsTxFinal: &protos2.IsTxFinal{
-		Txid: txid,
+		Network: options.Network,
+		Channel: options.Channel,
+		Txid:    txid,
 	}}
 	sc, err := s.CreateSignedCommand(payload, s.SigningIdentity)
 	if err != nil {

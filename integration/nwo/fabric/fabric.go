@@ -84,7 +84,7 @@ func NewPlatform(context api.Context, t api.Topology, components BuilderClient) 
 }
 
 func (p *platform) Name() string {
-	return "default"
+	return p.Topology().Name()
 }
 
 func (p *platform) Type() string {

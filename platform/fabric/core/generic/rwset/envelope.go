@@ -16,6 +16,7 @@ import (
 )
 
 type UnpackedEnvelope struct {
+	NetworkID         string
 	TxID              string
 	Ch                string
 	ChaincodeName     string
@@ -31,15 +32,15 @@ type UnpackedEnvelope struct {
 	ProposalResponses []*peer.ProposalResponse
 }
 
-func UnpackEnvelopeFromBytes(raw []byte) (*UnpackedEnvelope, error) {
+func UnpackEnvelopeFromBytes(networkID string, raw []byte) (*UnpackedEnvelope, error) {
 	env := &common.Envelope{}
 	if err := proto.Unmarshal(raw, env); err != nil {
 		return nil, err
 	}
-	return UnpackEnvelope(env)
+	return UnpackEnvelope(networkID, env)
 }
 
-func UnpackEnvelope(env *common.Envelope) (*UnpackedEnvelope, error) {
+func UnpackEnvelope(networkID string, env *common.Envelope) (*UnpackedEnvelope, error) {
 	payl, err := protoutil.UnmarshalPayload(env.Payload)
 	if err != nil {
 		logger.Errorf("VSCC error: GetPayload failed, err %s", err)
@@ -115,6 +116,7 @@ func UnpackEnvelope(env *common.Envelope) (*UnpackedEnvelope, error) {
 	}
 
 	return &UnpackedEnvelope{
+		NetworkID:         networkID,
 		TxID:              chdr.TxId,
 		Ch:                chdr.ChannelId,
 		ChaincodeName:     cis.ChaincodeSpec.ChaincodeId.Name,
@@ -136,7 +138,7 @@ func (u *UnpackedEnvelope) ID() string {
 }
 
 func (u *UnpackedEnvelope) Network() string {
-	return ""
+	return u.NetworkID
 }
 
 func (u *UnpackedEnvelope) Channel() string {

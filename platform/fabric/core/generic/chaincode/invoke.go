@@ -175,7 +175,7 @@ func (i *Invoke) Call() (interface{}, error) {
 	// collect responses
 	responses, err := i.collectResponses(endorserClients, signedProp)
 	if err != nil {
-		return nil, errors.WithMessagef(err, "error endorsing")
+		return nil, errors.Wrapf(err, "failed collecting proposal responses")
 	}
 
 	if len(responses) == 0 {

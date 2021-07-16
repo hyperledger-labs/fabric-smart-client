@@ -12,6 +12,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view"
 	protos2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view/protos"
 )
@@ -20,33 +21,39 @@ type Server interface {
 	RegisterProcessor(typ reflect.Type, p view2.Processor)
 }
 
-type finalityHandler struct {
-	network Network
+type NetworkProvider interface {
+	FabricNetworkService(network string) (driver.FabricNetworkService, error)
 }
 
-func InstallHandler(server Server, network Network) {
-	fh := &finalityHandler{network: network}
+type finalityHandler struct {
+	networkProvider NetworkProvider
+}
+
+func InstallHandler(server Server, networkProvider NetworkProvider) {
+	fh := &finalityHandler{networkProvider: networkProvider}
 	server.RegisterProcessor(reflect.TypeOf(&protos2.Command_IsTxFinal{}), fh.isTxFinal)
 }
 
 func (s *finalityHandler) isTxFinal(ctx context.Context, command *protos2.Command) (interface{}, error) {
-	isTxFinalCommand := command.Payload.(*protos2.Command_IsTxFinal).IsTxFinal
+	c := command.Payload.(*protos2.Command_IsTxFinal).IsTxFinal
 
-	logger.Debugf("Answering: Is [%s] final?", isTxFinalCommand.Txid)
+	logger.Debugf("Answering: Is [%s] final on [%s:%s]?", c.Txid, c.Network, c.Channel)
 
-	ch, err := s.network.Channel(isTxFinalCommand.Channel)
+	network, err := s.networkProvider.FabricNetworkService(c.Network)
 	if err != nil {
-		return nil, errors.Errorf("failed getting finality service for channel [%s], err [%s]", isTxFinalCommand.Channel, err)
+		return nil, errors.Errorf("failed getting network [%s], err [%s]", c.Network, err)
 	}
-
-	err = ch.IsFinal(isTxFinalCommand.Txid)
+	ch, err := network.Channel(c.Channel)
 	if err != nil {
-		logger.Debugf("Answering: Is [%s] final? No", isTxFinalCommand.Txid)
+		return nil, errors.Errorf("failed getting finality service for channel [%s], err [%s]", c.Channel, err)
+	}
+	err = ch.IsFinal(c.Txid)
+	if err != nil {
+		logger.Debugf("Answering: Is [%s] final on [%s:%s]? No", c.Txid, c.Network, c.Channel)
 		return &protos2.CommandResponse_IsTxFinalResponse{IsTxFinalResponse: &protos2.IsTxFinalResponse{
 			Payload: []byte(err.Error()),
 		}}, nil
 	}
-
-	logger.Debugf("Answering: Is [%s] final? Yes", isTxFinalCommand.Txid)
+	logger.Debugf("Answering: Is [%s] final on [%s:%s]? Yes", c.Txid, c.Network, c.Channel)
 	return &protos2.CommandResponse_IsTxFinalResponse{IsTxFinalResponse: &protos2.IsTxFinalResponse{}}, nil
 }
