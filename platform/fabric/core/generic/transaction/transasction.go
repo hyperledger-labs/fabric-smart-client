@@ -158,6 +158,7 @@ func (t *Transaction) From(tx driver.Transaction) (err error) {
 	t.TNonce = payload.TNonce
 	t.TTxID = payload.TTxID
 	t.TCreator = payload.TCreator
+	t.TNetwork = payload.TNetwork
 	t.TChannel = payload.TChannel
 	t.TChaincode = payload.TChaincode
 	t.TChaincodeVersion = payload.TChaincodeVersion
