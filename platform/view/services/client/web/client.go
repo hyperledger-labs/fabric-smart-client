@@ -15,6 +15,7 @@ import (
 	"io/ioutil"
 	"net/http"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/api"
 	protos2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view/protos"
 )
 
@@ -103,6 +104,6 @@ func (c *Client) Track(cid string) string {
 	panic("implement me")
 }
 
-func (c *Client) IsTxFinal(txid string) error {
+func (c *Client) IsTxFinal(txid string, opts ...api.ServiceOption) error {
 	panic("implement me")
 }

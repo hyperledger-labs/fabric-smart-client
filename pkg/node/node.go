@@ -152,8 +152,12 @@ func (n *node) ResolveIdentities(endpoints ...string) ([]view.Identity, error) {
 	return ids, nil
 }
 
-func (n *node) IsTxFinal(txid string) error {
-	return fabric.GetDefaultChannel(n.registry).Finality().IsFinal(txid)
+func (n *node) IsTxFinal(txid string, opts ...api.ServiceOption) error {
+	options, err := api.CompileServiceOptions(opts...)
+	if err != nil {
+		return err
+	}
+	return fabric.GetChannel(n.registry, options.Network, options.Channel).Finality().IsFinal(txid)
 }
 
 func (n *node) CallView(fid string, in []byte) (interface{}, error) {

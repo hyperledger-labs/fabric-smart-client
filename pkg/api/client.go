@@ -6,6 +6,37 @@ SPDX-License-Identifier: Apache-2.0
 
 package api
 
+type ServiceOptions struct {
+	Network string
+	Channel string
+}
+
+func CompileServiceOptions(opts ...ServiceOption) (*ServiceOptions, error) {
+	txOptions := &ServiceOptions{}
+	for _, opt := range opts {
+		if err := opt(txOptions); err != nil {
+			return nil, err
+		}
+	}
+	return txOptions, nil
+}
+
+type ServiceOption func(*ServiceOptions) error
+
+func WithNetwork(network string) ServiceOption {
+	return func(o *ServiceOptions) error {
+		o.Network = network
+		return nil
+	}
+}
+
+func WithChannel(channel string) ServiceOption {
+	return func(o *ServiceOptions) error {
+		o.Channel = channel
+		return nil
+	}
+}
+
 type ViewClient interface {
 	// CallView takes in input a view factory identifier, fid, and an input, in, and invokes the
 	// factory f bound to fid on input in. The view returned by the factory is invoked on
@@ -25,5 +56,5 @@ type ViewClient interface {
 
 	// IsTxFinal takes in input a transaction id and return nil if the transaction has been committed,
 	// an error otherwise.
-	IsTxFinal(txid string) error
+	IsTxFinal(txid string, opts ...ServiceOption) error
 }

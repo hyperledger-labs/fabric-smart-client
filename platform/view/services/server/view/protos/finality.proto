@@ -12,8 +12,9 @@ option cc_generic_services = true;
 package protos;
 
 message IsTxFinal {
-    string channel = 1;
-    string txid = 2;
+    string network = 1;
+    string channel = 2;
+    string txid = 3;
 }
 
 message IsTxFinalResponse {

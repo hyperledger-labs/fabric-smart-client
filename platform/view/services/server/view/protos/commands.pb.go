@@ -4,11 +4,10 @@
 package protos
 
 import (
-	"fmt"
-	"math"
-
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes/timestamp"
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	timestamp "github.com/golang/protobuf/ptypes/timestamp"
+	math "math"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
