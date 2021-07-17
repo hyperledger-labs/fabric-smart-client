@@ -67,11 +67,24 @@ func (ctx *ctx) Initiator() view.View {
 	return ctx.initiator
 }
 
-func (ctx *ctx) RunView(view view.View) (res interface{}, err error) {
-	wContext := &wrappedContext{ctx: ctx}
+func (ctx *ctx) RunView(v view.View, opts ...view.RunViewOption) (res interface{}, err error) {
+	options, err := view.CompileRunViewOptions(opts...)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed compiling options")
+	}
+	var initiator view.View
+	if options.AsInitiator {
+		initiator = v
+	}
+
+	childContext := &childContext{
+		ParentContext: ctx,
+		session:       options.Session,
+		initiator:     initiator,
+	}
 	defer func() {
 		if r := recover(); r != nil {
-			wContext.cleanup()
+			childContext.cleanup()
 			res = nil
 
 			logger.Warningf("caught panic while running flow with [%v][%s]", r, debug.Stack())
@@ -86,9 +99,9 @@ func (ctx *ctx) RunView(view view.View) (res interface{}, err error) {
 			}
 		}
 	}()
-	res, err = view.Call(wContext)
+	res, err = v.Call(childContext)
 	if err != nil {
-		wContext.cleanup()
+		childContext.cleanup()
 		return nil, err
 	}
 	return res, err
