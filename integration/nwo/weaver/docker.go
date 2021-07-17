@@ -16,7 +16,7 @@ import (
 	"github.com/docker/go-connections/nat"
 )
 
-func RunRelayServer(name, serverConfigPath, port string) {
+func (p *Platform) RunRelayServer(name, serverConfigPath, port string) {
 	ctx := context.Background()
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
@@ -24,7 +24,7 @@ func RunRelayServer(name, serverConfigPath, port string) {
 	}
 
 	resp, err := cli.ContainerCreate(ctx, &container.Config{
-		Image: "dlt-interop/relay-server:latest",
+		Image: RelayServerImage,
 		Tty:   false,
 		Env: []string{
 			"DEBUG=true",
@@ -50,7 +50,7 @@ func RunRelayServer(name, serverConfigPath, port string) {
 				},
 			},
 		},
-	}, nil, nil, "relay-server"+name)
+	}, nil, nil, p.NetworkID+"-relay-server"+name)
 	if err != nil {
 		panic(err)
 	}
@@ -76,7 +76,7 @@ func RunRelayServer(name, serverConfigPath, port string) {
 	// stdcopy.StdCopy(os.Stdout, os.Stderr, out)
 }
 
-func RunRelayFabricDriver(
+func (p *Platform) RunRelayFabricDriver(
 	networkName,
 	relayHost, relayPort,
 	driverHost, driverPort,
@@ -89,7 +89,7 @@ func RunRelayFabricDriver(
 	}
 
 	resp, err := cli.ContainerCreate(ctx, &container.Config{
-		Image: "fabric-driver:latest",
+		Image: FabricDriverImager,
 		Tty:   false,
 		Env: []string{
 			"NETWORK_NAME=" + networkName,
@@ -139,7 +139,7 @@ func RunRelayFabricDriver(
 				},
 			},
 		},
-	}, nil, nil, "relay-fabric-driver-"+networkName)
+	}, nil, nil, p.NetworkID+"-relay-fabric-driver-"+networkName)
 	if err != nil {
 		panic(err)
 	}

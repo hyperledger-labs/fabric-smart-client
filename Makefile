@@ -41,6 +41,10 @@ docker-images:
 	docker pull couchdb:3.1.1
 	docker pull confluentinc/cp-kafka:5.3.1
 	docker pull confluentinc/cp-zookeeper:5.3.1
+	docker pull ghcr.io/hyperledger-labs/weaver-fabric-driver:1.2.0
+	docker image tag ghcr.io/hyperledger-labs/weaver-fabric-driver:1.2.0 hyperledger-labs/weaver-fabric-driver:latest
+	docker pull ghcr.io/hyperledger-labs/weaver-relay-server:1.2.0
+	docker image tag ghcr.io/hyperledger-labs/weaver-relay-server:1.2.0 hyperledger-labs/weaver-relay-server:latest
 
 .PHONY: dependencies
 dependencies:
@@ -98,7 +102,7 @@ clean:
 	rm -rf ./integration/fabric/atsa/fsc/cmd
 	rm -rf ./integration/fabric/iou/cmd/
 	rm -rf ./integration/fabric/twonets/cmd
-	rm -rf ./integration/fabric/waever/relay/cmd
+	rm -rf ./integration/fabric/weaver/relay/cmd
 	rm -rf ./integration/fsc/stoprestart/cmd
 	rm -rf ./integration/fsc/pingpong/cmd/responder
 	rm -rf ./integration/fscnodes

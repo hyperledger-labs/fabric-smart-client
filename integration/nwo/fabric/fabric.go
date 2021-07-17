@@ -9,7 +9,6 @@ package fabric
 import (
 	"encoding/json"
 	"fmt"
-	"sync"
 
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/hyperledger/fabric/integration/runner"
@@ -35,8 +34,6 @@ var (
 		runner.KafkaDefaultImage,
 		runner.ZooKeeperDefaultImage,
 	}
-	once         sync.Once
-	dockerClient *docker.Client
 )
 
 type Peer struct {
@@ -92,8 +89,7 @@ type platform struct {
 func NewPlatform(context api.Context, t api.Topology, components BuilderClient) *platform {
 	helpers.AssertImagesExist(RequiredImages...)
 
-	var err error
-	dockerClient, err = docker.NewClientFromEnv()
+	dockerClient, err := docker.NewClientFromEnv()
 	Expect(err).NotTo(HaveOccurred())
 	networkID := common.UniqueName()
 	_, err = dockerClient.CreateNetwork(
