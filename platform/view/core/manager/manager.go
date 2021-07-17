@@ -131,18 +131,18 @@ func (cm *manager) InitiateViewWithIdentity(view view.View, id view.Identity) (i
 	if err != nil {
 		return nil, err
 	}
-	wrappedContext := &wrappedContext{ctx: viewContext}
+	childContext := &childContext{ParentContext: viewContext}
 	cm.contextsSync.Lock()
-	cm.contexts[wrappedContext.ID()] = wrappedContext
+	cm.contexts[childContext.ID()] = childContext
 	cm.contextsSync.Unlock()
 
-	logger.Debugf("[%s] InitiateView [view:%s], [ContextID:%s]", id, getIdentifier(view), wrappedContext.ID())
-	res, err := wrappedContext.RunView(view)
+	logger.Debugf("[%s] InitiateView [view:%s], [ContextID:%s]", id, getIdentifier(view), childContext.ID())
+	res, err := childContext.RunView(view)
 	if err != nil {
-		logger.Debugf("[%s] InitiateView [view:%s], [ContextID:%s] failed [%s]", id, getIdentifier(view), wrappedContext.ID(), err)
+		logger.Debugf("[%s] InitiateView [view:%s], [ContextID:%s] failed [%s]", id, getIdentifier(view), childContext.ID(), err)
 		return nil, err
 	}
-	logger.Debugf("[%s] InitiateView [view:%s], [ContextID:%s] terminated", id, getIdentifier(view), wrappedContext.ID())
+	logger.Debugf("[%s] InitiateView [view:%s], [ContextID:%s] terminated", id, getIdentifier(view), childContext.ID())
 	return res, nil
 }
 
@@ -162,14 +162,14 @@ func (cm *manager) InitiateContextWithIdentity(view view.View, id view.Identity)
 	if err != nil {
 		return nil, err
 	}
-	wrappedContext := &wrappedContext{ctx: viewContext}
+	childContext := &childContext{ParentContext: viewContext}
 	cm.contextsSync.Lock()
-	cm.contexts[wrappedContext.ID()] = wrappedContext
+	cm.contexts[childContext.ID()] = childContext
 	cm.contextsSync.Unlock()
 
-	logger.Debugf("[%s] InitiateContext [view:%s], [ContextID:%s]\n", id, getIdentifier(view), wrappedContext.ID())
+	logger.Debugf("[%s] InitiateContext [view:%s], [ContextID:%s]\n", id, getIdentifier(view), childContext.ID())
 
-	return wrappedContext, nil
+	return childContext, nil
 }
 
 func (cm *manager) Start(ctx context.Context) {
@@ -280,9 +280,9 @@ func (cm *manager) newContext(id view.Identity, msg *view.Message) (view.Context
 		if err != nil {
 			return nil, err
 		}
-		wrappedContext := &wrappedContext{ctx: newCtx}
-		cm.contexts[contextID] = wrappedContext
-		viewContext = wrappedContext
+		childContext := &childContext{ParentContext: newCtx}
+		cm.contexts[contextID] = childContext
+		viewContext = childContext
 	} else {
 		logger.Debugf("[%s] No new context to respond, reuse [contextID:%s]\n", id, msg.ContextID)
 	}
@@ -347,6 +347,9 @@ func (cm *manager) me() view.Identity {
 }
 
 func getIdentifier(f view.View) string {
+	if f == nil {
+		panic("view cannot be nil")
+	}
 	t := reflect.TypeOf(f)
 	for t.Kind() == reflect.Ptr {
 		t = t.Elem()

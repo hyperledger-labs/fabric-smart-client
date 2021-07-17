@@ -8,6 +8,42 @@ package view
 
 import "context"
 
+// RunViewOptions models the options to run a view
+type RunViewOptions struct {
+	Session     Session
+	AsInitiator bool
+}
+
+// CompileRunViewOptions compiles a set of RunViewOption to a RunViewOptions
+func CompileRunViewOptions(opts ...RunViewOption) (*RunViewOptions, error) {
+	txOptions := &RunViewOptions{}
+	for _, opt := range opts {
+		if err := opt(txOptions); err != nil {
+			return nil, err
+		}
+	}
+	return txOptions, nil
+}
+
+// RunViewOption models a function that set options to run a view
+type RunViewOption func(*RunViewOptions) error
+
+// AsResponder sets the context's session to the passed session
+func AsResponder(session Session) RunViewOption {
+	return func(o *RunViewOptions) error {
+		o.Session = session
+		return nil
+	}
+}
+
+// AsInitiator tells the context to initialize the initiator to the executing view
+func AsInitiator() RunViewOption {
+	return func(o *RunViewOptions) error {
+		o.AsInitiator = true
+		return nil
+	}
+}
+
 // Context gives a view information about the environment in which it is in execution
 type Context interface {
 	// GetService returns an instance of the given type
@@ -17,7 +53,7 @@ type Context interface {
 	ID() string
 
 	// RunView runs the passed view on input this context
-	RunView(view View) (interface{}, error)
+	RunView(view View, opts ...RunViewOption) (interface{}, error)
 
 	// Me returns the identity bound to this context
 	Me() Identity
