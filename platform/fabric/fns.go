@@ -84,6 +84,10 @@ func (n *NetworkService) SigService() *SigService {
 	return &SigService{sigService: n.fns.SigService()}
 }
 
+func (n *NetworkService) ConfigService() *ConfigService {
+	return &ConfigService{confService: n.fns.ConfigService()}
+}
+
 func GetFabricNetworkNames(sp view2.ServiceProvider) []string {
 	return core.GetFabricNetworkServiceProvider(sp).Names()
 }

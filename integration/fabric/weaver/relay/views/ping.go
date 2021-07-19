@@ -16,6 +16,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/weaver"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -49,6 +50,10 @@ func (p *Ping) Call(context view.Context) (interface{}, error) {
 	case <-time.After(1 * time.Minute):
 		return nil, errors.New("responder didn't pong in time")
 	}
+
+	relay := weaver.GetProvider(context).Relay(fabric.GetDefaultFNS(context))
+	assert.NoError(err, "failed getting relay for default fabric network")
+	assert.NoError(relay.RequestState(), "failed requesting state")
 
 	// Return
 	return "OK", nil

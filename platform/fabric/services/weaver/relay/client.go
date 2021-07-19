@@ -78,20 +78,20 @@ type client struct {
 	hasher             hash2.Hasher
 }
 
-func New(config *Config, sID SigningIdentity, hasher hash2.Hasher) (*client, error) {
+func NewClient(config *ClientConfig, sID SigningIdentity, hasher hash2.Hasher) (*client, error) {
 	// create a grpc client for view peer
-	grpcClient, err := grpc2.CreateGRPCClient(config.FSCNode)
+	grpcClient, err := grpc2.CreateGRPCClient(config.RelayServer)
 	if err != nil {
 		return nil, err
 	}
 
 	return &client{
-		Address:          config.FSCNode.Address,
+		Address:          config.RelayServer.Address,
 		RandomnessReader: rand.Reader,
 		Time:             time.Now,
 		DataTransferClient: &DataTransferClientImpl{
-			Address:            config.FSCNode.Address,
-			ServerNameOverride: config.FSCNode.ServerNameOverride,
+			Address:            config.RelayServer.Address,
+			ServerNameOverride: config.RelayServer.ServerNameOverride,
 			GRPCClient:         grpcClient,
 		},
 		SigningIdentity: sID,
@@ -99,7 +99,7 @@ func New(config *Config, sID SigningIdentity, hasher hash2.Hasher) (*client, err
 	}, nil
 }
 
-func (s *client) RequestState() (interface{}, error) {
+func (s *client) RequestState() (*common.Ack, error) {
 	logger.Debugf("get view service client...")
 	conn, client, err := s.DataTransferClient.CreateDataTransferClient()
 	logger.Debugf("get view service client...done")
@@ -131,4 +131,8 @@ func (s *client) RequestState() (interface{}, error) {
 		return nil, errors.Wrap(err, "failed view client process command")
 	}
 	return ack, nil
+}
+
+func (s *client) Close() {
+	// TODO:
 }

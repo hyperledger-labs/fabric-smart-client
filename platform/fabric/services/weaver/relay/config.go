@@ -20,18 +20,18 @@ type MSPInfo struct {
 	MSPType       string
 }
 
-// Config will be updated after the CR for token client config is merged, where the config data
+// ClientConfig will be updated after the CR for token client config is merged, where the config data
 // will be populated based on a config file.
-type Config struct {
-	ID      string
-	FSCNode *grpc.ConnectionConfig
+type ClientConfig struct {
+	ID          string
+	RelayServer *grpc.ConnectionConfig
 }
 
-func (config *Config) ToJSon() ([]byte, error) {
+func (config *ClientConfig) ToJSon() ([]byte, error) {
 	return json.Marshal(config)
 }
 
-type Configs []Config
+type Configs []ClientConfig
 
 func (configs *Configs) ToJSon() ([]byte, error) {
 	return json.MarshalIndent(configs, "", " ")
@@ -46,11 +46,11 @@ func FromJSON(raw []byte) (Configs, error) {
 	return *configs, nil
 }
 
-func ValidateClientConfig(config Config) error {
-	if config.FSCNode.Address == "" {
+func ValidateClientConfig(config ClientConfig) error {
+	if config.RelayServer.Address == "" {
 		return errors.New("missing fsc peer address")
 	}
-	if config.FSCNode.TLSEnabled && (config.FSCNode.TLSRootCertFile == "" || len(config.FSCNode.TLSRootCertBytes) == 0) {
+	if config.RelayServer.TLSEnabled && (config.RelayServer.TLSRootCertFile == "" || len(config.RelayServer.TLSRootCertBytes) == 0) {
 		return errors.New("missing fsc peer TLSRootCertFile")
 	}
 

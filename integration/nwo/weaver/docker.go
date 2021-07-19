@@ -45,7 +45,7 @@ func (p *Platform) RunRelayServer(name, serverConfigPath, port string) {
 		PortBindings: nat.PortMap{
 			nat.Port(port + "/tcp"): []nat.PortBinding{
 				{
-					HostIP:   "0.0.0.0",
+					HostIP:   "127.0.0.1",
 					HostPort: port,
 				},
 			},
@@ -105,6 +105,7 @@ func (p *Platform) RunRelayFabricDriver(
 		},
 		ExposedPorts: nat.PortSet{
 			nat.Port(driverPort + "/tcp"): struct{}{},
+			nat.Port(relayPort + "/tcp"):  struct{}{},
 		},
 	}, &container.HostConfig{
 		// Absolute path to
@@ -126,15 +127,9 @@ func (p *Platform) RunRelayFabricDriver(
 			},
 		},
 		PortBindings: nat.PortMap{
-			nat.Port(relayPort + "/tcp"): []nat.PortBinding{
-				{
-					HostIP:   "0.0.0.0",
-					HostPort: relayPort,
-				},
-			},
 			nat.Port(driverPort + "/tcp"): []nat.PortBinding{
 				{
-					HostIP:   "0.0.0.0",
+					HostIP:   "127.0.0.1",
 					HostPort: driverPort,
 				},
 			},

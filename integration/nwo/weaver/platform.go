@@ -108,7 +108,7 @@ func NewPlatform(ctx api2.Context, t api2.Topology, builder api2.Builder) *Platf
 		Topology:          t.(*Topology),
 		Builder:           builder,
 		EventuallyTimeout: 10 * time.Minute,
-		NetworkID:         common.UniqueName(),
+		NetworkID:         networkID,
 		DockerClient:      dockerClient,
 	}
 }
@@ -170,8 +170,8 @@ func (p *Platform) PostRun() {
 		for _, driver := range relay.Drivers {
 			p.RunRelayFabricDriver(
 				relay.FabricTopologyName,
-				"localhost", strconv.Itoa(int(relay.Port)),
-				"localhost", strconv.Itoa(int(driver.Port)),
+				"127.0.0.1", strconv.Itoa(int(relay.Port)),
+				"127.0.0.1", strconv.Itoa(int(driver.Port)),
 				relay.InteropChaincode.Label,
 				p.FabricDriverConnectionProfilePath(relay),
 				p.FabricDriverConfigPath(relay),
@@ -398,7 +398,7 @@ func (p *Platform) generateFabricDriverCPFile(relay *RelayServer) {
 			},
 		}
 		cp.CertificateAuthorities["ca."+relay.Name] = CertificationAuthority{
-			Url:        "https://localhost:7054",
+			Url:        "https://127.0.0.1:7054",
 			CaName:     "ca." + relay.Name,
 			TLSCACerts: nil,
 			HttpOptions: HttpOptions{
