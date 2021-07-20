@@ -11,7 +11,8 @@ name = "{{ Name }}"
 # Port number for relay grpc server. e.g. 9080
 port="{{ Port }}"
 # Host address for grpc server. e.g. 0.0.0.0
-hostname="{{ Hostname }}"
+host="0.0.0.0"
+hostname="0.0.0.0"
 
 db_path="db/{{ Name }}/requests"
 # This will be replaced by the task queue.

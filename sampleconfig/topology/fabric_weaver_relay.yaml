@@ -223,14 +223,14 @@ topologies:
   relays:
   - fabrictopologyname: alpha
     name: Fabric_alpha
-    hostname: localhost
+    hostname: 127.0.0.1
     organization: Org1
     networks:
     - type: Fabric
       name: Fabric_beta
     drivers:
     - name: Fabric
-      hostname: localhost
+      hostname: 127.0.0.1
     interopchaincode:
       label: interop
       channel: testchannel
@@ -238,14 +238,14 @@ topologies:
       path: github.com/hyperledger-labs/weaver-dlt-interoperability/core/network/fabric-interop-cc/contracts/interop
   - fabrictopologyname: beta
     name: Fabric_beta
-    hostname: localhost
+    hostname: 127.0.0.1
     organization: Org3
     networks:
     - type: Fabric
       name: Fabric_alpha
     drivers:
     - name: Fabric
-      hostname: localhost
+      hostname: 127.0.0.1
     interopchaincode:
       label: interop
       channel: testchannel

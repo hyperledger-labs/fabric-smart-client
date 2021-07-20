@@ -39,6 +39,8 @@ func TestRelayServerConnection(t *testing.T) {
 		"20040",
 	)
 
+	time.Sleep(10 * time.Second)
+
 	config := &relay.ClientConfig{
 		ID: "test",
 		RelayServer: &grpc.ConnectionConfig{

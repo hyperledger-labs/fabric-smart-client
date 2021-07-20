@@ -100,16 +100,16 @@ func NewClient(config *ClientConfig, sID SigningIdentity, hasher hash2.Hasher) (
 }
 
 func (s *client) RequestState() (*common.Ack, error) {
-	logger.Debugf("get view service client...")
+	logger.Debugf("get data transfer client...")
 	conn, client, err := s.DataTransferClient.CreateDataTransferClient()
-	logger.Debugf("get view service client...done")
+	logger.Debugf("get data transfer client...done")
 	if conn != nil {
-		logger.Debugf("get view service client...got a connection")
+		logger.Debugf("get data transfer client...got a connection")
 		defer conn.Close()
 	}
 	if err != nil {
-		logger.Errorf("failed creating view client [%s]", err)
-		return nil, errors.Wrap(err, "failed creating view client")
+		logger.Errorf("failed creating data transfer client [%s]", err)
+		return nil, errors.Wrap(err, "failed creating data transfer client")
 	}
 	ctx := context.Background()
 	query := &common.Query{
@@ -127,8 +127,8 @@ func (s *client) RequestState() (*common.Ack, error) {
 	logger.Debugf("process request state query [%s]", query.String())
 	ack, err := client.RequestState(ctx, query)
 	if err != nil {
-		logger.Errorf("failed view client process command [%s]", err)
-		return nil, errors.Wrap(err, "failed view client process command")
+		logger.Errorf("failed requesting state [%s]", err)
+		return nil, errors.Wrap(err, "failed requesting state")
 	}
 	return ack, nil
 }
