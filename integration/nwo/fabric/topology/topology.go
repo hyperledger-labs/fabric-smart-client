@@ -38,6 +38,7 @@ type Topology struct {
 	FabTokenCCSupport bool                `yaml:"fabtokenccsupport,omitempty"`
 	GRPCLogging       bool                `yaml:"grpcLogging,omitempty"`
 	NodeOUs           bool                `yaml:"nodeous,omitempty"`
+	FPCEnabled        bool                `yaml:"fpcenabled,omitempty"`
 }
 
 func (c *Topology) Name() string {

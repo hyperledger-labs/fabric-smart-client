@@ -86,6 +86,7 @@ type ChannelChaincode struct {
 	Path      string    `yaml:"path,omitempty"`
 	Channel   string    `yaml:"channel,omitempty"`
 	Peers     []string  `yaml:"peers,omitempty"`
+	Private   bool      `yaml:"private,omitempty"`
 }
 
 type Policy struct {
