@@ -56,6 +56,11 @@ func NewContext(context context.Context, sp driver.ServiceProvider, contextID st
 		caller:         caller,
 		sp:             sp,
 	}
+	if session != nil {
+		// Register default session
+		ctx.sessions[session.Info().Caller.UniqueID()] = session
+	}
+
 	return ctx, nil
 }
 
@@ -99,12 +104,21 @@ func (ctx *ctx) RunView(v view.View, opts ...view.RunViewOption) (res interface{
 			}
 		}
 	}()
-	res, err = v.Call(childContext)
+
+	if v == nil && options.Call == nil {
+		return nil, errors.Errorf("no view passed")
+	}
+	if options.Call != nil {
+		res, err = options.Call(childContext)
+	} else {
+		res, err = v.Call(childContext)
+	}
 	if err != nil {
 		childContext.cleanup()
 		return nil, err
 	}
 	return res, err
+
 }
 
 func (ctx *ctx) Me() view.Identity {
@@ -155,6 +169,11 @@ func (ctx *ctx) GetSession(f view.View, party view.Identity) (view.Session, erro
 	}
 
 	if !ok {
+		if f == nil {
+			// return an error, a session should already exist
+			return nil, errors.Errorf("a session should already exist, passed nil view")
+		}
+
 		logger.Debugf("[%s] Creating new session [to:%s]", ctx.me, id)
 		s, err = ctx.newSession(f, ctx.id, id)
 		if err != nil {

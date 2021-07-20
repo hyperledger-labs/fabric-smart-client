@@ -348,7 +348,7 @@ func (cm *manager) me() view.Identity {
 
 func getIdentifier(f view.View) string {
 	if f == nil {
-		panic("view cannot be nil")
+		return "<nil view>"
 	}
 	t := reflect.TypeOf(f)
 	for t.Kind() == reflect.Ptr {

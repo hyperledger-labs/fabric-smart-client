@@ -101,10 +101,13 @@ func (w *childContext) RunView(v view.View, opts ...view.RunViewOption) (res int
 			}
 		}
 	}()
-	res, err = v.Call(childContext)
-	if err != nil {
-		childContext.cleanup()
-		return nil, err
+	if v == nil && options.Call == nil {
+		return nil, errors.Errorf("no view passed")
+	}
+	if options.Call != nil {
+		res, err = options.Call(childContext)
+	} else {
+		res, err = v.Call(childContext)
 	}
 	return res, err
 }
