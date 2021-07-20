@@ -22,15 +22,16 @@ require (
 	github.com/dgraph-io/badger/v3 v3.2011.1
 	github.com/fsouza/go-dockerclient v1.6.1
 	github.com/gogo/protobuf v1.3.1
-	github.com/golang/protobuf v1.4.3
+	github.com/golang/protobuf v1.5.2
 	github.com/golang/snappy v0.0.3-0.20201103224600-674baa8c7fc3 // indirect
 	github.com/google/addlicense v0.0.0-20210428195630-6d92264d7170 // indirect
-	github.com/google/go-cmp v0.5.0
+	github.com/google/go-cmp v0.5.5
 	github.com/google/uuid v1.2.0 // indirect
 	github.com/gordonklaus/ineffassign v0.0.0-20210522101830-0589229737b2 // indirect
 	github.com/gorilla/mux v1.8.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.2.0
 	github.com/hashicorp/go-version v1.2.0
+	github.com/hyperledger-labs/fabric-token-sdk v0.0.0-20210717181456-b914a04271d9 // indirect
 	github.com/hyperledger/fabric v1.4.0-rc1.0.20200930182727-344fda602252
 	github.com/hyperledger/fabric-amcl v0.0.0-20200424173818-327c9e2cf77a
 	github.com/hyperledger/fabric-chaincode-go v0.0.0-20200424173110-d7076418f212
@@ -68,10 +69,10 @@ require (
 	golang.org/x/text v0.3.5 // indirect
 	golang.org/x/tools v0.1.5 // indirect
 	google.golang.org/genproto v0.0.0-20210201184850-646a494a81ea // indirect
-	google.golang.org/grpc v1.35.0
-	google.golang.org/protobuf v1.25.0
+	google.golang.org/grpc v1.36.1
+	google.golang.org/protobuf v1.26.0
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6
 	gopkg.in/src-d/go-git.v4 v4.13.1
-	gopkg.in/yaml.v2 v2.3.0
+	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
 )
