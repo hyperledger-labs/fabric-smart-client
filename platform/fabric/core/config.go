@@ -37,7 +37,9 @@ func NewConfig(configProvider ConfigProvider) (*Config, error) {
 			defaultValue, ok := (v.(map[interface{}]interface{}))["default"]
 			if ok && defaultValue.(bool) {
 				if len(defaultName) != 0 {
-					return nil, errors.Errorf("only one network can be set as default")
+					logger.Warnf("only one network should be set as default, ignoring [%s], default is set to [%s]", name, defaultValue)
+					// return nil, errors.Errorf("only one network can be set as default")
+					continue
 				}
 				defaultName = name
 			}
