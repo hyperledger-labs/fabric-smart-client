@@ -33,6 +33,7 @@ func Topology() []api.Topology {
 	alice.AddOptions(
 		fabric.WithNetworkOrganization("alpha", "Org1"),
 		fabric.WithNetworkOrganization("beta", "Org3"),
+		fabric.WithDefaultNetwork("alpha"),
 	)
 	alice.RegisterViewFactory("ping", &views.PingFactory{})
 
@@ -41,6 +42,7 @@ func Topology() []api.Topology {
 	bob.AddOptions(
 		fabric.WithNetworkOrganization("alpha", "Org1"),
 		fabric.WithNetworkOrganization("beta", "Org3"),
+		fabric.WithDefaultNetwork("beta"),
 	)
 	bob.RegisterResponder(&views.Pong{}, &views.Ping{})
 

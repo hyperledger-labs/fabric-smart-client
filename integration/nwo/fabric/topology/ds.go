@@ -114,6 +114,7 @@ type Peer struct {
 	Channels        []*PeerChannel  `yaml:"channels,omitempty"`
 	ExtraIdentities []*PeerIdentity `yaml:"extraidentities,omitempty"`
 	DevMode         bool
+	DefaultNetwork  bool `yaml:"-"`
 }
 
 // ID provides a unique identifier for a peer instance.
