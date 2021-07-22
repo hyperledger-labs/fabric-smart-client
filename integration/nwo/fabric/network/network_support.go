@@ -685,6 +685,15 @@ func (n *Network) CheckTopology() {
 			n.Context.AddIdentityAlias(node.Name, label)
 		}
 
+		var defaultNetwork bool
+		switch {
+		case nodeOpts.DefaultNetwork() == "":
+			defaultNetwork = n.topology.Default
+		case n.topology.TopologyName == nodeOpts.DefaultNetwork():
+			defaultNetwork = true
+		default:
+			defaultNetwork = false
+		}
 		p := &topology.Peer{
 			Name:            node.Name,
 			Organization:    org.Org,
@@ -693,6 +702,7 @@ func (n *Network) CheckTopology() {
 			Bootstrap:       node.Bootstrap,
 			ExecutablePath:  node.ExecutablePath,
 			ExtraIdentities: extraIdentities,
+			DefaultNetwork:  defaultNetwork,
 		}
 		n.Peers = append(n.Peers, p)
 		n.Context.SetPortsByPeerID("fsc", p.ID(), n.Context.PortsByPeerID(n.Prefix, node.Name))
@@ -1676,9 +1686,11 @@ func (n *Network) GenerateCoreConfig(p *topology.Peer) {
 
 		var refPeers []*topology.Peer
 		coreTemplate := n.Templates.CoreTemplate()
+		defaultNetwork := n.topology.Default
 		if p.Type == topology.FSCPeer {
 			coreTemplate = n.Templates.FSCNodeConfigExtensionTemplate()
 			peers := n.PeersInOrg(p.Organization)
+			defaultNetwork = p.DefaultNetwork
 			for _, peer := range peers {
 				if peer.Type == topology.FabricPeer {
 					refPeers = append(refPeers, peer)
@@ -1698,7 +1710,7 @@ func (n *Network) GenerateCoreConfig(p *topology.Peer) {
 			"CACertsBundlePath":         func() string { return n.CACertsBundlePath() },
 			"FSCNodeVaultPath":          func() string { return n.FSCNodeVaultDir(p) },
 			"FabricName":                func() string { return n.topology.Name() },
-			"DefaultNetwork":            func() bool { return n.topology.Default },
+			"DefaultNetwork":            func() bool { return defaultNetwork },
 		}).Parse(coreTemplate)
 		Expect(err).NotTo(HaveOccurred())
 

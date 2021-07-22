@@ -233,6 +233,7 @@ topologies:
       mapping:
         fabric:
           mapping:
+            DefaultNetwork: alpha
             Organization:
             - Network: alpha
               Org: Org1
@@ -253,6 +254,7 @@ topologies:
       mapping:
         fabric:
           mapping:
+            DefaultNetwork: beta
             Organization:
             - Network: alpha
               Org: Org1

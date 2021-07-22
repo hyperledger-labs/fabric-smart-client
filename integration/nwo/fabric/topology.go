@@ -61,6 +61,13 @@ func WithNetworkOrganization(Network, Organization string) node.Option {
 	}
 }
 
+func WithDefaultNetwork(Network string) node.Option {
+	return func(o *node.Options) error {
+		Options(o).SetDefaultNetwork(Network)
+		return nil
+	}
+}
+
 func WithAnonymousIdentity() node.Option {
 	return func(o *node.Options) error {
 		Options(o).SetAnonymousIdentity(true)
