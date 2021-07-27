@@ -111,11 +111,11 @@ var _ = Describe("Idemix Bridge", func() {
 
 			It("fails to unmarshal issuer public key", func() {
 				pk, err := Issuer.NewPublicKeyFromBytes([]byte{0, 1, 2, 3, 4}, nil)
-				Expect(err).To(MatchError("failed to unmarshal issuer public key: proto: crypto.IssuerPublicKey: illegal tag 0 (wire type 0)"))
+				Expect(err.Error()).To(ContainSubstring("cannot parse invalid wire-format data"))
 				Expect(pk).To(BeNil())
 			})
 
-			It("fails to unmarshal issuer public key", func() {
+			It("fails to unmarshal issuer public key II", func() {
 				pk, err := Issuer.NewPublicKeyFromBytes(nil, nil)
 				Expect(err).To(MatchError(ContainSubstring("failure [runtime error: index out of range")))
 				Expect(pk).To(BeNil())
@@ -361,7 +361,7 @@ var _ = Describe("Idemix Bridge", func() {
 
 			It("fail on invalid credential request", func() {
 				err := CredRequest.Verify([]byte{0, 1, 2, 3, 4}, issuerPublicKey, IssuerNonce)
-				Expect(err).To(MatchError("proto: crypto.CredRequest: illegal tag 0 (wire type 0)"))
+				Expect(err.Error()).To(ContainSubstring("cannot parse invalid wire-format data"))
 			})
 
 			It("fail on nil issuer public key", func() {
@@ -395,7 +395,7 @@ var _ = Describe("Idemix Bridge", func() {
 
 			It("fail on invalid credential request", func() {
 				raw, err := Credential.Sign(issuerSecretKey, []byte{0, 1, 2, 3, 4}, nil)
-				Expect(err).To(MatchError("failed unmarshalling credential request: proto: crypto.CredRequest: illegal tag 0 (wire type 0)"))
+				Expect(err.Error()).To(ContainSubstring("failed unmarshalling credential request"))
 				Expect(raw).To(BeNil())
 			})
 
@@ -462,7 +462,7 @@ var _ = Describe("Idemix Bridge", func() {
 
 			It("fail on invalid handlers", func() {
 				raw, err := Revocation.Sign(nil, [][]byte{{0, 2, 3, 4}}, 0, 0)
-				Expect(err).To(MatchError(ContainSubstring("failure [runtime error: index out of range")))
+				Expect(err.Error()).To(ContainSubstring("failure [runtime error: index out of range"))
 				Expect(raw).To(BeNil())
 			})
 		})
@@ -475,7 +475,7 @@ var _ = Describe("Idemix Bridge", func() {
 
 			It("fail on malformed cri", func() {
 				err := Revocation.Verify(nil, []byte{0, 1, 2, 3, 4}, 0, 0)
-				Expect(err).To(MatchError("proto: crypto.CredentialRevocationInformation: illegal tag 0 (wire type 0)"))
+				Expect(err.Error()).To(ContainSubstring("cannot parse invalid wire-format data"))
 			})
 		})
 	})
@@ -527,7 +527,7 @@ var _ = Describe("Idemix Bridge", func() {
 
 			It("fail on invalid signature", func() {
 				err := SignatureScheme.Verify(issuerPublicKey, []byte{0, 1, 2, 3, 4}, nil, nil, 0, nil, 0)
-				Expect(err).To(MatchError("proto: crypto.Signature: illegal tag 0 (wire type 0)"))
+				Expect(err.Error()).To(ContainSubstring("cannot parse invalid wire-format data"))
 			})
 
 			It("fail on invalid attributes", func() {
@@ -590,7 +590,7 @@ var _ = Describe("Idemix Bridge", func() {
 
 			It("fail on invalid signature", func() {
 				err := NymSignatureScheme.Verify(issuerPublicKey, nymPublicKey, []byte{0, 1, 2, 3, 4}, nil)
-				Expect(err).To(MatchError("error unmarshalling signature: proto: crypto.NymSignature: illegal tag 0 (wire type 0)"))
+				Expect(err.Error()).To(ContainSubstring("cannot parse invalid wire-format data"))
 			})
 
 		})
@@ -851,7 +851,7 @@ var _ = Describe("Idemix Bridge", func() {
 						},
 					},
 				)
-				Expect(err).To(MatchError("proto: crypto.Credential: illegal tag 0 (wire type 0)"))
+				Expect(err.Error()).To(ContainSubstring("cannot parse invalid wire-format data"))
 				Expect(valid).To(BeFalse())
 			})
 
@@ -1118,7 +1118,7 @@ var _ = Describe("Idemix Bridge", func() {
 						CRI:        cri,
 					},
 				)
-				Expect(err).To(MatchError("failed unmarshalling credential: proto: crypto.Credential: illegal tag 0 (wire type 0)"))
+				Expect(err.Error()).To(ContainSubstring("cannot parse invalid wire-format data"))
 				Expect(signature).To(BeNil())
 			})
 
@@ -1136,7 +1136,7 @@ var _ = Describe("Idemix Bridge", func() {
 						CRI:        []byte{0, 1, 2, 3, 4},
 					},
 				)
-				Expect(err).To(MatchError("failed unmarshalling credential revocation information: proto: crypto.CredentialRevocationInformation: illegal tag 0 (wire type 0)"))
+				Expect(err.Error()).To(ContainSubstring("cannot parse invalid wire-format data"))
 				Expect(signature).To(BeNil())
 			})
 
