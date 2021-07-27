@@ -2,6 +2,10 @@ syntax = "proto3";
 
 package comm;
 
+
+option go_package = "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm";
+
+
 message ViewPacket {
     string sessionID = 1;
     string contextID = 2;
