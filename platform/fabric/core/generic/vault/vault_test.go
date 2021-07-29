@@ -76,9 +76,11 @@ func TestMerge(t *testing.T) {
 
 	err = rws.AppendRWSet(rwsBytes)
 	assert.NoError(t, err)
-	assert.Equal(t, namespaceKeyedMetaWrites{"namespace": {
-		"key1": {"k1": []byte("v1")},
-		"key3": {"k3": []byte("v3")}},
+	assert.Equal(t, namespaceKeyedMetaWrites{
+		"namespace": {
+			"key1": {"k1": []byte("v1")},
+			"key3": {"k3": []byte("v3")},
+		},
 	}, rws.rws.metawrites)
 	assert.Equal(t, writes{"namespace": {
 		"key1": []byte("newv1"),
@@ -113,7 +115,7 @@ func TestMerge(t *testing.T) {
 	assert.EqualError(t, err, "duplicate write entry for key namespace:key2")
 
 	err = rws.AppendRWSet([]byte("barf"))
-	assert.EqualError(t, err, "provided invalid read-write set bytes, unmarshal failed: unexpected EOF")
+	assert.Contains(t, err.Error(), "cannot parse invalid wire-format data")
 
 	txRWSet := &rwset.TxReadWriteSet{
 		NsRwset: []*rwset.NsReadWriteSet{
@@ -124,7 +126,7 @@ func TestMerge(t *testing.T) {
 	assert.NoError(t, err)
 
 	err = rws.AppendRWSet(rwsBytes)
-	assert.EqualError(t, err, "provided invalid read-write set bytes, TxRwSetFromProtoMsg failed: unexpected EOF")
+	assert.Contains(t, err.Error(), "cannot parse invalid wire-format data")
 
 	rwsb = rwsetutil.NewRWSetBuilder()
 	rwsb.AddToMetadataWriteSet(ns, k3, map[string][]byte{"k": []byte("v")})
@@ -643,7 +645,7 @@ func TestVaultErr(t *testing.T) {
 	assert.NoError(t, err)
 
 	_, err = vault1.GetRWSet("bogus", []byte("barf"))
-	assert.EqualError(t, err, "provided invalid read-write set bytes for txid bogus, unmarshal failed: unexpected EOF")
+	assert.Contains(t, err.Error(), "cannot parse invalid wire-format data")
 
 	txRWSet := &rwset.TxReadWriteSet{
 		NsRwset: []*rwset.NsReadWriteSet{
@@ -654,7 +656,7 @@ func TestVaultErr(t *testing.T) {
 	assert.NoError(t, err)
 
 	_, err = vault1.GetRWSet("bogus", rwsb)
-	assert.EqualError(t, err, "provided invalid read-write set bytes for txid bogus, TxRwSetFromProtoMsg failed: unexpected EOF")
+	assert.Contains(t, err.Error(), "cannot parse invalid wire-format data")
 
 	code, err := vault1.Status("unknown-txid")
 	assert.NoError(t, err)

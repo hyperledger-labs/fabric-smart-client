@@ -110,13 +110,13 @@ func TestMarshallingErrors(t *testing.T) {
 	assert.NoError(t, err)
 
 	v, bn, tn, err := db.GetState(ns, key)
-	assert.EqualError(t, err, "could not get value for key ns\x00key: could not unmarshal VersionedValue for key ns\x00key: unexpected EOF")
+	assert.Contains(t, err.Error(), "could not unmarshal VersionedValue for key ")
 	assert.Equal(t, []byte(nil), v)
 	assert.Equal(t, uint64(0), bn)
 	assert.Equal(t, uint64(0), tn)
 
 	m, bn, tn, err := db.GetStateMetadata(ns, key)
-	assert.EqualError(t, err, "could not get value for key ns\x00key: could not unmarshal VersionedValue for key ns\x00key: unexpected EOF")
+	assert.Contains(t, err.Error(), "could not unmarshal VersionedValue for key")
 	assert.Len(t, m, 0)
 	assert.Equal(t, uint64(0), bn)
 	assert.Equal(t, uint64(0), tn)
@@ -506,8 +506,8 @@ func TestRangeQueries1(t *testing.T) {
 }
 
 const (
-	minUnicodeRuneValue   = 0            //U+0000
-	maxUnicodeRuneValue   = utf8.MaxRune //U+10FFFF - maximum (and unallocated) code point
+	minUnicodeRuneValue   = 0            // U+0000
+	maxUnicodeRuneValue   = utf8.MaxRune // U+10FFFF - maximum (and unallocated) code point
 	compositeKeyNamespace = "\x00"
 )
 
@@ -528,12 +528,12 @@ func createCompositeKey(objectType string, attributes []string) (string, error) 
 	if err := validateCompositeKeyAttribute(objectType); err != nil {
 		return "", err
 	}
-	ck := compositeKeyNamespace + objectType + string(minUnicodeRuneValue)
+	ck := compositeKeyNamespace + objectType + fmt.Sprint(minUnicodeRuneValue)
 	for _, att := range attributes {
 		if err := validateCompositeKeyAttribute(att); err != nil {
 			return "", err
 		}
-		ck += att + string(minUnicodeRuneValue)
+		ck += att + fmt.Sprint(minUnicodeRuneValue)
 	}
 	return ck, nil
 }
@@ -582,10 +582,10 @@ func TestCompositeKeys(t *testing.T) {
 	}
 	assert.Len(t, res, 4)
 	assert.Equal(t, []driver.VersionedRead{
-		{Key: "\x00prefix\x00a\x00b\x00", Raw: []uint8{0x0, 0x70, 0x72, 0x65, 0x66, 0x69, 0x78, 0x0, 0x61, 0x0, 0x62, 0x0}, Block: 0x23, IndexInBlock: 1},
-		{Key: "\x00prefix\x00a\x00b\x001\x00", Raw: []uint8{0x0, 0x70, 0x72, 0x65, 0x66, 0x69, 0x78, 0x0, 0x61, 0x0, 0x62, 0x0, 0x31, 0x0}, Block: 0x23, IndexInBlock: 1},
-		{Key: "\x00prefix\x00a\x00b\x003\x00", Raw: []uint8{0x0, 0x70, 0x72, 0x65, 0x66, 0x69, 0x78, 0x0, 0x61, 0x0, 0x62, 0x0, 0x33, 0x0}, Block: 0x23, IndexInBlock: 1},
-		{Key: "\x00prefix\x00a\x00d\x00", Raw: []uint8{0x0, 0x70, 0x72, 0x65, 0x66, 0x69, 0x78, 0x0, 0x61, 0x0, 0x64, 0x0}, Block: 0x23, IndexInBlock: 1},
+		{Key: "\x00prefix0a0b0", Raw: []uint8{0x0, 0x70, 0x72, 0x65, 0x66, 0x69, 0x78, 0x30, 0x61, 0x30, 0x62, 0x30}, Block: 0x23, IndexInBlock: 1},
+		{Key: "\x00prefix0a0b010", Raw: []uint8{0x0, 0x70, 0x72, 0x65, 0x66, 0x69, 0x78, 0x30, 0x61, 0x30, 0x62, 0x30, 0x31, 0x30}, Block: 0x23, IndexInBlock: 1},
+		{Key: "\x00prefix0a0b030", Raw: []uint8{0x0, 0x70, 0x72, 0x65, 0x66, 0x69, 0x78, 0x30, 0x61, 0x30, 0x62, 0x30, 0x33, 0x30}, Block: 0x23, IndexInBlock: 1},
+		{Key: "\x00prefix0a0d0", Raw: []uint8{0x0, 0x70, 0x72, 0x65, 0x66, 0x69, 0x78, 0x30, 0x61, 0x30, 0x64, 0x30}, Block: 0x23, IndexInBlock: 1},
 	}, res)
 
 	partialCompositeKey, err = createCompositeKey(keyPrefix, []string{"a", "b"})
@@ -604,8 +604,8 @@ func TestCompositeKeys(t *testing.T) {
 	}
 	assert.Len(t, res, 3)
 	assert.Equal(t, []driver.VersionedRead{
-		{Key: "\x00prefix\x00a\x00b\x00", Raw: []uint8{0x0, 0x70, 0x72, 0x65, 0x66, 0x69, 0x78, 0x0, 0x61, 0x0, 0x62, 0x0}, Block: 0x23, IndexInBlock: 1},
-		{Key: "\x00prefix\x00a\x00b\x001\x00", Raw: []uint8{0x0, 0x70, 0x72, 0x65, 0x66, 0x69, 0x78, 0x0, 0x61, 0x0, 0x62, 0x0, 0x31, 0x0}, Block: 0x23, IndexInBlock: 1},
-		{Key: "\x00prefix\x00a\x00b\x003\x00", Raw: []uint8{0x0, 0x70, 0x72, 0x65, 0x66, 0x69, 0x78, 0x0, 0x61, 0x0, 0x62, 0x0, 0x33, 0x0}, Block: 0x23, IndexInBlock: 1},
+		{Key: "\x00prefix0a0b0", Raw: []uint8{0x0, 0x70, 0x72, 0x65, 0x66, 0x69, 0x78, 0x30, 0x61, 0x30, 0x62, 0x30}, Block: 0x23, IndexInBlock: 1},
+		{Key: "\x00prefix0a0b010", Raw: []uint8{0x0, 0x70, 0x72, 0x65, 0x66, 0x69, 0x78, 0x30, 0x61, 0x30, 0x62, 0x30, 0x31, 0x30}, Block: 0x23, IndexInBlock: 1},
+		{Key: "\x00prefix0a0b030", Raw: []uint8{0x0, 0x70, 0x72, 0x65, 0x66, 0x69, 0x78, 0x30, 0x61, 0x30, 0x62, 0x30, 0x33, 0x30}, Block: 0x23, IndexInBlock: 1},
 	}, res)
 }

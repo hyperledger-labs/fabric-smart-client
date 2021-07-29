@@ -5,12 +5,13 @@ go 1.16
 replace (
 	github.com/fsouza/go-dockerclient => github.com/fsouza/go-dockerclient v1.4.1
 	github.com/go-kit/kit => github.com/go-kit/kit v0.7.0
-	github.com/hyperledger/fabric-protos-go => github.com/hyperledger/fabric-protos-go v0.0.0-20200506201313-25f6564b9ac4
-	github.com/spf13/viper => github.com/spf13/viper v0.0.0-20150908122457-1967d93db724
+	github.com/hyperledger/fabric => github.com/hyperledger/fabric v1.4.0-rc1.0.20210722174351-9815a7a8f0f7
+	github.com/hyperledger/fabric-protos-go => github.com/hyperledger/fabric-protos-go v0.0.0-20201028172056-a3136dde2354
 	go.etcd.io/etcd => go.etcd.io/etcd v0.5.0-alpha.5.0.20181228115726-23731bf9ba55
 )
 
 require (
+	code.cloudfoundry.org/clock v1.0.0
 	github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 // indirect
 	github.com/OneOfOne/xxhash v1.2.5 // indirect
 	github.com/Shopify/sarama v1.26.3
@@ -23,17 +24,17 @@ require (
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/protobuf v1.5.0
 	github.com/golang/snappy v0.0.3-0.20201103224600-674baa8c7fc3 // indirect
-	github.com/google/addlicense v0.0.0-20210428195630-6d92264d7170 // indirect
+	github.com/google/addlicense v0.0.0-20210729153508-ef04bb38a16b // indirect
 	github.com/google/go-cmp v0.5.5
-	github.com/gordonklaus/ineffassign v0.0.0-20210522101830-0589229737b2 // indirect
+	github.com/gordonklaus/ineffassign v0.0.0-20210729092907-69aca2aeecd0 // indirect
 	github.com/gorilla/mux v1.8.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.2.0
 	github.com/hashicorp/go-version v1.2.0
-	github.com/hyperledger/fabric v1.4.0-rc1.0.20200930182727-344fda602252
+	github.com/hyperledger/fabric v1.4.0-rc1.0.20210722174351-9815a7a8f0f7
 	github.com/hyperledger/fabric-amcl v0.0.0-20200424173818-327c9e2cf77a
 	github.com/hyperledger/fabric-chaincode-go v0.0.0-20200424173110-d7076418f212
 	github.com/hyperledger/fabric-contract-api-go v1.1.1
-	github.com/hyperledger/fabric-protos-go v0.0.0-20210720123151-f0dc3e2a0871
+	github.com/hyperledger/fabric-protos-go v0.0.0-20201028172056-a3136dde2354
 	github.com/jackpal/go-nat-pmp v1.0.2 // indirect
 	github.com/libp2p/go-libp2p v0.5.2
 	github.com/libp2p/go-libp2p-core v0.3.0
@@ -41,7 +42,7 @@ require (
 	github.com/libp2p/go-libp2p-kad-dht v0.5.0
 	github.com/mattn/go-colorable v0.1.2 // indirect
 	github.com/mattn/go-isatty v0.0.12 // indirect
-	github.com/mitchellh/mapstructure v1.2.2
+	github.com/mitchellh/mapstructure v1.3.2
 	github.com/moby/sys/mount v0.2.0 // indirect
 	github.com/multiformats/go-multiaddr v0.2.0
 	github.com/onsi/ginkgo v1.16.4
@@ -54,7 +55,6 @@ require (
 	github.com/spf13/viper v1.7.0
 	github.com/stretchr/testify v1.7.0
 	github.com/sykesm/zap-logfmt v0.0.4
-	github.com/syndtr/goleveldb v1.0.1-0.20200815110645-5c35d600f0ca // indirect
 	github.com/tedsuo/ifrit v0.0.0-20191009134036-9a97d0632f00
 	github.com/test-go/testify v1.1.4
 	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect

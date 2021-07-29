@@ -26,15 +26,15 @@ func NewConfig(configProvider ConfigProvider) (*Config, error) {
 	if err := configProvider.UnmarshalKey("fabric", &value); err != nil {
 		return nil, errors.Wrap(err, "failed unmarshalling `fabric` key")
 	}
-	m := value.(map[interface{}]interface{})
+	m := value.(map[string]interface{})
 	var names []string
 	var defaultName string
 	for k, v := range m {
-		name := k.(string)
+		name := k
 		if strings.ToLower(name) != "enabled" {
 			names = append(names, name)
 			// is this default?
-			defaultValue, ok := (v.(map[interface{}]interface{}))["default"]
+			defaultValue, ok := (v.(map[string]interface{}))["default"]
 			if ok && defaultValue.(bool) {
 				if len(defaultName) != 0 {
 					logger.Warnf("only one network should be set as default, ignoring [%s], default is set to [%s]", name, defaultValue)
