@@ -157,7 +157,7 @@ func TestAddRootCA(t *testing.T) {
 
 	config.AddClientRootCA(cert)
 
-	assert.Equal(t, config.Config().ClientCAs, expectedCertPool, "The CertPools should be equal")
+	assert.Equal(t, config.Config().ClientCAs.Subjects(), expectedCertPool.Subjects(), "The CertPools should be equal")
 }
 
 func TestSetClientCAs(t *testing.T) {
