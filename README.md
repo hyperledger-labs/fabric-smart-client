@@ -59,7 +59,7 @@ go get github.com/hyperledger-labs/fabric-smart-client
 
 The above command clones the repo under `$GOPATH/github.com/hyperledger-labs/fabric-smart-client`. 
 
-We recommend to use `go 1.14.13`. We are testing FSC also against more recent versions of the 
+We recommend to use `go 1.16`. We are testing FSC also against more recent versions of the 
 go-sdk to make sure FSC works properly. 
 
 ## Makefile
