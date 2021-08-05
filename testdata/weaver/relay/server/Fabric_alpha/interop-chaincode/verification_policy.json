@@ -1,0 +1,15 @@
+{
+  "securityDomain": "Fabric_alpha",
+  "identifiers": [
+    {
+      "pattern": "testchannel:ns1:Read:*",
+      "policy": {
+        "type": "Signature",
+        "criteria": [
+          "Org1MSP",
+          "Org2MSP"
+        ]
+      }
+    }
+  ]
+}

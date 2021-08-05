@@ -1,0 +1,24 @@
+---
+PeerOrgs:
+- Name: fsc
+  Domain: fsc.example.com
+  EnableNodeOUs: false
+  Users:
+    Count: 4
+    Names: 
+    - alice
+    - bob
+    - User1
+    - User2
+
+  Specs:
+  - Hostname: alice
+    SANS:
+    - localhost
+    - 127.0.0.1
+    - ::1
+  - Hostname: bob
+    SANS:
+    - localhost
+    - 127.0.0.1
+    - ::1

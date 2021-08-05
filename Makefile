@@ -22,13 +22,13 @@ ineffassign:
 misspell:
 	@misspell $(shell go list -f '{{.Dir}}' ./...)
 
-.PHONY: unit-tests
-unit-tests:
+.PHONY: unit-tests 
+unit-tests: docker-images 
 	@go test -cover $(shell go list ./... | grep -v '/integration/')
 	cd integration/nwo/; go test -cover ./...
 
 .PHONY: unit-tests-race
-unit-tests-race:
+unit-tests-race: docker-images
 	@export GORACE=history_size=7; go test -race -cover $(shell go list ./... | grep -v '/integration/')
 	cd integration/nwo/; go test -cover ./...
 
@@ -41,10 +41,10 @@ docker-images:
 	docker pull couchdb:3.1.1
 	docker pull confluentinc/cp-kafka:5.3.1
 	docker pull confluentinc/cp-zookeeper:5.3.1
-	docker pull ghcr.io/hyperledger-labs/weaver-fabric-driver:1.2.0
-	docker image tag ghcr.io/hyperledger-labs/weaver-fabric-driver:1.2.0 hyperledger-labs/weaver-fabric-driver:latest
-	docker pull ghcr.io/hyperledger-labs/weaver-relay-server:1.2.0
-	docker image tag ghcr.io/hyperledger-labs/weaver-relay-server:1.2.0 hyperledger-labs/weaver-relay-server:latest
+	docker pull ghcr.io/hyperledger-labs/weaver-fabric-driver:1.2.1
+	docker image tag ghcr.io/hyperledger-labs/weaver-fabric-driver:1.2.1 hyperledger-labs/weaver-fabric-driver:latest
+	docker pull ghcr.io/hyperledger-labs/weaver-relay-server:1.2.1
+	docker image tag ghcr.io/hyperledger-labs/weaver-relay-server:1.2.1 hyperledger-labs/weaver-relay-server:latest
 
 .PHONY: dependencies
 dependencies:

@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package relay
 
 import (
-	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/twonets/views"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/weaver/relay/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"

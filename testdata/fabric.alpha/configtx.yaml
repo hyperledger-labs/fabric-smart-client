@@ -1,0 +1,134 @@
+---
+Organizations:
+- &Org1MSP
+  Name: Org1
+  ID: Org1MSP
+  MSPDir: /Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata/fabric.alpha/crypto/peerOrganizations/org1.example.com/msp
+  Policies:
+    Readers:
+      Type: Signature
+      Rule: OR('Org1MSP.member')
+    Writers:
+      Type: Signature
+      Rule: OR('Org1MSP.member')
+    Endorsement:
+      Type: Signature
+      Rule: OR('Org1MSP.member')
+    Admins:
+      Type: Signature
+      Rule: OR('Org1MSP.admin')
+  AnchorPeers:
+  - Host: 127.0.0.1
+    Port: 20008
+- &Org2MSP
+  Name: Org2
+  ID: Org2MSP
+  MSPDir: /Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata/fabric.alpha/crypto/peerOrganizations/org2.example.com/msp
+  Policies:
+    Readers:
+      Type: Signature
+      Rule: OR('Org2MSP.member')
+    Writers:
+      Type: Signature
+      Rule: OR('Org2MSP.member')
+    Endorsement:
+      Type: Signature
+      Rule: OR('Org2MSP.member')
+    Admins:
+      Type: Signature
+      Rule: OR('Org2MSP.admin')
+  AnchorPeers:
+  - Host: 127.0.0.1
+    Port: 20015
+- &OrdererMSP
+  Name: OrdererOrg
+  ID: OrdererMSP
+  MSPDir: /Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata/fabric.alpha/crypto/ordererOrganizations/example.com/msp
+  Policies:
+    Readers:
+      Type: Signature
+      Rule: OR('OrdererMSP.member')
+    Writers:
+      Type: Signature
+      Rule: OR('OrdererMSP.member')
+    Admins:
+      Type: Signature
+      Rule: OR('OrdererMSP.admin')
+  OrdererEndpoints:
+  - 127.0.0.1:20004
+
+
+Channel: &ChannelDefaults
+  Capabilities:
+    V2_0: true
+  Policies: &DefaultPolicies
+    Readers:
+      Type: ImplicitMeta
+      Rule: ANY Readers
+    Writers:
+      Type: ImplicitMeta
+      Rule: ANY Writers
+    Admins:
+      Type: ImplicitMeta
+      Rule: MAJORITY Admins
+
+Profiles:
+  OrgsOrdererGenesis:
+    <<: *ChannelDefaults
+    Orderer:
+      OrdererType: solo
+      Addresses:
+      - 127.0.0.1:20004
+      BatchTimeout: 1s
+      BatchSize:
+        MaxMessageCount: 1
+        AbsoluteMaxBytes: 98 MB
+        PreferredMaxBytes: 512 KB
+      Capabilities:
+        V2_0: true
+      Organizations:
+      - *OrdererMSP
+      Policies:
+        Readers:
+          Type: ImplicitMeta
+          Rule: ANY Readers
+        Writers:
+          Type: ImplicitMeta
+          Rule: ANY Writers
+        Admins:
+          Type: ImplicitMeta
+          Rule: MAJORITY Admins
+        BlockValidation:
+          Type: ImplicitMeta
+          Rule: ANY Writers
+    Consortiums:
+      SampleConsortium:
+        Organizations:
+        - *Org1MSP
+        - *Org2MSP
+  OrgsChannel:
+    <<: *ChannelDefaults
+    Consortium: SampleConsortium
+    Application:
+      Capabilities:
+        V2_0: true
+      Organizations:
+      - *Org1MSP
+      - *Org2MSP
+      Policies: 
+        Readers:
+          Type: ImplicitMeta
+          Rule: ANY Readers 
+        Writers:
+          Type: ImplicitMeta
+          Rule: ANY Writers 
+        Admins:
+          Type: ImplicitMeta
+          Rule: ANY Admins 
+        LifecycleEndorsement:
+          Type: Signature
+          Rule: AND ('Org1MSP.member') 
+        Endorsement:
+          Type: ImplicitMeta
+          Rule: ANY Endorsement
+

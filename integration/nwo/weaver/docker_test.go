@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package weaver_test
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -21,9 +23,15 @@ import (
 func TestRelayServerConnection(t *testing.T) {
 	RegisterFailHandler(failMe)
 
-	path := "/Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata"
+	pwd, err := os.Getwd()
+	Expect(err).ToNot(HaveOccurred())
+
+	path, err := filepath.Abs(filepath.Join(pwd, "..", "..", "..", "testdata"))
+	Expect(err).ToNot(HaveOccurred())
+
 	platform := weaver.NewPlatform(nil, weaver.NewTopology(), nil)
-	// defer platform.Cleanup()
+	defer platform.Cleanup()
+
 	platform.RunRelayFabricDriver(
 		"alpha",
 		"127.0.0.1", "20040",

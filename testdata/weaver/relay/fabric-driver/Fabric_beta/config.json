@@ -1,0 +1,20 @@
+{
+  "admin": {
+    "name": "RelayAdmin@org3.example.com",
+    "secret": "adminpw"
+  },
+  "relay": {
+    "name": "Relay@org3.example.com",
+    "affiliation": "",
+    "role": "client",
+    "attrs": [
+      {
+        "name": "relay",
+        "value": "true",
+        "ecert": true
+      }
+    ]
+  },
+  "mspId": "Org3MSP",
+  "caUrl": ""
+}

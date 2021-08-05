@@ -20,7 +20,7 @@ type provider struct {
 }
 
 func NewProvider() *provider {
-	return &provider{}
+	return &provider{relays: make(map[string]*Relay)}
 }
 
 func (w *provider) Relay(fns *fabric.NetworkService) *Relay {

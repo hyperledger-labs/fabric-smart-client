@@ -1,0 +1,29 @@
+# Name of the relay
+name = "Fabric_alpha"
+# Port number for relay grpc server. e.g. 9080
+port="20040"
+# Host address for grpc server. e.g. 0.0.0.0
+host="0.0.0.0"
+
+db_path="db/Fabric_alpha/requests"
+# This will be replaced by the task queue.
+remote_db_path="db/Fabric_alpha/remote_request"
+
+# FOR TLS
+cert_path="credentials/fabric_cert.pem"
+key_path="credentials/fabric_key"
+# tls=true
+
+[networks]
+[networks.Fabric_beta]
+network="Fabric"
+
+[relays]
+[relays.Fabric_beta]
+hostname="localhost"
+port="20042"
+
+[drivers]
+[drivers.Fabric]
+hostname="localhost"
+port="20041"

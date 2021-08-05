@@ -1,0 +1,320 @@
+---
+# Logging section
+logging:
+ # Spec
+ spec: grpc=error:debug
+ # Format
+ format: '%{color}%{time:2006-01-02 15:04:05.000 MST} [%{module}] %{shortfunc} -> %{level:.4s} %{id:03x}%{color:reset} %{message}'
+fsc:
+  # The FSC id provides a name for this node instance and is used when
+  # naming docker resources.
+  id: fsc.bob
+  # The networkId allows for logical separation of networks and is used when
+  # naming docker resources.
+  networkId: 7xpzett6wbapplhsx5jxbnf5au
+  # This represents the endpoint to other FSC nodes in the same organization.
+  address: 127.0.0.1:20002
+  # Whether the FSC node should programmatically determine its address
+  # This case is useful for docker containers.
+  # When set to true, will override FSC address.
+  addressAutoDetect: true
+  # GRPC Server listener address   
+  listenAddress: 127.0.0.1:20002
+  # Identity of this node, used to connect to other nodes
+  identity:
+    # X.509 certificate used as identity of this node
+    cert:
+      file: /Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata/fsc/crypto/peerOrganizations/fsc.example.com/peers/bob.fsc.example.com/msp/signcerts/bob.fsc.example.com-cert.pem
+    # Private key matching the X.509 certificate
+    key:
+      file: /Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata/fsc/crypto/peerOrganizations/fsc.example.com/peers/bob.fsc.example.com/msp/keystore/priv_sk
+  # Admin X.509 certificates
+  admin:
+    certs:
+    - /Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata/fsc/crypto/peerOrganizations/fsc.example.com/users/Admin@fsc.example.com/msp/signcerts/Admin@fsc.example.com-cert.pem
+  # TLS Settings
+  # (We use here the same set of properties as Hyperledger Fabric)
+  tls:
+    # Require server-side TLS
+    enabled:  true
+    # Require client certificates / mutual TLS for inbound connections.
+    # Note that clients that are not configured to use a certificate will
+    # fail to connect to the node.
+    clientAuthRequired: false
+    # X.509 certificate used for TLS server
+    cert:
+      file: /Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata/fsc/crypto/peerOrganizations/fsc.example.com/peers/bob.fsc.example.com/tls/server.crt
+    # Private key used for TLS server
+    key:
+      file: /Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata/fsc/crypto/peerOrganizations/fsc.example.com/peers/bob.fsc.example.com/tls/server.key
+    # X.509 certificate used for TLS when making client connections.
+    # If not set, fsc.tls.cert.file will be used instead
+    clientCert:
+      file: /Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata/fsc/crypto/peerOrganizations/fsc.example.com/peers/bob.fsc.example.com/tls/server.crt
+    # Private key used for TLS when making client connections.
+    # If not set, fsc.tls.key.file will be used instead
+    clientKey:
+      file: /Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata/fsc/crypto/peerOrganizations/fsc.example.com/peers/bob.fsc.example.com/tls/server.key
+    # rootcert.file represents the trusted root certificate chain used for verifying certificates
+    # of other nodes during outbound connections.
+    rootcert:
+      file: /Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata/fsc/crypto/peerOrganizations/fsc.example.com/peers/bob.fsc.example.com/tls/ca.crt
+    # If mutual TLS is enabled, clientRootCAs.files contains a list of additional root certificates
+    # used for verifying certificates of client connections.
+    clientRootCAs:
+      files:
+      - /Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata/fsc/crypto/peerOrganizations/fsc.example.com/peers/bob.fsc.example.com/tls/ca.crt
+    rootCertFile: /Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata/fsc/crypto/ca-certs.pem
+  # Keepalive settings for node server and clients
+  keepalive:
+    # MinInterval is the minimum permitted time between client pings.
+    # If clients send pings more frequently, the peer server will
+    # disconnect them
+    minInterval: 60s
+    # Interval is the duration after which if the server does not see
+    # any activity from the client it pings the client to see if it's alive
+    interval: 300s
+    # Timeout is the duration the server waits for a response
+    # from the client after sending a ping before closing the connection
+    timeout: 600s
+  # P2P configuration
+  p2p:
+    # Listening address
+    listenAddress: /ip4/127.0.0.1/tcp/20003
+    # If empty, this is a P2P boostrap node. Otherwise, it contains the name of the FCS node that is a bootstrap node
+    bootstrapNode: alice
+  # The Key-Value Store is used to store various information related to the FSC node
+  kvs:
+    persistence:
+      # Persistence type can be \'badger\' (on disk) or \'memory\'
+      type: badger
+      opts:
+        path: /Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata/fsc/fscnodes/fsc.bob/kvs
+  # HTML Server configuration for REST calls
+  web:
+    enabled: true
+    # HTTPS server listener address
+    address: 127.0.0.1:0
+  # The endpoint section tells how to reach other FSC node in the network.
+  # For each node, the name, the domain, the identity of the node, and its addresses must be specified.
+  endpoint:
+    resolvers: 
+    - name: alice
+      domain: fsc.example.com
+      identity:
+        id: alice
+        path: /Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata/fsc/crypto/peerOrganizations/fsc.example.com/peers/alice.fsc.example.com/msp/signcerts/alice.fsc.example.com-cert.pem
+      addresses: 
+         Listen: 127.0.0.1:20000
+         P2P: 127.0.0.1:20001
+         View: 127.0.0.1:20000
+    - name: bob
+      domain: fsc.example.com
+      identity:
+        id: bob
+        path: /Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata/fsc/crypto/peerOrganizations/fsc.example.com/peers/bob.fsc.example.com/msp/signcerts/bob.fsc.example.com-cert.pem
+      addresses: 
+         Listen: 127.0.0.1:20002
+         P2P: 127.0.0.1:20003
+         View: 127.0.0.1:20002
+
+
+fabric:
+  alpha:
+    BCCSP:
+      Default: SW
+      SW:
+        FileKeyStore:
+          KeyStore: null
+        Hash: SHA2
+        Security: 256
+    channels:
+    - default: true
+      name: testchannel
+    default: true
+    endpoint:
+      resolvers:
+      - addresses:
+          Listen: 127.0.0.1:20008
+          P2P: 127.0.0.1:20013
+          View: 127.0.0.1:20008
+        aliases: null
+        domain: org1.example.com
+        identity:
+          id: Org1_peer_0
+          mspID: Org1MSP
+          mspType: bccsp
+          path: /Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata/fabric.alpha/crypto/peerOrganizations/org1.example.com/peers/Org1_peer_0.org1.example.com/msp/signcerts/Org1_peer_0.org1.example.com-cert.pem
+        name: Org1_peer_0
+      - addresses:
+          Listen: 127.0.0.1:20015
+          P2P: 127.0.0.1:20020
+          View: 127.0.0.1:20015
+        aliases: null
+        domain: org2.example.com
+        identity:
+          id: Org2_peer_0
+          mspID: Org2MSP
+          mspType: bccsp
+          path: /Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata/fabric.alpha/crypto/peerOrganizations/org2.example.com/peers/Org2_peer_0.org2.example.com/msp/signcerts/Org2_peer_0.org2.example.com-cert.pem
+        name: Org2_peer_0
+      - addresses: null
+        aliases: null
+        domain: org1.example.com
+        identity:
+          id: alice
+          mspID: Org1MSP
+          mspType: bccsp
+          path: /Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata/fabric.alpha/crypto/peerOrganizations/org1.example.com/peers/alice.org1.example.com/msp/signcerts/alice.org1.example.com-cert.pem
+        name: alice
+      - addresses: null
+        aliases: null
+        domain: org1.example.com
+        identity:
+          id: bob
+          mspID: Org1MSP
+          mspType: bccsp
+          path: /Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata/fabric.alpha/crypto/peerOrganizations/org1.example.com/peers/bob.org1.example.com/msp/signcerts/bob.org1.example.com-cert.pem
+        name: bob
+    localMspId: Org1MSP
+    mspConfigPath: /Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata/fabric.alpha/crypto/peerOrganizations/org1.example.com/peers/bob.org1.example.com/msp
+    msps: null
+    orderers:
+    - address: 127.0.0.1:20004
+      connectionTimeout: 10s
+      serverNameOverride: null
+      tlsEnabled: true
+      tlsRootCertFile: /Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata/fabric.alpha/crypto/ca-certs.pem
+    peers:
+    - address: 127.0.0.1:20008
+      connectionTimeout: 10s
+      serverNameOverride: null
+      tlsEnabled: true
+      tlsRootCertFile: /Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata/fabric.alpha/crypto/ca-certs.pem
+    tls:
+      cert:
+        file: /Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata/fabric.alpha/crypto/peerOrganizations/org1.example.com/peers/bob.org1.example.com/tls/server.crt
+      clientAuthRequired: false
+      clientCert:
+        file: /Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata/fabric.alpha/crypto/peerOrganizations/org1.example.com/peers/bob.org1.example.com/tls/server.crt
+      clientKey:
+        file: /Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata/fabric.alpha/crypto/peerOrganizations/org1.example.com/peers/bob.org1.example.com/tls/server.key
+      clientRootCAs:
+        files:
+        - /Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata/fabric.alpha/crypto/peerOrganizations/org1.example.com/peers/bob.org1.example.com/tls/ca.crt
+      enabled: true
+      key:
+        file: /Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata/fabric.alpha/crypto/peerOrganizations/org1.example.com/peers/bob.org1.example.com/tls/server.key
+      rootCertFile: /Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata/fabric.alpha/crypto/ca-certs.pem
+      rootcert:
+        file: /Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata/fabric.alpha/crypto/peerOrganizations/org1.example.com/peers/bob.org1.example.com/tls/ca.crt
+    vault:
+      persistence:
+        opts:
+          path: /Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata/fsc/fscnodes/Org1.bob/vault
+        type: file
+    weaver:
+      relay:
+        address: localhost:20040
+        tls:
+          enabled: false
+  beta:
+    BCCSP:
+      Default: SW
+      SW:
+        FileKeyStore:
+          KeyStore: null
+        Hash: SHA2
+        Security: 256
+    channels:
+    - default: true
+      name: testchannel
+    default: false
+    endpoint:
+      resolvers:
+      - addresses:
+          Listen: 127.0.0.1:20026
+          P2P: 127.0.0.1:20031
+          View: 127.0.0.1:20026
+        aliases: null
+        domain: org3.example.com
+        identity:
+          id: Org3_peer_0
+          mspID: Org3MSP
+          mspType: bccsp
+          path: /Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata/fabric.beta/crypto/peerOrganizations/org3.example.com/peers/Org3_peer_0.org3.example.com/msp/signcerts/Org3_peer_0.org3.example.com-cert.pem
+        name: Org3_peer_0
+      - addresses:
+          Listen: 127.0.0.1:20033
+          P2P: 127.0.0.1:20038
+          View: 127.0.0.1:20033
+        aliases: null
+        domain: org4.example.com
+        identity:
+          id: Org4_peer_0
+          mspID: Org4MSP
+          mspType: bccsp
+          path: /Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata/fabric.beta/crypto/peerOrganizations/org4.example.com/peers/Org4_peer_0.org4.example.com/msp/signcerts/Org4_peer_0.org4.example.com-cert.pem
+        name: Org4_peer_0
+      - addresses: null
+        aliases: null
+        domain: org3.example.com
+        identity:
+          id: alice
+          mspID: Org3MSP
+          mspType: bccsp
+          path: /Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata/fabric.beta/crypto/peerOrganizations/org3.example.com/peers/alice.org3.example.com/msp/signcerts/alice.org3.example.com-cert.pem
+        name: alice
+      - addresses: null
+        aliases: null
+        domain: org3.example.com
+        identity:
+          id: bob
+          mspID: Org3MSP
+          mspType: bccsp
+          path: /Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata/fabric.beta/crypto/peerOrganizations/org3.example.com/peers/bob.org3.example.com/msp/signcerts/bob.org3.example.com-cert.pem
+        name: bob
+    localMspId: Org3MSP
+    mspConfigPath: /Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata/fabric.beta/crypto/peerOrganizations/org3.example.com/peers/bob.org3.example.com/msp
+    msps: null
+    orderers:
+    - address: 127.0.0.1:20022
+      connectionTimeout: 10s
+      serverNameOverride: null
+      tlsEnabled: true
+      tlsRootCertFile: /Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata/fabric.beta/crypto/ca-certs.pem
+    peers:
+    - address: 127.0.0.1:20026
+      connectionTimeout: 10s
+      serverNameOverride: null
+      tlsEnabled: true
+      tlsRootCertFile: /Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata/fabric.beta/crypto/ca-certs.pem
+    tls:
+      cert:
+        file: /Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata/fabric.beta/crypto/peerOrganizations/org3.example.com/peers/bob.org3.example.com/tls/server.crt
+      clientAuthRequired: false
+      clientCert:
+        file: /Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata/fabric.beta/crypto/peerOrganizations/org3.example.com/peers/bob.org3.example.com/tls/server.crt
+      clientKey:
+        file: /Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata/fabric.beta/crypto/peerOrganizations/org3.example.com/peers/bob.org3.example.com/tls/server.key
+      clientRootCAs:
+        files:
+        - /Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata/fabric.beta/crypto/peerOrganizations/org3.example.com/peers/bob.org3.example.com/tls/ca.crt
+      enabled: true
+      key:
+        file: /Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata/fabric.beta/crypto/peerOrganizations/org3.example.com/peers/bob.org3.example.com/tls/server.key
+      rootCertFile: /Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata/fabric.beta/crypto/ca-certs.pem
+      rootcert:
+        file: /Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata/fabric.beta/crypto/peerOrganizations/org3.example.com/peers/bob.org3.example.com/tls/ca.crt
+    vault:
+      persistence:
+        opts:
+          path: /Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata/fsc/fscnodes/Org3.bob/vault
+        type: file
+    weaver:
+      relay:
+        address: localhost:20042
+        tls:
+          enabled: false
+  enabled: true
+

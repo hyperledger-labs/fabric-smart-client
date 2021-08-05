@@ -11,7 +11,6 @@ replace (
 )
 
 require (
-	code.cloudfoundry.org/clock v1.0.0
 	github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 // indirect
 	github.com/OneOfOne/xxhash v1.2.5 // indirect
 	github.com/Shopify/sarama v1.26.3
@@ -19,7 +18,8 @@ require (
 	github.com/client9/misspell v0.3.4 // indirect
 	github.com/containerd/containerd v1.5.2 // indirect
 	github.com/dgraph-io/badger/v3 v3.2011.1
-	github.com/docker/docker v20.10.7+incompatible // indirect
+	github.com/docker/docker v20.10.7+incompatible
+	github.com/docker/go-connections v0.4.0
 	github.com/fsouza/go-dockerclient v1.6.1
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/protobuf v1.5.0
@@ -30,11 +30,12 @@ require (
 	github.com/gorilla/mux v1.8.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.2.0
 	github.com/hashicorp/go-version v1.2.0
+	github.com/hyperledger-labs/weaver-dlt-interoperability/common/protos-go v1.2.2
 	github.com/hyperledger/fabric v1.4.0-rc1.0.20210722174351-9815a7a8f0f7
 	github.com/hyperledger/fabric-amcl v0.0.0-20200424173818-327c9e2cf77a
 	github.com/hyperledger/fabric-chaincode-go v0.0.0-20200424173110-d7076418f212
 	github.com/hyperledger/fabric-contract-api-go v1.1.1
-	github.com/hyperledger/fabric-protos-go v0.0.0-20201028172056-a3136dde2354
+	github.com/hyperledger/fabric-protos-go v0.0.0-20210720123151-f0dc3e2a0871
 	github.com/jackpal/go-nat-pmp v1.0.2 // indirect
 	github.com/libp2p/go-libp2p v0.5.2
 	github.com/libp2p/go-libp2p-core v0.3.0
@@ -42,22 +43,22 @@ require (
 	github.com/libp2p/go-libp2p-kad-dht v0.5.0
 	github.com/mattn/go-colorable v0.1.2 // indirect
 	github.com/mattn/go-isatty v0.0.12 // indirect
+	github.com/miracl/conflate v1.2.1
 	github.com/mitchellh/mapstructure v1.3.2
 	github.com/moby/sys/mount v0.2.0 // indirect
+	github.com/morikuni/aec v1.0.0 // indirect
 	github.com/multiformats/go-multiaddr v0.2.0
 	github.com/onsi/ginkgo v1.16.4
 	github.com/onsi/gomega v1.10.3
 	github.com/otiai10/copy v1.5.1
 	github.com/pierrec/lz4 v2.5.2+incompatible // indirect
 	github.com/pkg/errors v0.9.1
-	github.com/prometheus/common v0.10.0
 	github.com/spf13/cobra v1.1.1
 	github.com/spf13/viper v1.7.0
 	github.com/stretchr/testify v1.7.0
 	github.com/sykesm/zap-logfmt v0.0.4
 	github.com/tedsuo/ifrit v0.0.0-20191009134036-9a97d0632f00
 	github.com/test-go/testify v1.1.4
-	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
 	go.uber.org/atomic v1.7.0
 	go.uber.org/multierr v1.6.0 // indirect
 	go.uber.org/zap v1.16.0
