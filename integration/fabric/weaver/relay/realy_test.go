@@ -16,9 +16,7 @@ import (
 )
 
 var _ = Describe("EndToEnd", func() {
-	var (
-		ii *integration.Infrastructure
-	)
+	var ii *integration.Infrastructure
 
 	AfterEach(func() {
 		// Stop the ii

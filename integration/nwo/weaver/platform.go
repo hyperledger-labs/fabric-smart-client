@@ -10,7 +10,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"go/build"
 	"io"
 	"io/ioutil"
 	"os"
@@ -38,12 +37,10 @@ const (
 	FabricDriverImager = "hyperledger-labs/weaver-fabric-driver:latest"
 )
 
-var (
-	RequiredImages = []string{
-		RelayServerImage,
-		FabricDriverImager,
-	}
-)
+var RequiredImages = []string{
+	RelayServerImage,
+	FabricDriverImager,
+}
 
 type Builder interface {
 	Build(path string) string
@@ -149,9 +146,14 @@ func (p *Platform) Members() []grouper.Member {
 
 func (p *Platform) PostRun() {
 	for _, relay := range p.Topology.Relays {
-		cc, _ := p.PrepareInteropChaincode(relay)
+		cc, err := p.PrepareInteropChaincode(relay)
+		Expect(err).NotTo(HaveOccurred())
+
+		sampleCC := p.PrepareSampleChaincode(relay)
+
 		fabric := p.Fabric(relay)
 		fabric.DeployChaincode(cc)
+		fabric.DeployChaincode(sampleCC)
 
 		raw, err := ioutil.ReadFile(p.RelayServerInteropAccessControl(relay))
 		Expect(err).NotTo(HaveOccurred())
@@ -164,6 +166,9 @@ func (p *Platform) PostRun() {
 		raw, err = ioutil.ReadFile(p.RelayServerInteropMembership(relay))
 		Expect(err).NotTo(HaveOccurred())
 		fabric.InvokeChaincode(cc, "CreateMembership", raw)
+
+		fabric.InvokeChaincode(sampleCC, "invoke", []byte("alice"), []byte("bob"), []byte("50"))
+
 	}
 
 	for _, relay := range p.Topology.Relays {
@@ -190,6 +195,8 @@ func (p *Platform) Cleanup() {
 	if p.DockerClient == nil {
 		return
 	}
+
+	cleanupFunc()
 
 	nw, err := p.DockerClient.NetworkInfo(p.NetworkID)
 	if _, ok := err.(*docker.NoSuchNetwork); err != nil && ok {
@@ -226,7 +233,7 @@ func (p *Platform) Cleanup() {
 }
 
 func (p *Platform) generateRelayServerTOML(relay *RelayServer) {
-	err := os.MkdirAll(p.RelayServerDir(relay), 0755)
+	err := os.MkdirAll(p.RelayServerDir(relay), 0o755)
 	Expect(err).NotTo(HaveOccurred())
 
 	relayServerFile, err := os.Create(p.RelayServerConfigPath(relay))
@@ -431,8 +438,8 @@ func (p *Platform) generateFabricDriverCPFile(relay *RelayServer) {
 	raw, err := json.MarshalIndent(cp, "", "  ")
 	Expect(err).NotTo(HaveOccurred())
 
-	Expect(os.MkdirAll(p.FabricDriverDir(relay), 0755)).NotTo(HaveOccurred())
-	Expect(ioutil.WriteFile(p.FabricDriverConnectionProfilePath(relay), raw, 0755)).NotTo(HaveOccurred())
+	Expect(os.MkdirAll(p.FabricDriverDir(relay), 0o755)).NotTo(HaveOccurred())
+	Expect(ioutil.WriteFile(p.FabricDriverConnectionProfilePath(relay), raw, 0o755)).NotTo(HaveOccurred())
 }
 
 func (p *Platform) generateFabricDriverConfigFile(relay *RelayServer) {
@@ -461,8 +468,8 @@ func (p *Platform) generateFabricDriverConfigFile(relay *RelayServer) {
 	}
 	raw, err := json.MarshalIndent(config, "", "  ")
 	Expect(err).NotTo(HaveOccurred())
-	Expect(os.MkdirAll(p.FabricDriverDir(relay), 0755)).NotTo(HaveOccurred())
-	Expect(ioutil.WriteFile(p.FabricDriverConfigPath(relay), raw, 0755)).NotTo(HaveOccurred())
+	Expect(os.MkdirAll(p.FabricDriverDir(relay), 0o755)).NotTo(HaveOccurred())
+	Expect(ioutil.WriteFile(p.FabricDriverConfigPath(relay), raw, 0o755)).NotTo(HaveOccurred())
 }
 
 func (p *Platform) generateFabricDriverWallet(relay *RelayServer) {
@@ -486,8 +493,8 @@ func (p *Platform) generateFabricDriverWallet(relay *RelayServer) {
 	}
 	raw, err := json.MarshalIndent(identity, "", "  ")
 	Expect(err).NotTo(HaveOccurred())
-	Expect(os.MkdirAll(p.FabricDriverWalletDir(relay), 0755)).NotTo(HaveOccurred())
-	Expect(ioutil.WriteFile(p.FabricDriverWalletId(relay, relayUser.Name), raw, 0755)).NotTo(HaveOccurred())
+	Expect(os.MkdirAll(p.FabricDriverWalletDir(relay), 0o755)).NotTo(HaveOccurred())
+	Expect(ioutil.WriteFile(p.FabricDriverWalletId(relay, relayUser.Name), raw, 0o755)).NotTo(HaveOccurred())
 
 	// Admin
 	relayAdmin := fabric.UserByOrg(relay.Organization, "RelayAdmin")
@@ -507,8 +514,8 @@ func (p *Platform) generateFabricDriverWallet(relay *RelayServer) {
 	}
 	raw, err = json.MarshalIndent(identity, "", "  ")
 	Expect(err).NotTo(HaveOccurred())
-	Expect(os.MkdirAll(p.FabricDriverWalletDir(relay), 0755)).NotTo(HaveOccurred())
-	Expect(ioutil.WriteFile(p.FabricDriverWalletId(relay, relayAdmin.Name), raw, 0755)).NotTo(HaveOccurred())
+	Expect(os.MkdirAll(p.FabricDriverWalletDir(relay), 0o755)).NotTo(HaveOccurred())
+	Expect(ioutil.WriteFile(p.FabricDriverWalletId(relay, relayAdmin.Name), raw, 0o755)).NotTo(HaveOccurred())
 }
 
 func (p *Platform) generateInteropChaincodeConfigFiles(relay *RelayServer) {
@@ -547,8 +554,8 @@ func (p *Platform) generateInteropChaincodeAccessControlFile(relay *RelayServer)
 	Expect(err).ToNot(HaveOccurred())
 
 	Expect(err).NotTo(HaveOccurred())
-	Expect(os.MkdirAll(p.RelayServerInteropDir(relay), 0755)).NotTo(HaveOccurred())
-	Expect(ioutil.WriteFile(p.RelayServerInteropAccessControl(relay), raw, 0755)).NotTo(HaveOccurred())
+	Expect(os.MkdirAll(p.RelayServerInteropDir(relay), 0o755)).NotTo(HaveOccurred())
+	Expect(ioutil.WriteFile(p.RelayServerInteropAccessControl(relay), raw, 0o755)).NotTo(HaveOccurred())
 }
 
 func (p *Platform) generateInteropChaincodeMembershipFile(relay *RelayServer) {
@@ -572,8 +579,8 @@ func (p *Platform) generateInteropChaincodeMembershipFile(relay *RelayServer) {
 	Expect(err).ToNot(HaveOccurred())
 
 	Expect(err).NotTo(HaveOccurred())
-	Expect(os.MkdirAll(p.RelayServerInteropDir(relay), 0755)).NotTo(HaveOccurred())
-	Expect(ioutil.WriteFile(p.RelayServerInteropMembership(relay), raw, 0755)).NotTo(HaveOccurred())
+	Expect(os.MkdirAll(p.RelayServerInteropDir(relay), 0o755)).NotTo(HaveOccurred())
+	Expect(ioutil.WriteFile(p.RelayServerInteropMembership(relay), raw, 0o755)).NotTo(HaveOccurred())
 }
 
 func (p *Platform) generateInteropChaincodeVerificationPolicyFile(relay *RelayServer) {
@@ -604,16 +611,16 @@ func (p *Platform) generateInteropChaincodeVerificationPolicyFile(relay *RelaySe
 	Expect(err).ToNot(HaveOccurred())
 
 	Expect(err).NotTo(HaveOccurred())
-	Expect(os.MkdirAll(p.RelayServerInteropDir(relay), 0755)).NotTo(HaveOccurred())
-	Expect(ioutil.WriteFile(p.RelayServerInteropVerificationPolicy(relay), raw, 0755)).NotTo(HaveOccurred())
+	Expect(os.MkdirAll(p.RelayServerInteropDir(relay), 0o755)).NotTo(HaveOccurred())
+	Expect(ioutil.WriteFile(p.RelayServerInteropVerificationPolicy(relay), raw, 0o755)).NotTo(HaveOccurred())
 }
 
 func (p *Platform) copyInteropChaincode() {
-	src := filepath.Join(
-		build.Default.GOPATH,
-		"src",
-		"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/weaver/chaincode/interop.tar.gz",
-	)
+	src, cleanup, err := packageChaincode()
+	Expect(err).ToNot(HaveOccurred())
+
+	defer cleanup()
+
 	dst := p.InteropChaincodeFile()
 	sourceFileStat, err := os.Stat(src)
 	Expect(err).ToNot(HaveOccurred())
