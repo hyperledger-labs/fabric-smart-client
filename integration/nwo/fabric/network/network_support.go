@@ -1116,6 +1116,7 @@ func (n *Network) PeerRunner(p *topology.Peer, env ...string) *ginkgomon.Runner 
 		},
 		"",
 		fmt.Sprintf("FABRIC_CFG_PATH=%s", n.PeerDir(p)),
+		fmt.Sprintf("CORE_PEER_ID=%s", fmt.Sprintf("%s.%s", p.Name, n.Organization(p.Organization).Domain)),
 	)
 	cmd.Env = append(cmd.Env, env...)
 

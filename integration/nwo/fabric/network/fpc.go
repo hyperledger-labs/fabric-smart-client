@@ -103,20 +103,23 @@ func (n *Network) DeployFPChaincode(chaincode *topology.ChannelChaincode) {
 	orderer := n.Orderer("orderer")
 	peers := n.PeersByName(chaincode.Peers)
 	// Install on each peer its own chaincode package
+	var packageIDs []string
 	for _, peer := range peers {
+		chaincode.Chaincode.PackageID = ""
 		org := n.Organization(peer.Organization)
 		chaincode.Chaincode.PackageFile = filepath.Join(n.ERCCPackagePath(), fmt.Sprintf("ercc.%s.%s.tgz", peer.Name, org.Domain))
 		InstallChaincode(n, &chaincode.Chaincode, n.PeersByName([]string{peer.Name})...)
+		packageIDs = append(packageIDs, chaincode.Chaincode.PackageID)
 	}
 	ApproveChaincodeForMyOrg(n, chaincode.Channel, orderer, &chaincode.Chaincode, peers...)
 	CheckCommitReadinessUntilReady(n, chaincode.Channel, &chaincode.Chaincode, n.PeerOrgsByPeers(peers), peers...)
 	CommitChaincode(n, chaincode.Channel, orderer, &chaincode.Chaincode, peers[0], peers...)
-	for _, peer := range peers {
-		QueryInstalledReferences(n,
-			chaincode.Channel, chaincode.Chaincode.Label, chaincode.Chaincode.PackageID,
-			peer,
-			[]string{chaincode.Chaincode.Name, chaincode.Chaincode.Version})
-	}
+	// for i, peer := range peers {
+	// 	QueryInstalledReferences(n,
+	// 		chaincode.Channel, chaincode.Chaincode.Label, packageIDs[i],
+	// 		peer,
+	// 		[]string{chaincode.Chaincode.Name, chaincode.Chaincode.Version})
+	// }
 	if chaincode.Chaincode.InitRequired {
 		InitChaincode(n, chaincode.Channel, orderer, &chaincode.Chaincode, peers...)
 	}

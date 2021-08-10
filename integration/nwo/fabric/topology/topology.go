@@ -370,12 +370,12 @@ func (c *Topology) EnableFPC() {
 	cc := &ChannelChaincode{
 		Chaincode: Chaincode{
 			Name:            "ercc",
-			Version:         "Version-0.0",
+			Version:         "Version-1.0",
 			Sequence:        "1",
 			InitRequired:    false,
 			Path:            "ercc",
 			Lang:            "external",
-			Label:           "ercc",
+			Label:           "ercc_1.0",
 			Ctor:            `{"Args":["init"]}`,
 			Policy:          policy,
 			SignaturePolicy: policy,
