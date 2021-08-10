@@ -17,6 +17,8 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/packager/replacer"
 )
 
 // Directory constant copied from tar package.
@@ -90,7 +92,7 @@ func (p *Platform) ValidateCodePackage(code []byte) error {
 // required assets to build and run go chaincode.
 //
 // NOTE: this is only used at the _client_ side by the peer CLI.
-func (p *Platform) GetDeploymentPayload(codepath string, replacer func(string, string) []byte) ([]byte, error) {
+func (p *Platform) GetDeploymentPayload(codepath string, replacer replacer.Func) ([]byte, error) {
 	payload := bytes.NewBuffer(nil)
 	gw, err := gzip.NewWriterLevel(payload, gzipCompressionLevel)
 	if err != nil {
@@ -98,8 +100,8 @@ func (p *Platform) GetDeploymentPayload(codepath string, replacer func(string, s
 	}
 	tw := tar.NewWriter(gw)
 
-	raw := replacer("connection.json", "connection.json")
-	if err := WriteBytesToPackage(raw, "connection.json", tw); err != nil {
+	path, raw := replacer("connection.json", "connection.json")
+	if err := WriteBytesToPackage(raw, path, tw); err != nil {
 		return nil, fmt.Errorf("error writing connection.json to tar: %s", err)
 	}
 	if err != nil {

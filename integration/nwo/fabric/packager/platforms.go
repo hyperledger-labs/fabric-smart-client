@@ -9,15 +9,16 @@ package packager
 import (
 	"fmt"
 
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/packager/external"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/packager/golang"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/packager/replacer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
-	external2 "github.com/hyperledger-labs/fabric-token-sdk/token/core/cmd/pp/packager/external"
-	golang2 "github.com/hyperledger-labs/fabric-token-sdk/token/core/cmd/pp/packager/golang"
 )
 
 // SupportedPlatforms is the canonical list of platforms Fabric supports
 var SupportedPlatforms = []Platform{
-	&golang2.Platform{},
-	&external2.Platform{},
+	&golang.Platform{},
+	&external.Platform{},
 }
 
 // Interface for validating the specification and writing the package for
@@ -26,7 +27,7 @@ type Platform interface {
 	Name() string
 	ValidatePath(path string) error
 	ValidateCodePackage(code []byte) error
-	GetDeploymentPayload(path string, replacer func(string, string) []byte) ([]byte, error)
+	GetDeploymentPayload(path string, replacer replacer.Func) ([]byte, error)
 }
 
 // NormalizerPather is an optional interface that can be implemented by
@@ -87,7 +88,7 @@ func (r *Registry) ValidateDeploymentSpec(ccType string, codePackage []byte) err
 	return platform.ValidateCodePackage(codePackage)
 }
 
-func (r *Registry) GetDeploymentPayload(ccType, path string, replacer func(string, string) []byte) ([]byte, error) {
+func (r *Registry) GetDeploymentPayload(ccType, path string, replacer replacer.Func) ([]byte, error) {
 	platform, ok := r.Platforms[ccType]
 	if !ok {
 		return nil, fmt.Errorf("unknown chaincodeType: %s", ccType)

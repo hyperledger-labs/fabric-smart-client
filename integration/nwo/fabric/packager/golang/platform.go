@@ -29,6 +29,8 @@ import (
 	"github.com/spf13/viper"
 
 	ccmetadata2 "github.com/hyperledger-labs/fabric-token-sdk/token/core/cmd/pp/packager/ccmetadata"
+
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/packager/replacer"
 )
 
 // Platform for chaincodes written in Go
@@ -117,7 +119,7 @@ var gzipCompressionLevel = gzip.DefaultCompression
 // required assets to build and run go chaincode.
 //
 // NOTE: this is only used at the _client_ side by the peer CLI.
-func (p *Platform) GetDeploymentPayload(codepath string, replacer func(string, string) []byte) ([]byte, error) {
+func (p *Platform) GetDeploymentPayload(codepath string, replacer replacer.Func) ([]byte, error) {
 	codeDescriptor, err := DescribeCode(codepath)
 	if err != nil {
 		return nil, err
@@ -173,7 +175,7 @@ func (p *Platform) GetDeploymentPayload(codepath string, replacer func(string, s
 	for _, file := range fileMap.Sources() {
 		var raw []byte
 		if replacer != nil {
-			raw = replacer(file.Path, file.Name)
+			_, raw = replacer(file.Path, file.Name)
 		}
 
 		if len(raw) != 0 {

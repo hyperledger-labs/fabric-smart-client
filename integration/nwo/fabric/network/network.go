@@ -64,6 +64,7 @@ type Network struct {
 	Consortiums       []*topology.Consortium
 	Templates         *topology.Templates
 	Resolvers         []*Resolver
+	FPCERCCPort       map[string]uint16
 
 	colorIndex uint
 	ccps       []ChaincodeProcessor
@@ -107,6 +108,7 @@ func New(reg api.Context, topology *topology.Topology, dockerClient *docker.Clie
 		PvtTxSupport:      topology.PvtTxSupport,
 		PvtTxCCSupport:    topology.PvtTxCCSupport,
 		ccps:              ccps,
+		FPCERCCPort:       map[string]uint16{},
 	}
 	return network
 }
@@ -171,6 +173,7 @@ func (n *Network) GenerateArtifacts() {
 			n.GenerateCoreConfig(p)
 		}
 	}
+	n.GenerateArtifactsFPC()
 }
 
 func (n *Network) Load() {
@@ -209,11 +212,18 @@ func (n *Network) PostRun() {
 			for _, ccp := range n.ccps {
 				chaincode = ccp.Process(n, chaincode)
 			}
-			n.DeployChaincode(chaincode)
+			if chaincode.Private {
+				n.DeployFPChaincode(chaincode)
+			} else {
+				n.DeployChaincode(chaincode)
+			}
 		}
 	}
 
-	// Wait a few second to make peers discovering each other
+	// Install FPC related artifacts, if needed
+	n.PostRunFPC()
+
+	// Wait a few second to let Fabric stabilize
 	time.Sleep(5 * time.Second)
 	logger.Infof("Post execution [%s]...done.", n.Prefix)
 }

@@ -723,6 +723,8 @@ func (n *Network) CheckTopology() {
 		}
 		n.Context.SetPortsByPeerID(n.Prefix, p.ID(), ports)
 	}
+
+	n.CheckTopologyFPC()
 }
 
 // ConcatenateTLSCACertificates concatenates all TLS CA certificates into a

@@ -38,7 +38,7 @@ type Topology struct {
 	FabTokenCCSupport bool                `yaml:"fabtokenccsupport,omitempty"`
 	GRPCLogging       bool                `yaml:"grpcLogging,omitempty"`
 	NodeOUs           bool                `yaml:"nodeous,omitempty"`
-	FPCEnabled        bool                `yaml:"fpcenabled,omitempty"`
+	FPC               bool                `yaml:"fpc,omitempty"`
 }
 
 func (c *Topology) Name() string {
@@ -340,6 +340,52 @@ func (c *Topology) EnableGRPCLogging() {
 
 func (c *Topology) DevChaincodeMode() {
 	c.ChaincodeMode = "dev"
+}
+
+func (c *Topology) EnableFPC() {
+	c.FPC = true
+
+	orgs := c.Consortiums[0].Organizations
+
+	majority := len(orgs)/2 + 1
+	policy := "OutOf(" + strconv.Itoa(majority) + ","
+	for i, org := range orgs {
+		if i > 0 {
+			policy += ","
+		}
+		policy += "'" + org + "MSP.member'"
+	}
+	policy += ")"
+
+	var peers []string
+	for _, org := range orgs {
+		for _, peer := range c.Peers {
+			if peer.Organization == org {
+				peers = append(peers, peer.Name)
+				break
+			}
+		}
+	}
+
+	cc := &ChannelChaincode{
+		Chaincode: Chaincode{
+			Name:            "ercc",
+			Version:         "Version-0.0",
+			Sequence:        "1",
+			InitRequired:    false,
+			Path:            "ercc",
+			Lang:            "external",
+			Label:           "ercc",
+			Ctor:            `{"Args":["init"]}`,
+			Policy:          policy,
+			SignaturePolicy: policy,
+		},
+		Channel: c.Channels[0].Name,
+		Private: true,
+		Peers:   peers,
+	}
+
+	c.Chaincodes = append(c.Chaincodes, cc)
 }
 
 type fscOrg struct {

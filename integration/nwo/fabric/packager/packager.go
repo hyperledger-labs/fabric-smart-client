@@ -3,6 +3,7 @@ Copyright IBM Corp. All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
 */
+
 package packager
 
 import (
@@ -15,6 +16,8 @@ import (
 
 	"github.com/hyperledger/fabric/core/chaincode/persistence"
 	"github.com/pkg/errors"
+
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/packager/replacer"
 )
 
 // Writer defines the interface needed for writing a file
@@ -55,7 +58,7 @@ func (p *PackageInput) Validate() error {
 // PlatformRegistry defines the interface to get the code bytes
 // for a chaincode given the type and path
 type PlatformRegistry interface {
-	GetDeploymentPayload(ccType, path string, replacer func(string, string) []byte) ([]byte, error)
+	GetDeploymentPayload(ccType, path string, replacer replacer.Func) ([]byte, error)
 	NormalizePath(ccType, path string) (string, error)
 }
 
@@ -76,7 +79,7 @@ func New() *Packager {
 }
 
 // PackageChaincode packages a chaincode.
-func (p *Packager) PackageChaincode(path, typ, label, outputFile string, replacer func(string, string) []byte) error {
+func (p *Packager) PackageChaincode(path, typ, label, outputFile string, replacer replacer.Func) error {
 	p.setInput(path, typ, label, outputFile)
 	return p.Package(replacer)
 }
@@ -92,7 +95,7 @@ func (p *Packager) setInput(path, typ, label, outputFile string) {
 
 // Package packages chaincodes into the package type,
 // (.tar.gz) used by _lifecycle and writes it to disk
-func (p *Packager) Package(replacer func(string, string) []byte) error {
+func (p *Packager) Package(replacer replacer.Func) error {
 	err := p.Input.Validate()
 	if err != nil {
 		return err
@@ -119,7 +122,7 @@ func (p *Packager) Package(replacer func(string, string) []byte) error {
 	return nil
 }
 
-func (p *Packager) getTarGzBytes(replacer func(string, string) []byte) ([]byte, error) {
+func (p *Packager) getTarGzBytes(replacer replacer.Func) ([]byte, error) {
 	payload := bytes.NewBuffer(nil)
 	gw := gzip.NewWriter(payload)
 	tw := tar.NewWriter(gw)
@@ -192,7 +195,7 @@ func toJSON(path, ccType, label string) ([]byte, error) {
 		Label: label,
 	}
 
-	metadataBytes, err := json.Marshal(metadata)
+	metadataBytes, err := json.MarshalIndent(metadata, "", " ")
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to marshal chaincode package metadata into JSON")
 	}
