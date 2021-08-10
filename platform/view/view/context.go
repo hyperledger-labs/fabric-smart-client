@@ -12,6 +12,7 @@ import "context"
 type RunViewOptions struct {
 	Session     Session
 	AsInitiator bool
+	Call        func(Context) (interface{}, error)
 }
 
 // CompileRunViewOptions compiles a set of RunViewOption to a RunViewOptions
@@ -40,6 +41,14 @@ func AsResponder(session Session) RunViewOption {
 func AsInitiator() RunViewOption {
 	return func(o *RunViewOptions) error {
 		o.AsInitiator = true
+		return nil
+	}
+}
+
+// WithViewCall sets the Call function to invoke. When specified, it overrides all options and arguments passing a view
+func WithViewCall(f func(Context) (interface{}, error)) RunViewOption {
+	return func(o *RunViewOptions) error {
+		o.Call = f
 		return nil
 	}
 }

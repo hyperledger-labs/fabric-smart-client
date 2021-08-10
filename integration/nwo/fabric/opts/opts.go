@@ -50,18 +50,7 @@ func (o *Options) Organizations() []Organization {
 }
 
 func (o *Options) AddOrganization(org string) {
-	var m []interface{}
-	boxed, ok := o.Mapping["Organization"]
-	if !ok {
-		m = []interface{}{}
-	} else {
-		m = boxed.([]interface{})
-	}
-	m = append(m, map[interface{}]interface{}{
-		"Network": "",
-		"Org":     org,
-	})
-	o.Mapping["Organization"] = m
+	o.AddNetworkOrganization("", org)
 }
 
 func (o *Options) AddNetworkOrganization(network, org string) {
@@ -77,6 +66,18 @@ func (o *Options) AddNetworkOrganization(network, org string) {
 		"Org":     org,
 	})
 	o.Mapping["Organization"] = m
+}
+
+func (o *Options) DefaultNetwork() string {
+	res := o.Mapping["DefaultNetwork"]
+	if res == nil {
+		return ""
+	}
+	return res.(string)
+}
+
+func (o *Options) SetDefaultNetwork(defaultNetwork string) {
+	o.Mapping["DefaultNetwork"] = defaultNetwork
 }
 
 func (o *Options) Role() string {

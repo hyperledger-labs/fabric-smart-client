@@ -18,6 +18,7 @@ import (
 	"github.com/gogo/protobuf/io"
 	protoio "github.com/gogo/protobuf/io"
 	"github.com/gogo/protobuf/proto"
+	proto2 "github.com/golang/protobuf/proto"
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -260,7 +261,7 @@ func (s *streamHandler) close() {
 	s.reader.Close()
 	s.writer.Close()
 	s.stream.Close()
-	//s.wg.Wait()
+	// s.wg.Wait()
 }
 
 func NewDelimitedReader(r io2.Reader, maxSize int) io.ReadCloser {
@@ -297,7 +298,7 @@ func (r *varintReader) ReadMsg(msg proto.Message) error {
 	if _, err := io2.ReadFull(r.r, buf); err != nil {
 		return err
 	}
-	return proto.Unmarshal(buf, msg)
+	return proto2.Unmarshal(buf, msg)
 }
 
 func (r *varintReader) Close() error {
