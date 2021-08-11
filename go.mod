@@ -13,6 +13,8 @@ replace (
 require (
 	github.com/Shopify/sarama v1.26.3
 	github.com/dgraph-io/badger/v3 v3.2011.1
+	github.com/docker/docker v20.10.7+incompatible // indirect
+	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/fsouza/go-dockerclient v1.6.1
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/protobuf v1.5.0

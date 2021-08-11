@@ -64,7 +64,7 @@ type Network struct {
 	Consortiums       []*topology.Consortium
 	Templates         *topology.Templates
 	Resolvers         []*Resolver
-	FPCERCCPort       map[string]uint16
+	FPCPorts          map[string][]uint16
 
 	colorIndex uint
 	ccps       []ChaincodeProcessor
@@ -108,7 +108,7 @@ func New(reg api.Context, topology *topology.Topology, dockerClient *docker.Clie
 		PvtTxSupport:      topology.PvtTxSupport,
 		PvtTxCCSupport:    topology.PvtTxCCSupport,
 		ccps:              ccps,
-		FPCERCCPort:       map[string]uint16{},
+		FPCPorts:          map[string][]uint16{},
 	}
 	return network
 }

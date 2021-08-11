@@ -40,3 +40,7 @@ func (c *Chaincode) SetPackageIDFromPackageFile() {
 	hashStr := fmt.Sprintf("%x", util.ComputeSHA256(fileBytes))
 	c.PackageID = c.Label + ":" + hashStr
 }
+
+type PrivateChaincode struct {
+	Image string
+}

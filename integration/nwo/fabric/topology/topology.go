@@ -344,7 +344,10 @@ func (c *Topology) DevChaincodeMode() {
 
 func (c *Topology) EnableFPC() {
 	c.FPC = true
+	c.AddFPC("ercc", "fpc/ercc")
+}
 
+func (c *Topology) AddFPC(name, image string) {
 	orgs := c.Consortiums[0].Organizations
 
 	majority := len(orgs)/2 + 1
@@ -369,16 +372,19 @@ func (c *Topology) EnableFPC() {
 
 	cc := &ChannelChaincode{
 		Chaincode: Chaincode{
-			Name:            "ercc",
+			Name:            name,
 			Version:         "Version-1.0",
 			Sequence:        "1",
 			InitRequired:    false,
-			Path:            "ercc",
+			Path:            name,
 			Lang:            "external",
-			Label:           "ercc_1.0",
+			Label:           fmt.Sprintf("%s_1.0", name),
 			Ctor:            `{"Args":["init"]}`,
 			Policy:          policy,
 			SignaturePolicy: policy,
+		},
+		PrivateChaincode: PrivateChaincode{
+			Image: image,
 		},
 		Channel: c.Channels[0].Name,
 		Private: true,

@@ -139,6 +139,8 @@ func (i *Invoke) Call() (interface{}, error) {
 		if err != nil {
 			return nil, err
 		}
+	case len(i.Endorsers) != 0:
+		// nothing to do here
 	default:
 		return nil, errors.New("no rule set to find the endorsers")
 	}
