@@ -7,6 +7,10 @@ SPDX-License-Identifier: Apache-2.0
 package fpc
 
 import (
+	"encoding/json"
+
+	"github.com/pkg/errors"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 )
@@ -28,7 +32,17 @@ func (e *enclaveRegistry) ListProvisionedEnclaves(cid string) ([]string, error) 
 	if err != nil {
 		return nil, err
 	}
-	return resBoxed.([]string), nil
+
+	if resBoxed == nil || len(resBoxed.([]byte)) == 0 {
+		return nil, nil
+	}
+
+	var res []string
+	if err := json.Unmarshal(resBoxed.([]byte), &res); err != nil {
+		return nil, errors.Wrapf(err, "failed unmarshalling [%s:%v]", string(resBoxed.([]byte)), resBoxed)
+	}
+
+	return res, nil
 }
 
 type provider struct {

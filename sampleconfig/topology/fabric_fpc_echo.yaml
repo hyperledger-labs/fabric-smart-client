@@ -3,7 +3,7 @@ topologies:
   type: fabric
   default: true
   logging:
-    spec: grpc=error:chaincode=debug:endorser=debug:info
+    spec: grpc=error:chaincode=debug:endorser=debug:debug
     format: '''%{color}%{time:2006-01-02 15:04:05.000 MST} [%{module}] %{shortfunc}
       -> %{level:.4s} %{id:03x}%{color:reset} %{message}'''
   organizations:
@@ -89,7 +89,7 @@ topologies:
   chaincodes:
   - chaincode:
       name: ercc
-      version: Version-0.0
+      version: Version-1.0
       path: ercc
       ctor: '{"Args":["init"]}'
       policy: OutOf(2,'Org1MSP.member','Org2MSP.member')
@@ -101,9 +101,11 @@ topologies:
       endorsementplugin: ""
       validationplugin: ""
       initrequired: false
-      label: ercc
+      label: ercc_1.0
       signaturepolicy: OutOf(2,'Org1MSP.member','Org2MSP.member')
       channelconfigpolicy: ""
+    privatechaincode:
+      image: fpc/ercc
     channel: testchannel
     peers:
     - Org1_peer_0
@@ -111,30 +113,44 @@ topologies:
     private: true
   - chaincode:
       name: echo
-      version: Version-0.0
-      path: github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/chaincode/base
+      version: Version-1.0
+      path: echo
       ctor: '{"Args":["init"]}'
-      policy: AND ('Org1MSP.member')
-      lang: golang
+      policy: OutOf(2,'Org1MSP.member','Org2MSP.member')
+      lang: external
       collectionsconfig: ""
       packagefile: ""
       codefiles: {}
       sequence: "1"
       endorsementplugin: ""
       validationplugin: ""
-      initrequired: true
-      label: echo
-      signaturepolicy: AND ('Org1MSP.member')
+      initrequired: false
+      label: echo_1.0
+      signaturepolicy: OutOf(2,'Org1MSP.member','Org2MSP.member')
       channelconfigpolicy: ""
+    privatechaincode:
+      image: fpc/fpc-echo
     channel: testchannel
     peers:
     - Org1_peer_0
+    - Org2_peer_0
+    private: true
   chaincodemode: net
   fpc: true
 - name: fsc
   type: fsc
   peers:
-  - name: alice
+  - NodeSynthesizer:
+      Aliases:
+        github.com/hyperledger-labs/fabric-smart-client/integration/fabric/fpc/echo/views:
+          original: views
+          alias: views
+      Imports:
+      - github.com/hyperledger-labs/fabric-smart-client/integration/fabric/fpc/echo/views
+      Factories:
+      - id: ListProvisionedEnclaves
+        type: '&views.ListProvisionedEnclavesViewFactory{}'
+    name: alice
     bootstrap: true
     options:
       mapping:
@@ -143,7 +159,17 @@ topologies:
             Organization:
             - Network: ""
               Org: Org2
-  - name: bob
+  - NodeSynthesizer:
+      Aliases:
+        github.com/hyperledger-labs/fabric-smart-client/integration/fabric/fpc/echo/views:
+          original: views
+          alias: views
+      Imports:
+      - github.com/hyperledger-labs/fabric-smart-client/integration/fabric/fpc/echo/views
+      Factories:
+      - id: ListProvisionedEnclaves
+        type: '&views.ListProvisionedEnclavesViewFactory{}'
+    name: bob
     options:
       mapping:
         fabric:

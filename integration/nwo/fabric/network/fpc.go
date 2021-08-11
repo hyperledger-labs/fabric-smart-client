@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -87,7 +88,7 @@ func (n *Network) GenerateArtifactsFPC() {
 				func(s string, s2 string) (string, []byte) {
 					if strings.HasSuffix(s, "connection.json") {
 						raw, err := json.MarshalIndent(&Connection{
-							Address:     "localhost:" + strconv.Itoa(int(n.FPCPorts[chaincode.Chaincode.Name][i])),
+							Address:     "127.0.0.1:" + strconv.Itoa(int(n.FPCPorts[chaincode.Chaincode.Name][i])),
 							DialTimeout: "10s",
 							TlsRequired: false,
 						}, "", " ")
@@ -134,21 +135,23 @@ func (n *Network) DeployFPChaincode(chaincode *topology.ChannelChaincode) {
 		org := n.Organization(peer.Organization)
 		chaincode.Chaincode.PackageFile = filepath.Join(
 			n.PackagePath(chaincode.Chaincode.Name),
-			fmt.Sprintf("%s.%s.%s.tgz", chaincode.Chaincode.Name, peer.Name, org.Domain))
-		InstallChaincode(n, &chaincode.Chaincode, n.PeersByName([]string{peer.Name})...)
+			fmt.Sprintf("%s.%s.%s.tgz", chaincode.Chaincode.Name, peer.Name, org.Domain),
+		)
+		InstallChaincode(n, &chaincode.Chaincode, peer)
+		ApproveChaincodeForMyOrg(n, chaincode.Channel, orderer, &chaincode.Chaincode, peer)
 		packageIDs = append(packageIDs, chaincode.Chaincode.PackageID)
 	}
 
 	n.RunDockerContainers(chaincode, packageIDs)
 
-	ApproveChaincodeForMyOrg(n, chaincode.Channel, orderer, &chaincode.Chaincode, peers...)
 	CheckCommitReadinessUntilReady(n, chaincode.Channel, &chaincode.Chaincode, n.PeerOrgsByPeers(peers), peers...)
 	CommitChaincode(n, chaincode.Channel, orderer, &chaincode.Chaincode, peers[0], peers...)
+	time.Sleep(10 * time.Second)
 	for i, peer := range peers {
-		QueryInstalledNoReferences(n,
+		QueryInstalledReferences(n,
 			chaincode.Channel, chaincode.Chaincode.Label, packageIDs[i],
 			peer,
-			// []string{chaincode.Chaincode.Name, chaincode.Chaincode.Version},
+			[]string{chaincode.Chaincode.Name, chaincode.Chaincode.Version},
 		)
 	}
 	if chaincode.Chaincode.InitRequired {
@@ -175,7 +178,7 @@ func (n *Network) RunDockerContainers(chaincode *topology.ChannelChaincode, pack
 			Image: chaincode.PrivateChaincode.Image,
 			Tty:   false,
 			Env: []string{
-				"CHAINCODE_SERVER_ADDRESS=localhost:" + port,
+				"CHAINCODE_SERVER_ADDRESS=0.0.0.0:" + port,
 				"CHAINCODE_PKG_ID=" + packageIDs[i],
 				"FABRIC_LOGGING_SPEC=debug",
 				"SGX_MODE=SIM",
@@ -197,7 +200,7 @@ func (n *Network) RunDockerContainers(chaincode *topology.ChannelChaincode, pack
 			fmt.Sprintf("%s.%s.%s", chaincode.Chaincode.Name, peer.Name, n.Organization(peer.Organization).Domain),
 		)
 		Expect(err).ToNot(HaveOccurred())
-
 		Expect(cli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{})).ToNot(HaveOccurred())
+		time.Sleep(3 * time.Second)
 	}
 }
