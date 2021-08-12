@@ -240,7 +240,7 @@ func (n *Network) FPCRunDockerContainers(chaincode *topology.ChannelChaincode, p
 			},
 		},
 			nil, nil,
-			fmt.Sprintf("%s.%s.%s", chaincode.Chaincode.Name, peer.Name, n.Organization(peer.Organization).Domain),
+			fmt.Sprintf("%s.%s.%s.%s", n.NetworkID, chaincode.Chaincode.Name, peer.Name, n.Organization(peer.Organization).Domain),
 		)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(cli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{})).ToNot(HaveOccurred())
