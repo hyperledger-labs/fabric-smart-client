@@ -64,7 +64,9 @@ type Network struct {
 	Consortiums       []*topology.Consortium
 	Templates         *topology.Templates
 	Resolvers         []*Resolver
-	FPCPorts          map[string][]uint16
+
+	FPCPorts map[string][]uint16
+	FPCERCC  *topology.ChannelChaincode
 
 	colorIndex uint
 	ccps       []ChaincodeProcessor
@@ -173,7 +175,7 @@ func (n *Network) GenerateArtifacts() {
 			n.GenerateCoreConfig(p)
 		}
 	}
-	n.GenerateArtifactsFPC()
+	n.FPCGenerateArtifacts()
 }
 
 func (n *Network) Load() {
@@ -213,7 +215,7 @@ func (n *Network) PostRun() {
 				chaincode = ccp.Process(n, chaincode)
 			}
 			if chaincode.Private {
-				n.DeployFPChaincode(chaincode)
+				n.FPCDeployChaincode(chaincode)
 			} else {
 				n.DeployChaincode(chaincode)
 			}
@@ -221,7 +223,7 @@ func (n *Network) PostRun() {
 	}
 
 	// Install FPC related artifacts, if needed
-	n.PostRunFPC()
+	n.FPCPostRun()
 
 	// Wait a few second to let Fabric stabilize
 	time.Sleep(5 * time.Second)

@@ -69,7 +69,11 @@ func (i *invokeChaincodeView) Call(context view.Context) (interface{}, error) {
 		invocation.WithEndorsersFromMyOrg()
 	}
 
-	return invocation.Call()
+	txid, result, err := invocation.Submit()
+	if err != nil {
+		return nil, err
+	}
+	return []interface{}{txid, result}, nil
 }
 
 func (i *invokeChaincodeView) WithTransientEntry(k string, v interface{}) *invokeChaincodeView {

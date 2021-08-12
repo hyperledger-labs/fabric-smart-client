@@ -37,13 +37,26 @@ var _ = Describe("EndToEnd", func() {
 		})
 
 		It("succeeded", func() {
-			_, err := ii.Client("alice").CallView(
+			provisionedEnclavesBoxed, err := ii.Client("alice").CallView(
 				"ListProvisionedEnclaves",
 				common.JSONMarshall(&views.ListProvisionedEnclaves{
-					CID: "",
+					CID: "echo",
 				}),
 			)
 			Expect(err).ToNot(HaveOccurred())
+			var provisionedEnclaves []string
+			common.JSONUnmarshal(provisionedEnclavesBoxed.([]byte), &provisionedEnclaves)
+			Expect(len(provisionedEnclaves)).To(BeEquivalentTo(1))
+
+			resBoxed, err := ii.Client("alice").CallView(
+				"Echo",
+				common.JSONMarshall(&views.Echo{
+					Function: "myFunction",
+					Args:     []string{"arg1", "arg2", "arg3"},
+				}),
+			)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(resBoxed).To(BeEquivalentTo("myFunction"))
 		})
 	})
 })

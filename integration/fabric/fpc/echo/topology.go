@@ -27,11 +27,13 @@ func Topology() []api.Topology {
 	alice := fscTopology.AddNodeByName("alice")
 	alice.AddOptions(fabric.WithOrganization("Org2"))
 	alice.RegisterViewFactory("ListProvisionedEnclaves", &views.ListProvisionedEnclavesViewFactory{})
+	alice.RegisterViewFactory("Echo", &views.EchoViewFactory{})
 
 	// Bob
 	bob := fscTopology.AddNodeByName("bob")
 	bob.AddOptions(fabric.WithOrganization("Org2"))
 	bob.RegisterViewFactory("ListProvisionedEnclaves", &views.ListProvisionedEnclavesViewFactory{})
+	bob.RegisterViewFactory("Echo", &views.EchoViewFactory{})
 
 	return []api.Topology{fabricTopology, fscTopology}
 }

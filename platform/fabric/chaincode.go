@@ -59,15 +59,15 @@ type Chaincode struct {
 }
 
 func (c *Chaincode) Invoke(function string, args ...interface{}) *ChaincodeInvocation {
-	return &ChaincodeInvocation{ChaincodeInvocation: c.chaincode.NewInvocation(driver.ChaincodeInvoke, function, args...)}
+	return &ChaincodeInvocation{ChaincodeInvocation: c.chaincode.NewInvocation(function, args...)}
 }
 
-func (c *Chaincode) Query(function string, args ...interface{}) *ChaincodeInvocation {
-	return &ChaincodeInvocation{ChaincodeInvocation: c.chaincode.NewInvocation(driver.ChaincodeQuery, function, args...)}
+func (c *Chaincode) Query(function string, args ...interface{}) *ChaincodeQuery {
+	return &ChaincodeQuery{ChaincodeInvocation: c.chaincode.NewInvocation(function, args...)}
 }
 
 func (c *Chaincode) Endorse(function string, args ...interface{}) *ChaincodeEndorse {
-	return &ChaincodeEndorse{ci: c.chaincode.NewInvocation(driver.ChaincodeEndorse, function, args...)}
+	return &ChaincodeEndorse{ci: c.chaincode.NewInvocation(function, args...)}
 }
 
 func (c *Chaincode) Discover() *ChaincodeDiscover {
@@ -91,8 +91,8 @@ type ChaincodeInvocation struct {
 	driver.ChaincodeInvocation
 }
 
-func (i *ChaincodeInvocation) Call() (interface{}, error) {
-	return i.ChaincodeInvocation.Call()
+func (i *ChaincodeInvocation) Call() (string, []byte, error) {
+	return i.ChaincodeInvocation.Submit()
 }
 
 func (i *ChaincodeInvocation) WithTransientEntry(k string, v interface{}) *ChaincodeInvocation {
@@ -120,18 +120,47 @@ func (i *ChaincodeInvocation) WithInvokerIdentity(id view.Identity) *ChaincodeIn
 	return i
 }
 
+type ChaincodeQuery struct {
+	driver.ChaincodeInvocation
+}
+
+func (i *ChaincodeQuery) Call() ([]byte, error) {
+	return i.ChaincodeInvocation.Query()
+}
+
+func (i *ChaincodeQuery) WithTransientEntry(k string, v interface{}) *ChaincodeQuery {
+	i.ChaincodeInvocation.WithTransientEntry(k, v)
+	return i
+}
+
+func (i *ChaincodeQuery) WithEndorsers(ids ...view.Identity) *ChaincodeQuery {
+	i.ChaincodeInvocation.WithEndorsers(ids...)
+	return i
+}
+
+func (i *ChaincodeQuery) WithEndorsersByMSPIDs(mspIDs ...string) *ChaincodeQuery {
+	i.ChaincodeInvocation.WithEndorsersByMSPIDs(mspIDs...)
+	return i
+}
+
+func (i *ChaincodeQuery) WithEndorsersFromMyOrg() *ChaincodeQuery {
+	i.ChaincodeInvocation.WithEndorsersFromMyOrg()
+	return i
+}
+
+func (i *ChaincodeQuery) WithInvokerIdentity(id view.Identity) *ChaincodeQuery {
+	i.ChaincodeInvocation.WithSignerIdentity(id)
+	return i
+}
+
 type ChaincodeEndorse struct {
 	ci driver.ChaincodeInvocation
 }
 
 func (i *ChaincodeEndorse) Call() (*Envelope, error) {
-	envBoxed, err := i.ci.Call()
+	env, err := i.ci.Endorse()
 	if err != nil {
 		return nil, err
-	}
-	env, ok := envBoxed.(driver.Envelope)
-	if !ok {
-		panic("programming error")
 	}
 	return &Envelope{e: env}, nil
 }

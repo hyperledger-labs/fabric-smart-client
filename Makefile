@@ -97,6 +97,7 @@ clean:
 	rm -rf ./integration/fabric/atsa/fsc/cmd
 	rm -rf ./integration/fabric/iou/cmd/
 	rm -rf ./integration/fabric/twonets/cmd
+	rm -rf ./integration/fabric/fpc/echo/cmd
 	rm -rf ./integration/fsc/stoprestart/cmd
 	rm -rf ./integration/fsc/pingpong/cmd/responder
 	rm -rf ./integration/fscnodes
