@@ -155,20 +155,31 @@ func (p *Platform) PostRun() {
 		fabric.DeployChaincode(cc)
 		fabric.DeployChaincode(sampleCC)
 
-		raw, err := ioutil.ReadFile(p.RelayServerInteropAccessControl(relay))
-		Expect(err).NotTo(HaveOccurred())
-		fabric.InvokeChaincode(cc, "CreateAccessControlPolicy", raw)
-
-		raw, err = ioutil.ReadFile(p.RelayServerInteropVerificationPolicy(relay))
-		Expect(err).NotTo(HaveOccurred())
-		fabric.InvokeChaincode(cc, "CreateVerificationPolicy", raw)
-
-		raw, err = ioutil.ReadFile(p.RelayServerInteropMembership(relay))
-		Expect(err).NotTo(HaveOccurred())
-		fabric.InvokeChaincode(cc, "CreateMembership", raw)
-
 		fabric.InvokeChaincode(sampleCC, "invoke", []byte("alice"), []byte("bob"), []byte("50"))
 
+	}
+
+	for _, relay := range p.Topology.Relays {
+		cc, err := p.PrepareInteropChaincode(relay)
+		Expect(err).NotTo(HaveOccurred())
+
+		for _, currentRelay := range p.Topology.Relays {
+			if currentRelay.Name == relay.Name {
+				continue
+			}
+			currentFabric := p.Fabric(currentRelay)
+			raw, err := ioutil.ReadFile(p.RelayServerInteropAccessControl(currentRelay))
+			Expect(err).NotTo(HaveOccurred())
+			currentFabric.InvokeChaincode(cc, "CreateAccessControlPolicy", raw)
+
+			raw, err = ioutil.ReadFile(p.RelayServerInteropVerificationPolicy(currentRelay))
+			Expect(err).NotTo(HaveOccurred())
+			currentFabric.InvokeChaincode(cc, "CreateVerificationPolicy", raw)
+
+			raw, err = ioutil.ReadFile(p.RelayServerInteropMembership(currentRelay))
+			Expect(err).NotTo(HaveOccurred())
+			currentFabric.InvokeChaincode(cc, "CreateMembership", raw)
+		}
 	}
 
 	for _, relay := range p.Topology.Relays {
@@ -246,6 +257,8 @@ func (p *Platform) generateRelayServerTOML(relay *RelayServer) {
 			relays = append(relays, r)
 		}
 	}
+
+	fmt.Printf("#### %s %s:%d\n", relay.Name, relay.Hostname, relay.Port)
 
 	t, err := template.New("relay_server").Funcs(template.FuncMap{
 		"Name":     func() string { return relay.Name },
@@ -595,7 +608,7 @@ func (p *Platform) generateInteropChaincodeVerificationPolicyFile(relay *RelaySe
 	for _, ch := range fabric.Channels() {
 		for _, chaincode := range ch.Chaincodes {
 			identifiers = append(identifiers, &interop.Identifier{
-				Pattern: fmt.Sprintf("%s:%s:Read:*", ch.Name, chaincode.Name),
+				Pattern: fmt.Sprintf("%s:%s:query:*", ch.Name, chaincode.Name),
 				Policy: &interop.Policy{
 					Type:     "Signature",
 					Criteria: orgMSPIDs,
@@ -604,11 +617,13 @@ func (p *Platform) generateInteropChaincodeVerificationPolicyFile(relay *RelaySe
 		}
 	}
 	verificationPolicy := &interop.VerificationPolicy{
-		SecurityDomain: relay.Name,
+		SecurityDomain: strings.Replace(relay.Name, "Fabric_", "", -1),
 		Identifiers:    identifiers,
 	}
 	raw, err := json.MarshalIndent(verificationPolicy, "", "  ")
 	Expect(err).ToNot(HaveOccurred())
+
+	fmt.Println("GENERATING verification policy:", string(raw))
 
 	Expect(err).NotTo(HaveOccurred())
 	Expect(os.MkdirAll(p.RelayServerInteropDir(relay), 0o755)).NotTo(HaveOccurred())
