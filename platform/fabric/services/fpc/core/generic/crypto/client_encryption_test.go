@@ -15,8 +15,8 @@ import (
 	"github.com/hyperledger/fabric/protoutil"
 	"github.com/test-go/testify/assert"
 
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/fpc/core/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/fpc/core/generic/protos"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/fpc/core/generic/utils"
 )
 
 func TestNewEncryptionContext(t *testing.T) {

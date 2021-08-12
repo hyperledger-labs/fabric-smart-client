@@ -29,6 +29,12 @@ type ChaincodeProcessor interface {
 	Process(network *Network, cc *topology.ChannelChaincode) *topology.ChannelChaincode
 }
 
+type Extension interface {
+	CheckTopology()
+	GenerateArtifacts()
+	PostRun()
+}
+
 type Network struct {
 	Context            api.Context
 	topology           *topology.Topology
@@ -65,8 +71,7 @@ type Network struct {
 	Templates         *topology.Templates
 	Resolvers         []*Resolver
 
-	FPCPorts map[string][]uint16
-	FPCERCC  *topology.ChannelChaincode
+	Extensions []Extension
 
 	colorIndex uint
 	ccps       []ChaincodeProcessor
@@ -110,7 +115,7 @@ func New(reg api.Context, topology *topology.Topology, dockerClient *docker.Clie
 		PvtTxSupport:      topology.PvtTxSupport,
 		PvtTxCCSupport:    topology.PvtTxCCSupport,
 		ccps:              ccps,
-		FPCPorts:          map[string][]uint16{},
+		Extensions:        []Extension{},
 	}
 	return network
 }
@@ -175,7 +180,11 @@ func (n *Network) GenerateArtifacts() {
 			n.GenerateCoreConfig(p)
 		}
 	}
-	n.FPCGenerateArtifacts()
+
+	// Extensions
+	for _, extension := range n.Extensions {
+		extension.GenerateArtifacts()
+	}
 }
 
 func (n *Network) Load() {
@@ -214,16 +223,16 @@ func (n *Network) PostRun() {
 			for _, ccp := range n.ccps {
 				chaincode = ccp.Process(n, chaincode)
 			}
-			if chaincode.Private {
-				n.FPCDeployChaincode(chaincode)
-			} else {
+			if !chaincode.Private {
 				n.DeployChaincode(chaincode)
 			}
 		}
 	}
 
-	// Install FPC related artifacts, if needed
-	n.FPCPostRun()
+	// Extensions
+	for _, extension := range n.Extensions {
+		extension.PostRun()
+	}
 
 	// Wait a few second to let Fabric stabilize
 	time.Sleep(5 * time.Second)
@@ -296,4 +305,8 @@ func (n *Network) DeployChaincode(chaincode *topology.ChannelChaincode) {
 	if chaincode.Chaincode.InitRequired {
 		InitChaincode(n, chaincode.Channel, orderer, &chaincode.Chaincode, peers...)
 	}
+}
+
+func (n *Network) AddExtension(ex Extension) {
+	n.Extensions = append(n.Extensions, ex)
 }

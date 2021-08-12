@@ -8,91 +8,20 @@ package network
 
 import (
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"strconv"
-	"strings"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/commands"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 
-	"github.com/golang/protobuf/proto"
-	"github.com/hyperledger/fabric-protos-go/common"
 	"github.com/hyperledger/fabric-protos-go/peer/lifecycle"
-	"github.com/hyperledger/fabric/protoutil"
 	"github.com/onsi/gomega/gbytes"
 	"github.com/onsi/gomega/gexec"
 
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 )
-
-// DeployChaincode is a helper that will install chaincode to all peers that
-// are connected to the specified channel, approve the chaincode on one of the
-// peers of each organization in the network, commit the chaincode definition
-// on the channel using one of the peers, and wait for the chaincode commit to
-// complete on all of the peers. It uses the _lifecycle implementation.
-// NOTE V2_0 capabilities must be enabled for this functionality to work.
-func DeployChaincode(n *Network, channel string, orderer *topology.Orderer, chaincode *topology.Chaincode, peers ...*topology.Peer) {
-	if len(peers) == 0 {
-		peers = n.PeersWithChannel(channel)
-	}
-	if len(peers) == 0 {
-		return
-	}
-
-	PackageAndInstallChaincode(n, chaincode, peers...)
-
-	// approve for each org
-	ApproveChaincodeForMyOrg(n, channel, orderer, chaincode, peers...)
-
-	// commit definition
-	CheckCommitReadinessUntilReady(n, channel, chaincode, n.PeerOrgs(), peers...)
-	CommitChaincode(n, channel, orderer, chaincode, peers[0], peers...)
-
-	// init the chaincode, if required
-	if chaincode.InitRequired {
-		InitChaincode(n, channel, orderer, chaincode, peers...)
-	}
-}
-
-// DeployChaincodeLegacy is a helper that will install chaincode to all peers
-// that are connected to the specified channel, instantiate the chaincode on
-// one of the peers, and wait for the instantiation to complete on all of the
-// peers. It uses the legacy lifecycle (lscc) implementation.
-//
-// NOTE: This helper should not be used to deploy the same chaincode on
-// multiple channels as the install will fail on subsequent calls. Instead,
-// simply use InstantiateChaincode().
-func DeployChaincodeLegacy(n *Network, channel string, orderer *topology.Orderer, chaincode topology.Chaincode, peers ...*topology.Peer) {
-	if len(peers) == 0 {
-		peers = n.PeersWithChannel(channel)
-	}
-	if len(peers) == 0 {
-		return
-	}
-
-	// create temp file for chaincode package if not provided
-	if chaincode.PackageFile == "" {
-		tempFile, err := ioutil.TempFile("", "chaincode-package")
-		Expect(err).NotTo(HaveOccurred())
-		tempFile.Close()
-		defer os.Remove(tempFile.Name())
-		chaincode.PackageFile = tempFile.Name()
-	}
-
-	// only create chaincode package if it doesn't already exist
-	if fi, err := os.Stat(chaincode.PackageFile); os.IsNotExist(err) || fi.Size() == 0 {
-		PackageChaincodeLegacy(n, chaincode, peers[0])
-	}
-
-	// install on all peers
-	InstallChaincodeLegacy(n, chaincode, peers...)
-
-	// instantiate on the first peer
-	InstantiateChaincodeLegacy(n, channel, orderer, chaincode, peers[0], peers...)
-}
 
 func PackageAndInstallChaincode(n *Network, chaincode *topology.Chaincode, peers ...*topology.Peer) {
 	// create temp file for chaincode package if not provided
@@ -131,20 +60,6 @@ func PackageChaincode(n *Network, chaincode *topology.Chaincode, peer *topology.
 	Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
 }
 
-func PackageChaincodeLegacy(n *Network, chaincode topology.Chaincode, peer *topology.Peer) {
-	sess, err := n.PeerAdminSession(peer, commands.ChaincodePackageLegacy{
-		NetworkPrefix: n.Prefix,
-		Name:          chaincode.Name,
-		Version:       chaincode.Version,
-		Path:          chaincode.Path,
-		Lang:          chaincode.Lang,
-		OutputFile:    chaincode.PackageFile,
-		ClientAuth:    n.ClientAuthRequired,
-	})
-	Expect(err).NotTo(HaveOccurred())
-	Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
-}
-
 func InstallChaincode(n *Network, chaincode *topology.Chaincode, peers ...*topology.Peer) {
 	if chaincode.PackageID == "" {
 		chaincode.SetPackageIDFromPackageFile()
@@ -160,30 +75,6 @@ func InstallChaincode(n *Network, chaincode *topology.Chaincode, peers ...*topol
 		Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
 
 		EnsureInstalled(n, chaincode.Label, chaincode.PackageID, p)
-	}
-}
-
-func InstallChaincodeLegacy(n *Network, chaincode topology.Chaincode, peers ...*topology.Peer) {
-	for _, p := range peers {
-		sess, err := n.PeerAdminSession(p, commands.ChaincodeInstallLegacy{
-			NetworkPrefix: n.Prefix,
-			Name:          chaincode.Name,
-			Version:       chaincode.Version,
-			Path:          chaincode.Path,
-			Lang:          chaincode.Lang,
-			PackageFile:   chaincode.PackageFile,
-			ClientAuth:    n.ClientAuthRequired,
-		})
-		Expect(err).NotTo(HaveOccurred())
-		Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
-
-		sess, err = n.PeerAdminSession(p, commands.ChaincodeListInstalledLegacy{
-			NetworkPrefix: n.Prefix,
-			ClientAuth:    n.ClientAuthRequired,
-		})
-		Expect(err).NotTo(HaveOccurred())
-		Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
-		Expect(sess).To(gbytes.Say(fmt.Sprintf("Name: %s, Version: %s,", chaincode.Name, chaincode.Version)))
 	}
 }
 
@@ -319,62 +210,6 @@ func InitChaincode(n *Network, channel string, orderer *topology.Orderer, chainc
 	Expect(sess.Err).To(gbytes.Say("Chaincode invoke successful. result: status:200"))
 }
 
-func InstantiateChaincodeLegacy(n *Network, channel string, orderer *topology.Orderer, chaincode topology.Chaincode, peer *topology.Peer, checkPeers ...*topology.Peer) {
-	sess, err := n.PeerAdminSession(peer, commands.ChaincodeInstantiateLegacy{
-		NetworkPrefix:     n.Prefix,
-		ChannelID:         channel,
-		Orderer:           n.OrdererAddress(orderer, ListenPort),
-		Name:              chaincode.Name,
-		Version:           chaincode.Version,
-		Ctor:              chaincode.Ctor,
-		Policy:            chaincode.Policy,
-		Lang:              chaincode.Lang,
-		CollectionsConfig: chaincode.CollectionsConfig,
-		ClientAuth:        n.ClientAuthRequired,
-	})
-	Expect(err).NotTo(HaveOccurred())
-	Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
-
-	EnsureInstantiatedLegacy(n, channel, chaincode.Name, chaincode.Version, checkPeers...)
-}
-
-func EnsureInstantiatedLegacy(n *Network, channel, name, version string, peers ...*topology.Peer) {
-	for _, p := range peers {
-		Eventually(listInstantiatedLegacy(n, p, channel), n.EventuallyTimeout).Should(
-			gbytes.Say(fmt.Sprintf("Name: %s, Version: %s,", name, version)),
-		)
-	}
-}
-
-func UpgradeChaincodeLegacy(n *Network, channel string, orderer *topology.Orderer, chaincode topology.Chaincode, peers ...*topology.Peer) {
-	if len(peers) == 0 {
-		peers = n.PeersWithChannel(channel)
-	}
-	if len(peers) == 0 {
-		return
-	}
-
-	// install on all peers
-	InstallChaincodeLegacy(n, chaincode, peers...)
-
-	// upgrade from the first peer
-	sess, err := n.PeerAdminSession(peers[0], commands.ChaincodeUpgradeLegacy{
-		NetworkPrefix:     n.Prefix,
-		ChannelID:         channel,
-		Orderer:           n.OrdererAddress(orderer, ListenPort),
-		Name:              chaincode.Name,
-		Version:           chaincode.Version,
-		Ctor:              chaincode.Ctor,
-		Policy:            chaincode.Policy,
-		CollectionsConfig: chaincode.CollectionsConfig,
-		ClientAuth:        n.ClientAuthRequired,
-	})
-	Expect(err).NotTo(HaveOccurred())
-	Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
-
-	EnsureInstantiatedLegacy(n, channel, chaincode.Name, chaincode.Version, peers...)
-}
-
 func EnsureInstalled(n *Network, label, packageID string, peers ...*topology.Peer) {
 	for _, p := range peers {
 		Eventually(QueryInstalled(n, p), n.EventuallyTimeout).Should(
@@ -410,9 +245,6 @@ func QueryInstalledReferences(n *Network, channel, label, packageID string, chec
 			},
 		)),
 	)
-}
-
-func QueryInstalledNoReferences(n *Network, channel, label, packageID string, checkPeer *topology.Peer) {
 }
 
 type queryInstalledOutput struct {
@@ -491,88 +323,4 @@ func listCommitted(n *Network, peer *topology.Peer, channel, name string) func()
 		Expect(err).NotTo(HaveOccurred())
 		return *output
 	}
-}
-
-func listInstantiatedLegacy(n *Network, peer *topology.Peer, channel string) func() *gbytes.Buffer {
-	return func() *gbytes.Buffer {
-		sess, err := n.PeerAdminSession(peer, commands.ChaincodeListInstantiatedLegacy{
-			NetworkPrefix: n.Prefix,
-			ChannelID:     channel,
-			ClientAuth:    n.ClientAuthRequired,
-		})
-		Expect(err).NotTo(HaveOccurred())
-		Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
-		return sess.Buffer()
-	}
-}
-
-// EnableCapabilities enables a specific capabilities flag for a running network.
-// It generates the config update using the first peer, signs the configuration
-// with the subsequent peers, and then submits the config update using the
-// first peer.
-func EnableCapabilities(network *Network, channel, capabilitiesGroup, capabilitiesVersion string, orderer *topology.Orderer, peers ...*topology.Peer) {
-	if len(peers) == 0 {
-		return
-	}
-
-	config := GetConfig(network, peers[0], orderer, channel)
-	updatedConfig := proto.Clone(config).(*common.Config)
-
-	updatedConfig.ChannelGroup.Groups[capabilitiesGroup].Values["Capabilities"] = &common.ConfigValue{
-		ModPolicy: "Admins",
-		Value: protoutil.MarshalOrPanic(
-			&common.Capabilities{
-				Capabilities: map[string]*common.Capability{
-					capabilitiesVersion: {},
-				},
-			},
-		),
-	}
-
-	UpdateConfig(network, orderer, channel, config, updatedConfig, false, peers[0], peers...)
-}
-
-// WaitUntilEqualLedgerHeight waits until all specified peers have the
-// provided rwset height on a channel
-func WaitUntilEqualLedgerHeight(n *Network, channel string, height int, peers ...*topology.Peer) {
-	for _, peer := range peers {
-		Eventually(func() int {
-			return GetLedgerHeight(n, peer, channel)
-		}, n.EventuallyTimeout).Should(Equal(height))
-	}
-}
-
-// GetLedgerHeight returns the current rwset height for a peer on
-// a channel
-func GetLedgerHeight(n *Network, peer *topology.Peer, channel string) int {
-	sess, err := n.PeerUserSession(peer, "User1", commands.ChannelInfo{
-		NetworkPrefix: n.Prefix,
-		ChannelID:     channel,
-		ClientAuth:    n.ClientAuthRequired,
-	})
-	Expect(err).NotTo(HaveOccurred())
-	Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit())
-
-	if sess.ExitCode() == 1 {
-		// if org is not yet member of channel, peer will return error
-		return -1
-	}
-
-	channelInfoStr := strings.TrimPrefix(string(sess.Buffer().Contents()[:]), "Blockchain info:")
-	var channelInfo = common.BlockchainInfo{}
-	json.Unmarshal([]byte(channelInfoStr), &channelInfo)
-	return int(channelInfo.Height)
-}
-
-// GetMaxLedgerHeight returns the maximum rwset height for the
-// peers on a channel
-func GetMaxLedgerHeight(n *Network, channel string, peers ...*topology.Peer) int {
-	var maxHeight int
-	for _, peer := range peers {
-		peerHeight := GetLedgerHeight(n, peer, channel)
-		if peerHeight > maxHeight {
-			maxHeight = peerHeight
-		}
-	}
-	return maxHeight
 }

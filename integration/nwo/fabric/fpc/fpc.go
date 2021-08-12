@@ -4,7 +4,7 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package network
+package fpc
 
 import (
 	"context"
@@ -27,12 +27,13 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/commands"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/fabricconfig"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/fpc/core/attestation"
+	sgx2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/fpc/core/sgx"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/fpc/core/utils"
+	nnetwork "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/network"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/packager"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/fpc/core/generic/attestation"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/fpc/core/generic/protos"
-	sgx2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/fpc/core/generic/sgx"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/fpc/core/generic/utils"
 )
 
 const (
@@ -51,9 +52,22 @@ type Connection struct {
 	TlsRequired bool   `json:"tls_required"`
 }
 
-// FPCCheckTopology ensures that the topology contains what is necessary to deploy FPC
-func (n *Network) FPCCheckTopology() {
-	if !n.topology.FPC {
+type Extension struct {
+	network *nnetwork.Network
+
+	ports   map[string][]uint16
+	FPCERCC *topology.ChannelChaincode
+}
+
+func NewExtension(network *nnetwork.Network) *Extension {
+	return &Extension{
+		network: network,
+		ports:   map[string][]uint16{},
+	}
+}
+
+func (n *Extension) CheckTopology() {
+	if !n.network.Topology().FPC {
 		return
 	}
 
@@ -64,14 +78,14 @@ func (n *Network) FPCCheckTopology() {
 	Expect(index).ToNot(BeEquivalentTo(-1))
 
 	path := cwd[:index] + "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/fpc/externalbuilders/chaincode_server"
-	n.ExternalBuilders = append(n.ExternalBuilders, fabricconfig.ExternalBuilder{
+	n.network.ExternalBuilders = append(n.network.ExternalBuilders, fabricconfig.ExternalBuilder{
 		Path:                 path,
 		Name:                 "fpc-external-launcher",
 		PropagateEnvironment: []string{"CORE_PEER_ID", "FABRIC_LOGGING_SPEC"},
 	})
 
 	// Reserve ports for each private chaincode
-	for _, chaincode := range n.topology.Chaincodes {
+	for _, chaincode := range n.network.Topology().Chaincodes {
 		if !chaincode.Private {
 			continue
 		}
@@ -82,35 +96,36 @@ func (n *Network) FPCCheckTopology() {
 
 		var ports []uint16
 		for range chaincode.Peers {
-			ports = append(ports, n.Context.ReservePort())
+			ports = append(ports, n.network.Context.ReservePort())
 		}
 
-		n.FPCPorts[chaincode.Chaincode.Name] = ports
+		n.ports[chaincode.Chaincode.Name] = ports
 	}
+
+	return
 }
 
-// FPCGenerateArtifacts generates FPC related artifacts
-func (n *Network) FPCGenerateArtifacts() {
-	for _, chaincode := range n.topology.Chaincodes {
+func (n *Extension) GenerateArtifacts() {
+	for _, chaincode := range n.network.Topology().Chaincodes {
 		if !chaincode.Private {
 			continue
 		}
 		// Generate Enclave Registry CC package for each peer that will conn
-		Expect(os.MkdirAll(n.FPCPackagePath(chaincode.Chaincode.Name), 0770)).NotTo(HaveOccurred())
+		Expect(os.MkdirAll(n.packagePath(chaincode.Chaincode.Name), 0770)).NotTo(HaveOccurred())
 
-		peers := n.PeersByName(chaincode.Peers)
+		peers := n.network.PeersByName(chaincode.Peers)
 		for i, peer := range peers {
-			org := n.Organization(peer.Organization)
+			org := n.network.Organization(peer.Organization)
 
 			Expect(packager.New().PackageChaincode(
 				chaincode.Chaincode.Name,
 				chaincode.Chaincode.Lang,
 				chaincode.Chaincode.Label,
-				filepath.Join(n.FPCPackagePath(chaincode.Chaincode.Name), fmt.Sprintf("%s.%s.%s.tgz", chaincode.Chaincode.Name, peer.Name, org.Domain)),
+				filepath.Join(n.packagePath(chaincode.Chaincode.Name), fmt.Sprintf("%s.%s.%s.tgz", chaincode.Chaincode.Name, peer.Name, org.Domain)),
 				func(s string, s2 string) (string, []byte) {
 					if strings.HasSuffix(s, "connection.json") {
 						raw, err := json.MarshalIndent(&Connection{
-							Address:     "127.0.0.1:" + strconv.Itoa(int(n.FPCPorts[chaincode.Chaincode.Name][i])),
+							Address:     "127.0.0.1:" + strconv.Itoa(int(n.ports[chaincode.Chaincode.Name][i])),
 							DialTimeout: "10s",
 							TlsRequired: false,
 						}, "", " ")
@@ -123,9 +138,9 @@ func (n *Network) FPCGenerateArtifacts() {
 		}
 	}
 
-	for _, org := range n.PeerOrgs() {
+	for _, org := range n.network.PeerOrgs() {
 		var p *topology.Peer
-		for _, peer := range n.Peers {
+		for _, peer := range n.network.Peers {
 			if peer.Organization == org.Name {
 				p = peer
 				break
@@ -136,70 +151,81 @@ func (n *Network) FPCGenerateArtifacts() {
 	}
 }
 
-// FPCPostRun executes FPC-related artifacts
-func (n *Network) FPCPostRun() {
-	if !n.topology.FPC {
+func (n *Extension) PostRun() {
+	if !n.network.Topology().FPC {
 		return
+	}
+
+	if len(n.network.Topology().Chaincodes) != 0 {
+		for _, chaincode := range n.network.Topology().Chaincodes {
+			if chaincode.Private {
+				n.deployChaincode(chaincode)
+			}
+		}
 	}
 }
 
-func (n *Network) FPCDeployChaincode(chaincode *topology.ChannelChaincode) {
-	if !n.topology.FPC {
+// FPCCheckTopology ensures that the topology contains what is necessary to deployFPC
+func (n *Extension) checkTopology() {
+}
+
+func (n *Extension) deployChaincode(chaincode *topology.ChannelChaincode) {
+	if !n.network.Topology().FPC {
 		return
 	}
 
-	orderer := n.Orderer("orderer")
-	peers := n.PeersByName(chaincode.Peers)
+	orderer := n.network.Orderer("orderer")
+	peers := n.network.PeersByName(chaincode.Peers)
 	// Install on each peer its own chaincode package
 	var packageIDs []string
 	for _, peer := range peers {
 		chaincode.Chaincode.PackageID = ""
-		org := n.Organization(peer.Organization)
+		org := n.network.Organization(peer.Organization)
 		chaincode.Chaincode.PackageFile = filepath.Join(
-			n.FPCPackagePath(chaincode.Chaincode.Name),
+			n.packagePath(chaincode.Chaincode.Name),
 			fmt.Sprintf("%s.%s.%s.tgz", chaincode.Chaincode.Name, peer.Name, org.Domain),
 		)
-		InstallChaincode(n, &chaincode.Chaincode, peer)
-		ApproveChaincodeForMyOrg(n, chaincode.Channel, orderer, &chaincode.Chaincode, peer)
+		nnetwork.InstallChaincode(n.network, &chaincode.Chaincode, peer)
+		nnetwork.ApproveChaincodeForMyOrg(n.network, chaincode.Channel, orderer, &chaincode.Chaincode, peer)
 		packageIDs = append(packageIDs, chaincode.Chaincode.PackageID)
 	}
 
-	n.FPCRunDockerContainers(chaincode, packageIDs)
+	n.runDockerContainers(chaincode, packageIDs)
 
-	CheckCommitReadinessUntilReady(n, chaincode.Channel, &chaincode.Chaincode, n.PeerOrgsByPeers(peers), peers...)
-	CommitChaincode(n, chaincode.Channel, orderer, &chaincode.Chaincode, peers[0], peers...)
+	nnetwork.CheckCommitReadinessUntilReady(n.network, chaincode.Channel, &chaincode.Chaincode, n.network.PeerOrgsByPeers(peers), peers...)
+	nnetwork.CommitChaincode(n.network, chaincode.Channel, orderer, &chaincode.Chaincode, peers[0], peers...)
 	time.Sleep(10 * time.Second)
 	for i, peer := range peers {
-		QueryInstalledReferences(n,
+		nnetwork.QueryInstalledReferences(n.network,
 			chaincode.Channel, chaincode.Chaincode.Label, packageIDs[i],
 			peer,
 			[]string{chaincode.Chaincode.Name, chaincode.Chaincode.Version},
 		)
 	}
 	if chaincode.Chaincode.InitRequired {
-		InitChaincode(n, chaincode.Channel, orderer, &chaincode.Chaincode, peers...)
+		nnetwork.InitChaincode(n.network, chaincode.Channel, orderer, &chaincode.Chaincode, peers...)
 	}
 
-	// FPCInitEnclave if not an ERCC
+	// initEnclave if not an ERCC
 	if chaincode.Chaincode.Name != "ercc" {
-		n.FPCInitEnclave(chaincode)
+		n.initEnclave(chaincode)
 	}
 }
 
-func (n *Network) FPCPackagePath(suffix string) string {
-	return filepath.Join(n.Context.RootDir(), n.Prefix, "fpc", suffix)
+func (n *Extension) packagePath(suffix string) string {
+	return filepath.Join(n.network.Context.RootDir(), n.network.Prefix, "fpc", suffix)
 }
 
-func (n *Network) FPCRunDockerContainers(chaincode *topology.ChannelChaincode, packageIDs []string) {
+func (n *Extension) runDockerContainers(chaincode *topology.ChannelChaincode, packageIDs []string) {
 	ctx := context.Background()
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		panic(err)
 	}
 
-	peers := n.PeersByName(chaincode.Peers)
+	peers := n.network.PeersByName(chaincode.Peers)
 	for i, peer := range peers {
-		port := strconv.Itoa(int(n.FPCPorts[chaincode.Chaincode.Name][i]))
+		port := strconv.Itoa(int(n.ports[chaincode.Chaincode.Name][i]))
 
 		resp, err := cli.ContainerCreate(ctx, &container.Config{
 			Image: chaincode.PrivateChaincode.Image,
@@ -240,7 +266,9 @@ func (n *Network) FPCRunDockerContainers(chaincode *topology.ChannelChaincode, p
 			},
 		},
 			nil, nil,
-			fmt.Sprintf("%s.%s.%s.%s", n.NetworkID, chaincode.Chaincode.Name, peer.Name, n.Organization(peer.Organization).Domain),
+			fmt.Sprintf("%s.%s.%s.%s",
+				n.network.NetworkID, chaincode.Chaincode.Name, peer.Name,
+				n.network.Organization(peer.Organization).Domain),
 		)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(cli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{})).ToNot(HaveOccurred())
@@ -248,7 +276,7 @@ func (n *Network) FPCRunDockerContainers(chaincode *topology.ChannelChaincode, p
 	}
 }
 
-func (n *Network) FPCInitEnclave(chaincode *topology.ChannelChaincode) {
+func (n *Extension) initEnclave(chaincode *topology.ChannelChaincode) {
 	attestationParams := sgx2.CreateSIMAttestationParams()
 
 	serializedJSONParams, err := attestationParams.ToBase64EncodedJSON()
@@ -256,16 +284,16 @@ func (n *Network) FPCInitEnclave(chaincode *topology.ChannelChaincode) {
 
 	initOrgs := map[string]bool{}
 	var erccPeerAddresses []string
-	peers := n.PeersByName(n.FPCERCC.Peers)
+	peers := n.network.PeersByName(n.FPCERCC.Peers)
 	for _, p := range peers {
 		if exists := initOrgs[p.Organization]; !exists {
-			erccPeerAddresses = append(erccPeerAddresses, n.PeerAddress(p, ListenPort))
+			erccPeerAddresses = append(erccPeerAddresses, n.network.PeerAddress(p, nnetwork.ListenPort))
 			initOrgs[p.Organization] = true
 		}
 	}
 
-	orderer := n.Orderer("orderer")
-	peers = n.PeersByName(chaincode.Peers)
+	orderer := n.network.Orderer("orderer")
+	peers = n.network.PeersByName(chaincode.Peers)
 	for _, peer := range peers {
 		// org := n.Organization(peer.Organization)
 		initMsg := &protos.InitEnclaveMessage{
@@ -283,13 +311,13 @@ func (n *Network) FPCInitEnclave(chaincode *topology.ChannelChaincode) {
 		ctor, err := json.Marshal(args)
 		Expect(err).ToNot(HaveOccurred())
 
-		sess, err := n.PeerUserSession(peer, "User1", commands.ChaincodeQuery{
+		sess, err := n.network.PeerUserSession(peer, "User1", commands.ChaincodeQuery{
 			ChannelID: chaincode.Channel,
 			Name:      chaincode.Chaincode.Name,
 			Ctor:      string(ctor),
 		})
 		Expect(err).NotTo(HaveOccurred())
-		Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
+		Eventually(sess, n.network.EventuallyTimeout).Should(gexec.Exit(0))
 
 		// convert credentials received from enclave
 		converter := attestation.NewCredentialConverter()
@@ -306,20 +334,20 @@ func (n *Network) FPCInitEnclave(chaincode *topology.ChannelChaincode) {
 		ctor, err = json.Marshal(args)
 		Expect(err).ToNot(HaveOccurred())
 
-		sess, err = n.PeerUserSession(peer, "User1", commands.ChaincodeInvoke{
-			NetworkPrefix: n.Prefix,
+		sess, err = n.network.PeerUserSession(peer, "User1", commands.ChaincodeInvoke{
+			NetworkPrefix: n.network.Prefix,
 			ChannelID:     chaincode.Channel,
-			Orderer:       n.OrdererAddress(orderer, ListenPort),
+			Orderer:       n.network.OrdererAddress(orderer, nnetwork.ListenPort),
 			Name:          "ercc",
 			Ctor:          string(ctor),
 			PeerAddresses: erccPeerAddresses,
 			WaitForEvent:  true,
-			ClientAuth:    n.ClientAuthRequired,
+			ClientAuth:    n.network.ClientAuthRequired,
 		})
 		Expect(err).NotTo(HaveOccurred())
-		Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
+		Eventually(sess, n.network.EventuallyTimeout).Should(gexec.Exit(0))
 		for i := 0; i < len(erccPeerAddresses); i++ {
-			Eventually(sess.Err, n.EventuallyTimeout).Should(gbytes.Say(`\Qcommitted with status (VALID)\E`))
+			Eventually(sess.Err, n.network.EventuallyTimeout).Should(gbytes.Say(`\Qcommitted with status (VALID)\E`))
 		}
 		Expect(sess.Err).To(gbytes.Say("Chaincode invoke successful. result: status:200"))
 

@@ -12,8 +12,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/fpc/core/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/fpc/core/generic/protos"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/fpc/core/generic/utils"
 )
 
 func NewDummyConverter() *Converter {

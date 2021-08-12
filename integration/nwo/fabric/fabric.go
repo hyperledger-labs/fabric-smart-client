@@ -16,6 +16,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/fpc"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/helpers"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/network"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
@@ -71,15 +72,18 @@ func NewPlatform(context api.Context, t api.Topology, components BuilderClient) 
 	)
 	Expect(err).NotTo(HaveOccurred())
 
+	network := network.New(
+		context,
+		t.(*topology.Topology),
+		dockerClient,
+		components,
+		[]network.ChaincodeProcessor{},
+		networkID,
+	)
+	network.AddExtension(fpc.NewExtension(network))
+
 	return &platform{
-		Network: network.New(
-			context,
-			t.(*topology.Topology),
-			dockerClient,
-			components,
-			[]network.ChaincodeProcessor{},
-			networkID,
-		),
+		Network: network,
 	}
 }
 

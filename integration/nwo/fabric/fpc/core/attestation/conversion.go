@@ -14,8 +14,8 @@ import (
 	"github.com/hyperledger/fabric/common/flogging"
 	"github.com/pkg/errors"
 
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/fpc/core/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/fpc/core/generic/protos"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/fpc/core/generic/utils"
 )
 
 var logger = flogging.MustGetLogger("fpc-client-attest")
