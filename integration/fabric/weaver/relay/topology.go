@@ -27,8 +27,8 @@ func Topology() []api.Topology {
 	f2Topology.AddNamespaceWithUnanimity("ns2", "Org3")
 
 	wTopology := weaver.NewTopology()
-	wTopology.AddRelayServer(f1Topology, "Org1").AddFabricNetwork(f2Topology)
-	wTopology.AddRelayServer(f2Topology, "Org3").AddFabricNetwork(f1Topology)
+	wTopology.AddRelayServer(f1Topology, "Org1").AddFabricNetwork(f2Topology).AddFabricNetwork(f1Topology)
+	wTopology.AddRelayServer(f2Topology, "Org3").AddFabricNetwork(f1Topology).AddFabricNetwork(f2Topology)
 
 	// Define an FSC topology with 2 FCS nodes.
 	fscTopology := fsc.NewTopology()

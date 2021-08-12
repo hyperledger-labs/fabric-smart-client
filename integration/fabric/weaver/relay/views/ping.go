@@ -51,7 +51,10 @@ func (p *Ping) Call(context view.Context) (interface{}, error) {
 		return nil, errors.New("responder didn't pong in time")
 	}
 
+	weaver.InteropFromContext(context, "ns2")
+
 	relay := weaver.GetProvider(context).Relay(fabric.GetDefaultFNS(context))
+
 	assert.NoError(err, "failed getting relay for default fabric network")
 	assert.NoError(relay.RequestState(), "failed requesting state")
 

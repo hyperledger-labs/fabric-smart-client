@@ -47,7 +47,7 @@ type RelayServer struct {
 func (w *RelayServer) AddFabricNetwork(ft *topology.Topology) *RelayServer {
 	w.Networks = append(w.Networks, &Network{
 		Type: "Fabric",
-		Name: "Fabric_" + ft.Name(),
+		Name: ft.Name(),
 	})
 	return w
 }
@@ -79,13 +79,13 @@ func (t *Topology) AddRelayServer(ft *topology.Topology, org string) *RelayServe
 	r := &RelayServer{
 		FabricTopology:     ft,
 		FabricTopologyName: ft.Name(),
-		Name:               "Fabric_" + ft.Name(),
-		Hostname:           "127.0.0.1",
+		Name:               ft.Name(),
+		Hostname:           "relay-"+ft.Name(),
 		Organization:       org,
 		Drivers: []*Driver{
 			{
 				Name:     "Fabric",
-				Hostname: "127.0.0.1",
+				Hostname: "driver-"+ft.Name(),
 			},
 		},
 		InteropChaincode: InteropChaincode{

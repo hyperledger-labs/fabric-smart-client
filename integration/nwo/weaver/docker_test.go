@@ -41,8 +41,7 @@ func TestRelayServerConnection(t *testing.T) {
 		path+"/weaver/relay/fabric-driver/Fabric_alpha/config.json",
 		path+"/weaver/relay/fabric-driver/Fabric_alpha/wallet-alpha",
 	)
-	platform.RunRelayServer(
-		"alpha",
+	platform.RunRelayServer("",
 		path+"/weaver/relay/server/Fabric_alpha/server.toml",
 		"20040",
 	)

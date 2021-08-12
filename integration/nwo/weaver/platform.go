@@ -10,8 +10,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/onsi/ginkgo"
 	"io"
 	"io/ioutil"
+	"net"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -155,36 +157,49 @@ func (p *Platform) PostRun() {
 		fabric.DeployChaincode(cc)
 		fabric.DeployChaincode(sampleCC)
 
-		raw, err := ioutil.ReadFile(p.RelayServerInteropAccessControl(relay))
-		Expect(err).NotTo(HaveOccurred())
-		fabric.InvokeChaincode(cc, "CreateAccessControlPolicy", raw)
-
-		raw, err = ioutil.ReadFile(p.RelayServerInteropVerificationPolicy(relay))
-		Expect(err).NotTo(HaveOccurred())
-		fabric.InvokeChaincode(cc, "CreateVerificationPolicy", raw)
-
-		raw, err = ioutil.ReadFile(p.RelayServerInteropMembership(relay))
-		Expect(err).NotTo(HaveOccurred())
-		fabric.InvokeChaincode(cc, "CreateMembership", raw)
-
 		fabric.InvokeChaincode(sampleCC, "invoke", []byte("alice"), []byte("bob"), []byte("50"))
 
+	}
+
+	for _, relay := range p.Topology.Relays {
+		cc, err := p.PrepareInteropChaincode(relay)
+		Expect(err).NotTo(HaveOccurred())
+
+		fabric := p.Fabric(relay)
+
+		for _, currentRelay := range p.Topology.Relays {
+			if currentRelay.Name == relay.Name {
+				continue
+			}
+			raw, err := ioutil.ReadFile(p.RelayServerInteropAccessControl(currentRelay))
+			Expect(err).NotTo(HaveOccurred())
+			fabric.InvokeChaincode(cc, "CreateAccessControlPolicy", raw)
+
+			raw, err = ioutil.ReadFile(p.RelayServerInteropVerificationPolicy(currentRelay))
+			Expect(err).NotTo(HaveOccurred())
+			fabric.InvokeChaincode(cc, "CreateVerificationPolicy", raw)
+
+			raw, err = ioutil.ReadFile(p.RelayServerInteropMembership(currentRelay))
+			Expect(err).NotTo(HaveOccurred())
+			fabric.InvokeChaincode(cc, "CreateMembership", raw)
+		}
 	}
 
 	for _, relay := range p.Topology.Relays {
 		for _, driver := range relay.Drivers {
 			p.RunRelayFabricDriver(
 				relay.FabricTopologyName,
-				"127.0.0.1", strconv.Itoa(int(relay.Port)),
-				"127.0.0.1", strconv.Itoa(int(driver.Port)),
+				relay.Hostname, strconv.Itoa(int(relay.Port)),
+				driver.Hostname, strconv.Itoa(int(driver.Port)),
 				relay.InteropChaincode.Label,
 				p.FabricDriverConnectionProfilePath(relay),
 				p.FabricDriverConfigPath(relay),
 				p.FabricDriverWalletDir(relay),
 			)
 		}
+
 		p.RunRelayServer(
-			relay.Name,
+			strings.Replace(relay.Name, "Fabric_", "", -1),
 			p.RelayServerConfigPath(relay),
 			strconv.Itoa(int(relay.Port)),
 		)
@@ -206,6 +221,9 @@ func (p *Platform) Cleanup() {
 
 	err = p.DockerClient.RemoveNetwork(nw.ID)
 	Expect(err).NotTo(HaveOccurred())
+
+
+	return
 
 	containers, err := p.DockerClient.ListContainers(docker.ListContainersOptions{All: true})
 	Expect(err).NotTo(HaveOccurred())
@@ -247,8 +265,11 @@ func (p *Platform) generateRelayServerTOML(relay *RelayServer) {
 		}
 	}
 
+
+	fmt.Printf("#### %s %s:%d\n", relay.Name, relay.Hostname, relay.Port)
+
 	t, err := template.New("relay_server").Funcs(template.FuncMap{
-		"Name":     func() string { return relay.Name },
+		"Name":     func() string { return relay.FabricTopologyName },
 		"Port":     func() uint16 { return relay.Port },
 		"Hostname": func() string { return relay.Hostname },
 		"Networks": func() []*Network { return relay.Networks },
@@ -413,6 +434,9 @@ func (p *Platform) generateFabricDriverCPFile(relay *RelayServer) {
 			},
 		}
 		for _, peer := range peers {
+			_, port, err := net.SplitHostPort(peer.ListeningAddress)
+			Expect(err).NotTo(HaveOccurred())
+
 			var certificates []string
 			for _, cert := range peer.TLSCACerts {
 				raw, err := ioutil.ReadFile(cert)
@@ -422,7 +446,7 @@ func (p *Platform) generateFabricDriverCPFile(relay *RelayServer) {
 			Expect(len(certificates)).ToNot(BeZero())
 
 			cp.Peers[peer.FullName] = Peer{
-				URL: "grpcs://" + peer.ListeningAddress,
+				URL: "grpcs://" + net.JoinHostPort(p.localIP(), port),
 				TLSCACerts: map[string]string{
 					"pem": certificates[0],
 				},
@@ -437,6 +461,9 @@ func (p *Platform) generateFabricDriverCPFile(relay *RelayServer) {
 
 	raw, err := json.MarshalIndent(cp, "", "  ")
 	Expect(err).NotTo(HaveOccurred())
+
+
+	fmt.Println(string(raw))
 
 	Expect(os.MkdirAll(p.FabricDriverDir(relay), 0o755)).NotTo(HaveOccurred())
 	Expect(ioutil.WriteFile(p.FabricDriverConnectionProfilePath(relay), raw, 0o755)).NotTo(HaveOccurred())
@@ -595,7 +622,7 @@ func (p *Platform) generateInteropChaincodeVerificationPolicyFile(relay *RelaySe
 	for _, ch := range fabric.Channels() {
 		for _, chaincode := range ch.Chaincodes {
 			identifiers = append(identifiers, &interop.Identifier{
-				Pattern: fmt.Sprintf("%s:%s:Read:*", ch.Name, chaincode.Name),
+				Pattern: fmt.Sprintf("%s:%s:query:*", ch.Name, chaincode.Name),
 				Policy: &interop.Policy{
 					Type:     "Signature",
 					Criteria: orgMSPIDs,
@@ -604,11 +631,13 @@ func (p *Platform) generateInteropChaincodeVerificationPolicyFile(relay *RelaySe
 		}
 	}
 	verificationPolicy := &interop.VerificationPolicy{
-		SecurityDomain: relay.Name,
+		SecurityDomain: strings.Replace(relay.Name, "Fabric_", "", -1),
 		Identifiers:    identifiers,
 	}
 	raw, err := json.MarshalIndent(verificationPolicy, "", "  ")
 	Expect(err).ToNot(HaveOccurred())
+
+	fmt.Println("GENERATING verification policy:", string(raw))
 
 	Expect(err).NotTo(HaveOccurred())
 	Expect(os.MkdirAll(p.RelayServerInteropDir(relay), 0o755)).NotTo(HaveOccurred())
@@ -649,4 +678,38 @@ func (p *Platform) generateFabricExtension() {
 	for _, node := range fscTopology.Nodes {
 		p.Context.AddExtension(node.ID(), api2.FabricExtension, extension.String())
 	}
+}
+
+func (p *Platform) localIP() string {
+	ni, err := p.DockerClient.NetworkInfo(p.NetworkID)
+	Expect(err).NotTo(HaveOccurred())
+
+	Expect(ni.IPAM.Config).To(HaveLen(1))
+	var config docker.IPAMConfig
+	for _, cfg := range ni.IPAM.Config {
+		config = cfg
+		break
+	}
+
+	dockerPrefix := config.Subnet[:strings.Index(config.Subnet, ".0")]
+
+	ifaces, err := net.Interfaces()
+	Expect(err).NotTo(HaveOccurred())
+
+	for _, i := range ifaces {
+		addrs, err := i.Addrs()
+		Expect(err).NotTo(HaveOccurred())
+
+		for _, addr := range addrs {
+			if strings.Index(addr.String(), dockerPrefix) == 0 {
+				ipWithSubnet := addr.String()
+				i := strings.Index(ipWithSubnet, "/")
+				return ipWithSubnet[:i]
+			}
+		}
+	}
+
+	ginkgo.Fail(fmt.Sprintf("could not find network interface with subnet %s", dockerPrefix))
+
+	return ""
 }

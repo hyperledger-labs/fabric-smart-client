@@ -8,6 +8,8 @@ package weaver
 
 import (
 	"context"
+	"fmt"
+	"github.com/docker/docker/api/types/network"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -16,16 +18,36 @@ import (
 	"github.com/docker/go-connections/nat"
 )
 
-func (p *Platform) RunRelayServer(name, serverConfigPath, port string) {
+func (p *Platform) RunRelayServer(name string, serverConfigPath, port string) {
 	ctx := context.Background()
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		panic(err)
 	}
 
+	net, err := p.DockerClient.NetworkInfo(p.NetworkID)
+	if err != nil {
+		panic(err)
+	}
+
+	hostname := "relay-" + name
+
+	driverName := "driver-" + name
+
+	var links []string
+
+	if name == "beta" {
+		links = []string{"relay-alpha:relay-alpha"}
+	}
+
+	links = append(links, fmt.Sprintf("%s:%s", driverName, driverName))
+
+	fmt.Println(">>>>> hostname:", hostname)
+
 	resp, err := cli.ContainerCreate(ctx, &container.Config{
-		Image: RelayServerImage,
-		Tty:   false,
+		Hostname: hostname,
+		Image:    RelayServerImage,
+		Tty:      false,
 		Env: []string{
 			"DEBUG=true",
 			"RELAY_CONFIG=/opt/relay/config/server.toml",
@@ -34,6 +56,7 @@ func (p *Platform) RunRelayServer(name, serverConfigPath, port string) {
 			nat.Port(port + "/tcp"): struct{}{},
 		},
 	}, &container.HostConfig{
+		Links: links,
 		Mounts: []mount.Mount{
 			{
 				Type: mount.TypeBind,
@@ -50,10 +73,23 @@ func (p *Platform) RunRelayServer(name, serverConfigPath, port string) {
 				},
 			},
 		},
-	}, nil, nil, p.NetworkID+"-relay-server"+name)
+	}, &network.NetworkingConfig{
+		EndpointsConfig: map[string]*network.EndpointSettings{
+			p.NetworkID: {
+				NetworkID: net.ID,
+			},
+		},
+	}, nil, hostname)
 	if err != nil {
 		panic(err)
 	}
+
+
+
+
+	cli.NetworkConnect(context.Background(), p.NetworkID, resp.ID, &network.EndpointSettings{
+		NetworkID: p.NetworkID,
+	})
 
 	if err := cli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{}); err != nil {
 		panic(err)
@@ -88,7 +124,15 @@ func (p *Platform) RunRelayFabricDriver(
 		panic(err)
 	}
 
+	hostname := "driver-" + networkName
+
+	net, err := p.DockerClient.NetworkInfo(p.NetworkID)
+	if err != nil {
+		panic(err)
+	}
+
 	resp, err := cli.ContainerCreate(ctx, &container.Config{
+		Hostname: hostname,
 		Image: FabricDriverImager,
 		Tty:   false,
 		Env: []string{
@@ -134,10 +178,21 @@ func (p *Platform) RunRelayFabricDriver(
 				},
 			},
 		},
-	}, nil, nil, p.NetworkID+"-relay-fabric-driver-"+networkName)
+	}, &network.NetworkingConfig{
+		EndpointsConfig: map[string]*network.EndpointSettings{
+			p.NetworkID: {
+				NetworkID: net.ID,
+			},
+		},
+	}, nil, hostname)
 	if err != nil {
 		panic(err)
 	}
+
+
+	cli.NetworkConnect(context.Background(), p.NetworkID, resp.ID, &network.EndpointSettings{
+		NetworkID: p.NetworkID,
+	})
 
 	if err := cli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{}); err != nil {
 		panic(err)

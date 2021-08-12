@@ -15,7 +15,7 @@ import (
 
 // NetworkService models a Fabric Network
 type NetworkService struct {
-	sp   view2.ServiceProvider
+	SP   view2.ServiceProvider
 	fns  driver.FabricNetworkService
 	name string
 }
@@ -41,7 +41,7 @@ func (n *NetworkService) Channel(id string) (*Channel, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Channel{sp: n.sp, ch: ch}, nil
+	return &Channel{sp: n.SP, ch: ch}, nil
 }
 
 // IdentityProvider returns the identity provider of this network
@@ -98,7 +98,7 @@ func GetFabricNetworkService(sp view2.ServiceProvider, id string) *NetworkServic
 	if err != nil {
 		return nil
 	}
-	return &NetworkService{name: fns.Name(), sp: sp, fns: fns}
+	return &NetworkService{name: fns.Name(), SP: sp, fns: fns}
 }
 
 // GetDefaultFNS returns the default Fabric Network Service
