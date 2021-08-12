@@ -138,10 +138,10 @@ type Chaincode struct {
 	cid string
 }
 
-func (c *Chaincode) Invoke(function string, args ...interface{}) (*ChaincodeInvocation, error) {
+func (c *Chaincode) Invoke(function string, args ...interface{}) *ChaincodeInvocation {
 	return &ChaincodeInvocation{
 		Chaincode: c,
 		function:  function,
 		args:      args,
-	}, nil
+	}
 }

@@ -15,18 +15,18 @@ import (
 
 var logger = flogging.MustGetLogger("fabric-sdk.fpc")
 
-type provider struct {
+type channel struct {
 	fns *fabric.NetworkService
 	ch  *fabric.Channel
 
 	er *EnclaveRegistry
 }
 
-func (p *provider) EnclaveRegistry() *EnclaveRegistry {
+func (p *channel) EnclaveRegistry() *EnclaveRegistry {
 	return p.er
 }
 
-func (p *provider) Chaincode(cid string) *Chaincode {
+func (p *channel) Chaincode(cid string) *Chaincode {
 	ep := &crypto.EncryptionProviderImpl{
 		CSP: crypto.GetDefaultCSP(),
 		GetCcEncryptionKey: func() ([]byte, error) {
@@ -44,11 +44,23 @@ func (p *provider) Chaincode(cid string) *Chaincode {
 	}
 }
 
-func GetProvider(sp view.ServiceProvider) *provider {
+func GetDefaultChannel(sp view.ServiceProvider) *channel {
 	fns := fabric.GetDefaultFNS(sp)
 	ch := fabric.GetDefaultChannel(sp)
+	return &channel{
+		fns: fns,
+		ch:  ch,
+		er: &EnclaveRegistry{
+			fns: fns,
+			ch:  ch,
+		},
+	}
+}
 
-	return &provider{
+func GetChannel(sp view.ServiceProvider, network, channelName string) *channel {
+	fns := fabric.GetFabricNetworkService(sp, network)
+	ch := fabric.GetChannel(sp, network, channelName)
+	return &channel{
 		fns: fns,
 		ch:  ch,
 		er: &EnclaveRegistry{

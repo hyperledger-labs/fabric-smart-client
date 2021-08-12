@@ -28,13 +28,12 @@ func (e *EchoView) Call(context view.Context) (interface{}, error) {
 	for _, arg := range e.Args {
 		passedArgs = append(passedArgs, arg)
 	}
-	invoke, err := fpc.GetProvider(context).Chaincode("echo").Invoke(
-		e.Function,
-		passedArgs...,
-	)
-	assert.NoError(err, "failed creating invocation")
-	res, err := invoke.Call()
+
+	res, err := fpc.GetDefaultChannel(context).Chaincode("echo").Invoke(
+		e.Function, passedArgs...,
+	).Call()
 	assert.NoError(err, "failed invoking echo")
+	assert.Equal(e.Function, string(res))
 
 	return res, nil
 }
