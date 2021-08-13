@@ -17,7 +17,6 @@ func Topology() []api.Topology {
 	// Create an empty fabric topology
 	fabricTopology := fabric.NewDefaultTopology()
 	fabricTopology.AddOrganizationsByName("Org1", "Org2")
-	fabricTopology.EnableFPC()
 	fabricTopology.AddFPC("echo", "fpc/fpc-echo")
 
 	// Create an empty FSC topology

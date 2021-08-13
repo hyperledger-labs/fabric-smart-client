@@ -342,14 +342,28 @@ func (c *Topology) DevChaincodeMode() {
 	c.ChaincodeMode = "dev"
 }
 
+// EnableFPC enables FPC by adding the Enclave Registry Chaincode definition.
+// The ERCC is installed on all organizations and the endorsement policy is
+// set to the majority of the organization on which the chaincode
+// has been installed.
 func (c *Topology) EnableFPC() {
 	c.FPC = true
 	c.AddFPC("ercc", "fpc/ercc")
 }
 
-func (c *Topology) AddFPC(name, image string) {
-	orgs := c.Consortiums[0].Organizations
+// AddFPC adds the Fabric Private Chaincode with the passed name and image.
+// If no orgs are specified, then the Fabric Private Chaincode is installed on all organizations
+// registered so far.
+// The endorsement policy is set to the majority of the organization on which the chaincode
+// has been installed.
+func (c *Topology) AddFPC(name, image string, orgs ...string) {
+	if !c.FPC {
+		c.EnableFPC()
+	}
 
+	if len(orgs) == 0 {
+		orgs = c.Consortiums[0].Organizations
+	}
 	majority := len(orgs)/2 + 1
 	policy := "OutOf(" + strconv.Itoa(majority) + ","
 	for i, org := range orgs {
