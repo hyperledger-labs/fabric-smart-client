@@ -42,6 +42,15 @@ docker-images:
 	docker pull confluentinc/cp-kafka:5.3.1
 	docker pull confluentinc/cp-zookeeper:5.3.1
 
+.PHONY: fpc-docker-images
+fpc-docker-images:
+	docker pull ghcr.io/mbrandenburger/fpc/ercc:main
+	docker image tag ghcr.io/mbrandenburger/fpc/ercc:main fpc/ercc:latest
+	docker pull ghcr.io/mbrandenburger/fpc/fpc-echo:main
+	docker image tag ghcr.io/mbrandenburger/fpc/fpc-echo:main fpc/fpc-echo:latest
+	docker pull ghcr.io/mbrandenburger/fpc/fpc-auction:main
+	docker image tag ghcr.io/mbrandenburger/fpc/fpc-auction:main fpc/fpc-auction:latest
+
 .PHONY: dependencies
 dependencies:
 	go get -u github.com/onsi/ginkgo/ginkgo
@@ -74,6 +83,10 @@ integration-tests-atsafsc: docker-images dependencies
 .PHONY: integration-tests-twonets
 integration-tests-twonets: docker-images dependencies
 	cd ./integration/fabric/twonets; ginkgo -keepGoing --slowSpecThreshold 60 .
+
+.PHONY: integration-tests-fpc-echo
+integration-tests-fpc-echo: docker-images fpc-docker-images dependencies
+	cd ./integration/fabric/fpc/echo; ginkgo -keepGoing --slowSpecThreshold 60 .
 
 .PHONY: integration-tests-pingpong
 integration-tests-pingpong: docker-images dependencies
