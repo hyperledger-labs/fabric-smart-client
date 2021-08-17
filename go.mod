@@ -24,10 +24,10 @@ require (
 	github.com/gogo/protobuf v1.3.1
 	github.com/golang/protobuf v1.4.3
 	github.com/golang/snappy v0.0.3-0.20201103224600-674baa8c7fc3 // indirect
-	github.com/google/addlicense v0.0.0-20210428195630-6d92264d7170 // indirect
+	github.com/google/addlicense v1.0.0 // indirect
 	github.com/google/go-cmp v0.5.0
 	github.com/google/uuid v1.2.0 // indirect
-	github.com/gordonklaus/ineffassign v0.0.0-20210522101830-0589229737b2 // indirect
+	github.com/gordonklaus/ineffassign v0.0.0-20210729092907-69aca2aeecd0 // indirect
 	github.com/gorilla/mux v1.8.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.2.0
 	github.com/hashicorp/go-version v1.2.0
@@ -64,7 +64,8 @@ require (
 	go.uber.org/multierr v1.6.0 // indirect
 	go.uber.org/zap v1.16.0
 	golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad // indirect
-	golang.org/x/sys v0.0.0-20210630005230-0f9fa26af87c // indirect
+	golang.org/x/mod v0.5.0 // indirect
+	golang.org/x/sys v0.0.0-20210817142637-7d9622a276b7 // indirect
 	golang.org/x/text v0.3.5 // indirect
 	golang.org/x/tools v0.1.5 // indirect
 	google.golang.org/genproto v0.0.0-20210201184850-646a494a81ea // indirect

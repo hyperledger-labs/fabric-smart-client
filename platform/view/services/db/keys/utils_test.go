@@ -10,9 +10,10 @@ import (
 	"testing"
 	"unicode/utf8"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/keys"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/keys"
 )
 
 const (
@@ -26,12 +27,12 @@ func createCompositeKey(objectType string, attributes []string) (string, error) 
 	if err := validateCompositeKeyAttribute(objectType); err != nil {
 		return "", err
 	}
-	ck := compositeKeyNamespace + objectType + string(minUnicodeRuneValue)
+	ck := compositeKeyNamespace + objectType + string(rune(minUnicodeRuneValue))
 	for _, att := range attributes {
 		if err := validateCompositeKeyAttribute(att); err != nil {
 			return "", err
 		}
-		ck += att + string(minUnicodeRuneValue)
+		ck += att + string(rune(minUnicodeRuneValue))
 	}
 	return ck, nil
 }
