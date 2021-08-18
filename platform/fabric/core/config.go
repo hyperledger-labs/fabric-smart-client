@@ -46,8 +46,12 @@ func NewConfig(configProvider ConfigProvider) (*Config, error) {
 		}
 	}
 	if len(defaultName) == 0 {
-		logger.Warnf("no default network configured, set it to [default]")
-		defaultName = "default"
+		if len(names) != 0 {
+			defaultName = names[0]
+		} else {
+			defaultName = "default"
+		}
+		logger.Warnf("no default network configured, set it to [%s]", defaultName)
 	}
 
 	return &Config{

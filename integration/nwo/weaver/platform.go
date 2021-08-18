@@ -641,25 +641,38 @@ func (p *Platform) generateInteropChaincodeVerificationPolicyFile(relay *RelaySe
 }
 
 func (p *Platform) generateFabricExtension() {
-	t, err := template.New("view_extension").Funcs(template.FuncMap{
-		"Servers": func() []*RelayServer { return p.Topology.Relays },
-		"RelaysOf": func(relay *RelayServer) []*RelayServer {
-			var relays []*RelayServer
-			for _, r := range p.Topology.Relays {
-				if r != relay {
-					relays = append(relays, r)
-				}
-			}
-			return relays
-		},
-	}).Parse(FabricExtensionTemplate)
-	Expect(err).NotTo(HaveOccurred())
-
-	extension := bytes.NewBuffer([]byte{})
-	err = t.Execute(io.MultiWriter(extension), p)
-	Expect(err).NotTo(HaveOccurred())
 	fscTopology := p.Context.TopologyByName("fsc").(*fsc.Topology)
 	for _, node := range fscTopology.Nodes {
+		opt := fabric.Options(&node.Options)
+
+		var servers []*RelayServer
+		for _, relay := range p.Topology.Relays {
+			for _, organization := range opt.Organizations() {
+				if relay.FabricTopologyName == organization.Network {
+					servers = append(servers, relay)
+					break
+				}
+			}
+		}
+
+		t, err := template.New("view_extension").Funcs(template.FuncMap{
+			"Servers": func() []*RelayServer { return servers },
+			"RelaysOf": func(relay *RelayServer) []*RelayServer {
+				var relays []*RelayServer
+				for _, r := range p.Topology.Relays {
+					if r != relay {
+						relays = append(relays, r)
+					}
+				}
+				return relays
+			},
+		}).Parse(FabricExtensionTemplate)
+		Expect(err).NotTo(HaveOccurred())
+
+		extension := bytes.NewBuffer([]byte{})
+		err = t.Execute(io.MultiWriter(extension), p)
+		Expect(err).NotTo(HaveOccurred())
+
 		p.Context.AddExtension(node.ID(), api2.FabricExtension, extension.String())
 	}
 }

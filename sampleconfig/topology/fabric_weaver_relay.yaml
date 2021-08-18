@@ -1,7 +1,6 @@
 topologies:
 - name: alpha
   type: fabric
-  default: true
   logging:
     spec: grpc=error:chaincode=debug:endorser=debug:info
     format: '''%{color}%{time:2006-01-02 15:04:05.000 MST} [%{module}] %{shortfunc}
@@ -100,7 +99,7 @@ topologies:
       sequence: "1"
       endorsementplugin: ""
       validationplugin: ""
-      initrequired: true
+      initrequired: false
       label: ns1
       signaturepolicy: AND ('Org1MSP.member')
       channelconfigpolicy: ""
@@ -209,7 +208,7 @@ topologies:
       sequence: "1"
       endorsementplugin: ""
       validationplugin: ""
-      initrequired: true
+      initrequired: false
       label: ns2
       signaturepolicy: AND ('Org3MSP.member')
       channelconfigpolicy: ""
@@ -274,9 +273,12 @@ topologies:
       mapping:
         fabric:
           mapping:
+            DefaultNetwork: alpha
             Organization:
             - Network: alpha
               Org: Org1
+            - Network: beta
+              Org: Org3
   - NodeSynthesizer:
       Aliases:
         github.com/hyperledger-labs/fabric-smart-client/integration/fabric/weaver/relay/views:
@@ -292,7 +294,10 @@ topologies:
       mapping:
         fabric:
           mapping:
+            DefaultNetwork: beta
             Organization:
+            - Network: alpha
+              Org: Org1
             - Network: beta
               Org: Org3
   logging:

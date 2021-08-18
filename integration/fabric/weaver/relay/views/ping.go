@@ -22,6 +22,7 @@ import (
 type Ping struct{}
 
 func (p *Ping) Call(context view.Context) (interface{}, error) {
+	// TODO: remove this line after the relay connections are working...
 	replacer.InteropFromContext(context, "ns2")
 
 	// Alice puts a state in the namespace

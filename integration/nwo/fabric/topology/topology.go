@@ -370,3 +370,8 @@ func (n *namespace) SetChaincodePath(path string) *namespace {
 	n.cc.Chaincode.Path = path
 	return n
 }
+
+func (n *namespace) NoInit() *namespace {
+	n.cc.Chaincode.InitRequired = false
+	return n
+}
