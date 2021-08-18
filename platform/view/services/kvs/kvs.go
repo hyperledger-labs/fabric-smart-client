@@ -108,6 +108,34 @@ func (o *KVS) Get(id string, state interface{}) error {
 	return nil
 }
 
+func (o *KVS) Delete(id string) error {
+	logger.Debugf("delete state [%s,%s]", o.namespace, id)
+
+	o.putMutex.Lock()
+	defer o.putMutex.Unlock()
+
+	err := o.store.BeginUpdate()
+	if err != nil {
+		return errors.WithMessagef(err, "begin update for id [%s] failed", id)
+	}
+
+	err = o.store.DeleteState(o.namespace, id)
+	if err != nil {
+		if err1 := o.store.Discard(); err1 != nil {
+			logger.Errorf("got error %s; discarding caused %s", err.Error(), err1.Error())
+		}
+
+		return errors.Errorf("failed to commit value for id [%s]", id)
+	}
+
+	err = o.store.Commit()
+	if err != nil {
+		return errors.WithMessagef(err, "committing value for id [%s] failed", id)
+	}
+
+	return nil
+}
+
 func (o *KVS) GetByPartialCompositeID(prefix string, attrs []string) (*iteratorConverter, error) {
 	partialCompositeKey, err := CreateCompositeKey(prefix, attrs)
 	if err != nil {

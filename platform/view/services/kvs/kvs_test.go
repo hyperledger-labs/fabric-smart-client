@@ -115,9 +115,26 @@ func testRound(t *testing.T, cfg *fakeProv) {
 			assert.Fail(t, "expected 2 entries in the range, found more")
 		}
 	}
+
+	assert.NoError(t, kvstore.Delete(k2))
+	assert.False(t, kvstore.Exists(k2))
+	val = &stuff{}
+	err = kvstore.Get(k2, val)
+	assert.Error(t, err)
+
+	for ctr := 0; it.HasNext(); ctr++ {
+		val = &stuff{}
+		err = it.Next(val)
+		assert.NoError(t, err)
+		if ctr == 0 {
+			assert.Equal(t, &stuff{"santa", 1}, val)
+		} else {
+			assert.Fail(t, "expected 2 entries in the range, found more")
+		}
+	}
 }
 
-func TestMemKVS(t *testing.T) {
+func TestKVS(t *testing.T) {
 	path, err := ioutil.TempDir(os.TempDir(), "kvstest-*")
 	assert.NoError(t, err)
 	defer os.RemoveAll(path)
