@@ -50,7 +50,7 @@ func (p *Ping) Call(context view.Context) (interface{}, error) {
 
 	// Query the state Bob has set
 	relay := weaver.GetProvider(context).Relay(fabric.GetDefaultFNS(context))
-	query, err := relay.FabricQuery("fabric://beta.testchannel.ns2/", "Get", "watermelon")
+	query, err := relay.Fabric().Query("fabric://beta.testchannel.ns2/", "Get", "watermelon")
 	assert.NoError(err, "failed creating fabric query")
 	res, err := query.Call()
 	assert.NoError(err, "failed querying remote destination")

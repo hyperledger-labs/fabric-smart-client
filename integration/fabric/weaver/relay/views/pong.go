@@ -52,7 +52,7 @@ func (p *Pong) Call(context view.Context) (interface{}, error) {
 
 		// Query the state Alice has set
 		relay := weaver.GetProvider(context).Relay(fabric.GetDefaultFNS(context))
-		query, err := relay.FabricQuery("fabric://alpha.testchannel.ns1/", "Get", "pineapple")
+		query, err := relay.Fabric().Query("fabric://alpha.testchannel.ns1/", "Get", "pineapple")
 		assert.NoError(err, "failed creating fabric query")
 		res, err := query.Call()
 		assert.NoError(err, "failed querying remote destination")

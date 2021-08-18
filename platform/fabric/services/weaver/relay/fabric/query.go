@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package fabric
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"strconv"
 
@@ -29,11 +31,13 @@ const (
 )
 
 type Result struct {
+	address string
+	view    *common.View
 	fv      *fabric2.FabricView
 	results []byte
 }
 
-func NewResult(view *common.View) (*Result, error) {
+func NewResult(address string, view *common.View) (*Result, error) {
 	if view.Meta.Protocol != common.Meta_FABRIC {
 		return nil, errors.Errorf("invalid protocol, expected Meta_FABRIC, got [%d]", view.Meta.Protocol)
 	}
@@ -54,6 +58,8 @@ func NewResult(view *common.View) (*Result, error) {
 	}
 
 	return &Result{
+		address: address,
+		view:    view,
 		fv:      fv,
 		results: respPayload.Results,
 	}, nil
@@ -73,6 +79,17 @@ func (r *Result) RWSet() (*Inspector, error) {
 		return nil, err
 	}
 	return i, nil
+}
+
+func (r *Result) Proof() ([]byte, error) {
+	viewRaw, err := proto.Marshal(r.view)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed marshalling view")
+	}
+	return json.Marshal(&Proof{
+		B64ViewProto: base64.StdEncoding.EncodeToString(viewRaw),
+		Address:      r.address,
+	})
 }
 
 type Query struct {
@@ -155,7 +172,7 @@ func (q *Query) Call() (*Result, error) {
 		return nil, errors.Wrapf(err, "failed running interop view")
 	}
 
-	return NewResult(views[0])
+	return NewResult(specialAddress, views[0])
 }
 
 func (q *Query) prepareArgs() ([]string, error) {
