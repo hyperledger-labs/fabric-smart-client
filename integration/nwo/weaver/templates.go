@@ -45,9 +45,16 @@ const FabricExtensionTemplate = `
 fabric:{{ range Servers }}
   {{ .FabricTopologyName }}:
     weaver:
+      interopcc:
+        channel: {{ .InteropChaincode.Channel }} 
+        name: {{ .InteropChaincode.Namespace }}        
       relay:
         address: {{ .Hostname }}:{{ .Port }}
         tls:
           enabled: false
+      remote: {{ range RelaysOf . }}
+        {{ .Name }}:
+          address: {{ .Hostname }}:{{ .Port }}
+      {{- end }}
 {{- end }}
 `

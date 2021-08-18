@@ -7,39 +7,21 @@ SPDX-License-Identifier: Apache-2.0
 package weaver
 
 import (
-	"fmt"
+	"github.com/pkg/errors"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
+	fabric3 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/weaver/relay/fabric"
 )
 
 type Relay struct {
 	fns *fabric.NetworkService
 }
 
-func (r *Relay) RequestState() error {
-	address := r.fns.ConfigService().GetString("weaver.relay.address")
-
-	names := fabric.GetFabricNetworkNames(r.fns.SP)
-	fmt.Println(">>>>", names)
-
-	fmt.Println("^^^^^", r.fns.Name())
-
-	var otherName string
-	for _, name := range names {
-		if r.fns.Name() == name {
-			continue
-		}
-		otherName = name
-		break
+func (r *Relay) FabricQuery(destination, function string, args ...interface{}) (*fabric3.Query, error) {
+	id, err := fabric3.URLToID(destination)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed parsing destination [%s]", destination)
 	}
 
-	otherNS := fabric.GetFabricNetworkService(r.fns.SP, otherName)
-
-	otherAddress := otherNS.ConfigService().GetString("weaver.relay.address")
-
-	fmt.Println("$$$$$$$", address, otherAddress)
-
-	panic("bla")
-
-	return nil
+	return fabric3.NewQuery(r.fns, id, function, args), nil
 }

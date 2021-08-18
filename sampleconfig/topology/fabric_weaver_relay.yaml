@@ -90,7 +90,7 @@ topologies:
   - chaincode:
       name: ns1
       version: Version-0.0
-      path: github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/chaincode/base
+      path: github.com/hyperledger-labs/fabric-smart-client/integration/fabric/weaver/relay/chaincode
       ctor: '{"Args":["init"]}'
       policy: AND ('Org1MSP.member')
       lang: golang
@@ -199,7 +199,7 @@ topologies:
   - chaincode:
       name: ns2
       version: Version-0.0
-      path: github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/chaincode/base
+      path: github.com/hyperledger-labs/fabric-smart-client/integration/fabric/weaver/relay/chaincode
       ctor: '{"Args":["init"]}'
       policy: AND ('Org3MSP.member')
       lang: golang
@@ -222,30 +222,34 @@ topologies:
   type: weaver
   relays:
   - fabrictopologyname: alpha
-    name: Fabric_alpha
-    hostname: 127.0.0.1
+    name: alpha
+    hostname: relay-alpha
     organization: Org1
     networks:
     - type: Fabric
-      name: Fabric_beta
+      name: alpha
+    - type: Fabric
+      name: beta
     drivers:
     - name: Fabric
-      hostname: 127.0.0.1
+      hostname: driver-alpha
     interopchaincode:
       label: interop
       channel: testchannel
       namespace: interop
       path: github.com/hyperledger-labs/weaver-dlt-interoperability/core/network/fabric-interop-cc/contracts/interop
   - fabrictopologyname: beta
-    name: Fabric_beta
-    hostname: 127.0.0.1
+    name: beta
+    hostname: relay-beta
     organization: Org3
     networks:
     - type: Fabric
-      name: Fabric_alpha
+      name: beta
+    - type: Fabric
+      name: alpha
     drivers:
     - name: Fabric
-      hostname: 127.0.0.1
+      hostname: driver-beta
     interopchaincode:
       label: interop
       channel: testchannel
@@ -256,11 +260,11 @@ topologies:
   peers:
   - NodeSynthesizer:
       Aliases:
-        github.com/hyperledger-labs/fabric-smart-client/integration/fabric/twonets/views:
+        github.com/hyperledger-labs/fabric-smart-client/integration/fabric/weaver/relay/views:
           original: views
           alias: views
       Imports:
-      - github.com/hyperledger-labs/fabric-smart-client/integration/fabric/twonets/views
+      - github.com/hyperledger-labs/fabric-smart-client/integration/fabric/weaver/relay/views
       Factories:
       - id: ping
         type: '&views.PingFactory{}'
@@ -273,15 +277,13 @@ topologies:
             Organization:
             - Network: alpha
               Org: Org1
-            - Network: beta
-              Org: Org3
   - NodeSynthesizer:
       Aliases:
-        github.com/hyperledger-labs/fabric-smart-client/integration/fabric/twonets/views:
+        github.com/hyperledger-labs/fabric-smart-client/integration/fabric/weaver/relay/views:
           original: views
           alias: views
       Imports:
-      - github.com/hyperledger-labs/fabric-smart-client/integration/fabric/twonets/views
+      - github.com/hyperledger-labs/fabric-smart-client/integration/fabric/weaver/relay/views
       Responders:
       - responder: '&views.Pong{}'
         initiator: '&views.Ping{}'
@@ -291,8 +293,6 @@ topologies:
         fabric:
           mapping:
             Organization:
-            - Network: alpha
-              Org: Org1
             - Network: beta
               Org: Org3
   logging:

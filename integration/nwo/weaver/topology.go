@@ -80,12 +80,12 @@ func (t *Topology) AddRelayServer(ft *topology.Topology, org string) *RelayServe
 		FabricTopology:     ft,
 		FabricTopologyName: ft.Name(),
 		Name:               ft.Name(),
-		Hostname:           "relay-"+ft.Name(),
+		Hostname:           "relay-" + ft.Name(),
 		Organization:       org,
 		Drivers: []*Driver{
 			{
 				Name:     "Fabric",
-				Hostname: "driver-"+ft.Name(),
+				Hostname: "driver-" + ft.Name(),
 			},
 		},
 		InteropChaincode: InteropChaincode{
@@ -96,5 +96,6 @@ func (t *Topology) AddRelayServer(ft *topology.Topology, org string) *RelayServe
 		},
 	}
 	t.Relays = append(t.Relays, r)
+	r.AddFabricNetwork(ft)
 	return r
 }

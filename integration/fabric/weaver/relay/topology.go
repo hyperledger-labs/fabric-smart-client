@@ -19,16 +19,20 @@ func Topology() []api.Topology {
 	f1Topology := fabric.NewTopologyWithName("alpha").SetDefault()
 	f1Topology.AddOrganizationsByName("Org1", "Org2")
 	f1Topology.SetNamespaceApproverOrgs("Org1")
-	f1Topology.AddNamespaceWithUnanimity("ns1", "Org1")
+	f1Topology.AddNamespaceWithUnanimity("ns1", "Org1").SetChaincodePath(
+		"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/weaver/relay/chaincode",
+	)
 
 	f2Topology := fabric.NewTopologyWithName("beta")
 	f2Topology.AddOrganizationsByName("Org3", "Org4")
 	f2Topology.SetNamespaceApproverOrgs("Org3")
-	f2Topology.AddNamespaceWithUnanimity("ns2", "Org3")
+	f2Topology.AddNamespaceWithUnanimity("ns2", "Org3").SetChaincodePath(
+		"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/weaver/relay/chaincode",
+	)
 
 	wTopology := weaver.NewTopology()
-	wTopology.AddRelayServer(f1Topology, "Org1").AddFabricNetwork(f2Topology).AddFabricNetwork(f1Topology)
-	wTopology.AddRelayServer(f2Topology, "Org3").AddFabricNetwork(f1Topology).AddFabricNetwork(f2Topology)
+	wTopology.AddRelayServer(f1Topology, "Org1").AddFabricNetwork(f2Topology)
+	wTopology.AddRelayServer(f2Topology, "Org3").AddFabricNetwork(f1Topology)
 
 	// Define an FSC topology with 2 FCS nodes.
 	fscTopology := fsc.NewTopology()
@@ -37,14 +41,12 @@ func Topology() []api.Topology {
 	alice := fscTopology.AddNodeByName("alice")
 	alice.AddOptions(
 		fabric.WithNetworkOrganization("alpha", "Org1"),
-		fabric.WithNetworkOrganization("beta", "Org3"),
 	)
 	alice.RegisterViewFactory("ping", &views.PingFactory{})
 
 	// Add bob's FSC node
 	bob := fscTopology.AddNodeByName("bob")
 	bob.AddOptions(
-		fabric.WithNetworkOrganization("alpha", "Org1"),
 		fabric.WithNetworkOrganization("beta", "Org3"),
 	)
 	bob.RegisterResponder(&views.Pong{}, &views.Ping{})

@@ -84,9 +84,6 @@ func (p *Platform) RunRelayServer(name string, serverConfigPath, port string) {
 		panic(err)
 	}
 
-
-
-
 	cli.NetworkConnect(context.Background(), p.NetworkID, resp.ID, &network.EndpointSettings{
 		NetworkID: p.NetworkID,
 	})
@@ -133,8 +130,8 @@ func (p *Platform) RunRelayFabricDriver(
 
 	resp, err := cli.ContainerCreate(ctx, &container.Config{
 		Hostname: hostname,
-		Image: FabricDriverImager,
-		Tty:   false,
+		Image:    FabricDriverImager,
+		Tty:      false,
 		Env: []string{
 			"NETWORK_NAME=" + networkName,
 			"RELAY_ENDPOINT=" + relayHost + ":" + relayPort,
@@ -188,7 +185,6 @@ func (p *Platform) RunRelayFabricDriver(
 	if err != nil {
 		panic(err)
 	}
-
 
 	cli.NetworkConnect(context.Background(), p.NetworkID, resp.ID, &network.EndpointSettings{
 		NetworkID: p.NetworkID,

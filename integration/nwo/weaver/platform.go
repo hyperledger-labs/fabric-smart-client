@@ -10,7 +10,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/onsi/ginkgo"
 	"io"
 	"io/ioutil"
 	"net"
@@ -222,64 +221,31 @@ func (p *Platform) Cleanup() {
 	err = p.DockerClient.RemoveNetwork(nw.ID)
 	Expect(err).NotTo(HaveOccurred())
 
-
 	return
 
-	containers, err := p.DockerClient.ListContainers(docker.ListContainersOptions{All: true})
-	Expect(err).NotTo(HaveOccurred())
-	for _, c := range containers {
-		for _, name := range c.Names {
-			if strings.HasPrefix(name, "/"+p.NetworkID) {
-				err := p.DockerClient.RemoveContainer(docker.RemoveContainerOptions{ID: c.ID, Force: true})
-				Expect(err).NotTo(HaveOccurred())
-				break
-			}
-		}
-	}
-
-	images, err := p.DockerClient.ListImages(docker.ListImagesOptions{All: true})
-	Expect(err).NotTo(HaveOccurred())
-	for _, i := range images {
-		for _, tag := range i.RepoTags {
-			if strings.HasPrefix(tag, p.NetworkID) {
-				err := p.DockerClient.RemoveImage(i.ID)
-				Expect(err).NotTo(HaveOccurred())
-				break
-			}
-		}
-	}
-}
-
-func (p *Platform) generateRelayServerTOML(relay *RelayServer) {
-	err := os.MkdirAll(p.RelayServerDir(relay), 0o755)
-	Expect(err).NotTo(HaveOccurred())
-
-	relayServerFile, err := os.Create(p.RelayServerConfigPath(relay))
-	Expect(err).NotTo(HaveOccurred())
-	defer relayServerFile.Close()
-
-	var relays []*RelayServer
-	for _, r := range p.Topology.Relays {
-		if r != relay {
-			relays = append(relays, r)
-		}
-	}
-
-
-	fmt.Printf("#### %s %s:%d\n", relay.Name, relay.Hostname, relay.Port)
-
-	t, err := template.New("relay_server").Funcs(template.FuncMap{
-		"Name":     func() string { return relay.FabricTopologyName },
-		"Port":     func() uint16 { return relay.Port },
-		"Hostname": func() string { return relay.Hostname },
-		"Networks": func() []*Network { return relay.Networks },
-		"Drivers":  func() []*Driver { return relay.Drivers },
-		"Relays":   func() []*RelayServer { return relays },
-	}).Parse(RelayServerTOML)
-	Expect(err).NotTo(HaveOccurred())
-
-	err = t.Execute(io.MultiWriter(relayServerFile), p)
-	Expect(err).NotTo(HaveOccurred())
+	// containers, err := p.DockerClient.ListContainers(docker.ListContainersOptions{All: true})
+	// Expect(err).NotTo(HaveOccurred())
+	// for _, c := range containers {
+	// 	for _, name := range c.Names {
+	// 		if strings.HasPrefix(name, "/"+p.NetworkID) {
+	// 			err := p.DockerClient.RemoveContainer(docker.RemoveContainerOptions{ID: c.ID, Force: true})
+	// 			Expect(err).NotTo(HaveOccurred())
+	// 			break
+	// 		}
+	// 	}
+	// }
+	//
+	// images, err := p.DockerClient.ListImages(docker.ListImagesOptions{All: true})
+	// Expect(err).NotTo(HaveOccurred())
+	// for _, i := range images {
+	// 	for _, tag := range i.RepoTags {
+	// 		if strings.HasPrefix(tag, p.NetworkID) {
+	// 			err := p.DockerClient.RemoveImage(i.ID)
+	// 			Expect(err).NotTo(HaveOccurred())
+	// 			break
+	// 		}
+	// 	}
+	// }
 }
 
 func (p *Platform) RelayServerDir(relay *RelayServer) string {
@@ -385,6 +351,37 @@ func (p *Platform) Fabric(relay *RelayServer) FabricNetwork {
 	return p.Context.PlatformByName(relay.FabricTopologyName).(FabricNetwork)
 }
 
+func (p *Platform) generateRelayServerTOML(relay *RelayServer) {
+	err := os.MkdirAll(p.RelayServerDir(relay), 0o755)
+	Expect(err).NotTo(HaveOccurred())
+
+	relayServerFile, err := os.Create(p.RelayServerConfigPath(relay))
+	Expect(err).NotTo(HaveOccurred())
+	defer relayServerFile.Close()
+
+	var relays []*RelayServer
+	for _, r := range p.Topology.Relays {
+		if r != relay {
+			relays = append(relays, r)
+		}
+	}
+
+	fmt.Printf("#### %s %s:%d\n", relay.Name, relay.Hostname, relay.Port)
+
+	t, err := template.New("relay_server").Funcs(template.FuncMap{
+		"Name":     func() string { return relay.FabricTopologyName },
+		"Port":     func() uint16 { return relay.Port },
+		"Hostname": func() string { return relay.Hostname },
+		"Networks": func() []*Network { return relay.Networks },
+		"Drivers":  func() []*Driver { return relay.Drivers },
+		"Relays":   func() []*RelayServer { return relays },
+	}).Parse(RelayServerTOML)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = t.Execute(io.MultiWriter(relayServerFile), p)
+	Expect(err).NotTo(HaveOccurred())
+}
+
 func (p *Platform) generateFabricDriverConfigFiles(relay *RelayServer) {
 	p.generateFabricDriverCPFile(relay)
 	p.generateFabricDriverConfigFile(relay)
@@ -461,7 +458,6 @@ func (p *Platform) generateFabricDriverCPFile(relay *RelayServer) {
 
 	raw, err := json.MarshalIndent(cp, "", "  ")
 	Expect(err).NotTo(HaveOccurred())
-
 
 	fmt.Println(string(raw))
 
@@ -644,6 +640,30 @@ func (p *Platform) generateInteropChaincodeVerificationPolicyFile(relay *RelaySe
 	Expect(ioutil.WriteFile(p.RelayServerInteropVerificationPolicy(relay), raw, 0o755)).NotTo(HaveOccurred())
 }
 
+func (p *Platform) generateFabricExtension() {
+	t, err := template.New("view_extension").Funcs(template.FuncMap{
+		"Servers": func() []*RelayServer { return p.Topology.Relays },
+		"RelaysOf": func(relay *RelayServer) []*RelayServer {
+			var relays []*RelayServer
+			for _, r := range p.Topology.Relays {
+				if r != relay {
+					relays = append(relays, r)
+				}
+			}
+			return relays
+		},
+	}).Parse(FabricExtensionTemplate)
+	Expect(err).NotTo(HaveOccurred())
+
+	extension := bytes.NewBuffer([]byte{})
+	err = t.Execute(io.MultiWriter(extension), p)
+	Expect(err).NotTo(HaveOccurred())
+	fscTopology := p.Context.TopologyByName("fsc").(*fsc.Topology)
+	for _, node := range fscTopology.Nodes {
+		p.Context.AddExtension(node.ID(), api2.FabricExtension, extension.String())
+	}
+}
+
 func (p *Platform) copyInteropChaincode() {
 	src, cleanup, err := packageChaincode()
 	Expect(err).ToNot(HaveOccurred())
@@ -663,21 +683,6 @@ func (p *Platform) copyInteropChaincode() {
 	defer destination.Close()
 	_, err = io.Copy(destination, source)
 	Expect(err).ToNot(HaveOccurred())
-}
-
-func (p *Platform) generateFabricExtension() {
-	t, err := template.New("view_extension").Funcs(template.FuncMap{
-		"Servers": func() []*RelayServer { return p.Topology.Relays },
-	}).Parse(FabricExtensionTemplate)
-	Expect(err).NotTo(HaveOccurred())
-
-	extension := bytes.NewBuffer([]byte{})
-	err = t.Execute(io.MultiWriter(extension), p)
-	Expect(err).NotTo(HaveOccurred())
-	fscTopology := p.Context.TopologyByName("fsc").(*fsc.Topology)
-	for _, node := range fscTopology.Nodes {
-		p.Context.AddExtension(node.ID(), api2.FabricExtension, extension.String())
-	}
 }
 
 func (p *Platform) localIP() string {
@@ -709,7 +714,7 @@ func (p *Platform) localIP() string {
 		}
 	}
 
-	ginkgo.Fail(fmt.Sprintf("could not find network interface with subnet %s", dockerPrefix))
+	// ginkgo.Fail(fmt.Sprintf("could not find network interface with subnet %s", dockerPrefix))
 
-	return ""
+	return "localhost"
 }

@@ -7,13 +7,13 @@ SPDX-License-Identifier: Apache-2.0
 package views
 
 import (
-	"encoding/json"
 	"fmt"
 	"time"
 
 	"github.com/pkg/errors"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/weaver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -21,10 +21,10 @@ import (
 type Pong struct{}
 
 func (p *Pong) Call(context view.Context) (interface{}, error) {
-	// Retrieve the session opened by the initiator
+	// Retrieve the session opened by Alice
 	session := context.Session()
 
-	// Read the message from the initiator
+	// Read the message from Alice
 	ch := session.Receive()
 	var payload []byte
 	select {
@@ -43,11 +43,29 @@ func (p *Pong) Call(context view.Context) (interface{}, error) {
 		assert.NoError(err)
 		return nil, fmt.Errorf("exptectd ping, got %s", m)
 	default:
-		// reply with pong
-		names := fabric.GetFabricNetworkNames(context)
-		raw, err := json.Marshal(names)
-		assert.NoError(err)
-		assert.NoError(session.Send(raw))
+		// Bob puts a state in the namespace
+		value := []byte{2, 3}
+		_, err := fabric.GetDefaultChannel(context).Chaincode("ns2").Invoke(
+			"Set", "watermelon", value,
+		).Call()
+		assert.NoError(err, "failed putting state")
+
+		// Query the state Alice has set
+		relay := weaver.GetProvider(context).Relay(fabric.GetDefaultFNS(context))
+		query, err := relay.FabricQuery("fabric://alpha.testchannel.ns1/", "Get", "pineapple")
+		assert.NoError(err, "failed creating fabric query")
+		res, err := query.Call()
+		assert.NoError(err, "failed querying remote destination")
+		assert.NotNil(res, "result should be non-empty")
+
+		rwset, err := res.RWSet()
+		assert.NoError(err, "failed getting rwset from results")
+		assert.NotNil(rwset, "rwset should not be nil")
+		value, err = rwset.GetState("ns1", "pineapple")
+		assert.NoError(err, "failed getting state [ns1.pineapple]")
+
+		// send back the value read
+		assert.NoError(session.Send(value))
 	}
 
 	// Return

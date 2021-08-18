@@ -44,13 +44,10 @@ func packageChaincode() (tmpDir string, cleanup func(), err error) {
 		return "", nil, err
 	}
 	defer out.Close()
-
 	_, err = io.Copy(out, resp.Body)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed downloading data from %s: %v", interopCCPath, err)
 	}
-
-	archivePath = "/home/yacovm/gopath/src/github.com/hyperledger-labs/fabric-smart-client/weaverchaincode/v1.2.2.zip"
 
 	archive, err := zip.OpenReader(archivePath)
 	if err != nil {
