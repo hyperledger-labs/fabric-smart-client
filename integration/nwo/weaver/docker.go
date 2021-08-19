@@ -146,8 +146,8 @@ func (p *Platform) RunRelayFabricDriver(
 			"NODE_OPTIONS=--tls-max-v1.2",
 		},
 		Cmd: []string{
-			//"npm", "run", "dev", "--verbose=true",
-			"/bin/sh", "run.sh",
+			"npm", "run", "dev", "--verbose=true",
+			//"/bin/sh", "run.sh",
 		},
 		ExposedPorts: nat.PortSet{
 			nat.Port(driverPort + "/tcp"): struct{}{},
