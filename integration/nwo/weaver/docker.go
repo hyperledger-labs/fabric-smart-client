@@ -10,13 +10,13 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/docker/docker/api/types/network"
-
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/mount"
+	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
+	network2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/network"
 )
 
 func (p *Platform) RunRelayServer(name string, serverConfigPath, port string) {
@@ -141,19 +141,21 @@ func (p *Platform) RunRelayFabricDriver(
 			"CONNECTION_PROFILE=/ccp.json",
 			"INTEROP_CHAINCODE=" + interopChaincode,
 			"local=false",
+			"GRPC_TRACE=all",
+			"GRPC_VERBOSITY=DEBUG",
 			"GRPC_NODE_VERBOSITY=DEBUG",
 			"GRPC_NODE_TRACE=connectivity_state,server,server_call,subchannel",
 			"NODE_OPTIONS=--tls-max-v1.2",
 		},
 		Cmd: []string{
 			"npm", "run", "dev", "--verbose=true",
-			//"/bin/sh", "run.sh",
 		},
 		ExposedPorts: nat.PortSet{
 			nat.Port(driverPort + "/tcp"): struct{}{},
 			nat.Port(relayPort + "/tcp"):  struct{}{},
 		},
 	}, &container.HostConfig{
+		ExtraHosts: []string{fmt.Sprintf("fabric:%s", network2.LocalIP(p.DockerClient, p.NetworkID))},
 		// Absolute path to
 		Mounts: []mount.Mount{
 			{

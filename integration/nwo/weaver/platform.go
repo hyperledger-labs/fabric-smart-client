@@ -20,12 +20,7 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/network"
-
 	docker "github.com/fsouza/go-dockerclient"
-	. "github.com/onsi/gomega"
-	"github.com/tedsuo/ifrit/grouper"
-
 	api2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
@@ -33,6 +28,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/weaver/interop"
+	. "github.com/onsi/gomega"
+	"github.com/tedsuo/ifrit/grouper"
 )
 
 const (
@@ -453,7 +450,7 @@ func (p *Platform) generateFabricDriverCPFile(relay *RelayServer) {
 			gRPCopts["request-timeout"] = 120001
 
 			cp.Peers[peer.FullName] = Peer{
-				URL: "grpcs://" + net.JoinHostPort(network.LocalIP(p.DockerClient, p.NetworkID), port),
+				URL: "grpcs://" + net.JoinHostPort("fabric", port),
 				TLSCACerts: map[string]interface{}{
 					"pem": bb.String(),
 				},
