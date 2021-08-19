@@ -80,6 +80,17 @@ func (p *p) Install() error {
 
 	assert.NoError(p.registry.RegisterService(crypto.NewProvider()))
 
+	// KVS
+	driverName := view.GetConfigService(p.registry).GetString("fsc.kvs.persistence.type")
+	if len(driverName) == 0 {
+		driverName = "memory"
+	}
+	defaultKVS, err := kvs.New(driverName, "_default", p.registry)
+	if err != nil {
+		return errors.Wrap(err, "failed creating kvs")
+	}
+	assert.NoError(p.registry.RegisterService(defaultKVS))
+
 	// Sig Service
 	des, err := sig.NewMultiplexDeserializer(p.registry)
 	assert.NoError(err, "failed loading sig verifier deserializer service")
@@ -126,17 +137,6 @@ func (p *p) Install() error {
 		return err
 	}
 	p.viewManager = viewManager
-
-	// KVS
-	driverName := view.GetConfigService(p.registry).GetString("fsc.kvs.persistence.type")
-	if len(driverName) == 0 {
-		driverName = "memory"
-	}
-	defaultKVS, err := kvs.New(driverName, "_default", p.registry)
-	if err != nil {
-		return errors.Wrap(err, "failed creating kvs")
-	}
-	assert.NoError(p.registry.RegisterService(defaultKVS))
 
 	return nil
 }
