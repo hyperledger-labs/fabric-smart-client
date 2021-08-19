@@ -38,24 +38,12 @@ func (i *Inspector) IsValid() error {
 	return nil
 }
 
-func (i *Inspector) SetState(namespace string, key string, value []byte) error {
-	panic("programming error: the rwset inspector is read-only")
-}
-
 func (i *Inspector) GetState(namespace string, key string, opts ...driver.GetStateOpt) ([]byte, error) {
 	return i.rws.writeSet.get(namespace, key), nil
 }
 
-func (i *Inspector) DeleteState(namespace string, key string) error {
-	panic("programming error: the rwset inspector is read-only")
-}
-
 func (i *Inspector) GetStateMetadata(namespace, key string, opts ...driver.GetStateOpt) (map[string][]byte, error) {
 	return i.rws.metaWriteSet.get(namespace, key), nil
-}
-
-func (i *Inspector) SetStateMetadata(namespace, key string, metadata map[string][]byte) error {
-	panic("programming error: the rwset inspector is read-only")
 }
 
 func (i *Inspector) GetReadKeyAt(ns string, pos int) (string, error) {
@@ -114,28 +102,4 @@ func (i *Inspector) Namespaces() []string {
 	}
 
 	return namespaces
-}
-
-func (i *Inspector) AppendRWSet(raw []byte, nss ...string) error {
-	panic("programming error: the rwset inspector is read-only")
-}
-
-func (i *Inspector) Bytes() ([]byte, error) {
-	panic("programming error: unexpected call")
-}
-
-func (i *Inspector) Equals(other interface{}, nss ...string) error {
-	panic("programming error: unexpected call")
-}
-
-func (i *Inspector) String() string {
-	panic("programming error: unexpected call")
-}
-
-func (i *Inspector) Done() {
-
-}
-
-func (i *Inspector) Clear(ns string) error {
-	panic("programming error: unexpected call")
 }

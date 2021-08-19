@@ -19,6 +19,7 @@ type ID struct {
 	Chaincode string
 }
 
+// URLToID converts a Fabric url ('fabric://<network-id>.<channel-id>.<chaincode-id>/`) to its components
 func URLToID(url string) (*ID, error) {
 	u, err := url2.Parse(url)
 	if err != nil {

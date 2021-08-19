@@ -14,6 +14,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 )
 
+// Fabric models the relay services towards a Fabric network
 type Fabric struct {
 	fns *fabric.NetworkService
 }
@@ -22,6 +23,9 @@ func New(fns *fabric.NetworkService) *Fabric {
 	return &Fabric{fns: fns}
 }
 
+// Query invokes the passed function on the passed arguments on the passed destination network, and returns
+// the result.
+// The destination argument is expected to be formatted as 'fabric://<network-id>.<channel-id>.<chaincode-id>/`
 func (f *Fabric) Query(destination, function string, args ...interface{}) (*Query, error) {
 	id, err := URLToID(destination)
 	if err != nil {
@@ -30,6 +34,7 @@ func (f *Fabric) Query(destination, function string, args ...interface{}) (*Quer
 	return NewQuery(f.fns, id, function, args), nil
 }
 
+// VerifyProof checks the validity of the passed proof
 func (f *Fabric) VerifyProof(raw []byte) error {
 	proof := &Proof{}
 	if err := json.Unmarshal(raw, proof); err != nil {

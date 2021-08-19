@@ -30,6 +30,7 @@ const (
 	OK = 200
 )
 
+// Result models the result of a query to a remote network using Relay
 type Result struct {
 	address string
 	view    *common.View
@@ -65,14 +66,17 @@ func NewResult(address string, view *common.View) (*Result, error) {
 	}, nil
 }
 
+// IsOK return true if the result is valid
 func (r *Result) IsOK() bool {
 	return r.fv.Response.Status == OK
 }
 
+// Results return the marshalled version of the Fabric rwset
 func (r *Result) Results() []byte {
 	return r.results
 }
 
+// RWSet returns a wrapper over the Fabric rwset to inspect it
 func (r *Result) RWSet() (*Inspector, error) {
 	i := newInspector()
 	if err := i.rws.populate(r.results, "ephemeral"); err != nil {
@@ -81,6 +85,7 @@ func (r *Result) RWSet() (*Inspector, error) {
 	return i, nil
 }
 
+// Proof returns the marshalled version of the proof of validity accompanying this result
 func (r *Result) Proof() ([]byte, error) {
 	viewRaw, err := proto.Marshal(r.view)
 	if err != nil {
@@ -92,6 +97,7 @@ func (r *Result) Proof() ([]byte, error) {
 	})
 }
 
+// Query models a query to a remote network using Relay
 type Query struct {
 	localFNS       *fabric.NetworkService
 	remoteID       *ID
@@ -108,6 +114,7 @@ func NewQuery(fns *fabric.NetworkService, remoteID *ID, function string, args []
 	}
 }
 
+// Call performs the query and return a result if no error occurred
 func (q *Query) Call() (*Result, error) {
 	localRelayAddress := q.localFNS.ConfigService().GetString("weaver.relay.address")
 

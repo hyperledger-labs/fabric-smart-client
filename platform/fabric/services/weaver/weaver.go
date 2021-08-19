@@ -23,6 +23,7 @@ func NewProvider() *provider {
 	return &provider{relays: make(map[string]*Relay)}
 }
 
+// Relay returns the instance of the Relay service associated to the passed fabric network service
 func (w *provider) Relay(fns *fabric.NetworkService) *Relay {
 	if fns == nil {
 		panic("expected a fabric network service, got nil")
@@ -41,6 +42,7 @@ func (w *provider) Relay(fns *fabric.NetworkService) *Relay {
 	return r
 }
 
+// GetProvider returns the provider of weaver-related services
 func GetProvider(sp view2.ServiceProvider) *provider {
 	s, err := sp.GetService(reflect.TypeOf((*provider)(nil)))
 	if err != nil {

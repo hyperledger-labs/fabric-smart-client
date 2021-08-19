@@ -11,10 +11,12 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/weaver/relay/fabric"
 )
 
+// Relay gives access to the services offered by the Relay server
 type Relay struct {
 	fns *fabric2.NetworkService
 }
 
-func (r *Relay) Fabric() *fabric.Fabric {
+// ToFabric gives access to the Relay services towards a Fabric network
+func (r *Relay) ToFabric() *fabric.Fabric {
 	return fabric.New(r.fns)
 }
