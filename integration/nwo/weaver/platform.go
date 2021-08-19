@@ -36,9 +36,9 @@ import (
 )
 
 const (
-	RelayServerImage = "hyperledger-labs/weaver-relay-server:latest"
-	//FabricDriverImager = "hyperledger-labs/weaver-fabric-driver:latest"
-	FabricDriverImager = "fabric-driver:latest"
+	RelayServerImage   = "hyperledger-labs/weaver-relay-server:latest"
+	FabricDriverImager = "hyperledger-labs/weaver-fabric-driver:latest"
+	//FabricDriverImager = "fabric-driver:latest"
 )
 
 var RequiredImages = []string{
