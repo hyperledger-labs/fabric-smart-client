@@ -26,9 +26,9 @@ type Organization struct {
 }
 
 type Peer struct {
-	URL         string            `json:"url"`
-	TLSCACerts  map[string]string `json:"tlsCACerts"`
-	GrpcOptions map[string]string `json:"grpcOptions"`
+	URL         string                 `json:"url"`
+	TLSCACerts  map[string]interface{} `json:"tlsCACerts"`
+	GrpcOptions map[string]interface{} `json:"grpcOptions"`
 }
 
 type HttpOptions struct {

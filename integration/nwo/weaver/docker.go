@@ -9,6 +9,7 @@ package weaver
 import (
 	"context"
 	"fmt"
+
 	"github.com/docker/docker/api/types/network"
 
 	"github.com/docker/docker/api/types"
@@ -140,9 +141,13 @@ func (p *Platform) RunRelayFabricDriver(
 			"CONNECTION_PROFILE=/ccp.json",
 			"INTEROP_CHAINCODE=" + interopChaincode,
 			"local=false",
+			"GRPC_NODE_VERBOSITY=DEBUG",
+			"GRPC_NODE_TRACE=connectivity_state,server,server_call,subchannel",
+			"NODE_OPTIONS=--tls-max-v1.2",
 		},
 		Cmd: []string{
-			"npm", "run", "dev", "--verbose=true",
+			//"npm", "run", "dev", "--verbose=true",
+			"/bin/sh", "run.sh",
 		},
 		ExposedPorts: nat.PortSet{
 			nat.Port(driverPort + "/tcp"): struct{}{},

@@ -24,6 +24,7 @@ func Topology() []api.Topology {
 	).NoInit()
 
 	f2Topology := fabric.NewTopologyWithName("beta")
+	f2Topology.EnableGRPCLogging()
 	f2Topology.AddOrganizationsByName("Org3", "Org4")
 	f2Topology.SetNamespaceApproverOrgs("Org3")
 	f2Topology.AddNamespaceWithUnanimity("ns2", "Org3").SetChaincodePath(

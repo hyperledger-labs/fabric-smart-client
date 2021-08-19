@@ -20,6 +20,8 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/network"
+
 	docker "github.com/fsouza/go-dockerclient"
 	. "github.com/onsi/gomega"
 	"github.com/tedsuo/ifrit/grouper"
@@ -34,8 +36,9 @@ import (
 )
 
 const (
-	RelayServerImage   = "hyperledger-labs/weaver-relay-server:latest"
-	FabricDriverImager = "hyperledger-labs/weaver-fabric-driver:latest"
+	RelayServerImage = "hyperledger-labs/weaver-relay-server:latest"
+	//FabricDriverImager = "hyperledger-labs/weaver-fabric-driver:latest"
+	FabricDriverImager = "fabric-driver:latest"
 )
 
 var RequiredImages = []string{
@@ -197,11 +200,15 @@ func (p *Platform) PostRun() {
 			)
 		}
 
+		time.Sleep(time.Second * 2)
+
 		p.RunRelayServer(
 			strings.Replace(relay.Name, "Fabric_", "", -1),
 			p.RelayServerConfigPath(relay),
 			strconv.Itoa(int(relay.Port)),
 		)
+
+		time.Sleep(time.Second * 2)
 	}
 }
 
@@ -407,10 +414,10 @@ func (p *Platform) generateFabricDriverCPFile(relay *RelayServer) {
 		CertificateAuthorities: map[string]CertificationAuthority{},
 	}
 
-	fabric := p.Fabric(relay)
-	orgs := fabric.PeerOrgs()
+	fabricNetwork := p.Fabric(relay)
+	orgs := fabricNetwork.PeerOrgs()
 	for _, org := range orgs {
-		peers := fabric.PeersByOrg(org.Name)
+		peers := fabricNetwork.PeersByOrg(org.Name)
 		var names []string
 		for _, peer := range peers {
 			names = append(names, peer.FullName)
@@ -434,24 +441,26 @@ func (p *Platform) generateFabricDriverCPFile(relay *RelayServer) {
 			_, port, err := net.SplitHostPort(peer.ListeningAddress)
 			Expect(err).NotTo(HaveOccurred())
 
-			var certificates []string
+			bb := bytes.Buffer{}
+
 			for _, cert := range peer.TLSCACerts {
 				raw, err := ioutil.ReadFile(cert)
 				Expect(err).NotTo(HaveOccurred())
-				certificates = append(certificates, string(raw))
+				bb.WriteString(string(raw))
 			}
-			Expect(len(certificates)).ToNot(BeZero())
+
+			gRPCopts := make(map[string]interface{})
+			gRPCopts["request-timeout"] = 120001
 
 			cp.Peers[peer.FullName] = Peer{
-				URL: "grpcs://" + net.JoinHostPort(p.localIP(), port),
-				TLSCACerts: map[string]string{
-					"pem": certificates[0],
+				URL: "grpcs://" + net.JoinHostPort(network.LocalIP(p.DockerClient, p.NetworkID), port),
+				TLSCACerts: map[string]interface{}{
+					"pem": bb.String(),
 				},
-				GrpcOptions: map[string]string{
-					"ssl-target-name-override": peer.FullName,
-					"hostnameOverride":         peer.FullName,
-				},
+				GrpcOptions: gRPCopts,
 			}
+
+			fmt.Println("TLS CA certificate:", bb.String())
 		}
 
 	}
@@ -696,38 +705,4 @@ func (p *Platform) copyInteropChaincode() {
 	defer destination.Close()
 	_, err = io.Copy(destination, source)
 	Expect(err).ToNot(HaveOccurred())
-}
-
-func (p *Platform) localIP() string {
-	ni, err := p.DockerClient.NetworkInfo(p.NetworkID)
-	Expect(err).NotTo(HaveOccurred())
-
-	Expect(ni.IPAM.Config).To(HaveLen(1))
-	var config docker.IPAMConfig
-	for _, cfg := range ni.IPAM.Config {
-		config = cfg
-		break
-	}
-
-	dockerPrefix := config.Subnet[:strings.Index(config.Subnet, ".0")]
-
-	ifaces, err := net.Interfaces()
-	Expect(err).NotTo(HaveOccurred())
-
-	for _, i := range ifaces {
-		addrs, err := i.Addrs()
-		Expect(err).NotTo(HaveOccurred())
-
-		for _, addr := range addrs {
-			if strings.Index(addr.String(), dockerPrefix) == 0 {
-				ipWithSubnet := addr.String()
-				i := strings.Index(ipWithSubnet, "/")
-				return ipWithSubnet[:i]
-			}
-		}
-	}
-
-	// ginkgo.Fail(fmt.Sprintf("could not find network interface with subnet %s", dockerPrefix))
-
-	return "localhost"
 }

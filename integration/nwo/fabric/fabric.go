@@ -9,6 +9,7 @@ package fabric
 import (
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/hyperledger/fabric/integration/runner"
@@ -183,11 +184,12 @@ func (p *platform) PeersByOrg(orgName string) []*Peer {
 		if peer.Type != topology.FabricPeer {
 			continue
 		}
+		caCertPath := filepath.Join(p.Network.PeerLocalTLSDir(peer), "ca.crt")
 		peers = append(peers, &Peer{
 			Name:             peer.Name,
 			FullName:         fmt.Sprintf("%s.%s", peer.Name, org.Domain),
 			ListeningAddress: p.Network.PeerAddress(peer, network.ListenPort),
-			TLSCACerts:       p.Network.ListTLSCACertificates(),
+			TLSCACerts:       []string{caCertPath},
 		})
 
 	}
