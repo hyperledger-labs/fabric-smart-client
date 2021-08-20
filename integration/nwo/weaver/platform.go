@@ -21,6 +21,9 @@ import (
 	"time"
 
 	docker "github.com/fsouza/go-dockerclient"
+	. "github.com/onsi/gomega"
+	"github.com/tedsuo/ifrit/grouper"
+
 	api2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
@@ -28,8 +31,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/weaver/interop"
-	. "github.com/onsi/gomega"
-	"github.com/tedsuo/ifrit/grouper"
 )
 
 const (
@@ -57,6 +58,7 @@ type FabricNetwork interface {
 	PeersByOrg(orgName string) []*fabric.Peer
 	UserByOrg(organization string, user string) *fabric.User
 	UsersByOrg(organization string) []*fabric.User
+	Orderers() []*fabric.Orderer
 	Channels() []*fabric.Channel
 	InvokeChaincode(cc *topology.ChannelChaincode, method string, args ...[]byte)
 }
@@ -412,7 +414,10 @@ func (p *Platform) generateFabricDriverCPFile(relay *RelayServer) {
 	}
 
 	fabricNetwork := p.Fabric(relay)
+
+	// organizations
 	orgs := fabricNetwork.PeerOrgs()
+	var peerFullNames []string
 	for _, org := range orgs {
 		peers := fabricNetwork.PeersByOrg(org.Name)
 		var names []string
@@ -458,8 +463,33 @@ func (p *Platform) generateFabricDriverCPFile(relay *RelayServer) {
 			}
 
 			fmt.Println("TLS CA certificate:", bb.String())
+
+			peerFullNames = append(peerFullNames, peer.FullName)
 		}
 
+	}
+
+	// channels
+	cp.Channels = map[string]Channel{}
+	var peers []map[string]ChannelPeer
+	for _, name := range peerFullNames {
+		peers = append(peers,
+			map[string]ChannelPeer{
+				name: {
+					EndorsingPeer:  true,
+					ChaincodeQuery: true,
+					LedgerQuery:    true,
+					EventSource:    true,
+					Discover:       true,
+				},
+			},
+		)
+	}
+	for _, channel := range fabricNetwork.Channels() {
+		cp.Channels[channel.Name] = Channel{
+			Orderers: []string{},
+			Peers:    peers,
+		}
 	}
 
 	raw, err := json.MarshalIndent(cp, "", "  ")

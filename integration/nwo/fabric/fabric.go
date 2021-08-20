@@ -37,6 +37,13 @@ var (
 	}
 )
 
+type Orderer struct {
+	Name             string
+	FullName         string
+	ListeningAddress string
+	TLSCACerts       []string
+}
+
 type Peer struct {
 	Name             string
 	FullName         string
@@ -218,6 +225,23 @@ func (p *platform) UsersByOrg(orgName string) []*User {
 		})
 	}
 	return users
+}
+
+func (p *platform) Orderers() []*Orderer {
+	var orderers []*Orderer
+	for _, orderer := range p.Network.Orderers {
+		caCertPath := filepath.Join(p.Network.OrdererLocalTLSDir(orderer), "ca.crt")
+
+		org := p.Network.Organization(orderer.Organization)
+
+		orderers = append(orderers, &Orderer{
+			Name:             orderer.Name,
+			FullName:         fmt.Sprintf("%s.%s", orderer.Name, org.Domain),
+			ListeningAddress: p.Network.OrdererAddress(orderer, network.ListenPort),
+			TLSCACerts:       []string{caCertPath},
+		})
+	}
+	return orderers
 }
 
 func (p *platform) Channels() []*Channel {

@@ -42,10 +42,31 @@ type CertificationAuthority struct {
 	HttpOptions HttpOptions       `json:"httpOptions"`
 }
 
+type ChannelPeer struct {
+	EndorsingPeer  bool `json:"endorsingPeer"`
+	ChaincodeQuery bool `json:"chaincodeQuery"`
+	LedgerQuery    bool `json:"ledgerQuery"`
+	EventSource    bool `json:"eventSource"`
+	Discover       bool `json:"discover"`
+}
+
+type Channel struct {
+	Orderers []string                 `json:"orderers"`
+	Peers    []map[string]ChannelPeer `json:"peers"`
+}
+
+type Orderer struct {
+	Url         string                 `json:"url"`
+	TLSCACerts  map[string]interface{} `json:"tlsCACerts"`
+	GrpcOptions map[string]interface{} `json:"grpcOptions"`
+}
+
 type ConnectionProfile struct {
 	Name                   string                            `json:"name"`
 	Version                string                            `json:"version"`
 	Client                 Client                            `json:"client"`
+	Channels               map[string]Channel                `json:"channels"`
+	Orderers               map[string]Orderer                `json:"orderers"`
 	Organizations          map[string]Organization           `json:"organizations"`
 	Peers                  map[string]Peer                   `json:"peers"`
 	CertificateAuthorities map[string]CertificationAuthority `json:"certificateAuthorities"`
