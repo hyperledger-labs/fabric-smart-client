@@ -16,6 +16,7 @@ import (
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
+
 	network2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/network"
 )
 
@@ -131,7 +132,7 @@ func (p *Platform) RunRelayFabricDriver(
 
 	resp, err := cli.ContainerCreate(ctx, &container.Config{
 		Hostname: hostname,
-		Image:    FabricDriverImager,
+		Image:    FabricDriverImage,
 		Tty:      false,
 		Env: []string{
 			"NETWORK_NAME=" + networkName,
@@ -146,9 +147,11 @@ func (p *Platform) RunRelayFabricDriver(
 			"GRPC_NODE_VERBOSITY=DEBUG",
 			"GRPC_NODE_TRACE=connectivity_state,server,server_call,subchannel",
 			"NODE_OPTIONS=--tls-max-v1.2",
+			"HFC_LOGGING={\"debug\":\"console\",\"info\":\"console\"}",
 		},
 		Cmd: []string{
 			"npm", "run", "dev", "--verbose=true",
+			// "/bin/sh", "run.sh",
 		},
 		ExposedPorts: nat.PortSet{
 			nat.Port(driverPort + "/tcp"): struct{}{},

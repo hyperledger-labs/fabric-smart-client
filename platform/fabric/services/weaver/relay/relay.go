@@ -85,6 +85,8 @@ func InteropFromContext(context view.Context, namespace string) {
 	err = proto.Unmarshal(sIDBytes, sID)
 	assert.NoError(err, "failed unmarshaling serialized identity")
 
+	fmt.Printf("USED Cert \n%s", string(sID.IdBytes))
+
 	me := fabric.GetDefaultIdentityProvider(context).DefaultIdentity()
 
 	sigSvc := ns.SigService()

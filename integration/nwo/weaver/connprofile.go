@@ -51,12 +51,12 @@ type ChannelPeer struct {
 }
 
 type Channel struct {
-	Orderers []string                 `json:"orderers"`
-	Peers    []map[string]ChannelPeer `json:"peers"`
+	Orderers []string               `json:"orderers"`
+	Peers    map[string]ChannelPeer `json:"peers"`
 }
 
 type Orderer struct {
-	Url         string                 `json:"url"`
+	URL         string                 `json:"url"`
 	TLSCACerts  map[string]interface{} `json:"tlsCACerts"`
 	GrpcOptions map[string]interface{} `json:"grpcOptions"`
 }

@@ -69,7 +69,7 @@ require (
 	go.uber.org/multierr v1.6.0 // indirect
 	go.uber.org/zap v1.16.0
 	golang.org/x/mod v0.5.0 // indirect
-	golang.org/x/sys v0.0.0-20210819135213-f52c844e1c1c // indirect
+	golang.org/x/sys v0.0.0-20210820121016-41cdb8703e55 // indirect
 	golang.org/x/text v0.3.5 // indirect
 	golang.org/x/tools v0.1.5 // indirect
 	google.golang.org/genproto v0.0.0-20210201184850-646a494a81ea // indirect

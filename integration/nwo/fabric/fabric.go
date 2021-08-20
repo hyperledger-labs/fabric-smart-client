@@ -49,12 +49,14 @@ type Peer struct {
 	FullName         string
 	ListeningAddress string
 	TLSCACerts       []string
+	Cert             string
 }
 
 type Org struct {
-	Name             string
-	MSPID            string
-	CACertsBundlePat string
+	Name                  string
+	MSPID                 string
+	CACertsBundlePath     string
+	PeerCACertificatePath string
 }
 
 type User struct {
@@ -176,29 +178,40 @@ func (p *platform) PeerOrgs() []*Org {
 	var orgs []*Org
 	for _, org := range p.Network.PeerOrgs() {
 		orgs = append(orgs, &Org{
-			Name:             org.Name,
-			MSPID:            org.MSPID,
-			CACertsBundlePat: p.Network.CACertsBundlePath(),
+			Name:                  org.Name,
+			MSPID:                 org.MSPID,
+			CACertsBundlePath:     p.Network.CACertsBundlePath(),
+			PeerCACertificatePath: p.Network.OrgPeerCACertificatePath(org),
 		})
 	}
 	return orgs
 }
 
-func (p *platform) PeersByOrg(orgName string) []*Peer {
+func (p *platform) PeersByOrg(orgName string, includeAll bool) []*Peer {
 	var peers []*Peer
 	org := p.Network.Organization(orgName)
 	for _, peer := range p.Network.PeersInOrg(orgName) {
-		if peer.Type != topology.FabricPeer {
+		if peer.Type != topology.FabricPeer && !includeAll {
 			continue
 		}
 		caCertPath := filepath.Join(p.Network.PeerLocalTLSDir(peer), "ca.crt")
-		peers = append(peers, &Peer{
-			Name:             peer.Name,
-			FullName:         fmt.Sprintf("%s.%s", peer.Name, org.Domain),
-			ListeningAddress: p.Network.PeerAddress(peer, network.ListenPort),
-			TLSCACerts:       []string{caCertPath},
-		})
 
+		if peer.Type != topology.FabricPeer {
+			peers = append(peers, &Peer{
+				Name:       peer.Name,
+				FullName:   fmt.Sprintf("%s.%s", peer.Name, org.Domain),
+				TLSCACerts: []string{caCertPath},
+				Cert:       p.Network.PeerCert(peer),
+			})
+		} else {
+			peers = append(peers, &Peer{
+				Name:             peer.Name,
+				FullName:         fmt.Sprintf("%s.%s", peer.Name, org.Domain),
+				ListeningAddress: p.Network.PeerAddress(peer, network.ListenPort),
+				TLSCACerts:       []string{caCertPath},
+				Cert:             p.Network.PeerCert(peer),
+			})
+		}
 	}
 	return peers
 }
@@ -266,7 +279,7 @@ func (p *platform) Channels() []*Channel {
 func (p *platform) InvokeChaincode(cc *topology.ChannelChaincode, method string, args ...[]byte) {
 	orderer := p.Network.Orderer("orderer")
 	org := p.PeerOrgs()[0]
-	peer := p.Network.Peer(org.Name, p.PeersByOrg(org.Name)[0].Name)
+	peer := p.Network.Peer(org.Name, p.PeersByOrg(org.Name, false)[0].Name)
 	s := &struct {
 		Args []string `json:"Args,omitempty"`
 	}{}

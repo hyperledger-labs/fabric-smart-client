@@ -231,6 +231,22 @@ func (n *Network) userCryptoDir(org *topology.Organization, nodeOrganizationType
 	)
 }
 
+func (n *Network) OrgPeerCACertificatePath(org *topology.Organization) string {
+	return n.orgCACertificatePath(org, "peerOrganizations")
+}
+
+func (n *Network) orgCACertificatePath(org *topology.Organization, nodeOrganizationType string) string {
+	return filepath.Join(
+		n.Context.RootDir(),
+		n.Prefix,
+		"crypto",
+		nodeOrganizationType,
+		org.Domain,
+		"ca",
+		fmt.Sprintf("ca.%s-cert.pem", org.Domain),
+	)
+}
+
 // PeerUserMSPDir returns the path to the MSP directory containing the
 // certificates and keys for the specified user of the peer.
 func (n *Network) PeerUserMSPDir(p *topology.Peer, user string) string {

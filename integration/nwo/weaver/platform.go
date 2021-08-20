@@ -15,6 +15,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"text/template"
@@ -34,14 +35,14 @@ import (
 )
 
 const (
-	RelayServerImage   = "hyperledger-labs/weaver-relay-server:latest"
-	FabricDriverImager = "hyperledger-labs/weaver-fabric-driver:latest"
-	//FabricDriverImager = "fabric-driver:latest"
+	RelayServerImage  = "hyperledger-labs/weaver-relay-server:latest"
+	FabricDriverImage = "hyperledger-labs/weaver-fabric-driver:latest"
+	// FabricDriverImage = "fabric-driver:latest"
 )
 
 var RequiredImages = []string{
 	RelayServerImage,
-	FabricDriverImager,
+	FabricDriverImage,
 }
 
 type Builder interface {
@@ -55,7 +56,7 @@ type FabricNetwork interface {
 	PeerChaincodeAddress(peerName string) string
 	PeerOrgs() []*fabric.Org
 	OrgMSPID(orgName string) string
-	PeersByOrg(orgName string) []*fabric.Peer
+	PeersByOrg(orgName string, includeAll bool) []*fabric.Peer
 	UserByOrg(organization string, user string) *fabric.User
 	UsersByOrg(organization string) []*fabric.User
 	Orderers() []*fabric.Orderer
@@ -395,6 +396,10 @@ func (p *Platform) generateFabricDriverConfigFiles(relay *RelayServer) {
 }
 
 func (p *Platform) generateFabricDriverCPFile(relay *RelayServer) {
+	fabricHost := "fabric"
+	if runtime.GOOS == "darwin" {
+		fabricHost = "host.docker.internal"
+	}
 	cp := &ConnectionProfile{
 		Name:    relay.Name,
 		Version: "1.0.0",
@@ -419,7 +424,7 @@ func (p *Platform) generateFabricDriverCPFile(relay *RelayServer) {
 	orgs := fabricNetwork.PeerOrgs()
 	var peerFullNames []string
 	for _, org := range orgs {
-		peers := fabricNetwork.PeersByOrg(org.Name)
+		peers := fabricNetwork.PeersByOrg(org.Name, false)
 		var names []string
 		for _, peer := range peers {
 			names = append(names, peer.FullName)
@@ -455,7 +460,7 @@ func (p *Platform) generateFabricDriverCPFile(relay *RelayServer) {
 			gRPCopts["request-timeout"] = 120001
 
 			cp.Peers[peer.FullName] = Peer{
-				URL: "grpcs://" + net.JoinHostPort("fabric", port),
+				URL: "grpcs://" + net.JoinHostPort(fabricHost, port),
 				TLSCACerts: map[string]interface{}{
 					"pem": bb.String(),
 				},
@@ -469,26 +474,50 @@ func (p *Platform) generateFabricDriverCPFile(relay *RelayServer) {
 
 	}
 
+	// orderers
+	cp.Orderers = map[string]Orderer{}
+	var ordererFullNames []string
+	for _, orderer := range fabricNetwork.Orderers() {
+		_, port, err := net.SplitHostPort(orderer.ListeningAddress)
+		Expect(err).NotTo(HaveOccurred())
+
+		bb := bytes.Buffer{}
+
+		for _, cert := range orderer.TLSCACerts {
+			raw, err := ioutil.ReadFile(cert)
+			Expect(err).NotTo(HaveOccurred())
+			bb.WriteString(string(raw))
+		}
+
+		gRPCopts := make(map[string]interface{})
+		gRPCopts["request-timeout"] = 120001
+
+		cp.Orderers[orderer.FullName] = Orderer{
+			URL: "grpcs://" + net.JoinHostPort(fabricHost, port),
+			TLSCACerts: map[string]interface{}{
+				"pem": bb.String(),
+			},
+			GrpcOptions: gRPCopts,
+		}
+		ordererFullNames = append(ordererFullNames, orderer.FullName)
+	}
+
 	// channels
 	cp.Channels = map[string]Channel{}
-	var peers []map[string]ChannelPeer
+	channelPeers := map[string]ChannelPeer{}
 	for _, name := range peerFullNames {
-		peers = append(peers,
-			map[string]ChannelPeer{
-				name: {
-					EndorsingPeer:  true,
-					ChaincodeQuery: true,
-					LedgerQuery:    true,
-					EventSource:    true,
-					Discover:       true,
-				},
-			},
-		)
+		channelPeers[name] = ChannelPeer{
+			EndorsingPeer:  true,
+			ChaincodeQuery: true,
+			LedgerQuery:    true,
+			EventSource:    true,
+			Discover:       true,
+		}
 	}
 	for _, channel := range fabricNetwork.Channels() {
 		cp.Channels[channel.Name] = Channel{
-			Orderers: []string{},
-			Peers:    peers,
+			Orderers: ordererFullNames,
+			Peers:    channelPeers,
 		}
 	}
 
@@ -583,38 +612,62 @@ func (p *Platform) generateInteropChaincodeConfigFiles(relay *RelayServer) {
 	p.generateInteropChaincodeVerificationPolicyFile(relay)
 }
 
-func (p *Platform) generateInteropChaincodeAccessControlFile(relay *RelayServer) {
-	fabric := p.Fabric(relay)
-
-	// For all users in all organizations, add a rule per chaincode deployed
+func (p *Platform) generateInteropChaincodeAccessControlFile(destinationRelay *RelayServer) {
+	// For all users and peers in all organizations in a network different from p.Fabric(relay), add a rule per chaincode deployed
+	destinationFabric := p.Fabric(destinationRelay)
 	var rules []*interop.Rule
-	for _, ch := range fabric.Channels() {
-		for _, chaincode := range ch.Chaincodes {
-			for _, org := range fabric.PeerOrgs() {
-				for _, user := range fabric.UsersByOrg(org.Name) {
-					raw, err := ioutil.ReadFile(user.Cert)
-					Expect(err).NotTo(HaveOccurred())
-					rules = append(rules, &interop.Rule{
-						Principal:     string(raw),
-						PrincipalType: "ca",
-						Resource:      fmt.Sprintf("%s:%s:Read:*", ch.Name, chaincode.Name),
-						Read:          false,
-					})
+	for _, sourceRelay := range p.Topology.Relays {
+		if sourceRelay != destinationRelay {
+			sourceFabric := p.Fabric(sourceRelay)
 
+			for _, ch := range destinationFabric.Channels() {
+				for _, chaincode := range ch.Chaincodes {
+
+					for _, org := range sourceFabric.PeerOrgs() {
+
+						for _, peer := range sourceFabric.PeersByOrg(org.Name, true) {
+							raw, err := ioutil.ReadFile(peer.Cert)
+							Expect(err).NotTo(HaveOccurred())
+
+							fmt.Printf("CERT in Rule [%s]\n%s", fmt.Sprintf("%s:%s:*", ch.Name, chaincode.Name), string(raw))
+
+							rules = append(rules, &interop.Rule{
+								Principal:     string(raw),
+								PrincipalType: "certificate",
+								Resource:      fmt.Sprintf("%s:%s:*", ch.Name, chaincode.Name),
+								Read:          false,
+							})
+						}
+
+						for _, user := range sourceFabric.UsersByOrg(org.Name) {
+							raw, err := ioutil.ReadFile(user.Cert)
+							Expect(err).NotTo(HaveOccurred())
+
+							fmt.Printf("CERT in Rule [%s]\n%s", fmt.Sprintf("%s:%s:*", ch.Name, chaincode.Name), string(raw))
+
+							rules = append(rules, &interop.Rule{
+								Principal:     string(raw),
+								PrincipalType: "certificate",
+								Resource:      fmt.Sprintf("%s:%s:*", ch.Name, chaincode.Name),
+								Read:          false,
+							})
+						}
+					}
 				}
 			}
 		}
 	}
+
 	accessControl := &interop.AccessControl{
-		SecurityDomain: relay.Name,
+		SecurityDomain: destinationRelay.Name,
 		Rules:          rules,
 	}
 	raw, err := json.MarshalIndent(accessControl, "", "  ")
 	Expect(err).ToNot(HaveOccurred())
 
 	Expect(err).NotTo(HaveOccurred())
-	Expect(os.MkdirAll(p.RelayServerInteropDir(relay), 0o755)).NotTo(HaveOccurred())
-	Expect(ioutil.WriteFile(p.RelayServerInteropAccessControl(relay), raw, 0o755)).NotTo(HaveOccurred())
+	Expect(os.MkdirAll(p.RelayServerInteropDir(destinationRelay), 0o755)).NotTo(HaveOccurred())
+	Expect(ioutil.WriteFile(p.RelayServerInteropAccessControl(destinationRelay), raw, 0o755)).NotTo(HaveOccurred())
 }
 
 func (p *Platform) generateInteropChaincodeMembershipFile(relay *RelayServer) {
@@ -623,7 +676,7 @@ func (p *Platform) generateInteropChaincodeMembershipFile(relay *RelayServer) {
 	// For all users in all organizations, add a rule per chaincode deployed
 	members := map[string]*interop.Member{}
 	for _, org := range fabric.PeerOrgs() {
-		raw, err := ioutil.ReadFile(org.CACertsBundlePat)
+		raw, err := ioutil.ReadFile(org.PeerCACertificatePath)
 		Expect(err).NotTo(HaveOccurred())
 		members[org.MSPID] = &interop.Member{
 			Type:  "ca",
@@ -654,7 +707,7 @@ func (p *Platform) generateInteropChaincodeVerificationPolicyFile(relay *RelaySe
 	for _, ch := range fabric.Channels() {
 		for _, chaincode := range ch.Chaincodes {
 			identifiers = append(identifiers, &interop.Identifier{
-				Pattern: fmt.Sprintf("%s:%s:query:*", ch.Name, chaincode.Name),
+				Pattern: fmt.Sprintf("%s:%s:*", ch.Name, chaincode.Name),
 				Policy: &interop.Policy{
 					Type:     "Signature",
 					Criteria: orgMSPIDs,
