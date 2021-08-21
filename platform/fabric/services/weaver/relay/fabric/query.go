@@ -135,8 +135,6 @@ func NewQuery(fns *fabric.NetworkService, remoteID *ID, function string, args []
 
 // Call performs the query and return a result if no error occurred
 func (q *Query) Call() (*Result, error) {
-	localRelayAddress := q.localFNS.ConfigService().GetString("weaver.relay.address")
-
 	remoteRelayAddress := q.localFNS.ConfigService().GetString(fmt.Sprintf("weaver.remote.%s.address", q.remoteID.Network))
 
 	args, err := q.prepareArgs()
@@ -178,9 +176,18 @@ func (q *Query) Call() (*Result, error) {
 		return nil, errors.Wrapf(err, "failed unmarshalling fabric identity")
 	}
 
-	_, port, err := net.SplitHostPort(localRelayAddress)
-	assert.NoError(err, "failed splitting host and port")
-	localRelayAddress = net.JoinHostPort("127.0.0.1", port)
+	localRelayAddress := q.localFNS.ConfigService().GetString("weaver.relay.address")
+	hostRelayAddress, port, err := net.SplitHostPort(localRelayAddress)
+	assert.NoError(err, "failed splitting host and port: %s", localRelayAddress)
+
+	isHostname := net.ParseIP(hostRelayAddress) == nil
+	_, resolverErr := net.LookupIP(hostRelayAddress)
+	unknownHostname := isHostname && resolverErr != nil
+
+	if unknownHostname {
+		logger.Warnf("Local relay address %s (weaver.relay.address) is an unknown host, falling back to 127.0.0.1", hostRelayAddress)
+		localRelayAddress = net.JoinHostPort("127.0.0.1", port)
+	}
 
 	logger.Infof("InteropFlow [%s] [%s] [%s]", localRelayAddress, remoteRelayAddress, specialAddress)
 	views, _, err := interoperablehelper.InteropFlow(
