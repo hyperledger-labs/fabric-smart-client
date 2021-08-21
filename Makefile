@@ -62,7 +62,6 @@ integration-tests: docker-images dependencies
 	cd ./integration/fsc/pingpong/; ginkgo -keepGoing --slowSpecThreshold 60 .
 	cd ./integration/fsc/stoprestart; ginkgo -keepGoing --slowSpecThreshold 60 .
 
-
 .PHONY: integration-tests-iou
 integration-tests-iou: docker-images dependencies
 	cd ./integration/fabric/iou; ginkgo -keepGoing --slowSpecThreshold 60 .
@@ -79,6 +78,10 @@ integration-tests-atsafsc: docker-images dependencies
 integration-tests-twonets: docker-images dependencies
 	cd ./integration/fabric/twonets; ginkgo -keepGoing --slowSpecThreshold 60 .
 
+.PHONY: integration-tests-weaver-relay
+integration-tests-weaver-relay: docker-images dependencies
+	cd ./integration/fabric/weaver/relay; ginkgo -keepGoing --slowSpecThreshold 60 .
+
 .PHONY: integration-tests-pingpong
 integration-tests-pingpong: docker-images dependencies
 	cd ./integration/fsc/pingpong/; ginkgo -keepGoing --slowSpecThreshold 60 .
@@ -86,8 +89,6 @@ integration-tests-pingpong: docker-images dependencies
 .PHONY: integration-tests-stoprestart
 integration-tests-stoprestart: docker-images dependencies
 	cd ./integration/fsc/stoprestart; ginkgo -keepGoing --slowSpecThreshold 60 .
-
-
 
 .PHONY: tidy
 tidy:

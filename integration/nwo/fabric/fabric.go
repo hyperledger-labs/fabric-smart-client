@@ -66,7 +66,8 @@ type User struct {
 }
 
 type Chaincode struct {
-	Name string
+	Name      string
+	OrgMSPIDs []string
 }
 
 type Channel struct {
@@ -263,8 +264,27 @@ func (p *platform) Channels() []*Channel {
 		var chaincodes []*Chaincode
 		for _, chaincode := range p.Network.Topology().Chaincodes {
 			if chaincode.Channel == ch.Name {
+				peers := p.Network.PeersByName(chaincode.Peers)
+				var orgs []string
+				var orgMSPIDs []string
+				for _, peer := range peers {
+					found := false
+					for _, org := range orgs {
+						if org == peer.Organization {
+							found = true
+							break
+						}
+					}
+					if !found {
+						orgs = append(orgs, peer.Organization)
+					}
+				}
+				for _, org := range orgs {
+					orgMSPIDs = append(orgMSPIDs, p.OrgMSPID(org))
+				}
 				chaincodes = append(chaincodes, &Chaincode{
-					Name: chaincode.Chaincode.Name,
+					Name:      chaincode.Chaincode.Name,
+					OrgMSPIDs: orgMSPIDs,
 				})
 			}
 		}

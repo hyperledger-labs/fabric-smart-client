@@ -12,7 +12,6 @@ import (
 	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/weaver/samplechaincode"
 )
 
 var (
@@ -88,45 +87,4 @@ func (p *Platform) PrepareInteropChaincode(relay *RelayServer) (*topology.Channe
 		Channel: relay.InteropChaincode.Channel,
 		Peers:   peers,
 	})
-}
-
-func (p *Platform) PrepareSampleChaincode(relay *RelayServer) *topology.ChannelChaincode {
-	orgs := p.Fabric(relay).PeerOrgs()
-
-	policy := "OR ("
-	for i, org := range orgs {
-		if i > 0 {
-			policy += ","
-		}
-		policy += "'" + org.Name + "MSP.member'"
-	}
-	policy += ")"
-
-	var peers []string
-	for _, org := range orgs {
-		for _, peer := range p.Fabric(relay).Topology().Peers {
-			if peer.Organization == org.Name {
-				peers = append(peers, peer.Name)
-			}
-		}
-	}
-
-	_ = samplechaincode.SimpleChaincode{}
-
-	return &topology.ChannelChaincode{
-		Chaincode: topology.Chaincode{
-			Ctor:            fmt.Sprintf(`{"Args":["init", "alice", "100", "bob", "100"]}`),
-			Name:            "mycc",
-			Label:           "mycc",
-			Version:         "Version-0.0",
-			Sequence:        "1",
-			InitRequired:    true,
-			Path:            "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/weaver/samplechaincode/main",
-			Lang:            "golang",
-			Policy:          policy,
-			SignaturePolicy: policy,
-		},
-		Channel: relay.InteropChaincode.Channel,
-		Peers:   peers,
-	}
 }

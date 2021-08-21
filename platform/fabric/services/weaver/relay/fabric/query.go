@@ -22,7 +22,10 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 )
+
+var logger = flogging.MustGetLogger("weaver-relay-fabric")
 
 const (
 	// OK constant - status code less than 400, endorser will endorse it.
@@ -159,6 +162,7 @@ func (q *Query) Call() (*Result, error) {
 		return nil, errors.Wrapf(err, "failed unmarshalling fabric identity")
 	}
 
+	logger.Debugf("InteropFlow [%s]", localRelayAddress)
 	views, _, err := interoperablehelper.InteropFlow(
 		&contract{
 			fns:       q.localFNS,

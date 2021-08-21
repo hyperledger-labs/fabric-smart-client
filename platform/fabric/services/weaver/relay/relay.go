@@ -60,7 +60,7 @@ func InteropFromContext(context view.Context, namespace string) {
 	invokeObject := types.Query{
 		ContractName: namespace,
 		Channel:      ns.Channels()[0],
-		CcFunc:       "query",
+		CcFunc:       "Get",
 		CcArgs:       []string{"alice"},
 	}
 
@@ -69,7 +69,7 @@ func InteropFromContext(context view.Context, namespace string) {
 
 	interopJSON := types.InteropJSON{
 		Address:        specialAddress,
-		ChaincodeFunc:  "query",
+		ChaincodeFunc:  "Get",
 		ChaincodeId:    namespace,
 		ChannelId:      ns.Channels()[0],
 		RemoteEndPoint: otherAddress,

@@ -26,9 +26,9 @@ func (p *Ping) Call(context view.Context) (interface{}, error) {
 	replacer.InteropFromContext(context, "ns2")
 
 	// Alice puts a state in the namespace
-	value := []byte{0, 1}
+	value := "sweet"
 	_, err := fabric.GetDefaultChannel(context).Chaincode("ns1").Invoke(
-		"Set", "pineapple", value,
+		"Put", "pineapple", value,
 	).Call()
 	assert.NoError(err, "failed putting state")
 
@@ -43,7 +43,7 @@ func (p *Ping) Call(context view.Context) (interface{}, error) {
 		if msg.Status == view.ERROR {
 			return nil, errors.New(string(msg.Payload))
 		}
-		assert.Equal(value, msg.Payload, "expected response to be equal to value, got [%v]", msg.Payload)
+		assert.Equal(value, string(msg.Payload), "expected response to be equal to value, got [%s]", string(msg.Payload))
 	case <-time.After(1 * time.Minute):
 		return nil, errors.New("responder didn't pong in time")
 	}
@@ -65,9 +65,9 @@ func (p *Ping) Call(context view.Context) (interface{}, error) {
 	rwset, err := res.RWSet()
 	assert.NoError(err, "failed getting rwset from results")
 	assert.NotNil(rwset, "rwset should not be nil")
-	value, err = rwset.GetState("ns2", "watermelon")
+	watermelonValue, err := rwset.GetState("ns2", "watermelon")
 	assert.NoError(err, "failed getting state [ns1.pineapple]")
-	assert.Equal(value, []byte{2, 3}, "expected response to be equal to value, got [%v]", value)
+	assert.Equal(watermelonValue, "red", "expected response to be equal to value, got [%v]", value)
 
 	// Return
 	return "OK", nil

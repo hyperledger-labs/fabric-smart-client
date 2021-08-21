@@ -153,37 +153,31 @@ func (p *Platform) PostRun() {
 		cc, err := p.PrepareInteropChaincode(relay)
 		Expect(err).NotTo(HaveOccurred())
 
-		sampleCC := p.PrepareSampleChaincode(relay)
-
 		fabric := p.Fabric(relay)
 		fabric.DeployChaincode(cc)
-		fabric.DeployChaincode(sampleCC)
-
-		fabric.InvokeChaincode(sampleCC, "invoke", []byte("alice"), []byte("bob"), []byte("50"))
-
 	}
 
-	for _, relay := range p.Topology.Relays {
-		cc, err := p.PrepareInteropChaincode(relay)
+	for _, destinationRelay := range p.Topology.Relays {
+		cc, err := p.PrepareInteropChaincode(destinationRelay)
 		Expect(err).NotTo(HaveOccurred())
 
-		fabric := p.Fabric(relay)
+		destinationFabric := p.Fabric(destinationRelay)
 
-		for _, currentRelay := range p.Topology.Relays {
-			if currentRelay.Name == relay.Name {
+		for _, sourceRelay := range p.Topology.Relays {
+			if sourceRelay.Name == destinationRelay.Name {
 				continue
 			}
-			raw, err := ioutil.ReadFile(p.RelayServerInteropAccessControl(currentRelay))
+			raw, err := ioutil.ReadFile(p.RelayServerInteropAccessControl(destinationRelay, sourceRelay))
 			Expect(err).NotTo(HaveOccurred())
-			fabric.InvokeChaincode(cc, "CreateAccessControlPolicy", raw)
+			destinationFabric.InvokeChaincode(cc, "CreateAccessControlPolicy", raw)
 
-			raw, err = ioutil.ReadFile(p.RelayServerInteropVerificationPolicy(currentRelay))
+			raw, err = ioutil.ReadFile(p.RelayServerInteropVerificationPolicy(sourceRelay))
 			Expect(err).NotTo(HaveOccurred())
-			fabric.InvokeChaincode(cc, "CreateVerificationPolicy", raw)
+			destinationFabric.InvokeChaincode(cc, "CreateVerificationPolicy", raw)
 
-			raw, err = ioutil.ReadFile(p.RelayServerInteropMembership(currentRelay))
+			raw, err = ioutil.ReadFile(p.RelayServerInteropMembership(sourceRelay))
 			Expect(err).NotTo(HaveOccurred())
-			fabric.InvokeChaincode(cc, "CreateMembership", raw)
+			destinationFabric.InvokeChaincode(cc, "CreateMembership", raw)
 		}
 	}
 
@@ -325,10 +319,10 @@ func (p *Platform) RelayServerInteropDir(relay *RelayServer) string {
 	)
 }
 
-func (p *Platform) RelayServerInteropAccessControl(relay *RelayServer) string {
+func (p *Platform) RelayServerInteropAccessControl(destination *RelayServer, source *RelayServer) string {
 	return filepath.Join(
-		p.RelayServerInteropDir(relay),
-		"access_control.json",
+		p.RelayServerInteropDir(destination),
+		fmt.Sprintf("access_control_%s.json", source.Name),
 	)
 }
 
@@ -613,10 +607,11 @@ func (p *Platform) generateInteropChaincodeConfigFiles(relay *RelayServer) {
 }
 
 func (p *Platform) generateInteropChaincodeAccessControlFile(destinationRelay *RelayServer) {
-	// For all users and peers in all organizations in a network different from p.Fabric(relay), add a rule per chaincode deployed
+	// For all source relay different from destination relay
+	// For all users and peers in all organizations in the source network, add a rule per chaincode in the destination network
 	destinationFabric := p.Fabric(destinationRelay)
-	var rules []*interop.Rule
 	for _, sourceRelay := range p.Topology.Relays {
+		var rules []*interop.Rule
 		if sourceRelay != destinationRelay {
 			sourceFabric := p.Fabric(sourceRelay)
 
@@ -656,18 +651,17 @@ func (p *Platform) generateInteropChaincodeAccessControlFile(destinationRelay *R
 				}
 			}
 		}
-	}
+		accessControl := &interop.AccessControl{
+			SecurityDomain: sourceRelay.Name,
+			Rules:          rules,
+		}
+		raw, err := json.MarshalIndent(accessControl, "", "  ")
+		Expect(err).ToNot(HaveOccurred())
 
-	accessControl := &interop.AccessControl{
-		SecurityDomain: destinationRelay.Name,
-		Rules:          rules,
+		Expect(err).NotTo(HaveOccurred())
+		Expect(os.MkdirAll(p.RelayServerInteropDir(destinationRelay), 0o755)).NotTo(HaveOccurred())
+		Expect(ioutil.WriteFile(p.RelayServerInteropAccessControl(destinationRelay, sourceRelay), raw, 0o755)).NotTo(HaveOccurred())
 	}
-	raw, err := json.MarshalIndent(accessControl, "", "  ")
-	Expect(err).ToNot(HaveOccurred())
-
-	Expect(err).NotTo(HaveOccurred())
-	Expect(os.MkdirAll(p.RelayServerInteropDir(destinationRelay), 0o755)).NotTo(HaveOccurred())
-	Expect(ioutil.WriteFile(p.RelayServerInteropAccessControl(destinationRelay), raw, 0o755)).NotTo(HaveOccurred())
 }
 
 func (p *Platform) generateInteropChaincodeMembershipFile(relay *RelayServer) {
@@ -695,28 +689,26 @@ func (p *Platform) generateInteropChaincodeMembershipFile(relay *RelayServer) {
 	Expect(ioutil.WriteFile(p.RelayServerInteropMembership(relay), raw, 0o755)).NotTo(HaveOccurred())
 }
 
-func (p *Platform) generateInteropChaincodeVerificationPolicyFile(relay *RelayServer) {
-	fabric := p.Fabric(relay)
+func (p *Platform) generateInteropChaincodeVerificationPolicyFile(destinationRelay *RelayServer) {
+	destinationFabric := p.Fabric(destinationRelay)
+
+	// For all source networks
 
 	// For all users in all organizations, add a rule per chaincode deployed
 	var identifiers []*interop.Identifier
-	var orgMSPIDs []string
-	for _, org := range fabric.PeerOrgs() {
-		orgMSPIDs = append(orgMSPIDs, org.MSPID)
-	}
-	for _, ch := range fabric.Channels() {
+	for _, ch := range destinationFabric.Channels() {
 		for _, chaincode := range ch.Chaincodes {
 			identifiers = append(identifiers, &interop.Identifier{
 				Pattern: fmt.Sprintf("%s:%s:*", ch.Name, chaincode.Name),
 				Policy: &interop.Policy{
 					Type:     "Signature",
-					Criteria: orgMSPIDs,
+					Criteria: chaincode.OrgMSPIDs,
 				},
 			})
 		}
 	}
 	verificationPolicy := &interop.VerificationPolicy{
-		SecurityDomain: strings.Replace(relay.Name, "Fabric_", "", -1),
+		SecurityDomain: strings.Replace(destinationRelay.Name, "Fabric_", "", -1),
 		Identifiers:    identifiers,
 	}
 	raw, err := json.MarshalIndent(verificationPolicy, "", "  ")
@@ -725,8 +717,8 @@ func (p *Platform) generateInteropChaincodeVerificationPolicyFile(relay *RelaySe
 	fmt.Println("GENERATING verification policy:", string(raw))
 
 	Expect(err).NotTo(HaveOccurred())
-	Expect(os.MkdirAll(p.RelayServerInteropDir(relay), 0o755)).NotTo(HaveOccurred())
-	Expect(ioutil.WriteFile(p.RelayServerInteropVerificationPolicy(relay), raw, 0o755)).NotTo(HaveOccurred())
+	Expect(os.MkdirAll(p.RelayServerInteropDir(destinationRelay), 0o755)).NotTo(HaveOccurred())
+	Expect(ioutil.WriteFile(p.RelayServerInteropVerificationPolicy(destinationRelay), raw, 0o755)).NotTo(HaveOccurred())
 }
 
 func (p *Platform) generateFabricExtension() {

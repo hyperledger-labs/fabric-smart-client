@@ -41,7 +41,7 @@ func (n *NetworkService) Channel(id string) (*Channel, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Channel{sp: n.SP, ch: ch}, nil
+	return &Channel{sp: n.SP, fns: n.fns, ch: ch}, nil
 }
 
 // IdentityProvider returns the identity provider of this network

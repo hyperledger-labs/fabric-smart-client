@@ -16,12 +16,19 @@ type SmartContract struct {
 	contractapi.Contract
 }
 
-func (s *SmartContract) Put(ctx contractapi.TransactionContextInterface, key string, value []byte) error {
-	return ctx.GetStub().PutState(key, value)
+func (s *SmartContract) Put(ctx contractapi.TransactionContextInterface, key string, value string) error {
+	return ctx.GetStub().PutState(key, []byte(value))
 }
 
-func (s *SmartContract) Get(ctx contractapi.TransactionContextInterface, key string) ([]byte, error) {
-	return ctx.GetStub().GetState(key)
+func (s *SmartContract) Get(ctx contractapi.TransactionContextInterface, key string) (string, error) {
+	v, err := ctx.GetStub().GetState(key)
+	if err != nil {
+		return "", err
+	}
+	if len(v) == 0 {
+		return "", nil
+	}
+	return string(v), nil
 }
 
 func main() {

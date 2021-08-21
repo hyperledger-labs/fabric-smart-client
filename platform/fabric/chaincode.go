@@ -56,18 +56,25 @@ func (e *Envelope) UnmarshalJSON(raw []byte) error {
 
 type Chaincode struct {
 	chaincode driver.Chaincode
+	fns       driver.FabricNetworkService
 }
 
 func (c *Chaincode) Invoke(function string, args ...interface{}) *ChaincodeInvocation {
-	return &ChaincodeInvocation{ChaincodeInvocation: c.chaincode.NewInvocation(driver.ChaincodeInvoke, function, args...)}
+	ci := &ChaincodeInvocation{ChaincodeInvocation: c.chaincode.NewInvocation(driver.ChaincodeInvoke, function, args...)}
+	ci.WithInvokerIdentity(c.fns.LocalMembership().DefaultIdentity())
+	return ci
 }
 
 func (c *Chaincode) Query(function string, args ...interface{}) *ChaincodeInvocation {
-	return &ChaincodeInvocation{ChaincodeInvocation: c.chaincode.NewInvocation(driver.ChaincodeQuery, function, args...)}
+	ci := &ChaincodeInvocation{ChaincodeInvocation: c.chaincode.NewInvocation(driver.ChaincodeQuery, function, args...)}
+	ci.WithInvokerIdentity(c.fns.LocalMembership().DefaultIdentity())
+	return ci
 }
 
 func (c *Chaincode) Endorse(function string, args ...interface{}) *ChaincodeEndorse {
-	return &ChaincodeEndorse{ci: c.chaincode.NewInvocation(driver.ChaincodeEndorse, function, args...)}
+	ci := &ChaincodeEndorse{ci: c.chaincode.NewInvocation(driver.ChaincodeEndorse, function, args...)}
+	ci.WithInvokerIdentity(c.fns.LocalMembership().DefaultIdentity())
+	return ci
 }
 
 func (c *Chaincode) Discover() *ChaincodeDiscover {

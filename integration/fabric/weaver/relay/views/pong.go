@@ -44,9 +44,8 @@ func (p *Pong) Call(context view.Context) (interface{}, error) {
 		return nil, fmt.Errorf("exptectd ping, got %s", m)
 	default:
 		// Bob puts a state in the namespace
-		value := []byte{2, 3}
 		_, err := fabric.GetDefaultChannel(context).Chaincode("ns2").Invoke(
-			"Set", "watermelon", value,
+			"Put", "watermelon", "red",
 		).Call()
 		assert.NoError(err, "failed putting state")
 
@@ -67,7 +66,7 @@ func (p *Pong) Call(context view.Context) (interface{}, error) {
 		rwset, err := res.RWSet()
 		assert.NoError(err, "failed getting rwset from results")
 		assert.NotNil(rwset, "rwset should not be nil")
-		value, err = rwset.GetState("ns1", "pineapple")
+		value, err := rwset.GetState("ns1", "pineapple")
 		assert.NoError(err, "failed getting state [ns1.pineapple]")
 
 		// send back the value read
