@@ -10,7 +10,10 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"net"
 	"strconv"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger-labs/weaver-dlt-interoperability/common/protos-go/common"
@@ -161,6 +164,11 @@ func (q *Query) Call() (*Result, error) {
 	if err := proto.Unmarshal(me, sID); err != nil {
 		return nil, errors.Wrapf(err, "failed unmarshalling fabric identity")
 	}
+
+	_, port, err := net.SplitHostPort(localRelayAddress)
+	assert.NoError(err, "failed splitting host and port")
+	localRelayAddress = net.JoinHostPort("127.0.0.1", port)
+	fmt.Println("changing address to", localRelayAddress)
 
 	logger.Debugf("InteropFlow [%s]", localRelayAddress)
 	views, _, err := interoperablehelper.InteropFlow(
