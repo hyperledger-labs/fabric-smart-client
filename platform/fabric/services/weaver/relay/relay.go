@@ -45,12 +45,9 @@ func InteropFromContext(context view.Context, namespace string) {
 	otherAddress := otherNS.ConfigService().GetString("weaver.relay.address")
 	strings.Replace(otherAddress, "127.0.0.1", fmt.Sprintf("relay-%s", otherNS.Name()), -1)
 
-	fmt.Println(">>>> address:", address)
-
 	_, port, err := net.SplitHostPort(address)
 	assert.NoError(err, "failed splitting host and port")
 	address = net.JoinHostPort("127.0.0.1", port)
-	fmt.Println("changing address to", address)
 
 	contract := FlowContract{
 		context:   context,
@@ -65,7 +62,6 @@ func InteropFromContext(context view.Context, namespace string) {
 	}
 
 	specialAddress := createAddress(invokeObject, otherNS.Name(), otherAddress)
-	fmt.Println(">>>> specialAddress: ", specialAddress)
 
 	interopJSON := types.InteropJSON{
 		Address:        specialAddress,
@@ -84,8 +80,6 @@ func InteropFromContext(context view.Context, namespace string) {
 	sID := &msp.SerializedIdentity{}
 	err = proto.Unmarshal(sIDBytes, sID)
 	assert.NoError(err, "failed unmarshaling serialized identity")
-
-	fmt.Printf("USED Cert \n%s", string(sID.IdBytes))
 
 	me := fabric.GetDefaultIdentityProvider(context).DefaultIdentity()
 

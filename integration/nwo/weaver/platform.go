@@ -219,34 +219,36 @@ func (p *Platform) Cleanup() {
 	}
 	Expect(err).NotTo(HaveOccurred())
 
+	containers, err := p.DockerClient.ListContainers(docker.ListContainersOptions{All: true})
+	Expect(err).NotTo(HaveOccurred())
+	for _, c := range containers {
+		for _, name := range c.Names {
+			p.DockerClient.DisconnectNetwork(p.NetworkID, docker.NetworkConnectionOptions{
+				Force:     true,
+				Container: c.ID,
+			})
+			if strings.HasPrefix(name, "/driver") || strings.HasPrefix(name, "/relay") {
+				err := p.DockerClient.RemoveContainer(docker.RemoveContainerOptions{ID: c.ID, Force: true})
+				Expect(err).NotTo(HaveOccurred())
+				break
+			}
+		}
+	}
+
+	images, err := p.DockerClient.ListImages(docker.ListImagesOptions{All: true})
+	Expect(err).NotTo(HaveOccurred())
+	for _, i := range images {
+		for _, tag := range i.RepoTags {
+			if strings.HasPrefix(tag, p.NetworkID) {
+				err := p.DockerClient.RemoveImage(i.ID)
+				Expect(err).NotTo(HaveOccurred())
+				break
+			}
+		}
+	}
+
 	err = p.DockerClient.RemoveNetwork(nw.ID)
 	Expect(err).NotTo(HaveOccurred())
-
-	return
-
-	// containers, err := p.DockerClient.ListContainers(docker.ListContainersOptions{All: true})
-	// Expect(err).NotTo(HaveOccurred())
-	// for _, c := range containers {
-	// 	for _, name := range c.Names {
-	// 		if strings.HasPrefix(name, "/"+p.NetworkID) {
-	// 			err := p.DockerClient.RemoveContainer(docker.RemoveContainerOptions{ID: c.ID, Force: true})
-	// 			Expect(err).NotTo(HaveOccurred())
-	// 			break
-	// 		}
-	// 	}
-	// }
-	//
-	// images, err := p.DockerClient.ListImages(docker.ListImagesOptions{All: true})
-	// Expect(err).NotTo(HaveOccurred())
-	// for _, i := range images {
-	// 	for _, tag := range i.RepoTags {
-	// 		if strings.HasPrefix(tag, p.NetworkID) {
-	// 			err := p.DockerClient.RemoveImage(i.ID)
-	// 			Expect(err).NotTo(HaveOccurred())
-	// 			break
-	// 		}
-	// 	}
-	// }
 }
 
 func (p *Platform) RelayServerDir(relay *RelayServer) string {

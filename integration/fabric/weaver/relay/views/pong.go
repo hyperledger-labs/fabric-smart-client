@@ -30,18 +30,19 @@ func (p *Pong) Call(context view.Context) (interface{}, error) {
 	select {
 	case msg := <-ch:
 		payload = msg.Payload
-	case <-time.After(5 * time.Second):
+	case <-time.After(60 * time.Second):
 		return nil, errors.New("time out reached")
 	}
 
 	// Respond with a pong if a ping is received, an error otherwise
 	m := string(payload)
+
 	switch {
 	case m != "ping":
 		// reply with an error
-		err := session.SendError([]byte(fmt.Sprintf("exptectd ping, got %s", m)))
+		err := session.SendError([]byte(fmt.Sprintf("expected ping, got %s", m)))
 		assert.NoError(err)
-		return nil, fmt.Errorf("exptectd ping, got %s", m)
+		return nil, fmt.Errorf("expected ping, got %s", m)
 	default:
 		// Bob puts a state in the namespace
 		_, err := fabric.GetDefaultChannel(context).Chaincode("ns2").Invoke(
@@ -62,12 +63,7 @@ func (p *Pong) Call(context view.Context) (interface{}, error) {
 		assert.NoError(err, "failed getting proof from query result")
 		assert.NoError(relay.ToFabric().VerifyProof(proof), "failed verifying proof")
 
-		// check the content of the result
-		rwset, err := res.RWSet()
-		assert.NoError(err, "failed getting rwset from results")
-		assert.NotNil(rwset, "rwset should not be nil")
-		value, err := rwset.GetState("ns1", "pineapple")
-		assert.NoError(err, "failed getting state [ns1.pineapple]")
+		value := res.ResponsePayload()
 
 		// send back the value read
 		assert.NoError(session.Send(value))

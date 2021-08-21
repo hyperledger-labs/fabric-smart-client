@@ -13,7 +13,6 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/weaver"
-	replacer "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/weaver/relay"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -23,7 +22,7 @@ type Ping struct{}
 
 func (p *Ping) Call(context view.Context) (interface{}, error) {
 	// TODO: remove this line after the relay connections are working...
-	replacer.InteropFromContext(context, "ns2")
+	//replacer.InteropFromContext(context, "ns2")
 
 	// Alice puts a state in the namespace
 	value := "sweet"
@@ -43,7 +42,7 @@ func (p *Ping) Call(context view.Context) (interface{}, error) {
 		if msg.Status == view.ERROR {
 			return nil, errors.New(string(msg.Payload))
 		}
-		assert.Equal(value, string(msg.Payload), "expected response to be equal to value, got [%s]", string(msg.Payload))
+		assert.Equal(value, string(msg.Payload), "expected response to be equal to value (%s), got [%s]", value, string(msg.Payload))
 	case <-time.After(1 * time.Minute):
 		return nil, errors.New("responder didn't pong in time")
 	}
@@ -62,12 +61,10 @@ func (p *Ping) Call(context view.Context) (interface{}, error) {
 	assert.NoError(relay.ToFabric().VerifyProof(proof), "failed verifying proof")
 
 	// check the content of the result
-	rwset, err := res.RWSet()
-	assert.NoError(err, "failed getting rwset from results")
-	assert.NotNil(rwset, "rwset should not be nil")
-	watermelonValue, err := rwset.GetState("ns2", "watermelon")
-	assert.NoError(err, "failed getting state [ns1.pineapple]")
-	assert.Equal(watermelonValue, "red", "expected response to be equal to value, got [%v]", value)
+
+	watermelonValue := res.ResponsePayload()
+	assert.NoError(err, "failed getting state [ns2.watermelon]")
+	assert.Equal(string(watermelonValue), "red", "expected response to be equal to value, got [%v]", value)
 
 	// Return
 	return "OK", nil

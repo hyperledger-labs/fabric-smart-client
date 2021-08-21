@@ -44,8 +44,6 @@ func (p *Platform) RunRelayServer(name string, serverConfigPath, port string) {
 
 	links = append(links, fmt.Sprintf("%s:%s", driverName, driverName))
 
-	fmt.Println(">>>>> hostname:", hostname)
-
 	resp, err := cli.ContainerCreate(ctx, &container.Config{
 		Hostname: hostname,
 		Image:    RelayServerImage,

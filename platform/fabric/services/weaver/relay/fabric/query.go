@@ -38,19 +38,20 @@ const (
 
 // Result models the result of a query to a remote network using Relay
 type Result struct {
-	address string
-	view    *common.View
-	fv      *fabric2.FabricView
-	results []byte
+	address         string
+	view            *common.View
+	fv              *fabric2.FabricView
+	results         []byte
+	responsePayload []byte
 }
 
 func NewResult(address string, view *common.View) (*Result, error) {
 	if view.Meta.Protocol != common.Meta_FABRIC {
 		return nil, errors.Errorf("invalid protocol, expected Meta_FABRIC, got [%d]", view.Meta.Protocol)
 	}
-	if view.Meta.SerializationFormat != "Protobuf" {
+	/*	if view.Meta.SerializationFormat != "Protobuf" {
 		return nil, errors.Errorf("invalid serialization format, expected Protobuf, got [%s]", view.Meta.SerializationFormat)
-	}
+	}*/
 
 	fv := &fabric2.FabricView{}
 	if err := proto.Unmarshal(view.Data, fv); err != nil {
@@ -64,11 +65,18 @@ func NewResult(address string, view *common.View) (*Result, error) {
 		return nil, err
 	}
 
+	encapsulatingProtobufThatIsTotallyRedundant := &common.InteropPayload{}
+	err = proto.Unmarshal(fv.Response.Payload, encapsulatingProtobufThatIsTotallyRedundant)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal InteropPayload: %v", err)
+	}
+
 	return &Result{
-		address: address,
-		view:    view,
-		fv:      fv,
-		results: respPayload.Results,
+		responsePayload: encapsulatingProtobufThatIsTotallyRedundant.Payload,
+		address:         address,
+		view:            view,
+		fv:              fv,
+		results:         respPayload.Results,
 	}, nil
 }
 
@@ -80,6 +88,11 @@ func (r *Result) IsOK() bool {
 // Results return the marshalled version of the Fabric rwset
 func (r *Result) Results() []byte {
 	return r.results
+}
+
+// ResponsePayload returns the response payload
+func (r *Result) ResponsePayload() []byte {
+	return r.responsePayload
 }
 
 // RWSet returns a wrapper over the Fabric rwset to inspect it
@@ -124,7 +137,7 @@ func NewQuery(fns *fabric.NetworkService, remoteID *ID, function string, args []
 func (q *Query) Call() (*Result, error) {
 	localRelayAddress := q.localFNS.ConfigService().GetString("weaver.relay.address")
 
-	remoteRelayAddress := q.localFNS.ConfigService().GetString(fmt.Sprintf("weaver.remote.%s.address" + q.remoteID.Network))
+	remoteRelayAddress := q.localFNS.ConfigService().GetString(fmt.Sprintf("weaver.remote.%s.address", q.remoteID.Network))
 
 	args, err := q.prepareArgs()
 	if err != nil {
@@ -168,9 +181,8 @@ func (q *Query) Call() (*Result, error) {
 	_, port, err := net.SplitHostPort(localRelayAddress)
 	assert.NoError(err, "failed splitting host and port")
 	localRelayAddress = net.JoinHostPort("127.0.0.1", port)
-	fmt.Println("changing address to", localRelayAddress)
 
-	logger.Debugf("InteropFlow [%s]", localRelayAddress)
+	logger.Infof("InteropFlow [%s] [%s] [%s]", localRelayAddress, remoteRelayAddress, specialAddress)
 	views, _, err := interoperablehelper.InteropFlow(
 		&contract{
 			fns:       q.localFNS,
