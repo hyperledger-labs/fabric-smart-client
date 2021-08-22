@@ -34,7 +34,7 @@ type NWO struct {
 func New(platforms ...api.Platform) *NWO {
 	return &NWO{
 		Platforms:              platforms,
-		StartEventuallyTimeout: 10 * time.Minute,
+		StartEventuallyTimeout: time.Minute,
 		StopEventuallyTimeout:  time.Minute,
 	}
 }

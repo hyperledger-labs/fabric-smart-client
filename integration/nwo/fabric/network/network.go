@@ -7,20 +7,20 @@ SPDX-License-Identifier: Apache-2.0
 package network
 
 import (
+	"net"
 	"path/filepath"
 	"strings"
 	"time"
 
 	docker "github.com/fsouza/go-dockerclient"
-	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gexec"
-	"github.com/tedsuo/ifrit/grouper"
-
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/commands"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/fabricconfig"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gexec"
+	"github.com/tedsuo/ifrit/grouper"
 )
 
 var logger = flogging.MustGetLogger("fsc.integration.fabric")
@@ -109,6 +109,38 @@ func New(reg api.Context, topology *topology.Topology, dockerClient *docker.Clie
 		ccps:              ccps,
 	}
 	return network
+}
+
+func LocalIP(dockerClient *docker.Client, networkID string) string {
+	ni, err := dockerClient.NetworkInfo(networkID)
+	Expect(err).NotTo(HaveOccurred())
+
+	Expect(ni.IPAM.Config).To(HaveLen(1))
+	var config docker.IPAMConfig
+	for _, cfg := range ni.IPAM.Config {
+		config = cfg
+		break
+	}
+
+	dockerPrefix := config.Subnet[:strings.Index(config.Subnet, ".0")]
+
+	ifaces, err := net.Interfaces()
+	Expect(err).NotTo(HaveOccurred())
+
+	for _, i := range ifaces {
+		addrs, err := i.Addrs()
+		Expect(err).NotTo(HaveOccurred())
+
+		for _, addr := range addrs {
+			if strings.Index(addr.String(), dockerPrefix) == 0 {
+				ipWithSubnet := addr.String()
+				i := strings.Index(ipWithSubnet, "/")
+				return ipWithSubnet[:i]
+			}
+		}
+	}
+
+	return "127.0.0.1"
 }
 
 func (n *Network) GenerateConfigTree() {

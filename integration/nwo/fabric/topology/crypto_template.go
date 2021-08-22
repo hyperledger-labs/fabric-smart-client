@@ -22,6 +22,8 @@ OrdererOrgs:{{ range .OrdererOrgs }}
     SANS:
     - localhost
     - 127.0.0.1
+    - host.docker.internal
+    - fabric
     - ::1
   {{- end }}
 {{- end }}
@@ -53,6 +55,8 @@ PeerOrgs:{{ range .PeerOrgs }}
     - localhost
     - 127.0.0.1
     - ::1
+    - fabric
+    - host.docker.internal
   {{- end }}
 {{- end }}
 {{- end }}

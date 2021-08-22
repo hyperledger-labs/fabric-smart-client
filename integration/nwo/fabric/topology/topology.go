@@ -38,6 +38,7 @@ type Topology struct {
 	FabTokenCCSupport bool                `yaml:"fabtokenccsupport,omitempty"`
 	GRPCLogging       bool                `yaml:"grpcLogging,omitempty"`
 	NodeOUs           bool                `yaml:"nodeous,omitempty"`
+	Weaver            bool                `yaml:"weaver,omitempty"`
 }
 
 func (c *Topology) Name() string {
@@ -341,6 +342,10 @@ func (c *Topology) DevChaincodeMode() {
 	c.ChaincodeMode = "dev"
 }
 
+func (c *Topology) EnableWeaver() {
+	c.Weaver = true
+}
+
 type fscOrg struct {
 	c *Topology
 	o *Organization
@@ -358,5 +363,15 @@ type namespace struct {
 
 func (n *namespace) SetStateChaincode() *namespace {
 	n.cc.Chaincode.Path = "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state/cc/query"
+	return n
+}
+
+func (n *namespace) SetChaincodePath(path string) *namespace {
+	n.cc.Chaincode.Path = path
+	return n
+}
+
+func (n *namespace) NoInit() *namespace {
+	n.cc.Chaincode.InitRequired = false
 	return n
 }

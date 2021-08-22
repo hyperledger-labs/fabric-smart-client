@@ -42,6 +42,8 @@ type FabricNetworkService interface {
 	Comm(name string) (Comm, error)
 
 	SigService() SigService
+
+	ConfigService() ConfigService
 }
 
 type FabricNetworkServiceProvider interface {

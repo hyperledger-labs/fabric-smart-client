@@ -56,7 +56,7 @@ func (s *viewHandler) callView(fid string, input []byte) (interface{}, error) {
 			return nil, errors.Errorf("failed marshalling result produced by view [%s], err [%s]", fid, err)
 		}
 	}
-	s.logger.Debugf("Finished call view [%s] on channel [%s] and on input [%v]", fid, string(input))
+	s.logger.Debugf("Finished call view [%s] on input [%v]", fid, string(input))
 	return &protos2.CommandResponse_CallViewResponse{CallViewResponse: &protos2.CallViewResponse{
 		Result: raw,
 	}}, nil
