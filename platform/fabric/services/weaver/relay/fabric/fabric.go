@@ -17,10 +17,11 @@ import (
 // Fabric models the relay services towards a Fabric network
 type Fabric struct {
 	fns *fabric.NetworkService
+	ch  *fabric.Channel
 }
 
-func New(fns *fabric.NetworkService) *Fabric {
-	return &Fabric{fns: fns}
+func New(fns *fabric.NetworkService, ch *fabric.Channel) *Fabric {
+	return &Fabric{fns: fns, ch: ch}
 }
 
 // Query invokes the passed function on the passed arguments on the passed destination network, and returns
@@ -44,11 +45,8 @@ func (f *Fabric) VerifyProof(raw []byte) error {
 	channelName := f.fns.ConfigService().GetString("weaver.interopcc.channel")
 	namespace := f.fns.ConfigService().GetString("weaver.interopcc.name")
 
-	channel, err := f.fns.Channel(channelName)
-	if err != nil {
-		return errors.WithMessagef(err, "failed getting channel [%s:%s]", f.fns.Name(), channelName)
-	}
-	_, err = channel.Chaincode(namespace).Query(
+	logger.Debugf("verify proof at [%s:%s:%s]", f.fns.Name(), f.ch.Name(), namespace)
+	_, err := f.ch.Chaincode(namespace).Query(
 		"VerifyView", proof.B64ViewProto, proof.Address,
 	).WithInvokerIdentity(
 		f.fns.IdentityProvider().DefaultIdentity(),

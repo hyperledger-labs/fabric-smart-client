@@ -13,6 +13,7 @@ import (
 )
 
 type Inspector struct {
+	raw []byte
 	rws readWriteSet
 }
 
@@ -32,6 +33,10 @@ func newInspector() *Inspector {
 			},
 		},
 	}
+}
+
+func (i *Inspector) Byte() ([]byte, error) {
+	return i.raw, nil
 }
 
 func (i *Inspector) IsValid() error {

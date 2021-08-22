@@ -38,11 +38,11 @@ const (
 
 // Result models the result of a query to a remote network using Relay
 type Result struct {
-	address         string
-	view            *common.View
-	fv              *fabric2.FabricView
-	results         []byte
-	responsePayload []byte
+	address string
+	view    *common.View
+	fv      *fabric2.FabricView
+	rwset   []byte
+	result  []byte
 }
 
 func NewResult(address string, view *common.View) (*Result, error) {
@@ -72,11 +72,11 @@ func NewResult(address string, view *common.View) (*Result, error) {
 	}
 
 	return &Result{
-		responsePayload: encapsulatingProtobufThatIsTotallyRedundant.Payload,
-		address:         address,
-		view:            view,
-		fv:              fv,
-		results:         respPayload.Results,
+		result:  encapsulatingProtobufThatIsTotallyRedundant.Payload,
+		address: address,
+		view:    view,
+		fv:      fv,
+		rwset:   respPayload.Results,
 	}, nil
 }
 
@@ -85,20 +85,16 @@ func (r *Result) IsOK() bool {
 	return r.fv.Response.Status == OK
 }
 
-// Results return the marshalled version of the Fabric rwset
-func (r *Result) Results() []byte {
-	return r.results
-}
-
-// ResponsePayload returns the response payload
-func (r *Result) ResponsePayload() []byte {
-	return r.responsePayload
+// Result returns the response payload
+func (r *Result) Result() []byte {
+	return r.result
 }
 
 // RWSet returns a wrapper over the Fabric rwset to inspect it
 func (r *Result) RWSet() (*Inspector, error) {
 	i := newInspector()
-	if err := i.rws.populate(r.results, "ephemeral"); err != nil {
+	i.raw = r.rwset
+	if err := i.rws.populate(r.rwset, "ephemeral"); err != nil {
 		return nil, err
 	}
 	return i, nil

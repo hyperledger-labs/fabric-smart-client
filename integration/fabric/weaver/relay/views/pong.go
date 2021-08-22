@@ -63,7 +63,7 @@ func (p *Pong) Call(context view.Context) (interface{}, error) {
 		assert.NoError(err, "failed getting proof from query result")
 		assert.NoError(relay.ToFabric().VerifyProof(proof), "failed verifying proof")
 
-		value := res.ResponsePayload()
+		value := res.Result()
 
 		// send back the value read
 		assert.NoError(session.Send(value))

@@ -61,8 +61,7 @@ func (p *Ping) Call(context view.Context) (interface{}, error) {
 	assert.NoError(relay.ToFabric().VerifyProof(proof), "failed verifying proof")
 
 	// check the content of the result
-
-	watermelonValue := res.ResponsePayload()
+	watermelonValue := res.Result()
 	assert.NoError(err, "failed getting state [ns2.watermelon]")
 	assert.Equal(string(watermelonValue), "red", "expected response to be equal to value, got [%v]", value)
 
