@@ -115,14 +115,16 @@ func (r *Result) Proof() ([]byte, error) {
 // Query models a query to a remote network using Relay
 type Query struct {
 	localFNS       *fabric.NetworkService
+	localChannel   *fabric.Channel
 	remoteID       *ID
 	remoteFunction string
 	remoteArgs     []interface{}
 }
 
-func NewQuery(fns *fabric.NetworkService, remoteID *ID, function string, args []interface{}) *Query {
+func NewQuery(fns *fabric.NetworkService, ch *fabric.Channel, remoteID *ID, function string, args []interface{}) *Query {
 	return &Query{
 		localFNS:       fns,
+		localChannel:   ch,
 		remoteID:       remoteID,
 		remoteFunction: function,
 		remoteArgs:     args,
@@ -185,12 +187,14 @@ func (q *Query) Call() (*Result, error) {
 		localRelayAddress = net.JoinHostPort("127.0.0.1", port)
 	}
 
-	logger.Infof("InteropFlow [%s] [%s] [%s]", localRelayAddress, remoteRelayAddress, specialAddress)
+	key := fmt.Sprintf("weaver.interopcc.%s.name", q.localChannel.Name())
+	namespace := q.localFNS.ConfigService().GetString(key)
+	logger.Debugf("InteropFlow [%s][%s][%s][%s:%s:%s]", localRelayAddress, remoteRelayAddress, specialAddress, namespace, key, q.localChannel.Name())
 	views, _, err := interoperablehelper.InteropFlow(
 		&contract{
 			fns:       q.localFNS,
-			channel:   q.localFNS.ConfigService().GetString("weaver.interopcc.channel"),
-			namespace: q.localFNS.ConfigService().GetString("weaver.interopcc.name"),
+			channel:   q.localChannel.Name(),
+			namespace: namespace,
 		},
 		q.localFNS.Name(),
 		invokeObject,

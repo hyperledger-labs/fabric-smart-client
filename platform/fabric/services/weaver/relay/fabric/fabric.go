@@ -8,6 +8,7 @@ package fabric
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/pkg/errors"
 
@@ -32,7 +33,7 @@ func (f *Fabric) Query(destination, function string, args ...interface{}) (*Quer
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed parsing destination [%s]", destination)
 	}
-	return NewQuery(f.fns, id, function, args), nil
+	return NewQuery(f.fns, f.ch, id, function, args), nil
 }
 
 // VerifyProof checks the validity of the passed proof
@@ -42,17 +43,16 @@ func (f *Fabric) VerifyProof(raw []byte) error {
 		return errors.Wrapf(err, "failed unmarshalling proof")
 	}
 
-	channelName := f.fns.ConfigService().GetString("weaver.interopcc.channel")
-	namespace := f.fns.ConfigService().GetString("weaver.interopcc.name")
-
-	logger.Debugf("verify proof at [%s:%s:%s]", f.fns.Name(), f.ch.Name(), namespace)
+	interopCCKey := fmt.Sprintf("weaver.interopcc.%s.name", f.ch.Name())
+	namespace := f.fns.ConfigService().GetString(interopCCKey)
+	logger.Debugf("verify proof at [%s:%s:%s:%s]", f.fns.Name(), f.ch.Name(), namespace, interopCCKey)
 	_, err := f.ch.Chaincode(namespace).Query(
 		"VerifyView", proof.B64ViewProto, proof.Address,
 	).WithInvokerIdentity(
 		f.fns.IdentityProvider().DefaultIdentity(),
 	).Call()
 	if err != nil {
-		return errors.WithMessagef(err, "failed invoking interop chaincode [%s.%s.%s:%s]", f.fns.Name(), channelName, namespace, "VerifyView")
+		return errors.WithMessagef(err, "failed invoking interop chaincode [%s.%s.%s:%s]", f.fns.Name(), f.ch.Name(), namespace, "VerifyView")
 	}
 	return nil
 }

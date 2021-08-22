@@ -369,8 +369,6 @@ func (p *Platform) generateRelayServerTOML(relay *RelayServer) {
 		}
 	}
 
-	fmt.Printf("#### %s %s:%d\n", relay.Name, relay.Hostname, relay.Port)
-
 	t, err := template.New("relay_server").Funcs(template.FuncMap{
 		"Name":     func() string { return relay.FabricTopologyName },
 		"Port":     func() uint16 { return relay.Port },
@@ -463,8 +461,6 @@ func (p *Platform) generateFabricDriverCPFile(relay *RelayServer) {
 				GrpcOptions: gRPCopts,
 			}
 
-			fmt.Println("TLS CA certificate:", bb.String())
-
 			peerFullNames = append(peerFullNames, peer.FullName)
 		}
 
@@ -519,8 +515,6 @@ func (p *Platform) generateFabricDriverCPFile(relay *RelayServer) {
 
 	raw, err := json.MarshalIndent(cp, "", "  ")
 	Expect(err).NotTo(HaveOccurred())
-
-	fmt.Println(string(raw))
 
 	Expect(os.MkdirAll(p.FabricDriverDir(relay), 0o755)).NotTo(HaveOccurred())
 	Expect(ioutil.WriteFile(p.FabricDriverConnectionProfilePath(relay), raw, 0o755)).NotTo(HaveOccurred())
@@ -626,8 +620,6 @@ func (p *Platform) generateInteropChaincodeAccessControlFile(destinationRelay *R
 							raw, err := ioutil.ReadFile(peer.Cert)
 							Expect(err).NotTo(HaveOccurred())
 
-							fmt.Printf("CERT in Rule [%s]\n%s", fmt.Sprintf("%s:%s:*", ch.Name, chaincode.Name), string(raw))
-
 							rules = append(rules, &interop.Rule{
 								Principal:     string(raw),
 								PrincipalType: "certificate",
@@ -639,8 +631,6 @@ func (p *Platform) generateInteropChaincodeAccessControlFile(destinationRelay *R
 						for _, user := range sourceFabric.UsersByOrg(org.Name) {
 							raw, err := ioutil.ReadFile(user.Cert)
 							Expect(err).NotTo(HaveOccurred())
-
-							fmt.Printf("CERT in Rule [%s]\n%s", fmt.Sprintf("%s:%s:*", ch.Name, chaincode.Name), string(raw))
 
 							rules = append(rules, &interop.Rule{
 								Principal:     string(raw),
@@ -715,8 +705,6 @@ func (p *Platform) generateInteropChaincodeVerificationPolicyFile(destinationRel
 	}
 	raw, err := json.MarshalIndent(verificationPolicy, "", "  ")
 	Expect(err).ToNot(HaveOccurred())
-
-	fmt.Println("GENERATING verification policy:", string(raw))
 
 	Expect(err).NotTo(HaveOccurred())
 	Expect(os.MkdirAll(p.RelayServerInteropDir(destinationRelay), 0o755)).NotTo(HaveOccurred())
