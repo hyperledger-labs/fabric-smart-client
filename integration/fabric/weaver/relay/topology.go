@@ -43,7 +43,6 @@ func Topology() []api.Topology {
 	alice.AddOptions(
 		fabric.WithDefaultNetwork("alpha"),
 		fabric.WithNetworkOrganization("alpha", "Org1"),
-		fabric.WithNetworkOrganization("beta", "Org3"),
 	)
 	alice.RegisterViewFactory("ping", &views.PingFactory{})
 
@@ -51,7 +50,6 @@ func Topology() []api.Topology {
 	bob := fscTopology.AddNodeByName("bob")
 	bob.AddOptions(
 		fabric.WithDefaultNetwork("beta"),
-		fabric.WithNetworkOrganization("alpha", "Org1"),
 		fabric.WithNetworkOrganization("beta", "Org3"),
 	)
 	bob.RegisterResponder(&views.Pong{}, &views.Ping{})
