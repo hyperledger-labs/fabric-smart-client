@@ -13,8 +13,9 @@ import (
 )
 
 type Channel struct {
-	sp view2.ServiceProvider
-	ch driver.Channel
+	sp  view2.ServiceProvider
+	fns driver.FabricNetworkService
+	ch  driver.Channel
 }
 
 func (c *Channel) Name() string {
@@ -43,6 +44,7 @@ func (c *Channel) Finality() *Finality {
 
 func (c *Channel) Chaincode(name string) *Chaincode {
 	return &Chaincode{
+		fns:       c.fns,
 		chaincode: c.ch.Chaincode(name),
 	}
 }

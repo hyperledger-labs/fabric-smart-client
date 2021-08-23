@@ -1,0 +1,24 @@
+FROM golang:1.15
+
+# Setup
+
+RUN apt-get update && apt-get install unzip
+RUN curl -LO https://github.com/protocolbuffers/protobuf/releases/download/v3.15.6/protoc-3.15.6-linux-x86_64.zip
+RUN mkdir /opt/protoc
+RUN unzip protoc-3.15.6-linux-x86_64.zip -d /opt/protoc
+ENV PATH="/opt/protoc/bin:${PATH}"
+ENV PATH="${PATH}:${HOME}/go/bin"
+RUN go get github.com/golang/protobuf/protoc-gen-go
+
+# Build interop chaincode
+
+RUN git clone https://github.com/hyperledger-labs/weaver-dlt-interoperability.git
+WORKDIR ./weaver-dlt-interoperability/core/network/fabric-interop-cc
+RUN make all
+
+# Package it
+WORKDIR /go
+RUN git clone https://github.com/hyperledger/fabric.git
+WORKDIR ./fabric
+RUN make peer
+RUN FABRIC_CFG_PATH=./sampleconfig ./build/bin/peer lifecycle chaincode package interop.tar.gz -l golang --label interop --path=/go/weaver-dlt-interoperability/core/network/fabric-interop-cc/contracts/interop

@@ -179,6 +179,10 @@ func (f *network) SigService() driver.SigService {
 	return f.sigService
 }
 
+func (f *network) ConfigService() driver.ConfigService {
+	return f.config
+}
+
 func (f *network) init() error {
 	f.processorManager = rwset.NewProcessorManager(f.sp, f, nil)
 	f.transactionManager = transaction.NewManager(f.sp, f)

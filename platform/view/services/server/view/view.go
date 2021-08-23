@@ -99,7 +99,7 @@ func (s *viewHandler) callView(ctx context.Context, command *protos2.Command) (i
 			return nil, errors.Errorf("failed marshalling result produced by view [%s], err [%s]", fid, err)
 		}
 	}
-	logger.Debugf("Finished call view [%s] on channel [%s] and on input [%v]", fid, string(input))
+	logger.Debugf("Finished call view [%s] on input [%v]", fid, string(input))
 	return &protos2.CommandResponse_CallViewResponse{CallViewResponse: &protos2.CallViewResponse{
 		Result: raw,
 	}}, nil

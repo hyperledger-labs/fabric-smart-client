@@ -21,6 +21,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/context"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/weaver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -71,6 +72,7 @@ func New(startPort int, path string, topologies ...api.Topology) (*Infrastructur
 		topologies:   topologies,
 		platformFactories: map[string]api.PlatformFactory{
 			"fabric": fabric.NewPlatformFactory(),
+			"weaver": weaver.NewPlatformFactory(),
 		},
 	}
 	return n, nil

@@ -90,6 +90,7 @@ func GenerateLocalMSP(
 		&priv.PublicKey,
 		x509.KeyUsageDigitalSignature,
 		[]x509.ExtKeyUsage{},
+		nodeType,
 	)
 	if err != nil {
 		return err
@@ -116,7 +117,6 @@ func GenerateLocalMSP(
 
 	// generate config.yaml if required
 	if nodeOUs {
-
 		exportConfig(mspDir, filepath.Join("cacerts", x509Filename(signCA.Name)), true)
 	}
 
@@ -145,16 +145,8 @@ func GenerateLocalMSP(
 	}
 
 	// generate X509 certificate using TLS CA
-	_, err = tlsCA.SignCertificate(
-		filepath.Join(tlsDir),
-		name,
-		nil,
-		sans,
-		&tlsPrivKey.PublicKey,
-		x509.KeyUsageDigitalSignature|x509.KeyUsageKeyEncipherment,
-		[]x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth,
-			x509.ExtKeyUsageClientAuth},
-	)
+	_, err = tlsCA.SignCertificate(filepath.Join(tlsDir), name, nil, sans, &tlsPrivKey.PublicKey, x509.KeyUsageDigitalSignature|x509.KeyUsageKeyEncipherment, []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth,
+		x509.ExtKeyUsageClientAuth}, 0)
 	if err != nil {
 		return err
 	}
@@ -235,15 +227,7 @@ func GenerateVerifyingMSP(
 	if err != nil {
 		return err
 	}
-	_, err = signCA.SignCertificate(
-		filepath.Join(baseDir, "admincerts"),
-		signCA.Name,
-		nil,
-		nil,
-		&priv.PublicKey,
-		x509.KeyUsageDigitalSignature,
-		[]x509.ExtKeyUsage{},
-	)
+	_, err = signCA.SignCertificate(filepath.Join(baseDir, "admincerts"), signCA.Name, nil, nil, &priv.PublicKey, x509.KeyUsageDigitalSignature, []x509.ExtKeyUsage{}, 0)
 	if err != nil {
 		return err
 	}

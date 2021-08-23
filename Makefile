@@ -23,12 +23,12 @@ misspell:
 	@misspell $(shell go list -f '{{.Dir}}' ./...)
 
 .PHONY: unit-tests
-unit-tests:
+unit-tests: docker-images
 	@go test -cover $(shell go list ./... | grep -v '/integration/')
 	cd integration/nwo/; go test -cover ./...
 
 .PHONY: unit-tests-race
-unit-tests-race:
+unit-tests-race: docker-images
 	@export GORACE=history_size=7; go test -race -cover $(shell go list ./... | grep -v '/integration/')
 	cd integration/nwo/; go test -cover ./...
 
@@ -41,6 +41,10 @@ docker-images:
 	docker pull couchdb:3.1.1
 	docker pull confluentinc/cp-kafka:5.3.1
 	docker pull confluentinc/cp-zookeeper:5.3.1
+	docker pull ghcr.io/hyperledger-labs/weaver-fabric-driver:1.2.1
+	docker image tag ghcr.io/hyperledger-labs/weaver-fabric-driver:1.2.1 hyperledger-labs/weaver-fabric-driver:latest
+	docker pull ghcr.io/hyperledger-labs/weaver-relay-server:1.2.1
+	docker image tag ghcr.io/hyperledger-labs/weaver-relay-server:1.2.1 hyperledger-labs/weaver-relay-server:latest
 
 .PHONY: fpc-docker-images
 fpc-docker-images:
@@ -67,7 +71,6 @@ integration-tests: docker-images dependencies
 	cd ./integration/fsc/pingpong/; ginkgo -keepGoing --slowSpecThreshold 60 .
 	cd ./integration/fsc/stoprestart; ginkgo -keepGoing --slowSpecThreshold 60 .
 
-
 .PHONY: integration-tests-iou
 integration-tests-iou: docker-images dependencies
 	cd ./integration/fabric/iou; ginkgo -keepGoing --slowSpecThreshold 60 .
@@ -88,6 +91,10 @@ integration-tests-twonets: docker-images dependencies
 integration-tests-fpc-echo: docker-images fpc-docker-images dependencies
 	cd ./integration/fabric/fpc/echo; ginkgo -keepGoing --slowSpecThreshold 60 .
 
+.PHONY: integration-tests-weaver-relay
+integration-tests-weaver-relay: docker-images dependencies
+	cd ./integration/fabric/weaver/relay; ginkgo -keepGoing --slowSpecThreshold 60 .
+
 .PHONY: integration-tests-pingpong
 integration-tests-pingpong: docker-images dependencies
 	cd ./integration/fsc/pingpong/; ginkgo -keepGoing --slowSpecThreshold 60 .
@@ -95,8 +102,6 @@ integration-tests-pingpong: docker-images dependencies
 .PHONY: integration-tests-stoprestart
 integration-tests-stoprestart: docker-images dependencies
 	cd ./integration/fsc/stoprestart; ginkgo -keepGoing --slowSpecThreshold 60 .
-
-
 
 .PHONY: tidy
 tidy:
@@ -106,10 +111,12 @@ tidy:
 clean:
 	docker network prune -f
 	docker container prune -f
+	rm -rf ./build
 	rm -rf ./integration/fabric/atsa/chaincode/cmd
 	rm -rf ./integration/fabric/atsa/fsc/cmd
 	rm -rf ./integration/fabric/iou/cmd/
 	rm -rf ./integration/fabric/twonets/cmd
+	rm -rf ./integration/fabric/weaver/relay/cmd
 	rm -rf ./integration/fabric/fpc/echo/cmd
 	rm -rf ./integration/fsc/stoprestart/cmd
 	rm -rf ./integration/fsc/pingpong/cmd/responder
@@ -122,3 +129,7 @@ artifactsgen:
 .PHONY: topologies
 topologies:
 	@cd ./sampleconfig/topology; go run main.go
+
+.PHONY: weaver-relay
+weaver-relay:
+	@integration/nwo/weaver/scripts/build-weaver-relay.sh

@@ -14,6 +14,8 @@ import (
 	"crypto/sha256"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/asn1"
+	"encoding/json"
 	"encoding/pem"
 	"io/ioutil"
 	"math/big"
@@ -27,6 +29,25 @@ import (
 
 	csp2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/cryptogen/csp"
 )
+
+const (
+	CLIENT = iota
+	ORDERER
+	PEER
+	ADMIN
+)
+
+var (
+	// AttrOID is the ASN.1 object identifier for an attribute extension in an
+	// X509 certificate
+	AttrOID = asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6, 7, 8, 1}
+	// AttrOIDString is the string version of AttrOID
+	AttrOIDString = "1.2.3.4.5.6.7.8.1"
+)
+
+type Attributes struct {
+	Attrs map[string]string `json:"attrs"`
+}
 
 type CA struct {
 	Name               string
@@ -115,15 +136,7 @@ func NewCA(
 
 // SignCertificate creates a signed certificate based on a built-in template
 // and saves it in baseDir/name
-func (ca *CA) SignCertificate(
-	baseDir,
-	name string,
-	orgUnits,
-	alternateNames []string,
-	pub *ecdsa.PublicKey,
-	ku x509.KeyUsage,
-	eku []x509.ExtKeyUsage,
-) (*x509.Certificate, error) {
+func (ca *CA) SignCertificate(baseDir, name string, orgUnits, alternateNames []string, pub *ecdsa.PublicKey, ku x509.KeyUsage, eku []x509.ExtKeyUsage, nodeType int) (*x509.Certificate, error) {
 
 	template := x509Template()
 	template.KeyUsage = ku
@@ -152,6 +165,34 @@ func (ca *CA) SignCertificate(
 			template.DNSNames = append(template.DNSNames, san)
 		}
 	}
+
+	// Handle attributes
+	hfType := ""
+	if nodeType == CLIENT {
+		hfType = "client"
+	}
+	// TODO: remove this by introducing custom attributes
+	relay := "false"
+	if strings.Contains(strings.ToLower(name), "relay") {
+		relay = "true"
+	}
+	attrs := &Attributes{
+		map[string]string{
+			"hf.Affiliation":  ca.OrganizationalUnit,
+			"hf.EnrollmentID": name,
+			"hf.Type":         hfType,
+			"relay":           relay,
+		},
+	}
+	buf, err := json.Marshal(attrs)
+	if err != nil {
+		return nil, errors.Wrap(err, "Failed to marshal attributes")
+	}
+	template.ExtraExtensions = append(template.ExtraExtensions, pkix.Extension{
+		Id:       AttrOID,
+		Critical: false,
+		Value:    buf,
+	})
 
 	cert, err := genCertificateECDSA(
 		baseDir,

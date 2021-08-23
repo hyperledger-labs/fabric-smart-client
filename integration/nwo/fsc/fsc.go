@@ -24,14 +24,13 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/miracl/conflate"
 	"github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
-	"github.com/prometheus/common/log"
 	"github.com/spf13/viper"
 	"github.com/tedsuo/ifrit"
 	"github.com/tedsuo/ifrit/grouper"
-	"gopkg.in/yaml.v2"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
@@ -43,6 +42,18 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 )
+
+func init() {
+	// define the unmarshallers for the given file extensions, blank extension is the global unmarshaller
+	conflate.Unmarshallers = conflate.UnmarshallerMap{
+		".jsn":  {conflate.JSONUnmarshal},
+		".yaml": {conflate.YAMLUnmarshal},
+		".yml":  {conflate.YAMLUnmarshal},
+		".toml": {conflate.TOMLUnmarshal},
+		".tml":  {conflate.TOMLUnmarshal},
+		"":      {conflate.JSONUnmarshal, conflate.YAMLUnmarshal, conflate.TOMLUnmarshal},
+	}
+}
 
 const (
 	ListenPort api.PortName = "Listen" // Port at which the fsc node might listen for some service
@@ -336,35 +347,12 @@ func (p *platform) GenerateCoreConfig(peer *node2.Peer) {
 	for _, extensionsByPeerID := range p.Context.ExtensionsByPeerID(peer.Name) {
 		// if len(extensionsByPeerID) > 1, we need a merge
 		if len(extensionsByPeerID) > 1 {
-			// merge
-			var resultValues map[string]interface{}
+			c := conflate.New()
 			for _, ext := range extensionsByPeerID {
-				var override map[string]interface{}
-				if err := yaml.Unmarshal([]byte(ext), &override); err != nil {
-					log.Info(err)
-					continue
-				}
-
-				// we expect override to have a single root key
-				if resultValues == nil {
-					resultValues = override
-				} else {
-					// merge the single root key
-					for k, v := range override {
-						// merge resultValues[k] and v
-						m1 := resultValues[k].(map[interface{}]interface{})
-						m2 := v.(map[interface{}]interface{})
-
-						for kk, vv := range m2 {
-							m1[kk] = vv
-						}
-					}
-				}
+				Expect(c.AddData([]byte(ext))).NotTo(HaveOccurred())
 			}
-			bs, err := yaml.Marshal(resultValues)
-			if err != nil {
-				panic(err)
-			}
+			bs, err := c.MarshalYAML()
+			Expect(err).NotTo(HaveOccurred())
 			extensions = append(extensions, string(bs))
 		} else {
 			for _, s := range extensionsByPeerID {

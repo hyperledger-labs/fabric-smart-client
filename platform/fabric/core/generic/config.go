@@ -153,3 +153,27 @@ func (c *Config) Resolvers() ([]config.Resolver, error) {
 	}
 	return resolvers, nil
 }
+
+func (c *Config) GetString(key string) string {
+	return c.configService.GetString("fabric." + c.prefix + key)
+}
+
+func (c *Config) GetDuration(key string) time.Duration {
+	return c.configService.GetDuration("fabric." + c.prefix + key)
+}
+
+func (c *Config) GetBool(key string) bool {
+	return c.configService.GetBool("fabric." + c.prefix + key)
+}
+
+func (c *Config) IsSet(key string) bool {
+	return c.configService.IsSet("fabric." + c.prefix + key)
+}
+
+func (c *Config) UnmarshalKey(key string, rawVal interface{}) error {
+	return c.configService.UnmarshalKey("fabric."+c.prefix+key, rawVal)
+}
+
+func (c *Config) GetPath(key string) string {
+	return c.configService.GetPath("fabric." + c.prefix + key)
+}
