@@ -145,7 +145,7 @@ func (p *Platform) RunRelayFabricDriver(
 			//"GRPC_NODE_VERBOSITY=DEBUG",
 			//"GRPC_NODE_TRACE=connectivity_state,server,server_call,subchannel",
 			//"NODE_OPTIONS=--tls-max-v1.2",
-			//"HFC_LOGGING={\"debug\":\"console\",\"info\":\"console\"}",
+			// "HFC_LOGGING={\"debug\":\"console\",\"info\":\"console\"}",
 		},
 		Cmd: []string{
 			"npm", "run", "dev", "--verbose=true",

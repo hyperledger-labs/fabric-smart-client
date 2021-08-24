@@ -31,6 +31,7 @@ func Topology() []api.Topology {
 		"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/weaver/relay/chaincode",
 	).NoInit()
 
+	// Define weaver relay server topology. One relay server per Fabric network
 	wTopology := weaver.NewTopology()
 	wTopology.AddRelayServer(f1Topology, "Org1").AddFabricNetwork(f2Topology)
 	wTopology.AddRelayServer(f2Topology, "Org3").AddFabricNetwork(f1Topology)
@@ -44,7 +45,7 @@ func Topology() []api.Topology {
 		fabric.WithDefaultNetwork("alpha"),
 		fabric.WithNetworkOrganization("alpha", "Org1"),
 	)
-	alice.RegisterViewFactory("ping", &views.PingFactory{})
+	alice.RegisterViewFactory("init", &views.InitiatorViewFactory{})
 
 	// Add bob's FSC node
 	bob := fscTopology.AddNodeByName("bob")
@@ -52,7 +53,7 @@ func Topology() []api.Topology {
 		fabric.WithDefaultNetwork("beta"),
 		fabric.WithNetworkOrganization("beta", "Org3"),
 	)
-	bob.RegisterResponder(&views.Pong{}, &views.Ping{})
+	bob.RegisterResponder(&views.Responder{}, &views.InitiatorView{})
 
 	return []api.Topology{f1Topology, f2Topology, wTopology, fscTopology}
 }

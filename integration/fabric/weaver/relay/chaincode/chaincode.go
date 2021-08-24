@@ -10,6 +10,7 @@ import (
 	"log"
 
 	"github.com/hyperledger/fabric-contract-api-go/contractapi"
+	"github.com/pkg/errors"
 )
 
 type SmartContract struct {
@@ -23,7 +24,11 @@ func (s *SmartContract) Put(ctx contractapi.TransactionContextInterface, key str
 func (s *SmartContract) Get(ctx contractapi.TransactionContextInterface, key string) (string, error) {
 	v, err := ctx.GetStub().GetState(key)
 	if err != nil {
-		return "", err
+		return "", errors.Wrapf(err, "failed getting state [%s]", key)
+	}
+	err = ctx.GetStub().PutState(key, v)
+	if err != nil {
+		return "", errors.Wrapf(err, "failed putting state [%s:%s]", key, string(v))
 	}
 	if len(v) == 0 {
 		return "", nil
