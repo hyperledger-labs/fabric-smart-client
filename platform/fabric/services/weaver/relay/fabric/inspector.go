@@ -8,8 +8,6 @@ package fabric
 
 import (
 	"github.com/pkg/errors"
-
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
 
 type Inspector struct {
@@ -43,11 +41,11 @@ func (i *Inspector) IsValid() error {
 	return nil
 }
 
-func (i *Inspector) GetState(namespace string, key string, opts ...driver.GetStateOpt) ([]byte, error) {
+func (i *Inspector) GetState(namespace string, key string) ([]byte, error) {
 	return i.rws.writeSet.get(namespace, key), nil
 }
 
-func (i *Inspector) GetStateMetadata(namespace, key string, opts ...driver.GetStateOpt) (map[string][]byte, error) {
+func (i *Inspector) GetStateMetadata(namespace, key string) (map[string][]byte, error) {
 	return i.rws.metaWriteSet.get(namespace, key), nil
 }
 
