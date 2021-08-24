@@ -21,4 +21,5 @@ Here is a list of available examples:
      chaincodes-based solutions. Already a huge improvement for the developers.
   - Second, to highlights the limitations of the current sample and show how these limitations can be overcome 
     using the `Fabric Smart Client`'s advanced capabilities.
-    
+- [`Data Transfer using Weaver Relay Service`](./fabric/weaver/relay/README.md): In this example, we show how to execute
+  a data transfer between two Fabric networks using [`Weaver`](https://labs.hyperledger.org/weaver-dlt-interoperability/).
