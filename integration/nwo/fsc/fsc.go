@@ -8,9 +8,6 @@ package fsc
 
 import (
 	"bytes"
-	"crypto/ecdsa"
-	"crypto/x509"
-	"encoding/pem"
 	"fmt"
 	"go/build"
 	"io"
@@ -36,7 +33,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 	runner2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/runner"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/commands"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/identity"
 	node2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/crypto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/view"
@@ -635,44 +631,12 @@ func (p *platform) Peer(orgName, peerName string) *node2.Peer {
 	return nil
 }
 
-func (p *platform) GetSigningIdentity(peer *node2.Peer) (identity.SigningIdentity, error) {
-	cert, err := ioutil.ReadFile(p.LocalMSPIdentityCert(peer))
-	if err != nil {
-		return nil, err
-	}
-	sk, err := ioutil.ReadFile(p.LocalMSPPrivateKey(peer))
-	if err != nil {
-		return nil, err
-	}
-	block, _ := pem.Decode(sk)
-	if block == nil {
-		return nil, fmt.Errorf("failed decoding PEM. Block must be different from nil. [% x]", sk)
-	}
-	k, err := x509.ParsePKCS8PrivateKey(block.Bytes)
-	if err != nil {
-		return nil, err
-	}
-	return identity.NewSigningIdentity(cert, k.(*ecdsa.PrivateKey)), nil
+func (p *platform) GetSigningIdentity(peer *node2.Peer) (view.SigningIdentity, error) {
+	return view.NewX509SigningIdentity(p.LocalMSPIdentityCert(peer), p.LocalMSPPrivateKey(peer))
 }
 
-func (p *platform) GetAdminSigningIdentity(peer *node2.Peer) (identity.SigningIdentity, error) {
-	cert, err := ioutil.ReadFile(p.AdminLocalMSPIdentityCert(peer))
-	if err != nil {
-		return nil, err
-	}
-	sk, err := ioutil.ReadFile(p.AdminLocalMSPPrivateKey(peer))
-	if err != nil {
-		return nil, err
-	}
-	block, _ := pem.Decode(sk)
-	if block == nil {
-		return nil, fmt.Errorf("failed decoding PEM. Block must be different from nil. [% x]", sk)
-	}
-	k, err := x509.ParsePKCS8PrivateKey(block.Bytes)
-	if err != nil {
-		return nil, err
-	}
-	return identity.NewSigningIdentity(cert, k.(*ecdsa.PrivateKey)), nil
+func (p *platform) GetAdminSigningIdentity(peer *node2.Peer) (view.SigningIdentity, error) {
+	return view.NewX509SigningIdentity(p.AdminLocalMSPIdentityCert(peer), p.AdminLocalMSPPrivateKey(peer))
 }
 
 func (p *platform) listTLSCACertificates() []string {
