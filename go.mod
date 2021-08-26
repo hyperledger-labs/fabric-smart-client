@@ -21,7 +21,7 @@ require (
 	github.com/dgraph-io/badger/v3 v3.2011.1
 	github.com/docker/docker v20.10.7+incompatible
 	github.com/docker/go-connections v0.4.0
-	github.com/fsnotify/fsnotify v1.5.0 // indirect
+	github.com/fsnotify/fsnotify v1.5.1 // indirect
 	github.com/fsouza/go-dockerclient v1.6.1
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/protobuf v1.5.2
