@@ -9,8 +9,12 @@ package idemix
 import (
 	"fmt"
 
-	"github.com/hyperledger/fabric/bccsp"
-	"github.com/hyperledger/fabric/bccsp/sw"
+	idemix "github.com/IBM/idemix/bccsp"
+	"github.com/IBM/idemix/bccsp/keystore"
+	bccsp "github.com/IBM/idemix/bccsp/schemes"
+	csp "github.com/IBM/idemix/bccsp/schemes"
+	"github.com/IBM/idemix/bccsp/schemes/dlog/crypto/translator/amcl"
+	math "github.com/IBM/mathlib"
 	"github.com/hyperledger/fabric/msp"
 	"github.com/pkg/errors"
 
@@ -26,13 +30,14 @@ type idd struct {
 func NewDeserializer(ipk []byte) (*idd, error) {
 	logger.Debugf("Setting up Idemix-based MSP instance")
 
-	cryptoProvider, err := idemix.New(sw.NewDummyKeyStore())
+	curve := math.Curves[math.FP256BN_AMCL]
+	cryptoProvider, err := idemix.New(&keystore.Dummy{}, curve, &amcl.Fp256bn{C: curve}, true)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed getting crypto provider")
 	}
 
 	// Import Issuer Public Key
-	var issuerPublicKey bccsp.Key
+	var issuerPublicKey csp.Key
 	if len(ipk) != 0 {
 		issuerPublicKey, err = cryptoProvider.KeyImport(
 			ipk,
