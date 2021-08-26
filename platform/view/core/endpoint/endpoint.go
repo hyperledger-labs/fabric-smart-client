@@ -8,11 +8,9 @@ package endpoint
 
 import (
 	"bytes"
-	"runtime/debug"
 
 	"github.com/pkg/errors"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
@@ -51,6 +49,12 @@ type Discovery interface {
 	Peers() []NetworkMember
 }
 
+type KVS interface {
+	Exists(id string) bool
+	Put(id string, state interface{}) error
+	Get(id string, state interface{}) error
+}
+
 type endpointEntry struct {
 	Endpoints map[driver.PortName]string
 	Ephemeral view.Identity
@@ -60,15 +64,17 @@ type endpointEntry struct {
 type service struct {
 	sp           view2.ServiceProvider
 	resolvers    []*resolver
-	Discovery    Discovery
+	discovery    Discovery
+	kvs          KVS
 	pkiResolvers []driver.PKIResolver
 }
 
 // NewService returns a new instance of the view-sdk endpoint service
-func NewService(sp view2.ServiceProvider, discovery Discovery) (*service, error) {
+func NewService(sp view2.ServiceProvider, discovery Discovery, kvs KVS) (*service, error) {
 	er := &service{
 		sp:           sp,
-		Discovery:    discovery,
+		discovery:    discovery,
+		kvs:          kvs,
 		pkiResolvers: []driver.PKIResolver{},
 	}
 	return er, nil
@@ -183,12 +189,7 @@ func (r *service) GetIdentity(endpoint string, pkid []byte) (view.Identity, erro
 			return id, nil
 		}
 	}
-	// ask the msp service
-	id, err := fabric.GetDefaultFNS(r.sp).LocalMembership().GetIdentityByID(endpoint)
-	if err != nil {
-		return nil, errors.Errorf("identity not found at [%s,%s] %s [%s]", endpoint, view.Identity(pkid), debug.Stack(), err)
-	}
-	return id, nil
+	return nil, errors.Errorf("identity not found at [%s,%s]", endpoint, view.Identity(pkid))
 }
 
 func (r *service) AddResolver(name string, domain string, addresses map[string]string, aliases []string, id []byte) (view.Identity, error) {
@@ -253,8 +254,7 @@ func (r *service) putBinding(key string, entry *endpointEntry) error {
 		"platform.fsc.endpoint.binding",
 		[]string{key},
 	)
-	kvss := kvs.GetService(r.sp)
-	if err := kvss.Put(k, entry); err != nil {
+	if err := r.kvs.Put(k, entry); err != nil {
 		return err
 	}
 	return nil
@@ -265,12 +265,11 @@ func (r *service) getBinding(key string) (*endpointEntry, error) {
 		"platform.fsc.endpoint.binding",
 		[]string{key},
 	)
-	kvss := kvs.GetService(r.sp)
-	if !kvss.Exists(k) {
+	if !r.kvs.Exists(k) {
 		return nil, errors.Errorf("binding not found for [%s]", key)
 	}
 	entry := &endpointEntry{}
-	if err := kvss.Get(k, entry); err != nil {
+	if err := r.kvs.Get(k, entry); err != nil {
 		return nil, err
 	}
 	return entry, nil

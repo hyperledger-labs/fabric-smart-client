@@ -48,6 +48,45 @@ func (o *Options) Put(k string, v interface{}) {
 	o.Mapping[k] = v
 }
 
+func (o *Options) Aliases() []string {
+	boxed := o.Mapping["Aliases"]
+	if boxed == nil {
+		return nil
+	}
+	res, ok := boxed.([]string)
+	if ok {
+		return res
+	}
+	res = []string{}
+	for _, v := range boxed.([]interface{}) {
+		res = append(res, v.(string))
+	}
+	return res
+}
+
+func (o *Options) AddAlias(alias string) {
+	if o.Mapping == nil {
+		o.Mapping = map[string]interface{}{}
+	}
+	aliasesBoxed, ok := o.Mapping["Aliases"]
+	if !ok {
+		o.Mapping["Aliases"] = []string{alias}
+		return
+	}
+	aliases, ok := aliasesBoxed.([]string)
+	if ok {
+		aliases = append(aliases, alias)
+		o.Mapping["Aliases"] = aliases
+	}
+
+	for _, v := range aliasesBoxed.([]interface{}) {
+		aliases = append(aliases, v.(string))
+	}
+	aliases = append(aliases, alias)
+	o.Mapping["Aliases"] = aliases
+
+}
+
 type Option func(*Options) error
 
 type FactoryEntry struct {

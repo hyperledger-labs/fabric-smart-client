@@ -117,6 +117,9 @@ fsc:
       addresses: {{ range $key, $value := .Addresses }}
          {{ $key }}: {{ $value }} 
       {{- end }}
+      aliases: {{ range .Aliases }}
+        - {{ . }} 
+      {{- end }}
   {{- end }}
 
 {{ range Extensions }}
