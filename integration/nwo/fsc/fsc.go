@@ -57,6 +57,13 @@ const (
 	P2PPort    api.PortName = "P2P"    // Port at which the P2P Communication Layer respond
 )
 
+func WithAlias(alias string) node2.Option {
+	return func(o *node2.Options) error {
+		o.AddAlias(alias)
+		return nil
+	}
+}
+
 type platform struct {
 	Context           api.Context
 	NetworkID         string
@@ -204,7 +211,7 @@ func (p *platform) PostRun() {
 			p.Context.SetViewClient(identity, c)
 		}
 		for _, alias := range node.Aliases {
-			p.Context.SetViewClient(alias.Alias, c)
+			p.Context.SetViewClient(alias, c)
 		}
 
 		// Setup admins
@@ -249,6 +256,7 @@ func (p *platform) CheckTopology() {
 	}
 
 	for _, node := range p.Topology.Nodes {
+
 		var extraIdentities []*node2.PeerIdentity
 		peer := &node2.Peer{
 			Name:            node.Name,
@@ -257,6 +265,7 @@ func (p *platform) CheckTopology() {
 			ExecutablePath:  node.ExecutablePath,
 			ExtraIdentities: extraIdentities,
 			Node:            node,
+			Aliases:         node.Options.Aliases(),
 		}
 		peer.Admins = []string{
 			p.AdminLocalMSPIdentityCert(peer),

@@ -75,6 +75,22 @@ func WithAnonymousIdentity() node.Option {
 	}
 }
 
+func WithX509Identity(label string) node.Option {
+	return func(o *node.Options) error {
+		fo := Options(o)
+		fo.SetX509Identities(append(fo.X509Identities(), label))
+		return nil
+	}
+}
+
+func WithIdemixIdentity(label string) node.Option {
+	return func(o *node.Options) error {
+		fo := Options(o)
+		fo.SetIdemixIdentities(append(fo.IdemixIdentities(), label))
+		return nil
+	}
+}
+
 // NewDefaultTopology is a configuration with two organizations and one peer per org.
 func NewDefaultTopology() *topology.Topology {
 	return NewTopologyWithName("default").SetDefault()
