@@ -142,7 +142,7 @@ func (s *service) AnonymousIdentity() view.Identity {
 }
 
 func (s *service) Identity(label string) view.Identity {
-	id, err := view2.GetEndpointService(s.sp).GetIdentity(label, nil)
+	id, err := s.GetIdentityByID(label)
 	if err != nil {
 		panic(err)
 	}
@@ -232,7 +232,11 @@ func (s *service) GetIdentityByID(id string) (view.Identity, error) {
 		}
 	}
 
-	return nil, errors.Errorf("identity [%s] not found", id)
+	identity, err := view2.GetEndpointService(s.sp).GetIdentity(id, nil)
+	if err != nil {
+		return nil, errors.Errorf("identity [%s] not found", id)
+	}
+	return identity, nil
 }
 
 func (s *service) RegisterIdemixMSP(id string, path string, mspID string) error {
