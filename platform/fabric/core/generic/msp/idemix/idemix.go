@@ -14,6 +14,7 @@ import (
 	"github.com/IBM/idemix"
 	csp "github.com/IBM/idemix/bccsp"
 	bccsp "github.com/IBM/idemix/bccsp/schemes"
+	ip "github.com/IBM/idemix/bccsp/schemes/dlog/crypto"
 	"github.com/IBM/idemix/bccsp/schemes/dlog/crypto/translator/amcl"
 	math "github.com/IBM/mathlib"
 	"github.com/golang/protobuf/proto"
@@ -137,7 +138,7 @@ func (ks *Dummy) ReadOnly() bool {
 }
 func (ks *Dummy) GetKey(ski []byte) (bccsp.Key, error) {
 	k := string(ski)
-	fmt.Printf("retrieving %+v from the map\n", ski)
+
 	if val, ok := ks.keyMap[k]; !ok {
 		return nil, errors.Errorf("key %s ain't in the map", k)
 	} else {
@@ -145,8 +146,12 @@ func (ks *Dummy) GetKey(ski []byte) (bccsp.Key, error) {
 	}
 }
 func (ks *Dummy) StoreKey(k bccsp.Key) error {
-	fmt.Printf("storing %+v in the map\n", k.SKI())
-	kk := string(k.SKI())
+	pk, err := k.PublicKey()
+	if err != nil {
+		panic(err)
+	}
+	kk := string(pk.SKI())
+
 	ks.keyMap[kk] = k
 	return nil
 }
@@ -322,6 +327,12 @@ func (p *provider) Identity() (view.Identity, []byte, error) {
 		return nil, nil, err
 	}
 
+	ipk := new(ip.IssuerPublicKey)
+	err = proto.Unmarshal(p.conf.Ipk, ipk)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	auditInfo := &AuditInfo{
 		NymEIDAuditData: opts.Metadata.NymEIDAuditData,
 		Attributes: [][]byte{
@@ -329,6 +340,7 @@ func (p *provider) Identity() (view.Identity, []byte, error) {
 			[]byte(strconv.Itoa(getIdemixRoleFromMSPRole(role))),
 			[]byte(enrollmentID),
 		},
+		IPK: ipk,
 	}
 	infoRaw, err := auditInfo.Bytes()
 	if err != nil {
