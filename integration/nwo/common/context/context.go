@@ -8,7 +8,6 @@ package context
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/identity"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -90,11 +89,11 @@ func (c *Context) SetConnectionConfig(name string, cc *grpc.ConnectionConfig) {
 	c.ConnectionConfigs[name] = cc
 }
 
-func (c *Context) SetClientSigningIdentity(name string, id identity.SigningIdentity) {
+func (c *Context) SetClientSigningIdentity(name string, id view2.SigningIdentity) {
 	c.ClientSigningIdentities[name] = id
 }
 
-func (c *Context) SetAdminSigningIdentity(name string, id identity.SigningIdentity) {
+func (c *Context) SetAdminSigningIdentity(name string, id view2.SigningIdentity) {
 	c.AdminSigningIdentities[name] = id
 }
 

@@ -216,6 +216,7 @@ topologies:
     peers:
     - Org3_peer_0
   chaincodemode: net
+  grpcLogging: true
   weaver: true
 - name: weaver
   type: weaver
@@ -265,8 +266,8 @@ topologies:
       Imports:
       - github.com/hyperledger-labs/fabric-smart-client/integration/fabric/weaver/relay/views
       Factories:
-      - id: ping
-        type: '&views.PingFactory{}'
+      - id: init
+        type: '&views.InitiatorViewFactory{}'
     name: alice
     bootstrap: true
     options:
@@ -277,8 +278,6 @@ topologies:
             Organization:
             - Network: alpha
               Org: Org1
-            - Network: beta
-              Org: Org3
   - NodeSynthesizer:
       Aliases:
         github.com/hyperledger-labs/fabric-smart-client/integration/fabric/weaver/relay/views:
@@ -287,8 +286,8 @@ topologies:
       Imports:
       - github.com/hyperledger-labs/fabric-smart-client/integration/fabric/weaver/relay/views
       Responders:
-      - responder: '&views.Pong{}'
-        initiator: '&views.Ping{}'
+      - responder: '&views.Responder{}'
+        initiator: '&views.InitiatorView{}'
     name: bob
     options:
       mapping:
@@ -296,8 +295,6 @@ topologies:
           mapping:
             DefaultNetwork: beta
             Organization:
-            - Network: alpha
-              Org: Org1
             - Network: beta
               Org: Org3
   logging:

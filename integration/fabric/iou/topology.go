@@ -30,7 +30,10 @@ func Topology() []api.Topology {
 	approver := fscTopology.AddNodeByName("approver")
 	// This option equips the approver's FSC node with an identity belonging to Org1.
 	// Therefore, the approver is an endorser of the Fabric namespace we defined above.
-	approver.AddOptions(fabric.WithOrganization("Org1"))
+	approver.AddOptions(
+		fabric.WithOrganization("Org1"),
+		fabric.WithX509Identity("alice"),
+	)
 	approver.RegisterResponder(&views.ApproverView{}, &views.CreateIOUView{})
 	approver.RegisterResponder(&views.ApproverView{}, &views.UpdateIOUView{})
 
@@ -43,7 +46,10 @@ func Topology() []api.Topology {
 
 	// Add the lender's FSC node
 	lender := fscTopology.AddNodeByName("lender")
-	lender.AddOptions(fabric.WithOrganization("Org3"))
+	lender.AddOptions(
+		fabric.WithOrganization("Org3"),
+		fabric.WithX509Identity("bob"),
+	)
 	lender.RegisterResponder(&views.CreateIOUResponderView{}, &views.CreateIOUView{})
 	lender.RegisterResponder(&views.UpdateIOUResponderView{}, &views.UpdateIOUView{})
 	lender.RegisterViewFactory("query", &views.QueryViewFactory{})

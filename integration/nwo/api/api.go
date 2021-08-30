@@ -10,7 +10,6 @@ import (
 	"github.com/tedsuo/ifrit/grouper"
 	"gopkg.in/yaml.v2"
 
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/identity"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/api"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
@@ -58,8 +57,8 @@ type Context interface {
 	AddIdentityAlias(name string, alias string)
 	TopologyByName(name string) Topology
 	SetConnectionConfig(name string, cc *grpc.ConnectionConfig)
-	SetClientSigningIdentity(name string, id identity.SigningIdentity)
-	SetAdminSigningIdentity(name string, id identity.SigningIdentity)
+	SetClientSigningIdentity(name string, id view.SigningIdentity)
+	SetAdminSigningIdentity(name string, id view.SigningIdentity)
 	SetViewIdentity(name string, cert []byte)
 	ConnectionConfig(name string) *grpc.ConnectionConfig
 	ClientSigningIdentity(name string) view.SigningIdentity

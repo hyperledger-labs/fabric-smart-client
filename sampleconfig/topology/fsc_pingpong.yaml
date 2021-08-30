@@ -5,6 +5,10 @@ topologies:
   - name: initiator
     bootstrap: true
     executablePath: github.com/hyperledger-labs/fabric-smart-client/integration/fsc/pingpong/cmd/initiator
+    options:
+      mapping:
+        Aliases:
+        - alice
   - NodeSynthesizer:
       Aliases:
         github.com/hyperledger-labs/fabric-smart-client/integration/fsc/pingpong:
@@ -16,6 +20,10 @@ topologies:
       - responder: '&pingpong.Responder{}'
         initiator: '&pingpong.Initiator{}'
     name: responder
+    options:
+      mapping:
+        Aliases:
+        - bob
   logging:
     spec: grpc=error:debug
     format: '''%{color}%{time:2006-01-02 15:04:05.000 MST} [%{module}] %{shortfunc}

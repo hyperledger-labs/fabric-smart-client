@@ -22,6 +22,7 @@ type Resolver struct {
 	Domain    string
 	Identity  ResolverIdentity
 	Addresses map[api.PortName]string
+	Aliases   []string
 	Port      int
 }
 
@@ -44,6 +45,7 @@ func (p *platform) GenerateResolverMap() {
 			},
 			Domain:    org.Domain,
 			Addresses: addresses,
+			Aliases:   peer.Aliases,
 		})
 	}
 }

@@ -4,17 +4,16 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package identity
+package si
 
 import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/asn1"
 	"fmt"
 	"math/big"
-
-	"github.com/hyperledger/fabric/bccsp/utils"
 )
 
 var (
@@ -34,11 +33,15 @@ type ecdsaSignature struct {
 	R, S *big.Int
 }
 
-type edsaSigner struct {
+type ecdsaSigner struct {
 	sk *ecdsa.PrivateKey
 }
 
-func (d *edsaSigner) Sign(message []byte) ([]byte, error) {
+func NewEcdsaSigner(sk *ecdsa.PrivateKey) *ecdsaSigner {
+	return &ecdsaSigner{sk: sk}
+}
+
+func (d *ecdsaSigner) Sign(message []byte) ([]byte, error) {
 	dgst := sha256.Sum256(message)
 
 	r, s, err := ecdsa.Sign(rand.Reader, d.sk, dgst[:])
@@ -46,16 +49,15 @@ func (d *edsaSigner) Sign(message []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	s, _, err = ToLowS(&d.sk.PublicKey, s)
+	s, _, err = toLowS(&d.sk.PublicKey, s)
 	if err != nil {
 		return nil, err
 	}
 
-	return utils.MarshalECDSASignature(r, s)
+	return asn1.Marshal(ecdsaSignature{R: r, S: s})
 }
 
-// IsLowS checks that s is a low-S
-func IsLowS(k *ecdsa.PublicKey, s *big.Int) (bool, error) {
+func isLowS(k *ecdsa.PublicKey, s *big.Int) (bool, error) {
 	halfOrder, ok := curveHalfOrders[k.Curve]
 	if !ok {
 		return false, fmt.Errorf("curve not recognized [%s]", k.Curve)
@@ -65,8 +67,8 @@ func IsLowS(k *ecdsa.PublicKey, s *big.Int) (bool, error) {
 
 }
 
-func ToLowS(k *ecdsa.PublicKey, s *big.Int) (*big.Int, bool, error) {
-	lowS, err := IsLowS(k, s)
+func toLowS(k *ecdsa.PublicKey, s *big.Int) (*big.Int, bool, error) {
+	lowS, err := isLowS(k, s)
 	if err != nil {
 		return nil, false, err
 	}
