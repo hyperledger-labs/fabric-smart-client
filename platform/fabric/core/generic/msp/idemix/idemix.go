@@ -13,12 +13,14 @@ import (
 
 	"github.com/IBM/idemix"
 	csp "github.com/IBM/idemix/bccsp"
+	"github.com/IBM/idemix/bccsp/keystore"
 	bccsp "github.com/IBM/idemix/bccsp/schemes"
 	ip "github.com/IBM/idemix/bccsp/schemes/dlog/crypto"
 	"github.com/IBM/idemix/bccsp/schemes/dlog/crypto/translator/amcl"
 	math "github.com/IBM/mathlib"
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	m "github.com/hyperledger/fabric-protos-go/msp"
 	"github.com/pkg/errors"
 
@@ -129,33 +131,6 @@ type provider struct {
 	sp      view2.ServiceProvider
 }
 
-type Dummy struct {
-	keyMap map[string]bccsp.Key
-}
-
-func (ks *Dummy) ReadOnly() bool {
-	return false
-}
-func (ks *Dummy) GetKey(ski []byte) (bccsp.Key, error) {
-	k := string(ski)
-
-	if val, ok := ks.keyMap[k]; !ok {
-		return nil, errors.Errorf("key %s ain't in the map", k)
-	} else {
-		return val, nil
-	}
-}
-func (ks *Dummy) StoreKey(k bccsp.Key) error {
-	pk, err := k.PublicKey()
-	if err != nil {
-		panic(err)
-	}
-	kk := string(pk.SKI())
-
-	ks.keyMap[kk] = k
-	return nil
-}
-
 func NewProvider(conf1 *m.MSPConfig, sp view2.ServiceProvider) (*provider, error) {
 	logger.Debugf("Setting up Idemix-based MSP instance")
 
@@ -164,7 +139,15 @@ func NewProvider(conf1 *m.MSPConfig, sp view2.ServiceProvider) (*provider, error
 	}
 
 	curve := math.Curves[math.FP256BN_AMCL]
-	cryptoProvider, err := csp.New(&Dummy{keyMap: map[string]bccsp.Key{}}, curve, &amcl.Fp256bn{C: curve}, true)
+	translator := &amcl.Fp256bn{C: curve}
+	kvss := kvs.GetService(sp)
+	keystore := &keystore.KVSStore{
+		KVS:        kvss,
+		Curve:      curve,
+		Translator: translator,
+	}
+
+	cryptoProvider, err := csp.New(keystore, curve, translator, true)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed getting crypto provider")
 	}
