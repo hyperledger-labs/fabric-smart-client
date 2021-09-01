@@ -52,8 +52,6 @@ fpc-docker-images:
 	docker image tag ghcr.io/mbrandenburger/fpc/ercc:main fpc/ercc:latest
 	docker pull ghcr.io/mbrandenburger/fpc/fpc-echo:main
 	docker image tag ghcr.io/mbrandenburger/fpc/fpc-echo:main fpc/fpc-echo:latest
-	docker pull ghcr.io/mbrandenburger/fpc/fpc-auction:main
-	docker image tag ghcr.io/mbrandenburger/fpc/fpc-auction:main fpc/fpc-auction:latest
 
 .PHONY: dependencies
 dependencies:

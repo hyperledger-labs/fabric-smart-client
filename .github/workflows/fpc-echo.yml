@@ -1,4 +1,4 @@
-name: AssetTransferSmartClient
+name: FPC Echo
 
 on:
   push:
