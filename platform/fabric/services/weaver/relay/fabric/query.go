@@ -65,18 +65,18 @@ func NewResult(address string, view *common.View) (*Result, error) {
 		return nil, err
 	}
 
-	encapsulatingProtobufThatIsTotallyRedundant := &common.InteropPayload{}
-	err = proto.Unmarshal(fv.Response.Payload, encapsulatingProtobufThatIsTotallyRedundant)
+	interopPayload := &common.InteropPayload{}
+	err = proto.Unmarshal(fv.Response.Payload, interopPayload)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal InteropPayload: %v", err)
 	}
 
 	return &Result{
-		result:  encapsulatingProtobufThatIsTotallyRedundant.Payload,
 		address: address,
 		view:    view,
 		fv:      fv,
 		rwset:   respPayload.Results,
+		result:  interopPayload.Payload,
 	}, nil
 }
 
@@ -106,7 +106,7 @@ func (r *Result) Proof() ([]byte, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed marshalling view")
 	}
-	return json.Marshal(&Proof{
+	return json.Marshal(&ProofMessage{
 		B64ViewProto: base64.StdEncoding.EncodeToString(viewRaw),
 		Address:      r.address,
 	})

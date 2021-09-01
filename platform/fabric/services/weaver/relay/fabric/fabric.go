@@ -8,7 +8,6 @@ package fabric
 
 import (
 	"encoding/json"
-	"fmt"
 
 	"github.com/pkg/errors"
 
@@ -36,23 +35,12 @@ func (f *Fabric) Query(destination, function string, args ...interface{}) (*Quer
 	return NewQuery(f.fns, f.ch, id, function, args), nil
 }
 
-// VerifyProof checks the validity of the passed proof
-func (f *Fabric) VerifyProof(raw []byte) error {
-	proof := &Proof{}
+// ProofFromBytes returns an object modeling a Relay proof from the passed bytes
+func (f *Fabric) ProofFromBytes(raw []byte) (*Proof, error) {
+	proof := &ProofMessage{}
 	if err := json.Unmarshal(raw, proof); err != nil {
-		return errors.Wrapf(err, "failed unmarshalling proof")
+		return nil, errors.Wrapf(err, "failed unmarshalling proof")
 	}
 
-	interopCCKey := fmt.Sprintf("weaver.interopcc.%s.name", f.ch.Name())
-	namespace := f.fns.ConfigService().GetString(interopCCKey)
-	logger.Debugf("verify proof at [%s:%s:%s:%s]", f.fns.Name(), f.ch.Name(), namespace, interopCCKey)
-	_, err := f.ch.Chaincode(namespace).Query(
-		"VerifyView", proof.B64ViewProto, proof.Address,
-	).WithInvokerIdentity(
-		f.fns.IdentityProvider().DefaultIdentity(),
-	).Call()
-	if err != nil {
-		return errors.WithMessagef(err, "failed invoking interop chaincode [%s.%s.%s:%s]", f.fns.Name(), f.ch.Name(), namespace, "VerifyView")
-	}
-	return nil
+	return NewProof(f.fns, f.ch, proof)
 }

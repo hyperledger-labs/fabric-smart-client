@@ -149,6 +149,8 @@ topologies:
             Organization:
             - Network: ""
               Org: Org1
+            X509Identities:
+            - alice
   - NodeSynthesizer:
       Aliases:
         github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou/views:
@@ -194,6 +196,8 @@ topologies:
             Organization:
             - Network: ""
               Org: Org3
+            X509Identities:
+            - bob
   logging:
     spec: grpc=error:debug
     format: '''%{color}%{time:2006-01-02 15:04:05.000 MST} [%{module}] %{shortfunc}

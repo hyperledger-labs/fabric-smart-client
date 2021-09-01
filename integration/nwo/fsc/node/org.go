@@ -46,6 +46,7 @@ type Peer struct {
 	ExecutablePath  string          `yaml:"executablepath,omitempty"`
 	ExtraIdentities []*PeerIdentity `yaml:"extraidentities,omitempty"`
 	Admins          []string        `yaml:"admins,omitempty"`
+	Aliases         []string        `yaml:"aliases,omitempty"`
 }
 
 // ID provides a unique identifier for a peer instance.
