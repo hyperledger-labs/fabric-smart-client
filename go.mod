@@ -7,13 +7,13 @@ replace (
 	github.com/go-kit/kit => github.com/go-kit/kit v0.7.0
 	github.com/hyperledger-labs/fabric-smart-client/integration/nwo/weaver/samplechaincode => ./integration/nwo/weaver/samplechaincode
 	github.com/hyperledger/fabric => github.com/hyperledger/fabric v1.4.0-rc1.0.20210722174351-9815a7a8f0f7
+	github.com/hyperledger/fabric-private-chaincode => github.com/adecaro/fabric-private-chaincode v0.0.0-20210831144302-a37df710bf82
 	github.com/hyperledger/fabric-protos-go => github.com/hyperledger/fabric-protos-go v0.0.0-20201028172056-a3136dde2354
 	go.etcd.io/etcd => go.etcd.io/etcd v0.5.0-alpha.5.0.20181228115726-23731bf9ba55
 )
 
 require (
 	github.com/Shopify/sarama v1.26.3
-	github.com/client9/misspell v0.3.4 // indirect
 	github.com/dgraph-io/badger/v3 v3.2011.1
 	github.com/docker/docker v20.10.7+incompatible
 	github.com/docker/go-connections v0.4.0
@@ -21,9 +21,7 @@ require (
 	github.com/fsouza/go-dockerclient v1.6.1
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/protobuf v1.5.2
-	github.com/google/addlicense v1.0.0 // indirect
 	github.com/google/go-cmp v0.5.5
-	github.com/gordonklaus/ineffassign v0.0.0-20210729092907-69aca2aeecd0 // indirect
 	github.com/gorilla/mux v1.8.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.2.0
 	github.com/hashicorp/go-version v1.2.0
@@ -58,9 +56,6 @@ require (
 	go.uber.org/zap v1.16.0
 	golang.org/x/mod v0.5.0 // indirect
 	golang.org/x/sys v0.0.0-20210823070655-63515b42dcdf // indirect
-	golang.org/x/text v0.3.5 // indirect
-	golang.org/x/tools v0.1.5 // indirect
-	google.golang.org/genproto v0.0.0-20210201184850-646a494a81ea // indirect
 	google.golang.org/grpc v1.39.1
 	google.golang.org/protobuf v1.27.1
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6
