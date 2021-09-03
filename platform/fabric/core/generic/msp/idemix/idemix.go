@@ -47,9 +47,9 @@ type deserialized struct {
 
 type support struct {
 	name            string
-	ipk             []byte
-	csp             bccsp.BCCSP
-	issuerPublicKey bccsp.Key
+	Ipk             []byte
+	Csp             bccsp.BCCSP
+	IssuerPublicKey bccsp.Key
 	revocationPK    bccsp.Key
 	epoch           int
 }
@@ -74,7 +74,7 @@ func (s *support) Deserialize(raw []byte, checkValidity bool) (*deserialized, er
 	var rawNymPublicKey []byte
 	rawNymPublicKey = append(rawNymPublicKey, serialized.NymX...)
 	rawNymPublicKey = append(rawNymPublicKey, serialized.NymY...)
-	NymPublicKey, err := s.csp.KeyImport(
+	NymPublicKey, err := s.Csp.KeyImport(
 		rawNymPublicKey,
 		&bccsp.IdemixNymPublicKeyImportOpts{Temporary: true},
 	)
@@ -202,8 +202,8 @@ func NewProvider(conf1 *m.MSPConfig, sp view2.ServiceProvider) (*provider, error
 	return &provider{
 		support: &support{
 			name:            conf.Name,
-			csp:             cryptoProvider,
-			issuerPublicKey: issuerPublicKey,
+			Csp:             cryptoProvider,
+			IssuerPublicKey: issuerPublicKey,
 			revocationPK:    RevocationPublicKey,
 			epoch:           0,
 		},
@@ -217,11 +217,11 @@ func (p *provider) Identity() (view.Identity, []byte, error) {
 	logger.Debug("getting new idemix identity")
 
 	// Derive NymPublicKey
-	nymKey, err := p.csp.KeyDeriv(
+	nymKey, err := p.Csp.KeyDeriv(
 		p.userKey,
 		&bccsp.IdemixNymKeyDerivationOpts{
 			Temporary: false,
-			IssuerPK:  p.issuerPublicKey,
+			IssuerPK:  p.IssuerPublicKey,
 		},
 	)
 	if err != nil {
@@ -243,18 +243,18 @@ func (p *provider) Identity() (view.Identity, []byte, error) {
 	ou := &m.OrganizationUnit{
 		MspIdentifier:                p.name,
 		OrganizationalUnitIdentifier: p.conf.Signer.OrganizationalUnitIdentifier,
-		CertifiersIdentifier:         p.issuerPublicKey.SKI(),
+		CertifiersIdentifier:         p.IssuerPublicKey.SKI(),
 	}
 
 	enrollmentID := p.conf.Signer.EnrollmentId
 
 	// Verify credential
-	valid, err := p.csp.Verify(
+	valid, err := p.Csp.Verify(
 		p.userKey,
 		p.conf.Signer.Cred,
 		nil,
 		&bccsp.IdemixCredentialSignerOpts{
-			IssuerPK: p.issuerPublicKey,
+			IssuerPK: p.IssuerPublicKey,
 			Attributes: []bccsp.IdemixAttribute{
 				{Type: bccsp.IdemixBytesAttribute, Value: []byte(p.conf.Signer.OrganizationalUnitIdentifier)},
 				{Type: bccsp.IdemixIntAttribute, Value: getIdemixRoleFromMSPRole(role)},
@@ -271,7 +271,7 @@ func (p *provider) Identity() (view.Identity, []byte, error) {
 	opts := &bccsp.IdemixSignerOpts{
 		Credential: p.conf.Signer.Cred,
 		Nym:        nymKey,
-		IssuerPK:   p.issuerPublicKey,
+		IssuerPK:   p.IssuerPublicKey,
 		Attributes: []bccsp.IdemixAttribute{
 			{Type: bccsp.IdemixBytesAttribute},
 			{Type: bccsp.IdemixIntAttribute},
@@ -283,7 +283,7 @@ func (p *provider) Identity() (view.Identity, []byte, error) {
 		CRI:      p.conf.Signer.CredentialRevocationInformation,
 		SigType:  bccsp.EidNym,
 	}
-	proof, err := p.csp.Sign(
+	proof, err := p.Csp.Sign(
 		p.userKey,
 		nil,
 		opts,
@@ -317,13 +317,14 @@ func (p *provider) Identity() (view.Identity, []byte, error) {
 	}
 
 	auditInfo := &AuditInfo{
+		Csp:             p.Csp,
+		IssuerPublicKey: p.IssuerPublicKey,
 		NymEIDAuditData: opts.Metadata.NymEIDAuditData,
 		Attributes: [][]byte{
 			[]byte(p.conf.Signer.OrganizationalUnitIdentifier),
 			[]byte(strconv.Itoa(getIdemixRoleFromMSPRole(role))),
 			[]byte(enrollmentID),
 		},
-		IPK: ipk,
 	}
 	infoRaw, err := auditInfo.Bytes()
 	if err != nil {
@@ -348,7 +349,7 @@ func (p *provider) DeserializeSigner(raw []byte) (driver.Signer, error) {
 		return nil, err
 	}
 
-	nymKey, err := p.csp.GetKey(r.NymPublicKey.SKI())
+	nymKey, err := p.Csp.GetKey(r.NymPublicKey.SKI())
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot find nym secret key")
 	}
@@ -379,7 +380,10 @@ func (p *provider) Info(raw []byte, auditInfo []byte) (string, error) {
 
 	eid := ""
 	if len(auditInfo) != 0 {
-		ai := &AuditInfo{}
+		ai := &AuditInfo{
+			Csp:             p.Csp,
+			IssuerPublicKey: p.IssuerPublicKey,
+		}
 		if err := ai.FromBytes(auditInfo); err != nil {
 			return "", err
 		}
@@ -393,7 +397,7 @@ func (p *provider) Info(raw []byte, auditInfo []byte) (string, error) {
 }
 
 func (p *provider) String() string {
-	return fmt.Sprintf("Idemix Provider [%s]", hash.Hashable(p.ipk).String())
+	return fmt.Sprintf("Idemix Provider [%s]", hash.Hashable(p.Ipk).String())
 }
 
 func (p *provider) EnrollmentID() string {
@@ -420,7 +424,7 @@ func (p *provider) DeserializeSigningIdentity(raw []byte) (driver.SigningIdentit
 	var rawNymPublicKey []byte
 	rawNymPublicKey = append(rawNymPublicKey, serialized.NymX...)
 	rawNymPublicKey = append(rawNymPublicKey, serialized.NymY...)
-	NymPublicKey, err := p.csp.KeyImport(
+	NymPublicKey, err := p.Csp.KeyImport(
 		rawNymPublicKey,
 		&bccsp.IdemixNymPublicKeyImportOpts{Temporary: true},
 	)
@@ -447,7 +451,7 @@ func (p *provider) DeserializeSigningIdentity(raw []byte) (driver.SigningIdentit
 		return nil, errors.Wrap(err, "cannot deserialize, invalid identity")
 	}
 
-	nymKey, err := p.csp.GetKey(NymPublicKey.SKI())
+	nymKey, err := p.Csp.GetKey(NymPublicKey.SKI())
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot find nym secret key")
 	}

@@ -57,9 +57,9 @@ func NewDeserializer(ipk []byte) (*idd, error) {
 
 	return &idd{
 		&support{
-			ipk:             ipk,
-			csp:             cryptoProvider,
-			issuerPublicKey: issuerPublicKey,
+			Ipk:             ipk,
+			Csp:             cryptoProvider,
+			IssuerPublicKey: issuerPublicKey,
 		},
 	}, nil
 }
@@ -102,7 +102,7 @@ func (i *idd) Info(raw []byte, auditInfo []byte) (string, error) {
 }
 
 func (i *idd) String() string {
-	return fmt.Sprintf("Idemix with IPK [%s]", hash.Hashable(i.ipk).String())
+	return fmt.Sprintf("Idemix with IPK [%s]", hash.Hashable(i.Ipk).String())
 }
 
 type verifier struct {
@@ -111,12 +111,12 @@ type verifier struct {
 }
 
 func (v *verifier) Verify(message, sigma []byte) error {
-	_, err := v.idd.csp.Verify(
+	_, err := v.idd.Csp.Verify(
 		v.nymPublicKey,
 		sigma,
 		message,
 		&csp.IdemixNymSignerOpts{
-			IssuerPK: v.idd.issuerPublicKey,
+			IssuerPK: v.idd.IssuerPublicKey,
 		},
 	)
 	return err
