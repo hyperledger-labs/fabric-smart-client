@@ -31,7 +31,10 @@ import (
 	nnetwork "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/network"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/packager"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 )
+
+var logger = flogging.MustGetLogger("integration.nwo.fabric.fpc")
 
 type ChaincodeInput struct {
 	Args []string `json:"Args"`
@@ -258,7 +261,6 @@ func (n *Extension) runDockerContainers(chaincode *topology.ChannelChaincode, pa
 		},
 			nil, nil,
 			fmt.Sprintf("%s.%s.%s.%s",
-				// "hello_world_prefix",
 				n.network.NetworkID,
 				chaincode.Chaincode.Name, peer.Name,
 				n.network.Organization(peer.Organization).Domain),
@@ -316,6 +318,10 @@ func (c *channelClient) Query(chaincodeID string, fcn string, args [][]byte, tar
 	ci := &ChaincodeInput{
 		Args: append(append([]string{}, fcn), toStrings(args)...),
 	}
+	logger.Infof("query [%s] with args...", chaincodeID)
+	for i, arg := range ci.Args {
+		logger.Infof("arg [%d][%s]", i, arg)
+	}
 	ctor, err := json.Marshal(ci)
 	Expect(err).ToNot(HaveOccurred())
 
@@ -368,7 +374,7 @@ func (c *channelClient) Execute(chaincodeID string, fcn string, args [][]byte) (
 }
 
 func toStrings(args [][]byte) []string {
-	res := make([]string, len(args))
+	var res []string
 	for _, arg := range args {
 		res = append(res, string(arg))
 	}
