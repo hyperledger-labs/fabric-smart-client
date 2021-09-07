@@ -12,12 +12,13 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/fpc/core/generic/crypto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
-type EncryptionProvider interface {
-	NewEncryptionContext() (crypto.EncryptionContext, error)
+type Contract interface {
+	Name() string
+	EvaluateTransaction(name string, args ...string) ([]byte, error)
+	SubmitTransaction(name string, args ...string) ([]byte, error)
 }
 
 type IdentityProvider interface {
@@ -32,71 +33,11 @@ type ChaincodeInvocation struct {
 }
 
 func (i *ChaincodeInvocation) Call() ([]byte, error) {
-	ctx, err := i.ep.NewEncryptionContext()
-	if err != nil {
-		return nil, err
-	}
-
 	args, err := i.prepareArgs()
 	if err != nil {
-		return nil, err
+		return nil, errors.WithMessagef(err, "failed preparing arguments")
 	}
-
-	encryptedRequest, err := ctx.Conceal(i.function, args)
-	if err != nil {
-		return nil, err
-	}
-
-	// call __invoke
-	encryptedResponse, err := i.evaluateTransaction(encryptedRequest)
-	if err != nil {
-		return nil, err
-	}
-
-	logger.Debugf("calling __endorse!")
-	_, _, err = i.ch.Chaincode(i.cid).Invoke(
-		"__endorse", string(encryptedResponse),
-	).WithInvokerIdentity(
-		i.id,
-	).Call()
-	if err != nil {
-		return nil, err
-	}
-
-	res, err := ctx.Reveal(encryptedResponse)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed revealing result [%s]", string(encryptedResponse))
-	}
-	return res, nil
-}
-
-func (i *ChaincodeInvocation) evaluateTransaction(args ...string) ([]byte, error) {
-	peers, err := i.er.PeerEndpoints(i.cid)
-	if err != nil {
-		return nil, err
-	}
-
-	var endorsers []view.Identity
-	for _, peer := range peers {
-		endorsers = append(endorsers, i.ip.Identity(peer))
-	}
-
-	// gateway.WithEndorsingPeers(peers...),
-	var passedArgs []interface{}
-	for _, arg := range args {
-		passedArgs = append(passedArgs, arg)
-	}
-	raw, err := i.ch.Chaincode(i.cid).Query(
-		"__invoke", passedArgs...,
-	).WithInvokerIdentity(
-		i.id,
-	).WithEndorsers(
-		endorsers...,
-	).Call()
-	if err != nil {
-		return nil, err
-	}
-	return raw, nil
+	return i.contract.SubmitTransaction(i.function, args...)
 }
 
 func (i *ChaincodeInvocation) prepareArgs() ([]string, error) {
@@ -129,11 +70,11 @@ func (i *ChaincodeInvocation) toString(arg interface{}) (string, error) {
 }
 
 type Chaincode struct {
-	ch *fabric.Channel
-	er *EnclaveRegistry
-	id view.Identity
-	ep EncryptionProvider
-	ip IdentityProvider
+	ch       *fabric.Channel
+	er       *EnclaveRegistry
+	contract Contract
+	id       view.Identity
+	ip       IdentityProvider
 
 	cid string
 }
