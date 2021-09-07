@@ -16,6 +16,8 @@ import (
 func Topology() []api.Topology {
 	// Create an empty fabric topology
 	fabricTopology := fabric.NewDefaultTopology()
+	// Enabled Idemix for Anonymous Identities
+	fabricTopology.EnableIdemix()
 	// Add two organizations with one peer each
 	fabricTopology.AddOrganizationsByName("Org1", "Org2", "Org3")
 	// Deploy a dummy chaincode to setup the namespace
@@ -40,7 +42,7 @@ func Topology() []api.Topology {
 
 	// Alice
 	alice := fscTopology.AddNodeByName("alice")
-	alice.AddOptions(fabric.WithOrganization("Org2"))
+	alice.AddOptions(fabric.WithOrganization("Org2"), fabric.WithAnonymousIdentity())
 	alice.RegisterViewFactory("transfer", &views.TransferViewFactory{})
 	alice.RegisterViewFactory("agreeToSell", &views.AgreeToSellViewFactory{})
 	alice.RegisterViewFactory("agreeToBuy", &views.AgreeToBuyViewFactory{})
@@ -49,7 +51,7 @@ func Topology() []api.Topology {
 
 	// Bob
 	bob := fscTopology.AddNodeByName("bob")
-	bob.AddOptions(fabric.WithOrganization("Org2"))
+	bob.AddOptions(fabric.WithOrganization("Org2"), fabric.WithAnonymousIdentity())
 	bob.RegisterViewFactory("transfer", &views.TransferViewFactory{})
 	bob.RegisterViewFactory("agreeToSell", &views.AgreeToSellViewFactory{})
 	bob.RegisterViewFactory("agreeToBuy", &views.AgreeToBuyViewFactory{})

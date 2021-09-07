@@ -35,7 +35,7 @@ func (f *TransferView) Call(context view.Context) (interface{}, error) {
 	assert.NoError(err, "failed getting recipient identity")
 
 	// Prepare transaction
-	tx, err := state.NewTransaction(context)
+	tx, err := state.NewAnonymousTransaction(context)
 	assert.NoError(err, "failed creating transaction")
 	tx.SetNamespace("asset_transfer")
 

@@ -10,6 +10,7 @@ import (
 	"encoding/base64"
 	"time"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 
 	"github.com/pkg/errors"
@@ -37,6 +38,30 @@ func Wrap(tx *endorser.Transaction) (*Transaction, error) {
 // NewTransaction returns a new instance of a state-based transaction that embeds a single namespace.
 func NewTransaction(context view.Context) (*Transaction, error) {
 	_, tx, err := endorser.NewTransaction(context)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := SetCertificationType(tx, ChaincodeCertification, nil); err != nil {
+		return nil, errors.Wrap(err, "failed appending certification")
+	}
+
+	return &Transaction{
+		Transaction: tx,
+		Namespace:   NewNamespace(tx, false),
+	}, nil
+}
+
+// NewAnonymousTransaction returns a new instance of a state-based transaction that embeds a single namespace and is signed
+// by an anonymous identity
+func NewAnonymousTransaction(context view.Context) (*Transaction, error) {
+	fns := fabric.GetDefaultFNS(context)
+	_, tx, err := endorser.NewTransactionWith(
+		context,
+		fns.Name(),
+		fns.DefaultChannel(),
+		fns.LocalMembership().AnonymousIdentity(),
+	)
 	if err != nil {
 		return nil, err
 	}
