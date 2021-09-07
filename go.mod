@@ -5,9 +5,7 @@ go 1.16
 replace (
 	github.com/fsouza/go-dockerclient => github.com/fsouza/go-dockerclient v1.4.1
 	github.com/go-kit/kit => github.com/go-kit/kit v0.7.0
-	github.com/hyperledger-labs/fabric-smart-client/integration/nwo/weaver/samplechaincode => ./integration/nwo/weaver/samplechaincode
 	github.com/hyperledger/fabric => github.com/hyperledger/fabric v1.4.0-rc1.0.20210722174351-9815a7a8f0f7
-	github.com/hyperledger/fabric-private-chaincode => github.com/adecaro/fabric-private-chaincode v0.0.0-20210907090904-71930b5afa53
 	github.com/hyperledger/fabric-protos-go => github.com/hyperledger/fabric-protos-go v0.0.0-20201028172056-a3136dde2354
 	go.etcd.io/etcd => go.etcd.io/etcd v0.5.0-alpha.5.0.20181228115726-23731bf9ba55
 )
@@ -35,7 +33,7 @@ require (
 	github.com/hyperledger/fabric-amcl v0.0.0-20200424173818-327c9e2cf77a
 	github.com/hyperledger/fabric-chaincode-go v0.0.0-20210718160520-38d29fabecb9
 	github.com/hyperledger/fabric-contract-api-go v1.1.1
-	github.com/hyperledger/fabric-private-chaincode v0.0.0-20210902154936-6c1394356781
+	github.com/hyperledger/fabric-private-chaincode v0.0.0-20210907122433-d56466264e4d
 	github.com/hyperledger/fabric-protos-go v0.0.0-20210720123151-f0dc3e2a0871
 	github.com/libp2p/go-libp2p v0.5.2
 	github.com/libp2p/go-libp2p-core v0.3.0
@@ -58,10 +56,6 @@ require (
 	go.uber.org/atomic v1.7.0
 	go.uber.org/zap v1.16.0
 	golang.org/x/mod v0.5.0 // indirect
-	golang.org/x/sys v0.0.0-20210902050250-f475640dd07b // indirect
-	golang.org/x/text v0.3.5 // indirect
-	golang.org/x/tools v0.1.5 // indirect
-	google.golang.org/genproto v0.0.0-20210201184850-646a494a81ea // indirect
 	golang.org/x/sys v0.0.0-20210906170528-6f6e22806c34 // indirect
 	google.golang.org/grpc v1.39.1
 	google.golang.org/protobuf v1.27.1

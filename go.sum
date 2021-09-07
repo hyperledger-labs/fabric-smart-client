@@ -106,10 +106,6 @@ github.com/VictoriaMetrics/fastcache v1.5.7 h1:4y6y0G8PRzszQUYIQHHssv/jgPHAb5qQu
 github.com/VictoriaMetrics/fastcache v1.5.7/go.mod h1:ptDBkNMQI4RtmVo8VS/XwRY6RoTu1dAWCbrk+6WsEM8=
 github.com/VividCortex/gohistogram v1.0.0 h1:6+hBz+qvs0JOrrNhhmR7lFxo5sINxBCGXrdtl/UvroE=
 github.com/VividCortex/gohistogram v1.0.0/go.mod h1:Pf5mBqqDxYaXu3hDrrU+w6nw50o/4+TcAqDqk/vUH7g=
-github.com/adecaro/fabric-private-chaincode v0.0.0-20210831144302-a37df710bf82 h1:Y3nDw1vgMfy3twsEzBXoD2LP91NgNiJVIr4+7NjUIkA=
-github.com/adecaro/fabric-private-chaincode v0.0.0-20210831144302-a37df710bf82/go.mod h1:CBeWypXEi4LndnexZzEEqVIIqjdrUzUUHmmFcEcGRX4=
-github.com/adecaro/fabric-private-chaincode v0.0.0-20210907090904-71930b5afa53 h1:6hUa3aOiRN/PXJeJm5LEljcU91Wkt+cNDDVPkj3P8hE=
-github.com/adecaro/fabric-private-chaincode v0.0.0-20210907090904-71930b5afa53/go.mod h1:CBeWypXEi4LndnexZzEEqVIIqjdrUzUUHmmFcEcGRX4=
 github.com/aead/siphash v1.0.1/go.mod h1:Nywa3cDsYNNK3gaciGTWPwHt0wlpNV15vwmswBAUSII=
 github.com/akavel/rsrc v0.8.0/go.mod h1:uLoCtb9J+EyAqh+26kdrTgmzRBFPGOolLWKpdxkKq+c=
 github.com/alcortesm/tgz v0.0.0-20161220082320-9c5fe88206d7 h1:uSoVVbwJiQipAclBbw+8quDsfcvFjOpI5iCf4p/cqCs=
@@ -633,6 +629,8 @@ github.com/hyperledger/fabric-contract-api-go v1.1.1 h1:gDhOC18gjgElNZ85kFWsbCQq
 github.com/hyperledger/fabric-contract-api-go v1.1.1/go.mod h1:+39cWxbh5py3NtXpRA63rAH7NzXyED+QJx1EZr0tJPo=
 github.com/hyperledger/fabric-lib-go v1.0.0 h1:UL1w7c9LvHZUSkIvHTDGklxFv2kTeva1QI2emOVc324=
 github.com/hyperledger/fabric-lib-go v1.0.0/go.mod h1:H362nMlunurmHwkYqR5uHL2UDWbQdbfz74n8kbCFsqc=
+github.com/hyperledger/fabric-private-chaincode v0.0.0-20210907122433-d56466264e4d h1:LR34x2vhXUuXsETE9HBhz+eZM6nTuzPiWsF5jnNI550=
+github.com/hyperledger/fabric-private-chaincode v0.0.0-20210907122433-d56466264e4d/go.mod h1:CBeWypXEi4LndnexZzEEqVIIqjdrUzUUHmmFcEcGRX4=
 github.com/hyperledger/fabric-protos-go v0.0.0-20201028172056-a3136dde2354 h1:6vLLEpvDbSlmUJFjg1hB5YMBpI+WgKguztlONcAFBoY=
 github.com/hyperledger/fabric-protos-go v0.0.0-20201028172056-a3136dde2354/go.mod h1:xVYTjK4DtZRBxZ2D9aE4y6AbLaPwue2o/criQyQbVD0=
 github.com/hyperledger/fabric-samples/chaincode/marbles02/go v0.0.0-20210428060230-9db8164f049b/go.mod h1:MvJbTLiLI/KBavKkC+OAqYU1IGvbY8WOu+Qzs/jncnA=
@@ -1540,12 +1538,8 @@ golang.org/x/sys v0.0.0-20210330210617-4fbd30eecc44/go.mod h1:h1NjWce9XRLGQEsW7w
 golang.org/x/sys v0.0.0-20210510120138-977fb7262007/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
 golang.org/x/sys v0.0.0-20210616094352-59db8d763f22/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
 golang.org/x/sys v0.0.0-20210630005230-0f9fa26af87c/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
-golang.org/x/sys v0.0.0-20210823070655-63515b42dcdf h1:2ucpDCmfkl8Bd/FsLtiD653Wf96cW37s+iGx93zsu4k=
-golang.org/x/sys v0.0.0-20210823070655-63515b42dcdf/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
 golang.org/x/sys v0.0.0-20210906170528-6f6e22806c34 h1:GkvMjFtXUmahfDtashnc1mnrCtuBVcwse5QV2lUk/tI=
 golang.org/x/sys v0.0.0-20210906170528-6f6e22806c34/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
-golang.org/x/sys v0.0.0-20210902050250-f475640dd07b h1:S7hKs0Flbq0bbc9xgYt4stIEG1zNDFqyrPwAX2Wj/sE=
-golang.org/x/sys v0.0.0-20210902050250-f475640dd07b/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
 golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1 h1:v+OssWQX+hTHEmOBgwxdZxK4zHq3yOs8F9J7mk0PY8E=
 golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1/go.mod h1:bj7SfCRtBDWHUb9snDiAeCFNEtKQo2Wmx5Cou7ajbmo=
 golang.org/x/text v0.0.0-20170915032832-14c0d48ead0c/go.mod h1:NqM8EUOU14njkJ3fqMW+pc6Ldnwhi/IjpwHt7yyuwOQ=
