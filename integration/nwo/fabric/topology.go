@@ -68,6 +68,7 @@ func WithDefaultNetwork(Network string) node.Option {
 	}
 }
 
+// WithAnonymousIdentity adds support for anonymous identity
 func WithAnonymousIdentity() node.Option {
 	return func(o *node.Options) error {
 		Options(o).SetAnonymousIdentity(true)

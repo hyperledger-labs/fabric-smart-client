@@ -243,7 +243,10 @@ func (q *Query) argToString(arg interface{}) (string, error) {
 }
 
 func createAddress(query types.Query, networkId, remoteURL string) string {
-	addressString := remoteURL + "/" + networkId + "/" + query.Channel + ":" + query.ContractName + ":" + query.CcFunc + ":" + query.CcArgs[0]
+	addressString := remoteURL + "/" + networkId + "/" + query.Channel + ":" + query.ContractName + ":" + query.CcFunc
+	for _, arg := range query.CcArgs {
+		addressString += ":" + arg
+	}
 	return addressString
 }
 
