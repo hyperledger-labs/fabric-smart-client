@@ -258,7 +258,9 @@ func (n *Extension) runDockerContainers(chaincode *topology.ChannelChaincode, pa
 		},
 			nil, nil,
 			fmt.Sprintf("%s.%s.%s.%s",
-				n.network.NetworkID, chaincode.Chaincode.Name, peer.Name,
+				// "hello_world_prefix",
+				n.network.NetworkID,
+				chaincode.Chaincode.Name, peer.Name,
 				n.network.Organization(peer.Organization).Domain),
 		)
 		Expect(err).ToNot(HaveOccurred())
