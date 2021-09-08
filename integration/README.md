@@ -23,3 +23,5 @@ Here is a list of available examples:
     using the `Fabric Smart Client`'s advanced capabilities.
 - [`Data Transfer using Weaver Relay Service`](./fabric/weaver/relay/README.md): In this example, we show how to execute
   a data transfer between two Fabric networks using [`Weaver`](https://labs.hyperledger.org/weaver-dlt-interoperability/).
+- [`Fabric Private Chaincode: Echo`](./fabric/fpc/echo/README.md): In this example, we show how to invoke a Fabric 
+  Private Chaincode called [`Echo`](https://github.com/hyperledger/fabric-private-chaincode/tree/main/samples/chaincode/echo).

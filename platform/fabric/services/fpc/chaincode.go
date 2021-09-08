@@ -15,16 +15,17 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
-type Contract interface {
+type contractInvoker interface {
 	Name() string
 	EvaluateTransaction(name string, args ...string) ([]byte, error)
 	SubmitTransaction(name string, args ...string) ([]byte, error)
 }
 
-type IdentityProvider interface {
+type identityProvider interface {
 	Identity(label string) view.Identity
 }
 
+// ChaincodeInvocation models the invocation of an FPC
 type ChaincodeInvocation struct {
 	*Chaincode
 
@@ -32,12 +33,13 @@ type ChaincodeInvocation struct {
 	args     []interface{}
 }
 
+// Call invokes the chaincode and returns the result
 func (i *ChaincodeInvocation) Call() ([]byte, error) {
 	args, err := i.prepareArgs()
 	if err != nil {
 		return nil, errors.WithMessagef(err, "failed preparing arguments")
 	}
-	return i.contract.SubmitTransaction(i.function, args...)
+	return i.Contract.SubmitTransaction(i.function, args...)
 }
 
 func (i *ChaincodeInvocation) prepareArgs() ([]string, error) {
@@ -69,20 +71,36 @@ func (i *ChaincodeInvocation) toString(arg interface{}) (string, error) {
 	}
 }
 
+// Chaincode models a Fabric Private Chaincode
 type Chaincode struct {
-	ch       *fabric.Channel
-	er       *EnclaveRegistry
-	contract Contract
-	id       view.Identity
-	ip       IdentityProvider
+	Channel          *fabric.Channel
+	EnclaveRegistry  *EnclaveRegistry
+	Contract         contractInvoker
+	Signer           view.Identity
+	IdentityProvider identityProvider
 
-	cid string
+	ID string
 }
 
+// NewChaincode returns a new chaincode instance
+func NewChaincode(ch *fabric.Channel, er *EnclaveRegistry, contract contractInvoker, id view.Identity, ip identityProvider, cid string) *Chaincode {
+	return &Chaincode{Channel: ch, EnclaveRegistry: er, Contract: contract, Signer: id, IdentityProvider: ip, ID: cid}
+}
+
+// Invoke returns an object that models an FPC invocation for the passed function and arguments
 func (c *Chaincode) Invoke(function string, args ...interface{}) *ChaincodeInvocation {
 	return &ChaincodeInvocation{
 		Chaincode: c,
 		function:  function,
 		args:      args,
 	}
+}
+
+// StringsToArgs converts a slice of strings into a slace of interface{}
+func StringsToArgs(args []string) []interface{} {
+	var res []interface{}
+	for _, arg := range args {
+		res = append(res, arg)
+	}
+	return res
 }

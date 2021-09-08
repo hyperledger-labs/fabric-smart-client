@@ -6,7 +6,6 @@ SPDX-License-Identifier: Apache-2.0
 
 package fpc
 
-import "C"
 import (
 	fpc "github.com/hyperledger/fabric-private-chaincode/client_sdk/go/pkg/core/contract"
 

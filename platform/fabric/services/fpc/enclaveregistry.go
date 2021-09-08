@@ -15,16 +15,23 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 )
 
+// EnclaveRegistry models the enclave registry
 type EnclaveRegistry struct {
-	fns *fabric.NetworkService
-	ch  *fabric.Channel
+	FabricNetworkService *fabric.NetworkService
+	Channel              *fabric.Channel
 }
 
+// NewEnclaveRegistry returns a new instance of the enclave registry
+func NewEnclaveRegistry(fns *fabric.NetworkService, ch *fabric.Channel) *EnclaveRegistry {
+	return &EnclaveRegistry{FabricNetworkService: fns, Channel: ch}
+}
+
+// ListProvisionedEnclaves returns the list of provisioned enclaves for the passed chaincode id
 func (e *EnclaveRegistry) ListProvisionedEnclaves(cid string) ([]string, error) {
-	raw, err := e.ch.Chaincode("ercc").Query(
+	raw, err := e.Channel.Chaincode("ercc").Query(
 		"QueryListProvisionedEnclaves", cid,
 	).WithInvokerIdentity(
-		e.fns.IdentityProvider().DefaultIdentity(),
+		e.FabricNetworkService.IdentityProvider().DefaultIdentity(),
 	).Call()
 	if err != nil {
 		return nil, err
@@ -42,11 +49,12 @@ func (e *EnclaveRegistry) ListProvisionedEnclaves(cid string) ([]string, error) 
 	return res, nil
 }
 
+// ChaincodeEncryptionKey returns the encryption key to be used for the passed chaincode id
 func (e *EnclaveRegistry) ChaincodeEncryptionKey(cid string) ([]byte, error) {
-	raw, err := e.ch.Chaincode("ercc").Query(
+	raw, err := e.Channel.Chaincode("ercc").Query(
 		"QueryChaincodeEncryptionKey", cid,
 	).WithInvokerIdentity(
-		e.fns.IdentityProvider().DefaultIdentity(),
+		e.FabricNetworkService.IdentityProvider().DefaultIdentity(),
 	).Call()
 	if err != nil {
 		return nil, err
@@ -55,11 +63,12 @@ func (e *EnclaveRegistry) ChaincodeEncryptionKey(cid string) ([]byte, error) {
 	return raw, nil
 }
 
+// PeerEndpoints returns the peer endpoints to use when invoking chaincode cid
 func (e *EnclaveRegistry) PeerEndpoints(cid string) ([]string, error) {
-	raw, err := e.ch.Chaincode("ercc").Query(
+	raw, err := e.Channel.Chaincode("ercc").Query(
 		"QueryChaincodeEndPoints", cid,
 	).WithInvokerIdentity(
-		e.fns.IdentityProvider().DefaultIdentity(),
+		e.FabricNetworkService.IdentityProvider().DefaultIdentity(),
 	).Call()
 	if err != nil {
 		return nil, err
