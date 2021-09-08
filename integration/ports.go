@@ -31,6 +31,7 @@ const (
 	AssetTransferSecuredAgreementWithChaincode
 	AssetTransferSecuredAgreementWithApprovers
 	TwoFabricNetworksPort
+	FPCEchoPort
 	TwoFabricNetworksWithWeaverRelayPort
 )
 

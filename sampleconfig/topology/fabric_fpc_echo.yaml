@@ -1,0 +1,183 @@
+topologies:
+- name: default
+  type: fabric
+  default: true
+  logging:
+    spec: grpc=error:chaincode=debug:endorser=debug:debug
+    format: '''%{color}%{time:2006-01-02 15:04:05.000 MST} [%{module}] %{shortfunc}
+      -> %{level:.4s} %{id:03x}%{color:reset} %{message}'''
+  organizations:
+  - msp_id: OrdererMSP
+    name: OrdererOrg
+    domain: example.com
+    enable_node_organizational_units: false
+    ca:
+      hostname: ca
+  - id: Org1
+    msp_id: Org1MSP
+    name: Org1
+    domain: org1.example.com
+    enable_node_organizational_units: false
+    users: 1
+    ca:
+      hostname: ca
+  - id: Org2
+    msp_id: Org2MSP
+    name: Org2
+    domain: org2.example.com
+    enable_node_organizational_units: false
+    users: 1
+    ca:
+      hostname: ca
+  peers:
+  - name: Org1_peer_0
+    organization: Org1
+    type: FabricPeer
+    channels:
+    - name: testchannel
+      anchor: true
+    devmode: false
+  - name: Org2_peer_0
+    organization: Org2
+    type: FabricPeer
+    channels:
+    - name: testchannel
+      anchor: true
+    devmode: false
+  consortiums:
+  - name: SampleConsortium
+    organizations:
+    - Org1
+    - Org2
+  system_channel:
+    name: systemchannel
+    profile: OrgsOrdererGenesis
+  channels:
+  - name: testchannel
+    profile: OrgsChannel
+    default: true
+  consensus:
+    type: solo
+  orderers:
+  - name: orderer
+    organization: OrdererOrg
+  profiles:
+  - name: OrgsOrdererGenesis
+    orderers:
+    - orderer
+  - name: OrgsChannel
+    consortium: SampleConsortium
+    organizations:
+    - Org1
+    - Org2
+    policies:
+    - name: Readers
+      type: ImplicitMeta
+      rule: ANY Readers
+    - name: Writers
+      type: ImplicitMeta
+      rule: ANY Writers
+    - name: Admins
+      type: ImplicitMeta
+      rule: ANY Admins
+    - name: LifecycleEndorsement
+      type: ImplicitMeta
+      rule: MAJORITY Endorsement
+    - name: Endorsement
+      type: ImplicitMeta
+      rule: ANY Endorsement
+  chaincodes:
+  - chaincode:
+      name: ercc
+      version: Version-1.0
+      path: ercc
+      ctor: '{"Args":["init"]}'
+      policy: OutOf(2,'Org1MSP.member','Org2MSP.member')
+      lang: external
+      collectionsconfig: ""
+      packagefile: ""
+      codefiles: {}
+      sequence: "1"
+      endorsementplugin: ""
+      validationplugin: ""
+      initrequired: false
+      label: ercc_1.0
+      signaturepolicy: OutOf(2,'Org1MSP.member','Org2MSP.member')
+      channelconfigpolicy: ""
+    privatechaincode:
+      image: fpc/ercc
+    channel: testchannel
+    peers:
+    - Org1_peer_0
+    - Org2_peer_0
+    private: true
+  - chaincode:
+      name: echo
+      version: Version-1.0
+      path: echo
+      ctor: '{"Args":["init"]}'
+      policy: OutOf(2,'Org1MSP.member','Org2MSP.member')
+      lang: external
+      collectionsconfig: ""
+      packagefile: ""
+      codefiles: {}
+      sequence: "1"
+      endorsementplugin: ""
+      validationplugin: ""
+      initrequired: false
+      label: echo_1.0
+      signaturepolicy: OutOf(2,'Org1MSP.member','Org2MSP.member')
+      channelconfigpolicy: ""
+    privatechaincode:
+      image: fpc/fpc-echo
+    channel: testchannel
+    peers:
+    - Org1_peer_0
+    - Org2_peer_0
+    private: true
+  chaincodemode: net
+  fpc: true
+- name: fsc
+  type: fsc
+  peers:
+  - NodeSynthesizer:
+      Aliases:
+        github.com/hyperledger-labs/fabric-smart-client/integration/fabric/fpc/echo/views:
+          original: views
+          alias: views
+      Imports:
+      - github.com/hyperledger-labs/fabric-smart-client/integration/fabric/fpc/echo/views
+      Factories:
+      - id: ListProvisionedEnclaves
+        type: '&views.ListProvisionedEnclavesViewFactory{}'
+    name: alice
+    bootstrap: true
+    options:
+      mapping:
+        fabric:
+          mapping:
+            Organization:
+            - Network: ""
+              Org: Org2
+  - NodeSynthesizer:
+      Aliases:
+        github.com/hyperledger-labs/fabric-smart-client/integration/fabric/fpc/echo/views:
+          original: views
+          alias: views
+      Imports:
+      - github.com/hyperledger-labs/fabric-smart-client/integration/fabric/fpc/echo/views
+      Factories:
+      - id: ListProvisionedEnclaves
+        type: '&views.ListProvisionedEnclavesViewFactory{}'
+    name: bob
+    options:
+      mapping:
+        fabric:
+          mapping:
+            Organization:
+            - Network: ""
+              Org: Org2
+  logging:
+    spec: grpc=error:debug
+    format: '''%{color}%{time:2006-01-02 15:04:05.000 MST} [%{module}] %{shortfunc}
+      -> %{level:.4s} %{id:03x}%{color:reset} %{message}'''

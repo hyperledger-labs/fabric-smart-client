@@ -275,7 +275,7 @@ func (f contract) transact(functionName string, args ...string) ([]byte, error) 
 		return nil, errors.WithMessagef(err, "failed invoking interop chaincode [%s.%s.%s:%s]", f.fns.Name(), f.channel, f.namespace, functionName)
 	}
 
-	return res.([]byte), nil
+	return res, nil
 }
 
 func (f contract) EvaluateTransaction(name string, args ...string) ([]byte, error) {

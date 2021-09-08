@@ -52,7 +52,7 @@ func (p *Responder) Call(context view.Context) (interface{}, error) {
 	assert.Equal(v1, v2, "excepted same write [%s]!=[%s]", string(v1), string(v2))
 
 	// If the previous step is successful, then Bob stores the same data in `beta` (inside a given namespace of a given channel).
-	_, err = fabric.GetDefaultChannel(context).Chaincode("ns2").Invoke(
+	_, _, err = fabric.GetDefaultChannel(context).Chaincode("ns2").Invoke(
 		"Put", stateVariable, string(res.Result()),
 	).Call()
 	assert.NoError(err, "failed putting state")

@@ -22,8 +22,8 @@ ineffassign:
 misspell:
 	@misspell $(shell go list -f '{{.Dir}}' ./...)
 
-.PHONY: unit-tests 
-unit-tests: docker-images 
+.PHONY: unit-tests
+unit-tests: docker-images
 	@go test -cover $(shell go list ./... | grep -v '/integration/')
 	cd integration/nwo/; go test -cover ./...
 
@@ -45,6 +45,13 @@ docker-images:
 	docker image tag ghcr.io/hyperledger-labs/weaver-fabric-driver:1.2.1 hyperledger-labs/weaver-fabric-driver:latest
 	docker pull ghcr.io/hyperledger-labs/weaver-relay-server:1.2.1
 	docker image tag ghcr.io/hyperledger-labs/weaver-relay-server:1.2.1 hyperledger-labs/weaver-relay-server:latest
+
+.PHONY: fpc-docker-images
+fpc-docker-images:
+	docker pull ghcr.io/mbrandenburger/fpc/ercc:main
+	docker image tag ghcr.io/mbrandenburger/fpc/ercc:main fpc/ercc:latest
+	docker pull ghcr.io/mbrandenburger/fpc/fpc-echo:main
+	docker image tag ghcr.io/mbrandenburger/fpc/fpc-echo:main fpc/fpc-echo:latest
 
 .PHONY: dependencies
 dependencies:
@@ -78,6 +85,10 @@ integration-tests-atsafsc: docker-images dependencies
 integration-tests-twonets: docker-images dependencies
 	cd ./integration/fabric/twonets; ginkgo -keepGoing --slowSpecThreshold 60 .
 
+.PHONY: integration-tests-fpc-echo
+integration-tests-fpc-echo: docker-images fpc-docker-images dependencies
+	cd ./integration/fabric/fpc/echo; ginkgo -keepGoing --slowSpecThreshold 60 .
+
 .PHONY: integration-tests-weaver-relay
 integration-tests-weaver-relay: docker-images dependencies
 	cd ./integration/fabric/weaver/relay; ginkgo -keepGoing --slowSpecThreshold 60 .
@@ -104,6 +115,7 @@ clean:
 	rm -rf ./integration/fabric/iou/cmd/
 	rm -rf ./integration/fabric/twonets/cmd
 	rm -rf ./integration/fabric/weaver/relay/cmd
+	rm -rf ./integration/fabric/fpc/echo/cmd
 	rm -rf ./integration/fsc/stoprestart/cmd
 	rm -rf ./integration/fsc/pingpong/cmd/responder
 	rm -rf ./integration/fscnodes

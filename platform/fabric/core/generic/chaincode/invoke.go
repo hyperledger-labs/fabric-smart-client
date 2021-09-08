@@ -27,16 +27,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
-type CallType int
-
-const (
-	EndorseCall CallType = iota
-	InvokeCall
-	QueryCall
-)
-
 type Invoke struct {
-	CallType              CallType
 	ServiceProvider       view2.ServiceProvider
 	Network               Network
 	Channel               Channel
@@ -56,7 +47,6 @@ type Invoke struct {
 
 func NewInvoke(ServiceProvider view2.ServiceProvider, network Network, channel Channel, chaincode, function string, args ...interface{}) *Invoke {
 	return &Invoke{
-		CallType:        InvokeCall,
 		ServiceProvider: ServiceProvider,
 		Network:         network,
 		Channel:         channel,
@@ -66,151 +56,65 @@ func NewInvoke(ServiceProvider view2.ServiceProvider, network Network, channel C
 	}
 }
 
-func NewEndorse(ServiceProvider view2.ServiceProvider, network Network, channel Channel, chaincode, function string, args ...interface{}) *Invoke {
-	return &Invoke{
-		CallType:        EndorseCall,
-		ServiceProvider: ServiceProvider,
-		Network:         network,
-		Channel:         channel,
-		ChaincodeName:   chaincode,
-		Function:        function,
-		Args:            args,
-	}
-}
-
-func NewQuery(ServiceProvider view2.ServiceProvider, network Network, channel Channel, chaincode, function string, args ...interface{}) *Invoke {
-	return &Invoke{
-		CallType:        QueryCall,
-		ServiceProvider: ServiceProvider,
-		Network:         network,
-		Channel:         channel,
-		ChaincodeName:   chaincode,
-		Function:        function,
-		Args:            args,
-	}
-}
-
-func (i *Invoke) Call() (interface{}, error) {
-	// TODO: improve by providing grpc connection pool
-	var peerClients []peer2.PeerClient
-	defer func() {
-		for _, pCli := range peerClients {
-			pCli.Close()
-		}
-	}()
-
-	if i.SignerIdentity.IsNone() {
-		return nil, errors.Errorf("no invoker specified")
-	}
-	if len(i.ChaincodeName) == 0 {
-		return nil, errors.Errorf("no chaincode specified")
-	}
-
-	// load endorser clients
-	var endorserClients []pb.EndorserClient
-	switch {
-	case len(i.EndorsersByConnConfig) != 0:
-		for _, config := range i.EndorsersByConnConfig {
-			peerClient, err := i.Channel.NewPeerClientForAddress(*config)
-			if err != nil {
-				return nil, err
-			}
-			peerClients = append(peerClients, peerClient)
-
-			endorserClient, err := peerClient.Endorser()
-			if err != nil {
-				return nil, errors.WithMessagef(err, "error getting endorser client for config %v", config)
-			}
-			endorserClients = append(endorserClients, endorserClient)
-		}
-	case len(i.Endorsers) == 0:
-		if i.EndorsersFromMyOrg && len(i.EndorsersMSPIDs) == 0 {
-			// retrieve invoker's MSP-ID
-			invokerMSPID, err := i.Channel.MSPManager().DeserializeIdentity(i.SignerIdentity)
-			if err != nil {
-				return nil, errors.WithMessagef(err, "failed to deserializer the invoker identity")
-			}
-			i.EndorsersMSPIDs = []string{invokerMSPID.GetMSPIdentifier()}
-		}
-
-		// discover
-		var err error
-		i.Endorsers, err = NewDiscovery(i.Network, i.Channel, i.ChaincodeName).WithFilterByMSPIDs(i.EndorsersMSPIDs...).Call()
-		if err != nil {
-			return nil, err
-		}
-	default:
-		return nil, errors.New("no rule set to find the endorsers")
-	}
-
-	for _, endorser := range i.Endorsers {
-		peerClient, err := i.Channel.NewPeerClientForIdentity(endorser)
-		if err != nil {
-			return nil, err
-		}
-		peerClients = append(peerClients, peerClient)
-
-		endorserClient, err := peerClient.Endorser()
-		if err != nil {
-			return nil, errors.WithMessagef(err, "error getting endorser client for %s", endorser)
-		}
-		endorserClients = append(endorserClients, endorserClient)
-	}
-	if len(endorserClients) == 0 {
-		return nil, errors.New("no endorser clients retrieved - this might indicate a bug")
-	}
-
-	// load signer
-	signer, err := i.Network.SigService().GetSigningIdentity(i.SignerIdentity)
+func (i *Invoke) Endorse() (driver.Envelope, error) {
+	_, prop, responses, signer, err := i.prepare()
 	if err != nil {
 		return nil, err
 	}
 
-	// prepare proposal
-	signedProp, prop, txid, err := i.prepareProposal(signer)
-	if err != nil {
-		return nil, err
-	}
-
-	// collect responses
-	responses, err := i.collectResponses(endorserClients, signedProp)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed collecting proposal responses")
-	}
-
-	if len(responses) == 0 {
-		// this should only happen if some new code has introduced a bug
-		return nil, errors.New("no proposal responses received - this might indicate a bug")
-	}
-	// all responses will be checked when the signed transaction is created.
-	// for now, just set this so we check the first response's status
 	proposalResp := responses[0]
 	if proposalResp == nil {
 		return nil, errors.New("error during query: received nil proposal response")
 	}
 
-	if i.CallType == QueryCall {
-		if proposalResp.Endorsement == nil {
-			return nil, errors.Errorf("endorsement failure during query. response: %v", proposalResp.Response)
-		}
-		return proposalResp.Response.Payload, nil
+	// assemble a signed transaction (it's an Envelope message)
+	env, err := protoutil.CreateSignedTx(prop, signer, responses...)
+	if err != nil {
+		return nil, errors.WithMessage(err, "could not assemble transaction")
+	}
+
+	return transaction.NewEnvelopeFromEnv(env)
+}
+
+func (i *Invoke) Query() ([]byte, error) {
+	_, _, responses, _, err := i.prepare()
+	if err != nil {
+		return nil, err
+	}
+	proposalResp := responses[0]
+	if proposalResp == nil {
+		return nil, errors.New("error during query: received nil proposal response")
+	}
+	if proposalResp.Endorsement == nil {
+		return nil, errors.Errorf("endorsement failure during query. response: %v", proposalResp.Response)
+	}
+	return proposalResp.Response.Payload, nil
+}
+
+func (i *Invoke) Submit() (string, []byte, error) {
+	txid, prop, responses, signer, err := i.prepare()
+	if err != nil {
+		return "", nil, err
+	}
+
+	proposalResp := responses[0]
+	if proposalResp == nil {
+		return "", nil, errors.New("error during query: received nil proposal response")
 	}
 
 	// assemble a signed transaction (it's an Envelope message)
 	env, err := protoutil.CreateSignedTx(prop, signer, responses...)
 	if err != nil {
-		return []interface{}{txid, proposalResp}, errors.WithMessage(err, "could not assemble transaction")
-	}
-	if i.CallType == EndorseCall {
-		return transaction.NewEnvelopeFromEnv(env)
+		return txid, proposalResp.Response.Payload, errors.WithMessage(err, "could not assemble transaction")
 	}
 
 	// Broadcast envelope and wait for finality
 	err = i.broadcast(txid, env)
 	if err != nil {
-		return nil, err
+		return "", nil, err
 	}
-	return []interface{}{txid, proposalResp}, nil
+
+	return txid, proposalResp.Response.Payload, nil
 }
 
 func (i *Invoke) WithTransientEntry(k string, v interface{}) driver.ChaincodeInvocation {
@@ -253,6 +157,104 @@ func (i *Invoke) WithEndorsersByConnConfig(ccs ...*grpc.ConnectionConfig) driver
 func (i *Invoke) WithTxID(id driver.TxID) driver.ChaincodeInvocation {
 	i.TxID = id
 	return i
+}
+
+func (i *Invoke) prepare() (string, *pb.Proposal, []*pb.ProposalResponse, driver.SigningIdentity, error) {
+	// TODO: improve by providing grpc connection pool
+	var peerClients []peer2.PeerClient
+	defer func() {
+		for _, pCli := range peerClients {
+			pCli.Close()
+		}
+	}()
+
+	if i.SignerIdentity.IsNone() {
+		return "", nil, nil, nil, errors.Errorf("no invoker specified")
+	}
+	if len(i.ChaincodeName) == 0 {
+		return "", nil, nil, nil, errors.Errorf("no chaincode specified")
+	}
+
+	// load endorser clients
+	var endorserClients []pb.EndorserClient
+	switch {
+	case len(i.EndorsersByConnConfig) != 0:
+		for _, config := range i.EndorsersByConnConfig {
+			peerClient, err := i.Channel.NewPeerClientForAddress(*config)
+			if err != nil {
+				return "", nil, nil, nil, err
+			}
+			peerClients = append(peerClients, peerClient)
+
+			endorserClient, err := peerClient.Endorser()
+			if err != nil {
+				return "", nil, nil, nil, errors.WithMessagef(err, "error getting endorser client for config %v", config)
+			}
+			endorserClients = append(endorserClients, endorserClient)
+		}
+	case len(i.Endorsers) == 0:
+		if i.EndorsersFromMyOrg && len(i.EndorsersMSPIDs) == 0 {
+			// retrieve invoker's MSP-ID
+			invokerMSPID, err := i.Channel.MSPManager().DeserializeIdentity(i.SignerIdentity)
+			if err != nil {
+				return "", nil, nil, nil, errors.WithMessagef(err, "failed to deserializer the invoker identity")
+			}
+			i.EndorsersMSPIDs = []string{invokerMSPID.GetMSPIdentifier()}
+		}
+
+		// discover
+		var err error
+		i.Endorsers, err = NewDiscovery(i.Network, i.Channel, i.ChaincodeName).WithFilterByMSPIDs(i.EndorsersMSPIDs...).Call()
+		if err != nil {
+			return "", nil, nil, nil, err
+		}
+	case len(i.Endorsers) != 0:
+		// nothing to do here
+	default:
+		return "", nil, nil, nil, errors.New("no rule set to find the endorsers")
+	}
+
+	for _, endorser := range i.Endorsers {
+		peerClient, err := i.Channel.NewPeerClientForIdentity(endorser)
+		if err != nil {
+			return "", nil, nil, nil, err
+		}
+		peerClients = append(peerClients, peerClient)
+
+		endorserClient, err := peerClient.Endorser()
+		if err != nil {
+			return "", nil, nil, nil, errors.WithMessagef(err, "error getting endorser client for %s", endorser)
+		}
+		endorserClients = append(endorserClients, endorserClient)
+	}
+	if len(endorserClients) == 0 {
+		return "", nil, nil, nil, errors.New("no endorser clients retrieved - this might indicate a bug")
+	}
+
+	// load signer
+	signer, err := i.Network.SigService().GetSigningIdentity(i.SignerIdentity)
+	if err != nil {
+		return "", nil, nil, nil, err
+	}
+
+	// prepare proposal
+	signedProp, prop, txid, err := i.prepareProposal(signer)
+	if err != nil {
+		return "", nil, nil, nil, err
+	}
+
+	// collect responses
+	responses, err := i.collectResponses(endorserClients, signedProp)
+	if err != nil {
+		return "", nil, nil, nil, errors.Wrapf(err, "failed collecting proposal responses")
+	}
+
+	if len(responses) == 0 {
+		// this should only happen if some new code has introduced a bug
+		return "", nil, nil, nil, errors.New("no proposal responses received - this might indicate a bug")
+	}
+
+	return txid, prop, responses, signer, nil
 }
 
 func (i *Invoke) prepareProposal(signer SerializableSigner) (*pb.SignedProposal, *pb.Proposal, string, error) {

@@ -45,14 +45,14 @@ func (c *channel) NewQueryExecutor() (driver.QueryExecutor, error) {
 
 // GetBlockByNumber fetches a block by number
 func (c *channel) GetBlockByNumber(number uint64) (driver.Block, error) {
-	res, err := c.Chaincode("qscc").NewInvocation(driver.ChaincodeQuery, GetBlockByNumber, c.name, number).WithSignerIdentity(
+	res, err := c.Chaincode("qscc").NewInvocation(GetBlockByNumber, c.name, number).WithSignerIdentity(
 		c.network.LocalMembership().DefaultIdentity(),
-	).WithEndorsersByConnConfig(c.network.Peers()...).Call()
+	).WithEndorsersByConnConfig(c.network.Peers()...).Query()
 	if err != nil {
 		return nil, err
 	}
 
-	b, err := protoutil.UnmarshalBlock(res.([]byte))
+	b, err := protoutil.UnmarshalBlock(res)
 	if err != nil {
 		return nil, err
 	}

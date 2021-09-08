@@ -256,14 +256,12 @@ func (c *channel) GetClientConfig(tlsRootCerts [][]byte) (*grpc.ClientConfig, st
 }
 
 func (c *channel) GetTransactionByID(txID string) (driver.ProcessedTransaction, error) {
-	res, err := c.Chaincode("qscc").NewInvocation(driver.ChaincodeQuery, GetTransactionByID, c.name, txID).WithSignerIdentity(
+	raw, err := c.Chaincode("qscc").NewInvocation(GetTransactionByID, c.name, txID).WithSignerIdentity(
 		c.network.LocalMembership().DefaultIdentity(),
-	).WithEndorsersByConnConfig(c.network.Peers()...).Call()
+	).WithEndorsersByConnConfig(c.network.Peers()...).Query()
 	if err != nil {
 		return nil, err
 	}
-
-	raw := res.([]byte)
 
 	logger.Debugf("got transaction by id [%s] of len [%d]", txID, len(raw))
 
@@ -276,15 +274,15 @@ func (c *channel) GetTransactionByID(txID string) (driver.ProcessedTransaction, 
 }
 
 func (c *channel) GetBlockNumberByTxID(txID string) (uint64, error) {
-	res, err := c.Chaincode("qscc").NewInvocation(driver.ChaincodeQuery, GetBlockByTxID, c.name, txID).WithSignerIdentity(
+	res, err := c.Chaincode("qscc").NewInvocation(GetBlockByTxID, c.name, txID).WithSignerIdentity(
 		c.network.LocalMembership().DefaultIdentity(),
-	).WithEndorsersByConnConfig(c.network.Peers()...).Call()
+	).WithEndorsersByConnConfig(c.network.Peers()...).Query()
 	if err != nil {
 		return 0, err
 	}
 
 	block := &common.Block{}
-	err = proto.Unmarshal(res.([]byte), block)
+	err = proto.Unmarshal(res, block)
 	if err != nil {
 		return 0, err
 	}

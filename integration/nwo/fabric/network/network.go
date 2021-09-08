@@ -29,6 +29,12 @@ type ChaincodeProcessor interface {
 	Process(network *Network, cc *topology.ChannelChaincode) *topology.ChannelChaincode
 }
 
+type Extension interface {
+	CheckTopology()
+	GenerateArtifacts()
+	PostRun()
+}
+
 type Network struct {
 	Context            api.Context
 	topology           *topology.Topology
@@ -64,6 +70,8 @@ type Network struct {
 	Consortiums       []*topology.Consortium
 	Templates         *topology.Templates
 	Resolvers         []*Resolver
+
+	Extensions []Extension
 
 	colorIndex uint
 	ccps       []ChaincodeProcessor
@@ -107,6 +115,7 @@ func New(reg api.Context, topology *topology.Topology, dockerClient *docker.Clie
 		PvtTxSupport:      topology.PvtTxSupport,
 		PvtTxCCSupport:    topology.PvtTxCCSupport,
 		ccps:              ccps,
+		Extensions:        []Extension{},
 	}
 	return network
 }
@@ -203,6 +212,11 @@ func (n *Network) GenerateArtifacts() {
 			n.GenerateCoreConfig(p)
 		}
 	}
+
+	// Extensions
+	for _, extension := range n.Extensions {
+		extension.GenerateArtifacts()
+	}
 }
 
 func (n *Network) Load() {
@@ -241,11 +255,18 @@ func (n *Network) PostRun() {
 			for _, ccp := range n.ccps {
 				chaincode = ccp.Process(n, chaincode)
 			}
-			n.DeployChaincode(chaincode)
+			if !chaincode.Private {
+				n.DeployChaincode(chaincode)
+			}
 		}
 	}
 
-	// Wait a few second to make peers discovering each other
+	// Extensions
+	for _, extension := range n.Extensions {
+		extension.PostRun()
+	}
+
+	// Wait a few second to let Fabric stabilize
 	time.Sleep(5 * time.Second)
 	logger.Infof("Post execution [%s]...done.", n.Prefix)
 }
@@ -316,4 +337,8 @@ func (n *Network) DeployChaincode(chaincode *topology.ChannelChaincode) {
 	if chaincode.Chaincode.InitRequired {
 		InitChaincode(n, chaincode.Channel, orderer, &chaincode.Chaincode, peers...)
 	}
+}
+
+func (n *Network) AddExtension(ex Extension) {
+	n.Extensions = append(n.Extensions, ex)
 }

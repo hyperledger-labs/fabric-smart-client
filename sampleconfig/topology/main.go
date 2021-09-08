@@ -14,6 +14,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/chaincode"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/fsc"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/fpc/echo"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/twonets"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/weaver/relay"
@@ -29,6 +30,7 @@ func main() {
 	topologies["fabric_atsa_nochaincode.yaml"] = fsc.Topology()
 	topologies["fabric_iou.yaml"] = iou.Topology()
 	topologies["fabric_twonets.yaml"] = twonets.Topology()
+	topologies["fabric_fpc_echo.yaml"] = echo.Topology()
 	topologies["fabric_weaver_relay.yaml"] = relay.Topology()
 
 	topologies["fsc_pingpong.yaml"] = pingpong.Topology()

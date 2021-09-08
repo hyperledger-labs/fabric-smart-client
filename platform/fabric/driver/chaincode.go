@@ -16,17 +16,13 @@ type TxID struct {
 	Creator []byte
 }
 
-type ChaincodeInvocationType int
-
-const (
-	ChaincodeInvoke ChaincodeInvocationType = iota
-	ChaincodeQuery
-	ChaincodeEndorse
-)
-
 // ChaincodeInvocation models a client-side chaincode invocation
 type ChaincodeInvocation interface {
-	Call() (interface{}, error)
+	Endorse() (Envelope, error)
+
+	Query() ([]byte, error)
+
+	Submit() (string, []byte, error)
 
 	WithTransientEntry(k string, v interface{}) ChaincodeInvocation
 
@@ -51,7 +47,7 @@ type ChaincodeDiscover interface {
 
 // Chaincode exposes chaincode-related functions
 type Chaincode interface {
-	NewInvocation(typ ChaincodeInvocationType, function string, args ...interface{}) ChaincodeInvocation
+	NewInvocation(function string, args ...interface{}) ChaincodeInvocation
 	NewDiscover() ChaincodeDiscover
 }
 

@@ -23,7 +23,7 @@ func (p *InitiatorView) Call(context view.Context) (interface{}, error) {
 	// Alice puts new data in `alpha` inside a given namespace of a given channel.
 	// `alpha` is the default fabric network for Alice
 	value := "sweet"
-	_, err := fabric.GetDefaultChannel(context).Chaincode("ns1").Invoke(
+	_, _, err := fabric.GetDefaultChannel(context).Chaincode("ns1").Invoke(
 		"Put", "pineapple", value,
 	).Call()
 	assert.NoError(err, "failed putting state")

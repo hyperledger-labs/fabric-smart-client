@@ -82,10 +82,12 @@ func (o Orderer) ID() string {
 }
 
 type ChannelChaincode struct {
-	Chaincode Chaincode `yaml:"chaincode,omitempty"`
-	Path      string    `yaml:"path,omitempty"`
-	Channel   string    `yaml:"channel,omitempty"`
-	Peers     []string  `yaml:"peers,omitempty"`
+	Chaincode        Chaincode        `yaml:"chaincode,omitempty"`
+	PrivateChaincode PrivateChaincode `yaml:"privatechaincode,omitempty"`
+	Path             string           `yaml:"path,omitempty"`
+	Channel          string           `yaml:"channel,omitempty"`
+	Peers            []string         `yaml:"peers,omitempty"`
+	Private          bool             `yaml:"private,omitempty"`
 }
 
 type Policy struct {

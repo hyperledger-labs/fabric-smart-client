@@ -1,0 +1,38 @@
+#!/bin/bash
+#
+# Copyright 2020 Intel Corporation.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+set -uo pipefail
+
+SCRIPTDIR="$(dirname $(readlink --canonicalize ${BASH_SOURCE}))"
+
+. ${SCRIPTDIR}/lib/common.sh
+
+
+[ "$#" -eq 2 ] || die "Expected 2 directories got $#"
+
+CC_SOURCE_DIR="$1"
+CC_METADATA_DIR="$2"
+
+check_pkg_meta || die "failed to check package meta-data"
+
+case "${REQUEST_CC_TYPE}" in
+    "${FPC_CC_TYPE}")
+        check_fpc_pkg_src || die "failed to check package source"
+        ;;
+
+    "${ERCC_TYPE}")
+        # nothing to check
+        ;;
+
+    *)
+        say "chaincode type '${REQUEST_CC_TYPE}' NOT supported"
+        exit 1
+        ;;
+esac
+
+say "chaincode type '${REQUEST_CC_TYPE}' supported"
+exit 0
+
