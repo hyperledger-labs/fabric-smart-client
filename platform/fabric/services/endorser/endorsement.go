@@ -20,10 +20,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
-type VerifierProvider interface {
-	GetVerifier(identity view.Identity) (view2.Verifier, error)
-}
-
 type collectEndorsementsView struct {
 	tx                *Transaction
 	parties           []view.Identity
@@ -38,17 +34,24 @@ func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error
 	}
 	tracker.Report("collectEndorsementsView: Marshall State")
 
+	// Prepare verifiers
 	ch, err := c.tx.FabricNetworkService().Channel(c.tx.Channel())
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed getting channel [%s:%s]", c.tx.Network(), c.tx.Channel())
 	}
 	mspManager := ch.MSPManager()
 
+	var vProviders []VerifierProvider
+	vProviders = append(vProviders, c.verifierProviders...)
+	vProviders = append(vProviders, c.tx.verifierProviders...)
+
+	// Get results to send
 	res, err := c.tx.Results()
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed getting tx results")
 	}
 
+	// Contact sequantially all parties.
 	for _, party := range c.parties {
 		logger.Debugf("Collect Endorsements On Simulation from [%s]", party)
 
@@ -128,7 +131,7 @@ func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error
 			if err != nil {
 				// check the verifier providers, if any
 				foundVerifier := false
-				for _, provider := range c.verifierProviders {
+				for _, provider := range vProviders {
 					v, err := provider.GetVerifier(endorser)
 					if err == nil {
 						foundVerifier = true
@@ -142,8 +145,7 @@ func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error
 					return nil, errors.Wrapf(err, "failed getting verifier for party [%s][%s]", endorser.String(), string(endorser))
 				}
 			}
-			err = verifier.Verify(append(proposalResponse.Payload(), endorser...), proposalResponse.EndorserSignature())
-			if err != nil {
+			if err := verifier.Verify(append(proposalResponse.Payload(), endorser...), proposalResponse.EndorserSignature()); err != nil {
 				return nil, errors.Wrapf(err, "failed verifying endorsement for party [%s]", endorser.String())
 			}
 			// Check the content of the response
@@ -168,8 +170,9 @@ func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error
 	return c.tx, nil
 }
 
-func NewCollectEndorsementsViewWithVerifierProviders(tx *Transaction, providers []VerifierProvider, parties ...view.Identity) *collectEndorsementsView {
-	return &collectEndorsementsView{tx: tx, parties: parties, verifierProviders: providers}
+func (c *collectEndorsementsView) SetVerifierProviders(p []VerifierProvider) *collectEndorsementsView {
+	c.verifierProviders = p
+	return c
 }
 
 func NewCollectEndorsementsView(tx *Transaction, parties ...view.Identity) *collectEndorsementsView {

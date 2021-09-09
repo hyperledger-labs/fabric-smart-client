@@ -17,10 +17,15 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
+type VerifierProvider interface {
+	GetVerifier(identity view.Identity) (view2.Verifier, error)
+}
+
 type Transaction struct {
 	view2.ServiceProvider
 
-	Transaction *fabric.Transaction
+	Transaction       *fabric.Transaction
+	verifierProviders []VerifierProvider
 }
 
 func (t *Transaction) ID() string {
@@ -212,4 +217,8 @@ func (t *Transaction) ExistsTransientState(key string) bool {
 
 func (t *Transaction) FabricNetworkService() *fabric.NetworkService {
 	return t.Transaction.FabricNetworkService()
+}
+
+func (t *Transaction) AppendVerifierProvider(vp VerifierProvider) {
+	t.verifierProviders = append(t.verifierProviders, vp)
 }
