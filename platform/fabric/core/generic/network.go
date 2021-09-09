@@ -40,7 +40,7 @@ type network struct {
 	idProvider         driver.IdentityProvider
 	processorManager   driver.ProcessorManager
 	transactionManager driver.TransactionManager
-	sigService         driver.SigService
+	sigService         driver.SignerService
 
 	tlsRootCerts   [][]byte
 	orderers       []*grpc.ConnectionConfig
@@ -60,7 +60,7 @@ func NewNetwork(
 	config *Config,
 	idProvider driver.IdentityProvider,
 	localMembership driver.LocalMembership,
-	sigService driver.SigService,
+	sigService driver.SignerService,
 ) (*network, error) {
 	// Load configuration
 	fsp := &network{
@@ -175,7 +175,7 @@ func (f *network) Broadcast(blob interface{}) error {
 	return f.ordering.Broadcast(blob)
 }
 
-func (f *network) SigService() driver.SigService {
+func (f *network) SignerService() driver.SignerService {
 	return f.sigService
 }
 

@@ -79,9 +79,9 @@ func (n *NetworkService) TransactionManager() *TransactionManager {
 	return &TransactionManager{fns: n}
 }
 
-// SigService returns the signature service of this network
-func (n *NetworkService) SigService() *SigService {
-	return &SigService{sigService: n.fns.SigService()}
+// SignerService returns the signature service of this network
+func (n *NetworkService) SignerService() *SignerService {
+	return &SignerService{sigService: n.fns.SignerService()}
 }
 
 func (n *NetworkService) ConfigService() *ConfigService {

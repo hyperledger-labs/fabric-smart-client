@@ -21,9 +21,10 @@ import (
 )
 
 type collectEndorsementsView struct {
-	tx              *Transaction
-	parties         []view.Identity
-	deleteTransient bool
+	tx                *Transaction
+	parties           []view.Identity
+	deleteTransient   bool
+	verifierProviders []VerifierProvider
 }
 
 func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error) {
@@ -33,13 +34,24 @@ func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error
 	}
 	tracker.Report("collectEndorsementsView: Marshall State")
 
-	signService := c.tx.FabricNetworkService().SigService()
+	// Prepare verifiers
+	ch, err := c.tx.FabricNetworkService().Channel(c.tx.Channel())
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed getting channel [%s:%s]", c.tx.Network(), c.tx.Channel())
+	}
+	mspManager := ch.MSPManager()
 
+	var vProviders []VerifierProvider
+	vProviders = append(vProviders, c.verifierProviders...)
+	vProviders = append(vProviders, c.tx.verifierProviders...)
+
+	// Get results to send
 	res, err := c.tx.Results()
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed getting tx results")
 	}
 
+	// Contact sequantially all parties.
 	for _, party := range c.parties {
 		logger.Debugf("Collect Endorsements On Simulation from [%s]", party)
 
@@ -115,13 +127,26 @@ func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error
 			}
 
 			// Verify signatures
-			verifier, err := signService.GetVerifier(endorser)
+			verifier, err := mspManager.GetVerifier(endorser)
 			if err != nil {
-				return nil, errors.Wrapf(err, "failed getting verifier for party %s", party.String())
+				// check the verifier providers, if any
+				foundVerifier := false
+				for _, provider := range vProviders {
+					v, err := provider.GetVerifier(endorser)
+					if err == nil {
+						foundVerifier = true
+						verifier = v
+						logger.Debugf("found verifier [%v,%v] for [%s] with provider [%v]", verifier, v, endorser, provider)
+						break
+					}
+					logger.Debugf("failed getting verifier for [%s] with provider [%v] [%s]", endorser, provider, err)
+				}
+				if !foundVerifier {
+					return nil, errors.Wrapf(err, "failed getting verifier for party [%s][%s]", endorser.String(), string(endorser))
+				}
 			}
-			err = verifier.Verify(append(proposalResponse.Payload(), endorser...), proposalResponse.EndorserSignature())
-			if err != nil {
-				return nil, errors.Wrapf(err, "failed verifying endorsement for party %s", endorser.String())
+			if err := verifier.Verify(append(proposalResponse.Payload(), endorser...), proposalResponse.EndorserSignature()); err != nil {
+				return nil, errors.Wrapf(err, "failed verifying endorsement for party [%s]", endorser.String())
 			}
 			// Check the content of the response
 			// Now results can be equal to what this node has proposed or different
@@ -143,6 +168,11 @@ func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error
 	}
 	tracker.Report(fmt.Sprintf("collectEndorsementsView done."))
 	return c.tx, nil
+}
+
+func (c *collectEndorsementsView) SetVerifierProviders(p []VerifierProvider) *collectEndorsementsView {
+	c.verifierProviders = p
+	return c
 }
 
 func NewCollectEndorsementsView(tx *Transaction, parties ...view.Identity) *collectEndorsementsView {

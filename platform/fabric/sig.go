@@ -11,14 +11,10 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
-type SigService struct {
-	sigService driver.SigService
+type SignerService struct {
+	sigService driver.SignerService
 }
 
-func (s *SigService) GetVerifier(id view.Identity) (Verifier, error) {
-	return s.sigService.GetVerifier(id)
-}
-
-func (s *SigService) GetSigner(id view.Identity) (Signer, error) {
+func (s *SignerService) GetSigner(id view.Identity) (Signer, error) {
 	return s.sigService.GetSigner(id)
 }

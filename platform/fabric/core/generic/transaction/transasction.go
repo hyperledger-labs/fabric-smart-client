@@ -75,7 +75,7 @@ type Transaction struct {
 	sp               view2.ServiceProvider
 	fns              driver.FabricNetworkService
 	rwset            driver.RWSet
-	vault            driver.Channel
+	channel          driver.Channel
 	signedProposal   *SignedProposal
 	proposalResponse *pb.ProposalResponse
 
@@ -211,12 +211,12 @@ func (t *Transaction) SetFromBytes(raw []byte) error {
 		}
 	}
 
-	// Set the vault
+	// Set the channel
 	ch, err := t.fns.Channel(t.Channel())
 	if err != nil {
 		return err
 	}
-	t.vault = ch
+	t.channel = ch
 
 	return nil
 }
@@ -244,12 +244,12 @@ func (t *Transaction) SetFromEnvelopeBytes(raw []byte) error {
 	}
 	t.TProposalResponses = upe.ProposalResponses
 
-	// Set the vault
+	// Set the channel
 	ch, err := t.fns.Channel(t.Channel())
 	if err != nil {
 		return err
 	}
-	t.vault = ch
+	t.channel = ch
 
 	return nil
 }
@@ -306,21 +306,21 @@ func (t *Transaction) SetRWSet() error {
 		if err != nil {
 			return err
 		}
-		t.rwset, err = t.vault.GetRWSet(t.ID(), results)
+		t.rwset, err = t.channel.GetRWSet(t.ID(), results)
 		if err != nil {
 			return err
 		}
 	case len(t.RWSet) != 0:
 		logger.Debugf("populate rws from rwset")
 		var err error
-		t.rwset, err = t.vault.GetRWSet(t.ID(), t.RWSet)
+		t.rwset, err = t.channel.GetRWSet(t.ID(), t.RWSet)
 		if err != nil {
 			return err
 		}
 	default:
 		logger.Debugf("populate rws from scratch")
 		var err error
-		t.rwset, err = t.vault.NewRWSet(t.ID())
+		t.rwset, err = t.channel.NewRWSet(t.ID())
 		if err != nil {
 			return err
 		}
@@ -404,7 +404,7 @@ func (t *Transaction) Endorse() error {
 
 func (t *Transaction) EndorseWithIdentity(identity view.Identity) error {
 	// prepare signer
-	s, err := t.fns.SigService().GetSigner(identity)
+	s, err := t.fns.SignerService().GetSigner(identity)
 	if err != nil {
 		return err
 	}
@@ -483,7 +483,7 @@ func (t *Transaction) EndorseProposal() error {
 
 func (t *Transaction) EndorseProposalWithIdentity(identity view.Identity) error {
 	// prepare signer
-	s, err := t.fns.SigService().GetSigner(identity)
+	s, err := t.fns.SignerService().GetSigner(identity)
 	if err != nil {
 		return err
 	}
@@ -503,7 +503,7 @@ func (t *Transaction) EndorseProposalResponse() error {
 
 func (t *Transaction) EndorseProposalResponseWithIdentity(identity view.Identity) error {
 	// prepare signer
-	s, err := t.fns.SigService().GetSigner(identity)
+	s, err := t.fns.SignerService().GetSigner(identity)
 	if err != nil {
 		return err
 	}
@@ -522,7 +522,7 @@ func (t *Transaction) AppendProposalResponse(response driver.ProposalResponse) e
 }
 
 func (t *Transaction) ProposalHasBeenEndorsedBy(party view.Identity) error {
-	verifier, err := t.fns.SigService().GetVerifier(party)
+	verifier, err := t.channel.GetVerifier(party)
 	if err != nil {
 		return err
 	}
@@ -531,7 +531,7 @@ func (t *Transaction) ProposalHasBeenEndorsedBy(party view.Identity) error {
 
 func (t *Transaction) StoreTransient() error {
 	logger.Debugf("Storing transient for [%s]", t.ID())
-	return t.vault.MetadataService().StoreTransient(t.ID(), t.TTransient)
+	return t.channel.MetadataService().StoreTransient(t.ID(), t.TTransient)
 }
 
 func (t *Transaction) ProposalResponses() []driver.ProposalResponse {
