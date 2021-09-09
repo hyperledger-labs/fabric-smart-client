@@ -232,7 +232,7 @@ func (i *Invoke) prepare() (string, *pb.Proposal, []*pb.ProposalResponse, driver
 	}
 
 	// load signer
-	signer, err := i.Network.SigService().GetSigningIdentity(i.SignerIdentity)
+	signer, err := i.Network.SignerService().GetSigningIdentity(i.SignerIdentity)
 	if err != nil {
 		return "", nil, nil, nil, err
 	}

@@ -162,7 +162,7 @@ func (q *Query) Call() (*Result, error) {
 	}
 
 	me := q.localFNS.IdentityProvider().DefaultIdentity()
-	sigSvc := q.localFNS.SigService()
+	sigSvc := q.localFNS.SignerService()
 	signer, err := sigSvc.GetSigner(me)
 	if err != nil {
 		return nil, errors.WithMessagef(err, "failed getting signer for default identity [%s]", me)

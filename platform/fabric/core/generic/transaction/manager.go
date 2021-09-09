@@ -57,7 +57,7 @@ func (m *Manager) NewTransaction(creator view2.Identity, nonce []byte, txid stri
 	return &Transaction{
 		sp:         m.sp,
 		fns:        m.fns,
-		vault:      ch,
+		channel:    ch,
 		TCreator:   creator,
 		TNonce:     nonce,
 		TTxID:      txid,
@@ -76,7 +76,7 @@ func (m *Manager) NewTransactionFromBytes(channel string, raw []byte) (driver.Tr
 	tx := &Transaction{
 		sp:         m.sp,
 		fns:        m.fns,
-		vault:      ch,
+		channel:    ch,
 		TChannel:   channel,
 		TNetwork:   m.fns.Name(),
 		TTransient: map[string][]byte{},

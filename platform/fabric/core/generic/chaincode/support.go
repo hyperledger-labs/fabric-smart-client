@@ -32,7 +32,7 @@ type Network interface {
 	LocalMembership() driver.LocalMembership
 	// Broadcast sends the passed blob to the ordering service to be ordered
 	Broadcast(blob interface{}) error
-	SigService() driver.SigService
+	SignerService() driver.SignerService
 }
 
 type Channel interface {

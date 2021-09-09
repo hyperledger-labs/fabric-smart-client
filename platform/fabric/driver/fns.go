@@ -41,7 +41,7 @@ type FabricNetworkService interface {
 	// Comm returns the comm for the channel whose name is the passed one.
 	Comm(name string) (Comm, error)
 
-	SigService() SigService
+	SignerService() SignerService
 
 	ConfigService() ConfigService
 }

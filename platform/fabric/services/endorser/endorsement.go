@@ -33,7 +33,11 @@ func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error
 	}
 	tracker.Report("collectEndorsementsView: Marshall State")
 
-	signService := c.tx.FabricNetworkService().SigService()
+	ch, err := c.tx.FabricNetworkService().Channel(c.tx.Channel())
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed getting channel [%s:%s]", c.tx.Network(), c.tx.Channel())
+	}
+	mspManager := ch.MSPManager()
 
 	res, err := c.tx.Results()
 	if err != nil {
@@ -115,7 +119,7 @@ func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error
 			}
 
 			// Verify signatures
-			verifier, err := signService.GetVerifier(endorser)
+			verifier, err := mspManager.GetVerifier(endorser)
 			if err != nil {
 				return nil, errors.Wrapf(err, "failed getting verifier for party %s", party.String())
 			}

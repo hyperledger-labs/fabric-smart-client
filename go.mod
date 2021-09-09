@@ -56,7 +56,7 @@ require (
 	go.uber.org/atomic v1.7.0
 	go.uber.org/zap v1.16.0
 	golang.org/x/mod v0.5.0 // indirect
-	golang.org/x/sys v0.0.0-20210906170528-6f6e22806c34 // indirect
+	golang.org/x/sys v0.0.0-20210908233432-aa78b53d3365 // indirect
 	google.golang.org/grpc v1.39.1
 	google.golang.org/protobuf v1.27.1
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6

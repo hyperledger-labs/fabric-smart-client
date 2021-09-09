@@ -55,7 +55,7 @@ type Network interface {
 	// Broadcast sends the passed blob to the ordering service to be ordered
 	Broadcast(blob interface{}) error
 	Channel(name string) (driver.Channel, error)
-	SigService() driver.SigService
+	SignerService() driver.SignerService
 }
 
 type Transaction interface {
@@ -118,7 +118,7 @@ func (o *service) createFabricEndorseTransactionEnvelope(tx Transaction) (*commo
 
 	// tx contains the proposal and the endorsements, assemble them in a fabric transaction
 	signerID := tx.Creator()
-	signer, err := o.network.SigService().GetSigner(signerID)
+	signer, err := o.network.SignerService().GetSigner(signerID)
 	if err != nil {
 		logger.Errorf("signer not found for %s while creating tx envelope for ordering [%s]", signerID.UniqueID(), err)
 		return nil, errors.Wrapf(err, "signer not found for %s while creating tx envelope for ordering", signerID.UniqueID())
