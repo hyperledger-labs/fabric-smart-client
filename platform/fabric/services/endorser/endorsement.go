@@ -20,10 +20,15 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
+type VerifierProvider interface {
+	GetVerifier(identity view.Identity) (view2.Verifier, error)
+}
+
 type collectEndorsementsView struct {
-	tx              *Transaction
-	parties         []view.Identity
-	deleteTransient bool
+	tx                *Transaction
+	parties           []view.Identity
+	deleteTransient   bool
+	verifierProviders []VerifierProvider
 }
 
 func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error) {
@@ -121,11 +126,25 @@ func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error
 			// Verify signatures
 			verifier, err := mspManager.GetVerifier(endorser)
 			if err != nil {
-				return nil, errors.Wrapf(err, "failed getting verifier for party %s", party.String())
+				// check the verifier providers, if any
+				foundVerifier := false
+				for _, provider := range c.verifierProviders {
+					v, err := provider.GetVerifier(endorser)
+					if err == nil {
+						foundVerifier = true
+						verifier = v
+						logger.Debugf("found verifier [%v,%v] for [%s] with provider [%v]", verifier, v, endorser, provider)
+						break
+					}
+					logger.Debugf("failed getting verifier for [%s] with provider [%v] [%s]", endorser, provider, err)
+				}
+				if !foundVerifier {
+					return nil, errors.Wrapf(err, "failed getting verifier for party [%s][%s]", endorser.String(), string(endorser))
+				}
 			}
 			err = verifier.Verify(append(proposalResponse.Payload(), endorser...), proposalResponse.EndorserSignature())
 			if err != nil {
-				return nil, errors.Wrapf(err, "failed verifying endorsement for party %s", endorser.String())
+				return nil, errors.Wrapf(err, "failed verifying endorsement for party [%s]", endorser.String())
 			}
 			// Check the content of the response
 			// Now results can be equal to what this node has proposed or different
@@ -147,6 +166,10 @@ func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error
 	}
 	tracker.Report(fmt.Sprintf("collectEndorsementsView done."))
 	return c.tx, nil
+}
+
+func NewCollectEndorsementsViewWithVerifierProviders(tx *Transaction, providers []VerifierProvider, parties ...view.Identity) *collectEndorsementsView {
+	return &collectEndorsementsView{tx: tx, parties: parties, verifierProviders: providers}
 }
 
 func NewCollectEndorsementsView(tx *Transaction, parties ...view.Identity) *collectEndorsementsView {
