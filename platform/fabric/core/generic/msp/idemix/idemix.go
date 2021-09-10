@@ -281,7 +281,7 @@ func (p *provider) Identity() (view.Identity, []byte, error) {
 		RhIndex:  rhIndex,
 		EidIndex: eidIndex,
 		CRI:      p.conf.Signer.CredentialRevocationInformation,
-		SigType:  bccsp.EidNym,
+		// SigType:  bccsp.EidNym,
 	}
 	proof, err := p.Csp.Sign(
 		p.userKey,
@@ -319,7 +319,7 @@ func (p *provider) Identity() (view.Identity, []byte, error) {
 	auditInfo := &AuditInfo{
 		Csp:             p.Csp,
 		IssuerPublicKey: p.IssuerPublicKey,
-		NymEIDAuditData: opts.Metadata.NymEIDAuditData,
+		// NymEIDAuditData: opts.Metadata.NymEIDAuditData,
 		Attributes: [][]byte{
 			[]byte(p.conf.Signer.OrganizationalUnitIdentifier),
 			[]byte(strconv.Itoa(getIdemixRoleFromMSPRole(role))),

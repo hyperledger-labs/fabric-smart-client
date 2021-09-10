@@ -159,10 +159,10 @@ func (id *identity) verifyProof() error {
 				{Type: csp.IdemixHiddenAttribute},
 				{Type: csp.IdemixHiddenAttribute},
 			},
-			RhIndex:          rhIndex,
-			EidIndex:         eidIndex,
-			Epoch:            id.support.epoch,
-			VerificationType: bccsp.ExpectEidNym,
+			RhIndex:  rhIndex,
+			EidIndex: eidIndex,
+			Epoch:    id.support.epoch,
+			// VerificationType: bccsp.ExpectEidNym,
 		},
 	)
 	if err == nil && !valid {
