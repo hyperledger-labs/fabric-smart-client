@@ -17,6 +17,7 @@ import (
 type IdentityProvider interface {
 	DefaultIdentity() view.Identity
 	Admins() []view.Identity
+	Clients() []view.Identity
 }
 
 type VerifierProvider interface {
@@ -38,6 +39,10 @@ func (a *AccessControlChecker) Check(sc *protos2.SignedCommand, c *protos2.Comma
 	admins := a.IdentityProvider.Admins()
 	if len(admins) != 0 {
 		validIdentities = append(validIdentities, admins...)
+	}
+	clients := a.IdentityProvider.Clients()
+	if len(clients) != 0 {
+		validIdentities = append(validIdentities, clients...)
 	}
 
 	found := false

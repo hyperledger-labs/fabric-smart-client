@@ -23,6 +23,10 @@ func TestLoad(t *testing.T) {
 		"./testdata/admin/admin.pem",
 	})
 	cp.TranslatePathReturnsOnCall(0, "./testdata/admin/admin.pem")
+	cp.GetStringSliceReturnsOnCall(1, []string{
+		"./testdata/client/client.pem",
+	})
+	cp.TranslatePathReturnsOnCall(1, "./testdata/client/client.pem")
 	sigService := &mock.SigService{}
 
 	idProvider := id.NewProvider(cp, sigService, nil)
@@ -36,4 +40,9 @@ func TestLoad(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, idProvider.Admins(), 1)
 	assert.Equal(t, raw, []byte(idProvider.Admins()[0]))
+
+	raw, err = id.LoadIdentity("./testdata/client/client.pem")
+	assert.NoError(t, err)
+	assert.Len(t, idProvider.Clients(), 1)
+	assert.Equal(t, raw, []byte(idProvider.Clients()[0]))
 }

@@ -26,6 +26,11 @@ func (i *IdentityProvider) Admins() []view.Identity {
 	return i.ip.Admins()
 }
 
+// Clients returns the identities of the clients that can invoke views on this node
+func (i *IdentityProvider) Clients() []view.Identity {
+	return i.ip.Clients()
+}
+
 // Identity returns the identity bound to the passed label
 func (i *IdentityProvider) Identity(label string) view.Identity {
 	return i.ip.Identity(label)
