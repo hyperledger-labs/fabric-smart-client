@@ -38,6 +38,15 @@ type IdentityProvider struct {
 	adminsReturnsOnCall map[int]struct {
 		result1 []view.Identity
 	}
+	ClientsStub        func() []view.Identity
+	clientsMutex       sync.RWMutex
+	clientsArgsForCall []struct{}
+	clientsReturns     struct {
+		result1 []view.Identity
+	}
+	clientsReturnsOnCall map[int]struct {
+		result1 []view.Identity
+	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
@@ -170,6 +179,46 @@ func (fake *IdentityProvider) AdminsReturnsOnCall(i int, result1 []view.Identity
 	}{result1}
 }
 
+func (fake *IdentityProvider) Clients() []view.Identity {
+	fake.clientsMutex.Lock()
+	ret, specificReturn := fake.clientsReturnsOnCall[len(fake.clientsArgsForCall)]
+	fake.clientsArgsForCall = append(fake.clientsArgsForCall, struct{}{})
+	fake.recordInvocation("Clients", []interface{}{})
+	fake.clientsMutex.Unlock()
+	if fake.ClientsStub != nil {
+		return fake.ClientsStub()
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fake.clientsReturns.result1
+}
+
+func (fake *IdentityProvider) ClientsCallCount() int {
+	fake.clientsMutex.RLock()
+	defer fake.clientsMutex.RUnlock()
+	return len(fake.clientsArgsForCall)
+}
+
+func (fake *IdentityProvider) ClientsReturns(result1 []view.Identity) {
+	fake.ClientsStub = nil
+	fake.clientsReturns = struct {
+		result1 []view.Identity
+	}{result1}
+}
+
+func (fake *IdentityProvider) ClientsReturnsOnCall(i int, result1 []view.Identity) {
+	fake.ClientsStub = nil
+	if fake.clientsReturnsOnCall == nil {
+		fake.clientsReturnsOnCall = make(map[int]struct {
+			result1 []view.Identity
+		})
+	}
+	fake.clientsReturnsOnCall[i] = struct {
+		result1 []view.Identity
+	}{result1}
+}
+
 func (fake *IdentityProvider) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
@@ -179,6 +228,8 @@ func (fake *IdentityProvider) Invocations() map[string][][]interface{} {
 	defer fake.identityMutex.RUnlock()
 	fake.adminsMutex.RLock()
 	defer fake.adminsMutex.RUnlock()
+	fake.clientsMutex.RLock()
+	defer fake.clientsMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value
