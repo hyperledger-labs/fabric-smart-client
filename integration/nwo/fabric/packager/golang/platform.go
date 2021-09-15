@@ -101,7 +101,7 @@ func (p *Platform) ValidateCodePackage(code []byte) error {
 
 		// only files and directories; no links or special files
 		mode := header.FileInfo().Mode()
-		if mode&^(os.ModeDir|0777) != 0 {
+		if mode&^(os.ModeDir|0o777) != 0 {
 			return fmt.Errorf("illegal file mode in payload: %s", header.Name)
 		}
 	}
@@ -110,7 +110,7 @@ func (p *Platform) ValidateCodePackage(code []byte) error {
 }
 
 // Directory constant copied from tar package.
-const c_ISDIR = 040000
+const c_ISDIR = 0o40000
 
 // Default compression to use for production. Test packages disable compression.
 var gzipCompressionLevel = gzip.DefaultCompression
@@ -163,7 +163,7 @@ func (p *Platform) GetDeploymentPayload(codepath string, replacer replacer.Func)
 		err := tw.WriteHeader(&tar.Header{
 			Typeflag: tar.TypeDir,
 			Name:     dirname + "/",
-			Mode:     c_ISDIR | 0755,
+			Mode:     c_ISDIR | 0o755,
 			Uid:      500,
 			Gid:      500,
 		})
@@ -209,8 +209,10 @@ func (p *Platform) GenerateDockerfile() (string, error) {
 	return strings.Join(buf, "\n"), nil
 }
 
-const staticLDFlagsOpts = "-ldflags \"-linkmode external -extldflags '-static'\""
-const dynamicLDFlagsOpts = ""
+const (
+	staticLDFlagsOpts  = "-ldflags \"-linkmode external -extldflags '-static'\""
+	dynamicLDFlagsOpts = ""
+)
 
 func getLDFlagsOpts() string {
 	if viper.GetBool("chaincode.golang.dynamicLink") {
@@ -234,6 +236,8 @@ elif [ -f "/chaincode/input/src/%[2]s/go.mod" ]; then
     cd /chaincode/input/src/%[2]s
     GO111MODULE=on go build -v -mod=readonly %[1]s -o /chaincode/output/chaincode .
 else
+	go mod init
+	go mod tidy
     GOPATH=/chaincode/input:$GOPATH go build -v %[1]s -o /chaincode/output/chaincode %[2]s
 fi
 echo Done!
@@ -334,6 +338,20 @@ func moduleInfo(path string) (*ModuleInfo, error) {
 		return nil, errors.Wrap(err, "failed to get working directory")
 	}
 
+	// Using `go list -m -f '{{ if .Main }}{{.GoMod}}{{ end }}' all` may try to
+	// generate a go.mod when a vendor tool is in use. To avoid that behavior
+	// we use `go env GOMOD` followed by an existence check.
+	cmd := exec.Command("go", "env", "GOMOD")
+	cmd.Env = append(os.Environ(), "GO111MODULE=on")
+	moduleRoot, err := cmd.Output()
+	if err != nil {
+		return nil, wrapExitErr(err, "failed to determine module root")
+	}
+
+	moduleRootDir := filepath.Dir(string(moduleRoot))
+	index := strings.Index(moduleRootDir, "github.com")
+	path = moduleRootDir[:index] + path
+
 	// directory doesn't exist so unlikely to be a module
 	if err := os.Chdir(path); err != nil {
 		return nil, nil
@@ -344,17 +362,7 @@ func moduleInfo(path string) (*ModuleInfo, error) {
 		}
 	}()
 
-	// Using `go list -m -f '{{ if .Main }}{{.GoMod}}{{ end }}' all` may try to
-	// generate a go.mod when a vendor tool is in use. To avoid that behavior
-	// we use `go env GOMOD` followed by an existence check.
-	cmd := exec.Command("go", "env", "GOMOD")
-	cmd.Env = append(os.Environ(), "GO111MODULE=on")
-	output, err := cmd.Output()
-	if err != nil {
-		return nil, wrapExitErr(err, "failed to determine module root")
-	}
-
-	modExists, err := regularFileExists(strings.TrimSpace(string(output)))
+	modExists, err := regularFileExists(strings.TrimSpace(string(moduleRoot)))
 	if err != nil {
 		return nil, err
 	}
@@ -543,7 +551,7 @@ func WriteBytesToPackage(raw []byte, localpath string, packagepath string, tw *t
 	header.ModTime = zeroTime
 	header.ChangeTime = zeroTime
 	header.Name = packagepath
-	header.Mode = 0100644
+	header.Mode = 0o100644
 	header.Uid = 500
 	header.Gid = 500
 	header.Uname = ""
