@@ -22,6 +22,8 @@ type IdentityProvider interface {
 	Identity(label string) view.Identity
 	// Admins returns the identities of the administrators
 	Admins() []view.Identity
+	// Clients returns the identities of the clients of this node
+	Clients() []view.Identity
 }
 
 // GetIdentityProvider returns an instance of the IdentityProvider interface.

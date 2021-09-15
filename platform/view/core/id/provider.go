@@ -43,6 +43,7 @@ type provider struct {
 	endpointService EndpointService
 	defaultID       view.Identity
 	admins          []view.Identity
+	clients         []view.Identity
 }
 
 func NewProvider(configProvider ConfigProvider, sigService SigService, endpointService EndpointService) *provider {
@@ -62,6 +63,10 @@ func (p *provider) Load() error {
 		return errors.WithMessagef(err, "failed loading admin identities")
 	}
 
+	if err := p.loadClientIdentities(); err != nil {
+		return errors.WithMessagef(err, "failed loading client identities")
+	}
+
 	return nil
 }
 
@@ -79,6 +84,10 @@ func (p *provider) Identity(label string) view.Identity {
 
 func (p *provider) Admins() []view.Identity {
 	return p.admins
+}
+
+func (p *provider) Clients() []view.Identity {
+	return p.clients
 }
 
 func (p *provider) loadDefaultIdentity() error {
@@ -121,5 +130,24 @@ func (p *provider) loadAdminIdentities() error {
 	}
 	logger.Infof("loaded [%d] admin identities", len(admins))
 	p.admins = admins
+	return nil
+}
+
+func (p *provider) loadClientIdentities() error {
+	certs := p.configProvider.GetStringSlice("fsc.client.certs")
+	var clients []view.Identity
+	for _, cert := range certs {
+		// TODO: support cert as a folder
+		certPath := p.configProvider.TranslatePath(cert)
+		client, err := LoadIdentity(certPath)
+		if err != nil {
+			logger.Errorf("failed loading client cert at [%s]: [%s]", certPath, err)
+			continue
+		}
+		logger.Infof("loaded client cert at [%s]: [%s]", certPath, err)
+		clients = append(clients, client)
+	}
+	logger.Infof("loaded [%d] client identities", len(clients))
+	p.clients = clients
 	return nil
 }
