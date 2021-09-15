@@ -28,8 +28,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"
 
-	ccmetadata2 "github.com/hyperledger-labs/fabric-token-sdk/token/core/cmd/pp/packager/ccmetadata"
-
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/packager/ccmetadata"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/packager/replacer"
 )
 
@@ -495,7 +494,7 @@ func validateMetadata(name, path string) error {
 
 	// Validate metadata file for inclusion in tar
 	// Validation is based on the passed filename with path
-	err = ccmetadata2.ValidateMetadataFile(filepath.ToSlash(name), contents)
+	err = ccmetadata.ValidateMetadataFile(filepath.ToSlash(name), contents)
 	if err != nil {
 		return err
 	}
