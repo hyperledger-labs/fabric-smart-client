@@ -528,8 +528,8 @@ github.com/hashicorp/serf v0.8.2/go.mod h1:6hOLApaqBFA1NXqRQAsxw9QxuDEvNxSQRwA/J
 github.com/hpcloud/tail v1.0.0/go.mod h1:ab1qPbhIpdTxEkNHXyeSf5vhxWSCs/tWer42PpOxQnU=
 github.com/huin/goupnp v1.0.0/go.mod h1:n9v9KO1tAxYH82qOn+UTIFQDmx5n1Zxd/ClZDMX7Bnc=
 github.com/huin/goutil v0.0.0-20170803182201-1ca381bf3150/go.mod h1:PpLOETDnJ0o3iZrZfqZzyLl6l7F3c6L1oWn7OICBi6o=
-github.com/hyperledger-labs/fabric-smart-client v0.0.0-20210915081344-25805c0a5536 h1:diPrLGZOmqM14KjEmlZKJt9CZ2j0Gy6GY0OjmKfSTPo=
-github.com/hyperledger-labs/fabric-smart-client v0.0.0-20210915081344-25805c0a5536/go.mod h1:2jfKavhoLh6VNKSun72s18TQgoajiv0c+BrCMLruZdQ=
+github.com/hyperledger-labs/fabric-smart-client v0.0.0-20210915231600-ed69d092ad32 h1:c7Rpo0BMjO1ZKmX3FIqE72fGmFwtUc/LLJP9fjNiSNM=
+github.com/hyperledger-labs/fabric-smart-client v0.0.0-20210915231600-ed69d092ad32/go.mod h1:2jfKavhoLh6VNKSun72s18TQgoajiv0c+BrCMLruZdQ=
 github.com/hyperledger-labs/weaver-dlt-interoperability/common/protos-go v1.2.3-alpha.1/go.mod h1:POCGO/RK9YDfgdhuyqjoD9tRNtWfK7Rh5AYYmsb1Chc=
 github.com/hyperledger-labs/weaver-dlt-interoperability/sdks/fabric/go-sdk v1.2.3-alpha.1.0.20210812140206-37f430515b8c/go.mod h1:si2XAWZclHXC359OyYMpNHfonf2P7P2nzABdCA8mPqs=
 github.com/hyperledger/fabric v1.4.0-rc1.0.20201118191903-ec81f3e74fa1/go.mod h1:ppiyrJ+sUSk/rAX9cTd8xwAwSQ7chEbOQMAqtQ3pLG4=
