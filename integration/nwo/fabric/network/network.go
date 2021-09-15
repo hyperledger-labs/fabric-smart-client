@@ -321,7 +321,6 @@ func (n *Network) DeployChaincode(chaincode *topology.ChannelChaincode) {
 			chaincode.Chaincode.Lang = "binary"
 		}
 		chaincode.Chaincode.PackageFile = filepath.Join(n.Context.RootDir(), n.Prefix, chaincode.Chaincode.Name+".tar.gz")
-		PackageChaincode(n, &chaincode.Chaincode, peers[0])
 	}
 
 	PackageAndInstallChaincode(n, &chaincode.Chaincode, peers...)
