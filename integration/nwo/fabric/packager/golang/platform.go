@@ -348,7 +348,7 @@ func moduleInfo(path string) (*ModuleInfo, error) {
 	}
 
 	moduleRootDir := filepath.Dir(string(moduleRoot))
-	index := strings.Index(moduleRootDir, "github.com")
+	index := strings.Index(moduleRootDir, "github.")
 	path = moduleRootDir[:index] + path
 
 	// directory doesn't exist so unlikely to be a module
