@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package fabric
 
 import (
+	"fmt"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
@@ -130,6 +132,9 @@ func GetDefaultLocalMembership(sp view2.ServiceProvider) *LocalMembership {
 // GetChannel returns the requested channel for the passed network
 func GetChannel(sp view2.ServiceProvider, network, channel string) *Channel {
 	fns := GetFabricNetworkService(sp, network)
+	if fns == nil {
+		panic(fmt.Sprintf("fabric network service [%s] not found", network))
+	}
 	ch, err := fns.Channel(channel)
 	if err != nil {
 		panic(err)
@@ -141,6 +146,9 @@ func GetChannel(sp view2.ServiceProvider, network, channel string) *Channel {
 // GetVault returns the vualt for the requested channel for the passed network
 func GetVault(sp view2.ServiceProvider, network, channel string) *Vault {
 	fns := GetFabricNetworkService(sp, network)
+	if fns == nil {
+		panic(fmt.Sprintf("fabric network service [%s] not found", network))
+	}
 	ch, err := fns.Channel(channel)
 	if err != nil {
 		panic(err)

@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package endorser
 
 import (
+	"github.com/pkg/errors"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
@@ -77,6 +79,9 @@ func (t *Builder) newTransaction(creator []byte, network, channel string, nonce,
 	defer logger.Debugf("NewTransaction...done.")
 
 	fNetwork := fabric.GetFabricNetworkService(t.sp, network)
+	if fNetwork == nil {
+		return nil, errors.Errorf("fabric network service [%s] not found", network)
+	}
 	if len(creator) == 0 {
 		creator = fNetwork.IdentityProvider().DefaultIdentity()
 	}

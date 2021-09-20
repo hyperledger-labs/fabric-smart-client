@@ -35,7 +35,11 @@ func (c *parallelCollectEndorsementsOnProposalView) Call(context view.Context) (
 		go c.callView(context, party, stateRaw, answerChannel)
 	}
 
-	tm := fabric.GetFabricNetworkService(context, c.tx.Network()).TransactionManager()
+	fns := fabric.GetFabricNetworkService(context, c.tx.Network())
+	if fns == nil {
+		return nil, errors.Errorf("fabric network service [%s] not found", c.tx.Network())
+	}
+	tm := fns.TransactionManager()
 	for i := 0; i < len(c.parties); i++ {
 		// TODO: put a timeout
 		answer := <-answerChannel
@@ -96,7 +100,11 @@ type endorsementsOnProposalResponderView struct {
 }
 
 func (s *endorsementsOnProposalResponderView) Call(context view.Context) (interface{}, error) {
-	err := s.tx.EndorseProposalResponseWithIdentity(fabric.GetFabricNetworkService(context, s.tx.Network()).IdentityProvider().DefaultIdentity())
+	fns := fabric.GetFabricNetworkService(context, s.tx.Network())
+	if fns == nil {
+		return nil, errors.Errorf("fabric network service [%s] not found", s.tx.Network())
+	}
+	err := s.tx.EndorseProposalResponseWithIdentity(fns.IdentityProvider().DefaultIdentity())
 	if err != nil {
 		return nil, err
 	}

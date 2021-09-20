@@ -48,6 +48,9 @@ func (i *invokeChaincodeView) Call(context view.Context) (interface{}, error) {
 	}
 
 	fNetwork := fabric.GetFabricNetworkService(context, i.Network)
+	if fNetwork == nil {
+		return nil, errors.Errorf("fabric network service [%s] not found", i.Network)
+	}
 	channel, err := fNetwork.Channel(i.Channel)
 	if err != nil {
 		return nil, errors.WithMessagef(err, "failed getting channel [%s:%s]", i.Network, i.Channel)
