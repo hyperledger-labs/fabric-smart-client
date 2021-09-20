@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -66,12 +67,17 @@ func (n *Extension) CheckTopology() {
 	}
 
 	// Define External Builder
-	cwd, err := os.Getwd()
+	// Using `go list -m -f '{{ if .Main }}{{.GoMod}}{{ end }}' all` may try to
+	// generate a go.mod when a vendor tool is in use. To avoid that behavior
+	// we use `go env GOMOD` followed by an existence check.
+	cmd := exec.Command("go", "env", "GOMOD")
+	cmd.Env = append(os.Environ(), "GO111MODULE=on")
+	moduleRoot, err := cmd.Output()
 	Expect(err).ToNot(HaveOccurred())
-	index := strings.LastIndex(cwd, "github.com/hyperledger-labs/fabric-smart-client")
-	Expect(index).ToNot(BeEquivalentTo(-1))
+	moduleRootDir := filepath.Dir(string(moduleRoot))
+	index := strings.Index(moduleRootDir, "github.")
+	path := moduleRootDir[:index] + "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/fpc/externalbuilders/chaincode_server"
 
-	path := cwd[:index] + "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/fpc/externalbuilders/chaincode_server"
 	n.network.ExternalBuilders = append(n.network.ExternalBuilders, fabricconfig.ExternalBuilder{
 		Path:                 path,
 		Name:                 "fpc-external-launcher",
