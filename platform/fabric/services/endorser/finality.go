@@ -20,6 +20,9 @@ type finalityView struct {
 
 func (f *finalityView) Call(context view.Context) (interface{}, error) {
 	fns := fabric.GetFabricNetworkService(context, f.tx.Network())
+	if fns == nil {
+		return nil, errors.Errorf("fabric network service [%s] not found", f.tx.Network())
+	}
 	ch, err := fns.Channel(f.tx.Channel())
 	if err != nil {
 		return nil, errors.WithMessagef(err, "failed getting channel [%s:%s]", f.tx.Network(), f.tx.Channel())

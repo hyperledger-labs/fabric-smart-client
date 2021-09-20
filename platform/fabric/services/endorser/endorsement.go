@@ -112,7 +112,11 @@ func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error
 		}
 
 		found := false
-		tm := fabric.GetFabricNetworkService(context, c.tx.Network()).TransactionManager()
+		fns := fabric.GetFabricNetworkService(context, c.tx.Network())
+		if fns == nil {
+			return nil, errors.Errorf("fabric network service [%s] not found", c.tx.Network())
+		}
+		tm := fns.TransactionManager()
 		for _, response := range responses {
 			proposalResponse, err := tm.NewProposalResponseFromBytes(response)
 			if err != nil {
@@ -190,7 +194,11 @@ type endorseView struct {
 
 func (s *endorseView) Call(context view.Context) (interface{}, error) {
 	if len(s.identities) == 0 {
-		s.identities = []view.Identity{fabric.GetFabricNetworkService(context, s.tx.Network()).IdentityProvider().DefaultIdentity()}
+		fns := fabric.GetFabricNetworkService(context, s.tx.Network())
+		if fns == nil {
+			return nil, errors.Errorf("fabric network service [%s] not found", s.tx.Network())
+		}
+		s.identities = []view.Identity{fns.IdentityProvider().DefaultIdentity()}
 	}
 
 	var responses [][]byte
