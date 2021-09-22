@@ -8,6 +8,9 @@ replace (
 	github.com/hyperledger/fabric => github.com/hyperledger/fabric v1.4.0-rc1.0.20210722174351-9815a7a8f0f7
 	github.com/hyperledger/fabric-protos-go => github.com/hyperledger/fabric-protos-go v0.0.0-20201028172056-a3136dde2354
 	go.etcd.io/etcd => go.etcd.io/etcd v0.5.0-alpha.5.0.20181228115726-23731bf9ba55
+	github.com/gogo/protobuf => github.com/gogo/protobuf v1.3.2
+	github.com/golang/protobuf => github.com/golang/protobuf v1.5.2
+	google.golang.org/protobuf => google.golang.org/protobuf v1.27.1
 )
 
 require (
