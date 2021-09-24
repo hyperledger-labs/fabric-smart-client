@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package generic
 
 import (
+	"context"
 	"io/ioutil"
 	"sync"
 
@@ -32,7 +33,8 @@ type Channel struct {
 }
 
 type network struct {
-	sp view2.ServiceProvider
+	sp  view2.ServiceProvider
+	ctx context.Context
 
 	config *Config
 
@@ -55,6 +57,7 @@ type network struct {
 }
 
 func NewNetwork(
+	ctx context.Context,
 	sp view2.ServiceProvider,
 	name string,
 	config *Config,
@@ -64,6 +67,7 @@ func NewNetwork(
 ) (*network, error) {
 	// Load configuration
 	fsp := &network{
+		ctx:             ctx,
 		sp:              sp,
 		name:            name,
 		config:          config,

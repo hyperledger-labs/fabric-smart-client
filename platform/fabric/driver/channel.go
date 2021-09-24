@@ -27,4 +27,6 @@ type Channel interface {
 	TransactionService() EndorserTransactionService
 
 	MetadataService() MetadataService
+
+	Close() error
 }
