@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package generic
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"strconv"
@@ -102,7 +103,18 @@ func newChannel(network *network, name string, quiet bool) (*channel, error) {
 	}
 
 	// Delivery
-	deliveryService, err := delivery2.New(name, sp, network, committerInst, txIDStore, waitForEventTimeout)
+	deliveryService, err := delivery2.New(
+		context.Background(),
+		name,
+		sp,
+		network,
+		func(block *peer.FilteredBlock) (bool, error) {
+			committerInst.Commit(block)
+			return false, nil
+		},
+		txIDStore,
+		waitForEventTimeout,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -413,6 +425,10 @@ func newProcessedTransaction(pt *peer.ProcessedTransaction) (*processedTransacti
 		return nil, err
 	}
 	return &processedTransaction{vc: pt.ValidationCode, ue: ue, env: env}, nil
+}
+
+func (p *processedTransaction) TxID() string {
+	return p.ue.TxID
 }
 
 func (p *processedTransaction) Results() []byte {

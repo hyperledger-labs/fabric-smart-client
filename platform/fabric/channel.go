@@ -49,6 +49,10 @@ func (c *Channel) Chaincode(name string) *Chaincode {
 	}
 }
 
+func (c *Channel) Delivery() *Delivery {
+	return &Delivery{ch: c}
+}
+
 func (c *Channel) GetTLSRootCert(party view.Identity) ([][]byte, error) {
 	return c.ch.GetTLSRootCert(party)
 }

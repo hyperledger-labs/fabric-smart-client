@@ -25,7 +25,12 @@ type ProcessedTransaction struct {
 	pt driver.ProcessedTransaction
 }
 
-// Results return the rwset marshaled
+// TxID returns the transaction's id
+func (pt *ProcessedTransaction) TxID() string {
+	return pt.pt.TxID()
+}
+
+// Results returns the rwset marshaled
 func (pt *ProcessedTransaction) Results() []byte {
 	return pt.pt.Results()
 }
