@@ -27,6 +27,8 @@ import (
 
 var logger = flogging.MustGetLogger("fabric-sdk.delivery")
 
+type Callback func(block *pb.FilteredBlock) (bool, error)
+
 // Committer models a filtered block committer
 type Committer interface {
 	// Commit commits the transaction in the passed block
@@ -46,82 +48,103 @@ type Network interface {
 }
 
 type delivery struct {
+	ctx                  context.Context
 	channel              string
 	sp                   view2.ServiceProvider
 	network              Network
 	waitForEventTimeout  time.Duration
 	peerConnectionConfig *grpc.ConnectionConfig
-	committer            Committer
+	callback             Callback
 	vault                Vault
 }
 
 func New(
+	ctx context.Context,
 	channel string,
 	sp view2.ServiceProvider,
 	network Network,
-	committer Committer,
+	callback Callback,
 	vault Vault,
 	waitForEventTimeout time.Duration,
 ) (*delivery, error) {
 	if len(channel) == 0 {
 		panic("expected a channel, got empty string")
 	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	d := &delivery{
+		ctx:                  ctx,
 		channel:              channel,
 		sp:                   sp,
 		network:              network,
 		waitForEventTimeout:  waitForEventTimeout,
 		peerConnectionConfig: network.Peers()[0],
-		committer:            committer,
+		callback:             callback,
 		vault:                vault,
 	}
 	return d, nil
 }
 
+// Start runs the delivery service in a goroutine
 func (d *delivery) Start() {
-	go d.run()
+	go d.Run()
 }
 
-func (d *delivery) run() {
+func (d *delivery) Run() error {
 	var df DeliverFiltered
 	var err error
 	for {
-		address := d.peerConnectionConfig.Address
-		logger.Debugf("deliver service [%s:%s], next event...", address, d.channel)
-		if df == nil {
-			logger.Debugf("deliver service [%s:%s], connecting...", address, d.channel)
-			df, err = d.connect()
+		select {
+		case <-d.ctx.Done():
+			// Time to cancel
+			return errors.New("context done")
+		default:
+			address := d.peerConnectionConfig.Address
+			logger.Debugf("deliver service [%s:%s], next event...", address, d.channel)
+			if df == nil {
+				logger.Debugf("deliver service [%s:%s], connecting...", address, d.channel)
+				df, err = d.connect()
+				if err != nil {
+					logger.Errorf("failed connecting to delivery service [%s:%s] [%s]. Wait 10 sec before reconnecting", address, d.channel, err)
+					time.Sleep(10 * time.Second)
+					logger.Debugf("reconnecting to delivery service [%s:%s]", address, d.channel)
+					continue
+				}
+			}
+
+			resp, err := df.Recv()
 			if err != nil {
-				logger.Errorf("failed connecting to delivery service [%s:%s] [%s]. Wait 10 sec before reconnecting", address, d.channel, err)
-				time.Sleep(10 * time.Second)
-				logger.Debugf("reconnecting to delivery service [%s:%s]", address, d.channel)
+				df = nil
+				logger.Errorf("delivery service [%s:%s], failed receiving response [%s]", address, d.channel, errors.WithMessagef(err, "error receiving deliver response from peer %s", address))
 				continue
 			}
-		}
 
-		resp, err := df.Recv()
-		if err != nil {
-			df = nil
-			logger.Errorf("delivery service [%s:%s], failed receiving response [%s]", address, d.channel, errors.WithMessagef(err, "error receiving deliver response from peer %s", address))
-			continue
-		}
+			switch r := resp.Type.(type) {
+			case *pb.DeliverResponse_FilteredBlock:
+				logger.Debugf("delivery service [%s:%s], commit block [%d]", address, d.channel, r.FilteredBlock.Number)
 
-		switch r := resp.Type.(type) {
-		case *pb.DeliverResponse_FilteredBlock:
-			logger.Debugf("delivery service [%s:%s], commit block [%d]", address, d.channel, r.FilteredBlock.Number)
-
-			d.committer.Commit(r.FilteredBlock)
-		case *pb.DeliverResponse_Status:
-			if r.Status == common.Status_NOT_FOUND {
+				stop, err := d.callback(r.FilteredBlock)
+				if err != nil {
+					// Stop here
+					logger.Errorf("error occurred when processing filtered block [%s]", err)
+					return err
+				}
+				if stop {
+					return nil
+				}
+			case *pb.DeliverResponse_Status:
+				if r.Status == common.Status_NOT_FOUND {
+					df = nil
+					logger.Warnf("delivery service [%s:%s] status [%s], wait a few seconds before retrying", address, d.channel, r.Status)
+					time.Sleep(10 * time.Second)
+				} else {
+					logger.Warnf("delivery service [%s:%s] status [%s]", address, d.channel, r.Status)
+				}
+			default:
 				df = nil
-				logger.Warnf("delivery service [%s:%s] status [%s], wait a few seconds before retrying", address, d.channel, r.Status)
-				time.Sleep(10 * time.Second)
-			} else {
-				logger.Warnf("delivery service [%s:%s] status [%s]", address, d.channel, r.Status)
+				logger.Errorf("delivery service [%s:%s], got [%s]", address, d.channel, r)
 			}
-		default:
-			df = nil
-			logger.Errorf("delivery service [%s:%s], got [%s]", address, d.channel, r)
 		}
 	}
 }
@@ -130,18 +153,12 @@ func (d *delivery) connect() (DeliverFiltered, error) {
 	address := d.peerConnectionConfig.Address
 	logger.Debugf("connecting to deliver service at [%s] for channel [%s]", address, d.channel)
 
-	var ctx context.Context
-	//var cancelFunc context.CancelFunc
-
 	deliverClient, err := NewDeliverClient(d.peerConnectionConfig)
 	if err != nil {
 		return nil, err
 	}
 
-	//ctx, cancelFunc = context.WithTimeout(context.Background(), d.waitForEventTimeout)
-	//defer cancelFunc()
-	ctx = context.Background()
-	deliverFiltered, err := deliverClient.NewDeliverFiltered(ctx)
+	deliverFiltered, err := deliverClient.NewDeliverFiltered(d.ctx)
 	if err != nil {
 		return nil, err
 	}

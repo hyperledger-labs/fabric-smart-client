@@ -16,7 +16,9 @@ type Block interface {
 
 // ProcessedTransaction models a transaction that has been processed by Fabric
 type ProcessedTransaction interface {
-	// Results return the rwset marshaled
+	// TxID returns the transaction's id
+	TxID() string
+	// Results returns the rwset marshaled
 	Results() []byte
 	// ValidationCode of this transaction
 	ValidationCode() int32
