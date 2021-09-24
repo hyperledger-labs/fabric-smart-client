@@ -291,3 +291,7 @@ func (db *Vault) Match(txid string, rwsRaw []byte) error {
 	}
 	return nil
 }
+
+func (db *Vault) Close() error {
+	return db.store.Close()
+}

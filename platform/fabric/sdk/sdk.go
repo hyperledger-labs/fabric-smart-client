@@ -87,5 +87,14 @@ func (p *p) Start(ctx context.Context) error {
 		return errors.WithMessagef(err, "failed starting fabric network service provider")
 	}
 
+	go func() {
+		select {
+		case <-ctx.Done():
+			if err := p.fnsProvider.Stop(); err != nil {
+				logger.Errorf("failed stopping fabric network service provider [%s]", err)
+			}
+		}
+	}()
+
 	return nil
 }

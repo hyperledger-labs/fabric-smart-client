@@ -93,6 +93,10 @@ integration-tests-fpc-echo: docker-images fpc-docker-images dependencies
 integration-tests-weaver-relay: docker-images dependencies
 	cd ./integration/fabric/weaver/relay; ginkgo -keepGoing --slowSpecThreshold 60 .
 
+.PHONY: integration-tests-fabric-stoprestart
+integration-tests-fabric-stoprestart: docker-images dependencies
+	cd ./integration/fabric/stoprestart; ginkgo -keepGoing --slowSpecThreshold 60 .
+
 .PHONY: integration-tests-pingpong
 integration-tests-pingpong: docker-images dependencies
 	cd ./integration/fsc/pingpong/; ginkgo -keepGoing --slowSpecThreshold 60 .
@@ -116,6 +120,7 @@ clean:
 	rm -rf ./integration/fabric/twonets/cmd
 	rm -rf ./integration/fabric/weaver/relay/cmd
 	rm -rf ./integration/fabric/fpc/echo/cmd
+	rm -rf ./integration/fabric/stoprestart/cmd
 	rm -rf ./integration/fsc/stoprestart/cmd
 	rm -rf ./integration/fsc/pingpong/cmd/responder
 	rm -rf ./integration/fscnodes

@@ -29,6 +29,7 @@ var logger = flogging.MustGetLogger("fabric-sdk.core")
 type fnsProvider struct {
 	sp     view.ServiceProvider
 	config *Config
+	ctx    context.Context
 
 	networksMutex sync.Mutex
 	networks      map[string]driver.FabricNetworkService
@@ -44,6 +45,8 @@ func NewFabricNetworkServiceProvider(sp view.ServiceProvider, config *Config) (*
 }
 
 func (p *fnsProvider) Start(ctx context.Context) error {
+	p.ctx = ctx
+
 	// What's the default network?
 	// TODO: add listener to fabric service when a channel is opened.
 	for _, name := range p.config.Names() {
@@ -65,6 +68,21 @@ func (p *fnsProvider) Start(ctx context.Context) error {
 }
 
 func (p *fnsProvider) Stop() error {
+	for _, networkName := range p.config.Names() {
+		fns, err := p.FabricNetworkService(networkName)
+		if err != nil {
+			return err
+		}
+		for _, channelName := range fns.Channels() {
+			ch, err := fns.Channel(channelName)
+			if err != nil {
+				return err
+			}
+			if err := ch.Close(); err != nil {
+				logger.Errorf("failed closing channel [%s:%s]: [%s]", networkName, channelName, err)
+			}
+		}
+	}
 	return nil
 }
 
@@ -134,6 +152,7 @@ func (p *fnsProvider) newFNS(network string) (driver.FabricNetworkService, error
 
 	// New Network
 	net, err := generic.NewNetwork(
+		p.ctx,
 		p.sp,
 		network,
 		config,
