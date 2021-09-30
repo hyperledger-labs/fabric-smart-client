@@ -9,6 +9,8 @@ package views
 import (
 	"encoding/json"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/chaincode"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/fpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -28,7 +30,19 @@ type EchoView struct {
 }
 
 func (e *EchoView) Call(context view.Context) (interface{}, error) {
-	// Invoke the `echo` chaincode deployed on the default channel of the default Fbairc network
+	v, err := fpc.GetDefaultChannel(context).EnclaveRegistry().IsAvailable()
+	assert.NoError(err, "failed checking availability of the enclave registry")
+	assert.True(v, "the enclave registry is not available")
+
+	v, err = fpc.GetDefaultChannel(context).EnclaveRegistry().IsPrivate("echo")
+	assert.NoError(err, "failed checking echo deployment")
+	assert.True(v, "echo should be an FPC")
+
+	v, err = fpc.GetDefaultChannel(context).EnclaveRegistry().IsPrivate("mycc")
+	assert.NoError(err, "failed checking mycc deployment")
+	assert.False(v, "mycc should be a standard CC")
+
+	// Invoke the `echo` chaincode deployed on the default channel of the default Fabric network
 	res, err := fpc.GetDefaultChannel(context).Chaincode(
 		"echo",
 	).Invoke(
@@ -36,6 +50,38 @@ func (e *EchoView) Call(context view.Context) (interface{}, error) {
 	).Call()
 	assert.NoError(err, "failed invoking echo")
 	assert.Equal(e.Function, string(res))
+
+	_, res, err = chaincode.NewInvokeView("echo", e.Function, fpc.StringsToArgs(e.Args)...).Invoke(context)
+	assert.NoError(err, "failed invoking echo")
+	assert.Equal(e.Function, string(res))
+
+	// Query the `echo` chaincode deployed on the default channel of the default Fabric network
+	res, err = fpc.GetDefaultChannel(context).Chaincode(
+		"echo",
+	).Query(
+		e.Function, fpc.StringsToArgs(e.Args)...,
+	).Call()
+	assert.NoError(err, "failed querying echo")
+	assert.Equal(e.Function, string(res))
+
+	res, err = chaincode.NewQueryView("echo", e.Function, fpc.StringsToArgs(e.Args)...).Query(context)
+	assert.NoError(err, "failed querying echo")
+	assert.Equal(e.Function, string(res))
+
+	// Endorse the `echo` chaincode deployed on the default channel of the default Fabric network
+	envelope, err := fpc.GetDefaultChannel(context).Chaincode(
+		"echo",
+	).Endorse(
+		e.Function, fpc.StringsToArgs(e.Args)...,
+	).Call()
+	assert.NoError(err, "failed endorsing echo")
+	assert.NotNil(envelope)
+	assert.NoError(fabric.GetDefaultFNS(context).Ordering().Broadcast(envelope))
+
+	envelope, err = chaincode.NewEndorseView("echo", e.Function, fpc.StringsToArgs(e.Args)...).Endorse(context)
+	assert.NoError(err, "failed querying echo")
+	assert.Equal(e.Function, string(res))
+	assert.NoError(fabric.GetDefaultFNS(context).Ordering().Broadcast(envelope))
 
 	return res, nil
 }

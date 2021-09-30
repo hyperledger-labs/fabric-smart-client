@@ -9,7 +9,6 @@ package endpoint
 import (
 	"github.com/pkg/errors"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/x509"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
@@ -46,13 +45,13 @@ type Service interface {
 }
 
 type resolverService struct {
-	config    *generic.Config
+	config    *config.Config
 	service   Service
 	resolvers []*Resolver
 }
 
 // NewResolverService returns a new instance of the view-sdk endpoint resolverService
-func NewResolverService(config *generic.Config, service Service) (*resolverService, error) {
+func NewResolverService(config *config.Config, service Service) (*resolverService, error) {
 	er := &resolverService{
 		config:  config,
 		service: service,

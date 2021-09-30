@@ -19,7 +19,7 @@ const (
 )
 
 type Committer interface {
-	// ProcessNamespace registers namespaces that will committed even if the rwset is not known
+	// ProcessNamespace registers namespaces that will be committed even if the rwset is not known
 	ProcessNamespace(nss ...string) error
 
 	// AddProcessor(ns string, processor Processor) error

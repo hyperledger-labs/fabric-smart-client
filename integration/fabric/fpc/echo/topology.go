@@ -18,6 +18,8 @@ func Topology() []api.Topology {
 	fabricTopology := fabric.NewDefaultTopology()
 	// Add two organizations
 	fabricTopology.AddOrganizationsByName("Org1", "Org2")
+	// Add a standard chaincode
+	fabricTopology.AddNamespaceWithUnanimity("mycc", "Org1", "Org2")
 	// Add an FPC by passing chaincode's id and docker image
 	fabricTopology.AddFPC("echo", "fpc/fpc-echo")
 

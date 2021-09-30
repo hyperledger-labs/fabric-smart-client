@@ -10,10 +10,11 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/fpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
-type Invoke struct {
+type InvokeCall struct {
 	InvokerIdentity    view.Identity
 	Network            string
 	Channel            string
@@ -29,12 +30,12 @@ type Invoke struct {
 }
 
 type invokeChaincodeView struct {
-	*Invoke
+	*InvokeCall
 }
 
 func NewInvokeView(chaincode, function string, args ...interface{}) *invokeChaincodeView {
 	return &invokeChaincodeView{
-		Invoke: &Invoke{
+		InvokeCall: &InvokeCall{
 			ChaincodeName: chaincode,
 			Function:      function,
 			Args:          args,
@@ -43,22 +44,42 @@ func NewInvokeView(chaincode, function string, args ...interface{}) *invokeChain
 }
 
 func (i *invokeChaincodeView) Call(context view.Context) (interface{}, error) {
+	txid, result, err := i.Invoke(context)
+	if err != nil {
+		return nil, err
+	}
+	return []interface{}{txid, result}, nil
+}
+
+func (i *invokeChaincodeView) Invoke(context view.Context) (string, []byte, error) {
+	// TODO: endorse and then send to ordering
 	if len(i.ChaincodeName) == 0 {
-		return nil, errors.Errorf("no chaincode specified")
+		return "", nil, errors.Errorf("no chaincode specified")
 	}
 
 	fNetwork := fabric.GetFabricNetworkService(context, i.Network)
 	if fNetwork == nil {
-		return nil, errors.Errorf("fabric network service [%s] not found", i.Network)
+		return "", nil, errors.Errorf("fabric network service [%s] not found", i.Network)
 	}
 	channel, err := fNetwork.Channel(i.Channel)
 	if err != nil {
-		return nil, errors.WithMessagef(err, "failed getting channel [%s:%s]", i.Network, i.Channel)
+		return "", nil, errors.WithMessagef(err, "failed getting channel [%s:%s]", i.Network, i.Channel)
 	}
 	if i.InvokerIdentity.IsNone() {
 		i.InvokerIdentity = fNetwork.IdentityProvider().DefaultIdentity()
 	}
-	invocation := channel.Chaincode(i.ChaincodeName).Invoke(i.Function, i.Args...).WithSignerIdentity(i.InvokerIdentity)
+	chaincode := channel.Chaincode(i.ChaincodeName)
+	if chaincode == nil {
+		return "", nil, errors.Errorf("fabric chaincode [%s:%s:%s] not found", i.Network, i.Channel, i.ChaincodeName)
+	}
+	if chaincode.IsPrivate() {
+		// This is a Fabric Private Chaincode, use the corresponding service
+		fpcChannel := fpc.GetChannel(context, i.Network, i.Channel)
+		res, err := fpcChannel.Chaincode(i.ChaincodeName).Invoke(i.Function, i.Args...).Call()
+		return "", res, err
+	}
+
+	invocation := chaincode.Invoke(i.Function, i.Args...).WithInvokerIdentity(i.InvokerIdentity)
 	for k, v := range i.TransientMap {
 		invocation.WithTransientEntry(k, v)
 	}
@@ -74,9 +95,9 @@ func (i *invokeChaincodeView) Call(context view.Context) (interface{}, error) {
 
 	txid, result, err := invocation.Submit()
 	if err != nil {
-		return nil, err
+		return "", nil, err
 	}
-	return []interface{}{txid, result}, nil
+	return txid, result, nil
 }
 
 func (i *invokeChaincodeView) WithTransientEntry(k string, v interface{}) *invokeChaincodeView {
@@ -88,22 +109,22 @@ func (i *invokeChaincodeView) WithTransientEntry(k string, v interface{}) *invok
 }
 
 func (i *invokeChaincodeView) WithEndorsers(ids ...view.Identity) *invokeChaincodeView {
-	i.Invoke.Endorsers = ids
+	i.InvokeCall.Endorsers = ids
 	return i
 }
 
 func (i *invokeChaincodeView) WithNetwork(name string) *invokeChaincodeView {
-	i.Invoke.Network = name
+	i.InvokeCall.Network = name
 	return i
 }
 
 func (i *invokeChaincodeView) WithChannel(name string) *invokeChaincodeView {
-	i.Invoke.Channel = name
+	i.InvokeCall.Channel = name
 	return i
 }
 
 func (i *invokeChaincodeView) WithEndorsersByMSPIDs(mspIDs ...string) *invokeChaincodeView {
-	i.Invoke.EndorsersMSPIDs = mspIDs
+	i.InvokeCall.EndorsersMSPIDs = mspIDs
 	return i
 }
 

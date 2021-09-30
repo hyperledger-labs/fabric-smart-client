@@ -49,6 +49,8 @@ type ChaincodeDiscover interface {
 type Chaincode interface {
 	NewInvocation(function string, args ...interface{}) ChaincodeInvocation
 	NewDiscover() ChaincodeDiscover
+	IsAvailable() (bool, error)
+	IsPrivate() bool
 }
 
 // ChaincodeManager manages chaincodes

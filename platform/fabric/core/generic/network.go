@@ -13,6 +13,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	config2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/ordering"
@@ -26,17 +27,11 @@ import (
 
 var logger = flogging.MustGetLogger("fabric-sdk.core")
 
-type Channel struct {
-	Name    string `yaml:"Name,omitempty"`
-	Default bool   `yaml:"Default,omitempty"`
-	Quiet   bool   `yaml:"Quiet,omitempty"`
-}
-
 type network struct {
 	sp  view2.ServiceProvider
 	ctx context.Context
 
-	config *Config
+	config *config2.Config
 
 	localMembership    driver.LocalMembership
 	idProvider         driver.IdentityProvider
@@ -48,7 +43,7 @@ type network struct {
 	orderers       []*grpc.ConnectionConfig
 	peers          []*grpc.ConnectionConfig
 	defaultChannel string
-	channelDefs    []*Channel
+	channelDefs    []*config2.Channel
 
 	ordering driver.Ordering
 	channels map[string]driver.Channel
@@ -60,7 +55,7 @@ func NewNetwork(
 	ctx context.Context,
 	sp view2.ServiceProvider,
 	name string,
-	config *Config,
+	config *config2.Config,
 	idProvider driver.IdentityProvider,
 	localMembership driver.LocalMembership,
 	sigService driver.SignerService,
@@ -184,6 +179,10 @@ func (f *network) SignerService() driver.SignerService {
 }
 
 func (f *network) ConfigService() driver.ConfigService {
+	return f.config
+}
+
+func (f *network) Config() *config2.Config {
 	return f.config
 }
 
