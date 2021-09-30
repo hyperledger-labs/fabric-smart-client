@@ -6,59 +6,173 @@ SPDX-License-Identifier: Apache-2.0
 
 package config
 
-import "time"
+import (
+	"time"
 
-type MSP struct {
-	ID      string `yaml:"id"`
-	MSPType string `yaml:"mspType"`
-	MSPID   string `yaml:"mspID"`
-	Path    string `yaml:"path"`
+	"github.com/pkg/errors"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
+)
+
+// configService models a configuration registry
+type configService interface {
+	// GetString returns the value associated with the key as a string
+	GetString(key string) string
+	// GetDuration returns the value associated with the key as a duration
+	GetDuration(key string) time.Duration
+	// GetBool returns the value associated with the key asa boolean
+	GetBool(key string) bool
+	// IsSet checks to see if the key has been set in any of the data locations
+	IsSet(key string) bool
+	// UnmarshalKey takes a single key and unmarshals it into a Struct
+	UnmarshalKey(key string, rawVal interface{}) error
+	// GetPath allows configuration strings that specify a (config-file) relative path
+	GetPath(key string) string
+	// TranslatePath translates the passed path relative to the config path
+	TranslatePath(path string) string
 }
 
-type File struct {
-	File string `yaml:"file"`
+type Config struct {
+	name          string
+	prefix        string
+	configService configService
 }
 
-type Files struct {
-	Files []string `yaml:"files"`
+func New(configService configService, name string, defaultConfig bool) (*Config, error) {
+	if configService.IsSet("fabric." + name) {
+		return &Config{
+			name:          name,
+			prefix:        name + ".",
+			configService: configService,
+		}, nil
+	}
+
+	if defaultConfig {
+		return &Config{
+			name:          name,
+			prefix:        "",
+			configService: configService,
+		}, nil
+	}
+
+	return nil, errors.Errorf("configuration for [%s] not found", name)
 }
 
-type TLS struct {
-	Enabled            bool
-	ClientAuthRequired bool
-	Cert               File   `yaml:"cert"`
-	Key                File   `yaml:"key"`
-	ClientCert         File   `yaml:"clientCert"`
-	ClientKey          File   `yaml:"clientKey"`
-	RootCert           File   `yaml:"rootCert"`
-	ClientRootCAs      Files  `yaml:"clientRootCAs"`
-	RootCertFile       string `yaml:"rootCertFile"`
+func (c *Config) TLSEnabled() bool {
+	return c.configService.GetBool("fabric." + c.prefix + "tls.enabled")
 }
 
-type ConnectionConfig struct {
-	Address            string        `yaml:"address,omitempty"`
-	ConnectionTimeout  time.Duration `yaml:"connectionTimeout,omitempty"`
-	TLSEnabled         bool          `yaml:"tlsEnabled,omitempty"`
-	TLSRootCertFile    string        `yaml:"tlsRootCertFile,omitempty"`
-	TLSRootCertBytes   [][]byte      `yaml:"tlsRootCertBytes,omitempty"`
-	ServerNameOverride string        `yaml:"serverNameOverride,omitempty"`
+func (c *Config) TLSClientAuthRequired() bool {
+	return c.configService.GetBool("fabric." + c.prefix + "tls.clientAuthRequired")
 }
 
-type Channel struct {
-	Name    string `yaml:"name"`
-	Default bool   `yaml:"default,omitempty"`
+func (c *Config) TLSServerHostOverride() string {
+	return c.configService.GetString("fabric." + c.prefix + "tls.serverhostoverride")
 }
 
-type Network struct {
-	Default       bool                `yaml:"default,omitempty"`
-	BCCSP         *BCCSP              `yaml:"BCCSP,omitempty"`
-	MSPConfigPath string              `yaml:"mspConfigPath,omitempty"`
-	LocalMspId    string              `yaml:"localMspId,omitempty"`
-	MSPs          []*MSP              `yaml:"msps"`
-	TLS           TLS                 `yaml:"tls"`
-	Orderers      []*ConnectionConfig `yaml:"orderers"`
-	Peers         []*ConnectionConfig `yaml:"peers"`
-	Channels      []*Channel          `yaml:"channels"`
-	Vault         Vault               `yaml:"vault"`
-	Endpoint      *Endpoint           `yaml:"endpoint,omitempty"`
+func (c *Config) ClientConnTimeout() time.Duration {
+	return c.configService.GetDuration("fabric." + c.prefix + "client.connTimeout")
+}
+
+func (c *Config) TLSClientKeyFile() string {
+	return c.configService.GetPath("fabric." + c.prefix + "tls.clientKey.file")
+}
+
+func (c *Config) TLSClientCertFile() string {
+	return c.configService.GetPath("fabric." + c.prefix + "tls.clientCert.file")
+}
+
+func (c *Config) TLSRootCertFile() string {
+	return c.configService.GetString("fabric." + c.prefix + "tls.rootCertFile")
+}
+
+func (c *Config) Orderers() ([]*grpc.ConnectionConfig, error) {
+	var res []*grpc.ConnectionConfig
+	if err := c.configService.UnmarshalKey("fabric."+c.prefix+"orderers", &res); err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
+func (c *Config) Peers() ([]*grpc.ConnectionConfig, error) {
+	var res []*grpc.ConnectionConfig
+	if err := c.configService.UnmarshalKey("fabric."+c.prefix+"peers", &res); err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
+func (c *Config) Channels() ([]*Channel, error) {
+	var res []*Channel
+	if err := c.configService.UnmarshalKey("fabric."+c.prefix+"channels", &res); err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
+func (c *Config) VaultPersistenceType() string {
+	return c.configService.GetString("fabric." + c.prefix + "vault.persistence.type")
+}
+
+func (c *Config) VaultPersistenceOpts(opts interface{}) error {
+	return c.configService.UnmarshalKey("fabric."+c.prefix+"vault.persistence.opts", opts)
+}
+
+func (c *Config) MSPConfigPath() string {
+	return c.configService.GetPath("fabric." + c.prefix + "mspConfigPath")
+}
+
+func (c *Config) MSPs() ([]MSP, error) {
+	var confs []MSP
+	if err := c.configService.UnmarshalKey("fabric."+c.prefix+"msps", &confs); err != nil {
+		return nil, err
+	}
+	return confs, nil
+}
+
+// LocalMSPID returns the local MSP ID
+func (c *Config) LocalMSPID() string {
+	return c.configService.GetString("fabric." + c.prefix + "localMspId")
+}
+
+// LocalMSPType returns the local MSP Type
+func (c *Config) LocalMSPType() string {
+	return c.configService.GetString("fabric." + c.prefix + "localMspType")
+}
+
+// TranslatePath translates the passed path relative to the path from which the configuration has been loaded
+func (c *Config) TranslatePath(path string) string {
+	return c.configService.TranslatePath(path)
+}
+
+func (c *Config) Resolvers() ([]Resolver, error) {
+	var resolvers []Resolver
+	if err := c.configService.UnmarshalKey("fabric."+c.prefix+"endpoint.resolvers", &resolvers); err != nil {
+		return nil, err
+	}
+	return resolvers, nil
+}
+
+func (c *Config) GetString(key string) string {
+	return c.configService.GetString("fabric." + c.prefix + key)
+}
+
+func (c *Config) GetDuration(key string) time.Duration {
+	return c.configService.GetDuration("fabric." + c.prefix + key)
+}
+
+func (c *Config) GetBool(key string) bool {
+	return c.configService.GetBool("fabric." + c.prefix + key)
+}
+
+func (c *Config) IsSet(key string) bool {
+	return c.configService.IsSet("fabric." + c.prefix + key)
+}
+
+func (c *Config) UnmarshalKey(key string, rawVal interface{}) error {
+	return c.configService.UnmarshalKey("fabric."+c.prefix+key, rawVal)
+}
+
+func (c *Config) GetPath(key string) string {
+	return c.configService.GetPath("fabric." + c.prefix + key)
 }

@@ -19,6 +19,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
+	config2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	delivery2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/delivery"
 	finality2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/finality"
 	peer2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
@@ -46,8 +47,8 @@ const (
 
 type channel struct {
 	sp                 view2.ServiceProvider
-	config             *Config
-	network            driver.FabricNetworkService
+	config             *config2.Config
+	network            *network
 	name               string
 	finality           driver.Finality
 	vault              *vault.Vault

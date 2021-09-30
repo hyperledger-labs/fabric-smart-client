@@ -26,6 +26,18 @@ func NewEnclaveRegistry(fns *fabric.NetworkService, ch *fabric.Channel) *Enclave
 	return &EnclaveRegistry{FabricNetworkService: fns, Channel: ch}
 }
 
+func (e *EnclaveRegistry) IsAvailable() (bool, error) {
+	return e.Channel.Chaincode("ercc").IsAvailable()
+}
+
+func (e *EnclaveRegistry) IsPrivate(cid string) (bool, error) {
+	_, err := e.ChaincodeEncryptionKey(cid)
+	if err != nil && strings.Contains(err.Error(), "no such key") {
+		return false, nil
+	}
+	return err == nil, err
+}
+
 // ListProvisionedEnclaves returns the list of provisioned enclaves for the passed chaincode id
 func (e *EnclaveRegistry) ListProvisionedEnclaves(cid string) ([]string, error) {
 	raw, err := e.Channel.Chaincode("ercc").Query(

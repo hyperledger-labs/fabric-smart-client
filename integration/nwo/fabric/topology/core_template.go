@@ -297,6 +297,10 @@ fabric:
     channels: {{ range .Channels }}
       - name: {{ .Name }}
         default: {{ .Default }}
+        chaincodes: {{range Chaincodes .Name }}
+          - name: {{ .Chaincode.Name }}
+            private: {{ .Private }}
+        {{- end }}
     {{- end }}
     vault:
       persistence:

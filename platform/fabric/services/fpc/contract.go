@@ -8,6 +8,7 @@ package fpc
 
 import (
 	fpc "github.com/hyperledger/fabric-private-chaincode/client_sdk/go/pkg/core/contract"
+	"github.com/pkg/errors"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -109,4 +110,91 @@ func (c *contractProvider) GetContract(id string) fpc.Contract {
 		ch:  c.ch,
 		id:  id,
 	}
+}
+
+type contractProviderForEndorsement struct {
+	fns *fabric.NetworkService
+	ch  *fabric.Channel
+	cid string
+	env *fabric.Envelope
+}
+
+func (c *contractProviderForEndorsement) GetContract(id string) fpc.Contract {
+	if id == "ercc" {
+		return &contract{
+			fns: c.fns,
+			ch:  c.ch,
+			id:  id,
+		}
+	}
+	c.cid = id
+	return c
+}
+
+func (c *contractProviderForEndorsement) Name() string {
+	return c.cid
+}
+
+func (c *contractProviderForEndorsement) EvaluateTransaction(name string, args ...string) ([]byte, error) {
+	var passedArgs []interface{}
+	for _, arg := range args {
+		passedArgs = append(passedArgs, arg)
+	}
+	raw, err := c.ch.Chaincode(c.cid).Query(
+		name, passedArgs...,
+	).WithInvokerIdentity(
+		c.fns.IdentityProvider().DefaultIdentity(),
+	).Call()
+	if err != nil {
+		return nil, err
+	}
+	return raw, err
+}
+
+func (c *contractProviderForEndorsement) SubmitTransaction(name string, args ...string) ([]byte, error) {
+	var passedArgs []interface{}
+	for _, arg := range args {
+		passedArgs = append(passedArgs, arg)
+	}
+	var err error
+	c.env, err = c.ch.Chaincode(c.cid).Endorse(
+		name, passedArgs...,
+	).WithInvokerIdentity(
+		c.fns.IdentityProvider().DefaultIdentity(),
+	).Call()
+
+	if err != nil {
+		return nil, err
+	}
+	return nil, err
+}
+
+func (c *contractProviderForEndorsement) CreateTransaction(name string, peerEndpoints ...string) (fpc.Transaction, error) {
+	return &transaction{
+		fns:      c.fns,
+		ch:       c.ch,
+		id:       c.cid,
+		function: name,
+		peers:    peerEndpoints,
+	}, nil
+}
+
+type endorserContractImpl struct {
+	fns *fabric.NetworkService
+	ch  *fabric.Channel
+	cid string
+}
+
+func (e *endorserContractImpl) EndorseTransaction(name string, args ...string) (*fabric.Envelope, error) {
+	p := &contractProviderForEndorsement{
+		fns: e.fns,
+		ch:  e.ch,
+		cid: e.cid,
+	}
+	c := fpc.GetContract(p, e.cid)
+	_, err := c.SubmitTransaction(name, args...)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed submitting transaction")
+	}
+	return p.env, nil
 }
