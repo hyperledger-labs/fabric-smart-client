@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package nwo
 
 import (
+	"strings"
 	"syscall"
 	"time"
 
@@ -131,19 +132,19 @@ func (n *NWO) Stop() {
 func (n *NWO) StopFSCNode(id string) {
 	logger.Infof("Stopping fsc node [%s]...", id)
 	for _, member := range n.ViewMembers {
-		if member.Name == id {
+		if strings.HasSuffix(member.Name, id) {
 			member.Runner.(*runner.Runner).Stop()
-			logger.Infof("Stopping fsc node [%s] done", id)
+			logger.Infof("Stopping fsc node [%s:%s] done", member.Name, id)
 			return
 		}
 	}
-	logger.Errorf("Stopping fsc node [%s]...done", id)
+	logger.Infof("Stopping fsc node [%s]...done", id)
 }
 
 func (n *NWO) StartFSCNode(id string) {
 	logger.Infof("Starting fsc node [%s]...", id)
 	for _, member := range n.ViewMembers {
-		if member.Name == id {
+		if strings.HasSuffix(member.Name, id) {
 			runner := runner.NewOrdered(syscall.SIGTERM, []grouper.Member{{
 				Name: id, Runner: member.Runner.(*runner.Runner).Clone(),
 			}})
@@ -151,9 +152,9 @@ func (n *NWO) StartFSCNode(id string) {
 			process := ifrit.Invoke(runner)
 			Eventually(process.Ready(), n.StartEventuallyTimeout).Should(BeClosed())
 			n.Processes = append(n.Processes, process)
-			logger.Infof("Starting fsc node [%s]...done", id)
+			logger.Infof("Starting fsc node [%s:%s] done", member.Name, id)
 			return
 		}
 	}
-	logger.Errorf("Starting fsc node [%s]...done", id)
+	logger.Info("Starting fsc node [%s]...done", id)
 }

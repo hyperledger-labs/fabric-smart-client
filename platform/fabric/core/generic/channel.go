@@ -7,27 +7,23 @@ SPDX-License-Identifier: Apache-2.0
 package generic
 
 import (
-	"fmt"
 	"io/ioutil"
-	"strconv"
 	"sync"
 	"time"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric-protos-go/common"
 	"github.com/hyperledger/fabric-protos-go/peer"
-	"github.com/hyperledger/fabric/bccsp/factory"
 	"github.com/hyperledger/fabric/common/channelconfig"
-	"github.com/hyperledger/fabric/common/configtx"
 	"github.com/hyperledger/fabric/protoutil"
 	"github.com/pkg/errors"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
+	config2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	delivery2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/delivery"
 	finality2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/finality"
 	peer2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
 	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer/common"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/rwset"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
@@ -51,8 +47,8 @@ const (
 
 type channel struct {
 	sp                 view2.ServiceProvider
-	config             *Config
-	network            driver.FabricNetworkService
+	config             *config2.Config
+	network            *network
 	name               string
 	finality           driver.Finality
 	vault              *vault.Vault
@@ -102,7 +98,18 @@ func newChannel(network *network, name string, quiet bool) (*channel, error) {
 	}
 
 	// Delivery
-	deliveryService, err := delivery2.New(name, sp, network, committerInst, txIDStore, waitForEventTimeout)
+	deliveryService, err := delivery2.New(
+		network.ctx,
+		name,
+		sp,
+		network,
+		func(block *peer.FilteredBlock) (bool, error) {
+			committerInst.Commit(block)
+			return false, nil
+		},
+		txIDStore,
+		waitForEventTimeout,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -289,90 +296,14 @@ func (c *channel) GetBlockNumberByTxID(txID string) (uint64, error) {
 	return block.Header.Number, nil
 }
 
+func (c *channel) Close() error {
+	return c.vault.Close()
+}
+
 func (c *channel) init() error {
-	c.applyLock.Lock()
-	defer c.applyLock.Unlock()
-
-	qe, err := c.vault.NewQueryExecutor()
-	if err != nil {
-		return errors.WithMessagef(err, "failed getting query executor")
+	if err := c.ReloadConfigTransactions(); err != nil {
+		return errors.WithMessagef(err, "failed reloading config transactions")
 	}
-	defer qe.Done()
-
-	logger.Infof("looking up the latest config block available")
-	var sequence uint64 = 1
-	for {
-		txid := committer.ConfigTXPrefix + strconv.FormatUint(sequence, 10)
-		vc, err := c.vault.Status(txid)
-		if err != nil {
-			panic(fmt.Sprintf("failed getting tx's status [%s], with err [%s]", txid, err))
-		}
-		done := false
-		switch vc {
-		case driver.Valid:
-			txid := committer.ConfigTXPrefix + strconv.FormatUint(sequence, 10)
-			logger.Infof("config block available, txid [%s], loading...", txid)
-
-			key, err := rwset.CreateCompositeKey(channelConfigKey, []string{strconv.FormatUint(sequence, 10)})
-			if err != nil {
-				return errors.Wrapf(err, "cannot create configtx rws key")
-			}
-			payload, err := qe.GetState(peerNamespace, key)
-			if err != nil {
-				return errors.Wrapf(err, "failed setting configtx state in rws")
-			}
-			ctx, err := configtx.UnmarshalConfigEnvelope(payload)
-			if err != nil {
-				err = errors.WithMessage(err, "error unmarshalling config which passed initial validity checks")
-				logger.Criticalf("%+v", err)
-				return err
-			}
-
-			var bundle *channelconfig.Bundle
-			if c.Resources() == nil {
-				// setup the genesis block
-				bundle, err = channelconfig.NewBundle(c.name, ctx.Config, factory.GetDefault())
-				if err != nil {
-					return err
-				}
-			} else {
-				configTxValidator := c.Resources().ConfigtxValidator()
-				err := configTxValidator.Validate(ctx)
-				if err != nil {
-					return err
-				}
-
-				bundle, err = channelconfig.NewBundle(configTxValidator.ChannelID(), ctx.Config, factory.GetDefault())
-				if err != nil {
-					return err
-				}
-
-				channelconfig.LogSanityChecks(bundle)
-				capabilitiesSupportedOrPanic(bundle)
-			}
-
-			c.lock.Lock()
-			c.resources = bundle
-			c.lock.Unlock()
-
-			sequence = sequence + 1
-			continue
-		case driver.Unknown:
-			done = true
-		default:
-			panic(fmt.Sprintf("invalid configtx's [%s] status [%d]", txid, vc))
-		}
-		if done {
-			break
-		}
-	}
-	if sequence == 1 {
-		logger.Infof("no config block available, must start from genesis")
-		// no configuration block found
-		return nil
-	}
-	logger.Infof("latest config block available at sequence [%d]", sequence-1)
-
 	return nil
 }
 
@@ -413,6 +344,10 @@ func newProcessedTransaction(pt *peer.ProcessedTransaction) (*processedTransacti
 		return nil, err
 	}
 	return &processedTransaction{vc: pt.ValidationCode, ue: ue, env: env}, nil
+}
+
+func (p *processedTransaction) TxID() string {
+	return p.ue.TxID
 }
 
 func (p *processedTransaction) Results() []byte {

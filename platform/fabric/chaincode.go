@@ -81,6 +81,14 @@ func (c *Chaincode) Discover() *ChaincodeDiscover {
 	return &ChaincodeDiscover{ChaincodeDiscover: c.chaincode.NewDiscover()}
 }
 
+func (c *Chaincode) IsAvailable() (bool, error) {
+	return c.chaincode.IsAvailable()
+}
+
+func (c *Chaincode) IsPrivate() bool {
+	return c.chaincode.IsPrivate()
+}
+
 type ChaincodeDiscover struct {
 	driver.ChaincodeDiscover
 }

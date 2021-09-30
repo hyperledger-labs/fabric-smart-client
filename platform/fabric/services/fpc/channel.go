@@ -35,14 +35,16 @@ func (p *Channel) EnclaveRegistry() *EnclaveRegistry {
 
 // Chaincode returns a wrapper around the Fabric Private Chaincode whose name is cid
 func (p *Channel) Chaincode(cid string) *Chaincode {
-	contractProvider := &contractProvider{
+	icp := &contractProvider{
 		fns: p.FabricNetworkService,
 		ch:  p.Channel,
 	}
+
 	return NewChaincode(
 		p.Channel,
 		p.ER,
-		fpc.GetContract(contractProvider, cid),
+		fpc.GetContract(icp, cid),
+		&endorserContractImpl{fns: p.FabricNetworkService, ch: p.Channel, cid: cid},
 		p.FabricNetworkService.IdentityProvider().DefaultIdentity(),
 		p.FabricNetworkService.IdentityProvider(),
 		cid,

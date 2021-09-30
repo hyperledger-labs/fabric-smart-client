@@ -10,6 +10,7 @@ package driver
 type Channel interface {
 	Committer
 	Vault
+	Delivery
 
 	Ledger
 	Comm
@@ -26,4 +27,6 @@ type Channel interface {
 	TransactionService() EndorserTransactionService
 
 	MetadataService() MetadataService
+
+	Close() error
 }

@@ -12,6 +12,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/vault/txidstore"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
@@ -23,7 +24,7 @@ type Badger struct {
 	Path string
 }
 
-func NewVault(config *Config, channel string, sp view.ServiceProvider) (*vault.Vault, *txidstore.TXIDStore, error) {
+func NewVault(config *config.Config, channel string, sp view.ServiceProvider) (*vault.Vault, *txidstore.TXIDStore, error) {
 	var persistence driver.VersionedPersistence
 	pType := config.VaultPersistenceType()
 	switch pType {

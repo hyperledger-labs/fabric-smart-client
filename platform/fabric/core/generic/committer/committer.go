@@ -69,7 +69,7 @@ func New(channel string, network Network, finality Finality, waitForEventTimeout
 	return d, nil
 }
 
-// Commit commits the transaction in the passed block
+// Commit commits the transactions in the block passed as argument
 func (c *committer) Commit(filteredBlock *pb.FilteredBlock) {
 	ledger, err := c.network.Ledger(c.channel)
 	if err != nil {

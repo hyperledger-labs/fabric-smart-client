@@ -1737,6 +1737,7 @@ func (n *Network) GenerateCoreConfig(p *topology.Peer) {
 			"FSCNodeVaultPath":          func() string { return n.FSCNodeVaultDir(p) },
 			"FabricName":                func() string { return n.topology.Name() },
 			"DefaultNetwork":            func() bool { return defaultNetwork },
+			"Chaincodes":                func(channel string) []*topology.ChannelChaincode { return n.Chaincodes(channel) },
 		}).Parse(coreTemplate)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -1767,4 +1768,14 @@ func (n *Network) PeerByName(name string) *topology.Peer {
 		}
 	}
 	return nil
+}
+
+func (n *Network) Chaincodes(channel string) []*topology.ChannelChaincode {
+	var res []*topology.ChannelChaincode
+	for _, chaincode := range n.topology.Chaincodes {
+		if chaincode.Channel == channel {
+			res = append(res, chaincode)
+		}
+	}
+	return res
 }

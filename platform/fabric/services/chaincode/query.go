@@ -7,20 +7,20 @@ SPDX-License-Identifier: Apache-2.0
 package chaincode
 
 import (
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
-
 	"github.com/pkg/errors"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/fpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 type queryChaincodeView struct {
-	*Invoke
+	*InvokeCall
 }
 
 func NewQueryView(chaincode, function string, args ...interface{}) *queryChaincodeView {
 	return &queryChaincodeView{
-		Invoke: &Invoke{
+		InvokeCall: &InvokeCall{
 			ChaincodeName: chaincode,
 			Function:      function,
 			Args:          args,
@@ -29,6 +29,10 @@ func NewQueryView(chaincode, function string, args ...interface{}) *queryChainco
 }
 
 func (i *queryChaincodeView) Call(context view.Context) (interface{}, error) {
+	return i.Query(context)
+}
+
+func (i *queryChaincodeView) Query(context view.Context) ([]byte, error) {
 	if len(i.ChaincodeName) == 0 {
 		return nil, errors.Errorf("no chaincode specified")
 	}
@@ -44,7 +48,17 @@ func (i *queryChaincodeView) Call(context view.Context) (interface{}, error) {
 	if i.InvokerIdentity.IsNone() {
 		i.InvokerIdentity = fNetwork.IdentityProvider().DefaultIdentity()
 	}
-	invocation := channel.Chaincode(i.ChaincodeName).Query(i.Function, i.Args...).WithInvokerIdentity(i.InvokerIdentity)
+	chaincode := channel.Chaincode(i.ChaincodeName)
+	if chaincode == nil {
+		return nil, errors.Errorf("fabric chaincode [%s:%s:%s] not found", i.Network, i.Channel, i.ChaincodeName)
+	}
+	if chaincode.IsPrivate() {
+		// This is a Fabric Private Chaincode, use the corresponding service
+		fpcChannel := fpc.GetChannel(context, i.Network, i.Channel)
+		return fpcChannel.Chaincode(i.ChaincodeName).Query(i.Function, i.Args...).Call()
+	}
+
+	invocation := chaincode.Query(i.Function, i.Args...).WithInvokerIdentity(i.InvokerIdentity)
 	for k, v := range i.TransientMap {
 		invocation.WithTransientEntry(k, v)
 	}
@@ -70,17 +84,17 @@ func (i *queryChaincodeView) WithTransientEntry(k string, v interface{}) *queryC
 }
 
 func (i *queryChaincodeView) WithEndorsers(ids ...view.Identity) *queryChaincodeView {
-	i.Invoke.Endorsers = ids
+	i.InvokeCall.Endorsers = ids
 	return i
 }
 
 func (i *queryChaincodeView) WithNetwork(name string) *queryChaincodeView {
-	i.Invoke.Network = name
+	i.InvokeCall.Network = name
 	return i
 }
 
 func (i *queryChaincodeView) WithChannel(name string) *queryChaincodeView {
-	i.Invoke.Channel = name
+	i.InvokeCall.Channel = name
 	return i
 }
 

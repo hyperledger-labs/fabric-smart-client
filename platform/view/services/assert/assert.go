@@ -36,6 +36,12 @@ func NoError(err error, msgAndArgs ...interface{}) {
 	assert.NoError(&panickier{releasers: releasers}, err, ma...)
 }
 
+// Error checks that the passed error is not nil, it panics otherwise
+func Error(err error, msgAndArgs ...interface{}) {
+	ma, releasers := extractReleasers(msgAndArgs...)
+	assert.Error(&panickier{releasers: releasers}, err, ma...)
+}
+
 func NotEmpty(o interface{}, msgAndArgs ...interface{}) {
 	ma, releasers := extractReleasers(msgAndArgs...)
 	assert.NotEmpty(&panickier{releasers: releasers}, o, ma...)

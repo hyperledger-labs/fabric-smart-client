@@ -14,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/endpoint"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/finality"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/id"
@@ -29,6 +30,7 @@ var logger = flogging.MustGetLogger("fabric-sdk.core")
 type fnsProvider struct {
 	sp     view.ServiceProvider
 	config *Config
+	ctx    context.Context
 
 	networksMutex sync.Mutex
 	networks      map[string]driver.FabricNetworkService
@@ -44,6 +46,8 @@ func NewFabricNetworkServiceProvider(sp view.ServiceProvider, config *Config) (*
 }
 
 func (p *fnsProvider) Start(ctx context.Context) error {
+	p.ctx = ctx
+
 	// What's the default network?
 	// TODO: add listener to fabric service when a channel is opened.
 	for _, name := range p.config.Names() {
@@ -65,6 +69,21 @@ func (p *fnsProvider) Start(ctx context.Context) error {
 }
 
 func (p *fnsProvider) Stop() error {
+	for _, networkName := range p.config.Names() {
+		fns, err := p.FabricNetworkService(networkName)
+		if err != nil {
+			return err
+		}
+		for _, channelName := range fns.Channels() {
+			ch, err := fns.Channel(channelName)
+			if err != nil {
+				return err
+			}
+			if err := ch.Close(); err != nil {
+				logger.Errorf("failed closing channel [%s:%s]: [%s]", networkName, channelName, err)
+			}
+		}
+	}
 	return nil
 }
 
@@ -98,7 +117,7 @@ func (p *fnsProvider) FabricNetworkService(network string) (driver.FabricNetwork
 
 func (p *fnsProvider) newFNS(network string) (driver.FabricNetworkService, error) {
 	// bridge services
-	config, err := generic.NewConfig(view.GetConfigService(p.sp), network, network == p.config.defaultName)
+	config, err := config.New(view.GetConfigService(p.sp), network, network == p.config.defaultName)
 	if err != nil {
 		return nil, err
 	}
@@ -134,6 +153,7 @@ func (p *fnsProvider) newFNS(network string) (driver.FabricNetworkService, error
 
 	// New Network
 	net, err := generic.NewNetwork(
+		p.ctx,
 		p.sp,
 		network,
 		config,

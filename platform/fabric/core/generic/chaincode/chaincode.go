@@ -14,11 +14,11 @@ import (
 type Chaincode struct {
 	name    string
 	sp      view.ServiceProvider
-	network driver.FabricNetworkService
+	network Network
 	channel Channel
 }
 
-func NewChaincode(name string, sp view.ServiceProvider, network driver.FabricNetworkService, channel Channel) *Chaincode {
+func NewChaincode(name string, sp view.ServiceProvider, network Network, channel Channel) *Chaincode {
 	return &Chaincode{name: name, sp: sp, network: network, channel: channel}
 }
 
@@ -28,4 +28,31 @@ func (c *Chaincode) NewInvocation(function string, args ...interface{}) driver.C
 
 func (c *Chaincode) NewDiscover() driver.ChaincodeDiscover {
 	return NewDiscovery(c.network, c.channel, c.name)
+}
+
+func (c *Chaincode) IsAvailable() (bool, error) {
+	ids, err := c.NewDiscover().Call()
+	if err != nil {
+		return false, err
+	}
+	return len(ids) != 0, nil
+}
+
+func (c *Chaincode) IsPrivate() bool {
+	channels, err := c.network.Config().Channels()
+	if err != nil {
+		logger.Error("failed getting channels' configurations [%s]", err)
+		return false
+	}
+	for _, channel := range channels {
+		if channel.Name == c.channel.Name() {
+			for _, chaincode := range channel.Chaincodes {
+				if chaincode.Name == c.name {
+					return chaincode.Private
+				}
+			}
+		}
+	}
+	// Nothing was found
+	return false
 }

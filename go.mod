@@ -15,7 +15,6 @@ require (
 	github.com/OneOfOne/xxhash v1.2.5 // indirect
 	github.com/Shopify/sarama v1.26.3
 	github.com/btcsuite/btcd v0.21.0-beta // indirect
-	github.com/client9/misspell v0.3.4 // indirect
 	github.com/containerd/containerd v1.5.2 // indirect
 	github.com/dgraph-io/badger/v3 v3.2011.1
 	github.com/docker/docker v20.10.7+incompatible
@@ -25,9 +24,7 @@ require (
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/protobuf v1.5.2
 	github.com/golang/snappy v0.0.3-0.20201103224600-674baa8c7fc3 // indirect
-	github.com/google/addlicense v1.0.0 // indirect
 	github.com/google/go-cmp v0.5.5
-	github.com/gordonklaus/ineffassign v0.0.0-20210914165742-4cc7213b9bc8 // indirect
 	github.com/gorilla/mux v1.8.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.2.0
 	github.com/hashicorp/go-version v1.2.0
@@ -65,8 +62,8 @@ require (
 	go.uber.org/atomic v1.7.0
 	go.uber.org/multierr v1.6.0 // indirect
 	go.uber.org/zap v1.16.0
-	golang.org/x/mod v0.5.0 // indirect
-	golang.org/x/sys v0.0.0-20210917161153-d61c044b1678 // indirect
+	golang.org/x/mod v0.5.1 // indirect
+	golang.org/x/sys v0.0.0-20210923061019-b8560ed6a9b7 // indirect
 	golang.org/x/tools v0.1.6 // indirect
 	google.golang.org/genproto v0.0.0-20210201184850-646a494a81ea // indirect
 	google.golang.org/grpc v1.39.1
