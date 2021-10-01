@@ -11,9 +11,10 @@ import (
 	"testing"
 	"unicode/utf8"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/keys"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/keys"
 )
 
 const (
@@ -57,6 +58,7 @@ func TestValidateKey(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NoError(t, keys.ValidateKey(key))
 	assert.EqualError(t, keys.ValidateKey("_key?"), "key '_key?' is invalid")
+	assert.NoError(t, keys.ValidateKey("\x00"+string(utf8.MaxRune)+"initialized"))
 }
 
 func TestValidateNamespace(t *testing.T) {
