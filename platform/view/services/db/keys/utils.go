@@ -8,13 +8,14 @@ package keys
 
 import (
 	"regexp"
+	"unicode/utf8"
 
 	"github.com/pkg/errors"
 )
 
 var (
 	nsRegexp  = regexp.MustCompile("^[a-zA-Z0-9._-]{1,20}$")
-	keyRegexp = regexp.MustCompile("^[a-zA-Z0-9._\u0000=+/-]{1,200}$")
+	keyRegexp = regexp.MustCompile("^[a-zA-Z0-9._\u0000=" + string(utf8.MaxRune) + "+/-]{1,200}$")
 )
 
 const NamespaceSeparator = "\u0000"
