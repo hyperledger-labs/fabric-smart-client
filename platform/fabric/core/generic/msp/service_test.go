@@ -52,7 +52,7 @@ func TestRegisterIdemixLocalMSP(t *testing.T) {
 	id, info, err := ii.GetIdentity()
 	assert.NoError(t, err)
 	assert.NotNil(t, id)
-	assert.NotNil(t, info)
+	assert.Nil(t, info)
 }
 
 func TestIdemixTypeFolder(t *testing.T) {
