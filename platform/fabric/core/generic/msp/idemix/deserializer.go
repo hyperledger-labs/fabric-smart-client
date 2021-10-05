@@ -56,10 +56,11 @@ func NewDeserializer(ipk []byte) (*idd, error) {
 	}
 
 	return &idd{
-		&support{
+		support: &support{
 			Ipk:             ipk,
 			Csp:             cryptoProvider,
 			IssuerPublicKey: issuerPublicKey,
+			VerType:         bccsp.BestEffort,
 		},
 	}, nil
 }

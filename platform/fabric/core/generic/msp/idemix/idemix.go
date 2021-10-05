@@ -15,14 +15,14 @@ import (
 	csp "github.com/IBM/idemix/bccsp"
 	"github.com/IBM/idemix/bccsp/keystore"
 	bccsp "github.com/IBM/idemix/bccsp/schemes"
-	ip "github.com/IBM/idemix/bccsp/schemes/dlog/crypto"
 	"github.com/IBM/idemix/bccsp/schemes/dlog/crypto/translator/amcl"
 	math "github.com/IBM/mathlib"
 	"github.com/golang/protobuf/proto"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	m "github.com/hyperledger/fabric-protos-go/msp"
 	"github.com/pkg/errors"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
@@ -52,6 +52,7 @@ type support struct {
 	IssuerPublicKey bccsp.Key
 	revocationPK    bccsp.Key
 	epoch           int
+	VerType         bccsp.VerificationType
 }
 
 func (s *support) Deserialize(raw []byte, checkValidity bool) (*deserialized, error) {
@@ -96,7 +97,7 @@ func (s *support) Deserialize(raw []byte, checkValidity bool) (*deserialized, er
 		return nil, errors.Wrap(err, "cannot deserialize the role of the identity")
 	}
 
-	id := newIdentity(s, NymPublicKey, role, ou, serialized.Proof)
+	id := newIdentityWithVerType(s, NymPublicKey, role, ou, serialized.Proof, s.VerType)
 	if checkValidity {
 		if err := id.Validate(); err != nil {
 			return nil, errors.Wrap(err, "cannot deserialize, invalid identity")
@@ -129,9 +130,20 @@ type provider struct {
 	userKey bccsp.Key
 	conf    m.IdemixMSPConfig
 	sp      view2.ServiceProvider
+
+	sigType bccsp.SignatureType
+	verType bccsp.VerificationType
 }
 
 func NewProvider(conf1 *m.MSPConfig, sp view2.ServiceProvider) (*provider, error) {
+	return NewProviderWithSigType(conf1, sp, bccsp.EidNym)
+}
+
+func NewStandardProvider(conf1 *m.MSPConfig, sp view2.ServiceProvider) (*provider, error) {
+	return NewProviderWithSigType(conf1, sp, bccsp.Standard)
+}
+
+func NewProviderWithSigType(conf1 *m.MSPConfig, sp view2.ServiceProvider, sigType bccsp.SignatureType) (*provider, error) {
 	logger.Debugf("Setting up Idemix-based MSP instance")
 
 	if conf1 == nil {
@@ -199,6 +211,16 @@ func NewProvider(conf1 *m.MSPConfig, sp view2.ServiceProvider) (*provider, error
 		return nil, errors.WithMessage(err, "failed importing signer secret key")
 	}
 
+	var verType bccsp.VerificationType
+	switch sigType {
+	case bccsp.Standard:
+		verType = bccsp.ExpectStandard
+	case bccsp.EidNym:
+		verType = bccsp.ExpectEidNym
+	default:
+		panic("invalid sig type")
+	}
+
 	return &provider{
 		support: &support{
 			name:            conf.Name,
@@ -206,10 +228,13 @@ func NewProvider(conf1 *m.MSPConfig, sp view2.ServiceProvider) (*provider, error
 			IssuerPublicKey: issuerPublicKey,
 			revocationPK:    RevocationPublicKey,
 			epoch:           0,
+			VerType:         verType,
 		},
 		userKey: userKey,
 		conf:    conf,
 		sp:      sp,
+		sigType: sigType,
+		verType: verType,
 	}, nil
 }
 
@@ -281,7 +306,7 @@ func (p *provider) Identity() (view.Identity, []byte, error) {
 		RhIndex:  rhIndex,
 		EidIndex: eidIndex,
 		CRI:      p.conf.Signer.CredentialRevocationInformation,
-		SigType:  bccsp.EidNym,
+		SigType:  p.sigType,
 	}
 	proof, err := p.Csp.Sign(
 		p.userKey,
@@ -294,43 +319,44 @@ func (p *provider) Identity() (view.Identity, []byte, error) {
 
 	// Set up default signer
 	sID := &signingIdentity{
-		identity:     newIdentity(p.support, NymPublicKey, role, ou, proof),
+		identity:     newIdentityWithVerType(p.support, NymPublicKey, role, ou, proof, p.verType),
 		Cred:         p.conf.Signer.Cred,
 		UserKey:      p.userKey,
 		NymKey:       nymKey,
-		enrollmentId: enrollmentID}
+		enrollmentId: enrollmentID,
+	}
 
 	raw, err := sID.Serialize()
 	if err != nil {
 		return nil, nil, err
 	}
 
-	err = GetSignerService(p.sp).RegisterSigner(raw, sID, sID)
-	if err != nil {
+	if err := GetSignerService(p.sp).RegisterSigner(raw, sID, sID); err != nil {
 		return nil, nil, err
 	}
 
-	ipk := new(ip.IssuerPublicKey)
-	err = proto.Unmarshal(p.conf.Ipk, ipk)
-	if err != nil {
-		return nil, nil, err
+	var infoRaw []byte
+	switch p.sigType {
+	case bccsp.Standard:
+		infoRaw = nil
+	case bccsp.EidNym:
+		auditInfo := &AuditInfo{
+			Csp:             p.Csp,
+			IssuerPublicKey: p.IssuerPublicKey,
+			NymEIDAuditData: opts.Metadata.NymEIDAuditData,
+			Attributes: [][]byte{
+				[]byte(p.conf.Signer.OrganizationalUnitIdentifier),
+				[]byte(strconv.Itoa(getIdemixRoleFromMSPRole(role))),
+				[]byte(enrollmentID),
+			},
+		}
+		infoRaw, err = auditInfo.Bytes()
+		if err != nil {
+			return nil, nil, err
+		}
+	default:
+		panic("invalid sig type")
 	}
-
-	auditInfo := &AuditInfo{
-		Csp:             p.Csp,
-		IssuerPublicKey: p.IssuerPublicKey,
-		NymEIDAuditData: opts.Metadata.NymEIDAuditData,
-		Attributes: [][]byte{
-			[]byte(p.conf.Signer.OrganizationalUnitIdentifier),
-			[]byte(strconv.Itoa(getIdemixRoleFromMSPRole(role))),
-			[]byte(enrollmentID),
-		},
-	}
-	infoRaw, err := auditInfo.Bytes()
-	if err != nil {
-		return nil, nil, err
-	}
-
 	return raw, infoRaw, nil
 }
 
@@ -446,11 +472,10 @@ func (p *provider) DeserializeSigningIdentity(raw []byte) (driver.SigningIdentit
 		return nil, errors.Wrap(err, "cannot deserialize the role of the identity")
 	}
 
-	id := newIdentity(p.support, NymPublicKey, role, ou, serialized.Proof)
+	id := newIdentityWithVerType(p.support, NymPublicKey, role, ou, serialized.Proof, p.verType)
 	if err := id.Validate(); err != nil {
 		return nil, errors.Wrap(err, "cannot deserialize, invalid identity")
 	}
-
 	nymKey, err := p.Csp.GetKey(NymPublicKey.SKI())
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot find nym secret key")

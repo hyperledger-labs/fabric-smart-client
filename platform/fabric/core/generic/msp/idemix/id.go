@@ -31,15 +31,21 @@ type identity struct {
 	// belongs to the MSP id.provider, i.e., it proves that the pseudonym
 	// is constructed from a secret key on which the CA issued a credential.
 	associationProof []byte
+	VerificationType bccsp.VerificationType
 }
 
 func newIdentity(provider *support, NymPublicKey bccsp.Key, role *m.MSPRole, ou *m.OrganizationUnit, proof []byte) *identity {
+	return newIdentityWithVerType(provider, NymPublicKey, role, ou, proof, bccsp.ExpectEidNym)
+}
+
+func newIdentityWithVerType(provider *support, NymPublicKey bccsp.Key, role *m.MSPRole, ou *m.OrganizationUnit, proof []byte, verificationType bccsp.VerificationType) *identity {
 	id := &identity{}
 	id.NymPublicKey = NymPublicKey
 	id.support = provider
 	id.Role = role
 	id.OU = ou
 	id.associationProof = proof
+	id.VerificationType = verificationType
 
 	raw, err := NymPublicKey.Bytes()
 	if err != nil {
@@ -162,7 +168,7 @@ func (id *identity) verifyProof() error {
 			RhIndex:          rhIndex,
 			EidIndex:         eidIndex,
 			Epoch:            id.support.epoch,
-			VerificationType: bccsp.ExpectEidNym,
+			VerificationType: id.VerificationType,
 		},
 	)
 	if err == nil && !valid {

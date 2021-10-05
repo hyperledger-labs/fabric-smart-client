@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	bccsp "github.com/IBM/idemix/bccsp/schemes"
+
 	idemix2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/idemix"
 	sig2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/core/sig"
 
@@ -84,9 +86,17 @@ func TestProvider(t *testing.T) {
 	p, err := idemix2.NewProvider(config, registry)
 	assert.NoError(t, err)
 	assert.NotNil(t, p)
+
+	p, err = idemix2.NewProviderWithSigType(config, registry, bccsp.Standard)
+	assert.NoError(t, err)
+	assert.NotNil(t, p)
+
+	p, err = idemix2.NewProviderWithSigType(config, registry, bccsp.EidNym)
+	assert.NoError(t, err)
+	assert.NotNil(t, p)
 }
 
-func TestIdentity(t *testing.T) {
+func TestIdentityEidNym(t *testing.T) {
 	registry := registry2.New()
 	registry.RegisterService(&fakeProv{typ: "memory"})
 
@@ -129,7 +139,58 @@ func TestIdentity(t *testing.T) {
 	assert.NoError(t, verifier.Verify([]byte("hello world!!!"), sigma))
 }
 
-func TestAudit(t *testing.T) {
+func TestIdentityStandard(t *testing.T) {
+	registry := registry2.New()
+	registry.RegisterService(&fakeProv{typ: "memory"})
+
+	kvss, err := kvs.New("memory", "", registry)
+	assert.NoError(t, err)
+	assert.NoError(t, registry.RegisterService(kvss))
+	sigService := sig2.NewSignService(registry, nil)
+	assert.NoError(t, registry.RegisterService(sigService))
+
+	config, err := msp2.GetLocalMspConfigWithType("./testdata/idemix", nil, "idemix", "idemix")
+	assert.NoError(t, err)
+
+	p, err := idemix2.NewProviderWithSigType(config, registry, bccsp.Standard)
+	assert.NoError(t, err)
+	assert.NotNil(t, p)
+
+	id, audit, err := p.Identity()
+	assert.NoError(t, err)
+	assert.NotNil(t, id)
+	assert.Nil(t, audit)
+
+	signer, err := p.DeserializeSigner(id)
+	assert.NoError(t, err)
+	verifier, err := p.DeserializeVerifier(id)
+	assert.NoError(t, err)
+
+	sigma, err := signer.Sign([]byte("hello world!!!"))
+	assert.NoError(t, err)
+	assert.NoError(t, verifier.Verify([]byte("hello world!!!"), sigma))
+
+	p, err = idemix2.NewStandardProvider(config, registry)
+	assert.NoError(t, err)
+	assert.NotNil(t, p)
+
+	id, audit, err = p.Identity()
+	assert.NoError(t, err)
+	assert.NotNil(t, id)
+	assert.Nil(t, audit)
+
+	signer, err = p.DeserializeSigner(id)
+	assert.NoError(t, err)
+	verifier, err = p.DeserializeVerifier(id)
+	assert.NoError(t, err)
+
+	sigma, err = signer.Sign([]byte("hello world!!!"))
+	assert.NoError(t, err)
+	assert.NoError(t, verifier.Verify([]byte("hello world!!!"), sigma))
+
+}
+
+func TestAuditEidNym(t *testing.T) {
 	registry := registry2.New()
 	registry.RegisterService(&fakeProv{typ: "memory"})
 
