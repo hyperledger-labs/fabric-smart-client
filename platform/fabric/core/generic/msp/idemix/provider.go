@@ -267,7 +267,7 @@ func (p *provider) Identity(opts *driver2.IdentityOptions) (view.Identity, []byt
 	}
 
 	var infoRaw []byte
-	switch p.sigType {
+	switch sigType {
 	case bccsp.Standard:
 		infoRaw = nil
 	case bccsp.EidNym:
