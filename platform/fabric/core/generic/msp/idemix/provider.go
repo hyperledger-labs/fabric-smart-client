@@ -38,6 +38,10 @@ const (
 	rhIndex  = 3
 )
 
+const (
+	Any bccsp.SignatureType = 100
+)
+
 // TODO: remove this
 type SignerService interface {
 	RegisterSigner(identity view.Identity, signer driver.Signer, verifier driver.Verifier) error
@@ -67,6 +71,10 @@ func NewEIDNymProvider(conf1 *m.MSPConfig, sp view2.ServiceProvider) (*provider,
 
 func NewStandardProvider(conf1 *m.MSPConfig, sp view2.ServiceProvider) (*provider, error) {
 	return NewProviderWithSigType(conf1, sp, bccsp.Standard)
+}
+
+func NewAnyProvider(conf1 *m.MSPConfig, sp view2.ServiceProvider) (*provider, error) {
+	return NewProviderWithSigType(conf1, sp, Any)
 }
 
 func NewProviderWithSigType(conf1 *m.MSPConfig, sp view2.ServiceProvider, sigType bccsp.SignatureType) (*provider, error) {
@@ -143,8 +151,13 @@ func NewProviderWithSigType(conf1 *m.MSPConfig, sp view2.ServiceProvider, sigTyp
 		verType = bccsp.ExpectStandard
 	case bccsp.EidNym:
 		verType = bccsp.ExpectEidNym
+	case Any:
+		verType = bccsp.BestEffort
 	default:
 		panic("invalid sig type")
+	}
+	if verType == bccsp.BestEffort {
+		sigType = bccsp.Standard
 	}
 
 	return &provider{

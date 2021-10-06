@@ -247,7 +247,7 @@ func (s *service) RegisterIdemixMSP(id string, path string, mspID string) error 
 	if err != nil {
 		return errors.Wrapf(err, "failed reading idemix msp configuration from [%s]", path)
 	}
-	provider, err := idemix2.NewStandardProvider(conf, s.sp)
+	provider, err := idemix2.NewAnyProvider(conf, s.sp)
 	if err != nil {
 		return errors.Wrapf(err, "failed instantiating idemix msp provider from [%s]", path)
 	}
@@ -398,7 +398,7 @@ func (s *service) loadExtraResolvers() error {
 			if err != nil {
 				return errors.Wrapf(err, "failed reading idemix msp configuration from [%s]", s.config.TranslatePath(config.Path))
 			}
-			provider, err = idemix2.NewStandardProvider(conf, s.sp)
+			provider, err = idemix2.NewAnyProvider(conf, s.sp)
 			if err != nil {
 				return errors.Wrapf(err, "failed instantiating idemix msp provider from [%s]", s.config.TranslatePath(config.Path))
 			}
@@ -432,7 +432,7 @@ func (s *service) loadExtraResolvers() error {
 					logger.Warnf("failed reading idemix msp configuration from [%s]: [%s]", filepath.Join(s.config.TranslatePath(config.Path), id), err)
 					continue
 				}
-				provider, err = idemix2.NewStandardProvider(conf, s.sp)
+				provider, err = idemix2.NewAnyProvider(conf, s.sp)
 				if err != nil {
 					logger.Warnf("failed instantiating idemix msp configuration from [%s]: [%s]", filepath.Join(s.config.TranslatePath(config.Path), id), err)
 					continue

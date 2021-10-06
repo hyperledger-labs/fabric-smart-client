@@ -14,6 +14,7 @@ import (
 	bccsp "github.com/IBM/idemix/bccsp/schemes"
 
 	idemix2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/idemix"
+	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	sig2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/core/sig"
 
 	msp2 "github.com/hyperledger/fabric/msp"
@@ -134,6 +135,32 @@ func TestIdentityEidNym(t *testing.T) {
 	sigma, err := signer.Sign([]byte("hello world!!!"))
 	assert.NoError(t, err)
 	assert.NoError(t, verifier.Verify([]byte("hello world!!!"), sigma))
+
+	p, err = idemix2.NewAnyProvider(config, registry)
+	assert.NoError(t, err)
+	assert.NotNil(t, p)
+
+	id, audit, err = p.Identity(&driver2.IdentityOptions{EIDExtension: true})
+	assert.NoError(t, err)
+	assert.NotNil(t, id)
+	assert.NotNil(t, audit)
+	info, err = p.Info(id, audit)
+	assert.NoError(t, err)
+	assert.True(t, strings.HasPrefix(info, "MSP.Idemix: [idemix]"))
+	assert.True(t, strings.HasSuffix(info, "[idemix][idemixorg.example.com][ADMIN]"))
+
+	auditInfo, err = p.DeserializeAuditInfo(audit)
+	assert.NoError(t, err)
+	assert.NoError(t, auditInfo.Match(id))
+
+	signer, err = p.DeserializeSigner(id)
+	assert.NoError(t, err)
+	verifier, err = p.DeserializeVerifier(id)
+	assert.NoError(t, err)
+
+	sigma, err = signer.Sign([]byte("hello world!!!"))
+	assert.NoError(t, err)
+	assert.NoError(t, verifier.Verify([]byte("hello world!!!"), sigma))
 }
 
 func TestIdentityStandard(t *testing.T) {
@@ -185,6 +212,23 @@ func TestIdentityStandard(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NoError(t, verifier.Verify([]byte("hello world!!!"), sigma))
 
+	p, err = idemix2.NewAnyProvider(config, registry)
+	assert.NoError(t, err)
+	assert.NotNil(t, p)
+
+	id, audit, err = p.Identity(nil)
+	assert.NoError(t, err)
+	assert.NotNil(t, id)
+	assert.Nil(t, audit)
+
+	signer, err = p.DeserializeSigner(id)
+	assert.NoError(t, err)
+	verifier, err = p.DeserializeVerifier(id)
+	assert.NoError(t, err)
+
+	sigma, err = signer.Sign([]byte("hello world!!!"))
+	assert.NoError(t, err)
+	assert.NoError(t, verifier.Verify([]byte("hello world!!!"), sigma))
 }
 
 func TestAuditEidNym(t *testing.T) {
