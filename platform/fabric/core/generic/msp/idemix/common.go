@@ -95,7 +95,7 @@ func (s *common) DeserializeAuditInfo(raw []byte) (*AuditInfo, error) {
 		IssuerPublicKey: s.IssuerPublicKey,
 	}
 	if err := ai.FromBytes(raw); err != nil {
-		return nil, errors.Wrap(err, "failed deserializing audit info")
+		return nil, errors.Wrapf(err, "failed deserializing audit info [%s]", string(raw))
 	}
 	return ai, nil
 }
