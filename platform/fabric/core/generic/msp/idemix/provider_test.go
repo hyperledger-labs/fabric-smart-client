@@ -83,7 +83,7 @@ func TestProvider(t *testing.T) {
 	config, err := msp2.GetLocalMspConfigWithType("./testdata/idemix", nil, "idemix", "idemix")
 	assert.NoError(t, err)
 
-	p, err := idemix2.NewProvider(config, registry)
+	p, err := idemix2.NewEIDNymProvider(config, registry)
 	assert.NoError(t, err)
 	assert.NotNil(t, p)
 
@@ -109,11 +109,11 @@ func TestIdentityEidNym(t *testing.T) {
 	config, err := msp2.GetLocalMspConfigWithType("./testdata/idemix", nil, "idemix", "idemix")
 	assert.NoError(t, err)
 
-	p, err := idemix2.NewProvider(config, registry)
+	p, err := idemix2.NewEIDNymProvider(config, registry)
 	assert.NoError(t, err)
 	assert.NotNil(t, p)
 
-	id, audit, err := p.Identity()
+	id, audit, err := p.Identity(nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, id)
 	assert.NotNil(t, audit)
@@ -156,7 +156,7 @@ func TestIdentityStandard(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, p)
 
-	id, audit, err := p.Identity()
+	id, audit, err := p.Identity(nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, id)
 	assert.Nil(t, audit)
@@ -174,7 +174,7 @@ func TestIdentityStandard(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, p)
 
-	id, audit, err = p.Identity()
+	id, audit, err = p.Identity(nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, id)
 	assert.Nil(t, audit)
@@ -202,22 +202,22 @@ func TestAuditEidNym(t *testing.T) {
 
 	config, err := msp2.GetLocalMspConfigWithType("./testdata/idemix", nil, "idemix", "idemix")
 	assert.NoError(t, err)
-	p, err := idemix2.NewProvider(config, registry)
+	p, err := idemix2.NewEIDNymProvider(config, registry)
 	assert.NoError(t, err)
 	assert.NotNil(t, p)
 
 	config, err = msp2.GetLocalMspConfigWithType("./testdata/idemix2", nil, "idemix", "idemix")
 	assert.NoError(t, err)
-	p2, err := idemix2.NewProvider(config, registry)
+	p2, err := idemix2.NewEIDNymProvider(config, registry)
 	assert.NoError(t, err)
 	assert.NotNil(t, p2)
 
-	id, audit, err := p.Identity()
+	id, audit, err := p.Identity(nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, id)
 	assert.NotNil(t, audit)
 
-	id2, audit2, err := p2.Identity()
+	id2, audit2, err := p2.Identity(nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, id2)
 	assert.NotNil(t, audit2)
@@ -251,20 +251,20 @@ func TestProvider_DeserializeSigner(t *testing.T) {
 
 	config, err := msp2.GetLocalMspConfigWithType("./testdata/sameissuer/idemix", nil, "idemix", "idemix")
 	assert.NoError(t, err)
-	p, err := idemix2.NewProvider(config, registry)
+	p, err := idemix2.NewEIDNymProvider(config, registry)
 	assert.NoError(t, err)
 	assert.NotNil(t, p)
 
 	config, err = msp2.GetLocalMspConfigWithType("./testdata/sameissuer/idemix2", nil, "idemix", "idemix")
 	assert.NoError(t, err)
-	p2, err := idemix2.NewProvider(config, registry)
+	p2, err := idemix2.NewEIDNymProvider(config, registry)
 	assert.NoError(t, err)
 	assert.NotNil(t, p2)
 
-	id, _, err := p.Identity()
+	id, _, err := p.Identity(nil)
 	assert.NoError(t, err)
 
-	id2, _, err := p2.Identity()
+	id2, _, err := p2.Identity(nil)
 	assert.NoError(t, err)
 
 	// This must work

@@ -23,7 +23,7 @@ import (
 
 type identity struct {
 	NymPublicKey bccsp.Key
-	support      *support
+	support      *common
 	id           *msp.IdentityIdentifier
 	Role         *m.MSPRole
 	OU           *m.OrganizationUnit
@@ -34,11 +34,11 @@ type identity struct {
 	VerificationType bccsp.VerificationType
 }
 
-func newIdentity(provider *support, NymPublicKey bccsp.Key, role *m.MSPRole, ou *m.OrganizationUnit, proof []byte) *identity {
+func newIdentity(provider *common, NymPublicKey bccsp.Key, role *m.MSPRole, ou *m.OrganizationUnit, proof []byte) *identity {
 	return newIdentityWithVerType(provider, NymPublicKey, role, ou, proof, bccsp.ExpectEidNym)
 }
 
-func newIdentityWithVerType(provider *support, NymPublicKey bccsp.Key, role *m.MSPRole, ou *m.OrganizationUnit, proof []byte, verificationType bccsp.VerificationType) *identity {
+func newIdentityWithVerType(provider *common, NymPublicKey bccsp.Key, role *m.MSPRole, ou *m.OrganizationUnit, proof []byte, verificationType bccsp.VerificationType) *identity {
 	id := &identity{}
 	id.NymPublicKey = NymPublicKey
 	id.support = provider

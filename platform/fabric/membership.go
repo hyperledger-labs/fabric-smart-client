@@ -13,7 +13,30 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
-type GetIdentityFunc func() (view.Identity, []byte, error)
+type IdentityOptions struct {
+	IdemixEIDExtension bool
+}
+
+func CompileIdentityOptions(opts ...IdentityOption) (*IdentityOptions, error) {
+	txOptions := &IdentityOptions{}
+	for _, opt := range opts {
+		if err := opt(txOptions); err != nil {
+			return nil, err
+		}
+	}
+	return txOptions, nil
+}
+
+type IdentityOption func(*IdentityOptions) error
+
+func WithIdemixEIDExtension() IdentityOption {
+	return func(o *IdentityOptions) error {
+		o.IdemixEIDExtension = true
+		return nil
+	}
+}
+
+type GetIdentityFunc func(opts ...IdentityOption) (view.Identity, []byte, error)
 
 type IdentityInfo struct {
 	ID           string
@@ -59,29 +82,41 @@ func (s *LocalMembership) GetIdentityByID(id string) (view.Identity, error) {
 }
 
 func (s *LocalMembership) GetIdentityInfoByLabel(mspType string, label string) *IdentityInfo {
-	ii := s.network.LocalMembership().GetIdentityInfoByLabel(mspType, label)
-	if ii == nil {
+	iInfo := s.network.LocalMembership().GetIdentityInfoByLabel(mspType, label)
+	if iInfo == nil {
 		return nil
 	}
 	return &IdentityInfo{
-		ID:           ii.ID,
-		EnrollmentID: ii.EnrollmentID,
-		GetIdentity: func() (view.Identity, []byte, error) {
-			return ii.GetIdentity()
+		ID:           iInfo.ID,
+		EnrollmentID: iInfo.EnrollmentID,
+		GetIdentity: func(opts ...IdentityOption) (view.Identity, []byte, error) {
+			idOpts, err := CompileIdentityOptions(opts...)
+			if err != nil {
+				return nil, nil, err
+			}
+			return iInfo.GetIdentity(&driver.IdentityOptions{
+				EIDExtension: idOpts.IdemixEIDExtension,
+			})
 		},
 	}
 }
 
 func (s *LocalMembership) GetIdentityInfoByIdentity(mspType string, id view.Identity) *IdentityInfo {
-	ii := s.network.LocalMembership().GetIdentityInfoByIdentity(mspType, id)
-	if ii == nil {
+	iInfo := s.network.LocalMembership().GetIdentityInfoByIdentity(mspType, id)
+	if iInfo == nil {
 		return nil
 	}
 	return &IdentityInfo{
-		ID:           ii.ID,
-		EnrollmentID: ii.EnrollmentID,
-		GetIdentity: func() (view.Identity, []byte, error) {
-			return ii.GetIdentity()
+		ID:           iInfo.ID,
+		EnrollmentID: iInfo.EnrollmentID,
+		GetIdentity: func(opts ...IdentityOption) (view.Identity, []byte, error) {
+			idOpts, err := CompileIdentityOptions(opts...)
+			if err != nil {
+				return nil, nil, err
+			}
+			return iInfo.GetIdentity(&driver.IdentityOptions{
+				EIDExtension: idOpts.IdemixEIDExtension,
+			})
 		},
 	}
 }

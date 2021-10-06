@@ -23,11 +23,12 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
-type idd struct {
-	*support
+type deserializer struct {
+	*common
 }
 
-func NewDeserializer(ipk []byte) (*idd, error) {
+// NewDeserializerWithVerificationType returns a new deserializer for the passed verification strategy
+func NewDeserializerWithVerificationType(ipk []byte, verType bccsp.VerificationType) (*deserializer, error) {
 	logger.Debugf("Setting up Idemix-based MSP instance")
 
 	curve := math.Curves[math.FP256BN_AMCL]
@@ -55,17 +56,22 @@ func NewDeserializer(ipk []byte) (*idd, error) {
 		}
 	}
 
-	return &idd{
-		support: &support{
+	return &deserializer{
+		common: &common{
 			Ipk:             ipk,
 			Csp:             cryptoProvider,
 			IssuerPublicKey: issuerPublicKey,
-			VerType:         bccsp.BestEffort,
+			VerType:         verType,
 		},
 	}, nil
 }
 
-func (i *idd) DeserializeVerifier(raw []byte) (driver.Verifier, error) {
+// NewDeserializer returns a new deserializer for the best effort strategy
+func NewDeserializer(ipk []byte) (*deserializer, error) {
+	return NewDeserializerWithVerificationType(ipk, bccsp.BestEffort)
+}
+
+func (i *deserializer) DeserializeVerifier(raw []byte) (driver.Verifier, error) {
 	r, err := i.Deserialize(raw, false)
 	if err != nil {
 		return nil, err
@@ -77,11 +83,11 @@ func (i *idd) DeserializeVerifier(raw []byte) (driver.Verifier, error) {
 	}, nil
 }
 
-func (i *idd) DeserializeSigner(raw []byte) (driver.Signer, error) {
+func (i *deserializer) DeserializeSigner(raw []byte) (driver.Signer, error) {
 	return nil, errors.New("not supported")
 }
 
-func (i *idd) Info(raw []byte, auditInfo []byte) (string, error) {
+func (i *deserializer) Info(raw []byte, auditInfo []byte) (string, error) {
 	r, err := i.Deserialize(raw, false)
 	if err != nil {
 		return "", err
@@ -102,12 +108,12 @@ func (i *idd) Info(raw []byte, auditInfo []byte) (string, error) {
 	return fmt.Sprintf("MSP.Idemix: [%s][%s][%s][%s][%s]", eid, view.Identity(raw).UniqueID(), r.si.Mspid, r.ou.OrganizationalUnitIdentifier, r.role.Role.String()), nil
 }
 
-func (i *idd) String() string {
+func (i *deserializer) String() string {
 	return fmt.Sprintf("Idemix with IPK [%s]", hash.Hashable(i.Ipk).String())
 }
 
 type verifier struct {
-	idd          *idd
+	idd          *deserializer
 	nymPublicKey bccsp.Key
 }
 

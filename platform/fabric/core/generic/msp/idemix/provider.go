@@ -21,6 +21,7 @@ import (
 	m "github.com/hyperledger/fabric-protos-go/msp"
 	"github.com/pkg/errors"
 
+	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 
@@ -37,82 +38,7 @@ const (
 	rhIndex  = 3
 )
 
-type deserialized struct {
-	id           *identity
-	NymPublicKey bccsp.Key
-	si           *m.SerializedIdentity
-	ou           *m.OrganizationUnit
-	role         *m.MSPRole
-}
-
-type support struct {
-	name            string
-	Ipk             []byte
-	Csp             bccsp.BCCSP
-	IssuerPublicKey bccsp.Key
-	revocationPK    bccsp.Key
-	epoch           int
-	VerType         bccsp.VerificationType
-}
-
-func (s *support) Deserialize(raw []byte, checkValidity bool) (*deserialized, error) {
-	si := &m.SerializedIdentity{}
-	err := proto.Unmarshal(raw, si)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to unmarshal to msp.SerializedIdentity{}")
-	}
-
-	serialized := new(m.SerializedIdemixIdentity)
-	err = proto.Unmarshal(si.IdBytes, serialized)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not deserialize a SerializedIdemixIdentity")
-	}
-	if serialized.NymX == nil || serialized.NymY == nil {
-		return nil, errors.Errorf("unable to deserialize idemix identity: pseudonym is invalid")
-	}
-
-	// Import NymPublicKey
-	var rawNymPublicKey []byte
-	rawNymPublicKey = append(rawNymPublicKey, serialized.NymX...)
-	rawNymPublicKey = append(rawNymPublicKey, serialized.NymY...)
-	NymPublicKey, err := s.Csp.KeyImport(
-		rawNymPublicKey,
-		&bccsp.IdemixNymPublicKeyImportOpts{Temporary: true},
-	)
-	if err != nil {
-		return nil, errors.WithMessage(err, "failed to import nym public key")
-	}
-
-	// OU
-	ou := &m.OrganizationUnit{}
-	err = proto.Unmarshal(serialized.Ou, ou)
-	if err != nil {
-		return nil, errors.Wrap(err, "cannot deserialize the OU of the identity")
-	}
-
-	// Role
-	role := &m.MSPRole{}
-	err = proto.Unmarshal(serialized.Role, role)
-	if err != nil {
-		return nil, errors.Wrap(err, "cannot deserialize the role of the identity")
-	}
-
-	id := newIdentityWithVerType(s, NymPublicKey, role, ou, serialized.Proof, s.VerType)
-	if checkValidity {
-		if err := id.Validate(); err != nil {
-			return nil, errors.Wrap(err, "cannot deserialize, invalid identity")
-		}
-	}
-
-	return &deserialized{
-		id:           id,
-		NymPublicKey: NymPublicKey,
-		si:           si,
-		ou:           ou,
-		role:         role,
-	}, nil
-}
-
+// TODO: remove this
 type SignerService interface {
 	RegisterSigner(identity view.Identity, signer driver.Signer, verifier driver.Verifier) error
 }
@@ -126,7 +52,7 @@ func GetSignerService(ctx view2.ServiceProvider) SignerService {
 }
 
 type provider struct {
-	*support
+	*common
 	userKey bccsp.Key
 	conf    m.IdemixMSPConfig
 	sp      view2.ServiceProvider
@@ -135,7 +61,7 @@ type provider struct {
 	verType bccsp.VerificationType
 }
 
-func NewProvider(conf1 *m.MSPConfig, sp view2.ServiceProvider) (*provider, error) {
+func NewEIDNymProvider(conf1 *m.MSPConfig, sp view2.ServiceProvider) (*provider, error) {
 	return NewProviderWithSigType(conf1, sp, bccsp.EidNym)
 }
 
@@ -222,7 +148,7 @@ func NewProviderWithSigType(conf1 *m.MSPConfig, sp view2.ServiceProvider, sigTyp
 	}
 
 	return &provider{
-		support: &support{
+		common: &common{
 			name:            conf.Name,
 			Csp:             cryptoProvider,
 			IssuerPublicKey: issuerPublicKey,
@@ -238,7 +164,7 @@ func NewProviderWithSigType(conf1 *m.MSPConfig, sp view2.ServiceProvider, sigTyp
 	}, nil
 }
 
-func (p *provider) Identity() (view.Identity, []byte, error) {
+func (p *provider) Identity(opts *driver2.IdentityOptions) (view.Identity, []byte, error) {
 	logger.Debug("getting new idemix identity")
 
 	// Derive NymPublicKey
@@ -292,8 +218,13 @@ func (p *provider) Identity() (view.Identity, []byte, error) {
 		return nil, nil, errors.WithMessage(err, "Credential is not cryptographically valid")
 	}
 
+	sigType := p.sigType
+	if opts != nil && opts.EIDExtension {
+		sigType = bccsp.EidNym
+	}
+
 	// Create the cryptographic evidence that this identity is valid
-	opts := &bccsp.IdemixSignerOpts{
+	sigOpts := &bccsp.IdemixSignerOpts{
 		Credential: p.conf.Signer.Cred,
 		Nym:        nymKey,
 		IssuerPK:   p.IssuerPublicKey,
@@ -306,12 +237,12 @@ func (p *provider) Identity() (view.Identity, []byte, error) {
 		RhIndex:  rhIndex,
 		EidIndex: eidIndex,
 		CRI:      p.conf.Signer.CredentialRevocationInformation,
-		SigType:  p.sigType,
+		SigType:  sigType,
 	}
 	proof, err := p.Csp.Sign(
 		p.userKey,
 		nil,
-		opts,
+		sigOpts,
 	)
 	if err != nil {
 		return nil, nil, errors.WithMessage(err, "Failed to setup cryptographic proof of identity")
@@ -319,7 +250,7 @@ func (p *provider) Identity() (view.Identity, []byte, error) {
 
 	// Set up default signer
 	sID := &signingIdentity{
-		identity:     newIdentityWithVerType(p.support, NymPublicKey, role, ou, proof, p.verType),
+		identity:     newIdentityWithVerType(p.common, NymPublicKey, role, ou, proof, p.verType),
 		Cred:         p.conf.Signer.Cred,
 		UserKey:      p.userKey,
 		NymKey:       nymKey,
@@ -343,7 +274,7 @@ func (p *provider) Identity() (view.Identity, []byte, error) {
 		auditInfo := &AuditInfo{
 			Csp:             p.Csp,
 			IssuerPublicKey: p.IssuerPublicKey,
-			NymEIDAuditData: opts.Metadata.NymEIDAuditData,
+			NymEIDAuditData: sigOpts.Metadata.NymEIDAuditData,
 			Attributes: [][]byte{
 				[]byte(p.conf.Signer.OrganizationalUnitIdentifier),
 				[]byte(strconv.Itoa(getIdemixRoleFromMSPRole(role))),
@@ -472,7 +403,7 @@ func (p *provider) DeserializeSigningIdentity(raw []byte) (driver.SigningIdentit
 		return nil, errors.Wrap(err, "cannot deserialize the role of the identity")
 	}
 
-	id := newIdentityWithVerType(p.support, NymPublicKey, role, ou, serialized.Proof, p.verType)
+	id := newIdentityWithVerType(p.common, NymPublicKey, role, ou, serialized.Proof, p.verType)
 	if err := id.Validate(); err != nil {
 		return nil, errors.Wrap(err, "cannot deserialize, invalid identity")
 	}

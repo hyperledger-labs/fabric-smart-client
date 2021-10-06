@@ -52,7 +52,7 @@ func NewProvider(mspConfigPath, mspID string, signerService SignerService) (*pro
 	return &provider{sID: sID, id: idRaw, enrollmentID: enrollmentID}, nil
 }
 
-func (p *provider) Identity() (view.Identity, []byte, error) {
+func (p *provider) Identity(opts *api2.IdentityOptions) (view.Identity, []byte, error) {
 	return p.id, []byte(p.enrollmentID), nil
 }
 
