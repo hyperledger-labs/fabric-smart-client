@@ -191,7 +191,7 @@ func (s *service) GetIdentityInfoByIdentity(mspType string, id view.Identity) *a
 	// scan all resolvers in the worst case
 	for _, r := range s.resolvers {
 		if r.Type == mspType {
-			lid, _, err := r.GetIdentity()
+			lid, _, err := r.GetIdentity(nil)
 			if err != nil {
 				continue
 			}
@@ -214,20 +214,20 @@ func (s *service) GetIdentityByID(id string) (view.Identity, error) {
 	// Check indices first
 	r, ok := s.resolversByName[id]
 	if ok {
-		identity, _, err := r.GetIdentity()
+		identity, _, err := r.GetIdentity(nil)
 		return identity, err
 	}
 
 	r, ok = s.resolversByEnrollmentID[id]
 	if ok {
-		identity, _, err := r.GetIdentity()
+		identity, _, err := r.GetIdentity(nil)
 		return identity, err
 	}
 
 	// Scan
 	for _, r := range s.resolvers {
 		if r.Name == id || r.EnrollmentID == id {
-			identity, _, err := r.GetIdentity()
+			identity, _, err := r.GetIdentity(nil)
 			return identity, err
 		}
 	}
@@ -247,7 +247,7 @@ func (s *service) RegisterIdemixMSP(id string, path string, mspID string) error 
 	if err != nil {
 		return errors.Wrapf(err, "failed reading idemix msp configuration from [%s]", path)
 	}
-	provider, err := idemix2.NewProvider(conf, s.sp)
+	provider, err := idemix2.NewAnyProvider(conf, s.sp)
 	if err != nil {
 		return errors.Wrapf(err, "failed instantiating idemix msp provider from [%s]", path)
 	}
@@ -301,7 +301,7 @@ func (s *service) Resolvers() []string {
 
 func (s *service) addResolver(Name string, Type string, EnrollmentID string, IdentityGetter api2.GetIdentityFunc) {
 	if Type == BccspMSP && s.binderService != nil {
-		id, _, err := IdentityGetter()
+		id, _, err := IdentityGetter(nil)
 		if err != nil {
 			panic(fmt.Sprintf("cannot get identity for [%s,%s,%s][%s]", Name, Type, EnrollmentID, err))
 		}
@@ -317,7 +317,7 @@ func (s *service) addResolver(Name string, Type string, EnrollmentID string, Ide
 		GetIdentity:  IdentityGetter,
 	}
 	if Type == BccspMSP {
-		id, _, err := IdentityGetter()
+		id, _, err := IdentityGetter(nil)
 		if err != nil {
 			panic(fmt.Sprintf("cannot get identity for [%s,%s,%s][%s]", Name, Type, EnrollmentID, err))
 		}
@@ -362,7 +362,7 @@ func (s *service) loadDefaultResolver() error {
 	if err != nil {
 		return err
 	}
-	s.defaultIdentity, _, err = provider.Identity()
+	s.defaultIdentity, _, err = provider.Identity(nil)
 	if err != nil {
 		return err
 	}
@@ -382,7 +382,7 @@ func (s *service) loadExtraResolvers() error {
 
 	type Provider interface {
 		EnrollmentID() string
-		Identity() (view.Identity, []byte, error)
+		Identity(opts *api2.IdentityOptions) (view.Identity, []byte, error)
 		DeserializeVerifier(raw []byte) (driver.Verifier, error)
 		DeserializeSigner(raw []byte) (driver.Signer, error)
 		Info(raw []byte, auditInfo []byte) (string, error)
@@ -398,7 +398,7 @@ func (s *service) loadExtraResolvers() error {
 			if err != nil {
 				return errors.Wrapf(err, "failed reading idemix msp configuration from [%s]", s.config.TranslatePath(config.Path))
 			}
-			provider, err = idemix2.NewProvider(conf, s.sp)
+			provider, err = idemix2.NewAnyProvider(conf, s.sp)
 			if err != nil {
 				return errors.Wrapf(err, "failed instantiating idemix msp provider from [%s]", s.config.TranslatePath(config.Path))
 			}
@@ -432,7 +432,7 @@ func (s *service) loadExtraResolvers() error {
 					logger.Warnf("failed reading idemix msp configuration from [%s]: [%s]", filepath.Join(s.config.TranslatePath(config.Path), id), err)
 					continue
 				}
-				provider, err = idemix2.NewProvider(conf, s.sp)
+				provider, err = idemix2.NewAnyProvider(conf, s.sp)
 				if err != nil {
 					logger.Warnf("failed instantiating idemix msp configuration from [%s]: [%s]", filepath.Join(s.config.TranslatePath(config.Path), id), err)
 					continue

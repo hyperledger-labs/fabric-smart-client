@@ -3,7 +3,7 @@ topologies:
   type: fabric
   default: true
   logging:
-    spec: grpc=error:chaincode=debug:endorser=debug:debug
+    spec: grpc=error:chaincode=debug:endorser=debug:info
     format: '''%{color}%{time:2006-01-02 15:04:05.000 MST} [%{module}] %{shortfunc}
       -> %{level:.4s} %{id:03x}%{color:reset} %{message}'''
   organizations:
@@ -88,6 +88,27 @@ topologies:
       rule: ANY Endorsement
   chaincodes:
   - chaincode:
+      name: mycc
+      version: Version-0.0
+      path: github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/chaincode/base
+      ctor: '{"Args":["init"]}'
+      policy: AND ('Org1MSP.member','Org2MSP.member')
+      lang: golang
+      collectionsconfig: ""
+      packagefile: ""
+      codefiles: {}
+      sequence: "1"
+      endorsementplugin: ""
+      validationplugin: ""
+      initrequired: true
+      label: mycc
+      signaturepolicy: AND ('Org1MSP.member','Org2MSP.member')
+      channelconfigpolicy: ""
+    channel: testchannel
+    peers:
+    - Org1_peer_0
+    - Org2_peer_0
+  - chaincode:
       name: ercc
       version: Version-1.0
       path: ercc
@@ -150,6 +171,8 @@ topologies:
       Factories:
       - id: ListProvisionedEnclaves
         type: '&views.ListProvisionedEnclavesViewFactory{}'
+      - id: Echo
+        type: '&views.EchoViewFactory{}'
     name: alice
     bootstrap: true
     options:
@@ -169,6 +192,8 @@ topologies:
       Factories:
       - id: ListProvisionedEnclaves
         type: '&views.ListProvisionedEnclavesViewFactory{}'
+      - id: Echo
+        type: '&views.EchoViewFactory{}'
     name: bob
     options:
       mapping:

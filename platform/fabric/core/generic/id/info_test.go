@@ -82,11 +82,11 @@ func TestInfoIdemix(t *testing.T) {
 	config, err := msp2.GetLocalMspConfigWithType("./testdata/idemix", nil, "idemix", "idemix")
 	assert.NoError(t, err)
 
-	p, err := idemix2.NewProvider(config, registry)
+	p, err := idemix2.NewEIDNymProvider(config, registry)
 	assert.NoError(t, err)
 	assert.NotNil(t, p)
 
-	id, _, err := p.Identity()
+	id, _, err := p.Identity(nil)
 	assert.NoError(t, err)
 
 	s := Info(id, nil)
@@ -97,7 +97,7 @@ func TestInfoIdemix(t *testing.T) {
 func TestInfoX509(t *testing.T) {
 	p, err := x5092.NewProvider("./testdata/x509", "apple", nil)
 	assert.NoError(t, err)
-	id, _, err := p.Identity()
+	id, _, err := p.Identity(nil)
 	assert.NoError(t, err)
 
 	s := Info(id, nil)

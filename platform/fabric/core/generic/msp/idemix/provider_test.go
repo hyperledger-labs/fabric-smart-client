@@ -11,7 +11,10 @@ import (
 	"testing"
 	"time"
 
+	bccsp "github.com/IBM/idemix/bccsp/schemes"
+
 	idemix2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/idemix"
+	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	sig2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/core/sig"
 
 	msp2 "github.com/hyperledger/fabric/msp"
@@ -81,12 +84,20 @@ func TestProvider(t *testing.T) {
 	config, err := msp2.GetLocalMspConfigWithType("./testdata/idemix", nil, "idemix", "idemix")
 	assert.NoError(t, err)
 
-	p, err := idemix2.NewProvider(config, registry)
+	p, err := idemix2.NewEIDNymProvider(config, registry)
+	assert.NoError(t, err)
+	assert.NotNil(t, p)
+
+	p, err = idemix2.NewProviderWithSigType(config, registry, bccsp.Standard)
+	assert.NoError(t, err)
+	assert.NotNil(t, p)
+
+	p, err = idemix2.NewProviderWithSigType(config, registry, bccsp.EidNym)
 	assert.NoError(t, err)
 	assert.NotNil(t, p)
 }
 
-func TestIdentity(t *testing.T) {
+func TestIdentityEidNym(t *testing.T) {
 	registry := registry2.New()
 	registry.RegisterService(&fakeProv{typ: "memory"})
 
@@ -99,11 +110,11 @@ func TestIdentity(t *testing.T) {
 	config, err := msp2.GetLocalMspConfigWithType("./testdata/idemix", nil, "idemix", "idemix")
 	assert.NoError(t, err)
 
-	p, err := idemix2.NewProvider(config, registry)
+	p, err := idemix2.NewEIDNymProvider(config, registry)
 	assert.NoError(t, err)
 	assert.NotNil(t, p)
 
-	id, audit, err := p.Identity()
+	id, audit, err := p.Identity(nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, id)
 	assert.NotNil(t, audit)
@@ -112,8 +123,8 @@ func TestIdentity(t *testing.T) {
 	assert.True(t, strings.HasPrefix(info, "MSP.Idemix: [idemix]"))
 	assert.True(t, strings.HasSuffix(info, "[idemix][idemixorg.example.com][ADMIN]"))
 
-	auditInfo := &idemix2.AuditInfo{}
-	assert.NoError(t, auditInfo.FromBytes(audit))
+	auditInfo, err := p.DeserializeAuditInfo(audit)
+	assert.NoError(t, err)
 	assert.NoError(t, auditInfo.Match(id))
 
 	signer, err := p.DeserializeSigner(id)
@@ -124,9 +135,35 @@ func TestIdentity(t *testing.T) {
 	sigma, err := signer.Sign([]byte("hello world!!!"))
 	assert.NoError(t, err)
 	assert.NoError(t, verifier.Verify([]byte("hello world!!!"), sigma))
+
+	p, err = idemix2.NewAnyProvider(config, registry)
+	assert.NoError(t, err)
+	assert.NotNil(t, p)
+
+	id, audit, err = p.Identity(&driver2.IdentityOptions{EIDExtension: true})
+	assert.NoError(t, err)
+	assert.NotNil(t, id)
+	assert.NotNil(t, audit)
+	info, err = p.Info(id, audit)
+	assert.NoError(t, err)
+	assert.True(t, strings.HasPrefix(info, "MSP.Idemix: [idemix]"))
+	assert.True(t, strings.HasSuffix(info, "[idemix][idemixorg.example.com][ADMIN]"))
+
+	auditInfo, err = p.DeserializeAuditInfo(audit)
+	assert.NoError(t, err)
+	assert.NoError(t, auditInfo.Match(id))
+
+	signer, err = p.DeserializeSigner(id)
+	assert.NoError(t, err)
+	verifier, err = p.DeserializeVerifier(id)
+	assert.NoError(t, err)
+
+	sigma, err = signer.Sign([]byte("hello world!!!"))
+	assert.NoError(t, err)
+	assert.NoError(t, verifier.Verify([]byte("hello world!!!"), sigma))
 }
 
-func TestAudit(t *testing.T) {
+func TestIdentityStandard(t *testing.T) {
 	registry := registry2.New()
 	registry.RegisterService(&fakeProv{typ: "memory"})
 
@@ -138,32 +175,101 @@ func TestAudit(t *testing.T) {
 
 	config, err := msp2.GetLocalMspConfigWithType("./testdata/idemix", nil, "idemix", "idemix")
 	assert.NoError(t, err)
-	p, err := idemix2.NewProvider(config, registry)
+
+	p, err := idemix2.NewProviderWithSigType(config, registry, bccsp.Standard)
+	assert.NoError(t, err)
+	assert.NotNil(t, p)
+
+	id, audit, err := p.Identity(nil)
+	assert.NoError(t, err)
+	assert.NotNil(t, id)
+	assert.Nil(t, audit)
+
+	signer, err := p.DeserializeSigner(id)
+	assert.NoError(t, err)
+	verifier, err := p.DeserializeVerifier(id)
+	assert.NoError(t, err)
+
+	sigma, err := signer.Sign([]byte("hello world!!!"))
+	assert.NoError(t, err)
+	assert.NoError(t, verifier.Verify([]byte("hello world!!!"), sigma))
+
+	p, err = idemix2.NewStandardProvider(config, registry)
+	assert.NoError(t, err)
+	assert.NotNil(t, p)
+
+	id, audit, err = p.Identity(nil)
+	assert.NoError(t, err)
+	assert.NotNil(t, id)
+	assert.Nil(t, audit)
+
+	signer, err = p.DeserializeSigner(id)
+	assert.NoError(t, err)
+	verifier, err = p.DeserializeVerifier(id)
+	assert.NoError(t, err)
+
+	sigma, err = signer.Sign([]byte("hello world!!!"))
+	assert.NoError(t, err)
+	assert.NoError(t, verifier.Verify([]byte("hello world!!!"), sigma))
+
+	p, err = idemix2.NewAnyProvider(config, registry)
+	assert.NoError(t, err)
+	assert.NotNil(t, p)
+
+	id, audit, err = p.Identity(nil)
+	assert.NoError(t, err)
+	assert.NotNil(t, id)
+	assert.Nil(t, audit)
+
+	signer, err = p.DeserializeSigner(id)
+	assert.NoError(t, err)
+	verifier, err = p.DeserializeVerifier(id)
+	assert.NoError(t, err)
+
+	sigma, err = signer.Sign([]byte("hello world!!!"))
+	assert.NoError(t, err)
+	assert.NoError(t, verifier.Verify([]byte("hello world!!!"), sigma))
+}
+
+func TestAuditEidNym(t *testing.T) {
+	registry := registry2.New()
+	registry.RegisterService(&fakeProv{typ: "memory"})
+
+	kvss, err := kvs.New("memory", "", registry)
+	assert.NoError(t, err)
+	assert.NoError(t, registry.RegisterService(kvss))
+	sigService := sig2.NewSignService(registry, nil)
+	assert.NoError(t, registry.RegisterService(sigService))
+
+	config, err := msp2.GetLocalMspConfigWithType("./testdata/idemix", nil, "idemix", "idemix")
+	assert.NoError(t, err)
+	p, err := idemix2.NewEIDNymProvider(config, registry)
 	assert.NoError(t, err)
 	assert.NotNil(t, p)
 
 	config, err = msp2.GetLocalMspConfigWithType("./testdata/idemix2", nil, "idemix", "idemix")
 	assert.NoError(t, err)
-	p2, err := idemix2.NewProvider(config, registry)
+	p2, err := idemix2.NewEIDNymProvider(config, registry)
 	assert.NoError(t, err)
 	assert.NotNil(t, p2)
 
-	id, audit, err := p.Identity()
+	id, audit, err := p.Identity(nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, id)
 	assert.NotNil(t, audit)
 
-	id2, audit2, err := p2.Identity()
+	id2, audit2, err := p2.Identity(nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, id2)
 	assert.NotNil(t, audit2)
 
-	auditInfo := &idemix2.AuditInfo{}
-	assert.NoError(t, auditInfo.FromBytes(audit))
+	auditInfo, err := p.DeserializeAuditInfo(audit)
+	assert.NoError(t, err)
 	assert.NoError(t, auditInfo.Match(id))
 	assert.Error(t, auditInfo.Match(id2))
 
-	auditInfo = &idemix2.AuditInfo{}
+	auditInfo, err = p2.DeserializeAuditInfo(audit)
+	assert.NoError(t, err)
 	assert.NoError(t, auditInfo.FromBytes(audit2))
 	assert.NoError(t, auditInfo.Match(id2))
 	assert.Error(t, auditInfo.Match(id))
@@ -181,20 +287,20 @@ func TestProvider_DeserializeSigner(t *testing.T) {
 
 	config, err := msp2.GetLocalMspConfigWithType("./testdata/sameissuer/idemix", nil, "idemix", "idemix")
 	assert.NoError(t, err)
-	p, err := idemix2.NewProvider(config, registry)
+	p, err := idemix2.NewEIDNymProvider(config, registry)
 	assert.NoError(t, err)
 	assert.NotNil(t, p)
 
 	config, err = msp2.GetLocalMspConfigWithType("./testdata/sameissuer/idemix2", nil, "idemix", "idemix")
 	assert.NoError(t, err)
-	p2, err := idemix2.NewProvider(config, registry)
+	p2, err := idemix2.NewEIDNymProvider(config, registry)
 	assert.NoError(t, err)
 	assert.NotNil(t, p2)
 
-	id, _, err := p.Identity()
+	id, _, err := p.Identity(nil)
 	assert.NoError(t, err)
 
-	id2, _, err := p2.Identity()
+	id2, _, err := p2.Identity(nil)
 	assert.NoError(t, err)
 
 	// This must work

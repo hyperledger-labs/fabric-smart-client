@@ -1095,6 +1095,7 @@ func (n *Network) OrdererRunner(o *topology.Orderer) *ginkgomon.Runner {
 	cmd := exec.Command(n.Builder.Orderer())
 	cmd.Env = os.Environ()
 	cmd.Env = append(cmd.Env, fmt.Sprintf("FABRIC_CFG_PATH=%s", n.OrdererDir(o)))
+	cmd.Env = append(cmd.Env, "FABRIC_LOGGING_SPEC="+n.Logging.Spec)
 
 	config := ginkgomon.Config{
 		AnsiColorCode:     n.nextColor(),

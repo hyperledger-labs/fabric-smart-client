@@ -49,10 +49,10 @@ func TestRegisterIdemixLocalMSP(t *testing.T) {
 	assert.NotNil(t, ii)
 	assert.Equal(t, "apple", ii.ID)
 	assert.Equal(t, "idemix", ii.EnrollmentID)
-	id, info, err := ii.GetIdentity()
+	id, info, err := ii.GetIdentity(nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, id)
-	assert.NotNil(t, info)
+	assert.Nil(t, info)
 }
 
 func TestIdemixTypeFolder(t *testing.T) {
@@ -106,7 +106,7 @@ func TestRegisterX509LocalMSP(t *testing.T) {
 	assert.NotNil(t, ii)
 	assert.Equal(t, "apple", ii.ID)
 	assert.Equal(t, "auditor.org1.example.com", ii.EnrollmentID)
-	id, info, err := ii.GetIdentity()
+	id, info, err := ii.GetIdentity(nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, id)
 	assert.NotNil(t, info)

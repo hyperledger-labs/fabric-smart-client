@@ -11,7 +11,11 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
-type GetIdentityFunc func() (view.Identity, []byte, error)
+type IdentityOptions struct {
+	EIDExtension bool
+}
+
+type GetIdentityFunc func(opts *IdentityOptions) (view.Identity, []byte, error)
 
 type IdentityInfo struct {
 	ID           string

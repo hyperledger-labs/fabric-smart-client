@@ -13,18 +13,17 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 
+	bccsp "github.com/IBM/idemix/bccsp/schemes"
+	csp "github.com/IBM/idemix/bccsp/schemes"
 	"github.com/golang/protobuf/proto"
 	m "github.com/hyperledger/fabric-protos-go/msp"
-	"github.com/hyperledger/fabric/bccsp"
 	"github.com/hyperledger/fabric/msp"
 	"github.com/pkg/errors"
-
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/csp"
 )
 
 type identity struct {
 	NymPublicKey bccsp.Key
-	support      *support
+	support      *common
 	id           *msp.IdentityIdentifier
 	Role         *m.MSPRole
 	OU           *m.OrganizationUnit
@@ -32,15 +31,21 @@ type identity struct {
 	// belongs to the MSP id.provider, i.e., it proves that the pseudonym
 	// is constructed from a secret key on which the CA issued a credential.
 	associationProof []byte
+	VerificationType bccsp.VerificationType
 }
 
-func newIdentity(provider *support, NymPublicKey bccsp.Key, role *m.MSPRole, ou *m.OrganizationUnit, proof []byte) *identity {
+func newIdentity(provider *common, NymPublicKey bccsp.Key, role *m.MSPRole, ou *m.OrganizationUnit, proof []byte) *identity {
+	return newIdentityWithVerType(provider, NymPublicKey, role, ou, proof, bccsp.ExpectEidNym)
+}
+
+func newIdentityWithVerType(provider *common, NymPublicKey bccsp.Key, role *m.MSPRole, ou *m.OrganizationUnit, proof []byte, verificationType bccsp.VerificationType) *identity {
 	id := &identity{}
 	id.NymPublicKey = NymPublicKey
 	id.support = provider
 	id.Role = role
 	id.OU = ou
 	id.associationProof = proof
+	id.VerificationType = verificationType
 
 	raw, err := NymPublicKey.Bytes()
 	if err != nil {
@@ -74,7 +79,7 @@ func (id *identity) GetMSPIdentifier() string {
 
 func (id *identity) GetOrganizationalUnits() []*msp.OUIdentifier {
 	// we use the (serialized) public key of this MSP as the CertifiersIdentifier
-	certifiersIdentifier, err := id.support.issuerPublicKey.Bytes()
+	certifiersIdentifier, err := id.support.IssuerPublicKey.Bytes()
 	if err != nil {
 		logger.Errorf("Failed to marshal ipk in GetOrganizationalUnits: %s", err)
 		return nil
@@ -92,12 +97,12 @@ func (id *identity) Validate() error {
 }
 
 func (id *identity) Verify(msg []byte, sig []byte) error {
-	_, err := id.support.csp.Verify(
+	_, err := id.support.Csp.Verify(
 		id.NymPublicKey,
 		sig,
 		msg,
 		&csp.IdemixNymSignerOpts{
-			IssuerPK: id.support.issuerPublicKey,
+			IssuerPK: id.support.IssuerPublicKey,
 		},
 	)
 	return err
@@ -148,8 +153,8 @@ func (id *identity) Serialize() ([]byte, error) {
 
 func (id *identity) verifyProof() error {
 	// Verify signature
-	valid, err := id.support.csp.Verify(
-		id.support.issuerPublicKey,
+	valid, err := id.support.Csp.Verify(
+		id.support.IssuerPublicKey,
 		id.associationProof,
 		nil,
 		&csp.IdemixSignerOpts{
@@ -160,8 +165,10 @@ func (id *identity) verifyProof() error {
 				{Type: csp.IdemixHiddenAttribute},
 				{Type: csp.IdemixHiddenAttribute},
 			},
-			RhIndex: rhIndex,
-			Epoch:   id.support.epoch,
+			RhIndex:          rhIndex,
+			EidIndex:         eidIndex,
+			Epoch:            id.support.epoch,
+			VerificationType: id.VerificationType,
 		},
 	)
 	if err == nil && !valid {
@@ -182,12 +189,12 @@ type signingIdentity struct {
 func (id *signingIdentity) Sign(msg []byte) ([]byte, error) {
 	// logger.Debugf("Idemix identity %s is signing", id.GetIdentifier())
 
-	sig, err := id.support.csp.Sign(
+	sig, err := id.support.Csp.Sign(
 		id.UserKey,
 		msg,
 		&csp.IdemixNymSignerOpts{
 			Nym:      id.NymKey,
-			IssuerPK: id.support.issuerPublicKey,
+			IssuerPK: id.support.IssuerPublicKey,
 		},
 	)
 	if err != nil {

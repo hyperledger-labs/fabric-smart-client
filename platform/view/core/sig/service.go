@@ -129,11 +129,13 @@ func (o *service) Info(id view.Identity) string {
 }
 
 func (o *service) GetSigner(identity view.Identity) (driver.Signer, error) {
+	logger.Debugf("get signer for [%s]", identity.UniqueID())
 	o.viewsSync.Lock()
 	signer, ok := o.signers[identity.UniqueID()]
 	o.viewsSync.Unlock()
 	if !ok {
-		// ask the deserialiser
+		logger.Debugf("signer for [%s] not found, try to deserialize", identity.UniqueID())
+		// ask the deserializer
 		if o.deserializer == nil {
 			return nil, errors.Errorf("cannot find signer for [%s], no deserializer set", identity)
 		}
@@ -145,6 +147,8 @@ func (o *service) GetSigner(identity view.Identity) (driver.Signer, error) {
 		o.viewsSync.Lock()
 		o.signers[identity.UniqueID()] = signer
 		o.viewsSync.Unlock()
+	} else {
+		logger.Debugf("signer for [%s] found", identity.UniqueID())
 	}
 	return signer, nil
 }
