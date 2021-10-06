@@ -87,6 +87,10 @@ func (i *deserializer) DeserializeSigner(raw []byte) (driver.Signer, error) {
 	return nil, errors.New("not supported")
 }
 
+func (i *deserializer) DeserializeAuditInfo(raw []byte) (*AuditInfo, error) {
+	return i.common.DeserializeAuditInfo(raw)
+}
+
 func (i *deserializer) Info(raw []byte, auditInfo []byte) (string, error) {
 	r, err := i.Deserialize(raw, false)
 	if err != nil {

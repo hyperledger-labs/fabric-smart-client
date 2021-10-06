@@ -122,11 +122,8 @@ func TestIdentityEidNym(t *testing.T) {
 	assert.True(t, strings.HasPrefix(info, "MSP.Idemix: [idemix]"))
 	assert.True(t, strings.HasSuffix(info, "[idemix][idemixorg.example.com][ADMIN]"))
 
-	auditInfo := &idemix2.AuditInfo{
-		Csp:             p.Csp,
-		IssuerPublicKey: p.IssuerPublicKey,
-	}
-	assert.NoError(t, auditInfo.FromBytes(audit))
+	auditInfo, err := p.DeserializeAuditInfo(audit)
+	assert.NoError(t, err)
 	assert.NoError(t, auditInfo.Match(id))
 
 	signer, err := p.DeserializeSigner(id)
@@ -222,18 +219,13 @@ func TestAuditEidNym(t *testing.T) {
 	assert.NotNil(t, id2)
 	assert.NotNil(t, audit2)
 
-	auditInfo := &idemix2.AuditInfo{
-		Csp:             p.Csp,
-		IssuerPublicKey: p.IssuerPublicKey,
-	}
-	assert.NoError(t, auditInfo.FromBytes(audit))
+	auditInfo, err := p.DeserializeAuditInfo(audit)
+	assert.NoError(t, err)
 	assert.NoError(t, auditInfo.Match(id))
 	assert.Error(t, auditInfo.Match(id2))
 
-	auditInfo = &idemix2.AuditInfo{
-		Csp:             p2.Csp,
-		IssuerPublicKey: p2.IssuerPublicKey,
-	}
+	auditInfo, err = p2.DeserializeAuditInfo(audit)
+	assert.NoError(t, err)
 	assert.NoError(t, auditInfo.FromBytes(audit2))
 	assert.NoError(t, auditInfo.Match(id2))
 	assert.Error(t, auditInfo.Match(id))

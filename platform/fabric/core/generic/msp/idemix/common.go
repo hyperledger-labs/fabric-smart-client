@@ -88,3 +88,14 @@ func (s *common) Deserialize(raw []byte, checkValidity bool) (*deserialized, err
 		role:         role,
 	}, nil
 }
+
+func (s *common) DeserializeAuditInfo(raw []byte) (*AuditInfo, error) {
+	ai := &AuditInfo{
+		Csp:             s.Csp,
+		IssuerPublicKey: s.IssuerPublicKey,
+	}
+	if err := ai.FromBytes(raw); err != nil {
+		return nil, errors.Wrap(err, "failed deserializing audit info")
+	}
+	return ai, nil
+}
