@@ -21,13 +21,7 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/miracl/conflate"
-	"github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gexec"
-	"github.com/spf13/viper"
-	"github.com/tedsuo/ifrit"
-	"github.com/tedsuo/ifrit/grouper"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/context"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
@@ -37,6 +31,13 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/crypto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
+	"github.com/miracl/conflate"
+	"github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gexec"
+	"github.com/spf13/viper"
+	"github.com/tedsuo/ifrit"
+	"github.com/tedsuo/ifrit/grouper"
 )
 
 func init() {
@@ -202,6 +203,20 @@ func (p *platform) PostRun() {
 		)
 		Expect(err).NotTo(HaveOccurred())
 
+		cli := &flowCLI{
+			timeout: p.EventuallyTimeout,
+			p:       p,
+			CMD: commands.Flow{
+				TLSCA:         path.Join(p.NodeLocalTLSDir(node), "ca.crt"),
+				UserCert:      p.LocalMSPIdentityCert(node),
+				UserKey:       p.LocalMSPPrivateKey(node),
+				MSPID:         node.Organization,
+				NetworkPrefix: p.NetworkID,
+				Server:        p.Context.ConnectionConfig(node.Name).Address,
+			},
+		}
+		p.Context.(*context.Context).SetCLI(node.Name, cli)
+		p.Context.(*context.Context).SetCLI(node.ID(), cli)
 		p.Context.SetViewClient(node.Name, c)
 		p.Context.SetViewClient(node.ID(), c)
 		for _, identity := range p.Context.GetViewIdentityAliases(node.ID()) {
@@ -293,6 +308,11 @@ func (p *platform) CheckTopology() {
 	if !bootstrapNodeFound {
 		p.Topology.Nodes[0].Bootstrap = true
 	}
+}
+
+func (p *platform) Flow(command common.Command) (*gexec.Session, error) {
+	cmd := common.NewCommand(p.Builder.Flow(), command)
+	return p.StartSession(cmd, command.SessionName())
 }
 
 func (p *platform) Cryptogen(command common.Command) (*gexec.Session, error) {

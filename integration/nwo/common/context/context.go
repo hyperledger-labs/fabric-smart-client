@@ -34,6 +34,7 @@ type Context struct {
 	extensionsByPeerID map[string]api.Extensions
 
 	ViewClients             map[string]api.ViewClient
+	ViewCLIs                map[string]api.ViewClient
 	ViewIdentities          map[string]view.Identity
 	ViewIdentityAliases     map[string][]string
 	ConnectionConfigs       map[string]*grpc.ConnectionConfig
@@ -52,6 +53,7 @@ func New(rootDir string, portCounter uint16, builder api.Builder, topologies ...
 		PortCounter:             portCounter,
 		Builder:                 builder,
 		ViewClients:             map[string]api.ViewClient{},
+		ViewCLIs:                map[string]api.ViewClient{},
 		ViewIdentities:          map[string]view.Identity{},
 		ViewIdentityAliases:     map[string][]string{},
 		ConnectionConfigs:       map[string]*grpc.ConnectionConfig{},
@@ -111,6 +113,10 @@ func (c *Context) ClientSigningIdentity(name string) view2.SigningIdentity {
 
 func (c *Context) SetViewClient(name string, client api.ViewClient) {
 	c.ViewClients[name] = client
+}
+
+func (c *Context) SetCLI(name string, client api.ViewClient) {
+	c.ViewCLIs[name] = client
 }
 
 func (c *Context) GetViewIdentityAliases(name string) []string {

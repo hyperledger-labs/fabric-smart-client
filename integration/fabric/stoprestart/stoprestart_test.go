@@ -40,7 +40,8 @@ var _ = Describe("EndToEnd", func() {
 		})
 
 		It("stop and restart successfully", func() {
-			res, err := ii.Client("alice").CallView("init", nil)
+
+			res, err := ii.CLI("alice").CallView("init", []byte("foo"))
 			Expect(err).NotTo(HaveOccurred())
 			Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
 
