@@ -63,6 +63,7 @@ type Context interface {
 	ConnectionConfig(name string) *grpc.ConnectionConfig
 	ClientSigningIdentity(name string) view.SigningIdentity
 	SetViewClient(name string, c ViewClient)
+	SetCLI(name string, client ViewClient)
 	GetViewIdentityAliases(name string) []string
 	AdminSigningIdentity(name string) view.SigningIdentity
 }

@@ -23,8 +23,8 @@ type MSPInfo struct {
 // Config will be updated after the CR for token client config is merged, where the config data
 // will be populated based on a config file.
 type Config struct {
-	ID      string
-	FSCNode *grpc.ConnectionConfig
+	ID               string
+	ConnectionConfig *grpc.ConnectionConfig
 }
 
 func (config *Config) ToJSon() ([]byte, error) {
@@ -47,10 +47,10 @@ func FromJSON(raw []byte) (Configs, error) {
 }
 
 func ValidateClientConfig(config Config) error {
-	if config.FSCNode.Address == "" {
+	if config.ConnectionConfig.Address == "" {
 		return errors.New("missing fsc peer address")
 	}
-	if config.FSCNode.TLSEnabled && (config.FSCNode.TLSRootCertFile == "" || len(config.FSCNode.TLSRootCertBytes) == 0) {
+	if config.ConnectionConfig.TLSEnabled && (config.ConnectionConfig.TLSRootCertFile == "" || len(config.ConnectionConfig.TLSRootCertBytes) == 0) {
 		return errors.New("missing fsc peer TLSRootCertFile")
 	}
 

@@ -21,7 +21,7 @@ var _ = Describe("Config", func() {
 
 	BeforeEach(func() {
 		config = view.Config{
-			FSCNode: &grpc.ConnectionConfig{
+			ConnectionConfig: &grpc.ConnectionConfig{
 				Address:         "127.0.0.1:0",
 				TLSEnabled:      true,
 				TLSRootCertFile: "root-ca",
@@ -38,7 +38,7 @@ var _ = Describe("Config", func() {
 
 	Context("when there is no fsc address", func() {
 		BeforeEach(func() {
-			config.FSCNode.Address = ""
+			config.ConnectionConfig.Address = ""
 		})
 
 		It("returns missing fsc address error", func() {
@@ -49,7 +49,7 @@ var _ = Describe("Config", func() {
 
 	Context("when there is no fsc TLSRootCertFile", func() {
 		BeforeEach(func() {
-			config.FSCNode.TLSRootCertFile = ""
+			config.ConnectionConfig.TLSRootCertFile = ""
 		})
 
 		It("returns fsc TLSRootCertFile error", func() {

@@ -4,7 +4,7 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package flow
+package view
 
 import (
 	"crypto/sha256"
@@ -17,11 +17,11 @@ import (
 	"path"
 	"time"
 
+	"github.com/hyperledger/fabric/cmd/common"
+	"gopkg.in/alecthomas/kingpin.v2"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
-	"github.com/hyperledger/fabric/cmd/common"
-	"github.com/hyperledger/fabric/cmd/common/signer"
-	"gopkg.in/alecthomas/kingpin.v2"
 )
 
 var (
@@ -37,12 +37,12 @@ type CommandRegistrar interface {
 	Command(name, help string, onCommand common.CLICommand) *kingpin.CmdClause
 }
 
-func RegisterFlowCommand(cli CommandRegistrar) {
+func RegisterViewCommand(cli CommandRegistrar) {
 	ic := &invokeCmd{}
-	cmd := cli.Command("flow", "Invoke a flow", ic.invoke)
+	cmd := cli.Command("view", "Invoke a view", ic.invoke)
 
 	ic.endpoint = cmd.Flag("endpoint", "Sets the endpoint of the node to connect to (host:port)").String()
-	ic.input = cmd.Flag("input", "Sets the input to the flow function, encoded either as base64, or as-is").String()
+	ic.input = cmd.Flag("input", "Sets the input to the view function, encoded either as base64, or as-is").String()
 	ic.function = cmd.Flag("function", "Sets the function name to be invoked").String()
 	ic.stdin = cmd.Flag("stdin", "Sets standard input as the input stream").Bool()
 }
@@ -113,14 +113,14 @@ func (ic *invokeCmd) invoke(config common.Config) error {
 		ConnectionTimeout: 10 * time.Second,
 	}
 
-	signer, err := signer.NewSigner(config.SignerConfig)
+	signer, err := view.NewX509SigningIdentity(config.SignerConfig.IdentityPath, config.SignerConfig.KeyPath)
 	if err != nil {
 		return err
 	}
 
-	c, err := view.New(
+	c, err := view.NewClient(
 		&view.Config{
-			FSCNode: cc,
+			ConnectionConfig: cc,
 		},
 		signer,
 		ic,
@@ -131,7 +131,12 @@ func (ic *invokeCmd) invoke(config common.Config) error {
 		return err
 	}
 
-	fmt.Println(res)
+	switch v := res.(type) {
+	case []byte:
+		fmt.Println(string(v))
+	default:
+		fmt.Println(v)
+	}
 
 	return nil
 }

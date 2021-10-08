@@ -81,20 +81,20 @@ type client struct {
 	hasher            hash2.Hasher
 }
 
-func New(config *Config, sID SigningIdentity, hasher hash2.Hasher) (*client, error) {
+func NewClient(config *Config, sID SigningIdentity, hasher hash2.Hasher) (*client, error) {
 	// create a grpc client for view peer
-	grpcClient, err := grpc2.CreateGRPCClient(config.FSCNode)
+	grpcClient, err := grpc2.CreateGRPCClient(config.ConnectionConfig)
 	if err != nil {
 		return nil, err
 	}
 
 	return &client{
-		Address:          config.FSCNode.Address,
+		Address:          config.ConnectionConfig.Address,
 		RandomnessReader: rand.Reader,
 		Time:             time.Now,
 		ViewServiceClient: &ViewServiceClientImpl{
-			Address:            config.FSCNode.Address,
-			ServerNameOverride: config.FSCNode.ServerNameOverride,
+			Address:            config.ConnectionConfig.Address,
+			ServerNameOverride: config.ConnectionConfig.ServerNameOverride,
 			GRPCClient:         grpcClient,
 		},
 		SigningIdentity: sID,
