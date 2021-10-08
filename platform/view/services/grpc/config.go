@@ -11,10 +11,10 @@ import (
 	"crypto/x509"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
-	"github.com/hyperledger/fabric/common/metrics"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/keepalive"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 )
 
 // Configuration defaults
@@ -140,13 +140,6 @@ type KeepaliveOptions struct {
 	// ServerMinInterval is the minimum permitted time between client pings.
 	// If clients send pings more frequently, the server will disconnect them
 	ServerMinInterval time.Duration
-}
-
-type Metrics struct {
-	// OpenConnCounter keeps track of number of open connections
-	OpenConnCounter metrics.Counter
-	// ClosedConnCounter keeps track of number connections closed
-	ClosedConnCounter metrics.Counter
 }
 
 // ServerKeepaliveOptions returns gRPC keepalive options for server.

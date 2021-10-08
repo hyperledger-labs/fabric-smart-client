@@ -22,7 +22,6 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric-protos-go/msp"
-	"github.com/hyperledger/fabric/bccsp/utils"
 	"github.com/pkg/errors"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -45,6 +44,10 @@ type ecdsaSignature struct {
 	R, S *big.Int
 }
 
+func MarshalECDSASignature(r, s *big.Int) ([]byte, error) {
+	return asn1.Marshal(ecdsaSignature{r, s})
+}
+
 type edsaSigner struct {
 	sk *ecdsa.PrivateKey
 }
@@ -62,7 +65,7 @@ func (d *edsaSigner) Sign(message []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	return utils.MarshalECDSASignature(r, s)
+	return MarshalECDSASignature(r, s)
 }
 
 type edsaVerifier struct {
