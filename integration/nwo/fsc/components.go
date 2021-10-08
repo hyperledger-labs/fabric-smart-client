@@ -22,6 +22,6 @@ func (c *Builder) Build(path string) string {
 	return c.client.Build(path)
 }
 
-func (c *Builder) Flow() string {
-	return c.Build("github.com/hyperledger-labs/fabric-smart-client/cmd/flow")
+func (c *Builder) FSCCLI() string {
+	return c.Build("github.com/hyperledger-labs/fabric-smart-client/cmd/view")
 }

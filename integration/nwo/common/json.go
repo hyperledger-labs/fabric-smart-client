@@ -8,6 +8,7 @@ package common
 
 import (
 	"encoding/json"
+	"fmt"
 
 	. "github.com/onsi/gomega"
 )
@@ -33,7 +34,15 @@ func JSONUnmarshalString(v interface{}) string {
 
 func JSONUnmarshalInt(v interface{}) int {
 	var s int
-	err := json.Unmarshal(v.([]byte), &s)
-	Expect(err).NotTo(HaveOccurred())
+	switch v.(type) {
+	case []byte:
+		err := json.Unmarshal(v.([]byte), &s)
+		Expect(err).NotTo(HaveOccurred())
+	case string:
+		err := json.Unmarshal([]byte(v.(string)), &s)
+		Expect(err).NotTo(HaveOccurred())
+	default:
+		panic(fmt.Sprintf("type not recognized [%T]", v))
+	}
 	return s
 }

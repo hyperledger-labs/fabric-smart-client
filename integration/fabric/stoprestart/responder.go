@@ -31,7 +31,7 @@ func (p *Responder) Call(context view.Context) (interface{}, error) {
 		return nil, errors.New("time out reached")
 	}
 
-	// Echo back what you receved from the initiator
+	// Echo back what you received from the initiator
 	err := session.Send(payload)
 	assert.NoError(err)
 

@@ -19,13 +19,13 @@ func main() {
 	configs := make(view.Configs, 2)
 	configs[0] = view.Config{
 		ID: "Alice",
-		FSCNode: &grpc.ConnectionConfig{
+		ConnectionConfig: &grpc.ConnectionConfig{
 			Address: "127.0.0.1:7051",
 		},
 	}
 	configs[1] = view.Config{
 		ID: "Bob",
-		FSCNode: &grpc.ConnectionConfig{
+		ConnectionConfig: &grpc.ConnectionConfig{
 			Address: "127.0.0.1:8051",
 		},
 	}

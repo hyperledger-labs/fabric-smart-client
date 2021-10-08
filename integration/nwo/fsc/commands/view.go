@@ -6,7 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 
 package commands
 
-type Flow struct {
+type View struct {
 	NetworkPrefix string
 	UserCert      string
 	UserKey       string
@@ -19,16 +19,16 @@ type Flow struct {
 	Input         string
 }
 
-func (f Flow) SessionName() string {
-	return f.NetworkPrefix + "-flow"
+func (f View) SessionName() string {
+	return f.NetworkPrefix + "-view"
 }
 
-func (f Flow) Args() []string {
+func (f View) Args() []string {
 	args := []string{
 		"--userCert", f.UserCert,
 		"--userKey", f.UserKey,
 		"--MSP", f.MSPID,
-		"flow",
+		"view",
 		"--endpoint", f.Server,
 		"--function", f.Function,
 		"--input", f.Input,

@@ -9,23 +9,24 @@ package fsc
 import (
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/commands"
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/api"
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
+
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/commands"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/api"
 )
 
-type flowCLI struct {
+type fscCLIViewClient struct {
 	timeout time.Duration
 	p       *platform
-	CMD     commands.Flow
+	CMD     commands.View
 }
 
-func (f flowCLI) CallView(fid string, in []byte) (interface{}, error) {
+func (f *fscCLIViewClient) CallView(fid string, in []byte) (interface{}, error) {
 	f.CMD.Input = string(in)
 	f.CMD.Function = fid
 
-	sess, err := f.p.Flow(f.CMD)
+	sess, err := f.p.FSCCLI(f.CMD)
 	if err != nil {
 		return nil, err
 	}
@@ -34,6 +35,6 @@ func (f flowCLI) CallView(fid string, in []byte) (interface{}, error) {
 	return string(sess.Out.Contents()), nil
 }
 
-func (f flowCLI) IsTxFinal(txid string, opts ...api.ServiceOption) error {
+func (f *fscCLIViewClient) IsTxFinal(txid string, opts ...api.ServiceOption) error {
 	panic("not implemented yet")
 }

@@ -83,10 +83,10 @@ func (f *finality) IsFinalForParties(txID string, parties ...view.Identity) erro
 			}
 		}
 
-		c, err := view3.New(
+		c, err := view3.NewClient(
 			&view3.Config{
 				ID: "",
-				FSCNode: &grpc.ConnectionConfig{
+				ConnectionConfig: &grpc.ConnectionConfig{
 					Address:           endpoints[view2.ViewPort],
 					ConnectionTimeout: 300 * time.Second,
 					TLSEnabled:        f.TLSEnabled,

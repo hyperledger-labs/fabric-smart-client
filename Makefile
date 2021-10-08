@@ -127,7 +127,7 @@ clean:
 
 .PHONY: artifactsgen
 artifactsgen:
-	@go install github.com/hyperledger-labs/fabric-smart-client/cmd/artifactsgen
+	@go install ./cmd/artifactsgen
 
 .PHONY: topologies
 topologies:
