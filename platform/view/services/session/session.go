@@ -10,8 +10,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 func ReadMessageWithTimeout(session Session, d time.Duration) ([]byte, error) {

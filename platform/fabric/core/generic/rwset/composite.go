@@ -45,7 +45,7 @@ func CreateRangeKeysForPartialCompositeKey(objectType string, attributes []strin
 
 func SplitCompositeKey(compositeKey string) (string, []string, error) {
 	componentIndex := 1
-	components := []string{}
+	var components []string
 	for i := 1; i < len(compositeKey); i++ {
 		if compositeKey[i] == minUnicodeRuneValue {
 			components = append(components, compositeKey[componentIndex:i])

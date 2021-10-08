@@ -10,9 +10,10 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/io"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestSessionTwoParties(t *testing.T) {

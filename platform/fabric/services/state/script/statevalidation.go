@@ -7,8 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 package script
 
 import (
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state/script/api"
 	"github.com/pkg/errors"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state/script/api"
 )
 
 type MultiplexStateValidator struct {

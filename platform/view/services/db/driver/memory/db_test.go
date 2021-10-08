@@ -11,10 +11,11 @@ import (
 	"testing"
 	"unicode/utf8"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/pkg/errors"
 	"github.com/test-go/testify/assert"
 	"google.golang.org/protobuf/proto"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 )
 
 func marshalOrPanic(o proto.Message) []byte {
