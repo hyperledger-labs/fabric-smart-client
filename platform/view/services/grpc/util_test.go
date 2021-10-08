@@ -14,11 +14,12 @@ import (
 	"sync/atomic"
 	"testing"
 
-	grpc3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc/testpb"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
+
+	grpc3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc/testpb"
 )
 
 func TestExtractCertificateHashFromContext(t *testing.T) {

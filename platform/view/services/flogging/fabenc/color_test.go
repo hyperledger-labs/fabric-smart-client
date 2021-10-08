@@ -9,8 +9,9 @@ package fabenc_test
 import (
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging/fabenc"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging/fabenc"
 )
 
 func TestReset(t *testing.T) {

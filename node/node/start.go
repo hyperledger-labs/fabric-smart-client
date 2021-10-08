@@ -12,8 +12,9 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/hyperledger/fabric/common/flogging"
 	"github.com/spf13/cobra"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 )
 
 const (

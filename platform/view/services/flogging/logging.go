@@ -12,10 +12,11 @@ import (
 	"os"
 	"sync"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging/fabenc"
 	zaplogfmt "github.com/sykesm/zap-logfmt"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging/fabenc"
 )
 
 // Config is used to provide dependencies to a Logging instance.

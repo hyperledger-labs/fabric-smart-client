@@ -10,8 +10,9 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging/mock"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging/mock"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 )

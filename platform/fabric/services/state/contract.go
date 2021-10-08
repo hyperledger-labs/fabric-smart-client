@@ -7,8 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 package state
 
 import (
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/pkg/errors"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 )
 
 type contractMetaHandler struct{}
