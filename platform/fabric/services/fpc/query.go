@@ -10,6 +10,8 @@ import (
 	"strconv"
 
 	"github.com/pkg/errors"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 // ChaincodeQuery models the query of an FPC
@@ -18,6 +20,26 @@ type ChaincodeQuery struct {
 
 	function string
 	args     []interface{}
+}
+
+func (i *ChaincodeQuery) WithInvokerIdentity(identity view.Identity) *ChaincodeQuery {
+	return i
+}
+
+func (i *ChaincodeQuery) WithTransientEntry(k string, v interface{}) {
+	panic("implement me")
+}
+
+func (i *ChaincodeQuery) WithEndorsers(endorsers ...view.Identity) {
+	panic("implement me")
+}
+
+func (i *ChaincodeQuery) WithEndorsersByMSPIDs(ds ...string) {
+	panic("implement me")
+}
+
+func (i *ChaincodeQuery) WithEndorsersFromMyOrg() {
+	panic("implement me")
 }
 
 // Call invokes the chaincode and returns the result
