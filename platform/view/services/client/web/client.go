@@ -74,7 +74,7 @@ func NewClient(config *Config) (*Client, error) {
 // an error is returned.
 func (c *Client) CallView(fid string, in []byte) (interface{}, error) {
 	url := fmt.Sprintf("%s/v1/Views/%s", c.url, fid)
-	req, err := http.NewRequest(http.MethodPut, url, bytes.NewBuffer([]byte("hi")))
+	req, err := http.NewRequest(http.MethodPut, url, bytes.NewBuffer(in))
 	if err != nil {
 		return nil, err
 	}
