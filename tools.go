@@ -10,4 +10,6 @@ package tools
 
 import (
 	_ "github.com/hyperledger/fabric/common/ledger/util/leveldbhelper"
+	_ "github.com/hyperledger/fabric/core/ledger/kvledger/txmgmt/statedb/statecouchdb"
+	_ "github.com/hyperledger/fabric/core/ledger/pvtdatastorage"
 )
