@@ -19,12 +19,12 @@ import (
 	"time"
 
 	"github.com/Shopify/sarama"
-	version "github.com/hashicorp/go-version"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
-	"github.com/hyperledger/fabric/bccsp/factory"
+	"github.com/hashicorp/go-version"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 )
 
 var logger = flogging.MustGetLogger("viperutil")
@@ -277,40 +277,6 @@ func init() {
 	kafkaVersionConstraints[sarama.V1_0_0_0], _ = version.NewConstraint(">=1.0.0")
 }
 
-func kafkaVersionDecodeHook(f reflect.Type, t reflect.Type, data interface{}) (interface{}, error) {
-	if f.Kind() != reflect.String || t != reflect.TypeOf(sarama.KafkaVersion{}) {
-		return data, nil
-	}
-
-	v, err := version.NewVersion(data.(string))
-	if err != nil {
-		return nil, fmt.Errorf("Unable to parse Kafka version: %s", err)
-	}
-
-	for kafkaVersion, constraints := range kafkaVersionConstraints {
-		if constraints.Check(v) {
-			return kafkaVersion, nil
-		}
-	}
-
-	return nil, fmt.Errorf("Unsupported Kafka version: '%s'", data)
-}
-
-func bccspHook(f reflect.Type, t reflect.Type, data interface{}) (interface{}, error) {
-	if t != reflect.TypeOf(&factory.FactoryOpts{}) {
-		return data, nil
-	}
-
-	config := factory.GetDefaultOpts()
-
-	err := mapstructure.Decode(data, config)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not decode bcssp type")
-	}
-
-	return config, nil
-}
-
 // EnhancedExactUnmarshal is intended to unmarshal a config file into a structure
 // producing error when extraneous variables are introduced and supporting
 // the time.Duration type
@@ -330,12 +296,10 @@ func EnhancedExactUnmarshal(v *viper.Viper, key string, output interface{}) erro
 		Result:           output,
 		WeaklyTypedInput: true,
 		DecodeHook: mapstructure.ComposeDecodeHookFunc(
-			bccspHook,
 			customDecodeHook,
 			byteSizeDecodeHook,
 			stringFromFileDecodeHook,
 			pemBlocksFromFileDecodeHook,
-			kafkaVersionDecodeHook,
 		),
 	}
 
