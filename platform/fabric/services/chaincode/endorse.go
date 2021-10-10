@@ -27,6 +27,7 @@ type EndorseCall struct {
 	EndorsersFromMyOrg bool
 	Function           string
 	Args               []interface{}
+	TxID               fabric.TxID
 }
 
 type endorseChaincodeView struct {
@@ -80,6 +81,8 @@ func (i *endorseChaincodeView) Endorse(context view.Context) (*fabric.Envelope, 
 		i.Args...,
 	).WithInvokerIdentity(
 		i.SignerIdentity,
+	).WithTxID(
+		i.TxID,
 	)
 	for k, v := range i.TransientMap {
 		invocation.WithTransientEntry(k, v)
@@ -136,5 +139,10 @@ func (i *endorseChaincodeView) WithEndorsersFromMyOrg() *endorseChaincodeView {
 
 func (i *endorseChaincodeView) WithSignerIdentity(id view.Identity) *endorseChaincodeView {
 	i.SignerIdentity = id
+	return i
+}
+
+func (i *endorseChaincodeView) WithTxID(id fabric.TxID) *endorseChaincodeView {
+	i.TxID = id
 	return i
 }
