@@ -16,6 +16,7 @@ import (
 func Topology() []api.Topology {
 	// Create an empty fabric topology
 	fabricTopology := fabric.NewDefaultTopology()
+	fabricTopology.EnableIdemix()
 	// Add two organizations
 	fabricTopology.AddOrganizationsByName("Org1", "Org2")
 	// Add a standard chaincode
@@ -28,7 +29,7 @@ func Topology() []api.Topology {
 
 	// Alice
 	alice := fscTopology.AddNodeByName("alice")
-	alice.AddOptions(fabric.WithOrganization("Org2"))
+	alice.AddOptions(fabric.WithOrganization("Org2"), fabric.WithAnonymousIdentity())
 	alice.RegisterViewFactory("ListProvisionedEnclaves", &views.ListProvisionedEnclavesViewFactory{})
 	alice.RegisterViewFactory("Echo", &views.EchoViewFactory{})
 

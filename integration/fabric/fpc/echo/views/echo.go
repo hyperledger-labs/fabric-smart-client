@@ -51,7 +51,13 @@ func (e *EchoView) Call(context view.Context) (interface{}, error) {
 	assert.NoError(err, "failed invoking echo")
 	assert.Equal(e.Function, string(res))
 
-	_, res, err = chaincode.NewInvokeView("echo", e.Function, fpc.StringsToArgs(e.Args)...).Invoke(context)
+	_, res, err = chaincode.NewInvokeView(
+		"echo",
+		e.Function,
+		fpc.StringsToArgs(e.Args)...,
+	).WithSignerIdentity(
+		fabric.GetDefaultFNS(context).LocalMembership().AnonymousIdentity(),
+	).Invoke(context)
 	assert.NoError(err, "failed invoking echo")
 	assert.Equal(e.Function, string(res))
 
@@ -60,11 +66,19 @@ func (e *EchoView) Call(context view.Context) (interface{}, error) {
 		"echo",
 	).Query(
 		e.Function, fpc.StringsToArgs(e.Args)...,
+	).WithSignerIdentity(
+		fabric.GetDefaultFNS(context).LocalMembership().AnonymousIdentity(),
 	).Call()
 	assert.NoError(err, "failed querying echo")
 	assert.Equal(e.Function, string(res))
 
-	res, err = chaincode.NewQueryView("echo", e.Function, fpc.StringsToArgs(e.Args)...).Query(context)
+	res, err = chaincode.NewQueryView(
+		"echo",
+		e.Function,
+		fpc.StringsToArgs(e.Args)...,
+	).WithSignerIdentity(
+		fabric.GetDefaultFNS(context).LocalMembership().AnonymousIdentity(),
+	).Query(context)
 	assert.NoError(err, "failed querying echo")
 	assert.Equal(e.Function, string(res))
 
@@ -73,13 +87,21 @@ func (e *EchoView) Call(context view.Context) (interface{}, error) {
 		"echo",
 	).Endorse(
 		e.Function, fpc.StringsToArgs(e.Args)...,
+	).WithSignerIdentity(
+		fabric.GetDefaultFNS(context).LocalMembership().AnonymousIdentity(),
 	).Call()
 	assert.NoError(err, "failed endorsing echo")
 	assert.NotNil(envelope)
 	assert.NoError(fabric.GetDefaultFNS(context).Ordering().Broadcast(envelope))
 
-	envelope, err = chaincode.NewEndorseView("echo", e.Function, fpc.StringsToArgs(e.Args)...).Endorse(context)
-	assert.NoError(err, "failed querying echo")
+	envelope, err = chaincode.NewEndorseView(
+		"echo",
+		e.Function,
+		fpc.StringsToArgs(e.Args)...,
+	).WithSignerIdentity(
+		fabric.GetDefaultFNS(context).LocalMembership().AnonymousIdentity(),
+	).Endorse(context)
+	assert.NoError(err, "failed endorsing echo")
 	assert.Equal(e.Function, string(res))
 	assert.NoError(fabric.GetDefaultFNS(context).Ordering().Broadcast(envelope))
 

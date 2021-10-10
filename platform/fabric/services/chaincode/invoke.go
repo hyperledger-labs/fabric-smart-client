@@ -133,7 +133,7 @@ func (i *invokeChaincodeView) WithEndorsersFromMyOrg() *invokeChaincodeView {
 	return i
 }
 
-func (i *invokeChaincodeView) WithInvokerIdentity(id view.Identity) *invokeChaincodeView {
+func (i *invokeChaincodeView) WithSignerIdentity(id view.Identity) *invokeChaincodeView {
 	i.InvokerIdentity = id
 	return i
 }
