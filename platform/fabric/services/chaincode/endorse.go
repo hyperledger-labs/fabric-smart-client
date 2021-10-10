@@ -75,7 +75,12 @@ func (i *endorseChaincodeView) Endorse(context view.Context) (*fabric.Envelope, 
 		chaincode = &fpcChaincode{fpcChannel.Chaincode(i.ChaincodeName)}
 	}
 
-	invocation := chaincode.Endorse(i.Function, i.Args...).WithInvokerIdentity(i.SignerIdentity)
+	invocation := chaincode.Endorse(
+		i.Function,
+		i.Args...,
+	).WithInvokerIdentity(
+		i.SignerIdentity,
+	)
 	for k, v := range i.TransientMap {
 		invocation.WithTransientEntry(k, v)
 	}
@@ -129,7 +134,7 @@ func (i *endorseChaincodeView) WithEndorsersFromMyOrg() *endorseChaincodeView {
 	return i
 }
 
-func (i *endorseChaincodeView) WithEndorserIdentity(id view.Identity) *endorseChaincodeView {
+func (i *endorseChaincodeView) WithSignerIdentity(id view.Identity) *endorseChaincodeView {
 	i.SignerIdentity = id
 	return i
 }

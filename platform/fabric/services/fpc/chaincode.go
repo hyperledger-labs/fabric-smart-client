@@ -19,6 +19,8 @@ type invokerContract interface {
 
 type endorserContract interface {
 	EndorseTransaction(name string, args ...string) (*fabric.Envelope, error)
+	WithInvokerIdentity(identity view.Identity)
+	WithTxID(id fabric.TxID)
 }
 
 type identityProvider interface {

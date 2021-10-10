@@ -23,7 +23,13 @@ type ChaincodeEndorse struct {
 	args     []interface{}
 }
 
-func (i *ChaincodeEndorse) WithInvokerIdentity(identity view.Identity) *ChaincodeEndorse {
+func (i *ChaincodeEndorse) WithTxID(txID fabric.TxID) *ChaincodeEndorse {
+	i.EndorserContract.WithTxID(txID)
+	return i
+}
+
+func (i *ChaincodeEndorse) WithSignerIdentity(identity view.Identity) *ChaincodeEndorse {
+	i.EndorserContract.WithInvokerIdentity(identity)
 	return i
 }
 

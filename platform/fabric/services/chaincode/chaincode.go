@@ -18,6 +18,7 @@ type Endorse interface {
 	WithEndorsers(endorsers ...view.Identity)
 	WithEndorsersByMSPIDs(ds ...string)
 	WithEndorsersFromMyOrg()
+	WithTxID(txID fabric.TxID) Endorse
 	Call() (*fabric.Envelope, error)
 }
 
@@ -38,6 +39,11 @@ type Chaincode interface {
 
 type stdEndorse struct {
 	che *fabric.ChaincodeEndorse
+}
+
+func (s *stdEndorse) WithTxID(txID fabric.TxID) Endorse {
+	s.che.WithTxID(txID)
+	return s
 }
 
 func (s *stdEndorse) Call() (*fabric.Envelope, error) {
@@ -118,8 +124,13 @@ func (s *fpcEndorse) Call() (*fabric.Envelope, error) {
 	return s.che.Call()
 }
 
+func (s *fpcEndorse) WithTxID(txID fabric.TxID) Endorse {
+	s.che.WithTxID(txID)
+	return s
+}
+
 func (s *fpcEndorse) WithInvokerIdentity(identity view.Identity) Endorse {
-	s.che.WithInvokerIdentity(identity)
+	s.che.WithSignerIdentity(identity)
 	return s
 }
 
@@ -148,7 +159,7 @@ func (s *fpcQuery) Call() ([]byte, error) {
 }
 
 func (s *fpcQuery) WithInvokerIdentity(identity view.Identity) Query {
-	s.chq.WithInvokerIdentity(identity)
+	s.chq.WithSignerIdentity(identity)
 	return s
 }
 

@@ -22,7 +22,7 @@ type ChaincodeQuery struct {
 	args     []interface{}
 }
 
-func (i *ChaincodeQuery) WithInvokerIdentity(identity view.Identity) *ChaincodeQuery {
+func (i *ChaincodeQuery) WithSignerIdentity(identity view.Identity) *ChaincodeQuery {
 	return i
 }
 

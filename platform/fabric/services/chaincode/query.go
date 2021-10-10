@@ -105,7 +105,7 @@ func (i *queryChaincodeView) WithEndorsersFromMyOrg() *queryChaincodeView {
 	return i
 }
 
-func (i *queryChaincodeView) WithInvokerIdentity(id view.Identity) *queryChaincodeView {
+func (i *queryChaincodeView) WithSignerIdentity(id view.Identity) *queryChaincodeView {
 	i.InvokerIdentity = id
 	return i
 }
