@@ -8,6 +8,7 @@ package endpoint
 
 import (
 	"bytes"
+	"sync"
 
 	"github.com/pkg/errors"
 
@@ -62,11 +63,12 @@ type endpointEntry struct {
 }
 
 type service struct {
-	sp           view2.ServiceProvider
-	resolvers    []*resolver
-	discovery    Discovery
-	kvs          KVS
-	pkiResolvers []driver.PKIResolver
+	sp             view2.ServiceProvider
+	resolvers      []*resolver
+	resolversMutex sync.RWMutex
+	discovery      Discovery
+	kvs            KVS
+	pkiResolvers   []driver.PKIResolver
 }
 
 // NewService returns a new instance of the view-sdk endpoint service
@@ -103,9 +105,7 @@ func (r *service) Endpoint(party view.Identity) (map[driver.PortName]string, err
 	}
 }
 
-var (
-	resolved = make(map[string]view.Identity)
-)
+var ()
 
 func (r *service) Resolve(party view.Identity) (view.Identity, map[driver.PortName]string, []byte, error) {
 	cursor := party
@@ -125,12 +125,6 @@ func (r *service) Resolve(party view.Identity) (view.Identity, map[driver.PortNa
 			continue
 		}
 
-		logger.Debugf("resolved [%s] to [%s] with ports [%v]", party, cursor, e)
-		alreadyResolved, ok := resolved[party.UniqueID()]
-		if ok && !alreadyResolved.Equal(cursor) {
-			return nil, nil, nil, errors.Errorf("[%s] already resolved to [%s], resolved to [%s] this time", party, alreadyResolved, cursor)
-		}
-		resolved[party.UniqueID()] = cursor
 		return cursor, e, r.pkiResolve(cursor), nil
 	}
 }
@@ -165,6 +159,9 @@ func (r *service) IsBoundTo(a view.Identity, b view.Identity) bool {
 }
 
 func (r *service) GetIdentity(endpoint string, pkid []byte) (view.Identity, error) {
+	r.resolversMutex.RLock()
+	r.resolversMutex.RUnlock()
+
 	// search in the resolver list
 	for _, resolver := range r.resolvers {
 		resolverPKID := r.pkiResolve(resolver.Id)
@@ -193,6 +190,9 @@ func (r *service) GetIdentity(endpoint string, pkid []byte) (view.Identity, erro
 }
 
 func (r *service) AddResolver(name string, domain string, addresses map[string]string, aliases []string, id []byte) (view.Identity, error) {
+	r.resolversMutex.Lock()
+	defer r.resolversMutex.Unlock()
+
 	logger.Debugf("adding resolver [%s,%s,%v,%v,%s]", name, domain, addresses, aliases, view.Identity(id).String())
 
 	// is there a resolver with the same name?
@@ -241,6 +241,9 @@ func (r *service) pkiResolve(id view.Identity) []byte {
 }
 
 func (r *service) rootEndpoint(party view.Identity) (map[driver.PortName]string, error) {
+	r.resolversMutex.RLock()
+	defer r.resolversMutex.RUnlock()
+
 	for _, resolver := range r.resolvers {
 		if bytes.Equal(resolver.Id, party) {
 			return convert(resolver.Addresses), nil
