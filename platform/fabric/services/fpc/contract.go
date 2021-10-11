@@ -20,6 +20,7 @@ type transaction struct {
 	id       string
 	function string
 	peers    []string
+	invoker  view.Identity
 }
 
 func (t *transaction) Evaluate(args ...string) ([]byte, error) {
@@ -37,7 +38,7 @@ func (t *transaction) Evaluate(args ...string) ([]byte, error) {
 	raw, err := t.ch.Chaincode(t.id).Query(
 		t.function, passedArgs...,
 	).WithInvokerIdentity(
-		t.fns.IdentityProvider().DefaultIdentity(),
+		t.invoker,
 	).WithEndorsers(
 		endorsers...,
 	).Call()
@@ -96,6 +97,7 @@ func (c *contract) CreateTransaction(name string, peerEndpoints ...string) (fpc.
 		id:       c.id,
 		function: name,
 		peers:    peerEndpoints,
+		invoker:  c.fns.IdentityProvider().DefaultIdentity(),
 	}, nil
 }
 
@@ -113,10 +115,12 @@ func (c *contractProvider) GetContract(id string) fpc.Contract {
 }
 
 type contractProviderForEndorsement struct {
-	fns *fabric.NetworkService
-	ch  *fabric.Channel
-	cid string
-	env *fabric.Envelope
+	fns     *fabric.NetworkService
+	ch      *fabric.Channel
+	cid     string
+	env     *fabric.Envelope
+	invoker view.Identity
+	txID    fabric.TxID
 }
 
 func (c *contractProviderForEndorsement) GetContract(id string) fpc.Contract {
@@ -143,7 +147,7 @@ func (c *contractProviderForEndorsement) EvaluateTransaction(name string, args .
 	raw, err := c.ch.Chaincode(c.cid).Query(
 		name, passedArgs...,
 	).WithInvokerIdentity(
-		c.fns.IdentityProvider().DefaultIdentity(),
+		c.invoker,
 	).Call()
 	if err != nil {
 		return nil, err
@@ -160,7 +164,9 @@ func (c *contractProviderForEndorsement) SubmitTransaction(name string, args ...
 	c.env, err = c.ch.Chaincode(c.cid).Endorse(
 		name, passedArgs...,
 	).WithInvokerIdentity(
-		c.fns.IdentityProvider().DefaultIdentity(),
+		c.invoker,
+	).WithTxID(
+		c.txID,
 	).Call()
 
 	if err != nil {
@@ -176,20 +182,33 @@ func (c *contractProviderForEndorsement) CreateTransaction(name string, peerEndp
 		id:       c.cid,
 		function: name,
 		peers:    peerEndpoints,
+		invoker:  c.invoker,
 	}, nil
 }
 
 type endorserContractImpl struct {
-	fns *fabric.NetworkService
-	ch  *fabric.Channel
-	cid string
+	fns     *fabric.NetworkService
+	ch      *fabric.Channel
+	cid     string
+	invoker view.Identity
+	txID    fabric.TxID
+}
+
+func (e *endorserContractImpl) WithInvokerIdentity(identity view.Identity) {
+	e.invoker = identity
+}
+
+func (e *endorserContractImpl) WithTxID(id fabric.TxID) {
+	e.txID = id
 }
 
 func (e *endorserContractImpl) EndorseTransaction(name string, args ...string) (*fabric.Envelope, error) {
 	p := &contractProviderForEndorsement{
-		fns: e.fns,
-		ch:  e.ch,
-		cid: e.cid,
+		fns:     e.fns,
+		ch:      e.ch,
+		cid:     e.cid,
+		invoker: e.invoker,
+		txID:    e.txID,
 	}
 	c := fpc.GetContract(p, e.cid)
 	_, err := c.SubmitTransaction(name, args...)

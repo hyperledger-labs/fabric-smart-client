@@ -17,11 +17,10 @@ import (
 	"path"
 	"time"
 
-	"github.com/hyperledger/fabric/cmd/common"
-	"gopkg.in/alecthomas/kingpin.v2"
-
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
+	"gopkg.in/alecthomas/kingpin.v2"
 )
 
 var (

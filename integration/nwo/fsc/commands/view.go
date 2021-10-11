@@ -25,10 +25,10 @@ func (f View) SessionName() string {
 
 func (f View) Args() []string {
 	args := []string{
+		"view",
 		"--userCert", f.UserCert,
 		"--userKey", f.UserKey,
 		"--MSP", f.MSPID,
-		"view",
 		"--endpoint", f.Server,
 		"--function", f.Function,
 		"--input", f.Input,

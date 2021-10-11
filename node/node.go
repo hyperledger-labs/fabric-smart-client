@@ -9,7 +9,6 @@ package node
 import (
 	"os"
 
-	"github.com/hyperledger/fabric/common/flogging"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
@@ -17,6 +16,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/node/version"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/api"
 	node3 "github.com/hyperledger-labs/fabric-smart-client/pkg/node"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 

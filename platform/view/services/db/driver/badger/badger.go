@@ -13,10 +13,11 @@ import (
 
 	badger "github.com/dgraph-io/badger/v3"
 	"github.com/golang/protobuf/proto"
+	"github.com/pkg/errors"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	dbproto "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/keys"
-	"github.com/pkg/errors"
 )
 
 type badgerDB struct {

@@ -27,6 +27,7 @@ type EndorseCall struct {
 	EndorsersFromMyOrg bool
 	Function           string
 	Args               []interface{}
+	TxID               fabric.TxID
 }
 
 type endorseChaincodeView struct {
@@ -63,17 +64,26 @@ func (i *endorseChaincodeView) Endorse(context view.Context) (*fabric.Envelope, 
 	if i.SignerIdentity.IsNone() {
 		i.SignerIdentity = fNetwork.IdentityProvider().DefaultIdentity()
 	}
-	chaincode := channel.Chaincode(i.ChaincodeName)
+
+	var chaincode Chaincode
+	chaincode = &stdChaincode{ch: channel.Chaincode(i.ChaincodeName)}
 	if chaincode == nil {
 		return nil, errors.Errorf("fabric chaincode [%s:%s:%s] not found", i.Network, i.Channel, i.ChaincodeName)
 	}
 	if chaincode.IsPrivate() {
 		// This is a Fabric Private Chaincode, use the corresponding service
 		fpcChannel := fpc.GetChannel(context, i.Network, i.Channel)
-		return fpcChannel.Chaincode(i.ChaincodeName).Endorse(i.Function, i.Args...).Call()
+		chaincode = &fpcChaincode{fpcChannel.Chaincode(i.ChaincodeName)}
 	}
 
-	invocation := chaincode.Endorse(i.Function, i.Args...).WithInvokerIdentity(i.SignerIdentity)
+	invocation := chaincode.Endorse(
+		i.Function,
+		i.Args...,
+	).WithInvokerIdentity(
+		i.SignerIdentity,
+	).WithTxID(
+		i.TxID,
+	)
 	for k, v := range i.TransientMap {
 		invocation.WithTransientEntry(k, v)
 	}
@@ -127,7 +137,12 @@ func (i *endorseChaincodeView) WithEndorsersFromMyOrg() *endorseChaincodeView {
 	return i
 }
 
-func (i *endorseChaincodeView) WithEndorserIdentity(id view.Identity) *endorseChaincodeView {
+func (i *endorseChaincodeView) WithSignerIdentity(id view.Identity) *endorseChaincodeView {
 	i.SignerIdentity = id
+	return i
+}
+
+func (i *endorseChaincodeView) WithTxID(id fabric.TxID) *endorseChaincodeView {
+	i.TxID = id
 	return i
 }

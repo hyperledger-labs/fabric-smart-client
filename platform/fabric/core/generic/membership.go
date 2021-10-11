@@ -34,8 +34,12 @@ func (c *channel) MSPManager() driver.MSPManager {
 	return &mspManager{MSPManager: c.Resources().MSPManager()}
 }
 
+type MSPManager interface {
+	DeserializeIdentity(serializedIdentity []byte) (msp.Identity, error)
+}
+
 type mspManager struct {
-	msp.MSPManager
+	MSPManager
 }
 
 func (m *mspManager) DeserializeIdentity(serializedIdentity []byte) (driver.MSPIdentity, error) {

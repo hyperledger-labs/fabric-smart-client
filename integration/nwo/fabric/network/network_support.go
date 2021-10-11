@@ -981,7 +981,7 @@ func (n *Network) JoinChannel(name string, o *topology.Orderer, peers ...*topolo
 
 // Cryptogen starts a gexec.Session for the provided cryptogen command.
 func (n *Network) Cryptogen(command common.Command) (*gexec.Session, error) {
-	cmd := common.NewCommand(n.Builder.Cryptogen(), command)
+	cmd := common.NewCommand(n.Builder.FSCCLI(), command)
 	return n.StartSession(cmd, command.SessionName())
 }
 

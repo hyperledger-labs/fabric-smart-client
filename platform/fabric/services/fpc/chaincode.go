@@ -19,6 +19,8 @@ type invokerContract interface {
 
 type endorserContract interface {
 	EndorseTransaction(name string, args ...string) (*fabric.Envelope, error)
+	WithInvokerIdentity(identity view.Identity)
+	WithTxID(id fabric.TxID)
 }
 
 type identityProvider interface {
@@ -56,6 +58,10 @@ func NewChaincode(
 		IdentityProvider: ip,
 		ID:               cid,
 	}
+}
+
+func (c *Chaincode) IsPrivate() bool {
+	return true
 }
 
 // Invoke returns an object that models an FPC invocation for the passed function and arguments

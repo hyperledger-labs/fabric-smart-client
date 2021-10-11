@@ -10,8 +10,9 @@ import (
 	_ "net/http/pprof"
 	"strings"
 
-	node2 "github.com/hyperledger-labs/fabric-smart-client/node"
 	"github.com/spf13/viper"
+
+	node2 "github.com/hyperledger-labs/fabric-smart-client/node"
 )
 
 const CmdRoot = "core"

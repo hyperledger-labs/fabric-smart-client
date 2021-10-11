@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package viperutil
 
 import (
-	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"io/ioutil"
@@ -18,93 +17,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Shopify/sarama"
-	version "github.com/hashicorp/go-version"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
-	"github.com/hyperledger/fabric/bccsp/factory"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"
 )
-
-var logger = flogging.MustGetLogger("viperutil")
-
-type viperGetter func(key string) interface{}
-
-func getKeysRecursively(base string, getKey viperGetter, nodeKeys map[string]interface{}, oType reflect.Type) map[string]interface{} {
-	subTypes := map[string]reflect.Type{}
-
-	if oType != nil && oType.Kind() == reflect.Struct {
-	outer:
-		for i := 0; i < oType.NumField(); i++ {
-			fieldName := oType.Field(i).Name
-			fieldType := oType.Field(i).Type
-
-			for key := range nodeKeys {
-				if strings.EqualFold(fieldName, key) {
-					subTypes[key] = fieldType
-					continue outer
-				}
-			}
-
-			subTypes[fieldName] = fieldType
-			nodeKeys[fieldName] = nil
-		}
-	}
-
-	result := make(map[string]interface{})
-	for key := range nodeKeys {
-		fqKey := base + key
-
-		val := getKey(fqKey)
-		if m, ok := val.(map[interface{}]interface{}); ok {
-			logger.Debugf("Found map[interface{}]interface{} value for %s", fqKey)
-			tmp := make(map[string]interface{})
-			for ik, iv := range m {
-				cik, ok := ik.(string)
-				if !ok {
-					panic("Non string key-entry")
-				}
-				tmp[cik] = iv
-			}
-			result[key] = getKeysRecursively(fqKey+".", getKey, tmp, subTypes[key])
-		} else if m, ok := val.(map[string]interface{}); ok {
-			logger.Debugf("Found map[string]interface{} value for %s", fqKey)
-			result[key] = getKeysRecursively(fqKey+".", getKey, m, subTypes[key])
-		} else if m, ok := unmarshalJSON(val); ok {
-			logger.Debugf("Found real value for %s setting to map[string]string %v", fqKey, m)
-			result[key] = m
-		} else {
-			if val == nil {
-				fileSubKey := fqKey + ".File"
-				fileVal := getKey(fileSubKey)
-				if fileVal != nil {
-					result[key] = map[string]interface{}{"File": fileVal}
-					continue
-				}
-			}
-			logger.Debugf("Found real value for %s setting to %T %v", fqKey, val, val)
-			result[key] = val
-
-		}
-	}
-	return result
-}
-
-func unmarshalJSON(val interface{}) (map[string]string, bool) {
-	mp := map[string]string{}
-	s, ok := val.(string)
-	if !ok {
-		logger.Debugf("Unmarshal JSON: value is not a string: %v", val)
-		return nil, false
-	}
-	err := json.Unmarshal([]byte(s), &mp)
-	if err != nil {
-		logger.Debugf("Unmarshal JSON: value cannot be unmarshalled: %s", err)
-		return nil, false
-	}
-	return mp, true
-}
 
 // customDecodeHook adds the additional functions of parsing durations from strings
 // as well as parsing strings of the format "[thing1, thing2, thing3]" into string slices
@@ -260,57 +176,6 @@ func pemBlocksFromFileDecodeHook(f reflect.Kind, t reflect.Kind, data interface{
 	return data, nil
 }
 
-var kafkaVersionConstraints map[sarama.KafkaVersion]version.Constraints
-
-func init() {
-	kafkaVersionConstraints = make(map[sarama.KafkaVersion]version.Constraints)
-	kafkaVersionConstraints[sarama.V0_8_2_0], _ = version.NewConstraint(">=0.8.2,<0.8.2.1")
-	kafkaVersionConstraints[sarama.V0_8_2_1], _ = version.NewConstraint(">=0.8.2.1,<0.8.2.2")
-	kafkaVersionConstraints[sarama.V0_8_2_2], _ = version.NewConstraint(">=0.8.2.2,<0.9.0.0")
-	kafkaVersionConstraints[sarama.V0_9_0_0], _ = version.NewConstraint(">=0.9.0.0,<0.9.0.1")
-	kafkaVersionConstraints[sarama.V0_9_0_1], _ = version.NewConstraint(">=0.9.0.1,<0.10.0.0")
-	kafkaVersionConstraints[sarama.V0_10_0_0], _ = version.NewConstraint(">=0.10.0.0,<0.10.0.1")
-	kafkaVersionConstraints[sarama.V0_10_0_1], _ = version.NewConstraint(">=0.10.0.1,<0.10.1.0")
-	kafkaVersionConstraints[sarama.V0_10_1_0], _ = version.NewConstraint(">=0.10.1.0,<0.10.2.0")
-	kafkaVersionConstraints[sarama.V0_10_2_0], _ = version.NewConstraint(">=0.10.2.0,<0.11.0.0")
-	kafkaVersionConstraints[sarama.V0_11_0_0], _ = version.NewConstraint(">=0.11.0.0,<1.0.0")
-	kafkaVersionConstraints[sarama.V1_0_0_0], _ = version.NewConstraint(">=1.0.0")
-}
-
-func kafkaVersionDecodeHook(f reflect.Type, t reflect.Type, data interface{}) (interface{}, error) {
-	if f.Kind() != reflect.String || t != reflect.TypeOf(sarama.KafkaVersion{}) {
-		return data, nil
-	}
-
-	v, err := version.NewVersion(data.(string))
-	if err != nil {
-		return nil, fmt.Errorf("Unable to parse Kafka version: %s", err)
-	}
-
-	for kafkaVersion, constraints := range kafkaVersionConstraints {
-		if constraints.Check(v) {
-			return kafkaVersion, nil
-		}
-	}
-
-	return nil, fmt.Errorf("Unsupported Kafka version: '%s'", data)
-}
-
-func bccspHook(f reflect.Type, t reflect.Type, data interface{}) (interface{}, error) {
-	if t != reflect.TypeOf(&factory.FactoryOpts{}) {
-		return data, nil
-	}
-
-	config := factory.GetDefaultOpts()
-
-	err := mapstructure.Decode(data, config)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not decode bcssp type")
-	}
-
-	return config, nil
-}
-
 // EnhancedExactUnmarshal is intended to unmarshal a config file into a structure
 // producing error when extraneous variables are introduced and supporting
 // the time.Duration type
@@ -330,12 +195,10 @@ func EnhancedExactUnmarshal(v *viper.Viper, key string, output interface{}) erro
 		Result:           output,
 		WeaklyTypedInput: true,
 		DecodeHook: mapstructure.ComposeDecodeHookFunc(
-			bccspHook,
 			customDecodeHook,
 			byteSizeDecodeHook,
 			stringFromFileDecodeHook,
 			pemBlocksFromFileDecodeHook,
-			kafkaVersionDecodeHook,
 		),
 	}
 

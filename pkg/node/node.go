@@ -13,13 +13,13 @@ import (
 	"reflect"
 	"runtime/debug"
 
-	"github.com/hyperledger/fabric/common/flogging"
 	"github.com/pkg/errors"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/api"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	view3 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	viewsdk "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	registry2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/registry"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )

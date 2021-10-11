@@ -35,7 +35,7 @@ var _ = Describe("Ordered Group", func() {
 		childRunner2 *fake_runner.TestRunner
 		childRunner3 *fake_runner.TestRunner
 
-		Δ time.Duration = 10 * time.Millisecond
+		Δ = 10 * time.Millisecond
 	)
 
 	Describe("Start", func() {

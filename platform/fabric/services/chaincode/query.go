@@ -48,14 +48,16 @@ func (i *queryChaincodeView) Query(context view.Context) ([]byte, error) {
 	if i.InvokerIdentity.IsNone() {
 		i.InvokerIdentity = fNetwork.IdentityProvider().DefaultIdentity()
 	}
-	chaincode := channel.Chaincode(i.ChaincodeName)
+	var chaincode Chaincode
+
+	chaincode = &stdChaincode{ch: channel.Chaincode(i.ChaincodeName)}
 	if chaincode == nil {
 		return nil, errors.Errorf("fabric chaincode [%s:%s:%s] not found", i.Network, i.Channel, i.ChaincodeName)
 	}
 	if chaincode.IsPrivate() {
 		// This is a Fabric Private Chaincode, use the corresponding service
 		fpcChannel := fpc.GetChannel(context, i.Network, i.Channel)
-		return fpcChannel.Chaincode(i.ChaincodeName).Query(i.Function, i.Args...).Call()
+		chaincode = &fpcChaincode{ch: fpcChannel.Chaincode(i.ChaincodeName)}
 	}
 
 	invocation := chaincode.Query(i.Function, i.Args...).WithInvokerIdentity(i.InvokerIdentity)
@@ -103,7 +105,7 @@ func (i *queryChaincodeView) WithEndorsersFromMyOrg() *queryChaincodeView {
 	return i
 }
 
-func (i *queryChaincodeView) WithInvokerIdentity(id view.Identity) *queryChaincodeView {
+func (i *queryChaincodeView) WithSignerIdentity(id view.Identity) *queryChaincodeView {
 	i.InvokerIdentity = id
 	return i
 }
