@@ -105,8 +105,6 @@ func (r *service) Endpoint(party view.Identity) (map[driver.PortName]string, err
 	}
 }
 
-var ()
-
 func (r *service) Resolve(party view.Identity) (view.Identity, map[driver.PortName]string, []byte, error) {
 	cursor := party
 	for {
