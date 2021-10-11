@@ -19,7 +19,7 @@ import (
 
 	"gopkg.in/alecthomas/kingpin.v2"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/cli"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 )
@@ -34,7 +34,7 @@ var (
 // CommandRegistrar registers commands
 type CommandRegistrar interface {
 	// Command adds a new top-level command to the CLI
-	Command(name, help string, onCommand common.CLICommand) *kingpin.CmdClause
+	Command(name, help string, onCommand cli.CLICommand) *kingpin.CmdClause
 }
 
 func RegisterViewCommand(cli CommandRegistrar) {
@@ -101,7 +101,7 @@ func (ic *invokeCmd) Hash(msg []byte) ([]byte, error) {
 	return h.Sum(nil), nil
 }
 
-func (ic *invokeCmd) invoke(config common.Config) error {
+func (ic *invokeCmd) invoke(config cli.Config) error {
 	if err := ic.validateInput(); err != nil {
 		return err
 	}

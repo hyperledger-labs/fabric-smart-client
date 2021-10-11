@@ -38,7 +38,7 @@ func (p *Initiator) Call(context view.Context) (interface{}, error) {
 		if msg.Status == view.ERROR {
 			return nil, errors.New(string(msg.Payload))
 		}
-		if bytes.Equal(msg.Payload, p.in) {
+		if !bytes.Equal(msg.Payload, p.in) {
 			return nil, fmt.Errorf("exptectd %s, got %s", string(p.in), string(msg.Payload))
 		}
 	case <-time.After(1 * time.Minute):

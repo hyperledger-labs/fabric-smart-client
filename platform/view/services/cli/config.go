@@ -4,7 +4,7 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package common
+package cli
 
 import (
 	"io/ioutil"
@@ -12,7 +12,7 @@ import (
 	"github.com/hyperledger/fabric/cmd/common/comm"
 	"github.com/hyperledger/fabric/cmd/common/signer"
 	"github.com/pkg/errors"
-	yaml "gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v2"
 )
 
 // Config aggregates configuration of TLS and signing

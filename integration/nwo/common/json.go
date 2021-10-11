@@ -27,8 +27,14 @@ func JSONUnmarshal(raw []byte, v interface{}) interface{} {
 
 func JSONUnmarshalString(v interface{}) string {
 	var s string
-	err := json.Unmarshal(v.([]byte), &s)
-	Expect(err).NotTo(HaveOccurred())
+	switch vv := v.(type) {
+	case []byte:
+		err := json.Unmarshal(vv, &s)
+		Expect(err).NotTo(HaveOccurred())
+	case string:
+		err := json.Unmarshal([]byte(vv), &s)
+		Expect(err).NotTo(HaveOccurred())
+	}
 	return s
 }
 

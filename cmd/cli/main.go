@@ -12,7 +12,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/cmd/artifactsgen"
 	"github.com/hyperledger-labs/fabric-smart-client/cmd/cryptogen"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/cli"
 	view "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/view/cmd"
 )
 
@@ -43,7 +43,7 @@ func main() {
 		artifactsgen.Gen()
 		return
 	case "view":
-		cli := common.NewCLI("sc", "Command line client for Fabric Smart Client")
+		cli := cli.NewCLI("sc", "Command line client for Fabric Smart Client")
 		view.RegisterViewCommand(cli)
 		cli.Run(os.Args[1:])
 		return
