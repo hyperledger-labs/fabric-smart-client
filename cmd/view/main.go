@@ -9,8 +9,7 @@ package main
 import (
 	"os"
 
-	"github.com/hyperledger/fabric/cmd/common"
-
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common"
 	view "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/view/cmd"
 )
 
