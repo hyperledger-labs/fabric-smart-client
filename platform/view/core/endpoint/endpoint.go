@@ -158,7 +158,7 @@ func (r *service) IsBoundTo(a view.Identity, b view.Identity) bool {
 
 func (r *service) GetIdentity(endpoint string, pkid []byte) (view.Identity, error) {
 	r.resolversMutex.RLock()
-	r.resolversMutex.RUnlock()
+	defer r.resolversMutex.RUnlock()
 
 	// search in the resolver list
 	for _, resolver := range r.resolvers {
@@ -188,21 +188,23 @@ func (r *service) GetIdentity(endpoint string, pkid []byte) (view.Identity, erro
 }
 
 func (r *service) AddResolver(name string, domain string, addresses map[string]string, aliases []string, id []byte) (view.Identity, error) {
-	r.resolversMutex.Lock()
-	defer r.resolversMutex.Unlock()
-
 	logger.Debugf("adding resolver [%s,%s,%v,%v,%s]", name, domain, addresses, aliases, view.Identity(id).String())
 
 	// is there a resolver with the same name?
+	r.resolversMutex.RLock()
 	for _, resolver := range r.resolvers {
 		if resolver.Name == name {
 			// TODO: perform additional checks
 
 			// Then bind
+			r.resolversMutex.RUnlock()
 			return resolver.Id, r.Bind(resolver.Id, id)
 		}
 	}
+	r.resolversMutex.RUnlock()
 
+	r.resolversMutex.Lock()
+	defer r.resolversMutex.Unlock()
 	r.resolvers = append(r.resolvers, &resolver{
 		Name:      name,
 		Domain:    domain,
