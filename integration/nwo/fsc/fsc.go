@@ -314,7 +314,7 @@ func (p *platform) FSCCLI(command common.Command) (*gexec.Session, error) {
 }
 
 func (p *platform) Cryptogen(command common.Command) (*gexec.Session, error) {
-	cmd := common.NewCommand(p.Builder.Cryptogen(), command)
+	cmd := common.NewCommand(p.Builder.FSCCLI(), command)
 	return p.StartSession(cmd, command.SessionName())
 }
 

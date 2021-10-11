@@ -18,6 +18,10 @@ func (c *Builder) ConfigTxGen() string {
 	return c.Build("github.com/hyperledger/fabric/cmd/configtxgen")
 }
 
+func (c *Builder) FSCCLI() string {
+	return c.Build("github.com/hyperledger-labs/fabric-smart-client/cmd/cli")
+}
+
 func (c *Builder) Cryptogen() string {
 	return c.Build("github.com/hyperledger-labs/fabric-smart-client/cmd/cryptogen")
 }

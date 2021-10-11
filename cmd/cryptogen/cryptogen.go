@@ -4,7 +4,7 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package main
+package cryptogen
 
 import (
 	"bytes"
@@ -217,7 +217,7 @@ var (
 	extConfigFile = ext.Flag("config", "The configuration template to use").File()
 )
 
-func main() {
+func Gen() {
 	kingpin.Version("0.0.1")
 	switch kingpin.MustParse(app.Parse(os.Args[1:])) {
 

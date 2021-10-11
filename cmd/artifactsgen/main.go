@@ -4,18 +4,17 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package main
+package artifactsgen
 
 import (
 	_ "net/http/pprof"
 	"os"
 	"strings"
 
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
-
 	gen2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/artifactgen/gen"
 	version2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/artifactgen/version"
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 const CmdRoot = "core"
@@ -24,7 +23,7 @@ const CmdRoot = "core"
 // defaults to printing the help message.
 var mainCmd = &cobra.Command{Use: "artifactgen"}
 
-func main() {
+func Gen() {
 	// For environment variables.
 	viper.SetEnvPrefix(CmdRoot)
 	viper.AutomaticEnv()
