@@ -125,9 +125,13 @@ clean:
 	rm -rf ./integration/fsc/pingpong/cmd/responder
 	rm -rf ./integration/fscnodes
 
-.PHONY: artifactsgen
-artifactsgen:
-	@go install ./cmd/artifactsgen
+.PHONY: cli
+cli:
+	@go install ./cmd/cli
+
+.PHONY: node
+node:
+	@go install ./cmd/node
 
 .PHONY: topologies
 topologies:

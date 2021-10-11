@@ -10,8 +10,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/hyperledger-labs/fabric-smart-client/cmd/artifactsgen"
-	"github.com/hyperledger-labs/fabric-smart-client/cmd/cryptogen"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/artifactgen"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/cryptogen"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/cli"
 	view "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/view/cmd"
 )
@@ -40,7 +40,7 @@ func main() {
 		return
 	case "artifactsgen":
 		reArrangeArgs()
-		artifactsgen.Gen()
+		artifactgen.Gen()
 		return
 	case "view":
 		cli := cli.NewCLI("sc", "Command line client for Fabric Smart Client")

@@ -4,17 +4,18 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package artifactsgen
+package artifactgen
 
 import (
 	_ "net/http/pprof"
 	"os"
 	"strings"
 
-	gen2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/artifactgen/gen"
-	version2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/artifactgen/version"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+
+	gen2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/artifactgen/gen"
+	version2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/artifactgen/version"
 )
 
 const CmdRoot = "core"
