@@ -8,7 +8,6 @@ package stoprestart
 
 import (
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -32,19 +31,9 @@ func (p *Responder) Call(context view.Context) (interface{}, error) {
 		return nil, errors.New("time out reached")
 	}
 
-	// Respond with a pong if a ping is received, an error otherwise
-	m := string(payload)
-	switch {
-	case m != "ping":
-		// reply with an error
-		err := session.SendError([]byte(fmt.Sprintf("exptectd ping, got %s", m)))
-		assert.NoError(err)
-		return nil, fmt.Errorf("exptectd ping, got %s", m)
-	default:
-		// reply with pong
-		err := session.Send([]byte("pong"))
-		assert.NoError(err)
-	}
+	// Echo back what you received from the initiator
+	err := session.Send(payload)
+	assert.NoError(err)
 
 	// Return
 	return "OK", nil

@@ -14,15 +14,17 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	gen2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/artifactgen/gen"
-	version2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/artifactgen/version"
+	"github.com/hyperledger-labs/fabric-smart-client/cmd/fsccli/version"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/artifactgen"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/cryptogen"
+	view "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/view/cmd"
 )
 
-const CmdRoot = "core"
+const CmdRoot = "fsccli"
 
 // The main command describes the service and
 // defaults to printing the help message.
-var mainCmd = &cobra.Command{Use: "artifactgen"}
+var mainCmd = &cobra.Command{Use: "fsccli"}
 
 func main() {
 	// For environment variables.
@@ -39,8 +41,10 @@ func main() {
 	viper.BindPFlag("logging_level", mainFlags.Lookup("logging-level"))
 	mainFlags.MarkHidden("logging-level")
 
-	mainCmd.AddCommand(gen2.Cmd())
-	mainCmd.AddCommand(version2.Cmd())
+	mainCmd.AddCommand(artifactgen.NewCmd())
+	mainCmd.AddCommand(cryptogen.NewCmd())
+	mainCmd.AddCommand(view.NewCmd())
+	mainCmd.AddCommand(version.Cmd())
 
 	// On failure Cobra prints the usage message and error string, so we only
 	// need to exit with a non-0 status

@@ -4,7 +4,7 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package main
+package cryptogen
 
 import (
 	"bytes"
@@ -15,7 +15,6 @@ import (
 	"path/filepath"
 	"text/template"
 
-	"gopkg.in/alecthomas/kingpin.v2"
 	"gopkg.in/yaml.v2"
 
 	ca2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/cryptogen/ca"
@@ -201,56 +200,18 @@ PeerOrgs:
       Count: 1
 `
 
-//command line flags
-var (
-	app = kingpin.New("cryptogen", "Utility for generating Hyperledger Fabric key material")
-
-	gen           = app.Command("generate", "Generate key material")
-	outputDir     = gen.Flag("output", "The output directory in which to place artifacts").Default("crypto-config").String()
-	genConfigFile = gen.Flag("config", "The configuration template to use").File()
-
-	showtemplate = app.Command("showtemplate", "Show the default configuration template")
-
-	version       = app.Command("version", "Show version information")
-	ext           = app.Command("extend", "Extend existing network")
-	inputDir      = ext.Flag("input", "The input directory in which existing network place").Default("crypto-config").String()
-	extConfigFile = ext.Flag("config", "The configuration template to use").File()
-)
-
-func main() {
-	kingpin.Version("0.0.1")
-	switch kingpin.MustParse(app.Parse(os.Args[1:])) {
-
-	// "generate" command
-	case gen.FullCommand():
-		generate()
-
-	case ext.FullCommand():
-		extend()
-
-		// "showtemplate" command
-	case showtemplate.FullCommand():
-		fmt.Print(defaultConfig)
-		os.Exit(0)
-
-		// "version" command
-	case version.FullCommand():
-		printVersion()
-	}
-}
-
 func getConfig() (*Config, error) {
 	var configData string
 
-	if *genConfigFile != nil {
-		data, err := ioutil.ReadAll(*genConfigFile)
+	if genConfigFile != "" {
+		data, err := ioutil.ReadFile(genConfigFile)
 		if err != nil {
 			return nil, fmt.Errorf("Error reading configuration: %s", err)
 		}
 
 		configData = string(data)
-	} else if *extConfigFile != nil {
-		data, err := ioutil.ReadAll(*extConfigFile)
+	} else if extConfigFile != "" {
+		data, err := ioutil.ReadFile(extConfigFile)
 		if err != nil {
 			return nil, fmt.Errorf("Error reading configuration: %s", err)
 		}
@@ -298,9 +259,9 @@ func extend() {
 
 func extendPeerOrg(orgSpec OrgSpec) {
 	orgName := orgSpec.Domain
-	orgDir := filepath.Join(*inputDir, "peerOrganizations", orgName)
+	orgDir := filepath.Join(inputDir, "peerOrganizations", orgName)
 	if _, err := os.Stat(orgDir); os.IsNotExist(err) {
-		generatePeerOrg(*inputDir, orgSpec)
+		generatePeerOrg(inputDir, orgSpec)
 		return
 	}
 
@@ -358,13 +319,13 @@ func extendPeerOrg(orgSpec OrgSpec) {
 func extendOrdererOrg(orgSpec OrgSpec) {
 	orgName := orgSpec.Domain
 
-	orgDir := filepath.Join(*inputDir, "ordererOrganizations", orgName)
+	orgDir := filepath.Join(inputDir, "ordererOrganizations", orgName)
 	caDir := filepath.Join(orgDir, "ca")
 	usersDir := filepath.Join(orgDir, "users")
 	tlscaDir := filepath.Join(orgDir, "tlsca")
 	orderersDir := filepath.Join(orgDir, "orderers")
 	if _, err := os.Stat(orgDir); os.IsNotExist(err) {
-		generateOrdererOrg(*inputDir, orgSpec)
+		generateOrdererOrg(inputDir, orgSpec)
 		return
 	}
 
@@ -393,7 +354,6 @@ func extendOrdererOrg(orgSpec OrgSpec) {
 }
 
 func generate() {
-
 	config, err := getConfig()
 	if err != nil {
 		fmt.Printf("Error reading config: %s", err)
@@ -406,7 +366,7 @@ func generate() {
 			fmt.Printf("Error processing peer configuration: %s", err)
 			os.Exit(-1)
 		}
-		generatePeerOrg(*outputDir, orgSpec)
+		generatePeerOrg(outputDir, orgSpec)
 	}
 
 	for _, orgSpec := range config.OrdererOrgs {
@@ -415,7 +375,7 @@ func generate() {
 			fmt.Printf("Error processing orderer configuration: %s", err)
 			os.Exit(-1)
 		}
-		generateOrdererOrg(*outputDir, orgSpec)
+		generateOrdererOrg(outputDir, orgSpec)
 	}
 }
 

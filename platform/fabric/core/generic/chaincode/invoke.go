@@ -341,7 +341,7 @@ func (i *Invoke) collectResponses(endorserClients []pb.EndorserClient, signedPro
 	return responses, nil
 }
 
-// getChaincodeSpec get chaincode spec from the cli cmd parameters
+// getChaincodeSpec get chaincode spec from the fsccli cmd parameters
 func (i *Invoke) getChaincodeSpec() (*pb.ChaincodeSpec, error) {
 	// prepare args
 	args, err := i.prepareArgs()

@@ -8,16 +8,10 @@ package pingpong_test
 
 import (
 	"bytes"
-	"crypto/tls"
-	"crypto/x509"
-	"io/ioutil"
-	"net/http"
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/api"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/web"
-
-	config2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/core/config"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -160,28 +154,3 @@ var _ = Describe("EndToEnd", func() {
 	})
 
 })
-
-func newHTTPClient(confDir string) *http.Client {
-	configProvider, err := config2.NewProvider(confDir)
-	Expect(err).NotTo(HaveOccurred())
-
-	clientCertPool := x509.NewCertPool()
-	caCert, err := ioutil.ReadFile(configProvider.TranslatePath(configProvider.GetStringSlice("fsc.tls.clientRootCAs.files")[0]))
-	Expect(err).NotTo(HaveOccurred())
-	clientCertPool.AppendCertsFromPEM(caCert)
-
-	tlsClientConfig := &tls.Config{
-		RootCAs: clientCertPool,
-	}
-	clientCert, err := tls.LoadX509KeyPair(
-		configProvider.GetPath("fsc.tls.cert.file"),
-		configProvider.GetPath("fsc.tls.key.file"))
-	Expect(err).NotTo(HaveOccurred())
-	tlsClientConfig.Certificates = []tls.Certificate{clientCert}
-
-	return &http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: tlsClientConfig,
-		},
-	}
-}

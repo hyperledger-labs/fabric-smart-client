@@ -18,6 +18,7 @@ func (c Generate) SessionName() string {
 
 func (c Generate) Args() []string {
 	return []string{
+		"cryptogen",
 		"generate",
 		"--config", c.Config,
 		"--output", c.Output,

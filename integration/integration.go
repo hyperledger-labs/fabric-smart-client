@@ -144,6 +144,14 @@ func (i *Infrastructure) Client(name string) api.ViewClient {
 	return i.ctx.ViewClients[name]
 }
 
+func (i *Infrastructure) CLI(name string) api.ViewClient {
+	if i.nwo == nil {
+		panic("call generate or load first")
+	}
+
+	return i.ctx.ViewCLIs[name]
+}
+
 func (i *Infrastructure) Admin(name string) api.ViewClient {
 	if i.nwo == nil {
 		panic("call generate or load first")

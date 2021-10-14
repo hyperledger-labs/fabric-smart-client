@@ -13,8 +13,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Program name
-const ProgramName = "artifactsgen"
+// ProgramName is the program name
+const ProgramName = "fsccli"
 
 // Cmd returns the Cobra Command for Version
 func Cmd() *cobra.Command {
@@ -23,8 +23,8 @@ func Cmd() *cobra.Command {
 
 var cobraCommand = &cobra.Command{
 	Use:   "version",
-	Short: "Print artifactsgen version.",
-	Long:  `Print current version of artifactsgen.`,
+	Short: "Print fsccli version.",
+	Long:  `Print current version of Fabric Smart Client CLI.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if len(args) != 0 {
 			return fmt.Errorf("trailing args detected")

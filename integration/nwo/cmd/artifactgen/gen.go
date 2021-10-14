@@ -4,10 +4,9 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package gen
+package artifactgen
 
 import (
-	"fmt"
 	"io/ioutil"
 
 	"github.com/pkg/errors"
@@ -38,29 +37,35 @@ var topologyFile string
 var output string
 var port int
 
-// Cmd returns the Cobra Command for Version
-func Cmd() *cobra.Command {
+// NewCmd returns the Cobra Command for the artifactsgen
+func NewCmd() *cobra.Command {
 	// Set the flags on the node start command.
-	flags := cobraCommand.Flags()
+	rootCommand := &cobra.Command{
+		Use:   "artifactsgen",
+		Short: "Gen artifacts.",
+		Long:  `Read topology from file and generates artifacts.`,
+	}
+
+	genCmd := &cobra.Command{
+		Use:   "gen",
+		Short: "Gen artifacts.",
+		Long:  `Generate artifacts from a topology file.`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			// Parsing of the command line is done so silence cmd usage
+			cmd.SilenceUsage = true
+			return gen(args)
+		},
+	}
+	flags := genCmd.Flags()
 	flags.StringVarP(&topologyFile, "topology", "t", "", "topology file in yaml format")
 	flags.StringVarP(&output, "output", "o", "./testdata", "output folder")
 	flags.IntVarP(&port, "port", "p", 20000, "host starting port")
 
-	return cobraCommand
-}
+	rootCommand.AddCommand(
+		genCmd,
+	)
 
-var cobraCommand = &cobra.Command{
-	Use:   "gen",
-	Short: "Gen artifacts.",
-	Long:  `Read topology from file and generates artifacts.`,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		if len(args) != 0 {
-			return fmt.Errorf("trailing args detected")
-		}
-		// Parsing of the command line is done so silence cmd usage
-		cmd.SilenceUsage = true
-		return gen(args)
-	},
+	return rootCommand
 }
 
 // gen read topology and generates artifacts

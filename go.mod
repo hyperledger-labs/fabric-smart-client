@@ -50,8 +50,8 @@ require (
 	github.com/moby/sys/mount v0.2.0 // indirect
 	github.com/morikuni/aec v1.0.0 // indirect
 	github.com/multiformats/go-multiaddr v0.2.0
-	github.com/onsi/ginkgo v1.16.4
-	github.com/onsi/gomega v1.11.0
+	github.com/onsi/ginkgo v1.16.5
+	github.com/onsi/gomega v1.16.0
 	github.com/otiai10/copy v1.5.1
 	github.com/pierrec/lz4 v2.5.2+incompatible // indirect
 	github.com/pkg/errors v0.9.1
@@ -65,7 +65,7 @@ require (
 	go.uber.org/multierr v1.6.0 // indirect
 	go.uber.org/zap v1.16.0
 	golang.org/x/mod v0.5.1 // indirect
-	golang.org/x/sys v0.0.0-20211007075335-d3039528d8ac // indirect
+	golang.org/x/sys v0.0.0-20211013075003-97ac67df715c // indirect
 	golang.org/x/tools v0.1.7 // indirect
 	google.golang.org/genproto v0.0.0-20210201184850-646a494a81ea // indirect
 	google.golang.org/grpc v1.39.1

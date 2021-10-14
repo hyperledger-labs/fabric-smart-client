@@ -48,7 +48,7 @@ var _ = Describe("EndToEnd", func() {
 			Expect(res).NotTo(BeNil())
 			id := common.JSONUnmarshalString(res)
 
-			res, err = ii.Client("borrower").CallView("query", common.JSONMarshall(&views.Query{LinearID: id}))
+			res, err = ii.CLI("borrower").CallView("query", common.JSONMarshall(&views.Query{LinearID: id}))
 			Expect(err).NotTo(HaveOccurred())
 			Expect(common.JSONUnmarshalInt(res)).To(BeEquivalentTo(10))
 			res, err = ii.Client("lender").CallView("query", common.JSONMarshall(&views.Query{LinearID: id}))

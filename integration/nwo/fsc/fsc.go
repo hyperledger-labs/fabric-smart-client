@@ -192,16 +192,29 @@ func (p *platform) PostRun() {
 		Expect(err).NotTo(HaveOccurred())
 
 		// Get from the registry the signing identity and the connection config
-		c, err := view.New(
+		c, err := view.NewClient(
 			&view.Config{
-				ID:      v.GetString("fsc.id"),
-				FSCNode: p.Context.ConnectionConfig(node.Name),
+				ID:               v.GetString("fsc.id"),
+				ConnectionConfig: p.Context.ConnectionConfig(node.Name),
 			},
 			p.Context.ClientSigningIdentity(node.Name),
 			crypto.NewProvider(),
 		)
 		Expect(err).NotTo(HaveOccurred())
 
+		cli := &fscCLIViewClient{
+			timeout: p.EventuallyTimeout,
+			p:       p,
+			CMD: commands.View{
+				TLSCA:         path.Join(p.NodeLocalTLSDir(node), "ca.crt"),
+				UserCert:      p.LocalMSPIdentityCert(node),
+				UserKey:       p.LocalMSPPrivateKey(node),
+				NetworkPrefix: p.NetworkID,
+				Server:        p.Context.ConnectionConfig(node.Name).Address,
+			},
+		}
+		p.Context.SetCLI(node.Name, cli)
+		p.Context.SetCLI(node.ID(), cli)
 		p.Context.SetViewClient(node.Name, c)
 		p.Context.SetViewClient(node.ID(), c)
 		for _, identity := range p.Context.GetViewIdentityAliases(node.ID()) {
@@ -216,10 +229,10 @@ func (p *platform) PostRun() {
 
 		// Setup admins
 		if id := p.Context.AdminSigningIdentity(node.Name); id != nil {
-			c, err := view.New(
+			c, err := view.NewClient(
 				&view.Config{
-					ID:      v.GetString("fsc.id"),
-					FSCNode: p.Context.ConnectionConfig(node.Name),
+					ID:               v.GetString("fsc.id"),
+					ConnectionConfig: p.Context.ConnectionConfig(node.Name),
 				},
 				id,
 				crypto.NewProvider(),
@@ -295,8 +308,13 @@ func (p *platform) CheckTopology() {
 	}
 }
 
+func (p *platform) FSCCLI(command common.Command) (*gexec.Session, error) {
+	cmd := common.NewCommand(p.Builder.FSCCLI(), command)
+	return p.StartSession(cmd, command.SessionName())
+}
+
 func (p *platform) Cryptogen(command common.Command) (*gexec.Session, error) {
-	cmd := common.NewCommand(p.Builder.Cryptogen(), command)
+	cmd := common.NewCommand(p.Builder.FSCCLI(), command)
 	return p.StartSession(cmd, command.SessionName())
 }
 
