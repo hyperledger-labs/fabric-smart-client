@@ -92,7 +92,7 @@ func (p *Platform) RunRelayServer(name string, serverConfigPath, port string) {
 		panic(err)
 	}
 
-	// statusCh, errCh := cli.ContainerWait(ctx, resp.ID, container.WaitConditionNotRunning)
+	// statusCh, errCh := fsccli.ContainerWait(ctx, resp.ID, container.WaitConditionNotRunning)
 	// select {
 	// case err := <-errCh:
 	// 	if err != nil {
@@ -101,7 +101,7 @@ func (p *Platform) RunRelayServer(name string, serverConfigPath, port string) {
 	// case <-statusCh:
 	// }
 	//
-	// out, err := cli.ContainerLogs(ctx, resp.ID, types.ContainerLogsOptions{ShowStdout: true})
+	// out, err := fsccli.ContainerLogs(ctx, resp.ID, types.ContainerLogsOptions{ShowStdout: true})
 	// if err != nil {
 	// 	panic(err)
 	// }
@@ -202,7 +202,7 @@ func (p *Platform) RunRelayFabricDriver(
 		panic(err)
 	}
 
-	// statusCh, errCh := cli.ContainerWait(ctx, resp.ID, container.WaitConditionNotRunning)
+	// statusCh, errCh := fsccli.ContainerWait(ctx, resp.ID, container.WaitConditionNotRunning)
 	// select {
 	// case err := <-errCh:
 	// 	if err != nil {
@@ -211,7 +211,7 @@ func (p *Platform) RunRelayFabricDriver(
 	// case <-statusCh:
 	// }
 	//
-	// out, err := cli.ContainerLogs(ctx, resp.ID, types.ContainerLogsOptions{ShowStdout: true})
+	// out, err := fsccli.ContainerLogs(ctx, resp.ID, types.ContainerLogsOptions{ShowStdout: true})
 	// if err != nil {
 	// 	panic(err)
 	// }

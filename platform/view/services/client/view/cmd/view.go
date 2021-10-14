@@ -17,9 +17,10 @@ import (
 	"path"
 	"time"
 
-	"gopkg.in/alecthomas/kingpin.v2"
+	"github.com/hyperledger/fabric/cmd/common/comm"
+	"github.com/hyperledger/fabric/cmd/common/signer"
+	"github.com/spf13/cobra"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/cli"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 )
@@ -29,85 +30,140 @@ var (
 	terminate = os.Exit
 	// Function used to redirect output to
 	outWriter io.Writer = os.Stderr
+
+	endpoint string
+	input    string
+	function string
+	stdin    bool
+	rawInput []byte
+
+	configFile string
+	tlsCA      string
+	tlsCert    string
+	tlsKey     string
+	userKey    string
+	userCert   string
+	mspID      string
 )
 
-// CommandRegistrar registers commands
-type CommandRegistrar interface {
-	// Command adds a new top-level command to the CLI
-	Command(name, help string, onCommand cli.CLICommand) *kingpin.CmdClause
-}
+type hasher struct{}
 
-func RegisterViewCommand(cli CommandRegistrar) {
-	ic := &invokeCmd{}
-	cmd := cli.Command("view", "Invoke a view", ic.invoke)
-
-	ic.endpoint = cmd.Flag("endpoint", "Sets the endpoint of the node to connect to (host:port)").String()
-	ic.input = cmd.Flag("input", "Sets the input to the view function, encoded either as base64, or as-is").String()
-	ic.function = cmd.Flag("function", "Sets the function name to be invoked").String()
-	ic.stdin = cmd.Flag("stdin", "Sets standard input as the input stream").Bool()
-}
-
-type invokeCmd struct {
-	endpoint *string
-	input    *string
-	function *string
-	stdin    *bool
-	rawInput []byte
-}
-
-func (ic *invokeCmd) validateInput() error {
-	if ic.endpoint == nil {
-		return fmt.Errorf("endpoint must be specified")
-	}
-
-	if ic.function == nil {
-		return fmt.Errorf("function name must be specified")
-	}
-
-	// Check if input is to be read from stdin
-	if ic.stdin != nil && *ic.stdin {
-		stdinInput, err := ioutil.ReadAll(os.Stdin)
-		if err != nil {
-			return fmt.Errorf("failed reading input from stdin: %v", err)
-		}
-		ic.rawInput = stdinInput
-		return nil
-	}
-
-	if ic.input == nil {
-		// If input isn't specified, the input is nil
-		return nil
-	}
-
-	// Check if it's a base64 encoded string
-	rawBase64Encoded, err := base64.StdEncoding.DecodeString(*ic.input)
-	if err == nil {
-		ic.rawInput = rawBase64Encoded
-		return nil
-	}
-
-	ic.rawInput = []byte(*ic.input)
-
-	return nil
-}
-
-func (ic *invokeCmd) GetHash() hash.Hash {
+func (*hasher) GetHash() hash.Hash {
 	return sha256.New()
 }
 
-func (ic *invokeCmd) Hash(msg []byte) ([]byte, error) {
+func (*hasher) Hash(msg []byte) ([]byte, error) {
 	h := sha256.New()
 	h.Write(msg)
 	return h.Sum(nil), nil
 }
 
-func (ic *invokeCmd) invoke(config cli.Config) error {
-	if err := ic.validateInput(); err != nil {
+func NewCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "view",
+		Short: "Invoke a view.",
+		Long:  `Invoke a view.`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return invoke()
+		},
+	}
+	flags := cmd.Flags()
+	flags.StringVarP(&endpoint, "endpoint", "e", "", "Sets the endpoint of the node to connect to (host:port)")
+	flags.StringVarP(&input, "input", "i", "", "Sets the input to the view function, encoded either as base64, or as-is")
+	flags.StringVarP(&function, "function", "f", "", "Sets the function name to be invoked")
+	flags.BoolVarP(&stdin, "stdin", "s", false, "Sets standard input as the input stream")
+
+	flags.StringVarP(&configFile, "configFile", "c", "", "Specifies the config file to load the configuration from")
+	flags.StringVarP(&tlsCA, "peerTLSCA", "a", "", "Sets the TLS CA certificate file path that verifies the TLS peer's certificate")
+	flags.StringVarP(&tlsCert, "tlsCert", "t", "", "(Optional) Sets the client TLS certificate file path that is used when the peer enforces client authentication")
+	flags.StringVarP(&tlsKey, "tlsKey", "k", "", "(Optional) Sets the client TLS key file path that is used when the peer enforces client authentication")
+	flags.StringVarP(&userKey, "userKey", "u", "", "Sets the user's key file path that is used to sign messages sent to the peer")
+	flags.StringVarP(&userCert, "userCert", "r", "", "Sets the user's certificate file path that is used to authenticate the messages sent to the peer")
+	flags.StringVarP(&mspID, "MSP", "m", "", "Sets the MSP ID of the user, which represents the CA(s) that issued its user certificate")
+
+	return cmd
+}
+
+func validateInput() error {
+	if endpoint == "" {
+		return fmt.Errorf("endpoint must be specified")
+	}
+
+	if function == "" {
+		return fmt.Errorf("function name must be specified")
+	}
+
+	// Check if input is to be read from stdin
+	if stdin {
+		stdinInput, err := ioutil.ReadAll(os.Stdin)
+		if err != nil {
+			return fmt.Errorf("failed reading input from stdin: %v", err)
+		}
+		rawInput = stdinInput
+		return nil
+	}
+
+	if input == "" {
+		// If input isn't specified, the input is nil
+		return nil
+	}
+
+	// Check if it's a base64 encoded string
+	rawBase64Encoded, err := base64.StdEncoding.DecodeString(input)
+	if err == nil {
+		rawInput = rawBase64Encoded
+		return nil
+	}
+
+	rawInput = []byte(input)
+
+	return nil
+}
+
+func parseFlagsToConfig() Config {
+	conf := Config{
+		SignerConfig: signer.Config{
+			MSPID:        mspID,
+			IdentityPath: userCert,
+			KeyPath:      userKey,
+		},
+		TLSConfig: comm.Config{
+			KeyPath:        tlsKey,
+			CertPath:       tlsCert,
+			PeerCACertPath: tlsCA,
+		},
+	}
+	return conf
+}
+
+func loadConfig(file string) Config {
+	conf, err := ConfigFromFile(file)
+	if err != nil {
+		out("Failed loading config", err)
+		terminate(1)
+		return Config{}
+	}
+	return conf
+}
+
+func out(a ...interface{}) {
+	fmt.Fprintln(outWriter, a...)
+}
+
+func invoke() error {
+	var config Config
+	if configFile == "" {
+		config = parseFlagsToConfig()
+	} else {
+		config = loadConfig(configFile)
+	}
+
+	if err := validateInput(); err != nil {
 		return err
 	}
 
 	cc := &grpc.ConnectionConfig{
-		Address:           *ic.endpoint,
+		Address:           endpoint,
 		TLSEnabled:        true,
 		TLSRootCertFile:   path.Join(config.TLSConfig.PeerCACertPath),
 		ConnectionTimeout: 10 * time.Second,
@@ -123,13 +179,13 @@ func (ic *invokeCmd) invoke(config cli.Config) error {
 			ConnectionConfig: cc,
 		},
 		signer,
-		ic,
+		&hasher{},
 	)
 	if err != nil {
 		return err
 	}
 
-	res, err := c.CallView(*ic.function, ic.rawInput)
+	res, err := c.CallView(function, rawInput)
 	if err != nil {
 		return err
 	}
@@ -140,6 +196,5 @@ func (ic *invokeCmd) invoke(config cli.Config) error {
 	default:
 		fmt.Println(v)
 	}
-
 	return nil
 }

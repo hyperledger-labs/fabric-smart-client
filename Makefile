@@ -125,9 +125,9 @@ clean:
 	rm -rf ./integration/fsc/pingpong/cmd/responder
 	rm -rf ./integration/fscnodes
 
-.PHONY: cli
-cli:
-	@go install ./cmd/cli
+.PHONY: fsccli
+fsccli:
+	@go install ./cmd/fsccli
 
 .PHONY: node
 node:

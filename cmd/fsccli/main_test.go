@@ -4,7 +4,7 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package artifactgen
+package main
 
 import (
 	"bytes"
@@ -19,12 +19,19 @@ import (
 	"github.com/onsi/gomega/gexec"
 )
 
+func TestCompile(t *testing.T) {
+	gt := NewGomegaWithT(t)
+	_, err := gexec.Build("github.com/hyperledger-labs/fabric-smart-client/cmd/fsccli")
+	gt.Expect(err).NotTo(HaveOccurred())
+	defer gexec.CleanupBuildArtifacts()
+}
+
 func TestArtifactsGen(t *testing.T) {
 	RegisterFailHandler(func(message string, callerSkip ...int) {
 		panic(message)
 	})
 
-	cli, err := gexec.Build("github.com/hyperledger-labs/fabric-smart-client/cmd/cli")
+	cli, err := gexec.Build("github.com/hyperledger-labs/fabric-smart-client/cmd/fsccli")
 	Expect(err).NotTo(HaveOccurred())
 	defer gexec.CleanupBuildArtifacts()
 

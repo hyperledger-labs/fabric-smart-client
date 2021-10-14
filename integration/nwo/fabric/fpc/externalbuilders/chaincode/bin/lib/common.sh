@@ -215,7 +215,7 @@ cc_run() {
 
     # Here we might eventually do additional setup functionality, e.g.,
     # managing sealed state. Note, though, that we do have information such as
-    # channel id or alike so we can _not_ do normal peer cli chaincode
+    # channel id or alike so we can _not_ do normal peer fsccli chaincode
     # invocations to call "__setup" or alike! Hence we do that stil in peer.sh
     # for now ...
 

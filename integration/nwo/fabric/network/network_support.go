@@ -1218,14 +1218,14 @@ func flagCount(flag string, args []string) int {
 }
 
 // PeerAdminSession starts a gexec.Session as a peer admin for the provided
-// peer command. This is intended to be used by short running peer cli commands
+// peer command. This is intended to be used by short running peer fsccli commands
 // that execute in the context of a peer configuration.
 func (n *Network) PeerAdminSession(p *topology.Peer, command common.Command) (*gexec.Session, error) {
 	return n.PeerUserSession(p, "Admin", command)
 }
 
 // PeerUserSession starts a gexec.Session as a peer user for the provided peer
-// command. This is intended to be used by short running peer cli commands that
+// command. This is intended to be used by short running peer fsccli commands that
 // execute in the context of a peer configuration.
 func (n *Network) PeerUserSession(p *topology.Peer, user string, command common.Command) (*gexec.Session, error) {
 	cmd := n.peerCommand(

@@ -19,7 +19,7 @@ func (c *Builder) ConfigTxGen() string {
 }
 
 func (c *Builder) FSCCLI() string {
-	return c.Build("github.com/hyperledger-labs/fabric-smart-client/cmd/cli")
+	return c.Build("github.com/hyperledger-labs/fabric-smart-client/cmd/fsccli")
 }
 
 func (c *Builder) Cryptogen() string {
