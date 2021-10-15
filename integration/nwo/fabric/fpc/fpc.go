@@ -110,32 +110,7 @@ func (n *Extension) GenerateArtifacts() {
 		if !chaincode.Private {
 			continue
 		}
-		// Generate Enclave Registry CC package for each peer that will conn
-		Expect(os.MkdirAll(n.packagePath(chaincode.Chaincode.Name), 0770)).NotTo(HaveOccurred())
-
-		peers := n.network.PeersByName(chaincode.Peers)
-		for i, peer := range peers {
-			org := n.network.Organization(peer.Organization)
-
-			Expect(packager.New().PackageChaincode(
-				chaincode.Chaincode.Name,
-				chaincode.Chaincode.Lang,
-				chaincode.Chaincode.Label,
-				filepath.Join(n.packagePath(chaincode.Chaincode.Name), fmt.Sprintf("%s.%s.%s.tgz", chaincode.Chaincode.Name, peer.Name, org.Domain)),
-				func(s string, s2 string) (string, []byte) {
-					if strings.HasSuffix(s, "connection.json") {
-						raw, err := json.MarshalIndent(&Connection{
-							Address:     "127.0.0.1:" + strconv.Itoa(int(n.ports[chaincode.Chaincode.Name][i])),
-							DialTimeout: "10s",
-							TlsRequired: false,
-						}, "", " ")
-						Expect(err).NotTo(HaveOccurred())
-						return filepath.Join(fmt.Sprintf("%s.%s", peer.Name, org.Domain), "connection.json"), raw
-					}
-					return "", nil
-				},
-			)).ToNot(HaveOccurred())
-		}
+		n.preparePackage(chaincode)
 	}
 
 	for _, org := range n.network.PeerOrgs() {
@@ -159,6 +134,7 @@ func (n *Extension) PostRun() {
 	if len(n.network.Topology().Chaincodes) != 0 {
 		for _, chaincode := range n.network.Topology().Chaincodes {
 			if chaincode.Private {
+				n.preparePackage(chaincode)
 				n.deployChaincode(chaincode)
 			}
 		}
@@ -310,6 +286,38 @@ func (n *Extension) initEnclave(chaincode *topology.ChannelChaincode) {
 
 		// Enclave Init should happen once only
 		return
+	}
+}
+
+func (n *Extension) preparePackage(chaincode *topology.ChannelChaincode) {
+	// Generate Enclave Registry CC package for each peer that will conn
+	Expect(os.MkdirAll(n.packagePath(chaincode.Chaincode.Name), 0770)).NotTo(HaveOccurred())
+
+	peers := n.network.PeersByName(chaincode.Peers)
+	for i, peer := range peers {
+		org := n.network.Organization(peer.Organization)
+
+		packageFilePath := filepath.Join(n.packagePath(chaincode.Chaincode.Name), fmt.Sprintf("%s.%s.%s.tgz", chaincode.Chaincode.Name, peer.Name, org.Domain))
+		if _, err := os.Stat(packageFilePath); os.IsNotExist(err) {
+			Expect(packager.New().PackageChaincode(
+				chaincode.Chaincode.Name,
+				chaincode.Chaincode.Lang,
+				chaincode.Chaincode.Label,
+				packageFilePath,
+				func(s string, s2 string) (string, []byte) {
+					if strings.HasSuffix(s, "connection.json") {
+						raw, err := json.MarshalIndent(&Connection{
+							Address:     "127.0.0.1:" + strconv.Itoa(int(n.ports[chaincode.Chaincode.Name][i])),
+							DialTimeout: "10s",
+							TlsRequired: false,
+						}, "", " ")
+						Expect(err).NotTo(HaveOccurred())
+						return filepath.Join(fmt.Sprintf("%s.%s", peer.Name, org.Domain), "connection.json"), raw
+					}
+					return "", nil
+				},
+			)).ToNot(HaveOccurred())
+		}
 	}
 }
 

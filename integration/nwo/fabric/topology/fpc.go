@@ -16,6 +16,9 @@ import (
 // set to the majority of the organization on which the chaincode
 // has been installed.
 func (c *Topology) EnableFPC() {
+	if c.FPC {
+		return
+	}
 	c.FPC = true
 	c.AddFPC("ercc", "fpc/ercc")
 }
@@ -26,9 +29,7 @@ func (c *Topology) EnableFPC() {
 // The endorsement policy is set to the majority of the organization on which the chaincode
 // has been installed.
 func (c *Topology) AddFPC(name, image string, orgs ...string) *ChannelChaincode {
-	if !c.FPC {
-		c.EnableFPC()
-	}
+	c.EnableFPC()
 
 	if len(orgs) == 0 {
 		orgs = c.Consortiums[0].Organizations
