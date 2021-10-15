@@ -1705,8 +1705,8 @@ func (n *Network) GenerateCoreConfig(p *topology.Peer) {
 
 		extension := bytes.NewBuffer([]byte{})
 		err = t.Execute(io.MultiWriter(core, extension), n)
-		n.Context.AddExtension(p.ID(), api.FabricExtension, extension.String())
 		Expect(err).NotTo(HaveOccurred())
+		n.Context.AddExtension(p.ID(), api.FabricExtension, extension.String())
 	case topology.FSCPeer:
 		err := os.MkdirAll(n.PeerDir(p), 0755)
 		Expect(err).NotTo(HaveOccurred())
