@@ -322,7 +322,7 @@ func (n *Extension) preparePackage(chaincode *topology.ChannelChaincode) {
 }
 
 func (n *Extension) reservePorts(chaincode *topology.ChannelChaincode) {
-	if _, ok := n.ports[chaincode.Chaincode.Name]; ok {
+	if ports, ok := n.ports[chaincode.Chaincode.Name]; ok && len(ports) != 0 {
 		return
 	}
 
