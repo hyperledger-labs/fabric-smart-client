@@ -66,7 +66,7 @@ func (c *Topology) AddChaincode(cc *ChannelChaincode) {
 	for i, chaincode := range c.Chaincodes {
 		if chaincode.Chaincode.Name == cc.Chaincode.Name {
 			// replace
-			c.Chaincodes[i] = chaincode
+			c.Chaincodes[i] = cc
 			return
 		}
 	}
