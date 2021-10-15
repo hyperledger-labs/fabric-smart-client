@@ -61,7 +61,16 @@ func (c *Topology) SetLogging(spec, format string) {
 	}
 }
 
-func (c *Topology) AppendChaincode(cc *ChannelChaincode) {
+func (c *Topology) AddChaincode(cc *ChannelChaincode) {
+	// if a chaincode with the same name exists already, replace
+	for i, chaincode := range c.Chaincodes {
+		if chaincode.Chaincode.Name == cc.Chaincode.Name {
+			// replace
+			c.Chaincodes[i] = chaincode
+			return
+		}
+	}
+
 	c.Chaincodes = append(c.Chaincodes, cc)
 }
 
@@ -161,7 +170,7 @@ func (c *Topology) AddNamespace(name string, policy string, peers ...string) {
 		Peers:   peers,
 	}
 
-	c.Chaincodes = append(c.Chaincodes, cc)
+	c.AddChaincode(cc)
 }
 
 func (c *Topology) AddNamespaceWithUnanimity(name string, orgs ...string) *namespace {
@@ -200,7 +209,7 @@ func (c *Topology) AddNamespaceWithUnanimity(name string, orgs ...string) *names
 		Peers:   peers,
 	}
 
-	c.Chaincodes = append(c.Chaincodes, cc)
+	c.AddChaincode(cc)
 
 	return &namespace{cc: cc}
 }
@@ -241,7 +250,7 @@ func (c *Topology) AddNamespaceWithOneOutOfN(name string, orgs ...string) {
 		Peers:   peers,
 	}
 
-	c.Chaincodes = append(c.Chaincodes, cc)
+	c.AddChaincode(cc)
 }
 
 func (c *Topology) AddManagedNamespace(name string, policy string, chaincode string, ctor string, peers ...string) {
@@ -267,7 +276,7 @@ func (c *Topology) AddManagedNamespace(name string, policy string, chaincode str
 		Peers:   peers,
 	}
 
-	c.Chaincodes = append(c.Chaincodes, cc)
+	c.AddChaincode(cc)
 }
 
 func (c *Topology) SetNamespaceApproverOrgs(orgs ...string) {

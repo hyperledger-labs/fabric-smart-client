@@ -142,7 +142,6 @@ func (n *Extension) PostRun() {
 	}
 }
 
-// FPCCheckTopology ensures that the topology contains what is necessary to deployFPC
 func (n *Extension) checkTopology() {
 }
 

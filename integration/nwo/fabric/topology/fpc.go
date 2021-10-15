@@ -74,7 +74,7 @@ func (c *Topology) AddFPC(name, image string, orgs ...string) *ChannelChaincode 
 		Private: true,
 		Peers:   peers,
 	}
-	c.Chaincodes = append(c.Chaincodes, cc)
+	c.AddChaincode(cc)
 
 	return cc
 }
