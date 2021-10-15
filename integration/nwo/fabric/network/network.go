@@ -53,7 +53,6 @@ type Network struct {
 	PortsByBrokerID   map[string]api.Ports
 	PortsByOrdererID  map[string]api.Ports
 	Logging           *topology.Logging
-	ChaincodeMode     string
 	PvtTxSupport      bool
 	PvtTxCCSupport    bool
 	MSPvtTxSupport    bool
@@ -107,7 +106,6 @@ func New(reg api.Context, topology *topology.Topology, dockerClient *docker.Clie
 		Consortiums:       topology.Consortiums,
 		Templates:         topology.Templates,
 		Logging:           topology.Logging,
-		ChaincodeMode:     topology.ChaincodeMode,
 		MSPvtTxSupport:    topology.MSPvtTxSupport,
 		MSPvtCCSupport:    topology.MSPvtCCSupport,
 		FabTokenSupport:   topology.FabTokenSupport,

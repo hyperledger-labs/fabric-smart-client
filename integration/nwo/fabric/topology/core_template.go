@@ -186,7 +186,7 @@ chaincode:
   installTimeout: 1200s
   startuptimeout: 1200s
   executetimeout: 1200s
-  mode: {{ .ChaincodeMode }}
+  mode: net
   keepalive: 0
   system:
     _lifecycle: enable

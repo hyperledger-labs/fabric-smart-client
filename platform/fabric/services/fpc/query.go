@@ -44,6 +44,7 @@ func (i *ChaincodeQuery) WithEndorsersFromMyOrg() {
 
 // Call invokes the chaincode and returns the result
 func (i *ChaincodeQuery) Call() ([]byte, error) {
+	logger.Debugf("query FPC [%s:%s:%s]", i.Channel, i.ID, i.function)
 	args, err := i.prepareArgs()
 	if err != nil {
 		return nil, errors.WithMessagef(err, "failed preparing arguments")

@@ -69,7 +69,7 @@ func (c *contract) EvaluateTransaction(name string, args ...string) ([]byte, err
 		c.fns.IdentityProvider().DefaultIdentity(),
 	).Call()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "failed querying chaincode [%s:%s]", c.id, name)
 	}
 	return raw, err
 }
@@ -85,7 +85,7 @@ func (c *contract) SubmitTransaction(name string, args ...string) ([]byte, error
 		c.fns.IdentityProvider().DefaultIdentity(),
 	).Call()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "failed invoking chaincode [%s:%s]", c.id, name)
 	}
 	return raw, err
 }
@@ -150,9 +150,9 @@ func (c *contractProviderForEndorsement) EvaluateTransaction(name string, args .
 		c.invoker,
 	).Call()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "failed querying chaincode [%s:%s]", c.cid, name)
 	}
-	return raw, err
+	return raw, nil
 }
 
 func (c *contractProviderForEndorsement) SubmitTransaction(name string, args ...string) ([]byte, error) {
@@ -170,9 +170,9 @@ func (c *contractProviderForEndorsement) SubmitTransaction(name string, args ...
 	).Call()
 
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "failed invoking chaincode [%s:%s]", c.cid, name)
 	}
-	return nil, err
+	return nil, nil
 }
 
 func (c *contractProviderForEndorsement) CreateTransaction(name string, peerEndpoints ...string) (fpc.Transaction, error) {
@@ -213,7 +213,7 @@ func (e *endorserContractImpl) EndorseTransaction(name string, args ...string) (
 	c := fpc.GetContract(p, e.cid)
 	_, err := c.SubmitTransaction(name, args...)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed submitting transaction")
+		return nil, errors.Wrapf(err, "failed endorse transaction for [%s:%s]", e.cid, name)
 	}
 	return p.env, nil
 }

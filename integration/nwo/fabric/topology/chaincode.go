@@ -44,3 +44,22 @@ func (c *Chaincode) SetPackageIDFromPackageFile() {
 type PrivateChaincode struct {
 	Image string
 }
+
+type namespace struct {
+	cc *ChannelChaincode
+}
+
+func (n *namespace) SetStateChaincode() *namespace {
+	n.cc.Chaincode.Path = "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state/cc/query"
+	return n
+}
+
+func (n *namespace) SetChaincodePath(path string) *namespace {
+	n.cc.Chaincode.Path = path
+	return n
+}
+
+func (n *namespace) NoInit() *namespace {
+	n.cc.Chaincode.InitRequired = false
+	return n
+}

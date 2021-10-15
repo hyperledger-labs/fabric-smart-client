@@ -149,6 +149,5 @@ func NewTopologyWithName(name string) *topology.Topology {
 				ImplicitMetaEndorsement,
 			},
 		}},
-		ChaincodeMode: "net",
 	}
 }
