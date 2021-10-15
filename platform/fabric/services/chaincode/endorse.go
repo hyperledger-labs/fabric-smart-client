@@ -71,9 +71,12 @@ func (i *endorseChaincodeView) Endorse(context view.Context) (*fabric.Envelope, 
 		return nil, errors.Errorf("fabric chaincode [%s:%s:%s] not found", i.Network, i.Channel, i.ChaincodeName)
 	}
 	if chaincode.IsPrivate() {
+		logger.Debugf("chaincode [%s:%s:%s] is a FPC", i.Network, i.Channel, i.ChaincodeName)
 		// This is a Fabric Private Chaincode, use the corresponding service
 		fpcChannel := fpc.GetChannel(context, i.Network, i.Channel)
 		chaincode = &fpcChaincode{fpcChannel.Chaincode(i.ChaincodeName)}
+	} else {
+		logger.Debugf("chaincode [%s:%s:%s] is a standard chaincode", i.Network, i.Channel, i.ChaincodeName)
 	}
 
 	invocation := chaincode.Endorse(
