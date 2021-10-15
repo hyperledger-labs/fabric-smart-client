@@ -134,6 +134,7 @@ func (n *Extension) PostRun() {
 	if len(n.network.Topology().Chaincodes) != 0 {
 		for _, chaincode := range n.network.Topology().Chaincodes {
 			if chaincode.Private {
+				n.reservePorts(chaincode)
 				n.preparePackage(chaincode)
 				n.deployChaincode(chaincode)
 			}
@@ -319,6 +320,18 @@ func (n *Extension) preparePackage(chaincode *topology.ChannelChaincode) {
 			)).ToNot(HaveOccurred())
 		}
 	}
+}
+
+func (n *Extension) reservePorts(chaincode *topology.ChannelChaincode) {
+	if _, ok := n.ports[chaincode.Chaincode.Name]; ok {
+		return
+	}
+
+	var ports []uint16
+	for range chaincode.Peers {
+		ports = append(ports, n.network.Context.ReservePort())
+	}
+	n.ports[chaincode.Chaincode.Name] = ports
 }
 
 type channelClient struct {
