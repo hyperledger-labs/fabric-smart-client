@@ -29,7 +29,6 @@ type Topology struct {
 	Profiles          []*Profile          `yaml:"profiles,omitempty"`
 	Templates         *Templates          `yaml:"templates,omitempty"`
 	Chaincodes        []*ChannelChaincode `yaml:"chaincodes,omitempty"`
-	ChaincodeMode     string              `yaml:"chaincodemode,omitempty"`
 	PvtTxSupport      bool                `yaml:"pvttxsupport,omitempty"`
 	PvtTxCCSupport    bool                `yaml:"pvttxccsupport,omitempty"`
 	MSPvtTxSupport    bool                `yaml:"mspvttxsupport,omitempty"`
@@ -62,70 +61,29 @@ func (c *Topology) SetLogging(spec, format string) {
 	}
 }
 
-func (c *Topology) addPeer(peer *Peer) {
+func (c *Topology) AppendChaincode(cc *ChannelChaincode) {
+	c.Chaincodes = append(c.Chaincodes, cc)
+}
+
+func (c *Topology) AppendPeer(peer *Peer) {
 	c.Peers = append(c.Peers, peer)
 }
 
-func (c *Topology) addOrganization(org *Organization) {
+func (c *Topology) AppendOrganization(org *Organization) {
 	c.Organizations = append(c.Organizations, org)
 	c.Consortiums[0].Organizations = append(c.Consortiums[0].Organizations, org.Name)
 	c.Profiles[1].Organizations = append(c.Profiles[1].Organizations, org.Name)
 }
 
-func (c *Topology) addChaincode(cc *ChannelChaincode) {
-	c.Chaincodes = append(c.Chaincodes, cc)
-}
-
-func (c *Topology) SetNamespaceApproverOrgs(orgs ...string) {
-	lcePolicy := "AND ("
-	for i, org := range orgs {
-		if i > 0 {
-			lcePolicy += ","
-		}
-		lcePolicy += "'" + org + "MSP.member'"
-	}
-	lcePolicy += ")"
-	for _, profile := range c.Profiles {
-		if profile.Name == "OrgsChannel" {
-			for i, policy := range profile.Policies {
-				if policy.Name == "LifecycleEndorsement" {
-					profile.Policies[i] = &Policy{
-						Name: "LifecycleEndorsement",
-						Type: "Signature",
-						Rule: lcePolicy,
-					}
-					return
-				}
-			}
-			return
-		}
+func (c *Topology) EnableNodeOUs() {
+	c.NodeOUs = true
+	for _, organization := range c.Organizations {
+		organization.EnableNodeOUs = c.NodeOUs
 	}
 }
 
-func (c *Topology) SetNamespaceApproverOrgsOR(orgs ...string) {
-	lcePolicy := "OR ("
-	for i, org := range orgs {
-		if i > 0 {
-			lcePolicy += ","
-		}
-		lcePolicy += "'" + org + "MSP.member'"
-	}
-	lcePolicy += ")"
-	for _, profile := range c.Profiles {
-		if profile.Name == "OrgsChannel" {
-			for i, policy := range profile.Policies {
-				if policy.Name == "LifecycleEndorsement" {
-					profile.Policies[i] = &Policy{
-						Name: "LifecycleEndorsement",
-						Type: "Signature",
-						Rule: lcePolicy,
-					}
-					return
-				}
-			}
-			return
-		}
-	}
+func (c *Topology) EnableGRPCLogging() {
+	c.GRPCLogging = true
 }
 
 func (c *Topology) AddOrganization(name string) *fscOrg {
@@ -138,7 +96,7 @@ func (c *Topology) AddOrganization(name string) *fscOrg {
 		Users:         1,
 		CA:            &CA{Hostname: "ca"},
 	}
-	c.addOrganization(o)
+	c.AppendOrganization(o)
 	return &fscOrg{c: c, o: o}
 }
 
@@ -180,7 +138,7 @@ func (c *Topology) AddPeer(name string, org string, typ PeerType, bootstrap bool
 		ExecutablePath: executable,
 		Channels:       peerChannels,
 	}
-	c.addPeer(p)
+	c.AppendPeer(p)
 
 	return p
 }
@@ -312,133 +270,54 @@ func (c *Topology) AddManagedNamespace(name string, policy string, chaincode str
 	c.Chaincodes = append(c.Chaincodes, cc)
 }
 
-func (c *Topology) EnableNodeOUs() {
-	c.NodeOUs = true
-	for _, organization := range c.Organizations {
-		organization.EnableNodeOUs = c.NodeOUs
-	}
-}
-
-func (c *Topology) EnableIdemix() *fscOrg {
-	name := "IdemixOrg"
-	o := &Organization{
-		ID:            name,
-		Name:          name,
-		MSPID:         name + "MSP",
-		MSPType:       "idemix",
-		Domain:        strings.ToLower(name) + ".example.com",
-		EnableNodeOUs: c.NodeOUs,
-		Users:         0,
-		CA:            &CA{Hostname: "ca"},
-	}
-	c.addOrganization(o)
-	return &fscOrg{c: c, o: o}
-}
-
-func (c *Topology) EnableGRPCLogging() {
-	c.GRPCLogging = true
-}
-
-func (c *Topology) DevChaincodeMode() {
-	c.ChaincodeMode = "dev"
-}
-
-// EnableFPC enables FPC by adding the Enclave Registry Chaincode definition.
-// The ERCC is installed on all organizations and the endorsement policy is
-// set to the majority of the organization on which the chaincode
-// has been installed.
-func (c *Topology) EnableFPC() {
-	c.FPC = true
-	c.AddFPC("ercc", "fpc/ercc")
-}
-
-// AddFPC adds the Fabric Private Chaincode with the passed name and image.
-// If no orgs are specified, then the Fabric Private Chaincode is installed on all organizations
-// registered so far.
-// The endorsement policy is set to the majority of the organization on which the chaincode
-// has been installed.
-func (c *Topology) AddFPC(name, image string, orgs ...string) {
-	if !c.FPC {
-		c.EnableFPC()
-	}
-
-	if len(orgs) == 0 {
-		orgs = c.Consortiums[0].Organizations
-	}
-	majority := len(orgs)/2 + 1
-	policy := "OutOf(" + strconv.Itoa(majority) + ","
+func (c *Topology) SetNamespaceApproverOrgs(orgs ...string) {
+	lcePolicy := "AND ("
 	for i, org := range orgs {
 		if i > 0 {
-			policy += ","
+			lcePolicy += ","
 		}
-		policy += "'" + org + "MSP.member'"
+		lcePolicy += "'" + org + "MSP.member'"
 	}
-	policy += ")"
-
-	var peers []string
-	for _, org := range orgs {
-		for _, peer := range c.Peers {
-			if peer.Organization == org {
-				peers = append(peers, peer.Name)
-				break
+	lcePolicy += ")"
+	for _, profile := range c.Profiles {
+		if profile.Name == "OrgsChannel" {
+			for i, policy := range profile.Policies {
+				if policy.Name == "LifecycleEndorsement" {
+					profile.Policies[i] = &Policy{
+						Name: "LifecycleEndorsement",
+						Type: "Signature",
+						Rule: lcePolicy,
+					}
+					return
+				}
 			}
+			return
 		}
 	}
+}
 
-	cc := &ChannelChaincode{
-		Chaincode: Chaincode{
-			Name:            name,
-			Version:         "Version-1.0",
-			Sequence:        "1",
-			InitRequired:    false,
-			Path:            name,
-			Lang:            "external",
-			Label:           fmt.Sprintf("%s_1.0", name),
-			Ctor:            `{"Args":["init"]}`,
-			Policy:          policy,
-			SignaturePolicy: policy,
-		},
-		PrivateChaincode: PrivateChaincode{
-			Image: image,
-		},
-		Channel: c.Channels[0].Name,
-		Private: true,
-		Peers:   peers,
+func (c *Topology) SetNamespaceApproverOrgsOR(orgs ...string) {
+	lcePolicy := "OR ("
+	for i, org := range orgs {
+		if i > 0 {
+			lcePolicy += ","
+		}
+		lcePolicy += "'" + org + "MSP.member'"
 	}
-
-	c.Chaincodes = append(c.Chaincodes, cc)
-}
-
-func (c *Topology) EnableWeaver() {
-	c.Weaver = true
-}
-
-type fscOrg struct {
-	c *Topology
-	o *Organization
-}
-
-func (fo *fscOrg) AddPeer(name string) *fscOrg {
-	fo.c.AddPeer(name, fo.o.ID, FabricPeer, false, "")
-
-	return fo
-}
-
-type namespace struct {
-	cc *ChannelChaincode
-}
-
-func (n *namespace) SetStateChaincode() *namespace {
-	n.cc.Chaincode.Path = "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state/cc/query"
-	return n
-}
-
-func (n *namespace) SetChaincodePath(path string) *namespace {
-	n.cc.Chaincode.Path = path
-	return n
-}
-
-func (n *namespace) NoInit() *namespace {
-	n.cc.Chaincode.InitRequired = false
-	return n
+	lcePolicy += ")"
+	for _, profile := range c.Profiles {
+		if profile.Name == "OrgsChannel" {
+			for i, policy := range profile.Policies {
+				if policy.Name == "LifecycleEndorsement" {
+					profile.Policies[i] = &Policy{
+						Name: "LifecycleEndorsement",
+						Type: "Signature",
+						Rule: lcePolicy,
+					}
+					return
+				}
+			}
+			return
+		}
+	}
 }
