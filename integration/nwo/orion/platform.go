@@ -238,7 +238,7 @@ func (p *Platform) Members() []grouper.Member {
 	return nil
 }
 
-func (p *Platform) PostRun() {
+func (p *Platform) PostRun(load bool) {
 	p.RunOrionServer()
 	p.InitOrionServer()
 }
