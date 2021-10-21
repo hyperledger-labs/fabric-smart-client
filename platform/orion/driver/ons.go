@@ -15,6 +15,8 @@ import (
 // OrionNetworkService gives access to a Orion network components
 type OrionNetworkService interface {
 	Name() string
+	IdentityManager() IdentityManager
+	SessionManager() SessionManager
 }
 
 type OrionNetworkServiceProvider interface {
