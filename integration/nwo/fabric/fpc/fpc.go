@@ -24,10 +24,7 @@ import (
 	"github.com/docker/go-connections/nat"
 	"github.com/hyperledger/fabric-private-chaincode/client_sdk/go/pkg/core/lifecycle"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gbytes"
-	"github.com/onsi/gomega/gexec"
 
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/commands"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/fabricconfig"
 	nnetwork "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/network"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/packager"
@@ -269,7 +266,7 @@ func (n *Extension) initEnclave(chaincode *topology.ChannelChaincode) {
 	attestationParams := CreateSIMAttestationParams()
 	for _, peer := range peers {
 		lifecycleClient, err := lifecycle.New(func(channelID string) (lifecycle.ChannelClient, error) {
-			return &channelClient{
+			return &ChannelClient{
 				n:         n,
 				peer:      peer,
 				orderer:   orderer,
@@ -331,78 +328,4 @@ func (n *Extension) reservePorts(chaincode *topology.ChannelChaincode) {
 		ports = append(ports, n.network.Context.ReservePort())
 	}
 	n.ports[chaincode.Chaincode.Name] = ports
-}
-
-type channelClient struct {
-	n         *Extension
-	peer      *topology.Peer
-	orderer   *topology.Orderer
-	chaincode *topology.ChannelChaincode
-}
-
-func (c *channelClient) Query(chaincodeID string, fcn string, args [][]byte, targetEndpoints ...string) ([]byte, error) {
-	ci := &ChaincodeInput{
-		Args: append(append([]string{}, fcn), toStrings(args)...),
-	}
-	logger.Infof("query [%s] with args...", chaincodeID)
-	for i, arg := range ci.Args {
-		logger.Infof("arg [%d][%s]", i, arg)
-	}
-	ctor, err := json.Marshal(ci)
-	Expect(err).ToNot(HaveOccurred())
-
-	sess, err := c.n.network.PeerUserSession(c.peer, "User1", commands.ChaincodeQuery{
-		ChannelID: c.chaincode.Channel,
-		Name:      chaincodeID,
-		Ctor:      string(ctor),
-	})
-	Expect(err).NotTo(HaveOccurred())
-	Eventually(sess, c.n.network.EventuallyTimeout).Should(gexec.Exit(0))
-
-	return sess.Buffer().Contents(), nil
-}
-
-func (c *channelClient) Execute(chaincodeID string, fcn string, args [][]byte) (string, error) {
-	ci := &ChaincodeInput{
-		Args: append(append([]string{}, fcn), toStrings(args)...),
-	}
-	ctor, err := json.Marshal(ci)
-	Expect(err).ToNot(HaveOccurred())
-
-	initOrgs := map[string]bool{}
-	var erccPeerAddresses []string
-	peers := c.n.network.PeersByName(c.n.FPCERCC.Peers)
-	for _, p := range peers {
-		if exists := initOrgs[p.Organization]; !exists {
-			erccPeerAddresses = append(erccPeerAddresses, c.n.network.PeerAddress(p, nnetwork.ListenPort))
-			initOrgs[p.Organization] = true
-		}
-	}
-
-	sess, err := c.n.network.PeerUserSession(c.peer, "User1", commands.ChaincodeInvoke{
-		NetworkPrefix: c.n.network.Prefix,
-		ChannelID:     c.chaincode.Channel,
-		Orderer:       c.n.network.OrdererAddress(c.orderer, nnetwork.ListenPort),
-		Name:          chaincodeID,
-		Ctor:          string(ctor),
-		PeerAddresses: erccPeerAddresses,
-		WaitForEvent:  true,
-		ClientAuth:    c.n.network.ClientAuthRequired,
-	})
-	Expect(err).NotTo(HaveOccurred())
-	Eventually(sess, c.n.network.EventuallyTimeout).Should(gexec.Exit(0))
-	for i := 0; i < len(erccPeerAddresses); i++ {
-		Eventually(sess.Err, c.n.network.EventuallyTimeout).Should(gbytes.Say(`\Qcommitted with status (VALID)\E`))
-	}
-	Expect(sess.Err).To(gbytes.Say("Chaincode invoke successful. result: status:200"))
-
-	return "", nil
-}
-
-func toStrings(args [][]byte) []string {
-	var res []string
-	for _, arg := range args {
-		res = append(res, string(arg))
-	}
-	return res
 }

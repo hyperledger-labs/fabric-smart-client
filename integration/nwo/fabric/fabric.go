@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 
 	docker "github.com/fsouza/go-dockerclient"
+	"github.com/hyperledger/fabric-private-chaincode/client_sdk/go/pkg/core/contract"
 	"github.com/hyperledger/fabric/integration/runner"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
@@ -195,7 +196,7 @@ func (p *platform) PeerOrgs() []*Org {
 func (p *platform) PeersByOrg(orgName string, includeAll bool) []*Peer {
 	var peers []*Peer
 	org := p.Network.Organization(orgName)
-	for _, peer := range p.Network.PeersInOrg(orgName) {
+	for _, peer := range p.Network.PeersInOrg(orgName, true) {
 		if peer.Type != topology.FabricPeer && !includeAll {
 			continue
 		}
@@ -222,7 +223,7 @@ func (p *platform) PeersByOrg(orgName string, includeAll bool) []*Peer {
 }
 
 func (p *platform) UserByOrg(orgName string, user string) *User {
-	peer := p.Network.PeersInOrg(orgName)[0]
+	peer := p.Network.PeersInOrg(orgName, true)[0]
 
 	return &User{
 		Name: user + "@" + p.Network.Organization(orgName).Domain,
@@ -235,7 +236,7 @@ func (p *platform) UsersByOrg(orgName string) []*User {
 	org := p.Network.Organization(orgName)
 	var users []*User
 	for _, name := range org.UserNames {
-		peer := p.Network.PeersInOrg(orgName)[0]
+		peer := p.Network.PeersInOrg(orgName, true)[0]
 		users = append(users, &User{
 			Name: name + "@" + p.Network.Organization(orgName).Domain,
 			Cert: p.Network.PeerUserCert(peer, name),
@@ -301,6 +302,16 @@ func (p *platform) Channels() []*Channel {
 }
 
 func (p *platform) InvokeChaincode(cc *topology.ChannelChaincode, method string, args ...[]byte) {
+	if cc.Private {
+		c := contract.GetContract(
+			&fpc.ChannelProvider{Network: p.Network, CC: cc},
+			cc.Chaincode.Name,
+		)
+		_, err := c.SubmitTransaction(method, fpc.ArgsToStrings(args)...)
+		Expect(err).NotTo(HaveOccurred())
+		return
+	}
+
 	orderer := p.Network.Orderer("orderer")
 	org := p.PeerOrgs()[0]
 	peer := p.Network.Peer(org.Name, p.PeersByOrg(org.Name, false)[0].Name)
