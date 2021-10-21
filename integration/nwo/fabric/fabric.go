@@ -196,7 +196,7 @@ func (p *platform) PeerOrgs() []*Org {
 func (p *platform) PeersByOrg(orgName string, includeAll bool) []*Peer {
 	var peers []*Peer
 	org := p.Network.Organization(orgName)
-	for _, peer := range p.Network.PeersInOrg(orgName, true) {
+	for _, peer := range p.Network.PeersInOrg(orgName) {
 		if peer.Type != topology.FabricPeer && !includeAll {
 			continue
 		}
@@ -223,7 +223,7 @@ func (p *platform) PeersByOrg(orgName string, includeAll bool) []*Peer {
 }
 
 func (p *platform) UserByOrg(orgName string, user string) *User {
-	peer := p.Network.PeersInOrg(orgName, true)[0]
+	peer := p.Network.PeersInOrg(orgName)[0]
 
 	return &User{
 		Name: user + "@" + p.Network.Organization(orgName).Domain,
@@ -236,7 +236,7 @@ func (p *platform) UsersByOrg(orgName string) []*User {
 	org := p.Network.Organization(orgName)
 	var users []*User
 	for _, name := range org.UserNames {
-		peer := p.Network.PeersInOrg(orgName, true)[0]
+		peer := p.Network.PeersInOrg(orgName)[0]
 		users = append(users, &User{
 			Name: name + "@" + p.Network.Organization(orgName).Domain,
 			Cert: p.Network.PeerUserCert(peer, name),

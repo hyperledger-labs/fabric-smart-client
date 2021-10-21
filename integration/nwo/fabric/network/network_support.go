@@ -1254,7 +1254,7 @@ func (n *Network) OrdererAdminSession(o *topology.Orderer, p *topology.Peer, com
 
 // Peer returns the information about the named Peer in the named organization.
 func (n *Network) Peer(orgName, peerName string) *topology.Peer {
-	for _, p := range n.PeersInOrg(orgName, true) {
+	for _, p := range n.PeersInOrg(orgName) {
 		if p.Name == peerName {
 			return p
 		}
@@ -1422,7 +1422,7 @@ func (n *Network) AnchorsForChannel(chanName string) []*topology.Peer {
 // in the named organization.
 func (n *Network) AnchorsInOrg(orgName string) []*topology.Peer {
 	anchors := []*topology.Peer{}
-	for _, p := range n.PeersInOrg(orgName, true) {
+	for _, p := range n.PeersInOrg(orgName) {
 		if p.Anchor() {
 			anchors = append(anchors, p)
 			break
@@ -1431,7 +1431,7 @@ func (n *Network) AnchorsInOrg(orgName string) []*topology.Peer {
 
 	// No explicit anchor means all peers are anchors.
 	if len(anchors) == 0 {
-		anchors = n.PeersInOrg(orgName, true)
+		anchors = n.PeersInOrg(orgName)
 	}
 
 	return anchors
@@ -1478,9 +1478,7 @@ func (n *Network) OrdererOrgs() []*topology.Organization {
 	return orgs
 }
 
-// PeersInOrg returns all Peer instances that are owned by the named
-// organization.
-func (n *Network) PeersInOrg(orgName string, includeAll bool) []*topology.Peer {
+func (n *Network) PeersInOrgWithOptions(orgName string, includeAll bool) []*topology.Peer {
 	var peers []*topology.Peer
 	for _, o := range n.Peers {
 		if o.Type != topology.FabricPeer && !includeAll {
@@ -1491,6 +1489,12 @@ func (n *Network) PeersInOrg(orgName string, includeAll bool) []*topology.Peer {
 		}
 	}
 	return peers
+}
+
+// PeersInOrg returns all Peer instances that are owned by the named
+// organization.
+func (n *Network) PeersInOrg(orgName string) []*topology.Peer {
+	return n.PeersInOrgWithOptions(orgName, true)
 }
 
 const (
@@ -1719,7 +1723,7 @@ func (n *Network) GenerateCoreConfig(p *topology.Peer) {
 		defaultNetwork := n.topology.Default
 		if p.Type == topology.FSCPeer {
 			coreTemplate = n.Templates.FSCNodeConfigExtensionTemplate()
-			peers := n.PeersInOrg(p.Organization, true)
+			peers := n.PeersInOrg(p.Organization)
 			defaultNetwork = p.DefaultNetwork
 			for _, peer := range peers {
 				if peer.Type == topology.FabricPeer {

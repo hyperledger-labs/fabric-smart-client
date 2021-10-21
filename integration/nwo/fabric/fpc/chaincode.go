@@ -62,7 +62,7 @@ type ChannelTransaction struct {
 
 func (c *ChannelTransaction) Evaluate(args ...string) ([]byte, error) {
 	org := c.Network.PeerOrgs()[0]
-	peer := c.Network.Peer(org.Name, c.Network.PeersInOrg(org.Name, false)[0].Name)
+	peer := c.Network.Peer(org.Name, c.Network.PeersInOrgWithOptions(org.Name, false)[0].Name)
 	s := &struct {
 		Args []string `json:"Args,omitempty"`
 	}{}
@@ -97,7 +97,7 @@ func (c *ChannelContract) Name() string {
 
 func (c *ChannelContract) EvaluateTransaction(name string, args ...string) ([]byte, error) {
 	org := c.Network.PeerOrgs()[0]
-	peer := c.Network.Peer(org.Name, c.Network.PeersInOrg(org.Name, false)[0].Name)
+	peer := c.Network.Peer(org.Name, c.Network.PeersInOrgWithOptions(org.Name, false)[0].Name)
 	s := &struct {
 		Args []string `json:"Args,omitempty"`
 	}{}
@@ -122,7 +122,7 @@ func (c *ChannelContract) EvaluateTransaction(name string, args ...string) ([]by
 func (c *ChannelContract) SubmitTransaction(name string, args ...string) ([]byte, error) {
 	orderer := c.Network.Orderer("orderer")
 	org := c.Network.PeerOrgs()[0]
-	peer := c.Network.Peer(org.Name, c.Network.PeersInOrg(org.Name, false)[0].Name)
+	peer := c.Network.Peer(org.Name, c.Network.PeersInOrgWithOptions(org.Name, false)[0].Name)
 	s := &struct {
 		Args []string `json:"Args,omitempty"`
 	}{}
