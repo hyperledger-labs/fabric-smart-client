@@ -22,8 +22,8 @@ type ExtensionName string
 type Extensions map[ExtensionName][]string
 
 const (
-	FabricExtension  ExtensionName = "FabricExtension"
-	GenericExtension ExtensionName = "GenericExtension"
+	FabricExtension ExtensionName = "FabricExtension"
+	OrionExtension  ExtensionName = "OrionExtension"
 )
 
 // Topology represents a topology of a given network type (fabric, fsc, etc...)

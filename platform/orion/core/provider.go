@@ -12,6 +12,7 @@ import (
 	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
@@ -75,7 +76,12 @@ func (p *onsProvider) OrionNetworkService(network string) (driver.OrionNetworkSe
 }
 
 func (p *onsProvider) newONS(network string) (driver.OrionNetworkService, error) {
-	return generic.NewNetwork(p.ctx, p.sp, network)
+	config, err := config.New(view.GetConfigService(p.sp), network, network == p.config.defaultName)
+	if err != nil {
+		return nil, err
+	}
+
+	return generic.NewNetwork(p.ctx, p.sp, config, network)
 }
 
 func GetOrionNetworkServiceProvider(sp view.ServiceProvider) driver.OrionNetworkServiceProvider {
