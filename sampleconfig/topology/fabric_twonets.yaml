@@ -107,7 +107,6 @@ topologies:
     channel: testchannel
     peers:
     - Org1_peer_0
-  chaincodemode: net
 - name: beta
   type: fabric
   logging:
@@ -215,7 +214,6 @@ topologies:
     channel: testchannel
     peers:
     - Org3_peer_0
-  chaincodemode: net
 - name: fsc
   type: fsc
   peers:

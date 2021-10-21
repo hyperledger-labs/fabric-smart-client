@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package txidstore;
+
+message ByNum {
+    string txid = 1;
+    int32 code = 2;
+}
+
+message ByTxid {
+    uint64 pos = 1;
+    int32 code = 2;
+}
