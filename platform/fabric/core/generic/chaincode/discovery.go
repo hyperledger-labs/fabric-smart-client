@@ -128,7 +128,7 @@ func (d *Discovery) Call() ([]view.Identity, error) {
 
 	mspManager := d.channel.MSPManager()
 
-	var endorsers []view.Identity
+	endorserSet := make(map[string][]byte)
 	for _, descriptor := range ccQueryRes.Content {
 		for _, layout := range descriptor.Layouts {
 			for group, q := range layout.QuantitiesByGroup {
@@ -156,10 +156,15 @@ func (d *Discovery) Call() ([]view.Identity, error) {
 						}
 					}
 
-					endorsers = append(endorsers, endorserID)
+					endorserSet[string(endorserID)] = endorserID
 				}
 			}
 		}
+	}
+
+	var endorsers []view.Identity
+	for _, e := range endorserSet {
+		endorsers = append(endorsers, e)
 	}
 
 	return endorsers, nil
