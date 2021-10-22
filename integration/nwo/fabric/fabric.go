@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 
 	docker "github.com/fsouza/go-dockerclient"
+	"github.com/hyperledger/fabric-private-chaincode/client_sdk/go/pkg/core/contract"
 	"github.com/hyperledger/fabric/integration/runner"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
@@ -301,6 +302,16 @@ func (p *platform) Channels() []*Channel {
 }
 
 func (p *platform) InvokeChaincode(cc *topology.ChannelChaincode, method string, args ...[]byte) {
+	if cc.Private {
+		c := contract.GetContract(
+			&fpc.ChannelProvider{Network: p.Network, CC: cc},
+			cc.Chaincode.Name,
+		)
+		_, err := c.SubmitTransaction(method, fpc.ArgsToStrings(args)...)
+		Expect(err).NotTo(HaveOccurred())
+		return
+	}
+
 	orderer := p.Network.Orderer("orderer")
 	org := p.PeerOrgs()[0]
 	peer := p.Network.Peer(org.Name, p.PeersByOrg(org.Name, false)[0].Name)

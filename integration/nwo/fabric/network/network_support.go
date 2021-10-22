@@ -1478,16 +1478,23 @@ func (n *Network) OrdererOrgs() []*topology.Organization {
 	return orgs
 }
 
-// PeersInOrg returns all Peer instances that are owned by the named
-// organization.
-func (n *Network) PeersInOrg(orgName string) []*topology.Peer {
+func (n *Network) PeersInOrgWithOptions(orgName string, includeAll bool) []*topology.Peer {
 	var peers []*topology.Peer
 	for _, o := range n.Peers {
+		if o.Type != topology.FabricPeer && !includeAll {
+			continue
+		}
 		if o.Organization == orgName {
 			peers = append(peers, o)
 		}
 	}
 	return peers
+}
+
+// PeersInOrg returns all Peer instances that are owned by the named
+// organization.
+func (n *Network) PeersInOrg(orgName string) []*topology.Peer {
+	return n.PeersInOrgWithOptions(orgName, true)
 }
 
 const (
