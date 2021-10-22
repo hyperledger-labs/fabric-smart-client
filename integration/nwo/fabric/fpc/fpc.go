@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package fpc
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -202,6 +203,10 @@ func (n *Extension) runDockerContainers(chaincode *topology.ChannelChaincode, pa
 	peers := n.network.PeersByName(chaincode.Peers)
 	for i, peer := range peers {
 		port := strconv.Itoa(int(n.ports[chaincode.Chaincode.Name][i]))
+		containerName := fmt.Sprintf("%s.%s.%s.%s",
+			n.network.NetworkID,
+			chaincode.Chaincode.Name, peer.Name,
+			n.network.Organization(peer.Organization).Domain)
 
 		resp, err := cli.ContainerCreate(ctx, &container.Config{
 			Image: chaincode.PrivateChaincode.Image,
@@ -241,15 +246,28 @@ func (n *Extension) runDockerContainers(chaincode *topology.ChannelChaincode, pa
 				},
 			},
 		},
-			nil, nil,
-			fmt.Sprintf("%s.%s.%s.%s",
-				n.network.NetworkID,
-				chaincode.Chaincode.Name, peer.Name,
-				n.network.Organization(peer.Organization).Domain),
+			nil, nil, containerName,
 		)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(cli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{})).ToNot(HaveOccurred())
 		time.Sleep(3 * time.Second)
+
+		dockerLogger := flogging.MustGetLogger("fpc.container." + containerName)
+		go func() {
+			reader, err := cli.ContainerLogs(context.Background(), resp.ID, types.ContainerLogsOptions{
+				ShowStdout: true,
+				ShowStderr: true,
+				Follow:     true,
+				Timestamps: false,
+			})
+			Expect(err).ToNot(HaveOccurred())
+			defer reader.Close()
+
+			scanner := bufio.NewScanner(reader)
+			for scanner.Scan() {
+				dockerLogger.Infof("%s", scanner.Text())
+			}
+		}()
 	}
 }
 
