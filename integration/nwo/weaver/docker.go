@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package weaver
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 
@@ -16,21 +17,19 @@ import (
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
+	. "github.com/onsi/gomega"
 
 	network2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/network"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 )
 
 func (p *Platform) RunRelayServer(name string, serverConfigPath, port string) {
 	ctx := context.Background()
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-	if err != nil {
-		panic(err)
-	}
+	Expect(err).ToNot(HaveOccurred())
 
 	net, err := p.DockerClient.NetworkInfo(p.NetworkID)
-	if err != nil {
-		panic(err)
-	}
+	Expect(err).ToNot(HaveOccurred())
 
 	hostname := "relay-" + name
 
@@ -80,33 +79,32 @@ func (p *Platform) RunRelayServer(name string, serverConfigPath, port string) {
 			},
 		},
 	}, nil, hostname)
-	if err != nil {
-		panic(err)
-	}
+	Expect(err).ToNot(HaveOccurred())
 
 	cli.NetworkConnect(context.Background(), p.NetworkID, resp.ID, &network.EndpointSettings{
 		NetworkID: p.NetworkID,
 	})
 
-	if err := cli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{}); err != nil {
-		panic(err)
-	}
+	err = cli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{})
+	Expect(err).ToNot(HaveOccurred())
 
-	// statusCh, errCh := fsccli.ContainerWait(ctx, resp.ID, container.WaitConditionNotRunning)
-	// select {
-	// case err := <-errCh:
-	// 	if err != nil {
-	// 		panic(err)
-	// 	}
-	// case <-statusCh:
-	// }
-	//
-	// out, err := fsccli.ContainerLogs(ctx, resp.ID, types.ContainerLogsOptions{ShowStdout: true})
-	// if err != nil {
-	// 	panic(err)
-	// }
-	//
-	// stdcopy.StdCopy(os.Stdout, os.Stderr, out)
+	dockerLogger := flogging.MustGetLogger("weaver.container." + hostname)
+	go func() {
+		reader, err := cli.ContainerLogs(context.Background(), resp.ID, types.ContainerLogsOptions{
+			ShowStdout: true,
+			ShowStderr: true,
+			Follow:     true,
+			Timestamps: false,
+		})
+		Expect(err).ToNot(HaveOccurred())
+		defer reader.Close()
+
+		scanner := bufio.NewScanner(reader)
+		for scanner.Scan() {
+			dockerLogger.Infof("%s", scanner.Text())
+		}
+	}()
+
 }
 
 func (p *Platform) RunRelayFabricDriver(
@@ -117,16 +115,12 @@ func (p *Platform) RunRelayFabricDriver(
 	ccpPath, configPath, walletPath string) {
 	ctx := context.Background()
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-	if err != nil {
-		panic(err)
-	}
+	Expect(err).ToNot(HaveOccurred())
 
 	hostname := "driver-" + networkName
 
 	net, err := p.DockerClient.NetworkInfo(p.NetworkID)
-	if err != nil {
-		panic(err)
-	}
+	Expect(err).ToNot(HaveOccurred())
 
 	resp, err := cli.ContainerCreate(ctx, &container.Config{
 		Hostname: hostname,
@@ -190,31 +184,29 @@ func (p *Platform) RunRelayFabricDriver(
 			},
 		},
 	}, nil, hostname)
-	if err != nil {
-		panic(err)
-	}
+	Expect(err).ToNot(HaveOccurred())
 
 	cli.NetworkConnect(context.Background(), p.NetworkID, resp.ID, &network.EndpointSettings{
 		NetworkID: p.NetworkID,
 	})
 
-	if err := cli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{}); err != nil {
-		panic(err)
-	}
+	err = cli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{})
+	Expect(err).ToNot(HaveOccurred())
 
-	// statusCh, errCh := fsccli.ContainerWait(ctx, resp.ID, container.WaitConditionNotRunning)
-	// select {
-	// case err := <-errCh:
-	// 	if err != nil {
-	// 		panic(err)
-	// 	}
-	// case <-statusCh:
-	// }
-	//
-	// out, err := fsccli.ContainerLogs(ctx, resp.ID, types.ContainerLogsOptions{ShowStdout: true})
-	// if err != nil {
-	// 	panic(err)
-	// }
-	//
-	// stdcopy.StdCopy(os.Stdout, os.Stderr, out)
+	dockerLogger := flogging.MustGetLogger("weaver.fabric.driver.container." + hostname)
+	go func() {
+		reader, err := cli.ContainerLogs(context.Background(), resp.ID, types.ContainerLogsOptions{
+			ShowStdout: true,
+			ShowStderr: true,
+			Follow:     true,
+			Timestamps: false,
+		})
+		Expect(err).ToNot(HaveOccurred())
+		defer reader.Close()
+
+		scanner := bufio.NewScanner(reader)
+		for scanner.Scan() {
+			dockerLogger.Infof("%s", scanner.Text())
+		}
+	}()
 }

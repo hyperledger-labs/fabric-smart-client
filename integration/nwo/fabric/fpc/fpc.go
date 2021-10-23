@@ -138,6 +138,8 @@ func (n *Extension) PostRun() {
 			}
 		}
 	}
+	// Give some time to the enclave to get up and running...
+	time.Sleep(3 * time.Second)
 }
 
 func (n *Extension) checkTopology() {

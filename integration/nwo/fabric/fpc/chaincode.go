@@ -133,11 +133,23 @@ func (c *ChannelContract) SubmitTransaction(name string, args ...string) ([]byte
 	ctor, err := json.Marshal(s)
 	Expect(err).NotTo(HaveOccurred())
 
+	// Peers
+	initOrgs := map[string]bool{}
+	var peerAddresses []string
+	peers := c.Network.PeersByName(c.CC.Peers)
+	for _, p := range peers {
+		if exists := initOrgs[p.Organization]; !exists {
+			peerAddresses = append(peerAddresses, c.Network.PeerAddress(p, network.ListenPort))
+			initOrgs[p.Organization] = true
+		}
+	}
+
 	sess, err := c.Network.PeerUserSession(peer, "User1", commands.ChaincodeInvoke{
-		ChannelID: c.Channel,
-		Orderer:   c.Network.OrdererAddress(orderer, network.ListenPort),
-		Name:      c.CC.Chaincode.Name,
-		Ctor:      string(ctor),
+		ChannelID:     c.Channel,
+		Orderer:       c.Network.OrdererAddress(orderer, network.ListenPort),
+		Name:          c.CC.Chaincode.Name,
+		Ctor:          string(ctor),
+		PeerAddresses: peerAddresses,
 	})
 	Expect(err).NotTo(HaveOccurred())
 	Eventually(sess, c.Network.EventuallyTimeout).Should(gexec.Exit(0))
