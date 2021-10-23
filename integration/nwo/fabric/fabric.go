@@ -26,6 +26,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/helpers"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/network"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 )
 
 const CCEnvDefaultImage = "hyperledger/fabric-ccenv:latest"
@@ -37,6 +38,7 @@ var (
 		runner.KafkaDefaultImage,
 		runner.ZooKeeperDefaultImage,
 	}
+	logger = flogging.MustGetLogger("nwo.fabric")
 )
 
 type Orderer struct {
@@ -154,6 +156,24 @@ func (p *platform) Members() []grouper.Member {
 
 func (p *platform) PostRun() {
 	p.Network.PostRun()
+
+	for _, chaincode := range p.Network.Topology().Chaincodes {
+		for _, invocation := range chaincode.PostRunInvocations {
+			logger.Infof("Post run invocation [%s:%s][%v][%v]",
+				chaincode.Chaincode.Name, invocation.FunctionName,
+				invocation.ExpectedResult, invocation.Args,
+			)
+			res := p.InvokeChaincode(
+				chaincode,
+				invocation.FunctionName,
+				invocation.Args...,
+			)
+			if invocation.ExpectedResult != nil {
+				Expect(res).To(BeEquivalentTo(invocation.ExpectedResult))
+			}
+		}
+	}
+
 }
 
 func (p *platform) Cleanup() {
@@ -301,15 +321,15 @@ func (p *platform) Channels() []*Channel {
 	return channels
 }
 
-func (p *platform) InvokeChaincode(cc *topology.ChannelChaincode, method string, args ...[]byte) {
+func (p *platform) InvokeChaincode(cc *topology.ChannelChaincode, method string, args ...[]byte) []byte {
 	if cc.Private {
 		c := contract.GetContract(
 			&fpc.ChannelProvider{Network: p.Network, CC: cc},
 			cc.Chaincode.Name,
 		)
-		_, err := c.SubmitTransaction(method, fpc.ArgsToStrings(args)...)
+		output, err := c.SubmitTransaction(method, fpc.ArgsToStrings(args)...)
 		Expect(err).NotTo(HaveOccurred())
-		return
+		return output
 	}
 
 	orderer := p.Network.Orderer("orderer")
@@ -334,4 +354,6 @@ func (p *platform) InvokeChaincode(cc *topology.ChannelChaincode, method string,
 	Expect(err).NotTo(HaveOccurred())
 	Eventually(sess, p.Network.EventuallyTimeout).Should(gexec.Exit(0))
 	Expect(sess.Err).To(gbytes.Say("Chaincode invoke successful. result: status:200"))
+
+	return sess.Buffer().Contents()
 }

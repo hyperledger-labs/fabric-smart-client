@@ -61,7 +61,7 @@ type FabricNetwork interface {
 	UsersByOrg(organization string) []*fabric.User
 	Orderers() []*fabric.Orderer
 	Channels() []*fabric.Channel
-	InvokeChaincode(cc *topology.ChannelChaincode, method string, args ...[]byte)
+	InvokeChaincode(cc *topology.ChannelChaincode, method string, args ...[]byte) []byte
 }
 
 type platformFactory struct{}

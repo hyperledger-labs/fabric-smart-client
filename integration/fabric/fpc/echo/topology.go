@@ -22,7 +22,9 @@ func Topology() []api.Topology {
 	// Add a standard chaincode
 	fabricTopology.AddNamespaceWithUnanimity("mycc", "Org1", "Org2")
 	// Add an FPC by passing chaincode's id and docker image
-	fabricTopology.AddFPC("echo", "fpc/fpc-echo")
+	fabricTopology.AddFPC("echo", "fpc/fpc-echo").AddPostRunInvocation(
+		"init", "init", []byte("init"),
+	)
 
 	// Create an empty FSC topology
 	fscTopology := fsc.NewTopology()

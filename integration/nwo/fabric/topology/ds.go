@@ -81,13 +81,28 @@ func (o Orderer) ID() string {
 	return fmt.Sprintf("%s.%s", o.Organization, o.Name)
 }
 
+type PostRunInvocation struct {
+	FunctionName   string
+	ExpectedResult interface{}
+	Args           [][]byte
+}
+
 type ChannelChaincode struct {
-	Chaincode        Chaincode        `yaml:"chaincode,omitempty"`
-	PrivateChaincode PrivateChaincode `yaml:"privatechaincode,omitempty"`
-	Path             string           `yaml:"path,omitempty"`
-	Channel          string           `yaml:"channel,omitempty"`
-	Peers            []string         `yaml:"peers,omitempty"`
-	Private          bool             `yaml:"private,omitempty"`
+	Chaincode          Chaincode           `yaml:"chaincode,omitempty"`
+	PrivateChaincode   PrivateChaincode    `yaml:"privatechaincode,omitempty"`
+	Path               string              `yaml:"path,omitempty"`
+	Channel            string              `yaml:"channel,omitempty"`
+	Peers              []string            `yaml:"peers,omitempty"`
+	Private            bool                `yaml:"private,omitempty"`
+	PostRunInvocations []PostRunInvocation `yaml:"postruninvocations,omitempty"`
+}
+
+func (c *ChannelChaincode) AddPostRunInvocation(functionName string, expectedResult interface{}, args ...[]byte) {
+	c.PostRunInvocations = append(c.PostRunInvocations, PostRunInvocation{
+		FunctionName:   functionName,
+		ExpectedResult: expectedResult,
+		Args:           args,
+	})
 }
 
 type Policy struct {
