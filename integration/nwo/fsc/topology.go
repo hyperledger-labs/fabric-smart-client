@@ -32,17 +32,26 @@ func NewTopology() *Topology {
 		TopologyType: TopologyName,
 		Nodes:        []*node.Node{},
 		Logging: &Logging{
-			Spec:   "grpc=error:debug",
+			Spec:   "grpc=error:info",
 			Format: "'%{color}%{time:2006-01-02 15:04:05.000 MST} [%{module}] %{shortfunc} -> %{level:.4s} %{id:03x}%{color:reset} %{message}'",
 		},
 	}
 }
 
 func (t *Topology) SetLogging(spec, format string) {
-	t.Logging = &Logging{
-		Spec:   spec,
-		Format: format,
+	l := &Logging{}
+	if len(spec) != 0 {
+		l.Spec = spec
+	} else {
+		l.Spec = t.Logging.Spec
 	}
+	if len(format) != 0 {
+		l.Format = format
+	} else {
+		l.Format = t.Logging.Format
+	}
+
+	t.Logging = l
 }
 
 func (t *Topology) Name() string {

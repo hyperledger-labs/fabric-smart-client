@@ -124,7 +124,6 @@ topologies:
     channel: testchannel
     peers:
     - Org1_peer_0
-  chaincodemode: net
 - name: fsc
   type: fsc
   peers:
@@ -199,6 +198,6 @@ topologies:
             X509Identities:
             - bob
   logging:
-    spec: grpc=error:debug
+    spec: grpc=error:info
     format: '''%{color}%{time:2006-01-02 15:04:05.000 MST} [%{module}] %{shortfunc}
       -> %{level:.4s} %{id:03x}%{color:reset} %{message}'''

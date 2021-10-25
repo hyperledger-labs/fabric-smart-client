@@ -13,6 +13,14 @@ topologies:
     enable_node_organizational_units: false
     ca:
       hostname: ca
+  - id: IdemixOrg
+    msp_id: IdemixOrgMSP
+    msp_type: idemix
+    name: IdemixOrg
+    domain: idemixorg.example.com
+    enable_node_organizational_units: false
+    ca:
+      hostname: ca
   - id: Org1
     msp_id: Org1MSP
     name: Org1
@@ -47,6 +55,7 @@ topologies:
   consortiums:
   - name: SampleConsortium
     organizations:
+    - IdemixOrg
     - Org1
     - Org2
   system_channel:
@@ -68,6 +77,7 @@ topologies:
   - name: OrgsChannel
     consortium: SampleConsortium
     organizations:
+    - IdemixOrg
     - Org1
     - Org2
     policies:
@@ -113,7 +123,7 @@ topologies:
       version: Version-1.0
       path: ercc
       ctor: '{"Args":["init"]}'
-      policy: OutOf(2,'Org1MSP.member','Org2MSP.member')
+      policy: OutOf(2,'IdemixOrgMSP.member','Org1MSP.member','Org2MSP.member')
       lang: external
       collectionsconfig: ""
       packagefile: ""
@@ -123,7 +133,7 @@ topologies:
       validationplugin: ""
       initrequired: false
       label: ercc_1.0
-      signaturepolicy: OutOf(2,'Org1MSP.member','Org2MSP.member')
+      signaturepolicy: OutOf(2,'IdemixOrgMSP.member','Org1MSP.member','Org2MSP.member')
       channelconfigpolicy: ""
     privatechaincode:
       image: fpc/ercc
@@ -137,7 +147,7 @@ topologies:
       version: Version-1.0
       path: echo
       ctor: '{"Args":["init"]}'
-      policy: OutOf(2,'Org1MSP.member','Org2MSP.member')
+      policy: OutOf(2,'IdemixOrgMSP.member','Org1MSP.member','Org2MSP.member')
       lang: external
       collectionsconfig: ""
       packagefile: ""
@@ -147,7 +157,7 @@ topologies:
       validationplugin: ""
       initrequired: false
       label: echo_1.0
-      signaturepolicy: OutOf(2,'Org1MSP.member','Org2MSP.member')
+      signaturepolicy: OutOf(2,'IdemixOrgMSP.member','Org1MSP.member','Org2MSP.member')
       channelconfigpolicy: ""
     privatechaincode:
       image: fpc/fpc-echo
@@ -156,7 +166,14 @@ topologies:
     - Org1_peer_0
     - Org2_peer_0
     private: true
-  chaincodemode: net
+    postruninvocations:
+    - functionname: init
+      expectedresult: init
+      args:
+      - - 105
+        - 110
+        - 105
+        - 116
   fpc: true
 - name: fsc
   type: fsc
@@ -179,6 +196,7 @@ topologies:
       mapping:
         fabric:
           mapping:
+            AnonymousIdentity: true
             Organization:
             - Network: ""
               Org: Org2
@@ -203,6 +221,6 @@ topologies:
             - Network: ""
               Org: Org2
   logging:
-    spec: grpc=error:debug
+    spec: grpc=error:info
     format: '''%{color}%{time:2006-01-02 15:04:05.000 MST} [%{module}] %{shortfunc}
       -> %{level:.4s} %{id:03x}%{color:reset} %{message}'''

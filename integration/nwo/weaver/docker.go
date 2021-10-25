@@ -101,7 +101,7 @@ func (p *Platform) RunRelayServer(name string, serverConfigPath, port string) {
 
 		scanner := bufio.NewScanner(reader)
 		for scanner.Scan() {
-			dockerLogger.Infof("%s", scanner.Text())
+			dockerLogger.Debugf("%s", scanner.Text())
 		}
 	}()
 
@@ -206,7 +206,7 @@ func (p *Platform) RunRelayFabricDriver(
 
 		scanner := bufio.NewScanner(reader)
 		for scanner.Scan() {
-			dockerLogger.Infof("%s", scanner.Text())
+			dockerLogger.Debugf("%s", scanner.Text())
 		}
 	}()
 }
