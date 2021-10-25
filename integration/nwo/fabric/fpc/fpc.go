@@ -264,7 +264,7 @@ func (n *Extension) runDockerContainers(chaincode *topology.ChannelChaincode, pa
 
 			scanner := bufio.NewScanner(reader)
 			for scanner.Scan() {
-				dockerLogger.Infof("%s", scanner.Text())
+				dockerLogger.Debugf("%s", scanner.Text())
 			}
 		}()
 	}
