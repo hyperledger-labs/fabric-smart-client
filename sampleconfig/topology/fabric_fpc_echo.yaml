@@ -166,6 +166,14 @@ topologies:
     - Org1_peer_0
     - Org2_peer_0
     private: true
+    postruninvocations:
+    - functionname: init
+      expectedresult: init
+      args:
+      - - 105
+        - 110
+        - 105
+        - 116
   fpc: true
 - name: fsc
   type: fsc
@@ -213,6 +221,6 @@ topologies:
             - Network: ""
               Org: Org2
   logging:
-    spec: grpc=error:debug
+    spec: grpc=error:info
     format: '''%{color}%{time:2006-01-02 15:04:05.000 MST} [%{module}] %{shortfunc}
       -> %{level:.4s} %{id:03x}%{color:reset} %{message}'''

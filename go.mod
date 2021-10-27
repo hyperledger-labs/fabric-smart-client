@@ -62,7 +62,7 @@ require (
 	github.com/test-go/testify v1.1.4
 	go.uber.org/atomic v1.7.0
 	go.uber.org/zap v1.18.1
-	golang.org/x/sys v0.0.0-20211020174200-9d6173849985 // indirect
+	golang.org/x/sys v0.0.0-20211023085530-d6a326fbbf70 // indirect
 	golang.org/x/tools v0.1.7 // indirect
 	google.golang.org/genproto v0.0.0-20210201184850-646a494a81ea // indirect
 	google.golang.org/grpc v1.39.1
