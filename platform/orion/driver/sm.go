@@ -17,7 +17,7 @@ type DataTx interface {
 }
 
 type Session interface {
-	DataTx() (DataTx, error)
+	DataTx(txID string) (DataTx, error)
 }
 
 type SessionManager interface {

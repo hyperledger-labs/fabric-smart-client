@@ -45,7 +45,7 @@ import (
 )
 
 const (
-	ServerImage = "orion-server"
+	ServerImage = "orionbcdb/orion-server"
 )
 
 var (

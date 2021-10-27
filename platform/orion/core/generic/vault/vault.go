@@ -21,7 +21,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 )
 
-var logger = flogging.MustGetLogger("fabric-sdk.vault")
+var logger = flogging.MustGetLogger("orion-sdk.vault")
 
 type TXIDStoreReader interface {
 	Get(txid string) (fdriver.ValidationCode, error)

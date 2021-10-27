@@ -13,10 +13,10 @@ import (
 )
 
 type orderingAndFinalityView struct {
-	tx *transaction
+	tx *Transaction
 }
 
-func NewOrderingAndFinalityView(tx *transaction) *orderingAndFinalityView {
+func NewOrderingAndFinalityView(tx *Transaction) *orderingAndFinalityView {
 	return &orderingAndFinalityView{tx: tx}
 }
 
@@ -30,7 +30,7 @@ func (o *orderingAndFinalityView) Call(context view.Context) (interface{}, error
 		return "", errors.Wrap(err, "error during transaction commit")
 	}
 
-	// txEnv, err := dataTx.CommittedTxEnvelope()
+	// txEnv, err := DataTx.CommittedTxEnvelope()
 	// if err != nil {
 	// 	return "", errors.New("error getting transaction envelope")
 	// }
