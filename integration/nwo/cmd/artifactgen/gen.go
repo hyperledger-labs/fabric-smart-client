@@ -16,6 +16,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/orion"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/weaver"
 
 	"gopkg.in/yaml.v2"
@@ -111,6 +112,16 @@ func gen(args []string) error {
 			t2 = append(t2, top)
 		case weaver.TopologyName:
 			top := weaver.NewTopology()
+			r, err := yaml.Marshal(t.Topologies[i])
+			if err != nil {
+				return errors.Wrapf(err, "failed remarshalling topology configuration [%s]", topologyFile)
+			}
+			if err := yaml.Unmarshal(r, top); err != nil {
+				return errors.Wrapf(err, "failed unmarshalling topology file [%s]", topologyFile)
+			}
+			t2 = append(t2, top)
+		case orion.TopologyName:
+			top := orion.NewTopology()
 			r, err := yaml.Marshal(t.Topologies[i])
 			if err != nil {
 				return errors.Wrapf(err, "failed remarshalling topology configuration [%s]", topologyFile)

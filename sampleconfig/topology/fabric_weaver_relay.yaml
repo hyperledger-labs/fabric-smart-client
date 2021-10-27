@@ -106,7 +106,6 @@ topologies:
     channel: testchannel
     peers:
     - Org1_peer_0
-  chaincodemode: net
   weaver: true
 - name: beta
   type: fabric
@@ -215,7 +214,6 @@ topologies:
     channel: testchannel
     peers:
     - Org3_peer_0
-  chaincodemode: net
   grpcLogging: true
   weaver: true
 - name: weaver

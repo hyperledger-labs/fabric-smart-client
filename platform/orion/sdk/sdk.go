@@ -30,16 +30,16 @@ type Startable interface {
 	Stop() error
 }
 
-type p struct {
+type SDK struct {
 	registry    Registry
 	onsProvider Startable
 }
 
-func NewSDK(registry Registry) *p {
-	return &p{registry: registry}
+func NewSDK(registry Registry) *SDK {
+	return &SDK{registry: registry}
 }
 
-func (p *p) Install() error {
+func (p *SDK) Install() error {
 	if !view2.GetConfigService(p.registry).GetBool("orion.enabled") {
 		logger.Infof("Orion platform not enabled, skipping")
 		return nil
@@ -57,7 +57,7 @@ func (p *p) Install() error {
 	return nil
 }
 
-func (p *p) Start(ctx context.Context) error {
+func (p *SDK) Start(ctx context.Context) error {
 	if !view2.GetConfigService(p.registry).GetBool("orion.enabled") {
 		logger.Infof("Orion platform not enabled, skipping start")
 		return nil

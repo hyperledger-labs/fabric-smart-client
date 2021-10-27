@@ -17,7 +17,6 @@ require (
 	github.com/OneOfOne/xxhash v1.2.5 // indirect
 	github.com/Shopify/sarama v1.26.3 // indirect
 	github.com/btcsuite/btcd v0.21.0-beta // indirect
-	github.com/client9/misspell v0.3.4 // indirect
 	github.com/containerd/containerd v1.5.2 // indirect
 	github.com/dgraph-io/badger/v3 v3.2011.1
 	github.com/docker/docker v20.10.7+incompatible
@@ -26,11 +25,11 @@ require (
 	github.com/fsouza/go-dockerclient v1.6.1
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/protobuf v1.5.2
-	github.com/google/addlicense v1.0.0 // indirect
 	github.com/google/go-cmp v0.5.5
-	github.com/gordonklaus/ineffassign v0.0.0-20210914165742-4cc7213b9bc8 // indirect
 	github.com/gorilla/mux v1.8.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.2.0
+	github.com/hyperledger-labs/orion-sdk-go v0.0.0-20211020063337-1cb7fb7d7a34
+	github.com/hyperledger-labs/orion-server v0.1.1-0.20211019064340-2e884e7faefe
 	github.com/hyperledger-labs/weaver-dlt-interoperability/common/protos-go v1.2.3-alpha.1
 	github.com/hyperledger-labs/weaver-dlt-interoperability/sdks/fabric/go-sdk v1.2.3-alpha.1.0.20210812140206-37f430515b8c
 	github.com/hyperledger/fabric v1.4.0-rc1.0.20210722174351-9815a7a8f0f7
@@ -62,16 +61,12 @@ require (
 	github.com/tedsuo/ifrit v0.0.0-20191009134036-9a97d0632f00
 	github.com/test-go/testify v1.1.4
 	go.uber.org/atomic v1.7.0
-	go.uber.org/multierr v1.6.0 // indirect
-	go.uber.org/zap v1.16.0
-	golang.org/x/mod v0.5.1 // indirect
+	go.uber.org/zap v1.18.1
 	golang.org/x/sys v0.0.0-20211020174200-9d6173849985 // indirect
 	golang.org/x/tools v0.1.7 // indirect
 	google.golang.org/genproto v0.0.0-20210201184850-646a494a81ea // indirect
 	google.golang.org/grpc v1.39.1
 	google.golang.org/protobuf v1.27.1
-	gopkg.in/alecthomas/kingpin.v2 v2.2.6
 	gopkg.in/src-d/go-git.v4 v4.13.1
 	gopkg.in/yaml.v2 v2.4.0
-	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
 )

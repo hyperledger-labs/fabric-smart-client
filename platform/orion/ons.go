@@ -15,13 +15,21 @@ import (
 // NetworkService models a Orion Network
 type NetworkService struct {
 	SP   view2.ServiceProvider
-	fns  driver.OrionNetworkService
+	ons  driver.OrionNetworkService
 	name string
 }
 
 // Name of this network
 func (n *NetworkService) Name() string {
 	return n.name
+}
+
+func (n *NetworkService) IdentityManager() *IdentityManager {
+	return &IdentityManager{n.ons.IdentityManager()}
+}
+
+func (n *NetworkService) SessionManager() *SessionManager {
+	return &SessionManager{n.ons.SessionManager()}
 }
 
 func GetOrionNetworkNames(sp view2.ServiceProvider) []string {
@@ -34,10 +42,10 @@ func GetOrionNetworkService(sp view2.ServiceProvider, id string) *NetworkService
 	if err != nil {
 		return nil
 	}
-	return &NetworkService{name: fns.Name(), SP: sp, fns: fns}
+	return &NetworkService{name: fns.Name(), SP: sp, ons: fns}
 }
 
-// GetDefaultFNS returns the default Orion Network Service
-func GetDefaultFNS(sp view2.ServiceProvider) *NetworkService {
+// GetDefaultONS returns the default Orion Network Service
+func GetDefaultONS(sp view2.ServiceProvider) *NetworkService {
 	return GetOrionNetworkService(sp, "")
 }

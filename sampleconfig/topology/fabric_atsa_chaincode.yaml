@@ -108,7 +108,6 @@ topologies:
     peers:
     - org1_peer
     - org2_peer
-  chaincodemode: net
   nodeous: true
 - name: fsc
   type: fsc

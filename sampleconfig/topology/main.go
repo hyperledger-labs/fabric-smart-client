@@ -20,6 +20,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/weaver/relay"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fsc/pingpong"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/orion/cars"
 )
 
 func main() {
@@ -34,6 +35,8 @@ func main() {
 	topologies["fabric_weaver_relay.yaml"] = relay.Topology()
 
 	topologies["fsc_pingpong.yaml"] = pingpong.Topology()
+
+	topologies["orion_cars.yaml"] = cars.Topology()
 
 	for name, topologies := range topologies {
 		t := api.Topologies{Topologies: topologies}
