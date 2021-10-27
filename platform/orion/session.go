@@ -41,8 +41,8 @@ type Session struct {
 	s driver.Session
 }
 
-func (s *Session) Transaction() (*Transaction, error) {
-	dataTx, err := s.s.DataTx()
+func (s *Session) NewTransaction(txID string) (*Transaction, error) {
+	dataTx, err := s.s.DataTx(txID)
 	if err != nil {
 		return nil, err
 	}
@@ -50,7 +50,7 @@ func (s *Session) Transaction() (*Transaction, error) {
 }
 
 func (s *Session) QueryExecutor(db string) (*QueryExecutor, error) {
-	dataTx, err := s.s.DataTx()
+	dataTx, err := s.s.DataTx("")
 	if err != nil {
 		return nil, err
 	}

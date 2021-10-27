@@ -46,8 +46,14 @@ type Session struct {
 	s bcdb.DBSession
 }
 
-func (s *Session) DataTx() (driver.DataTx, error) {
-	dataTx, err := s.s.DataTx()
+func (s *Session) DataTx(txID string) (driver.DataTx, error) {
+	var dataTx bcdb.DataTxContext
+	var err error
+	if len(txID) != 0 {
+		dataTx, err = s.s.DataTx(bcdb.WithTxID(txID))
+	} else {
+		dataTx, err = s.s.DataTx()
+	}
 	if err != nil {
 		return nil, errors.Wrap(err, "failed getting data tc")
 	}
