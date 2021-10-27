@@ -63,6 +63,10 @@ monitoring-docker-images:
 	docker pull prom/prometheus:latest
 	docker pull grafana/grafana:latest
 
+.PHONY: orion-server-images
+orion-server-images:
+	docker pull orionbcdb/orion-server
+
 .PHONY: dependencies
 dependencies:
 	go get -u github.com/onsi/ginkgo/ginkgo
@@ -115,6 +119,10 @@ integration-tests-pingpong: docker-images dependencies
 integration-tests-stoprestart: docker-images dependencies
 	cd ./integration/fsc/stoprestart; ginkgo -keepGoing --slowSpecThreshold 60 .
 
+.PHONY: integration-tests-orionscars
+integration-tests-orionscars: docker-images orion-server-images dependencies
+	cd ./integration/orion/cars; ginkgo -keepGoing --slowSpecThreshold 60 .
+
 .PHONY: tidy
 tidy:
 	@go mod tidy
@@ -135,6 +143,7 @@ clean:
 	rm -rf ./integration/fabric/stoprestart/cmd
 	rm -rf ./integration/fsc/stoprestart/cmd
 	rm -rf ./integration/fsc/pingpong/cmd/responder
+	rm -rf ./integration/orion/cars/cmd
 	rm -rf ./integration/fscnodes
 
 .PHONY: fsccli

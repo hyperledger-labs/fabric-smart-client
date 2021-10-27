@@ -72,7 +72,7 @@ func (p *Platform) initDBs(session bcdb.DBSession) {
 	Expect(err).ToNot(HaveOccurred())
 
 	for _, db := range p.Topology.DBs {
-		err = tx.CreateDB(db.Name)
+		err = tx.CreateDB(db.Name, nil)
 		Expect(err).ToNot(HaveOccurred())
 	}
 
