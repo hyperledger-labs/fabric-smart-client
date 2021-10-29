@@ -12,7 +12,7 @@ replace (
 
 require (
 	github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 // indirect
-	github.com/IBM/idemix v0.0.0-20211029075146-74906b9cc577
+	github.com/IBM/idemix v0.0.0-20211029082321-39eb5ae98a45
 	github.com/IBM/mathlib v0.0.0-20210928081244-f5486459a290
 	github.com/OneOfOne/xxhash v1.2.5 // indirect
 	github.com/Shopify/sarama v1.26.3 // indirect
