@@ -34,8 +34,8 @@ import (
 var logger = flogging.MustGetLogger("fabric-sdk.msp.idemix")
 
 const (
-	eidIndex = 2
-	rhIndex  = 3
+	EIDIndex = 2
+	RHIndex  = 3
 )
 
 const (
@@ -259,8 +259,8 @@ func (p *provider) Identity(opts *driver2.IdentityOptions) (view.Identity, []byt
 			{Type: bccsp.IdemixHiddenAttribute},
 			{Type: bccsp.IdemixHiddenAttribute},
 		},
-		RhIndex:  rhIndex,
-		EidIndex: eidIndex,
+		RhIndex:  RHIndex,
+		EidIndex: EIDIndex,
 		CRI:      p.conf.Signer.CredentialRevocationInformation,
 		SigType:  sigType,
 		Metadata: signerMetadata,

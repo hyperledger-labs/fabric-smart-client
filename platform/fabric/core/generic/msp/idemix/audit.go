@@ -52,8 +52,8 @@ func (a *AuditInfo) Match(id []byte) error {
 		serialized.Proof,
 		nil,
 		&csp.EidNymAuditOpts{
-			EidIndex:     eidIndex,
-			EnrollmentID: string(a.Attributes[eidIndex]),
+			EidIndex:     EIDIndex,
+			EnrollmentID: string(a.Attributes[EIDIndex]),
 			RNymEid:      a.RNymEid,
 		},
 	)
