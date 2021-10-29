@@ -67,3 +67,12 @@ func (a *AuditInfo) Match(id []byte) error {
 
 	return nil
 }
+
+func DeserializeAuditInfo(raw []byte) (*AuditInfo, error) {
+	auditInfo := &AuditInfo{}
+	err := auditInfo.FromBytes(raw)
+	if err != nil {
+		return nil, err
+	}
+	return auditInfo, nil
+}
