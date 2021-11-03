@@ -154,6 +154,19 @@ func UnpackEnvelope(env *common.Envelope) (*UnpackedEnvelope, error) {
 		return nil, err
 	}
 
+	logger.Debugf("len(env.Payload) [%d] - len(env.Signature) [%d] - len(payl.Header.ChannelHeader) [%d] - len(payl.Header.SignatureHeader) [%d] - len(payl.Data) [%d] - len(tx.Actions[0].Payload) [%d] - len(cap.ChaincodeProposalPayload) [%d] - len(cpp.Input) [%d] - len(cap.Action.ProposalResponsePayload) [%d] - len(pRespPayload.Extension) [%d]",
+		len(env.Payload),
+		len(env.Signature),
+		len(payl.Header.ChannelHeader),
+		len(payl.Header.SignatureHeader),
+		len(payl.Data),
+		len(tx.Actions[0].Payload),
+		len(cap.ChaincodeProposalPayload),
+		len(cpp.Input),
+		len(cap.Action.ProposalResponsePayload),
+		len(pRespPayload.Extension),
+	)
+
 	var args []string
 	for i := 1; i < len(cis.ChaincodeSpec.Input.Args); i++ {
 		args = append(args, string(cis.ChaincodeSpec.Input.Args[i]))
