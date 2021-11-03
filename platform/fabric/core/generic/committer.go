@@ -224,14 +224,19 @@ func (c *channel) commitLocal(txid string, block uint64, indexInBlock int, envel
 
 	// Match rwsets if envelope is not empty
 	if len(envelope) != 0 {
+		logger.Debugf("[%s] Matching rwsets", txid)
+
 		pt, err := newProcessedTransactionFromEnvelopeRaw(envelope)
 		if err != nil {
+			logger.Error("[%s] failed to unmarshal envelope [%s]", txid, err)
 			return err
 		}
 
 		if err := c.vault.Match(txid, pt.Results()); err != nil {
+			logger.Error("[%s] rwsets do not match [%s]", txid, err)
 			return err
 		}
+
 	}
 
 	// Post-Processes
