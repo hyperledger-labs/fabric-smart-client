@@ -27,8 +27,7 @@ type deserializer struct {
 	*common
 }
 
-// NewDeserializerWithVerificationType returns a new deserializer for the passed verification strategy
-func NewDeserializerWithVerificationType(ipk []byte, verType bccsp.VerificationType) (*deserializer, error) {
+func newDeserializer(ipk []byte, verType bccsp.VerificationType, nymEID []byte) (*deserializer, error) {
 	logger.Debugf("Setting up Idemix-based MSP instance")
 
 	curve := math.Curves[math.FP256BN_AMCL]
@@ -62,13 +61,18 @@ func NewDeserializerWithVerificationType(ipk []byte, verType bccsp.VerificationT
 			Csp:             cryptoProvider,
 			IssuerPublicKey: issuerPublicKey,
 			VerType:         verType,
+			NymEID:          nymEID,
 		},
 	}, nil
 }
 
 // NewDeserializer returns a new deserializer for the best effort strategy
 func NewDeserializer(ipk []byte) (*deserializer, error) {
-	return NewDeserializerWithVerificationType(ipk, bccsp.BestEffort)
+	return newDeserializer(ipk, bccsp.BestEffort, nil)
+}
+
+func NewDeserializerForNymEID(ipk []byte, nymEID []byte) (*deserializer, error) {
+	return newDeserializer(ipk, bccsp.BestEffort, nymEID)
 }
 
 func (i *deserializer) DeserializeVerifier(raw []byte) (driver.Verifier, error) {

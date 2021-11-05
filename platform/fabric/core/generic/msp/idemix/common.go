@@ -29,6 +29,7 @@ type common struct {
 	revocationPK    bccsp.Key
 	epoch           int
 	VerType         bccsp.VerificationType
+	NymEID          []byte
 }
 
 func (s *common) Deserialize(raw []byte, checkValidity bool) (*deserialized, error) {

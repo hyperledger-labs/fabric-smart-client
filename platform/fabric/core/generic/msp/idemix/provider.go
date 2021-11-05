@@ -34,8 +34,8 @@ import (
 var logger = flogging.MustGetLogger("fabric-sdk.msp.idemix")
 
 const (
-	eidIndex = 2
-	rhIndex  = 3
+	EIDIndex = 2
+	RHIndex  = 3
 )
 
 const (
@@ -232,8 +232,20 @@ func (p *provider) Identity(opts *driver2.IdentityOptions) (view.Identity, []byt
 	}
 
 	sigType := p.sigType
-	if opts != nil && opts.EIDExtension {
-		sigType = bccsp.EidNym
+	var signerMetadata *bccsp.IdemixSignerMetadata
+	if opts != nil {
+		if opts.EIDExtension {
+			sigType = bccsp.EidNym
+		}
+		if len(opts.AuditInfo) != 0 {
+			ai, err := p.DeserializeAuditInfo(opts.AuditInfo)
+			if err != nil {
+				return nil, nil, err
+			}
+			signerMetadata = &bccsp.IdemixSignerMetadata{
+				NymEIDAuditData: ai.NymEIDAuditData,
+			}
+		}
 	}
 
 	// Create the cryptographic evidence that this identity is valid
@@ -247,10 +259,11 @@ func (p *provider) Identity(opts *driver2.IdentityOptions) (view.Identity, []byt
 			{Type: bccsp.IdemixHiddenAttribute},
 			{Type: bccsp.IdemixHiddenAttribute},
 		},
-		RhIndex:  rhIndex,
-		EidIndex: eidIndex,
+		RhIndex:  RHIndex,
+		EidIndex: EIDIndex,
 		CRI:      p.conf.Signer.CredentialRevocationInformation,
 		SigType:  sigType,
+		Metadata: signerMetadata,
 	}
 	proof, err := p.Csp.Sign(
 		p.userKey,
