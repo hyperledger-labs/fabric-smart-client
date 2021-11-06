@@ -12,10 +12,8 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"net"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 	"text/template"
@@ -27,9 +25,11 @@ import (
 
 	api2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
+	fabric2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/helpers"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/network"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/weaver/interop"
 )
@@ -62,6 +62,7 @@ type FabricNetwork interface {
 	Orderers() []*fabric.Orderer
 	Channels() []*fabric.Channel
 	InvokeChaincode(cc *topology.ChannelChaincode, method string, args ...[]byte) []byte
+	ConnectionProfile(name string, ca bool) *network.ConnectionProfile
 }
 
 type platformFactory struct{}
@@ -390,127 +391,16 @@ func (p *Platform) generateFabricDriverConfigFiles(relay *RelayServer) {
 }
 
 func (p *Platform) generateFabricDriverCPFile(relay *RelayServer) {
-	fabricHost := "fabric"
-	if runtime.GOOS == "darwin" {
-		fabricHost = "host.docker.internal"
-	}
-	cp := &ConnectionProfile{
-		Name:    relay.Name,
-		Version: "1.0.0",
-		Client: Client{
-			Organization: relay.Organization,
-			Connection: Connection{
-				Timeout: Timeout{
-					Peer: map[string]string{
-						"endorser": "300",
-					},
+	cp := p.Fabric(relay).ConnectionProfile(relay.Name, true)
+	cp.Client = network.Client{
+		Organization: relay.Organization,
+		Connection: network.Connection{
+			Timeout: network.Timeout{
+				Peer: map[string]string{
+					"endorser": "300",
 				},
 			},
 		},
-		Organizations:          map[string]Organization{},
-		Peers:                  map[string]Peer{},
-		CertificateAuthorities: map[string]CertificationAuthority{},
-	}
-
-	fabricNetwork := p.Fabric(relay)
-
-	// organizations
-	orgs := fabricNetwork.PeerOrgs()
-	var peerFullNames []string
-	for _, org := range orgs {
-		peers := fabricNetwork.PeersByOrg(org.Name, false)
-		var names []string
-		for _, peer := range peers {
-			names = append(names, peer.FullName)
-		}
-		cp.Organizations[org.Name] = Organization{
-			MSPID: org.MSPID,
-			Peers: names,
-			CertificateAuthorities: []string{
-				"ca." + relay.Name,
-			},
-		}
-		cp.CertificateAuthorities["ca."+relay.Name] = CertificationAuthority{
-			Url:        "https://127.0.0.1:7054",
-			CaName:     "ca." + relay.Name,
-			TLSCACerts: nil,
-			HttpOptions: HttpOptions{
-				Verify: true,
-			},
-		}
-		for _, peer := range peers {
-			_, port, err := net.SplitHostPort(peer.ListeningAddress)
-			Expect(err).NotTo(HaveOccurred())
-
-			bb := bytes.Buffer{}
-
-			for _, cert := range peer.TLSCACerts {
-				raw, err := ioutil.ReadFile(cert)
-				Expect(err).NotTo(HaveOccurred())
-				bb.WriteString(string(raw))
-			}
-
-			gRPCopts := make(map[string]interface{})
-			gRPCopts["request-timeout"] = 120001
-
-			cp.Peers[peer.FullName] = Peer{
-				URL: "grpcs://" + net.JoinHostPort(fabricHost, port),
-				TLSCACerts: map[string]interface{}{
-					"pem": bb.String(),
-				},
-				GrpcOptions: gRPCopts,
-			}
-
-			peerFullNames = append(peerFullNames, peer.FullName)
-		}
-
-	}
-
-	// orderers
-	cp.Orderers = map[string]Orderer{}
-	var ordererFullNames []string
-	for _, orderer := range fabricNetwork.Orderers() {
-		_, port, err := net.SplitHostPort(orderer.ListeningAddress)
-		Expect(err).NotTo(HaveOccurred())
-
-		bb := bytes.Buffer{}
-
-		for _, cert := range orderer.TLSCACerts {
-			raw, err := ioutil.ReadFile(cert)
-			Expect(err).NotTo(HaveOccurred())
-			bb.WriteString(string(raw))
-		}
-
-		gRPCopts := make(map[string]interface{})
-		gRPCopts["request-timeout"] = 120001
-
-		cp.Orderers[orderer.FullName] = Orderer{
-			URL: "grpcs://" + net.JoinHostPort(fabricHost, port),
-			TLSCACerts: map[string]interface{}{
-				"pem": bb.String(),
-			},
-			GrpcOptions: gRPCopts,
-		}
-		ordererFullNames = append(ordererFullNames, orderer.FullName)
-	}
-
-	// channels
-	cp.Channels = map[string]Channel{}
-	channelPeers := map[string]ChannelPeer{}
-	for _, name := range peerFullNames {
-		channelPeers[name] = ChannelPeer{
-			EndorsingPeer:  true,
-			ChaincodeQuery: true,
-			LedgerQuery:    true,
-			EventSource:    true,
-			Discover:       true,
-		}
-	}
-	for _, channel := range fabricNetwork.Channels() {
-		cp.Channels[channel.Name] = Channel{
-			Orderers: ordererFullNames,
-			Peers:    channelPeers,
-		}
 	}
 
 	raw, err := json.MarshalIndent(cp, "", "  ")
@@ -714,7 +604,7 @@ func (p *Platform) generateInteropChaincodeVerificationPolicyFile(destinationRel
 func (p *Platform) generateFabricExtension() {
 	fscTopology := p.Context.TopologyByName("fsc").(*fsc.Topology)
 	for _, node := range fscTopology.Nodes {
-		opt := fabric.Options(&node.Options)
+		opt := fabric2.Options(&node.Options)
 
 		var servers []*RelayServer
 		for _, relay := range p.Topology.Relays {

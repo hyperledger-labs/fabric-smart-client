@@ -41,6 +41,8 @@ type Topology struct {
 	Weaver            bool                `yaml:"weaver,omitempty"`
 	LogPeersToFile    bool                `yaml:"logPeersToFile,omitempty"`
 	LogOrderersToFile bool                `yaml:"logOrderersToFile,omitempty"`
+	HyperledgerExplorer bool                `yaml:"hyperledgerexplorer,omitempty"`
+	Monitoring          bool                `yaml:"monitoring,omitempty"`
 }
 
 func (t *Topology) Name() string {
@@ -340,6 +342,14 @@ func (t *Topology) SetNamespaceApproverOrgsOR(orgs ...string) {
 			return
 		}
 	}
+}
+
+func (c *Topology) EnableHyperledgerExplorer() {
+	c.HyperledgerExplorer = true
+}
+
+func (c *Topology) EnableMonitoring() {
+	c.Monitoring = true
 }
 
 func (t *Topology) EnableLogPeersToFile() {

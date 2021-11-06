@@ -4,7 +4,10 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package weaver
+package network
+
+type T struct {
+}
 
 type Timeout struct {
 	Peer map[string]string `json:"peer"`
@@ -14,15 +17,25 @@ type Connection struct {
 	Timeout Timeout `json:"timeout"`
 }
 
+type AdminCredential struct {
+	Id       string `json:"id"`
+	Password string `json:"password"`
+}
+
 type Client struct {
-	Organization string     `json:"organization"`
-	Connection   Connection `json:"connection"`
+	AdminCredential      AdminCredential `json:"adminCredential"`
+	Organization         string          `json:"organization"`
+	EnableAuthentication bool            `json:"enableAuthentication"`
+	TlsEnable            bool            `json:"tlsEnable"`
+	Connection           Connection      `json:"connection"`
 }
 
 type Organization struct {
-	MSPID                  string   `json:"mspid"`
-	Peers                  []string `json:"peers"`
-	CertificateAuthorities []string `json:"certificateAuthorities"`
+	MSPID                  string                 `json:"mspid"`
+	Peers                  []string               `json:"peers"`
+	CertificateAuthorities []string               `json:"certificateAuthorities,omitempty"`
+	SignedCert             map[string]interface{} `json:"signedCert,omitempty"`
+	AdminPrivateKey        map[string]interface{} `json:"adminPrivateKey,omitempty"`
 }
 
 type Peer struct {

@@ -225,7 +225,7 @@ ledger:
 operations:
   listenAddress: 127.0.0.1:{{ .PeerPort Peer "Operations" }}
   tls:
-    enabled: true
+    enabled: false
     cert:
       file: {{ .PeerLocalTLSDir Peer }}/server.crt
     key:

@@ -158,6 +158,10 @@ func (n *Network) WriteConfigTxConfig(config *fabricconfig.ConfigTx) {
 	Expect(err).NotTo(HaveOccurred())
 }
 
+func (n *Network) ConfigDir() string {
+	return filepath.Join(n.Context.RootDir(), n.Prefix)
+}
+
 // PeerDir returns the path to the configuration directory for the specified
 // Peer.
 func (n *Network) PeerDir(p *topology.Peer) string {

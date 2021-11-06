@@ -7,9 +7,13 @@ SPDX-License-Identifier: Apache-2.0
 package fabric
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"net"
 	"path/filepath"
+	"runtime"
 
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/hyperledger/fabric-private-chaincode/client_sdk/go/pkg/core/contract"
@@ -23,8 +27,11 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/commands"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/fpc"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/helpers"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/hle"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/monitoring"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/network"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 )
 
@@ -131,7 +138,21 @@ func NewPlatform(context api.Context, t api.Topology, components BuilderClient) 
 
 	return &Platform{
 		Network: network,
+	p := &platform{
+		Network: network.New(
+			context,
+			t.(*topology.Topology),
+			dockerClient,
+			components,
+			[]network.ChaincodeProcessor{},
+			networkID,
+		),
 	}
+	p.Network.AddExtension(fpc.NewExtension(p.Network))
+	p.Network.AddExtension(hle.NewExtension(p.Network, p))
+	p.Network.AddExtension(monitoring.NewExtension(p.Network, p))
+
+	return p
 }
 
 func (p *Platform) Name() string {
@@ -208,10 +229,10 @@ func (p *Platform) OrgMSPID(orgName string) string {
 	return p.Network.Organization(orgName).MSPID
 }
 
-func (p *Platform) PeerOrgs() []*Org {
-	var orgs []*Org
+func (p *Platform) PeerOrgs() []*fabric.Org {
+	var orgs []*fabric.Org
 	for _, org := range p.Network.PeerOrgs() {
-		orgs = append(orgs, &Org{
+		orgs = append(orgs, &fabric.Org{
 			Name:                  org.Name,
 			MSPID:                 org.MSPID,
 			CACertsBundlePath:     p.Network.CACertsBundlePath(),
@@ -221,8 +242,13 @@ func (p *Platform) PeerOrgs() []*Org {
 	return orgs
 }
 
-func (p *Platform) PeersByOrg(orgName string, includeAll bool) []*Peer {
-	var peers []*Peer
+func (p *Platform) PeersByOrg(orgName string, includeAll bool) []*fabric.Peer {
+	fabricHost := "fabric"
+	if runtime.GOOS == "darwin" {
+		fabricHost = "host.docker.internal"
+	}
+
+	var peers []*fabric.Peer
 	org := p.Network.Organization(orgName)
 	for _, peer := range p.Network.PeersInOrg(orgName) {
 		if peer.Type != topology.FabricPeer && !includeAll {
@@ -231,18 +257,22 @@ func (p *Platform) PeersByOrg(orgName string, includeAll bool) []*Peer {
 		caCertPath := filepath.Join(p.Network.PeerLocalTLSDir(peer), "ca.crt")
 
 		if peer.Type != topology.FabricPeer {
-			peers = append(peers, &Peer{
+			peers = append(peers, &fabric.Peer{
 				Name:       peer.Name,
 				FullName:   fmt.Sprintf("%s.%s", peer.Name, org.Domain),
 				TLSCACerts: []string{caCertPath},
 				Cert:       p.Network.PeerCert(peer),
 			})
 		} else {
-			peers = append(peers, &Peer{
+			_, port, err := net.SplitHostPort(p.Network.PeerAddress(peer, network.OperationsPort))
+			Expect(err).NotTo(HaveOccurred())
+
+			peers = append(peers, &fabric.Peer{
 				Name:             peer.Name,
 				FullName:         fmt.Sprintf("%s.%s", peer.Name, org.Domain),
 				ListeningAddress: p.Network.PeerAddress(peer, network.ListenPort),
 				TLSCACerts:       []string{caCertPath},
+				OperationAddress: net.JoinHostPort(fabricHost, port),
 				Cert:             p.Network.PeerCert(peer),
 			})
 		}
@@ -250,22 +280,22 @@ func (p *Platform) PeersByOrg(orgName string, includeAll bool) []*Peer {
 	return peers
 }
 
-func (p *Platform) UserByOrg(orgName string, user string) *User {
+func (p *Platform) UserByOrg(orgName string, user string) *fabric.User {
 	peer := p.Network.PeersInOrg(orgName)[0]
 
-	return &User{
+	return &fabric.User{
 		Name: user + "@" + p.Network.Organization(orgName).Domain,
 		Cert: p.Network.PeerUserCert(peer, user),
 		Key:  p.Network.PeerUserKey(peer, user),
 	}
 }
 
-func (p *Platform) UsersByOrg(orgName string) []*User {
+func (p *Platform) UsersByOrg(orgName string) []*fabric.User {
 	org := p.Network.Organization(orgName)
-	var users []*User
+	var users []*fabric.User
 	for _, name := range org.UserNames {
 		peer := p.Network.PeersInOrg(orgName)[0]
-		users = append(users, &User{
+		users = append(users, &fabric.User{
 			Name: name + "@" + p.Network.Organization(orgName).Domain,
 			Cert: p.Network.PeerUserCert(peer, name),
 			Key:  p.Network.PeerUserKey(peer, name),
@@ -318,27 +348,35 @@ func (p *Platform) PeersByID(id string) *Peer {
 	return result
 }
 
-func (p *Platform) Orderers() []*Orderer {
-	var orderers []*Orderer
+func (p *Platform) Orderers() []*fabric.Orderer {
+	fabricHost := "fabric"
+	if runtime.GOOS == "darwin" {
+		fabricHost = "host.docker.internal"
+	}
+
+	var orderers []*fabric.Orderer
 	for _, orderer := range p.Network.Orderers {
 		caCertPath := filepath.Join(p.Network.OrdererLocalTLSDir(orderer), "ca.crt")
-
 		org := p.Network.Organization(orderer.Organization)
 
-		orderers = append(orderers, &Orderer{
+		_, port, err := net.SplitHostPort(p.Network.OrdererAddress(orderer, network.OperationsPort))
+		Expect(err).NotTo(HaveOccurred())
+
+		orderers = append(orderers, &fabric.Orderer{
 			Name:             orderer.Name,
 			FullName:         fmt.Sprintf("%s.%s", orderer.Name, org.Domain),
 			ListeningAddress: p.Network.OrdererAddress(orderer, network.ListenPort),
+			OperationAddress: net.JoinHostPort(fabricHost, port),
 			TLSCACerts:       []string{caCertPath},
 		})
 	}
 	return orderers
 }
 
-func (p *Platform) Channels() []*Channel {
-	var channels []*Channel
+func (p *Platform) Channels() []*fabric.Channel {
+	var channels []*fabric.Channel
 	for _, ch := range p.Network.Channels {
-		var chaincodes []*Chaincode
+		var chaincodes []*fabric.Chaincode
 		for _, chaincode := range p.Network.Topology().Chaincodes {
 			if chaincode.Channel == ch.Name {
 				peers := p.Network.PeersByName(chaincode.Peers)
@@ -359,13 +397,13 @@ func (p *Platform) Channels() []*Channel {
 				for _, org := range orgs {
 					orgMSPIDs = append(orgMSPIDs, p.OrgMSPID(org))
 				}
-				chaincodes = append(chaincodes, &Chaincode{
+				chaincodes = append(chaincodes, &fabric.Chaincode{
 					Name:      chaincode.Chaincode.Name,
 					OrgMSPIDs: orgMSPIDs,
 				})
 			}
 		}
-		channels = append(channels, &Channel{
+		channels = append(channels, &fabric.Channel{
 			Name:       ch.Name,
 			Chaincodes: chaincodes,
 		})
@@ -408,4 +446,143 @@ func (p *Platform) InvokeChaincode(cc *topology.ChannelChaincode, method string,
 	Expect(sess.Err).To(gbytes.Say("Chaincode invoke successful. result: status:200"))
 
 	return sess.Buffer().Contents()
+}
+
+// ConnectionProfile returns Fabric connection profile
+func (p *platform) ConnectionProfile(name string, ca bool) *network.ConnectionProfile {
+	fabricHost := "fabric"
+	if runtime.GOOS == "darwin" {
+		fabricHost = "host.docker.internal"
+	}
+	cp := &network.ConnectionProfile{
+		Name:                   name,
+		Version:                "1.0.0",
+		Organizations:          map[string]network.Organization{},
+		Peers:                  map[string]network.Peer{},
+		CertificateAuthorities: map[string]network.CertificationAuthority{},
+	}
+
+	fabricNetwork := p
+
+	// organizations
+	orgs := fabricNetwork.PeerOrgs()
+	var peerFullNames []string
+	for _, org := range orgs {
+		peers := fabricNetwork.PeersByOrg(org.Name, false)
+		var names []string
+		for _, peer := range peers {
+			names = append(names, peer.FullName)
+		}
+
+		if ca {
+			cp.Organizations[org.Name] = network.Organization{
+				MSPID: org.MSPID,
+				Peers: names,
+				CertificateAuthorities: []string{
+					"ca." + name,
+				},
+			}
+		} else {
+			signCert, err := ioutil.ReadFile(p.Network.PeerUserCert(p.Network.PeerByName(peers[0].Name), "Admin"))
+			Expect(err).NotTo(HaveOccurred())
+
+			adminPrivateKey, err := ioutil.ReadFile(p.Network.PeerUserKey(p.Network.PeerByName(peers[0].Name), "Admin"))
+			Expect(err).NotTo(HaveOccurred())
+
+			cp.Organizations[org.Name] = network.Organization{
+				MSPID: org.MSPID,
+				Peers: names,
+				SignedCert: map[string]interface{}{
+					"pem": string(signCert),
+				},
+				AdminPrivateKey: map[string]interface{}{
+					"pem": string(adminPrivateKey),
+				},
+			}
+		}
+
+		cp.CertificateAuthorities["ca."+name] = network.CertificationAuthority{
+			Url:        "https://127.0.0.1:7054",
+			CaName:     "ca." + name,
+			TLSCACerts: nil,
+			HttpOptions: network.HttpOptions{
+				Verify: true,
+			},
+		}
+		for _, peer := range peers {
+			_, port, err := net.SplitHostPort(peer.ListeningAddress)
+			Expect(err).NotTo(HaveOccurred())
+
+			bb := bytes.Buffer{}
+
+			for _, cert := range peer.TLSCACerts {
+				raw, err := ioutil.ReadFile(cert)
+				Expect(err).NotTo(HaveOccurred())
+				bb.WriteString(string(raw))
+			}
+
+			gRPCopts := make(map[string]interface{})
+			gRPCopts["request-timeout"] = 120001
+
+			cp.Peers[peer.FullName] = network.Peer{
+				URL: "grpcs://" + net.JoinHostPort(fabricHost, port),
+				TLSCACerts: map[string]interface{}{
+					"pem": bb.String(),
+				},
+				GrpcOptions: gRPCopts,
+			}
+
+			peerFullNames = append(peerFullNames, peer.FullName)
+		}
+
+	}
+
+	// orderers
+	cp.Orderers = map[string]network.Orderer{}
+	var ordererFullNames []string
+	for _, orderer := range fabricNetwork.Orderers() {
+		_, port, err := net.SplitHostPort(orderer.ListeningAddress)
+		Expect(err).NotTo(HaveOccurred())
+
+		bb := bytes.Buffer{}
+
+		for _, cert := range orderer.TLSCACerts {
+			raw, err := ioutil.ReadFile(cert)
+			Expect(err).NotTo(HaveOccurred())
+			bb.WriteString(string(raw))
+		}
+
+		gRPCopts := make(map[string]interface{})
+		gRPCopts["request-timeout"] = 120001
+
+		cp.Orderers[orderer.FullName] = network.Orderer{
+			URL: "grpcs://" + net.JoinHostPort(fabricHost, port),
+			TLSCACerts: map[string]interface{}{
+				"pem": bb.String(),
+			},
+			GrpcOptions: gRPCopts,
+		}
+		ordererFullNames = append(ordererFullNames, orderer.FullName)
+	}
+
+	// channels
+	cp.Channels = map[string]network.Channel{}
+	channelPeers := map[string]network.ChannelPeer{}
+	for _, name := range peerFullNames {
+		channelPeers[name] = network.ChannelPeer{
+			EndorsingPeer:  true,
+			ChaincodeQuery: true,
+			LedgerQuery:    true,
+			EventSource:    true,
+			Discover:       true,
+		}
+	}
+	for _, channel := range fabricNetwork.Channels() {
+		cp.Channels[channel.Name] = network.Channel{
+			Orderers: ordererFullNames,
+			Peers:    channelPeers,
+		}
+	}
+
+	return cp
 }

@@ -96,7 +96,7 @@ Consensus:
 Operations:
   ListenAddress: 127.0.0.1:{{ .OrdererPort Orderer "Operations" }}
   TLS:
-    Enabled: true
+    Enabled: false
     PrivateKey: {{ $w.OrdererLocalTLSDir Orderer }}/server.key
     Certificate: {{ $w.OrdererLocalTLSDir Orderer }}/server.crt
     RootCAs:

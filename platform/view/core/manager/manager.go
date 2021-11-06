@@ -252,6 +252,8 @@ func (cm *manager) respond(responder view.View, id view.Identity, msg *view.Mess
 		return nil, nil, errors.WithMessagef(err, "failed getting context for [%s,%s,%v]", msg.ContextID, id, msg)
 	}
 
+	// todo: if a new contxt has been created to run the responder,
+	// then dispose the context when the responder terminates
 	// run view
 	if isNew {
 		// delete context at the end of the execution

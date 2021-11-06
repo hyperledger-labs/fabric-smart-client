@@ -246,6 +246,14 @@ func (ctx *ctx) Session() view.Session {
 	return ctx.session
 }
 
+func (ctx *ctx) ResetSessions() error {
+	ctx.sessionsLock.Lock()
+	defer ctx.sessionsLock.Unlock()
+	ctx.sessions = map[string]view.Session{}
+
+	return nil
+}
+
 func (ctx *ctx) GetService(v interface{}) (interface{}, error) {
 	// first search locally then globally
 	s, err := ctx.localSP.GetService(v)
