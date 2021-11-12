@@ -70,6 +70,10 @@ func (s *Service) MasterSession() (view2.Session, error) {
 	return s.Node.MasterSession()
 }
 
+func (s *Service) DeleteSessions(sessionID string) {
+	s.Node.DeleteSessions(sessionID)
+}
+
 func (s *Service) init() error {
 	p2pListenAddress := s.ConfigService.GetString("fsc.p2p.listenAddress")
 	p2pBootstrapNode := s.ConfigService.GetString("fsc.p2p.bootstrapNode")

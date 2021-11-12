@@ -54,6 +54,11 @@ type CommLayer struct {
 		result1 view.Session
 		result2 error
 	}
+	DeleteSessionsStub        func(sessionID string)
+	deleteSessionsMutex       sync.RWMutex
+	deleteSessionsArgsForCall []struct {
+		sessionID string
+	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
@@ -221,6 +226,30 @@ func (fake *CommLayer) MasterSessionReturnsOnCall(i int, result1 view.Session, r
 	}{result1, result2}
 }
 
+func (fake *CommLayer) DeleteSessions(sessionID string) {
+	fake.deleteSessionsMutex.Lock()
+	fake.deleteSessionsArgsForCall = append(fake.deleteSessionsArgsForCall, struct {
+		sessionID string
+	}{sessionID})
+	fake.recordInvocation("DeleteSessions", []interface{}{sessionID})
+	fake.deleteSessionsMutex.Unlock()
+	if fake.DeleteSessionsStub != nil {
+		fake.DeleteSessionsStub(sessionID)
+	}
+}
+
+func (fake *CommLayer) DeleteSessionsCallCount() int {
+	fake.deleteSessionsMutex.RLock()
+	defer fake.deleteSessionsMutex.RUnlock()
+	return len(fake.deleteSessionsArgsForCall)
+}
+
+func (fake *CommLayer) DeleteSessionsArgsForCall(i int) string {
+	fake.deleteSessionsMutex.RLock()
+	defer fake.deleteSessionsMutex.RUnlock()
+	return fake.deleteSessionsArgsForCall[i].sessionID
+}
+
 func (fake *CommLayer) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
@@ -230,6 +259,8 @@ func (fake *CommLayer) Invocations() map[string][][]interface{} {
 	defer fake.newSessionMutex.RUnlock()
 	fake.masterSessionMutex.RLock()
 	defer fake.masterSessionMutex.RUnlock()
+	fake.deleteSessionsMutex.RLock()
+	defer fake.deleteSessionsMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

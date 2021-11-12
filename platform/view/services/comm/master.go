@@ -8,6 +8,7 @@ package comm
 
 import (
 	"encoding/base64"
+	"strings"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -70,4 +71,17 @@ func (p *P2PNode) NewSessionWithID(sessionID, contextID, endpoint string, pkid [
 
 func (p *P2PNode) MasterSession() (view.Session, error) {
 	return p.getOrCreateSession(masterSession, "", "", "", nil, []byte{}, nil)
+}
+
+func (p *P2PNode) DeleteSessions(sessionID string) {
+	p.sessionsMutex.Lock()
+	defer p.sessionsMutex.Unlock()
+
+	for key := range p.sessions {
+		// if key starts with sessionID, delete it
+		if strings.HasPrefix(key, sessionID) {
+			logger.Debugf("deleting session [%s]", key)
+			delete(p.sessions, key)
+		}
+	}
 }
