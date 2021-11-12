@@ -21,6 +21,7 @@ type transaction struct {
 	function string
 	peers    []string
 	invoker  view.Identity
+	txID     fabric.TxID
 }
 
 func (t *transaction) Evaluate(args ...string) ([]byte, error) {
@@ -41,6 +42,8 @@ func (t *transaction) Evaluate(args ...string) ([]byte, error) {
 		t.invoker,
 	).WithEndorsers(
 		endorsers...,
+	).WithTxID(
+		t.txID,
 	).Call()
 	if err != nil {
 		return nil, err
@@ -148,6 +151,8 @@ func (c *contractProviderForEndorsement) EvaluateTransaction(name string, args .
 		name, passedArgs...,
 	).WithInvokerIdentity(
 		c.invoker,
+	).WithTxID(
+		c.txID,
 	).Call()
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed querying chaincode [%s:%s]", c.cid, name)
@@ -180,6 +185,7 @@ func (c *contractProviderForEndorsement) CreateTransaction(name string, peerEndp
 		fns:      c.fns,
 		ch:       c.ch,
 		id:       c.cid,
+		txID:     c.txID,
 		function: name,
 		peers:    peerEndpoints,
 		invoker:  c.invoker,
