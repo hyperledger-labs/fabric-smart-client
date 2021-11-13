@@ -15,8 +15,13 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
+type disposableContext interface {
+	view.Context
+	Dispose()
+}
+
 type childContext struct {
-	ParentContext view.Context
+	ParentContext disposableContext
 
 	session            view.Session
 	initiator          view.View
@@ -110,6 +115,12 @@ func (w *childContext) RunView(v view.View, opts ...view.RunViewOption) (res int
 		res, err = v.Call(childContext)
 	}
 	return res, err
+}
+
+func (w *childContext) Dispose() {
+	if w.ParentContext != nil {
+		w.ParentContext.Dispose()
+	}
 }
 
 func (w *childContext) cleanup() {

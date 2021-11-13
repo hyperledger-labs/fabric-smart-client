@@ -36,7 +36,7 @@ type manager struct {
 	viewsSync     sync.RWMutex
 	contextsSync  sync.RWMutex
 
-	contexts   map[string]view.Context
+	contexts   map[string]disposableContext
 	views      map[string][]*viewEntry
 	initiators map[string]string
 	factories  map[string]driver.Factory
@@ -46,7 +46,7 @@ func New(serviceProvider driver.ServiceProvider) *manager {
 	return &manager{
 		sp: serviceProvider,
 
-		contexts:   map[string]view.Context{},
+		contexts:   map[string]disposableContext{},
 		views:      map[string][]*viewEntry{},
 		initiators: map[string]string{},
 		factories:  map[string]driver.Factory{},
@@ -231,26 +231,38 @@ func (cm *manager) respond(responder view.View, id view.Identity, msg *view.Mess
 	logger.Debugf("[%s] Respond [from:%s], [sessionID:%s], [contextID:%s], [view:%s]", id, msg.FromEndpoint, msg.SessionID, msg.ContextID, getIdentifier(responder))
 
 	// get context
-	ctx, err = cm.newContext(id, msg)
+	var isNew bool
+	ctx, isNew, err = cm.newContext(id, msg)
 	if err != nil {
 		return nil, nil, errors.WithMessagef(err, "failed getting context for [%s,%s,%v]", msg.ContextID, id, msg)
 	}
 
 	// run view
-	res, err = ctx.RunView(responder)
+	if isNew {
+		// delete context at the end of the execution
+		res, err = func(ctx view.Context, responder view.View) (interface{}, error) {
+			defer func() {
+				cm.deleteContext(id, ctx.ID())
+			}()
+			return ctx.RunView(responder)
+		}(ctx, responder)
+	} else {
+		res, err = ctx.RunView(responder)
+	}
 	if err != nil {
 		logger.Debugf("[%s] Respond Failure [from:%s], [sessionID:%s], [contextID:%s] [%s]\n", id, msg.FromEndpoint, msg.SessionID, msg.ContextID, err)
 	}
 	return ctx, res, err
 }
 
-func (cm *manager) newContext(id view.Identity, msg *view.Message) (view.Context, error) {
+func (cm *manager) newContext(id view.Identity, msg *view.Message) (view.Context, bool, error) {
 	cm.contextsSync.Lock()
 	defer cm.contextsSync.Unlock()
 
+	isNew := false
 	caller, err := driver.GetEndpointService(cm.sp).GetIdentity(msg.FromEndpoint, msg.FromPKID)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	contextID := msg.ContextID
@@ -270,7 +282,7 @@ func (cm *manager) newContext(id view.Identity, msg *view.Message) (view.Context
 		logger.Debugf("[%s] Create new context to respond [contextID:%s]\n", id, msg.ContextID)
 		backend, err := GetCommLayer(cm.sp).NewSessionWithID(msg.SessionID, contextID, msg.FromEndpoint, msg.FromPKID, caller, msg)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 		ctx := cm.ctx
 		if ctx == nil {
@@ -278,16 +290,29 @@ func (cm *manager) newContext(id view.Identity, msg *view.Message) (view.Context
 		}
 		newCtx, err := NewContext(ctx, cm.sp, contextID, GetCommLayer(cm.sp), driver.GetEndpointService(cm.sp), id, backend, caller)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 		childContext := &childContext{ParentContext: newCtx}
 		cm.contexts[contextID] = childContext
 		viewContext = childContext
+		isNew = true
 	} else {
 		logger.Debugf("[%s] No new context to respond, reuse [contextID:%s]\n", id, msg.ContextID)
 	}
 
-	return viewContext, nil
+	return viewContext, isNew, nil
+}
+
+func (cm *manager) deleteContext(id view.Identity, contextID string) {
+	cm.contextsSync.Lock()
+	defer cm.contextsSync.Unlock()
+
+	logger.Debugf("[%s] Delete context [contextID:%s]\n", id, contextID)
+	// dispose context
+	if context, ok := cm.contexts[contextID]; ok {
+		context.Dispose()
+		delete(cm.contexts, contextID)
+	}
 }
 
 func (cm *manager) existResponder(msg *view.Message) (view.View, view.Identity, error) {
@@ -318,7 +343,7 @@ func (cm *manager) callView(msg *view.Message) {
 	if err != nil {
 		// TODO: No responder exists for this message
 		// Let's cache it for a while an re-post
-		logger.Errorf("[%s] No responder exists for [%s]", cm.me(), msg.String())
+		logger.Errorf("[%s] No responder exists for [%s]: [%s]", cm.me(), msg.String(), err)
 		return
 	}
 	if id.IsNone() {

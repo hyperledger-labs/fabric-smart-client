@@ -393,21 +393,30 @@ func (i *Interceptor) Bytes() ([]byte, error) {
 }
 
 func (i *Interceptor) Equals(other interface{}, nss ...string) error {
-	o, ok := other.(*Interceptor)
-	if !ok {
+	switch o := other.(type) {
+	case *Interceptor:
+		if err := i.rws.reads.equals(o.rws.reads, nss...); err != nil {
+			return errors.Wrap(err, "reads do not match")
+		}
+		if err := i.rws.writes.equals(o.rws.writes, nss...); err != nil {
+			return errors.Wrap(err, "writes do not match")
+		}
+		if err := i.rws.metawrites.equals(o.rws.metawrites, nss...); err != nil {
+			return errors.Wrap(err, "meta writes do not match")
+		}
+	case *Inspector:
+		if err := i.rws.reads.equals(o.rws.reads, nss...); err != nil {
+			return errors.Wrap(err, "reads do not match")
+		}
+		if err := i.rws.writes.equals(o.rws.writes, nss...); err != nil {
+			return errors.Wrap(err, "writes do not match")
+		}
+		if err := i.rws.metawrites.equals(o.rws.metawrites, nss...); err != nil {
+			return errors.Wrap(err, "meta writes do not match")
+		}
+	default:
 		return errors.Errorf("cannot compare to the passed value [%v]", other)
 	}
-
-	if err := i.rws.reads.equals(o.rws.reads, nss...); err != nil {
-		return errors.Wrap(err, "reads do not match")
-	}
-	if err := i.rws.writes.equals(o.rws.writes, nss...); err != nil {
-		return errors.Wrap(err, "writes do not match")
-	}
-	if err := i.rws.metawrites.equals(o.rws.metawrites, nss...); err != nil {
-		return errors.Wrap(err, "meta writes do not match")
-	}
-
 	return nil
 }
 

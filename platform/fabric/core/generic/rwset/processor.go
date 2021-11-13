@@ -100,7 +100,7 @@ func (r *processorManager) ProcessByID(channel, txid string) error {
 					return err
 				}
 			}
-			logger.Debugf("no processors found for namespace [%s,%s,%d]", channel, txid, ns)
+			logger.Debugf("no processors found for namespace [%s,%s,%s]", channel, txid, ns)
 		}
 	}
 	return nil

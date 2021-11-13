@@ -14,6 +14,7 @@ import (
 	"github.com/hyperledger/fabric-protos-go/peer"
 	"github.com/hyperledger/fabric/protoutil"
 	"github.com/pkg/errors"
+	"go.uber.org/zap/zapcore"
 )
 
 type Envelope struct {
@@ -152,6 +153,31 @@ func UnpackEnvelope(env *common.Envelope) (*UnpackedEnvelope, error) {
 	if err != nil {
 		err = fmt.Errorf("GetChaincodeAction error %s", err)
 		return nil, err
+	}
+
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("envelope info: "+
+			"len(env.Payload) [%d] - "+
+			"len(env.Signature) [%d] - "+
+			"len(payl.Header.ChannelHeader) [%d] - "+
+			"len(payl.Header.SignatureHeader) [%d] - "+
+			"len(payl.Data) [%d] - "+
+			"len(tx.Actions[0].Payload) [%d] - "+
+			"len(cap.ChaincodeProposalPayload) [%d] - "+
+			"len(cpp.Input) [%d] - "+
+			"len(cap.Action.ProposalResponsePayload) [%d] - "+
+			"len(pRespPayload.Extension) [%d]",
+			len(env.Payload),
+			len(env.Signature),
+			len(payl.Header.ChannelHeader),
+			len(payl.Header.SignatureHeader),
+			len(payl.Data),
+			len(tx.Actions[0].Payload),
+			len(cap.ChaincodeProposalPayload),
+			len(cpp.Input),
+			len(cap.Action.ProposalResponsePayload),
+			len(pRespPayload.Extension),
+		)
 	}
 
 	var args []string

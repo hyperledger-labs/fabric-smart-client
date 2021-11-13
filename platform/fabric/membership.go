@@ -15,6 +15,7 @@ import (
 
 type IdentityOptions struct {
 	IdemixEIDExtension bool
+	AuditInfo          []byte
 }
 
 func CompileIdentityOptions(opts ...IdentityOption) (*IdentityOptions, error) {
@@ -32,6 +33,13 @@ type IdentityOption func(*IdentityOptions) error
 func WithIdemixEIDExtension() IdentityOption {
 	return func(o *IdentityOptions) error {
 		o.IdemixEIDExtension = true
+		return nil
+	}
+}
+
+func WithAuditInfo(ai []byte) IdentityOption {
+	return func(o *IdentityOptions) error {
+		o.AuditInfo = ai
 		return nil
 	}
 }
@@ -96,6 +104,7 @@ func (s *LocalMembership) GetIdentityInfoByLabel(mspType string, label string) *
 			}
 			return iInfo.GetIdentity(&driver.IdentityOptions{
 				EIDExtension: idOpts.IdemixEIDExtension,
+				AuditInfo:    idOpts.AuditInfo,
 			})
 		},
 	}

@@ -287,7 +287,15 @@ func (db *Vault) Match(txid string, rwsRaw []byte) error {
 	}
 
 	if !bytes.Equal(rwsRaw, rwsRaw2) {
-		return errors.Errorf("rwsets do not match")
+		target, err := db.InspectRWSet(rwsRaw)
+		if err != nil {
+			return errors.Wrapf(err, "rwsets do not match")
+		}
+		if err2 := i.Equals(target); err2 != nil {
+			return errors.Wrapf(err2, "rwsets do not match")
+		}
+		// TODO: vault should support Fabric's rwset fully
+		logger.Debugf("byte representation differs, but rwsets match [%s]", txid)
 	}
 	return nil
 }

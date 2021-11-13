@@ -172,6 +172,14 @@ func (i *ChaincodeQuery) WithInvokerIdentity(id view.Identity) *ChaincodeQuery {
 	return i
 }
 
+func (i *ChaincodeQuery) WithTxID(id TxID) *ChaincodeQuery {
+	i.ChaincodeInvocation.WithTxID(driver.TxID{
+		Nonce:   id.Nonce,
+		Creator: id.Creator,
+	})
+	return i
+}
+
 type ChaincodeEndorse struct {
 	ci driver.ChaincodeInvocation
 }

@@ -228,6 +228,21 @@ func (ctx *ctx) Context() context.Context {
 	return ctx.context
 }
 
+func (ctx *ctx) Dispose() {
+	// dispose all sessions
+	ctx.sessionsLock.Lock()
+	defer ctx.sessionsLock.Unlock()
+
+	if ctx.session != nil {
+		ctx.sessionFactory.DeleteSessions(ctx.session.Info().ID)
+	}
+
+	for _, s := range ctx.sessions {
+		ctx.sessionFactory.DeleteSessions(s.Info().ID)
+	}
+	ctx.sessions = map[string]view.Session{}
+}
+
 func (ctx *ctx) newSession(view view.View, contextID string, party view.Identity) (view.Session, error) {
 	_, endpoints, pkid, err := ctx.resolver.Resolve(party)
 	if err != nil {

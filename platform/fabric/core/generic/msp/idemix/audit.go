@@ -52,8 +52,8 @@ func (a *AuditInfo) Match(id []byte) error {
 		serialized.Proof,
 		nil,
 		&csp.EidNymAuditOpts{
-			EidIndex:     eidIndex,
-			EnrollmentID: string(a.Attributes[eidIndex]),
+			EidIndex:     EIDIndex,
+			EnrollmentID: string(a.Attributes[EIDIndex]),
 			RNymEid:      a.RNymEid,
 		},
 	)
@@ -66,4 +66,13 @@ func (a *AuditInfo) Match(id []byte) error {
 	}
 
 	return nil
+}
+
+func DeserializeAuditInfo(raw []byte) (*AuditInfo, error) {
+	auditInfo := &AuditInfo{}
+	err := auditInfo.FromBytes(raw)
+	if err != nil {
+		return nil, err
+	}
+	return auditInfo, nil
 }

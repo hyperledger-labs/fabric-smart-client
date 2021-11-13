@@ -21,6 +21,8 @@ type CommLayer interface {
 	NewSession(caller string, contextID string, endpoint string, pkid []byte) (view.Session, error)
 
 	MasterSession() (view.Session, error)
+
+	DeleteSessions(sessionID string)
 }
 
 func GetCommLayer(sp driver.ServiceProvider) CommLayer {
@@ -38,4 +40,6 @@ type SessionFactory interface {
 	NewSessionWithID(sessionID, contextID, endpoint string, pkid []byte, caller view.Identity, msg *view.Message) (view.Session, error)
 
 	NewSession(caller string, contextID string, endpoint string, pkid []byte) (view.Session, error)
+
+	DeleteSessions(sessionID string)
 }

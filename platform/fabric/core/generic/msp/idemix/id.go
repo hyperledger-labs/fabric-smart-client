@@ -23,7 +23,7 @@ import (
 
 type identity struct {
 	NymPublicKey bccsp.Key
-	support      *common
+	common       *common
 	id           *msp.IdentityIdentifier
 	Role         *m.MSPRole
 	OU           *m.OrganizationUnit
@@ -38,10 +38,10 @@ func newIdentity(provider *common, NymPublicKey bccsp.Key, role *m.MSPRole, ou *
 	return newIdentityWithVerType(provider, NymPublicKey, role, ou, proof, bccsp.ExpectEidNym)
 }
 
-func newIdentityWithVerType(provider *common, NymPublicKey bccsp.Key, role *m.MSPRole, ou *m.OrganizationUnit, proof []byte, verificationType bccsp.VerificationType) *identity {
+func newIdentityWithVerType(common *common, NymPublicKey bccsp.Key, role *m.MSPRole, ou *m.OrganizationUnit, proof []byte, verificationType bccsp.VerificationType) *identity {
 	id := &identity{}
+	id.common = common
 	id.NymPublicKey = NymPublicKey
-	id.support = provider
 	id.Role = role
 	id.OU = ou
 	id.associationProof = proof
@@ -52,7 +52,7 @@ func newIdentityWithVerType(provider *common, NymPublicKey bccsp.Key, role *m.MS
 		panic(fmt.Sprintf("unexpected condition, failed marshalling nym public key [%s]", err))
 	}
 	id.id = &msp.IdentityIdentifier{
-		Mspid: provider.name,
+		Mspid: common.name,
 		Id:    bytes.NewBuffer(raw).String(),
 	}
 
@@ -74,12 +74,12 @@ func (id *identity) GetIdentifier() *msp.IdentityIdentifier {
 }
 
 func (id *identity) GetMSPIdentifier() string {
-	return id.support.name
+	return id.common.name
 }
 
 func (id *identity) GetOrganizationalUnits() []*msp.OUIdentifier {
 	// we use the (serialized) public key of this MSP as the CertifiersIdentifier
-	certifiersIdentifier, err := id.support.IssuerPublicKey.Bytes()
+	certifiersIdentifier, err := id.common.IssuerPublicKey.Bytes()
 	if err != nil {
 		logger.Errorf("Failed to marshal ipk in GetOrganizationalUnits: %s", err)
 		return nil
@@ -90,19 +90,19 @@ func (id *identity) GetOrganizationalUnits() []*msp.OUIdentifier {
 
 func (id *identity) Validate() error {
 	// logger.Debugf("Validating identity %+v", id)
-	if id.GetMSPIdentifier() != id.support.name {
+	if id.GetMSPIdentifier() != id.common.name {
 		return errors.Errorf("the supplied identity does not belong to this msp")
 	}
 	return id.verifyProof()
 }
 
 func (id *identity) Verify(msg []byte, sig []byte) error {
-	_, err := id.support.Csp.Verify(
+	_, err := id.common.Csp.Verify(
 		id.NymPublicKey,
 		sig,
 		msg,
 		&csp.IdemixNymSignerOpts{
-			IssuerPK: id.support.IssuerPublicKey,
+			IssuerPK: id.common.IssuerPublicKey,
 		},
 	)
 	return err
@@ -153,22 +153,30 @@ func (id *identity) Serialize() ([]byte, error) {
 
 func (id *identity) verifyProof() error {
 	// Verify signature
-	valid, err := id.support.Csp.Verify(
-		id.support.IssuerPublicKey,
+	var metadata *csp.IdemixSignerMetadata
+	if len(id.common.NymEID) != 0 {
+		metadata = &csp.IdemixSignerMetadata{
+			NymEID: id.common.NymEID,
+		}
+	}
+
+	valid, err := id.common.Csp.Verify(
+		id.common.IssuerPublicKey,
 		id.associationProof,
 		nil,
 		&csp.IdemixSignerOpts{
-			RevocationPublicKey: id.support.revocationPK,
+			RevocationPublicKey: id.common.revocationPK,
 			Attributes: []csp.IdemixAttribute{
 				{Type: csp.IdemixBytesAttribute, Value: []byte(id.OU.OrganizationalUnitIdentifier)},
 				{Type: csp.IdemixIntAttribute, Value: getIdemixRoleFromMSPRole(id.Role)},
 				{Type: csp.IdemixHiddenAttribute},
 				{Type: csp.IdemixHiddenAttribute},
 			},
-			RhIndex:          rhIndex,
-			EidIndex:         eidIndex,
-			Epoch:            id.support.epoch,
+			RhIndex:          RHIndex,
+			EidIndex:         EIDIndex,
+			Epoch:            id.common.epoch,
 			VerificationType: id.VerificationType,
+			Metadata:         metadata,
 		},
 	)
 	if err == nil && !valid {
@@ -189,12 +197,12 @@ type signingIdentity struct {
 func (id *signingIdentity) Sign(msg []byte) ([]byte, error) {
 	// logger.Debugf("Idemix identity %s is signing", id.GetIdentifier())
 
-	sig, err := id.support.Csp.Sign(
+	sig, err := id.common.Csp.Sign(
 		id.UserKey,
 		msg,
 		&csp.IdemixNymSignerOpts{
 			Nym:      id.NymKey,
-			IssuerPK: id.support.IssuerPublicKey,
+			IssuerPK: id.common.IssuerPublicKey,
 		},
 	)
 	if err != nil {
