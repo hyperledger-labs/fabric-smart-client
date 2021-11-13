@@ -112,8 +112,8 @@ integration-tests-pingpong: docker-images dependencies
 integration-tests-stoprestart: docker-images dependencies
 	cd ./integration/fsc/stoprestart; ginkgo -keepGoing --slowSpecThreshold 60 .
 
-.PHONY: integration-tests-orionscars
-integration-tests-orionscars: docker-images orion-server-images dependencies
+.PHONY: integration-tests-orioncars
+integration-tests-orioncars: docker-images orion-server-images dependencies
 	cd ./integration/orion/cars; ginkgo -keepGoing --slowSpecThreshold 60 .
 
 .PHONY: tidy
