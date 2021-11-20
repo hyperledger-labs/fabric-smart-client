@@ -16,7 +16,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 
-	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 )

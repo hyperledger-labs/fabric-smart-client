@@ -10,6 +10,9 @@ import (
 	"context"
 
 	config2 "github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic/config"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic/rwset"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic/transaction"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 
@@ -25,8 +28,14 @@ type network struct {
 	config *config2.Config
 	name   string
 
-	sessionManager  *SessionManager
-	identityManager *IdentityManager
+	sessionManager     *SessionManager
+	identityManager    *IdentityManager
+	metadataService    driver.MetadataService
+	transactionManager driver.TransactionManager
+	envelopeService    driver.EnvelopeService
+	txIDStore          *vault.TXIDStore
+	vault              *Vault
+	processorManager   driver.ProcessorManager
 }
 
 func NewNetwork(
@@ -62,6 +71,15 @@ func NewNetwork(
 		config:          config,
 		identityManager: n.identityManager,
 	}
+	n.metadataService = transaction.NewMetadataService(sp, name)
+	n.envelopeService = transaction.NewEnvelopeService(sp, name)
+	n.transactionManager = transaction.NewManager(sp)
+	n.vault, err = NewVault(n.config, name, sp)
+	if err != nil {
+		return nil, err
+	}
+	n.processorManager = rwset.NewProcessorManager(n.sp, n, nil)
+
 	return n, nil
 }
 
@@ -75,4 +93,24 @@ func (f *network) IdentityManager() driver.IdentityManager {
 
 func (f *network) SessionManager() driver.SessionManager {
 	return f.sessionManager
+}
+
+func (f *network) TransactionManager() driver.TransactionManager {
+	return f.transactionManager
+}
+
+func (f *network) MetadataService() driver.MetadataService {
+	return f.metadataService
+}
+
+func (f *network) EnvelopeService() driver.EnvelopeService {
+	return f.envelopeService
+}
+
+func (f *network) Vault() driver.Vault {
+	return f.vault
+}
+
+func (f *network) ProcessorManager() driver.ProcessorManager {
+	return f.processorManager
 }
