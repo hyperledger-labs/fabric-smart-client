@@ -41,6 +41,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/helpers"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 )
 
@@ -379,6 +380,7 @@ func (p *Platform) generateExtension() {
 					},
 				}
 			},
+			"FSCNodeVaultPath": func() string { return p.FSCNodeVaultDir(node) },
 		}).Parse(ExtensionTemplate)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -590,4 +592,8 @@ func (p *Platform) saveServerUrl(url *url.URL) {
 	_, err = serverUrlFile.WriteString(url.String())
 	Expect(err).ToNot(HaveOccurred())
 	serverUrlFile.Close()
+}
+
+func (p *Platform) FSCNodeVaultDir(peer *node.Node) string {
+	return filepath.Join(p.Context.RootDir(), "fsc", "fscnodes", peer.ID(), "vault")
 }

@@ -17,6 +17,11 @@ type OrionNetworkService interface {
 	Name() string
 	IdentityManager() IdentityManager
 	SessionManager() SessionManager
+	TransactionManager() TransactionManager
+	MetadataService() MetadataService
+	Vault() Vault
+	EnvelopeService() EnvelopeService
+	ProcessorManager() ProcessorManager
 }
 
 type OrionNetworkServiceProvider interface {

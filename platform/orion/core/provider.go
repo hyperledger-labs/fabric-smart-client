@@ -68,6 +68,7 @@ func (p *onsProvider) OrionNetworkService(network string) (driver.OrionNetworkSe
 		var err error
 		net, err = p.newONS(network)
 		if err != nil {
+			logger.Errorf("Failed to create new network service for [%s]: [%s]", network, err)
 			return nil, err
 		}
 		p.networks[network] = net
