@@ -28,12 +28,12 @@ func (d *Transaction) Commit(b bool) (string, *types.TxReceipt, error) {
 	return d.dataTx.Commit(b)
 }
 
-type QueryExecutor struct {
+type SessionQueryExecutor struct {
 	dataTx driver.DataTx
 	db     string
 }
 
-func (d *QueryExecutor) Get(key string) ([]byte, *types.Metadata, error) {
+func (d *SessionQueryExecutor) Get(key string) ([]byte, *types.Metadata, error) {
 	return d.dataTx.Get(d.db, key)
 }
 
@@ -49,12 +49,12 @@ func (s *Session) NewTransaction(txID string) (*Transaction, error) {
 	return &Transaction{dataTx: dataTx}, nil
 }
 
-func (s *Session) QueryExecutor(db string) (*QueryExecutor, error) {
+func (s *Session) QueryExecutor(db string) (*SessionQueryExecutor, error) {
 	dataTx, err := s.s.DataTx("")
 	if err != nil {
 		return nil, err
 	}
-	return &QueryExecutor{dataTx: dataTx, db: db}, nil
+	return &SessionQueryExecutor{dataTx: dataTx, db: db}, nil
 }
 
 type SessionManager struct {

@@ -19,4 +19,9 @@ orion:
         cert: {{ .Cert }}
         key: {{ .Key }}
 	{{- end }}
+    vault:
+      persistence:
+        type: file
+        opts:
+          path: {{ FSCNodeVaultPath }}
 `

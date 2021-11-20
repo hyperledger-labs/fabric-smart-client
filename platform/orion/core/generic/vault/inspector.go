@@ -9,7 +9,7 @@ package vault
 import (
 	"github.com/pkg/errors"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 )
 
 type Inspector struct {
