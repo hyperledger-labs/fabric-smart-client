@@ -4,7 +4,7 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package txidstore
+package vault
 
 import (
 	"fmt"
@@ -14,7 +14,7 @@ import (
 
 	"github.com/test-go/testify/assert"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db"
 	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger"
 	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
@@ -24,13 +24,13 @@ func TestTXIDStoreMem(t *testing.T) {
 	db, err := db.Open("memory", "")
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
-	store, err := NewTXIDStore(db)
+	store, err := NewSimpleTXIDStore(db)
 	assert.NoError(t, err)
 	assert.NotNil(t, store)
 
 	testTXIDStore(t, store)
 
-	store, err = NewTXIDStore(db)
+	store, err = NewSimpleTXIDStore(db)
 	assert.NoError(t, err)
 	assert.NotNil(t, store)
 
@@ -45,20 +45,20 @@ func TestTXIDStoreBadger(t *testing.T) {
 	db, err := db.Open("badger", tempDir)
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
-	store, err := NewTXIDStore(db)
+	store, err := NewSimpleTXIDStore(db)
 	assert.NoError(t, err)
 	assert.NotNil(t, store)
 
 	testTXIDStore(t, store)
 
-	store, err = NewTXIDStore(db)
+	store, err = NewSimpleTXIDStore(db)
 	assert.NoError(t, err)
 	assert.NotNil(t, store)
 
 	testOneMore(t, store)
 }
 
-func testOneMore(t *testing.T, store *TXIDStore) {
+func testOneMore(t *testing.T, store *SimpleTXIDStore) {
 	err := store.persistence.BeginUpdate()
 	assert.NoError(t, err)
 	err = store.Set("txid3", driver.Valid)
@@ -107,7 +107,7 @@ func testOneMore(t *testing.T, store *TXIDStore) {
 	assert.Equal(t, "txid3", last)
 }
 
-func testTXIDStore(t *testing.T, store *TXIDStore) {
+func testTXIDStore(t *testing.T, store *SimpleTXIDStore) {
 	var err error
 	func() {
 		defer func() {

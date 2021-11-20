@@ -32,6 +32,28 @@ func (n *NetworkService) SessionManager() *SessionManager {
 	return &SessionManager{n.ons.SessionManager()}
 }
 
+func (n *NetworkService) MetadataService() *MetadataService {
+	return &MetadataService{ms: n.ons.MetadataService()}
+}
+
+// TransactionManager returns the transaction manager of this network
+func (n *NetworkService) TransactionManager() *TransactionManager {
+	return &TransactionManager{ons: n}
+}
+
+func (n *NetworkService) EnvelopeService() *EnvelopeService {
+	return &EnvelopeService{es: n.ons.EnvelopeService()}
+}
+
+func (n *NetworkService) Vault() *Vault {
+	return &Vault{v: n.ons.Vault()}
+}
+
+// ProcessorManager returns the processor manager of this network
+func (n *NetworkService) ProcessorManager() *ProcessorManager {
+	return &ProcessorManager{pm: n.ons.ProcessorManager()}
+}
+
 func GetOrionNetworkNames(sp view2.ServiceProvider) []string {
 	return core.GetOrionNetworkServiceProvider(sp).Names()
 }

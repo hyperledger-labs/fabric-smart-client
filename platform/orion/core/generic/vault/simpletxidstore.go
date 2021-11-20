@@ -4,7 +4,7 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package txidstore
+package vault
 
 import (
 	"encoding/binary"
@@ -13,7 +13,7 @@ import (
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
-	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 )
 
@@ -24,7 +24,7 @@ const (
 	byTxidPrefix  = "T"
 )
 
-type TXIDStore struct {
+type SimpleTXIDStore struct {
 	persistence driver.Persistence
 	ctr         uint64
 }
@@ -65,7 +65,7 @@ func getCtrFromBytes(ctrBytes []byte) uint64 {
 	return binary.BigEndian.Uint64(ctrBytes)
 }
 
-func NewTXIDStore(persistence driver.Persistence) (*TXIDStore, error) {
+func NewSimpleTXIDStore(persistence driver.Persistence) (*SimpleTXIDStore, error) {
 	ctrBytes, err := persistence.GetState(txidNamespace, ctrKey)
 	if err != nil {
 		return nil, errors.Errorf("error retrieving txid counter [%s]", err.Error())
@@ -91,13 +91,13 @@ func NewTXIDStore(persistence driver.Persistence) (*TXIDStore, error) {
 		ctrBytes = make([]byte, binary.MaxVarintLen64)
 	}
 
-	return &TXIDStore{
+	return &SimpleTXIDStore{
 		persistence: persistence,
 		ctr:         getCtrFromBytes(ctrBytes),
 	}, nil
 }
 
-func (s *TXIDStore) get(txid string) (*ByTxid, error) {
+func (s *SimpleTXIDStore) get(txid string) (*ByTxid, error) {
 	bytes, err := s.persistence.GetState(txidNamespace, keyByTxid(txid))
 	if err != nil {
 		return nil, errors.Errorf("error retrieving txid %s [%s]", txid, err.Error())
@@ -116,7 +116,7 @@ func (s *TXIDStore) get(txid string) (*ByTxid, error) {
 	return bt, nil
 }
 
-func (s *TXIDStore) Get(txid string) (fdriver.ValidationCode, error) {
+func (s *SimpleTXIDStore) Get(txid string) (fdriver.ValidationCode, error) {
 	bt, err := s.get(txid)
 	if err != nil {
 		return fdriver.Unknown, err
@@ -129,7 +129,7 @@ func (s *TXIDStore) Get(txid string) (fdriver.ValidationCode, error) {
 	return fdriver.ValidationCode(bt.Code), nil
 }
 
-func (s *TXIDStore) Set(txid string, code fdriver.ValidationCode) error {
+func (s *SimpleTXIDStore) Set(txid string, code fdriver.ValidationCode) error {
 	// NOTE: we assume that the commit is in progress so no need to update/commit
 	// err := s.persistence.BeginUpdate()
 	// if err != nil {
@@ -184,7 +184,7 @@ func (s *TXIDStore) Set(txid string, code fdriver.ValidationCode) error {
 	return nil
 }
 
-func (s *TXIDStore) GetLastTxID() (string, error) {
+func (s *SimpleTXIDStore) GetLastTxID() (string, error) {
 	it, err := s.Iterator(&fdriver.SeekEnd{})
 	if err != nil {
 		return "", errors.Wrapf(err, "failed getting last transaction ID")
@@ -200,7 +200,7 @@ func (s *TXIDStore) GetLastTxID() (string, error) {
 	return next.Txid, nil
 }
 
-func (s *TXIDStore) Iterator(pos interface{}) (fdriver.TxidIterator, error) {
+func (s *SimpleTXIDStore) Iterator(pos interface{}) (fdriver.TxidIterator, error) {
 	var startKey string
 	var endKey string
 
@@ -237,14 +237,14 @@ func (s *TXIDStore) Iterator(pos interface{}) (fdriver.TxidIterator, error) {
 		return nil, err
 	}
 
-	return &TxidIterator{it}, nil
+	return &SimpleTxidIterator{it}, nil
 }
 
-type TxidIterator struct {
+type SimpleTxidIterator struct {
 	t driver.ResultsIterator
 }
 
-func (i *TxidIterator) Next() (*fdriver.ByNum, error) {
+func (i *SimpleTxidIterator) Next() (*fdriver.ByNum, error) {
 	d, err := i.t.Next()
 	if err != nil {
 		return nil, err
@@ -266,6 +266,6 @@ func (i *TxidIterator) Next() (*fdriver.ByNum, error) {
 	}, nil
 }
 
-func (i *TxidIterator) Close() {
+func (i *SimpleTxidIterator) Close() {
 	i.t.Close()
 }

@@ -104,3 +104,11 @@ func (c *Config) Identities() ([]Identity, error) {
 	}
 	return identities, nil
 }
+
+func (c *Config) VaultPersistenceType() string {
+	return c.configService.GetString("orion." + c.prefix + "vault.persistence.type")
+}
+
+func (c *Config) VaultPersistenceOpts(opts interface{}) error {
+	return c.configService.UnmarshalKey("orion."+c.prefix+"vault.persistence.opts", opts)
+}
