@@ -27,7 +27,7 @@ var _ = Describe("EndToEnd", func() {
 		BeforeEach(func() {
 			var err error
 			// Create the integration ii
-			ii, err = integration.GenerateAt(StartPort(), "./testdata", true, relay.Topology()...)
+			ii, err = integration.GenerateAt(StartPort(), "./testdata", false, relay.Topology()...)
 			Expect(err).NotTo(HaveOccurred())
 			// Start the integration ii
 			ii.Start()
