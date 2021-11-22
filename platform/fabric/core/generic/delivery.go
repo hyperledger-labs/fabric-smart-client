@@ -33,8 +33,10 @@ func (c *channel) Scan(ctx context.Context, txID string, callback driver.Deliver
 			block, err = ledger.GetBlockByNumber(filteredBlock.Number)
 			if err != nil {
 				if !strings.Contains(err.Error(), "grpc: trying to send message larger than max") {
-					logger.Panicf("cannot get filteredBlock [%s]", err)
+					logger.Debugf("cannot get filteredBlock [%s]", err)
+					return true, err
 				}
+
 				// The block is too big, download each transaction as needed
 				logger.Warnf("block [%d] too big to be downloaded, it contains [%d] txs",
 					filteredBlock.Number,

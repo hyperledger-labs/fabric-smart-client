@@ -36,7 +36,7 @@ var _ = Describe("EndToEnd", func() {
 		BeforeEach(func() {
 			var err error
 			// Create the integration ii
-			ii, err = integration.Generate(StartPort(), fsc.Topology()...)
+			ii, err = integration.Generate(StartPort(), true, fsc.Topology()...)
 			Expect(err).NotTo(HaveOccurred())
 			// Start the integration ii
 			ii.Start()
