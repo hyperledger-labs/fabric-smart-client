@@ -47,12 +47,15 @@ func (c *BuilderClient) Build(path string) string {
 type BuildServer struct {
 	server *http.Server
 	lis    net.Listener
+	bh     *buildHandler
 }
 
 func NewBuildServer(args ...string) *BuildServer {
+	bh := &buildHandler{args: args}
 	return &BuildServer{
+		bh: bh,
 		server: &http.Server{
-			Handler: &buildHandler{args: args},
+			Handler: bh,
 		},
 	}
 }
@@ -79,6 +82,10 @@ func (s *BuildServer) Client() *BuilderClient {
 	return &BuilderClient{
 		ServerAddress: s.lis.Addr().String(),
 	}
+}
+
+func (s *BuildServer) EnableRaceDetector() {
+	s.bh.args = append(s.bh.args, "-race")
 }
 
 type artifact struct {
