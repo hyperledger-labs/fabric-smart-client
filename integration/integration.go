@@ -59,7 +59,7 @@ func New(startPort int, path string, topologies ...api.Topology) (*Infrastructur
 		}
 	}
 
-	buildServer := common.NewBuildServer()
+	buildServer := common.NewBuildServer("-race")
 	buildServer.Serve()
 	var builder api.Builder
 	builder = buildServer.Client()
