@@ -156,6 +156,8 @@ func (a *artifact) gBuild(input string, args ...string) (string, error) {
 
 		return gexec.BuildIn(goPath, packagePath+"/"+cmd)
 	default:
+		fmt.Printf("building [%s,%s] \n", input, args)
+
 		return gexec.Build(input, args...)
 	}
 }
