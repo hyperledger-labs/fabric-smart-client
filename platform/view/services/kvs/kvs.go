@@ -54,7 +54,7 @@ func New(driverName, namespace string, sp view.ServiceProvider) (*KVS, error) {
 func (o *KVS) Exists(id string) bool {
 	raw, err := o.store.GetState(o.namespace, id)
 	if err != nil {
-		logger.Errorf("failed getting state [%s,%s]", o.namespace, id)
+		logger.Debugf("failed getting state [%s,%s]", o.namespace, id)
 		return false
 	}
 	logger.Debugf("state [%s,%s] exists [%v]", o.namespace, id, len(raw) != 0)
@@ -80,7 +80,7 @@ func (o *KVS) Put(id string, state interface{}) error {
 	err = o.store.SetState(o.namespace, id, raw)
 	if err != nil {
 		if err1 := o.store.Discard(); err1 != nil {
-			logger.Errorf("got error %s; discarding caused %s", err.Error(), err1.Error())
+			logger.Debugf("got error %s; discarding caused %s", err.Error(), err1.Error())
 		}
 
 		return errors.Errorf("failed to commit value for id [%s]", id)
@@ -97,11 +97,15 @@ func (o *KVS) Put(id string, state interface{}) error {
 func (o *KVS) Get(id string, state interface{}) error {
 	raw, err := o.store.GetState(o.namespace, id)
 	if err != nil {
-		logger.Errorf("failed retrieving state [%s,%s]", o.namespace, id)
+		logger.Debugf("failed retrieving state [%s,%s]", o.namespace, id)
 		return errors.Errorf("failed retrieving state [%s,%s]", o.namespace, id)
 	}
+	if len(raw) == 0 {
+		return errors.Errorf("state [%s,%s] does not exist", o.namespace, id)
+	}
+
 	if err := json.Unmarshal(raw, state); err != nil {
-		logger.Errorf("failed retrieving state [%s,%s], cannot unmarshal state, error [%s]", o.namespace, id, err)
+		logger.Debugf("failed retrieving state [%s,%s], cannot unmarshal state, error [%s]", o.namespace, id, err)
 		return errors.Wrapf(err, "failed retrieving state [%s,%s], cannot unmarshal state", o.namespace, id)
 	}
 	logger.Debugf("got state [%s,%s] successfully", o.namespace, id)
@@ -122,7 +126,7 @@ func (o *KVS) Delete(id string) error {
 	err = o.store.DeleteState(o.namespace, id)
 	if err != nil {
 		if err1 := o.store.Discard(); err1 != nil {
-			logger.Errorf("got error %s; discarding caused %s", err.Error(), err1.Error())
+			logger.Debugf("got error %s; discarding caused %s", err.Error(), err1.Error())
 		}
 
 		return errors.Errorf("failed to commit value for id [%s]", id)

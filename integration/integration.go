@@ -78,14 +78,17 @@ func New(startPort int, path string, topologies ...api.Topology) (*Infrastructur
 	return n, nil
 }
 
-func Generate(startPort int, topologies ...api.Topology) (*Infrastructure, error) {
-	return GenerateAt(startPort, "", topologies...)
+func Generate(startPort int, race bool, topologies ...api.Topology) (*Infrastructure, error) {
+	return GenerateAt(startPort, "", race, topologies...)
 }
 
-func GenerateAt(startPort int, path string, topologies ...api.Topology) (*Infrastructure, error) {
+func GenerateAt(startPort int, path string, race bool, topologies ...api.Topology) (*Infrastructure, error) {
 	n, err := New(startPort, path, topologies...)
 	if err != nil {
 		return nil, err
+	}
+	if race {
+		n.EnableRaceDetector()
 	}
 	n.Generate()
 	n.Load()
@@ -93,10 +96,13 @@ func GenerateAt(startPort int, path string, topologies ...api.Topology) (*Infras
 	return n, nil
 }
 
-func Load(dir string, topologies ...api.Topology) (*Infrastructure, error) {
+func Load(dir string, race bool, topologies ...api.Topology) (*Infrastructure, error) {
 	n, err := New(0, dir, topologies...)
 	if err != nil {
 		return nil, err
+	}
+	if race {
+		n.EnableRaceDetector()
 	}
 	n.deleteOnStop = false
 	n.Load()
@@ -186,6 +192,10 @@ func (i *Infrastructure) StartFSCNode(id string) {
 	}
 
 	i.nwo.StartFSCNode(id)
+}
+
+func (i *Infrastructure) EnableRaceDetector() {
+	i.buildServer.EnableRaceDetector()
 }
 
 func (i *Infrastructure) initNWO() {

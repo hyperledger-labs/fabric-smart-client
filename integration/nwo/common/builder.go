@@ -47,12 +47,15 @@ func (c *BuilderClient) Build(path string) string {
 type BuildServer struct {
 	server *http.Server
 	lis    net.Listener
+	bh     *buildHandler
 }
 
 func NewBuildServer(args ...string) *BuildServer {
+	bh := &buildHandler{args: args}
 	return &BuildServer{
+		bh: bh,
 		server: &http.Server{
-			Handler: &buildHandler{args: args},
+			Handler: bh,
 		},
 	}
 }
@@ -81,10 +84,15 @@ func (s *BuildServer) Client() *BuilderClient {
 	}
 }
 
+func (s *BuildServer) EnableRaceDetector() {
+	s.bh.EnableRaceDetector()
+}
+
 type artifact struct {
-	mutex  sync.Mutex
-	input  string
-	output string
+	mutex               sync.Mutex
+	input               string
+	output              string
+	raceDetectorEnabled bool
 }
 
 func (a *artifact) build(args ...string) error {
@@ -149,14 +157,21 @@ func (a *artifact) gBuild(input string, args ...string) (string, error) {
 
 		return gexec.BuildIn(goPath, packagePath+"/"+cmd)
 	default:
+		if a.raceDetectorEnabled && !strings.HasPrefix(input, "github.com/hyperledger/fabric/") {
+			fmt.Printf("building [%s,%s] with race detection \n", input, args)
+			return gexec.Build(input, args...)
+		}
+
+		fmt.Printf("building [%s,%s] \n", input, args)
 		return gexec.Build(input, args...)
 	}
 }
 
 type buildHandler struct {
-	mutex     sync.Mutex
-	artifacts map[string]*artifact
-	args      []string
+	mutex               sync.Mutex
+	artifacts           map[string]*artifact
+	args                []string
+	raceDetectorEnabled bool
 }
 
 func (b *buildHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
@@ -191,9 +206,13 @@ func (b *buildHandler) artifact(input string) *artifact {
 
 	a, ok := b.artifacts[input]
 	if !ok {
-		a = &artifact{input: input}
+		a = &artifact{input: input, raceDetectorEnabled: b.raceDetectorEnabled}
 		b.artifacts[input] = a
 	}
 
 	return a
+}
+
+func (b *buildHandler) EnableRaceDetector() {
+	b.raceDetectorEnabled = true
 }

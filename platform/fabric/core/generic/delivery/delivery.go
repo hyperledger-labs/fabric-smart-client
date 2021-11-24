@@ -27,13 +27,11 @@ import (
 
 var logger = flogging.MustGetLogger("fabric-sdk.delivery")
 
-type Callback func(block *pb.FilteredBlock) (bool, error)
+var (
+	ErrComm = errors.New("communication issue")
+)
 
-// Committer models a filtered block committer
-type Committer interface {
-	// Commit commits the transaction in the passed block
-	Commit(block *pb.FilteredBlock)
-}
+type Callback func(block *pb.FilteredBlock) (bool, error)
 
 // Vault models a key-value store that can be updated by committing rwsets
 type Vault interface {
@@ -126,9 +124,17 @@ func (d *delivery) Run() error {
 
 				stop, err := d.callback(r.FilteredBlock)
 				if err != nil {
-					// Stop here
-					logger.Errorf("error occurred when processing filtered block [%s]", err)
-					return err
+					switch errors.Cause(err) {
+					case ErrComm:
+						logger.Errorf("error occurred when processing filtered block [%s], retry", err)
+						// retry
+						time.Sleep(10 * time.Second)
+						df = nil
+					default:
+						// Stop here
+						logger.Errorf("error occurred when processing filtered block [%s]", err)
+						return err
+					}
 				}
 				if stop {
 					return nil

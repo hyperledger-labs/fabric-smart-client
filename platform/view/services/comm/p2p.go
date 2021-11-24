@@ -10,8 +10,8 @@ import (
 	"bufio"
 	"context"
 	"encoding/binary"
-	"errors"
 	io2 "io"
+	"runtime/debug"
 	"sync"
 	"sync/atomic"
 
@@ -25,6 +25,7 @@ import (
 	"github.com/libp2p/go-libp2p-core/protocol"
 	discovery "github.com/libp2p/go-libp2p-discovery"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
+	"github.com/pkg/errors"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -150,9 +151,12 @@ func (p *P2PNode) sendWithCachedStreams(ID peer.ID, msg proto.Message) error {
 	p.streamsMutex.RLock()
 	defer p.streamsMutex.RUnlock()
 	for _, stream := range p.streams[ID] {
-		if err := stream.send(msg); err == nil {
+		err := stream.send(msg)
+		if err == nil {
 			return nil
-		} // TODO: handle the case in which there's an error
+		}
+		// TODO: handle the case in which there's an error
+		logger.Errorf("error while sending message [%s] to peer [%s]: %s", msg, ID, err)
 	}
 
 	return errStreamNotFound
@@ -204,6 +208,7 @@ func (p *P2PNode) Lookup(peerID string) (peer.AddrInfo, bool) {
 }
 
 type streamHandler struct {
+	lock   sync.Mutex
 	stream network.Stream
 	reader protoio.ReadCloser
 	writer protoio.WriteCloser
@@ -213,6 +218,8 @@ type streamHandler struct {
 }
 
 func (s *streamHandler) send(msg proto.Message) error {
+	s.lock.Lock()
+	defer s.lock.Unlock()
 	return s.writer.WriteMsg(msg)
 }
 
@@ -227,7 +234,7 @@ func (s *streamHandler) handleIncoming() {
 				logger.Debugf("error reading message while closing. ignoring.", err.Error())
 				break
 			}
-			logger.Errorf("caught error: %s", err.Error())
+			logger.Errorf("caught error: [%s][%s]", err.Error(), debug.Stack())
 			defer s.node.streamsMutex.Unlock()
 
 			for i, thisSH := range s.node.streams[s.stream.Conn().RemotePeer()] {
@@ -295,10 +302,17 @@ func (r *varintReader) ReadMsg(msg proto.Message) error {
 		logger.Warnf("reading message length [%d]", length64)
 	}
 	buf := r.buf[:length]
-	if _, err := io2.ReadFull(r.r, buf); err != nil {
-		return err
+	n, err := io2.ReadFull(r.r, buf)
+	if err != nil {
+		return errors.Wrapf(err, "error reading message of length [%d]", length)
 	}
-	return proto2.Unmarshal(buf, msg)
+	if n != length {
+		return errors.Errorf("failed to read [%d] bytes", length)
+	}
+	if err := proto2.Unmarshal(buf, msg); err != nil {
+		return errors.Wrapf(err, "error unmarshalling message of length [%d]", length)
+	}
+	return nil
 }
 
 func (r *varintReader) Close() error {

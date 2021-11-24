@@ -122,7 +122,7 @@ func gen(args []string) error {
 		}
 	}
 
-	_, err = integration.GenerateAt(port, output, t2...)
+	_, err = integration.GenerateAt(port, output, false, t2...)
 	if err != nil {
 		return errors.Wrapf(err, "failed instantiating generator for [%s]", topologyFile)
 	}
