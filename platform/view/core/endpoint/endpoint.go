@@ -94,7 +94,11 @@ func (r *service) Endpoint(party view.Identity) (map[driver.PortName]string, err
 			if err != nil {
 				return nil, errors.Wrapf(err, "endpoint not found for identity [%s,%s]", string(cursor), cursor.UniqueID())
 			}
-
+			if ee.Identity.Equal(cursor) {
+				// find a loop, return
+				logger.Errorf("loop detected for %s", cursor)
+				return nil, errors.Errorf("endpoint loop detected for identity [%s,%s]", string(cursor), cursor.UniqueID())
+			}
 			cursor = ee.Identity
 			logger.Debugf("continue to [%s,%s,%s]", cursor, ee.Endpoints, ee.Identity)
 			continue
@@ -128,6 +132,11 @@ func (r *service) Resolve(party view.Identity) (view.Identity, map[driver.PortNa
 }
 
 func (r *service) Bind(longTerm view.Identity, ephemeral view.Identity) error {
+	if longTerm.Equal(ephemeral) {
+		logger.Debugf("cannot bind [%s] to [%s], they are the same", longTerm, ephemeral)
+		return nil
+	}
+
 	e, err := r.Endpoint(longTerm)
 	if err != nil {
 		return errors.Errorf("long term identity not found for identity [%s]", longTerm.UniqueID())

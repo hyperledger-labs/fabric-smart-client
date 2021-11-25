@@ -45,7 +45,7 @@ type Context struct {
 func New(rootDir string, portCounter uint16, builder api.Builder, topologies ...api.Topology) *Context {
 	topologiesByName := map[string]api.Topology{}
 	for _, t := range topologies {
-		topologiesByName[t.Type()] = t
+		topologiesByName[t.Name()] = t
 	}
 
 	return &Context{

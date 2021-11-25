@@ -48,12 +48,20 @@ type Orderer struct {
 	TLSCACerts       []string
 }
 
+type Identity struct {
+	ID    string
+	Type  string
+	Path  string
+	MSPID string
+}
+
 type Peer struct {
 	Name             string
 	FullName         string
 	ListeningAddress string
 	TLSCACerts       []string
 	Cert             string
+	Identities       []*Identity
 }
 
 type Org struct {
@@ -264,6 +272,50 @@ func (p *platform) UsersByOrg(orgName string) []*User {
 		})
 	}
 	return users
+}
+
+func (p *platform) PeersByID(id string) *Peer {
+	var result *Peer
+	for _, peer := range p.Network.PeersByName([]string{id}) {
+		caCertPath := filepath.Join(p.Network.PeerLocalTLSDir(peer), "ca.crt")
+
+		org := p.Network.Organization(peer.Organization)
+
+		if peer.Type != topology.FabricPeer {
+			result = &Peer{
+				Name:       peer.Name,
+				FullName:   fmt.Sprintf("%s.%s", peer.Name, org.Domain),
+				TLSCACerts: []string{caCertPath},
+				Cert:       p.Network.PeerCert(peer),
+			}
+		} else {
+			result = &Peer{
+				Name:             peer.Name,
+				FullName:         fmt.Sprintf("%s.%s", peer.Name, org.Domain),
+				ListeningAddress: p.Network.PeerAddress(peer, network.ListenPort),
+				TLSCACerts:       []string{caCertPath},
+				Cert:             p.Network.PeerCert(peer),
+			}
+		}
+
+		result.Identities = append(result.Identities, &Identity{
+			ID:    id,
+			Type:  "bccsp",
+			Path:  p.Network.PeerLocalMSPDir(peer),
+			MSPID: org.MSPID,
+		})
+
+		for _, identity := range peer.ExtraIdentities {
+			result.Identities = append(result.Identities, &Identity{
+				ID:    identity.ID,
+				Type:  identity.MSPType,
+				Path:  p.Network.PeerLocalExtraIdentityDir(peer, identity.ID),
+				MSPID: org.MSPID,
+			})
+		}
+		break
+	}
+	return result
 }
 
 func (p *platform) Orderers() []*Orderer {

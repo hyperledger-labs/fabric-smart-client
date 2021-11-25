@@ -151,6 +151,26 @@ var _ = Describe("EndToEnd", func() {
 			Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
 		})
 
+		It("load artifact & init clients & successful pingpong", func() {
+			var err error
+			// Create the integration ii
+			ii, err = integration.Load("./testdata", true, pingpong.Topology()...)
+			Expect(err).NotTo(HaveOccurred())
+			// Start the integration ii
+			ii.Start()
+			time.Sleep(3 * time.Second)
+
+			// Use another ii to create clients
+			iiClients, err := integration.Clients("./testdata", pingpong.Topology()...)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Get a client for the fsc node labelled initiator
+			initiator := iiClients.Client("initiator")
+			// Initiate a view and check the output
+			res, err := initiator.CallView("init", nil)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
+		})
 	})
 
 })

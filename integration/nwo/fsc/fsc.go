@@ -34,8 +34,8 @@ import (
 	runner2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/runner"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/commands"
 	node2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/crypto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/view"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/crypto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 )
 
@@ -306,6 +306,11 @@ func (p *Platform) CheckTopology() {
 	if !bootstrapNodeFound {
 		p.Topology.Nodes[0].Bootstrap = true
 	}
+}
+
+func (p *Platform) InitClients() {
+	p.Load()
+	p.PostRun()
 }
 
 func (p *Platform) FSCCLI(command common.Command) (*gexec.Session, error) {

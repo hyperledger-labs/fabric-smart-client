@@ -7,13 +7,14 @@ SPDX-License-Identifier: Apache-2.0
 package integration
 
 import (
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/commands"
-	smartclient "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
 	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
+
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/commands"
+	smartclient "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
 
 	"github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -36,6 +37,7 @@ type Infrastructure struct {
 	deleteOnStop      bool
 	platformFactories map[string]api.PlatformFactory
 	topologies        []api.Topology
+	fscPlatform       *fsc.Platform
 }
 
 func New(startPort int, path string, topologies ...api.Topology) (*Infrastructure, error) {
@@ -113,6 +115,18 @@ func Load(dir string, race bool, topologies ...api.Topology) (*Infrastructure, e
 	return n, nil
 }
 
+// Clients instantiate a new test integration infrastructure to access view client and CLI
+func Clients(dir string, topologies ...api.Topology) (*Infrastructure, error) {
+	n, err := New(0, dir, topologies...)
+	if err != nil {
+		return nil, err
+	}
+	n.deleteOnStop = false
+	n.InitClients()
+
+	return n, nil
+}
+
 func (i *Infrastructure) ViewCmd(node *smartclient.Peer) commands.View {
 	p := i.ctx.PlatformsByName[fsc.TopologyName].(*fsc.Platform)
 
@@ -137,6 +151,11 @@ func (i *Infrastructure) Generate() {
 func (i *Infrastructure) Load() {
 	i.initNWO()
 	i.nwo.Load()
+}
+
+func (i *Infrastructure) InitClients() {
+	i.initNWO()
+	i.fscPlatform.InitClients()
 }
 
 func (i *Infrastructure) Start() {
@@ -233,11 +252,16 @@ func (i *Infrastructure) initNWO() {
 			platforms = append(platforms, factory.New(i.ctx, topology, i.buildServer.Client()))
 		}
 	}
-	platforms = append(platforms, fsc.NewPlatform(i.ctx, fscTopology, i.buildServer.Client()))
+	// Add FSC platform
+	fcsPlatform := fsc.NewPlatform(i.ctx, fscTopology, i.buildServer.Client())
+	platforms = append(platforms, fcsPlatform)
+
+	// Register platforms to context
 	for _, platform := range platforms {
 		i.ctx.AddPlatform(platform)
 	}
 	i.nwo = nwo.New(platforms...)
+	i.fscPlatform = fcsPlatform
 }
 
 func failMe(message string, callerSkip ...int) {
