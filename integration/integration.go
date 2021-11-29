@@ -7,8 +7,11 @@ SPDX-License-Identifier: Apache-2.0
 package integration
 
 import (
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/commands"
+	smartclient "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
 	"io/ioutil"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -108,6 +111,18 @@ func Load(dir string, race bool, topologies ...api.Topology) (*Infrastructure, e
 	n.Load()
 
 	return n, nil
+}
+
+func (i *Infrastructure) ViewCmd(node *smartclient.Peer) commands.View {
+	p := i.ctx.PlatformsByName[fsc.TopologyName].(*fsc.Platform)
+
+	return commands.View{
+		TLSCA:         path.Join(p.NodeLocalTLSDir(node), "ca.crt"),
+		UserCert:      p.LocalMSPIdentityCert(node),
+		UserKey:       p.LocalMSPPrivateKey(node),
+		NetworkPrefix: p.NetworkID,
+		Server:        p.Context.ConnectionConfig(node.Name).Address,
+	}
 }
 
 func (i *Infrastructure) RegisterPlatformFactory(factory api.PlatformFactory) {

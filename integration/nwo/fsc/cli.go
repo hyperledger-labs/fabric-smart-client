@@ -18,7 +18,7 @@ import (
 
 type fscCLIViewClient struct {
 	timeout time.Duration
-	p       *platform
+	p       *Platform
 	CMD     commands.View
 }
 

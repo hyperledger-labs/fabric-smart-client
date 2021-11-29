@@ -26,7 +26,7 @@ type Resolver struct {
 	Port      int
 }
 
-func (p *platform) GenerateResolverMap() {
+func (p *Platform) GenerateResolverMap() {
 	p.Resolvers = []*Resolver{}
 	for _, peer := range p.Peers {
 		org := p.Organization(peer.Organization)
