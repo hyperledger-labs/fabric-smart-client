@@ -64,7 +64,7 @@ func WithAlias(alias string) node2.Option {
 	}
 }
 
-type platform struct {
+type Platform struct {
 	Context           api.Context
 	NetworkID         string
 	Builder           *Builder
@@ -77,8 +77,8 @@ type platform struct {
 	colorIndex    int
 }
 
-func NewPlatform(Registry api.Context, t api.Topology, builderClient BuilderClient) *platform {
-	p := &platform{
+func NewPlatform(Registry api.Context, t api.Topology, builderClient BuilderClient) *Platform {
+	p := &Platform{
 		Context:           Registry,
 		NetworkID:         common.UniqueName(),
 		Builder:           &Builder{client: builderClient},
@@ -89,19 +89,19 @@ func NewPlatform(Registry api.Context, t api.Topology, builderClient BuilderClie
 	return p
 }
 
-func (p *platform) Name() string {
+func (p *Platform) Name() string {
 	return TopologyName
 }
 
-func (p *platform) Type() string {
+func (p *Platform) Type() string {
 	return TopologyName
 }
 
-func (p *platform) GenerateConfigTree() {
+func (p *Platform) GenerateConfigTree() {
 	p.GenerateCryptoConfig()
 }
 
-func (p *platform) GenerateArtifacts() {
+func (p *Platform) GenerateArtifacts() {
 	sess, err := p.Cryptogen(commands.Generate{
 		Config: p.CryptoConfigPath(),
 		Output: p.CryptoPath(),
@@ -140,7 +140,7 @@ func (p *platform) GenerateArtifacts() {
 	}
 }
 
-func (p *platform) Load() {
+func (p *Platform) Load() {
 	for _, peer := range p.Peers {
 		v := viper.New()
 		v.SetConfigFile(p.NodeConfigPath(peer))
@@ -169,7 +169,7 @@ func (p *platform) Load() {
 	}
 }
 
-func (p *platform) Members() []grouper.Member {
+func (p *Platform) Members() []grouper.Member {
 	members := grouper.Members{}
 	for _, node := range p.Peers {
 		if node.Bootstrap {
@@ -184,7 +184,7 @@ func (p *platform) Members() []grouper.Member {
 	return members
 }
 
-func (p *platform) PostRun() {
+func (p *Platform) PostRun() {
 	for _, node := range p.Peers {
 		v := viper.New()
 		v.SetConfigFile(p.NodeConfigPath(node))
@@ -245,10 +245,10 @@ func (p *platform) PostRun() {
 	}
 }
 
-func (p *platform) Cleanup() {
+func (p *Platform) Cleanup() {
 }
 
-func (p *platform) CheckTopology() {
+func (p *Platform) CheckTopology() {
 	orgName := "fsc"
 
 	org := &node2.Organization{
@@ -308,17 +308,17 @@ func (p *platform) CheckTopology() {
 	}
 }
 
-func (p *platform) FSCCLI(command common.Command) (*gexec.Session, error) {
+func (p *Platform) FSCCLI(command common.Command) (*gexec.Session, error) {
 	cmd := common.NewCommand(p.Builder.FSCCLI(), command)
 	return p.StartSession(cmd, command.SessionName())
 }
 
-func (p *platform) Cryptogen(command common.Command) (*gexec.Session, error) {
+func (p *Platform) Cryptogen(command common.Command) (*gexec.Session, error) {
 	cmd := common.NewCommand(p.Builder.FSCCLI(), command)
 	return p.StartSession(cmd, command.SessionName())
 }
 
-func (p *platform) StartSession(cmd *exec.Cmd, name string) (*gexec.Session, error) {
+func (p *Platform) StartSession(cmd *exec.Cmd, name string) (*gexec.Session, error) {
 	ansiColorCode := p.nextColor()
 	fmt.Fprintf(
 		ginkgo.GinkgoWriter,
@@ -341,11 +341,11 @@ func (p *platform) StartSession(cmd *exec.Cmd, name string) (*gexec.Session, err
 	)
 }
 
-func (p *platform) CryptoConfigPath() string {
+func (p *Platform) CryptoConfigPath() string {
 	return filepath.Join(p.Context.RootDir(), "fsc", "crypto-config.yaml")
 }
 
-func (p *platform) GenerateCryptoConfig() {
+func (p *Platform) GenerateCryptoConfig() {
 	Expect(os.MkdirAll(p.CryptoPath(), 0755)).NotTo(HaveOccurred())
 
 	crypto, err := os.Create(p.CryptoConfigPath())
@@ -358,7 +358,7 @@ func (p *platform) GenerateCryptoConfig() {
 	Expect(t.Execute(io.MultiWriter(crypto), p)).NotTo(HaveOccurred())
 }
 
-func (p *platform) GenerateCoreConfig(peer *node2.Peer) {
+func (p *Platform) GenerateCoreConfig(peer *node2.Peer) {
 	err := os.MkdirAll(p.NodeDir(peer), 0755)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -397,7 +397,7 @@ func (p *platform) GenerateCoreConfig(peer *node2.Peer) {
 	Expect(t.Execute(io.MultiWriter(core), p)).NotTo(HaveOccurred())
 }
 
-func (p *platform) BootstrapViewNodeGroupRunner() ifrit.Runner {
+func (p *Platform) BootstrapViewNodeGroupRunner() ifrit.Runner {
 	members := grouper.Members{}
 	for _, node := range p.Peers {
 		if node.Bootstrap {
@@ -407,7 +407,7 @@ func (p *platform) BootstrapViewNodeGroupRunner() ifrit.Runner {
 	return runner2.NewParallel(syscall.SIGTERM, members)
 }
 
-func (p *platform) FSCNodeGroupRunner() ifrit.Runner {
+func (p *Platform) FSCNodeGroupRunner() ifrit.Runner {
 	members := grouper.Members{}
 	for _, node := range p.Peers {
 		if !node.Bootstrap {
@@ -417,7 +417,7 @@ func (p *platform) FSCNodeGroupRunner() ifrit.Runner {
 	return runner2.NewParallel(syscall.SIGTERM, members)
 }
 
-func (p *platform) FSCNodeRunner(node *node2.Peer, env ...string) *runner2.Runner {
+func (p *Platform) FSCNodeRunner(node *node2.Peer, env ...string) *runner2.Runner {
 	cmd := p.fscNodeCommand(
 		node,
 		commands.NodeStart{NodeID: node.ID()},
@@ -435,7 +435,7 @@ func (p *platform) FSCNodeRunner(node *node2.Peer, env ...string) *runner2.Runne
 	})
 }
 
-func (p *platform) fscNodeCommand(node *node2.Peer, command common.Command, tlsDir string, env ...string) *exec.Cmd {
+func (p *Platform) fscNodeCommand(node *node2.Peer, command common.Command, tlsDir string, env ...string) *exec.Cmd {
 	if len(node.ExecutablePath) == 0 {
 		node.ExecutablePath = p.GenerateCmd(nil, node)
 	}
@@ -460,7 +460,7 @@ func (p *platform) fscNodeCommand(node *node2.Peer, command common.Command, tlsD
 	return cmd
 }
 
-func (p *platform) GenerateCmd(output io.Writer, node *node2.Peer) string {
+func (p *Platform) GenerateCmd(output io.Writer, node *node2.Peer) string {
 	err := os.MkdirAll(p.NodeCmdDir(node), 0755)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -481,26 +481,26 @@ func (p *platform) GenerateCmd(output io.Writer, node *node2.Peer) string {
 	return p.NodeCmdPackage(node)
 }
 
-func (p *platform) NodeDir(peer *node2.Peer) string {
+func (p *Platform) NodeDir(peer *node2.Peer) string {
 	return filepath.Join(p.Context.RootDir(), "fsc", "fscnodes", peer.ID())
 }
 
-func (p *platform) NodeKVSDir(peer *node2.Peer) string {
+func (p *Platform) NodeKVSDir(peer *node2.Peer) string {
 	return filepath.Join(p.Context.RootDir(), "fsc", "fscnodes", peer.ID(), "kvs")
 }
 
-func (p *platform) NodeConfigPath(peer *node2.Peer) string {
+func (p *Platform) NodeConfigPath(peer *node2.Peer) string {
 	return filepath.Join(p.NodeDir(peer), "core.yaml")
 }
 
-func (p *platform) NodeCmdDir(peer *node2.Peer) string {
+func (p *Platform) NodeCmdDir(peer *node2.Peer) string {
 	wd, err := os.Getwd()
 	Expect(err).ToNot(HaveOccurred())
 
 	return filepath.Join(wd, "cmd", peer.Name)
 }
 
-func (p *platform) NodeCmdPackage(peer *node2.Peer) string {
+func (p *Platform) NodeCmdPackage(peer *node2.Peer) string {
 	gopath := os.Getenv("GOPATH")
 	if gopath == "" {
 		gopath = build.Default.GOPATH
@@ -514,17 +514,17 @@ func (p *platform) NodeCmdPackage(peer *node2.Peer) string {
 	)
 }
 
-func (p *platform) NodeCmdPath(peer *node2.Peer) string {
+func (p *Platform) NodeCmdPath(peer *node2.Peer) string {
 	return filepath.Join(p.NodeCmdDir(peer), "main.go")
 }
 
-func (p *platform) NodePort(node *node2.Peer, portName api.PortName) uint16 {
+func (p *Platform) NodePort(node *node2.Peer, portName api.PortName) uint16 {
 	peerPorts := p.Context.PortsByPeerID("fsc", node.ID())
 	Expect(peerPorts).NotTo(BeNil(), "cannot find ports for [%s][%v]", node.ID(), p.Context.PortsByPeerID)
 	return peerPorts[portName]
 }
 
-func (p *platform) BootstrapNode(me *node2.Peer) string {
+func (p *Platform) BootstrapNode(me *node2.Peer) string {
 	for _, node := range p.Topology.Nodes {
 		if node.Bootstrap {
 			if node.Name == me.Name {
@@ -536,27 +536,27 @@ func (p *platform) BootstrapNode(me *node2.Peer) string {
 	return ""
 }
 
-func (p *platform) ClientAuthRequired() bool {
+func (p *Platform) ClientAuthRequired() bool {
 	return false
 }
 
-func (p *platform) CACertsBundlePath() string {
+func (p *Platform) CACertsBundlePath() string {
 	return filepath.Join(p.Context.RootDir(), "fsc", "crypto", "ca-certs.pem")
 }
 
-func (p *platform) NodeLocalTLSDir(peer *node2.Peer) string {
+func (p *Platform) NodeLocalTLSDir(peer *node2.Peer) string {
 	return p.peerLocalCryptoDir(peer, "tls")
 }
 
-func (p *platform) NodeLocalCertPath(node *node2.Peer) string {
+func (p *Platform) NodeLocalCertPath(node *node2.Peer) string {
 	return p.LocalMSPIdentityCert(node)
 }
 
-func (p *platform) NodeLocalPrivateKeyPath(node *node2.Peer) string {
+func (p *Platform) NodeLocalPrivateKeyPath(node *node2.Peer) string {
 	return p.LocalMSPPrivateKey(node)
 }
 
-func (p *platform) LocalMSPIdentityCert(peer *node2.Peer) string {
+func (p *Platform) LocalMSPIdentityCert(peer *node2.Peer) string {
 	return filepath.Join(
 		p.peerLocalCryptoDir(peer, "msp"),
 		"signcerts",
@@ -564,7 +564,7 @@ func (p *platform) LocalMSPIdentityCert(peer *node2.Peer) string {
 	)
 }
 
-func (p *platform) AdminLocalMSPIdentityCert(peer *node2.Peer) string {
+func (p *Platform) AdminLocalMSPIdentityCert(peer *node2.Peer) string {
 	return filepath.Join(
 		p.userLocalCryptoDir(peer, "Admin", "msp"),
 		"signcerts",
@@ -572,7 +572,7 @@ func (p *platform) AdminLocalMSPIdentityCert(peer *node2.Peer) string {
 	)
 }
 
-func (p *platform) LocalMSPPrivateKey(peer *node2.Peer) string {
+func (p *Platform) LocalMSPPrivateKey(peer *node2.Peer) string {
 	return filepath.Join(
 		p.peerLocalCryptoDir(peer, "msp"),
 		"keystore",
@@ -580,7 +580,7 @@ func (p *platform) LocalMSPPrivateKey(peer *node2.Peer) string {
 	)
 }
 
-func (p *platform) AdminLocalMSPPrivateKey(peer *node2.Peer) string {
+func (p *Platform) AdminLocalMSPPrivateKey(peer *node2.Peer) string {
 	return filepath.Join(
 		p.userLocalCryptoDir(peer, "Admin", "msp"),
 		"keystore",
@@ -588,11 +588,11 @@ func (p *platform) AdminLocalMSPPrivateKey(peer *node2.Peer) string {
 	)
 }
 
-func (p *platform) CryptoPath() string {
+func (p *Platform) CryptoPath() string {
 	return filepath.Join(p.Context.RootDir(), "fsc", "crypto")
 }
 
-func (p *platform) Organization(orgName string) *node2.Organization {
+func (p *Platform) Organization(orgName string) *node2.Organization {
 	for _, org := range p.Organizations {
 		if org.Name == orgName {
 			return org
@@ -601,7 +601,7 @@ func (p *platform) Organization(orgName string) *node2.Organization {
 	return nil
 }
 
-func (p *platform) ConcatenateTLSCACertificates() {
+func (p *Platform) ConcatenateTLSCACertificates() {
 	bundle := &bytes.Buffer{}
 	for _, tlsCertPath := range p.listTLSCACertificates() {
 		certBytes, err := ioutil.ReadFile(tlsCertPath)
@@ -616,7 +616,7 @@ func (p *platform) ConcatenateTLSCACertificates() {
 	Expect(err).NotTo(HaveOccurred())
 }
 
-func (p *platform) PeerOrgs() []*node2.Organization {
+func (p *Platform) PeerOrgs() []*node2.Organization {
 	orgsByName := map[string]*node2.Organization{}
 	for _, peer := range p.Peers {
 		orgsByName[peer.Organization] = p.Organization(peer.Organization)
@@ -629,7 +629,7 @@ func (p *platform) PeerOrgs() []*node2.Organization {
 	return orgs
 }
 
-func (p *platform) PeersInOrg(orgName string) []*node2.Peer {
+func (p *Platform) PeersInOrg(orgName string) []*node2.Peer {
 	var peers []*node2.Peer
 	for _, o := range p.Peers {
 		if o.Organization == orgName {
@@ -639,17 +639,17 @@ func (p *platform) PeersInOrg(orgName string) []*node2.Peer {
 	return peers
 }
 
-func (p *platform) PeerAddress(peer *node2.Peer, portName api.PortName) string {
+func (p *Platform) PeerAddress(peer *node2.Peer, portName api.PortName) string {
 	return fmt.Sprintf("127.0.0.1:%d", p.PeerPort(peer, portName))
 }
 
-func (p *platform) PeerPort(peer *node2.Peer, portName api.PortName) uint16 {
+func (p *Platform) PeerPort(peer *node2.Peer, portName api.PortName) uint16 {
 	peerPorts := p.Context.PortsByPeerID("fsc", peer.ID())
 	Expect(peerPorts).NotTo(BeNil())
 	return peerPorts[portName]
 }
 
-func (p *platform) Peer(orgName, peerName string) *node2.Peer {
+func (p *Platform) Peer(orgName, peerName string) *node2.Peer {
 	for _, p := range p.PeersInOrg(orgName) {
 		if p.Name == peerName {
 			return p
@@ -658,15 +658,15 @@ func (p *platform) Peer(orgName, peerName string) *node2.Peer {
 	return nil
 }
 
-func (p *platform) GetSigningIdentity(peer *node2.Peer) (view.SigningIdentity, error) {
+func (p *Platform) GetSigningIdentity(peer *node2.Peer) (view.SigningIdentity, error) {
 	return view.NewX509SigningIdentity(p.LocalMSPIdentityCert(peer), p.LocalMSPPrivateKey(peer))
 }
 
-func (p *platform) GetAdminSigningIdentity(peer *node2.Peer) (view.SigningIdentity, error) {
+func (p *Platform) GetAdminSigningIdentity(peer *node2.Peer) (view.SigningIdentity, error) {
 	return view.NewX509SigningIdentity(p.AdminLocalMSPIdentityCert(peer), p.AdminLocalMSPPrivateKey(peer))
 }
 
-func (p *platform) listTLSCACertificates() []string {
+func (p *Platform) listTLSCACertificates() []string {
 	fileName2Path := make(map[string]string)
 	filepath.Walk(filepath.Join(p.Context.RootDir(), "fsc", "crypto"), func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -687,7 +687,7 @@ func (p *platform) listTLSCACertificates() []string {
 	return tlsCACertificates
 }
 
-func (p *platform) peerLocalCryptoDir(peer *node2.Peer, cryptoType string) string {
+func (p *Platform) peerLocalCryptoDir(peer *node2.Peer, cryptoType string) string {
 	org := p.Organization(peer.Organization)
 	Expect(org).NotTo(BeNil())
 
@@ -703,7 +703,7 @@ func (p *platform) peerLocalCryptoDir(peer *node2.Peer, cryptoType string) strin
 	)
 }
 
-func (p *platform) userLocalCryptoDir(peer *node2.Peer, user, cryptoMaterialType string) string {
+func (p *Platform) userLocalCryptoDir(peer *node2.Peer, user, cryptoMaterialType string) string {
 	org := p.Organization(peer.Organization)
 	Expect(org).NotTo(BeNil())
 
@@ -719,7 +719,7 @@ func (p *platform) userLocalCryptoDir(peer *node2.Peer, user, cryptoMaterialType
 	)
 }
 
-func (p *platform) nextColor() string {
+func (p *Platform) nextColor() string {
 	color := p.colorIndex%14 + 31
 	if color > 37 {
 		color = color + 90 - 37
