@@ -426,7 +426,6 @@ func (n *Network) PeerLocalIdemixExtraIdentitiesDir(p *topology.Peer) string {
 }
 
 func (n *Network) PeerLocalExtraIdentityDir(p *topology.Peer, id string) string {
-	index := 1
 	for _, identity := range p.ExtraIdentities {
 		if identity.ID == id {
 			switch identity.MSPType {
@@ -435,9 +434,6 @@ func (n *Network) PeerLocalExtraIdentityDir(p *topology.Peer, id string) string 
 			case "bccsp":
 				return n.peerUserCryptoDir(p, identity.ID, "msp")
 			}
-		}
-		if identity.MSPType == "bccsp" {
-			index++
 		}
 	}
 	panic("id not found")
