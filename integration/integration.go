@@ -30,14 +30,14 @@ import (
 )
 
 type Infrastructure struct {
-	testDir           string
-	ctx               *context.Context
-	nwo               *nwo.NWO
-	buildServer       *common.BuildServer
-	deleteOnStop      bool
-	platformFactories map[string]api.PlatformFactory
-	topologies        []api.Topology
-	fscPlatform       *fsc.Platform
+	TestDir           string
+	Ctx               *context.Context
+	Nwo               *nwo.NWO
+	BuildServer       *common.BuildServer
+	DeleteOnStop      bool
+	PlatformFactories map[string]api.PlatformFactory
+	Topologies        []api.Topology
+	FscPlatform       *fsc.Platform
 }
 
 func New(startPort int, path string, topologies ...api.Topology) (*Infrastructure, error) {
@@ -70,12 +70,12 @@ func New(startPort int, path string, topologies ...api.Topology) (*Infrastructur
 	builder = buildServer.Client()
 
 	n := &Infrastructure{
-		testDir:      testDir,
-		ctx:          context.New(testDir, uint16(startPort), builder, topologies...),
-		buildServer:  buildServer,
-		deleteOnStop: true,
-		topologies:   topologies,
-		platformFactories: map[string]api.PlatformFactory{
+		TestDir:      testDir,
+		Ctx:          context.New(testDir, uint16(startPort), builder, topologies...),
+		BuildServer:  buildServer,
+		DeleteOnStop: true,
+		Topologies:   topologies,
+		PlatformFactories: map[string]api.PlatformFactory{
 			"fabric": fabric.NewPlatformFactory(),
 			"weaver": weaver.NewPlatformFactory(),
 		},
@@ -109,7 +109,7 @@ func Load(dir string, race bool, topologies ...api.Topology) (*Infrastructure, e
 	if race {
 		n.EnableRaceDetector()
 	}
-	n.deleteOnStop = false
+	n.DeleteOnStop = false
 	n.Load()
 
 	return n, nil
@@ -121,14 +121,14 @@ func Clients(dir string, topologies ...api.Topology) (*Infrastructure, error) {
 	if err != nil {
 		return nil, err
 	}
-	n.deleteOnStop = false
+	n.DeleteOnStop = false
 	n.InitClients()
 
 	return n, nil
 }
 
 func (i *Infrastructure) ViewCmd(node *smartclient.Peer) commands.View {
-	p := i.ctx.PlatformsByName[fsc.TopologyName].(*fsc.Platform)
+	p := i.Ctx.PlatformsByName[fsc.TopologyName].(*fsc.Platform)
 
 	return commands.View{
 		TLSCA:         path.Join(p.NodeLocalTLSDir(node), "ca.crt"),
@@ -140,72 +140,72 @@ func (i *Infrastructure) ViewCmd(node *smartclient.Peer) commands.View {
 }
 
 func (i *Infrastructure) RegisterPlatformFactory(factory api.PlatformFactory) {
-	i.platformFactories[factory.Name()] = factory
+	i.PlatformFactories[factory.Name()] = factory
 }
 
 func (i *Infrastructure) Generate() {
 	i.initNWO()
-	i.nwo.Generate()
+	i.Nwo.Generate()
 }
 
 func (i *Infrastructure) Load() {
 	i.initNWO()
-	i.nwo.Load()
+	i.Nwo.Load()
 }
 
 func (i *Infrastructure) InitClients() {
 	i.initNWO()
-	i.fscPlatform.InitClients()
+	i.FscPlatform.InitClients()
 }
 
 func (i *Infrastructure) Start() {
-	if i.nwo == nil {
+	if i.Nwo == nil {
 		panic("call generate or load first")
 	}
-	i.nwo.Start()
+	i.Nwo.Start()
 }
 
 func (i *Infrastructure) Stop() {
-	if i.nwo == nil {
+	if i.Nwo == nil {
 		panic("call generate or load first")
 	}
-	defer i.buildServer.Shutdown()
-	if i.deleteOnStop {
-		defer os.RemoveAll(i.testDir)
+	defer i.BuildServer.Shutdown()
+	if i.DeleteOnStop {
+		defer os.RemoveAll(i.TestDir)
 	}
-	i.nwo.Stop()
+	i.Nwo.Stop()
 }
 
 func (i *Infrastructure) Client(name string) api.ViewClient {
-	if i.nwo == nil {
+	if i.Nwo == nil {
 		panic("call generate or load first")
 	}
 
-	return i.ctx.ViewClients[name]
+	return i.Ctx.ViewClients[name]
 }
 
 func (i *Infrastructure) CLI(name string) api.ViewClient {
-	if i.nwo == nil {
+	if i.Nwo == nil {
 		panic("call generate or load first")
 	}
 
-	return i.ctx.ViewCLIs[name]
+	return i.Ctx.ViewCLIs[name]
 }
 
 func (i *Infrastructure) Admin(name string) api.ViewClient {
-	if i.nwo == nil {
+	if i.Nwo == nil {
 		panic("call generate or load first")
 	}
 
-	return i.ctx.ViewClients[name+".admin"]
+	return i.Ctx.ViewClients[name+".admin"]
 }
 
 func (i *Infrastructure) Identity(name string) view.Identity {
-	if i.nwo == nil {
+	if i.Nwo == nil {
 		panic("call generate or load first")
 	}
 
-	id, ok := i.ctx.ViewIdentities[name]
+	id, ok := i.Ctx.ViewIdentities[name]
 	if !ok {
 		return []byte(name)
 	}
@@ -213,33 +213,33 @@ func (i *Infrastructure) Identity(name string) view.Identity {
 }
 
 func (i *Infrastructure) StopFSCNode(id string) {
-	if i.nwo == nil {
+	if i.Nwo == nil {
 		panic("call generate or load first")
 	}
 
-	i.nwo.StopFSCNode(id)
+	i.Nwo.StopFSCNode(id)
 }
 
 func (i *Infrastructure) StartFSCNode(id string) {
-	if i.nwo == nil {
+	if i.Nwo == nil {
 		panic("call generate or load first")
 	}
 
-	i.nwo.StartFSCNode(id)
+	i.Nwo.StartFSCNode(id)
 }
 
 func (i *Infrastructure) EnableRaceDetector() {
-	i.buildServer.EnableRaceDetector()
+	i.BuildServer.EnableRaceDetector()
 }
 
 func (i *Infrastructure) initNWO() {
-	if i.nwo != nil {
+	if i.Nwo != nil {
 		// skip
 		return
 	}
 	var platforms []api.Platform
 	var fscTopology api.Topology
-	for _, topology := range i.topologies {
+	for _, topology := range i.Topologies {
 		label := strings.ToLower(topology.Type())
 		switch label {
 		case "fsc":
@@ -247,21 +247,21 @@ func (i *Infrastructure) initNWO() {
 			fscTopology = topology
 			continue
 		default:
-			factory, ok := i.platformFactories[label]
+			factory, ok := i.PlatformFactories[label]
 			Expect(ok).To(BeTrue(), "expected to find platform [%s]", label)
-			platforms = append(platforms, factory.New(i.ctx, topology, i.buildServer.Client()))
+			platforms = append(platforms, factory.New(i.Ctx, topology, i.BuildServer.Client()))
 		}
 	}
 	// Add FSC platform
-	fcsPlatform := fsc.NewPlatform(i.ctx, fscTopology, i.buildServer.Client())
+	fcsPlatform := fsc.NewPlatform(i.Ctx, fscTopology, i.BuildServer.Client())
 	platforms = append(platforms, fcsPlatform)
 
 	// Register platforms to context
 	for _, platform := range platforms {
-		i.ctx.AddPlatform(platform)
+		i.Ctx.AddPlatform(platform)
 	}
-	i.nwo = nwo.New(platforms...)
-	i.fscPlatform = fcsPlatform
+	i.Nwo = nwo.New(platforms...)
+	i.FscPlatform = fcsPlatform
 }
 
 func failMe(message string, callerSkip ...int) {
