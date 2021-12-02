@@ -30,6 +30,7 @@ type Config struct {
 	StartCheck        string        // text to match to indicate successful start.
 	StartCheckTimeout time.Duration // how long to wait to see StartCheck
 	Cleanup           func()        // invoked once the process exits
+	Stdout, Stderr    io.Writer
 }
 
 /*
@@ -112,17 +113,27 @@ func (r *Runner) Run(sigChan <-chan os.Signal, ready chan<- struct{}) error {
 		ginkgo.GinkgoWriter,
 	)
 
-	session, err := gexec.Start(
-		r.Command,
-		gexec.NewPrefixedWriter(
-			fmt.Sprintf("\x1b[32m[o]\x1b[%s[%s]\x1b[0m ", r.AnsiColorCode, r.Name),
-			io.MultiWriter(allOutput, ginkgo.GinkgoWriter),
-		),
-		gexec.NewPrefixedWriter(
-			fmt.Sprintf("\x1b[91m[e]\x1b[%s[%s]\x1b[0m ", r.AnsiColorCode, r.Name),
-			io.MultiWriter(allOutput, ginkgo.GinkgoWriter),
-		),
-	)
+	var session *gexec.Session
+	var err error
+	if r.config.Stdout != nil || r.config.Stderr != nil {
+		session, err = gexec.Start(
+			r.Command,
+			io.MultiWriter(allOutput, ginkgo.GinkgoWriter, r.config.Stdout),
+			io.MultiWriter(allOutput, ginkgo.GinkgoWriter, r.config.Stderr),
+		)
+	} else {
+		session, err = gexec.Start(
+			r.Command,
+			gexec.NewPrefixedWriter(
+				fmt.Sprintf("\x1b[32m[o]\x1b[%s[%s]\x1b[0m ", r.AnsiColorCode, r.Name),
+				io.MultiWriter(allOutput, ginkgo.GinkgoWriter),
+			),
+			gexec.NewPrefixedWriter(
+				fmt.Sprintf("\x1b[91m[e]\x1b[%s[%s]\x1b[0m ", r.AnsiColorCode, r.Name),
+				io.MultiWriter(allOutput, ginkgo.GinkgoWriter),
+			),
+		)
+	}
 
 	Ω(err).ShouldNot(HaveOccurred(), fmt.Sprintf("%s failed to start with err: %s", r.Name, err))
 

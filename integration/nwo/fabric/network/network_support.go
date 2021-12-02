@@ -30,11 +30,13 @@ import (
 	"github.com/onsi/gomega/types"
 	"github.com/tedsuo/ifrit"
 	"github.com/tedsuo/ifrit/ginkgomon"
+
 	"github.com/tedsuo/ifrit/grouper"
 	"gopkg.in/yaml.v2"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
+	runner2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/runner"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/commands"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/fabricconfig"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/opts"
@@ -1126,7 +1128,7 @@ func (n *Network) OrdererGroupRunner() ifrit.Runner {
 
 // PeerRunner returns an ifrit.Runner for the specified peer. The runner can be
 // used to start and manage a peer process.
-func (n *Network) PeerRunner(p *topology.Peer, env ...string) *ginkgomon.Runner {
+func (n *Network) PeerRunner(p *topology.Peer, env ...string) *runner2.Runner {
 	cmd := n.peerCommand(
 		p.ExecutablePath,
 		commands.NodeStart{
@@ -1140,13 +1142,37 @@ func (n *Network) PeerRunner(p *topology.Peer, env ...string) *ginkgomon.Runner 
 	)
 	cmd.Env = append(cmd.Env, env...)
 
-	return ginkgomon.New(ginkgomon.Config{
+	config := runner2.Config{
 		AnsiColorCode:     n.nextColor(),
 		Name:              n.Prefix + "-" + p.ID(),
 		Command:           cmd,
 		StartCheck:        `Started peer with ID=.*, .*, address=`,
 		StartCheckTimeout: 1 * time.Minute,
-	})
+	}
+	if n.Topology().LogPeersToFile {
+		// set stdout to a file
+		Expect(os.MkdirAll(n.PeerLogsFolder(), 0755)).ToNot(HaveOccurred())
+		f, err := os.Create(
+			filepath.Join(
+				n.PeerLogsFolder(),
+				fmt.Sprintf("%s-%s.log", p.Name, n.Organization(p.Organization).Domain),
+			),
+		)
+		Expect(err).ToNot(HaveOccurred())
+		config.Stdout = f
+		config.Stderr = f
+	}
+
+	return runner2.New(config)
+}
+
+func (n *Network) PeerLogsFolder() string {
+	return filepath.Join(
+		n.RootDir,
+		n.Prefix,
+		"logs",
+		"peers",
+	)
 }
 
 // PeerGroupRunner returns a runner that can be used to start and stop all
