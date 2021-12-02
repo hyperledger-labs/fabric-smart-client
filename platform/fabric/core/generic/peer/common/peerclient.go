@@ -24,7 +24,7 @@ type PeerClient struct {
 
 // TODO: improve by providing grpc connection pool
 func (pc *PeerClient) Close() {
-	pc.CommonClient.Client.Close()
+	go pc.CommonClient.Client.Close()
 }
 
 // Endorser returns a client for the Endorser service
