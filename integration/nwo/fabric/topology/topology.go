@@ -39,6 +39,7 @@ type Topology struct {
 	NodeOUs           bool                `yaml:"nodeous,omitempty"`
 	FPC               bool                `yaml:"fpc,omitempty"`
 	Weaver            bool                `yaml:"weaver,omitempty"`
+	LogPeersToFile    bool                `yaml:"logPeersToFile,omitempty"`
 }
 
 func (c *Topology) Name() string {
@@ -329,4 +330,8 @@ func (c *Topology) SetNamespaceApproverOrgsOR(orgs ...string) {
 			return
 		}
 	}
+}
+
+func (c *Topology) EnableLogPeersToFile() {
+	c.LogPeersToFile = true
 }
