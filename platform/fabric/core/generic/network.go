@@ -11,6 +11,9 @@ import (
 	"io/ioutil"
 	"sync"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer/common"
+
 	"github.com/pkg/errors"
 
 	config2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
@@ -126,10 +129,19 @@ func (f *network) Channel(name string) (driver.Channel, error) {
 	if !ok {
 		logger.Debugf("Channel [%s] not found, allocate resources", name)
 		var err error
-		ch, err = newChannel(f, name, chanQuiet)
+		c, err := newChannel(f, name, chanQuiet)
 		if err != nil {
 			return nil, err
 		}
+
+		ch = &channelWithConnPool{
+			cache: common.CachingEndorserPool{
+				Cache:       make(map[string]peer.PeerClient),
+				ConnCreator: c,
+			},
+			Channel: c,
+		}
+
 		f.channels[name] = ch
 		logger.Debugf("Channel [%s] not found, created", name)
 	}
@@ -233,4 +245,17 @@ func loadFile(path string) ([]byte, error) {
 		return nil, errors.WithMessagef(err, "unable to load from %s", path)
 	}
 	return raw, nil
+}
+
+type channelWithConnPool struct {
+	driver.Channel
+	cache common.CachingEndorserPool
+}
+
+func (cwcp *channelWithConnPool) NewPeerClientForAddress(cc grpc.ConnectionConfig) (peer.PeerClient, error) {
+	return cwcp.cache.NewPeerClientForAddress(cc)
+}
+
+func (cwcp *channelWithConnPool) NewPeerClientForIdentity(peer view.Identity) (peer.PeerClient, error) {
+	return cwcp.cache.NewPeerClientForIdentity(peer)
 }
