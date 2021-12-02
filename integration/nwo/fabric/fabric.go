@@ -105,11 +105,11 @@ func (f platformFactory) New(registry api.Context, t api.Topology, builder api.B
 	return NewPlatform(registry, t, builder)
 }
 
-type platform struct {
+type Platform struct {
 	Network *network.Network
 }
 
-func NewPlatform(context api.Context, t api.Topology, components BuilderClient) *platform {
+func NewPlatform(context api.Context, t api.Topology, components BuilderClient) *Platform {
 	helpers.AssertImagesExist(RequiredImages...)
 
 	dockerClient, err := docker.NewClientFromEnv()
@@ -133,36 +133,36 @@ func NewPlatform(context api.Context, t api.Topology, components BuilderClient) 
 	)
 	network.AddExtension(fpc.NewExtension(network))
 
-	return &platform{
+	return &Platform{
 		Network: network,
 	}
 }
 
-func (p *platform) Name() string {
+func (p *Platform) Name() string {
 	return p.Topology().TopologyName
 }
 
-func (p *platform) Type() string {
+func (p *Platform) Type() string {
 	return p.Topology().TopologyType
 }
 
-func (p *platform) GenerateConfigTree() {
+func (p *Platform) GenerateConfigTree() {
 	p.Network.GenerateConfigTree()
 }
 
-func (p *platform) GenerateArtifacts() {
+func (p *Platform) GenerateArtifacts() {
 	p.Network.GenerateArtifacts()
 }
 
-func (p *platform) Load() {
+func (p *Platform) Load() {
 	p.Network.Load()
 }
 
-func (p *platform) Members() []grouper.Member {
+func (p *Platform) Members() []grouper.Member {
 	return p.Network.Members()
 }
 
-func (p *platform) PostRun() {
+func (p *Platform) PostRun() {
 	p.Network.PostRun()
 
 	for _, chaincode := range p.Network.Topology().Chaincodes {
@@ -184,31 +184,31 @@ func (p *platform) PostRun() {
 
 }
 
-func (p *platform) Cleanup() {
+func (p *Platform) Cleanup() {
 	p.Network.Cleanup()
 }
 
-func (p *platform) DeployChaincode(chaincode *topology.ChannelChaincode) {
+func (p *Platform) DeployChaincode(chaincode *topology.ChannelChaincode) {
 	p.Network.DeployChaincode(chaincode)
 }
 
-func (p *platform) DefaultIdemixOrgMSPDir() string {
+func (p *Platform) DefaultIdemixOrgMSPDir() string {
 	return p.Network.DefaultIdemixOrgMSPDir()
 }
 
-func (p *platform) Topology() *topology.Topology {
+func (p *Platform) Topology() *topology.Topology {
 	return p.Network.Topology()
 }
 
-func (p *platform) PeerChaincodeAddress(peerName string) string {
+func (p *Platform) PeerChaincodeAddress(peerName string) string {
 	return p.Network.PeerAddress(p.Network.PeerByName(peerName), network.ChaincodePort)
 }
 
-func (p *platform) OrgMSPID(orgName string) string {
+func (p *Platform) OrgMSPID(orgName string) string {
 	return p.Network.Organization(orgName).MSPID
 }
 
-func (p *platform) PeerOrgs() []*Org {
+func (p *Platform) PeerOrgs() []*Org {
 	var orgs []*Org
 	for _, org := range p.Network.PeerOrgs() {
 		orgs = append(orgs, &Org{
@@ -221,7 +221,7 @@ func (p *platform) PeerOrgs() []*Org {
 	return orgs
 }
 
-func (p *platform) PeersByOrg(orgName string, includeAll bool) []*Peer {
+func (p *Platform) PeersByOrg(orgName string, includeAll bool) []*Peer {
 	var peers []*Peer
 	org := p.Network.Organization(orgName)
 	for _, peer := range p.Network.PeersInOrg(orgName) {
@@ -250,7 +250,7 @@ func (p *platform) PeersByOrg(orgName string, includeAll bool) []*Peer {
 	return peers
 }
 
-func (p *platform) UserByOrg(orgName string, user string) *User {
+func (p *Platform) UserByOrg(orgName string, user string) *User {
 	peer := p.Network.PeersInOrg(orgName)[0]
 
 	return &User{
@@ -260,7 +260,7 @@ func (p *platform) UserByOrg(orgName string, user string) *User {
 	}
 }
 
-func (p *platform) UsersByOrg(orgName string) []*User {
+func (p *Platform) UsersByOrg(orgName string) []*User {
 	org := p.Network.Organization(orgName)
 	var users []*User
 	for _, name := range org.UserNames {
@@ -274,7 +274,7 @@ func (p *platform) UsersByOrg(orgName string) []*User {
 	return users
 }
 
-func (p *platform) PeersByID(id string) *Peer {
+func (p *Platform) PeersByID(id string) *Peer {
 	var result *Peer
 	for _, peer := range p.Network.PeersByName([]string{id}) {
 		caCertPath := filepath.Join(p.Network.PeerLocalTLSDir(peer), "ca.crt")
@@ -318,7 +318,7 @@ func (p *platform) PeersByID(id string) *Peer {
 	return result
 }
 
-func (p *platform) Orderers() []*Orderer {
+func (p *Platform) Orderers() []*Orderer {
 	var orderers []*Orderer
 	for _, orderer := range p.Network.Orderers {
 		caCertPath := filepath.Join(p.Network.OrdererLocalTLSDir(orderer), "ca.crt")
@@ -335,7 +335,7 @@ func (p *platform) Orderers() []*Orderer {
 	return orderers
 }
 
-func (p *platform) Channels() []*Channel {
+func (p *Platform) Channels() []*Channel {
 	var channels []*Channel
 	for _, ch := range p.Network.Channels {
 		var chaincodes []*Chaincode
@@ -373,7 +373,7 @@ func (p *platform) Channels() []*Channel {
 	return channels
 }
 
-func (p *platform) InvokeChaincode(cc *topology.ChannelChaincode, method string, args ...[]byte) []byte {
+func (p *Platform) InvokeChaincode(cc *topology.ChannelChaincode, method string, args ...[]byte) []byte {
 	if cc.Private {
 		c := contract.GetContract(
 			&fpc.ChannelProvider{Network: p.Network, CC: cc},
