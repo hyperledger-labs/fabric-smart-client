@@ -150,9 +150,12 @@ func (o *service) castFabricEndorseTransactionEnvelope(blob []byte) (*common2.En
 
 func (o *service) getOrSetOrdererClient() (Broadcast, error) {
 	o.lock.RLock()
-	if o.oClient != nil {
-		defer o.lock.RUnlock()
-		return o.oStream, nil
+	oc := o.oClient
+	os := o.oStream
+	o.lock.RUnlock()
+
+	if oc != nil {
+		return os, nil
 	}
 
 	o.lock.Lock()
