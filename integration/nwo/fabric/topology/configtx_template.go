@@ -146,9 +146,9 @@ Profiles:{{ range .Profiles }}
       {{- end }}{{ end }}
       BatchTimeout: 1s
       BatchSize:
-        MaxMessageCount: 1
+        MaxMessageCount: 500
         AbsoluteMaxBytes: 98 MB
-        PreferredMaxBytes: 512 KB
+        PreferredMaxBytes: 2048 KB
       Capabilities:
         V2_0: true
       {{- if eq $w.Consensus.Type "kafka" }}
