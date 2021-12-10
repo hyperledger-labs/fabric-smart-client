@@ -52,7 +52,7 @@ type ordererClient struct {
 	conn               *grpc.ClientConn
 }
 
-func NewOrdererClient(config *grpc2.ConnectionConfig) (OrdererClient, error) {
+func NewOrdererClient(config *grpc2.ConnectionConfig) (*ordererClient, error) {
 	grpcClient, err := grpc2.CreateGRPCClient(config)
 	if err != nil {
 		err = errors.WithMessagef(err, "failed to create a Client to orderer %s", config.Address)
