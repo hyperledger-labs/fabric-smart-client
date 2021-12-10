@@ -23,8 +23,9 @@ import (
 var logger = flogging.MustGetLogger("fsc.integration")
 
 type NWO struct {
-	Processes []ifrit.Process
-	Members   grouper.Members
+	fscProcesss []ifrit.Process
+	Processes   []ifrit.Process
+	Members     grouper.Members
 
 	Platforms              []api.Platform
 	StartEventuallyTimeout time.Duration
@@ -37,6 +38,13 @@ func New(platforms ...api.Platform) *NWO {
 		Platforms:              platforms,
 		StartEventuallyTimeout: time.Minute,
 		StopEventuallyTimeout:  time.Minute,
+	}
+}
+
+func (n *NWO) KillFSC() {
+	for _, process := range n.fscProcesss {
+		process.Signal(syscall.SIGTERM)
+		Eventually(process.Wait(), n.StopEventuallyTimeout).Should(Receive())
 	}
 }
 
@@ -104,6 +112,7 @@ func (n *NWO) Start() {
 		process := ifrit.Invoke(runner)
 		Eventually(process.Ready(), n.StartEventuallyTimeout).Should(BeClosed())
 		n.Processes = append(n.Processes, process)
+		n.fscProcesss = append(n.fscProcesss, process)
 	}
 
 	logger.Infof("Post execution...")
