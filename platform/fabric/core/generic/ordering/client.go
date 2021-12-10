@@ -107,7 +107,6 @@ func (oc *ordererClient) Certificate() *tls.Certificate {
 // broadcastSend sends transaction envelope to orderer service
 func BroadcastSend(broadcast Broadcast, addr string, envelope *common.Envelope) error {
 	err := broadcast.Send(envelope)
-	broadcast.CloseSend()
 
 	if err != nil {
 		return errors.Wrapf(err, "failed to send transaction to orderer %s", addr)
