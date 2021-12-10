@@ -191,6 +191,9 @@ func (o *service) broadcastEnvelope(env *common2.Envelope) error {
 		return err
 	}
 
+	o.lock.Lock()
+	defer o.lock.Unlock()
+
 	// send the envelope for ordering
 	err = BroadcastSend(oClient, o.network.Orderers()[0].Address, env)
 	if err != nil {
