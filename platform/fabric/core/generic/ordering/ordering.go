@@ -11,6 +11,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
@@ -68,6 +69,9 @@ type Transaction interface {
 }
 
 type service struct {
+	lock    sync.RWMutex
+	oStream Broadcast
+	oClient *ordererClient
 	sp      view2.ServiceProvider
 	network Network
 }
@@ -144,38 +148,63 @@ func (o *service) castFabricEndorseTransactionEnvelope(blob []byte) (*common2.En
 	return env, nil
 }
 
-func (o *service) broadcastEnvelope(env *common2.Envelope) error {
-	OrdererConfig := o.network.Orderers()[0]
+func (o *service) getOrSetOrdererClient() (Broadcast, error) {
+	o.lock.RLock()
+	if o.oClient != nil {
+		defer o.lock.RUnlock()
+		return o.oStream, nil
+	}
 
-	ordererClient, err := NewOrdererClient(OrdererConfig)
+	o.lock.Lock()
+	defer o.lock.Unlock()
+
+	if o.oClient != nil {
+		return o.oStream, nil
+	}
+
+	ordererConfig := o.network.Orderers()[0]
+
+	oClient, err := NewOrdererClient(ordererConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	stream, err := oClient.NewBroadcast(context.Background())
+	if err != nil {
+		oClient.Close()
+		return nil, err
+	}
+
+	o.oStream = stream
+	o.oClient = oClient
+
+	return stream, nil
+}
+
+func (o *service) broadcastEnvelope(env *common2.Envelope) error {
+
+	oClient, err := o.getOrSetOrdererClient()
 	if err != nil {
 		return err
 	}
-	broadcastClient, err := ordererClient.NewBroadcast(context.Background())
-	if err != nil {
-		ordererClient.Close()
-		return err
-	}
-	defer func() {
-		broadcastClient.CloseSend()
-		ordererClient.Close()
-	}()
 
 	// send the envelope for ordering
-	err = BroadcastSend(broadcastClient, OrdererConfig.Address, env)
+	err = BroadcastSend(oClient, o.network.Orderers()[0].Address, env)
 	if err != nil {
 		return err
 	}
 
-	responses := make(chan common2.Status)
-	errs := make(chan error, 1)
-	go BroadcastReceive(broadcastClient, OrdererConfig.Address, responses, errs)
-	status, err := BroadcastWaitForResponse(responses, errs)
-	if status != common2.Status_SUCCESS {
-		err = errors.Wrapf(err, "failed broadcasting, status %s", common2.Status_name[int32(status)])
+	status, err := oClient.Recv()
+	if err != nil {
+		return err
 	}
 
-	return err
+	if status.GetStatus() != common2.Status_SUCCESS {
+		err = errors.Wrapf(err, "failed broadcasting, status %s", common2.Status_name[int32(status.GetStatus())])
+		return err
+	}
+
+	return nil
 }
 
 // createSignedTx assembles an Envelope message from proposal, endorsements,
