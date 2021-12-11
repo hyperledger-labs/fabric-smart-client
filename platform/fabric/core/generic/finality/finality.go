@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package finality
 
 import (
+	"context"
 	"time"
 
 	view3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/view"
@@ -31,26 +32,38 @@ type Committer interface {
 	IsFinal(txID string) error
 }
 
-type finality struct {
-	channel    string
-	network    Network
-	sp         view2.ServiceProvider
-	committer  Committer
-	TLSEnabled bool
+type CommitListener interface {
+	WaitForSubscription(txID string, ctx context.Context) error
+
+	Subscribe(txID string)
 }
 
-func NewService(sp view2.ServiceProvider, network Network, channel string, committer Committer) (*finality, error) {
+type finality struct {
+	channel        string
+	network        Network
+	sp             view2.ServiceProvider
+	commitListener CommitListener
+	TLSEnabled     bool
+}
+
+func NewService(sp view2.ServiceProvider, network Network, channel string, cl CommitListener) (*finality, error) {
 	return &finality{
-		sp:         sp,
-		network:    network,
-		committer:  committer,
-		channel:    channel,
-		TLSEnabled: true,
+		commitListener: cl,
+		sp:             sp,
+		network:        network,
+		channel:        channel,
+		TLSEnabled:     true,
 	}, nil
 }
 
+func (f *finality) Subscribe(txID string) {
+	f.commitListener.Subscribe(txID)
+}
+
 func (f *finality) IsFinal(txID string) error {
-	return f.committer.IsFinal(txID)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	defer cancel()
+	return f.commitListener.WaitForSubscription(txID, ctx)
 }
 
 func (f *finality) IsFinalForParties(txID string, parties ...view.Identity) error {

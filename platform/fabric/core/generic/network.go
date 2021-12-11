@@ -11,6 +11,9 @@ import (
 	"io/ioutil"
 	"sync"
 
+	common2 "github.com/hyperledger/fabric-protos-go/common"
+	"github.com/hyperledger/fabric/protoutil"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer/common"
 
@@ -50,7 +53,7 @@ type network struct {
 
 	ordering driver.Ordering
 	channels map[string]driver.Channel
-	mutex    sync.Mutex
+	mutex    sync.RWMutex
 	name     string
 }
 
@@ -70,7 +73,6 @@ func NewNetwork(
 		name:            name,
 		config:          config,
 		channels:        map[string]driver.Channel{},
-		mutex:           sync.Mutex{},
 		localMembership: localMembership,
 		idProvider:      idProvider,
 		sigService:      sigService,
@@ -198,6 +200,22 @@ func (f *network) Config() *config2.Config {
 	return f.config
 }
 
+func (f *network) subscribeToCommitEvent(env *common2.Envelope) {
+	payload := protoutil.UnmarshalPayloadOrPanic(env.Payload)
+	chHdr := protoutil.UnmarshalChannelHeaderOrPanic(payload.Header.ChannelHeader)
+
+	f.mutex.RLock()
+	defer f.mutex.RUnlock()
+
+	ch, ok := f.channels[chHdr.ChannelId]
+	if !ok {
+		logger.Errorf("Broadcast of an envelope of a non existent channel %s", chHdr.ChannelId)
+		return
+	}
+
+	ch.(*channelWithConnPool).Channel.(*channel).subscribeTxCommit(chHdr.TxId)
+}
+
 func (f *network) init() error {
 	f.processorManager = rwset.NewProcessorManager(f.sp, f, nil)
 	f.transactionManager = transaction.NewManager(f.sp, f)
@@ -232,7 +250,7 @@ func (f *network) init() error {
 		}
 	}
 
-	f.ordering = ordering.NewService(f.sp, f)
+	f.ordering = ordering.NewService(f.sp, f, f.subscribeToCommitEvent)
 	return nil
 }
 

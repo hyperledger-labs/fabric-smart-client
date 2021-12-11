@@ -6,6 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 package views
 
 import (
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/pkg/errors"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou/states"
@@ -69,6 +70,12 @@ func (i *ApproverView) Call(context view.Context) (interface{}, error) {
 	// The approver is ready to send back the transaction signed
 	_, err = context.RunView(state.NewEndorseView(tx))
 	assert.NoError(err)
+
+	fns := fabric.GetFabricNetworkService(context, tx.Network())
+	assert.NotNil(fns)
+	ch, err := fns.Channel(tx.Channel())
+	assert.NoError(err)
+	ch.Subscribe(tx.ID())
 
 	// Finally, the approver waits that the transaction completes its lifecycle
 	return context.RunView(state.NewFinalityView(tx))

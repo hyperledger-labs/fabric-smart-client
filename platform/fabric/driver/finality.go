@@ -12,6 +12,8 @@ type Finality interface {
 	// IsFinal takes in input a transaction id and waits for its confirmation.
 	IsFinal(txID string) error
 
+	Subscribe(txID string)
+
 	// IsFinalForParties takes in input a transaction id and an array of identities.
 	// The identities are contacted to gather information about the finality of the
 	// passed transaction

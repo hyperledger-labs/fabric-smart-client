@@ -69,17 +69,21 @@ type Transaction interface {
 }
 
 type service struct {
-	lock    sync.RWMutex
-	oStream Broadcast
-	oClient *ordererClient
-	sp      view2.ServiceProvider
-	network Network
+	lock              sync.RWMutex
+	oStream           Broadcast
+	oClient           *ordererClient
+	sp                view2.ServiceProvider
+	network           Network
+	subscribeToCommit subscribeFunc
 }
 
-func NewService(sp view2.ServiceProvider, network Network) *service {
+type subscribeFunc func(envelope *common2.Envelope)
+
+func NewService(sp view2.ServiceProvider, network Network, sf subscribeFunc) *service {
 	return &service{
-		sp:      sp,
-		network: network,
+		subscribeToCommit: sf,
+		sp:                sp,
+		network:           network,
 	}
 }
 
@@ -103,6 +107,7 @@ func (o *service) Broadcast(blob interface{}) error {
 		return errors.Errorf("invalid blob's type, got [%T]", blob)
 	}
 
+	o.subscribeToCommit(env)
 	return o.broadcastEnvelope(env)
 }
 

@@ -18,6 +18,10 @@ type Channel struct {
 	ch  driver.Channel
 }
 
+func (c *Channel) Subscribe(txID string) {
+	c.ch.Subscribe(txID)
+}
+
 func (c *Channel) Name() string {
 	return c.ch.Name()
 }

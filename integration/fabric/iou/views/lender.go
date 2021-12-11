@@ -60,6 +60,12 @@ func (i *CreateIOUResponderView) Call(context view.Context) (interface{}, error)
 	_, err = context.RunView(state.NewEndorseView(tx))
 	assert.NoError(err)
 
+	fns := fabric.GetFabricNetworkService(context, tx.Network())
+	assert.NotNil(fns)
+	ch, err := fns.Channel(tx.Channel())
+	assert.NoError(err)
+	ch.Subscribe(tx.ID())
+
 	// Finally, the lender waits that the transaction completes its lifecycle
 	return context.RunView(state.NewFinalityView(tx))
 }
@@ -114,6 +120,13 @@ func (i *UpdateIOUResponderView) Call(context view.Context) (interface{}, error)
 	// The lender is ready to send back the transaction signed
 	_, err = context.RunView(state.NewEndorseView(tx))
 	assert.NoError(err)
+
+	fns := fabric.GetFabricNetworkService(context, tx.Network())
+	assert.NotNil(fns)
+	ch, err := fns.Channel(tx.Channel())
+	assert.NoError(err)
+
+	ch.Subscribe(tx.ID())
 
 	// Finally, the lender waits that the transaction completes its lifecycle
 	return context.RunView(state.NewFinalityView(tx))

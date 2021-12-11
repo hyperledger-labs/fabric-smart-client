@@ -7,7 +7,10 @@ SPDX-License-Identifier: Apache-2.0
 package generic
 
 import (
+	"context"
+	"fmt"
 	"io/ioutil"
+	"runtime/debug"
 	"sync"
 	"time"
 
@@ -46,17 +49,18 @@ const (
 )
 
 type channel struct {
-	sp                 view2.ServiceProvider
-	config             *config2.Config
-	network            *network
-	name               string
-	finality           driver.Finality
-	vault              *vault.Vault
-	processNamespaces  []string
-	externalCommitter  *committer.ExternalCommitter
-	envelopeService    driver.EnvelopeService
-	transactionService driver.EndorserTransactionService
-	metadataService    driver.MetadataService
+	commitSubscriptions sync.Map
+	sp                  view2.ServiceProvider
+	config              *config2.Config
+	network             *network
+	name                string
+	finality            driver.Finality
+	vault               *vault.Vault
+	processNamespaces   []string
+	externalCommitter   *committer.ExternalCommitter
+	envelopeService     driver.EnvelopeService
+	transactionService  driver.EndorserTransactionService
+	metadataService     driver.MetadataService
 	driver.TXIDStore
 
 	// applyLock is used to serialize calls to CommitConfig and bundle update processing.
@@ -97,6 +101,31 @@ func newChannel(network *network, name string, quiet bool) (*channel, error) {
 		return nil, err
 	}
 
+	c := &channel{
+		name:               name,
+		config:             network.config,
+		network:            network,
+		vault:              v,
+		sp:                 sp,
+		externalCommitter:  externalCommitter,
+		TXIDStore:          txIDStore,
+		envelopeService:    transaction.NewEnvelopeService(sp, network.Name(), name),
+		transactionService: transaction.NewEndorseTransactionService(sp, network.Name(), name),
+		metadataService:    transaction.NewMetadataService(sp, network.Name(), name),
+	}
+
+	// Finality
+	fs, err := finality2.NewService(sp, network, name, c)
+	if err != nil {
+		return nil, err
+	}
+
+	c.finality = fs
+
+	if err := c.init(); err != nil {
+		return nil, errors.WithMessagef(err, "failed initializing channel [%s]", name)
+	}
+
 	// Delivery
 	deliveryService, err := delivery2.New(
 		network.ctx,
@@ -104,6 +133,7 @@ func newChannel(network *network, name string, quiet bool) (*channel, error) {
 		sp,
 		network,
 		func(block *peer.FilteredBlock) (bool, error) {
+			c.publishToSubscribers(block)
 			if err := committerInst.Commit(block); err != nil {
 				switch errors.Cause(err) {
 				case committer.ErrQSCCUnreachable:
@@ -119,29 +149,6 @@ func newChannel(network *network, name string, quiet bool) (*channel, error) {
 	)
 	if err != nil {
 		return nil, err
-	}
-
-	// Finality
-	fs, err := finality2.NewService(sp, network, name, committerInst)
-	if err != nil {
-		return nil, err
-	}
-
-	c := &channel{
-		name:               name,
-		config:             network.config,
-		network:            network,
-		vault:              v,
-		sp:                 sp,
-		finality:           fs,
-		externalCommitter:  externalCommitter,
-		TXIDStore:          txIDStore,
-		envelopeService:    transaction.NewEnvelopeService(sp, network.Name(), name),
-		transactionService: transaction.NewEndorseTransactionService(sp, network.Name(), name),
-		metadataService:    transaction.NewMetadataService(sp, network.Name(), name),
-	}
-	if err := c.init(); err != nil {
-		return nil, errors.WithMessagef(err, "failed initializing channel [%s]", name)
 	}
 
 	// Start delivery
@@ -285,6 +292,61 @@ func (c *channel) GetTransactionByID(txID string) (driver.ProcessedTransaction, 
 		return nil, err
 	}
 	return newProcessedTransaction(pt)
+}
+
+func (c *channel) publishToSubscribers(block *peer.FilteredBlock) {
+	for _, tx := range block.FilteredTransactions {
+		var err error
+		if tx.TxValidationCode > 0 {
+			err = fmt.Errorf("tx invalid: %s", tx.TxValidationCode.String())
+		}
+		c.publish(tx.Txid, err)
+	}
+}
+
+func (c *channel) publish(txID string, err error) {
+	logger.Debugf("Publishing commit of %s", txID)
+	o, exists := c.commitSubscriptions.Load(txID)
+	if !exists {
+		logger.Debugf("No one subscribed to %s", txID)
+		return
+	}
+
+	sub := o.(chan error)
+
+	select {
+	case sub <- err:
+		return
+	default:
+	}
+}
+
+func (c *channel) Subscribe(txID string) {
+	c.subscribeTxCommit(txID)
+}
+
+func (c *channel) WaitForSubscription(txID string, ctx context.Context) error {
+	o, exists := c.commitSubscriptions.Load(txID)
+	logger.Debugf("Publishing commit of %s", txID)
+	if !exists {
+		debug.PrintStack()
+		return errors.Errorf("no prior broadcast detected for %s", txID)
+	}
+
+	defer c.commitSubscriptions.Delete(txID)
+
+	sub := o.(chan error)
+
+	select {
+	case err := <-sub:
+		return err
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+func (c *channel) subscribeTxCommit(txID string) {
+	c.commitSubscriptions.LoadOrStore(txID, make(chan error, 1))
 }
 
 func (c *channel) GetBlockNumberByTxID(txID string) (uint64, error) {
