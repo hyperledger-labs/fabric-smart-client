@@ -246,6 +246,13 @@ func CreateGRPCClient(config *ConnectionConfig) (*Client, error) {
 		timeout = DefaultConnectionTimeout
 	}
 	clientConfig := ClientConfig{
+		KaOpts: KeepaliveOptions{
+			ClientInterval:    60 * time.Second,
+			ClientTimeout:     60 * time.Second,
+			ServerInterval:    30 * time.Second,
+			ServerTimeout:     60 * time.Second,
+			ServerMinInterval: 60 * time.Second,
+		},
 		Timeout: timeout,
 	}
 
