@@ -23,6 +23,7 @@ type Topology struct {
 	Nodes        []*node.Node `yaml:"peers,omitempty"`
 	GRPCLogging  bool         `yaml:"grpcLogging,omitempty"`
 	Logging      *Logging     `yaml:"logging,omitempty"`
+	LogToFile    bool         `yaml:"logToFile,omitempty"`
 }
 
 // NewTopology returns an empty FSC network topology.
