@@ -431,13 +431,30 @@ func (p *Platform) FSCNodeRunner(node *node2.Peer, env ...string) *runner2.Runne
 	)
 	cmd.Env = append(cmd.Env, env...)
 
-	return runner2.New(runner2.Config{
+	config := runner2.Config{
 		AnsiColorCode:     common.NextColor(),
 		Name:              node.ID(),
 		Command:           cmd,
 		StartCheck:        `Started peer with ID=.*, .*, address=`,
 		StartCheckTimeout: 1 * time.Minute,
-	})
+	}
+
+	if p.Topology.LogToFile {
+		logDir := filepath.Join(p.NodeDir(node), "logs")
+		// set stdout to a file
+		Expect(os.MkdirAll(logDir, 0755)).ToNot(HaveOccurred())
+		f, err := os.Create(
+			filepath.Join(
+				logDir,
+				fmt.Sprintf("%s.log", node.Name),
+			),
+		)
+		Expect(err).ToNot(HaveOccurred())
+		config.Stdout = f
+		config.Stderr = f
+	}
+
+	return runner2.New(config)
 }
 
 func (p *Platform) fscNodeCommand(node *node2.Peer, command common.Command, tlsDir string, env ...string) *exec.Cmd {
