@@ -40,6 +40,7 @@ type Topology struct {
 	FPC               bool                `yaml:"fpc,omitempty"`
 	Weaver            bool                `yaml:"weaver,omitempty"`
 	LogPeersToFile    bool                `yaml:"logPeersToFile,omitempty"`
+	LogOrderersToFile bool                `yaml:"logPeersToFile,omitempty"`
 }
 
 func (c *Topology) Name() string {
