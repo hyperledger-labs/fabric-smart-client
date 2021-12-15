@@ -67,7 +67,7 @@ func (d *fabricFinality) IsFinal(txID string, address string) error {
 
 	ctx, cancelFunc = context.WithTimeout(context.Background(), d.waitForEventTimeout)
 	defer cancelFunc()
-	deliverFiltered, err := deliverClient.NewDeliverFiltered(ctx)
+	deliverStream, err := deliverClient.NewDeliver(ctx)
 	if err != nil {
 		return err
 	}
@@ -86,12 +86,12 @@ func (d *fabricFinality) IsFinal(txID string, address string) error {
 	if err != nil {
 		return err
 	}
-	err = delivery.DeliverSend(deliverFiltered, address, blockEnvelope)
+	err = delivery.DeliverSend(deliverStream, address, blockEnvelope)
 	if err != nil {
 		return err
 	}
 	eventCh = make(chan delivery.TxEvent, 1)
-	go delivery.DeliverReceive(deliverFiltered, address, txID, eventCh)
+	go delivery.DeliverReceive(deliverStream, address, txID, eventCh)
 	committed, _, _, err := delivery.DeliverWaitForResponse(ctx, eventCh, txID)
 	if err != nil {
 		return err

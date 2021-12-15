@@ -31,7 +31,7 @@ var (
 	ErrComm = errors.New("communication issue")
 )
 
-type Callback func(block *pb.FilteredBlock) (bool, error)
+type Callback func(block *common.Block) (bool, error)
 
 // Vault models a key-value store that can be updated by committing rwsets
 type Vault interface {
@@ -90,7 +90,7 @@ func (d *delivery) Start() {
 }
 
 func (d *delivery) Run() error {
-	var df DeliverFiltered
+	var df DeliverStream
 	var err error
 	for {
 		select {
@@ -119,10 +119,14 @@ func (d *delivery) Run() error {
 			}
 
 			switch r := resp.Type.(type) {
-			case *pb.DeliverResponse_FilteredBlock:
-				logger.Debugf("delivery service [%s:%s], commit block [%d]", address, d.channel, r.FilteredBlock.Number)
+			case *pb.DeliverResponse_Block:
+				if r.Block == nil || r.Block.Data == nil || r.Block.Header == nil || r.Block.Metadata == nil {
+					return errors.Errorf("invalid block received")
+				}
 
-				stop, err := d.callback(r.FilteredBlock)
+				logger.Debugf("delivery service [%s:%s], commit block [%d]", address, d.channel, r.Block.Header.Number)
+
+				stop, err := d.callback(r.Block)
 				if err != nil {
 					switch errors.Cause(err) {
 					case ErrComm:
@@ -155,7 +159,7 @@ func (d *delivery) Run() error {
 	}
 }
 
-func (d *delivery) connect() (DeliverFiltered, error) {
+func (d *delivery) connect() (DeliverStream, error) {
 	address := d.peerConnectionConfig.Address
 	logger.Debugf("connecting to deliver service at [%s] for channel [%s]", address, d.channel)
 
@@ -164,7 +168,7 @@ func (d *delivery) connect() (DeliverFiltered, error) {
 		return nil, err
 	}
 
-	deliverFiltered, err := deliverClient.NewDeliverFiltered(d.ctx)
+	stream, err := deliverClient.NewDeliver(d.ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -208,11 +212,11 @@ func (d *delivery) connect() (DeliverFiltered, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = DeliverSend(deliverFiltered, d.peerConnectionConfig.Address, blockEnvelope)
+	err = DeliverSend(stream, d.peerConnectionConfig.Address, blockEnvelope)
 	if err != nil {
 		return nil, err
 	}
 
 	logger.Debugf("connected to deliver service at [%s]", address)
-	return deliverFiltered, nil
+	return stream, nil
 }
