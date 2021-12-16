@@ -12,6 +12,7 @@ jobs:
     runs-on: ubuntu-20.04
     env:
       GOPATH: ${{ github.workspace }}
+      GOFLAGS: -mod=mod
     defaults:
       run:
         working-directory: ${{ env.GOPATH }}/src/github.com/hyperledger-labs/fabric-smart-client
