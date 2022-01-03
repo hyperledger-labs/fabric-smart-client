@@ -6,6 +6,8 @@ SPDX-License-Identifier: Apache-2.0
 
 package driver
 
+import "github.com/hyperledger/fabric-protos-go/common"
+
 // ValidationCode of transaction
 type ValidationCode int
 
@@ -39,8 +41,8 @@ type Committer interface {
 	// Tx is Invalid, CommitTx does nothing and returns an error.
 	// Tx is Busy, if Tx is a multi-shard private transaction then CommitTx proceeds with the multi-shard private transaction commit protocol,
 	// otherwise, CommitTx commits the transaction.
-	CommitTX(txid string, block uint64, indexInBloc int, envelope []byte) error
+	CommitTX(txid string, block uint64, indexInBloc int, envelope *common.Envelope) error
 
 	// CommitConfig commits the passed configuration envelope.
-	CommitConfig(blockNumber uint64, envelope []byte) error
+	CommitConfig(blockNumber uint64, raw []byte, envelope *common.Envelope) error
 }

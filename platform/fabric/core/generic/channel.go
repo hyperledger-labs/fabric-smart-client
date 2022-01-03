@@ -103,14 +103,9 @@ func newChannel(network *network, name string, quiet bool) (*channel, error) {
 		name,
 		sp,
 		network,
-		func(block *peer.FilteredBlock) (bool, error) {
+		func(block *common.Block) (bool, error) {
 			if err := committerInst.Commit(block); err != nil {
-				switch errors.Cause(err) {
-				case committer.ErrQSCCUnreachable:
-					return false, delivery2.ErrComm
-				default:
-					return true, err
-				}
+				return true, err
 			}
 			return false, nil
 		},
@@ -331,6 +326,14 @@ type processedTransaction struct {
 	vc  int32
 	ue  *transaction.UnpackedEnvelope
 	env []byte
+}
+
+func newProcessedTransactionFromEnvelope(env *common.Envelope) (*processedTransaction, error) {
+	ue, err := transaction.UnpackEnvelope(env)
+	if err != nil {
+		return nil, err
+	}
+	return &processedTransaction{ue: ue}, nil
 }
 
 func newProcessedTransactionFromEnvelopeRaw(env []byte) (*processedTransaction, error) {

@@ -48,12 +48,23 @@ type DeliverFiltered interface {
 	CloseSend() error
 }
 
+// DeliverStream defines the interface that abstracts deliver grpc calls to peer
+type DeliverStream interface {
+	Send(*common.Envelope) error
+	Recv() (*pb.DeliverResponse, error)
+	CloseSend() error
+}
+
 //go:generate counterfeiter -o mock/deliver_client.go -fake-name DeliverClient . DeliverClient
 
-// DeliverClient defines the interface to create a DeliverFiltered client
+// DeliverClient defines the interface to create a DeliverStream client
 type DeliverClient interface {
-	// NewDeliverFilterd returns a DeliverFiltered
+
+	// NewDeliverFiltered returns a DeliverFiltered
 	NewDeliverFiltered(ctx context.Context, opts ...grpc.CallOption) (DeliverFiltered, error)
+
+	// NewDeliver returns a DeliverStream
+	NewDeliver(ctx context.Context, opts ...grpc.CallOption) (DeliverStream, error)
 
 	// Certificate returns tls certificate for the deliver client to peer
 	Certificate() *tls.Certificate
@@ -86,7 +97,30 @@ func NewDeliverClient(config *grpc2.ConnectionConfig) (DeliverClient, error) {
 	}, nil
 }
 
-// NewDeliverFilterd creates a DeliverFiltered client
+// NewDeliver creates a DeliverStream client
+func (d *deliverClient) NewDeliver(ctx context.Context, opts ...grpc.CallOption) (DeliverStream, error) {
+	if d.conn != nil {
+		// close the old connection because new connection will restart its timeout
+		d.conn.Close()
+	}
+
+	// create a new connection to the peer
+	var err error
+	d.conn, err = d.grpcClient.NewConnection(d.peerAddr)
+	if err != nil {
+		return nil, errors.WithMessagef(err, "failed to connect to peer %s", d.peerAddr)
+	}
+
+	// create a new DeliverStream
+	df, err := pb.NewDeliverClient(d.conn).Deliver(ctx)
+	if err != nil {
+		rpcStatus, _ := status.FromError(err)
+		return nil, errors.Wrapf(err, "failed to new a deliver filtered, rpcStatus=%+v", rpcStatus)
+	}
+	return df, nil
+}
+
+// NewDeliverFiltered creates a DeliverFiltered client
 func (d *deliverClient) NewDeliverFiltered(ctx context.Context, opts ...grpc.CallOption) (DeliverFiltered, error) {
 	if d.conn != nil {
 		// close the old connection because new connection will restart its timeout
@@ -160,7 +194,7 @@ func CreateDeliverEnvelope(channelID string, signingIdentity SigningIdentity, ce
 	return envelope, nil
 }
 
-func DeliverSend(df DeliverFiltered, address string, envelope *common.Envelope) error {
+func DeliverSend(df DeliverStream, address string, envelope *common.Envelope) error {
 	err := df.Send(envelope)
 	df.CloseSend()
 	if err != nil {

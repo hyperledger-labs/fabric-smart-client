@@ -8,14 +8,16 @@ package generic
 
 import (
 	"context"
-	"strings"
 
 	"github.com/hyperledger/fabric-protos-go/common"
-	"github.com/hyperledger/fabric-protos-go/peer"
+	pb "github.com/hyperledger/fabric-protos-go/peer"
+	"github.com/hyperledger/fabric/protoutil"
 
 	delivery2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/delivery"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
+
+type ValidationFlags []uint8
 
 func (c *channel) Scan(ctx context.Context, txID string, callback driver.DeliveryCallback) error {
 	vault := &fakeVault{txID: txID}
@@ -24,52 +26,49 @@ func (c *channel) Scan(ctx context.Context, txID string, callback driver.Deliver
 		c.name,
 		c.sp,
 		c.network,
-		func(filteredBlock *peer.FilteredBlock) (bool, error) {
-			ledger, err := c.network.Ledger(c.name)
-			if err != nil {
-				logger.Panicf("cannot get ledger [%s]", err)
-			}
-			var block driver.Block
-			block, err = ledger.GetBlockByNumber(filteredBlock.Number)
-			if err != nil {
-				if !strings.Contains(err.Error(), "grpc: trying to send message larger than max") {
-					logger.Debugf("cannot get filteredBlock [%s]", err)
-					return true, err
+		func(block *common.Block) (bool, error) {
+			for i, tx := range block.Data.Data {
+				validationCode := ValidationFlags(block.Metadata.Metadata[common.BlockMetadataIndex_TRANSACTIONS_FILTER])[i]
+
+				if pb.TxValidationCode(validationCode) != pb.TxValidationCode_VALID {
+					continue
 				}
 
-				// The block is too big, download each transaction as needed
-				logger.Warnf("block [%d] too big to be downloaded, it contains [%d] txs",
-					filteredBlock.Number,
-					len(filteredBlock.FilteredTransactions))
-				block = nil
-			}
-
-			filteredTransactions := filteredBlock.FilteredTransactions
-			for i, tx := range filteredTransactions {
-				logger.Debugf("commit transaction [%s] in filteredBlock [%d]", tx.Txid, filteredBlock.Number)
-
-				switch tx.Type {
-				case common.HeaderType_CONFIG:
-					// do nothing, for now
-				case common.HeaderType_ENDORSER_TRANSACTION:
-					tx := filteredTransactions[i]
-					switch tx.TxValidationCode {
-					case peer.TxValidationCode_VALID:
-						ptx, err := block.ProcessedTransaction(i)
-						if err != nil {
-							logger.Panicf("cannot get processed transaction [%s]", err)
-						}
-						stop, err := callback(ptx)
-						if err != nil {
-							// if an error occurred, stop processing
-							return false, err
-						}
-						if stop {
-							return true, nil
-						}
-						vault.txID = tx.Txid
-					}
+				env, err := protoutil.UnmarshalEnvelope(tx)
+				if err != nil {
+					logger.Errorf("Error getting tx from block: %s", err)
+					return false, err
 				}
+				payl, err := protoutil.UnmarshalPayload(env.Payload)
+				if err != nil {
+					logger.Errorf("[%s] unmarshal payload failed: %s", c.name, err)
+					return false, err
+				}
+				chdr, err := protoutil.UnmarshalChannelHeader(payl.Header.ChannelHeader)
+				if err != nil {
+					logger.Errorf("[%s] unmarshal channel header failed: %s", c.name, err)
+					return false, err
+				}
+
+				if common.HeaderType(chdr.Type) != common.HeaderType_ENDORSER_TRANSACTION {
+					continue
+				}
+
+				ptx, err := newProcessedTransactionFromEnvelopeRaw(tx)
+				if err != nil {
+					return false, err
+				}
+
+				stop, err := callback(ptx)
+				if err != nil {
+					// if an error occurred, stop processing
+					return false, err
+				}
+				if stop {
+					return true, nil
+				}
+				vault.txID = chdr.TxId
+				logger.Debugf("commit transaction [%s] in block [%d]", chdr.TxId, block.Header.Number)
 			}
 			return false, nil
 		},

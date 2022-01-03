@@ -8,12 +8,12 @@ package committer
 
 import (
 	"fmt"
-	"strings"
 	"sync"
 	"time"
 
+	"github.com/hyperledger/fabric/protoutil"
+
 	"github.com/hyperledger/fabric-protos-go/common"
-	pb "github.com/hyperledger/fabric-protos-go/peer"
 	"github.com/pkg/errors"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
@@ -74,42 +74,44 @@ func New(channel string, network Network, finality Finality, waitForEventTimeout
 }
 
 // Commit commits the transactions in the block passed as argument
-func (c *committer) Commit(filteredBlock *pb.FilteredBlock) error {
-	ledger, err := c.network.Ledger(c.channel)
-	if err != nil {
-		logger.Panicf("cannot get ledger [%s]", err)
-	}
-	var block driver.Block
-	block, err = ledger.GetBlockByNumber(filteredBlock.Number)
-	if err != nil {
-		if !strings.Contains(err.Error(), "grpc: trying to send message larger than max") {
-			logger.Debugf("cannot get block [%s]", err)
-			return ErrQSCCUnreachable
+func (c *committer) Commit(block *common.Block) error {
+	for i, tx := range block.Data.Data {
+
+		env, err := protoutil.UnmarshalEnvelope(tx)
+		if err != nil {
+			logger.Errorf("Error getting tx from block: %s", err)
+			return err
 		}
-		// The block is too big, download each transaction as needed
-		logger.Warnf("block [%d] too big to be downloaded, it contains [%d] txs",
-			filteredBlock.Number,
-			len(filteredBlock.FilteredTransactions))
-		block = nil
-	}
-
-	filteredTransactions := filteredBlock.FilteredTransactions
-	for i, tx := range filteredTransactions {
-		logger.Debugf("commit transaction [%s] in filteredBlock [%d]", tx.Txid, filteredBlock.Number)
-
-		event := &TxEvent{
-			Committed:      false,
-			DependantTxIDs: []string{},
+		payl, err := protoutil.UnmarshalPayload(env.Payload)
+		if err != nil {
+			logger.Errorf("[%s] unmarshal payload failed: %s", c.channel, err)
+			return err
+		}
+		chdr, err := protoutil.UnmarshalChannelHeader(payl.Header.ChannelHeader)
+		if err != nil {
+			logger.Errorf("[%s] unmarshal channel header failed: %s", c.channel, err)
+			return err
 		}
 
-		switch tx.Type {
+		var event TxEvent
+
+		switch common.HeaderType(chdr.Type) {
 		case common.HeaderType_CONFIG:
-			c.handleConfig(block, filteredBlock, filteredTransactions, i, event)
+			logger.Debugf("[%s] Config transaction received: %s", c.channel, chdr.TxId)
+			c.handleConfig(block, i, env)
 		case common.HeaderType_ENDORSER_TRANSACTION:
-			c.handleEndorserTransaction(block, filteredBlock, filteredTransactions, i, event)
+			logger.Debugf("[%s] Endorser transaction received: %s", c.channel, chdr.TxId)
+			if len(block.Metadata.Metadata) < int(common.BlockMetadataIndex_TRANSACTIONS_FILTER) {
+				return errors.Errorf("block metadata lacks transaction filter")
+			}
+			c.handleEndorserTransaction(block, i, &event, env, chdr)
+		default:
+			logger.Debugf("[%s] Received unhandled transaction type: %s", c.channel, chdr.Type)
 		}
 
-		c.notify(*event)
+		c.notify(event)
+
+		logger.Debugf("commit transaction [%s] in filteredBlock [%d]", chdr.TxId, block.Header.Number)
 	}
 
 	return nil

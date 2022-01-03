@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"sync"
 
+	"github.com/hyperledger/fabric-protos-go/common"
 	"github.com/hyperledger/fabric/bccsp/factory"
 	"github.com/hyperledger/fabric/common/channelconfig"
 	"github.com/hyperledger/fabric/common/configtx"
@@ -126,20 +127,17 @@ func (c *channel) ReloadConfigTransactions() error {
 }
 
 // CommitConfig is used to validate and apply configuration transactions for a channel.
-func (c *channel) CommitConfig(blockNumber uint64, envelope []byte) error {
+func (c *channel) CommitConfig(blockNumber uint64, raw []byte, env *common.Envelope) error {
 	commitConfigMutex.Lock()
 	defer commitConfigMutex.Unlock()
 
 	c.applyLock.Lock()
 	defer c.applyLock.Unlock()
 
-	if len(envelope) == 0 {
-		return errors.Errorf("channel config found nil")
-	}
+	logger.Debugf("[channel: %s] received config transaction number %d", c.name, blockNumber)
 
-	env, err := protoutil.UnmarshalEnvelope(envelope)
-	if err != nil {
-		logger.Panicf("Cannot get payload from config transaction [%s]: [%s]", blockNumber, err)
+	if env == nil {
+		return errors.Errorf("channel config found nil")
 	}
 
 	payload, err := protoutil.UnmarshalPayload(env.Payload)
@@ -191,7 +189,7 @@ func (c *channel) CommitConfig(blockNumber uint64, envelope []byte) error {
 		capabilitiesSupportedOrPanic(bundle)
 	}
 
-	if err := c.commitConfig(txid, blockNumber, ctx.Config.Sequence, envelope); err != nil {
+	if err := c.commitConfig(txid, blockNumber, ctx.Config.Sequence, raw); err != nil {
 		return errors.Wrapf(err, "failed committing configtx to the vault")
 	}
 
