@@ -41,6 +41,13 @@ type TxEvent struct {
 
 //go:generate counterfeiter -o mock/deliver_filtered.go -fake-name DeliverFiltered . DeliverFiltered
 
+// DeliverFiltered defines the interface that abstracts deliver filtered grpc calls to peer
+type DeliverFiltered interface {
+	Send(*common.Envelope) error
+	Recv() (*pb.DeliverResponse, error)
+	CloseSend() error
+}
+
 // DeliverStream defines the interface that abstracts deliver grpc calls to peer
 type DeliverStream interface {
 	Send(*common.Envelope) error
@@ -52,6 +59,10 @@ type DeliverStream interface {
 
 // DeliverClient defines the interface to create a DeliverStream client
 type DeliverClient interface {
+
+	// NewDeliverFiltered returns a DeliverFiltered
+	NewDeliverFiltered(ctx context.Context, opts ...grpc.CallOption) (DeliverFiltered, error)
+
 	// NewDeliver returns a DeliverStream
 	NewDeliver(ctx context.Context, opts ...grpc.CallOption) (DeliverStream, error)
 
@@ -86,7 +97,7 @@ func NewDeliverClient(config *grpc2.ConnectionConfig) (DeliverClient, error) {
 	}, nil
 }
 
-// NewDeliverFilterd creates a DeliverStream client
+// NewDeliver creates a DeliverStream client
 func (d *deliverClient) NewDeliver(ctx context.Context, opts ...grpc.CallOption) (DeliverStream, error) {
 	if d.conn != nil {
 		// close the old connection because new connection will restart its timeout
@@ -102,6 +113,29 @@ func (d *deliverClient) NewDeliver(ctx context.Context, opts ...grpc.CallOption)
 
 	// create a new DeliverStream
 	df, err := pb.NewDeliverClient(d.conn).Deliver(ctx)
+	if err != nil {
+		rpcStatus, _ := status.FromError(err)
+		return nil, errors.Wrapf(err, "failed to new a deliver filtered, rpcStatus=%+v", rpcStatus)
+	}
+	return df, nil
+}
+
+// NewDeliverFiltered creates a DeliverFiltered client
+func (d *deliverClient) NewDeliverFiltered(ctx context.Context, opts ...grpc.CallOption) (DeliverFiltered, error) {
+	if d.conn != nil {
+		// close the old connection because new connection will restart its timeout
+		d.conn.Close()
+	}
+
+	// create a new connection to the peer
+	var err error
+	d.conn, err = d.grpcClient.NewConnection(d.peerAddr)
+	if err != nil {
+		return nil, errors.WithMessagef(err, "failed to connect to peer %s", d.peerAddr)
+	}
+
+	// create a new DeliverFiltered
+	df, err := pb.NewDeliverClient(d.conn).DeliverFiltered(ctx)
 	if err != nil {
 		rpcStatus, _ := status.FromError(err)
 		return nil, errors.Wrapf(err, "failed to new a deliver filtered, rpcStatus=%+v", rpcStatus)
@@ -169,7 +203,7 @@ func DeliverSend(df DeliverStream, address string, envelope *common.Envelope) er
 	return nil
 }
 
-func DeliverReceive(df DeliverStream, address string, txid string, eventCh chan<- TxEvent) error {
+func DeliverReceive(df DeliverFiltered, address string, txid string, eventCh chan<- TxEvent) error {
 	event := TxEvent{
 		Txid:       txid,
 		Committed:  false,
@@ -184,32 +218,19 @@ read:
 			break read
 		}
 		switch r := resp.Type.(type) {
-		case *pb.DeliverResponse_Block:
-			if r.Block == nil || r.Block.Header == nil || r.Block.Data == nil {
-				return errors.Errorf("invalid block")
-			}
-			for i, tx := range r.Block.Data.Data {
-				chHdr, err := protoutil.UnmarshalChannelHeader(tx)
-				if err != nil {
-					return err
-				}
-
-				if len(r.Block.Metadata.Metadata) < int(common.BlockMetadataIndex_TRANSACTIONS_FILTER) {
-					return errors.Errorf("block metadata lacks transaction filter")
-				}
-
-				validationCode := pb.TxValidationCode(r.Block.Metadata.Metadata[common.BlockMetadataIndex_TRANSACTIONS_FILTER][i])
-
-				logger.Debugf("transaction [%s] in block [%d]", chHdr.TxId, r.Block.Header.Number)
-				if chHdr.TxId == txid {
-					if validationCode == pb.TxValidationCode_VALID {
-						logger.Debugf("transaction [%s] in block [%d] is valid", chHdr.TxId, r.Block.Header.Number)
+		case *pb.DeliverResponse_FilteredBlock:
+			filteredTransactions := r.FilteredBlock.FilteredTransactions
+			for i, tx := range filteredTransactions {
+				logger.Debugf("transaction [%s] in block [%d]", tx.Txid, r.FilteredBlock.Number)
+				if tx.Txid == txid {
+					if tx.TxValidationCode == pb.TxValidationCode_VALID {
+						logger.Debugf("transaction [%s] in block [%d] is valid", tx.Txid, r.FilteredBlock.Number)
 						event.Committed = true
-						event.Block = r.Block.Header.Number
+						event.Block = r.FilteredBlock.Number
 						event.IndexInBlock = i
 					} else {
-						logger.Debugf("transaction [%s] in block [%d] is not valid [%s]", chHdr.TxId, r.Block.Header.Number, validationCode)
-						event.Err = errors.Errorf("transaction [%s] status is not valid: %s", chHdr.TxId, validationCode)
+						logger.Debugf("transaction [%s] in block [%d] is not valid [%s]", tx.Txid, r.FilteredBlock.Number, tx.TxValidationCode)
+						event.Err = errors.Errorf("transaction [%s] status is not valid: %s", tx.Txid, tx.TxValidationCode)
 					}
 					break read
 				}
