@@ -121,7 +121,9 @@ func (d *delivery) Run() error {
 			switch r := resp.Type.(type) {
 			case *pb.DeliverResponse_Block:
 				if r.Block == nil || r.Block.Data == nil || r.Block.Header == nil || r.Block.Metadata == nil {
-					return errors.Errorf("invalid block received")
+					logger.Debugf("deliver service [%s:%s], received nil block", address, d.channel)
+					time.Sleep(10 * time.Second)
+					df = nil
 				}
 
 				logger.Debugf("delivery service [%s:%s], commit block [%d]", address, d.channel, r.Block.Header.Number)

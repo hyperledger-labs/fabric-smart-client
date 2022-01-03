@@ -9,11 +9,15 @@ package generic
 import (
 	"context"
 
+	"github.com/hyperledger/fabric-protos-go/common"
+	pb "github.com/hyperledger/fabric-protos-go/peer"
+	"github.com/hyperledger/fabric/protoutil"
+
 	delivery2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/delivery"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	"github.com/hyperledger/fabric-protos-go/common"
-	"github.com/hyperledger/fabric/protoutil"
 )
+
+type ValidationFlags []uint8
 
 func (c *channel) Scan(ctx context.Context, txID string, callback driver.DeliveryCallback) error {
 	vault := &fakeVault{txID: txID}
@@ -23,13 +27,30 @@ func (c *channel) Scan(ctx context.Context, txID string, callback driver.Deliver
 		c.sp,
 		c.network,
 		func(block *common.Block) (bool, error) {
-			for _, tx := range block.Data.Data {
-				chHdr, err := protoutil.UnmarshalChannelHeader(tx)
+			for i, tx := range block.Data.Data {
+				validationCode := ValidationFlags(block.Metadata.Metadata[common.BlockMetadataIndex_TRANSACTIONS_FILTER])[i]
+
+				if pb.TxValidationCode(validationCode) != pb.TxValidationCode_VALID {
+					continue
+				}
+
+				env, err := protoutil.UnmarshalEnvelope(tx)
 				if err != nil {
+					logger.Errorf("Error getting tx from block: %s", err)
+					return false, err
+				}
+				payl, err := protoutil.UnmarshalPayload(env.Payload)
+				if err != nil {
+					logger.Errorf("[%s] unmarshal payload failed: %s", c.name, err)
+					return false, err
+				}
+				chdr, err := protoutil.UnmarshalChannelHeader(payl.Header.ChannelHeader)
+				if err != nil {
+					logger.Errorf("[%s] unmarshal channel header failed: %s", c.name, err)
 					return false, err
 				}
 
-				if common.HeaderType(chHdr.Type) != common.HeaderType_ENDORSER_TRANSACTION {
+				if common.HeaderType(chdr.Type) != common.HeaderType_ENDORSER_TRANSACTION {
 					continue
 				}
 
@@ -46,8 +67,8 @@ func (c *channel) Scan(ctx context.Context, txID string, callback driver.Deliver
 				if stop {
 					return true, nil
 				}
-				vault.txID = chHdr.TxId
-				logger.Debugf("commit transaction [%s] in block [%d]", chHdr.TxId, block.Header.Number)
+				vault.txID = chdr.TxId
+				logger.Debugf("commit transaction [%s] in block [%d]", chdr.TxId, block.Header.Number)
 			}
 			return false, nil
 		},

@@ -77,8 +77,19 @@ func New(channel string, network Network, finality Finality, waitForEventTimeout
 func (c *committer) Commit(block *common.Block) error {
 	for i, tx := range block.Data.Data {
 
-		chdr, err := protoutil.UnmarshalChannelHeader(tx)
+		env, err := protoutil.UnmarshalEnvelope(tx)
 		if err != nil {
+			logger.Errorf("Error getting tx from block: %s", err)
+			return err
+		}
+		payl, err := protoutil.UnmarshalPayload(env.Payload)
+		if err != nil {
+			logger.Errorf("[%s] unmarshal payload failed: %s", c.channel, err)
+			return err
+		}
+		chdr, err := protoutil.UnmarshalChannelHeader(payl.Header.ChannelHeader)
+		if err != nil {
+			logger.Errorf("[%s] unmarshal channel header failed: %s", c.channel, err)
 			return err
 		}
 
@@ -86,12 +97,16 @@ func (c *committer) Commit(block *common.Block) error {
 
 		switch common.HeaderType(chdr.Type) {
 		case common.HeaderType_CONFIG:
-			c.handleConfig(block, i)
+			logger.Debugf("[%s] Config transaction received: %s", c.channel, chdr.TxId)
+			c.handleConfig(block, i, env)
 		case common.HeaderType_ENDORSER_TRANSACTION:
+			logger.Debugf("[%s] Endorser transaction received: %s", c.channel, chdr.TxId)
 			if len(block.Metadata.Metadata) < int(common.BlockMetadataIndex_TRANSACTIONS_FILTER) {
 				return errors.Errorf("block metadata lacks transaction filter")
 			}
-			c.handleEndorserTransaction(block, i, &event, chdr)
+			c.handleEndorserTransaction(block, i, &event, env, chdr)
+		default:
+			logger.Debugf("[%s] Received unhandled transaction type: %s", c.channel, chdr.Type)
 		}
 
 		c.notify(event)

@@ -328,6 +328,14 @@ type processedTransaction struct {
 	env []byte
 }
 
+func newProcessedTransactionFromEnvelope(env *common.Envelope) (*processedTransaction, error) {
+	ue, err := transaction.UnpackEnvelope(env)
+	if err != nil {
+		return nil, err
+	}
+	return &processedTransaction{ue: ue}, nil
+}
+
 func newProcessedTransactionFromEnvelopeRaw(env []byte) (*processedTransaction, error) {
 	ue, err := transaction.UnpackEnvelopeFromBytes(env)
 	if err != nil {

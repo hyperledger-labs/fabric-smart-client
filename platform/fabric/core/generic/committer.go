@@ -7,12 +7,10 @@ SPDX-License-Identifier: Apache-2.0
 package generic
 
 import (
-	"strings"
-
+	"github.com/hyperledger/fabric-protos-go/common"
 	pb "github.com/hyperledger/fabric-protos-go/peer"
 	"github.com/pkg/errors"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
 
@@ -62,7 +60,7 @@ func (c *channel) DiscardTx(txid string) error {
 	return nil
 }
 
-func (c *channel) CommitTX(txid string, block uint64, indexInBlock int, envelope []byte) (err error) {
+func (c *channel) CommitTX(txid string, block uint64, indexInBlock int, envelope *common.Envelope) (err error) {
 	logger.Debugf("Committing transaction [%s,%d,%d]", txid, block, indexInBlock)
 	defer logger.Debugf("Committing transaction [%s,%d,%d] done [%s]", txid, block, indexInBlock, err)
 
@@ -85,14 +83,6 @@ func (c *channel) CommitTX(txid string, block uint64, indexInBlock int, envelope
 	case driver.HasDependencies:
 		return c.commitDeps(txid, block, indexInBlock)
 	case driver.Busy:
-		if len(envelope) == 0 && !strings.HasPrefix(txid, committer.ConfigTXPrefix) {
-			logger.Debugf("[%s] will be fetched", txid)
-			pt, err := c.GetTransactionByID(txid)
-			if err != nil {
-				return errors.WithMessagef(err, "failed fetching tx [%s]", txid)
-			}
-			envelope = pt.Envelope()
-		}
 		return c.commit(txid, deps, block, indexInBlock, envelope)
 	default:
 		return errors.Errorf("invalid status code [%d] for [%s]", vc, txid)
@@ -145,7 +135,7 @@ func (c *channel) commitUnknown(txid string, block uint64, indexInBlock int) err
 	return c.commit(txid, nil, block, indexInBlock, nil)
 }
 
-func (c *channel) commit(txid string, deps []string, block uint64, indexInBlock int, envelope []byte) error {
+func (c *channel) commit(txid string, deps []string, block uint64, indexInBlock int, envelope *common.Envelope) error {
 	logger.Debugf("[%s] is known.", txid)
 
 	switch {
@@ -217,16 +207,16 @@ func (c *channel) commitExternal(txid string, block uint64, indexInBlock int) er
 	return nil
 }
 
-func (c *channel) commitLocal(txid string, block uint64, indexInBlock int, envelope []byte) error {
+func (c *channel) commitLocal(txid string, block uint64, indexInBlock int, envelope *common.Envelope) error {
 	// This is a normal transaction, validated by Fabric.
 	// Commit it cause Fabric says it is valid.
 	logger.Debugf("[%s] Committing", txid)
 
 	// Match rwsets if envelope is not empty
-	if len(envelope) != 0 {
+	if envelope != nil {
 		logger.Debugf("[%s] Matching rwsets", txid)
 
-		pt, err := newProcessedTransactionFromEnvelopeRaw(envelope)
+		pt, err := newProcessedTransactionFromEnvelope(envelope)
 		if err != nil {
 			logger.Error("[%s] failed to unmarshal envelope [%s]", txid, err)
 			return err

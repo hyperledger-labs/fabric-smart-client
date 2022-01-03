@@ -16,7 +16,7 @@ import (
 
 type ValidationFlags []uint8
 
-func (c *committer) handleEndorserTransaction(block *common.Block, i int, event *TxEvent, chHdr *common.ChannelHeader) {
+func (c *committer) handleEndorserTransaction(block *common.Block, i int, event *TxEvent, env *common.Envelope, chHdr *common.ChannelHeader) {
 	committer, err := c.network.Committer(c.channel)
 	if err != nil {
 		logger.Panicf("Cannot get Committer [%s]", err)
@@ -52,7 +52,7 @@ func (c *committer) handleEndorserTransaction(block *common.Block, i int, event 
 			return
 		default:
 			if block != nil {
-				if err := committer.CommitTX(event.Txid, event.Block, event.IndexInBlock, block.Data.Data[i]); err != nil {
+				if err := committer.CommitTX(event.Txid, event.Block, event.IndexInBlock, env); err != nil {
 					logger.Panicf("failed committing transaction [%s] with deps [%v] with err [%s]", txID, deps, err)
 				}
 				return
