@@ -29,8 +29,6 @@ import (
 	"github.com/onsi/gomega/matchers"
 	"github.com/onsi/gomega/types"
 	"github.com/tedsuo/ifrit"
-	"github.com/tedsuo/ifrit/ginkgomon"
-
 	"github.com/tedsuo/ifrit/grouper"
 	"gopkg.in/yaml.v2"
 
@@ -1089,18 +1087,32 @@ func (n *Network) BrokerGroupRunner() ifrit.Runner {
 
 // OrdererRunner returns an ifrit.Runner for the specified orderer. The runner
 // can be used to start and manage an orderer process.
-func (n *Network) OrdererRunner(o *topology.Orderer) *ginkgomon.Runner {
+func (n *Network) OrdererRunner(o *topology.Orderer) *runner2.Runner {
 	cmd := exec.Command(n.Builder.Orderer())
 	cmd.Env = os.Environ()
 	cmd.Env = append(cmd.Env, fmt.Sprintf("FABRIC_CFG_PATH=%s", n.OrdererDir(o)))
 	cmd.Env = append(cmd.Env, "FABRIC_LOGGING_SPEC="+n.Logging.Spec)
 
-	config := ginkgomon.Config{
+	config := runner2.Config{
 		AnsiColorCode:     n.nextColor(),
 		Name:              n.Prefix + "-" + o.ID(),
 		Command:           cmd,
 		StartCheck:        "Beginning to serve requests",
 		StartCheckTimeout: 1 * time.Minute,
+	}
+
+	if n.Topology().LogOrderersToFile {
+		// set stdout to a file
+		Expect(os.MkdirAll(n.OrdererLogsFolder(), 0755)).ToNot(HaveOccurred())
+		f, err := os.Create(
+			filepath.Join(
+				n.OrdererLogsFolder(),
+				fmt.Sprintf("%s-%s.log", o.Name, n.Organization(o.Organization).Domain),
+			),
+		)
+		Expect(err).ToNot(HaveOccurred())
+		config.Stdout = f
+		config.Stderr = f
 	}
 
 	// After consensus-type migration, the #brokers is >0, but the type is etcdraft
@@ -1109,7 +1121,7 @@ func (n *Network) OrdererRunner(o *topology.Orderer) *ginkgomon.Runner {
 		config.StartCheckTimeout = 3 * time.Minute
 	}
 
-	return ginkgomon.New(config)
+	return runner2.New(config)
 }
 
 // OrdererGroupRunner returns a runner that can be used to start and stop all
@@ -1172,6 +1184,15 @@ func (n *Network) PeerLogsFolder() string {
 		n.Prefix,
 		"logs",
 		"peers",
+	)
+}
+
+func (n *Network) OrdererLogsFolder() string {
+	return filepath.Join(
+		n.RootDir,
+		n.Prefix,
+		"logs",
+		"orderers",
 	)
 }
 
