@@ -45,7 +45,7 @@ func TestArtifactsGen(t *testing.T) {
 	topologyFolder := filepath.Join("testdata", "fabric_iou.yaml")
 	session, err := gexec.Start(exec.Command(cli, "artifactsgen", "gen", "-t", topologyFolder, "-o", tmpDir), stdout, stderr)
 	Expect(err).NotTo(HaveOccurred())
-	Eventually(session, time.Second*10).Should(gexec.Exit(0))
+	Eventually(session, time.Minute*2).Should(gexec.Exit(0))
 
 	entries, err := os.ReadDir(tmpDir)
 	Expect(err).NotTo(HaveOccurred())
