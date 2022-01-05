@@ -233,32 +233,41 @@ func (c *committer) notify(event TxEvent) {
 func (c *committer) listenTo(txid string, timeout time.Duration) error {
 	logger.Debugf("Listen to finality of [%s]", txid)
 
+	// notice that adding the listener can happen after the event we are looking for has already happened
+	// therefore we need to check more often before the timeout happens
 	ch := make(chan TxEvent, 100)
 	c.addListener(txid, ch)
 	defer c.deleteListener(txid, ch)
 
-	select {
-	case event := <-ch:
-		logger.Debugf("Got an answer to finality of [%s]: [%s]", txid, event.Err)
-		return event.Err
-	case <-time.After(timeout):
-		logger.Debugf("Got a timeout for finality of [%s], check the status", txid)
-		committer, err := c.network.Committer(c.channel)
-		if err != nil {
-			return err
-		}
-		vd, _, err := committer.Status(txid)
-		if err == nil {
-			switch vd {
-			case driver.Valid:
-				logger.Debugf("Listen to finality of [%s]. VALID", txid)
-				return nil
-			case driver.Invalid:
-				logger.Debugf("Listen to finality of [%s]. NOT VALID", txid)
-				return errors.Errorf("transaction [%s] is not valid", txid)
-			}
-		}
-		logger.Debugf("Is [%s] final? Failed to listen to transaction for timeout, err [%s, %c]", txid, err, vd)
-		return errors.Errorf("failed to listen to transaction [%s] for timeout, err [%s, %c]", txid, err, vd)
+	iterations := int(timeout.Milliseconds() / 1000)
+	if iterations == 0 {
+		iterations = 1
 	}
+	for i := 0; i < iterations; i++ {
+		select {
+		case event := <-ch:
+			logger.Debugf("Got an answer to finality of [%s]: [%s]", txid, event.Err)
+			return event.Err
+		case <-time.After(time.Second):
+			logger.Debugf("Got a timeout for finality of [%s], check the status", txid)
+			committer, err := c.network.Committer(c.channel)
+			if err != nil {
+				return err
+			}
+			vd, _, err := committer.Status(txid)
+			if err == nil {
+				switch vd {
+				case driver.Valid:
+					logger.Debugf("Listen to finality of [%s]. VALID", txid)
+					return nil
+				case driver.Invalid:
+					logger.Debugf("Listen to finality of [%s]. NOT VALID", txid)
+					return errors.Errorf("transaction [%s] is not valid", txid)
+				}
+			}
+			logger.Debugf("Is [%s] final? not available yet, wait [%s, %c]", txid, err, vd)
+		}
+	}
+	logger.Debugf("Is [%s] final? Failed to listen to transaction for timeout", txid)
+	return errors.Errorf("failed to listen to transaction [%s] for timeout", txid)
 }

@@ -18,12 +18,13 @@ type Logging struct {
 }
 
 type Topology struct {
-	TopologyName string       `yaml:"name,omitempty"`
-	TopologyType string       `yaml:"type,omitempty"`
-	Nodes        []*node.Node `yaml:"peers,omitempty"`
-	GRPCLogging  bool         `yaml:"grpcLogging,omitempty"`
-	Logging      *Logging     `yaml:"logging,omitempty"`
-	LogToFile    bool         `yaml:"logToFile,omitempty"`
+	TopologyName      string       `yaml:"name,omitempty"`
+	TopologyType      string       `yaml:"type,omitempty"`
+	Nodes             []*node.Node `yaml:"peers,omitempty"`
+	GRPCLogging       bool         `yaml:"grpcLogging,omitempty"`
+	Logging           *Logging     `yaml:"logging,omitempty"`
+	LogToFile         bool         `yaml:"logToFile,omitempty"`
+	MetricsAggregator string       `yaml:"metricsAggregator,omitempty"`
 }
 
 // NewTopology returns an empty FSC network topology.
@@ -73,6 +74,10 @@ func (t *Topology) AddNodeByTemplate(name string, template *node.Node) *node.Nod
 func (t *Topology) AddNodeByName(name string) *node.Node {
 	n := node.NewNode(name)
 	return t.addNode(n)
+}
+
+func (t *Topology) EnableDefaultMetrics() {
+	t.MetricsAggregator = "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/metrics/server"
 }
 
 func (t *Topology) addNode(node *node.Node) *node.Node {

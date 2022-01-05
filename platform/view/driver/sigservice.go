@@ -53,6 +53,9 @@ type SigService interface {
 
 	// GetSigningIdentity returns the signer identity bound to the passed identity
 	GetSigningIdentity(identity view.Identity) (SigningIdentity, error)
+
+	// IsMe returns true if a signer was ever registered for the passed identity
+	IsMe(identity view.Identity) bool
 }
 
 func GetSigService(sp ServiceProvider) SigService {

@@ -14,14 +14,15 @@ import (
 	"github.com/pkg/errors"
 
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
-	sig2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/core/sig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/registry"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 type ctx struct {
 	context        context.Context
 	sp             driver.ServiceProvider
+	localSP        driver.ServiceProvider
 	id             string
 	session        view.Session
 	initiator      view.View
@@ -55,6 +56,7 @@ func NewContext(context context.Context, sp driver.ServiceProvider, contextID st
 		sessions:       map[string]view.Session{},
 		caller:         caller,
 		sp:             sp,
+		localSP:        registry.New(),
 	}
 	if session != nil {
 		// Register default session
@@ -131,8 +133,7 @@ func (ctx *ctx) Identity(ref string) (view.Identity, error) {
 }
 
 func (ctx *ctx) IsMe(id view.Identity) bool {
-	_, err := sig2.GetSigner(ctx, id)
-	return err == nil
+	return view2.GetSigService(ctx).IsMe(id)
 }
 
 func (ctx *ctx) Caller() view.Identity {
@@ -217,6 +218,11 @@ func (ctx *ctx) Session() view.Session {
 }
 
 func (ctx *ctx) GetService(v interface{}) (interface{}, error) {
+	// first search locally then globally
+	s, err := ctx.localSP.GetService(v)
+	if err == nil {
+		return s, nil
+	}
 	return ctx.sp.GetService(v)
 }
 

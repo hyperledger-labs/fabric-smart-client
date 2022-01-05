@@ -22,29 +22,34 @@ import (
 
 var logger = flogging.MustGetLogger("view-sdk.sig")
 
+type KVS interface {
+	Exists(id string) bool
+	Put(id string, state interface{}) error
+	Get(id string, state interface{}) error
+}
+
 type service struct {
 	sp           driver.ServiceProvider
 	signers      map[string]driver.Signer
 	verifiers    map[string]driver.Verifier
 	deserializer Deserializer
 	viewsSync    sync.RWMutex
+	kvs          KVS
 }
 
-func NewSignService(sp driver.ServiceProvider, deserializer Deserializer) *service {
+func NewSignService(sp driver.ServiceProvider, deserializer Deserializer, kvs KVS) *service {
 	return &service{
 		sp:           sp,
 		signers:      map[string]driver.Signer{},
 		verifiers:    map[string]driver.Verifier{},
 		deserializer: deserializer,
+		kvs:          kvs,
 	}
 }
 
 func (o *service) RegisterSigner(identity view.Identity, signer driver.Signer, verifier driver.Verifier) error {
 	if signer == nil {
 		return errors.New("invalid signer, expected a valid instance")
-	}
-	if verifier == nil {
-		return errors.New("invalid verifier, expected a valid instance")
 	}
 
 	o.viewsSync.Lock()
@@ -57,9 +62,23 @@ func (o *service) RegisterSigner(identity view.Identity, signer driver.Signer, v
 	logger.Debugf("add signer for [id:%s]", identity.UniqueID())
 	o.viewsSync.Lock()
 	o.signers[identity.UniqueID()] = signer
+	if o.kvs != nil {
+		k, err := kvs.CreateCompositeKey("sigService", []string{"signer", identity.UniqueID()})
+		if err != nil {
+			return errors.Wrap(err, "failed to create composite key to store entry in kvs")
+		}
+		err = o.kvs.Put(k, signer)
+		if err != nil {
+			return errors.Wrap(err, "failed to store entry in kvs for the passed signer")
+		}
+	}
 	o.viewsSync.Unlock()
 
-	return o.RegisterVerifier(identity, verifier)
+	if verifier != nil {
+		return o.RegisterVerifier(identity, verifier)
+	}
+	logger.Debugf("signer for [id:%s] registered, no verifier passed", identity.UniqueID())
+	return nil
 }
 
 func (o *service) RegisterVerifier(identity view.Identity, verifier driver.Verifier) error {
@@ -112,6 +131,32 @@ func (o *service) GetAuditInfo(identity view.Identity) ([]byte, error) {
 		return nil, err
 	}
 	return res, nil
+}
+
+func (o *service) IsMe(identity view.Identity) bool {
+	// check local cache
+	o.viewsSync.Lock()
+	_, ok := o.signers[identity.UniqueID()]
+	o.viewsSync.Unlock()
+	if ok {
+		return true
+	}
+	// check kvs
+	if o.kvs != nil {
+		k, err := kvs.CreateCompositeKey("sigService", []string{"signer", identity.UniqueID()})
+		if err != nil {
+			return false
+		}
+		if o.kvs.Exists(k) {
+			return true
+		}
+	}
+	// last chance, deserialize
+	signer, err := o.GetSigner(identity)
+	if err != nil {
+		return false
+	}
+	return signer != nil
 }
 
 func (o *service) Info(id view.Identity) string {

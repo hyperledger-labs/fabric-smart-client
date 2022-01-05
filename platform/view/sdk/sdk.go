@@ -17,6 +17,7 @@ import (
 	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
 	protos2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view/protos"
 	web2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/web"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracker/metrics"
 
 	"github.com/hyperledger/fabric/common/grpclogging"
 	"github.com/pkg/errors"
@@ -96,7 +97,7 @@ func (p *p) Install() error {
 	assert.NoError(err, "failed loading sig verifier deserializer service")
 	des.AddDeserializer(&x509.Deserializer{})
 	assert.NoError(p.registry.RegisterService(des))
-	signerService := sig.NewSignService(p.registry, des)
+	signerService := sig.NewSignService(p.registry, des, defaultKVS)
 	assert.NoError(p.registry.RegisterService(signerService))
 
 	// Set Endpoint Service
@@ -137,6 +138,24 @@ func (p *p) Install() error {
 		return err
 	}
 	p.viewManager = viewManager
+
+	// Metrics
+	confService := view.GetConfigService(p.registry)
+	metricsServer := confService.GetString("fsc.metrics.options.address")
+	if len(metricsServer) == 0 {
+		metricsServer = "localhost:8125"
+	}
+	agent, err := metrics.NewStatsdAgent(
+		metrics.Host(confService.GetString("fsc.id")),
+		metrics.StatsDSink(metricsServer),
+	)
+	if err != nil {
+		return fmt.Errorf("error creating metrics agent: %s", err)
+	}
+	if err := p.registry.RegisterService(agent); err != nil {
+		return err
+	}
+	logger.Infof("metrics enabled, listening on %s", metricsServer)
 
 	return nil
 }

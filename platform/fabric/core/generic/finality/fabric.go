@@ -56,7 +56,7 @@ func NewFabricFinality(channel string, network Network, hasher Hasher, waitForEv
 }
 
 func (d *fabricFinality) IsFinal(txID string, address string) error {
-	logger.Debugf("remote checking if transaction [%s] is final in channel [%s]", txID, d.channel)
+	logger.Infof("remote checking if transaction [%s] is final in channel [%s]", txID, d.channel)
 	var eventCh chan delivery.TxEvent
 	var ctx context.Context
 	var cancelFunc context.CancelFunc

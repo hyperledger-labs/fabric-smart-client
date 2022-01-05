@@ -11,6 +11,7 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
+	"go.uber.org/zap/zapcore"
 
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
@@ -189,7 +190,9 @@ func (r *service) GetIdentity(endpoint string, pkid []byte) (view.Identity, erro
 			if err != nil {
 				return nil, err
 			}
-			logger.Infof("resolving [%s,%s] to %s", endpoint, view.Identity(pkid), id)
+			if logger.IsEnabledFor(zapcore.DebugLevel) {
+				logger.Debugf("resolving [%s,%s] to %s", endpoint, view.Identity(pkid), id)
+			}
 			return id, nil
 		}
 	}

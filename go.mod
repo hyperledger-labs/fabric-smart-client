@@ -16,7 +16,9 @@ require (
 	github.com/IBM/mathlib v0.0.0-20220112091634-0a7378db6912
 	github.com/OneOfOne/xxhash v1.2.5 // indirect
 	github.com/Shopify/sarama v1.26.3 // indirect
+	github.com/armon/go-metrics v0.0.0-20180917152333-f0300d1749da
 	github.com/btcsuite/btcd v0.21.0-beta // indirect
+	github.com/client9/misspell v0.3.4 // indirect
 	github.com/containerd/containerd v1.5.2 // indirect
 	github.com/dgraph-io/badger/v3 v3.2011.1
 	github.com/docker/docker v20.10.7+incompatible
@@ -25,7 +27,9 @@ require (
 	github.com/fsouza/go-dockerclient v1.6.1
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/protobuf v1.5.2
+	github.com/google/addlicense v1.0.0 // indirect
 	github.com/google/go-cmp v0.5.5
+	github.com/gordonklaus/ineffassign v0.0.0-20210914165742-4cc7213b9bc8 // indirect
 	github.com/gorilla/mux v1.8.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.2.0
 	github.com/hyperledger-labs/weaver-dlt-interoperability/common/protos-go v1.2.3-alpha.1
@@ -49,6 +53,7 @@ require (
 	github.com/multiformats/go-multiaddr v0.2.0
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.16.0
+	github.com/op/go-logging v0.0.0-20160315200505-970db520ece7
 	github.com/otiai10/copy v1.5.1
 	github.com/pierrec/lz4 v2.5.2+incompatible // indirect
 	github.com/pkg/errors v0.9.1
@@ -61,7 +66,7 @@ require (
 	go.uber.org/atomic v1.7.0
 	go.uber.org/multierr v1.6.0 // indirect
 	go.uber.org/zap v1.16.0
-	golang.org/x/sys v0.0.0-20211216021012-1d35b9e2eb4e // indirect
+	golang.org/x/sys v0.0.0-20220114195835-da31bd327af9 // indirect
 	golang.org/x/tools v0.1.8 // indirect
 	google.golang.org/genproto v0.0.0-20210201184850-646a494a81ea // indirect
 	google.golang.org/grpc v1.39.1

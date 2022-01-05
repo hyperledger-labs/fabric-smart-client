@@ -180,6 +180,32 @@ func NewProvider(conf1 *m.MSPConfig, sp view2.ServiceProvider, sigType bccsp.Sig
 		sigType = bccsp.Standard
 	}
 
+	// Verify credential
+	role := &m.MSPRole{
+		MspIdentifier: conf.Name,
+		Role:          m.MSPRole_MEMBER,
+	}
+	if checkRole(int(conf.Signer.Role), ADMIN) {
+		role.Role = m.MSPRole_ADMIN
+	}
+	valid, err := cryptoProvider.Verify(
+		userKey,
+		conf.Signer.Cred,
+		nil,
+		&bccsp.IdemixCredentialSignerOpts{
+			IssuerPK: issuerPublicKey,
+			Attributes: []bccsp.IdemixAttribute{
+				{Type: bccsp.IdemixBytesAttribute, Value: []byte(conf.Signer.OrganizationalUnitIdentifier)},
+				{Type: bccsp.IdemixIntAttribute, Value: getIdemixRoleFromMSPRole(role)},
+				{Type: bccsp.IdemixBytesAttribute, Value: []byte(conf.Signer.EnrollmentId)},
+				{Type: bccsp.IdemixHiddenAttribute},
+			},
+		},
+	)
+	if err != nil || !valid {
+		return nil, errors.WithMessage(err, "credential is not cryptographically valid")
+	}
+
 	return &provider{
 		common: &common{
 			name:            conf.Name,
@@ -231,25 +257,6 @@ func (p *provider) Identity(opts *driver2.IdentityOptions) (view.Identity, []byt
 	}
 
 	enrollmentID := p.conf.Signer.EnrollmentId
-
-	// Verify credential
-	valid, err := p.Csp.Verify(
-		p.userKey,
-		p.conf.Signer.Cred,
-		nil,
-		&bccsp.IdemixCredentialSignerOpts{
-			IssuerPK: p.IssuerPublicKey,
-			Attributes: []bccsp.IdemixAttribute{
-				{Type: bccsp.IdemixBytesAttribute, Value: []byte(p.conf.Signer.OrganizationalUnitIdentifier)},
-				{Type: bccsp.IdemixIntAttribute, Value: getIdemixRoleFromMSPRole(role)},
-				{Type: bccsp.IdemixBytesAttribute, Value: []byte(enrollmentID)},
-				{Type: bccsp.IdemixHiddenAttribute},
-			},
-		},
-	)
-	if err != nil || !valid {
-		return nil, nil, errors.WithMessage(err, "Credential is not cryptographically valid")
-	}
 
 	sigType := p.sigType
 	var signerMetadata *bccsp.IdemixSignerMetadata

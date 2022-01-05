@@ -21,13 +21,17 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 )
 
-var logger = flogging.MustGetLogger("view-sdk.kvs")
+var (
+	logger = flogging.MustGetLogger("view-sdk.kvs")
+	kvs    = &KVS{}
+)
 
 type KVS struct {
 	namespace string
 	store     driver.Persistence
 
-	putMutex sync.Mutex
+	putMutex sync.RWMutex
+	cache    map[string][]byte
 }
 
 type Opts struct {
@@ -48,16 +52,43 @@ func New(driverName, namespace string, sp view.ServiceProvider) (*KVS, error) {
 		return nil, errors.WithMessagef(err, "no driver found for [%s]", driverName)
 	}
 
-	return &KVS{namespace: namespace, store: persistence}, nil
+	return &KVS{
+		namespace: namespace,
+		store:     persistence,
+		cache:     map[string][]byte{},
+	}, nil
 }
 
 func (o *KVS) Exists(id string) bool {
+	// is in cache?
+	o.putMutex.RLock()
+	v, ok := o.cache[id]
+	if ok {
+		o.putMutex.RUnlock()
+		return len(v) != 0
+	}
+	o.putMutex.RUnlock()
+
+	// get from store
+	o.putMutex.Lock()
+	defer o.putMutex.Unlock()
+
+	// is in cache, first?
+	v, ok = o.cache[id]
+	if ok {
+		o.putMutex.RUnlock()
+		return len(v) != 0
+	}
+	// get from store and store in cache
 	raw, err := o.store.GetState(o.namespace, id)
 	if err != nil {
 		logger.Debugf("failed getting state [%s,%s]", o.namespace, id)
+		o.cache[id] = nil
 		return false
 	}
+	o.cache[id] = raw
 	logger.Debugf("state [%s,%s] exists [%v]", o.namespace, id, len(raw) != 0)
+
 	return len(raw) != 0
 }
 
@@ -91,23 +122,33 @@ func (o *KVS) Put(id string, state interface{}) error {
 		return errors.WithMessagef(err, "committing value for id [%s] failed", id)
 	}
 
+	o.cache[id] = raw
+
 	return nil
 }
 
 func (o *KVS) Get(id string, state interface{}) error {
-	raw, err := o.store.GetState(o.namespace, id)
-	if err != nil {
-		logger.Debugf("failed retrieving state [%s,%s]", o.namespace, id)
-		return errors.Errorf("failed retrieving state [%s,%s]", o.namespace, id)
-	}
-	if len(raw) == 0 {
-		return errors.Errorf("state [%s,%s] does not exist", o.namespace, id)
+	o.putMutex.RLock()
+	defer o.putMutex.RUnlock()
+
+	var err error
+	raw, ok := o.cache[id]
+	if !ok {
+		raw, err = o.store.GetState(o.namespace, id)
+		if err != nil {
+			logger.Debugf("failed retrieving state [%s,%s]", o.namespace, id)
+			return errors.Errorf("failed retrieving state [%s,%s]", o.namespace, id)
+		}
+		if len(raw) == 0 {
+			return errors.Errorf("state [%s,%s] does not exist", o.namespace, id)
+		}
 	}
 
 	if err := json.Unmarshal(raw, state); err != nil {
 		logger.Debugf("failed retrieving state [%s,%s], cannot unmarshal state, error [%s]", o.namespace, id, err)
 		return errors.Wrapf(err, "failed retrieving state [%s,%s], cannot unmarshal state", o.namespace, id)
 	}
+
 	logger.Debugf("got state [%s,%s] successfully", o.namespace, id)
 	return nil
 }
@@ -136,6 +177,8 @@ func (o *KVS) Delete(id string) error {
 	if err != nil {
 		return errors.WithMessagef(err, "committing value for id [%s] failed", id)
 	}
+
+	delete(o.cache, id)
 
 	return nil
 }
@@ -187,7 +230,7 @@ func (i *iteratorConverter) Next(state interface{}) error {
 }
 
 func GetService(ctx view2.ServiceProvider) *KVS {
-	s, err := ctx.GetService(&KVS{})
+	s, err := ctx.GetService(kvs)
 	if err != nil {
 		panic(err)
 	}

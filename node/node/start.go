@@ -14,6 +14,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/hyperledger-labs/fabric-smart-client/node/node/profile"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 )
 
@@ -64,6 +65,26 @@ func startCmd() *cobra.Command {
 }
 
 func serve() error {
+	altPath := os.Getenv("FSCNODE_CFG_PATH")
+	if altPath == "" {
+		altPath = "./"
+	}
+
+	var profiler, err = profile.New(profile.WithPath(altPath), profile.WithAll())
+	if err != nil {
+		logger.Errorf("error creating profiler: [%s]", err)
+		callback(err)
+		return err
+	}
+	// start profiler
+	if err := profiler.Start(); err != nil {
+		logger.Errorf("error starting profiler: [%s]", err)
+		callback(err)
+		return err
+	}
+
+	defer profiler.Stop()
+
 	if err := node.Start(); err != nil {
 		logger.Errorf("Failed starting platform [%s]", err)
 		callback(err)

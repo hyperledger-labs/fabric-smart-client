@@ -84,6 +84,11 @@ func (s *SigService) RegisterSigner(identity view.Identity, signer Signer, verif
 	return s.sigRegistry.RegisterSigner(identity, signer, verifier)
 }
 
+// IsMe returns true if a signer was ever registered for the passed identity
+func (s *SigService) IsMe(identity view.Identity) bool {
+	return s.sigService.IsMe(identity)
+}
+
 // RegisterVerifier binds the passed identity to the passed verifier
 func (s *SigService) RegisterVerifier(identity view.Identity, verifier Verifier) error {
 	return s.sigRegistry.RegisterVerifier(identity, verifier)
