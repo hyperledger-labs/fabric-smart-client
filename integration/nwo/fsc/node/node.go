@@ -77,6 +77,7 @@ func (o *Options) AddAlias(alias string) {
 	if ok {
 		aliases = append(aliases, alias)
 		o.Mapping["Aliases"] = aliases
+		return
 	}
 
 	for _, v := range aliasesBoxed.([]interface{}) {
@@ -84,7 +85,6 @@ func (o *Options) AddAlias(alias string) {
 	}
 	aliases = append(aliases, alias)
 	o.Mapping["Aliases"] = aliases
-
 }
 
 type Option func(*Options) error

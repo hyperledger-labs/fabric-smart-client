@@ -15,6 +15,7 @@ import (
 	csp "github.com/IBM/idemix/bccsp"
 	"github.com/IBM/idemix/bccsp/keystore"
 	bccsp "github.com/IBM/idemix/bccsp/schemes"
+	idemix2 "github.com/IBM/idemix/bccsp/schemes/dlog/crypto"
 	"github.com/IBM/idemix/bccsp/schemes/dlog/crypto/translator/amcl"
 	math "github.com/IBM/mathlib"
 	"github.com/golang/protobuf/proto"
@@ -77,23 +78,42 @@ func NewAnyProvider(conf1 *m.MSPConfig, sp view2.ServiceProvider) (*provider, er
 	return NewProviderWithSigType(conf1, sp, Any)
 }
 
+func NewAnyProviderWithCurve(conf1 *m.MSPConfig, sp view2.ServiceProvider, curveID math.CurveID) (*provider, error) {
+	return NewProvider(conf1, sp, Any, curveID)
+}
+
 func NewProviderWithSigType(conf1 *m.MSPConfig, sp view2.ServiceProvider, sigType bccsp.SignatureType) (*provider, error) {
+	return NewProvider(conf1, sp, sigType, math.FP256BN_AMCL)
+}
+
+func NewProvider(conf1 *m.MSPConfig, sp view2.ServiceProvider, sigType bccsp.SignatureType, curveID math.CurveID) (*provider, error) {
 	logger.Debugf("Setting up Idemix-based MSP instance")
 
 	if conf1 == nil {
 		return nil, errors.Errorf("setup error: nil conf reference")
 	}
 
-	curve := math.Curves[math.FP256BN_AMCL]
-	translator := &amcl.Fp256bn{C: curve}
+	curve := math.Curves[curveID]
+	var tr idemix2.Translator
+	switch curveID {
+	case math.BN254:
+		tr = &amcl.Gurvy{C: curve}
+	case math.FP256BN_AMCL:
+		tr = &amcl.Fp256bn{C: curve}
+	case math.FP256BN_AMCL_MIRACL:
+		tr = &amcl.Fp256bnMiracl{C: curve}
+	default:
+		return nil, errors.Errorf("unsupported curve ID: %d", curveID)
+	}
+
 	kvss := kvs.GetService(sp)
 	keystore := &keystore.KVSStore{
 		KVS:        kvss,
 		Curve:      curve,
-		Translator: translator,
+		Translator: tr,
 	}
 
-	cryptoProvider, err := csp.New(keystore, curve, translator, true)
+	cryptoProvider, err := csp.New(keystore, curve, tr, true)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed getting crypto provider")
 	}
