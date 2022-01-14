@@ -12,12 +12,11 @@ replace (
 
 require (
 	github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 // indirect
-	github.com/IBM/idemix v0.0.0-20211105080215-fc2a3b9789c3
-	github.com/IBM/mathlib v0.0.0-20210928081244-f5486459a290
+	github.com/IBM/idemix v0.0.0-20220113150823-80dd4cb2d74e
+	github.com/IBM/mathlib v0.0.0-20220112091634-0a7378db6912
 	github.com/OneOfOne/xxhash v1.2.5 // indirect
 	github.com/Shopify/sarama v1.26.3 // indirect
 	github.com/btcsuite/btcd v0.21.0-beta // indirect
-	github.com/client9/misspell v0.3.4 // indirect
 	github.com/containerd/containerd v1.5.2 // indirect
 	github.com/dgraph-io/badger/v3 v3.2011.1
 	github.com/docker/docker v20.10.7+incompatible
@@ -26,9 +25,7 @@ require (
 	github.com/fsouza/go-dockerclient v1.6.1
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/protobuf v1.5.2
-	github.com/google/addlicense v1.0.0 // indirect
 	github.com/google/go-cmp v0.5.5
-	github.com/gordonklaus/ineffassign v0.0.0-20210914165742-4cc7213b9bc8 // indirect
 	github.com/gorilla/mux v1.8.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.2.0
 	github.com/hyperledger-labs/weaver-dlt-interoperability/common/protos-go v1.2.3-alpha.1
