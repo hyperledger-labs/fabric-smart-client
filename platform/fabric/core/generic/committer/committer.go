@@ -163,6 +163,7 @@ func (c *committer) IsFinal(txid string) error {
 			}
 			return c.finality.IsFinal(txid, c.peerConnectionConfig.Address)
 		case driver.Unknown:
+			logger.Debugf("Tx [%s] is unknown with no deps", txid)
 			return c.finality.IsFinal(txid, c.peerConnectionConfig.Address)
 		default:
 			panic(fmt.Sprintf("invalid status code, got %c", vd))
