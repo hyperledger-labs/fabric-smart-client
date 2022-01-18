@@ -161,7 +161,7 @@ func (i *Invoke) WithTxID(id driver.TxID) driver.ChaincodeInvocation {
 
 func (i *Invoke) prepare() (string, *pb.Proposal, []*pb.ProposalResponse, driver.SigningIdentity, error) {
 	// TODO: improve by providing grpc connection pool
-	var peerClients []peer2.PeerClient
+	var peerClients []peer2.Client
 	defer func() {
 		for _, pCli := range peerClients {
 			pCli.Close()

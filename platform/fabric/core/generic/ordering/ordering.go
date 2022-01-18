@@ -165,6 +165,7 @@ func (o *service) getOrSetOrdererClient() (Broadcast, error) {
 		return o.oStream, nil
 	}
 
+	// TODO: pick orderer randomly
 	ordererConfig := o.network.Orderers()[0]
 
 	oClient, err := NewOrdererClient(ordererConfig)
@@ -185,6 +186,8 @@ func (o *service) getOrSetOrdererClient() (Broadcast, error) {
 }
 
 func (o *service) broadcastEnvelope(env *common2.Envelope) error {
+	// TODO: if there is already a connection and it is not open anymore, close it and create a new one
+	// don't pick always the same orderer
 
 	oClient, err := o.getOrSetOrdererClient()
 	if err != nil {
@@ -195,9 +198,9 @@ func (o *service) broadcastEnvelope(env *common2.Envelope) error {
 	defer o.lock.Unlock()
 
 	// send the envelope for ordering
-	err = BroadcastSend(oClient, o.network.Orderers()[0].Address, env)
+	err = BroadcastSend(oClient, env)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "failed to send transaction to orderer %s", o.network.Orderers()[0].Address)
 	}
 
 	status, err := oClient.Recv()

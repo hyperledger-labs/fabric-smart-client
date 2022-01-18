@@ -51,7 +51,7 @@ func NewDiscovery(network Network, channel Channel, chaincode string) *Discovery
 
 func (d *Discovery) Call() ([]view.Identity, error) {
 	// TODO: improve by providing grpc connection pool
-	var peerClients []peer2.PeerClient
+	var peerClients []peer2.Client
 	defer func() {
 		for _, pCli := range peerClients {
 			pCli.Close()

@@ -239,6 +239,10 @@ func (c *committer) listenTo(txid string, timeout time.Duration) error {
 	c.addListener(txid, ch)
 	defer c.deleteListener(txid, ch)
 
+	committer, err := c.network.Committer(c.channel)
+	if err != nil {
+		return err
+	}
 	iterations := int(timeout.Milliseconds() / 1000)
 	if iterations == 0 {
 		iterations = 1
@@ -250,10 +254,6 @@ func (c *committer) listenTo(txid string, timeout time.Duration) error {
 			return event.Err
 		case <-time.After(time.Second):
 			logger.Debugf("Got a timeout for finality of [%s], check the status", txid)
-			committer, err := c.network.Committer(c.channel)
-			if err != nil {
-				return err
-			}
 			vd, _, err := committer.Status(txid)
 			if err == nil {
 				switch vd {

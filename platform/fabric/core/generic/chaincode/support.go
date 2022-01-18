@@ -38,14 +38,16 @@ type Network interface {
 }
 
 type Channel interface {
+	// Name returns the name of the channel
 	Name() string
-	// NewPeerClientForAddress creates an instance of a PeerClient using the
-	// provided peer connection config
-	NewPeerClientForAddress(cc grpc.ConnectionConfig) (peer.PeerClient, error)
 
-	// NewPeerClientForIdentity creates an instance of a PeerClient using the
+	// NewPeerClientForAddress creates an instance of a Client using the
+	// provided peer connection config
+	NewPeerClientForAddress(cc grpc.ConnectionConfig) (peer.Client, error)
+
+	// NewPeerClientForIdentity creates an instance of a Client using the
 	// provided peer identity
-	NewPeerClientForIdentity(peer view.Identity) (peer.PeerClient, error)
+	NewPeerClientForIdentity(peer view.Identity) (peer.Client, error)
 
 	// IsFinal takes in input a transaction id and waits for its confirmation.
 	IsFinal(txID string) error

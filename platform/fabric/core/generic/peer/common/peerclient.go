@@ -53,16 +53,6 @@ func (pc *PeerClient) Deliver() (pb.Deliver_DeliverClient, error) {
 	return pb.NewDeliverClient(conn).Deliver(context.TODO())
 }
 
-// PeerDeliver returns a client for the Deliver service for peer-specific use
-// cases (i.e. DeliverFiltered)
-func (pc *PeerClient) PeerDeliver() (pb.DeliverClient, error) {
-	conn, err := pc.CommonClient.NewConnection(pc.Address, grpc.ServerNameOverride(pc.Sn))
-	if err != nil {
-		return nil, errors.WithMessagef(err, "deliver client failed to connect to %s", pc.Address)
-	}
-	return pb.NewDeliverClient(conn), nil
-}
-
 // Certificate returns the TLS client certificate (if available)
 func (pc *PeerClient) Certificate() tls.Certificate {
 	return pc.CommonClient.Certificate()

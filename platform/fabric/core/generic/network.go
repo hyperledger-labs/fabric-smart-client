@@ -136,7 +136,7 @@ func (f *network) Channel(name string) (driver.Channel, error) {
 
 		ch = &channelWithConnPool{
 			cache: common.CachingEndorserPool{
-				Cache:       make(map[string]peer.PeerClient),
+				Cache:       make(map[string]peer.Client),
 				ConnCreator: c,
 			},
 			Channel: c,
@@ -252,10 +252,10 @@ type channelWithConnPool struct {
 	cache common.CachingEndorserPool
 }
 
-func (cwcp *channelWithConnPool) NewPeerClientForAddress(cc grpc.ConnectionConfig) (peer.PeerClient, error) {
+func (cwcp *channelWithConnPool) NewPeerClientForAddress(cc grpc.ConnectionConfig) (peer.Client, error) {
 	return cwcp.cache.NewPeerClientForAddress(cc)
 }
 
-func (cwcp *channelWithConnPool) NewPeerClientForIdentity(peer view.Identity) (peer.PeerClient, error) {
+func (cwcp *channelWithConnPool) NewPeerClientForIdentity(peer view.Identity) (peer.Client, error) {
 	return cwcp.cache.NewPeerClientForIdentity(peer)
 }

@@ -153,7 +153,7 @@ func (c *channel) GetTLSRootCert(endorser view.Identity) ([][]byte, error) {
 	return c.network.GetTLSRootCert(endorser)
 }
 
-func (c *channel) NewPeerClientForIdentity(peer view.Identity) (peer2.PeerClient, error) {
+func (c *channel) NewPeerClientForIdentity(peer view.Identity) (peer2.Client, error) {
 	addresses, err := view2.GetEndpointService(c.sp).Endpoint(peer)
 	if err != nil {
 		return nil, err
@@ -174,7 +174,7 @@ func (c *channel) NewPeerClientForIdentity(peer view.Identity) (peer2.PeerClient
 	return newPeerClientForClientConfig(addresses[view2.ListenPort], override, *clientConfig)
 }
 
-func (c *channel) NewPeerClientForAddress(cc grpc.ConnectionConfig) (peer2.PeerClient, error) {
+func (c *channel) NewPeerClientForAddress(cc grpc.ConnectionConfig) (peer2.Client, error) {
 	var certs [][]byte
 	if cc.TLSEnabled {
 		switch {
@@ -312,13 +312,15 @@ func (c *channel) init() error {
 func newPeerClientForClientConfig(address, override string, clientConfig grpc.ClientConfig) (*common2.PeerClient, error) {
 	gClient, err := grpc.NewGRPCClient(clientConfig)
 	if err != nil {
-		return nil, errors.WithMessage(err, "failed to create PeerClient from config")
+		return nil, errors.WithMessage(err, "failed to create Client from config")
 	}
 	pClient := &common2.PeerClient{
 		CommonClient: common2.CommonClient{
 			Client:  gClient,
 			Address: address,
-			Sn:      override}}
+			Sn:      override,
+		},
+	}
 	return pClient, nil
 }
 
