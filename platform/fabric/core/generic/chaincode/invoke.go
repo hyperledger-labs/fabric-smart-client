@@ -28,6 +28,7 @@ import (
 )
 
 type Invoke struct {
+	Chaincode             *Chaincode
 	ServiceProvider       view2.ServiceProvider
 	Network               Network
 	Channel               Channel
@@ -45,12 +46,13 @@ type Invoke struct {
 	Args                  []interface{}
 }
 
-func NewInvoke(ServiceProvider view2.ServiceProvider, network Network, channel Channel, chaincode, function string, args ...interface{}) *Invoke {
+func NewInvoke(chaincode *Chaincode, function string, args ...interface{}) *Invoke {
 	return &Invoke{
-		ServiceProvider: ServiceProvider,
-		Network:         network,
-		Channel:         channel,
-		ChaincodeName:   chaincode,
+		Chaincode:       chaincode,
+		ServiceProvider: chaincode.sp,
+		Network:         chaincode.network,
+		Channel:         chaincode.channel,
+		ChaincodeName:   chaincode.name,
 		Function:        function,
 		Args:            args,
 	}
@@ -204,7 +206,7 @@ func (i *Invoke) prepare() (string, *pb.Proposal, []*pb.ProposalResponse, driver
 
 		// discover
 		var err error
-		i.Endorsers, err = NewDiscovery(i.Network, i.Channel, i.ChaincodeName).WithFilterByMSPIDs(i.EndorsersMSPIDs...).Call()
+		i.Endorsers, err = NewDiscovery(i.Chaincode).WithFilterByMSPIDs(i.EndorsersMSPIDs...).Call()
 		if err != nil {
 			return "", nil, nil, nil, err
 		}

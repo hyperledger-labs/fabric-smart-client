@@ -65,6 +65,9 @@ type channel struct {
 	lock sync.RWMutex
 	// resources is used to acquire configuration bundle resources.
 	resources channelconfig.Resources
+
+	chaincodesLock sync.RWMutex
+	chaincodes     map[string]driver.Chaincode
 }
 
 func newChannel(network *network, name string, quiet bool) (*channel, error) {
@@ -134,6 +137,7 @@ func newChannel(network *network, name string, quiet bool) (*channel, error) {
 		envelopeService:    transaction.NewEnvelopeService(sp, network.Name(), name),
 		transactionService: transaction.NewEndorseTransactionService(sp, network.Name(), name),
 		metadataService:    transaction.NewMetadataService(sp, network.Name(), name),
+		chaincodes:         map[string]driver.Chaincode{},
 	}
 	if err := c.init(); err != nil {
 		return nil, errors.WithMessagef(err, "failed initializing channel [%s]", name)

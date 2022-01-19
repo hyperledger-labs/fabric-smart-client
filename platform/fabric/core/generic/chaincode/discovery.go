@@ -9,6 +9,7 @@ package chaincode
 import (
 	"context"
 	"reflect"
+	"strings"
 	"time"
 
 	discovery2 "github.com/hyperledger/fabric-protos-go/discovery"
@@ -39,17 +40,42 @@ type ServiceResponse interface {
 }
 
 type Discovery struct {
-	network        Network
-	channel        Channel
-	chaincode      string
+	chaincode      *Chaincode
 	filterByMSPIDs []string
+
+	defaultTTL time.Duration
 }
 
-func NewDiscovery(network Network, channel Channel, chaincode string) *Discovery {
-	return &Discovery{network: network, channel: channel, chaincode: chaincode}
+func NewDiscovery(chaincode *Chaincode) *Discovery {
+	// set key to the concatenation of chaincode name and version
+	return &Discovery{
+		chaincode:  chaincode,
+		defaultTTL: 5 * time.Minute,
+	}
 }
 
 func (d *Discovery) Call() ([]view.Identity, error) {
+	var sb strings.Builder
+	sb.WriteString(d.chaincode.network.Name())
+	sb.WriteString(d.chaincode.channel.Name())
+	sb.WriteString(d.chaincode.name)
+	for _, mspiD := range d.filterByMSPIDs {
+		sb.WriteString(mspiD)
+	}
+	key := sb.String()
+
+	// TODO: Do we have an answer already?
+	d.chaincode.discoveryResultsCacheLock.RLock()
+	endorsersBoxed, err := d.chaincode.discoveryResultsCache.Get(key)
+	if endorsersBoxed != nil && err == nil {
+		endorsers := endorsersBoxed.([]view.Identity)
+		if len(endorsers) != 0 {
+			d.chaincode.discoveryResultsCacheLock.RUnlock()
+			return endorsers, nil
+		}
+	}
+	d.chaincode.discoveryResultsCacheLock.RUnlock()
+
 	// TODO: improve by providing grpc connection pool
 	var peerClients []peer2.Client
 	defer func() {
@@ -58,14 +84,10 @@ func (d *Discovery) Call() ([]view.Identity, error) {
 		}
 	}()
 
-	if len(d.chaincode) == 0 {
-		return nil, errors.New("no chaincode specified")
-	}
-
-	req, err := discovery.NewRequest().OfChannel(d.channel.Name()).AddEndorsersQuery(
+	req, err := discovery.NewRequest().OfChannel(d.chaincode.channel.Name()).AddEndorsersQuery(
 		&discovery2.ChaincodeInterest{Chaincodes: []*discovery2.ChaincodeCall{
 			{
-				Name: d.chaincode,
+				Name: d.chaincode.name,
 			},
 		}},
 	)
@@ -73,13 +95,13 @@ func (d *Discovery) Call() ([]view.Identity, error) {
 		return nil, errors.Wrap(err, "failed creating request")
 	}
 
-	pc, err := d.channel.NewPeerClientForAddress(*d.network.Peers()[0])
+	pc, err := d.chaincode.channel.NewPeerClientForAddress(*d.chaincode.network.Peers()[0])
 	if err != nil {
 		return nil, err
 	}
 	peerClients = append(peerClients, pc)
 
-	signer := d.network.LocalMembership().DefaultSigningIdentity()
+	signer := d.chaincode.network.LocalMembership().DefaultSigningIdentity()
 	signerRaw, err := signer.Serialize()
 	if err != nil {
 		return nil, err
@@ -126,7 +148,7 @@ func (d *Discovery) Call() ([]view.Identity, error) {
 		return nil, errors.Errorf("server returned response of unexpected type: %v", reflect.TypeOf(res.Results[0]))
 	}
 
-	mspManager := d.channel.MSPManager()
+	mspManager := d.chaincode.channel.MSPManager()
 
 	endorserSet := make(map[string][]byte)
 	for _, descriptor := range ccQueryRes.Content {
@@ -165,6 +187,12 @@ func (d *Discovery) Call() ([]view.Identity, error) {
 	var endorsers []view.Identity
 	for _, e := range endorserSet {
 		endorsers = append(endorsers, e)
+	}
+
+	d.chaincode.discoveryResultsCacheLock.Lock()
+	defer d.chaincode.discoveryResultsCacheLock.Unlock()
+	if err := d.chaincode.discoveryResultsCache.SetWithTTL(key, endorsers, d.defaultTTL); err != nil {
+		logger.Warnf("failed to set discovery results in cache: %s", err)
 	}
 
 	return endorsers, nil

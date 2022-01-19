@@ -29,6 +29,7 @@ type SerializableSigner interface {
 }
 
 type Network interface {
+	Name() string
 	Peers() []*grpc.ConnectionConfig
 	LocalMembership() driver.LocalMembership
 	// Broadcast sends the passed blob to the ordering service to be ordered
