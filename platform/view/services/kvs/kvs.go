@@ -12,6 +12,7 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 
@@ -46,7 +47,9 @@ func New(driverName, namespace string, sp view.ServiceProvider) (*KVS, error) {
 	}
 	path := filepath.Join(opts.Path, namespace)
 
-	logger.Debugf("opening kvs at [%s]", path)
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("opening kvs at [%s]", path)
+	}
 	persistence, err := db.Open(driverName, path)
 	if err != nil {
 		return nil, errors.WithMessagef(err, "no driver found for [%s]", driverName)
@@ -82,18 +85,24 @@ func (o *KVS) Exists(id string) bool {
 	// get from store and store in cache
 	raw, err := o.store.GetState(o.namespace, id)
 	if err != nil {
-		logger.Debugf("failed getting state [%s,%s]", o.namespace, id)
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			logger.Debugf("failed getting state [%s,%s]", o.namespace, id)
+		}
 		o.cache[id] = nil
 		return false
 	}
 	o.cache[id] = raw
-	logger.Debugf("state [%s,%s] exists [%v]", o.namespace, id, len(raw) != 0)
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("state [%s,%s] exists [%v]", o.namespace, id, len(raw) != 0)
+	}
 
 	return len(raw) != 0
 }
 
 func (o *KVS) Put(id string, state interface{}) error {
-	logger.Debugf("put state [%s,%s]", o.namespace, id)
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("put state [%s,%s]", o.namespace, id)
+	}
 
 	o.putMutex.Lock()
 	defer o.putMutex.Unlock()
@@ -111,7 +120,9 @@ func (o *KVS) Put(id string, state interface{}) error {
 	err = o.store.SetState(o.namespace, id, raw)
 	if err != nil {
 		if err1 := o.store.Discard(); err1 != nil {
-			logger.Debugf("got error %s; discarding caused %s", err.Error(), err1.Error())
+			if logger.IsEnabledFor(zapcore.DebugLevel) {
+				logger.Debugf("got error %s; discarding caused %s", err.Error(), err1.Error())
+			}
 		}
 
 		return errors.Errorf("failed to commit value for id [%s]", id)
@@ -136,7 +147,9 @@ func (o *KVS) Get(id string, state interface{}) error {
 	if !ok {
 		raw, err = o.store.GetState(o.namespace, id)
 		if err != nil {
-			logger.Debugf("failed retrieving state [%s,%s]", o.namespace, id)
+			if logger.IsEnabledFor(zapcore.DebugLevel) {
+				logger.Debugf("failed retrieving state [%s,%s]", o.namespace, id)
+			}
 			return errors.Errorf("failed retrieving state [%s,%s]", o.namespace, id)
 		}
 		if len(raw) == 0 {
@@ -145,16 +158,22 @@ func (o *KVS) Get(id string, state interface{}) error {
 	}
 
 	if err := json.Unmarshal(raw, state); err != nil {
-		logger.Debugf("failed retrieving state [%s,%s], cannot unmarshal state, error [%s]", o.namespace, id, err)
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			logger.Debugf("failed retrieving state [%s,%s], cannot unmarshal state, error [%s]", o.namespace, id, err)
+		}
 		return errors.Wrapf(err, "failed retrieving state [%s,%s], cannot unmarshal state", o.namespace, id)
 	}
 
-	logger.Debugf("got state [%s,%s] successfully", o.namespace, id)
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("got state [%s,%s] successfully", o.namespace, id)
+	}
 	return nil
 }
 
 func (o *KVS) Delete(id string) error {
-	logger.Debugf("delete state [%s,%s]", o.namespace, id)
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("delete state [%s,%s]", o.namespace, id)
+	}
 
 	o.putMutex.Lock()
 	defer o.putMutex.Unlock()
@@ -167,7 +186,9 @@ func (o *KVS) Delete(id string) error {
 	err = o.store.DeleteState(o.namespace, id)
 	if err != nil {
 		if err1 := o.store.Discard(); err1 != nil {
-			logger.Debugf("got error %s; discarding caused %s", err.Error(), err1.Error())
+			if logger.IsEnabledFor(zapcore.DebugLevel) {
+				logger.Debugf("got error %s; discarding caused %s", err.Error(), err1.Error())
+			}
 		}
 
 		return errors.Errorf("failed to commit value for id [%s]", id)

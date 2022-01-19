@@ -14,6 +14,8 @@ import (
 	"sync"
 	"time"
 
+	"go.uber.org/zap/zapcore"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 
 	"github.com/pkg/errors"
@@ -166,7 +168,7 @@ func (client *Client) parseSecureOptions(opts SecureOptions) error {
 		for _, certBytes := range opts.ServerRootCAs {
 			err := AddPemToCertPool(certBytes, client.tlsConfig.RootCAs)
 			if err != nil {
-				commLogger.Debugf("error adding root certificate: %v", err)
+				commLogger.Errorf("error adding root certificate: %v", err)
 				return errors.WithMessage(err,
 					"error adding root certificate")
 			}
@@ -292,7 +294,9 @@ func (client *Client) NewConnection(address string, tlsOptions ...TLSOption) (*g
 }
 
 func (client *Client) Close() {
-	commLogger.Debugf("closing %d grpc connections", len(client.grpcConns))
+	if commLogger.IsEnabledFor(zapcore.DebugLevel) {
+		commLogger.Debugf("closing %d grpc connections", len(client.grpcConns))
+	}
 	for _, grpcCon := range client.grpcConns {
 		if err := grpcCon.Close(); err != nil {
 			commLogger.Warningf("unable to close grpc conn but continue. Reason: %s", err.Error())

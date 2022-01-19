@@ -8,6 +8,7 @@ package endpoint
 
 import (
 	"github.com/pkg/errors"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/x509"
@@ -89,22 +90,28 @@ func (r *resolverService) LoadResolvers() error {
 		}
 
 		resolver.Id = raw
-		logger.Debugf("Resolver [%s,%s][%s] %s",
-			resolver.Name, resolver.Domain, resolver.Addresses,
-			view.Identity(resolver.Id).UniqueID(),
-		)
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			logger.Debugf("Resolver [%s,%s][%s] %s",
+				resolver.Name, resolver.Domain, resolver.Addresses,
+				view.Identity(resolver.Id).UniqueID(),
+			)
+		}
 
 		// Add Resolver
 		rootID, err := r.service.AddResolver(resolver.Name, resolver.Domain, resolver.Addresses, resolver.Aliases, resolver.Id)
 		if err != nil {
 			return errors.Wrapf(err, "failed adding resolver")
 		}
-		logger.Debugf("added resolver [root-id:%s]", rootID.String())
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			logger.Debugf("added resolver [root-id:%s]", rootID.String())
+		}
 		resolver.RootID = rootID
 
 		// Bind Aliases
 		for _, alias := range resolver.Aliases {
-			logger.Debugf("binging [%s] to [%s]", resolver.Name, alias)
+			if logger.IsEnabledFor(zapcore.DebugLevel) {
+				logger.Debugf("binging [%s] to [%s]", resolver.Name, alias)
+			}
 			if err := r.service.Bind(resolver.Id, []byte(alias)); err != nil {
 				return errors.WithMessagef(err, "failed binding identity [%s] to alias [%s]", resolver.Name, alias)
 			}

@@ -13,6 +13,7 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
@@ -58,7 +59,9 @@ func (cm *manager) GetService(typ reflect.Type) (interface{}, error) {
 }
 
 func (cm *manager) RegisterFactory(id string, factory driver.Factory) error {
-	logger.Debugf("Register View Factory [%s,%t]", id, factory)
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("Register View Factory [%s,%t]", id, factory)
+	}
 	cm.factoriesSync.Lock()
 	defer cm.factoriesSync.Unlock()
 	cm.factories[id] = factory
@@ -136,13 +139,19 @@ func (cm *manager) InitiateViewWithIdentity(view view.View, id view.Identity) (i
 	cm.contexts[childContext.ID()] = childContext
 	cm.contextsSync.Unlock()
 
-	logger.Debugf("[%s] InitiateView [view:%s], [ContextID:%s]", id, getIdentifier(view), childContext.ID())
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("[%s] InitiateView [view:%s], [ContextID:%s]", id, getIdentifier(view), childContext.ID())
+	}
 	res, err := childContext.RunView(view)
 	if err != nil {
-		logger.Debugf("[%s] InitiateView [view:%s], [ContextID:%s] failed [%s]", id, getIdentifier(view), childContext.ID(), err)
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			logger.Debugf("[%s] InitiateView [view:%s], [ContextID:%s] failed [%s]", id, getIdentifier(view), childContext.ID(), err)
+		}
 		return nil, err
 	}
-	logger.Debugf("[%s] InitiateView [view:%s], [ContextID:%s] terminated", id, getIdentifier(view), childContext.ID())
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("[%s] InitiateView [view:%s], [ContextID:%s] terminated", id, getIdentifier(view), childContext.ID())
+	}
 	return res, nil
 }
 
@@ -167,7 +176,9 @@ func (cm *manager) InitiateContextWithIdentity(view view.View, id view.Identity)
 	cm.contexts[childContext.ID()] = childContext
 	cm.contextsSync.Unlock()
 
-	logger.Debugf("[%s] InitiateContext [view:%s], [ContextID:%s]\n", id, getIdentifier(view), childContext.ID())
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("[%s] InitiateContext [view:%s], [ContextID:%s]\n", id, getIdentifier(view), childContext.ID())
+	}
 
 	return childContext, nil
 }
@@ -186,7 +197,9 @@ func (cm *manager) Start(ctx context.Context) {
 		case msg := <-ch:
 			go cm.callView(msg)
 		case <-ctx.Done():
-			logger.Debugf("received done signal, stopping listening to messages on the master session")
+			if logger.IsEnabledFor(zapcore.DebugLevel) {
+				logger.Debugf("received done signal, stopping listening to messages on the master session")
+			}
 			return
 		}
 	}
@@ -228,7 +241,9 @@ func (cm *manager) respond(responder view.View, id view.Identity, msg *view.Mess
 		}
 	}()
 
-	logger.Debugf("[%s] Respond [from:%s], [sessionID:%s], [contextID:%s], [view:%s]", id, msg.FromEndpoint, msg.SessionID, msg.ContextID, getIdentifier(responder))
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("[%s] Respond [from:%s], [sessionID:%s], [contextID:%s], [view:%s]", id, msg.FromEndpoint, msg.SessionID, msg.ContextID, getIdentifier(responder))
+	}
 
 	// get context
 	var isNew bool
@@ -250,7 +265,9 @@ func (cm *manager) respond(responder view.View, id view.Identity, msg *view.Mess
 		res, err = ctx.RunView(responder)
 	}
 	if err != nil {
-		logger.Debugf("[%s] Respond Failure [from:%s], [sessionID:%s], [contextID:%s] [%s]\n", id, msg.FromEndpoint, msg.SessionID, msg.ContextID, err)
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			logger.Debugf("[%s] Respond Failure [from:%s], [sessionID:%s], [contextID:%s] [%s]\n", id, msg.FromEndpoint, msg.SessionID, msg.ContextID, err)
+		}
 	}
 	return ctx, res, err
 }
@@ -268,18 +285,22 @@ func (cm *manager) newContext(id view.Identity, msg *view.Message) (view.Context
 	contextID := msg.ContextID
 	viewContext, ok := cm.contexts[contextID]
 	if ok && viewContext.Session() != nil && viewContext.Session().Info().ID != msg.SessionID {
-		logger.Debugf(
-			"[%s] Found context with different session id, recreate [contextID:%s, sessionIds:%s,%s]\n",
-			id,
-			msg.ContextID,
-			msg.SessionID,
-			viewContext.Session().Info().ID,
-		)
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			logger.Debugf(
+				"[%s] Found context with different session id, recreate [contextID:%s, sessionIds:%s,%s]\n",
+				id,
+				msg.ContextID,
+				msg.SessionID,
+				viewContext.Session().Info().ID,
+			)
+		}
 		delete(cm.contexts, contextID)
 		ok = false
 	}
 	if !ok {
-		logger.Debugf("[%s] Create new context to respond [contextID:%s]\n", id, msg.ContextID)
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			logger.Debugf("[%s] Create new context to respond [contextID:%s]\n", id, msg.ContextID)
+		}
 		backend, err := GetCommLayer(cm.sp).NewSessionWithID(msg.SessionID, contextID, msg.FromEndpoint, msg.FromPKID, caller, msg)
 		if err != nil {
 			return nil, false, err
@@ -297,7 +318,9 @@ func (cm *manager) newContext(id view.Identity, msg *view.Message) (view.Context
 		viewContext = childContext
 		isNew = true
 	} else {
-		logger.Debugf("[%s] No new context to respond, reuse [contextID:%s]\n", id, msg.ContextID)
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			logger.Debugf("[%s] No new context to respond, reuse [contextID:%s]\n", id, msg.ContextID)
+		}
 	}
 
 	return viewContext, isNew, nil
@@ -307,7 +330,9 @@ func (cm *manager) deleteContext(id view.Identity, contextID string) {
 	cm.contextsSync.Lock()
 	defer cm.contextsSync.Unlock()
 
-	logger.Debugf("[%s] Delete context [contextID:%s]\n", id, contextID)
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("[%s] Delete context [contextID:%s]\n", id, contextID)
+	}
 	// dispose context
 	if context, ok := cm.contexts[contextID]; ok {
 		context.Dispose()
@@ -354,12 +379,16 @@ func (cm *manager) callView(msg *view.Message) {
 	if err != nil {
 		logger.Errorf("failed responding [%v, %v], err: [%s]", getIdentifier(responder), msg.String(), err)
 		if ctx == nil {
-			logger.Debugf("no context set, returning")
+			if logger.IsEnabledFor(zapcore.DebugLevel) {
+				logger.Debugf("no context set, returning")
+			}
 			return
 		}
 
 		// Return the error to the caller
-		logger.Debugf("return the error to the caller [%s]", err)
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			logger.Debugf("return the error to the caller [%s]", err)
+		}
 		err = ctx.Session().SendError([]byte(err.Error()))
 		if err != nil {
 			logger.Errorf(err.Error())

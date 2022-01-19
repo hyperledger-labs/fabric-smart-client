@@ -26,6 +26,7 @@ import (
 	discovery "github.com/libp2p/go-libp2p-discovery"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/pkg/errors"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -94,20 +95,28 @@ func (p *P2PNode) dispatchMessages(ctx context.Context) {
 		select {
 		case msg, ok := <-p.incomingMessages:
 			if !ok {
-				logger.Debugf("channel closed, returning")
+				if logger.IsEnabledFor(zapcore.DebugLevel) {
+					logger.Debugf("channel closed, returning")
+				}
 				return
 			}
 
-			logger.Debugf("dispatch message from [%s,%s] on session [%s]", msg.message.FromEndpoint, view.Identity(msg.message.FromPKID).String(), msg.message.SessionID)
+			if logger.IsEnabledFor(zapcore.DebugLevel) {
+				logger.Debugf("dispatch message from [%s,%s] on session [%s]", msg.message.FromEndpoint, view.Identity(msg.message.FromPKID).String(), msg.message.SessionID)
+			}
 
 			p.dispatchMutex.Lock()
 
 			p.sessionsMutex.Lock()
 			internalSessionID := computeInternalSessionID(msg.message.SessionID, msg.message.FromEndpoint, msg.message.FromPKID)
-			logger.Debugf("dispatch message on internal session [%s]", internalSessionID)
+			if logger.IsEnabledFor(zapcore.DebugLevel) {
+				logger.Debugf("dispatch message on internal session [%s]", internalSessionID)
+			}
 			session, in := p.sessions[internalSessionID]
 			if in {
-				logger.Debugf("internal session exists [%s]", internalSessionID)
+				if logger.IsEnabledFor(zapcore.DebugLevel) {
+					logger.Debugf("internal session exists [%s]", internalSessionID)
+				}
 				session.mutex.Lock()
 				session.callerViewID = msg.message.Caller
 				session.contextID = msg.message.ContextID
@@ -123,7 +132,7 @@ func (p *P2PNode) dispatchMessages(ctx context.Context) {
 
 			if !in {
 				// create session but redirect this first message to master
-				//_, _ = p.getOrCreateSession(
+				// _, _ = p.getOrCreateSession(
 				//	msg.message.SessionID,
 				//	msg.message.FromEndpoint,
 				//	msg.message.ContextID,
@@ -131,14 +140,18 @@ func (p *P2PNode) dispatchMessages(ctx context.Context) {
 				//	nil,
 				//	msg.message.FromPKID,
 				//	nil,
-				//)
+				// )
 
-				logger.Debugf("internal session does not exists [%s], dispatching to master session", internalSessionID)
+				if logger.IsEnabledFor(zapcore.DebugLevel) {
+					logger.Debugf("internal session does not exists [%s], dispatching to master session", internalSessionID)
+				}
 				session, _ = p.getOrCreateSession(masterSession, "", "", "", nil, []byte{}, nil)
 			}
 			p.dispatchMutex.Unlock()
 
-			logger.Debugf("pushing message to [%s], [%s]", internalSessionID, msg.message)
+			if logger.IsEnabledFor(zapcore.DebugLevel) {
+				logger.Debugf("pushing message to [%s], [%s]", internalSessionID, msg.message)
+			}
 			session.incoming <- msg.message
 		case <-ctx.Done():
 			logger.Info("closing p2p comm...")
@@ -231,7 +244,9 @@ func (s *streamHandler) handleIncoming() {
 		if err != nil {
 			s.node.streamsMutex.Lock()
 			if s.node.isStopping {
-				logger.Debugf("error reading message while closing. ignoring.", err.Error())
+				if logger.IsEnabledFor(zapcore.DebugLevel) {
+					logger.Debugf("error reading message while closing. ignoring.", err.Error())
+				}
 				break
 			}
 			logger.Errorf("caught error: [%s][%s]", err.Error(), debug.Stack())
@@ -247,7 +262,9 @@ func (s *streamHandler) handleIncoming() {
 
 			panic("couldn't find stream handler to remove")
 		}
-		logger.Debugf("incoming message from [%s] on session [%s]", msg.Caller, msg.SessionID)
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			logger.Debugf("incoming message from [%s] on session [%s]", msg.Caller, msg.SessionID)
+		}
 
 		s.node.incomingMessages <- &messageWithStream{
 			message: &view.Message{

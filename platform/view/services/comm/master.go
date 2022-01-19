@@ -10,6 +10,8 @@ import (
 	"encoding/base64"
 	"strings"
 
+	"go.uber.org/zap/zapcore"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -18,9 +20,13 @@ func (p *P2PNode) getOrCreateSession(sessionID, endpointAddress, contextID, call
 	defer p.sessionsMutex.Unlock()
 
 	internalSessionID := computeInternalSessionID(sessionID, endpointAddress, endpointID)
-	logger.Debugf("looking up session [%s]", internalSessionID)
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("looking up session [%s]", internalSessionID)
+	}
 	if session, in := p.sessions[internalSessionID]; in {
-		logger.Debugf("session [%s] exists, returning it", internalSessionID)
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			logger.Debugf("session [%s] exists, returning it", internalSessionID)
+		}
 		session.callerViewID = callerViewID
 		session.contextID = contextID
 		session.caller = caller
@@ -42,10 +48,14 @@ func (p *P2PNode) getOrCreateSession(sessionID, endpointAddress, contextID, call
 	}
 
 	if msg != nil {
-		logger.Debugf("pushing first message to [%s], [%s]", internalSessionID, msg)
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			logger.Debugf("pushing first message to [%s], [%s]", internalSessionID, msg)
+		}
 		s.incoming <- msg
 	} else {
-		logger.Debugf("no first message to push to [%s]", internalSessionID)
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			logger.Debugf("no first message to push to [%s]", internalSessionID)
+		}
 	}
 
 	p.sessions[internalSessionID] = s
@@ -80,7 +90,9 @@ func (p *P2PNode) DeleteSessions(sessionID string) {
 	for key := range p.sessions {
 		// if key starts with sessionID, delete it
 		if strings.HasPrefix(key, sessionID) {
-			logger.Debugf("deleting session [%s]", key)
+			if logger.IsEnabledFor(zapcore.DebugLevel) {
+				logger.Debugf("deleting session [%s]", key)
+			}
 			delete(p.sessions, key)
 		}
 	}

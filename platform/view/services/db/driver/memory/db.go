@@ -11,6 +11,8 @@ import (
 	"sort"
 	"sync"
 
+	"go.uber.org/zap/zapcore"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 )
@@ -216,7 +218,9 @@ func (db *database) SetState(namespace string, key string, value []byte, block, 
 		panic("programming error, writing without ongoing update")
 	}
 
-	logger.Debugf("Set stat [%s,%s]", namespace, key)
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("Set stat [%s,%s]", namespace, key)
+	}
 
 	vv, in := db.mapForNamespaceForWriting(namespace, true)[key]
 	if !in {

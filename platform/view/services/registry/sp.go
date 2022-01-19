@@ -11,6 +11,7 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 )
@@ -75,7 +76,9 @@ func (sp *serviceProvider) RegisterService(service interface{}) error {
 	sp.lock.Lock()
 	defer sp.lock.Unlock()
 
-	logger.Debugf("Register Service [%s]", getIdentifier(service))
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("Register Service [%s]", getIdentifier(service))
+	}
 	sp.services = append(sp.services, service)
 
 	return nil
