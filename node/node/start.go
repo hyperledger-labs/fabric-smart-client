@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 
 	"github.com/spf13/cobra"
@@ -70,20 +71,32 @@ func serve() error {
 		altPath = "./"
 	}
 
-	var profiler, err = profile.New(profile.WithPath(altPath), profile.WithAll())
-	if err != nil {
-		logger.Errorf("error creating profiler: [%s]", err)
-		callback(err)
-		return err
-	}
-	// start profiler
-	if err := profiler.Start(); err != nil {
-		logger.Errorf("error starting profiler: [%s]", err)
-		callback(err)
-		return err
+	enableProfile := false
+	enableProfileStr := os.Getenv("FSCNODE_PROFILER")
+	if len(enableProfileStr) != 0 {
+		var err error
+		enableProfile, err = strconv.ParseBool(enableProfileStr)
+		if err != nil {
+			logger.Infof("Error parsing boolean environment variable FSCNODE_PROFILER: %s\n", err.Error())
+		}
 	}
 
-	defer profiler.Stop()
+	if enableProfile {
+		var profiler, err = profile.New(profile.WithPath(altPath), profile.WithAll())
+		if err != nil {
+			logger.Errorf("error creating profiler: [%s]", err)
+			callback(err)
+			return err
+		}
+		// start profiler
+		if err := profiler.Start(); err != nil {
+			logger.Errorf("error starting profiler: [%s]", err)
+			callback(err)
+			return err
+		}
+
+		defer profiler.Stop()
+	}
 
 	if err := node.Start(); err != nil {
 		logger.Errorf("Failed starting platform [%s]", err)
