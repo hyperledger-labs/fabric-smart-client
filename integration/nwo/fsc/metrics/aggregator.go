@@ -108,6 +108,9 @@ func (a *Aggregator) run() {
 	for e := range a.p.Read() {
 		a.logger.Debugf("Received event: %s", e.String())
 		a.processEvent(e)
+		a.Lock()
+		a.numEvents++
+		a.Unlock()
 		if a.storage != nil {
 			a.storage.Store(e)
 		}
@@ -115,10 +118,6 @@ func (a *Aggregator) run() {
 }
 
 func (a *Aggregator) processEvent(e *Event) {
-	a.Lock()
-	a.numEvents++
-	a.Unlock()
-
 	a.RLock()
 	defer a.RUnlock()
 	for _, de := range a.dEvents {
