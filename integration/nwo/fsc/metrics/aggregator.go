@@ -78,6 +78,7 @@ type Aggregator struct {
 	sink          metrics.MetricSink
 	storage       Storage
 	logger        *logging.Logger
+	numEvents     uint64
 }
 
 func NewAggregator(sink metrics.MetricSink, storage Storage, rawEventParser RawEventParser, l Listener) (*Aggregator, error) {
@@ -114,6 +115,10 @@ func (a *Aggregator) run() {
 }
 
 func (a *Aggregator) processEvent(e *Event) {
+	a.Lock()
+	a.numEvents++
+	a.Unlock()
+
 	a.RLock()
 	defer a.RUnlock()
 	for _, de := range a.dEvents {
@@ -139,6 +144,12 @@ func (a *Aggregator) getHandler(eventClass string, de *distEvent) *dEventHandler
 		})
 	}
 	return handler
+}
+
+func (a *Aggregator) NumEvents() uint64 {
+	a.RLock()
+	defer a.RUnlock()
+	return a.numEvents
 }
 
 type dEventHandler struct {

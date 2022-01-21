@@ -109,7 +109,7 @@ type fileListener struct {
 	logger *logging.Logger
 	sync.RWMutex
 	subscriptions []chan *RawEvent
-	numEvents     int
+	numEvents     uint64
 }
 
 func NewFileListener(path string) *fileListener {
@@ -156,6 +156,6 @@ func (a *fileListener) demux(e *RawEvent) {
 
 }
 
-func (a *fileListener) NumEvents() int {
+func (a *fileListener) NumEvents() uint64 {
 	return a.numEvents
 }

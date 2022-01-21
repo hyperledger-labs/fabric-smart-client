@@ -35,6 +35,7 @@ type Infrastructure struct {
 	Nwo               *nwo.NWO
 	BuildServer       *common.BuildServer
 	DeleteOnStop      bool
+	DeleteOnStart     bool
 	PlatformFactories map[string]api.PlatformFactory
 	Topologies        []api.Topology
 	FscPlatform       *fsc.Platform
@@ -144,6 +145,11 @@ func (i *Infrastructure) RegisterPlatformFactory(factory api.PlatformFactory) {
 }
 
 func (i *Infrastructure) Generate() {
+	if i.DeleteOnStart {
+		if err := os.RemoveAll(i.TestDir); err != nil {
+			panic(err)
+		}
+	}
 	i.initNWO()
 	i.Nwo.Generate()
 }
