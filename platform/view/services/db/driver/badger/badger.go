@@ -352,6 +352,9 @@ func (r *cachedRangeScanIterator) versionedValue(item *badger.Item, dbKey string
 	err := item.Value(func(val []byte) error {
 		// check the cache first
 		if v, ok := r.cache.Get(dbKey); ok {
+			if v == nil {
+				return nil
+			}
 			protoValue = v.(*dbproto.VersionedValue)
 			return nil
 		}
