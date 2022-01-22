@@ -24,12 +24,14 @@ import (
 type cache interface {
 	Get(key string) (interface{}, bool)
 	Add(key string, value interface{})
+	Delete(key string)
 }
 
 type badgerDB struct {
 	db *badger.DB
 
 	txn     *badger.Txn
+	deletes []string
 	txnLock sync.Mutex
 	cache   cache
 }
@@ -68,6 +70,7 @@ func (db *badgerDB) BeginUpdate() error {
 	}
 
 	db.txn = db.db.NewTransaction(true)
+	db.deletes = nil
 
 	return nil
 }
@@ -85,7 +88,13 @@ func (db *badgerDB) Commit() error {
 		return errors.Wrap(err, "could not commit transaction")
 	}
 
+	// delete from the cache the deleted keys
+	for _, key := range db.deletes {
+		db.cache.Delete(key)
+	}
+
 	db.txn = nil
+	db.deletes = nil
 
 	return nil
 }
@@ -101,6 +110,7 @@ func (db *badgerDB) Discard() error {
 	db.txn.Discard()
 
 	db.txn = nil
+	db.deletes = nil
 
 	return nil
 }
@@ -212,6 +222,7 @@ func (db *badgerDB) DeleteState(namespace, key string) error {
 	if err != nil {
 		return errors.Wrapf(err, "could not delete value for key %s", dbKey)
 	}
+	db.deletes = append(db.deletes, dbKey)
 
 	return nil
 }

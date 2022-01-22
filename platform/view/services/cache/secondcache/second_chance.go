@@ -112,6 +112,17 @@ func (cache *secondChanceCache) Add(key string, value interface{}) {
 	}
 }
 
+func (cache *secondChanceCache) Delete(key string) {
+	cache.rwlock.Lock()
+	defer cache.rwlock.Unlock()
+
+	if old, ok := cache.table[key]; ok {
+		old.value = nil
+		atomic.StoreInt32(&old.referenced, 1)
+		return
+	}
+}
+
 func (cache *secondChanceCache) clean() {
 	cache.rwlock.Lock()
 	defer cache.rwlock.Unlock()
