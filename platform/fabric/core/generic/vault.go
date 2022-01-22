@@ -15,16 +15,23 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/vault/txidstore"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
+	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/cache/secondcache"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 )
+
+type TXIDStore interface {
+	fdriver.TXIDStore
+	Get(txid string) (fdriver.ValidationCode, error)
+	Set(txid string, code fdriver.ValidationCode) error
+}
 
 type Badger struct {
 	Path string
 }
 
-func NewVault(config *config.Config, channel string, sp view.ServiceProvider) (*vault.Vault, *txidstore.TXIDStore, error) {
+func NewVault(config *config.Config, channel string, cacheSize int) (*vault.Vault, TXIDStore, error) {
 	var persistence driver.VersionedPersistence
 	pType := config.VaultPersistenceType()
 	switch pType {
@@ -53,10 +60,16 @@ func NewVault(config *config.Config, channel string, sp view.ServiceProvider) (*
 		return nil, nil, errors.Errorf("invalid persistence type, expected one of [file,memory], got [%s]", pType)
 	}
 
-	txidstore, err := txidstore.NewTXIDStore(db.Unversioned(persistence))
+	var txidStore TXIDStore
+	txidStore, err := txidstore.NewTXIDStore(db.Unversioned(persistence))
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errors.Wrapf(err, "failed creating txid store")
 	}
 
-	return vault.New(persistence, txidstore), txidstore, nil
+	if cacheSize > 0 {
+		logger.Debugf("creating txID store second cache with size [%d]", cacheSize)
+		txidStore = txidstore.NewCache(txidStore, secondcache.New(cacheSize))
+	}
+
+	return vault.New(persistence, txidStore), txidStore, nil
 }

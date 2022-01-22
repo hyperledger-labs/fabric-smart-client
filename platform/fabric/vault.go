@@ -224,6 +224,14 @@ func (qe *QueryExecutor) GetStateRangeScanIterator(namespace string, startKey st
 	return &ResultsIterator{ri: ri}, nil
 }
 
+func (qe *QueryExecutor) GetCachedStateRangeScanIterator(namespace string, startKey string, endKey string) (*ResultsIterator, error) {
+	ri, err := qe.qe.GetCachedStateRangeScanIterator(namespace, startKey, endKey)
+	if err != nil {
+		return nil, err
+	}
+	return &ResultsIterator{ri: ri}, nil
+}
+
 func (qe *QueryExecutor) Done() {
 	qe.qe.Done()
 }

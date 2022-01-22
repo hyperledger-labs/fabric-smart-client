@@ -182,6 +182,10 @@ func (db *database) GetStateRangeScanIterator(namespace string, startKey string,
 	}, nil
 }
 
+func (db *database) GetCachedStateRangeScanIterator(namespace string, startKey string, endKey string) (driver.VersionedResultsIterator, error) {
+	return db.GetStateRangeScanIterator(namespace, startKey, endKey)
+}
+
 func (db *database) GetState(namespace string, key string) ([]byte, uint64, uint64, error) {
 	db.mutex.Lock()
 	defer db.mutex.Unlock()

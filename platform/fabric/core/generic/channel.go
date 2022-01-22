@@ -73,7 +73,8 @@ type channel struct {
 func newChannel(network *network, name string, quiet bool) (*channel, error) {
 	sp := network.sp
 	// Vault
-	v, txIDStore, err := NewVault(network.config, name, sp)
+	// TODO: get cache size from config
+	v, txIDStore, err := NewVault(network.config, name, 20000)
 	if err != nil {
 		return nil, err
 	}

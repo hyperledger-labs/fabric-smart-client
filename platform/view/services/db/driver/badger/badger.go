@@ -11,20 +11,27 @@ import (
 	"strings"
 	"sync"
 
-	badger "github.com/dgraph-io/badger/v3"
+	"github.com/dgraph-io/badger/v3"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/cache/secondcache"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	dbproto "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/keys"
 )
+
+type cache interface {
+	Get(key string) (interface{}, bool)
+	Add(key string, value interface{})
+}
 
 type badgerDB struct {
 	db *badger.DB
 
 	txn     *badger.Txn
 	txnLock sync.Mutex
+	cache   cache
 }
 
 func OpenDB(path string) (*badgerDB, error) {
@@ -37,7 +44,7 @@ func OpenDB(path string) (*badgerDB, error) {
 		return nil, errors.Wrapf(err, "could not open DB at '%s'", path)
 	}
 
-	return &badgerDB{db: db}, nil
+	return &badgerDB{db: db, cache: secondcache.New(20000)}, nil
 }
 
 func (db *badgerDB) Close() error {
@@ -289,5 +296,91 @@ func (db *badgerDB) GetStateRangeScanIterator(namespace string, startKey string,
 		startKey:  startKey,
 		endKey:    endKey,
 		namespace: namespace,
+	}, nil
+}
+
+type cachedRangeScanIterator struct {
+	txn       *badger.Txn
+	it        *badger.Iterator
+	startKey  string
+	endKey    string
+	namespace string
+	cache     cache
+}
+
+func (r *cachedRangeScanIterator) Next() (*driver.VersionedRead, error) {
+	if !r.it.Valid() {
+		return nil, nil
+	}
+
+	item := r.it.Item()
+	if r.endKey != "" && (bytes.Compare(item.Key(), []byte(dbKey(r.namespace, r.endKey))) >= 0) {
+		return nil, nil
+	}
+
+	v, err := r.versionedValue(item, string(item.Key()))
+	if err != nil {
+		return nil, errors.Wrapf(err, "error iterating on range %s:%s", r.startKey, r.endKey)
+	}
+
+	dbKey := string(item.Key())
+	dbKey = dbKey[strings.Index(dbKey, keys.NamespaceSeparator)+1:]
+
+	r.it.Next()
+
+	return &driver.VersionedRead{
+		Key:          dbKey,
+		Block:        v.Block,
+		IndexInBlock: int(v.Txnum),
+		Raw:          v.Value,
+	}, nil
+}
+
+func (r *cachedRangeScanIterator) versionedValue(item *badger.Item, dbKey string) (*dbproto.VersionedValue, error) {
+	protoValue := &dbproto.VersionedValue{}
+	err := item.Value(func(val []byte) error {
+		// check the cache first
+		if v, ok := r.cache.Get(dbKey); ok {
+			protoValue = v.(*dbproto.VersionedValue)
+			return nil
+		}
+
+		if err := proto.Unmarshal(val, protoValue); err != nil {
+			return errors.Wrapf(err, "could not unmarshal VersionedValue for key %s", dbKey)
+		}
+
+		if protoValue.Version != dbproto.V1 {
+			return errors.Errorf("invalid version, expected %d, got %d", dbproto.V1, protoValue.Version)
+		}
+
+		// store in cache
+		r.cache.Add(dbKey, protoValue)
+
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not get value for key %s", dbKey)
+	}
+
+	return protoValue, nil
+}
+
+func (r *cachedRangeScanIterator) Close() {
+	r.it.Close()
+	r.txn.Discard()
+}
+
+func (db *badgerDB) GetCachedStateRangeScanIterator(namespace string, startKey string, endKey string) (driver.VersionedResultsIterator, error) {
+	txn := db.db.NewTransaction(false)
+	it := txn.NewIterator(badger.DefaultIteratorOptions)
+	it.Seek([]byte(dbKey(namespace, startKey)))
+
+	return &cachedRangeScanIterator{
+		txn:       txn,
+		it:        it,
+		startKey:  startKey,
+		endKey:    endKey,
+		namespace: namespace,
+		cache:     db.cache,
 	}, nil
 }
