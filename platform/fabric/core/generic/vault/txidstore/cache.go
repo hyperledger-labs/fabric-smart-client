@@ -36,7 +36,13 @@ func (s *Cache) Get(txid string) (fdriver.ValidationCode, error) {
 		return val.(fdriver.ValidationCode), nil
 	}
 	// then backed
-	return s.backed.Get(txid)
+	vs, err := s.backed.Get(txid)
+	if err != nil {
+		return vs, err
+	}
+	// cache
+	s.cache.Add(txid, vs)
+	return vs, nil
 }
 
 func (s *Cache) Set(txid string, code fdriver.ValidationCode) error {
