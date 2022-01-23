@@ -21,6 +21,10 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/keys"
 )
 
+var (
+	cacheEmptyProtoValue = &dbproto.VersionedValue{}
+)
+
 type cache interface {
 	Get(key string) (interface{}, bool)
 	Add(key string, value interface{})
@@ -348,17 +352,19 @@ func (r *cachedRangeScanIterator) Next() (*driver.VersionedRead, error) {
 }
 
 func (r *cachedRangeScanIterator) versionedValue(item *badger.Item, dbKey string) (*dbproto.VersionedValue, error) {
-	protoValue := &dbproto.VersionedValue{}
+	var protoValue *dbproto.VersionedValue
 	err := item.Value(func(val []byte) error {
 		// check the cache first
 		if v, ok := r.cache.Get(dbKey); ok {
 			if v == nil {
+				protoValue = cacheEmptyProtoValue
 				return nil
 			}
 			protoValue = v.(*dbproto.VersionedValue)
 			return nil
 		}
 
+		protoValue = &dbproto.VersionedValue{}
 		if err := proto.Unmarshal(val, protoValue); err != nil {
 			return errors.Wrapf(err, "could not unmarshal VersionedValue for key %s", dbKey)
 		}
