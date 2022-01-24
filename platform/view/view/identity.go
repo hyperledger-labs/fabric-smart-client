@@ -37,6 +37,23 @@ func (id Identity) UniqueID() string {
 	return base64.StdEncoding.EncodeToString(digest)
 }
 
+// Hash returns the hash of this identity
+func (id Identity) Hash() string {
+	if len(id) == 0 {
+		return "<empty>"
+	}
+	hash := sha256.New()
+	n, err := hash.Write(id)
+	if n != len(id) {
+		panic("hash failure")
+	}
+	if err != nil {
+		panic(err)
+	}
+	digest := hash.Sum(nil)
+	return string(digest)
+}
+
 // String returns a string representation of this identity
 func (id Identity) String() string {
 	return id.UniqueID()
