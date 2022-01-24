@@ -19,26 +19,36 @@ import (
 
 var logger = flogging.MustGetLogger("view.tracker.metrics")
 
-type Agent struct {
+type Host string
+type StatsDSink string
+
+type StatsdAgent struct {
 	sink     *metrics.StatsdSink
 	hostname string
 }
 
-type Host string
-type StatsDSink string
-
-func NewStatsdAgent(host Host, statsEndpoint StatsDSink) (*Agent, error) {
+func NewStatsdAgent(host Host, statsEndpoint StatsDSink) (*StatsdAgent, error) {
 	sink, err := metrics.NewStatsdSink(string(statsEndpoint))
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create statsd sink at [%s]", statsEndpoint)
 	}
-	return &Agent{sink: sink, hostname: strings.Replace(string(host), ".", "!", -1)}, nil
+	return &StatsdAgent{sink: sink, hostname: strings.Replace(string(host), ".", "!", -1)}, nil
 }
 
-func (a *Agent) EmitKey(val float32, event ...string) {
+func (a *StatsdAgent) EmitKey(val float32, event ...string) {
 	// logger.Debugf("EmitKey: [%s]", event)
 	now := time.Now().UnixNano()
 	events := append([]string{a.hostname}, event...)
 	events = append(events, strconv.FormatInt(now, 10))
 	a.sink.EmitKey(events, val)
+}
+
+type NullAgent struct{}
+
+func NewNullAgent() *NullAgent {
+	return &NullAgent{}
+}
+
+func (a *NullAgent) EmitKey(val float32, event ...string) {
+	// Do nothing
 }

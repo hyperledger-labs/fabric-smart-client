@@ -141,21 +141,33 @@ func (p *p) Install() error {
 
 	// Metrics
 	confService := view.GetConfigService(p.registry)
-	metricsServer := confService.GetString("fsc.metrics.options.address")
-	if len(metricsServer) == 0 {
-		metricsServer = "localhost:8125"
-	}
-	agent, err := metrics.NewStatsdAgent(
-		metrics.Host(confService.GetString("fsc.id")),
-		metrics.StatsDSink(metricsServer),
-	)
-	if err != nil {
-		return fmt.Errorf("error creating metrics agent: %s", err)
+	metricsType := confService.GetString("fsc.metrics.type")
+	var agent interface{}
+	switch metricsType {
+	case "", "none":
+		logger.Infof("Metrics disabled")
+		agent = metrics.NewNullAgent()
+	case "udp":
+		logger.Infof("Metrics enabled: UDP")
+		metricsServer := confService.GetString("fsc.metrics.options.address")
+		if len(metricsServer) == 0 {
+			metricsServer = "localhost:8125"
+			logger.Infof("metrics server address not set, using default: ", metricsServer)
+		}
+		agent, err = metrics.NewStatsdAgent(
+			metrics.Host(confService.GetString("fsc.id")),
+			metrics.StatsDSink(metricsServer),
+		)
+		if err != nil {
+			return fmt.Errorf("error creating metrics agent: %s", err)
+		}
+		logger.Infof("metrics enabled, listening on %s", metricsServer)
+	default:
+		return fmt.Errorf("unknown metrics type: %s", metricsType)
 	}
 	if err := p.registry.RegisterService(agent); err != nil {
 		return err
 	}
-	logger.Infof("metrics enabled, listening on %s", metricsServer)
 
 	return nil
 }
