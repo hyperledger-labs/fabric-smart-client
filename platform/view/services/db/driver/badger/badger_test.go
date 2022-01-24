@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"unicode/utf8"
 
@@ -608,4 +609,25 @@ func TestCompositeKeys(t *testing.T) {
 		{Key: "\x00prefix0a0b010", Raw: []uint8{0x0, 0x70, 0x72, 0x65, 0x66, 0x69, 0x78, 0x30, 0x61, 0x30, 0x62, 0x30, 0x31, 0x30}, Block: 0x23, IndexInBlock: 1},
 		{Key: "\x00prefix0a0b030", Raw: []uint8{0x0, 0x70, 0x72, 0x65, 0x66, 0x69, 0x78, 0x30, 0x61, 0x30, 0x62, 0x30, 0x33, 0x30}, Block: 0x23, IndexInBlock: 1},
 	}, res)
+}
+
+var (
+	namespace = "test_namespace"
+	key       = "test_key"
+)
+
+func BenchmarkConcatenation(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		_ = namespace + keys.NamespaceSeparator + key
+	}
+}
+
+func BenchmarkBuilder(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		var sb strings.Builder
+		sb.WriteString(namespace)
+		sb.WriteString(keys.NamespaceSeparator)
+		sb.WriteString(key)
+		_ = sb.String()
+	}
 }
