@@ -60,13 +60,16 @@ func (p *P2PNode) getOrCreateSession(sessionID, endpointAddress, contextID, call
 
 	p.sessions[internalSessionID] = s
 
-	logger.Infof("session [%s] as internal session [%s] ready", sessionID, internalSessionID)
-
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("session [%s] as internal session [%s] ready", sessionID, internalSessionID)
+	}
 	return s, nil
 }
 
 func (p *P2PNode) NewSession(callerViewID string, contextID string, endpoint string, pkid []byte) (view.Session, error) {
-	logger.Infof("new p2p session [%s,%s,%s,%s]", callerViewID, contextID, endpoint, base64.StdEncoding.EncodeToString(pkid))
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("new p2p session [%s,%s,%s,%s]", callerViewID, contextID, endpoint, base64.StdEncoding.EncodeToString(pkid))
+	}
 	ID, err := GetRandomNonce()
 	if err != nil {
 		return nil, err

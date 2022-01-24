@@ -11,6 +11,7 @@ import (
 	"time"
 
 	ab "github.com/hyperledger/fabric-protos-go/orderer"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/pkg/errors"
 
@@ -56,7 +57,9 @@ func NewFabricFinality(channel string, network Network, hasher Hasher, waitForEv
 }
 
 func (d *fabricFinality) IsFinal(txID string, address string) error {
-	logger.Infof("remote checking if transaction [%s] is final in channel [%s]", txID, d.channel)
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("remote checking if transaction [%s] is final in channel [%s]", txID, d.channel)
+	}
 	var eventCh chan delivery.TxEvent
 	var ctx context.Context
 	var cancelFunc context.CancelFunc
