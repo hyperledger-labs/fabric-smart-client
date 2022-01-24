@@ -332,39 +332,35 @@ func (r *cachedRangeScanIterator) Next() (*driver.VersionedRead, error) {
 	if r.endKey != "" && (bytes.Compare(item.Key(), []byte(dbKey(r.namespace, r.endKey))) >= 0) {
 		return nil, nil
 	}
-
 	v, err := r.versionedValue(item, string(item.Key()))
 	if err != nil {
 		return nil, errors.Wrapf(err, "error iterating on range %s:%s", r.startKey, r.endKey)
 	}
-
-	dbKey := string(item.Key())
-	dbKey = dbKey[strings.Index(dbKey, keys.NamespaceSeparator)+1:]
-
 	r.it.Next()
-
-	return &driver.VersionedRead{
-		Key:          dbKey,
-		Block:        v.Block,
-		IndexInBlock: int(v.Txnum),
-		Raw:          v.Value,
-	}, nil
+	return v, nil
 }
 
-func (r *cachedRangeScanIterator) versionedValue(item *badger.Item, dbKey string) (*dbproto.VersionedValue, error) {
-	var protoValue *dbproto.VersionedValue
+func (r *cachedRangeScanIterator) versionedValue(item *badger.Item, dbKey string) (*driver.VersionedRead, error) {
+	var res *driver.VersionedRead
 	err := item.Value(func(val []byte) error {
 		// check the cache first
 		if v, ok := r.cache.Get(dbKey); ok {
 			if v == nil {
-				protoValue = cacheEmptyProtoValue
+				vdbKey := dbKey
+				vdbKey = vdbKey[strings.Index(dbKey, keys.NamespaceSeparator)+1:]
+				res = &driver.VersionedRead{
+					Key:          vdbKey,
+					Block:        0,
+					IndexInBlock: 0,
+					Raw:          nil,
+				}
 				return nil
 			}
-			protoValue = v.(*dbproto.VersionedValue)
+			res = v.(*driver.VersionedRead)
 			return nil
 		}
 
-		protoValue = &dbproto.VersionedValue{}
+		protoValue := &dbproto.VersionedValue{}
 		if err := proto.Unmarshal(val, protoValue); err != nil {
 			return errors.Wrapf(err, "could not unmarshal VersionedValue for key %s", dbKey)
 		}
@@ -373,8 +369,17 @@ func (r *cachedRangeScanIterator) versionedValue(item *badger.Item, dbKey string
 			return errors.Errorf("invalid version, expected %d, got %d", dbproto.V1, protoValue.Version)
 		}
 
+		vdbKey := dbKey
+		vdbKey = vdbKey[strings.Index(dbKey, keys.NamespaceSeparator)+1:]
+		res = &driver.VersionedRead{
+			Key:          vdbKey,
+			Block:        protoValue.Block,
+			IndexInBlock: int(protoValue.Txnum),
+			Raw:          protoValue.Value,
+		}
+
 		// store in cache
-		r.cache.Add(dbKey, protoValue)
+		r.cache.Add(dbKey, res)
 
 		return nil
 	})
@@ -382,7 +387,7 @@ func (r *cachedRangeScanIterator) versionedValue(item *badger.Item, dbKey string
 		return nil, errors.Wrapf(err, "could not get value for key %s", dbKey)
 	}
 
-	return protoValue, nil
+	return res, nil
 }
 
 func (r *cachedRangeScanIterator) Close() {

@@ -168,12 +168,7 @@ func (r *RWSet) RWS() fdriver.RWSet {
 	return r.rws
 }
 
-type Read struct {
-	Key          string
-	Raw          []byte
-	Block        uint64
-	IndexInBlock int
-}
+type Read driver.VersionedRead
 
 // ResultsIterator models an query result iterator
 type ResultsIterator struct {
@@ -191,12 +186,7 @@ func (r *ResultsIterator) Next() (*Read, error) {
 		return nil, nil
 	}
 
-	return &Read{
-		Key:          read.Key,
-		Raw:          read.Raw,
-		Block:        read.Block,
-		IndexInBlock: read.IndexInBlock,
-	}, nil
+	return (*Read)(read), nil
 }
 
 // Close releases resources occupied by the iterator
