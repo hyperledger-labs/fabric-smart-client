@@ -14,6 +14,7 @@ import (
 
 	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger"
 	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 
 	"github.com/stretchr/testify/assert"
 
@@ -132,6 +133,19 @@ func testRound(t *testing.T, cfg *fakeProv) {
 			assert.Fail(t, "expected 2 entries in the range, found more")
 		}
 	}
+
+	val = &stuff{
+		S: "hello",
+		I: 100,
+	}
+	k := hash.Hashable("Hello World").RawString()
+	assert.NoError(t, kvstore.Put(k, val))
+	assert.True(t, kvstore.Exists(k))
+	val2 := &stuff{}
+	assert.NoError(t, kvstore.Get(k, val2))
+	assert.Equal(t, val, val2)
+	assert.NoError(t, kvstore.Delete(k))
+	assert.False(t, kvstore.Exists(k))
 }
 
 func TestKVS(t *testing.T) {
