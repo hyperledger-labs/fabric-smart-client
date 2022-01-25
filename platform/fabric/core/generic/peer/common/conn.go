@@ -12,12 +12,16 @@ import (
 
 	"github.com/hyperledger/fabric-protos-go/discovery"
 	pb "github.com/hyperledger/fabric-protos-go/peer"
+	"github.com/pkg/errors"
 	grpc2 "google.golang.org/grpc"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
+
+var logger = flogging.MustGetLogger("fabric-sdk.core.generic.peer.conn")
 
 type ConnCreator interface {
 	NewPeerClientForAddress(cc grpc.ConnectionConfig) (peer.Client, error)
@@ -93,15 +97,23 @@ func (pc *peerClient) resetConn() {
 }
 
 func (pc *peerClient) Endorser() (pb.EndorserClient, error) {
+	conn, err := pc.getOrConn()
+	if err != nil {
+		return nil, errors.Wrap(err, "error getting connection to endorser")
+	}
 	return &statefulClient{
-		EndorserClient: pb.NewEndorserClient(pc.conn),
+		EndorserClient: pb.NewEndorserClient(conn),
 		onErr:          pc.resetConn,
 	}, nil
 }
 
 func (pc *peerClient) Discovery() (discovery.DiscoveryClient, error) {
+	conn, err := pc.getOrConn()
+	if err != nil {
+		return nil, errors.Wrap(err, "error getting connection to peer")
+	}
 	return &statefulClient{
-		DiscoveryClient: discovery.NewDiscoveryClient(pc.conn),
+		DiscoveryClient: discovery.NewDiscoveryClient(conn),
 		onErr:           pc.resetConn,
 	}, nil
 }
@@ -154,6 +166,7 @@ func (cep *CachingEndorserPool) getOrCreateClient(key string, newClient func() (
 		Client: cl,
 	}
 
+	logger.Debugf("Created new client for [%s]", key)
 	cep.Cache[key] = cl
 
 	return cl, nil

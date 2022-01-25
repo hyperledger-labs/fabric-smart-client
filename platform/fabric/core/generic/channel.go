@@ -161,10 +161,12 @@ func (c *channel) GetTLSRootCert(endorser view.Identity) ([][]byte, error) {
 }
 
 func (c *channel) NewPeerClientForIdentity(peer view.Identity) (peer2.Client, error) {
+	logger.Debugf("NewPeerClientForIdentity [%s]", peer)
 	return c.connCache.NewPeerClientForIdentity(peer)
 }
 
 func (c *channel) NewPeerClientForAddress(cc grpc.ConnectionConfig) (peer2.Client, error) {
+	logger.Debugf("NewPeerClientForAddress [%v]", cc)
 	return c.connCache.NewPeerClientForAddress(cc)
 }
 
@@ -345,6 +347,7 @@ type connCreator struct {
 }
 
 func (c *connCreator) NewPeerClientForAddress(cc grpc.ConnectionConfig) (peer2.Client, error) {
+	logger.Debugf("Creating new peer client for address [%s]", cc.Address)
 	var certs [][]byte
 	if cc.TLSEnabled {
 		switch {
@@ -381,6 +384,7 @@ func (c *connCreator) NewPeerClientForAddress(cc grpc.ConnectionConfig) (peer2.C
 }
 
 func (c *connCreator) NewPeerClientForIdentity(peer view.Identity) (peer2.Client, error) {
+	logger.Debugf("Creating new peer client for [%s]", peer)
 	addresses, err := view2.GetEndpointService(c.ch.sp).Endpoint(peer)
 	if err != nil {
 		return nil, err
