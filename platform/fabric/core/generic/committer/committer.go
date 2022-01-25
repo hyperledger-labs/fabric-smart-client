@@ -51,8 +51,9 @@ type committer struct {
 
 	quietNotifier bool
 
-	listeners map[string][]chan TxEvent
-	mutex     sync.Mutex
+	listeners      map[string][]chan TxEvent
+	mutex          sync.Mutex
+	pollingTimeout time.Duration
 }
 
 func New(channel string, network Network, finality Finality, waitForEventTimeout time.Duration, quiet bool) (*committer, error) {
@@ -69,6 +70,7 @@ func New(channel string, network Network, finality Finality, waitForEventTimeout
 		listeners:            map[string][]chan TxEvent{},
 		mutex:                sync.Mutex{},
 		finality:             finality,
+		pollingTimeout:       100 * time.Millisecond,
 	}
 	return d, nil
 }
@@ -243,7 +245,7 @@ func (c *committer) listenTo(txid string, timeout time.Duration) error {
 	if err != nil {
 		return err
 	}
-	iterations := int(timeout.Milliseconds() / 1000)
+	iterations := int(timeout.Milliseconds() / c.pollingTimeout.Milliseconds())
 	if iterations == 0 {
 		iterations = 1
 	}
@@ -252,7 +254,7 @@ func (c *committer) listenTo(txid string, timeout time.Duration) error {
 		case event := <-ch:
 			logger.Debugf("Got an answer to finality of [%s]: [%s]", txid, event.Err)
 			return event.Err
-		case <-time.After(time.Second):
+		case <-time.After(c.pollingTimeout):
 			logger.Debugf("Got a timeout for finality of [%s], check the status", txid)
 			vd, _, err := committer.Status(txid)
 			if err == nil {
