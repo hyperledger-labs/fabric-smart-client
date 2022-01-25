@@ -23,7 +23,6 @@ var _ = Describe("EndToEnd", func() {
 
 	AfterEach(func() {
 		// Stop the ii
-		ii.DeleteOnStop = false
 		ii.Stop()
 	})
 

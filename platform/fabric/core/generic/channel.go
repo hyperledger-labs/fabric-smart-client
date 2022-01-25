@@ -68,6 +68,8 @@ type channel struct {
 
 	chaincodesLock sync.RWMutex
 	chaincodes     map[string]driver.Chaincode
+
+	connCache common2.CachingEndorserPool
 }
 
 func newChannel(network *network, name string, quiet bool) (*channel, error) {
@@ -159,60 +161,11 @@ func (c *channel) GetTLSRootCert(endorser view.Identity) ([][]byte, error) {
 }
 
 func (c *channel) NewPeerClientForIdentity(peer view.Identity) (peer2.Client, error) {
-	addresses, err := view2.GetEndpointService(c.sp).Endpoint(peer)
-	if err != nil {
-		return nil, err
-	}
-	tlsRootCerts, err := c.GetTLSRootCert(peer)
-	if err != nil {
-		return nil, err
-	}
-	if addresses[view2.ListenPort] == "" {
-		return nil, errors.New("peer address must be set")
-	}
-
-	clientConfig, override, err := c.GetClientConfig(tlsRootCerts)
-	if err != nil {
-		return nil, err
-	}
-
-	return newPeerClientForClientConfig(addresses[view2.ListenPort], override, *clientConfig)
+	return c.connCache.NewPeerClientForIdentity(peer)
 }
 
 func (c *channel) NewPeerClientForAddress(cc grpc.ConnectionConfig) (peer2.Client, error) {
-	var certs [][]byte
-	if cc.TLSEnabled {
-		switch {
-		case len(cc.TLSRootCertFile) != 0:
-			logger.Debugf("Loading TLSRootCert from file [%s]", cc.TLSRootCertFile)
-			caPEM, err := ioutil.ReadFile(cc.TLSRootCertFile)
-			if err != nil {
-				logger.Error("unable to load TLS cert from %s", cc.TLSRootCertFile)
-				return nil, errors.WithMessagef(err, "unable to load TLS cert from %s", cc.TLSRootCertFile)
-			}
-			certs = append(certs, caPEM)
-		case len(cc.TLSRootCertBytes) != 0:
-			logger.Debugf("Loading TLSRootCert from passed bytes [%s[", cc.TLSRootCertBytes)
-			certs = cc.TLSRootCertBytes
-		default:
-			return nil, errors.New("missing TLSRootCertFile in client config")
-		}
-	}
-
-	clientConfig, override, err := c.GetClientConfig(certs)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(cc.ServerNameOverride) != 0 {
-		override = cc.ServerNameOverride
-	}
-
-	return newPeerClientForClientConfig(
-		cc.Address,
-		override,
-		*clientConfig,
-	)
+	return c.connCache.NewPeerClientForAddress(cc)
 }
 
 func (c *channel) IsValid(identity view.Identity) error {
@@ -311,6 +264,10 @@ func (c *channel) init() error {
 	if err := c.ReloadConfigTransactions(); err != nil {
 		return errors.WithMessagef(err, "failed reloading config transactions")
 	}
+	c.connCache = common2.CachingEndorserPool{
+		Cache:       map[string]peer2.Client{},
+		ConnCreator: &connCreator{ch: c},
+	}
 	return nil
 }
 
@@ -381,4 +338,65 @@ func (p *processedTransaction) Envelope() []byte {
 
 func (p *processedTransaction) ValidationCode() int32 {
 	return p.vc
+}
+
+type connCreator struct {
+	ch *channel
+}
+
+func (c *connCreator) NewPeerClientForAddress(cc grpc.ConnectionConfig) (peer2.Client, error) {
+	var certs [][]byte
+	if cc.TLSEnabled {
+		switch {
+		case len(cc.TLSRootCertFile) != 0:
+			logger.Debugf("Loading TLSRootCert from file [%s]", cc.TLSRootCertFile)
+			caPEM, err := ioutil.ReadFile(cc.TLSRootCertFile)
+			if err != nil {
+				logger.Error("unable to load TLS cert from %s", cc.TLSRootCertFile)
+				return nil, errors.WithMessagef(err, "unable to load TLS cert from %s", cc.TLSRootCertFile)
+			}
+			certs = append(certs, caPEM)
+		case len(cc.TLSRootCertBytes) != 0:
+			logger.Debugf("Loading TLSRootCert from passed bytes [%s[", cc.TLSRootCertBytes)
+			certs = cc.TLSRootCertBytes
+		default:
+			return nil, errors.New("missing TLSRootCertFile in client config")
+		}
+	}
+
+	clientConfig, override, err := c.ch.GetClientConfig(certs)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(cc.ServerNameOverride) != 0 {
+		override = cc.ServerNameOverride
+	}
+
+	return newPeerClientForClientConfig(
+		cc.Address,
+		override,
+		*clientConfig,
+	)
+}
+
+func (c *connCreator) NewPeerClientForIdentity(peer view.Identity) (peer2.Client, error) {
+	addresses, err := view2.GetEndpointService(c.ch.sp).Endpoint(peer)
+	if err != nil {
+		return nil, err
+	}
+	tlsRootCerts, err := c.ch.GetTLSRootCert(peer)
+	if err != nil {
+		return nil, err
+	}
+	if addresses[view2.ListenPort] == "" {
+		return nil, errors.New("peer address must be set")
+	}
+
+	clientConfig, override, err := c.ch.GetClientConfig(tlsRootCerts)
+	if err != nil {
+		return nil, err
+	}
+
+	return newPeerClientForClientConfig(addresses[view2.ListenPort], override, *clientConfig)
 }

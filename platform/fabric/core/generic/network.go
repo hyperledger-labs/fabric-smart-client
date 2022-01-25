@@ -133,16 +133,7 @@ func (f *network) Channel(name string) (driver.Channel, error) {
 		if err != nil {
 			return nil, err
 		}
-
-		ch = &channelWithConnPool{
-			cache: common.CachingEndorserPool{
-				Cache:       make(map[string]peer.Client),
-				ConnCreator: c,
-			},
-			Channel: c,
-		}
-
-		f.channels[name] = ch
+		f.channels[name] = c
 		logger.Debugf("Channel [%s] not found, created", name)
 	}
 
