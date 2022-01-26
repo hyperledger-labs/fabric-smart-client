@@ -13,6 +13,8 @@ import (
 	"encoding/json"
 	"sync"
 
+	"go.uber.org/zap/zapcore"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
@@ -88,16 +90,22 @@ func (o *service) Broadcast(blob interface{}) error {
 	var err error
 	switch b := blob.(type) {
 	case Transaction:
-		logger.Debugf("new transaction to broadcast...")
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			logger.Debugf("new transaction to broadcast...")
+		}
 		env, err = o.createFabricEndorseTransactionEnvelope(b)
 		if err != nil {
 			return err
 		}
 	case *transaction.Envelope:
-		logger.Debugf("new envelope to broadcast (boxed)...")
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			logger.Debugf("new envelope to broadcast (boxed)...")
+		}
 		env = b.Envelope()
 	case *common2.Envelope:
-		logger.Debugf("new envelope to broadcast...")
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			logger.Debugf("new envelope to broadcast...")
+		}
 		env = blob.(*common2.Envelope)
 	default:
 		return errors.Errorf("invalid blob's type, got [%T]", blob)
@@ -287,9 +295,11 @@ func createSignedTx(proposal driver.Proposal, signer SerializableSigner, resps .
 			}
 
 			if !bytes.Equal(rwset1, rwset2) {
-				logger.Debugf("ProposalResponsePayloads do not match (%v) \n[%s]\n!=\n[%s]",
-					bytes.Equal(rwset1, rwset2), string(rwset1), string(rwset2),
-				)
+				if logger.IsEnabledFor(zapcore.DebugLevel) {
+					logger.Debugf("ProposalResponsePayloads do not match (%v) \n[%s]\n!=\n[%s]",
+						bytes.Equal(rwset1, rwset2), string(rwset1), string(rwset2),
+					)
+				}
 			} else {
 				pr1, err := json.MarshalIndent(first, "", "  ")
 				if err != nil {
@@ -300,9 +310,11 @@ func createSignedTx(proposal driver.Proposal, signer SerializableSigner, resps .
 					return nil, err
 				}
 
-				logger.Debugf("ProposalResponse do not match  \n[%s]\n!=\n[%s]",
-					bytes.Equal(pr1, pr2), string(pr1), string(pr2),
-				)
+				if logger.IsEnabledFor(zapcore.DebugLevel) {
+					logger.Debugf("ProposalResponse do not match  \n[%s]\n!=\n[%s]",
+						bytes.Equal(pr1, pr2), string(pr1), string(pr2),
+					)
+				}
 			}
 
 			return nil, errors.Errorf(

@@ -66,6 +66,7 @@ func (d *fabricFinality) IsFinal(txID string, address string) error {
 	var ctx context.Context
 	var cancelFunc context.CancelFunc
 
+	// TODO: use connection provider
 	deliverClient, err := delivery.NewDeliverClient(d.peerConnectionConfig)
 	if err != nil {
 		return err

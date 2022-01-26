@@ -11,6 +11,7 @@ import (
 	"reflect"
 
 	"github.com/pkg/errors"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view"
@@ -37,7 +38,9 @@ func InstallHandler(server Server, networkProvider NetworkProvider) {
 func (s *finalityHandler) isTxFinal(ctx context.Context, command *protos2.Command) (interface{}, error) {
 	c := command.Payload.(*protos2.Command_IsTxFinal).IsTxFinal
 
-	logger.Debugf("Answering: Is [%s] final on [%s:%s]?", c.Txid, c.Network, c.Channel)
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("Answering: Is [%s] final on [%s:%s]?", c.Txid, c.Network, c.Channel)
+	}
 
 	network, err := s.networkProvider.FabricNetworkService(c.Network)
 	if err != nil {
@@ -49,11 +52,15 @@ func (s *finalityHandler) isTxFinal(ctx context.Context, command *protos2.Comman
 	}
 	err = ch.IsFinal(c.Txid)
 	if err != nil {
-		logger.Debugf("Answering: Is [%s] final on [%s:%s]? No", c.Txid, c.Network, c.Channel)
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			logger.Debugf("Answering: Is [%s] final on [%s:%s]? No", c.Txid, c.Network, c.Channel)
+		}
 		return &protos2.CommandResponse_IsTxFinalResponse{IsTxFinalResponse: &protos2.IsTxFinalResponse{
 			Payload: []byte(err.Error()),
 		}}, nil
 	}
-	logger.Debugf("Answering: Is [%s] final on [%s:%s]? Yes", c.Txid, c.Network, c.Channel)
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("Answering: Is [%s] final on [%s:%s]? Yes", c.Txid, c.Network, c.Channel)
+	}
 	return &protos2.CommandResponse_IsTxFinalResponse{IsTxFinalResponse: &protos2.IsTxFinalResponse{}}, nil
 }

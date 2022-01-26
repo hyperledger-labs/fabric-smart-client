@@ -19,6 +19,7 @@ import (
 	pb "github.com/hyperledger/fabric-protos-go/peer"
 	"github.com/hyperledger/fabric/protoutil"
 	"github.com/pkg/errors"
+	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
 
@@ -150,7 +151,9 @@ func (d *deliverClient) Certificate() *tls.Certificate {
 
 // CreateDeliverEnvelope creates a signed envelope with SeekPosition_Newest for block
 func CreateDeliverEnvelope(channelID string, signingIdentity SigningIdentity, cert *tls.Certificate, hasher Hasher, start *ab.SeekPosition) (*common.Envelope, error) {
-	logger.Debugf("create delivery envelope starting from: [%s]", start.String())
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("create delivery envelope starting from: [%s]", start.String())
+	}
 	creator, err := signingIdentity.Serialize()
 	if err != nil {
 		return nil, err
@@ -221,15 +224,21 @@ read:
 		case *pb.DeliverResponse_FilteredBlock:
 			filteredTransactions := r.FilteredBlock.FilteredTransactions
 			for i, tx := range filteredTransactions {
-				logger.Debugf("transaction [%s] in block [%d]", tx.Txid, r.FilteredBlock.Number)
+				if logger.IsEnabledFor(zapcore.DebugLevel) {
+					logger.Debugf("transaction [%s] in block [%d]", tx.Txid, r.FilteredBlock.Number)
+				}
 				if tx.Txid == txid {
 					if tx.TxValidationCode == pb.TxValidationCode_VALID {
-						logger.Debugf("transaction [%s] in block [%d] is valid", tx.Txid, r.FilteredBlock.Number)
+						if logger.IsEnabledFor(zapcore.DebugLevel) {
+							logger.Debugf("transaction [%s] in block [%d] is valid", tx.Txid, r.FilteredBlock.Number)
+						}
 						event.Committed = true
 						event.Block = r.FilteredBlock.Number
 						event.IndexInBlock = i
 					} else {
-						logger.Debugf("transaction [%s] in block [%d] is not valid [%s]", tx.Txid, r.FilteredBlock.Number, tx.TxValidationCode)
+						if logger.IsEnabledFor(zapcore.DebugLevel) {
+							logger.Debugf("transaction [%s] in block [%d] is not valid [%s]", tx.Txid, r.FilteredBlock.Number, tx.TxValidationCode)
+						}
 						event.Err = errors.Errorf("transaction [%s] status is not valid: %s", tx.Txid, tx.TxValidationCode)
 					}
 					break read

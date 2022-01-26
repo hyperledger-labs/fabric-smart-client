@@ -10,6 +10,7 @@ import (
 	"github.com/hyperledger/fabric-protos-go/common"
 	pb "github.com/hyperledger/fabric-protos-go/peer"
 	"github.com/pkg/errors"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
@@ -29,7 +30,9 @@ func (c *committer) handleEndorserTransaction(block *common.Block, i int, event 
 	blockNum := block.Header.Number
 	switch pb.TxValidationCode(validationCode) {
 	case pb.TxValidationCode_VALID:
-		logger.Debugf("transaction [%s] in block [%d] is valid for fabric, commit!", txID, blockNum)
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			logger.Debugf("transaction [%s] in block [%d] is valid for fabric, commit!", txID, blockNum)
+		}
 
 		event.Committed = true
 		event.Block = blockNum
@@ -43,11 +46,15 @@ func (c *committer) handleEndorserTransaction(block *common.Block, i int, event 
 
 		switch vc {
 		case driver.Valid:
-			logger.Debugf("transaction [%s] in block [%d] is already marked as valid, skipping", txID, blockNum)
+			if logger.IsEnabledFor(zapcore.DebugLevel) {
+				logger.Debugf("transaction [%s] in block [%d] is already marked as valid, skipping", txID, blockNum)
+			}
 			// Nothing to commit
 			return
 		case driver.Invalid:
-			logger.Debugf("transaction [%s] in block [%d] is marked as invalid, skipping", txID, blockNum)
+			if logger.IsEnabledFor(zapcore.DebugLevel) {
+				logger.Debugf("transaction [%s] in block [%d] is marked as invalid, skipping", txID, blockNum)
+			}
 			// Nothing to commit
 			return
 		default:
@@ -63,7 +70,9 @@ func (c *committer) handleEndorserTransaction(block *common.Block, i int, event 
 			}
 		}
 	default:
-		logger.Debugf("transaction [%s] in block [%d] is not valid for fabric [%s], discard!", txID, blockNum, validationCode)
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			logger.Debugf("transaction [%s] in block [%d] is not valid for fabric [%s], discard!", txID, blockNum, validationCode)
+		}
 
 		vc, deps, err := committer.Status(txID)
 		if err != nil {
@@ -75,7 +84,9 @@ func (c *committer) handleEndorserTransaction(block *common.Block, i int, event 
 			// TODO: this might be due the fact that there are transactions with the same tx-id, the first is valid, the others are all invalid
 			logger.Warnf("transaction [%s] in block [%d] is marked as valid but for fabric is invalid", txID, blockNum)
 		case driver.Invalid:
-			logger.Debugf("transaction [%s] in block [%d] is marked as invalid, skipping", txID, blockNum)
+			if logger.IsEnabledFor(zapcore.DebugLevel) {
+				logger.Debugf("transaction [%s] in block [%d] is marked as invalid, skipping", txID, blockNum)
+			}
 			// Nothing to commit
 			return
 		default:

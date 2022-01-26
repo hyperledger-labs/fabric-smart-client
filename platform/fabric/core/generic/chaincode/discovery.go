@@ -17,6 +17,7 @@ import (
 	discovery "github.com/hyperledger/fabric/discovery/client"
 	"github.com/hyperledger/fabric/protoutil"
 	"github.com/pkg/errors"
+	"go.uber.org/zap/zapcore"
 
 	peer2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
@@ -158,7 +159,9 @@ func (d *Discovery) Call() ([]view.Identity, error) {
 
 				for i := 0; i < int(q); i++ {
 					endorserID := descriptor.EndorsersByGroups[group].Peers[i].Identity
-					logger.Debugf("endorser discovered [%s,%s] [%s]", descriptor.Chaincode, group, view.Identity(endorserID))
+					if logger.IsEnabledFor(zapcore.DebugLevel) {
+						logger.Debugf("endorser discovered [%s,%s] [%s]", descriptor.Chaincode, group, view.Identity(endorserID))
+					}
 
 					if len(d.filterByMSPIDs) != 0 {
 						endorser, err := mspManager.DeserializeIdentity(endorserID)
