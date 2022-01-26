@@ -98,6 +98,7 @@ func (db *Vault) Status(txid string) (fdriver.ValidationCode, error) {
 	}
 
 	if code != fdriver.Unknown {
+		logger.Infof("txid [%s] is already committed", txid)
 		return code, nil
 	}
 
@@ -105,9 +106,11 @@ func (db *Vault) Status(txid string) (fdriver.ValidationCode, error) {
 	defer db.interceptorsLock.Unlock()
 
 	if _, in := db.interceptors[txid]; in {
+		logger.Infof("txid [%s] is in memory", txid)
 		return fdriver.Busy, nil
 	}
 
+	logger.Infof("txid [%s] is unknown", txid)
 	return fdriver.Unknown, nil
 }
 
