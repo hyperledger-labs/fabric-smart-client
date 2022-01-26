@@ -139,51 +139,59 @@ func (c *committer) IsFinal(txid string) error {
 		return err
 	}
 
-	vd, deps, err := committer.Status(txid)
-	if err == nil {
-		switch vd {
-		case driver.Valid:
-			logger.Debugf("Tx [%s] is valid", txid)
-			return nil
-		case driver.Invalid:
-			logger.Debugf("Tx [%s] is not valid", txid)
-			return errors.Errorf("transaction [%s] is not valid", txid)
-		case driver.Busy:
-			logger.Debugf("Tx [%s] is known with deps [%v]", txid, deps)
-			if len(deps) != 0 {
-				for _, id := range deps {
-					logger.Debugf("Check finality of dependant transaction [%s]", id)
-					err := c.IsFinal(id)
-					if err != nil {
-						logger.Errorf("Check finality of dependant transaction [%s], failed [%s]", id, err)
-						return err
-					}
-				}
+	iter := 0
+	for {
+		vd, deps, err := committer.Status(txid)
+		if err == nil {
+			switch vd {
+			case driver.Valid:
+				logger.Debugf("Tx [%s] is valid", txid)
 				return nil
-			}
-		case driver.HasDependencies:
-			logger.Debugf("Tx [%s] is unknown with deps [%v]", txid, deps)
-			if len(deps) != 0 {
-				for _, id := range deps {
-					logger.Debugf("Check finality of dependant transaction [%s]", id)
-					err := c.IsFinal(id)
-					if err != nil {
-						logger.Errorf("Check finality of dependant transaction [%s], failed [%s]", id, err)
-						return err
+			case driver.Invalid:
+				logger.Debugf("Tx [%s] is not valid", txid)
+				return errors.Errorf("transaction [%s] is not valid", txid)
+			case driver.Busy:
+				logger.Debugf("Tx [%s] is known with deps [%v]", txid, deps)
+				if len(deps) != 0 {
+					for _, id := range deps {
+						logger.Debugf("Check finality of dependant transaction [%s]", id)
+						err := c.IsFinal(id)
+						if err != nil {
+							logger.Errorf("Check finality of dependant transaction [%s], failed [%s]", id, err)
+							return err
+						}
 					}
+					return nil
 				}
-				return nil
+			case driver.HasDependencies:
+				logger.Debugf("Tx [%s] is unknown with deps [%v]", txid, deps)
+				if len(deps) != 0 {
+					for _, id := range deps {
+						logger.Debugf("Check finality of dependant transaction [%s]", id)
+						err := c.IsFinal(id)
+						if err != nil {
+							logger.Errorf("Check finality of dependant transaction [%s], failed [%s]", id, err)
+							return err
+						}
+					}
+					return nil
+				}
+				return c.finality.IsFinal(txid, c.peerConnectionConfig.Address)
+			case driver.Unknown:
+				if iter == 2 {
+					logger.Debugf("Tx [%s] is unknown with no deps", txid)
+					return c.finality.IsFinal(txid, c.peerConnectionConfig.Address)
+				}
+				iter++
+				time.Sleep(100 * time.Millisecond)
+				continue
+			default:
+				panic(fmt.Sprintf("invalid status code, got %c", vd))
 			}
-			return c.finality.IsFinal(txid, c.peerConnectionConfig.Address)
-		case driver.Unknown:
-			logger.Debugf("Tx [%s] is unknown with no deps", txid)
-			return c.finality.IsFinal(txid, c.peerConnectionConfig.Address)
-		default:
-			panic(fmt.Sprintf("invalid status code, got %c", vd))
+		} else {
+			logger.Errorf("Is [%s] final? Failed getting transaction status from vault", txid)
+			return errors.WithMessagef(err, "failed getting transaction status from vault [%s]", txid)
 		}
-	} else {
-		logger.Debugf("Is [%s] final? Failed getting transaction status from vault", txid)
-		return errors.WithMessagef(err, "failed getting transaction status from vault [%s]", txid)
 	}
 
 	// Listen to the event
