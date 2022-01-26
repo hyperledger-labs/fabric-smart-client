@@ -32,6 +32,10 @@ var (
 	ErrQSCCUnreachable = errors.New("error querying QSCC")
 )
 
+type Metrics interface {
+	EmitKey(val float32, event ...string)
+}
+
 type Finality interface {
 	IsFinal(txID string, address string) error
 }
@@ -48,6 +52,7 @@ type committer struct {
 	finality             Finality
 	peerConnectionConfig *grpc.ConnectionConfig
 	waitForEventTimeout  time.Duration
+	metrics              Metrics
 
 	quietNotifier bool
 
@@ -56,7 +61,7 @@ type committer struct {
 	pollingTimeout time.Duration
 }
 
-func New(channel string, network Network, finality Finality, waitForEventTimeout time.Duration, quiet bool) (*committer, error) {
+func New(channel string, network Network, finality Finality, waitForEventTimeout time.Duration, quiet bool, metrics Metrics) (*committer, error) {
 	if len(channel) == 0 {
 		panic("expected a channel, got empty string")
 	}
@@ -71,6 +76,7 @@ func New(channel string, network Network, finality Finality, waitForEventTimeout
 		mutex:                sync.Mutex{},
 		finality:             finality,
 		pollingTimeout:       100 * time.Millisecond,
+		metrics:              metrics,
 	}
 	return d, nil
 }
@@ -97,6 +103,7 @@ func (c *committer) Commit(block *common.Block) error {
 
 		var event TxEvent
 
+		c.metrics.EmitKey(0, "committer", "start", "Commit", chdr.TxId)
 		switch common.HeaderType(chdr.Type) {
 		case common.HeaderType_CONFIG:
 			logger.Debugf("[%s] Config transaction received: %s", c.channel, chdr.TxId)
@@ -110,6 +117,7 @@ func (c *committer) Commit(block *common.Block) error {
 		default:
 			logger.Debugf("[%s] Received unhandled transaction type: %s", c.channel, chdr.Type)
 		}
+		c.metrics.EmitKey(0, "committer", "end", "Commit", chdr.TxId)
 
 		c.notify(event)
 
@@ -121,6 +129,9 @@ func (c *committer) Commit(block *common.Block) error {
 
 // IsFinal takes in input a transaction id and waits for its confirmation.
 func (c *committer) IsFinal(txid string) error {
+	c.metrics.EmitKey(0, "committer", "start", "IsFinal", txid)
+	defer c.metrics.EmitKey(0, "committer", "end", "IsFinal", txid)
+
 	logger.Debugf("Is [%s] final?", txid)
 
 	committer, err := c.network.Committer(c.channel)
@@ -233,6 +244,9 @@ func (c *committer) notify(event TxEvent) {
 }
 
 func (c *committer) listenTo(txid string, timeout time.Duration) error {
+	c.metrics.EmitKey(0, "committer", "start", "listenTo", txid)
+	defer c.metrics.EmitKey(0, "committer", "end", "listenTo", txid)
+
 	logger.Debugf("Listen to finality of [%s]", txid)
 
 	// notice that adding the listener can happen after the event we are looking for has already happened
