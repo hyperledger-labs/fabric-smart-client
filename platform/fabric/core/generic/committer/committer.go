@@ -140,8 +140,7 @@ func (c *committer) IsFinal(txid string) error {
 		return err
 	}
 
-	iter := 0
-	for {
+	for iter := 0; iter < 3; iter++ {
 		vd, deps, err := committer.Status(txid)
 		if err == nil {
 			switch vd {
@@ -179,15 +178,13 @@ func (c *committer) IsFinal(txid string) error {
 				}
 				return c.finality.IsFinal(txid, c.peerConnectionConfig.Address)
 			case driver.Unknown:
-				if iter == 2 {
+				if iter >= 2 {
 					logger.Infof("Tx [%s] is unknown with no deps, remote check [%d][%s]", txid, iter, debug.Stack())
 					logger.Debugf("Tx [%s] is unknown with no deps", txid)
 					return c.finality.IsFinal(txid, c.peerConnectionConfig.Address)
 				}
 				logger.Infof("Tx [%s] is unknown with no deps, wait a bit and retry [%d]", txid, iter)
-				iter++
 				time.Sleep(100 * time.Millisecond)
-				continue
 			default:
 				panic(fmt.Sprintf("invalid status code, got %c", vd))
 			}
