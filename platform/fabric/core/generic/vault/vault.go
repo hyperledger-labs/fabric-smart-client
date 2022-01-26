@@ -108,7 +108,6 @@ func (db *Vault) Status(txid string) (fdriver.ValidationCode, error) {
 		return fdriver.Busy, nil
 	}
 
-	logger.Infof("tx [%s] is unknown", txid)
 	return fdriver.Unknown, nil
 }
 

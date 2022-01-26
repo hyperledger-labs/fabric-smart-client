@@ -182,6 +182,7 @@ func (c *committer) IsFinal(txid string) error {
 					logger.Debugf("Tx [%s] is unknown with no deps", txid)
 					return c.finality.IsFinal(txid, c.peerConnectionConfig.Address)
 				}
+				logger.Infof("Tx [%s] is unknown with no deps, wait a bit and retry", txid)
 				iter++
 				time.Sleep(100 * time.Millisecond)
 				continue
