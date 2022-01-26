@@ -16,7 +16,10 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 )
 
-var logger = flogging.MustGetLogger("view-sdk.eregistry")
+var (
+	ServiceNotFound = errors.New("service not found")
+	logger          = flogging.MustGetLogger("view-sdk.eregistry")
+)
 
 type serviceProvider struct {
 	services   []interface{}
@@ -43,14 +46,15 @@ func (sp *serviceProvider) GetService(v interface{}) (interface{}, error) {
 		typ = reflect.TypeOf(v)
 	}
 
+	switch typ.Kind() {
+	case reflect.Struct:
+		// nothing to do here
+	default:
+		typ = typ.Elem()
+	}
+
 	service, ok := sp.serviceMap[typ]
 	if !ok {
-		switch typ.Kind() {
-		case reflect.Struct:
-			// nothing to do here
-		default:
-			typ = typ.Elem()
-		}
 		switch typ.Kind() {
 		case reflect.Interface:
 			for _, s := range sp.services {
@@ -66,6 +70,9 @@ func (sp *serviceProvider) GetService(v interface{}) (interface{}, error) {
 					return s, nil
 				}
 			}
+		}
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			return nil, ServiceNotFound
 		}
 		return nil, errors.Errorf("service [%s/%s] not found in [%v]", typ.PkgPath(), typ.Name(), sp.String())
 	}

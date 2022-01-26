@@ -321,6 +321,20 @@ type cachedRangeScanIterator struct {
 	endKey    string
 	namespace string
 	cache     cache
+
+	compareKey []byte
+}
+
+func newCachedRangeScanIterator(txn *badger.Txn, it *badger.Iterator, startKey string, endKey string, namespace string, cache cache) *cachedRangeScanIterator {
+	return &cachedRangeScanIterator{
+		txn:        txn,
+		it:         it,
+		startKey:   startKey,
+		endKey:     endKey,
+		namespace:  namespace,
+		cache:      cache,
+		compareKey: []byte(dbKey(namespace, endKey)),
+	}
 }
 
 func (r *cachedRangeScanIterator) Next() (*driver.VersionedRead, error) {
@@ -329,7 +343,7 @@ func (r *cachedRangeScanIterator) Next() (*driver.VersionedRead, error) {
 	}
 
 	item := r.it.Item()
-	if r.endKey != "" && (bytes.Compare(item.Key(), []byte(dbKey(r.namespace, r.endKey))) >= 0) {
+	if r.endKey != "" && (bytes.Compare(item.Key(), r.compareKey) >= 0) {
 		return nil, nil
 	}
 	v, err := r.versionedValue(item, string(item.Key()))
@@ -400,12 +414,5 @@ func (db *badgerDB) GetCachedStateRangeScanIterator(namespace string, startKey s
 	it := txn.NewIterator(badger.DefaultIteratorOptions)
 	it.Seek([]byte(dbKey(namespace, startKey)))
 
-	return &cachedRangeScanIterator{
-		txn:       txn,
-		it:        it,
-		startKey:  startKey,
-		endKey:    endKey,
-		namespace: namespace,
-		cache:     db.cache,
-	}, nil
+	return newCachedRangeScanIterator(txn, it, startKey, endKey, namespace, db.cache), nil
 }
