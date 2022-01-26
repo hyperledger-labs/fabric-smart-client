@@ -40,10 +40,7 @@ func (s *Cache) Get(txid string) (fdriver.ValidationCode, error) {
 	if err != nil {
 		return vs, err
 	}
-	if vs != fdriver.Unknown {
-		// cache
-		s.cache.Add(txid, vs)
-	}
+	s.cache.Add(txid, vs)
 	return vs, nil
 }
 
