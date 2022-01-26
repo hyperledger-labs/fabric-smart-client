@@ -8,6 +8,7 @@ package committer
 
 import (
 	"fmt"
+	"runtime/debug"
 	"sync"
 	"time"
 
@@ -179,10 +180,11 @@ func (c *committer) IsFinal(txid string) error {
 				return c.finality.IsFinal(txid, c.peerConnectionConfig.Address)
 			case driver.Unknown:
 				if iter == 2 {
+					logger.Infof("Tx [%s] is unknown with no deps, remote check [%d][%s]", txid, iter, debug.Stack())
 					logger.Debugf("Tx [%s] is unknown with no deps", txid)
 					return c.finality.IsFinal(txid, c.peerConnectionConfig.Address)
 				}
-				logger.Infof("Tx [%s] is unknown with no deps, wait a bit and retry", txid)
+				logger.Infof("Tx [%s] is unknown with no deps, wait a bit and retry [%d]", txid, iter)
 				iter++
 				time.Sleep(100 * time.Millisecond)
 				continue
