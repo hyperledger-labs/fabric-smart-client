@@ -48,10 +48,18 @@ func (i *ItemList) Get(index int) (*driver.VersionedRead, bool) {
 func (i *ItemList) Set(index int, v *driver.VersionedRead) {
 	i.Lock()
 	defer i.Unlock()
-	if index < 0 || index >= len(i.items) {
+
+	// if not in capacity, then skip
+	if index < 0 || index >= cap(i.items) {
 		return
 	}
-	i.items[index] = v
+
+	// if not in length, then append
+	if index >= len(i.items) {
+		i.items = append(i.items, v)
+	} else {
+		i.items[index] = v
+	}
 }
 
 type badgerDB struct {
@@ -394,6 +402,8 @@ func (r *cachedRangeScanIterator) Next() (*driver.VersionedRead, error) {
 
 	v, ok := r.items.Get(r.index)
 	if ok {
+		r.it.Next()
+		r.index++
 		return v, nil
 	}
 
@@ -486,7 +496,7 @@ func (db *badgerDB) GetCachedStateRangeScanIterator(namespace string, startKey s
 		db.itemsMapLock.Lock()
 		itemsMap, ok = db.itemsMap[namespace+startKey+endKey]
 		if !ok {
-			itemsMap = &ItemList{items: make([]*driver.VersionedRead, 2000)}
+			itemsMap = &ItemList{items: make([]*driver.VersionedRead, 0, 2000)}
 			db.itemsMap[namespace+startKey+endKey] = itemsMap
 		}
 		db.itemsMapLock.Unlock()

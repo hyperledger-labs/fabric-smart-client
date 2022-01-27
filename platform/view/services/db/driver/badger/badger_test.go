@@ -84,12 +84,37 @@ func TestRangeQueries(t *testing.T) {
 		assert.NoError(t, err)
 		res = append(res, *n)
 	}
-	assert.Len(t, res, 3)
-	assert.Equal(t, []driver.VersionedRead{
+	expected := []driver.VersionedRead{
 		{Key: "k1", Raw: []byte("k1_value"), Block: 35, IndexInBlock: 3},
 		{Key: "k111", Raw: []byte("k111_value"), Block: 35, IndexInBlock: 4},
 		{Key: "k2", Raw: []byte("k2_value"), Block: 35, IndexInBlock: 1},
-	}, res)
+	}
+	assert.Len(t, res, 3)
+	assert.Equal(t, expected, res)
+
+	itr, err = db.GetCachedStateRangeScanIterator(ns, "k1", "k3")
+	defer itr.Close()
+	assert.NoError(t, err)
+
+	res = make([]driver.VersionedRead, 0, 3)
+	for n, err := itr.Next(); n != nil; n, err = itr.Next() {
+		assert.NoError(t, err)
+		res = append(res, *n)
+	}
+	assert.Len(t, res, 3)
+	assert.Equal(t, expected, res)
+
+	itr, err = db.GetCachedStateRangeScanIterator(ns, "k1", "k3")
+	defer itr.Close()
+	assert.NoError(t, err)
+
+	res = make([]driver.VersionedRead, 0, 3)
+	for n, err := itr.Next(); n != nil; n, err = itr.Next() {
+		assert.NoError(t, err)
+		res = append(res, *n)
+	}
+	assert.Len(t, res, 3)
+	assert.Equal(t, expected, res)
 }
 
 func TestMarshallingErrors(t *testing.T) {
