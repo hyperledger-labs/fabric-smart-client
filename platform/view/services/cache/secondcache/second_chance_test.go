@@ -7,10 +7,12 @@ SPDX-License-Identifier: Apache-2.0
 package secondcache
 
 import (
+	"crypto/rand"
 	"fmt"
 	"sync"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -100,4 +102,28 @@ func TestSecondChanceCacheConcurrent(t *testing.T) {
 		}()
 	}
 	wg.Wait()
+}
+
+func BenchmarkSecondChanceCache(b *testing.B) {
+	cache := New(b.N)
+	for i := 0; i < b.N; i++ {
+		// b.StopTimer()
+		key := make([]byte, 64)
+		_, err := rand.Read(key)
+		assert.NoError(b, err)
+		// b.StartTimer()
+
+		cache.Add(string(key), fmt.Sprintf("value-%d", i))
+	}
+}
+
+func BenchmarkSecondChanceCacheBytes(b *testing.B) {
+	cache := NewBytes(b.N)
+	for i := 0; i < b.N; i++ {
+		key := make([]byte, 64)
+		_, err := rand.Read(key)
+		assert.NoError(b, err)
+
+		cache.Add(key, fmt.Sprintf("value-%d", i))
+	}
 }

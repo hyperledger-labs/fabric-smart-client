@@ -31,6 +31,29 @@ type cache interface {
 	Delete(key string)
 }
 
+type ItemList struct {
+	items []*driver.VersionedRead
+	sync.RWMutex
+}
+
+func (i *ItemList) Get(index int) (*driver.VersionedRead, bool) {
+	i.RLock()
+	defer i.RUnlock()
+	if index < 0 || index >= len(i.items) {
+		return nil, false
+	}
+	return i.items[index], true
+}
+
+func (i *ItemList) Set(index int, v *driver.VersionedRead) {
+	i.Lock()
+	defer i.Unlock()
+	if index < 0 || index >= len(i.items) {
+		return
+	}
+	i.items[index] = v
+}
+
 type badgerDB struct {
 	db *badger.DB
 
@@ -38,6 +61,9 @@ type badgerDB struct {
 	deletes []string
 	txnLock sync.Mutex
 	cache   cache
+
+	itemsMap     map[string]*ItemList
+	itemsMapLock sync.RWMutex
 }
 
 func OpenDB(path string) (*badgerDB, error) {
@@ -50,7 +76,11 @@ func OpenDB(path string) (*badgerDB, error) {
 		return nil, errors.Wrapf(err, "could not open DB at '%s'", path)
 	}
 
-	return &badgerDB{db: db, cache: secondcache.New(20000)}, nil
+	return &badgerDB{
+		db:       db,
+		cache:    secondcache.New(20000),
+		itemsMap: map[string]*ItemList{},
+	}, nil
 }
 
 func (db *badgerDB) Close() error {
@@ -99,6 +129,10 @@ func (db *badgerDB) Commit() error {
 
 	db.txn = nil
 	db.deletes = nil
+
+	db.itemsMapLock.Lock()
+	defer db.itemsMapLock.Unlock()
+	db.itemsMap = map[string]*ItemList{}
 
 	return nil
 }
@@ -314,6 +348,11 @@ func (db *badgerDB) GetStateRangeScanIterator(namespace string, startKey string,
 	}, nil
 }
 
+type ItemCache interface {
+	Get(index int) (*driver.VersionedRead, bool)
+	Set(index int, v *driver.VersionedRead)
+}
+
 type cachedRangeScanIterator struct {
 	txn       *badger.Txn
 	it        *badger.Iterator
@@ -323,9 +362,19 @@ type cachedRangeScanIterator struct {
 	cache     cache
 
 	compareKey []byte
+	index      int
+	items      ItemCache
 }
 
-func newCachedRangeScanIterator(txn *badger.Txn, it *badger.Iterator, startKey string, endKey string, namespace string, cache cache) *cachedRangeScanIterator {
+func newCachedRangeScanIterator(
+	txn *badger.Txn,
+	it *badger.Iterator,
+	startKey string,
+	endKey string,
+	namespace string,
+	cache cache,
+	items ItemCache,
+) *cachedRangeScanIterator {
 	return &cachedRangeScanIterator{
 		txn:        txn,
 		it:         it,
@@ -334,12 +383,18 @@ func newCachedRangeScanIterator(txn *badger.Txn, it *badger.Iterator, startKey s
 		namespace:  namespace,
 		cache:      cache,
 		compareKey: []byte(dbKey(namespace, endKey)),
+		items:      items,
 	}
 }
 
 func (r *cachedRangeScanIterator) Next() (*driver.VersionedRead, error) {
 	if !r.it.Valid() {
 		return nil, nil
+	}
+
+	v, ok := r.items.Get(r.index)
+	if ok {
+		return v, nil
 	}
 
 	item := r.it.Item()
@@ -351,6 +406,10 @@ func (r *cachedRangeScanIterator) Next() (*driver.VersionedRead, error) {
 		return nil, errors.Wrapf(err, "error iterating on range %s:%s", r.startKey, r.endKey)
 	}
 	r.it.Next()
+
+	r.items.Set(r.index, v)
+	r.index++
+
 	return v, nil
 }
 
@@ -403,6 +462,13 @@ func (r *cachedRangeScanIterator) versionedValue(item *badger.Item, dbKey string
 	return res, nil
 }
 
+var CacheIteratorOptions = badger.IteratorOptions{
+	PrefetchValues: true,
+	PrefetchSize:   2000,
+	Reverse:        false,
+	AllVersions:    false,
+}
+
 func (r *cachedRangeScanIterator) Close() {
 	r.it.Close()
 	r.txn.Discard()
@@ -410,8 +476,23 @@ func (r *cachedRangeScanIterator) Close() {
 
 func (db *badgerDB) GetCachedStateRangeScanIterator(namespace string, startKey string, endKey string) (driver.VersionedResultsIterator, error) {
 	txn := db.db.NewTransaction(false)
-	it := txn.NewIterator(badger.DefaultIteratorOptions)
+	it := txn.NewIterator(CacheIteratorOptions)
 	it.Seek([]byte(dbKey(namespace, startKey)))
 
-	return newCachedRangeScanIterator(txn, it, startKey, endKey, namespace, db.cache), nil
+	db.itemsMapLock.RLock()
+	itemsMap, ok := db.itemsMap[namespace+startKey+endKey]
+	if !ok {
+		db.itemsMapLock.RUnlock()
+		db.itemsMapLock.Lock()
+		itemsMap, ok = db.itemsMap[namespace+startKey+endKey]
+		if !ok {
+			itemsMap = &ItemList{items: make([]*driver.VersionedRead, 2000)}
+			db.itemsMap[namespace+startKey+endKey] = itemsMap
+		}
+		db.itemsMapLock.Unlock()
+	} else {
+		db.itemsMapLock.RUnlock()
+	}
+
+	return newCachedRangeScanIterator(txn, it, startKey, endKey, namespace, db.cache, itemsMap), nil
 }
