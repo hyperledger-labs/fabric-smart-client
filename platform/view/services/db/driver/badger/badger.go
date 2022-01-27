@@ -70,8 +70,9 @@ type badgerDB struct {
 	txnLock sync.Mutex
 	cache   cache
 
-	itemsMap     map[string]*ItemList
-	itemsMapLock sync.RWMutex
+	itemsListSize int
+	itemsMap      map[string]*ItemList
+	itemsMapLock  sync.RWMutex
 }
 
 func OpenDB(path string) (*badgerDB, error) {
@@ -85,9 +86,10 @@ func OpenDB(path string) (*badgerDB, error) {
 	}
 
 	return &badgerDB{
-		db:       db,
-		cache:    secondcache.New(20000),
-		itemsMap: map[string]*ItemList{},
+		db:            db,
+		cache:         secondcache.New(20000),
+		itemsMap:      map[string]*ItemList{},
+		itemsListSize: 2000,
 	}, nil
 }
 
@@ -472,13 +474,6 @@ func (r *cachedRangeScanIterator) versionedValue(item *badger.Item, dbKey string
 	return res, nil
 }
 
-var CacheIteratorOptions = badger.IteratorOptions{
-	PrefetchValues: true,
-	PrefetchSize:   2000,
-	Reverse:        false,
-	AllVersions:    false,
-}
-
 func (r *cachedRangeScanIterator) Close() {
 	r.it.Close()
 	r.txn.Discard()
@@ -486,7 +481,7 @@ func (r *cachedRangeScanIterator) Close() {
 
 func (db *badgerDB) GetCachedStateRangeScanIterator(namespace string, startKey string, endKey string) (driver.VersionedResultsIterator, error) {
 	txn := db.db.NewTransaction(false)
-	it := txn.NewIterator(CacheIteratorOptions)
+	it := txn.NewIterator(badger.DefaultIteratorOptions)
 	it.Seek([]byte(dbKey(namespace, startKey)))
 
 	db.itemsMapLock.RLock()
@@ -496,7 +491,7 @@ func (db *badgerDB) GetCachedStateRangeScanIterator(namespace string, startKey s
 		db.itemsMapLock.Lock()
 		itemsMap, ok = db.itemsMap[namespace+startKey+endKey]
 		if !ok {
-			itemsMap = &ItemList{items: make([]*driver.VersionedRead, 0, 2000)}
+			itemsMap = &ItemList{items: make([]*driver.VersionedRead, 0, db.itemsListSize)}
 			db.itemsMap[namespace+startKey+endKey] = itemsMap
 		}
 		db.itemsMapLock.Unlock()
