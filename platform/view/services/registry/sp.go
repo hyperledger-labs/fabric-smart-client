@@ -72,9 +72,10 @@ func (sp *serviceProvider) GetService(v interface{}) (interface{}, error) {
 			}
 		}
 		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			return nil, ServiceNotFound
+			return nil, errors.Errorf("service [%s/%s] not found in [%v]", typ.PkgPath(), typ.Name(), sp.String())
 		}
-		return nil, errors.Errorf("service [%s/%s] not found in [%v]", typ.PkgPath(), typ.Name(), sp.String())
+		return nil, ServiceNotFound
+
 	}
 	return service, nil
 }
