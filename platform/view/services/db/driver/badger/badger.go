@@ -355,25 +355,24 @@ func (r *cachedRangeScanIterator) Next() (*driver.VersionedRead, error) {
 }
 
 func (r *cachedRangeScanIterator) versionedValue(item *badger.Item, dbKey string) (*driver.VersionedRead, error) {
+	// check the cache first
+	if v, ok := r.cache.Get(dbKey); ok {
+		if v == nil {
+			vdbKey := dbKey
+			vdbKey = vdbKey[strings.Index(dbKey, keys.NamespaceSeparator)+1:]
+			return &driver.VersionedRead{
+				Key:          vdbKey,
+				Block:        0,
+				IndexInBlock: 0,
+				Raw:          nil,
+			}, nil
+		}
+		return v.(*driver.VersionedRead), nil
+	}
+
+	// nothing in cache, fetch
 	var res *driver.VersionedRead
 	err := item.Value(func(val []byte) error {
-		// check the cache first
-		if v, ok := r.cache.Get(dbKey); ok {
-			if v == nil {
-				vdbKey := dbKey
-				vdbKey = vdbKey[strings.Index(dbKey, keys.NamespaceSeparator)+1:]
-				res = &driver.VersionedRead{
-					Key:          vdbKey,
-					Block:        0,
-					IndexInBlock: 0,
-					Raw:          nil,
-				}
-				return nil
-			}
-			res = v.(*driver.VersionedRead)
-			return nil
-		}
-
 		protoValue := &dbproto.VersionedValue{}
 		if err := proto.Unmarshal(val, protoValue); err != nil {
 			return errors.Wrapf(err, "could not unmarshal VersionedValue for key %s", dbKey)
