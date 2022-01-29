@@ -205,7 +205,14 @@ func (c *committer) IsFinal(txid string) error {
 					if logger.IsEnabledFor(zapcore.DebugLevel) {
 						logger.Debugf("Tx [%s] is unknown with no deps, remote check [%d][%s]", txid, iter, debug.Stack())
 					}
-					return c.finality.IsFinal(txid, c.peerConnectionConfig.Address)
+					err := c.finality.IsFinal(txid, c.peerConnectionConfig.Address)
+					if err == nil {
+						return nil
+					}
+					if vd, _, err2 := committer.Status(txid); err2 == nil && vd == driver.Unknown {
+						return err
+					}
+					continue
 				}
 				if logger.IsEnabledFor(zapcore.DebugLevel) {
 					logger.Debugf("Tx [%s] is unknown with no deps, wait a bit and retry [%d]", txid, iter)

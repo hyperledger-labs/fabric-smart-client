@@ -37,6 +37,7 @@ import (
 
 var (
 	waitForEventTimeout = 300 * time.Second
+	finalityWaitTimeout = 20 * time.Second
 )
 
 // These are function names from Invoke first parameter
@@ -87,7 +88,7 @@ func newChannel(network *network, name string, quiet bool) (*channel, error) {
 		name,
 		network,
 		hash.GetHasher(sp),
-		waitForEventTimeout,
+		finalityWaitTimeout,
 	)
 	if err != nil {
 		return nil, err
