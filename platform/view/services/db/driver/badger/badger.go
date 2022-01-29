@@ -89,7 +89,7 @@ func OpenDB(path string) (*badgerDB, error) {
 		db:            db,
 		cache:         secondcache.New(20000),
 		itemsMap:      map[string]*ItemList{},
-		itemsListSize: 2000,
+		itemsListSize: 20000,
 	}, nil
 }
 
@@ -363,6 +363,13 @@ type ItemCache interface {
 	Set(index int, v *driver.VersionedRead)
 }
 
+var CacheIteratorOptions = badger.IteratorOptions{
+	PrefetchValues: false,
+	PrefetchSize:   100,
+	Reverse:        false,
+	AllVersions:    false,
+}
+
 type cachedRangeScanIterator struct {
 	txn       *badger.Txn
 	it        *badger.Iterator
@@ -481,7 +488,7 @@ func (r *cachedRangeScanIterator) Close() {
 
 func (db *badgerDB) GetCachedStateRangeScanIterator(namespace string, startKey string, endKey string) (driver.VersionedResultsIterator, error) {
 	txn := db.db.NewTransaction(false)
-	it := txn.NewIterator(badger.DefaultIteratorOptions)
+	it := txn.NewIterator(CacheIteratorOptions)
 	it.Seek([]byte(dbKey(namespace, startKey)))
 
 	db.itemsMapLock.RLock()
