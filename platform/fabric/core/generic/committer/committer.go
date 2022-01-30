@@ -209,6 +209,7 @@ func (c *committer) IsFinal(txid string) error {
 					if err == nil {
 						return nil
 					}
+
 					if vd, _, err2 := committer.Status(txid); err2 == nil && vd == driver.Unknown {
 						return err
 					}

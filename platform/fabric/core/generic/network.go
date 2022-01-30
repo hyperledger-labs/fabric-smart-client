@@ -47,7 +47,7 @@ type network struct {
 
 	ordering driver.Ordering
 	channels map[string]driver.Channel
-	mutex    sync.Mutex
+	mutex    sync.RWMutex
 	name     string
 }
 
@@ -67,7 +67,6 @@ func NewNetwork(
 		name:            name,
 		config:          config,
 		channels:        map[string]driver.Channel{},
-		mutex:           sync.Mutex{},
 		localMembership: localMembership,
 		idProvider:      idProvider,
 		sigService:      sigService,
@@ -119,10 +118,20 @@ func (f *network) Channel(name string) (driver.Channel, error) {
 		}
 	}
 
+	// first check the cache
+	f.mutex.RLock()
+	ch, ok := f.channels[name]
+	f.mutex.RUnlock()
+	if ok {
+		logger.Debugf("Returning channel for [%s]", name)
+		return ch, nil
+	}
+
+	// create channel and store in cache
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
 
-	ch, ok := f.channels[name]
+	ch, ok = f.channels[name]
 	if !ok {
 		logger.Debugf("Channel [%s] not found, allocate resources", name)
 		var err error
