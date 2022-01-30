@@ -55,17 +55,17 @@ func (i *ItemList) Set(index int, v *driver.VersionedRead, k []byte) {
 	defer i.Unlock()
 
 	// if not in capacity, then skip
-	if index < 0 || index >= cap(i.items) {
+	if index < 0 || index+1 > cap(i.items) {
 		return
 	}
 
 	// if not in length, then append
 	if index >= len(i.items) {
-		i.items = append(i.items, cacheValue{v: v, k: k})
-	} else {
-		i.items[index].v = v
-		i.items[index].k = k
+		i.items = i.items[:index+1]
 	}
+
+	i.items[index].v = v
+	i.items[index].k = k
 }
 
 func (i *ItemList) GetLast() []byte {

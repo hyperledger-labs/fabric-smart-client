@@ -541,6 +541,22 @@ func TestRangeQueries1(t *testing.T) {
 	}, res)
 }
 
+func TestExpansion(t *testing.T) {
+	a := make([]cacheValue, 4, 5)
+	for i := 0; i < 4; i++ {
+		a[i].k = []byte{byte(i)}
+	}
+	a = a[:len(a)+1]
+	a[len(a)-1].k = []byte{byte(4)}
+	assert.Equal(t, []cacheValue{
+		{k: []byte{0}},
+		{k: []byte{1}},
+		{k: []byte{2}},
+		{k: []byte{3}},
+		{k: []byte{4}},
+	}, a)
+}
+
 const (
 	minUnicodeRuneValue   = 0            // U+0000
 	maxUnicodeRuneValue   = utf8.MaxRune // U+10FFFF - maximum (and unallocated) code point
