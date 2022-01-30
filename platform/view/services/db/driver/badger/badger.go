@@ -516,18 +516,18 @@ func (db *badgerDB) GetCachedStateRangeScanIterator(namespace string, startKey s
 		}
 		db.txnLock.Unlock()
 	} else {
-		length = len(itemsMap.items)
+		// length = len(itemsMap.items)
 		db.txnLock.RUnlock()
 	}
 
 	// TODO: this should be true to iterate over a snapshot of the db
 	txn := db.db.NewTransaction(false)
 	it := txn.NewIterator(CacheIteratorOptions)
-	k := itemsMap.GetLast()
-	if len(k) == 0 {
-		it.Seek([]byte(dbKey(namespace, startKey)))
-	} else {
-		it.Seek(k)
-	}
+	// k := itemsMap.GetLast()
+	// if len(k) == 0 {
+	it.Seek([]byte(dbKey(namespace, startKey)))
+	// } else {
+	// 	it.Seek(k)
+	// }
 	return newCachedRangeScanIterator(txn, it, startKey, endKey, namespace, db.cache, itemsMap, length), nil
 }
