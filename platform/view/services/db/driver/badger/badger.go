@@ -426,9 +426,9 @@ func (r *cachedRangeScanIterator) Next() (*driver.VersionedRead, error) {
 
 	v, ok := r.items.Get(r.counter)
 	if ok {
-		if r.counter+1 >= r.length {
-			r.it.Next()
-		}
+		// if r.counter+1 >= r.length {
+		r.it.Next()
+		// }
 	} else {
 		item := r.it.Item()
 		key := item.Key()
@@ -440,7 +440,7 @@ func (r *cachedRangeScanIterator) Next() (*driver.VersionedRead, error) {
 		if err != nil {
 			return nil, errors.Wrapf(err, "error iterating on range %s:%s", r.startKey, r.endKey)
 		}
-		r.items.Set(r.counter, v, item.KeyCopy(make([]byte, len(key))))
+		r.items.Set(r.counter, v, nil /*item.KeyCopy(make([]byte, len(key)))*/)
 		r.it.Next()
 	}
 
