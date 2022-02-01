@@ -140,6 +140,11 @@ func (p *Platform) GenerateArtifacts() {
 
 		p.GenerateCoreConfig(peer)
 	}
+
+	// Generate commands
+	for _, node := range p.Peers {
+		p.GenerateCmd(nil, node)
+	}
 }
 
 func (p *Platform) Load() {

@@ -181,7 +181,12 @@ func (p *p) Start(ctx context.Context) error {
 	assert.NoError(p.registerViewServiceServer(), "failed registering view service server")
 	assert.NoError(p.startViewManager(), "failed starting view manager")
 
-	logger.Infof("Started peer with ID=[%s], network ID=[%s], address=[%s]", view.GetConfigService(p.registry).GetString("fsc.id"))
+	cs := view.GetConfigService(p.registry)
+	logger.Infof("Started peer with ID=[%s], network ID=[%s], address=[%s]",
+		cs.GetString("fsc.id"),
+		cs.GetString("fsc.networkId"),
+		cs.GetString("fsc.address"),
+	)
 
 	return p.serve()
 }

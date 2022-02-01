@@ -101,6 +101,7 @@ func (n *NWO) Start() {
 	Runner := grouper.NewOrdered(syscall.SIGTERM, members)
 	process := ifrit.Invoke(Runner)
 	n.Processes = append(n.Processes, process)
+	process.Signal()
 	Eventually(process.Ready(), n.StartEventuallyTimeout).Should(BeClosed())
 
 	// Execute the fsc members in isolation so can be stopped and restarted as needed
