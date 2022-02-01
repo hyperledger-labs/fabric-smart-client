@@ -14,6 +14,7 @@ import (
 
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracker/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -26,8 +27,10 @@ func (p *Initiator) Call(context view.Context) (interface{}, error) {
 	// Open a session to the responder
 	session, err := context.GetSession(context.Initiator(), responder)
 	assert.NoError(err) // Send a ping
+
 	err = session.Send([]byte("ping"))
 	assert.NoError(err) // Wait for the pong
+	metrics.Get(context).EmitKey(0, "sent", "ping")
 	ch := session.Receive()
 	select {
 	case msg := <-ch:
@@ -38,6 +41,7 @@ func (p *Initiator) Call(context view.Context) (interface{}, error) {
 		if m != "pong" {
 			return nil, fmt.Errorf("exptectd pong, got %s", m)
 		}
+		metrics.Get(context).EmitKey(0, "received", "pong")
 	case <-time.After(1 * time.Minute):
 		return nil, errors.New("responder didn't pong in time")
 	}

@@ -9,6 +9,8 @@ package finality
 import (
 	"time"
 
+	"go.uber.org/zap/zapcore"
+
 	view3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 
@@ -54,7 +56,9 @@ func (f *finality) IsFinal(txID string) error {
 }
 
 func (f *finality) IsFinalForParties(txID string, parties ...view.Identity) error {
-	logger.Debugf("Is [%s] final for parties [%v]?", txID, parties)
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("Is [%s] final for parties [%v]?", txID, parties)
+	}
 
 	var err error
 	comm, err := f.network.Comm(f.channel)
@@ -63,9 +67,13 @@ func (f *finality) IsFinalForParties(txID string, parties ...view.Identity) erro
 	}
 
 	for _, party := range parties {
-		logger.Debugf("Asking [%s] if [%s] is final...", party, txID)
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			logger.Debugf("Asking [%s] if [%s] is final...", party, txID)
+		}
 		if f.network.LocalMembership().IsMe(party) {
-			logger.Debugf("[%s] is me, skipping.", party, txID)
+			if logger.IsEnabledFor(zapcore.DebugLevel) {
+				logger.Debugf("[%s] is me, skipping.", party, txID)
+			}
 			continue
 		}
 
@@ -73,7 +81,9 @@ func (f *finality) IsFinalForParties(txID string, parties ...view.Identity) erro
 		if err != nil {
 			return err
 		}
-		logger.Debugf("Asking [%s] resolved from [%s] if [%s] is final...", endpoints[view2.ViewPort], party, txID)
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			logger.Debugf("Asking [%s] resolved from [%s] if [%s] is final...", endpoints[view2.ViewPort], party, txID)
+		}
 
 		var certs [][]byte
 		if f.TLSEnabled {
@@ -101,7 +111,9 @@ func (f *finality) IsFinalForParties(txID string, parties ...view.Identity) erro
 			return err
 		}
 		err = c.IsTxFinal(txID)
-		logger.Debugf("Is [%s] final on [%s]: [%s]?", txID, party, err)
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			logger.Debugf("Is [%s] final on [%s]: [%s]?", txID, party, err)
+		}
 		if err != nil {
 			return err
 		}

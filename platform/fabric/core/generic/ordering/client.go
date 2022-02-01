@@ -104,17 +104,12 @@ func (oc *ordererClient) Certificate() *tls.Certificate {
 	return &cert
 }
 
-// broadcastSend sends transaction envelope to orderer service
-func BroadcastSend(broadcast Broadcast, addr string, envelope *common.Envelope) error {
-	err := broadcast.Send(envelope)
-
-	if err != nil {
-		return errors.Wrapf(err, "failed to send transaction to orderer %s", addr)
-	}
-	return nil
+// BroadcastSend sends transaction envelope to orderer service
+func BroadcastSend(broadcast Broadcast, envelope *common.Envelope) error {
+	return broadcast.Send(envelope)
 }
 
-// broadReceive waits until it receives the response from broadcast stream
+// BroadcastReceive waits until it receives the response from broadcast stream
 func BroadcastReceive(broadcast Broadcast, addr string, responses chan common.Status, errs chan error) {
 	for {
 		broadcastResponse, err := broadcast.Recv()

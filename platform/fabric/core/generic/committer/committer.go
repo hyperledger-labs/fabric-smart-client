@@ -8,10 +8,12 @@ package committer
 
 import (
 	"fmt"
+	"runtime/debug"
 	"sync"
 	"time"
 
 	"github.com/hyperledger/fabric/protoutil"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/hyperledger/fabric-protos-go/common"
 	"github.com/pkg/errors"
@@ -32,6 +34,10 @@ var (
 	ErrQSCCUnreachable = errors.New("error querying QSCC")
 )
 
+type Metrics interface {
+	EmitKey(val float32, event ...string)
+}
+
 type Finality interface {
 	IsFinal(txID string, address string) error
 }
@@ -48,14 +54,16 @@ type committer struct {
 	finality             Finality
 	peerConnectionConfig *grpc.ConnectionConfig
 	waitForEventTimeout  time.Duration
+	metrics              Metrics
 
 	quietNotifier bool
 
-	listeners map[string][]chan TxEvent
-	mutex     sync.Mutex
+	listeners      map[string][]chan TxEvent
+	mutex          sync.Mutex
+	pollingTimeout time.Duration
 }
 
-func New(channel string, network Network, finality Finality, waitForEventTimeout time.Duration, quiet bool) (*committer, error) {
+func New(channel string, network Network, finality Finality, waitForEventTimeout time.Duration, quiet bool, metrics Metrics) (*committer, error) {
 	if len(channel) == 0 {
 		panic("expected a channel, got empty string")
 	}
@@ -69,6 +77,8 @@ func New(channel string, network Network, finality Finality, waitForEventTimeout
 		listeners:            map[string][]chan TxEvent{},
 		mutex:                sync.Mutex{},
 		finality:             finality,
+		pollingTimeout:       100 * time.Millisecond,
+		metrics:              metrics,
 	}
 	return d, nil
 }
@@ -95,23 +105,33 @@ func (c *committer) Commit(block *common.Block) error {
 
 		var event TxEvent
 
+		c.metrics.EmitKey(0, "committer", "start", "Commit", chdr.TxId)
 		switch common.HeaderType(chdr.Type) {
 		case common.HeaderType_CONFIG:
-			logger.Debugf("[%s] Config transaction received: %s", c.channel, chdr.TxId)
+			if logger.IsEnabledFor(zapcore.DebugLevel) {
+				logger.Debugf("[%s] Config transaction received: %s", c.channel, chdr.TxId)
+			}
 			c.handleConfig(block, i, env)
 		case common.HeaderType_ENDORSER_TRANSACTION:
-			logger.Debugf("[%s] Endorser transaction received: %s", c.channel, chdr.TxId)
+			if logger.IsEnabledFor(zapcore.DebugLevel) {
+				logger.Debugf("[%s] Endorser transaction received: %s", c.channel, chdr.TxId)
+			}
 			if len(block.Metadata.Metadata) < int(common.BlockMetadataIndex_TRANSACTIONS_FILTER) {
 				return errors.Errorf("block metadata lacks transaction filter")
 			}
 			c.handleEndorserTransaction(block, i, &event, env, chdr)
 		default:
-			logger.Debugf("[%s] Received unhandled transaction type: %s", c.channel, chdr.Type)
+			if logger.IsEnabledFor(zapcore.DebugLevel) {
+				logger.Debugf("[%s] Received unhandled transaction type: %s", c.channel, chdr.Type)
+			}
 		}
+		c.metrics.EmitKey(0, "committer", "end", "Commit", chdr.TxId)
 
 		c.notify(event)
 
-		logger.Debugf("commit transaction [%s] in filteredBlock [%d]", chdr.TxId, block.Header.Number)
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			logger.Debugf("commit transaction [%s] in filteredBlock [%d]", chdr.TxId, block.Header.Number)
+		}
 	}
 
 	return nil
@@ -119,58 +139,93 @@ func (c *committer) Commit(block *common.Block) error {
 
 // IsFinal takes in input a transaction id and waits for its confirmation.
 func (c *committer) IsFinal(txid string) error {
-	logger.Debugf("Is [%s] final?", txid)
+	c.metrics.EmitKey(0, "committer", "start", "IsFinal", txid)
+	defer c.metrics.EmitKey(0, "committer", "end", "IsFinal", txid)
+
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("Is [%s] final?", txid)
+	}
 
 	committer, err := c.network.Committer(c.channel)
 	if err != nil {
 		return err
 	}
 
-	vd, deps, err := committer.Status(txid)
-	if err == nil {
-		switch vd {
-		case driver.Valid:
-			logger.Debugf("Tx [%s] is valid", txid)
-			return nil
-		case driver.Invalid:
-			logger.Debugf("Tx [%s] is not valid", txid)
-			return errors.Errorf("transaction [%s] is not valid", txid)
-		case driver.Busy:
-			logger.Debugf("Tx [%s] is known with deps [%v]", txid, deps)
-			if len(deps) != 0 {
-				for _, id := range deps {
-					logger.Debugf("Check finality of dependant transaction [%s]", id)
-					err := c.IsFinal(id)
-					if err != nil {
-						logger.Errorf("Check finality of dependant transaction [%s], failed [%s]", id, err)
-						return err
-					}
+	for iter := 0; iter < 3; iter++ {
+		vd, deps, err := committer.Status(txid)
+		if err == nil {
+			switch vd {
+			case driver.Valid:
+				if logger.IsEnabledFor(zapcore.DebugLevel) {
+					logger.Debugf("Tx [%s] is valid", txid)
 				}
 				return nil
-			}
-		case driver.HasDependencies:
-			logger.Debugf("Tx [%s] is unknown with deps [%v]", txid, deps)
-			if len(deps) != 0 {
-				for _, id := range deps {
-					logger.Debugf("Check finality of dependant transaction [%s]", id)
-					err := c.IsFinal(id)
-					if err != nil {
-						logger.Errorf("Check finality of dependant transaction [%s], failed [%s]", id, err)
+			case driver.Invalid:
+				if logger.IsEnabledFor(zapcore.DebugLevel) {
+					logger.Debugf("Tx [%s] is not valid", txid)
+				}
+				return errors.Errorf("transaction [%s] is not valid", txid)
+			case driver.Busy:
+				if logger.IsEnabledFor(zapcore.DebugLevel) {
+					logger.Debugf("Tx [%s] is known with deps [%v]", txid, deps)
+				}
+				if len(deps) != 0 {
+					for _, id := range deps {
+						if logger.IsEnabledFor(zapcore.DebugLevel) {
+							logger.Debugf("Check finality of dependant transaction [%s]", id)
+						}
+						err := c.IsFinal(id)
+						if err != nil {
+							logger.Errorf("Check finality of dependant transaction [%s], failed [%s]", id, err)
+							return err
+						}
+					}
+					return nil
+				}
+			case driver.HasDependencies:
+				if logger.IsEnabledFor(zapcore.DebugLevel) {
+					logger.Debugf("Tx [%s] is unknown with deps [%v]", txid, deps)
+				}
+				if len(deps) != 0 {
+					for _, id := range deps {
+						if logger.IsEnabledFor(zapcore.DebugLevel) {
+							logger.Debugf("Check finality of dependant transaction [%s]", id)
+						}
+						err := c.IsFinal(id)
+						if err != nil {
+							logger.Errorf("Check finality of dependant transaction [%s], failed [%s]", id, err)
+							return err
+						}
+					}
+					return nil
+				}
+				return c.finality.IsFinal(txid, c.peerConnectionConfig.Address)
+			case driver.Unknown:
+				if iter >= 2 {
+					if logger.IsEnabledFor(zapcore.DebugLevel) {
+						logger.Debugf("Tx [%s] is unknown with no deps, remote check [%d][%s]", txid, iter, debug.Stack())
+					}
+					err := c.finality.IsFinal(txid, c.peerConnectionConfig.Address)
+					if err == nil {
+						return nil
+					}
+
+					if vd, _, err2 := committer.Status(txid); err2 == nil && vd == driver.Unknown {
 						return err
 					}
+					continue
 				}
-				return nil
+				if logger.IsEnabledFor(zapcore.DebugLevel) {
+					logger.Debugf("Tx [%s] is unknown with no deps, wait a bit and retry [%d]", txid, iter)
+				}
+				time.Sleep(100 * time.Millisecond)
+			default:
+				panic(fmt.Sprintf("invalid status code, got %c", vd))
 			}
-			return c.finality.IsFinal(txid, c.peerConnectionConfig.Address)
-		case driver.Unknown:
-			logger.Debugf("Tx [%s] is unknown with no deps", txid)
-			return c.finality.IsFinal(txid, c.peerConnectionConfig.Address)
-		default:
-			panic(fmt.Sprintf("invalid status code, got %c", vd))
+		} else {
+			logger.Errorf("Is [%s] final? Failed getting transaction status from vault", txid)
+			return errors.WithMessagef(err, "failed getting transaction status from vault [%s]", txid)
 		}
-	} else {
-		logger.Debugf("Is [%s] final? Failed getting transaction status from vault", txid)
-		return errors.WithMessagef(err, "failed getting transaction status from vault [%s]", txid)
 	}
 
 	// Listen to the event
@@ -216,14 +271,18 @@ func (c *committer) notify(event TxEvent) {
 	}
 
 	listeners := c.listeners[event.Txid]
-	logger.Debugf("Notify the finality of [%s] to [%d] listeners, event: [%v]", event.Txid, len(listeners), event)
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("Notify the finality of [%s] to [%d] listeners, event: [%v]", event.Txid, len(listeners), event)
+	}
 	for _, listener := range listeners {
 		listener <- event
 	}
 
 	for _, txid := range event.DependantTxIDs {
 		listeners := c.listeners[txid]
-		logger.Debugf("Notify the finality of [%s] (dependant) to [%d] listeners, event: [%v]", txid, len(listeners), event)
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			logger.Debugf("Notify the finality of [%s] (dependant) to [%d] listeners, event: [%v]", txid, len(listeners), event)
+		}
 		for _, listener := range listeners {
 			listener <- event
 		}
@@ -231,34 +290,60 @@ func (c *committer) notify(event TxEvent) {
 }
 
 func (c *committer) listenTo(txid string, timeout time.Duration) error {
-	logger.Debugf("Listen to finality of [%s]", txid)
+	c.metrics.EmitKey(0, "committer", "start", "listenTo", txid)
+	defer c.metrics.EmitKey(0, "committer", "end", "listenTo", txid)
 
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("Listen to finality of [%s]", txid)
+	}
+
+	// notice that adding the listener can happen after the event we are looking for has already happened
+	// therefore we need to check more often before the timeout happens
 	ch := make(chan TxEvent, 100)
 	c.addListener(txid, ch)
 	defer c.deleteListener(txid, ch)
 
-	select {
-	case event := <-ch:
-		logger.Debugf("Got an answer to finality of [%s]: [%s]", txid, event.Err)
-		return event.Err
-	case <-time.After(timeout):
-		logger.Debugf("Got a timeout for finality of [%s], check the status", txid)
-		committer, err := c.network.Committer(c.channel)
-		if err != nil {
-			return err
-		}
-		vd, _, err := committer.Status(txid)
-		if err == nil {
-			switch vd {
-			case driver.Valid:
-				logger.Debugf("Listen to finality of [%s]. VALID", txid)
-				return nil
-			case driver.Invalid:
-				logger.Debugf("Listen to finality of [%s]. NOT VALID", txid)
-				return errors.Errorf("transaction [%s] is not valid", txid)
+	committer, err := c.network.Committer(c.channel)
+	if err != nil {
+		return err
+	}
+	iterations := int(timeout.Milliseconds() / c.pollingTimeout.Milliseconds())
+	if iterations == 0 {
+		iterations = 1
+	}
+	for i := 0; i < iterations; i++ {
+		select {
+		case event := <-ch:
+			if logger.IsEnabledFor(zapcore.DebugLevel) {
+				logger.Debugf("Got an answer to finality of [%s]: [%s]", txid, event.Err)
+			}
+			return event.Err
+		case <-time.After(c.pollingTimeout):
+			if logger.IsEnabledFor(zapcore.DebugLevel) {
+				logger.Debugf("Got a timeout for finality of [%s], check the status", txid)
+			}
+			vd, _, err := committer.Status(txid)
+			if err == nil {
+				switch vd {
+				case driver.Valid:
+					if logger.IsEnabledFor(zapcore.DebugLevel) {
+						logger.Debugf("Listen to finality of [%s]. VALID", txid)
+					}
+					return nil
+				case driver.Invalid:
+					if logger.IsEnabledFor(zapcore.DebugLevel) {
+						logger.Debugf("Listen to finality of [%s]. NOT VALID", txid)
+					}
+					return errors.Errorf("transaction [%s] is not valid", txid)
+				}
+			}
+			if logger.IsEnabledFor(zapcore.DebugLevel) {
+				logger.Debugf("Is [%s] final? not available yet, wait [%s, %c]", txid, err, vd)
 			}
 		}
-		logger.Debugf("Is [%s] final? Failed to listen to transaction for timeout, err [%s, %c]", txid, err, vd)
-		return errors.Errorf("failed to listen to transaction [%s] for timeout, err [%s, %c]", txid, err, vd)
 	}
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("Is [%s] final? Failed to listen to transaction for timeout", txid)
+	}
+	return errors.Errorf("failed to listen to transaction [%s] for timeout", txid)
 }

@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package vault
 
 import (
+	"go.uber.org/zap/zapcore"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 )
@@ -21,14 +23,22 @@ type directQueryExecutor struct {
 }
 
 func (q *directQueryExecutor) GetState(namespace string, key string) ([]byte, error) {
-	logger.Debugf("Get State [%s,%s]", namespace, key)
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("Get State [%s,%s]", namespace, key)
+	}
 	v, _, _, err := q.vault.store.GetState(namespace, key)
-	logger.Debugf("Got State [%s,%s] -> [%v]", namespace, key, hash.Hashable(v).String())
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("Got State [%s,%s] -> [%v]", namespace, key, hash.Hashable(v).String())
+	}
 	return v, err
 }
 
 func (q *directQueryExecutor) GetStateRangeScanIterator(namespace string, startKey string, endKey string) (driver.VersionedResultsIterator, error) {
 	return q.vault.store.GetStateRangeScanIterator(namespace, startKey, endKey)
+}
+
+func (q *directQueryExecutor) GetCachedStateRangeScanIterator(namespace string, startKey string, endKey string) (driver.VersionedResultsIterator, error) {
+	return q.vault.store.GetCachedStateRangeScanIterator(namespace, startKey, endKey)
 }
 
 func (q *directQueryExecutor) GetStateMetadata(namespace, key string) (map[string][]byte, uint64, uint64, error) {

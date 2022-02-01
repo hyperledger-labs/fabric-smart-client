@@ -8,6 +8,7 @@ package sig
 
 import (
 	"github.com/pkg/errors"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 )
@@ -37,14 +38,20 @@ func (d *deserializer) AddDeserializer(newD Deserializer) {
 func (d *deserializer) DeserializeVerifier(raw []byte) (driver.Verifier, error) {
 	var errs []error
 	for _, des := range d.deserializers {
-		logger.Debugf("trying deserialization with [%v]", des)
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			logger.Debugf("trying deserialization with [%v]", des)
+		}
 		v, err := des.DeserializeVerifier(raw)
 		if err == nil {
-			logger.Debugf("trying deserialization with [%v] succeeded", des)
+			if logger.IsEnabledFor(zapcore.DebugLevel) {
+				logger.Debugf("trying deserialization with [%v] succeeded", des)
+			}
 			return v, nil
 		}
 
-		logger.Debugf("trying deserialization with [%v] failed", des)
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			logger.Debugf("trying deserialization with [%v] failed", des)
+		}
 		errs = append(errs, err)
 	}
 
@@ -54,14 +61,20 @@ func (d *deserializer) DeserializeVerifier(raw []byte) (driver.Verifier, error) 
 func (d *deserializer) DeserializeSigner(raw []byte) (driver.Signer, error) {
 	var errs []error
 	for _, des := range d.deserializers {
-		logger.Debugf("trying signer deserialization with [%s]", des)
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			logger.Debugf("trying signer deserialization with [%s]", des)
+		}
 		v, err := des.DeserializeSigner(raw)
 		if err == nil {
-			logger.Debugf("trying signer deserialization with [%s] succeeded", des)
+			if logger.IsEnabledFor(zapcore.DebugLevel) {
+				logger.Debugf("trying signer deserialization with [%s] succeeded", des)
+			}
 			return v, nil
 		}
 
-		logger.Debugf("trying signer deserialization with [%s] failed [%s]", des, err)
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			logger.Debugf("trying signer deserialization with [%s] failed [%s]", des, err)
+		}
 		errs = append(errs, err)
 	}
 
@@ -71,14 +84,20 @@ func (d *deserializer) DeserializeSigner(raw []byte) (driver.Signer, error) {
 func (d *deserializer) Info(raw []byte, auditInfo []byte) (string, error) {
 	var errs []error
 	for _, des := range d.deserializers {
-		logger.Debugf("trying info deserialization with [%v]", des)
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			logger.Debugf("trying info deserialization with [%v]", des)
+		}
 		v, err := des.Info(raw, auditInfo)
 		if err == nil {
-			logger.Debugf("trying info deserialization with [%v] succeeded", des)
+			if logger.IsEnabledFor(zapcore.DebugLevel) {
+				logger.Debugf("trying info deserialization with [%v] succeeded", des)
+			}
 			return v, nil
 		}
 
-		logger.Debugf("trying info deserialization with [%v] failed", des)
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			logger.Debugf("trying info deserialization with [%v] failed", des)
+		}
 		errs = append(errs, err)
 	}
 

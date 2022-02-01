@@ -78,7 +78,7 @@ func TestProvider(t *testing.T) {
 	kvss, err := kvs.New("memory", "", registry)
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
-	sigService := sig2.NewSignService(registry, nil)
+	sigService := sig2.NewSignService(registry, nil, kvss)
 	assert.NoError(t, registry.RegisterService(sigService))
 
 	config, err := msp2.GetLocalMspConfigWithType("./testdata/idemix", nil, "idemix", "idemix")
@@ -104,7 +104,7 @@ func TestIdentityEidNym(t *testing.T) {
 	kvss, err := kvs.New("memory", "", registry)
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
-	sigService := sig2.NewSignService(registry, nil)
+	sigService := sig2.NewSignService(registry, nil, kvss)
 	assert.NoError(t, registry.RegisterService(sigService))
 
 	config, err := msp2.GetLocalMspConfigWithType("./testdata/idemix", nil, "idemix", "idemix")
@@ -170,7 +170,7 @@ func TestIdentityStandard(t *testing.T) {
 	kvss, err := kvs.New("memory", "", registry)
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
-	sigService := sig2.NewSignService(registry, nil)
+	sigService := sig2.NewSignService(registry, nil, kvss)
 	assert.NoError(t, registry.RegisterService(sigService))
 
 	config, err := msp2.GetLocalMspConfigWithType("./testdata/idemix", nil, "idemix", "idemix")
@@ -238,7 +238,7 @@ func TestAuditEidNym(t *testing.T) {
 	kvss, err := kvs.New("memory", "", registry)
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
-	sigService := sig2.NewSignService(registry, nil)
+	sigService := sig2.NewSignService(registry, nil, kvss)
 	assert.NoError(t, registry.RegisterService(sigService))
 
 	config, err := msp2.GetLocalMspConfigWithType("./testdata/idemix", nil, "idemix", "idemix")
@@ -282,7 +282,7 @@ func TestProvider_DeserializeSigner(t *testing.T) {
 	kvss, err := kvs.New("memory", "", registry)
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
-	sigService := sig2.NewSignService(registry, nil)
+	sigService := sig2.NewSignService(registry, nil, kvss)
 	assert.NoError(t, registry.RegisterService(sigService))
 
 	config, err := msp2.GetLocalMspConfigWithType("./testdata/sameissuer/idemix", nil, "idemix", "idemix")

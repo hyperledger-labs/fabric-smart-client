@@ -48,6 +48,17 @@ type SigService struct {
 		result1 driver.SigningIdentity
 		result2 error
 	}
+	IsMeStub        func(identity view.Identity) bool
+	isMeMutex       sync.RWMutex
+	isMeArgsForCall []struct {
+		identity view.Identity
+	}
+	isMeReturns struct {
+		result1 bool
+	}
+	isMeReturnsOnCall map[int]struct {
+		result1 bool
+	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
@@ -205,6 +216,54 @@ func (fake *SigService) GetSigningIdentityReturnsOnCall(i int, result1 driver.Si
 	}{result1, result2}
 }
 
+func (fake *SigService) IsMe(identity view.Identity) bool {
+	fake.isMeMutex.Lock()
+	ret, specificReturn := fake.isMeReturnsOnCall[len(fake.isMeArgsForCall)]
+	fake.isMeArgsForCall = append(fake.isMeArgsForCall, struct {
+		identity view.Identity
+	}{identity})
+	fake.recordInvocation("IsMe", []interface{}{identity})
+	fake.isMeMutex.Unlock()
+	if fake.IsMeStub != nil {
+		return fake.IsMeStub(identity)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fake.isMeReturns.result1
+}
+
+func (fake *SigService) IsMeCallCount() int {
+	fake.isMeMutex.RLock()
+	defer fake.isMeMutex.RUnlock()
+	return len(fake.isMeArgsForCall)
+}
+
+func (fake *SigService) IsMeArgsForCall(i int) view.Identity {
+	fake.isMeMutex.RLock()
+	defer fake.isMeMutex.RUnlock()
+	return fake.isMeArgsForCall[i].identity
+}
+
+func (fake *SigService) IsMeReturns(result1 bool) {
+	fake.IsMeStub = nil
+	fake.isMeReturns = struct {
+		result1 bool
+	}{result1}
+}
+
+func (fake *SigService) IsMeReturnsOnCall(i int, result1 bool) {
+	fake.IsMeStub = nil
+	if fake.isMeReturnsOnCall == nil {
+		fake.isMeReturnsOnCall = make(map[int]struct {
+			result1 bool
+		})
+	}
+	fake.isMeReturnsOnCall[i] = struct {
+		result1 bool
+	}{result1}
+}
+
 func (fake *SigService) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
@@ -214,6 +273,8 @@ func (fake *SigService) Invocations() map[string][][]interface{} {
 	defer fake.getVerifierMutex.RUnlock()
 	fake.getSigningIdentityMutex.RLock()
 	defer fake.getSigningIdentityMutex.RUnlock()
+	fake.isMeMutex.RLock()
+	defer fake.isMeMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

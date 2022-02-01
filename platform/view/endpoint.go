@@ -8,6 +8,7 @@ package view
 
 import (
 	"github.com/pkg/errors"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
@@ -60,7 +61,9 @@ func (e *EndpointService) Resolve(party view.Identity) (view.Identity, map[PortN
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	logger.Debugf("resolved [%s] to [%s] with ports [%v]", party, id, ports)
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("resolved [%s] to [%s] with ports [%v]", party, id, ports)
+	}
 	out := map[PortName]string{}
 	for name, s := range ports {
 		out[PortName(name)] = s

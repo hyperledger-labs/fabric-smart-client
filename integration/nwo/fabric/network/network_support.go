@@ -675,6 +675,9 @@ func (n *Network) CheckTopology() {
 			n.Context.AddIdentityAlias(node.Name, "idemix")
 		}
 		for _, label := range nodeOpts.IdemixIdentities() {
+			if label == "_default_" {
+				continue
+			}
 			extraIdentities = append(extraIdentities, &topology.PeerIdentity{
 				ID:           label,
 				EnrollmentID: label,
@@ -685,6 +688,9 @@ func (n *Network) CheckTopology() {
 			n.Context.AddIdentityAlias(node.Name, label)
 		}
 		for _, label := range nodeOpts.X509Identities() {
+			if label == "_default_" {
+				continue
+			}
 			extraIdentities = append(extraIdentities, &topology.PeerIdentity{
 				ID:           label,
 				MSPType:      "bccsp",
@@ -857,7 +863,7 @@ func (n *Network) VerifyMembership(expectedPeers []*topology.Peer, channel strin
 	chaincodes = append(chaincodes, "_lifecycle")
 	expectedDiscoveredPeerMatchers := make([]types.GomegaMatcher, len(expectedPeers))
 	for i, peer := range expectedPeers {
-		expectedDiscoveredPeerMatchers[i] = n.DiscoveredPeerMatcher(peer, chaincodes...) //n.DiscoveredPeer(peer, chaincodes...)
+		expectedDiscoveredPeerMatchers[i] = n.DiscoveredPeerMatcher(peer, chaincodes...) // n.DiscoveredPeer(peer, chaincodes...)
 	}
 	for _, peer := range expectedPeers {
 		Eventually(DiscoverPeers(n, peer, "User1", channel), n.EventuallyTimeout).Should(ConsistOf(expectedDiscoveredPeerMatchers))
@@ -1694,7 +1700,7 @@ func (n *Network) GenerateCryptoConfig() {
 	t, err := template.New("crypto").Parse(n.Templates.CryptoTemplate())
 	Expect(err).NotTo(HaveOccurred())
 
-	//pw := gexec.NewPrefixedWriter("[crypto-config.yaml] ", ginkgo.GinkgoWriter)
+	// pw := gexec.NewPrefixedWriter("[crypto-config.yaml] ", ginkgo.GinkgoWriter)
 	err = t.Execute(io.MultiWriter(crypto), n)
 	Expect(err).NotTo(HaveOccurred())
 }
@@ -1707,7 +1713,7 @@ func (n *Network) GenerateConfigTxConfig() {
 	t, err := template.New("configtx").Parse(n.Templates.ConfigTxTemplate())
 	Expect(err).NotTo(HaveOccurred())
 
-	//pw := gexec.NewPrefixedWriter("[configtx.yaml] ", ginkgo.GinkgoWriter)
+	// pw := gexec.NewPrefixedWriter("[configtx.yaml] ", ginkgo.GinkgoWriter)
 	err = t.Execute(io.MultiWriter(config), n)
 	Expect(err).NotTo(HaveOccurred())
 }
@@ -1727,7 +1733,7 @@ func (n *Network) GenerateOrdererConfig(o *topology.Orderer) {
 	}).Parse(n.Templates.OrdererTemplate())
 	Expect(err).NotTo(HaveOccurred())
 
-	//pw := gexec.NewPrefixedWriter(fmt.Sprintf("[%s#orderer.yaml] ", o.ID()), ginkgo.GinkgoWriter)
+	// pw := gexec.NewPrefixedWriter(fmt.Sprintf("[%s#orderer.yaml] ", o.ID()), ginkgo.GinkgoWriter)
 	err = t.Execute(io.MultiWriter(orderer), n)
 	Expect(err).NotTo(HaveOccurred())
 }

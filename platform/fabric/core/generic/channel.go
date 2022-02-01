@@ -31,11 +31,13 @@ import (
 	api2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracker/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 var (
 	waitForEventTimeout = 300 * time.Second
+	finalityWaitTimeout = 20 * time.Second
 )
 
 // These are function names from Invoke first parameter
@@ -65,12 +67,18 @@ type channel struct {
 	lock sync.RWMutex
 	// resources is used to acquire configuration bundle resources.
 	resources channelconfig.Resources
+
+	chaincodesLock sync.RWMutex
+	chaincodes     map[string]driver.Chaincode
+
+	connCache common2.CachingEndorserPool
 }
 
 func newChannel(network *network, name string, quiet bool) (*channel, error) {
 	sp := network.sp
 	// Vault
-	v, txIDStore, err := NewVault(network.config, name, sp)
+	// TODO: get cache size from config
+	v, txIDStore, err := NewVault(network.config, name, 20000)
 	if err != nil {
 		return nil, err
 	}
@@ -80,7 +88,7 @@ func newChannel(network *network, name string, quiet bool) (*channel, error) {
 		name,
 		network,
 		hash.GetHasher(sp),
-		waitForEventTimeout,
+		finalityWaitTimeout,
 	)
 	if err != nil {
 		return nil, err
@@ -92,7 +100,7 @@ func newChannel(network *network, name string, quiet bool) (*channel, error) {
 		return nil, err
 	}
 
-	committerInst, err := committer.New(name, network, fabricFinality, waitForEventTimeout, quiet)
+	committerInst, err := committer.New(name, network, fabricFinality, waitForEventTimeout, quiet, metrics.Get(sp))
 	if err != nil {
 		return nil, err
 	}
@@ -134,6 +142,7 @@ func newChannel(network *network, name string, quiet bool) (*channel, error) {
 		envelopeService:    transaction.NewEnvelopeService(sp, network.Name(), name),
 		transactionService: transaction.NewEndorseTransactionService(sp, network.Name(), name),
 		metadataService:    transaction.NewMetadataService(sp, network.Name(), name),
+		chaincodes:         map[string]driver.Chaincode{},
 	}
 	if err := c.init(); err != nil {
 		return nil, errors.WithMessagef(err, "failed initializing channel [%s]", name)
@@ -153,61 +162,14 @@ func (c *channel) GetTLSRootCert(endorser view.Identity) ([][]byte, error) {
 	return c.network.GetTLSRootCert(endorser)
 }
 
-func (c *channel) NewPeerClientForIdentity(peer view.Identity) (peer2.PeerClient, error) {
-	addresses, err := view2.GetEndpointService(c.sp).Endpoint(peer)
-	if err != nil {
-		return nil, err
-	}
-	tlsRootCerts, err := c.GetTLSRootCert(peer)
-	if err != nil {
-		return nil, err
-	}
-	if addresses[view2.ListenPort] == "" {
-		return nil, errors.New("peer address must be set")
-	}
-
-	clientConfig, override, err := c.GetClientConfig(tlsRootCerts)
-	if err != nil {
-		return nil, err
-	}
-
-	return newPeerClientForClientConfig(addresses[view2.ListenPort], override, *clientConfig)
+func (c *channel) NewPeerClientForIdentity(peer view.Identity) (peer2.Client, error) {
+	logger.Debugf("NewPeerClientForIdentity [%s]", peer)
+	return c.connCache.NewPeerClientForIdentity(peer)
 }
 
-func (c *channel) NewPeerClientForAddress(cc grpc.ConnectionConfig) (peer2.PeerClient, error) {
-	var certs [][]byte
-	if cc.TLSEnabled {
-		switch {
-		case len(cc.TLSRootCertFile) != 0:
-			logger.Debugf("Loading TLSRootCert from file [%s]", cc.TLSRootCertFile)
-			caPEM, err := ioutil.ReadFile(cc.TLSRootCertFile)
-			if err != nil {
-				logger.Error("unable to load TLS cert from %s", cc.TLSRootCertFile)
-				return nil, errors.WithMessagef(err, "unable to load TLS cert from %s", cc.TLSRootCertFile)
-			}
-			certs = append(certs, caPEM)
-		case len(cc.TLSRootCertBytes) != 0:
-			logger.Debugf("Loading TLSRootCert from passed bytes [%s[", cc.TLSRootCertBytes)
-			certs = cc.TLSRootCertBytes
-		default:
-			return nil, errors.New("missing TLSRootCertFile in client config")
-		}
-	}
-
-	clientConfig, override, err := c.GetClientConfig(certs)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(cc.ServerNameOverride) != 0 {
-		override = cc.ServerNameOverride
-	}
-
-	return newPeerClientForClientConfig(
-		cc.Address,
-		override,
-		*clientConfig,
-	)
+func (c *channel) NewPeerClientForAddress(cc grpc.ConnectionConfig) (peer2.Client, error) {
+	logger.Debugf("NewPeerClientForAddress [%v]", cc)
+	return c.connCache.NewPeerClientForAddress(cc)
 }
 
 func (c *channel) IsValid(identity view.Identity) error {
@@ -306,19 +268,25 @@ func (c *channel) init() error {
 	if err := c.ReloadConfigTransactions(); err != nil {
 		return errors.WithMessagef(err, "failed reloading config transactions")
 	}
+	c.connCache = common2.CachingEndorserPool{
+		Cache:       map[string]peer2.Client{},
+		ConnCreator: &connCreator{ch: c},
+	}
 	return nil
 }
 
 func newPeerClientForClientConfig(address, override string, clientConfig grpc.ClientConfig) (*common2.PeerClient, error) {
 	gClient, err := grpc.NewGRPCClient(clientConfig)
 	if err != nil {
-		return nil, errors.WithMessage(err, "failed to create PeerClient from config")
+		return nil, errors.WithMessage(err, "failed to create Client from config")
 	}
 	pClient := &common2.PeerClient{
 		CommonClient: common2.CommonClient{
 			Client:  gClient,
 			Address: address,
-			Sn:      override}}
+			Sn:      override,
+		},
+	}
 	return pClient, nil
 }
 
@@ -374,4 +342,67 @@ func (p *processedTransaction) Envelope() []byte {
 
 func (p *processedTransaction) ValidationCode() int32 {
 	return p.vc
+}
+
+type connCreator struct {
+	ch *channel
+}
+
+func (c *connCreator) NewPeerClientForAddress(cc grpc.ConnectionConfig) (peer2.Client, error) {
+	logger.Debugf("Creating new peer client for address [%s]", cc.Address)
+	var certs [][]byte
+	if cc.TLSEnabled {
+		switch {
+		case len(cc.TLSRootCertFile) != 0:
+			logger.Debugf("Loading TLSRootCert from file [%s]", cc.TLSRootCertFile)
+			caPEM, err := ioutil.ReadFile(cc.TLSRootCertFile)
+			if err != nil {
+				logger.Error("unable to load TLS cert from %s", cc.TLSRootCertFile)
+				return nil, errors.WithMessagef(err, "unable to load TLS cert from %s", cc.TLSRootCertFile)
+			}
+			certs = append(certs, caPEM)
+		case len(cc.TLSRootCertBytes) != 0:
+			logger.Debugf("Loading TLSRootCert from passed bytes [%s[", cc.TLSRootCertBytes)
+			certs = cc.TLSRootCertBytes
+		default:
+			return nil, errors.New("missing TLSRootCertFile in client config")
+		}
+	}
+
+	clientConfig, override, err := c.ch.GetClientConfig(certs)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(cc.ServerNameOverride) != 0 {
+		override = cc.ServerNameOverride
+	}
+
+	return newPeerClientForClientConfig(
+		cc.Address,
+		override,
+		*clientConfig,
+	)
+}
+
+func (c *connCreator) NewPeerClientForIdentity(peer view.Identity) (peer2.Client, error) {
+	logger.Debugf("Creating new peer client for [%s]", peer)
+	addresses, err := view2.GetEndpointService(c.ch.sp).Endpoint(peer)
+	if err != nil {
+		return nil, err
+	}
+	tlsRootCerts, err := c.ch.GetTLSRootCert(peer)
+	if err != nil {
+		return nil, err
+	}
+	if addresses[view2.ListenPort] == "" {
+		return nil, errors.New("peer address must be set")
+	}
+
+	clientConfig, override, err := c.ch.GetClientConfig(tlsRootCerts)
+	if err != nil {
+		return nil, err
+	}
+
+	return newPeerClientForClientConfig(addresses[view2.ListenPort], override, *clientConfig)
 }

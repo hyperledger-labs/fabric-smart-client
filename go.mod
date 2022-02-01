@@ -15,10 +15,12 @@ require (
 	github.com/IBM/idemix v0.0.0-20220113150823-80dd4cb2d74e
 	github.com/IBM/mathlib v0.0.0-20220112091634-0a7378db6912
 	github.com/OneOfOne/xxhash v1.2.5 // indirect
+	github.com/ReneKroon/ttlcache/v2 v2.11.0
 	github.com/Shopify/sarama v1.26.3 // indirect
+	github.com/armon/go-metrics v0.0.0-20180917152333-f0300d1749da
 	github.com/btcsuite/btcd v0.21.0-beta // indirect
 	github.com/containerd/containerd v1.5.2 // indirect
-	github.com/dgraph-io/badger/v3 v3.2011.1
+	github.com/dgraph-io/badger/v3 v3.2103.2
 	github.com/docker/docker v20.10.7+incompatible
 	github.com/docker/go-connections v0.4.0
 	github.com/fsnotify/fsnotify v1.5.1 // indirect
@@ -49,6 +51,7 @@ require (
 	github.com/multiformats/go-multiaddr v0.2.0
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.16.0
+	github.com/op/go-logging v0.0.0-20160315200505-970db520ece7
 	github.com/otiai10/copy v1.5.1
 	github.com/pierrec/lz4 v2.5.2+incompatible // indirect
 	github.com/pkg/errors v0.9.1
@@ -61,8 +64,8 @@ require (
 	go.uber.org/atomic v1.7.0
 	go.uber.org/multierr v1.6.0 // indirect
 	go.uber.org/zap v1.16.0
-	golang.org/x/sys v0.0.0-20211216021012-1d35b9e2eb4e // indirect
-	golang.org/x/tools v0.1.8 // indirect
+	golang.org/x/sys v0.0.0-20220128215802-99c3d69c2c27 // indirect
+	golang.org/x/tools v0.1.9 // indirect
 	google.golang.org/genproto v0.0.0-20210201184850-646a494a81ea // indirect
 	google.golang.org/grpc v1.39.1
 	google.golang.org/protobuf v1.27.1

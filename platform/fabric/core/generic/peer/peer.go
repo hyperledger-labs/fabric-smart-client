@@ -13,7 +13,7 @@ import (
 	pb "github.com/hyperledger/fabric-protos-go/peer"
 )
 
-type PeerClient interface {
+type Client interface {
 	Certificate() tls.Certificate
 
 	Endorser() (pb.EndorserClient, error)

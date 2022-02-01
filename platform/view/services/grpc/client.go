@@ -14,6 +14,8 @@ import (
 	"sync"
 	"time"
 
+	"go.uber.org/zap/zapcore"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 
 	"github.com/pkg/errors"
@@ -22,6 +24,38 @@ import (
 )
 
 var commLogger = flogging.MustGetLogger("view-sdk.comm")
+
+type TLSOption func(tlsConfig *tls.Config)
+
+func ServerNameOverride(name string) TLSOption {
+	return func(tlsConfig *tls.Config) {
+		tlsConfig.ServerName = name
+	}
+}
+
+func CertPoolOverride(pool *x509.CertPool) TLSOption {
+	return func(tlsConfig *tls.Config) {
+		tlsConfig.RootCAs = pool
+	}
+}
+
+// Hasher is the interface provides the hash function should be used for all token components.
+type Hasher interface {
+	Hash(msg []byte) (hash []byte, err error)
+}
+
+// GetTLSCertHash computes SHA2-256 on tls certificate
+func GetTLSCertHash(cert *tls.Certificate, hasher Hasher) ([]byte, error) {
+	if cert == nil || len(cert.Certificate) == 0 {
+		return nil, nil
+	}
+
+	tlsCertHash, err := hasher.Hash(cert.Certificate[0])
+	if err != nil {
+		return nil, errors.WithMessage(err, "failed to compute SHA256 on client certificate")
+	}
+	return tlsCertHash, nil
+}
 
 // Client models a GRPC client
 type Client struct {
@@ -77,6 +111,49 @@ func NewGRPCClient(config ClientConfig) (*Client, error) {
 	return client, nil
 }
 
+// CreateGRPCClient returns a comm.Client based on toke client config
+func CreateGRPCClient(config *ConnectionConfig) (*Client, error) {
+	timeout := config.ConnectionTimeout
+	if timeout <= 0 {
+		timeout = DefaultConnectionTimeout
+	}
+	clientConfig := ClientConfig{
+		KaOpts: KeepaliveOptions{
+			ClientInterval:    60 * time.Second,
+			ClientTimeout:     60 * time.Second,
+			ServerInterval:    30 * time.Second,
+			ServerTimeout:     60 * time.Second,
+			ServerMinInterval: 60 * time.Second,
+		},
+		Timeout: timeout,
+	}
+
+	if config.TLSEnabled {
+		var certs [][]byte
+		switch {
+		case len(config.TLSRootCertFile) != 0:
+			caPEM, err := ioutil.ReadFile(config.TLSRootCertFile)
+			if err != nil {
+				return nil, errors.WithMessagef(err, "unable to load TLS cert from %s", config.TLSRootCertFile)
+			}
+			certs = append(certs, caPEM)
+		case len(config.TLSRootCertBytes) != 0:
+			certs = config.TLSRootCertBytes
+		default:
+			return nil, errors.New("missing TLSRootCertFile in client config")
+		}
+
+		secOpts := SecureOptions{
+			UseTLS:            true,
+			ServerRootCAs:     certs,
+			RequireClientCert: false,
+		}
+		clientConfig.SecOpts = secOpts
+	}
+
+	return NewGRPCClient(clientConfig)
+}
+
 func (client *Client) parseSecureOptions(opts SecureOptions) error {
 	// if TLS is not enabled, return
 	if !opts.UseTLS {
@@ -91,7 +168,7 @@ func (client *Client) parseSecureOptions(opts SecureOptions) error {
 		for _, certBytes := range opts.ServerRootCAs {
 			err := AddPemToCertPool(certBytes, client.tlsConfig.RootCAs)
 			if err != nil {
-				commLogger.Debugf("error adding root certificate: %v", err)
+				commLogger.Errorf("error adding root certificate: %v", err)
 				return errors.WithMessage(err,
 					"error adding root certificate")
 			}
@@ -174,20 +251,6 @@ func (client *Client) SetServerRootCAs(serverRoots [][]byte) error {
 	return nil
 }
 
-type TLSOption func(tlsConfig *tls.Config)
-
-func ServerNameOverride(name string) TLSOption {
-	return func(tlsConfig *tls.Config) {
-		tlsConfig.ServerName = name
-	}
-}
-
-func CertPoolOverride(pool *x509.CertPool) TLSOption {
-	return func(tlsConfig *tls.Config) {
-		tlsConfig.RootCAs = pool
-	}
-}
-
 // NewConnection returns a grpc.ClientConn for the target address and
 // overrides the server name used to verify the hostname on the
 // certificate returned by a server when using TLS
@@ -231,71 +294,12 @@ func (client *Client) NewConnection(address string, tlsOptions ...TLSOption) (*g
 }
 
 func (client *Client) Close() {
-	commLogger.Debugf("closing %d grpc connections", len(client.grpcConns))
+	if commLogger.IsEnabledFor(zapcore.DebugLevel) {
+		commLogger.Debugf("closing %d grpc connections", len(client.grpcConns))
+	}
 	for _, grpcCon := range client.grpcConns {
 		if err := grpcCon.Close(); err != nil {
 			commLogger.Warningf("unable to close grpc conn but continue. Reason: %s", err.Error())
 		}
 	}
-}
-
-// CreateGRPCClient returns a comm.Client based on toke client config
-func CreateGRPCClient(config *ConnectionConfig) (*Client, error) {
-	timeout := config.ConnectionTimeout
-	if timeout <= 0 {
-		timeout = DefaultConnectionTimeout
-	}
-	clientConfig := ClientConfig{
-		KaOpts: KeepaliveOptions{
-			ClientInterval:    60 * time.Second,
-			ClientTimeout:     60 * time.Second,
-			ServerInterval:    30 * time.Second,
-			ServerTimeout:     60 * time.Second,
-			ServerMinInterval: 60 * time.Second,
-		},
-		Timeout: timeout,
-	}
-
-	if config.TLSEnabled {
-		var certs [][]byte
-		switch {
-		case len(config.TLSRootCertFile) != 0:
-			caPEM, err := ioutil.ReadFile(config.TLSRootCertFile)
-			if err != nil {
-				return nil, errors.WithMessagef(err, "unable to load TLS cert from %s", config.TLSRootCertFile)
-			}
-			certs = append(certs, caPEM)
-		case len(config.TLSRootCertBytes) != 0:
-			certs = config.TLSRootCertBytes
-		default:
-			return nil, errors.New("missing TLSRootCertFile in client config")
-		}
-
-		secOpts := SecureOptions{
-			UseTLS:            true,
-			ServerRootCAs:     certs,
-			RequireClientCert: false,
-		}
-		clientConfig.SecOpts = secOpts
-	}
-
-	return NewGRPCClient(clientConfig)
-}
-
-// Hasher is the interface provides the hash function should be used for all token components.
-type Hasher interface {
-	Hash(msg []byte) (hash []byte, err error)
-}
-
-// GetTLSCertHash computes SHA2-256 on tls certificate
-func GetTLSCertHash(cert *tls.Certificate, hasher Hasher) ([]byte, error) {
-	if cert == nil || len(cert.Certificate) == 0 {
-		return nil, nil
-	}
-
-	tlsCertHash, err := hasher.Hash(cert.Certificate[0])
-	if err != nil {
-		return nil, errors.WithMessage(err, "failed to compute SHA256 on client certificate")
-	}
-	return tlsCertHash, nil
 }

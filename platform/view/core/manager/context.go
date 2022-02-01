@@ -12,16 +12,18 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
+	"go.uber.org/zap/zapcore"
 
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
-	sig2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/core/sig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/registry"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 type ctx struct {
 	context        context.Context
 	sp             driver.ServiceProvider
+	localSP        driver.ServiceProvider
 	id             string
 	session        view.Session
 	initiator      view.View
@@ -55,6 +57,7 @@ func NewContext(context context.Context, sp driver.ServiceProvider, contextID st
 		sessions:       map[string]view.Session{},
 		caller:         caller,
 		sp:             sp,
+		localSP:        registry.New(),
 	}
 	if session != nil {
 		// Register default session
@@ -131,8 +134,7 @@ func (ctx *ctx) Identity(ref string) (view.Identity, error) {
 }
 
 func (ctx *ctx) IsMe(id view.Identity) bool {
-	_, err := sig2.GetSigner(ctx, id)
-	return err == nil
+	return view2.GetSigService(ctx).IsMe(id)
 }
 
 func (ctx *ctx) Caller() view.Identity {
@@ -148,22 +150,32 @@ func (ctx *ctx) GetSession(f view.View, party view.Identity) (view.Session, erro
 	var err error
 	id := party
 
-	logger.Debugf("get session for [%s:%s]", id.UniqueID(), getIdentifier(f))
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("get session for [%s:%s]", id.UniqueID(), getIdentifier(f))
+	}
 	s, ok := ctx.sessions[id.UniqueID()]
 	if !ok {
-		logger.Debugf("session for [%s] does not exists, resolve", id.UniqueID())
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			logger.Debugf("session for [%s] does not exists, resolve", id.UniqueID())
+		}
 		id, _, _, err = view2.GetEndpointService(ctx).Resolve(party)
 		if err == nil {
 			s, ok = ctx.sessions[id.UniqueID()]
-			logger.Debugf("session resolved for [%s] exists? [%v]", id.UniqueID(), ok)
+			if logger.IsEnabledFor(zapcore.DebugLevel) {
+				logger.Debugf("session resolved for [%s] exists? [%v]", id.UniqueID(), ok)
+			}
 		}
 	} else {
-		logger.Debugf("session for [%s] found", id.UniqueID())
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			logger.Debugf("session for [%s] found", id.UniqueID())
+		}
 	}
 
 	if ok && s.Info().Closed {
 		// Remove this session cause it is closed
-		logger.Debugf("removing session [%s], it is closed", id.UniqueID(), ok)
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			logger.Debugf("removing session [%s], it is closed", id.UniqueID(), ok)
+		}
 		delete(ctx.sessions, id.UniqueID())
 		ok = false
 	}
@@ -174,14 +186,18 @@ func (ctx *ctx) GetSession(f view.View, party view.Identity) (view.Session, erro
 			return nil, errors.Errorf("a session should already exist, passed nil view")
 		}
 
-		logger.Debugf("[%s] Creating new session [to:%s]", ctx.me, id)
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			logger.Debugf("[%s] Creating new session [to:%s]", ctx.me, id)
+		}
 		s, err = ctx.newSession(f, ctx.id, id)
 		if err != nil {
 			return nil, err
 		}
 		ctx.sessions[id.UniqueID()] = s
 	} else {
-		logger.Debugf("[%s] Reusing session [to:%s]", ctx.me, id)
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			logger.Debugf("[%s] Reusing session [to:%s]", ctx.me, id)
+		}
 	}
 	return s, nil
 }
@@ -195,28 +211,41 @@ func (ctx *ctx) GetSessionByID(id string, party view.Identity) (view.Session, er
 	key := id + "." + party.UniqueID()
 	s, ok := ctx.sessions[key]
 	if !ok {
-		logger.Debugf("[%s] Creating new session with given id [id:%s][to:%s]", ctx.me, id, party)
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			logger.Debugf("[%s] Creating new session with given id [id:%s][to:%s]", ctx.me, id, party)
+		}
 		s, err = ctx.newSessionByID(id, ctx.id, party)
 		if err != nil {
 			return nil, err
 		}
 		ctx.sessions[key] = s
 	} else {
-		logger.Debugf("[%s] Reusing session with given id [id:%s][to:%s]", id, ctx.me, party)
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			logger.Debugf("[%s] Reusing session with given id [id:%s][to:%s]", id, ctx.me, party)
+		}
 	}
 	return s, nil
 }
 
 func (ctx *ctx) Session() view.Session {
 	if ctx.session == nil {
-		logger.Debugf("[%s] No default current Session", ctx.me)
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			logger.Debugf("[%s] No default current Session", ctx.me)
+		}
 		return nil
 	}
-	logger.Debugf("[%s] Current Session [%s]", ctx.me, ctx.session.Info())
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("[%s] Current Session [%s]", ctx.me, ctx.session.Info())
+	}
 	return ctx.session
 }
 
 func (ctx *ctx) GetService(v interface{}) (interface{}, error) {
+	// first search locally then globally
+	s, err := ctx.localSP.GetService(v)
+	if err == nil {
+		return s, nil
+	}
 	return ctx.sp.GetService(v)
 }
 

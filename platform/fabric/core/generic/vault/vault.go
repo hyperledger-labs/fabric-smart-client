@@ -35,7 +35,7 @@ type TXIDStore interface {
 // Vault models a key-value store that can be modified by committing rwsets
 type Vault struct {
 	txidStore        TXIDStore
-	interceptorsLock sync.Mutex
+	interceptorsLock sync.RWMutex
 	interceptors     map[string]*Interceptor
 	counter          atomic.Int32
 
@@ -101,8 +101,8 @@ func (db *Vault) Status(txid string) (fdriver.ValidationCode, error) {
 		return code, nil
 	}
 
-	db.interceptorsLock.Lock()
-	defer db.interceptorsLock.Unlock()
+	db.interceptorsLock.RLock()
+	defer db.interceptorsLock.RUnlock()
 
 	if _, in := db.interceptors[txid]; in {
 		return fdriver.Busy, nil
@@ -267,8 +267,8 @@ func (db *Vault) Match(txid string, rwsRaw []byte) error {
 	}
 
 	logger.Debugf("unmapInterceptor [%s]", txid)
-	db.interceptorsLock.Lock()
-	defer db.interceptorsLock.Unlock()
+	db.interceptorsLock.RLock()
+	defer db.interceptorsLock.RUnlock()
 	i, in := db.interceptors[txid]
 	if !in {
 		return errors.Errorf("read-write set for txid %s could not be found", txid)

@@ -13,6 +13,8 @@ import (
 	"strings"
 	"sync"
 
+	"go.uber.org/zap/zapcore"
+
 	peer2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
@@ -28,6 +30,7 @@ import (
 )
 
 type Invoke struct {
+	Chaincode             *Chaincode
 	ServiceProvider       view2.ServiceProvider
 	Network               Network
 	Channel               Channel
@@ -45,12 +48,13 @@ type Invoke struct {
 	Args                  []interface{}
 }
 
-func NewInvoke(ServiceProvider view2.ServiceProvider, network Network, channel Channel, chaincode, function string, args ...interface{}) *Invoke {
+func NewInvoke(chaincode *Chaincode, function string, args ...interface{}) *Invoke {
 	return &Invoke{
-		ServiceProvider: ServiceProvider,
-		Network:         network,
-		Channel:         channel,
-		ChaincodeName:   chaincode,
+		Chaincode:       chaincode,
+		ServiceProvider: chaincode.sp,
+		Network:         chaincode.network,
+		Channel:         chaincode.channel,
+		ChaincodeName:   chaincode.name,
 		Function:        function,
 		Args:            args,
 	}
@@ -161,7 +165,7 @@ func (i *Invoke) WithTxID(id driver.TxID) driver.ChaincodeInvocation {
 
 func (i *Invoke) prepare() (string, *pb.Proposal, []*pb.ProposalResponse, driver.SigningIdentity, error) {
 	// TODO: improve by providing grpc connection pool
-	var peerClients []peer2.PeerClient
+	var peerClients []peer2.Client
 	defer func() {
 		for _, pCli := range peerClients {
 			pCli.Close()
@@ -204,7 +208,7 @@ func (i *Invoke) prepare() (string, *pb.Proposal, []*pb.ProposalResponse, driver
 
 		// discover
 		var err error
-		i.Endorsers, err = NewDiscovery(i.Network, i.Channel, i.ChaincodeName).WithFilterByMSPIDs(i.EndorsersMSPIDs...).Call()
+		i.Endorsers, err = NewDiscovery(i.Chaincode).WithFilterByMSPIDs(i.EndorsersMSPIDs...).Call()
 		if err != nil {
 			return "", nil, nil, nil, err
 		}
@@ -297,16 +301,22 @@ func (i *Invoke) createChaincodeProposalWithTxIDAndTransient(typ pcommon.HeaderT
 		i.TxID.Creator = creator
 	}
 	if len(i.TxID.Nonce) == 0 {
-		logger.Debugf("generate nonce and tx-id for [%s,%s]", view.Identity(i.TxID.Creator).String(), base64.StdEncoding.EncodeToString(nonce))
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			logger.Debugf("generate nonce and tx-id for [%s,%s]", view.Identity(i.TxID.Creator).String(), base64.StdEncoding.EncodeToString(nonce))
+		}
 		txid = transaction.ComputeTxID(&i.TxID)
 		nonce = i.TxID.Nonce
 	} else {
 		nonce = i.TxID.Nonce
 		txid = transaction.ComputeTxID(&i.TxID)
-		logger.Debugf("no need to generate nonce and tx-id [%s,%s]", base64.StdEncoding.EncodeToString(nonce), txid)
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			logger.Debugf("no need to generate nonce and tx-id [%s,%s]", base64.StdEncoding.EncodeToString(nonce), txid)
+		}
 	}
 
-	logger.Debugf("create chaincode proposal with tx id [%s], nonce [%s]", txid, base64.StdEncoding.EncodeToString(nonce))
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("create chaincode proposal with tx id [%s], nonce [%s]", txid, base64.StdEncoding.EncodeToString(nonce))
+	}
 
 	return protoutil.CreateChaincodeProposalWithTxIDNonceAndTransient(txid, typ, channelID, cis, nonce, creator, transientMap)
 }

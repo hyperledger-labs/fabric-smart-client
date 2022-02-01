@@ -11,9 +11,6 @@ import (
 	"io/ioutil"
 	"sync"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer/common"
-
 	"github.com/pkg/errors"
 
 	config2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
@@ -50,7 +47,7 @@ type network struct {
 
 	ordering driver.Ordering
 	channels map[string]driver.Channel
-	mutex    sync.Mutex
+	mutex    sync.RWMutex
 	name     string
 }
 
@@ -70,7 +67,6 @@ func NewNetwork(
 		name:            name,
 		config:          config,
 		channels:        map[string]driver.Channel{},
-		mutex:           sync.Mutex{},
 		localMembership: localMembership,
 		idProvider:      idProvider,
 		sigService:      sigService,
@@ -122,10 +118,20 @@ func (f *network) Channel(name string) (driver.Channel, error) {
 		}
 	}
 
+	// first check the cache
+	f.mutex.RLock()
+	ch, ok := f.channels[name]
+	f.mutex.RUnlock()
+	if ok {
+		logger.Debugf("Returning channel for [%s]", name)
+		return ch, nil
+	}
+
+	// create channel and store in cache
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
 
-	ch, ok := f.channels[name]
+	ch, ok = f.channels[name]
 	if !ok {
 		logger.Debugf("Channel [%s] not found, allocate resources", name)
 		var err error
@@ -133,16 +139,7 @@ func (f *network) Channel(name string) (driver.Channel, error) {
 		if err != nil {
 			return nil, err
 		}
-
-		ch = &channelWithConnPool{
-			cache: common.CachingEndorserPool{
-				Cache:       make(map[string]peer.PeerClient),
-				ConnCreator: c,
-			},
-			Channel: c,
-		}
-
-		f.channels[name] = ch
+		f.channels[name] = c
 		logger.Debugf("Channel [%s] not found, created", name)
 	}
 
@@ -245,17 +242,4 @@ func loadFile(path string) ([]byte, error) {
 		return nil, errors.WithMessagef(err, "unable to load from %s", path)
 	}
 	return raw, nil
-}
-
-type channelWithConnPool struct {
-	driver.Channel
-	cache common.CachingEndorserPool
-}
-
-func (cwcp *channelWithConnPool) NewPeerClientForAddress(cc grpc.ConnectionConfig) (peer.PeerClient, error) {
-	return cwcp.cache.NewPeerClientForAddress(cc)
-}
-
-func (cwcp *channelWithConnPool) NewPeerClientForIdentity(peer view.Identity) (peer.PeerClient, error) {
-	return cwcp.cache.NewPeerClientForIdentity(peer)
 }

@@ -11,6 +11,7 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
+	"go.uber.org/zap/zapcore"
 
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
@@ -24,8 +25,9 @@ var logger = flogging.MustGetLogger("view-sdk.endpoint")
 type resolver struct {
 	Name           string
 	Domain         string
-	Addresses      map[string]string
+	Addresses      map[driver.PortName]string
 	Aliases        []string
+	PKI            []byte
 	Id             []byte
 	IdentityGetter func() (view.Identity, []byte, error)
 }
@@ -68,7 +70,9 @@ type service struct {
 	resolversMutex sync.RWMutex
 	discovery      Discovery
 	kvs            KVS
-	pkiResolvers   []driver.PKIResolver
+
+	pkiResolverLock sync.RWMutex
+	pkiResolvers    []driver.PKIResolver
 }
 
 // NewService returns a new instance of the view-sdk endpoint service
@@ -87,9 +91,11 @@ func (r *service) Endpoint(party view.Identity) (map[driver.PortName]string, err
 	for {
 		// root endpoints have addresses
 		// is this a root endpoint
-		e, err := r.rootEndpoint(cursor)
+		_, e, err := r.rootEndpoint(cursor)
 		if err != nil {
-			logger.Debugf("resolving via binding for %s", cursor)
+			if logger.IsEnabledFor(zapcore.DebugLevel) {
+				logger.Debugf("resolving via binding for %s", cursor)
+			}
 			ee, err := r.getBinding(cursor.UniqueID())
 			if err != nil {
 				return nil, errors.Wrapf(err, "endpoint not found for identity [%s,%s]", string(cursor), cursor.UniqueID())
@@ -100,11 +106,15 @@ func (r *service) Endpoint(party view.Identity) (map[driver.PortName]string, err
 				return nil, errors.Errorf("endpoint loop detected for identity [%s,%s]", string(cursor), cursor.UniqueID())
 			}
 			cursor = ee.Identity
-			logger.Debugf("continue to [%s,%s,%s]", cursor, ee.Endpoints, ee.Identity)
+			if logger.IsEnabledFor(zapcore.DebugLevel) {
+				logger.Debugf("continue to [%s,%s,%s]", cursor, ee.Endpoints, ee.Identity)
+			}
 			continue
 		}
 
-		logger.Debugf("endpoint for [%s] to [%s] with ports [%v]", party, cursor, e)
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			logger.Debugf("endpoint for [%s] to [%s] with ports [%v]", party, cursor, e)
+		}
 		return e, nil
 	}
 }
@@ -114,26 +124,32 @@ func (r *service) Resolve(party view.Identity) (view.Identity, map[driver.PortNa
 	for {
 		// root endpoints have addresses
 		// is this a root endpoint
-		e, err := r.rootEndpoint(cursor)
+		resolver, e, err := r.rootEndpoint(cursor)
 		if err != nil {
-			logger.Debugf("resolving via binding for %s", cursor)
+			if logger.IsEnabledFor(zapcore.DebugLevel) {
+				logger.Debugf("resolving via binding for %s", cursor)
+			}
 			ee, err := r.getBinding(cursor.UniqueID())
 			if err != nil {
 				return nil, nil, nil, errors.Wrapf(err, "endpoint not found for identity [%s,%s]", string(cursor), cursor.UniqueID())
 			}
 
 			cursor = ee.Identity
-			logger.Debugf("continue to [%s,%s,%s]", cursor, ee.Endpoints, ee.Identity)
+			if logger.IsEnabledFor(zapcore.DebugLevel) {
+				logger.Debugf("continue to [%s,%s,%s]", cursor, ee.Endpoints, ee.Identity)
+			}
 			continue
 		}
 
-		return cursor, e, r.pkiResolve(cursor), nil
+		return cursor, e, r.pkiResolve(resolver), nil
 	}
 }
 
 func (r *service) Bind(longTerm view.Identity, ephemeral view.Identity) error {
 	if longTerm.Equal(ephemeral) {
-		logger.Debugf("cannot bind [%s] to [%s], they are the same", longTerm, ephemeral)
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			logger.Debugf("cannot bind [%s] to [%s], they are the same", longTerm, ephemeral)
+		}
 		return nil
 	}
 
@@ -141,7 +157,9 @@ func (r *service) Bind(longTerm view.Identity, ephemeral view.Identity) error {
 	if err != nil {
 		return errors.Errorf("long term identity not found for identity [%s]", longTerm.UniqueID())
 	}
-	logger.Debugf("bind [%s] to [%s]", ephemeral.String(), longTerm.String())
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("bind [%s] to [%s]", ephemeral.String(), longTerm.String())
+	}
 	if err := r.putBinding(ephemeral.UniqueID(), &endpointEntry{Endpoints: e, Identity: longTerm, Ephemeral: ephemeral}); err != nil {
 		return errors.WithMessagef(err, "failed storing binding of [%s]  to [%s]", ephemeral.UniqueID(), longTerm.UniqueID())
 	}
@@ -171,7 +189,7 @@ func (r *service) GetIdentity(endpoint string, pkid []byte) (view.Identity, erro
 
 	// search in the resolver list
 	for _, resolver := range r.resolvers {
-		resolverPKID := r.pkiResolve(resolver.Id)
+		resolverPKID := r.pkiResolve(resolver)
 		found := false
 		for _, addr := range resolver.Addresses {
 			if endpoint == addr {
@@ -189,7 +207,9 @@ func (r *service) GetIdentity(endpoint string, pkid []byte) (view.Identity, erro
 			if err != nil {
 				return nil, err
 			}
-			logger.Infof("resolving [%s,%s] to %s", endpoint, view.Identity(pkid), id)
+			if logger.IsEnabledFor(zapcore.DebugLevel) {
+				logger.Debugf("resolving [%s,%s] to %s", endpoint, view.Identity(pkid), id)
+			}
 			return id, nil
 		}
 	}
@@ -197,7 +217,9 @@ func (r *service) GetIdentity(endpoint string, pkid []byte) (view.Identity, erro
 }
 
 func (r *service) AddResolver(name string, domain string, addresses map[string]string, aliases []string, id []byte) (view.Identity, error) {
-	logger.Debugf("adding resolver [%s,%s,%v,%v,%s]", name, domain, addresses, aliases, view.Identity(id).String())
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("adding resolver [%s,%s,%v,%v,%s]", name, domain, addresses, aliases, view.Identity(id).String())
+	}
 
 	// is there a resolver with the same name?
 	r.resolversMutex.RLock()
@@ -217,7 +239,7 @@ func (r *service) AddResolver(name string, domain string, addresses map[string]s
 	r.resolvers = append(r.resolvers, &resolver{
 		Name:      name,
 		Domain:    domain,
-		Addresses: addresses,
+		Addresses: convert(addresses),
 		Aliases:   aliases,
 		Id:        id,
 	})
@@ -225,6 +247,9 @@ func (r *service) AddResolver(name string, domain string, addresses map[string]s
 }
 
 func (r *service) AddPKIResolver(pkiResolver driver.PKIResolver) error {
+	r.pkiResolverLock.Lock()
+	defer r.pkiResolverLock.Unlock()
+
 	if pkiResolver == nil {
 		return errors.New("pki resolver should not be nil")
 	}
@@ -238,27 +263,39 @@ func (r *service) AddLongTermIdentity(identity view.Identity) error {
 	})
 }
 
-func (r *service) pkiResolve(id view.Identity) []byte {
+func (r *service) pkiResolve(resolver *resolver) []byte {
+	r.pkiResolverLock.RLock()
+	if len(resolver.PKI) != 0 {
+		r.pkiResolverLock.RUnlock()
+		return resolver.PKI
+	}
+	r.pkiResolverLock.RUnlock()
+
+	r.pkiResolverLock.Lock()
+	defer r.pkiResolverLock.Unlock()
 	for _, pkiResolver := range r.pkiResolvers {
-		if res := pkiResolver.GetPKIidOfCert(id); len(res) != 0 {
-			logger.Debugf("pki resolved for [%s]", id)
+		if res := pkiResolver.GetPKIidOfCert(resolver.Id); len(res) != 0 {
+			if logger.IsEnabledFor(zapcore.DebugLevel) {
+				logger.Debugf("pki resolved for [%s]", resolver.Id)
+			}
+			resolver.PKI = res
 			return res
 		}
 	}
-	logger.Warnf("cannot resolve pki for [%s]", id)
+	logger.Warnf("cannot resolve pki for [%s]", resolver.Id)
 	return nil
 }
 
-func (r *service) rootEndpoint(party view.Identity) (map[driver.PortName]string, error) {
+func (r *service) rootEndpoint(party view.Identity) (*resolver, map[driver.PortName]string, error) {
 	r.resolversMutex.RLock()
 	defer r.resolversMutex.RUnlock()
 
 	for _, resolver := range r.resolvers {
 		if bytes.Equal(resolver.Id, party) {
-			return convert(resolver.Addresses), nil
+			return resolver, resolver.Addresses, nil
 		}
 	}
-	return nil, errors.Errorf("endpoint not found for identity %s", party.UniqueID())
+	return nil, nil, errors.Errorf("endpoint not found for identity %s", party.UniqueID())
 }
 
 func (r *service) putBinding(key string, entry *endpointEntry) error {

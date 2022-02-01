@@ -16,6 +16,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/pkg/errors"
+	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/api"
@@ -55,13 +56,17 @@ type ViewServiceClientImpl struct {
 }
 
 func (pc *ViewServiceClientImpl) CreateViewClient() (*grpc.ClientConn, protos2.ViewServiceClient, error) {
-	logger.Debugf("opening connection to [%s]", pc.Address)
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("opening connection to [%s]", pc.Address)
+	}
 	conn, err := pc.GRPCClient.NewConnection(pc.Address)
 	if err != nil {
 		logger.Errorf("failed creating connection to [%s]: [%s]", pc.Address, err)
 		return conn, nil, errors.Wrapf(err, "failed creating connection to [%s]", pc.Address)
 	}
-	logger.Debugf("opening connection to [%s], done.", pc.Address)
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("opening connection to [%s], done.", pc.Address)
+	}
 
 	return conn, protos2.NewViewServiceClient(conn), nil
 }
@@ -138,7 +143,9 @@ func (s *client) IsTxFinal(txid string, opts ...api.ServiceOption) error {
 		return err
 	}
 
-	logger.Debugf("Calling IsTxFinal on txid [%s]", txid)
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("Calling IsTxFinal on txid [%s]", txid)
+	}
 	payload := &protos2.Command_IsTxFinal{IsTxFinal: &protos2.IsTxFinal{
 		Network: options.Network,
 		Channel: options.Channel,
@@ -150,13 +157,17 @@ func (s *client) IsTxFinal(txid string, opts ...api.ServiceOption) error {
 		return errors.Wrapf(err, "failed creating signed command to ask for finality of tx [%s] at [%s]", txid, s.Address)
 	}
 
-	logger.Debugf("Contact the server to ask if tx [%s] final at [%s]", txid, s.Address)
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("Contact the server to ask if tx [%s] final at [%s]", txid, s.Address)
+	}
 	commandResp, err := s.processCommand(context.Background(), sc)
 	if err != nil {
 		logger.Errorf("failed process command to ask for finality of tx [%s] at [%s]", txid, s.Address)
 		return errors.Wrapf(err, "failed process command to ask for finality of tx [%s] at [%s]", txid, s.Address)
 	}
-	logger.Debugf("Contact the server to ask if tx [%s] final at [%s]. Done", txid, s.Address)
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("Contact the server to ask if tx [%s] final at [%s]. Done", txid, s.Address)
+	}
 
 	if commandResp.GetIsTxFinalResponse() == nil {
 		logger.Errorf("expected response, got nothing while asking for finality of tx [%s] at [%s]", txid, s.Address)
@@ -164,7 +175,9 @@ func (s *client) IsTxFinal(txid string, opts ...api.ServiceOption) error {
 	}
 
 	respPayload := commandResp.GetIsTxFinalResponse().GetPayload()
-	logger.Debugf("Is tx [%s] final at [%s]? [%s]", txid, s.Address, string(respPayload))
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("Is tx [%s] final at [%s]? [%s]", txid, s.Address, string(respPayload))
+	}
 	if len(respPayload) == 0 {
 		return nil
 	}
@@ -173,11 +186,17 @@ func (s *client) IsTxFinal(txid string, opts ...api.ServiceOption) error {
 
 // processCommand calls view client to send grpc request and returns a CommandResponse
 func (s *client) processCommand(ctx context.Context, sc *protos2.SignedCommand) (*protos2.CommandResponse, error) {
-	logger.Debugf("get view service client...")
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("get view service client...")
+	}
 	conn, client, err := s.ViewServiceClient.CreateViewClient()
-	logger.Debugf("get view service client...done")
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("get view service client...done")
+	}
 	if conn != nil {
-		logger.Debugf("get view service client...got a connection")
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			logger.Debugf("get view service client...got a connection")
+		}
 		defer conn.Close()
 	}
 	if err != nil {
@@ -185,14 +204,18 @@ func (s *client) processCommand(ctx context.Context, sc *protos2.SignedCommand) 
 		return nil, errors.Wrap(err, "failed creating view client")
 	}
 
-	logger.Debugf("process command [%s]", sc.String())
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("process command [%s]", sc.String())
+	}
 	scr, err := client.ProcessCommand(ctx, sc)
 	if err != nil {
 		logger.Errorf("failed view client process command [%s]", err)
 		return nil, errors.Wrap(err, "failed view client process command")
 	}
 
-	logger.Debugf("parse answer [%s]", hash2.Hashable(scr.Response).String())
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("parse answer [%s]", hash2.Hashable(scr.Response).String())
+	}
 	commandResp := &protos2.CommandResponse{}
 	err = proto.Unmarshal(scr.Response, commandResp)
 	if err != nil {
@@ -204,30 +227,42 @@ func (s *client) processCommand(ctx context.Context, sc *protos2.SignedCommand) 
 		return nil, errors.Errorf("error from view during process command: %s", commandResp.GetErr().GetMessage())
 	}
 
-	logger.Debugf("process command [%s] done", sc.String())
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("process command [%s] done", sc.String())
+	}
 	return commandResp, nil
 }
 
 func (s *client) streamCommand(ctx context.Context, sc *protos2.SignedCommand, opts ...grpc.CallOption) (protos2.ViewService_StreamCommandClient, error) {
-	logger.Debugf("[stream] get view service client...")
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("[stream] get view service client...")
+	}
 	conn, client, err := s.ViewServiceClient.CreateViewClient()
-	logger.Debugf("[stream] get view service client...done")
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("[stream] get view service client...done")
+	}
 	if conn != nil {
-		logger.Debugf("[stream] get view service client...got a connection")
-		//defer conn.Close()
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			logger.Debugf("[stream] get view service client...got a connection")
+		}
+		// defer conn.Close()
 	}
 	if err != nil {
 		logger.Errorf("[stream] failed creating view client [%s]", err)
 		return nil, errors.Wrap(err, "[stream] failed creating view client")
 	}
 
-	logger.Debugf("stream command [%s]", sc.String())
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("stream command [%s]", sc.String())
+	}
 	scc, err := client.StreamCommand(ctx, sc, opts...)
 	if err != nil {
 		logger.Errorf("[stream] failed view client stream command [%s]", err)
 		return nil, errors.Wrap(err, "[stream] failed view client stream command")
 	}
-	logger.Debugf("stream command [%s], done!", sc.String())
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("stream command [%s], done!", sc.String())
+	}
 
 	return scc, nil
 }

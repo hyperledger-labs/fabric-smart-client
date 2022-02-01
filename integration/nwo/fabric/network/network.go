@@ -91,7 +91,7 @@ func New(reg api.Context, topology *topology.Topology, dockerClient *docker.Clie
 		topology:     topology,
 
 		NetworkID:         NetworkID,
-		EventuallyTimeout: 10 * time.Minute,
+		EventuallyTimeout: 20 * time.Minute,
 		MetricsProvider:   "prometheus",
 		PortsByBrokerID:   map[string]api.Ports{},
 		PortsByOrdererID:  map[string]api.Ports{},

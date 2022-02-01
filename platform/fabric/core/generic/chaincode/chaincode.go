@@ -7,6 +7,10 @@ SPDX-License-Identifier: Apache-2.0
 package chaincode
 
 import (
+	"sync"
+
+	"github.com/ReneKroon/ttlcache/v2"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 )
@@ -16,18 +20,27 @@ type Chaincode struct {
 	sp      view.ServiceProvider
 	network Network
 	channel Channel
+
+	discoveryResultsCacheLock sync.RWMutex
+	discoveryResultsCache     ttlcache.SimpleCache
 }
 
 func NewChaincode(name string, sp view.ServiceProvider, network Network, channel Channel) *Chaincode {
-	return &Chaincode{name: name, sp: sp, network: network, channel: channel}
+	return &Chaincode{
+		name:                  name,
+		sp:                    sp,
+		network:               network,
+		channel:               channel,
+		discoveryResultsCache: ttlcache.NewCache(),
+	}
 }
 
 func (c *Chaincode) NewInvocation(function string, args ...interface{}) driver.ChaincodeInvocation {
-	return NewInvoke(c.sp, c.network, c.channel, c.name, function, args...)
+	return NewInvoke(c, function, args...)
 }
 
 func (c *Chaincode) NewDiscover() driver.ChaincodeDiscover {
-	return NewDiscovery(c.network, c.channel, c.name)
+	return NewDiscovery(c)
 }
 
 func (c *Chaincode) IsAvailable() (bool, error) {

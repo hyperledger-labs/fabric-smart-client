@@ -12,7 +12,12 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
+)
+
+var (
+	logger = flogging.MustGetLogger("fabric-sdk")
 )
 
 // NetworkService models a Fabric Network
@@ -98,6 +103,7 @@ func GetFabricNetworkNames(sp view2.ServiceProvider) []string {
 func GetFabricNetworkService(sp view2.ServiceProvider, id string) *NetworkService {
 	fns, err := core.GetFabricNetworkServiceProvider(sp).FabricNetworkService(id)
 	if err != nil {
+		logger.Errorf("Failed to get Fabric Network Service for id [%s]: [%s]", id, err)
 		return nil
 	}
 	return &NetworkService{name: fns.Name(), SP: sp, fns: fns}

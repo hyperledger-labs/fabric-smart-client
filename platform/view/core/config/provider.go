@@ -51,7 +51,6 @@ func (p *provider) GetDuration(key string) time.Duration {
 }
 
 func (p *provider) GetBool(key string) bool {
-	logger.Debugf("Getting bool %s:%v", key, p.v.Get(key))
 	return p.v.GetBool(key)
 }
 
@@ -144,14 +143,14 @@ func (p *provider) load() error {
 	return nil
 }
 
-//----------------------------------------------------------------------------------
+// ----------------------------------------------------------------------------------
 // InitViper()
-//----------------------------------------------------------------------------------
+// ----------------------------------------------------------------------------------
 // Performs basic initialization of our viper-based configuration layer.
 // Primary thrust is to establish the paths that should be consulted to find
 // the configuration we need.  If v == nil, we will initialize the global
 // Viper instance
-//----------------------------------------------------------------------------------
+// ----------------------------------------------------------------------------------
 func (p *provider) initViper(v *viper.Viper, configName string) error {
 	v.SetEnvPrefix(CmdRoot)
 	v.AutomaticEnv()

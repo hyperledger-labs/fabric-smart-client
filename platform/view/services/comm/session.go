@@ -9,6 +9,8 @@ package comm
 import (
 	"sync"
 
+	"go.uber.org/zap/zapcore"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -69,16 +71,22 @@ func (n *NetworkStreamSession) Close() {
 	}
 	n.node.sessionsMutex.Unlock()
 
-	logger.Debugf("Closing session stream [%s]", n.sessionID)
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("Closing session stream [%s]", n.sessionID)
+	}
 	for _, stream := range toClose {
 		stream.close()
 	}
 
-	logger.Debugf("Closing session incoming [%s]", n.sessionID)
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("Closing session incoming [%s]", n.sessionID)
+	}
 	close(n.incoming)
 	n.closed = true
 
-	logger.Debugf("Closing session [%s] done", n.sessionID)
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("Closing session [%s] done", n.sessionID)
+	}
 }
 
 func (n *NetworkStreamSession) sendWithStatus(payload []byte, status int32) error {
@@ -89,6 +97,8 @@ func (n *NetworkStreamSession) sendWithStatus(payload []byte, status int32) erro
 		Status:    status,
 		Payload:   payload,
 	})
-	logger.Debugf("sent message [len:%d] to [%s] with err [%s]", len(payload), string(n.endpointID), err)
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("sent message [len:%d] to [%s] with err [%s]", len(payload), string(n.endpointID), err)
+	}
 	return err
 }

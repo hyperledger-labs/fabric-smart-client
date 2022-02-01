@@ -11,6 +11,7 @@ import (
 	"runtime/debug"
 
 	"github.com/pkg/errors"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -132,7 +133,9 @@ func (w *childContext) cleanup() {
 func (w *childContext) safeInvoke(f func()) {
 	defer func() {
 		if r := recover(); r != nil {
-			logger.Debugf("function [%s] panicked [%s]", f, r)
+			if logger.IsEnabledFor(zapcore.DebugLevel) {
+				logger.Debugf("function [%s] panicked [%s]", f, r)
+			}
 		}
 	}()
 	f()

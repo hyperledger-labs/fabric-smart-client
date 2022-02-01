@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"unicode/utf8"
 
@@ -83,12 +84,47 @@ func TestRangeQueries(t *testing.T) {
 		assert.NoError(t, err)
 		res = append(res, *n)
 	}
-	assert.Len(t, res, 3)
-	assert.Equal(t, []driver.VersionedRead{
+	expected := []driver.VersionedRead{
 		{Key: "k1", Raw: []byte("k1_value"), Block: 35, IndexInBlock: 3},
 		{Key: "k111", Raw: []byte("k111_value"), Block: 35, IndexInBlock: 4},
 		{Key: "k2", Raw: []byte("k2_value"), Block: 35, IndexInBlock: 1},
-	}, res)
+	}
+	assert.Len(t, res, 3)
+	assert.Equal(t, expected, res)
+
+	itr, err = db.GetCachedStateRangeScanIterator(ns, "k1", "k3")
+	defer itr.Close()
+	assert.NoError(t, err)
+
+	expected = []driver.VersionedRead{
+		{Key: "k1", Raw: []byte("k1_value"), Block: 35, IndexInBlock: 3},
+		{Key: "k111", Raw: []byte("k111_value"), Block: 35, IndexInBlock: 4},
+	}
+	res = make([]driver.VersionedRead, 0, 2)
+	for i := 0; i < 2; i++ {
+		n, err := itr.Next()
+		assert.NoError(t, err)
+		res = append(res, *n)
+	}
+	assert.Len(t, res, 2)
+	assert.Equal(t, expected, res)
+
+	expected = []driver.VersionedRead{
+		{Key: "k1", Raw: []byte("k1_value"), Block: 35, IndexInBlock: 3},
+		{Key: "k111", Raw: []byte("k111_value"), Block: 35, IndexInBlock: 4},
+		{Key: "k2", Raw: []byte("k2_value"), Block: 35, IndexInBlock: 1},
+	}
+	itr, err = db.GetCachedStateRangeScanIterator(ns, "k1", "k3")
+	defer itr.Close()
+	assert.NoError(t, err)
+
+	res = make([]driver.VersionedRead, 0, 3)
+	for n, err := itr.Next(); n != nil; n, err = itr.Next() {
+		assert.NoError(t, err)
+		res = append(res, *n)
+	}
+	assert.Len(t, res, 3)
+	assert.Equal(t, expected, res)
 }
 
 func TestMarshallingErrors(t *testing.T) {
@@ -505,6 +541,22 @@ func TestRangeQueries1(t *testing.T) {
 	}, res)
 }
 
+func TestExpansion(t *testing.T) {
+	a := make([]cacheValue, 4, 5)
+	for i := 0; i < 4; i++ {
+		a[i].k = []byte{byte(i)}
+	}
+	a = a[:len(a)+1]
+	a[len(a)-1].k = []byte{byte(4)}
+	assert.Equal(t, []cacheValue{
+		{k: []byte{0}},
+		{k: []byte{1}},
+		{k: []byte{2}},
+		{k: []byte{3}},
+		{k: []byte{4}},
+	}, a)
+}
+
 const (
 	minUnicodeRuneValue   = 0            // U+0000
 	maxUnicodeRuneValue   = utf8.MaxRune // U+10FFFF - maximum (and unallocated) code point
@@ -608,4 +660,25 @@ func TestCompositeKeys(t *testing.T) {
 		{Key: "\x00prefix0a0b010", Raw: []uint8{0x0, 0x70, 0x72, 0x65, 0x66, 0x69, 0x78, 0x30, 0x61, 0x30, 0x62, 0x30, 0x31, 0x30}, Block: 0x23, IndexInBlock: 1},
 		{Key: "\x00prefix0a0b030", Raw: []uint8{0x0, 0x70, 0x72, 0x65, 0x66, 0x69, 0x78, 0x30, 0x61, 0x30, 0x62, 0x30, 0x33, 0x30}, Block: 0x23, IndexInBlock: 1},
 	}, res)
+}
+
+var (
+	namespace = "test_namespace"
+	key       = "test_key"
+)
+
+func BenchmarkConcatenation(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		_ = namespace + keys.NamespaceSeparator + key
+	}
+}
+
+func BenchmarkBuilder(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		var sb strings.Builder
+		sb.WriteString(namespace)
+		sb.WriteString(keys.NamespaceSeparator)
+		sb.WriteString(key)
+		_ = sb.String()
+	}
 }

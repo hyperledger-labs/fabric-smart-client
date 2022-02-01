@@ -168,11 +168,14 @@ func (r *RWSet) RWS() fdriver.RWSet {
 	return r.rws
 }
 
-type Read struct {
-	Key          string
-	Raw          []byte
-	Block        uint64
-	IndexInBlock int
+type Read driver.VersionedRead
+
+func (v *Read) K() string {
+	return v.Key
+}
+
+func (v *Read) V() []byte {
+	return v.Raw
 }
 
 // ResultsIterator models an query result iterator
@@ -191,12 +194,7 @@ func (r *ResultsIterator) Next() (*Read, error) {
 		return nil, nil
 	}
 
-	return &Read{
-		Key:          read.Key,
-		Raw:          read.Raw,
-		Block:        read.Block,
-		IndexInBlock: read.IndexInBlock,
-	}, nil
+	return (*Read)(read), nil
 }
 
 // Close releases resources occupied by the iterator
@@ -218,6 +216,14 @@ func (qe *QueryExecutor) GetStateMetadata(namespace, key string) (map[string][]b
 
 func (qe *QueryExecutor) GetStateRangeScanIterator(namespace string, startKey string, endKey string) (*ResultsIterator, error) {
 	ri, err := qe.qe.GetStateRangeScanIterator(namespace, startKey, endKey)
+	if err != nil {
+		return nil, err
+	}
+	return &ResultsIterator{ri: ri}, nil
+}
+
+func (qe *QueryExecutor) GetCachedStateRangeScanIterator(namespace string, startKey string, endKey string) (*ResultsIterator, error) {
+	ri, err := qe.qe.GetCachedStateRangeScanIterator(namespace, startKey, endKey)
 	if err != nil {
 		return nil, err
 	}

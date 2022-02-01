@@ -33,6 +33,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 	runner2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/runner"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/commands"
+	commands2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/metrics/commands"
 	node2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/crypto"
@@ -71,10 +72,11 @@ type Platform struct {
 	Topology          *Topology
 	EventuallyTimeout time.Duration
 
-	Organizations []*node2.Organization
-	Peers         []*node2.Peer
-	Resolvers     []*Resolver
-	colorIndex    int
+	Organizations            []*node2.Organization
+	Peers                    []*node2.Peer
+	Resolvers                []*Resolver
+	colorIndex               int
+	metricsAggregatorProcess ifrit.Process
 }
 
 func NewPlatform(Registry api.Context, t api.Topology, builderClient BuilderClient) *Platform {
@@ -185,6 +187,10 @@ func (p *Platform) Members() []grouper.Member {
 }
 
 func (p *Platform) PostRun() {
+	if len(p.Topology.MetricsAggregator) != 0 {
+		p.StartMetricsAggregator()
+	}
+
 	for _, node := range p.Peers {
 		v := viper.New()
 		v.SetConfigFile(p.NodeConfigPath(node))
@@ -246,6 +252,9 @@ func (p *Platform) PostRun() {
 }
 
 func (p *Platform) Cleanup() {
+	if p.metricsAggregatorProcess != nil {
+		p.metricsAggregatorProcess.Signal(os.Kill)
+	}
 }
 
 func (p *Platform) CheckTopology() {
@@ -428,6 +437,7 @@ func (p *Platform) FSCNodeRunner(node *node2.Peer, env ...string) *runner2.Runne
 		commands.NodeStart{NodeID: node.ID()},
 		"",
 		fmt.Sprintf("FSCNODE_CFG_PATH=%s", p.NodeDir(node)),
+		fmt.Sprintf("FSCNODE_PROFILER=true"),
 	)
 	cmd.Env = append(cmd.Env, env...)
 
@@ -686,6 +696,20 @@ func (p *Platform) GetSigningIdentity(peer *node2.Peer) (view.SigningIdentity, e
 
 func (p *Platform) GetAdminSigningIdentity(peer *node2.Peer) (view.SigningIdentity, error) {
 	return view.NewX509SigningIdentity(p.AdminLocalMSPIdentityCert(peer), p.AdminLocalMSPPrivateKey(peer))
+}
+
+func (p *Platform) StartMetricsAggregator() {
+	cmd := common.NewCommand(p.Builder.Build(p.Topology.MetricsAggregator), &commands2.AggregatorStart{NodeID: "aggregator"})
+	config := runner2.Config{
+		AnsiColorCode:     common.NextColor(),
+		Name:              "aggregator",
+		Command:           cmd,
+		StartCheck:        `Started aggregator`,
+		StartCheckTimeout: 1 * time.Minute,
+	}
+
+	p.metricsAggregatorProcess = ifrit.Invoke(runner2.New(config))
+	Eventually(p.metricsAggregatorProcess.Ready(), p.EventuallyTimeout).Should(BeClosed())
 }
 
 func (p *Platform) listTLSCACertificates() []string {

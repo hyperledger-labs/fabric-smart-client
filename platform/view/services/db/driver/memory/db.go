@@ -11,6 +11,8 @@ import (
 	"sort"
 	"sync"
 
+	"go.uber.org/zap/zapcore"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 )
@@ -180,6 +182,10 @@ func (db *database) GetStateRangeScanIterator(namespace string, startKey string,
 	}, nil
 }
 
+func (db *database) GetCachedStateRangeScanIterator(namespace string, startKey string, endKey string) (driver.VersionedResultsIterator, error) {
+	return db.GetStateRangeScanIterator(namespace, startKey, endKey)
+}
+
 func (db *database) GetState(namespace string, key string) ([]byte, uint64, uint64, error) {
 	db.mutex.Lock()
 	defer db.mutex.Unlock()
@@ -216,7 +222,9 @@ func (db *database) SetState(namespace string, key string, value []byte, block, 
 		panic("programming error, writing without ongoing update")
 	}
 
-	logger.Debugf("Set stat [%s,%s]", namespace, key)
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("Set stat [%s,%s]", namespace, key)
+	}
 
 	vv, in := db.mapForNamespaceForWriting(namespace, true)[key]
 	if !in {

@@ -150,8 +150,7 @@ func (s *service) Identity(label string) view.Identity {
 }
 
 func (s *service) IsMe(id view.Identity) bool {
-	_, err := sig2.GetSigner(s.sp, id)
-	return err == nil
+	return view2.GetSigService(s.sp).IsMe(id)
 }
 
 func (s *service) DefaultSigningIdentity() api2.SigningIdentity {

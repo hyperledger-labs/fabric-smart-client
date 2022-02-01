@@ -17,6 +17,7 @@ import (
 func (c *channel) Status(txid string) (driver.ValidationCode, []string, error) {
 	vc, err := c.vault.Status(txid)
 	if err != nil {
+		logger.Errorf("failed to get status of [%s]: %s", txid, err)
 		return driver.Unknown, nil, err
 	}
 	if c.externalCommitter == nil {
@@ -25,6 +26,7 @@ func (c *channel) Status(txid string) (driver.ValidationCode, []string, error) {
 
 	_, dependantTxIDs, _, err := c.externalCommitter.Status(txid)
 	if err != nil {
+		logger.Errorf("failed to get external status of [%s]: %s", txid, err)
 		return driver.Unknown, nil, err
 	}
 	if vc == driver.Unknown && len(dependantTxIDs) != 0 {

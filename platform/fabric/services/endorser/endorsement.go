@@ -44,6 +44,7 @@ func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error
 	var vProviders []VerifierProvider
 	vProviders = append(vProviders, c.verifierProviders...)
 	vProviders = append(vProviders, c.tx.verifierProviders...)
+	vProviders = append(vProviders, &verifierProviderWrapper{m: mspManager})
 
 	// Get results to send
 	res, err := c.tx.Results()
@@ -130,27 +131,18 @@ func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error
 				found = true
 			}
 
-			// Verify signatures
-			verifier, err := mspManager.GetVerifier(endorser)
-			if err != nil {
-				// check the verifier providers, if any
-				foundVerifier := false
-				for _, provider := range vProviders {
-					v, err := provider.GetVerifier(endorser)
-					if err == nil {
-						foundVerifier = true
-						verifier = v
-						logger.Debugf("found verifier [%v,%v] for [%s] with provider [%v]", verifier, v, endorser, provider)
+			// check the verifier providers, if any
+			verified := false
+			for _, provider := range vProviders {
+				if v, err := provider.GetVerifier(endorser); err == nil {
+					if err := v.Verify(append(proposalResponse.Payload(), endorser...), proposalResponse.EndorserSignature()); err == nil {
+						verified = true
 						break
 					}
-					logger.Debugf("failed getting verifier for [%s] with provider [%v] [%s]", endorser, provider, err)
-				}
-				if !foundVerifier {
-					return nil, errors.Wrapf(err, "failed getting verifier for party [%s][%s]", endorser.String(), string(endorser))
 				}
 			}
-			if err := verifier.Verify(append(proposalResponse.Payload(), endorser...), proposalResponse.EndorserSignature()); err != nil {
-				return nil, errors.Wrapf(err, "failed verifying endorsement for party [%s]", endorser.String())
+			if !verified {
+				return nil, errors.Wrapf(err, "failed to verify signature for party [%s][%s]", endorser.String(), string(endorser))
 			}
 			// Check the content of the response
 			// Now results can be equal to what this node has proposed or different
@@ -248,4 +240,12 @@ func NewEndorseView(tx *Transaction, ids ...view.Identity) *endorseView {
 
 func NewAcceptView(tx *Transaction, ids ...view.Identity) *endorseView {
 	return &endorseView{tx: tx, identities: ids}
+}
+
+type verifierProviderWrapper struct {
+	m *fabric.MSPManager
+}
+
+func (v *verifierProviderWrapper) GetVerifier(identity view.Identity) (view2.Verifier, error) {
+	return v.m.GetVerifier(identity)
 }

@@ -8,6 +8,7 @@ package endpoint
 
 import (
 	"github.com/pkg/errors"
+	"go.uber.org/zap/zapcore"
 
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/id"
@@ -100,7 +101,9 @@ func (r *resolverService) LoadResolvers() error {
 
 			// Bind Aliases
 			for _, alias := range resolver.Aliases {
-				logger.Debugf("binging [%s] to [%s]", resolver.Name, alias)
+				if logger.IsEnabledFor(zapcore.DebugLevel) {
+					logger.Debugf("binging [%s] to [%s]", resolver.Name, alias)
+				}
 				if err := r.service.Bind(resolver.Id, []byte(alias)); err != nil {
 					return errors.WithMessagef(err, "failed binding identity [%s] to alias [%s]", resolver.Name, alias)
 				}

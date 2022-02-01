@@ -15,6 +15,7 @@ import (
 	ab "github.com/hyperledger/fabric-protos-go/orderer"
 	pb "github.com/hyperledger/fabric-protos-go/peer"
 	"github.com/pkg/errors"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
@@ -99,14 +100,20 @@ func (d *delivery) Run() error {
 			return errors.New("context done")
 		default:
 			address := d.peerConnectionConfig.Address
-			logger.Debugf("deliver service [%s:%s], next event...", address, d.channel)
+			if logger.IsEnabledFor(zapcore.DebugLevel) {
+				logger.Debugf("deliver service [%s:%s], next event...", address, d.channel)
+			}
 			if df == nil {
-				logger.Debugf("deliver service [%s:%s], connecting...", address, d.channel)
+				if logger.IsEnabledFor(zapcore.DebugLevel) {
+					logger.Debugf("deliver service [%s:%s], connecting...", address, d.channel)
+				}
 				df, err = d.connect()
 				if err != nil {
 					logger.Errorf("failed connecting to delivery service [%s:%s] [%s]. Wait 10 sec before reconnecting", address, d.channel, err)
 					time.Sleep(10 * time.Second)
-					logger.Debugf("reconnecting to delivery service [%s:%s]", address, d.channel)
+					if logger.IsEnabledFor(zapcore.DebugLevel) {
+						logger.Debugf("reconnecting to delivery service [%s:%s]", address, d.channel)
+					}
 					continue
 				}
 			}
@@ -121,12 +128,16 @@ func (d *delivery) Run() error {
 			switch r := resp.Type.(type) {
 			case *pb.DeliverResponse_Block:
 				if r.Block == nil || r.Block.Data == nil || r.Block.Header == nil || r.Block.Metadata == nil {
-					logger.Debugf("deliver service [%s:%s], received nil block", address, d.channel)
+					if logger.IsEnabledFor(zapcore.DebugLevel) {
+						logger.Debugf("deliver service [%s:%s], received nil block", address, d.channel)
+					}
 					time.Sleep(10 * time.Second)
 					df = nil
 				}
 
-				logger.Debugf("delivery service [%s:%s], commit block [%d]", address, d.channel, r.Block.Header.Number)
+				if logger.IsEnabledFor(zapcore.DebugLevel) {
+					logger.Debugf("delivery service [%s:%s], commit block [%d]", address, d.channel, r.Block.Header.Number)
+				}
 
 				stop, err := d.callback(r.Block)
 				if err != nil {
@@ -163,7 +174,9 @@ func (d *delivery) Run() error {
 
 func (d *delivery) connect() (DeliverStream, error) {
 	address := d.peerConnectionConfig.Address
-	logger.Debugf("connecting to deliver service at [%s] for channel [%s]", address, d.channel)
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("connecting to deliver service at [%s] for channel [%s]", address, d.channel)
+	}
 
 	deliverClient, err := NewDeliverClient(d.peerConnectionConfig)
 	if err != nil {
@@ -196,12 +209,16 @@ func (d *delivery) connect() (DeliverStream, error) {
 				Number: blockNumber,
 			},
 		}
-		logger.Debugf("restarting from block [%d], tx [%s]", blockNumber, lastTxID)
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			logger.Debugf("restarting from block [%d], tx [%s]", blockNumber, lastTxID)
+		}
 	} else {
 		start.Type = &ab.SeekPosition_Oldest{
 			Oldest: &ab.SeekOldest{},
 		}
-		logger.Debugf("starting from the beginning, no last transaction found")
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			logger.Debugf("starting from the beginning, no last transaction found")
+		}
 	}
 
 	blockEnvelope, err := CreateDeliverEnvelope(
@@ -219,6 +236,8 @@ func (d *delivery) connect() (DeliverStream, error) {
 		return nil, err
 	}
 
-	logger.Debugf("connected to deliver service at [%s]", address)
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("connected to deliver service at [%s]", address)
+	}
 	return stream, nil
 }

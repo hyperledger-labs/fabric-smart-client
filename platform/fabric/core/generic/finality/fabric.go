@@ -8,9 +8,11 @@ package finality
 
 import (
 	"context"
+	"runtime/debug"
 	"time"
 
 	ab "github.com/hyperledger/fabric-protos-go/orderer"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/pkg/errors"
 
@@ -56,11 +58,15 @@ func NewFabricFinality(channel string, network Network, hasher Hasher, waitForEv
 }
 
 func (d *fabricFinality) IsFinal(txID string, address string) error {
-	logger.Debugf("remote checking if transaction [%s] is final in channel [%s]", txID, d.channel)
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("remote checking if transaction [%s] is final in channel [%s]", txID, d.channel)
+	}
+	logger.Infof("remote checking if transaction [%s] is final in channel [%s] [%s]", txID, d.channel, debug.Stack())
 	var eventCh chan delivery.TxEvent
 	var ctx context.Context
 	var cancelFunc context.CancelFunc
 
+	// TODO: use connection provider
 	deliverClient, err := delivery.NewDeliverClient(d.peerConnectionConfig)
 	if err != nil {
 		return err
