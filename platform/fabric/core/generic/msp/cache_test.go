@@ -30,4 +30,9 @@ func TestIdentityCache(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, view.Identity([]byte("hello world")), id)
 	assert.Equal(t, []byte("audit"), audit)
+
+	id, audit, err = c.Identity(nil)
+	assert.NoError(t, err)
+	assert.Equal(t, view.Identity([]byte("hello world")), id)
+	assert.Equal(t, []byte("audit"), audit)
 }

@@ -40,7 +40,7 @@ func NewIdentityCache(backed IdentityCacheBackendFunc, size int) *IdentityCache 
 }
 
 func (c *IdentityCache) Identity(opts *driver2.IdentityOptions) (view.Identity, []byte, error) {
-	if opts.EIDExtension && len(opts.AuditInfo) == 0 {
+	if opts == nil {
 		if logger.IsEnabledFor(zapcore.DebugLevel) {
 			logger.Debugf("fetch identity from producer channel...")
 		}
@@ -73,7 +73,7 @@ func (c *IdentityCache) Identity(opts *driver2.IdentityOptions) (view.Identity, 
 
 func (c *IdentityCache) run() {
 	for {
-		id, audit, err := c.backed(&driver2.IdentityOptions{EIDExtension: true})
+		id, audit, err := c.backed(nil)
 		if err != nil {
 			continue
 		}
