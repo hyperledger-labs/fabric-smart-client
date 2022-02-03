@@ -252,7 +252,7 @@ func (s *service) RegisterIdemixMSP(id string, path string, mspID string) error 
 	}
 
 	s.deserializerManager().AddDeserializer(provider)
-	s.addResolver(id, IdemixMSP, provider.EnrollmentID(), provider.Identity)
+	s.addResolver(id, IdemixMSP, provider.EnrollmentID(), NewIdentityCache(provider.Identity, 500).Identity)
 
 	return nil
 }
@@ -402,7 +402,7 @@ func (s *service) loadExtraResolvers() error {
 				return errors.Wrapf(err, "failed instantiating idemix msp provider from [%s]", s.config.TranslatePath(config.Path))
 			}
 			dm.AddDeserializer(provider)
-			s.addResolver(config.ID, config.MSPType, provider.EnrollmentID(), provider.Identity)
+			s.addResolver(config.ID, config.MSPType, provider.EnrollmentID(), NewIdentityCache(provider.Identity, 500).Identity)
 		case BccspMSP:
 			provider, err = x5092.NewProvider(s.config.TranslatePath(config.Path), config.MSPID, s.signerService)
 			if err != nil {
@@ -438,7 +438,7 @@ func (s *service) loadExtraResolvers() error {
 				}
 				dm.AddDeserializer(provider)
 				logger.Debugf("Adding resolver [%s:%s]", id, provider.EnrollmentID())
-				s.addResolver(id, IdemixMSP, provider.EnrollmentID(), provider.Identity)
+				s.addResolver(id, IdemixMSP, provider.EnrollmentID(), NewIdentityCache(provider.Identity, 500).Identity)
 			}
 		case BccspMSPFolder:
 			entries, err := ioutil.ReadDir(s.config.TranslatePath(config.Path))
