@@ -31,15 +31,3 @@ func TestIdentityCache(t *testing.T) {
 	assert.Equal(t, view.Identity([]byte("hello world")), id)
 	assert.Equal(t, []byte("audit"), audit)
 }
-
-func TestWalletIdentityCache(t *testing.T) {
-	c := NewWalletIdentityCache(
-		func() (view.Identity, error) {
-			return []byte("hello world"), nil
-		},
-		100,
-	)
-	id, err := c.Identity()
-	assert.NoError(t, err)
-	assert.Equal(t, view.Identity([]byte("hello world")), id)
-}
