@@ -148,6 +148,28 @@ func (p *Platform) GenerateArtifacts() {
 }
 
 func (p *Platform) Load() {
+}
+
+func (p *Platform) Members() []grouper.Member {
+	members := grouper.Members{}
+	for _, node := range p.Peers {
+		if node.Bootstrap {
+			members = append(members, grouper.Member{Name: node.ID(), Runner: p.FSCNodeRunner(node)})
+		}
+	}
+	for _, node := range p.Peers {
+		if !node.Bootstrap {
+			members = append(members, grouper.Member{Name: node.ID(), Runner: p.FSCNodeRunner(node)})
+		}
+	}
+	return members
+}
+
+func (p *Platform) PostRun(bool) {
+	if len(p.Topology.MetricsAggregator) != 0 {
+		p.StartMetricsAggregator()
+	}
+
 	for _, peer := range p.Peers {
 		v := viper.New()
 		v.SetConfigFile(p.NodeConfigPath(peer))
@@ -173,27 +195,6 @@ func (p *Platform) Load() {
 		cert, err := ioutil.ReadFile(p.LocalMSPIdentityCert(peer))
 		Expect(err).ToNot(HaveOccurred())
 		p.Context.SetViewIdentity(peer.Name, cert)
-	}
-}
-
-func (p *Platform) Members() []grouper.Member {
-	members := grouper.Members{}
-	for _, node := range p.Peers {
-		if node.Bootstrap {
-			members = append(members, grouper.Member{Name: node.ID(), Runner: p.FSCNodeRunner(node)})
-		}
-	}
-	for _, node := range p.Peers {
-		if !node.Bootstrap {
-			members = append(members, grouper.Member{Name: node.ID(), Runner: p.FSCNodeRunner(node)})
-		}
-	}
-	return members
-}
-
-func (p *Platform) PostRun() {
-	if len(p.Topology.MetricsAggregator) != 0 {
-		p.StartMetricsAggregator()
 	}
 
 	for _, node := range p.Peers {
@@ -324,7 +325,7 @@ func (p *Platform) CheckTopology() {
 
 func (p *Platform) InitClients() {
 	p.Load()
-	p.PostRun()
+	p.PostRun(false)
 }
 
 func (p *Platform) FSCCLI(command common.Command) (*gexec.Session, error) {

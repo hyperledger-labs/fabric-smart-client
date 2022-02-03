@@ -148,7 +148,7 @@ func (p *Platform) Members() []grouper.Member {
 	return nil
 }
 
-func (p *Platform) PostRun() {
+func (p *Platform) PostRun(bool) {
 	for _, relay := range p.Topology.Relays {
 		cc, err := p.PrepareInteropChaincode(relay)
 		Expect(err).NotTo(HaveOccurred())

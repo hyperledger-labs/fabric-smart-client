@@ -138,7 +138,7 @@ var _ = Describe("EndToEnd", func() {
 		It("load artifact & successful pingpong", func() {
 			var err error
 			// Create the integration ii
-			ii, err = integration.Load("./testdata", true, pingpong.Topology()...)
+			ii, err = integration.Load(0, "./testdata", true, pingpong.Topology()...)
 			Expect(err).NotTo(HaveOccurred())
 			// Start the integration ii
 			ii.Start()
@@ -154,7 +154,7 @@ var _ = Describe("EndToEnd", func() {
 		It("load artifact & init clients & successful pingpong", func() {
 			var err error
 			// Create the integration ii
-			ii, err = integration.Load("./testdata", true, pingpong.Topology()...)
+			ii, err = integration.Load(0, "./testdata", true, pingpong.Topology()...)
 			Expect(err).NotTo(HaveOccurred())
 			// Start the integration ii
 			ii.Start()

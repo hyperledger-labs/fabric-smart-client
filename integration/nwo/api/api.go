@@ -86,7 +86,7 @@ type Platform interface {
 	Load()
 
 	Members() []grouper.Member
-	PostRun()
+	PostRun(load bool)
 	Cleanup()
 }
 

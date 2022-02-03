@@ -190,13 +190,20 @@ func (r *Runner) Run(sigChan <-chan os.Signal, ready chan<- struct{}) error {
 
 			return fmt.Errorf("exit status %d", session.ExitCode())
 		case signal := <-r.stop:
-			session.Signal(signal)
+			if signal != nil {
+				session.Signal(signal)
+			}
+
 		}
 	}
 }
 
 func (r *Runner) Stop() {
 	r.stop <- syscall.SIGTERM
+}
+
+func (r *Runner) PID() (string, int) {
+	return r.Command.Path, r.Command.Process.Pid
 }
 
 func (r *Runner) Clone() *Runner {

@@ -33,7 +33,7 @@ type ChaincodeProcessor interface {
 type Extension interface {
 	CheckTopology()
 	GenerateArtifacts()
-	PostRun()
+	PostRun(load bool)
 }
 
 type Network struct {
@@ -219,7 +219,7 @@ func (n *Network) GenerateArtifacts() {
 }
 
 func (n *Network) Load() {
-	// Nothing to do here
+	n.CheckTopology()
 }
 
 func (n *Network) Members() []grouper.Member {
@@ -237,32 +237,35 @@ func (n *Network) Members() []grouper.Member {
 	return members
 }
 
-func (n *Network) PostRun() {
+func (n *Network) PostRun(load bool) {
 	logger.Infof("Post execution [%s]...", n.Prefix)
-	orderer := n.Orderer("orderer")
-	for _, channel := range n.Channels {
-		n.CreateAndJoinChannel(orderer, channel.Name)
-		n.UpdateChannelAnchors(orderer, channel.Name)
-	}
 
-	// Wait a few second to make peers discovering each other
-	time.Sleep(5 * time.Second)
+	if !load {
+		orderer := n.Orderer("orderer")
+		for _, channel := range n.Channels {
+			n.CreateAndJoinChannel(orderer, channel.Name)
+			n.UpdateChannelAnchors(orderer, channel.Name)
+		}
 
-	// Install chaincodes, if needed
-	if len(n.topology.Chaincodes) != 0 {
-		for _, chaincode := range n.topology.Chaincodes {
-			for _, ccp := range n.ccps {
-				chaincode = ccp.Process(n, chaincode)
-			}
-			if !chaincode.Private {
-				n.DeployChaincode(chaincode)
+		// Wait a few second to make peers discovering each other
+		time.Sleep(5 * time.Second)
+
+		// Install chaincodes, if needed
+		if len(n.topology.Chaincodes) != 0 {
+			for _, chaincode := range n.topology.Chaincodes {
+				for _, ccp := range n.ccps {
+					chaincode = ccp.Process(n, chaincode)
+				}
+				if !chaincode.Private {
+					n.DeployChaincode(chaincode)
+				}
 			}
 		}
 	}
 
 	// Extensions
 	for _, extension := range n.Extensions {
-		extension.PostRun()
+		extension.PostRun(load)
 	}
 
 	// Wait a few second to let Fabric stabilize

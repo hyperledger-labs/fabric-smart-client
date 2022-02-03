@@ -1,3 +1,9 @@
+/*
+Copyright IBM Corp All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
+
 package main
 
 import (
@@ -157,13 +163,13 @@ var StartCommand = &cobra.Command{
 
 // Start returns version information for the peer
 func Start() error {
-	ii, err := integration.Load("./artifacts", true, iou.Topology()...)
+	ii, err := integration.Load(20000, "./artifacts", true, iou.Topology()...)
 	if err != nil {
 		return err
 	}
+	ii.NWO.TerminationSignal = nil
 	ii.DeleteOnStop = false
 	ii.Start()
 
-	ii.Stop()
 	return nil
 }

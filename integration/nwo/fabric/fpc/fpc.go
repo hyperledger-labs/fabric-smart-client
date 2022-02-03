@@ -124,11 +124,16 @@ func (n *Extension) GenerateArtifacts() {
 	}
 }
 
-func (n *Extension) PostRun() {
+func (n *Extension) PostRun(load bool) {
 	if !n.network.Topology().FPC {
 		return
 	}
 
+	if load {
+		// run docker containers
+	}
+
+	// deploy and run containers
 	if len(n.network.Topology().Chaincodes) != 0 {
 		for _, chaincode := range n.network.Topology().Chaincodes {
 			if chaincode.Private {

@@ -1598,7 +1598,7 @@ func (n *Network) OrdererAddress(o *topology.Orderer, portName api.PortName) str
 // OrdererPort returns the named port reserved for the Orderer instance.
 func (n *Network) OrdererPort(o *topology.Orderer, portName api.PortName) uint16 {
 	ordererPorts := n.PortsByOrdererID[o.ID()]
-	Expect(ordererPorts).NotTo(BeNil())
+	Expect(ordererPorts).NotTo(BeNil(), "expected orderer ports to be initialized [%s]", o.ID())
 	return ordererPorts[portName]
 }
 
