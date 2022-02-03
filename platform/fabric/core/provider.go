@@ -140,7 +140,14 @@ func (p *fnsProvider) newFNS(network string) (driver.FabricNetworkService, error
 	}
 
 	// Local MSP Manager
-	mspService := msp.NewLocalMSPManager(p.sp, config, sigService, view.GetEndpointService(p.sp), view.GetIdentityProvider(p.sp).DefaultIdentity())
+	mspService := msp.NewLocalMSPManager(
+		p.sp,
+		config,
+		sigService,
+		view.GetEndpointService(p.sp),
+		view.GetIdentityProvider(p.sp).DefaultIdentity(),
+		500,
+	)
 	if err := mspService.Load(); err != nil {
 		return nil, errors.Wrap(err, "failed loading local msp service")
 	}
