@@ -133,10 +133,6 @@ fsccli:
 node:
 	@go install ./cmd/node
 
-.PHONY: topologies
-topologies:
-	@cd ./sampleconfig/topology; go run main.go
-
 .PHONY: weaver-relay
 weaver-relay:
 	@integration/nwo/weaver/scripts/build-weaver-relay.sh

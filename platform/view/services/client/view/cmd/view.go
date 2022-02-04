@@ -43,7 +43,6 @@ var (
 	tlsKey     string
 	userKey    string
 	userCert   string
-	mspID      string
 )
 
 type hasher struct{}
@@ -68,24 +67,23 @@ func NewCmd() *cobra.Command {
 		},
 	}
 	flags := cmd.Flags()
-	flags.StringVarP(&endpoint, "endpoint", "e", "", "Sets the endpoint of the node to connect to (host:port)")
 	flags.StringVarP(&input, "input", "i", "", "Sets the input to the view function, encoded either as base64, or as-is")
 	flags.StringVarP(&function, "function", "f", "", "Sets the function name to be invoked")
 	flags.BoolVarP(&stdin, "stdin", "s", false, "Sets standard input as the input stream")
 
 	flags.StringVarP(&configFile, "configFile", "c", "", "Specifies the config file to load the configuration from")
+	flags.StringVarP(&endpoint, "endpoint", "e", "", "Sets the endpoint of the node to connect to (host:port)")
 	flags.StringVarP(&tlsCA, "peerTLSCA", "a", "", "Sets the TLS CA certificate file path that verifies the TLS peer's certificate")
 	flags.StringVarP(&tlsCert, "tlsCert", "t", "", "(Optional) Sets the client TLS certificate file path that is used when the peer enforces client authentication")
 	flags.StringVarP(&tlsKey, "tlsKey", "k", "", "(Optional) Sets the client TLS key file path that is used when the peer enforces client authentication")
 	flags.StringVarP(&userKey, "userKey", "u", "", "Sets the user's key file path that is used to sign messages sent to the peer")
 	flags.StringVarP(&userCert, "userCert", "r", "", "Sets the user's certificate file path that is used to authenticate the messages sent to the peer")
-	flags.StringVarP(&mspID, "MSP", "m", "", "Sets the MSP ID of the user, which represents the CA(s) that issued its user certificate")
 
 	return cmd
 }
 
-func validateInput() error {
-	if endpoint == "" {
+func validateInput(config *Config) error {
+	if config.Address == "" {
 		return fmt.Errorf("endpoint must be specified")
 	}
 
@@ -122,8 +120,8 @@ func validateInput() error {
 
 func parseFlagsToConfig() Config {
 	conf := Config{
+		Address: endpoint,
 		SignerConfig: signer.Config{
-			MSPID:        mspID,
 			IdentityPath: userCert,
 			KeyPath:      userKey,
 		},
@@ -158,12 +156,12 @@ func invoke() error {
 		config = loadConfig(configFile)
 	}
 
-	if err := validateInput(); err != nil {
+	if err := validateInput(&config); err != nil {
 		return err
 	}
 
 	cc := &grpc.ConnectionConfig{
-		Address:           endpoint,
+		Address:           config.Address,
 		TLSEnabled:        true,
 		TLSRootCertFile:   path.Join(config.TLSConfig.PeerCACertPath),
 		ConnectionTimeout: 10 * time.Second,

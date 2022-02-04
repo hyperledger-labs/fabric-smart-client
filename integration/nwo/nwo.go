@@ -30,6 +30,10 @@ type Process interface {
 	PID() (string, int)
 }
 
+type Group interface {
+	Members() grouper.Members
+}
+
 type NWO struct {
 	FSCProcesses      []ifrit.Process
 	Processes         []ifrit.Process
@@ -130,24 +134,18 @@ func (n *NWO) Start() {
 		n.FSCProcesses = append(n.FSCProcesses, process)
 	}
 
-	logger.Infof("Post execution...")
-
-	for _, platform := range n.Platforms {
-		platform.PostRun(n.isLoading)
-	}
-
 	// store PIDs of all processes
 	f, err := os.Create(filepath.Join(n.ctx.RootDir(), "pids.txt"))
 	Expect(err).NotTo(HaveOccurred())
-	for _, member := range members {
-		p, ok := member.Runner.(Process)
-		if ok {
-			path, pid := p.PID()
-			_, err := f.WriteString(fmt.Sprintf("%s %d\n", path, pid))
-			Expect(err).NotTo(HaveOccurred())
-		}
-	}
+	n.storePIDs(f, members)
+	n.storePIDs(f, fscMembers)
+	Expect(f.Sync()).NotTo(HaveOccurred())
 	Expect(f.Close()).NotTo(HaveOccurred())
+
+	logger.Infof("Post execution...")
+	for _, platform := range n.Platforms {
+		platform.PostRun(n.isLoading)
+	}
 }
 
 func (n *NWO) Stop() {
@@ -195,4 +193,17 @@ func (n *NWO) StartFSCNode(id string) {
 		}
 	}
 	logger.Info("Starting fsc node [%s]...done", id)
+}
+
+func (n *NWO) storePIDs(f *os.File, members grouper.Members) {
+	for _, member := range members {
+		switch r := member.Runner.(type) {
+		case Process:
+			path, pid := r.PID()
+			_, err := f.WriteString(fmt.Sprintf("%s %d\n", path, pid))
+			Expect(err).NotTo(HaveOccurred())
+		case Group:
+			n.storePIDs(f, r.Members())
+		}
+	}
 }

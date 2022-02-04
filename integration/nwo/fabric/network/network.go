@@ -219,7 +219,6 @@ func (n *Network) GenerateArtifacts() {
 }
 
 func (n *Network) Load() {
-	n.CheckTopology()
 }
 
 func (n *Network) Members() []grouper.Member {

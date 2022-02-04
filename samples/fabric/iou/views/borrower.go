@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
+	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/hyperledger-labs/fabric-smart-client/samples/fabric/iou/states"
@@ -29,6 +30,14 @@ type CreateIOUView struct {
 }
 
 func (i *CreateIOUView) Call(context view.Context) (interface{}, error) {
+	// use default identities if not specified
+	if i.Lender.IsNone() {
+		i.Lender = view2.GetIdentityProvider(context).Identity("lender")
+	}
+	if i.Approver.IsNone() {
+		i.Approver = view2.GetIdentityProvider(context).Identity("approver")
+	}
+
 	// As a first step operation, the borrower contacts the lender's FSC node
 	// to exchange the identities to use to assign ownership of the freshly created IOU state.
 	borrower, lender, err := state.ExchangeRecipientIdentities(context, i.Lender)
@@ -92,6 +101,11 @@ type UpdateIOUView struct {
 }
 
 func (u UpdateIOUView) Call(context view.Context) (interface{}, error) {
+	// use default identities if not specified
+	if u.Approver.IsNone() {
+		u.Approver = view2.GetIdentityProvider(context).Identity("approver")
+	}
+
 	// The borrower starts by creating a new transaction to update the IOU state
 	tx, err := state.NewTransaction(context)
 	assert.NoError(err)
