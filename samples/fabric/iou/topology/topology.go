@@ -23,10 +23,12 @@ func Topology() []api.Topology {
 	fabricTopology.AddNamespaceWithUnanimity("iou", "Org1")
 	fabricTopology.EnableGRPCLogging()
 	fabricTopology.EnableLogPeersToFile()
+	fabricTopology.SetLogging("grpc=debug:chaincode=debug:endorser=debug:gossip=info:debug", "")
 
 	// Define an FSC topology with 3 FCS nodes.
 	// One for the approver, one for the borrower, and one for the lender.
 	fscTopology := fsc.NewTopology()
+	//fscTopology.SetLogging("debug", "")
 
 	// Add the approver FSC node.
 	approver := fscTopology.AddNodeByName("approver")

@@ -386,7 +386,7 @@ The above questions can be answered by looking at an FSC node's configuration fi
 
 Let's start from the configuration file. 
 Here is the annotated configuration file used for the `initiator`, Alice. 
-You can find it [`here`](./testdata/fsc/fscnodes/fsc.initiator/core.yaml) too.
+You can find it [`here`](testdata/fsc/nodes/initiator/core.yaml) too.
 
 ````yaml
 ---
@@ -399,7 +399,7 @@ logging:
 fsc:
   # The FSC id provides a name for this node instance and is used when
   # naming docker resources.
-  id: fsc.initiator
+  id: initiator
   # The networkId allows for logical separation of networks and is used when
   # naming docker resources.
   networkId: 2bhw25xuircy7mqvyxwllcnzsq
@@ -476,7 +476,7 @@ fsc:
       # Persistence type can be `badger` (on disk) or `memory`
       type: badger
       opts:
-        path: ./../../fscnodes/fsc.initiator/kvs
+        path: ./../../nodes/initiator/kvs
   # The endpoint section tells how to reach other FSC node in the network.
   # For each node, the name, the domain, the identity of the node, and its addresses must be specified.
   endpoint:

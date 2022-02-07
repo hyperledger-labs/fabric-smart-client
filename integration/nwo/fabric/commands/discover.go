@@ -25,7 +25,7 @@ func (p Peers) Args() []string {
 	args := []string{
 		"--userCert", p.UserCert,
 		"--userKey", p.UserKey,
-		"--MSP", p.MSPID,
+		"--msp", p.MSPID,
 		"peers",
 		"--server", p.Server,
 		"--channel", p.Channel,
@@ -57,7 +57,7 @@ func (c Config) Args() []string {
 	args := []string{
 		"--userCert", c.UserCert,
 		"--userKey", c.UserKey,
-		"--MSP", c.MSPID,
+		"--msp", c.MSPID,
 		"config",
 		"--server", c.Server,
 		"--channel", c.Channel,
@@ -93,7 +93,7 @@ func (e Endorsers) Args() []string {
 	args := []string{
 		"--userCert", e.UserCert,
 		"--userKey", e.UserKey,
-		"--MSP", e.MSPID,
+		"--msp", e.MSPID,
 		"endorsers",
 		"--server", e.Server,
 		"--channel", e.Channel,

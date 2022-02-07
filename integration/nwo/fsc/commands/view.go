@@ -28,7 +28,6 @@ func (f View) Args() []string {
 		"view",
 		"--userCert", f.UserCert,
 		"--userKey", f.UserKey,
-		"--MSP", f.MSPID,
 		"--endpoint", f.Server,
 		"--function", f.Function,
 		"--input", f.Input,

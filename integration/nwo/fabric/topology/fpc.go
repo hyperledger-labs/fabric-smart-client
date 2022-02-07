@@ -15,12 +15,12 @@ import (
 // The ERCC is installed on all organizations and the endorsement policy is
 // set to the majority of the organization on which the chaincode
 // has been installed.
-func (c *Topology) EnableFPC() {
-	if c.FPC {
+func (t *Topology) EnableFPC() {
+	if t.FPC {
 		return
 	}
-	c.FPC = true
-	c.AddFPC("ercc", "fpc/ercc")
+	t.FPC = true
+	t.AddFPC("ercc", "fpc/ercc")
 }
 
 // AddFPC adds the Fabric Private Chaincode with the passed name and image.
@@ -28,11 +28,11 @@ func (c *Topology) EnableFPC() {
 // registered so far.
 // The endorsement policy is set to the majority of the organization on which the chaincode
 // has been installed.
-func (c *Topology) AddFPC(name, image string, orgs ...string) *ChannelChaincode {
-	c.EnableFPC()
+func (t *Topology) AddFPC(name, image string, orgs ...string) *ChannelChaincode {
+	t.EnableFPC()
 
 	if len(orgs) == 0 {
-		orgs = c.Consortiums[0].Organizations
+		orgs = t.Consortiums[0].Organizations
 	}
 	majority := len(orgs)/2 + 1
 	policy := "OutOf(" + strconv.Itoa(majority) + ","
@@ -46,7 +46,7 @@ func (c *Topology) AddFPC(name, image string, orgs ...string) *ChannelChaincode 
 
 	var peers []string
 	for _, org := range orgs {
-		for _, peer := range c.Peers {
+		for _, peer := range t.Peers {
 			if peer.Organization == org {
 				peers = append(peers, peer.Name)
 				break
@@ -70,11 +70,11 @@ func (c *Topology) AddFPC(name, image string, orgs ...string) *ChannelChaincode 
 		PrivateChaincode: PrivateChaincode{
 			Image: image,
 		},
-		Channel: c.Channels[0].Name,
+		Channel: t.Channels[0].Name,
 		Private: true,
 		Peers:   peers,
 	}
-	c.AddChaincode(cc)
+	t.AddChaincode(cc)
 
 	return cc
 }

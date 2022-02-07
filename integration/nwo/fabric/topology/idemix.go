@@ -8,7 +8,7 @@ package topology
 
 import "strings"
 
-func (c *Topology) EnableIdemix() *fscOrg {
+func (t *Topology) EnableIdemix() *fscOrg {
 	name := "IdemixOrg"
 	o := &Organization{
 		ID:            name,
@@ -16,10 +16,10 @@ func (c *Topology) EnableIdemix() *fscOrg {
 		MSPID:         name + "MSP",
 		MSPType:       "idemix",
 		Domain:        strings.ToLower(name) + ".example.com",
-		EnableNodeOUs: c.NodeOUs,
+		EnableNodeOUs: t.NodeOUs,
 		Users:         0,
 		CA:            &CA{Hostname: "ca"},
 	}
-	c.AppendOrganization(o)
-	return &fscOrg{c: c, o: o}
+	t.AppendOrganization(o)
+	return &fscOrg{c: t, o: o}
 }

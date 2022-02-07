@@ -109,6 +109,7 @@ func (a *artifact) build(args ...string) error {
 
 	output, err := a.gBuild(a.input, args...)
 	if err != nil {
+		logger.Errorf("Error building %s: %s", a.input, err)
 		return err
 	}
 

@@ -21,7 +21,7 @@ import (
 
 const (
 	nodeFuncName = "node"
-	nodeCmdDes   = "Operate a fabfsc node: start."
+	nodeCmdDes   = "Operate a fabric smart client node: start."
 )
 
 type Node interface {
@@ -98,6 +98,17 @@ func serve() error {
 		defer profiler.Stop()
 	}
 
+	serve := make(chan error, 10)
+	go handleSignals(addPlatformSignals(map[os.Signal]func(){
+		syscall.SIGINT:  func() { node.Stop(); serve <- nil },
+		syscall.SIGTERM: func() { node.Stop(); serve <- nil },
+		syscall.SIGSTOP: func() { node.Stop(); serve <- nil },
+		syscall.SIGHUP: func() {
+			logger.Infof("SIGHUP received, ignoring")
+			// ignore
+		},
+	}))
+
 	if err := node.Start(); err != nil {
 		logger.Errorf("Failed starting platform [%s]", err)
 		callback(err)
@@ -106,12 +117,6 @@ func serve() error {
 	callback(nil)
 
 	logger.Debugf("Block until signal")
-	serve := make(chan error, 10)
-	go handleSignals(addPlatformSignals(map[os.Signal]func(){
-		syscall.SIGINT:  func() { node.Stop(); serve <- nil },
-		syscall.SIGTERM: func() { node.Stop(); serve <- nil },
-		syscall.SIGSTOP: func() { node.Stop(); serve <- nil },
-	}))
 	return <-serve
 }
 

@@ -128,11 +128,3 @@ clean:
 .PHONY: fsccli
 fsccli:
 	@go install ./cmd/fsccli
-
-.PHONY: node
-node:
-	@go install ./cmd/node
-
-.PHONY: weaver-relay
-weaver-relay:
-	@integration/nwo/weaver/scripts/build-weaver-relay.sh

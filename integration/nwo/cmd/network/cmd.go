@@ -13,8 +13,11 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
+)
+
+var (
+	path string
 )
 
 // NewCmd returns the Cobra Command for the network subcommands
@@ -37,7 +40,7 @@ func NewCmd(topologies ...api.Topology) *cobra.Command {
 
 // GenerateCmd returns the Cobra Command for Generate
 func GenerateCmd(topologies ...api.Topology) *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "generate",
 		Short: "Generate Artifacts.",
 		Long:  `Generate Artifacts.`,
@@ -50,37 +53,43 @@ func GenerateCmd(topologies ...api.Topology) *cobra.Command {
 			return Generate(topologies...)
 		},
 	}
+	flags := cmd.Flags()
+	flags.StringVarP(&path, "path", "p", "", "where to store the generated network artifacts")
+
+	return cmd
 }
 
 // Generate returns version information for the peer
 func Generate(topologies ...api.Topology) error {
-	_, err := integration.GenerateAt(20000, "./artifacts", true, topologies...)
+	_, err := integration.GenerateAt(20000, path, true, topologies...)
 	return err
 }
 
 // CleanCmd returns the Cobra Command for Clean
 func CleanCmd() *cobra.Command {
-	return CleanCommand
-}
+	cmd := &cobra.Command{
+		Use:   "clean",
+		Short: "Clean Artifacts.",
+		Long:  `Clean Artifacts.`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) != 0 {
+				return fmt.Errorf("trailing args detected")
+			}
+			// Parsing of the command line is done so silence cmd usage
+			cmd.SilenceUsage = true
+			return Clean()
+		},
+	}
+	flags := cmd.Flags()
+	flags.StringVarP(&path, "path", "p", "", "where to store the generated network artifacts")
 
-var CleanCommand = &cobra.Command{
-	Use:   "clean",
-	Short: "Clean Artifacts.",
-	Long:  `Clean Artifacts.`,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		if len(args) != 0 {
-			return fmt.Errorf("trailing args detected")
-		}
-		// Parsing of the command line is done so silence cmd usage
-		cmd.SilenceUsage = true
-		return Clean()
-	},
+	return cmd
 }
 
 // Clean returns version information for the peer
 func Clean() error {
 	// delete artifacts folder
-	err := os.RemoveAll("./artifacts")
+	err := os.RemoveAll(path)
 	if err != nil {
 		return err
 	}
@@ -94,7 +103,7 @@ func Clean() error {
 
 // StartCmd returns the Cobra Command for Start
 func StartCmd(topologies ...api.Topology) *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "start",
 		Short: "Start Artifacts.",
 		Long:  `Start Artifacts.`,
@@ -107,19 +116,23 @@ func StartCmd(topologies ...api.Topology) *cobra.Command {
 			return Start(topologies...)
 		},
 	}
+	flags := cmd.Flags()
+	flags.StringVarP(&path, "path", "p", "", "where to store the generated network artifacts")
+
+	return cmd
 }
 
 // Start returns version information for the peer
 func Start(topologies ...api.Topology) error {
 	// if ./artifacts exists, then load. Otherwise, create new artifacts
 	var ii *integration.Infrastructure
-	if _, err := os.Stat("./artifacts"); os.IsNotExist(err) {
-		ii, err = integration.GenerateAt(20000, "./artifacts", true, iou.Topology()...)
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		ii, err = integration.GenerateAt(20000, path, true, topologies...)
 		if err != nil {
 			return err
 		}
 	} else {
-		ii, err = integration.Load(20000, "./artifacts", true, iou.Topology()...)
+		ii, err = integration.Load(20000, path, true, topologies...)
 		if err != nil {
 			return err
 		}
