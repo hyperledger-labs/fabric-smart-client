@@ -22,7 +22,6 @@ var _ = Describe("EndToEnd", func() {
 
 	AfterEach(func() {
 		// Stop the ii
-		ii.DeleteOnStop = false
 		ii.Stop()
 	})
 
@@ -30,7 +29,7 @@ var _ = Describe("EndToEnd", func() {
 		BeforeEach(func() {
 			var err error
 			// Create the integration ii
-			ii, err = integration.GenerateAt(StartPort(), "/home/vagrant/testdata", true, twonets.Topology()...)
+			ii, err = integration.Generate(StartPort(), true, twonets.Topology()...)
 			Expect(err).NotTo(HaveOccurred())
 			// Start the integration ii
 			ii.Start()
