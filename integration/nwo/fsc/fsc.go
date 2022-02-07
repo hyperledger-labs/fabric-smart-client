@@ -496,6 +496,9 @@ func (p *Platform) fscNodeCommand(node *node2.Peer, command common.Command, tlsD
 	cmd := common.NewCommand(p.Builder.Build(node.ExecutablePath), command)
 	cmd.Env = append(cmd.Env, env...)
 	cmd.Env = append(cmd.Env, "FSCNODE_LOGGING_SPEC="+p.Topology.Logging.Spec)
+	if p.Context.IgnoreSigHUP() {
+		cmd.Env = append(cmd.Env, "FSCNODE_SIGHUP_IGNORE=true")
+	}
 
 	if p.Topology.GRPCLogging {
 		cmd.Env = append(cmd.Env, "GRPC_GO_LOG_VERBOSITY_LEVEL=2")

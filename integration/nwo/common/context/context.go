@@ -40,6 +40,8 @@ type Context struct {
 	ConnectionConfigs       map[string]*grpc.ConnectionConfig
 	ClientSigningIdentities map[string]SigningIdentity
 	AdminSigningIdentities  map[string]SigningIdentity
+
+	SigHUPIgnore bool
 }
 
 func New(rootDir string, portCounter uint16, builder api.Builder, topologies ...api.Topology) *Context {
@@ -150,4 +152,8 @@ func (c *Context) PlatformByName(name string) api.Platform {
 
 func (c *Context) AddPlatform(platform api.Platform) {
 	c.PlatformsByName[platform.Name()] = platform
+}
+
+func (c *Context) IgnoreSigHUP() bool {
+	return c.SigHUPIgnore
 }
