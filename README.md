@@ -50,17 +50,8 @@ If you are a skilled software engineer, you will be able to leverage the full po
 
 # Use the Fabric Smart Client
 
-## Install
+## Samples
 
-The `Fabric Smart Client` can be downloaded using `go get` as follows: 
- ```
-go get github.com/hyperledger-labs/fabric-smart-client
-```
-
-The above command clones the repo under `$GOPATH/github.com/hyperledger-labs/fabric-smart-client`. 
-
-We recommend to use `go 1.16`. We are testing FSC also against more recent versions of the 
-go-sdk to make sure FSC works properly. 
 
 ## Makefile
 

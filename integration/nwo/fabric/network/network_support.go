@@ -1655,7 +1655,7 @@ func (n *Network) nextColor() string {
 }
 
 func (n *Network) FSCNodeVaultDir(peer *topology.Peer) string {
-	return filepath.Join(n.Context.RootDir(), "fsc", "nodes", peer.Name, "vault")
+	return filepath.Join(n.Context.RootDir(), "fsc", "nodes", peer.Name, n.Prefix, "vault")
 }
 
 func (n *Network) OrdererBootstrapFile() string {

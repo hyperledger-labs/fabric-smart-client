@@ -160,7 +160,9 @@ func (p *Platform) GenerateArtifacts() {
 
 	// Generate commands
 	for _, node := range p.Peers {
-		p.GenerateCmd(nil, node)
+		if len(node.ExecutablePath) == 0 {
+			p.GenerateCmd(nil, node)
+		}
 	}
 }
 
