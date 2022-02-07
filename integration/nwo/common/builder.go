@@ -186,9 +186,11 @@ func (b *buildHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 
 	// logger.Infof("ServeHTTP %v", req.URL)
-	input := strings.TrimPrefix(req.URL.Path, "/")
-	a := b.artifact(input)
 
+	input := strings.TrimPrefix(req.URL.Path, "/")
+	input = strings.Replace(input, "\n", "", -1)
+	input = strings.Replace(input, "\r", "", -1)
+	a := b.artifact(input)
 	if err := a.build(b.args...); err != nil {
 		// logger.Infof("ServeHTTP %v, failed %s", req.URL, err)
 		w.WriteHeader(http.StatusInternalServerError)

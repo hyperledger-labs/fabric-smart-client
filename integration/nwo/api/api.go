@@ -66,7 +66,7 @@ type Context interface {
 	SetCLI(name string, client ViewClient)
 	GetViewIdentityAliases(name string) []string
 	AdminSigningIdentity(name string) view.SigningIdentity
-	//IgnoreSigHUP() bool
+	IgnoreSigHUP() bool
 }
 
 type Builder interface {
