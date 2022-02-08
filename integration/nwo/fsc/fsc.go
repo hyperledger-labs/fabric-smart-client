@@ -21,6 +21,8 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/hyperledger/fabric/cmd/common/comm"
+	"github.com/hyperledger/fabric/cmd/common/signer"
 	"github.com/miracl/conflate"
 	"github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -36,6 +38,7 @@ import (
 	commands2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/metrics/commands"
 	node2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/view"
+	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/view/cmd"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/crypto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 )
@@ -139,10 +142,52 @@ func (p *Platform) GenerateArtifacts() {
 		p.Context.SetViewIdentity(peer.Name, cert)
 
 		p.GenerateCoreConfig(peer)
+
+		c := view2.Config{
+			Version: 0,
+			Address: p.PeerAddress(peer, ListenPort),
+			TLSConfig: comm.Config{
+				PeerCACertPath: path.Join(p.NodeLocalTLSDir(peer), "ca.crt"),
+				Timeout:        10 * time.Minute,
+			},
+			SignerConfig: signer.Config{
+				IdentityPath: p.LocalMSPIdentityCert(peer),
+				KeyPath:      p.LocalMSPPrivateKey(peer),
+			},
+		}
+		Expect(c.ToFile(p.NodeClientConfigPath(peer))).ToNot(HaveOccurred())
+	}
+
+	// Generate commands
+	for _, node := range p.Peers {
+		if len(node.ExecutablePath) == 0 {
+			p.GenerateCmd(nil, node)
+		}
 	}
 }
 
 func (p *Platform) Load() {
+}
+
+func (p *Platform) Members() []grouper.Member {
+	members := grouper.Members{}
+	for _, node := range p.Peers {
+		if node.Bootstrap {
+			members = append(members, grouper.Member{Name: node.ID(), Runner: p.FSCNodeRunner(node)})
+		}
+	}
+	for _, node := range p.Peers {
+		if !node.Bootstrap {
+			members = append(members, grouper.Member{Name: node.ID(), Runner: p.FSCNodeRunner(node)})
+		}
+	}
+	if len(p.Topology.MetricsAggregator) != 0 {
+		members = append(members, grouper.Member{Name: "metrics-aggregator", Runner: p.MetricsAggregator()})
+	}
+	return members
+}
+
+func (p *Platform) PostRun(bool) {
 	for _, peer := range p.Peers {
 		v := viper.New()
 		v.SetConfigFile(p.NodeConfigPath(peer))
@@ -168,27 +213,6 @@ func (p *Platform) Load() {
 		cert, err := ioutil.ReadFile(p.LocalMSPIdentityCert(peer))
 		Expect(err).ToNot(HaveOccurred())
 		p.Context.SetViewIdentity(peer.Name, cert)
-	}
-}
-
-func (p *Platform) Members() []grouper.Member {
-	members := grouper.Members{}
-	for _, node := range p.Peers {
-		if node.Bootstrap {
-			members = append(members, grouper.Member{Name: node.ID(), Runner: p.FSCNodeRunner(node)})
-		}
-	}
-	for _, node := range p.Peers {
-		if !node.Bootstrap {
-			members = append(members, grouper.Member{Name: node.ID(), Runner: p.FSCNodeRunner(node)})
-		}
-	}
-	return members
-}
-
-func (p *Platform) PostRun() {
-	if len(p.Topology.MetricsAggregator) != 0 {
-		p.StartMetricsAggregator()
 	}
 
 	for _, node := range p.Peers {
@@ -319,7 +343,7 @@ func (p *Platform) CheckTopology() {
 
 func (p *Platform) InitClients() {
 	p.Load()
-	p.PostRun()
+	p.PostRun(false)
 }
 
 func (p *Platform) FSCCLI(command common.Command) (*gexec.Session, error) {
@@ -474,6 +498,10 @@ func (p *Platform) fscNodeCommand(node *node2.Peer, command common.Command, tlsD
 	cmd := common.NewCommand(p.Builder.Build(node.ExecutablePath), command)
 	cmd.Env = append(cmd.Env, env...)
 	cmd.Env = append(cmd.Env, "FSCNODE_LOGGING_SPEC="+p.Topology.Logging.Spec)
+	if p.Context.IgnoreSigHUP() {
+		cmd.Env = append(cmd.Env, "FSCNODE_SIGHUP_IGNORE=true")
+	}
+	//cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
 	if p.Topology.GRPCLogging {
 		cmd.Env = append(cmd.Env, "GRPC_GO_LOG_VERBOSITY_LEVEL=2")
@@ -514,11 +542,15 @@ func (p *Platform) GenerateCmd(output io.Writer, node *node2.Peer) string {
 }
 
 func (p *Platform) NodeDir(peer *node2.Peer) string {
-	return filepath.Join(p.Context.RootDir(), "fsc", "fscnodes", peer.ID())
+	return filepath.Join(p.Context.RootDir(), "fsc", "nodes", peer.Name)
+}
+
+func (p *Platform) NodeClientConfigPath(peer *node2.Peer) string {
+	return filepath.Join(p.Context.RootDir(), "fsc", "nodes", peer.Name, "client-config.yaml")
 }
 
 func (p *Platform) NodeKVSDir(peer *node2.Peer) string {
-	return filepath.Join(p.Context.RootDir(), "fsc", "fscnodes", peer.ID(), "kvs")
+	return filepath.Join(p.Context.RootDir(), "fsc", "nodes", peer.Name, "kvs")
 }
 
 func (p *Platform) NodeConfigPath(peer *node2.Peer) string {
@@ -698,7 +730,7 @@ func (p *Platform) GetAdminSigningIdentity(peer *node2.Peer) (view.SigningIdenti
 	return view.NewX509SigningIdentity(p.AdminLocalMSPIdentityCert(peer), p.AdminLocalMSPPrivateKey(peer))
 }
 
-func (p *Platform) StartMetricsAggregator() {
+func (p *Platform) MetricsAggregator() *runner2.Runner {
 	cmd := common.NewCommand(p.Builder.Build(p.Topology.MetricsAggregator), &commands2.AggregatorStart{NodeID: "aggregator"})
 	config := runner2.Config{
 		AnsiColorCode:     common.NextColor(),
@@ -708,8 +740,7 @@ func (p *Platform) StartMetricsAggregator() {
 		StartCheckTimeout: 1 * time.Minute,
 	}
 
-	p.metricsAggregatorProcess = ifrit.Invoke(runner2.New(config))
-	Eventually(p.metricsAggregatorProcess.Ready(), p.EventuallyTimeout).Should(BeClosed())
+	return runner2.New(config)
 }
 
 func (p *Platform) listTLSCACertificates() []string {

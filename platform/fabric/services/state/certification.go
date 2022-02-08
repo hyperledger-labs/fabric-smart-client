@@ -151,7 +151,7 @@ func (n *Namespace) VerifyInputCertificationAt(index int, key string) error {
 		if err != nil {
 			return errors.Wrapf(err, "failed getting rws [%s,%s,%s] for [%s]", n.tx.Channel(), cn, cv, id)
 		}
-		defer rws.Done()
+		defer certTx.Close()
 		k, v, err := rws.GetWriteAt(n.namespace(), 0)
 		if err != nil {
 			return errors.Wrapf(err, "failed getting rws write at 0 [%s,%s,%s] for [%s]", n.tx.Channel(), cn, cv, id)

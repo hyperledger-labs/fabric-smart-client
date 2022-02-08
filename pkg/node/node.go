@@ -81,24 +81,26 @@ func (n *node) Start() (err error) {
 
 	n.running = true
 	// Install
-	logger.Debugf("Installing sdks...")
+	logger.Infof("Installing sdks...")
 	for _, p := range n.sdks {
 		if err := p.Install(); err != nil {
 			logger.Errorf("Failed installing platform [%s]", err)
 			return err
 		}
 	}
+	logger.Infof("Installing sdks...done")
 
 	n.context, n.cancel = context.WithCancel(context.Background())
 
 	// Start
-	logger.Debugf("Starting sdks...")
+	logger.Info("Starting sdks...")
 	for _, p := range n.sdks {
 		if err := p.Start(n.context); err != nil {
 			logger.Errorf("Failed starting platform [%s]", err)
 			return err
 		}
 	}
+	logger.Infof("Starting sdks...done")
 
 	return nil
 }

@@ -338,7 +338,7 @@ func (c *committer) listenTo(txid string, timeout time.Duration) error {
 				}
 			}
 			if logger.IsEnabledFor(zapcore.DebugLevel) {
-				logger.Debugf("Is [%s] final? not available yet, wait [%s, %c]", txid, err, vd)
+				logger.Debugf("Is [%s] final? not available yet, wait [err:%s, vc:%d]", txid, err, vd)
 			}
 		}
 	}

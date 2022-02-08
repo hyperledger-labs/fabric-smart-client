@@ -48,7 +48,7 @@ fabric:
       persistence:
         type: file
         opts:
-          path: /Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata/fsc/fscnodes/Org1.approver/vault
+          path: /Users/adc/golang/src/github.com/hyperledger-labs/fabric-smart-client/testdata/fsc/nodes/Org1.approver/vault
     endpoint:
       resolvers:
         - name: Org1_peer_0

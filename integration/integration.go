@@ -7,11 +7,15 @@ SPDX-License-Identifier: Apache-2.0
 package integration
 
 import (
+	"encoding/json"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"io/ioutil"
 	"os"
+	"os/signal"
 	"path"
 	"path/filepath"
 	"strings"
+	"syscall"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/commands"
 	smartclient "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
@@ -29,10 +33,17 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
+var logger = flogging.MustGetLogger("fsc.integration")
+
+type Configuration struct {
+	StartPort int
+}
+
 type Infrastructure struct {
 	TestDir           string
+	StartPort         int
 	Ctx               *context.Context
-	Nwo               *nwo.NWO
+	NWO               *nwo.NWO
 	BuildServer       *common.BuildServer
 	DeleteOnStop      bool
 	DeleteOnStart     bool
@@ -72,6 +83,7 @@ func New(startPort int, path string, topologies ...api.Topology) (*Infrastructur
 
 	n := &Infrastructure{
 		TestDir:      testDir,
+		StartPort:    startPort,
 		Ctx:          context.New(testDir, uint16(startPort), builder, topologies...),
 		BuildServer:  buildServer,
 		DeleteOnStop: true,
@@ -97,13 +109,12 @@ func GenerateAt(startPort int, path string, race bool, topologies ...api.Topolog
 		n.EnableRaceDetector()
 	}
 	n.Generate()
-	n.Load()
 
 	return n, nil
 }
 
-func Load(dir string, race bool, topologies ...api.Topology) (*Infrastructure, error) {
-	n, err := New(0, dir, topologies...)
+func Load(startPort int, dir string, race bool, topologies ...api.Topology) (*Infrastructure, error) {
+	n, err := New(startPort, dir, topologies...)
 	if err != nil {
 		return nil, err
 	}
@@ -151,12 +162,13 @@ func (i *Infrastructure) Generate() {
 		}
 	}
 	i.initNWO()
-	i.Nwo.Generate()
+	i.NWO.Generate()
+	i.storeAdditionalConfigurations()
 }
 
 func (i *Infrastructure) Load() {
 	i.initNWO()
-	i.Nwo.Load()
+	i.NWO.Load()
 }
 
 func (i *Infrastructure) InitClients() {
@@ -165,25 +177,59 @@ func (i *Infrastructure) InitClients() {
 }
 
 func (i *Infrastructure) Start() {
-	if i.Nwo == nil {
+	logger.Infof(" ____    _____      _      ____    _____")
+	logger.Infof("/ ___|  |_   _|    / \\    |  _ \\  |_   _|")
+	logger.Infof("\\___ \\    | |     / _ \\   | |_) |   | |")
+	logger.Infof("___) |    | |    / ___ \\  |  _ <    | |")
+	logger.Infof("|____/    |_|   /_/   \\_\\ |_| \\_\\   |_|")
+	if i.NWO == nil {
 		panic("call generate or load first")
 	}
-	i.Nwo.Start()
+	i.NWO.Start()
+	logger.Infof(" _____   _   _   ____")
+	logger.Infof("| ____| | \\ | | |  _ \\")
+	logger.Infof("|  _|   |  \\| | | | | |")
+	logger.Infof("| |___  | |\\  | | |_| |")
+	logger.Infof("|_____| |_| \\_| |____/")
 }
 
 func (i *Infrastructure) Stop() {
-	if i.Nwo == nil {
+	if i.NWO == nil {
 		panic("call generate or load first")
 	}
 	defer i.BuildServer.Shutdown()
 	if i.DeleteOnStop {
 		defer os.RemoveAll(i.TestDir)
 	}
-	i.Nwo.Stop()
+	i.NWO.Stop()
+}
+
+func (i *Infrastructure) Serve() error {
+	serve := make(chan error, 10)
+	go handleSignals(map[os.Signal]func(){
+		syscall.SIGINT: func() {
+			logger.Infof("Received SIGINT, exiting...")
+			serve <- nil
+		},
+		syscall.SIGTERM: func() {
+			logger.Infof("Received SIGTERM, exiting...")
+			serve <- nil
+		},
+		syscall.SIGSTOP: func() {
+			logger.Infof("Received SIGSTOP, exiting...")
+			serve <- nil
+		},
+		syscall.SIGHUP: func() {
+			logger.Infof("Received SIGHUP, exiting...")
+			serve <- nil
+		},
+	})
+	logger.Infof("All GOOD, networks up and running")
+	return <-serve
 }
 
 func (i *Infrastructure) Client(name string) api.ViewClient {
-	if i.Nwo == nil {
+	if i.NWO == nil {
 		panic("call generate or load first")
 	}
 
@@ -191,7 +237,7 @@ func (i *Infrastructure) Client(name string) api.ViewClient {
 }
 
 func (i *Infrastructure) CLI(name string) api.ViewClient {
-	if i.Nwo == nil {
+	if i.NWO == nil {
 		panic("call generate or load first")
 	}
 
@@ -199,7 +245,7 @@ func (i *Infrastructure) CLI(name string) api.ViewClient {
 }
 
 func (i *Infrastructure) Admin(name string) api.ViewClient {
-	if i.Nwo == nil {
+	if i.NWO == nil {
 		panic("call generate or load first")
 	}
 
@@ -207,7 +253,7 @@ func (i *Infrastructure) Admin(name string) api.ViewClient {
 }
 
 func (i *Infrastructure) Identity(name string) view.Identity {
-	if i.Nwo == nil {
+	if i.NWO == nil {
 		panic("call generate or load first")
 	}
 
@@ -219,19 +265,19 @@ func (i *Infrastructure) Identity(name string) view.Identity {
 }
 
 func (i *Infrastructure) StopFSCNode(id string) {
-	if i.Nwo == nil {
+	if i.NWO == nil {
 		panic("call generate or load first")
 	}
 
-	i.Nwo.StopFSCNode(id)
+	i.NWO.StopFSCNode(id)
 }
 
 func (i *Infrastructure) StartFSCNode(id string) {
-	if i.Nwo == nil {
+	if i.NWO == nil {
 		panic("call generate or load first")
 	}
 
-	i.Nwo.StartFSCNode(id)
+	i.NWO.StartFSCNode(id)
 }
 
 func (i *Infrastructure) EnableRaceDetector() {
@@ -239,7 +285,7 @@ func (i *Infrastructure) EnableRaceDetector() {
 }
 
 func (i *Infrastructure) initNWO() {
-	if i.Nwo != nil {
+	if i.NWO != nil {
 		// skip
 		return
 	}
@@ -266,10 +312,46 @@ func (i *Infrastructure) initNWO() {
 	for _, platform := range platforms {
 		i.Ctx.AddPlatform(platform)
 	}
-	i.Nwo = nwo.New(platforms...)
+	i.NWO = nwo.New(i.Ctx, platforms...)
 	i.FscPlatform = fcsPlatform
+}
+
+func (i *Infrastructure) storeAdditionalConfigurations() {
+	// store configuration
+	conf := &Configuration{
+		StartPort: i.StartPort,
+	}
+	raw, err := json.Marshal(conf)
+	if err != nil {
+		panic(err)
+	}
+	if err := ioutil.WriteFile(filepath.Join(i.TestDir, "conf.json"), raw, 0770); err != nil {
+		panic(err)
+	}
+
+	// store topology
+	t := api.Topologies{Topologies: i.Topologies}
+	raw, err = t.Export()
+	if err != nil {
+		panic(err)
+	}
+	if err := ioutil.WriteFile(filepath.Join(i.TestDir, "topology.yaml"), raw, 0770); err != nil {
+		panic(err)
+	}
 }
 
 func failMe(message string, callerSkip ...int) {
 	panic(message)
+}
+
+func handleSignals(handlers map[os.Signal]func()) {
+	var signals []os.Signal
+	for sig := range handlers {
+		signals = append(signals, sig)
+	}
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, signals...)
+	for sig := range signalChan {
+		handlers[sig]()
+	}
 }

@@ -13,6 +13,7 @@ type RunViewOptions struct {
 	Session     Session
 	AsInitiator bool
 	Call        func(Context) (interface{}, error)
+	SameContext bool
 }
 
 // CompileRunViewOptions compiles a set of RunViewOption to a RunViewOptions
@@ -49,6 +50,14 @@ func AsInitiator() RunViewOption {
 func WithViewCall(f func(Context) (interface{}, error)) RunViewOption {
 	return func(o *RunViewOptions) error {
 		o.Call = f
+		return nil
+	}
+}
+
+// WithSameContext is used to reuse the context
+func WithSameContext() RunViewOption {
+	return func(o *RunViewOptions) error {
+		o.SameContext = true
 		return nil
 	}
 }

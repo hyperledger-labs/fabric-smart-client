@@ -162,8 +162,12 @@ func (p *Platform) Members() []grouper.Member {
 	return p.Network.Members()
 }
 
-func (p *Platform) PostRun() {
-	p.Network.PostRun()
+func (p *Platform) PostRun(load bool) {
+	p.Network.PostRun(load)
+
+	if load {
+		return
+	}
 
 	for _, chaincode := range p.Network.Topology().Chaincodes {
 		for _, invocation := range chaincode.PostRunInvocations {

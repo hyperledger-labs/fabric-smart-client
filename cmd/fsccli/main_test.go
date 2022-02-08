@@ -55,6 +55,6 @@ func TestArtifactsGen(t *testing.T) {
 		stringEntries = append(stringEntries, entry.Name())
 	}
 
-	Expect(stringEntries).To(Equal([]string{"fabric.default", "fsc"}))
+	Expect(stringEntries).To(Equal([]string{"conf.json", "fabric.default", "fsc", "topology.yaml"}))
 
 }

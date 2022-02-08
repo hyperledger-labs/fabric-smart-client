@@ -18,6 +18,7 @@ import (
 // Config aggregates configuration of TLS and signing
 type Config struct {
 	Version      int
+	Address      string
 	TLSConfig    comm.Config
 	SignerConfig signer.Config
 }
@@ -30,7 +31,7 @@ func ConfigFromFile(file string) (Config, error) {
 	}
 	config := Config{}
 
-	if err := yaml.Unmarshal([]byte(configData), &config); err != nil {
+	if err := yaml.Unmarshal(configData, &config); err != nil {
 		return Config{}, errors.Errorf("error unmarshalling YAML file %s: %s", file, err)
 	}
 
@@ -51,7 +52,6 @@ func (c Config) ToFile(file string) error {
 
 func validateConfig(conf Config) error {
 	nonEmptyStrings := []string{
-		conf.SignerConfig.MSPID,
 		conf.SignerConfig.IdentityPath,
 		conf.SignerConfig.KeyPath,
 	}

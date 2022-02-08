@@ -21,7 +21,7 @@ import (
 
 const (
 	nodeFuncName = "node"
-	nodeCmdDes   = "Operate a fabfsc node: start."
+	nodeCmdDes   = "Operate a fabric smart client node: start."
 )
 
 type Node interface {
@@ -53,7 +53,7 @@ func startCmd() *cobra.Command {
 	var nodeStartCmd = &cobra.Command{
 		Use:   "start",
 		Short: "Starts the fabric smart client node.",
-		Long:  `Starts a fabric smart client node that interacts with the network.`,
+		Long:  `Starts the fabric smart client node that interacts with the network.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 0 {
 				return fmt.Errorf("trailing args detected")
@@ -66,11 +66,13 @@ func startCmd() *cobra.Command {
 }
 
 func serve() error {
-	altPath := os.Getenv("FSCNODE_CFG_PATH")
-	if altPath == "" {
-		altPath = "./"
+	// config path
+	configPath := os.Getenv("FSCNODE_CFG_PATH")
+	if configPath == "" {
+		configPath = "./"
 	}
 
+	// profile
 	enableProfile := false
 	enableProfileStr := os.Getenv("FSCNODE_PROFILER")
 	if len(enableProfileStr) != 0 {
@@ -82,7 +84,8 @@ func serve() error {
 	}
 
 	if enableProfile {
-		var profiler, err = profile.New(profile.WithPath(altPath), profile.WithAll())
+		logger.Infof("Profiling enabled")
+		var profiler, err = profile.New(profile.WithPath(configPath), profile.WithAll())
 		if err != nil {
 			logger.Errorf("error creating profiler: [%s]", err)
 			callback(err)
@@ -98,6 +101,47 @@ func serve() error {
 		defer profiler.Stop()
 	}
 
+	// sigup
+	sighupIgnore := false
+	sighupIgnoreEnv := os.Getenv("FSCNODE_SIGHUP_IGNORE")
+	if len(sighupIgnoreEnv) != 0 {
+		var err error
+		sighupIgnore, err = strconv.ParseBool(sighupIgnoreEnv)
+		if err != nil {
+			logger.Infof("Error parsing boolean environment variable FSCNODE_SIGHUP_IGNORE: %s\n", err.Error())
+		} else {
+			logger.Infof("SIGHUP signal will be ignored: %t", sighupIgnore)
+		}
+	}
+
+	serve := make(chan error, 10)
+	go handleSignals(addPlatformSignals(map[os.Signal]func(){
+		syscall.SIGINT: func() {
+			logger.Infof("Received SIGINT, exiting...")
+			node.Stop()
+			serve <- nil
+		},
+		syscall.SIGTERM: func() {
+			logger.Infof("Received SIGTERM, exiting...")
+			node.Stop()
+			serve <- nil
+		},
+		syscall.SIGSTOP: func() {
+			logger.Infof("Received SIGSTOP, exiting...")
+			node.Stop()
+			serve <- nil
+		},
+		syscall.SIGHUP: func() {
+			if sighupIgnore {
+				logger.Infof("Received SIGHUP, but ignoring it")
+			} else {
+				logger.Infof("Received SIGHUP, exiting...")
+				node.Stop()
+				serve <- nil
+			}
+		},
+	}))
+
 	if err := node.Start(); err != nil {
 		logger.Errorf("Failed starting platform [%s]", err)
 		callback(err)
@@ -106,12 +150,6 @@ func serve() error {
 	callback(nil)
 
 	logger.Debugf("Block until signal")
-	serve := make(chan error, 10)
-	go handleSignals(addPlatformSignals(map[os.Signal]func(){
-		syscall.SIGINT:  func() { node.Stop(); serve <- nil },
-		syscall.SIGTERM: func() { node.Stop(); serve <- nil },
-		syscall.SIGSTOP: func() { node.Stop(); serve <- nil },
-	}))
 	return <-serve
 }
 

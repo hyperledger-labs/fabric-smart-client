@@ -9,6 +9,7 @@ package transaction
 import (
 	"encoding/base64"
 	"encoding/json"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/golang/protobuf/proto"
 	pcommon "github.com/hyperledger/fabric-protos-go/common"
@@ -344,12 +345,17 @@ func (t *Transaction) Done() error {
 		if err != nil {
 			return errors.Wrapf(err, "failed marshalling rws")
 		}
-		logger.Debugf("terminated simulation with [%s][len:%d]", t.rwset.Namespaces(), len(t.RWSet))
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			logger.Debugf("terminated simulation with [%s][len:%d]", t.rwset.Namespaces(), len(t.RWSet))
+		}
 	}
 	return nil
 }
 
 func (t *Transaction) Close() {
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("closing transaction [%s,%v]", t.ID(), t.rwset != nil)
+	}
 	if t.rwset != nil {
 		t.rwset.Done()
 		t.rwset = nil

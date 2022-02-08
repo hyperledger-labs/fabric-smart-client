@@ -7,6 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 package nwo
 
 import (
+	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -16,33 +19,48 @@ import (
 	"github.com/tedsuo/ifrit/grouper"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/context"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/runner"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 )
 
 var logger = flogging.MustGetLogger("fsc.integration")
 
+type Process interface {
+	PID() (string, int)
+}
+
+type Group interface {
+	Members() grouper.Members
+}
+
 type NWO struct {
-	fscProcesss []ifrit.Process
-	Processes   []ifrit.Process
-	Members     grouper.Members
+	FSCProcesses      []ifrit.Process
+	Processes         []ifrit.Process
+	TerminationSignal os.Signal
+	Members           grouper.Members
 
 	Platforms              []api.Platform
 	StartEventuallyTimeout time.Duration
 	StopEventuallyTimeout  time.Duration
 	ViewMembers            grouper.Members
+
+	ctx       *context.Context
+	isLoading bool
 }
 
-func New(platforms ...api.Platform) *NWO {
+func New(ctx *context.Context, platforms ...api.Platform) *NWO {
 	return &NWO{
+		ctx:                    ctx,
 		Platforms:              platforms,
 		StartEventuallyTimeout: time.Minute,
 		StopEventuallyTimeout:  time.Minute,
+		TerminationSignal:      syscall.SIGTERM,
 	}
 }
 
 func (n *NWO) KillFSC() {
-	for _, process := range n.fscProcesss {
+	for _, process := range n.FSCProcesses {
 		process.Signal(syscall.SIGTERM)
 		Eventually(process.Wait(), n.StopEventuallyTimeout).Should(Receive())
 	}
@@ -61,6 +79,7 @@ func (n *NWO) Generate() {
 }
 
 func (n *NWO) Load() {
+	n.isLoading = true
 	logger.Infof("Load Configuration...")
 	for _, platform := range n.Platforms {
 		platform.Load()
@@ -98,7 +117,7 @@ func (n *NWO) Start() {
 	logger.Infof("Run nodes...")
 
 	// Execute members on their own stuff...
-	Runner := grouper.NewOrdered(syscall.SIGTERM, members)
+	Runner := runner.NewOrdered(n.TerminationSignal, members)
 	process := ifrit.Invoke(Runner)
 	n.Processes = append(n.Processes, process)
 	Eventually(process.Ready(), n.StartEventuallyTimeout).Should(BeClosed())
@@ -106,25 +125,33 @@ func (n *NWO) Start() {
 	// Execute the fsc members in isolation so can be stopped and restarted as needed
 	logger.Infof("Run FSC nodes...")
 	for _, member := range fscMembers {
-		logger.Infof("Run FSC node [%s]...", member)
+		logger.Infof("Run FSC node [%s]...", member.Name)
 
-		runner := runner.NewOrdered(syscall.SIGTERM, []grouper.Member{member})
+		runner := runner.NewOrdered(n.TerminationSignal, []grouper.Member{member})
 		process := ifrit.Invoke(runner)
 		Eventually(process.Ready(), n.StartEventuallyTimeout).Should(BeClosed())
 		n.Processes = append(n.Processes, process)
-		n.fscProcesss = append(n.fscProcesss, process)
+		n.FSCProcesses = append(n.FSCProcesses, process)
 	}
+
+	// store PIDs of all processes
+	f, err := os.Create(filepath.Join(n.ctx.RootDir(), "pids.txt"))
+	Expect(err).NotTo(HaveOccurred())
+	n.storePIDs(f, members)
+	n.storePIDs(f, fscMembers)
+	Expect(f.Sync()).NotTo(HaveOccurred())
+	Expect(f.Close()).NotTo(HaveOccurred())
 
 	logger.Infof("Post execution...")
 	for _, platform := range n.Platforms {
-		platform.PostRun()
+		platform.PostRun(n.isLoading)
 	}
 }
 
 func (n *NWO) Stop() {
 	logger.Infof("Stopping...")
 	if len(n.Processes) != 0 {
-		logger.Infof("Sending sigtem signal...")
+		logger.Infof("Sending sigterm signal...")
 		for _, process := range n.Processes {
 			process.Signal(syscall.SIGTERM)
 			Eventually(process.Wait(), n.StopEventuallyTimeout).Should(Receive())
@@ -166,4 +193,17 @@ func (n *NWO) StartFSCNode(id string) {
 		}
 	}
 	logger.Info("Starting fsc node [%s]...done", id)
+}
+
+func (n *NWO) storePIDs(f *os.File, members grouper.Members) {
+	for _, member := range members {
+		switch r := member.Runner.(type) {
+		case Process:
+			path, pid := r.PID()
+			_, err := f.WriteString(fmt.Sprintf("%s %d\n", path, pid))
+			Expect(err).NotTo(HaveOccurred())
+		case Group:
+			n.storePIDs(f, r.Members())
+		}
+	}
 }

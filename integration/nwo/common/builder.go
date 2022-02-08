@@ -22,7 +22,11 @@ import (
 	"github.com/onsi/gomega/gexec"
 	"gopkg.in/src-d/go-git.v4"
 	"gopkg.in/src-d/go-git.v4/plumbing"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 )
+
+var logger = flogging.MustGetLogger("nwo.builder")
 
 type BuilderClient struct {
 	ServerAddress string `json:"server_address"`
@@ -105,6 +109,7 @@ func (a *artifact) build(args ...string) error {
 
 	output, err := a.gBuild(a.input, args...)
 	if err != nil {
+		logger.Errorf("Error building %s: %s", a.input, err)
 		return err
 	}
 
@@ -115,7 +120,7 @@ func (a *artifact) build(args ...string) error {
 func (a *artifact) gBuild(input string, args ...string) (string, error) {
 	switch {
 	case strings.HasPrefix(input, "git@"):
-		fmt.Printf("building %s\n", input)
+		logger.Infof("building %s", input)
 		// split input in repo#commit#packagePath#cmd
 		entries := strings.Split(input, ";")
 		repo := entries[0]
@@ -127,12 +132,12 @@ func (a *artifact) gBuild(input string, args ...string) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		fmt.Printf("testDir %s\n", testDir)
+		logger.Infof("testDir %s", testDir)
 
 		goPath := filepath.Join(testDir, "gopath")
-		fmt.Printf("goPath %s\n", goPath)
+		logger.Infof("goPath %s", goPath)
 		fabricPath := filepath.Join(testDir, "gopath", "src", packagePath)
-		fmt.Printf("fabricPath %s\n", fabricPath)
+		logger.Infof("fabricPath %s", fabricPath)
 
 		r, err := git.PlainClone(fabricPath, false, &git.CloneOptions{
 			URL:      repo,
@@ -151,18 +156,18 @@ func (a *artifact) gBuild(input string, args ...string) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		fmt.Printf("checked out %s done \n", commit)
+		logger.Infof("checked out %s done ", commit)
 
-		fmt.Printf("building [%s,%s] \n", goPath, packagePath+"/"+cmd)
+		logger.Infof("building [%s,%s] ", goPath, packagePath+"/"+cmd)
 
 		return gexec.BuildIn(goPath, packagePath+"/"+cmd)
 	default:
 		if a.raceDetectorEnabled && !strings.HasPrefix(input, "github.com/hyperledger/fabric/") {
-			fmt.Printf("building [%s,%s] with race detection \n", input, args)
+			logger.Infof("building [%s,%s] with race detection ", input, args)
 			return gexec.Build(input, args...)
 		}
 
-		fmt.Printf("building [%s,%s] \n", input, args)
+		logger.Infof("building [%s,%s] ", input, args)
 		return gexec.Build(input, args...)
 	}
 }
@@ -180,17 +185,19 @@ func (b *buildHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	//fmt.Printf("ServeHTTP %v\n", req.URL)
-	input := strings.TrimPrefix(req.URL.Path, "/")
-	a := b.artifact(input)
+	// logger.Infof("ServeHTTP %v", req.URL)
 
+	input := strings.TrimPrefix(req.URL.Path, "/")
+	input = strings.Replace(input, "\n", "", -1)
+	input = strings.Replace(input, "\r", "", -1)
+	a := b.artifact(input)
 	if err := a.build(b.args...); err != nil {
-		//fmt.Printf("ServeHTTP %v, failed %s\n", req.URL, err)
+		// logger.Infof("ServeHTTP %v, failed %s", req.URL, err)
 		w.WriteHeader(http.StatusInternalServerError)
 		fmt.Fprintf(w, "%s", err)
 		return
 	}
-	//fmt.Printf("ServeHTTP %v, done %s\n", req.URL, a.output)
+	// logger.Infof("ServeHTTP %v, done %s", req.URL, a.output)
 
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprintf(w, "%s", a.output)

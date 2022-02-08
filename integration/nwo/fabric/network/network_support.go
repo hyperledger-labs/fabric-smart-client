@@ -1141,7 +1141,7 @@ func (n *Network) OrdererGroupRunner() ifrit.Runner {
 		return nil
 	}
 
-	return grouper.NewParallel(syscall.SIGTERM, members)
+	return runner2.NewParallel(syscall.SIGTERM, members)
 }
 
 // PeerRunner returns an ifrit.Runner for the specified peer. The runner can be
@@ -1159,6 +1159,7 @@ func (n *Network) PeerRunner(p *topology.Peer, env ...string) *runner2.Runner {
 		fmt.Sprintf("CORE_PEER_ID=%s", fmt.Sprintf("%s.%s", p.Name, n.Organization(p.Organization).Domain)),
 	)
 	cmd.Env = append(cmd.Env, env...)
+	//cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
 	config := runner2.Config{
 		AnsiColorCode:     n.nextColor(),
@@ -1215,7 +1216,7 @@ func (n *Network) PeerGroupRunner() ifrit.Runner {
 	if len(members) == 0 {
 		return nil
 	}
-	return grouper.NewParallel(syscall.SIGTERM, members)
+	return runner2.NewParallel(syscall.SIGTERM, members)
 }
 
 func (n *Network) peerCommand(executablePath string, command common.Command, tlsDir string, env ...string) *exec.Cmd {
@@ -1598,7 +1599,7 @@ func (n *Network) OrdererAddress(o *topology.Orderer, portName api.PortName) str
 // OrdererPort returns the named port reserved for the Orderer instance.
 func (n *Network) OrdererPort(o *topology.Orderer, portName api.PortName) uint16 {
 	ordererPorts := n.PortsByOrdererID[o.ID()]
-	Expect(ordererPorts).NotTo(BeNil())
+	Expect(ordererPorts).NotTo(BeNil(), "expected orderer ports to be initialized [%s]", o.ID())
 	return ordererPorts[portName]
 }
 
@@ -1655,7 +1656,7 @@ func (n *Network) nextColor() string {
 }
 
 func (n *Network) FSCNodeVaultDir(peer *topology.Peer) string {
-	return filepath.Join(n.Context.RootDir(), "fsc", "fscnodes", peer.ID(), "vault")
+	return filepath.Join(n.Context.RootDir(), "fsc", "nodes", peer.Name, n.Prefix, "vault")
 }
 
 func (n *Network) OrdererBootstrapFile() string {

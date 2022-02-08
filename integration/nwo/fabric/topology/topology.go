@@ -43,102 +43,111 @@ type Topology struct {
 	LogOrderersToFile bool                `yaml:"logOrderersToFile,omitempty"`
 }
 
-func (c *Topology) Name() string {
-	return c.TopologyName
+func (t *Topology) Name() string {
+	return t.TopologyName
 }
 
-func (c *Topology) Type() string {
-	return c.TopologyType
+func (t *Topology) Type() string {
+	return t.TopologyType
 }
 
-func (c *Topology) SetDefault() *Topology {
-	c.Default = true
-	return c
+func (t *Topology) SetDefault() *Topology {
+	t.Default = true
+	return t
 }
 
-func (c *Topology) SetLogging(spec, format string) {
-	c.Logging = &Logging{
-		Spec:   spec,
-		Format: format,
+func (t *Topology) SetLogging(spec, format string) {
+	l := &Logging{}
+	if len(spec) != 0 {
+		l.Spec = spec
+	} else {
+		l.Spec = t.Logging.Spec
 	}
+	if len(format) != 0 {
+		l.Format = format
+	} else {
+		l.Format = t.Logging.Format
+	}
+
+	t.Logging = l
 }
 
-func (c *Topology) AddChaincode(cc *ChannelChaincode) {
+func (t *Topology) AddChaincode(cc *ChannelChaincode) {
 	// if a chaincode with the same name exists already, replace
-	for i, chaincode := range c.Chaincodes {
+	for i, chaincode := range t.Chaincodes {
 		if chaincode.Chaincode.Name == cc.Chaincode.Name {
 			// replace
-			c.Chaincodes[i] = cc
+			t.Chaincodes[i] = cc
 			return
 		}
 	}
 
-	c.Chaincodes = append(c.Chaincodes, cc)
+	t.Chaincodes = append(t.Chaincodes, cc)
 }
 
-func (c *Topology) AppendPeer(peer *Peer) {
-	c.Peers = append(c.Peers, peer)
+func (t *Topology) AppendPeer(peer *Peer) {
+	t.Peers = append(t.Peers, peer)
 }
 
-func (c *Topology) AppendOrganization(org *Organization) {
-	c.Organizations = append(c.Organizations, org)
-	c.Consortiums[0].Organizations = append(c.Consortiums[0].Organizations, org.Name)
-	c.Profiles[1].Organizations = append(c.Profiles[1].Organizations, org.Name)
+func (t *Topology) AppendOrganization(org *Organization) {
+	t.Organizations = append(t.Organizations, org)
+	t.Consortiums[0].Organizations = append(t.Consortiums[0].Organizations, org.Name)
+	t.Profiles[1].Organizations = append(t.Profiles[1].Organizations, org.Name)
 }
 
-func (c *Topology) EnableNodeOUs() {
-	c.NodeOUs = true
-	for _, organization := range c.Organizations {
-		organization.EnableNodeOUs = c.NodeOUs
+func (t *Topology) EnableNodeOUs() {
+	t.NodeOUs = true
+	for _, organization := range t.Organizations {
+		organization.EnableNodeOUs = t.NodeOUs
 	}
 }
 
-func (c *Topology) EnableGRPCLogging() {
-	c.GRPCLogging = true
+func (t *Topology) EnableGRPCLogging() {
+	t.GRPCLogging = true
 }
 
-func (c *Topology) AddOrganization(name string) *fscOrg {
+func (t *Topology) AddOrganization(name string) *fscOrg {
 	o := &Organization{
 		ID:            name,
 		Name:          name,
 		MSPID:         name + "MSP",
 		Domain:        strings.ToLower(name) + ".example.com",
-		EnableNodeOUs: c.NodeOUs,
+		EnableNodeOUs: t.NodeOUs,
 		Users:         1,
 		CA:            &CA{Hostname: "ca"},
 	}
-	c.AppendOrganization(o)
-	return &fscOrg{c: c, o: o}
+	t.AppendOrganization(o)
+	return &fscOrg{c: t, o: o}
 }
 
-func (c *Topology) AddOrganizationsByName(names ...string) *Topology {
+func (t *Topology) AddOrganizationsByName(names ...string) *Topology {
 	for _, name := range names {
-		c.AddOrganization(name).AddPeer(fmt.Sprintf("%s_peer_0", name))
+		t.AddOrganization(name).AddPeer(fmt.Sprintf("%s_peer_0", name))
 	}
-	return c
+	return t
 }
 
-func (c *Topology) AddOrganizations(num int) *Topology {
+func (t *Topology) AddOrganizations(num int) *Topology {
 	for i := 0; i < num; i++ {
 		name := "Org" + strconv.Itoa(i+1)
-		c.AddOrganization(name).AddPeer(fmt.Sprintf("%s_peer_0", name))
+		t.AddOrganization(name).AddPeer(fmt.Sprintf("%s_peer_0", name))
 	}
-	return c
+	return t
 }
 
-func (c *Topology) AddOrganizationsByMapping(mapping map[string][]string) *Topology {
+func (t *Topology) AddOrganizationsByMapping(mapping map[string][]string) *Topology {
 	for orgName, peers := range mapping {
-		org := c.AddOrganization(orgName)
+		org := t.AddOrganization(orgName)
 		for _, peerName := range peers {
 			org.AddPeer(peerName)
 		}
 	}
-	return c
+	return t
 }
 
-func (c *Topology) AddPeer(name string, org string, typ PeerType, bootstrap bool, executable string) *Peer {
+func (t *Topology) AddPeer(name string, org string, typ PeerType, bootstrap bool, executable string) *Peer {
 	peerChannels := []*PeerChannel{}
-	for _, channel := range c.Channels {
+	for _, channel := range t.Channels {
 		peerChannels = append(peerChannels, &PeerChannel{Name: channel.Name, Anchor: true})
 	}
 	p := &Peer{
@@ -149,12 +158,12 @@ func (c *Topology) AddPeer(name string, org string, typ PeerType, bootstrap bool
 		ExecutablePath: executable,
 		Channels:       peerChannels,
 	}
-	c.AppendPeer(p)
+	t.AppendPeer(p)
 
 	return p
 }
 
-func (c *Topology) AddNamespace(name string, policy string, peers ...string) {
+func (t *Topology) AddNamespace(name string, policy string, peers ...string) {
 	cc := &ChannelChaincode{
 		Chaincode: Chaincode{
 			Name:            name,
@@ -168,14 +177,14 @@ func (c *Topology) AddNamespace(name string, policy string, peers ...string) {
 			Policy:          policy,
 			SignaturePolicy: policy,
 		},
-		Channel: c.Channels[0].Name,
+		Channel: t.Channels[0].Name,
 		Peers:   peers,
 	}
 
-	c.AddChaincode(cc)
+	t.AddChaincode(cc)
 }
 
-func (c *Topology) AddNamespaceWithUnanimity(name string, orgs ...string) *namespace {
+func (t *Topology) AddNamespaceWithUnanimity(name string, orgs ...string) *namespace {
 	policy := "AND ("
 	for i, org := range orgs {
 		if i > 0 {
@@ -187,7 +196,7 @@ func (c *Topology) AddNamespaceWithUnanimity(name string, orgs ...string) *names
 
 	var peers []string
 	for _, org := range orgs {
-		for _, peer := range c.Peers {
+		for _, peer := range t.Peers {
 			if peer.Organization == org {
 				peers = append(peers, peer.Name)
 			}
@@ -207,16 +216,16 @@ func (c *Topology) AddNamespaceWithUnanimity(name string, orgs ...string) *names
 			Policy:          policy,
 			SignaturePolicy: policy,
 		},
-		Channel: c.Channels[0].Name,
+		Channel: t.Channels[0].Name,
 		Peers:   peers,
 	}
 
-	c.AddChaincode(cc)
+	t.AddChaincode(cc)
 
 	return &namespace{cc: cc}
 }
 
-func (c *Topology) AddNamespaceWithOneOutOfN(name string, orgs ...string) {
+func (t *Topology) AddNamespaceWithOneOutOfN(name string, orgs ...string) {
 	policy := "OutOf (1, "
 	for i, org := range orgs {
 		if i > 0 {
@@ -228,7 +237,7 @@ func (c *Topology) AddNamespaceWithOneOutOfN(name string, orgs ...string) {
 
 	var peers []string
 	for _, org := range orgs {
-		for _, peer := range c.Peers {
+		for _, peer := range t.Peers {
 			if peer.Organization == org {
 				peers = append(peers, peer.Name)
 			}
@@ -248,14 +257,14 @@ func (c *Topology) AddNamespaceWithOneOutOfN(name string, orgs ...string) {
 			Policy:          policy,
 			SignaturePolicy: policy,
 		},
-		Channel: c.Channels[0].Name,
+		Channel: t.Channels[0].Name,
 		Peers:   peers,
 	}
 
-	c.AddChaincode(cc)
+	t.AddChaincode(cc)
 }
 
-func (c *Topology) AddManagedNamespace(name string, policy string, chaincode string, ctor string, peers ...string) {
+func (t *Topology) AddManagedNamespace(name string, policy string, chaincode string, ctor string, peers ...string) {
 	InitRequired := true
 	if len(ctor) == 0 {
 		InitRequired = false
@@ -274,14 +283,14 @@ func (c *Topology) AddManagedNamespace(name string, policy string, chaincode str
 			Policy:          policy,
 			SignaturePolicy: policy,
 		},
-		Channel: c.Channels[0].Name,
+		Channel: t.Channels[0].Name,
 		Peers:   peers,
 	}
 
-	c.AddChaincode(cc)
+	t.AddChaincode(cc)
 }
 
-func (c *Topology) SetNamespaceApproverOrgs(orgs ...string) {
+func (t *Topology) SetNamespaceApproverOrgs(orgs ...string) {
 	lcePolicy := "AND ("
 	for i, org := range orgs {
 		if i > 0 {
@@ -290,7 +299,7 @@ func (c *Topology) SetNamespaceApproverOrgs(orgs ...string) {
 		lcePolicy += "'" + org + "MSP.member'"
 	}
 	lcePolicy += ")"
-	for _, profile := range c.Profiles {
+	for _, profile := range t.Profiles {
 		if profile.Name == "OrgsChannel" {
 			for i, policy := range profile.Policies {
 				if policy.Name == "LifecycleEndorsement" {
@@ -307,7 +316,7 @@ func (c *Topology) SetNamespaceApproverOrgs(orgs ...string) {
 	}
 }
 
-func (c *Topology) SetNamespaceApproverOrgsOR(orgs ...string) {
+func (t *Topology) SetNamespaceApproverOrgsOR(orgs ...string) {
 	lcePolicy := "OR ("
 	for i, org := range orgs {
 		if i > 0 {
@@ -316,7 +325,7 @@ func (c *Topology) SetNamespaceApproverOrgsOR(orgs ...string) {
 		lcePolicy += "'" + org + "MSP.member'"
 	}
 	lcePolicy += ")"
-	for _, profile := range c.Profiles {
+	for _, profile := range t.Profiles {
 		if profile.Name == "OrgsChannel" {
 			for i, policy := range profile.Policies {
 				if policy.Name == "LifecycleEndorsement" {
@@ -333,6 +342,6 @@ func (c *Topology) SetNamespaceApproverOrgsOR(orgs ...string) {
 	}
 }
 
-func (c *Topology) EnableLogPeersToFile() {
-	c.LogPeersToFile = true
+func (t *Topology) EnableLogPeersToFile() {
+	t.LogPeersToFile = true
 }

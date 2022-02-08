@@ -17,7 +17,7 @@ Fabric Smart Client has not been audited and is provided as-is, use at your own 
 
 - [`Documentation`](./docs/design.md): Discover the design principles of the Fabric Smart Client based on the
 `Hidden Gems` of Hyperledger Fabric.
-- [`Examples`](./integration/README.md): Learn how to use the Fabric Smart Client via examples. There is nothing better than this.
+- [`Samples`](./samples/README.md): A collection of sample applications that demonstrate the use of the Fabric Smart Client. 
 - `Feedback`: Your help is the key to the success of the Fabric Smart Client. 
   - Submit your issues [`here`][`fabric-smart-client` Issues].
   - If you have any questions, queries or comments, find us on [GitHub discussions].
@@ -48,21 +48,7 @@ Developing Fabric-based distributed applications would become simpler and joyful
 If you are a domain expert, the Fabric Smart Client hides the complexity of Fabric and allows you to focus on the business interactions.
 If you are a skilled software engineer, you will be able to leverage the full power of Fabric.
 
-# Use the Fabric Smart Client
-
-## Install
-
-The `Fabric Smart Client` can be downloaded using `go get` as follows: 
- ```
-go get github.com/hyperledger-labs/fabric-smart-client
-```
-
-The above command clones the repo under `$GOPATH/github.com/hyperledger-labs/fabric-smart-client`. 
-
-We recommend to use `go 1.16`. We are testing FSC also against more recent versions of the 
-go-sdk to make sure FSC works properly. 
-
-## Makefile
+# Makefile
 
 FSC is equipped with a `Makefile` to simplify some tasks. 
 Here is the list of commands available.
@@ -74,13 +60,13 @@ Here is the list of commands available.
   
 Executes the above from `$GOPATH/github.com/hyperledger-labs/fabric-smart-client`.
 
-## Testing Philosophy
+# Testing Philosophy
 
 [Write tests. Not too many. Mostly Integration](https://kentcdodds.com/blog/write-tests)
 
 We also believe that when developing new functions running tests is preferable than running the application to verify the code is working as expected.
 
-## Versioning
+# Versioning
 
 We use [`SemVer`](https://semver.org/) for versioning. For the versions available, see the [`tags on this repository`](https://github.com/hyperledger-labs/fabric-smart-client/tags).
 

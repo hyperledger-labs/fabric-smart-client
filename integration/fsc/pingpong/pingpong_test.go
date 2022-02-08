@@ -39,10 +39,10 @@ var _ = Describe("EndToEnd", func() {
 
 		It("successful pingpong based on REST API", func() {
 			// Init and Start fsc nodes
-			initiator = node.NewFromConfPath("./testdata/fsc/fscnodes/fsc.initiator")
+			initiator = node.NewFromConfPath("./testdata/fsc/nodes/initiator")
 			Expect(initiator).NotTo(BeNil())
 
-			responder = node.NewFromConfPath("./testdata/fsc/fscnodes/fsc.responder")
+			responder = node.NewFromConfPath("./testdata/fsc/nodes/responder")
 			Expect(responder).NotTo(BeNil())
 
 			err := initiator.Start()
@@ -57,7 +57,7 @@ var _ = Describe("EndToEnd", func() {
 
 			time.Sleep(3 * time.Second)
 
-			webClientConfig, err := web.NewConfigFromFSC("./testdata/fsc/fscnodes/fsc.initiator")
+			webClientConfig, err := web.NewConfigFromFSC("./testdata/fsc/nodes/initiator")
 			Expect(err).NotTo(HaveOccurred())
 			initiatorWebClient, err := web.NewClient(webClientConfig)
 			Expect(err).NotTo(HaveOccurred())
@@ -68,10 +68,10 @@ var _ = Describe("EndToEnd", func() {
 
 		It("successful pingpong", func() {
 			// Init and Start fsc nodes
-			initiator = node.NewFromConfPath("./testdata/fsc/fscnodes/fsc.initiator")
+			initiator = node.NewFromConfPath("./testdata/fsc/nodes/initiator")
 			Expect(initiator).NotTo(BeNil())
 
-			responder = node.NewFromConfPath("./testdata/fsc/fscnodes/fsc.responder")
+			responder = node.NewFromConfPath("./testdata/fsc/nodes/responder")
 			Expect(responder).NotTo(BeNil())
 
 			err := initiator.Start()
@@ -138,7 +138,7 @@ var _ = Describe("EndToEnd", func() {
 		It("load artifact & successful pingpong", func() {
 			var err error
 			// Create the integration ii
-			ii, err = integration.Load("./testdata", true, pingpong.Topology()...)
+			ii, err = integration.Load(0, "./testdata", true, pingpong.Topology()...)
 			Expect(err).NotTo(HaveOccurred())
 			// Start the integration ii
 			ii.Start()
@@ -154,7 +154,7 @@ var _ = Describe("EndToEnd", func() {
 		It("load artifact & init clients & successful pingpong", func() {
 			var err error
 			// Create the integration ii
-			ii, err = integration.Load("./testdata", true, pingpong.Topology()...)
+			ii, err = integration.Load(0, "./testdata", true, pingpong.Topology()...)
 			Expect(err).NotTo(HaveOccurred())
 			// Start the integration ii
 			ii.Start()

@@ -56,7 +56,7 @@ func NewTransaction(context view.Context) (*Transaction, error) {
 // by an anonymous identity
 func NewAnonymousTransaction(context view.Context) (*Transaction, error) {
 	fns := fabric.GetDefaultFNS(context)
-	_, tx, err := endorser.NewTransactionWith(
+	_, tx, err := endorser.NewTransactionWithSigner(
 		context,
 		fns.Name(),
 		fns.DefaultChannel(),
@@ -103,7 +103,7 @@ func NewReceiveTransactionFromView(party view.Identity) *receiveTransactionView 
 // ReceiveTransaction runs the receiveTransactionView that expects on the context's session
 // a byte representation of a state transaction.
 func ReceiveTransaction(context view.Context) (*Transaction, error) {
-	txBoxed, err := context.RunView(NewReceiveTransactionView())
+	txBoxed, err := context.RunView(NewReceiveTransactionView(), view.WithSameContext())
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +113,7 @@ func ReceiveTransaction(context view.Context) (*Transaction, error) {
 }
 
 func ReceiveTransactionFrom(context view.Context, party view.Identity) (*Transaction, error) {
-	txBoxed, err := context.RunView(NewReceiveTransactionFromView(party))
+	txBoxed, err := context.RunView(NewReceiveTransactionFromView(party), view.WithSameContext())
 	if err != nil {
 		return nil, err
 	}
@@ -213,7 +213,7 @@ func (f *sendTransactionBackView) Call(context view.Context) (interface{}, error
 }
 
 func SendAndReceiveTransaction(context view.Context, tx *Transaction, party view.Identity) (*Transaction, error) {
-	_, err := context.RunView(NewSendTransactionView(tx, party))
+	_, err := context.RunView(NewSendTransactionView(tx, party), view.WithSameContext())
 	if err != nil {
 		return nil, err
 	}
@@ -222,7 +222,7 @@ func SendAndReceiveTransaction(context view.Context, tx *Transaction, party view
 }
 
 func SendBackAndReceiveTransaction(context view.Context, tx *Transaction) (*Transaction, error) {
-	_, err := context.RunView(NewSendTransactionBackView(tx))
+	_, err := context.RunView(NewSendTransactionBackView(tx), view.WithSameContext())
 	if err != nil {
 		return nil, err
 	}

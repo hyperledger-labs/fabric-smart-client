@@ -66,6 +66,7 @@ type Context interface {
 	SetCLI(name string, client ViewClient)
 	GetViewIdentityAliases(name string) []string
 	AdminSigningIdentity(name string) view.SigningIdentity
+	IgnoreSigHUP() bool
 }
 
 type Builder interface {
@@ -86,7 +87,7 @@ type Platform interface {
 	Load()
 
 	Members() []grouper.Member
-	PostRun()
+	PostRun(load bool)
 	Cleanup()
 }
 

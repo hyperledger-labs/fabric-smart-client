@@ -85,35 +85,44 @@ func (w *childContext) RunView(v view.View, opts ...view.RunViewOption) (res int
 		initiator = v
 	}
 
-	childContext := &childContext{
-		ParentContext: w,
-		session:       options.Session,
-		initiator:     initiator,
-	}
-	defer func() {
-		if r := recover(); r != nil {
-			childContext.cleanup()
-			res = nil
-
-			logger.Warningf("caught panic while running view with [%v][%s]", r, debug.Stack())
-
-			switch e := r.(type) {
-			case error:
-				err = errors.WithMessage(e, "caught panic")
-			case string:
-				err = errors.Errorf(e)
-			default:
-				err = errors.Errorf("caught panic [%v]", e)
-			}
+	var cc *childContext
+	if options.SameContext {
+		cc = w
+	} else {
+		cc = &childContext{
+			ParentContext: w,
+			session:       options.Session,
+			initiator:     initiator,
 		}
-	}()
+		defer func() {
+			if r := recover(); r != nil {
+				cc.cleanup()
+				res = nil
+
+				logger.Warningf("caught panic while running view with [%v][%s]", r, debug.Stack())
+
+				switch e := r.(type) {
+				case error:
+					err = errors.WithMessage(e, "caught panic")
+				case string:
+					err = errors.Errorf(e)
+				default:
+					err = errors.Errorf("caught panic [%v]", e)
+				}
+			}
+		}()
+	}
 	if v == nil && options.Call == nil {
 		return nil, errors.Errorf("no view passed")
 	}
 	if options.Call != nil {
-		res, err = options.Call(childContext)
+		res, err = options.Call(cc)
 	} else {
-		res, err = v.Call(childContext)
+		res, err = v.Call(cc)
+	}
+	if err != nil {
+		cc.cleanup()
+		return nil, err
 	}
 	return res, err
 }
@@ -125,6 +134,7 @@ func (w *childContext) Dispose() {
 }
 
 func (w *childContext) cleanup() {
+	logger.Debugf("cleaning up child context [%s][%d]", w.ID(), len(w.errorCallbackFuncs))
 	for _, callbackFunc := range w.errorCallbackFuncs {
 		w.safeInvoke(callbackFunc)
 	}

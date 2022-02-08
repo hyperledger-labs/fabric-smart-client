@@ -32,8 +32,9 @@ type ctx struct {
 	resolver       driver.EndpointService
 	sessionFactory SessionFactory
 
-	sessionsLock sync.RWMutex
-	sessions     map[string]view.Session
+	sessionsLock       sync.RWMutex
+	sessions           map[string]view.Session
+	errorCallbackFuncs []func()
 }
 
 func NewContextForInitiator(context context.Context, sp driver.ServiceProvider, sessionFactory SessionFactory, resolver driver.EndpointService, party view.Identity, initiator view.View) (*ctx, error) {
@@ -85,14 +86,20 @@ func (ctx *ctx) RunView(v view.View, opts ...view.RunViewOption) (res interface{
 		initiator = v
 	}
 
-	childContext := &childContext{
-		ParentContext: ctx,
-		session:       options.Session,
-		initiator:     initiator,
+	var cc localContext
+	if options.SameContext {
+		cc = ctx
+	} else {
+		cc = &childContext{
+			ParentContext: ctx,
+			session:       options.Session,
+			initiator:     initiator,
+		}
 	}
+
 	defer func() {
 		if r := recover(); r != nil {
-			childContext.cleanup()
+			cc.cleanup()
 			res = nil
 
 			logger.Warningf("caught panic while running view with [%v][%s]", r, debug.Stack())
@@ -112,16 +119,15 @@ func (ctx *ctx) RunView(v view.View, opts ...view.RunViewOption) (res interface{
 		return nil, errors.Errorf("no view passed")
 	}
 	if options.Call != nil {
-		res, err = options.Call(childContext)
+		res, err = options.Call(cc)
 	} else {
-		res, err = v.Call(childContext)
+		res, err = v.Call(cc)
 	}
 	if err != nil {
-		childContext.cleanup()
+		cc.cleanup()
 		return nil, err
 	}
 	return res, err
-
 }
 
 func (ctx *ctx) Me() view.Identity {
@@ -250,7 +256,7 @@ func (ctx *ctx) GetService(v interface{}) (interface{}, error) {
 }
 
 func (ctx *ctx) OnError(callback func()) {
-	panic("this cannot be invoked here")
+	ctx.errorCallbackFuncs = append(ctx.errorCallbackFuncs, callback)
 }
 
 func (ctx *ctx) Context() context.Context {
@@ -286,4 +292,27 @@ func (ctx *ctx) newSessionByID(sessionID, contextID string, party view.Identity)
 		return nil, err
 	}
 	return ctx.sessionFactory.NewSessionWithID(sessionID, contextID, endpoints[driver.P2PPort], pkid, nil, nil)
+}
+
+func (ctx *ctx) cleanup() {
+	logger.Debugf("cleaning up context [%s][%d]", ctx.ID(), len(ctx.errorCallbackFuncs))
+	for _, callbackFunc := range ctx.errorCallbackFuncs {
+		ctx.safeInvoke(callbackFunc)
+	}
+}
+
+func (ctx *ctx) safeInvoke(f func()) {
+	defer func() {
+		if r := recover(); r != nil {
+			if logger.IsEnabledFor(zapcore.DebugLevel) {
+				logger.Debugf("function [%s] panicked [%s]", f, r)
+			}
+		}
+	}()
+	f()
+}
+
+type localContext interface {
+	view.Context
+	cleanup()
 }

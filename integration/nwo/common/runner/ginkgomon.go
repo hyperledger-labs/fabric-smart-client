@@ -20,7 +20,11 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
 	"github.com/onsi/gomega/gexec"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 )
+
+var logger = flogging.MustGetLogger("nwo.runner")
 
 // Config defines a ginkgomon Runner.
 type Config struct {
@@ -116,12 +120,14 @@ func (r *Runner) Run(sigChan <-chan os.Signal, ready chan<- struct{}) error {
 	var session *gexec.Session
 	var err error
 	if r.config.Stdout != nil || r.config.Stderr != nil {
+		logger.Infof("running %s with provided stdout/stderr", r.Name)
 		session, err = gexec.Start(
 			r.Command,
 			io.MultiWriter(allOutput, ginkgo.GinkgoWriter, r.config.Stdout),
 			io.MultiWriter(allOutput, ginkgo.GinkgoWriter, r.config.Stderr),
 		)
 	} else {
+		logger.Infof("running %s with ginkgo stdout/stderr", r.Name)
 		session, err = gexec.Start(
 			r.Command,
 			gexec.NewPrefixedWriter(
@@ -137,7 +143,7 @@ func (r *Runner) Run(sigChan <-chan os.Signal, ready chan<- struct{}) error {
 
 	Ω(err).ShouldNot(HaveOccurred(), fmt.Sprintf("%s failed to start with err: %s", r.Name, err))
 
-	fmt.Fprintf(debugWriter, "spawned %s (pid: %d)\n", r.Command.Path, r.Command.Process.Pid)
+	fmt.Fprintf(debugWriter, "spawned %s (pid: %d) wirh args [%v]\n", r.Command.Path, r.Command.Process.Pid, r.Command.Args)
 
 	r.session = session
 	if r.sessionReady != nil {
@@ -190,13 +196,20 @@ func (r *Runner) Run(sigChan <-chan os.Signal, ready chan<- struct{}) error {
 
 			return fmt.Errorf("exit status %d", session.ExitCode())
 		case signal := <-r.stop:
-			session.Signal(signal)
+			if signal != nil {
+				session.Signal(signal)
+			}
+
 		}
 	}
 }
 
 func (r *Runner) Stop() {
 	r.stop <- syscall.SIGTERM
+}
+
+func (r *Runner) PID() (string, int) {
+	return r.Command.Path, r.Command.Process.Pid
 }
 
 func (r *Runner) Clone() *Runner {
