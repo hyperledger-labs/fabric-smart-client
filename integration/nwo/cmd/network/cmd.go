@@ -8,6 +8,7 @@ package network
 
 import (
 	"fmt"
+	"github.com/pkg/errors"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -21,7 +22,7 @@ var (
 )
 
 // NewCmd returns the Cobra Command for the network subcommands
-func NewCmd(startInitCallback StartInitCallbackFunc, topologies ...api.Topology) *cobra.Command {
+func NewCmd(postNew, postStart CallbackFunc, topologies ...api.Topology) *cobra.Command {
 	// Set the flags on the node start command.
 	rootCommand := &cobra.Command{
 		Use:   "network",
@@ -32,7 +33,7 @@ func NewCmd(startInitCallback StartInitCallbackFunc, topologies ...api.Topology)
 	rootCommand.AddCommand(
 		GenerateCmd(topologies...),
 		CleanCmd(),
-		StartCmd(startInitCallback, topologies...),
+		StartCmd(postNew, postStart, topologies...),
 	)
 
 	return rootCommand
@@ -102,7 +103,7 @@ func Clean() error {
 }
 
 // StartCmd returns the Cobra Command for Start
-func StartCmd(callback StartInitCallbackFunc, topologies ...api.Topology) *cobra.Command {
+func StartCmd(postNew, postStart CallbackFunc, topologies ...api.Topology) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "start",
 		Short: "Start Artifacts.",
@@ -113,7 +114,7 @@ func StartCmd(callback StartInitCallbackFunc, topologies ...api.Topology) *cobra
 			}
 			// Parsing of the command line is done so silence cmd usage
 			cmd.SilenceUsage = true
-			return Start(callback, topologies...)
+			return Start(postNew, postStart, topologies...)
 		},
 	}
 	flags := cmd.Flags()
@@ -122,30 +123,39 @@ func StartCmd(callback StartInitCallbackFunc, topologies ...api.Topology) *cobra
 	return cmd
 }
 
-type StartInitCallbackFunc func(*integration.Infrastructure) error
+type CallbackFunc func(*integration.Infrastructure) error
 
 // Start returns version information for the peer
-func Start(callback StartInitCallbackFunc, topologies ...api.Topology) error {
+func Start(postNew, postStart CallbackFunc, topologies ...api.Topology) error {
 	// if ./artifacts exists, then load. Otherwise, create new artifacts
 	var ii *integration.Infrastructure
 	init := true
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		ii, err = integration.GenerateAt(20000, path, true, topologies...)
+	ii, err := integration.New(20000, path, topologies...)
+	if err != nil {
+		return errors.WithMessage(err, "failed to create new infrastructure")
+	}
+	ii.EnableRaceDetector()
+	if postNew != nil {
+		err = postNew(ii)
 		if err != nil {
-			return err
+			return errors.WithMessage(err, "failed to post new")
 		}
+	}
+
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		ii.Generate()
 	} else {
 		init = false
-		ii, err = integration.Load(20000, path, true, topologies...)
-		if err != nil {
-			return err
-		}
+		ii.Load()
 	}
 
 	ii.DeleteOnStop = false
 	ii.Start()
-	if init {
-		callback(ii)
+	if init && postStart != nil {
+		err = postStart(ii)
+		if err != nil {
+			return errors.WithMessage(err, "failed to post start")
+		}
 	}
 
 	return ii.Serve()
