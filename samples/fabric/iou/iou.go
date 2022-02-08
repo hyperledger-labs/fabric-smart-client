@@ -16,7 +16,7 @@ import (
 func main() {
 	m := cmd.NewMain("IOU", "0.1")
 	mainCmd := m.Cmd()
-	mainCmd.AddCommand(network.NewCmd(topology.Topology()...))
+	mainCmd.AddCommand(network.NewCmd(nil, topology.Topology()...))
 	mainCmd.AddCommand(view.NewCmd())
 	m.Execute()
 }

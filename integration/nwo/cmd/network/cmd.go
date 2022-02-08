@@ -21,7 +21,7 @@ var (
 )
 
 // NewCmd returns the Cobra Command for the network subcommands
-func NewCmd(topologies ...api.Topology) *cobra.Command {
+func NewCmd(startInitCallback StartInitCallbackFunc, topologies ...api.Topology) *cobra.Command {
 	// Set the flags on the node start command.
 	rootCommand := &cobra.Command{
 		Use:   "network",
@@ -32,7 +32,7 @@ func NewCmd(topologies ...api.Topology) *cobra.Command {
 	rootCommand.AddCommand(
 		GenerateCmd(topologies...),
 		CleanCmd(),
-		StartCmd(topologies...),
+		StartCmd(startInitCallback, topologies...),
 	)
 
 	return rootCommand
@@ -102,7 +102,7 @@ func Clean() error {
 }
 
 // StartCmd returns the Cobra Command for Start
-func StartCmd(topologies ...api.Topology) *cobra.Command {
+func StartCmd(callback StartInitCallbackFunc, topologies ...api.Topology) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "start",
 		Short: "Start Artifacts.",
@@ -113,7 +113,7 @@ func StartCmd(topologies ...api.Topology) *cobra.Command {
 			}
 			// Parsing of the command line is done so silence cmd usage
 			cmd.SilenceUsage = true
-			return Start(topologies...)
+			return Start(callback, topologies...)
 		},
 	}
 	flags := cmd.Flags()
@@ -122,16 +122,20 @@ func StartCmd(topologies ...api.Topology) *cobra.Command {
 	return cmd
 }
 
+type StartInitCallbackFunc func(*integration.Infrastructure) error
+
 // Start returns version information for the peer
-func Start(topologies ...api.Topology) error {
+func Start(callback StartInitCallbackFunc, topologies ...api.Topology) error {
 	// if ./artifacts exists, then load. Otherwise, create new artifacts
 	var ii *integration.Infrastructure
+	init := true
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		ii, err = integration.GenerateAt(20000, path, true, topologies...)
 		if err != nil {
 			return err
 		}
 	} else {
+		init = false
 		ii, err = integration.Load(20000, path, true, topologies...)
 		if err != nil {
 			return err
@@ -140,5 +144,9 @@ func Start(topologies ...api.Topology) error {
 
 	ii.DeleteOnStop = false
 	ii.Start()
+	if init {
+		callback(ii)
+	}
+
 	return ii.Serve()
 }
