@@ -111,6 +111,7 @@ func (f *vault) GetStateCertification(namespace string, key string) ([]byte, err
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed creating transaction [%s:%s]", namespace, key)
 	}
+	defer tx.Close()
 	tx.SetProposal(namespace, "", "state_certification", namespace, key)
 	rws, err := tx.RWSet()
 	if err != nil {

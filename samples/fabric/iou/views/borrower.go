@@ -133,7 +133,11 @@ func (u UpdateIOUView) Call(context view.Context) (interface{}, error) {
 	assert.NoError(err)
 
 	// At this point the borrower can send the transaction to the ordering service and wait for finality.
-	return context.RunView(state.NewOrderingAndFinalityView(tx))
+	_, err = context.RunView(state.NewOrderingAndFinalityView(tx))
+	assert.NoError(err)
+
+	// Return the state ID
+	return iouState.LinearID, nil
 }
 
 type UpdateIOUViewFactory struct{}

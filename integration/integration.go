@@ -8,11 +8,14 @@ package integration
 
 import (
 	"encoding/json"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"io/ioutil"
 	"os"
+	"os/signal"
 	"path"
 	"path/filepath"
 	"strings"
+	"syscall"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/commands"
 	smartclient "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
@@ -29,6 +32,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/weaver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
+
+var logger = flogging.MustGetLogger("fsc.integration")
 
 type Configuration struct {
 	StartPort int
@@ -301,6 +306,42 @@ func (i *Infrastructure) storeAdditionalConfigurations() {
 	}
 }
 
+func (i *Infrastructure) Serve() error {
+	serve := make(chan error, 10)
+	go handleSignals(map[os.Signal]func(){
+		syscall.SIGINT: func() {
+			logger.Infof("Received SIGINT, exiting...")
+			serve <- nil
+		},
+		syscall.SIGTERM: func() {
+			logger.Infof("Received SIGTERM, exiting...")
+			serve <- nil
+		},
+		syscall.SIGSTOP: func() {
+			logger.Infof("Received SIGSTOP, exiting...")
+			serve <- nil
+		},
+		syscall.SIGHUP: func() {
+			logger.Infof("Received SIGHUP, exiting...")
+			serve <- nil
+		},
+	})
+	logger.Infof("Block until signal")
+	return <-serve
+}
+
 func failMe(message string, callerSkip ...int) {
 	panic(message)
+}
+
+func handleSignals(handlers map[os.Signal]func()) {
+	var signals []os.Signal
+	for sig := range handlers {
+		signals = append(signals, sig)
+	}
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, signals...)
+	for sig := range signalChan {
+		handlers[sig]()
+	}
 }

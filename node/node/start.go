@@ -84,6 +84,7 @@ func serve() error {
 	}
 
 	if enableProfile {
+		logger.Infof("Profiling enabled")
 		var profiler, err = profile.New(profile.WithPath(configPath), profile.WithAll())
 		if err != nil {
 			logger.Errorf("error creating profiler: [%s]", err)
@@ -108,18 +109,33 @@ func serve() error {
 		sighupIgnore, err = strconv.ParseBool(sighupIgnoreEnv)
 		if err != nil {
 			logger.Infof("Error parsing boolean environment variable FSCNODE_SIGHUP_IGNORE: %s\n", err.Error())
+		} else {
+			logger.Infof("SIGHUP signal will be ignored: %t", sighupIgnore)
 		}
 	}
 
 	serve := make(chan error, 10)
 	go handleSignals(addPlatformSignals(map[os.Signal]func(){
-		syscall.SIGINT:  func() { node.Stop(); serve <- nil },
-		syscall.SIGTERM: func() { node.Stop(); serve <- nil },
-		syscall.SIGSTOP: func() { node.Stop(); serve <- nil },
+		syscall.SIGINT: func() {
+			logger.Infof("Received SIGINT, exiting...")
+			node.Stop()
+			serve <- nil
+		},
+		syscall.SIGTERM: func() {
+			logger.Infof("Received SIGTERM, exiting...")
+			node.Stop()
+			serve <- nil
+		},
+		syscall.SIGSTOP: func() {
+			logger.Infof("Received SIGSTOP, exiting...")
+			node.Stop()
+			serve <- nil
+		},
 		syscall.SIGHUP: func() {
 			if sighupIgnore {
-				logger.Infof("SIGHUP received, ignoring...")
+				logger.Infof("Received SIGHUP, but ignoring it")
 			} else {
+				logger.Infof("Received SIGHUP, exiting...")
 				node.Stop()
 				serve <- nil
 			}

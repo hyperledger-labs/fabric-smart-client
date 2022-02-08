@@ -138,9 +138,8 @@ func Start(topologies ...api.Topology) error {
 		}
 	}
 
-	ii.NWO.TerminationSignal = nil
-	ii.Ctx.SigHUPIgnore = true
 	ii.DeleteOnStop = false
 	ii.Start()
+	ii.Serve()
 	return nil
 }

@@ -451,6 +451,14 @@ func Topology() []nwo.Topology {
 
 This is very similar to what we have seen already for the [`Ping Pong` sample](./../../fsc/pingpong/README.md#boostrap-these-networks)
 
+``` 
+./iou network start --path ~/testdata
+```
 
-
-{"Amount":100}
+``` 
+./iou view -c ~/testdata/fsc/nodes/borrower/client-config.yaml -f create -i "{\"Amount\":10}"
+./iou view -c ~/testdata/fsc/nodes/borrower/client-config.yaml -f query -i "{\"LinearID\":\"b2621c0f-546e-4e6b-88a6-d24ba23a15e6\"}"
+./iou view -c ~/testdata/fsc/nodes/lender/client-config.yaml -f query -i "{\"LinearID\":\"b2621c0f-546e-4e6b-88a6-d24ba23a15e6\"}"
+./iou view -c ~/testdata/fsc/nodes/borrower/client-config.yaml -f update -i "{\"LinearID\":\"b2621c0f-546e-4e6b-88a6-d24ba23a15e6\",\"Amount\":8}"
+}"
+```

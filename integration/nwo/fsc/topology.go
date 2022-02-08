@@ -87,3 +87,7 @@ func (t *Topology) addNode(node *node.Node) *node.Node {
 	t.Nodes = append(t.Nodes, node)
 	return node
 }
+
+func (t *Topology) EnableLogToFile() {
+	t.LogToFile = true
+}
