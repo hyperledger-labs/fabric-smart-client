@@ -129,8 +129,10 @@ type CallbackFunc func(*integration.Infrastructure) error
 func Start(postNew, postStart CallbackFunc, topologies ...api.Topology) error {
 	// if ./artifacts exists, then load. Otherwise, create new artifacts
 	var ii *integration.Infrastructure
-	init := true
-	ii, err := integration.New(20000, path, topologies...)
+	_, err := os.Stat(path)
+	init := os.IsNotExist(err)
+
+	ii, err = integration.New(20000, path, topologies...)
 	if err != nil {
 		return errors.WithMessage(err, "failed to create new infrastructure")
 	}
@@ -142,10 +144,9 @@ func Start(postNew, postStart CallbackFunc, topologies ...api.Topology) error {
 		}
 	}
 
-	if _, err := os.Stat(path); os.IsNotExist(err) {
+	if init {
 		ii.Generate()
 	} else {
-		init = false
 		ii.Load()
 	}
 
