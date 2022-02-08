@@ -177,10 +177,20 @@ func (i *Infrastructure) InitClients() {
 }
 
 func (i *Infrastructure) Start() {
+	logger.Infof(" ____    _____      _      ____    _____")
+	logger.Infof("/ ___|  |_   _|    / \\    |  _ \\  |_   _|")
+	logger.Infof("\\___ \\    | |     / _ \\   | |_) |   | |")
+	logger.Infof("___) |    | |    / ___ \\  |  _ <    | |")
+	logger.Infof("|____/    |_|   /_/   \\_\\ |_| \\_\\   |_|")
 	if i.NWO == nil {
 		panic("call generate or load first")
 	}
 	i.NWO.Start()
+	logger.Infof(" _____   _   _   ____")
+	logger.Infof("| ____| | \\ | | |  _ \\")
+	logger.Infof("|  _|   |  \\| | | | | |")
+	logger.Infof("| |___  | |\\  | | |_| |")
+	logger.Infof("|_____| |_| \\_| |____/")
 }
 
 func (i *Infrastructure) Stop() {
@@ -192,6 +202,30 @@ func (i *Infrastructure) Stop() {
 		defer os.RemoveAll(i.TestDir)
 	}
 	i.NWO.Stop()
+}
+
+func (i *Infrastructure) Serve() error {
+	serve := make(chan error, 10)
+	go handleSignals(map[os.Signal]func(){
+		syscall.SIGINT: func() {
+			logger.Infof("Received SIGINT, exiting...")
+			serve <- nil
+		},
+		syscall.SIGTERM: func() {
+			logger.Infof("Received SIGTERM, exiting...")
+			serve <- nil
+		},
+		syscall.SIGSTOP: func() {
+			logger.Infof("Received SIGSTOP, exiting...")
+			serve <- nil
+		},
+		syscall.SIGHUP: func() {
+			logger.Infof("Received SIGHUP, exiting...")
+			serve <- nil
+		},
+	})
+	logger.Infof("All GOOD, networks up and running")
+	return <-serve
 }
 
 func (i *Infrastructure) Client(name string) api.ViewClient {
@@ -304,30 +338,6 @@ func (i *Infrastructure) storeAdditionalConfigurations() {
 	if err := ioutil.WriteFile(filepath.Join(i.TestDir, "topology.yaml"), raw, 0770); err != nil {
 		panic(err)
 	}
-}
-
-func (i *Infrastructure) Serve() error {
-	serve := make(chan error, 10)
-	go handleSignals(map[os.Signal]func(){
-		syscall.SIGINT: func() {
-			logger.Infof("Received SIGINT, exiting...")
-			serve <- nil
-		},
-		syscall.SIGTERM: func() {
-			logger.Infof("Received SIGTERM, exiting...")
-			serve <- nil
-		},
-		syscall.SIGSTOP: func() {
-			logger.Infof("Received SIGSTOP, exiting...")
-			serve <- nil
-		},
-		syscall.SIGHUP: func() {
-			logger.Infof("Received SIGHUP, exiting...")
-			serve <- nil
-		},
-	})
-	logger.Infof("Block until signal")
-	return <-serve
 }
 
 func failMe(message string, callerSkip ...int) {

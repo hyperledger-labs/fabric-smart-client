@@ -1,4 +1,3 @@
-
 # I O(we) (yo)U
 
 In this section, we will cover a classic use-case, the `I O(we) (yo)U`.
@@ -95,7 +94,15 @@ type CreateIOUView struct {
 }
 
 func (i *CreateIOUView) Call(context view.Context) (interface{}, error) {
-	// As a first step operation, the borrower contacts the lender's FSC node
+    // use default identities if not specified
+    if i.Lender.IsNone() {
+        i.Lender = view2.GetIdentityProvider(context).Identity("lender")
+    }
+    if i.Approver.IsNone() {
+        i.Approver = view2.GetIdentityProvider(context).Identity("approver")
+    }
+
+    // As a first step operation, the borrower contacts the lender's FSC node
 	// to exchange the identities to use to assign ownership of the freshly created IOU state.
 	borrower, lender, err := state.ExchangeRecipientIdentities(context, i.Lender)
 	assert.NoError(err, "failed exchanging recipient identity")
@@ -195,7 +202,7 @@ On the other hand, the approver runs the following view to respond to the reques
 type ApproverView struct{}
 
 func (i *ApproverView) Call(context view.Context) (interface{}, error) {
-	// When the borrower runs the CollectEndorsementsView, at some point, the borrower sends the assembled transaction
+    // When the borrower runs the CollectEndorsementsView, at some point, the borrower sends the assembled transaction
 	// to the approver. Therefore, the approver waits to receive the transaction.
 	tx, err := state.ReceiveTransaction(context)
 	assert.NoError(err, "failed receiving transaction")
@@ -278,7 +285,12 @@ type UpdateIOUView struct {
 }
 
 func (u UpdateIOUView) Call(context view.Context) (interface{}, error) {
-	// The borrower starts by creating a new transaction to update the IOU state
+    // use default identities if not specified
+    if u.Approver.IsNone() {
+        u.Approver = view2.GetIdentityProvider(context).Identity("approver")
+    }
+
+    // The borrower starts by creating a new transaction to update the IOU state
 	tx, err := state.NewTransaction(context)
 	assert.NoError(err)
 
@@ -305,7 +317,11 @@ func (u UpdateIOUView) Call(context view.Context) (interface{}, error) {
 	assert.NoError(err)
 
 	// At this point the borrower can send the transaction to the ordering service and wait for finality.
-	return context.RunView(state.NewOrderingAndFinalityView(tx))
+	_, err = context.RunView(state.NewOrderingAndFinalityView(tx))
+	assert.NoError(err)
+
+	// Return the state ID
+	return iouState.LinearID, nil
 }
 
 ```
@@ -375,18 +391,10 @@ We have seen already what the approver does.
 
 ## Testing
 
-Normally, to run the `IOU` sample, one would have to deploy the Fabric Smart Client nodes, the Fabric networks,
-invoke the view, and so on, by using a bunch of scripts.
-This is not the most convenient way to test programmatically an application.
+To run the `IOU` sample, one needs first to deploy the `Fabric Smart Client nodes` and the `Fabric network`.
+Once these networks are deployed, one can invoke views on the smart client nodes to test the `IOU` sample.
 
-FSC provides an `Integration Test Infrastructure` that allow the developer to:
-- Describe the topology of the networks (FSC and Fabric networks, in this case);
-- Boostrap these networks;
-- Initiate interactive protocols to complete given business tasks.
-
-To run the test, it is just enough to run `go test` from the folder containing the test.
-
-Let us go step by step.
+So, first step is to describe the topology of the networks we need. 
 
 ### Describe the topology of the networks
 
@@ -406,59 +414,129 @@ For the FSC network, we have a topology with:
 We can describe the network topology programmatically as follows:
 
 ```go
-
-func Topology() []nwo.Topology {
-	// Define a Fabric topology with:
-	// 1. Three organization: Org1, Org2, and Org3
-	// 2. A namespace whose changes can be endorsed by Org1.
-	fabricTopology := fabric.NewDefaultTopology()
-	fabricTopology.AddOrganizationsByName("Org1", "Org2", "Org3")
-	fabricTopology.SetNamespaceApproverOrgs("Org1")
-	fabricTopology.AddNamespaceWithUnanimity("iou", "Org1")
-
-	// Define an FSC topology with 3 FCS nodes.
-	// One for the approver, one for the borrower, and one for the lender.
-	fscTopology := fsc.NewTopology()
-
-	// Add the approver FSC node.
-	approver := fscTopology.AddNodeByName("approver")
-	// This option equips the approver's FSC node with an identity belonging to Org1.
-	// Therefore, the approver is an endorser of the Fabric namespace we defined above.
-	approver.AddOptions(fabric.WithOrganization("Org1"))
-	approver.RegisterResponder(&views.ApproverView{}, &views.CreateIOUView{})
-	approver.RegisterResponder(&views.ApproverView{}, &views.UpdateIOUView{})
-
-	// Add the borrower's FSC node
-	borrower := fscTopology.AddNodeByName("borrower")
-	borrower.AddOptions(fabric.WithOrganization("Org2"))
-	borrower.RegisterViewFactory("create", &views.CreateIOUViewFactory{})
-	borrower.RegisterViewFactory("update", &views.UpdateIOUViewFactory{})
-	borrower.RegisterViewFactory("query", &views.QueryViewFactory{})
-
-	// Add the lender's FSC node
-	lender := fscTopology.AddNodeByName("lender")
-	lender.AddOptions(fabric.WithOrganization("Org3"))
-	lender.RegisterResponder(&views.CreateIOUResponderView{}, &views.CreateIOUView{})
-	lender.RegisterResponder(&views.UpdateIOUResponderView{}, &views.UpdateIOUView{})
-	lender.RegisterViewFactory("query", &views.QueryViewFactory{})
-
-	return []nwo.Topology{fabricTopology, fscTopology}
+func Topology() []api.Topology {
+    // Define a Fabric topology with:
+    // 1. Three organization: Org1, Org2, and Org3
+    // 2. A namespace whose changes can be endorsed by Org1.
+    fabricTopology := fabric.NewDefaultTopology()
+    fabricTopology.AddOrganizationsByName("Org1", "Org2", "Org3")
+    fabricTopology.SetNamespaceApproverOrgs("Org1")
+    fabricTopology.AddNamespaceWithUnanimity("iou", "Org1")
+    fabricTopology.EnableGRPCLogging()
+    fabricTopology.EnableLogPeersToFile()
+    fabricTopology.SetLogging("info", "")
+    
+    // Define an FSC topology with 3 FCS nodes.
+    // One for the approver, one for the borrower, and one for the lender.
+    fscTopology := fsc.NewTopology()
+    fscTopology.SetLogging("debug", "")
+    fscTopology.EnableLogToFile()
+    
+    // Add the approver FSC node.
+    approver := fscTopology.AddNodeByName("approver")
+    // This option equips the approver's FSC node with an identity belonging to Org1.
+    // Therefore, the approver is an endorser of the Fabric namespace we defined above.
+    approver.AddOptions(
+    fabric.WithOrganization("Org1"),
+    fabric.WithX509Identity("alice"),
+    )
+    approver.RegisterResponder(&views.ApproverView{}, &views.CreateIOUView{})
+    approver.RegisterResponder(&views.ApproverView{}, &views.UpdateIOUView{})
+    
+    // Add the borrower's FSC node
+    borrower := fscTopology.AddNodeByName("borrower")
+    borrower.AddOptions(fabric.WithOrganization("Org2"))
+    borrower.RegisterViewFactory("create", &views.CreateIOUViewFactory{})
+    borrower.RegisterViewFactory("update", &views.UpdateIOUViewFactory{})
+    borrower.RegisterViewFactory("query", &views.QueryViewFactory{})
+    
+    // Add the lender's FSC node
+    lender := fscTopology.AddNodeByName("lender")
+    lender.AddOptions(
+    fabric.WithOrganization("Org3"),
+    fabric.WithX509Identity("bob"),
+    )
+    lender.RegisterResponder(&views.CreateIOUResponderView{}, &views.CreateIOUView{})
+    lender.RegisterResponder(&views.UpdateIOUResponderView{}, &views.UpdateIOUView{})
+    lender.RegisterViewFactory("query", &views.QueryViewFactory{})
+    
+    return []api.Topology{fabricTopology, fscTopology}
 }
-
 ```
 
-### Boostrap these networks and Start a Business Process
+### Boostrap the networks
 
-This is very similar to what we have seen already for the [`Ping Pong` sample](./../../fsc/pingpong/README.md#boostrap-these-networks)
+To help us bootstrap the networks and then invoke the business views, the `iou` command line tool is provided.
+To build it, we need to run the following command:
+
+```shell
+go build -o iou
+```
+
+If the compilation is successful, we can run the `iou` command line tool as follows:
 
 ``` 
-./iou network start --path ~/testdata
+./iou network start --path ./testdata
 ```
 
-``` 
-./iou view -c ~/testdata/fsc/nodes/borrower/client-config.yaml -f create -i "{\"Amount\":10}"
-./iou view -c ~/testdata/fsc/nodes/borrower/client-config.yaml -f query -i "{\"LinearID\":\"b2621c0f-546e-4e6b-88a6-d24ba23a15e6\"}"
-./iou view -c ~/testdata/fsc/nodes/lender/client-config.yaml -f query -i "{\"LinearID\":\"b2621c0f-546e-4e6b-88a6-d24ba23a15e6\"}"
-./iou view -c ~/testdata/fsc/nodes/borrower/client-config.yaml -f update -i "{\"LinearID\":\"b2621c0f-546e-4e6b-88a6-d24ba23a15e6\",\"Amount\":8}"
-}"
+The above command will start the Fabric network and the FSC network, and store all configuration files
+under the `./testdata` directory.
+
+If everything is successful, you will see something like the following:
+
+```shell
+2022-02-08 11:53:03.560 UTC [fsc.integration] Start -> INFO 027  _____   _   _   ____
+2022-02-08 11:53:03.561 UTC [fsc.integration] Start -> INFO 028 | ____| | \ | | |  _ \
+2022-02-08 11:53:03.561 UTC [fsc.integration] Start -> INFO 029 |  _|   |  \| | | | | |
+2022-02-08 11:53:03.561 UTC [fsc.integration] Start -> INFO 02a | |___  | |\  | | |_| |
+2022-02-08 11:53:03.561 UTC [fsc.integration] Start -> INFO 02b |_____| |_| \_| |____/
+2022-02-08 11:53:03.561 UTC [fsc.integration] Serve -> INFO 02c All GOOD, networks up and running
 ```
+
+To shut down the networks, just press CTRL-c.
+
+if you want to restart the networks after the shutdown, you can just re-run the above command.
+If you don't delete the `./testdata` directory, the network will be started from the previous state.
+
+### Invoke the business views
+
+If you reached this point, you can now invoke the business views on the FSC nodes.
+
+To create an IOU, you can run the following command in a new terminal window:
+
+```shell
+./iou view -c ./testdata/fsc/nodes/borrower/client-config.yaml -f create -i "{\"Amount\":10}"
+```
+
+The above command invoke the `create` view on the borrower's FSC node. The `-c` option specifies the client configuration file.
+The `-f` option specifies the view name. The `-i` option specifies the input data.
+In the specific case, we are creating an IOU with amount 10. The lender and the approver are the default ones.
+If everything is successful, you will see something like the following:
+
+```shell
+"bd90b6c8-0a54-4719-8caa-00759bad7d69"
+```
+The above is the IOU ID that we will use to update the IOU or query it.
+
+Indeed, once the IOU is created, you can query the IOUs by running the following command:
+
+```shell
+./iou view -c ./testdata/fsc/nodes/borrower/client-config.yaml -f query -i "{\"LinearID\":\"bd90b6c8-0a54-4719-8caa-00759bad7d69\"}"
+```
+
+The above command will query the IOU with the linear ID `bd90b6c8-0a54-4719-8caa-00759bad7d69` on the borrower's FSC node.
+If everything is successful, you will the current amount contained in the IOU state: 10.
+
+If you want to query the IOU start on the lender node, you can run the following command:
+
+```shell 
+./iou view -c ./testdata/fsc/nodes/lender/client-config.yaml -f query -i "{\"LinearID\":\"bd90b6c8-0a54-4719-8caa-00759bad7d69\"}"
+```
+
+To update the IOU, you can run the following command:
+
+```shell
+./iou view -c ./testdata/fsc/nodes/borrower/client-config.yaml -f update -i "{\"LinearID\":\"bd90b6c8-0a54-4719-8caa-00759bad7d69\",\"Amount\":8}"
+```
+
+The above command will update the IOU with the linear ID `bd90b6c8-0a54-4719-8caa-00759bad7d69`. The new amount will be 8.

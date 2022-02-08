@@ -140,6 +140,5 @@ func Start(topologies ...api.Topology) error {
 
 	ii.DeleteOnStop = false
 	ii.Start()
-	ii.Serve()
-	return nil
+	return ii.Serve()
 }
