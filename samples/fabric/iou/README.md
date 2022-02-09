@@ -497,7 +497,7 @@ If everything is successful, you will see something like the following:
 
 To shut down the networks, just press CTRL-C.
 
-if you want to restart the networks after the shutdown, you can just re-run the above command.
+If you want to restart the networks after the shutdown, you can just re-run the above command.
 If you don't delete the `./testdata` directory, the network will be started from the previous state.
 
 Before restarting the networks, one can modify the business views to add new functionalities, to fix bugs, and so on.
