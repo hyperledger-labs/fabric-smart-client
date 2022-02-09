@@ -17,9 +17,16 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 )
 
+type (
+	// CallbackFunc is the type of the callback function
+	CallbackFunc func(*integration.Infrastructure) error
+)
+
 var (
-	path              string
-	StartCMDPostNew   CallbackFunc
+	path string
+	// StartCMDPostNew is executed after the testing infrastructure is created
+	StartCMDPostNew CallbackFunc
+	// StartCMDPostStart is executed after the testing infrastructure is started
 	StartCMDPostStart CallbackFunc
 )
 
@@ -125,8 +132,6 @@ func StartCmd(topologies ...api.Topology) *cobra.Command {
 	return cmd
 }
 
-type CallbackFunc func(*integration.Infrastructure) error
-
 // Start returns version information for the peer
 func Start(topologies ...api.Topology) error {
 	// if ./artifacts exists, then load. Otherwise, create new artifacts
@@ -161,5 +166,6 @@ func Start(topologies ...api.Topology) error {
 		}
 	}
 
+	defer ii.Stop()
 	return ii.Serve()
 }
