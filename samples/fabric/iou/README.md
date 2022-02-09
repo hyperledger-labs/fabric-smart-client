@@ -22,7 +22,7 @@ RWSet. A Transaction in SPM wraps a Fabric Transaction and let the developer:
 - `Update` states. A write-entry in the RWSet that `updates a key's value`.
   With the above, it is easy to model a UTXO-based with reference states on top of a Fabric transaction.
 
-It is time to deep dive. Let us begin by modelling the state the parties want to track:
+It is time to deep dive. Let us begin by modelling the state the parties want to track.
 
 ## Business States
 
@@ -467,7 +467,7 @@ func Topology() []api.Topology {
 ### Boostrap the networks
 
 To help us bootstrap the networks and then invoke the business views, the `iou` command line tool is provided.
-To build it, we need to run the following command:
+To build it, we need to run the following command from the folder `$GOPATH/src/github.com/hyperledger-labs/fabric-smart-client/samples/fabric/iou`.
 
 ```shell
 go build -o iou
@@ -479,8 +479,10 @@ If the compilation is successful, we can run the `iou` command line tool as foll
 ./iou network start --path ./testdata
 ```
 
-The above command will start the Fabric network and the FSC network, and store all configuration files
-under the `./testdata` directory.
+The above command will start the Fabric network and the FSC network, 
+and store all configuration files under the `./testdata` directory.
+The CLI will also create the folder `./cmd` that contains a go main file for each FSC node.
+The CLI compiles these go main files and then runs them.
 
 If everything is successful, you will see something like the following:
 
@@ -493,10 +495,22 @@ If everything is successful, you will see something like the following:
 2022-02-08 11:53:03.561 UTC [fsc.integration] Serve -> INFO 02c All GOOD, networks up and running
 ```
 
-To shut down the networks, just press CTRL-c.
+To shut down the networks, just press CTRL-C.
 
 if you want to restart the networks after the shutdown, you can just re-run the above command.
 If you don't delete the `./testdata` directory, the network will be started from the previous state.
+
+Before restarting the networks, one can modify the business views to add new functionalities, to fix bugs, and so on.
+Upon restarting the networks, the new business views will be available.
+Later on, we will see an example of this.
+
+To clean up all artifacts, we can run the following command:
+
+```shell
+./iou network clean --path ./testdata
+```
+
+The `./testdata` and `./cmd` folders will be deleted.
 
 ### Invoke the business views
 
@@ -540,3 +554,62 @@ To update the IOU, you can run the following command:
 ```
 
 The above command will update the IOU with the linear ID `bd90b6c8-0a54-4719-8caa-00759bad7d69`. The new amount will be 8.
+
+### Modify the business views and restart the networks
+
+Suppose you want to change the behaviour of a business view and see it in actions, one can do the following:
+1. Stop the networks;
+2. Update the business views;
+3. Restart the networks;
+
+Let's see how to do this with a concrete example. When the borrower does not owe the lender anything anymore,
+the borrower updates the IOU state to 0. The state still exists though. What we can do instead is to delete the state.
+We can do that by replacing in the business view `UpdateIOUView`, the line
+```go
+    err = tx.AddOutput(iouState)
+```
+with
+```go
+	if iouState.Amount == 0 {
+		err = tx.Delete(iouState)
+	} else {
+		err = tx.AddOutput(iouState)
+	}
+```
+Now, we need to update the business view of the lender and the borrower to take in account the new behaviour.
+For the lender, we modify `UpdateIOUResponderView` to check for the deleted state using the following code:
+
+```go
+    output := tx.Outputs().At(0)
+    if !output.IsDelete() {
+        outState := &states.IOU{}
+        assert.NoError(tx.GetOutputAt(0, outState))
+
+        // Additional checks
+        // Same IDs
+        assert.Equal(inState.LinearID, outState.LinearID, "invalid state id, [%s] != [%s]", inState.LinearID, outState.LinearID)
+        // Valid Amount
+        assert.False(outState.Amount >= inState.Amount, "invalid amount, [%d] expected to be less or equal [%d]", outState.Amount, inState.Amount)
+        // Same owners
+        assert.True(inState.Owners().Match(outState.Owners()), "invalid owners, input and output should have the same owners")
+        assert.Equal(2, inState.Owners().Count(), "invalid state, expected 2 identities, was [%d]", inState.Owners().Count())
+    }
+```
+
+For the approver, we update the validation code for the `update` command in `ApproverView`:
+
+```go
+		output := tx.Outputs().At(0)
+		if !output.IsDelete() {
+			outState := &states.IOU{}
+			assert.NoError(tx.GetOutputAt(0, outState))
+			assert.Equal(inState.LinearID, outState.LinearID, "invalid state id, [%s] != [%s]", inState.LinearID, outState.LinearID)
+			assert.True(outState.Amount < inState.Amount, "invalid amount, [%d] expected to be less or equal [%d]", outState.Amount, inState.Amount)
+			assert.True(inState.Owners().Match(outState.Owners()), "invalid owners, input and output should have the same owners")
+		}
+
+		assert.NoError(tx.HasBeenEndorsedBy(inState.Owners()...), "signatures are missing")
+```
+
+Now, we can just restart the networks, the Fabric Smart Client nodes will be rebuilt and the new behaviour available.
+You can test by yourself.
