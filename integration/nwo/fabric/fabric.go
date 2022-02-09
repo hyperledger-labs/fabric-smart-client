@@ -13,7 +13,6 @@ import (
 
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/hyperledger/fabric-private-chaincode/client_sdk/go/pkg/core/contract"
-	"github.com/hyperledger/fabric/integration/runner"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
 	"github.com/onsi/gomega/gexec"
@@ -34,9 +33,6 @@ const CCEnvDefaultImage = "hyperledger/fabric-ccenv:latest"
 var (
 	RequiredImages = []string{
 		CCEnvDefaultImage,
-		runner.CouchDBDefaultImage,
-		runner.KafkaDefaultImage,
-		runner.ZooKeeperDefaultImage,
 	}
 	logger = flogging.MustGetLogger("nwo.fabric")
 )

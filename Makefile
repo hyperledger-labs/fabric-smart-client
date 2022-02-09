@@ -33,14 +33,17 @@ unit-tests-race: docker-images
 	cd integration/nwo/; go test -cover ./...
 
 .PHONY: docker-images
-docker-images:
+docker-images: fabric-docker-images
+
+.PHONY: fabric-docker-images
+fabric-docker-images:
 	docker pull hyperledger/fabric-baseos:2.2
 	docker image tag hyperledger/fabric-baseos:2.2 hyperledger/fabric-baseos:latest
 	docker pull hyperledger/fabric-ccenv:2.2
 	docker image tag hyperledger/fabric-ccenv:2.2 hyperledger/fabric-ccenv:latest
-	docker pull couchdb:3.1.1
-	docker pull confluentinc/cp-kafka:5.3.1
-	docker pull confluentinc/cp-zookeeper:5.3.1
+
+.PHONY: fabric-docker-images
+weaver-docker-images:
 	docker pull ghcr.io/hyperledger-labs/weaver-fabric-driver:1.2.1
 	docker image tag ghcr.io/hyperledger-labs/weaver-fabric-driver:1.2.1 hyperledger-labs/weaver-fabric-driver:latest
 	docker pull ghcr.io/hyperledger-labs/weaver-relay-server:1.2.1
@@ -90,7 +93,7 @@ integration-tests-fpc-echo: docker-images fpc-docker-images dependencies
 	cd ./integration/fabric/fpc/echo; ginkgo -keepGoing --slowSpecThreshold 60 .
 
 .PHONY: integration-tests-weaver-relay
-integration-tests-weaver-relay: docker-images dependencies
+integration-tests-weaver-relay: docker-images weaver-docker-images dependencies
 	cd ./integration/fabric/weaver/relay; ginkgo -keepGoing --slowSpecThreshold 60 .
 
 .PHONY: integration-tests-fabric-stoprestart
