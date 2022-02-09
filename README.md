@@ -48,18 +48,6 @@ Developing Fabric-based distributed applications would become simpler and joyful
 If you are a domain expert, the Fabric Smart Client hides the complexity of Fabric and allows you to focus on the business interactions.
 If you are a skilled software engineer, you will be able to leverage the full power of Fabric.
 
-# Makefile
-
-FSC is equipped with a `Makefile` to simplify some tasks. 
-Here is the list of commands available.
-
-- `make checks`: check code formatting, style, and licence header.
-- `make unit-tests`: execute the unit-tests.
-- `make integration-tests`: execute the integration tests. The integration tests use `ginkgo`. Please, make sure that `$GOPATH/bin` is in your `PATH` env variable.
-- `make clean`: clean the docker environment, useful for testing.
-  
-Executes the above from `$GOPATH/github.com/hyperledger-labs/fabric-smart-client`.
-
 # Testing Philosophy
 
 [Write tests. Not too many. Mostly Integration](https://kentcdodds.com/blog/write-tests)
