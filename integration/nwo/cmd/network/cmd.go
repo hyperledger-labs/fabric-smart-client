@@ -8,6 +8,7 @@ package network
 
 import (
 	"fmt"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/pkg/errors"
 	"os"
 
@@ -23,6 +24,8 @@ type (
 )
 
 var (
+	logger = flogging.MustGetLogger("nwo.network")
+
 	path string
 	// StartCMDPostNew is executed after the testing infrastructure is created
 	StartCMDPostNew CallbackFunc
@@ -134,6 +137,12 @@ func StartCmd(topologies ...api.Topology) *cobra.Command {
 
 // Start returns version information for the peer
 func Start(topologies ...api.Topology) error {
+	logger.Infof(" ____    _____      _      ____    _____")
+	logger.Infof("/ ___|  |_   _|    / \\    |  _ \\  |_   _|")
+	logger.Infof("\\___ \\    | |     / _ \\   | |_) |   | |")
+	logger.Infof("___) |    | |    / ___ \\  |  _ <    | |")
+	logger.Infof("|____/    |_|   /_/   \\_\\ |_| \\_\\   |_|")
+
 	// if ./artifacts exists, then load. Otherwise, create new artifacts
 	var ii *integration.Infrastructure
 	_, err := os.Stat(path)
@@ -165,7 +174,13 @@ func Start(topologies ...api.Topology) error {
 			return errors.WithMessage(err, "failed to post start")
 		}
 	}
-
 	defer ii.Stop()
+
+	logger.Infof(" _____   _   _   ____")
+	logger.Infof("| ____| | \\ | | |  _ \\")
+	logger.Infof("|  _|   |  \\| | | | | |")
+	logger.Infof("| |___  | |\\  | | |_| |")
+	logger.Infof("|_____| |_| \\_| |____/")
+
 	return ii.Serve()
 }

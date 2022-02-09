@@ -177,20 +177,10 @@ func (i *Infrastructure) InitClients() {
 }
 
 func (i *Infrastructure) Start() {
-	logger.Infof(" ____    _____      _      ____    _____")
-	logger.Infof("/ ___|  |_   _|    / \\    |  _ \\  |_   _|")
-	logger.Infof("\\___ \\    | |     / _ \\   | |_) |   | |")
-	logger.Infof("___) |    | |    / ___ \\  |  _ <    | |")
-	logger.Infof("|____/    |_|   /_/   \\_\\ |_| \\_\\   |_|")
 	if i.NWO == nil {
 		panic("call generate or load first")
 	}
 	i.NWO.Start()
-	logger.Infof(" _____   _   _   ____")
-	logger.Infof("| ____| | \\ | | |  _ \\")
-	logger.Infof("|  _|   |  \\| | | | | |")
-	logger.Infof("| |___  | |\\  | | |_| |")
-	logger.Infof("|_____| |_| \\_| |____/")
 }
 
 func (i *Infrastructure) Stop() {
@@ -224,7 +214,9 @@ func (i *Infrastructure) Serve() error {
 			serve <- nil
 		},
 	})
-	logger.Infof("All GOOD, networks up and running")
+	logger.Infof("All GOOD, networks up and running...")
+	logger.Infof("If you want to shut down the networks, press CTRL+C")
+	logger.Infof("Open another terminal to interact with the networks")
 	return <-serve
 }
 
