@@ -66,6 +66,7 @@ func NewCmd() *cobra.Command {
 			return invoke()
 		},
 	}
+	// TODO: introduce -web flag to use REST API
 	flags := cmd.Flags()
 	flags.StringVarP(&input, "input", "i", "", "Sets the input to the view function, encoded either as base64, or as-is")
 	flags.StringVarP(&function, "function", "f", "", "Sets the function name to be invoked")

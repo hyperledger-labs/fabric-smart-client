@@ -495,8 +495,12 @@ If everything is successful, you will see something like the following:
 
 To shut down the networks, just press CTRL-c.
 
-if you want to restart the networks after the shutdown, you can just re-run the above command.
+If you want to restart the networks after the shutdown, you can just re-run the above command.
 If you don't delete the `./testdata` directory, the network will be started from the previous state.
+
+Before restarting the networks, one can modify the business views to add new functionalities, to fix bugs, and so on.
+Upon restarting the networks, the new business views will be available.
+Later on, we will see an example of this.
 
 ### Invoke the business views
 
@@ -540,3 +544,67 @@ To update the IOU, you can run the following command:
 ```
 
 The above command will update the IOU with the linear ID `bd90b6c8-0a54-4719-8caa-00759bad7d69`. The new amount will be 8.
+
+### Modify the business views and restart the networks
+
+Suppose you want to change the behaviour of a business view and see it in actions, one can do the following:
+1. Stop the networks;
+2. Update the business views;
+3. Restart the networks;
+
+Let's see how to do this with a concrete example. When the borrower does not owe the lender anything anymore,
+the borrower updates the IOU state to 0. The state still exists though. What we can do instead is to delete the state.
+We can do that by replacing in the business view `UpdateIOUView`, the line
+```go
+    err = tx.AddOutput(iouState)
+```
+with
+```go
+	if iouState.Amount == 0 {
+		err = tx.Delete(iouState)
+	} else {
+		err = tx.AddOutput(iouState)
+	}
+```
+Now, we need to update the business view of the lender and the borrower to take in account the new behaviour.
+For the lender, we modify `UpdateIOUResponderView` to check for the deleted state using the following code:
+
+```go
+    output := tx.Outputs().At(0)
+    if !output.IsDelete() {
+        outState := &states.IOU{}
+        assert.NoError(tx.GetOutputAt(0, outState))
+
+        // Additional checks
+        // Same IDs
+        assert.Equal(inState.LinearID, outState.LinearID, "invalid state id, [%s] != [%s]", inState.LinearID, outState.LinearID)
+        // Valid Amount
+        assert.False(outState.Amount >= inState.Amount, "invalid amount, [%d] expected to be less or equal [%d]", outState.Amount, inState.Amount)
+        // Same owners
+        assert.True(inState.Owners().Match(outState.Owners()), "invalid owners, input and output should have the same owners")
+        assert.Equal(2, inState.Owners().Count(), "invalid state, expected 2 identities, was [%d]", inState.Owners().Count())
+    }
+```
+
+For the approver, we update the validation code for the `update` command in `ApproverView`:
+
+```go
+		output := tx.Outputs().At(0)
+		if !output.IsDelete() {
+			outState := &states.IOU{}
+			assert.NoError(tx.GetOutputAt(0, outState))
+			assert.Equal(inState.LinearID, outState.LinearID, "invalid state id, [%s] != [%s]", inState.LinearID, outState.LinearID)
+			assert.True(outState.Amount < inState.Amount, "invalid amount, [%d] expected to be less or equal [%d]", outState.Amount, inState.Amount)
+			assert.True(inState.Owners().Match(outState.Owners()), "invalid owners, input and output should have the same owners")
+		}
+
+		assert.NoError(tx.HasBeenEndorsedBy(inState.Owners()...), "signatures are missing")
+```
+
+Now, we can just restart the networks, the Fabric Smart Client nodes will be rebuilt and the new behaviour available.
+You can test by yourself.
+
+
+
+
+

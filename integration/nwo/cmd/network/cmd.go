@@ -8,6 +8,8 @@ package network
 
 import (
 	"fmt"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	"github.com/pkg/errors"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -16,8 +18,19 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 )
 
+type (
+	// CallbackFunc is the type of the callback function
+	CallbackFunc func(*integration.Infrastructure) error
+)
+
 var (
+	logger = flogging.MustGetLogger("nwo.network")
+
 	path string
+	// StartCMDPostNew is executed after the testing infrastructure is created
+	StartCMDPostNew CallbackFunc
+	// StartCMDPostStart is executed after the testing infrastructure is started
+	StartCMDPostStart CallbackFunc
 )
 
 // NewCmd returns the Cobra Command for the network subcommands
@@ -124,21 +137,50 @@ func StartCmd(topologies ...api.Topology) *cobra.Command {
 
 // Start returns version information for the peer
 func Start(topologies ...api.Topology) error {
+	logger.Infof(" ____    _____      _      ____    _____")
+	logger.Infof("/ ___|  |_   _|    / \\    |  _ \\  |_   _|")
+	logger.Infof("\\___ \\    | |     / _ \\   | |_) |   | |")
+	logger.Infof("___) |    | |    / ___ \\  |  _ <    | |")
+	logger.Infof("|____/    |_|   /_/   \\_\\ |_| \\_\\   |_|")
+
 	// if ./artifacts exists, then load. Otherwise, create new artifacts
 	var ii *integration.Infrastructure
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		ii, err = integration.GenerateAt(20000, path, true, topologies...)
+	_, err := os.Stat(path)
+	init := os.IsNotExist(err)
+
+	ii, err = integration.New(20000, path, topologies...)
+	if err != nil {
+		return errors.WithMessage(err, "failed to create new infrastructure")
+	}
+	ii.EnableRaceDetector()
+	if StartCMDPostNew != nil {
+		err = StartCMDPostNew(ii)
 		if err != nil {
-			return err
+			return errors.WithMessage(err, "failed to post new")
 		}
+	}
+
+	if init {
+		ii.Generate()
 	} else {
-		ii, err = integration.Load(20000, path, true, topologies...)
-		if err != nil {
-			return err
-		}
+		ii.Load()
 	}
 
 	ii.DeleteOnStop = false
 	ii.Start()
+	if StartCMDPostStart != nil {
+		err = StartCMDPostStart(ii)
+		if err != nil {
+			return errors.WithMessage(err, "failed to post start")
+		}
+	}
+	defer ii.Stop()
+
+	logger.Infof(" _____   _   _   ____")
+	logger.Infof("| ____| | \\ | | |  _ \\")
+	logger.Infof("|  _|   |  \\| | | | | |")
+	logger.Infof("| |___  | |\\  | | |_| |")
+	logger.Infof("|_____| |_| \\_| |____/")
+
 	return ii.Serve()
 }

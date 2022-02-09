@@ -106,7 +106,7 @@ fsc:
     # HTTPS server listener address
     address: 127.0.0.1:{{ .NodePort Peer "Web" }}
   metrics:
-    type: udp
+    type: {{ Topology.MetricsType }}
     options:
       address: localhost:8125
   # The endpoint section tells how to reach other FSC node in the network.
