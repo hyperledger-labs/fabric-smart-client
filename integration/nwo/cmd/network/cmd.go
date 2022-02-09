@@ -18,11 +18,13 @@ import (
 )
 
 var (
-	path string
+	path              string
+	StartCMDPostNew   CallbackFunc
+	StartCMDPostStart CallbackFunc
 )
 
 // NewCmd returns the Cobra Command for the network subcommands
-func NewCmd(postNew, postStart CallbackFunc, topologies ...api.Topology) *cobra.Command {
+func NewCmd(topologies ...api.Topology) *cobra.Command {
 	// Set the flags on the node start command.
 	rootCommand := &cobra.Command{
 		Use:   "network",
@@ -33,7 +35,7 @@ func NewCmd(postNew, postStart CallbackFunc, topologies ...api.Topology) *cobra.
 	rootCommand.AddCommand(
 		GenerateCmd(topologies...),
 		CleanCmd(),
-		StartCmd(postNew, postStart, topologies...),
+		StartCmd(topologies...),
 	)
 
 	return rootCommand
@@ -103,7 +105,7 @@ func Clean() error {
 }
 
 // StartCmd returns the Cobra Command for Start
-func StartCmd(postNew, postStart CallbackFunc, topologies ...api.Topology) *cobra.Command {
+func StartCmd(topologies ...api.Topology) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "start",
 		Short: "Start Artifacts.",
@@ -114,7 +116,7 @@ func StartCmd(postNew, postStart CallbackFunc, topologies ...api.Topology) *cobr
 			}
 			// Parsing of the command line is done so silence cmd usage
 			cmd.SilenceUsage = true
-			return Start(postNew, postStart, topologies...)
+			return Start(topologies...)
 		},
 	}
 	flags := cmd.Flags()
@@ -126,7 +128,7 @@ func StartCmd(postNew, postStart CallbackFunc, topologies ...api.Topology) *cobr
 type CallbackFunc func(*integration.Infrastructure) error
 
 // Start returns version information for the peer
-func Start(postNew, postStart CallbackFunc, topologies ...api.Topology) error {
+func Start(topologies ...api.Topology) error {
 	// if ./artifacts exists, then load. Otherwise, create new artifacts
 	var ii *integration.Infrastructure
 	_, err := os.Stat(path)
@@ -137,8 +139,8 @@ func Start(postNew, postStart CallbackFunc, topologies ...api.Topology) error {
 		return errors.WithMessage(err, "failed to create new infrastructure")
 	}
 	ii.EnableRaceDetector()
-	if postNew != nil {
-		err = postNew(ii)
+	if StartCMDPostNew != nil {
+		err = StartCMDPostNew(ii)
 		if err != nil {
 			return errors.WithMessage(err, "failed to post new")
 		}
@@ -152,8 +154,8 @@ func Start(postNew, postStart CallbackFunc, topologies ...api.Topology) error {
 
 	ii.DeleteOnStop = false
 	ii.Start()
-	if init && postStart != nil {
-		err = postStart(ii)
+	if StartCMDPostStart != nil {
+		err = StartCMDPostStart(ii)
 		if err != nil {
 			return errors.WithMessage(err, "failed to post start")
 		}
