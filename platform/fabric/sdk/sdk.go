@@ -56,22 +56,35 @@ func (p *p) Install() error {
 	assert.NoError(p.registry.RegisterService(cryptoProvider))
 
 	logger.Infof("Set Fabric Network Service Provider")
-	var err error
 	fnspConfig, err := core.NewConfig(view2.GetConfigService(p.registry))
 	assert.NoError(err, "failed parsing configuration")
 	p.fnsProvider, err = core.NewFabricNetworkServiceProvider(p.registry, fnspConfig)
 	assert.NoError(err, "failed instantiating fabric network service provider")
 	assert.NoError(p.registry.RegisterService(p.fnsProvider))
 
-	assert.NoError(fabric2.GetDefaultFNS(p.registry).ProcessorManager().SetDefaultProcessor(
-		state.NewRWSetProcessor(fabric2.GetDefaultFNS(p.registry)),
-	))
+	// Register processors
+	names := fabric2.GetFabricNetworkNames(p.registry)
+	if len(names) == 0 {
+		return errors.New("no fabric network names found")
+	}
+	for _, name := range names {
+		fns := fabric2.GetFabricNetworkService(p.registry, name)
+		if fns == nil {
+			return errors.Errorf("no fabric network service found for [%s]", name)
+		}
+		assert.NoError(fns.ProcessorManager().SetDefaultProcessor(
+			state.NewRWSetProcessor(fabric2.GetDefaultFNS(p.registry)),
+		), "failed setting state processor for fabric network [%s]", name)
+	}
+
+	assert.NotNil(fabric2.GetDefaultFNS(p.registry), "default fabric network service not found")
 
 	// TODO: remove this
 	assert.NoError(p.registry.RegisterService(tracker.NewTracker()))
 	// TODO: change this
 	assert.NoError(p.registry.RegisterService(vault.NewService(p.registry)))
 
+	// weaver provider
 	assert.NoError(p.registry.RegisterService(weaver.NewProvider()))
 
 	return nil
