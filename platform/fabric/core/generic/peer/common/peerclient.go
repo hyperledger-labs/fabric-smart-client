@@ -9,22 +9,33 @@ package common
 import (
 	"context"
 	"crypto/tls"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
+	grpc2 "google.golang.org/grpc"
 
 	"github.com/hyperledger/fabric-protos-go/discovery"
 	pb "github.com/hyperledger/fabric-protos-go/peer"
 	"github.com/pkg/errors"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
+	discovery2 "github.com/hyperledger/fabric/discovery/client"
 )
 
 // PeerClient represents a client for communicating with a peer
 type PeerClient struct {
 	CommonClient
+	Signer discovery2.Signer
 }
 
-// TODO: improve by providing grpc connection pool
 func (pc *PeerClient) Close() {
 	pc.CommonClient.Client.Close()
+}
+
+func (pc *PeerClient) Connection() (*grpc2.ClientConn, error) {
+	conn, err := pc.CommonClient.NewConnection(pc.Address, grpc.ServerNameOverride(pc.Sn))
+	if err != nil {
+		return nil, errors.WithMessagef(err, "endorser client failed to connect to %s", pc.Address)
+	}
+	return conn, nil
 }
 
 // Endorser returns a client for the Endorser service
@@ -42,6 +53,19 @@ func (pc *PeerClient) Discovery() (discovery.DiscoveryClient, error) {
 		return nil, errors.WithMessagef(err, "discovery client failed to connect to %s", pc.Address)
 	}
 	return discovery.NewDiscoveryClient(conn), nil
+}
+
+func (pc *PeerClient) DiscoveryClient() (peer.DiscoveryClient, error) {
+	return discovery2.NewClient(
+		func() (*grpc2.ClientConn, error) {
+			conn, err := pc.CommonClient.NewConnection(pc.Address, grpc.ServerNameOverride(pc.Sn))
+			if err != nil {
+				return nil, errors.WithMessagef(err, "discovery client failed to connect to %s", pc.Address)
+			}
+			return conn, nil
+		},
+		pc.Signer,
+		1), nil
 }
 
 // Deliver returns a client for the Deliver service

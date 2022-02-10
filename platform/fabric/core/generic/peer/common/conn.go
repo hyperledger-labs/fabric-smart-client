@@ -8,6 +8,7 @@ package common
 
 import (
 	"context"
+	discovery2 "github.com/hyperledger/fabric/discovery/client"
 	"sync"
 
 	"github.com/hyperledger/fabric-protos-go/discovery"
@@ -34,6 +35,7 @@ type ConnCreator interface {
 type statefulClient struct {
 	pb.EndorserClient
 	discovery.DiscoveryClient
+	DC    peer.DiscoveryClient
 	onErr func()
 }
 
@@ -53,11 +55,20 @@ func (sc *statefulClient) Discover(ctx context.Context, in *discovery.SignedRequ
 	return res, err
 }
 
+func (sc *statefulClient) Send(ctx context.Context, req *discovery2.Request, auth *discovery.AuthInfo) (discovery2.Response, error) {
+	res, err := sc.DC.Send(ctx, req, auth)
+	if err != nil {
+		sc.onErr()
+	}
+	return res, err
+}
+
 type peerClient struct {
 	lock sync.RWMutex
 	peer.Client
 	connect func() (*grpc2.ClientConn, error)
 	conn    *grpc2.ClientConn
+	signer  discovery2.Signer
 }
 
 func (pc *peerClient) getOrConn() (*grpc2.ClientConn, error) {
@@ -96,6 +107,15 @@ func (pc *peerClient) resetConn() {
 	pc.conn = nil
 }
 
+func (pc *peerClient) Connection() (*grpc2.ClientConn, error) {
+	conn, err := pc.getOrConn()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get connection to peer")
+	}
+
+	return conn, nil
+}
+
 func (pc *peerClient) Endorser() (pb.EndorserClient, error) {
 	conn, err := pc.getOrConn()
 	if err != nil {
@@ -104,6 +124,25 @@ func (pc *peerClient) Endorser() (pb.EndorserClient, error) {
 	return &statefulClient{
 		EndorserClient: pb.NewEndorserClient(conn),
 		onErr:          pc.resetConn,
+	}, nil
+}
+
+func (pc *peerClient) DiscoveryClient() (peer.DiscoveryClient, error) {
+	dc := discovery2.NewClient(
+		func() (*grpc2.ClientConn, error) {
+			conn, err := pc.getOrConn()
+			if err != nil {
+				return nil, errors.Wrap(err, "error getting connection to endorser")
+			}
+			return conn, nil
+		},
+		pc.signer,
+		1,
+	)
+
+	return &statefulClient{
+		DC:    dc,
+		onErr: pc.resetConn,
 	}, nil
 }
 
@@ -124,8 +163,9 @@ func (pc *peerClient) Close() {
 
 type CachingEndorserPool struct {
 	ConnCreator
-	lock  sync.RWMutex
-	Cache map[string]peer.Client
+	lock   sync.RWMutex
+	Cache  map[string]peer.Client
+	Signer discovery2.Signer
 }
 
 func (cep *CachingEndorserPool) NewPeerClientForAddress(cc grpc.ConnectionConfig) (peer.Client, error) {
@@ -164,6 +204,7 @@ func (cep *CachingEndorserPool) getOrCreateClient(key string, newClient func() (
 			return pc.NewConnection(pc.Address, grpc.ServerNameOverride(pc.Sn))
 		},
 		Client: cl,
+		signer: cep.Signer,
 	}
 
 	logger.Debugf("Created new client for [%s]", key)
