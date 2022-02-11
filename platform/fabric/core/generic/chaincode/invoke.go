@@ -30,22 +30,23 @@ import (
 )
 
 type Invoke struct {
-	Chaincode             *Chaincode
-	ServiceProvider       view2.ServiceProvider
-	Network               Network
-	Channel               Channel
-	TxID                  driver.TxID
-	SignerIdentity        view.Identity
-	ChaincodePath         string
-	ChaincodeName         string
-	ChaincodeVersion      string
-	TransientMap          map[string][]byte
-	Endorsers             []view.Identity
-	EndorsersMSPIDs       []string
-	EndorsersFromMyOrg    bool
-	EndorsersByConnConfig []*grpc.ConnectionConfig
-	Function              string
-	Args                  []interface{}
+	Chaincode                *Chaincode
+	ServiceProvider          view2.ServiceProvider
+	Network                  Network
+	Channel                  Channel
+	TxID                     driver.TxID
+	SignerIdentity           view.Identity
+	ChaincodePath            string
+	ChaincodeName            string
+	ChaincodeVersion         string
+	TransientMap             map[string][]byte
+	Endorsers                []view.Identity
+	EndorsersMSPIDs          []string
+	ImplicitCollectionMSPIDs []string
+	EndorsersFromMyOrg       bool
+	EndorsersByConnConfig    []*grpc.ConnectionConfig
+	Function                 string
+	Args                     []interface{}
 }
 
 func NewInvoke(chaincode *Chaincode, function string, args ...interface{}) *Invoke {
@@ -158,6 +159,11 @@ func (i *Invoke) WithEndorsersByConnConfig(ccs ...*grpc.ConnectionConfig) driver
 	return i
 }
 
+func (i *Invoke) WithImplicitCollections(mspIDs ...string) driver.ChaincodeInvocation {
+	i.ImplicitCollectionMSPIDs = mspIDs
+	return i
+}
+
 func (i *Invoke) WithTxID(id driver.TxID) driver.ChaincodeInvocation {
 	i.TxID = id
 	return i
@@ -208,7 +214,12 @@ func (i *Invoke) prepare() (string, *pb.Proposal, []*pb.ProposalResponse, driver
 
 		// discover
 		var err error
-		i.Endorsers, err = NewDiscovery(i.Chaincode).WithFilterByMSPIDs(i.EndorsersMSPIDs...).Call()
+		discovery := NewDiscovery(
+			i.Chaincode,
+		).WithFilterByMSPIDs(
+			i.EndorsersMSPIDs...,
+		).WithImplicitCollections(i.ImplicitCollectionMSPIDs...)
+		i.Endorsers, err = discovery.Call()
 		if err != nil {
 			return "", nil, nil, nil, err
 		}

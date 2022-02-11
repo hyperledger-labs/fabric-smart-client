@@ -224,3 +224,8 @@ func (i *ChaincodeEndorse) WithTxID(id TxID) *ChaincodeEndorse {
 	})
 	return i
 }
+
+func (i *ChaincodeEndorse) WithImplicitCollections(mspIDs ...string) *ChaincodeEndorse {
+	i.ci.WithImplicitCollections(mspIDs...)
+	return i
+}

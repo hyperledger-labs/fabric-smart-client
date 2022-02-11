@@ -57,10 +57,14 @@ type TransferView struct {
 }
 
 func (a *TransferView) Call(ctx view.Context) (interface{}, error) {
-	mspID, err := fabric.GetDefaultChannel(ctx).MSPManager().GetMSPIdentifier(
+	senderMSPID, err := fabric.GetDefaultChannel(ctx).MSPManager().GetMSPIdentifier(
+		fabric.GetDefaultFNS(ctx).IdentityProvider().DefaultIdentity(),
+	)
+	assert.NoError(err, "failed getting sender MSP-ID")
+	recipientMSPID, err := fabric.GetDefaultChannel(ctx).MSPManager().GetMSPIdentifier(
 		fabric.GetDefaultFNS(ctx).IdentityProvider().Identity(a.Recipient.UniqueID()),
 	)
-	assert.NoError(err, "failed deserializing identity")
+	assert.NoError(err, "failed getting recipient MSP-ID")
 
 	assetPrice, err := a.AssetPrice.Bytes()
 	assert.NoError(err, "failed marshalling assetPrice")
@@ -71,12 +75,12 @@ func (a *TransferView) Call(ctx view.Context) (interface{}, error) {
 	envelope, err := fabric.GetDefaultChannel(ctx).Chaincode("asset_transfer").Endorse(
 		"TransferAsset",
 		a.AssetProperties.ID,
-		mspID,
+		recipientMSPID,
 	).WithTransientEntry(
 		"asset_price", assetPrice,
 	).WithTransientEntry(
 		"asset_properties", assetProperties,
-	).Call()
+	).WithImplicitCollections(senderMSPID, recipientMSPID).Call()
 	assert.NoError(err, "failed asking endorsement")
 
 	c, cancel := context.WithTimeout(context.Background(), 5*time.Second)

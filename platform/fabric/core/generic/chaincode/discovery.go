@@ -7,9 +7,10 @@ SPDX-License-Identifier: Apache-2.0
 package chaincode
 
 import (
+	"context"
+	"fmt"
 	peer2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
 	"github.com/hyperledger/fabric/common/util"
-	"golang.org/x/net/context"
 	"strings"
 	"time"
 
@@ -25,17 +26,19 @@ const (
 )
 
 type Discovery struct {
-	chaincode      *Chaincode
-	filterByMSPIDs []string
+	chaincode *Chaincode
 
-	defaultTTL time.Duration
+	FilterByMSPIDs      []string
+	ImplicitCollections []string
+
+	DefaultTTL time.Duration
 }
 
 func NewDiscovery(chaincode *Chaincode) *Discovery {
 	// set key to the concatenation of chaincode name and version
 	return &Discovery{
 		chaincode:  chaincode,
-		defaultTTL: 5 * time.Minute,
+		DefaultTTL: 5 * time.Minute,
 	}
 }
 
@@ -44,7 +47,7 @@ func (d *Discovery) Call() ([]view.Identity, error) {
 	sb.WriteString(d.chaincode.network.Name())
 	sb.WriteString(d.chaincode.channel.Name())
 	sb.WriteString(d.chaincode.name)
-	for _, mspiD := range d.filterByMSPIDs {
+	for _, mspiD := range d.FilterByMSPIDs {
 		sb.WriteString(mspiD)
 	}
 	key := sb.String()
@@ -83,7 +86,7 @@ func (d *Discovery) Call() ([]view.Identity, error) {
 	// cache response
 	d.chaincode.discoveryResultsCacheLock.Lock()
 	defer d.chaincode.discoveryResultsCacheLock.Unlock()
-	if err := d.chaincode.discoveryResultsCache.SetWithTTL(key, response, d.defaultTTL); err != nil {
+	if err := d.chaincode.discoveryResultsCache.SetWithTTL(key, response, d.DefaultTTL); err != nil {
 		logger.Warnf("failed to set discovery results in cache: %s", err)
 	}
 
@@ -92,7 +95,12 @@ func (d *Discovery) Call() ([]view.Identity, error) {
 }
 
 func (d *Discovery) WithFilterByMSPIDs(mspIDs ...string) driver.ChaincodeDiscover {
-	d.filterByMSPIDs = mspIDs
+	d.FilterByMSPIDs = mspIDs
+	return d
+}
+
+func (d *Discovery) WithImplicitCollections(mspIDs ...string) driver.ChaincodeDiscover {
+	d.ImplicitCollections = mspIDs
 	return d
 }
 
@@ -104,10 +112,18 @@ func (d *Discovery) send() (discovery.Response, error) {
 		}
 	}()
 
+	var collectionNames []string
+	if len(d.ImplicitCollections) > 0 {
+		for _, collection := range d.ImplicitCollections {
+			collectionNames = append(collectionNames, fmt.Sprintf("_implicit_org_%s", collection))
+		}
+	}
+
 	req, err := discovery.NewRequest().OfChannel(d.chaincode.channel.Name()).AddEndorsersQuery(
 		&discovery2.ChaincodeInterest{Chaincodes: []*discovery2.ChaincodeCall{
 			{
-				Name: d.chaincode.name,
+				Name:            d.chaincode.name,
+				CollectionNames: collectionNames,
 			},
 		}},
 	)
@@ -165,7 +181,7 @@ type filter struct {
 }
 
 func (f *filter) Filter(endorsers discovery.Endorsers) discovery.Endorsers {
-	if len(f.d.filterByMSPIDs) == 0 {
+	if len(f.d.FilterByMSPIDs) == 0 {
 		return endorsers
 	}
 
@@ -173,7 +189,7 @@ func (f *filter) Filter(endorsers discovery.Endorsers) discovery.Endorsers {
 	for _, endorser := range endorsers {
 		endorserMSPID := endorser.MSPID
 		found := false
-		for _, mspID := range f.d.filterByMSPIDs {
+		for _, mspID := range f.d.FilterByMSPIDs {
 			if mspID == endorserMSPID {
 				found = true
 				break
