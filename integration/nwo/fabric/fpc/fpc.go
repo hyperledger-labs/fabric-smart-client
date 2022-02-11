@@ -12,7 +12,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -64,17 +63,11 @@ func (n *Extension) CheckTopology() {
 		return
 	}
 
-	// Define External Builder
-	// Using `go list -m -f '{{ if .Main }}{{.GoMod}}{{ end }}' all` may try to
-	// generate a go.mod when a vendor tool is in use. To avoid that behavior
-	// we use `go env GOMOD` followed by an existence check.
-	cmd := exec.Command("go", "env", "GOMOD")
-	cmd.Env = append(os.Environ(), "GO111MODULE=on")
-	moduleRoot, err := cmd.Output()
-	Expect(err).ToNot(HaveOccurred())
-	moduleRootDir := filepath.Dir(string(moduleRoot))
-	index := strings.Index(moduleRootDir, "github.")
-	path := moduleRootDir[:index] + "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/fpc/externalbuilders/chaincode_server"
+	path, err := n.FindExternalBuilder()
+	if err != nil {
+		// if we do not find the external builder path there is no way out! Panic!!!
+		panic(err)
+	}
 
 	n.network.ExternalBuilders = append(n.network.ExternalBuilders, fabricconfig.ExternalBuilder{
 		Path:                 path,
@@ -101,6 +94,21 @@ func (n *Extension) CheckTopology() {
 	}
 
 	return
+}
+
+func (n *Extension) FindExternalBuilder() (string, error) {
+
+	// first, try if we can get external builders from the go module deps
+	if path := externalBuilderFromGoModule(); path != "" {
+		return path, nil
+	}
+
+	// finally, check if fsc on the gopath and we have any luck here
+	if path := externalBuilderFromGoPath(); path != "" {
+		return path, nil
+	}
+
+	return "", fmt.Errorf("external builders not found")
 }
 
 func (n *Extension) GenerateArtifacts() {
