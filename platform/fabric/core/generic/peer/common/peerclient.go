@@ -68,6 +68,14 @@ func (pc *PeerClient) DiscoveryClient() (peer.DiscoveryClient, error) {
 		1), nil
 }
 
+func (pc *PeerClient) DeliverClient() (pb.DeliverClient, error) {
+	conn, err := pc.CommonClient.NewConnection(pc.Address, grpc.ServerNameOverride(pc.Sn))
+	if err != nil {
+		return nil, errors.WithMessagef(err, "endorser client failed to connect to %s", pc.Address)
+	}
+	return pb.NewDeliverClient(conn), nil
+}
+
 // Deliver returns a client for the Deliver service
 func (pc *PeerClient) Deliver() (pb.Deliver_DeliverClient, error) {
 	conn, err := pc.CommonClient.NewConnection(pc.Address, grpc.ServerNameOverride(pc.Sn))

@@ -35,8 +35,21 @@ type ConnCreator interface {
 type statefulClient struct {
 	pb.EndorserClient
 	discovery.DiscoveryClient
-	DC    peer.DiscoveryClient
-	onErr func()
+	DC            peer.DiscoveryClient
+	onErr         func()
+	DeliverClient pb.DeliverClient
+}
+
+func (sc *statefulClient) Deliver(ctx context.Context, opts ...grpc2.CallOption) (pb.Deliver_DeliverClient, error) {
+	return sc.DeliverClient.Deliver(ctx, opts...)
+}
+
+func (sc *statefulClient) DeliverFiltered(ctx context.Context, opts ...grpc2.CallOption) (pb.Deliver_DeliverFilteredClient, error) {
+	return sc.DeliverClient.DeliverFiltered(ctx, opts...)
+}
+
+func (sc *statefulClient) DeliverWithPrivateData(ctx context.Context, opts ...grpc2.CallOption) (pb.Deliver_DeliverWithPrivateDataClient, error) {
+	return sc.DeliverClient.DeliverWithPrivateData(ctx, opts...)
 }
 
 func (sc *statefulClient) ProcessProposal(ctx context.Context, in *pb.SignedProposal, opts ...grpc2.CallOption) (*pb.ProposalResponse, error) {
@@ -124,6 +137,17 @@ func (pc *peerClient) Endorser() (pb.EndorserClient, error) {
 	return &statefulClient{
 		EndorserClient: pb.NewEndorserClient(conn),
 		onErr:          pc.resetConn,
+	}, nil
+}
+
+func (pc *peerClient) DeliverClient() (pb.DeliverClient, error) {
+	conn, err := pc.getOrConn()
+	if err != nil {
+		return nil, errors.Wrap(err, "error getting connection to endorser")
+	}
+	return &statefulClient{
+		DeliverClient: pb.NewDeliverClient(conn),
+		onErr:         pc.resetConn,
 	}, nil
 }
 

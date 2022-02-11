@@ -30,5 +30,7 @@ type Client interface {
 
 	DiscoveryClient() (DiscoveryClient, error)
 
+	DeliverClient() (pb.DeliverClient, error)
+
 	Close()
 }
