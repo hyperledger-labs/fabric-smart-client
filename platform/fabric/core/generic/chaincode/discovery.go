@@ -170,14 +170,8 @@ func (f *filter) Filter(endorsers discovery.Endorsers) discovery.Endorsers {
 	}
 
 	var filteredEndorsers discovery.Endorsers
-	mspManager := f.d.chaincode.channel.MSPManager()
 	for _, endorser := range endorsers {
-		e, err := mspManager.DeserializeIdentity(endorser.Identity)
-		if err != nil {
-			logger.Warnf("failed deserializing endorser [%s]: [%s]", view.Identity(endorser.Identity), err)
-			continue
-		}
-		endorserMSPID := e.GetMSPIdentifier()
+		endorserMSPID := endorser.MSPID
 		found := false
 		for _, mspID := range f.d.filterByMSPIDs {
 			if mspID == endorserMSPID {
