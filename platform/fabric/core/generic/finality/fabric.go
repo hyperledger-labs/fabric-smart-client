@@ -34,11 +34,10 @@ type Hasher interface {
 }
 
 type fabricFinality struct {
-	channel              string
-	network              Network
-	hasher               Hasher
-	waitForEventTimeout  time.Duration
-	peerConnectionConfig *grpc.ConnectionConfig
+	channel             string
+	network             Network
+	hasher              Hasher
+	waitForEventTimeout time.Duration
 }
 
 func NewFabricFinality(channel string, network Network, hasher Hasher, waitForEventTimeout time.Duration) (*fabricFinality, error) {
@@ -47,11 +46,10 @@ func NewFabricFinality(channel string, network Network, hasher Hasher, waitForEv
 	}
 
 	d := &fabricFinality{
-		channel:              channel,
-		network:              network,
-		hasher:               hasher,
-		waitForEventTimeout:  waitForEventTimeout,
-		peerConnectionConfig: network.Peers()[0],
+		channel:             channel,
+		network:             network,
+		hasher:              hasher,
+		waitForEventTimeout: waitForEventTimeout,
 	}
 
 	return d, nil
@@ -65,10 +63,19 @@ func (d *fabricFinality) IsFinal(txID string, address string) error {
 	var ctx context.Context
 	var cancelFunc context.CancelFunc
 
-	// TODO: use connection provider
-	deliverClient, err := delivery.NewDeliverClient(d.peerConnectionConfig)
+	ch, err := d.network.Channel(d.channel)
 	if err != nil {
-		return err
+		return errors.WithMessagef(err, "failed connecting to channel [%s]", d.channel)
+	}
+	client, err := ch.NewPeerClientForAddress(*d.network.Peers()[0])
+	if err != nil {
+		return errors.WithMessagef(err, "failed creating peer client for address [%s]", address)
+	}
+	defer client.Close()
+
+	deliverClient, err := delivery.NewDeliverClient(client)
+	if err != nil {
+		return errors.WithMessagef(err, "failed creating deliver client for address [%s]", address)
 	}
 
 	ctx, cancelFunc = context.WithTimeout(context.Background(), d.waitForEventTimeout)
@@ -92,7 +99,7 @@ func (d *fabricFinality) IsFinal(txID string, address string) error {
 	if err != nil {
 		return err
 	}
-	err = delivery.DeliverSend(deliverStream, address, blockEnvelope)
+	err = delivery.DeliverSend(deliverStream, blockEnvelope)
 	if err != nil {
 		return err
 	}

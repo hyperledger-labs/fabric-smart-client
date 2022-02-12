@@ -82,6 +82,7 @@ type peerClient struct {
 	connect func() (*grpc2.ClientConn, error)
 	conn    *grpc2.ClientConn
 	signer  discovery2.Signer
+	address string
 }
 
 func (pc *peerClient) getOrConn() (*grpc2.ClientConn, error) {
@@ -118,6 +119,10 @@ func (pc *peerClient) resetConn() {
 		pc.conn.Close()
 	}
 	pc.conn = nil
+}
+
+func (pc *peerClient) Address() string {
+	return pc.address
 }
 
 func (pc *peerClient) Connection() (*grpc2.ClientConn, error) {
@@ -225,10 +230,11 @@ func (cep *CachingEndorserPool) getOrCreateClient(key string, newClient func() (
 
 	cl = &peerClient{
 		connect: func() (*grpc2.ClientConn, error) {
-			return pc.NewConnection(pc.Address, grpc.ServerNameOverride(pc.Sn))
+			return pc.NewConnection(pc.Address(), grpc.ServerNameOverride(pc.Sn))
 		},
-		Client: cl,
-		signer: cep.Signer,
+		address: pc.Address(),
+		Client:  cl,
+		signer:  cep.Signer,
 	}
 
 	logger.Debugf("Created new client for [%s]", key)

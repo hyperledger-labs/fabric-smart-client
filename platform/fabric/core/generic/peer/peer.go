@@ -20,6 +20,8 @@ type DiscoveryClient interface {
 }
 
 type Client interface {
+	Address() string
+
 	Certificate() tls.Certificate
 
 	Connection() (*grpc2.ClientConn, error)
