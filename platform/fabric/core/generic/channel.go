@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package generic
 
 import (
+	discovery "github.com/hyperledger/fabric/discovery/client"
 	"io/ioutil"
 	"sync"
 	"time"
@@ -229,7 +230,7 @@ func (c *channel) GetClientConfig(tlsRootCerts [][]byte) (*grpc.ClientConfig, st
 func (c *channel) GetTransactionByID(txID string) (driver.ProcessedTransaction, error) {
 	raw, err := c.Chaincode("qscc").NewInvocation(GetTransactionByID, c.name, txID).WithSignerIdentity(
 		c.network.LocalMembership().DefaultIdentity(),
-	).WithEndorsersByConnConfig(c.network.Peers()...).Query()
+	).WithEndorsersByConnConfig(c.network.PickPeer()).Query()
 	if err != nil {
 		return nil, err
 	}
@@ -247,7 +248,7 @@ func (c *channel) GetTransactionByID(txID string) (driver.ProcessedTransaction, 
 func (c *channel) GetBlockNumberByTxID(txID string) (uint64, error) {
 	res, err := c.Chaincode("qscc").NewInvocation(GetBlockByTxID, c.name, txID).WithSignerIdentity(
 		c.network.LocalMembership().DefaultIdentity(),
-	).WithEndorsersByConnConfig(c.network.Peers()...).Query()
+	).WithEndorsersByConnConfig(c.network.PickPeer()).Query()
 	if err != nil {
 		return 0, err
 	}
@@ -271,16 +272,22 @@ func (c *channel) init() error {
 	c.connCache = common2.CachingEndorserPool{
 		Cache:       map[string]peer2.Client{},
 		ConnCreator: &connCreator{ch: c},
+		Signer:      c.DefaultSigner(),
 	}
 	return nil
 }
 
-func newPeerClientForClientConfig(address, override string, clientConfig grpc.ClientConfig) (*common2.PeerClient, error) {
+func (c *channel) DefaultSigner() discovery.Signer {
+	return c.network.LocalMembership().DefaultSigningIdentity().Sign
+}
+
+func newPeerClientForClientConfig(signer discovery.Signer, address, override string, clientConfig grpc.ClientConfig) (*common2.PeerClient, error) {
 	gClient, err := grpc.NewGRPCClient(clientConfig)
 	if err != nil {
 		return nil, errors.WithMessage(err, "failed to create Client from config")
 	}
 	pClient := &common2.PeerClient{
+		Signer: signer,
 		CommonClient: common2.CommonClient{
 			Client:  gClient,
 			Address: address,
@@ -379,6 +386,7 @@ func (c *connCreator) NewPeerClientForAddress(cc grpc.ConnectionConfig) (peer2.C
 	}
 
 	return newPeerClientForClientConfig(
+		c.ch.DefaultSigner(),
 		cc.Address,
 		override,
 		*clientConfig,
@@ -404,5 +412,10 @@ func (c *connCreator) NewPeerClientForIdentity(peer view.Identity) (peer2.Client
 		return nil, err
 	}
 
-	return newPeerClientForClientConfig(addresses[view2.ListenPort], override, *clientConfig)
+	return newPeerClientForClientConfig(
+		c.ch.DefaultSigner(),
+		addresses[view2.ListenPort],
+		override,
+		*clientConfig,
+	)
 }

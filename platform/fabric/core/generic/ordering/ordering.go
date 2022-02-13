@@ -48,12 +48,10 @@ type ViewManager interface {
 }
 
 type Configuration interface {
-	Orderers() []*grpc.ConnectionConfig
 }
 
 type Network interface {
-	Configuration
-	Peers() []*grpc.ConnectionConfig
+	PickOrderer() *grpc.ConnectionConfig
 	LocalMembership() driver.LocalMembership
 	// Broadcast sends the passed blob to the ordering service to be ordered
 	Broadcast(blob interface{}) error
@@ -174,7 +172,7 @@ func (o *service) getOrSetOrdererClient() (Broadcast, error) {
 	}
 
 	// TODO: pick orderer randomly
-	ordererConfig := o.network.Orderers()[0]
+	ordererConfig := o.network.PickOrderer()
 
 	oClient, err := NewOrdererClient(ordererConfig)
 	if err != nil {
@@ -208,7 +206,7 @@ func (o *service) broadcastEnvelope(env *common2.Envelope) error {
 	// send the envelope for ordering
 	err = BroadcastSend(oClient, env)
 	if err != nil {
-		return errors.Wrapf(err, "failed to send transaction to orderer %s", o.network.Orderers()[0].Address)
+		return errors.Wrap(err, "failed to send transaction to orderer")
 	}
 
 	status, err := oClient.Recv()

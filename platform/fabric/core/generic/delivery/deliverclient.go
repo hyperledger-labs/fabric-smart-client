@@ -9,6 +9,7 @@ package delivery
 import (
 	"context"
 	"crypto/tls"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
 	"math"
 	"time"
 
@@ -73,47 +74,22 @@ type DeliverClient interface {
 
 // deliverClient implements DeliverClient interface
 type deliverClient struct {
-	peerAddr           string
-	serverNameOverride string
-	grpcClient         *grpc2.Client
-	conn               *grpc.ClientConn
+	client peer.Client
 }
 
-func NewDeliverClient(config *grpc2.ConnectionConfig) (DeliverClient, error) {
-	grpcClient, err := grpc2.CreateGRPCClient(config)
-	if err != nil {
-		err = errors.WithMessagef(err, "failed to create a Client to peer %s", config.Address)
-		return nil, err
-	}
-	conn, err := grpcClient.NewConnection(config.Address)
-	if err != nil {
-		return nil, errors.WithMessagef(err, "failed to connect to peer %s", config.Address)
-	}
-
+func NewDeliverClient(client peer.Client) (DeliverClient, error) {
 	return &deliverClient{
-		peerAddr:           config.Address,
-		serverNameOverride: config.ServerNameOverride,
-		grpcClient:         grpcClient,
-		conn:               conn,
+		client: client,
 	}, nil
 }
 
 // NewDeliver creates a DeliverStream client
 func (d *deliverClient) NewDeliver(ctx context.Context, opts ...grpc.CallOption) (DeliverStream, error) {
-	if d.conn != nil {
-		// close the old connection because new connection will restart its timeout
-		d.conn.Close()
-	}
-
-	// create a new connection to the peer
-	var err error
-	d.conn, err = d.grpcClient.NewConnection(d.peerAddr)
+	dc, err := d.client.DeliverClient()
 	if err != nil {
-		return nil, errors.WithMessagef(err, "failed to connect to peer %s", d.peerAddr)
+		return nil, errors.WithMessagef(err, "failed to create deliver client for peer %s", d.client.Address())
 	}
-
-	// create a new DeliverStream
-	df, err := pb.NewDeliverClient(d.conn).Deliver(ctx)
+	df, err := dc.Deliver(ctx, opts...)
 	if err != nil {
 		rpcStatus, _ := status.FromError(err)
 		return nil, errors.Wrapf(err, "failed to new a deliver filtered, rpcStatus=%+v", rpcStatus)
@@ -123,20 +99,11 @@ func (d *deliverClient) NewDeliver(ctx context.Context, opts ...grpc.CallOption)
 
 // NewDeliverFiltered creates a DeliverFiltered client
 func (d *deliverClient) NewDeliverFiltered(ctx context.Context, opts ...grpc.CallOption) (DeliverFiltered, error) {
-	if d.conn != nil {
-		// close the old connection because new connection will restart its timeout
-		d.conn.Close()
-	}
-
-	// create a new connection to the peer
-	var err error
-	d.conn, err = d.grpcClient.NewConnection(d.peerAddr)
+	dc, err := d.client.DeliverClient()
 	if err != nil {
-		return nil, errors.WithMessagef(err, "failed to connect to peer %s", d.peerAddr)
+		return nil, errors.WithMessagef(err, "failed to create deliver client for peer %s", d.client.Address())
 	}
-
-	// create a new DeliverFiltered
-	df, err := pb.NewDeliverClient(d.conn).DeliverFiltered(ctx)
+	df, err := dc.DeliverFiltered(ctx, opts...)
 	if err != nil {
 		rpcStatus, _ := status.FromError(err)
 		return nil, errors.Wrapf(err, "failed to new a deliver filtered, rpcStatus=%+v", rpcStatus)
@@ -145,7 +112,7 @@ func (d *deliverClient) NewDeliverFiltered(ctx context.Context, opts ...grpc.Cal
 }
 
 func (d *deliverClient) Certificate() *tls.Certificate {
-	cert := d.grpcClient.Certificate()
+	cert := d.client.Certificate()
 	return &cert
 }
 
@@ -197,13 +164,12 @@ func CreateDeliverEnvelope(channelID string, signingIdentity SigningIdentity, ce
 	return envelope, nil
 }
 
-func DeliverSend(df DeliverStream, address string, envelope *common.Envelope) error {
+func DeliverSend(df DeliverStream, envelope *common.Envelope) error {
 	err := df.Send(envelope)
-	df.CloseSend()
-	if err != nil {
-		return errors.Wrapf(err, "failed to send deliver envelope to peer %s", address)
+	if err := df.CloseSend(); err != nil {
+		logger.Warnf("error closing deliver stream: %s", err)
 	}
-	return nil
+	return err
 }
 
 func DeliverReceive(df DeliverFiltered, address string, txid string, eventCh chan<- TxEvent) error {

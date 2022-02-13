@@ -37,12 +37,15 @@ type ChaincodeInvocation interface {
 	WithTxID(id TxID) ChaincodeInvocation
 
 	WithEndorsersByConnConfig(ccs ...*grpc.ConnectionConfig) ChaincodeInvocation
+
+	WithImplicitCollections(mspIDs ...string) ChaincodeInvocation
 }
 
 // ChaincodeDiscover models a client-side chaincode's endorsers discovery operation
 type ChaincodeDiscover interface {
 	Call() ([]view.Identity, error)
 	WithFilterByMSPIDs(mspIDs ...string) ChaincodeDiscover
+	WithImplicitCollections(mspIDs ...string) ChaincodeDiscover
 }
 
 // Chaincode exposes chaincode-related functions

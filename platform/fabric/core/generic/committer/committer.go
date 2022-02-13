@@ -30,10 +30,6 @@ const (
 
 var logger = flogging.MustGetLogger("fabric-sdk.committer")
 
-var (
-	ErrQSCCUnreachable = errors.New("error querying QSCC")
-)
-
 type Metrics interface {
 	EmitKey(val float32, event ...string)
 }
@@ -44,17 +40,16 @@ type Finality interface {
 
 type Network interface {
 	Committer(channel string) (driver.Committer, error)
-	Peers() []*grpc.ConnectionConfig
+	PickPeer() *grpc.ConnectionConfig
 	Ledger(channel string) (driver.Ledger, error)
 }
 
 type committer struct {
-	channel              string
-	network              Network
-	finality             Finality
-	peerConnectionConfig *grpc.ConnectionConfig
-	waitForEventTimeout  time.Duration
-	metrics              Metrics
+	channel             string
+	network             Network
+	finality            Finality
+	waitForEventTimeout time.Duration
+	metrics             Metrics
 
 	quietNotifier bool
 
@@ -69,16 +64,15 @@ func New(channel string, network Network, finality Finality, waitForEventTimeout
 	}
 
 	d := &committer{
-		channel:              channel,
-		network:              network,
-		waitForEventTimeout:  waitForEventTimeout,
-		quietNotifier:        quiet,
-		peerConnectionConfig: network.Peers()[0],
-		listeners:            map[string][]chan TxEvent{},
-		mutex:                sync.Mutex{},
-		finality:             finality,
-		pollingTimeout:       100 * time.Millisecond,
-		metrics:              metrics,
+		channel:             channel,
+		network:             network,
+		waitForEventTimeout: waitForEventTimeout,
+		quietNotifier:       quiet,
+		listeners:           map[string][]chan TxEvent{},
+		mutex:               sync.Mutex{},
+		finality:            finality,
+		pollingTimeout:      100 * time.Millisecond,
+		metrics:             metrics,
 	}
 	return d, nil
 }
@@ -199,13 +193,13 @@ func (c *committer) IsFinal(txid string) error {
 					}
 					return nil
 				}
-				return c.finality.IsFinal(txid, c.peerConnectionConfig.Address)
+				return c.finality.IsFinal(txid, c.network.PickPeer().Address)
 			case driver.Unknown:
 				if iter >= 2 {
 					if logger.IsEnabledFor(zapcore.DebugLevel) {
 						logger.Debugf("Tx [%s] is unknown with no deps, remote check [%d][%s]", txid, iter, debug.Stack())
 					}
-					err := c.finality.IsFinal(txid, c.peerConnectionConfig.Address)
+					err := c.finality.IsFinal(txid, c.network.PickPeer().Address)
 					if err == nil {
 						return nil
 					}
