@@ -230,7 +230,7 @@ func (c *channel) GetClientConfig(tlsRootCerts [][]byte) (*grpc.ClientConfig, st
 func (c *channel) GetTransactionByID(txID string) (driver.ProcessedTransaction, error) {
 	raw, err := c.Chaincode("qscc").NewInvocation(GetTransactionByID, c.name, txID).WithSignerIdentity(
 		c.network.LocalMembership().DefaultIdentity(),
-	).WithEndorsersByConnConfig(c.network.Peers()...).Query()
+	).WithEndorsersByConnConfig(c.network.PickPeer()).Query()
 	if err != nil {
 		return nil, err
 	}
@@ -248,7 +248,7 @@ func (c *channel) GetTransactionByID(txID string) (driver.ProcessedTransaction, 
 func (c *channel) GetBlockNumberByTxID(txID string) (uint64, error) {
 	res, err := c.Chaincode("qscc").NewInvocation(GetBlockByTxID, c.name, txID).WithSignerIdentity(
 		c.network.LocalMembership().DefaultIdentity(),
-	).WithEndorsersByConnConfig(c.network.Peers()...).Query()
+	).WithEndorsersByConnConfig(c.network.PickPeer()).Query()
 	if err != nil {
 		return 0, err
 	}

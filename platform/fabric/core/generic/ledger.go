@@ -47,7 +47,7 @@ func (c *channel) NewQueryExecutor() (driver.QueryExecutor, error) {
 func (c *channel) GetBlockByNumber(number uint64) (driver.Block, error) {
 	res, err := c.Chaincode("qscc").NewInvocation(GetBlockByNumber, c.name, number).WithSignerIdentity(
 		c.network.LocalMembership().DefaultIdentity(),
-	).WithEndorsersByConnConfig(c.network.Peers()...).Query()
+	).WithEndorsersByConnConfig(c.network.PickPeer()).Query()
 	if err != nil {
 		return nil, err
 	}

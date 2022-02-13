@@ -145,7 +145,7 @@ func (d *Discovery) send() (discovery.Response, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "failed creating request")
 	}
-	pc, err := d.chaincode.channel.NewPeerClientForAddress(*d.chaincode.network.Peers()[0])
+	pc, err := d.chaincode.channel.NewPeerClientForAddress(*d.chaincode.network.PickPeer())
 	if err != nil {
 		return nil, err
 	}

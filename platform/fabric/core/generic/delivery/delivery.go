@@ -43,7 +43,7 @@ type Vault interface {
 
 type Network interface {
 	Channel(name string) (driver.Channel, error)
-	Peers() []*grpc.ConnectionConfig
+	PickPeer() *grpc.ConnectionConfig
 	LocalMembership() driver.LocalMembership
 }
 
@@ -174,7 +174,9 @@ func (d *delivery) connect() (DeliverStream, error) {
 	// first cleanup everything
 	d.cleanup()
 
-	address := d.network.Peers()[0].Address
+	peerConnConf := d.network.PickPeer()
+
+	address := peerConnConf.Address
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("connecting to deliver service at [%s] for channel [%s]", address, d.channel)
 	}
@@ -182,7 +184,7 @@ func (d *delivery) connect() (DeliverStream, error) {
 	if err != nil {
 		return nil, errors.WithMessagef(err, "failed connecting to channel [%s]", d.channel)
 	}
-	d.client, err = ch.NewPeerClientForAddress(*d.network.Peers()[0])
+	d.client, err = ch.NewPeerClientForAddress(*peerConnConf)
 	if err != nil {
 		return nil, errors.WithMessagef(err, "failed creating peer client for address [%s]", address)
 	}

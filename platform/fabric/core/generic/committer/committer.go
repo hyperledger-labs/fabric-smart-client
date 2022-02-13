@@ -40,7 +40,7 @@ type Finality interface {
 
 type Network interface {
 	Committer(channel string) (driver.Committer, error)
-	Peers() []*grpc.ConnectionConfig
+	PickPeer() *grpc.ConnectionConfig
 	Ledger(channel string) (driver.Ledger, error)
 }
 
@@ -193,13 +193,13 @@ func (c *committer) IsFinal(txid string) error {
 					}
 					return nil
 				}
-				return c.finality.IsFinal(txid, c.network.Peers()[0].Address)
+				return c.finality.IsFinal(txid, c.network.PickPeer().Address)
 			case driver.Unknown:
 				if iter >= 2 {
 					if logger.IsEnabledFor(zapcore.DebugLevel) {
 						logger.Debugf("Tx [%s] is unknown with no deps, remote check [%d][%s]", txid, iter, debug.Stack())
 					}
-					err := c.finality.IsFinal(txid, c.network.Peers()[0].Address)
+					err := c.finality.IsFinal(txid, c.network.PickPeer().Address)
 					if err == nil {
 						return nil
 					}

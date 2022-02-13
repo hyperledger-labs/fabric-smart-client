@@ -9,6 +9,7 @@ package generic
 import (
 	"context"
 	"io/ioutil"
+	"math/rand"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -98,8 +99,16 @@ func (f *network) Orderers() []*grpc.ConnectionConfig {
 	return f.orderers
 }
 
+func (f *network) PickOrderer() *grpc.ConnectionConfig {
+	return f.orderers[rand.Intn(len(f.orderers))]
+}
+
 func (f *network) Peers() []*grpc.ConnectionConfig {
 	return f.peers
+}
+
+func (f *network) PickPeer() *grpc.ConnectionConfig {
+	return f.peers[rand.Intn(len(f.peers))]
 }
 
 func (f *network) Channel(name string) (driver.Channel, error) {
