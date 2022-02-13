@@ -8,7 +8,6 @@ package chaincode
 
 import (
 	"context"
-	"fmt"
 	peer2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
 	"github.com/hyperledger/fabric/common/util"
 	"strings"
@@ -71,10 +70,26 @@ func (d *Discovery) Call() ([]view.Identity, error) {
 	}
 
 	// extract endorsers
-	endorsers, err := response.ForChannel(d.chaincode.channel.Name()).Endorsers(
-		ccCall(d.chaincode.name),
-		&filter{d: d},
-	)
+	cr := response.ForChannel(d.chaincode.channel.Name())
+	var endorsers discovery.Endorsers
+	switch {
+	case len(d.ImplicitCollections) > 0:
+		for _, collection := range d.ImplicitCollections {
+			temp, err := cr.Endorsers(
+				ccCall(d.chaincode.name),
+				&byMSPIDs{mspIDs: []string{collection}},
+			)
+			if err != nil {
+				return nil, errors.WithMessage(err, "failed to get endorsers")
+			}
+			endorsers = append(endorsers, temp...)
+		}
+	default:
+		endorsers, err = cr.Endorsers(
+			ccCall(d.chaincode.name),
+			&byMSPIDs{mspIDs: d.FilterByMSPIDs},
+		)
+	}
 	if err != nil {
 		return nil, errors.WithMessagef(err, "failed getting endorsers for [%s]", key)
 	}
@@ -112,18 +127,18 @@ func (d *Discovery) send() (discovery.Response, error) {
 		}
 	}()
 
-	var collectionNames []string
-	if len(d.ImplicitCollections) > 0 {
-		for _, collection := range d.ImplicitCollections {
-			collectionNames = append(collectionNames, fmt.Sprintf("_implicit_org_%s", collection))
-		}
-	}
+	//var collectionNames []string
+	//if len(d.ImplicitCollections) > 0 {
+	//	for _, collection := range d.ImplicitCollections {
+	//		collectionNames = append(collectionNames, fmt.Sprintf("_implicit_org_%s", collection))
+	//	}
+	//}
 
 	req, err := discovery.NewRequest().OfChannel(d.chaincode.channel.Name()).AddEndorsersQuery(
 		&discovery2.ChaincodeInterest{Chaincodes: []*discovery2.ChaincodeCall{
 			{
-				Name:            d.chaincode.name,
-				CollectionNames: collectionNames,
+				Name: d.chaincode.name,
+				//CollectionNames: collectionNames,
 			},
 		}},
 	)
@@ -176,12 +191,12 @@ func ccCall(ccNames ...string) []*discovery2.ChaincodeCall {
 	return call
 }
 
-type filter struct {
-	d *Discovery
+type byMSPIDs struct {
+	mspIDs []string
 }
 
-func (f *filter) Filter(endorsers discovery.Endorsers) discovery.Endorsers {
-	if len(f.d.FilterByMSPIDs) == 0 {
+func (f *byMSPIDs) Filter(endorsers discovery.Endorsers) discovery.Endorsers {
+	if len(f.mspIDs) == 0 {
 		return endorsers
 	}
 
@@ -189,7 +204,7 @@ func (f *filter) Filter(endorsers discovery.Endorsers) discovery.Endorsers {
 	for _, endorser := range endorsers {
 		endorserMSPID := endorser.MSPID
 		found := false
-		for _, mspID := range f.d.FilterByMSPIDs {
+		for _, mspID := range f.mspIDs {
 			if mspID == endorserMSPID {
 				found = true
 				break
