@@ -60,6 +60,9 @@ func (e *Signer) Public() crypto.PublicKey {
 func (e *Signer) Sign(message []byte) ([]byte, error) {
 	hash := sha256.New()
 	n, err := hash.Write(message)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to write message to hash")
+	}
 	if n != len(message) {
 		return nil, errors.Errorf("hash failure")
 	}
@@ -91,7 +94,7 @@ func (d Verifier) Verify(message, sigma []byte) error {
 	signature := &Signature{}
 	_, err := asn1.Unmarshal(sigma, signature)
 	if err != nil {
-		return errors.Wrap(err, "failed unmarshaling signature")
+		return errors.Wrap(err, "failed unmarshalling signature")
 	}
 
 	lowS, err := IsLowS(d.pk, signature.S)
