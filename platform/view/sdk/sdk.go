@@ -104,14 +104,16 @@ func (p *p) Install() error {
 	endpointService, err := endpoint.NewService(p.registry, nil, defaultKVS)
 	assert.NoError(err, "failed instantiating endpoint service")
 	assert.NoError(p.registry.RegisterService(endpointService), "failed registering endpoint service")
-	resolverService, err := endpoint.NewResolverService(configProvider, view.GetEndpointService(p.registry))
-	assert.NoError(err, "failed instantiating endpoint resolver service")
-	assert.NoError(resolverService.LoadResolvers(), "failed loading resolvers")
 
 	// Set Identity Provider
 	idProvider := id.NewProvider(configProvider, signerService, endpointService)
 	assert.NoError(idProvider.Load(), "failed loading identities")
 	assert.NoError(p.registry.RegisterService(idProvider))
+
+	// Resolver service
+	resolverService, err := endpoint.NewResolverService(configProvider, view.GetEndpointService(p.registry), idProvider)
+	assert.NoError(err, "failed instantiating endpoint resolver service")
+	assert.NoError(resolverService.LoadResolvers(), "failed loading resolvers")
 
 	// View Service Server
 	marshaller, err := view2.NewResponseMarshaler(p.registry)

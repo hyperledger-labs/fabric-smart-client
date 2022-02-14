@@ -32,7 +32,7 @@ func (p *Platform) GenerateResolverMap() {
 		org := p.Organization(peer.Organization)
 
 		addresses := map[api.PortName]string{
-			ViewPort: fmt.Sprintf("127.0.0.1:%d", p.Context.PortsByPeerID("fsc", peer.ID())[ListenPort]),
+			//ViewPort: fmt.Sprintf("127.0.0.1:%d", p.Context.PortsByPeerID("fsc", peer.ID())[ListenPort]),
 			//ListenPort: fmt.Sprintf("127.0.0.1:%d", p.Context.PortsByPeerID("fsc", peer.ID())[ListenPort]),
 		}
 		if peer.Bootstrap {
