@@ -422,6 +422,14 @@ func (p *Platform) GenerateCoreConfig(peer *node2.Peer) {
 		}
 	}
 
+	var resolvers []*Resolver
+	// remove myself from the resolvers
+	for _, r := range p.Resolvers {
+		if r.Name != peer.Name {
+			resolvers = append(resolvers, r)
+		}
+	}
+
 	t, err := template.New("peer").Funcs(template.FuncMap{
 		"Peer":        func() *node2.Peer { return peer },
 		"NetworkID":   func() string { return p.NetworkID },
@@ -430,6 +438,7 @@ func (p *Platform) GenerateCoreConfig(peer *node2.Peer) {
 		"ToLower":     func(s string) string { return strings.ToLower(s) },
 		"ReplaceAll":  func(s, old, new string) string { return strings.Replace(s, old, new, -1) },
 		"NodeKVSPath": func() string { return p.NodeKVSDir(peer) },
+		"Resolvers":   func() []*Resolver { return resolvers },
 	}).Parse(node2.CoreTemplate)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(t.Execute(io.MultiWriter(core), p)).NotTo(HaveOccurred())

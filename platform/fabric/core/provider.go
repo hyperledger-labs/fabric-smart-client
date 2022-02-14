@@ -8,6 +8,7 @@ package core
 
 import (
 	"context"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/views"
 	"reflect"
 	"sync"
 
@@ -41,6 +42,9 @@ func NewFabricNetworkServiceProvider(sp view.ServiceProvider, config *Config) (*
 		sp:       sp,
 		config:   config,
 		networks: map[string]driver.FabricNetworkService{},
+	}
+	if err := provider.InstallViews(); err != nil {
+		return nil, errors.WithMessage(err, "failed to install fns provider")
 	}
 	return provider, nil
 }
@@ -113,6 +117,11 @@ func (p *fnsProvider) FabricNetworkService(network string) (driver.FabricNetwork
 		p.networks[network] = net
 	}
 	return net, nil
+}
+
+func (p *fnsProvider) InstallViews() error {
+	view.GetRegistry(p.sp).RegisterResponder(views.NewIsFinalResponderView(p), &finality.IsFinalInitiatorView{})
+	return nil
 }
 
 func (p *fnsProvider) newFNS(network string) (driver.FabricNetworkService, error) {

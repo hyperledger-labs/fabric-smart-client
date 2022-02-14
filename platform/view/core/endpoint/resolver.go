@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package endpoint
 
 import (
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
 
@@ -42,9 +43,14 @@ func (r *entry) GetIdentity() (view.Identity, error) {
 }
 
 type ConfigService interface {
+	GetString(key string) string
 	IsSet(s string) bool
 	UnmarshalKey(s string, i interface{}) error
 	TranslatePath(path string) string
+}
+
+type IdentityService interface {
+	DefaultIdentity() view.Identity
 }
 
 type Service interface {
@@ -56,13 +62,15 @@ type Service interface {
 type resolverService struct {
 	config  ConfigService
 	service Service
+	is      IdentityService
 }
 
 // NewResolverService returns a new instance of the view-sdk endpoint resolverService
-func NewResolverService(config ConfigService, service Service) (*resolverService, error) {
+func NewResolverService(config ConfigService, service Service, is IdentityService) (*resolverService, error) {
 	er := &resolverService{
 		config:  config,
 		service: service,
+		is:      is,
 	}
 	if err := service.AddPKIResolver(NewPKIResolver()); err != nil {
 		return nil, errors.Wrapf(err, "failed adding fabric pki resolver")
@@ -78,9 +86,24 @@ func (r *resolverService) LoadResolvers() error {
 		err := r.config.UnmarshalKey("fsc.endpoint.resolvers", &resolvers)
 		if err != nil {
 			logger.Errorf("failed loading resolvers [%s]", err)
-			return err
+			return errors.Wrapf(err, "failed loading resolvers")
 		}
 		logger.Infof("loaded resolvers successfully, number of entries found %d", len(resolvers))
+
+		// add default
+		_, err = r.service.AddResolver(
+			r.config.GetString("fsc.id"),
+			"",
+			map[string]string{
+				string(driver.ViewPort): r.config.GetString("fsc.address"),
+			},
+			nil,
+			r.is.DefaultIdentity(),
+		)
+		if err != nil {
+			logger.Errorf("failed adding default resolver [%s]", err)
+			return errors.Wrapf(err, "failed adding default resolver")
+		}
 
 		for _, resolver := range resolvers {
 			// Load identity

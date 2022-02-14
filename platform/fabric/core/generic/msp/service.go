@@ -314,7 +314,7 @@ func (s *service) addResolver(Name string, Type string, EnrollmentID string, Ide
 			panic(fmt.Sprintf("cannot get identity for [%s,%s,%s][%s]", Name, Type, EnrollmentID, err))
 		}
 		if err := s.binderService.Bind(s.defaultViewIdentity, id); err != nil {
-			panic(fmt.Sprintf("cannot bing identity for [%s,%s,%s][%s]", Name, Type, EnrollmentID, err))
+			panic(fmt.Sprintf("cannot bind identity for [%s,%s,%s][%s]", Name, Type, EnrollmentID, err))
 		}
 	}
 

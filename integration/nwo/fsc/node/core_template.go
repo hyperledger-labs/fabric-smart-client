@@ -112,7 +112,7 @@ fsc:
   # The endpoint section tells how to reach other FSC node in the network.
   # For each node, the name, the domain, the identity of the node, and its addresses must be specified.
   endpoint:
-    resolvers: {{ range .Resolvers }}
+    resolvers: {{ range Resolvers }}
     - name: {{ .Name }}
       domain: {{ .Domain }}
       identity:

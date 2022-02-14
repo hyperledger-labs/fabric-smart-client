@@ -295,6 +295,7 @@ func (r *service) rootEndpoint(party view.Identity) (*resolver, map[driver.PortN
 			return resolver, resolver.Addresses, nil
 		}
 	}
+
 	return nil, nil, errors.Errorf("endpoint not found for identity %s", party.UniqueID())
 }
 
