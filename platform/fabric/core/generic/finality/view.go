@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package finality
 
 import (
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/session"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
@@ -46,37 +45,4 @@ func (i *IsFinalInitiatorView) Call(context view.Context) (interface{}, error) {
 		return nil, errors.Wrapf(err, "failed to receive response from [%s]", i.recipient)
 	}
 	return nil, response.Err
-}
-
-type IsFinalResponderView struct{}
-
-func (i *IsFinalResponderView) Call(context view.Context) (interface{}, error) {
-	// receive IsFinalRequest struct
-	isFinalRequest := &IsFinalRequest{}
-	session := session.JSON(context)
-	if err := session.Receive(isFinalRequest); err != nil {
-		return nil, errors.Wrapf(err, "failed to receive request")
-	}
-
-	// check finality
-	var err error
-	network := fabric.GetFabricNetworkService(context, isFinalRequest.Network)
-	if network != nil {
-		var ch *fabric.Channel
-		ch, err = network.Channel(isFinalRequest.Channel)
-		if err == nil {
-			// TODO: Check the vault
-			err = ch.Finality().IsFinal(isFinalRequest.TxID)
-		} else {
-			err = errors.Wrapf(err, "channel %s not found", isFinalRequest.Channel)
-		}
-	} else {
-		err = errors.Errorf("network %s not found", isFinalRequest.Network)
-	}
-
-	// send back answer
-	if err := session.Send(&IsFinalResponse{Err: err}); err != nil {
-		return nil, errors.Wrapf(err, "failed to send response")
-	}
-	return nil, nil
 }

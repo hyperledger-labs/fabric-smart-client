@@ -63,6 +63,5 @@ func (f *finality) IsFinalForParties(txID string, parties ...view.Identity) erro
 			return err
 		}
 	}
-
 	return nil
 }
