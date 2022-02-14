@@ -42,6 +42,9 @@ func NewFabricNetworkServiceProvider(sp view.ServiceProvider, config *Config) (*
 		config:   config,
 		networks: map[string]driver.FabricNetworkService{},
 	}
+	if err := provider.Install(); err != nil {
+		return nil, errors.WithMessage(err, "failed to install fns provider")
+	}
 	return provider, nil
 }
 
@@ -113,6 +116,11 @@ func (p *fnsProvider) FabricNetworkService(network string) (driver.FabricNetwork
 		p.networks[network] = net
 	}
 	return net, nil
+}
+
+func (p *fnsProvider) Install() error {
+	view.GetRegistry(p.sp).RegisterResponder(&finality.IsFinalResponderView{}, &finality.IsFinalInitiatorView{})
+	return nil
 }
 
 func (p *fnsProvider) newFNS(network string) (driver.FabricNetworkService, error) {

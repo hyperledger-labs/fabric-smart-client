@@ -7,18 +7,12 @@ SPDX-License-Identifier: Apache-2.0
 package finality
 
 import (
-	"time"
-
 	"go.uber.org/zap/zapcore"
-
-	view3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/view"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -60,57 +54,8 @@ func (f *finality) IsFinalForParties(txID string, parties ...view.Identity) erro
 		logger.Debugf("Is [%s] final for parties [%v]?", txID, parties)
 	}
 
-	var err error
-	comm, err := f.network.Comm(f.channel)
-	if err != nil {
-		return err
-	}
-
 	for _, party := range parties {
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("Asking [%s] if [%s] is final...", party, txID)
-		}
-		if f.network.LocalMembership().IsMe(party) {
-			if logger.IsEnabledFor(zapcore.DebugLevel) {
-				logger.Debugf("[%s] is me, skipping.", party, txID)
-			}
-			continue
-		}
-
-		endpoints, err := view2.GetEndpointService(f.sp).Endpoint(party)
-		if err != nil {
-			return err
-		}
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("Asking [%s] resolved from [%s] if [%s] is final...", endpoints[view2.ViewPort], party, txID)
-		}
-
-		var certs [][]byte
-		if f.TLSEnabled {
-			certs, err = comm.GetTLSRootCert(party)
-			if err != nil {
-				return err
-			}
-		}
-
-		c, err := view3.NewClient(
-			&view3.Config{
-				ID: "",
-				ConnectionConfig: &grpc.ConnectionConfig{
-					Address:           endpoints[view2.ViewPort],
-					ConnectionTimeout: 300 * time.Second,
-					TLSEnabled:        f.TLSEnabled,
-					TLSRootCertBytes:  certs,
-				},
-			},
-			f.network.LocalMembership().DefaultSigningIdentity(),
-			hash.GetHasher(f.sp),
-		)
-		if err != nil {
-			logger.Errorf("Failed connecting to [%s] resolved from [%s] to as if [%s] is final...", endpoints[view2.ViewPort], party, txID)
-			return err
-		}
-		err = c.IsTxFinal(txID)
+		_, err := view2.GetManager(f.sp).InitiateView(NewIsFinalInitiatorView(f.network.Name(), f.channel, txID, party))
 		if logger.IsEnabledFor(zapcore.DebugLevel) {
 			logger.Debugf("Is [%s] final on [%s]: [%s]?", txID, party, err)
 		}

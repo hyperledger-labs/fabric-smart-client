@@ -58,9 +58,9 @@ func (n *Network) GenerateResolverMap() {
 			}
 		} else {
 			addresses = map[api.PortName]string{
-				ViewPort:   fmt.Sprintf("127.0.0.1:%d", n.Context.PortsByPeerID(n.Prefix, peer.ID())[ListenPort]),
+				//ViewPort:   fmt.Sprintf("127.0.0.1:%d", n.Context.PortsByPeerID(n.Prefix, peer.ID())[ListenPort]),
 				ListenPort: fmt.Sprintf("127.0.0.1:%d", n.Context.PortsByPeerID(n.Prefix, peer.ID())[ListenPort]),
-				P2PPort:    fmt.Sprintf("127.0.0.1:%d", n.Context.PortsByPeerID(n.Prefix, peer.ID())[P2PPort]),
+				//P2PPort:    fmt.Sprintf("127.0.0.1:%d", n.Context.PortsByPeerID(n.Prefix, peer.ID())[P2PPort]),
 			}
 			path = n.PeerLocalMSPIdentityCert(peer)
 		}
