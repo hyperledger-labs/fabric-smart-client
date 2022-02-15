@@ -56,7 +56,7 @@ var _ = Describe("EndToEnd", func() {
 			Expect(common.JSONUnmarshalInt(res)).To(BeEquivalentTo(10))
 
 			Expect(id).NotTo(BeNil())
-			_, err = ii.Client("borrower").CallView(
+			txIDBoxed, err := ii.Client("borrower").CallView(
 				"update", common.JSONMarshall(&views.Update{
 					LinearID: id,
 					Amount:   5,
@@ -64,6 +64,8 @@ var _ = Describe("EndToEnd", func() {
 				}),
 			)
 			Expect(err).NotTo(HaveOccurred())
+			txID := common.JSONUnmarshalString(txIDBoxed)
+			Expect(ii.Client("lender").IsTxFinal(txID)).NotTo(HaveOccurred())
 
 			res, err = ii.Client("borrower").CallView("query", common.JSONMarshall(&views.Query{LinearID: id}))
 			Expect(err).NotTo(HaveOccurred())
