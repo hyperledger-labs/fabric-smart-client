@@ -111,7 +111,7 @@ func (p *Platform) initUsers(session bcdb.DBSession) {
 
 			txID, receipt, err := usersTx.Commit(true)
 			Expect(err).ToNot(HaveOccurred())
-			logger.Infof("transaction to provision user record has been committed, user-ID: %s, txID = %s, block = %i, txIdx = %i", role, txID, receipt.GetHeader().GetBaseHeader().GetNumber(), receipt.GetTxIndex())
+			logger.Infof("transaction to provision user record has been committed, user-ID: %s, txID = %s, block = %i, txIdx = %i", role, txID, receipt.GetResponse().GetReceipt().GetHeader().GetBaseHeader().GetNumber(), receipt.GetResponse().GetReceipt().GetTxIndex())
 		}
 	}
 }

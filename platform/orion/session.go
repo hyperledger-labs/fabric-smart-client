@@ -24,7 +24,7 @@ func (d *Transaction) Get(db string, key string) ([]byte, *types.Metadata, error
 	return d.dataTx.Get(db, key)
 }
 
-func (d *Transaction) Commit(b bool) (string, *types.TxReceipt, error) {
+func (d *Transaction) Commit(b bool) (string, *types.TxReceiptResponseEnvelope, error) {
 	return d.dataTx.Commit(b)
 }
 
