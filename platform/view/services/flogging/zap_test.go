@@ -308,7 +308,7 @@ func TestGRPCLogger(t *testing.T) {
 	gl := flogging.NewGRPCLogger(zl)
 
 	callWrapper(gl, "message")
-	assert.Equal(t, "grpc DEBUG TestGRPCLogger message\n", buf.String())
+	assert.Equal(t, "grpc DEBUG callWrapper message\n", buf.String())
 }
 
 // FAB-15432

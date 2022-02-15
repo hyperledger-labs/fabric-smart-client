@@ -31,8 +31,8 @@ require (
 	github.com/google/go-cmp v0.5.5
 	github.com/gorilla/mux v1.8.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.2.0
-	github.com/hyperledger-labs/orion-sdk-go v0.0.0-20211031122748-71e8c92308b2
-	github.com/hyperledger-labs/orion-server v0.1.1-0.20211020140144-04f19b212c84
+	github.com/hyperledger-labs/orion-sdk-go v0.0.0-20220213082028-b0ee3d8f361c
+	github.com/hyperledger-labs/orion-server v0.2.1
 	github.com/hyperledger-labs/weaver-dlt-interoperability/common/protos-go v1.2.3-alpha.1
 	github.com/hyperledger-labs/weaver-dlt-interoperability/sdks/fabric/go-sdk v1.2.3-alpha.1.0.20210812140206-37f430515b8c
 	github.com/hyperledger/fabric v1.4.0-rc1.0.20220128025611-fad7f691a967

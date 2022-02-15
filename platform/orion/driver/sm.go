@@ -13,7 +13,7 @@ import (
 type DataTx interface {
 	Put(db string, key string, bytes []byte, a *types.AccessControl) error
 	Get(db string, key string) ([]byte, *types.Metadata, error)
-	Commit(b bool) (string, *types.TxReceipt, error)
+	Commit(b bool) (string, *types.TxReceiptResponseEnvelope, error)
 }
 
 type Session interface {

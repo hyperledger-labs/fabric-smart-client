@@ -38,7 +38,7 @@ func (d *DataTx) Get(db string, key string) ([]byte, *types.Metadata, error) {
 	return r, m, nil
 }
 
-func (d *DataTx) Commit(b bool) (string, *types.TxReceipt, error) {
+func (d *DataTx) Commit(b bool) (string, *types.TxReceiptResponseEnvelope, error) {
 	return d.dataTx.Commit(b)
 }
 

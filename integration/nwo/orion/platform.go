@@ -438,7 +438,7 @@ func (p *Platform) writeConfigFile() {
 		},
 	}
 	bootstrap := &config.SharedConfiguration{
-		Nodes: []config.NodeConf{
+		Nodes: []*config.NodeConf{
 			{
 				NodeID:          "bdb-node-1",
 				Host:            "0.0.0.0",
