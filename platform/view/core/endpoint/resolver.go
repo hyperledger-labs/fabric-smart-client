@@ -79,6 +79,21 @@ func NewResolverService(config ConfigService, service Service, is IdentityServic
 }
 
 func (r *resolverService) LoadResolvers() error {
+	// add default
+	_, err := r.service.AddResolver(
+		r.config.GetString("fsc.id"),
+		"",
+		map[string]string{
+			string(driver.ViewPort): r.config.GetString("fsc.address"),
+		},
+		nil,
+		r.is.DefaultIdentity(),
+	)
+	if err != nil {
+		logger.Errorf("failed adding default resolver [%s]", err)
+		return errors.Wrapf(err, "failed adding default resolver")
+	}
+
 	// Load entry
 	if r.config.IsSet("fsc.endpoint.resolvers") {
 		logger.Infof("loading resolvers")
@@ -89,21 +104,6 @@ func (r *resolverService) LoadResolvers() error {
 			return errors.Wrapf(err, "failed loading resolvers")
 		}
 		logger.Infof("loaded resolvers successfully, number of entries found %d", len(resolvers))
-
-		// add default
-		_, err = r.service.AddResolver(
-			r.config.GetString("fsc.id"),
-			"",
-			map[string]string{
-				string(driver.ViewPort): r.config.GetString("fsc.address"),
-			},
-			nil,
-			r.is.DefaultIdentity(),
-		)
-		if err != nil {
-			logger.Errorf("failed adding default resolver [%s]", err)
-			return errors.Wrapf(err, "failed adding default resolver")
-		}
 
 		for _, resolver := range resolvers {
 			// Load identity

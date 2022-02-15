@@ -11,8 +11,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/fpc/externalbuilders"
+	"io/ioutil"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -64,18 +65,7 @@ func (n *Extension) CheckTopology() {
 		return
 	}
 
-	// Define External Builder
-	// Using `go list -m -f '{{ if .Main }}{{.GoMod}}{{ end }}' all` may try to
-	// generate a go.mod when a vendor tool is in use. To avoid that behavior
-	// we use `go env GOMOD` followed by an existence check.
-	cmd := exec.Command("go", "env", "GOMOD")
-	cmd.Env = append(os.Environ(), "GO111MODULE=on")
-	moduleRoot, err := cmd.Output()
-	Expect(err).ToNot(HaveOccurred())
-	moduleRootDir := filepath.Dir(string(moduleRoot))
-	index := strings.Index(moduleRootDir, "github.")
-	path := moduleRootDir[:index] + "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/fpc/externalbuilders/chaincode_server"
-
+	path := n.prepareExternalBuilderScripts()
 	n.network.ExternalBuilders = append(n.network.ExternalBuilders, fabricconfig.ExternalBuilder{
 		Path:                 path,
 		Name:                 "fpc-external-launcher",
@@ -353,4 +343,25 @@ func (n *Extension) reservePorts(chaincode *topology.ChannelChaincode) {
 		ports = append(ports, n.network.Context.ReservePort())
 	}
 	n.ports[chaincode.Chaincode.Name] = ports
+}
+
+func (n *Extension) externalBuilderPath() string {
+	return filepath.Join(n.network.Context.RootDir(), n.network.Prefix, "fpc", "externalbuilders", "chaincode_server")
+}
+
+func (n *Extension) prepareExternalBuilderScripts() string {
+	path := n.externalBuilderPath()
+	Expect(os.MkdirAll(filepath.Join(path, "bin"), 0777)).NotTo(HaveOccurred())
+
+	// Store External Builder scripts to file
+	for _, script := range []struct{ name, content string }{
+		{"build", externalbuilders.Build},
+		{"detect", externalbuilders.Detect},
+		{"release", externalbuilders.Release},
+	} {
+		scriptPath := filepath.Join(path, "bin", script.name)
+		Expect(ioutil.WriteFile(scriptPath, []byte(script.content), 0777)).NotTo(HaveOccurred())
+	}
+
+	return path
 }
