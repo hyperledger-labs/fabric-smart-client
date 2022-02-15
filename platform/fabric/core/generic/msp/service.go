@@ -167,6 +167,9 @@ func (s *service) DefaultSigningIdentity() api2.SigningIdentity {
 }
 
 func (s *service) GetIdentityInfoByLabel(mspType string, label string) *api2.IdentityInfo {
+	s.resolversMutex.RLock()
+	defer s.resolversMutex.RUnlock()
+
 	logger.Debugf("get identity info by label [%s:%s]", mspType, label)
 	r, ok := s.resolversByTypeAndName[mspType+label]
 	if !ok {
