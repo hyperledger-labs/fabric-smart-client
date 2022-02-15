@@ -23,15 +23,17 @@ func (t *Topology) EnableFPC() {
 	t.AddFPC("ercc", "fpc/ercc")
 }
 
-// AddFPC adds the Fabric Private Chaincode with the passed name and image.
+// AddFPCAtOrgs adds the Fabric Private Chaincode with the passed name, image, and organizations
 // If no orgs are specified, then the Fabric Private Chaincode is installed on all organizations
 // registered so far.
 // The endorsement policy is set to the majority of the organization on which the chaincode
 // has been installed.
-func (t *Topology) AddFPC(name, image string, options ...func(*ChannelChaincode)) *ChannelChaincode {
+func (t *Topology) AddFPCAtOrgs(name, image string, orgs []string, options ...func(*ChannelChaincode)) *ChannelChaincode {
 	t.EnableFPC()
 
-	orgs := t.Consortiums[0].Organizations
+	if len(orgs) == 0 {
+		orgs = t.Consortiums[0].Organizations
+	}
 	majority := len(orgs)/2 + 1
 	policy := "OutOf(" + strconv.Itoa(majority) + ","
 	for i, org := range orgs {
@@ -82,6 +84,14 @@ func (t *Topology) AddFPC(name, image string, options ...func(*ChannelChaincode)
 	t.AddChaincode(cc)
 
 	return cc
+}
+
+// AddFPC adds the Fabric Private Chaincode with the passed name and image.
+// The Fabric Private Chaincode is installed on all organizations registered so far.
+// The endorsement policy is set to the majority of the organization on which the chaincode
+// has been installed.
+func (t *Topology) AddFPC(name, image string, options ...func(*ChannelChaincode)) *ChannelChaincode {
+	return t.AddFPCAtOrgs(name, image, nil, options...)
 }
 
 func WithSGXMode(mode string) func(*ChannelChaincode) {
