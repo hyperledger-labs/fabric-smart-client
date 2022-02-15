@@ -91,7 +91,7 @@ func (t *Topology) AddFPCAtOrgs(name, image string, orgs []string, options ...fu
 // The endorsement policy is set to the majority of the organization on which the chaincode
 // has been installed.
 func (t *Topology) AddFPC(name, image string, options ...func(*ChannelChaincode)) *ChannelChaincode {
-	t.AddFPCAtOrgs(name, image, nil, options...)
+	return t.AddFPCAtOrgs(name, image, nil, options...)
 }
 
 func WithSGXMode(mode string) func(*ChannelChaincode) {
