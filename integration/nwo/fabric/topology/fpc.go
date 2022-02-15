@@ -28,12 +28,10 @@ func (t *Topology) EnableFPC() {
 // registered so far.
 // The endorsement policy is set to the majority of the organization on which the chaincode
 // has been installed.
-func (t *Topology) AddFPC(name, image string, orgs ...string) *ChannelChaincode {
+func (t *Topology) AddFPC(name, image string, options ...func(*ChannelChaincode)) *ChannelChaincode {
 	t.EnableFPC()
 
-	if len(orgs) == 0 {
-		orgs = t.Consortiums[0].Organizations
-	}
+	orgs := t.Consortiums[0].Organizations
 	majority := len(orgs)/2 + 1
 	policy := "OutOf(" + strconv.Itoa(majority) + ","
 	for i, org := range orgs {
@@ -68,13 +66,38 @@ func (t *Topology) AddFPC(name, image string, orgs ...string) *ChannelChaincode 
 			SignaturePolicy: policy,
 		},
 		PrivateChaincode: PrivateChaincode{
-			Image: image,
+			Image:   image,
+			SGXMode: "sim",
 		},
 		Channel: t.Channels[0].Name,
 		Private: true,
 		Peers:   peers,
 	}
+
+	// apply options
+	for _, o := range options {
+		o(cc)
+	}
+
 	t.AddChaincode(cc)
 
 	return cc
+}
+
+func WithSGXMode(mode string) func(*ChannelChaincode) {
+	return func(cc *ChannelChaincode) {
+		cc.PrivateChaincode.SGXMode = mode
+	}
+}
+
+func WithSGXDevicePath(path string) func(*ChannelChaincode) {
+	return func(cc *ChannelChaincode) {
+		cc.PrivateChaincode.SGXDevicePath = path
+	}
+}
+
+func WithMREnclave(mrenclave string) func(*ChannelChaincode) {
+	return func(cc *ChannelChaincode) {
+		cc.Chaincode.Version = mrenclave
+	}
 }

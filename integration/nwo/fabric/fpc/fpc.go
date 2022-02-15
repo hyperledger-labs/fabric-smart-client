@@ -11,7 +11,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/fpc/externalbuilders"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -19,19 +18,21 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/fpc/externalbuilders"
+	"github.com/pkg/errors"
+
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
-	"github.com/hyperledger/fabric-private-chaincode/client_sdk/go/pkg/core/lifecycle"
-	. "github.com/onsi/gomega"
-
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/fabricconfig"
 	nnetwork "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/network"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/packager"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	"github.com/hyperledger/fabric-private-chaincode/client_sdk/go/pkg/core/lifecycle"
+	. "github.com/onsi/gomega"
 )
 
 var logger = flogging.MustGetLogger("integration.nwo.fabric.fpc")
@@ -194,6 +195,30 @@ func (n *Extension) runDockerContainers(chaincode *topology.ChannelChaincode, pa
 		panic(err)
 	}
 
+	var mounts []mount.Mount
+	var devices []container.DeviceMapping
+
+	sgxMode := strings.ToUpper(chaincode.PrivateChaincode.SGXMode)
+	err = validateSGXMode(sgxMode)
+	Expect(err).ToNot(HaveOccurred())
+
+	if sgxMode == SGX_MODE_HW {
+		mounts = append(mounts, mount.Mount{
+			Type:   mount.TypeBind,
+			Source: "/var/run/aesmd",
+			Target: "/var/run/aesmd",
+		})
+
+		err := validateSGXDevicePath(chaincode.PrivateChaincode.SGXDevicePath)
+		Expect(err).ToNot(HaveOccurred())
+
+		devices = append(devices, container.DeviceMapping{
+			PathOnHost:        chaincode.PrivateChaincode.SGXDevicePath,
+			PathInContainer:   chaincode.PrivateChaincode.SGXDevicePath,
+			CgroupPermissions: "rwm",
+		})
+	}
+
 	peers := n.network.PeersByName(chaincode.Peers)
 	for i, peer := range peers {
 		port := strconv.Itoa(int(n.ports[chaincode.Chaincode.Name][i]))
@@ -209,27 +234,15 @@ func (n *Extension) runDockerContainers(chaincode *topology.ChannelChaincode, pa
 				"CHAINCODE_SERVER_ADDRESS=0.0.0.0:" + port,
 				"CHAINCODE_PKG_ID=" + packageIDs[i],
 				"FABRIC_LOGGING_SPEC=debug",
-				"SGX_MODE=SIM",
+				fmt.Sprintf("SGX_MODE=%s", sgxMode),
 			},
 			ExposedPorts: nat.PortSet{
 				nat.Port(port + "/tcp"): struct{}{},
 			},
 		}, &container.HostConfig{
-			Mounts: []mount.Mount{
-				{
-					Type: mount.TypeBind,
-					// Absolute path to
-					Source: "/dev/null",
-					Target: "/dev/null",
-				},
-			}, Resources: container.Resources{
-				Devices: []container.DeviceMapping{
-					{
-						PathOnHost:        "/dev/null",
-						PathInContainer:   "/dev/null",
-						CgroupPermissions: "rwm",
-					},
-				},
+			Mounts: mounts,
+			Resources: container.Resources{
+				Devices: devices,
 			},
 			PortBindings: nat.PortMap{
 				nat.Port(port + "/tcp"): []nat.PortBinding{
@@ -263,6 +276,25 @@ func (n *Extension) runDockerContainers(chaincode *topology.ChannelChaincode, pa
 			}
 		}()
 	}
+}
+
+const (
+	SGX_MODE_HW  = "HW"
+	SGX_MODE_SIM = "SIM"
+)
+
+func validateSGXMode(mode string) error {
+	if strings.ToUpper(mode) == SGX_MODE_HW || strings.ToUpper(mode) == SGX_MODE_SIM {
+		return nil
+	}
+	return fmt.Errorf("invalid SGX Mode = %s", mode)
+}
+
+func validateSGXDevicePath(path string) error {
+	if _, err := os.Stat(path); err != nil {
+		return errors.Wrapf(err, "invalid SGX device path = %s", path)
+	}
+	return nil
 }
 
 func (n *Extension) initEnclave(chaincode *topology.ChannelChaincode) {
