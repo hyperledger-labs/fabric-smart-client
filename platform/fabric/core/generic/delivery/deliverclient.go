@@ -239,7 +239,7 @@ func DeliverWaitForResponse(ctx context.Context, eventCh <-chan TxEvent, txid st
 		// should never get here
 		return false, 0, 0, errors.Errorf("no event received for txid %s", txid)
 	case <-ctx.Done():
-		return false, 0, 0, errors.Errorf("timed out waiting for committing txid %s", txid)
+		return false, 0, 0, errors.Errorf("timed out waiting for committing txid [%s]", txid)
 	}
 }
 

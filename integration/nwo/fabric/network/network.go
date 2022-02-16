@@ -119,38 +119,6 @@ func New(reg api.Context, topology *topology.Topology, dockerClient *docker.Clie
 	return network
 }
 
-func LocalIP(dockerClient *docker.Client, networkID string) string {
-	ni, err := dockerClient.NetworkInfo(networkID)
-	Expect(err).NotTo(HaveOccurred())
-
-	Expect(ni.IPAM.Config).To(HaveLen(1))
-	var config docker.IPAMConfig
-	for _, cfg := range ni.IPAM.Config {
-		config = cfg
-		break
-	}
-
-	dockerPrefix := config.Subnet[:strings.Index(config.Subnet, ".0")]
-
-	ifaces, err := net.Interfaces()
-	Expect(err).NotTo(HaveOccurred())
-
-	for _, i := range ifaces {
-		addrs, err := i.Addrs()
-		Expect(err).NotTo(HaveOccurred())
-
-		for _, addr := range addrs {
-			if strings.Index(addr.String(), dockerPrefix) == 0 {
-				ipWithSubnet := addr.String()
-				i := strings.Index(ipWithSubnet, "/")
-				return ipWithSubnet[:i]
-			}
-		}
-	}
-
-	return "127.0.0.1"
-}
-
 func (n *Network) GenerateConfigTree() {
 	n.CheckTopology()
 	n.GenerateCryptoConfig()
@@ -283,18 +251,32 @@ func (n *Network) Cleanup() {
 	}
 	Expect(err).NotTo(HaveOccurred())
 
-	err = n.DockerClient.RemoveNetwork(nw.ID)
-	Expect(err).NotTo(HaveOccurred())
-
 	containers, err := n.DockerClient.ListContainers(docker.ListContainersOptions{All: true})
 	Expect(err).NotTo(HaveOccurred())
 	for _, c := range containers {
 		for _, name := range c.Names {
 			if strings.HasPrefix(name, "/"+n.NetworkID) {
+				logger.Infof("cleanup container [%s]", name)
 				err := n.DockerClient.RemoveContainer(docker.RemoveContainerOptions{ID: c.ID, Force: true})
 				Expect(err).NotTo(HaveOccurred())
 				break
+			} else {
+				logger.Infof("cleanup container [%s], skipped", name)
 			}
+		}
+	}
+
+	volumes, err := n.DockerClient.ListVolumes(docker.ListVolumesOptions{})
+	Expect(err).NotTo(HaveOccurred())
+	for _, i := range volumes {
+		if strings.HasPrefix(i.Name, n.NetworkID) {
+			logger.Infof("cleanup volume [%s]", i.Name)
+			err := n.DockerClient.RemoveVolumeWithOptions(docker.RemoveVolumeOptions{
+				Name:  i.Name,
+				Force: false,
+			})
+			Expect(err).NotTo(HaveOccurred())
+			break
 		}
 	}
 
@@ -303,12 +285,17 @@ func (n *Network) Cleanup() {
 	for _, i := range images {
 		for _, tag := range i.RepoTags {
 			if strings.HasPrefix(tag, n.NetworkID) {
+				logger.Infof("cleanup image [%s]", tag)
 				err := n.DockerClient.RemoveImage(i.ID)
 				Expect(err).NotTo(HaveOccurred())
 				break
 			}
 		}
 	}
+
+	err = n.DockerClient.RemoveNetwork(nw.ID)
+	Expect(err).NotTo(HaveOccurred())
+
 }
 
 func (n *Network) DeployChaincode(chaincode *topology.ChannelChaincode) {
@@ -341,4 +328,36 @@ func (n *Network) DeployChaincode(chaincode *topology.ChannelChaincode) {
 
 func (n *Network) AddExtension(ex Extension) {
 	n.Extensions = append(n.Extensions, ex)
+}
+
+func LocalIP(dockerClient *docker.Client, networkID string) string {
+	ni, err := dockerClient.NetworkInfo(networkID)
+	Expect(err).NotTo(HaveOccurred())
+
+	Expect(ni.IPAM.Config).To(HaveLen(1))
+	var config docker.IPAMConfig
+	for _, cfg := range ni.IPAM.Config {
+		config = cfg
+		break
+	}
+
+	dockerPrefix := config.Subnet[:strings.Index(config.Subnet, ".0")]
+
+	ifaces, err := net.Interfaces()
+	Expect(err).NotTo(HaveOccurred())
+
+	for _, i := range ifaces {
+		addrs, err := i.Addrs()
+		Expect(err).NotTo(HaveOccurred())
+
+		for _, addr := range addrs {
+			if strings.Index(addr.String(), dockerPrefix) == 0 {
+				ipWithSubnet := addr.String()
+				i := strings.Index(ipWithSubnet, "/")
+				return ipWithSubnet[:i]
+			}
+		}
+	}
+
+	return "127.0.0.1"
 }

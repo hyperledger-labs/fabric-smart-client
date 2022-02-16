@@ -191,9 +191,7 @@ func (n *Extension) packagePath(suffix string) string {
 func (n *Extension) runDockerContainers(chaincode *topology.ChannelChaincode, packageIDs []string) {
 	ctx := context.Background()
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-	if err != nil {
-		panic(err)
-	}
+	Expect(err).ToNot(HaveOccurred())
 
 	var mounts []mount.Mount
 	var devices []container.DeviceMapping

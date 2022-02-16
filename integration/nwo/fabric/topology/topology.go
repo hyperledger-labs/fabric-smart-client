@@ -15,32 +15,34 @@ import (
 // Topology holds the basic information needed to generate
 // fabric configuration files.
 type Topology struct {
-	TopologyName      string              `yaml:"name,omitempty"`
-	TopologyType      string              `yaml:"type,omitempty"`
-	Default           bool                `yaml:"default,omitempty"`
-	Logging           *Logging            `yaml:"logging,omitempty"`
-	Organizations     []*Organization     `yaml:"organizations,omitempty"`
-	Peers             []*Peer             `yaml:"peers,omitempty"`
-	Consortiums       []*Consortium       `yaml:"consortiums,omitempty"`
-	SystemChannel     *SystemChannel      `yaml:"system_channel,omitempty"`
-	Channels          []*Channel          `yaml:"channels,omitempty"`
-	Consensus         *Consensus          `yaml:"consensus,omitempty"`
-	Orderers          []*Orderer          `yaml:"orderers,omitempty"`
-	Profiles          []*Profile          `yaml:"profiles,omitempty"`
-	Templates         *Templates          `yaml:"templates,omitempty"`
-	Chaincodes        []*ChannelChaincode `yaml:"chaincodes,omitempty"`
-	PvtTxSupport      bool                `yaml:"pvttxsupport,omitempty"`
-	PvtTxCCSupport    bool                `yaml:"pvttxccsupport,omitempty"`
-	MSPvtTxSupport    bool                `yaml:"mspvttxsupport,omitempty"`
-	MSPvtCCSupport    bool                `yaml:"mspvtccsupport,omitempty"`
-	FabTokenSupport   bool                `yaml:"fabtokensupport,omitempty"`
-	FabTokenCCSupport bool                `yaml:"fabtokenccsupport,omitempty"`
-	GRPCLogging       bool                `yaml:"grpcLogging,omitempty"`
-	NodeOUs           bool                `yaml:"nodeous,omitempty"`
-	FPC               bool                `yaml:"fpc,omitempty"`
-	Weaver            bool                `yaml:"weaver,omitempty"`
-	LogPeersToFile    bool                `yaml:"logPeersToFile,omitempty"`
-	LogOrderersToFile bool                `yaml:"logOrderersToFile,omitempty"`
+	TopologyName        string              `yaml:"name,omitempty"`
+	TopologyType        string              `yaml:"type,omitempty"`
+	Default             bool                `yaml:"default,omitempty"`
+	Logging             *Logging            `yaml:"logging,omitempty"`
+	Organizations       []*Organization     `yaml:"organizations,omitempty"`
+	Peers               []*Peer             `yaml:"peers,omitempty"`
+	Consortiums         []*Consortium       `yaml:"consortiums,omitempty"`
+	SystemChannel       *SystemChannel      `yaml:"system_channel,omitempty"`
+	Channels            []*Channel          `yaml:"channels,omitempty"`
+	Consensus           *Consensus          `yaml:"consensus,omitempty"`
+	Orderers            []*Orderer          `yaml:"orderers,omitempty"`
+	Profiles            []*Profile          `yaml:"profiles,omitempty"`
+	Templates           *Templates          `yaml:"templates,omitempty"`
+	Chaincodes          []*ChannelChaincode `yaml:"chaincodes,omitempty"`
+	PvtTxSupport        bool                `yaml:"pvttxsupport,omitempty"`
+	PvtTxCCSupport      bool                `yaml:"pvttxccsupport,omitempty"`
+	MSPvtTxSupport      bool                `yaml:"mspvttxsupport,omitempty"`
+	MSPvtCCSupport      bool                `yaml:"mspvtccsupport,omitempty"`
+	FabTokenSupport     bool                `yaml:"fabtokensupport,omitempty"`
+	FabTokenCCSupport   bool                `yaml:"fabtokenccsupport,omitempty"`
+	GRPCLogging         bool                `yaml:"grpcLogging,omitempty"`
+	NodeOUs             bool                `yaml:"nodeous,omitempty"`
+	FPC                 bool                `yaml:"fpc,omitempty"`
+	Weaver              bool                `yaml:"weaver,omitempty"`
+	LogPeersToFile      bool                `yaml:"logPeersToFile,omitempty"`
+	LogOrderersToFile   bool                `yaml:"logOrderersToFile,omitempty"`
+	HyperledgerExplorer bool                `yaml:"hyperledgerexplorer,omitempty"`
+	Monitoring          bool                `yaml:"monitoring,omitempty"`
 }
 
 func (t *Topology) Name() string {
@@ -342,6 +344,18 @@ func (t *Topology) SetNamespaceApproverOrgsOR(orgs ...string) {
 	}
 }
 
+func (t *Topology) EnableHyperledgerExplorer() {
+	t.HyperledgerExplorer = true
+}
+
+func (t *Topology) EnableMonitoring() {
+	t.Monitoring = true
+}
+
 func (t *Topology) EnableLogPeersToFile() {
 	t.LogPeersToFile = true
+}
+
+func (t *Topology) EnableLogOrderersToFile() {
+	t.LogOrderersToFile = true
 }

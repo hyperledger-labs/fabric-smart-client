@@ -56,6 +56,13 @@ fpc-docker-images:
 	docker pull ghcr.io/mbrandenburger/fpc/fpc-echo:main
 	docker image tag ghcr.io/mbrandenburger/fpc/fpc-echo:main fpc/fpc-echo:latest
 
+.PHONY: monitoring-docker-images
+monitoring-docker-images:
+	docker pull hyperledger/explorer-db:latest
+	docker pull hyperledger/explorer:latest
+	docker pull prom/prometheus:latest
+	docker pull grafana/grafana:latest
+
 .PHONY: dependencies
 dependencies:
 	go get -u github.com/onsi/ginkgo/ginkgo
@@ -117,9 +124,11 @@ clean:
 	docker network prune -f
 	docker container prune -f
 	rm -rf ./build
+	rm -rf ./testdata
 	rm -rf ./integration/fabric/atsa/chaincode/cmd
 	rm -rf ./integration/fabric/atsa/fsc/cmd
 	rm -rf ./integration/fabric/iou/cmd/
+	rm -rf ./integration/fabric/iou/testdata/
 	rm -rf ./integration/fabric/twonets/cmd
 	rm -rf ./integration/fabric/weaver/relay/cmd
 	rm -rf ./integration/fabric/fpc/echo/cmd

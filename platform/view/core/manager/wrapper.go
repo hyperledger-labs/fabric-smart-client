@@ -64,6 +64,10 @@ func (w *childContext) Session() view.Session {
 	return w.session
 }
 
+func (w *childContext) ResetSessions() error {
+	return w.ParentContext.ResetSessions()
+}
+
 func (w *childContext) Initiator() view.View {
 	if w.initiator == nil {
 		return w.ParentContext.Initiator()
