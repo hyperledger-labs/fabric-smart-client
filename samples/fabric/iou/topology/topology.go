@@ -23,8 +23,9 @@ func Topology() []api.Topology {
 	fabricTopology.AddNamespaceWithUnanimity("iou", "Org1")
 	fabricTopology.EnableGRPCLogging()
 	fabricTopology.EnableLogPeersToFile()
-	fabricTopology.SetLogging("debug", "")
-	//fabricTopology.EnableMonitoring()
+	fabricTopology.EnableLogOrderersToFile()
+	fabricTopology.SetLogging("info", "")
+	fabricTopology.EnableMonitoring()
 	fabricTopology.EnableHyperledgerExplorer()
 
 	// Define an FSC topology with 3 FCS nodes.

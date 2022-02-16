@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package monitoring
 
 import (
+	"bufio"
 	"context"
 	"io/ioutil"
 	"os"
@@ -161,6 +162,8 @@ func (n *Extension) dockerPrometheus() {
 	net, err := n.network.DockerClient.NetworkInfo(n.network.NetworkID)
 	Expect(err).ToNot(HaveOccurred())
 
+	containerName := n.network.NetworkID + "-prometheus-" + n.network.Topology().Name()
+
 	port := "9090"
 	resp, err := cli.ContainerCreate(ctx, &container.Config{
 		Hostname: "prometheus",
@@ -192,7 +195,7 @@ func (n *Extension) dockerPrometheus() {
 				NetworkID: net.ID,
 			},
 		},
-	}, nil, "prometheus",
+	}, nil, containerName,
 	)
 	Expect(err).ToNot(HaveOccurred())
 
@@ -202,6 +205,24 @@ func (n *Extension) dockerPrometheus() {
 	Expect(err).ToNot(HaveOccurred())
 
 	Expect(cli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{})).ToNot(HaveOccurred())
+
+	dockerLogger := flogging.MustGetLogger("prometheus.container." + n.network.Topology().TopologyName)
+	go func() {
+		reader, err := cli.ContainerLogs(context.Background(), resp.ID, types.ContainerLogsOptions{
+			ShowStdout: true,
+			ShowStderr: true,
+			Follow:     true,
+			Timestamps: false,
+		})
+		Expect(err).ToNot(HaveOccurred())
+		defer reader.Close()
+
+		scanner := bufio.NewScanner(reader)
+		for scanner.Scan() {
+			dockerLogger.Infof("%s", scanner.Text())
+		}
+	}()
+
 }
 
 func (n *Extension) dockerGrafana() {
@@ -211,6 +232,8 @@ func (n *Extension) dockerGrafana() {
 
 	net, err := n.network.DockerClient.NetworkInfo(n.network.NetworkID)
 	Expect(err).ToNot(HaveOccurred())
+
+	containerName := n.network.NetworkID + "-grafana-" + n.network.Topology().Name()
 
 	port := "3000"
 	resp, err := cli.ContainerCreate(ctx, &container.Config{
@@ -225,7 +248,7 @@ func (n *Extension) dockerGrafana() {
 			nat.Port(port + "/tcp"): struct{}{},
 		},
 	}, &container.HostConfig{
-		Links: []string{"prometheus"},
+		Links: []string{n.network.NetworkID + "-prometheus-" + n.network.Topology().Name()},
 		Mounts: []mount.Mount{
 			{
 				Type:   mount.TypeBind,
@@ -253,7 +276,7 @@ func (n *Extension) dockerGrafana() {
 					NetworkID: net.ID,
 				},
 			},
-		}, nil, "grafana",
+		}, nil, containerName,
 	)
 	Expect(err).ToNot(HaveOccurred())
 
@@ -264,6 +287,23 @@ func (n *Extension) dockerGrafana() {
 
 	Expect(cli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{})).ToNot(HaveOccurred())
 	time.Sleep(3 * time.Second)
+
+	dockerLogger := flogging.MustGetLogger("grafana.container." + n.network.Topology().TopologyName)
+	go func() {
+		reader, err := cli.ContainerLogs(context.Background(), resp.ID, types.ContainerLogsOptions{
+			ShowStdout: true,
+			ShowStderr: true,
+			Follow:     true,
+			Timestamps: false,
+		})
+		Expect(err).ToNot(HaveOccurred())
+		defer reader.Close()
+
+		scanner := bufio.NewScanner(reader)
+		for scanner.Scan() {
+			dockerLogger.Infof("%s", scanner.Text())
+		}
+	}()
 }
 
 func (n *Extension) configFileDir() string {

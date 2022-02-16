@@ -613,3 +613,48 @@ For the approver, we update the validation code for the `update` command in `App
 
 Now, we can just restart the networks, the Fabric Smart Client nodes will be rebuilt and the new behaviour available.
 You can test by yourself.
+
+### Hyperledger Explorer 
+
+[Hyperledger Explorer](https://github.com/hyperledger/blockchain-explorer) is a user-friendly Web application tool used to view, invoke, deploy or query blocks, transactions 
+and associated data, network information (name, status, list of nodes), chaincodes and transaction families, as 
+well as any other relevant information stored in the ledger.
+
+You can enable it by adding to your Fabric topology the following:
+
+```go
+    fabricTopology.EnableHyperledgerExplorer()
+```
+
+To use it, make sure you have all the required docker images. 
+To pull them, just run `make monitoring-docker-images` from the FSC root folder. 
+
+Last but not least, you need to stop your networks, if they are running, cleanup and start again from scratch. 
+(In the future, this cleanup step will not be needed).
+
+If everything is working fine, you can access the explorer at the following URL: [127.0.0.1:8080](http://127.0.0.1:8080) 
+
+### Monitoring with Prometheus and Grafana
+
+[Prometheus](https://prometheus.io/) is a free software application used for event monitoring and alerting. 
+It records real-time metrics in a time series database built using a HTTP pull model, 
+with flexible queries and real-time alerting, [Wikipedia](https://en.wikipedia.org/wiki/Prometheus_(software)).
+
+[Grafana](https://grafana.com/) is a multi-platform open source analytics and interactive visualization web application. 
+It provides charts, graphs, and alerts for the web when connected to supported data sources, [Wikipedia](https://en.wikipedia.org/wiki/Grafana).
+
+You can enable them and start monitoring your networks by adding to your Fabric topology the following:
+
+```go
+    fabricTopology.EnableMonitoring()
+```
+
+To use it, make sure you have all the required docker images.
+To pull them, just run `make monitoring-docker-images` from the FSC root folder.
+
+Last but not least, you need to stop your networks, if they are running, cleanup and start again from scratch.
+(In the future, this cleanup step will not be needed).
+
+If everything is working fine, you can access
+- Prometheus at the following URL: [127.0.0.1:9090](http://127.0.0.1:9090), and
+- Grafana at the following URL: [127.0.0.1:9090](http://127.0.0.1:3000).

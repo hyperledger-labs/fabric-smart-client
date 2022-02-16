@@ -355,3 +355,7 @@ func (t *Topology) EnableMonitoring() {
 func (t *Topology) EnableLogPeersToFile() {
 	t.LogPeersToFile = true
 }
+
+func (t *Topology) EnableLogOrderersToFile() {
+	t.LogOrderersToFile = true
+}

@@ -74,7 +74,6 @@ func (n *Extension) GenerateArtifacts() {
 	}
 
 	// Generate and store config
-
 	networkName := fmt.Sprintf("hlf-%s", n.network.Topology().Name())
 	config := Config{
 		NetworkConfigs: map[string]Network{
@@ -144,8 +143,11 @@ func (n *Extension) dockerExplorerDB() {
 	net, err := n.network.DockerClient.NetworkInfo(n.network.NetworkID)
 	Expect(err).ToNot(HaveOccurred())
 
+	containerName := n.network.NetworkID + "-explorerdb.mynetwork.com"
+
+	pgdataVolumeName := n.network.NetworkID + "-pgdata"
 	_, err = cli.VolumeCreate(ctx, volume.VolumeCreateBody{
-		Name: "pgdata",
+		Name: pgdataVolumeName,
 	})
 	Expect(err).ToNot(HaveOccurred())
 
@@ -162,7 +164,7 @@ func (n *Extension) dockerExplorerDB() {
 		Mounts: []mount.Mount{
 			{
 				Type:   mount.TypeVolume,
-				Source: "pgdata",
+				Source: pgdataVolumeName,
 				Target: "/var/lib/postgresql/data",
 			},
 		},
@@ -172,7 +174,7 @@ func (n *Extension) dockerExplorerDB() {
 				NetworkID: net.ID,
 			},
 		},
-	}, nil, "explorerdb.mynetwork.com",
+	}, nil, containerName,
 	)
 	Expect(err).ToNot(HaveOccurred())
 
@@ -210,8 +212,11 @@ func (n *Extension) dockerExplorer() {
 	net, err := n.network.DockerClient.NetworkInfo(n.network.NetworkID)
 	Expect(err).ToNot(HaveOccurred())
 
+	containerName := n.network.NetworkID + "-explorer.mynetwork.com"
+
+	walletStoreVolumeName := n.network.NetworkID + "-walletstore"
 	_, err = cli.VolumeCreate(ctx, volume.VolumeCreateBody{
-		Name: "walletstore",
+		Name: walletStoreVolumeName,
 	})
 	Expect(err).ToNot(HaveOccurred())
 
@@ -242,7 +247,7 @@ func (n *Extension) dockerExplorer() {
 		},
 	}, &container.HostConfig{
 		ExtraHosts: []string{fmt.Sprintf("fabric:%s", nnetwork.LocalIP(n.network.DockerClient, n.network.NetworkID))},
-		Links:      []string{"explorerdb.mynetwork.com"},
+		Links:      []string{n.network.NetworkID + "-explorerdb.mynetwork.com"},
 		Mounts: []mount.Mount{
 			{
 				Type:   mount.TypeBind,
@@ -261,7 +266,7 @@ func (n *Extension) dockerExplorer() {
 			// },
 			{
 				Type:   mount.TypeVolume,
-				Source: "walletstore",
+				Source: walletStoreVolumeName,
 				Target: "/opt/explorer/wallet",
 			},
 		},
@@ -280,7 +285,7 @@ func (n *Extension) dockerExplorer() {
 					NetworkID: net.ID,
 				},
 			},
-		}, nil, "explorer.mynetwork.com",
+		}, nil, containerName,
 	)
 	Expect(err).ToNot(HaveOccurred())
 
