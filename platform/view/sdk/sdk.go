@@ -10,8 +10,10 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/operations"
 	"io/ioutil"
 	"net"
+	"time"
 
 	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger"
 	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
@@ -178,6 +180,7 @@ func (p *p) Start(ctx context.Context) error {
 	p.context = ctx
 
 	assert.NoError(p.initWEBServer(), "failed initializing web server")
+	assert.NoError(p.initMetrics(), "failed initializing metrics")
 	assert.NoError(p.initGRPCServer(), "failed initializing grpc server")
 	assert.NoError(p.startCommLayer(), "failed starting comm layer")
 	assert.NoError(p.registerViewServiceServer(), "failed registering view service server")
@@ -218,7 +221,7 @@ func (p *p) initWEBServer() error {
 		},
 	})
 	h := web2.NewHttpHandler(logger)
-	p.webServer.RegisterHandler("/", h)
+	p.webServer.RegisterHandler("/", h, true)
 
 	d := &web2.Dispatcher{
 		Logger:  logger,
@@ -487,4 +490,24 @@ func (p *p) getClientCertificate() (tls.Certificate, error) {
 			"error parsing client TLS key pair")
 	}
 	return cert, nil
+}
+
+func (p *p) initMetrics() error {
+	operations.NewSystem(p.webServer, operations.Options{
+		Metrics: operations.MetricsOptions{
+			Provider: "disabled",
+			Statsd: &operations.Statsd{
+				Network:       "udp",
+				Address:       "127.0.0.1:8125",
+				WriteInterval: 10 * time.Second,
+				Prefix:        "",
+			},
+		},
+		TLS: operations.TLS{
+			Enabled: true,
+		},
+		Version: "1.0.0",
+	})
+
+	return nil
 }

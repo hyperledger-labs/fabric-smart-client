@@ -133,7 +133,7 @@ var _ = Describe("Server", func() {
 	When("the HttpHandler is mounted on the server", func() {
 		It("succeeds in servicing", func() {
 			handler := web2.NewHttpHandler(fakeLogger)
-			server.RegisterHandler("/", handler)
+			server.RegisterHandler("/", handler, true)
 			err := server.Start()
 			Expect(err).NotTo(HaveOccurred())
 
@@ -180,7 +180,7 @@ var _ = Describe("Server", func() {
 	})
 
 	It("hosts a secure endpoint for additional APIs when added", func() {
-		server.RegisterHandler(someURL, &fakes.Handler{Code: http.StatusOK, Text: "secure"})
+		server.RegisterHandler(someURL, &fakes.Handler{Code: http.StatusOK, Text: "secure"}, true)
 		err := server.Start()
 		Expect(err).NotTo(HaveOccurred())
 

@@ -59,6 +59,7 @@ const (
 	ListenPort api.PortName = "Listen" // Port at which the fsc node might listen for some service
 	ViewPort   api.PortName = "View"   // Port at which the View Service Server respond
 	P2PPort    api.PortName = "P2P"    // Port at which the P2P Communication Layer respond
+	WebPort    api.PortName = "Web"    // Port at which the Web Server respond
 )
 
 func WithAlias(alias string) node2.Option {
@@ -817,5 +818,5 @@ func (p *Platform) nextColor() string {
 
 // PeerPortNames returns the list of ports that need to be reserved for a Peer.
 func PeerPortNames() []api.PortName {
-	return []api.PortName{ListenPort, P2PPort}
+	return []api.PortName{ListenPort, P2PPort, WebPort}
 }
