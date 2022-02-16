@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package hle
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -106,7 +107,7 @@ func (n *Extension) GenerateArtifacts() {
 		Connection: nnetwork.Connection{
 			Timeout: nnetwork.Timeout{
 				Peer: map[string]string{
-					"endorser": "300",
+					"endorser": "600",
 				},
 			},
 		},
@@ -181,6 +182,24 @@ func (n *Extension) dockerExplorerDB() {
 	Expect(err).ToNot(HaveOccurred())
 
 	Expect(cli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{})).ToNot(HaveOccurred())
+
+	dockerLogger := flogging.MustGetLogger("hle.db.container." + n.network.Topology().TopologyName)
+	go func() {
+		reader, err := cli.ContainerLogs(context.Background(), resp.ID, types.ContainerLogsOptions{
+			ShowStdout: true,
+			ShowStderr: true,
+			Follow:     true,
+			Timestamps: false,
+		})
+		Expect(err).ToNot(HaveOccurred())
+		defer reader.Close()
+
+		scanner := bufio.NewScanner(reader)
+		for scanner.Scan() {
+			dockerLogger.Infof("%s", scanner.Text())
+		}
+	}()
+
 }
 
 func (n *Extension) dockerExplorer() {
@@ -222,7 +241,8 @@ func (n *Extension) dockerExplorer() {
 			nat.Port(port + "/tcp"): struct{}{},
 		},
 	}, &container.HostConfig{
-		Links: []string{"explorerdb.mynetwork.com"},
+		ExtraHosts: []string{fmt.Sprintf("fabric:%s", nnetwork.LocalIP(n.network.DockerClient, n.network.NetworkID))},
+		Links:      []string{"explorerdb.mynetwork.com"},
 		Mounts: []mount.Mount{
 			{
 				Type:   mount.TypeBind,
@@ -271,6 +291,24 @@ func (n *Extension) dockerExplorer() {
 
 	Expect(cli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{})).ToNot(HaveOccurred())
 	time.Sleep(3 * time.Second)
+
+	dockerLogger := flogging.MustGetLogger("hle.container." + n.network.Topology().TopologyName)
+	go func() {
+		reader, err := cli.ContainerLogs(context.Background(), resp.ID, types.ContainerLogsOptions{
+			ShowStdout: true,
+			ShowStderr: true,
+			Follow:     true,
+			Timestamps: false,
+		})
+		Expect(err).ToNot(HaveOccurred())
+		defer reader.Close()
+
+		scanner := bufio.NewScanner(reader)
+		for scanner.Scan() {
+			dockerLogger.Infof("%s", scanner.Text())
+		}
+	}()
+
 }
 
 func (n *Extension) configFileDir() string {
