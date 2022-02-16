@@ -1,10 +1,12 @@
+/*
+Copyright IBM Corp. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
+
 package monitoring
 
 const DatasourceTemplate = `apiVersion: 1
-
-deleteDatasources:
-  - name: 'Prometheus'
-    orgId: 1
 
 datasources:
   - name: 'Prometheus'

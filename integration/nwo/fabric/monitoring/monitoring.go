@@ -70,6 +70,10 @@ func (n *Extension) CheckTopology() {
 }
 
 func (n *Extension) GenerateArtifacts() {
+	if !n.network.Topology().Monitoring {
+		return
+	}
+
 	// Generate and store prometheus config
 	prometheusConfig := Prometheus{
 		Global: Global{
@@ -132,7 +136,11 @@ func (n *Extension) GenerateArtifacts() {
 
 }
 
-func (n *Extension) PostRun() {
+func (n *Extension) PostRun(bool) {
+	if !n.network.Topology().Monitoring {
+		return
+	}
+
 	logger.Infof("Run Prometheus [%s]...", n.network.Topology().Name())
 	n.dockerPrometheus()
 	logger.Infof("Run Prometheus [%s]...done!", n.network.Topology().Name())

@@ -24,6 +24,8 @@ func Topology() []api.Topology {
 	fabricTopology.EnableGRPCLogging()
 	fabricTopology.EnableLogPeersToFile()
 	fabricTopology.SetLogging("info", "")
+	fabricTopology.EnableMonitoring()
+	fabricTopology.EnableHyperledgerExplorer()
 
 	// Define an FSC topology with 3 FCS nodes.
 	// One for the approver, one for the borrower, and one for the lender.

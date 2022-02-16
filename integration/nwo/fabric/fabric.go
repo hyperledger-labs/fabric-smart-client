@@ -134,23 +134,13 @@ func NewPlatform(context api.Context, t api.Topology, components BuilderClient) 
 		[]network.ChaincodeProcessor{},
 		networkID,
 	)
-	network.AddExtension(fpc.NewExtension(network))
-
-	return &Platform{
+	p := &Platform{
 		Network: network,
-	p := &platform{
-		Network: network.New(
-			context,
-			t.(*topology.Topology),
-			dockerClient,
-			components,
-			[]network.ChaincodeProcessor{},
-			networkID,
-		),
 	}
-	p.Network.AddExtension(fpc.NewExtension(p.Network))
-	p.Network.AddExtension(hle.NewExtension(p.Network, p))
-	p.Network.AddExtension(monitoring.NewExtension(p.Network, p))
+
+	network.AddExtension(fpc.NewExtension(network))
+	network.AddExtension(hle.NewExtension(network, p))
+	network.AddExtension(monitoring.NewExtension(network, p))
 
 	return p
 }
@@ -449,7 +439,7 @@ func (p *Platform) InvokeChaincode(cc *topology.ChannelChaincode, method string,
 }
 
 // ConnectionProfile returns Fabric connection profile
-func (p *platform) ConnectionProfile(name string, ca bool) *network.ConnectionProfile {
+func (p *Platform) ConnectionProfile(name string, ca bool) *network.ConnectionProfile {
 	fabricHost := "fabric"
 	if runtime.GOOS == "darwin" {
 		fabricHost = "host.docker.internal"

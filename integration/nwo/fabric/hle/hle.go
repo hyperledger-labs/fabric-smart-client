@@ -68,6 +68,10 @@ func (n *Extension) CheckTopology() {
 }
 
 func (n *Extension) GenerateArtifacts() {
+	if !n.network.Topology().HyperledgerExplorer {
+		return
+	}
+
 	// Generate and store config
 
 	networkName := fmt.Sprintf("hlf-%s", n.network.Topology().Name())
@@ -114,7 +118,11 @@ func (n *Extension) GenerateArtifacts() {
 	Expect(ioutil.WriteFile(n.cpFilePath(), cpJSON, 0o644)).NotTo(HaveOccurred())
 }
 
-func (n *Extension) PostRun() {
+func (n *Extension) PostRun(bool) {
+	if !n.network.Topology().HyperledgerExplorer {
+		return
+	}
+
 	logger.Infof("Run Explorer DB [%s]...", n.network.Topology().Name())
 	n.dockerExplorerDB()
 	logger.Infof("Run Explorer DB [%s]...done!", n.network.Topology().Name())
