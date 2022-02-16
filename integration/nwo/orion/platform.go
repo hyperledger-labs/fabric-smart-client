@@ -147,7 +147,7 @@ func (p *Platform) GenerateConfigTree() {
 }
 
 func (p *Platform) GenerateArtifacts() {
-	for _, subdir := range []string{"crypto", "database", "config", "txs", "wal", "snap"} {
+	for _, subdir := range []string{"crypto", "database", "config", "ledger", "txs", "wal", "snap"} {
 		Expect(os.MkdirAll(filepath.Join(p.rootDir(), subdir), 0o755)).NotTo(HaveOccurred())
 	}
 
@@ -316,8 +316,20 @@ func (p *Platform) RunOrionServer() {
 			{
 				Type: mount.TypeBind,
 				// Absolute path to
-				Source: p.rootDir(),
-				Target: "/etc/orion-server",
+				Source: p.ledgerDir(),
+				Target: "/etc/orion-server/ledger",
+			},
+			{
+				Type: mount.TypeBind,
+				// Absolute path to
+				Source: p.cryptoDir(),
+				Target: "/etc/orion-server/crypto",
+			},
+			{
+				Type: mount.TypeBind,
+				// Absolute path to
+				Source: p.configDir(),
+				Target: "/etc/orion-server/config",
 			},
 		},
 		PortBindings: nat.PortMap{
@@ -497,6 +509,13 @@ func (p *Platform) rootDir() string {
 		p.Context.RootDir(),
 		"orion",
 		p.Topology.TopologyName,
+	)
+}
+
+func (p *Platform) ledgerDir() string {
+	return filepath.Join(
+		p.rootDir(),
+		"ledger",
 	)
 }
 
