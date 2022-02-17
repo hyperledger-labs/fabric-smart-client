@@ -223,7 +223,7 @@ ledger:
     enableHistoryDatabase: true
 
 operations:
-  listenAddress: 127.0.0.1:{{ .PeerPort Peer "Operations" }}
+  listenAddress: 0.0.0.0:{{ .PeerPort Peer "Operations" }}
   tls:
     enabled: false
     cert:

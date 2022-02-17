@@ -9,6 +9,7 @@ package monitoring
 import (
 	"bufio"
 	"context"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -45,7 +46,7 @@ type Platform interface {
 	ConnectionProfile(name string, ca bool) *nnetwork.ConnectionProfile
 	Orderers() []*fabric.Orderer
 	PeerOrgs() []*fabric.Org
-	PeersByOrg(orgName string, includeAll bool) []*fabric.Peer
+	PeersByOrg(fabricHost string, orgName string, includeAll bool) []*fabric.Peer
 }
 
 type Extension struct {
@@ -114,7 +115,7 @@ func (n *Extension) GenerateArtifacts() {
 				},
 			},
 		}
-		for _, peer := range n.platform.PeersByOrg(org.Name, false) {
+		for _, peer := range n.platform.PeersByOrg("", org.Name, false) {
 			sc.StaticConfigs[0].Targets = append(sc.StaticConfigs[0].Targets, peer.OperationAddress)
 		}
 		prometheusConfig.ScrapeConfigs = append(prometheusConfig.ScrapeConfigs, sc)
@@ -173,6 +174,7 @@ func (n *Extension) dockerPrometheus() {
 			nat.Port(port + "/tcp"): struct{}{},
 		},
 	}, &container.HostConfig{
+		ExtraHosts:    []string{fmt.Sprintf("fabric:%s", nnetwork.LocalIP(n.network.DockerClient, n.network.NetworkID))},
 		RestartPolicy: container.RestartPolicy{Name: "always"},
 		Mounts: []mount.Mount{
 			{
@@ -184,7 +186,7 @@ func (n *Extension) dockerPrometheus() {
 		PortBindings: nat.PortMap{
 			nat.Port(port + "/tcp"): []nat.PortBinding{
 				{
-					HostIP:   "127.0.0.1",
+					HostIP:   "0.0.0.0",
 					HostPort: port,
 				},
 			},
@@ -264,7 +266,7 @@ func (n *Extension) dockerGrafana() {
 		PortBindings: nat.PortMap{
 			nat.Port(port + "/tcp"): []nat.PortBinding{
 				{
-					HostIP:   "127.0.0.1",
+					HostIP:   "0.0.0.0",
 					HostPort: port,
 				},
 			},
