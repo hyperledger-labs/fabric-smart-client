@@ -56,7 +56,7 @@ type FabricNetwork interface {
 	PeerChaincodeAddress(peerName string) string
 	PeerOrgs() []*fabric.Org
 	OrgMSPID(orgName string) string
-	PeersByOrg(orgName string, includeAll bool) []*fabric.Peer
+	PeersByOrg(fabricHost string, orgName string, includeAll bool) []*fabric.Peer
 	UserByOrg(organization string, user string) *fabric.User
 	UsersByOrg(organization string) []*fabric.User
 	Orderers() []*fabric.Orderer
@@ -506,7 +506,7 @@ func (p *Platform) generateInteropChaincodeAccessControlFile(destinationRelay *R
 
 					for _, org := range sourceFabric.PeerOrgs() {
 
-						for _, peer := range sourceFabric.PeersByOrg(org.Name, true) {
+						for _, peer := range sourceFabric.PeersByOrg("", org.Name, true) {
 							raw, err := ioutil.ReadFile(peer.Cert)
 							Expect(err).NotTo(HaveOccurred())
 

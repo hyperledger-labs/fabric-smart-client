@@ -9,7 +9,7 @@ package topology
 const DefaultOrdererTemplate = `---
 {{ with $w := . -}}
 General:
-  ListenAddress: 127.0.0.1
+  ListenAddress: 0.0.0.0
   ListenPort: {{ .OrdererPort Orderer "Listen" }}
   TLS:
     Enabled: true
@@ -94,7 +94,7 @@ Consensus:
   SnapDir: {{ .OrdererDir Orderer }}/etcdraft/snapshot
   EvictionSuspicion: 10s
 Operations:
-  ListenAddress: 127.0.0.1:{{ .OrdererPort Orderer "Operations" }}
+  ListenAddress: 0.0.0.0:{{ .OrdererPort Orderer "Operations" }}
   TLS:
     Enabled: false
     PrivateKey: {{ $w.OrdererLocalTLSDir Orderer }}/server.key

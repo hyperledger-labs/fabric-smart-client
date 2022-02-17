@@ -273,7 +273,7 @@ func (n *Extension) dockerExplorer() {
 		PortBindings: nat.PortMap{
 			nat.Port(port + "/tcp"): []nat.PortBinding{
 				{
-					HostIP:   "127.0.0.1",
+					HostIP:   "0.0.0.0",
 					HostPort: port,
 				},
 			},

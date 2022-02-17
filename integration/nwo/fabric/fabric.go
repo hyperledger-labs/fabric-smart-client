@@ -232,10 +232,13 @@ func (p *Platform) PeerOrgs() []*fabric.Org {
 	return orgs
 }
 
-func (p *Platform) PeersByOrg(orgName string, includeAll bool) []*fabric.Peer {
-	fabricHost := "fabric"
-	if runtime.GOOS == "darwin" {
-		fabricHost = "host.docker.internal"
+func (p *Platform) PeersByOrg(fabricHost string, orgName string, includeAll bool) []*fabric.Peer {
+	if len(fabricHost) == 0 {
+		if runtime.GOOS == "darwin" {
+			fabricHost = "host.docker.internal"
+		} else {
+			fabricHost = "fabric"
+		}
 	}
 
 	var peers []*fabric.Peer
@@ -414,7 +417,7 @@ func (p *Platform) InvokeChaincode(cc *topology.ChannelChaincode, method string,
 
 	orderer := p.Network.Orderer("orderer")
 	org := p.PeerOrgs()[0]
-	peer := p.Network.Peer(org.Name, p.PeersByOrg(org.Name, false)[0].Name)
+	peer := p.Network.Peer(org.Name, p.PeersByOrg("", org.Name, false)[0].Name)
 	s := &struct {
 		Args []string `json:"Args,omitempty"`
 	}{}
@@ -458,7 +461,7 @@ func (p *Platform) ConnectionProfile(name string, ca bool) *network.ConnectionPr
 	orgs := fabricNetwork.PeerOrgs()
 	var peerFullNames []string
 	for _, org := range orgs {
-		peers := fabricNetwork.PeersByOrg(org.Name, false)
+		peers := fabricNetwork.PeersByOrg("", org.Name, false)
 		var names []string
 		for _, peer := range peers {
 			names = append(names, peer.FullName)
