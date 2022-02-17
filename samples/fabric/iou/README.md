@@ -632,7 +632,12 @@ To pull them, just run `make monitoring-docker-images` from the FSC root folder.
 Last but not least, you need to stop your networks, if they are running, cleanup and start again from scratch. 
 (In the future, this cleanup step will not be needed).
 
-If everything is working fine, you can access the explorer at the following URL: [127.0.0.1:8080](http://127.0.0.1:8080) 
+If everything is working fine, you can access the explorer at the following URL: [127.0.0.1:8080](http://127.0.0.1:8080) (User: `admin`, Pwd: `admin`).
+
+Here is an example of what you can see:
+
+<img src="imgs/hle_dashboard.png">
+<img src="imgs/hle_transaction_detail.png">
 
 ### Monitoring with Prometheus and Grafana
 
@@ -657,4 +662,8 @@ Last but not least, you need to stop your networks, if they are running, cleanup
 
 If everything is working fine, you can access
 - Prometheus at the following URL: [127.0.0.1:9090](http://127.0.0.1:9090), and
-- Grafana at the following URL: [127.0.0.1:9090](http://127.0.0.1:3000).
+- Grafana at the following URL: [127.0.0.1:9090](http://127.0.0.1:3000) (User: `admin`, Pwd: `admin`).
+  
+Here is an example of what you can see:
+
+<img src="imgs/grafana.png">
