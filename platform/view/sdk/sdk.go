@@ -11,6 +11,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/operations"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"io/ioutil"
 	"net"
 	"time"
@@ -19,8 +20,6 @@ import (
 	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
 	protos2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view/protos"
 	web2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/web"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracker/metrics"
-
 	"github.com/hyperledger/fabric/common/grpclogging"
 	"github.com/pkg/errors"
 
@@ -143,34 +142,8 @@ func (p *p) Install() error {
 	}
 	p.viewManager = viewManager
 
-	// Metrics
-	confService := view.GetConfigService(p.registry)
-	metricsType := confService.GetString("fsc.metrics.type")
-	var agent interface{}
-	switch metricsType {
-	case "", "none":
-		logger.Infof("Metrics disabled")
-		agent = metrics.NewNullAgent()
-	case "udp":
-		logger.Infof("Metrics enabled: UDP")
-		metricsServer := confService.GetString("fsc.metrics.options.address")
-		if len(metricsServer) == 0 {
-			metricsServer = "localhost:8125"
-			logger.Infof("metrics server address not set, using default: ", metricsServer)
-		}
-		agent, err = metrics.NewStatsdAgent(
-			metrics.Host(confService.GetString("fsc.id")),
-			metrics.StatsDSink(metricsServer),
-		)
-		if err != nil {
-			return fmt.Errorf("error creating metrics agent: %s", err)
-		}
-		logger.Infof("metrics enabled, listening on %s", metricsServer)
-	default:
-		return fmt.Errorf("unknown metrics type: %s", metricsType)
-	}
-	if err := p.registry.RegisterService(agent); err != nil {
-		return err
+	if err := p.installTracing(); err != nil {
+		return errors.WithMessage(err, "failed installing tracing")
 	}
 
 	return nil
@@ -492,8 +465,43 @@ func (p *p) getClientCertificate() (tls.Certificate, error) {
 	return cert, nil
 }
 
+func (p *p) installTracing() error {
+	confService := view.GetConfigService(p.registry)
+	provider := confService.GetString("fsc.tracing.provider")
+	var agent interface{}
+	switch provider {
+	case "", "none":
+		logger.Infof("Tracing disabled")
+		agent = tracing.NewNullAgent()
+	case "udp":
+		logger.Infof("Tracing enabled: UDP")
+		address := confService.GetString("fsc.tracing.udp.address")
+		if len(address) == 0 {
+			address = "localhost:8125"
+			logger.Infof("tracing server address not set, using default: ", address)
+		}
+		var err error
+		agent, err = tracing.NewStatsdAgent(
+			tracing.Host(confService.GetString("fsc.id")),
+			tracing.StatsDSink(address),
+		)
+		if err != nil {
+			return errors.Wrap(err, "error creating tracing agent")
+		}
+		logger.Infof("tracing enabled, listening on %s", address)
+	default:
+		return errors.Errorf("unknown tracing provider: %s", provider)
+	}
+	if err := p.registry.RegisterService(agent); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (p *p) initMetrics() error {
-	operations.NewSystem(p.webServer, operations.Options{
+	configProvider := view.GetConfigService(p.registry)
+
+	s := operations.NewSystem(p.webServer, operations.Options{
 		Metrics: operations.MetricsOptions{
 			Provider: "disabled",
 			Statsd: &operations.Statsd{
@@ -504,10 +512,9 @@ func (p *p) initMetrics() error {
 			},
 		},
 		TLS: operations.TLS{
-			Enabled: true,
+			Enabled: configProvider.GetBool("fsc.tls.enabled"),
 		},
 		Version: "1.0.0",
 	})
-
-	return nil
+	return p.registry.RegisterService(s)
 }

@@ -23,7 +23,7 @@ const (
 	// to send to statsd
 	statsdMaxLen         = 1400
 	subscriptionBuffSize = 200
-	logModuleName        = "fsc.metrics"
+	logModuleName        = "fsc.tracing"
 )
 
 func init() {

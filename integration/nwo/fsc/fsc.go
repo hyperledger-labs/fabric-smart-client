@@ -182,8 +182,8 @@ func (p *Platform) Members() []grouper.Member {
 			members = append(members, grouper.Member{Name: node.ID(), Runner: p.FSCNodeRunner(node)})
 		}
 	}
-	if len(p.Topology.MetricsAggregator) != 0 {
-		members = append(members, grouper.Member{Name: "metrics-aggregator", Runner: p.MetricsAggregator()})
+	if len(p.Topology.TraceAggregator) != 0 {
+		members = append(members, grouper.Member{Name: "tracing-aggregator", Runner: p.MetricsAggregator()})
 	}
 	return members
 }
@@ -741,7 +741,7 @@ func (p *Platform) GetAdminSigningIdentity(peer *node2.Peer) (view.SigningIdenti
 }
 
 func (p *Platform) MetricsAggregator() *runner2.Runner {
-	cmd := common.NewCommand(p.Builder.Build(p.Topology.MetricsAggregator), &commands2.AggregatorStart{NodeID: "aggregator"})
+	cmd := common.NewCommand(p.Builder.Build(p.Topology.TraceAggregator), &commands2.AggregatorStart{NodeID: "aggregator"})
 	config := runner2.Config{
 		AnsiColorCode:     common.NextColor(),
 		Name:              "aggregator",

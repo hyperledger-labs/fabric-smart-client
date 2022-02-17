@@ -18,14 +18,17 @@ type Logging struct {
 }
 
 type Topology struct {
-	TopologyName      string       `yaml:"name,omitempty"`
-	TopologyType      string       `yaml:"type,omitempty"`
-	Nodes             []*node.Node `yaml:"peers,omitempty"`
-	GRPCLogging       bool         `yaml:"grpcLogging,omitempty"`
-	Logging           *Logging     `yaml:"logging,omitempty"`
-	LogToFile         bool         `yaml:"logToFile,omitempty"`
-	MetricsAggregator string       `yaml:"metricsAggregator,omitempty"`
-	MetricsType       string       `yaml:"metricsType,omitempty"`
+	TopologyName string       `yaml:"name,omitempty"`
+	TopologyType string       `yaml:"type,omitempty"`
+	Nodes        []*node.Node `yaml:"peers,omitempty"`
+	GRPCLogging  bool         `yaml:"grpcLogging,omitempty"`
+	Logging      *Logging     `yaml:"logging,omitempty"`
+	LogToFile    bool         `yaml:"logToFile,omitempty"`
+
+	TraceAggregator string `yaml:"traceAggregator,omitempty"`
+	TracingProvider string `yaml:"tracingType,omitempty"`
+
+	MetricsProvider string `yaml:"metricsType,omitempty"`
 }
 
 // NewTopology returns an empty FSC network topology.
@@ -38,7 +41,8 @@ func NewTopology() *Topology {
 			Spec:   "grpc=error:info",
 			Format: "'%{color}%{time:2006-01-02 15:04:05.000 MST} [%{module}] %{shortfunc} -> %{level:.4s} %{id:03x}%{color:reset} %{message}'",
 		},
-		MetricsType: "none",
+		TracingProvider: "none",
+		MetricsProvider: "none",
 	}
 }
 
@@ -78,9 +82,17 @@ func (t *Topology) AddNodeByName(name string) *node.Node {
 	return t.addNode(n)
 }
 
-func (t *Topology) EnableDefaultMetrics() {
-	t.MetricsType = "udp"
-	t.MetricsAggregator = "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/metrics/server"
+func (t *Topology) EnableUDPTracing() {
+	t.TracingProvider = "udp"
+	t.TraceAggregator = "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/tracing/server"
+}
+
+func (t *Topology) EnableLogToFile() {
+	t.LogToFile = true
+}
+
+func (t *Topology) EnablePrometheusMetrics() {
+	t.MetricsProvider = "prometheus"
 }
 
 func (t *Topology) addNode(node *node.Node) *node.Node {
@@ -89,8 +101,4 @@ func (t *Topology) addNode(node *node.Node) *node.Node {
 	}
 	t.Nodes = append(t.Nodes, node)
 	return node
-}
-
-func (t *Topology) EnableLogToFile() {
-	t.LogToFile = true
 }

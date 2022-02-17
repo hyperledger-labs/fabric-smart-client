@@ -14,7 +14,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 )
 
-var logger = flogging.MustGetLogger("fsc.metrics")
+var logger = flogging.MustGetLogger("fsc.tracing")
 
 type FileStorage struct {
 	path string

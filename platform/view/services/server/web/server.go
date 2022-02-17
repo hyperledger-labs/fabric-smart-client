@@ -11,14 +11,12 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/web/middleware"
 	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
 	"time"
-
-	"github.com/hyperledger/fabric/common/util"
-	"github.com/hyperledger/fabric/core/middleware"
 )
 
 //go:generate counterfeiter -o fakes/logger.go -fake-name Logger . Logger
@@ -149,9 +147,9 @@ func (s *Server) initializeServer() {
 
 func (s *Server) HandlerChain(h http.Handler, secure bool) http.Handler {
 	if secure {
-		return middleware.NewChain(middleware.RequireCert(), middleware.WithRequestID(util.GenerateUUID)).Handler(h)
+		return middleware.NewChain(middleware.RequireCert(), middleware.WithRequestID(GenerateUUID)).Handler(h)
 	}
-	return middleware.NewChain(middleware.WithRequestID(util.GenerateUUID)).Handler(h)
+	return middleware.NewChain(middleware.WithRequestID(GenerateUUID)).Handler(h)
 }
 
 // RegisterHandler registers into the ServeMux a handler chain that borrows

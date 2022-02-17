@@ -104,7 +104,7 @@ func (s *GraphiteSink) checkConnection() {
 
 func (s *GraphiteSink) send(latency int) {
 	t := time.Now().UnixNano() / time.Second.Nanoseconds()
-	text2Send := fmt.Sprintf("servers.orderer.metrics %d %d\n", latency, t)
+	text2Send := fmt.Sprintf("servers.orderer.tracing %d %d\n", latency, t)
 	// fmt.Println(text2Send)
 	_, err := s.Conn.Write([]byte(text2Send))
 	if err != nil {

@@ -18,7 +18,7 @@ import (
 
 var (
 	buffSize = 2
-	logger   = flogging.MustGetLogger("fsc.metrics")
+	logger   = flogging.MustGetLogger("fsc.tracing")
 )
 
 type RawEventParser interface {

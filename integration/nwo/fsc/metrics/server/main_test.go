@@ -15,7 +15,7 @@ import (
 
 func TestCompile(t *testing.T) {
 	gt := NewGomegaWithT(t)
-	_, err := gexec.Build("github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/metrics/server")
+	_, err := gexec.Build("github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/tracing/server")
 	gt.Expect(err).NotTo(HaveOccurred())
 	defer gexec.CleanupBuildArtifacts()
 }
