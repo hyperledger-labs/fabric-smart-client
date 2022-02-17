@@ -198,7 +198,7 @@ func (n *Extension) dockerExplorerDB() {
 
 		scanner := bufio.NewScanner(reader)
 		for scanner.Scan() {
-			dockerLogger.Infof("%s", scanner.Text())
+			dockerLogger.Debugf("%s", scanner.Text())
 		}
 	}()
 
@@ -310,7 +310,7 @@ func (n *Extension) dockerExplorer() {
 
 		scanner := bufio.NewScanner(reader)
 		for scanner.Scan() {
-			dockerLogger.Infof("%s", scanner.Text())
+			dockerLogger.Debugf("%s", scanner.Text())
 		}
 	}()
 

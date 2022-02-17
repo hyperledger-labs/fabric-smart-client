@@ -219,7 +219,7 @@ func (n *Extension) dockerPrometheus() {
 
 		scanner := bufio.NewScanner(reader)
 		for scanner.Scan() {
-			dockerLogger.Infof("%s", scanner.Text())
+			dockerLogger.Debugf("%s", scanner.Text())
 		}
 	}()
 
@@ -301,7 +301,7 @@ func (n *Extension) dockerGrafana() {
 
 		scanner := bufio.NewScanner(reader)
 		for scanner.Scan() {
-			dockerLogger.Infof("%s", scanner.Text())
+			dockerLogger.Debugf("%s", scanner.Text())
 		}
 	}()
 }
