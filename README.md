@@ -5,9 +5,9 @@
 [![CodeQL](https://github.com/hyperledger-labs/fabric-smart-client/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/hyperledger-labs/fabric-smart-client/actions/workflows/codeql-analysis.yml)
 
 The `Fabric Smart Client` (FSC, for short) is a new Fabric client-side component whose objective is twofold.
-1. FSC aims to simplify the development of Fabric-based distributed application by hiding the complexity of Fabric and leveraging 
+1. To simplify the development of Fabric-based distributed application by hiding the complexity of Fabric and leveraging 
   Fabric's `Hidden Gems` that too often are underestimated if not ignored.
-2. FSC wants to allow developers and/or domain experts to focus on the business processes and not the blockchain technicalities.
+2. To allow developers and/or domain experts to focus on the business processes and not the blockchain technicalities.
 
 # Disclaimer
 
