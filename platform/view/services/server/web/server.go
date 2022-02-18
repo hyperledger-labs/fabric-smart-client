@@ -11,14 +11,12 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/web/middleware"
 	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
 	"time"
-
-	"github.com/hyperledger/fabric/common/util"
-	"github.com/hyperledger/fabric/core/middleware"
 )
 
 //go:generate counterfeiter -o fakes/logger.go -fake-name Logger . Logger
@@ -147,11 +145,11 @@ func (s *Server) initializeServer() {
 	}
 }
 
-func (s *Server) HandlerChain(h http.Handler) http.Handler {
-	if s.options.TLS.Enabled {
-		return middleware.NewChain(middleware.RequireCert(), middleware.WithRequestID(util.GenerateUUID)).Handler(h)
+func (s *Server) HandlerChain(h http.Handler, secure bool) http.Handler {
+	if secure {
+		return middleware.NewChain(middleware.RequireCert(), middleware.WithRequestID(GenerateUUID)).Handler(h)
 	}
-	return middleware.NewChain(middleware.WithRequestID(util.GenerateUUID)).Handler(h)
+	return middleware.NewChain(middleware.WithRequestID(GenerateUUID)).Handler(h)
 }
 
 // RegisterHandler registers into the ServeMux a handler chain that borrows
@@ -159,11 +157,13 @@ func (s *Server) HandlerChain(h http.Handler) http.Handler {
 // safe because ServeMux.Handle() is thread safe, and options are immutable.
 // This method can be called either before or after Server.Start(). If the
 // pattern exists the method panics.
-func (s *Server) RegisterHandler(pattern string, handler http.Handler) {
+func (s *Server) RegisterHandler(pattern string, handler http.Handler, secure bool) {
+	s.logger.Infof("register handler [%s][%v]", pattern, secure)
 	s.mux.Handle(
 		pattern,
 		s.HandlerChain(
 			handler,
+			secure,
 		),
 	)
 }

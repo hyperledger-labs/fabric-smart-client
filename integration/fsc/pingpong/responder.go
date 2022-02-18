@@ -9,10 +9,10 @@ package pingpong
 import (
 	"errors"
 	"fmt"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracker/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -41,11 +41,11 @@ func (p *Responder) Call(context view.Context) (interface{}, error) {
 		assert.NoError(err)
 		return nil, fmt.Errorf("exptectd ping, got %s", m)
 	default:
-		metrics.Get(context).EmitKey(0, "received", "ping")
+		tracing.Get(context).EmitKey(0, "received", "ping")
 		// reply with pong
 		err := session.Send([]byte("pong"))
 		assert.NoError(err)
-		metrics.Get(context).EmitKey(0, "sent", "pong")
+		tracing.Get(context).EmitKey(0, "sent", "pong")
 	}
 
 	// Return

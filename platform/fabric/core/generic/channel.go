@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package generic
 
 import (
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	discovery "github.com/hyperledger/fabric/discovery/client"
 	"io/ioutil"
 	"sync"
@@ -32,7 +33,6 @@ import (
 	api2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracker/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -101,7 +101,7 @@ func newChannel(network *network, name string, quiet bool) (*channel, error) {
 		return nil, err
 	}
 
-	committerInst, err := committer.New(name, network, fabricFinality, waitForEventTimeout, quiet, metrics.Get(sp))
+	committerInst, err := committer.New(name, network, fabricFinality, waitForEventTimeout, quiet, tracing.Get(sp))
 	if err != nil {
 		return nil, err
 	}

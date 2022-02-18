@@ -47,6 +47,7 @@ type Context interface {
 
 	AddPlatform(platform Platform)
 	PlatformByName(name string) Platform
+	PlatformsByType(typ string) []Platform
 
 	AddExtension(id string, extension ExtensionName, s string)
 	ExtensionsByPeerID(name string) Extensions

@@ -150,6 +150,16 @@ func (c *Context) PlatformByName(name string) api.Platform {
 	return c.PlatformsByName[name]
 }
 
+func (c *Context) PlatformsByType(typ string) []api.Platform {
+	var platforms []api.Platform
+	for _, p := range c.PlatformsByName {
+		if p.Type() == typ {
+			platforms = append(platforms, p)
+		}
+	}
+	return platforms
+}
+
 func (c *Context) AddPlatform(platform api.Platform) {
 	c.PlatformsByName[platform.Name()] = platform
 }

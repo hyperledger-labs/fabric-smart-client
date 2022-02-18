@@ -90,8 +90,11 @@ func GeneratePrivateKey(keystorePath string) (*ecdsa.PrivateKey, error) {
 
 	pemEncoded := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: pkcs8Encoded})
 
+	// NOTICE: we use 0644 to be able to use this secret keys inside docker containers
+	// when orchestrating networks' bootstrap.
+	// Use more restrictive permissions for secret keys, in production.
 	keyFile := filepath.Join(keystorePath, "priv_sk")
-	err = ioutil.WriteFile(keyFile, pemEncoded, 0600)
+	err = ioutil.WriteFile(keyFile, pemEncoded, 0644)
 	if err != nil {
 		return nil, errors.WithMessagef(err, "failed to save private key to file %s", keyFile)
 	}

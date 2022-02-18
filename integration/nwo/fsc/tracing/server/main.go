@@ -12,9 +12,9 @@ import (
 	"os/signal"
 	"syscall"
 
-	dmetrics "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/metrics"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/metrics/sinks"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/metrics/storage"
+	dmetrics "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/tracing"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/tracing/sinks"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/tracing/storage"
 )
 
 func main() {

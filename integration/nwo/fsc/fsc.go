@@ -12,10 +12,13 @@ import (
 	"go/build"
 	"io"
 	"io/ioutil"
+	"net"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
+	"runtime"
+	"strconv"
 	"strings"
 	"syscall"
 	"text/template"
@@ -35,8 +38,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 	runner2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/runner"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/commands"
-	commands2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/metrics/commands"
 	node2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
+	commands2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/tracing/commands"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/view"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/view/cmd"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/crypto"
@@ -59,6 +62,7 @@ const (
 	ListenPort api.PortName = "Listen" // Port at which the fsc node might listen for some service
 	ViewPort   api.PortName = "View"   // Port at which the View Service Server respond
 	P2PPort    api.PortName = "P2P"    // Port at which the P2P Communication Layer respond
+	WebPort    api.PortName = "Web"    // Port at which the Web Server respond
 )
 
 func WithAlias(alias string) node2.Option {
@@ -181,8 +185,8 @@ func (p *Platform) Members() []grouper.Member {
 			members = append(members, grouper.Member{Name: node.ID(), Runner: p.FSCNodeRunner(node)})
 		}
 	}
-	if len(p.Topology.MetricsAggregator) != 0 {
-		members = append(members, grouper.Member{Name: "metrics-aggregator", Runner: p.MetricsAggregator()})
+	if len(p.Topology.TraceAggregator) != 0 {
+		members = append(members, grouper.Member{Name: "tracing-aggregator", Runner: p.MetricsAggregator()})
 	}
 	return members
 }
@@ -339,6 +343,14 @@ func (p *Platform) CheckTopology() {
 	if !bootstrapNodeFound {
 		p.Topology.Nodes[0].Bootstrap = true
 	}
+}
+
+func (p *Platform) OperationAddress(peer *node2.Peer) string {
+	fabricHost := "fabric"
+	if runtime.GOOS == "darwin" {
+		fabricHost = "host.docker.internal"
+	}
+	return net.JoinHostPort(fabricHost, strconv.Itoa(int(p.Context.PortsByPeerID("fsc", peer.ID())[WebPort])))
 }
 
 func (p *Platform) InitClients() {
@@ -740,7 +752,7 @@ func (p *Platform) GetAdminSigningIdentity(peer *node2.Peer) (view.SigningIdenti
 }
 
 func (p *Platform) MetricsAggregator() *runner2.Runner {
-	cmd := common.NewCommand(p.Builder.Build(p.Topology.MetricsAggregator), &commands2.AggregatorStart{NodeID: "aggregator"})
+	cmd := common.NewCommand(p.Builder.Build(p.Topology.TraceAggregator), &commands2.AggregatorStart{NodeID: "aggregator"})
 	config := runner2.Config{
 		AnsiColorCode:     common.NextColor(),
 		Name:              "aggregator",
@@ -817,5 +829,5 @@ func (p *Platform) nextColor() string {
 
 // PeerPortNames returns the list of ports that need to be reserved for a Peer.
 func PeerPortNames() []api.PortName {
-	return []api.PortName{ListenPort, P2PPort}
+	return []api.PortName{ListenPort, P2PPort, WebPort}
 }

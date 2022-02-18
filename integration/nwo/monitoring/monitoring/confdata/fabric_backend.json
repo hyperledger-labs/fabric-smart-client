@@ -20,7 +20,7 @@
   "panels": [
     {
       "collapsed": false,
-      "datasource": null,
+      "datasource": "Prometheus",
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -42,7 +42,7 @@
         "#5794F2",
         "#1F60C4"
       ],
-      "datasource": null,
+      "datasource": "Prometheus",
       "description": "The active version of Fabric.",
       "format": "none",
       "gauge": {
@@ -126,7 +126,7 @@
         "#FADE2A",
         "#d44a3a"
       ],
-      "datasource": null,
+      "datasource": "Prometheus",
       "description": "The active version of Go.",
       "format": "none",
       "gauge": {
@@ -211,7 +211,7 @@
         "#FADE2A",
         "#d44a3a"
       ],
-      "datasource": null,
+      "datasource": "Prometheus",
       "description": "Height of the chain in blocks. ",
       "format": "none",
       "gauge": {
@@ -297,7 +297,7 @@
         "#FADE2A",
         "#73BF69"
       ],
-      "datasource": null,
+      "datasource": "Prometheus",
       "description": "Number of transactions processed.",
       "format": "none",
       "gauge": {
@@ -383,7 +383,7 @@
         "#FADE2A",
         "#73BF69"
       ],
-      "datasource": null,
+      "datasource": "Prometheus",
       "description": "The number of proposals received.",
       "format": "none",
       "gauge": {
@@ -469,7 +469,7 @@
         "#FADE2A",
         "#73BF69"
       ],
-      "datasource": null,
+      "datasource": "Prometheus",
       "description": "The number of successful proposals. ",
       "format": "none",
       "gauge": {
@@ -550,7 +550,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": null,
+      "datasource": "Prometheus",
       "description": "Time taken in seconds for the function to complete request to CouchDB.",
       "fill": 5,
       "fillGradient": 0,
@@ -643,7 +643,7 @@
     },
     {
       "collapsed": false,
-      "datasource": null,
+      "datasource": "Prometheus",
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -660,7 +660,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": null,
+      "datasource": "Prometheus",
       "description": "go_memstats_alloc_bytes",
       "fill": 1,
       "fillGradient": 0,
@@ -752,7 +752,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": null,
+      "datasource": "Prometheus",
       "description": "go_memstats_alloc_bytes",
       "fill": 1,
       "fillGradient": 0,
@@ -844,7 +844,7 @@
       "bars": true,
       "dashLength": 10,
       "dashes": false,
-      "datasource": null,
+      "datasource": "Prometheus",
       "description": "go_gc_duration_seconds",
       "fill": 1,
       "fillGradient": 0,
@@ -938,7 +938,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": null,
+      "datasource": "Prometheus",
       "description": "go_gc_duration_seconds",
       "fill": 1,
       "fillGradient": 0,
@@ -1029,7 +1029,7 @@
     },
     {
       "collapsed": false,
-      "datasource": null,
+      "datasource": "Prometheus",
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -1046,7 +1046,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": null,
+      "datasource": "Prometheus",
       "description": "Time taken in seconds for ledger block processing.",
       "fill": 5,
       "fillGradient": 0,
@@ -1138,7 +1138,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": null,
+      "datasource": "Prometheus",
       "description": "Time taken in seconds for committing block changes to state db.",
       "fill": 5,
       "fillGradient": 0,
@@ -1227,7 +1227,7 @@
     },
     {
       "collapsed": false,
-      "datasource": null,
+      "datasource": "Prometheus",
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -1242,7 +1242,7 @@
     {
       "cacheTimeout": null,
       "columns": [],
-      "datasource": null,
+      "datasource": "Prometheus",
       "description": "The number of transactions processed.",
       "fontSize": "100%",
       "gridPos": {
@@ -1303,7 +1303,7 @@
     },
     {
       "collapsed": false,
-      "datasource": null,
+      "datasource": "Prometheus",
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -1320,7 +1320,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": null,
+      "datasource": "Prometheus",
       "description": "chaincode_shim_requests_received",
       "fill": 1,
       "fillGradient": 0,
@@ -1431,7 +1431,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": null,
+      "datasource": "Prometheus",
       "description": "broadcast_enqueue_duration_sum",
       "fill": 1,
       "fillGradient": 0,
@@ -1528,7 +1528,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": null,
+      "datasource": "Prometheus",
       "description": "rate(grpc_comm_conn_closed[5m])",
       "fill": 1,
       "fillGradient": 0,
@@ -1624,7 +1624,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": null,
+      "datasource": "Prometheus",
       "description": "chaincode_shim_requests_received",
       "fill": 1,
       "fillGradient": 0,

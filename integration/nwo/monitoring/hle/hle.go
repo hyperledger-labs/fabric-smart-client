@@ -11,9 +11,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	docker "github.com/fsouza/go-dockerclient"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/docker/docker/api/types"
@@ -42,24 +46,27 @@ var RequiredImages = []string{
 
 var logger = flogging.MustGetLogger("integration.nwo.fabric.hle")
 
-type ConnectionProfileProvider interface {
-	ConnectionProfile(name string, ca bool) *nnetwork.ConnectionProfile
+type Platform interface {
+	HyperledgerExplorer() bool
+	GetContext() api.Context
+	ConfigDir() string
+	DockerClient() *docker.Client
+	NetworkID() string
+	HyperledgerExplorerPort() int
 }
 
 type Extension struct {
-	network *nnetwork.Network
-	cpp     ConnectionProfileProvider
+	platform Platform
 }
 
-func NewExtension(network *nnetwork.Network, cpp ConnectionProfileProvider) *Extension {
+func NewExtension(platform Platform) *Extension {
 	return &Extension{
-		network: network,
-		cpp:     cpp,
+		platform: platform,
 	}
 }
 
 func (n *Extension) CheckTopology() {
-	if !n.network.Topology().HyperledgerExplorer {
+	if !n.platform.HyperledgerExplorer() {
 		return
 	}
 
@@ -69,67 +76,72 @@ func (n *Extension) CheckTopology() {
 }
 
 func (n *Extension) GenerateArtifacts() {
-	if !n.network.Topology().HyperledgerExplorer {
+	if !n.platform.HyperledgerExplorer() {
 		return
 	}
 
-	// Generate and store config
-	networkName := fmt.Sprintf("hlf-%s", n.network.Topology().Name())
 	config := Config{
-		NetworkConfigs: map[string]Network{
-			"test-network": {
-				Name:                 fmt.Sprintf("Fabric Network (%s)", networkName),
-				Profile:              "./connection-profile/" + n.network.Topology().TopologyName + ".json",
-				EnableAuthentication: true,
-			},
-		},
-		License: "Apache-2.0",
+		NetworkConfigs: map[string]Network{},
+		License:        "Apache-2.0",
 	}
-	// marshal config
-	configJSON, err := json.MarshalIndent(config, "", "  ")
-	Expect(err).NotTo(HaveOccurred())
-	// write config to file
-	Expect(os.MkdirAll(n.configFileDir(), 0o755)).NotTo(HaveOccurred())
-	Expect(ioutil.WriteFile(n.configFilePath(), configJSON, 0o644)).NotTo(HaveOccurred())
 
-	// Generate and store connection profile
-	cp := n.cpp.ConnectionProfile(networkName, false)
-	// add client section
-	cp.Client = nnetwork.Client{
-		AdminCredential: nnetwork.AdminCredential{
-			Id:       "admin",
-			Password: "admin",
-		},
-		Organization:         n.network.PeerOrgs()[0].Name,
-		EnableAuthentication: true,
-		TlsEnable:            true,
-		Connection: nnetwork.Connection{
-			Timeout: nnetwork.Timeout{
-				Peer: map[string]string{
-					"endorser": "600",
+	// Generate and store config for each fabric network
+	for _, platform := range n.platform.GetContext().PlatformsByType(fabric.TopologyName) {
+		fabricPlatform := platform.(*fabric.Platform)
+
+		networkName := fmt.Sprintf("hlf-%s", fabricPlatform.Topology().Name())
+		config.NetworkConfigs[fabricPlatform.Topology().Name()] = Network{
+			Name:                 fmt.Sprintf("Fabric Network (%s)", networkName),
+			Profile:              "./connection-profile/" + fabricPlatform.Topology().Name() + ".json",
+			EnableAuthentication: true,
+		}
+
+		// marshal config
+		configJSON, err := json.MarshalIndent(config, "", "  ")
+		Expect(err).NotTo(HaveOccurred())
+		// write config to file
+		Expect(os.MkdirAll(n.configFileDir(), 0o755)).NotTo(HaveOccurred())
+		Expect(ioutil.WriteFile(n.configFilePath(), configJSON, 0o644)).NotTo(HaveOccurred())
+
+		// Generate and store connection profile
+		cp := fabricPlatform.ConnectionProfile(fabricPlatform.Topology().Name(), false)
+		// add client section
+		cp.Client = nnetwork.Client{
+			AdminCredential: nnetwork.AdminCredential{
+				Id:       "admin",
+				Password: "admin",
+			},
+			Organization:         fabricPlatform.PeerOrgs()[0].Name,
+			EnableAuthentication: true,
+			TlsEnable:            true,
+			Connection: nnetwork.Connection{
+				Timeout: nnetwork.Timeout{
+					Peer: map[string]string{
+						"endorser": "600",
+					},
 				},
 			},
-		},
+		}
+		cpJSON, err := json.MarshalIndent(cp, "", "  ")
+		Expect(err).NotTo(HaveOccurred())
+		// write cp to file
+		Expect(os.MkdirAll(n.cpFileDir(), 0o755)).NotTo(HaveOccurred())
+		Expect(ioutil.WriteFile(n.cpFilePath(fabricPlatform.Topology().Name()), cpJSON, 0o644)).NotTo(HaveOccurred())
 	}
-	cpJSON, err := json.MarshalIndent(cp, "", "  ")
-	Expect(err).NotTo(HaveOccurred())
-	// write cp to file
-	Expect(os.MkdirAll(n.cpFileDir(), 0o755)).NotTo(HaveOccurred())
-	Expect(ioutil.WriteFile(n.cpFilePath(), cpJSON, 0o644)).NotTo(HaveOccurred())
 }
 
 func (n *Extension) PostRun(bool) {
-	if !n.network.Topology().HyperledgerExplorer {
+	if !n.platform.HyperledgerExplorer() {
 		return
 	}
 
-	logger.Infof("Run Explorer DB [%s]...", n.network.Topology().Name())
+	logger.Infof("Run Explorer DB...")
 	n.dockerExplorerDB()
-	logger.Infof("Run Explorer DB [%s]...done!", n.network.Topology().Name())
+	logger.Infof("Run Explorer DB...done!")
 	time.Sleep(30 * time.Second)
-	logger.Infof("Run Explorer [%s]...", n.network.Topology().Name())
+	logger.Infof("Run Explorer...")
 	n.dockerExplorer()
-	logger.Infof("Run Explorer [%s]...done!", n.network.Topology().Name())
+	logger.Infof("Run Explorer...done!")
 }
 
 func (n *Extension) checkTopology() {
@@ -140,12 +152,12 @@ func (n *Extension) dockerExplorerDB() {
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	Expect(err).ToNot(HaveOccurred())
 
-	net, err := n.network.DockerClient.NetworkInfo(n.network.NetworkID)
+	net, err := n.platform.DockerClient().NetworkInfo(n.platform.NetworkID())
 	Expect(err).ToNot(HaveOccurred())
 
-	containerName := n.network.NetworkID + "-explorerdb.mynetwork.com"
+	containerName := n.platform.NetworkID() + "-explorerdb.mynetwork.com"
 
-	pgdataVolumeName := n.network.NetworkID + "-pgdata"
+	pgdataVolumeName := n.platform.NetworkID() + "-pgdata"
 	_, err = cli.VolumeCreate(ctx, volume.VolumeCreateBody{
 		Name: pgdataVolumeName,
 	})
@@ -170,7 +182,7 @@ func (n *Extension) dockerExplorerDB() {
 		},
 	}, &network.NetworkingConfig{
 		EndpointsConfig: map[string]*network.EndpointSettings{
-			n.network.NetworkID: {
+			n.platform.NetworkID(): {
 				NetworkID: net.ID,
 			},
 		},
@@ -178,14 +190,14 @@ func (n *Extension) dockerExplorerDB() {
 	)
 	Expect(err).ToNot(HaveOccurred())
 
-	err = cli.NetworkConnect(context.Background(), n.network.NetworkID, resp.ID, &network.EndpointSettings{
-		NetworkID: n.network.NetworkID,
+	err = cli.NetworkConnect(context.Background(), n.platform.NetworkID(), resp.ID, &network.EndpointSettings{
+		NetworkID: n.platform.NetworkID(),
 	})
 	Expect(err).ToNot(HaveOccurred())
 
 	Expect(cli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{})).ToNot(HaveOccurred())
 
-	dockerLogger := flogging.MustGetLogger("hle.db.container." + n.network.Topology().TopologyName)
+	dockerLogger := flogging.MustGetLogger("monitoring.hle.db.container")
 	go func() {
 		reader, err := cli.ContainerLogs(context.Background(), resp.ID, types.ContainerLogsOptions{
 			ShowStdout: true,
@@ -209,18 +221,18 @@ func (n *Extension) dockerExplorer() {
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	Expect(err).ToNot(HaveOccurred())
 
-	net, err := n.network.DockerClient.NetworkInfo(n.network.NetworkID)
+	net, err := n.platform.DockerClient().NetworkInfo(n.platform.NetworkID())
 	Expect(err).ToNot(HaveOccurred())
 
-	containerName := n.network.NetworkID + "-explorer.mynetwork.com"
+	containerName := n.platform.NetworkID() + "-explorer.mynetwork.com"
 
-	walletStoreVolumeName := n.network.NetworkID + "-walletstore"
+	walletStoreVolumeName := n.platform.NetworkID() + "-walletstore"
 	_, err = cli.VolumeCreate(ctx, volume.VolumeCreateBody{
 		Name: walletStoreVolumeName,
 	})
 	Expect(err).ToNot(HaveOccurred())
 
-	port := "8080"
+	port := strconv.Itoa(n.platform.HyperledgerExplorerPort())
 	resp, err := cli.ContainerCreate(ctx, &container.Config{
 		Hostname: "explorer.mynetwork.com",
 		Image:    "hyperledger/explorer:latest",
@@ -246,8 +258,8 @@ func (n *Extension) dockerExplorer() {
 			nat.Port(port + "/tcp"): struct{}{},
 		},
 	}, &container.HostConfig{
-		ExtraHosts: []string{fmt.Sprintf("fabric:%s", nnetwork.LocalIP(n.network.DockerClient, n.network.NetworkID))},
-		Links:      []string{n.network.NetworkID + "-explorerdb.mynetwork.com"},
+		ExtraHosts: []string{fmt.Sprintf("fabric:%s", nnetwork.LocalIP(n.platform.DockerClient(), n.platform.NetworkID()))},
+		Links:      []string{n.platform.NetworkID() + "-explorerdb.mynetwork.com"},
 		Mounts: []mount.Mount{
 			{
 				Type:   mount.TypeBind,
@@ -261,7 +273,7 @@ func (n *Extension) dockerExplorer() {
 			},
 			// {
 			// 	Type:   mount.TypeBind,
-			// 	Source: n.network.CryptoPath(),
+			// 	Source: n.platform.CryptoPath(),
 			// 	Target: "/tmp/crypto",
 			// },
 			{
@@ -281,7 +293,7 @@ func (n *Extension) dockerExplorer() {
 	},
 		&network.NetworkingConfig{
 			EndpointsConfig: map[string]*network.EndpointSettings{
-				n.network.NetworkID: {
+				n.platform.NetworkID(): {
 					NetworkID: net.ID,
 				},
 			},
@@ -289,15 +301,15 @@ func (n *Extension) dockerExplorer() {
 	)
 	Expect(err).ToNot(HaveOccurred())
 
-	err = cli.NetworkConnect(context.Background(), n.network.NetworkID, resp.ID, &network.EndpointSettings{
-		NetworkID: n.network.NetworkID,
+	err = cli.NetworkConnect(context.Background(), n.platform.NetworkID(), resp.ID, &network.EndpointSettings{
+		NetworkID: n.platform.NetworkID(),
 	})
 	Expect(err).ToNot(HaveOccurred())
 
 	Expect(cli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{})).ToNot(HaveOccurred())
 	time.Sleep(3 * time.Second)
 
-	dockerLogger := flogging.MustGetLogger("hle.container." + n.network.Topology().TopologyName)
+	dockerLogger := flogging.MustGetLogger("monitoring.hle.container")
 	go func() {
 		reader, err := cli.ContainerLogs(context.Background(), resp.ID, types.ContainerLogsOptions{
 			ShowStdout: true,
@@ -318,7 +330,7 @@ func (n *Extension) dockerExplorer() {
 
 func (n *Extension) configFileDir() string {
 	return filepath.Join(
-		n.network.ConfigDir(),
+		n.platform.ConfigDir(),
 		"hle",
 	)
 }
@@ -334,6 +346,6 @@ func (n *Extension) cpFileDir() string {
 	)
 }
 
-func (n *Extension) cpFilePath() string {
-	return filepath.Join(n.cpFileDir(), n.network.Topology().TopologyName+".json")
+func (n *Extension) cpFilePath(name string) string {
+	return filepath.Join(n.cpFileDir(), name+".json")
 }

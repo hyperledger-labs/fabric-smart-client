@@ -10,17 +10,16 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"io/ioutil"
-	"net"
-
 	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger"
 	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/operations"
 	protos2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view/protos"
 	web2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/web"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracker/metrics"
-
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger/fabric/common/grpclogging"
 	"github.com/pkg/errors"
+	"io/ioutil"
+	"net"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	config2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/core/config"
@@ -65,7 +64,8 @@ type p struct {
 	viewService view2.Service
 	viewManager Startable
 
-	context context.Context
+	context          context.Context
+	operationsSystem *operations.System
 }
 
 func NewSDK(confPath string, registry Registry) *p {
@@ -115,17 +115,21 @@ func (p *p) Install() error {
 	assert.NoError(err, "failed instantiating endpoint resolver service")
 	assert.NoError(resolverService.LoadResolvers(), "failed loading resolvers")
 
+	assert.NoError(p.initWEBServer(), "failed initializing web server")
+	assert.NoError(p.initMetrics(), "failed initializing metrics")
+
 	// View Service Server
 	marshaller, err := view2.NewResponseMarshaler(p.registry)
 	if err != nil {
 		return fmt.Errorf("error creating view service response marshaller: %s", err)
 	}
-
-	p.viewService, err = view2.NewViewServiceServer(marshaller,
+	p.viewService, err = view2.NewViewServiceServer(
+		marshaller,
 		view2.NewAccessControlChecker(
 			idProvider,
 			view.GetSigService(p.registry),
 		),
+		view2.NewMetrics(p.operationsSystem),
 	)
 	if err != nil {
 		return fmt.Errorf("error creating view service server: %s", err)
@@ -141,34 +145,8 @@ func (p *p) Install() error {
 	}
 	p.viewManager = viewManager
 
-	// Metrics
-	confService := view.GetConfigService(p.registry)
-	metricsType := confService.GetString("fsc.metrics.type")
-	var agent interface{}
-	switch metricsType {
-	case "", "none":
-		logger.Infof("Metrics disabled")
-		agent = metrics.NewNullAgent()
-	case "udp":
-		logger.Infof("Metrics enabled: UDP")
-		metricsServer := confService.GetString("fsc.metrics.options.address")
-		if len(metricsServer) == 0 {
-			metricsServer = "localhost:8125"
-			logger.Infof("metrics server address not set, using default: ", metricsServer)
-		}
-		agent, err = metrics.NewStatsdAgent(
-			metrics.Host(confService.GetString("fsc.id")),
-			metrics.StatsDSink(metricsServer),
-		)
-		if err != nil {
-			return fmt.Errorf("error creating metrics agent: %s", err)
-		}
-		logger.Infof("metrics enabled, listening on %s", metricsServer)
-	default:
-		return fmt.Errorf("unknown metrics type: %s", metricsType)
-	}
-	if err := p.registry.RegisterService(agent); err != nil {
-		return err
+	if err := p.installTracing(); err != nil {
+		return errors.WithMessage(err, "failed installing tracing")
 	}
 
 	return nil
@@ -177,7 +155,6 @@ func (p *p) Install() error {
 func (p *p) Start(ctx context.Context) error {
 	p.context = ctx
 
-	assert.NoError(p.initWEBServer(), "failed initializing web server")
 	assert.NoError(p.initGRPCServer(), "failed initializing grpc server")
 	assert.NoError(p.startCommLayer(), "failed starting comm layer")
 	assert.NoError(p.registerViewServiceServer(), "failed registering view service server")
@@ -201,24 +178,30 @@ func (p *p) initWEBServer() error {
 		return nil
 	}
 
+	listenAddr := configProvider.GetString("fsc.web.address")
+
+	var tlsConfig web2.TLS
+	prefix := "fsc."
+	if configProvider.IsSet("fsc.web.tls") {
+		prefix = "fsc.web."
+	}
 	var clientRootCAs []string
-	for _, path := range configProvider.GetStringSlice("fsc.tls.clientRootCAs.files") {
+	for _, path := range configProvider.GetStringSlice(prefix + "tls.clientRootCAs.files") {
 		clientRootCAs = append(clientRootCAs, configProvider.TranslatePath(path))
 	}
-
-	listenAddr := configProvider.GetString("fsc.web.address")
+	tlsConfig = web2.TLS{
+		Enabled:           configProvider.GetBool(prefix + "tls.enabled"),
+		CertFile:          configProvider.GetPath(prefix + "tls.cert.file"),
+		KeyFile:           configProvider.GetPath(prefix + "tls.key.file"),
+		ClientCACertFiles: clientRootCAs,
+	}
 	p.webServer = web2.NewServer(web2.Options{
 		ListenAddress: listenAddr,
 		Logger:        logger,
-		TLS: web2.TLS{
-			Enabled:           configProvider.GetBool("fsc.tls.enabled"),
-			CertFile:          configProvider.GetPath("fsc.tls.cert.file"),
-			KeyFile:           configProvider.GetPath("fsc.tls.key.file"),
-			ClientCACertFiles: clientRootCAs,
-		},
+		TLS:           tlsConfig,
 	})
 	h := web2.NewHttpHandler(logger)
-	p.webServer.RegisterHandler("/", h)
+	p.webServer.RegisterHandler("/", h, true)
 
 	d := &web2.Dispatcher{
 		Logger:  logger,
@@ -318,6 +301,15 @@ func (p *p) serve() error {
 		}
 	}()
 	go func() {
+		if p.operationsSystem == nil {
+			return
+		}
+		logger.Info("Starting operations system...")
+		if err := p.operationsSystem.Start(); err != nil {
+			logger.Fatalf("Failed starting operations system: %v", err)
+		}
+	}()
+	go func() {
 		select {
 		case <-p.context.Done():
 			if p.webServer != nil {
@@ -335,6 +327,13 @@ func (p *p) serve() error {
 			logger.Info("kvs stopping...")
 			kvs.GetService(p.registry).Stop()
 			logger.Info("kvs stopping...done")
+
+			logger.Infof("operations system stopping...")
+			if p.operationsSystem != nil {
+				if err := p.operationsSystem.Stop(); err != nil {
+					logger.Errorf("failed stopping operations system [%s]", err)
+				}
+			}
 		}
 	}()
 	return nil
@@ -487,4 +486,65 @@ func (p *p) getClientCertificate() (tls.Certificate, error) {
 			"error parsing client TLS key pair")
 	}
 	return cert, nil
+}
+
+func (p *p) installTracing() error {
+	confService := view.GetConfigService(p.registry)
+
+	provider := confService.GetString("fsc.tracing.provider")
+	var agent interface{}
+	switch provider {
+	case "", "none":
+		logger.Infof("Tracing disabled")
+		agent = tracing.NewNullAgent()
+	case "udp":
+		logger.Infof("Tracing enabled: UDP")
+		address := confService.GetString("fsc.tracing.udp.address")
+		if len(address) == 0 {
+			address = "localhost:8125"
+			logger.Infof("tracing server address not set, using default: ", address)
+		}
+		var err error
+		agent, err = tracing.NewStatsdAgent(
+			tracing.Host(confService.GetString("fsc.id")),
+			tracing.StatsDSink(address),
+		)
+		if err != nil {
+			return errors.Wrap(err, "error creating tracing agent")
+		}
+		logger.Infof("tracing enabled, listening on %s", address)
+	default:
+		return errors.Errorf("unknown tracing provider: %s", provider)
+	}
+	if err := p.registry.RegisterService(agent); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (p *p) initMetrics() error {
+	configProvider := view.GetConfigService(p.registry)
+
+	tlsEnabled := false
+	if configProvider.IsSet("fsc.web.tls.enabled") {
+		tlsEnabled = configProvider.GetBool("fsc.web.tls.enabled")
+	} else {
+		tlsEnabled = configProvider.GetBool("fsc.tls.enabled")
+	}
+
+	statsdOperationsConfig := &operations.Statsd{}
+	if err := configProvider.UnmarshalKey("fsc.metrics.statsd", statsdOperationsConfig); err != nil {
+		return errors.Wrap(err, "error unmarshalling metrics.statsd config")
+	}
+	p.operationsSystem = operations.NewSystem(p.webServer, operations.Options{
+		Metrics: operations.MetricsOptions{
+			Provider: configProvider.GetString("fsc.metrics.provider"),
+			Statsd:   statsdOperationsConfig,
+		},
+		TLS: operations.TLS{
+			Enabled: tlsEnabled,
+		},
+		Version: "1.0.0",
+	})
+	return p.registry.RegisterService(p.operationsSystem)
 }

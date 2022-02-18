@@ -104,11 +104,36 @@ fsc:
   web:
     enabled: true
     # HTTPS server listener address
-    address: 127.0.0.1:{{ .NodePort Peer "Web" }}
+    address: 0.0.0.0:{{ .NodePort Peer "Web" }}
+    tls:
+      enabled:  true
+      cert:
+        file: {{ .NodeLocalTLSDir Peer }}/server.crt
+      key:
+        file: {{ .NodeLocalTLSDir Peer }}/server.key
+      clientRootCAs:
+        files:
+        - {{ .NodeLocalTLSDir Peer }}/ca.crt
+    rootCertFile: {{ .CACertsBundlePath }}
+  tracing:
+    provider: {{ Topology.TracingProvider }}
+    udp:
+      address: 127.0.0.1:8125
   metrics:
-    type: {{ Topology.MetricsType }}
-    options:
-      address: localhost:8125
+    # metrics provider is one of statsd, prometheus, or disabled
+    provider: {{ Topology.MetricsProvider }}
+    # statsd configuration
+    statsd:
+      # network type: tcp or udp
+      network: udp
+      # statsd server address
+      address: 127.0.0.1:8125
+      # the interval at which locally cached counters and gauges are pushed
+      # to statsd; timings are pushed immediately
+      writeInterval: 10s
+      # prefix is prepended to all emitted statsd metrics
+      prefix:
+
   # The endpoint section tells how to reach other FSC node in the network.
   # For each node, the name, the domain, the identity of the node, and its addresses must be specified.
   endpoint:
