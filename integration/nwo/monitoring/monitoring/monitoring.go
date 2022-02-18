@@ -10,9 +10,15 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	docker "github.com/fsouza/go-dockerclient"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/docker/docker/api/types"
@@ -26,7 +32,6 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/helpers"
 	nnetwork "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/network"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 )
 
@@ -43,26 +48,28 @@ var RequiredImages = []string{
 var logger = flogging.MustGetLogger("integration.nwo.fabric.monitoring")
 
 type Platform interface {
-	ConnectionProfile(name string, ca bool) *nnetwork.ConnectionProfile
-	Orderers() []*fabric.Orderer
-	PeerOrgs() []*fabric.Org
-	PeersByOrg(fabricHost string, orgName string, includeAll bool) []*fabric.Peer
+	HyperledgerExplorer() bool
+	GetContext() api.Context
+	ConfigDir() string
+	DockerClient() *docker.Client
+	NetworkID() string
+	PrometheusGrafana() bool
+	PrometheusPort() int
+	GrafanaPort() int
 }
 
 type Extension struct {
-	network  *nnetwork.Network
 	platform Platform
 }
 
-func NewExtension(network *nnetwork.Network, cpp Platform) *Extension {
+func NewExtension(platform Platform) *Extension {
 	return &Extension{
-		network:  network,
-		platform: cpp,
+		platform: platform,
 	}
 }
 
 func (n *Extension) CheckTopology() {
-	if !n.network.Topology().Monitoring {
+	if !n.platform.PrometheusGrafana() {
 		return
 	}
 
@@ -72,7 +79,7 @@ func (n *Extension) CheckTopology() {
 }
 
 func (n *Extension) GenerateArtifacts() {
-	if !n.network.Topology().Monitoring {
+	if !n.platform.PrometheusGrafana() {
 		return
 	}
 
@@ -82,52 +89,21 @@ func (n *Extension) GenerateArtifacts() {
 			ScrapeInterval:     "15s",
 			EvaluationInterval: "15s",
 		},
-		ScrapeConfigs: []ScrapeConfig{
-			{
-				JobName: "prometheus",
-				StaticConfigs: []StaticConfig{
-					{
-						Targets: []string{"prometheus:9090"},
-					},
-				},
-			},
-		},
+		ScrapeConfigs: []ScrapeConfig{},
 	}
 
-	osc := ScrapeConfig{
-		JobName: "orderers",
-		StaticConfigs: []StaticConfig{
-			{
-				Targets: []string{},
-			},
-		},
-	}
-	for _, orderer := range n.platform.Orderers() {
-		osc.StaticConfigs[0].Targets = append(osc.StaticConfigs[0].Targets, orderer.OperationAddress)
-	}
-	prometheusConfig.ScrapeConfigs = append(prometheusConfig.ScrapeConfigs, osc)
-	for _, org := range n.platform.PeerOrgs() {
-		sc := ScrapeConfig{
-			JobName: "Peers in " + org.Name,
-			StaticConfigs: []StaticConfig{
-				{
-					Targets: []string{},
-				},
-			},
-		}
-		for _, peer := range n.platform.PeersByOrg("", org.Name, false) {
-			sc.StaticConfigs[0].Targets = append(sc.StaticConfigs[0].Targets, peer.OperationAddress)
-		}
-		prometheusConfig.ScrapeConfigs = append(prometheusConfig.ScrapeConfigs, sc)
-	}
-	// marshal config
+	n.prometheusScrape(&prometheusConfig)
+	n.fabricScrapes(&prometheusConfig)
+	n.fscScrapes(&prometheusConfig)
+
+	// store prometheus configuration
 	configYAML, err := yaml.Marshal(prometheusConfig)
 	Expect(err).NotTo(HaveOccurred())
-	// write config to file
 	Expect(os.MkdirAll(n.configFileDir(), 0o755)).NotTo(HaveOccurred())
+	Expect(os.MkdirAll(n.prometheusConfigDir(), 0o755)).NotTo(HaveOccurred())
 	Expect(ioutil.WriteFile(n.prometheusConfigFilePath(), configYAML, 0o644)).NotTo(HaveOccurred())
 
-	// Generate grafana's provisioning
+	// store grafana configuration
 	for _, dir := range n.grafanaDirPaths() {
 		Expect(os.MkdirAll(dir, 0o755)).NotTo(HaveOccurred())
 	}
@@ -135,24 +111,95 @@ func (n *Extension) GenerateArtifacts() {
 	Expect(ioutil.WriteFile(n.grafanaProvisioningDatasourceFilePath(), []byte(DatasourceTemplate), 0o644)).NotTo(HaveOccurred())
 	Expect(ioutil.WriteFile(n.grafanaDashboardFabricBackendFilePath(), []byte(DashboardFabricBackendTemplate), 0o644)).NotTo(HaveOccurred())
 	Expect(ioutil.WriteFile(n.grafanaDashboardFabricBusinessFilePath(), []byte(DashboardFabricBusinessTemplate), 0o644)).NotTo(HaveOccurred())
-
 }
 
 func (n *Extension) PostRun(bool) {
-	if !n.network.Topology().Monitoring {
+	if !n.platform.PrometheusGrafana() {
 		return
 	}
 
-	logger.Infof("Run Prometheus [%s]...", n.network.Topology().Name())
+	logger.Infof("Run Prometheus...")
 	n.dockerPrometheus()
-	logger.Infof("Run Prometheus [%s]...done!", n.network.Topology().Name())
+	logger.Infof("Run Prometheus..done!")
 	time.Sleep(30 * time.Second)
-	logger.Infof("Run Grafana [%s]...", n.network.Topology().Name())
+	logger.Infof("Run Grafana...")
 	n.dockerGrafana()
-	logger.Infof("Run Grafana [%s]...done!", n.network.Topology().Name())
+	logger.Infof("Run Grafana...done!")
 }
 
-func (n *Extension) checkTopology() {
+func (n *Extension) fabricScrapes(p *Prometheus) {
+	for _, platform := range n.platform.GetContext().PlatformsByType(fabric.TopologyName) {
+		fabricPlatform := platform.(*fabric.Platform)
+
+		osc := ScrapeConfig{
+			JobName: "orderers",
+			Scheme:  "http",
+			StaticConfigs: []StaticConfig{
+				{
+					Targets: []string{},
+				},
+			},
+		}
+		for _, orderer := range fabricPlatform.Orderers() {
+			osc.StaticConfigs[0].Targets = append(osc.StaticConfigs[0].Targets, orderer.OperationAddress)
+		}
+		p.ScrapeConfigs = append(p.ScrapeConfigs, osc)
+		for _, org := range fabricPlatform.PeerOrgs() {
+			sc := ScrapeConfig{
+				JobName: "Peers in " + org.Name,
+				Scheme:  "http",
+				StaticConfigs: []StaticConfig{
+					{
+						Targets: []string{},
+					},
+				},
+			}
+			for _, peer := range fabricPlatform.PeersByOrg("", org.Name, false) {
+				sc.StaticConfigs[0].Targets = append(sc.StaticConfigs[0].Targets, peer.OperationAddress)
+			}
+			p.ScrapeConfigs = append(p.ScrapeConfigs, sc)
+		}
+	}
+}
+
+func (n *Extension) fscScrapes(p *Prometheus) {
+	platform := n.platform.GetContext().PlatformsByType(fsc.TopologyName)[0].(*fsc.Platform)
+	for _, peer := range platform.Peers {
+		replace := func(s string) string {
+			return strings.Replace(s, n.fscCryptoDir(), "/etc/prometheus/fsc/crypto", -1)
+		}
+		sc := ScrapeConfig{
+			JobName: "FSC Node " + peer.Name,
+			Scheme:  "https",
+			StaticConfigs: []StaticConfig{
+				{
+					Targets: []string{platform.OperationAddress(peer)},
+				},
+			},
+			TLSConfig: &TLSConfig{
+				CAFile:             replace(platform.NodeLocalTLSDir(peer) + "/ca.crt"),
+				CertFile:           replace(platform.NodeLocalTLSDir(peer) + "/server.crt"),
+				KeyFile:            replace(platform.NodeLocalTLSDir(peer) + "/server.key"),
+				ServerName:         "",
+				InsecureSkipVerify: true,
+			},
+		}
+		p.ScrapeConfigs = append(p.ScrapeConfigs, sc)
+	}
+}
+
+func (n *Extension) prometheusScrape(p *Prometheus) {
+	p.ScrapeConfigs = append(p.ScrapeConfigs,
+		ScrapeConfig{
+			JobName: "prometheus",
+			Scheme:  "http",
+			StaticConfigs: []StaticConfig{
+				{
+					Targets: []string{"prometheus:" + strconv.Itoa(n.platform.PrometheusPort())},
+				},
+			},
+		},
+	)
 }
 
 func (n *Extension) dockerPrometheus() {
@@ -160,12 +207,12 @@ func (n *Extension) dockerPrometheus() {
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	Expect(err).ToNot(HaveOccurred())
 
-	net, err := n.network.DockerClient.NetworkInfo(n.network.NetworkID)
+	net, err := n.platform.DockerClient().NetworkInfo(n.platform.NetworkID())
 	Expect(err).ToNot(HaveOccurred())
 
-	containerName := n.network.NetworkID + "-prometheus-" + n.network.Topology().Name()
+	containerName := n.platform.NetworkID() + "-prometheus"
 
-	port := "9090"
+	port := strconv.Itoa(n.platform.PrometheusPort())
 	resp, err := cli.ContainerCreate(ctx, &container.Config{
 		Hostname: "prometheus",
 		Image:    "prom/prometheus:latest",
@@ -174,13 +221,18 @@ func (n *Extension) dockerPrometheus() {
 			nat.Port(port + "/tcp"): struct{}{},
 		},
 	}, &container.HostConfig{
-		ExtraHosts:    []string{fmt.Sprintf("fabric:%s", nnetwork.LocalIP(n.network.DockerClient, n.network.NetworkID))},
+		ExtraHosts:    []string{fmt.Sprintf("fabric:%s", nnetwork.LocalIP(n.platform.DockerClient(), n.platform.NetworkID()))},
 		RestartPolicy: container.RestartPolicy{Name: "always"},
 		Mounts: []mount.Mount{
 			{
 				Type:   mount.TypeBind,
 				Source: n.prometheusConfigFilePath(),
 				Target: "/etc/prometheus/prometheus.yml",
+			},
+			{
+				Type:   mount.TypeBind,
+				Source: n.fscCryptoDir(),
+				Target: "/etc/prometheus/fsc/crypto",
 			},
 		},
 		PortBindings: nat.PortMap{
@@ -193,7 +245,7 @@ func (n *Extension) dockerPrometheus() {
 		},
 	}, &network.NetworkingConfig{
 		EndpointsConfig: map[string]*network.EndpointSettings{
-			n.network.NetworkID: {
+			n.platform.NetworkID(): {
 				NetworkID: net.ID,
 			},
 		},
@@ -201,14 +253,14 @@ func (n *Extension) dockerPrometheus() {
 	)
 	Expect(err).ToNot(HaveOccurred())
 
-	err = cli.NetworkConnect(context.Background(), n.network.NetworkID, resp.ID, &network.EndpointSettings{
-		NetworkID: n.network.NetworkID,
+	err = cli.NetworkConnect(context.Background(), n.platform.NetworkID(), resp.ID, &network.EndpointSettings{
+		NetworkID: n.platform.NetworkID(),
 	})
 	Expect(err).ToNot(HaveOccurred())
 
 	Expect(cli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{})).ToNot(HaveOccurred())
 
-	dockerLogger := flogging.MustGetLogger("prometheus.container." + n.network.Topology().TopologyName)
+	dockerLogger := flogging.MustGetLogger("prometheus.container")
 	go func() {
 		reader, err := cli.ContainerLogs(context.Background(), resp.ID, types.ContainerLogsOptions{
 			ShowStdout: true,
@@ -232,12 +284,12 @@ func (n *Extension) dockerGrafana() {
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	Expect(err).ToNot(HaveOccurred())
 
-	net, err := n.network.DockerClient.NetworkInfo(n.network.NetworkID)
+	net, err := n.platform.DockerClient().NetworkInfo(n.platform.NetworkID())
 	Expect(err).ToNot(HaveOccurred())
 
-	containerName := n.network.NetworkID + "-grafana-" + n.network.Topology().Name()
+	containerName := n.platform.NetworkID() + "-grafana"
 
-	port := "3000"
+	port := strconv.Itoa(n.platform.GrafanaPort())
 	resp, err := cli.ContainerCreate(ctx, &container.Config{
 		Hostname: "grafana",
 		Image:    "grafana/grafana:latest",
@@ -250,7 +302,7 @@ func (n *Extension) dockerGrafana() {
 			nat.Port(port + "/tcp"): struct{}{},
 		},
 	}, &container.HostConfig{
-		Links: []string{n.network.NetworkID + "-prometheus-" + n.network.Topology().Name()},
+		Links: []string{n.platform.NetworkID() + "-prometheus"},
 		Mounts: []mount.Mount{
 			{
 				Type:   mount.TypeBind,
@@ -274,7 +326,7 @@ func (n *Extension) dockerGrafana() {
 	},
 		&network.NetworkingConfig{
 			EndpointsConfig: map[string]*network.EndpointSettings{
-				n.network.NetworkID: {
+				n.platform.NetworkID(): {
 					NetworkID: net.ID,
 				},
 			},
@@ -282,15 +334,15 @@ func (n *Extension) dockerGrafana() {
 	)
 	Expect(err).ToNot(HaveOccurred())
 
-	err = cli.NetworkConnect(context.Background(), n.network.NetworkID, resp.ID, &network.EndpointSettings{
-		NetworkID: n.network.NetworkID,
+	err = cli.NetworkConnect(context.Background(), n.platform.NetworkID(), resp.ID, &network.EndpointSettings{
+		NetworkID: n.platform.NetworkID(),
 	})
 	Expect(err).ToNot(HaveOccurred())
 
 	Expect(cli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{})).ToNot(HaveOccurred())
 	time.Sleep(3 * time.Second)
 
-	dockerLogger := flogging.MustGetLogger("grafana.container." + n.network.Topology().TopologyName)
+	dockerLogger := flogging.MustGetLogger("grafana.container")
 	go func() {
 		reader, err := cli.ContainerLogs(context.Background(), resp.ID, types.ContainerLogsOptions{
 			ShowStdout: true,
@@ -310,8 +362,7 @@ func (n *Extension) dockerGrafana() {
 
 func (n *Extension) configFileDir() string {
 	return filepath.Join(
-		n.network.ConfigDir(),
-		"monitoring",
+		n.platform.ConfigDir(),
 	)
 }
 
@@ -402,6 +453,14 @@ func (n *Extension) grafanaDashboardFabricBusinessFilePath() string {
 	)
 }
 
+func (n *Extension) prometheusConfigDir() string {
+	return filepath.Join(n.configFileDir(), "prometheus")
+}
+
 func (n *Extension) prometheusConfigFilePath() string {
-	return filepath.Join(n.configFileDir(), "prometheus.yml")
+	return filepath.Join(n.configFileDir(), "prometheus", "prometheus.yml")
+}
+
+func (n *Extension) fscCryptoDir() string {
+	return n.platform.GetContext().PlatformsByType(fsc.TopologyName)[0].(*fsc.Platform).CryptoPath()
 }

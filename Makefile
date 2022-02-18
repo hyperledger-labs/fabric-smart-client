@@ -42,7 +42,7 @@ fabric-docker-images:
 	docker pull hyperledger/fabric-ccenv:2.2
 	docker image tag hyperledger/fabric-ccenv:2.2 hyperledger/fabric-ccenv:latest
 
-.PHONY: fabric-docker-images
+.PHONY: weaver-docker-images
 weaver-docker-images:
 	docker pull ghcr.io/hyperledger-labs/weaver-fabric-driver:1.2.1
 	docker image tag ghcr.io/hyperledger-labs/weaver-fabric-driver:1.2.1 hyperledger-labs/weaver-fabric-driver:latest

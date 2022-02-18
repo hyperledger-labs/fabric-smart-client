@@ -25,8 +25,6 @@ func Topology() []api.Topology {
 	fabricTopology.EnableLogPeersToFile()
 	fabricTopology.EnableLogOrderersToFile()
 	fabricTopology.SetLogging("info", "")
-	//fabricTopology.EnableMonitoring()
-	//fabricTopology.EnableHyperledgerExplorer()
 
 	// Define an FSC topology with 3 FCS nodes.
 	// One for the approver, one for the borrower, and one for the lender.
@@ -57,5 +55,14 @@ func Topology() []api.Topology {
 	lender.RegisterResponder(&views.UpdateIOUResponderView{}, &views.UpdateIOUView{})
 	lender.RegisterViewFactory("query", &views.QueryViewFactory{})
 
-	return []api.Topology{fabricTopology, fscTopology}
+	//// Monitoring
+	//monitoringTopology := monitoring.NewTopology()
+	//monitoringTopology.EnableHyperledgerExplorer()
+	//monitoringTopology.EnablePrometheusGrafana()
+
+	return []api.Topology{
+		fabricTopology,
+		fscTopology,
+		//monitoringTopology,
+	}
 }

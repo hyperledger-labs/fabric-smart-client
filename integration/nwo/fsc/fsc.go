@@ -12,10 +12,13 @@ import (
 	"go/build"
 	"io"
 	"io/ioutil"
+	"net"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
+	"runtime"
+	"strconv"
 	"strings"
 	"syscall"
 	"text/template"
@@ -35,8 +38,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 	runner2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/runner"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/commands"
-	commands2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/metrics/commands"
 	node2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
+	commands2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/tracing/commands"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/view"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/view/cmd"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/crypto"
@@ -340,6 +343,14 @@ func (p *Platform) CheckTopology() {
 	if !bootstrapNodeFound {
 		p.Topology.Nodes[0].Bootstrap = true
 	}
+}
+
+func (p *Platform) OperationAddress(peer *node2.Peer) string {
+	fabricHost := "fabric"
+	if runtime.GOOS == "darwin" {
+		fabricHost = "host.docker.internal"
+	}
+	return net.JoinHostPort(fabricHost, strconv.Itoa(int(p.Context.PortsByPeerID("fsc", peer.ID())[WebPort])))
 }
 
 func (p *Platform) InitClients() {

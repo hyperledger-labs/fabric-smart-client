@@ -8,6 +8,7 @@ package integration
 
 import (
 	"encoding/json"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/monitoring"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"io/ioutil"
 	"os"
@@ -89,8 +90,9 @@ func New(startPort int, path string, topologies ...api.Topology) (*Infrastructur
 		DeleteOnStop: true,
 		Topologies:   topologies,
 		PlatformFactories: map[string]api.PlatformFactory{
-			"fabric": fabric.NewPlatformFactory(),
-			"weaver": weaver.NewPlatformFactory(),
+			"fabric":     fabric.NewPlatformFactory(),
+			"weaver":     weaver.NewPlatformFactory(),
+			"monitoring": monitoring.NewPlatformFactory(),
 		},
 	}
 	return n, nil

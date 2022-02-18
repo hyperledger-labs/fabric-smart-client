@@ -104,7 +104,17 @@ fsc:
   web:
     enabled: true
     # HTTPS server listener address
-    address: 127.0.0.1:{{ .NodePort Peer "Web" }}
+    address: 0.0.0.0:{{ .NodePort Peer "Web" }}
+    tls:
+      enabled:  true
+      cert:
+        file: {{ .NodeLocalTLSDir Peer }}/server.crt
+      key:
+        file: {{ .NodeLocalTLSDir Peer }}/server.key
+      clientRootCAs:
+        files:
+        - {{ .NodeLocalTLSDir Peer }}/ca.crt
+    rootCertFile: {{ .CACertsBundlePath }}
   tracing:
     provider: {{ Topology.TracingProvider }}
     udp:

@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"os"
 
-	dmetrics "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/metrics"
+	dmetrics "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 )
 

@@ -27,8 +27,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/commands"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/fpc"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/helpers"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/hle"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/monitoring"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/network"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology/fabric"
@@ -139,8 +137,6 @@ func NewPlatform(context api.Context, t api.Topology, components BuilderClient) 
 	}
 
 	network.AddExtension(fpc.NewExtension(network))
-	network.AddExtension(hle.NewExtension(network, p))
-	network.AddExtension(monitoring.NewExtension(network, p))
 
 	return p
 }

@@ -28,6 +28,7 @@ import (
 //go:generate counterfeiter -o fakes/logger.go -fake-name Logger . Logger
 
 type Logger interface {
+	Debugf(template string, args ...interface{})
 	Warn(args ...interface{})
 	Warnf(template string, args ...interface{})
 }
@@ -126,6 +127,7 @@ func (s *System) Log(keyvals ...interface{}) error {
 func (s *System) initializeMetricsProvider() error {
 	m := s.options.Metrics
 	providerType := m.Provider
+	s.logger.Debugf("Initializing metrics provider: [%s]", providerType)
 	switch providerType {
 	case "statsd":
 		prefix := m.Statsd.Prefix

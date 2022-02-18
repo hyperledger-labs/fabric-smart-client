@@ -620,10 +620,15 @@ You can test by yourself.
 and associated data, network information (name, status, list of nodes), chaincodes and transaction families, as 
 well as any other relevant information stored in the ledger.
 
-You can enable it by adding to your Fabric topology the following:
+You can enable it by using the `Monitoring Platform` as follows:
 
 ```go
-    fabricTopology.EnableHyperledgerExplorer()
+	// Create a new topology for the monitoring infrastructure
+    monitoringTopology := monitoring.NewTopology()
+	// Enable Hyperledger Explorer
+    monitoringTopology.EnableHyperledgerExplorer()
+
+    return []api.Topology{fabricTopology, fscTopology, monitoringTopology}
 ```
 
 To use it, make sure you have all the required docker images. 
@@ -648,10 +653,15 @@ with flexible queries and real-time alerting, [Wikipedia](https://en.wikipedia.o
 [Grafana](https://grafana.com/) is a multi-platform open source analytics and interactive visualization web application. 
 It provides charts, graphs, and alerts for the web when connected to supported data sources, [Wikipedia](https://en.wikipedia.org/wiki/Grafana).
 
-You can enable them and start monitoring your networks by adding to your Fabric topology the following:
+You can enable them and start monitoring your networks by configuring the monitoring platorm as follows:
 
 ```go
-    fabricTopology.EnableMonitoring()
+	// Create a new topology for the monitoring infrastructure
+    monitoringTopology := monitoring.NewTopology()
+	// Enable Prometheus and Grafana
+    monitoringTopology.EnablePrometheusGrafana()
+    
+    return []api.Topology{fabricTopology, fscTopology, monitoringTopology}
 ```
 
 To use it, make sure you have all the required docker images.

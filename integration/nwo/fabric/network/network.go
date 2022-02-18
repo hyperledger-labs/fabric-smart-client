@@ -295,7 +295,6 @@ func (n *Network) Cleanup() {
 
 	err = n.DockerClient.RemoveNetwork(nw.ID)
 	Expect(err).NotTo(HaveOccurred())
-
 }
 
 func (n *Network) DeployChaincode(chaincode *topology.ChannelChaincode) {

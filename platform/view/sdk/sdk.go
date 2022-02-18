@@ -10,7 +10,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/operations"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/operations"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"io/ioutil"
 	"net"
@@ -177,21 +177,27 @@ func (p *p) initWEBServer() error {
 		return nil
 	}
 
+	listenAddr := configProvider.GetString("fsc.web.address")
+
+	var tlsConfig web2.TLS
+	prefix := "fsc."
+	if configProvider.IsSet("fsc.web.tls") {
+		prefix = "fsc.web."
+	}
 	var clientRootCAs []string
-	for _, path := range configProvider.GetStringSlice("fsc.tls.clientRootCAs.files") {
+	for _, path := range configProvider.GetStringSlice(prefix + "tls.clientRootCAs.files") {
 		clientRootCAs = append(clientRootCAs, configProvider.TranslatePath(path))
 	}
-
-	listenAddr := configProvider.GetString("fsc.web.address")
+	tlsConfig = web2.TLS{
+		Enabled:           configProvider.GetBool(prefix + "tls.enabled"),
+		CertFile:          configProvider.GetPath(prefix + "tls.cert.file"),
+		KeyFile:           configProvider.GetPath(prefix + "tls.key.file"),
+		ClientCACertFiles: clientRootCAs,
+	}
 	p.webServer = web2.NewServer(web2.Options{
 		ListenAddress: listenAddr,
 		Logger:        logger,
-		TLS: web2.TLS{
-			Enabled:           configProvider.GetBool("fsc.tls.enabled"),
-			CertFile:          configProvider.GetPath("fsc.tls.cert.file"),
-			KeyFile:           configProvider.GetPath("fsc.tls.key.file"),
-			ClientCACertFiles: clientRootCAs,
-		},
+		TLS:           tlsConfig,
 	})
 	h := web2.NewHttpHandler(logger)
 	p.webServer.RegisterHandler("/", h, true)
@@ -467,6 +473,7 @@ func (p *p) getClientCertificate() (tls.Certificate, error) {
 
 func (p *p) installTracing() error {
 	confService := view.GetConfigService(p.registry)
+
 	provider := confService.GetString("fsc.tracing.provider")
 	var agent interface{}
 	switch provider {
@@ -501,9 +508,16 @@ func (p *p) installTracing() error {
 func (p *p) initMetrics() error {
 	configProvider := view.GetConfigService(p.registry)
 
+	tlsEnabled := false
+	if configProvider.IsSet("fsc.web.tls.enabled") {
+		tlsEnabled = configProvider.GetBool("fsc.web.tls.enabled")
+	} else {
+		tlsEnabled = configProvider.GetBool("fsc.tls.enabled")
+	}
+
 	s := operations.NewSystem(p.webServer, operations.Options{
 		Metrics: operations.MetricsOptions{
-			Provider: "disabled",
+			Provider: configProvider.GetString("fsc.metrics.provider"),
 			Statsd: &operations.Statsd{
 				Network:       "udp",
 				Address:       "127.0.0.1:8125",
@@ -512,7 +526,7 @@ func (p *p) initMetrics() error {
 			},
 		},
 		TLS: operations.TLS{
-			Enabled: configProvider.GetBool("fsc.tls.enabled"),
+			Enabled: tlsEnabled,
 		},
 		Version: "1.0.0",
 	})
