@@ -118,9 +118,21 @@ fsc:
   tracing:
     provider: {{ Topology.TracingProvider }}
     udp:
-      address: localhost:8125
+      address: 127.0.0.1:8125
   metrics:
+    # metrics provider is one of statsd, prometheus, or disabled
     provider: {{ Topology.MetricsProvider }}
+    # statsd configuration
+    statsd:
+      # network type: tcp or udp
+      network: udp
+      # statsd server address
+      address: 127.0.0.1:8125
+      # the interval at which locally cached counters and gauges are pushed
+      # to statsd; timings are pushed immediately
+      writeInterval: 10s
+      # prefix is prepended to all emitted statsd metrics
+      prefix:
 
   # The endpoint section tells how to reach other FSC node in the network.
   # For each node, the name, the domain, the identity of the node, and its addresses must be specified.

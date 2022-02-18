@@ -14,9 +14,9 @@ import (
 )
 
 var (
-	fabricVersion = metrics.GaugeOpts{
-		Name:         "fabric_version",
-		Help:         "The active version of Fabric.",
+	fscVersion = metrics.GaugeOpts{
+		Name:         "fsc_version",
+		Help:         "The active version of Fabric Smart Client.",
 		LabelNames:   []string{"version"},
 		StatsdFormat: "%{#fqname}.%{version}",
 	}
@@ -31,11 +31,11 @@ func versionGauge(provider metrics.Provider) metrics.Gauge {
 		gaugeLock.Lock()
 		defer gaugeLock.Unlock()
 		if promVersionGauge == nil {
-			promVersionGauge = provider.NewGauge(fabricVersion)
+			promVersionGauge = provider.NewGauge(fscVersion)
 		}
 		return promVersionGauge
 
 	default:
-		return provider.NewGauge(fabricVersion)
+		return provider.NewGauge(fscVersion)
 	}
 }

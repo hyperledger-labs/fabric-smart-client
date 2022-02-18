@@ -8,14 +8,13 @@ package view
 
 import (
 	"context"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	protos2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view/protos"
+	"github.com/pkg/errors"
 	"log"
 	"reflect"
 	"runtime/debug"
-
-	"github.com/pkg/errors"
-
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
-	protos2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view/protos"
+	"strconv"
 )
 
 var logger = flogging.MustGetLogger("view-sdk.server")
@@ -30,19 +29,21 @@ type PolicyChecker interface {
 
 // Service is responsible for processing view commands.
 type server struct {
-	Marshaler     Marshaler
+	Marshaller    Marshaller
 	PolicyChecker PolicyChecker
 
 	processors map[reflect.Type]Processor
 	streamers  map[reflect.Type]Streamer
+	metrics    *Metrics
 }
 
-func NewViewServiceServer(Marshaler Marshaler, PolicyChecker PolicyChecker) (*server, error) {
+func NewViewServiceServer(marshaller Marshaller, policyChecker PolicyChecker, metrics *Metrics) (*server, error) {
 	return &server{
-		Marshaler:     Marshaler,
-		PolicyChecker: PolicyChecker,
+		Marshaller:    marshaller,
+		PolicyChecker: policyChecker,
 		processors:    map[reflect.Type]Processor{},
 		streamers:     map[reflect.Type]Streamer{},
+		metrics:       metrics,
 	}, nil
 }
 
@@ -71,6 +72,13 @@ func (s *server) ProcessCommand(ctx context.Context, sc *protos2.SignedCommand) 
 		return s.MarshalErrorResponse(sc.Command, err)
 	}
 
+	labels := []string{"command", reflect.TypeOf(command.GetPayload()).String()}
+	s.metrics.RequestsReceived.With(labels...).Add(1)
+	defer func() {
+		labels := append(labels, "success", strconv.FormatBool(err == nil))
+		s.metrics.RequestsCompleted.With(labels...).Add(1)
+	}()
+
 	p, ok := s.processors[reflect.TypeOf(command.GetPayload())]
 	var payload interface{}
 	switch ok {
@@ -87,7 +95,7 @@ func (s *server) ProcessCommand(ctx context.Context, sc *protos2.SignedCommand) 
 	}
 
 	logger.Debugf("Preparing response")
-	cr, err = s.Marshaler.MarshalCommandResponse(sc.Command, payload)
+	cr, err = s.Marshaller.MarshalCommandResponse(sc.Command, payload)
 	logger.Debugf("Done with err [%s]", err)
 
 	return
@@ -122,7 +130,7 @@ func (s *server) StreamCommand(sc *protos2.SignedCommand, commandServer protos2.
 	switch ok {
 	case true:
 		logger.Debugf("got a streamer for [%s], invoke it...", reflect.TypeOf(command.GetPayload()))
-		err = streamer(sc, command, commandServer, s.Marshaler)
+		err = streamer(sc, command, commandServer, s.Marshaller)
 	default:
 		err = errors.Errorf("stream command type not recognized: %T", reflect.TypeOf(command.GetPayload()))
 	}
@@ -151,7 +159,7 @@ func (s *server) ValidateHeader(header *protos2.Header) error {
 }
 
 func (s *server) MarshalErrorResponse(command []byte, e error) (*protos2.SignedCommandResponse, error) {
-	return s.Marshaler.MarshalCommandResponse(
+	return s.Marshaller.MarshalCommandResponse(
 		command,
 		&protos2.CommandResponse_Err{
 			Err: &protos2.Error{Message: e.Error()},

@@ -10,6 +10,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/monitoring"
 	"github.com/hyperledger-labs/fabric-smart-client/samples/fabric/iou/views"
 )
 
@@ -56,13 +57,13 @@ func Topology() []api.Topology {
 	lender.RegisterViewFactory("query", &views.QueryViewFactory{})
 
 	//// Monitoring
-	//monitoringTopology := monitoring.NewTopology()
-	//monitoringTopology.EnableHyperledgerExplorer()
-	//monitoringTopology.EnablePrometheusGrafana()
+	monitoringTopology := monitoring.NewTopology()
+	monitoringTopology.EnableHyperledgerExplorer()
+	monitoringTopology.EnablePrometheusGrafana()
 
 	return []api.Topology{
 		fabricTopology,
 		fscTopology,
-		//monitoringTopology,
+		monitoringTopology,
 	}
 }

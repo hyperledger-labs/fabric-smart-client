@@ -10,18 +10,16 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/operations"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
-	"io/ioutil"
-	"net"
-	"time"
-
 	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger"
 	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/operations"
 	protos2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view/protos"
 	web2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/web"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger/fabric/common/grpclogging"
 	"github.com/pkg/errors"
+	"io/ioutil"
+	"net"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	config2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/core/config"
@@ -66,7 +64,8 @@ type p struct {
 	viewService view2.Service
 	viewManager Startable
 
-	context context.Context
+	context          context.Context
+	operationsSystem *operations.System
 }
 
 func NewSDK(confPath string, registry Registry) *p {
@@ -116,17 +115,21 @@ func (p *p) Install() error {
 	assert.NoError(err, "failed instantiating endpoint resolver service")
 	assert.NoError(resolverService.LoadResolvers(), "failed loading resolvers")
 
+	assert.NoError(p.initWEBServer(), "failed initializing web server")
+	assert.NoError(p.initMetrics(), "failed initializing metrics")
+
 	// View Service Server
 	marshaller, err := view2.NewResponseMarshaler(p.registry)
 	if err != nil {
 		return fmt.Errorf("error creating view service response marshaller: %s", err)
 	}
-
-	p.viewService, err = view2.NewViewServiceServer(marshaller,
+	p.viewService, err = view2.NewViewServiceServer(
+		marshaller,
 		view2.NewAccessControlChecker(
 			idProvider,
 			view.GetSigService(p.registry),
 		),
+		view2.NewMetrics(p.operationsSystem),
 	)
 	if err != nil {
 		return fmt.Errorf("error creating view service server: %s", err)
@@ -152,8 +155,6 @@ func (p *p) Install() error {
 func (p *p) Start(ctx context.Context) error {
 	p.context = ctx
 
-	assert.NoError(p.initWEBServer(), "failed initializing web server")
-	assert.NoError(p.initMetrics(), "failed initializing metrics")
 	assert.NoError(p.initGRPCServer(), "failed initializing grpc server")
 	assert.NoError(p.startCommLayer(), "failed starting comm layer")
 	assert.NoError(p.registerViewServiceServer(), "failed registering view service server")
@@ -300,6 +301,15 @@ func (p *p) serve() error {
 		}
 	}()
 	go func() {
+		if p.operationsSystem == nil {
+			return
+		}
+		logger.Info("Starting operations system...")
+		if err := p.operationsSystem.Start(); err != nil {
+			logger.Fatalf("Failed starting operations system: %v", err)
+		}
+	}()
+	go func() {
 		select {
 		case <-p.context.Done():
 			if p.webServer != nil {
@@ -317,6 +327,13 @@ func (p *p) serve() error {
 			logger.Info("kvs stopping...")
 			kvs.GetService(p.registry).Stop()
 			logger.Info("kvs stopping...done")
+
+			logger.Infof("operations system stopping...")
+			if p.operationsSystem != nil {
+				if err := p.operationsSystem.Stop(); err != nil {
+					logger.Errorf("failed stopping operations system [%s]", err)
+				}
+			}
 		}
 	}()
 	return nil
@@ -515,20 +532,19 @@ func (p *p) initMetrics() error {
 		tlsEnabled = configProvider.GetBool("fsc.tls.enabled")
 	}
 
-	s := operations.NewSystem(p.webServer, operations.Options{
+	statsdOperationsConfig := &operations.Statsd{}
+	if err := configProvider.UnmarshalKey("fsc.metrics.statsd", statsdOperationsConfig); err != nil {
+		return errors.Wrap(err, "error unmarshalling metrics.statsd config")
+	}
+	p.operationsSystem = operations.NewSystem(p.webServer, operations.Options{
 		Metrics: operations.MetricsOptions{
 			Provider: configProvider.GetString("fsc.metrics.provider"),
-			Statsd: &operations.Statsd{
-				Network:       "udp",
-				Address:       "127.0.0.1:8125",
-				WriteInterval: 10 * time.Second,
-				Prefix:        "",
-			},
+			Statsd:   statsdOperationsConfig,
 		},
 		TLS: operations.TLS{
 			Enabled: tlsEnabled,
 		},
 		Version: "1.0.0",
 	})
-	return p.registry.RegisterService(s)
+	return p.registry.RegisterService(p.operationsSystem)
 }

@@ -153,7 +153,7 @@ func (s *System) initializeMetricsProvider() error {
 		return nil
 
 	default:
-		if providerType != "disabled" {
+		if providerType != "disabled" && providerType != "none" {
 			s.logger.Warnf("Unknown provider type: %s; metrics disabled", providerType)
 		}
 

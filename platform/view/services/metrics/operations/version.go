@@ -9,9 +9,8 @@ package operations
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"net/http"
-
-	"github.com/hyperledger/fabric/common/flogging"
 )
 
 type VersionInfoHandler struct {
