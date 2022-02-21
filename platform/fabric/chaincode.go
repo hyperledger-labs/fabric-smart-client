@@ -63,6 +63,7 @@ type Chaincode struct {
 	fns       driver.FabricNetworkService
 }
 
+// Invoke returns a chaincode invocation proxy struct for the passed function and arguments
 func (c *Chaincode) Invoke(function string, args ...interface{}) *ChaincodeInvocation {
 	ci := &ChaincodeInvocation{ChaincodeInvocation: c.chaincode.NewInvocation(function, args...)}
 	ci.WithInvokerIdentity(c.fns.LocalMembership().DefaultIdentity())
@@ -110,6 +111,9 @@ type ChaincodeInvocation struct {
 	driver.ChaincodeInvocation
 }
 
+// Call invokes the chaincode function with the passed arguments, and any additional parameter set with
+// the other functions on this struct.
+// It no error occurs, it returns the transaction id and the response payload of the chaincode invocation.
 func (i *ChaincodeInvocation) Call() (string, []byte, error) {
 	return i.ChaincodeInvocation.Submit()
 }
