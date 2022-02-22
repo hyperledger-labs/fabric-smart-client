@@ -8,6 +8,14 @@ folder `$GOPATH/src/github.com/hyperledger-labs/fabric-smart-client`.
 
 - [`I Owe You`](./fabric/iou/README.md): In this example, we orchestrate a simple
   `I Owe You` use case between a `lender` and a `borrower`, mediated by an `approver`.
+- [`Fabric to Fabric Interoperability view Weaver Relay`](./fabric/weaver/relay/README.md): In this example, we see how to use
+  the [weaver relay infrastructure](https://labs.hyperledger.org/weaver-dlt-interoperability/docs/external/architecture-and-design/relay) 
+  to perform queries between two Fabric networks.
+- [`Institutional Review Board (IRB) Sample`](https://github.com/hyperledger/fabric-private-chaincode/tree/main/samples/demos/irb):
+  This demos shows how to use Fabric Private Chaincode in combination with Fabric Smart Clients.
+
+The samples will make use of docker to run various components. To make sure you have all the docker images you need,
+please, run `make docker-images` in the folder `$GOPATH/src/github.com/hyperledger-labs/fabric-smart-client`.
 
 ## Additional Examples via Integration Tests
 
@@ -30,7 +38,5 @@ Here is a list of available integration tests:
       chaincodes-based solutions. Already a huge improvement for the developers.
     - Second, to highlights the limitations of the current sample and show how these limitations can be overcome
       using the `Fabric Smart Client`'s advanced capabilities.
-- [`Data Transfer using Weaver Relay Service`](../integration/fabric/weaver/relay/README.md): In this example, we show how to execute
-  a data transfer between two Fabric networks using [`Weaver`](https://labs.hyperledger.org/weaver-dlt-interoperability/).
 - [`Fabric Private Chaincode: Echo`](../integration/fabric/fpc/echo/README.md): In this example, we show how to invoke a Fabric
   Private Chaincode called [`Echo`](https://github.com/hyperledger/fabric-private-chaincode/tree/main/samples/chaincode/echo).

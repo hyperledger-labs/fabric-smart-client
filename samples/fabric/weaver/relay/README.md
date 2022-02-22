@@ -1,23 +1,189 @@
 # Fabric to Fabric Interoperability view Weaver Relay 
 
-Weaver is a platform, a protocol suite, and a set of tools, to enable interoperation for data sharing and asset
+[Weaver](https://labs.hyperledger.org/weaver-dlt-interoperability/docs/external/architecture-and-design/overview) 
+is a platform, a protocol suite, and a set of tools, to enable interoperation for data sharing and asset
 movements between independent networks built on heterogeneous blockchain, or more generally, distributed ledger,
 technologies, in a manner that preserves the core blockchain tenets of decentralization and security.
 
-https://labs.hyperledger.org/weaver-dlt-interoperability/docs/external/architecture-and-design/overview
+In this sample, we will deal with two Fabric networks connected via weaver relays.
+Each Fabric network is deployed with a chaincode that implements a simple KVS. 
+Business parties will be able to interact directly with the `local` chaincode on the Fabric network
+they belong to, but also to connect to the `remote` chaincode on the other Fabric network using weaver.
 
-In this sample, we will deal with two Fabric networks. In each network, a 
+## KVS Chaincode
+
+Let us start by defining the chaincode that will be used on both Fabric networks.
+
+It uses the go contract api to define a simple key-value store. Here is the code:
+
+```go
+type SmartContract struct {
+	contractapi.Contract
+}
+
+func (s *SmartContract) Put(ctx contractapi.TransactionContextInterface, key string, value string) error {
+	return ctx.GetStub().PutState(key, []byte(value))
+}
+
+func (s *SmartContract) Get(ctx contractapi.TransactionContextInterface, key string) (string, error) {
+	v, err := ctx.GetStub().GetState(key)
+	if err != nil {
+		return "", errors.Wrapf(err, "failed getting state [%s]", key)
+	}
+	err = ctx.GetStub().PutState(key, v)
+	if err != nil {
+		return "", errors.Wrapf(err, "failed putting state [%s:%s]", key, string(v))
+	}
+	if len(v) == 0 {
+		return "", nil
+	}
+	return string(v), nil
+}
+
+func main() {
+	chaincode, err := contractapi.NewChaincode(new(SmartContract))
+	if err != nil {
+		log.Panicf("Error create chaincode: %v", err)
+	}
+
+	if err := chaincode.Start(); err != nil {
+		log.Panicf("Error starting asset chaincode: %v", err)
+	}
+}
+```
+
+## Business Views
+
+To manage the `local` KVS, we will use the following business views:
+
+The following view is used to store or put a key-value pair in the `local` KVS.
+
+```go
+type LocalPut struct {
+    Chaincode string
+    Key       string
+    Value     string
+}
+
+type LocalPutView struct {
+	*LocalPut
+}
+
+func (p *LocalPutView) Call(context view.Context) (interface{}, error) {
+	// Invoke the passed chaincode to put the key/value pair
+	txID, _, err := fabric.GetDefaultChannel(context).Chaincode(p.Chaincode).Invoke(
+		"Put", p.Key, p.Value,
+	).Call()
+	assert.NoError(err, "failed to put key %s", p.Key)
+
+	// return the transaction id
+	return txID, nil
+}
+```
+
+This view is used to retrieve a key pair from the `local` KVS instead.
+
+```go
+type LocalGet struct {
+	Chaincode string
+	Key       string
+}
+
+type LocalGetView struct {
+	*LocalGet
+}
+
+func (g *LocalGetView) Call(context view.Context) (interface{}, error) {
+	// Invoke the passed chaincode to get the value corresponding to the passed key
+	v, err := fabric.GetDefaultChannel(context).Chaincode(g.Chaincode).Query(
+		"Get", g.Key,
+	).Call()
+	assert.NoError(err, "failed to get key %s", g.Key)
+
+	return v, nil
+}
+```
+
+To query a key pair from the `remote` KVS, we will use the following business view:
+
+```go
+type RemoteGet struct {
+	Network   string
+	Channel   string
+	Chaincode string
+	Key       string
+}
+
+type RemoteGetView struct {
+	*RemoteGet
+}
+
+func (g *RemoteGetView) Call(context view.Context) (interface{}, error) {
+	// Get a weaver client to the relay of the given network
+	relay := weaver.GetProvider(context).Relay(fabric.GetDefaultFNS(context))
+
+	// Build a query to the remote Fabric network.
+	// Invoke the `Get` function on the passed key, on the passed chaincode deployed on the passed network and channel.
+	query, err := relay.ToFabric().Query(
+		fmt.Sprintf("fabric://%s.%s.%s/", g.Network, g.Channel, g.Chaincode),
+		"Get", g.Key,
+	)
+	assert.NoError(err, "failed creating fabric query")
+
+	// Perform the query
+	res, err := query.Call()
+	assert.NoError(err, "failed querying remote destination")
+	assert.NotNil(res, "result should be non-empty")
+
+	// Validate the proof accompanying the result
+	proofRaw, err := res.Proof()
+	assert.NoError(err, "failed getting proof from query result")
+	proof, err := relay.ToFabric().ProofFromBytes(proofRaw)
+	assert.NoError(err, "failed unmarshalling proof")
+	assert.NoError(proof.Verify(), "failed verifying proof")
+
+	// Inspect the content
+	assert.Equal(res.Result(), proof.Result(), "result should be equal, got [%s]!=[%s]", string(res.Result()), string(proof.Result()))
+	rwset1, err := res.RWSet()
+	assert.NoError(err, "failed getting rwset from result")
+	rwset2, err := proof.RWSet()
+	assert.NoError(err, "failed getting rwset from proof")
+	v1, err := rwset1.GetState(g.Chaincode, g.Key)
+	assert.NoError(err, "failed getting key's value from rwset1")
+	v2, err := rwset2.GetState(g.Chaincode, g.Key)
+	assert.NoError(err, "failed getting key's value from rwset2")
+	assert.Equal(v1, v2, "excepted same write [%s]!=[%s]", string(v1), string(v2))
+
+	// return the value of the key, empty if not found
+	return v1, nil
+}
+```
 
 ## Testing
 
-To run the sample, one needs first to deploy the `Fabric Smart Client nodes` and the `Fabric networks`.
+To run the sample, one needs first to deploy the `Fabric Smart Client nodes`, the `Fabric networks`, and the `Weaver Relay Network`.
 Once these networks are deployed, one can invoke views on the smart client nodes.
 
 So, first step is to describe the topology of the networks we need.
 
+Make sure you have the proper docker images by running `make weaver-docker-image` from the FSC root folder.
+
 ### Describe the topology of the networks
 
-To test the above views, we have to first clarify the topology of the networks we need.
+To test the above views, we first describe the topology of the networks we need.
+Namely, Fabric, FSC, and Weaver Relay networks.
+
+For Fabric, we need two networks. Each network consists of: 
+- Two organizations, one of which is responsible for the endorsement of the chaincode that implements the KVS;
+- One channel, `testchannel`;
+- One chaincode implementing the KVS;
+
+For the FSC network, we have a topology with:
+1. 2 FCS nodes. One for Alice and one for Bob.
+2. Alice is also a member of the first Fabric network. Bob is a member of the second Fabric network.
+
+For the Weaver Relay network, we have a topology with:
+- One Weaver Relay node per Fabric network, connected to each other.
 
 We can describe the network topology programmatically as follows:
 
@@ -86,7 +252,7 @@ If the compilation is successful, we can run the `relay` command line tool as fo
 ./relay network start --path ./testdata
 ```
 
-The above command will start the Fabric network and the FSC network,
+The above command will start the networks,
 and store all configuration files under the `./testdata` directory.
 The CLI will also create the folder `./cmd` that contains a go main file for each FSC node.
 The CLI compiles these go main files and then runs them.
@@ -123,14 +289,39 @@ The `./testdata` and `./cmd` folders will be deleted.
 
 ### Invoke the business views
 
-```go
-./relay view -c ~/testdata/fsc/nodes/alice/client-config.yaml -f put -i "{\"Chaincode\":\"ns1\", \"Key\":\"pineapple\", \"Value\":\"sweet\"}"
-```
+We start with Alice. Alice stores a key-value pair in her local KVS (the one in the Fabric network Alice has an identity for).
 
 ```go
-./relay view -c ~/testdata/fsc/nodes/alice/client-config.yaml -f get -i "{\"Chaincode\":\"ns1\", \"Key\":\"pineapple\"}"
+./relay view -c ./testdata/fsc/nodes/alice/client-config.yaml -f put -i "{\"Chaincode\":\"ns1\", \"Key\":\"pineapple\", \"Value\":\"sweet\"}"
 ```
 
+The above command will output the transaction id of the transaction that Alice has produced.
+
+```shell
+"d3dd351f8690654be660ae2f44c0807f3a8017b6c502a79dd2aa8108ff0ef69f"
+```
+
+Then, Alice checks the value of her key is actually in her local KVS.
+
 ```go
-./relay view -c ~/testdata/fsc/nodes/bob/client-config.yaml -f remoteGet -i "{\"Network\":\"alpha\",\"Channel\":\"testchannel\",\"Chaincode\":\"ns1\", \"Key\":\"pineapple\"}"
+./relay view -c ./testdata/fsc/nodes/alice/client-config.yaml -f get -i "{\"Chaincode\":\"ns1\", \"Key\":\"pineapple\"}"
+```
+
+If everything is successful, you will see the value corresponding to the requested key:
+
+```shell
+sweet
+```
+
+At this point, Bob can query Alice's key. Recall that, Bob does not have a valid identity in the Fabric network where Alice has an identity.
+Therefore, Bob cannot call the chaincode directly. Though, Bob can perform that query using Weaver and by invoking the `RemoteGetView` view.
+
+```go
+./relay view -c ./testdata/fsc/nodes/bob/client-config.yaml -f remoteGet -i "{\"Network\":\"alpha\",\"Channel\":\"testchannel\",\"Chaincode\":\"ns1\", \"Key\":\"pineapple\"}"
+```
+
+Again, if everything is successful, you will see the value corresponding to the requested key:
+
+```shell
+sweet
 ```

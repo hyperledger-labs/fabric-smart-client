@@ -27,25 +27,30 @@ type RemoteGetView struct {
 }
 
 func (g *RemoteGetView) Call(context view.Context) (interface{}, error) {
-	// Finally, Alice checks that Bob has actually stored the data she put in `alpha`, using `Weaver`.
+	// Get a weaver client to the relay of the given network
 	relay := weaver.GetProvider(context).Relay(fabric.GetDefaultFNS(context))
+
+	// Build a query to the remote Fabric network.
+	// Invoke the `Get` function on the passed key, on the passed chaincode deployed on the passed network and channel.
 	query, err := relay.ToFabric().Query(
 		fmt.Sprintf("fabric://%s.%s.%s/", g.Network, g.Channel, g.Chaincode),
 		"Get", g.Key,
 	)
 	assert.NoError(err, "failed creating fabric query")
+
+	// Perform the query
 	res, err := query.Call()
 	assert.NoError(err, "failed querying remote destination")
 	assert.NotNil(res, "result should be non-empty")
 
-	// Double-check the proof
+	// Validate the proof accompanying the result
 	proofRaw, err := res.Proof()
 	assert.NoError(err, "failed getting proof from query result")
 	proof, err := relay.ToFabric().ProofFromBytes(proofRaw)
 	assert.NoError(err, "failed unmarshalling proof")
 	assert.NoError(proof.Verify(), "failed verifying proof")
 
-	// Inspect content
+	// Inspect the content
 	assert.Equal(res.Result(), proof.Result(), "result should be equal, got [%s]!=[%s]", string(res.Result()), string(proof.Result()))
 	rwset1, err := res.RWSet()
 	assert.NoError(err, "failed getting rwset from result")
@@ -57,6 +62,7 @@ func (g *RemoteGetView) Call(context view.Context) (interface{}, error) {
 	assert.NoError(err, "failed getting key's value from rwset2")
 	assert.Equal(v1, v2, "excepted same write [%s]!=[%s]", string(v1), string(v2))
 
+	// return the value of the key, empty if not found
 	return v1, nil
 }
 
