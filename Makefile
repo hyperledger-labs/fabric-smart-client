@@ -33,7 +33,7 @@ unit-tests-race: docker-images
 	cd integration/nwo/; go test -cover ./...
 
 .PHONY: docker-images
-docker-images: fabric-docker-images
+docker-images: fabric-docker-images weaver-docker-images fpc-docker-images monitoring-docker-images
 
 .PHONY: fabric-docker-images
 fabric-docker-images:

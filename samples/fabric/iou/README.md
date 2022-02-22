@@ -398,7 +398,7 @@ So, first step is to describe the topology of the networks we need.
 
 ### Describe the topology of the networks
 
-To test the above views, we have to first clarify the topology of the networks we need.
+To test the above views, we first describe the topology of the networks we need.
 Namely, Fabric and FSC networks.
 
 For Fabric, we can define a topology with the following characteristics:
