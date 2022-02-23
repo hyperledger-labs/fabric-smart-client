@@ -25,6 +25,11 @@ Fabric Smart Client has not been audited and is provided as-is, use at your own 
 - [`Fabric Token SDK`](https://github.com/hyperledger-labs/fabric-token-sdk): Do you want to develop Token-Based Distributed
 application with simplicity and joy? Check our Token SDK out [`here`](https://github.com/hyperledger-labs/fabric-token-sdk).
 
+# Getting Help
+
+Found a bug? Need help to fix an issue? You have a great idea for a new feature? Talk to us! You can reach us on
+[Discord](https://discord.gg/hyperledger) in #fabric-smart-client.
+
 # Motivation
 
 [Hyperledger Fabric]('https://www.hyperledger.org/use/fabric') is a permissioned, modular, and extensible open-source 
