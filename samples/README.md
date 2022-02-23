@@ -8,7 +8,7 @@ folder `$GOPATH/src/github.com/hyperledger-labs/fabric-smart-client`.
 
 - [`I Owe You`](./fabric/iou/README.md): In this example, we orchestrate a simple
   `I Owe You` use case between a `lender` and a `borrower`, mediated by an `approver`.
-- [`Fabric to Fabric Interoperability view Weaver Relay`](./fabric/weaver/relay/README.md): In this example, we see how to use
+- [`Fabric to Fabric Interoperability via Weaver Relay`](./fabric/weaver/relay/README.md): In this example, we see how to use
   the [weaver relay infrastructure](https://labs.hyperledger.org/weaver-dlt-interoperability/docs/external/architecture-and-design/relay) 
   to perform queries between two Fabric networks.
 - [`Institutional Review Board (IRB) Sample`](https://github.com/hyperledger/fabric-private-chaincode/tree/main/samples/demos/irb):
