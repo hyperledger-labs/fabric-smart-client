@@ -26,7 +26,10 @@ import (
 	view3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view"
 )
 
-var logger = flogging.MustGetLogger("fabric-sdk.core")
+var (
+	index  = reflect.TypeOf((*driver.FabricNetworkServiceProvider)(nil))
+	logger = flogging.MustGetLogger("fabric-sdk.core")
+)
 
 type fnsProvider struct {
 	sp     view.ServiceProvider
@@ -185,9 +188,10 @@ func (p *fnsProvider) newFNS(network string) (driver.FabricNetworkService, error
 }
 
 func GetFabricNetworkServiceProvider(sp view.ServiceProvider) driver.FabricNetworkServiceProvider {
-	s, err := sp.GetService(reflect.TypeOf((*driver.FabricNetworkServiceProvider)(nil)))
+	s, err := sp.GetService(index)
 	if err != nil {
-		panic(err)
+		logger.Warnf("failed getting fabric network service provider: %s", err)
+		return nil
 	}
 	return s.(driver.FabricNetworkServiceProvider)
 }

@@ -96,12 +96,20 @@ func (n *NetworkService) ConfigService() *ConfigService {
 }
 
 func GetFabricNetworkNames(sp view2.ServiceProvider) []string {
-	return core.GetFabricNetworkServiceProvider(sp).Names()
+	provider := core.GetFabricNetworkServiceProvider(sp)
+	if provider == nil {
+		return nil
+	}
+	return provider.Names()
 }
 
 // GetFabricNetworkService returns the Fabric Network Service for the passed id, nil if not found
 func GetFabricNetworkService(sp view2.ServiceProvider, id string) *NetworkService {
-	fns, err := core.GetFabricNetworkServiceProvider(sp).FabricNetworkService(id)
+	provider := core.GetFabricNetworkServiceProvider(sp)
+	if provider == nil {
+		return nil
+	}
+	fns, err := provider.FabricNetworkService(id)
 	if err != nil {
 		logger.Errorf("Failed to get Fabric Network Service for id [%s]: [%s]", id, err)
 		return nil
