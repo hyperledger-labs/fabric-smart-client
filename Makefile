@@ -65,7 +65,7 @@ monitoring-docker-images:
 
 .PHONY: orion-server-images
 orion-server-images:
-	docker pull orionbcdb/orion-server
+	docker pull orionbcdb/orion-server:latest
 
 .PHONY: dependencies
 dependencies:
