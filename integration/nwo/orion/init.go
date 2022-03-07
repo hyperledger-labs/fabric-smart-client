@@ -19,14 +19,14 @@ import (
 )
 
 func (p *Platform) InitOrionServer() {
-	bcDB := p.createDBInstance()
+	bcDB := p.CreateDBInstance()
 
-	session := p.createUserSession(bcDB, "admin")
+	session := p.CreateUserSession(bcDB, "admin")
 	p.initDBs(session)
 	p.initUsers(session)
 }
 
-func (p *Platform) createUserSession(bcdb bcdb.BCDB, user string) bcdb.DBSession {
+func (p *Platform) CreateUserSession(bcdb bcdb.BCDB, user string) bcdb.DBSession {
 	session, err := bcdb.Session(&config.SessionConfig{
 		UserConfig: &config.UserConfig{
 			UserID:         user,
@@ -39,7 +39,7 @@ func (p *Platform) createUserSession(bcdb bcdb.BCDB, user string) bcdb.DBSession
 	return session
 }
 
-func (p *Platform) createDBInstance() bcdb.BCDB {
+func (p *Platform) CreateDBInstance() bcdb.BCDB {
 	c := &logger2.Config{
 		Level:         "info",
 		OutputPath:    []string{"stdout"},
