@@ -130,6 +130,14 @@ type Read struct {
 	IndexInBlock int
 }
 
+func (v *Read) K() string {
+	return v.Key
+}
+
+func (v *Read) V() []byte {
+	return v.Raw
+}
+
 // ResultsIterator models an query result iterator
 type ResultsIterator struct {
 	ri driver2.VersionedResultsIterator
