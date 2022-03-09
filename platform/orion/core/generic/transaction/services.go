@@ -105,3 +105,48 @@ func (s *envs) LoadEnvelope(txid string) ([]byte, error) {
 	}
 	return env, nil
 }
+
+type ets struct {
+	sp      view2.ServiceProvider
+	network string
+}
+
+func NewEndorseTransactionService(sp view2.ServiceProvider, network string) *ets {
+	return &ets{
+		sp:      sp,
+		network: network,
+	}
+}
+
+func (s *ets) Exists(txid string) bool {
+	key, err := kvs.CreateCompositeKey("etx", []string{s.network, txid})
+	if err != nil {
+		return false
+	}
+	return kvs.GetService(s.sp).Exists(key)
+}
+
+func (s *ets) StoreTransaction(txid string, env []byte) error {
+	key, err := kvs.CreateCompositeKey("etx", []string{s.network, txid})
+	if err != nil {
+		return err
+	}
+	logger.Debugf("store etx for [%s]", txid)
+
+	return kvs.GetService(s.sp).Put(key, env)
+}
+
+func (s *ets) LoadTransaction(txid string) ([]byte, error) {
+	logger.Debugf("load etx for [%s]", txid)
+
+	key, err := kvs.CreateCompositeKey("etx", []string{s.network, txid})
+	if err != nil {
+		return nil, err
+	}
+	env := []byte{}
+	err = kvs.GetService(s.sp).Get(key, &env)
+	if err != nil {
+		return nil, err
+	}
+	return env, nil
+}

@@ -10,11 +10,9 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/hyperledger-labs/orion-server/pkg/types"
-
-	"github.com/pkg/errors"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
+	"github.com/hyperledger-labs/orion-server/pkg/types"
+	"github.com/pkg/errors"
 )
 
 type TransientMap map[string][]byte

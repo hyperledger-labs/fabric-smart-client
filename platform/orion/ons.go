@@ -46,7 +46,7 @@ func (n *NetworkService) EnvelopeService() *EnvelopeService {
 }
 
 func (n *NetworkService) Vault() *Vault {
-	return &Vault{v: n.ons.Vault()}
+	return &Vault{ons: n.ons, v: n.ons.Vault()}
 }
 
 // ProcessorManager returns the processor manager of this network
