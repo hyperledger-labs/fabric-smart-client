@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package generic
 
 import (
+	"github.com/golang/protobuf/proto"
 	"time"
 
 	"github.com/hyperledger-labs/orion-sdk-go/pkg/bcdb"
@@ -40,6 +41,18 @@ func (d *DataTx) Get(db string, key string) ([]byte, *types.Metadata, error) {
 
 func (d *DataTx) Commit(b bool) (string, *types.TxReceiptResponseEnvelope, error) {
 	return d.dataTx.Commit(b)
+}
+
+func (d *DataTx) Delete(db string, key string) error {
+	return d.dataTx.Delete(db, key)
+}
+
+func (d *DataTx) SingAndClose() ([]byte, error) {
+	env, err := d.dataTx.SignConstructedTxEnvelopeAndCloseTx()
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed signing and closing data tx")
+	}
+	return proto.Marshal(env)
 }
 
 type Session struct {

@@ -24,6 +24,14 @@ func (d *Transaction) Get(db string, key string) ([]byte, *types.Metadata, error
 	return d.dataTx.Get(db, key)
 }
 
+func (d *Transaction) Delete(db string, key string) error {
+	return d.dataTx.Delete(db, key)
+}
+
+func (d *Transaction) SingAndClose() ([]byte, error) {
+	return d.dataTx.SingAndClose()
+}
+
 func (d *Transaction) Commit(b bool) (string, *types.TxReceiptResponseEnvelope, error) {
 	return d.dataTx.Commit(b)
 }
