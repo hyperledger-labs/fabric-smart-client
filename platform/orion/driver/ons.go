@@ -18,6 +18,7 @@ type OrionNetworkService interface {
 	IdentityManager() IdentityManager
 	SessionManager() SessionManager
 	TransactionManager() TransactionManager
+	TransactionService() TransactionService
 	MetadataService() MetadataService
 	Vault() Vault
 	EnvelopeService() EnvelopeService

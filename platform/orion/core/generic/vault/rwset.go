@@ -8,12 +8,12 @@ package vault
 
 import (
 	"bytes"
-	"sort"
-
+	"github.com/golang/protobuf/proto"
 	"github.com/google/go-cmp/cmp"
-	"github.com/pkg/errors"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/keys"
+	"github.com/hyperledger-labs/orion-server/pkg/types"
+	"github.com/pkg/errors"
+	"sort"
 )
 
 type readWriteSet struct {
@@ -23,48 +23,45 @@ type readWriteSet struct {
 }
 
 func (rws *readWriteSet) populate(rwsetBytes []byte, txid string) error {
-	// txRWSet := &rwset.TxReadWriteSet{}
-	// err := proto.Unmarshal(rwsetBytes, txRWSet)
-	// if err != nil {
-	// 	return errors.Wrapf(err, "provided invalid read-write set bytes for txid %s, unmarshal failed", txid)
-	// }
-	//
-	// rwsIn, err := rwsetutil.TxRwSetFromProtoMsg(txRWSet)
-	// if err != nil {
-	// 	return errors.Wrapf(err, "provided invalid read-write set bytes for txid %s, TxRwSetFromProtoMsg failed", txid)
-	// }
-	//
-	// for _, nsrws := range rwsIn.NsRwSets {
-	// 	ns := nsrws.NameSpace
-	//
-	// 	for _, read := range nsrws.KvRwSet.Reads {
-	// 		bn := uint64(0)
-	// 		txn := uint64(0)
-	// 		if read.Version != nil {
-	// 			bn = read.Version.BlockNum
-	// 			txn = read.Version.TxNum
-	// 		}
-	// 		rws.readSet.add(ns, read.Key, bn, txn)
-	// 	}
-	//
-	// 	for _, write := range nsrws.KvRwSet.Writes {
-	// 		if err := rws.writeSet.add(ns, write.Key, write.Value); err != nil {
-	// 			return err
-	// 		}
-	// 	}
-	//
-	// 	for _, metaWrite := range nsrws.KvRwSet.MetadataWrites {
-	// 		metadata := map[string][]byte{}
-	// 		for _, entry := range metaWrite.Entries {
-	// 			metadata[entry.Name] = append([]byte(nil), entry.Value...)
-	// 		}
-	//
-	// 		if err := rws.metaWriteSet.add(ns, metaWrite.Key, metadata); err != nil {
-	// 			return err
-	// 		}
-	// 	}
-	// }
-	//
+	txRWSet := &types.DataTx{}
+	err := proto.Unmarshal(rwsetBytes, txRWSet)
+	if err != nil {
+		return errors.Wrapf(err, "provided invalid read-write set bytes for txid %s, unmarshal failed", txid)
+	}
+
+	for _, operation := range txRWSet.DbOperations {
+
+		for _, read := range operation.DataReads {
+			rws.readSet.add(
+				operation.DbName,
+				read.Key,
+				read.Version.BlockNum,
+				read.Version.TxNum,
+			)
+		}
+
+		for _, write := range operation.DataWrites {
+			if err := rws.writeSet.add(
+				operation.DbName,
+				write.Key,
+				write.Value,
+			); err != nil {
+				return errors.Wrapf(err, "failed to add write to read-write set for txid %s", txid)
+			}
+			// TODO: What about write.ACL? Shall we store it as metadata?
+		}
+
+		for _, del := range operation.DataDeletes {
+			if err := rws.writeSet.add(
+				operation.DbName,
+				del.Key,
+				nil,
+			); err != nil {
+				return errors.Wrapf(err, "failed to add delete to read-write set for txid %s", txid)
+			}
+		}
+	}
+
 	return nil
 }
 

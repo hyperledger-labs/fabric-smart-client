@@ -49,3 +49,9 @@ type EnvelopeService interface {
 	StoreEnvelope(txid string, env []byte) error
 	LoadEnvelope(txid string) ([]byte, error)
 }
+
+type TransactionService interface {
+	Exists(txid string) bool
+	StoreTransaction(txid string, raw []byte) error
+	LoadTransaction(txid string) ([]byte, error)
+}

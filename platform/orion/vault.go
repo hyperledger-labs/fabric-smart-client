@@ -185,7 +185,8 @@ func (qe *QueryExecutor) Done() {
 
 // Vault models a key-value store that can be updated by committing rwsets
 type Vault struct {
-	v driver.Vault
+	ons driver.OrionNetworkService
+	v   driver.Vault
 }
 
 // GetLastTxID returns the last transaction id committed
@@ -219,4 +220,16 @@ func (v *Vault) GetRWSet(id string, results []byte) (*RWSet, error) {
 	}
 
 	return &RWSet{rws: rws}, nil
+}
+
+func (v *Vault) StoreEnvelope(id string, env []byte) error {
+	return v.ons.EnvelopeService().StoreEnvelope(id, env)
+}
+
+func (v *Vault) StoreTransaction(id string, raw []byte) error {
+	return v.ons.TransactionService().StoreTransaction(id, raw)
+}
+
+func (v *Vault) StoreTransient(id string, tm TransientMap) error {
+	return v.ons.MetadataService().StoreTransient(id, driver.TransientMap(tm))
 }

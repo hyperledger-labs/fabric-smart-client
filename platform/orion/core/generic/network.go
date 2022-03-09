@@ -36,6 +36,7 @@ type network struct {
 	txIDStore          *vault.TXIDStore
 	vault              *Vault
 	processorManager   driver.ProcessorManager
+	transactionService driver.TransactionService
 }
 
 func NewNetwork(
@@ -74,6 +75,7 @@ func NewNetwork(
 	n.metadataService = transaction.NewMetadataService(sp, name)
 	n.envelopeService = transaction.NewEnvelopeService(sp, name)
 	n.transactionManager = transaction.NewManager(sp)
+	n.transactionService = transaction.NewEndorseTransactionService(sp, name)
 	n.vault, err = NewVault(n.config, name, sp)
 	if err != nil {
 		return nil, err
@@ -97,6 +99,10 @@ func (f *network) SessionManager() driver.SessionManager {
 
 func (f *network) TransactionManager() driver.TransactionManager {
 	return f.transactionManager
+}
+
+func (f *network) TransactionService() driver.TransactionService {
+	return f.transactionService
 }
 
 func (f *network) MetadataService() driver.MetadataService {
