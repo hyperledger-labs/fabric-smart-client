@@ -79,7 +79,7 @@ func (t *Transaction) getDataTx() (*orion.Transaction, error) {
 			Creator: []byte(t.Creator),
 		}
 		id := ons.TransactionManager().ComputeTxID(txID)
-		t.DataTx, err = ons.TransactionManager().NewTransaction(id)
+		t.DataTx, err = ons.TransactionManager().NewTransaction(id, string(t.Creator))
 		if err != nil {
 			return nil, errors.WithMessagef(err, "failed getting data tx for [%s]", id)
 		}

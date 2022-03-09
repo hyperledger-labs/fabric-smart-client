@@ -159,8 +159,8 @@ func (t *TransactionManager) NewEnvelope() *Envelope {
 	return &Envelope{e: t.ons.ons.TransactionManager().NewEnvelope()}
 }
 
-func (t *TransactionManager) NewTransaction(txID string) (*Transaction, error) {
-	session, err := t.ons.ons.SessionManager().NewSession(txID)
+func (t *TransactionManager) NewTransaction(txID string, creator string) (*Transaction, error) {
+	session, err := t.ons.ons.SessionManager().NewSession(creator)
 	if err != nil {
 		return nil, errors.WithMessagef(err, "failed to create session for txID [%s]", txID)
 	}
