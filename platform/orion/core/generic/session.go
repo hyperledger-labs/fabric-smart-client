@@ -73,6 +73,14 @@ func (s *Session) DataTx(txID string) (driver.DataTx, error) {
 	return &DataTx{dataTx: dataTx}, nil
 }
 
+func (s *Session) Ledger() (driver.Ledger, error) {
+	l, err := s.s.Ledger()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed getting ledger")
+	}
+	return &Ledger{ledger: l}, nil
+}
+
 type SessionManager struct {
 	config          *config2.Config
 	identityManager *IdentityManager

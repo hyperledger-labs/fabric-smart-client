@@ -8,18 +8,24 @@ package generic
 
 import (
 	"context"
-
+	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic/committer"
 	config2 "github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic/config"
+	delivery2 "github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic/delivery"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic/rwset"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic/transaction"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
-
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	"github.com/hyperledger-labs/orion-server/pkg/types"
+	"github.com/pkg/errors"
+	"time"
 )
 
-var logger = flogging.MustGetLogger("orion-sdk.core")
+var (
+	logger              = flogging.MustGetLogger("orion-sdk.core")
+	waitForEventTimeout = 300 * time.Second
+)
 
 type network struct {
 	sp  view2.ServiceProvider
@@ -54,7 +60,7 @@ func NewNetwork(
 	}
 	ids, err := config.Identities()
 	if err != nil {
-		return nil, err
+		return nil, errors.WithMessage(err, "failed to load identities")
 	}
 	var dids []*driver.Identity
 	for _, id := range ids {
@@ -78,9 +84,36 @@ func NewNetwork(
 	n.transactionService = transaction.NewEndorseTransactionService(sp, name)
 	n.vault, err = NewVault(n.config, name, sp)
 	if err != nil {
-		return nil, err
+		return nil, errors.WithMessage(err, "failed to create vault")
 	}
 	n.processorManager = rwset.NewProcessorManager(n.sp, n, nil)
+
+	committer, err := committer.New(
+		n.vault,
+		nil,
+		waitForEventTimeout,
+		false,
+	)
+	if err != nil {
+		return nil, errors.WithMessagef(err, "failed to create committer")
+	}
+	deliveryService, err := delivery2.New(
+		n.ctx,
+		sp,
+		n,
+		func(block *types.AugmentedBlockHeader) (bool, error) {
+			if err := committer.Commit(block); err != nil {
+				return true, err
+			}
+			return false, nil
+		},
+		n.vault,
+		waitForEventTimeout,
+	)
+	if err != nil {
+		return nil, errors.WithMessagef(err, "failed to create delivery service")
+	}
+	deliveryService.Start()
 
 	return n, nil
 }

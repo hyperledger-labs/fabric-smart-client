@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package driver
 
 import (
+	"github.com/hyperledger-labs/orion-sdk-go/pkg/bcdb"
 	"github.com/hyperledger-labs/orion-server/pkg/types"
 )
 
@@ -18,10 +19,15 @@ type DataTx interface {
 	SingAndClose() ([]byte, error)
 }
 
+type Ledger interface {
+	NewBlockHeaderDeliveryService(conf *bcdb.BlockHeaderDeliveryConfig) bcdb.BlockHeaderDelivererService
+}
+
 // Session let the developer access orion
 type Session interface {
 	// DataTx returns a data transaction for the passed id
 	DataTx(txID string) (DataTx, error)
+	Ledger() (Ledger, error)
 }
 
 // SessionManager is a session manager that allows the developer to access orion directly

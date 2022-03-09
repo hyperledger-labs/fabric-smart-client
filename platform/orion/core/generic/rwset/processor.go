@@ -15,7 +15,7 @@ import (
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 )
 
-var logger = flogging.MustGetLogger("fabric-sdk.rwset")
+var logger = flogging.MustGetLogger("orion-sdk.rwset")
 
 type Network interface {
 	TransactionManager() driver.TransactionManager

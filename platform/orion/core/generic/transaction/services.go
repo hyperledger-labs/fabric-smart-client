@@ -13,7 +13,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 )
 
-var logger = flogging.MustGetLogger("fabric-sdk.core")
+var logger = flogging.MustGetLogger("orion-sdk.core")
 
 type mds struct {
 	sp      view2.ServiceProvider

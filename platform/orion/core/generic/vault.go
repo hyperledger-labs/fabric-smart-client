@@ -7,17 +7,16 @@ SPDX-License-Identifier: Apache-2.0
 package generic
 
 import (
-	"os"
-	"path/filepath"
-
-	"github.com/pkg/errors"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic/vault"
+	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	odriver "github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	"github.com/pkg/errors"
+	"os"
+	"path/filepath"
 )
 
 type Badger struct {
@@ -43,6 +42,10 @@ func (v *Vault) NewRWSet(txid string) (odriver.RWSet, error) {
 
 func (v *Vault) GetRWSet(id string, results []byte) (odriver.RWSet, error) {
 	return v.Vault.GetRWSet(id, results)
+}
+
+func (v *Vault) Status(txID string) (fdriver.ValidationCode, error) {
+	return v.Vault.Status(txID)
 }
 
 func NewVault(config *config.Config, channel string, sp view.ServiceProvider) (*Vault, error) {
