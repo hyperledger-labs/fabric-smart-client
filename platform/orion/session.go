@@ -12,30 +12,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 )
 
-type Transaction struct {
-	dataTx driver.DataTx
-}
-
-func (d *Transaction) Put(db string, key string, bytes []byte, a *types.AccessControl) error {
-	return d.dataTx.Put(db, key, bytes, a)
-}
-
-func (d *Transaction) Get(db string, key string) ([]byte, *types.Metadata, error) {
-	return d.dataTx.Get(db, key)
-}
-
-func (d *Transaction) Delete(db string, key string) error {
-	return d.dataTx.Delete(db, key)
-}
-
-func (d *Transaction) SingAndClose() ([]byte, error) {
-	return d.dataTx.SingAndClose()
-}
-
-func (d *Transaction) Commit(b bool) (string, *types.TxReceiptResponseEnvelope, error) {
-	return d.dataTx.Commit(b)
-}
-
 type SessionQueryExecutor struct {
 	dataTx driver.DataTx
 	db     string
@@ -49,14 +25,6 @@ type Session struct {
 	s driver.Session
 }
 
-func (s *Session) NewTransaction(txID string) (*Transaction, error) {
-	dataTx, err := s.s.DataTx(txID)
-	if err != nil {
-		return nil, err
-	}
-	return &Transaction{dataTx: dataTx}, nil
-}
-
 func (s *Session) QueryExecutor(db string) (*SessionQueryExecutor, error) {
 	dataTx, err := s.s.DataTx("")
 	if err != nil {
@@ -65,10 +33,12 @@ func (s *Session) QueryExecutor(db string) (*SessionQueryExecutor, error) {
 	return &SessionQueryExecutor{dataTx: dataTx, db: db}, nil
 }
 
+// SessionManager is a session manager that allows the developer to access orion directly
 type SessionManager struct {
 	sm driver.SessionManager
 }
 
+// NewSession creates a new session to orion using the passed identity
 func (sm *SessionManager) NewSession(id string) (*Session, error) {
 	s, err := sm.sm.NewSession(id)
 	if err != nil {

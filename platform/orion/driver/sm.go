@@ -18,10 +18,14 @@ type DataTx interface {
 	SingAndClose() ([]byte, error)
 }
 
+// Session let the developer access orion
 type Session interface {
+	// DataTx returns a data transaction for the passed id
 	DataTx(txID string) (DataTx, error)
 }
 
+// SessionManager is a session manager that allows the developer to access orion directly
 type SessionManager interface {
+	// NewSession creates a new session to orion using the passed identity
 	NewSession(id string) (Session, error)
 }

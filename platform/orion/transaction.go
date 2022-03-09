@@ -10,6 +10,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"github.com/hyperledger-labs/orion-server/pkg/types"
 
 	"github.com/pkg/errors"
 
@@ -113,6 +114,33 @@ func (e *Envelope) UnmarshalJSON(raw []byte) error {
 	return e.e.FromBytes(r)
 }
 
+type Transaction struct {
+	dataTx driver.DataTx
+}
+
+func (d *Transaction) Put(db string, key string, bytes []byte, a *types.AccessControl) error {
+	return d.dataTx.Put(db, key, bytes, a)
+}
+
+func (d *Transaction) Get(db string, key string) ([]byte, *types.Metadata, error) {
+	return d.dataTx.Get(db, key)
+}
+
+func (d *Transaction) Delete(db string, key string) error {
+	return d.dataTx.Delete(db, key)
+}
+
+// SingAndClose closes the transaction and signs it.
+// It returns the byte representation of an envelope that can be unmarshalled into an Envelope,
+// using TransactionManager.NewEnvelope().FromBytes(...).
+func (d *Transaction) SingAndClose() ([]byte, error) {
+	return d.dataTx.SingAndClose()
+}
+
+func (d *Transaction) Commit(b bool) (string, *types.TxReceiptResponseEnvelope, error) {
+	return d.dataTx.Commit(b)
+}
+
 type TransactionManager struct {
 	ons *NetworkService
 }
@@ -129,6 +157,18 @@ func (t *TransactionManager) ComputeTxID(id *TxID) string {
 
 func (t *TransactionManager) NewEnvelope() *Envelope {
 	return &Envelope{e: t.ons.ons.TransactionManager().NewEnvelope()}
+}
+
+func (t *TransactionManager) NewTransaction(txID string) (*Transaction, error) {
+	session, err := t.ons.ons.SessionManager().NewSession(txID)
+	if err != nil {
+		return nil, errors.WithMessagef(err, "failed to create session for txID [%s]", txID)
+	}
+	dataTx, err := session.DataTx(txID)
+	if err != nil {
+		return nil, err
+	}
+	return &Transaction{dataTx: dataTx}, nil
 }
 
 type MetadataService struct {
