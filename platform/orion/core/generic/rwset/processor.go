@@ -19,6 +19,7 @@ var logger = flogging.MustGetLogger("orion-sdk.rwset")
 
 type Network interface {
 	TransactionManager() driver.TransactionManager
+	TransactionService() driver.TransactionService
 	Name() string
 	EnvelopeService() driver.EnvelopeService
 }
@@ -65,8 +66,8 @@ func (r *processorManager) ProcessByID(channel, txid string) error {
 	switch {
 	case r.network.EnvelopeService().Exists(txid):
 		rws, tx, err = r.getTxFromEvn(txid)
-	// case r.network.TransactionService().Exists(txid):
-	// 	rws, tx, err = r.getTxFromETx(txid)
+	case r.network.TransactionService().Exists(txid):
+		rws, tx, err = r.getTxFromETx(txid)
 	default:
 		logger.Debugf("no entry found for [%s,%s]", channel, txid)
 		return nil
