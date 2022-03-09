@@ -12,4 +12,5 @@ type Vault interface {
 	NewQueryExecutor() (QueryExecutor, error)
 	NewRWSet(txid string) (RWSet, error)
 	GetRWSet(id string, results []byte) (RWSet, error)
+	Status(txID string) (ValidationCode, error)
 }

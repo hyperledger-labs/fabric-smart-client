@@ -1,0 +1,172 @@
+/*
+Copyright IBM Corp. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
+
+package delivery
+
+import (
+	"context"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
+	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	"github.com/hyperledger-labs/orion-sdk-go/pkg/bcdb"
+	"github.com/hyperledger-labs/orion-server/pkg/types"
+	"github.com/pkg/errors"
+	"go.uber.org/zap/zapcore"
+	"time"
+)
+
+var logger = flogging.MustGetLogger("orion-sdk.delivery")
+
+var (
+	ErrComm = errors.New("communication issue")
+)
+
+type Callback func(block *types.AugmentedBlockHeader) (bool, error)
+
+// Vault models a key-value store that can be updated by committing rwsets
+type Vault interface {
+	// GetLastTxID returns the last transaction id committed
+	GetLastTxID() (string, error)
+}
+
+type Network interface {
+	SessionManager() driver.SessionManager
+	IdentityManager() driver.IdentityManager
+	Name() string
+}
+
+type DeliverStream interface {
+	// Receive returns
+	//    - *types.BlockHeader if IncludeTxIDs is set to false in the delivery config
+	//    - *types.AugmentedBlockHeader if IncludeTxIDs is set to true in the delivery config
+	//    - nil if service has been stopped either by the caller or due to an error
+	Receive() interface{}
+	// Stop stops the delivery service
+	Stop()
+	// Error returns any accumulated error
+	Error() error
+}
+
+type delivery struct {
+	ctx                 context.Context
+	sp                  view2.ServiceProvider
+	network             Network
+	waitForEventTimeout time.Duration
+	callback            Callback
+	vault               Vault
+	me                  string
+	networkName         string
+}
+
+func New(
+	ctx context.Context,
+	sp view2.ServiceProvider,
+	network Network,
+	callback Callback,
+	vault Vault,
+	waitForEventTimeout time.Duration,
+) (*delivery, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	d := &delivery{
+		ctx:                 ctx,
+		sp:                  sp,
+		network:             network,
+		waitForEventTimeout: waitForEventTimeout,
+		callback:            callback,
+		vault:               vault,
+		me:                  network.IdentityManager().Me(),
+		networkName:         network.Name(),
+	}
+	return d, nil
+}
+
+// Start runs the delivery service in a goroutine
+func (d *delivery) Start() {
+	go d.Run()
+}
+
+func (d *delivery) Run() error {
+	var df DeliverStream
+	var err error
+	for {
+		select {
+		case <-d.ctx.Done():
+			// Time to cancel
+			return errors.New("context done")
+		default:
+			if df == nil {
+				if logger.IsEnabledFor(zapcore.DebugLevel) {
+					logger.Debugf("deliver service [%s:%s], connecting...", d.networkName, d.me)
+				}
+				df, err = d.connect()
+				if err != nil {
+					logger.Errorf("failed connecting to delivery service [%s:%s] [%s]. Wait 10 sec before reconnecting", d.networkName, d.me, err)
+					time.Sleep(10 * time.Second)
+					if logger.IsEnabledFor(zapcore.DebugLevel) {
+						logger.Debugf("reconnecting to delivery service [%s:%s]", d.networkName, d.me)
+					}
+					continue
+				}
+			}
+
+			resp := df.Receive()
+			if resp == nil {
+				df = nil
+				logger.Errorf("delivery service [%s:%s], failed receiving response ", d.networkName, d.me,
+					errors.WithMessagef(err, "error receiving deliver response from orion"))
+				continue
+			}
+
+			switch r := resp.(type) {
+			case *types.AugmentedBlockHeader:
+				if logger.IsEnabledFor(zapcore.DebugLevel) {
+					logger.Debugf("delivery service [%s:%s], commit block [%d]", d.networkName, d.me, r.Header.BaseHeader.Number)
+				}
+
+				stop, err := d.callback(r)
+				if err != nil {
+					switch errors.Cause(err) {
+					case ErrComm:
+						logger.Errorf("error occurred when processing block [%s], retry", err)
+						// retry
+						time.Sleep(10 * time.Second)
+						df = nil
+					default:
+						// Stop here
+						logger.Errorf("error occurred when processing block [%s]", err)
+						return err
+					}
+				}
+				if stop {
+					return nil
+				}
+			default:
+				df = nil
+				logger.Errorf("delivery service [%s:%s], got [%s]", d.networkName, d.me, r)
+			}
+		}
+	}
+}
+
+func (d *delivery) connect() (DeliverStream, error) {
+	session, err := d.network.SessionManager().NewSession(d.me)
+	if err != nil {
+		return nil, errors.WithMessagef(err, "failed to create session with identity [%s]", d.me)
+	}
+	ledger, err := session.Ledger()
+	if err != nil {
+		return nil, errors.WithMessage(err, "failed to get ledger from session")
+	}
+	conf := &bcdb.BlockHeaderDeliveryConfig{
+		StartBlockNumber: 0,
+		RetryInterval:    10 * time.Second,
+		Capacity:         5,
+		IncludeTxIDs:     true,
+	}
+	return ledger.NewBlockHeaderDeliveryService(conf), nil
+}
