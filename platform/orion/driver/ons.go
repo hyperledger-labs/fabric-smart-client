@@ -23,6 +23,7 @@ type OrionNetworkService interface {
 	Vault() Vault
 	EnvelopeService() EnvelopeService
 	ProcessorManager() ProcessorManager
+	Finality() Finality
 }
 
 type OrionNetworkServiceProvider interface {
