@@ -19,6 +19,10 @@ type DataTx interface {
 	SingAndClose() ([]byte, error)
 }
 
+type LoadedDataTx interface {
+	Commit() error
+}
+
 type Ledger interface {
 	NewBlockHeaderDeliveryService(conf *bcdb.BlockHeaderDeliveryConfig) bcdb.BlockHeaderDelivererService
 }
@@ -27,6 +31,7 @@ type Ledger interface {
 type Session interface {
 	// DataTx returns a data transaction for the passed id
 	DataTx(txID string) (DataTx, error)
+	LoadDataTx(env *types.DataTxEnvelope) (LoadedDataTx, error)
 	Ledger() (Ledger, error)
 }
 

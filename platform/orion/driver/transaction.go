@@ -34,6 +34,7 @@ type TxID struct {
 type TransactionManager interface {
 	ComputeTxID(id *TxID) string
 	NewEnvelope() Envelope
+	CommitEnvelope(session Session, envelope Envelope) error
 }
 
 type TransientMap map[string][]byte

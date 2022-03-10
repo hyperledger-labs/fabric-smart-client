@@ -55,6 +55,15 @@ func (d *DataTx) SingAndClose() ([]byte, error) {
 	return proto.Marshal(env)
 }
 
+type LoadedDataTx struct {
+	dataTx bcdb.LoadedDataTxContext
+}
+
+func (l *LoadedDataTx) Commit() error {
+	_, _, err := l.dataTx.Commit(true)
+	return err
+}
+
 type Session struct {
 	s bcdb.DBSession
 }
@@ -71,6 +80,16 @@ func (s *Session) DataTx(txID string) (driver.DataTx, error) {
 		return nil, errors.Wrap(err, "failed getting data tc")
 	}
 	return &DataTx{dataTx: dataTx}, nil
+}
+
+func (s *Session) LoadDataTx(env *types.DataTxEnvelope) (driver.LoadedDataTx, error) {
+	var dataTx bcdb.LoadedDataTxContext
+	var err error
+	dataTx, err = s.s.LoadDataTx(env)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed getting data tc")
+	}
+	return &LoadedDataTx{dataTx: dataTx}, nil
 }
 
 func (s *Session) Ledger() (driver.Ledger, error) {
