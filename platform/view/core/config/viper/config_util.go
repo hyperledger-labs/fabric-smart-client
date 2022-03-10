@@ -190,7 +190,7 @@ func EnhancedExactUnmarshal(v *viper.Viper, key string, output interface{}) erro
 	//}
 
 	config := &mapstructure.DecoderConfig{
-		ErrorUnused:      true,
+		ErrorUnused:      false,
 		Metadata:         nil,
 		Result:           output,
 		WeaklyTypedInput: true,
