@@ -82,7 +82,7 @@ func NewNetwork(
 	}
 	n.metadataService = transaction.NewMetadataService(sp, name)
 	n.envelopeService = transaction.NewEnvelopeService(sp, name)
-	n.transactionManager = transaction.NewManager(sp)
+	n.transactionManager = transaction.NewManager(sp, n.sessionManager)
 	n.transactionService = transaction.NewEndorseTransactionService(sp, name)
 	n.vault, err = NewVault(n.config, name, sp)
 	if err != nil {

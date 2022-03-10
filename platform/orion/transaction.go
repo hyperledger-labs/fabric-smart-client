@@ -169,6 +169,10 @@ func (t *TransactionManager) NewTransaction(txID string, creator string) (*Trans
 	return &Transaction{dataTx: dataTx}, nil
 }
 
+func (t *TransactionManager) CommitEnvelope(session *Session, envelope *Envelope) error {
+	return t.ons.ons.TransactionManager().CommitEnvelope(session.s, envelope.e)
+}
+
 type MetadataService struct {
 	ms driver.MetadataService
 }

@@ -56,10 +56,11 @@ func (e *Envelope) FromBytes(raw []byte) error {
 
 type Manager struct {
 	sp view.ServiceProvider
+	sm driver.SessionManager
 }
 
-func NewManager(sp view.ServiceProvider) *Manager {
-	return &Manager{sp: sp}
+func NewManager(sp view.ServiceProvider, sm driver.SessionManager) *Manager {
+	return &Manager{sp: sp, sm: sm}
 }
 
 func (m *Manager) ComputeTxID(id *driver.TxID) string {
@@ -68,4 +69,19 @@ func (m *Manager) ComputeTxID(id *driver.TxID) string {
 
 func (m *Manager) NewEnvelope() driver.Envelope {
 	return &Envelope{}
+}
+
+func (m *Manager) CommitEnvelope(session driver.Session, envelope driver.Envelope) error {
+	env, ok := envelope.(*Envelope)
+	if !ok {
+		return errors.New("invalid envelope type")
+	}
+	ldtx, err := session.LoadDataTx(env.env)
+	if err != nil {
+		return errors.Wrapf(err, "failed to load data tx [%s]", envelope.TxID())
+	}
+	if err := ldtx.Commit(); err != nil {
+		return errors.Wrapf(err, "failed to commit data tx [%s]", envelope.TxID())
+	}
+	return nil
 }
