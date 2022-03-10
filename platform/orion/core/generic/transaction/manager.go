@@ -72,16 +72,20 @@ func (m *Manager) NewEnvelope() driver.Envelope {
 }
 
 func (m *Manager) CommitEnvelope(session driver.Session, envelope driver.Envelope) error {
+	logger.Debugf("CommitEnvelope [%s]", envelope.TxID())
 	env, ok := envelope.(*Envelope)
 	if !ok {
 		return errors.New("invalid envelope type")
 	}
 	ldtx, err := session.LoadDataTx(env.env)
 	if err != nil {
+		logger.Errorf("failed to load data tx [%s]", err)
 		return errors.Wrapf(err, "failed to load data tx [%s]", envelope.TxID())
 	}
 	if err := ldtx.Commit(); err != nil {
+		logger.Errorf("failed to commit data tx [%s]", envelope.TxID())
 		return errors.Wrapf(err, "failed to commit data tx [%s]", envelope.TxID())
 	}
+	logger.Debugf("CommitEnvelope [%s] done", envelope.TxID())
 	return nil
 }
