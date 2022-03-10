@@ -21,6 +21,17 @@ const (
 	FromBoth
 )
 
+type ValidationCode int
+
+const (
+	_               ValidationCode = iota
+	Valid                          // Transaction is valid and committed
+	Invalid                        // Transaction is invalid and has been discarded
+	Busy                           // Transaction does not yet have a validity state
+	Unknown                        // Transaction is unknown
+	HasDependencies                // Transaction is unknown but has known dependencies
+)
+
 type RWSet struct {
 	rws driver.RWSet
 }
@@ -240,4 +251,9 @@ func (v *Vault) StoreTransaction(id string, raw []byte) error {
 
 func (v *Vault) StoreTransient(id string, tm TransientMap) error {
 	return v.ons.MetadataService().StoreTransient(id, driver.TransientMap(tm))
+}
+
+func (v *Vault) Status(txID string) (ValidationCode, error) {
+	vc, err := v.ons.Vault().Status(txID)
+	return ValidationCode(vc), err
 }
