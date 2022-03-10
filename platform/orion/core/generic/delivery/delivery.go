@@ -114,6 +114,9 @@ func (d *delivery) Run() error {
 				}
 			}
 
+			if logger.IsEnabledFor(zapcore.DebugLevel) {
+				logger.Debugf("deliver service [%s:%s], receiving...", d.networkName, d.me)
+			}
 			resp := df.Receive()
 			if resp == nil {
 				df = nil
@@ -122,6 +125,9 @@ func (d *delivery) Run() error {
 				continue
 			}
 
+			if logger.IsEnabledFor(zapcore.DebugLevel) {
+				logger.Debugf("deliver service [%s:%s], received response [%+v]", d.networkName, d.me, resp)
+			}
 			switch r := resp.(type) {
 			case *types.AugmentedBlockHeader:
 				if logger.IsEnabledFor(zapcore.DebugLevel) {
