@@ -18,7 +18,10 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 )
 
-var logger = flogging.MustGetLogger("orion-sdk.core")
+var (
+	logger = flogging.MustGetLogger("orion-sdk.core")
+	key    = reflect.TypeOf((*driver.OrionNetworkServiceProvider)(nil))
+)
 
 type onsProvider struct {
 	sp     view.ServiceProvider
@@ -86,9 +89,10 @@ func (p *onsProvider) newONS(network string) (driver.OrionNetworkService, error)
 }
 
 func GetOrionNetworkServiceProvider(sp view.ServiceProvider) driver.OrionNetworkServiceProvider {
-	s, err := sp.GetService(reflect.TypeOf((*driver.OrionNetworkServiceProvider)(nil)))
+	s, err := sp.GetService(key)
 	if err != nil {
-		panic(err)
+		logger.Errorf("Failed to get service [%s]: [%s]", key, err)
+		return nil
 	}
 	return s.(driver.OrionNetworkServiceProvider)
 }

@@ -55,12 +55,20 @@ func (n *NetworkService) ProcessorManager() *ProcessorManager {
 }
 
 func GetOrionNetworkNames(sp view2.ServiceProvider) []string {
-	return core.GetOrionNetworkServiceProvider(sp).Names()
+	onsp := core.GetOrionNetworkServiceProvider(sp)
+	if onsp == nil {
+		return nil
+	}
+	return onsp.Names()
 }
 
 // GetOrionNetworkService returns the Orion Network Service for the passed id, nil if not found
 func GetOrionNetworkService(sp view2.ServiceProvider, id string) *NetworkService {
-	fns, err := core.GetOrionNetworkServiceProvider(sp).OrionNetworkService(id)
+	onsp := core.GetOrionNetworkServiceProvider(sp)
+	if onsp == nil {
+		return nil
+	}
+	fns, err := onsp.OrionNetworkService(id)
 	if err != nil {
 		return nil
 	}
