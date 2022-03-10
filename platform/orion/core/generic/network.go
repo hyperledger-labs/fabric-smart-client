@@ -89,6 +89,7 @@ func NewNetwork(
 	n.processorManager = rwset.NewProcessorManager(n.sp, n, nil)
 
 	committer, err := committer.New(
+		n.processorManager,
 		n.vault,
 		nil,
 		waitForEventTimeout,

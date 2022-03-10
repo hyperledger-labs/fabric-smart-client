@@ -13,4 +13,6 @@ type Vault interface {
 	NewRWSet(txid string) (RWSet, error)
 	GetRWSet(id string, results []byte) (RWSet, error)
 	Status(txID string) (ValidationCode, error)
+	DiscardTx(txid string) error
+	CommitTX(txid string, block uint64, indexInBloc int) error
 }

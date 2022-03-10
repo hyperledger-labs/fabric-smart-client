@@ -25,11 +25,18 @@ type Finality interface {
 
 type Vault interface {
 	Status(txID string) (driver.ValidationCode, error)
+	DiscardTx(txid string) error
+	CommitTX(txid string, block uint64, indexInBloc int) error
+}
+
+type ProcessorManager interface {
+	ProcessByID(txid string) error
 }
 
 type committer struct {
 	vault               Vault
 	finality            Finality
+	pm                  ProcessorManager
 	waitForEventTimeout time.Duration
 
 	quietNotifier bool
@@ -39,7 +46,7 @@ type committer struct {
 	pollingTimeout time.Duration
 }
 
-func New(vault Vault, finality Finality, waitForEventTimeout time.Duration, quiet bool) (*committer, error) {
+func New(pm ProcessorManager, vault Vault, finality Finality, waitForEventTimeout time.Duration, quiet bool) (*committer, error) {
 	d := &committer{
 		vault:               vault,
 		waitForEventTimeout: waitForEventTimeout,
@@ -47,6 +54,7 @@ func New(vault Vault, finality Finality, waitForEventTimeout time.Duration, quie
 		listeners:           map[string][]chan TxEvent{},
 		mutex:               sync.Mutex{},
 		finality:            finality,
+		pm:                  pm,
 		pollingTimeout:      100 * time.Millisecond,
 	}
 	return d, nil
@@ -54,10 +62,42 @@ func New(vault Vault, finality Finality, waitForEventTimeout time.Duration, quie
 
 // Commit commits the transactions in the block passed as argument
 func (c *committer) Commit(block *types.AugmentedBlockHeader) error {
-	for _, txID := range block.TxIds {
+	bn := block.Header.BaseHeader.Number
+	for i, txID := range block.TxIds {
 		var event TxEvent
 		event.Txid = txID
 
+		switch block.Header.ValidationInfo[i].Flag {
+		case types.Flag_VALID:
+			// if is already committed, do nothing
+			vc, err := c.vault.Status(txID)
+			if err != nil {
+				return errors.Wrapf(err, "failed to get status of tx %s", txID)
+			}
+			switch vc {
+			case driver.Valid:
+				logger.Debugf("tx %s is already committed", txID)
+				continue
+			case driver.Invalid:
+				logger.Debugf("tx %s is already invalid", txID)
+				return errors.Errorf("tx %s is already invalid but it is marked as valid by orion", txID)
+			}
+
+			// post process
+			if err := c.pm.ProcessByID(txID); err != nil {
+				return errors.Wrapf(err, "failed to process tx %s", txID)
+			}
+
+			// commit
+			if err := c.vault.CommitTX(txID, bn, i); err != nil {
+				return errors.WithMessagef(err, "failed to commit tx %s", txID)
+			}
+		default:
+			// rollback
+			if err := c.vault.DiscardTx(txID); err != nil {
+				return errors.WithMessagef(err, "failed to discard tx %s", txID)
+			}
+		}
 		// parse transactions
 		c.notify(event)
 	}
@@ -90,25 +130,7 @@ func (c *committer) IsFinal(txid string) error {
 					logger.Debugf("Tx [%s] is known", txid)
 				}
 			case driver.Unknown:
-				//if iter >= 2 {
-				//	if logger.IsEnabledFor(zapcore.DebugLevel) {
-				//		logger.Debugf("Tx [%s] is unknown with no deps, remote check [%d][%s]", txid, iter, debug.Stack())
-				//	}
-				//	err := c.finality.IsFinal(txid, c.network.PickPeer().Address)
-				//	if err == nil {
-				//		return nil
-				//	}
-				//
-				//	if vd, _, err2 := c.vault.Status(txid); err2 == nil && vd == driver.Unknown {
-				//		return err
-				//	}
-				//	continue
-				//}
-				//if logger.IsEnabledFor(zapcore.DebugLevel) {
-				//	logger.Debugf("Tx [%s] is unknown with no deps, wait a bit and retry [%d]", txid, iter)
-				//}
-				//time.Sleep(100 * time.Millisecond)
-				// TODO:
+				// TODO: handle unknown
 				return errors.Errorf("transaction [%s] is unknown", txid)
 			default:
 				panic(fmt.Sprintf("invalid status code, got %c", vd))
