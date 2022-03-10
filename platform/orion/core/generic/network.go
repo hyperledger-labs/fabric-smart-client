@@ -11,6 +11,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic/committer"
 	config2 "github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic/config"
 	delivery2 "github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic/delivery"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic/finality"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic/rwset"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic/transaction"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic/vault"
@@ -43,6 +44,7 @@ type network struct {
 	vault              *Vault
 	processorManager   driver.ProcessorManager
 	transactionService driver.TransactionService
+	finality           driver.Finality
 }
 
 func NewNetwork(
@@ -98,6 +100,13 @@ func NewNetwork(
 	if err != nil {
 		return nil, errors.WithMessagef(err, "failed to create committer")
 	}
+
+	finality, err := finality.NewService(committer)
+	if err != nil {
+		return nil, errors.WithMessagef(err, "failed to create finality service")
+	}
+	n.finality = finality
+
 	deliveryService, err := delivery2.New(
 		n.ctx,
 		sp,
@@ -153,4 +162,8 @@ func (f *network) Vault() driver.Vault {
 
 func (f *network) ProcessorManager() driver.ProcessorManager {
 	return f.processorManager
+}
+
+func (f *network) Finality() driver.Finality {
+	return f.finality
 }

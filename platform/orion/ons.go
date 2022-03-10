@@ -54,6 +54,10 @@ func (n *NetworkService) ProcessorManager() *ProcessorManager {
 	return &ProcessorManager{pm: n.ons.ProcessorManager()}
 }
 
+func (n *NetworkService) Finality() *Finality {
+	return &Finality{finality: n.ons.Finality()}
+}
+
 func GetOrionNetworkNames(sp view2.ServiceProvider) []string {
 	onsp := core.GetOrionNetworkServiceProvider(sp)
 	if onsp == nil {
