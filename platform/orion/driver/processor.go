@@ -27,5 +27,5 @@ type Processor interface {
 type ProcessorManager interface {
 	AddProcessor(ns string, processor Processor) error
 	SetDefaultProcessor(processor Processor) error
-	ProcessByID(channel, txid string) error
+	ProcessByID(txid string) error
 }

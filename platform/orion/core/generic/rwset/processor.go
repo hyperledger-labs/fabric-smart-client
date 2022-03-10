@@ -7,25 +7,20 @@ SPDX-License-Identifier: Apache-2.0
 package rwset
 
 import (
-	"github.com/pkg/errors"
-
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	"github.com/pkg/errors"
 )
 
 var logger = flogging.MustGetLogger("orion-sdk.rwset")
 
 type Network interface {
+	Name() string
 	TransactionManager() driver.TransactionManager
 	TransactionService() driver.TransactionService
-	Name() string
 	EnvelopeService() driver.EnvelopeService
-}
-
-type RWSExtractor interface {
-	Extract(tx []byte) (driver.ProcessTransaction, driver.RWSet, error)
+	Vault() driver.Vault
 }
 
 type request struct {
@@ -37,28 +32,26 @@ func (r *request) ID() string {
 }
 
 type processorManager struct {
-	sp                view2.ServiceProvider
-	network           Network
-	defaultProcessor  driver.Processor
-	processors        map[string]driver.Processor
-	channelProcessors map[string]map[string]driver.Processor
+	sp               view2.ServiceProvider
+	network          Network
+	defaultProcessor driver.Processor
+	processors       map[string]driver.Processor
 }
 
 func NewProcessorManager(sp view2.ServiceProvider, network Network, defaultProcessor driver.Processor) *processorManager {
 	return &processorManager{
-		sp:                sp,
-		network:           network,
-		defaultProcessor:  defaultProcessor,
-		processors:        map[string]driver.Processor{},
-		channelProcessors: map[string]map[string]driver.Processor{},
+		sp:               sp,
+		network:          network,
+		defaultProcessor: defaultProcessor,
+		processors:       map[string]driver.Processor{},
 	}
 }
 
-func (r *processorManager) ProcessByID(channel, txid string) error {
-	logger.Debugf("process transaction [%s,%s]", channel, txid)
+func (r *processorManager) ProcessByID(txid string) error {
+	logger.Debugf("process transaction [%s]", txid)
 
 	req := &request{id: txid}
-	logger.Debugf("load transaction content [%s,%s]", channel, txid)
+	logger.Debugf("load transaction content [%s]", txid)
 
 	var rws driver.RWSet
 	var tx driver.ProcessTransaction
@@ -69,33 +62,32 @@ func (r *processorManager) ProcessByID(channel, txid string) error {
 	case r.network.TransactionService().Exists(txid):
 		rws, tx, err = r.getTxFromETx(txid)
 	default:
-		logger.Debugf("no entry found for [%s,%s]", channel, txid)
+		logger.Debugf("no entry found for [%s]", txid)
 		return nil
 	}
 	if err != nil {
-		return errors.Wrapf(err, "failed extraction for [%s,%s]", channel, txid)
+		return errors.Wrapf(err, "failed extraction for [%s]", txid)
 	}
 	defer rws.Done()
 
-	logger.Debugf("process transaction namespaces [%s,%s,%d]", channel, txid, len(rws.Namespaces()))
+	logger.Debugf("process transaction namespaces [%s,%d]", txid, len(rws.Namespaces()))
 	for _, ns := range rws.Namespaces() {
-		logger.Debugf("process transaction namespace [%s,%s,%s]", channel, txid, ns)
+		logger.Debugf("process transaction namespace [%s,%s]", txid, ns)
 
-		// TODO: search channel first
 		p, ok := r.processors[ns]
 		if ok {
-			logger.Debugf("process transaction namespace, using custom processor [%s,%s,%s]", channel, txid, ns)
+			logger.Debugf("process transaction namespace, using custom processor [%s,%s]", txid, ns)
 			if err := p.Process(req, tx, rws, ns); err != nil {
 				return err
 			}
 		} else {
-			logger.Debugf("process transaction namespace, resorting to default processor [%s,%s,%s]", channel, txid, ns)
+			logger.Debugf("process transaction namespace, resorting to default processor [%s,%s]", txid, ns)
 			if r.defaultProcessor != nil {
 				if err := r.defaultProcessor.Process(req, tx, rws, ns); err != nil {
 					return err
 				}
 			}
-			logger.Debugf("no processors found for namespace [%s,%s,%s]", channel, txid, ns)
+			logger.Debugf("no processors found for namespace [%s,%s]", txid, ns)
 		}
 	}
 	return nil
@@ -112,30 +104,19 @@ func (r *processorManager) SetDefaultProcessor(processor driver.Processor) error
 }
 
 func (r *processorManager) getTxFromEvn(txid string) (driver.RWSet, driver.ProcessTransaction, error) {
-	// rawEnv, err := ch.EnvelopeService().LoadEnvelope(txid)
-	// if err != nil {
-	// 	return nil, nil, errors.Wrapf(err, "cannot load envelope [%s]", txid)
-	// }
-	// logger.Debugf("unmarshal envelope [%s,%s]", ch.Name(), txid)
-	// env := &common.Envelope{}
-	// err = proto.Unmarshal(rawEnv, env)
-	// if err != nil {
-	// 	return nil, nil, errors.Wrapf(err, "failed unmarshalling envelope [%s]", txid)
-	// }
-	// logger.Debugf("unpack envelope [%s,%s]", ch.Name(), txid)
-	// upe, err := UnpackEnvelope(r.network.Name(), env)
-	// if err != nil {
-	// 	return nil, nil, errors.Wrapf(err, "failed unpacking envelope [%s]", txid)
-	// }
-	// logger.Debugf("retrieve rws [%s,%s]", ch.Name(), txid)
-	//
-	// rws, err := ch.GetRWSet(txid, upe.Results)
-	// if err != nil {
-	// 	return nil, nil, err
-	// }
-	//
-	// return rws, upe, nil
-	panic("not implemented")
+	rawEnv, err := r.network.EnvelopeService().LoadEnvelope(txid)
+	if err != nil {
+		return nil, nil, errors.Wrapf(err, "cannot load envelope [%s]", txid)
+	}
+	logger.Debugf("unmarshal envelope [%s]", txid)
+	rws, err := r.network.Vault().GetRWSet(txid, rawEnv)
+	if err != nil {
+		return nil, nil, errors.Wrapf(err, "cannot unmarshal envelope [%s]", txid)
+	}
+	return rws, &ProcessTransaction{
+		network: r.network.Name(),
+		txID:    txid,
+	}, nil
 }
 
 func (r *processorManager) getTxFromETx(txid string) (driver.RWSet, driver.ProcessTransaction, error) {
@@ -154,4 +135,22 @@ func (r *processorManager) getTxFromETx(txid string) (driver.RWSet, driver.Proce
 	//
 	// return rws, tx, nil
 	panic("not implemented")
+}
+
+type ProcessTransaction struct {
+	network string
+	txID    string
+}
+
+func (p *ProcessTransaction) Network() string {
+	return p.network
+}
+
+func (p *ProcessTransaction) ID() string {
+	return p.txID
+}
+
+func (p *ProcessTransaction) FunctionAndParameters() (string, []string) {
+	//TODO implement me
+	panic("implement me")
 }
