@@ -32,11 +32,17 @@ func (rws *readWriteSet) populate(rwsetBytes []byte, txid string) error {
 	for _, operation := range txRWSet.DbOperations {
 
 		for _, read := range operation.DataReads {
+			bn := uint64(0)
+			txn := uint64(0)
+			if read.Version != nil {
+				bn = read.Version.BlockNum
+				txn = read.Version.TxNum
+			}
 			rws.readSet.add(
 				operation.DbName,
 				read.Key,
-				read.Version.BlockNum,
-				read.Version.TxNum,
+				bn,
+				txn,
 			)
 		}
 
