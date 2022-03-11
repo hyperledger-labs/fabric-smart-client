@@ -77,7 +77,8 @@ func (p *provider) DefaultIdentity() view.Identity {
 func (p *provider) Identity(label string) view.Identity {
 	id, err := p.endpointService.GetIdentity(label, nil)
 	if err != nil {
-		panic(err)
+		logger.Warningf("failed to get identity for label %s: %s", label, err)
+		return nil
 	}
 	return id
 }
