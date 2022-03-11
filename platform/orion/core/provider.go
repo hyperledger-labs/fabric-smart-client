@@ -80,12 +80,12 @@ func (p *onsProvider) OrionNetworkService(network string) (driver.OrionNetworkSe
 }
 
 func (p *onsProvider) newONS(network string) (driver.OrionNetworkService, error) {
-	config, err := config.New(view.GetConfigService(p.sp), network, network == p.config.defaultName)
+	c, err := config.New(view.GetConfigService(p.sp), network, network == p.config.defaultName)
 	if err != nil {
 		return nil, err
 	}
 
-	return generic.NewNetwork(p.ctx, p.sp, config, network)
+	return generic.NewNetwork(p.ctx, p.sp, c, network)
 }
 
 func GetOrionNetworkServiceProvider(sp view.ServiceProvider) driver.OrionNetworkServiceProvider {
