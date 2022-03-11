@@ -68,7 +68,7 @@ func (p *fnsProvider) Start(ctx context.Context) error {
 			}
 		}
 	}
-	
+
 	return nil
 }
 
@@ -126,7 +126,7 @@ func (p *fnsProvider) InstallViews() error {
 
 func (p *fnsProvider) newFNS(network string) (driver.FabricNetworkService, error) {
 	// bridge services
-	config, err := config.New(view.GetConfigService(p.sp), network, network == p.config.defaultName)
+	c, err := config.New(view.GetConfigService(p.sp), network, network == p.config.defaultName)
 	if err != nil {
 		return nil, err
 	}
@@ -134,7 +134,7 @@ func (p *fnsProvider) newFNS(network string) (driver.FabricNetworkService, error
 
 	// Endpoint service
 	resolverService, err := endpoint.NewResolverService(
-		config,
+		c,
 		view.GetEndpointService(p.sp),
 	)
 	if err != nil {
@@ -151,7 +151,7 @@ func (p *fnsProvider) newFNS(network string) (driver.FabricNetworkService, error
 	// Local MSP Manager
 	mspService := msp.NewLocalMSPManager(
 		p.sp,
-		config,
+		c,
 		sigService,
 		view.GetEndpointService(p.sp),
 		view.GetIdentityProvider(p.sp).DefaultIdentity(),
@@ -172,7 +172,7 @@ func (p *fnsProvider) newFNS(network string) (driver.FabricNetworkService, error
 		p.ctx,
 		p.sp,
 		network,
-		config,
+		c,
 		idProvider,
 		mspService,
 		sigService,
