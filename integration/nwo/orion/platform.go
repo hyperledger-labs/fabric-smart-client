@@ -647,5 +647,5 @@ func (p *Platform) saveServerUrl(url *url.URL) {
 }
 
 func (p *Platform) FSCNodeVaultDir(peer *node.Node) string {
-	return filepath.Join(p.Context.RootDir(), "fsc", "fscnodes", peer.ID(), "vault")
+	return filepath.Join(p.Context.RootDir(), "fsc", "nodes", peer.ID(), "vault")
 }

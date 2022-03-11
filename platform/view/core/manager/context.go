@@ -164,11 +164,24 @@ func (ctx *ctx) GetSession(f view.View, party view.Identity) (view.Session, erro
 		if logger.IsEnabledFor(zapcore.DebugLevel) {
 			logger.Debugf("session for [%s] does not exists, resolve", id.UniqueID())
 		}
+
 		id, _, _, err = view2.GetEndpointService(ctx).Resolve(party)
 		if err == nil {
 			s, ok = ctx.sessions[id.UniqueID()]
 			if logger.IsEnabledFor(zapcore.DebugLevel) {
 				logger.Debugf("session resolved for [%s] exists? [%v]", id.UniqueID(), ok)
+			}
+		} else {
+			// give it a second chance, check if party can be resolved as an identity
+			partyIdentity := view2.GetIdentityProvider(ctx).Identity(string(party))
+			if !partyIdentity.IsNone() {
+				id, _, _, err = view2.GetEndpointService(ctx).Resolve(partyIdentity)
+				if err == nil {
+					s, ok = ctx.sessions[id.UniqueID()]
+					if logger.IsEnabledFor(zapcore.DebugLevel) {
+						logger.Debugf("session resolved for [%s] exists? [%v]", id.UniqueID(), ok)
+					}
+				}
 			}
 		}
 	} else {
