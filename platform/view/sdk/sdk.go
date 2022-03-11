@@ -10,6 +10,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/finality"
 	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger"
 	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/operations"
@@ -148,6 +149,8 @@ func (p *p) Install() error {
 	if err := p.installTracing(); err != nil {
 		return errors.WithMessage(err, "failed installing tracing")
 	}
+
+	finality.InstallHandler(p.registry, p.viewService)
 
 	return nil
 }

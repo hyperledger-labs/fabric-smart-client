@@ -169,8 +169,8 @@ func (d *delivery) connect() (DeliverStream, error) {
 		return nil, errors.WithMessage(err, "failed to get ledger from session")
 	}
 	conf := &bcdb.BlockHeaderDeliveryConfig{
-		StartBlockNumber: 0,
-		RetryInterval:    10 * time.Second,
+		StartBlockNumber: 1,
+		RetryInterval:    1 * time.Second,
 		Capacity:         5,
 		IncludeTxIDs:     true,
 	}

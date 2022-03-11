@@ -20,6 +20,7 @@ type DataTx interface {
 }
 
 type LoadedDataTx interface {
+	ID() string
 	Commit() error
 }
 

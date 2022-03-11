@@ -23,7 +23,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
-	view3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view"
 )
 
 var (
@@ -69,9 +68,7 @@ func (p *fnsProvider) Start(ctx context.Context) error {
 			}
 		}
 	}
-
-	finality.InstallHandler(view3.GetService(p.sp), p)
-
+	
 	return nil
 }
 

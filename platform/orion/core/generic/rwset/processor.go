@@ -59,14 +59,17 @@ func (r *processorManager) ProcessByID(txid string) error {
 	switch {
 	case r.network.EnvelopeService().Exists(txid):
 		rws, tx, err = r.getTxFromEvn(txid)
+		if err != nil {
+			return errors.Wrapf(err, "failed extraction from envelope [%s]", txid)
+		}
 	case r.network.TransactionService().Exists(txid):
 		rws, tx, err = r.getTxFromETx(txid)
+		if err != nil {
+			return errors.Wrapf(err, "failed extraction from transaction [%s]", txid)
+		}
 	default:
 		logger.Debugf("no entry found for [%s]", txid)
 		return nil
-	}
-	if err != nil {
-		return errors.Wrapf(err, "failed extraction for [%s]", txid)
 	}
 	defer rws.Done()
 
@@ -109,7 +112,11 @@ func (r *processorManager) getTxFromEvn(txid string) (driver.RWSet, driver.Proce
 		return nil, nil, errors.Wrapf(err, "cannot load envelope [%s]", txid)
 	}
 	logger.Debugf("unmarshal envelope [%s]", txid)
-	rws, err := r.network.Vault().GetRWSet(txid, rawEnv)
+	env := r.network.TransactionManager().NewEnvelope()
+	if err := env.FromBytes(rawEnv); err != nil {
+		return nil, nil, errors.Wrapf(err, "cannot unmarshal envelope [%s]", txid)
+	}
+	rws, err := r.network.Vault().GetRWSet(txid, env.Results())
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "cannot unmarshal envelope [%s]", txid)
 	}

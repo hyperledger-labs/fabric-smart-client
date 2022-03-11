@@ -81,6 +81,9 @@ func (c *committer) Commit(block *types.AugmentedBlockHeader) error {
 			case driver.Invalid:
 				logger.Debugf("tx %s is already invalid", txID)
 				return errors.Errorf("tx %s is already invalid but it is marked as valid by orion", txID)
+			case driver.Unknown:
+				logger.Debugf("tx %s is unknown, ignore it", txID)
+				continue
 			}
 
 			// post process
@@ -130,8 +133,13 @@ func (c *committer) IsFinal(txid string) error {
 					logger.Debugf("Tx [%s] is known", txid)
 				}
 			case driver.Unknown:
-				// TODO: handle unknown
-				return errors.Errorf("transaction [%s] is unknown", txid)
+				if iter >= 2 {
+					return errors.Errorf("transaction [%s] is unknown", txid)
+				}
+				if logger.IsEnabledFor(zapcore.DebugLevel) {
+					logger.Debugf("Tx [%s] is unknown with no deps, wait a bit and retry [%d]", txid, iter)
+				}
+				time.Sleep(100 * time.Millisecond)
 			default:
 				panic(fmt.Sprintf("invalid status code, got %c", vd))
 			}

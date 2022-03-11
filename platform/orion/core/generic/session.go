@@ -8,6 +8,7 @@ package generic
 
 import (
 	"github.com/golang/protobuf/proto"
+	"go.uber.org/zap/zapcore"
 	"time"
 
 	"github.com/hyperledger-labs/orion-sdk-go/pkg/bcdb"
@@ -57,6 +58,11 @@ func (d *DataTx) SingAndClose() ([]byte, error) {
 
 type LoadedDataTx struct {
 	dataTx bcdb.LoadedDataTxContext
+	env    *types.DataTxEnvelope
+}
+
+func (l *LoadedDataTx) ID() string {
+	return l.env.Payload.TxId
 }
 
 func (l *LoadedDataTx) Commit() error {
@@ -89,7 +95,10 @@ func (s *Session) LoadDataTx(env *types.DataTxEnvelope) (driver.LoadedDataTx, er
 	if err != nil {
 		return nil, errors.Wrap(err, "failed getting data tc")
 	}
-	return &LoadedDataTx{dataTx: dataTx}, nil
+	return &LoadedDataTx{
+		env:    env,
+		dataTx: dataTx,
+	}, nil
 }
 
 func (s *Session) Ledger() (driver.Ledger, error) {
@@ -106,8 +115,12 @@ type SessionManager struct {
 }
 
 func (s *SessionManager) NewSession(id string) (driver.Session, error) {
+	logLevel := "info"
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logLevel = "debug"
+	}
 	c := &logger2.Config{
-		Level:         "info",
+		Level:         logLevel,
 		OutputPath:    []string{"stdout"},
 		ErrOutputPath: []string{"stderr"},
 		Encoding:      "console",
