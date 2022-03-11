@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package orion
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"crypto/tls"
@@ -259,15 +260,28 @@ func (p *Platform) Cleanup() {
 	Expect(err).NotTo(HaveOccurred())
 	for _, c := range containers {
 		for _, name := range c.Names {
-			p.DockerClient.DisconnectNetwork(p.NetworkID, docker.NetworkConnectionOptions{
-				Force:     true,
-				Container: c.ID,
-			})
-			if strings.HasPrefix(name, "/orion") {
+			if strings.HasPrefix(name, "/"+p.NetworkID) {
+				logger.Infof("cleanup container [%s]", name)
 				err := p.DockerClient.RemoveContainer(docker.RemoveContainerOptions{ID: c.ID, Force: true})
 				Expect(err).NotTo(HaveOccurred())
 				break
+			} else {
+				logger.Infof("cleanup container [%s], skipped", name)
 			}
+		}
+	}
+
+	volumes, err := p.DockerClient.ListVolumes(docker.ListVolumesOptions{})
+	Expect(err).NotTo(HaveOccurred())
+	for _, i := range volumes {
+		if strings.HasPrefix(i.Name, p.NetworkID) {
+			logger.Infof("cleanup volume [%s]", i.Name)
+			err := p.DockerClient.RemoveVolumeWithOptions(docker.RemoveVolumeOptions{
+				Name:  i.Name,
+				Force: false,
+			})
+			Expect(err).NotTo(HaveOccurred())
+			break
 		}
 	}
 
@@ -276,6 +290,7 @@ func (p *Platform) Cleanup() {
 	for _, i := range images {
 		for _, tag := range i.RepoTags {
 			if strings.HasPrefix(tag, p.NetworkID) {
+				logger.Infof("cleanup image [%s]", tag)
 				err := p.DockerClient.RemoveImage(i.ID)
 				Expect(err).NotTo(HaveOccurred())
 				break
@@ -302,9 +317,9 @@ func (p *Platform) RunOrionServer() {
 	strNodePort := strconv.Itoa(int(p.nodePort))
 	strPeerPort := strconv.Itoa(int(p.peerPort))
 
-	hostname := "orion-" + p.Topology.TopologyName
+	containerName := fmt.Sprintf("%s.orion.%s", p.NetworkID, p.Topology.TopologyName)
 	resp, err := cli.ContainerCreate(ctx, &container.Config{
-		Hostname: hostname,
+		Hostname: containerName,
 		Image:    ServerImage,
 		Tty:      false,
 		ExposedPorts: nat.PortSet{
@@ -352,7 +367,7 @@ func (p *Platform) RunOrionServer() {
 				NetworkID: net.ID,
 			},
 		},
-	}, nil, hostname)
+	}, nil, containerName)
 	if err != nil {
 		panic(err)
 	}
@@ -365,6 +380,24 @@ func (p *Platform) RunOrionServer() {
 		panic(err)
 	}
 
+	dockerLogger := flogging.MustGetLogger("orion.container." + containerName)
+	go func() {
+		reader, err := cli.ContainerLogs(context.Background(), resp.ID, types.ContainerLogsOptions{
+			ShowStdout: true,
+			ShowStderr: true,
+			Follow:     true,
+			Timestamps: false,
+		})
+		Expect(err).ToNot(HaveOccurred())
+		defer reader.Close()
+
+		scanner := bufio.NewScanner(reader)
+		for scanner.Scan() {
+			dockerLogger.Debugf("%s", scanner.Text())
+		}
+	}()
+
+	logger.Debugf("Wait orion to start...")
 	time.Sleep(60 * time.Second)
 }
 

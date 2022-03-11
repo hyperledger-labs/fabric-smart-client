@@ -26,7 +26,7 @@ func (rws *readWriteSet) populate(rwsetBytes []byte, txid string) error {
 	txRWSet := &types.DataTx{}
 	err := proto.Unmarshal(rwsetBytes, txRWSet)
 	if err != nil {
-		return errors.Wrapf(err, "provided invalid read-write set bytes for txid %s, unmarshal failed", txid)
+		return errors.Wrapf(err, "provided invalid read-write set bytes for txid %s, unmarshal failed, [%s]", txid)
 	}
 
 	for _, operation := range txRWSet.DbOperations {

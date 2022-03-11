@@ -36,6 +36,9 @@ func (e *Envelope) Results() []byte {
 }
 
 func (e *Envelope) Bytes() ([]byte, error) {
+	if e.env == nil {
+		return nil, nil
+	}
 	return proto.Marshal(e.env)
 }
 
@@ -86,6 +89,6 @@ func (m *Manager) CommitEnvelope(session driver.Session, envelope driver.Envelop
 		logger.Errorf("failed to commit data tx [%s]", envelope.TxID())
 		return errors.Wrapf(err, "failed to commit data tx [%s]", envelope.TxID())
 	}
-	logger.Debugf("CommitEnvelope [%s] done", envelope.TxID())
+	logger.Debugf("CommitEnvelope [%s:%s] done", envelope.TxID(), ldtx.ID())
 	return nil
 }
