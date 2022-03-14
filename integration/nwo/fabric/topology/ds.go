@@ -116,6 +116,7 @@ type PeerIdentity struct {
 	EnrollmentID string
 	MSPType      string
 	MSPID        string
+	CacheSize    int
 	Org          string
 }
 

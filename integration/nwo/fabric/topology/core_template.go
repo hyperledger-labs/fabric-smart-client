@@ -261,6 +261,7 @@ fabric:
       - id: {{ .ID }}
         mspType: {{ .MSPType }}
         mspID: {{ .MSPID }}
+        cacheSize: {{ .CacheSize }}
         path: {{ PeerLocalExtraIdentityDir Peer .ID }}
     {{- end }}
     tls:

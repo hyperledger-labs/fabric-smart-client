@@ -11,10 +11,11 @@ import (
 )
 
 type MSP struct {
-	ID      string `yaml:"id"`
-	MSPType string `yaml:"mspType"`
-	MSPID   string `yaml:"mspID"`
-	Path    string `yaml:"path"`
+	ID        string `yaml:"id"`
+	MSPType   string `yaml:"mspType"`
+	MSPID     string `yaml:"mspID"`
+	Path      string `yaml:"path"`
+	CacheSize int    `yaml:"cacheSize"`
 }
 
 type File struct {
