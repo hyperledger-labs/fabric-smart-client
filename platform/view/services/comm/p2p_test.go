@@ -48,9 +48,17 @@ func getNode(t *testing.T, bootstrapNodeID, bootstrapNodeEndpoint, nodeEndpoint 
 	return node
 }
 
-func setupTwoNodes(t *testing.T, bootstrapNodeID, bootstrapNodeEndpoint, nodeID, nodeEndpoint string, bootstrapNodeKeyDispenser, nodeKeyDispenser PrivateKeyDispenser) (*P2PNode, *P2PNode) {
-	bootstrapNode := getBootstrapNode(t, bootstrapNodeEndpoint, bootstrapNodeKeyDispenser)
-	node := getNode(t, bootstrapNodeID, bootstrapNodeEndpoint, nodeEndpoint, nodeKeyDispenser)
+func setupTwoNodes(t *testing.T, bootstrapNodeID, bootstrapNodeEndpoint, nodeID, nodeEndpoint string, bootstrapNodeKeyDispenser, nodeKeyDispenser PrivateKeyDispenser) (bootstrapNode *P2PNode, node *P2PNode, err error) {
+	// catch panic and return error
+	defer func() {
+		if r := recover(); r != nil {
+			if err2, ok := r.(error); ok {
+				err = err2
+			}
+		}
+	}()
+	bootstrapNode = getBootstrapNode(t, bootstrapNodeEndpoint, bootstrapNodeKeyDispenser)
+	node = getNode(t, bootstrapNodeID, bootstrapNodeEndpoint, nodeEndpoint, nodeKeyDispenser)
 
 	assert.Eventually(
 		t,
@@ -92,7 +100,7 @@ func setupTwoNodes(t *testing.T, bootstrapNodeID, bootstrapNodeEndpoint, nodeID,
 		500*time.Millisecond,
 	)
 
-	return bootstrapNode, node
+	return bootstrapNode, node, err
 }
 
 func setupTwoNodesFromFiles(t *testing.T) (*P2PNode, *P2PNode, string, string) {
@@ -105,7 +113,16 @@ func setupTwoNodesFromFiles(t *testing.T) (*P2PNode, *P2PNode, string, string) {
 	bootstrapNodeEndpoint := "/ip4/127.0.0.1/tcp/1234"
 	nodeEndpoint := "/ip4/127.0.0.1/tcp/1235"
 
-	bootstrapNode, node := setupTwoNodes(t, bootstrapNodeID, bootstrapNodeEndpoint, nodeID, nodeEndpoint, &PrivateKeyFromFile{bootstrapNodeSK}, &PrivateKeyFromFile{nodeSK})
+	// sometimes setupTwoNodes can fail due to timeouts, give it a second chance
+	var err error
+	var bootstrapNode, node *P2PNode
+	for i := 0; i < 3; i++ {
+		bootstrapNode, node, err = setupTwoNodes(t, bootstrapNodeID, bootstrapNodeEndpoint, nodeID, nodeEndpoint, &PrivateKeyFromFile{bootstrapNodeSK}, &PrivateKeyFromFile{nodeSK})
+		if err == nil {
+			break
+		}
+	}
+	assert.NoError(t, err, "setupTwoNodes failed")
 
 	return bootstrapNode, node, bootstrapNodeID, nodeID
 }
