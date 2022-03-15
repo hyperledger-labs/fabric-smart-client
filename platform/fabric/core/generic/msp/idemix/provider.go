@@ -224,8 +224,6 @@ func NewProvider(conf1 *m.MSPConfig, sp view2.ServiceProvider, sigType bccsp.Sig
 }
 
 func (p *provider) Identity(opts *driver2.IdentityOptions) (view.Identity, []byte, error) {
-	logger.Debug("getting new idemix identity")
-
 	// Derive NymPublicKey
 	nymKey, err := p.Csp.KeyDeriv(
 		p.userKey,

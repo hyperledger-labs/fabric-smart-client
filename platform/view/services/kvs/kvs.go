@@ -100,10 +100,6 @@ func (o *KVS) Exists(id string) bool {
 }
 
 func (o *KVS) Put(id string, state interface{}) error {
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("put state [%s,%s]", o.namespace, id)
-	}
-
 	o.putMutex.Lock()
 	defer o.putMutex.Unlock()
 
