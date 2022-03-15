@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package config
 
 import (
+	"strconv"
 	"time"
 
 	"github.com/pkg/errors"
@@ -175,4 +176,16 @@ func (c *Config) UnmarshalKey(key string, rawVal interface{}) error {
 
 func (c *Config) GetPath(key string) string {
 	return c.configService.GetPath("fabric." + c.prefix + key)
+}
+
+func (c *Config) MSPCacheSize(defaultValue int) int {
+	v := c.configService.GetString("fabric." + c.prefix + "mspCacheSize")
+	if len(v) == 0 {
+		return defaultValue
+	}
+	i, err := strconv.Atoi(v)
+	if err != nil {
+		return defaultValue
+	}
+	return i
 }

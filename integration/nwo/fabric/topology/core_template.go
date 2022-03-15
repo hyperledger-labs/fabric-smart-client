@@ -257,6 +257,7 @@ fabric:
           KeyStore:
     mspConfigPath: {{ .ViewNodeMSPDir Peer }}
     localMspId: {{ (.Organization Peer.Organization).MSPID }}
+	mspCacheSize: 500
     msps: {{ range Peer.ExtraIdentities }}
       - id: {{ .ID }}
         mspType: {{ .MSPType }}
