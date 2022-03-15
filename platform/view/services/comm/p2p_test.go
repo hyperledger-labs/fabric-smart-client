@@ -8,6 +8,7 @@ package comm
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
 	"sync"
 	"testing"
@@ -113,16 +114,12 @@ func setupTwoNodesFromFiles(t *testing.T) (*P2PNode, *P2PNode, string, string) {
 	bootstrapNodeEndpoint := "/ip4/127.0.0.1/tcp/1234"
 	nodeEndpoint := "/ip4/127.0.0.1/tcp/1235"
 
-	// sometimes setupTwoNodes can fail due to timeouts, give it a second chance
-	var err error
 	var bootstrapNode, node *P2PNode
-	for i := 0; i < 3; i++ {
+	assert.NoError(t, Retry(3, 1*time.Second, func() error {
+		var err error
 		bootstrapNode, node, err = setupTwoNodes(t, bootstrapNodeID, bootstrapNodeEndpoint, nodeID, nodeEndpoint, &PrivateKeyFromFile{bootstrapNodeSK}, &PrivateKeyFromFile{nodeSK})
-		if err == nil {
-			break
-		}
-	}
-	assert.NoError(t, err, "setupTwoNodes failed")
+		return err
+	}), "failed to setup two nodes")
 
 	return bootstrapNode, node, bootstrapNodeID, nodeID
 }
@@ -276,4 +273,19 @@ func SessionsForMPCTestRound(t *testing.T, bootstrapNode, node *P2PNode, bootstr
 
 	bootstrapNode.Stop()
 	node.Stop()
+}
+
+func Retry(attempts int, sleep time.Duration, f func() error) (err error) {
+	for i := 0; i < attempts; i++ {
+		if i > 0 {
+			time.Sleep(sleep)
+			sleep *= 2
+		}
+
+		err = f()
+		if err == nil {
+			return nil
+		}
+	}
+	return fmt.Errorf("no luck after %d attempts: last error: %v", attempts, err)
 }
