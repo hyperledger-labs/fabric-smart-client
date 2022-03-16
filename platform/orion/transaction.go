@@ -128,6 +128,10 @@ func (t *LoadedTransaction) CoSignAndClose() ([]byte, error) {
 	return t.loadedDataTx.CoSignAndClose()
 }
 
+func (t *LoadedTransaction) Reads() map[string][]*types.DataRead {
+	return t.loadedDataTx.Reads()
+}
+
 type Transaction struct {
 	dataTx driver.DataTx
 }
@@ -191,11 +195,11 @@ func (t *TransactionManager) NewLoadedTransaction(env []byte, creator string) (*
 	if err != nil {
 		return nil, errors.WithMessagef(err, "failed to create session for creator [%s]", creator)
 	}
-	var e proto.Message
-	if err == proto.Unmarshal(env, e) && err != nil {
+	var e types.DataTxEnvelope
+	if err = proto.Unmarshal(env, &e); err != nil {
 		return nil, errors.WithMessagef(err, "failed to unmarshal env")
 	}
-	loadedDataTx, err := session.LoadDataTx(e.(*types.DataTxEnvelope))
+	loadedDataTx, err := session.LoadDataTx(&e)
 	if err != nil {
 		return nil, err
 	}

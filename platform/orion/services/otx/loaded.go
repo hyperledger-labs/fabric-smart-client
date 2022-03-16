@@ -10,6 +10,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"github.com/hyperledger-labs/orion-server/pkg/types"
 	"github.com/pkg/errors"
 )
 
@@ -27,17 +28,18 @@ type LoadedTransaction struct {
 	LoadedDataTx *orion.LoadedTransaction
 }
 
-func NewLoadedTransaction(sp view2.ServiceProvider, id, network string, env []byte) (*LoadedTransaction, error) {
+func NewLoadedTransaction(sp view2.ServiceProvider, id, network, namespace string, env []byte) (*LoadedTransaction, error) {
 	nonce, err := getRandomNonce()
 	if err != nil {
 		return nil, err
 	}
 	lt := &LoadedTransaction{
-		SP:      sp,
-		Creator: view.Identity(id),
-		Network: network,
-		Nonce:   nonce,
-		Env:     env,
+		SP:        sp,
+		Creator:   view.Identity(id),
+		Network:   network,
+		Namespace: namespace,
+		Nonce:     nonce,
+		Env:       env,
 	}
 	if _, err := lt.getLoadedDataTx(); err != nil {
 		return nil, errors.WithMessage(err, "failed to get loaded data tx")
@@ -67,6 +69,14 @@ func (lt *LoadedTransaction) CoSignAndClose() ([]byte, error) {
 		return nil, err
 	}
 	return t.CoSignAndClose()
+}
+
+func (lt *LoadedTransaction) Reads() []*types.DataRead {
+	t, err := lt.getLoadedDataTx()
+	if err != nil {
+		return nil
+	}
+	return t.Reads()[lt.Namespace]
 }
 
 func (lt *LoadedTransaction) getLoadedDataTx() (*orion.LoadedTransaction, error) {
