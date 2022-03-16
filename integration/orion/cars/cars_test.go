@@ -45,6 +45,11 @@ var _ = Describe("EndToEnd", func() {
 				CarRegistration: "Hello World",
 			}))
 			Expect(err).NotTo(HaveOccurred())
+			_, err = ii.CLI("dealer").CallView("transfer", common.JSONMarshall(&views.Transfer{
+				Buyer:           "alice",
+				CarRegistration: "Hello World",
+			}))
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 	})

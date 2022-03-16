@@ -48,12 +48,16 @@ func (d *DataTx) Delete(db string, key string) error {
 	return d.dataTx.Delete(db, key)
 }
 
-func (d *DataTx) SingAndClose() ([]byte, error) {
+func (d *DataTx) SignAndClose() (proto.Message, error) {
 	env, err := d.dataTx.SignConstructedTxEnvelopeAndCloseTx()
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed signing and closing data tx")
 	}
-	return proto.Marshal(env)
+	return env, nil
+}
+
+func (d *DataTx) AddMustSignUser(userID string) {
+	d.dataTx.AddMustSignUser(userID)
 }
 
 type LoadedDataTx struct {
@@ -68,6 +72,14 @@ func (l *LoadedDataTx) ID() string {
 func (l *LoadedDataTx) Commit() error {
 	_, _, err := l.dataTx.Commit(true)
 	return err
+}
+
+func (l *LoadedDataTx) CoSignAndClose() (proto.Message, error) {
+	env, err := l.dataTx.CoSignTxEnvelopeAndCloseTx()
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed co-signing and closing envelope")
+	}
+	return env, nil
 }
 
 type Session struct {
