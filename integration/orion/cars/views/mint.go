@@ -8,7 +8,6 @@ package views
 
 import (
 	"encoding/json"
-
 	"github.com/hyperledger-labs/orion-server/pkg/types"
 	"github.com/pkg/errors"
 
@@ -29,17 +28,16 @@ type MintRequestView struct {
 	*MintRequest
 }
 
-func (p *MintRequestView) Call(context view.Context) (interface{}, error) {
-	request := p.prepareRequest(context)
-	p.askApproval(context, request)
+func (v *MintRequestView) Call(context view.Context) (interface{}, error) {
+	request := v.prepareRequest(context)
+	v.askApproval(context, request)
 
 	return nil, nil
 }
 
-func (p *MintRequestView) prepareRequest(context view.Context) *states.MintRequestRecord {
+func (v *MintRequestView) prepareRequest(context view.Context) *states.MintRequestRecord {
 	me := orion.GetDefaultONS(context).IdentityManager().Me()
-
-	tx, err := otx.NewTransaction(context, me)
+	tx, err := otx.NewTransaction(context, me, orion.GetDefaultONS(context).Name())
 	assert.NoError(err, "failed creating orion transaction")
 
 	// Sets the namespace where the state should be stored
@@ -47,7 +45,7 @@ func (p *MintRequestView) prepareRequest(context view.Context) *states.MintReque
 
 	record := &states.MintRequestRecord{
 		Dealer:          me,
-		CarRegistration: p.CarRegistration,
+		CarRegistration: v.CarRegistration,
 	}
 	key := record.Key()
 
@@ -71,8 +69,8 @@ func (p *MintRequestView) prepareRequest(context view.Context) *states.MintReque
 	return record
 }
 
-func (p *MintRequestView) askApproval(context view.Context, request *states.MintRequestRecord) {
-	commSession, err := session.NewJSON(context, p, view2.GetIdentityProvider(context).Identity("dmv"))
+func (v *MintRequestView) askApproval(context view.Context, request *states.MintRequestRecord) {
+	commSession, err := session.NewJSON(context, v, view2.GetIdentityProvider(context).Identity("dmv"))
 	assert.NoError(err, "failed getting session to dmf")
 	assert.NoError(commSession.Send(request.Key()), "failed sending key")
 
@@ -99,7 +97,7 @@ func (p *MintRequestView) askApproval(context view.Context, request *states.Mint
 
 type MintRequestViewFactory struct{}
 
-func (i *MintRequestViewFactory) NewView(in []byte) (view.View, error) {
+func (vf *MintRequestViewFactory) NewView(in []byte) (view.View, error) {
 	f := &MintRequestView{}
 	err := json.Unmarshal(in, &f.MintRequest)
 	assert.NoError(err)
@@ -117,7 +115,7 @@ func (m *MintRequestApprovalFlow) Call(context view.Context) (interface{}, error
 	// Prepare transaction
 	me := orion.GetDefaultONS(context).IdentityManager().Me()
 
-	tx, err := otx.NewTransaction(context, me)
+	tx, err := otx.NewTransaction(context, me, orion.GetDefaultONS(context).Name())
 	assert.NoError(err, "failed creating orion transaction")
 
 	// Sets the namespace where the state should be stored

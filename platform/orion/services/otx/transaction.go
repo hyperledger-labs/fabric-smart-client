@@ -8,12 +8,13 @@ package otx
 
 import (
 	"crypto/rand"
-	"github.com/hyperledger-labs/orion-server/pkg/types"
-	"github.com/pkg/errors"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"github.com/hyperledger-labs/orion-server/pkg/types"
+	"github.com/pkg/errors"
 )
 
 type Transaction struct {
@@ -29,7 +30,7 @@ type Transaction struct {
 	DataTx *orion.Transaction
 }
 
-func NewTransaction(sp view2.ServiceProvider, id string) (*Transaction, error) {
+func NewTransaction(sp view2.ServiceProvider, id, network string) (*Transaction, error) {
 	nonce, err := getRandomNonce()
 	if err != nil {
 		return nil, err
@@ -37,6 +38,7 @@ func NewTransaction(sp view2.ServiceProvider, id string) (*Transaction, error) {
 	t := &Transaction{
 		SP:      sp,
 		Creator: view.Identity(id),
+		Network: network,
 		Nonce:   nonce,
 	}
 	if _, err := t.getDataTx(); err != nil {
@@ -103,4 +105,20 @@ func getRandomNonce() ([]byte, error) {
 		return nil, errors.Wrap(err, "error getting random bytes")
 	}
 	return key, nil
+}
+
+func (t *Transaction) AddMustSignUser(userID string) {
+	d, err := t.getDataTx()
+	if err != nil {
+		return
+	}
+	d.AddMustSignUser(userID)
+}
+
+func (t *Transaction) SignAndClose() (proto.Message, error) {
+	d, err := t.getDataTx()
+	if err != nil {
+		return nil, err
+	}
+	return d.SignAndClose()
 }

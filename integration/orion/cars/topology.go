@@ -23,16 +23,16 @@ func Topology() []api.Topology {
 
 	fscTopology.AddNodeByName("alice").AddOptions(
 		orion.WithRole("alice"),
-	)
+	).RegisterResponder(&views.BuyerFlow{}, &views.TransferView{})
 	fscTopology.AddNodeByName("bob").AddOptions(
 		orion.WithRole("bob"),
 	)
 	fscTopology.AddNodeByName("dmv").AddOptions(
 		orion.WithRole("dmv"),
-	).RegisterResponder(&views.MintRequestApprovalFlow{}, &views.MintRequestView{})
+	).RegisterResponder(&views.MintRequestApprovalFlow{}, &views.MintRequestView{}).RegisterResponder(&views.DMVFlow{}, &views.TransferView{})
 	fscTopology.AddNodeByName("dealer").AddOptions(
 		orion.WithRole("dealer"),
-	).RegisterViewFactory("mintRequest", &views.MintRequestViewFactory{})
+	).RegisterViewFactory("mintRequest", &views.MintRequestViewFactory{}).RegisterViewFactory("transfer", &views.TransferViewFactory{})
 
 	orionTopology.SetDefaultSDK(fscTopology)
 

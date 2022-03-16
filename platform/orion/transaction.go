@@ -10,6 +10,8 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+
+	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	"github.com/hyperledger-labs/orion-server/pkg/types"
 	"github.com/pkg/errors"
@@ -112,6 +114,20 @@ func (e *Envelope) UnmarshalJSON(raw []byte) error {
 	return e.e.FromBytes(r)
 }
 
+type LoadedTransaction struct {
+	loadedDataTx driver.LoadedDataTx
+}
+
+func (t *LoadedTransaction) ID() string {
+	return t.loadedDataTx.ID()
+}
+func (t *LoadedTransaction) Commit() error {
+	return t.loadedDataTx.Commit()
+}
+func (t *LoadedTransaction) CoSignAndClose() (proto.Message, error) {
+	return t.loadedDataTx.CoSignAndClose()
+}
+
 type Transaction struct {
 	dataTx driver.DataTx
 }
@@ -128,15 +144,16 @@ func (d *Transaction) Delete(db string, key string) error {
 	return d.dataTx.Delete(db, key)
 }
 
-// SingAndClose closes the transaction and signs it.
-// It returns the byte representation of an envelope that can be unmarshalled into an Envelope,
-// using TransactionManager.NewEnvelope().FromBytes(...).
-func (d *Transaction) SingAndClose() ([]byte, error) {
-	return d.dataTx.SingAndClose()
+func (d *Transaction) SignAndClose() (proto.Message, error) {
+	return d.dataTx.SignAndClose()
 }
 
 func (d *Transaction) Commit(b bool) (string, *types.TxReceiptResponseEnvelope, error) {
 	return d.dataTx.Commit(b)
+}
+
+func (d *Transaction) AddMustSignUser(userID string) {
+	d.dataTx.AddMustSignUser(userID)
 }
 
 type TransactionManager struct {
@@ -167,6 +184,18 @@ func (t *TransactionManager) NewTransaction(txID string, creator string) (*Trans
 		return nil, err
 	}
 	return &Transaction{dataTx: dataTx}, nil
+}
+
+func (t *TransactionManager) NewLoadedTransaction(env proto.Message, creator string) (*LoadedTransaction, error) {
+	session, err := t.ons.ons.SessionManager().NewSession(creator)
+	if err != nil {
+		return nil, errors.WithMessagef(err, "failed to create session for creator [%s]", creator)
+	}
+	loadedDataTx, err := session.LoadDataTx(env.(*types.DataTxEnvelope))
+	if err != nil {
+		return nil, err
+	}
+	return &LoadedTransaction{loadedDataTx: loadedDataTx}, nil
 }
 
 func (t *TransactionManager) CommitEnvelope(session *Session, envelope *Envelope) error {
