@@ -61,7 +61,7 @@ func (d *DataTx) AddMustSignUser(userID string) {
 }
 
 type LoadedDataTx struct {
-	dataTx bcdb.LoadedDataTxContext
+	loadedDataTx bcdb.LoadedDataTxContext
 	env    *types.DataTxEnvelope
 }
 
@@ -70,16 +70,20 @@ func (l *LoadedDataTx) ID() string {
 }
 
 func (l *LoadedDataTx) Commit() error {
-	_, _, err := l.dataTx.Commit(true)
+	_, _, err := l.loadedDataTx.Commit(true)
 	return err
 }
 
 func (l *LoadedDataTx) CoSignAndClose() ([]byte, error) {
-	env, err := l.dataTx.CoSignTxEnvelopeAndCloseTx()
+	env, err := l.loadedDataTx.CoSignTxEnvelopeAndCloseTx()
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed co-signing and closing envelope")
 	}
 	return proto.Marshal(env)
+}
+
+func (l *LoadedDataTx) Reads() map[string][]*types.DataRead {
+	return l.loadedDataTx.Reads()
 }
 
 type Session struct {
@@ -109,7 +113,7 @@ func (s *Session) LoadDataTx(env *types.DataTxEnvelope) (driver.LoadedDataTx, er
 	}
 	return &LoadedDataTx{
 		env:    env,
-		dataTx: dataTx,
+		loadedDataTx: dataTx,
 	}, nil
 }
 
