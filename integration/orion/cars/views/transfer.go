@@ -9,7 +9,6 @@ package views
 import (
 	"encoding/json"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/orion/cars/states"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/services/otx"
@@ -103,7 +102,7 @@ func (f *BuyerFlow) Call(context view.Context) (interface{}, error) {
 	me := orion.GetDefaultONS(context).IdentityManager().Me()
 
 	s := session.JSON(context)
-	var env proto.Message
+	var env []byte
 	assert.NoError(s.Receive(&env), "failed receiving envelope")
 
 	loadedTx, err := otx.NewLoadedTransaction(context, me, orion.GetDefaultONS(context).Name(), env)
@@ -130,7 +129,7 @@ func (f *DMVFlow) Call(context view.Context) (interface{}, error) {
 	me := orion.GetDefaultONS(context).IdentityManager().Me()
 
 	s := session.JSON(context)
-	var env proto.Message
+	var env []byte
 	assert.NoError(s.Receive(&env), "failed receiving envelope")
 
 	loadedTx, err := otx.NewLoadedTransaction(context, me, orion.GetDefaultONS(context).Name(), env)

@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package otx
 
 import (
-	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -22,13 +21,13 @@ type LoadedTransaction struct {
 	Creator view.Identity
 	Nonce   []byte
 	TxID    string
-	Env     proto.Message
+	Env     []byte
 
 	ONS          *orion.NetworkService
 	LoadedDataTx *orion.LoadedTransaction
 }
 
-func NewLoadedTransaction(sp view2.ServiceProvider, id, network string, env proto.Message) (*LoadedTransaction, error) {
+func NewLoadedTransaction(sp view2.ServiceProvider, id, network string, env []byte) (*LoadedTransaction, error) {
 	nonce, err := getRandomNonce()
 	if err != nil {
 		return nil, err
@@ -62,7 +61,7 @@ func (lt *LoadedTransaction) Commit() error {
 	return t.Commit()
 }
 
-func (lt *LoadedTransaction) CoSignAndClose() (proto.Message, error) {
+func (lt *LoadedTransaction) CoSignAndClose() ([]byte, error) {
 	t, err := lt.getLoadedDataTx()
 	if err != nil {
 		return nil, err

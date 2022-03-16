@@ -124,7 +124,7 @@ func (t *LoadedTransaction) ID() string {
 func (t *LoadedTransaction) Commit() error {
 	return t.loadedDataTx.Commit()
 }
-func (t *LoadedTransaction) CoSignAndClose() (proto.Message, error) {
+func (t *LoadedTransaction) CoSignAndClose() ([]byte, error) {
 	return t.loadedDataTx.CoSignAndClose()
 }
 
@@ -144,7 +144,7 @@ func (d *Transaction) Delete(db string, key string) error {
 	return d.dataTx.Delete(db, key)
 }
 
-func (d *Transaction) SignAndClose() (proto.Message, error) {
+func (d *Transaction) SignAndClose() ([]byte, error) {
 	return d.dataTx.SignAndClose()
 }
 
@@ -186,12 +186,16 @@ func (t *TransactionManager) NewTransaction(txID string, creator string) (*Trans
 	return &Transaction{dataTx: dataTx}, nil
 }
 
-func (t *TransactionManager) NewLoadedTransaction(env proto.Message, creator string) (*LoadedTransaction, error) {
+func (t *TransactionManager) NewLoadedTransaction(env []byte, creator string) (*LoadedTransaction, error) {
 	session, err := t.ons.ons.SessionManager().NewSession(creator)
 	if err != nil {
 		return nil, errors.WithMessagef(err, "failed to create session for creator [%s]", creator)
 	}
-	loadedDataTx, err := session.LoadDataTx(env.(*types.DataTxEnvelope))
+	var e proto.Message
+	if err == proto.Unmarshal(env, e) && err != nil {
+		return nil, errors.WithMessagef(err, "failed to unmarshal env")
+	}
+	loadedDataTx, err := session.LoadDataTx(e.(*types.DataTxEnvelope))
 	if err != nil {
 		return nil, err
 	}

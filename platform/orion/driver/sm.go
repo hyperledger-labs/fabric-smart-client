@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package driver
 
 import (
-	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger-labs/orion-sdk-go/pkg/bcdb"
 	"github.com/hyperledger-labs/orion-server/pkg/types"
 )
@@ -17,14 +16,14 @@ type DataTx interface {
 	Get(db string, key string) ([]byte, *types.Metadata, error)
 	Commit(b bool) (string, *types.TxReceiptResponseEnvelope, error)
 	Delete(db string, key string) error
-	SignAndClose() (proto.Message, error)
+	SignAndClose() ([]byte, error)
 	AddMustSignUser(userID string)
 }
 
 type LoadedDataTx interface {
 	ID() string
 	Commit() error
-	CoSignAndClose() (proto.Message, error)
+	CoSignAndClose() ([]byte, error)
 }
 
 type Ledger interface {

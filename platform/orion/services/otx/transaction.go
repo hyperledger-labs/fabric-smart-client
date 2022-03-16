@@ -9,7 +9,6 @@ package otx
 import (
 	"crypto/rand"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -115,7 +114,7 @@ func (t *Transaction) AddMustSignUser(userID string) {
 	d.AddMustSignUser(userID)
 }
 
-func (t *Transaction) SignAndClose() (proto.Message, error) {
+func (t *Transaction) SignAndClose() ([]byte, error) {
 	d, err := t.getDataTx()
 	if err != nil {
 		return nil, err
