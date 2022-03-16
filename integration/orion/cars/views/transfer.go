@@ -10,8 +10,6 @@ import (
 	"encoding/json"
 	"strings"
 
-	"github.com/golang/protobuf/proto"
-
 	"github.com/hyperledger-labs/fabric-smart-client/integration/orion/cars/states"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/services/otx"
@@ -35,13 +33,12 @@ type TransferView struct {
 func (v *TransferView) Call(context view.Context) (interface{}, error) {
 	me := orion.GetDefaultONS(context).IdentityManager().Me()
 	buyer := view2.GetIdentityProvider(context).Identity(v.Buyer).String()
-	dmv := view2.GetIdentityProvider(context).Identity("dmv").String()
 
 	tx, err := otx.NewTransaction(context, me, orion.GetDefaultONS(context).Name())
 	assert.NoError(err, "failed creating orion transaction")
 	tx.SetNamespace("cars") // Sets the namespace where the state should be stored
 
-	tx.AddMustSignUser(buyer)
+	tx.AddMustSignUser(v.Buyer)
 
 	carRecord := &states.CarRecord{
 		Owner:           me,
@@ -69,7 +66,7 @@ func (v *TransferView) Call(context view.Context) (interface{}, error) {
 
 	err = tx.Put(carKey, recordBytes,
 		&types.AccessControl{
-			ReadWriteUsers:     otx.UsersMap(dmv, buyer),
+			ReadWriteUsers:     otx.UsersMap("dmv", v.Buyer),
 			SignPolicyForWrite: types.AccessControl_ALL,
 		},
 	)
@@ -169,13 +166,7 @@ func (f *DMVFlow) Call(context view.Context) (interface{}, error) {
 			return nil, errors.Errorf("unexpected read key: %s", dr.GetKey())
 		}
 	}
-
-	var e proto.Message
-	if err := proto.Unmarshal(env, e); err != nil {
-		return "", errors.Wrap(err, "error during unmarshaling of env")
-	}
-
-	if loadedTx.Commit() != nil {
+	if err = loadedTx.Commit(); err != nil {
 		return "", errors.Wrap(err, "error during commit")
 	}
 
