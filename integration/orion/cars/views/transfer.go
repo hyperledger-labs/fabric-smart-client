@@ -8,8 +8,8 @@ package views
 
 import (
 	"encoding/json"
-	"github.com/golang/protobuf/proto"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/orion/cars/states"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/services/otx"
@@ -119,8 +119,6 @@ func (f *BuyerFlow) Call(context view.Context) (interface{}, error) {
 	commSession, err := session.NewJSON(context, f, view2.GetIdentityProvider(context).Identity("dmv"))
 	assert.NoError(err, "failed getting session with dmv")
 	assert.NoError(commSession.Send(env), "failed sending envelope")
-	assert.Equal(7,8)
-
 
 	return nil, nil
 }
