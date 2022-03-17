@@ -8,7 +8,6 @@ package sig
 
 import (
 	"fmt"
-	"runtime/debug"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -57,7 +56,6 @@ func (o *service) RegisterSigner(identity view.Identity, signer driver.Signer, v
 	_, ok := o.signers[identity.UniqueID()]
 	o.viewsSync.Unlock()
 	if ok {
-		logger.Warnf("another signer bound to %s [%s]", identity, debug.Stack())
 		return nil
 	}
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
