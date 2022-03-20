@@ -8,7 +8,6 @@ package views
 
 import (
 	"encoding/json"
-	"strings"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/orion/cars/states"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion"
@@ -83,11 +82,9 @@ func (v *TransferView) Call(context view.Context) (interface{}, error) {
 	assert.NoError(err, "failed getting session with %s", v.Buyer)
 	assert.NoError(commSession.Send(env), "failed sending envelope")
 
-	// Receive ack from dmv
+	// receive ack from buyer
 	var ack string
-	s, err := session.NewJSON(context, v, view2.GetIdentityProvider(context).Identity("dmv"))
-	assert.NoError(err, "failed getting session with dmv")
-	assert.NoError(s.Receive(&ack), "failed receiving ack from dmv")
+	assert.NoError(commSession.Receive(&ack), "failed receiving ack from buyer")
 
 	return nil, nil
 }
@@ -107,9 +104,9 @@ type BuyerFlow struct {
 func (f *BuyerFlow) Call(context view.Context) (interface{}, error) {
 	me := orion.GetDefaultONS(context).IdentityManager().Me()
 
-	s := session.JSON(context)
+	sellerSeesion := session.JSON(context)
 	var env []byte
-	assert.NoError(s.Receive(&env), "failed receiving envelope")
+	assert.NoError(sellerSeesion.Receive(&env), "failed receiving envelope")
 
 	loadedTx, err := otx.NewLoadedTransaction(context, me, orion.GetDefaultONS(context).Name(), "cars", env)
 	assert.NoError(err, "failed creating orion loaded transaction")
@@ -121,9 +118,16 @@ func (f *BuyerFlow) Call(context view.Context) (interface{}, error) {
 		return "", errors.Wrap(err, "error during co-sign and close")
 	}
 
-	commSession, err := session.NewJSON(context, f, view2.GetIdentityProvider(context).Identity("dmv"))
+	dmvSession, err := session.NewJSON(context, f, view2.GetIdentityProvider(context).Identity("dmv"))
 	assert.NoError(err, "failed getting session with dmv")
-	assert.NoError(commSession.Send(env), "failed sending envelope")
+	assert.NoError(dmvSession.Send(env), "failed sending envelope")
+
+	// receive ack from dmv
+	var ack string
+	assert.NoError(dmvSession.Receive(&ack), "failed receiving ack from dmv")
+
+	// send ack to seller
+	assert.NoError(sellerSeesion.Send("ack"), "failed sending ack to seller")
 
 	return nil, nil
 }
@@ -134,9 +138,9 @@ type DMVFlow struct {
 func (f *DMVFlow) Call(context view.Context) (interface{}, error) {
 	me := orion.GetDefaultONS(context).IdentityManager().Me()
 
-	s := session.JSON(context)
+	buyerSession := session.JSON(context)
 	var env []byte
-	assert.NoError(s.Receive(&env), "failed receiving envelope")
+	assert.NoError(buyerSession.Receive(&env), "failed receiving envelope")
 
 	loadedTx, err := otx.NewLoadedTransaction(context, me, orion.GetDefaultONS(context).Name(), "cars", env)
 	assert.NoError(err, "failed creating orion loaded transaction")
@@ -147,33 +151,11 @@ func (f *DMVFlow) Call(context view.Context) (interface{}, error) {
 	assert.NoError(err, "failed creating orion transaction")
 	tx.SetNamespace("cars") // Sets the namespace where the state should be stored
 
-	var carRec states.CarRecord
-	var owner string
-	reads := loadedTx.Reads()
-	for _, dr := range reads {
-		recordBytes, _, err := tx.Get(dr.GetKey())
-		if err != nil {
-			return nil, err
-		}
-
-		switch {
-		case strings.HasPrefix(dr.GetKey(), states.CarRecordKeyPrefix):
-			if err = json.Unmarshal(recordBytes, &carRec); err != nil {
-				return nil, err
-			}
-			owner = carRec.Owner
-		default:
-			return nil, errors.Errorf("unexpected read key: %s", dr.GetKey())
-		}
-	}
 	if err = loadedTx.Commit(); err != nil {
 		return "", errors.Wrap(err, "error during commit")
 	}
 
-	// Send ack to seller
-	commSession, err := session.NewJSON(context, f, view2.GetIdentityProvider(context).Identity(owner))
-	assert.NoError(err, "failed getting session with seller %s", owner)
-	assert.NoError(commSession.Send("ack"), "failed sending car key")
+	assert.NoError(buyerSession.Send("ack"), "failed sending ack")
 
 	return nil, nil
 }
