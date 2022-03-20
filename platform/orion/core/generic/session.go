@@ -7,18 +7,17 @@ SPDX-License-Identifier: Apache-2.0
 package generic
 
 import (
-	"github.com/golang/protobuf/proto"
-	"go.uber.org/zap/zapcore"
 	"time"
 
+	"github.com/golang/protobuf/proto"
+	config2 "github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic/config"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	"github.com/hyperledger-labs/orion-sdk-go/pkg/bcdb"
 	"github.com/hyperledger-labs/orion-sdk-go/pkg/config"
 	logger2 "github.com/hyperledger-labs/orion-server/pkg/logger"
 	"github.com/hyperledger-labs/orion-server/pkg/types"
 	"github.com/pkg/errors"
-
-	config2 "github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic/config"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
+	"go.uber.org/zap/zapcore"
 )
 
 type DataTx struct {
@@ -62,7 +61,7 @@ func (d *DataTx) AddMustSignUser(userID string) {
 
 type LoadedDataTx struct {
 	loadedDataTx bcdb.LoadedDataTxContext
-	env    *types.DataTxEnvelope
+	env          *types.DataTxEnvelope
 }
 
 func (l *LoadedDataTx) ID() string {
@@ -112,7 +111,7 @@ func (s *Session) LoadDataTx(env *types.DataTxEnvelope) (driver.LoadedDataTx, er
 		return nil, errors.Wrap(err, "failed getting data tc")
 	}
 	return &LoadedDataTx{
-		env:    env,
+		env:          env,
 		loadedDataTx: dataTx,
 	}, nil
 }
