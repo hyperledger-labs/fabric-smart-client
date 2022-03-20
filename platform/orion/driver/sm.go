@@ -25,6 +25,9 @@ type LoadedDataTx interface {
 	Commit() error
 	CoSignAndClose() ([]byte, error)
 	Reads() map[string][]*types.DataRead
+	Writes() map[string][]*types.DataWrite
+	MustSignUsers() []string
+	SignedUsers() []string
 }
 
 type Ledger interface {

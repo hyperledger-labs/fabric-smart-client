@@ -7,6 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 package generic
 
 import (
+	"os"
+	"path/filepath"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic/vault"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
@@ -15,8 +18,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/pkg/errors"
-	"os"
-	"path/filepath"
 )
 
 type Badger struct {

@@ -8,6 +8,7 @@ package views
 
 import (
 	"encoding/json"
+	"strings"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/orion/cars/states"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion"
@@ -31,7 +32,6 @@ type TransferView struct {
 
 func (v *TransferView) Call(context view.Context) (interface{}, error) {
 	me := orion.GetDefaultONS(context).IdentityManager().Me()
-	buyer := view2.GetIdentityProvider(context).Identity(v.Buyer).String()
 
 	tx, err := otx.NewTransaction(context, me, orion.GetDefaultONS(context).Name())
 	assert.NoError(err, "failed creating orion transaction")
@@ -57,10 +57,10 @@ func (v *TransferView) Call(context view.Context) (interface{}, error) {
 		return nil, errors.Wrapf(err, "error unmarshaling car record bytes value, key: %s", carKey)
 	}
 
-	carRec.Owner = buyer
-	recordBytes, err = json.Marshal(carRecord)
+	carRec.Owner = v.Buyer
+	recordBytes, err = json.Marshal(carRec)
 	if err != nil {
-		return "", errors.Wrapf(err, "error marshaling car record: %s", carRecord)
+		return nil, errors.Wrapf(err, "error marshaling car record: %s", carRecord)
 	}
 
 	err = tx.Put(carKey, recordBytes,
@@ -70,21 +70,21 @@ func (v *TransferView) Call(context view.Context) (interface{}, error) {
 		},
 	)
 	if err != nil {
-		return "", errors.Wrap(err, "error during put")
+		return nil, errors.Wrap(err, "error during put")
 	}
 
 	env, err := tx.SignAndClose()
 	if err != nil {
-		return "", errors.Wrap(err, "error during sign and close")
+		return nil, errors.Wrap(err, "error during sign and close")
 	}
 
-	commSession, err := session.NewJSON(context, v, view2.GetIdentityProvider(context).Identity(v.Buyer))
+	buyerSession, err := session.NewJSON(context, v, view2.GetIdentityProvider(context).Identity(v.Buyer))
 	assert.NoError(err, "failed getting session with %s", v.Buyer)
-	assert.NoError(commSession.Send(env), "failed sending envelope")
+	assert.NoError(buyerSession.Send(env), "failed sending envelope")
 
 	// receive ack from buyer
 	var ack string
-	assert.NoError(commSession.Receive(&ack), "failed receiving ack from buyer")
+	assert.NoError(buyerSession.Receive(&ack), "failed receiving ack from buyer")
 
 	return nil, nil
 }
@@ -111,11 +111,13 @@ func (f *BuyerFlow) Call(context view.Context) (interface{}, error) {
 	loadedTx, err := otx.NewLoadedTransaction(context, me, orion.GetDefaultONS(context).Name(), "cars", env)
 	assert.NoError(err, "failed creating orion loaded transaction")
 
-	// TODO buyer inspect transaction
+	if err = buyerValidateTransaction(loadedTx, me, "dmv"); err != nil {
+		return nil, errors.Wrap(err, "error during buyer validate transaction")
+	}
 
 	env, err = loadedTx.CoSignAndClose()
 	if err != nil {
-		return "", errors.Wrap(err, "error during co-sign and close")
+		return nil, errors.Wrap(err, "error during co-sign and close")
 	}
 
 	dmvSession, err := session.NewJSON(context, f, view2.GetIdentityProvider(context).Identity("dmv"))
@@ -130,6 +132,56 @@ func (f *BuyerFlow) Call(context view.Context) (interface{}, error) {
 	assert.NoError(sellerSeesion.Send("ack"), "failed sending ack to seller")
 
 	return nil, nil
+}
+
+func buyerValidateTransaction(loadedTx *otx.LoadedTransaction, buyerID, dmvID string) error {
+	newCarRec := &states.CarRecord{}
+	var newCarACL *types.AccessControl
+	writes := loadedTx.Writes()
+	for _, dw := range writes {
+		switch {
+		case strings.HasPrefix(dw.GetKey(), states.CarRecordKeyPrefix):
+			if err := json.Unmarshal(dw.GetValue(), newCarRec); err != nil {
+				return err
+			}
+			newCarACL = dw.Acl
+		default:
+			return errors.Errorf("unexpected write key: %s", dw.GetKey())
+		}
+	}
+	if newCarRec.Owner != buyerID {
+		return errors.Errorf("car new owner %s is not the buyer %s", newCarRec.Owner, buyerID)
+	}
+	if !newCarACL.ReadWriteUsers[newCarRec.Owner] || !newCarACL.ReadWriteUsers[dmvID] ||
+		len(newCarACL.ReadWriteUsers) != 2 || len(newCarACL.ReadUsers) != 0 ||
+		newCarACL.SignPolicyForWrite != types.AccessControl_ALL {
+		return errors.New("car new ACL is wrong")
+	}
+
+	signedUsers := loadedTx.SignedUsers()
+	if len(signedUsers) != 1 {
+		return errors.Errorf("unexpected length of signed users: %d", len(signedUsers))
+	}
+	sellerID := signedUsers[0]
+
+	mustSignUsers := loadedTx.MustSignUsers()
+	hasBuyer := false
+	hasSeller := false
+	for _, u := range mustSignUsers {
+		if u == buyerID {
+			hasBuyer = true
+		}
+		if u == sellerID {
+			hasSeller = true
+		}
+	}
+	if !hasBuyer {
+		return errors.New("car buyer is not in must-sign-users")
+	}
+	if !hasSeller {
+		return errors.New("car seller is not in must-sign-users")
+	}
+	return nil
 }
 
 type DMVFlow struct {
@@ -152,7 +204,7 @@ func (f *DMVFlow) Call(context view.Context) (interface{}, error) {
 	tx.SetNamespace("cars") // Sets the namespace where the state should be stored
 
 	if err = loadedTx.Commit(); err != nil {
-		return "", errors.Wrap(err, "error during commit")
+		return nil, errors.Wrap(err, "error during commit")
 	}
 
 	assert.NoError(buyerSession.Send("ack"), "failed sending ack")

@@ -85,6 +85,18 @@ func (l *LoadedDataTx) Reads() map[string][]*types.DataRead {
 	return l.loadedDataTx.Reads()
 }
 
+func (l *LoadedDataTx) Writes() map[string][]*types.DataWrite {
+	return l.loadedDataTx.Writes()
+}
+
+func (l *LoadedDataTx) MustSignUsers() []string {
+	return l.loadedDataTx.MustSignUsers()
+}
+
+func (l *LoadedDataTx) SignedUsers() []string {
+	return l.loadedDataTx.SignedUsers()
+}
+
 type Session struct {
 	s bcdb.DBSession
 }

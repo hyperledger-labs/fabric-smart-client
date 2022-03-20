@@ -121,15 +121,29 @@ type LoadedTransaction struct {
 func (t *LoadedTransaction) ID() string {
 	return t.loadedDataTx.ID()
 }
+
 func (t *LoadedTransaction) Commit() error {
 	return t.loadedDataTx.Commit()
 }
+
 func (t *LoadedTransaction) CoSignAndClose() ([]byte, error) {
 	return t.loadedDataTx.CoSignAndClose()
 }
 
 func (t *LoadedTransaction) Reads() map[string][]*types.DataRead {
 	return t.loadedDataTx.Reads()
+}
+
+func (t *LoadedTransaction) Writes() map[string][]*types.DataWrite {
+	return t.loadedDataTx.Writes()
+}
+
+func (t *LoadedTransaction) MustSignUsers() []string {
+	return t.loadedDataTx.MustSignUsers()
+}
+
+func (t *LoadedTransaction) SignedUsers() []string {
+	return t.loadedDataTx.SignedUsers()
 }
 
 type Transaction struct {
