@@ -29,7 +29,7 @@ func Topology() []api.Topology {
 	)
 	fscTopology.AddNodeByName("dmv").AddOptions(
 		orion.WithRole("dmv"),
-	).RegisterResponder(&views.MintRequestApprovalFlow{}, &views.MintRequestView{}).RegisterResponder(&views.DMVFlow{}, &views.TransferView{})
+	).RegisterResponder(&views.MintRequestApprovalFlow{}, &views.MintRequestView{}).RegisterResponder(&views.DMVFlow{}, &views.BuyerFlow{})
 	fscTopology.AddNodeByName("dealer").AddOptions(
 		orion.WithRole("dealer"),
 	).RegisterViewFactory("mintRequest", &views.MintRequestViewFactory{}).RegisterViewFactory("transfer", &views.TransferViewFactory{})
