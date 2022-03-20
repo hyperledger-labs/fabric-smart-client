@@ -79,6 +79,30 @@ func (lt *LoadedTransaction) Reads() []*types.DataRead {
 	return t.Reads()[lt.Namespace]
 }
 
+func (lt *LoadedTransaction) Writes() []*types.DataWrite {
+	t, err := lt.getLoadedDataTx()
+	if err != nil {
+		return nil
+	}
+	return t.Writes()[lt.Namespace]
+}
+
+func (lt *LoadedTransaction) MustSignUsers() []string {
+	t, err := lt.getLoadedDataTx()
+	if err != nil {
+		return nil
+	}
+	return t.MustSignUsers()
+}
+
+func (lt *LoadedTransaction) SignedUsers() []string {
+	t, err := lt.getLoadedDataTx()
+	if err != nil {
+		return nil
+	}
+	return t.SignedUsers()
+}
+
 func (lt *LoadedTransaction) getLoadedDataTx() (*orion.LoadedTransaction, error) {
 	if lt.LoadedDataTx == nil {
 		var err error
