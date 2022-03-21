@@ -197,11 +197,13 @@ func (f *DMVFlow) Call(context view.Context) (interface{}, error) {
 	loadedTx, err := otx.NewLoadedTransaction(context, me, orion.GetDefaultONS(context).Name(), "cars", env)
 	assert.NoError(err, "failed creating orion loaded transaction")
 
-	// TODO dmv inspect transaction
-
 	tx, err := otx.NewTransaction(context, me, orion.GetDefaultONS(context).Name())
 	assert.NoError(err, "failed creating orion transaction")
 	tx.SetNamespace("cars") // Sets the namespace where the state should be stored
+
+	if err = dmvValidateTransaction(tx, loadedTx, me); err != nil {
+		return nil, errors.Wrap(err, "error during buyer validate transaction")
+	}
 
 	if err = loadedTx.Commit(); err != nil {
 		return nil, errors.Wrap(err, "error during commit")
@@ -210,4 +212,87 @@ func (f *DMVFlow) Call(context view.Context) (interface{}, error) {
 	assert.NoError(buyerSession.Send("ack"), "failed sending ack")
 
 	return nil, nil
+}
+
+func dmvValidateTransaction(tx *otx.Transaction, loadedTx *otx.LoadedTransaction, dmvID string) error {
+	carRec := &states.CarRecord{}
+	reads := loadedTx.Reads()
+	for _, dr := range reads {
+		recordBytes, _, err := tx.Get(dr.GetKey())
+		if err != nil {
+			return err
+		}
+		switch {
+		case strings.HasPrefix(dr.GetKey(), states.CarRecordKeyPrefix):
+			if err = json.Unmarshal(recordBytes, carRec); err != nil {
+				return err
+			}
+		default:
+			return errors.Errorf("unexpected read key: %s", dr.GetKey())
+		}
+	}
+
+	newCarRec := &states.CarRecord{}
+	var newCarACL *types.AccessControl
+	writes := loadedTx.Writes()
+	for _, dw := range writes {
+		switch {
+		case strings.HasPrefix(dw.GetKey(), states.CarRecordKeyPrefix):
+			if err := json.Unmarshal(dw.GetValue(), newCarRec); err != nil {
+				return err
+			}
+			newCarACL = dw.Acl
+		default:
+			return errors.Errorf("unexpected write key: %s", dw.GetKey())
+		}
+	}
+
+	mustSignUsers := loadedTx.MustSignUsers()
+	signedUsers := loadedTx.SignedUsers()
+
+	hasSeller := false
+	hasBuyer := false
+	for _, u := range mustSignUsers {
+		if u == carRec.Owner {
+			hasSeller = true
+		}
+		if u == newCarRec.Owner {
+			hasBuyer = true
+		}
+	}
+	if !hasBuyer {
+		return errors.New("car buyer is not in must-sign-users")
+	}
+	if !hasSeller {
+		return errors.New("car seller is not in must-sign-users")
+	}
+
+	hasSeller = false
+	hasBuyer = false
+	for _, u := range signedUsers {
+		if u == carRec.Owner {
+			hasSeller = true
+		}
+		if u == newCarRec.Owner {
+			hasBuyer = true
+		}
+	}
+	if !hasBuyer {
+		return errors.New("car buyer is not in signed-users")
+	}
+	if !hasSeller {
+		return errors.New("car seller is not in signed-users")
+	}
+
+	if newCarRec.CarRegistration != carRec.CarRegistration {
+		return errors.New("car registration changed")
+	}
+
+	if !newCarACL.ReadWriteUsers[newCarRec.Owner] || !newCarACL.ReadWriteUsers[dmvID] ||
+		len(newCarACL.ReadWriteUsers) != 2 || len(newCarACL.ReadUsers) != 0 ||
+		newCarACL.SignPolicyForWrite != types.AccessControl_ALL {
+		return errors.New("car new ACL is wrong")
+	}
+
+	return nil
 }
