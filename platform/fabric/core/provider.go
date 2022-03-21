@@ -8,11 +8,8 @@ package core
 
 import (
 	"context"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/views"
 	"reflect"
 	"sync"
-
-	"github.com/pkg/errors"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
@@ -20,9 +17,11 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/finality"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/id"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/views"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	"github.com/pkg/errors"
 )
 
 var (
@@ -149,13 +148,14 @@ func (p *fnsProvider) newFNS(network string) (driver.FabricNetworkService, error
 	}
 
 	// Local MSP Manager
+	cacheSize := 500
 	mspService := msp.NewLocalMSPManager(
 		p.sp,
 		c,
 		sigService,
 		view.GetEndpointService(p.sp),
 		view.GetIdentityProvider(p.sp).DefaultIdentity(),
-		500,
+		cacheSize,
 	)
 	if err := mspService.Load(); err != nil {
 		return nil, errors.Wrap(err, "failed loading local msp service")
