@@ -20,7 +20,7 @@ import (
 
 var _ = Describe("EndToEnd", func() {
 
-	Describe("Ping Pong with Orion Suite", func() {
+	Describe("Car registry demo with Orion Suite", func() {
 		var (
 			ii *integration.Infrastructure
 		)
@@ -40,14 +40,33 @@ var _ = Describe("EndToEnd", func() {
 			ii.Stop()
 		})
 
-		It("ping pong successfully", func() {
+		It("car registry demo", func() {
 			_, err := ii.CLI("dealer").CallView("mintRequest", common.JSONMarshall(&views.MintRequest{
-				CarRegistration: "Hello World",
+				CarRegistration: "RED",
 			}))
 			Expect(err).NotTo(HaveOccurred())
 			_, err = ii.CLI("dealer").CallView("transfer", common.JSONMarshall(&views.Transfer{
 				Buyer:           "alice",
-				CarRegistration: "Hello World",
+				CarRegistration: "RED",
+			}))
+			Expect(err).NotTo(HaveOccurred())
+			_, err = ii.CLI("alice").CallView("transfer", common.JSONMarshall(&views.Transfer{
+				Buyer:           "bob",
+				CarRegistration: "RED",
+			}))
+			Expect(err).NotTo(HaveOccurred())
+			_, err = ii.CLI("dealer").CallView("mintRequest", common.JSONMarshall(&views.MintRequest{
+				CarRegistration: "BLUE",
+			}))
+			Expect(err).NotTo(HaveOccurred())
+			_, err = ii.CLI("dealer").CallView("transfer", common.JSONMarshall(&views.Transfer{
+				Buyer:           "bob",
+				CarRegistration: "BLUE",
+			}))
+			Expect(err).NotTo(HaveOccurred())
+			_, err = ii.CLI("bob").CallView("transfer", common.JSONMarshall(&views.Transfer{
+				Buyer:           "alice",
+				CarRegistration: "BLUE",
 			}))
 			Expect(err).NotTo(HaveOccurred())
 		})
