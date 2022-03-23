@@ -59,9 +59,6 @@ func (o *service) RegisterSigner(identity view.Identity, signer driver.Signer, v
 		logger.Warnf("another signer bound to [%s]", identity)
 		return nil
 	}
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("add signer for [id:%s]", identity.UniqueID())
-	}
 	o.viewsSync.Lock()
 	o.signers[identity.UniqueID()] = signer
 	if o.kvs != nil {
@@ -96,9 +93,6 @@ func (o *service) RegisterVerifier(identity view.Identity, verifier driver.Verif
 	if ok {
 		logger.Warnf("another verifier bound to [%s][%v]", identity.UniqueID(), v)
 		return nil
-	}
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("add verifier for [%s]", identity.UniqueID())
 	}
 	o.viewsSync.Lock()
 	o.verifiers[identity.UniqueID()] = verifier
