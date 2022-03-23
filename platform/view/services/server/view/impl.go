@@ -11,7 +11,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	protos2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view/protos"
 	"github.com/pkg/errors"
-	"log"
 	"reflect"
 	"runtime/debug"
 	"strconv"
@@ -50,7 +49,7 @@ func NewViewServiceServer(marshaller Marshaller, policyChecker PolicyChecker, me
 func (s *server) ProcessCommand(ctx context.Context, sc *protos2.SignedCommand) (cr *protos2.SignedCommandResponse, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			log.Printf("ProcessCommand triggered panic: %s\n%s\n", r, debug.Stack())
+			logger.Errorf("ProcessCommand triggered panic: %s\n%s\n", r, debug.Stack())
 			err = errors.Errorf("ProcessCommand triggered panic: %s", r)
 		}
 	}()
@@ -104,7 +103,7 @@ func (s *server) ProcessCommand(ctx context.Context, sc *protos2.SignedCommand) 
 func (s *server) StreamCommand(sc *protos2.SignedCommand, commandServer protos2.ViewService_StreamCommandServer) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			log.Printf("ProcessCommand triggered panic: %s\n%s\n", r, debug.Stack())
+			logger.Errorf("ProcessCommand triggered panic: %s\n%s\n", r, debug.Stack())
 			err = errors.Errorf("ProcessCommand triggered panic: %s\n%s\n", r, debug.Stack())
 		}
 	}()
