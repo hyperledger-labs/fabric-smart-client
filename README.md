@@ -53,6 +53,14 @@ Developing Fabric-based distributed applications would become simpler and joyful
 If you are a domain expert, the Fabric Smart Client hides the complexity of Fabric and allows you to focus on the business interactions.
 If you are a skilled software engineer, you will be able to leverage the full power of Fabric.
 
+But, this is not all. The Fabric Smart Client is a client-side component that can be used to develop applications: 
+- Based on other backends like [`Orion`](https://github.com/hyperledger-labs/orion-server).
+- With interoperability using the [`Weaver`](https://github.com/hyperledger-labs/weaver-dlt-interoperability) framework.
+- With TEE support as offered by [`Fabric Private Chaincode`](https://github.com/hyperledger/fabric-private-chaincode). 
+- And more...
+
+Explore our [`Samples`](./samples/README.md) to see how you can use the Fabric Smart Client to develop your own applications.
+
 # Testing Philosophy
 
 [Write tests. Not too many. Mostly Integration](https://kentcdodds.com/blog/write-tests)
