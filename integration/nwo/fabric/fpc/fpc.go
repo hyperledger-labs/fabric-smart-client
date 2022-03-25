@@ -309,7 +309,7 @@ func validateSGXDevicesPaths(paths []string) error {
 	}
 
 	// check exists
-	for p, _ := range devicesPaths {
+	for p := range devicesPaths {
 		if exists, err := pathExists(p); !exists || err != nil {
 			return errors.Wrapf(err, "invalid SGX device path = %s", p)
 		}
