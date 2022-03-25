@@ -59,6 +59,7 @@ func TestValidateKey(t *testing.T) {
 	assert.NoError(t, keys.ValidateKey(key))
 	assert.EqualError(t, keys.ValidateKey("_key?"), "key '_key?' is invalid")
 	assert.NoError(t, keys.ValidateKey("\x00"+string(utf8.MaxRune)+"initialized"))
+	assert.NoError(t, keys.ValidateKey("~tok~b9ae75c1c94e6389e543670fb5bb597553bcd6a4ae70d3ed0d0bf8822d10c793~0~"))
 }
 
 func TestValidateNamespace(t *testing.T) {

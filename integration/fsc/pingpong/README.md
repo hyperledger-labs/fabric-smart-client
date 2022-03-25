@@ -308,7 +308,7 @@ You can find all the generated material for the `ping pong` example [`here`](./t
 There, you will find the following folders 
 - `crypto` that contains all the crypto material (we use a customized version
 of Fabric's `cryptogen`), and 
-- `fscnodes` that contains the FSC nodes' configurations.
+- `nodes` that contains the FSC nodes' configurations.
 
 ### Initiate interactive protocols to complete given business tasks
 

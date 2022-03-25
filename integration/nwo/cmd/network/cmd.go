@@ -21,12 +21,15 @@ import (
 type (
 	// CallbackFunc is the type of the callback function
 	CallbackFunc func(*integration.Infrastructure) error
+
+	Topologies map[string][]api.Topology
 )
 
 var (
 	logger = flogging.MustGetLogger("nwo.network")
 
-	path string
+	path     string
+	topology string
 	// StartCMDPostNew is executed after the testing infrastructure is created
 	StartCMDPostNew CallbackFunc
 	// StartCMDPostStart is executed after the testing infrastructure is started
@@ -35,6 +38,13 @@ var (
 
 // NewCmd returns the Cobra Command for the network subcommands
 func NewCmd(topologies ...api.Topology) *cobra.Command {
+	return NewCmdWithMultipleTopologies(map[string][]api.Topology{
+		"default": topologies,
+	})
+}
+
+// NewCmdWithMultipleTopologies returns the Cobra Command for the network subcommands
+func NewCmdWithMultipleTopologies(topologies Topologies) *cobra.Command {
 	// Set the flags on the node start command.
 	rootCommand := &cobra.Command{
 		Use:   "network",
@@ -43,16 +53,16 @@ func NewCmd(topologies ...api.Topology) *cobra.Command {
 	}
 
 	rootCommand.AddCommand(
-		GenerateCmd(topologies...),
+		GenerateCmd(topologies),
 		CleanCmd(),
-		StartCmd(topologies...),
+		StartCmd(topologies),
 	)
 
 	return rootCommand
 }
 
 // GenerateCmd returns the Cobra Command for Generate
-func GenerateCmd(topologies ...api.Topology) *cobra.Command {
+func GenerateCmd(topologies Topologies) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "generate",
 		Short: "Generate Artifacts.",
@@ -63,18 +73,19 @@ func GenerateCmd(topologies ...api.Topology) *cobra.Command {
 			}
 			// Parsing of the command line is done so silence cmd usage
 			cmd.SilenceUsage = true
-			return Generate(topologies...)
+			return Generate(topologies)
 		},
 	}
 	flags := cmd.Flags()
 	flags.StringVarP(&path, "path", "p", "", "where to store the generated network artifacts")
+	flags.StringVarP(&topology, "topology", "t", "default", "topology to use (in case multiple topologies are provided)")
 
 	return cmd
 }
 
 // Generate returns version information for the peer
-func Generate(topologies ...api.Topology) error {
-	_, err := integration.GenerateAt(20000, path, true, topologies...)
+func Generate(topologies Topologies) error {
+	_, err := integration.GenerateAt(20000, path, true, topologies[topology]...)
 	return err
 }
 
@@ -115,7 +126,7 @@ func Clean() error {
 }
 
 // StartCmd returns the Cobra Command for Start
-func StartCmd(topologies ...api.Topology) *cobra.Command {
+func StartCmd(topologies Topologies) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "start",
 		Short: "Start Artifacts.",
@@ -126,17 +137,18 @@ func StartCmd(topologies ...api.Topology) *cobra.Command {
 			}
 			// Parsing of the command line is done so silence cmd usage
 			cmd.SilenceUsage = true
-			return Start(topologies...)
+			return Start(topologies)
 		},
 	}
 	flags := cmd.Flags()
 	flags.StringVarP(&path, "path", "p", "", "where to store the generated network artifacts")
+	flags.StringVarP(&topology, "topology", "t", "default", "topology to use (in case multiple topologies are provided)")
 
 	return cmd
 }
 
 // Start returns version information for the peer
-func Start(topologies ...api.Topology) error {
+func Start(topologies Topologies) error {
 	logger.Infof(" ____    _____      _      ____    _____")
 	logger.Infof("/ ___|  |_   _|    / \\    |  _ \\  |_   _|")
 	logger.Infof("\\___ \\    | |     / _ \\   | |_) |   | |")
@@ -148,7 +160,7 @@ func Start(topologies ...api.Topology) error {
 	_, err := os.Stat(path)
 	init := os.IsNotExist(err)
 
-	ii, err = integration.New(20000, path, topologies...)
+	ii, err = integration.New(20000, path, topologies[topology]...)
 	if err != nil {
 		return errors.WithMessage(err, "failed to create new infrastructure")
 	}
