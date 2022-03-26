@@ -18,21 +18,20 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/fpc/externalbuilders"
-	"github.com/pkg/errors"
-
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/fabricconfig"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/fpc/externalbuilders"
 	nnetwork "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/network"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/packager"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger/fabric-private-chaincode/client_sdk/go/pkg/core/lifecycle"
 	. "github.com/onsi/gomega"
+	"github.com/pkg/errors"
 )
 
 var logger = flogging.MustGetLogger("integration.nwo.fabric.fpc")
@@ -207,13 +206,27 @@ func (n *Extension) runDockerContainers(chaincode *topology.ChannelChaincode, pa
 			Target: "/var/run/aesmd",
 		})
 
-		err := validateSGXDevicePath(chaincode.PrivateChaincode.SGXDevicePath)
+		err := validateSGXDevicesPaths(chaincode.PrivateChaincode.SGXDevicesPaths)
 		Expect(err).ToNot(HaveOccurred())
 
-		devices = append(devices, container.DeviceMapping{
-			PathOnHost:        chaincode.PrivateChaincode.SGXDevicePath,
-			PathInContainer:   chaincode.PrivateChaincode.SGXDevicePath,
-			CgroupPermissions: "rwm",
+		// add sgx devices to the container depending on the driver installed on the platform
+		// we may attach /dev/isgx, or /dev/sgx/enclave and /dev/sgx/provision
+		for _, devicePath := range chaincode.PrivateChaincode.SGXDevicesPaths {
+			devices = append(devices, container.DeviceMapping{
+				PathOnHost:        devicePath,
+				PathInContainer:   devicePath,
+				CgroupPermissions: "rwm",
+			})
+		}
+	}
+
+	// attach dcap qpl if exists
+	qcnlConfigPath := "/etc/sgx_default_qcnl.conf"
+	if exists, err := pathExists(qcnlConfigPath); exists && err == nil {
+		mounts = append(mounts, mount.Mount{
+			Type:   mount.TypeBind,
+			Source: qcnlConfigPath,
+			Target: qcnlConfigPath,
 		})
 	}
 
@@ -288,11 +301,43 @@ func validateSGXMode(mode string) error {
 	return fmt.Errorf("invalid SGX Mode = %s", mode)
 }
 
-func validateSGXDevicePath(path string) error {
-	if _, err := os.Stat(path); err != nil {
-		return errors.Wrapf(err, "invalid SGX device path = %s", path)
+func validateSGXDevicesPaths(paths []string) error {
+	// remove duplicates
+	devicesPaths := make(map[string]bool, len(paths))
+	for _, p := range paths {
+		devicesPaths[p] = true
 	}
+
+	// check exists
+	for p := range devicesPaths {
+		if exists, err := pathExists(p); !exists || err != nil {
+			return errors.Wrapf(err, "invalid SGX device path = %s", p)
+		}
+	}
+
+	// check some extra rules
+	allowedSettings := [][]string{
+		{"/dev/sgx/isgx"},
+		{"/dev/sgx/enclave"},
+		{"/dev/sgx/enclave", "/dev/sgx/provision"},
+	}
+
+	for _, setting := range allowedSettings {
+		// TODO implement me
+		_ = setting
+	}
+
 	return nil
+}
+
+func pathExists(path string) (bool, error) {
+	if _, err := os.Stat(path); err == nil {
+		return true, nil
+	} else if errors.Is(err, os.ErrNotExist) {
+		return false, nil
+	} else {
+		return false, errors.Wrapf(err, "error checking path = %s", path)
+	}
 }
 
 func (n *Extension) initEnclave(chaincode *topology.ChannelChaincode) {

@@ -100,9 +100,9 @@ func WithSGXMode(mode string) func(*ChannelChaincode) {
 	}
 }
 
-func WithSGXDevicePath(path string) func(*ChannelChaincode) {
+func WithSGXDevicesPaths(paths []string) func(*ChannelChaincode) {
 	return func(cc *ChannelChaincode) {
-		cc.PrivateChaincode.SGXDevicePath = path
+		cc.PrivateChaincode.SGXDevicesPaths = paths
 	}
 }
 

@@ -42,10 +42,10 @@ func (c *Chaincode) SetPackageIDFromPackageFile() {
 }
 
 type PrivateChaincode struct {
-	Image         string
-	SGXMode       string
-	SGXDevicePath string
-	MREnclave     string
+	Image           string
+	SGXMode         string
+	SGXDevicesPaths []string
+	MREnclave       string
 }
 
 type namespace struct {
