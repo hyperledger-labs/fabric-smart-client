@@ -38,9 +38,7 @@ import (
 
 	api2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/helpers"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
@@ -61,25 +59,6 @@ type Identity struct {
 	Name string
 	Cert string
 	Key  string
-}
-
-type Builder interface {
-	Build(path string) string
-}
-
-type FabricNetwork interface {
-	DeployChaincode(chaincode *topology.ChannelChaincode)
-	DefaultIdemixOrgMSPDir() string
-	Topology() *topology.Topology
-	PeerChaincodeAddress(peerName string) string
-	PeerOrgs() []*fabric.Org
-	OrgMSPID(orgName string) string
-	PeersByOrg(orgName string, includeAll bool) []*fabric.Peer
-	UserByOrg(organization string, user string) *fabric.User
-	UsersByOrg(organization string) []*fabric.User
-	Orderers() []*fabric.Orderer
-	Channels() []*fabric.Channel
-	InvokeChaincode(cc *topology.ChannelChaincode, method string, args ...[]byte)
 }
 
 type platformFactory struct{}
