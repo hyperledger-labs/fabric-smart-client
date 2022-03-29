@@ -29,14 +29,14 @@ application with simplicity and joy? Check our Token SDK out [`here`](https://gi
 
 Clone the code and make sure it is on your `$GOPATH`. 
 (Important: we assume in this documentation and default configuration that your `$GOPATH` has a single root-directoy!). 
-Sometimes, we use $FSC_PATH to refer to the Fabric Smart Client repository in your filesystem.
+Sometimes, we use `$FSC_PATH` to refer to the Fabric Smart Client repository in your filesystem.
 
 ```bash
 export $FSC_PATH=$GOPATH/src/github.com/hyperledger-labs/fabric-smart-client
 git clone https://github.com/hyperledger-labs/fabric-smart-client.git $FSC_PATH
 ```
 
-You are ready to run the [`samples`](./samples/README.md).
+You are ready to run the [`samples`](./samples/README.md) in `$FSC_PATH`.
 
 # Getting Help
 
