@@ -25,6 +25,19 @@ Fabric Smart Client has not been audited and is provided as-is, use at your own 
 - [`Fabric Token SDK`](https://github.com/hyperledger-labs/fabric-token-sdk): Do you want to develop Token-Based Distributed
 application with simplicity and joy? Check our Token SDK out [`here`](https://github.com/hyperledger-labs/fabric-token-sdk).
 
+# Getting started
+
+Clone the code and make sure it is on your `$GOPATH`. 
+(Important: we assume in this documentation and default configuration that your `$GOPATH` has a single root-directoy!). 
+Sometimes, we use $FSC_PATH to refer to the Fabric Smart Client repository in your filesystem.
+
+```bash
+export $FSC_PATH=$GOPATH/src/github.com/hyperledger-labs/fabric-smart-client
+git clone https://github.com/hyperledger-labs/fabric-smart-client.git $FSC_PATH
+```
+
+You are ready to run the [`samples`](./samples/README.md).
+
 # Getting Help
 
 Found a bug? Need help to fix an issue? You have a great idea for a new feature? Talk to us! You can reach us on
