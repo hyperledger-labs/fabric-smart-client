@@ -79,7 +79,6 @@ func (o *KVS) Exists(id string) bool {
 	// is in cache, first?
 	v, ok = o.cache[id]
 	if ok {
-		o.putMutex.RUnlock()
 		return len(v) != 0
 	}
 	// get from store and store in cache
