@@ -122,6 +122,13 @@ func (n *NWO) Start() {
 	n.Processes = append(n.Processes, process)
 	Eventually(process.Ready(), n.StartEventuallyTimeout).Should(BeClosed())
 
+	logger.Infof("Post execution for nodes...")
+	for _, platform := range n.Platforms {
+		if platform.Type() != "fsc" {
+			platform.PostRun(n.isLoading)
+		}
+	}
+
 	// Execute the fsc members in isolation so can be stopped and restarted as needed
 	logger.Infof("Run FSC nodes...")
 	for _, member := range fscMembers {
@@ -142,9 +149,11 @@ func (n *NWO) Start() {
 	Expect(f.Sync()).NotTo(HaveOccurred())
 	Expect(f.Close()).NotTo(HaveOccurred())
 
-	logger.Infof("Post execution...")
+	logger.Infof("Post execution for FSC nodes...")
 	for _, platform := range n.Platforms {
-		platform.PostRun(n.isLoading)
+		if platform.Type() == "fsc" {
+			platform.PostRun(n.isLoading)
+		}
 	}
 }
 
