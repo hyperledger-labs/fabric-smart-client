@@ -85,8 +85,19 @@ func GenerateCmd(topologies Topologies) *cobra.Command {
 
 // Generate returns version information for the peer
 func Generate(topologies Topologies) error {
-	_, err := integration.GenerateAt(20000, path, true, topologies[topology]...)
-	return err
+	ii, err := integration.New(20000, path, topologies[topology]...)
+	if err != nil {
+		return errors.WithMessage(err, "failed to create new infrastructure")
+	}
+	ii.EnableRaceDetector()
+	if StartCMDPostNew != nil {
+		err = StartCMDPostNew(ii)
+		if err != nil {
+			return errors.WithMessage(err, "failed to post new")
+		}
+	}
+	ii.Generate()
+	return nil
 }
 
 // CleanCmd returns the Cobra Command for Clean
