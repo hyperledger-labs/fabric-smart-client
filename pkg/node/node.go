@@ -139,6 +139,10 @@ func (n *node) GetService(v interface{}) (interface{}, error) {
 	return n.registry.GetService(v)
 }
 
+func (n *node) Registry() Registry {
+	return n.registry
+}
+
 func (n *node) ResolveIdentities(endpoints ...string) ([]view.Identity, error) {
 	resolver := view3.GetEndpointService(n.registry)
 
