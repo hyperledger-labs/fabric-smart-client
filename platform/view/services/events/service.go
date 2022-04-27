@@ -28,8 +28,10 @@ func (s *Service) GetPublisher() Publisher {
 	return s.EventSystem
 }
 
+var eventServiceLookUp = &Service{}
+
 func getService(sp view.ServiceProvider) (EventService, error) {
-	s, err := sp.GetService(&Service{})
+	s, err := sp.GetService(eventServiceLookUp)
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot get event Service from registry")
 	}
