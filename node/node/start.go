@@ -8,6 +8,8 @@ package node
 
 import (
 	"fmt"
+	node3 "github.com/hyperledger-labs/fabric-smart-client/pkg/node"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"os"
 	"os/signal"
 	"strconv"
@@ -27,6 +29,7 @@ const (
 type Node interface {
 	Start() error
 	Stop()
+	Registry() node3.Registry
 	Callback() chan<- error
 }
 
@@ -149,7 +152,12 @@ func serve() error {
 	}
 	callback(nil)
 
-	logger.Debugf("Block until signal")
+	cs := view.GetConfigService(node.Registry())
+	logger.Infof("Started peer with ID=[%s], network ID=[%s], address=[%s]",
+		cs.GetString("fsc.id"),
+		cs.GetString("fsc.networkId"),
+		cs.GetString("fsc.address"),
+	)
 	return <-serve
 }
 

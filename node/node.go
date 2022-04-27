@@ -28,6 +28,7 @@ type FabricSmartClient interface {
 	Start() error
 	Stop()
 	InstallSDK(p api.SDK) error
+	Registry() node3.Registry
 	GetService(v interface{}) (interface{}, error)
 	RegisterService(service interface{}) error
 	RegisterFactory(id string, factory api.Factory) error
