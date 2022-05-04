@@ -9,6 +9,7 @@ package sig
 import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
+	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 )
@@ -20,8 +21,9 @@ type Deserializer interface {
 }
 
 type deserializer struct {
-	sp            driver.ServiceProvider
-	deserializers []Deserializer
+	sp                 driver.ServiceProvider
+	deserializersMutex sync.RWMutex
+	deserializers      []Deserializer
 }
 
 func NewMultiplexDeserializer(sp driver.ServiceProvider) (*deserializer, error) {
@@ -32,12 +34,16 @@ func NewMultiplexDeserializer(sp driver.ServiceProvider) (*deserializer, error) 
 }
 
 func (d *deserializer) AddDeserializer(newD Deserializer) {
+	d.deserializersMutex.Lock()
 	d.deserializers = append(d.deserializers, newD)
+	d.deserializersMutex.Unlock()
 }
 
 func (d *deserializer) DeserializeVerifier(raw []byte) (driver.Verifier, error) {
 	var errs []error
-	for _, des := range d.deserializers {
+
+	copyDeserial := d.threadSafeCopyDeserializers()
+	for _, des := range copyDeserial {
 		if logger.IsEnabledFor(zapcore.DebugLevel) {
 			logger.Debugf("trying deserialization with [%v]", des)
 		}
@@ -60,7 +66,9 @@ func (d *deserializer) DeserializeVerifier(raw []byte) (driver.Verifier, error) 
 
 func (d *deserializer) DeserializeSigner(raw []byte) (driver.Signer, error) {
 	var errs []error
-	for _, des := range d.deserializers {
+
+	copyDeserial := d.threadSafeCopyDeserializers()
+	for _, des := range copyDeserial {
 		if logger.IsEnabledFor(zapcore.DebugLevel) {
 			logger.Debugf("trying signer deserialization with [%s]", des)
 		}
@@ -83,7 +91,9 @@ func (d *deserializer) DeserializeSigner(raw []byte) (driver.Signer, error) {
 
 func (d *deserializer) Info(raw []byte, auditInfo []byte) (string, error) {
 	var errs []error
-	for _, des := range d.deserializers {
+
+	copyDeserial := d.threadSafeCopyDeserializers()
+	for _, des := range copyDeserial {
 		if logger.IsEnabledFor(zapcore.DebugLevel) {
 			logger.Debugf("trying info deserialization with [%v]", des)
 		}
@@ -102,4 +112,12 @@ func (d *deserializer) Info(raw []byte, auditInfo []byte) (string, error) {
 	}
 
 	return "", errors.Errorf("failed info deserialization [%v]", errs)
+}
+
+func (d *deserializer) threadSafeCopyDeserializers() []Deserializer {
+	d.deserializersMutex.RLock()
+	res := make([]Deserializer, len(d.deserializers))
+	copy(res, d.deserializers)
+	d.deserializersMutex.RUnlock()
+	return res
 }
