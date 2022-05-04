@@ -2,14 +2,14 @@
 
 Samples are a collection of small and simple apps that demonstrate how to use the library.
 
-To run the samples, we recommend to use `go 1.16` or later. You will also need docker as it is needed by Fabric. 
+To run the samples, we recommend to use `go 1.16` or later. You will also need docker as it is needed by Fabric.
 To make sure you have all the required docker images, you can run `make docker-images` in the
 Fabric Smart Client repository folder (`$FSC_PATH`).
 
 - [`I Owe You`](./fabric/iou/README.md): In this example, we orchestrate a simple
   `I Owe You` use case between a `lender` and a `borrower`, mediated by an `approver`.
 - [`Fabric to Fabric Interoperability via Weaver Relay`](./fabric/weaver/relay/README.md): In this example, we see how to use
-  the [weaver relay infrastructure](https://labs.hyperledger.org/weaver-dlt-interoperability/docs/external/architecture-and-design/relay) 
+  the [weaver relay infrastructure](https://labs.hyperledger.org/weaver-dlt-interoperability/docs/external/architecture-and-design/relay)
   to perform queries between two Fabric networks.
 - [`Institutional Review Board (IRB) Sample`](https://github.com/hyperledger/fabric-private-chaincode/tree/main/samples/demos/irb):
   This demos shows how to use Fabric Private Chaincode in combination with Fabric Smart Clients.
@@ -41,3 +41,11 @@ Here is a list of available integration tests:
 - [`Fabric Private Chaincode: Echo`](../integration/fabric/fpc/echo/README.md): In this example, we show how to invoke a Fabric
   Private Chaincode called [`Echo`](https://github.com/hyperledger/fabric-private-chaincode/tree/main/samples/chaincode/echo).
 - [`Orion: Cars`](../integration/orion/cars/README.md): In this example, we show how to orchestrate transactions for [`Orion`](https://github.com/hyperledger-labs/orion-server).
+
+## Logging configuration
+
+Topology logging levels can be configured with `SetLogging` method. However, it is not possible to disable logging completely with the mentioned method because FSC may require to inspect the output of the commands that are run inside the topology.
+
+If you are using FSC outside of ginkgo tests need to disable logging, or use a stream other then `stdout`, you can use the following two methods.
+- `flogging.Global.SetWriter()` allows to modify the stream used for FSC log messages.
+- Assigning `ginkgo.GinkgoWriter` the required stream redirects the command output, such as Fabric node.
