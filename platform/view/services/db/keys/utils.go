@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	nsRegexp  = regexp.MustCompile("^[a-zA-Z0-9._-]{1,50}$")
+	nsRegexp  = regexp.MustCompile("^[a-zA-Z0-9._-]{1,64}$")
 	keyRegexp = regexp.MustCompile("^[a-zA-Z0-9._~\u0000=" + string(utf8.MaxRune) + "+/-]{1,}$")
 )
 
