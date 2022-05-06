@@ -149,6 +149,7 @@ type Peer struct {
 	Identities      []*PeerIdentity `yaml:"identities,omitempty"`
 	DevMode         bool
 	DefaultNetwork  bool `yaml:"-"`
+	DeliveryEnabled bool `yaml:"deliveryenabled,omitempty"`
 }
 
 // ID provides a unique identifier for a peer instance.

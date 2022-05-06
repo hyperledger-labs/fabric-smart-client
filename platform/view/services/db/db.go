@@ -10,10 +10,10 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/pkg/errors"
-
+	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/unversioned"
+	"github.com/pkg/errors"
 )
 
 var (
@@ -48,18 +48,22 @@ func Drivers() []string {
 	return list
 }
 
+type Config interface {
+	UnmarshalKey(key string, rawVal interface{}) error
+}
+
 // Open returns a new persistence handle. Similarly to database/sql:
 // driverName is a string that describes the driver
 // dataSourceName describes the data source in a driver-specific format.
 // The returned connection is only used by one goroutine at a time.
-func Open(driverName, dataSourceName string) (driver.Persistence, error) {
+func Open(sp view2.ServiceProvider, driverName, dataSourceName string, config Config) (driver.Persistence, error) {
 	driversMu.RLock()
 	driver, ok := drivers[driverName]
 	driversMu.RUnlock()
 	if !ok {
 		return nil, errors.Errorf("driver [%s] not found", driverName)
 	}
-	d, err := driver.New(dataSourceName)
+	d, err := driver.New(sp, dataSourceName, config)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed opening datasource [%s][%s[", driverName, dataSourceName)
 	}
@@ -70,14 +74,14 @@ func Open(driverName, dataSourceName string) (driver.Persistence, error) {
 // driverName is a string that describes the driver
 // dataSourceName describes the data source in a driver-specific format.
 // The returned connection is only used by one goroutine at a time.
-func OpenVersioned(driverName, dataSourceName string) (driver.VersionedPersistence, error) {
+func OpenVersioned(sp view2.ServiceProvider, driverName, dataSourceName string, config Config) (driver.VersionedPersistence, error) {
 	driversMu.RLock()
 	driver, ok := drivers[driverName]
 	driversMu.RUnlock()
 	if !ok {
 		return nil, errors.Errorf("driver [%s] not found", driverName)
 	}
-	d, err := driver.NewVersioned(dataSourceName)
+	d, err := driver.NewVersioned(sp, dataSourceName, config)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed opening datasource [%s][%s[", driverName, dataSourceName)
 	}

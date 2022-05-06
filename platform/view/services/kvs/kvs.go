@@ -8,10 +8,10 @@ package kvs
 
 import (
 	"encoding/json"
-	"path/filepath"
 	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
+	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/cache/secondcache"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
@@ -44,18 +44,8 @@ type cache interface {
 	Delete(key string)
 }
 
-type Opts struct {
-	Path string
-}
-
-func New(driverName, namespace string, sp view.ServiceProvider) (*KVS, error) {
-	opts := &Opts{}
-	err := view.GetConfigService(sp).UnmarshalKey(persistenceOptsConfigKey, opts)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed getting opts for vault")
-	}
-	path := filepath.Join(opts.Path, namespace)
-	persistence, err := db.Open(driverName, path)
+func New(sp view2.ServiceProvider, driverName, namespace string) (*KVS, error) {
+	persistence, err := db.Open(sp, driverName, namespace, db.NewPrefixConfig(view2.GetConfigService(sp), "fsc.kvs.persistence.opts"))
 	if err != nil {
 		return nil, errors.WithMessagef(err, "no driver found for [%s]", driverName)
 	}
@@ -152,7 +142,7 @@ func (o *KVS) Put(id string, state interface{}) error {
 			}
 		}
 
-		return errors.Errorf("failed to commit value for id [%s]", id)
+		return errors.WithMessagef(err, "failed to commit value for id [%s]", id)
 	}
 
 	err = o.store.Commit()
@@ -180,7 +170,7 @@ func (o *KVS) Get(id string, state interface{}) error {
 			if logger.IsEnabledFor(zapcore.DebugLevel) {
 				logger.Debugf("failed retrieving state [%s,%s]", o.namespace, id)
 			}
-			return errors.Errorf("failed retrieving state [%s,%s]", o.namespace, id)
+			return errors.WithMessagef(err, "failed retrieving state [%s,%s]", o.namespace, id)
 		}
 		if len(raw) == 0 {
 			return errors.Errorf("state [%s,%s] does not exist", o.namespace, id)
@@ -221,7 +211,7 @@ func (o *KVS) Delete(id string) error {
 			}
 		}
 
-		return errors.Errorf("failed to commit value for id [%s]", id)
+		return errors.WithMessagef(err, "failed to commit value for id [%s]", id)
 	}
 
 	err = o.store.Commit()
@@ -288,4 +278,12 @@ func GetService(ctx view.ServiceProvider) *KVS {
 		panic(err)
 	}
 	return s.(*KVS)
+}
+
+func GetDriverNameFromConf(sp view2.ServiceProvider) string {
+	driverName := view2.GetConfigService(sp).GetString("fsc.kvs.persistence.type")
+	if len(driverName) == 0 {
+		driverName = "memory"
+	}
+	return driverName
 }

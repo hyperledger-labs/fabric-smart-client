@@ -11,6 +11,18 @@ import (
 	"fmt"
 	"io/ioutil"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/finality"
+	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger"
+	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events/simple"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/operations"
+	protos2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view/protos"
+	web2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/web"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
+	"github.com/hyperledger/fabric/common/grpclogging"
+	"github.com/pkg/errors"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	config2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/core/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/endpoint"
@@ -18,25 +30,14 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/id/x509"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/manager"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/sig"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/finality"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
 	comm2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/identity"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/crypto"
-	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger"
-	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events/simple"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	grpc2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/operations"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view"
-	protos2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view/protos"
-	web2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/web"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
-	"github.com/hyperledger/fabric/common/grpclogging"
-	"github.com/pkg/errors"
 )
 
 var logger = flogging.MustGetLogger("view-sdk")
@@ -85,11 +86,7 @@ func (p *p) Install() error {
 	assert.NoError(p.registry.RegisterService(&events.Service{EventSystem: simple.NewEventBus()}))
 
 	// KVS
-	driverName := view.GetConfigService(p.registry).GetString("fsc.kvs.persistence.type")
-	if len(driverName) == 0 {
-		driverName = "memory"
-	}
-	defaultKVS, err := kvs.New(driverName, "_default", p.registry)
+	defaultKVS, err := kvs.New(p.registry, kvs.GetDriverNameFromConf(p.registry), "_default")
 	if err != nil {
 		return errors.Wrap(err, "failed creating kvs")
 	}

@@ -85,7 +85,7 @@ func NewNetwork(
 	n.envelopeService = transaction.NewEnvelopeService(sp, name)
 	n.transactionManager = transaction.NewManager(sp, n.sessionManager)
 	n.transactionService = transaction.NewEndorseTransactionService(sp, name)
-	n.vault, err = NewVault(n.config, name, sp)
+	n.vault, err = NewVault(sp, n.config, name)
 	if err != nil {
 		return nil, errors.WithMessage(err, "failed to create vault")
 	}

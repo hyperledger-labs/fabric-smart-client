@@ -1558,6 +1558,7 @@ func (n *Network) GenerateCoreConfig(p *topology.Peer) {
 			"FabricName":                func() string { return n.topology.Name() },
 			"DefaultNetwork":            func() bool { return defaultNetwork },
 			"Chaincodes":                func(channel string) []*topology.ChannelChaincode { return n.Chaincodes(channel) },
+			"DeliveryEnabled":           func() bool { return p.DeliveryEnabled },
 		}).Parse(coreTemplate)
 		Expect(err).NotTo(HaveOccurred())
 

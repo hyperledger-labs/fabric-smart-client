@@ -67,7 +67,8 @@ monitoring-docker-images:
 
 .PHONY: orion-server-images
 orion-server-images:
-	docker pull orionbcdb/orion-server:latest
+	docker pull orionbcdb/orion-server:v0.2.4
+	docker image tag orionbcdb/orion-server:v0.2.4 orionbcdb/orion-server:latest
 
 .PHONY: integration-tests
 integration-tests:

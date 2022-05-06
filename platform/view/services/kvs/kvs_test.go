@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger"
 	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger"
 	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
@@ -54,7 +55,7 @@ func (f *fakeProv) IsSet(key string) bool {
 }
 
 func (f *fakeProv) UnmarshalKey(key string, rawVal interface{}) error {
-	*(rawVal.(*kvs.Opts)) = kvs.Opts{
+	*(rawVal.(*badger.Opts)) = badger.Opts{
 		Path: f.path,
 	}
 
@@ -82,7 +83,7 @@ func testRound(t *testing.T, cfg *fakeProv) {
 	registry := registry2.New()
 	registry.RegisterService(cfg)
 
-	kvstore, err := kvs.New(cfg.typ, "_default", registry)
+	kvstore, err := kvs.New(registry, cfg.typ, "_default")
 	assert.NoError(t, err)
 
 	k1, err := kvs.CreateCompositeKey("k", []string{"1"})

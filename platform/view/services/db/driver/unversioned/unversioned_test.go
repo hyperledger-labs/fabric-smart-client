@@ -34,7 +34,7 @@ var tempDir string
 
 func TestRangeQueriesBadger(t *testing.T) {
 	dbpath := filepath.Join(tempDir, "DB-TestRangeQueries")
-	db, err := db.Open("badger", dbpath)
+	db, err := db.Open(nil, "badger", dbpath, nil)
 	defer db.Close()
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
@@ -43,7 +43,7 @@ func TestRangeQueriesBadger(t *testing.T) {
 }
 
 func TestRangeQueriesMemory(t *testing.T) {
-	db, err := db.Open("memory", "")
+	db, err := db.Open(nil, "memory", "", nil)
 	defer db.Close()
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
@@ -107,7 +107,7 @@ func testRangeQueries(t *testing.T, db driver.Persistence) {
 
 func TestSimpleReadWriteBadger(t *testing.T) {
 	dbpath := filepath.Join(tempDir, "DB-TestRangeQueries")
-	db, err := db.Open("badger", dbpath)
+	db, err := db.Open(nil, "badger", dbpath, nil)
 	defer db.Close()
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
@@ -116,7 +116,7 @@ func TestSimpleReadWriteBadger(t *testing.T) {
 }
 
 func TestSimpleReadWriteMemory(t *testing.T) {
-	db, err := db.Open("memory", "")
+	db, err := db.Open(nil, "memory", "", nil)
 	defer db.Close()
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
