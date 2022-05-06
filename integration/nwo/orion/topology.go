@@ -47,6 +47,10 @@ func NewTopology() *Topology {
 	}
 }
 
+func (t *Topology) SetName(name string) {
+	t.TopologyName = name
+}
+
 func (t *Topology) Name() string {
 	return t.TopologyName
 }
@@ -65,9 +69,19 @@ func (t *Topology) SetSDK(fscTopology *fsc.Topology, sdk api.SDK) {
 	}
 }
 
-func (t *Topology) AddDB(name string, dbs ...string) {
+func (t *Topology) SetDefaultSDKOnNodes(nodes ...*node.Node) {
+	t.SetSDKOnNodes(&orion.SDK{}, nodes...)
+}
+
+func (t *Topology) SetSDKOnNodes(sdk api.SDK, nodes ...*node.Node) {
+	for _, node := range nodes {
+		node.AddSDK(sdk)
+	}
+}
+
+func (t *Topology) AddDB(name string, roles ...string) {
 	t.DBs = append(t.DBs, DB{
 		Name:  name,
-		Roles: dbs,
+		Roles: roles,
 	})
 }

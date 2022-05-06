@@ -92,6 +92,13 @@ func WithIdemixIdentity(label string) node.Option {
 	}
 }
 
+func WithDeliveryDisabled() node.Option {
+	return func(o *node.Options) error {
+		Options(o).SetDeliveryEnabled(false)
+		return nil
+	}
+}
+
 // NewDefaultTopology is a configuration with two organizations and one peer per org.
 func NewDefaultTopology() *topology.Topology {
 	return NewTopologyWithName("default").SetDefault()

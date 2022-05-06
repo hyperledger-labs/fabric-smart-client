@@ -70,8 +70,8 @@ func (t *Topology) Type() string {
 	return t.TopologyType
 }
 
-// AddNodeByTemplate adds a new node with the passed name and template
-func (t *Topology) AddNodeByTemplate(name string, template *node.Node) *node.Node {
+// AddNodeFromTemplate adds a new node with the passed name and template
+func (t *Topology) AddNodeFromTemplate(name string, template *node.Node) *node.Node {
 	n := node.NewNodeFromTemplate(name, template)
 	return t.addNode(n)
 }
@@ -80,6 +80,11 @@ func (t *Topology) AddNodeByTemplate(name string, template *node.Node) *node.Nod
 func (t *Topology) AddNodeByName(name string) *node.Node {
 	n := node.NewNode(name)
 	return t.addNode(n)
+}
+
+func (t *Topology) NewTemplate(name string) *node.Node {
+	n := node.NewNode(name)
+	return n
 }
 
 func (t *Topology) EnableUDPTracing() {

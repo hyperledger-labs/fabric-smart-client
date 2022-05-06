@@ -7,12 +7,12 @@ SPDX-License-Identifier: Apache-2.0
 package config
 
 import (
+	"fmt"
 	"strconv"
 	"time"
 
-	"github.com/pkg/errors"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
+	"github.com/pkg/errors"
 )
 
 const DefaultMSPCacheSize = 3
@@ -137,8 +137,8 @@ func (c *Config) VaultPersistenceType() string {
 	return c.configService.GetString("fabric." + c.prefix + "vault.persistence.type")
 }
 
-func (c *Config) VaultPersistenceOpts(opts interface{}) error {
-	return c.configService.UnmarshalKey("fabric."+c.prefix+"vault.persistence.opts", opts)
+func (c *Config) VaultPersistencePrefix() string {
+	return "vault.persistence.opts"
 }
 
 func (c *Config) MSPConfigPath() string {
@@ -193,7 +193,9 @@ func (c *Config) IsSet(key string) bool {
 }
 
 func (c *Config) UnmarshalKey(key string, rawVal interface{}) error {
-	return c.configService.UnmarshalKey("fabric."+c.prefix+key, rawVal)
+	k := "fabric." + c.prefix + key
+	fmt.Printf("Fabric UnmarshalKey [%s]\n", k)
+	return c.configService.UnmarshalKey(k, rawVal)
 }
 
 func (c *Config) GetPath(key string) string {
@@ -210,4 +212,14 @@ func (c *Config) MSPCacheSize() int {
 		return DefaultMSPCacheSize
 	}
 	return i
+}
+
+// IsDeliveryEnabled returns true if the delivery service is enabled.
+// If the property is not set, it returns true.
+func (c *Config) IsDeliveryEnabled() bool {
+	k := "fabric." + c.prefix + "delivery.enabled"
+	if !c.configService.IsSet(k) {
+		return true
+	}
+	return c.configService.GetBool(k)
 }

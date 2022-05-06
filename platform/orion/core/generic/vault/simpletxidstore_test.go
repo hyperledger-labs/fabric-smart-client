@@ -21,7 +21,7 @@ import (
 )
 
 func TestTXIDStoreMem(t *testing.T) {
-	db, err := db.Open("memory", "")
+	db, err := db.Open(nil, "memory", "", nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
 	store, err := NewSimpleTXIDStore(db)
@@ -42,7 +42,7 @@ func TestTXIDStoreBadger(t *testing.T) {
 	assert.NoError(t, err)
 	defer os.RemoveAll(tempDir)
 
-	db, err := db.Open("badger", tempDir)
+	db, err := db.Open(nil, "badger", tempDir, nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
 	store, err := NewSimpleTXIDStore(db)

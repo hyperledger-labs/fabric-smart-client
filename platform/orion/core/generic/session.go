@@ -39,8 +39,8 @@ func (d *DataTx) Get(db string, key string) ([]byte, *types.Metadata, error) {
 	return r, m, nil
 }
 
-func (d *DataTx) Commit(b bool) (string, *types.TxReceiptResponseEnvelope, error) {
-	return d.dataTx.Commit(b)
+func (d *DataTx) Commit(sync bool) (string, *types.TxReceiptResponseEnvelope, error) {
+	return d.dataTx.Commit(sync)
 }
 
 func (d *DataTx) Delete(db string, key string) error {
@@ -134,6 +134,14 @@ func (s *Session) Ledger() (driver.Ledger, error) {
 		return nil, errors.Wrap(err, "failed getting ledger")
 	}
 	return &Ledger{ledger: l}, nil
+}
+
+func (s *Session) Query() (driver.Query, error) {
+	q, err := s.s.Query()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed getting query")
+	}
+	return &Query{query: q}, nil
 }
 
 type SessionManager struct {

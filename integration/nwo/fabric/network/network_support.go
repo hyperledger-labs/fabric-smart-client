@@ -715,6 +715,7 @@ func (n *Network) CheckTopology() {
 			ExecutablePath:  node.ExecutablePath,
 			ExtraIdentities: extraIdentities,
 			DefaultNetwork:  defaultNetwork,
+			DeliveryEnabled: nodeOpts.DeliveryEnabled(),
 		}
 		n.Peers = append(n.Peers, p)
 		n.Context.SetPortsByPeerID("fsc", p.ID(), n.Context.PortsByPeerID(n.Prefix, node.Name))
@@ -1696,6 +1697,7 @@ func (n *Network) GenerateCoreConfig(p *topology.Peer) {
 			"FabricName":                func() string { return n.topology.Name() },
 			"DefaultNetwork":            func() bool { return defaultNetwork },
 			"Chaincodes":                func(channel string) []*topology.ChannelChaincode { return n.Chaincodes(channel) },
+			"DeliveryEnabled":           func() bool { return p.DeliveryEnabled },
 		}).Parse(coreTemplate)
 		Expect(err).NotTo(HaveOccurred())
 

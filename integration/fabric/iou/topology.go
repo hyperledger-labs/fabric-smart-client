@@ -11,6 +11,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/orion"
 )
 
 func Topology() []api.Topology {
@@ -25,6 +26,7 @@ func Topology() []api.Topology {
 	// Define an FSC topology with 3 FCS nodes.
 	// One for the approver, one for the borrower, and one for the lender.
 	fscTopology := fsc.NewTopology()
+	fscTopology.SetLogging("debug", "")
 
 	// Add the approver FSC node.
 	approver := fscTopology.AddNodeByName("approver")
@@ -37,12 +39,17 @@ func Topology() []api.Topology {
 	approver.RegisterResponder(&views.ApproverView{}, &views.CreateIOUView{})
 	approver.RegisterResponder(&views.ApproverView{}, &views.UpdateIOUView{})
 
-	// Add the borrower's FSC node
-	borrower := fscTopology.AddNodeByName("borrower")
-	borrower.AddOptions(fabric.WithOrganization("Org2"))
+	// Add the borrower's FSC node as am orion-based replicated node
+	// 1. create the FSC node template
+	borrower := fscTopology.NewTemplate("borrower")
+	borrower.AddOptions(
+		fabric.WithOrganization("Org2"),
+	)
 	borrower.RegisterViewFactory("create", &views.CreateIOUViewFactory{})
 	borrower.RegisterViewFactory("update", &views.UpdateIOUViewFactory{})
 	borrower.RegisterViewFactory("query", &views.QueryViewFactory{})
+	// 2. create the replicated node
+	borrowerTopology := orion.NewReplicatedFSCNode(fscTopology, borrower, 1)
 
 	// Add the lender's FSC node
 	lender := fscTopology.AddNodeByName("lender")
@@ -54,5 +61,5 @@ func Topology() []api.Topology {
 	lender.RegisterResponder(&views.UpdateIOUResponderView{}, &views.UpdateIOUView{})
 	lender.RegisterViewFactory("query", &views.QueryViewFactory{})
 
-	return []api.Topology{fabricTopology, fscTopology}
+	return []api.Topology{borrowerTopology, fabricTopology, fscTopology}
 }
