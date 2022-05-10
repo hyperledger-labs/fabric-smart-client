@@ -32,7 +32,7 @@ Clone the code and make sure it is on your `$GOPATH`.
 Sometimes, we use `$FSC_PATH` to refer to the Fabric Smart Client repository in your filesystem.
 
 ```bash
-export $FSC_PATH=$GOPATH/src/github.com/hyperledger-labs/fabric-smart-client
+export FSC_PATH=$GOPATH/src/github.com/hyperledger-labs/fabric-smart-client
 git clone https://github.com/hyperledger-labs/fabric-smart-client.git $FSC_PATH
 ```
 
