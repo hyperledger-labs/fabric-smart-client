@@ -87,6 +87,26 @@ func (c *Config) TLSRootCertFile() string {
 	return c.configService.GetString("fabric." + c.prefix + "tls.rootCertFile")
 }
 
+func (c *Config) KeepAliveClientInterval() time.Duration {
+	return c.configService.GetDuration("fabric." + c.prefix + "tls.keepalive.client.interval")
+}
+
+func (c *Config) KeepAliveClientTimeout() time.Duration {
+	return c.configService.GetDuration("fabric." + c.prefix + "tls.keepalive.client.timeout")
+}
+
+func (c *Config) KeepAliveServerInterval() time.Duration {
+	return c.configService.GetDuration("fabric." + c.prefix + "tls.keepalive.server.interval")
+}
+
+func (c *Config) KeepAliveServerTimeout() time.Duration {
+	return c.configService.GetDuration("fabric." + c.prefix + "tls.keepalive.server.timeout")
+}
+
+func (c *Config) KeepAliveServerMinInterval() time.Duration {
+	return c.configService.GetDuration("fabric." + c.prefix + "tls.keepalive.server.minInterval")
+}
+
 func (c *Config) Orderers() ([]*grpc.ConnectionConfig, error) {
 	var res []*grpc.ConnectionConfig
 	if err := c.configService.UnmarshalKey("fabric."+c.prefix+"orderers", &res); err != nil {

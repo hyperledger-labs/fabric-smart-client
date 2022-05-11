@@ -224,6 +224,14 @@ func (c *channel) GetClientConfig(tlsRootCerts [][]byte) (*grpc.ClientConfig, st
 		clientConfig.SecOpts.ServerRootCAs = tlsRootCerts
 	}
 
+	clientConfig.KaOpts = grpc.KeepaliveOptions{
+		ClientInterval:    c.config.KeepAliveClientInterval(),
+		ClientTimeout:     c.config.KeepAliveClientTimeout(),
+		ServerInterval:    c.config.KeepAliveServerInterval(),
+		ServerTimeout:     c.config.KeepAliveServerTimeout(),
+		ServerMinInterval: c.config.KeepAliveServerMinInterval(),
+	}
+
 	return clientConfig, override, nil
 }
 

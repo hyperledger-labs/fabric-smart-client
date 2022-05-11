@@ -282,6 +282,14 @@ fabric:
         files:
         - {{ .PeerLocalTLSDir Peer }}/ca.crt
       rootCertFile: {{ .CACertsBundlePath }}
+      keepalive:
+       client:
+         interval: 60s
+         timeout: 600s
+       server:
+         interval: 60s
+         timeout: 600s
+         minInterval: 60s 
     orderers: {{ range Orderers }}
       - address: {{ OrdererAddress . "Listen" }}
         connectionTimeout: 10s
