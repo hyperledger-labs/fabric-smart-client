@@ -137,10 +137,14 @@ func (db *database) Discard() error {
 }
 
 func (db *database) mapForNamespaceForReading(ns string, add bool) map[string]*versionedValue {
+	db.mutex.Lock()
+	defer db.mutex.Unlock()
 	return db.mapForNamespace(ns, add, db.keys)
 }
 
 func (db *database) mapForNamespaceForWriting(ns string, add bool) map[string]*versionedValue {
+	db.mutex.Lock()
+	defer db.mutex.Unlock()
 	return db.mapForNamespace(ns, add, db.txn)
 }
 
@@ -187,9 +191,6 @@ func (db *database) GetCachedStateRangeScanIterator(namespace string, startKey s
 }
 
 func (db *database) GetState(namespace string, key string) ([]byte, uint64, uint64, error) {
-	db.mutex.Lock()
-	defer db.mutex.Unlock()
-
 	vv, in := db.mapForNamespaceForReading(namespace, false)[key]
 	if !in {
 		return nil, 0, 0, nil
@@ -199,9 +200,6 @@ func (db *database) GetState(namespace string, key string) ([]byte, uint64, uint
 }
 
 func (db *database) GetStateMetadata(namespace, key string) (map[string][]byte, uint64, uint64, error) {
-	db.mutex.Lock()
-	defer db.mutex.Unlock()
-
 	vv, in := db.mapForNamespaceForReading(namespace, false)[key]
 	if !in {
 		return nil, 0, 0, nil
@@ -216,11 +214,11 @@ func (db *database) GetStateMetadata(namespace, key string) (map[string][]byte, 
 
 func (db *database) SetState(namespace string, key string, value []byte, block, txnum uint64) error {
 	db.mutex.Lock()
-	defer db.mutex.Unlock()
-
 	if db.txn == nil {
+		db.mutex.Unlock()
 		panic("programming error, writing without ongoing update")
 	}
+	db.mutex.Unlock()
 
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("Set stat [%s,%s]", namespace, key)
@@ -241,11 +239,11 @@ func (db *database) SetState(namespace string, key string, value []byte, block, 
 
 func (db *database) SetStateMetadata(namespace, key string, metadata map[string][]byte, block, txnum uint64) error {
 	db.mutex.Lock()
-	defer db.mutex.Unlock()
-
 	if db.txn == nil {
+		db.mutex.Unlock()
 		panic("programming error, writing without ongoing update")
 	}
+	db.mutex.Unlock()
 
 	vv, in := db.mapForNamespaceForWriting(namespace, true)[key]
 	if !in {
@@ -265,11 +263,11 @@ func (db *database) SetStateMetadata(namespace, key string, metadata map[string]
 
 func (db *database) DeleteState(namespace string, key string) error {
 	db.mutex.Lock()
-	defer db.mutex.Unlock()
-
 	if db.txn == nil {
+		db.mutex.Unlock()
 		panic("programming error, writing without ongoing update")
 	}
+	db.mutex.Unlock()
 
 	nsm := db.mapForNamespaceForWriting(namespace, false)
 	delete(nsm, key)
