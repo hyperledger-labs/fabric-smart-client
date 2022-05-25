@@ -7,9 +7,11 @@ SPDX-License-Identifier: Apache-2.0
 package generic
 
 import (
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger/fabric-protos-go/common"
 	pb "github.com/hyperledger/fabric-protos-go/peer"
 	"github.com/pkg/errors"
+	"strings"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
@@ -47,6 +49,7 @@ func (c *channel) GetProcessNamespace() []string {
 func (c *channel) DiscardTx(txid string) error {
 	logger.Debugf("Discarding transaction [%s]", txid)
 
+	defer c.notifyTxStatus(txid, driver.Invalid)
 	vc, deps, err := c.Status(txid)
 	if err != nil {
 		return errors.WithMessagef(err, "failed getting tx's status in state db [%s]", txid)
@@ -65,12 +68,12 @@ func (c *channel) DiscardTx(txid string) error {
 func (c *channel) CommitTX(txid string, block uint64, indexInBlock int, envelope *common.Envelope) (err error) {
 	logger.Debugf("Committing transaction [%s,%d,%d]", txid, block, indexInBlock)
 	defer logger.Debugf("Committing transaction [%s,%d,%d] done [%s]", txid, block, indexInBlock, err)
+	defer c.notifyTxStatus(txid, driver.Valid)
 
 	vc, deps, err := c.Status(txid)
 	if err != nil {
 		return errors.WithMessagef(err, "failed getting tx's status in state db [%s]", txid)
 	}
-
 	switch vc {
 	case driver.Valid:
 		// This should generate a panic
@@ -255,4 +258,39 @@ func (c *channel) postProcessTx(txid string) error {
 		return err
 	}
 	return nil
+}
+
+// TxStatusListen registers a listener for transaction status changes for the passed id
+func (c *channel) TxStatusListen(txID string, listener driver.TxStatusListener) error {
+	var sb strings.Builder
+	sb.WriteString("tx")
+	sb.WriteString(c.network.Name())
+	sb.WriteString(c.name)
+	sb.WriteString(txID)
+	c.eventHub.GetSubscriber().Subscribe(sb.String(), &TxEventsListener{listener: listener})
+	return nil
+}
+
+func (c *channel) notifyTxStatus(txID string, vc driver.ValidationCode) {
+	var sb strings.Builder
+	sb.WriteString("tx")
+	sb.WriteString(c.network.Name())
+	sb.WriteString(c.name)
+	sb.WriteString(txID)
+	c.eventHub.GetPublisher().Publish(&driver.TransactionStatusChanged{
+		ThisTopic: sb.String(),
+		TxID:      txID,
+		VC:        vc,
+	})
+}
+
+type TxEventsListener struct {
+	listener driver.TxStatusListener
+}
+
+func (l *TxEventsListener) OnReceive(event events.Event) {
+	tsc := event.Message().(*driver.TransactionStatusChanged)
+	if err := l.listener(tsc.TxID, tsc.VC, false); err != nil {
+		logger.Errorf("failed to notify listener for tx [%s] with err [%s]", tsc.TxID, err)
+	}
 }

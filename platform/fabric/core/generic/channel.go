@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package generic
 
 import (
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	discovery "github.com/hyperledger/fabric/discovery/client"
 	"io/ioutil"
@@ -60,6 +61,7 @@ type channel struct {
 	envelopeService    driver.EnvelopeService
 	transactionService driver.EndorserTransactionService
 	metadataService    driver.MetadataService
+	eventHub           events.EventService
 	driver.TXIDStore
 
 	// applyLock is used to serialize calls to CommitConfig and bundle update processing.
@@ -130,6 +132,11 @@ func newChannel(network *network, name string, quiet bool) (*channel, error) {
 	if err != nil {
 		return nil, err
 	}
+	// EventHub
+	eventHub, err := events.GetService(sp)
+	if err != nil {
+		return nil, errors.WithMessage(err, "failed to get event hub service")
+	}
 
 	c := &channel{
 		name:               name,
@@ -144,6 +151,7 @@ func newChannel(network *network, name string, quiet bool) (*channel, error) {
 		transactionService: transaction.NewEndorseTransactionService(sp, network.Name(), name),
 		metadataService:    transaction.NewMetadataService(sp, network.Name(), name),
 		chaincodes:         map[string]driver.Chaincode{},
+		eventHub:           eventHub,
 	}
 	if err := c.init(); err != nil {
 		return nil, errors.WithMessagef(err, "failed initializing channel [%s]", name)

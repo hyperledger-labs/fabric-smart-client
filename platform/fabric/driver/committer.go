@@ -20,6 +20,25 @@ const (
 	HasDependencies                // Transaction is unknown but has known dependencies
 )
 
+type TransactionStatusChanged struct {
+	ThisTopic string
+	TxID      string
+	VC        ValidationCode
+}
+
+func (t *TransactionStatusChanged) Topic() string {
+	return t.ThisTopic
+}
+
+func (t *TransactionStatusChanged) Message() interface{} {
+	return t
+}
+
+// TxStatusListener is a callback function that is called when a transaction
+// status changes.
+// If a timeout is reached, the function is called with timeout set to true.
+type TxStatusListener func(txID string, status ValidationCode, timeout bool) error
+
 type Committer interface {
 	// ProcessNamespace registers namespaces that will be committed even if the rwset is not known
 	ProcessNamespace(nss ...string) error
@@ -45,4 +64,7 @@ type Committer interface {
 
 	// CommitConfig commits the passed configuration envelope.
 	CommitConfig(blockNumber uint64, raw []byte, envelope *common.Envelope) error
+
+	// TxStatusListen registers a listener for transaction status changes for the passed id
+	TxStatusListen(txID string, listener TxStatusListener) error
 }
