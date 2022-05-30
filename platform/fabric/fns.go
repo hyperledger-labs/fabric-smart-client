@@ -8,6 +8,9 @@ package fabric
 
 import (
 	"fmt"
+	"github.com/pkg/errors"
+	"reflect"
+	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
@@ -17,6 +20,7 @@ import (
 )
 
 var (
+	index  = reflect.TypeOf((*NetworkServiceProvider)(nil))
 	logger = flogging.MustGetLogger("fabric-sdk")
 )
 
@@ -25,6 +29,13 @@ type NetworkService struct {
 	SP   view2.ServiceProvider
 	fns  driver.FabricNetworkService
 	name string
+
+	channelMutex sync.RWMutex
+	channels     map[string]*Channel
+}
+
+func NewNetworkService(SP view2.ServiceProvider, fns driver.FabricNetworkService, name string) *NetworkService {
+	return &NetworkService{SP: SP, fns: fns, name: name, channels: map[string]*Channel{}}
 }
 
 // DefaultChannel returns the name of the default channel
@@ -44,11 +55,28 @@ func (n *NetworkService) Peers() []*grpc.ConnectionConfig {
 
 // Channel returns the channel service for the passed id
 func (n *NetworkService) Channel(id string) (*Channel, error) {
+	n.channelMutex.RLock()
+	c, ok := n.channels[id]
+	n.channelMutex.RUnlock()
+	if ok {
+		return c, nil
+	}
+
+	n.channelMutex.Lock()
+	defer n.channelMutex.Unlock()
+	c, ok = n.channels[id]
+	if ok {
+		return c, nil
+	}
+
 	ch, err := n.fns.Channel(id)
 	if err != nil {
 		return nil, err
 	}
-	return &Channel{sp: n.SP, fns: n.fns, ch: ch}, nil
+	c = NewChannel(n.SP, n.fns, ch)
+	n.channels[id] = c
+
+	return c, nil
 }
 
 // IdentityProvider returns the identity provider of this network
@@ -95,6 +123,61 @@ func (n *NetworkService) ConfigService() *ConfigService {
 	return &ConfigService{confService: n.fns.ConfigService()}
 }
 
+type NetworkServiceProvider struct {
+	sp              view2.ServiceProvider
+	mutex           sync.RWMutex
+	networkServices map[string]*NetworkService
+}
+
+func NewNetworkServiceProvider(sp view2.ServiceProvider) *NetworkServiceProvider {
+	return &NetworkServiceProvider{sp: sp, networkServices: make(map[string]*NetworkService)}
+}
+
+func (nsp *NetworkServiceProvider) FabricNetworkService(id string) (*NetworkService, error) {
+	nsp.mutex.RLock()
+	ns, ok := nsp.networkServices[id]
+	nsp.mutex.RUnlock()
+	if ok {
+		return ns, nil
+	}
+
+	nsp.mutex.Lock()
+	defer nsp.mutex.Unlock()
+	ns, ok = nsp.networkServices[id]
+	if ok {
+		return ns, nil
+	}
+
+	provider := core.GetFabricNetworkServiceProvider(nsp.sp)
+	if provider == nil {
+		return nil, errors.New("no Fabric Network Service Provider found")
+	}
+	internalFns, err := provider.FabricNetworkService(id)
+	if err != nil {
+		logger.Errorf("Failed to get Fabric Network Service for id [%s]: [%s]", id, err)
+		return nil, errors.WithMessagef(err, "Failed to get Fabric Network Service for id [%s]", id)
+	}
+	ns, ok = nsp.networkServices[internalFns.Name()]
+	if ok {
+		return ns, nil
+	}
+
+	ns = NewNetworkService(nsp.sp, internalFns, internalFns.Name())
+	nsp.networkServices[id] = ns
+	nsp.networkServices[internalFns.Name()] = ns
+
+	return ns, nil
+}
+
+func GetNetworkServiceProvider(sp view2.ServiceProvider) *NetworkServiceProvider {
+	s, err := sp.GetService(index)
+	if err != nil {
+		logger.Warnf("failed getting fabric network service provider: %s", err)
+		return nil
+	}
+	return s.(*NetworkServiceProvider)
+}
+
 func GetFabricNetworkNames(sp view2.ServiceProvider) []string {
 	provider := core.GetFabricNetworkServiceProvider(sp)
 	if provider == nil {
@@ -105,7 +188,7 @@ func GetFabricNetworkNames(sp view2.ServiceProvider) []string {
 
 // GetFabricNetworkService returns the Fabric Network Service for the passed id, nil if not found
 func GetFabricNetworkService(sp view2.ServiceProvider, id string) *NetworkService {
-	provider := core.GetFabricNetworkServiceProvider(sp)
+	provider := GetNetworkServiceProvider(sp)
 	if provider == nil {
 		return nil
 	}
@@ -114,7 +197,7 @@ func GetFabricNetworkService(sp view2.ServiceProvider, id string) *NetworkServic
 		logger.Errorf("Failed to get Fabric Network Service for id [%s]: [%s]", id, err)
 		return nil
 	}
-	return &NetworkService{name: fns.Name(), SP: sp, fns: fns}
+	return fns
 }
 
 // GetDefaultFNS returns the default Fabric Network Service

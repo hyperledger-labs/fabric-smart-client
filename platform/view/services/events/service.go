@@ -30,7 +30,7 @@ func (s *Service) GetPublisher() Publisher {
 
 var eventServiceLookUp = &Service{}
 
-func getService(sp view.ServiceProvider) (EventService, error) {
+func GetService(sp view.ServiceProvider) (EventService, error) {
 	s, err := sp.GetService(eventServiceLookUp)
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot get event Service from registry")
@@ -39,7 +39,7 @@ func getService(sp view.ServiceProvider) (EventService, error) {
 }
 
 func GetSubscriber(sp view.ServiceProvider) (Subscriber, error) {
-	s, err := getService(sp)
+	s, err := GetService(sp)
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot get subscriber")
 	}
@@ -47,7 +47,7 @@ func GetSubscriber(sp view.ServiceProvider) (Subscriber, error) {
 }
 
 func GetPublisher(sp view.ServiceProvider) (Publisher, error) {
-	s, err := getService(sp)
+	s, err := GetService(sp)
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot get publisher")
 	}

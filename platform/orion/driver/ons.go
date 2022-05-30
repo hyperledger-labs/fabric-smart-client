@@ -24,6 +24,7 @@ type OrionNetworkService interface {
 	EnvelopeService() EnvelopeService
 	ProcessorManager() ProcessorManager
 	Finality() Finality
+	Committer() Committer
 }
 
 type OrionNetworkServiceProvider interface {

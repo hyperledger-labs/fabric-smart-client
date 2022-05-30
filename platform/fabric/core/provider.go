@@ -58,12 +58,12 @@ func (p *fnsProvider) Start(ctx context.Context) error {
 	for _, name := range p.config.Names() {
 		fns, err := p.FabricNetworkService(name)
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "failed to start fabric network service [%s]", name)
 		}
 		for _, ch := range fns.Channels() {
 			_, err := fns.Channel(ch)
 			if err != nil {
-				return err
+				return errors.Wrapf(err, "failed to get channel [%s] for fabric network service [%s]", ch, name)
 			}
 		}
 	}
