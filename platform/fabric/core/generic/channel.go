@@ -75,6 +75,9 @@ type channel struct {
 	chaincodes     map[string]driver.Chaincode
 
 	connCache common2.CachingEndorserPool
+
+	// subscribers
+	subscribers *sync.Map
 }
 
 func newChannel(network *network, name string, quiet bool) (*channel, error) {
@@ -152,6 +155,7 @@ func newChannel(network *network, name string, quiet bool) (*channel, error) {
 		metadataService:    transaction.NewMetadataService(sp, network.Name(), name),
 		chaincodes:         map[string]driver.Chaincode{},
 		eventHub:           eventHub,
+		subscribers:        &sync.Map{},
 	}
 	if err := c.init(); err != nil {
 		return nil, errors.WithMessagef(err, "failed initializing channel [%s]", name)

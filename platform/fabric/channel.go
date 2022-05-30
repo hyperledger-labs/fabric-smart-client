@@ -13,9 +13,14 @@ import (
 )
 
 type Channel struct {
-	sp  view2.ServiceProvider
-	fns driver.FabricNetworkService
-	ch  driver.Channel
+	sp        view2.ServiceProvider
+	fns       driver.FabricNetworkService
+	ch        driver.Channel
+	committer *Committer
+}
+
+func NewChannel(sp view2.ServiceProvider, fns driver.FabricNetworkService, ch driver.Channel) *Channel {
+	return &Channel{sp: sp, fns: fns, ch: ch, committer: NewCommitter(ch)}
 }
 
 func (c *Channel) Name() string {
@@ -35,7 +40,7 @@ func (c *Channel) MSPManager() *MSPManager {
 }
 
 func (c *Channel) Committer() *Committer {
-	return &Committer{ch: c.ch}
+	return c.committer
 }
 
 func (c *Channel) Finality() *Finality {

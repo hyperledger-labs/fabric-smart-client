@@ -8,6 +8,7 @@ package orion
 
 import (
 	"context"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/orion"
 
 	"github.com/pkg/errors"
 
@@ -53,6 +54,7 @@ func (p *SDK) Install() error {
 	p.onsProvider, err = core.NewOrionNetworkServiceProvider(p.registry, onspConfig)
 	assert.NoError(err, "failed instantiating orion network service provider")
 	assert.NoError(p.registry.RegisterService(p.onsProvider))
+	assert.NoError(p.registry.RegisterService(orion.NewNetworkServiceProvider(p.registry)))
 
 	return nil
 }

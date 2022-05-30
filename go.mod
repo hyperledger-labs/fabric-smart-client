@@ -23,7 +23,7 @@ require (
 	github.com/dgraph-io/badger/v3 v3.2103.2
 	github.com/docker/docker v20.10.7+incompatible
 	github.com/docker/go-connections v0.4.0
-	github.com/fsnotify/fsnotify v1.5.1 // indirect
+	github.com/fsnotify/fsnotify v1.5.4 // indirect
 	github.com/fsouza/go-dockerclient v1.6.1
 	github.com/go-kit/kit v0.9.0
 	github.com/gogo/protobuf v1.3.2
@@ -69,8 +69,10 @@ require (
 	go.uber.org/atomic v1.7.0
 	go.uber.org/zap v1.18.1
 	golang.org/x/net v0.0.0-20211015210444-4f30a5c0130f
-	golang.org/x/sys v0.0.0-20220319134239-a9b59b0215f8 // indirect
+	golang.org/x/sync v0.0.0-20220513210516-0976fa681c29 // indirect
+	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a // indirect
 	golang.org/x/tools v0.1.10 // indirect
+	golang.org/x/xerrors v0.0.0-20220517211312-f3a8303e98df // indirect
 	google.golang.org/genproto v0.0.0-20210201184850-646a494a81ea // indirect
 	google.golang.org/grpc v1.39.1
 	google.golang.org/protobuf v1.27.1

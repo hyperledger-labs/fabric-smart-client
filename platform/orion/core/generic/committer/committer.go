@@ -9,10 +9,12 @@ package committer
 import (
 	"fmt"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/orion-server/pkg/types"
 	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
+	"strings"
 	"sync"
 	"time"
 )
@@ -34,6 +36,7 @@ type ProcessorManager interface {
 }
 
 type committer struct {
+	networkName         string
 	vault               Vault
 	finality            Finality
 	pm                  ProcessorManager
@@ -44,10 +47,14 @@ type committer struct {
 	listeners      map[string][]chan TxEvent
 	mutex          sync.Mutex
 	pollingTimeout time.Duration
+
+	eventHub    events.EventService
+	subscribers *sync.Map
 }
 
-func New(pm ProcessorManager, vault Vault, finality Finality, waitForEventTimeout time.Duration, quiet bool) (*committer, error) {
+func New(networkName string, pm ProcessorManager, vault Vault, finality Finality, waitForEventTimeout time.Duration, quiet bool, eventHub events.EventService) (*committer, error) {
 	d := &committer{
+		networkName:         networkName,
 		vault:               vault,
 		waitForEventTimeout: waitForEventTimeout,
 		quietNotifier:       quiet,
@@ -56,6 +63,7 @@ func New(pm ProcessorManager, vault Vault, finality Finality, waitForEventTimeou
 		finality:            finality,
 		pm:                  pm,
 		pollingTimeout:      100 * time.Millisecond,
+		eventHub:            eventHub,
 	}
 	return d, nil
 }
@@ -66,6 +74,8 @@ func (c *committer) Commit(block *types.AugmentedBlockHeader) error {
 	for i, txID := range block.TxIds {
 		var event TxEvent
 		event.Txid = txID
+		event.Block = block.Header.BaseHeader.Number
+		event.IndexInBlock = i
 
 		switch block.Header.ValidationInfo[i].Flag {
 		case types.Flag_VALID:
@@ -95,16 +105,15 @@ func (c *committer) Commit(block *types.AugmentedBlockHeader) error {
 			if err := c.vault.CommitTX(txID, bn, i); err != nil {
 				return errors.WithMessagef(err, "failed to commit tx %s", txID)
 			}
+			event.Committed = true
 		default:
 			// rollback
 			if err := c.vault.DiscardTx(txID); err != nil {
 				return errors.WithMessagef(err, "failed to discard tx %s", txID)
 			}
 		}
-		// parse transactions
-		c.notify(event)
+		c.notifyFinality(event)
 	}
-
 	return nil
 }
 
@@ -150,10 +159,52 @@ func (c *committer) IsFinal(txid string) error {
 	}
 
 	// Listen to the event
-	return c.listenTo(txid, c.waitForEventTimeout)
+	return c.listenToFinality(txid, c.waitForEventTimeout)
 }
 
-func (c *committer) addListener(txid string, ch chan TxEvent) {
+// SubscribeTxStatusChanges registers a listener for transaction status changes for the passed id
+func (c *committer) SubscribeTxStatusChanges(txID string, listener driver.TxStatusListener) error {
+	var sb strings.Builder
+	sb.WriteString("tx")
+	sb.WriteString(c.networkName)
+	sb.WriteString(txID)
+	l := &TxEventsListener{listener: listener}
+	c.eventHub.GetSubscriber().Subscribe(sb.String(), l)
+	c.subscribers.Store(l, l)
+	return nil
+}
+
+// UnsubscribeTxStatusChanges unregisters a listener for transaction status changes for the passed id
+func (c *committer) UnsubscribeTxStatusChanges(txID string, listener driver.TxStatusListener) error {
+	var sb strings.Builder
+	sb.WriteString("tx")
+	sb.WriteString(c.networkName)
+	sb.WriteString(txID)
+	l, ok := c.subscribers.Load(listener)
+	if !ok {
+		return errors.Errorf("listener not found for txID [%s]", txID)
+	}
+	el, ok := l.(events.Listener)
+	if !ok {
+		return errors.Errorf("listener not found for txID [%s]", txID)
+	}
+	c.eventHub.GetSubscriber().Unsubscribe(sb.String(), el)
+	return nil
+}
+
+func (c *committer) notifyTxStatus(txID string, vc driver.ValidationCode) {
+	var sb strings.Builder
+	sb.WriteString("tx")
+	sb.WriteString(c.networkName)
+	sb.WriteString(txID)
+	c.eventHub.GetPublisher().Publish(&driver.TransactionStatusChanged{
+		ThisTopic: sb.String(),
+		TxID:      txID,
+		VC:        vc,
+	})
+}
+
+func (c *committer) addFinalityListener(txid string, ch chan TxEvent) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
@@ -166,7 +217,7 @@ func (c *committer) addListener(txid string, ch chan TxEvent) {
 	c.listeners[txid] = ls
 }
 
-func (c *committer) deleteListener(txid string, ch chan TxEvent) {
+func (c *committer) deleteFinalityListener(txid string, ch chan TxEvent) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
@@ -183,9 +234,15 @@ func (c *committer) deleteListener(txid string, ch chan TxEvent) {
 	}
 }
 
-func (c *committer) notify(event TxEvent) {
+func (c *committer) notifyFinality(event TxEvent) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
+
+	if event.Committed {
+		c.notifyTxStatus(event.Txid, driver.Valid)
+	} else {
+		c.notifyTxStatus(event.Txid, driver.Invalid)
+	}
 
 	if event.Err != nil && !c.quietNotifier {
 		logger.Warningf("An error occurred for tx [%s], event: [%v]", event.Txid, event)
@@ -210,16 +267,16 @@ func (c *committer) notify(event TxEvent) {
 	}
 }
 
-func (c *committer) listenTo(txid string, timeout time.Duration) error {
+func (c *committer) listenToFinality(txID string, timeout time.Duration) error {
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("Listen to finality of [%s]", txid)
+		logger.Debugf("Listen to finality of [%s]", txID)
 	}
 
 	// notice that adding the listener can happen after the event we are looking for has already happened
 	// therefore we need to check more often before the timeout happens
 	ch := make(chan TxEvent, 100)
-	c.addListener(txid, ch)
-	defer c.deleteListener(txid, ch)
+	c.addFinalityListener(txID, ch)
+	defer c.deleteFinalityListener(txID, ch)
 
 	iterations := int(timeout.Milliseconds() / c.pollingTimeout.Milliseconds())
 	if iterations == 0 {
@@ -229,35 +286,46 @@ func (c *committer) listenTo(txid string, timeout time.Duration) error {
 		select {
 		case event := <-ch:
 			if logger.IsEnabledFor(zapcore.DebugLevel) {
-				logger.Debugf("Got an answer to finality of [%s]: [%s]", txid, event.Err)
+				logger.Debugf("Got an answer to finality of [%s]: [%s]", txID, event.Err)
 			}
 			return event.Err
 		case <-time.After(c.pollingTimeout):
 			if logger.IsEnabledFor(zapcore.DebugLevel) {
-				logger.Debugf("Got a timeout for finality of [%s], check the status", txid)
+				logger.Debugf("Got a timeout for finality of [%s], check the status", txID)
 			}
-			vd, err := c.vault.Status(txid)
+			vd, err := c.vault.Status(txID)
 			if err == nil {
 				switch vd {
 				case driver.Valid:
 					if logger.IsEnabledFor(zapcore.DebugLevel) {
-						logger.Debugf("Listen to finality of [%s]. VALID", txid)
+						logger.Debugf("Listen to finality of [%s]. VALID", txID)
 					}
 					return nil
 				case driver.Invalid:
 					if logger.IsEnabledFor(zapcore.DebugLevel) {
-						logger.Debugf("Listen to finality of [%s]. NOT VALID", txid)
+						logger.Debugf("Listen to finality of [%s]. NOT VALID", txID)
 					}
-					return errors.Errorf("transaction [%s] is not valid", txid)
+					return errors.Errorf("transaction [%s] is not valid", txID)
 				}
 			}
 			if logger.IsEnabledFor(zapcore.DebugLevel) {
-				logger.Debugf("Is [%s] final? not available yet, wait [err:%s, vc:%d]", txid, err, vd)
+				logger.Debugf("Is [%s] final? not available yet, wait [err:%s, vc:%d]", txID, err, vd)
 			}
 		}
 	}
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("Is [%s] final? Failed to listen to transaction for timeout", txid)
+		logger.Debugf("Is [%s] final? Failed to listen to transaction for timeout", txID)
 	}
-	return errors.Errorf("failed to listen to transaction [%s] for timeout", txid)
+	return errors.Errorf("failed to listen to transaction [%s] for timeout", txID)
+}
+
+type TxEventsListener struct {
+	listener driver.TxStatusListener
+}
+
+func (l *TxEventsListener) OnReceive(event events.Event) {
+	tsc := event.Message().(*driver.TransactionStatusChanged)
+	if err := l.listener(tsc.TxID, tsc.VC); err != nil {
+		logger.Errorf("failed to notify listener for tx [%s] with err [%s]", tsc.TxID, err)
+	}
 }

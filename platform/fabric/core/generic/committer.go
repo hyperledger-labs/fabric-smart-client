@@ -68,7 +68,11 @@ func (c *channel) DiscardTx(txid string) error {
 func (c *channel) CommitTX(txid string, block uint64, indexInBlock int, envelope *common.Envelope) (err error) {
 	logger.Debugf("Committing transaction [%s,%d,%d]", txid, block, indexInBlock)
 	defer logger.Debugf("Committing transaction [%s,%d,%d] done [%s]", txid, block, indexInBlock, err)
-	defer c.notifyTxStatus(txid, driver.Valid)
+	defer func() {
+		if err == nil {
+			c.notifyTxStatus(txid, driver.Valid)
+		}
+	}()
 
 	vc, deps, err := c.Status(txid)
 	if err != nil {
@@ -260,14 +264,36 @@ func (c *channel) postProcessTx(txid string) error {
 	return nil
 }
 
-// TxStatusListen registers a listener for transaction status changes for the passed id
-func (c *channel) TxStatusListen(txID string, listener driver.TxStatusListener) error {
+// SubscribeTxStatusChanges registers a listener for transaction status changes for the passed id
+func (c *channel) SubscribeTxStatusChanges(txID string, listener driver.TxStatusListener) error {
 	var sb strings.Builder
 	sb.WriteString("tx")
 	sb.WriteString(c.network.Name())
 	sb.WriteString(c.name)
 	sb.WriteString(txID)
-	c.eventHub.GetSubscriber().Subscribe(sb.String(), &TxEventsListener{listener: listener})
+	l := &TxEventsListener{listener: listener}
+	c.eventHub.GetSubscriber().Subscribe(sb.String(), l)
+	c.subscribers.Store(l, l)
+	return nil
+}
+
+// UnsubscribeTxStatusChanges unregisters a listener for transaction status changes for the passed id
+func (c *channel) UnsubscribeTxStatusChanges(txID string, listener driver.TxStatusListener) error {
+	var sb strings.Builder
+	sb.WriteString("tx")
+	sb.WriteString(c.network.Name())
+	sb.WriteString(c.name)
+	sb.WriteString(txID)
+	l, ok := c.subscribers.Load(listener)
+	if !ok {
+		return errors.Errorf("listener not found for txID [%s]", txID)
+	}
+	el, ok := l.(events.Listener)
+	if !ok {
+		return errors.Errorf("listener not found for txID [%s]", txID)
+	}
+	c.subscribers.Delete(listener)
+	c.eventHub.GetSubscriber().Unsubscribe(sb.String(), el)
 	return nil
 }
 
@@ -290,7 +316,7 @@ type TxEventsListener struct {
 
 func (l *TxEventsListener) OnReceive(event events.Event) {
 	tsc := event.Message().(*driver.TransactionStatusChanged)
-	if err := l.listener(tsc.TxID, tsc.VC, false); err != nil {
+	if err := l.listener(tsc.TxID, tsc.VC); err != nil {
 		logger.Errorf("failed to notify listener for tx [%s] with err [%s]", tsc.TxID, err)
 	}
 }
