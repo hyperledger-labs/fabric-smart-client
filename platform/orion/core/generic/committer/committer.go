@@ -199,6 +199,11 @@ func (c *committer) notifyTxStatus(txID string, vc driver.ValidationCode) {
 	var sb strings.Builder
 	sb.WriteString("tx")
 	sb.WriteString(c.networkName)
+	c.eventHub.GetPublisher().Publish(&driver.TransactionStatusChanged{
+		ThisTopic: sb.String(),
+		TxID:      txID,
+		VC:        vc,
+	})
 	sb.WriteString(txID)
 	c.eventHub.GetPublisher().Publish(&driver.TransactionStatusChanged{
 		ThisTopic: sb.String(),

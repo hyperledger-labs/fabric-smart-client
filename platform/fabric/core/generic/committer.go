@@ -305,6 +305,11 @@ func (c *channel) notifyTxStatus(txID string, vc driver.ValidationCode) {
 	sb.WriteString("tx")
 	sb.WriteString(c.network.Name())
 	sb.WriteString(c.name)
+	c.eventHub.GetPublisher().Publish(&driver.TransactionStatusChanged{
+		ThisTopic: sb.String(),
+		TxID:      txID,
+		VC:        vc,
+	})
 	sb.WriteString(txID)
 	c.eventHub.GetPublisher().Publish(&driver.TransactionStatusChanged{
 		ThisTopic: sb.String(),

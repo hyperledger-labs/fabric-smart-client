@@ -115,7 +115,7 @@ func (nsp *NetworkServiceProvider) NetworkService(id string) (*NetworkService, e
 	if ok {
 		return ns, nil
 	}
-	ns = NewNetworkService(nsp.sp, internalOns, id)
+	ns = NewNetworkService(nsp.sp, internalOns, internalOns.Name())
 	nsp.networkServices[id] = ns
 	nsp.networkServices[internalOns.Name()] = ns
 
