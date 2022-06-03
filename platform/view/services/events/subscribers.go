@@ -9,29 +9,35 @@ package events
 import "sync"
 
 type Entry struct {
-	Parent interface{}
-	Child  interface{}
+	Wrapped interface{}
+	Wrapper interface{}
 }
 
+// Subscribers is a thread-safe map of subscribers.
+// It is used to keep track of bindings between wrapped listeners and their wrappers.
 type Subscribers struct {
 	backend map[string][]*Entry
 	mutex   sync.RWMutex
 }
 
+// NewSubscribers returns a new instance of Subscribers.
 func NewSubscribers() *Subscribers {
 	return &Subscribers{
 		backend: map[string][]*Entry{},
 	}
 }
 
-func (s *Subscribers) Store(id string, parent, child interface{}) {
+// Store stores a new binding between a wrapped listener and its wrapper.
+// The binding is indexed by the passed id.
+func (s *Subscribers) Store(id string, wrapped, wrapper interface{}) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	s.backend[id] = append(s.backend[id], &Entry{Parent: parent, Child: child})
+	s.backend[id] = append(s.backend[id], &Entry{Wrapped: wrapped, Wrapper: wrapper})
 }
 
-func (s *Subscribers) Load(id string, parent interface{}) (interface{}, bool) {
+// Load returns the wrapper listener for the given id and wrapped listener.
+func (s *Subscribers) Load(id string, wrapped interface{}) (interface{}, bool) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
@@ -40,14 +46,15 @@ func (s *Subscribers) Load(id string, parent interface{}) (interface{}, bool) {
 		return nil, false
 	}
 	for _, e := range list {
-		if e.Parent == parent {
-			return e.Child, true
+		if e.Wrapped == wrapped {
+			return e.Wrapper, true
 		}
 	}
 	return nil, false
 }
 
-func (s *Subscribers) Delete(id string, parent interface{}) {
+// Delete removes the binding for the given id and wrapped listener
+func (s *Subscribers) Delete(id string, wrapped interface{}) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -56,7 +63,7 @@ func (s *Subscribers) Delete(id string, parent interface{}) {
 		return
 	}
 	for i, e := range list {
-		if e.Parent == parent {
+		if e.Wrapped == wrapped {
 			s.backend[id] = append(list[:i], list[i+1:]...)
 			return
 		}

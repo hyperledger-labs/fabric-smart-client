@@ -163,21 +163,23 @@ func (c *committer) IsFinal(txid string) error {
 	return c.listenToFinality(txid, c.waitForEventTimeout)
 }
 
-// SubscribeTxStatusChanges registers a listener for transaction status changes for the passed id
-func (c *committer) SubscribeTxStatusChanges(txID string, listener driver.TxStatusChangeListener) error {
+// SubscribeTxStatusChanges registers a listener for transaction status changes for the passed transaction id.
+// If the transaction id is empty, the listener will be called for all transactions.
+func (c *committer) SubscribeTxStatusChanges(txID string, wrapped driver.TxStatusChangeListener) error {
 	logger.Debugf("Subscribing to tx status changes for [%s]", txID)
 	var sb strings.Builder
 	sb.WriteString("tx")
 	sb.WriteString(c.networkName)
 	sb.WriteString(txID)
-	l := &TxEventsListener{listener: listener}
-	c.eventHub.GetSubscriber().Subscribe(sb.String(), l)
-	c.subscribers.Store(txID, listener, l)
+	wrapper := &TxEventsListener{listener: wrapped}
+	c.eventHub.GetSubscriber().Subscribe(sb.String(), wrapper)
+	c.subscribers.Store(txID, wrapped, wrapper)
 	logger.Debugf("Subscribed to tx status changes for [%s] done", txID)
 	return nil
 }
 
-// UnsubscribeTxStatusChanges unregisters a listener for transaction status changes for the passed id
+// UnsubscribeTxStatusChanges unregisters a listener for transaction status changes for the passed transaction id.
+// If the transaction id is empty, the listener will be called for all transactions.
 func (c *committer) UnsubscribeTxStatusChanges(txID string, listener driver.TxStatusChangeListener) error {
 	var sb strings.Builder
 	sb.WriteString("tx")

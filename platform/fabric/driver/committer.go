@@ -20,16 +20,19 @@ const (
 	HasDependencies                // Transaction is unknown but has known dependencies
 )
 
+// TransactionStatusChanged is sent when the status of a transaction changes
 type TransactionStatusChanged struct {
 	ThisTopic string
 	TxID      string
 	VC        ValidationCode
 }
 
+// Topic returns the topic for the transaction status change
 func (t *TransactionStatusChanged) Topic() string {
 	return t.ThisTopic
 }
 
+// Message returns the message for the transaction status change
 func (t *TransactionStatusChanged) Message() interface{} {
 	return t
 }
@@ -67,9 +70,11 @@ type Committer interface {
 	// CommitConfig commits the passed configuration envelope.
 	CommitConfig(blockNumber uint64, raw []byte, envelope *common.Envelope) error
 
-	// SubscribeTxStatusChanges registers a listener for transaction status changes for the passed id
+	// SubscribeTxStatusChanges registers a listener for transaction status changes for the passed transaction id.
+	// If the transaction id is empty, the listener will be called for all transactions.
 	SubscribeTxStatusChanges(txID string, listener TxStatusChangeListener) error
 
-	// UnsubscribeTxStatusChanges unregisters a listener for transaction status changes for the passed id
+	// UnsubscribeTxStatusChanges unregisters a listener for transaction status changes for the passed transaction id.
+	// If the transaction id is empty, the listener will be called for all transactions.
 	UnsubscribeTxStatusChanges(txID string, listener TxStatusChangeListener) error
 }

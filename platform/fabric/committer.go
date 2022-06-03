@@ -38,12 +38,14 @@ func (c *Committer) Status(txid string) (ValidationCode, []string, error) {
 	return ValidationCode(vc), deps, err
 }
 
-// SubscribeTxStatusChanges registers a listener for transaction status changes for the passed id
+// SubscribeTxStatusChanges registers a listener for transaction status changes for the passed transaction id.
+// If the transaction id is empty, the listener will be called for all transactions.
 func (c *Committer) SubscribeTxStatusChanges(txID string, listener TxStatusChangeListener) error {
 	return c.ch.SubscribeTxStatusChanges(txID, listener)
 }
 
-// UnsubscribeTxStatusChanges unregisters a listener for transaction status changes for the passed id
+// UnsubscribeTxStatusChanges unregisters a listener for transaction status changes for the passed transaction id.
+// If the transaction id is empty, the listener will be called for all transactions.
 func (c *Committer) UnsubscribeTxStatusChanges(txID string, listener TxStatusChangeListener) error {
 	return c.ch.UnsubscribeTxStatusChanges(txID, listener)
 }

@@ -4,9 +4,10 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package events
+package events_test
 
 import (
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -20,7 +21,7 @@ type B struct {
 }
 
 func TestSubscribers(t *testing.T) {
-	s := NewSubscribers()
+	s := events.NewSubscribers()
 	a := &A{Name: "a"}
 	a2 := &A{Name: "a"}
 	b := &B{Age: 1}

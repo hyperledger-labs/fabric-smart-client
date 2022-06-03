@@ -264,7 +264,8 @@ func (c *channel) postProcessTx(txid string) error {
 	return nil
 }
 
-// SubscribeTxStatusChanges registers a listener for transaction status changes for the passed id
+// SubscribeTxStatusChanges registers a listener for transaction status changes for the passed transaction id.
+// If the transaction id is empty, the listener will be called for all transactions.
 func (c *channel) SubscribeTxStatusChanges(txID string, listener driver.TxStatusChangeListener) error {
 	var sb strings.Builder
 	sb.WriteString("tx")
@@ -280,7 +281,8 @@ func (c *channel) SubscribeTxStatusChanges(txID string, listener driver.TxStatus
 	return nil
 }
 
-// UnsubscribeTxStatusChanges unregisters a listener for transaction status changes for the passed id
+// UnsubscribeTxStatusChanges unregisters a listener for transaction status changes for the passed transaction id.
+// If the transaction id is empty, the listener will be called for all transactions.
 func (c *channel) UnsubscribeTxStatusChanges(txID string, listener driver.TxStatusChangeListener) error {
 	var sb strings.Builder
 	sb.WriteString("tx")
