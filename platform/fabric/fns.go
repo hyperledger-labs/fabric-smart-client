@@ -194,7 +194,7 @@ func GetFabricNetworkService(sp view2.ServiceProvider, id string) *NetworkServic
 	}
 	fns, err := provider.FabricNetworkService(id)
 	if err != nil {
-		logger.Errorf("Failed to get Fabric Network Service for id [%s]: [%s]", id, err)
+		logger.Warnf("Failed to get Fabric Network Service for id [%s]: [%s]", id, err)
 		return nil
 	}
 	return fns

@@ -274,9 +274,9 @@ func (c *channel) SubscribeTxStatusChanges(txID string, listener driver.TxStatus
 	sb.WriteString(txID)
 	l := &TxEventsListener{listener: listener}
 	logger.Debugf("[%s] Subscribing to transaction status changes", txID)
-	c.eventHub.GetSubscriber().Subscribe(sb.String(), l)
+	c.eventsSubscriber.Subscribe(sb.String(), l)
 	logger.Debugf("[%s] store mapping", txID)
-	c.subscribers.Store(txID, listener, l)
+	c.subscribers.Set(txID, listener, l)
 	logger.Debugf("[%s] Subscribing to transaction status changes done", txID)
 	return nil
 }
@@ -289,7 +289,7 @@ func (c *channel) UnsubscribeTxStatusChanges(txID string, listener driver.TxStat
 	sb.WriteString(c.network.Name())
 	sb.WriteString(c.name)
 	sb.WriteString(txID)
-	l, ok := c.subscribers.Load(txID, listener)
+	l, ok := c.subscribers.Get(txID, listener)
 	if !ok {
 		return errors.Errorf("listener not found for txID [%s]", txID)
 	}
@@ -298,23 +298,23 @@ func (c *channel) UnsubscribeTxStatusChanges(txID string, listener driver.TxStat
 		return errors.Errorf("listener not found for txID [%s]", txID)
 	}
 	c.subscribers.Delete(txID, listener)
-	c.eventHub.GetSubscriber().Unsubscribe(sb.String(), el)
+	c.eventsSubscriber.Unsubscribe(sb.String(), el)
 	return nil
 }
 
 func (c *channel) notifyTxStatus(txID string, vc driver.ValidationCode) {
+	// We publish two events here:
+	// 1. The first will be caught by the listeners that are listening for any transaction id.
+	// 2. The second will be caught by the listeners that are listening for the specific transaction id.
 	var sb strings.Builder
-	sb.WriteString("tx")
-	sb.WriteString(c.network.Name())
-	sb.WriteString(c.name)
-	c.eventHub.GetPublisher().Publish(&driver.TransactionStatusChanged{
-		ThisTopic: sb.String(),
+	c.eventsPublisher.Publish(&driver.TransactionStatusChanged{
+		ThisTopic: CreateCompositeKeyOrPanic(&sb, "tx", c.network.Name(), c.name, txID),
 		TxID:      txID,
 		VC:        vc,
 	})
 	sb.WriteString(txID)
-	c.eventHub.GetPublisher().Publish(&driver.TransactionStatusChanged{
-		ThisTopic: sb.String(),
+	c.eventsPublisher.Publish(&driver.TransactionStatusChanged{
+		ThisTopic: AppendAttributesOrPanic(&sb, txID),
 		TxID:      txID,
 		VC:        vc,
 	})

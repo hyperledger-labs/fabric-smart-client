@@ -92,10 +92,16 @@ func NewNetwork(
 	}
 	n.processorManager = rwset.NewProcessorManager(n.sp, n, nil)
 
-	eventHub, err := events.GetService(sp)
+	// events
+	eventsPublisher, err := events.GetPublisher(sp)
 	if err != nil {
-		return nil, errors.WithMessage(err, "failed to get event hub service")
+		return nil, errors.Wrap(err, "failed to get event publisher")
 	}
+	eventsSubscriber, err := events.GetSubscriber(sp)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get event subscriber")
+	}
+
 	committer, err := committer.New(
 		name,
 		n.processorManager,
@@ -103,7 +109,8 @@ func NewNetwork(
 		nil,
 		waitForEventTimeout,
 		false,
-		eventHub,
+		eventsPublisher,
+		eventsSubscriber,
 	)
 	if err != nil {
 		return nil, errors.WithMessagef(err, "failed to create committer")

@@ -48,11 +48,21 @@ type committer struct {
 	mutex          sync.Mutex
 	pollingTimeout time.Duration
 
-	eventHub    events.EventService
-	subscribers *events.Subscribers
+	eventsSubscriber events.Subscriber
+	eventsPublisher  events.Publisher
+	subscribers      *events.Subscribers
 }
 
-func New(networkName string, pm ProcessorManager, vault Vault, finality Finality, waitForEventTimeout time.Duration, quiet bool, eventHub events.EventService) (*committer, error) {
+func New(
+	networkName string,
+	pm ProcessorManager,
+	vault Vault,
+	finality Finality,
+	waitForEventTimeout time.Duration,
+	quiet bool,
+	eventsPublisher events.Publisher,
+	eventsSubscriber events.Subscriber,
+) (*committer, error) {
 	d := &committer{
 		networkName:         networkName,
 		vault:               vault,
@@ -63,7 +73,8 @@ func New(networkName string, pm ProcessorManager, vault Vault, finality Finality
 		finality:            finality,
 		pm:                  pm,
 		pollingTimeout:      100 * time.Millisecond,
-		eventHub:            eventHub,
+		eventsSubscriber:    eventsSubscriber,
+		eventsPublisher:     eventsPublisher,
 		subscribers:         events.NewSubscribers(),
 	}
 	return d, nil
@@ -172,8 +183,8 @@ func (c *committer) SubscribeTxStatusChanges(txID string, wrapped driver.TxStatu
 	sb.WriteString(c.networkName)
 	sb.WriteString(txID)
 	wrapper := &TxEventsListener{listener: wrapped}
-	c.eventHub.GetSubscriber().Subscribe(sb.String(), wrapper)
-	c.subscribers.Store(txID, wrapped, wrapper)
+	c.eventsSubscriber.Subscribe(sb.String(), wrapper)
+	c.subscribers.Set(txID, wrapped, wrapper)
 	logger.Debugf("Subscribed to tx status changes for [%s] done", txID)
 	return nil
 }
@@ -185,7 +196,7 @@ func (c *committer) UnsubscribeTxStatusChanges(txID string, listener driver.TxSt
 	sb.WriteString("tx")
 	sb.WriteString(c.networkName)
 	sb.WriteString(txID)
-	l, ok := c.subscribers.Load(txID, listener)
+	l, ok := c.subscribers.Get(txID, listener)
 	if !ok {
 		return errors.Errorf("listener not found for txID [%s]", txID)
 	}
@@ -193,22 +204,23 @@ func (c *committer) UnsubscribeTxStatusChanges(txID string, listener driver.TxSt
 	if !ok {
 		return errors.Errorf("listener not found for txID [%s]", txID)
 	}
-	c.eventHub.GetSubscriber().Unsubscribe(sb.String(), el)
+	c.eventsSubscriber.Unsubscribe(sb.String(), el)
 	return nil
 }
 
 func (c *committer) notifyTxStatus(txID string, vc driver.ValidationCode) {
+	// We publish two events here:
+	// 1. The first will be caught by the listeners that are listening for any transaction id.
+	// 2. The second will be caught by the listeners that are listening for the specific transaction id.
 	var sb strings.Builder
-	sb.WriteString("tx")
-	sb.WriteString(c.networkName)
-	c.eventHub.GetPublisher().Publish(&driver.TransactionStatusChanged{
-		ThisTopic: sb.String(),
+	c.eventsPublisher.Publish(&driver.TransactionStatusChanged{
+		ThisTopic: CreateCompositeKeyOrPanic(&sb, "tx", c.networkName, txID),
 		TxID:      txID,
 		VC:        vc,
 	})
 	sb.WriteString(txID)
-	c.eventHub.GetPublisher().Publish(&driver.TransactionStatusChanged{
-		ThisTopic: sb.String(),
+	c.eventsPublisher.Publish(&driver.TransactionStatusChanged{
+		ThisTopic: AppendAttributesOrPanic(&sb, txID),
 		TxID:      txID,
 		VC:        vc,
 	})

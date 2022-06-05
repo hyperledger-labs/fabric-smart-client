@@ -25,16 +25,16 @@ func TestSubscribers(t *testing.T) {
 	a := &A{Name: "a"}
 	a2 := &A{Name: "a"}
 	b := &B{Age: 1}
-	s.Store("0", a, b)
-	s.Store("0", a2, b)
+	s.Set("0", a, b)
+	s.Set("0", a2, b)
 	s.Delete("0", a2)
-	s.Store("1", b, a)
+	s.Set("1", b, a)
 
-	b1, ok := s.Load("0", a)
+	b1, ok := s.Get("0", a)
 	assert.True(t, ok)
 	assert.Equal(t, b, b1)
 
-	b1, ok = s.Load("0", b)
+	b1, ok = s.Get("0", b)
 	assert.False(t, ok)
 	assert.Nil(t, b1)
 }

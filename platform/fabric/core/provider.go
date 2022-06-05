@@ -25,8 +25,8 @@ import (
 )
 
 var (
-	index  = reflect.TypeOf((*driver.FabricNetworkServiceProvider)(nil))
-	logger = flogging.MustGetLogger("fabric-sdk.core")
+	fabricNetworkServiceType = reflect.TypeOf((*driver.FabricNetworkServiceProvider)(nil))
+	logger                   = flogging.MustGetLogger("fabric-sdk.core")
 )
 
 type fnsProvider struct {
@@ -184,7 +184,7 @@ func (p *fnsProvider) newFNS(network string) (driver.FabricNetworkService, error
 }
 
 func GetFabricNetworkServiceProvider(sp view.ServiceProvider) driver.FabricNetworkServiceProvider {
-	s, err := sp.GetService(index)
+	s, err := sp.GetService(fabricNetworkServiceType)
 	if err != nil {
 		logger.Warnf("failed getting fabric network service provider: %s", err)
 		return nil

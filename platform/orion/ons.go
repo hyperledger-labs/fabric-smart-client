@@ -17,21 +17,20 @@ import (
 )
 
 var (
-	index  = reflect.TypeOf((*NetworkServiceProvider)(nil))
-	logger = flogging.MustGetLogger("orion-sdk")
+	orionNetworkServiceType = reflect.TypeOf((*NetworkServiceProvider)(nil))
+	logger                  = flogging.MustGetLogger("orion-sdk")
 )
 
 // NetworkService models a Orion Network
 type NetworkService struct {
-	SP   view2.ServiceProvider
-	ons  driver.OrionNetworkService
-	name string
-
-	commiter *Committer
+	SP        view2.ServiceProvider
+	ons       driver.OrionNetworkService
+	name      string
+	committer *Committer
 }
 
 func NewNetworkService(SP view2.ServiceProvider, ons driver.OrionNetworkService, name string) *NetworkService {
-	return &NetworkService{SP: SP, ons: ons, name: name, commiter: NewCommitter(ons.Committer())}
+	return &NetworkService{SP: SP, ons: ons, name: name, committer: NewCommitter(ons.Committer())}
 }
 
 // Name of this network
@@ -66,7 +65,7 @@ func (n *NetworkService) Vault() *Vault {
 
 // Committer returns the committer service
 func (n *NetworkService) Committer() *Committer {
-	return n.commiter
+	return n.committer
 }
 
 // ProcessorManager returns the processor manager of this network
@@ -123,9 +122,9 @@ func (nsp *NetworkServiceProvider) NetworkService(id string) (*NetworkService, e
 }
 
 func GetNetworkServiceProvider(sp view2.ServiceProvider) *NetworkServiceProvider {
-	s, err := sp.GetService(index)
+	s, err := sp.GetService(orionNetworkServiceType)
 	if err != nil {
-		logger.Warnf("failed getting fabric network service provider: %s", err)
+		logger.Warnf("failed getting orion network service provider: %s", err)
 		return nil
 	}
 	return s.(*NetworkServiceProvider)
@@ -147,7 +146,7 @@ func GetOrionNetworkService(sp view2.ServiceProvider, id string) *NetworkService
 	}
 	ons, err := provider.NetworkService(id)
 	if err != nil {
-		logger.Errorf("Failed to get Fabric Network Service for id [%s]: [%s]", id, err)
+		logger.Warnf("Failed to get orion Network Service for id [%s]: [%s]", id, err)
 		return nil
 	}
 	return ons

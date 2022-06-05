@@ -61,7 +61,8 @@ type channel struct {
 	envelopeService    driver.EnvelopeService
 	transactionService driver.EndorserTransactionService
 	metadataService    driver.MetadataService
-	eventHub           events.EventService
+	eventsSubscriber   events.Subscriber
+	eventsPublisher    events.Publisher
 	driver.TXIDStore
 
 	// applyLock is used to serialize calls to CommitConfig and bundle update processing.
@@ -135,10 +136,14 @@ func newChannel(network *network, name string, quiet bool) (*channel, error) {
 	if err != nil {
 		return nil, err
 	}
-	// EventHub
-	eventHub, err := events.GetService(sp)
+	// Events
+	eventsPublisher, err := events.GetPublisher(sp)
 	if err != nil {
-		return nil, errors.WithMessage(err, "failed to get event hub service")
+		return nil, errors.Wrap(err, "failed to get event publisher")
+	}
+	eventsSubscriber, err := events.GetSubscriber(sp)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get event subscriber")
 	}
 
 	c := &channel{
@@ -154,7 +159,8 @@ func newChannel(network *network, name string, quiet bool) (*channel, error) {
 		transactionService: transaction.NewEndorseTransactionService(sp, network.Name(), name),
 		metadataService:    transaction.NewMetadataService(sp, network.Name(), name),
 		chaincodes:         map[string]driver.Chaincode{},
-		eventHub:           eventHub,
+		eventsPublisher:    eventsPublisher,
+		eventsSubscriber:   eventsSubscriber,
 		subscribers:        events.NewSubscribers(),
 	}
 	if err := c.init(); err != nil {
