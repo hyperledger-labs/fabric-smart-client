@@ -104,11 +104,11 @@ func (nsp *NetworkServiceProvider) NetworkService(id string) (*NetworkService, e
 
 	provider := core.GetOrionNetworkServiceProvider(nsp.sp)
 	if provider == nil {
-		return nil, errors.New("no Fabric Network Service Provider found")
+		return nil, errors.New("no orion Network Service Provider found")
 	}
 	internalOns, err := provider.OrionNetworkService(id)
 	if err != nil {
-		return nil, errors.WithMessagef(err, "Failed to get Fabric Network Service for id [%s]", id)
+		return nil, errors.WithMessagef(err, "Failed to get orion Network Service for id [%s]", id)
 	}
 	ns, ok = nsp.networkServices[internalOns.Name()]
 	if ok {

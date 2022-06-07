@@ -20,8 +20,8 @@ import (
 )
 
 var (
-	index  = reflect.TypeOf((*NetworkServiceProvider)(nil))
-	logger = flogging.MustGetLogger("fabric-sdk")
+	networkServiceProviderType = reflect.TypeOf((*NetworkServiceProvider)(nil))
+	logger                     = flogging.MustGetLogger("fabric-sdk")
 )
 
 // NetworkService models a Fabric Network
@@ -170,7 +170,7 @@ func (nsp *NetworkServiceProvider) FabricNetworkService(id string) (*NetworkServ
 }
 
 func GetNetworkServiceProvider(sp view2.ServiceProvider) *NetworkServiceProvider {
-	s, err := sp.GetService(index)
+	s, err := sp.GetService(networkServiceProviderType)
 	if err != nil {
 		logger.Warnf("failed getting fabric network service provider: %s", err)
 		return nil

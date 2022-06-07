@@ -178,12 +178,9 @@ func (c *committer) IsFinal(txid string) error {
 // If the transaction id is empty, the listener will be called for all transactions.
 func (c *committer) SubscribeTxStatusChanges(txID string, wrapped driver.TxStatusChangeListener) error {
 	logger.Debugf("Subscribing to tx status changes for [%s]", txID)
-	var sb strings.Builder
-	sb.WriteString("tx")
-	sb.WriteString(c.networkName)
-	sb.WriteString(txID)
+	topic := CreateCompositeKeyOrPanic(&strings.Builder{}, "tx", c.networkName, txID)
 	wrapper := &TxEventsListener{listener: wrapped}
-	c.eventsSubscriber.Subscribe(sb.String(), wrapper)
+	c.eventsSubscriber.Subscribe(topic, wrapper)
 	c.subscribers.Set(txID, wrapped, wrapper)
 	logger.Debugf("Subscribed to tx status changes for [%s] done", txID)
 	return nil
@@ -192,10 +189,7 @@ func (c *committer) SubscribeTxStatusChanges(txID string, wrapped driver.TxStatu
 // UnsubscribeTxStatusChanges unregisters a listener for transaction status changes for the passed transaction id.
 // If the transaction id is empty, the listener will be called for all transactions.
 func (c *committer) UnsubscribeTxStatusChanges(txID string, listener driver.TxStatusChangeListener) error {
-	var sb strings.Builder
-	sb.WriteString("tx")
-	sb.WriteString(c.networkName)
-	sb.WriteString(txID)
+	topic := CreateCompositeKeyOrPanic(&strings.Builder{}, "tx", c.networkName, txID)
 	l, ok := c.subscribers.Get(txID, listener)
 	if !ok {
 		return errors.Errorf("listener not found for txID [%s]", txID)
@@ -204,7 +198,7 @@ func (c *committer) UnsubscribeTxStatusChanges(txID string, listener driver.TxSt
 	if !ok {
 		return errors.Errorf("listener not found for txID [%s]", txID)
 	}
-	c.eventsSubscriber.Unsubscribe(sb.String(), el)
+	c.eventsSubscriber.Unsubscribe(topic, el)
 	return nil
 }
 

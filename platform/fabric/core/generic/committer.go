@@ -267,14 +267,10 @@ func (c *channel) postProcessTx(txid string) error {
 // SubscribeTxStatusChanges registers a listener for transaction status changes for the passed transaction id.
 // If the transaction id is empty, the listener will be called for all transactions.
 func (c *channel) SubscribeTxStatusChanges(txID string, listener driver.TxStatusChangeListener) error {
-	var sb strings.Builder
-	sb.WriteString("tx")
-	sb.WriteString(c.network.Name())
-	sb.WriteString(c.name)
-	sb.WriteString(txID)
+	topic := CreateCompositeKeyOrPanic(&strings.Builder{}, "tx", c.network.Name(), c.name, txID)
 	l := &TxEventsListener{listener: listener}
 	logger.Debugf("[%s] Subscribing to transaction status changes", txID)
-	c.eventsSubscriber.Subscribe(sb.String(), l)
+	c.eventsSubscriber.Subscribe(topic, l)
 	logger.Debugf("[%s] store mapping", txID)
 	c.subscribers.Set(txID, listener, l)
 	logger.Debugf("[%s] Subscribing to transaction status changes done", txID)
@@ -284,11 +280,7 @@ func (c *channel) SubscribeTxStatusChanges(txID string, listener driver.TxStatus
 // UnsubscribeTxStatusChanges unregisters a listener for transaction status changes for the passed transaction id.
 // If the transaction id is empty, the listener will be called for all transactions.
 func (c *channel) UnsubscribeTxStatusChanges(txID string, listener driver.TxStatusChangeListener) error {
-	var sb strings.Builder
-	sb.WriteString("tx")
-	sb.WriteString(c.network.Name())
-	sb.WriteString(c.name)
-	sb.WriteString(txID)
+	topic := CreateCompositeKeyOrPanic(&strings.Builder{}, "tx", c.network.Name(), c.name, txID)
 	l, ok := c.subscribers.Get(txID, listener)
 	if !ok {
 		return errors.Errorf("listener not found for txID [%s]", txID)
@@ -298,7 +290,7 @@ func (c *channel) UnsubscribeTxStatusChanges(txID string, listener driver.TxStat
 		return errors.Errorf("listener not found for txID [%s]", txID)
 	}
 	c.subscribers.Delete(txID, listener)
-	c.eventsSubscriber.Unsubscribe(sb.String(), el)
+	c.eventsSubscriber.Unsubscribe(topic, el)
 	return nil
 }
 
