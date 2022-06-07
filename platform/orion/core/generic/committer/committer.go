@@ -8,6 +8,7 @@ package committer
 
 import (
 	"fmt"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/compose"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
@@ -33,6 +34,17 @@ type Vault interface {
 
 type ProcessorManager interface {
 	ProcessByID(txid string) error
+}
+
+// TxEvent contains information for token transaction commit
+type TxEvent struct {
+	Txid           string
+	DependantTxIDs []string
+	Committed      bool
+	Block          uint64
+	IndexInBlock   int
+	CommitPeer     string
+	Err            error
 }
 
 type committer struct {
@@ -178,7 +190,7 @@ func (c *committer) IsFinal(txid string) error {
 // If the transaction id is empty, the listener will be called for all transactions.
 func (c *committer) SubscribeTxStatusChanges(txID string, wrapped driver.TxStatusChangeListener) error {
 	logger.Debugf("Subscribing to tx status changes for [%s]", txID)
-	topic := CreateCompositeKeyOrPanic(&strings.Builder{}, "tx", c.networkName, txID)
+	topic := compose.CreateCompositeKeyOrPanic(&strings.Builder{}, "tx", c.networkName, txID)
 	wrapper := &TxEventsListener{listener: wrapped}
 	c.eventsSubscriber.Subscribe(topic, wrapper)
 	c.subscribers.Set(txID, wrapped, wrapper)
@@ -189,7 +201,7 @@ func (c *committer) SubscribeTxStatusChanges(txID string, wrapped driver.TxStatu
 // UnsubscribeTxStatusChanges unregisters a listener for transaction status changes for the passed transaction id.
 // If the transaction id is empty, the listener will be called for all transactions.
 func (c *committer) UnsubscribeTxStatusChanges(txID string, listener driver.TxStatusChangeListener) error {
-	topic := CreateCompositeKeyOrPanic(&strings.Builder{}, "tx", c.networkName, txID)
+	topic := compose.CreateCompositeKeyOrPanic(&strings.Builder{}, "tx", c.networkName, txID)
 	l, ok := c.subscribers.Get(txID, listener)
 	if !ok {
 		return errors.Errorf("listener not found for txID [%s]", txID)
@@ -208,13 +220,13 @@ func (c *committer) notifyTxStatus(txID string, vc driver.ValidationCode) {
 	// 2. The second will be caught by the listeners that are listening for the specific transaction id.
 	var sb strings.Builder
 	c.eventsPublisher.Publish(&driver.TransactionStatusChanged{
-		ThisTopic: CreateCompositeKeyOrPanic(&sb, "tx", c.networkName, txID),
+		ThisTopic: compose.CreateCompositeKeyOrPanic(&sb, "tx", c.networkName, txID),
 		TxID:      txID,
 		VC:        vc,
 	})
 	sb.WriteString(txID)
 	c.eventsPublisher.Publish(&driver.TransactionStatusChanged{
-		ThisTopic: AppendAttributesOrPanic(&sb, txID),
+		ThisTopic: compose.AppendAttributesOrPanic(&sb, txID),
 		TxID:      txID,
 		VC:        vc,
 	})

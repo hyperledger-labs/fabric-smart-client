@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package generic
 
 import (
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/compose"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger/fabric-protos-go/common"
 	pb "github.com/hyperledger/fabric-protos-go/peer"
@@ -267,7 +268,7 @@ func (c *channel) postProcessTx(txid string) error {
 // SubscribeTxStatusChanges registers a listener for transaction status changes for the passed transaction id.
 // If the transaction id is empty, the listener will be called for all transactions.
 func (c *channel) SubscribeTxStatusChanges(txID string, listener driver.TxStatusChangeListener) error {
-	topic := CreateCompositeKeyOrPanic(&strings.Builder{}, "tx", c.network.Name(), c.name, txID)
+	topic := compose.CreateCompositeKeyOrPanic(&strings.Builder{}, "tx", c.network.Name(), c.name, txID)
 	l := &TxEventsListener{listener: listener}
 	logger.Debugf("[%s] Subscribing to transaction status changes", txID)
 	c.eventsSubscriber.Subscribe(topic, l)
@@ -280,7 +281,7 @@ func (c *channel) SubscribeTxStatusChanges(txID string, listener driver.TxStatus
 // UnsubscribeTxStatusChanges unregisters a listener for transaction status changes for the passed transaction id.
 // If the transaction id is empty, the listener will be called for all transactions.
 func (c *channel) UnsubscribeTxStatusChanges(txID string, listener driver.TxStatusChangeListener) error {
-	topic := CreateCompositeKeyOrPanic(&strings.Builder{}, "tx", c.network.Name(), c.name, txID)
+	topic := compose.CreateCompositeKeyOrPanic(&strings.Builder{}, "tx", c.network.Name(), c.name, txID)
 	l, ok := c.subscribers.Get(txID, listener)
 	if !ok {
 		return errors.Errorf("listener not found for txID [%s]", txID)
@@ -300,13 +301,13 @@ func (c *channel) notifyTxStatus(txID string, vc driver.ValidationCode) {
 	// 2. The second will be caught by the listeners that are listening for the specific transaction id.
 	var sb strings.Builder
 	c.eventsPublisher.Publish(&driver.TransactionStatusChanged{
-		ThisTopic: CreateCompositeKeyOrPanic(&sb, "tx", c.network.Name(), c.name, txID),
+		ThisTopic: compose.CreateCompositeKeyOrPanic(&sb, "tx", c.network.Name(), c.name, txID),
 		TxID:      txID,
 		VC:        vc,
 	})
 	sb.WriteString(txID)
 	c.eventsPublisher.Publish(&driver.TransactionStatusChanged{
-		ThisTopic: AppendAttributesOrPanic(&sb, txID),
+		ThisTopic: compose.AppendAttributesOrPanic(&sb, txID),
 		TxID:      txID,
 		VC:        vc,
 	})

@@ -4,7 +4,7 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package committer
+package compose
 
 import (
 	"github.com/pkg/errors"
@@ -17,17 +17,6 @@ const (
 	maxUnicodeRuneValue   rune = utf8.MaxRune // U+10FFFF - maximum (and unallocated) code point
 	compositeKeyNamespace      = "\x00"
 )
-
-// TxEvent contains information for token transaction commit
-type TxEvent struct {
-	Txid           string
-	DependantTxIDs []string
-	Committed      bool
-	Block          uint64
-	IndexInBlock   int
-	CommitPeer     string
-	Err            error
-}
 
 // CreateCompositeKey creates a composite key in the given string builder.
 func CreateCompositeKey(sb *strings.Builder, objectType string, attributes ...string) (string, error) {
