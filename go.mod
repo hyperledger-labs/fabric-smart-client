@@ -40,7 +40,7 @@ require (
 	github.com/hyperledger/fabric-lib-go v1.0.0
 	github.com/hyperledger/fabric-private-chaincode v0.0.0-20210907122433-d56466264e4d
 	github.com/hyperledger/fabric-protos-go v0.0.0-20210911123859-041d13f0980c
-	github.com/libp2p/go-libp2p v0.20.0
+	github.com/libp2p/go-libp2p v0.20.1
 	github.com/libp2p/go-libp2p-core v0.16.1
 	github.com/libp2p/go-libp2p-kad-dht v0.15.0
 	github.com/miracl/conflate v1.2.1
