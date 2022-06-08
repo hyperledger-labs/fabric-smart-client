@@ -17,6 +17,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/orion-server/pkg/types"
 	"github.com/pkg/errors"
@@ -45,6 +46,7 @@ type network struct {
 	processorManager   driver.ProcessorManager
 	transactionService driver.TransactionService
 	finality           driver.Finality
+	committer          driver.Committer
 }
 
 func NewNetwork(
@@ -90,16 +92,30 @@ func NewNetwork(
 	}
 	n.processorManager = rwset.NewProcessorManager(n.sp, n, nil)
 
+	// events
+	eventsPublisher, err := events.GetPublisher(sp)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get event publisher")
+	}
+	eventsSubscriber, err := events.GetSubscriber(sp)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get event subscriber")
+	}
+
 	committer, err := committer.New(
+		name,
 		n.processorManager,
 		n.vault,
 		nil,
 		waitForEventTimeout,
 		false,
+		eventsPublisher,
+		eventsSubscriber,
 	)
 	if err != nil {
 		return nil, errors.WithMessagef(err, "failed to create committer")
 	}
+	n.committer = committer
 
 	finality, err := finality.NewService(committer)
 	if err != nil {
@@ -162,6 +178,10 @@ func (f *network) Vault() driver.Vault {
 
 func (f *network) ProcessorManager() driver.ProcessorManager {
 	return f.processorManager
+}
+
+func (f *network) Committer() driver.Committer {
+	return f.committer
 }
 
 func (f *network) Finality() driver.Finality {

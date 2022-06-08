@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package generic
 
 import (
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	discovery "github.com/hyperledger/fabric/discovery/client"
 	"io/ioutil"
@@ -60,6 +61,8 @@ type channel struct {
 	envelopeService    driver.EnvelopeService
 	transactionService driver.EndorserTransactionService
 	metadataService    driver.MetadataService
+	eventsSubscriber   events.Subscriber
+	eventsPublisher    events.Publisher
 	driver.TXIDStore
 
 	// applyLock is used to serialize calls to CommitConfig and bundle update processing.
@@ -73,6 +76,9 @@ type channel struct {
 	chaincodes     map[string]driver.Chaincode
 
 	connCache common2.CachingEndorserPool
+
+	// subscribers
+	subscribers *events.Subscribers
 }
 
 func newChannel(network *network, name string, quiet bool) (*channel, error) {
@@ -130,6 +136,15 @@ func newChannel(network *network, name string, quiet bool) (*channel, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Events
+	eventsPublisher, err := events.GetPublisher(sp)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get event publisher")
+	}
+	eventsSubscriber, err := events.GetSubscriber(sp)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get event subscriber")
+	}
 
 	c := &channel{
 		name:               name,
@@ -144,6 +159,9 @@ func newChannel(network *network, name string, quiet bool) (*channel, error) {
 		transactionService: transaction.NewEndorseTransactionService(sp, network.Name(), name),
 		metadataService:    transaction.NewMetadataService(sp, network.Name(), name),
 		chaincodes:         map[string]driver.Chaincode{},
+		eventsPublisher:    eventsPublisher,
+		eventsSubscriber:   eventsSubscriber,
+		subscribers:        events.NewSubscribers(),
 	}
 	if err := c.init(); err != nil {
 		return nil, errors.WithMessagef(err, "failed initializing channel [%s]", name)

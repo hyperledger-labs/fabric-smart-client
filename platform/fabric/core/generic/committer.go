@@ -7,9 +7,12 @@ SPDX-License-Identifier: Apache-2.0
 package generic
 
 import (
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/compose"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger/fabric-protos-go/common"
 	pb "github.com/hyperledger/fabric-protos-go/peer"
 	"github.com/pkg/errors"
+	"strings"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
@@ -47,6 +50,7 @@ func (c *channel) GetProcessNamespace() []string {
 func (c *channel) DiscardTx(txid string) error {
 	logger.Debugf("Discarding transaction [%s]", txid)
 
+	defer c.notifyTxStatus(txid, driver.Invalid)
 	vc, deps, err := c.Status(txid)
 	if err != nil {
 		return errors.WithMessagef(err, "failed getting tx's status in state db [%s]", txid)
@@ -65,12 +69,16 @@ func (c *channel) DiscardTx(txid string) error {
 func (c *channel) CommitTX(txid string, block uint64, indexInBlock int, envelope *common.Envelope) (err error) {
 	logger.Debugf("Committing transaction [%s,%d,%d]", txid, block, indexInBlock)
 	defer logger.Debugf("Committing transaction [%s,%d,%d] done [%s]", txid, block, indexInBlock, err)
+	defer func() {
+		if err == nil {
+			c.notifyTxStatus(txid, driver.Valid)
+		}
+	}()
 
 	vc, deps, err := c.Status(txid)
 	if err != nil {
 		return errors.WithMessagef(err, "failed getting tx's status in state db [%s]", txid)
 	}
-
 	switch vc {
 	case driver.Valid:
 		// This should generate a panic
@@ -255,4 +263,63 @@ func (c *channel) postProcessTx(txid string) error {
 		return err
 	}
 	return nil
+}
+
+// SubscribeTxStatusChanges registers a listener for transaction status changes for the passed transaction id.
+// If the transaction id is empty, the listener will be called for all transactions.
+func (c *channel) SubscribeTxStatusChanges(txID string, listener driver.TxStatusChangeListener) error {
+	topic := compose.CreateCompositeKeyOrPanic(&strings.Builder{}, "tx", c.network.Name(), c.name, txID)
+	l := &TxEventsListener{listener: listener}
+	logger.Debugf("[%s] Subscribing to transaction status changes", txID)
+	c.eventsSubscriber.Subscribe(topic, l)
+	logger.Debugf("[%s] store mapping", txID)
+	c.subscribers.Set(txID, listener, l)
+	logger.Debugf("[%s] Subscribing to transaction status changes done", txID)
+	return nil
+}
+
+// UnsubscribeTxStatusChanges unregisters a listener for transaction status changes for the passed transaction id.
+// If the transaction id is empty, the listener will be called for all transactions.
+func (c *channel) UnsubscribeTxStatusChanges(txID string, listener driver.TxStatusChangeListener) error {
+	topic := compose.CreateCompositeKeyOrPanic(&strings.Builder{}, "tx", c.network.Name(), c.name, txID)
+	l, ok := c.subscribers.Get(txID, listener)
+	if !ok {
+		return errors.Errorf("listener not found for txID [%s]", txID)
+	}
+	el, ok := l.(events.Listener)
+	if !ok {
+		return errors.Errorf("listener not found for txID [%s]", txID)
+	}
+	c.subscribers.Delete(txID, listener)
+	c.eventsSubscriber.Unsubscribe(topic, el)
+	return nil
+}
+
+func (c *channel) notifyTxStatus(txID string, vc driver.ValidationCode) {
+	// We publish two events here:
+	// 1. The first will be caught by the listeners that are listening for any transaction id.
+	// 2. The second will be caught by the listeners that are listening for the specific transaction id.
+	var sb strings.Builder
+	c.eventsPublisher.Publish(&driver.TransactionStatusChanged{
+		ThisTopic: compose.CreateCompositeKeyOrPanic(&sb, "tx", c.network.Name(), c.name, txID),
+		TxID:      txID,
+		VC:        vc,
+	})
+	sb.WriteString(txID)
+	c.eventsPublisher.Publish(&driver.TransactionStatusChanged{
+		ThisTopic: compose.AppendAttributesOrPanic(&sb, txID),
+		TxID:      txID,
+		VC:        vc,
+	})
+}
+
+type TxEventsListener struct {
+	listener driver.TxStatusChangeListener
+}
+
+func (l *TxEventsListener) OnReceive(event events.Event) {
+	tsc := event.Message().(*driver.TransactionStatusChanged)
+	if err := l.listener.OnStatusChange(tsc.TxID, int(tsc.VC)); err != nil {
+		logger.Errorf("failed to notify listener for tx [%s] with err [%s]", tsc.TxID, err)
+	}
 }
