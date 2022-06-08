@@ -62,12 +62,10 @@ require (
 	github.com/tedsuo/ifrit v0.0.0-20191009134036-9a97d0632f00
 	github.com/test-go/testify v1.1.4
 	go.uber.org/atomic v1.7.0
-	go.uber.org/zap v1.18.1
-	golang.org/x/net v0.0.0-20211015210444-4f30a5c0130f
-	golang.org/x/sync v0.0.0-20220601150217-0de741cfad7f // indirect
-	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a // indirect
 	go.uber.org/zap v1.19.1
 	golang.org/x/net v0.0.0-20211112202133-69e39bad7dc2
+	golang.org/x/sync v0.0.0-20220601150217-0de741cfad7f // indirect
+	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a // indirect
 	golang.org/x/tools v0.1.10 // indirect
 	golang.org/x/xerrors v0.0.0-20220517211312-f3a8303e98df // indirect
 	google.golang.org/genproto v0.0.0-20210201184850-646a494a81ea // indirect
