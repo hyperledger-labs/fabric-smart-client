@@ -15,6 +15,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 )
 
+const DefaultMSPCacheSize = 3
+
 // configService models a configuration registry
 type configService interface {
 	// GetString returns the value associated with the key as a string
@@ -198,14 +200,14 @@ func (c *Config) GetPath(key string) string {
 	return c.configService.GetPath("fabric." + c.prefix + key)
 }
 
-func (c *Config) MSPCacheSize(defaultValue int) int {
+func (c *Config) MSPCacheSize() int {
 	v := c.configService.GetString("fabric." + c.prefix + "mspCacheSize")
 	if len(v) == 0 {
-		return defaultValue
+		return DefaultMSPCacheSize
 	}
 	i, err := strconv.Atoi(v)
 	if err != nil {
-		return defaultValue
+		return DefaultMSPCacheSize
 	}
 	return i
 }
