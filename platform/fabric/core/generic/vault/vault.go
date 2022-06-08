@@ -11,14 +11,12 @@ import (
 	"encoding/json"
 	"sync"
 
-	"github.com/pkg/errors"
-	"go.uber.org/atomic"
-
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
-
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
+	"github.com/pkg/errors"
+	"go.uber.org/atomic"
 )
 
 var logger = flogging.MustGetLogger("fabric-sdk.vault")
@@ -251,10 +249,10 @@ func (db *Vault) GetRWSet(txid string, rwsetBytes []byte) (*Interceptor, error) 
 	return i, nil
 }
 
-func (db *Vault) InspectRWSet(rwsetBytes []byte) (*Inspector, error) {
+func (db *Vault) InspectRWSet(rwsetBytes []byte, nss ...string) (*Inspector, error) {
 	i := newInspector()
 
-	if err := i.rws.populate(rwsetBytes, "ephemeral"); err != nil {
+	if err := i.rws.populate(rwsetBytes, "ephemeral", nss...); err != nil {
 		return nil, err
 	}
 

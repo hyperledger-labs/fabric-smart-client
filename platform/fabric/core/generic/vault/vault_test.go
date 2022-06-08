@@ -14,17 +14,16 @@ import (
 	"testing"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/hyperledger/fabric-protos-go/ledger/rwset"
-	"github.com/hyperledger/fabric-protos-go/ledger/rwset/kvrwset"
-	"github.com/hyperledger/fabric/core/ledger/kvledger/txmgmt/rwsetutil"
-	"github.com/stretchr/testify/assert"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/vault/txidstore"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger"
 	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
+	"github.com/hyperledger/fabric-protos-go/ledger/rwset"
+	"github.com/hyperledger/fabric-protos-go/ledger/rwset/kvrwset"
+	"github.com/hyperledger/fabric/core/ledger/kvledger/txmgmt/rwsetutil"
+	"github.com/stretchr/testify/assert"
 )
 
 var tempDir string
@@ -193,6 +192,19 @@ func TestInspector(t *testing.T) {
 	assert.Equal(t, 1, i.NumWrites(ns))
 	assert.Equal(t, []string{"ns"}, i.Namespaces())
 
+	i.Done()
+
+	// check filtering
+	i, err = vault.InspectRWSet(b, "pineapple")
+	assert.NoError(t, err)
+	assert.NoError(t, i.IsValid())
+	assert.Empty(t, i.Namespaces())
+	i.Done()
+
+	i, err = vault.InspectRWSet(b, ns)
+	assert.NoError(t, err)
+	assert.NoError(t, i.IsValid())
+	assert.Equal(t, []string{ns}, i.Namespaces())
 	i.Done()
 }
 
