@@ -26,5 +26,6 @@ type Vault interface {
 
 	// GetEphemeralRWSet returns an ephemeral RWSet for this ledger whose content is unmarshalled
 	// from the passed bytes.
-	GetEphemeralRWSet(rwset []byte) (RWSet, error)
+	// If namespaces is not empty, the returned RWSet will be filtered by the passed namespaces
+	GetEphemeralRWSet(rwset []byte, namespaces ...string) (RWSet, error)
 }

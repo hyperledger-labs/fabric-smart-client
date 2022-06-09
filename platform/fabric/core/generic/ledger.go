@@ -8,11 +8,10 @@ package generic
 
 import (
 	"github.com/golang/protobuf/proto"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger/fabric-protos-go/common"
 	"github.com/hyperledger/fabric-protos-go/peer"
 	"github.com/hyperledger/fabric/protoutil"
-
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
 
 // NewRWSet returns a RWSet for this ledger.
@@ -32,8 +31,9 @@ func (c *channel) GetRWSet(txid string, rwset []byte) (driver.RWSet, error) {
 
 // GetEphemeralRWSet returns an ephemeral RWSet for this ledger whose content is unmarshalled
 // from the passed bytes.
-func (c *channel) GetEphemeralRWSet(rwset []byte) (driver.RWSet, error) {
-	return c.vault.InspectRWSet(rwset)
+// If namespaces is not empty, the returned RWSet will be filtered by the passed namespaces
+func (c *channel) GetEphemeralRWSet(rwset []byte, namespaces ...string) (driver.RWSet, error) {
+	return c.vault.InspectRWSet(rwset, namespaces...)
 }
 
 // NewQueryExecutor gives handle to a query executor.

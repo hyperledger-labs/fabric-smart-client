@@ -9,10 +9,9 @@ package fabric
 import (
 	"encoding/json"
 
-	"github.com/pkg/errors"
-
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	"github.com/pkg/errors"
 )
 
 type TransientMap map[string][]byte
@@ -361,8 +360,9 @@ func (c *Vault) GetRWSet(txid string, rwset []byte) (*RWSet, error) {
 
 // GetEphemeralRWSet returns an ephemeral RWSet for this ledger whose content is unmarshalled
 // from the passed bytes.
-func (c *Vault) GetEphemeralRWSet(rwset []byte) (*RWSet, error) {
-	rws, err := c.ch.GetEphemeralRWSet(rwset)
+// If namespaces is not empty, the returned RWSet will be filtered by the passed namespaces
+func (c *Vault) GetEphemeralRWSet(rwset []byte, namespaces ...string) (*RWSet, error) {
+	rws, err := c.ch.GetEphemeralRWSet(rwset, namespaces...)
 	if err != nil {
 		return nil, err
 	}

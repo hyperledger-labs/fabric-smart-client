@@ -12,11 +12,10 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/google/go-cmp/cmp"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/keys"
 	"github.com/hyperledger/fabric-protos-go/ledger/rwset"
 	"github.com/hyperledger/fabric/core/ledger/kvledger/txmgmt/rwsetutil"
 	"github.com/pkg/errors"
-
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/keys"
 )
 
 type readWriteSet struct {
@@ -25,7 +24,7 @@ type readWriteSet struct {
 	metaWriteSet
 }
 
-func (rws *readWriteSet) populate(rwsetBytes []byte, txid string) error {
+func (rws *readWriteSet) populate(rwsetBytes []byte, txid string, namespaces ...string) error {
 	txRWSet := &rwset.TxReadWriteSet{}
 	err := proto.Unmarshal(rwsetBytes, txRWSet)
 	if err != nil {
@@ -39,6 +38,20 @@ func (rws *readWriteSet) populate(rwsetBytes []byte, txid string) error {
 
 	for _, nsrws := range rwsIn.NsRwSets {
 		ns := nsrws.NameSpace
+
+		// skip if not in the list of namespaces
+		if len(namespaces) > 0 {
+			notFound := true
+			for _, s := range namespaces {
+				if s == ns {
+					notFound = false
+					break
+				}
+			}
+			if notFound {
+				continue
+			}
+		}
 
 		for _, read := range nsrws.KvRwSet.Reads {
 			bn := uint64(0)
