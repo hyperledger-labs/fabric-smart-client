@@ -360,9 +360,9 @@ func (c *Vault) GetRWSet(txid string, rwset []byte) (*RWSet, error) {
 
 // GetEphemeralRWSet returns an ephemeral RWSet for this ledger whose content is unmarshalled
 // from the passed bytes.
-// If nss is not empty, the returned RWSet will be filtered by the passed namespaces
-func (c *Vault) GetEphemeralRWSet(rwset []byte, nss ...string) (*RWSet, error) {
-	rws, err := c.ch.GetEphemeralRWSet(rwset, nss...)
+// If namespaces is not empty, the returned RWSet will be filtered by the passed namespaces
+func (c *Vault) GetEphemeralRWSet(rwset []byte, namespaces ...string) (*RWSet, error) {
+	rws, err := c.ch.GetEphemeralRWSet(rwset, namespaces...)
 	if err != nil {
 		return nil, err
 	}

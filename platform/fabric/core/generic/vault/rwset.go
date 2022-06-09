@@ -24,7 +24,7 @@ type readWriteSet struct {
 	metaWriteSet
 }
 
-func (rws *readWriteSet) populate(rwsetBytes []byte, txid string, nss ...string) error {
+func (rws *readWriteSet) populate(rwsetBytes []byte, txid string, namespaces ...string) error {
 	txRWSet := &rwset.TxReadWriteSet{}
 	err := proto.Unmarshal(rwsetBytes, txRWSet)
 	if err != nil {
@@ -40,9 +40,9 @@ func (rws *readWriteSet) populate(rwsetBytes []byte, txid string, nss ...string)
 		ns := nsrws.NameSpace
 
 		// skip if not in the list of namespaces
-		if len(nss) > 0 {
+		if len(namespaces) > 0 {
 			notFound := true
-			for _, s := range nss {
+			for _, s := range namespaces {
 				if s == ns {
 					notFound = false
 					break

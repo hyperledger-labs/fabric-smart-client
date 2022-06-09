@@ -249,10 +249,10 @@ func (db *Vault) GetRWSet(txid string, rwsetBytes []byte) (*Interceptor, error) 
 	return i, nil
 }
 
-func (db *Vault) InspectRWSet(rwsetBytes []byte, nss ...string) (*Inspector, error) {
+func (db *Vault) InspectRWSet(rwsetBytes []byte, namespaces ...string) (*Inspector, error) {
 	i := newInspector()
 
-	if err := i.rws.populate(rwsetBytes, "ephemeral", nss...); err != nil {
+	if err := i.rws.populate(rwsetBytes, "ephemeral", namespaces...); err != nil {
 		return nil, err
 	}
 
