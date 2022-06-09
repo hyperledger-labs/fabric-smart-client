@@ -18,14 +18,13 @@ require (
 	github.com/ReneKroon/ttlcache/v2 v2.11.0
 	github.com/Shopify/sarama v1.26.3 // indirect
 	github.com/armon/go-metrics v0.0.0-20180917152333-f0300d1749da
-	github.com/btcsuite/btcd v0.21.0-beta // indirect
 	github.com/containerd/containerd v1.5.2 // indirect
 	github.com/dgraph-io/badger/v3 v3.2103.2
 	github.com/docker/docker v20.10.7+incompatible
 	github.com/docker/go-connections v0.4.0
 	github.com/fsnotify/fsnotify v1.5.4 // indirect
 	github.com/fsouza/go-dockerclient v1.6.1
-	github.com/go-kit/kit v0.9.0
+	github.com/go-kit/kit v0.10.0
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/protobuf v1.5.2
 	github.com/google/go-cmp v0.5.5
@@ -41,25 +40,21 @@ require (
 	github.com/hyperledger/fabric-lib-go v1.0.0
 	github.com/hyperledger/fabric-private-chaincode v0.0.0-20210907122433-d56466264e4d
 	github.com/hyperledger/fabric-protos-go v0.0.0-20210911123859-041d13f0980c
-	github.com/jackpal/go-nat-pmp v1.0.2 // indirect
-	github.com/libp2p/go-libp2p v0.5.2
-	github.com/libp2p/go-libp2p-core v0.3.0
-	github.com/libp2p/go-libp2p-discovery v0.2.0
-	github.com/libp2p/go-libp2p-kad-dht v0.5.0
-	github.com/mattn/go-colorable v0.1.2 // indirect
-	github.com/mattn/go-isatty v0.0.12 // indirect
+	github.com/libp2p/go-libp2p v0.20.1
+	github.com/libp2p/go-libp2p-core v0.16.1
+	github.com/libp2p/go-libp2p-kad-dht v0.15.0
 	github.com/miracl/conflate v1.2.1
 	github.com/mitchellh/mapstructure v1.3.2
 	github.com/moby/sys/mount v0.2.0 // indirect
 	github.com/morikuni/aec v1.0.0 // indirect
-	github.com/multiformats/go-multiaddr v0.2.0
+	github.com/multiformats/go-multiaddr v0.5.0
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.16.0
 	github.com/op/go-logging v0.0.0-20160315200505-970db520ece7
 	github.com/otiai10/copy v1.5.1
 	github.com/pierrec/lz4 v2.5.2+incompatible // indirect
 	github.com/pkg/errors v0.9.1
-	github.com/prometheus/client_golang v1.7.1
+	github.com/prometheus/client_golang v1.12.1
 	github.com/spf13/cobra v1.1.1
 	github.com/spf13/viper v1.7.0
 	github.com/stretchr/testify v1.7.1-0.20210116013205-6990a05d54c2
@@ -67,8 +62,8 @@ require (
 	github.com/tedsuo/ifrit v0.0.0-20191009134036-9a97d0632f00
 	github.com/test-go/testify v1.1.4
 	go.uber.org/atomic v1.7.0
-	go.uber.org/zap v1.18.1
-	golang.org/x/net v0.0.0-20211015210444-4f30a5c0130f
+	go.uber.org/zap v1.19.1
+	golang.org/x/net v0.0.0-20211112202133-69e39bad7dc2
 	golang.org/x/sync v0.0.0-20220601150217-0de741cfad7f // indirect
 	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a // indirect
 	golang.org/x/tools v0.1.10 // indirect

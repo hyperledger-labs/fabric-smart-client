@@ -8,12 +8,12 @@ package comm
 
 import (
 	"context"
-	assert2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
 	"io/ioutil"
 	"sync"
 	"testing"
 	"time"
 
+	assert2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
 	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/stretchr/testify/assert"
@@ -49,7 +49,7 @@ func getNode(t *testing.T, bootstrapNodeID, bootstrapNodeEndpoint, nodeEndpoint 
 	return node
 }
 
-func setupTwoNodes(t *testing.T, bootstrapNodeID, bootstrapNodeEndpoint, nodeID, nodeEndpoint string, bootstrapNodeKeyDispenser, nodeKeyDispenser PrivateKeyDispenser) (bootstrapNode *P2PNode, node *P2PNode, err error) {
+func setupTwoNodes(t *testing.T, bootstrapNodeID, bootstrapNodeEndpoint, nodeID, nodeEndpoint string, bootstrapNodeKeyDispenser, nodeKeyDispenser PrivateKeyDispenser) (bootstrapNode *P2PNode, anotherNode *P2PNode, err error) {
 	// catch panic and return error
 	defer func() {
 		if r := recover(); r != nil {
@@ -59,49 +59,39 @@ func setupTwoNodes(t *testing.T, bootstrapNodeID, bootstrapNodeEndpoint, nodeID,
 		}
 	}()
 	bootstrapNode = getBootstrapNode(t, bootstrapNodeEndpoint, bootstrapNodeKeyDispenser)
-	node = getNode(t, bootstrapNodeID, bootstrapNodeEndpoint, nodeEndpoint, nodeKeyDispenser)
+	anotherNode = getNode(t, bootstrapNodeID, bootstrapNodeEndpoint, nodeEndpoint, nodeKeyDispenser)
 
-	assert.Eventually(
-		t,
-		func() bool {
-			addr, ok := bootstrapNode.Lookup(nodeID)
-			if !ok {
-				return false
-			}
-
-			for _, multiaddr := range addr.Addrs {
-				if multiaddr.String() == nodeEndpoint {
-					return true
-				}
-			}
-
+	assert.Eventually(t, func() bool {
+		addr, ok := bootstrapNode.Lookup(nodeID)
+		if !ok {
 			return false
-		},
-		60*time.Second,
-		500*time.Millisecond,
-	)
+		}
 
-	assert.Eventually(
-		t,
-		func() bool {
-			addr, ok := node.Lookup(bootstrapNodeID)
-			if !ok {
-				return false
+		for _, multiaddr := range addr.Addrs {
+			if multiaddr.String() == nodeEndpoint {
+				return true
 			}
+		}
 
-			for _, multiaddr := range addr.Addrs {
-				if multiaddr.String() == bootstrapNodeEndpoint {
-					return true
-				}
-			}
+		return false
+	}, 60*time.Second, 500*time.Millisecond)
 
+	assert.Eventually(t, func() bool {
+		addr, ok := anotherNode.Lookup(bootstrapNodeID)
+		if !ok {
 			return false
-		},
-		60*time.Second,
-		500*time.Millisecond,
-	)
+		}
 
-	return bootstrapNode, node, err
+		for _, multiaddr := range addr.Addrs {
+			if multiaddr.String() == bootstrapNodeEndpoint {
+				return true
+			}
+		}
+
+		return false
+	}, 60*time.Second, 500*time.Millisecond)
+
+	return bootstrapNode, anotherNode, err
 }
 
 func setupTwoNodesFromFiles(t *testing.T) (*P2PNode, *P2PNode, string, string) {
@@ -114,14 +104,10 @@ func setupTwoNodesFromFiles(t *testing.T) (*P2PNode, *P2PNode, string, string) {
 	bootstrapNodeEndpoint := "/ip4/127.0.0.1/tcp/1234"
 	nodeEndpoint := "/ip4/127.0.0.1/tcp/1235"
 
-	var bootstrapNode, node *P2PNode
-	assert2.EventuallyWithRetry(t, 3, 1*time.Second, func() error {
-		var err error
-		bootstrapNode, node, err = setupTwoNodes(t, bootstrapNodeID, bootstrapNodeEndpoint, nodeID, nodeEndpoint, &PrivateKeyFromFile{bootstrapNodeSK}, &PrivateKeyFromFile{nodeSK})
-		return err
-	}, "failed to setup two nodes")
+	bootstrapNode, anotherNode, err := setupTwoNodes(t, bootstrapNodeID, bootstrapNodeEndpoint, nodeID, nodeEndpoint, &PrivateKeyFromFile{bootstrapNodeSK}, &PrivateKeyFromFile{nodeSK})
+	assert2.NoError(err)
 
-	return bootstrapNode, node, bootstrapNodeID, nodeID
+	return bootstrapNode, anotherNode, bootstrapNodeID, nodeID
 }
 
 func TestP2PLayer(t *testing.T) {

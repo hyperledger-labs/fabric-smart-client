@@ -23,8 +23,8 @@ import (
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/protocol"
-	discovery "github.com/libp2p/go-libp2p-discovery"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
+	"github.com/libp2p/go-libp2p/p2p/discovery/routing"
 	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
 
@@ -50,7 +50,7 @@ type messageWithStream struct {
 type P2PNode struct {
 	host             host.Host
 	dht              *dht.IpfsDHT
-	finder           *discovery.RoutingDiscovery
+	finder           *routing.RoutingDiscovery
 	peersMutex       sync.RWMutex
 	peers            map[string]peer.AddrInfo
 	incomingMessages chan *messageWithStream
@@ -204,8 +204,9 @@ func (p *P2PNode) handleStream() network.StreamHandler {
 			node:   p,
 		}
 
+		remotePeerID := sh.stream.Conn().RemotePeer()
 		p.streamsMutex.Lock()
-		p.streams[sh.stream.Conn().RemotePeer()] = append(p.streams[sh.stream.Conn().RemotePeer()], sh)
+		p.streams[remotePeerID] = append(p.streams[remotePeerID], sh)
 		p.streamsMutex.Unlock()
 
 		go sh.handleIncoming()
@@ -242,24 +243,29 @@ func (s *streamHandler) handleIncoming() {
 		msg := &ViewPacket{}
 		err := s.reader.ReadMsg(msg)
 		if err != nil {
-			s.node.streamsMutex.Lock()
 			if s.node.isStopping {
 				if logger.IsEnabledFor(zapcore.DebugLevel) {
 					logger.Debugf("error reading message while closing. ignoring.", err.Error())
 				}
 				break
 			}
-			logger.Errorf("caught error: [%s][%s]", err.Error(), debug.Stack())
-			defer s.node.streamsMutex.Unlock()
 
-			for i, thisSH := range s.node.streams[s.stream.Conn().RemotePeer()] {
+			logger.Debugf("error reading message: [%s][%s]", err.Error(), debug.Stack())
+
+			// remove stream handler
+			remotePeerID := s.stream.Conn().RemotePeer()
+			s.node.streamsMutex.Lock()
+			for i, thisSH := range s.node.streams[remotePeerID] {
 				if thisSH == s {
-					s.node.streams[s.stream.Conn().RemotePeer()] = append(s.node.streams[s.stream.Conn().RemotePeer()][:i], s.node.streams[s.stream.Conn().RemotePeer()][i+1:]...)
+					s.node.streams[remotePeerID] = append(s.node.streams[remotePeerID][:i], s.node.streams[remotePeerID][i+1:]...)
 					s.wg.Done()
+					s.node.streamsMutex.Unlock()
 					return
 				}
 			}
+			s.node.streamsMutex.Unlock()
 
+			// this should never happen!
 			panic("couldn't find stream handler to remove")
 		}
 		if logger.IsEnabledFor(zapcore.DebugLevel) {

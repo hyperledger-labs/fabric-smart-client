@@ -17,8 +17,8 @@ import (
 	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/protocol"
-	discovery "github.com/libp2p/go-libp2p-discovery"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
+	"github.com/libp2p/go-libp2p/p2p/discovery/routing"
 	"github.com/multiformats/go-multiaddr"
 )
 
@@ -33,16 +33,18 @@ func newHost(ListenAddress string, keyDispenser PrivateKeyDispenser) (*P2PNode, 
 		return nil, err
 	}
 
-	ctx := context.Background()
-
-	host, err := libp2p.New(ctx,
+	opts := []libp2p.Option{
 		libp2p.ListenAddrs(addr),
 		libp2p.Identity(priv),
-	)
+		libp2p.ForceReachabilityPublic(),
+	}
+
+	host, err := libp2p.New(opts...)
 	if err != nil {
 		return nil, err
 	}
 
+	ctx := context.Background()
 	kademliaDHT, err := dht.New(ctx, host)
 	if err != nil {
 		return nil, err
@@ -56,7 +58,7 @@ func newHost(ListenAddress string, keyDispenser PrivateKeyDispenser) (*P2PNode, 
 	node := &P2PNode{
 		host:             host,
 		dht:              kademliaDHT,
-		finder:           discovery.NewRoutingDiscovery(kademliaDHT),
+		finder:           routing.NewRoutingDiscovery(kademliaDHT),
 		peers:            make(map[string]peer.AddrInfo),
 		incomingMessages: make(chan *messageWithStream),
 		streams:          make(map[peer.ID][]*streamHandler),
@@ -160,7 +162,10 @@ func (p *P2PNode) startFinder() {
 }
 
 func (p *P2PNode) start() {
-	discovery.Advertise(context.Background(), p.finder, rendezVousString)
+	_, err := p.finder.Advertise(context.Background(), rendezVousString)
+	if err != nil {
+		logger.Debugf("error while announcing: %s", err)
+	}
 
 	p.host.SetStreamHandler(protocol.ID(viewProtocol), p.handleStream())
 
