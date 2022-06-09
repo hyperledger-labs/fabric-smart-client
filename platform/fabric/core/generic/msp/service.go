@@ -265,7 +265,7 @@ func (s *service) RegisterIdemixMSP(id string, path string, mspID string) error 
 
 	s.deserializerManager().AddDeserializer(provider)
 	s.addResolver(id, IdemixMSP, provider.EnrollmentID(), NewIdentityCache(provider.Identity, s.cacheSize).Identity)
-
+	logger.Debugf("added IdemixMSP resolver for id %s with cache of size %d", id+"@"+provider.EnrollmentID(), s.cacheSize)
 	return nil
 }
 
@@ -419,6 +419,7 @@ func (s *service) loadExtraResolvers() error {
 			}
 			dm.AddDeserializer(provider)
 			s.addResolver(config.ID, config.MSPType, provider.EnrollmentID(), NewIdentityCache(provider.Identity, cacheSize).Identity)
+			logger.Debugf("added %s resolver for id %s with cache of size %d", config.MSPType, config.ID+"@"+provider.EnrollmentID(), cacheSize)
 		case BccspMSP:
 			provider, err = x5092.NewProvider(s.config.TranslatePath(config.Path), config.MSPID, s.signerService)
 			if err != nil {
@@ -455,6 +456,7 @@ func (s *service) loadExtraResolvers() error {
 				dm.AddDeserializer(provider)
 				logger.Debugf("Adding resolver [%s:%s]", id, provider.EnrollmentID())
 				s.addResolver(id, IdemixMSP, provider.EnrollmentID(), NewIdentityCache(provider.Identity, cacheSize).Identity)
+				logger.Debugf("added %s resolver for id %s with cache of size %d", IdemixMSP, id+"@"+provider.EnrollmentID(), cacheSize)
 			}
 		case BccspMSPFolder:
 			entries, err := ioutil.ReadDir(s.config.TranslatePath(config.Path))
