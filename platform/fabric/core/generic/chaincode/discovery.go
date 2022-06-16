@@ -13,6 +13,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	peer2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/hyperledger/fabric-protos-go/gossip"
 	"github.com/hyperledger/fabric/common/util"
 
@@ -109,6 +110,9 @@ func (d *Discovery) Call() ([]driver.DiscoveredPeer, error) {
 			return nil, err
 		}
 		member := msg.GetAliveMsg().GetMembership()
+		if member == nil {
+			return nil, errors.Errorf("member is nil for [%s:%s]", peer.MSPID, view.Identity(peer.Identity).String())
+		}
 
 		var tlsRootCerts [][]byte
 		if mspInfo, ok := configResult.GetMsps()[peer.MSPID]; ok {
@@ -153,15 +157,16 @@ func (d *Discovery) send() (discovery.Response, error) {
 	}()
 
 	// New discovery request for:
-	// - endorsers, and
-	// - config
+	// - endorsers,
+	// - config, and
+	// - local peers (for alive message)
 	req, err := discovery.NewRequest().OfChannel(d.chaincode.channel.Name()).AddEndorsersQuery(
 		&discovery2.ChaincodeInterest{Chaincodes: []*discovery2.ChaincodeCall{{Name: d.chaincode.name}}},
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed creating request")
 	}
-	req = req.AddConfigQuery()
+	req = req.AddConfigQuery().AddLocalPeersQuery()
 
 	pc, err := d.chaincode.channel.NewPeerClientForAddress(*d.chaincode.network.PickPeer())
 	if err != nil {
