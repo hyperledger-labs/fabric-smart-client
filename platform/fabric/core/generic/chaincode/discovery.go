@@ -152,24 +152,17 @@ func (d *Discovery) send() (discovery.Response, error) {
 		}
 	}()
 
-	//var collectionNames []string
-	//if len(d.ImplicitCollections) > 0 {
-	//	for _, collection := range d.ImplicitCollections {
-	//		collectionNames = append(collectionNames, fmt.Sprintf("_implicit_org_%s", collection))
-	//	}
-	//}
-
+	// New discovery request for:
+	// - endorsers, and
+	// - config
 	req, err := discovery.NewRequest().OfChannel(d.chaincode.channel.Name()).AddEndorsersQuery(
-		&discovery2.ChaincodeInterest{Chaincodes: []*discovery2.ChaincodeCall{
-			{
-				Name: d.chaincode.name,
-				//CollectionNames: collectionNames,
-			},
-		}},
+		&discovery2.ChaincodeInterest{Chaincodes: []*discovery2.ChaincodeCall{{Name: d.chaincode.name}}},
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed creating request")
 	}
+	req = req.AddConfigQuery()
+
 	pc, err := d.chaincode.channel.NewPeerClientForAddress(*d.chaincode.network.PickPeer())
 	if err != nil {
 		return nil, err
