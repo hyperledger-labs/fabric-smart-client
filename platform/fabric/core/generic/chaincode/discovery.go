@@ -12,11 +12,10 @@ import (
 	"time"
 
 	peer2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"github.com/hyperledger/fabric/common/util"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	discovery2 "github.com/hyperledger/fabric-protos-go/discovery"
+	"github.com/hyperledger/fabric/common/util"
 	discovery "github.com/hyperledger/fabric/discovery/client"
 	"github.com/pkg/errors"
 )

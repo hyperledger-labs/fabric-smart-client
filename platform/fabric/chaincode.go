@@ -94,8 +94,10 @@ func (c *Chaincode) IsPrivate() bool {
 	return c.chaincode.IsPrivate()
 }
 
+// DiscoveredPeer contains the information of a discovered peer
 type DiscoveredPeer = driver.DiscoveredPeer
 
+// DiscoveredIdentities extract the identities of the discovered peers
 func DiscoveredIdentities(d []DiscoveredPeer) []view.Identity {
 	// return all identities
 	var ids []view.Identity
@@ -109,6 +111,7 @@ type ChaincodeDiscover struct {
 	driver.ChaincodeDiscover
 }
 
+// Call invokes discovery service and returns the discovered peers
 func (i *ChaincodeDiscover) Call() ([]DiscoveredPeer, error) {
 	return i.ChaincodeDiscover.Call()
 }
