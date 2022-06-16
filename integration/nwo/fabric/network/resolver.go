@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package network
 
 import (
+	"fmt"
 	"path/filepath"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
@@ -56,14 +57,12 @@ func (n *Network) GenerateResolverMap() {
 				path = n.PeerLocalMSPIdentityCert(peer)
 			}
 		} else {
-			//addresses = map[api.PortName]string{
-			//	//ViewPort:   fmt.Sprintf("127.0.0.1:%d", n.Context.PortsByPeerID(n.Prefix, peer.ID())[ListenPort]),
-			//	ListenPort: fmt.Sprintf("127.0.0.1:%d", n.Context.PortsByPeerID(n.Prefix, peer.ID())[ListenPort]),
-			//	//P2PPort:    fmt.Sprintf("127.0.0.1:%d", n.Context.PortsByPeerID(n.Prefix, peer.ID())[P2PPort]),
-			//}
-			//path = n.PeerLocalMSPIdentityCert(peer)
-
-			// don't add fabric peers, they will be discovered
+			addresses = map[api.PortName]string{
+				//ViewPort:   fmt.Sprintf("127.0.0.1:%d", n.Context.PortsByPeerID(n.Prefix, peer.ID())[ListenPort]),
+				ListenPort: fmt.Sprintf("127.0.0.1:%d", n.Context.PortsByPeerID(n.Prefix, peer.ID())[ListenPort]),
+				//P2PPort:    fmt.Sprintf("127.0.0.1:%d", n.Context.PortsByPeerID(n.Prefix, peer.ID())[P2PPort]),
+			}
+			path = n.PeerLocalMSPIdentityCert(peer)
 			continue
 		}
 
