@@ -11,10 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	peer2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"github.com/hyperledger/fabric-protos-go/gossip"
 	"github.com/hyperledger/fabric/common/util"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
@@ -103,17 +101,11 @@ func (d *Discovery) Call() ([]driver.DiscoveredPeer, error) {
 
 	var discoveredEndorsers []driver.DiscoveredPeer
 	for _, peer := range endorsers {
-		// extract endpoint
-		msg := &gossip.GossipMessage{}
-		err = proto.Unmarshal(peer.StateInfoMessage.GetPayload(), msg)
-		if err != nil {
-			return nil, err
-		}
-		member := msg.GetAliveMsg().GetMembership()
+		// extract peer info
+		member := peer.AliveMessage.GetAliveMsg().Membership
 		if member == nil {
 			return nil, errors.Errorf("member is nil for [%s:%s]", peer.MSPID, view.Identity(peer.Identity).String())
 		}
-
 		var tlsRootCerts [][]byte
 		if mspInfo, ok := configResult.GetMsps()[peer.MSPID]; ok {
 			tlsRootCerts = append(tlsRootCerts, mspInfo.GetTlsRootCerts()...)
