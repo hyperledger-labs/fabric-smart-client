@@ -63,7 +63,6 @@ func (n *Network) GenerateResolverMap() {
 				//P2PPort:    fmt.Sprintf("127.0.0.1:%d", n.Context.PortsByPeerID(n.Prefix, peer.ID())[P2PPort]),
 			}
 			path = n.PeerLocalMSPIdentityCert(peer)
-			continue
 		}
 
 		var aliases []string
