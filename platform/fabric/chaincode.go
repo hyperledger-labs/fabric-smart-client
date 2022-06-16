@@ -94,11 +94,22 @@ func (c *Chaincode) IsPrivate() bool {
 	return c.chaincode.IsPrivate()
 }
 
+type DiscoveredPeer = driver.DiscoveredPeer
+
+func DiscoveredIdentities(d []DiscoveredPeer) []view.Identity {
+	// return all identities
+	var ids []view.Identity
+	for _, p := range d {
+		ids = append(ids, p.Identity)
+	}
+	return ids
+}
+
 type ChaincodeDiscover struct {
 	driver.ChaincodeDiscover
 }
 
-func (i *ChaincodeDiscover) Call() ([]view.Identity, error) {
+func (i *ChaincodeDiscover) Call() ([]DiscoveredPeer, error) {
 	return i.ChaincodeDiscover.Call()
 }
 

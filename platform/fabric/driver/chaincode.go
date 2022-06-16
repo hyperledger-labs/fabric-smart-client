@@ -41,9 +41,16 @@ type ChaincodeInvocation interface {
 	WithImplicitCollections(mspIDs ...string) ChaincodeInvocation
 }
 
+type DiscoveredPeer struct {
+	Identity     view.Identity
+	MSPID        string
+	Endpoint     string
+	TLSRootCerts [][]byte
+}
+
 // ChaincodeDiscover models a client-side chaincode's endorsers discovery operation
 type ChaincodeDiscover interface {
-	Call() ([]view.Identity, error)
+	Call() ([]DiscoveredPeer, error)
 	WithFilterByMSPIDs(mspIDs ...string) ChaincodeDiscover
 	WithImplicitCollections(mspIDs ...string) ChaincodeDiscover
 }

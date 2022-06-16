@@ -8,13 +8,15 @@ package chaincode
 
 import (
 	"context"
-	peer2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
-	"github.com/hyperledger/fabric/common/util"
 	"strings"
 	"time"
 
+	"github.com/golang/protobuf/proto"
+	peer2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
+	"github.com/hyperledger/fabric-protos-go/gossip"
+	"github.com/hyperledger/fabric/common/util"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	discovery2 "github.com/hyperledger/fabric-protos-go/discovery"
 	discovery "github.com/hyperledger/fabric/discovery/client"
 	"github.com/pkg/errors"
@@ -41,7 +43,7 @@ func NewDiscovery(chaincode *Chaincode) *Discovery {
 	}
 }
 
-func (d *Discovery) Call() ([]view.Identity, error) {
+func (d *Discovery) Call() ([]driver.DiscoveredPeer, error) {
 	var sb strings.Builder
 	sb.WriteString(d.chaincode.network.Name())
 	sb.WriteString(d.chaincode.channel.Name())
@@ -75,14 +77,14 @@ func (d *Discovery) Call() ([]view.Identity, error) {
 	switch {
 	case len(d.ImplicitCollections) > 0:
 		for _, collection := range d.ImplicitCollections {
-			temp, err := cr.Endorsers(
+			discoveredEndorsers, err := cr.Endorsers(
 				ccCall(d.chaincode.name),
 				&byMSPIDs{mspIDs: []string{collection}},
 			)
 			if err != nil {
 				return nil, errors.WithMessage(err, "failed to get endorsers")
 			}
-			endorsers = append(endorsers, temp...)
+			endorsers = append(endorsers, discoveredEndorsers...)
 		}
 	default:
 		endorsers, err = cr.Endorsers(
@@ -93,9 +95,32 @@ func (d *Discovery) Call() ([]view.Identity, error) {
 	if err != nil {
 		return nil, errors.WithMessagef(err, "failed getting endorsers for [%s]", key)
 	}
-	var endorserIdentities []view.Identity
-	for _, e := range endorsers {
-		endorserIdentities = append(endorserIdentities, e.Identity)
+	configResult, err := cr.Config()
+	if err != nil {
+		return nil, errors.WithMessagef(err, "failed getting config for [%s]", key)
+	}
+
+	var discoveredEndorsers []driver.DiscoveredPeer
+	for _, peer := range endorsers {
+		// extract endpoint
+		msg := &gossip.GossipMessage{}
+		err = proto.Unmarshal(peer.StateInfoMessage.GetPayload(), msg)
+		if err != nil {
+			return nil, err
+		}
+		member := msg.GetAliveMsg().GetMembership()
+
+		var tlsRootCerts [][]byte
+		if mspInfo, ok := configResult.GetMsps()[peer.MSPID]; ok {
+			tlsRootCerts = append(tlsRootCerts, mspInfo.GetTlsRootCerts()...)
+			tlsRootCerts = append(tlsRootCerts, mspInfo.GetTlsIntermediateCerts()...)
+		}
+		discoveredEndorsers = append(discoveredEndorsers, driver.DiscoveredPeer{
+			Identity:     peer.Identity,
+			MSPID:        peer.MSPID,
+			Endpoint:     member.Endpoint,
+			TLSRootCerts: tlsRootCerts,
+		})
 	}
 
 	// cache response
@@ -106,7 +131,7 @@ func (d *Discovery) Call() ([]view.Identity, error) {
 	}
 
 	// done
-	return endorserIdentities, nil
+	return discoveredEndorsers, nil
 }
 
 func (d *Discovery) WithFilterByMSPIDs(mspIDs ...string) driver.ChaincodeDiscover {

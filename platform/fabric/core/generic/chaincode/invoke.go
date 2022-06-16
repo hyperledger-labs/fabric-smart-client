@@ -187,20 +187,16 @@ func (i *Invoke) prepare() (string, *pb.Proposal, []*pb.ProposalResponse, driver
 
 	// load endorser clients
 	var endorserClients []pb.EndorserClient
+	var discoveredPeer []driver.DiscoveredPeer
 	switch {
 	case len(i.EndorsersByConnConfig) != 0:
+		// get a peer client for each connection config
 		for _, config := range i.EndorsersByConnConfig {
 			peerClient, err := i.Channel.NewPeerClientForAddress(*config)
 			if err != nil {
 				return "", nil, nil, nil, err
 			}
 			peerClients = append(peerClients, peerClient)
-
-			endorserClient, err := peerClient.Endorser()
-			if err != nil {
-				return "", nil, nil, nil, errors.WithMessagef(err, "error getting endorser client for config %v", config)
-			}
-			endorserClients = append(endorserClients, endorserClient)
 		}
 	case len(i.Endorsers) == 0:
 		if i.EndorsersFromMyOrg && len(i.EndorsersMSPIDs) == 0 {
@@ -219,7 +215,7 @@ func (i *Invoke) prepare() (string, *pb.Proposal, []*pb.ProposalResponse, driver
 		).WithFilterByMSPIDs(
 			i.EndorsersMSPIDs...,
 		).WithImplicitCollections(i.ImplicitCollectionMSPIDs...)
-		i.Endorsers, err = discovery.Call()
+		discoveredPeer, err = discovery.Call()
 		if err != nil {
 			return "", nil, nil, nil, err
 		}
@@ -229,16 +225,33 @@ func (i *Invoke) prepare() (string, *pb.Proposal, []*pb.ProposalResponse, driver
 		return "", nil, nil, nil, errors.New("no rule set to find the endorsers")
 	}
 
+	// get a peer client for all passed endorser identities
 	for _, endorser := range i.Endorsers {
 		peerClient, err := i.Channel.NewPeerClientForIdentity(endorser)
 		if err != nil {
 			return "", nil, nil, nil, err
 		}
 		peerClients = append(peerClients, peerClient)
-
-		endorserClient, err := peerClient.Endorser()
+	}
+	// get a peer client for all discovered peers
+	for _, peer := range discoveredPeer {
+		peerClient, err := i.Channel.NewPeerClientForAddress(grpc.ConnectionConfig{
+			Address: peer.Endpoint,
+			// TODO: is this the right TLS config?
+			TLSEnabled:       true,
+			TLSRootCertBytes: peer.TLSRootCerts,
+		})
 		if err != nil {
-			return "", nil, nil, nil, errors.WithMessagef(err, "error getting endorser client for %s", endorser)
+			return "", nil, nil, nil, errors.WithMessagef(err, "error getting endorser client for %s", peer.Endpoint)
+		}
+		peerClients = append(peerClients, peerClient)
+	}
+
+	// get endorser clients
+	for _, client := range peerClients {
+		endorserClient, err := client.Endorser()
+		if err != nil {
+			return "", nil, nil, nil, errors.WithMessagef(err, "error getting endorser client for %s", client.Address())
 		}
 		endorserClients = append(endorserClients, endorserClient)
 	}
