@@ -15,7 +15,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
@@ -26,14 +25,6 @@ import (
 // as well as parsing strings of the format "[thing1, thing2, thing3]" into string slices
 // Note that whitespace around slice elements is removed
 func customDecodeHook(f reflect.Type, t reflect.Type, data interface{}) (interface{}, error) {
-	durationHook := mapstructure.StringToTimeDurationHookFunc()
-	dur, err := mapstructure.DecodeHookExec(durationHook, f, t, data)
-	if err == nil {
-		if _, ok := dur.(time.Duration); ok {
-			return dur, nil
-		}
-	}
-
 	if f.Kind() != reflect.String {
 		return data, nil
 	}
@@ -195,6 +186,7 @@ func EnhancedExactUnmarshal(v *viper.Viper, key string, output interface{}) erro
 		Result:           output,
 		WeaklyTypedInput: true,
 		DecodeHook: mapstructure.ComposeDecodeHookFunc(
+			mapstructure.StringToTimeDurationHookFunc(),
 			customDecodeHook,
 			byteSizeDecodeHook,
 			stringFromFileDecodeHook,
