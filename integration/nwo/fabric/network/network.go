@@ -50,7 +50,6 @@ type Network struct {
 	StatsdEndpoint     string
 	ClientAuthRequired bool
 
-	PortsByBrokerID   map[string]api.Ports
 	PortsByOrdererID  map[string]api.Ports
 	Logging           *topology.Logging
 	PvtTxSupport      bool
@@ -93,7 +92,6 @@ func New(reg api.Context, topology *topology.Topology, dockerClient *docker.Clie
 		NetworkID:         NetworkID,
 		EventuallyTimeout: 20 * time.Minute,
 		MetricsProvider:   "prometheus",
-		PortsByBrokerID:   map[string]api.Ports{},
 		PortsByOrdererID:  map[string]api.Ports{},
 
 		Organizations:     topology.Organizations,
@@ -192,9 +190,6 @@ func (n *Network) Load() {
 func (n *Network) Members() []grouper.Member {
 	members := grouper.Members{}
 
-	if r := n.BrokerGroupRunner(); r != nil {
-		members = append(members, grouper.Member{Name: n.Prefix + ".brokers", Runner: r})
-	}
 	if r := n.OrdererGroupRunner(); r != nil {
 		members = append(members, grouper.Member{Name: n.Prefix + ".orderers", Runner: r})
 	}
