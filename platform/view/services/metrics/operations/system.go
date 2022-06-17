@@ -7,15 +7,16 @@ SPDX-License-Identifier: Apache-2.0
 package operations
 
 import (
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/metadata"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging/httpadmin"
+	"context"
 	"net"
 	"net/http"
 	"strings"
 	"time"
 
 	kitstatsd "github.com/go-kit/kit/metrics/statsd"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/metadata"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging/httpadmin"
 	"github.com/hyperledger/fabric-lib-go/healthz"
 	"github.com/hyperledger/fabric/common/metrics"
 	"github.com/hyperledger/fabric/common/metrics/disabled"
@@ -237,7 +238,7 @@ func (s *System) startMetricsTickers() error {
 		go goCollector.CollectAndPublish(s.collectorTicker.C)
 
 		s.sendTicker = time.NewTicker(writeInterval)
-		go s.statsd.SendLoop(s.sendTicker.C, network, address)
+		go s.statsd.SendLoop(context.TODO(), s.sendTicker.C, network, address)
 	}
 
 	return nil
