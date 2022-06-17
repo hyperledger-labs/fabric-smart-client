@@ -13,20 +13,17 @@ import (
 	"strings"
 	"sync"
 
-	"go.uber.org/zap/zapcore"
-
 	peer2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
-
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	pcommon "github.com/hyperledger/fabric-protos-go/common"
 	pb "github.com/hyperledger/fabric-protos-go/peer"
 	"github.com/hyperledger/fabric/protoutil"
 	"github.com/pkg/errors"
-
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"go.uber.org/zap/zapcore"
 )
 
 type Invoke struct {
@@ -236,9 +233,8 @@ func (i *Invoke) prepare() (string, *pb.Proposal, []*pb.ProposalResponse, driver
 	// get a peer client for all discovered peers
 	for _, peer := range discoveredPeer {
 		peerClient, err := i.Channel.NewPeerClientForAddress(grpc.ConnectionConfig{
-			Address: peer.Endpoint,
-			// TODO: is this the right TLS config?
-			TLSEnabled:       true,
+			Address:          peer.Endpoint,
+			TLSEnabled:       i.Network.Config().TLSEnabled(),
 			TLSRootCertBytes: peer.TLSRootCerts,
 		})
 		if err != nil {

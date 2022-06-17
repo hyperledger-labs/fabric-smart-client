@@ -101,10 +101,19 @@ func (d *Discovery) Call() ([]driver.DiscoveredPeer, error) {
 	var discoveredEndorsers []driver.DiscoveredPeer
 	for _, peer := range endorsers {
 		// extract peer info
-		member := peer.AliveMessage.GetAliveMsg().Membership
-		if member == nil {
-			return nil, errors.Errorf("member is nil for [%s:%s]", peer.MSPID, view.Identity(peer.Identity).String())
+		if peer.AliveMessage == nil {
+			continue
 		}
+		aliveMsg := peer.AliveMessage.GetAliveMsg()
+		if aliveMsg == nil {
+			continue
+		}
+		member := aliveMsg.Membership
+		if member == nil {
+			logger.Debugf("no membership info in alive message for peer [%s:%s]", peer.MSPID, view.Identity(peer.Identity).String())
+			continue
+		}
+
 		var tlsRootCerts [][]byte
 		if mspInfo, ok := configResult.GetMsps()[peer.MSPID]; ok {
 			tlsRootCerts = append(tlsRootCerts, mspInfo.GetTlsRootCerts()...)
@@ -148,16 +157,15 @@ func (d *Discovery) send() (discovery.Response, error) {
 	}()
 
 	// New discovery request for:
-	// - endorsers,
-	// - config, and
-	// - local peers (for alive message)
+	// - endorsers and
+	// - config,
 	req, err := discovery.NewRequest().OfChannel(d.chaincode.channel.Name()).AddEndorsersQuery(
 		&discovery2.ChaincodeInterest{Chaincodes: []*discovery2.ChaincodeCall{{Name: d.chaincode.name}}},
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed creating request")
 	}
-	req = req.AddConfigQuery().AddLocalPeersQuery()
+	req = req.AddConfigQuery()
 
 	pc, err := d.chaincode.channel.NewPeerClientForAddress(*d.chaincode.network.PickPeer())
 	if err != nil {
