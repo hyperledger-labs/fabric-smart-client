@@ -142,7 +142,7 @@ func (n *Namespace) VerifyInputCertificationAt(index int, key string) error {
 		}
 
 		// Check endorsements
-		if err := certTx.HasBeenEndorsedBy(endorsers...); err != nil {
+		if err := certTx.HasBeenEndorsedBy(fabric.DiscoveredIdentities(endorsers)...); err != nil {
 			return errors.Wrapf(err, "failed validating certification [%s,%s,%s] for [%s]", n.tx.Channel(), cn, cv, id)
 		}
 

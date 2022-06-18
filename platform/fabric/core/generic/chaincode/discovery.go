@@ -8,14 +8,14 @@ package chaincode
 
 import (
 	"context"
-	peer2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
-	"github.com/hyperledger/fabric/common/util"
 	"strings"
 	"time"
 
+	peer2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	discovery2 "github.com/hyperledger/fabric-protos-go/discovery"
+	"github.com/hyperledger/fabric/common/util"
 	discovery "github.com/hyperledger/fabric/discovery/client"
 	"github.com/pkg/errors"
 )
@@ -41,7 +41,7 @@ func NewDiscovery(chaincode *Chaincode) *Discovery {
 	}
 }
 
-func (d *Discovery) Call() ([]view.Identity, error) {
+func (d *Discovery) Call() ([]driver.DiscoveredPeer, error) {
 	var sb strings.Builder
 	sb.WriteString(d.chaincode.network.Name())
 	sb.WriteString(d.chaincode.channel.Name())
@@ -75,14 +75,14 @@ func (d *Discovery) Call() ([]view.Identity, error) {
 	switch {
 	case len(d.ImplicitCollections) > 0:
 		for _, collection := range d.ImplicitCollections {
-			temp, err := cr.Endorsers(
+			discoveredEndorsers, err := cr.Endorsers(
 				ccCall(d.chaincode.name),
 				&byMSPIDs{mspIDs: []string{collection}},
 			)
 			if err != nil {
 				return nil, errors.WithMessage(err, "failed to get endorsers")
 			}
-			endorsers = append(endorsers, temp...)
+			endorsers = append(endorsers, discoveredEndorsers...)
 		}
 	default:
 		endorsers, err = cr.Endorsers(
@@ -93,9 +93,38 @@ func (d *Discovery) Call() ([]view.Identity, error) {
 	if err != nil {
 		return nil, errors.WithMessagef(err, "failed getting endorsers for [%s]", key)
 	}
-	var endorserIdentities []view.Identity
-	for _, e := range endorsers {
-		endorserIdentities = append(endorserIdentities, e.Identity)
+	configResult, err := cr.Config()
+	if err != nil {
+		return nil, errors.WithMessagef(err, "failed getting config for [%s]", key)
+	}
+
+	var discoveredEndorsers []driver.DiscoveredPeer
+	for _, peer := range endorsers {
+		// extract peer info
+		if peer.AliveMessage == nil {
+			continue
+		}
+		aliveMsg := peer.AliveMessage.GetAliveMsg()
+		if aliveMsg == nil {
+			continue
+		}
+		member := aliveMsg.Membership
+		if member == nil {
+			logger.Debugf("no membership info in alive message for peer [%s:%s]", peer.MSPID, view.Identity(peer.Identity).String())
+			continue
+		}
+
+		var tlsRootCerts [][]byte
+		if mspInfo, ok := configResult.GetMsps()[peer.MSPID]; ok {
+			tlsRootCerts = append(tlsRootCerts, mspInfo.GetTlsRootCerts()...)
+			tlsRootCerts = append(tlsRootCerts, mspInfo.GetTlsIntermediateCerts()...)
+		}
+		discoveredEndorsers = append(discoveredEndorsers, driver.DiscoveredPeer{
+			Identity:     peer.Identity,
+			MSPID:        peer.MSPID,
+			Endpoint:     member.Endpoint,
+			TLSRootCerts: tlsRootCerts,
+		})
 	}
 
 	// cache response
@@ -106,7 +135,7 @@ func (d *Discovery) Call() ([]view.Identity, error) {
 	}
 
 	// done
-	return endorserIdentities, nil
+	return discoveredEndorsers, nil
 }
 
 func (d *Discovery) WithFilterByMSPIDs(mspIDs ...string) driver.ChaincodeDiscover {
@@ -127,24 +156,17 @@ func (d *Discovery) send() (discovery.Response, error) {
 		}
 	}()
 
-	//var collectionNames []string
-	//if len(d.ImplicitCollections) > 0 {
-	//	for _, collection := range d.ImplicitCollections {
-	//		collectionNames = append(collectionNames, fmt.Sprintf("_implicit_org_%s", collection))
-	//	}
-	//}
-
+	// New discovery request for:
+	// - endorsers and
+	// - config,
 	req, err := discovery.NewRequest().OfChannel(d.chaincode.channel.Name()).AddEndorsersQuery(
-		&discovery2.ChaincodeInterest{Chaincodes: []*discovery2.ChaincodeCall{
-			{
-				Name: d.chaincode.name,
-				//CollectionNames: collectionNames,
-			},
-		}},
+		&discovery2.ChaincodeInterest{Chaincodes: []*discovery2.ChaincodeCall{{Name: d.chaincode.name}}},
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed creating request")
 	}
+	req = req.AddConfigQuery()
+
 	pc, err := d.chaincode.channel.NewPeerClientForAddress(*d.chaincode.network.PickPeer())
 	if err != nil {
 		return nil, err

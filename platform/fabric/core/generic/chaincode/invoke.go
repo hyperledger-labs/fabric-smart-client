@@ -13,20 +13,17 @@ import (
 	"strings"
 	"sync"
 
-	"go.uber.org/zap/zapcore"
-
 	peer2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
-
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	pcommon "github.com/hyperledger/fabric-protos-go/common"
 	pb "github.com/hyperledger/fabric-protos-go/peer"
 	"github.com/hyperledger/fabric/protoutil"
 	"github.com/pkg/errors"
-
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"go.uber.org/zap/zapcore"
 )
 
 type Invoke struct {
@@ -187,20 +184,16 @@ func (i *Invoke) prepare() (string, *pb.Proposal, []*pb.ProposalResponse, driver
 
 	// load endorser clients
 	var endorserClients []pb.EndorserClient
+	var discoveredPeer []driver.DiscoveredPeer
 	switch {
 	case len(i.EndorsersByConnConfig) != 0:
+		// get a peer client for each connection config
 		for _, config := range i.EndorsersByConnConfig {
 			peerClient, err := i.Channel.NewPeerClientForAddress(*config)
 			if err != nil {
 				return "", nil, nil, nil, err
 			}
 			peerClients = append(peerClients, peerClient)
-
-			endorserClient, err := peerClient.Endorser()
-			if err != nil {
-				return "", nil, nil, nil, errors.WithMessagef(err, "error getting endorser client for config %v", config)
-			}
-			endorserClients = append(endorserClients, endorserClient)
 		}
 	case len(i.Endorsers) == 0:
 		if i.EndorsersFromMyOrg && len(i.EndorsersMSPIDs) == 0 {
@@ -219,7 +212,7 @@ func (i *Invoke) prepare() (string, *pb.Proposal, []*pb.ProposalResponse, driver
 		).WithFilterByMSPIDs(
 			i.EndorsersMSPIDs...,
 		).WithImplicitCollections(i.ImplicitCollectionMSPIDs...)
-		i.Endorsers, err = discovery.Call()
+		discoveredPeer, err = discovery.Call()
 		if err != nil {
 			return "", nil, nil, nil, err
 		}
@@ -229,16 +222,32 @@ func (i *Invoke) prepare() (string, *pb.Proposal, []*pb.ProposalResponse, driver
 		return "", nil, nil, nil, errors.New("no rule set to find the endorsers")
 	}
 
+	// get a peer client for all passed endorser identities
 	for _, endorser := range i.Endorsers {
 		peerClient, err := i.Channel.NewPeerClientForIdentity(endorser)
 		if err != nil {
 			return "", nil, nil, nil, err
 		}
 		peerClients = append(peerClients, peerClient)
-
-		endorserClient, err := peerClient.Endorser()
+	}
+	// get a peer client for all discovered peers
+	for _, peer := range discoveredPeer {
+		peerClient, err := i.Channel.NewPeerClientForAddress(grpc.ConnectionConfig{
+			Address:          peer.Endpoint,
+			TLSEnabled:       i.Network.Config().TLSEnabled(),
+			TLSRootCertBytes: peer.TLSRootCerts,
+		})
 		if err != nil {
-			return "", nil, nil, nil, errors.WithMessagef(err, "error getting endorser client for %s", endorser)
+			return "", nil, nil, nil, errors.WithMessagef(err, "error getting endorser client for %s", peer.Endpoint)
+		}
+		peerClients = append(peerClients, peerClient)
+	}
+
+	// get endorser clients
+	for _, client := range peerClients {
+		endorserClient, err := client.Endorser()
+		if err != nil {
+			return "", nil, nil, nil, errors.WithMessagef(err, "error getting endorser client for %s", client.Address())
 		}
 		endorserClients = append(endorserClients, endorserClient)
 	}
