@@ -2,7 +2,7 @@
 
 Samples are a collection of small and simple apps that demonstrate how to use the library.
 
-To run the samples, we recommend to use `go 1.16` or later. You will also need docker as it is needed by Fabric.
+To run the samples, we recommend to use `go 1.17` or later. You will also need docker as it is needed by Fabric.
 To make sure you have all the required docker images, you can run `make docker-images` in the
 Fabric Smart Client repository folder (`$FSC_PATH`).
 
