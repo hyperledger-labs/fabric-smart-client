@@ -69,10 +69,10 @@ orion-server-images:
 
 .PHONY: dependencies
 dependencies:
-	go get -u github.com/onsi/ginkgo/ginkgo
-	go get -u github.com/gordonklaus/ineffassign
-	go get -u github.com/google/addlicense
-	go get -u github.com/client9/misspell/cmd/misspell
+	go install github.com/onsi/ginkgo/ginkgo
+	go install github.com/gordonklaus/ineffassign
+	go install github.com/google/addlicense
+	go install github.com/client9/misspell/cmd/misspell
 
 .PHONY: integration-tests
 integration-tests: docker-images dependencies
@@ -125,7 +125,7 @@ integration-tests-orioncars: docker-images orion-server-images dependencies
 
 .PHONY: tidy
 tidy:
-	@go mod tidy
+	@go mod tidy -compat=1.17
 
 .PHONY: clean
 clean:
@@ -145,6 +145,8 @@ clean:
 	rm -rf ./integration/fsc/pingpong/cmd/responder
 	rm -rf ./integration/orion/cars/cmd
 	rm -rf ./integration/fscnodes
+	rm -rf ./cmd/fsccli/cmd
+	rm -rf ./samples/fabric/iou/cmd
 
 .PHONY: fsccli
 fsccli:
