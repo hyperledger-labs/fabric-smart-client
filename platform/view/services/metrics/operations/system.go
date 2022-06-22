@@ -95,6 +95,7 @@ func NewSystem(server Server, o Options) *System {
 }
 
 func (s *System) Start() error {
+	s.logger.Debugf("starting metrics system...")
 	err := s.startMetricsTickers()
 	if err != nil {
 		return err

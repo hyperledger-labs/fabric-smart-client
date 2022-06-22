@@ -17,6 +17,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/api"
 	protos2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view/protos"
+	"github.com/pkg/errors"
 )
 
 // Config models the configuration for the web client
@@ -93,6 +94,11 @@ func (c *Client) CallView(fid string, in []byte) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	if response == nil {
+		return nil, errors.Errorf("empty response")
+	}
+
 	return response.CallViewResponse.Result, nil
 }
 

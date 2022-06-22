@@ -40,7 +40,7 @@ const (
 
 var errStreamNotFound = errors.New("stream not found")
 
-var logger = flogging.MustGetLogger("view-sdk")
+var logger = flogging.MustGetLogger("view-sdk.comm.p2p")
 
 type messageWithStream struct {
 	message *view.Message
@@ -62,32 +62,46 @@ type P2PNode struct {
 	stopFinder       int32
 	finderWg         sync.WaitGroup
 	isStopping       bool
+	// ensures we shutdown ONLY once
+	stopSync sync.Once
 }
 
 func (p *P2PNode) Start(ctx context.Context) {
+	logger.Debugf("Starting node communication")
+
 	go p.dispatchMessages(ctx)
+
+	// call stop when context is closed
 	go func() {
-		<-ctx.Done()
-		p.Stop()
+		select {
+		case <-ctx.Done():
+			p.Stop()
+		}
 	}()
 }
 
 func (p *P2PNode) Stop() {
-	p.streamsMutex.Lock()
-	p.isStopping = true
-	p.streamsMutex.Unlock()
+	logger.Debugf("Stopping node communication")
 
-	p.host.Close()
-	atomic.StoreInt32(&p.stopFinder, 1)
+	p.stopSync.Do(func() {
+		p.streamsMutex.Lock()
+		p.isStopping = true
+		p.streamsMutex.Unlock()
 
-	for _, streams := range p.streams {
-		for _, stream := range streams {
-			stream.close()
+		p.host.Close()
+		atomic.StoreInt32(&p.stopFinder, 1)
+
+		for _, streams := range p.streams {
+			for _, stream := range streams {
+				stream.close()
+			}
 		}
-	}
 
-	close(p.incomingMessages)
-	p.finderWg.Wait()
+		close(p.incomingMessages)
+
+		// wait for finder to close
+		p.finderWg.Wait()
+	})
 }
 
 func (p *P2PNode) dispatchMessages(ctx context.Context) {
@@ -239,13 +253,14 @@ func (s *streamHandler) send(msg proto.Message) error {
 
 func (s *streamHandler) handleIncoming() {
 	s.wg.Add(1)
+	defer s.wg.Done()
 	for {
 		msg := &ViewPacket{}
 		err := s.reader.ReadMsg(msg)
 		if err != nil {
 			if s.node.isStopping {
 				if logger.IsEnabledFor(zapcore.DebugLevel) {
-					logger.Debugf("error reading message while closing. ignoring.", err.Error())
+					logger.Debugf("error reading message while closing. ignoring message. err: %v", err)
 				}
 				break
 			}
@@ -258,7 +273,6 @@ func (s *streamHandler) handleIncoming() {
 			for i, thisSH := range s.node.streams[remotePeerID] {
 				if thisSH == s {
 					s.node.streams[remotePeerID] = append(s.node.streams[remotePeerID][:i], s.node.streams[remotePeerID][i+1:]...)
-					s.wg.Done()
 					s.node.streamsMutex.Unlock()
 					return
 				}

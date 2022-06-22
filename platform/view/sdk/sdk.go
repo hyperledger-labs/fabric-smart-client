@@ -10,6 +10,9 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"io/ioutil"
+	"net"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/finality"
 	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger"
 	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
@@ -21,8 +24,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger/fabric/common/grpclogging"
 	"github.com/pkg/errors"
-	"io/ioutil"
-	"net"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	config2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/core/config"
@@ -49,14 +50,6 @@ type Registry interface {
 	RegisterService(service interface{}) error
 }
 
-type Startable interface {
-	Start(ctx context.Context)
-}
-
-type Stoppable interface {
-	Stop()
-}
-
 type p struct {
 	confPath string
 	registry Registry
@@ -65,14 +58,14 @@ type p struct {
 
 	grpcServer  *grpc2.GRPCServer
 	viewService view2.Service
-	viewManager Startable
+	viewManager StartableWithContext
 
 	context          context.Context
 	operationsSystem *operations.System
 }
 
-func NewSDK(confPath string, registry Registry) *p {
-	return &p{confPath: confPath, registry: registry}
+func NewSDK(confPath string, registry Registry) *mySDK {
+	return &mySDK{confPath: confPath, registry: registry}
 }
 
 func (p *p) Install() error {

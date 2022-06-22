@@ -183,13 +183,13 @@ func (cm *manager) InitiateContextWithIdentity(view view.View, id view.Identity)
 	return childContext, nil
 }
 
-func (cm *manager) Start(ctx context.Context) {
+func (cm *manager) Start(ctx context.Context) error {
 	cm.contextsSync.Lock()
 	cm.ctx = ctx
 	cm.contextsSync.Unlock()
 	session, err := GetCommLayer(cm.sp).MasterSession()
 	if err != nil {
-		return
+		return errors.Wrapf(err, "cannot start manager")
 	}
 	for {
 		ch := session.Receive()
@@ -200,7 +200,7 @@ func (cm *manager) Start(ctx context.Context) {
 			if logger.IsEnabledFor(zapcore.DebugLevel) {
 				logger.Debugf("received done signal, stopping listening to messages on the master session")
 			}
-			return
+			return nil
 		}
 	}
 }

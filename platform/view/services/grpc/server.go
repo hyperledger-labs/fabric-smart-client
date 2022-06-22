@@ -228,12 +228,19 @@ func (gServer *GRPCServer) Start() error {
 			healthpb.HealthCheckResponse_SERVING,
 		)
 	}
+
+	commLogger.Debugf("Start grpc server listing on %v", gServer.listener.Addr())
+
+	// start the server
 	return gServer.server.Serve(gServer.listener)
 }
 
 // Stop stops the underlying grpc.Server
-func (gServer *GRPCServer) Stop() {
+func (gServer *GRPCServer) Stop() error {
+	commLogger.Debugf("Stop grpc server ...[%v]", gServer.listener.Addr())
+
 	gServer.server.Stop()
+	return nil
 }
 
 // internal function to add a PEM-encoded clientRootCA
