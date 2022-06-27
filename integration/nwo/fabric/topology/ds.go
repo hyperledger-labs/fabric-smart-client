@@ -47,12 +47,9 @@ type Consortium struct {
 	Organizations []string `yaml:"organizations,omitempty"`
 }
 
-// Consensus indicates the orderer types and how many broker and zookeeper
-// instances.
+// Consensus indicates the orderer types (we only support SOLO for testing)
 type Consensus struct {
-	Type       string `yaml:"type,omitempty"`
-	Brokers    int    `yaml:"brokers,omitempty"`
-	ZooKeepers int    `yaml:"zookeepers,omitempty"`
+	Type string `yaml:"type,omitempty"`
 }
 
 // The SystemChannel declares the name of the network system channel and its

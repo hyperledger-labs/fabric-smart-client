@@ -31,7 +31,7 @@ func (c *Builder) Discover() string {
 }
 
 func (c *Builder) Idemixgen() string {
-	return c.Build("github.com/hyperledger/fabric/cmd/idemixgen")
+	return c.Build("github.com/IBM/idemix/tools/idemixgen")
 }
 
 func (c *Builder) Orderer() string {

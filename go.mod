@@ -4,9 +4,8 @@ go 1.17
 
 replace (
 	github.com/fsouza/go-dockerclient => github.com/fsouza/go-dockerclient v1.4.1
-	github.com/go-kit/kit => github.com/go-kit/kit v0.7.0
-	github.com/hyperledger/fabric => github.com/hyperledger/fabric v1.4.0-rc1.0.20210722174351-9815a7a8f0f7
-	github.com/hyperledger/fabric-protos-go => github.com/hyperledger/fabric-protos-go v0.0.0-20201028172056-a3136dde2354
+	github.com/hyperledger/fabric => github.com/hyperledger/fabric v1.4.0-rc1.0.20220617141947-1473ecae6451
+	github.com/hyperledger/fabric-protos-go => github.com/hyperledger/fabric-protos-go v0.0.0-20220315113721-7dc293e117f7
 	go.etcd.io/etcd => go.etcd.io/etcd v0.5.0-alpha.5.0.20181228115726-23731bf9ba55
 )
 
@@ -18,7 +17,7 @@ require (
 	github.com/dgraph-io/badger/v3 v3.2103.2
 	github.com/docker/docker v20.10.7+incompatible
 	github.com/docker/go-connections v0.4.0
-	github.com/fsouza/go-dockerclient v1.6.1
+	github.com/fsouza/go-dockerclient v1.7.3
 	github.com/go-kit/kit v0.10.0
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/protobuf v1.5.2
@@ -34,15 +33,15 @@ require (
 	github.com/hyperledger/fabric-contract-api-go v1.1.1
 	github.com/hyperledger/fabric-lib-go v1.0.0
 	github.com/hyperledger/fabric-private-chaincode v0.0.0-20210907122433-d56466264e4d
-	github.com/hyperledger/fabric-protos-go v0.0.0-20210911123859-041d13f0980c
+	github.com/hyperledger/fabric-protos-go v0.0.0-20220516090339-9685156fada6
 	github.com/libp2p/go-libp2p v0.20.1
 	github.com/libp2p/go-libp2p-core v0.16.1
 	github.com/libp2p/go-libp2p-kad-dht v0.15.0
 	github.com/miracl/conflate v1.2.1
-	github.com/mitchellh/mapstructure v1.3.2
+	github.com/mitchellh/mapstructure v1.4.3
 	github.com/multiformats/go-multiaddr v0.5.0
 	github.com/onsi/ginkgo v1.16.5
-	github.com/onsi/gomega v1.16.0
+	github.com/onsi/gomega v1.19.0
 	github.com/op/go-logging v0.0.0-20160315200505-970db520ece7
 	github.com/otiai10/copy v1.5.1
 	github.com/pkg/errors v0.9.1
@@ -55,7 +54,7 @@ require (
 	github.com/test-go/testify v1.1.4
 	go.uber.org/atomic v1.7.0
 	go.uber.org/zap v1.19.1
-	golang.org/x/net v0.0.0-20211112202133-69e39bad7dc2
+	golang.org/x/net v0.0.0-20220225172249-27dd8689420f
 	google.golang.org/grpc v1.39.1
 	google.golang.org/protobuf v1.27.1
 	gopkg.in/src-d/go-git.v4 v4.13.1
@@ -66,13 +65,13 @@ require (
 	code.cloudfoundry.org/clock v1.0.0 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 // indirect
 	github.com/BurntSushi/toml v0.3.1 // indirect
-	github.com/Microsoft/go-winio v0.4.17 // indirect
+	github.com/Microsoft/go-winio v0.5.0 // indirect
 	github.com/Microsoft/hcsshim v0.8.16 // indirect
 	github.com/OneOfOne/xxhash v1.2.5 // indirect
 	github.com/PuerkitoBio/purell v1.1.1 // indirect
 	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect
 	github.com/Shopify/sarama v1.26.3 // indirect
-	github.com/VictoriaMetrics/fastcache v1.5.7 // indirect
+	github.com/VictoriaMetrics/fastcache v1.9.0 // indirect
 	github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751 // indirect
 	github.com/alecthomas/units v0.0.0-20210912230133-d1bdfacee922 // indirect
 	github.com/benbjohnson/clock v1.3.0 // indirect
@@ -110,7 +109,6 @@ require (
 	github.com/go-openapi/jsonreference v0.19.3 // indirect
 	github.com/go-openapi/spec v0.19.4 // indirect
 	github.com/go-openapi/swag v0.19.5 // indirect
-	github.com/go-stack/stack v1.8.0 // indirect
 	github.com/go-task/slim-sprig v0.0.0-20210107165309-348f09dbbbc0 // indirect
 	github.com/gobuffalo/envy v1.7.1 // indirect
 	github.com/gobuffalo/packd v0.3.0 // indirect
@@ -118,7 +116,7 @@ require (
 	github.com/godbus/dbus/v5 v5.0.3 // indirect
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b // indirect
 	github.com/golang/groupcache v0.0.0-20200121045136-8c9f03a8e57e // indirect
-	github.com/golang/snappy v0.0.3 // indirect
+	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/flatbuffers v1.12.1 // indirect
 	github.com/google/gopacket v1.1.19 // indirect
 	github.com/google/uuid v1.3.0 // indirect
@@ -127,12 +125,12 @@ require (
 	github.com/hashicorp/go-immutable-radix v1.0.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/hashicorp/go-uuid v1.0.2 // indirect
-	github.com/hashicorp/go-version v1.2.0 // indirect
+	github.com/hashicorp/go-version v1.4.0 // indirect
 	github.com/hashicorp/golang-lru v0.5.4 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/huin/goupnp v1.0.0 // indirect
 	github.com/hyperledger/fabric-amcl v0.0.0-20210603140002-2670f91851c8 // indirect
-	github.com/hyperledger/fabric-config v0.0.7 // indirect
+	github.com/hyperledger/fabric-config v0.1.0 // indirect
 	github.com/ijc/Gotty v0.0.0-20170406111628-a8b993ba6abd // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/ipfs/go-cid v0.1.0 // indirect
@@ -177,7 +175,7 @@ require (
 	github.com/mattn/go-isatty v0.0.14 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369 // indirect
 	github.com/miekg/dns v1.1.43 // indirect
-	github.com/miekg/pkcs11 v1.0.3 // indirect
+	github.com/miekg/pkcs11 v1.1.1 // indirect
 	github.com/mikioh/tcpinfo v0.0.0-20190314235526-30a79bb1804b // indirect
 	github.com/mikioh/tcpopt v0.0.0-20190314235656-172688c1accc // indirect
 	github.com/minio/blake2b-simd v0.0.0-20160723061019-3f5f724cb5b1 // indirect
@@ -205,7 +203,7 @@ require (
 	github.com/opentracing/opentracing-go v1.2.0 // indirect
 	github.com/pbnjay/memory v0.0.0-20210728143218-7b4eea64cf58 // indirect
 	github.com/pelletier/go-toml v1.8.1 // indirect
-	github.com/pierrec/lz4 v2.5.2+incompatible // indirect
+	github.com/pierrec/lz4 v2.6.0+incompatible // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/polydawn/refmt v0.0.0-20190807091052-3d65705ee9f1 // indirect
 	github.com/prometheus/client_model v0.2.0 // indirect
@@ -213,8 +211,8 @@ require (
 	github.com/prometheus/procfs v0.7.3 // indirect
 	github.com/raulk/clock v1.1.0 // indirect
 	github.com/raulk/go-watchdog v1.2.0 // indirect
-	github.com/rcrowley/go-metrics v0.0.0-20190826022208-cac0b30c2563 // indirect
-	github.com/rogpeppe/go-internal v1.5.0 // indirect
+	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475 // indirect
+	github.com/rogpeppe/go-internal v1.6.1 // indirect
 	github.com/sergi/go-diff v1.0.0 // indirect
 	github.com/sirupsen/logrus v1.8.1 // indirect
 	github.com/spacemonkeygo/spacelog v0.0.0-20180420211403-2296661a0572 // indirect
