@@ -27,8 +27,8 @@ application with simplicity and joy? Check our Token SDK out [`here`](https://gi
 
 # Getting started
 
-Clone the code and make sure it is on your `$GOPATH`. 
-(Important: we assume in this documentation and default configuration that your `$GOPATH` has a single root-directoy!). 
+Clone the code and make sure it is on your `$GOPATH`.
+(Note: To set up your go development environment see the [official go documentation](https://go.dev/doc/gopath_code#GOPATH))
 Sometimes, we use `$FSC_PATH` to refer to the Fabric Smart Client repository in your filesystem.
 
 ```bash
