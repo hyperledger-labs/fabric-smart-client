@@ -1,3 +1,6 @@
+# pinned versions
+FABRIC_VERSION=2.4.4
+
 .PHONY: checks
 checks: dependencies
 	@test -z $(shell gofmt -l -s $(shell go list -f '{{.Dir}}' ./...) | tee /dev/stderr) || (echo "Fix formatting issues"; exit 1)
@@ -37,10 +40,10 @@ docker-images: fabric-docker-images weaver-docker-images fpc-docker-images monit
 
 .PHONY: fabric-docker-images
 fabric-docker-images:
-	docker pull hyperledger/fabric-baseos:2.2
-	docker image tag hyperledger/fabric-baseos:2.2 hyperledger/fabric-baseos:latest
-	docker pull hyperledger/fabric-ccenv:2.2
-	docker image tag hyperledger/fabric-ccenv:2.2 hyperledger/fabric-ccenv:latest
+	docker pull hyperledger/fabric-baseos:$(FABRIC_VERSION)
+	docker image tag hyperledger/fabric-baseos:$(FABRIC_VERSION) hyperledger/fabric-baseos:latest
+	docker pull hyperledger/fabric-ccenv:$(FABRIC_VERSION)
+	docker image tag hyperledger/fabric-ccenv:$(FABRIC_VERSION) hyperledger/fabric-ccenv:latest
 
 .PHONY: weaver-docker-images
 weaver-docker-images:
