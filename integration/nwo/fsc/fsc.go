@@ -9,7 +9,6 @@ package fsc
 import (
 	"bytes"
 	"fmt"
-	"go/build"
 	"io"
 	"io/ioutil"
 	"net"
@@ -587,11 +586,10 @@ func (p *Platform) NodeCmdDir(peer *node2.Peer) string {
 
 func (p *Platform) NodeCmdPackage(peer *node2.Peer) string {
 	gopath := os.Getenv("GOPATH")
-	if gopath == "" {
-		gopath = build.Default.GOPATH
-	}
+	Expect(gopath).ShouldNot(BeEmpty(), "$GOPATH is not set!")
+
 	wd, err := os.Getwd()
-	Expect(err).ToNot(HaveOccurred())
+	Expect(err).ToNot(HaveOccurred(), "$GOPATH=%s does not exists", gopath)
 
 	return strings.TrimPrefix(
 		filepath.Join(strings.TrimPrefix(wd, filepath.Join(gopath, "src")), "cmd", peer.Name),
