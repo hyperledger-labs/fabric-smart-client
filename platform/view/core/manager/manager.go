@@ -85,17 +85,40 @@ func (cm *manager) NewView(id string, in []byte) (f view.View, err error) {
 	return factory.NewView(in)
 }
 
-func (cm *manager) RegisterResponder(responder view.View, initiatedBy view.View) {
-	cm.RegisterResponderWithIdentity(responder, nil, initiatedBy)
+func (cm *manager) RegisterResponder(responder view.View, initiatedBy interface{}) error {
+	switch t := initiatedBy.(type) {
+	case view.View:
+		cm.registerResponderWithIdentity(responder, nil, cm.GetIdentifier(t))
+	case string:
+		cm.registerResponderWithIdentity(responder, nil, t)
+	default:
+		return errors.Errorf("initiatedBy must be a view or a string")
+	}
+	return nil
 }
 
-func (cm *manager) RegisterResponderWithIdentity(responder view.View, id view.Identity, initiatedBy view.View) {
+func (cm *manager) RegisterResponderWithIdentity(responder view.View, id view.Identity, initiatedBy interface{}) error {
+	switch t := initiatedBy.(type) {
+	case view.View:
+		cm.registerResponderWithIdentity(responder, id, cm.GetIdentifier(t))
+	case string:
+		cm.registerResponderWithIdentity(responder, id, t)
+	default:
+		return errors.Errorf("initiatedBy must be a view or a string")
+	}
+	return nil
+}
+
+func (cm *manager) registerResponderWithIdentity(responder view.View, id view.Identity, initiatedByID string) {
 	cm.viewsSync.Lock()
 	defer cm.viewsSync.Unlock()
 
-	cm.views[getIdentifier(responder)] = append(cm.views[getIdentifier(responder)], &viewEntry{View: responder, ID: id, Initiator: initiatedBy == nil})
-	if initiatedBy != nil {
-		cm.initiators[getIdentifier(initiatedBy)] = getIdentifier(responder)
+	responderID := getIdentifier(responder)
+	logger.Debugf("registering responder [%s] for initiator [%s] with identity [%s]", responderID, initiatedByID, id)
+
+	cm.views[responderID] = append(cm.views[responderID], &viewEntry{View: responder, ID: id, Initiator: len(initiatedByID) == 0})
+	if len(initiatedByID) != 0 {
+		cm.initiators[initiatedByID] = responderID
 	}
 }
 

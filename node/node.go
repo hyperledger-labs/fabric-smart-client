@@ -32,8 +32,8 @@ type FabricSmartClient interface {
 	GetService(v interface{}) (interface{}, error)
 	RegisterService(service interface{}) error
 	RegisterFactory(id string, factory api.Factory) error
-	RegisterResponder(responder view.View, initiatedBy view.View)
-	RegisterResponderWithIdentity(responder view.View, id view.Identity, initiatedBy view.View)
+	RegisterResponder(responder view.View, initiatedBy interface{}) error
+	RegisterResponderWithIdentity(responder view.View, id view.Identity, initiatedBy view.View) error
 	ResolveIdentities(endpoints ...string) ([]view.Identity, error)
 }
 
