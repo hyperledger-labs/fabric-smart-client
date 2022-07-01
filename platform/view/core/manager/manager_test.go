@@ -27,7 +27,7 @@ type Manager interface {
 	RegisterFactory(id string, factory driver.Factory) error
 	NewView(id string, in []byte) (f view.View, err error)
 	Initiate(id string) (interface{}, error)
-	RegisterResponderWithIdentity(responder view.View, id view.Identity, initiatedBy view.View)
+	RegisterResponderWithIdentity(responder view.View, id view.Identity, initiatedBy interface{}) error
 }
 
 type DummyView struct{}

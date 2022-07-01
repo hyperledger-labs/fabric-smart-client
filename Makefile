@@ -73,9 +73,9 @@ orion-server-images:
 .PHONY: dependencies
 dependencies:
 	go install github.com/onsi/ginkgo/ginkgo
-	go install github.com/gordonklaus/ineffassign
-	go install github.com/google/addlicense
-	go install github.com/client9/misspell/cmd/misspell
+	go get github.com/gordonklaus/ineffassign
+	go get github.com/google/addlicense
+	go get github.com/client9/misspell/cmd/misspell
 
 .PHONY: integration-tests
 integration-tests: docker-images dependencies
