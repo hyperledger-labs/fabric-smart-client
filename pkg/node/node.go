@@ -123,12 +123,12 @@ func (n *node) RegisterFactory(id string, factory api.Factory) error {
 	return view3.GetRegistry(n.registry).RegisterFactory(id, factory)
 }
 
-func (n *node) RegisterResponder(responder view.View, initiatedBy view.View) {
-	view3.GetRegistry(n.registry).RegisterResponder(responder, initiatedBy)
+func (n *node) RegisterResponder(responder view.View, initiatedBy interface{}) error {
+	return view3.GetRegistry(n.registry).RegisterResponder(responder, initiatedBy)
 }
 
-func (n *node) RegisterResponderWithIdentity(responder view.View, id view.Identity, initiatedBy view.View) {
-	view3.GetRegistry(n.registry).RegisterResponderWithIdentity(responder, id, initiatedBy)
+func (n *node) RegisterResponderWithIdentity(responder view.View, id view.Identity, initiatedBy view.View) error {
+	return view3.GetRegistry(n.registry).RegisterResponderWithIdentity(responder, id, initiatedBy)
 }
 
 func (n *node) RegisterService(service interface{}) error {

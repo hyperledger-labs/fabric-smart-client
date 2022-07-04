@@ -11,14 +11,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/manager"
 	mock2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/core/manager/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver/mock"
 	registry2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/registry"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"github.com/stretchr/testify/assert"
 )
 
 type Manager interface {
@@ -27,7 +26,19 @@ type Manager interface {
 	RegisterFactory(id string, factory driver.Factory) error
 	NewView(id string, in []byte) (f view.View, err error)
 	Initiate(id string) (interface{}, error)
-	RegisterResponderWithIdentity(responder view.View, id view.Identity, initiatedBy view.View)
+	RegisterResponderWithIdentity(responder view.View, id view.Identity, initiatedBy interface{}) error
+}
+
+type InitiatorView struct{}
+
+func (a InitiatorView) Call(context view.Context) (interface{}, error) {
+	return nil, nil
+}
+
+type ResponderView struct{}
+
+func (a ResponderView) Call(context view.Context) (interface{}, error) {
+	return "pineapple", nil
 }
 
 type DummyView struct{}
@@ -81,6 +92,45 @@ func TestManagerRace(t *testing.T) {
 		go registerResponder(t, wg, manager)
 	}
 	wg.Wait()
+}
+
+func TestRegisterResponderWithInitiatorView(t *testing.T) {
+	registry := registry2.New()
+	idProvider := &mock.IdentityProvider{}
+	idProvider.DefaultIdentityReturns([]byte("alice"))
+	assert.NoError(t, registry.RegisterService(idProvider))
+	assert.NoError(t, registry.RegisterService(&mock2.CommLayer{}))
+	assert.NoError(t, registry.RegisterService(&mock.EndpointService{}))
+	assert.NoError(t, registry.RegisterService(&mock2.SessionFactory{}))
+
+	manager := manager.New(registry)
+	err := manager.RegisterResponder(&ResponderView{}, &InitiatorView{})
+	assert.NoError(t, err)
+	responder, _, err := manager.ExistResponderForCaller(manager.GetIdentifier(&InitiatorView{}))
+	assert.NoError(t, err)
+	res, err := responder.Call(nil)
+	assert.NoError(t, err)
+	assert.Equal(t, "pineapple", res)
+
+}
+
+func TestRegisterResponderWithViewIdentifier(t *testing.T) {
+	registry := registry2.New()
+	idProvider := &mock.IdentityProvider{}
+	idProvider.DefaultIdentityReturns([]byte("alice"))
+	assert.NoError(t, registry.RegisterService(idProvider))
+	assert.NoError(t, registry.RegisterService(&mock2.CommLayer{}))
+	assert.NoError(t, registry.RegisterService(&mock.EndpointService{}))
+	assert.NoError(t, registry.RegisterService(&mock2.SessionFactory{}))
+
+	manager := manager.New(registry)
+	err := manager.RegisterResponder(&ResponderView{}, manager.GetIdentifier(&InitiatorView{}))
+	assert.NoError(t, err)
+	responder, _, err := manager.ExistResponderForCaller(manager.GetIdentifier(&InitiatorView{}))
+	assert.NoError(t, err)
+	res, err := responder.Call(nil)
+	assert.NoError(t, err)
+	assert.Equal(t, "pineapple", res)
 }
 
 func registerFactory(t *testing.T, wg *sync.WaitGroup, m Manager) {

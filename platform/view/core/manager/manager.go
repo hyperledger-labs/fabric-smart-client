@@ -85,17 +85,32 @@ func (cm *manager) NewView(id string, in []byte) (f view.View, err error) {
 	return factory.NewView(in)
 }
 
-func (cm *manager) RegisterResponder(responder view.View, initiatedBy view.View) {
-	cm.RegisterResponderWithIdentity(responder, nil, initiatedBy)
+func (cm *manager) RegisterResponder(responder view.View, initiatedBy interface{}) error {
+	return cm.RegisterResponderWithIdentity(responder, nil, initiatedBy)
 }
 
-func (cm *manager) RegisterResponderWithIdentity(responder view.View, id view.Identity, initiatedBy view.View) {
+func (cm *manager) RegisterResponderWithIdentity(responder view.View, id view.Identity, initiatedBy interface{}) error {
+	switch t := initiatedBy.(type) {
+	case view.View:
+		cm.registerResponderWithIdentity(responder, id, cm.GetIdentifier(t))
+	case string:
+		cm.registerResponderWithIdentity(responder, id, t)
+	default:
+		return errors.Errorf("initiatedBy must be a view or a string")
+	}
+	return nil
+}
+
+func (cm *manager) registerResponderWithIdentity(responder view.View, id view.Identity, initiatedByID string) {
 	cm.viewsSync.Lock()
 	defer cm.viewsSync.Unlock()
 
-	cm.views[getIdentifier(responder)] = append(cm.views[getIdentifier(responder)], &viewEntry{View: responder, ID: id, Initiator: initiatedBy == nil})
-	if initiatedBy != nil {
-		cm.initiators[getIdentifier(initiatedBy)] = getIdentifier(responder)
+	responderID := getIdentifier(responder)
+	logger.Debugf("registering responder [%s] for initiator [%s] with identity [%s]", responderID, initiatedByID, id)
+
+	cm.views[responderID] = append(cm.views[responderID], &viewEntry{View: responder, ID: id, Initiator: len(initiatedByID) == 0})
+	if len(initiatedByID) != 0 {
+		cm.initiators[initiatedByID] = responderID
 	}
 }
 
@@ -233,6 +248,29 @@ func (cm *manager) GetIdentifier(f view.View) string {
 	return getIdentifier(f)
 }
 
+func (cm *manager) ExistResponderForCaller(caller string) (view.View, view.Identity, error) {
+	cm.viewsSync.RLock()
+	defer cm.viewsSync.RUnlock()
+
+	// Is there a responder
+	label, ok := cm.initiators[caller]
+	if !ok {
+		return nil, nil, errors.Errorf("no view found initiatable by [%s]", caller)
+	}
+	responders := cm.views[label]
+	var res *viewEntry
+	for _, entry := range responders {
+		if !entry.Initiator {
+			res = entry
+		}
+	}
+	if res == nil {
+		return nil, nil, errors.Errorf("responder not found for [%s]", label)
+	}
+
+	return res.View, res.ID, nil
+}
+
 func (cm *manager) respond(responder view.View, id view.Identity, msg *view.Message) (ctx view.Context, res interface{}, err error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -343,26 +381,7 @@ func (cm *manager) deleteContext(id view.Identity, contextID string) {
 }
 
 func (cm *manager) existResponder(msg *view.Message) (view.View, view.Identity, error) {
-	cm.viewsSync.RLock()
-	defer cm.viewsSync.RUnlock()
-
-	// Is there a responder
-	label, ok := cm.initiators[msg.Caller]
-	if !ok {
-		return nil, nil, errors.Errorf("no view found initiatable by [%s]", msg.Caller)
-	}
-	responders := cm.views[label]
-	var res *viewEntry
-	for _, entry := range responders {
-		if !entry.Initiator {
-			res = entry
-		}
-	}
-	if res == nil {
-		return nil, nil, errors.Errorf("responder not found for [%s]", label)
-	}
-
-	return res.View, res.ID, nil
+	return cm.ExistResponderForCaller(msg.Caller)
 }
 
 func (cm *manager) callView(msg *view.Message) {

@@ -20,8 +20,8 @@ func Topology() []api.Topology {
 		"github.com/hyperledger-labs/fabric-smart-client/integration/fsc/pingpong/cmd/initiator",
 	).AddOptions(fsc.WithAlias("alice"))
 	// Add the responder fsc node
-	topology.AddNodeByName("responder").RegisterResponder(
-		&Responder{}, &Initiator{},
+	topology.AddNodeByName("responder").SetExecutable(
+		"github.com/hyperledger-labs/fabric-smart-client/integration/fsc/pingpong/cmd/responder",
 	).AddOptions(fsc.WithAlias("bob"))
 	return []api.Topology{topology}
 }
