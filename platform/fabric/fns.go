@@ -8,7 +8,6 @@ package fabric
 
 import (
 	"fmt"
-	"github.com/pkg/errors"
 	"reflect"
 	"sync"
 
@@ -17,6 +16,7 @@ import (
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
+	"github.com/pkg/errors"
 )
 
 var (

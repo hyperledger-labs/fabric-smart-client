@@ -8,14 +8,13 @@ package pingpong
 
 import (
 	"fmt"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"time"
-
-	"github.com/pkg/errors"
 
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"github.com/pkg/errors"
 )
 
 type Initiator struct{}

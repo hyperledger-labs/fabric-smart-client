@@ -8,6 +8,8 @@ package delivery
 
 import (
 	"context"
+	"time"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
@@ -15,7 +17,6 @@ import (
 	"github.com/hyperledger-labs/orion-server/pkg/types"
 	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
-	"time"
 )
 
 var logger = flogging.MustGetLogger("orion-sdk.delivery")

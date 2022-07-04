@@ -8,18 +8,17 @@ package common
 
 import (
 	"context"
-	discovery2 "github.com/hyperledger/fabric/discovery/client"
 	"sync"
-
-	"github.com/hyperledger/fabric-protos-go/discovery"
-	pb "github.com/hyperledger/fabric-protos-go/peer"
-	"github.com/pkg/errors"
-	grpc2 "google.golang.org/grpc"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"github.com/hyperledger/fabric-protos-go/discovery"
+	pb "github.com/hyperledger/fabric-protos-go/peer"
+	discovery2 "github.com/hyperledger/fabric/discovery/client"
+	"github.com/pkg/errors"
+	grpc2 "google.golang.org/grpc"
 )
 
 var logger = flogging.MustGetLogger("fabric-sdk.core.generic.peer.conn")

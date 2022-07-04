@@ -8,8 +8,6 @@ package views
 
 import (
 	"encoding/json"
-	"github.com/hyperledger-labs/orion-server/pkg/types"
-	"github.com/pkg/errors"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/orion/cars/states"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion"
@@ -18,6 +16,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/session"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"github.com/hyperledger-labs/orion-server/pkg/types"
+	"github.com/pkg/errors"
 )
 
 type MintRequest struct {

@@ -7,9 +7,10 @@ SPDX-License-Identifier: Apache-2.0
 package compose
 
 import (
-	"github.com/pkg/errors"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/pkg/errors"
 )
 
 const (

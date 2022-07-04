@@ -10,10 +10,6 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	docker "github.com/fsouza/go-dockerclient"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -27,12 +23,15 @@ import (
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
-	. "github.com/onsi/gomega"
-	"gopkg.in/yaml.v2"
-
+	docker "github.com/fsouza/go-dockerclient"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/helpers"
 	nnetwork "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/network"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	. "github.com/onsi/gomega"
+	"gopkg.in/yaml.v2"
 )
 
 const (

@@ -8,12 +8,13 @@ package view
 
 import (
 	"context"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
-	protos2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view/protos"
-	"github.com/pkg/errors"
 	"reflect"
 	"runtime/debug"
 	"strconv"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	protos2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view/protos"
+	"github.com/pkg/errors"
 )
 
 var logger = flogging.MustGetLogger("view-sdk.server")

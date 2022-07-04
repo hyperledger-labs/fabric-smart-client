@@ -8,6 +8,10 @@ package committer
 
 import (
 	"fmt"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/compose"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
@@ -15,9 +19,6 @@ import (
 	"github.com/hyperledger-labs/orion-server/pkg/types"
 	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
-	"strings"
-	"sync"
-	"time"
 )
 
 var logger = flogging.MustGetLogger("orion-sdk.committer")

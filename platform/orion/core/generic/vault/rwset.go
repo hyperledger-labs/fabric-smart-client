@@ -8,12 +8,13 @@ package vault
 
 import (
 	"bytes"
+	"sort"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/google/go-cmp/cmp"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/keys"
 	"github.com/hyperledger-labs/orion-server/pkg/types"
 	"github.com/pkg/errors"
-	"sort"
 )
 
 type readWriteSet struct {

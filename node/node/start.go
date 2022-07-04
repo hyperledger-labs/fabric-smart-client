@@ -8,17 +8,16 @@ package node
 
 import (
 	"fmt"
-	node3 "github.com/hyperledger-labs/fabric-smart-client/pkg/node"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"os"
 	"os/signal"
 	"strconv"
 	"syscall"
 
-	"github.com/spf13/cobra"
-
 	"github.com/hyperledger-labs/fabric-smart-client/node/node/profile"
+	node3 "github.com/hyperledger-labs/fabric-smart-client/pkg/node"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	"github.com/spf13/cobra"
 )
 
 const (

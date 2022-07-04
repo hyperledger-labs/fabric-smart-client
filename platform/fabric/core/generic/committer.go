@@ -7,14 +7,14 @@ SPDX-License-Identifier: Apache-2.0
 package generic
 
 import (
+	"strings"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/compose"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger/fabric-protos-go/common"
 	pb "github.com/hyperledger/fabric-protos-go/peer"
 	"github.com/pkg/errors"
-	"strings"
-
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
 
 func (c *channel) Status(txid string) (driver.ValidationCode, []string, error) {

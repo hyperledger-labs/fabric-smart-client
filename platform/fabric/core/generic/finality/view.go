@@ -7,10 +7,11 @@ SPDX-License-Identifier: Apache-2.0
 package finality
 
 import (
+	"time"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/session"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
-	"time"
 )
 
 type IsFinalRequest struct {
