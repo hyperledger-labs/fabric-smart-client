@@ -86,15 +86,7 @@ func (cm *manager) NewView(id string, in []byte) (f view.View, err error) {
 }
 
 func (cm *manager) RegisterResponder(responder view.View, initiatedBy interface{}) error {
-	switch t := initiatedBy.(type) {
-	case view.View:
-		cm.registerResponderWithIdentity(responder, nil, cm.GetIdentifier(t))
-	case string:
-		cm.registerResponderWithIdentity(responder, nil, t)
-	default:
-		return errors.Errorf("initiatedBy must be a view or a string")
-	}
-	return nil
+	return cm.RegisterResponderWithIdentity(responder, nil, initiatedBy)
 }
 
 func (cm *manager) RegisterResponderWithIdentity(responder view.View, id view.Identity, initiatedBy interface{}) error {
