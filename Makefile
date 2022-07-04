@@ -28,11 +28,15 @@ misspell:
 	@echo Running misspell
 	@misspell $(shell go list -f '{{.Dir}}' ./...)
 
+.PHONY: goimports
+goimports:
+	@echo Running goimports
+	@test -z "$(shell goimports -l . )" || (echo "Import formatting issues found!!!"; goimports -l . ; exit 1)
+
 .PHONY: licensecheck
 licensecheck:
 	@echo Running license check
 	find . -name '*.go' | xargs addlicense -check || (echo "Missing license headers"; exit 1)
-
 
 .PHONY: unit-tests
 unit-tests: docker-images
