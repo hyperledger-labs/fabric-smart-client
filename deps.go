@@ -1,4 +1,4 @@
-// +build tools
+//go:build deps
 
 /*
 Copyright IBM Corp. All Rights Reserved.
@@ -6,7 +6,7 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package tools
+package deps
 
 import (
 	_ "github.com/hyperledger/fabric/common/ledger/util/leveldbhelper"

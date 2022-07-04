@@ -2,28 +2,37 @@
 FABRIC_VERSION=2.2
 
 .PHONY: checks
-checks: dependencies
+checks: tools licensecheck misspell ineffassign
+	@echo Running gofmt
 	@test -z $(shell gofmt -l -s $(shell go list -f '{{.Dir}}' ./...) | tee /dev/stderr) || (echo "Fix formatting issues"; exit 1)
-	find . -name '*.go' | xargs addlicense -check || (echo "Missing license headers"; exit 1)
+	@echo Running go vet
 	@go vet -all $(shell go list -f '{{.Dir}}' ./...)
-	@ineffassign $(shell go list -f '{{.Dir}}' ./...)
-	@misspell $(shell go list -f '{{.Dir}}' ./...)
 
 .PHONY: lint
 lint:
+	@echo Running golint
 	@golint $(shell go list -f '{{.Dir}}' ./...)
 
 .PHONY: gocyclo
 gocyclo:
+	@echo Running gocyclo
 	@gocyclo -over 15 $(shell go list -f '{{.Dir}}' ./...)
 
 .PHONY: ineffassign
 ineffassign:
+	@echo Running ineffassign
 	@ineffassign $(shell go list -f '{{.Dir}}' ./...)
 
 .PHONY: misspell
 misspell:
+	@echo Running misspell
 	@misspell $(shell go list -f '{{.Dir}}' ./...)
+
+.PHONY: licensecheck
+licensecheck:
+	@echo Running license check
+	find . -name '*.go' | xargs addlicense -check || (echo "Missing license headers"; exit 1)
+
 
 .PHONY: unit-tests
 unit-tests: docker-images
@@ -70,15 +79,12 @@ monitoring-docker-images:
 orion-server-images:
 	docker pull orionbcdb/orion-server:latest
 
-.PHONY: dependencies
-dependencies:
-	go install github.com/onsi/ginkgo/ginkgo
-	go install github.com/gordonklaus/ineffassign
-	go install github.com/google/addlicense
-	go install github.com/client9/misspell/cmd/misspell
+.PHONY: tools
+tools:
+	@make -C tools
 
 .PHONY: integration-tests
-integration-tests: docker-images dependencies
+integration-tests: docker-images tools
 	cd ./integration/fabric/iou; ginkgo -keepGoing --slowSpecThreshold 60 .
 	cd ./integration/fabric/atsa/chaincode; ginkgo -keepGoing --slowSpecThreshold 60 .
 	cd ./integration/fabric/atsa/fsc; ginkgo -keepGoing --slowSpecThreshold 60 .
@@ -87,43 +93,43 @@ integration-tests: docker-images dependencies
 	cd ./integration/fsc/stoprestart; ginkgo -keepGoing --slowSpecThreshold 60 .
 
 .PHONY: integration-tests-iou
-integration-tests-iou: docker-images dependencies
+integration-tests-iou: docker-images tools
 	cd ./integration/fabric/iou; ginkgo -keepGoing --slowSpecThreshold 60 .
 
 .PHONY: integration-tests-atsacc
-integration-tests-atsacc: docker-images dependencies
+integration-tests-atsacc: docker-images tools
 	cd ./integration/fabric/atsa/chaincode; ginkgo -keepGoing --slowSpecThreshold 60 .
 
 .PHONY: integration-tests-atsafsc
-integration-tests-atsafsc: docker-images dependencies
+integration-tests-atsafsc: docker-images tools
 	cd ./integration/fabric/atsa/fsc; ginkgo -keepGoing --slowSpecThreshold 60 .
 
 .PHONY: integration-tests-twonets
-integration-tests-twonets: docker-images dependencies
+integration-tests-twonets: docker-images tools
 	cd ./integration/fabric/twonets; ginkgo -keepGoing --slowSpecThreshold 60 .
 
 .PHONY: integration-tests-fpc-echo
-integration-tests-fpc-echo: docker-images fpc-docker-images dependencies
+integration-tests-fpc-echo: docker-images fpc-docker-images tools
 	cd ./integration/fabric/fpc/echo; ginkgo -keepGoing --slowSpecThreshold 60 .
 
 .PHONY: integration-tests-weaver-relay
-integration-tests-weaver-relay: docker-images weaver-docker-images dependencies
+integration-tests-weaver-relay: docker-images weaver-docker-images tools
 	cd ./integration/fabric/weaver/relay; ginkgo -keepGoing --slowSpecThreshold 60 .
 
 .PHONY: integration-tests-fabric-stoprestart
-integration-tests-fabric-stoprestart: docker-images dependencies
+integration-tests-fabric-stoprestart: docker-images tools
 	cd ./integration/fabric/stoprestart; ginkgo -keepGoing --slowSpecThreshold 60 .
 
 .PHONY: integration-tests-pingpong
-integration-tests-pingpong: docker-images dependencies
+integration-tests-pingpong: docker-images tools
 	cd ./integration/fsc/pingpong/; ginkgo -keepGoing --slowSpecThreshold 60 .
 
 .PHONY: integration-tests-stoprestart
-integration-tests-stoprestart: docker-images dependencies
+integration-tests-stoprestart: docker-images tools
 	cd ./integration/fsc/stoprestart; ginkgo -keepGoing --slowSpecThreshold 60 .
 
 .PHONY: integration-tests-orioncars
-integration-tests-orioncars: docker-images orion-server-images dependencies
+integration-tests-orioncars: docker-images orion-server-images tools
 	cd ./integration/orion/cars; ginkgo -keepGoing --slowSpecThreshold 60 .
 
 .PHONY: tidy
