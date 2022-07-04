@@ -11,12 +11,13 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/web/middleware"
 	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
 	"time"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/web/middleware"
 )
 
 //go:generate counterfeiter -o fakes/logger.go -fake-name Logger . Logger
@@ -116,6 +117,8 @@ func (s *Server) Run(signals <-chan os.Signal, ready chan<- struct{}) error {
 	return s.Stop()
 }
 
+// Start launches the httpServer by accepting incoming connections.
+// This is a blocking function
 func (s *Server) Start() error {
 	listener, err := s.listen()
 	if err != nil {
@@ -123,12 +126,22 @@ func (s *Server) Start() error {
 	}
 	s.addr = listener.Addr().String()
 
-	go s.httpServer.Serve(listener)
+	s.logger.Debugf("Start web service listing on %v", listener.Addr())
 
+	// start server
+	if err := s.httpServer.Serve(listener); err != nil {
+		// what error do we have?
+		if err != http.ErrServerClosed {
+			s.logger.Debugf("Web service has been closed")
+			return err
+		}
+	}
 	return nil
 }
 
 func (s *Server) Stop() error {
+	s.logger.Debugf("Stopping web service")
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 

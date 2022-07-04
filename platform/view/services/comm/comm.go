@@ -50,12 +50,14 @@ func NewService(
 	return s, nil
 }
 
-func (s *Service) Start(ctx context.Context) {
+func (s *Service) Start(ctx context.Context) error {
 	s.Node.Start(ctx)
+	return nil
 }
 
-func (s *Service) Stop() {
+func (s *Service) Stop() error {
 	s.Node.Stop()
+	return nil
 }
 
 func (s *Service) NewSessionWithID(sessionID, contextID, endpoint string, pkid []byte, caller view2.Identity, msg *view2.Message) (view2.Session, error) {

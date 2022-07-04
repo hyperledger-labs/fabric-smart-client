@@ -93,14 +93,14 @@ func (n *node) Start() (err error) {
 	n.context, n.cancel = context.WithCancel(context.Background())
 
 	// Start
-	logger.Info("Starting sdks...")
+	logger.Info("Starting services...")
 	for _, p := range n.sdks {
 		if err := p.Start(n.context); err != nil {
 			logger.Errorf("Failed starting platform [%s]", err)
 			return err
 		}
 	}
-	logger.Infof("Starting sdks...done")
+	logger.Infof("Starting services...done")
 
 	return nil
 }

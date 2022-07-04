@@ -153,6 +153,7 @@ func (p *P2PNode) startFinder() {
 	sleep:
 		for i := 0; i < 4; i++ {
 			if atomic.LoadInt32(&p.stopFinder) != 0 {
+				logger.Debugf("stopping finder")
 				p.finderWg.Done()
 				return
 			}
