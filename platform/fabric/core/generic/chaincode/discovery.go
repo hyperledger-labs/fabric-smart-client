@@ -15,7 +15,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	discovery2 "github.com/hyperledger/fabric-protos-go/discovery"
-	"github.com/hyperledger/fabric-protos-go/peer"
 	"github.com/hyperledger/fabric/common/util"
 	discovery "github.com/hyperledger/fabric/discovery/client"
 	"github.com/pkg/errors"
@@ -161,7 +160,7 @@ func (d *Discovery) send() (discovery.Response, error) {
 	// - endorsers and
 	// - config,
 	req, err := discovery.NewRequest().OfChannel(d.chaincode.channel.Name()).AddEndorsersQuery(
-		&peer.ChaincodeInterest{Chaincodes: []*peer.ChaincodeCall{{Name: d.chaincode.name}}},
+		&discovery2.ChaincodeInterest{Chaincodes: []*discovery2.ChaincodeCall{{Name: d.chaincode.name}}},
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed creating request")
@@ -204,10 +203,10 @@ func (d *Discovery) send() (discovery.Response, error) {
 	return response, nil
 }
 
-func ccCall(ccNames ...string) []*peer.ChaincodeCall {
-	var call []*peer.ChaincodeCall
+func ccCall(ccNames ...string) []*discovery2.ChaincodeCall {
+	var call []*discovery2.ChaincodeCall
 	for _, ccName := range ccNames {
-		call = append(call, &peer.ChaincodeCall{
+		call = append(call, &discovery2.ChaincodeCall{
 			Name: ccName,
 		})
 	}

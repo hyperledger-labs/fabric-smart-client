@@ -1,5 +1,5 @@
 # pinned versions
-FABRIC_VERSION=2.4.4
+FABRIC_VERSION=2.2
 
 .PHONY: checks
 checks: dependencies

@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package operations
 
 import (
-	"context"
 	"net"
 	"net/http"
 	"strings"
@@ -238,7 +237,7 @@ func (s *System) startMetricsTickers() error {
 		go goCollector.CollectAndPublish(s.collectorTicker.C)
 
 		s.sendTicker = time.NewTicker(writeInterval)
-		go s.statsd.SendLoop(context.TODO(), s.sendTicker.C, network, address)
+		go s.statsd.SendLoop(s.sendTicker.C, network, address)
 	}
 
 	return nil
