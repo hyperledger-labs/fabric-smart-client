@@ -11,9 +11,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	docker "github.com/fsouza/go-dockerclient"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -27,11 +24,13 @@ import (
 	"github.com/docker/docker/api/types/volume"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
-	. "github.com/onsi/gomega"
-
+	docker "github.com/fsouza/go-dockerclient"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/helpers"
 	nnetwork "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/network"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	. "github.com/onsi/gomega"
 )
 
 const (

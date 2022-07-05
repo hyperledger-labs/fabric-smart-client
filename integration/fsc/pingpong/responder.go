@@ -9,10 +9,10 @@ package pingpong
 import (
 	"errors"
 	"fmt"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 

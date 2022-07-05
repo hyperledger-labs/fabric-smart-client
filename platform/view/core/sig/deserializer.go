@@ -7,11 +7,11 @@ SPDX-License-Identifier: Apache-2.0
 package sig
 
 import (
-	"github.com/pkg/errors"
-	"go.uber.org/zap/zapcore"
 	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
+	"github.com/pkg/errors"
+	"go.uber.org/zap/zapcore"
 )
 
 type Deserializer interface {

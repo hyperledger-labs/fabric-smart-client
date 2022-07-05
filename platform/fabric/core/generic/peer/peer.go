@@ -8,6 +8,7 @@ package peer
 
 import (
 	"crypto/tls"
+
 	"github.com/hyperledger/fabric-protos-go/discovery"
 	pb "github.com/hyperledger/fabric-protos-go/peer"
 	discovery2 "github.com/hyperledger/fabric/discovery/client"

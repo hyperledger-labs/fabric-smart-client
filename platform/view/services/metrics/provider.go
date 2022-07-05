@@ -7,9 +7,10 @@ SPDX-License-Identifier: Apache-2.0
 package metrics
 
 import (
+	"reflect"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger/fabric/common/metrics"
-	"reflect"
 )
 
 var key = reflect.TypeOf((*metrics.Provider)(nil))

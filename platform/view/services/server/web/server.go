@@ -11,12 +11,13 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/web/middleware"
 	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
 	"time"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/web/middleware"
 )
 
 //go:generate counterfeiter -o fakes/logger.go -fake-name Logger . Logger

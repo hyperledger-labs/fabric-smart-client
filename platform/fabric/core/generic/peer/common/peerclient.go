@@ -9,15 +9,14 @@ package common
 import (
 	"context"
 	"crypto/tls"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
-	grpc2 "google.golang.org/grpc"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger/fabric-protos-go/discovery"
 	pb "github.com/hyperledger/fabric-protos-go/peer"
-	"github.com/pkg/errors"
-
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	discovery2 "github.com/hyperledger/fabric/discovery/client"
+	"github.com/pkg/errors"
+	grpc2 "google.golang.org/grpc"
 )
 
 // PeerClient represents a client for communicating with a peer

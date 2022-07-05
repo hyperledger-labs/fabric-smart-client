@@ -7,6 +7,10 @@ SPDX-License-Identifier: Apache-2.0
 package monitoring
 
 import (
+	"path/filepath"
+	"strings"
+	"time"
+
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
@@ -15,9 +19,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	. "github.com/onsi/gomega"
 	"github.com/tedsuo/ifrit/grouper"
-	"path/filepath"
-	"strings"
-	"time"
 )
 
 var logger = flogging.MustGetLogger("fsc.integration.monitoring")

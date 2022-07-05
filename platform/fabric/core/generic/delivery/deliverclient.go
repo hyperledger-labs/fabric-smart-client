@@ -9,12 +9,13 @@ package delivery
 import (
 	"context"
 	"crypto/tls"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
 	"math"
 	"time"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
+	grpc2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger/fabric-protos-go/common"
 	ab "github.com/hyperledger/fabric-protos-go/orderer"
 	pb "github.com/hyperledger/fabric-protos-go/peer"
@@ -23,8 +24,6 @@ import (
 	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
-
-	grpc2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 )
 
 type Hasher interface {

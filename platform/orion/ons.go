@@ -7,13 +7,14 @@ SPDX-License-Identifier: Apache-2.0
 package orion
 
 import (
+	"reflect"
+	"sync"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/pkg/errors"
-	"reflect"
-	"sync"
 )
 
 var (

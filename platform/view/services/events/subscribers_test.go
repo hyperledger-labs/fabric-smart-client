@@ -7,9 +7,10 @@ SPDX-License-Identifier: Apache-2.0
 package events_test
 
 import (
+	"testing"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 type A struct {

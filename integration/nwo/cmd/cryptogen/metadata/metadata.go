@@ -8,8 +8,9 @@ package metadata
 
 import (
 	"fmt"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/metadata"
 	"runtime"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/metadata"
 )
 
 const ProgramName = "cryptogen"
