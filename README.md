@@ -1,7 +1,7 @@
 # Fabric Smart Client
 [![License](https://img.shields.io/badge/license-Apache%202-blue)](LICENSE)
 [![Go Report Card](https://goreportcard.com/badge/github.com/hyperledger-labs/fabric-smart-client)](https://goreportcard.com/badge/github.com/hyperledger-labs/fabric-smart-client)
-[![Go](https://github.com/hyperledger-labs/fabric-smart-client/actions/workflows/go.yml/badge.svg)](https://github.com/hyperledger-labs/fabric-smart-client/actions/workflows/go.yml)
+[![Go](https://github.com/hyperledger-labs/fabric-smart-client/actions/workflows/tests.yml/badge.svg)](https://github.com/hyperledger-labs/fabric-smart-client/actions/workflows/go.yml)
 [![CodeQL](https://github.com/hyperledger-labs/fabric-smart-client/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/hyperledger-labs/fabric-smart-client/actions/workflows/codeql-analysis.yml)
 
 The `Fabric Smart Client` (FSC, for short) is a new Fabric client-side component whose objective is twofold.
