@@ -7,21 +7,18 @@ SPDX-License-Identifier: Apache-2.0
 package network
 
 import (
-	"net"
 	"path/filepath"
-	"strings"
 	"time"
 
 	docker "github.com/fsouza/go-dockerclient"
-	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gexec"
-	"github.com/tedsuo/ifrit/grouper"
-
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/commands"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/fabricconfig"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gexec"
+	"github.com/tedsuo/ifrit/grouper"
 )
 
 var logger = flogging.MustGetLogger("fsc.integration.fabric")
@@ -236,60 +233,7 @@ func (n *Network) PostRun(load bool) {
 }
 
 func (n *Network) Cleanup() {
-	if n.DockerClient == nil {
-		return
-	}
-
-	nw, err := n.DockerClient.NetworkInfo(n.NetworkID)
-	if _, ok := err.(*docker.NoSuchNetwork); err != nil && ok {
-		return
-	}
-	Expect(err).NotTo(HaveOccurred())
-
-	containers, err := n.DockerClient.ListContainers(docker.ListContainersOptions{All: true})
-	Expect(err).NotTo(HaveOccurred())
-	for _, c := range containers {
-		for _, name := range c.Names {
-			if strings.HasPrefix(name, "/"+n.NetworkID) {
-				logger.Infof("cleanup container [%s]", name)
-				err := n.DockerClient.RemoveContainer(docker.RemoveContainerOptions{ID: c.ID, Force: true})
-				Expect(err).NotTo(HaveOccurred())
-				break
-			} else {
-				logger.Infof("cleanup container [%s], skipped", name)
-			}
-		}
-	}
-
-	volumes, err := n.DockerClient.ListVolumes(docker.ListVolumesOptions{})
-	Expect(err).NotTo(HaveOccurred())
-	for _, i := range volumes {
-		if strings.HasPrefix(i.Name, n.NetworkID) {
-			logger.Infof("cleanup volume [%s]", i.Name)
-			err := n.DockerClient.RemoveVolumeWithOptions(docker.RemoveVolumeOptions{
-				Name:  i.Name,
-				Force: false,
-			})
-			Expect(err).NotTo(HaveOccurred())
-			break
-		}
-	}
-
-	images, err := n.DockerClient.ListImages(docker.ListImagesOptions{All: true})
-	Expect(err).NotTo(HaveOccurred())
-	for _, i := range images {
-		for _, tag := range i.RepoTags {
-			if strings.HasPrefix(tag, n.NetworkID) {
-				logger.Infof("cleanup image [%s]", tag)
-				err := n.DockerClient.RemoveImage(i.ID)
-				Expect(err).NotTo(HaveOccurred())
-				break
-			}
-		}
-	}
-
-	err = n.DockerClient.RemoveNetwork(nw.ID)
-	Expect(err).NotTo(HaveOccurred())
+	// DO nothing
 }
 
 func (n *Network) DeployChaincode(chaincode *topology.ChannelChaincode) {
@@ -322,36 +266,4 @@ func (n *Network) DeployChaincode(chaincode *topology.ChannelChaincode) {
 
 func (n *Network) AddExtension(ex Extension) {
 	n.Extensions = append(n.Extensions, ex)
-}
-
-func LocalIP(dockerClient *docker.Client, networkID string) string {
-	ni, err := dockerClient.NetworkInfo(networkID)
-	Expect(err).NotTo(HaveOccurred())
-
-	Expect(ni.IPAM.Config).To(HaveLen(1))
-	var config docker.IPAMConfig
-	for _, cfg := range ni.IPAM.Config {
-		config = cfg
-		break
-	}
-
-	dockerPrefix := config.Subnet[:strings.Index(config.Subnet, ".0")]
-
-	ifaces, err := net.Interfaces()
-	Expect(err).NotTo(HaveOccurred())
-
-	for _, i := range ifaces {
-		addrs, err := i.Addrs()
-		Expect(err).NotTo(HaveOccurred())
-
-		for _, addr := range addrs {
-			if strings.Index(addr.String(), dockerPrefix) == 0 {
-				ipWithSubnet := addr.String()
-				i := strings.Index(ipWithSubnet, "/")
-				return ipWithSubnet[:i]
-			}
-		}
-	}
-
-	return "127.0.0.1"
 }

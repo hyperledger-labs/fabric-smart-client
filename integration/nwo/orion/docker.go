@@ -1,0 +1,131 @@
+/*
+Copyright IBM Corp. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
+
+package orion
+
+import (
+	"bufio"
+	"context"
+	"fmt"
+	"strconv"
+	"time"
+
+	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/mount"
+	"github.com/docker/docker/api/types/network"
+	"github.com/docker/docker/client"
+	"github.com/docker/go-connections/nat"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/docker"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	. "github.com/onsi/gomega"
+)
+
+const ServerImage = "orionbcdb/orion-server:latest"
+
+var RequiredImages = []string{ServerImage}
+
+func (p *Platform) RunOrionServer() {
+	ctx := context.Background()
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	if err != nil {
+		panic(err)
+	}
+
+	d, err := docker.GetInstance()
+	Expect(err).NotTo(HaveOccurred())
+
+	net, err := d.Client.NetworkInfo(p.NetworkID)
+	if err != nil {
+		panic(err)
+	}
+
+	strNodePort := strconv.Itoa(int(p.nodePort))
+	strPeerPort := strconv.Itoa(int(p.peerPort))
+
+	containerName := fmt.Sprintf("%s.orion.%s", p.NetworkID, p.Topology.TopologyName)
+	resp, err := cli.ContainerCreate(ctx, &container.Config{
+		Hostname: containerName,
+		Image:    ServerImage,
+		Tty:      false,
+		ExposedPorts: nat.PortSet{
+			nat.Port(strNodePort + "/tcp"): struct{}{},
+			nat.Port(strPeerPort + "/tcp"): struct{}{},
+		},
+	}, &container.HostConfig{
+		Mounts: []mount.Mount{
+			{
+				Type: mount.TypeBind,
+				// Absolute path to
+				Source: p.ledgerDir(),
+				Target: "/etc/orion-server/ledger",
+			},
+			{
+				Type: mount.TypeBind,
+				// Absolute path to
+				Source: p.cryptoDir(),
+				Target: "/etc/orion-server/crypto",
+			},
+			{
+				Type: mount.TypeBind,
+				// Absolute path to
+				Source: p.configDir(),
+				Target: "/etc/orion-server/config",
+			},
+		},
+		PortBindings: nat.PortMap{
+			nat.Port(strNodePort + "/tcp"): []nat.PortBinding{
+				{
+					HostIP:   "0.0.0.0",
+					HostPort: strNodePort,
+				},
+			},
+			nat.Port(strPeerPort + "/tcp"): []nat.PortBinding{
+				{
+					HostIP:   "0.0.0.0",
+					HostPort: strPeerPort,
+				},
+			},
+		},
+	}, &network.NetworkingConfig{
+		EndpointsConfig: map[string]*network.EndpointSettings{
+			p.NetworkID: {
+				NetworkID: net.ID,
+			},
+		},
+	}, nil, containerName)
+	if err != nil {
+		panic(err)
+	}
+
+	cli.NetworkConnect(context.Background(), p.NetworkID, resp.ID, &network.EndpointSettings{
+		NetworkID: p.NetworkID,
+	})
+
+	if err := cli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{}); err != nil {
+		panic(err)
+	}
+
+	dockerLogger := flogging.MustGetLogger("orion.container." + containerName)
+	go func() {
+		reader, err := cli.ContainerLogs(context.Background(), resp.ID, types.ContainerLogsOptions{
+			ShowStdout: true,
+			ShowStderr: true,
+			Follow:     true,
+			Timestamps: false,
+		})
+		Expect(err).ToNot(HaveOccurred())
+		defer reader.Close()
+
+		scanner := bufio.NewScanner(reader)
+		for scanner.Scan() {
+			dockerLogger.Debugf("%s", scanner.Text())
+		}
+	}()
+
+	logger.Debugf("Wait orion to start...")
+	time.Sleep(60 * time.Second)
+}

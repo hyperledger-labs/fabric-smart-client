@@ -15,32 +15,22 @@ import (
 	"path/filepath"
 	"runtime"
 
-	docker "github.com/fsouza/go-dockerclient"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/commands"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/fpc"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/network"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology/fabric"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger/fabric-private-chaincode/client_sdk/go/pkg/core/contract"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
 	"github.com/onsi/gomega/gexec"
 	"github.com/tedsuo/ifrit/grouper"
-
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/commands"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/fpc"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/helpers"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/network"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology/fabric"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 )
 
-const CCEnvDefaultImage = "hyperledger/fabric-ccenv:latest"
-
-var (
-	RequiredImages = []string{
-		CCEnvDefaultImage,
-	}
-	logger = flogging.MustGetLogger("nwo.fabric")
-)
+var logger = flogging.MustGetLogger("nwo.fabric")
 
 type Orderer struct {
 	Name             string
@@ -111,32 +101,23 @@ type Platform struct {
 }
 
 func NewPlatform(context api.Context, t api.Topology, components BuilderClient) *Platform {
-	helpers.AssertImagesExist(RequiredImages...)
 
-	dockerClient, err := docker.NewClientFromEnv()
-	Expect(err).NotTo(HaveOccurred())
+	// create a new network name
 	networkID := common.UniqueName()
-	_, err = dockerClient.CreateNetwork(
-		docker.CreateNetworkOptions{
-			Name:   networkID,
-			Driver: "bridge",
-		},
-	)
-	Expect(err).NotTo(HaveOccurred())
 
-	network := network.New(
+	n := network.New(
 		context,
 		t.(*topology.Topology),
-		dockerClient,
+		nil, // not needed anymore
 		components,
 		[]network.ChaincodeProcessor{},
 		networkID,
 	)
 	p := &Platform{
-		Network: network,
+		Network: n,
 	}
 
-	network.AddExtension(fpc.NewExtension(network))
+	n.AddExtension(fpc.NewExtension(n))
 
 	return p
 }
@@ -172,6 +153,9 @@ func (p *Platform) PostRun(load bool) {
 		return
 	}
 
+	err := p.setupDocker()
+	Expect(err).NotTo(HaveOccurred())
+
 	for _, chaincode := range p.Network.Topology().Chaincodes {
 		for _, invocation := range chaincode.PostRunInvocations {
 			logger.Infof("Post run invocation [%s:%s][%v][%v]",
@@ -193,6 +177,10 @@ func (p *Platform) PostRun(load bool) {
 
 func (p *Platform) Cleanup() {
 	p.Network.Cleanup()
+
+	// getting our docker helper and cleanup
+	err := p.cleanupDocker()
+	Expect(err).NotTo(HaveOccurred())
 }
 
 func (p *Platform) DeployChaincode(chaincode *topology.ChannelChaincode) {
