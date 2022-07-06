@@ -26,7 +26,7 @@ jobs:
         go-version: 1.17
 
     - name: Checks
-      run: make checks
+      run: make install-tools checks
 
     - name: Unit Tests
       run: make unit-tests
