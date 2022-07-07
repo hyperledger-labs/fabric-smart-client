@@ -50,6 +50,11 @@ func (r *Registry) RegisterResponder(responder View, initiatedBy interface{}) er
 	return r.registry.RegisterResponder(responder, initiatedBy)
 }
 
+// GetResponder returns the responder for the passed initiator.
+func (r *Registry) GetResponder(initiatedBy interface{}) (View, error) {
+	return r.registry.GetResponder(initiatedBy)
+}
+
 // RegisterResponderWithIdentity binds the pair <responder, id> to an initiator.
 // The responder is the view that will be called when the initiator (initiatedBy) contacts the FSC node where
 // this RegisterResponderWithIdentity is invoked.

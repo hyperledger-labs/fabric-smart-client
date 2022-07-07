@@ -101,6 +101,35 @@ func (cm *manager) RegisterResponderWithIdentity(responder view.View, id view.Id
 	return nil
 }
 
+func (cm *manager) GetResponder(initiatedBy interface{}) (view.View, error) {
+	var initiatedByID string
+	switch t := initiatedBy.(type) {
+	case view.View:
+		initiatedByID = cm.GetIdentifier(t)
+	case string:
+		initiatedByID = t
+	default:
+		return nil, errors.Errorf("initiatedBy must be a view or a string")
+	}
+
+	cm.viewsSync.Lock()
+	defer cm.viewsSync.Unlock()
+
+	responderID, ok := cm.initiators[initiatedByID]
+	if !ok {
+		return nil, errors.Errorf("responder not found for [%s]", initiatedByID)
+	}
+
+	entries, ok := cm.views[responderID]
+	if !ok {
+		return nil, errors.Errorf("responder not found for [%s], initiator [%s]", responderID, initiatedByID)
+	}
+	if len(entries) == 0 {
+		return nil, errors.Errorf("responder not found for [%s], initiator [%s]", responderID, initiatedByID)
+	}
+	return entries[0].View, nil
+}
+
 func (cm *manager) registerResponderWithIdentity(responder view.View, id view.Identity, initiatedByID string) {
 	cm.viewsSync.Lock()
 	defer cm.viewsSync.Unlock()

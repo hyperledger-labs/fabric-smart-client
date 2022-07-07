@@ -33,6 +33,9 @@ type Registry interface {
 	// The argument initiatedBy can be a view or a view identifier.
 	// If a view is passed, its identifier is computed and used to register the responder.
 	RegisterResponderWithIdentity(responder view.View, id view.Identity, initiatedBy interface{}) error
+
+	// GetResponder returns the responder for the passed initiator.
+	GetResponder(initiatedBy interface{}) (view.View, error)
 }
 
 func GetRegistry(sp ServiceProvider) Registry {
