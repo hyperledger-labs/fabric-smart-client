@@ -73,11 +73,10 @@ type matcher func(name string) bool
 
 func (d *Docker) Cleanup(networkID string, matchName matcher) error {
 	nw, err := d.Client.NetworkInfo(networkID)
-	if _, ok := err.(*docker.NoSuchNetwork); err != nil && ok {
-		return nil
-	}
 	if err != nil {
-		return err
+		if _, ok := err.(*docker.NoSuchNetwork); !ok {
+			return err
+		}
 	}
 
 	containers, err := d.Client.ListContainers(docker.ListContainersOptions{All: true})
@@ -91,10 +90,7 @@ func (d *Docker) Cleanup(networkID string, matchName matcher) error {
 				logger.Infof("cleanup container [%s]", name)
 
 				// disconnect the container first
-				if err := d.Client.DisconnectNetwork(networkID, docker.NetworkConnectionOptions{Force: true, Container: c.ID}); err != nil {
-					// ignore any errors
-					//return err
-				}
+				_ = d.Client.DisconnectNetwork(networkID, docker.NetworkConnectionOptions{Force: true, Container: c.ID})
 
 				// remove container
 				if err := d.Client.RemoveContainer(docker.RemoveContainerOptions{ID: c.ID, Force: true}); err != nil {
