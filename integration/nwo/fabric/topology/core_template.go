@@ -290,13 +290,6 @@ fabric:
          interval: 60s
          timeout: 600s
          minInterval: 60s 
-    orderers: {{ range Orderers }}
-      - address: {{ OrdererAddress . "Listen" }}
-        connectionTimeout: 10s
-        tlsEnabled: true        
-        tlsRootCertFile: {{ CACertsBundlePath }}
-        serverNameOverride:
-    {{- end }} 
     peers: {{ range Peers }}
       - address: {{ PeerAddress . "Listen" }}
         connectionTimeout: 10s

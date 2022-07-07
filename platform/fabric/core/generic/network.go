@@ -12,18 +12,16 @@ import (
 	"math/rand"
 	"sync"
 
-	"github.com/pkg/errors"
-
 	config2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/ordering"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/rwset"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"github.com/pkg/errors"
 )
 
 var logger = flogging.MustGetLogger("fabric-sdk.core")
@@ -40,11 +38,12 @@ type network struct {
 	transactionManager driver.TransactionManager
 	sigService         driver.SignerService
 
-	tlsRootCerts   [][]byte
-	orderers       []*grpc.ConnectionConfig
-	peers          []*grpc.ConnectionConfig
-	defaultChannel string
-	channelDefs    []*config2.Channel
+	tlsRootCerts       [][]byte
+	orderers           []*grpc.ConnectionConfig
+	configuredOrderers int
+	peers              []*grpc.ConnectionConfig
+	defaultChannel     string
+	channelDefs        []*config2.Channel
 
 	ordering driver.Ordering
 	channels map[string]driver.Channel
@@ -218,6 +217,7 @@ func (f *network) init() error {
 	if err != nil {
 		return errors.Wrap(err, "failed loading orderers")
 	}
+	f.configuredOrderers = len(f.orderers)
 	logger.Debugf("Orderers [%v]", f.orderers)
 
 	f.peers, err = f.config.Peers()
@@ -240,6 +240,12 @@ func (f *network) init() error {
 
 	f.ordering = ordering.NewService(f.sp, f)
 	return nil
+}
+
+func (f *network) setConfigOrderers(orderers []*grpc.ConnectionConfig) {
+	// the first configuredOrderers are from the configuration, keep them
+	// and append the new ones
+	f.orderers = append(f.orderers[:f.configuredOrderers], orderers...)
 }
 
 func loadFile(path string) ([]byte, error) {

@@ -10,17 +10,18 @@ import (
 	"fmt"
 	"strconv"
 	"sync"
+	"time"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/rwset"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger/fabric-protos-go/common"
 	"github.com/hyperledger/fabric/bccsp/factory"
 	"github.com/hyperledger/fabric/common/channelconfig"
 	"github.com/hyperledger/fabric/common/configtx"
 	"github.com/hyperledger/fabric/protoutil"
 	"github.com/pkg/errors"
-
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/rwset"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
 
 const (
@@ -193,9 +194,7 @@ func (c *channel) CommitConfig(blockNumber uint64, raw []byte, env *common.Envel
 		return errors.Wrapf(err, "failed committing configtx to the vault")
 	}
 
-	c.lock.Lock()
-	c.resources = bundle
-	c.lock.Unlock()
+	c.applyBundle(bundle)
 
 	return nil
 }
@@ -230,6 +229,44 @@ func (c *channel) commitConfig(txid string, blockNumber uint64, seq uint64, enve
 		return errors.Wrapf(err, "failed committing configtx rws")
 	}
 	return nil
+}
+
+func (c *channel) applyBundle(bundle *channelconfig.Bundle) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	c.resources = bundle
+
+	// update the list of orderers
+	orderers, any := c.resources.OrdererConfig()
+	if any {
+		logger.Debugf("[channel: %s] Orderer config has changed, updating the list of orderers", c.name)
+
+		var newOrderers []*grpc.ConnectionConfig
+		orgs := orderers.Organizations()
+		for _, org := range orgs {
+			msp := org.MSP()
+			var tlsRootCerts [][]byte
+			tlsRootCerts = append(tlsRootCerts, msp.GetTLSRootCerts()...)
+			tlsRootCerts = append(tlsRootCerts, msp.GetTLSIntermediateCerts()...)
+			for _, endpoint := range org.Endpoints() {
+				logger.Debugf("[channel: %s] Adding orderer endpoint: [%s:%s:%s]", c.name, org.Name(), org.MSPID(), endpoint)
+				newOrderers = append(newOrderers, &grpc.ConnectionConfig{
+					Address:           endpoint,
+					ConnectionTimeout: 10 * time.Second,
+					TLSEnabled:        true,
+					TLSRootCertBytes:  tlsRootCerts,
+				})
+			}
+		}
+		if len(newOrderers) != 0 {
+			logger.Debugf("[channel: %s] Updating the list of orderers: (%d) found", c.name, len(newOrderers))
+			c.network.setConfigOrderers(newOrderers)
+		} else {
+			logger.Debugf("[channel: %s] No orderers found in channel config", c.name)
+		}
+	} else {
+		logger.Debugf("no orderer configuration found in channel config")
+	}
 }
 
 func capabilitiesSupportedOrPanic(res channelconfig.Resources) {
