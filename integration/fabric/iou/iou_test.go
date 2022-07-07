@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package iou_test
 
 import (
+	"time"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
@@ -34,6 +36,8 @@ var _ = Describe("EndToEnd", func() {
 			Expect(err).NotTo(HaveOccurred())
 			// Start the integration ii
 			ii.Start()
+			// Sleep for a while to allow the networks to be ready
+			time.Sleep(20 * time.Second)
 		})
 
 		It("succeeded", func() {
