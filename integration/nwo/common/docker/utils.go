@@ -23,30 +23,23 @@ type Docker struct {
 	Client *docker.Client
 }
 
+var once sync.Once
 var singleInstance *Docker
-var lock = &sync.Mutex{}
+var instanceError error
 
 // GetInstance a Docker instance, returns nil and an error in case of a failure.
 func GetInstance() (*Docker, error) {
 
-	if singleInstance == nil {
-		lock.Lock()
-		defer lock.Unlock()
-
-		if singleInstance != nil {
-			// already created by someone else while we were waiting to get the lock
-			return singleInstance, nil
-		}
-
+	once.Do(func() {
 		dockerClient, err := docker.NewClientFromEnv()
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to create new docker client instance")
+			instanceError = errors.Wrapf(err, "failed to create new docker client instance")
 		}
 
 		singleInstance = &Docker{dockerClient}
-	}
+	})
 
-	return singleInstance, nil
+	return singleInstance, instanceError
 }
 
 // CheckImagesExist returns an error if a given container images is not available, returns an error in case of a failure.
