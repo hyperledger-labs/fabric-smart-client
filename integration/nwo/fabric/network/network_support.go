@@ -977,25 +977,30 @@ func (n *Network) JoinChannel(name string, o *topology.Orderer, peers ...*topolo
 
 // Cryptogen starts a gexec.Session for the provided cryptogen command.
 func (n *Network) Cryptogen(command common.Command) (*gexec.Session, error) {
+	// note that we will not use the cryptogen tool provided by fabric;
+	// thus we build our own
 	cmd := common.NewCommand(n.Builder.FSCCLI(), command)
 	return n.StartSession(cmd, command.SessionName())
 }
 
 // Idemixgen starts a gexec.Session for the provided idemixgen command.
 func (n *Network) Idemixgen(command common.Command) (*gexec.Session, error) {
-	cmd := common.NewCommand(n.Builder.Idemixgen(), command)
+	cmdPath := findOrBuild(idemixgenCMD, n.Builder.Idemixgen)
+	cmd := common.NewCommand(cmdPath, command)
 	return n.StartSession(cmd, command.SessionName())
 }
 
 // ConfigTxGen starts a gexec.Session for the provided configtxgen command.
 func (n *Network) ConfigTxGen(command common.Command) (*gexec.Session, error) {
-	cmd := common.NewCommand(n.Builder.ConfigTxGen(), command)
+	cmdPath := findOrBuild(configtxgenCMD, n.Builder.ConfigTxGen)
+	cmd := common.NewCommand(cmdPath, command)
 	return n.StartSession(cmd, command.SessionName())
 }
 
 // Discover starts a gexec.Session for the provided discover command.
 func (n *Network) Discover(command common.Command) (*gexec.Session, error) {
-	cmd := common.NewCommand(n.Builder.Discover(), command)
+	cmdPath := findOrBuild(discoverCMD, n.Builder.Discover)
+	cmd := common.NewCommand(cmdPath, command)
 	cmd.Args = append(cmd.Args, "--peerTLSCA", n.CACertsBundlePath())
 	return n.StartSession(cmd, command.SessionName())
 }
@@ -1003,7 +1008,8 @@ func (n *Network) Discover(command common.Command) (*gexec.Session, error) {
 // OrdererRunner returns an ifrit.Runner for the specified orderer. The runner
 // can be used to start and manage an orderer process.
 func (n *Network) OrdererRunner(o *topology.Orderer) *runner2.Runner {
-	cmd := exec.Command(n.Builder.Orderer())
+	cmdPath := findOrBuild(ordererCMD, n.Builder.Orderer)
+	cmd := exec.Command(cmdPath)
 	cmd.Env = os.Environ()
 	cmd.Env = append(cmd.Env, fmt.Sprintf("FABRIC_CFG_PATH=%s", n.OrdererDir(o)))
 	cmd.Env = append(cmd.Env, "FABRIC_LOGGING_SPEC="+n.Logging.Spec)
@@ -1123,7 +1129,13 @@ func (n *Network) PeerGroupRunner() ifrit.Runner {
 }
 
 func (n *Network) peerCommand(executablePath string, command common.Command, tlsDir string, env ...string) *exec.Cmd {
-	cmd := common.NewCommand(n.Builder.Peer(executablePath), command)
+	cmdPath := findCmdAtEnv(peerCMD)
+	if len(cmdPath) == 0 {
+		cmdPath = n.Builder.Peer(executablePath)
+	}
+	logger.Debugf("Found %s => %s", peerCMD, cmdPath)
+
+	cmd := common.NewCommand(cmdPath, command)
 	cmd.Env = append(cmd.Env, env...)
 	cmd.Env = append(cmd.Env, "FABRIC_LOGGING_SPEC="+n.Logging.Spec)
 
