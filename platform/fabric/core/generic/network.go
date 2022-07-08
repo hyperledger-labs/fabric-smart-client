@@ -99,6 +99,9 @@ func (f *network) Orderers() []*grpc.ConnectionConfig {
 }
 
 func (f *network) PickOrderer() *grpc.ConnectionConfig {
+	if len(f.orderers) == 0 {
+		return nil
+	}
 	return f.orderers[rand.Intn(len(f.orderers))]
 }
 
@@ -246,6 +249,7 @@ func (f *network) setConfigOrderers(orderers []*grpc.ConnectionConfig) {
 	// the first configuredOrderers are from the configuration, keep them
 	// and append the new ones
 	f.orderers = append(f.orderers[:f.configuredOrderers], orderers...)
+	logger.Debugf("New Orderers [%d]", len(f.orderers))
 }
 
 func loadFile(path string) ([]byte, error) {
