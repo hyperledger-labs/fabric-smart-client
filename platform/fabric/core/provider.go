@@ -124,6 +124,7 @@ func (p *fnsProvider) InstallViews() error {
 }
 
 func (p *fnsProvider) newFNS(network string) (driver.FabricNetworkService, error) {
+	logger.Debugf("creating new fabric network service for network [%s]", network)
 	// bridge services
 	c, err := config.New(view.GetConfigService(p.sp), network, network == p.config.defaultName)
 	if err != nil {
