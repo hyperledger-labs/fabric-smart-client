@@ -10,7 +10,6 @@ import (
 	"context"
 	"io/ioutil"
 	"math/rand"
-	"runtime/debug"
 	"sync"
 
 	config2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
@@ -62,7 +61,6 @@ func NewNetwork(
 	sigService driver.SignerService,
 ) (*network, error) {
 	// Load configuration
-	logger.Debugf("new fabric network for [%s][%s]", name, debug.Stack())
 	fsp := &network{
 		ctx:             ctx,
 		sp:              sp,

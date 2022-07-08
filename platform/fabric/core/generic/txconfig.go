@@ -102,9 +102,7 @@ func (c *channel) ReloadConfigTransactions() error {
 				capabilitiesSupportedOrPanic(bundle)
 			}
 
-			c.lock.Lock()
-			c.resources = bundle
-			c.lock.Unlock()
+			c.applyBundle(bundle)
 
 			sequence = sequence + 1
 			continue
