@@ -61,6 +61,7 @@ func NewNetwork(
 	sigService driver.SignerService,
 ) (*network, error) {
 	// Load configuration
+	logger.Debugf("new fabric network for [%s]", name)
 	fsp := &network{
 		ctx:             ctx,
 		sp:              sp,
