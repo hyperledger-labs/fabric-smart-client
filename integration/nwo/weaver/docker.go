@@ -17,10 +17,9 @@ import (
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
-	. "github.com/onsi/gomega"
-
-	network2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/network"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/docker"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	. "github.com/onsi/gomega"
 )
 
 func (p *Platform) RunRelayServer(name string, serverConfigPath, port string) {
@@ -28,7 +27,10 @@ func (p *Platform) RunRelayServer(name string, serverConfigPath, port string) {
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	Expect(err).ToNot(HaveOccurred())
 
-	net, err := p.DockerClient.NetworkInfo(p.NetworkID)
+	d, err := docker.GetInstance()
+	Expect(err).NotTo(HaveOccurred())
+
+	net, err := d.Client.NetworkInfo(p.NetworkID)
 	Expect(err).ToNot(HaveOccurred())
 
 	hostname := "relay-" + name
@@ -119,7 +121,13 @@ func (p *Platform) RunRelayFabricDriver(
 
 	hostname := "driver-" + networkName
 
-	net, err := p.DockerClient.NetworkInfo(p.NetworkID)
+	d, err := docker.GetInstance()
+	Expect(err).NotTo(HaveOccurred())
+
+	net, err := d.Client.NetworkInfo(p.NetworkID)
+	Expect(err).ToNot(HaveOccurred())
+
+	localIP, err := d.LocalIP(p.NetworkID)
 	Expect(err).ToNot(HaveOccurred())
 
 	resp, err := cli.ContainerCreate(ctx, &container.Config{
@@ -150,7 +158,7 @@ func (p *Platform) RunRelayFabricDriver(
 			nat.Port(relayPort + "/tcp"):  struct{}{},
 		},
 	}, &container.HostConfig{
-		ExtraHosts: []string{fmt.Sprintf("fabric:%s", network2.LocalIP(p.DockerClient, p.NetworkID))},
+		ExtraHosts: []string{fmt.Sprintf("fabric:%s", localIP)},
 		// Absolute path to
 		Mounts: []mount.Mount{
 			{

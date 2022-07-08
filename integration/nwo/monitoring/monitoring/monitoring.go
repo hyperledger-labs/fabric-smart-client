@@ -7,42 +7,19 @@ SPDX-License-Identifier: Apache-2.0
 package monitoring
 
 import (
-	"bufio"
-	"context"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
-	"time"
 
-	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/mount"
-	"github.com/docker/docker/api/types/network"
-	"github.com/docker/docker/client"
-	"github.com/docker/go-connections/nat"
-	docker "github.com/fsouza/go-dockerclient"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/helpers"
-	nnetwork "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/network"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	. "github.com/onsi/gomega"
 	"gopkg.in/yaml.v2"
 )
-
-const (
-	PrometheusImg = "prom/prometheus:latest"
-	GrafanaImg    = "grafana/grafana:latest"
-)
-
-var RequiredImages = []string{
-	PrometheusImg,
-	GrafanaImg,
-}
 
 var logger = flogging.MustGetLogger("integration.nwo.fabric.monitoring")
 
@@ -50,7 +27,6 @@ type Platform interface {
 	HyperledgerExplorer() bool
 	GetContext() api.Context
 	ConfigDir() string
-	DockerClient() *docker.Client
 	NetworkID() string
 	PrometheusGrafana() bool
 	PrometheusPort() int
@@ -71,8 +47,6 @@ func (n *Extension) CheckTopology() {
 	if !n.platform.PrometheusGrafana() {
 		return
 	}
-
-	helpers.AssertImagesExist(RequiredImages...)
 
 	return
 }
@@ -117,13 +91,8 @@ func (n *Extension) PostRun(bool) {
 		return
 	}
 
-	logger.Infof("Run Prometheus...")
-	n.dockerPrometheus()
-	logger.Infof("Run Prometheus..done!")
-	time.Sleep(30 * time.Second)
-	logger.Infof("Run Grafana...")
-	n.dockerGrafana()
-	logger.Infof("Run Grafana...done!")
+	// start monitoring components as containers
+	n.startContainer()
 }
 
 func (n *Extension) fabricScrapes(p *Prometheus) {
@@ -199,164 +168,6 @@ func (n *Extension) prometheusScrape(p *Prometheus) {
 			},
 		},
 	)
-}
-
-func (n *Extension) dockerPrometheus() {
-	ctx := context.Background()
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-	Expect(err).ToNot(HaveOccurred())
-
-	net, err := n.platform.DockerClient().NetworkInfo(n.platform.NetworkID())
-	Expect(err).ToNot(HaveOccurred())
-
-	containerName := n.platform.NetworkID() + "-prometheus"
-
-	port := strconv.Itoa(n.platform.PrometheusPort())
-	resp, err := cli.ContainerCreate(ctx, &container.Config{
-		Hostname: "prometheus",
-		Image:    "prom/prometheus:latest",
-		Tty:      true,
-		ExposedPorts: nat.PortSet{
-			nat.Port(port + "/tcp"): struct{}{},
-		},
-	}, &container.HostConfig{
-		ExtraHosts:    []string{fmt.Sprintf("fabric:%s", nnetwork.LocalIP(n.platform.DockerClient(), n.platform.NetworkID()))},
-		RestartPolicy: container.RestartPolicy{Name: "always"},
-		Mounts: []mount.Mount{
-			{
-				Type:   mount.TypeBind,
-				Source: n.prometheusConfigFilePath(),
-				Target: "/etc/prometheus/prometheus.yml",
-			},
-			{
-				Type:   mount.TypeBind,
-				Source: n.fscCryptoDir(),
-				Target: "/etc/prometheus/fsc/crypto",
-			},
-		},
-		PortBindings: nat.PortMap{
-			nat.Port(port + "/tcp"): []nat.PortBinding{
-				{
-					HostIP:   "0.0.0.0",
-					HostPort: port,
-				},
-			},
-		},
-	}, &network.NetworkingConfig{
-		EndpointsConfig: map[string]*network.EndpointSettings{
-			n.platform.NetworkID(): {
-				NetworkID: net.ID,
-			},
-		},
-	}, nil, containerName,
-	)
-	Expect(err).ToNot(HaveOccurred())
-
-	err = cli.NetworkConnect(context.Background(), n.platform.NetworkID(), resp.ID, &network.EndpointSettings{
-		NetworkID: n.platform.NetworkID(),
-	})
-	Expect(err).ToNot(HaveOccurred())
-
-	Expect(cli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{})).ToNot(HaveOccurred())
-
-	dockerLogger := flogging.MustGetLogger("prometheus.container")
-	go func() {
-		reader, err := cli.ContainerLogs(context.Background(), resp.ID, types.ContainerLogsOptions{
-			ShowStdout: true,
-			ShowStderr: true,
-			Follow:     true,
-			Timestamps: false,
-		})
-		Expect(err).ToNot(HaveOccurred())
-		defer reader.Close()
-
-		scanner := bufio.NewScanner(reader)
-		for scanner.Scan() {
-			dockerLogger.Debugf("%s", scanner.Text())
-		}
-	}()
-
-}
-
-func (n *Extension) dockerGrafana() {
-	ctx := context.Background()
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-	Expect(err).ToNot(HaveOccurred())
-
-	net, err := n.platform.DockerClient().NetworkInfo(n.platform.NetworkID())
-	Expect(err).ToNot(HaveOccurred())
-
-	containerName := n.platform.NetworkID() + "-grafana"
-
-	port := strconv.Itoa(n.platform.GrafanaPort())
-	resp, err := cli.ContainerCreate(ctx, &container.Config{
-		Hostname: "grafana",
-		Image:    "grafana/grafana:latest",
-		Tty:      false,
-		Env: []string{
-			"GF_AUTH_PROXY_ENABLED=true",
-			"GF_PATHS_PROVISIONING=/var/lib/grafana/provisioning/",
-		},
-		ExposedPorts: nat.PortSet{
-			nat.Port(port + "/tcp"): struct{}{},
-		},
-	}, &container.HostConfig{
-		Links: []string{n.platform.NetworkID() + "-prometheus"},
-		Mounts: []mount.Mount{
-			{
-				Type:   mount.TypeBind,
-				Source: n.grafanaProvisioningDirPath(),
-				Target: "/var/lib/grafana/provisioning/",
-			},
-			{
-				Type:   mount.TypeBind,
-				Source: n.grafanaDashboardDirPath(),
-				Target: "/var/lib/grafana/dashboards/",
-			},
-		},
-		PortBindings: nat.PortMap{
-			nat.Port(port + "/tcp"): []nat.PortBinding{
-				{
-					HostIP:   "0.0.0.0",
-					HostPort: port,
-				},
-			},
-		},
-	},
-		&network.NetworkingConfig{
-			EndpointsConfig: map[string]*network.EndpointSettings{
-				n.platform.NetworkID(): {
-					NetworkID: net.ID,
-				},
-			},
-		}, nil, containerName,
-	)
-	Expect(err).ToNot(HaveOccurred())
-
-	err = cli.NetworkConnect(context.Background(), n.platform.NetworkID(), resp.ID, &network.EndpointSettings{
-		NetworkID: n.platform.NetworkID(),
-	})
-	Expect(err).ToNot(HaveOccurred())
-
-	Expect(cli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{})).ToNot(HaveOccurred())
-	time.Sleep(3 * time.Second)
-
-	dockerLogger := flogging.MustGetLogger("grafana.container")
-	go func() {
-		reader, err := cli.ContainerLogs(context.Background(), resp.ID, types.ContainerLogsOptions{
-			ShowStdout: true,
-			ShowStderr: true,
-			Follow:     true,
-			Timestamps: false,
-		})
-		Expect(err).ToNot(HaveOccurred())
-		defer reader.Close()
-
-		scanner := bufio.NewScanner(reader)
-		for scanner.Scan() {
-			dockerLogger.Debugf("%s", scanner.Text())
-		}
-	}()
 }
 
 func (n *Extension) configFileDir() string {

@@ -11,9 +11,9 @@ import (
 	"strings"
 	"time"
 
-	docker "github.com/fsouza/go-dockerclient"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/docker"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/monitoring/hle"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/monitoring/monitoring"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
@@ -48,35 +48,22 @@ type Extension interface {
 }
 
 type Platform struct {
-	Context      api.Context
-	topology     *Topology
-	RootDir      string
-	Prefix       string
-	Extensions   []Extension
-	networkID    string
-	dockerClient *docker.Client
+	Context    api.Context
+	topology   *Topology
+	RootDir    string
+	Prefix     string
+	Extensions []Extension
+	networkID  string
 }
 
 func New(reg api.Context, topology *Topology) *Platform {
-	dockerClient, err := docker.NewClientFromEnv()
-	Expect(err).NotTo(HaveOccurred())
-	networkID := common.UniqueName()
-	_, err = dockerClient.CreateNetwork(
-		docker.CreateNetworkOptions{
-			Name:   networkID,
-			Driver: "bridge",
-		},
-	)
-	Expect(err).NotTo(HaveOccurred())
-
 	p := &Platform{
-		Context:      reg,
-		RootDir:      reg.RootDir(),
-		Prefix:       topology.Name(),
-		topology:     topology,
-		Extensions:   []Extension{},
-		dockerClient: dockerClient,
-		networkID:    networkID,
+		Context:    reg,
+		RootDir:    reg.RootDir(),
+		Prefix:     topology.Name(),
+		topology:   topology,
+		Extensions: []Extension{},
+		networkID:  common.UniqueName(),
 	}
 	p.AddExtension(hle.NewExtension(p))
 	p.AddExtension(monitoring.NewExtension(p))
@@ -112,6 +99,13 @@ func (p *Platform) Members() []grouper.Member {
 func (p *Platform) PostRun(load bool) {
 	logger.Infof("Post execution [%s]...", p.Prefix)
 
+	d, err := docker.GetInstance()
+	Expect(err).NotTo(HaveOccurred())
+
+	// create a container network used for our monitoring services
+	err = d.CreateNetwork(p.networkID)
+	Expect(err).NotTo(HaveOccurred())
+
 	// Extensions
 	for _, extension := range p.Extensions {
 		extension.PostRun(load)
@@ -123,59 +117,13 @@ func (p *Platform) PostRun(load bool) {
 }
 
 func (p *Platform) Cleanup() {
-	if p.dockerClient == nil {
-		return
-	}
-
-	nw, err := p.dockerClient.NetworkInfo(p.networkID)
-	if _, ok := err.(*docker.NoSuchNetwork); err != nil && ok {
-		return
-	}
+	d, err := docker.GetInstance()
 	Expect(err).NotTo(HaveOccurred())
 
-	containers, err := p.dockerClient.ListContainers(docker.ListContainersOptions{All: true})
-	Expect(err).NotTo(HaveOccurred())
-	for _, c := range containers {
-		for _, name := range c.Names {
-			if strings.HasPrefix(name, "/"+p.networkID) {
-				logger.Infof("cleanup container [%s]", name)
-				err := p.dockerClient.RemoveContainer(docker.RemoveContainerOptions{ID: c.ID, Force: true})
-				Expect(err).NotTo(HaveOccurred())
-				break
-			} else {
-				logger.Infof("cleanup container [%s], skipped", name)
-			}
-		}
-	}
-
-	volumes, err := p.dockerClient.ListVolumes(docker.ListVolumesOptions{})
-	Expect(err).NotTo(HaveOccurred())
-	for _, i := range volumes {
-		if strings.HasPrefix(i.Name, p.networkID) {
-			logger.Infof("cleanup volume [%s]", i.Name)
-			err := p.dockerClient.RemoveVolumeWithOptions(docker.RemoveVolumeOptions{
-				Name:  i.Name,
-				Force: false,
-			})
-			Expect(err).NotTo(HaveOccurred())
-			break
-		}
-	}
-
-	images, err := p.dockerClient.ListImages(docker.ListImagesOptions{All: true})
-	Expect(err).NotTo(HaveOccurred())
-	for _, i := range images {
-		for _, tag := range i.RepoTags {
-			if strings.HasPrefix(tag, p.networkID) {
-				logger.Infof("cleanup image [%s]", tag)
-				err := p.dockerClient.RemoveImage(i.ID)
-				Expect(err).NotTo(HaveOccurred())
-				break
-			}
-		}
-	}
-
-	err = p.dockerClient.RemoveNetwork(nw.ID)
+	// cleanup all monitoring services associated with our network ID
+	err = d.Cleanup(p.networkID, func(name string) bool {
+		return strings.HasPrefix(name, "/"+p.networkID)
+	})
 	Expect(err).NotTo(HaveOccurred())
 }
 
@@ -185,10 +133,6 @@ func (p *Platform) AddExtension(ex Extension) {
 
 func (p *Platform) GetContext() api.Context {
 	return p.Context
-}
-
-func (p *Platform) DockerClient() *docker.Client {
-	return p.dockerClient
 }
 
 func (p *Platform) NetworkID() string {

@@ -7,9 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package orion
 
 import (
-	"bufio"
 	"bytes"
-	"context"
 	"crypto/tls"
 	"fmt"
 	"io"
@@ -18,42 +16,24 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"text/template"
 	"time"
 
-	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/mount"
-	"github.com/docker/docker/api/types/network"
-	"github.com/docker/docker/client"
-	"github.com/docker/go-connections/nat"
-	docker "github.com/fsouza/go-dockerclient"
+	api2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/docker"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/orion-server/config"
 	"github.com/hyperledger-labs/orion-server/pkg/server/testutils"
 	. "github.com/onsi/gomega"
 	"github.com/tedsuo/ifrit/grouper"
 	"gopkg.in/yaml.v2"
-
-	api2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/helpers"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 )
 
-const (
-	ServerImage = "orionbcdb/orion-server:latest"
-)
-
-var (
-	logger         = flogging.MustGetLogger("nwo.orion")
-	RequiredImages = []string{
-		ServerImage,
-	}
-)
+var logger = flogging.MustGetLogger("nwo.orion")
 
 type Identity struct {
 	Name string
@@ -81,8 +61,7 @@ type Platform struct {
 	Builder           api2.Builder
 	EventuallyTimeout time.Duration
 
-	NetworkID    string
-	DockerClient *docker.Client
+	NetworkID string
 
 	colorIndex  int
 	nodePort    uint16
@@ -92,26 +71,12 @@ type Platform struct {
 }
 
 func NewPlatform(ctx api2.Context, t api2.Topology, builder api2.Builder) *Platform {
-	helpers.AssertImagesExist(RequiredImages...)
-
-	dockerClient, err := docker.NewClientFromEnv()
-	Expect(err).NotTo(HaveOccurred())
-	networkID := common.UniqueName()
-	_, err = dockerClient.CreateNetwork(
-		docker.CreateNetworkOptions{
-			Name:   networkID,
-			Driver: "bridge",
-		},
-	)
-	Expect(err).NotTo(HaveOccurred())
-
 	return &Platform{
 		Context:           ctx,
 		Topology:          t.(*Topology),
 		Builder:           builder,
 		EventuallyTimeout: 10 * time.Minute,
-		NetworkID:         networkID,
-		DockerClient:      dockerClient,
+		NetworkID:         common.UniqueName(),
 	}
 }
 
@@ -220,164 +185,29 @@ func (p *Platform) Members() []grouper.Member {
 }
 
 func (p *Platform) PostRun(load bool) {
-	p.RunOrionServer()
+
+	// getting our docker helper, check required images exists and launch a docker network
+	d, err := docker.GetInstance()
+	Expect(err).NotTo(HaveOccurred())
+
+	err = d.CheckImagesExist(RequiredImages...)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = d.CreateNetwork(p.NetworkID)
+	Expect(err).NotTo(HaveOccurred())
+
+	p.StartOrionServer()
 	p.InitOrionServer()
 }
 
 func (p *Platform) Cleanup() {
-	if p.DockerClient == nil {
-		return
-	}
-
-	nw, err := p.DockerClient.NetworkInfo(p.NetworkID)
-	if _, ok := err.(*docker.NoSuchNetwork); err != nil && ok {
-		return
-	}
+	dockerClient, err := docker.GetInstance()
 	Expect(err).NotTo(HaveOccurred())
 
-	containers, err := p.DockerClient.ListContainers(docker.ListContainersOptions{All: true})
-	Expect(err).NotTo(HaveOccurred())
-	for _, c := range containers {
-		for _, name := range c.Names {
-			if strings.HasPrefix(name, "/"+p.NetworkID) {
-				logger.Infof("cleanup container [%s]", name)
-				err := p.DockerClient.RemoveContainer(docker.RemoveContainerOptions{ID: c.ID, Force: true})
-				Expect(err).NotTo(HaveOccurred())
-				break
-			} else {
-				logger.Infof("cleanup container [%s], skipped", name)
-			}
-		}
-	}
-
-	volumes, err := p.DockerClient.ListVolumes(docker.ListVolumesOptions{})
-	Expect(err).NotTo(HaveOccurred())
-	for _, i := range volumes {
-		if strings.HasPrefix(i.Name, p.NetworkID) {
-			logger.Infof("cleanup volume [%s]", i.Name)
-			err := p.DockerClient.RemoveVolumeWithOptions(docker.RemoveVolumeOptions{
-				Name:  i.Name,
-				Force: false,
-			})
-			Expect(err).NotTo(HaveOccurred())
-			break
-		}
-	}
-
-	images, err := p.DockerClient.ListImages(docker.ListImagesOptions{All: true})
-	Expect(err).NotTo(HaveOccurred())
-	for _, i := range images {
-		for _, tag := range i.RepoTags {
-			if strings.HasPrefix(tag, p.NetworkID) {
-				logger.Infof("cleanup image [%s]", tag)
-				err := p.DockerClient.RemoveImage(i.ID)
-				Expect(err).NotTo(HaveOccurred())
-				break
-			}
-		}
-	}
-
-	err = p.DockerClient.RemoveNetwork(nw.ID)
-	Expect(err).NotTo(HaveOccurred())
-}
-
-func (p *Platform) RunOrionServer() {
-	ctx := context.Background()
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-	if err != nil {
-		panic(err)
-	}
-
-	net, err := p.DockerClient.NetworkInfo(p.NetworkID)
-	if err != nil {
-		panic(err)
-	}
-
-	strNodePort := strconv.Itoa(int(p.nodePort))
-	strPeerPort := strconv.Itoa(int(p.peerPort))
-
-	containerName := fmt.Sprintf("%s.orion.%s", p.NetworkID, p.Topology.TopologyName)
-	resp, err := cli.ContainerCreate(ctx, &container.Config{
-		Hostname: containerName,
-		Image:    ServerImage,
-		Tty:      false,
-		ExposedPorts: nat.PortSet{
-			nat.Port(strNodePort + "/tcp"): struct{}{},
-			nat.Port(strPeerPort + "/tcp"): struct{}{},
-		},
-	}, &container.HostConfig{
-		Mounts: []mount.Mount{
-			{
-				Type: mount.TypeBind,
-				// Absolute path to
-				Source: p.ledgerDir(),
-				Target: "/etc/orion-server/ledger",
-			},
-			{
-				Type: mount.TypeBind,
-				// Absolute path to
-				Source: p.cryptoDir(),
-				Target: "/etc/orion-server/crypto",
-			},
-			{
-				Type: mount.TypeBind,
-				// Absolute path to
-				Source: p.configDir(),
-				Target: "/etc/orion-server/config",
-			},
-		},
-		PortBindings: nat.PortMap{
-			nat.Port(strNodePort + "/tcp"): []nat.PortBinding{
-				{
-					HostIP:   "0.0.0.0",
-					HostPort: strNodePort,
-				},
-			},
-			nat.Port(strPeerPort + "/tcp"): []nat.PortBinding{
-				{
-					HostIP:   "0.0.0.0",
-					HostPort: strPeerPort,
-				},
-			},
-		},
-	}, &network.NetworkingConfig{
-		EndpointsConfig: map[string]*network.EndpointSettings{
-			p.NetworkID: {
-				NetworkID: net.ID,
-			},
-		},
-	}, nil, containerName)
-	if err != nil {
-		panic(err)
-	}
-
-	cli.NetworkConnect(context.Background(), p.NetworkID, resp.ID, &network.EndpointSettings{
-		NetworkID: p.NetworkID,
+	err = dockerClient.Cleanup(p.NetworkID, func(name string) bool {
+		return strings.HasPrefix(name, "/"+p.NetworkID)
 	})
-
-	if err := cli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{}); err != nil {
-		panic(err)
-	}
-
-	dockerLogger := flogging.MustGetLogger("orion.container." + containerName)
-	go func() {
-		reader, err := cli.ContainerLogs(context.Background(), resp.ID, types.ContainerLogsOptions{
-			ShowStdout: true,
-			ShowStderr: true,
-			Follow:     true,
-			Timestamps: false,
-		})
-		Expect(err).ToNot(HaveOccurred())
-		defer reader.Close()
-
-		scanner := bufio.NewScanner(reader)
-		for scanner.Scan() {
-			dockerLogger.Debugf("%s", scanner.Text())
-		}
-	}()
-
-	logger.Debugf("Wait orion to start...")
-	time.Sleep(60 * time.Second)
+	Expect(err).NotTo(HaveOccurred())
 }
 
 func (p *Platform) replaceForDocker(origin string) string {
