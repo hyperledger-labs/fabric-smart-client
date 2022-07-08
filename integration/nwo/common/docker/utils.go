@@ -18,6 +18,7 @@ import (
 
 var logger = flogging.MustGetLogger("fsc.integration.fabric")
 
+// Docker is a helper to manage container related actions within nwo.
 type Docker struct {
 	Client *docker.Client
 }
@@ -25,11 +26,17 @@ type Docker struct {
 var singleInstance *Docker
 var lock = &sync.Mutex{}
 
+// GetInstance a Docker instance, returns nil and an error in case of a failure.
 func GetInstance() (*Docker, error) {
 
 	if singleInstance == nil {
 		lock.Lock()
 		defer lock.Unlock()
+
+		if singleInstance != nil {
+			// already created by someone else while we were waiting to get the lock
+			return singleInstance, nil
+		}
 
 		dockerClient, err := docker.NewClientFromEnv()
 		if err != nil {
@@ -42,6 +49,8 @@ func GetInstance() (*Docker, error) {
 	return singleInstance, nil
 }
 
+// CheckImagesExist returns an error if a given container images is not available, returns an error in case of a failure.
+// It receives a list of container image names that are checked.
 func (d *Docker) CheckImagesExist(requiredImages ...string) error {
 	for _, imageName := range requiredImages {
 		images, err := d.Client.ListImages(docker.ListImagesOptions{
@@ -58,6 +67,7 @@ func (d *Docker) CheckImagesExist(requiredImages ...string) error {
 	return nil
 }
 
+// CreateNetwork starts a docker network with the provided `networkID` as name, returns an error in case of a failure.
 func (d *Docker) CreateNetwork(networkID string) error {
 	_, err := d.Client.CreateNetwork(
 		docker.CreateNetworkOptions{
@@ -69,9 +79,13 @@ func (d *Docker) CreateNetwork(networkID string) error {
 	return err
 }
 
-type matcher func(name string) bool
+// Cleanup is a helper function to release all container associated with `networkID`, returns an error in case of a failure.
+// It removes all container that meet the condition of the `matchName` predicate function, removes the attached volumes,
+// container images, the network.
+func (d *Docker) Cleanup(networkID string, matchName func(name string) bool) error {
 
-func (d *Docker) Cleanup(networkID string, matchName matcher) error {
+	// TODO this method is a beast and should be refactored
+
 	nw, err := d.Client.NetworkInfo(networkID)
 	if err != nil {
 		if _, ok := err.(*docker.NoSuchNetwork); !ok {

@@ -108,7 +108,6 @@ func NewPlatform(context api.Context, t api.Topology, components BuilderClient) 
 	n := network.New(
 		context,
 		t.(*topology.Topology),
-		nil, // not needed anymore
 		components,
 		[]network.ChaincodeProcessor{},
 		networkID,
@@ -153,6 +152,7 @@ func (p *Platform) PostRun(load bool) {
 		return
 	}
 
+	// set up our docker environment for chaincode containers
 	err := p.setupDocker()
 	Expect(err).NotTo(HaveOccurred())
 
@@ -178,7 +178,7 @@ func (p *Platform) PostRun(load bool) {
 func (p *Platform) Cleanup() {
 	p.Network.Cleanup()
 
-	// getting our docker helper and cleanup
+	// cleanup docker environment
 	err := p.cleanupDocker()
 	Expect(err).NotTo(HaveOccurred())
 }

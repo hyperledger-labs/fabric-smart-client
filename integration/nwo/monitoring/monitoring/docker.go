@@ -45,6 +45,7 @@ func (n *Extension) startContainer() {
 	logger.Infof("Run Prometheus...")
 	n.startPrometheus()
 	logger.Infof("Run Prometheus..done!")
+
 	time.Sleep(30 * time.Second)
 
 	logger.Infof("Run Grafana...")

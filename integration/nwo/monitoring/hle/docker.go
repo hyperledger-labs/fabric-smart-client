@@ -45,7 +45,9 @@ func (n *Extension) startContainer() {
 	logger.Infof("Run Explorer DB...")
 	n.startExplorerDB()
 	logger.Infof("Run Explorer DB...done!")
+
 	time.Sleep(30 * time.Second)
+
 	logger.Infof("Run Explorer...")
 	n.startExplorer()
 	logger.Infof("Run Explorer...done!")

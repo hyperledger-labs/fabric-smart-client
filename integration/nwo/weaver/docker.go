@@ -17,7 +17,7 @@ import (
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
-	docker_util "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/docker"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/docker"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	. "github.com/onsi/gomega"
 )
@@ -27,7 +27,7 @@ func (p *Platform) RunRelayServer(name string, serverConfigPath, port string) {
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	Expect(err).ToNot(HaveOccurred())
 
-	d, err := docker_util.GetInstance()
+	d, err := docker.GetInstance()
 	Expect(err).NotTo(HaveOccurred())
 
 	net, err := d.Client.NetworkInfo(p.NetworkID)
@@ -121,7 +121,7 @@ func (p *Platform) RunRelayFabricDriver(
 
 	hostname := "driver-" + networkName
 
-	d, err := docker_util.GetInstance()
+	d, err := docker.GetInstance()
 	Expect(err).NotTo(HaveOccurred())
 
 	net, err := d.Client.NetworkInfo(p.NetworkID)

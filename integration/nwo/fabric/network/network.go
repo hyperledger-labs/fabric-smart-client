@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"time"
 
-	docker "github.com/fsouza/go-dockerclient"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/commands"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/fabricconfig"
@@ -39,7 +38,6 @@ type Network struct {
 	RootDir            string
 	Prefix             string
 	Builder            *Builder
-	DockerClient       *docker.Client
 	ExternalBuilders   []fabricconfig.ExternalBuilder
 	NetworkID          string
 	EventuallyTimeout  time.Duration
@@ -73,18 +71,17 @@ type Network struct {
 	ccps       []ChaincodeProcessor
 }
 
-func New(reg api.Context, topology *topology.Topology, dockerClient *docker.Client, builderClient BuilderClient, ccps []ChaincodeProcessor, NetworkID string) *Network {
+func New(reg api.Context, topology *topology.Topology, builderClient BuilderClient, ccps []ChaincodeProcessor, NetworkID string) *Network {
 	if topology == nil {
 		topology = NewEmptyTopology()
 	}
 
 	network := &Network{
-		Context:      reg,
-		Builder:      &Builder{builderClient},
-		DockerClient: dockerClient,
-		RootDir:      reg.RootDir(),
-		Prefix:       "fabric." + topology.Name(),
-		topology:     topology,
+		Context:  reg,
+		Builder:  &Builder{builderClient},
+		RootDir:  reg.RootDir(),
+		Prefix:   "fabric." + topology.Name(),
+		topology: topology,
 
 		NetworkID:         NetworkID,
 		EventuallyTimeout: 20 * time.Minute,
