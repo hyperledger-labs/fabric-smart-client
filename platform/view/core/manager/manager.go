@@ -127,6 +127,9 @@ func (cm *manager) GetResponder(initiatedBy interface{}) (view.View, error) {
 	if len(entries) == 0 {
 		return nil, errors.Errorf("responder not found for [%s], initiator [%s]", responderID, initiatedByID)
 	}
+	// Recall that a responder can be used to respond to multiple initiators.
+	// Therefore, all these entries are for the same responder.
+	// We return the first one.
 	return entries[0].View, nil
 }
 
