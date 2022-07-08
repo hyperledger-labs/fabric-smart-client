@@ -171,18 +171,20 @@ func (o *service) getOrSetOrdererClient() (Broadcast, error) {
 		return o.oStream, nil
 	}
 
-	// TODO: pick orderer randomly
 	ordererConfig := o.network.PickOrderer()
+	if ordererConfig == nil {
+		return nil, errors.New("no orderer configured")
+	}
 
 	oClient, err := NewOrdererClient(ordererConfig)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "failed creating orderer client for %s", ordererConfig.Address)
 	}
 
 	stream, err := oClient.NewBroadcast(context.Background())
 	if err != nil {
 		oClient.Close()
-		return nil, err
+		return nil, errors.Wrapf(err, "failed creating orderer client for %s", ordererConfig.Address)
 	}
 
 	o.oStream = stream
