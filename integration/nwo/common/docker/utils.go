@@ -40,7 +40,7 @@ func GetInstance() (*Docker, error) {
 
 		dockerClient, err := docker.NewClientFromEnv()
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, "failed to create new docker client instance")
 		}
 
 		singleInstance = &Docker{dockerClient}
@@ -76,7 +76,7 @@ func (d *Docker) CreateNetwork(networkID string) error {
 		},
 	)
 
-	return err
+	return errors.Wrapf(err, "failed creating new docker network with ID='%s'", networkID)
 }
 
 // Cleanup is a helper function to release all container associated with `networkID`, returns an error in case of a failure.
@@ -89,7 +89,7 @@ func (d *Docker) Cleanup(networkID string, matchName func(name string) bool) err
 	nw, err := d.Client.NetworkInfo(networkID)
 	if err != nil {
 		if _, ok := err.(*docker.NoSuchNetwork); !ok {
-			return err
+			return errors.Wrapf(err, "failed retrieving network information for network with ID='%s'", networkID)
 		}
 	}
 
@@ -108,7 +108,7 @@ func (d *Docker) Cleanup(networkID string, matchName func(name string) bool) err
 
 				// remove container
 				if err := d.Client.RemoveContainer(docker.RemoveContainerOptions{ID: c.ID, Force: true}); err != nil {
-					return err
+					return errors.Wrapf(err, "failed removing docker container='%s'", c.ID)
 				}
 				break
 			}
@@ -128,7 +128,7 @@ func (d *Docker) Cleanup(networkID string, matchName func(name string) bool) err
 				Force: false,
 			})
 			if err != nil {
-				return err
+				return errors.Wrapf(err, "failed removing docker volume='%s'", i.Name)
 			}
 			break
 		}
@@ -143,7 +143,7 @@ func (d *Docker) Cleanup(networkID string, matchName func(name string) bool) err
 			if strings.HasPrefix(tag, networkID) {
 				logger.Infof("cleanup image [%s]", tag)
 				if err := d.Client.RemoveImage(i.ID); err != nil {
-					return err
+					return errors.Wrapf(err, "failed removing docker image='%s'", i.ID)
 				}
 				break
 			}
@@ -152,7 +152,7 @@ func (d *Docker) Cleanup(networkID string, matchName func(name string) bool) err
 
 	err = d.Client.RemoveNetwork(nw.ID)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "failed removing docker network='%s' with networkID='%s'", nw.ID, networkID)
 	}
 
 	return nil
@@ -161,7 +161,9 @@ func (d *Docker) Cleanup(networkID string, matchName func(name string) bool) err
 func (d *Docker) LocalIP(networkID string) (string, error) {
 	ni, err := d.Client.NetworkInfo(networkID)
 	if err != nil {
-		return "", err
+		if _, ok := err.(*docker.NoSuchNetwork); !ok {
+			return "", errors.Wrapf(err, "failed retrieving network information for network with ID='%s'", networkID)
+		}
 	}
 
 	if len(ni.IPAM.Config) != 1 {

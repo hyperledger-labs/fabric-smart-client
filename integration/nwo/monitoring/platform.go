@@ -102,6 +102,7 @@ func (p *Platform) PostRun(load bool) {
 	d, err := docker.GetInstance()
 	Expect(err).NotTo(HaveOccurred())
 
+	// create a container network used for our monitoring services
 	err = d.CreateNetwork(p.networkID)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -119,6 +120,7 @@ func (p *Platform) Cleanup() {
 	d, err := docker.GetInstance()
 	Expect(err).NotTo(HaveOccurred())
 
+	// cleanup all monitoring services associated with our network ID
 	err = d.Cleanup(p.networkID, func(name string) bool {
 		return strings.HasPrefix(name, "/"+p.networkID)
 	})

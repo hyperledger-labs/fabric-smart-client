@@ -108,6 +108,7 @@ func (n *Extension) PostRun(bool) {
 		return
 	}
 
+	// start HL Explorer as docker containers
 	n.startContainer()
 }
 

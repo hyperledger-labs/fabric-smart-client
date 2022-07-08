@@ -196,7 +196,7 @@ func (p *Platform) PostRun(load bool) {
 	err = d.CreateNetwork(p.NetworkID)
 	Expect(err).NotTo(HaveOccurred())
 
-	p.RunOrionServer()
+	p.StartOrionServer()
 	p.InitOrionServer()
 }
 

@@ -91,6 +91,7 @@ func (n *Extension) PostRun(bool) {
 		return
 	}
 
+	// start monitoring components as containers
 	n.startContainer()
 }
 

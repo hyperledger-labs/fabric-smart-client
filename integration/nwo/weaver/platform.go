@@ -201,15 +201,12 @@ func (p *Platform) PostRun(bool) {
 }
 
 func (p *Platform) Cleanup() {
-	//if p.DockerClient == nil {
-	//	return
-	//}
-
 	cleanupFunc()
 
 	d, err := docker.GetInstance()
 	Expect(err).NotTo(HaveOccurred())
 
+	// remove all weaver related containers
 	err = d.Cleanup(p.NetworkID, func(name string) bool {
 		return strings.HasPrefix(name, "/driver") || strings.HasPrefix(name, "/relay")
 	})

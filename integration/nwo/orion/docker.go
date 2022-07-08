@@ -28,7 +28,7 @@ const ServerImage = "orionbcdb/orion-server:latest"
 
 var RequiredImages = []string{ServerImage}
 
-func (p *Platform) RunOrionServer() {
+func (p *Platform) StartOrionServer() {
 	ctx := context.Background()
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
