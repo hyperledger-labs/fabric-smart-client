@@ -78,14 +78,6 @@ func (d *Docker) CreateNetwork(networkID string) error {
 func (d *Docker) Cleanup(networkID string, matchName func(name string) bool) error {
 
 	// TODO this method is a beast and should be refactored
-
-	nw, err := d.Client.NetworkInfo(networkID)
-	if err != nil {
-		if _, ok := err.(*docker.NoSuchNetwork); !ok {
-			return errors.Wrapf(err, "failed retrieving network information for network with ID='%s'", networkID)
-		}
-	}
-
 	containers, err := d.Client.ListContainers(docker.ListContainersOptions{All: true})
 	if err != nil {
 		return err
@@ -141,6 +133,16 @@ func (d *Docker) Cleanup(networkID string, matchName func(name string) bool) err
 				break
 			}
 		}
+	}
+
+	nw, err := d.Client.NetworkInfo(networkID)
+	if err != nil {
+		if _, ok := err.(*docker.NoSuchNetwork); !ok {
+			return errors.Wrapf(err, "failed retrieving network information for network with ID='%s'", networkID)
+		}
+
+		// we just return here as there is no need to try to remove the network that does not exist anymore
+		return nil
 	}
 
 	err = d.Client.RemoveNetwork(nw.ID)
