@@ -27,11 +27,13 @@ func (p *P2PNode) getOrCreateSession(sessionID, endpointAddress, contextID, call
 		if logger.IsEnabledFor(zapcore.DebugLevel) {
 			logger.Debugf("session [%s] exists, returning it", internalSessionID)
 		}
+		session.mutex.Lock()
 		session.callerViewID = callerViewID
 		session.contextID = contextID
 		session.caller = caller
 		session.endpointAddress = endpointAddress
 		session.endpointID = endpointID
+		session.mutex.Lock()
 		return session, nil
 	}
 

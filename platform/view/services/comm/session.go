@@ -26,11 +26,12 @@ type NetworkStreamSession struct {
 	incoming        chan *view.Message
 	streams         map[*streamHandler]struct{}
 	closed          bool
-	mutex           sync.Mutex
+	mutex           sync.RWMutex
 }
 
 func (n *NetworkStreamSession) Info() view.SessionInfo {
-	n.mutex.Lock()
+	n.mutex.RLock()
+	defer n.mutex.RUnlock()
 	ret := view.SessionInfo{
 		ID:           n.sessionID,
 		Caller:       n.caller,
@@ -39,7 +40,6 @@ func (n *NetworkStreamSession) Info() view.SessionInfo {
 		EndpointPKID: n.endpointID,
 		Closed:       n.closed,
 	}
-	n.mutex.Unlock()
 	return ret
 }
 
@@ -90,6 +90,9 @@ func (n *NetworkStreamSession) Close() {
 }
 
 func (n *NetworkStreamSession) sendWithStatus(payload []byte, status int32) error {
+	n.mutex.RLock()
+	defer n.mutex.RUnlock()
+
 	err := n.node.sendTo(string(n.endpointID), &ViewPacket{
 		ContextID: n.contextID,
 		SessionID: n.sessionID,
