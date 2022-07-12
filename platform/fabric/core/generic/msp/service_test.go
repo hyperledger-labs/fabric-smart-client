@@ -1,3 +1,5 @@
+//go:build !race
+
 /*
 Copyright IBM Corp. All Rights Reserved.
 
@@ -55,6 +57,9 @@ func TestRegisterIdemixLocalMSP(t *testing.T) {
 	assert.Nil(t, info)
 }
 
+// TestIdemixTypeFolder currently suffers from a race condition in the idemix crypto library
+// as reported in https://github.com/hyperledger-labs/fabric-smart-client/issues/178
+// Therefore we exclude this tests from unit-tests with race check using build tags.
 func TestIdemixTypeFolder(t *testing.T) {
 	registry := registry2.New()
 
