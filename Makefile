@@ -15,17 +15,17 @@ install-tools:
 include $(TOP)/checks.mk
 
 .PHONY: unit-tests
-unit-tests: docker-images
+unit-tests:
 	@go test -cover $(shell go list ./... | grep -v '/integration/')
 	cd integration/nwo/; go test -cover ./...
 
 .PHONY: unit-tests-race
-unit-tests-race: docker-images
+unit-tests-race:
 	@export GORACE=history_size=7; go test -race -cover $(shell go list ./... | grep -v '/integration/')
 	cd integration/nwo/; go test -cover ./...
 
 .PHONY: docker-images
-docker-images: fabric-docker-images weaver-docker-images fpc-docker-images monitoring-docker-images
+docker-images: fabric-docker-images weaver-docker-images fpc-docker-images orion-server-images monitoring-docker-images
 
 .PHONY: fabric-docker-images
 fabric-docker-images:
@@ -60,7 +60,7 @@ orion-server-images:
 	docker pull orionbcdb/orion-server:latest
 
 .PHONY: integration-tests
-integration-tests: docker-images
+integration-tests:
 	cd ./integration/fabric/iou; ginkgo -keepGoing --slowSpecThreshold 60 .
 	cd ./integration/fabric/atsa/chaincode; ginkgo -keepGoing --slowSpecThreshold 60 .
 	cd ./integration/fabric/atsa/fsc; ginkgo -keepGoing --slowSpecThreshold 60 .
@@ -69,43 +69,43 @@ integration-tests: docker-images
 	cd ./integration/fsc/stoprestart; ginkgo -keepGoing --slowSpecThreshold 60 .
 
 .PHONY: integration-tests-iou
-integration-tests-iou: docker-images
+integration-tests-iou:
 	cd ./integration/fabric/iou; ginkgo -keepGoing --slowSpecThreshold 60 .
 
 .PHONY: integration-tests-atsacc
-integration-tests-atsacc: docker-images
+integration-tests-atsacc:
 	cd ./integration/fabric/atsa/chaincode; ginkgo -keepGoing --slowSpecThreshold 60 .
 
 .PHONY: integration-tests-atsafsc
-integration-tests-atsafsc: docker-images
+integration-tests-atsafsc:
 	cd ./integration/fabric/atsa/fsc; ginkgo -keepGoing --slowSpecThreshold 60 .
 
 .PHONY: integration-tests-twonets
-integration-tests-twonets: docker-images
+integration-tests-twonets:
 	cd ./integration/fabric/twonets; ginkgo -keepGoing --slowSpecThreshold 60 .
 
 .PHONY: integration-tests-fpc-echo
-integration-tests-fpc-echo: docker-images fpc-docker-images
+integration-tests-fpc-echo:
 	cd ./integration/fabric/fpc/echo; ginkgo -keepGoing --slowSpecThreshold 60 .
 
 .PHONY: integration-tests-weaver-relay
-integration-tests-weaver-relay: docker-images weaver-docker-images
+integration-tests-weaver-relay:
 	cd ./integration/fabric/weaver/relay; ginkgo -keepGoing --slowSpecThreshold 60 .
 
 .PHONY: integration-tests-fabric-stoprestart
-integration-tests-fabric-stoprestart: docker-images
+integration-tests-fabric-stoprestart:
 	cd ./integration/fabric/stoprestart; ginkgo -keepGoing --slowSpecThreshold 60 .
 
 .PHONY: integration-tests-pingpong
-integration-tests-pingpong: docker-images
+integration-tests-pingpong:
 	cd ./integration/fsc/pingpong/; ginkgo -keepGoing --slowSpecThreshold 60 .
 
 .PHONY: integration-tests-stoprestart
-integration-tests-stoprestart: docker-images
+integration-tests-stoprestart:
 	cd ./integration/fsc/stoprestart; ginkgo -keepGoing --slowSpecThreshold 60 .
 
 .PHONY: integration-tests-orioncars
-integration-tests-orioncars: docker-images orion-server-images
+integration-tests-orioncars:
 	cd ./integration/orion/cars; ginkgo -keepGoing --slowSpecThreshold 60 .
 
 .PHONY: tidy
