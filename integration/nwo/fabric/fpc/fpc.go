@@ -133,6 +133,13 @@ func (n *Extension) PostRun(load bool) {
 			}
 		}
 	}
+
+	// generate connection profiles
+	for _, org := range n.network.PeerOrgs() {
+		err := n.generateConnections(org.Name)
+		Expect(err).ToNot(HaveOccurred())
+	}
+
 	// Give some time to the enclave to get up and running...
 	time.Sleep(3 * time.Second)
 }
