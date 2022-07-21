@@ -94,12 +94,16 @@ func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error
 			return nil, errors.Wrap(err, "failed sending transaction content")
 		}
 
+		timeout := time.NewTimer(time.Minute)
+
 		// Wait for the answer
 		var msg *view.Message
 		select {
 		case msg = <-ch:
+			timeout.Stop()
 			tracker.Report(fmt.Sprintf("collectEndorsementsView: reply received from [%s]", party))
-		case <-time.After(60 * time.Second):
+		case <-timeout.C:
+			timeout.Stop()
 			return nil, errors.Errorf("Timeout from party %s", party)
 		}
 		if msg.Status == view.ERROR {

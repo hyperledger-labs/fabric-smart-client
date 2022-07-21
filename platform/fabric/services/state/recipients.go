@@ -99,13 +99,16 @@ func (f RequestRecipientIdentityView) Call(context view.Context) (interface{}, e
 		return nil, err
 	}
 
+	timeout := time.NewTimer(time.Minute)
+	defer timeout.Stop()
+
 	// Wait to receive an identity
 	ch := session.Receive()
 	var payload []byte
 	select {
 	case msg := <-ch:
 		payload = msg.Payload
-	case <-time.After(60 * time.Second):
+	case <-timeout.C:
 		return nil, errors.New("time out reached")
 	}
 

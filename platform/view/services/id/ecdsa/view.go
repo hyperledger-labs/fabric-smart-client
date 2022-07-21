@@ -54,6 +54,10 @@ func (f twoPartyCollectEphemeralKeyView) Call(context view.Context) (interface{}
 	if err != nil {
 		return nil, err
 	}
+
+	timeout := time.NewTimer(time.Second * 30)
+	defer timeout.Stop()
+
 	select {
 	case msg := <-ch:
 		if msg.Status == view.ERROR {
@@ -86,7 +90,7 @@ func (f twoPartyCollectEphemeralKeyView) Call(context view.Context) (interface{}
 		}
 
 		return []view.Identity{id, id2}, nil
-	case <-time.After(30 * time.Second):
+	case <-timeout.C:
 		return nil, errors.New("timeout reading from session")
 	}
 }
