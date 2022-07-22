@@ -55,13 +55,15 @@ var _ = Describe("EndToEnd", func() {
 
 			res, err = ii.CLI("borrower").CallView("query", common.JSONMarshall(&views.Query{LinearID: id}))
 			Expect(err).NotTo(HaveOccurred())
+			res, err = ii.CLI("borrower-1").CallView("query", common.JSONMarshall(&views.Query{LinearID: id}))
+			Expect(err).NotTo(HaveOccurred())
 			Expect(common.JSONUnmarshalInt(res)).To(BeEquivalentTo(10))
 			res, err = ii.Client("lender").CallView("query", common.JSONMarshall(&views.Query{LinearID: id}))
 			Expect(err).NotTo(HaveOccurred())
 			Expect(common.JSONUnmarshalInt(res)).To(BeEquivalentTo(10))
 
 			Expect(id).NotTo(BeNil())
-			txIDBoxed, err := ii.Client("borrower").CallView(
+			txIDBoxed, err := ii.Client("borrower-1").CallView(
 				"update", common.JSONMarshall(&views.Update{
 					LinearID: id,
 					Amount:   5,
@@ -73,6 +75,8 @@ var _ = Describe("EndToEnd", func() {
 			Expect(ii.Client("lender").IsTxFinal(txID)).NotTo(HaveOccurred())
 
 			res, err = ii.Client("borrower").CallView("query", common.JSONMarshall(&views.Query{LinearID: id}))
+			Expect(err).NotTo(HaveOccurred())
+			res, err = ii.Client("borrower-1").CallView("query", common.JSONMarshall(&views.Query{LinearID: id}))
 			Expect(err).NotTo(HaveOccurred())
 			Expect(common.JSONUnmarshalInt(res)).To(BeEquivalentTo(5))
 			res, err = ii.Client("lender").CallView("query", common.JSONMarshall(&views.Query{LinearID: id}))

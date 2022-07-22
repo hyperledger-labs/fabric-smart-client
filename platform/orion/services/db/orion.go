@@ -13,8 +13,6 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	dbproto "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/keys"
@@ -73,10 +71,15 @@ func (i *ItemList) GetLast() []byte {
 	return i.items[len(i.items)-1].k
 }
 
+type OrionBackend interface {
+	SessionManager() *orion.SessionManager
+	TransactionManager() *orion.TransactionManager
+}
+
 type Orion struct {
 	name string
 
-	ons       *orion.NetworkService
+	ons       OrionBackend
 	txManager *orion.TransactionManager
 	creator   string
 	txn       *orion.Transaction
@@ -86,34 +89,6 @@ type Orion struct {
 
 	itemsListSize int
 	itemsMap      map[string]*ItemList
-}
-
-func OpenDB(sp view2.ServiceProvider, onsName, dbName, creator string) (*Orion, error) {
-	ons := orion.GetOrionNetworkService(sp, onsName)
-	if ons == nil {
-		logger.Debugf("Orion network service %s not found, load on the spot", onsName)
-
-		// it might be that the orion sdk is not up and running yet
-		onspConfig, err := core.NewConfig(view2.GetConfigService(sp))
-		if err != nil {
-			return nil, errors.Wrapf(err, "could not get config for %s", onsName)
-		}
-		onsProvider, err := core.NewOrionNetworkServiceProvider(sp, onspConfig)
-		if err != nil {
-			return nil, errors.Wrapf(err, "could not get provider for %s", onsName)
-		}
-		coreONS, err := onsProvider.OrionNetworkService(onsName)
-		if err != nil {
-			return nil, errors.Wrapf(err, "could not get orion network service for %s", onsName)
-		}
-		ons = orion.NewNetworkService(sp, coreONS, onsName)
-	}
-	return &Orion{
-		name:      dbName,
-		ons:       ons,
-		txManager: ons.TransactionManager(),
-		creator:   creator,
-	}, nil
 }
 
 func (db *Orion) SetState(namespace, key string, value []byte, block, txnum uint64) error {
@@ -221,7 +196,7 @@ func (db *Orion) SetStateMetadata(namespace, key string, metadata map[string][]b
 }
 
 func (db *Orion) GetStateRangeScanIterator(namespace string, startKey string, endKey string) (driver.VersionedResultsIterator, error) {
-	s, err := db.ons.SessionManager().NewSession("")
+	s, err := db.ons.SessionManager().NewSession(db.creator)
 	if err != nil {
 		return nil, errors.WithMessagef(err, "could not create session")
 	}

@@ -265,6 +265,13 @@ fabric:
         cacheSize: {{ .CacheSize }}
         path: {{ PeerLocalExtraIdentityDir Peer .ID }}
     {{- end }}
+	{{- range LinkedIdentities }}
+      - id: {{ .ID }}
+        mspType: {{ .MSPType }}
+        mspID: {{ .MSPID }}
+        cacheSize: {{ .CacheSize }}
+        path: {{ .MSPPath }}
+	{{- end }}
     tls:
       enabled:  true
       clientAuthRequired: {{ .ClientAuthRequired }}
@@ -309,9 +316,16 @@ fabric:
       enabled: {{ DeliveryEnabled }}
     vault:
       persistence:
-        type: file
+        # Persistence type can be \'badger\' (on disk) or \'memory\'
+        type: {{ FSCNodeVaultPersistenceType }}
         opts:
+          {{- if eq FSCNodeVaultPersistenceType "orion" }}
+          network: {{ FSCNodeVaultOrionNetwork }}
+          database: {{ FSCNodeVaultOrionDatabase }}
+          creator: {{ FSCNodeVaultOrionCreator }}
+          {{- else }}
           path: {{ FSCNodeVaultPath }}
+          {{- end }}
     endpoint:
       resolvers: {{ range .Resolvers }}
       - name: {{ .Name }}
