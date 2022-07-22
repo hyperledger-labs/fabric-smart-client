@@ -16,11 +16,9 @@ import (
 	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger"
 	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
-
-	"github.com/stretchr/testify/assert"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	registry2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/registry"
+	"github.com/stretchr/testify/assert"
 )
 
 // TODO replace fakeProv some autogenerate mock like we use in platform/fabric/core/generic/msp/mock/config_provider

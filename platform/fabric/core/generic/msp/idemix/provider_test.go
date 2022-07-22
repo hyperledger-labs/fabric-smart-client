@@ -11,21 +11,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger"
-
 	bccsp "github.com/IBM/idemix/bccsp/schemes"
-
 	idemix2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/idemix"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	sig2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/core/sig"
-
-	msp2 "github.com/hyperledger/fabric/msp"
-	"github.com/stretchr/testify/assert"
-
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger"
+	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	registry2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/registry"
-
-	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
+	msp2 "github.com/hyperledger/fabric/msp"
+	"github.com/stretchr/testify/assert"
 )
 
 // TODO replace fakeProv this with msp/mock/config_provider

@@ -11,19 +11,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger"
-
-	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
-
 	idemix2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/idemix"
 	x5092 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/x509"
 	sig2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/core/sig"
-
-	msp2 "github.com/hyperledger/fabric/msp"
-	"github.com/stretchr/testify/assert"
-
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger"
+	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	registry2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/registry"
+	msp2 "github.com/hyperledger/fabric/msp"
+	"github.com/stretchr/testify/assert"
 )
 
 // TODO replace fakeProv some autogenerate mock like we use in platform/fabric/core/generic/msp/mock/config_provider
