@@ -10,11 +10,10 @@ import (
 	"encoding/binary"
 	"math"
 
-	"github.com/pkg/errors"
-	"google.golang.org/protobuf/proto"
-
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	"github.com/pkg/errors"
+	"google.golang.org/protobuf/proto"
 )
 
 const (

@@ -12,13 +12,12 @@ import (
 	"os"
 	"testing"
 
-	"github.com/test-go/testify/assert"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db"
 	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger"
 	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/unversioned/mocks"
+	"github.com/test-go/testify/assert"
 )
 
 //go:generate counterfeiter -o mocks/config.go -fake-name Config . config
