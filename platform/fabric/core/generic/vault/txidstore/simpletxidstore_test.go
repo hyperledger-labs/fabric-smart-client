@@ -18,7 +18,14 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db"
 	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger"
 	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/unversioned/mocks"
 )
+
+//go:generate counterfeiter -o mocks/config.go -fake-name Config . config
+
+type config interface {
+	db.Config
+}
 
 func TestTXIDStoreMem(t *testing.T) {
 	db, err := db.Open(nil, "memory", "", nil)
@@ -42,7 +49,9 @@ func TestTXIDStoreBadger(t *testing.T) {
 	assert.NoError(t, err)
 	defer os.RemoveAll(tempDir)
 
-	db, err := db.Open(nil, "badger", tempDir, nil)
+	c := &mocks.Config{}
+	c.UnmarshalKeyReturns(nil)
+	db, err := db.Open(nil, "badger", tempDir, c)
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
 	store, err := NewTXIDStore(db)
