@@ -145,6 +145,7 @@ func NewTopologyWithName(name string) *topology.Topology {
 		Organizations: []*topology.Organization{{
 			Name:          "OrdererOrg",
 			MSPID:         "OrdererMSP",
+			MSPType:       "bccsp",
 			Domain:        "example.com",
 			EnableNodeOUs: false,
 			Users:         0,
@@ -180,5 +181,23 @@ func NewTopologyWithName(name string) *topology.Topology {
 				ImplicitMetaEndorsement,
 			},
 		}},
+	}
+}
+
+// WithOrionVaultPersistence is a configuration with orion vault persistence
+func WithOrionVaultPersistence(network, db, creator string) node.Option {
+	return func(o *node.Options) error {
+		o.Put("fabric.vault.persistence.orion", network)
+		o.Put("fabric.vault.persistence.orion.database", db)
+		o.Put("fabric.vault.persistence.orion.creator", creator)
+		return nil
+	}
+}
+
+// WithLinkedIdentities is a configuration to link identities of other nodes
+func WithLinkedIdentities(ids ...string) node.Option {
+	return func(o *node.Options) error {
+		o.Put("fabric.linked.identities", ids)
+		return nil
 	}
 }

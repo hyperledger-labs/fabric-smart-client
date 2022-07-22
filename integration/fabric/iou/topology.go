@@ -48,7 +48,7 @@ func Topology() []api.Topology {
 	borrower.RegisterViewFactory("update", &views.UpdateIOUViewFactory{})
 	borrower.RegisterViewFactory("query", &views.QueryViewFactory{})
 	// 2. create the replicated node
-	borrowerTopology := orion.NewReplicatedFSCNode(fscTopology, borrower, 1)
+	borrowerTopology := orion.NewReplicatedFSCNode(fscTopology, borrower, 2)
 
 	// Add the lender's FSC node
 	lender := fscTopology.AddNodeByName("lender")

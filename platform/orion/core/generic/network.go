@@ -48,12 +48,44 @@ type network struct {
 	committer          driver.Committer
 }
 
-func NewNetwork(
-	ctx context.Context,
-	sp view2.ServiceProvider,
-	config *config2.Config,
-	name string,
-) (*network, error) {
+func NewDB(ctx context.Context, sp view2.ServiceProvider, config *config2.Config, name string) (*network, error) {
+	// Load configuration
+	n := &network{
+		ctx:    ctx,
+		sp:     sp,
+		name:   name,
+		config: config,
+	}
+	ids, err := config.Identities()
+	if err != nil {
+		return nil, errors.WithMessage(err, "failed to load identities")
+	}
+	var dids []*driver.Identity
+	for _, id := range ids {
+		dids = append(dids, &driver.Identity{
+			Name: id.Name,
+			Cert: id.Cert,
+			Key:  id.Key,
+		})
+	}
+	n.identityManager = &IdentityManager{
+		identities:      dids,
+		defaultIdentity: dids[0].Name,
+	}
+	n.sessionManager = &SessionManager{
+		config:          config,
+		identityManager: n.identityManager,
+	}
+	n.metadataService = transaction.NewMetadataService(sp, name)
+	n.envelopeService = transaction.NewEnvelopeService(sp, name)
+	n.transactionManager = transaction.NewManager(sp, n.sessionManager)
+	n.transactionService = transaction.NewEndorseTransactionService(sp, name)
+	n.processorManager = rwset.NewProcessorManager(n.sp, n, nil)
+
+	return n, nil
+}
+
+func NewNetwork(ctx context.Context, sp view2.ServiceProvider, config *config2.Config, name string) (*network, error) {
 	// Load configuration
 	n := &network{
 		ctx:    ctx,

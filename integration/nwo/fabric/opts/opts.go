@@ -208,7 +208,9 @@ func Get(o *node.Options) *Options {
 	}
 	mapping, ok := opt.(map[interface{}]interface{})
 	if ok {
-		return convert(mapping)
+		opts := convert(mapping)
+		o.Mapping["fabric"] = opts
+		return opts
 	}
 	panic("invalid options")
 }
