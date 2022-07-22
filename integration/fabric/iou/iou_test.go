@@ -55,6 +55,7 @@ var _ = Describe("EndToEnd", func() {
 
 			res, err = ii.CLI("borrower").CallView("query", common.JSONMarshall(&views.Query{LinearID: id}))
 			Expect(err).NotTo(HaveOccurred())
+			Expect(common.JSONUnmarshalInt(res)).To(BeEquivalentTo(10))
 			res, err = ii.CLI("borrower-1").CallView("query", common.JSONMarshall(&views.Query{LinearID: id}))
 			Expect(err).NotTo(HaveOccurred())
 			Expect(common.JSONUnmarshalInt(res)).To(BeEquivalentTo(10))
@@ -76,6 +77,7 @@ var _ = Describe("EndToEnd", func() {
 
 			res, err = ii.Client("borrower").CallView("query", common.JSONMarshall(&views.Query{LinearID: id}))
 			Expect(err).NotTo(HaveOccurred())
+			Expect(common.JSONUnmarshalInt(res)).To(BeEquivalentTo(5))
 			res, err = ii.Client("borrower-1").CallView("query", common.JSONMarshall(&views.Query{LinearID: id}))
 			Expect(err).NotTo(HaveOccurred())
 			Expect(common.JSONUnmarshalInt(res)).To(BeEquivalentTo(5))
