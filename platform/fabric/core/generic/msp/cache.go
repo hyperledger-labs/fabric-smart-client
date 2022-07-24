@@ -40,6 +40,9 @@ func NewIdentityCache(backed IdentityCacheBackendFunc, size int) *IdentityCache 
 }
 
 func (c *IdentityCache) Identity(opts *driver2.IdentityOptions) (view.Identity, []byte, error) {
+	timeout := time.NewTimer(c.timeout)
+	defer timeout.Stop()
+
 	if opts == nil {
 		if logger.IsEnabledFor(zapcore.DebugLevel) {
 			logger.Debugf("fetch identity from producer channel...")
@@ -50,7 +53,7 @@ func (c *IdentityCache) Identity(opts *driver2.IdentityOptions) (view.Identity, 
 				logger.Debugf("fetch identity from producer channel done [%s][%d]", entry.Identity, len(entry.Audit))
 			}
 			return entry.Identity, entry.Audit, nil
-		case <-time.After(c.timeout):
+		case <-timeout.C:
 			if logger.IsEnabledFor(zapcore.DebugLevel) {
 				logger.Debugf("fetch identity from producer channel timeout")
 			}

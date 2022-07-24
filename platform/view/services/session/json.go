@@ -43,6 +43,9 @@ func JSON(context view.Context) *jsonSession {
 }
 
 func (j *jsonSession) Receive(state interface{}) error {
+	timeout := time.NewTimer(time.Second * 10)
+	defer timeout.Stop()
+
 	ch := j.s.Receive()
 	var raw []byte
 	select {
@@ -51,7 +54,7 @@ func (j *jsonSession) Receive(state interface{}) error {
 			return errors.Errorf("received error from remote [%s]", string(msg.Payload))
 		}
 		raw = msg.Payload
-	case <-time.After(10 * time.Second):
+	case <-timeout.C:
 		return errors.New("time out reached")
 	case <-j.context.Done():
 		return errors.Errorf("context done [%s]", j.context.Err())
@@ -61,6 +64,9 @@ func (j *jsonSession) Receive(state interface{}) error {
 }
 
 func (j *jsonSession) ReceiveWithTimeout(state interface{}, d time.Duration) error {
+	timeout := time.NewTimer(d)
+	defer timeout.Stop()
+
 	// TODO: use opts
 	ch := j.s.Receive()
 	var raw []byte
@@ -70,7 +76,7 @@ func (j *jsonSession) ReceiveWithTimeout(state interface{}, d time.Duration) err
 			return errors.Errorf("received error from remote [%s]", string(msg.Payload))
 		}
 		raw = msg.Payload
-	case <-time.After(d):
+	case <-timeout.C:
 		return errors.New("time out reached")
 	case <-j.context.Done():
 		return errors.Errorf("context done [%s]", j.context.Err())

@@ -135,6 +135,9 @@ func (f *receiveTransactionView) Call(context view.Context) (interface{}, error)
 		ch = s.Receive()
 	}
 
+	timeout := time.NewTimer(time.Second * 10)
+	defer timeout.Stop()
+
 	select {
 	case msg := <-ch:
 		if msg.Status == view.ERROR {
@@ -145,7 +148,7 @@ func (f *receiveTransactionView) Call(context view.Context) (interface{}, error)
 			return nil, err
 		}
 		return tx, nil
-	case <-time.After(10 * time.Second):
+	case <-timeout.C:
 		return nil, errors.New("timeout reached")
 	}
 }

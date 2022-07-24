@@ -29,6 +29,9 @@ func (s receiveView) Call(context view.Context) (interface{}, error) {
 	// Wait to receive a state
 	ch := session.Receive()
 
+	timeout := time.NewTimer(time.Second * 30)
+	defer timeout.Stop()
+
 	select {
 	case msg := <-ch:
 		if msg.Status == view.ERROR {
@@ -41,7 +44,7 @@ func (s receiveView) Call(context view.Context) (interface{}, error) {
 		}
 
 		return s.state, nil
-	case <-time.After(30 * time.Second):
+	case <-timeout.C:
 		return nil, errors.New("timeout reading from session")
 	}
 
@@ -58,13 +61,16 @@ func (s payloadReceiveView) Call(context view.Context) (interface{}, error) {
 	// Wait to receive a state
 	ch := context.Session().Receive()
 
+	timeout := time.NewTimer(time.Second * 30)
+	defer timeout.Stop()
+
 	select {
 	case msg := <-ch:
 		if msg.Status == view.ERROR {
 			return nil, errors.New(string(msg.Payload))
 		}
 		return msg.Payload, nil
-	case <-time.After(30 * time.Second):
+	case <-timeout.C:
 		return nil, errors.New("timeout reading from session")
 	}
 }
@@ -94,6 +100,9 @@ func (s *sendReceiveView) Call(context view.Context) (interface{}, error) {
 		return nil, err
 	}
 
+	timeout := time.NewTimer(time.Second * 30)
+	defer timeout.Stop()
+
 	// Receive another state
 	select {
 	case msg := <-ch:
@@ -106,7 +115,7 @@ func (s *sendReceiveView) Call(context view.Context) (interface{}, error) {
 			return nil, err
 		}
 		return s.receiveState, nil
-	case <-time.After(30 * time.Second):
+	case <-timeout.C:
 		return nil, errors.New("timeout reading from session")
 	}
 }

@@ -306,13 +306,17 @@ func (c *committer) listenTo(txid string, timeout time.Duration) error {
 		iterations = 1
 	}
 	for i := 0; i < iterations; i++ {
+		timeout := time.NewTimer(c.pollingTimeout)
+
 		select {
 		case event := <-ch:
 			if logger.IsEnabledFor(zapcore.DebugLevel) {
 				logger.Debugf("Got an answer to finality of [%s]: [%s]", txid, event.Err)
 			}
+			timeout.Stop()
 			return event.Err
-		case <-time.After(c.pollingTimeout):
+		case <-timeout.C:
+			timeout.Stop()
 			if logger.IsEnabledFor(zapcore.DebugLevel) {
 				logger.Debugf("Got a timeout for finality of [%s], check the status", txid)
 			}
