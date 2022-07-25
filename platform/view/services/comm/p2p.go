@@ -16,7 +16,6 @@ import (
 	"sync/atomic"
 
 	"github.com/gogo/protobuf/io"
-	protoio "github.com/gogo/protobuf/io"
 	"github.com/gogo/protobuf/proto"
 	proto2 "github.com/golang/protobuf/proto"
 	"github.com/libp2p/go-libp2p-core/host"
@@ -224,8 +223,8 @@ func (p *P2PNode) Lookup(peerID string) (peer.AddrInfo, bool) {
 type streamHandler struct {
 	lock   sync.Mutex
 	stream network.Stream
-	reader protoio.ReadCloser
-	writer protoio.WriteCloser
+	reader io.ReadCloser
+	writer io.WriteCloser
 	node   *P2PNode
 	wg     sync.WaitGroup
 	refCtr int
