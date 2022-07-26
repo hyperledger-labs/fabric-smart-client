@@ -10,10 +10,8 @@ import (
 	"context"
 	"crypto/tls"
 	"math"
-	"time"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
 	grpc2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger/fabric-protos-go/common"
@@ -24,6 +22,7 @@ import (
 	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type Hasher interface {
@@ -245,10 +244,7 @@ func DeliverWaitForResponse(ctx context.Context, eventCh <-chan TxEvent, txid st
 // CreateHeader creates common.Header for a token transaction
 // tlsCertHash is for client TLS cert, only applicable when ClientAuthRequired is true
 func CreateHeader(txType common.HeaderType, channelID string, creator []byte, tlsCertHash []byte) (string, *common.Header, error) {
-	ts, err := ptypes.TimestampProto(time.Now())
-	if err != nil {
-		return "", nil, err
-	}
+	ts := timestamppb.Now()
 
 	nonce, err := GetRandomNonce()
 	if err != nil {
