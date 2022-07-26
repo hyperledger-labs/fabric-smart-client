@@ -206,14 +206,14 @@ func getConfig() (*Config, error) {
 	if genConfigFile != "" {
 		data, err := ioutil.ReadFile(genConfigFile)
 		if err != nil {
-			return nil, fmt.Errorf("Error reading configuration: %s", err)
+			return nil, fmt.Errorf("error reading configuration: %s", err)
 		}
 
 		configData = string(data)
 	} else if extConfigFile != "" {
 		data, err := ioutil.ReadFile(extConfigFile)
 		if err != nil {
-			return nil, fmt.Errorf("Error reading configuration: %s", err)
+			return nil, fmt.Errorf("error reading configuration: %s", err)
 		}
 
 		configData = string(data)
@@ -224,7 +224,7 @@ func getConfig() (*Config, error) {
 	config := &Config{}
 	err := yaml.Unmarshal([]byte(configData), &config)
 	if err != nil {
-		return nil, fmt.Errorf("Error Unmarshaling YAML: %s", err)
+		return nil, fmt.Errorf("error Unmarshaling YAML: %s", err)
 	}
 
 	return config, nil
@@ -383,13 +383,13 @@ func parseTemplate(input string, data interface{}) (string, error) {
 
 	t, err := template.New("parse").Parse(input)
 	if err != nil {
-		return "", fmt.Errorf("Error parsing template: %s", err)
+		return "", fmt.Errorf("error parsing template: %s", err)
 	}
 
 	output := new(bytes.Buffer)
 	err = t.Execute(output, data)
 	if err != nil {
-		return "", fmt.Errorf("Error executing template: %s", err)
+		return "", fmt.Errorf("error executing template: %s", err)
 	}
 
 	return output.String(), nil
