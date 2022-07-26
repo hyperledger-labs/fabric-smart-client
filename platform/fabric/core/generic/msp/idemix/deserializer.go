@@ -12,7 +12,6 @@ import (
 	msp "github.com/IBM/idemix"
 	idemix "github.com/IBM/idemix/bccsp"
 	"github.com/IBM/idemix/bccsp/keystore"
-	bccsp "github.com/IBM/idemix/bccsp/schemes"
 	csp "github.com/IBM/idemix/bccsp/schemes"
 	"github.com/IBM/idemix/bccsp/schemes/dlog/crypto/translator/amcl"
 	math "github.com/IBM/mathlib"
@@ -27,7 +26,7 @@ type deserializer struct {
 	*common
 }
 
-func newDeserializer(ipk []byte, verType bccsp.VerificationType, nymEID []byte) (*deserializer, error) {
+func newDeserializer(ipk []byte, verType csp.VerificationType, nymEID []byte) (*deserializer, error) {
 	logger.Debugf("Setting up Idemix-based MSP instance")
 
 	curve := math.Curves[math.FP256BN_AMCL]
@@ -68,11 +67,11 @@ func newDeserializer(ipk []byte, verType bccsp.VerificationType, nymEID []byte) 
 
 // NewDeserializer returns a new deserializer for the best effort strategy
 func NewDeserializer(ipk []byte) (*deserializer, error) {
-	return newDeserializer(ipk, bccsp.BestEffort, nil)
+	return newDeserializer(ipk, csp.BestEffort, nil)
 }
 
 func NewDeserializerForNymEID(ipk []byte, nymEID []byte) (*deserializer, error) {
-	return newDeserializer(ipk, bccsp.BestEffort, nymEID)
+	return newDeserializer(ipk, csp.BestEffort, nymEID)
 }
 
 func (i *deserializer) DeserializeVerifier(raw []byte) (driver.Verifier, error) {
@@ -122,7 +121,7 @@ func (i *deserializer) String() string {
 
 type verifier struct {
 	idd          *deserializer
-	nymPublicKey bccsp.Key
+	nymPublicKey csp.Key
 }
 
 func (v *verifier) Verify(message, sigma []byte) error {

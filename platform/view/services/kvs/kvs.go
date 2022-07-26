@@ -17,7 +17,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 )
@@ -41,7 +40,7 @@ type Opts struct {
 
 func New(driverName, namespace string, sp view.ServiceProvider) (*KVS, error) {
 	opts := &Opts{}
-	err := view2.GetConfigService(sp).UnmarshalKey("fsc.kvs.persistence.opts", opts)
+	err := view.GetConfigService(sp).UnmarshalKey("fsc.kvs.persistence.opts", opts)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed getting opts for vault")
 	}
@@ -245,7 +244,7 @@ func (i *iteratorConverter) Next(state interface{}) error {
 	return json.Unmarshal(i.next.Raw, state)
 }
 
-func GetService(ctx view2.ServiceProvider) *KVS {
+func GetService(ctx view.ServiceProvider) *KVS {
 	s, err := ctx.GetService(kvs)
 	if err != nil {
 		panic(err)

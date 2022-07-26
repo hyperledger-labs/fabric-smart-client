@@ -10,7 +10,6 @@ import (
 	"crypto/sha256"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/hyperledger/fabric-protos-go/common"
 	cb "github.com/hyperledger/fabric-protos-go/common"
 	pb "github.com/hyperledger/fabric-protos-go/peer"
 	"github.com/hyperledger/fabric/core/common/ccprovider"
@@ -145,15 +144,15 @@ func (up *UnpackedProposal) Validate(idDeserializer msp.IdentityDeserializer) er
 	})
 
 	// validate the header type
-	switch common.HeaderType(up.ChannelHeader.Type) {
-	case common.HeaderType_ENDORSER_TRANSACTION:
-	case common.HeaderType_CONFIG:
+	switch cb.HeaderType(up.ChannelHeader.Type) {
+	case cb.HeaderType_ENDORSER_TRANSACTION:
+	case cb.HeaderType_CONFIG:
 		// The CONFIG transaction type has _no_ business coming to the propose API.
 		// In fact, anything coming to the Propose API is by definition an endorser
 		// transaction, so any other header type seems like it ought to be an error... oh well.
 
 	default:
-		return errors.Errorf("invalid header type %s", common.HeaderType(up.ChannelHeader.Type))
+		return errors.Errorf("invalid header type %s", cb.HeaderType(up.ChannelHeader.Type))
 	}
 
 	// ensure the epoch is 0

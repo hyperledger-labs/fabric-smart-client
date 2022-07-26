@@ -13,7 +13,6 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 
-	bccsp "github.com/IBM/idemix/bccsp/schemes"
 	csp "github.com/IBM/idemix/bccsp/schemes"
 	"github.com/golang/protobuf/proto"
 	m "github.com/hyperledger/fabric-protos-go/msp"
@@ -22,7 +21,7 @@ import (
 )
 
 type identity struct {
-	NymPublicKey bccsp.Key
+	NymPublicKey csp.Key
 	common       *common
 	id           *msp.IdentityIdentifier
 	Role         *m.MSPRole
@@ -31,14 +30,14 @@ type identity struct {
 	// belongs to the MSP id.provider, i.e., it proves that the pseudonym
 	// is constructed from a secret key on which the CA issued a credential.
 	associationProof []byte
-	VerificationType bccsp.VerificationType
+	VerificationType csp.VerificationType
 }
 
-func newIdentity(provider *common, NymPublicKey bccsp.Key, role *m.MSPRole, ou *m.OrganizationUnit, proof []byte) *identity {
-	return newIdentityWithVerType(provider, NymPublicKey, role, ou, proof, bccsp.ExpectEidNym)
+func newIdentity(provider *common, NymPublicKey csp.Key, role *m.MSPRole, ou *m.OrganizationUnit, proof []byte) *identity {
+	return newIdentityWithVerType(provider, NymPublicKey, role, ou, proof, csp.ExpectEidNym)
 }
 
-func newIdentityWithVerType(common *common, NymPublicKey bccsp.Key, role *m.MSPRole, ou *m.OrganizationUnit, proof []byte, verificationType bccsp.VerificationType) *identity {
+func newIdentityWithVerType(common *common, NymPublicKey csp.Key, role *m.MSPRole, ou *m.OrganizationUnit, proof []byte, verificationType csp.VerificationType) *identity {
 	id := &identity{}
 	id.common = common
 	id.NymPublicKey = NymPublicKey
@@ -189,8 +188,8 @@ func (id *identity) verifyProof() error {
 type signingIdentity struct {
 	*identity
 	Cred         []byte
-	UserKey      bccsp.Key
-	NymKey       bccsp.Key
+	UserKey      csp.Key
+	NymKey       csp.Key
 	enrollmentId string
 }
 
