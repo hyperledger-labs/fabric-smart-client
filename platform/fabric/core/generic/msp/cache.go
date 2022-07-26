@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package msp
 
 import (
+	"runtime"
+	"sync"
 	"time"
 
 	"go.uber.org/zap/zapcore"
@@ -23,46 +25,82 @@ type identityCacheEntry struct {
 }
 
 type IdentityCache struct {
-	backed  IdentityCacheBackendFunc
-	ch      chan identityCacheEntry
-	timeout time.Duration
+	once   sync.Once
+	backed IdentityCacheBackendFunc
+	cache  chan identityCacheEntry
 }
 
 func NewIdentityCache(backed IdentityCacheBackendFunc, size int) *IdentityCache {
 	ci := &IdentityCache{
-		backed:  backed,
-		ch:      make(chan identityCacheEntry, size),
-		timeout: time.Millisecond * 100,
+		backed: backed,
+		cache:  make(chan identityCacheEntry, size),
 	}
-	go ci.run()
 
 	return ci
 }
 
 func (c *IdentityCache) Identity(opts *driver2.IdentityOptions) (view.Identity, []byte, error) {
-	timeout := time.NewTimer(c.timeout)
+	if opts != nil {
+		return c.fetchIdentityFromBackend(opts)
+	}
+
+	c.once.Do(func() {
+		// Spin up as many background goroutines as we need to prepare identities in the background.
+		for i := 0; i < runtime.NumCPU(); i++ {
+			go c.provisionIdentities()
+		}
+	})
+
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("fetching identity from cache...")
+	}
+
+	return c.fetchIdentityFromCache(opts)
+
+}
+
+func (c *IdentityCache) fetchIdentityFromCache(opts *driver2.IdentityOptions) (view.Identity, []byte, error) {
+	var identity view.Identity
+	var audit []byte
+
+	var start time.Time
+
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		start = time.Now()
+	}
+
+	timeout := time.NewTimer(time.Second)
 	defer timeout.Stop()
 
-	if opts == nil {
+	select {
+
+	case entry := <-c.cache:
+		identity = entry.Identity
+		audit = entry.Audit
+
 		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("fetch identity from producer channel...")
-		}
-		select {
-		case entry := <-c.ch:
-			if logger.IsEnabledFor(zapcore.DebugLevel) {
-				logger.Debugf("fetch identity from producer channel done [%s][%d]", entry.Identity, len(entry.Audit))
-			}
-			return entry.Identity, entry.Audit, nil
-		case <-timeout.C:
-			if logger.IsEnabledFor(zapcore.DebugLevel) {
-				logger.Debugf("fetch identity from producer channel timeout")
-			}
-			return c.backed(opts)
+			logger.Debugf("fetching identity from cache [%s][%d] took %v", identity, len(audit), time.Since(start))
 		}
 
+	case <-timeout.C:
+		id, a, err := c.backed(opts)
+		if err != nil {
+			return nil, nil, err
+		}
+		identity = id
+		audit = a
+
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			logger.Debugf("fetching identity from backend after a timeout [%s][%d] took %v", identity, len(audit), time.Since(start))
+		}
 	}
+
+	return identity, audit, nil
+}
+
+func (c *IdentityCache) fetchIdentityFromBackend(opts *driver2.IdentityOptions) (view.Identity, []byte, error) {
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("fetch identity from backend...")
+		logger.Debugf("fetching identity from backend")
 	}
 	id, audit, err := c.backed(opts)
 	if err != nil {
@@ -71,15 +109,16 @@ func (c *IdentityCache) Identity(opts *driver2.IdentityOptions) (view.Identity, 
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("fetch identity from backend done [%s][%d]", id, len(audit))
 	}
+
 	return id, audit, nil
 }
 
-func (c *IdentityCache) run() {
+func (c *IdentityCache) provisionIdentities() {
 	for {
 		id, audit, err := c.backed(nil)
 		if err != nil {
 			continue
 		}
-		c.ch <- identityCacheEntry{Identity: id, Audit: audit}
+		c.cache <- identityCacheEntry{Identity: id, Audit: audit}
 	}
 }
