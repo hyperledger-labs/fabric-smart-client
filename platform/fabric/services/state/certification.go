@@ -89,10 +89,7 @@ func certificationKey(key string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	elems := []string{prefix}
-	for _, attr := range attrs {
-		elems = append(elems, attr)
-	}
+	elems := append([]string{prefix}, attrs...)
 	return rwset.CreateCompositeKey(Certification, elems)
 }
 
