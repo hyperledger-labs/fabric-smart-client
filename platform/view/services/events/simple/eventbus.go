@@ -58,8 +58,6 @@ func (e *eventBus) Subscribe(topic string, receiver events.Listener) {
 
 	handlers := e.handlers[topic]
 	e.handlers[topic] = append(handlers, &eventHandler{receiver: receiver})
-
-	return
 }
 
 func (e *eventBus) Unsubscribe(topic string, receiver events.Listener) {
@@ -95,7 +93,6 @@ func (e *eventBus) Unsubscribe(topic string, receiver events.Listener) {
 		// let's remove topic entry
 		delete(e.handlers, topic)
 	}
-	return
 }
 
 // findIndex returns the position of receiver in handlers.

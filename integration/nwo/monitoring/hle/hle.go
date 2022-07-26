@@ -44,8 +44,6 @@ func (n *Extension) CheckTopology() {
 	if !n.platform.HyperledgerExplorer() {
 		return
 	}
-
-	return
 }
 
 func (n *Extension) GenerateArtifacts() {

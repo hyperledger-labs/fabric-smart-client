@@ -89,8 +89,6 @@ func (n *Extension) CheckTopology() {
 
 		n.ports[chaincode.Chaincode.Name] = ports
 	}
-
-	return
 }
 
 func (n *Extension) GenerateArtifacts() {

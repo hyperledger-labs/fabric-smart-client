@@ -47,8 +47,6 @@ func (n *Extension) CheckTopology() {
 	if !n.platform.PrometheusGrafana() {
 		return
 	}
-
-	return
 }
 
 func (n *Extension) GenerateArtifacts() {
