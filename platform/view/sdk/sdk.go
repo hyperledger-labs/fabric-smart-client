@@ -310,29 +310,27 @@ func (p *p) serve() error {
 		}
 	}()
 	go func() {
-		select {
-		case <-p.context.Done():
-			if p.webServer != nil {
-				logger.Info("web server stopping...")
-				if err := p.webServer.Stop(); err != nil {
-					logger.Errorf("failed stopping web server [%s]", err)
-				}
+		<-p.context.Done()
+		if p.webServer != nil {
+			logger.Info("web server stopping...")
+			if err := p.webServer.Stop(); err != nil {
+				logger.Errorf("failed stopping web server [%s]", err)
 			}
-			logger.Info("web server stopping...done")
+		}
+		logger.Info("web server stopping...done")
 
-			logger.Info("grpc server stopping...")
-			p.grpcServer.Stop()
-			logger.Info("grpc server stopping...done")
+		logger.Info("grpc server stopping...")
+		p.grpcServer.Stop()
+		logger.Info("grpc server stopping...done")
 
-			logger.Info("kvs stopping...")
-			kvs.GetService(p.registry).Stop()
-			logger.Info("kvs stopping...done")
+		logger.Info("kvs stopping...")
+		kvs.GetService(p.registry).Stop()
+		logger.Info("kvs stopping...done")
 
-			logger.Infof("operations system stopping...")
-			if p.operationsSystem != nil {
-				if err := p.operationsSystem.Stop(); err != nil {
-					logger.Errorf("failed stopping operations system [%s]", err)
-				}
+		logger.Infof("operations system stopping...")
+		if p.operationsSystem != nil {
+			if err := p.operationsSystem.Stop(); err != nil {
+				logger.Errorf("failed stopping operations system [%s]", err)
 			}
 		}
 	}()
