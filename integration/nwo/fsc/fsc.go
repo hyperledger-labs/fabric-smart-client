@@ -427,9 +427,7 @@ func (p *Platform) GenerateCoreConfig(peer *node2.Peer) {
 			Expect(err).NotTo(HaveOccurred())
 			extensions = append(extensions, string(bs))
 		} else {
-			for _, s := range extensionsByPeerID {
-				extensions = append(extensions, s)
-			}
+			extensions = append(extensions, extensionsByPeerID...)
 		}
 	}
 
@@ -481,7 +479,7 @@ func (p *Platform) FSCNodeRunner(node *node2.Peer, env ...string) *runner2.Runne
 		commands.NodeStart{NodeID: node.ID()},
 		"",
 		fmt.Sprintf("FSCNODE_CFG_PATH=%s", p.NodeDir(node)),
-		fmt.Sprintf("FSCNODE_PROFILER=true"),
+		"FSCNODE_PROFILER=true",
 	)
 	cmd.Env = append(cmd.Env, env...)
 

@@ -55,5 +55,5 @@ func (i *Deserializer) Info(raw []byte, auditInfo []byte) (string, error) {
 }
 
 func (i *Deserializer) String() string {
-	return fmt.Sprintf("Generic X509 Verifier Deserializer")
+	return "Generic X509 Verifier Deserializer"
 }

@@ -166,7 +166,7 @@ func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error
 
 		tracker.Report(fmt.Sprintf("collectEndorsementsView: collected signature from %s", party))
 	}
-	tracker.Report(fmt.Sprintf("collectEndorsementsView done."))
+	tracker.Report("collectEndorsementsView done.")
 	return c.tx, nil
 }
 
