@@ -12,7 +12,6 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic/vault"
-	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	odriver "github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db"
@@ -45,7 +44,7 @@ func (v *Vault) GetRWSet(id string, results []byte) (odriver.RWSet, error) {
 	return v.Vault.GetRWSet(id, results)
 }
 
-func (v *Vault) Status(txID string) (fdriver.ValidationCode, error) {
+func (v *Vault) Status(txID string) (odriver.ValidationCode, error) {
 	return v.Vault.Status(txID)
 }
 

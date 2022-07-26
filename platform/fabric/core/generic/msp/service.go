@@ -26,7 +26,6 @@ import (
 
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	sig2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/core/sig"
-	api3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -56,7 +55,7 @@ type BinderService interface {
 }
 
 type ConfigProvider interface {
-	api3.ConfigService
+	driver.ConfigService
 }
 
 type DeserializerManager interface {
