@@ -20,16 +20,6 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gexec"
-	"github.com/onsi/gomega/gstruct"
-	"github.com/onsi/gomega/matchers"
-	"github.com/onsi/gomega/types"
-	"github.com/tedsuo/ifrit"
-	"github.com/tedsuo/ifrit/grouper"
-	"gopkg.in/yaml.v2"
-
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 	runner2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/runner"
@@ -38,6 +28,15 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/opts"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
+	"github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gexec"
+	"github.com/onsi/gomega/gstruct"
+	"github.com/onsi/gomega/matchers"
+	"github.com/onsi/gomega/types"
+	"github.com/tedsuo/ifrit"
+	"github.com/tedsuo/ifrit/grouper"
+	"gopkg.in/yaml.v2"
 )
 
 func (n *Network) LogSpec() string {

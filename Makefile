@@ -1,6 +1,11 @@
 # pinned versions
 FABRIC_VERSION=2.2
 
+# integration test options
+GINKGO_TEST_OPTS ?=
+GINKGO_TEST_OPTS += --keep-going
+GINKGO_TEST_OPTS += --slow-spec-threshold=60s
+
 TOP = .
 
 all: install-tools checks unit-tests #integration-tests
@@ -61,52 +66,52 @@ orion-server-images:
 
 .PHONY: integration-tests
 integration-tests:
-	cd ./integration/fabric/iou; ginkgo -keepGoing --slowSpecThreshold 60 .
-	cd ./integration/fabric/atsa/chaincode; ginkgo -keepGoing --slowSpecThreshold 60 .
-	cd ./integration/fabric/atsa/fsc; ginkgo -keepGoing --slowSpecThreshold 60 .
-	cd ./integration/fabric/twonets; ginkgo -keepGoing --slowSpecThreshold 60 .
-	cd ./integration/fsc/pingpong/; ginkgo -keepGoing --slowSpecThreshold 60 .
-	cd ./integration/fsc/stoprestart; ginkgo -keepGoing --slowSpecThreshold 60 .
+	cd ./integration/fabric/iou; ginkgo $(GINKGO_TEST_OPTS) .
+	cd ./integration/fabric/atsa/chaincode; ginkgo $(GINKGO_TEST_OPTS) .
+	cd ./integration/fabric/atsa/fsc; ginkgo $(GINKGO_TEST_OPTS) .
+	cd ./integration/fabric/twonets; ginkgo $(GINKGO_TEST_OPTS) .
+	cd ./integration/fsc/pingpong/; ginkgo $(GINKGO_TEST_OPTS) .
+	cd ./integration/fsc/stoprestart; ginkgo $(GINKGO_TEST_OPTS) .
 
 .PHONY: integration-tests-iou
 integration-tests-iou:
-	cd ./integration/fabric/iou; ginkgo -keepGoing --slowSpecThreshold 60 .
+	cd ./integration/fabric/iou; ginkgo $(GINKGO_TEST_OPTS) .
 
 .PHONY: integration-tests-atsacc
 integration-tests-atsacc:
-	cd ./integration/fabric/atsa/chaincode; ginkgo -keepGoing --slowSpecThreshold 60 .
+	cd ./integration/fabric/atsa/chaincode; ginkgo $(GINKGO_TEST_OPTS) .
 
 .PHONY: integration-tests-atsafsc
 integration-tests-atsafsc:
-	cd ./integration/fabric/atsa/fsc; ginkgo -keepGoing --slowSpecThreshold 60 .
+	cd ./integration/fabric/atsa/fsc; ginkgo $(GINKGO_TEST_OPTS) .
 
 .PHONY: integration-tests-twonets
 integration-tests-twonets:
-	cd ./integration/fabric/twonets; ginkgo -keepGoing --slowSpecThreshold 60 .
+	cd ./integration/fabric/twonets; ginkgo $(GINKGO_TEST_OPTS) .
 
 .PHONY: integration-tests-fpc-echo
 integration-tests-fpc-echo:
-	cd ./integration/fabric/fpc/echo; ginkgo -keepGoing --slowSpecThreshold 60 .
+	cd ./integration/fabric/fpc/echo; ginkgo $(GINKGO_TEST_OPTS) .
 
 .PHONY: integration-tests-weaver-relay
 integration-tests-weaver-relay:
-	cd ./integration/fabric/weaver/relay; ginkgo -keepGoing --slowSpecThreshold 60 .
+	cd ./integration/fabric/weaver/relay; ginkgo $(GINKGO_TEST_OPTS) .
 
 .PHONY: integration-tests-fabric-stoprestart
 integration-tests-fabric-stoprestart:
-	cd ./integration/fabric/stoprestart; ginkgo -keepGoing --slowSpecThreshold 60 .
+	cd ./integration/fabric/stoprestart; ginkgo $(GINKGO_TEST_OPTS) .
 
 .PHONY: integration-tests-pingpong
 integration-tests-pingpong:
-	cd ./integration/fsc/pingpong/; ginkgo -keepGoing --slowSpecThreshold 60 .
+	cd ./integration/fsc/pingpong/; ginkgo $(GINKGO_TEST_OPTS) .
 
 .PHONY: integration-tests-stoprestart
 integration-tests-stoprestart:
-	cd ./integration/fsc/stoprestart; ginkgo -keepGoing --slowSpecThreshold 60 .
+	cd ./integration/fsc/stoprestart; ginkgo $(GINKGO_TEST_OPTS) .
 
 .PHONY: integration-tests-orioncars
 integration-tests-orioncars:
-	cd ./integration/orion/cars; ginkgo -keepGoing --slowSpecThreshold 60 .
+	cd ./integration/orion/cars; ginkgo $(GINKGO_TEST_OPTS) .
 
 .PHONY: tidy
 tidy:

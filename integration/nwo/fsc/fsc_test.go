@@ -11,7 +11,7 @@ import (
 	"context"
 	"io/ioutil"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	context2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/context"
