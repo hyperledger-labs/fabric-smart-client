@@ -11,13 +11,12 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
-	"github.com/pkg/errors"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	hash2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	protos2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view/protos"
+	"github.com/pkg/errors"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // UnmarshalCommand unmarshal Command messages
@@ -52,8 +51,8 @@ func (s *ResponseMarshaler) MarshalCommandResponse(command []byte, responsePaylo
 		return nil, err
 	}
 
-	ts, err := ptypes.TimestampProto(s.time())
-	if err != nil {
+	ts := timestamppb.New(s.time())
+	if err := ts.CheckValid(); err != nil {
 		return nil, err
 	}
 

@@ -14,17 +14,15 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/api"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	grpc2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
+	hash2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
+	protos2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view/protos"
 	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc"
-
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/api"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
-	protos2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view/protos"
-
-	grpc2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
-	hash2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 var logger = flogging.MustGetLogger("view-sdk.client")
@@ -279,8 +277,8 @@ func (s *client) CreateSignedCommand(payload interface{}, signingIdentity Signin
 		return nil, err
 	}
 
-	ts, err := ptypes.TimestampProto(s.Time())
-	if err != nil {
+	ts := timestamppb.New(s.Time())
+	if err := ts.CheckValid(); err != nil {
 		return nil, err
 	}
 
