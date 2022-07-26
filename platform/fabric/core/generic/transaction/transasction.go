@@ -562,10 +562,7 @@ func (t *Transaction) ProposalResponse() ([]byte, error) {
 func (t *Transaction) generateProposal(signer SerializableSigner) error {
 	logger.Debugf("generate proposal...")
 	// Build the spec
-	params := [][]byte{[]byte(t.TFunction)}
-	for _, parameter := range t.TParameters {
-		params = append(params, parameter)
-	}
+	params := append([][]byte{[]byte(t.TFunction)}, t.TParameters...)
 	input := pb.ChaincodeInput{
 		Args:        params,
 		Decorations: nil,
