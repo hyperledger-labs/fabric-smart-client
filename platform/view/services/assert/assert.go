@@ -77,9 +77,9 @@ func extractReleasers(msgAndArgs ...interface{}) ([]interface{}, []func()) {
 	var output []interface{}
 	var releasers []func()
 	for _, arg := range msgAndArgs {
-		switch arg.(type) {
+		switch arg := arg.(type) {
 		case func():
-			releasers = append(releasers, arg.(func()))
+			releasers = append(releasers, arg)
 		default:
 			output = append(output, arg)
 		}
