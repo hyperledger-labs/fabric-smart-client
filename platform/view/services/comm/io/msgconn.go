@@ -59,21 +59,19 @@ func (c *commSCCMsgConn) Write(data []byte) (n int, err error) {
 func (c *commSCCMsgConn) Read() ([]byte, error) {
 	c.readCounter++
 	logger.Debugf("[commSCCMsgConn] Reading at counter [%d]", c.readCounter)
-	select {
-	case msg := <-c.ch:
-		if msg.Status == view.ERROR {
-			return nil, errors.New(string(msg.Payload))
-		}
-
-		if len(msg.Payload) == 0 {
-			logger.Error("failed receiving message [%s][%s]", "", "")
-			errMsg := fmt.Errorf("failed receiving message [%s][%s]", "", "")
-			return nil, errMsg
-		}
-
-		logger.Debugf("[commSCCMsgConn] [%d] Read [%d][%s]\n", c.readCounter, len(msg.Payload), base64.StdEncoding.EncodeToString(MD5Hash(msg.Payload)))
-		return msg.Payload, nil
+	msg := <-c.ch
+	if msg.Status == view.ERROR {
+		return nil, errors.New(string(msg.Payload))
 	}
+
+	if len(msg.Payload) == 0 {
+		logger.Error("failed receiving message [%s][%s]", "", "")
+		errMsg := fmt.Errorf("failed receiving message [%s][%s]", "", "")
+		return nil, errMsg
+	}
+
+	logger.Debugf("[commSCCMsgConn] [%d] Read [%d][%s]\n", c.readCounter, len(msg.Payload), base64.StdEncoding.EncodeToString(MD5Hash(msg.Payload)))
+	return msg.Payload, nil
 }
 
 func (c *commSCCMsgConn) Flush() error {
