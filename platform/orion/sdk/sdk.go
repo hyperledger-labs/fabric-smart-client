@@ -69,11 +69,9 @@ func (p *SDK) Start(ctx context.Context) error {
 	}
 
 	go func() {
-		select {
-		case <-ctx.Done():
-			if err := p.onsProvider.Stop(); err != nil {
-				logger.Errorf("failed stopping orion network service provider [%s]", err)
-			}
+		<-ctx.Done()
+		if err := p.onsProvider.Stop(); err != nil {
+			logger.Errorf("failed stopping orion network service provider [%s]", err)
 		}
 	}()
 
