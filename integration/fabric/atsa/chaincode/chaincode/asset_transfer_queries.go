@@ -14,7 +14,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/hyperledger/fabric-contract-api-go/contractapi"
 )
 
@@ -165,10 +164,11 @@ func (s *SmartContract) QueryAssetHistory(ctx contractapi.TransactionContextInte
 			return nil, err
 		}
 
-		timestamp, err := ptypes.Timestamp(response.Timestamp)
-		if err != nil {
+		if err = response.Timestamp.CheckValid(); err != nil {
 			return nil, err
 		}
+		timestamp := response.Timestamp.AsTime()
+
 		record := QueryResult{
 			TxId:      response.TxId,
 			Timestamp: timestamp,

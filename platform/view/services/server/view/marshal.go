@@ -8,10 +8,10 @@ package view
 
 import (
 	"fmt"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/pkg/errors"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
@@ -52,8 +52,8 @@ func (s *ResponseMarshaler) MarshalCommandResponse(command []byte, responsePaylo
 		return nil, err
 	}
 
-	ts, err := ptypes.TimestampProto(s.time())
-	if err != nil {
+	ts := timestamppb.New(s.time())
+	if err = ts.CheckValid(); err != nil {
 		return nil, err
 	}
 

@@ -10,11 +10,11 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/tls"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"io"
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc"
@@ -279,8 +279,8 @@ func (s *client) CreateSignedCommand(payload interface{}, signingIdentity Signin
 		return nil, err
 	}
 
-	ts, err := ptypes.TimestampProto(s.Time())
-	if err != nil {
+	ts := timestamppb.New(s.Time())
+	if err = ts.CheckValid(); err != nil {
 		return nil, err
 	}
 
