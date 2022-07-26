@@ -179,12 +179,12 @@ func (p *Platform) GetDeploymentPayload(codepath string, replacer replacer.Func)
 
 		if len(raw) != 0 {
 			if err := WriteBytesToPackage(raw, file.Path, file.Name, tw); err != nil {
-				return nil, fmt.Errorf("Error writing %s to tar: %s", file.Name, err)
+				return nil, fmt.Errorf("error writing %s to tar: %s", file.Name, err)
 			}
 		} else {
 			err = util.WriteFileToPackage(file.Path, file.Name, tw)
 			if err != nil {
-				return nil, fmt.Errorf("Error writing %s to tar: %s", file.Name, err)
+				return nil, fmt.Errorf("error writing %s to tar: %s", file.Name, err)
 			}
 		}
 	}
