@@ -9,12 +9,11 @@ package relay_test
 import (
 	"os"
 
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/weaver/relay"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("EndToEnd", func() {
