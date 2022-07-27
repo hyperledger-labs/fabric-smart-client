@@ -16,12 +16,11 @@ import (
 	"unicode/utf8"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/pkg/errors"
-	"github.com/stretchr/testify/assert"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	dbproto "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/keys"
+	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
 )
 
 func marshalOrPanic(o proto.Message) []byte {
@@ -92,7 +91,7 @@ func TestRangeQueries(t *testing.T) {
 	assert.Len(t, res, 3)
 	assert.Equal(t, expected, res)
 
-	itr, err = db.GetCachedStateRangeScanIterator(ns, "k1", "k3")
+	itr, err = db.GetStateRangeScanIterator(ns, "k1", "k3")
 	defer itr.Close()
 	assert.NoError(t, err)
 
@@ -114,7 +113,7 @@ func TestRangeQueries(t *testing.T) {
 		{Key: "k111", Raw: []byte("k111_value"), Block: 35, IndexInBlock: 4},
 		{Key: "k2", Raw: []byte("k2_value"), Block: 35, IndexInBlock: 1},
 	}
-	itr, err = db.GetCachedStateRangeScanIterator(ns, "k1", "k3")
+	itr, err = db.GetStateRangeScanIterator(ns, "k1", "k3")
 	defer itr.Close()
 	assert.NoError(t, err)
 
@@ -541,22 +540,6 @@ func TestRangeQueries1(t *testing.T) {
 	}, res)
 }
 
-func TestExpansion(t *testing.T) {
-	a := make([]cacheValue, 4, 5)
-	for i := 0; i < 4; i++ {
-		a[i].k = []byte{byte(i)}
-	}
-	a = a[:len(a)+1]
-	a[len(a)-1].k = []byte{byte(4)}
-	assert.Equal(t, []cacheValue{
-		{k: []byte{0}},
-		{k: []byte{1}},
-		{k: []byte{2}},
-		{k: []byte{3}},
-		{k: []byte{4}},
-	}, a)
-}
-
 const (
 	minUnicodeRuneValue   = 0            // U+0000
 	maxUnicodeRuneValue   = utf8.MaxRune // U+10FFFF - maximum (and unallocated) code point
@@ -667,18 +650,24 @@ var (
 	key       = "test_key"
 )
 
+var result string
+
 func BenchmarkConcatenation(b *testing.B) {
+	var s string
 	for i := 0; i < b.N; i++ {
-		_ = namespace + keys.NamespaceSeparator + key
+		s = namespace + keys.NamespaceSeparator + key
 	}
+	result = s
 }
 
 func BenchmarkBuilder(b *testing.B) {
+	var s string
 	for i := 0; i < b.N; i++ {
 		var sb strings.Builder
 		sb.WriteString(namespace)
 		sb.WriteString(keys.NamespaceSeparator)
 		sb.WriteString(key)
-		_ = sb.String()
+		s = sb.String()
 	}
+	result = s
 }
