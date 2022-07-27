@@ -15,7 +15,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"time"
 
 	"github.com/hyperledger/fabric-chaincode-go/pkg/statebased"
 	"github.com/hyperledger/fabric-chaincode-go/shim"
@@ -41,10 +40,10 @@ type Asset struct {
 	PublicDescription string `json:"publicDescription"`
 }
 
-type receipt struct {
-	price     int
-	timestamp time.Time
-}
+//type receipt struct {
+//	price     int
+//	timestamp time.Time
+//}
 
 // CreateAsset creates an asset and sets it as owned by the client's org
 func (s *SmartContract) CreateAsset(ctx contractapi.TransactionContextInterface, assetID, publicDescription string) error {
@@ -437,24 +436,24 @@ func transferAssetState(ctx contractapi.TransactionContextInterface, asset *Asse
 		return fmt.Errorf("failed to create composite key for receipt: %v", err)
 	}
 
-	txTimestamp, err := ctx.GetStub().GetTxTimestamp()
-	if err != nil {
-		return fmt.Errorf("failed to create timestamp for receipt: %v", err)
-	}
-
-	if err := txTimestamp.CheckValid(); err != nil {
-		return err
-	}
-	timestamp := txTimestamp.AsTime()
-
-	assetReceipt := receipt{
-		price:     price,
-		timestamp: timestamp,
-	}
-	receipt, err := json.Marshal(assetReceipt)
-	if err != nil {
-		return fmt.Errorf("failed to marshal receipt: %v", err)
-	}
+	//txTimestamp, err := ctx.GetStub().GetTxTimestamp()
+	//if err != nil {
+	//	return fmt.Errorf("failed to create timestamp for receipt: %v", err)
+	//}
+	//
+	//if err = :txTimestamp.CheckValid(); err != nil {
+	//	return err
+	//}
+	//timestamp := txTimestamp.AsTime()
+	//
+	//assetReceipt := receipt{
+	//	price:     price,
+	//	timestamp: timestamp,
+	//}
+	receipt := []byte{}
+	//if err != nil {
+	//	return fmt.Errorf("failed to marshal receipt: %v", err)
+	//}
 
 	err = ctx.GetStub().PutPrivateData(collectionBuyer, receiptBuyKey, receipt)
 	if err != nil {

@@ -431,3 +431,7 @@ func (r *readSet) clear(ns string) {
 	}{}
 	r.orderedReads[ns] = []string{}
 }
+
+func (rws *readWriteSet) String() string {
+	return "{}"
+}
