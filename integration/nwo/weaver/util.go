@@ -180,8 +180,11 @@ func gzipDir(dir, dest string) error {
 	defer t.Flush()
 
 	err = filepath.Walk(dir, func(path string, info fs.FileInfo, err error) error {
-		var f *os.File
-		f, err = os.Open(path)
+		if err != nil {
+			return fmt.Errorf("failed accessing %s: %v", path, err)
+		}
+
+		f, err := os.Open(path)
 		if err != nil {
 			return fmt.Errorf("failed opening %s: %v", path, err)
 		}

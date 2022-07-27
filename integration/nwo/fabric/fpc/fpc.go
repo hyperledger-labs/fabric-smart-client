@@ -118,7 +118,7 @@ func (n *Extension) PostRun(load bool) {
 	}
 
 	if load {
-		// run docker containers
+		panic("Load is not supported. Restart from scratch.")
 	}
 
 	// deploy and run containers
