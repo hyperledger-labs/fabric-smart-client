@@ -22,7 +22,7 @@ import (
 	"github.com/onsi/gomega/gexec"
 
 	. "github.com/onsi/gomega"
-	. "github.com/onsi/gomega/gstruct"
+	"github.com/onsi/gomega/gstruct"
 )
 
 func PackageAndInstallChaincode(n *Network, chaincode *topology.Chaincode, peers ...*topology.Peer) {
@@ -117,11 +117,11 @@ func ApproveChaincodeForMyOrg(n *Network, channel string, orderer *topology.Orde
 
 func CheckCommitReadinessUntilReady(n *Network, channel string, chaincode *topology.Chaincode, checkOrgs []*topology.Organization, peers ...*topology.Peer) {
 	for _, p := range peers {
-		keys := Keys{}
+		keys := gstruct.Keys{}
 		for _, org := range checkOrgs {
 			keys[org.MSPID] = BeTrue()
 		}
-		Eventually(checkCommitReadiness(n, p, channel, chaincode), n.EventuallyTimeout).Should(MatchKeys(IgnoreExtras, keys))
+		Eventually(checkCommitReadiness(n, p, channel, chaincode), n.EventuallyTimeout).Should(gstruct.MatchKeys(gstruct.IgnoreExtras, keys))
 	}
 }
 
@@ -170,15 +170,15 @@ func EnsureChaincodeCommitted(n *Network, channel, name, version, sequence strin
 	for _, p := range peers {
 		sequenceInt, err := strconv.ParseInt(sequence, 10, 64)
 		Expect(err).NotTo(HaveOccurred())
-		approvedKeys := Keys{}
+		approvedKeys := gstruct.Keys{}
 		for _, org := range checkOrgs {
 			approvedKeys[org.MSPID] = BeTrue()
 		}
 		Eventually(listCommitted(n, p, channel, name), n.EventuallyTimeout).Should(
-			MatchFields(IgnoreExtras, Fields{
+			gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 				"Version":   Equal(version),
 				"Sequence":  Equal(sequenceInt),
-				"Approvals": MatchKeys(IgnoreExtras, approvedKeys),
+				"Approvals": gstruct.MatchKeys(gstruct.IgnoreExtras, approvedKeys),
 			}),
 		)
 	}
@@ -217,8 +217,8 @@ func InitChaincode(n *Network, channel string, orderer *topology.Orderer, chainc
 func EnsureInstalled(n *Network, label, packageID string, peers ...*topology.Peer) {
 	for _, p := range peers {
 		Eventually(QueryInstalled(n, p), n.EventuallyTimeout).Should(
-			ContainElement(MatchFields(IgnoreExtras,
-				Fields{
+			ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras,
+				gstruct.Fields{
 					"Label":     Equal(label),
 					"PackageId": Equal(packageID),
 				},
@@ -237,12 +237,12 @@ func QueryInstalledReferences(n *Network, channel, label, packageID string, chec
 	}
 
 	Expect(QueryInstalled(n, checkPeer)()).To(
-		ContainElement(MatchFields(IgnoreExtras,
-			Fields{
+		ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras,
+			gstruct.Fields{
 				"Label":     Equal(label),
 				"PackageId": Equal(packageID),
-				"References": HaveKeyWithValue(channel, PointTo(MatchFields(IgnoreExtras,
-					Fields{
+				"References": HaveKeyWithValue(channel, gstruct.PointTo(gstruct.MatchFields(gstruct.IgnoreExtras,
+					gstruct.Fields{
 						"Chaincodes": ConsistOf(chaincodes),
 					},
 				))),

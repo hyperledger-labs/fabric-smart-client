@@ -23,7 +23,7 @@ import (
 	"github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
-	. "github.com/onsi/gomega/gstruct"
+	"github.com/onsi/gomega/gstruct"
 	"github.com/onsi/gomega/matchers"
 	"github.com/onsi/gomega/types"
 	"github.com/tedsuo/ifrit"
@@ -1245,7 +1245,7 @@ func (n *Network) DiscoveredPeerMatcher(p *topology.Peer, chaincodes ...string) 
 	peerCert, err := ioutil.ReadFile(n.PeerCert(p))
 	Expect(err).NotTo(HaveOccurred())
 
-	return MatchAllFields(Fields{
+	return gstruct.MatchAllFields(gstruct.Fields{
 		"MSPID":      Equal(n.Organization(p.Organization).MSPID),
 		"Endpoint":   Equal(fmt.Sprintf("127.0.0.1:%d", n.PeerPort(p, ListenPort))),
 		"Identity":   Equal(string(peerCert)),
