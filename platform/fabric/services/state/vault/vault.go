@@ -36,9 +36,9 @@ func (l *ListStateQueryIteratorInterface) Close() error {
 	return nil
 }
 
-func (l *ListStateQueryIteratorInterface) Next(state interface{}) error {
+func (l *ListStateQueryIteratorInterface) Next(state interface{}) (string, error) {
 	//log.Printf("It at %s\n", string(l.List[l.Index].Raw))
-	return json.Unmarshal(l.next.Raw, state)
+	return "", json.Unmarshal(l.next.Raw, state)
 }
 
 type NewQueryExecutorFunc func() (*fabric.QueryExecutor, error)

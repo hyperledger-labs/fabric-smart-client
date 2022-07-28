@@ -106,7 +106,7 @@ func testRound(t *testing.T, cfg *fakeProv) {
 
 	for ctr := 0; it.HasNext(); ctr++ {
 		val = &stuff{}
-		err = it.Next(val)
+		_, err = it.Next(val)
 		assert.NoError(t, err)
 		if ctr == 0 {
 			assert.Equal(t, &stuff{"santa", 1}, val)
@@ -125,7 +125,7 @@ func testRound(t *testing.T, cfg *fakeProv) {
 
 	for ctr := 0; it.HasNext(); ctr++ {
 		val = &stuff{}
-		err = it.Next(val)
+		_, err = it.Next(val)
 		assert.NoError(t, err)
 		if ctr == 0 {
 			assert.Equal(t, &stuff{"santa", 1}, val)

@@ -240,8 +240,10 @@ func (i *iteratorConverter) Close() error {
 	return nil
 }
 
-func (i *iteratorConverter) Next(state interface{}) error {
-	return json.Unmarshal(i.next.Raw, state)
+// Next unmarshals the current state into the given state object.
+// It also returns the key of the current state.
+func (i *iteratorConverter) Next(state interface{}) (string, error) {
+	return i.next.Key, json.Unmarshal(i.next.Raw, state)
 }
 
 func GetService(ctx view.ServiceProvider) *KVS {
