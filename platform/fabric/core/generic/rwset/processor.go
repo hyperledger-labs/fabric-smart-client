@@ -7,14 +7,12 @@ SPDX-License-Identifier: Apache-2.0
 package rwset
 
 import (
-	"github.com/golang/protobuf/proto"
-	"github.com/hyperledger/fabric-protos-go/common"
-	"github.com/pkg/errors"
-
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
-
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	"github.com/hyperledger/fabric-protos-go/common"
+	"github.com/pkg/errors"
 )
 
 var logger = flogging.MustGetLogger("fabric-sdk.rwset")

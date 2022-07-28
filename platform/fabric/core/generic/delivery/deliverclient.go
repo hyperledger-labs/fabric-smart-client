@@ -11,7 +11,7 @@ import (
 	"crypto/tls"
 	"math"
 
-	"github.com/golang/protobuf/proto"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
 	grpc2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger/fabric-protos-go/common"

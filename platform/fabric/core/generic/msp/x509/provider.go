@@ -10,13 +10,12 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 
-	"github.com/golang/protobuf/proto"
-	"github.com/hyperledger/fabric-protos-go/msp"
-	"github.com/pkg/errors"
-
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	api2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"github.com/hyperledger/fabric-protos-go/msp"
+	"github.com/pkg/errors"
 )
 
 type SignerService interface {

@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package transaction
 
 import (
-	"github.com/golang/protobuf/proto"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/orion-server/pkg/types"
