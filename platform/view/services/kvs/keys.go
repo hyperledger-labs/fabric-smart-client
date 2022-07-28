@@ -69,3 +69,16 @@ func CreateRangeKeysForPartialCompositeKey(objectType string, attributes []strin
 
 	return startKey, endKey, nil
 }
+
+// SplitCompositeKey splits the passed composite key into objectType and attributes
+func SplitCompositeKey(compositeKey string) (string, []string, error) {
+	componentIndex := 1
+	var components []string
+	for i := 1; i < len(compositeKey); i++ {
+		if rune(compositeKey[i]) == minUnicodeRuneValue {
+			components = append(components, compositeKey[componentIndex:i])
+			componentIndex = i + 1
+		}
+	}
+	return components[0], components[1:], nil
+}

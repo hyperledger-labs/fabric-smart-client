@@ -20,7 +20,7 @@ type CommonIteratorInterface interface {
 type QueryIteratorInterface interface {
 	CommonIteratorInterface
 
-	Next(state interface{}) error
+	Next(state interface{}) (string, error)
 }
 
 // Vault models a container of states

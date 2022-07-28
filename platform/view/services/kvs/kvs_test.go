@@ -106,11 +106,13 @@ func testRound(t *testing.T, cfg *fakeProv) {
 
 	for ctr := 0; it.HasNext(); ctr++ {
 		val = &stuff{}
-		err = it.Next(val)
+		key, err := it.Next(val)
 		assert.NoError(t, err)
 		if ctr == 0 {
+			assert.Equal(t, k1, key)
 			assert.Equal(t, &stuff{"santa", 1}, val)
 		} else if ctr == 1 {
+			assert.Equal(t, k2, key)
 			assert.Equal(t, &stuff{"claws", 2}, val)
 		} else {
 			assert.Fail(t, "expected 2 entries in the range, found more")
@@ -125,9 +127,10 @@ func testRound(t *testing.T, cfg *fakeProv) {
 
 	for ctr := 0; it.HasNext(); ctr++ {
 		val = &stuff{}
-		err = it.Next(val)
+		key, err := it.Next(val)
 		assert.NoError(t, err)
 		if ctr == 0 {
+			assert.Equal(t, k1, key)
 			assert.Equal(t, &stuff{"santa", 1}, val)
 		} else {
 			assert.Fail(t, "expected 2 entries in the range, found more")
