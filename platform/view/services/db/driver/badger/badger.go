@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/dgraph-io/badger/v3"
-	"github.com/golang/protobuf/proto"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	dbproto "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/keys"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"

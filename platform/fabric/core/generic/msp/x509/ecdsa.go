@@ -18,14 +18,12 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
-
-	"github.com/golang/protobuf/proto"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/hyperledger/fabric-protos-go/msp"
 	"github.com/hyperledger/fabric/bccsp/utils"
 	"github.com/pkg/errors"
-
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 var (

@@ -9,15 +9,13 @@ package vault
 import (
 	"encoding/json"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
-
-	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric-protos-go/ledger/rwset"
 	"github.com/hyperledger/fabric-protos-go/ledger/rwset/kvrwset"
 	"github.com/hyperledger/fabric/core/ledger/kvledger/txmgmt/rwsetutil"
 	"github.com/pkg/errors"
-
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
 
 type QueryExecutor interface {

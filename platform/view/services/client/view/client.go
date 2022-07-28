@@ -13,8 +13,8 @@ import (
 	"io"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/api"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	grpc2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	hash2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
