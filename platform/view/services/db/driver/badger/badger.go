@@ -26,6 +26,11 @@ type badgerDB struct {
 	txnLock sync.RWMutex
 }
 
+const (
+	defaultGCInterval     = 5 * time.Minute // TODO let the user define this via config
+	defaultGCDiscardRatio = 0.5             // recommended ratio by badger docs
+)
+
 func OpenDB(path string) (*badgerDB, error) {
 	if len(path) == 0 {
 		return nil, errors.Errorf("path cannot be empty")
@@ -41,14 +46,23 @@ func OpenDB(path string) (*badgerDB, error) {
 	}
 
 	// start our auto cleaner
-	autoCleaner(db)
+	autoCleaner(db, defaultGCInterval, defaultGCDiscardRatio)
 
 	return &badgerDB{db: db}, nil
 }
 
-func autoCleaner(db *badger.DB) {
+// autoCleaner runs badger garbage collection periodically as long as the db is open
+//
+func autoCleaner(db *badger.DB, badgerGCInterval time.Duration, badgerDiscardRatio float64) {
+	if db != nil && !db.Opts().InMemory {
+		// not needed when we run badger in memory mode
+		return
+	}
+
+	// based on
+	// https://dgraph.io/docs/badger/get-started/#garbage-collection
 	go func() {
-		ticker := time.NewTicker(5 * time.Minute)
+		ticker := time.NewTicker(badgerGCInterval)
 		defer ticker.Stop()
 		for range ticker.C {
 		again:
@@ -56,10 +70,17 @@ func autoCleaner(db *badger.DB) {
 				// no need to clean anymore
 				return
 			}
-			err := db.RunValueLogGC(0.7)
+			err := db.RunValueLogGC(badgerDiscardRatio)
 			if err == nil {
-				goto again
+				// something went wrong
+				// in case nothing was rewritten, we continue with another tick
+				// otherwise we just try again
+				if !errors.Is(err, badger.ErrNoRewrite) {
+					// let's try again
+					goto again
+				}
 			}
+			// continue with the next tick to clean up again
 		}
 	}()
 }
