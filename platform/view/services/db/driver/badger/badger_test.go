@@ -13,15 +13,17 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 	"unicode/utf8"
 
+	"github.com/dgraph-io/badger/v3"
 	"github.com/golang/protobuf/proto"
-	"github.com/pkg/errors"
-	"github.com/stretchr/testify/assert"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger/mock"
 	dbproto "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/keys"
+	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
 )
 
 func marshalOrPanic(o proto.Message) []byte {
@@ -92,7 +94,7 @@ func TestRangeQueries(t *testing.T) {
 	assert.Len(t, res, 3)
 	assert.Equal(t, expected, res)
 
-	itr, err = db.GetCachedStateRangeScanIterator(ns, "k1", "k3")
+	itr, err = db.GetStateRangeScanIterator(ns, "k1", "k3")
 	defer itr.Close()
 	assert.NoError(t, err)
 
@@ -114,7 +116,7 @@ func TestRangeQueries(t *testing.T) {
 		{Key: "k111", Raw: []byte("k111_value"), Block: 35, IndexInBlock: 4},
 		{Key: "k2", Raw: []byte("k2_value"), Block: 35, IndexInBlock: 1},
 	}
-	itr, err = db.GetCachedStateRangeScanIterator(ns, "k1", "k3")
+	itr, err = db.GetStateRangeScanIterator(ns, "k1", "k3")
 	defer itr.Close()
 	assert.NoError(t, err)
 
@@ -541,22 +543,6 @@ func TestRangeQueries1(t *testing.T) {
 	}, res)
 }
 
-func TestExpansion(t *testing.T) {
-	a := make([]cacheValue, 4, 5)
-	for i := 0; i < 4; i++ {
-		a[i].k = []byte{byte(i)}
-	}
-	a = a[:len(a)+1]
-	a[len(a)-1].k = []byte{byte(4)}
-	assert.Equal(t, []cacheValue{
-		{k: []byte{0}},
-		{k: []byte{1}},
-		{k: []byte{2}},
-		{k: []byte{3}},
-		{k: []byte{4}},
-	}, a)
-}
-
 const (
 	minUnicodeRuneValue   = 0            // U+0000
 	maxUnicodeRuneValue   = utf8.MaxRune // U+10FFFF - maximum (and unallocated) code point
@@ -662,23 +648,121 @@ func TestCompositeKeys(t *testing.T) {
 	}, res)
 }
 
+func TestAutoCleaner(t *testing.T) {
+	dbpath := filepath.Join(tempDir, "DB-autocleaner")
+
+	// if db is nil should return nil
+	cancel := autoCleaner(nil, defaultGCInterval, defaultGCDiscardRatio)
+	assert.Nil(t, cancel)
+
+	// no need to run auto clean if we use in memory badger
+	opt := badger.DefaultOptions("").WithInMemory(true)
+	db, err := badger.Open(opt)
+	assert.NoError(t, err)
+
+	cancel = autoCleaner(db, defaultGCInterval, defaultGCDiscardRatio)
+	assert.Nil(t, cancel)
+
+	err = db.Close()
+	assert.NoError(t, err)
+
+	// let's see if we get our auto cleaner running
+	opt = badger.DefaultOptions(dbpath)
+	db, err = badger.Open(opt)
+	assert.NoError(t, err)
+
+	cancel = autoCleaner(db, defaultGCInterval, defaultGCDiscardRatio)
+	assert.NotNil(t, cancel)
+
+	cancel()
+	// let's call it again to make sure we do not panic
+	cancel()
+
+	err = db.Close()
+	assert.NoError(t, err)
+
+	// let's see if we get our auto cleaner running
+	opt = badger.DefaultOptions(dbpath)
+	db, err = badger.Open(opt)
+	assert.NoError(t, err)
+
+	cancel = autoCleaner(db, defaultGCInterval, defaultGCDiscardRatio)
+	assert.NotNil(t, cancel)
+	err = db.Close()
+	assert.NoError(t, err)
+
+	time.Sleep(200 * time.Millisecond)
+
+	// cancel the auto cleaner after the db was closed already
+	cancel()
+	// no panic
+}
+
+func TestAutoCleanerWithMock(t *testing.T) {
+
+	// let's assume db is already closed
+	db := &mock.BadgerDB{}
+	db.OptsReturns(badger.DefaultOptions(""))
+	db.IsClosedReturns(true)
+	_ = autoCleaner(db, 10*time.Millisecond, defaultGCDiscardRatio)
+	// wait a bit
+	time.Sleep(200 * time.Millisecond)
+	// the ticker should have ticked only once
+	assert.Equal(t, 1, db.IsClosedCallCount())
+
+	// let's cancel before we tick first times
+	db = &mock.BadgerDB{}
+	db.OptsReturns(badger.DefaultOptions(""))
+	db.IsClosedReturns(false)
+	cancel := autoCleaner(db, 1*time.Minute, defaultGCDiscardRatio)
+	// wait a bit
+	time.Sleep(200 * time.Millisecond)
+	cancel()
+	// the ticker should have ticked only once
+	assert.Equal(t, 0, db.IsClosedCallCount())
+
+	// let's cancel before we tick first times
+	db = &mock.BadgerDB{}
+	db.OptsReturns(badger.DefaultOptions(""))
+	db.IsClosedReturns(false)
+	// even errors should not prevent us from running our cleaner
+	db.RunValueLogGCReturnsOnCall(1, nil)
+	db.RunValueLogGCReturnsOnCall(2, badger.ErrRejected)
+	db.RunValueLogGCReturnsOnCall(3, badger.ErrNoRewrite)
+	db.RunValueLogGCReturnsOnCall(4, errors.New("some error"))
+	cancel = autoCleaner(db, 10*time.Millisecond, defaultGCDiscardRatio)
+	// wait a bit
+	time.Sleep(200 * time.Millisecond)
+	cancel()
+	// the ticker should have ticked a couple of times
+	// actually we would assume that the ticker is called ~20 times,
+	// however, as timing could make this a flacky test we just check conservatively
+	assert.GreaterOrEqual(t, db.RunValueLogGCCallCount(), 4)
+}
+
 var (
 	namespace = "test_namespace"
 	key       = "test_key"
 )
 
+var result string
+
 func BenchmarkConcatenation(b *testing.B) {
+	var s string
 	for i := 0; i < b.N; i++ {
-		_ = namespace + keys.NamespaceSeparator + key
+		s = namespace + keys.NamespaceSeparator + key
 	}
+	result = s
 }
 
 func BenchmarkBuilder(b *testing.B) {
+	var s string
 	for i := 0; i < b.N; i++ {
 		var sb strings.Builder
 		sb.WriteString(namespace)
 		sb.WriteString(keys.NamespaceSeparator)
 		sb.WriteString(key)
-		_ = sb.String()
+		s = sb.String()
 	}
+	result = s
 }

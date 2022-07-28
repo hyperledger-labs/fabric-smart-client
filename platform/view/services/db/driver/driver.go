@@ -60,7 +60,6 @@ type VersionedPersistence interface {
 	// can be supplied as empty strings. However, a full scan should be used judiciously for performance reasons.
 	// The returned VersionedResultsIterator contains results of type *VersionedRead.
 	GetStateRangeScanIterator(namespace string, startKey string, endKey string) (VersionedResultsIterator, error)
-	GetCachedStateRangeScanIterator(namespace string, startKey string, endKey string) (VersionedResultsIterator, error)
 	// Close closes this persistence instance
 	Close() error
 	// BeginUpdate starts the session

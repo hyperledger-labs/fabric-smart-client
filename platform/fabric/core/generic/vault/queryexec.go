@@ -37,10 +37,6 @@ func (q *directQueryExecutor) GetStateRangeScanIterator(namespace string, startK
 	return q.vault.store.GetStateRangeScanIterator(namespace, startKey, endKey)
 }
 
-func (q *directQueryExecutor) GetCachedStateRangeScanIterator(namespace string, startKey string, endKey string) (driver.VersionedResultsIterator, error) {
-	return q.vault.store.GetCachedStateRangeScanIterator(namespace, startKey, endKey)
-}
-
 func (q *directQueryExecutor) GetStateMetadata(namespace, key string) (map[string][]byte, uint64, uint64, error) {
 	return q.vault.store.GetStateMetadata(namespace, key)
 }
