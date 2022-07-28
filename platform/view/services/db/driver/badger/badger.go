@@ -16,14 +16,16 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/keys"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/pkg/errors"
+	"golang.org/x/net/context"
 )
 
 var logger = flogging.MustGetLogger("db.driver.badger")
 
 type badgerDB struct {
-	db      *badger.DB
-	txn     *badger.Txn
-	txnLock sync.RWMutex
+	db            *badger.DB
+	txn           *badger.Txn
+	txnLock       sync.RWMutex
+	cancelCleaner context.CancelFunc
 }
 
 const (
@@ -46,43 +48,56 @@ func OpenDB(path string) (*badgerDB, error) {
 	}
 
 	// start our auto cleaner
-	autoCleaner(db, defaultGCInterval, defaultGCDiscardRatio)
+	cancel := autoCleaner(db, defaultGCInterval, defaultGCDiscardRatio)
 
-	return &badgerDB{db: db}, nil
+	return &badgerDB{db: db, cancelCleaner: cancel}, nil
+}
+
+//go:generate counterfeiter -o mock/badger.go -fake-name BadgerDB . badgerDBInterface
+
+// badgerDBInterface exists mainly for testing the auto cleaner
+type badgerDBInterface interface {
+	IsClosed() bool
+	RunValueLogGC(discardRatio float64) error
+	Opts() badger.Options
 }
 
 // autoCleaner runs badger garbage collection periodically as long as the db is open
-//
-func autoCleaner(db *badger.DB, badgerGCInterval time.Duration, badgerDiscardRatio float64) {
-	if db != nil && !db.Opts().InMemory {
+func autoCleaner(db badgerDBInterface, badgerGCInterval time.Duration, badgerDiscardRatio float64) context.CancelFunc {
+	if db == nil || db.Opts().InMemory {
 		// not needed when we run badger in memory mode
-		return
+		return nil
 	}
 
-	// based on
-	// https://dgraph.io/docs/badger/get-started/#garbage-collection
+	ctx, chancel := context.WithCancel(context.Background())
 	go func() {
 		ticker := time.NewTicker(badgerGCInterval)
 		defer ticker.Stop()
-		for range ticker.C {
-		again:
-			if db.IsClosed() {
-				// no need to clean anymore
+		for {
+			select {
+			case <-ctx.Done():
 				return
-			}
-			err := db.RunValueLogGC(badgerDiscardRatio)
-			if err == nil {
-				// something went wrong
-				// in case nothing was rewritten, we continue with another tick
-				// otherwise we just try again
-				if !errors.Is(err, badger.ErrNoRewrite) {
-					// let's try again
-					goto again
+			case <-ticker.C:
+				if db.IsClosed() {
+					// no need to clean anymore
+					return
 				}
+				if err := db.RunValueLogGC(badgerDiscardRatio); err != nil {
+					switch err {
+					case badger.ErrRejected:
+						logger.Warnf("badger: value log garbage collection rejected")
+					case badger.ErrNoRewrite:
+						// do nothing
+					default:
+						logger.Warnf("badger: unexpected error while performing value log clean up: %s", err)
+					}
+				}
+				// continue with the next tick to clean up again
 			}
-			// continue with the next tick to clean up again
 		}
 	}()
+
+	return chancel
 }
 
 func (db *badgerDB) Close() error {
@@ -92,6 +107,11 @@ func (db *badgerDB) Close() error {
 	err := db.db.Close()
 	if err != nil {
 		return errors.Wrap(err, "could not close DB")
+	}
+
+	// stop our auto cleaner if we have one
+	if db.cancelCleaner != nil {
+		db.cancelCleaner()
 	}
 
 	return nil

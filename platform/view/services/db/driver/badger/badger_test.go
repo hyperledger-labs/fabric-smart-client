@@ -13,10 +13,13 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 	"unicode/utf8"
 
+	"github.com/dgraph-io/badger/v3"
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger/mock"
 	dbproto "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/keys"
 	"github.com/pkg/errors"
@@ -643,6 +646,98 @@ func TestCompositeKeys(t *testing.T) {
 		{Key: "\x00prefix0a0b010", Raw: []uint8{0x0, 0x70, 0x72, 0x65, 0x66, 0x69, 0x78, 0x30, 0x61, 0x30, 0x62, 0x30, 0x31, 0x30}, Block: 0x23, IndexInBlock: 1},
 		{Key: "\x00prefix0a0b030", Raw: []uint8{0x0, 0x70, 0x72, 0x65, 0x66, 0x69, 0x78, 0x30, 0x61, 0x30, 0x62, 0x30, 0x33, 0x30}, Block: 0x23, IndexInBlock: 1},
 	}, res)
+}
+
+func TestAutoCleaner(t *testing.T) {
+	dbpath := filepath.Join(tempDir, "DB-autocleaner")
+
+	// if db is nil should return nil
+	cancel := autoCleaner(nil, defaultGCInterval, defaultGCDiscardRatio)
+	assert.Nil(t, cancel)
+
+	// no need to run auto clean if we use in memory badger
+	opt := badger.DefaultOptions("").WithInMemory(true)
+	db, err := badger.Open(opt)
+	assert.NoError(t, err)
+
+	cancel = autoCleaner(db, defaultGCInterval, defaultGCDiscardRatio)
+	assert.Nil(t, cancel)
+
+	err = db.Close()
+	assert.NoError(t, err)
+
+	// let's see if we get our auto cleaner running
+	opt = badger.DefaultOptions(dbpath)
+	db, err = badger.Open(opt)
+	assert.NoError(t, err)
+
+	cancel = autoCleaner(db, defaultGCInterval, defaultGCDiscardRatio)
+	assert.NotNil(t, cancel)
+
+	cancel()
+	// let's call it again to make sure we do not panic
+	cancel()
+
+	err = db.Close()
+	assert.NoError(t, err)
+
+	// let's see if we get our auto cleaner running
+	opt = badger.DefaultOptions(dbpath)
+	db, err = badger.Open(opt)
+	assert.NoError(t, err)
+
+	cancel = autoCleaner(db, defaultGCInterval, defaultGCDiscardRatio)
+	assert.NotNil(t, cancel)
+	err = db.Close()
+	assert.NoError(t, err)
+
+	time.Sleep(200 * time.Millisecond)
+
+	// cancel the auto cleaner after the db was closed already
+	cancel()
+	// no panic
+}
+
+func TestAutoCleanerWithMock(t *testing.T) {
+
+	// let's assume db is already closed
+	db := &mock.BadgerDB{}
+	db.OptsReturns(badger.DefaultOptions(""))
+	db.IsClosedReturns(true)
+	_ = autoCleaner(db, 10*time.Millisecond, defaultGCDiscardRatio)
+	// wait a bit
+	time.Sleep(200 * time.Millisecond)
+	// the ticker should have ticked only once
+	assert.Equal(t, 1, db.IsClosedCallCount())
+
+	// let's cancel before we tick first times
+	db = &mock.BadgerDB{}
+	db.OptsReturns(badger.DefaultOptions(""))
+	db.IsClosedReturns(false)
+	cancel := autoCleaner(db, 1*time.Minute, defaultGCDiscardRatio)
+	// wait a bit
+	time.Sleep(200 * time.Millisecond)
+	cancel()
+	// the ticker should have ticked only once
+	assert.Equal(t, 0, db.IsClosedCallCount())
+
+	// let's cancel before we tick first times
+	db = &mock.BadgerDB{}
+	db.OptsReturns(badger.DefaultOptions(""))
+	db.IsClosedReturns(false)
+	// even errors should not prevent us from running our cleaner
+	db.RunValueLogGCReturnsOnCall(1, nil)
+	db.RunValueLogGCReturnsOnCall(2, badger.ErrRejected)
+	db.RunValueLogGCReturnsOnCall(3, badger.ErrNoRewrite)
+	db.RunValueLogGCReturnsOnCall(4, errors.New("some error"))
+	cancel = autoCleaner(db, 10*time.Millisecond, defaultGCDiscardRatio)
+	// wait a bit
+	time.Sleep(200 * time.Millisecond)
+	cancel()
+	// the ticker should have ticked a couple of times
+	// actually we would assume that the ticker is called ~20 times,
+	// however, as timing could make this a flacky test we just check conservatively
+	assert.GreaterOrEqual(t, db.RunValueLogGCCallCount(), 4)
 }
 
 var (
