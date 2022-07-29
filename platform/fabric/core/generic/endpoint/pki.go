@@ -11,12 +11,11 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 
-	"github.com/golang/protobuf/proto"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/hyperledger/fabric-protos-go/msp"
 	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/peer"
-
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 type pkiResolver struct {

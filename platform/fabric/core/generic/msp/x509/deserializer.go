@@ -10,12 +10,11 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 
-	"github.com/golang/protobuf/proto"
-	"github.com/hyperledger/fabric-protos-go/msp"
-	"github.com/pkg/errors"
-
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"github.com/hyperledger/fabric-protos-go/msp"
+	"github.com/pkg/errors"
 )
 
 type Deserializer struct{}
@@ -56,5 +55,5 @@ func (i *Deserializer) Info(raw []byte, auditInfo []byte) (string, error) {
 }
 
 func (i *Deserializer) String() string {
-	return fmt.Sprintf("Generic X509 Verifier Deserializer")
+	return "Generic X509 Verifier Deserializer"
 }

@@ -13,9 +13,10 @@ import (
 	"net"
 	"strconv"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
-
-	"github.com/golang/protobuf/proto"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/weaver-dlt-interoperability/common/protos-go/common"
 	fabric2 "github.com/hyperledger-labs/weaver-dlt-interoperability/common/protos-go/fabric"
 	"github.com/hyperledger-labs/weaver-dlt-interoperability/sdks/fabric/go-sdk/interoperablehelper"
@@ -23,9 +24,6 @@ import (
 	"github.com/hyperledger/fabric-protos-go/msp"
 	"github.com/hyperledger/fabric/protoutil"
 	"github.com/pkg/errors"
-
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 )
 
 var logger = flogging.MustGetLogger("weaver-relay-fabric")

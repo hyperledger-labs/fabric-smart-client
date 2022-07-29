@@ -70,10 +70,8 @@ func VersionCmd(pName string) *cobra.Command {
 			}
 			// Parsing of the command line is done so silence cmd usage
 			cmd.SilenceUsage = true
-			fmt.Print(fmt.Sprintf("%s:\n Go version: %s\n"+
-				" OS/Arch: %s\n",
-				pName, runtime.Version(),
-				fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH)))
+			fmt.Printf("%s:\n Go version: %s\n  OS/Arch: %s/%s\n",
+				pName, runtime.Version(), runtime.GOOS, runtime.GOARCH)
 			return nil
 		},
 	}

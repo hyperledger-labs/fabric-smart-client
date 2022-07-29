@@ -78,8 +78,7 @@ func New(startPort int, path string, topologies ...api.Topology) (*Infrastructur
 
 	buildServer := common.NewBuildServer()
 	buildServer.Serve()
-	var builder api.Builder
-	builder = buildServer.Client()
+	var builder = buildServer.Client()
 
 	n := &Infrastructure{
 		TestDir:      testDir,

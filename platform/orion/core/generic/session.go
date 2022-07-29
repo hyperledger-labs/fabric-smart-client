@@ -9,7 +9,7 @@ package generic
 import (
 	"time"
 
-	"github.com/golang/protobuf/proto"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	config2 "github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	"github.com/hyperledger-labs/orion-sdk-go/pkg/bcdb"

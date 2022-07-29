@@ -9,7 +9,6 @@ package ordering
 import (
 	"context"
 	"crypto/tls"
-	"fmt"
 	"io"
 	"strings"
 
@@ -170,7 +169,7 @@ func toError(errs []error) error {
 		return errs[0]
 	}
 
-	errmsgs := []string{fmt.Sprint("Multiple errors occurred in order broadcast stream: ")}
+	errmsgs := []string{"Multiple errors occurred in order broadcast stream: "}
 	for _, err := range errs {
 		errmsgs = append(errmsgs, err.Error())
 	}

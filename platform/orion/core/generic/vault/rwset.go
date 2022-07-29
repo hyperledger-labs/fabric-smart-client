@@ -10,8 +10,8 @@ import (
 	"bytes"
 	"sort"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/google/go-cmp/cmp"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/keys"
 	"github.com/hyperledger-labs/orion-server/pkg/types"
 	"github.com/pkg/errors"
@@ -418,4 +418,8 @@ func (r *readSet) clear(ns string) {
 		txnum uint64
 	}{}
 	r.orderedReads[ns] = []string{}
+}
+
+func (rws *readWriteSet) String() string {
+	return "{}"
 }

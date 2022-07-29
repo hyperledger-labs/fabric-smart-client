@@ -7,8 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package vault
 
 import (
-	"encoding/json"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 
 	"github.com/pkg/errors"
@@ -426,8 +424,7 @@ func (i *Interceptor) Equals(other interface{}, nss ...string) error {
 }
 
 func (i *Interceptor) String() string {
-	s, _ := json.Marshal(i.rws)
-	return string(s)
+	return i.rws.String()
 }
 
 func (i *Interceptor) Done() {

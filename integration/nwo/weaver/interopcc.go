@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package weaver
 
 import (
-	"fmt"
 	"path/filepath"
 	"sync"
 
@@ -28,7 +27,7 @@ func (p *Platform) InteropChaincodeFile() string {
 }
 
 func (p *Platform) interopccSetup(relay *RelayServer, cc *topology.ChannelChaincode) (*topology.ChannelChaincode, error) {
-	cc.Chaincode.Ctor = fmt.Sprintf(`{"Args":["initLedger","applicationCCID"]}`)
+	cc.Chaincode.Ctor = `{"Args":["initLedger","applicationCCID"]}`
 
 	packageLock.Lock()
 	defer packageLock.Unlock()

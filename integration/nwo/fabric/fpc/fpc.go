@@ -117,9 +117,9 @@ func (n *Extension) PostRun(load bool) {
 		return
 	}
 
-	if load {
-		// run docker containers
-	}
+	//if load {
+	//	// run docker containers
+	//}
 
 	// deploy and run containers
 	if len(n.network.Topology().Chaincodes) != 0 {

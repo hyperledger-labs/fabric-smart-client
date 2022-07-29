@@ -179,7 +179,7 @@ func gzipDir(dir, dest string) error {
 	defer t.Close()
 	defer t.Flush()
 
-	err = filepath.Walk(dir, func(path string, info fs.FileInfo, err error) error {
+	err = filepath.Walk(dir, func(path string, info fs.FileInfo, _ error) error {
 		var f *os.File
 		f, err = os.Open(path)
 		if err != nil {

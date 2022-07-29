@@ -11,7 +11,7 @@ import (
 	"crypto/tls"
 	"math"
 
-	"github.com/golang/protobuf/proto"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
 	grpc2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger/fabric-protos-go/common"
@@ -230,7 +230,7 @@ read:
 // If an eventCh is shared by multiple transactions, a loop should be used to listen to events from multiple transactions
 func DeliverWaitForResponse(ctx context.Context, eventCh <-chan TxEvent, txid string) (bool, uint64, int, error) {
 	select {
-	case event, _ := <-eventCh:
+	case event := <-eventCh:
 		if txid == event.Txid {
 			return event.Committed, event.Block, event.IndexInBlock, event.Err
 		}

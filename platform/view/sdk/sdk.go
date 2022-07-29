@@ -8,7 +8,6 @@ package view
 
 import (
 	"context"
-	"crypto/tls"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -238,18 +237,18 @@ func (p *p) initGRPCServer() error {
 		grpclogging.StreamServerInterceptor(flogging.MustGetLogger("comm.grpc.server").Zap()),
 	)
 
-	cs := grpc2.NewCredentialSupport()
-	if serverConfig.SecOpts.UseTLS {
-		logger.Info("Starting peer with TLS enabled")
-		cs = grpc2.NewCredentialSupport(serverConfig.SecOpts.ServerRootCAs...)
-
-		// set the cert to use if client auth is requested by remote endpoints
-		clientCert, err := p.getClientCertificate()
-		if err != nil {
-			logger.Fatalf("Failed to set TLS client certificate (%s)", err)
-		}
-		cs.SetClientCertificate(clientCert)
-	}
+	//cs := grpc2.NewCredentialSupport()
+	//if serverConfig.SecOpts.UseTLS {
+	//	logger.Info("Starting peer with TLS enabled")
+	//	cs = grpc2.NewCredentialSupport(serverConfig.SecOpts.ServerRootCAs...)
+	//
+	//	// set the cert to use if client auth is requested by remote endpoints
+	//	clientCert, err := p.getClientCertificate()
+	//	if err != nil {
+	//		logger.Fatalf("Failed to set TLS client certificate (%s)", err)
+	//	}
+	//	cs.SetClientCertificate(clientCert)
+	//}
 
 	p.grpcServer, err = grpc2.NewGRPCServer(listenAddr, serverConfig)
 	assert.NoError(err, "failed creating grpc server")
@@ -310,29 +309,27 @@ func (p *p) serve() error {
 		}
 	}()
 	go func() {
-		select {
-		case <-p.context.Done():
-			if p.webServer != nil {
-				logger.Info("web server stopping...")
-				if err := p.webServer.Stop(); err != nil {
-					logger.Errorf("failed stopping web server [%s]", err)
-				}
+		<-p.context.Done()
+		if p.webServer != nil {
+			logger.Info("web server stopping...")
+			if err := p.webServer.Stop(); err != nil {
+				logger.Errorf("failed stopping web server [%s]", err)
 			}
-			logger.Info("web server stopping...done")
+		}
+		logger.Info("web server stopping...done")
 
-			logger.Info("grpc server stopping...")
-			p.grpcServer.Stop()
-			logger.Info("grpc server stopping...done")
+		logger.Info("grpc server stopping...")
+		p.grpcServer.Stop()
+		logger.Info("grpc server stopping...done")
 
-			logger.Info("kvs stopping...")
-			kvs.GetService(p.registry).Stop()
-			logger.Info("kvs stopping...done")
+		logger.Info("kvs stopping...")
+		kvs.GetService(p.registry).Stop()
+		logger.Info("kvs stopping...done")
 
-			logger.Infof("operations system stopping...")
-			if p.operationsSystem != nil {
-				if err := p.operationsSystem.Stop(); err != nil {
-					logger.Errorf("failed stopping operations system [%s]", err)
-				}
+		logger.Infof("operations system stopping...")
+		if p.operationsSystem != nil {
+			if err := p.operationsSystem.Stop(); err != nil {
+				logger.Errorf("failed stopping operations system [%s]", err)
 			}
 		}
 	}()
@@ -432,61 +429,61 @@ func (p *p) getServerConfig() (grpc2.ServerConfig, error) {
 	return serverConfig, nil
 }
 
-func (p *p) getClientCertificate() (tls.Certificate, error) {
-	configProvider := view.GetConfigService(p.registry)
-
-	cert := tls.Certificate{}
-
-	keyPath := configProvider.GetString("fsc.tls.clientKey.file")
-	certPath := configProvider.GetString("fsc.tls.clientCert.file")
-
-	if keyPath != "" || certPath != "" {
-		// need both keyPath and certPath to be set
-		if keyPath == "" || certPath == "" {
-			return cert, errors.New("fsc.tls.clientKey.file and " +
-				"fsc.tls.clientCert.file must both be set or must both be empty")
-		}
-		keyPath = configProvider.GetPath("fsc.tls.clientKey.file")
-		certPath = configProvider.GetPath("fsc.tls.clientCert.file")
-
-	} else {
-		// use the TLS server keypair
-		keyPath = configProvider.GetString("fsc.tls.key.file")
-		certPath = configProvider.GetString("fsc.tls.cert.file")
-
-		if keyPath != "" || certPath != "" {
-			// need both keyPath and certPath to be set
-			if keyPath == "" || certPath == "" {
-				return cert, errors.New("fsc.tls.key.file and " +
-					"fsc.tls.cert.file must both be set or must both be empty")
-			}
-			keyPath = configProvider.GetPath("fsc.tls.key.file")
-			certPath = configProvider.GetPath("fsc.tls.cert.file")
-		} else {
-			return cert, errors.New("must set either " +
-				"[fsc.tls.key.file and fsc.tls.cert.file] or " +
-				"[fsc.tls.clientKey.file and fsc.tls.clientCert.file]" +
-				"when fsc.tls.clientAuthEnabled is set to true")
-		}
-	}
-	// get the keypair from the file system
-	clientKey, err := ioutil.ReadFile(keyPath)
-	if err != nil {
-		return cert, errors.WithMessage(err,
-			"error loading client TLS key")
-	}
-	clientCert, err := ioutil.ReadFile(certPath)
-	if err != nil {
-		return cert, errors.WithMessage(err,
-			"error loading client TLS certificate")
-	}
-	cert, err = tls.X509KeyPair(clientCert, clientKey)
-	if err != nil {
-		return cert, errors.WithMessage(err,
-			"error parsing client TLS key pair")
-	}
-	return cert, nil
-}
+//func (p *p) getClientCertificate() (tls.Certificate, error) {
+//	configProvider := view.GetConfigService(p.registry)
+//
+//	cert := tls.Certificate{}
+//
+//	keyPath := configProvider.GetString("fsc.tls.clientKey.file")
+//	certPath := configProvider.GetString("fsc.tls.clientCert.file")
+//
+//	if keyPath != "" || certPath != "" {
+//		// need both keyPath and certPath to be set
+//		if keyPath == "" || certPath == "" {
+//			return cert, errors.New("fsc.tls.clientKey.file and " +
+//				"fsc.tls.clientCert.file must both be set or must both be empty")
+//		}
+//		keyPath = configProvider.GetPath("fsc.tls.clientKey.file")
+//		certPath = configProvider.GetPath("fsc.tls.clientCert.file")
+//
+//	} else {
+//		// use the TLS server keypair
+//		keyPath = configProvider.GetString("fsc.tls.key.file")
+//		certPath = configProvider.GetString("fsc.tls.cert.file")
+//
+//		if keyPath != "" || certPath != "" {
+//			// need both keyPath and certPath to be set
+//			if keyPath == "" || certPath == "" {
+//				return cert, errors.New("fsc.tls.key.file and " +
+//					"fsc.tls.cert.file must both be set or must both be empty")
+//			}
+//			keyPath = configProvider.GetPath("fsc.tls.key.file")
+//			certPath = configProvider.GetPath("fsc.tls.cert.file")
+//		} else {
+//			return cert, errors.New("must set either " +
+//				"[fsc.tls.key.file and fsc.tls.cert.file] or " +
+//				"[fsc.tls.clientKey.file and fsc.tls.clientCert.file]" +
+//				"when fsc.tls.clientAuthEnabled is set to true")
+//		}
+//	}
+//	// get the keypair from the file system
+//	clientKey, err := ioutil.ReadFile(keyPath)
+//	if err != nil {
+//		return cert, errors.WithMessage(err,
+//			"error loading client TLS key")
+//	}
+//	clientCert, err := ioutil.ReadFile(certPath)
+//	if err != nil {
+//		return cert, errors.WithMessage(err,
+//			"error loading client TLS certificate")
+//	}
+//	cert, err = tls.X509KeyPair(clientCert, clientKey)
+//	if err != nil {
+//		return cert, errors.WithMessage(err,
+//			"error parsing client TLS key pair")
+//	}
+//	return cert, nil
+//}
 
 func (p *p) installTracing() error {
 	confService := view.GetConfigService(p.registry)

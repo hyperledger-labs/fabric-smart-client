@@ -40,12 +40,12 @@ func JSONUnmarshalString(v interface{}) string {
 
 func JSONUnmarshalInt(v interface{}) int {
 	var s int
-	switch v.(type) {
+	switch v := v.(type) {
 	case []byte:
-		err := json.Unmarshal(v.([]byte), &s)
+		err := json.Unmarshal(v, &s)
 		Expect(err).NotTo(HaveOccurred())
 	case string:
-		err := json.Unmarshal([]byte(v.(string)), &s)
+		err := json.Unmarshal([]byte(v), &s)
 		Expect(err).NotTo(HaveOccurred())
 	default:
 		panic(fmt.Sprintf("type not recognized [%T]", v))

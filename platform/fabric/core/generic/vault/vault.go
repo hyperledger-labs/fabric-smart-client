@@ -8,7 +8,6 @@ package vault
 
 import (
 	"bytes"
-	"encoding/json"
 	"sync"
 
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
@@ -144,8 +143,7 @@ func (db *Vault) CommitTX(txid string, block uint64, indexInBloc int) error {
 	db.storeLock.Lock()
 	defer db.storeLock.Unlock()
 
-	m, _ := json.Marshal(i.rws)
-	logger.Debugf("committing \n[%s]\n", string(m))
+	logger.Debugf("committing \n[%s]\n", i.rws.String())
 
 	err = db.store.BeginUpdate()
 	if err != nil {

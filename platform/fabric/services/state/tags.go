@@ -188,9 +188,6 @@ func fieldMappingKey(ns, key string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	elems := []string{ns, prefix}
-	for _, attr := range attrs {
-		elems = append(elems, attr)
-	}
+	elems := append([]string{ns, prefix}, attrs...)
 	return rwset.CreateCompositeKey("field_mapping", elems)
 }
