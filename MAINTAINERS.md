@@ -9,8 +9,10 @@ Maintainers
 | Kaoutar Elkhiyaoui | [KElkhiyaoui][KElkhiyaoui] | KElkhiyaoui | <kao@zurich.ibm.com>
 | Mathilde Ffrench | [mffrench][mffrench] | mffrench | <mathilde.ffrench@fr.ibm.com>
 | Alessandro Sorniotti | [ale-linux][ale-linux] | aso | <ale.linux@sopit.net>
+| Marcus Brandenburger | [mbrandenburger][mbrandenburger] | bur | <bur@zurich.ibm.com>
 
 [adecaro]: https://github.com/adecaro
 [KElkhiyaoui]: https://github.com/KElkhiyaoui
 [mffrench]: https://github.com/mffrench
 [ale-linux]: https://github.com/ale-linux
+[mbrandenburger]: https://github.com/mbrandenburger
