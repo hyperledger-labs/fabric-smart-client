@@ -648,6 +648,9 @@ func TestDynamicClientTLSLoading(t *testing.T) {
 			if time.Now().After(deadline) {
 				t.Fatalf("Test timed out, waited for connection to %s", succeedOrFail)
 			}
+			if conn.GetState().String() == "IDLE" {
+				conn.Connect()
+			}
 		}
 	}
 
