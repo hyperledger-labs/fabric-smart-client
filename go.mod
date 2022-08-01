@@ -25,8 +25,8 @@ require (
 	github.com/google/go-cmp v0.5.6
 	github.com/gorilla/mux v1.8.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.2.0
-	github.com/hyperledger-labs/orion-sdk-go v0.0.0-20220628135226-31c863fdb78d
-	github.com/hyperledger-labs/orion-server v0.2.4-0.20220621134147-6a9aeaf38f9a
+	github.com/hyperledger-labs/orion-sdk-go v0.2.5
+	github.com/hyperledger-labs/orion-server v0.2.5
 	github.com/hyperledger-labs/weaver-dlt-interoperability/common/protos-go v1.2.3-alpha.1
 	github.com/hyperledger-labs/weaver-dlt-interoperability/sdks/fabric/go-sdk v1.2.3-alpha.1.0.20210812140206-37f430515b8c
 	github.com/hyperledger/fabric v1.4.0-rc1.0.20210722174351-9815a7a8f0f7
@@ -56,7 +56,7 @@ require (
 	go.uber.org/atomic v1.7.0
 	go.uber.org/zap v1.19.1
 	golang.org/x/net v0.0.0-20220225172249-27dd8689420f
-	google.golang.org/grpc v1.43.0
+	google.golang.org/grpc v1.48.0
 	google.golang.org/protobuf v1.27.1
 	gopkg.in/src-d/go-git.v4 v4.13.1
 	gopkg.in/yaml.v2 v2.4.0
@@ -186,6 +186,7 @@ require (
 	github.com/mmcloughlin/addchain v0.4.0 // indirect
 	github.com/moby/sys/mount v0.2.0 // indirect
 	github.com/moby/sys/mountinfo v0.4.1 // indirect
+	github.com/moby/term v0.0.0-20201216013528-df9cb8a40635 // indirect
 	github.com/morikuni/aec v1.0.0 // indirect
 	github.com/mr-tron/base58 v1.2.0 // indirect
 	github.com/multiformats/go-base32 v0.0.3 // indirect
