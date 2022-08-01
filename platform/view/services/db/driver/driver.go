@@ -6,7 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 
 package driver
 
-import view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
+import "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 
 type Read struct {
 	Key string
@@ -96,13 +96,15 @@ type Persistence interface {
 	Discard() error
 }
 
+// Config provides access to the underlying configuration
 type Config interface {
+	// UnmarshalKey takes the value corresponding to the passed key and unmarshals it into the passed structure
 	UnmarshalKey(key string, rawVal interface{}) error
 }
 
 type Driver interface {
 	// NewVersioned returns a new VersionedPersistence for the passed data source and config
-	NewVersioned(sp view2.ServiceProvider, dataSourceName string, config Config) (VersionedPersistence, error)
+	NewVersioned(sp view.ServiceProvider, dataSourceName string, config Config) (VersionedPersistence, error)
 	// New returns a new Persistence for the passed data source and config
-	New(sp view2.ServiceProvider, dataSourceName string, config Config) (Persistence, error)
+	New(sp view.ServiceProvider, dataSourceName string, config Config) (Persistence, error)
 }

@@ -49,8 +49,10 @@ type SessionManager interface {
 	NewSession(id string) (Session, error)
 }
 
+// QueryIterator is an iterator over the results of a query
 type QueryIterator = bcdb.Iterator
 
+// Query allows the developer to perform queries over the orion database
 type Query interface {
 	// GetDataByRange executes a range query on a given database. The startKey is
 	// inclusive but endKey is not. When the startKey is an empty string, it denotes
