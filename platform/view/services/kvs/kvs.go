@@ -272,7 +272,7 @@ func (i *iteratorConverter) Next(state interface{}) (string, error) {
 	return i.next.Key, json.Unmarshal(i.next.Raw, state)
 }
 
-// GetService returns the KVS instance registerd in the passed context.
+// GetService returns the KVS instance registered in the passed context.
 // If no KVS instance is registered, it panics.
 func GetService(ctx view.ServiceProvider) *KVS {
 	s, err := ctx.GetService(kvs)
