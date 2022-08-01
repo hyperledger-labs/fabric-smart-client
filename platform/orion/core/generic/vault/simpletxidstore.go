@@ -187,12 +187,12 @@ func (s *SimpleTXIDStore) Set(txid string, code fdriver.ValidationCode) error {
 func (s *SimpleTXIDStore) GetLastTxID() (string, error) {
 	it, err := s.Iterator(&fdriver.SeekEnd{})
 	if err != nil {
-		return "", errors.Wrapf(err, "failed getting last transaction ID")
+		return "", errors.Wrapf(err, "failed to get txid store iterator")
 	}
 	defer it.Close()
 	next, err := it.Next()
 	if err != nil {
-		return "", errors.Wrapf(err, "failed getting last transaction ID")
+		return "", errors.Wrapf(err, "failed to get next from txid store iterator")
 	}
 	if next == nil {
 		return "", nil

@@ -111,6 +111,7 @@ func (t *Topology) AddOrganization(name string) *fscOrg {
 		ID:            name,
 		Name:          name,
 		MSPID:         name + "MSP",
+		MSPType:       "bccsp",
 		Domain:        strings.ToLower(name) + ".example.com",
 		EnableNodeOUs: t.NodeOUs,
 		Users:         1,

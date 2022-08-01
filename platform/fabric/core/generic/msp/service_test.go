@@ -10,9 +10,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/otiai10/copy"
-	"github.com/stretchr/testify/assert"
-
 	config2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	msp2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp"
 	mock2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/mock"
@@ -21,6 +18,8 @@ import (
 	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	registry2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/registry"
+	"github.com/otiai10/copy"
+	"github.com/stretchr/testify/assert"
 )
 
 //go:generate counterfeiter -o mock/config_provider.go -fake-name ConfigProvider . ConfigProvider
@@ -31,7 +30,7 @@ func TestRegisterIdemixLocalMSP(t *testing.T) {
 	cp := &mock2.ConfigProvider{}
 	cp.IsSetReturns(false)
 	assert.NoError(t, registry.RegisterService(cp))
-	kvss, err := kvs.New("memory", "", registry)
+	kvss, err := kvs.New(registry, "memory", "")
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
 	des, err := sig.NewMultiplexDeserializer(registry)
@@ -61,7 +60,7 @@ func TestIdemixTypeFolder(t *testing.T) {
 	cp, err := config.NewProvider("./testdata/idemixtypefolder")
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(cp))
-	kvss, err := kvs.New("memory", "", registry)
+	kvss, err := kvs.New(registry, "memory", "")
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
 	des, err := sig.NewMultiplexDeserializer(registry)
@@ -88,7 +87,7 @@ func TestRegisterX509LocalMSP(t *testing.T) {
 	cp := &mock2.ConfigProvider{}
 	cp.IsSetReturns(false)
 	assert.NoError(t, registry.RegisterService(cp))
-	kvss, err := kvs.New("memory", "", registry)
+	kvss, err := kvs.New(registry, "memory", "")
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
 	des, err := sig.NewMultiplexDeserializer(registry)
@@ -118,7 +117,7 @@ func TestX509TypeFolder(t *testing.T) {
 	cp, err := config.NewProvider("./testdata/x509typefolder")
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(cp))
-	kvss, err := kvs.New("memory", "", registry)
+	kvss, err := kvs.New(registry, "memory", "")
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
 	des, err := sig.NewMultiplexDeserializer(registry)
@@ -145,7 +144,7 @@ func TestRefresh(t *testing.T) {
 	cp, err := config.NewProvider("./testdata/x509typefolder")
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(cp))
-	kvss, err := kvs.New("memory", "", registry)
+	kvss, err := kvs.New(registry, "memory", "")
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
 	des, err := sig.NewMultiplexDeserializer(registry)

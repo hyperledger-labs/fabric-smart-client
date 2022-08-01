@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/vault/mocks"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/vault/txidstore"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db"
@@ -25,6 +26,12 @@ import (
 	"github.com/hyperledger/fabric/core/ledger/kvledger/txmgmt/rwsetutil"
 	"github.com/stretchr/testify/assert"
 )
+
+//go:generate counterfeiter -o mocks/config.go -fake-name Config . config
+
+type config interface {
+	db.Config
+}
 
 var tempDir string
 
@@ -38,7 +45,7 @@ func TestMerge(t *testing.T) {
 	ne2Key := "notexist2"
 
 	// create DB and kvs
-	ddb, err := db.OpenVersioned("memory", "")
+	ddb, err := db.OpenVersioned(nil, "memory", "", nil)
 	assert.NoError(t, err)
 	tidstore, err := txidstore.NewTXIDStore(db.Unversioned(ddb))
 	assert.NoError(t, err)
@@ -145,7 +152,7 @@ func TestInspector(t *testing.T) {
 	k2 := "k2"
 
 	// create DB and kvs
-	ddb, err := db.OpenVersioned("memory", "")
+	ddb, err := db.OpenVersioned(nil, "memory", "", nil)
 	assert.NoError(t, err)
 	tidstore, err := txidstore.NewTXIDStore(db.Unversioned(ddb))
 	assert.NoError(t, err)
@@ -611,17 +618,19 @@ func testRun(t *testing.T, db1, db2 driver.VersionedPersistence) {
 }
 
 func TestVaultInMem(t *testing.T) {
-	db1, err := db.OpenVersioned("memory", "")
+	db1, err := db.OpenVersioned(nil, "memory", "", nil)
 	assert.NoError(t, err)
-	db2, err := db.OpenVersioned("memory", "")
+	db2, err := db.OpenVersioned(nil, "memory", "", nil)
 	assert.NoError(t, err)
 	testRun(t, db1, db2)
 }
 
 func TestVaultBadger(t *testing.T) {
-	db1, err := db.OpenVersioned("badger", filepath.Join(tempDir, "DB-TestVaultBadgerDB1"))
+	c := &mocks.Config{}
+	c.UnmarshalKeyReturns(nil)
+	db1, err := db.OpenVersioned(nil, "badger", filepath.Join(tempDir, "DB-TestVaultBadgerDB1"), c)
 	assert.NoError(t, err)
-	db2, err := db.OpenVersioned("badger", filepath.Join(tempDir, "DB-TestVaultBadgerDB2"))
+	db2, err := db.OpenVersioned(nil, "badger", filepath.Join(tempDir, "DB-TestVaultBadgerDB2"), c)
 	assert.NoError(t, err)
 	defer db1.Close()
 	defer db2.Close()
@@ -630,7 +639,7 @@ func TestVaultBadger(t *testing.T) {
 }
 
 func TestVaultErr(t *testing.T) {
-	ddb, err := db.OpenVersioned("memory", "")
+	ddb, err := db.OpenVersioned(nil, "memory", "", nil)
 	assert.NoError(t, err)
 	tidstore, err := txidstore.NewTXIDStore(db.Unversioned(ddb))
 	assert.NoError(t, err)
@@ -676,7 +685,7 @@ func TestVaultErr(t *testing.T) {
 }
 
 func TestInterceptorErr(t *testing.T) {
-	ddb, err := db.OpenVersioned("memory", "")
+	ddb, err := db.OpenVersioned(nil, "memory", "", nil)
 	assert.NoError(t, err)
 	tidstore, err := txidstore.NewTXIDStore(db.Unversioned(ddb))
 	assert.NoError(t, err)
@@ -729,7 +738,7 @@ func TestInterceptorConcurrency(t *testing.T) {
 	k := "key1"
 	mk := "meyakey1"
 
-	ddb, err := db.OpenVersioned("memory", "")
+	ddb, err := db.OpenVersioned(nil, "memory", "", nil)
 	assert.NoError(t, err)
 	tidstore, err := txidstore.NewTXIDStore(db.Unversioned(ddb))
 	assert.NoError(t, err)
@@ -772,7 +781,7 @@ func TestInterceptorConcurrency(t *testing.T) {
 func TestQueryExecutor(t *testing.T) {
 	ns := "namespace"
 
-	ddb, err := db.OpenVersioned("memory", "")
+	ddb, err := db.OpenVersioned(nil, "memory", "", nil)
 	assert.NoError(t, err)
 	tidstore, err := txidstore.NewTXIDStore(db.Unversioned(ddb))
 	assert.NoError(t, err)
@@ -842,7 +851,7 @@ func TestShardLikeCommit(t *testing.T) {
 	k2 := "key2"
 
 	// Populate the DB with some data at some height
-	ddb, err := db.OpenVersioned("memory", "")
+	ddb, err := db.OpenVersioned(nil, "memory", "", nil)
 	assert.NoError(t, err)
 	err = ddb.BeginUpdate()
 	assert.NoError(t, err)

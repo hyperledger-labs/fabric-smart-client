@@ -84,7 +84,7 @@ func newChannel(network *network, name string, quiet bool) (*channel, error) {
 	sp := network.sp
 	// Vault
 	// TODO: get cache size from config
-	v, txIDStore, err := NewVault(network.config, name, 20000)
+	v, txIDStore, err := NewVault(sp, network.config, name, 20000)
 	if err != nil {
 		return nil, err
 	}
@@ -167,7 +167,12 @@ func newChannel(network *network, name string, quiet bool) (*channel, error) {
 	}
 
 	// Start delivery
-	deliveryService.Start()
+	if network.Config().IsDeliveryEnabled() {
+		logger.Debugf("Starting delivery for channel [%s]", name)
+		deliveryService.Start()
+	} else {
+		logger.Debugf("Delivery is disabled for channel [%s]", name)
+	}
 
 	return c, nil
 }

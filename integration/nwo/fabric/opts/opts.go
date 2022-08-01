@@ -144,6 +144,18 @@ func (o *Options) SetIdemixIdentities(ids []string) {
 	o.Mapping["IdemixIdentities"] = ids
 }
 
+func (o *Options) SetDeliveryEnabled(enabled bool) {
+	o.Mapping["DeliveryEnabled"] = enabled
+}
+
+func (o *Options) DeliveryEnabled() bool {
+	res, ok := o.Mapping["DeliveryEnabled"]
+	if res == nil || !ok {
+		return true
+	}
+	return res.(bool)
+}
+
 func Get(o *node.Options) *Options {
 	opt, ok := o.Mapping["fabric"]
 	if !ok {
@@ -156,7 +168,9 @@ func Get(o *node.Options) *Options {
 	}
 	mapping, ok := opt.(map[interface{}]interface{})
 	if ok {
-		return convert(mapping)
+		opts := convert(mapping)
+		o.Mapping["fabric"] = opts
+		return opts
 	}
 	panic("invalid options")
 }

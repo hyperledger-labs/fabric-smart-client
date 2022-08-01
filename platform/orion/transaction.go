@@ -166,8 +166,8 @@ func (d *Transaction) SignAndClose() ([]byte, error) {
 	return d.dataTx.SignAndClose()
 }
 
-func (d *Transaction) Commit(b bool) (string, *types.TxReceiptResponseEnvelope, error) {
-	return d.dataTx.Commit(b)
+func (d *Transaction) Commit(sync bool) (string, *types.TxReceiptResponseEnvelope, error) {
+	return d.dataTx.Commit(sync)
 }
 
 func (d *Transaction) AddMustSignUser(userID string) {

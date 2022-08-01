@@ -13,28 +13,28 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
-	"github.com/stretchr/testify/assert"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/unversioned/mocks"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger"
 	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
+	"github.com/stretchr/testify/assert"
 )
 
-func marshalOrPanic(o proto.Message) []byte {
-	data, err := proto.Marshal(o)
-	if err != nil {
-		panic(err)
-	}
-	return data
+//go:generate counterfeiter -o mocks/config.go -fake-name Config . config
+
+type config interface {
+	db.Config
 }
 
 var tempDir string
 
 func TestRangeQueriesBadger(t *testing.T) {
+	c := &mocks.Config{}
+	c.UnmarshalKeyReturns(nil)
 	dbpath := filepath.Join(tempDir, "DB-TestRangeQueries")
-	db, err := db.Open("badger", dbpath)
+	db, err := db.Open(nil, "badger", dbpath, c)
 	defer db.Close()
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
@@ -43,7 +43,9 @@ func TestRangeQueriesBadger(t *testing.T) {
 }
 
 func TestRangeQueriesMemory(t *testing.T) {
-	db, err := db.Open("memory", "")
+	c := &mocks.Config{}
+	c.UnmarshalKeyReturns(nil)
+	db, err := db.Open(nil, "memory", "", c)
 	defer db.Close()
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
@@ -106,8 +108,10 @@ func testRangeQueries(t *testing.T, db driver.Persistence) {
 }
 
 func TestSimpleReadWriteBadger(t *testing.T) {
+	c := &mocks.Config{}
+	c.UnmarshalKeyReturns(nil)
 	dbpath := filepath.Join(tempDir, "DB-TestRangeQueries")
-	db, err := db.Open("badger", dbpath)
+	db, err := db.Open(nil, "badger", dbpath, c)
 	defer db.Close()
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
@@ -116,7 +120,9 @@ func TestSimpleReadWriteBadger(t *testing.T) {
 }
 
 func TestSimpleReadWriteMemory(t *testing.T) {
-	db, err := db.Open("memory", "")
+	c := &mocks.Config{}
+	c.UnmarshalKeyReturns(nil)
+	db, err := db.Open(nil, "memory", "", c)
 	defer db.Close()
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
