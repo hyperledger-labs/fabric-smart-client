@@ -48,8 +48,12 @@ func (i *queryChaincodeView) Query(context view.Context) ([]byte, error) {
 	if i.InvokerIdentity.IsNone() {
 		i.InvokerIdentity = fNetwork.IdentityProvider().DefaultIdentity()
 	}
+	var chaincode Chaincode
 
-	var chaincode Chaincode = &stdChaincode{ch: channel.Chaincode(i.ChaincodeName)}
+	chaincode = &stdChaincode{ch: channel.Chaincode(i.ChaincodeName)}
+	if chaincode == nil {
+		return nil, errors.Errorf("fabric chaincode [%s:%s:%s] not found", i.Network, i.Channel, i.ChaincodeName)
+	}
 	if chaincode.IsPrivate() {
 		logger.Debugf("chaincode [%s:%s:%s] is a FPC", i.Network, i.Channel, i.ChaincodeName)
 		// This is a Fabric Private Chaincode, use the corresponding service
