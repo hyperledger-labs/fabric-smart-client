@@ -127,7 +127,6 @@ clean:
 	rm -rf ./integration/fabric/fpc/echo/cmd
 	rm -rf ./integration/fabric/stoprestart/cmd
 	rm -rf ./integration/fsc/stoprestart/cmd
-	rm -rf ./integration/fsc/pingpong/cmd/responder
 	rm -rf ./integration/orion/cars/cmd
 	rm -rf ./integration/fscnodes
 	rm -rf ./cmd/fsccli/cmd
