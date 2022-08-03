@@ -145,8 +145,6 @@ func (db *Vault) CommitTX(txid string, block uint64, indexInBloc int) error {
 	db.storeLock.Lock()
 	defer db.storeLock.Unlock()
 
-	logger.Debugf("committing \n[%s]\n", i.rws.String())
-
 	err = db.store.BeginUpdate()
 	if err != nil {
 		return errors.WithMessagef(err, "begin update for txid '%s' failed", txid)

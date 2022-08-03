@@ -55,8 +55,6 @@ type RWSet interface {
 
 	Bytes() ([]byte, error)
 
-	String() string
-
 	Done()
 
 	Equals(rws interface{}, nss ...string) error

@@ -147,10 +147,6 @@ func (r *RWSet) Bytes() ([]byte, error) {
 	return r.rws.Bytes()
 }
 
-func (r *RWSet) String() string {
-	return r.rws.String()
-}
-
 func (r *RWSet) Done() {
 	r.rws.Done()
 }

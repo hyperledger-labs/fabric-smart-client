@@ -423,10 +423,6 @@ func (i *Interceptor) Equals(other interface{}, nss ...string) error {
 	return nil
 }
 
-func (i *Interceptor) String() string {
-	return i.rws.String()
-}
-
 func (i *Interceptor) Done() {
 	logger.Debugf("Done with [%s], closed [%v]", i.txid, i.closed)
 	if !i.closed {
