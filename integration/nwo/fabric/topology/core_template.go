@@ -310,6 +310,10 @@ fabric:
         type: file
         opts:
           path: {{ FSCNodeVaultPath }}
+      txidstore:
+        cache:
+          # Sets the maximum number of cached items 
+          cache: 200
     endpoint:
       resolvers: {{ range .Resolvers }}
       - name: {{ .Name }}

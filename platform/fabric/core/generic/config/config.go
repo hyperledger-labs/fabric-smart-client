@@ -141,6 +141,20 @@ func (c *Config) VaultPersistenceOpts(opts interface{}) error {
 	return c.configService.UnmarshalKey("fabric."+c.prefix+"vault.persistence.opts", opts)
 }
 
+func (c *Config) VaultTXStoreCacheSize(defaultCacheSize int) int {
+	v := c.configService.GetString("fabric." + c.prefix + "vault.txidstore.cache.size")
+	cacheSize, err := strconv.Atoi(v)
+	if err != nil {
+		return defaultCacheSize
+	}
+
+	if cacheSize < 0 {
+		return defaultCacheSize
+	}
+
+	return cacheSize
+}
+
 func (c *Config) MSPConfigPath() string {
 	return c.configService.GetPath("fabric." + c.prefix + "mspConfigPath")
 }
