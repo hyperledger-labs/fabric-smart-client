@@ -11,14 +11,13 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/pkg/errors"
-	"go.uber.org/zap/zapcore"
-
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/cache/secondcache"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	"github.com/pkg/errors"
+	"go.uber.org/zap/zapcore"
 )
 
 var (
@@ -26,12 +25,23 @@ var (
 	kvs    = &KVS{}
 )
 
+const (
+	cacheSizeConfigKey       = "fsc.kvs.cache.size"
+	persistenceOptsConfigKey = "fsc.kvs.persistence.opts"
+)
+
 type KVS struct {
 	namespace string
 	store     driver.Persistence
 
 	putMutex sync.RWMutex
-	cache    map[string][]byte
+	cache    cache
+}
+
+type cache interface {
+	Get(key string) (interface{}, bool)
+	Add(key string, value interface{})
+	Delete(key string)
 }
 
 type Opts struct {
@@ -40,34 +50,57 @@ type Opts struct {
 
 func New(driverName, namespace string, sp view.ServiceProvider) (*KVS, error) {
 	opts := &Opts{}
-	err := view.GetConfigService(sp).UnmarshalKey("fsc.kvs.persistence.opts", opts)
+	err := view.GetConfigService(sp).UnmarshalKey(persistenceOptsConfigKey, opts)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed getting opts for vault")
 	}
 	path := filepath.Join(opts.Path, namespace)
-
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("opening kvs at [%s]", path)
-	}
 	persistence, err := db.Open(driverName, path)
 	if err != nil {
 		return nil, errors.WithMessagef(err, "no driver found for [%s]", driverName)
 	}
 
+	cacheSize, err := cacheSizeFromConfig(sp)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed loading cache size from configuration")
+	}
+
+	logger.Debugf("opening kvs with namespace=`%s` and cacheSize=`%d` at [%s]", namespace, cacheSize, path)
+
 	return &KVS{
 		namespace: namespace,
 		store:     persistence,
-		cache:     map[string][]byte{},
+		cache:     secondcache.New(cacheSize),
 	}, nil
+}
+
+var defaultCacheSize = 100
+
+// cacheSizeFromConfig returns the KVS cache size from current configuration.
+// Returns defaultCacheSize, if no configuration found.
+// Returns an error and defaultCacheSize, if the loaded value from configuration is invalid (must be >= 0).
+func cacheSizeFromConfig(sp view.ServiceProvider) (int, error) {
+	configService := view.GetConfigService(sp)
+
+	if !configService.IsSet(cacheSizeConfigKey) {
+		// no cache size configure, let's use default
+		return defaultCacheSize, nil
+	}
+
+	cacheSize := configService.GetInt(cacheSizeConfigKey)
+	if cacheSize < 0 {
+		return defaultCacheSize, errors.Errorf("invalid cache size configuration: expect value >= 0, actual %d", cacheSize)
+	}
+	return cacheSize, nil
 }
 
 func (o *KVS) Exists(id string) bool {
 	// is in cache?
 	o.putMutex.RLock()
-	v, ok := o.cache[id]
+	v, ok := o.cache.Get(id)
 	if ok {
 		o.putMutex.RUnlock()
-		return len(v) != 0
+		return v != nil && len(v.([]byte)) != 0
 	}
 	o.putMutex.RUnlock()
 
@@ -76,9 +109,9 @@ func (o *KVS) Exists(id string) bool {
 	defer o.putMutex.Unlock()
 
 	// is in cache, first?
-	v, ok = o.cache[id]
+	v, ok = o.cache.Get(id)
 	if ok {
-		return len(v) != 0
+		return v != nil && len(v.([]byte)) != 0
 	}
 	// get from store and store in cache
 	raw, err := o.store.GetState(o.namespace, id)
@@ -86,10 +119,10 @@ func (o *KVS) Exists(id string) bool {
 		if logger.IsEnabledFor(zapcore.DebugLevel) {
 			logger.Debugf("failed getting state [%s,%s]", o.namespace, id)
 		}
-		o.cache[id] = nil
+		o.cache.Delete(id)
 		return false
 	}
-	o.cache[id] = raw
+	o.cache.Add(id, raw)
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("state [%s,%s] exists [%v]", o.namespace, id, len(raw) != 0)
 	}
@@ -127,7 +160,7 @@ func (o *KVS) Put(id string, state interface{}) error {
 		return errors.WithMessagef(err, "committing value for id [%s] failed", id)
 	}
 
-	o.cache[id] = raw
+	o.cache.Add(id, raw)
 
 	return nil
 }
@@ -137,8 +170,11 @@ func (o *KVS) Get(id string, state interface{}) error {
 	defer o.putMutex.RUnlock()
 
 	var err error
-	raw, ok := o.cache[id]
-	if !ok {
+	var raw []byte
+	cachedRaw, ok := o.cache.Get(id)
+	if cachedRaw != nil && ok {
+		raw = cachedRaw.([]byte)
+	} else if !ok {
 		raw, err = o.store.GetState(o.namespace, id)
 		if err != nil {
 			if logger.IsEnabledFor(zapcore.DebugLevel) {
@@ -193,7 +229,7 @@ func (o *KVS) Delete(id string) error {
 		return errors.WithMessagef(err, "committing value for id [%s] failed", id)
 	}
 
-	delete(o.cache, id)
+	o.cache.Delete(id)
 
 	return nil
 }

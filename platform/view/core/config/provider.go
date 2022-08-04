@@ -54,6 +54,10 @@ func (p *provider) GetBool(key string) bool {
 	return p.v.GetBool(key)
 }
 
+func (p *provider) GetInt(key string) int {
+	return p.v.GetInt(key)
+}
+
 func (p *provider) GetStringSlice(key string) []string {
 	return p.v.GetStringSlice(key)
 }

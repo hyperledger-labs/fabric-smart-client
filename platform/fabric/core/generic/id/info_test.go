@@ -24,6 +24,7 @@ import (
 	registry2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/registry"
 )
 
+// TODO replace fakeProv some autogenerate mock like we use in platform/fabric/core/generic/msp/mock/config_provider
 type fakeProv struct {
 	typ  string
 	path string
@@ -31,6 +32,10 @@ type fakeProv struct {
 
 func (f *fakeProv) GetString(key string) string {
 	return f.typ
+}
+
+func (f *fakeProv) GetInt(key string) int {
+	return 0
 }
 
 func (f *fakeProv) GetDuration(key string) time.Duration {

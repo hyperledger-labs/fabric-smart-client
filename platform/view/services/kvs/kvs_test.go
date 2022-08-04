@@ -22,13 +22,19 @@ import (
 	registry2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/registry"
 )
 
+// TODO replace fakeProv some autogenerate mock like we use in platform/fabric/core/generic/msp/mock/config_provider
 type fakeProv struct {
-	typ  string
-	path string
+	typ       string
+	path      string
+	cacheSize int
 }
 
 func (f *fakeProv) GetString(key string) string {
 	return f.typ
+}
+
+func (f *fakeProv) GetInt(key string) int {
+	return f.cacheSize
 }
 
 func (f *fakeProv) GetDuration(key string) time.Duration {
@@ -151,10 +157,13 @@ func testRound(t *testing.T, cfg *fakeProv) {
 	assert.False(t, kvstore.Exists(k))
 }
 
-func TestKVS(t *testing.T) {
+func TestBadgerKVS(t *testing.T) {
 	path, err := ioutil.TempDir(os.TempDir(), "kvstest-*")
 	assert.NoError(t, err)
 	defer os.RemoveAll(path)
-	testRound(t, &fakeProv{typ: "memory"})
-	testRound(t, &fakeProv{typ: "badger", path: path})
+	testRound(t, &fakeProv{typ: "badger", path: path, cacheSize: 5})
+}
+
+func TestMemoryKVS(t *testing.T) {
+	testRound(t, &fakeProv{typ: "memory", cacheSize: 0})
 }
