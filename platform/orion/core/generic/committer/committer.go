@@ -102,7 +102,8 @@ func (c *committer) Commit(block *types.AugmentedBlockHeader) error {
 		event.Block = block.Header.BaseHeader.Number
 		event.IndexInBlock = i
 
-		switch block.Header.ValidationInfo[i].Flag {
+		validationCode := block.Header.ValidationInfo[i].Flag
+		switch validationCode {
 		case types.Flag_VALID:
 			// if is already committed, do nothing
 			vc, err := c.vault.Status(txID)
@@ -132,9 +133,37 @@ func (c *committer) Commit(block *types.AugmentedBlockHeader) error {
 			}
 			event.Committed = true
 		default:
-			// rollback
-			if err := c.vault.DiscardTx(txID); err != nil {
-				return errors.WithMessagef(err, "failed to discard tx %s", txID)
+			blockNum := block.Header.BaseHeader.Number
+			if logger.IsEnabledFor(zapcore.DebugLevel) {
+				logger.Debugf("transaction [%s] in block [%d] is not valid for fabric [%s], discard!", txID, blockNum, validationCode)
+			}
+
+			vc, err := c.vault.Status(txID)
+			if err != nil {
+				logger.Panicf("failed getting tx's status [%s], with err [%s]", txID, err)
+			}
+			switch vc {
+			case driver.Valid:
+				// TODO: this might be due the fact that there are transactions with the same tx-id, the first is valid, the others are all invalid
+				logger.Warnf("transaction [%s] in block [%d] is marked as valid but for fabric is invalid", txID, blockNum)
+			case driver.Invalid:
+				if logger.IsEnabledFor(zapcore.DebugLevel) {
+					logger.Debugf("transaction [%s] in block [%d] is marked as invalid, skipping", txID, blockNum)
+				}
+				// Nothing to commit
+				continue
+			case driver.Unknown:
+				if logger.IsEnabledFor(zapcore.DebugLevel) {
+					logger.Debugf("transaction [%s] in block [%d] is marked as unknown, skipping", txID, blockNum)
+				}
+				// Nothing to commit
+				continue
+			default:
+				event.Err = errors.Errorf("transaction [%s] status is not valid: %d", txID, validationCode)
+				// rollback
+				if err := c.vault.DiscardTx(txID); err != nil {
+					return errors.WithMessagef(err, "failed to discard tx %s", txID)
+				}
 			}
 		}
 		c.notifyFinality(event)

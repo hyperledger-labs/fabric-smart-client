@@ -89,6 +89,12 @@ func (c *committer) handleEndorserTransaction(block *common.Block, i int, event 
 			}
 			// Nothing to commit
 			return
+		case driver.Unknown:
+			if logger.IsEnabledFor(zapcore.DebugLevel) {
+				logger.Debugf("transaction [%s] in block [%d] is marked as unknown, skipping", txID, blockNum)
+			}
+			// Nothing to commit
+			return
 		default:
 			event.Err = errors.Errorf("transaction [%s] status is not valid: %d", txID, validationCode)
 			err = committer.DiscardTx(event.Txid)
