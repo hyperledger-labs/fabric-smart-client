@@ -62,6 +62,11 @@ func (c *ConfigService) TranslatePath(path string) string {
 	return c.cp.TranslatePath(path)
 }
 
+// GetInt returns the value associated with the key as an integer
+func (c *ConfigService) GetInt(path string) int {
+	return c.cp.GetInt(path)
+}
+
 // GetConfigService returns an instance of the config service.
 // It panics, if no instance is found.
 func GetConfigService(sp ServiceProvider) *ConfigService {

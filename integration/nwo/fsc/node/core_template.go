@@ -100,6 +100,9 @@ fsc:
       type: badger
       opts:
         path: {{ NodeKVSPath }}
+    cache:
+        # Sets the maximum number of cached items 
+        size: 200
   # HTML Server configuration for REST calls
   web:
     enabled: true

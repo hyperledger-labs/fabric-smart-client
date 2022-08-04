@@ -5,36 +5,24 @@ import (
 	"sync"
 	"time"
 
-	msp2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp"
 )
 
 type ConfigProvider struct {
-	GetStringStub        func(key string) string
-	getStringMutex       sync.RWMutex
-	getStringArgsForCall []struct {
-		key string
+	ConfigFileUsedStub        func() string
+	configFileUsedMutex       sync.RWMutex
+	configFileUsedArgsForCall []struct {
 	}
-	getStringReturns struct {
+	configFileUsedReturns struct {
 		result1 string
 	}
-	getStringReturnsOnCall map[int]struct {
+	configFileUsedReturnsOnCall map[int]struct {
 		result1 string
 	}
-	GetDurationStub        func(key string) time.Duration
-	getDurationMutex       sync.RWMutex
-	getDurationArgsForCall []struct {
-		key string
-	}
-	getDurationReturns struct {
-		result1 time.Duration
-	}
-	getDurationReturnsOnCall map[int]struct {
-		result1 time.Duration
-	}
-	GetBoolStub        func(key string) bool
+	GetBoolStub        func(string) bool
 	getBoolMutex       sync.RWMutex
 	getBoolArgsForCall []struct {
-		key string
+		arg1 string
 	}
 	getBoolReturns struct {
 		result1 bool
@@ -42,53 +30,32 @@ type ConfigProvider struct {
 	getBoolReturnsOnCall map[int]struct {
 		result1 bool
 	}
-	GetStringSliceStub        func(key string) []string
-	getStringSliceMutex       sync.RWMutex
-	getStringSliceArgsForCall []struct {
-		key string
+	GetDurationStub        func(string) time.Duration
+	getDurationMutex       sync.RWMutex
+	getDurationArgsForCall []struct {
+		arg1 string
 	}
-	getStringSliceReturns struct {
-		result1 []string
+	getDurationReturns struct {
+		result1 time.Duration
 	}
-	getStringSliceReturnsOnCall map[int]struct {
-		result1 []string
+	getDurationReturnsOnCall map[int]struct {
+		result1 time.Duration
 	}
-	IsSetStub        func(key string) bool
-	isSetMutex       sync.RWMutex
-	isSetArgsForCall []struct {
-		key string
+	GetIntStub        func(string) int
+	getIntMutex       sync.RWMutex
+	getIntArgsForCall []struct {
+		arg1 string
 	}
-	isSetReturns struct {
-		result1 bool
+	getIntReturns struct {
+		result1 int
 	}
-	isSetReturnsOnCall map[int]struct {
-		result1 bool
+	getIntReturnsOnCall map[int]struct {
+		result1 int
 	}
-	UnmarshalKeyStub        func(key string, rawVal interface{}) error
-	unmarshalKeyMutex       sync.RWMutex
-	unmarshalKeyArgsForCall []struct {
-		key    string
-		rawVal interface{}
-	}
-	unmarshalKeyReturns struct {
-		result1 error
-	}
-	unmarshalKeyReturnsOnCall map[int]struct {
-		result1 error
-	}
-	ConfigFileUsedStub        func() string
-	configFileUsedMutex       sync.RWMutex
-	configFileUsedArgsForCall []struct{}
-	configFileUsedReturns     struct {
-		result1 string
-	}
-	configFileUsedReturnsOnCall map[int]struct {
-		result1 string
-	}
-	GetPathStub        func(key string) string
+	GetPathStub        func(string) string
 	getPathMutex       sync.RWMutex
 	getPathArgsForCall []struct {
-		key string
+		arg1 string
 	}
 	getPathReturns struct {
 		result1 string
@@ -96,10 +63,43 @@ type ConfigProvider struct {
 	getPathReturnsOnCall map[int]struct {
 		result1 string
 	}
-	TranslatePathStub        func(path string) string
+	GetStringStub        func(string) string
+	getStringMutex       sync.RWMutex
+	getStringArgsForCall []struct {
+		arg1 string
+	}
+	getStringReturns struct {
+		result1 string
+	}
+	getStringReturnsOnCall map[int]struct {
+		result1 string
+	}
+	GetStringSliceStub        func(string) []string
+	getStringSliceMutex       sync.RWMutex
+	getStringSliceArgsForCall []struct {
+		arg1 string
+	}
+	getStringSliceReturns struct {
+		result1 []string
+	}
+	getStringSliceReturnsOnCall map[int]struct {
+		result1 []string
+	}
+	IsSetStub        func(string) bool
+	isSetMutex       sync.RWMutex
+	isSetArgsForCall []struct {
+		arg1 string
+	}
+	isSetReturns struct {
+		result1 bool
+	}
+	isSetReturnsOnCall map[int]struct {
+		result1 bool
+	}
+	TranslatePathStub        func(string) string
 	translatePathMutex       sync.RWMutex
 	translatePathArgsForCall []struct {
-		path string
+		arg1 string
 	}
 	translatePathReturns struct {
 		result1 string
@@ -107,312 +107,38 @@ type ConfigProvider struct {
 	translatePathReturnsOnCall map[int]struct {
 		result1 string
 	}
+	UnmarshalKeyStub        func(string, interface{}) error
+	unmarshalKeyMutex       sync.RWMutex
+	unmarshalKeyArgsForCall []struct {
+		arg1 string
+		arg2 interface{}
+	}
+	unmarshalKeyReturns struct {
+		result1 error
+	}
+	unmarshalKeyReturnsOnCall map[int]struct {
+		result1 error
+	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
-}
-
-func (fake *ConfigProvider) GetString(key string) string {
-	fake.getStringMutex.Lock()
-	ret, specificReturn := fake.getStringReturnsOnCall[len(fake.getStringArgsForCall)]
-	fake.getStringArgsForCall = append(fake.getStringArgsForCall, struct {
-		key string
-	}{key})
-	fake.recordInvocation("GetString", []interface{}{key})
-	fake.getStringMutex.Unlock()
-	if fake.GetStringStub != nil {
-		return fake.GetStringStub(key)
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	return fake.getStringReturns.result1
-}
-
-func (fake *ConfigProvider) GetStringCallCount() int {
-	fake.getStringMutex.RLock()
-	defer fake.getStringMutex.RUnlock()
-	return len(fake.getStringArgsForCall)
-}
-
-func (fake *ConfigProvider) GetStringArgsForCall(i int) string {
-	fake.getStringMutex.RLock()
-	defer fake.getStringMutex.RUnlock()
-	return fake.getStringArgsForCall[i].key
-}
-
-func (fake *ConfigProvider) GetStringReturns(result1 string) {
-	fake.GetStringStub = nil
-	fake.getStringReturns = struct {
-		result1 string
-	}{result1}
-}
-
-func (fake *ConfigProvider) GetStringReturnsOnCall(i int, result1 string) {
-	fake.GetStringStub = nil
-	if fake.getStringReturnsOnCall == nil {
-		fake.getStringReturnsOnCall = make(map[int]struct {
-			result1 string
-		})
-	}
-	fake.getStringReturnsOnCall[i] = struct {
-		result1 string
-	}{result1}
-}
-
-func (fake *ConfigProvider) GetDuration(key string) time.Duration {
-	fake.getDurationMutex.Lock()
-	ret, specificReturn := fake.getDurationReturnsOnCall[len(fake.getDurationArgsForCall)]
-	fake.getDurationArgsForCall = append(fake.getDurationArgsForCall, struct {
-		key string
-	}{key})
-	fake.recordInvocation("GetDuration", []interface{}{key})
-	fake.getDurationMutex.Unlock()
-	if fake.GetDurationStub != nil {
-		return fake.GetDurationStub(key)
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	return fake.getDurationReturns.result1
-}
-
-func (fake *ConfigProvider) GetDurationCallCount() int {
-	fake.getDurationMutex.RLock()
-	defer fake.getDurationMutex.RUnlock()
-	return len(fake.getDurationArgsForCall)
-}
-
-func (fake *ConfigProvider) GetDurationArgsForCall(i int) string {
-	fake.getDurationMutex.RLock()
-	defer fake.getDurationMutex.RUnlock()
-	return fake.getDurationArgsForCall[i].key
-}
-
-func (fake *ConfigProvider) GetDurationReturns(result1 time.Duration) {
-	fake.GetDurationStub = nil
-	fake.getDurationReturns = struct {
-		result1 time.Duration
-	}{result1}
-}
-
-func (fake *ConfigProvider) GetDurationReturnsOnCall(i int, result1 time.Duration) {
-	fake.GetDurationStub = nil
-	if fake.getDurationReturnsOnCall == nil {
-		fake.getDurationReturnsOnCall = make(map[int]struct {
-			result1 time.Duration
-		})
-	}
-	fake.getDurationReturnsOnCall[i] = struct {
-		result1 time.Duration
-	}{result1}
-}
-
-func (fake *ConfigProvider) GetBool(key string) bool {
-	fake.getBoolMutex.Lock()
-	ret, specificReturn := fake.getBoolReturnsOnCall[len(fake.getBoolArgsForCall)]
-	fake.getBoolArgsForCall = append(fake.getBoolArgsForCall, struct {
-		key string
-	}{key})
-	fake.recordInvocation("GetBool", []interface{}{key})
-	fake.getBoolMutex.Unlock()
-	if fake.GetBoolStub != nil {
-		return fake.GetBoolStub(key)
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	return fake.getBoolReturns.result1
-}
-
-func (fake *ConfigProvider) GetBoolCallCount() int {
-	fake.getBoolMutex.RLock()
-	defer fake.getBoolMutex.RUnlock()
-	return len(fake.getBoolArgsForCall)
-}
-
-func (fake *ConfigProvider) GetBoolArgsForCall(i int) string {
-	fake.getBoolMutex.RLock()
-	defer fake.getBoolMutex.RUnlock()
-	return fake.getBoolArgsForCall[i].key
-}
-
-func (fake *ConfigProvider) GetBoolReturns(result1 bool) {
-	fake.GetBoolStub = nil
-	fake.getBoolReturns = struct {
-		result1 bool
-	}{result1}
-}
-
-func (fake *ConfigProvider) GetBoolReturnsOnCall(i int, result1 bool) {
-	fake.GetBoolStub = nil
-	if fake.getBoolReturnsOnCall == nil {
-		fake.getBoolReturnsOnCall = make(map[int]struct {
-			result1 bool
-		})
-	}
-	fake.getBoolReturnsOnCall[i] = struct {
-		result1 bool
-	}{result1}
-}
-
-func (fake *ConfigProvider) GetStringSlice(key string) []string {
-	fake.getStringSliceMutex.Lock()
-	ret, specificReturn := fake.getStringSliceReturnsOnCall[len(fake.getStringSliceArgsForCall)]
-	fake.getStringSliceArgsForCall = append(fake.getStringSliceArgsForCall, struct {
-		key string
-	}{key})
-	fake.recordInvocation("GetStringSlice", []interface{}{key})
-	fake.getStringSliceMutex.Unlock()
-	if fake.GetStringSliceStub != nil {
-		return fake.GetStringSliceStub(key)
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	return fake.getStringSliceReturns.result1
-}
-
-func (fake *ConfigProvider) GetStringSliceCallCount() int {
-	fake.getStringSliceMutex.RLock()
-	defer fake.getStringSliceMutex.RUnlock()
-	return len(fake.getStringSliceArgsForCall)
-}
-
-func (fake *ConfigProvider) GetStringSliceArgsForCall(i int) string {
-	fake.getStringSliceMutex.RLock()
-	defer fake.getStringSliceMutex.RUnlock()
-	return fake.getStringSliceArgsForCall[i].key
-}
-
-func (fake *ConfigProvider) GetStringSliceReturns(result1 []string) {
-	fake.GetStringSliceStub = nil
-	fake.getStringSliceReturns = struct {
-		result1 []string
-	}{result1}
-}
-
-func (fake *ConfigProvider) GetStringSliceReturnsOnCall(i int, result1 []string) {
-	fake.GetStringSliceStub = nil
-	if fake.getStringSliceReturnsOnCall == nil {
-		fake.getStringSliceReturnsOnCall = make(map[int]struct {
-			result1 []string
-		})
-	}
-	fake.getStringSliceReturnsOnCall[i] = struct {
-		result1 []string
-	}{result1}
-}
-
-func (fake *ConfigProvider) IsSet(key string) bool {
-	fake.isSetMutex.Lock()
-	ret, specificReturn := fake.isSetReturnsOnCall[len(fake.isSetArgsForCall)]
-	fake.isSetArgsForCall = append(fake.isSetArgsForCall, struct {
-		key string
-	}{key})
-	fake.recordInvocation("IsSet", []interface{}{key})
-	fake.isSetMutex.Unlock()
-	if fake.IsSetStub != nil {
-		return fake.IsSetStub(key)
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	return fake.isSetReturns.result1
-}
-
-func (fake *ConfigProvider) IsSetCallCount() int {
-	fake.isSetMutex.RLock()
-	defer fake.isSetMutex.RUnlock()
-	return len(fake.isSetArgsForCall)
-}
-
-func (fake *ConfigProvider) IsSetArgsForCall(i int) string {
-	fake.isSetMutex.RLock()
-	defer fake.isSetMutex.RUnlock()
-	return fake.isSetArgsForCall[i].key
-}
-
-func (fake *ConfigProvider) IsSetReturns(result1 bool) {
-	fake.IsSetStub = nil
-	fake.isSetReturns = struct {
-		result1 bool
-	}{result1}
-}
-
-func (fake *ConfigProvider) IsSetReturnsOnCall(i int, result1 bool) {
-	fake.IsSetStub = nil
-	if fake.isSetReturnsOnCall == nil {
-		fake.isSetReturnsOnCall = make(map[int]struct {
-			result1 bool
-		})
-	}
-	fake.isSetReturnsOnCall[i] = struct {
-		result1 bool
-	}{result1}
-}
-
-func (fake *ConfigProvider) UnmarshalKey(key string, rawVal interface{}) error {
-	fake.unmarshalKeyMutex.Lock()
-	ret, specificReturn := fake.unmarshalKeyReturnsOnCall[len(fake.unmarshalKeyArgsForCall)]
-	fake.unmarshalKeyArgsForCall = append(fake.unmarshalKeyArgsForCall, struct {
-		key    string
-		rawVal interface{}
-	}{key, rawVal})
-	fake.recordInvocation("UnmarshalKey", []interface{}{key, rawVal})
-	fake.unmarshalKeyMutex.Unlock()
-	if fake.UnmarshalKeyStub != nil {
-		return fake.UnmarshalKeyStub(key, rawVal)
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	return fake.unmarshalKeyReturns.result1
-}
-
-func (fake *ConfigProvider) UnmarshalKeyCallCount() int {
-	fake.unmarshalKeyMutex.RLock()
-	defer fake.unmarshalKeyMutex.RUnlock()
-	return len(fake.unmarshalKeyArgsForCall)
-}
-
-func (fake *ConfigProvider) UnmarshalKeyArgsForCall(i int) (string, interface{}) {
-	fake.unmarshalKeyMutex.RLock()
-	defer fake.unmarshalKeyMutex.RUnlock()
-	return fake.unmarshalKeyArgsForCall[i].key, fake.unmarshalKeyArgsForCall[i].rawVal
-}
-
-func (fake *ConfigProvider) UnmarshalKeyReturns(result1 error) {
-	fake.UnmarshalKeyStub = nil
-	fake.unmarshalKeyReturns = struct {
-		result1 error
-	}{result1}
-}
-
-func (fake *ConfigProvider) UnmarshalKeyReturnsOnCall(i int, result1 error) {
-	fake.UnmarshalKeyStub = nil
-	if fake.unmarshalKeyReturnsOnCall == nil {
-		fake.unmarshalKeyReturnsOnCall = make(map[int]struct {
-			result1 error
-		})
-	}
-	fake.unmarshalKeyReturnsOnCall[i] = struct {
-		result1 error
-	}{result1}
 }
 
 func (fake *ConfigProvider) ConfigFileUsed() string {
 	fake.configFileUsedMutex.Lock()
 	ret, specificReturn := fake.configFileUsedReturnsOnCall[len(fake.configFileUsedArgsForCall)]
-	fake.configFileUsedArgsForCall = append(fake.configFileUsedArgsForCall, struct{}{})
+	fake.configFileUsedArgsForCall = append(fake.configFileUsedArgsForCall, struct {
+	}{})
+	stub := fake.ConfigFileUsedStub
+	fakeReturns := fake.configFileUsedReturns
 	fake.recordInvocation("ConfigFileUsed", []interface{}{})
 	fake.configFileUsedMutex.Unlock()
-	if fake.ConfigFileUsedStub != nil {
-		return fake.ConfigFileUsedStub()
+	if stub != nil {
+		return stub()
 	}
 	if specificReturn {
 		return ret.result1
 	}
-	return fake.configFileUsedReturns.result1
+	return fakeReturns.result1
 }
 
 func (fake *ConfigProvider) ConfigFileUsedCallCount() int {
@@ -421,7 +147,15 @@ func (fake *ConfigProvider) ConfigFileUsedCallCount() int {
 	return len(fake.configFileUsedArgsForCall)
 }
 
+func (fake *ConfigProvider) ConfigFileUsedCalls(stub func() string) {
+	fake.configFileUsedMutex.Lock()
+	defer fake.configFileUsedMutex.Unlock()
+	fake.ConfigFileUsedStub = stub
+}
+
 func (fake *ConfigProvider) ConfigFileUsedReturns(result1 string) {
+	fake.configFileUsedMutex.Lock()
+	defer fake.configFileUsedMutex.Unlock()
 	fake.ConfigFileUsedStub = nil
 	fake.configFileUsedReturns = struct {
 		result1 string
@@ -429,6 +163,8 @@ func (fake *ConfigProvider) ConfigFileUsedReturns(result1 string) {
 }
 
 func (fake *ConfigProvider) ConfigFileUsedReturnsOnCall(i int, result1 string) {
+	fake.configFileUsedMutex.Lock()
+	defer fake.configFileUsedMutex.Unlock()
 	fake.ConfigFileUsedStub = nil
 	if fake.configFileUsedReturnsOnCall == nil {
 		fake.configFileUsedReturnsOnCall = make(map[int]struct {
@@ -440,21 +176,206 @@ func (fake *ConfigProvider) ConfigFileUsedReturnsOnCall(i int, result1 string) {
 	}{result1}
 }
 
-func (fake *ConfigProvider) GetPath(key string) string {
-	fake.getPathMutex.Lock()
-	ret, specificReturn := fake.getPathReturnsOnCall[len(fake.getPathArgsForCall)]
-	fake.getPathArgsForCall = append(fake.getPathArgsForCall, struct {
-		key string
-	}{key})
-	fake.recordInvocation("GetPath", []interface{}{key})
-	fake.getPathMutex.Unlock()
-	if fake.GetPathStub != nil {
-		return fake.GetPathStub(key)
+func (fake *ConfigProvider) GetBool(arg1 string) bool {
+	fake.getBoolMutex.Lock()
+	ret, specificReturn := fake.getBoolReturnsOnCall[len(fake.getBoolArgsForCall)]
+	fake.getBoolArgsForCall = append(fake.getBoolArgsForCall, struct {
+		arg1 string
+	}{arg1})
+	stub := fake.GetBoolStub
+	fakeReturns := fake.getBoolReturns
+	fake.recordInvocation("GetBool", []interface{}{arg1})
+	fake.getBoolMutex.Unlock()
+	if stub != nil {
+		return stub(arg1)
 	}
 	if specificReturn {
 		return ret.result1
 	}
-	return fake.getPathReturns.result1
+	return fakeReturns.result1
+}
+
+func (fake *ConfigProvider) GetBoolCallCount() int {
+	fake.getBoolMutex.RLock()
+	defer fake.getBoolMutex.RUnlock()
+	return len(fake.getBoolArgsForCall)
+}
+
+func (fake *ConfigProvider) GetBoolCalls(stub func(string) bool) {
+	fake.getBoolMutex.Lock()
+	defer fake.getBoolMutex.Unlock()
+	fake.GetBoolStub = stub
+}
+
+func (fake *ConfigProvider) GetBoolArgsForCall(i int) string {
+	fake.getBoolMutex.RLock()
+	defer fake.getBoolMutex.RUnlock()
+	argsForCall := fake.getBoolArgsForCall[i]
+	return argsForCall.arg1
+}
+
+func (fake *ConfigProvider) GetBoolReturns(result1 bool) {
+	fake.getBoolMutex.Lock()
+	defer fake.getBoolMutex.Unlock()
+	fake.GetBoolStub = nil
+	fake.getBoolReturns = struct {
+		result1 bool
+	}{result1}
+}
+
+func (fake *ConfigProvider) GetBoolReturnsOnCall(i int, result1 bool) {
+	fake.getBoolMutex.Lock()
+	defer fake.getBoolMutex.Unlock()
+	fake.GetBoolStub = nil
+	if fake.getBoolReturnsOnCall == nil {
+		fake.getBoolReturnsOnCall = make(map[int]struct {
+			result1 bool
+		})
+	}
+	fake.getBoolReturnsOnCall[i] = struct {
+		result1 bool
+	}{result1}
+}
+
+func (fake *ConfigProvider) GetDuration(arg1 string) time.Duration {
+	fake.getDurationMutex.Lock()
+	ret, specificReturn := fake.getDurationReturnsOnCall[len(fake.getDurationArgsForCall)]
+	fake.getDurationArgsForCall = append(fake.getDurationArgsForCall, struct {
+		arg1 string
+	}{arg1})
+	stub := fake.GetDurationStub
+	fakeReturns := fake.getDurationReturns
+	fake.recordInvocation("GetDuration", []interface{}{arg1})
+	fake.getDurationMutex.Unlock()
+	if stub != nil {
+		return stub(arg1)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *ConfigProvider) GetDurationCallCount() int {
+	fake.getDurationMutex.RLock()
+	defer fake.getDurationMutex.RUnlock()
+	return len(fake.getDurationArgsForCall)
+}
+
+func (fake *ConfigProvider) GetDurationCalls(stub func(string) time.Duration) {
+	fake.getDurationMutex.Lock()
+	defer fake.getDurationMutex.Unlock()
+	fake.GetDurationStub = stub
+}
+
+func (fake *ConfigProvider) GetDurationArgsForCall(i int) string {
+	fake.getDurationMutex.RLock()
+	defer fake.getDurationMutex.RUnlock()
+	argsForCall := fake.getDurationArgsForCall[i]
+	return argsForCall.arg1
+}
+
+func (fake *ConfigProvider) GetDurationReturns(result1 time.Duration) {
+	fake.getDurationMutex.Lock()
+	defer fake.getDurationMutex.Unlock()
+	fake.GetDurationStub = nil
+	fake.getDurationReturns = struct {
+		result1 time.Duration
+	}{result1}
+}
+
+func (fake *ConfigProvider) GetDurationReturnsOnCall(i int, result1 time.Duration) {
+	fake.getDurationMutex.Lock()
+	defer fake.getDurationMutex.Unlock()
+	fake.GetDurationStub = nil
+	if fake.getDurationReturnsOnCall == nil {
+		fake.getDurationReturnsOnCall = make(map[int]struct {
+			result1 time.Duration
+		})
+	}
+	fake.getDurationReturnsOnCall[i] = struct {
+		result1 time.Duration
+	}{result1}
+}
+
+func (fake *ConfigProvider) GetInt(arg1 string) int {
+	fake.getIntMutex.Lock()
+	ret, specificReturn := fake.getIntReturnsOnCall[len(fake.getIntArgsForCall)]
+	fake.getIntArgsForCall = append(fake.getIntArgsForCall, struct {
+		arg1 string
+	}{arg1})
+	stub := fake.GetIntStub
+	fakeReturns := fake.getIntReturns
+	fake.recordInvocation("GetInt", []interface{}{arg1})
+	fake.getIntMutex.Unlock()
+	if stub != nil {
+		return stub(arg1)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *ConfigProvider) GetIntCallCount() int {
+	fake.getIntMutex.RLock()
+	defer fake.getIntMutex.RUnlock()
+	return len(fake.getIntArgsForCall)
+}
+
+func (fake *ConfigProvider) GetIntCalls(stub func(string) int) {
+	fake.getIntMutex.Lock()
+	defer fake.getIntMutex.Unlock()
+	fake.GetIntStub = stub
+}
+
+func (fake *ConfigProvider) GetIntArgsForCall(i int) string {
+	fake.getIntMutex.RLock()
+	defer fake.getIntMutex.RUnlock()
+	argsForCall := fake.getIntArgsForCall[i]
+	return argsForCall.arg1
+}
+
+func (fake *ConfigProvider) GetIntReturns(result1 int) {
+	fake.getIntMutex.Lock()
+	defer fake.getIntMutex.Unlock()
+	fake.GetIntStub = nil
+	fake.getIntReturns = struct {
+		result1 int
+	}{result1}
+}
+
+func (fake *ConfigProvider) GetIntReturnsOnCall(i int, result1 int) {
+	fake.getIntMutex.Lock()
+	defer fake.getIntMutex.Unlock()
+	fake.GetIntStub = nil
+	if fake.getIntReturnsOnCall == nil {
+		fake.getIntReturnsOnCall = make(map[int]struct {
+			result1 int
+		})
+	}
+	fake.getIntReturnsOnCall[i] = struct {
+		result1 int
+	}{result1}
+}
+
+func (fake *ConfigProvider) GetPath(arg1 string) string {
+	fake.getPathMutex.Lock()
+	ret, specificReturn := fake.getPathReturnsOnCall[len(fake.getPathArgsForCall)]
+	fake.getPathArgsForCall = append(fake.getPathArgsForCall, struct {
+		arg1 string
+	}{arg1})
+	stub := fake.GetPathStub
+	fakeReturns := fake.getPathReturns
+	fake.recordInvocation("GetPath", []interface{}{arg1})
+	fake.getPathMutex.Unlock()
+	if stub != nil {
+		return stub(arg1)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
 }
 
 func (fake *ConfigProvider) GetPathCallCount() int {
@@ -463,13 +384,22 @@ func (fake *ConfigProvider) GetPathCallCount() int {
 	return len(fake.getPathArgsForCall)
 }
 
+func (fake *ConfigProvider) GetPathCalls(stub func(string) string) {
+	fake.getPathMutex.Lock()
+	defer fake.getPathMutex.Unlock()
+	fake.GetPathStub = stub
+}
+
 func (fake *ConfigProvider) GetPathArgsForCall(i int) string {
 	fake.getPathMutex.RLock()
 	defer fake.getPathMutex.RUnlock()
-	return fake.getPathArgsForCall[i].key
+	argsForCall := fake.getPathArgsForCall[i]
+	return argsForCall.arg1
 }
 
 func (fake *ConfigProvider) GetPathReturns(result1 string) {
+	fake.getPathMutex.Lock()
+	defer fake.getPathMutex.Unlock()
 	fake.GetPathStub = nil
 	fake.getPathReturns = struct {
 		result1 string
@@ -477,6 +407,8 @@ func (fake *ConfigProvider) GetPathReturns(result1 string) {
 }
 
 func (fake *ConfigProvider) GetPathReturnsOnCall(i int, result1 string) {
+	fake.getPathMutex.Lock()
+	defer fake.getPathMutex.Unlock()
 	fake.GetPathStub = nil
 	if fake.getPathReturnsOnCall == nil {
 		fake.getPathReturnsOnCall = make(map[int]struct {
@@ -488,21 +420,206 @@ func (fake *ConfigProvider) GetPathReturnsOnCall(i int, result1 string) {
 	}{result1}
 }
 
-func (fake *ConfigProvider) TranslatePath(path string) string {
-	fake.translatePathMutex.Lock()
-	ret, specificReturn := fake.translatePathReturnsOnCall[len(fake.translatePathArgsForCall)]
-	fake.translatePathArgsForCall = append(fake.translatePathArgsForCall, struct {
-		path string
-	}{path})
-	fake.recordInvocation("TranslatePath", []interface{}{path})
-	fake.translatePathMutex.Unlock()
-	if fake.TranslatePathStub != nil {
-		return fake.TranslatePathStub(path)
+func (fake *ConfigProvider) GetString(arg1 string) string {
+	fake.getStringMutex.Lock()
+	ret, specificReturn := fake.getStringReturnsOnCall[len(fake.getStringArgsForCall)]
+	fake.getStringArgsForCall = append(fake.getStringArgsForCall, struct {
+		arg1 string
+	}{arg1})
+	stub := fake.GetStringStub
+	fakeReturns := fake.getStringReturns
+	fake.recordInvocation("GetString", []interface{}{arg1})
+	fake.getStringMutex.Unlock()
+	if stub != nil {
+		return stub(arg1)
 	}
 	if specificReturn {
 		return ret.result1
 	}
-	return fake.translatePathReturns.result1
+	return fakeReturns.result1
+}
+
+func (fake *ConfigProvider) GetStringCallCount() int {
+	fake.getStringMutex.RLock()
+	defer fake.getStringMutex.RUnlock()
+	return len(fake.getStringArgsForCall)
+}
+
+func (fake *ConfigProvider) GetStringCalls(stub func(string) string) {
+	fake.getStringMutex.Lock()
+	defer fake.getStringMutex.Unlock()
+	fake.GetStringStub = stub
+}
+
+func (fake *ConfigProvider) GetStringArgsForCall(i int) string {
+	fake.getStringMutex.RLock()
+	defer fake.getStringMutex.RUnlock()
+	argsForCall := fake.getStringArgsForCall[i]
+	return argsForCall.arg1
+}
+
+func (fake *ConfigProvider) GetStringReturns(result1 string) {
+	fake.getStringMutex.Lock()
+	defer fake.getStringMutex.Unlock()
+	fake.GetStringStub = nil
+	fake.getStringReturns = struct {
+		result1 string
+	}{result1}
+}
+
+func (fake *ConfigProvider) GetStringReturnsOnCall(i int, result1 string) {
+	fake.getStringMutex.Lock()
+	defer fake.getStringMutex.Unlock()
+	fake.GetStringStub = nil
+	if fake.getStringReturnsOnCall == nil {
+		fake.getStringReturnsOnCall = make(map[int]struct {
+			result1 string
+		})
+	}
+	fake.getStringReturnsOnCall[i] = struct {
+		result1 string
+	}{result1}
+}
+
+func (fake *ConfigProvider) GetStringSlice(arg1 string) []string {
+	fake.getStringSliceMutex.Lock()
+	ret, specificReturn := fake.getStringSliceReturnsOnCall[len(fake.getStringSliceArgsForCall)]
+	fake.getStringSliceArgsForCall = append(fake.getStringSliceArgsForCall, struct {
+		arg1 string
+	}{arg1})
+	stub := fake.GetStringSliceStub
+	fakeReturns := fake.getStringSliceReturns
+	fake.recordInvocation("GetStringSlice", []interface{}{arg1})
+	fake.getStringSliceMutex.Unlock()
+	if stub != nil {
+		return stub(arg1)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *ConfigProvider) GetStringSliceCallCount() int {
+	fake.getStringSliceMutex.RLock()
+	defer fake.getStringSliceMutex.RUnlock()
+	return len(fake.getStringSliceArgsForCall)
+}
+
+func (fake *ConfigProvider) GetStringSliceCalls(stub func(string) []string) {
+	fake.getStringSliceMutex.Lock()
+	defer fake.getStringSliceMutex.Unlock()
+	fake.GetStringSliceStub = stub
+}
+
+func (fake *ConfigProvider) GetStringSliceArgsForCall(i int) string {
+	fake.getStringSliceMutex.RLock()
+	defer fake.getStringSliceMutex.RUnlock()
+	argsForCall := fake.getStringSliceArgsForCall[i]
+	return argsForCall.arg1
+}
+
+func (fake *ConfigProvider) GetStringSliceReturns(result1 []string) {
+	fake.getStringSliceMutex.Lock()
+	defer fake.getStringSliceMutex.Unlock()
+	fake.GetStringSliceStub = nil
+	fake.getStringSliceReturns = struct {
+		result1 []string
+	}{result1}
+}
+
+func (fake *ConfigProvider) GetStringSliceReturnsOnCall(i int, result1 []string) {
+	fake.getStringSliceMutex.Lock()
+	defer fake.getStringSliceMutex.Unlock()
+	fake.GetStringSliceStub = nil
+	if fake.getStringSliceReturnsOnCall == nil {
+		fake.getStringSliceReturnsOnCall = make(map[int]struct {
+			result1 []string
+		})
+	}
+	fake.getStringSliceReturnsOnCall[i] = struct {
+		result1 []string
+	}{result1}
+}
+
+func (fake *ConfigProvider) IsSet(arg1 string) bool {
+	fake.isSetMutex.Lock()
+	ret, specificReturn := fake.isSetReturnsOnCall[len(fake.isSetArgsForCall)]
+	fake.isSetArgsForCall = append(fake.isSetArgsForCall, struct {
+		arg1 string
+	}{arg1})
+	stub := fake.IsSetStub
+	fakeReturns := fake.isSetReturns
+	fake.recordInvocation("IsSet", []interface{}{arg1})
+	fake.isSetMutex.Unlock()
+	if stub != nil {
+		return stub(arg1)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *ConfigProvider) IsSetCallCount() int {
+	fake.isSetMutex.RLock()
+	defer fake.isSetMutex.RUnlock()
+	return len(fake.isSetArgsForCall)
+}
+
+func (fake *ConfigProvider) IsSetCalls(stub func(string) bool) {
+	fake.isSetMutex.Lock()
+	defer fake.isSetMutex.Unlock()
+	fake.IsSetStub = stub
+}
+
+func (fake *ConfigProvider) IsSetArgsForCall(i int) string {
+	fake.isSetMutex.RLock()
+	defer fake.isSetMutex.RUnlock()
+	argsForCall := fake.isSetArgsForCall[i]
+	return argsForCall.arg1
+}
+
+func (fake *ConfigProvider) IsSetReturns(result1 bool) {
+	fake.isSetMutex.Lock()
+	defer fake.isSetMutex.Unlock()
+	fake.IsSetStub = nil
+	fake.isSetReturns = struct {
+		result1 bool
+	}{result1}
+}
+
+func (fake *ConfigProvider) IsSetReturnsOnCall(i int, result1 bool) {
+	fake.isSetMutex.Lock()
+	defer fake.isSetMutex.Unlock()
+	fake.IsSetStub = nil
+	if fake.isSetReturnsOnCall == nil {
+		fake.isSetReturnsOnCall = make(map[int]struct {
+			result1 bool
+		})
+	}
+	fake.isSetReturnsOnCall[i] = struct {
+		result1 bool
+	}{result1}
+}
+
+func (fake *ConfigProvider) TranslatePath(arg1 string) string {
+	fake.translatePathMutex.Lock()
+	ret, specificReturn := fake.translatePathReturnsOnCall[len(fake.translatePathArgsForCall)]
+	fake.translatePathArgsForCall = append(fake.translatePathArgsForCall, struct {
+		arg1 string
+	}{arg1})
+	stub := fake.TranslatePathStub
+	fakeReturns := fake.translatePathReturns
+	fake.recordInvocation("TranslatePath", []interface{}{arg1})
+	fake.translatePathMutex.Unlock()
+	if stub != nil {
+		return stub(arg1)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
 }
 
 func (fake *ConfigProvider) TranslatePathCallCount() int {
@@ -511,13 +628,22 @@ func (fake *ConfigProvider) TranslatePathCallCount() int {
 	return len(fake.translatePathArgsForCall)
 }
 
+func (fake *ConfigProvider) TranslatePathCalls(stub func(string) string) {
+	fake.translatePathMutex.Lock()
+	defer fake.translatePathMutex.Unlock()
+	fake.TranslatePathStub = stub
+}
+
 func (fake *ConfigProvider) TranslatePathArgsForCall(i int) string {
 	fake.translatePathMutex.RLock()
 	defer fake.translatePathMutex.RUnlock()
-	return fake.translatePathArgsForCall[i].path
+	argsForCall := fake.translatePathArgsForCall[i]
+	return argsForCall.arg1
 }
 
 func (fake *ConfigProvider) TranslatePathReturns(result1 string) {
+	fake.translatePathMutex.Lock()
+	defer fake.translatePathMutex.Unlock()
 	fake.TranslatePathStub = nil
 	fake.translatePathReturns = struct {
 		result1 string
@@ -525,6 +651,8 @@ func (fake *ConfigProvider) TranslatePathReturns(result1 string) {
 }
 
 func (fake *ConfigProvider) TranslatePathReturnsOnCall(i int, result1 string) {
+	fake.translatePathMutex.Lock()
+	defer fake.translatePathMutex.Unlock()
 	fake.TranslatePathStub = nil
 	if fake.translatePathReturnsOnCall == nil {
 		fake.translatePathReturnsOnCall = make(map[int]struct {
@@ -536,27 +664,91 @@ func (fake *ConfigProvider) TranslatePathReturnsOnCall(i int, result1 string) {
 	}{result1}
 }
 
+func (fake *ConfigProvider) UnmarshalKey(arg1 string, arg2 interface{}) error {
+	fake.unmarshalKeyMutex.Lock()
+	ret, specificReturn := fake.unmarshalKeyReturnsOnCall[len(fake.unmarshalKeyArgsForCall)]
+	fake.unmarshalKeyArgsForCall = append(fake.unmarshalKeyArgsForCall, struct {
+		arg1 string
+		arg2 interface{}
+	}{arg1, arg2})
+	stub := fake.UnmarshalKeyStub
+	fakeReturns := fake.unmarshalKeyReturns
+	fake.recordInvocation("UnmarshalKey", []interface{}{arg1, arg2})
+	fake.unmarshalKeyMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *ConfigProvider) UnmarshalKeyCallCount() int {
+	fake.unmarshalKeyMutex.RLock()
+	defer fake.unmarshalKeyMutex.RUnlock()
+	return len(fake.unmarshalKeyArgsForCall)
+}
+
+func (fake *ConfigProvider) UnmarshalKeyCalls(stub func(string, interface{}) error) {
+	fake.unmarshalKeyMutex.Lock()
+	defer fake.unmarshalKeyMutex.Unlock()
+	fake.UnmarshalKeyStub = stub
+}
+
+func (fake *ConfigProvider) UnmarshalKeyArgsForCall(i int) (string, interface{}) {
+	fake.unmarshalKeyMutex.RLock()
+	defer fake.unmarshalKeyMutex.RUnlock()
+	argsForCall := fake.unmarshalKeyArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2
+}
+
+func (fake *ConfigProvider) UnmarshalKeyReturns(result1 error) {
+	fake.unmarshalKeyMutex.Lock()
+	defer fake.unmarshalKeyMutex.Unlock()
+	fake.UnmarshalKeyStub = nil
+	fake.unmarshalKeyReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *ConfigProvider) UnmarshalKeyReturnsOnCall(i int, result1 error) {
+	fake.unmarshalKeyMutex.Lock()
+	defer fake.unmarshalKeyMutex.Unlock()
+	fake.UnmarshalKeyStub = nil
+	if fake.unmarshalKeyReturnsOnCall == nil {
+		fake.unmarshalKeyReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.unmarshalKeyReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
+}
+
 func (fake *ConfigProvider) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.getStringMutex.RLock()
-	defer fake.getStringMutex.RUnlock()
-	fake.getDurationMutex.RLock()
-	defer fake.getDurationMutex.RUnlock()
+	fake.configFileUsedMutex.RLock()
+	defer fake.configFileUsedMutex.RUnlock()
 	fake.getBoolMutex.RLock()
 	defer fake.getBoolMutex.RUnlock()
+	fake.getDurationMutex.RLock()
+	defer fake.getDurationMutex.RUnlock()
+	fake.getIntMutex.RLock()
+	defer fake.getIntMutex.RUnlock()
+	fake.getPathMutex.RLock()
+	defer fake.getPathMutex.RUnlock()
+	fake.getStringMutex.RLock()
+	defer fake.getStringMutex.RUnlock()
 	fake.getStringSliceMutex.RLock()
 	defer fake.getStringSliceMutex.RUnlock()
 	fake.isSetMutex.RLock()
 	defer fake.isSetMutex.RUnlock()
-	fake.unmarshalKeyMutex.RLock()
-	defer fake.unmarshalKeyMutex.RUnlock()
-	fake.configFileUsedMutex.RLock()
-	defer fake.configFileUsedMutex.RUnlock()
-	fake.getPathMutex.RLock()
-	defer fake.getPathMutex.RUnlock()
 	fake.translatePathMutex.RLock()
 	defer fake.translatePathMutex.RUnlock()
+	fake.unmarshalKeyMutex.RLock()
+	defer fake.unmarshalKeyMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value
@@ -576,4 +768,4 @@ func (fake *ConfigProvider) recordInvocation(key string, args []interface{}) {
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ msp2.ConfigProvider = new(ConfigProvider)
+var _ msp.ConfigProvider = new(ConfigProvider)

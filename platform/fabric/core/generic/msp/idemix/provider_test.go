@@ -26,6 +26,7 @@ import (
 	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
 )
 
+// TODO replace fakeProv this with msp/mock/config_provider
 type fakeProv struct {
 	typ  string
 	path string
@@ -33,6 +34,10 @@ type fakeProv struct {
 
 func (f *fakeProv) GetString(key string) string {
 	return f.typ
+}
+
+func (f *fakeProv) GetInt(key string) int {
+	return 0
 }
 
 func (f *fakeProv) GetDuration(key string) time.Duration {

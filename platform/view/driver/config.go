@@ -17,6 +17,8 @@ type DecodeHookFuncType func(reflect.Type, reflect.Type, interface{}) (interface
 type ConfigService interface {
 	// GetString returns the value associated with the key as a string
 	GetString(key string) string
+	// GetInt returns the value associated with the key as an integer
+	GetInt(key string) int
 	// GetDuration returns the value associated with the key as a duration
 	GetDuration(key string) time.Duration
 	// GetBool returns the value associated with the key asa boolean
