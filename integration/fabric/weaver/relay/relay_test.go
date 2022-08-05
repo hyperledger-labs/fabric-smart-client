@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package relay_test
 
 import (
+	"os"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
@@ -24,10 +26,13 @@ var _ = Describe("EndToEnd", func() {
 	})
 
 	Describe("Two Fabric Networks with Weaver Relay Life Cycle", func() {
+
+		var testdataPath = "./testdata"
+
 		BeforeEach(func() {
 			var err error
 			// Create the integration ii
-			ii, err = integration.GenerateAt(StartPort(), "./testdata", false, relay.Topology()...)
+			ii, err = integration.GenerateAt(StartPort(), testdataPath, false, relay.Topology()...)
 			Expect(err).NotTo(HaveOccurred())
 			// Start the integration ii
 			ii.Start()
@@ -37,6 +42,11 @@ var _ = Describe("EndToEnd", func() {
 			res, err := ii.Client("alice").CallView("init", nil)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
+
+			// cleanup testdata when test succeeds.
+			// if the test fails, we keep the test data for reviewing what went wrong
+			err = os.RemoveAll(testdataPath)
+			Expect(err).NotTo(HaveOccurred())
 		})
 	})
 })
