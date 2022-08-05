@@ -59,9 +59,13 @@ func (c *channel) DiscardTx(txid string) error {
 		return nil
 	}
 
-	c.vault.DiscardTx(txid)
+	if err := c.vault.DiscardTx(txid); err != nil {
+		logger.Errorf("failed discarding tx [%s] in vault: %s", txid, err)
+	}
 	for _, dep := range deps {
-		c.vault.DiscardTx(dep)
+		if err := c.vault.DiscardTx(dep); err != nil {
+			logger.Errorf("failed discarding dependant tx [%s] of [%s] in vault: %s", dep, txid, err)
+		}
 	}
 	return nil
 }

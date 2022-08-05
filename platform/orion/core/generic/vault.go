@@ -49,6 +49,14 @@ func (v *Vault) Status(txID string) (odriver.ValidationCode, error) {
 }
 
 func (v *Vault) DiscardTx(txid string) error {
+	vc, err := v.Vault.Status(txid)
+	if err != nil {
+		return errors.Wrapf(err, "failed getting tx's status in state db [%s]", txid)
+	}
+	if vc == odriver.Unknown {
+		return nil
+	}
+
 	return v.Vault.DiscardTx(txid)
 }
 

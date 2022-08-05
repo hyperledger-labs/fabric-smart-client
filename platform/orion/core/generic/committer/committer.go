@@ -99,45 +99,80 @@ func (c *committer) Commit(block *types.AugmentedBlockHeader) error {
 	for i, txID := range block.TxIds {
 		var event TxEvent
 		event.Txid = txID
-		event.Block = block.Header.BaseHeader.Number
+		event.Block = bn
 		event.IndexInBlock = i
 
-		switch block.Header.ValidationInfo[i].Flag {
+		validationCode := block.Header.ValidationInfo[i].Flag
+		switch validationCode {
 		case types.Flag_VALID:
-			// if is already committed, do nothing
-			vc, err := c.vault.Status(txID)
-			if err != nil {
-				return errors.Wrapf(err, "failed to get status of tx %s", txID)
+			if err := c.CommitTX(txID, bn, i, &event); err != nil {
+				return errors.Wrapf(err, "failed to commit tx %s", txID)
 			}
-			switch vc {
-			case driver.Valid:
-				logger.Debugf("tx %s is already committed", txID)
-				continue
-			case driver.Invalid:
-				logger.Debugf("tx %s is already invalid", txID)
-				return errors.Errorf("tx %s is already invalid but it is marked as valid by orion", txID)
-			case driver.Unknown:
-				logger.Debugf("tx %s is unknown, ignore it", txID)
-				continue
-			}
-
-			// post process
-			if err := c.pm.ProcessByID(txID); err != nil {
-				return errors.Wrapf(err, "failed to process tx %s", txID)
-			}
-
-			// commit
-			if err := c.vault.CommitTX(txID, bn, i); err != nil {
-				return errors.WithMessagef(err, "failed to commit tx %s", txID)
-			}
-			event.Committed = true
 		default:
-			// rollback
-			if err := c.vault.DiscardTx(txID); err != nil {
-				return errors.WithMessagef(err, "failed to discard tx %s", txID)
+			if err := c.DiscardTX(txID, bn, validationCode, &event); err != nil {
+				return errors.Wrapf(err, "failed to discard tx %s", txID)
 			}
 		}
 		c.notifyFinality(event)
+	}
+	return nil
+}
+
+func (c *committer) CommitTX(txID string, bn uint64, index int, event *TxEvent) error {
+	logger.Debugf("transaction [%s] in block [%d] is valid for orion", txID, bn)
+
+	// if is already committed, do nothing
+	vc, err := c.vault.Status(txID)
+	if err != nil {
+		return errors.Wrapf(err, "failed to get status of tx %s", txID)
+	}
+	switch vc {
+	case driver.Valid:
+		logger.Debugf("tx %s is already committed", txID)
+		return nil
+	case driver.Invalid:
+		logger.Debugf("tx %s is already invalid", txID)
+		return errors.Errorf("tx %s is already invalid but it is marked as valid by orion", txID)
+	case driver.Unknown:
+		logger.Debugf("tx %s is unknown, ignore it", txID)
+		return nil
+	}
+
+	// post process
+	if err := c.pm.ProcessByID(txID); err != nil {
+		return errors.Wrapf(err, "failed to process tx %s", txID)
+	}
+
+	// commit
+	if err := c.vault.CommitTX(txID, bn, index); err != nil {
+		return errors.WithMessagef(err, "failed to commit tx %s", txID)
+	}
+
+	event.Committed = true
+	return nil
+}
+
+func (c *committer) DiscardTX(txID string, blockNum uint64, validationCode types.Flag, event *TxEvent) error {
+	logger.Debugf("transaction [%s] in block [%d] is not valid for orion [%s], discard!", txID, blockNum, validationCode)
+
+	vc, err := c.vault.Status(txID)
+	if err != nil {
+		logger.Panicf("failed getting tx's status [%s], with err [%s]", txID, err)
+	}
+	switch vc {
+	case driver.Valid:
+		// TODO: this might be due the fact that there are transactions with the same tx-id, the first is valid, the others are all invalid
+		logger.Warnf("transaction [%s] in block [%d] is marked as valid but for orion is invalid", txID, blockNum)
+	case driver.Invalid:
+		logger.Debugf("transaction [%s] in block [%d] is marked as invalid, skipping", txID, blockNum)
+	case driver.Unknown:
+		logger.Debugf("transaction [%s] in block [%d] is marked as unknown, skipping", txID, blockNum)
+	default:
+		event.Err = errors.Errorf("transaction [%s] status is not valid: %d", txID, validationCode)
+		// rollback
+		if err := c.vault.DiscardTx(txID); err != nil {
+			return errors.WithMessagef(err, "failed to discard tx %s", txID)
+		}
 	}
 	return nil
 }
