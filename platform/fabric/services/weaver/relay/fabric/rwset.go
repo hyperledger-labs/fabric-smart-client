@@ -120,43 +120,6 @@ func (r keyedMetaWrites) keys() []string {
 
 type namespaceKeyedMetaWrites map[string]keyedMetaWrites
 
-func (r namespaceKeyedMetaWrites) equals(o namespaceKeyedMetaWrites, nss ...string) error {
-	rKeys := r.keys(nss...)
-	sort.Strings(rKeys)
-	oKeys := o.keys(nss...)
-	sort.Strings(oKeys)
-	if diff := cmp.Diff(rKeys, oKeys); len(diff) != 0 {
-		return errors.Errorf("namespaces do not match [%s]", diff)
-	}
-
-	for _, key := range rKeys {
-		if err := r[key].
-			Equals(o[key]); err != nil {
-			return errors.Wrapf(err, "namespaces [%s] do not match", key)
-		}
-	}
-
-	return nil
-}
-
-func (r namespaceKeyedMetaWrites) keys(nss ...string) []string {
-	var res []string
-	for k := range r {
-		if len(nss) == 0 {
-			res = append(res, k)
-			continue
-		}
-
-		for _, s := range nss {
-			if s == k {
-				res = append(res, k)
-				break
-			}
-		}
-	}
-	return res
-}
-
 type metaWriteSet struct {
 	metawrites namespaceKeyedMetaWrites
 }
@@ -190,15 +153,6 @@ func (w *metaWriteSet) get(ns, key string) map[string][]byte {
 	return w.metawrites[ns][key]
 }
 
-func (w *metaWriteSet) in(ns, key string) bool {
-	_, in := w.metawrites[ns][key]
-	return in
-}
-
-func (w *metaWriteSet) clear(ns string) {
-	w.metawrites[ns] = keyedMetaWrites{}
-}
-
 type namespaceWrites map[string][]byte
 
 func (r namespaceWrites) Equals(o namespaceWrites) error {
@@ -220,42 +174,6 @@ func (r namespaceWrites) Equals(o namespaceWrites) error {
 }
 
 type writes map[string]namespaceWrites
-
-func (r writes) equals(o writes, nss ...string) error {
-	rKeys := r.keys(nss...)
-	sort.Strings(rKeys)
-	oKeys := o.keys(nss...)
-	sort.Strings(oKeys)
-	if diff := cmp.Diff(rKeys, oKeys); len(diff) != 0 {
-		return errors.Errorf("namespaces do not match [%s]", diff)
-	}
-
-	for _, key := range rKeys {
-		if err := r[key].Equals(o[key]); err != nil {
-			return errors.Wrapf(err, "namespaces [%s] do not match", key)
-		}
-	}
-
-	return nil
-}
-
-func (r writes) keys(nss ...string) []string {
-	var res []string
-	for k := range r {
-		if len(nss) == 0 {
-			res = append(res, k)
-			continue
-		}
-
-		for _, s := range nss {
-			if s == k {
-				res = append(res, k)
-				break
-			}
-		}
-	}
-	return res
-}
 
 type writeSet struct {
 	writes        writes
@@ -298,16 +216,6 @@ func (w *writeSet) getAt(ns string, i int) (key string, in bool) {
 	return slice[i], true
 }
 
-func (w *writeSet) in(ns, key string) bool {
-	_, in := w.writes[ns][key]
-	return in
-}
-
-func (w *writeSet) clear(ns string) {
-	w.writes[ns] = map[string][]byte{}
-	w.orderedWrites[ns] = []string{}
-}
-
 type namespaceReads map[string]struct {
 	block uint64
 	txnum uint64
@@ -333,44 +241,7 @@ func (r namespaceReads) Equals(o namespaceReads) error {
 
 type reads map[string]namespaceReads
 
-func (r reads) equals(o reads, nss ...string) error {
-	rKeys := r.keys(nss...)
-	sort.Strings(rKeys)
-	oKeys := o.keys(nss...)
-	sort.Strings(oKeys)
-	if diff := cmp.Diff(rKeys, oKeys); len(diff) != 0 {
-		return errors.Errorf("namespaces do not match [%s]", diff)
-	}
-
-	for _, key := range rKeys {
-		if err := r[key].Equals(o[key]); err != nil {
-			return errors.Wrapf(err, "namespaces [%s] do not match", key)
-		}
-	}
-
-	return nil
-}
-
-func (r reads) keys(nss ...string) []string {
-	var res []string
-	for k := range r {
-		if len(nss) == 0 {
-			res = append(res, k)
-			continue
-		}
-
-		for _, s := range nss {
-			if s == k {
-				res = append(res, k)
-				break
-			}
-		}
-	}
-	return res
-}
-
 type readSet struct {
-	ctr          int
 	reads        reads
 	orderedReads map[string][]string
 }
@@ -394,13 +265,6 @@ func (r *readSet) add(ns, key string, block, txnum uint64) {
 	r.orderedReads[ns] = append(r.orderedReads[ns], key)
 }
 
-func (r *readSet) get(ns, key string) (block, txnum uint64, in bool) {
-	entry, in := r.reads[ns][key]
-	block = entry.block
-	txnum = entry.txnum
-	return
-}
-
 func (r *readSet) getAt(ns string, i int) (key string, in bool) {
 	slice := r.orderedReads[ns]
 	if i < 0 || i > len(slice)-1 {
@@ -408,12 +272,4 @@ func (r *readSet) getAt(ns string, i int) (key string, in bool) {
 	}
 
 	return slice[i], true
-}
-
-func (r *readSet) clear(ns string) {
-	r.reads[ns] = map[string]struct {
-		block uint64
-		txnum uint64
-	}{}
-	r.orderedReads[ns] = []string{}
 }

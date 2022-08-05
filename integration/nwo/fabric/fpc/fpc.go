@@ -142,9 +142,6 @@ func (n *Extension) PostRun(load bool) {
 	time.Sleep(3 * time.Second)
 }
 
-func (n *Extension) checkTopology() {
-}
-
 func (n *Extension) deployChaincode(chaincode *topology.ChannelChaincode) {
 	if !n.network.Topology().FPC {
 		return

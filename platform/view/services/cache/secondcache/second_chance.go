@@ -47,13 +47,6 @@ func New(cacheSize int) *secondChanceCache {
 	return &cache
 }
 
-func (cache *secondChanceCache) len() int {
-	cache.rwlock.RLock()
-	defer cache.rwlock.RUnlock()
-
-	return len(cache.table)
-}
-
 func (cache *secondChanceCache) Get(key string) (interface{}, bool) {
 	cache.rwlock.RLock()
 	defer cache.rwlock.RUnlock()
@@ -123,14 +116,6 @@ func (cache *secondChanceCache) Delete(key string) {
 	}
 }
 
-func (cache *secondChanceCache) clean() {
-	cache.rwlock.Lock()
-	defer cache.rwlock.Unlock()
-	cache.position = 0
-	cache.items = make([]*cacheItem, cap(cache.items))
-	cache.table = make(map[string]*cacheItem)
-}
-
 type Slice [64]byte
 
 type secondChanceCacheBytes struct {
@@ -161,13 +146,6 @@ func NewBytes(cacheSize int) *secondChanceCacheBytes {
 	cache.table = make(map[Slice]*cacheItemBytes)
 
 	return &cache
-}
-
-func (cache *secondChanceCacheBytes) len() int {
-	cache.rwlock.RLock()
-	defer cache.rwlock.RUnlock()
-
-	return len(cache.table)
 }
 
 func (cache *secondChanceCacheBytes) Get(key []byte) (interface{}, bool) {
@@ -238,14 +216,6 @@ func (cache *secondChanceCacheBytes) Delete(key []byte) {
 		atomic.StoreInt32(&old.referenced, 1)
 		return
 	}
-}
-
-func (cache *secondChanceCacheBytes) clean() {
-	cache.rwlock.Lock()
-	defer cache.rwlock.Unlock()
-	cache.position = 0
-	cache.items = make([]*cacheItemBytes, cap(cache.items))
-	cache.table = make(map[Slice]*cacheItemBytes)
 }
 
 func (cache *secondChanceCacheBytes) key(k []byte) Slice {

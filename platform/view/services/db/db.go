@@ -48,13 +48,6 @@ func Drivers() []string {
 	return list
 }
 
-func unregisterAllDrivers() {
-	driversMu.Lock()
-	defer driversMu.Unlock()
-	// For tests.
-	drivers = make(map[string]driver.Driver)
-}
-
 // Open returns a new persistence handle. Similarly to database/sql:
 // driverName is a string that describes the driver
 // dataSourceName describes the data source in a driver-specific format.

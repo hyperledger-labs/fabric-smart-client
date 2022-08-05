@@ -384,7 +384,6 @@ func (r reads) keys(nss ...string) []string {
 }
 
 type readSet struct {
-	ctr          int
 	reads        reads
 	orderedReads map[string][]string
 }

@@ -10,7 +10,6 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	"net"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	config2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/core/config"
@@ -321,40 +320,6 @@ func (p *p) serve() error {
 		}
 	}()
 	return nil
-}
-
-func (p *p) getLocalAddress() (string, error) {
-	configProvider := view.GetConfigService(p.registry)
-
-	peerAddress := configProvider.GetString("fsc.address")
-	if peerAddress == "" {
-		return "", fmt.Errorf("fsc.address isn't set")
-	}
-	host, port, err := net.SplitHostPort(peerAddress)
-	if err != nil {
-		return "", errors.Errorf("fsc.address isn't in host:port format: %s", peerAddress)
-	}
-
-	localIP, err := grpc2.GetLocalIP()
-	if err != nil {
-		logger.Errorf("local IP address not auto-detectable: %s", err)
-		return "", err
-	}
-	autoDetectedIPAndPort := net.JoinHostPort(localIP, port)
-	logger.Info("Auto-detected peer address:", autoDetectedIPAndPort)
-	// If host is the IPv4 address "0.0.0.0" or the IPv6 address "::",
-	// then fallback to auto-detected address
-	if ip := net.ParseIP(host); ip != nil && ip.IsUnspecified() {
-		logger.Info("Host is", host, ", falling back to auto-detected address:", autoDetectedIPAndPort)
-		return autoDetectedIPAndPort, nil
-	}
-
-	if configProvider.GetBool("fsc.addressAutoDetect") {
-		logger.Info("Auto-detect flag is set, returning", autoDetectedIPAndPort)
-		return autoDetectedIPAndPort, nil
-	}
-	logger.Info("Returning", peerAddress)
-	return peerAddress, nil
 }
 
 func (p *p) getServerConfig() (grpc2.ServerConfig, error) {

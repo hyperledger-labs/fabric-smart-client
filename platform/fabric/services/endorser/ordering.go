@@ -7,8 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package endorser
 
 import (
-	"time"
-
 	"github.com/pkg/errors"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
@@ -16,9 +14,8 @@ import (
 )
 
 type orderingView struct {
-	tx                  *Transaction
-	waitForEventTimeout time.Duration
-	finality            bool
+	tx       *Transaction
+	finality bool
 }
 
 func (o *orderingView) Call(context view.Context) (interface{}, error) {

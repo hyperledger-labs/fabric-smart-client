@@ -171,16 +171,3 @@ func (h *dEventHandler) handleEvent(e *Event) {
 		h.events = remaining
 	}
 }
-
-func (h *dEventHandler) sendEvent(input SinkInput, eType eventType) {
-	switch eType {
-	case gauge:
-		h.sink.SetGauge(input.Key, input.Val)
-	case sample:
-		h.sink.AddSample(input.Key, input.Val)
-	case counter:
-		h.sink.IncrCounter(input.Key, input.Val)
-	case key:
-		h.sink.EmitKey(input.Key, input.Val)
-	}
-}

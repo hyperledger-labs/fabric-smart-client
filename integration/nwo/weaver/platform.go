@@ -84,8 +84,6 @@ type Platform struct {
 	EventuallyTimeout time.Duration
 
 	NetworkID string
-
-	colorIndex int
 }
 
 func NewPlatform(ctx api2.Context, t api2.Topology, builder api2.Builder) *Platform {

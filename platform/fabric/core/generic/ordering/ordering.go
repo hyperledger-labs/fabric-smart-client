@@ -15,7 +15,6 @@ import (
 
 	"go.uber.org/zap/zapcore"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
@@ -140,15 +139,6 @@ func (o *service) createFabricEndorseTransactionEnvelope(tx Transaction) (*commo
 		return nil, errors.WithMessage(err, "could not assemble transaction")
 	}
 
-	return env, nil
-}
-
-func (o *service) castFabricEndorseTransactionEnvelope(blob []byte) (*common2.Envelope, error) {
-	env := &common2.Envelope{}
-	err := proto.Unmarshal(blob, env)
-	if err != nil {
-		return nil, err
-	}
 	return env, nil
 }
 
