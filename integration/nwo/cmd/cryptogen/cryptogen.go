@@ -18,8 +18,6 @@ import (
 	"gopkg.in/yaml.v2"
 
 	ca2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/cryptogen/ca"
-	csp2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/cryptogen/csp"
-	metadata2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/cryptogen/metadata"
 	msp2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/cryptogen/msp"
 )
 
@@ -228,129 +226,6 @@ func getConfig() (*Config, error) {
 	}
 
 	return config, nil
-}
-
-func extend() {
-	config, err := getConfig()
-	if err != nil {
-		fmt.Printf("Error reading config: %s", err)
-		os.Exit(-1)
-	}
-
-	for _, orgSpec := range config.PeerOrgs {
-		err = renderOrgSpec(&orgSpec, "peer")
-		if err != nil {
-			fmt.Printf("Error processing peer configuration: %s", err)
-			os.Exit(-1)
-		}
-		extendPeerOrg(orgSpec)
-	}
-
-	for _, orgSpec := range config.OrdererOrgs {
-		err = renderOrgSpec(&orgSpec, "orderer")
-		if err != nil {
-			fmt.Printf("Error processing orderer configuration: %s", err)
-			os.Exit(-1)
-		}
-		extendOrdererOrg(orgSpec)
-	}
-
-}
-
-func extendPeerOrg(orgSpec OrgSpec) {
-	orgName := orgSpec.Domain
-	orgDir := filepath.Join(inputDir, "peerOrganizations", orgName)
-	if _, err := os.Stat(orgDir); os.IsNotExist(err) {
-		generatePeerOrg(inputDir, orgSpec)
-		return
-	}
-
-	peersDir := filepath.Join(orgDir, "peers")
-	usersDir := filepath.Join(orgDir, "users")
-	caDir := filepath.Join(orgDir, "ca")
-	tlscaDir := filepath.Join(orgDir, "tlsca")
-
-	signCA := getCA(caDir, orgSpec, orgSpec.CA.CommonName)
-	tlsCA := getCA(tlscaDir, orgSpec, "tls"+orgSpec.CA.CommonName)
-
-	generateNodes(peersDir, orgSpec.Specs, signCA, tlsCA, msp2.PEER, orgSpec.EnableNodeOUs)
-
-	adminUser := NodeSpec{
-		isAdmin:    true,
-		CommonName: fmt.Sprintf("%s@%s", adminBaseName, orgName),
-	}
-	// copy the admin cert to each of the org's peer's MSP admincerts
-	for _, spec := range orgSpec.Specs {
-		if orgSpec.EnableNodeOUs {
-			continue
-		}
-		err := copyAdminCert(usersDir,
-			filepath.Join(peersDir, spec.CommonName, "msp", "admincerts"), adminUser.CommonName)
-		if err != nil {
-			fmt.Printf("Error copying admin cert for org %s peer %s:\n%v\n",
-				orgName, spec.CommonName, err)
-			os.Exit(1)
-		}
-	}
-
-	// TODO: add ability to specify usernames
-	users := []NodeSpec{}
-	if len(orgSpec.Users.Names) != 0 {
-		for j := 0; j < len(orgSpec.Users.Names); j++ {
-			user := NodeSpec{
-				CommonName: fmt.Sprintf("%s@%s", orgSpec.Users.Names[j], orgName),
-			}
-
-			users = append(users, user)
-		}
-	} else {
-		for j := 1; j <= orgSpec.Users.Count; j++ {
-			user := NodeSpec{
-				CommonName: fmt.Sprintf("%s%d@%s", userBaseName, j, orgName),
-			}
-
-			users = append(users, user)
-		}
-	}
-
-	generateNodes(usersDir, users, signCA, tlsCA, msp2.CLIENT, orgSpec.EnableNodeOUs)
-}
-
-func extendOrdererOrg(orgSpec OrgSpec) {
-	orgName := orgSpec.Domain
-
-	orgDir := filepath.Join(inputDir, "ordererOrganizations", orgName)
-	caDir := filepath.Join(orgDir, "ca")
-	usersDir := filepath.Join(orgDir, "users")
-	tlscaDir := filepath.Join(orgDir, "tlsca")
-	orderersDir := filepath.Join(orgDir, "orderers")
-	if _, err := os.Stat(orgDir); os.IsNotExist(err) {
-		generateOrdererOrg(inputDir, orgSpec)
-		return
-	}
-
-	signCA := getCA(caDir, orgSpec, orgSpec.CA.CommonName)
-	tlsCA := getCA(tlscaDir, orgSpec, "tls"+orgSpec.CA.CommonName)
-
-	generateNodes(orderersDir, orgSpec.Specs, signCA, tlsCA, msp2.ORDERER, orgSpec.EnableNodeOUs)
-
-	adminUser := NodeSpec{
-		isAdmin:    true,
-		CommonName: fmt.Sprintf("%s@%s", adminBaseName, orgName),
-	}
-
-	for _, spec := range orgSpec.Specs {
-		if orgSpec.EnableNodeOUs {
-			continue
-		}
-		err := copyAdminCert(usersDir,
-			filepath.Join(orderersDir, spec.CommonName, "msp", "admincerts"), adminUser.CommonName)
-		if err != nil {
-			fmt.Printf("Error copying admin cert for org %s orderer %s:\n%v\n",
-				orgName, spec.CommonName, err)
-			os.Exit(1)
-		}
-	}
 }
 
 func generate() {
@@ -697,25 +572,4 @@ func copyFile(src, dst string) error {
 		return err
 	}
 	return cerr
-}
-
-func printVersion() {
-	fmt.Println(metadata2.GetVersionInfo())
-}
-
-func getCA(caDir string, spec OrgSpec, name string) *ca2.CA {
-	priv, _ := csp2.LoadPrivateKey(caDir)
-	cert, _ := ca2.LoadCertificateECDSA(caDir)
-
-	return &ca2.CA{
-		Name:               name,
-		Signer:             priv,
-		SignCert:           cert,
-		Country:            spec.CA.Country,
-		Province:           spec.CA.Province,
-		Locality:           spec.CA.Locality,
-		OrganizationalUnit: spec.CA.OrganizationalUnit,
-		StreetAddress:      spec.CA.StreetAddress,
-		PostalCode:         spec.CA.PostalCode,
-	}
 }

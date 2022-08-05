@@ -16,7 +16,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic/finality"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic/rwset"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic/transaction"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
@@ -42,7 +41,6 @@ type network struct {
 	metadataService    driver.MetadataService
 	transactionManager driver.TransactionManager
 	envelopeService    driver.EnvelopeService
-	txIDStore          *vault.TXIDStore
 	vault              *Vault
 	processorManager   driver.ProcessorManager
 	transactionService driver.TransactionService

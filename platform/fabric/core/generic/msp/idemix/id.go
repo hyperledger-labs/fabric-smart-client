@@ -32,10 +32,6 @@ type identity struct {
 	VerificationType csp.VerificationType
 }
 
-func newIdentity(provider *common, NymPublicKey csp.Key, role *m.MSPRole, ou *m.OrganizationUnit, proof []byte) *identity {
-	return newIdentityWithVerType(provider, NymPublicKey, role, ou, proof, csp.ExpectEidNym)
-}
-
 func newIdentityWithVerType(common *common, NymPublicKey csp.Key, role *m.MSPRole, ou *m.OrganizationUnit, proof []byte, verificationType csp.VerificationType) *identity {
 	id := &identity{}
 	id.common = common

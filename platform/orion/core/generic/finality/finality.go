@@ -7,12 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package finality
 
 import (
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
-
-var logger = flogging.MustGetLogger("orion-sdk.finality")
 
 type Committer interface {
 	// IsFinal takes in input a transaction id and waits for its confirmation.

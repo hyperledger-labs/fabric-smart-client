@@ -110,9 +110,6 @@ func (n *Extension) PostRun(bool) {
 	n.startContainer()
 }
 
-func (n *Extension) checkTopology() {
-}
-
 func (n *Extension) configFileDir() string {
 	return filepath.Join(
 		n.platform.ConfigDir(),

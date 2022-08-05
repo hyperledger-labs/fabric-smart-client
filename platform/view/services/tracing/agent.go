@@ -13,11 +13,7 @@ import (
 
 	"github.com/armon/go-metrics"
 	"github.com/pkg/errors"
-
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 )
-
-var logger = flogging.MustGetLogger("view.tracker.tracing")
 
 type Host string
 type StatsDSink string

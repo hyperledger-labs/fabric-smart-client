@@ -63,7 +63,6 @@ type Platform struct {
 
 	NetworkID string
 
-	colorIndex  int
 	nodePort    uint16
 	peerPort    uint16
 	localConfig *config.LocalConfiguration

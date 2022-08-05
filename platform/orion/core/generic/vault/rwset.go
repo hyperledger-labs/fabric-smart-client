@@ -192,11 +192,6 @@ func (w *metaWriteSet) get(ns, key string) map[string][]byte {
 	return w.metawrites[ns][key]
 }
 
-func (w *metaWriteSet) in(ns, key string) bool {
-	_, in := w.metawrites[ns][key]
-	return in
-}
-
 func (w *metaWriteSet) clear(ns string) {
 	w.metawrites[ns] = keyedMetaWrites{}
 }
@@ -372,7 +367,6 @@ func (r reads) keys(nss ...string) []string {
 }
 
 type readSet struct {
-	ctr          int
 	reads        reads
 	orderedReads map[string][]string
 }

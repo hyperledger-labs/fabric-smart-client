@@ -37,7 +37,6 @@ var (
 	// inputDir      = ext.Flag("input", "The input directory in which existing network place").Default("crypto-config").String()
 	// extConfigFile = ext.Flag("config", "The configuration template to use").File()
 
-	inputDir      string
 	extConfigFile string
 )
 

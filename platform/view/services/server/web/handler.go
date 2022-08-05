@@ -30,7 +30,6 @@ type Config struct {
 }
 
 type HttpHandler struct {
-	conf   Config
 	r      *mux.Router
 	Logger logger
 }

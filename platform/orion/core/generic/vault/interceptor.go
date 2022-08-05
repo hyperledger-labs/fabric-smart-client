@@ -26,7 +26,6 @@ type Interceptor struct {
 	rws       readWriteSet
 	closed    bool
 	txid      string
-	dbName    string
 }
 
 func newInterceptor(qe QueryExecutor, txidStore TXIDStoreReader, txid string) *Interceptor {

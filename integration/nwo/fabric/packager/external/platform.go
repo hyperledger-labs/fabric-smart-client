@@ -21,9 +21,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/packager/replacer"
 )
 
-// Directory constant copied from tar package.
-const c_ISDIR = 040000
-
 // Default compression to use for production. Test packages disable compression.
 var gzipCompressionLevel = gzip.DefaultCompression
 
