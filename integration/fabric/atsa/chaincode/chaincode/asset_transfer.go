@@ -42,8 +42,8 @@ type Asset struct {
 }
 
 type receipt struct {
-	price     int
-	timestamp time.Time
+	Price     int
+	Timestamp time.Time
 }
 
 // CreateAsset creates an asset and sets it as owned by the client's org
@@ -448,8 +448,8 @@ func transferAssetState(ctx contractapi.TransactionContextInterface, asset *Asse
 	timestamp := txTimestamp.AsTime()
 
 	assetReceipt := receipt{
-		price:     price,
-		timestamp: timestamp,
+		Price:     price,
+		Timestamp: timestamp,
 	}
 	receipt, err := json.Marshal(assetReceipt)
 	if err != nil {
