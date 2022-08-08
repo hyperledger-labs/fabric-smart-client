@@ -325,7 +325,6 @@ func (t *Transaction) SetRWSet() error {
 			return err
 		}
 	}
-	logger.Debugf("rws set [%s]", t.rwset.String())
 	return nil
 }
 

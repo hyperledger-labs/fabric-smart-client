@@ -128,10 +128,6 @@ func (i *Inspector) Equals(other interface{}, nss ...string) error {
 	panic("programming error: unexpected call")
 }
 
-func (i *Inspector) String() string {
-	panic("programming error: unexpected call")
-}
-
 func (i *Inspector) Done() {
 
 }

@@ -7,8 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package vault
 
 import (
-	"encoding/json"
-
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
@@ -416,11 +414,6 @@ func (i *Interceptor) Equals(other interface{}, nss ...string) error {
 		return errors.Errorf("cannot compare to the passed value [%v]", other)
 	}
 	return nil
-}
-
-func (i *Interceptor) String() string {
-	s, _ := json.Marshal(i.rws)
-	return string(s)
 }
 
 func (i *Interceptor) Done() {
