@@ -1049,7 +1049,7 @@ func (n *Network) OrdererGroupRunner() ifrit.Runner {
 		return nil
 	}
 
-	return runner2.NewParallel(syscall.SIGTERM, members)
+	return grouper.NewParallel(syscall.SIGTERM, members)
 }
 
 // PeerRunner returns an ifrit.Runner for the specified peer. The runner can be
@@ -1124,7 +1124,7 @@ func (n *Network) PeerGroupRunner() ifrit.Runner {
 	if len(members) == 0 {
 		return nil
 	}
-	return runner2.NewParallel(syscall.SIGTERM, members)
+	return grouper.NewParallel(syscall.SIGTERM, members)
 }
 
 func (n *Network) peerCommand(executablePath string, command common.Command, tlsDir string, env ...string) *exec.Cmd {
