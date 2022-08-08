@@ -460,7 +460,7 @@ func (p *Platform) BootstrapViewNodeGroupRunner() ifrit.Runner {
 			members = append(members, grouper.Member{Name: node.ID(), Runner: p.FSCNodeRunner(node)})
 		}
 	}
-	return runner2.NewParallel(syscall.SIGTERM, members)
+	return grouper.NewParallel(syscall.SIGTERM, members)
 }
 
 func (p *Platform) FSCNodeGroupRunner() ifrit.Runner {
@@ -470,7 +470,7 @@ func (p *Platform) FSCNodeGroupRunner() ifrit.Runner {
 			members = append(members, grouper.Member{Name: node.ID(), Runner: p.FSCNodeRunner(node)})
 		}
 	}
-	return runner2.NewParallel(syscall.SIGTERM, members)
+	return grouper.NewParallel(syscall.SIGTERM, members)
 }
 
 func (p *Platform) FSCNodeRunner(node *node2.Peer, env ...string) *runner2.Runner {

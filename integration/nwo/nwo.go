@@ -14,14 +14,13 @@ import (
 	"syscall"
 	"time"
 
-	. "github.com/onsi/gomega"
-	"github.com/tedsuo/ifrit"
-	"github.com/tedsuo/ifrit/grouper"
-
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/context"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/runner"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	. "github.com/onsi/gomega"
+	"github.com/tedsuo/ifrit"
+	"github.com/tedsuo/ifrit/grouper"
 )
 
 var logger = flogging.MustGetLogger("fsc.integration")
@@ -117,7 +116,7 @@ func (n *NWO) Start() {
 	logger.Infof("Run nodes...")
 
 	// Execute members on their own stuff...
-	Runner := runner.NewOrdered(n.TerminationSignal, members)
+	Runner := grouper.NewOrdered(n.TerminationSignal, members)
 	process := ifrit.Invoke(Runner)
 	n.Processes = append(n.Processes, process)
 	Eventually(process.Ready(), n.StartEventuallyTimeout).Should(BeClosed())
@@ -134,7 +133,7 @@ func (n *NWO) Start() {
 	for _, member := range fscMembers {
 		logger.Infof("Run FSC node [%s]...", member.Name)
 
-		runner := runner.NewOrdered(n.TerminationSignal, []grouper.Member{member})
+		runner := grouper.NewOrdered(n.TerminationSignal, []grouper.Member{member})
 		process := ifrit.Invoke(runner)
 		Eventually(process.Ready(), n.StartEventuallyTimeout).Should(BeClosed())
 		n.Processes = append(n.Processes, process)
@@ -190,7 +189,7 @@ func (n *NWO) StartFSCNode(id string) {
 	logger.Infof("Starting fsc node [%s]...", id)
 	for _, member := range n.ViewMembers {
 		if strings.HasSuffix(member.Name, id) {
-			runner := runner.NewOrdered(syscall.SIGTERM, []grouper.Member{{
+			runner := grouper.NewOrdered(syscall.SIGTERM, []grouper.Member{{
 				Name: id, Runner: member.Runner.(*runner.Runner).Clone(),
 			}})
 			member.Runner = runner
