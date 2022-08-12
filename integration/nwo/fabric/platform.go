@@ -270,12 +270,12 @@ func (p *Platform) UserByOrg(orgName string, user string) *fabric.User {
 func (p *Platform) UsersByOrg(orgName string) []*fabric.User {
 	org := p.Network.Organization(orgName)
 	var users []*fabric.User
-	for _, name := range org.UserNames {
+	for _, spec := range org.UserSpecs {
 		peer := p.Network.PeersInOrg(orgName)[0]
 		users = append(users, &fabric.User{
-			Name: name + "@" + p.Network.Organization(orgName).Domain,
-			Cert: p.Network.PeerUserCert(peer, name),
-			Key:  p.Network.PeerUserKey(peer, name),
+			Name: spec.Name + "@" + p.Network.Organization(orgName).Domain,
+			Cert: p.Network.PeerUserCert(peer, spec.Name),
+			Key:  p.Network.PeerUserKey(peer, spec.Name),
 		})
 	}
 	return users
@@ -307,7 +307,7 @@ func (p *Platform) PeersByID(id string) *Peer {
 		MSPID: org.MSPID,
 	})
 
-	for _, identity := range peer.ExtraIdentities {
+	for _, identity := range peer.Identities {
 		result.Identities = append(result.Identities, &Identity{
 			ID:    identity.ID,
 			Type:  identity.MSPType,

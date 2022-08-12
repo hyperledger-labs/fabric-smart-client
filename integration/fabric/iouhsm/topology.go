@@ -4,7 +4,7 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package iou
+package iouhsm
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou/views"
@@ -32,6 +32,7 @@ func Topology() []api.Topology {
 	// Therefore, the approver is an endorser of the Fabric namespace we defined above.
 	approver.AddOptions(
 		fabric.WithOrganization("Org1"),
+		fabric.WithDefaultIdentityByHSM(),
 	)
 	approver.RegisterResponder(&views.ApproverView{}, &views.CreateIOUView{})
 	approver.RegisterResponder(&views.ApproverView{}, &views.UpdateIOUView{})
@@ -40,6 +41,8 @@ func Topology() []api.Topology {
 	borrower := fscTopology.AddNodeByName("borrower")
 	borrower.AddOptions(
 		fabric.WithOrganization("Org2"),
+		fabric.WithDefaultIdentityByHSM(),
+		fabric.WithX509IdentityByHSM("borrower-hsm-2"),
 	)
 	borrower.RegisterViewFactory("create", &views.CreateIOUViewFactory{})
 	borrower.RegisterViewFactory("update", &views.UpdateIOUViewFactory{})
@@ -49,6 +52,7 @@ func Topology() []api.Topology {
 	lender := fscTopology.AddNodeByName("lender")
 	lender.AddOptions(
 		fabric.WithOrganization("Org3"),
+		fabric.WithDefaultIdentityWithLabel("lender"),
 	)
 	lender.RegisterResponder(&views.CreateIOUResponderView{}, &views.CreateIOUView{})
 	lender.RegisterResponder(&views.UpdateIOUResponderView{}, &views.UpdateIOUView{})

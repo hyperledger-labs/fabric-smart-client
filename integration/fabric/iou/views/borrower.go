@@ -3,6 +3,7 @@ Copyright IBM Corp All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
 */
+
 package views
 
 import (
@@ -16,6 +17,9 @@ import (
 
 // Create contains the input to create an IOU state
 type Create struct {
+	// Identity is the label of the the borrower's identity to use.
+	// Empty means the default identity.
+	Identity string
 	// Amount the borrower owes the lender
 	Amount uint
 	// Lender is the identity of the lender's FSC node
@@ -31,7 +35,7 @@ type CreateIOUView struct {
 func (i *CreateIOUView) Call(context view.Context) (interface{}, error) {
 	// As a first step operation, the borrower contacts the lender's FSC node
 	// to exchange the identities to use to assign ownership of the freshly created IOU state.
-	borrower, lender, err := state.ExchangeRecipientIdentities(context, i.Lender)
+	borrower, lender, err := state.ExchangeRecipientIdentities(context, i.Lender, state.WithIdentity(i.Identity))
 	assert.NoError(err, "failed exchanging recipient identity")
 
 	// The borrower creates a new transaction

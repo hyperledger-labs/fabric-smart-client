@@ -28,8 +28,8 @@ func (t *Templates) CoreTemplate() string {
 	return DefaultCoreTemplate
 }
 
-func (t *Templates) FSCNodeConfigExtensionTemplate() string {
-	return DefaultViewExtensionTemplate
+func (t *Templates) FSCFabricExtensionTemplate() string {
+	return DefaultFSCFabricExtensionTemplate
 }
 
 func (t *Templates) CryptoTemplate() string {

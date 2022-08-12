@@ -71,6 +71,7 @@ jobs:
           atsafsc,
           fpc-echo,
           iou,
+          iou-hsm,
           orioncars,
           pingpong,
           stoprestart,

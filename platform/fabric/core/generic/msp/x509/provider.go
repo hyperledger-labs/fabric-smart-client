@@ -11,6 +11,7 @@ import (
 	"fmt"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	api2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -29,7 +30,11 @@ type provider struct {
 }
 
 func NewProvider(mspConfigPath, mspID string, signerService SignerService) (*provider, error) {
-	sID, err := GetSigningIdentity(mspConfigPath, mspID)
+	return NewProviderWithBCCSPConfig(mspConfigPath, mspID, signerService, nil)
+}
+
+func NewProviderWithBCCSPConfig(mspConfigPath, mspID string, signerService SignerService, bccspConfig *config.BCCSP) (*provider, error) {
+	sID, err := GetSigningIdentity(mspConfigPath, mspID, bccspConfig)
 	if err != nil {
 		return nil, err
 	}

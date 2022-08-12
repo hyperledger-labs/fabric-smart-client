@@ -10,9 +10,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/otiai10/copy"
-	"github.com/stretchr/testify/assert"
-
 	config2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	msp2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp"
 	mock2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/mock"
@@ -21,6 +18,8 @@ import (
 	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	registry2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/registry"
+	"github.com/otiai10/copy"
+	"github.com/stretchr/testify/assert"
 )
 
 //go:generate counterfeiter -o mock/config_provider.go -fake-name ConfigProvider . ConfigProvider
@@ -75,9 +74,9 @@ func TestIdemixTypeFolder(t *testing.T) {
 	assert.NoError(t, registry.RegisterService(sigService))
 
 	assert.NoError(t, mspService.Load())
-	assert.Equal(t, []string{"idemix", "manager.id1", "manager.id2", "manager.id3"}, mspService.Resolvers())
+	assert.Equal(t, []string{"idemix", "manager.id1", "manager.id2", "manager.id3", "apple"}, mspService.Msps())
 
-	for _, s := range mspService.Resolvers() {
+	for _, s := range mspService.Msps()[:4] {
 		assert.NotNil(t, mspService.GetIdentityInfoByLabel("idemix", s))
 	}
 }
@@ -132,9 +131,9 @@ func TestX509TypeFolder(t *testing.T) {
 	assert.NoError(t, registry.RegisterService(sigService))
 
 	assert.NoError(t, mspService.Load())
-	assert.Equal(t, []string{"Admin@org1.example.com", "auditor@org1.example.com", "issuer.id1@org1.example.com"}, mspService.Resolvers())
+	assert.Equal(t, []string{"Admin@org1.example.com", "auditor@org1.example.com", "issuer.id1@org1.example.com"}, mspService.Msps())
 
-	for _, s := range mspService.Resolvers() {
+	for _, s := range mspService.Msps() {
 		assert.NotNil(t, mspService.GetIdentityInfoByLabel(msp2.BccspMSP, s))
 	}
 }
@@ -159,9 +158,9 @@ func TestRefresh(t *testing.T) {
 	assert.NoError(t, registry.RegisterService(sigService))
 
 	assert.NoError(t, mspService.Load())
-	assert.Equal(t, []string{"Admin@org1.example.com", "auditor@org1.example.com", "issuer.id1@org1.example.com"}, mspService.Resolvers())
+	assert.Equal(t, []string{"Admin@org1.example.com", "auditor@org1.example.com", "issuer.id1@org1.example.com"}, mspService.Msps())
 
-	for _, s := range mspService.Resolvers() {
+	for _, s := range mspService.Msps() {
 		assert.NotNil(t, mspService.GetIdentityInfoByLabel(msp2.BccspMSP, s))
 	}
 
@@ -174,9 +173,9 @@ func TestRefresh(t *testing.T) {
 		"auditor@org1.example.com",
 		"issuer.id1@org1.example.com",
 		"manager@org2.example.com",
-	}, mspService.Resolvers())
+	}, mspService.Msps())
 
-	for _, s := range mspService.Resolvers() {
+	for _, s := range mspService.Msps() {
 		assert.NotNil(t, mspService.GetIdentityInfoByLabel(msp2.BccspMSP, s))
 	}
 
@@ -187,9 +186,9 @@ func TestRefresh(t *testing.T) {
 		"Admin@org1.example.com",
 		"auditor@org1.example.com",
 		"issuer.id1@org1.example.com",
-	}, mspService.Resolvers())
+	}, mspService.Msps())
 
-	for _, s := range mspService.Resolvers() {
+	for _, s := range mspService.Msps() {
 		assert.NotNil(t, mspService.GetIdentityInfoByLabel(msp2.BccspMSP, s))
 	}
 }

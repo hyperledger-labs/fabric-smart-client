@@ -14,19 +14,16 @@ import (
 	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
-	idemix2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/idemix"
-	x5092 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/x509"
-	api2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/idemix"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/x509"
+	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/sig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
-
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/hyperledger/fabric/msp"
 	"github.com/pkg/errors"
-
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
-
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
-	sig2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/core/sig"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 const (
@@ -39,15 +36,14 @@ const (
 var logger = flogging.MustGetLogger("fabric-sdk.msp")
 
 type Config interface {
-	MSPConfigPath() string
+	Name() string
+	DefaultMSP() string
 	MSPs() ([]config.MSP, error)
-	LocalMSPID() string
-	LocalMSPType() string
 	TranslatePath(path string) string
 }
 
 type SignerService interface {
-	RegisterSigner(identity view.Identity, signer api2.Signer, verifier api2.Verifier) error
+	RegisterSigner(identity view.Identity, signer fdriver.Signer, verifier fdriver.Verifier) error
 }
 
 type BinderService interface {
@@ -59,7 +55,7 @@ type ConfigProvider interface {
 }
 
 type DeserializerManager interface {
-	AddDeserializer(deserializer sig2.Deserializer)
+	AddDeserializer(deserializer sig.Deserializer)
 }
 
 type Configuration struct {
@@ -69,29 +65,29 @@ type Configuration struct {
 	Path    string `yaml:"path"`
 }
 
-type Resolver struct {
+type MSP struct {
 	Name         string `yaml:"name,omitempty"`
 	Type         string `yaml:"type,omitempty"`
 	EnrollmentID string
-	GetIdentity  api2.GetIdentityFunc
+	GetIdentity  fdriver.GetIdentityFunc
 }
 
 type service struct {
 	sp                     view2.ServiceProvider
 	defaultIdentity        view.Identity
-	defaultSigningIdentity x5092.SigningIdentity
+	defaultSigningIdentity x509.SigningIdentity
 	signerService          SignerService
 	binderService          BinderService
 	defaultViewIdentity    view.Identity
 	config                 Config
 
-	resolversMutex           sync.RWMutex
-	resolvers                []*Resolver
-	resolversByName          map[string]*Resolver
-	resolversByEnrollmentID  map[string]*Resolver
-	resolversByTypeAndName   map[string]*Resolver
-	bccspResolversByIdentity map[string]*Resolver
-	cacheSize                int
+	mspsMutex           sync.RWMutex
+	msps                []*MSP
+	mspsByName          map[string]*MSP
+	mspsByEnrollmentID  map[string]*MSP
+	mspsByTypeAndName   map[string]*MSP
+	bccspMspsByIdentity map[string]*MSP
+	cacheSize           int
 }
 
 func NewLocalMSPManager(
@@ -103,35 +99,24 @@ func NewLocalMSPManager(
 	cacheSize int,
 ) *service {
 	return &service{
-		sp:                       sp,
-		config:                   config,
-		signerService:            signerService,
-		binderService:            binderService,
-		defaultViewIdentity:      defaultViewIdentity,
-		resolversByTypeAndName:   map[string]*Resolver{},
-		bccspResolversByIdentity: map[string]*Resolver{},
-		resolversByEnrollmentID:  map[string]*Resolver{},
-		resolversByName:          map[string]*Resolver{},
-		cacheSize:                cacheSize,
+		sp:                  sp,
+		config:              config,
+		signerService:       signerService,
+		binderService:       binderService,
+		defaultViewIdentity: defaultViewIdentity,
+		mspsByTypeAndName:   map[string]*MSP{},
+		bccspMspsByIdentity: map[string]*MSP{},
+		mspsByEnrollmentID:  map[string]*MSP{},
+		mspsByName:          map[string]*MSP{},
+		cacheSize:           cacheSize,
 	}
 }
 
 func (s *service) Load() error {
-	// Default Resolver
-	if err := s.loadDefaultResolver(); err != nil {
+	if err := s.loadLocalMSPs(); err != nil {
 		return err
 	}
-
-	// Register extra Resolvers
-	if err := s.loadExtraResolvers(); err != nil {
-		return err
-	}
-
 	return nil
-}
-
-func (s *service) GetDefaultIdentity() (view.Identity, x5092.SigningIdentity) {
-	return s.defaultIdentity, s.defaultSigningIdentity
 }
 
 func (s *service) DefaultIdentity() view.Identity {
@@ -141,8 +126,8 @@ func (s *service) DefaultIdentity() view.Identity {
 func (s *service) AnonymousIdentity() view.Identity {
 	id := s.Identity("idemix")
 
-	resolver := view2.GetEndpointService(s.sp)
-	if err := resolver.Bind(s.defaultViewIdentity, id); err != nil {
+	es := view2.GetEndpointService(s.sp)
+	if err := es.Bind(s.defaultViewIdentity, id); err != nil {
 		panic(err)
 	}
 
@@ -161,52 +146,52 @@ func (s *service) IsMe(id view.Identity) bool {
 	return view2.GetSigService(s.sp).IsMe(id)
 }
 
-func (s *service) DefaultSigningIdentity() api2.SigningIdentity {
+func (s *service) DefaultSigningIdentity() fdriver.SigningIdentity {
 	return s.defaultSigningIdentity
 }
 
-func (s *service) GetIdentityInfoByLabel(mspType string, label string) *api2.IdentityInfo {
-	s.resolversMutex.RLock()
-	defer s.resolversMutex.RUnlock()
+func (s *service) GetIdentityInfoByLabel(mspType string, label string) *fdriver.IdentityInfo {
+	s.mspsMutex.RLock()
+	defer s.mspsMutex.RUnlock()
 
 	logger.Debugf("get identity info by label [%s:%s]", mspType, label)
-	r, ok := s.resolversByTypeAndName[mspType+label]
+	r, ok := s.mspsByTypeAndName[mspType+label]
 	if !ok {
-		logger.Debugf("identity info not found for label [%s:%s][%v]", mspType, label, s.resolversByTypeAndName)
+		logger.Debugf("identity info not found for label [%s:%s][%v]", mspType, label, s.mspsByTypeAndName)
 		return nil
 	}
-	return &api2.IdentityInfo{
+	return &fdriver.IdentityInfo{
 		ID:           r.Name,
 		EnrollmentID: r.EnrollmentID,
 		GetIdentity:  r.GetIdentity,
 	}
 }
 
-func (s *service) GetIdentityInfoByIdentity(mspType string, id view.Identity) *api2.IdentityInfo {
-	s.resolversMutex.RLock()
-	defer s.resolversMutex.RUnlock()
+func (s *service) GetIdentityInfoByIdentity(mspType string, id view.Identity) *fdriver.IdentityInfo {
+	s.mspsMutex.RLock()
+	defer s.mspsMutex.RUnlock()
 
 	if mspType == BccspMSP {
-		r, ok := s.bccspResolversByIdentity[id.String()]
+		r, ok := s.bccspMspsByIdentity[id.String()]
 		if !ok {
 			return nil
 		}
-		return &api2.IdentityInfo{
+		return &fdriver.IdentityInfo{
 			ID:           r.Name,
 			EnrollmentID: r.EnrollmentID,
 			GetIdentity:  r.GetIdentity,
 		}
 	}
 
-	// scan all resolvers in the worst case
-	for _, r := range s.resolvers {
+	// scan all msps in the worst case
+	for _, r := range s.msps {
 		if r.Type == mspType {
 			lid, _, err := r.GetIdentity(nil)
 			if err != nil {
 				continue
 			}
 			if id.Equal(lid) {
-				return &api2.IdentityInfo{
+				return &fdriver.IdentityInfo{
 					ID:           r.Name,
 					EnrollmentID: r.EnrollmentID,
 					GetIdentity:  r.GetIdentity,
@@ -218,24 +203,24 @@ func (s *service) GetIdentityInfoByIdentity(mspType string, id view.Identity) *a
 }
 
 func (s *service) GetIdentityByID(id string) (view.Identity, error) {
-	s.resolversMutex.RLock()
-	defer s.resolversMutex.RUnlock()
+	s.mspsMutex.RLock()
+	defer s.mspsMutex.RUnlock()
 
 	// Check indices first
-	r, ok := s.resolversByName[id]
+	r, ok := s.mspsByName[id]
 	if ok {
 		identity, _, err := r.GetIdentity(nil)
 		return identity, err
 	}
 
-	r, ok = s.resolversByEnrollmentID[id]
+	r, ok = s.mspsByEnrollmentID[id]
 	if ok {
 		identity, _, err := r.GetIdentity(nil)
 		return identity, err
 	}
 
 	// Scan
-	for _, r := range s.resolvers {
+	for _, r := range s.msps {
 		if r.Name == id || r.EnrollmentID == id {
 			identity, _, err := r.GetIdentity(nil)
 			return identity, err
@@ -250,66 +235,66 @@ func (s *service) GetIdentityByID(id string) (view.Identity, error) {
 }
 
 func (s *service) RegisterIdemixMSP(id string, path string, mspID string) error {
-	s.resolversMutex.Lock()
-	defer s.resolversMutex.Unlock()
+	s.mspsMutex.Lock()
+	defer s.mspsMutex.Unlock()
 
 	conf, err := msp.GetLocalMspConfigWithType(path, nil, mspID, IdemixMSP)
 	if err != nil {
 		return errors.Wrapf(err, "failed reading idemix msp configuration from [%s]", path)
 	}
-	provider, err := idemix2.NewAnyProvider(conf, s.sp)
+	provider, err := idemix.NewAnyProvider(conf, s.sp)
 	if err != nil {
 		return errors.Wrapf(err, "failed instantiating idemix msp provider from [%s]", path)
 	}
 
 	s.deserializerManager().AddDeserializer(provider)
-	s.addResolver(id, IdemixMSP, provider.EnrollmentID(), NewIdentityCache(provider.Identity, s.cacheSize).Identity)
-	logger.Debugf("added IdemixMSP resolver for id %s with cache of size %d", id+"@"+provider.EnrollmentID(), s.cacheSize)
+	s.addMSP(id, IdemixMSP, provider.EnrollmentID(), NewIdentityCache(provider.Identity, s.cacheSize).Identity)
+	logger.Debugf("added IdemixMSP msp for id %s with cache of size %d", id+"@"+provider.EnrollmentID(), s.cacheSize)
 	return nil
 }
 
 func (s *service) RegisterX509MSP(id string, path string, mspID string) error {
-	s.resolversMutex.Lock()
-	defer s.resolversMutex.Unlock()
+	s.mspsMutex.Lock()
+	defer s.mspsMutex.Unlock()
 
-	provider, err := x5092.NewProvider(path, mspID, s.signerService)
+	provider, err := x509.NewProvider(path, mspID, s.signerService)
 	if err != nil {
 		return errors.Wrapf(err, "failed instantiating idemix msp provider from [%s]", path)
 	}
 
 	s.deserializerManager().AddDeserializer(provider)
-	s.addResolver(id, BccspMSP, provider.EnrollmentID(), provider.Identity)
+	s.addMSP(id, BccspMSP, provider.EnrollmentID(), provider.Identity)
 
 	return nil
 }
 
 func (s *service) Refresh() error {
-	s.resolversMutex.Lock()
-	defer s.resolversMutex.Unlock()
+	s.mspsMutex.Lock()
+	defer s.mspsMutex.Unlock()
 
 	// clean cashes
-	s.resolvers = nil
-	s.resolversByTypeAndName = map[string]*Resolver{}
-	s.bccspResolversByIdentity = map[string]*Resolver{}
-	s.resolversByEnrollmentID = map[string]*Resolver{}
-	s.resolversByName = map[string]*Resolver{}
+	s.msps = nil
+	s.mspsByTypeAndName = map[string]*MSP{}
+	s.bccspMspsByIdentity = map[string]*MSP{}
+	s.mspsByEnrollmentID = map[string]*MSP{}
+	s.mspsByName = map[string]*MSP{}
 
 	// reload
 	return s.Load()
 }
 
-func (s *service) Resolvers() []string {
-	s.resolversMutex.RLock()
-	defer s.resolversMutex.RUnlock()
+func (s *service) Msps() []string {
+	s.mspsMutex.RLock()
+	defer s.mspsMutex.RUnlock()
 
 	var res []string
-	for _, r := range s.resolvers {
+	for _, r := range s.msps {
 		res = append(res, r.Name)
 	}
 	return res
 }
 
-func (s *service) addResolver(Name string, Type string, EnrollmentID string, IdentityGetter api2.GetIdentityFunc) {
+func (s *service) addMSP(Name string, Type string, EnrollmentID string, IdentityGetter fdriver.GetIdentityFunc) {
 	if Type == BccspMSP && s.binderService != nil {
 		id, _, err := IdentityGetter(nil)
 		if err != nil {
@@ -320,7 +305,7 @@ func (s *service) addResolver(Name string, Type string, EnrollmentID string, Ide
 		}
 	}
 
-	resolver := &Resolver{
+	msp := &MSP{
 		Name:         Name,
 		Type:         Type,
 		EnrollmentID: EnrollmentID,
@@ -331,14 +316,17 @@ func (s *service) addResolver(Name string, Type string, EnrollmentID string, Ide
 		if err != nil {
 			panic(fmt.Sprintf("cannot get identity for [%s,%s,%s][%s]", Name, Type, EnrollmentID, err))
 		}
-		s.bccspResolversByIdentity[id.String()] = resolver
+		s.bccspMspsByIdentity[id.String()] = msp
+		logger.Debugf("add bccsp msp for id %s, identity [%s]", Name+"@"+EnrollmentID, id.String())
+	} else {
+		logger.Debugf("add idemix msp for id %s", Name+"@"+EnrollmentID)
 	}
-	s.resolversByTypeAndName[Type+Name] = resolver
-	s.resolversByName[Name] = resolver
+	s.mspsByTypeAndName[Type+Name] = msp
+	s.mspsByName[Name] = msp
 	if len(EnrollmentID) != 0 {
-		s.resolversByEnrollmentID[EnrollmentID] = resolver
+		s.mspsByEnrollmentID[EnrollmentID] = msp
 	}
-	s.resolvers = append(s.resolvers, resolver)
+	s.msps = append(s.msps, msp)
 }
 
 func (s *service) deserializerManager() DeserializerManager {
@@ -349,156 +337,162 @@ func (s *service) deserializerManager() DeserializerManager {
 	return dm.(DeserializerManager)
 }
 
-func (s *service) loadDefaultResolver() error {
-	var mspConfigDir = s.config.MSPConfigPath()
-	if len(mspConfigDir) == 0 {
-		logger.Warnf("default msp config not set, this might have an impact on the rest of the system")
-		return nil
-	}
-
-	var mspID = s.config.LocalMSPID()
-	var mspType = s.config.LocalMSPType()
-	switch {
-	case mspType == "":
-		mspType = msp.ProviderTypeToString(msp.FABRIC)
-	case mspType != msp.ProviderTypeToString(msp.FABRIC):
-		return errors.Errorf("default identity must by of type [%s]", msp.ProviderTypeToString(msp.FABRIC))
-	}
-	provider, err := x5092.NewProvider(mspConfigDir, mspID, s.signerService)
-	if err != nil {
-		return err
-	}
-	s.defaultSigningIdentity, err = provider.SerializedIdentity()
-	if err != nil {
-		return err
-	}
-	s.defaultIdentity, _, err = provider.Identity(nil)
-	if err != nil {
-		return err
-	}
-
-	s.addResolver("default", mspType, provider.EnrollmentID(), provider.Identity)
-	s.deserializerManager().AddDeserializer(provider)
-
-	return nil
-}
-
-func (s *service) loadExtraResolvers() error {
+func (s *service) loadLocalMSPs() error {
 	configs, err := s.config.MSPs()
 	if err != nil {
-		return err
+		return errors.WithMessagef(err, "failed loading local MSP configs")
 	}
-	logger.Debugf("Found extra identities %d", len(configs))
-
-	type Provider interface {
-		EnrollmentID() string
-		Identity(opts *api2.IdentityOptions) (view.Identity, []byte, error)
-		DeserializeVerifier(raw []byte) (driver.Verifier, error)
-		DeserializeSigner(raw []byte) (driver.Signer, error)
-		Info(raw []byte, auditInfo []byte) (string, error)
+	defaultMSP := s.config.DefaultMSP()
+	if len(defaultMSP) == 0 {
+		return errors.New("default MSP not configured")
 	}
-	var provider Provider
-	dm := s.deserializerManager()
 
+	logger.Debugf("Local Local [%d] MSPS using default [%s]", len(configs), defaultMSP)
 	for _, config := range configs {
-		cacheSize := s.cacheSize
-		if config.CacheSize > 0 {
-			cacheSize = config.CacheSize
-		}
-
 		switch config.MSPType {
 		case IdemixMSP:
-			conf, err := msp.GetLocalMspConfigWithType(s.config.TranslatePath(config.Path), nil, config.MSPID, config.MSPType)
-			if err != nil {
-				return errors.Wrapf(err, "failed reading idemix msp configuration from [%s]", s.config.TranslatePath(config.Path))
+			if err := s.loadIdemixMSP(config); err != nil {
+				return errors.WithMessagef(err, "failed to load idemix msp [%s]", config.ID)
 			}
-			provider, err = idemix2.NewAnyProvider(conf, s.sp)
-			if err != nil {
-				return errors.Wrapf(err, "failed instantiating idemix msp provider from [%s]", s.config.TranslatePath(config.Path))
-			}
-			dm.AddDeserializer(provider)
-			s.addResolver(config.ID, config.MSPType, provider.EnrollmentID(), NewIdentityCache(provider.Identity, cacheSize).Identity)
-			logger.Debugf("added %s resolver for id %s with cache of size %d", config.MSPType, config.ID+"@"+provider.EnrollmentID(), cacheSize)
-		case BccspMSP:
-			provider, err = x5092.NewProvider(s.config.TranslatePath(config.Path), config.MSPID, s.signerService)
-			if err != nil {
-				return errors.Wrapf(err, "failed instantiating x509 msp provider from [%s]", s.config.TranslatePath(config.Path))
-			}
-			dm.AddDeserializer(provider)
-			s.addResolver(config.ID, config.MSPType, provider.EnrollmentID(), provider.Identity)
 		case IdemixMSPFolder:
-			entries, err := ioutil.ReadDir(s.config.TranslatePath(config.Path))
-			if err != nil {
-				logger.Warnf("failed reading from [%s]: [%s]", s.config.TranslatePath(config.Path), err)
-				continue
+			if err := s.loadIdemixMSPFolder(config); err != nil {
+				return errors.WithMessagef(err, "failed to load idemix msp folder [%s]", config.ID)
 			}
-			for _, entry := range entries {
-				if !entry.IsDir() {
-					continue
-				}
-				id := entry.Name()
-				conf, err := msp.GetLocalMspConfigWithType(
-					filepath.Join(s.config.TranslatePath(config.Path), id),
-					nil,
-					config.MSPID,
-					IdemixMSP,
-				)
-				if err != nil {
-					logger.Warnf("failed reading idemix msp configuration from [%s]: [%s]", filepath.Join(s.config.TranslatePath(config.Path), id), err)
-					continue
-				}
-				provider, err = idemix2.NewAnyProvider(conf, s.sp)
-				if err != nil {
-					logger.Warnf("failed instantiating idemix msp configuration from [%s]: [%s]", filepath.Join(s.config.TranslatePath(config.Path), id), err)
-					continue
-				}
-				dm.AddDeserializer(provider)
-				logger.Debugf("Adding resolver [%s:%s]", id, provider.EnrollmentID())
-				s.addResolver(id, IdemixMSP, provider.EnrollmentID(), NewIdentityCache(provider.Identity, cacheSize).Identity)
-				logger.Debugf("added %s resolver for id %s with cache of size %d", IdemixMSP, id+"@"+provider.EnrollmentID(), cacheSize)
+		case BccspMSP:
+			if err := s.loadBCCSPMSP(config.ID, config, defaultMSP); err != nil {
+				return errors.WithMessagef(err, "failed loading bccsp msp [%s]", config.ID)
 			}
 		case BccspMSPFolder:
-			entries, err := ioutil.ReadDir(s.config.TranslatePath(config.Path))
-			if err != nil {
-				logger.Warnf("failed reading from [%s]: [%s]", s.config.TranslatePath(config.Path), err)
-				continue
-			}
-			for _, entry := range entries {
-				if !entry.IsDir() {
-					continue
-				}
-				id := entry.Name()
-
-				// Try without "msp"
-				provider, err = x5092.NewProvider(
-					filepath.Join(s.config.TranslatePath(config.Path), id),
-					config.MSPID,
-					s.signerService,
-				)
-				if err != nil {
-					logger.Debugf("failed reading bccsp msp configuration from [%s]: [%s]", filepath.Join(s.config.TranslatePath(config.Path), id), err)
-					// Try with "msp"
-					provider, err = x5092.NewProvider(
-						filepath.Join(s.config.TranslatePath(config.Path), id, "msp"),
-						config.MSPID,
-						s.signerService,
-					)
-					if err != nil {
-						logger.Warnf("failed reading bccsp msp configuration from [%s and %s]: [%s]",
-							filepath.Join(s.config.TranslatePath(config.Path),
-								filepath.Join(s.config.TranslatePath(config.Path), id, "msp")), err,
-						)
-						continue
-					}
-				}
-
-				dm.AddDeserializer(provider)
-				logger.Debugf("Adding resolver [%s:%s]", id, provider.EnrollmentID())
-				s.addResolver(id, BccspMSP, provider.EnrollmentID(), provider.Identity)
+			if err := s.loadBCCSPMSPFolder(config, defaultMSP); err != nil {
+				return errors.WithMessagef(err, "failed loading bccsp msp folder [%s]", config.Path)
 			}
 		default:
 			logger.Warnf("msp type [%s] not recognized, skipping", config.MSPType)
 			continue
+		}
+	}
+
+	if s.defaultIdentity == nil {
+		return errors.Errorf("no default identity set for network [%s]", s.config.Name())
+	}
+
+	return nil
+}
+
+func (s *service) loadBCCSPMSP(id string, c config.MSP, defaultMSP string) error {
+	// Try without "msp"
+	var bccspOpts *config.BCCSP
+	if c.Opts != nil {
+		bccspOpts = c.Opts.BCCSP
+	}
+	provider, err := x509.NewProviderWithBCCSPConfig(
+		s.config.TranslatePath(c.Path),
+		c.MSPID,
+		s.signerService,
+		bccspOpts,
+	)
+	if err != nil {
+		logger.Warnf("failed reading bccsp msp configuration from [%s]: [%s]", filepath.Join(s.config.TranslatePath(c.Path), id), err)
+		// Try with "msp"
+		provider, err = x509.NewProviderWithBCCSPConfig(
+			filepath.Join(s.config.TranslatePath(c.Path), "msp"),
+			c.MSPID,
+			s.signerService,
+			bccspOpts,
+		)
+		if err != nil {
+			logger.Warnf("failed reading bccsp msp configuration from [%s and %s]: [%s]",
+				filepath.Join(s.config.TranslatePath(c.Path),
+					filepath.Join(s.config.TranslatePath(c.Path), "msp")), err,
+			)
+			return errors.WithMessagef(err, "failed to load BCCSP MSP configuration [%s]", id)
+		}
+	}
+
+	s.deserializerManager().AddDeserializer(provider)
+	s.addMSP(c.ID, c.MSPType, provider.EnrollmentID(), provider.Identity)
+	if id == defaultMSP {
+		if s.defaultIdentity == nil {
+			logger.Infof("setting default identity to [%s]", c.ID)
+		}
+
+		// set default
+		s.defaultIdentity, _, err = provider.Identity(nil)
+		if err != nil {
+			return errors.WithMessagef(err, "failed to get default identity for [%s]", c.MSPID)
+		}
+		s.defaultSigningIdentity, err = provider.SerializedIdentity()
+		if err != nil {
+			return errors.WithMessagef(err, "failed to get default signing identity for [%s]", c.MSPID)
+		}
+	}
+	return nil
+}
+
+func (s *service) loadIdemixMSP(config config.MSP) error {
+	conf, err := msp.GetLocalMspConfigWithType(s.config.TranslatePath(config.Path), nil, config.MSPID, config.MSPType)
+	if err != nil {
+		return errors.Wrapf(err, "failed reading idemix msp configuration from [%s]", s.config.TranslatePath(config.Path))
+	}
+	provider, err := idemix.NewAnyProvider(conf, s.sp)
+	if err != nil {
+		return errors.Wrapf(err, "failed instantiating idemix msp provider from [%s]", s.config.TranslatePath(config.Path))
+	}
+	s.deserializerManager().AddDeserializer(provider)
+	cacheSize := s.cacheSize
+	if config.CacheSize > 0 {
+		cacheSize = config.CacheSize
+	}
+	s.addMSP(config.ID, config.MSPType, provider.EnrollmentID(), NewIdentityCache(provider.Identity, cacheSize).Identity)
+	logger.Debugf("added %s msp for id %s with cache of size %d", config.MSPType, config.ID+"@"+provider.EnrollmentID(), cacheSize)
+
+	return nil
+}
+
+func (s *service) loadBCCSPMSPFolder(mspConfig config.MSP, defaultMSP string) error {
+	entries, err := ioutil.ReadDir(s.config.TranslatePath(mspConfig.Path))
+	if err != nil {
+		logger.Warnf("failed reading from [%s]: [%s]", s.config.TranslatePath(mspConfig.Path), err)
+		return errors.Wrapf(err, "failed reading from [%s]", s.config.TranslatePath(mspConfig.Path))
+	}
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		id := entry.Name()
+
+		if err := s.loadBCCSPMSP(id, config.MSP{
+			ID:      id,
+			MSPType: BccspMSP,
+			MSPID:   id,
+			Path:    filepath.Join(s.config.TranslatePath(mspConfig.Path), id),
+			Opts:    mspConfig.Opts,
+		}, defaultMSP); err != nil {
+			return errors.WithMessagef(err, "failed to load BCCSP MSP configuration [%s]", id)
+		}
+	}
+	return nil
+}
+
+func (s *service) loadIdemixMSPFolder(mspConfig config.MSP) error {
+	entries, err := ioutil.ReadDir(s.config.TranslatePath(mspConfig.Path))
+	if err != nil {
+		logger.Warnf("failed reading from [%s]: [%s]", s.config.TranslatePath(mspConfig.Path), err)
+		return errors.Wrapf(err, "failed reading from [%s]", s.config.TranslatePath(mspConfig.Path))
+	}
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		id := entry.Name()
+
+		if err := s.loadIdemixMSP(config.MSP{
+			ID:      id,
+			MSPType: IdemixMSP,
+			MSPID:   id,
+			Path:    filepath.Join(s.config.TranslatePath(mspConfig.Path), id),
+		}); err != nil {
+			return errors.WithMessagef(err, "failed to load Idemix MSP configuration [%s]", id)
 		}
 	}
 	return nil

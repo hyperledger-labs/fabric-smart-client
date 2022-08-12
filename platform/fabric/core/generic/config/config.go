@@ -65,6 +65,10 @@ func New(configService configService, name string, defaultConfig bool) (*Config,
 	return nil, errors.Errorf("configuration for [%s] not found", name)
 }
 
+func (c *Config) Name() string {
+	return c.name
+}
+
 func (c *Config) TLSEnabled() bool {
 	return c.configService.GetBool("fabric." + c.prefix + "tls.enabled")
 }
@@ -159,8 +163,9 @@ func (c *Config) VaultTXStoreCacheSize(defaultCacheSize int) int {
 	return cacheSize
 }
 
-func (c *Config) MSPConfigPath() string {
-	return c.configService.GetPath("fabric." + c.prefix + "mspConfigPath")
+// DefaultMSP returns the default MSP
+func (c *Config) DefaultMSP() string {
+	return c.configService.GetString("fabric." + c.prefix + "defaultMSP")
 }
 
 func (c *Config) MSPs() ([]MSP, error) {
@@ -169,16 +174,6 @@ func (c *Config) MSPs() ([]MSP, error) {
 		return nil, err
 	}
 	return confs, nil
-}
-
-// LocalMSPID returns the local MSP ID
-func (c *Config) LocalMSPID() string {
-	return c.configService.GetString("fabric." + c.prefix + "localMspId")
-}
-
-// LocalMSPType returns the local MSP Type
-func (c *Config) LocalMSPType() string {
-	return c.configService.GetString("fabric." + c.prefix + "localMspType")
 }
 
 // TranslatePath translates the passed path relative to the path from which the configuration has been loaded

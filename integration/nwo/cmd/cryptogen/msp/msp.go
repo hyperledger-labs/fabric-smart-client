@@ -7,17 +7,18 @@ SPDX-License-Identifier: Apache-2.0
 package msp
 
 import (
+	"crypto/ecdsa"
 	"crypto/x509"
 	"encoding/pem"
 	"os"
 	"path/filepath"
 
+	ca2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/cryptogen/ca"
+	csp2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/cryptogen/csp"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/pkcs11"
 	fabricmsp "github.com/hyperledger/fabric/msp"
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
-
-	ca2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/cryptogen/ca"
-	csp2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/cryptogen/csp"
 )
 
 const (
@@ -41,15 +42,7 @@ var nodeOUMap = map[int]string{
 	ORDERER: ORDEREROU,
 }
 
-func GenerateLocalMSP(
-	baseDir,
-	name string,
-	sans []string,
-	signCA *ca2.CA,
-	tlsCA *ca2.CA,
-	nodeType int,
-	nodeOUs bool,
-) error {
+func GenerateLocalMSP(baseDir, name string, sans []string, signCA, tlsCA *ca2.CA, nodeType int, nodeOUs, hsm bool) error {
 
 	// create folder structure
 	mspDir := filepath.Join(baseDir, "msp")
@@ -68,13 +61,22 @@ func GenerateLocalMSP(
 	/*
 		Create the MSP identity artifacts
 	*/
-	// get keystore path
-	keystore := filepath.Join(mspDir, "keystore")
 
 	// generate private key
-	priv, err := csp2.GeneratePrivateKey(keystore)
-	if err != nil {
-		return err
+	var pk *ecdsa.PublicKey
+	if hsm {
+		pk, err = pkcs11.GeneratePrivateKey()
+		if err != nil {
+			return err
+		}
+	} else {
+		// get keystore path
+		keystore := filepath.Join(mspDir, "keystore")
+		priv, err := csp2.GeneratePrivateKey(keystore)
+		if err != nil {
+			return err
+		}
+		pk = &priv.PublicKey
 	}
 
 	// generate X509 certificate using signing CA
@@ -87,7 +89,7 @@ func GenerateLocalMSP(
 		name,
 		ous,
 		nil,
-		&priv.PublicKey,
+		pk,
 		x509.KeyUsageDigitalSignature,
 		[]x509.ExtKeyUsage{},
 		nodeType,

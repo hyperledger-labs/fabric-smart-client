@@ -28,6 +28,7 @@ const (
 	PingPong2Port
 	PingPongWithAdminPort
 	IOUPort
+	IOUHSMPort
 	AssetTransferSecuredAgreementWithChaincode
 	AssetTransferSecuredAgreementWithApprovers
 	TwoFabricNetworksPort

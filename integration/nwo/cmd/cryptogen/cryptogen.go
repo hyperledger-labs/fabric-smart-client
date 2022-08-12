@@ -15,10 +15,9 @@ import (
 	"path/filepath"
 	"text/template"
 
-	"gopkg.in/yaml.v2"
-
 	ca2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/cryptogen/ca"
 	msp2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/cryptogen/msp"
+	"gopkg.in/yaml.v2"
 )
 
 const (
@@ -58,11 +57,17 @@ type NodeSpec struct {
 	StreetAddress      string   `yaml:"StreetAddress"`
 	PostalCode         string   `yaml:"PostalCode"`
 	SANS               []string `yaml:"SANS"`
+	HSM                bool     `yaml:"HSM"`
+}
+
+type UserSpec struct {
+	Name string `yaml:"Name"`
+	HSM  bool   `yaml:"HSM"`
 }
 
 type UsersSpec struct {
-	Count int      `yaml:"Count"`
-	Names []string `yaml:"Names"`
+	Count int        `yaml:"Count"`
+	Specs []UserSpec `yaml:"Specs"`
 }
 
 type OrgSpec struct {
@@ -391,13 +396,13 @@ func generatePeerOrg(baseDir string, orgSpec OrgSpec) {
 
 	generateNodes(peersDir, orgSpec.Specs, signCA, tlsCA, msp2.PEER, orgSpec.EnableNodeOUs)
 
-	users := []NodeSpec{}
-	if len(orgSpec.Users.Names) != 0 {
-		for j := 0; j < len(orgSpec.Users.Names); j++ {
+	var users []NodeSpec
+	if len(orgSpec.Users.Specs) != 0 {
+		for j := 0; j < len(orgSpec.Users.Specs); j++ {
 			user := NodeSpec{
-				CommonName: fmt.Sprintf("%s@%s", orgSpec.Users.Names[j], orgName),
+				CommonName: fmt.Sprintf("%s@%s", orgSpec.Users.Specs[j].Name, orgName),
+				HSM:        orgSpec.Users.Specs[j].HSM,
 			}
-
 			users = append(users, user)
 		}
 	} else {
@@ -405,7 +410,6 @@ func generatePeerOrg(baseDir string, orgSpec OrgSpec) {
 			user := NodeSpec{
 				CommonName: fmt.Sprintf("%s%d@%s", userBaseName, j, orgName),
 			}
-
 			users = append(users, user)
 		}
 	}
@@ -476,7 +480,7 @@ func generateNodes(baseDir string, nodes []NodeSpec, signCA *ca2.CA, tlsCA *ca2.
 			if node.isAdmin && nodeOUs {
 				currentNodeType = msp2.ADMIN
 			}
-			err := msp2.GenerateLocalMSP(nodeDir, node.CommonName, node.SANS, signCA, tlsCA, currentNodeType, nodeOUs)
+			err := msp2.GenerateLocalMSP(nodeDir, node.CommonName, node.SANS, signCA, tlsCA, currentNodeType, nodeOUs, node.HSM)
 			if err != nil {
 				fmt.Printf("Error generating local MSP for %v:\n%v\n", node, err)
 				os.Exit(1)

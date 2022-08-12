@@ -22,12 +22,11 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/pkcs11"
 	runner2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/runner"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/commands"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/fabricconfig"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/opts"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
@@ -427,7 +426,7 @@ func (n *Network) PeerLocalIdemixExtraIdentitiesDir(p *topology.Peer) string {
 }
 
 func (n *Network) PeerLocalExtraIdentityDir(p *topology.Peer, id string) string {
-	for _, identity := range p.ExtraIdentities {
+	for _, identity := range p.Identities {
 		if identity.ID == id {
 			switch identity.MSPType {
 			case "idemix":
@@ -579,7 +578,7 @@ func (n *Network) bootstrapIdemix() {
 
 func (n *Network) bootstrapExtraIdentities() {
 	for i, peer := range n.Peers {
-		for j, identity := range peer.ExtraIdentities {
+		for j, identity := range peer.Identities {
 			switch identity.MSPType {
 			case "idemix":
 				org := n.Organization(identity.Org)
@@ -601,147 +600,6 @@ func (n *Network) bootstrapExtraIdentities() {
 				Expect(identity.MSPType).To(Equal("idemix"))
 			}
 		}
-	}
-}
-
-func (n *Network) CheckTopology() {
-	if n.Templates == nil {
-		n.Templates = &topology.Templates{}
-	}
-
-	if n.Logging == nil {
-		n.Logging = &topology.Logging{
-			Spec:   "debug",
-			Format: "'%{color}%{time:2006-01-02 15:04:05.000 MST} [%{module}] %{shortfunc} -> %{level:.4s} %{id:03x}%{color:reset} %{message}'",
-		}
-	}
-
-	for _, o := range n.Orderers {
-		ports := api.Ports{}
-		for _, portName := range OrdererPortNames() {
-			ports[portName] = n.Context.ReservePort()
-		}
-		n.PortsByOrdererID[o.ID()] = ports
-	}
-
-	fscTopology := n.Context.TopologyByName("fsc").(*fsc.Topology)
-	users := map[string]int{}
-	userNames := map[string][]string{}
-	for _, node := range fscTopology.Nodes {
-		var extraIdentities []*topology.PeerIdentity
-
-		po := node.PlatformOpts()
-		nodeOpts := opts.Get(po)
-		orgs := nodeOpts.Organizations()
-		Expect(orgs).NotTo(BeEmpty())
-
-		var org opts.Organization
-		found := false
-		for _, o := range orgs {
-			if o.Network != "" && o.Network == n.topology.TopologyName {
-				found = true
-				org = o
-			}
-		}
-		if !found {
-			for _, o := range orgs {
-				if o.Network == "" {
-					found = true
-					org = o
-				}
-			}
-		}
-		if !found {
-			continue
-		}
-
-		userNames[org.Org] = append(userNames[org.Org], node.Name)
-
-		if nodeOpts.AnonymousIdentity() {
-			extraIdentities = append(extraIdentities, &topology.PeerIdentity{
-				ID:           "idemix",
-				EnrollmentID: node.Name,
-				MSPType:      "idemix",
-				MSPID:        "IdemixOrgMSP",
-				Org:          "IdemixOrg",
-			})
-			n.Context.AddIdentityAlias(node.Name, "idemix")
-		}
-		for _, label := range nodeOpts.IdemixIdentities() {
-			if label == "_default_" {
-				continue
-			}
-			extraIdentities = append(extraIdentities, &topology.PeerIdentity{
-				ID:           label,
-				EnrollmentID: label,
-				MSPType:      "idemix",
-				MSPID:        "IdemixOrgMSP",
-				Org:          "IdemixOrg",
-			})
-			n.Context.AddIdentityAlias(node.Name, label)
-		}
-		for _, label := range nodeOpts.X509Identities() {
-			if label == "_default_" {
-				continue
-			}
-			extraIdentities = append(extraIdentities, &topology.PeerIdentity{
-				ID:           label,
-				MSPType:      "bccsp",
-				EnrollmentID: label,
-				MSPID:        org.Org + "MSP",
-				Org:          org.Org,
-			})
-			users[org.Org] = users[org.Org] + 1
-			userNames[org.Org] = append(userNames[org.Org], label)
-			n.Context.AddIdentityAlias(node.Name, label)
-		}
-
-		var defaultNetwork bool
-		switch {
-		case nodeOpts.DefaultNetwork() == "":
-			defaultNetwork = n.topology.Default
-		case n.topology.TopologyName == nodeOpts.DefaultNetwork():
-			defaultNetwork = true
-		default:
-			defaultNetwork = false
-		}
-		p := &topology.Peer{
-			Name:            node.Name,
-			Organization:    org.Org,
-			Type:            topology.FSCPeer,
-			Role:            nodeOpts.Role(),
-			Bootstrap:       node.Bootstrap,
-			ExecutablePath:  node.ExecutablePath,
-			ExtraIdentities: extraIdentities,
-			DefaultNetwork:  defaultNetwork,
-		}
-		n.Peers = append(n.Peers, p)
-		n.Context.SetPortsByPeerID("fsc", p.ID(), n.Context.PortsByPeerID(n.Prefix, node.Name))
-	}
-
-	for _, organization := range n.Organizations {
-		organization.Users += users[organization.Name]
-		if n.topology.Weaver {
-			organization.UserNames = append(userNames[organization.Name], "User1", "User2", "Relay", "RelayAdmin")
-		} else {
-			organization.UserNames = append(userNames[organization.Name], "User1", "User2")
-		}
-	}
-
-	for _, p := range n.Peers {
-		if p.Type == topology.FSCPeer {
-			continue
-		}
-		ports := api.Ports{}
-		for _, portName := range PeerPortNames() {
-			ports[portName] = n.Context.ReservePort()
-		}
-		n.Context.SetPortsByPeerID(n.Prefix, p.ID(), ports)
-	}
-
-	// Extensions
-	for _, extension := range n.Extensions {
-		extension.CheckTopology()
 	}
 }
 
@@ -1671,13 +1529,18 @@ func (n *Network) GenerateCoreConfig(p *topology.Peer) {
 		coreTemplate := n.Templates.CoreTemplate()
 		defaultNetwork := n.topology.Default
 		if p.Type == topology.FSCPeer {
-			coreTemplate = n.Templates.FSCNodeConfigExtensionTemplate()
+			coreTemplate = n.Templates.FSCFabricExtensionTemplate()
 			peers := n.PeersInOrg(p.Organization)
 			defaultNetwork = p.DefaultNetwork
 			for _, peer := range peers {
 				if peer.Type == topology.FabricPeer {
 					refPeers = append(refPeers, peer)
 				}
+			}
+		}
+		for _, identity := range p.Identities {
+			if len(identity.Path) == 0 {
+				identity.Path = n.PeerLocalExtraIdentityDir(p, identity.ID)
 			}
 		}
 
@@ -1735,4 +1598,28 @@ func (n *Network) Chaincodes(channel string) []*topology.ChannelChaincode {
 		}
 	}
 	return res
+}
+
+// BCCSPOpts returns a `topology.BCCSP` instance. `defaultProvider` sets the `Default` value of the BCCSP,
+// that is denoting the which provider impl is used. `defaultProvider` currently supports `SW` and `PKCS11`.
+func BCCSPOpts(defaultProvider string) *topology.BCCSP {
+	bccsp := &topology.BCCSP{
+		Default: defaultProvider,
+		SW: &topology.SoftwareProvider{
+			Hash:     "SHA2",
+			Security: 256,
+		},
+		PKCS11: &topology.PKCS11{
+			Hash:     "SHA2",
+			Security: 256,
+		},
+	}
+	if defaultProvider == pkcs11.Provider {
+		lib, pin, label, err := pkcs11.FindPKCS11Lib()
+		Expect(err).ToNot(HaveOccurred(), "cannot find PKCS11 lib")
+		bccsp.PKCS11.Pin = pin
+		bccsp.PKCS11.Label = label
+		bccsp.PKCS11.Library = lib
+	}
+	return bccsp
 }

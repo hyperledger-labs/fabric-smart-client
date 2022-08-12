@@ -84,10 +84,34 @@ func WithX509Identity(label string) node.Option {
 	}
 }
 
+func WithX509IdentityByHSM(label string) node.Option {
+	return func(o *node.Options) error {
+		fo := Options(o)
+		fo.SetHSMX509Identities(append(fo.X509IdentitiesByHSM(), label))
+		return nil
+	}
+}
+
 func WithIdemixIdentity(label string) node.Option {
 	return func(o *node.Options) error {
 		fo := Options(o)
 		fo.SetIdemixIdentities(append(fo.IdemixIdentities(), label))
+		return nil
+	}
+}
+
+// WithDefaultIdentityByHSM to make the default identity to be HSM identity
+func WithDefaultIdentityByHSM() node.Option {
+	return func(o *node.Options) error {
+		Options(o).SetDefaultIdentityByHSM(true)
+		return nil
+	}
+}
+
+// WithDefaultIdentityWithLabel sets the label of the default identity
+func WithDefaultIdentityWithLabel(label string) node.Option {
+	return func(o *node.Options) error {
+		Options(o).SetDefaultIdentityLabel(label)
 		return nil
 	}
 }
