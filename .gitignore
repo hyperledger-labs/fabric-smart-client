@@ -7,3 +7,4 @@
 # ignoring all generated artifacts in integration tests
 integration/**/testdata/
 integration/**/cmd/
+!integration/nwo/cmd/

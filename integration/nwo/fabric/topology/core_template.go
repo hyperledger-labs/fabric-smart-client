@@ -243,27 +243,36 @@ metrics:
     prefix: {{ ReplaceAll (ToLower Peer.ID) "." "_" }}
 `
 
-const DefaultViewExtensionTemplate = `
+const DefaultFSCFabricExtensionTemplate = `
 fabric:
   enabled: true
   {{ FabricName }}:
     default: {{ DefaultNetwork }}
-    BCCSP:
-      Default: SW
-      SW:
-        Hash: SHA2
-        Security: 256
-        FileKeyStore:
-          KeyStore:
-    mspConfigPath: {{ .ViewNodeMSPDir Peer }}
-    localMspId: {{ (.Organization Peer.Organization).MSPID }}
     mspCacheSize: 500
-    msps: {{ range Peer.ExtraIdentities }}
+    defaultMSP: {{ Peer.DefaultIdentity }}
+    msps: {{ range Peer.Identities }}
       - id: {{ .ID }}
         mspType: {{ .MSPType }}
         mspID: {{ .MSPID }}
         cacheSize: {{ .CacheSize }}
-        path: {{ PeerLocalExtraIdentityDir Peer .ID }}
+        path: {{ .Path }}
+        opts:
+          BCCSP:
+            Default: {{ .Opts.Default }}
+            # Settings for the SW crypto provider (i.e. when DEFAULT: SW)
+            SW:
+               Hash: {{ .Opts.SW.Hash }}
+               Security: {{ .Opts.SW.Security }}
+            # Settings for the PKCS#11 crypto provider (i.e. when DEFAULT: PKCS11)
+            PKCS11:
+               # Location of the PKCS11 module library
+               Library: {{ .Opts.PKCS11.Library }}
+               # Token Label
+               Label: {{ .Opts.PKCS11.Label }}
+               # User PIN
+               Pin: {{ .Opts.PKCS11.Pin }}
+               Hash: {{ .Opts.PKCS11.Hash }}
+               Security: {{ .Opts.PKCS11.Security }}
     {{- end }}
     tls:
       enabled:  true

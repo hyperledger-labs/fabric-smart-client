@@ -11,13 +11,13 @@ import (
 	"os"
 	"strings"
 
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
-
 	"github.com/hyperledger-labs/fabric-smart-client/cmd/fsccli/version"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/artifactgen"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/cryptogen"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/hsm"
 	view "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/view/cmd"
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 const CmdRoot = "fsccli"
@@ -44,6 +44,7 @@ func main() {
 	mainCmd.AddCommand(artifactgen.NewCmd())
 	mainCmd.AddCommand(cryptogen.NewCmd())
 	mainCmd.AddCommand(view.NewCmd())
+	mainCmd.AddCommand(hsm.NewCmd())
 	mainCmd.AddCommand(version.Cmd())
 
 	// On failure Cobra prints the usage message and error string, so we only

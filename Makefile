@@ -77,6 +77,13 @@ integration-tests:
 integration-tests-iou:
 	cd ./integration/fabric/iou; ginkgo $(GINKGO_TEST_OPTS) .
 
+.PHONY: integration-tests-iou-hsm
+integration-tests-iou-hsm:
+	@echo "Setup SoftHSM"
+	@./ci/scripts/setup_softhsm.sh
+	@echo "Start Integration Test"
+	cd ./integration/fabric/iouhsm; ginkgo $(GINKGO_TEST_OPTS) .
+
 .PHONY: integration-tests-atsacc
 integration-tests-atsacc:
 	cd ./integration/fabric/atsa/chaincode; ginkgo $(GINKGO_TEST_OPTS) .

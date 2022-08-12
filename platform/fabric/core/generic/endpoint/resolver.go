@@ -110,7 +110,7 @@ func (r *resolverService) LoadResolvers() error {
 		// Bind Aliases
 		for _, alias := range resolver.Aliases {
 			if logger.IsEnabledFor(zapcore.DebugLevel) {
-				logger.Debugf("binging [%s] to [%s]", resolver.Name, alias)
+				logger.Debugf("binding [%s] to [%s]", resolver.Name, alias)
 			}
 			if err := r.service.Bind(resolver.Id, []byte(alias)); err != nil {
 				return errors.WithMessagef(err, "failed binding identity [%s] to alias [%s]", resolver.Name, alias)

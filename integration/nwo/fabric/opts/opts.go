@@ -104,6 +104,20 @@ func (o *Options) SetAnonymousIdentity(v bool) {
 	o.Mapping["AnonymousIdentity"] = v
 }
 
+// DefaultIdentityByHSM return true if the default identity is an HSM identity
+func (o *Options) DefaultIdentityByHSM() bool {
+	res := o.Mapping["DefaultIdentityByHSM"]
+	if res == nil {
+		return false
+	}
+	return res.(bool)
+}
+
+// SetDefaultIdentityByHSM sets the default identity to be an HSM identity
+func (o *Options) SetDefaultIdentityByHSM(v bool) {
+	o.Mapping["DefaultIdentityByHSM"] = v
+}
+
 func (o *Options) X509Identities() []string {
 	boxed := o.Mapping["X509Identities"]
 	if boxed == nil {
@@ -124,6 +138,28 @@ func (o *Options) SetX509Identities(ids []string) {
 	o.Mapping["X509Identities"] = ids
 }
 
+// X509IdentitiesByHSM returns the list of HSM X509 identity identifiers
+func (o *Options) X509IdentitiesByHSM() []string {
+	boxed := o.Mapping["X509IdentitiesByHSM"]
+	if boxed == nil {
+		return nil
+	}
+	res, ok := boxed.([]string)
+	if ok {
+		return res
+	}
+	res = []string{}
+	for _, v := range boxed.([]interface{}) {
+		res = append(res, v.(string))
+	}
+	return res
+}
+
+// SetHSMX509Identities sets the list of HSM X509 identity identifiers
+func (o *Options) SetHSMX509Identities(ids []string) {
+	o.Mapping["X509IdentitiesByHSM"] = ids
+}
+
 func (o *Options) IdemixIdentities() []string {
 	boxed := o.Mapping["IdemixIdentities"]
 	if boxed == nil {
@@ -142,6 +178,22 @@ func (o *Options) IdemixIdentities() []string {
 
 func (o *Options) SetIdemixIdentities(ids []string) {
 	o.Mapping["IdemixIdentities"] = ids
+}
+
+// SetDefaultIdentityLabel sets the label of the default identity.
+// The default identity is an X509 identity.
+func (o *Options) SetDefaultIdentityLabel(label string) {
+	o.Mapping["DefaultIdentityLabel"] = label
+}
+
+// DefaultIdentityLabel returns the label of the default identity.
+// If empty, it will then be set to the FSC node's name.
+func (o *Options) DefaultIdentityLabel() string {
+	v, ok := o.Mapping["DefaultIdentityLabel"]
+	if !ok {
+		return ""
+	}
+	return v.(string)
 }
 
 func Get(o *node.Options) *Options {

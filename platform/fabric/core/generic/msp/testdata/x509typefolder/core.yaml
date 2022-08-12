@@ -1,4 +1,5 @@
 fabric:
+  defaultMSP: Admin@org1.example.com
   msps:
   - id: pineapple
     mspType: bccsp-folder

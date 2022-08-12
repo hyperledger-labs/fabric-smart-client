@@ -54,7 +54,7 @@ func (n *Network) GenerateResolverMap() {
 					path = n.PeerLocalMSPIdentityCert(peer)
 				}
 			} else {
-				path = n.PeerLocalMSPIdentityCert(peer)
+				path = n.PeerUserLocalMSPIdentityCert(peer, peer.Name)
 			}
 		} else {
 			addresses = map[api.PortName]string{
@@ -66,7 +66,7 @@ func (n *Network) GenerateResolverMap() {
 		}
 
 		var aliases []string
-		for _, eid := range peer.ExtraIdentities {
+		for _, eid := range peer.Identities {
 			if len(eid.EnrollmentID) != 0 {
 				aliases = append(aliases, eid.EnrollmentID)
 			}

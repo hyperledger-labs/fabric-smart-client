@@ -10,12 +10,11 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/pkg/errors"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	session2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/session"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"github.com/pkg/errors"
 )
 
 // RecipientData models the answer to a request of recipient identity
@@ -192,8 +191,28 @@ func RespondRequestRecipientIdentity(context view.Context) (view.Identity, error
 
 // ExchangeRecipientIdentitiesView models the view of the initiator of an exchange of recipient identities.
 type ExchangeRecipientIdentitiesView struct {
-	Network string
-	Other   view.Identity
+	Network       string
+	IdentityLabel string
+	Other         view.Identity
+}
+
+// ExchangeRecipientIdentities runs the ExchangeRecipientIdentitiesView against the passed receiver.
+// The function returns, the recipient identity of the sender, the recipient identity of the receiver.
+func ExchangeRecipientIdentities(context view.Context, recipient view.Identity, opts ...ServiceOption) (view.Identity, view.Identity, error) {
+	opt, err := CompileServiceOptions(opts...)
+	if err != nil {
+		return nil, nil, errors.Wrapf(err, "failed to compile service options")
+	}
+	ids, err := context.RunView(&ExchangeRecipientIdentitiesView{
+		Network:       opt.Network,
+		Other:         recipient,
+		IdentityLabel: opt.Identity,
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return ids.([]view.Identity)[0], ids.([]view.Identity)[1], nil
 }
 
 func (f *ExchangeRecipientIdentitiesView) Call(context view.Context) (interface{}, error) {
@@ -202,7 +221,18 @@ func (f *ExchangeRecipientIdentitiesView) Call(context view.Context) (interface{
 		return nil, err
 	}
 
-	me := fabric.GetFabricNetworkService(context, f.Network).IdentityProvider().DefaultIdentity()
+	var me view.Identity
+	if len(f.IdentityLabel) != 0 {
+		me, err = fabric.GetFabricNetworkService(context, f.Network).LocalMembership().GetIdentityByID(f.IdentityLabel)
+		if err != nil {
+			return nil, errors.WithMessagef(err, "failed to get identity with label %s", f.IdentityLabel)
+		}
+	} else {
+		me = fabric.GetFabricNetworkService(context, f.Network).LocalMembership().DefaultIdentity()
+	}
+	if me.IsNone() {
+		return nil, errors.Errorf("no identity found with label %s", f.IdentityLabel)
+	}
 
 	// Send request
 	request := &ExchangeRecipientRequest{
@@ -249,7 +279,25 @@ func (f *ExchangeRecipientIdentitiesView) Call(context view.Context) (interface{
 
 // RespondExchangeRecipientIdentitiesView models the view of the responder of an exchange of recipient identities.
 type RespondExchangeRecipientIdentitiesView struct {
-	Network string
+	Network       string
+	IdentityLabel string
+}
+
+// RespondExchangeRecipientIdentities runs the RespondExchangeRecipientIdentitiesView
+func RespondExchangeRecipientIdentities(context view.Context, opts ...ServiceOption) (view.Identity, view.Identity, error) {
+	opt, err := CompileServiceOptions(opts...)
+	if err != nil {
+		return nil, nil, errors.Wrapf(err, "failed to compile service options")
+	}
+	ids, err := context.RunView(&RespondExchangeRecipientIdentitiesView{
+		Network:       opt.Network,
+		IdentityLabel: opt.Identity,
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return ids.([]view.Identity)[0], ids.([]view.Identity)[1], nil
 }
 
 func (s *RespondExchangeRecipientIdentitiesView) Call(context view.Context) (interface{}, error) {
@@ -264,7 +312,19 @@ func (s *RespondExchangeRecipientIdentitiesView) Call(context view.Context) (int
 		return nil, err
 	}
 
-	me := fabric.GetFabricNetworkService(context, s.Network).IdentityProvider().DefaultIdentity()
+	var me view.Identity
+	if len(s.IdentityLabel) != 0 {
+		me, err = fabric.GetFabricNetworkService(context, s.Network).LocalMembership().GetIdentityByID(s.IdentityLabel)
+		if err != nil {
+			return nil, errors.WithMessagef(err, "failed to get identity with label %s", s.IdentityLabel)
+		}
+	} else {
+		me = fabric.GetFabricNetworkService(context, s.Network).LocalMembership().DefaultIdentity()
+	}
+	if me.IsNone() {
+		return nil, errors.Errorf("no identity found with label %s", s.IdentityLabel)
+	}
+
 	other := request.RecipientData.Identity
 
 	recipientData := &RecipientData{
@@ -291,28 +351,4 @@ func (s *RespondExchangeRecipientIdentitiesView) Call(context view.Context) (int
 	}
 
 	return []view.Identity{me, other}, nil
-}
-
-// ExchangeRecipientIdentities runs the ExchangeRecipientIdentitiesView against the passed receiver.
-// The function returns, the recipient identity of the sender, the recipient identity of the receiver.
-func ExchangeRecipientIdentities(context view.Context, recipient view.Identity) (view.Identity, view.Identity, error) {
-	ids, err := context.RunView(&ExchangeRecipientIdentitiesView{
-		Network: "",
-		Other:   recipient,
-	})
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return ids.([]view.Identity)[0], ids.([]view.Identity)[1], nil
-}
-
-// RespondExchangeRecipientIdentities runs the RespondExchangeRecipientIdentitiesView
-func RespondExchangeRecipientIdentities(context view.Context) (view.Identity, view.Identity, error) {
-	ids, err := context.RunView(&RespondExchangeRecipientIdentitiesView{})
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return ids.([]view.Identity)[0], ids.([]view.Identity)[1], nil
 }

@@ -1,6 +1,11 @@
 fabric:
+  defaultMSP: apple
   msps:
   - id: pineapple
     mspType: idemix-folder
     mspID: idemix
     path: ./msps
+  - id: apple
+    mspType: bccsp
+    mspID: apple
+    path: ../manager@org2.example.com/msp

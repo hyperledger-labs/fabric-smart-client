@@ -4,13 +4,14 @@ Copyright IBM Corp All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package iou_test
+package iouhsm_test
 
 import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iouhsm"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -25,11 +26,11 @@ var _ = Describe("EndToEnd", func() {
 		ii.Stop()
 	})
 
-	Describe("IOU Life Cycle", func() {
+	Describe("IOU (With HSM) Life Cycle", func() {
 		BeforeEach(func() {
 			var err error
 			// Create the integration ii
-			ii, err = integration.GenerateAt(StartPort(), "", true, iou.Topology()...)
+			ii, err = integration.GenerateAt(StartPort(), "", true, iouhsm.Topology()...)
 			Expect(err).NotTo(HaveOccurred())
 			// Start the integration ii
 			ii.Start()
@@ -39,6 +40,13 @@ var _ = Describe("EndToEnd", func() {
 
 		It("succeeded", func() {
 			iouState := iou.CreateIOU(ii, "", 10)
+			iou.CheckState(ii, "borrower", iouState, 10)
+			iou.CheckState(ii, "lender", iouState, 10)
+			iou.UpdateIOU(ii, iouState, 5)
+			iou.CheckState(ii, "borrower", iouState, 5)
+			iou.CheckState(ii, "lender", iouState, 5)
+
+			iouState = iou.CreateIOU(ii, "borrower-hsm-2", 10)
 			iou.CheckState(ii, "borrower", iouState, 10)
 			iou.CheckState(ii, "lender", iouState, 10)
 			iou.UpdateIOU(ii, iouState, 5)

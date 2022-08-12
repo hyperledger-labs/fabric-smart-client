@@ -407,6 +407,9 @@ func (t *Transaction) Endorse() error {
 }
 
 func (t *Transaction) EndorseWithIdentity(identity view.Identity) error {
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("endorse transaction [%s] with identity [%s]", t.ID(), identity.String())
+	}
 	// prepare signer
 	s, err := t.fns.SignerService().GetSigner(identity)
 	if err != nil {

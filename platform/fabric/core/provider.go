@@ -8,6 +8,7 @@ package core
 
 import (
 	"context"
+	"os"
 	"reflect"
 	"sync"
 
@@ -21,6 +22,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	fabricLogging "github.com/hyperledger/fabric/common/flogging"
 	"github.com/pkg/errors"
 )
 
@@ -47,6 +49,7 @@ func NewFabricNetworkServiceProvider(sp view.ServiceProvider, config *Config) (*
 	if err := provider.InstallViews(); err != nil {
 		return nil, errors.WithMessage(err, "failed to install fns provider")
 	}
+	provider.InitFabricLogging()
 	return provider, nil
 }
 
@@ -121,6 +124,33 @@ func (p *fnsProvider) FabricNetworkService(network string) (driver.FabricNetwork
 func (p *fnsProvider) InstallViews() error {
 	view.GetRegistry(p.sp).RegisterResponder(views.NewIsFinalResponderView(p), &finality.IsFinalInitiatorView{})
 	return nil
+}
+
+// InitFabricLogging initializes the fabric logging system
+// using the FSC configuration.
+func (p *fnsProvider) InitFabricLogging() {
+	cs := view.GetConfigService(p.sp)
+	// read in the legacy logging level settings and, if set,
+	// notify users of the FSCNODE_LOGGING_SPEC env variable
+	var loggingLevel string
+	if cs.GetString("logging_level") != "" {
+		loggingLevel = cs.GetString("logging_level")
+	} else {
+		loggingLevel = cs.GetString("logging.level")
+	}
+	if loggingLevel != "" {
+		logger.Warning("CORE_LOGGING_LEVEL is no longer supported, please use the FSCNODE_LOGGING_SPEC environment variable")
+	}
+	loggingSpec := os.Getenv("FSCNODE_LOGGING_SPEC")
+	loggingFormat := os.Getenv("FSCNODE_LOGGING_FORMAT")
+	if len(loggingSpec) == 0 {
+		loggingSpec = cs.GetString("logging.spec")
+	}
+	fabricLogging.Init(fabricLogging.Config{
+		Format:  loggingFormat,
+		Writer:  os.Stderr,
+		LogSpec: loggingSpec,
+	})
 }
 
 func (p *fnsProvider) newFNS(network string) (driver.FabricNetworkService, error) {

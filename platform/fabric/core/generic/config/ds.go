@@ -10,12 +10,48 @@ import (
 	"time"
 )
 
+type BCCSP struct {
+	Default string            `yaml:"Default,omitempty"`
+	SW      *SoftwareProvider `yaml:"SW,omitempty"`
+	PKCS11  *PKCS11           `yaml:"PKCS11,omitempty"`
+}
+
+type SoftwareProvider struct {
+	Hash     string `yaml:"Hash,omitempty"`
+	Security int    `yaml:"Security,omitempty"`
+}
+
+type PKCS11 struct {
+	// Default algorithms when not specified (Deprecated?)
+	Security int    `yaml:"Security"`
+	Hash     string `yaml:"Hash"`
+
+	// PKCS11 options
+	Library        string         `yaml:"Library"`
+	Label          string         `yaml:"Label"`
+	Pin            string         `yaml:"Pin"`
+	SoftwareVerify bool           `yaml:"SoftwareVerify,omitempty"`
+	Immutable      bool           `yaml:"Immutable,omitempty"`
+	AltID          string         `yaml:"AltId,omitempty"`
+	KeyIDs         []KeyIDMapping `yaml:"KeyIds,omitempty" mapstructure:"KeyIds"`
+}
+
+type KeyIDMapping struct {
+	SKI string `yaml:"SKI,omitempty"`
+	ID  string `yaml:"ID,omitempty"`
+}
+
+type MSPOpts struct {
+	BCCSP *BCCSP `yaml:"BCCSP,omitempty"`
+}
+
 type MSP struct {
-	ID        string `yaml:"id"`
-	MSPType   string `yaml:"mspType"`
-	MSPID     string `yaml:"mspID"`
-	Path      string `yaml:"path"`
-	CacheSize int    `yaml:"cacheSize"`
+	ID        string   `yaml:"id"`
+	MSPType   string   `yaml:"mspType"`
+	MSPID     string   `yaml:"mspID"`
+	Path      string   `yaml:"path"`
+	CacheSize int      `yaml:"cacheSize"`
+	Opts      *MSPOpts `yaml:"opts, omitempty"`
 }
 
 type File struct {
@@ -60,15 +96,13 @@ type Channel struct {
 }
 
 type Network struct {
-	Default       bool                `yaml:"default,omitempty"`
-	BCCSP         *BCCSP              `yaml:"BCCSP,omitempty"`
-	MSPConfigPath string              `yaml:"mspConfigPath,omitempty"`
-	LocalMspId    string              `yaml:"localMspId,omitempty"`
-	MSPs          []*MSP              `yaml:"msps"`
-	TLS           TLS                 `yaml:"tls"`
-	Orderers      []*ConnectionConfig `yaml:"orderers"`
-	Peers         []*ConnectionConfig `yaml:"peers"`
-	Channels      []*Channel          `yaml:"channels"`
-	Vault         Vault               `yaml:"vault"`
-	Endpoint      *Endpoint           `yaml:"endpoint,omitempty"`
+	Default    bool                `yaml:"default,omitempty"`
+	DefaultMSP string              `yaml:"defaultMSP"`
+	MSPs       []*MSP              `yaml:"msps"`
+	TLS        TLS                 `yaml:"tls"`
+	Orderers   []*ConnectionConfig `yaml:"orderers"`
+	Peers      []*ConnectionConfig `yaml:"peers"`
+	Channels   []*Channel          `yaml:"channels"`
+	Vault      Vault               `yaml:"vault"`
+	Endpoint   *Endpoint           `yaml:"endpoint,omitempty"`
 }

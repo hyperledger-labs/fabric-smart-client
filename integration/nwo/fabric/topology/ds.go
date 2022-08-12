@@ -8,6 +8,8 @@ package topology
 
 import (
 	"fmt"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 )
 
 type PeerType string
@@ -22,18 +24,23 @@ type Logging struct {
 	Format string `yaml:"format,omitempty"`
 }
 
+type UserSpec struct {
+	Name string `yaml:"Name"`
+	HSM  bool   `yaml:"HSM"`
+}
+
 // Organization models information about an Organization. It includes
 // the information needed to populate an MSP with cryptogen.
 type Organization struct {
-	ID            string   `yaml:"id,omitempty"`
-	MSPID         string   `yaml:"msp_id,omitempty"`
-	MSPType       string   `yaml:"msp_type,omitempty"`
-	Name          string   `yaml:"name,omitempty"`
-	Domain        string   `yaml:"domain,omitempty"`
-	EnableNodeOUs bool     `yaml:"enable_node_organizational_units"`
-	Users         int      `yaml:"users,omitempty"`
-	UserNames     []string `yaml:"userNames,omitempty"`
-	CA            *CA      `yaml:"ca,omitempty"`
+	ID            string     `yaml:"id,omitempty"`
+	MSPID         string     `yaml:"msp_id,omitempty"`
+	MSPType       string     `yaml:"msp_type,omitempty"`
+	Name          string     `yaml:"name,omitempty"`
+	Domain        string     `yaml:"domain,omitempty"`
+	EnableNodeOUs bool       `yaml:"enable_node_organizational_units"`
+	Users         int        `yaml:"users,omitempty"`
+	UserSpecs     []UserSpec `yaml:"Specs,omitempty"`
+	CA            *CA        `yaml:"ca,omitempty"`
 }
 
 type CA struct {
@@ -108,13 +115,24 @@ type Policy struct {
 	Rule string
 }
 
+type BCCSP = config.BCCSP
+
+type SoftwareProvider = config.SoftwareProvider
+
+type PKCS11 = config.PKCS11
+
+type KeyIDMapping = config.KeyIDMapping
+
 type PeerIdentity struct {
 	ID           string
+	Default      bool
 	EnrollmentID string
 	MSPType      string
 	MSPID        string
 	CacheSize    int
 	Org          string
+	Path         string `yaml:"path,omitempty"`
+	Opts         *BCCSP `yaml:"opts,omitempty"`
 }
 
 // Peer defines a peer instance, it's owning organization, and the list of
@@ -127,7 +145,8 @@ type Peer struct {
 	ExecutablePath  string          `yaml:"executablepath,omitempty"`
 	Role            string          `yaml:"role,omitempty"`
 	Channels        []*PeerChannel  `yaml:"channels,omitempty"`
-	ExtraIdentities []*PeerIdentity `yaml:"extraidentities,omitempty"`
+	DefaultIdentity string          `yaml:"defaultMSP,omitempty"`
+	Identities      []*PeerIdentity `yaml:"identities,omitempty"`
 	DevMode         bool
 	DefaultNetwork  bool `yaml:"-"`
 }

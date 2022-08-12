@@ -24,8 +24,8 @@ PeerOrgs:{{ range .PeerOrgs }}
   Users:
     Count: {{ .Users }}
     {{- if len .UserNames }}
-    Names: {{ range .UserNames }}
-    - {{ . }}
+    Specs: {{ range .UserNames }}
+    - Name: {{ . }}
     {{- end }}
     {{- end }}
 

@@ -3,15 +3,15 @@ Copyright IBM Corp All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
 */
+
 package views
 
 import (
-	"github.com/pkg/errors"
-
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou/states"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"github.com/pkg/errors"
 )
 
 type ApproverView struct{}
