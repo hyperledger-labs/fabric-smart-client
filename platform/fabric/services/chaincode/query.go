@@ -101,6 +101,11 @@ func (i *queryChaincodeView) WithChannel(name string) *queryChaincodeView {
 	return i
 }
 
+func (i *queryChaincodeView) WithEndorsersByMSPIDs(mspIDs ...string) *queryChaincodeView {
+	i.InvokeCall.EndorsersMSPIDs = mspIDs
+	return i
+}
+
 func (i *queryChaincodeView) WithEndorsersFromMyOrg() *queryChaincodeView {
 	i.EndorsersFromMyOrg = true
 	return i
