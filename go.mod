@@ -72,7 +72,7 @@ require (
 	github.com/PuerkitoBio/purell v1.1.1 // indirect
 	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect
 	github.com/Shopify/sarama v1.26.3 // indirect
-	github.com/VictoriaMetrics/fastcache v1.9.0 // indirect
+	github.com/VictoriaMetrics/fastcache v1.5.7 // indirect
 	github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751 // indirect
 	github.com/alecthomas/units v0.0.0-20210912230133-d1bdfacee922 // indirect
 	github.com/benbjohnson/clock v1.3.0 // indirect
