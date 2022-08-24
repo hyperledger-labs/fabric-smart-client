@@ -15,7 +15,8 @@ Fabric Smart Client repository folder (`$FSC_PATH`).
   This demos shows how to use Fabric Private Chaincode in combination with Fabric Smart Clients.
 
 The samples will make use of docker to run various components. To make sure you have all the docker images you need,
-please, run `make docker-images` in the folder `$GOPATH/src/github.com/hyperledger-labs/fabric-smart-client`.
+please, run `make docker-images` in the folder `$FSC_PATH`.
+(`$FSC_PATH` refers to the Fabric Smart Client repository in your filesystem see [getting started](../README.md#getting-started))
 
 ## Additional Examples via Integration Tests
 

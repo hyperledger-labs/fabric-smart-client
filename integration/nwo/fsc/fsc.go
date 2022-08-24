@@ -584,15 +584,19 @@ func (p *Platform) NodeCmdDir(peer *node2.Peer) string {
 
 func (p *Platform) NodeCmdPackage(peer *node2.Peer) string {
 	gopath := os.Getenv("GOPATH")
-	Expect(gopath).ShouldNot(BeEmpty(), "$GOPATH is not set!")
-
 	wd, err := os.Getwd()
-	Expect(err).ToNot(HaveOccurred(), "$GOPATH=%s does not exists", gopath)
+	Expect(err).ToNot(HaveOccurred(), "Failed to get working directory: %s", err)
 
-	return strings.TrimPrefix(
-		filepath.Join(strings.TrimPrefix(wd, filepath.Join(gopath, "src")), "cmd", peer.Name),
-		string(filepath.Separator),
-	)
+	// if gopath is set to path within codebase, node command package will be relative within the codebase
+	// if gopath is not set or not within codebase, then it will be absolute path where the fsc node code is
+	// both can be built from these paths
+	if withoutGoPath := strings.TrimPrefix(wd, filepath.Join(gopath, "src")); withoutGoPath != wd {
+		return strings.TrimPrefix(
+			filepath.Join(withoutGoPath, "cmd", peer.Name),
+			string(filepath.Separator),
+		)
+	}
+	return filepath.Join(wd, "cmd", peer.Name)
 }
 
 func (p *Platform) NodeCmdPath(peer *node2.Peer) string {
