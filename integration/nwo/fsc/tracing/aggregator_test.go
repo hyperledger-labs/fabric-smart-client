@@ -85,6 +85,7 @@ func measure() {
 }
 
 func TestNewAggregatorFakeInput(t *testing.T) {
+	t.Skip()
 	var l Listener
 	var err error
 	go func() {
