@@ -27,23 +27,24 @@ import (
 )
 
 type Invoke struct {
-	Chaincode                *Chaincode
-	ServiceProvider          view2.ServiceProvider
-	Network                  Network
-	Channel                  Channel
-	TxID                     driver.TxID
-	SignerIdentity           view.Identity
-	ChaincodePath            string
-	ChaincodeName            string
-	ChaincodeVersion         string
-	TransientMap             map[string][]byte
-	Endorsers                []view.Identity
-	EndorsersMSPIDs          []string
-	ImplicitCollectionMSPIDs []string
-	EndorsersFromMyOrg       bool
-	EndorsersByConnConfig    []*grpc.ConnectionConfig
-	Function                 string
-	Args                     []interface{}
+	Chaincode                      *Chaincode
+	ServiceProvider                view2.ServiceProvider
+	Network                        Network
+	Channel                        Channel
+	TxID                           driver.TxID
+	SignerIdentity                 view.Identity
+	ChaincodePath                  string
+	ChaincodeName                  string
+	ChaincodeVersion               string
+	TransientMap                   map[string][]byte
+	Endorsers                      []view.Identity
+	EndorsersMSPIDs                []string
+	ImplicitCollectionMSPIDs       []string
+	EndorsersFromMyOrg             bool
+	EndorsersByConnConfig          []*grpc.ConnectionConfig
+	DiscoveredEndorsersByEndpoints []string
+	Function                       string
+	Args                           []interface{}
 }
 
 func NewInvoke(chaincode *Chaincode, function string, args ...interface{}) *Invoke {
@@ -146,6 +147,13 @@ func (i *Invoke) WithEndorsersFromMyOrg() driver.ChaincodeInvocation {
 	return i
 }
 
+// WithDiscoveredEndorsersByEndpoints sets the endpoints to be used to filter the result of
+// discovery. Discovery is used to identify the chaincode's endorsers, if not set otherwise.
+func (i *Invoke) WithDiscoveredEndorsersByEndpoints(endpoints ...string) driver.ChaincodeInvocation {
+	i.DiscoveredEndorsersByEndpoints = endpoints
+	return i
+}
+
 func (i *Invoke) WithSignerIdentity(id view.Identity) driver.ChaincodeInvocation {
 	i.SignerIdentity = id
 	return i
@@ -184,7 +192,7 @@ func (i *Invoke) prepare() (string, *pb.Proposal, []*pb.ProposalResponse, driver
 
 	// load endorser clients
 	var endorserClients []pb.EndorserClient
-	var discoveredPeer []driver.DiscoveredPeer
+	var discoveredPeers []driver.DiscoveredPeer
 	switch {
 	case len(i.EndorsersByConnConfig) != 0:
 		// get a peer client for each connection config
@@ -212,9 +220,22 @@ func (i *Invoke) prepare() (string, *pb.Proposal, []*pb.ProposalResponse, driver
 		).WithFilterByMSPIDs(
 			i.EndorsersMSPIDs...,
 		).WithImplicitCollections(i.ImplicitCollectionMSPIDs...)
-		discoveredPeer, err = discovery.Call()
+		peers, err := discovery.Call()
 		if err != nil {
 			return "", nil, nil, nil, err
+		}
+		if len(i.DiscoveredEndorsersByEndpoints) != 0 {
+			for _, peer := range peers {
+				for _, endpoint := range i.DiscoveredEndorsersByEndpoints {
+					if peer.Endpoint == endpoint {
+						// append
+						discoveredPeers = append(discoveredPeers, peer)
+						break
+					}
+				}
+			}
+		} else {
+			discoveredPeers = peers
 		}
 	case len(i.Endorsers) != 0:
 		// nothing to do here
@@ -231,7 +252,7 @@ func (i *Invoke) prepare() (string, *pb.Proposal, []*pb.ProposalResponse, driver
 		peerClients = append(peerClients, peerClient)
 	}
 	// get a peer client for all discovered peers
-	for _, peer := range discoveredPeer {
+	for _, peer := range discoveredPeers {
 		peerClient, err := i.Channel.NewPeerClientForAddress(grpc.ConnectionConfig{
 			Address:          peer.Endpoint,
 			TLSEnabled:       i.Network.Config().TLSEnabled(),
@@ -252,7 +273,7 @@ func (i *Invoke) prepare() (string, *pb.Proposal, []*pb.ProposalResponse, driver
 		endorserClients = append(endorserClients, endorserClient)
 	}
 	if len(endorserClients) == 0 {
-		return "", nil, nil, nil, errors.New("no endorser clients retrieved - this might indicate a bug")
+		return "", nil, nil, nil, errors.New("no endorser clients retrieved with the current filters")
 	}
 
 	// load signer

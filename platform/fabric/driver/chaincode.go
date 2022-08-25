@@ -39,6 +39,10 @@ type ChaincodeInvocation interface {
 	WithEndorsersByConnConfig(ccs ...*grpc.ConnectionConfig) ChaincodeInvocation
 
 	WithImplicitCollections(mspIDs ...string) ChaincodeInvocation
+
+	// WithDiscoveredEndorsersByEndpoints sets the endpoints to be used to filter the result of
+	// discovery. Discovery is used to identify the chaincode's endorsers, if not set otherwise.
+	WithDiscoveredEndorsersByEndpoints(endpoints ...string) ChaincodeInvocation
 }
 
 // DiscoveredPeer contains the information of a discovered peer

@@ -28,6 +28,7 @@ func Topology() []api.Topology {
 
 	// Create an empty FSC topology
 	fscTopology := fsc.NewTopology()
+	fscTopology.SetLogging("debug", "")
 
 	// Alice
 	alice := fscTopology.AddNodeByName("alice")
