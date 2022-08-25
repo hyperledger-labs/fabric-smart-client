@@ -175,6 +175,13 @@ func (i *ChaincodeQuery) WithEndorsers(ids ...view.Identity) *ChaincodeQuery {
 	return i
 }
 
+// WithDiscoveredEndorsersByEndpoints sets the endpoints to be used to filter the result of
+// discovery. Discovery is used to identify the chaincode's endorsers, if not set otherwise.
+func (i *ChaincodeQuery) WithDiscoveredEndorsersByEndpoints(endpoints ...string) *ChaincodeQuery {
+	i.ChaincodeInvocation.WithDiscoveredEndorsersByEndpoints(endpoints...)
+	return i
+}
+
 func (i *ChaincodeQuery) WithEndorsersByMSPIDs(mspIDs ...string) *ChaincodeQuery {
 	i.ChaincodeInvocation.WithEndorsersByMSPIDs(mspIDs...)
 	return i

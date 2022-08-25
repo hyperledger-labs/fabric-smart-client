@@ -7,31 +7,23 @@ SPDX-License-Identifier: Apache-2.0
 package fpc
 
 import (
-	fpc "github.com/hyperledger/fabric-private-chaincode/client_sdk/go/pkg/core/contract"
-	"github.com/pkg/errors"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	fpc "github.com/hyperledger/fabric-private-chaincode/client_sdk/go/pkg/core/contract"
+	"github.com/pkg/errors"
 )
 
 type transaction struct {
-	fns      *fabric.NetworkService
-	ch       *fabric.Channel
-	id       string
-	function string
-	peers    []string
-	invoker  view.Identity
-	txID     fabric.TxID
+	fns               *fabric.NetworkService
+	ch                *fabric.Channel
+	id                string
+	function          string
+	endorserEndpoints []string
+	invoker           view.Identity
+	txID              fabric.TxID
 }
 
 func (t *transaction) Evaluate(args ...string) ([]byte, error) {
-	var endorsers []view.Identity
-	ip := t.fns.IdentityProvider()
-	for _, peer := range t.peers {
-		endorsers = append(endorsers, ip.Identity(peer))
-	}
-
-	// gateway.WithEndorsingPeers(peers...),
 	var passedArgs []interface{}
 	for _, arg := range args {
 		passedArgs = append(passedArgs, arg)
@@ -40,8 +32,8 @@ func (t *transaction) Evaluate(args ...string) ([]byte, error) {
 		t.function, passedArgs...,
 	).WithInvokerIdentity(
 		t.invoker,
-	).WithEndorsers(
-		endorsers...,
+	).WithDiscoveredEndorsersByEndpoints(
+		t.endorserEndpoints...,
 	).WithTxID(
 		t.txID,
 	).Call()
@@ -93,14 +85,14 @@ func (c *contract) SubmitTransaction(name string, args ...string) ([]byte, error
 	return raw, err
 }
 
-func (c *contract) CreateTransaction(name string, peerEndpoints ...string) (fpc.Transaction, error) {
+func (c *contract) CreateTransaction(name string, endorsersEndpoints ...string) (fpc.Transaction, error) {
 	return &transaction{
-		fns:      c.fns,
-		ch:       c.ch,
-		id:       c.id,
-		function: name,
-		peers:    peerEndpoints,
-		invoker:  c.fns.IdentityProvider().DefaultIdentity(),
+		fns:               c.fns,
+		ch:                c.ch,
+		id:                c.id,
+		function:          name,
+		endorserEndpoints: endorsersEndpoints,
+		invoker:           c.fns.IdentityProvider().DefaultIdentity(),
 	}, nil
 }
 
@@ -180,15 +172,15 @@ func (c *contractProviderForEndorsement) SubmitTransaction(name string, args ...
 	return nil, nil
 }
 
-func (c *contractProviderForEndorsement) CreateTransaction(name string, peerEndpoints ...string) (fpc.Transaction, error) {
+func (c *contractProviderForEndorsement) CreateTransaction(name string, endorserEndpoints ...string) (fpc.Transaction, error) {
 	return &transaction{
-		fns:      c.fns,
-		ch:       c.ch,
-		id:       c.cid,
-		txID:     c.txID,
-		function: name,
-		peers:    peerEndpoints,
-		invoker:  c.invoker,
+		fns:               c.fns,
+		ch:                c.ch,
+		id:                c.cid,
+		txID:              c.txID,
+		function:          name,
+		endorserEndpoints: endorserEndpoints,
+		invoker:           c.invoker,
 	}, nil
 }
 
