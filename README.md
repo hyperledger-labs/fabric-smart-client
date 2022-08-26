@@ -29,7 +29,7 @@ application with simplicity and joy? Check our Token SDK out [`here`](https://gi
 
 ## Getting started
 
-Clone the code
+Clone the code.
 Sometimes, we use `$FSC_PATH` to refer to the Fabric Smart Client repository in your filesystem, for example:
 
 ```bash
