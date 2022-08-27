@@ -12,9 +12,9 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"sync"
+	"time"
 
-	"go.uber.org/zap/zapcore"
-
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
@@ -22,9 +22,11 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	common2 "github.com/hyperledger/fabric-protos-go/common"
+	ab "github.com/hyperledger/fabric-protos-go/orderer"
 	"github.com/hyperledger/fabric-protos-go/peer"
 	"github.com/hyperledger/fabric/protoutil"
 	"github.com/pkg/errors"
+	"go.uber.org/zap/zapcore"
 )
 
 var logger = flogging.MustGetLogger("fabric-sdk.ordering")
@@ -54,6 +56,7 @@ type Network interface {
 	Broadcast(blob interface{}) error
 	Channel(name string) (driver.Channel, error)
 	SignerService() driver.SignerService
+	Config() *config.Config
 }
 
 type Transaction interface {
@@ -159,57 +162,93 @@ func (o *service) getOrSetOrdererClient() (Broadcast, error) {
 		return o.oStream, nil
 	}
 
+	if err := o.newOrdererClient(); err != nil {
+		return nil, err
+	}
+
+	return o.oStream, nil
+}
+
+func (o *service) newOrdererClient() error {
 	ordererConfig := o.network.PickOrderer()
 	if ordererConfig == nil {
-		return nil, errors.New("no orderer configured")
+		return errors.New("no orderer configured")
 	}
 
 	oClient, err := NewOrdererClient(ordererConfig)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed creating orderer client for %s", ordererConfig.Address)
+		return errors.Wrapf(err, "failed creating orderer client for %s", ordererConfig.Address)
 	}
 
 	stream, err := oClient.NewBroadcast(context.Background())
 	if err != nil {
 		oClient.Close()
-		return nil, errors.Wrapf(err, "failed creating orderer client for %s", ordererConfig.Address)
+		return errors.Wrapf(err, "failed creating orderer stream for %s", ordererConfig.Address)
 	}
 
 	o.oStream = stream
 	o.oClient = oClient
 
-	return stream, nil
+	return nil
+}
+
+func (o *service) cleanupOrderedClient() {
+	if o.oStream != nil {
+		logger.Debugf("cleanup ordering stream...")
+		o.oStream.CloseSend()
+		o.oStream = nil
+	}
+	if o.oClient != nil {
+		logger.Debugf("cleanup ordering client to [%s]", o.oClient.ordererAddr)
+		o.oClient.Close()
+		o.oClient = nil
+	}
 }
 
 func (o *service) broadcastEnvelope(env *common2.Envelope) error {
-	// TODO: if there is already a connection and it is not open anymore, close it and create a new one
-	// don't pick always the same orderer
-
-	oClient, err := o.getOrSetOrdererClient()
+	stream, err := o.getOrSetOrdererClient()
 	if err != nil {
-		return err
+		return errors.WithMessagef(err, "failed getting ordering stream")
 	}
 
 	o.lock.Lock()
 	defer o.lock.Unlock()
 
 	// send the envelope for ordering
-	err = BroadcastSend(oClient, env)
-	if err != nil {
-		return errors.Wrap(err, "failed to send transaction to orderer")
-	}
+	var status *ab.BroadcastResponse
+	retries := o.network.Config().BroadcastNumRetries()
+	retryInternal := o.network.Config().BroadcastRetryInterval()
+	for i := 0; i < retries; i++ {
+		if i > 0 {
+			logger.Debugf("broadcast, retry [%d]...", i)
+			// wait a bit
+			time.Sleep(retryInternal)
+			// recreate client
+			if err := o.newOrdererClient(); err != nil {
+				return errors.WithMessagef(err, "failed re-getting ordering stream")
+			}
+			stream = o.oStream
+		}
 
-	status, err := oClient.Recv()
-	if err != nil {
-		return err
-	}
+		err = BroadcastSend(stream, env)
+		if err != nil {
+			o.cleanupOrderedClient()
+			continue
+		}
 
-	if status.GetStatus() != common2.Status_SUCCESS {
-		err = errors.Wrapf(err, "failed broadcasting, status %s", common2.Status_name[int32(status.GetStatus())])
-		return err
-	}
+		status, err = stream.Recv()
+		if err != nil {
+			o.cleanupOrderedClient()
+			continue
+		}
 
-	return nil
+		if status.GetStatus() != common2.Status_SUCCESS {
+			return errors.Wrapf(err, "failed broadcasting, status %s", common2.Status_name[int32(status.GetStatus())])
+		}
+
+		return nil
+	}
+	return errors.Wrap(err, "failed to send transaction to orderer")
 }
 
 // createSignedTx assembles an Envelope message from proposal, endorsements,
