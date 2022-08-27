@@ -4,13 +4,14 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package iou
+package iouorionbe
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/orion"
 )
 
 func Topology() []api.Topology {
@@ -25,6 +26,7 @@ func Topology() []api.Topology {
 	// Define an FSC topology with 3 FCS nodes.
 	// One for the approver, one for the borrower, and one for the lender.
 	fscTopology := fsc.NewTopology()
+	fscTopology.SetLogging("debug", "")
 
 	// Add the approver FSC node.
 	approver := fscTopology.AddNodeByName("approver")
@@ -32,25 +34,32 @@ func Topology() []api.Topology {
 	// Therefore, the approver is an endorser of the Fabric namespace we defined above.
 	approver.AddOptions(
 		fabric.WithOrganization("Org1"),
+		fabric.WithX509Identity("alice"),
 	)
 	approver.RegisterResponder(&views.ApproverView{}, &views.CreateIOUView{})
 	approver.RegisterResponder(&views.ApproverView{}, &views.UpdateIOUView{})
 
-	// Add the borrower's FSC node
+	// Add the borrower's FSC node as am orion-based replicated node
+	// 1. create the FSC node template
 	borrower := fscTopology.AddNodeByName("borrower")
-	borrower.AddOptions(fabric.WithOrganization("Org2"))
+	borrower.AddOptions(
+		fabric.WithOrganization("Org2"),
+	)
 	borrower.RegisterViewFactory("create", &views.CreateIOUViewFactory{})
 	borrower.RegisterViewFactory("update", &views.UpdateIOUViewFactory{})
 	borrower.RegisterViewFactory("query", &views.QueryViewFactory{})
+	// 2. create the replicated node
+	borrowerTopology := orion.SetFSCBackend(borrower)
 
 	// Add the lender's FSC node
 	lender := fscTopology.AddNodeByName("lender")
 	lender.AddOptions(
 		fabric.WithOrganization("Org3"),
+		fabric.WithX509Identity("bob"),
 	)
 	lender.RegisterResponder(&views.CreateIOUResponderView{}, &views.CreateIOUView{})
 	lender.RegisterResponder(&views.UpdateIOUResponderView{}, &views.UpdateIOUView{})
 	lender.RegisterViewFactory("query", &views.QueryViewFactory{})
 
-	return []api.Topology{fabricTopology, fscTopology}
+	return []api.Topology{borrowerTopology, fabricTopology, fscTopology}
 }

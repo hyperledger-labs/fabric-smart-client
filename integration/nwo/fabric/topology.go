@@ -116,13 +116,6 @@ func WithDefaultIdentityWithLabel(label string) node.Option {
 	}
 }
 
-func WithDeliveryDisabled() node.Option {
-	return func(o *node.Options) error {
-		Options(o).SetDeliveryEnabled(false)
-		return nil
-	}
-}
-
 // NewDefaultTopology is a configuration with two organizations and one peer per org.
 func NewDefaultTopology() *topology.Topology {
 	return NewTopologyWithName("default").SetDefault()
@@ -190,14 +183,6 @@ func WithOrionVaultPersistence(network, db, creator string) node.Option {
 		o.Put("fabric.vault.persistence.orion", network)
 		o.Put("fabric.vault.persistence.orion.database", db)
 		o.Put("fabric.vault.persistence.orion.creator", creator)
-		return nil
-	}
-}
-
-// WithLinkedIdentities is a configuration to link identities of other nodes
-func WithLinkedIdentities(ids ...string) node.Option {
-	return func(o *node.Options) error {
-		o.Put("fabric.linked.identities", ids)
 		return nil
 	}
 }

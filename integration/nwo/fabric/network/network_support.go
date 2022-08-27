@@ -1548,7 +1548,6 @@ func (n *Network) GenerateCoreConfig(p *topology.Peer) {
 			"Peer":                        func() *topology.Peer { return p },
 			"Orderers":                    func() []*topology.Orderer { return n.Orderers },
 			"PeerLocalExtraIdentityDir":   func(p *topology.Peer, id string) string { return n.PeerLocalExtraIdentityDir(p, id) },
-			"LinkedIdentities":            func() []*topology.PeerIdentity { return extraLinkedIdentities },
 			"ToLower":                     func(s string) string { return strings.ToLower(s) },
 			"ReplaceAll":                  func(s, old, new string) string { return strings.Replace(s, old, new, -1) },
 			"Peers":                       func() []*topology.Peer { return refPeers },
@@ -1563,7 +1562,6 @@ func (n *Network) GenerateCoreConfig(p *topology.Peer) {
 			"FabricName":                  func() string { return n.topology.Name() },
 			"DefaultNetwork":              func() bool { return defaultNetwork },
 			"Chaincodes":                  func(channel string) []*topology.ChannelChaincode { return n.Chaincodes(channel) },
-			"DeliveryEnabled":             func() bool { return p.DeliveryEnabled },
 		}).Parse(coreTemplate)
 		Expect(err).NotTo(HaveOccurred())
 

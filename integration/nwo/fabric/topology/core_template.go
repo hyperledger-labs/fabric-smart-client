@@ -274,13 +274,6 @@ fabric:
                Hash: {{ .Opts.PKCS11.Hash }}
                Security: {{ .Opts.PKCS11.Security }}
     {{- end }}
-	{{- range LinkedIdentities }}
-      - id: {{ .ID }}
-        mspType: {{ .MSPType }}
-        mspID: {{ .MSPID }}
-        cacheSize: {{ .CacheSize }}
-        path: {{ .MSPPath }}
-	{{- end }}
     tls:
       enabled:  true
       clientAuthRequired: {{ .ClientAuthRequired }}
@@ -324,8 +317,6 @@ fabric:
             private: {{ .Private }}
         {{- end }}
     {{- end }}
-    delivery:
-      enabled: {{ DeliveryEnabled }}
     vault:
       persistence:
         # Persistence type can be \'badger\' (on disk) or \'memory\'

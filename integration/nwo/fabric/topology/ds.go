@@ -150,7 +150,6 @@ type Peer struct {
 	Identities      []*PeerIdentity `yaml:"identities,omitempty"`
 	DevMode         bool
 	DefaultNetwork  bool       `yaml:"-"`
-	DeliveryEnabled bool       `yaml:"deliveryenabled,omitempty"`
 	FSCNode         *node.Node `yaml:"-"`
 }
 

@@ -90,6 +90,10 @@ integration-tests-iou-hsm:
 	@echo "Start Integration Test"
 	cd ./integration/fabric/iouhsm; ginkgo $(GINKGO_TEST_OPTS) .
 
+.PHONY: integration-tests-iouorionbe
+integration-tests-iouorionbe: orion-server-images
+	cd ./integration/fabric/iouorionbe; ginkgo $(GINKGO_TEST_OPTS) .
+
 .PHONY: integration-tests-atsacc
 integration-tests-atsacc:
 	cd ./integration/fabric/atsa/chaincode; ginkgo $(GINKGO_TEST_OPTS) .
@@ -140,6 +144,7 @@ clean:
 	rm -rf ./integration/fabric/atsa/fsc/cmd
 	rm -rf ./integration/fabric/iou/cmd/
 	rm -rf ./integration/fabric/iou/testdata/
+	rm -rf ./integration/fabric/iouorionbe/cmd/
 	rm -rf ./integration/fabric/twonets/cmd
 	rm -rf ./integration/fabric/weaver/relay/cmd
 	rm -rf ./integration/fabric/fpc/echo/cmd

@@ -12,10 +12,9 @@ import (
 	"strconv"
 	"strings"
 
-	"gopkg.in/yaml.v2"
-
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/api"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"gopkg.in/yaml.v2"
 )
 
 // Factory is used to create instances of the View interface
