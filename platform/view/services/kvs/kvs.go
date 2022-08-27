@@ -11,7 +11,6 @@ import (
 	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/cache/secondcache"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
@@ -44,8 +43,8 @@ type cache interface {
 	Delete(key string)
 }
 
-func New(sp view2.ServiceProvider, driverName, namespace string) (*KVS, error) {
-	persistence, err := db.Open(sp, driverName, namespace, db.NewPrefixConfig(view2.GetConfigService(sp), "fsc.kvs.persistence.opts"))
+func New(sp view.ServiceProvider, driverName, namespace string) (*KVS, error) {
+	persistence, err := db.Open(sp, driverName, namespace, db.NewPrefixConfig(view.GetConfigService(sp), "fsc.kvs.persistence.opts"))
 	if err != nil {
 		return nil, errors.WithMessagef(err, "no driver found for [%s]", driverName)
 	}
@@ -55,7 +54,7 @@ func New(sp view2.ServiceProvider, driverName, namespace string) (*KVS, error) {
 		return nil, errors.Wrapf(err, "failed loading cache size from configuration")
 	}
 
-	logger.Debugf("opening kvs with namespace=`%s` and cacheSize=`%d` at [%s]", namespace, cacheSize, path)
+	logger.Debugf("opening kvs with namespace=`%s` and cacheSize=`%d`", namespace, cacheSize)
 
 	return &KVS{
 		namespace: namespace,
@@ -283,8 +282,8 @@ func GetService(ctx view.ServiceProvider) *KVS {
 }
 
 // GetDriverNameFromConf returns the driver name from the node's configuration
-func GetDriverNameFromConf(sp view2.ServiceProvider) string {
-	driverName := view2.GetConfigService(sp).GetString("fsc.kvs.persistence.type")
+func GetDriverNameFromConf(sp view.ServiceProvider) string {
+	driverName := view.GetConfigService(sp).GetString("fsc.kvs.persistence.type")
 	if len(driverName) == 0 {
 		driverName = "memory"
 	}

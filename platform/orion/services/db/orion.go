@@ -11,7 +11,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/golang/protobuf/proto"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	dbproto "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger/proto"
@@ -87,8 +87,7 @@ type Orion struct {
 	txnLock   sync.RWMutex
 	cache     cache
 
-	itemsListSize int
-	itemsMap      map[string]*ItemList
+	itemsMap map[string]*ItemList
 }
 
 func (db *Orion) SetState(namespace, key string, value []byte, block, txnum uint64) error {

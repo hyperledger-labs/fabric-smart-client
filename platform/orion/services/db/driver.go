@@ -13,7 +13,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/unversioned"
@@ -35,7 +34,7 @@ type Driver struct {
 	ons  map[string]OrionBackend
 }
 
-func (o *Driver) NewVersioned(sp view2.ServiceProvider, dataSourceName string, config driver.Config) (driver.VersionedPersistence, error) {
+func (o *Driver) NewVersioned(sp view.ServiceProvider, dataSourceName string, config driver.Config) (driver.VersionedPersistence, error) {
 	opts := &Opts{}
 	err := config.UnmarshalKey("", opts)
 	if err != nil {
@@ -45,7 +44,7 @@ func (o *Driver) NewVersioned(sp view2.ServiceProvider, dataSourceName string, c
 	return o.OpenDB(sp, opts.Network, opts.Database, opts.Creator)
 }
 
-func (o *Driver) New(sp view2.ServiceProvider, dataSourceName string, config driver.Config) (driver.Persistence, error) {
+func (o *Driver) New(sp view.ServiceProvider, dataSourceName string, config driver.Config) (driver.Persistence, error) {
 	db, err := o.NewVersioned(sp, dataSourceName, config)
 	if err != nil {
 		return nil, errors.WithMessagef(err, "failed to create orion driver for [%s]", dataSourceName)
@@ -53,7 +52,7 @@ func (o *Driver) New(sp view2.ServiceProvider, dataSourceName string, config dri
 	return &unversioned.Unversioned{Versioned: db}, nil
 }
 
-func (o *Driver) OpenDB(sp view2.ServiceProvider, onsName, dbName, creator string) (*Orion, error) {
+func (o *Driver) OpenDB(sp view.ServiceProvider, onsName, dbName, creator string) (*Orion, error) {
 	o.lock.Lock()
 	defer o.lock.Unlock()
 
