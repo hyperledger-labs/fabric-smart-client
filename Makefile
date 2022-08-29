@@ -1,5 +1,6 @@
 # pinned versions
 FABRIC_VERSION=2.2
+ORION_VERSION=v0.2.5
 
 # integration test options
 GINKGO_TEST_OPTS ?=
@@ -67,8 +68,8 @@ monitoring-docker-images:
 
 .PHONY: orion-server-images
 orion-server-images:
-	docker pull orionbcdb/orion-server:v0.2.5
-	docker image tag orionbcdb/orion-server:v0.2.5 orionbcdb/orion-server:latest
+	docker pull orionbcdb/orion-server:$(ORION_VERSION)
+	docker image tag orionbcdb/orion-server:$(ORION_VERSION) orionbcdb/orion-server:latest
 
 .PHONY: integration-tests
 integration-tests:

@@ -39,8 +39,7 @@ func Topology() []api.Topology {
 	approver.RegisterResponder(&views.ApproverView{}, &views.CreateIOUView{})
 	approver.RegisterResponder(&views.ApproverView{}, &views.UpdateIOUView{})
 
-	// Add the borrower's FSC node as am orion-based replicated node
-	// 1. create the FSC node template
+	// Add the borrower's FSC node
 	borrower := fscTopology.AddNodeByName("borrower")
 	borrower.AddOptions(
 		fabric.WithOrganization("Org2"),
@@ -48,8 +47,7 @@ func Topology() []api.Topology {
 	borrower.RegisterViewFactory("create", &views.CreateIOUViewFactory{})
 	borrower.RegisterViewFactory("update", &views.UpdateIOUViewFactory{})
 	borrower.RegisterViewFactory("query", &views.QueryViewFactory{})
-	// 2. create the replicated node
-	borrowerTopology := orion.SetFSCBackend(borrower)
+	borrowerTopology := orion.SetRemoteDB(borrower)
 
 	// Add the lender's FSC node
 	lender := fscTopology.AddNodeByName("lender")

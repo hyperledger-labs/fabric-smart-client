@@ -12,8 +12,9 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
 )
 
-// SetFSCBackend creates a new FSC node that is replicated to the given other nodes.
-func SetFSCBackend(node *node.Node) *Topology {
+// SetRemoteDB configure a new orion topology and attaches the passed node to it
+// as persistance mechanisms
+func SetRemoteDB(node *node.Node) *Topology {
 	orionTopologyName := node.Name + "-orion-backend"
 	orionTopology := NewTopology()
 	orionTopology.SetName(orionTopologyName)

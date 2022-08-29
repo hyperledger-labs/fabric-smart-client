@@ -48,7 +48,9 @@ func Drivers() []string {
 	return list
 }
 
+// Config models the DB configuration
 type Config interface {
+	// UnmarshalKey takes a single key and unmarshals it into a Struct
 	UnmarshalKey(key string, rawVal interface{}) error
 }
 
