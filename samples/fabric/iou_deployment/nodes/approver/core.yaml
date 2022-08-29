@@ -1,0 +1,226 @@
+---
+logging:
+ spec: debug
+ format: '%{color}%{time:2006-01-02 15:04:05.000 MST} [%{module}] %{shortfunc} -> %{level:.4s} %{id:03x}%{color:reset} %{message}'
+
+fsc:
+  id: fsc.approver
+  networkId: a2bmhsag55dwdehuezunp7zd5m
+  address: 127.0.0.1:20000
+  addressAutoDetect: true
+  listenAddress: 127.0.0.1:20000
+  identity:
+    cert:
+      file: /Users/bur/Developer/gocode/src/github.com/hyperledger-labs/fabric-smart-client/samples/fabric/iou_deployment/_cfg/uf/_msp/org1/org1admin/msp/signcerts/org1admin.pem
+    key:
+      file: /Users/bur/Developer/gocode/src/github.com/hyperledger-labs/fabric-smart-client/samples/fabric/iou_deployment/_cfg/uf/_msp/org1/org1admin/msp/keystore/cert_sk
+  # Admin X.509 certificates
+#  admin:
+#    certs:
+#    - /Users/bur/Developer/gocode/src/github.com/hyperledger-labs/fabric-smart-client/samples/fabric/iou/testdata/fsc/crypto/peerOrganizations/fsc.example.com/users/Admin@fsc.example.com/msp/signcerts/Admin@fsc.example.com-cert.pem
+  tls:
+    enabled:  true
+    clientAuthRequired: false
+    cert:
+      file: /Users/bur/Developer/gocode/src/github.com/hyperledger-labs/fabric-smart-client/samples/fabric/iou/testdata/fsc/crypto/peerOrganizations/fsc.example.com/peers/approver.fsc.example.com/tls/server.crt
+    key:
+      file: /Users/bur/Developer/gocode/src/github.com/hyperledger-labs/fabric-smart-client/samples/fabric/iou/testdata/fsc/crypto/peerOrganizations/fsc.example.com/peers/approver.fsc.example.com/tls/server.key
+    clientCert:
+      file: /Users/bur/Developer/gocode/src/github.com/hyperledger-labs/fabric-smart-client/samples/fabric/iou/testdata/fsc/crypto/peerOrganizations/fsc.example.com/peers/approver.fsc.example.com/tls/server.crt
+    clientKey:
+      file: /Users/bur/Developer/gocode/src/github.com/hyperledger-labs/fabric-smart-client/samples/fabric/iou/testdata/fsc/crypto/peerOrganizations/fsc.example.com/peers/approver.fsc.example.com/tls/server.key
+    rootcert:
+      file: /Users/bur/Developer/gocode/src/github.com/hyperledger-labs/fabric-smart-client/samples/fabric/iou/testdata/fsc/crypto/peerOrganizations/fsc.example.com/peers/approver.fsc.example.com/tls/ca.crt
+    clientRootCAs:
+      files:
+      - /Users/bur/Developer/gocode/src/github.com/hyperledger-labs/fabric-smart-client/samples/fabric/iou/testdata/fsc/crypto/peerOrganizations/fsc.example.com/peers/approver.fsc.example.com/tls/ca.crt
+    rootCertFile: /Users/bur/Developer/gocode/src/github.com/hyperledger-labs/fabric-smart-client/samples/fabric/iou/testdata/fsc/crypto/ca-certs.pem
+  keepalive:
+    minInterval: 60s
+    interval: 300s
+    timeout: 600s
+  p2p:
+    listenAddress: /ip4/127.0.0.1/tcp/20001
+    bootstrapNode:
+  kvs:
+    persistence:
+      type: badger
+      opts:
+        path: /Users/bur/Developer/gocode/src/github.com/hyperledger-labs/fabric-smart-client/samples/fabric/iou_deployment/_cfg/fsc/nodes/approver/kvs
+    cache:
+        size: 200
+  web:
+    enabled: true
+    address: 127.0.0.1:20002
+    tls:
+      enabled:  true
+      cert:
+        file: /Users/bur/Developer/gocode/src/github.com/hyperledger-labs/fabric-smart-client/samples/fabric/iou/testdata/fsc/crypto/peerOrganizations/fsc.example.com/peers/approver.fsc.example.com/tls/server.crt
+      key:
+        file: /Users/bur/Developer/gocode/src/github.com/hyperledger-labs/fabric-smart-client/samples/fabric/iou/testdata/fsc/crypto/peerOrganizations/fsc.example.com/peers/approver.fsc.example.com/tls/server.key
+      clientRootCAs:
+        files:
+        - /Users/bur/Developer/gocode/src/github.com/hyperledger-labs/fabric-smart-client/samples/fabric/iou/testdata/fsc/crypto/peerOrganizations/fsc.example.com/peers/approver.fsc.example.com/tls/ca.crt
+    rootCertFile: /Users/bur/Developer/gocode/src/github.com/hyperledger-labs/fabric-smart-client/samples/fabric/iou/testdata/fsc/crypto/ca-certs.pem
+#  tracing:
+#    provider: none
+#    udp:
+#      address: 127.0.0.1:8125
+#  metrics:
+#    # metrics provider is one of statsd, prometheus, or disabled
+#    provider: prometheus
+#    # statsd configuration
+#    statsd:
+#      # network type: tcp or udp
+#      network: udp
+#      # statsd server address
+#      address: 127.0.0.1:8125
+#      # the interval at which locally cached counters and gauges are pushed
+#      # to statsd; timings are pushed immediately
+#      writeInterval: 10s
+#      # prefix is prepended to all emitted statsd metrics
+#      prefix:
+
+  endpoint:
+    resolvers:
+    - name: approver
+      domain: fsc.example.com
+      identity:
+        id: approver
+        path: /Users/bur/Developer/gocode/src/github.com/hyperledger-labs/fabric-smart-client/samples/fabric/iou_deployment/_cfg/uf/_msp/org1/org1admin/msp/signcerts/org1admin.pem
+      addresses:
+        P2P: 127.0.0.1:20001
+      aliases:
+    - name: borrower
+      domain: fsc.example.com
+      identity:
+        id: borrower
+        path: /Users/bur/Developer/gocode/src/github.com/hyperledger-labs/fabric-smart-client/samples/fabric/iou_deployment/_cfg/uf/_msp/org2/org2admin/msp/signcerts/org2admin.pem
+      addresses:
+      aliases:
+    - name: lender
+      domain: fsc.example.com
+      identity:
+        id: lender
+        path: /Users/bur/Developer/gocode/src/github.com/hyperledger-labs/fabric-smart-client/samples/fabric/iou_deployment/_cfg/uf/_msp/org3/org3admin/msp/signcerts/org3admin.pem
+      addresses:
+      aliases:
+
+fabric:
+  enabled: true
+  default:
+    default: true
+    BCCSP:
+      Default: SW
+      SW:
+        Hash: SHA2
+        Security: 256
+        FileKeyStore:
+          KeyStore:
+    mspConfigPath: /Users/bur/Developer/gocode/src/github.com/hyperledger-labs/fabric-smart-client/samples/fabric/iou_deployment/_cfg/uf/_msp/org1/org1admin/msp
+    localMspId: org1MSP
+    mspCacheSize: 500
+    msps: 
+    tls:
+      enabled:  false
+      clientAuthRequired: false
+      cert:
+        file: /Users/bur/Developer/gocode/src/github.com/hyperledger-labs/fabric-smart-client/samples/fabric/iou/testdata/fabric.default/crypto/peerOrganizations/org1.example.com/peers/approver.org1.example.com/tls/server.crt
+      key:
+        file: /Users/bur/Developer/gocode/src/github.com/hyperledger-labs/fabric-smart-client/samples/fabric/iou/testdata/fabric.default/crypto/peerOrganizations/org1.example.com/peers/approver.org1.example.com/tls/server.key
+      clientCert:
+        file: /Users/bur/Developer/gocode/src/github.com/hyperledger-labs/fabric-smart-client/samples/fabric/iou/testdata/fabric.default/crypto/peerOrganizations/org1.example.com/peers/approver.org1.example.com/tls/server.crt
+      clientKey:
+        file: /Users/bur/Developer/gocode/src/github.com/hyperledger-labs/fabric-smart-client/samples/fabric/iou/testdata/fabric.default/crypto/peerOrganizations/org1.example.com/peers/approver.org1.example.com/tls/server.key
+      rootcert:
+        file: /Users/bur/Developer/gocode/src/github.com/hyperledger-labs/fabric-smart-client/samples/fabric/iou/testdata/fabric.default/crypto/peerOrganizations/org1.example.com/peers/approver.org1.example.com/tls/ca.crt
+      clientRootCAs:
+        files:
+        - /Users/bur/Developer/gocode/src/github.com/hyperledger-labs/fabric-smart-client/samples/fabric/iou/testdata/fabric.default/crypto/peerOrganizations/org1.example.com/peers/approver.org1.example.com/tls/ca.crt
+      rootCertFile: /Users/bur/Developer/gocode/src/github.com/hyperledger-labs/fabric-smart-client/samples/fabric/iou/testdata/fabric.default/crypto/ca-certs.pem
+      keepalive:
+       client:
+         interval: 60s
+         timeout: 600s
+       server:
+         interval: 60s
+         timeout: 600s
+         minInterval: 60s
+    peers: 
+      - address: org1peer-api.127-0-0-1.nip.io:8080
+        connectionTimeout: 10s
+        tlsEnabled: false
+    channels:
+      - name: testchannel
+        default: true
+        chaincodes: 
+          - name: iou
+            private: false
+    vault:
+      persistence:
+        type: file
+        opts:
+          path: /Users/bur/Developer/gocode/src/github.com/hyperledger-labs/fabric-smart-client/samples/fabric/iou_deployment/_cfg/fsc/nodes/approver/vault
+      txidstore:
+        cache:
+          cache: 200
+#    endpoint:
+#      resolvers:
+#      - name: Org1_peer_0
+#        domain: org1.example.com
+#        identity:
+#          id: Org1_peer_0
+#          mspType: bccsp
+#          mspID: Org1MSP
+#          path: /Users/bur/Developer/gocode/src/github.com/hyperledger-labs/fabric-smart-client/samples/fabric/iou/testdata/fabric.default/crypto/peerOrganizations/org1.example.com/peers/Org1_peer_0.org1.example.com/msp/signcerts/Org1_peer_0.org1.example.com-cert.pem
+#        addresses:
+#           Listen: 127.0.0.1:20013
+#        aliases:
+#      - name: Org2_peer_0
+#        domain: org2.example.com
+#        identity:
+#          id: Org2_peer_0
+#          mspType: bccsp
+#          mspID: Org2MSP
+#          path: /Users/bur/Developer/gocode/src/github.com/hyperledger-labs/fabric-smart-client/samples/fabric/iou/testdata/fabric.default/crypto/peerOrganizations/org2.example.com/peers/Org2_peer_0.org2.example.com/msp/signcerts/Org2_peer_0.org2.example.com-cert.pem
+#        addresses:
+#           Listen: 127.0.0.1:20020
+#        aliases:
+#      - name: Org3_peer_0
+#        domain: org3.example.com
+#        identity:
+#          id: Org3_peer_0
+#          mspType: bccsp
+#          mspID: Org3MSP
+#          path: /Users/bur/Developer/gocode/src/github.com/hyperledger-labs/fabric-smart-client/samples/fabric/iou/testdata/fabric.default/crypto/peerOrganizations/org3.example.com/peers/Org3_peer_0.org3.example.com/msp/signcerts/Org3_peer_0.org3.example.com-cert.pem
+#        addresses:
+#           Listen: 127.0.0.1:20027
+#        aliases:
+#      - name: approver
+#        domain: org1.example.com
+#        identity:
+#          id: approver
+#          mspType: bccsp
+#          mspID: Org1MSP
+#          path: /Users/bur/Developer/gocode/src/github.com/hyperledger-labs/fabric-smart-client/samples/fabric/iou/testdata/fabric.default/crypto/peerOrganizations/org1.example.com/peers/approver.org1.example.com/msp/signcerts/approver.org1.example.com-cert.pem
+#        addresses:
+#        aliases:
+#      - name: borrower
+#        domain: org2.example.com
+#        identity:
+#          id: borrower
+#          mspType: bccsp
+#          mspID: Org2MSP
+#          path: /Users/bur/Developer/gocode/src/github.com/hyperledger-labs/fabric-smart-client/samples/fabric/iou/testdata/fabric.default/crypto/peerOrganizations/org2.example.com/peers/borrower.org2.example.com/msp/signcerts/borrower.org2.example.com-cert.pem
+#        addresses:
+#        aliases:
+#      - name: lender
+#        domain: org3.example.com
+#        identity:
+#          id: lender
+#          mspType: bccsp
+#          mspID: Org3MSP
+#          path: /Users/bur/Developer/gocode/src/github.com/hyperledger-labs/fabric-smart-client/samples/fabric/iou/testdata/fabric.default/crypto/peerOrganizations/org3.example.com/peers/lender.org3.example.com/msp/signcerts/lender.org3.example.com-cert.pem
+#        addresses:
+#        aliases:
+

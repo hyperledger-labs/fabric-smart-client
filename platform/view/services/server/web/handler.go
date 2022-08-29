@@ -109,7 +109,7 @@ func (h *HttpHandler) handle(backToClient http.ResponseWriter, req *http.Request
 		return
 	}
 
-	if statusCode/100 != 2 {
+	if statusCode != http.StatusOK {
 		sendErr(backToClient, statusCode, response.String(), h.Logger, nil)
 		return
 	}

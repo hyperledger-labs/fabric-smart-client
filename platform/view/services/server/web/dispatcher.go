@@ -26,7 +26,7 @@ func (rd *Dispatcher) HandleRequest(context *ReqContext) (response interface{}, 
 
 	res, err := rd.vc.CallView(context.Vars["View"], context.Query.([]byte))
 	if err != nil {
-		return &ResponseErr{Reason: err.Error()}, 500
+		return err.Error(), 500
 	}
 
 	return res, 200

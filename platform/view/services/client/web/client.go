@@ -11,6 +11,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -35,6 +36,10 @@ type Config struct {
 type Client struct {
 	c   *http.Client
 	url string
+}
+
+type ResponseErr struct {
+	Reason string
 }
 
 // NewClient returns a new web client
@@ -88,11 +93,23 @@ func (c *Client) CallView(fid string, in []byte) (interface{}, error) {
 		return nil, err
 	}
 
+	// handle error response
+	if resp.StatusCode != http.StatusOK {
+		responseErr := &ResponseErr{}
+		err := json.Unmarshal(buff, responseErr)
+		if err != nil {
+			return nil, err
+		}
+
+		return nil, errors.New(responseErr.Reason)
+	}
+
 	response := &protos2.CommandResponse_CallViewResponse{}
 	err = json.Unmarshal(buff, response)
 	if err != nil {
 		return nil, err
 	}
+
 	return response.CallViewResponse.Result, nil
 }
 
