@@ -290,7 +290,7 @@ fabric:
          interval: 60s
          timeout: 600s
          minInterval: 60s 
-    broadcast:
+    ordering:
       numRetries: 3
       retryInternal: 3s
     peers: {{ range Peers }}

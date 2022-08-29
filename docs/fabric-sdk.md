@@ -62,7 +62,7 @@ fabric:
           timeout: 600s
           minInterval: 60s
     # This section is dedicated to interactions with the ordering service
-    broadcast:
+    ordering:
       # numRetries specifies the number of retries to have when failing reaching the ordering service
       numRetries: 3
       # retryInternal specifies the amount of time to wait before retrying a connection to the ordering service

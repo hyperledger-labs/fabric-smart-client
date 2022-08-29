@@ -231,7 +231,7 @@ func (c *Config) MSPCacheSize() int {
 }
 
 func (c *Config) BroadcastNumRetries() int {
-	v := c.configService.GetInt("fabric." + c.prefix + "broadcast.numRetries")
+	v := c.configService.GetInt("fabric." + c.prefix + "ordering.numRetries")
 	if v == 0 {
 		return DefaultBroadcastNumRetries
 	}
@@ -239,5 +239,5 @@ func (c *Config) BroadcastNumRetries() int {
 }
 
 func (c *Config) BroadcastRetryInterval() time.Duration {
-	return c.configService.GetDuration("fabric." + c.prefix + "broadcast.retryInternal")
+	return c.configService.GetDuration("fabric." + c.prefix + "ordering.retryInternal")
 }
