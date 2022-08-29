@@ -1,12 +1,12 @@
-# Fabric to Fabric Interoperability view Weaver Relay 
+# Fabric to Fabric Interoperability view Weaver Relay
 
-[Weaver](https://labs.hyperledger.org/weaver-dlt-interoperability/docs/external/architecture-and-design/overview) 
+[Weaver](https://labs.hyperledger.org/weaver-dlt-interoperability/docs/external/architecture-and-design/overview)
 is a platform, a protocol suite, and a set of tools, to enable interoperation for data sharing and asset
 movements between independent networks built on heterogeneous blockchain, or more generally, distributed ledger,
 technologies, in a manner that preserves the core blockchain tenets of decentralization and security.
 
 In this sample, we will deal with two Fabric networks connected via weaver relays.
-Each Fabric network is deployed with a chaincode that implements a simple KVS. 
+Each Fabric network is deployed with a chaincode that implements a simple KVS.
 Business parties will be able to interact directly with the `local` chaincode on the Fabric network
 they belong to, but also to connect to the `remote` chaincode on the other Fabric network using weaver.
 
@@ -173,7 +173,7 @@ Make sure you have the proper docker images by running `make weaver-docker-image
 To test the above views, we first describe the topology of the networks we need.
 Namely, Fabric, FSC, and Weaver Relay networks.
 
-For Fabric, we need two networks. Each network consists of: 
+For Fabric, we need two networks. Each network consists of:
 - Two organizations, one of which is responsible for the endorsement of the chaincode that implements the KVS;
 - One channel, `testchannel`;
 - One chaincode implementing the KVS;
@@ -240,7 +240,8 @@ func Topology() []api.Topology {
 ### Boostrap the networks
 
 To help us bootstrap the networks and then invoke the business views, the `relay` command line tool is provided.
-To build it, we need to run the following command from the folder `$GOPATH/src/github.com/hyperledger-labs/fabric-smart-client/samples/fabric/weaver/relay`.
+To build it, we need to run the following command from the folder `$FSC_PATH/samples/fabric/weaver/relay`.
+(`$FSC_PATH` refers to the Fabric Smart Client repository in your filesystem see [getting started](../../../../README.md#getting-started))
 
 ```shell
 go build -o relay
@@ -248,7 +249,7 @@ go build -o relay
 
 If the compilation is successful, we can run the `relay` command line tool as follows:
 
-``` 
+```
 ./relay network start --path ./testdata
 ```
 

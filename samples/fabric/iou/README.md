@@ -42,7 +42,7 @@ type IOU struct {
 	// Unique identifier of this state
 	LinearID string
 	// The list of owners of this state
-	Parties  []view.Identity 
+	Parties  []view.Identity
 }
 
 func (i *IOU) SetLinearID(id string) string {
@@ -394,7 +394,7 @@ We have seen already what the approver does.
 To run the `IOU` sample, one needs first to deploy the `Fabric Smart Client nodes` and the `Fabric network`.
 Once these networks are deployed, one can invoke views on the smart client nodes to test the `IOU` sample.
 
-So, first step is to describe the topology of the networks we need. 
+So, first step is to describe the topology of the networks we need.
 
 ### Describe the topology of the networks
 
@@ -425,13 +425,13 @@ func Topology() []api.Topology {
     fabricTopology.EnableGRPCLogging()
     fabricTopology.EnableLogPeersToFile()
     fabricTopology.SetLogging("info", "")
-    
+
     // Define an FSC topology with 3 FCS nodes.
     // One for the approver, one for the borrower, and one for the lender.
     fscTopology := fsc.NewTopology()
     fscTopology.SetLogging("debug", "")
     fscTopology.EnableLogToFile()
-    
+
     // Add the approver FSC node.
     approver := fscTopology.AddNodeByName("approver")
     // This option equips the approver's FSC node with an identity belonging to Org1.
@@ -442,14 +442,14 @@ func Topology() []api.Topology {
     )
     approver.RegisterResponder(&views.ApproverView{}, &views.CreateIOUView{})
     approver.RegisterResponder(&views.ApproverView{}, &views.UpdateIOUView{})
-    
+
     // Add the borrower's FSC node
     borrower := fscTopology.AddNodeByName("borrower")
     borrower.AddOptions(fabric.WithOrganization("Org2"))
     borrower.RegisterViewFactory("create", &views.CreateIOUViewFactory{})
     borrower.RegisterViewFactory("update", &views.UpdateIOUViewFactory{})
     borrower.RegisterViewFactory("query", &views.QueryViewFactory{})
-    
+
     // Add the lender's FSC node
     lender := fscTopology.AddNodeByName("lender")
     lender.AddOptions(
@@ -459,7 +459,7 @@ func Topology() []api.Topology {
     lender.RegisterResponder(&views.CreateIOUResponderView{}, &views.CreateIOUView{})
     lender.RegisterResponder(&views.UpdateIOUResponderView{}, &views.UpdateIOUView{})
     lender.RegisterViewFactory("query", &views.QueryViewFactory{})
-    
+
     return []api.Topology{fabricTopology, fscTopology}
 }
 ```
@@ -467,7 +467,8 @@ func Topology() []api.Topology {
 ### Boostrap the networks
 
 To help us bootstrap the networks and then invoke the business views, the `iou` command line tool is provided.
-To build it, we need to run the following command from the folder `$GOPATH/src/github.com/hyperledger-labs/fabric-smart-client/samples/fabric/iou`.
+To build it, we need to run the following command from the folder `$FSC_PATH/samples/fabric/iou`.
+(`$FSC_PATH` refers to the Fabric Smart Client repository in your filesystem see [getting started](../../../README.md#getting-started))
 
 ```shell
 go build -o iou
@@ -475,11 +476,11 @@ go build -o iou
 
 If the compilation is successful, we can run the `iou` command line tool as follows:
 
-``` 
+```
 ./iou network start --path ./testdata
 ```
 
-The above command will start the Fabric network and the FSC network, 
+The above command will start the Fabric network and the FSC network,
 and store all configuration files under the `./testdata` directory.
 The CLI will also create the folder `./cmd` that contains a go main file for each FSC node.
 The CLI compiles these go main files and then runs them.
@@ -543,7 +544,7 @@ If everything is successful, you will the current amount contained in the IOU st
 
 If you want to query the IOU start on the lender node, you can run the following command:
 
-```shell 
+```shell
 ./iou view -c ./testdata/fsc/nodes/lender/client-config.yaml -f query -i "{\"LinearID\":\"bd90b6c8-0a54-4719-8caa-00759bad7d69\"}"
 ```
 
@@ -614,10 +615,10 @@ For the approver, we update the validation code for the `update` command in `App
 Now, we can just restart the networks, the Fabric Smart Client nodes will be rebuilt and the new behaviour available.
 You can test by yourself.
 
-### Hyperledger Explorer 
+### Hyperledger Explorer
 
-[Hyperledger Explorer](https://github.com/hyperledger/blockchain-explorer) is a user-friendly Web application tool used to view, invoke, deploy or query blocks, transactions 
-and associated data, network information (name, status, list of nodes), chaincodes and transaction families, as 
+[Hyperledger Explorer](https://github.com/hyperledger/blockchain-explorer) is a user-friendly Web application tool used to view, invoke, deploy or query blocks, transactions
+and associated data, network information (name, status, list of nodes), chaincodes and transaction families, as
 well as any other relevant information stored in the ledger.
 
 You can enable it by using the `Monitoring Platform` as follows:
@@ -631,10 +632,10 @@ You can enable it by using the `Monitoring Platform` as follows:
     return []api.Topology{fabricTopology, fscTopology, monitoringTopology}
 ```
 
-To use it, make sure you have all the required docker images. 
-To pull them, just run `make monitoring-docker-images` from the FSC root folder. 
+To use it, make sure you have all the required docker images.
+To pull them, just run `make monitoring-docker-images` from the FSC root folder.
 
-Last but not least, you need to stop your networks, if they are running, cleanup and start again from scratch. 
+Last but not least, you need to stop your networks, if they are running, cleanup and start again from scratch.
 (In the future, this cleanup step will not be needed).
 
 If everything is working fine, you can access the explorer at the following URL: [127.0.0.1:8080](http://127.0.0.1:8080) (User: `admin`, Pwd: `admin`).
@@ -646,11 +647,11 @@ Here is an example of what you can see:
 
 ### Monitoring with Prometheus and Grafana
 
-[Prometheus](https://prometheus.io/) is a free software application used for event monitoring and alerting. 
-It records real-time metrics in a time series database built using a HTTP pull model, 
+[Prometheus](https://prometheus.io/) is a free software application used for event monitoring and alerting.
+It records real-time metrics in a time series database built using a HTTP pull model,
 with flexible queries and real-time alerting, [Wikipedia](https://en.wikipedia.org/wiki/Prometheus_(software)).
 
-[Grafana](https://grafana.com/) is a multi-platform open source analytics and interactive visualization web application. 
+[Grafana](https://grafana.com/) is a multi-platform open source analytics and interactive visualization web application.
 It provides charts, graphs, and alerts for the web when connected to supported data sources, [Wikipedia](https://en.wikipedia.org/wiki/Grafana).
 
 You can enable them and start monitoring your networks by configuring the monitoring platorm as follows:
@@ -660,7 +661,7 @@ You can enable them and start monitoring your networks by configuring the monito
     monitoringTopology := monitoring.NewTopology()
 	// Enable Prometheus and Grafana
     monitoringTopology.EnablePrometheusGrafana()
-    
+
     return []api.Topology{fabricTopology, fscTopology, monitoringTopology}
 ```
 
@@ -673,7 +674,7 @@ Last but not least, you need to stop your networks, if they are running, cleanup
 If everything is working fine, you can access
 - Prometheus at the following URL: [127.0.0.1:9090](http://127.0.0.1:9090), and
 - Grafana at the following URL: [127.0.0.1:9090](http://127.0.0.1:3000) (User: `admin`, Pwd: `admin`).
-  
+
 Here is an example of what you can see:
 
 <img src="imgs/grafana.png">

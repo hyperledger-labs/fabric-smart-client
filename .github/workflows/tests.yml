@@ -7,8 +7,7 @@ on:
     branches: [ main ]
 
 env:
-  GOPATH: ${{ github.workspace }}
-  FSC_PATH: "${{ github.workspace }}/src/github.com/hyperledger-labs/fabric-smart-client"
+  FSC_PATH: "${{ github.workspace }}/fabric-smart-client"
 
 jobs:
 
