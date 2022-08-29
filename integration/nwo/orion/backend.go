@@ -13,7 +13,7 @@ import (
 )
 
 // SetRemoteDB configure a new orion topology and attaches the passed node to it
-// as persistance mechanisms
+// as persistence mechanisms
 func SetRemoteDB(node *node.Node) *Topology {
 	orionTopologyName := node.Name + "-orion-backend"
 	orionTopology := NewTopology()
