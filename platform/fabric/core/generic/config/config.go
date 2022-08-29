@@ -10,12 +10,14 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/pkg/errors"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
+	"github.com/pkg/errors"
 )
 
-const DefaultMSPCacheSize = 3
+const (
+	DefaultMSPCacheSize        = 3
+	DefaultBroadcastNumRetries = 3
+)
 
 // configService models a configuration registry
 type configService interface {
@@ -23,7 +25,7 @@ type configService interface {
 	GetString(key string) string
 	// GetDuration returns the value associated with the key as a duration
 	GetDuration(key string) time.Duration
-	// GetBool returns the value associated with the key asa boolean
+	// GetBool returns the value associated with the key as a boolean
 	GetBool(key string) bool
 	// IsSet checks to see if the key has been set in any of the data locations
 	IsSet(key string) bool
@@ -33,6 +35,8 @@ type configService interface {
 	GetPath(key string) string
 	// TranslatePath translates the passed path relative to the config path
 	TranslatePath(path string) string
+	// GetInt returns the value associated with the key as an int
+	GetInt(key string) int
 }
 
 type Config struct {
@@ -224,4 +228,16 @@ func (c *Config) MSPCacheSize() int {
 		return DefaultMSPCacheSize
 	}
 	return i
+}
+
+func (c *Config) BroadcastNumRetries() int {
+	v := c.configService.GetInt("fabric." + c.prefix + "ordering.numRetries")
+	if v == 0 {
+		return DefaultBroadcastNumRetries
+	}
+	return v
+}
+
+func (c *Config) BroadcastRetryInterval() time.Duration {
+	return c.configService.GetDuration("fabric." + c.prefix + "ordering.retryInternal")
 }

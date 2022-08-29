@@ -290,6 +290,9 @@ fabric:
          interval: 60s
          timeout: 600s
          minInterval: 60s 
+    ordering:
+      numRetries: 3
+      retryInternal: 3s
     peers: {{ range Peers }}
       - address: {{ PeerAddress . "Listen" }}
         connectionTimeout: 10s

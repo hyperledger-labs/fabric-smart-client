@@ -28,6 +28,8 @@ type configService interface {
 	GetPath(key string) string
 	// TranslatePath translates the passed path relative to the config path
 	TranslatePath(path string) string
+	// GetInt returns the value associated with the key as an int
+	GetInt(key string) int
 }
 
 type Config struct {
