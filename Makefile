@@ -8,7 +8,7 @@ GINKGO_TEST_OPTS += --slow-spec-threshold=60s
 
 TOP = .
 
-all: install-tools checks unit-tests #integration-tests
+all: install-tools install-softhsm checks unit-tests #integration-tests
 
 .PHONY: install-tools
 install-tools:
@@ -23,6 +23,11 @@ include $(TOP)/checks.mk
 unit-tests:
 	@go test -cover $(shell go list ./... | grep -v '/integration/')
 	cd integration/nwo/; go test -cover ./...
+
+.PHONY: install-softhsm
+
+install-softhsm:
+	./ci/scripts/install_softhsm.sh
 
 .PHONY: unit-tests-race
 unit-tests-race:
