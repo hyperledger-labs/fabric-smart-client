@@ -17,25 +17,22 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
     echo directories.tokendir = /tmp > $CONFIGPATH/softhsm2.conf
 
     #Delete existing token
-    softhsm2-util --delete-token --token "ForFSC" || true
+    # softhsm2-util --delete-token --token "ForFSC" || true
 
     echo "Initializing tokens..."
-    softhsm2-util --init-token --slot 0 --label "ForFSC" --so-pin 1234 --pin 98765432
+    softhsm2-util --init-token --slot 13 --label "ForFSC" --so-pin 1234 --pin 98765432
 
 else
 
     #Create directory to store hsm tokens
     sudo mkdir -p /var/lib/softhsm/tokens
-    sudo chmod -R 777 /var/lib/softhsm
-
-    cp /usr/share/softhsm/softhsm2.conf $CONFIGPATH
-
     #Delete existing token
     softhsm2-util --delete-token --token "ForFSC" || true
 
     echo "Initializing tokens..."
     sudo softhsm2-util --init-token --slot 0 --label "ForFSC" --so-pin 1234 --pin 98765432
 
+    sudo chmod -R 777 /var/lib/softhsm
+    cp /usr/share/softhsm/softhsm2.conf $CONFIGPATH
+
 fi
-
-
