@@ -98,6 +98,10 @@ jobs:
         working-directory: ${{ env.FSC_PATH }}
         run: make docker-images
 
+      - name: Set up softhsm
+        working-directory: ${{ env.FSC_PATH }}
+        run: make install-softhsm
+
       - name: Run ${{ matrix.tests }}
         working-directory: ${{ env.FSC_PATH }}
         run: make integration-tests-${{ matrix.tests }}
