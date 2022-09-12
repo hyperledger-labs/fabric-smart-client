@@ -16,3 +16,19 @@ type TxEvent struct {
 	CommitPeer     string
 	Err            error
 }
+
+type ChaincodeEvent struct {
+	BlockNumber   uint64
+	TransactionID string
+	ChaincodeName string
+	EventName     string
+	Payload       []byte
+}
+
+func (chaincodeEvent ChaincodeEvent) Message() interface{} {
+	return &chaincodeEvent
+}
+
+func (chaincodeEvent ChaincodeEvent) Topic() string {
+	return chaincodeEvent.ChaincodeName
+}

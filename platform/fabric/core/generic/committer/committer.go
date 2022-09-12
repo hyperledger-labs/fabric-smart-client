@@ -18,6 +18,9 @@ import (
 	"github.com/hyperledger/fabric-protos-go/common"
 	"github.com/pkg/errors"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
+	// "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
@@ -53,12 +56,13 @@ type committer struct {
 
 	quietNotifier bool
 
-	listeners      map[string][]chan TxEvent
-	mutex          sync.Mutex
-	pollingTimeout time.Duration
+	listeners       map[string][]chan TxEvent
+	mutex           sync.Mutex
+	pollingTimeout  time.Duration
+	serviceProvider *view.ServiceProvider
 }
 
-func New(channel string, network Network, finality Finality, waitForEventTimeout time.Duration, quiet bool, metrics Metrics) (*committer, error) {
+func New(channel string, network Network, finality Finality, waitForEventTimeout time.Duration, quiet bool, metrics Metrics, sp *view.ServiceProvider) (*committer, error) {
 	if len(channel) == 0 {
 		panic("expected a channel, got empty string")
 	}
@@ -73,6 +77,7 @@ func New(channel string, network Network, finality Finality, waitForEventTimeout
 		finality:            finality,
 		pollingTimeout:      100 * time.Millisecond,
 		metrics:             metrics,
+		serviceProvider:     sp,
 	}
 	return d, nil
 }
@@ -96,7 +101,8 @@ func (c *committer) Commit(block *common.Block) error {
 			logger.Errorf("[%s] unmarshal channel header failed: %s", c.channel, err)
 			return err
 		}
-
+		logger.Debugf("PAYLOAD------->", payl.String())
+		fmt.Println("PAYLOAD------->", payl.GetData())
 		var event TxEvent
 
 		c.metrics.EmitKey(0, "committer", "start", "Commit", chdr.TxId)
@@ -123,6 +129,11 @@ func (c *committer) Commit(block *common.Block) error {
 
 		c.notify(event)
 
+		//todo get chaincoed event from block
+		// exist, chaincodeEvent := getChaincodeEvent(tx)
+		// c.notifyChaincodeListeners(event)
+		// notify chaincode listeners
+
 		if logger.IsEnabledFor(zapcore.DebugLevel) {
 			logger.Debugf("commit transaction [%s] in filteredBlock [%d]", chdr.TxId, block.Header.Number)
 		}
@@ -130,6 +141,10 @@ func (c *committer) Commit(block *common.Block) error {
 
 	return nil
 }
+
+// func getChaincodeEvent(txn []byte) *ChaincodeEvent {
+
+// }
 
 // IsFinal takes in input a transaction id and waits for its confirmation.
 func (c *committer) IsFinal(txid string) error {
@@ -282,6 +297,11 @@ func (c *committer) notify(event TxEvent) {
 		}
 	}
 }
+
+// func (c *committer) notifyChaincodeListeners(event *ChaincodeEvent) {
+// 	publisher, _ := events.GetPublisher(*c.serviceProvider)
+// 	publisher.Publish(event)
+// }
 
 func (c *committer) listenTo(txid string, timeout time.Duration) error {
 	c.metrics.EmitKey(0, "committer", "start", "listenTo", txid)
