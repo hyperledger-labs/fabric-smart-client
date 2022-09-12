@@ -32,6 +32,7 @@ const (
 	IOUWithOrionBackendPort
 	AssetTransferSecuredAgreementWithChaincode
 	AssetTransferSecuredAgreementWithApprovers
+	AssetTransferEventsAgreementWithChaincode
 	TwoFabricNetworksPort
 	FPCEchoPort
 	TwoFabricNetworksWithWeaverRelayPort

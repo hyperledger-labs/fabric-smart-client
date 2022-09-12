@@ -59,8 +59,9 @@ func (e *Envelope) UnmarshalJSON(raw []byte) error {
 }
 
 type Chaincode struct {
-	chaincode driver.Chaincode
-	fns       driver.FabricNetworkService
+	chaincode     driver.Chaincode
+	fns           driver.FabricNetworkService
+	EventListener *EventListener
 }
 
 // Invoke returns a chaincode invocation proxy struct for the passed function and arguments

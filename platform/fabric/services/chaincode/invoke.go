@@ -7,9 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package chaincode
 
 import (
-	"github.com/pkg/errors"
+	"fmt"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/fpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -53,25 +52,19 @@ func (i *invokeChaincodeView) Call(context view.Context) (interface{}, error) {
 
 func (i *invokeChaincodeView) Invoke(context view.Context) (string, []byte, error) {
 	// TODO: endorse and then send to ordering
-	if len(i.ChaincodeName) == 0 {
-		return "", nil, errors.Errorf("no chaincode specified")
+	info := &info{
+		chaincodeName: i.ChaincodeName,
+		network:       i.Network,
+		channel:       i.Channel,
+		identitiy:     i.InvokerIdentity,
 	}
+	chaincode, err := getChaincode(context, info)
 
-	fNetwork := fabric.GetFabricNetworkService(context, i.Network)
-	if fNetwork == nil {
-		return "", nil, errors.Errorf("fabric network service [%s] not found", i.Network)
-	}
-	channel, err := fNetwork.Channel(i.Channel)
 	if err != nil {
-		return "", nil, errors.WithMessagef(err, "failed getting channel [%s:%s]", i.Network, i.Channel)
+		return "", nil, err
 	}
-	if i.InvokerIdentity.IsNone() {
-		i.InvokerIdentity = fNetwork.IdentityProvider().DefaultIdentity()
-	}
-	chaincode := channel.Chaincode(i.ChaincodeName)
-	if chaincode == nil {
-		return "", nil, errors.Errorf("fabric chaincode [%s:%s:%s] not found", i.Network, i.Channel, i.ChaincodeName)
-	}
+	i.InvokerIdentity = info.identitiy
+
 	if chaincode.IsPrivate() {
 		logger.Debugf("chaincode [%s:%s:%s] is a FPC", i.Network, i.Channel, i.ChaincodeName)
 		// This is a Fabric Private Chaincode, use the corresponding service
@@ -95,7 +88,7 @@ func (i *invokeChaincodeView) Invoke(context view.Context) (string, []byte, erro
 	if i.EndorsersFromMyOrg {
 		invocation.WithEndorsersFromMyOrg()
 	}
-
+	fmt.Println("Submit chaincode")
 	txid, result, err := invocation.Submit()
 	if err != nil {
 		return "", nil, err
