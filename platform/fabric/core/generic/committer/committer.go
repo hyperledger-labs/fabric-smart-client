@@ -19,8 +19,8 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
-	// "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
@@ -84,6 +84,7 @@ func New(channel string, network Network, finality Finality, waitForEventTimeout
 
 // Commit commits the transactions in the block passed as argument
 func (c *committer) Commit(block *common.Block) error {
+
 	for i, tx := range block.Data.Data {
 
 		env, err := protoutil.UnmarshalEnvelope(tx)
@@ -101,8 +102,12 @@ func (c *committer) Commit(block *common.Block) error {
 			logger.Errorf("[%s] unmarshal channel header failed: %s", c.channel, err)
 			return err
 		}
-		logger.Debugf("PAYLOAD------->", payl.String())
-		fmt.Println("PAYLOAD------->", payl.GetData())
+		chaincodeEvent, err := getChaincodeEvent(env, block.Header.Number)
+		if err != nil {
+			logger.Errorf("Error reading chaincode event")
+			return err
+		}
+
 		var event TxEvent
 
 		c.metrics.EmitKey(0, "committer", "start", "Commit", chdr.TxId)
@@ -129,10 +134,16 @@ func (c *committer) Commit(block *common.Block) error {
 
 		c.notify(event)
 
-		//todo get chaincoed event from block
-		// exist, chaincodeEvent := getChaincodeEvent(tx)
-		// c.notifyChaincodeListeners(event)
-		// notify chaincode listeners
+		// get chaincoed event from envelop
+
+		if chaincodeEvent != nil {
+			logger.Debugf("Received chaincode event")
+			err := c.notifyChaincodeListeners(chaincodeEvent)
+			if err != nil {
+				logger.Errorf("Error sending chaincode events to listenerers")
+				return err
+			}
+		}
 
 		if logger.IsEnabledFor(zapcore.DebugLevel) {
 			logger.Debugf("commit transaction [%s] in filteredBlock [%d]", chdr.TxId, block.Header.Number)
@@ -141,10 +152,6 @@ func (c *committer) Commit(block *common.Block) error {
 
 	return nil
 }
-
-// func getChaincodeEvent(txn []byte) *ChaincodeEvent {
-
-// }
 
 // IsFinal takes in input a transaction id and waits for its confirmation.
 func (c *committer) IsFinal(txid string) error {
@@ -298,10 +305,14 @@ func (c *committer) notify(event TxEvent) {
 	}
 }
 
-// func (c *committer) notifyChaincodeListeners(event *ChaincodeEvent) {
-// 	publisher, _ := events.GetPublisher(*c.serviceProvider)
-// 	publisher.Publish(event)
-// }
+func (c *committer) notifyChaincodeListeners(event *ChaincodeEvent) error {
+	publisher, err := events.GetPublisher(*c.serviceProvider)
+	if err != nil {
+		return errors.Wrap(err, "failed to get event publisher")
+	}
+	publisher.Publish(event)
+	return nil
+}
 
 func (c *committer) listenTo(txid string, timeout time.Duration) error {
 	c.metrics.EmitKey(0, "committer", "start", "listenTo", txid)
