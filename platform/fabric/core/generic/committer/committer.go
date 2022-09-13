@@ -102,10 +102,14 @@ func (c *committer) Commit(block *common.Block) error {
 			logger.Errorf("[%s] unmarshal channel header failed: %s", c.channel, err)
 			return err
 		}
+		fmt.Println("get chaincode called------")
 		chaincodeEvent, err := getChaincodeEvent(env, block.Header.Number)
 		if err != nil {
 			logger.Errorf("Error reading chaincode event")
 			return err
+		}
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			logger.Debugf("[%s] Chaincode Event Received: %s", chaincodeEvent)
 		}
 
 		var event TxEvent
@@ -135,9 +139,8 @@ func (c *committer) Commit(block *common.Block) error {
 		c.notify(event)
 
 		// get chaincoed event from envelop
-
 		if chaincodeEvent != nil {
-			logger.Debugf("Received chaincode event")
+			logger.Debugf("Notify Chaincode Event", chaincodeEvent)
 			err := c.notifyChaincodeListeners(chaincodeEvent)
 			if err != nil {
 				logger.Errorf("Error sending chaincode events to listenerers")
