@@ -51,7 +51,7 @@ func (c *Channel) Chaincode(name string) *Chaincode {
 	return &Chaincode{
 		fns:           c.fns,
 		chaincode:     c.ch.Chaincode(name),
-		eventListener: newEventListener(c.sp, name),
+		EventListener: newEventListener(c.sp, name),
 	}
 }
 

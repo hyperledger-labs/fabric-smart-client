@@ -26,9 +26,6 @@ type LocalPutView struct {
 
 func (p *LocalPutView) Call(context view.Context) (interface{}, error) {
 
-	// chaincode :=fabric.GetDefaultChannel(context).Chaincode(p.Chaincode)
-	// chaincode.EventListener().ChaincodeEvents()
-
 	// Invoke the passed chaincode to put the key/value pair
 	txID, _, err := fabric.GetDefaultChannel(context).Chaincode(p.Chaincode).Invoke(
 		"Put", p.Key, p.Value,

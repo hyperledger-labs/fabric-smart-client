@@ -18,20 +18,24 @@ type EventListener struct {
 	chaincodeName     string
 }
 
-func (e *EventListener) ChaincodeEvents() <-chan *committer.ChaincodeEvent {
+func (e *EventListener) ChaincodeEvents() (<-chan *committer.ChaincodeEvent, error) {
 	e.chaincodeListener = make(chan *committer.ChaincodeEvent, 1)
-	subscriber, _ := events.GetSubscriber(e.sp)
+	subscriber, err := events.GetSubscriber(e.sp)
+	if err != nil {
+		return nil, err
+	}
 	subscriber.Subscribe(e.chaincodeName, e)
-	return e.chaincodeListener
+	return e.chaincodeListener, nil
 }
 
-func newEventListener(sp view2.ServiceProvider, name string) *EventListener {
+func newEventListener(sp view2.ServiceProvider, chaincodeName string) *EventListener {
 	return &EventListener{
 		sp:            sp,
-		chaincodeName: name,
+		chaincodeName: chaincodeName,
 	}
 }
 
 func (e *EventListener) OnReceive(event events.Event) {
+	//todo filter events based on options passed - start block last transactionid
 	e.chaincodeListener <- event.Message().(*committer.ChaincodeEvent)
 }
