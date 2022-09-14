@@ -68,6 +68,7 @@ orion-server-images:
 integration-tests:
 	cd ./integration/fabric/iou; ginkgo $(GINKGO_TEST_OPTS) .
 	cd ./integration/fabric/atsa/chaincode; ginkgo $(GINKGO_TEST_OPTS) .
+	cd ./integration/fabric/events/chaincode; ginkgo $(GINKGO_TEST_OPTS) .
 	cd ./integration/fabric/atsa/fsc; ginkgo $(GINKGO_TEST_OPTS) .
 	cd ./integration/fabric/twonets; ginkgo $(GINKGO_TEST_OPTS) .
 	cd ./integration/fsc/pingpong/; ginkgo $(GINKGO_TEST_OPTS) .
@@ -87,6 +88,9 @@ integration-tests-iou-hsm:
 .PHONY: integration-tests-atsacc
 integration-tests-atsacc:
 	cd ./integration/fabric/atsa/chaincode; ginkgo $(GINKGO_TEST_OPTS) .
+
+integration-tests-chaincode-events:
+	cd ./integration/fabric/events/chaincode; ginkgo $(GINKGO_TEST_OPTS) .
 
 .PHONY: integration-tests-atsafsc
 integration-tests-atsafsc:
@@ -131,6 +135,7 @@ clean:
 	rm -rf ./build
 	rm -rf ./testdata
 	rm -rf ./integration/fabric/atsa/chaincode/cmd
+	rm -rf ./integration/fabric/events/chaincode/cmd
 	rm -rf ./integration/fabric/atsa/fsc/cmd
 	rm -rf ./integration/fabric/iou/cmd/
 	rm -rf ./integration/fabric/iou/testdata/

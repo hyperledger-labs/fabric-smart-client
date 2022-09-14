@@ -76,7 +76,8 @@ jobs:
           pingpong,
           stoprestart,
           twonets,
-          weaver-relay
+          weaver-relay,
+          chaincode-events
         ]
 
     steps:

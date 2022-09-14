@@ -31,6 +31,7 @@ const (
 	IOUHSMPort
 	AssetTransferSecuredAgreementWithChaincode
 	AssetTransferSecuredAgreementWithApprovers
+	AssetTransferEventsAgreementWithChaincode
 	TwoFabricNetworksPort
 	FPCEchoPort
 	TwoFabricNetworksWithWeaverRelayPort
