@@ -6,19 +6,19 @@ SPDX-License-Identifier: Apache-2.0
 
 package db
 
-import "fmt"
-
+// PrefixConfig extends Config by adding a given prefix to any passed key
 type PrefixConfig struct {
 	config Config
 	prefix string
 }
 
+// NewPrefixConfig returns a ner PrefixConfig instance for the passed prefix
 func NewPrefixConfig(config Config, prefix string) *PrefixConfig {
 	return &PrefixConfig{config: config, prefix: prefix}
 }
 
+// UnmarshalKey takes a single key, appends to it the prefix set in the struct, and unmarshals it into a Struct
 func (c *PrefixConfig) UnmarshalKey(key string, rawVal interface{}) error {
-	fmt.Println("PrefixConfig.UnmarshalKey:", c.prefix, key, rawVal)
 	if len(key) != 0 {
 		key = c.prefix + "." + key
 	} else {

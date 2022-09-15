@@ -14,14 +14,11 @@ import (
 	"sync"
 	"time"
 
-	"google.golang.org/grpc/credentials/insecure"
-
-	"go.uber.org/zap/zapcore"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
-
 	"github.com/pkg/errors"
+	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/keepalive"
 )
 

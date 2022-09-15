@@ -27,6 +27,7 @@ var (
 const (
 	cacheSizeConfigKey       = "fsc.kvs.cache.size"
 	persistenceOptsConfigKey = "fsc.kvs.persistence.opts"
+	defaultCacheSize         = 100
 )
 
 type KVS struct {
@@ -43,6 +44,7 @@ type cache interface {
 	Delete(key string)
 }
 
+// New returns a new KVS instance for the passed namespace using the passed driver
 func New(sp view.ServiceProvider, driverName, namespace string) (*KVS, error) {
 	persistence, err := db.Open(sp, driverName, namespace, db.NewPrefixConfig(view.GetConfigService(sp), "fsc.kvs.persistence.opts"))
 	if err != nil {
@@ -62,8 +64,6 @@ func New(sp view.ServiceProvider, driverName, namespace string) (*KVS, error) {
 		cache:     secondcache.New(cacheSize),
 	}, nil
 }
-
-var defaultCacheSize = 100
 
 // cacheSizeFromConfig returns the KVS cache size from current configuration.
 // Returns defaultCacheSize, if no configuration found.

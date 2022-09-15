@@ -10,7 +10,7 @@ import (
 	"sort"
 	"sync"
 
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/unversioned"
 	"github.com/pkg/errors"
@@ -58,7 +58,7 @@ type Config interface {
 // driverName is a string that describes the driver
 // dataSourceName describes the data source in a driver-specific format.
 // The returned connection is only used by one goroutine at a time.
-func Open(sp view2.ServiceProvider, driverName, dataSourceName string, config Config) (driver.Persistence, error) {
+func Open(sp view.ServiceProvider, driverName, dataSourceName string, config Config) (driver.Persistence, error) {
 	driversMu.RLock()
 	driver, ok := drivers[driverName]
 	driversMu.RUnlock()
@@ -76,7 +76,7 @@ func Open(sp view2.ServiceProvider, driverName, dataSourceName string, config Co
 // driverName is a string that describes the driver
 // dataSourceName describes the data source in a driver-specific format.
 // The returned connection is only used by one goroutine at a time.
-func OpenVersioned(sp view2.ServiceProvider, driverName, dataSourceName string, config Config) (driver.VersionedPersistence, error) {
+func OpenVersioned(sp view.ServiceProvider, driverName, dataSourceName string, config Config) (driver.VersionedPersistence, error) {
 	driversMu.RLock()
 	driver, ok := drivers[driverName]
 	driversMu.RUnlock()

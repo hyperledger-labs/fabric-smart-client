@@ -8,6 +8,7 @@ package fsc
 
 import "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
 
+// WithOrionPersistence set FSC backend to an orion backend
 func WithOrionPersistence(network, db, creator string) node.Option {
 	return func(o *node.Options) error {
 		o.Put("fsc.persistence.orion", network)
