@@ -165,13 +165,7 @@ func newChannel(network *network, name string, quiet bool) (*channel, error) {
 		return nil, errors.WithMessagef(err, "failed initializing channel [%s]", name)
 	}
 
-	// Start delivery
-	if network.Config().IsDeliveryEnabled() {
-		logger.Debugf("Starting delivery for channel [%s]", name)
-		deliveryService.Start()
-	} else {
-		logger.Debugf("Delivery is disabled for channel [%s]", name)
-	}
+	deliveryService.Start()
 
 	return c, nil
 }
