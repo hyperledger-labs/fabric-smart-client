@@ -48,10 +48,6 @@ type registerChaincodeView struct {
 	*RegisterChaincodeCall
 }
 
-type getInfo interface {
-	getChannel()
-}
-
 func NewInvokeView(chaincode, function string, args ...interface{}) *invokeChaincodeView {
 	return &invokeChaincodeView{
 		InvokeCall: &InvokeCall{
@@ -99,16 +95,18 @@ func (r *registerChaincodeView) Call(context view.Context) (interface{}, error) 
 
 func (i *invokeChaincodeView) Invoke(context view.Context) (string, []byte, error) {
 	// TODO: endorse and then send to ordering
-	chaincode, err := getChaincode(context, &info{
+	info := &info{
 		chaincodeName: i.ChaincodeName,
 		network:       i.Network,
 		channel:       i.Channel,
 		identitiy:     i.InvokerIdentity,
-	})
+	}
+	chaincode, err := getChaincode(context, info)
 
 	if err != nil {
 		return "", nil, err
 	}
+	i.InvokerIdentity = info.identitiy
 
 	if chaincode.IsPrivate() {
 		logger.Debugf("chaincode [%s:%s:%s] is a FPC", i.Network, i.Channel, i.ChaincodeName)
@@ -213,7 +211,6 @@ func getChaincode(context view.Context, info *info) (*fabric.Chaincode, error) {
 		return nil, errors.WithMessagef(err, "failed getting channel [%s:%s]", info.network, info.channel)
 	}
 	if len(info.identitiy) == 0 {
-		fNetwork.IdentityProvider().DefaultIdentity()
 		info.identitiy = fNetwork.IdentityProvider().DefaultIdentity()
 	}
 	chaincode := channel.Chaincode(info.chaincodeName)

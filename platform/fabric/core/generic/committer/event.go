@@ -44,29 +44,31 @@ func validChaincodeEvent(event *peer.ChaincodeEvent) bool {
 }
 
 func getChaincodeEvent(env *common.Envelope, blockNumber uint64) (*ChaincodeEvent, error) {
+	chaincodeEvent := &ChaincodeEvent{}
 	chaincodeAction, err := protoutil.GetActionFromEnvelopeMsg(env)
 	if err != nil {
 		logger.Errorf("Error getting chaincode actions from envelop: %s", err)
 		return nil, err
 	}
+	//todo - reverse
+	if chaincodeAction != nil {
+		//todo - multiple events
+		chaincodeEventData, err := protoutil.UnmarshalChaincodeEvents(chaincodeAction.GetEvents())
+		if err != nil {
+			logger.Errorf("Error getting chaincode event from chaincode actions: %s", err)
+			return nil, err
+		}
 
-	chaincodeEventData, err := protoutil.UnmarshalChaincodeEvents(chaincodeAction.GetEvents())
-	if err != nil {
-		logger.Errorf("Error getting chaincode event from chaincode actions: %s", err)
-		return nil, err
+		if !validChaincodeEvent(chaincodeEventData) {
+			return nil, nil
+		}
+
+		chaincodeEvent.BlockNumber = blockNumber
+		chaincodeEvent.TransactionID = chaincodeEventData.GetTxId()
+		chaincodeEvent.ChaincodeID = chaincodeEventData.GetChaincodeId()
+		chaincodeEvent.EventName = chaincodeEventData.GetEventName()
+		chaincodeEvent.Payload = chaincodeEventData.GetPayload()
 	}
-
-	if !validChaincodeEvent(chaincodeEventData) {
-		return nil, nil
-	}
-
-	chaincodeEvent := &ChaincodeEvent{
-		BlockNumber:   blockNumber,
-		TransactionID: chaincodeEventData.GetTxId(),
-		ChaincodeID:   chaincodeEventData.GetChaincodeId(),
-		EventName:     chaincodeEventData.GetEventName(),
-		Payload:       chaincodeEventData.GetPayload(),
-	}
-
+	//todo - return nil if actions nil
 	return chaincodeEvent, nil
 }

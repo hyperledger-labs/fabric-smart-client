@@ -105,7 +105,7 @@ func newChannel(network *network, name string, quiet bool) (*channel, error) {
 		return nil, err
 	}
 
-	committerInst, err := committer.New(name, network, fabricFinality, waitForEventTimeout, quiet, tracing.Get(sp), &network.sp)
+	committerInst, err := committer.New(name, network, fabricFinality, waitForEventTimeout, quiet, tracing.Get(sp), network.sp)
 	if err != nil {
 		return nil, err
 	}

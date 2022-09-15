@@ -59,10 +59,10 @@ type committer struct {
 	listeners       map[string][]chan TxEvent
 	mutex           sync.Mutex
 	pollingTimeout  time.Duration
-	serviceProvider *view.ServiceProvider
+	serviceProvider view.ServiceProvider
 }
 
-func New(channel string, network Network, finality Finality, waitForEventTimeout time.Duration, quiet bool, metrics Metrics, sp *view.ServiceProvider) (*committer, error) {
+func New(channel string, network Network, finality Finality, waitForEventTimeout time.Duration, quiet bool, metrics Metrics, sp view.ServiceProvider) (*committer, error) {
 	if len(channel) == 0 {
 		panic("expected a channel, got empty string")
 	}
@@ -137,7 +137,7 @@ func (c *committer) Commit(block *common.Block) error {
 		c.metrics.EmitKey(0, "committer", "end", "Commit", chdr.TxId)
 
 		c.notify(event)
-
+		//todo- move inside handlenedorser
 		// get chaincoed event from envelop
 		if chaincodeEvent != nil {
 			logger.Debugf("Notify Chaincode Event", chaincodeEvent)
@@ -309,7 +309,7 @@ func (c *committer) notify(event TxEvent) {
 }
 
 func (c *committer) notifyChaincodeListeners(event *ChaincodeEvent) error {
-	publisher, err := events.GetPublisher(*c.serviceProvider)
+	publisher, err := events.GetPublisher(c.serviceProvider)
 	if err != nil {
 		return errors.Wrap(err, "failed to get event publisher")
 	}
