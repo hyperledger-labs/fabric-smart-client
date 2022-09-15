@@ -35,8 +35,7 @@ func Topology() []api.Topology {
 
 	// Define a new FSC topology
 	fscTopology := fsc.NewTopology()
-	fscTopology.SetLogging("grpc=error:debug", "")
-
+	fscTopology.SetLogging("fabric-sdk.committer=debug:info", "")
 	// Define Alice's FSC node
 	alice := fscTopology.AddNodeByName("alice")
 	// Equip it with a Fabric identity from Org1 that is a client
