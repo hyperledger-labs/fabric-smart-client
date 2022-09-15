@@ -112,6 +112,7 @@ func (n *Network) CheckTopologyFSCNodes() (users map[string]int, userSpecs map[s
 			ExecutablePath: node.ExecutablePath,
 			Identities:     identities,
 			DefaultNetwork: defaultNetwork,
+			FSCNode:        node,
 		}
 		bccspDefault := "SW"
 		if nodeOpts.DefaultIdentityByHSM() {
