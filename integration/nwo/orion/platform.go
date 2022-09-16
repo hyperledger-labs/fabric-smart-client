@@ -216,7 +216,7 @@ func (p *Platform) replaceForDocker(origin string) string {
 func (p *Platform) generateExtension() {
 	fscTopology := p.Context.TopologyByName("fsc").(*fsc.Topology)
 	for _, node := range fscTopology.Nodes {
-		opt := Options(&node.Options)
+		opt := Options(node.Options)
 		role := opt.Role()
 
 		t, err := template.New("view_extension").Funcs(template.FuncMap{

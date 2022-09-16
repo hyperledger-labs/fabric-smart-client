@@ -14,11 +14,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/api"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-)
-
-const (
-	ClientRole = "client"
-	PeerRole   = "peer"
+	"gopkg.in/yaml.v2"
 )
 
 // Factory is used to create instances of the View interface
@@ -46,6 +42,13 @@ func (o *Options) Put(k string, v interface{}) {
 		o.Mapping = map[string]interface{}{}
 	}
 	o.Mapping[k] = v
+}
+
+func (o *Options) Get(k string) interface{} {
+	if o.Mapping == nil {
+		return nil
+	}
+	return o.Mapping[k]
 }
 
 func (o *Options) Aliases() []string {
@@ -109,7 +112,7 @@ type Alias struct {
 	Alias    string
 }
 
-type NodeSynthesizer struct {
+type Synthesizer struct {
 	Aliases    map[string]Alias `yaml:"Aliases,omitempty"`
 	Imports    []string         `yaml:"Imports,omitempty"`
 	Factories  []FactoryEntry   `yaml:"Factories,omitempty"`
@@ -118,34 +121,31 @@ type NodeSynthesizer struct {
 }
 
 type Node struct {
-	NodeSynthesizer `yaml:"NodeSynthesizer,omitempty"`
-	Name            string  `yaml:"name,omitempty"`
-	Bootstrap       bool    `yaml:"bootstrap,omitempty"`
-	ExecutablePath  string  `yaml:"executablePath,omitempty"`
-	Path            string  `yaml:"path,omitempty"`
-	Options         Options `yaml:"options,omitempty"`
+	Synthesizer    `yaml:"Synthesizer,omitempty"`
+	Name           string   `yaml:"name,omitempty"`
+	Bootstrap      bool     `yaml:"bootstrap,omitempty"`
+	ExecutablePath string   `yaml:"executablePath,omitempty"`
+	Path           string   `yaml:"path,omitempty"`
+	Options        *Options `yaml:"options,omitempty"`
 }
 
 func NewNode(name string) *Node {
 	return &Node{
-		NodeSynthesizer: NodeSynthesizer{
+		Synthesizer: Synthesizer{
 			Aliases:    map[string]Alias{},
 			Imports:    []string{},
 			Factories:  []FactoryEntry{},
 			Responders: []ResponderEntry{},
 		},
 		Name:    name,
-		Options: Options{Mapping: map[string]interface{}{}},
+		Options: &Options{Mapping: map[string]interface{}{}},
 	}
-}
-
-func NewTemplateNode() *Node {
-	return NewNode("")
 }
 
 func NewNodeFromTemplate(name string, template *Node) *Node {
 	return &Node{
-		NodeSynthesizer: NodeSynthesizer{
+		Synthesizer: Synthesizer{
+			Aliases:    map[string]Alias{},
 			Imports:    template.Imports,
 			Factories:  template.Factories,
 			Responders: template.Responders,
@@ -154,7 +154,7 @@ func NewNodeFromTemplate(name string, template *Node) *Node {
 		Bootstrap:      template.Bootstrap,
 		ExecutablePath: template.ExecutablePath,
 		Path:           template.Path,
-		Options:        template.Options,
+		Options:        cloneOptions(template.Options),
 	}
 }
 
@@ -212,7 +212,7 @@ func (n *Node) RegisterResponder(responder view.View, initiator view.View) *Node
 	initiatorType := reflect.Indirect(reflect.ValueOf(initiator)).Type()
 
 	aliasResponder := n.addImport(responderType.PkgPath())
-	aliasInitator := n.addImport(initiatorType.PkgPath())
+	aliasInitiator := n.addImport(initiatorType.PkgPath())
 
 	responderStr := ""
 	if isResponderPtr {
@@ -224,7 +224,7 @@ func (n *Node) RegisterResponder(responder view.View, initiator view.View) *Node
 	if isInitiatorPtr {
 		initiatorStr += "&"
 	}
-	initiatorStr += aliasInitator + "." + initiatorType.Name() + "{}"
+	initiatorStr += aliasInitiator + "." + initiatorType.Name() + "{}"
 
 	n.Responders = append(n.Responders, ResponderEntry{Responder: responderStr, Initiator: initiatorStr})
 
@@ -239,7 +239,7 @@ func (n *Node) AddOptions(opts ...Option) *Node {
 }
 
 func (n *Node) PlatformOpts() *Options {
-	return &n.Options
+	return n.Options
 }
 
 func (n *Node) Alias(i string) string {
@@ -275,4 +275,18 @@ func (n *Node) addImport(i string) string {
 	n.Imports = imports
 
 	return n.Aliases[i].Alias
+}
+
+func cloneOptions(options *Options) *Options {
+	// deep clone options using yaml
+	b, err := yaml.Marshal(options)
+	if err != nil {
+		panic(err.Error())
+	}
+	var clone Options
+	err = yaml.Unmarshal(b, &clone)
+	if err != nil {
+		panic(err.Error())
+	}
+	return &clone
 }

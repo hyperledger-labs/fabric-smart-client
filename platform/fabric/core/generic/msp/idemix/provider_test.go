@@ -12,18 +12,15 @@ import (
 	"time"
 
 	bccsp "github.com/IBM/idemix/bccsp/schemes"
-
 	idemix2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/idemix"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	sig2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/core/sig"
-
-	msp2 "github.com/hyperledger/fabric/msp"
-	"github.com/stretchr/testify/assert"
-
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger"
+	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	registry2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/registry"
-
-	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
+	msp2 "github.com/hyperledger/fabric/msp"
+	"github.com/stretchr/testify/assert"
 )
 
 // TODO replace fakeProv this with msp/mock/config_provider
@@ -57,7 +54,7 @@ func (f *fakeProv) IsSet(key string) bool {
 }
 
 func (f *fakeProv) UnmarshalKey(key string, rawVal interface{}) error {
-	*(rawVal.(*kvs.Opts)) = kvs.Opts{
+	*(rawVal.(*badger.Opts)) = badger.Opts{
 		Path: f.path,
 	}
 
@@ -80,7 +77,7 @@ func TestProvider(t *testing.T) {
 	registry := registry2.New()
 	registry.RegisterService(&fakeProv{typ: "memory"})
 
-	kvss, err := kvs.New("memory", "", registry)
+	kvss, err := kvs.New(registry, "memory", "")
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
 	sigService := sig2.NewSignService(registry, nil, kvss)
@@ -106,7 +103,7 @@ func TestIdentityEidNym(t *testing.T) {
 	registry := registry2.New()
 	registry.RegisterService(&fakeProv{typ: "memory"})
 
-	kvss, err := kvs.New("memory", "", registry)
+	kvss, err := kvs.New(registry, "memory", "")
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
 	sigService := sig2.NewSignService(registry, nil, kvss)
@@ -172,7 +169,7 @@ func TestIdentityStandard(t *testing.T) {
 	registry := registry2.New()
 	registry.RegisterService(&fakeProv{typ: "memory"})
 
-	kvss, err := kvs.New("memory", "", registry)
+	kvss, err := kvs.New(registry, "memory", "")
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
 	sigService := sig2.NewSignService(registry, nil, kvss)
@@ -240,7 +237,7 @@ func TestAuditEidNym(t *testing.T) {
 	registry := registry2.New()
 	registry.RegisterService(&fakeProv{typ: "memory"})
 
-	kvss, err := kvs.New("memory", "", registry)
+	kvss, err := kvs.New(registry, "memory", "")
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
 	sigService := sig2.NewSignService(registry, nil, kvss)
@@ -284,7 +281,7 @@ func TestProvider_DeserializeSigner(t *testing.T) {
 	registry := registry2.New()
 	registry.RegisterService(&fakeProv{typ: "memory"})
 
-	kvss, err := kvs.New("memory", "", registry)
+	kvss, err := kvs.New(registry, "memory", "")
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
 	sigService := sig2.NewSignService(registry, nil, kvss)

@@ -11,17 +11,15 @@ import (
 	"testing"
 	"time"
 
-	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
-
 	idemix2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/idemix"
 	x5092 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/x509"
 	sig2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/core/sig"
-
-	msp2 "github.com/hyperledger/fabric/msp"
-	"github.com/stretchr/testify/assert"
-
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger"
+	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	registry2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/registry"
+	msp2 "github.com/hyperledger/fabric/msp"
+	"github.com/stretchr/testify/assert"
 )
 
 // TODO replace fakeProv some autogenerate mock like we use in platform/fabric/core/generic/msp/mock/config_provider
@@ -55,7 +53,7 @@ func (f *fakeProv) IsSet(key string) bool {
 }
 
 func (f *fakeProv) UnmarshalKey(key string, rawVal interface{}) error {
-	*(rawVal.(*kvs.Opts)) = kvs.Opts{
+	*(rawVal.(*badger.Opts)) = badger.Opts{
 		Path: f.path,
 	}
 
@@ -78,7 +76,7 @@ func TestInfoIdemix(t *testing.T) {
 	registry := registry2.New()
 	registry.RegisterService(&fakeProv{typ: "memory"})
 
-	kvss, err := kvs.New("memory", "", registry)
+	kvss, err := kvs.New(registry, "memory", "")
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
 	sigService := sig2.NewSignService(registry, nil, kvss)

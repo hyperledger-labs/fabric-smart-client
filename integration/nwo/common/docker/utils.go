@@ -106,7 +106,7 @@ func (d *Docker) Cleanup(networkID string, matchName func(name string) bool) err
 	}
 
 	for _, i := range volumes {
-		if strings.HasPrefix(i.Name, networkID) {
+		if matchName(i.Name) {
 			logger.Infof("cleanup volume [%s]", i.Name)
 			err := d.Client.RemoveVolumeWithOptions(docker.RemoveVolumeOptions{
 				Name:  i.Name,
@@ -125,7 +125,7 @@ func (d *Docker) Cleanup(networkID string, matchName func(name string) bool) err
 	}
 	for _, i := range images {
 		for _, tag := range i.RepoTags {
-			if strings.HasPrefix(tag, networkID) {
+			if matchName(tag) {
 				logger.Infof("cleanup image [%s]", tag)
 				if err := d.Client.RemoveImage(i.ID); err != nil {
 					return errors.Wrapf(err, "failed removing docker image='%s'", i.ID)

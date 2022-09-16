@@ -319,9 +319,16 @@ fabric:
     {{- end }}
     vault:
       persistence:
-        type: file
+        # Persistence type can be \'badger\' (on disk) or \'memory\'
+        type: {{ FSCNodeVaultPersistenceType }}
         opts:
+          {{- if eq FSCNodeVaultPersistenceType "orion" }}
+          network: {{ FSCNodeVaultOrionNetwork }}
+          database: {{ FSCNodeVaultOrionDatabase }}
+          creator: {{ FSCNodeVaultOrionCreator }}
+          {{- else }}
           path: {{ FSCNodeVaultPath }}
+          {{- end }}
       txidstore:
         cache:
           # Sets the maximum number of cached items 

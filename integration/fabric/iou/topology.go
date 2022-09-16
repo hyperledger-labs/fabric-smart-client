@@ -38,9 +38,7 @@ func Topology() []api.Topology {
 
 	// Add the borrower's FSC node
 	borrower := fscTopology.AddNodeByName("borrower")
-	borrower.AddOptions(
-		fabric.WithOrganization("Org2"),
-	)
+	borrower.AddOptions(fabric.WithOrganization("Org2"))
 	borrower.RegisterViewFactory("create", &views.CreateIOUViewFactory{})
 	borrower.RegisterViewFactory("update", &views.UpdateIOUViewFactory{})
 	borrower.RegisterViewFactory("query", &views.QueryViewFactory{})
