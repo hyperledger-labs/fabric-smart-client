@@ -26,9 +26,22 @@ var (
 
 const (
 	cacheSizeConfigKey       = "fsc.kvs.cache.size"
+	persistenceType          = "fsc.kvs.persistence.type"
 	persistenceOptsConfigKey = "fsc.kvs.persistence.opts"
 	defaultCacheSize         = 100
 )
+
+//go:generate counterfeiter -o mock/config_provider.go -fake-name ConfigProvider . ConfigProvider
+
+// ConfigProvider models the DB configuration provider
+type ConfigProvider interface {
+	// UnmarshalKey takes a single key and unmarshals it into a Struct
+	UnmarshalKey(key string, rawVal interface{}) error
+	// IsSet checks to see if the key has been set in any of the data locations
+	IsSet(key string) bool
+	// GetInt returns the value associated with the key as an integer
+	GetInt(key string) int
+}
 
 type KVS struct {
 	namespace string
@@ -46,12 +59,17 @@ type cache interface {
 
 // New returns a new KVS instance for the passed namespace using the passed driver
 func New(sp view.ServiceProvider, driverName, namespace string) (*KVS, error) {
-	persistence, err := db.Open(sp, driverName, namespace, db.NewPrefixConfig(view.GetConfigService(sp), "fsc.kvs.persistence.opts"))
+	return NewWithConfig(sp, driverName, namespace, view.GetConfigService(sp))
+}
+
+// NewWithConfig returns a new KVS instance for the passed namespace using the passed driver and config provider
+func NewWithConfig(sp view.ServiceProvider, driverName, namespace string, cp ConfigProvider) (*KVS, error) {
+	persistence, err := db.Open(sp, driverName, namespace, db.NewPrefixConfig(cp, persistenceOptsConfigKey))
 	if err != nil {
 		return nil, errors.WithMessagef(err, "no driver found for [%s]", driverName)
 	}
 
-	cacheSize, err := cacheSizeFromConfig(sp)
+	cacheSize, err := cacheSizeFromConfig(cp)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed loading cache size from configuration")
 	}
@@ -68,15 +86,13 @@ func New(sp view.ServiceProvider, driverName, namespace string) (*KVS, error) {
 // cacheSizeFromConfig returns the KVS cache size from current configuration.
 // Returns defaultCacheSize, if no configuration found.
 // Returns an error and defaultCacheSize, if the loaded value from configuration is invalid (must be >= 0).
-func cacheSizeFromConfig(sp view.ServiceProvider) (int, error) {
-	configService := view.GetConfigService(sp)
-
-	if !configService.IsSet(cacheSizeConfigKey) {
+func cacheSizeFromConfig(cp ConfigProvider) (int, error) {
+	if !cp.IsSet(cacheSizeConfigKey) {
 		// no cache size configure, let's use default
 		return defaultCacheSize, nil
 	}
 
-	cacheSize := configService.GetInt(cacheSizeConfigKey)
+	cacheSize := cp.GetInt(cacheSizeConfigKey)
 	if cacheSize < 0 {
 		return defaultCacheSize, errors.Errorf("invalid cache size configuration: expect value >= 0, actual %d", cacheSize)
 	}
@@ -283,7 +299,7 @@ func GetService(ctx view.ServiceProvider) *KVS {
 
 // GetDriverNameFromConf returns the driver name from the node's configuration
 func GetDriverNameFromConf(sp view.ServiceProvider) string {
-	driverName := view.GetConfigService(sp).GetString("fsc.kvs.persistence.type")
+	driverName := view.GetConfigService(sp).GetString(persistenceType)
 	if len(driverName) == 0 {
 		driverName = "memory"
 	}
