@@ -38,7 +38,7 @@ type RegisterChaincodeCall struct {
 	ChaincodePath    string
 	ChaincodeName    string
 	ChaincodeVersion string
-	// Callback 		   ChaincodeEventCallback
+	CallBack         ChaincodeEventCallback
 }
 type invokeChaincodeView struct {
 	*InvokeCall
@@ -59,11 +59,11 @@ func NewInvokeView(chaincode, function string, args ...interface{}) *invokeChain
 }
 
 //todo add options
-func NewRegisterChaincodeView(chaincode string) *registerChaincodeView {
+func NewRegisterChaincodeView(chaincode string, callBack ChaincodeEventCallback) *registerChaincodeView {
 	return &registerChaincodeView{
 		RegisterChaincodeCall: &RegisterChaincodeCall{
 			ChaincodeName: chaincode,
-			// Callback: callback,
+			CallBack:      callBack,
 		},
 	}
 }
@@ -86,11 +86,11 @@ func (i *invokeChaincodeView) Call(context view.Context) (interface{}, error) {
 }
 
 func (r *registerChaincodeView) Call(context view.Context) (interface{}, error) {
-	events, err := r.RegisterChaincodeEvents(context)
+	err := r.RegisterChaincodeEvents(context)
 	if err != nil {
 		return nil, err
 	}
-	return events, nil
+	return nil, nil
 }
 
 func (i *invokeChaincodeView) Invoke(context view.Context) (string, []byte, error) {
@@ -140,7 +140,7 @@ func (i *invokeChaincodeView) Invoke(context view.Context) (string, []byte, erro
 }
 
 //add view to register chaincode
-func (r *registerChaincodeView) RegisterChaincodeEvents(context view.Context) (<-chan *committer.ChaincodeEvent, error) {
+func (r *registerChaincodeView) RegisterChaincodeEvents(context view.Context) error {
 	// TODO: endorse and then send to ordering
 	chaincode, err := getChaincode(context, &info{
 		chaincodeName: r.ChaincodeName,
@@ -149,14 +149,22 @@ func (r *registerChaincodeView) RegisterChaincodeEvents(context view.Context) (<
 		identitiy:     r.InvokerIdentity,
 	})
 	if err != nil {
-		return nil, err
+		return err
 	}
 	events, err := chaincode.EventListener.ChaincodeEvents()
+
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return events, nil
+	go func() {
+		for event := range events {
+			logger.Debugf("event---->", event)
+			_ = r.CallBack(event)
+		}
+	}()
+
+	return nil
 }
 
 func (i *invokeChaincodeView) WithTransientEntry(k string, v interface{}) *invokeChaincodeView {

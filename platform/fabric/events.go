@@ -18,8 +18,9 @@ type EventListener struct {
 	chaincodeName     string
 }
 
-func (e *EventListener) ChaincodeEvents() (<-chan *committer.ChaincodeEvent, error) {
+func (e *EventListener) ChaincodeEvents() (chan *committer.ChaincodeEvent, error) {
 	//todo - check whether channel doesn't exist and is closed
+	//todo - channel length should be number of subscribers
 	e.chaincodeListener = make(chan *committer.ChaincodeEvent, 1)
 	subscriber, err := events.GetSubscriber(e.sp)
 	if err != nil {

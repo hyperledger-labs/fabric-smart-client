@@ -8,11 +8,11 @@ package views
 
 import (
 	"encoding/json"
-	"fmt"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/chaincode"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -24,20 +24,22 @@ type CreateAssetView struct {
 	*CreateAsset
 }
 
+var logger = flogging.MustGetLogger("assets")
+
 func (c *CreateAssetView) Call(context view.Context) (interface{}, error) {
-
 	//Register chaincodeEvents
-	events, err := context.RunView(
-		chaincode.NewRegisterChaincodeView(
-			"asset_transfer_events"))
+	callBack := func(event *committer.ChaincodeEvent) error {
+		logger.Debugf("Event Received in callback ", event)
+		return nil
+	}
+	_, err := context.RunView(chaincode.NewRegisterChaincodeView("asset_transfer_events", callBack))
 	assert.NoError(err, "failed registering to events")
-	go func() {
-		for event := range events.(<-chan *committer.ChaincodeEvent) {
-			fmt.Println("event received", event)
-		}
-	}()
 
-	_, err = context.RunView(
+	if err != nil {
+		return nil, err
+	}
+
+	_, err1 := context.RunView(
 		chaincode.NewInvokeView(
 			"asset_transfer_events",
 			"CreateAsset",
@@ -48,8 +50,13 @@ func (c *CreateAssetView) Call(context view.Context) (interface{}, error) {
 			c.Asset.AppraisedValue,
 		),
 	)
+
 	assert.NoError(err, "failed creating asset")
+	if err1 != nil {
+		return nil, err
+	}
 	return nil, nil
+
 }
 
 type CreateAssetViewFactory struct{}

@@ -28,7 +28,7 @@ func NewClient(c ViewClient, id view.Identity) *Client {
 }
 
 func (c *Client) CreateAsset(ap *views.Asset) error {
-	_, err := c.c.CallView("CreateAsset", common.JSONMarshall(&views.CreateAsset{
+	_, err := c.c.CallView("CreateAssetData", common.JSONMarshall(&views.CreateAsset{
 		Asset: views.Asset{
 			AppraisedValue: 100,
 			Color:          "blue",
@@ -37,5 +37,9 @@ func (c *Client) CreateAsset(ap *views.Asset) error {
 			Size:           10,
 		},
 	}))
-	return err
+
+	if err != nil {
+		return err
+	}
+	return nil
 }

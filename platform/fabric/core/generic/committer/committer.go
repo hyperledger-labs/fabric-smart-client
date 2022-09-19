@@ -128,25 +128,11 @@ func (c *committer) Commit(block *common.Block) error {
 		c.metrics.EmitKey(0, "committer", "end", "Commit", chdr.TxId)
 
 		c.notify(event)
-		//todo- move inside handlenedorser
-		// get chaincoed event from envelop
-		// if chaincodeEvent != nil {
-		// if logger.IsEnabledFor(zapcore.DebugLevel) {
-		// 	logger.Debugf(" Chaincode Event Received: ", chaincodeEvent)
-		// }
-		// 	logger.Debugf("Notify Chaincode Event", chaincodeEvent)
-		// 	err := c.notifyChaincodeListeners(chaincodeEvent)
-		// 	if err != nil {
-		// 		logger.Errorf("Error sending chaincode events to listenerers")
-		// 		return err
-		// 	}
-		// }
-		fmt.Println("got chaincodeEvent called------")
+
 		if logger.IsEnabledFor(zapcore.DebugLevel) {
 			logger.Debugf("commit transaction [%s] in filteredBlock [%d]", chdr.TxId, block.Header.Number)
 		}
 	}
-
 	return nil
 }
 
@@ -308,6 +294,7 @@ func (c *committer) notifyChaincodeListeners(event *ChaincodeEvent) error {
 		return errors.Wrap(err, "failed to get event publisher")
 	}
 	publisher.Publish(event)
+	fmt.Println("done notifyChaincodeListeners")
 	return nil
 }
 
