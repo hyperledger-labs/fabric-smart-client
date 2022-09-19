@@ -7,14 +7,12 @@ SPDX-License-Identifier: Apache-2.0
 package finality
 
 import (
-	"go.uber.org/zap/zapcore"
-	"golang.org/x/net/context"
+	"context"
 
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"go.uber.org/zap/zapcore"
 )
 
 var logger = flogging.MustGetLogger("fabric-sdk.finality")

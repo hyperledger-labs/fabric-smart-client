@@ -7,23 +7,19 @@ SPDX-License-Identifier: Apache-2.0
 package committer
 
 import (
+	"context"
 	"fmt"
 	"runtime/debug"
 	"sync"
 	"time"
 
-	"golang.org/x/net/context"
-
-	"github.com/hyperledger/fabric/protoutil"
-	"go.uber.org/zap/zapcore"
-
-	"github.com/hyperledger/fabric-protos-go/common"
-	"github.com/pkg/errors"
-
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
+	"github.com/hyperledger/fabric-protos-go/common"
+	"github.com/hyperledger/fabric/protoutil"
+	"github.com/pkg/errors"
+	"go.uber.org/zap/zapcore"
 )
 
 const (

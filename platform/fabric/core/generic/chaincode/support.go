@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package chaincode
 
 import (
+	"context"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
@@ -14,7 +16,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"golang.org/x/net/context"
 )
 
 var logger = flogging.MustGetLogger("fabric-sdk.chaincode")

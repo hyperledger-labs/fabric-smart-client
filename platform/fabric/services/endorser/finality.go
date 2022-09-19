@@ -7,12 +7,12 @@ SPDX-License-Identifier: Apache-2.0
 package endorser
 
 import (
+	"context"
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
-	"golang.org/x/net/context"
 )
 
 type finalityView struct {

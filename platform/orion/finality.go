@@ -7,9 +7,10 @@ SPDX-License-Identifier: Apache-2.0
 package orion
 
 import (
+	"context"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"golang.org/x/net/context"
 )
 
 type Finality struct {

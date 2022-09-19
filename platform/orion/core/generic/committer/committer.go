@@ -7,12 +7,11 @@ SPDX-License-Identifier: Apache-2.0
 package committer
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"sync"
 	"time"
-
-	"golang.org/x/net/context"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/compose"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
