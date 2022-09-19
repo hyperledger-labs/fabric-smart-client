@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package views
 
 import (
+	"context"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/session"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -35,10 +37,10 @@ func NewIsFinalResponderView(FNSProvider FNSProvider) *IsFinalResponderView {
 	return &IsFinalResponderView{FNSProvider: FNSProvider}
 }
 
-func (i *IsFinalResponderView) Call(context view.Context) (interface{}, error) {
+func (i *IsFinalResponderView) Call(ctx view.Context) (interface{}, error) {
 	// receive IsFinalRequest struct
 	isFinalRequest := &IsFinalRequest{}
-	session := session.JSON(context)
+	session := session.JSON(ctx)
 	if err := session.Receive(isFinalRequest); err != nil {
 		return nil, errors.Wrapf(err, "failed to receive request")
 	}
@@ -52,7 +54,7 @@ func (i *IsFinalResponderView) Call(context view.Context) (interface{}, error) {
 	var ch driver.Channel
 	ch, err = network.Channel(isFinalRequest.Channel)
 	if err == nil {
-		err = ch.IsFinal(isFinalRequest.TxID)
+		err = ch.IsFinal(context.Background(), isFinalRequest.TxID)
 	} else {
 		err = errors.Wrapf(err, "channel %s not found", isFinalRequest.Channel)
 	}

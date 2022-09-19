@@ -6,11 +6,14 @@ SPDX-License-Identifier: Apache-2.0
 
 package driver
 
-import "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+import (
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"golang.org/x/net/context"
+)
 
 type Finality interface {
 	// IsFinal takes in input a transaction id and waits for its confirmation.
-	IsFinal(txID string) error
+	IsFinal(ctx context.Context, txID string) error
 
 	// IsFinalForParties takes in input a transaction id and an array of identities.
 	// The identities are contacted to gather information about the finality of the

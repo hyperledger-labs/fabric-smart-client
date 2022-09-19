@@ -14,6 +14,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"golang.org/x/net/context"
 )
 
 var logger = flogging.MustGetLogger("fabric-sdk.chaincode")
@@ -51,7 +52,7 @@ type Channel interface {
 	NewPeerClientForIdentity(peer view.Identity) (peer.Client, error)
 
 	// IsFinal takes in input a transaction id and waits for its confirmation.
-	IsFinal(txID string) error
+	IsFinal(ctx context.Context, txID string) error
 
 	MSPManager() driver.MSPManager
 

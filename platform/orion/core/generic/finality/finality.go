@@ -8,11 +8,12 @@ package finality
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"golang.org/x/net/context"
 )
 
 type Committer interface {
 	// IsFinal takes in input a transaction id and waits for its confirmation.
-	IsFinal(txID string) error
+	IsFinal(ctx context.Context, txID string) error
 }
 
 type finality struct {
@@ -25,8 +26,11 @@ func NewService(committer Committer) (*finality, error) {
 	}, nil
 }
 
-func (f *finality) IsFinal(txID string) error {
-	return f.committer.IsFinal(txID)
+func (f *finality) IsFinal(ctx context.Context, txID string) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	return f.committer.IsFinal(ctx, txID)
 }
 
 func (f *finality) IsFinalForParties(txID string, parties ...view.Identity) error {

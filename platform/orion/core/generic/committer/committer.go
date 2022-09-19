@@ -12,6 +12,8 @@ import (
 	"sync"
 	"time"
 
+	"golang.org/x/net/context"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/compose"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
@@ -178,48 +180,48 @@ func (c *committer) DiscardTX(txID string, blockNum uint64, validationCode types
 }
 
 // IsFinal takes in input a transaction id and waits for its confirmation.
-func (c *committer) IsFinal(txid string) error {
+func (c *committer) IsFinal(ctx context.Context, txID string) error {
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("Is [%s] final?", txid)
+		logger.Debugf("Is [%s] final?", txID)
 	}
 
 	for iter := 0; iter < 3; iter++ {
-		vd, err := c.vault.Status(txid)
+		vd, err := c.vault.Status(txID)
 		if err == nil {
 			switch vd {
 			case driver.Valid:
 				if logger.IsEnabledFor(zapcore.DebugLevel) {
-					logger.Debugf("Tx [%s] is valid", txid)
+					logger.Debugf("Tx [%s] is valid", txID)
 				}
 				return nil
 			case driver.Invalid:
 				if logger.IsEnabledFor(zapcore.DebugLevel) {
-					logger.Debugf("Tx [%s] is not valid", txid)
+					logger.Debugf("Tx [%s] is not valid", txID)
 				}
-				return errors.Errorf("transaction [%s] is not valid", txid)
+				return errors.Errorf("transaction [%s] is not valid", txID)
 			case driver.Busy:
 				if logger.IsEnabledFor(zapcore.DebugLevel) {
-					logger.Debugf("Tx [%s] is known", txid)
+					logger.Debugf("Tx [%s] is known", txID)
 				}
 			case driver.Unknown:
 				if iter >= 2 {
-					return errors.Errorf("transaction [%s] is unknown", txid)
+					return errors.Errorf("transaction [%s] is unknown", txID)
 				}
 				if logger.IsEnabledFor(zapcore.DebugLevel) {
-					logger.Debugf("Tx [%s] is unknown with no deps, wait a bit and retry [%d]", txid, iter)
+					logger.Debugf("Tx [%s] is unknown with no deps, wait a bit and retry [%d]", txID, iter)
 				}
 				time.Sleep(100 * time.Millisecond)
 			default:
 				panic(fmt.Sprintf("invalid status code, got %c", vd))
 			}
 		} else {
-			logger.Errorf("Is [%s] final? Failed getting transaction status from vault", txid)
-			return errors.WithMessagef(err, "failed getting transaction status from vault [%s]", txid)
+			logger.Errorf("Is [%s] final? Failed getting transaction status from vault", txID)
+			return errors.WithMessagef(err, "failed getting transaction status from vault [%s]", txID)
 		}
 	}
 
 	// Listen to the event
-	return c.listenToFinality(txid, c.waitForEventTimeout)
+	return c.listenToFinality(ctx, txID, c.waitForEventTimeout)
 }
 
 // SubscribeTxStatusChanges registers a listener for transaction status changes for the passed transaction id.
@@ -331,7 +333,7 @@ func (c *committer) notifyFinality(event TxEvent) {
 	}
 }
 
-func (c *committer) listenToFinality(txID string, timeout time.Duration) error {
+func (c *committer) listenToFinality(ctx context.Context, txID string, timeout time.Duration) error {
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("Listen to finality of [%s]", txID)
 	}
@@ -349,7 +351,10 @@ func (c *committer) listenToFinality(txID string, timeout time.Duration) error {
 	for i := 0; i < iterations; i++ {
 		timeout := time.NewTimer(c.pollingTimeout)
 
+		stop := false
 		select {
+		case <-ctx.Done():
+			stop = true
 		case event := <-ch:
 			if logger.IsEnabledFor(zapcore.DebugLevel) {
 				logger.Debugf("Got an answer to finality of [%s]: [%s]", txID, event.Err)
@@ -379,6 +384,9 @@ func (c *committer) listenToFinality(txID string, timeout time.Duration) error {
 			if logger.IsEnabledFor(zapcore.DebugLevel) {
 				logger.Debugf("Is [%s] final? not available yet, wait [err:%s, vc:%d]", txID, err, vd)
 			}
+		}
+		if stop {
+			break
 		}
 	}
 	if logger.IsEnabledFor(zapcore.DebugLevel) {

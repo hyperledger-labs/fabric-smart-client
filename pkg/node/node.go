@@ -163,7 +163,7 @@ func (n *node) IsTxFinal(txid string, opts ...api.ServiceOption) error {
 	if err != nil {
 		return err
 	}
-	return fabric.GetChannel(n.registry, options.Network, options.Channel).Finality().IsFinal(txid)
+	return fabric.GetChannel(n.registry, options.Network, options.Channel).Finality().IsFinal(context.Background(), txid)
 }
 
 func (n *node) CallView(fid string, in []byte) (interface{}, error) {
