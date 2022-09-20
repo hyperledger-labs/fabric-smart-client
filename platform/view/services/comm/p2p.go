@@ -23,9 +23,11 @@ import (
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p-core/peerstore"
 	"github.com/libp2p/go-libp2p-core/protocol"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/libp2p/go-libp2p/p2p/discovery/routing"
+	"github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
 )
@@ -173,7 +175,7 @@ func (p *P2PNode) sendWithCachedStreams(ID peer.ID, msg proto.Message) error {
 	return errStreamNotFound
 }
 
-func (p *P2PNode) sendTo(IDString string, msg proto.Message) error {
+func (p *P2PNode) sendTo(IDString string, address string, msg proto.Message) error {
 	ID, err := peer.Decode(IDString)
 	if err != nil {
 		return err
@@ -181,6 +183,26 @@ func (p *P2PNode) sendTo(IDString string, msg proto.Message) error {
 
 	if err := p.sendWithCachedStreams(ID, msg); err != errStreamNotFound {
 		return err
+	}
+
+	if len(address) != 0 {
+		// reprogram the addresses of the peer before opening a new stream
+		ps := p.host.Peerstore()
+		current := ps.Addrs(ID)
+
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			logger.Debugf("sendTo, reprogram address [%s:%s]", IDString, address)
+			for _, m := range current {
+				logger.Debugf("sendTo, current address [%s:%s]", IDString, m.String())
+			}
+		}
+
+		ps.ClearAddrs(ID)
+		s, err := multiaddr.NewMultiaddr(AddressToEndpoint(address))
+		if err != nil {
+			return errors.Wrapf(err, "failed to get mutliaddr for [%s]", address)
+		}
+		ps.AddAddr(ID, s, peerstore.OwnObservedAddrTTL)
 	}
 
 	nwStream, err := p.host.NewStream(context.Background(), ID, protocol.ID(viewProtocol))
