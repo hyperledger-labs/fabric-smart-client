@@ -18,6 +18,7 @@ type IsFinalRequest struct {
 	Network string
 	Channel string
 	TxID    string
+	Timeout time.Duration
 }
 
 type IsFinalResponse struct {
@@ -29,8 +30,11 @@ type IsFinalInitiatorView struct {
 	recipient view.Identity
 }
 
-func NewIsFinalInitiatorView(network, channel, txID string, recipient view.Identity) *IsFinalInitiatorView {
-	return &IsFinalInitiatorView{request: &IsFinalRequest{Network: network, Channel: channel, TxID: txID}, recipient: recipient}
+func NewIsFinalInitiatorView(network, channel, txID string, recipient view.Identity, timeout time.Duration) *IsFinalInitiatorView {
+	return &IsFinalInitiatorView{request: &IsFinalRequest{
+		Network: network, Channel: channel, TxID: txID,
+		Timeout: timeout,
+	}, recipient: recipient}
 }
 
 func (i *IsFinalInitiatorView) Call(context view.Context) (interface{}, error) {
@@ -42,7 +46,7 @@ func (i *IsFinalInitiatorView) Call(context view.Context) (interface{}, error) {
 		return nil, errors.Wrapf(err, "failed to send request to [%s]", i.recipient)
 	}
 	response := &IsFinalResponse{}
-	if err := session.ReceiveWithTimeout(response, 1*time.Minute); err != nil {
+	if err := session.ReceiveWithTimeout(response, i.request.Timeout); err != nil {
 		return nil, errors.Wrapf(err, "failed to receive response from [%s]", i.recipient)
 	}
 	return nil, response.Err

@@ -158,12 +158,19 @@ func (n *node) ResolveIdentities(endpoints ...string) ([]view.Identity, error) {
 	return ids, nil
 }
 
-func (n *node) IsTxFinal(txid string, opts ...api.ServiceOption) error {
+func (n *node) IsTxFinal(txID string, opts ...api.ServiceOption) error {
 	options, err := api.CompileServiceOptions(opts...)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "failed to compile service options")
 	}
-	return fabric.GetChannel(n.registry, options.Network, options.Channel).Finality().IsFinal(context.Background(), txid)
+	c := context.Background()
+	if options.Timeout != 0 {
+		var cancel context.CancelFunc
+		c, cancel = context.WithTimeout(c, options.Timeout)
+		defer cancel()
+	}
+	// TODO: network might refer to orion
+	return fabric.GetChannel(n.registry, options.Network, options.Channel).Finality().IsFinal(c, txID)
 }
 
 func (n *node) CallView(fid string, in []byte) (interface{}, error) {

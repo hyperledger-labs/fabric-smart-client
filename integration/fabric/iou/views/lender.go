@@ -6,6 +6,8 @@ SPDX-License-Identifier: Apache-2.0
 package views
 
 import (
+	"time"
+
 	"github.com/pkg/errors"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou/states"
@@ -61,7 +63,7 @@ func (i *CreateIOUResponderView) Call(context view.Context) (interface{}, error)
 	assert.NoError(err)
 
 	// Finally, the lender waits that the transaction completes its lifecycle
-	return context.RunView(state.NewFinalityView(tx))
+	return context.RunView(state.NewFinalityWithTimeoutView(tx, 1*time.Minute))
 }
 
 type UpdateIOUResponderView struct{}
@@ -116,5 +118,5 @@ func (i *UpdateIOUResponderView) Call(context view.Context) (interface{}, error)
 	assert.NoError(err)
 
 	// Finally, the lender waits that the transaction completes its lifecycle
-	return context.RunView(state.NewFinalityView(tx))
+	return context.RunView(state.NewFinalityWithTimeoutView(tx, 1*time.Minute))
 }

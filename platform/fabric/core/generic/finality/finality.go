@@ -8,6 +8,7 @@ package finality
 
 import (
 	"context"
+	"time"
 
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
@@ -57,7 +58,12 @@ func (f *finality) IsFinalForParties(txID string, parties ...view.Identity) erro
 	}
 
 	for _, party := range parties {
-		_, err := view2.GetManager(f.sp).InitiateView(NewIsFinalInitiatorView(f.network.Name(), f.channel, txID, party))
+		_, err := view2.GetManager(f.sp).InitiateView(
+			NewIsFinalInitiatorView(
+				f.network.Name(), f.channel, txID, party,
+				1*time.Minute,
+			),
+		)
 		if logger.IsEnabledFor(zapcore.DebugLevel) {
 			logger.Debugf("Is [%s] final on [%s]: [%s]?", txID, party, err)
 		}

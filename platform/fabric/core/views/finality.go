@@ -8,6 +8,7 @@ package views
 
 import (
 	"context"
+	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/session"
@@ -23,6 +24,7 @@ type IsFinalRequest struct {
 	Network string
 	Channel string
 	TxID    string
+	Timeout time.Duration
 }
 
 type IsFinalResponse struct {
@@ -54,7 +56,13 @@ func (i *IsFinalResponderView) Call(ctx view.Context) (interface{}, error) {
 	var ch driver.Channel
 	ch, err = network.Channel(isFinalRequest.Channel)
 	if err == nil {
-		err = ch.IsFinal(context.Background(), isFinalRequest.TxID)
+		c := ctx.Context()
+		if isFinalRequest.Timeout != 0 {
+			var cancel context.CancelFunc
+			c, cancel = context.WithTimeout(c, isFinalRequest.Timeout)
+			defer cancel()
+		}
+		err = ch.IsFinal(c, isFinalRequest.TxID)
 	} else {
 		err = errors.Wrapf(err, "channel %s not found", isFinalRequest.Channel)
 	}

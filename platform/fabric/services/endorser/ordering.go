@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package endorser
 
 import (
-	"context"
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
@@ -31,19 +30,7 @@ func (o *orderingView) Call(ctx view.Context) (interface{}, error) {
 		return nil, errors.WithMessagef(err, "failed broadcasting to [%s:%s]", o.tx.Network(), o.tx.Channel())
 	}
 	if o.finality {
-		ch, err := fns.Channel(o.tx.Channel())
-		if err != nil {
-			return nil, errors.WithMessagef(err, "failed getting channel [%s:%s]", o.tx.Network(), o.tx.Channel())
-		}
-		c := ctx.Context()
-		if o.timeout != 0 {
-			var cancel context.CancelFunc
-			c, cancel = context.WithTimeout(c, o.timeout)
-			defer cancel()
-		}
-		if err := ch.Finality().IsFinal(c, tx.ID()); err != nil {
-			return nil, errors.WithMessagef(err, "failed asking finality of [%s] to [%s:%s]", tx.ID(), o.tx.Network(), o.tx.Channel())
-		}
+		return ctx.RunView(NewFinalityWithTimeoutView(tx, o.timeout))
 	}
 	return tx, nil
 }
