@@ -8,7 +8,6 @@ package committer
 
 import (
 	"github.com/hyperledger/fabric-protos-go/common"
-	"github.com/hyperledger/fabric-protos-go/peer"
 	pb "github.com/hyperledger/fabric-protos-go/peer"
 	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
@@ -18,7 +17,7 @@ import (
 
 type ValidationFlags []uint8
 
-func (c *committer) handleEndorserTransaction(block *common.Block, i int, event *TxEvent, env *common.Envelope, chHdr *common.ChannelHeader, tx *peer.Transaction) {
+func (c *committer) handleEndorserTransaction(block *common.Block, i int, event *TxEvent, env *common.Envelope, chHdr *common.ChannelHeader) {
 	txID := chHdr.TxId
 	event.Txid = txID
 
@@ -29,18 +28,17 @@ func (c *committer) handleEndorserTransaction(block *common.Block, i int, event 
 		if err := c.CommitEndorserTransaction(txID, block, i, env, event); err != nil {
 			logger.Panicf("failed committing transaction [%s] with err [%s]", txID, err)
 		}
-		chaincodeEvents, err := getChaincodeEvent(tx, block.Header.Number)
+		chaincodeEvent, err := getChaincodeEvent(env, block.Header.Number)
 		if err != nil {
 			logger.Panicf("Error reading chaincode event", err)
 		}
-
-		for _, event := range chaincodeEvents {
+		if chaincodeEvent != nil {
 			if logger.IsEnabledFor(zapcore.DebugLevel) {
-				logger.Debugf("Chaincode Event Received: ", event)
+				logger.Debugf("Chaincode Event Received: ", chaincodeEvent)
 			}
-			err := c.notifyChaincodeListeners(event)
+			err := c.notifyChaincodeListeners(chaincodeEvent)
 			if err != nil {
-				logger.Panicf("Error sending chaincode event to listenerers")
+				logger.Panicf("Error sending chaincode events to listenerers")
 			}
 		}
 

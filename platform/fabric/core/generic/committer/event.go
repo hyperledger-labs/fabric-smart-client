@@ -7,8 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 package committer
 
 import (
-	"github.com/golang/protobuf/proto"
+	"github.com/hyperledger/fabric-protos-go/common"
 	"github.com/hyperledger/fabric-protos-go/peer"
+	"github.com/hyperledger/fabric/protoutil"
 )
 
 // TxEvent contains information for token transaction commit
@@ -42,45 +43,37 @@ func validChaincodeEvent(event *peer.ChaincodeEvent) bool {
 	return len(event.GetChaincodeId()) > 0 && len(event.GetEventName()) > 0 && len(event.GetTxId()) > 0
 }
 
-func getChaincodeEvent(tx *peer.Transaction, blockNumber uint64) ([]*ChaincodeEvent, error) {
-	chaincodeEvents := make([]*ChaincodeEvent, 0)
-	for _, action := range tx.GetActions() {
-		actionPayload := &peer.ChaincodeActionPayload{}
-		if err := proto.Unmarshal(action.GetPayload(), actionPayload); err != nil {
-			continue
-		}
-
-		responsePayload := &peer.ProposalResponsePayload{}
-		if err := proto.Unmarshal(actionPayload.GetAction().GetProposalResponsePayload(), responsePayload); err != nil {
-			continue
-		}
-
-		action := &peer.ChaincodeAction{}
-		if err := proto.Unmarshal(responsePayload.GetExtension(), action); err != nil {
-			continue
-		}
-
-		event := &peer.ChaincodeEvent{}
-		if err := proto.Unmarshal(action.GetEvents(), event); err != nil {
-			continue
-		}
-		if event != nil {
-			if !validChaincodeEvent(event) {
-				continue
-			}
-
-			chaincodeEvent := &ChaincodeEvent{
-				BlockNumber:   blockNumber,
-				TransactionID: event.GetTxId(),
-				ChaincodeID:   event.GetChaincodeId(),
-				EventName:     event.GetEventName(),
-				Payload:       event.GetPayload(),
-			}
-			chaincodeEvents = append(chaincodeEvents, chaincodeEvent)
-		}
-
+func getChaincodeEvent(env *common.Envelope, blockNumber uint64) (*ChaincodeEvent, error) {
+	var chaincodeEvent *ChaincodeEvent
+	chaincodeAction, err := protoutil.GetActionFromEnvelopeMsg(env)
+	if err != nil {
+		logger.Errorf("Error getting chaincode actions from envelop: %s", err)
+		return nil, err
 	}
 
-	return chaincodeEvents, nil
+	if chaincodeAction == nil {
+		return nil, nil
+	}
+
+	chaincodeEventData, err := protoutil.UnmarshalChaincodeEvents(chaincodeAction.GetEvents())
+	if err != nil {
+		logger.Errorf("Error getting chaincode event from chaincode actions: %s", err)
+		return nil, err
+	}
+
+	if chaincodeEventData != nil {
+		if !validChaincodeEvent(chaincodeEventData) {
+			return nil, nil
+		}
+		chaincodeEvent = &ChaincodeEvent{
+			BlockNumber:   blockNumber,
+			TransactionID: chaincodeEventData.GetTxId(),
+			ChaincodeID:   chaincodeEventData.GetChaincodeId(),
+			EventName:     chaincodeEventData.GetEventName(),
+			Payload:       chaincodeEventData.GetPayload(),
+		}
+	}
+
+	return chaincodeEvent, nil
 
 }

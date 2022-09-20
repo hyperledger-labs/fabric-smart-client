@@ -98,11 +98,7 @@ func (c *committer) Commit(block *common.Block) error {
 			logger.Errorf("[%s] unmarshal payload failed: %s", c.channel, err)
 			return err
 		}
-		tx, err := protoutil.UnmarshalTransaction(payl.Data)
-		if err != nil {
-			logger.Errorf("[%s] unmarshal tranwaction failed: %s", c.channel, err)
-			return err
-		}
+
 		chdr, err := protoutil.UnmarshalChannelHeader(payl.Header.ChannelHeader)
 		if err != nil {
 			logger.Errorf("[%s] unmarshal channel header failed: %s", c.channel, err)
@@ -125,7 +121,7 @@ func (c *committer) Commit(block *common.Block) error {
 			if len(block.Metadata.Metadata) < int(common.BlockMetadataIndex_TRANSACTIONS_FILTER) {
 				return errors.Errorf("block metadata lacks transaction filter")
 			}
-			c.handleEndorserTransaction(block, i, &event, env, chdr, tx)
+			c.handleEndorserTransaction(block, i, &event, env, chdr)
 		default:
 			if logger.IsEnabledFor(zapcore.DebugLevel) {
 				logger.Debugf("[%s] Received unhandled transaction type: %s", c.channel, chdr.Type)
@@ -300,7 +296,6 @@ func (c *committer) notifyChaincodeListeners(event *ChaincodeEvent) error {
 		return errors.Wrap(err, "failed to get event publisher")
 	}
 	publisher.Publish(event)
-	fmt.Println("done notifyChaincodeListeners")
 	return nil
 }
 
