@@ -8,6 +8,7 @@ package committer
 
 import (
 	"github.com/hyperledger/fabric-protos-go/common"
+	"github.com/hyperledger/fabric-protos-go/peer"
 	pb "github.com/hyperledger/fabric-protos-go/peer"
 	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
@@ -17,7 +18,7 @@ import (
 
 type ValidationFlags []uint8
 
-func (c *committer) handleEndorserTransaction(block *common.Block, i int, event *TxEvent, env *common.Envelope, chHdr *common.ChannelHeader) {
+func (c *committer) handleEndorserTransaction(block *common.Block, i int, event *TxEvent, env *common.Envelope, chHdr *common.ChannelHeader, tx *peer.Transaction) {
 	txID := chHdr.TxId
 	event.Txid = txID
 
@@ -28,7 +29,7 @@ func (c *committer) handleEndorserTransaction(block *common.Block, i int, event 
 		if err := c.CommitEndorserTransaction(txID, block, i, env, event); err != nil {
 			logger.Panicf("failed committing transaction [%s] with err [%s]", txID, err)
 		}
-		chaincodeEvents, err := getChaincodeEvent(env, block.Header.Number)
+		chaincodeEvents, err := getChaincodeEvent(tx, block.Header.Number)
 		if err != nil {
 			logger.Panicf("Error reading chaincode event", err)
 		}

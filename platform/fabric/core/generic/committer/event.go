@@ -7,9 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package committer
 
 import (
-	"github.com/hyperledger/fabric-protos-go/common"
+	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric-protos-go/peer"
-	"github.com/hyperledger/fabric/protoutil"
 )
 
 // TxEvent contains information for token transaction commit
@@ -43,39 +42,43 @@ func validChaincodeEvent(event *peer.ChaincodeEvent) bool {
 	return len(event.GetChaincodeId()) > 0 && len(event.GetEventName()) > 0 && len(event.GetTxId()) > 0
 }
 
-func getChaincodeEvent(env *common.Envelope, blockNumber uint64) ([]*ChaincodeEvent, error) {
+func getChaincodeEvent(tx *peer.Transaction, blockNumber uint64) ([]*ChaincodeEvent, error) {
 	chaincodeEvents := make([]*ChaincodeEvent, 0)
-	chaincodeActions, err := protoutil.GetActionsFromEnvelopeMsg(env)
-	if err != nil {
-		logger.Errorf("Error getting chaincode actions from envelop: %s", err)
-		return nil, err
-	}
-	for _, action := range chaincodeActions {
-
-		if action == nil {
+	for _, action := range tx.GetActions() {
+		actionPayload := &peer.ChaincodeActionPayload{}
+		if err := proto.Unmarshal(action.GetPayload(), actionPayload); err != nil {
 			continue
 		}
-		chaincodeEventData, err := protoutil.UnmarshalChaincodeEvents(action.GetEvents())
 
-		if err != nil {
-			logger.Errorf("Error getting chaincode event from chaincode actions: %s", err)
-			return nil, err
+		responsePayload := &peer.ProposalResponsePayload{}
+		if err := proto.Unmarshal(actionPayload.GetAction().GetProposalResponsePayload(), responsePayload); err != nil {
+			continue
 		}
 
-		if chaincodeEventData != nil {
-			if !validChaincodeEvent(chaincodeEventData) {
+		action := &peer.ChaincodeAction{}
+		if err := proto.Unmarshal(responsePayload.GetExtension(), action); err != nil {
+			continue
+		}
+
+		event := &peer.ChaincodeEvent{}
+		if err := proto.Unmarshal(action.GetEvents(), event); err != nil {
+			continue
+		}
+		if event != nil {
+			if !validChaincodeEvent(event) {
 				continue
 			}
+
 			chaincodeEvent := &ChaincodeEvent{
 				BlockNumber:   blockNumber,
-				TransactionID: chaincodeEventData.GetTxId(),
-				ChaincodeID:   chaincodeEventData.GetChaincodeId(),
-				EventName:     chaincodeEventData.GetEventName(),
-				Payload:       chaincodeEventData.GetPayload(),
+				TransactionID: event.GetTxId(),
+				ChaincodeID:   event.GetChaincodeId(),
+				EventName:     event.GetEventName(),
+				Payload:       event.GetPayload(),
 			}
 			chaincodeEvents = append(chaincodeEvents, chaincodeEvent)
-
 		}
+
 	}
 
 	return chaincodeEvents, nil

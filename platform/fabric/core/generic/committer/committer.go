@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/hyperledger/fabric/protoutil"
+
 	"go.uber.org/zap/zapcore"
 
 	"github.com/hyperledger/fabric-protos-go/common"
@@ -86,8 +87,8 @@ func New(channel string, network Network, finality Finality, waitForEventTimeout
 func (c *committer) Commit(block *common.Block) error {
 
 	for i, tx := range block.Data.Data {
-
 		env, err := protoutil.UnmarshalEnvelope(tx)
+
 		if err != nil {
 			logger.Errorf("Error getting tx from block: %s", err)
 			return err
@@ -95,6 +96,11 @@ func (c *committer) Commit(block *common.Block) error {
 		payl, err := protoutil.UnmarshalPayload(env.Payload)
 		if err != nil {
 			logger.Errorf("[%s] unmarshal payload failed: %s", c.channel, err)
+			return err
+		}
+		tx, err := protoutil.UnmarshalTransaction(payl.Data)
+		if err != nil {
+			logger.Errorf("[%s] unmarshal tranwaction failed: %s", c.channel, err)
 			return err
 		}
 		chdr, err := protoutil.UnmarshalChannelHeader(payl.Header.ChannelHeader)
@@ -119,7 +125,7 @@ func (c *committer) Commit(block *common.Block) error {
 			if len(block.Metadata.Metadata) < int(common.BlockMetadataIndex_TRANSACTIONS_FILTER) {
 				return errors.Errorf("block metadata lacks transaction filter")
 			}
-			c.handleEndorserTransaction(block, i, &event, env, chdr)
+			c.handleEndorserTransaction(block, i, &event, env, chdr, tx)
 		default:
 			if logger.IsEnabledFor(zapcore.DebugLevel) {
 				logger.Debugf("[%s] Received unhandled transaction type: %s", c.channel, chdr.Type)
