@@ -22,13 +22,13 @@ func TestSessionTwoParties(t *testing.T) {
 	network.Start()
 
 	session01, err := network[0].Node.NewSessionWithID(
-		"session_id", "context_id", "bob", []byte(network[1].ID), nil, nil)
+		"session_id", "context_id", "", []byte(network[1].ID), nil, nil)
 	assert.NoError(t, err)
 	conn01, err := io.NewConn(0, session01)
 	assert.NoError(t, err)
 
 	session10, err := network[1].Node.NewSessionWithID(
-		"session_id", "context_id", "alice", []byte(network[0].ID), nil, nil)
+		"session_id", "context_id", "", []byte(network[0].ID), nil, nil)
 	assert.NoError(t, err)
 	conn10, err := io.NewConn(1, session10)
 	assert.NoError(t, err)
