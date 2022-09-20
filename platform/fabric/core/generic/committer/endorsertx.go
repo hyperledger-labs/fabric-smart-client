@@ -28,19 +28,21 @@ func (c *committer) handleEndorserTransaction(block *common.Block, i int, event 
 		if err := c.CommitEndorserTransaction(txID, block, i, env, event); err != nil {
 			logger.Panicf("failed committing transaction [%s] with err [%s]", txID, err)
 		}
-		chaincodeEvent, err := getChaincodeEvent(env, block.Header.Number)
+		chaincodeEvents, err := getChaincodeEvent(env, block.Header.Number)
 		if err != nil {
 			logger.Panicf("Error reading chaincode event", err)
 		}
-		if chaincodeEvent != nil {
+
+		for _, event := range chaincodeEvents {
 			if logger.IsEnabledFor(zapcore.DebugLevel) {
-				logger.Debugf("Chaincode Event Received: ", chaincodeEvent)
+				logger.Debugf("Chaincode Event Received: ", event)
 			}
-			err := c.notifyChaincodeListeners(chaincodeEvent)
+			err := c.notifyChaincodeListeners(event)
 			if err != nil {
-				logger.Panicf("Error sending chaincode events to listenerers")
+				logger.Panicf("Error sending chaincode event to listenerers")
 			}
 		}
+
 	default:
 		if err := c.DiscardEndorserTransaction(txID, block, event, validationCode); err != nil {
 			logger.Panicf("failed discarding transaction [%s] with err [%s]", txID, err)

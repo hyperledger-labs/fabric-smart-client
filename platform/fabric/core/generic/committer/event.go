@@ -43,37 +43,41 @@ func validChaincodeEvent(event *peer.ChaincodeEvent) bool {
 	return len(event.GetChaincodeId()) > 0 && len(event.GetEventName()) > 0 && len(event.GetTxId()) > 0
 }
 
-func getChaincodeEvent(env *common.Envelope, blockNumber uint64) (*ChaincodeEvent, error) {
-	var chaincodeEvent *ChaincodeEvent
-	chaincodeAction, err := protoutil.GetActionFromEnvelopeMsg(env)
+func getChaincodeEvent(env *common.Envelope, blockNumber uint64) ([]*ChaincodeEvent, error) {
+	chaincodeEvents := make([]*ChaincodeEvent, 0)
+	chaincodeActions, err := protoutil.GetActionsFromEnvelopeMsg(env)
 	if err != nil {
 		logger.Errorf("Error getting chaincode actions from envelop: %s", err)
 		return nil, err
 	}
+	for _, action := range chaincodeActions {
 
-	if chaincodeAction == nil {
-		return nil, nil
-	}
-	//todo - multiple events
-	chaincodeEventData, err := protoutil.UnmarshalChaincodeEvents(chaincodeAction.GetEvents())
-	if err != nil {
-		logger.Errorf("Error getting chaincode event from chaincode actions: %s", err)
-		return nil, err
-	}
-
-	if chaincodeEventData != nil {
-		if !validChaincodeEvent(chaincodeEventData) {
-			return nil, nil
+		if action == nil {
+			continue
 		}
-		chaincodeEvent = &ChaincodeEvent{
-			BlockNumber:   blockNumber,
-			TransactionID: chaincodeEventData.GetTxId(),
-			ChaincodeID:   chaincodeEventData.GetChaincodeId(),
-			EventName:     chaincodeEventData.GetEventName(),
-			Payload:       chaincodeEventData.GetPayload(),
+		chaincodeEventData, err := protoutil.UnmarshalChaincodeEvents(action.GetEvents())
+
+		if err != nil {
+			logger.Errorf("Error getting chaincode event from chaincode actions: %s", err)
+			return nil, err
+		}
+
+		if chaincodeEventData != nil {
+			if !validChaincodeEvent(chaincodeEventData) {
+				continue
+			}
+			chaincodeEvent := &ChaincodeEvent{
+				BlockNumber:   blockNumber,
+				TransactionID: chaincodeEventData.GetTxId(),
+				ChaincodeID:   chaincodeEventData.GetChaincodeId(),
+				EventName:     chaincodeEventData.GetEventName(),
+				Payload:       chaincodeEventData.GetPayload(),
+			}
+			chaincodeEvents = append(chaincodeEvents, chaincodeEvent)
+
 		}
 	}
 
-	return chaincodeEvent, nil
+	return chaincodeEvents, nil
 
 }
