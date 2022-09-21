@@ -240,7 +240,7 @@ func (r *service) AddResolver(name string, domain string, addresses map[string]s
 
 	// resolve addresses to their IPs, if needed
 	for k, v := range addresses {
-		addresses[k] = AddressToEndpoint(v)
+		addresses[k] = LookupIPv4(v)
 	}
 	r.resolvers = append(r.resolvers, &resolver{
 		Name:      name,
@@ -339,8 +339,11 @@ func convert(o map[string]string) map[driver.PortName]string {
 	return r
 }
 
-func AddressToEndpoint(endpoint string) string {
+func LookupIPv4(endpoint string) string {
 	s := strings.Split(endpoint, ":")
+	if len(s) < 2 {
+		return endpoint
+	}
 	var addrS string
 	addr, err := net.LookupIP(s[0])
 	if err != nil {

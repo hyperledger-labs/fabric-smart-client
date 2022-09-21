@@ -175,6 +175,9 @@ func (p *P2PNode) sendWithCachedStreams(ID peer.ID, msg proto.Message) error {
 	return errStreamNotFound
 }
 
+// sendTo sends the passed messaged to the libp2p peer with the passed ID.
+// If no address is specified, then libp2p will use one of the IP addresses associated to the peer in its peer store.
+// If an address is specified, then the peer store will be updated with the passed address.
 func (p *P2PNode) sendTo(IDString string, address string, msg proto.Message) error {
 	ID, err := peer.Decode(IDString)
 	if err != nil {
