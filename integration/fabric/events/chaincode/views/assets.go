@@ -8,6 +8,7 @@ package views
 
 import (
 	"encoding/json"
+	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/chaincode"
@@ -27,19 +28,21 @@ type CreateAssetView struct {
 var logger = flogging.MustGetLogger("assets")
 
 func (c *CreateAssetView) Call(context view.Context) (interface{}, error) {
-	//Register chaincodeEvents
-	callBack := func(event *committer.ChaincodeEvent) error {
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+
+	// Register for events
+	callBack := func(event *committer.ChaincodeEvent) (bool, error) {
 		logger.Debugf("Event Received in callback ", event)
-		return nil
+		// TODO: check the event is as expected
+		wg.Done()
+		return true, nil
 	}
-	_, err := context.RunView(chaincode.NewRegisterChaincodeView("asset_transfer_events", callBack))
-	assert.NoError(err, "failed registering to events")
+	_, err := context.RunView(chaincode.NewListenToEventsView("asset_transfer_events", callBack))
+	assert.NoError(err, "failed to listen to events")
 
-	if err != nil {
-		return nil, err
-	}
-
-	_, err1 := context.RunView(
+	// Invoke the chaincode
+	_, err = context.RunView(
 		chaincode.NewInvokeView(
 			"asset_transfer_events",
 			"CreateAsset",
@@ -50,13 +53,12 @@ func (c *CreateAssetView) Call(context view.Context) (interface{}, error) {
 			c.Asset.AppraisedValue,
 		),
 	)
-
 	assert.NoError(err, "failed creating asset")
-	if err1 != nil {
-		return nil, err
-	}
-	return nil, nil
 
+	// wait for the event to arriver
+	wg.Wait()
+
+	return nil, nil
 }
 
 type CreateAssetViewFactory struct{}

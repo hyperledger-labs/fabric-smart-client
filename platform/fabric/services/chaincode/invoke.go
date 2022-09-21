@@ -9,10 +9,6 @@ package chaincode
 import (
 	"fmt"
 
-	"github.com/pkg/errors"
-
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/fpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -31,21 +27,9 @@ type InvokeCall struct {
 	Function           string
 	Args               []interface{}
 }
-type RegisterChaincodeCall struct {
-	InvokerIdentity  view.Identity
-	Network          string
-	Channel          string
-	ChaincodePath    string
-	ChaincodeName    string
-	ChaincodeVersion string
-	CallBack         ChaincodeEventCallback
-}
+
 type invokeChaincodeView struct {
 	*InvokeCall
-}
-
-type registerChaincodeView struct {
-	*RegisterChaincodeCall
 }
 
 func NewInvokeView(chaincode, function string, args ...interface{}) *invokeChaincodeView {
@@ -58,39 +42,12 @@ func NewInvokeView(chaincode, function string, args ...interface{}) *invokeChain
 	}
 }
 
-//todo add options
-func NewRegisterChaincodeView(chaincode string, callBack ChaincodeEventCallback) *registerChaincodeView {
-	return &registerChaincodeView{
-		RegisterChaincodeCall: &RegisterChaincodeCall{
-			ChaincodeName: chaincode,
-			CallBack:      callBack,
-		},
-	}
-}
-
-type ChaincodeEventCallback func(event *committer.ChaincodeEvent) error
-
-type info struct {
-	chaincodeName string
-	network       string
-	channel       string
-	identitiy     view.Identity
-}
-
 func (i *invokeChaincodeView) Call(context view.Context) (interface{}, error) {
 	txid, result, err := i.Invoke(context)
 	if err != nil {
 		return nil, err
 	}
 	return []interface{}{txid, result}, nil
-}
-
-func (r *registerChaincodeView) Call(context view.Context) (interface{}, error) {
-	err := r.RegisterChaincodeEvents(context)
-	if err != nil {
-		return nil, err
-	}
-	return nil, nil
 }
 
 func (i *invokeChaincodeView) Invoke(context view.Context) (string, []byte, error) {
@@ -139,34 +96,6 @@ func (i *invokeChaincodeView) Invoke(context view.Context) (string, []byte, erro
 	return txid, result, nil
 }
 
-//add view to register chaincode
-func (r *registerChaincodeView) RegisterChaincodeEvents(context view.Context) error {
-	// TODO: endorse and then send to ordering
-	chaincode, err := getChaincode(context, &info{
-		chaincodeName: r.ChaincodeName,
-		network:       r.Network,
-		channel:       r.Channel,
-		identitiy:     r.InvokerIdentity,
-	})
-	if err != nil {
-		return err
-	}
-	events, err := chaincode.EventListener.ChaincodeEvents()
-
-	if err != nil {
-		return err
-	}
-
-	go func() {
-		for event := range events {
-			logger.Debugf("event---->", event)
-			_ = r.CallBack(event)
-		}
-	}()
-
-	return nil
-}
-
 func (i *invokeChaincodeView) WithTransientEntry(k string, v interface{}) *invokeChaincodeView {
 	if i.TransientMap == nil {
 		i.TransientMap = map[string]interface{}{}
@@ -203,27 +132,4 @@ func (i *invokeChaincodeView) WithEndorsersFromMyOrg() *invokeChaincodeView {
 func (i *invokeChaincodeView) WithSignerIdentity(id view.Identity) *invokeChaincodeView {
 	i.InvokerIdentity = id
 	return i
-}
-
-func getChaincode(context view.Context, info *info) (*fabric.Chaincode, error) {
-	if len(info.chaincodeName) == 0 {
-		return nil, errors.Errorf("no chaincode specified")
-	}
-
-	fNetwork := fabric.GetFabricNetworkService(context, info.network)
-	if fNetwork == nil {
-		return nil, errors.Errorf("fabric network service [%s] not found", info.network)
-	}
-	channel, err := fNetwork.Channel(info.channel)
-	if err != nil {
-		return nil, errors.WithMessagef(err, "failed getting channel [%s:%s]", info.network, info.channel)
-	}
-	if len(info.identitiy) == 0 {
-		info.identitiy = fNetwork.IdentityProvider().DefaultIdentity()
-	}
-	chaincode := channel.Chaincode(info.chaincodeName)
-	if chaincode == nil {
-		return nil, errors.Errorf("fabric chaincode %s not found", info.chaincodeName)
-	}
-	return chaincode, nil
 }
