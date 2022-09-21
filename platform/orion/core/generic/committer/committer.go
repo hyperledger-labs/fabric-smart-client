@@ -178,7 +178,9 @@ func (c *committer) DiscardTX(txID string, blockNum uint64, validationCode types
 	return nil
 }
 
-// IsFinal takes in input a transaction id and waits for its confirmation.
+// IsFinal takes in input a transaction id and waits for its confirmation
+// with the respect to the passed context that can be used to set a deadline
+// for the waiting time.
 func (c *committer) IsFinal(ctx context.Context, txID string) error {
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("Is [%s] final?", txID)
@@ -353,6 +355,7 @@ func (c *committer) listenToFinality(ctx context.Context, txID string, timeout t
 		stop := false
 		select {
 		case <-ctx.Done():
+			timeout.Stop()
 			stop = true
 		case event := <-ch:
 			if logger.IsEnabledFor(zapcore.DebugLevel) {

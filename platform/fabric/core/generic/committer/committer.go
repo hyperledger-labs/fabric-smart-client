@@ -129,7 +129,9 @@ func (c *committer) Commit(block *common.Block) error {
 	return nil
 }
 
-// IsFinal takes in input a transaction id and waits for its confirmation.
+// IsFinal takes in input a transaction id and waits for its confirmation
+// with the respect to the passed context that can be used to set a deadline
+// for the waiting time.
 func (c *committer) IsFinal(ctx context.Context, txID string) error {
 	c.metrics.EmitKey(0, "committer", "start", "IsFinal", txID)
 	defer c.metrics.EmitKey(0, "committer", "end", "IsFinal", txID)
@@ -309,6 +311,7 @@ func (c *committer) listenTo(ctx context.Context, txid string, timeout time.Dura
 		stop := false
 		select {
 		case <-ctx.Done():
+			timeout.Stop()
 			stop = true
 		case event := <-ch:
 			if logger.IsEnabledFor(zapcore.DebugLevel) {
