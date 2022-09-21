@@ -49,7 +49,7 @@ func (s *finalityHandler) isTxFinal(ctx context.Context, command *protos2.Comman
 
 	checkOrion := true
 	fns := fabric.GetFabricNetworkService(s.sp, c.Network)
-	var isFinal func(string) error
+	var isFinal func(context.Context, string) error
 	if fns != nil {
 		ch, err := fns.Channel(c.Channel)
 		if err == nil {
@@ -68,7 +68,7 @@ func (s *finalityHandler) isTxFinal(ctx context.Context, command *protos2.Comman
 		isFinal = ons.Finality().IsFinal
 	}
 
-	err := isFinal(c.Txid)
+	err := isFinal(ctx, c.Txid)
 	if err != nil {
 		if logger.IsEnabledFor(zapcore.DebugLevel) {
 			logger.Debugf("Answering: Is [%s] final on [%s:%s]? No", c.Txid, c.Network, c.Channel)

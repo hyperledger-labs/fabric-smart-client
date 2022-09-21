@@ -7,13 +7,13 @@ SPDX-License-Identifier: Apache-2.0
 package finality
 
 import (
-	"go.uber.org/zap/zapcore"
+	"context"
+	"time"
 
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"go.uber.org/zap/zapcore"
 )
 
 var logger = flogging.MustGetLogger("fabric-sdk.finality")
@@ -24,7 +24,7 @@ type Config interface {
 
 type Committer interface {
 	// IsFinal takes in input a transaction id and waits for its confirmation.
-	IsFinal(txID string) error
+	IsFinal(ctx context.Context, txID string) error
 }
 
 type finality struct {
@@ -45,8 +45,11 @@ func NewService(sp view2.ServiceProvider, network Network, channel string, commi
 	}, nil
 }
 
-func (f *finality) IsFinal(txID string) error {
-	return f.committer.IsFinal(txID)
+func (f *finality) IsFinal(ctx context.Context, txID string) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	return f.committer.IsFinal(ctx, txID)
 }
 
 func (f *finality) IsFinalForParties(txID string, parties ...view.Identity) error {
@@ -55,7 +58,12 @@ func (f *finality) IsFinalForParties(txID string, parties ...view.Identity) erro
 	}
 
 	for _, party := range parties {
-		_, err := view2.GetManager(f.sp).InitiateView(NewIsFinalInitiatorView(f.network.Name(), f.channel, txID, party))
+		_, err := view2.GetManager(f.sp).InitiateView(
+			NewIsFinalInitiatorView(
+				f.network.Name(), f.channel, txID, party,
+				1*time.Minute,
+			),
+		)
 		if logger.IsEnabledFor(zapcore.DebugLevel) {
 			logger.Debugf("Is [%s] final on [%s]: [%s]?", txID, party, err)
 		}

@@ -6,9 +6,12 @@ SPDX-License-Identifier: Apache-2.0
 
 package api
 
+import "time"
+
 type ServiceOptions struct {
 	Network string
 	Channel string
+	Timeout time.Duration
 }
 
 func CompileServiceOptions(opts ...ServiceOption) (*ServiceOptions, error) {
@@ -33,6 +36,13 @@ func WithNetwork(network string) ServiceOption {
 func WithChannel(channel string) ServiceOption {
 	return func(o *ServiceOptions) error {
 		o.Channel = channel
+		return nil
+	}
+}
+
+func WithTimeout(timeout time.Duration) ServiceOption {
+	return func(o *ServiceOptions) error {
+		o.Timeout = timeout
 		return nil
 	}
 }

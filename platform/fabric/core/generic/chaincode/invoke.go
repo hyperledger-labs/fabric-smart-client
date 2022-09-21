@@ -450,5 +450,5 @@ func (i *Invoke) broadcast(txID string, env *pcommon.Envelope) error {
 	if err := i.Network.Broadcast(env); err != nil {
 		return err
 	}
-	return i.Channel.IsFinal(txID)
+	return i.Channel.IsFinal(context.Background(), txID)
 }

@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package db
 
 import (
+	"context"
 	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion"
@@ -18,7 +19,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/unversioned"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/pkg/errors"
-	"golang.org/x/net/context"
 )
 
 var logger = flogging.MustGetLogger("orion-sdk.db")
