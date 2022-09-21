@@ -123,10 +123,10 @@ func P2PLayerTestRound(t *testing.T, bootstrapNode, node *P2PNode, bootstrapNode
 		defer wg.Done()
 		messages := bootstrapNode.incomingMessages
 
-		err := bootstrapNode.sendTo(nodeID, &ViewPacket{Payload: []byte("msg1")})
+		err := bootstrapNode.sendTo(nodeID, "", &ViewPacket{Payload: []byte("msg1")})
 		assert.NoError(t, err)
 
-		err = bootstrapNode.sendTo(nodeID, &ViewPacket{Payload: []byte("msg2")})
+		err = bootstrapNode.sendTo(nodeID, "", &ViewPacket{Payload: []byte("msg2")})
 		assert.NoError(t, err)
 
 		msg := <-messages
@@ -143,7 +143,7 @@ func P2PLayerTestRound(t *testing.T, bootstrapNode, node *P2PNode, bootstrapNode
 	assert.NotNil(t, msg)
 	assert.Equal(t, []byte("msg2"), msg.message.Payload)
 
-	err := node.sendTo(bootstrapNodeID, &ViewPacket{Payload: []byte("msg3")})
+	err := node.sendTo(bootstrapNodeID, "", &ViewPacket{Payload: []byte("msg3")})
 	assert.NoError(t, err)
 
 	wg.Wait()

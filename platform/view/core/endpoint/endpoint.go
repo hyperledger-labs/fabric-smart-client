@@ -8,16 +8,17 @@ package endpoint
 
 import (
 	"bytes"
+	"net"
+	"strings"
 	"sync"
-
-	"github.com/pkg/errors"
-	"go.uber.org/zap/zapcore"
 
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"github.com/pkg/errors"
+	"go.uber.org/zap/zapcore"
 )
 
 var logger = flogging.MustGetLogger("view-sdk.endpoint")
@@ -236,6 +237,11 @@ func (r *service) AddResolver(name string, domain string, addresses map[string]s
 
 	r.resolversMutex.Lock()
 	defer r.resolversMutex.Unlock()
+
+	// resolve addresses to their IPs, if needed
+	for k, v := range addresses {
+		addresses[k] = LookupIPv4(v)
+	}
 	r.resolvers = append(r.resolvers, &resolver{
 		Name:      name,
 		Domain:    domain,
@@ -331,4 +337,20 @@ func convert(o map[string]string) map[driver.PortName]string {
 		r[driver.PortName(k)] = v
 	}
 	return r
+}
+
+func LookupIPv4(endpoint string) string {
+	s := strings.Split(endpoint, ":")
+	if len(s) < 2 {
+		return endpoint
+	}
+	var addrS string
+	addr, err := net.LookupIP(s[0])
+	if err != nil {
+		addrS = s[0]
+	} else {
+		addrS = addr[0].String()
+	}
+	port := s[1]
+	return net.JoinHostPort(addrS, port)
 }
