@@ -344,7 +344,11 @@ func (s *service) loadLocalMSPs() error {
 	}
 	defaultMSP := s.config.DefaultMSP()
 	if len(defaultMSP) == 0 {
-		return errors.New("default MSP not configured")
+		if len(configs) == 0 {
+			return errors.New("default MSP not configured and no MSPs set")
+		}
+		logger.Warnf("default MSP not configured, set it to [%s]", configs[0].ID)
+		defaultMSP = configs[0].ID
 	}
 
 	logger.Debugf("Local Local [%d] MSPS using default [%s]", len(configs), defaultMSP)
