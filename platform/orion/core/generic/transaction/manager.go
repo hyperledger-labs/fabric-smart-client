@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package transaction
 
 import (
+	"encoding/json"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
@@ -55,6 +57,14 @@ func (e *Envelope) FromBytes(raw []byte) error {
 	e.env = env
 	e.results = results
 	return nil
+}
+
+func (e *Envelope) String() string {
+	s, err := json.MarshalIndent(e.env, "", "  ")
+	if err != nil {
+		return err.Error()
+	}
+	return string(s)
 }
 
 type Manager struct {
