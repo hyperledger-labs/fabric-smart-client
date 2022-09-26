@@ -58,6 +58,10 @@ func (e *Envelope) UnmarshalJSON(raw []byte) error {
 	return e.e.FromBytes(r)
 }
 
+func (e *Envelope) String() string {
+	return e.e.String()
+}
+
 type Chaincode struct {
 	chaincode driver.Chaincode
 	fns       driver.FabricNetworkService

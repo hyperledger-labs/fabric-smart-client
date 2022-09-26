@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package transaction
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
@@ -73,6 +74,14 @@ func (e *Envelope) FromBytes(raw []byte) error {
 
 func (e *Envelope) Envelope() *common.Envelope {
 	return e.e
+}
+
+func (e *Envelope) String() string {
+	s, err := json.MarshalIndent(e.e, "", "  ")
+	if err != nil {
+		return err.Error()
+	}
+	return string(s)
 }
 
 type UnpackedEnvelope struct {
