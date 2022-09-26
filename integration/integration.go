@@ -158,6 +158,7 @@ func (i *Infrastructure) RegisterPlatformFactory(factory api.PlatformFactory) {
 
 func (i *Infrastructure) Generate() {
 	if i.DeleteOnStart {
+		logger.Infof("Delete test folder [%s]", i.TestDir)
 		if err := os.RemoveAll(i.TestDir); err != nil {
 			panic(err)
 		}
