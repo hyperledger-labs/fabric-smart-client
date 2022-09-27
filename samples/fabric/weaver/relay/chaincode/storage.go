@@ -18,6 +18,7 @@ type SmartContract struct {
 }
 
 func (s *SmartContract) Put(ctx contractapi.TransactionContextInterface, key string, value string) error {
+	ctx.GetStub().SetEvent("Put", []byte("PutState Invoked"))
 	return ctx.GetStub().PutState(key, []byte(value))
 }
 
@@ -33,6 +34,7 @@ func (s *SmartContract) Get(ctx contractapi.TransactionContextInterface, key str
 	if len(v) == 0 {
 		return "", nil
 	}
+	ctx.GetStub().SetEvent("Get", []byte("GetState Invoked"))
 	return string(v), nil
 }
 

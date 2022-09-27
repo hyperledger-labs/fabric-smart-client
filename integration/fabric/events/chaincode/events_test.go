@@ -48,7 +48,7 @@ var _ = Describe("EndToEnd", func() {
 		It("clients listening to single chaincode events", func() {
 			// - Operate from Alice (Org1)
 
-			event, err := alice.EventsView([]string{"CreateAsset"}, 1, "CreateAsset")
+			event, err := alice.EventsView("CreateAsset", "CreateAsset")
 
 			Expect(err).ToNot(HaveOccurred())
 			eventReceived := &views.EventReceived{}
@@ -56,7 +56,7 @@ var _ = Describe("EndToEnd", func() {
 			Expect(string(eventReceived.Event.Payload)).To(Equal("Invoked Create Asset Successfully"))
 
 			// - Operate from Bob (Org2)
-			event, err = bob.EventsView([]string{"UpdateAsset"}, 1, "UpdateAsset")
+			event, err = bob.EventsView("UpdateAsset", "UpdateAsset")
 			Expect(err).ToNot(HaveOccurred())
 			eventReceived = &views.EventReceived{}
 			json.Unmarshal(event.([]byte), eventReceived)
@@ -66,6 +66,7 @@ var _ = Describe("EndToEnd", func() {
 		It("client listening to multiple chaincode events ", func() {
 			expectedEventPayloads := []string{"Invoked Create Asset Successfully", "Invoked Update Asset Successfully"}
 			var payloadsReceived []string
+			// - Operate from Alice (Org1)
 			events, err := alice.MultipleEventsView([]string{"CreateAsset", "UpdateAsset"}, 2)
 			Expect(err).ToNot(HaveOccurred())
 			eventsReceived := &views.MultipleEventsReceived{}
