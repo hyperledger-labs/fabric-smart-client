@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package chaincode
 
 import (
+	"context"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
@@ -50,8 +52,10 @@ type Channel interface {
 	// provided peer identity
 	NewPeerClientForIdentity(peer view.Identity) (peer.Client, error)
 
-	// IsFinal takes in input a transaction id and waits for its confirmation.
-	IsFinal(txID string) error
+	// IsFinal takes in input a transaction id and waits for its confirmation
+	// with the respect to the passed context that can be used to set a deadline
+	// for the waiting time.
+	IsFinal(ctx context.Context, txID string) error
 
 	MSPManager() driver.MSPManager
 

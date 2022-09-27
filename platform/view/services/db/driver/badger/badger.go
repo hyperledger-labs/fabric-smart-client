@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package badger
 
 import (
+	"context"
 	"sync"
 	"time"
 
@@ -16,7 +17,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/keys"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/pkg/errors"
-	"golang.org/x/net/context"
 )
 
 var logger = flogging.MustGetLogger("db.driver.badger")

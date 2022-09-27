@@ -40,7 +40,7 @@ func (chaincodeEvent *ChaincodeEvent) Topic() string {
 }
 
 func validChaincodeEvent(event *peer.ChaincodeEvent) bool {
-	return len(event.GetChaincodeId()) > 0 && len(event.GetEventName()) > 0 && len(event.GetTxId()) > 0
+	return event != nil && len(event.GetChaincodeId()) > 0 && len(event.GetEventName()) > 0 && len(event.GetTxId()) > 0
 }
 
 func getChaincodeEvent(env *common.Envelope, blockNumber uint64) (*ChaincodeEvent, error) {
@@ -61,17 +61,15 @@ func getChaincodeEvent(env *common.Envelope, blockNumber uint64) (*ChaincodeEven
 		return nil, err
 	}
 
-	if chaincodeEventData != nil {
-		if !validChaincodeEvent(chaincodeEventData) {
-			return nil, nil
-		}
-		chaincodeEvent = &ChaincodeEvent{
-			BlockNumber:   blockNumber,
-			TransactionID: chaincodeEventData.GetTxId(),
-			ChaincodeID:   chaincodeEventData.GetChaincodeId(),
-			EventName:     chaincodeEventData.GetEventName(),
-			Payload:       chaincodeEventData.GetPayload(),
-		}
+	if !validChaincodeEvent(chaincodeEventData) {
+		return nil, nil
+	}
+	chaincodeEvent = &ChaincodeEvent{
+		BlockNumber:   blockNumber,
+		TransactionID: chaincodeEventData.GetTxId(),
+		ChaincodeID:   chaincodeEventData.GetChaincodeId(),
+		EventName:     chaincodeEventData.GetEventName(),
+		Payload:       chaincodeEventData.GetPayload(),
 	}
 
 	return chaincodeEvent, nil

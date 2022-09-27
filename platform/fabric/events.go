@@ -19,15 +19,24 @@ type EventListener struct {
 }
 
 func (e *EventListener) ChaincodeEvents() (chan *committer.ChaincodeEvent, error) {
-	//todo - check whether channel doesn't exist and is closed
-	//todo - channel length should be number of subscribers
-	e.chaincodeListener = make(chan *committer.ChaincodeEvent, 1)
 	subscriber, err := events.GetSubscriber(e.sp)
 	if err != nil {
 		return nil, err
 	}
+	e.chaincodeListener = make(chan *committer.ChaincodeEvent, 1)
 	subscriber.Subscribe(e.chaincodeName, e)
 	return e.chaincodeListener, nil
+}
+
+func (e *EventListener) CloseChaincodeEvents() error {
+	close(e.chaincodeListener)
+	subscriber, err := events.GetSubscriber(e.sp)
+	if err != nil {
+		return err
+	}
+	subscriber.Unsubscribe(e.chaincodeName, e)
+
+	return nil
 }
 
 func newEventListener(sp view2.ServiceProvider, chaincodeName string) *EventListener {

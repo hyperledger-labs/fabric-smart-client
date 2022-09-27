@@ -111,6 +111,6 @@ func (c *Config) VaultPersistenceType() string {
 	return c.configService.GetString("orion." + c.prefix + "vault.persistence.type")
 }
 
-func (c *Config) VaultPersistenceOpts(opts interface{}) error {
-	return c.configService.UnmarshalKey("orion."+c.prefix+"vault.persistence.opts", opts)
+func (c *Config) VaultPersistencePrefix() string {
+	return "vault.persistence.opts"
 }

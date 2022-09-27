@@ -19,8 +19,9 @@ import (
 )
 
 func (p *Platform) InitOrionServer() {
+	logger.Infof("initializing orion server")
 	bcDB := p.CreateDBInstance()
-
+	logger.Infof("create admin session")
 	session := p.CreateUserSession(bcDB, "admin")
 	p.initDBs(session)
 	p.initUsers(session)
@@ -71,6 +72,7 @@ func (p *Platform) initDBs(session bcdb.DBSession) {
 	tx, err := session.DBsTx()
 	Expect(err).ToNot(HaveOccurred())
 
+	logger.Infof("creating databases [%v]", p.Topology.DBs)
 	for _, db := range p.Topology.DBs {
 		err = tx.CreateDB(db.Name, nil)
 		Expect(err).ToNot(HaveOccurred())
@@ -79,7 +81,7 @@ func (p *Platform) initDBs(session bcdb.DBSession) {
 	txID, txReceipt, err := tx.Commit(true)
 	Expect(err).ToNot(HaveOccurred())
 
-	logger.Debugf("transaction to create carDB has been submitted, txID = %s, txReceipt = %s", txID, txReceipt.String())
+	logger.Infof("transaction to create carDB has been submitted, txID = %s, txReceipt = %s", txID, txReceipt.String())
 }
 
 func (p *Platform) initUsers(session bcdb.DBSession) {
@@ -111,7 +113,7 @@ func (p *Platform) initUsers(session bcdb.DBSession) {
 
 			txID, receipt, err := usersTx.Commit(true)
 			Expect(err).ToNot(HaveOccurred())
-			logger.Debugf("transaction to provision user record has been committed, user-ID: %s, txID = %s, block = %d, txIdx = %d", role, txID, receipt.GetResponse().GetReceipt().GetHeader().GetBaseHeader().GetNumber(), receipt.GetResponse().GetReceipt().GetTxIndex())
+			logger.Infof("transaction to provision user record has been committed, user-ID: %s, txID = %s, block = %d, txIdx = %d", role, txID, receipt.GetResponse().GetReceipt().GetHeader().GetBaseHeader().GetNumber(), receipt.GetResponse().GetReceipt().GetTxIndex())
 		}
 	}
 }

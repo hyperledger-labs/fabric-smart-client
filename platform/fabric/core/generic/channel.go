@@ -83,7 +83,7 @@ type channel struct {
 func newChannel(network *network, name string, quiet bool) (*channel, error) {
 	sp := network.sp
 	// Vault
-	v, txIDStore, err := NewVault(network.config, name)
+	v, txIDStore, err := NewVault(sp, network.config, name)
 	if err != nil {
 		return nil, err
 	}
@@ -105,7 +105,7 @@ func newChannel(network *network, name string, quiet bool) (*channel, error) {
 		return nil, err
 	}
 
-	committerInst, err := committer.New(name, network, fabricFinality, waitForEventTimeout, quiet, tracing.Get(sp), network.sp)
+	committerInst, err := committer.New(name, network, fabricFinality, waitForEventTimeout, quiet, tracing.Get(sp), &network.sp)
 	if err != nil {
 		return nil, err
 	}
@@ -165,7 +165,6 @@ func newChannel(network *network, name string, quiet bool) (*channel, error) {
 		return nil, errors.WithMessagef(err, "failed initializing channel [%s]", name)
 	}
 
-	// Start delivery
 	deliveryService.Start()
 
 	return c, nil

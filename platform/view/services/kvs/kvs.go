@@ -8,7 +8,6 @@ package kvs
 
 import (
 	"encoding/json"
-	"path/filepath"
 	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
@@ -27,8 +26,22 @@ var (
 
 const (
 	cacheSizeConfigKey       = "fsc.kvs.cache.size"
+	persistenceType          = "fsc.kvs.persistence.type"
 	persistenceOptsConfigKey = "fsc.kvs.persistence.opts"
+	defaultCacheSize         = 100
 )
+
+//go:generate counterfeiter -o mock/config_provider.go -fake-name ConfigProvider . ConfigProvider
+
+// ConfigProvider models the DB configuration provider
+type ConfigProvider interface {
+	// UnmarshalKey takes a single key and unmarshals it into a Struct
+	UnmarshalKey(key string, rawVal interface{}) error
+	// IsSet checks to see if the key has been set in any of the data locations
+	IsSet(key string) bool
+	// GetInt returns the value associated with the key as an integer
+	GetInt(key string) int
+}
 
 type KVS struct {
 	namespace string
@@ -44,28 +57,24 @@ type cache interface {
 	Delete(key string)
 }
 
-type Opts struct {
-	Path string
+// New returns a new KVS instance for the passed namespace using the passed driver
+func New(sp view.ServiceProvider, driverName, namespace string) (*KVS, error) {
+	return NewWithConfig(sp, driverName, namespace, view.GetConfigService(sp))
 }
 
-func New(driverName, namespace string, sp view.ServiceProvider) (*KVS, error) {
-	opts := &Opts{}
-	err := view.GetConfigService(sp).UnmarshalKey(persistenceOptsConfigKey, opts)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed getting opts for vault")
-	}
-	path := filepath.Join(opts.Path, namespace)
-	persistence, err := db.Open(driverName, path)
+// NewWithConfig returns a new KVS instance for the passed namespace using the passed driver and config provider
+func NewWithConfig(sp view.ServiceProvider, driverName, namespace string, cp ConfigProvider) (*KVS, error) {
+	persistence, err := db.Open(sp, driverName, namespace, db.NewPrefixConfig(cp, persistenceOptsConfigKey))
 	if err != nil {
 		return nil, errors.WithMessagef(err, "no driver found for [%s]", driverName)
 	}
 
-	cacheSize, err := cacheSizeFromConfig(sp)
+	cacheSize, err := cacheSizeFromConfig(cp)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed loading cache size from configuration")
 	}
 
-	logger.Debugf("opening kvs with namespace=`%s` and cacheSize=`%d` at [%s]", namespace, cacheSize, path)
+	logger.Debugf("opening kvs with namespace=`%s` and cacheSize=`%d`", namespace, cacheSize)
 
 	return &KVS{
 		namespace: namespace,
@@ -74,20 +83,16 @@ func New(driverName, namespace string, sp view.ServiceProvider) (*KVS, error) {
 	}, nil
 }
 
-var defaultCacheSize = 100
-
 // cacheSizeFromConfig returns the KVS cache size from current configuration.
 // Returns defaultCacheSize, if no configuration found.
 // Returns an error and defaultCacheSize, if the loaded value from configuration is invalid (must be >= 0).
-func cacheSizeFromConfig(sp view.ServiceProvider) (int, error) {
-	configService := view.GetConfigService(sp)
-
-	if !configService.IsSet(cacheSizeConfigKey) {
+func cacheSizeFromConfig(cp ConfigProvider) (int, error) {
+	if !cp.IsSet(cacheSizeConfigKey) {
 		// no cache size configure, let's use default
 		return defaultCacheSize, nil
 	}
 
-	cacheSize := configService.GetInt(cacheSizeConfigKey)
+	cacheSize := cp.GetInt(cacheSizeConfigKey)
 	if cacheSize < 0 {
 		return defaultCacheSize, errors.Errorf("invalid cache size configuration: expect value >= 0, actual %d", cacheSize)
 	}
@@ -152,7 +157,7 @@ func (o *KVS) Put(id string, state interface{}) error {
 			}
 		}
 
-		return errors.Errorf("failed to commit value for id [%s]", id)
+		return errors.WithMessagef(err, "failed to commit value for id [%s]", id)
 	}
 
 	err = o.store.Commit()
@@ -180,7 +185,7 @@ func (o *KVS) Get(id string, state interface{}) error {
 			if logger.IsEnabledFor(zapcore.DebugLevel) {
 				logger.Debugf("failed retrieving state [%s,%s]", o.namespace, id)
 			}
-			return errors.Errorf("failed retrieving state [%s,%s]", o.namespace, id)
+			return errors.WithMessagef(err, "failed retrieving state [%s,%s]", o.namespace, id)
 		}
 		if len(raw) == 0 {
 			return errors.Errorf("state [%s,%s] does not exist", o.namespace, id)
@@ -221,7 +226,7 @@ func (o *KVS) Delete(id string) error {
 			}
 		}
 
-		return errors.Errorf("failed to commit value for id [%s]", id)
+		return errors.WithMessagef(err, "failed to commit value for id [%s]", id)
 	}
 
 	err = o.store.Commit()
@@ -282,10 +287,21 @@ func (i *iteratorConverter) Next(state interface{}) (string, error) {
 	return i.next.Key, json.Unmarshal(i.next.Raw, state)
 }
 
+// GetService returns the KVS instance registered in the passed context.
+// If no KVS instance is registered, it panics.
 func GetService(ctx view.ServiceProvider) *KVS {
 	s, err := ctx.GetService(kvs)
 	if err != nil {
 		panic(err)
 	}
 	return s.(*KVS)
+}
+
+// GetDriverNameFromConf returns the driver name from the node's configuration
+func GetDriverNameFromConf(sp view.ServiceProvider) string {
+	driverName := view.GetConfigService(sp).GetString(persistenceType)
+	if len(driverName) == 0 {
+		driverName = "memory"
+	}
+	return driverName
 }

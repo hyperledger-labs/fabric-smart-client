@@ -17,6 +17,7 @@ import (
 const (
 	DefaultMSPCacheSize        = 3
 	DefaultBroadcastNumRetries = 3
+	VaultPersistenceOptsKey    = "vault.persistence.opts"
 )
 
 // configService models a configuration registry
@@ -145,8 +146,8 @@ func (c *Config) VaultPersistenceType() string {
 	return c.configService.GetString("fabric." + c.prefix + "vault.persistence.type")
 }
 
-func (c *Config) VaultPersistenceOpts(opts interface{}) error {
-	return c.configService.UnmarshalKey("fabric."+c.prefix+"vault.persistence.opts", opts)
+func (c *Config) VaultPersistencePrefix() string {
+	return VaultPersistenceOptsKey
 }
 
 func (c *Config) VaultTXStoreCacheSize(defaultCacheSize int) int {

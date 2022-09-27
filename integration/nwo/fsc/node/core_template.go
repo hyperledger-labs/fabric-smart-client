@@ -97,9 +97,15 @@ fsc:
   kvs:
     persistence:
       # Persistence type can be \'badger\' (on disk) or \'memory\'
-      type: badger
+      type: {{ NodeKVSPersistenceType }}
       opts:
+        {{- if eq NodeKVSPersistenceType "orion" }}
+        network: {{ KVSOrionNetwork }}
+        database: {{ KVSOrionDatabase }}
+        creator: {{ KVSOrionCreator }}
+        {{- else }}
         path: {{ NodeKVSPath }}
+        {{- end }}
     cache:
         # Sets the maximum number of cached items 
         size: 200

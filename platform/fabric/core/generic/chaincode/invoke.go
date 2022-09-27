@@ -9,7 +9,6 @@ package chaincode
 import (
 	"context"
 	"encoding/base64"
-	"fmt"
 	"strconv"
 	"strings"
 	"sync"
@@ -448,10 +447,8 @@ func (i *Invoke) toBytes(arg interface{}) ([]byte, error) {
 }
 
 func (i *Invoke) broadcast(txID string, env *pcommon.Envelope) error {
-	fmt.Println("Broadcast------")
 	if err := i.Network.Broadcast(env); err != nil {
 		return err
 	}
-	fmt.Println("Final------")
-	return i.Channel.IsFinal(txID)
+	return i.Channel.IsFinal(context.Background(), txID)
 }

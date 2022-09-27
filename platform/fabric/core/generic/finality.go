@@ -6,10 +6,17 @@ SPDX-License-Identifier: Apache-2.0
 
 package generic
 
-import "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+import (
+	"context"
 
-func (c *channel) IsFinal(txID string) error {
-	return c.finality.IsFinal(txID)
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+)
+
+func (c *channel) IsFinal(ctx context.Context, txID string) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	return c.finality.IsFinal(ctx, txID)
 }
 
 func (c *channel) IsFinalForParties(txID string, parties ...view.Identity) error {

@@ -35,22 +35,20 @@ func Topology() []api.Topology {
 
 	// Define a new FSC topology
 	fscTopology := fsc.NewTopology()
-	fscTopology.SetLogging("fabric-sdk.committer=debug:debug", "")
-
 	// Define Alice's FSC node
 	alice := fscTopology.AddNodeByName("alice")
 	// Equip it with a Fabric identity from Org1 that is a client
 	alice.AddOptions(fabric.WithOrganization("Org1"), fabric.WithClientRole())
 	// Register the factories of the initiator views for each business process
-	alice.RegisterViewFactory("CreateAssetData", &views.CreateAssetViewFactory{})
+	alice.RegisterViewFactory("EventsView", &views.EventsView{})
+	alice.RegisterViewFactory("MultipleEventsView", &views.MultipleEventsView{})
 
 	// Define Bob's FSC node
 	bob := fscTopology.AddNodeByName("bob")
 	// Equip it with a Fabric identity from Org2 that is a client
 	bob.AddOptions(fabric.WithOrganization("Org2"), fabric.WithClientRole())
 	// Register the factories of the initiator views for each business process
-	bob.RegisterViewFactory("CreateAssetData", &views.CreateAssetViewFactory{})
-
+	bob.RegisterViewFactory("EventsView", &views.EventsView{})
 	// Done
 	return []api.Topology{fabricTopology, fscTopology}
 }

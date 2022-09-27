@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package views
 
 import (
+	"time"
+
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou/states"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
@@ -71,5 +73,5 @@ func (i *ApproverView) Call(context view.Context) (interface{}, error) {
 	assert.NoError(err)
 
 	// Finally, the approver waits that the transaction completes its lifecycle
-	return context.RunView(state.NewFinalityView(tx))
+	return context.RunView(state.NewFinalityWithTimeoutView(tx, 1*time.Minute))
 }

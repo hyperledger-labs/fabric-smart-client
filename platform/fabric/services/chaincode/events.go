@@ -79,7 +79,6 @@ func (r *listenToEventsView) RegisterChaincodeEvents(context view.Context) error
 
 	go func() {
 		for event := range events {
-			logger.Debugf("event---->", event)
 			stop, err := r.CallBack(event)
 			if err != nil {
 				logger.Errorf("callback failed [%s:%s:%s]: [%s]", r.Network, r.Channel, r.ChaincodeName, err)
@@ -89,7 +88,11 @@ func (r *listenToEventsView) RegisterChaincodeEvents(context view.Context) error
 				break
 			}
 		}
-		// TODO: unsubscribe
+
+		err := chaincode.EventListener.CloseChaincodeEvents()
+		if err != nil {
+			logger.Errorf("Failed to close event channel [%s:%s:%s]: [%s]", r.Network, r.Channel, r.ChaincodeName, err)
+		}
 	}()
 
 	return nil

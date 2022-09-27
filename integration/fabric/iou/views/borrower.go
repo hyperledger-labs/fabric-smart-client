@@ -8,6 +8,7 @@ package views
 
 import (
 	"encoding/json"
+	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou/states"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
@@ -65,7 +66,7 @@ func (i *CreateIOUView) Call(context view.Context) (interface{}, error) {
 	assert.NoError(err)
 
 	// At this point the borrower can send the transaction to the ordering service and wait for finality.
-	_, err = context.RunView(state.NewOrderingAndFinalityView(tx))
+	_, err = context.RunView(state.NewOrderingAndFinalityWithTimeoutView(tx, 1*time.Minute))
 	assert.NoError(err)
 
 	// Return the state ID
@@ -123,7 +124,7 @@ func (u UpdateIOUView) Call(context view.Context) (interface{}, error) {
 	assert.NoError(err)
 
 	// At this point the borrower can send the transaction to the ordering service and wait for finality.
-	_, err = context.RunView(state.NewOrderingAndFinalityView(tx))
+	_, err = context.RunView(state.NewOrderingAndFinalityWithTimeoutView(tx, 1*time.Minute))
 	assert.NoError(err, "failed ordering and finalizing")
 
 	return tx.ID(), nil

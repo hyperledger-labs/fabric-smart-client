@@ -1,5 +1,6 @@
 # pinned versions
 FABRIC_VERSION=2.2
+ORION_VERSION=v0.2.5
 
 # integration test options
 GINKGO_TEST_OPTS ?=
@@ -8,7 +9,7 @@ GINKGO_TEST_OPTS += --slow-spec-threshold=60s
 
 TOP = .
 
-all: install-tools checks unit-tests #integration-tests
+all: install-tools install-softhsm checks unit-tests #integration-tests
 
 .PHONY: install-tools
 install-tools:
@@ -23,6 +24,11 @@ include $(TOP)/checks.mk
 unit-tests:
 	@go test -cover $(shell go list ./... | grep -v '/integration/')
 	cd integration/nwo/; go test -cover ./...
+
+.PHONY: install-softhsm
+
+install-softhsm:
+	./ci/scripts/install_softhsm.sh
 
 .PHONY: unit-tests-race
 unit-tests-race:
@@ -62,7 +68,8 @@ monitoring-docker-images:
 
 .PHONY: orion-server-images
 orion-server-images:
-	docker pull orionbcdb/orion-server:latest
+	docker pull orionbcdb/orion-server:$(ORION_VERSION)
+	docker image tag orionbcdb/orion-server:$(ORION_VERSION) orionbcdb/orion-server:latest
 
 .PHONY: integration-tests
 integration-tests:
@@ -84,6 +91,10 @@ integration-tests-iou-hsm:
 	@./ci/scripts/setup_softhsm.sh
 	@echo "Start Integration Test"
 	cd ./integration/fabric/iouhsm; ginkgo $(GINKGO_TEST_OPTS) .
+
+.PHONY: integration-tests-iouorionbe
+integration-tests-iouorionbe: orion-server-images
+	cd ./integration/fabric/iouorionbe; ginkgo $(GINKGO_TEST_OPTS) .
 
 .PHONY: integration-tests-atsacc
 integration-tests-atsacc:
@@ -139,6 +150,7 @@ clean:
 	rm -rf ./integration/fabric/atsa/fsc/cmd
 	rm -rf ./integration/fabric/iou/cmd/
 	rm -rf ./integration/fabric/iou/testdata/
+	rm -rf ./integration/fabric/iouorionbe/cmd/
 	rm -rf ./integration/fabric/twonets/cmd
 	rm -rf ./integration/fabric/weaver/relay/cmd
 	rm -rf ./integration/fabric/fpc/echo/cmd

@@ -7,6 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 package views
 
 import (
+	"context"
+	"time"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/session"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -21,6 +24,7 @@ type IsFinalRequest struct {
 	Network string
 	Channel string
 	TxID    string
+	Timeout time.Duration
 }
 
 type IsFinalResponse struct {
@@ -35,10 +39,10 @@ func NewIsFinalResponderView(FNSProvider FNSProvider) *IsFinalResponderView {
 	return &IsFinalResponderView{FNSProvider: FNSProvider}
 }
 
-func (i *IsFinalResponderView) Call(context view.Context) (interface{}, error) {
+func (i *IsFinalResponderView) Call(ctx view.Context) (interface{}, error) {
 	// receive IsFinalRequest struct
 	isFinalRequest := &IsFinalRequest{}
-	session := session.JSON(context)
+	session := session.JSON(ctx)
 	if err := session.Receive(isFinalRequest); err != nil {
 		return nil, errors.Wrapf(err, "failed to receive request")
 	}
@@ -52,7 +56,13 @@ func (i *IsFinalResponderView) Call(context view.Context) (interface{}, error) {
 	var ch driver.Channel
 	ch, err = network.Channel(isFinalRequest.Channel)
 	if err == nil {
-		err = ch.IsFinal(isFinalRequest.TxID)
+		c := ctx.Context()
+		if isFinalRequest.Timeout != 0 {
+			var cancel context.CancelFunc
+			c, cancel = context.WithTimeout(c, isFinalRequest.Timeout)
+			defer cancel()
+		}
+		err = ch.IsFinal(c, isFinalRequest.TxID)
 	} else {
 		err = errors.Wrapf(err, "channel %s not found", isFinalRequest.Channel)
 	}

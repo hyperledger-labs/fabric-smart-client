@@ -563,7 +563,7 @@ func (p *Platform) generateInteropChaincodeVerificationPolicyFile(destinationRel
 func (p *Platform) generateFabricExtension() {
 	fscTopology := p.Context.TopologyByName("fsc").(*fsc.Topology)
 	for _, node := range fscTopology.Nodes {
-		opt := fabric2.Options(&node.Options)
+		opt := fabric2.Options(node.Options)
 
 		var servers []*RelayServer
 		for _, relay := range p.Topology.Relays {

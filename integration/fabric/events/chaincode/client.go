@@ -27,19 +27,19 @@ func NewClient(c ViewClient, id view.Identity) *Client {
 	return &Client{c: c, id: id}
 }
 
-func (c *Client) CreateAsset(ap *views.Asset) error {
-	_, err := c.c.CallView("CreateAssetData", common.JSONMarshall(&views.CreateAsset{
-		Asset: views.Asset{
-			AppraisedValue: 100,
-			Color:          "blue",
-			ID:             "xyz",
-			Owner:          "alice",
-			Size:           10,
-		},
+func (c *Client) EventsView(chaincodeFunctions []string, eventCount uint8, eventName string) (interface{}, error) {
+	event, err := c.c.CallView("EventsView", common.JSONMarshall(&views.Events{
+		Functions:  chaincodeFunctions,
+		EventCount: eventCount,
+		EventName:  eventName,
 	}))
+	return event, err
+}
 
-	if err != nil {
-		return err
-	}
-	return nil
+func (c *Client) MultipleEventsView(chaincodeFunctions []string, eventCount uint8) (interface{}, error) {
+	event, err := c.c.CallView("MultipleEventsView", common.JSONMarshall(&views.Events{
+		Functions:  chaincodeFunctions,
+		EventCount: eventCount,
+	}))
+	return event, err
 }
