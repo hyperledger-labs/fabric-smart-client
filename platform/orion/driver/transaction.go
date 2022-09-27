@@ -24,6 +24,7 @@ type Envelope interface {
 	Results() []byte
 	Bytes() ([]byte, error)
 	FromBytes(raw []byte) error
+	String() string
 }
 
 type TxID struct {

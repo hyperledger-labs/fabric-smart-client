@@ -56,7 +56,9 @@ func (n *Network) CheckTopologyFSCNodes() (users map[string]int, userSpecs map[s
 		po := node.PlatformOpts()
 		nodeOpts := opts.Get(po)
 		orgs := nodeOpts.Organizations()
-		Expect(orgs).NotTo(BeEmpty())
+		if len(orgs) == 0 {
+			continue
+		}
 
 		org, found := FindOptOrg(orgs, n.topology.TopologyName)
 		if !found {

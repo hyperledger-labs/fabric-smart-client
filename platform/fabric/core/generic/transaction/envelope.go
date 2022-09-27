@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package transaction
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
@@ -75,6 +76,14 @@ func (e *Envelope) Envelope() *common.Envelope {
 	return e.e
 }
 
+func (e *Envelope) String() string {
+	s, err := json.MarshalIndent(e.e, "", "  ")
+	if err != nil {
+		return err.Error()
+	}
+	return string(s)
+}
+
 type UnpackedEnvelope struct {
 	TxID              string
 	Ch                string
@@ -103,17 +112,17 @@ func UnpackEnvelopeFromBytes(raw []byte) (*UnpackedEnvelope, error) {
 func UnpackEnvelope(env *common.Envelope) (*UnpackedEnvelope, error) {
 	payl, err := protoutil.UnmarshalPayload(env.Payload)
 	if err != nil {
-		return nil, errors.Wrap(err, "VSCC error: GetPayload failed")
+		return nil, errors.Wrap(err, "failed to unmarshal payload")
 	}
 
 	chdr, err := protoutil.UnmarshalChannelHeader(payl.Header.ChannelHeader)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to unmarshal channel header")
 	}
 
 	sdr, err := protoutil.UnmarshalSignatureHeader(payl.Header.SignatureHeader)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to unmarshal signature header")
 	}
 
 	// validate the payload type
@@ -142,17 +151,14 @@ func UnpackEnvelope(env *common.Envelope) (*UnpackedEnvelope, error) {
 
 	pRespPayload, err := protoutil.UnmarshalProposalResponsePayload(cap.Action.ProposalResponsePayload)
 	if err != nil {
-		err = fmt.Errorf("GetProposalResponsePayload error %s", err)
-		return nil, err
+		return nil, errors.Wrap(err, "failed to unmarshal proposal response payload")
 	}
 	if pRespPayload.Extension == nil {
-		err = fmt.Errorf("nil pRespPayload.Extension")
-		return nil, err
+		return nil, errors.Wrap(err, "nil pRespPayload.Extension")
 	}
 	respPayload, err := protoutil.UnmarshalChaincodeAction(pRespPayload.Extension)
 	if err != nil {
-		err = fmt.Errorf("GetChaincodeAction error %s", err)
-		return nil, err
+		return nil, errors.Wrap(err, "failed to unmarshal chaincode action")
 	}
 
 	if logger.IsEnabledFor(zapcore.DebugLevel) {

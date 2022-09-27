@@ -218,6 +218,10 @@ func (p *Platform) generateExtension() {
 	for _, node := range fscTopology.Nodes {
 		opt := Options(node.Options)
 		role := opt.Role()
+		if len(role) == 0 {
+			// skip
+			continue
+		}
 
 		t, err := template.New("view_extension").Funcs(template.FuncMap{
 			"Name":       func() string { return p.Name() },

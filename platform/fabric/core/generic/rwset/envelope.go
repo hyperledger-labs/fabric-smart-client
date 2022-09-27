@@ -15,6 +15,7 @@ import (
 	"github.com/hyperledger/fabric/protoutil"
 )
 
+// TODO: remove this and merge with that in transaction
 type UnpackedEnvelope struct {
 	NetworkID         string
 	TxID              string
