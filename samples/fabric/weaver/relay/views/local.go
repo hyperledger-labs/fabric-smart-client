@@ -10,9 +10,14 @@ import (
 	"encoding/json"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"go.uber.org/zap/zapcore"
 )
+
+var logger = flogging.MustGetLogger("local-view")
 
 type LocalPut struct {
 	Chaincode string
@@ -26,8 +31,17 @@ type LocalPutView struct {
 
 func (p *LocalPutView) Call(context view.Context) (interface{}, error) {
 
+	chaincode := fabric.GetDefaultChannel(context).Chaincode(p.Chaincode)
+
+	// Register for chaincode events
+	eventChannel, err := chaincode.EventListener.ChaincodeEvents()
+	assert.NoError(err, "failed to register for chaincode events")
+
+	//start listening to events
+	go startListeningToEvents(chaincode, eventChannel, "Put")
+
 	// Invoke the passed chaincode to put the key/value pair
-	txID, _, err := fabric.GetDefaultChannel(context).Chaincode(p.Chaincode).Invoke(
+	txID, _, err := chaincode.Invoke(
 		"Put", p.Key, p.Value,
 	).Call()
 	assert.NoError(err, "failed to put key %s", p.Key)
@@ -55,10 +69,17 @@ type LocalGetView struct {
 
 func (g *LocalGetView) Call(context view.Context) (interface{}, error) {
 
-	// func (c *Client) RegisterChaincodeEvent(ccID, eventFilter string) (fab.Registration, <-chan *fab.CCEvent, error)  {}
+	chaincode := fabric.GetDefaultChannel(context).Chaincode(g.Chaincode)
+
+	// Register for chaincode events
+	eventChannel, err := chaincode.EventListener.ChaincodeEvents()
+	assert.NoError(err, "failed to register for chaincode events")
+
+	//start listening to events
+	go startListeningToEvents(chaincode, eventChannel, "Get")
 
 	// Invoke the passed chaincode to get the value corresponding to the passed key
-	v, err := fabric.GetDefaultChannel(context).Chaincode(g.Chaincode).Query(
+	v, err := chaincode.Query(
 		"Get", g.Key,
 	).Call()
 	assert.NoError(err, "failed to get key %s", g.Key)
@@ -72,4 +93,17 @@ func (p *LocalGetViewFactory) NewView(in []byte) (view.View, error) {
 	f := &LocalGetView{}
 	assert.NoError(json.Unmarshal(in, &f.LocalGet))
 	return f, nil
+}
+
+// startListeningToEvents reads from the chaincode event channel and closes the channel when expected event is received.
+func startListeningToEvents(chaincode *fabric.Chaincode, eventChannel chan *committer.ChaincodeEvent, eventName string) {
+	for event := range eventChannel {
+		if event.EventName == eventName {
+			if logger.IsEnabledFor(zapcore.DebugLevel) {
+				logger.Debugf("Event Received, Event Name: %s, Payload:", event.EventName, string(event.Payload))
+			}
+			err := chaincode.EventListener.CloseChaincodeEvents()
+			assert.NoError(err, "error closing chaincode event channel")
+		}
+	}
 }

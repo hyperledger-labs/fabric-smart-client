@@ -22,6 +22,7 @@ type SmartContract struct {
 }
 
 func (s *SmartContract) Put(ctx contractapi.TransactionContextInterface, key string, value string) error {
+	ctx.GetStub().SetEvent("Put", []byte("PutState Invoked"))
 	return ctx.GetStub().PutState(key, []byte(value))
 }
 
@@ -37,6 +38,7 @@ func (s *SmartContract) Get(ctx contractapi.TransactionContextInterface, key str
 	if len(v) == 0 {
 		return "", nil
 	}
+	ctx.GetStub().SetEvent("Get", []byte("GetState Invoked"))
 	return string(v), nil
 }
 
@@ -56,7 +58,7 @@ func main() {
 
 To manage the `local` KVS, we will use the following business views:
 
-The following view is used to store or put a key-value pair in the `local` KVS.
+The following view is used to store or put a key-value pair in the `local` KVS. It also listens to the chaincode event generated while invoking the chaincode function.
 
 ```go
 type LocalPut struct {
@@ -70,14 +72,36 @@ type LocalPutView struct {
 }
 
 func (p *LocalPutView) Call(context view.Context) (interface{}, error) {
+	chaincode := fabric.GetDefaultChannel(context).Chaincode(p.Chaincode)
+
+	// Register for chaincode events
+	eventChannel, err := chaincode.EventListener.ChaincodeEvents()
+	assert.NoError(err, "failed to register for chaincode events")
+
+	//start listening to events
+	go startListeningToEvents(chaincode, eventChannel, "Put")
+
 	// Invoke the passed chaincode to put the key/value pair
-	txID, _, err := fabric.GetDefaultChannel(context).Chaincode(p.Chaincode).Invoke(
+	txID, _, err := chaincode.Invoke(
 		"Put", p.Key, p.Value,
 	).Call()
 	assert.NoError(err, "failed to put key %s", p.Key)
 
 	// return the transaction id
 	return txID, nil
+}
+
+// startListeningToEvents reads from the chaincode event channel and closes the channel when expected event is received.
+func startListeningToEvents(chaincode *fabric.Chaincode, eventChannel chan *committer.ChaincodeEvent, eventName string) {
+	for event := range eventChannel{
+		if event.EventName == eventName {
+			if logger.IsEnabledFor(zapcore.DebugLevel) {
+			logger.Debugf("Event Received Event Name: %s, Payload:", event.EventName, string(event.Payload))
+			}
+			err := chaincode.EventListener.CloseChaincodeEvents()
+			assert.NoError(err, "error closing chaincode event channel")
+		}
+		}
 }
 ```
 
@@ -94,8 +118,17 @@ type LocalGetView struct {
 }
 
 func (g *LocalGetView) Call(context view.Context) (interface{}, error) {
+	chaincode := fabric.GetDefaultChannel(context).Chaincode(g.Chaincode)
+
+	// Register for chaincode events
+	eventChannel, err := chaincode.EventListener.ChaincodeEvents()
+	assert.NoError(err, "failed to register for chaincode events")
+
+	//start listening to events
+	go startListeningToEvents(chaincode, eventChannel, "Get")
+
 	// Invoke the passed chaincode to get the value corresponding to the passed key
-	v, err := fabric.GetDefaultChannel(context).Chaincode(g.Chaincode).Query(
+	v, err := chaincode.Query(
 		"Get", g.Key,
 	).Call()
 	assert.NoError(err, "failed to get key %s", g.Key)
@@ -166,7 +199,7 @@ Once these networks are deployed, one can invoke views on the smart client nodes
 
 So, first step is to describe the topology of the networks we need.
 
-Make sure you have the proper docker images by running `make weaver-docker-image` from the FSC root folder.
+Make sure you have the proper docker images by running `make weaver-docker-images` from the FSC root folder.
 
 ### Describe the topology of the networks
 
