@@ -19,10 +19,12 @@ import (
 type MultipleEventsView struct {
 	*MultipleEvents
 }
+
 type MultipleEvents struct {
 	Functions  []string
 	EventCount uint8
 }
+
 type MultipleEventsReceived struct {
 	Events []*chaincode.Event
 }
@@ -45,7 +47,7 @@ func (c *MultipleEventsView) Call(context view.Context) (interface{}, error) {
 		return true, nil
 	}
 
-	_, err := context.RunView(chaincode.NewListenToEventsView("asset_transfer_events", callBack))
+	_, err := context.RunView(chaincode.NewListenToEventsView("events", callBack))
 	assert.NoError(err, "failed to listen to events")
 
 	for _, function := range c.Functions {
@@ -53,7 +55,7 @@ func (c *MultipleEventsView) Call(context view.Context) (interface{}, error) {
 		// Invoke the chaincode
 		_, err = context.RunView(
 			chaincode.NewInvokeView(
-				"asset_transfer_events",
+				"events",
 				function,
 			),
 		)
@@ -68,7 +70,9 @@ func (c *MultipleEventsView) Call(context view.Context) (interface{}, error) {
 	}, nil
 }
 
-func (c *MultipleEventsView) NewView(in []byte) (view.View, error) {
+type MultipleEventsViewFactory struct{}
+
+func (c *MultipleEventsViewFactory) NewView(in []byte) (view.View, error) {
 	f := &MultipleEventsView{MultipleEvents: &MultipleEvents{}}
 	err := json.Unmarshal(in, f)
 	assert.NoError(err, "failed unmarshalling input")

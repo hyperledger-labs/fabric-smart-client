@@ -12,12 +12,21 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 )
 
+// EventListener models the parameters to use for chaincode listening.
 type EventListener struct {
 	chaincodeListener chan *committer.ChaincodeEvent
 	sp                view2.ServiceProvider
 	chaincodeName     string
 }
 
+func newEventListener(sp view2.ServiceProvider, chaincodeName string) *EventListener {
+	return &EventListener{
+		sp:            sp,
+		chaincodeName: chaincodeName,
+	}
+}
+
+// ChaincodeEvents returns a channel from which chaincode events emitted by transaction functions in the specified chaincode can be read.
 func (e *EventListener) ChaincodeEvents() (chan *committer.ChaincodeEvent, error) {
 	subscriber, err := events.GetSubscriber(e.sp)
 	if err != nil {
@@ -28,6 +37,7 @@ func (e *EventListener) ChaincodeEvents() (chan *committer.ChaincodeEvent, error
 	return e.chaincodeListener, nil
 }
 
+// CloseChaincodeEvents closes the channel from which chaincode events are read.
 func (e *EventListener) CloseChaincodeEvents() error {
 	close(e.chaincodeListener)
 	subscriber, err := events.GetSubscriber(e.sp)
@@ -39,14 +49,7 @@ func (e *EventListener) CloseChaincodeEvents() error {
 	return nil
 }
 
-func newEventListener(sp view2.ServiceProvider, chaincodeName string) *EventListener {
-	return &EventListener{
-		sp:            sp,
-		chaincodeName: chaincodeName,
-	}
-}
-
 func (e *EventListener) OnReceive(event events.Event) {
-	//todo filter events based on options passed - start block last transactionid
+	//todo filter events based on options passed - start block, last transactionid
 	e.chaincodeListener <- event.Message().(*committer.ChaincodeEvent)
 }

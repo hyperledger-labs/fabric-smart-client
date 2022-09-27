@@ -7,8 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package chaincode
 
 import (
-	"fmt"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/fpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -88,7 +86,7 @@ func (i *invokeChaincodeView) Invoke(context view.Context) (string, []byte, erro
 	if i.EndorsersFromMyOrg {
 		invocation.WithEndorsersFromMyOrg()
 	}
-	fmt.Println("Submit chaincode")
+
 	txid, result, err := invocation.Submit()
 	if err != nil {
 		return "", nil, err

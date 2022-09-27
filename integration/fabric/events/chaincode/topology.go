@@ -26,7 +26,7 @@ func Topology() []api.Topology {
 	})
 	// Add a chaincode or `managed namespace`
 	fabricTopology.AddManagedNamespace(
-		"asset_transfer_events",
+		"events",
 		`OR ('Org1MSP.member','Org2MSP.member')`,
 		"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/events/chaincode/chaincode",
 		"",
@@ -40,15 +40,15 @@ func Topology() []api.Topology {
 	// Equip it with a Fabric identity from Org1 that is a client
 	alice.AddOptions(fabric.WithOrganization("Org1"), fabric.WithClientRole())
 	// Register the factories of the initiator views for each business process
-	alice.RegisterViewFactory("EventsView", &views.EventsView{})
-	alice.RegisterViewFactory("MultipleEventsView", &views.MultipleEventsView{})
+	alice.RegisterViewFactory("EventsView", &views.EventsViewFactory{})
+	alice.RegisterViewFactory("MultipleEventsView", &views.MultipleEventsViewFactory{})
 
 	// Define Bob's FSC node
 	bob := fscTopology.AddNodeByName("bob")
 	// Equip it with a Fabric identity from Org2 that is a client
 	bob.AddOptions(fabric.WithOrganization("Org2"), fabric.WithClientRole())
 	// Register the factories of the initiator views for each business process
-	bob.RegisterViewFactory("EventsView", &views.EventsView{})
+	bob.RegisterViewFactory("EventsView", &views.EventsViewFactory{})
 	// Done
 	return []api.Topology{fabricTopology, fscTopology}
 }

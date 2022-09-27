@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package committer
 
 import (
+	"github.com/pkg/errors"
+
 	"github.com/hyperledger/fabric-protos-go/common"
 	"github.com/hyperledger/fabric-protos-go/peer"
 	"github.com/hyperledger/fabric/protoutil"
@@ -23,6 +25,7 @@ type TxEvent struct {
 	Err            error
 }
 
+// ChaincodeEvent models the chaincode event details.
 type ChaincodeEvent struct {
 	BlockNumber   uint64
 	TransactionID string
@@ -39,16 +42,17 @@ func (chaincodeEvent *ChaincodeEvent) Topic() string {
 	return chaincodeEvent.ChaincodeID
 }
 
+// validChaincodeEvent validates the chaincode event received.
 func validChaincodeEvent(event *peer.ChaincodeEvent) bool {
 	return event != nil && len(event.GetChaincodeId()) > 0 && len(event.GetEventName()) > 0 && len(event.GetTxId()) > 0
 }
 
-func getChaincodeEvent(env *common.Envelope, blockNumber uint64) (*ChaincodeEvent, error) {
+// readChaincodeEvent parses the envelope proto message to get the chaincode events.
+func readChaincodeEvent(env *common.Envelope, blockNumber uint64) (*ChaincodeEvent, error) {
 	var chaincodeEvent *ChaincodeEvent
 	chaincodeAction, err := protoutil.GetActionFromEnvelopeMsg(env)
 	if err != nil {
-		logger.Errorf("Error getting chaincode actions from envelop: %s", err)
-		return nil, err
+		return nil, errors.Wrapf(err, "Error getting chaincode actions from envelope")
 	}
 
 	if chaincodeAction == nil {
@@ -57,8 +61,7 @@ func getChaincodeEvent(env *common.Envelope, blockNumber uint64) (*ChaincodeEven
 
 	chaincodeEventData, err := protoutil.UnmarshalChaincodeEvents(chaincodeAction.GetEvents())
 	if err != nil {
-		logger.Errorf("Error getting chaincode event from chaincode actions: %s", err)
-		return nil, err
+		return nil, errors.Wrapf(err, "Error getting chaincode event from chaincode actions")
 	}
 
 	if !validChaincodeEvent(chaincodeEventData) {
