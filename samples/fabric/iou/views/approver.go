@@ -62,7 +62,8 @@ func (i *ApproverView) Call(context view.Context) (interface{}, error) {
 		assert.Equal(inState.LinearID, outState.LinearID, "invalid state id, [%s] != [%s]", inState.LinearID, outState.LinearID)
 		assert.True(outState.Amount < inState.Amount, "invalid amount, [%d] expected to be less or equal [%d]", outState.Amount, inState.Amount)
 		assert.True(inState.Owners().Match(outState.Owners()), "invalid owners, input and output should have the same owners")
-		assert.NoError(tx.HasBeenEndorsedBy(outState.Owners()...), "signatures are missing")
+
+		assert.NoError(tx.HasBeenEndorsedBy(inState.Owners()...), "signatures are missing")
 	default:
 		return nil, errors.Errorf("invalid command, expected [create] or [update], was [%s]", command.Name)
 	}
