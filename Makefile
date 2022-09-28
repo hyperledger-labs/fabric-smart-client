@@ -1,5 +1,5 @@
 # pinned versions
-FABRIC_VERSION=2.2
+FABRIC_VERSION=2.4
 ORION_VERSION=v0.2.5
 
 # integration test options

@@ -21,12 +21,12 @@ require (
 	github.com/hyperledger-labs/orion-server v0.2.5
 	github.com/hyperledger-labs/weaver-dlt-interoperability/common/protos-go v1.2.3-alpha.1
 	github.com/hyperledger-labs/weaver-dlt-interoperability/sdks/fabric/go-sdk v1.2.3-alpha.1.0.20210812140206-37f430515b8c
-	github.com/hyperledger/fabric v1.4.0-rc1.0.20210722174351-9815a7a8f0f7
+	github.com/hyperledger/fabric v1.4.0-rc1.0.20220825134453-cde846ca19e2
 	github.com/hyperledger/fabric-chaincode-go v0.0.0-20210718160520-38d29fabecb9
 	github.com/hyperledger/fabric-contract-api-go v1.1.1
 	github.com/hyperledger/fabric-lib-go v1.0.0
 	github.com/hyperledger/fabric-private-chaincode v0.0.0-20210907122433-d56466264e4d
-	github.com/hyperledger/fabric-protos-go v0.0.0-20210911123859-041d13f0980c
+	github.com/hyperledger/fabric-protos-go v0.0.0-20220315113721-7dc293e117f7
 	github.com/libp2p/go-libp2p v0.20.1
 	github.com/libp2p/go-libp2p-core v0.16.1
 	github.com/libp2p/go-libp2p-kad-dht v0.15.0
@@ -151,6 +151,7 @@ require (
 	github.com/libp2p/go-libp2p-peerstore v0.6.0 // indirect
 	github.com/libp2p/go-libp2p-record v0.1.3 // indirect
 	github.com/libp2p/go-libp2p-resource-manager v0.3.0 // indirect
+	github.com/libp2p/go-libp2p-swarm v0.10.0 // indirect
 	github.com/libp2p/go-msgio v0.2.0 // indirect
 	github.com/libp2p/go-nat v0.1.0 // indirect
 	github.com/libp2p/go-netroute v0.2.0 // indirect
