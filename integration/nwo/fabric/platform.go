@@ -195,6 +195,10 @@ func (p *Platform) DeleteVault(id string) {
 	Expect(os.RemoveAll(p.Network.FSCNodeVaultDir(fscPeer))).ToNot(HaveOccurred())
 }
 
+func (p *Platform) UpdateChaincode(id string, version string, path string) {
+	p.Network.UpdateChaincode(id, version, path)
+}
+
 func (p *Platform) DefaultIdemixOrgMSPDir() string {
 	return p.Network.DefaultIdemixOrgMSPDir()
 }

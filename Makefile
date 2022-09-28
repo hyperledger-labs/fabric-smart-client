@@ -31,7 +31,7 @@ include $(TOP)/checks.mk
 
 .PHONY: unit-tests
 unit-tests:
-    
+
 	@export FAB_BINS=$(FAB_BINS); go test -cover $(shell go list ./... | grep -v '/integration/')
 	cd integration/nwo/; go test -cover ./...
 
@@ -81,7 +81,7 @@ orion-server-images:
 	docker image tag orionbcdb/orion-server:$(ORION_VERSION) orionbcdb/orion-server:latest
 
 INTEGRATION_TARGETS = integration-tests-iou
-INTEGRATION_TARGETS += integration-tests-atsacc 
+INTEGRATION_TARGETS += integration-tests-atsacc
 INTEGRATION_TARGETS += integration-tests-chaincode-events
 INTEGRATION_TARGETS += integration-tests-atsafsc
 INTEGRATION_TARGETS += integration-tests-twonets
@@ -89,7 +89,7 @@ INTEGRATION_TARGETS += integration-tests-pingpong
 INTEGRATION_TARGETS += integration-tests-stoprestart
 
 .PHONY: integration-tests
-integration-tests: $(INTEGRATION_TARGETS)  
+integration-tests: $(INTEGRATION_TARGETS)
 
 .PHONY: integration-tests-iou
 integration-tests-iou:
@@ -113,6 +113,9 @@ integration-tests-atsacc:
 .PHONY: integration-tests-chaincode-events
 integration-tests-chaincode-events:
 	cd ./integration/fabric/events/chaincode; export FAB_BINS=$(FAB_BINS); ginkgo $(GINKGO_TEST_OPTS) .
+
+integration-tests-chaincode-events:
+	cd ./integration/fabric/events/chaincode; ginkgo $(GINKGO_TEST_OPTS) .
 
 .PHONY: integration-tests-atsafsc
 integration-tests-atsafsc:

@@ -8,10 +8,10 @@ package chaincode_test
 
 import (
 	"encoding/json"
-
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/events/chaincode"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/events/chaincode/views"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -26,7 +26,7 @@ var _ = Describe("EndToEnd", func() {
 		ii.Stop()
 	})
 
-	Describe("Asset Transfer Events (With Chaincode)", func() {
+	Describe("Events (With Chaincode)", func() {
 		var (
 			alice *chaincode.Client
 			bob   *chaincode.Client
@@ -79,6 +79,27 @@ var _ = Describe("EndToEnd", func() {
 			Expect(len(eventsReceived.Events)).To(Equal(2))
 			Expect(payloadsReceived).To(Equal(expectedEventPayloads))
 
+		})
+
+		It("Upgrade Chaincode", func() {
+			// Old chaincode
+			event, err := alice.EventsView("CreateAsset", "CreateAsset")
+			Expect(err).ToNot(HaveOccurred())
+			eventReceived := &views.EventReceived{}
+			json.Unmarshal(event.([]byte), eventReceived)
+			Expect(string(eventReceived.Event.Payload)).To(Equal("Invoked Create Asset Successfully"))
+
+			// Update
+			fabricNetwork := fabric.Network(ii.Ctx, "default")
+			Expect(fabricNetwork).ToNot(BeNil(), "failed to find fabric network 'default'")
+			fabricNetwork.UpdateChaincode("events", "Version-1.0", "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/events/chaincode/newChaincode")
+
+			// New chaincode
+			event, err = alice.EventsView("CreateAsset", "CreateAsset")
+			Expect(err).ToNot(HaveOccurred())
+			eventReceived = &views.EventReceived{}
+			json.Unmarshal(event.([]byte), eventReceived)
+			Expect(string(eventReceived.Event.Payload)).To(Equal("Invoked Create Asset Successfully From Upgraded Chaincode"))
 		})
 	})
 })
