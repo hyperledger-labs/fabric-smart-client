@@ -107,8 +107,7 @@ func newChannel(network *network, name string, quiet bool) (*channel, error) {
 
 	publisher, err := events.GetPublisher(network.sp)
 	if err != nil {
-		logger.Errorf("Failed to get event publisher %s", err)
-		return nil, err
+		return nil, errors.Wrapf(err, "failed to get event publisher")
 	}
 
 	committerInst, err := committer.New(name, network, fabricFinality, waitForEventTimeout, quiet, tracing.Get(sp), publisher)

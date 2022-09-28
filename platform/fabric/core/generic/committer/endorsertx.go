@@ -24,7 +24,6 @@ func (c *committer) handleEndorserTransaction(block *common.Block, i int, event 
 	validationCode := pb.TxValidationCode(ValidationFlags(block.Metadata.Metadata[common.BlockMetadataIndex_TRANSACTIONS_FILTER])[i])
 	switch validationCode {
 	case pb.TxValidationCode_VALID:
-
 		if err := c.CommitEndorserTransaction(txID, block, i, env, event); err != nil {
 			logger.Panicf("failed committing transaction [%s] with err [%s]", txID, err)
 		}
@@ -40,7 +39,7 @@ func (c *committer) handleEndorserTransaction(block *common.Block, i int, event 
 func (c *committer) getChaincodeEvents(env *common.Envelope, block *common.Block) {
 	chaincodeEvent, err := readChaincodeEvent(env, block.Header.Number)
 	if err != nil {
-		logger.Panicf("Error reading chaincode event", err)
+		logger.Panicf("error reading chaincode event", err)
 	}
 	if chaincodeEvent != nil {
 		if logger.IsEnabledFor(zapcore.DebugLevel) {
@@ -48,7 +47,7 @@ func (c *committer) getChaincodeEvents(env *common.Envelope, block *common.Block
 		}
 		err := c.notifyChaincodeListeners(chaincodeEvent)
 		if err != nil {
-			logger.Panicf("Error sending chaincode events to listenerers")
+			logger.Panicf("error sending chaincode events to listeners")
 		}
 	}
 }

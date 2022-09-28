@@ -9,12 +9,11 @@ package chaincode_test
 import (
 	"encoding/json"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/events/chaincode"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/events/chaincode/views"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("EndToEnd", func() {

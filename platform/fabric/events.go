@@ -7,19 +7,19 @@ SPDX-License-Identifier: Apache-2.0
 package fabric
 
 import (
-	committer "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 )
 
 // EventListener models the parameters to use for chaincode listening.
 type EventListener struct {
 	chaincodeListener chan *committer.ChaincodeEvent
-	sp                view2.ServiceProvider
+	sp                view.ServiceProvider
 	chaincodeName     string
 }
 
-func newEventListener(sp view2.ServiceProvider, chaincodeName string) *EventListener {
+func newEventListener(sp view.ServiceProvider, chaincodeName string) *EventListener {
 	return &EventListener{
 		sp:            sp,
 		chaincodeName: chaincodeName,

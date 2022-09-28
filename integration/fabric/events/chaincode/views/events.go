@@ -22,6 +22,7 @@ var logger = flogging.MustGetLogger("view-events")
 type EventsView struct {
 	*Events
 }
+
 type Events struct {
 	Function  string
 	EventName string

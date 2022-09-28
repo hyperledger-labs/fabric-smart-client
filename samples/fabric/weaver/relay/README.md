@@ -18,39 +18,37 @@ It uses the go contract api to define a simple key-value store. Here is the code
 
 ```go
 type SmartContract struct {
-	contractapi.Contract
+contractapi.Contract
 }
 
 func (s *SmartContract) Put(ctx contractapi.TransactionContextInterface, key string, value string) error {
-	ctx.GetStub().SetEvent("Put", []byte("PutState Invoked"))
-	return ctx.GetStub().PutState(key, []byte(value))
+return ctx.GetStub().PutState(key, []byte(value))
 }
 
 func (s *SmartContract) Get(ctx contractapi.TransactionContextInterface, key string) (string, error) {
-	v, err := ctx.GetStub().GetState(key)
-	if err != nil {
-		return "", errors.Wrapf(err, "failed getting state [%s]", key)
-	}
-	err = ctx.GetStub().PutState(key, v)
-	if err != nil {
-		return "", errors.Wrapf(err, "failed putting state [%s:%s]", key, string(v))
-	}
-	if len(v) == 0 {
-		return "", nil
-	}
-	ctx.GetStub().SetEvent("Get", []byte("GetState Invoked"))
-	return string(v), nil
+v, err := ctx.GetStub().GetState(key)
+if err != nil {
+return "", errors.Wrapf(err, "failed getting state [%s]", key)
+}
+err = ctx.GetStub().PutState(key, v)
+if err != nil {
+return "", errors.Wrapf(err, "failed putting state [%s:%s]", key, string(v))
+}
+if len(v) == 0 {
+return "", nil
+}
+return string(v), nil
 }
 
 func main() {
-	chaincode, err := contractapi.NewChaincode(new(SmartContract))
-	if err != nil {
-		log.Panicf("Error create chaincode: %v", err)
-	}
+chaincode, err := contractapi.NewChaincode(new(SmartContract))
+if err != nil {
+log.Panicf("Error create chaincode: %v", err)
+}
 
-	if err := chaincode.Start(); err != nil {
-		log.Panicf("Error starting asset chaincode: %v", err)
-	}
+if err := chaincode.Start(); err != nil {
+log.Panicf("Error starting asset chaincode: %v", err)
+}
 }
 ```
 
@@ -58,7 +56,7 @@ func main() {
 
 To manage the `local` KVS, we will use the following business views:
 
-The following view is used to store or put a key-value pair in the `local` KVS. It also listens to the chaincode event generated while invoking the chaincode function.
+The following view is used to store or put a key-value pair in the `local` KVS.
 
 ```go
 type LocalPut struct {
@@ -72,36 +70,14 @@ type LocalPutView struct {
 }
 
 func (p *LocalPutView) Call(context view.Context) (interface{}, error) {
-	chaincode := fabric.GetDefaultChannel(context).Chaincode(p.Chaincode)
-
-	// Register for chaincode events
-	eventChannel, err := chaincode.EventListener.ChaincodeEvents()
-	assert.NoError(err, "failed to register for chaincode events")
-
-	//start listening to events
-	go startListeningToEvents(chaincode, eventChannel, "Put")
-
 	// Invoke the passed chaincode to put the key/value pair
-	txID, _, err := chaincode.Invoke(
+	txID, _, err := fabric.GetDefaultChannel(context).Chaincode(p.Chaincode).Invoke(
 		"Put", p.Key, p.Value,
 	).Call()
 	assert.NoError(err, "failed to put key %s", p.Key)
 
 	// return the transaction id
 	return txID, nil
-}
-
-// startListeningToEvents reads from the chaincode event channel and closes the channel when expected event is received.
-func startListeningToEvents(chaincode *fabric.Chaincode, eventChannel chan *committer.ChaincodeEvent, eventName string) {
-	for event := range eventChannel{
-		if event.EventName == eventName {
-			if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("Event Received Event Name: %s, Payload:", event.EventName, string(event.Payload))
-			}
-			err := chaincode.EventListener.CloseChaincodeEvents()
-			assert.NoError(err, "error closing chaincode event channel")
-		}
-		}
 }
 ```
 
@@ -118,17 +94,8 @@ type LocalGetView struct {
 }
 
 func (g *LocalGetView) Call(context view.Context) (interface{}, error) {
-	chaincode := fabric.GetDefaultChannel(context).Chaincode(g.Chaincode)
-
-	// Register for chaincode events
-	eventChannel, err := chaincode.EventListener.ChaincodeEvents()
-	assert.NoError(err, "failed to register for chaincode events")
-
-	//start listening to events
-	go startListeningToEvents(chaincode, eventChannel, "Get")
-
 	// Invoke the passed chaincode to get the value corresponding to the passed key
-	v, err := chaincode.Query(
+	v, err := fabric.GetDefaultChannel(context).Chaincode(g.Chaincode).Query(
 		"Get", g.Key,
 	).Call()
 	assert.NoError(err, "failed to get key %s", g.Key)
@@ -199,7 +166,7 @@ Once these networks are deployed, one can invoke views on the smart client nodes
 
 So, first step is to describe the topology of the networks we need.
 
-Make sure you have the proper docker images by running `make weaver-docker-images` from the FSC root folder.
+Make sure you have the proper docker images by running `make weaver-docker-image` from the FSC root folder.
 
 ### Describe the topology of the networks
 
@@ -222,51 +189,51 @@ We can describe the network topology programmatically as follows:
 
 ```go
 func Topology() []api.Topology {
-	// Define two Fabric topologies
-	f1Topology := fabric.NewTopologyWithName("alpha")
-	f1Topology.AddOrganizationsByName("Org1", "Org2")
-	f1Topology.SetNamespaceApproverOrgs("Org1")
-	f1Topology.AddNamespaceWithUnanimity("ns1", "Org1").SetChaincodePath(
-		"github.com/hyperledger-labs/fabric-smart-client/samples/fabric/weaver/relay/chaincode",
-	).NoInit()
+// Define two Fabric topologies
+f1Topology := fabric.NewTopologyWithName("alpha")
+f1Topology.AddOrganizationsByName("Org1", "Org2")
+f1Topology.SetNamespaceApproverOrgs("Org1")
+f1Topology.AddNamespaceWithUnanimity("ns1", "Org1").SetChaincodePath(
+"github.com/hyperledger-labs/fabric-smart-client/samples/fabric/weaver/relay/chaincode",
+).NoInit()
 
-	f2Topology := fabric.NewTopologyWithName("beta")
-	f2Topology.EnableGRPCLogging()
-	f2Topology.AddOrganizationsByName("Org3", "Org4")
-	f2Topology.SetNamespaceApproverOrgs("Org3")
-	f2Topology.AddNamespaceWithUnanimity("ns2", "Org3").SetChaincodePath(
-		"github.com/hyperledger-labs/fabric-smart-client/samples/fabric/weaver/relay/chaincode",
-	).NoInit()
+f2Topology := fabric.NewTopologyWithName("beta")
+f2Topology.EnableGRPCLogging()
+f2Topology.AddOrganizationsByName("Org3", "Org4")
+f2Topology.SetNamespaceApproverOrgs("Org3")
+f2Topology.AddNamespaceWithUnanimity("ns2", "Org3").SetChaincodePath(
+"github.com/hyperledger-labs/fabric-smart-client/samples/fabric/weaver/relay/chaincode",
+).NoInit()
 
-	// Define weaver relay server topology. One relay server per Fabric network
-	wTopology := weaver.NewTopology()
-	wTopology.AddRelayServer(f1Topology, "Org1").AddFabricNetwork(f2Topology)
-	wTopology.AddRelayServer(f2Topology, "Org3").AddFabricNetwork(f1Topology)
+// Define weaver relay server topology. One relay server per Fabric network
+wTopology := weaver.NewTopology()
+wTopology.AddRelayServer(f1Topology, "Org1").AddFabricNetwork(f2Topology)
+wTopology.AddRelayServer(f2Topology, "Org3").AddFabricNetwork(f1Topology)
 
-	// Define an FSC topology with 2 FCS nodes.
-	fscTopology := fsc.NewTopology()
+// Define an FSC topology with 2 FCS nodes.
+fscTopology := fsc.NewTopology()
 
-	// Add alice's FSC node
-	alice := fscTopology.AddNodeByName("alice")
-	alice.AddOptions(
-		fabric.WithDefaultNetwork("alpha"),
-		fabric.WithNetworkOrganization("alpha", "Org1"),
-	)
-	alice.RegisterViewFactory("put", &views.LocalPutViewFactory{})
-	alice.RegisterViewFactory("get", &views.LocalGetViewFactory{})
-	alice.RegisterViewFactory("remoteGet", &views.RemoteGetViewFactory{})
+// Add alice's FSC node
+alice := fscTopology.AddNodeByName("alice")
+alice.AddOptions(
+fabric.WithDefaultNetwork("alpha"),
+fabric.WithNetworkOrganization("alpha", "Org1"),
+)
+alice.RegisterViewFactory("put", &views.LocalPutViewFactory{})
+alice.RegisterViewFactory("get", &views.LocalGetViewFactory{})
+alice.RegisterViewFactory("remoteGet", &views.RemoteGetViewFactory{})
 
-	// Add bob's FSC node
-	bob := fscTopology.AddNodeByName("bob")
-	bob.AddOptions(
-		fabric.WithDefaultNetwork("beta"),
-		fabric.WithNetworkOrganization("beta", "Org3"),
-	)
-	bob.RegisterViewFactory("put", &views.LocalPutViewFactory{})
-	bob.RegisterViewFactory("get", &views.LocalGetViewFactory{})
-	bob.RegisterViewFactory("remoteGet", &views.RemoteGetViewFactory{})
+// Add bob's FSC node
+bob := fscTopology.AddNodeByName("bob")
+bob.AddOptions(
+fabric.WithDefaultNetwork("beta"),
+fabric.WithNetworkOrganization("beta", "Org3"),
+)
+bob.RegisterViewFactory("put", &views.LocalPutViewFactory{})
+bob.RegisterViewFactory("get", &views.LocalGetViewFactory{})
+bob.RegisterViewFactory("remoteGet", &views.RemoteGetViewFactory{})
 
-	return []api.Topology{f1Topology, f2Topology, wTopology, fscTopology}
+return []api.Topology{f1Topology, f2Topology, wTopology, fscTopology}
 }
 ```
 
