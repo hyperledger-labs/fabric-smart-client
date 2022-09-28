@@ -2,14 +2,6 @@ module github.com/hyperledger-labs/fabric-smart-client
 
 go 1.17
 
-replace (
-	github.com/fsouza/go-dockerclient => github.com/fsouza/go-dockerclient v1.4.1
-	github.com/go-kit/kit => github.com/go-kit/kit v0.7.0
-	github.com/hyperledger/fabric => github.com/hyperledger/fabric v1.4.0-rc1.0.20210722174351-9815a7a8f0f7
-	github.com/hyperledger/fabric-protos-go => github.com/hyperledger/fabric-protos-go v0.0.0-20201028172056-a3136dde2354
-	go.etcd.io/etcd => go.etcd.io/etcd v0.5.0-alpha.5.0.20181228115726-23731bf9ba55
-)
-
 require (
 	github.com/IBM/idemix v0.0.0-20220113150823-80dd4cb2d74e
 	github.com/IBM/mathlib v0.0.0-20220112091634-0a7378db6912
@@ -38,6 +30,7 @@ require (
 	github.com/libp2p/go-libp2p v0.20.1
 	github.com/libp2p/go-libp2p-core v0.16.1
 	github.com/libp2p/go-libp2p-kad-dht v0.15.0
+	github.com/miekg/pkcs11 v1.1.1
 	github.com/miracl/conflate v1.2.1
 	github.com/mitchellh/mapstructure v1.4.3
 	github.com/multiformats/go-multiaddr v0.5.0
@@ -55,7 +48,6 @@ require (
 	github.com/test-go/testify v1.1.4
 	go.uber.org/atomic v1.7.0
 	go.uber.org/zap v1.19.1
-	golang.org/x/net v0.0.0-20220225172249-27dd8689420f
 	google.golang.org/grpc v1.48.0
 	google.golang.org/protobuf v1.27.1
 	gopkg.in/src-d/go-git.v4 v4.13.1
@@ -110,7 +102,6 @@ require (
 	github.com/go-openapi/jsonreference v0.19.3 // indirect
 	github.com/go-openapi/spec v0.19.4 // indirect
 	github.com/go-openapi/swag v0.19.5 // indirect
-	github.com/go-stack/stack v1.8.0 // indirect
 	github.com/go-task/slim-sprig v0.0.0-20210107165309-348f09dbbbc0 // indirect
 	github.com/gobuffalo/envy v1.7.1 // indirect
 	github.com/gobuffalo/packd v0.3.0 // indirect
@@ -133,7 +124,6 @@ require (
 	github.com/huin/goupnp v1.0.0 // indirect
 	github.com/hyperledger/fabric-amcl v0.0.0-20210603140002-2670f91851c8 // indirect
 	github.com/hyperledger/fabric-config v0.1.0 // indirect
-	github.com/ijc/Gotty v0.0.0-20170406111628-a8b993ba6abd // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/ipfs/go-cid v0.1.0 // indirect
 	github.com/ipfs/go-datastore v0.5.1 // indirect
@@ -177,7 +167,6 @@ require (
 	github.com/mattn/go-isatty v0.0.14 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369 // indirect
 	github.com/miekg/dns v1.1.43 // indirect
-	github.com/miekg/pkcs11 v1.1.1 // indirect
 	github.com/mikioh/tcpinfo v0.0.0-20190314235526-30a79bb1804b // indirect
 	github.com/mikioh/tcpopt v0.0.0-20190314235656-172688c1accc // indirect
 	github.com/minio/blake2b-simd v0.0.0-20160723061019-3f5f724cb5b1 // indirect
@@ -240,6 +229,7 @@ require (
 	go.uber.org/multierr v1.6.0 // indirect
 	golang.org/x/crypto v0.0.0-20220411220226-7b82a4e95df4 // indirect
 	golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4 // indirect
+	golang.org/x/net v0.0.0-20220225172249-27dd8689420f // indirect
 	golang.org/x/sync v0.0.0-20220601150217-0de741cfad7f // indirect
 	golang.org/x/sys v0.0.0-20220615213510-4f61da869c0c // indirect
 	golang.org/x/text v0.3.7 // indirect
