@@ -13,6 +13,7 @@ import (
 	"io/ioutil"
 	"net"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 
@@ -95,7 +96,10 @@ func TestCreds(t *testing.T) {
 		MaxVersion: tls.VersionTLS10,
 	})
 	wg.Wait()
-	assert.Contains(t, err.Error(), "protocol version not supported")
+	assert.True(t,
+		strings.Contains(err.Error(), "tls: no supported versions satisfy MinVersion and MaxVersion") || // go1.17
+			strings.Contains(err.Error(), "protocol version not supported"), // go1.18
+	)
 	assert.Contains(t, recorder.Messages()[0], "TLS handshake failed with error")
 }
 
