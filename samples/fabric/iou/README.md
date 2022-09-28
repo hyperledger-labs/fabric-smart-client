@@ -34,28 +34,26 @@ should be `agreed` between the lender and the borrower.
 Here is a way to code the above description.
 
 ```go
-
 // IOU models the IOU state
 type IOU struct {
-	// Amount the borrower owes the lender
-	Amount   uint
-	// Unique identifier of this state
-	LinearID string
-	// The list of owners of this state
-	Parties  []view.Identity
+    // Amount the borrower owes the lender
+    Amount   uint
+    // Unique identifier of this state
+    LinearID string
+    // The list of owners of this state
+    Parties  []view.Identity
 }
 
 func (i *IOU) SetLinearID(id string) string {
-	if len(i.LinearID) == 0 {
-		i.LinearID = id
-	}
-	return i.LinearID
+    if len(i.LinearID) == 0 {
+        i.LinearID = id
+    }
+    return i.LinearID
 }
 
 func (i *IOU) Owners() state.Identities {
-	return i.Parties
+    return i.Parties
 }
-
 ```
 
 Let us look more closely at the anatomy of this state:
@@ -78,19 +76,18 @@ Let us assume that the borrower is the initiator of the interactive protocol to 
 This is the view the borrower executes:
 
 ```go
-
 // Create contains the input to create an IOU state
 type Create struct {
-	// Amount the borrower owes the lender
-	Amount uint
-	// Lender is the identity of the lender's FSC node
-	Lender view.Identity
-	// Approver is the identity of the approver's FSC node
-	Approver view.Identity
+    // Amount the borrower owes the lender
+    Amount uint
+    // Lender is the identity of the lender's FSC node
+    Lender view.Identity
+    // Approver is the identity of the approver's FSC node
+    Approver view.Identity
 }
 
 type CreateIOUView struct {
-	Create
+    Create
 }
 
 func (i *CreateIOUView) Call(context view.Context) (interface{}, error) {
@@ -103,162 +100,160 @@ func (i *CreateIOUView) Call(context view.Context) (interface{}, error) {
     }
 
     // As a first step operation, the borrower contacts the lender's FSC node
-	// to exchange the identities to use to assign ownership of the freshly created IOU state.
-	borrower, lender, err := state.ExchangeRecipientIdentities(context, i.Lender)
-	assert.NoError(err, "failed exchanging recipient identity")
+    // to exchange the identities to use to assign ownership of the freshly created IOU state.
+    borrower, lender, err := state.ExchangeRecipientIdentities(context, i.Lender)
+    assert.NoError(err, "failed exchanging recipient identity")
 
-	// The borrower creates a new transaction
-	tx, err := state.NewTransaction(context)
-	assert.NoError(err, "failed creating a new transaction")
+    // The borrower creates a new transaction
+    tx, err := state.NewTransaction(context)
+    assert.NoError(err, "failed creating a new transaction")
 
-	// Sets the namespace where the state should be stored
-	tx.SetNamespace("iou")
+    // Sets the namespace where the state should be stored
+    tx.SetNamespace("iou")
 
-	// Specifies the command this transaction wants to execute.
-	// In particular, the borrower wants to create a new IOU state owned by the borrower and the lender
-	// The approver will use this information to decide how validate the transaction
-	assert.NoError(tx.AddCommand("create", borrower, lender))
+    // Specifies the command this transaction wants to execute.
+    // In particular, the borrower wants to create a new IOU state owned by the borrower and the lender
+    // The approver will use this information to decide how validate the transaction
+    assert.NoError(tx.AddCommand("create", borrower, lender))
 
-	// The borrower prepares the IOU state
-	iou := &states.IOU{
-		Amount:  i.Amount,
-		Parties: []view.Identity{borrower, lender},
-	}
-	// and add it to the transaction. At this stage, the ID gets set automatically.
-	assert.NoError(tx.AddOutput(iou))
+    // The borrower prepares the IOU state
+    iou := &states.IOU{
+        Amount:  i.Amount,
+        Parties: []view.Identity{borrower, lender},
+    }
+    // and add it to the transaction. At this stage, the ID gets set automatically.
+    assert.NoError(tx.AddOutput(iou))
 
-	// The borrower is ready to collect all the required signatures.
-	// Namely from the borrower itself, the lender, and the approver. In this order.
-	// All signatures are required.
-	_, err = context.RunView(state.NewCollectEndorsementsView(tx, borrower, lender, i.Approver))
-	assert.NoError(err)
+    // The borrower is ready to collect all the required signatures.
+    // Namely from the borrower itself, the lender, and the approver. In this order.
+    // All signatures are required.
+    _, err = context.RunView(state.NewCollectEndorsementsView(tx, borrower, lender, i.Approver))
+    assert.NoError(err)
 
-	// At this point the borrower can send the transaction to the ordering service and wait for finality.
-	_, err = context.RunView(state.NewOrderingAndFinalityView(tx))
-	assert.NoError(err)
+    // At this point the borrower can send the transaction to the ordering service and wait for finality.
+    _, err = context.RunView(state.NewOrderingAndFinalityView(tx))
+    assert.NoError(err)
 
-	// Return the state ID
-	return iou.LinearID, nil
+    // Return the state ID
+    return iou.LinearID, nil
 }
 ```
 
 The lender responds to request of endorsement from the borrower running the following view:
 
 ```go
-
 type CreateIOUResponderView struct{}
 
 func (i *CreateIOUResponderView) Call(context view.Context) (interface{}, error) {
-	// As a first step, the lender responds to the request to exchange recipient identities.
-	lender, borrower, err := state.RespondExchangeRecipientIdentities(context)
-	assert.NoError(err, "failed exchanging recipient identities")
+    // As a first step, the lender responds to the request to exchange recipient identities.
+    lender, borrower, err := state.RespondExchangeRecipientIdentities(context)
+    assert.NoError(err, "failed exchanging recipient identities")
 
-	// When the leneder runs the CollectEndorsementsView, at some point, the borrower sends the assembled transaction
-	// to the lender. Therefore, the lender waits to receive the transaction.
-	tx, err := state.ReceiveTransaction(context)
-	assert.NoError(err, "failed receiving transaction")
+    // When the leneder runs the CollectEndorsementsView, at some point, the borrower sends the assembled transaction
+    // to the lender. Therefore, the lender waits to receive the transaction.
+    tx, err := state.ReceiveTransaction(context)
+    assert.NoError(err, "failed receiving transaction")
 
-	// The lender can now inspect the transaction to ensure it is as expected.
-	// Here are examples of possible checks
+    // The lender can now inspect the transaction to ensure it is as expected.
+    // Here are examples of possible checks
 
-	// Namespaces are properly populated
-	assert.Equal(1, len(tx.Namespaces()), "expected only one namespace")
-	assert.Equal("iou", tx.Namespaces()[0], "expected the [iou] namespace, got [%s]", tx.Namespaces()[0])
+    // Namespaces are properly populated
+    assert.Equal(1, len(tx.Namespaces()), "expected only one namespace")
+    assert.Equal("iou", tx.Namespaces()[0], "expected the [iou] namespace, got [%s]", tx.Namespaces()[0])
 
-	// Commands are properly populated
-	assert.Equal(1, tx.Commands().Count(), "expected only a single command, got [%s]", tx.Commands().Count())
-	switch command := tx.Commands().At(0); command.Name {
-	case "create":
-		// If the create command is attached to the transaction then...
-		assert.Equal(0, tx.NumInputs(), "invalid number of inputs, expected 0, was [%d]", tx.NumInputs())
-		assert.Equal(1, tx.NumOutputs(), "invalid number of outputs, expected 1, was [%d]", tx.NumInputs())
+    // Commands are properly populated
+    assert.Equal(1, tx.Commands().Count(), "expected only a single command, got [%s]", tx.Commands().Count())
+    switch command := tx.Commands().At(0); command.Name {
+    case "create":
+        // If the create command is attached to the transaction then...
+        assert.Equal(0, tx.NumInputs(), "invalid number of inputs, expected 0, was [%d]", tx.NumInputs())
+        assert.Equal(1, tx.NumOutputs(), "invalid number of outputs, expected 1, was [%d]", tx.NumInputs())
 
-		iouState := &states.IOU{}
-		assert.NoError(tx.GetOutputAt(0, iouState))
-		assert.False(iouState.Amount < 5, "invalid amount, expected at least 5, was [%d]", iouState.Amount)
-		assert.Equal(2, iouState.Owners().Count(), "invalid state, expected 2 identities, was [%d]", iouState.Owners().Count())
-		assert.True(iouState.Owners().Contain(lender), "invalid state, it does not contain lender identity")
+        iouState := &states.IOU{}
+        assert.NoError(tx.GetOutputAt(0, iouState))
+        assert.False(iouState.Amount < 5, "invalid amount, expected at least 5, was [%d]", iouState.Amount)
+        assert.Equal(2, iouState.Owners().Count(), "invalid state, expected 2 identities, was [%d]", iouState.Owners().Count())
+        assert.True(iouState.Owners().Contain(lender), "invalid state, it does not contain lender identity")
 
-		assert.True(command.Ids.Match([]view.Identity{lender, borrower}), "the command does not contain the lender and borrower identities")
-		assert.True(iouState.Owners().Match([]view.Identity{lender, borrower}), "the state does not contain the lender and borrower identities")
-		assert.NoError(tx.HasBeenEndorsedBy(borrower), "the borrower has not endorsed")
-	default:
-		return nil, errors.Errorf("invalid command, expected [create], was [%s]", command)
-	}
+        assert.True(command.Ids.Match([]view.Identity{lender, borrower}), "the command does not contain the lender and borrower identities")
+        assert.True(iouState.Owners().Match([]view.Identity{lender, borrower}), "the state does not contain the lender and borrower identities")
+        assert.NoError(tx.HasBeenEndorsedBy(borrower), "the borrower has not endorsed")
+    default:
+        return nil, errors.Errorf("invalid command, expected [create], was [%s]", command)
+    }
 
-	// The lender is ready to send back the transaction signed
-	_, err = context.RunView(state.NewEndorseView(tx))
-	assert.NoError(err)
+    // The lender is ready to send back the transaction signed
+    _, err = context.RunView(state.NewEndorseView(tx))
+    assert.NoError(err)
 
-	// Finally, the lender waits the the transaction completes its lifecycle
-	return context.RunView(state.NewFinalityView(tx))
+    // Finally, the lender waits the the transaction completes its lifecycle
+    return context.RunView(state.NewFinalityView(tx))
 }
 ```
 
 On the other hand, the approver runs the following view to respond to the request of signature from the borrower:
 
 ```go
-
 type ApproverView struct{}
 
 func (i *ApproverView) Call(context view.Context) (interface{}, error) {
     // When the borrower runs the CollectEndorsementsView, at some point, the borrower sends the assembled transaction
-	// to the approver. Therefore, the approver waits to receive the transaction.
-	tx, err := state.ReceiveTransaction(context)
-	assert.NoError(err, "failed receiving transaction")
+    // to the approver. Therefore, the approver waits to receive the transaction.
+    tx, err := state.ReceiveTransaction(context)
+    assert.NoError(err, "failed receiving transaction")
 
-	// The approver can now inspect the transaction to ensure it is as expected.
-	// Here are examples of possible checks
+    // The approver can now inspect the transaction to ensure it is as expected.
+    // Here are examples of possible checks
 
-	// Namespaces are properly populated
-	assert.Equal(1, len(tx.Namespaces()), "expected only one namespace")
-	assert.Equal("iou", tx.Namespaces()[0], "expected the [iou] namespace, got [%s]", tx.Namespaces()[0])
+    // Namespaces are properly populated
+    assert.Equal(1, len(tx.Namespaces()), "expected only one namespace")
+    assert.Equal("iou", tx.Namespaces()[0], "expected the [iou] namespace, got [%s]", tx.Namespaces()[0])
 
-	// Commands are properly populated
-	assert.Equal(1, tx.Commands().Count(), "expected only a single command, got [%s]", tx.Commands().Count())
-	switch command := tx.Commands().At(0); command.Name {
-	case "create":
-		// If the create command is attached to the transaction then...
+    // Commands are properly populated
+    assert.Equal(1, tx.Commands().Count(), "expected only a single command, got [%s]", tx.Commands().Count())
+    switch command := tx.Commands().At(0); command.Name {
+    case "create":
+        // If the create command is attached to the transaction then...
 
-		// No inputs expected. The single output at index 0 should be an IOU state
-		assert.Equal(0, tx.NumInputs(), "invalid number of inputs, expected 0, was [%d]", tx.NumInputs())
-		assert.Equal(1, tx.NumOutputs(), "invalid number of outputs, expected 1, was [%d]", tx.NumInputs())
-		iouState := &states.IOU{}
-		assert.NoError(tx.GetOutputAt(0, iouState))
+        // No inputs expected. The single output at index 0 should be an IOU state
+        assert.Equal(0, tx.NumInputs(), "invalid number of inputs, expected 0, was [%d]", tx.NumInputs())
+        assert.Equal(1, tx.NumOutputs(), "invalid number of outputs, expected 1, was [%d]", tx.NumInputs())
+        iouState := &states.IOU{}
+        assert.NoError(tx.GetOutputAt(0, iouState))
 
-		assert.True(iouState.Amount >= 5, "invalid amount, expected at least 5, was [%d]", iouState.Amount)
-		assert.Equal(2, iouState.Owners().Count(), "invalid state, expected 2 identities, was [%d]", iouState.Owners().Count())
-		assert.False(iouState.Owners()[0].Equal(iouState.Owners()[1]), "owner identities must be different")
-		assert.True(iouState.Owners().Match(command.Ids), "invalid state, it does not contain command's identities")
-		assert.NoError(tx.HasBeenEndorsedBy(iouState.Owners()...), "signatures are missing")
-	case "update":
-		// If the update command is attached to the transaction then...
+        assert.True(iouState.Amount >= 5, "invalid amount, expected at least 5, was [%d]", iouState.Amount)
+        assert.Equal(2, iouState.Owners().Count(), "invalid state, expected 2 identities, was [%d]", iouState.Owners().Count())
+        assert.False(iouState.Owners()[0].Equal(iouState.Owners()[1]), "owner identities must be different")
+        assert.True(iouState.Owners().Match(command.Ids), "invalid state, it does not contain command's identities")
+        assert.NoError(tx.HasBeenEndorsedBy(iouState.Owners()...), "signatures are missing")
+    case "update":
+        // If the update command is attached to the transaction then...
 
-		// The single input and output should be an IOU state
-		assert.Equal(1, tx.NumInputs(), "invalid number of inputs, expected 1, was [%d]", tx.NumInputs())
-		assert.Equal(1, tx.NumOutputs(), "invalid number of outputs,  expected 1, was [%d]", tx.NumInputs())
+        // The single input and output should be an IOU state
+        assert.Equal(1, tx.NumInputs(), "invalid number of inputs, expected 1, was [%d]", tx.NumInputs())
+        assert.Equal(1, tx.NumOutputs(), "invalid number of outputs,  expected 1, was [%d]", tx.NumInputs())
 
-		inState := &states.IOU{}
-		assert.NoError(tx.GetInputAt(0, inState))
-		outState := &states.IOU{}
-		assert.NoError(tx.GetOutputAt(0, outState))
+        inState := &states.IOU{}
+        assert.NoError(tx.GetInputAt(0, inState))
+        outState := &states.IOU{}
+        assert.NoError(tx.GetOutputAt(0, outState))
 
-		assert.Equal(inState.LinearID, outState.LinearID, "invalid state id, [%s] != [%s]", inState.LinearID, outState.LinearID)
-		assert.True(outState.Amount < inState.Amount, "invalid amount, [%d] expected to be less or equal [%d]", outState.Amount, inState.Amount)
-		assert.True(inState.Owners().Match(outState.Owners()), "invalid owners, input and output should have the same owners")
-		assert.NoError(tx.HasBeenEndorsedBy(outState.Owners()...), "signatures are missing")
-	default:
-		return nil, errors.Errorf("invalid command, expected [create] or [update], was [%s]", command)
-	}
+        assert.Equal(inState.LinearID, outState.LinearID, "invalid state id, [%s] != [%s]", inState.LinearID, outState.LinearID)
+        assert.True(outState.Amount < inState.Amount, "invalid amount, [%d] expected to be less or equal [%d]", outState.Amount, inState.Amount)
+        assert.True(inState.Owners().Match(outState.Owners()), "invalid owners, input and output should have the same owners")
 
-	// The approver is ready to send back the transaction signed
-	_, err = context.RunView(state.NewEndorseView(tx))
-	assert.NoError(err)
+        assert.NoError(tx.HasBeenEndorsedBy(inState.Owners()...), "signatures are missing")
+    default:
+        return nil, errors.Errorf("invalid command, expected [create] or [update], was [%s]", command)
+    }
 
-	// Finally, the approver waits that the transaction completes its lifecycle
-	return context.RunView(state.NewFinalityView(tx))
+    // The approver is ready to send back the transaction signed
+    _, err = context.RunView(state.NewEndorseView(tx))
+    assert.NoError(err)
+
+    // Finally, the approver waits that the transaction completes its lifecycle
+    return context.RunView(state.NewFinalityView(tx))
 }
-
 ```
 
 ### Update the IOU State
@@ -269,19 +264,18 @@ to reflect the evolution of the amount the borrower owes the lender.
 Indeed, this is the view the borrower executes to update the IOU state's amount field.
 
 ```go
-
 // Update contains the input to update an IOU state
 type Update struct {
-	// LinearID is the unique identifier of the IOU state
-	LinearID string
-	// Amount is the new amount. It should smaller than the current amount
-	Amount uint
-	// Approver is the identity of the approver's FSC node
-	Approver view.Identity
+    // LinearID is the unique identifier of the IOU state
+    LinearID string
+    // Amount is the new amount. It should smaller than the current amount
+    Amount uint
+    // Approver is the identity of the approver's FSC node
+    Approver view.Identity
 }
 
 type UpdateIOUView struct {
-	Update
+    Update
 }
 
 func (u UpdateIOUView) Call(context view.Context) (interface{}, error) {
@@ -291,100 +285,97 @@ func (u UpdateIOUView) Call(context view.Context) (interface{}, error) {
     }
 
     // The borrower starts by creating a new transaction to update the IOU state
-	tx, err := state.NewTransaction(context)
-	assert.NoError(err)
+    tx, err := state.NewTransaction(context)
+    assert.NoError(err)
 
-	// Sets the namespace where the state is stored
-	tx.SetNamespace("iou")
+    // Sets the namespace where the state is stored
+    tx.SetNamespace("iou")
 
-	// To update the state, the borrower, first add a dependency to the IOU state of interest.
-	iouState := &states.IOU{}
-	assert.NoError(tx.AddInputByLinearID(u.LinearID, iouState))
-	// The borrower sets the command to the operation to be performed
-	assert.NoError(tx.AddCommand("update", iouState.Owners()...))
+    // To update the state, the borrower, first add a dependency to the IOU state of interest.
+    iouState := &states.IOU{}
+    assert.NoError(tx.AddInputByLinearID(u.LinearID, iouState))
+    // The borrower sets the command to the operation to be performed
+    assert.NoError(tx.AddCommand("update", iouState.Owners()...))
 
-	// Then, the borrower updates the amount,
-	iouState.Amount = u.Amount
+    // Then, the borrower updates the amount,
+    iouState.Amount = u.Amount
 
-	// and add the modified IOU state as output of the transaction.
-	err = tx.AddOutput(iouState)
-	assert.NoError(err)
+    // and add the modified IOU state as output of the transaction.
+    err = tx.AddOutput(iouState)
+    assert.NoError(err)
 
-	// The borrower is ready to collect all the required signatures.
-	// Namely from the borrower itself, the lender, and the approver. In this order.
-	// All signatures are required.
-	_, err = context.RunView(state.NewCollectEndorsementsView(tx, iouState.Owners()[0], iouState.Owners()[1], u.Approver))
-	assert.NoError(err)
+    // The borrower is ready to collect all the required signatures.
+    // Namely from the borrower itself, the lender, and the approver. In this order.
+    // All signatures are required.
+    _, err = context.RunView(state.NewCollectEndorsementsView(tx, iouState.Owners()[0], iouState.Owners()[1], u.Approver))
+    assert.NoError(err)
 
-	// At this point the borrower can send the transaction to the ordering service and wait for finality.
-	_, err = context.RunView(state.NewOrderingAndFinalityView(tx))
-	assert.NoError(err)
+    // At this point the borrower can send the transaction to the ordering service and wait for finality.
+    _, err = context.RunView(state.NewOrderingAndFinalityView(tx))
+    assert.NoError(err)
 
-	// Return the state ID
-	return iouState.LinearID, nil
+    // Return the state ID
+    return iouState.LinearID, nil
 }
-
 ```
 
 On the other hand, the lender responds to request of endorsement from the borrower running the following view:
 
 ```go
-
 type UpdateIOUResponderView struct{}
 
 func (i *UpdateIOUResponderView) Call(context view.Context) (interface{}, error) {
-	// When the borrower runs the CollectEndorsementsView, at some point, the borrower sends the assembled transaction
-	// to the lender. Therefore, the lender waits to receive the transaction.
-	tx, err := state.ReceiveTransaction(context)
-	assert.NoError(err, "failed receiving transaction")
+    // When the borrower runs the CollectEndorsementsView, at some point, the borrower sends the assembled transaction
+    // to the lender. Therefore, the lender waits to receive the transaction.
+    tx, err := state.ReceiveTransaction(context)
+    assert.NoError(err, "failed receiving transaction")
 
-	// The lender can now inspect the transaction to ensure it is as expected.
-	// Here are examples of possible checks
+    // The lender can now inspect the transaction to ensure it is as expected.
+    // Here are examples of possible checks
 
-	// Namespaces are properly populated
-	assert.Equal(1, len(tx.Namespaces()), "expected only one namespace")
-	assert.Equal("iou", tx.Namespaces()[0], "expected the [iou] namespace, got [%s]", tx.Namespaces()[0])
+    // Namespaces are properly populated
+    assert.Equal(1, len(tx.Namespaces()), "expected only one namespace")
+    assert.Equal("iou", tx.Namespaces()[0], "expected the [iou] namespace, got [%s]", tx.Namespaces()[0])
 
-	switch command := tx.Commands().At(0); command.Name {
-	case "update":
-		// If the update command is attached to the transaction then...
+    switch command := tx.Commands().At(0); command.Name {
+    case "update":
+        // If the update command is attached to the transaction then...
 
-		// One input and one output containing IOU states are expected
-		assert.Equal(1, tx.NumInputs(), "invalid number of inputs, expected 1, was %d", tx.NumInputs())
-		assert.Equal(1, tx.NumOutputs(), "invalid number of outputs, expected 1, was %d", tx.NumInputs())
-		inState := &states.IOU{}
-		assert.NoError(tx.GetInputAt(0, inState))
-		outState := &states.IOU{}
-		assert.NoError(tx.GetOutputAt(0, outState))
+        // One input and one output containing IOU states are expected
+        assert.Equal(1, tx.NumInputs(), "invalid number of inputs, expected 1, was %d", tx.NumInputs())
+        assert.Equal(1, tx.NumOutputs(), "invalid number of outputs, expected 1, was %d", tx.NumInputs())
+        inState := &states.IOU{}
+        assert.NoError(tx.GetInputAt(0, inState))
+        outState := &states.IOU{}
+        assert.NoError(tx.GetOutputAt(0, outState))
 
-		// Additional checks
-		// Same IDs
-		assert.Equal(inState.LinearID, outState.LinearID, "invalid state id, [%s] != [%s]", inState.LinearID, outState.LinearID)
-		// Valid Amount
-		assert.False(outState.Amount >= inState.Amount, "invalid amount, [%d] expected to be less or equal [%d]", outState.Amount, inState.Amount)
-		// Same owners
-		assert.True(inState.Owners().Match(outState.Owners()), "invalid owners, input and output should have the same owners")
-		assert.Equal(2, inState.Owners().Count(), "invalid state, expected 2 identities, was [%d]", inState.Owners().Count())
-		// Is the lender one of the owners?
-		lenderFound := fabric.GetLocalMembership(context).IsMe(inState.Owners()[0]) != fabric.GetLocalMembership(context).IsMe(inState.Owners()[1])
-		assert.True(lenderFound, "lender identity not found")
-		// Did the borrower sign?
-		assert.NoError(tx.HasBeenEndorsedBy(inState.Owners().Filter(
-			func(identity view.Identity) bool {
-				return !fabric.GetLocalMembership(context).IsMe(identity)
-			})...), "the borrower has not endorsed")
-	default:
-		return nil, errors.Errorf("invalid command, expected [create], was [%s]", command.Name)
-	}
+        // Additional checks
+        // Same IDs
+        assert.Equal(inState.LinearID, outState.LinearID, "invalid state id, [%s] != [%s]", inState.LinearID, outState.LinearID)
+        // Valid Amount
+        assert.False(outState.Amount >= inState.Amount, "invalid amount, [%d] expected to be less or equal [%d]", outState.Amount, inState.Amount)
+        // Same owners
+        assert.True(inState.Owners().Match(outState.Owners()), "invalid owners, input and output should have the same owners")
+        assert.Equal(2, inState.Owners().Count(), "invalid state, expected 2 identities, was [%d]", inState.Owners().Count())
+        // Is the lender one of the owners?
+        lenderFound := fabric.GetLocalMembership(context).IsMe(inState.Owners()[0]) != fabric.GetLocalMembership(context).IsMe(inState.Owners()[1])
+        assert.True(lenderFound, "lender identity not found")
+        // Did the borrower sign?
+        assert.NoError(tx.HasBeenEndorsedBy(inState.Owners().Filter(
+            func(identity view.Identity) bool {
+                return !fabric.GetLocalMembership(context).IsMe(identity)
+            })...), "the borrower has not endorsed")
+    default:
+        return nil, errors.Errorf("invalid command, expected [create], was [%s]", command.Name)
+    }
 
-	// The lender is ready to send back the transaction signed
-	_, err = context.RunView(state.NewEndorseView(tx))
-	assert.NoError(err)
+    // The lender is ready to send back the transaction signed
+    _, err = context.RunView(state.NewEndorseView(tx))
+    assert.NoError(err)
 
-	// Finally, the lender waits that the transaction completes its lifecycle
-	return context.RunView(state.NewFinalityView(tx))
+    // Finally, the lender waits that the transaction completes its lifecycle
+    return context.RunView(state.NewFinalityView(tx))
 }
-
 ```
 
 We have seen already what the approver does.
@@ -466,6 +457,12 @@ func Topology() []api.Topology {
 
 ### Boostrap the networks
 
+Bootstrap of the networks requires some Fabric Docker images. To ensure you have the required images you can use the following Makefile target in the project root directory:
+
+```shell
+make fabric-docker-images
+```
+
 To help us bootstrap the networks and then invoke the business views, the `iou` command line tool is provided.
 To build it, we need to run the following command from the folder `$FSC_PATH/samples/fabric/iou`.
 (`$FSC_PATH` refers to the Fabric Smart Client repository in your filesystem see [getting started](../../../README.md#getting-started))
@@ -520,7 +517,7 @@ If you reached this point, you can now invoke the business views on the FSC node
 To create an IOU, you can run the following command in a new terminal window:
 
 ```shell
-./iou view -c ./testdata/fsc/nodes/borrower/client-config.yaml -f create -i "{\"Amount\":10}"
+./iou view -c ./testdata/fsc/nodes/borrower/client-config.yaml -f create -i '{"Amount":10}'
 ```
 
 The above command invoke the `create` view on the borrower's FSC node. The `-c` option specifies the client configuration file.
@@ -533,10 +530,10 @@ If everything is successful, you will see something like the following:
 ```
 The above is the IOU ID that we will use to update the IOU or query it.
 
-Indeed, once the IOU is created, you can query the IOUs by running the following command:
+Indeed, once the IOU is created, you can query the IOUs by running the following command (substituting the IOU LinearID output from the previous command):
 
 ```shell
-./iou view -c ./testdata/fsc/nodes/borrower/client-config.yaml -f query -i "{\"LinearID\":\"bd90b6c8-0a54-4719-8caa-00759bad7d69\"}"
+./iou view -c ./testdata/fsc/nodes/borrower/client-config.yaml -f query -i '{"LinearID":"bd90b6c8-0a54-4719-8caa-00759bad7d69"}'
 ```
 
 The above command will query the IOU with the linear ID `bd90b6c8-0a54-4719-8caa-00759bad7d69` on the borrower's FSC node.
@@ -545,13 +542,13 @@ If everything is successful, you will the current amount contained in the IOU st
 If you want to query the IOU start on the lender node, you can run the following command:
 
 ```shell
-./iou view -c ./testdata/fsc/nodes/lender/client-config.yaml -f query -i "{\"LinearID\":\"bd90b6c8-0a54-4719-8caa-00759bad7d69\"}"
+./iou view -c ./testdata/fsc/nodes/lender/client-config.yaml -f query -i '{"LinearID":"bd90b6c8-0a54-4719-8caa-00759bad7d69"}'
 ```
 
 To update the IOU, you can run the following command:
 
 ```shell
-./iou view -c ./testdata/fsc/nodes/borrower/client-config.yaml -f update -i "{\"LinearID\":\"bd90b6c8-0a54-4719-8caa-00759bad7d69\",\"Amount\":8}"
+./iou view -c ./testdata/fsc/nodes/borrower/client-config.yaml -f update -i '{"LinearID":"bd90b6c8-0a54-4719-8caa-00759bad7d69","Amount":8}'
 ```
 
 The above command will update the IOU with the linear ID `bd90b6c8-0a54-4719-8caa-00759bad7d69`. The new amount will be 8.
@@ -565,51 +562,49 @@ Suppose you want to change the behaviour of a business view and see it in action
 
 Let's see how to do this with a concrete example. When the borrower does not owe the lender anything anymore,
 the borrower updates the IOU state to 0. The state still exists though. What we can do instead is to delete the state.
-We can do that by replacing in the business view `UpdateIOUView`, the line
+We can do that by, in the borrower's business view `UpdateIOUView`, replacing the line
 ```go
-    err = tx.AddOutput(iouState)
+err = tx.AddOutput(iouState)
 ```
 with
 ```go
-	if iouState.Amount == 0 {
-		err = tx.Delete(iouState)
-	} else {
-		err = tx.AddOutput(iouState)
-	}
+if iouState.Amount == 0 {
+    err = tx.Delete(iouState)
+} else {
+    err = tx.AddOutput(iouState)
+}
 ```
-Now, we need to update the business view of the lender and the borrower to take in account the new behaviour.
-For the lender, we modify `UpdateIOUResponderView` to check for the deleted state using the following code:
+Now, we need to update the business view of the lender and the approver to take in account the new behaviour.
+For the lender, we modify `UpdateIOUResponderView` to skip checks of the output state if it is deleted using the following code:
 
 ```go
-    output := tx.Outputs().At(0)
-    if !output.IsDelete() {
-        outState := &states.IOU{}
-        assert.NoError(tx.GetOutputAt(0, outState))
+output := tx.Outputs().At(0)
+if !output.IsDelete() {
+    outState := &states.IOU{}
+    assert.NoError(tx.GetOutputAt(0, outState))
 
-        // Additional checks
-        // Same IDs
-        assert.Equal(inState.LinearID, outState.LinearID, "invalid state id, [%s] != [%s]", inState.LinearID, outState.LinearID)
-        // Valid Amount
-        assert.False(outState.Amount >= inState.Amount, "invalid amount, [%d] expected to be less or equal [%d]", outState.Amount, inState.Amount)
-        // Same owners
-        assert.True(inState.Owners().Match(outState.Owners()), "invalid owners, input and output should have the same owners")
-        assert.Equal(2, inState.Owners().Count(), "invalid state, expected 2 identities, was [%d]", inState.Owners().Count())
-    }
+    // Additional checks
+    // Same IDs
+    assert.Equal(inState.LinearID, outState.LinearID, "invalid state id, [%s] != [%s]", inState.LinearID, outState.LinearID)
+    // Valid Amount
+    assert.False(outState.Amount >= inState.Amount, "invalid amount, [%d] expected to be less or equal [%d]", outState.Amount, inState.Amount)
+    // Same owners
+    assert.True(inState.Owners().Match(outState.Owners()), "invalid owners, input and output should have the same owners")
+    assert.Equal(2, inState.Owners().Count(), "invalid state, expected 2 identities, was [%d]", inState.Owners().Count())
+}
 ```
 
 For the approver, we update the validation code for the `update` command in `ApproverView`:
 
 ```go
-		output := tx.Outputs().At(0)
-		if !output.IsDelete() {
-			outState := &states.IOU{}
-			assert.NoError(tx.GetOutputAt(0, outState))
-			assert.Equal(inState.LinearID, outState.LinearID, "invalid state id, [%s] != [%s]", inState.LinearID, outState.LinearID)
-			assert.True(outState.Amount < inState.Amount, "invalid amount, [%d] expected to be less or equal [%d]", outState.Amount, inState.Amount)
-			assert.True(inState.Owners().Match(outState.Owners()), "invalid owners, input and output should have the same owners")
-		}
-
-		assert.NoError(tx.HasBeenEndorsedBy(inState.Owners()...), "signatures are missing")
+output := tx.Outputs().At(0)
+if !output.IsDelete() {
+    outState := &states.IOU{}
+    assert.NoError(tx.GetOutputAt(0, outState))
+    assert.Equal(inState.LinearID, outState.LinearID, "invalid state id, [%s] != [%s]", inState.LinearID, outState.LinearID)
+    assert.True(outState.Amount < inState.Amount, "invalid amount, [%d] expected to be less or equal [%d]", outState.Amount, inState.Amount)
+    assert.True(inState.Owners().Match(outState.Owners()), "invalid owners, input and output should have the same owners")
+}
 ```
 
 Now, we can just restart the networks, the Fabric Smart Client nodes will be rebuilt and the new behaviour available.
@@ -624,12 +619,12 @@ well as any other relevant information stored in the ledger.
 You can enable it by using the `Monitoring Platform` as follows:
 
 ```go
-	// Create a new topology for the monitoring infrastructure
-    monitoringTopology := monitoring.NewTopology()
-	// Enable Hyperledger Explorer
-    monitoringTopology.EnableHyperledgerExplorer()
+// Create a new topology for the monitoring infrastructure
+monitoringTopology := monitoring.NewTopology()
+// Enable Hyperledger Explorer
+monitoringTopology.EnableHyperledgerExplorer()
 
-    return []api.Topology{fabricTopology, fscTopology, monitoringTopology}
+return []api.Topology{fabricTopology, fscTopology, monitoringTopology}
 ```
 
 To use it, make sure you have all the required docker images.
@@ -657,12 +652,12 @@ It provides charts, graphs, and alerts for the web when connected to supported d
 You can enable them and start monitoring your networks by configuring the monitoring platorm as follows:
 
 ```go
-	// Create a new topology for the monitoring infrastructure
-    monitoringTopology := monitoring.NewTopology()
-	// Enable Prometheus and Grafana
-    monitoringTopology.EnablePrometheusGrafana()
+// Create a new topology for the monitoring infrastructure
+monitoringTopology := monitoring.NewTopology()
+// Enable Prometheus and Grafana
+monitoringTopology.EnablePrometheusGrafana()
 
-    return []api.Topology{fabricTopology, fscTopology, monitoringTopology}
+return []api.Topology{fabricTopology, fscTopology, monitoringTopology}
 ```
 
 To use it, make sure you have all the required docker images.
