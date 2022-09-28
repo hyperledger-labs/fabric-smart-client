@@ -27,9 +27,27 @@ func (c *committer) handleEndorserTransaction(block *common.Block, i int, event 
 		if err := c.CommitEndorserTransaction(txID, block, i, env, event); err != nil {
 			logger.Panicf("failed committing transaction [%s] with err [%s]", txID, err)
 		}
+		c.getChaincodeEvents(env, block)
 	default:
 		if err := c.DiscardEndorserTransaction(txID, block, event, validationCode); err != nil {
 			logger.Panicf("failed discarding transaction [%s] with err [%s]", txID, err)
+		}
+	}
+}
+
+// getChaincodeEvents reads the chaincode events and notifies the listeners registered to the specific chaincode.
+func (c *committer) getChaincodeEvents(env *common.Envelope, block *common.Block) {
+	chaincodeEvent, err := readChaincodeEvent(env, block.Header.Number)
+	if err != nil {
+		logger.Panicf("error reading chaincode event", err)
+	}
+	if chaincodeEvent != nil {
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			logger.Debugf("Chaincode Event Received: ", chaincodeEvent)
+		}
+		err := c.notifyChaincodeListeners(chaincodeEvent)
+		if err != nil {
+			logger.Panicf("error sending chaincode events to listeners")
 		}
 	}
 }

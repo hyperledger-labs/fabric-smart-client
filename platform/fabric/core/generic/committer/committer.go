@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger/fabric-protos-go/common"
@@ -54,9 +55,10 @@ type committer struct {
 	listeners      map[string][]chan TxEvent
 	mutex          sync.Mutex
 	pollingTimeout time.Duration
+	publisher      events.Publisher
 }
 
-func New(channel string, network Network, finality Finality, waitForEventTimeout time.Duration, quiet bool, metrics Metrics) (*committer, error) {
+func New(channel string, network Network, finality Finality, waitForEventTimeout time.Duration, quiet bool, metrics Metrics, publisher events.Publisher) (*committer, error) {
 	if len(channel) == 0 {
 		panic("expected a channel, got empty string")
 	}
@@ -71,6 +73,7 @@ func New(channel string, network Network, finality Finality, waitForEventTimeout
 		finality:            finality,
 		pollingTimeout:      100 * time.Millisecond,
 		metrics:             metrics,
+		publisher:           publisher,
 	}
 	return d, nil
 }
@@ -281,6 +284,12 @@ func (c *committer) notify(event TxEvent) {
 			listener <- event
 		}
 	}
+}
+
+// notifyChaincodeListeners notifies the chaincode event to the registered chaincode listeners.
+func (c *committer) notifyChaincodeListeners(event *ChaincodeEvent) error {
+	c.publisher.Publish(event)
+	return nil
 }
 
 func (c *committer) listenTo(ctx context.Context, txid string, timeout time.Duration) error {

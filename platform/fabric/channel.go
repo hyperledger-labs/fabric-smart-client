@@ -49,8 +49,9 @@ func (c *Channel) Finality() *Finality {
 
 func (c *Channel) Chaincode(name string) *Chaincode {
 	return &Chaincode{
-		fns:       c.fns,
-		chaincode: c.ch.Chaincode(name),
+		fns:           c.fns,
+		chaincode:     c.ch.Chaincode(name),
+		EventListener: newEventListener(c.sp, name),
 	}
 }
 
