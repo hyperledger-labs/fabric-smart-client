@@ -13,7 +13,7 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	"github.com/libp2p/go-libp2p-core/crypto"
+	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/pkg/errors"
 )
 
