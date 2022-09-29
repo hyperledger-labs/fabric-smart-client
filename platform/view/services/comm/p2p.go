@@ -267,6 +267,12 @@ func (s *streamHandler) send(msg proto.Message) error {
 	return nil
 }
 
+func (s *streamHandler) isStopping() bool {
+	s.node.streamsMutex.Lock()
+	defer s.node.streamsMutex.Unlock()
+	return s.node.isStopping
+}
+
 func (s *streamHandler) handleIncoming() {
 	s.node.m.StreamHandlers.Add(1)
 	defer s.node.m.StreamHandlers.Add(-1)
@@ -275,7 +281,7 @@ func (s *streamHandler) handleIncoming() {
 		msg := &ViewPacket{}
 		err := s.reader.ReadMsg(msg)
 		if err != nil {
-			if s.node.isStopping {
+			if s.isStopping() {
 				if logger.IsEnabledFor(zapcore.DebugLevel) {
 					logger.Debugf("error reading message while closing, ignoring [%s]", err)
 				}

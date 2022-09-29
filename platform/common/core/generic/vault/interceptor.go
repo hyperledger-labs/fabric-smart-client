@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package vault
 
 import (
+	"sync"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/pkg/errors"
@@ -27,6 +29,7 @@ type Interceptor[V driver.ValidationCode] struct {
 	Closed     bool
 	TxID       string
 	vcProvider driver.ValidationCodeProvider[V] // TODO
+	Mutex      sync.RWMutex
 }
 
 func EmptyRWSet() ReadWriteSet {
@@ -93,7 +96,7 @@ func (i *Interceptor[V]) IsValid() error {
 }
 
 func (i *Interceptor[V]) Clear(ns string) error {
-	if i.Closed {
+	if i.IsClosed() {
 		return errors.New("this instance was closed")
 	}
 
@@ -105,7 +108,7 @@ func (i *Interceptor[V]) Clear(ns string) error {
 }
 
 func (i *Interceptor[V]) GetReadKeyAt(ns string, pos int) (string, error) {
-	if i.Closed {
+	if i.IsClosed() {
 		return "", errors.New("this instance was closed")
 	}
 
@@ -118,7 +121,7 @@ func (i *Interceptor[V]) GetReadKeyAt(ns string, pos int) (string, error) {
 }
 
 func (i *Interceptor[V]) GetReadAt(ns string, pos int) (string, []byte, error) {
-	if i.Closed {
+	if i.IsClosed() {
 		return "", nil, errors.New("this instance was closed")
 	}
 
@@ -136,7 +139,7 @@ func (i *Interceptor[V]) GetReadAt(ns string, pos int) (string, []byte, error) {
 }
 
 func (i *Interceptor[V]) GetWriteAt(ns string, pos int) (string, []byte, error) {
-	if i.Closed {
+	if i.IsClosed() {
 		return "", nil, errors.New("this instance was closed")
 	}
 
@@ -175,7 +178,7 @@ func (i *Interceptor[V]) Namespaces() []string {
 }
 
 func (i *Interceptor[V]) DeleteState(namespace string, key string) error {
-	if i.Closed {
+	if i.IsClosed() {
 		return errors.New("this instance was closed")
 	}
 
@@ -183,7 +186,7 @@ func (i *Interceptor[V]) DeleteState(namespace string, key string) error {
 }
 
 func (i *Interceptor[V]) SetState(namespace string, key string, value []byte) error {
-	if i.Closed {
+	if i.IsClosed() {
 		return errors.New("this instance was closed")
 	}
 	i.Logger.Debugf("SetState [%s,%s,%s]", namespace, key, hash.Hashable(value).String())
@@ -200,7 +203,7 @@ func (i *Interceptor[V]) SetStateMetadata(namespace string, key string, value ma
 }
 
 func (i *Interceptor[V]) GetStateMetadata(namespace, key string, opts ...driver.GetStateOpt) (map[string][]byte, error) {
-	if i.Closed {
+	if i.IsClosed() {
 		return nil, errors.New("this instance was closed")
 	}
 
@@ -252,7 +255,7 @@ func (i *Interceptor[V]) GetStateMetadata(namespace, key string, opts ...driver.
 }
 
 func (i *Interceptor[V]) GetState(namespace string, key string, opts ...driver.GetStateOpt) ([]byte, error) {
-	if i.Closed {
+	if i.IsClosed() {
 		return nil, errors.New("this instance was closed")
 	}
 
@@ -304,7 +307,7 @@ func (i *Interceptor[V]) GetState(namespace string, key string, opts ...driver.G
 }
 
 func (i *Interceptor[V]) AppendRWSet(raw []byte, nss ...string) error {
-	if i.Closed {
+	if i.IsClosed() {
 		return errors.New("this instance was closed")
 	}
 
@@ -345,7 +348,7 @@ func (i *Interceptor[V]) Equals(other interface{}, nss ...string) error {
 
 func (i *Interceptor[V]) Done() {
 	i.Logger.Debugf("Done with [%s], closed [%v]", i.TxID, i.Closed)
-	if !i.Closed {
+	if i.IsClosed() {
 		i.Closed = true
 		if i.QE != nil {
 			i.QE.Done()
@@ -365,6 +368,8 @@ func (i *Interceptor[V]) Reopen(qe VersionedQueryExecutor) error {
 }
 
 func (i *Interceptor[V]) IsClosed() bool {
+	i.Mutex.Lock()
+	defer i.Mutex.Unlock()
 	return i.Closed
 }
 
