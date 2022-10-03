@@ -103,14 +103,15 @@ func (s *Service) init() error {
 		if err != nil {
 			return errors.WithMessagef(err, "failed to get the endpoint of the bootstrap node from [%s]", endpoints[view.P2PPort])
 		}
-		logger.Infof("new p2p node [%s,%s]", p2pListenAddress, addr+"/p2p/"+string(pkID))
+		addr = addr + "/p2p/" + string(pkID)
+		logger.Infof("new p2p node [%s,%s]", p2pListenAddress, addr)
 		s.Node, err = NewNode(
 			p2pListenAddress,
 			addr,
 			s.PrivateKeyDispenser,
 		)
 		if err != nil {
-			return errors.Wrapf(err, "failed initializing node p2p manager [%s,%s]", p2pListenAddress, addr+"/p2p/"+string(pkID))
+			return errors.Wrapf(err, "failed initializing node p2p manager [%s,%s]", p2pListenAddress, addr)
 		}
 	}
 	return nil

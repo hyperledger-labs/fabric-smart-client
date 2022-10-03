@@ -22,10 +22,6 @@ fsc:
   networkId: {{ NetworkID }}
   # This represents the endpoint to other FSC nodes in the same organization.
   address: 127.0.0.1:{{ .NodePort Peer "Listen" }}
-  # Whether the FSC node should programmatically determine its address
-  # This case is useful for docker containers.
-  # When set to true, will override FSC address.
-  addressAutoDetect: true
   # GRPC Server listener address   
   listenAddress: 127.0.0.1:{{ .NodePort Peer "Listen" }}
   # Identity of this node, used to connect to other nodes

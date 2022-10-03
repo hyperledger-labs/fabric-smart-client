@@ -175,18 +175,14 @@ func (p *p) initWEBServer() error {
 	listenAddr := configProvider.GetString("fsc.web.address")
 
 	var tlsConfig web2.TLS
-	prefix := "fsc."
-	if configProvider.IsSet("fsc.web.tls") {
-		prefix = "fsc.web."
-	}
 	var clientRootCAs []string
-	for _, path := range configProvider.GetStringSlice(prefix + "tls.clientRootCAs.files") {
+	for _, path := range configProvider.GetStringSlice("fsc.web.tls.clientRootCAs.files") {
 		clientRootCAs = append(clientRootCAs, configProvider.TranslatePath(path))
 	}
 	tlsConfig = web2.TLS{
-		Enabled:           configProvider.GetBool(prefix + "tls.enabled"),
-		CertFile:          configProvider.GetPath(prefix + "tls.cert.file"),
-		KeyFile:           configProvider.GetPath(prefix + "tls.key.file"),
+		Enabled:           configProvider.GetBool("fsc.web.tls.enabled"),
+		CertFile:          configProvider.GetPath("fsc.web.tls.cert.file"),
+		KeyFile:           configProvider.GetPath("fsc.web.tls.key.file"),
 		ClientCACertFiles: clientRootCAs,
 	}
 	p.webServer = web2.NewServer(web2.Options{
