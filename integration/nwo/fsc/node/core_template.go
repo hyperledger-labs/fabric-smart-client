@@ -57,14 +57,6 @@ fsc:
     # Private key used for TLS server
     key:
       file: {{ .NodeLocalTLSDir Peer }}/server.key
-    # X.509 certificate used for TLS when making client connections.
-    # If not set, fsc.tls.cert.file will be used instead
-    clientCert:
-      file: {{ .NodeLocalTLSDir Peer }}/server.crt
-    # Private key used for TLS when making client connections.
-    # If not set, fsc.tls.key.file will be used instead
-    clientKey:
-      file: {{ .NodeLocalTLSDir Peer }}/server.key
     # rootcert.file represents the trusted root certificate chain used for verifying certificates
     # of other nodes during outbound connections.
     rootcert:
@@ -150,7 +142,6 @@ fsc:
     - name: {{ .Name }}
       domain: {{ .Domain }}
       identity:
-        id: {{ .Identity.ID }}
         path: {{ .Identity.Path }}
       addresses: {{ range $key, $value := .Addresses }}
          {{ $key }}: {{ $value }} 
