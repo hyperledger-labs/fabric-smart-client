@@ -87,16 +87,16 @@ func (s *Service) init() error {
 			s.PrivateKeyDispenser,
 		)
 		if err != nil {
-			return errors.Wrapf(err, "failed initializing bootstrap p2p manager [%s]", p2pListenAddress)
+			return errors.Wrapf(err, "failed to initialize bootstrap p2p node [%s]", p2pListenAddress)
 		}
 	} else {
 		bootstrapNodeID, err := s.EndpointService.GetIdentity(p2pBootstrapNode, nil)
 		if err != nil {
-			return err
+			return errors.WithMessage(err, "failed to get p2p bootstrap node's resolver entry")
 		}
 		_, endpoints, pkID, err := s.EndpointService.Resolve(bootstrapNodeID)
 		if err != nil {
-			return err
+			return errors.WithMessagef(err, "failed to resolve bootstrap node id")
 		}
 
 		addr, err := AddressToEndpoint(endpoints[view.P2PPort])
@@ -111,7 +111,7 @@ func (s *Service) init() error {
 			s.PrivateKeyDispenser,
 		)
 		if err != nil {
-			return errors.Wrapf(err, "failed initializing node p2p manager [%s,%s]", p2pListenAddress, addr)
+			return errors.Wrapf(err, "failed to initialize node p2p manager [%s,%s]", p2pListenAddress, addr)
 		}
 	}
 	return nil
