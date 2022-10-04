@@ -9,15 +9,8 @@ fsc:
   # The FSC id provides a name for this node instance and is used when
   # naming docker resources.
   id: initiator
-  # The networkId allows for logical separation of networks and is used when
-  # naming docker resources.
-  networkId: 5utks6sssfhvzag6vceymm4rjy
   # This represents the endpoint to other FSC nodes in the same organization.
   address: 127.0.0.1:20000
-  # Whether the FSC node should programmatically determine its address
-  # This case is useful for docker containers.
-  # When set to true, will override FSC address.
-  addressAutoDetect: true
   # GRPC Server listener address
   listenAddress: 127.0.0.1:20000
   # Identity of this node, used to connect to other nodes
@@ -49,14 +42,6 @@ fsc:
       file: ./../../crypto/peerOrganizations/fsc.example.com/peers/initiator.fsc.example.com/tls/server.key
     # X.509 certificate used for TLS when making client connections.
     # If not set, fsc.tls.cert.file will be used instead
-    clientCert:
-      file: ./../../crypto/peerOrganizations/fsc.example.com/peers/initiator.fsc.example.com/tls/server.crt
-    # Private key used for TLS when making client connections.
-    # If not set, fsc.tls.key.file will be used instead
-    clientKey:
-      file: ./../../crypto/peerOrganizations/fsc.example.com/peers/initiator.fsc.example.com/tls/server.key
-    # rootcert.file represents the trusted root certificate chain used for verifying certificates
-    # of other nodes during outbound connections.
     rootcert:
       file: ./../../crypto/peerOrganizations/fsc.example.com/peers/initiator.fsc.example.com/tls/ca.crt
     # If mutual TLS is enabled, clientRootCAs.files contains a list of additional root certificates
@@ -64,7 +49,6 @@ fsc:
     clientRootCAs:
       files:
         - ./../../crypto/peerOrganizations/fsc.example.com/peers/initiator.fsc.example.com/tls/ca.crt
-    rootCertFile: ./../../crypto/ca-certs.pem
   # Keepalive settings for node server and clients
   keepalive:
     # MinInterval is the minimum permitted time between client pings.

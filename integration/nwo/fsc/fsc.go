@@ -491,7 +491,7 @@ func (p *Platform) FSCNodeRunner(node *node2.Peer, env ...string) *runner2.Runne
 		AnsiColorCode:     common.NextColor(),
 		Name:              node.ID(),
 		Command:           cmd,
-		StartCheck:        `Started peer with ID=.*, .*, address=`,
+		StartCheck:        `Started peer with ID=.*, address=`,
 		StartCheckTimeout: 1 * time.Minute,
 	}
 

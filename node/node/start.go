@@ -152,9 +152,8 @@ func serve() error {
 	callback(nil)
 
 	cs := view.GetConfigService(node.Registry())
-	logger.Infof("Started peer with ID=[%s], network ID=[%s], address=[%s]",
+	logger.Infof("Started peer with ID=[%s], address=[%s]",
 		cs.GetString("fsc.id"),
-		cs.GetString("fsc.networkId"),
 		cs.GetString("fsc.address"),
 	)
 	return <-serve

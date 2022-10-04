@@ -17,9 +17,6 @@ fsc:
   # The FSC id provides a name for this node instance and is used when
   # naming docker resources.
   id: {{ Peer.ID }}
-  # The networkId allows for logical separation of networks and is used when
-  # naming docker resources.
-  networkId: {{ NetworkID }}
   # This represents the endpoint to other FSC nodes in the same organization.
   address: 127.0.0.1:{{ .NodePort Peer "Listen" }}
   # GRPC Server listener address   
@@ -62,7 +59,6 @@ fsc:
     clientRootCAs:
       files:
       - {{ .NodeLocalTLSDir Peer }}/ca.crt
-    rootCertFile: {{ .CACertsBundlePath }}
   # Keepalive settings for node server and clients
   keepalive:
     # MinInterval is the minimum permitted time between client pings.
