@@ -329,7 +329,6 @@ fabric:
       - name: {{ .Name }}
         domain: {{ .Domain }}
         identity:
-          id: {{ .Identity.ID }}
           mspType: {{ .Identity.MSPType }}
           mspID: {{ .Identity.MSPID }}
           path: {{ .Identity.Path }}
