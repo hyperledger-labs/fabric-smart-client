@@ -84,26 +84,26 @@ func (c *Client) CallView(fid string, in []byte) (interface{}, error) {
 	url := fmt.Sprintf("%s/v1/Views/%s", c.url, fid)
 	req, err := http.NewRequest(http.MethodPut, url, bytes.NewBuffer(in))
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to create http request to [%s], input lenght [%d]", url, len(in))
+		return nil, errors.Wrapf(err, "failed to create http request to [%s], input length [%d]", url, len(in))
 	}
 	logger.Debugf("call view [%s] using http request to [%s], input length [%d]", fid, url, len(in))
 
 	resp, err := c.c.Do(req)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to process http request to [%s], input lenght [%d]", url, len(in))
+		return nil, errors.Wrapf(err, "failed to process http request to [%s], input length [%d]", url, len(in))
 	}
 	buff, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to read response from http request to [%s], input lenght [%d]", url, len(in))
+		return nil, errors.Wrapf(err, "failed to read response from http request to [%s], input length [%d]", url, len(in))
 	}
 
 	response := &protos2.CommandResponse_CallViewResponse{}
 	err = json.Unmarshal(buff, response)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to unmarshal response from http request to [%s], input lenght [%d]", url, len(in))
+		return nil, errors.Wrapf(err, "failed to unmarshal response from http request to [%s], input length [%d]", url, len(in))
 	}
 	if response.CallViewResponse == nil {
-		return nil, errors.Errorf("got empty response from http request to [%s], input lenght [%d]", url, len(in))
+		return nil, errors.Errorf("got empty response from http request to [%s], input length [%d]", url, len(in))
 	}
 	return response.CallViewResponse.Result, nil
 }
