@@ -48,10 +48,6 @@ fsc:
     # Private key used for TLS server
     key:
       file: {{ .NodeLocalTLSDir Peer }}/server.key
-    # rootcert.file represents the trusted root certificate chain used for verifying certificates
-    # of other nodes during outbound connections.
-    rootcert:
-      file: {{ .NodeLocalTLSDir Peer }}/ca.crt
     # If mutual TLS is enabled, clientRootCAs.files contains a list of additional root certificates
     # used for verifying certificates of client connections.
     clientRootCAs:

@@ -347,14 +347,6 @@ func (p *p) getServerConfig() (grpc2.ServerConfig, error) {
 			}
 			serverConfig.SecOpts.ClientRootCAs = clientRoots
 		}
-		// check for root cert
-		if configProvider.GetPath("fsc.tls.rootcert.file") != "" {
-			rootCert, err := ioutil.ReadFile(configProvider.GetPath("fsc.tls.rootcert.file"))
-			if err != nil {
-				return serverConfig, fmt.Errorf("error loading TLS root certificate (%s)", err)
-			}
-			serverConfig.SecOpts.ServerRootCAs = [][]byte{rootCert}
-		}
 	}
 	// get the default keepalive options
 	serverConfig.KaOpts = grpc2.DefaultKeepaliveOptions
