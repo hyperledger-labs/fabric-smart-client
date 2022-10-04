@@ -212,7 +212,7 @@ func (p *p) registerViewServiceServer() error {
 func (p *p) initGRPCServer() error {
 	configProvider := view.GetConfigService(p.registry)
 
-	listenAddr := configProvider.GetString("fsc.listenAddress")
+	listenAddr := configProvider.GetString("fsc.address")
 	serverConfig, err := p.getServerConfig()
 	if err != nil {
 		logger.Fatalf("Error loading secure config for peer (%s)", err)

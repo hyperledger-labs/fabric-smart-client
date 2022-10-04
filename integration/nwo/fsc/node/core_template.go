@@ -19,8 +19,6 @@ fsc:
   id: {{ Peer.ID }}
   # This represents the endpoint to other FSC nodes in the same organization.
   address: 127.0.0.1:{{ .NodePort Peer "Listen" }}
-  # GRPC Server listener address   
-  listenAddress: 127.0.0.1:{{ .NodePort Peer "Listen" }}
   # Identity of this node, used to connect to other nodes
   identity:
     # X.509 certificate used as identity of this node
