@@ -10,16 +10,15 @@ import (
 	"bytes"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/api"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/web"
-
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fsc/pingpong"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/client"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/api"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/node"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/web"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("EndToEnd", func() {
@@ -57,7 +56,7 @@ var _ = Describe("EndToEnd", func() {
 
 			time.Sleep(3 * time.Second)
 
-			webClientConfig, err := web.NewConfigFromFSC("./testdata/fsc/nodes/initiator")
+			webClientConfig, err := client.NewWebClientConfigFromFSC("./testdata/fsc/nodes/initiator")
 			Expect(err).NotTo(HaveOccurred())
 			initiatorWebClient, err := web.NewClient(webClientConfig)
 			Expect(err).NotTo(HaveOccurred())

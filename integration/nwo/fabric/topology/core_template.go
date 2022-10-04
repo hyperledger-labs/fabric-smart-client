@@ -277,19 +277,10 @@ fabric:
     tls:
       enabled:  true
       clientAuthRequired: {{ .ClientAuthRequired }}
-      cert:
-        file: {{ .PeerLocalTLSDir Peer }}/server.crt
-      key:
-        file: {{ .PeerLocalTLSDir Peer }}/server.key
       clientCert:
         file: {{ .PeerLocalTLSDir Peer }}/server.crt
       clientKey:
         file: {{ .PeerLocalTLSDir Peer }}/server.key
-      rootcert:
-        file: {{ .PeerLocalTLSDir Peer }}/ca.crt
-      clientRootCAs:
-        files:
-        - {{ .PeerLocalTLSDir Peer }}/ca.crt
       rootCertFile: {{ .CACertsBundlePath }}
       keepalive:
        client:

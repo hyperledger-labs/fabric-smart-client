@@ -17,6 +17,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/api"
 	protos2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view/protos"
+	"github.com/pkg/errors"
 )
 
 // Config models the configuration for the web client
@@ -39,24 +40,28 @@ type Client struct {
 
 // NewClient returns a new web client
 func NewClient(config *Config) (*Client, error) {
-	clientCertPool := x509.NewCertPool()
-	caCert, err := ioutil.ReadFile(config.CACert)
-	if err != nil {
-		return nil, err
-	}
-	clientCertPool.AppendCertsFromPEM(caCert)
+	var tlsClientConfig *tls.Config
 
-	tlsClientConfig := &tls.Config{
-		RootCAs: clientCertPool,
+	if len(config.CACert) != 0 {
+		clientCertPool := x509.NewCertPool()
+		caCert, err := ioutil.ReadFile(config.CACert)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to open ca cert")
+		}
+		clientCertPool.AppendCertsFromPEM(caCert)
+
+		tlsClientConfig = &tls.Config{
+			RootCAs: clientCertPool,
+		}
+		clientCert, err := tls.LoadX509KeyPair(
+			config.TLSCert,
+			config.TLSKey,
+		)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to load x509 key pair")
+		}
+		tlsClientConfig.Certificates = []tls.Certificate{clientCert}
 	}
-	clientCert, err := tls.LoadX509KeyPair(
-		config.TLSCert,
-		config.TLSKey,
-	)
-	if err != nil {
-		return nil, err
-	}
-	tlsClientConfig.Certificates = []tls.Certificate{clientCert}
 
 	return &Client{
 		c: &http.Client{

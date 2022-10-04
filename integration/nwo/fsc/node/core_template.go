@@ -111,7 +111,6 @@ fsc:
       clientRootCAs:
         files:
         - {{ .NodeLocalTLSDir Peer }}/ca.crt
-    rootCertFile: {{ .CACertsBundlePath }}
   tracing:
     provider: {{ Topology.TracingProvider }}
     udp:

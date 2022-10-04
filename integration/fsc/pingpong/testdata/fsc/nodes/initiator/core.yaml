@@ -94,6 +94,16 @@ fsc:
     enabled: true
     # HTTPS server listener address
     address: 127.0.0.1:19999
+    tls:
+      enabled:  true
+      cert:
+        file: ./../../crypto/peerOrganizations/fsc.example.com/peers/initiator.fsc.example.com/tls/server.crt
+      # Private key used for TLS server
+      key:
+        file: ./../../crypto/peerOrganizations/fsc.example.com/peers/initiator.fsc.example.com/tls/server.key
+      clientRootCAs:
+        files:
+          - ./../../crypto/peerOrganizations/fsc.example.com/peers/initiator.fsc.example.com/tls/ca.crt
   # The endpoint section tells how to reach other FSC node in the network.
   # For each node, the name, the domain, the identity of the node, and its addresses must be specified.
   endpoint:
