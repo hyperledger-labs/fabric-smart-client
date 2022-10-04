@@ -214,7 +214,7 @@ func (p *P2PNode) sendTo(IDString string, address string, msg proto.Message) err
 
 	nwStream, err := p.host.NewStream(context.Background(), ID, protocol.ID(viewProtocol))
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "failed to create new stream to [%s]", ID)
 	}
 
 	p.handleStream()(nwStream)
