@@ -92,16 +92,16 @@ func (s *Service) init() error {
 	} else {
 		bootstrapNodeID, err := s.EndpointService.GetIdentity(p2pBootstrapNode, nil)
 		if err != nil {
-			return errors.WithMessage(err, "failed to get p2p bootstrap node's resolver entry")
+			return errors.WithMessagef(err, "failed to get p2p bootstrap node's resolver entry [%s]", p2pBootstrapNode)
 		}
 		_, endpoints, pkID, err := s.EndpointService.Resolve(bootstrapNodeID)
 		if err != nil {
-			return errors.WithMessagef(err, "failed to resolve bootstrap node id")
+			return errors.WithMessagef(err, "failed to resolve bootstrap node id [%s:%s]", p2pBootstrapNode, bootstrapNodeID)
 		}
 
 		addr, err := AddressToEndpoint(endpoints[view.P2PPort])
 		if err != nil {
-			return errors.WithMessagef(err, "failed to get the endpoint of the bootstrap node from [%s]", endpoints[view.P2PPort])
+			return errors.WithMessagef(err, "failed to get the endpoint of the bootstrap node from [%s:%s], [%s]", p2pBootstrapNode, bootstrapNodeID, endpoints[view.P2PPort])
 		}
 		addr = addr + "/p2p/" + string(pkID)
 		logger.Infof("new p2p node [%s,%s]", p2pListenAddress, addr)
