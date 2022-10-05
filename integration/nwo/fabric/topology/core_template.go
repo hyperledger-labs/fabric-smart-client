@@ -281,7 +281,6 @@ fabric:
         file: {{ .PeerLocalTLSDir Peer }}/server.crt
       clientKey:
         file: {{ .PeerLocalTLSDir Peer }}/server.key
-      rootCertFile: {{ .CACertsBundlePath }}
       keepalive:
        client:
          interval: 60s

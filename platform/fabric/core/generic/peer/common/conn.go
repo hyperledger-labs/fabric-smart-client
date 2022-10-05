@@ -13,7 +13,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/hyperledger/fabric-protos-go/discovery"
 	pb "github.com/hyperledger/fabric-protos-go/peer"
 	discovery2 "github.com/hyperledger/fabric/discovery/client"
@@ -25,10 +24,6 @@ var logger = flogging.MustGetLogger("fabric-sdk.core.generic.peer.conn")
 
 type ConnCreator interface {
 	NewPeerClientForAddress(cc grpc.ConnectionConfig) (peer.Client, error)
-
-	// NewPeerClientForIdentity creates an instance of a PeerClient using the
-	// provided peer identity
-	NewPeerClientForIdentity(peer view.Identity) (peer.Client, error)
 }
 
 type statefulClient struct {
@@ -199,12 +194,6 @@ type CachingEndorserPool struct {
 func (cep *CachingEndorserPool) NewPeerClientForAddress(cc grpc.ConnectionConfig) (peer.Client, error) {
 	return cep.getOrCreateClient(cc.Address, func() (peer.Client, error) {
 		return cep.ConnCreator.NewPeerClientForAddress(cc)
-	})
-}
-
-func (cep *CachingEndorserPool) NewPeerClientForIdentity(p view.Identity) (peer.Client, error) {
-	return cep.getOrCreateClient(string(p), func() (peer.Client, error) {
-		return cep.ConnCreator.NewPeerClientForIdentity(p)
 	})
 }
 

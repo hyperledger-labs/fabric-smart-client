@@ -142,11 +142,6 @@ func (i *ChaincodeInvocation) WithTransientEntry(k string, v interface{}) *Chain
 	return i
 }
 
-func (i *ChaincodeInvocation) WithEndorsers(ids ...view.Identity) *ChaincodeInvocation {
-	i.ChaincodeInvocation.WithEndorsers(ids...)
-	return i
-}
-
 func (i *ChaincodeInvocation) WithEndorsersByMSPIDs(mspIDs ...string) *ChaincodeInvocation {
 	i.ChaincodeInvocation.WithEndorsersByMSPIDs(mspIDs...)
 	return i
@@ -172,11 +167,6 @@ func (i *ChaincodeQuery) Call() ([]byte, error) {
 
 func (i *ChaincodeQuery) WithTransientEntry(k string, v interface{}) *ChaincodeQuery {
 	i.ChaincodeInvocation.WithTransientEntry(k, v)
-	return i
-}
-
-func (i *ChaincodeQuery) WithEndorsers(ids ...view.Identity) *ChaincodeQuery {
-	i.ChaincodeInvocation.WithEndorsers(ids...)
 	return i
 }
 
@@ -224,11 +214,6 @@ func (i *ChaincodeEndorse) Call() (*Envelope, error) {
 
 func (i *ChaincodeEndorse) WithTransientEntry(k string, v interface{}) *ChaincodeEndorse {
 	i.ci.WithTransientEntry(k, v)
-	return i
-}
-
-func (i *ChaincodeEndorse) WithEndorsers(ids ...view.Identity) *ChaincodeEndorse {
-	i.ci.WithEndorsers(ids...)
 	return i
 }
 

@@ -37,7 +37,6 @@ type Invoke struct {
 	ChaincodeName                  string
 	ChaincodeVersion               string
 	TransientMap                   map[string][]byte
-	Endorsers                      []view.Identity
 	EndorsersMSPIDs                []string
 	ImplicitCollectionMSPIDs       []string
 	EndorsersFromMyOrg             bool
@@ -132,11 +131,6 @@ func (i *Invoke) WithTransientEntry(k string, v interface{}) driver.ChaincodeInv
 	return i
 }
 
-func (i *Invoke) WithEndorsers(ids ...view.Identity) driver.ChaincodeInvocation {
-	i.Endorsers = ids
-	return i
-}
-
 func (i *Invoke) WithEndorsersByMSPIDs(mspIDs ...string) driver.ChaincodeInvocation {
 	i.EndorsersMSPIDs = mspIDs
 	return i
@@ -203,7 +197,7 @@ func (i *Invoke) prepare() (string, *pb.Proposal, []*pb.ProposalResponse, driver
 			}
 			peerClients = append(peerClients, peerClient)
 		}
-	case len(i.Endorsers) == 0:
+	default:
 		if i.EndorsersFromMyOrg && len(i.EndorsersMSPIDs) == 0 {
 			// retrieve invoker's MSP-ID
 			invokerMSPID, err := i.Channel.MSPManager().DeserializeIdentity(i.SignerIdentity)
@@ -237,20 +231,8 @@ func (i *Invoke) prepare() (string, *pb.Proposal, []*pb.ProposalResponse, driver
 		} else {
 			discoveredPeers = peers
 		}
-	case len(i.Endorsers) != 0:
-		// nothing to do here
-	default:
-		return "", nil, nil, nil, errors.New("no rule set to find the endorsers")
 	}
 
-	// get a peer client for all passed endorser identities
-	for _, endorser := range i.Endorsers {
-		peerClient, err := i.Channel.NewPeerClientForIdentity(endorser)
-		if err != nil {
-			return "", nil, nil, nil, err
-		}
-		peerClients = append(peerClients, peerClient)
-	}
 	// get a peer client for all discovered peers
 	for _, peer := range discoveredPeers {
 		peerClient, err := i.Channel.NewPeerClientForAddress(grpc.ConnectionConfig{

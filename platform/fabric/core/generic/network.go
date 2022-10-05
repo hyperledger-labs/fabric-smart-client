@@ -8,7 +8,6 @@ package generic
 
 import (
 	"context"
-	"io/ioutil"
 	"math/rand"
 	"sync"
 
@@ -20,7 +19,6 @@ import (
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
 )
 
@@ -38,7 +36,6 @@ type network struct {
 	transactionManager driver.TransactionManager
 	sigService         driver.SignerService
 
-	tlsRootCerts       [][]byte
 	orderers           []*grpc.ConnectionConfig
 	configuredOrderers int
 	peers              []*grpc.ConnectionConfig
@@ -166,10 +163,6 @@ func (f *network) Committer(name string) (driver.Committer, error) {
 	return f.Channel(name)
 }
 
-func (f *network) Comm(name string) (driver.Comm, error) {
-	return f.Channel(name)
-}
-
 func (f *network) IdentityProvider() driver.IdentityProvider {
 	return f.idProvider
 }
@@ -184,10 +177,6 @@ func (f *network) ProcessorManager() driver.ProcessorManager {
 
 func (f *network) TransactionManager() driver.TransactionManager {
 	return f.transactionManager
-}
-
-func (f *network) GetTLSRootCert(endorser view.Identity) ([][]byte, error) {
-	return f.tlsRootCerts, nil
 }
 
 func (f *network) Broadcast(blob interface{}) error {
@@ -210,12 +199,7 @@ func (f *network) init() error {
 	f.processorManager = rwset.NewProcessorManager(f.sp, f, nil)
 	f.transactionManager = transaction.NewManager(f.sp, f)
 
-	tlsRootCerts, err := loadFile(f.config.TLSRootCertFile())
-	if err != nil {
-		return errors.Wrap(err, "failed loading tls root certificate")
-	}
-	f.tlsRootCerts = [][]byte{tlsRootCerts}
-
+	var err error
 	f.orderers, err = f.config.Orderers()
 	if err != nil {
 		return errors.Wrap(err, "failed loading orderers")
@@ -250,15 +234,4 @@ func (f *network) setConfigOrderers(orderers []*grpc.ConnectionConfig) {
 	// and append the new ones
 	f.orderers = append(f.orderers[:f.configuredOrderers], orderers...)
 	logger.Debugf("New Orderers [%d]", len(f.orderers))
-}
-
-func loadFile(path string) ([]byte, error) {
-	if len(path) == 0 {
-		return nil, errors.New("file path must be set")
-	}
-	raw, err := ioutil.ReadFile(path)
-	if err != nil {
-		return nil, errors.WithMessagef(err, "unable to load from %s", path)
-	}
-	return raw, nil
 }

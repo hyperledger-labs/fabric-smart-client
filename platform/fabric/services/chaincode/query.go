@@ -65,9 +65,6 @@ func (i *queryChaincodeView) Query(context view.Context) ([]byte, error) {
 	for k, v := range i.TransientMap {
 		invocation.WithTransientEntry(k, v)
 	}
-	if len(i.Endorsers) != 0 {
-		invocation.WithEndorsers(i.Endorsers...)
-	}
 	if len(i.EndorsersMSPIDs) != 0 {
 		invocation.WithEndorsersByMSPIDs(i.EndorsersMSPIDs...)
 	}
@@ -83,11 +80,6 @@ func (i *queryChaincodeView) WithTransientEntry(k string, v interface{}) *queryC
 		i.TransientMap = map[string]interface{}{}
 	}
 	i.TransientMap[k] = v
-	return i
-}
-
-func (i *queryChaincodeView) WithEndorsers(ids ...view.Identity) *queryChaincodeView {
-	i.InvokeCall.Endorsers = ids
 	return i
 }
 

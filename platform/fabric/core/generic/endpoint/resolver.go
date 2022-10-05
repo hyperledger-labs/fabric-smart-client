@@ -17,10 +17,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
-const (
-	bccspMSP = "bccsp"
-)
-
 var logger = flogging.MustGetLogger("fabric-sdk.endpoint")
 
 type Resolver struct {

@@ -26,8 +26,6 @@ type ChaincodeInvocation interface {
 
 	WithTransientEntry(k string, v interface{}) ChaincodeInvocation
 
-	WithEndorsers(ids ...view.Identity) ChaincodeInvocation
-
 	WithEndorsersByMSPIDs(mspIDs ...string) ChaincodeInvocation
 
 	WithEndorsersFromMyOrg() ChaincodeInvocation

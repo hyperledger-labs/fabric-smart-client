@@ -24,7 +24,6 @@ type Network interface {
 	Name() string
 	PickPeer() *grpc.ConnectionConfig
 	LocalMembership() driver.LocalMembership
-	Comm(channel string) (driver.Comm, error)
 	Channel(id string) (driver.Channel, error)
 	IdentityProvider() driver.IdentityProvider
 }
