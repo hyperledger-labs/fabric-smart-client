@@ -77,16 +77,11 @@ func (r *resolverService) LoadResolvers() error {
 	var resolvers []*Resolver
 	for _, cfgResolver := range cfgResolvers {
 		resolver := &Resolver{Resolver: cfgResolver}
-		// Load identity
-		var raw []byte
-		switch resolver.Identity.MSPType {
-		case bccspMSP:
-			raw, err = x509.Serialize(resolver.Identity.MSPID, r.config.TranslatePath(resolver.Identity.Path))
-			if err != nil {
-				return errors.Wrapf(err, "failed serializing x509 identity")
-			}
-		default:
-			return errors.Errorf("expected bccsp type, got %s", resolver.Identity.MSPType)
+
+		// Load identity,
+		raw, err := x509.Serialize(resolver.Identity.MSPID, r.config.TranslatePath(resolver.Identity.Path))
+		if err != nil {
+			return errors.Wrapf(err, "failed serializing x509 identity [%s:%s]", resolver.Identity.MSPID, r.config.TranslatePath(resolver.Identity.Path))
 		}
 
 		resolver.Id = raw
