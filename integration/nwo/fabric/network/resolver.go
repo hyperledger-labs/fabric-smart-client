@@ -46,14 +46,14 @@ func (n *Network) GenerateResolverMap() {
 			if n.topology.NodeOUs {
 				switch peer.Role {
 				case "":
-					path = n.PeerUserLocalMSPIdentityCert(peer, peer.Name)
+					path = n.PeerUserLocalMSP(peer, peer.Name)
 				case "client":
-					path = n.PeerUserLocalMSPIdentityCert(peer, peer.Name)
+					path = n.PeerUserLocalMSP(peer, peer.Name)
 				default:
-					path = n.PeerLocalMSPIdentityCert(peer)
+					path = n.PeerLocalMSP(peer)
 				}
 			} else {
-				path = n.PeerUserLocalMSPIdentityCert(peer, peer.Name)
+				path = n.PeerUserLocalMSP(peer, peer.Name)
 			}
 		} else {
 			continue

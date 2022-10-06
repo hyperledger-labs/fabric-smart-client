@@ -7,14 +7,15 @@ SPDX-License-Identifier: Apache-2.0
 package endpoint
 
 import (
-	"github.com/pkg/errors"
-	"go.uber.org/zap/zapcore"
+	"os"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/x509"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"github.com/pkg/errors"
+	"go.uber.org/zap/zapcore"
 )
 
 var logger = flogging.MustGetLogger("fabric-sdk.endpoint")
@@ -59,7 +60,7 @@ func NewResolverService(config *config.Config, service Service) (*resolverServic
 	return er, nil
 }
 
-// LoadResolvers loads the resolvers specificed in the configuration file, if any
+// LoadResolvers loads the resolvers specified in the configuration file, if any
 func (r *resolverService) LoadResolvers() error {
 	// Load Resolver
 	logger.Infof("loading resolvers")
@@ -74,10 +75,26 @@ func (r *resolverService) LoadResolvers() error {
 	for _, cfgResolver := range cfgResolvers {
 		resolver := &Resolver{Resolver: cfgResolver}
 
-		// Load identity,
-		raw, err := x509.Serialize(resolver.Identity.MSPID, r.config.TranslatePath(resolver.Identity.Path))
+		path := r.config.TranslatePath(resolver.Identity.Path)
+		var raw []byte
+		// Load identity, is resolver.Identity.Path a directory or a file?
+		fileInfo, err := os.Stat(path)
 		if err != nil {
-			return errors.Wrapf(err, "failed serializing x509 identity [%s:%s]", resolver.Identity.MSPID, r.config.TranslatePath(resolver.Identity.Path))
+			return errors.Wrapf(err, "failed to stat [%s]", path)
+		}
+		if fileInfo.IsDir() {
+			// load the msp provider
+			raw, err = x509.SerializeFromMSP(resolver.Identity.MSPID, path)
+			if err != nil {
+				return errors.Wrapf(err, "failed to load msp at [%s:%s]", resolver.Identity.MSPID, path)
+			}
+		} else {
+			// file is not a directory
+			logger.Warnf("resolver [%s:%s] points directly to a certificate, cannot sanitize, use an msp folder instead", resolver.Identity.MSPID, path)
+			raw, err = x509.Serialize(resolver.Identity.MSPID, path)
+			if err != nil {
+				return errors.Wrapf(err, "failed to load  x509 certicate [%s:%s]", resolver.Identity.MSPID, path)
+			}
 		}
 
 		resolver.Id = raw

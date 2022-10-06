@@ -10,10 +10,11 @@ import (
 	x5092 "crypto/x509"
 	"encoding/hex"
 	"encoding/pem"
+	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	pkcs112 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/pkcs11"
-
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	msp2 "github.com/hyperledger/fabric-protos-go/msp"
@@ -22,6 +23,11 @@ import (
 	"github.com/hyperledger/fabric/bccsp/sw"
 	"github.com/hyperledger/fabric/msp"
 	"github.com/pkg/errors"
+)
+
+const (
+	BCCSPType = "bccsp"
+	SignCerts = "signcerts"
 )
 
 // Identity refers to the creator of a tx;
@@ -85,6 +91,15 @@ func LoadLocalMSPAt(dir, id, mspType string, bccspConfig *config.BCCSP) (msp.MSP
 		return nil, errors.WithMessagef(err, "failed to setup the new BCCSPMSP instance at [%s]", dir)
 	}
 	return thisMSP, nil
+}
+
+func LoadLocalMSPSignerCert(dir string) ([]byte, error) {
+	signCertsPath := filepath.Join(dir, SignCerts)
+	signCerts, err := getPemMaterialFromDir(signCertsPath)
+	if err != nil || len(signCerts) == 0 {
+		return nil, errors.Wrapf(err, "could not load a valid signer certificate from directory %s", signCertsPath)
+	}
+	return signCerts[0], nil
 }
 
 // GetBCCSPFromConf returns a BCCSP instance and its relative key store from the passed configuration.
@@ -171,4 +186,35 @@ func GetEnrollmentID(id []byte) (string, error) {
 	default:
 		return "", errors.Errorf("bad block type %s, expected CERTIFICATE", block.Type)
 	}
+}
+
+func getPemMaterialFromDir(dir string) ([][]byte, error) {
+	_, err := os.Stat(dir)
+	if os.IsNotExist(err) {
+		return nil, err
+	}
+
+	content := make([][]byte, 0)
+	files, err := ioutil.ReadDir(dir)
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not read directory %s", dir)
+	}
+
+	for _, f := range files {
+		fullName := filepath.Join(dir, f.Name())
+		f, err := os.Stat(fullName)
+		if err != nil {
+			continue
+		}
+		if f.IsDir() {
+			continue
+		}
+		item, err := readPemFile(fullName)
+		if err != nil {
+			continue
+		}
+		content = append(content, item)
+	}
+
+	return content, nil
 }
