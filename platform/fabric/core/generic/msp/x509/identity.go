@@ -47,7 +47,7 @@ func SerializeRaw(mspID string, raw []byte) ([]byte, error) {
 }
 
 func SerializeFromMSP(mspID string, path string) ([]byte, error) {
-	msp, err := LoadLocalMSPAt(path, mspID, BCCSPType, nil)
+	msp, err := LoadVerifyingMSPAt(path, mspID, BCCSPType)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to load msp at [%s:%s]", mspID, path)
 	}

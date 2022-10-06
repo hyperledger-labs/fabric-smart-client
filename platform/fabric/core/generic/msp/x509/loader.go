@@ -48,7 +48,7 @@ type SigningIdentity interface {
 
 // GetSigningIdentity retrieves a signing identity from the passed arguments
 func GetSigningIdentity(mspConfigPath, mspID string, bccspConfig *config.BCCSP) (SigningIdentity, error) {
-	mspInstance, err := LoadLocalMSPAt(mspConfigPath, mspID, "bccsp", bccspConfig)
+	mspInstance, err := LoadLocalMSPAt(mspConfigPath, mspID, BCCSPType, bccspConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -64,7 +64,7 @@ func GetSigningIdentity(mspConfigPath, mspID string, bccspConfig *config.BCCSP) 
 // LoadLocalMSPAt loads an MSP whose configuration is stored at 'dir', and whose
 // id and type are the passed as arguments.
 func LoadLocalMSPAt(dir, id, mspType string, bccspConfig *config.BCCSP) (msp.MSP, error) {
-	if mspType != "bccsp" {
+	if mspType != BCCSPType {
 		return nil, errors.Errorf("invalid msp type, expected 'bccsp', got %s", mspType)
 	}
 	conf, err := msp.GetLocalMspConfig(dir, nil, id)
@@ -75,6 +75,38 @@ func LoadLocalMSPAt(dir, id, mspType string, bccspConfig *config.BCCSP) (msp.MSP
 	cp, _, err := GetBCCSPFromConf(dir, bccspConfig)
 	if err != nil {
 		return nil, errors.WithMessagef(err, "failed to get bccsp from config [%v]", bccspConfig)
+	}
+
+	mspOpts := &msp.BCCSPNewOpts{
+		NewBaseOpts: msp.NewBaseOpts{
+			Version: msp.MSPv1_0,
+		},
+	}
+	thisMSP, err := msp.New(mspOpts, cp)
+	if err != nil {
+		return nil, errors.WithMessagef(err, "failed to create new BCCSPMSP instance at [%s]", dir)
+	}
+	err = thisMSP.Setup(conf)
+	if err != nil {
+		return nil, errors.WithMessagef(err, "failed to setup the new BCCSPMSP instance at [%s]", dir)
+	}
+	return thisMSP, nil
+}
+
+// LoadVerifyingMSPAt loads a verifying MSP whose configuration is stored at 'dir', and whose
+// id and type are the passed as arguments.
+func LoadVerifyingMSPAt(dir, id, mspType string) (msp.MSP, error) {
+	if mspType != BCCSPType {
+		return nil, errors.Errorf("invalid msp type, expected 'bccsp', got %s", mspType)
+	}
+	conf, err := msp.GetVerifyingMspConfig(dir, id, mspType)
+	if err != nil {
+		return nil, errors.WithMessagef(err, "could not get msp config from dir [%s]", dir)
+	}
+
+	cp, _, err := GetBCCSPFromConf(dir, nil)
+	if err != nil {
+		return nil, errors.WithMessagef(err, "failed to get bccsp")
 	}
 
 	mspOpts := &msp.BCCSPNewOpts{
