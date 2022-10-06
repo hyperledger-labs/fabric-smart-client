@@ -121,21 +121,26 @@ func (d *Discovery) Response() (discovery.Response, error) {
 	d.chaincode.discoveryResultsCacheLock.RLock()
 	responseBoxed, err := d.chaincode.discoveryResultsCache.Get(key)
 	if responseBoxed != nil && err == nil {
+		d.chaincode.discoveryResultsCacheLock.RUnlock()
 		return responseBoxed.(discovery.Response), nil
 	}
 	d.chaincode.discoveryResultsCacheLock.RUnlock()
 
-	if response == nil {
-		// fetch the response
-		response, err = d.send()
-		if err != nil {
-			return nil, errors.WithMessage(err, "failed to send discovery request")
-		}
+	d.chaincode.discoveryResultsCacheLock.Lock()
+	defer d.chaincode.discoveryResultsCacheLock.Unlock()
+
+	responseBoxed, err = d.chaincode.discoveryResultsCache.Get(key)
+	if responseBoxed != nil && err == nil {
+		return responseBoxed.(discovery.Response), nil
+	}
+
+	// fetch the response
+	response, err = d.send()
+	if err != nil {
+		return nil, errors.WithMessage(err, "failed to send discovery request")
 	}
 
 	// cache response
-	d.chaincode.discoveryResultsCacheLock.Lock()
-	defer d.chaincode.discoveryResultsCacheLock.Unlock()
 	if err := d.chaincode.discoveryResultsCache.SetWithTTL(key, response, d.DefaultTTL); err != nil {
 		logger.Warnf("failed to set discovery results in cache: %s", err)
 	}
