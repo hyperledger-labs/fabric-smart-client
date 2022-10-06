@@ -76,6 +76,7 @@ func (c *Chaincode) IsPrivate() bool {
 func (c *Chaincode) Version() (string, error) {
 	response, err := NewDiscovery(c).Response()
 	if err != nil {
+		return "", errors.WithMessage(err, "failed to discover")
 	}
 	endorsers, err := response.ForChannel(c.channel.Name()).Endorsers([]*discovery2.ChaincodeCall{{
 		Name: c.name,
@@ -96,7 +97,7 @@ func (c *Chaincode) Version() (string, error) {
 	}
 	properties := stateInfo.GetProperties()
 	if properties == nil {
-		return "", errors.Errorf("no properites found for chaincode [%s]", c.name)
+		return "", errors.Errorf("no properties found for chaincode [%s]", c.name)
 	}
 	chaincodes := properties.Chaincodes
 	if len(chaincodes) == 0 {
