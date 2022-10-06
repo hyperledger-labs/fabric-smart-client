@@ -617,8 +617,8 @@ func (t *Transaction) getProposalResponse(signer SerializableSigner) (*pb.Propos
 		return nil, err
 	}
 
-	up := t.SignedProposal()
-	if up == nil {
+	signedProposal := t.SignedProposal()
+	if signedProposal == nil {
 		panic("signed proposal must not be nil")
 	}
 	response := &pb.Response{
@@ -626,12 +626,30 @@ func (t *Transaction) getProposalResponse(signer SerializableSigner) (*pb.Propos
 		Message: "",
 		Payload: nil,
 	}
-	prpBytes, err := protoutil.GetBytesProposalResponsePayload(up.ProposalHash(), response, pubSimResBytes, nil, &pb.ChaincodeID{
-		Name:    up.ChaincodeName(),
-		Version: up.ChaincodeVersion(),
-	})
+
+	version := signedProposal.ChaincodeName()
+	if len(signedProposal.ChaincodeVersion()) == 0 {
+		// fetch current chaincode version
+		chaincode := t.channel.Chaincode(signedProposal.ChaincodeName())
+		var err error
+		version, err = chaincode.Version()
+		if err != nil {
+			return nil, errors.WithMessagef(err, "failed to get chaincode version, proposal didn't contain it")
+		}
+	}
+
+	prpBytes, err := protoutil.GetBytesProposalResponsePayload(
+		signedProposal.ProposalHash(),
+		response,
+		pubSimResBytes,
+		nil,
+		&pb.ChaincodeID{
+			Name:    signedProposal.ChaincodeName(),
+			Version: version,
+		},
+	)
 	logger.Debugf("ProposalResponse [%s][%s]->[%s] \n",
-		base64.StdEncoding.EncodeToString(up.ProposalHash()),
+		base64.StdEncoding.EncodeToString(signedProposal.ProposalHash()),
 		base64.StdEncoding.EncodeToString(pubSimResBytes),
 		base64.StdEncoding.EncodeToString(prpBytes),
 	)

@@ -10,9 +10,10 @@ import (
 	"sync"
 
 	"github.com/ReneKroon/ttlcache/v2"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
+	discovery2 "github.com/hyperledger/fabric-protos-go/discovery"
+	"github.com/pkg/errors"
 )
 
 type Chaincode struct {
@@ -68,4 +69,43 @@ func (c *Chaincode) IsPrivate() bool {
 	}
 	// Nothing was found
 	return false
+}
+
+// Version returns the version of this chaincode.
+// It uses discovery to extract this information from the endorsers
+func (c *Chaincode) Version() (string, error) {
+	response, err := NewDiscovery(c).Response()
+	if err != nil {
+	}
+	endorsers, err := response.ForChannel(c.channel.Name()).Endorsers([]*discovery2.ChaincodeCall{{
+		Name: c.name,
+	}}, &noFilter{})
+	if err != nil {
+		return "", errors.Wrapf(err, "failed to get endorsers for chaincode [%s]", c.name)
+	}
+	if len(endorsers) == 0 {
+		return "", errors.Errorf("no endorsers found for chaincode [%s]", c.name)
+	}
+	stateInfoMessage := endorsers[0].StateInfoMessage
+	if stateInfoMessage == nil {
+		return "", errors.Errorf("no state info message found for chaincode [%s]", c.name)
+	}
+	stateInfo := stateInfoMessage.GetStateInfo()
+	if stateInfo == nil {
+		return "", errors.Errorf("no state info found for chaincode [%s]", c.name)
+	}
+	properties := stateInfo.GetProperties()
+	if properties == nil {
+		return "", errors.Errorf("no properites found for chaincode [%s]", c.name)
+	}
+	chaincodes := properties.Chaincodes
+	if len(chaincodes) == 0 {
+		return "", errors.Errorf("no chaincode info found for chaincode [%s]", c.name)
+	}
+	for _, chaincode := range chaincodes {
+		if chaincode.Name == c.name {
+			return chaincode.Version, nil
+		}
+	}
+	return "", errors.Errorf("chaincode [%s] not found", c.name)
 }

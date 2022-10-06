@@ -12,12 +12,10 @@ import (
 	"encoding/json"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
-
-	"github.com/pkg/errors"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/endorser"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"github.com/pkg/errors"
 )
 
 var logger = flogging.MustGetLogger("fabric-sdk.state")
@@ -95,7 +93,7 @@ func (n *Namespace) Present() bool {
 
 // SetNamespace sets the name of this namespace
 func (n *Namespace) SetNamespace(ns string) {
-	n.tx.SetProposal(ns, "Version-0.0", "_state")
+	n.tx.SetProposal(ns, "", "_state")
 }
 
 // AddCommand appends a new Command to this namespace

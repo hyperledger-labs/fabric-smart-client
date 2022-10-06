@@ -99,6 +99,12 @@ func (c *Chaincode) IsPrivate() bool {
 	return c.chaincode.IsPrivate()
 }
 
+// Version returns the version of this chaincode.
+// It returns an error if a failure happens during the computation.
+func (c *Chaincode) Version() (string, error) {
+	return c.chaincode.Version()
+}
+
 // DiscoveredPeer contains the information of a discovered peer
 type DiscoveredPeer = driver.DiscoveredPeer
 
