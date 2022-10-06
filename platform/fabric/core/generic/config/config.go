@@ -94,10 +94,6 @@ func (c *Config) TLSClientCertFile() string {
 	return c.configService.GetPath("fabric." + c.prefix + "tls.clientCert.file")
 }
 
-func (c *Config) TLSRootCertFile() string {
-	return c.configService.GetString("fabric." + c.prefix + "tls.rootCertFile")
-}
-
 func (c *Config) KeepAliveClientInterval() time.Duration {
 	return c.configService.GetDuration("fabric." + c.prefix + "tls.keepalive.client.interval")
 }
