@@ -188,13 +188,14 @@ func (n *NWO) StopFSCNode(id string) {
 
 func (n *NWO) StartFSCNode(id string) {
 	logger.Infof("Search FSC node [%s]...", id)
-	for _, member := range n.ViewMembers {
+	for i, member := range n.ViewMembers {
 		if strings.HasSuffix(member.Name, id) {
 			logger.Infof("FSC node [%s] found. Starting...", id)
 			newRunner := grouper.NewOrdered(syscall.SIGTERM, []grouper.Member{{
 				Name: id, Runner: member.Runner.(*runner.Runner).Clone(),
 			}})
 			member.Runner = newRunner
+			n.ViewMembers[i] = member
 			process := ifrit.Invoke(newRunner)
 			Eventually(process.Ready(), n.StartEventuallyTimeout).Should(BeClosed())
 			n.Processes = append(n.Processes, process)

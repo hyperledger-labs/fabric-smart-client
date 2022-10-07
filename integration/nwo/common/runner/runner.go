@@ -107,7 +107,7 @@ func (r *Runner) Run(sigChan <-chan os.Signal, ready chan<- struct{}) error {
 	if err != nil {
 		return errors.Wrapf(err, "%s failed to start with err", r.Name)
 	}
-	logger.Debugf("spawned %s (pid: %d) with args [%v]", r.Command.Path, r.Command.Process.Pid, r.Command.Args)
+	logger.Infof("spawned [%s] (pid: %d) with args [%v]", r.Command.Path, r.Command.Process.Pid, r.Command.Args)
 
 	go r.monitorForExit(exited)
 
