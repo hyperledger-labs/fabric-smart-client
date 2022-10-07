@@ -76,32 +76,32 @@ func (c *Chaincode) IsPrivate() bool {
 func (c *Chaincode) Version() (string, error) {
 	response, err := NewDiscovery(c).Response()
 	if err != nil {
-		return "", errors.WithMessage(err, "failed to discover")
+		return "", errors.Wrapf(err, "unable to discover channel information for chaincode [%s] on channel [%s]", c.name, c.channel.Name())
 	}
 	endorsers, err := response.ForChannel(c.channel.Name()).Endorsers([]*discovery2.ChaincodeCall{{
 		Name: c.name,
 	}}, &noFilter{})
 	if err != nil {
-		return "", errors.Wrapf(err, "failed to get endorsers for chaincode [%s]", c.name)
+		return "", errors.Wrapf(err, "failed to get endorsers for chaincode [%s] on channel [%s]", c.name, c.channel.Name())
 	}
 	if len(endorsers) == 0 {
-		return "", errors.Errorf("no endorsers found for chaincode [%s]", c.name)
+		return "", errors.Errorf("no endorsers found for chaincode [%s] on channel [%s]", c.name, c.channel.Name())
 	}
 	stateInfoMessage := endorsers[0].StateInfoMessage
 	if stateInfoMessage == nil {
-		return "", errors.Errorf("no state info message found for chaincode [%s]", c.name)
+		return "", errors.Errorf("no state info message found for chaincode [%s] on channel [%s]", c.name, c.channel.Name())
 	}
 	stateInfo := stateInfoMessage.GetStateInfo()
 	if stateInfo == nil {
-		return "", errors.Errorf("no state info found for chaincode [%s]", c.name)
+		return "", errors.Errorf("no state info found for chaincode [%s] on channel [%s]", c.name, c.channel.Name())
 	}
 	properties := stateInfo.GetProperties()
 	if properties == nil {
-		return "", errors.Errorf("no properties found for chaincode [%s]", c.name)
+		return "", errors.Errorf("no properties found for chaincode [%s] on channel [%s]", c.name, c.channel.Name())
 	}
 	chaincodes := properties.Chaincodes
 	if len(chaincodes) == 0 {
-		return "", errors.Errorf("no chaincode info found for chaincode [%s]", c.name)
+		return "", errors.Errorf("no chaincode info found for chaincode [%s] on channel [%s]", c.name, c.channel.Name())
 	}
 	for _, chaincode := range chaincodes {
 		if chaincode.Name == c.name {

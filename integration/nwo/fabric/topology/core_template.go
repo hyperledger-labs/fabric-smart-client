@@ -281,6 +281,11 @@ fabric:
         file: {{ .PeerLocalTLSDir Peer }}/server.crt
       clientKey:
         file: {{ .PeerLocalTLSDir Peer }}/server.key
+      {{- if .ClientAuthRequired }}
+      clientRootCAs:
+        files:
+        - {{ .PeerLocalTLSDir Peer }}/ca.crt
+      {{- end }}
       keepalive:
        client:
          interval: 60s

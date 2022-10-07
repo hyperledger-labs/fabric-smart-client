@@ -12,7 +12,9 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
+	"os"
+
 	"net/http"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/api"
@@ -47,7 +49,7 @@ func NewClient(config *Config) (*Client, error) {
 
 	if len(config.CACert) != 0 {
 		clientCertPool := x509.NewCertPool()
-		caCert, err := ioutil.ReadFile(config.CACert)
+		caCert, err := os.ReadFile(config.CACert)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to open ca cert")
 		}
@@ -92,7 +94,7 @@ func (c *Client) CallView(fid string, in []byte) (interface{}, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to process http request to [%s], input length [%d]", url, len(in))
 	}
-	buff, err := ioutil.ReadAll(resp.Body)
+	buff, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to read response from http request to [%s], input length [%d]", url, len(in))
 	}

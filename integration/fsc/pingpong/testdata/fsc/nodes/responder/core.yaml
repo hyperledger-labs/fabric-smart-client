@@ -11,8 +11,6 @@ fsc:
   id: responder
   # This represents the endpoint to other FSC nodes in the same organization.
   address: 127.0.0.1:20002
-  # GRPC Server listener address
-  listenAddress: 127.0.0.1:20002
   # Identity of this node, used to connect to other nodes
   identity:
     # X.509 certificate used as identity of this node
@@ -40,15 +38,6 @@ fsc:
     # Private key used for TLS server
     key:
       file: ./../../crypto/peerOrganizations/fsc.example.com/peers/responder.fsc.example.com/tls/server.key
-    # rootcert.file represents the trusted root certificate chain used for verifying certificates
-    # of other nodes during outbound connections.
-    rootcert:
-      file: ./../../crypto/peerOrganizations/fsc.example.com/peers/responder.fsc.example.com/tls/ca.crt
-    # If mutual TLS is enabled, clientRootCAs.files contains a list of additional root certificates
-    # used for verifying certificates of client connections.
-    clientRootCAs:
-      files:
-        - ./../../crypto/peerOrganizations/fsc.example.com/peers/responder.fsc.example.com/tls/ca.crt
   # Keepalive settings for node server and clients
   keepalive:
     # MinInterval is the minimum permitted time between client pings.

@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package client
 
 import (
+	"errors"
 	"fmt"
 
 	config2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/core/config"
@@ -22,7 +23,11 @@ func NewWebClientConfigFromFSC(confDir string) (*web.Config, error) {
 	}
 	if configProvider.GetBool("fsc.web.tls.enabled") {
 		config.URL = fmt.Sprintf("https://%s", configProvider.GetString("fsc.web.address"))
-		config.CACert = configProvider.TranslatePath(configProvider.GetStringSlice("fsc.web.tls.clientRootCAs.files")[0])
+		clientRootCAFiles := configProvider.GetStringSlice("fsc.web.tls.clientRootCAs.files")
+		if len(clientRootCAFiles) == 0 {
+			return nil, errors.New("web configuration must have 1 clientRootCA file defined when tls is enabled, none found")
+		}
+		config.CACert = configProvider.TranslatePath(clientRootCAFiles[0])
 		config.TLSCert = configProvider.GetPath("fsc.web.tls.cert.file")
 		config.TLSKey = configProvider.GetPath("fsc.web.tls.key.file")
 	} else {
