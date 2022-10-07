@@ -214,3 +214,7 @@ func (r *Runner) Clone() *Runner {
 		exitCode:          -1,
 	}
 }
+
+func (r *Runner) ExitCode() int {
+	return r.exitCode
+}
