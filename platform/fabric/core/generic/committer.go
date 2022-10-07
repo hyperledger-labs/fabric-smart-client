@@ -9,6 +9,10 @@ package generic
 import (
 	"strings"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
+
+	"github.com/hyperledger/fabric/protoutil"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/compose"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
@@ -104,6 +108,27 @@ func (c *channel) CommitTX(txid string, block uint64, indexInBlock int, envelope
 }
 
 func (c *channel) commitUnknown(txid string, block uint64, indexInBlock int) error {
+	if c.EnvelopeService().Exists(txid) {
+		envRaw, err := c.EnvelopeService().LoadEnvelope(txid)
+		if err != nil {
+			return errors.WithMessagef(err, "failed to load fabric envelope for [%s]", txid)
+		}
+		env, err := protoutil.UnmarshalEnvelope(envRaw)
+		if err != nil {
+			return errors.WithMessagef(err, "failed to unmarshal fabric envelope for [%s][%s]", txid, hash.Hashable(envRaw).String())
+		}
+		pt, err := newProcessedTransactionFromEnvelope(env)
+		if err != nil {
+			return errors.WithMessagef(err, "failed to parse fabric envelope for [%s][%s]", txid, hash.Hashable(envRaw).String())
+		}
+		rws, err := c.vault.GetRWSet(txid, pt.Results())
+		if err != nil {
+			return errors.WithMessagef(err, "failed to parse fabric envelope's rws for [%s][%s]", txid, hash.Hashable(envRaw).String())
+		}
+		rws.Done()
+		return c.commitLocal(txid, block, indexInBlock, nil)
+	}
+
 	if len(c.processNamespaces) == 0 {
 		// This should be ignored
 		logger.Debugf("[%s] is unknown and will be ignored", txid)

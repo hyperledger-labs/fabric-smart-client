@@ -200,7 +200,7 @@ func (n *NWO) StartFSCNode(id string) {
 			return
 		}
 	}
-	logger.Info("FSC node [%s] not found", id)
+	logger.Infof("FSC node [%s] not found", id)
 }
 
 func (n *NWO) storePIDs(f *os.File, members grouper.Members) {
