@@ -109,6 +109,7 @@ func (c *channel) CommitTX(txid string, block uint64, indexInBlock int, envelope
 
 func (c *channel) commitUnknown(txid string, block uint64, indexInBlock int) error {
 	if c.EnvelopeService().Exists(txid) {
+		logger.Debugf("found envelope for transaction [%s], committing it...", txid)
 		envRaw, err := c.EnvelopeService().LoadEnvelope(txid)
 		if err != nil {
 			return errors.WithMessagef(err, "failed to load fabric envelope for [%s]", txid)
