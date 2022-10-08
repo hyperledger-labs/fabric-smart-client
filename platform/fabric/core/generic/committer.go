@@ -298,12 +298,17 @@ func (c *channel) postProcessTx(txid string) error {
 // SubscribeTxStatusChanges registers a listener for transaction status changes for the passed transaction id.
 // If the transaction id is empty, the listener will be called for all transactions.
 func (c *channel) SubscribeTxStatusChanges(txID string, listener driver.TxStatusChangeListener) error {
-	topic := compose.CreateCompositeKeyOrPanic(&strings.Builder{}, "tx", c.network.Name(), c.name, txID)
+	var topic string
+	if len(txID) == 0 {
+		topic = compose.CreateCompositeKeyOrPanic(&strings.Builder{}, "tx", c.network.Name(), c.name)
+	} else {
+		topic = compose.CreateCompositeKeyOrPanic(&strings.Builder{}, "tx", c.network.Name(), c.name, txID)
+	}
 	l := &TxEventsListener{listener: listener}
 	logger.Debugf("[%s] Subscribing to transaction status changes", txID)
 	c.eventsSubscriber.Subscribe(topic, l)
 	logger.Debugf("[%s] store mapping", txID)
-	c.subscribers.Set(txID, listener, l)
+	c.subscribers.Set(topic, listener, l)
 	logger.Debugf("[%s] Subscribing to transaction status changes done", txID)
 	return nil
 }
@@ -311,8 +316,13 @@ func (c *channel) SubscribeTxStatusChanges(txID string, listener driver.TxStatus
 // UnsubscribeTxStatusChanges unregisters a listener for transaction status changes for the passed transaction id.
 // If the transaction id is empty, the listener will be called for all transactions.
 func (c *channel) UnsubscribeTxStatusChanges(txID string, listener driver.TxStatusChangeListener) error {
-	topic := compose.CreateCompositeKeyOrPanic(&strings.Builder{}, "tx", c.network.Name(), c.name, txID)
-	l, ok := c.subscribers.Get(txID, listener)
+	var topic string
+	if len(txID) == 0 {
+		topic = compose.CreateCompositeKeyOrPanic(&strings.Builder{}, "tx", c.network.Name(), c.name)
+	} else {
+		topic = compose.CreateCompositeKeyOrPanic(&strings.Builder{}, "tx", c.network.Name(), c.name, txID)
+	}
+	l, ok := c.subscribers.Get(topic, listener)
 	if !ok {
 		return errors.Errorf("listener not found for txID [%s]", txID)
 	}
@@ -320,7 +330,7 @@ func (c *channel) UnsubscribeTxStatusChanges(txID string, listener driver.TxStat
 	if !ok {
 		return errors.Errorf("listener not found for txID [%s]", txID)
 	}
-	c.subscribers.Delete(txID, listener)
+	c.subscribers.Delete(topic, listener)
 	c.eventsSubscriber.Unsubscribe(topic, el)
 	return nil
 }
@@ -331,11 +341,10 @@ func (c *channel) notifyTxStatus(txID string, vc driver.ValidationCode) {
 	// 2. The second will be caught by the listeners that are listening for the specific transaction id.
 	var sb strings.Builder
 	c.eventsPublisher.Publish(&driver.TransactionStatusChanged{
-		ThisTopic: compose.CreateCompositeKeyOrPanic(&sb, "tx", c.network.Name(), c.name, txID),
+		ThisTopic: compose.CreateCompositeKeyOrPanic(&sb, "tx", c.network.Name(), c.name),
 		TxID:      txID,
 		VC:        vc,
 	})
-	sb.WriteString(txID)
 	c.eventsPublisher.Publish(&driver.TransactionStatusChanged{
 		ThisTopic: compose.AppendAttributesOrPanic(&sb, txID),
 		TxID:      txID,
