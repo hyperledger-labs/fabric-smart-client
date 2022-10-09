@@ -211,13 +211,20 @@ func (c *committer) IsFinal(ctx context.Context, txID string) error {
 					logger.Debugf("Tx [%s] is known", txID)
 				}
 			case driver.Unknown:
-				if iter >= 2 {
-					return errors.Errorf("transaction [%s] is unknown", txID)
+				if c.em.Exists(txID) {
+					if logger.IsEnabledFor(zapcore.DebugLevel) {
+						logger.Debugf("Tx [%s] is known", txID)
+					}
+					continue
+				} else {
+					if iter >= 2 {
+						return errors.Errorf("transaction [%s] is unknown", txID)
+					}
+					if logger.IsEnabledFor(zapcore.DebugLevel) {
+						logger.Debugf("Tx [%s] is unknown with no deps, wait a bit and retry [%d]", txID, iter)
+					}
+					time.Sleep(100 * time.Millisecond)
 				}
-				if logger.IsEnabledFor(zapcore.DebugLevel) {
-					logger.Debugf("Tx [%s] is unknown with no deps, wait a bit and retry [%d]", txID, iter)
-				}
-				time.Sleep(100 * time.Millisecond)
 			default:
 				panic(fmt.Sprintf("invalid status code, got %c", vd))
 			}
