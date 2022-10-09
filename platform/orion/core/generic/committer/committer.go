@@ -54,6 +54,7 @@ type committer struct {
 	vault               Vault
 	finality            Finality
 	pm                  ProcessorManager
+	em                  driver.EnvelopeService
 	waitForEventTimeout time.Duration
 
 	quietNotifier bool
@@ -70,6 +71,7 @@ type committer struct {
 func New(
 	networkName string,
 	pm ProcessorManager,
+	em driver.EnvelopeService,
 	vault Vault,
 	finality Finality,
 	waitForEventTimeout time.Duration,
@@ -86,6 +88,7 @@ func New(
 		mutex:               sync.Mutex{},
 		finality:            finality,
 		pm:                  pm,
+		em:                  em,
 		pollingTimeout:      100 * time.Millisecond,
 		eventsSubscriber:    eventsSubscriber,
 		eventsPublisher:     eventsPublisher,
@@ -135,8 +138,11 @@ func (c *committer) CommitTX(txID string, bn uint64, index int, event *TxEvent) 
 		logger.Debugf("tx %s is already invalid", txID)
 		return errors.Errorf("tx %s is already invalid but it is marked as valid by orion", txID)
 	case driver.Unknown:
-		logger.Debugf("tx %s is unknown, ignore it", txID)
-		return nil
+		if !c.em.Exists(txID) {
+			logger.Debugf("tx %s is unknown, ignore it", txID)
+			return nil
+		}
+		logger.Debugf("tx %s is unknown, but it was found its envelope has been found, process it", txID)
 	}
 
 	// post process

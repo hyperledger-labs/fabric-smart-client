@@ -136,6 +136,7 @@ func NewNetwork(ctx context.Context, sp view2.ServiceProvider, config *config2.C
 	committer, err := committer.New(
 		name,
 		n.processorManager,
+		n.envelopeService,
 		n.vault,
 		nil,
 		waitForEventTimeout,
