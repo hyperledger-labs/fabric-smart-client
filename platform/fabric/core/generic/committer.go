@@ -9,15 +9,13 @@ package generic
 import (
 	"strings"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
-
-	"github.com/hyperledger/fabric/protoutil"
-
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/compose"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger/fabric-protos-go/common"
 	pb "github.com/hyperledger/fabric-protos-go/peer"
+	"github.com/hyperledger/fabric/protoutil"
 	"github.com/pkg/errors"
 )
 
@@ -107,50 +105,34 @@ func (c *channel) CommitTX(txid string, block uint64, indexInBlock int, envelope
 	}
 }
 
-func (c *channel) commitUnknown(txid string, block uint64, indexInBlock int) error {
-	if c.EnvelopeService().Exists(txid) {
-		logger.Debugf("found envelope for transaction [%s], committing it...", txid)
-		envRaw, err := c.EnvelopeService().LoadEnvelope(txid)
-		if err != nil {
-			return errors.WithMessagef(err, "failed to load fabric envelope for [%s]", txid)
-		}
-		env, err := protoutil.UnmarshalEnvelope(envRaw)
-		if err != nil {
-			return errors.WithMessagef(err, "failed to unmarshal fabric envelope for [%s][%s]", txid, hash.Hashable(envRaw).String())
-		}
-		pt, err := newProcessedTransactionFromEnvelope(env)
-		if err != nil {
-			return errors.WithMessagef(err, "failed to parse fabric envelope for [%s][%s]", txid, hash.Hashable(envRaw).String())
-		}
-		rws, err := c.vault.GetRWSet(txid, pt.Results())
-		if err != nil {
-			return errors.WithMessagef(err, "failed to parse fabric envelope's rws for [%s][%s]", txid, hash.Hashable(envRaw).String())
-		}
-		rws.Done()
-		return c.commitLocal(txid, block, indexInBlock, nil)
+func (c *channel) commitUnknown(txID string, block uint64, indexInBlock int) error {
+	// if an envelope exists for the passed txID, then commit it
+	if c.EnvelopeService().Exists(txID) {
+		return c.commitStoredEnvelope(txID, block, indexInBlock)
 	}
 
+	// process the transaction if it contains given namespaces
 	if len(c.processNamespaces) == 0 {
 		// This should be ignored
-		logger.Debugf("[%s] is unknown and will be ignored", txid)
+		logger.Debugf("[%s] is unknown and will be ignored", txID)
 		return nil
 	}
 
-	logger.Debugf("[%s] is unknown but will be processed for known namespaces", txid)
-	pt, err := c.GetTransactionByID(txid)
+	logger.Debugf("[%s] is unknown but will be processed for known namespaces", txID)
+	pt, err := c.GetTransactionByID(txID)
 	if err != nil {
-		return errors.WithMessagef(err, "failed fetching tx [%s]", txid)
+		return errors.WithMessagef(err, "failed fetching tx [%s]", txID)
 	}
 	if !pt.IsValid() {
-		return errors.Errorf("fetched tx [%s] should have been valid, instead it is [%s]", txid, pb.TxValidationCode_name[pt.ValidationCode()])
+		return errors.Errorf("fetched tx [%s] should have been valid, instead it is [%s]", txID, pb.TxValidationCode_name[pt.ValidationCode()])
 	}
 
-	rws, err := c.GetRWSet(txid, pt.Results())
+	rws, err := c.GetRWSet(txID, pt.Results())
 	if err != nil {
-		return errors.WithMessagef(err, "failed getting rwset for tx [%s]", txid)
+		return errors.WithMessagef(err, "failed getting rwset for tx [%s]", txID)
 	}
 	found := false
-	logger.Debugf("[%s] contains namespaces [%v]", txid, rws.Namespaces())
+	logger.Debugf("[%s] contains namespaces [%v]", txID, rws.Namespaces())
 	for _, ns := range rws.Namespaces() {
 		for _, pns := range c.processNamespaces {
 			if ns == pns {
@@ -165,14 +147,39 @@ func (c *channel) commitUnknown(txid string, block uint64, indexInBlock int) err
 	rws.Done()
 
 	if !found {
-		logger.Debugf("[%s] no known namespaces found", txid)
+		logger.Debugf("[%s] no known namespaces found", txID)
 		// nothing to commit
 		return nil
 	}
 
 	// commit this transaction because it contains one of ne namespace to be processed anyway
-	logger.Debugf("[%s] known namespaces found, commit", txid)
-	return c.commit(txid, nil, block, indexInBlock, nil)
+	logger.Debugf("[%s] known namespaces found, commit", txID)
+	return c.commit(txID, nil, block, indexInBlock, nil)
+}
+
+func (c *channel) commitStoredEnvelope(txID string, block uint64, indexInBlock int) error {
+	logger.Debugf("found envelope for transaction [%s], committing it...", txID)
+	// extract envelope
+	envRaw, err := c.EnvelopeService().LoadEnvelope(txID)
+	if err != nil {
+		return errors.WithMessagef(err, "failed to load fabric envelope for [%s]", txID)
+	}
+	env, err := protoutil.UnmarshalEnvelope(envRaw)
+	if err != nil {
+		return errors.WithMessagef(err, "failed to unmarshal fabric envelope for [%s][%s]", txID, hash.Hashable(envRaw).String())
+	}
+	pt, err := newProcessedTransactionFromEnvelope(env)
+	if err != nil {
+		return errors.WithMessagef(err, "failed to parse fabric envelope for [%s][%s]", txID, hash.Hashable(envRaw).String())
+	}
+	// load into the vault
+	rws, err := c.vault.GetRWSet(txID, pt.Results())
+	if err != nil {
+		return errors.WithMessagef(err, "failed to parse fabric envelope's rws for [%s][%s]", txID, hash.Hashable(envRaw).String())
+	}
+	rws.Done()
+	// commit
+	return c.commitLocal(txID, block, indexInBlock, nil)
 }
 
 func (c *channel) commit(txid string, deps []string, block uint64, indexInBlock int, envelope *common.Envelope) error {
