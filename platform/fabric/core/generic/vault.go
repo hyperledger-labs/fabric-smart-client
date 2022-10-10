@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package generic
 
 import (
+	"fmt"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/vault/txidstore"
@@ -27,7 +29,7 @@ type TXIDStore interface {
 	Set(txid string, code fdriver.ValidationCode) error
 }
 
-func NewVault(sp view2.ServiceProvider, config *config.Config, channel string) (*vault.Vault, TXIDStore, error) {
+func NewVault(sp view2.ServiceProvider, config *config.Config, network, channel string) (*vault.Vault, TXIDStore, error) {
 	pType := config.VaultPersistenceType()
 	if pType == "file" {
 		// for retro compatibility
@@ -54,5 +56,8 @@ func NewVault(sp view2.ServiceProvider, config *config.Config, channel string) (
 		txidStore = txidstore.NewCache(txidStore, secondcache.New(txIDStoreCacheSize))
 	}
 
-	return vault.New(persistence, txidStore), txidStore, nil
+	v := vault.New(persistence, txidStore)
+	vault.RegisterWebHandler(vault.GetServer(sp), fmt.Sprintf("/%s/%s/vault", network, channel), v)
+
+	return v, txidStore, nil
 }

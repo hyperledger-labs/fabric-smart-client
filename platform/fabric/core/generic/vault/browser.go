@@ -4,21 +4,30 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package kvs
+package vault
 
 import (
 	"encoding/json"
 	"html/template"
 	"net/http"
+	"reflect"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs/browser"
 	"github.com/pkg/errors"
 )
 
 type Server interface {
 	RegisterHandler(s string, handler http.Handler, secure bool)
+}
+
+func GetServer(ctx view.ServiceProvider) Server {
+	s, err := ctx.GetService(reflect.TypeOf((*Server)(nil)))
+	if err != nil {
+		panic(err)
+	}
+	return s.(Server)
 }
 
 type Entry struct {
@@ -32,35 +41,17 @@ type errorResponse struct {
 
 type Browser struct {
 	Server Server
-	KVS    *KVS
+	Vault  *Vault
 }
 
-func RegisterWebHandler(server Server, kvs *KVS) *Browser {
-	b := &Browser{Server: server, KVS: kvs}
-	b.Server.RegisterHandler("/kvs", b, true)
+func RegisterWebHandler(server Server, path string, vault *Vault) *Browser {
+	b := &Browser{Server: server, Vault: vault}
+	b.Server.RegisterHandler(path, b, true)
 	return b
 }
 
 func (b *Browser) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
-	it, err := b.KVS.GetByPartialCompositeIDInternal("", nil)
-	if err != nil {
-		b.sendResponse(writer, http.StatusBadRequest, errors.WithMessage(err, "failed to get iterator over Vault"))
-	}
-	defer it.Close()
 	var list []*Entry
-	for i := 0; i < 100; i++ {
-		n, err := it.Next()
-		if err != nil {
-			break
-		}
-		if n == nil {
-			break
-		}
-		list = append(list, &Entry{
-			Key:   n.Key,
-			Value: hash.Hashable(n.Raw).String(),
-		})
-	}
 	logger.Infof("retrieved [%d] entries", len(list))
 
 	t, err := template.New("peer").Funcs(template.FuncMap{

@@ -148,7 +148,7 @@ func (p *p) Install() error {
 
 	finality.InstallHandler(p.registry, p.viewService)
 
-	kvs.NewBrowser(p.webServer, defaultKVS)
+	kvs.RegisterWebHandler(p.webServer, defaultKVS)
 
 	return nil
 }

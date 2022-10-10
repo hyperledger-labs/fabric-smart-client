@@ -83,7 +83,7 @@ type channel struct {
 func newChannel(network *network, name string, quiet bool) (*channel, error) {
 	sp := network.sp
 	// Vault
-	v, txIDStore, err := NewVault(sp, network.config, name)
+	v, txIDStore, err := NewVault(sp, network.config, network.name, name)
 	if err != nil {
 		return nil, err
 	}
