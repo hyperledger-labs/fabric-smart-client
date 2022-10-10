@@ -201,7 +201,11 @@ func (p *P2PNode) sendTo(IDString string, address string, msg proto.Message) err
 		}
 
 		ps.ClearAddrs(ID)
-		s, err := multiaddr.NewMultiaddr(AddressToEndpoint(address))
+		addr, err := AddressToEndpoint(address)
+		if err != nil {
+			return errors.WithMessagef(err, "failed to parse endpoint's address [%s]", address)
+		}
+		s, err := multiaddr.NewMultiaddr(addr)
 		if err != nil {
 			return errors.Wrapf(err, "failed to get mutliaddr for [%s]", address)
 		}
@@ -210,7 +214,7 @@ func (p *P2PNode) sendTo(IDString string, address string, msg proto.Message) err
 
 	nwStream, err := p.host.NewStream(context.Background(), ID, protocol.ID(viewProtocol))
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "failed to create new stream to [%s]", ID)
 	}
 
 	p.handleStream()(nwStream)

@@ -21,6 +21,10 @@ func Serialize(mspID string, certPath string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	return SerializeRaw(mspID, raw)
+}
+
+func SerializeRaw(mspID string, raw []byte) ([]byte, error) {
 	cert, err := getCertFromPem(raw)
 	if err != nil {
 		return nil, err
@@ -40,6 +44,26 @@ func Serialize(mspID string, certPath string) ([]byte, error) {
 	}
 
 	return idBytes, nil
+}
+
+func SerializeFromMSP(mspID string, path string) ([]byte, error) {
+	msp, err := LoadVerifyingMSPAt(path, mspID, BCCSPType)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to load msp at [%s:%s]", mspID, path)
+	}
+	certRaw, err := LoadLocalMSPSignerCert(path)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to load certificate at [%s:%s]", mspID, path)
+	}
+	serRaw, err := SerializeRaw(mspID, certRaw)
+	if err != nil {
+		return nil, errors.WithMessagef(err, "failed to generate msp serailization at [%s:%s]", mspID, path)
+	}
+	id, err := msp.DeserializeIdentity(serRaw)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to deserialize certificate at [%s:%s]", mspID, path)
+	}
+	return id.Serialize()
 }
 
 func readFile(file string) ([]byte, error) {

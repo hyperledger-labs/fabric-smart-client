@@ -12,12 +12,17 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
+	"os"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/api"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	protos2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view/protos"
+	"github.com/pkg/errors"
 )
+
+var logger = flogging.MustGetLogger("view-sdk.web.client")
 
 // Config models the configuration for the web client
 type Config struct {
@@ -39,24 +44,28 @@ type Client struct {
 
 // NewClient returns a new web client
 func NewClient(config *Config) (*Client, error) {
-	clientCertPool := x509.NewCertPool()
-	caCert, err := ioutil.ReadFile(config.CACert)
-	if err != nil {
-		return nil, err
-	}
-	clientCertPool.AppendCertsFromPEM(caCert)
+	var tlsClientConfig *tls.Config
 
-	tlsClientConfig := &tls.Config{
-		RootCAs: clientCertPool,
+	if len(config.CACert) != 0 {
+		clientCertPool := x509.NewCertPool()
+		caCert, err := os.ReadFile(config.CACert)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to open ca cert")
+		}
+		clientCertPool.AppendCertsFromPEM(caCert)
+
+		tlsClientConfig = &tls.Config{
+			RootCAs: clientCertPool,
+		}
+		clientCert, err := tls.LoadX509KeyPair(
+			config.TLSCert,
+			config.TLSKey,
+		)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to load x509 key pair")
+		}
+		tlsClientConfig.Certificates = []tls.Certificate{clientCert}
 	}
-	clientCert, err := tls.LoadX509KeyPair(
-		config.TLSCert,
-		config.TLSKey,
-	)
-	if err != nil {
-		return nil, err
-	}
-	tlsClientConfig.Certificates = []tls.Certificate{clientCert}
 
 	return &Client{
 		c: &http.Client{
@@ -76,22 +85,26 @@ func (c *Client) CallView(fid string, in []byte) (interface{}, error) {
 	url := fmt.Sprintf("%s/v1/Views/%s", c.url, fid)
 	req, err := http.NewRequest(http.MethodPut, url, bytes.NewBuffer(in))
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "failed to create http request to [%s], input length [%d]", url, len(in))
 	}
+	logger.Debugf("call view [%s] using http request to [%s], input length [%d]", fid, url, len(in))
 
 	resp, err := c.c.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "failed to process http request to [%s], input length [%d]", url, len(in))
 	}
-	buff, err := ioutil.ReadAll(resp.Body)
+	buff, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "failed to read response from http request to [%s], input length [%d]", url, len(in))
 	}
 
 	response := &protos2.CommandResponse_CallViewResponse{}
 	err = json.Unmarshal(buff, response)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "failed to unmarshal response from http request to [%s], input length [%d]", url, len(in))
+	}
+	if response.CallViewResponse == nil {
+		return nil, errors.Errorf("got empty response from http request to [%s], input length [%d]", url, len(in))
 	}
 	return response.CallViewResponse.Result, nil
 }

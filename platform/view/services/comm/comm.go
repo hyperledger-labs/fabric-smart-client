@@ -87,26 +87,31 @@ func (s *Service) init() error {
 			s.PrivateKeyDispenser,
 		)
 		if err != nil {
-			return errors.Wrapf(err, "failed initializing bootstrap p2p manager [%s]", p2pListenAddress)
+			return errors.Wrapf(err, "failed to initialize bootstrap p2p node [%s]", p2pListenAddress)
 		}
 	} else {
 		bootstrapNodeID, err := s.EndpointService.GetIdentity(p2pBootstrapNode, nil)
 		if err != nil {
-			return err
+			return errors.WithMessagef(err, "failed to get p2p bootstrap node's resolver entry [%s]", p2pBootstrapNode)
 		}
 		_, endpoints, pkID, err := s.EndpointService.Resolve(bootstrapNodeID)
 		if err != nil {
-			return err
+			return errors.WithMessagef(err, "failed to resolve bootstrap node id [%s:%s]", p2pBootstrapNode, bootstrapNodeID)
 		}
 
-		logger.Infof("new p2p node [%s,%s]", p2pListenAddress, AddressToEndpoint(endpoints[view.P2PPort])+"/p2p/"+string(pkID))
+		addr, err := AddressToEndpoint(endpoints[view.P2PPort])
+		if err != nil {
+			return errors.WithMessagef(err, "failed to get the endpoint of the bootstrap node from [%s:%s], [%s]", p2pBootstrapNode, bootstrapNodeID, endpoints[view.P2PPort])
+		}
+		addr = addr + "/p2p/" + string(pkID)
+		logger.Infof("new p2p node [%s,%s]", p2pListenAddress, addr)
 		s.Node, err = NewNode(
 			p2pListenAddress,
-			AddressToEndpoint(endpoints[view.P2PPort])+"/p2p/"+string(pkID),
+			addr,
 			s.PrivateKeyDispenser,
 		)
 		if err != nil {
-			return errors.Wrapf(err, "failed initializing node p2p manager [%s,%s]", p2pListenAddress, AddressToEndpoint(endpoints[view.P2PPort])+"/p2p/"+string(pkID))
+			return errors.Wrapf(err, "failed to initialize node p2p manager [%s,%s]", p2pListenAddress, addr)
 		}
 	}
 	return nil

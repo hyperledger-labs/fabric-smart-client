@@ -16,17 +16,14 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
-type MspConf struct {
-	ID      string `yaml:"id"`
-	MSPType string `yaml:"mspType"`
-	MSPID   string `yaml:"mspID"`
-	Path    string `yaml:"path"`
+type Identity struct {
+	Path string `yaml:"path"`
 }
 
 type entry struct {
 	Name           string            `yaml:"name,omitempty"`
 	Domain         string            `yaml:"domain,omitempty"`
-	Identity       MspConf           `yaml:"identity,omitempty"`
+	Identity       Identity          `yaml:"identity,omitempty"`
 	Addresses      map[string]string `yaml:"addresses,omitempty"`
 	Aliases        []string          `yaml:"aliases,omitempty"`
 	Id             []byte

@@ -48,10 +48,6 @@ type Channel interface {
 	// provided peer connection config
 	NewPeerClientForAddress(cc grpc.ConnectionConfig) (peer.Client, error)
 
-	// NewPeerClientForIdentity creates an instance of a Client using the
-	// provided peer identity
-	NewPeerClientForIdentity(peer view.Identity) (peer.Client, error)
-
 	// IsFinal takes in input a transaction id and waits for its confirmation
 	// with the respect to the passed context that can be used to set a deadline
 	// for the waiting time.

@@ -15,7 +15,6 @@ import (
 type Endorse interface {
 	WithInvokerIdentity(identity view.Identity) Endorse
 	WithTransientEntry(k string, v interface{})
-	WithEndorsers(endorsers ...view.Identity)
 	WithEndorsersByMSPIDs(ds ...string)
 	WithEndorsersFromMyOrg()
 	WithTxID(txID fabric.TxID) Endorse
@@ -25,7 +24,6 @@ type Endorse interface {
 type Query interface {
 	WithInvokerIdentity(identity view.Identity) Query
 	WithTransientEntry(k string, v interface{})
-	WithEndorsers(endorsers ...view.Identity)
 	WithEndorsersByMSPIDs(ds ...string)
 	WithEndorsersFromMyOrg()
 	Call() ([]byte, error)
@@ -59,10 +57,6 @@ func (s *stdEndorse) WithTransientEntry(k string, v interface{}) {
 	s.che.WithTransientEntry(k, v)
 }
 
-func (s *stdEndorse) WithEndorsers(endorsers ...view.Identity) {
-	s.che.WithEndorsers(endorsers...)
-}
-
 func (s *stdEndorse) WithEndorsersByMSPIDs(ds ...string) {
 	s.che.WithEndorsersByMSPIDs(ds...)
 }
@@ -86,10 +80,6 @@ func (s *stdQuery) WithInvokerIdentity(identity view.Identity) Query {
 
 func (s *stdQuery) WithTransientEntry(k string, v interface{}) {
 	s.chq.WithTransientEntry(k, v)
-}
-
-func (s *stdQuery) WithEndorsers(endorsers ...view.Identity) {
-	s.chq.WithEndorsers(endorsers...)
 }
 
 func (s *stdQuery) WithEndorsersByMSPIDs(ds ...string) {
@@ -138,10 +128,6 @@ func (s *fpcEndorse) WithTransientEntry(k string, v interface{}) {
 	s.che.WithTransientEntry(k, v)
 }
 
-func (s *fpcEndorse) WithEndorsers(endorsers ...view.Identity) {
-	s.che.WithEndorsers(endorsers...)
-}
-
 func (s *fpcEndorse) WithEndorsersByMSPIDs(ds ...string) {
 	s.che.WithEndorsersByMSPIDs(ds...)
 }
@@ -165,10 +151,6 @@ func (s *fpcQuery) WithInvokerIdentity(identity view.Identity) Query {
 
 func (s *fpcQuery) WithTransientEntry(k string, v interface{}) {
 	s.chq.WithTransientEntry(k, v)
-}
-
-func (s *fpcQuery) WithEndorsers(endorsers ...view.Identity) {
-	s.chq.WithEndorsers(endorsers...)
 }
 
 func (s *fpcQuery) WithEndorsersByMSPIDs(ds ...string) {

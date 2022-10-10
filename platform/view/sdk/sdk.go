@@ -175,18 +175,14 @@ func (p *p) initWEBServer() error {
 	listenAddr := configProvider.GetString("fsc.web.address")
 
 	var tlsConfig web2.TLS
-	prefix := "fsc."
-	if configProvider.IsSet("fsc.web.tls") {
-		prefix = "fsc.web."
-	}
 	var clientRootCAs []string
-	for _, path := range configProvider.GetStringSlice(prefix + "tls.clientRootCAs.files") {
+	for _, path := range configProvider.GetStringSlice("fsc.web.tls.clientRootCAs.files") {
 		clientRootCAs = append(clientRootCAs, configProvider.TranslatePath(path))
 	}
 	tlsConfig = web2.TLS{
-		Enabled:           configProvider.GetBool(prefix + "tls.enabled"),
-		CertFile:          configProvider.GetPath(prefix + "tls.cert.file"),
-		KeyFile:           configProvider.GetPath(prefix + "tls.key.file"),
+		Enabled:           configProvider.GetBool("fsc.web.tls.enabled"),
+		CertFile:          configProvider.GetPath("fsc.web.tls.cert.file"),
+		KeyFile:           configProvider.GetPath("fsc.web.tls.key.file"),
 		ClientCACertFiles: clientRootCAs,
 	}
 	p.webServer = web2.NewServer(web2.Options{
@@ -216,7 +212,7 @@ func (p *p) registerViewServiceServer() error {
 func (p *p) initGRPCServer() error {
 	configProvider := view.GetConfigService(p.registry)
 
-	listenAddr := configProvider.GetString("fsc.listenAddress")
+	listenAddr := configProvider.GetString("fsc.address")
 	serverConfig, err := p.getServerConfig()
 	if err != nil {
 		logger.Fatalf("Error loading secure config for peer (%s)", err)
@@ -350,14 +346,6 @@ func (p *p) getServerConfig() (grpc2.ServerConfig, error) {
 				clientRoots = append(clientRoots, clientRoot)
 			}
 			serverConfig.SecOpts.ClientRootCAs = clientRoots
-		}
-		// check for root cert
-		if configProvider.GetPath("fsc.tls.rootcert.file") != "" {
-			rootCert, err := ioutil.ReadFile(configProvider.GetPath("fsc.tls.rootcert.file"))
-			if err != nil {
-				return serverConfig, fmt.Errorf("error loading TLS root certificate (%s)", err)
-			}
-			serverConfig.SecOpts.ServerRootCAs = [][]byte{rootCert}
 		}
 	}
 	// get the default keepalive options

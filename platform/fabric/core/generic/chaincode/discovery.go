@@ -42,32 +42,7 @@ func NewDiscovery(chaincode *Chaincode) *Discovery {
 }
 
 func (d *Discovery) Call() ([]driver.DiscoveredPeer, error) {
-	var sb strings.Builder
-	sb.WriteString(d.chaincode.network.Name())
-	sb.WriteString(d.chaincode.channel.Name())
-	sb.WriteString(d.chaincode.name)
-	for _, mspiD := range d.FilterByMSPIDs {
-		sb.WriteString(mspiD)
-	}
-	key := sb.String()
-
-	var response discovery.Response
-
-	// Do we have a response already?
-	d.chaincode.discoveryResultsCacheLock.RLock()
-	responseBoxed, err := d.chaincode.discoveryResultsCache.Get(key)
-	if responseBoxed != nil && err == nil {
-		response = responseBoxed.(discovery.Response)
-	}
-	d.chaincode.discoveryResultsCacheLock.RUnlock()
-
-	if response == nil {
-		// fetch the response
-		response, err = d.send()
-		if err != nil {
-			return nil, errors.WithMessage(err, "failed to send discovery request")
-		}
-	}
+	response, err := d.Response()
 
 	// extract endorsers
 	cr := response.ForChannel(d.chaincode.channel.Name())
@@ -91,11 +66,11 @@ func (d *Discovery) Call() ([]driver.DiscoveredPeer, error) {
 		)
 	}
 	if err != nil {
-		return nil, errors.WithMessagef(err, "failed getting endorsers for [%s]", key)
+		return nil, errors.WithMessagef(err, "failed getting endorsers for [%s:%s:%s]", d.chaincode.network.Name(), d.chaincode.channel.Name(), d.chaincode.name)
 	}
 	configResult, err := cr.Config()
 	if err != nil {
-		return nil, errors.WithMessagef(err, "failed getting config for [%s]", key)
+		return nil, errors.WithMessagef(err, "failed getting config for [%s:%s:%s]", d.chaincode.network.Name(), d.chaincode.channel.Name(), d.chaincode.name)
 	}
 
 	var discoveredEndorsers []driver.DiscoveredPeer
@@ -127,15 +102,51 @@ func (d *Discovery) Call() ([]driver.DiscoveredPeer, error) {
 		})
 	}
 
-	// cache response
+	return discoveredEndorsers, nil
+}
+
+func (d *Discovery) Response() (discovery.Response, error) {
+	var sb strings.Builder
+	sb.WriteString(d.chaincode.network.Name())
+	sb.WriteString(d.chaincode.channel.Name())
+	sb.WriteString(d.chaincode.name)
+	for _, mspiD := range d.FilterByMSPIDs {
+		sb.WriteString(mspiD)
+	}
+	key := sb.String()
+
+	var response discovery.Response
+
+	// Do we have a response already?
+	d.chaincode.discoveryResultsCacheLock.RLock()
+	responseBoxed, err := d.chaincode.discoveryResultsCache.Get(key)
+	if responseBoxed != nil && err == nil {
+		d.chaincode.discoveryResultsCacheLock.RUnlock()
+		return responseBoxed.(discovery.Response), nil
+	}
+	d.chaincode.discoveryResultsCacheLock.RUnlock()
+
 	d.chaincode.discoveryResultsCacheLock.Lock()
 	defer d.chaincode.discoveryResultsCacheLock.Unlock()
+
+	responseBoxed, err = d.chaincode.discoveryResultsCache.Get(key)
+	if responseBoxed != nil && err == nil {
+		return responseBoxed.(discovery.Response), nil
+	}
+
+	// fetch the response
+	response, err = d.send()
+	if err != nil {
+		return nil, errors.WithMessage(err, "failed to send discovery request")
+	}
+
+	// cache response
 	if err := d.chaincode.discoveryResultsCache.SetWithTTL(key, response, d.DefaultTTL); err != nil {
 		logger.Warnf("failed to set discovery results in cache: %s", err)
 	}
 
 	// done
-	return discoveredEndorsers, nil
+	return response, nil
 }
 
 func (d *Discovery) WithFilterByMSPIDs(mspIDs ...string) driver.ChaincodeDiscover {
@@ -238,4 +249,11 @@ func (f *byMSPIDs) Filter(endorsers discovery.Endorsers) discovery.Endorsers {
 		filteredEndorsers = append(filteredEndorsers, endorser)
 	}
 	return filteredEndorsers
+}
+
+type noFilter struct {
+}
+
+func (f *noFilter) Filter(endorsers discovery.Endorsers) discovery.Endorsers {
+	return endorsers
 }

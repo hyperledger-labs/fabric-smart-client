@@ -413,12 +413,20 @@ func (n *Network) PeerLocalMSPIdentityCert(p *topology.Peer) string {
 	)
 }
 
+func (n *Network) PeerLocalMSP(p *topology.Peer) string {
+	return n.peerLocalCryptoDir(p, "msp")
+}
+
 func (n *Network) PeerUserLocalMSPIdentityCert(p *topology.Peer, user string) string {
 	return filepath.Join(
 		n.peerUserLocalCryptoDir(p, user, "msp"),
 		"signcerts",
 		p.Name+"@"+n.Organization(p.Organization).Domain+"-cert.pem",
 	)
+}
+
+func (n *Network) PeerUserLocalMSP(p *topology.Peer, user string) string {
+	return n.peerUserLocalCryptoDir(p, user, "msp")
 }
 
 func (n *Network) PeerLocalIdemixExtraIdentitiesDir(p *topology.Peer) string {
@@ -931,7 +939,7 @@ func (n *Network) PeerRunner(p *topology.Peer, env ...string) *runner2.Runner {
 		AnsiColorCode:     n.nextColor(),
 		Name:              n.Prefix + "-" + p.ID(),
 		Command:           cmd,
-		StartCheck:        `Started peer with ID=.*, .*, address=`,
+		StartCheck:        `Started peer with ID=.*, address=`,
 		StartCheckTimeout: 1 * time.Minute,
 	}
 	if n.Topology().LogPeersToFile {

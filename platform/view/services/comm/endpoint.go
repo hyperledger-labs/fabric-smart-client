@@ -10,10 +10,15 @@ import (
 	"fmt"
 	"net"
 	"strings"
+
+	"github.com/pkg/errors"
 )
 
-func AddressToEndpoint(endpoint string) string {
+func AddressToEndpoint(endpoint string) (string, error) {
 	s := strings.Split(endpoint, ":")
+	if len(s) != 2 {
+		return "", errors.Errorf("invalid endpoint [%s], expected 2 components, got [%d]", endpoint, len(s))
+	}
 	var addrS string
 	addr, err := net.LookupIP(s[0])
 	if err != nil {
@@ -22,5 +27,6 @@ func AddressToEndpoint(endpoint string) string {
 		addrS = addr[0].String()
 	}
 	port := s[1]
-	return fmt.Sprintf("/ip4/%s/tcp/%s", addrS, port)
+
+	return fmt.Sprintf("/ip4/%s/tcp/%s", addrS, port), nil
 }

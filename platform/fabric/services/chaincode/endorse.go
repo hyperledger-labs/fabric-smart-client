@@ -88,9 +88,6 @@ func (i *endorseChaincodeView) Endorse(context view.Context) (*fabric.Envelope, 
 	for k, v := range i.TransientMap {
 		invocation.WithTransientEntry(k, v)
 	}
-	if len(i.Endorsers) != 0 {
-		invocation.WithEndorsers(i.Endorsers...)
-	}
 	if len(i.EndorsersMSPIDs) != 0 {
 		invocation.WithEndorsersByMSPIDs(i.EndorsersMSPIDs...)
 	}
@@ -110,11 +107,6 @@ func (i *endorseChaincodeView) WithTransientEntry(k string, v interface{}) *endo
 		i.TransientMap = map[string]interface{}{}
 	}
 	i.TransientMap[k] = v
-	return i
-}
-
-func (i *endorseChaincodeView) WithEndorsers(ids ...view.Identity) *endorseChaincodeView {
-	i.EndorseCall.Endorsers = ids
 	return i
 }
 

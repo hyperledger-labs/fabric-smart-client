@@ -10,10 +10,10 @@ import (
 	x5092 "crypto/x509"
 	"encoding/hex"
 	"encoding/pem"
+	"os"
 	"path/filepath"
 
 	pkcs112 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/pkcs11"
-
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	msp2 "github.com/hyperledger/fabric-protos-go/msp"
@@ -22,6 +22,11 @@ import (
 	"github.com/hyperledger/fabric/bccsp/sw"
 	"github.com/hyperledger/fabric/msp"
 	"github.com/pkg/errors"
+)
+
+const (
+	BCCSPType = "bccsp"
+	SignCerts = "signcerts"
 )
 
 // Identity refers to the creator of a tx;
@@ -42,7 +47,7 @@ type SigningIdentity interface {
 
 // GetSigningIdentity retrieves a signing identity from the passed arguments
 func GetSigningIdentity(mspConfigPath, mspID string, bccspConfig *config.BCCSP) (SigningIdentity, error) {
-	mspInstance, err := LoadLocalMSPAt(mspConfigPath, mspID, "bccsp", bccspConfig)
+	mspInstance, err := LoadLocalMSPAt(mspConfigPath, mspID, BCCSPType, bccspConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -58,7 +63,7 @@ func GetSigningIdentity(mspConfigPath, mspID string, bccspConfig *config.BCCSP) 
 // LoadLocalMSPAt loads an MSP whose configuration is stored at 'dir', and whose
 // id and type are the passed as arguments.
 func LoadLocalMSPAt(dir, id, mspType string, bccspConfig *config.BCCSP) (msp.MSP, error) {
-	if mspType != "bccsp" {
+	if mspType != BCCSPType {
 		return nil, errors.Errorf("invalid msp type, expected 'bccsp', got %s", mspType)
 	}
 	conf, err := msp.GetLocalMspConfig(dir, nil, id)
@@ -85,6 +90,47 @@ func LoadLocalMSPAt(dir, id, mspType string, bccspConfig *config.BCCSP) (msp.MSP
 		return nil, errors.WithMessagef(err, "failed to setup the new BCCSPMSP instance at [%s]", dir)
 	}
 	return thisMSP, nil
+}
+
+// LoadVerifyingMSPAt loads a verifying MSP whose configuration is stored at 'dir', and whose
+// id and type are the passed as arguments.
+func LoadVerifyingMSPAt(dir, id, mspType string) (msp.MSP, error) {
+	if mspType != BCCSPType {
+		return nil, errors.Errorf("invalid msp type, expected 'bccsp', got %s", mspType)
+	}
+	conf, err := msp.GetVerifyingMspConfig(dir, id, mspType)
+	if err != nil {
+		return nil, errors.WithMessagef(err, "could not get msp config from dir [%s]", dir)
+	}
+
+	cp, _, err := GetBCCSPFromConf(dir, nil)
+	if err != nil {
+		return nil, errors.WithMessagef(err, "failed to get bccsp")
+	}
+
+	mspOpts := &msp.BCCSPNewOpts{
+		NewBaseOpts: msp.NewBaseOpts{
+			Version: msp.MSPv1_0,
+		},
+	}
+	thisMSP, err := msp.New(mspOpts, cp)
+	if err != nil {
+		return nil, errors.WithMessagef(err, "failed to create new BCCSPMSP instance at [%s]", dir)
+	}
+	err = thisMSP.Setup(conf)
+	if err != nil {
+		return nil, errors.WithMessagef(err, "failed to setup the new BCCSPMSP instance at [%s]", dir)
+	}
+	return thisMSP, nil
+}
+
+func LoadLocalMSPSignerCert(dir string) ([]byte, error) {
+	signCertsPath := filepath.Join(dir, SignCerts)
+	signCerts, err := getPemMaterialFromDir(signCertsPath)
+	if err != nil || len(signCerts) == 0 {
+		return nil, errors.Wrapf(err, "could not load a valid signer certificate from directory %s", signCertsPath)
+	}
+	return signCerts[0], nil
 }
 
 // GetBCCSPFromConf returns a BCCSP instance and its relative key store from the passed configuration.
@@ -171,4 +217,35 @@ func GetEnrollmentID(id []byte) (string, error) {
 	default:
 		return "", errors.Errorf("bad block type %s, expected CERTIFICATE", block.Type)
 	}
+}
+
+func getPemMaterialFromDir(dir string) ([][]byte, error) {
+	_, err := os.Stat(dir)
+	if os.IsNotExist(err) {
+		return nil, err
+	}
+
+	content := make([][]byte, 0)
+	files, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not read directory %s", dir)
+	}
+
+	for _, f := range files {
+		fullName := filepath.Join(dir, f.Name())
+		f, err := os.Stat(fullName)
+		if err != nil {
+			continue
+		}
+		if f.IsDir() {
+			continue
+		}
+		item, err := readPemFile(fullName)
+		if err != nil {
+			continue
+		}
+		content = append(content, item)
+	}
+
+	return content, nil
 }

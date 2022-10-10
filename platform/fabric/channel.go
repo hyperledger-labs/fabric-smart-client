@@ -9,7 +9,6 @@ package fabric
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 type Channel struct {
@@ -57,10 +56,6 @@ func (c *Channel) Chaincode(name string) *Chaincode {
 
 func (c *Channel) Delivery() *Delivery {
 	return &Delivery{ch: c}
-}
-
-func (c *Channel) GetTLSRootCert(party view.Identity) ([][]byte, error) {
-	return c.ch.GetTLSRootCert(party)
 }
 
 func (c *Channel) MetadataService() *MetadataService {

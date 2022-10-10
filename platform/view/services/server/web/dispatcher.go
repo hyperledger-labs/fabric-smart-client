@@ -6,8 +6,10 @@ SPDX-License-Identifier: Apache-2.0
 
 package web
 
+import "strings"
+
 type ViewCaller interface {
-	CallView(fid string, input []byte) (interface{}, error)
+	CallView(vid string, input []byte) (interface{}, error)
 }
 
 type Dispatcher struct {
@@ -24,7 +26,11 @@ func (rd *Dispatcher) HandleRequest(context *ReqContext) (response interface{}, 
 		return &ResponseErr{Reason: "internal error"}, 500
 	}
 
-	res, err := rd.vc.CallView(context.Vars["View"], context.Query.([]byte))
+	viewID := context.Vars["View"]
+	escapedViewID := strings.Replace(viewID, "\n", "", -1)
+	escapedViewID = strings.Replace(escapedViewID, "\r", "", -1)
+
+	res, err := rd.vc.CallView(escapedViewID, context.Query.([]byte))
 	if err != nil {
 		return &ResponseErr{Reason: err.Error()}, 500
 	}

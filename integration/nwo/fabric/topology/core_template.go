@@ -277,20 +277,15 @@ fabric:
     tls:
       enabled:  true
       clientAuthRequired: {{ .ClientAuthRequired }}
-      cert:
-        file: {{ .PeerLocalTLSDir Peer }}/server.crt
-      key:
-        file: {{ .PeerLocalTLSDir Peer }}/server.key
       clientCert:
         file: {{ .PeerLocalTLSDir Peer }}/server.crt
       clientKey:
         file: {{ .PeerLocalTLSDir Peer }}/server.key
-      rootcert:
-        file: {{ .PeerLocalTLSDir Peer }}/ca.crt
+      {{- if .ClientAuthRequired }}
       clientRootCAs:
         files:
         - {{ .PeerLocalTLSDir Peer }}/ca.crt
-      rootCertFile: {{ .CACertsBundlePath }}
+      {{- end }}
       keepalive:
        client:
          interval: 60s
@@ -338,8 +333,6 @@ fabric:
       - name: {{ .Name }}
         domain: {{ .Domain }}
         identity:
-          id: {{ .Identity.ID }}
-          mspType: {{ .Identity.MSPType }}
           mspID: {{ .Identity.MSPID }}
           path: {{ .Identity.Path }}
         addresses: {{ range $key, $value := .Addresses }}

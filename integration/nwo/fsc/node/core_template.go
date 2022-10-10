@@ -17,17 +17,8 @@ fsc:
   # The FSC id provides a name for this node instance and is used when
   # naming docker resources.
   id: {{ Peer.ID }}
-  # The networkId allows for logical separation of networks and is used when
-  # naming docker resources.
-  networkId: {{ NetworkID }}
   # This represents the endpoint to other FSC nodes in the same organization.
   address: 127.0.0.1:{{ .NodePort Peer "Listen" }}
-  # Whether the FSC node should programmatically determine its address
-  # This case is useful for docker containers.
-  # When set to true, will override FSC address.
-  addressAutoDetect: true
-  # GRPC Server listener address   
-  listenAddress: 127.0.0.1:{{ .NodePort Peer "Listen" }}
   # Identity of this node, used to connect to other nodes
   identity:
     # X.509 certificate used as identity of this node
@@ -57,24 +48,11 @@ fsc:
     # Private key used for TLS server
     key:
       file: {{ .NodeLocalTLSDir Peer }}/server.key
-    # X.509 certificate used for TLS when making client connections.
-    # If not set, fsc.tls.cert.file will be used instead
-    clientCert:
-      file: {{ .NodeLocalTLSDir Peer }}/server.crt
-    # Private key used for TLS when making client connections.
-    # If not set, fsc.tls.key.file will be used instead
-    clientKey:
-      file: {{ .NodeLocalTLSDir Peer }}/server.key
-    # rootcert.file represents the trusted root certificate chain used for verifying certificates
-    # of other nodes during outbound connections.
-    rootcert:
-      file: {{ .NodeLocalTLSDir Peer }}/ca.crt
     # If mutual TLS is enabled, clientRootCAs.files contains a list of additional root certificates
     # used for verifying certificates of client connections.
     clientRootCAs:
       files:
       - {{ .NodeLocalTLSDir Peer }}/ca.crt
-    rootCertFile: {{ .CACertsBundlePath }}
   # Keepalive settings for node server and clients
   keepalive:
     # MinInterval is the minimum permitted time between client pings.
@@ -123,7 +101,6 @@ fsc:
       clientRootCAs:
         files:
         - {{ .NodeLocalTLSDir Peer }}/ca.crt
-    rootCertFile: {{ .CACertsBundlePath }}
   tracing:
     provider: {{ Topology.TracingProvider }}
     udp:
@@ -150,7 +127,6 @@ fsc:
     - name: {{ .Name }}
       domain: {{ .Domain }}
       identity:
-        id: {{ .Identity.ID }}
         path: {{ .Identity.Path }}
       addresses: {{ range $key, $value := .Addresses }}
          {{ $key }}: {{ $value }} 

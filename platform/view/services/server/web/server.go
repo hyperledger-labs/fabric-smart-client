@@ -183,7 +183,10 @@ func (s *Server) listen() (net.Listener, error) {
 		return nil, err
 	}
 	if tlsConfig != nil {
+		s.logger.Infof("TLS enabled")
 		listener = tls.NewListener(listener, tlsConfig)
+	} else {
+		s.logger.Infof("TLS disabled")
 	}
 	return listener, nil
 }

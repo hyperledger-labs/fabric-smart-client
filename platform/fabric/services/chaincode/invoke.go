@@ -19,7 +19,6 @@ type InvokeCall struct {
 	ChaincodeName      string
 	ChaincodeVersion   string
 	TransientMap       map[string]interface{}
-	Endorsers          []view.Identity
 	EndorsersMSPIDs    []string
 	EndorsersFromMyOrg bool
 	Function           string
@@ -77,9 +76,6 @@ func (i *invokeChaincodeView) Invoke(context view.Context) (string, []byte, erro
 	for k, v := range i.TransientMap {
 		invocation.WithTransientEntry(k, v)
 	}
-	if len(i.Endorsers) != 0 {
-		invocation.WithEndorsers(i.Endorsers...)
-	}
 	if len(i.EndorsersMSPIDs) != 0 {
 		invocation.WithEndorsersByMSPIDs(i.EndorsersMSPIDs...)
 	}
@@ -99,11 +95,6 @@ func (i *invokeChaincodeView) WithTransientEntry(k string, v interface{}) *invok
 		i.TransientMap = map[string]interface{}{}
 	}
 	i.TransientMap[k] = v
-	return i
-}
-
-func (i *invokeChaincodeView) WithEndorsers(ids ...view.Identity) *invokeChaincodeView {
-	i.InvokeCall.Endorsers = ids
 	return i
 }
 

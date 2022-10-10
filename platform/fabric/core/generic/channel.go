@@ -179,15 +179,6 @@ func (c *channel) Name() string {
 	return c.name
 }
 
-func (c *channel) GetTLSRootCert(endorser view.Identity) ([][]byte, error) {
-	return c.network.GetTLSRootCert(endorser)
-}
-
-func (c *channel) NewPeerClientForIdentity(peer view.Identity) (peer2.Client, error) {
-	logger.Debugf("NewPeerClientForIdentity [%s]", peer)
-	return c.connCache.NewPeerClientForIdentity(peer)
-}
-
 func (c *channel) NewPeerClientForAddress(cc grpc.ConnectionConfig) (peer2.Client, error) {
 	logger.Debugf("NewPeerClientForAddress [%v]", cc)
 	return c.connCache.NewPeerClientForAddress(cc)
@@ -416,33 +407,6 @@ func (c *connCreator) NewPeerClientForAddress(cc grpc.ConnectionConfig) (peer2.C
 	return newPeerClientForClientConfig(
 		c.ch.DefaultSigner(),
 		cc.Address,
-		override,
-		*clientConfig,
-	)
-}
-
-func (c *connCreator) NewPeerClientForIdentity(peer view.Identity) (peer2.Client, error) {
-	logger.Debugf("Creating new peer client for [%s]", peer)
-	addresses, err := view2.GetEndpointService(c.ch.sp).Endpoint(peer)
-	if err != nil {
-		return nil, err
-	}
-	tlsRootCerts, err := c.ch.GetTLSRootCert(peer)
-	if err != nil {
-		return nil, err
-	}
-	if addresses[view2.ListenPort] == "" {
-		return nil, errors.New("peer address must be set")
-	}
-
-	clientConfig, override, err := c.ch.GetClientConfig(tlsRootCerts)
-	if err != nil {
-		return nil, err
-	}
-
-	return newPeerClientForClientConfig(
-		c.ch.DefaultSigner(),
-		addresses[view2.ListenPort],
 		override,
 		*clientConfig,
 	)
