@@ -206,9 +206,11 @@ func (o *service) cleanupOrderedClient() {
 }
 
 func (o *service) broadcastEnvelope(env *common2.Envelope) error {
+	forceConnect := false
 	stream, err := o.getOrSetOrdererClient()
 	if err != nil {
-		return errors.WithMessagef(err, "failed getting ordering stream")
+		forceConnect = true
+		logger.Errorf("failed to get ordering stream [%s]", err)
 	}
 
 	o.lock.Lock()
@@ -223,22 +225,26 @@ func (o *service) broadcastEnvelope(env *common2.Envelope) error {
 			logger.Debugf("broadcast, retry [%d]...", i)
 			// wait a bit
 			time.Sleep(retryInternal)
+		}
+
+		if i > 0 || forceConnect {
+			o.cleanupOrderedClient()
+			forceConnect = false
 			// recreate client
 			if err := o.newOrdererClient(); err != nil {
-				return errors.WithMessagef(err, "failed re-getting ordering stream")
+				logger.Errorf("failed to re-get ordering stream [%s], retry", err)
+				continue
 			}
 			stream = o.oStream
 		}
 
 		err = BroadcastSend(stream, env)
 		if err != nil {
-			o.cleanupOrderedClient()
 			continue
 		}
 
 		status, err = stream.Recv()
 		if err != nil {
-			o.cleanupOrderedClient()
 			continue
 		}
 
