@@ -452,6 +452,7 @@ func (p *Platform) GenerateCoreConfig(peer *node2.Peer) {
 		"KVSOrionDatabase":       func() string { return GetKVSOrionDatabase(peer) },
 		"KVSOrionCreator":        func() string { return GetKVSOrionCreator(peer) },
 		"Resolvers":              func() []*Resolver { return resolvers },
+		"WebTLS":                 func() bool { return p.Topology.WebTLS },
 	}).Parse(node2.CoreTemplate)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(t.Execute(io.MultiWriter(core), p)).NotTo(HaveOccurred())

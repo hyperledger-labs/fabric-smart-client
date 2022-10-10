@@ -86,10 +86,8 @@ func (p *p) Install() error {
 
 	// KVS
 	defaultKVS, err := kvs.New(p.registry, kvs.GetDriverNameFromConf(p.registry), "_default")
-	if err != nil {
-		return errors.Wrap(err, "failed creating kvs")
-	}
-	assert.NoError(p.registry.RegisterService(defaultKVS))
+	assert.NoError(err, "failed to create KVS")
+	assert.NoError(p.registry.RegisterService(defaultKVS), "failed to register KVS")
 
 	// Sig Service
 	des, err := sig.NewMultiplexDeserializer(p.registry)
@@ -149,6 +147,8 @@ func (p *p) Install() error {
 	}
 
 	finality.InstallHandler(p.registry, p.viewService)
+
+	kvs.NewBrowser(p.webServer, defaultKVS)
 
 	return nil
 }

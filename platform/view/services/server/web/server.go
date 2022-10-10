@@ -147,7 +147,7 @@ func (s *Server) initializeServer() {
 }
 
 func (s *Server) HandlerChain(h http.Handler, secure bool) http.Handler {
-	if secure {
+	if secure && s.options.TLS.Enabled {
 		return middleware.NewChain(middleware.RequireCert(), middleware.WithRequestID(GenerateUUID)).Handler(h)
 	}
 	return middleware.NewChain(middleware.WithRequestID(GenerateUUID)).Handler(h)

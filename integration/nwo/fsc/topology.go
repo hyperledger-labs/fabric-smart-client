@@ -29,6 +29,8 @@ type Topology struct {
 	TracingProvider string `yaml:"tracingType,omitempty"`
 
 	MetricsProvider string `yaml:"metricsType,omitempty"`
+
+	WebTLS bool `yaml:"webTLS,omitempty"`
 }
 
 // NewTopology returns an empty FSC network topology.
@@ -43,6 +45,7 @@ func NewTopology() *Topology {
 		},
 		TracingProvider: "none",
 		MetricsProvider: "none",
+		WebTLS:          true,
 	}
 }
 
@@ -106,4 +109,8 @@ func (t *Topology) addNode(node *node.Node) *node.Node {
 	}
 	t.Nodes = append(t.Nodes, node)
 	return node
+}
+
+func (t *Topology) DisableWebTLS() {
+	t.WebTLS = false
 }

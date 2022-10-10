@@ -32,6 +32,7 @@ func Topology() []api.Topology {
 	fscTopology.SetLogging("debug", "")
 	fscTopology.EnableLogToFile()
 	fscTopology.EnablePrometheusMetrics()
+	fscTopology.DisableWebTLS()
 
 	// Add the approver FSC node.
 	approver := fscTopology.AddNodeByName("approver")

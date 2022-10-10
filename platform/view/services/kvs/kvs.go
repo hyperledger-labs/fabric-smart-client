@@ -21,7 +21,7 @@ import (
 
 var (
 	logger = flogging.MustGetLogger("view-sdk.kvs")
-	kvs    = &KVS{}
+	kvsKey = &KVS{}
 )
 
 const (
@@ -240,20 +240,30 @@ func (o *KVS) Delete(id string) error {
 }
 
 func (o *KVS) GetByPartialCompositeID(prefix string, attrs []string) (*iteratorConverter, error) {
-	partialCompositeKey, err := CreateCompositeKey(prefix, attrs)
+	itr, err := o.GetByPartialCompositeIDInternal(prefix, attrs)
 	if err != nil {
-		return nil, errors.Errorf("failed building composite key [%s]", err)
+		return nil, errors.WithMessagef(err, "failed to get iterator")
 	}
+	return &iteratorConverter{ri: itr}, nil
+}
 
-	startKey := partialCompositeKey
-	endKey := partialCompositeKey + string(maxUnicodeRuneValue)
+func (o *KVS) GetByPartialCompositeIDInternal(prefix string, attrs []string) (driver.ResultsIterator, error) {
+	startKey := ""
+	endKey := ""
+	if len(prefix) != 0 {
+		partialCompositeKey, err := CreateCompositeKey(prefix, attrs)
+		if err != nil {
+			return nil, errors.Errorf("failed building composite key [%s]", err)
+		}
+		startKey = partialCompositeKey
+		endKey = partialCompositeKey + string(maxUnicodeRuneValue)
+	}
 
 	itr, err := o.store.GetStateRangeScanIterator(o.namespace, startKey, endKey)
 	if err != nil {
 		return nil, errors.Errorf("store access failure for GetStateRangeScanIterator [%s], ns [%s] range [%s,%s]", err, o.namespace, startKey, endKey)
 	}
-
-	return &iteratorConverter{ri: itr}, nil
+	return itr, nil
 }
 
 func (o *KVS) Stop() {
@@ -290,7 +300,7 @@ func (i *iteratorConverter) Next(state interface{}) (string, error) {
 // GetService returns the KVS instance registered in the passed context.
 // If no KVS instance is registered, it panics.
 func GetService(ctx view.ServiceProvider) *KVS {
-	s, err := ctx.GetService(kvs)
+	s, err := ctx.GetService(kvsKey)
 	if err != nil {
 		panic(err)
 	}

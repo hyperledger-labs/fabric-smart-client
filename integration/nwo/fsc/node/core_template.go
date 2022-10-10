@@ -93,7 +93,7 @@ fsc:
     # HTTPS server listener address
     address: 0.0.0.0:{{ .NodePort Peer "Web" }}
     tls:
-      enabled:  true
+      enabled:  {{ WebTLS }}
       cert:
         file: {{ .NodeLocalTLSDir Peer }}/server.crt
       key:
