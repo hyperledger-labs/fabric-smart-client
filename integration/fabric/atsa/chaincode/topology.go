@@ -35,7 +35,7 @@ func Topology() []api.Topology {
 
 	// Define a new FSC topology
 	fscTopology := fsc.NewTopology()
-	fscTopology.SetLogging("debug", "")
+	//fscTopology.SetLogging("debug", "")
 
 	// Define Alice's FSC node
 	alice := fscTopology.AddNodeByName("alice")

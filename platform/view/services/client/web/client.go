@@ -13,9 +13,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"os"
-
 	"net/http"
+	"os"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/api"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
