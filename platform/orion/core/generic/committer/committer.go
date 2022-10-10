@@ -54,6 +54,7 @@ type committer struct {
 	vault               Vault
 	finality            Finality
 	pm                  ProcessorManager
+	em                  driver.EnvelopeService
 	waitForEventTimeout time.Duration
 
 	quietNotifier bool
@@ -65,11 +66,16 @@ type committer struct {
 	eventsSubscriber events.Subscriber
 	eventsPublisher  events.Publisher
 	subscribers      *events.Subscribers
+
+	// finality
+	finalityNumRetries int
+	finalitySleepTime  time.Duration
 }
 
 func New(
 	networkName string,
 	pm ProcessorManager,
+	em driver.EnvelopeService,
 	vault Vault,
 	finality Finality,
 	waitForEventTimeout time.Duration,
@@ -86,10 +92,13 @@ func New(
 		mutex:               sync.Mutex{},
 		finality:            finality,
 		pm:                  pm,
+		em:                  em,
 		pollingTimeout:      100 * time.Millisecond,
 		eventsSubscriber:    eventsSubscriber,
 		eventsPublisher:     eventsPublisher,
 		subscribers:         events.NewSubscribers(),
+		finalityNumRetries:  3,
+		finalitySleepTime:   100 * time.Millisecond,
 	}
 	return d, nil
 }
@@ -135,8 +144,11 @@ func (c *committer) CommitTX(txID string, bn uint64, index int, event *TxEvent) 
 		logger.Debugf("tx %s is already invalid", txID)
 		return errors.Errorf("tx %s is already invalid but it is marked as valid by orion", txID)
 	case driver.Unknown:
-		logger.Debugf("tx %s is unknown, ignore it", txID)
-		return nil
+		if !c.em.Exists(txID) {
+			logger.Debugf("tx %s is unknown, ignore it", txID)
+			return nil
+		}
+		logger.Debugf("tx %s is unknown, but it was found its envelope has been found, process it", txID)
 	}
 
 	// post process
@@ -186,7 +198,8 @@ func (c *committer) IsFinal(ctx context.Context, txID string) error {
 		logger.Debugf("Is [%s] final?", txID)
 	}
 
-	for iter := 0; iter < 3; iter++ {
+	skipLoop := false
+	for iter := 0; iter < c.finalityNumRetries; iter++ {
 		vd, err := c.vault.Status(txID)
 		if err == nil {
 			switch vd {
@@ -205,19 +218,31 @@ func (c *committer) IsFinal(ctx context.Context, txID string) error {
 					logger.Debugf("Tx [%s] is known", txID)
 				}
 			case driver.Unknown:
-				if iter >= 2 {
+				if c.em.Exists(txID) {
+					if logger.IsEnabledFor(zapcore.DebugLevel) {
+						logger.Debugf("found an envelope for [%s], consider it as known", txID)
+					}
+					skipLoop = true
+					break
+				}
+
+				// wait a bit to see if something changes
+				if iter >= c.finalityNumRetries-1 {
 					return errors.Errorf("transaction [%s] is unknown", txID)
 				}
 				if logger.IsEnabledFor(zapcore.DebugLevel) {
 					logger.Debugf("Tx [%s] is unknown with no deps, wait a bit and retry [%d]", txID, iter)
 				}
-				time.Sleep(100 * time.Millisecond)
+				time.Sleep(c.finalitySleepTime)
 			default:
 				panic(fmt.Sprintf("invalid status code, got %c", vd))
 			}
 		} else {
 			logger.Errorf("Is [%s] final? Failed getting transaction status from vault", txID)
 			return errors.WithMessagef(err, "failed getting transaction status from vault [%s]", txID)
+		}
+		if skipLoop {
+			break
 		}
 	}
 
@@ -229,10 +254,15 @@ func (c *committer) IsFinal(ctx context.Context, txID string) error {
 // If the transaction id is empty, the listener will be called for all transactions.
 func (c *committer) SubscribeTxStatusChanges(txID string, wrapped driver.TxStatusChangeListener) error {
 	logger.Debugf("Subscribing to tx status changes for [%s]", txID)
-	topic := compose.CreateCompositeKeyOrPanic(&strings.Builder{}, "tx", c.networkName, txID)
+	var topic string
+	if len(txID) == 0 {
+		topic = compose.CreateCompositeKeyOrPanic(&strings.Builder{}, "tx", c.networkName)
+	} else {
+		topic = compose.CreateCompositeKeyOrPanic(&strings.Builder{}, "tx", c.networkName, txID)
+	}
 	wrapper := &TxEventsListener{listener: wrapped}
 	c.eventsSubscriber.Subscribe(topic, wrapper)
-	c.subscribers.Set(txID, wrapped, wrapper)
+	c.subscribers.Set(topic, wrapped, wrapper)
 	logger.Debugf("Subscribed to tx status changes for [%s] done", txID)
 	return nil
 }
@@ -240,8 +270,13 @@ func (c *committer) SubscribeTxStatusChanges(txID string, wrapped driver.TxStatu
 // UnsubscribeTxStatusChanges unregisters a listener for transaction status changes for the passed transaction id.
 // If the transaction id is empty, the listener will be called for all transactions.
 func (c *committer) UnsubscribeTxStatusChanges(txID string, listener driver.TxStatusChangeListener) error {
-	topic := compose.CreateCompositeKeyOrPanic(&strings.Builder{}, "tx", c.networkName, txID)
-	l, ok := c.subscribers.Get(txID, listener)
+	var topic string
+	if len(txID) == 0 {
+		topic = compose.CreateCompositeKeyOrPanic(&strings.Builder{}, "tx", c.networkName)
+	} else {
+		topic = compose.CreateCompositeKeyOrPanic(&strings.Builder{}, "tx", c.networkName, txID)
+	}
+	l, ok := c.subscribers.Get(topic, listener)
 	if !ok {
 		return errors.Errorf("listener not found for txID [%s]", txID)
 	}
@@ -249,6 +284,7 @@ func (c *committer) UnsubscribeTxStatusChanges(txID string, listener driver.TxSt
 	if !ok {
 		return errors.Errorf("listener not found for txID [%s]", txID)
 	}
+	c.subscribers.Delete(topic, listener)
 	c.eventsSubscriber.Unsubscribe(topic, el)
 	return nil
 }
@@ -259,11 +295,10 @@ func (c *committer) notifyTxStatus(txID string, vc driver.ValidationCode) {
 	// 2. The second will be caught by the listeners that are listening for the specific transaction id.
 	var sb strings.Builder
 	c.eventsPublisher.Publish(&driver.TransactionStatusChanged{
-		ThisTopic: compose.CreateCompositeKeyOrPanic(&sb, "tx", c.networkName, txID),
+		ThisTopic: compose.CreateCompositeKeyOrPanic(&sb, "tx", c.networkName),
 		TxID:      txID,
 		VC:        vc,
 	})
-	sb.WriteString(txID)
 	c.eventsPublisher.Publish(&driver.TransactionStatusChanged{
 		ThisTopic: compose.AppendAttributesOrPanic(&sb, txID),
 		TxID:      txID,

@@ -7,9 +7,11 @@ SPDX-License-Identifier: Apache-2.0
 package views
 
 import (
+	"sync"
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou/states"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -72,6 +74,17 @@ func (i *ApproverView) Call(context view.Context) (interface{}, error) {
 	_, err = context.RunView(state.NewEndorseView(tx))
 	assert.NoError(err)
 
+	// Check committer events
+	var wg sync.WaitGroup
+	wg.Add(2)
+	committer := fabric.GetDefaultChannel(context).Committer()
+	assert.NoError(err, committer.SubscribeTxStatusChanges(tx.ID(), NewTxStatusChangeListener(tx.ID(), &wg)), "failed to add committer listener")
+	assert.NoError(err, committer.SubscribeTxStatusChanges("", NewTxStatusChangeListener(tx.ID(), &wg)), "failed to add committer listener")
+
 	// Finally, the approver waits that the transaction completes its lifecycle
-	return context.RunView(state.NewFinalityWithTimeoutView(tx, 1*time.Minute))
+	_, err = context.RunView(state.NewFinalityWithTimeoutView(tx, 1*time.Minute))
+	assert.NoError(err, "failed to run finality view")
+
+	wg.Wait()
+	return nil, nil
 }

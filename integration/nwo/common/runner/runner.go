@@ -80,11 +80,11 @@ func (r *Runner) Run(sigChan <-chan os.Signal, ready chan<- struct{}) error {
 
 	var outWriter, errWriter io.Writer
 	if r.config.Stdout != nil || r.config.Stderr != nil {
-		logger.Infof("running %s with provided stdout/stderr", r.Name)
+		logger.Infof("running [%s] with provided stdout/stderr", r.Name)
 		outWriter = io.MultiWriter(out, ginkgo.GinkgoWriter, r.config.Stdout)
 		errWriter = io.MultiWriter(out, ginkgo.GinkgoWriter, r.config.Stderr)
 	} else {
-		logger.Infof("running %s with ginkgo stdout/stderr", r.Name)
+		logger.Infof("running [%s] with ginkgo stdout/stderr", r.Name)
 		outWriter = io.MultiWriter(out, ginkgo.GinkgoWriter)
 		errWriter = io.MultiWriter(out, ginkgo.GinkgoWriter)
 	}
@@ -107,7 +107,7 @@ func (r *Runner) Run(sigChan <-chan os.Signal, ready chan<- struct{}) error {
 	if err != nil {
 		return errors.Wrapf(err, "%s failed to start with err", r.Name)
 	}
-	logger.Debugf("spawned %s (pid: %d) with args [%v]", r.Command.Path, r.Command.Process.Pid, r.Command.Args)
+	logger.Infof("spawned [%s] (pid: %d) with args [%v]", r.Command.Path, r.Command.Process.Pid, r.Command.Args)
 
 	go r.monitorForExit(exited)
 
@@ -161,8 +161,11 @@ func (r *Runner) Run(sigChan <-chan os.Signal, ready chan<- struct{}) error {
 
 			return fmt.Errorf("exit status %d", r.exitCode)
 		case signal := <-r.stop:
+			logger.Infof("dispatch signal [%d] to process [%s]", signal, r.Name)
 			if signal != nil {
-				r.Command.Process.Signal(signal)
+				if err := r.Command.Process.Signal(signal); err != nil {
+					logger.Errorf("failed to send signal [%d] to process [%s]", signal, r.Name)
+				}
 			}
 
 		}
@@ -186,6 +189,7 @@ func (r *Runner) monitorForExit(exited chan<- struct{}) {
 }
 
 func (r *Runner) Stop() {
+	logger.Infof("Send SIGTERM to [%s]", r.Name)
 	r.stop <- syscall.SIGTERM
 }
 
@@ -209,4 +213,8 @@ func (r *Runner) Clone() *Runner {
 		stop:              make(chan os.Signal),
 		exitCode:          -1,
 	}
+}
+
+func (r *Runner) ExitCode() int {
+	return r.exitCode
 }

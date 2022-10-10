@@ -174,33 +174,33 @@ func (n *NWO) Stop() {
 }
 
 func (n *NWO) StopFSCNode(id string) {
-	logger.Infof("Stopping fsc node [%s]...", id)
+	logger.Infof("Search FSC node [%s]...", id)
 	for _, member := range n.ViewMembers {
 		if strings.HasSuffix(member.Name, id) {
+			logger.Infof("FSC node [%s] found. Stopping...", id)
 			member.Runner.(*runner.Runner).Stop()
-			logger.Infof("Stopping fsc node [%s:%s] done", member.Name, id)
+			logger.Infof("FSC node [%s:%s] stopped", member.Name, id)
 			return
 		}
 	}
-	logger.Infof("Stopping fsc node [%s]...done", id)
+	logger.Infof("FSC node [%s] not found", id)
 }
 
 func (n *NWO) StartFSCNode(id string) {
-	logger.Infof("Starting fsc node [%s]...", id)
-	for _, member := range n.ViewMembers {
+	logger.Infof("Search FSC node [%s]...", id)
+	for i, member := range n.ViewMembers {
 		if strings.HasSuffix(member.Name, id) {
-			runner := grouper.NewOrdered(syscall.SIGTERM, []grouper.Member{{
-				Name: id, Runner: member.Runner.(*runner.Runner).Clone(),
-			}})
-			member.Runner = runner
-			process := ifrit.Invoke(runner)
+			logger.Infof("FSC node [%s] found. Starting...", id)
+			member.Runner = member.Runner.(*runner.Runner).Clone()
+			n.ViewMembers[i] = member
+			process := ifrit.Invoke(member.Runner)
 			Eventually(process.Ready(), n.StartEventuallyTimeout).Should(BeClosed())
 			n.Processes = append(n.Processes, process)
-			logger.Infof("Starting fsc node [%s:%s] done", member.Name, id)
+			logger.Infof("FSC node [%s:%s] started", member.Name, id)
 			return
 		}
 	}
-	logger.Info("Starting fsc node [%s]...done", id)
+	logger.Infof("FSC node [%s] not found", id)
 }
 
 func (n *NWO) storePIDs(f *os.File, members grouper.Members) {
