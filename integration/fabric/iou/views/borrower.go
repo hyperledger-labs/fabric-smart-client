@@ -11,9 +11,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
-
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou/states"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -69,10 +68,11 @@ func (i *CreateIOUView) Call(context view.Context) (interface{}, error) {
 	assert.NoError(err)
 
 	// Check committer events
-	wg := sync.WaitGroup{}
+	var wg sync.WaitGroup
 	wg.Add(2)
-	assert.NoError(err, fabric.GetDefaultChannel(context).Committer().SubscribeTxStatusChanges(tx.ID(), NewTxStatusChangeListener(tx.ID(), &wg)), "failed to add committer listener")
-	assert.NoError(err, fabric.GetDefaultChannel(context).Committer().SubscribeTxStatusChanges("", NewTxStatusChangeListener(tx.ID(), &wg)), "failed to add committer listener")
+	committer := fabric.GetDefaultChannel(context).Committer()
+	assert.NoError(err, committer.SubscribeTxStatusChanges(tx.ID(), NewTxStatusChangeListener(tx.ID(), &wg)), "failed to add committer listener")
+	assert.NoError(err, committer.SubscribeTxStatusChanges("", NewTxStatusChangeListener(tx.ID(), &wg)), "failed to add committer listener")
 
 	// At this point the borrower can send the transaction to the ordering service and wait for finality.
 	_, err = context.RunView(state.NewOrderingAndFinalityWithTimeoutView(tx, 1*time.Minute))
@@ -135,10 +135,11 @@ func (u UpdateIOUView) Call(context view.Context) (interface{}, error) {
 	assert.NoError(err)
 
 	// Check committer events
-	wg := sync.WaitGroup{}
+	var wg sync.WaitGroup
 	wg.Add(2)
-	assert.NoError(err, fabric.GetDefaultChannel(context).Committer().SubscribeTxStatusChanges(tx.ID(), NewTxStatusChangeListener(tx.ID(), &wg)), "failed to add committer listener")
-	assert.NoError(err, fabric.GetDefaultChannel(context).Committer().SubscribeTxStatusChanges("", NewTxStatusChangeListener(tx.ID(), &wg)), "failed to add committer listener")
+	committer := fabric.GetDefaultChannel(context).Committer()
+	assert.NoError(err, committer.SubscribeTxStatusChanges(tx.ID(), NewTxStatusChangeListener(tx.ID(), &wg)), "failed to add committer listener")
+	assert.NoError(err, committer.SubscribeTxStatusChanges("", NewTxStatusChangeListener(tx.ID(), &wg)), "failed to add committer listener")
 
 	// At this point the borrower can send the transaction to the ordering service and wait for finality.
 	_, err = context.RunView(state.NewOrderingAndFinalityWithTimeoutView(tx, 1*time.Minute))

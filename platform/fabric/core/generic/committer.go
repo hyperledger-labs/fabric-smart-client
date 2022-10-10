@@ -7,8 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package generic
 
 import (
-	"strings"
-
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/compose"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
@@ -152,7 +150,7 @@ func (c *channel) commitUnknown(txID string, block uint64, indexInBlock int) err
 		return nil
 	}
 
-	// commit this transaction because it contains one of ne namespace to be processed anyway
+	// commit this transaction because it contains one of the namespaces to be processed anyway
 	logger.Debugf("[%s] known namespaces found, commit", txID)
 	return c.commit(txID, nil, block, indexInBlock, nil)
 }
@@ -305,12 +303,7 @@ func (c *channel) postProcessTx(txid string) error {
 // SubscribeTxStatusChanges registers a listener for transaction status changes for the passed transaction id.
 // If the transaction id is empty, the listener will be called for all transactions.
 func (c *channel) SubscribeTxStatusChanges(txID string, listener driver.TxStatusChangeListener) error {
-	var topic string
-	if len(txID) == 0 {
-		topic = compose.CreateCompositeKeyOrPanic(&strings.Builder{}, "tx", c.network.Name(), c.name)
-	} else {
-		topic = compose.CreateCompositeKeyOrPanic(&strings.Builder{}, "tx", c.network.Name(), c.name, txID)
-	}
+	_, topic := compose.CreateTxTopic(c.network.Name(), c.name, txID)
 	l := &TxEventsListener{listener: listener}
 	logger.Debugf("[%s] Subscribing to transaction status changes", txID)
 	c.eventsSubscriber.Subscribe(topic, l)
@@ -323,12 +316,7 @@ func (c *channel) SubscribeTxStatusChanges(txID string, listener driver.TxStatus
 // UnsubscribeTxStatusChanges unregisters a listener for transaction status changes for the passed transaction id.
 // If the transaction id is empty, the listener will be called for all transactions.
 func (c *channel) UnsubscribeTxStatusChanges(txID string, listener driver.TxStatusChangeListener) error {
-	var topic string
-	if len(txID) == 0 {
-		topic = compose.CreateCompositeKeyOrPanic(&strings.Builder{}, "tx", c.network.Name(), c.name)
-	} else {
-		topic = compose.CreateCompositeKeyOrPanic(&strings.Builder{}, "tx", c.network.Name(), c.name, txID)
-	}
+	_, topic := compose.CreateTxTopic(c.network.Name(), c.name, txID)
 	l, ok := c.subscribers.Get(topic, listener)
 	if !ok {
 		return errors.Errorf("listener not found for txID [%s]", txID)
@@ -346,14 +334,14 @@ func (c *channel) notifyTxStatus(txID string, vc driver.ValidationCode) {
 	// We publish two events here:
 	// 1. The first will be caught by the listeners that are listening for any transaction id.
 	// 2. The second will be caught by the listeners that are listening for the specific transaction id.
-	var sb strings.Builder
+	sb, topic := compose.CreateTxTopic(c.network.Name(), c.name, "")
 	c.eventsPublisher.Publish(&driver.TransactionStatusChanged{
-		ThisTopic: compose.CreateCompositeKeyOrPanic(&sb, "tx", c.network.Name(), c.name),
+		ThisTopic: topic,
 		TxID:      txID,
 		VC:        vc,
 	})
 	c.eventsPublisher.Publish(&driver.TransactionStatusChanged{
-		ThisTopic: compose.AppendAttributesOrPanic(&sb, txID),
+		ThisTopic: compose.AppendAttributesOrPanic(sb, txID),
 		TxID:      txID,
 		VC:        vc,
 	})

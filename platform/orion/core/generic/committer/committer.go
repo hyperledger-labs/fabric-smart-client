@@ -66,6 +66,10 @@ type committer struct {
 	eventsSubscriber events.Subscriber
 	eventsPublisher  events.Publisher
 	subscribers      *events.Subscribers
+
+	// finality
+	finalityNumRetries int
+	finalitySleepTime  time.Duration
 }
 
 func New(
@@ -93,6 +97,8 @@ func New(
 		eventsSubscriber:    eventsSubscriber,
 		eventsPublisher:     eventsPublisher,
 		subscribers:         events.NewSubscribers(),
+		finalityNumRetries:  3,
+		finalitySleepTime:   100 * time.Millisecond,
 	}
 	return d, nil
 }
@@ -192,7 +198,8 @@ func (c *committer) IsFinal(ctx context.Context, txID string) error {
 		logger.Debugf("Is [%s] final?", txID)
 	}
 
-	for iter := 0; iter < 3; iter++ {
+	skipLoop := false
+	for iter := 0; iter < c.finalityNumRetries; iter++ {
 		vd, err := c.vault.Status(txID)
 		if err == nil {
 			switch vd {
@@ -213,24 +220,29 @@ func (c *committer) IsFinal(ctx context.Context, txID string) error {
 			case driver.Unknown:
 				if c.em.Exists(txID) {
 					if logger.IsEnabledFor(zapcore.DebugLevel) {
-						logger.Debugf("Tx [%s] is known", txID)
+						logger.Debugf("found an envelope for [%s], consider it as known", txID)
 					}
-					continue
-				} else {
-					if iter >= 2 {
-						return errors.Errorf("transaction [%s] is unknown", txID)
-					}
-					if logger.IsEnabledFor(zapcore.DebugLevel) {
-						logger.Debugf("Tx [%s] is unknown with no deps, wait a bit and retry [%d]", txID, iter)
-					}
-					time.Sleep(100 * time.Millisecond)
+					skipLoop = true
+					break
 				}
+
+				// wait a bit to see if something changes
+				if iter >= c.finalityNumRetries-1 {
+					return errors.Errorf("transaction [%s] is unknown", txID)
+				}
+				if logger.IsEnabledFor(zapcore.DebugLevel) {
+					logger.Debugf("Tx [%s] is unknown with no deps, wait a bit and retry [%d]", txID, iter)
+				}
+				time.Sleep(c.finalitySleepTime)
 			default:
 				panic(fmt.Sprintf("invalid status code, got %c", vd))
 			}
 		} else {
 			logger.Errorf("Is [%s] final? Failed getting transaction status from vault", txID)
 			return errors.WithMessagef(err, "failed getting transaction status from vault [%s]", txID)
+		}
+		if skipLoop {
+			break
 		}
 	}
 

@@ -69,6 +69,14 @@ func AppendAttributesOrPanic(sb *strings.Builder, attributes ...string) string {
 	return k
 }
 
+func CreateTxTopic(networkName, channelName, txID string) (*strings.Builder, string) {
+	sb := &strings.Builder{}
+	if len(txID) == 0 {
+		return sb, CreateCompositeKeyOrPanic(sb, "tx", networkName, channelName)
+	}
+	return sb, CreateCompositeKeyOrPanic(sb, "tx", networkName, channelName, txID)
+}
+
 func validateCompositeKeyAttribute(str string) error {
 	if !utf8.ValidString(str) {
 		return errors.Errorf("not a valid utf8 string: [%x]", str)
