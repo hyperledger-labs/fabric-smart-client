@@ -64,6 +64,14 @@ func (s *Session) QueryExecutor(db string) (*SessionQueryExecutor, error) {
 	return &SessionQueryExecutor{dataTx: dataTx, db: db, query: query}, nil
 }
 
+func (s *Session) Ledger() (*Ledger, error) {
+	ledger, err := s.s.Ledger()
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get the ledger")
+	}
+	return &Ledger{l: ledger}, nil
+}
+
 // SessionManager is a session manager that allows the developer to access orion directly
 type SessionManager struct {
 	sm driver.SessionManager

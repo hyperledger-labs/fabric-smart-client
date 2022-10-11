@@ -6,7 +6,10 @@ SPDX-License-Identifier: Apache-2.0
 
 package generic
 
-import "github.com/hyperledger-labs/orion-sdk-go/pkg/bcdb"
+import (
+	"github.com/hyperledger-labs/orion-sdk-go/pkg/bcdb"
+	"github.com/hyperledger-labs/orion-server/pkg/types"
+)
 
 type Ledger struct {
 	ledger bcdb.Ledger
@@ -14,4 +17,8 @@ type Ledger struct {
 
 func (l *Ledger) NewBlockHeaderDeliveryService(conf *bcdb.BlockHeaderDeliveryConfig) bcdb.BlockHeaderDelivererService {
 	return l.ledger.NewBlockHeaderDeliveryService(conf)
+}
+
+func (l *Ledger) GetTransactionReceipt(txId string) (*types.TxReceipt, error) {
+	return l.ledger.GetTransactionReceipt(txId)
 }
