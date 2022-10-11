@@ -149,12 +149,13 @@ func serve() error {
 		callback(err)
 		return err
 	}
+
 	callback(nil)
 
 	cs := view.GetConfigService(node.Registry())
 	logger.Infof("Started peer with ID=[%s], address=[%s]",
 		cs.GetString("fsc.id"),
-		cs.GetString("fsc.address"),
+		cs.GetString("fsc.grpc.address"),
 	)
 	return <-serve
 }

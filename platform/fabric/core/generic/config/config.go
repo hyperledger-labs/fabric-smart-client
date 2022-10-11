@@ -95,23 +95,11 @@ func (c *Config) TLSClientCertFile() string {
 }
 
 func (c *Config) KeepAliveClientInterval() time.Duration {
-	return c.configService.GetDuration("fabric." + c.prefix + "tls.keepalive.client.interval")
+	return c.configService.GetDuration("fabric." + c.prefix + "keepalive.interval")
 }
 
 func (c *Config) KeepAliveClientTimeout() time.Duration {
-	return c.configService.GetDuration("fabric." + c.prefix + "tls.keepalive.client.timeout")
-}
-
-func (c *Config) KeepAliveServerInterval() time.Duration {
-	return c.configService.GetDuration("fabric." + c.prefix + "tls.keepalive.server.interval")
-}
-
-func (c *Config) KeepAliveServerTimeout() time.Duration {
-	return c.configService.GetDuration("fabric." + c.prefix + "tls.keepalive.server.timeout")
-}
-
-func (c *Config) KeepAliveServerMinInterval() time.Duration {
-	return c.configService.GetDuration("fabric." + c.prefix + "tls.keepalive.server.minInterval")
+	return c.configService.GetDuration("fabric." + c.prefix + "keepalive.timeout")
 }
 
 func (c *Config) Orderers() ([]*grpc.ConnectionConfig, error) {
@@ -119,6 +107,11 @@ func (c *Config) Orderers() ([]*grpc.ConnectionConfig, error) {
 	if err := c.configService.UnmarshalKey("fabric."+c.prefix+"orderers", &res); err != nil {
 		return nil, err
 	}
+
+	for _, v := range res {
+		v.TLSEnabled = c.TLSEnabled()
+	}
+
 	return res, nil
 }
 
@@ -127,6 +120,11 @@ func (c *Config) Peers() ([]*grpc.ConnectionConfig, error) {
 	if err := c.configService.UnmarshalKey("fabric."+c.prefix+"peers", &res); err != nil {
 		return nil, err
 	}
+
+	for _, v := range res {
+		v.TLSEnabled = c.TLSEnabled()
+	}
+
 	return res, nil
 }
 
@@ -231,5 +229,5 @@ func (c *Config) BroadcastNumRetries() int {
 }
 
 func (c *Config) BroadcastRetryInterval() time.Duration {
-	return c.configService.GetDuration("fabric." + c.prefix + "ordering.retryInternal")
+	return c.configService.GetDuration("fabric." + c.prefix + "ordering.retryInterval")
 }

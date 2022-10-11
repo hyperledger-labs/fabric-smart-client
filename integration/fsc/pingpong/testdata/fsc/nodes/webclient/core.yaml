@@ -1,0 +1,11 @@
+fsc:  
+  web:
+    address: 127.0.0.1:19999
+    tls:
+      enabled:  true
+      clientCert:
+        file: ./../../crypto/peerOrganizations/fsc.example.com/peers/initiator.fsc.example.com/tls/server.crt
+      clientKey:
+        file: ./../../crypto/peerOrganizations/fsc.example.com/peers/initiator.fsc.example.com/tls/server.key
+      serverRootCert:
+        file: ./../../crypto/peerOrganizations/fsc.example.com/peers/initiator.fsc.example.com/tls/ca.crt

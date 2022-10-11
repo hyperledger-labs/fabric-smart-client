@@ -198,7 +198,7 @@ func (p *Platform) PostRun(bool) {
 		Expect(err).NotTo(HaveOccurred())
 
 		cc := &grpc.ConnectionConfig{
-			Address:           v.GetString("fsc.address"),
+			Address:           v.GetString("fsc.grpc.address"),
 			TLSEnabled:        true,
 			TLSRootCertFile:   path.Join(p.NodeLocalTLSDir(peer), "ca.crt"),
 			ConnectionTimeout: 10 * time.Minute,
