@@ -253,3 +253,7 @@ func (v *Vault) Status(txID string) (ValidationCode, error) {
 	vc, err := v.ons.Vault().Status(txID)
 	return ValidationCode(vc), err
 }
+
+func (v *Vault) DiscardTx(txID string) error {
+	return v.ons.Vault().DiscardTx(txID)
+}
