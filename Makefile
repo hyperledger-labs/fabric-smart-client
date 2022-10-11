@@ -114,9 +114,6 @@ integration-tests-atsacc:
 integration-tests-chaincode-events:
 	cd ./integration/fabric/events/chaincode; export FAB_BINS=$(FAB_BINS); ginkgo $(GINKGO_TEST_OPTS) .
 
-integration-tests-chaincode-events:
-	cd ./integration/fabric/events/chaincode; ginkgo $(GINKGO_TEST_OPTS) .
-
 .PHONY: integration-tests-atsafsc
 integration-tests-atsafsc:
 	cd ./integration/fabric/atsa/fsc; export FAB_BINS=$(FAB_BINS); ginkgo $(GINKGO_TEST_OPTS) .

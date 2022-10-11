@@ -366,6 +366,24 @@ func (p *processedTransaction) ValidationCode() int32 {
 	return p.vc
 }
 
+//ExtractRWSet extracts the read-write set of the transaction passed by transactionId
+func (c *channel) ExtractRWSet(txID string) (driver.RWSet, error) {
+	pt, err := c.GetTransactionByID(txID)
+	if err != nil {
+		return nil, errors.WithMessagef(err, "failed fetching tx [%s]", txID)
+	}
+	if !pt.IsValid() {
+		return nil, errors.Errorf("fetched tx [%s] should have been valid, instead it is [%s]", txID, peer.TxValidationCode_name[pt.ValidationCode()])
+	}
+
+	rws, err := c.GetRWSet(txID, pt.Results())
+	if err != nil {
+		return nil, errors.WithMessagef(err, "failed getting rwset for tx [%s]", txID)
+	}
+	return rws, nil
+
+}
+
 type connCreator struct {
 	ch *channel
 }

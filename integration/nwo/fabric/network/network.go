@@ -268,15 +268,16 @@ func (n *Network) AddExtension(ex Extension) {
 	n.Extensions = append(n.Extensions, ex)
 }
 
-func (n *Network) UpdateChaincode(id string, version string, path string) {
+//UpdateChaincode deploys the new version of the chaincode passed by chaincodeId
+func (n *Network) UpdateChaincode(chaincodeId string, version string, path string, packageFile string) {
 	var cc *topology.ChannelChaincode
 	for _, chaincode := range n.topology.Chaincodes {
-		if chaincode.Chaincode.Name == id {
+		if chaincode.Chaincode.Name == chaincodeId {
 			cc = chaincode
 			break
 		}
 	}
-	Expect(cc).ToNot(BeNil(), "failed to find chaincode [%s]", id)
+	Expect(cc).ToNot(BeNil(), "failed to find chaincode [%s]", chaincodeId)
 
 	seq, err := strconv.Atoi(cc.Chaincode.Sequence)
 	Expect(err).NotTo(HaveOccurred(), "failed to parse chaincode sequence [%s]", cc.Chaincode.Sequence)
@@ -297,6 +298,8 @@ func (n *Network) UpdateChaincode(id string, version string, path string) {
 		Channel: cc.Channel,
 		Peers:   cc.Peers,
 	}
-
+	if len(packageFile) != 0 {
+		newCC.Chaincode.PackageFile = packageFile
+	}
 	n.DeployChaincode(newCC)
 }

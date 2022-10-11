@@ -8,6 +8,7 @@ package chaincode_test
 
 import (
 	"encoding/json"
+
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/events/chaincode"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/events/chaincode/views"
@@ -92,7 +93,7 @@ var _ = Describe("EndToEnd", func() {
 			// Update
 			fabricNetwork := fabric.Network(ii.Ctx, "default")
 			Expect(fabricNetwork).ToNot(BeNil(), "failed to find fabric network 'default'")
-			fabricNetwork.UpdateChaincode("events", "Version-1.0", "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/events/chaincode/newChaincode")
+			fabricNetwork.UpdateChaincode("events", "Version-1.0", "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/events/chaincode/newChaincode", "")
 
 			// New chaincode
 			event, err = alice.EventsView("CreateAsset", "CreateAsset")

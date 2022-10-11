@@ -8,6 +8,7 @@ package fabric
 
 import (
 	"encoding/json"
+	"strings"
 
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
@@ -137,6 +138,20 @@ func (r *RWSet) NumWrites(ns string) int {
 // Namespaces returns the namespace labels in this rwset.
 func (r *RWSet) Namespaces() []string {
 	return r.rws.Namespaces()
+}
+
+//KeyExist returns true if a key exist in the rwset otherwise false.
+func (r *RWSet) KeyExist(key string, ns string) (bool, error) {
+	for i := 0; i < r.NumReads(ns); i++ {
+		keyRead, _, err := r.GetReadAt(ns, i)
+		if err != nil {
+			return false, errors.WithMessagef(err, "Error reading key at [%d]", i)
+		}
+		if strings.Contains(keyRead, key) {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func (r *RWSet) AppendRWSet(raw []byte, nss ...string) error {

@@ -6,6 +6,8 @@ SPDX-License-Identifier: Apache-2.0
 
 package driver
 
+import "github.com/hyperledger/fabric-protos-go/common"
+
 type RWSExtractor interface {
 	Extract(tx []byte) (ProcessTransaction, RWSet, error)
 }
@@ -29,5 +31,5 @@ type ProcessorManager interface {
 	AddProcessor(ns string, processor Processor) error
 	SetDefaultProcessor(processor Processor) error
 	AddChannelProcessor(channel string, ns string, processor Processor) error
-	ProcessByID(channel, txid string) error
+	ProcessByID(channel, txid string, envelope *common.Envelope, initKey bool) error
 }
