@@ -8,20 +8,21 @@ package orion
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
+	"github.com/hyperledger-labs/orion-server/pkg/types"
 	"github.com/pkg/errors"
 )
 
-type Flag int32
+type Flag = types.Flag
 
 const (
-	Flag_VALID                                      Flag = 0
-	Flag_INVALID_MVCC_CONFLICT_WITHIN_BLOCK         Flag = 1
-	Flag_INVALID_MVCC_CONFLICT_WITH_COMMITTED_STATE Flag = 2
-	Flag_INVALID_DATABASE_DOES_NOT_EXIST            Flag = 3
-	Flag_INVALID_NO_PERMISSION                      Flag = 4
-	Flag_INVALID_INCORRECT_ENTRIES                  Flag = 5
-	Flag_INVALID_UNAUTHORISED                       Flag = 6
-	Flag_INVALID_MISSING_SIGNATURE                  Flag = 7
+	VALID = types.Flag_VALID
+	INVALID_MVCC_CONFLICT_WITHIN_BLOCK
+	INVALID_MVCC_CONFLICT_WITH_COMMITTED_STATE
+	INVALID_DATABASE_DOES_NOT_EXIST
+	INVALID_NO_PERMISSION
+	INVALID_INCORRECT_ENTRIES
+	INVALID_UNAUTHORISED
+	INVALID_MISSING_SIGNATURE
 )
 
 // ProcessedTransaction models a transaction that has been processed by Fabric
@@ -36,8 +37,8 @@ func (pt *ProcessedTransaction) TxID() string {
 }
 
 // ValidationCode returns the transaction's validation code
-func (pt *ProcessedTransaction) ValidationCode() string {
-	return pt.txID
+func (pt *ProcessedTransaction) ValidationCode() Flag {
+	return pt.vc
 }
 
 type Ledger struct {
