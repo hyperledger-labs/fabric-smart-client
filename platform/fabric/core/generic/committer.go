@@ -56,6 +56,7 @@ func (c *channel) DiscardTx(txid string) error {
 		return errors.WithMessagef(err, "failed getting tx's status in state db [%s]", txid)
 	}
 	if vc == driver.Unknown {
+		logger.Debugf("Discarding transaction [%s] skipped, tx is unknown", txid)
 		return nil
 	}
 
