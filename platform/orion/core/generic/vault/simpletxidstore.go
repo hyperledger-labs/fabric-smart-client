@@ -173,7 +173,7 @@ func (s *SimpleTXIDStore) Set(txid string, code odriver.ValidationCode) error {
 		return errors.Errorf("error storing ByTxid for txid %s [%s]", txid, err.Error())
 	}
 
-	if code != odriver.Busy {
+	if code == odriver.Valid {
 		err = s.persistence.SetState(txidNamespace, lastTX, []byte(txid))
 		if err != nil {
 			s.persistence.Discard()
