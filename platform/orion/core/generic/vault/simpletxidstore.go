@@ -144,18 +144,20 @@ func (s *SimpleTXIDStore) Set(txid string, code fdriver.ValidationCode) error {
 	}
 
 	// 2: store by counter
-	byCtrBytes, err := proto.Marshal(&ByNum{
-		Txid: txid,
-		Code: int32(code),
-	})
-	if err != nil {
-		s.persistence.Discard()
-		return errors.Errorf("error marshalling ByNum for txid %s [%s]", txid, err.Error())
-	}
-	err = s.persistence.SetState(txidNamespace, keyByCtr(s.ctr), byCtrBytes)
-	if err != nil {
-		s.persistence.Discard()
-		return errors.Errorf("error storing ByNum for txid %s [%s]", txid, err.Error())
+	if code != fdriver.Busy {
+		byCtrBytes, err := proto.Marshal(&ByNum{
+			Txid: txid,
+			Code: int32(code),
+		})
+		if err != nil {
+			s.persistence.Discard()
+			return errors.Errorf("error marshalling ByNum for txid %s [%s]", txid, err.Error())
+		}
+		err = s.persistence.SetState(txidNamespace, keyByCtr(s.ctr), byCtrBytes)
+		if err != nil {
+			s.persistence.Discard()
+			return errors.Errorf("error storing ByNum for txid %s [%s]", txid, err.Error())
+		}
 	}
 
 	// 3: store by txid
@@ -197,6 +199,7 @@ func (s *SimpleTXIDStore) GetLastTxID() (string, error) {
 	if next == nil {
 		return "", nil
 	}
+	// code must be either valid or invalid, not busy
 	return next.Txid, nil
 }
 
