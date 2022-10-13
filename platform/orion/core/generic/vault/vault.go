@@ -76,7 +76,14 @@ func (db *Vault) unmapInterceptor(txid string) (*Interceptor, error) {
 	i, in := db.interceptors[txid]
 
 	if !in {
-		return nil, errors.Errorf("read-write set for txid %s could not be found", txid)
+		vc, err := db.txidStore.Get(txid)
+		if err != nil {
+			return nil, errors.Errorf("read-write set for txid %s could not be found", txid)
+		}
+		if vc == odriver.Unknown {
+			return nil, errors.Errorf("read-write set for txid %s could not be found", txid)
+		}
+		return nil, nil
 	}
 
 	if !i.closed {
@@ -137,6 +144,9 @@ func (db *Vault) CommitTX(txid string, block uint64, indexInBloc int) error {
 	i, err := db.unmapInterceptor(txid)
 	if err != nil {
 		return err
+	}
+	if i == nil {
+		return errors.Errorf("cannot find rwset for [%s]", txid)
 	}
 
 	logger.Debugf("get lock [%s][%d]", txid, db.counter.Load())
