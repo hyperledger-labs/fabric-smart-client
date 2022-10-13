@@ -241,6 +241,8 @@ func testRun(t *testing.T, db1, db2 driver.VersionedPersistence) {
 	err = db2.Commit()
 	assert.NoError(t, err)
 
+	compare(t, ns, db1, db2)
+
 	// create 2 vaults
 	tidstore1, err := txidstore.NewTXIDStore(db.Unversioned(db1))
 	assert.NoError(t, err)
@@ -251,6 +253,10 @@ func testRun(t *testing.T, db1, db2 driver.VersionedPersistence) {
 
 	rws, err := vault1.NewRWSet(txid)
 	assert.NoError(t, err)
+
+	rws2, err := vault2.NewRWSet(txid)
+	assert.NoError(t, err)
+	rws2.Done()
 
 	// GET K1
 	v, err := rws.GetState(ns, k1, fdriver.FromIntermediate)
@@ -535,6 +541,8 @@ func testRun(t *testing.T, db1, db2 driver.VersionedPersistence) {
 	// we're done with this read-write set
 	rws.Done()
 
+	compare(t, ns, db1, db2)
+
 	// we expect a busy txid in the store
 	code, err := vault1.Status(txid)
 	assert.NoError(t, err)
@@ -542,6 +550,8 @@ func testRun(t *testing.T, db1, db2 driver.VersionedPersistence) {
 	code, err = vault2.Status(txid)
 	assert.NoError(t, err)
 	assert.Equal(t, fdriver.Busy, code)
+
+	compare(t, ns, db1, db2)
 
 	// we commit it in both
 	err = vault1.CommitTX(txid, 35, 2)
@@ -553,6 +563,7 @@ func testRun(t *testing.T, db1, db2 driver.VersionedPersistence) {
 	assert.Len(t, vault1.interceptors, 0)
 	assert.Len(t, vault2.interceptors, 0)
 
+	compare(t, ns, db1, db2)
 	// we expect a valid txid in the store
 	code, err = vault1.Status(txid)
 	assert.NoError(t, err)
@@ -561,27 +572,7 @@ func testRun(t *testing.T, db1, db2 driver.VersionedPersistence) {
 	assert.NoError(t, err)
 	assert.Equal(t, fdriver.Valid, code)
 
-	// we expect the underlying databases to be identical
-	itr, err := db1.GetStateRangeScanIterator(ns, "", "")
-	defer itr.Close()
-	assert.NoError(t, err)
-
-	res1 := make([]driver.VersionedRead, 0, 4)
-	for n, err := itr.Next(); n != nil; n, err = itr.Next() {
-		assert.NoError(t, err)
-		res1 = append(res1, *n)
-	}
-	itr, err = db2.GetStateRangeScanIterator(ns, "", "")
-	defer itr.Close()
-	assert.NoError(t, err)
-
-	res2 := make([]driver.VersionedRead, 0, 4)
-	for n, err := itr.Next(); n != nil; n, err = itr.Next() {
-		assert.NoError(t, err)
-		res2 = append(res2, *n)
-	}
-
-	assert.Equal(t, res1, res2)
+	compare(t, ns, db1, db2)
 
 	v1, b1, t1, err := db1.GetState(ns, k1)
 	assert.NoError(t, err)
@@ -615,6 +606,30 @@ func testRun(t *testing.T, db1, db2 driver.VersionedPersistence) {
 	assert.Equal(t, meta1, meta2)
 	assert.Equal(t, b1, b2)
 	assert.Equal(t, t1, t2)
+}
+
+func compare(t *testing.T, ns string, db1, db2 driver.VersionedPersistence) {
+	// we expect the underlying databases to be identical
+	itr, err := db1.GetStateRangeScanIterator(ns, "", "")
+	defer itr.Close()
+	assert.NoError(t, err)
+
+	res1 := make([]driver.VersionedRead, 0, 4)
+	for n, err := itr.Next(); n != nil; n, err = itr.Next() {
+		assert.NoError(t, err)
+		res1 = append(res1, *n)
+	}
+	itr, err = db2.GetStateRangeScanIterator(ns, "", "")
+	defer itr.Close()
+	assert.NoError(t, err)
+
+	res2 := make([]driver.VersionedRead, 0, 4)
+	for n, err := itr.Next(); n != nil; n, err = itr.Next() {
+		assert.NoError(t, err)
+		res2 = append(res2, *n)
+	}
+
+	assert.Equal(t, res1, res2)
 }
 
 func TestVaultInMem(t *testing.T) {

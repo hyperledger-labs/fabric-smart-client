@@ -113,6 +113,64 @@ func testOneMore(t *testing.T, store *SimpleTXIDStore) {
 	last, err := store.GetLastTxID()
 	assert.NoError(t, err)
 	assert.Equal(t, "txid3", last)
+
+	// add a busy tx
+	err = store.persistence.BeginUpdate()
+	assert.NoError(t, err)
+	err = store.Set("txid4", driver.Busy)
+	assert.NoError(t, err)
+	err = store.persistence.Commit()
+	assert.NoError(t, err)
+
+	last, err = store.GetLastTxID()
+	assert.NoError(t, err)
+	assert.Equal(t, "txid3", last)
+
+	// iterate again
+	it, err = store.Iterator(&driver.SeekStart{})
+	assert.NoError(t, err)
+	txids = []string{}
+	for {
+		tid, err := it.Next()
+		assert.NoError(t, err)
+
+		if tid == nil {
+			it.Close()
+			break
+		}
+
+		txids = append(txids, tid.Txid)
+	}
+	assert.Equal(t, []string{"txid1", "txid2", "txid10", "txid12", "txid21", "txid100", "txid200", "txid1025", "txid3", "txid4"}, txids)
+
+	// update the busy tx
+	err = store.persistence.BeginUpdate()
+	assert.NoError(t, err)
+	err = store.Set("txid4", driver.Valid)
+	assert.NoError(t, err)
+	err = store.persistence.Commit()
+	assert.NoError(t, err)
+
+	last, err = store.GetLastTxID()
+	assert.NoError(t, err)
+	assert.Equal(t, "txid4", last)
+
+	// iterate again
+	it, err = store.Iterator(&driver.SeekStart{})
+	assert.NoError(t, err)
+	txids = []string{}
+	for {
+		tid, err := it.Next()
+		assert.NoError(t, err)
+
+		if tid == nil {
+			it.Close()
+			break
+		}
+
+		txids = append(txids, tid.Txid)
+	}
+	assert.Equal(t, []string{"txid1", "txid2", "txid10", "txid12", "txid21", "txid100", "txid200", "txid1025", "txid3", "txid4", "txid4"}, txids)
 }
 
 func testTXIDStore(t *testing.T, store *SimpleTXIDStore) {

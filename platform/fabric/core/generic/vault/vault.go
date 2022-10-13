@@ -204,7 +204,16 @@ func (db *Vault) CommitTX(txid string, block uint64, indexInBloc int) error {
 }
 
 func (db *Vault) SetBusy(txid string) error {
-	err := db.store.BeginUpdate()
+	code, err := db.txidStore.Get(txid)
+	if err != nil {
+		return err
+	}
+	if code != fdriver.Unknown {
+		// nothing to set
+		return nil
+	}
+
+	err = db.store.BeginUpdate()
 	if err != nil {
 		return errors.WithMessagef(err, "begin update for txid '%s' failed", txid)
 	}

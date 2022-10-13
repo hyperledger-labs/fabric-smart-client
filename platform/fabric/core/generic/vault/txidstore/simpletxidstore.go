@@ -21,9 +21,10 @@ const (
 	ctrKey        = "ctr"
 	byCtrPrefix   = "C"
 	byTxidPrefix  = "T"
+	lastTX        = "last"
 )
 
-type TXIDStore struct {
+type SimpleTXIDStore struct {
 	persistence driver.Persistence
 	ctr         uint64
 }
@@ -64,7 +65,7 @@ func getCtrFromBytes(ctrBytes []byte) uint64 {
 	return binary.BigEndian.Uint64(ctrBytes)
 }
 
-func NewTXIDStore(persistence driver.Persistence) (*TXIDStore, error) {
+func NewTXIDStore(persistence driver.Persistence) (*SimpleTXIDStore, error) {
 	ctrBytes, err := persistence.GetState(txidNamespace, ctrKey)
 	if err != nil {
 		return nil, errors.Errorf("error retrieving txid counter [%s]", err.Error())
@@ -90,13 +91,13 @@ func NewTXIDStore(persistence driver.Persistence) (*TXIDStore, error) {
 		ctrBytes = make([]byte, binary.MaxVarintLen64)
 	}
 
-	return &TXIDStore{
+	return &SimpleTXIDStore{
 		persistence: persistence,
 		ctr:         getCtrFromBytes(ctrBytes),
 	}, nil
 }
 
-func (s *TXIDStore) get(txid string) (*ByTxid, error) {
+func (s *SimpleTXIDStore) get(txid string) (*ByTxid, error) {
 	bytes, err := s.persistence.GetState(txidNamespace, keyByTxid(txid))
 	if err != nil {
 		return nil, errors.Errorf("error retrieving txid %s [%s]", txid, err.Error())
@@ -115,7 +116,7 @@ func (s *TXIDStore) get(txid string) (*ByTxid, error) {
 	return bt, nil
 }
 
-func (s *TXIDStore) Get(txid string) (fdriver.ValidationCode, error) {
+func (s *SimpleTXIDStore) Get(txid string) (fdriver.ValidationCode, error) {
 	bt, err := s.get(txid)
 	if err != nil {
 		return fdriver.Unknown, err
@@ -128,7 +129,7 @@ func (s *TXIDStore) Get(txid string) (fdriver.ValidationCode, error) {
 	return fdriver.ValidationCode(bt.Code), nil
 }
 
-func (s *TXIDStore) Set(txid string, code fdriver.ValidationCode) error {
+func (s *SimpleTXIDStore) Set(txid string, code fdriver.ValidationCode) error {
 	// NOTE: we assume that the commit is in progress so no need to update/commit
 	// err := s.persistence.BeginUpdate()
 	// if err != nil {
@@ -172,6 +173,13 @@ func (s *TXIDStore) Set(txid string, code fdriver.ValidationCode) error {
 		return errors.Errorf("error storing ByTxid for txid %s [%s]", txid, err.Error())
 	}
 
+	if code != fdriver.Busy {
+		err = s.persistence.SetState(txidNamespace, lastTX, []byte(txid))
+		if err != nil {
+			s.persistence.Discard()
+			return errors.Errorf("error storing ByTxid for txid %s [%s]", txid, err.Error())
+		}
+	}
 	// NOTE: we assume that the commit is in progress so no need to update/commit
 	// err = s.persistence.Commit()
 	// if err != nil {
@@ -183,23 +191,18 @@ func (s *TXIDStore) Set(txid string, code fdriver.ValidationCode) error {
 	return nil
 }
 
-func (s *TXIDStore) GetLastTxID() (string, error) {
-	it, err := s.Iterator(&fdriver.SeekEnd{})
+func (s *SimpleTXIDStore) GetLastTxID() (string, error) {
+	v, err := s.persistence.GetState(txidNamespace, lastTX)
 	if err != nil {
-		return "", errors.Wrapf(err, "failed to get txid store iterator")
+		return "", errors.Wrapf(err, "failed to get last TxID")
 	}
-	defer it.Close()
-	next, err := it.Next()
-	if err != nil {
-		return "", errors.Wrapf(err, "failed to get next from txid store iterator")
-	}
-	if next == nil {
+	if len(v) == 0 {
 		return "", nil
 	}
-	return next.Txid, nil
+	return string(v), nil
 }
 
-func (s *TXIDStore) Iterator(pos interface{}) (fdriver.TxidIterator, error) {
+func (s *SimpleTXIDStore) Iterator(pos interface{}) (fdriver.TxidIterator, error) {
 	var startKey string
 	var endKey string
 
@@ -236,14 +239,14 @@ func (s *TXIDStore) Iterator(pos interface{}) (fdriver.TxidIterator, error) {
 		return nil, err
 	}
 
-	return &TxidIterator{it}, nil
+	return &SimpleTxidIterator{it}, nil
 }
 
-type TxidIterator struct {
+type SimpleTxidIterator struct {
 	t driver.ResultsIterator
 }
 
-func (i *TxidIterator) Next() (*fdriver.ByNum, error) {
+func (i *SimpleTxidIterator) Next() (*fdriver.ByNum, error) {
 	d, err := i.t.Next()
 	if err != nil {
 		return nil, err
@@ -265,6 +268,6 @@ func (i *TxidIterator) Next() (*fdriver.ByNum, error) {
 	}, nil
 }
 
-func (i *TxidIterator) Close() {
+func (i *SimpleTxidIterator) Close() {
 	i.t.Close()
 }

@@ -10,31 +10,29 @@ import (
 	"bytes"
 	"sync"
 
+	odriver "github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/pkg/errors"
 	"go.uber.org/atomic"
-
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
-
-	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 )
 
 var logger = flogging.MustGetLogger("orion-sdk.vault")
 
 type TXIDStoreReader interface {
-	Get(txid string) (fdriver.ValidationCode, error)
+	Get(txid string) (odriver.ValidationCode, error)
 }
 
 type TXIDStore interface {
 	TXIDStoreReader
-	Set(txid string, code fdriver.ValidationCode) error
+	Set(txid string, code odriver.ValidationCode) error
 }
 
 // Vault models a key-value store that can be modified by committing rwsets
 type Vault struct {
 	txidStore        TXIDStore
-	interceptorsLock sync.Mutex
+	interceptorsLock sync.RWMutex
 	interceptors     map[string]*Interceptor
 	counter          atomic.Int32
 
@@ -60,7 +58,7 @@ func New(store driver.VersionedPersistence, txIDStore TXIDStore) *Vault {
 	}
 }
 
-func (db *Vault) NewQueryExecutor() (fdriver.QueryExecutor, error) {
+func (db *Vault) NewQueryExecutor() (odriver.QueryExecutor, error) {
 	logger.Debugf("getting lock for query executor")
 	db.counter.Inc()
 	db.storeLock.RLock()
@@ -90,24 +88,24 @@ func (db *Vault) unmapInterceptor(txid string) (*Interceptor, error) {
 	return i, nil
 }
 
-func (db *Vault) Status(txid string) (fdriver.ValidationCode, error) {
+func (db *Vault) Status(txid string) (odriver.ValidationCode, error) {
 	code, err := db.txidStore.Get(txid)
 	if err != nil {
 		return 0, nil
 	}
 
-	if code != fdriver.Unknown {
+	if code != odriver.Unknown {
 		return code, nil
 	}
 
-	db.interceptorsLock.Lock()
-	defer db.interceptorsLock.Unlock()
+	db.interceptorsLock.RLock()
+	defer db.interceptorsLock.RUnlock()
 
 	if _, in := db.interceptors[txid]; in {
-		return fdriver.Busy, nil
+		return odriver.Busy, nil
 	}
 
-	return fdriver.Unknown, nil
+	return odriver.Unknown, nil
 }
 
 func (db *Vault) DiscardTx(txid string) error {
@@ -121,7 +119,7 @@ func (db *Vault) DiscardTx(txid string) error {
 		return errors.WithMessagef(err, "begin update for txid '%s' failed", txid)
 	}
 
-	err = db.txidStore.Set(txid, fdriver.Invalid)
+	err = db.txidStore.Set(txid, odriver.Invalid)
 	if err != nil {
 		return err
 	}
@@ -188,12 +186,40 @@ func (db *Vault) CommitTX(txid string, block uint64, indexInBloc int) error {
 	}
 
 	logger.Debugf("set state to valid [%s]", txid)
-	err = db.txidStore.Set(txid, fdriver.Valid)
+	err = db.txidStore.Set(txid, odriver.Valid)
 	if err != nil {
 		if err1 := db.store.Discard(); err1 != nil {
 			logger.Errorf("got error %s; discarding caused %s", err.Error(), err1.Error())
 		}
 
+		return err
+	}
+
+	err = db.store.Commit()
+	if err != nil {
+		return errors.WithMessagef(err, "committing tx for txid '%s' failed", txid)
+	}
+
+	return nil
+}
+
+func (db *Vault) SetBusy(txid string) error {
+	code, err := db.txidStore.Get(txid)
+	if err != nil {
+		return err
+	}
+	if code != odriver.Unknown {
+		// nothing to set
+		return nil
+	}
+
+	err = db.store.BeginUpdate()
+	if err != nil {
+		return errors.WithMessagef(err, "begin update for txid '%s' failed", txid)
+	}
+
+	err = db.txidStore.Set(txid, odriver.Busy)
+	if err != nil {
 		return err
 	}
 
@@ -213,6 +239,10 @@ func (db *Vault) NewRWSet(txid string) (*Interceptor, error) {
 	if _, in := db.interceptors[txid]; in {
 		db.interceptorsLock.Unlock()
 		return nil, errors.Errorf("duplicate read-write set for txid %s", txid)
+	}
+	if err := db.SetBusy(txid); err != nil {
+		db.interceptorsLock.Unlock()
+		return nil, errors.Errorf("failed to ser status to busy for txid %s", txid)
 	}
 	db.interceptors[txid] = i
 	db.interceptorsLock.Unlock()
@@ -238,6 +268,10 @@ func (db *Vault) GetRWSet(txid string, rwsetBytes []byte) (*Interceptor, error) 
 			return nil, errors.Errorf("programming error: previous read-write set for %s has not been closed", txid)
 		}
 	}
+	if err := db.SetBusy(txid); err != nil {
+		db.interceptorsLock.Unlock()
+		return nil, errors.Errorf("failed to ser status to busy for txid %s", txid)
+	}
 	db.interceptors[txid] = i
 	db.interceptorsLock.Unlock()
 
@@ -247,7 +281,7 @@ func (db *Vault) GetRWSet(txid string, rwsetBytes []byte) (*Interceptor, error) 
 	return i, nil
 }
 
-func (db *Vault) InspectRWSet(rwsetBytes []byte) (*Inspector, error) {
+func (db *Vault) InspectRWSet(rwsetBytes []byte, namespaces ...string) (*Inspector, error) {
 	i := newInspector()
 
 	if err := i.rws.populate(rwsetBytes, "ephemeral"); err != nil {
@@ -263,8 +297,8 @@ func (db *Vault) Match(txid string, rwsRaw []byte) error {
 	}
 
 	logger.Debugf("unmapInterceptor [%s]", txid)
-	db.interceptorsLock.Lock()
-	defer db.interceptorsLock.Unlock()
+	db.interceptorsLock.RLock()
+	defer db.interceptorsLock.RUnlock()
 	i, in := db.interceptors[txid]
 	if !in {
 		return errors.Errorf("read-write set for txid %s could not be found", txid)
@@ -283,11 +317,26 @@ func (db *Vault) Match(txid string, rwsRaw []byte) error {
 	}
 
 	if !bytes.Equal(rwsRaw, rwsRaw2) {
-		return errors.Errorf("rwsets do not match")
+		target, err := db.InspectRWSet(rwsRaw)
+		if err != nil {
+			return errors.Wrapf(err, "rwsets do not match")
+		}
+		if err2 := i.Equals(target); err2 != nil {
+			return errors.Wrapf(err2, "rwsets do not match")
+		}
+		// TODO: vault should support Fabric's rwset fully
+		logger.Debugf("byte representation differs, but rwsets match [%s]", txid)
 	}
 	return nil
 }
 
 func (db *Vault) Close() error {
 	return db.store.Close()
+}
+
+func (db *Vault) RWSExists(txid string) bool {
+	db.interceptorsLock.RLock()
+	defer db.interceptorsLock.RUnlock()
+	_, in := db.interceptors[txid]
+	return in
 }
