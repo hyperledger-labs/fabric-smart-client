@@ -107,7 +107,9 @@ func (n *node) Start() (err error) {
 
 func (n *node) Stop() {
 	n.running = false
-	n.cancel()
+	if n.cancel != nil {
+		n.cancel()
+	}
 }
 
 func (n *node) InstallSDK(p api.SDK) error {
