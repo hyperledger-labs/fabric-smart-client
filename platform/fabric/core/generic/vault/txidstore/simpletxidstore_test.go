@@ -12,11 +12,11 @@ import (
 	"os"
 	"testing"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/vault/mocks"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db"
 	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger"
 	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/unversioned/mocks"
 	"github.com/test-go/testify/assert"
 )
 
@@ -66,7 +66,7 @@ func TestTXIDStoreBadger(t *testing.T) {
 	testOneMore(t, store)
 }
 
-func testOneMore(t *testing.T, store *TXIDStore) {
+func testOneMore(t *testing.T, store *SimpleTXIDStore) {
 	err := store.persistence.BeginUpdate()
 	assert.NoError(t, err)
 	err = store.Set("txid3", driver.Valid)
@@ -113,9 +113,67 @@ func testOneMore(t *testing.T, store *TXIDStore) {
 	last, err := store.GetLastTxID()
 	assert.NoError(t, err)
 	assert.Equal(t, "txid3", last)
+
+	// add a busy tx
+	err = store.persistence.BeginUpdate()
+	assert.NoError(t, err)
+	err = store.Set("txid4", driver.Busy)
+	assert.NoError(t, err)
+	err = store.persistence.Commit()
+	assert.NoError(t, err)
+
+	last, err = store.GetLastTxID()
+	assert.NoError(t, err)
+	assert.Equal(t, "txid3", last)
+
+	// iterate again
+	it, err = store.Iterator(&driver.SeekStart{})
+	assert.NoError(t, err)
+	txids = []string{}
+	for {
+		tid, err := it.Next()
+		assert.NoError(t, err)
+
+		if tid == nil {
+			it.Close()
+			break
+		}
+
+		txids = append(txids, tid.Txid)
+	}
+	assert.Equal(t, []string{"txid1", "txid2", "txid10", "txid12", "txid21", "txid100", "txid200", "txid1025", "txid3", "txid4"}, txids)
+
+	// update the busy tx
+	err = store.persistence.BeginUpdate()
+	assert.NoError(t, err)
+	err = store.Set("txid4", driver.Valid)
+	assert.NoError(t, err)
+	err = store.persistence.Commit()
+	assert.NoError(t, err)
+
+	last, err = store.GetLastTxID()
+	assert.NoError(t, err)
+	assert.Equal(t, "txid4", last)
+
+	// iterate again
+	it, err = store.Iterator(&driver.SeekStart{})
+	assert.NoError(t, err)
+	txids = []string{}
+	for {
+		tid, err := it.Next()
+		assert.NoError(t, err)
+
+		if tid == nil {
+			it.Close()
+			break
+		}
+
+		txids = append(txids, tid.Txid)
+	}
+	assert.Equal(t, []string{"txid1", "txid2", "txid10", "txid12", "txid21", "txid100", "txid200", "txid1025", "txid3", "txid4", "txid4"}, txids)
 }
 
-func testTXIDStore(t *testing.T, store *TXIDStore) {
+func testTXIDStore(t *testing.T, store *SimpleTXIDStore) {
 	var err error
 	func() {
 		defer func() {

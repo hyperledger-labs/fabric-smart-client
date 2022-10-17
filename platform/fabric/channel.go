@@ -61,3 +61,7 @@ func (c *Channel) Delivery() *Delivery {
 func (c *Channel) MetadataService() *MetadataService {
 	return &MetadataService{ms: c.ch.MetadataService()}
 }
+
+func (c *Channel) EnvelopeService() *EnvelopeService {
+	return &EnvelopeService{ms: c.ch.EnvelopeService()}
+}

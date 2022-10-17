@@ -35,6 +35,11 @@ func (pt *ProcessedTransaction) Results() []byte {
 	return pt.pt.Results()
 }
 
+// ValidationCode of this transaction
+func (pt *ProcessedTransaction) ValidationCode() int32 {
+	return pt.pt.ValidationCode()
+}
+
 // Ledger models the ledger stored at a remote Fabric peer
 type Ledger struct {
 	ch *Channel

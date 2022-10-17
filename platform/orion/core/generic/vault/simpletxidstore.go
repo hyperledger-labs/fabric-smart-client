@@ -10,11 +10,10 @@ import (
 	"encoding/binary"
 	"math"
 
+	odriver "github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
-
-	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 )
 
 const (
@@ -22,6 +21,7 @@ const (
 	ctrKey        = "ctr"
 	byCtrPrefix   = "C"
 	byTxidPrefix  = "T"
+	lastTX        = "last"
 )
 
 type SimpleTXIDStore struct {
@@ -116,20 +116,20 @@ func (s *SimpleTXIDStore) get(txid string) (*ByTxid, error) {
 	return bt, nil
 }
 
-func (s *SimpleTXIDStore) Get(txid string) (fdriver.ValidationCode, error) {
+func (s *SimpleTXIDStore) Get(txid string) (odriver.ValidationCode, error) {
 	bt, err := s.get(txid)
 	if err != nil {
-		return fdriver.Unknown, err
+		return odriver.Unknown, err
 	}
 
 	if bt == nil {
-		return fdriver.Unknown, nil
+		return odriver.Unknown, nil
 	}
 
-	return fdriver.ValidationCode(bt.Code), nil
+	return odriver.ValidationCode(bt.Code), nil
 }
 
-func (s *SimpleTXIDStore) Set(txid string, code fdriver.ValidationCode) error {
+func (s *SimpleTXIDStore) Set(txid string, code odriver.ValidationCode) error {
 	// NOTE: we assume that the commit is in progress so no need to update/commit
 	// err := s.persistence.BeginUpdate()
 	// if err != nil {
@@ -173,6 +173,13 @@ func (s *SimpleTXIDStore) Set(txid string, code fdriver.ValidationCode) error {
 		return errors.Errorf("error storing ByTxid for txid %s [%s]", txid, err.Error())
 	}
 
+	if code == odriver.Valid {
+		err = s.persistence.SetState(txidNamespace, lastTX, []byte(txid))
+		if err != nil {
+			s.persistence.Discard()
+			return errors.Errorf("error storing ByTxid for txid %s [%s]", txid, err.Error())
+		}
+	}
 	// NOTE: we assume that the commit is in progress so no need to update/commit
 	// err = s.persistence.Commit()
 	// if err != nil {
@@ -185,30 +192,25 @@ func (s *SimpleTXIDStore) Set(txid string, code fdriver.ValidationCode) error {
 }
 
 func (s *SimpleTXIDStore) GetLastTxID() (string, error) {
-	it, err := s.Iterator(&fdriver.SeekEnd{})
+	v, err := s.persistence.GetState(txidNamespace, lastTX)
 	if err != nil {
-		return "", errors.Wrapf(err, "failed to get txid store iterator")
+		return "", errors.Wrapf(err, "failed to get last TxID")
 	}
-	defer it.Close()
-	next, err := it.Next()
-	if err != nil {
-		return "", errors.Wrapf(err, "failed to get next from txid store iterator")
-	}
-	if next == nil {
+	if len(v) == 0 {
 		return "", nil
 	}
-	return next.Txid, nil
+	return string(v), nil
 }
 
-func (s *SimpleTXIDStore) Iterator(pos interface{}) (fdriver.TxidIterator, error) {
+func (s *SimpleTXIDStore) Iterator(pos interface{}) (odriver.TxidIterator, error) {
 	var startKey string
 	var endKey string
 
 	switch ppos := pos.(type) {
-	case *fdriver.SeekStart:
+	case *odriver.SeekStart:
 		startKey = keyByCtr(0)
 		endKey = keyByCtr(math.MaxUint64)
-	case *fdriver.SeekEnd:
+	case *odriver.SeekEnd:
 		ctr, err := getCtr(s.persistence)
 		if err != nil {
 			return nil, err
@@ -216,7 +218,7 @@ func (s *SimpleTXIDStore) Iterator(pos interface{}) (fdriver.TxidIterator, error
 
 		startKey = keyByCtr(ctr - 1)
 		endKey = keyByCtr(math.MaxUint64)
-	case *fdriver.SeekPos:
+	case *odriver.SeekPos:
 		bt, err := s.get(ppos.Txid)
 		if err != nil {
 			return nil, err
@@ -244,7 +246,7 @@ type SimpleTxidIterator struct {
 	t driver.ResultsIterator
 }
 
-func (i *SimpleTxidIterator) Next() (*fdriver.ByNum, error) {
+func (i *SimpleTxidIterator) Next() (*odriver.ByNum, error) {
 	d, err := i.t.Next()
 	if err != nil {
 		return nil, err
@@ -260,9 +262,9 @@ func (i *SimpleTxidIterator) Next() (*fdriver.ByNum, error) {
 		return nil, err
 	}
 
-	return &fdriver.ByNum{
+	return &odriver.ByNum{
 		Txid: bn.Txid,
-		Code: fdriver.ValidationCode(bn.Code),
+		Code: odriver.ValidationCode(bn.Code),
 	}, nil
 }
 

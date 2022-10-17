@@ -402,3 +402,11 @@ func (m *MetadataService) LoadTransient(txid string) (TransientMap, error) {
 	}
 	return TransientMap(res), nil
 }
+
+type EnvelopeService struct {
+	ms driver.EnvelopeService
+}
+
+func (m *EnvelopeService) Exists(txid string) bool {
+	return m.ms.Exists(txid)
+}

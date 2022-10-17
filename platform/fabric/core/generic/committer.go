@@ -56,6 +56,7 @@ func (c *channel) DiscardTx(txid string) error {
 		return errors.WithMessagef(err, "failed getting tx's status in state db [%s]", txid)
 	}
 	if vc == driver.Unknown {
+		logger.Debugf("Discarding transaction [%s] skipped, tx is unknown", txid)
 		return nil
 	}
 
@@ -157,6 +158,14 @@ func (c *channel) commitUnknown(txID string, block uint64, indexInBlock int) err
 
 func (c *channel) commitStoredEnvelope(txID string, block uint64, indexInBlock int) error {
 	logger.Debugf("found envelope for transaction [%s], committing it...", txID)
+	if err := c.extractStoredEnvelopeToVault(txID); err != nil {
+		return err
+	}
+	// commit
+	return c.commitLocal(txID, block, indexInBlock, nil)
+}
+
+func (c *channel) extractStoredEnvelopeToVault(txID string) error {
 	// extract envelope
 	envRaw, err := c.EnvelopeService().LoadEnvelope(txID)
 	if err != nil {
@@ -176,8 +185,7 @@ func (c *channel) commitStoredEnvelope(txID string, block uint64, indexInBlock i
 		return errors.WithMessagef(err, "failed to parse fabric envelope's rws for [%s][%s]", txID, hash.Hashable(envRaw).String())
 	}
 	rws.Done()
-	// commit
-	return c.commitLocal(txID, block, indexInBlock, nil)
+	return nil
 }
 
 func (c *channel) commit(txid string, deps []string, block uint64, indexInBlock int, envelope *common.Envelope) error {
@@ -265,6 +273,12 @@ func (c *channel) commitLocal(txid string, block uint64, indexInBlock int, envel
 		if err != nil {
 			logger.Error("[%s] failed to unmarshal envelope [%s]", txid, err)
 			return err
+		}
+
+		if !c.vault.RWSExists(txid) {
+			if err := c.extractStoredEnvelopeToVault(txid); err != nil {
+				return errors.WithMessagef(err, "failed to load stored enveloper into the vault")
+			}
 		}
 
 		if err := c.vault.Match(txid, pt.Results()); err != nil {

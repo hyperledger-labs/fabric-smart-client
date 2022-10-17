@@ -54,6 +54,7 @@ type delivery struct {
 	callback            Callback
 	vault               Vault
 	client              peer.Client
+	lastBlockReceived   uint64
 }
 
 func New(
@@ -134,6 +135,7 @@ func (d *delivery) Run() error {
 				if logger.IsEnabledFor(zapcore.DebugLevel) {
 					logger.Debugf("delivery service [%s:%s], commit block [%d]", d.client.Address(), d.channel, r.Block.Header.Number)
 				}
+				d.lastBlockReceived = r.Block.Header.Number
 
 				stop, err := d.callback(r.Block)
 				if err != nil {
@@ -188,43 +190,55 @@ func (d *delivery) connect() (DeliverStream, error) {
 	}
 	deliverClient, err := NewDeliverClient(d.client)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "failed to get deliver client")
 	}
 	stream, err := deliverClient.NewDeliver(d.ctx)
 	if err != nil {
-		return nil, err
-	}
-
-	lastTxID, err := d.vault.GetLastTxID()
-	if err != nil {
-		return nil, errors.WithMessagef(err, "failed getting last transaction committed/discarted from the vault")
+		return nil, errors.Wrapf(err, "failed to get delivery stream")
 	}
 
 	start := &ab.SeekPosition{}
-	if len(lastTxID) != 0 && !strings.HasPrefix(lastTxID, committer.ConfigTXPrefix) {
-		// Retrieve block from Fabric
-		ch, err := d.network.Channel(d.channel)
-		if err != nil {
-			return nil, errors.WithMessagef(err, "failed getting channeln [%s]", d.channel)
+	if d.lastBlockReceived != 0 {
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			logger.Debugf("restarting from the last block received [%d]", d.lastBlockReceived)
 		}
-		blockNumber, err := ch.GetBlockNumberByTxID(lastTxID)
-		if err != nil {
-			return nil, errors.WithMessagef(err, "failed getting block number for transaction [%s]", lastTxID)
-		}
+
 		start.Type = &ab.SeekPosition_Specified{
 			Specified: &ab.SeekSpecified{
-				Number: blockNumber,
+				Number: d.lastBlockReceived,
 			},
 		}
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("restarting from block [%d], tx [%s]", blockNumber, lastTxID)
-		}
 	} else {
-		start.Type = &ab.SeekPosition_Oldest{
-			Oldest: &ab.SeekOldest{},
+		lastTxID, err := d.vault.GetLastTxID()
+		if err != nil {
+			return nil, errors.WithMessagef(err, "failed getting last transaction committed/discarted from the vault")
 		}
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("starting from the beginning, no last transaction found")
+
+		if len(lastTxID) != 0 && !strings.HasPrefix(lastTxID, committer.ConfigTXPrefix) {
+			// Retrieve block from Fabric
+			ch, err := d.network.Channel(d.channel)
+			if err != nil {
+				return nil, errors.WithMessagef(err, "failed getting channeln [%s]", d.channel)
+			}
+			blockNumber, err := ch.GetBlockNumberByTxID(lastTxID)
+			if err != nil {
+				return nil, errors.WithMessagef(err, "failed getting block number for transaction [%s]", lastTxID)
+			}
+			start.Type = &ab.SeekPosition_Specified{
+				Specified: &ab.SeekSpecified{
+					Number: blockNumber,
+				},
+			}
+			if logger.IsEnabledFor(zapcore.DebugLevel) {
+				logger.Debugf("restarting from block [%d], tx [%s]", blockNumber, lastTxID)
+			}
+		} else {
+			start.Type = &ab.SeekPosition_Oldest{
+				Oldest: &ab.SeekOldest{},
+			}
+			if logger.IsEnabledFor(zapcore.DebugLevel) {
+				logger.Debugf("starting from the beginning, no last transaction found")
+			}
 		}
 	}
 
@@ -236,11 +250,11 @@ func (d *delivery) connect() (DeliverStream, error) {
 		start,
 	)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to create deliver envelope")
 	}
 	err = DeliverSend(stream, blockEnvelope)
 	if err != nil {
-		return nil, errors.Errorf("failed sending seek envelope to [%s]: %s", address, err)
+		return nil, errors.Wrapf(err, "failed sending seek envelope to [%s]", address)
 	}
 
 	if logger.IsEnabledFor(zapcore.DebugLevel) {

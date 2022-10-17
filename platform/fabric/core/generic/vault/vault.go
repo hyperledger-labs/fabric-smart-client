@@ -76,7 +76,14 @@ func (db *Vault) unmapInterceptor(txid string) (*Interceptor, error) {
 	i, in := db.interceptors[txid]
 
 	if !in {
-		return nil, errors.Errorf("read-write set for txid %s could not be found", txid)
+		vc, err := db.txidStore.Get(txid)
+		if err != nil {
+			return nil, errors.Errorf("read-write set for txid %s could not be found", txid)
+		}
+		if vc == fdriver.Unknown {
+			return nil, errors.Errorf("read-write set for txid %s could not be found", txid)
+		}
+		return nil, nil
 	}
 
 	if !i.closed {
@@ -137,6 +144,9 @@ func (db *Vault) CommitTX(txid string, block uint64, indexInBloc int) error {
 	i, err := db.unmapInterceptor(txid)
 	if err != nil {
 		return err
+	}
+	if i == nil {
+		return errors.Errorf("cannot find rwset for [%s]", txid)
 	}
 
 	logger.Debugf("get lock [%s][%d]", txid, db.counter.Load())
@@ -203,6 +213,34 @@ func (db *Vault) CommitTX(txid string, block uint64, indexInBloc int) error {
 	return nil
 }
 
+func (db *Vault) SetBusy(txid string) error {
+	code, err := db.txidStore.Get(txid)
+	if err != nil {
+		return err
+	}
+	if code != fdriver.Unknown {
+		// nothing to set
+		return nil
+	}
+
+	err = db.store.BeginUpdate()
+	if err != nil {
+		return errors.WithMessagef(err, "begin update for txid '%s' failed", txid)
+	}
+
+	err = db.txidStore.Set(txid, fdriver.Busy)
+	if err != nil {
+		return err
+	}
+
+	err = db.store.Commit()
+	if err != nil {
+		return errors.WithMessagef(err, "committing tx for txid '%s' failed", txid)
+	}
+
+	return nil
+}
+
 func (db *Vault) NewRWSet(txid string) (*Interceptor, error) {
 	logger.Debugf("NewRWSet[%s][%d]", txid, db.counter.Load())
 	i := newInterceptor(&interceptorQueryExecutor{db}, db.txidStore, txid)
@@ -211,6 +249,10 @@ func (db *Vault) NewRWSet(txid string) (*Interceptor, error) {
 	if _, in := db.interceptors[txid]; in {
 		db.interceptorsLock.Unlock()
 		return nil, errors.Errorf("duplicate read-write set for txid %s", txid)
+	}
+	if err := db.SetBusy(txid); err != nil {
+		db.interceptorsLock.Unlock()
+		return nil, errors.Errorf("failed to ser status to busy for txid %s", txid)
 	}
 	db.interceptors[txid] = i
 	db.interceptorsLock.Unlock()
@@ -235,6 +277,10 @@ func (db *Vault) GetRWSet(txid string, rwsetBytes []byte) (*Interceptor, error) 
 			db.interceptorsLock.Unlock()
 			return nil, errors.Errorf("programming error: previous read-write set for %s has not been closed", txid)
 		}
+	}
+	if err := db.SetBusy(txid); err != nil {
+		db.interceptorsLock.Unlock()
+		return nil, errors.Errorf("failed to ser status to busy for txid %s", txid)
 	}
 	db.interceptors[txid] = i
 	db.interceptorsLock.Unlock()
@@ -296,4 +342,11 @@ func (db *Vault) Match(txid string, rwsRaw []byte) error {
 
 func (db *Vault) Close() error {
 	return db.store.Close()
+}
+
+func (db *Vault) RWSExists(txid string) bool {
+	db.interceptorsLock.RLock()
+	defer db.interceptorsLock.RUnlock()
+	_, in := db.interceptors[txid]
+	return in
 }

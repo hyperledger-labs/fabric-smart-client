@@ -32,6 +32,7 @@ type LoadedDataTx interface {
 
 type Ledger interface {
 	NewBlockHeaderDeliveryService(conf *bcdb.BlockHeaderDeliveryConfig) bcdb.BlockHeaderDelivererService
+	GetTransactionReceipt(txId string) (*types.TxReceipt, error)
 }
 
 // Session let the developer access orion
