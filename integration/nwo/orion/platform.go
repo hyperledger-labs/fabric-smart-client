@@ -211,12 +211,14 @@ func (p *Platform) Cleanup() {
 
 func (p *Platform) DeleteVault(id string) {
 	fscTopology := p.Context.TopologyByName("fsc").(*fsc.Topology)
+	found := false
 	for _, node := range fscTopology.Nodes {
 		if strings.Contains(node.Name, id) {
 			Expect(os.RemoveAll(p.FSCNodeVaultDir(node))).ToNot(HaveOccurred())
+			found = true
 		}
 	}
-	Expect(false).To(BeTrue(), "cannot find node [%s]", id)
+	Expect(found).To(BeTrue(), "cannot find node [%s]", id)
 }
 
 func (p *Platform) replaceForDocker(origin string) string {
