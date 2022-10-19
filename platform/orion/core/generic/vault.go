@@ -7,11 +7,16 @@ SPDX-License-Identifier: Apache-2.0
 package generic
 
 import (
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/rwset"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic/vault"
 	odriver "github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
+	"github.com/hyperledger/fabric-protos-go/common"
 	"github.com/pkg/errors"
 )
 
@@ -22,45 +27,10 @@ type Badger struct {
 type Vault struct {
 	*vault.Vault
 	*vault.SimpleTXIDStore
+	envelopeService driver.EnvelopeService
 }
 
-func (v *Vault) GetLastTxID() (string, error) {
-	return v.SimpleTXIDStore.GetLastTxID()
-}
-
-func (v *Vault) NewQueryExecutor() (odriver.QueryExecutor, error) {
-	return v.Vault.NewQueryExecutor()
-}
-
-func (v *Vault) NewRWSet(txid string) (odriver.RWSet, error) {
-	return v.Vault.NewRWSet(txid)
-}
-
-func (v *Vault) GetRWSet(id string, results []byte) (odriver.RWSet, error) {
-	return v.Vault.GetRWSet(id, results)
-}
-
-func (v *Vault) Status(txID string) (odriver.ValidationCode, error) {
-	return v.Vault.Status(txID)
-}
-
-func (v *Vault) DiscardTx(txid string) error {
-	vc, err := v.Vault.Status(txid)
-	if err != nil {
-		return errors.Wrapf(err, "failed getting tx's status in state db [%s]", txid)
-	}
-	if vc == odriver.Unknown {
-		return nil
-	}
-
-	return v.Vault.DiscardTx(txid)
-}
-
-func (v *Vault) CommitTX(txid string, block uint64, indexInBloc int) error {
-	return v.Vault.CommitTX(txid, block, indexInBloc)
-}
-
-func NewVault(sp view.ServiceProvider, config *config.Config, channel string) (*Vault, error) {
+func NewVault(sp view.ServiceProvider, config *config.Config, envelopeService driver.EnvelopeService, channel string) (*Vault, error) {
 	pType := config.VaultPersistenceType()
 	if pType == "file" {
 		// for retro compatibility
@@ -71,10 +41,89 @@ func NewVault(sp view.ServiceProvider, config *config.Config, channel string) (*
 		return nil, errors.Wrapf(err, "failed creating vault")
 	}
 
-	txidstore, err := vault.NewSimpleTXIDStore(db.Unversioned(persistence))
+	txIDStore, err := vault.NewSimpleTXIDStore(db.Unversioned(persistence))
 	if err != nil {
 		return nil, err
 	}
 
-	return &Vault{vault.New(persistence, txidstore), txidstore}, nil
+	return &Vault{
+		Vault:           vault.New(persistence, txIDStore),
+		SimpleTXIDStore: txIDStore,
+		envelopeService: envelopeService,
+	}, nil
+}
+
+func (v *Vault) GetLastTxID() (string, error) {
+	return v.SimpleTXIDStore.GetLastTxID()
+}
+
+func (v *Vault) NewQueryExecutor() (odriver.QueryExecutor, error) {
+	return v.Vault.NewQueryExecutor()
+}
+
+func (v *Vault) NewRWSet(txID string) (odriver.RWSet, error) {
+	return v.Vault.NewRWSet(txID)
+}
+
+func (v *Vault) GetRWSet(id string, results []byte) (odriver.RWSet, error) {
+	return v.Vault.GetRWSet(id, results)
+}
+
+func (v *Vault) Status(txID string) (odriver.ValidationCode, error) {
+	vc, err := v.Vault.Status(txID)
+	if err != nil {
+		return odriver.Unknown, err
+	}
+	// give it a second chance
+	if v.envelopeService.Exists(txID) {
+		if err := v.extractStoredEnvelopeToVault(txID); err != nil {
+			return odriver.Unknown, errors.WithMessagef(err, "failed to extract stored enveloper for [%s]", txID)
+		}
+		vc = odriver.Busy
+	}
+	return vc, nil
+}
+
+func (v *Vault) DiscardTx(txID string) error {
+	vc, err := v.Vault.Status(txID)
+	if err != nil {
+		return errors.Wrapf(err, "failed getting tx's status in state db [%s]", txID)
+	}
+	if vc == odriver.Unknown {
+		return nil
+	}
+
+	return v.Vault.DiscardTx(txID)
+}
+
+func (v *Vault) CommitTX(txID string, block uint64, indexInBloc int) error {
+	return v.Vault.CommitTX(txID, block, indexInBloc)
+}
+
+func (v *Vault) extractStoredEnvelopeToVault(txID string) error {
+	// extract envelope
+	envRaw, err := v.envelopeService.LoadEnvelope(txID)
+	if err != nil {
+		return errors.WithMessagef(err, "failed to load fabric envelope for [%s]", txID)
+	}
+	logger.Debugf("unmarshal envelope [%s]", txID)
+	env := &common.Envelope{}
+	err = proto.Unmarshal(envRaw, env)
+	if err != nil {
+		return errors.Wrapf(err, "failed unmarshalling envelope [%s]", txID)
+	}
+	logger.Debugf("unpack envelope [%s]", txID)
+	upe, err := rwset.UnpackEnvelope("", env)
+	if err != nil {
+		return errors.Wrapf(err, "failed unpacking envelope [%s]", txID)
+	}
+	logger.Debugf("retrieve rws [%s]", txID)
+	// load into the vault
+	rws, err := v.GetRWSet(txID, upe.Results)
+	if err != nil {
+		return errors.WithMessagef(err, "failed to parse fabric envelope's rws for [%s][%s]", txID, hash.Hashable(envRaw).String())
+	}
+	rws.Done()
+
+	return nil
 }
