@@ -236,11 +236,8 @@ func (c *channel) GetClientConfig(tlsRootCerts [][]byte) (*grpc.ClientConfig, st
 	}
 
 	clientConfig.KaOpts = grpc.KeepaliveOptions{
-		ClientInterval:    c.config.KeepAliveClientInterval(),
-		ClientTimeout:     c.config.KeepAliveClientTimeout(),
-		ServerInterval:    c.config.KeepAliveServerInterval(),
-		ServerTimeout:     c.config.KeepAliveServerTimeout(),
-		ServerMinInterval: c.config.KeepAliveServerMinInterval(),
+		ClientInterval: c.config.KeepAliveClientInterval(),
+		ClientTimeout:  c.config.KeepAliveClientTimeout(),
 	}
 
 	return clientConfig, override, nil

@@ -11,14 +11,10 @@ const CoreTemplate = `---
 logging:
  # Spec
  spec: {{ Topology.Logging.Spec }}
- # Format
- format: {{ Topology.Logging.Format }}
 fsc:
   # The FSC id provides a name for this node instance and is used when
   # naming docker resources.
   id: {{ Peer.ID }}
-  # This represents the endpoint to other FSC nodes in the same organization.
-  address: 127.0.0.1:{{ .NodePort Peer "Listen" }}
   # Identity of this node, used to connect to other nodes
   identity:
     # X.509 certificate used as identity of this node
@@ -33,38 +29,43 @@ fsc:
     {{- range Peer.Admins }}
     - {{ . }} 
     {{- end }}
-  # TLS Settings
-  # (We use here the same set of properties as Hyperledger Fabric)
-  tls:
-    # Require server-side TLS
-    enabled:  true
-    # Require client certificates / mutual TLS for inbound connections.
-    # Note that clients that are not configured to use a certificate will
-    # fail to connect to the node.
-    clientAuthRequired: {{ .ClientAuthRequired }}
-    # X.509 certificate used for TLS server
-    cert:
-      file: {{ .NodeLocalTLSDir Peer }}/server.crt
-    # Private key used for TLS server
-    key:
-      file: {{ .NodeLocalTLSDir Peer }}/server.key
-    # If mutual TLS is enabled, clientRootCAs.files contains a list of additional root certificates
-    # used for verifying certificates of client connections.
-    clientRootCAs:
-      files:
-      - {{ .NodeLocalTLSDir Peer }}/ca.crt
-  # Keepalive settings for node server and clients
-  keepalive:
-    # MinInterval is the minimum permitted time between client pings.
-    # If clients send pings more frequently, the peer server will
-    # disconnect them
-    minInterval: 60s
-    # Interval is the duration after which if the server does not see
-    # any activity from the client it pings the client to see if it's alive
-    interval: 300s
-    # Timeout is the duration the server waits for a response
-    # from the client after sending a ping before closing the connection
-    timeout: 600s
+  grpc:
+    # This represents the endpoint to other FSC nodes in the same organization.
+    address: 127.0.0.1:{{ .NodePort Peer "Listen" }}
+    # TLS Settings
+    # (We use here the same set of properties as Hyperledger Fabric)
+    tls:
+      # Require server-side TLS
+      enabled:  true
+      # Require client certificates / mutual TLS for inbound connections.
+      # Note that clients that are not configured to use a certificate will
+      # fail to connect to the node.
+      clientAuthRequired: {{ .ClientAuthRequired }}
+      # X.509 certificate used for TLS server
+      cert:
+        file: {{ .NodeLocalTLSDir Peer }}/server.crt
+      # Private key used for TLS server
+      key:
+        file: {{ .NodeLocalTLSDir Peer }}/server.key
+      # If mutual TLS is enabled, clientRootCAs.files contains a list of additional root certificates
+      # used for verifying certificates of client connections.
+      {{- if .ClientAuthRequired }}
+      clientRootCAs:
+        files:
+        - {{ .NodeLocalTLSDir Peer }}/ca.crt
+      {{- end }}
+    # Keepalive settings for node server and clients
+    keepalive:
+      # MinInterval is the minimum permitted time between client pings.
+      # If clients send pings more frequently, the peer server will
+      # disconnect them
+      minInterval: 60s
+      # Interval is the duration after which if the server does not see
+      # any activity from the client it pings the client to see if it's alive
+      interval: 300s
+      # Timeout is the duration the server waits for a response
+      # from the client after sending a ping before closing the connection
+      timeout: 600s
   # P2P configuration
   p2p:
     # Listening address

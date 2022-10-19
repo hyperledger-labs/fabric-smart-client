@@ -88,18 +88,12 @@ fabric:
         files:
           - /home/vagrant/testdata/fabric.default/crypto/peerOrganizations/org1.example.com/peers/approver.org1.example.com/tls/ca.crt
       rootCertFile: /home/vagrant/testdata/fabric.default/crypto/ca-certs.pem
-      keepalive:
-        client:
-          interval: 60s
-          timeout: 600s
-        server:
-          interval: 60s
-          timeout: 600s
-          minInterval: 60s
+    keepalive:
+      interval: 60s
+      timeout: 600s
     peers:
       - address: 127.0.0.1:22013
         connectionTimeout: 10s
-        tlsEnabled: true
         tlsRootCertFile: /home/vagrant/testdata/fabric.default/crypto/ca-certs.pem
         serverNameOverride:
     channels:

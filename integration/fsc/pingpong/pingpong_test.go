@@ -56,7 +56,7 @@ var _ = Describe("EndToEnd", func() {
 
 			time.Sleep(3 * time.Second)
 
-			webClientConfig, err := client.NewWebClientConfigFromFSC("./testdata/fsc/nodes/initiator")
+			webClientConfig, err := client.NewWebClientConfigFromFSC("./testdata/fsc/nodes/webclient")
 			Expect(err).NotTo(HaveOccurred())
 			initiatorWebClient, err := web.NewClient(webClientConfig)
 			Expect(err).NotTo(HaveOccurred())
