@@ -100,7 +100,7 @@ func (d *delivery) Run() error {
 		default:
 			if df == nil {
 				if logger.IsEnabledFor(zapcore.DebugLevel) {
-					logger.Debugf("deliver service [%s:%s], connecting...", d.channel)
+					logger.Debugf("deliver service [%s], connecting...", d.channel)
 				}
 				df, err = d.connect()
 				if err != nil {
