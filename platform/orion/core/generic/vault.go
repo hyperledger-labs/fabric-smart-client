@@ -7,30 +7,27 @@ SPDX-License-Identifier: Apache-2.0
 package generic
 
 import (
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/rwset"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic/vault"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	odriver "github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
-	"github.com/hyperledger/fabric-protos-go/common"
 	"github.com/pkg/errors"
 )
 
-type Badger struct {
-	Path string
+type Network interface {
+	TransactionManager() driver.TransactionManager
+	EnvelopeService() driver.EnvelopeService
 }
 
 type Vault struct {
 	*vault.Vault
 	*vault.SimpleTXIDStore
-	envelopeService driver.EnvelopeService
+	network Network
 }
 
-func NewVault(sp view.ServiceProvider, config *config.Config, envelopeService driver.EnvelopeService, channel string) (*Vault, error) {
+func NewVault(sp view.ServiceProvider, config *config.Config, network Network, channel string) (*Vault, error) {
 	pType := config.VaultPersistenceType()
 	if pType == "file" {
 		// for retro compatibility
@@ -49,7 +46,7 @@ func NewVault(sp view.ServiceProvider, config *config.Config, envelopeService dr
 	return &Vault{
 		Vault:           vault.New(persistence, txIDStore),
 		SimpleTXIDStore: txIDStore,
-		envelopeService: envelopeService,
+		network:         network,
 	}, nil
 }
 
@@ -76,7 +73,7 @@ func (v *Vault) Status(txID string) (odriver.ValidationCode, error) {
 	}
 	if vc == odriver.Unknown {
 		// give it a second chance
-		if v.envelopeService.Exists(txID) {
+		if v.network.EnvelopeService().Exists(txID) {
 			if err := v.extractStoredEnvelopeToVault(txID); err != nil {
 				return odriver.Unknown, errors.WithMessagef(err, "failed to extract stored enveloper for [%s]", txID)
 			}
@@ -104,26 +101,18 @@ func (v *Vault) CommitTX(txID string, block uint64, indexInBloc int) error {
 
 func (v *Vault) extractStoredEnvelopeToVault(txID string) error {
 	// extract envelope
-	envRaw, err := v.envelopeService.LoadEnvelope(txID)
+	envRaw, err := v.network.EnvelopeService().LoadEnvelope(txID)
 	if err != nil {
 		return errors.WithMessagef(err, "failed to load fabric envelope for [%s]", txID)
 	}
 	logger.Debugf("unmarshal envelope [%s]", txID)
-	env := &common.Envelope{}
-	err = proto.Unmarshal(envRaw, env)
-	if err != nil {
-		return errors.Wrapf(err, "failed unmarshalling envelope [%s]", txID)
+	env := v.network.TransactionManager().NewEnvelope()
+	if err := env.FromBytes(envRaw); err != nil {
+		return errors.Wrapf(err, "cannot unmarshal envelope [%s]", txID)
 	}
-	logger.Debugf("unpack envelope [%s]", txID)
-	upe, err := rwset.UnpackEnvelope("", env)
+	rws, err := v.GetRWSet(txID, env.Results())
 	if err != nil {
-		return errors.Wrapf(err, "failed unpacking envelope [%s]", txID)
-	}
-	logger.Debugf("retrieve rws [%s]", txID)
-	// load into the vault
-	rws, err := v.GetRWSet(txID, upe.Results)
-	if err != nil {
-		return errors.WithMessagef(err, "failed to parse fabric envelope's rws for [%s][%s]", txID, hash.Hashable(envRaw).String())
+		return errors.Wrapf(err, "cannot unmarshal envelope [%s]", txID)
 	}
 	rws.Done()
 
