@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package orion
 
 import (
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/context"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/orion/opts"
@@ -84,4 +85,18 @@ func (t *Topology) AddDB(name string, roles ...string) {
 		Name:  name,
 		Roles: roles,
 	})
+}
+
+// Network returns the orion network from the passed context bound to the passed id.
+// It returns nil, if nothing is found
+func Network(ctx *context.Context, id string) *Platform {
+	p := ctx.PlatformByName(id)
+	if p == nil {
+		return nil
+	}
+	fp, ok := p.(*Platform)
+	if ok {
+		return fp
+	}
+	return nil
 }
