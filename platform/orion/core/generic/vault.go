@@ -74,12 +74,14 @@ func (v *Vault) Status(txID string) (odriver.ValidationCode, error) {
 	if err != nil {
 		return odriver.Unknown, err
 	}
-	// give it a second chance
-	if v.envelopeService.Exists(txID) {
-		if err := v.extractStoredEnvelopeToVault(txID); err != nil {
-			return odriver.Unknown, errors.WithMessagef(err, "failed to extract stored enveloper for [%s]", txID)
+	if vc == odriver.Unknown {
+		// give it a second chance
+		if v.envelopeService.Exists(txID) {
+			if err := v.extractStoredEnvelopeToVault(txID); err != nil {
+				return odriver.Unknown, errors.WithMessagef(err, "failed to extract stored enveloper for [%s]", txID)
+			}
+			vc = odriver.Busy
 		}
-		vc = odriver.Busy
 	}
 	return vc, nil
 }
