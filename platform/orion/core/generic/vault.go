@@ -10,7 +10,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
-	odriver "github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db"
 	"github.com/pkg/errors"
@@ -54,30 +53,30 @@ func (v *Vault) GetLastTxID() (string, error) {
 	return v.SimpleTXIDStore.GetLastTxID()
 }
 
-func (v *Vault) NewQueryExecutor() (odriver.QueryExecutor, error) {
+func (v *Vault) NewQueryExecutor() (driver.QueryExecutor, error) {
 	return v.Vault.NewQueryExecutor()
 }
 
-func (v *Vault) NewRWSet(txID string) (odriver.RWSet, error) {
+func (v *Vault) NewRWSet(txID string) (driver.RWSet, error) {
 	return v.Vault.NewRWSet(txID)
 }
 
-func (v *Vault) GetRWSet(id string, results []byte) (odriver.RWSet, error) {
+func (v *Vault) GetRWSet(id string, results []byte) (driver.RWSet, error) {
 	return v.Vault.GetRWSet(id, results)
 }
 
-func (v *Vault) Status(txID string) (odriver.ValidationCode, error) {
+func (v *Vault) Status(txID string) (driver.ValidationCode, error) {
 	vc, err := v.Vault.Status(txID)
 	if err != nil {
-		return odriver.Unknown, err
+		return driver.Unknown, err
 	}
-	if vc == odriver.Unknown {
+	if vc == driver.Unknown {
 		// give it a second chance
 		if v.network.EnvelopeService().Exists(txID) {
 			if err := v.extractStoredEnvelopeToVault(txID); err != nil {
-				return odriver.Unknown, errors.WithMessagef(err, "failed to extract stored enveloper for [%s]", txID)
+				return driver.Unknown, errors.WithMessagef(err, "failed to extract stored enveloper for [%s]", txID)
 			}
-			vc = odriver.Busy
+			vc = driver.Busy
 		}
 	}
 	return vc, nil
@@ -88,7 +87,7 @@ func (v *Vault) DiscardTx(txID string) error {
 	if err != nil {
 		return errors.Wrapf(err, "failed getting tx's status in state db [%s]", txID)
 	}
-	if vc == odriver.Unknown {
+	if vc == driver.Unknown {
 		return nil
 	}
 
