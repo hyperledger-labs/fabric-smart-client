@@ -46,6 +46,7 @@ type network struct {
 	transactionService driver.TransactionService
 	finality           driver.Finality
 	committer          driver.Committer
+	deliveryService    driver.DeliveryService
 }
 
 func NewDB(ctx context.Context, sp view2.ServiceProvider, config *config2.Config, name string) (*network, error) {
@@ -156,7 +157,6 @@ func NewNetwork(ctx context.Context, sp view2.ServiceProvider, config *config2.C
 	n.finality = finality
 
 	deliveryService, err := delivery2.New(
-		n.ctx,
 		sp,
 		n,
 		func(block *types.AugmentedBlockHeader) (bool, error) {
@@ -171,7 +171,7 @@ func NewNetwork(ctx context.Context, sp view2.ServiceProvider, config *config2.C
 	if err != nil {
 		return nil, errors.WithMessagef(err, "failed to create delivery service")
 	}
-	deliveryService.Start()
+	n.deliveryService = deliveryService
 
 	return n, nil
 }
@@ -218,4 +218,8 @@ func (f *network) Committer() driver.Committer {
 
 func (f *network) Finality() driver.Finality {
 	return f.finality
+}
+
+func (f *network) DeliveryService() driver.DeliveryService {
+	return f.deliveryService
 }

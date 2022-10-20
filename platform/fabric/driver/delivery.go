@@ -14,6 +14,9 @@ type DeliveryCallback func(tx ProcessedTransaction) (bool, error)
 
 // Delivery gives access to Fabric channel delivery
 type Delivery interface {
+	// StartDelivery starts the delivery process
+	StartDelivery(ctx context.Context) error
+
 	// Scan iterates over all transactions in block starting from the block containing the passed transaction id.
 	// If txID is empty, the iterations starts from the first block.
 	// On each transaction, the callback function is invoked.

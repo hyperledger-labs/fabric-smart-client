@@ -56,9 +56,9 @@ func (p *p) Install() error {
 	assert.NoError(p.registry.RegisterService(cryptoProvider))
 
 	logger.Infof("Set Fabric Network Service Provider")
-	fnspConfig, err := core.NewConfig(view2.GetConfigService(p.registry))
+	fnsConfig, err := core.NewConfig(view2.GetConfigService(p.registry))
 	assert.NoError(err, "failed parsing configuration")
-	p.fnsProvider, err = core.NewFabricNetworkServiceProvider(p.registry, fnspConfig)
+	p.fnsProvider, err = core.NewFabricNetworkServiceProvider(p.registry, fnsConfig)
 	assert.NoError(err, "failed instantiating fabric network service provider")
 	assert.NoError(p.registry.RegisterService(p.fnsProvider))
 	assert.NoError(p.registry.RegisterService(fabric2.NewNetworkServiceProvider(p.registry)))
@@ -92,11 +92,20 @@ func (p *p) Install() error {
 }
 
 func (p *p) Start(ctx context.Context) error {
+	return nil
+}
+
+func (p *p) PostStart(ctx context.Context) error {
 	if !view2.GetConfigService(p.registry).GetBool("fabric.enabled") {
 		logger.Infof("Fabric platform not enabled, skipping start")
 		return nil
 	}
 
+	// start the delivery pipeline on all configured networks
+	fnsConfig, err := core.NewConfig(view2.GetConfigService(p.registry))
+	assert.NoError(err, "failed parsing configuration")
+
+	fnsConfig.Names()
 	if err := p.fnsProvider.Start(ctx); err != nil {
 		return errors.WithMessagef(err, "failed starting fabric network service provider")
 	}

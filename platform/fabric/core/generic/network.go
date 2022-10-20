@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package generic
 
 import (
-	"context"
 	"math/rand"
 	"sync"
 
@@ -25,8 +24,7 @@ import (
 var logger = flogging.MustGetLogger("fabric-sdk.core")
 
 type network struct {
-	sp  view2.ServiceProvider
-	ctx context.Context
+	sp view2.ServiceProvider
 
 	config *config2.Config
 
@@ -49,7 +47,6 @@ type network struct {
 }
 
 func NewNetwork(
-	ctx context.Context,
 	sp view2.ServiceProvider,
 	name string,
 	config *config2.Config,
@@ -59,7 +56,6 @@ func NewNetwork(
 ) (*network, error) {
 	// Load configuration
 	fsp := &network{
-		ctx:             ctx,
 		sp:              sp,
 		name:            name,
 		config:          config,
@@ -143,11 +139,11 @@ func (f *network) Channel(name string) (driver.Channel, error) {
 	if !ok {
 		logger.Debugf("Channel [%s] not found, allocate resources", name)
 		var err error
-		c, err := newChannel(f, name, chanQuiet)
+		ch, err = newChannel(f, name, chanQuiet)
 		if err != nil {
 			return nil, err
 		}
-		f.channels[name] = c
+		f.channels[name] = ch
 		logger.Debugf("Channel [%s] not found, created", name)
 	}
 

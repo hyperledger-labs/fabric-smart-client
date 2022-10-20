@@ -16,6 +16,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	"github.com/pkg/errors"
 )
 
 var (
@@ -23,7 +24,7 @@ var (
 	key    = reflect.TypeOf((*driver.OrionNetworkServiceProvider)(nil))
 )
 
-type onsProvider struct {
+type ONSProvider struct {
 	sp     view.ServiceProvider
 	config *Config
 	ctx    context.Context
@@ -32,8 +33,8 @@ type onsProvider struct {
 	networks      map[string]driver.OrionNetworkService
 }
 
-func NewOrionNetworkServiceProvider(sp view.ServiceProvider, config *Config) (*onsProvider, error) {
-	provider := &onsProvider{
+func NewOrionNetworkServiceProvider(sp view.ServiceProvider, config *Config) (*ONSProvider, error) {
+	provider := &ONSProvider{
 		sp:       sp,
 		config:   config,
 		networks: map[string]driver.OrionNetworkService{},
@@ -41,24 +42,40 @@ func NewOrionNetworkServiceProvider(sp view.ServiceProvider, config *Config) (*o
 	return provider, nil
 }
 
-func (p *onsProvider) Start(ctx context.Context) error {
+func (p *ONSProvider) Start(ctx context.Context) error {
 	p.ctx = ctx
+	for _, name := range p.config.Names() {
+		fns, err := p.OrionNetworkService(name)
+		if err != nil {
+			return errors.Wrapf(err, "failed to start orion network service [%s]", name)
+		}
+		if err := fns.DeliveryService().StartDelivery(ctx); err != nil {
+			return errors.WithMessagef(err, "failed to start delivery on orion network service [%s]", name)
+		}
+	}
 	return nil
 }
 
-func (p *onsProvider) Stop() error {
+func (p *ONSProvider) Stop() error {
+	for _, name := range p.config.Names() {
+		fns, err := p.OrionNetworkService(name)
+		if err != nil {
+			return errors.Wrapf(err, "failed to start orion network service [%s]", name)
+		}
+		fns.DeliveryService().Stop()
+	}
 	return nil
 }
 
-func (p *onsProvider) Names() []string {
+func (p *ONSProvider) Names() []string {
 	return p.config.Names()
 }
 
-func (p *onsProvider) DefaultName() string {
+func (p *ONSProvider) DefaultName() string {
 	return p.config.DefaultName()
 }
 
-func (p *onsProvider) OrionNetworkService(network string) (driver.OrionNetworkService, error) {
+func (p *ONSProvider) OrionNetworkService(network string) (driver.OrionNetworkService, error) {
 	p.networksMutex.Lock()
 	defer p.networksMutex.Unlock()
 
@@ -79,7 +96,7 @@ func (p *onsProvider) OrionNetworkService(network string) (driver.OrionNetworkSe
 	return net, nil
 }
 
-func (p *onsProvider) newONS(network string) (driver.OrionNetworkService, error) {
+func (p *ONSProvider) newONS(network string) (driver.OrionNetworkService, error) {
 	c, err := config.New(view.GetConfigService(p.sp), network, network == p.config.defaultName)
 	if err != nil {
 		return nil, err
