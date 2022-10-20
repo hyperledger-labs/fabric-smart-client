@@ -19,7 +19,7 @@ import (
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	pcommon "github.com/hyperledger/fabric-protos-go/common"
+	"github.com/hyperledger/fabric-protos-go/common"
 	pb "github.com/hyperledger/fabric-protos-go/peer"
 	"github.com/hyperledger/fabric/protoutil"
 	"github.com/pkg/errors"
@@ -59,7 +59,7 @@ func NewInvoke(chaincode *Chaincode, function string, args ...interface{}) *Invo
 }
 
 func (i *Invoke) Endorse() (driver.Envelope, error) {
-	_, prop, responses, signer, err := i.prepare()
+	_, prop, responses, signer, err := i.prepare(false)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +79,7 @@ func (i *Invoke) Endorse() (driver.Envelope, error) {
 }
 
 func (i *Invoke) Query() ([]byte, error) {
-	_, _, responses, _, err := i.prepare()
+	_, _, responses, _, err := i.prepare(true)
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +94,7 @@ func (i *Invoke) Query() ([]byte, error) {
 }
 
 func (i *Invoke) Submit() (string, []byte, error) {
-	txid, prop, responses, signer, err := i.prepare()
+	txID, prop, responses, signer, err := i.prepare(false)
 	if err != nil {
 		return "", nil, err
 	}
@@ -107,16 +107,16 @@ func (i *Invoke) Submit() (string, []byte, error) {
 	// assemble a signed transaction (it's an Envelope message)
 	env, err := protoutil.CreateSignedTx(prop, signer, responses...)
 	if err != nil {
-		return txid, proposalResp.Response.Payload, errors.WithMessage(err, "could not assemble transaction")
+		return txID, proposalResp.Response.Payload, errors.WithMessage(err, "could not assemble transaction")
 	}
 
 	// Broadcast envelope and wait for finality
-	err = i.broadcast(txid, env)
+	err = i.broadcast(txID, env)
 	if err != nil {
 		return "", nil, err
 	}
 
-	return txid, proposalResp.Response.Payload, nil
+	return txID, proposalResp.Response.Payload, nil
 }
 
 func (i *Invoke) WithTransientEntry(k string, v interface{}) driver.ChaincodeInvocation {
@@ -168,7 +168,7 @@ func (i *Invoke) WithTxID(id driver.TxID) driver.ChaincodeInvocation {
 	return i
 }
 
-func (i *Invoke) prepare() (string, *pb.Proposal, []*pb.ProposalResponse, driver.SigningIdentity, error) {
+func (i *Invoke) prepare(query bool) (string, *pb.Proposal, []*pb.ProposalResponse, driver.SigningIdentity, error) {
 	// TODO: improve by providing grpc connection pool
 	var peerClients []peer2.Client
 	defer func() {
@@ -211,9 +211,15 @@ func (i *Invoke) prepare() (string, *pb.Proposal, []*pb.ProposalResponse, driver
 		var err error
 		discovery := NewDiscovery(
 			i.Chaincode,
-		).WithFilterByMSPIDs(
+		)
+		discovery.WithFilterByMSPIDs(
 			i.EndorsersMSPIDs...,
-		).WithImplicitCollections(i.ImplicitCollectionMSPIDs...)
+		).WithImplicitCollections(
+			i.ImplicitCollectionMSPIDs...,
+		)
+		if query {
+			discovery.WithForQuery()
+		}
 		peers, err := discovery.Call()
 		if err != nil {
 			return "", nil, nil, nil, err
@@ -265,7 +271,7 @@ func (i *Invoke) prepare() (string, *pb.Proposal, []*pb.ProposalResponse, driver
 	}
 
 	// prepare proposal
-	signedProp, prop, txid, err := i.prepareProposal(signer)
+	signedProp, prop, txID, err := i.prepareProposal(signer)
 	if err != nil {
 		return "", nil, nil, nil, err
 	}
@@ -281,7 +287,7 @@ func (i *Invoke) prepare() (string, *pb.Proposal, []*pb.ProposalResponse, driver
 		return "", nil, nil, nil, errors.New("no proposal responses received - this might indicate a bug")
 	}
 
-	return txid, prop, responses, signer, nil
+	return txID, prop, responses, signer, nil
 }
 
 func (i *Invoke) prepareProposal(signer SerializableSigner) (*pb.SignedProposal, *pb.Proposal, string, error) {
@@ -296,8 +302,8 @@ func (i *Invoke) prepareProposal(signer SerializableSigner) (*pb.SignedProposal,
 		return nil, nil, "", errors.WithMessage(err, "error serializing identity")
 	}
 	funcName := "invoke"
-	prop, txid, err := i.createChaincodeProposalWithTxIDAndTransient(
-		pcommon.HeaderType_ENDORSER_TRANSACTION,
+	prop, txID, err := i.createChaincodeProposalWithTxIDAndTransient(
+		common.HeaderType_ENDORSER_TRANSACTION,
 		i.Channel.Name(),
 		invocation,
 		creator,
@@ -310,15 +316,15 @@ func (i *Invoke) prepareProposal(signer SerializableSigner) (*pb.SignedProposal,
 		return nil, nil, "", errors.WithMessagef(err, "error creating signed proposal for %s", funcName)
 	}
 
-	return signedProp, prop, txid, nil
+	return signedProp, prop, txID, nil
 }
 
 // createChaincodeProposalWithTxIDAndTransient creates a proposal from given
 // input. It returns the proposal and the transaction id associated with the
 // proposal
-func (i *Invoke) createChaincodeProposalWithTxIDAndTransient(typ pcommon.HeaderType, channelID string, cis *pb.ChaincodeInvocationSpec, creator []byte, transientMap map[string][]byte) (*pb.Proposal, string, error) {
+func (i *Invoke) createChaincodeProposalWithTxIDAndTransient(typ common.HeaderType, channelID string, cis *pb.ChaincodeInvocationSpec, creator []byte, transientMap map[string][]byte) (*pb.Proposal, string, error) {
 	var nonce []byte
-	var txid string
+	var txID string
 
 	if len(i.TxID.Creator) == 0 {
 		i.TxID.Creator = creator
@@ -327,21 +333,21 @@ func (i *Invoke) createChaincodeProposalWithTxIDAndTransient(typ pcommon.HeaderT
 		if logger.IsEnabledFor(zapcore.DebugLevel) {
 			logger.Debugf("generate nonce and tx-id for [%s,%s]", view.Identity(i.TxID.Creator).String(), base64.StdEncoding.EncodeToString(nonce))
 		}
-		txid = transaction.ComputeTxID(&i.TxID)
+		txID = transaction.ComputeTxID(&i.TxID)
 		nonce = i.TxID.Nonce
 	} else {
 		nonce = i.TxID.Nonce
-		txid = transaction.ComputeTxID(&i.TxID)
+		txID = transaction.ComputeTxID(&i.TxID)
 		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("no need to generate nonce and tx-id [%s,%s]", base64.StdEncoding.EncodeToString(nonce), txid)
+			logger.Debugf("no need to generate nonce and tx-id [%s,%s]", base64.StdEncoding.EncodeToString(nonce), txID)
 		}
 	}
 
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("create chaincode proposal with tx id [%s], nonce [%s]", txid, base64.StdEncoding.EncodeToString(nonce))
+		logger.Debugf("create chaincode proposal with tx id [%s], nonce [%s]", txID, base64.StdEncoding.EncodeToString(nonce))
 	}
 
-	return protoutil.CreateChaincodeProposalWithTxIDNonceAndTransient(txid, typ, channelID, cis, nonce, creator, transientMap)
+	return protoutil.CreateChaincodeProposalWithTxIDNonceAndTransient(txID, typ, channelID, cis, nonce, creator, transientMap)
 }
 
 // collectResponses sends a signed proposal to a set of peers, and gathers all the responses.
@@ -428,7 +434,7 @@ func (i *Invoke) toBytes(arg interface{}) ([]byte, error) {
 	}
 }
 
-func (i *Invoke) broadcast(txID string, env *pcommon.Envelope) error {
+func (i *Invoke) broadcast(txID string, env *common.Envelope) error {
 	if err := i.Network.Broadcast(env); err != nil {
 		return err
 	}
