@@ -94,6 +94,22 @@ func (t *Topology) SetBootstrapNode(n *node.Node) {
 	n.Bootstrap = true
 }
 
+func (t *Topology) ListNodes(ids ...string) []*node.Node {
+	if len(ids) == 0 {
+		return t.Nodes
+	}
+	var res []*node.Node
+	for _, n := range t.Nodes {
+		for _, id := range ids {
+			if n.Name == id {
+				res = append(res, n)
+				break
+			}
+		}
+	}
+	return res
+}
+
 func (t *Topology) EnableUDPTracing() {
 	t.TracingProvider = "udp"
 	t.TraceAggregator = "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/tracing/server"

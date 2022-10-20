@@ -29,6 +29,7 @@ type Discovery struct {
 
 	FilterByMSPIDs      []string
 	ImplicitCollections []string
+	QueryForPeers       bool
 
 	DefaultTTL time.Duration
 }
@@ -42,6 +43,13 @@ func NewDiscovery(chaincode *Chaincode) *Discovery {
 }
 
 func (d *Discovery) Call() ([]driver.DiscoveredPeer, error) {
+	if d.QueryForPeers {
+		return d.GetPeers()
+	}
+	return d.GetEndorsers()
+}
+
+func (d *Discovery) GetEndorsers() ([]driver.DiscoveredPeer, error) {
 	response, err := d.Response()
 
 	// extract endorsers
@@ -105,6 +113,64 @@ func (d *Discovery) Call() ([]driver.DiscoveredPeer, error) {
 	return discoveredEndorsers, nil
 }
 
+func (d *Discovery) GetPeers() ([]driver.DiscoveredPeer, error) {
+	response, err := d.Response()
+
+	// extract peers
+	cr := response.ForChannel(d.chaincode.channel.Name())
+	var peers []*discovery.Peer
+	peers, err = cr.Peers(ccCall(d.chaincode.name)...)
+	if err != nil {
+		return nil, errors.WithMessagef(err, "failed getting peers for [%s:%s:%s]", d.chaincode.network.Name(), d.chaincode.channel.Name(), d.chaincode.name)
+	}
+
+	// filter
+	switch {
+	case len(d.ImplicitCollections) > 0:
+		for _, collection := range d.ImplicitCollections {
+			peers = (&byMSPIDs{mspIDs: []string{collection}}).Filter(peers)
+		}
+	default:
+		peers = (&byMSPIDs{mspIDs: d.FilterByMSPIDs}).Filter(peers)
+	}
+
+	// prepare result
+	configResult, err := cr.Config()
+	if err != nil {
+		return nil, errors.WithMessagef(err, "failed getting config for [%s:%s:%s]", d.chaincode.network.Name(), d.chaincode.channel.Name(), d.chaincode.name)
+	}
+	var discoveredEndorsers []driver.DiscoveredPeer
+	for _, peer := range peers {
+		// extract peer info
+		if peer.AliveMessage == nil {
+			continue
+		}
+		aliveMsg := peer.AliveMessage.GetAliveMsg()
+		if aliveMsg == nil {
+			continue
+		}
+		member := aliveMsg.Membership
+		if member == nil {
+			logger.Debugf("no membership info in alive message for peer [%s:%s]", peer.MSPID, view.Identity(peer.Identity).String())
+			continue
+		}
+
+		var tlsRootCerts [][]byte
+		if mspInfo, ok := configResult.GetMsps()[peer.MSPID]; ok {
+			tlsRootCerts = append(tlsRootCerts, mspInfo.GetTlsRootCerts()...)
+			tlsRootCerts = append(tlsRootCerts, mspInfo.GetTlsIntermediateCerts()...)
+		}
+		discoveredEndorsers = append(discoveredEndorsers, driver.DiscoveredPeer{
+			Identity:     peer.Identity,
+			MSPID:        peer.MSPID,
+			Endpoint:     member.Endpoint,
+			TLSRootCerts: tlsRootCerts,
+		})
+	}
+
+	return discoveredEndorsers, nil
+}
+
 func (d *Discovery) Response() (discovery.Response, error) {
 	var sb strings.Builder
 	sb.WriteString(d.chaincode.network.Name())
@@ -112,6 +178,9 @@ func (d *Discovery) Response() (discovery.Response, error) {
 	sb.WriteString(d.chaincode.name)
 	for _, mspiD := range d.FilterByMSPIDs {
 		sb.WriteString(mspiD)
+	}
+	if d.QueryForPeers {
+		sb.WriteString("QueryForPeers")
 	}
 	key := sb.String()
 
@@ -135,7 +204,11 @@ func (d *Discovery) Response() (discovery.Response, error) {
 	}
 
 	// fetch the response
-	response, err = d.send()
+	if d.QueryForPeers {
+		response, err = d.queryEndorsers()
+	} else {
+		response, err = d.queryEndorsers()
+	}
 	if err != nil {
 		return nil, errors.WithMessage(err, "failed to send discovery request")
 	}
@@ -149,6 +222,11 @@ func (d *Discovery) Response() (discovery.Response, error) {
 	return response, nil
 }
 
+func (d *Discovery) Peers() driver.ChaincodeDiscover {
+	d.QueryForPeers = true
+	return d
+}
+
 func (d *Discovery) WithFilterByMSPIDs(mspIDs ...string) driver.ChaincodeDiscover {
 	d.FilterByMSPIDs = mspIDs
 	return d
@@ -159,7 +237,7 @@ func (d *Discovery) WithImplicitCollections(mspIDs ...string) driver.ChaincodeDi
 	return d
 }
 
-func (d *Discovery) send() (discovery.Response, error) {
+func (d *Discovery) queryEndorsers() (discovery.Response, error) {
 	var peerClients []peer2.Client
 	defer func() {
 		for _, pCli := range peerClients {
@@ -251,8 +329,7 @@ func (f *byMSPIDs) Filter(endorsers discovery.Endorsers) discovery.Endorsers {
 	return filteredEndorsers
 }
 
-type noFilter struct {
-}
+type noFilter struct{}
 
 func (f *noFilter) Filter(endorsers discovery.Endorsers) discovery.Endorsers {
 	return endorsers
