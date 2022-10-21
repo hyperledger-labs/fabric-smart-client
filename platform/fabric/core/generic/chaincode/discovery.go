@@ -189,7 +189,7 @@ func (d *Discovery) queryPeers() (discovery.Response, error) {
 	// - peers and
 	// - config,
 	req := discovery.NewRequest().OfChannel(d.chaincode.channel.Name()).AddPeersQuery(
-		&discovery2.ChaincodeCall{Name: d.chaincode.name},
+		&peer.ChaincodeCall{Name: d.chaincode.name},
 	)
 	req = req.AddConfigQuery()
 	return d.query(req)
@@ -290,7 +290,7 @@ func (d *Discovery) ChaincodeVersion() (string, error) {
 	if err != nil {
 		return "", errors.Wrapf(err, "unable to discover channel information for chaincode [%s] on channel [%s]", d.chaincode.name, d.chaincode.channel.Name())
 	}
-	endorsers, err := response.ForChannel(d.chaincode.channel.Name()).Endorsers([]*discovery2.ChaincodeCall{{
+	endorsers, err := response.ForChannel(d.chaincode.channel.Name()).Endorsers([]*peer.ChaincodeCall{{
 		Name: d.chaincode.name,
 	}}, &noFilter{})
 	if err != nil {
@@ -323,8 +323,8 @@ func (d *Discovery) ChaincodeVersion() (string, error) {
 	return "", errors.Errorf("chaincode [%s] not found", d.chaincode.name)
 }
 
-func ccCall(ccNames ...string) []*discovery2.ChaincodeCall {
-	var call []*discovery2.ChaincodeCall
+func ccCall(ccNames ...string) []*peer.ChaincodeCall {
+	var call []*peer.ChaincodeCall
 	for _, ccName := range ccNames {
 		call = append(call, &peer.ChaincodeCall{
 			Name: ccName,
