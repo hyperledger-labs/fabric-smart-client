@@ -277,30 +277,21 @@ fabric:
     tls:
       enabled:  true
       clientAuthRequired: {{ .ClientAuthRequired }}
+      {{- if .ClientAuthRequired }}
       clientCert:
         file: {{ .PeerLocalTLSDir Peer }}/server.crt
       clientKey:
         file: {{ .PeerLocalTLSDir Peer }}/server.key
-      {{- if .ClientAuthRequired }}
-      clientRootCAs:
-        files:
-        - {{ .PeerLocalTLSDir Peer }}/ca.crt
-      {{- end }}
-      keepalive:
-       client:
-         interval: 60s
-         timeout: 600s
-       server:
-         interval: 60s
-         timeout: 600s
-         minInterval: 60s 
+      {{- end }} 
+    keepalive:
+      interval: 60s
+      timeout: 600s
     ordering:
       numRetries: 3
-      retryInternal: 3s
+      retryInterval: 3s
     peers: {{ range Peers }}
       - address: {{ PeerAddress . "Listen" }}
-        connectionTimeout: 10s
-        tlsEnabled: true        
+        connectionTimeout: 10s        
         tlsRootCertFile: {{ CACertsBundlePath }}
         serverNameOverride:
     {{- end }}
@@ -327,7 +318,7 @@ fabric:
       txidstore:
         cache:
           # Sets the maximum number of cached items 
-          cache: 200
+          size: 200
     endpoint:
       resolvers: {{ range .Resolvers }}
       - name: {{ .Name }}

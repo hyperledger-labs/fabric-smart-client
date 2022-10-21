@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package generic
 
 import (
+	"context"
 	"io/ioutil"
 	"sync"
 	"time"
@@ -48,6 +49,11 @@ const (
 	GetBlockByTxID     string = "GetBlockByTxID"
 )
 
+type Delivery interface {
+	Start(ctx context.Context)
+	Stop()
+}
+
 type channel struct {
 	sp                 view2.ServiceProvider
 	config             *config2.Config
@@ -62,6 +68,7 @@ type channel struct {
 	metadataService    driver.MetadataService
 	eventsSubscriber   events.Subscriber
 	eventsPublisher    events.Publisher
+	deliveryService    Delivery
 	driver.TXIDStore
 
 	// applyLock is used to serialize calls to CommitConfig and bundle update processing.
@@ -116,20 +123,12 @@ func newChannel(network *network, name string, quiet bool) (*channel, error) {
 	}
 
 	// Delivery
-	deliveryService, err := delivery2.New(
-		network.ctx,
-		name,
-		sp,
-		network,
-		func(block *common.Block) (bool, error) {
-			if err := committerInst.Commit(block); err != nil {
-				return true, err
-			}
-			return false, nil
-		},
-		txIDStore,
-		waitForEventTimeout,
-	)
+	deliveryService, err := delivery2.New(name, sp, network, func(block *common.Block) (bool, error) {
+		if err := committerInst.Commit(block); err != nil {
+			return true, err
+		}
+		return false, nil
+	}, txIDStore, waitForEventTimeout)
 	if err != nil {
 		return nil, err
 	}
@@ -156,6 +155,7 @@ func newChannel(network *network, name string, quiet bool) (*channel, error) {
 		vault:              v,
 		sp:                 sp,
 		finality:           fs,
+		deliveryService:    deliveryService,
 		externalCommitter:  externalCommitter,
 		TXIDStore:          txIDStore,
 		envelopeService:    transaction.NewEnvelopeService(sp, network.Name(), name),
@@ -169,8 +169,6 @@ func newChannel(network *network, name string, quiet bool) (*channel, error) {
 	if err := c.init(); err != nil {
 		return nil, errors.WithMessagef(err, "failed initializing channel [%s]", name)
 	}
-
-	deliveryService.Start()
 
 	return c, nil
 }
@@ -236,11 +234,8 @@ func (c *channel) GetClientConfig(tlsRootCerts [][]byte) (*grpc.ClientConfig, st
 	}
 
 	clientConfig.KaOpts = grpc.KeepaliveOptions{
-		ClientInterval:    c.config.KeepAliveClientInterval(),
-		ClientTimeout:     c.config.KeepAliveClientTimeout(),
-		ServerInterval:    c.config.KeepAliveServerInterval(),
-		ServerTimeout:     c.config.KeepAliveServerTimeout(),
-		ServerMinInterval: c.config.KeepAliveServerMinInterval(),
+		ClientInterval: c.config.KeepAliveClientInterval(),
+		ClientTimeout:  c.config.KeepAliveClientTimeout(),
 	}
 
 	return clientConfig, override, nil
@@ -281,6 +276,7 @@ func (c *channel) GetBlockNumberByTxID(txID string) (uint64, error) {
 }
 
 func (c *channel) Close() error {
+	c.deliveryService.Stop()
 	return c.vault.Close()
 }
 

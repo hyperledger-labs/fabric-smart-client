@@ -12,8 +12,6 @@ import (
 	"github.com/ReneKroon/ttlcache/v2"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
-	"github.com/hyperledger/fabric-protos-go/peer"
-	"github.com/pkg/errors"
 )
 
 type Chaincode struct {
@@ -74,39 +72,5 @@ func (c *Chaincode) IsPrivate() bool {
 // Version returns the version of this chaincode.
 // It uses discovery to extract this information from the endorsers
 func (c *Chaincode) Version() (string, error) {
-	response, err := NewDiscovery(c).Response()
-	if err != nil {
-		return "", errors.Wrapf(err, "unable to discover channel information for chaincode [%s] on channel [%s]", c.name, c.channel.Name())
-	}
-	endorsers, err := response.ForChannel(c.channel.Name()).Endorsers([]*peer.ChaincodeCall{{
-		Name: c.name,
-	}}, &noFilter{})
-	if err != nil {
-		return "", errors.Wrapf(err, "failed to get endorsers for chaincode [%s] on channel [%s]", c.name, c.channel.Name())
-	}
-	if len(endorsers) == 0 {
-		return "", errors.Errorf("no endorsers found for chaincode [%s] on channel [%s]", c.name, c.channel.Name())
-	}
-	stateInfoMessage := endorsers[0].StateInfoMessage
-	if stateInfoMessage == nil {
-		return "", errors.Errorf("no state info message found for chaincode [%s] on channel [%s]", c.name, c.channel.Name())
-	}
-	stateInfo := stateInfoMessage.GetStateInfo()
-	if stateInfo == nil {
-		return "", errors.Errorf("no state info found for chaincode [%s] on channel [%s]", c.name, c.channel.Name())
-	}
-	properties := stateInfo.GetProperties()
-	if properties == nil {
-		return "", errors.Errorf("no properties found for chaincode [%s] on channel [%s]", c.name, c.channel.Name())
-	}
-	chaincodes := properties.Chaincodes
-	if len(chaincodes) == 0 {
-		return "", errors.Errorf("no chaincode info found for chaincode [%s] on channel [%s]", c.name, c.channel.Name())
-	}
-	for _, chaincode := range chaincodes {
-		if chaincode.Name == c.name {
-			return chaincode.Version, nil
-		}
-	}
-	return "", errors.Errorf("chaincode [%s] not found", c.name)
+	return NewDiscovery(c).ChaincodeVersion()
 }

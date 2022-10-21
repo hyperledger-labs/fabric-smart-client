@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
+	"os"
 	"path/filepath"
 	"runtime"
 
@@ -185,6 +186,13 @@ func (p *Platform) Cleanup() {
 
 func (p *Platform) DeployChaincode(chaincode *topology.ChannelChaincode) {
 	p.Network.DeployChaincode(chaincode)
+}
+
+func (p *Platform) DeleteVault(id string) {
+	fscPeer := p.Network.FSCPeerByName(id)
+	Expect(fscPeer).ToNot(BeNil())
+	p.Network.FSCNodeVaultDir(fscPeer)
+	Expect(os.RemoveAll(p.Network.FSCNodeVaultDir(fscPeer))).ToNot(HaveOccurred())
 }
 
 func (p *Platform) DefaultIdemixOrgMSPDir() string {

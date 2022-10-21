@@ -115,7 +115,7 @@ func (p *p) Install() error {
 	assert.NoError(resolverService.LoadResolvers(), "failed loading resolvers")
 
 	assert.NoError(p.initWEBServer(), "failed initializing web server")
-	assert.NoError(p.initMetrics(), "failed initializing metrics")
+	assert.NoError(p.initWebOperationEndpointsAndMetrics(), "failed initializing web server endpoints and metrics")
 
 	// View Service Server
 	marshaller, err := view2.NewResponseMarshaler(p.registry)
@@ -212,7 +212,7 @@ func (p *p) registerViewServiceServer() error {
 func (p *p) initGRPCServer() error {
 	configProvider := view.GetConfigService(p.registry)
 
-	listenAddr := configProvider.GetString("fsc.address")
+	listenAddr := configProvider.GetString("fsc.grpc.address")
 	serverConfig, err := p.getServerConfig()
 	if err != nil {
 		logger.Fatalf("Error loading secure config for peer (%s)", err)
@@ -320,25 +320,25 @@ func (p *p) getServerConfig() (grpc2.ServerConfig, error) {
 	serverConfig := grpc2.ServerConfig{
 		ConnectionTimeout: configProvider.GetDuration("fsc.connectiontimeout"),
 		SecOpts: grpc2.SecureOptions{
-			UseTLS: configProvider.GetBool("fsc.tls.enabled"),
+			UseTLS: configProvider.GetBool("fsc.grpc.tls.enabled"),
 		},
 	}
 	if serverConfig.SecOpts.UseTLS {
 		// get the certs from the file system
-		serverKey, err := ioutil.ReadFile(configProvider.GetPath("fsc.tls.key.file"))
+		serverKey, err := ioutil.ReadFile(configProvider.GetPath("fsc.grpc.tls.key.file"))
 		if err != nil {
 			return serverConfig, fmt.Errorf("error loading TLS key (%s)", err)
 		}
-		serverCert, err := ioutil.ReadFile(configProvider.GetPath("fsc.tls.cert.file"))
+		serverCert, err := ioutil.ReadFile(configProvider.GetPath("fsc.grpc.tls.cert.file"))
 		if err != nil {
 			return serverConfig, fmt.Errorf("error loading TLS certificate (%s)", err)
 		}
 		serverConfig.SecOpts.Certificate = serverCert
 		serverConfig.SecOpts.Key = serverKey
-		serverConfig.SecOpts.RequireClientCert = configProvider.GetBool("fsc.tls.clientAuthRequired")
+		serverConfig.SecOpts.RequireClientCert = configProvider.GetBool("fsc.grpc.tls.clientAuthRequired")
 		if serverConfig.SecOpts.RequireClientCert {
 			var clientRoots [][]byte
-			for _, file := range configProvider.GetStringSlice("fsc.tls.clientRootCAs.files") {
+			for _, file := range configProvider.GetStringSlice("fsc.grpc.tls.clientRootCAs.files") {
 				clientRoot, err := ioutil.ReadFile(configProvider.TranslatePath(file))
 				if err != nil {
 					return serverConfig, fmt.Errorf("error loading client root CAs (%s)", err)
@@ -351,16 +351,16 @@ func (p *p) getServerConfig() (grpc2.ServerConfig, error) {
 	// get the default keepalive options
 	serverConfig.KaOpts = grpc2.DefaultKeepaliveOptions
 	// check to see if interval is set for the env
-	if configProvider.IsSet("fsc.keepalive.interval") {
-		serverConfig.KaOpts.ServerInterval = configProvider.GetDuration("fsc.keepalive.interval")
+	if configProvider.IsSet("fsc.grpc.keepalive.interval") {
+		serverConfig.KaOpts.ServerInterval = configProvider.GetDuration("fsc.grpc.keepalive.interval")
 	}
 	// check to see if timeout is set for the env
-	if configProvider.IsSet("fsc.keepalive.timeout") {
-		serverConfig.KaOpts.ServerTimeout = configProvider.GetDuration("fsc.keepalive.timeout")
+	if configProvider.IsSet("fsc.grpc.keepalive.timeout") {
+		serverConfig.KaOpts.ServerTimeout = configProvider.GetDuration("fsc.grpc.keepalive.timeout")
 	}
 	// check to see if minInterval is set for the env
-	if configProvider.IsSet("fsc.keepalive.minInterval") {
-		serverConfig.KaOpts.ServerMinInterval = configProvider.GetDuration("fsc.keepalive.minInterval")
+	if configProvider.IsSet("fsc.grpc.keepalive.minInterval") {
+		serverConfig.KaOpts.ServerMinInterval = configProvider.GetDuration("fsc.grpc.keepalive.minInterval")
 	}
 	return serverConfig, nil
 }
@@ -399,23 +399,25 @@ func (p *p) installTracing() error {
 	return nil
 }
 
-func (p *p) initMetrics() error {
+func (p *p) initWebOperationEndpointsAndMetrics() error {
 	configProvider := view.GetConfigService(p.registry)
 
 	tlsEnabled := false
 	if configProvider.IsSet("fsc.web.tls.enabled") {
 		tlsEnabled = configProvider.GetBool("fsc.web.tls.enabled")
-	} else {
-		tlsEnabled = configProvider.GetBool("fsc.tls.enabled")
 	}
 
+	provider := configProvider.GetString("fsc.metrics.provider")
 	statsdOperationsConfig := &operations.Statsd{}
-	if err := configProvider.UnmarshalKey("fsc.metrics.statsd", statsdOperationsConfig); err != nil {
-		return errors.Wrap(err, "error unmarshalling metrics.statsd config")
+	if provider == "statsd" && configProvider.IsSet("fsc.metrics.statsd") {
+		if err := configProvider.UnmarshalKey("fsc.metrics.statsd", statsdOperationsConfig); err != nil {
+			return errors.Wrap(err, "error unmarshalling metrics.statsd config")
+		}
 	}
+
 	p.operationsSystem = operations.NewSystem(p.webServer, operations.Options{
 		Metrics: operations.MetricsOptions{
-			Provider: configProvider.GetString("fsc.metrics.provider"),
+			Provider: provider,
 			Statsd:   statsdOperationsConfig,
 		},
 		TLS: operations.TLS{

@@ -59,7 +59,11 @@ func (p *SDK) Install() error {
 	return nil
 }
 
-func (p *SDK) Start(ctx context.Context) error {
+func (p *SDK) Start(context.Context) error {
+	return nil
+}
+
+func (p *SDK) PostStart(ctx context.Context) error {
 	if !view2.GetConfigService(p.registry).GetBool("orion.enabled") {
 		logger.Infof("Orion platform not enabled, skipping start")
 		return nil
@@ -75,6 +79,5 @@ func (p *SDK) Start(ctx context.Context) error {
 			logger.Errorf("failed stopping orion network service provider [%s]", err)
 		}
 	}()
-
 	return nil
 }
