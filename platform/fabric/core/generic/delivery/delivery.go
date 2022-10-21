@@ -91,8 +91,8 @@ func (d *Delivery) Run(ctx context.Context) error {
 	for {
 		select {
 		case <-d.stop:
-			// Time to cancel
-			return errors.New("stop")
+			// Time to stop
+			return nil
 		case <-ctx.Done():
 			// Time to cancel
 			return errors.New("context done")
