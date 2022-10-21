@@ -42,6 +42,11 @@ type Registry interface {
 	RegisterService(service interface{}) error
 }
 
+// PostStart enables a platform to execute additional tasks after all platforms have started
+type PostStart interface {
+	PostStart(context.Context) error
+}
+
 type node struct {
 	registry Registry
 	confPath string
@@ -101,6 +106,19 @@ func (n *node) Start() (err error) {
 		}
 	}
 	logger.Infof("Starting sdks...done")
+
+	// PostStart
+	logger.Info("Post-starting sdks...")
+	for _, p := range n.sdks {
+		ps, ok := p.(PostStart)
+		if ok {
+			if err := ps.PostStart(n.context); err != nil {
+				logger.Errorf("Failed post-starting platform [%s]", err)
+				return err
+			}
+		}
+	}
+	logger.Infof("Post-starting sdks...done")
 
 	return nil
 }

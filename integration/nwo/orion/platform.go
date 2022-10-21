@@ -209,6 +209,18 @@ func (p *Platform) Cleanup() {
 	Expect(err).NotTo(HaveOccurred())
 }
 
+func (p *Platform) DeleteVault(id string) {
+	fscTopology := p.Context.TopologyByName("fsc").(*fsc.Topology)
+	found := false
+	for _, node := range fscTopology.Nodes {
+		if strings.Contains(node.Name, id) {
+			Expect(os.RemoveAll(p.FSCNodeVaultDir(node))).ToNot(HaveOccurred())
+			found = true
+		}
+	}
+	Expect(found).To(BeTrue(), "cannot find node [%s]", id)
+}
+
 func (p *Platform) replaceForDocker(origin string) string {
 	return strings.Replace(origin, p.rootDir(), "/etc/orion-server", 1)
 }

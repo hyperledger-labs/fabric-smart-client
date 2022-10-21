@@ -1602,6 +1602,15 @@ func (n *Network) PeerByName(name string) *topology.Peer {
 	return nil
 }
 
+func (n *Network) FSCPeerByName(name string) *topology.Peer {
+	for _, p := range n.Peers {
+		if p.Name == name && p.Type == topology.FSCPeer {
+			return p
+		}
+	}
+	return nil
+}
+
 func (n *Network) Chaincodes(channel string) []*topology.ChannelChaincode {
 	var res []*topology.ChannelChaincode
 	for _, chaincode := range n.topology.Chaincodes {

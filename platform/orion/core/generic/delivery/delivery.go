@@ -52,7 +52,6 @@ type DeliverStream interface {
 }
 
 type delivery struct {
-	ctx                 context.Context
 	sp                  view2.ServiceProvider
 	network             Network
 	waitForEventTimeout time.Duration
@@ -60,21 +59,17 @@ type delivery struct {
 	vault               Vault
 	me                  string
 	networkName         string
+	stop                chan bool
 }
 
 func New(
-	ctx context.Context,
 	sp view2.ServiceProvider,
 	network Network,
 	callback Callback,
 	vault Vault,
 	waitForEventTimeout time.Duration,
 ) (*delivery, error) {
-	if ctx == nil {
-		ctx = context.Background()
-	}
 	d := &delivery{
-		ctx:                 ctx,
 		sp:                  sp,
 		network:             network,
 		waitForEventTimeout: waitForEventTimeout,
@@ -82,21 +77,29 @@ func New(
 		vault:               vault,
 		me:                  network.IdentityManager().Me(),
 		networkName:         network.Name(),
+		stop:                make(chan bool),
 	}
 	return d, nil
 }
 
-// Start runs the delivery service in a goroutine
-func (d *delivery) Start() {
-	go d.Run()
+// StartDelivery runs the delivery service in a goroutine
+func (d *delivery) StartDelivery(ctx context.Context) error {
+	go d.Run(ctx)
+	return nil
 }
 
-func (d *delivery) Run() error {
+func (d *delivery) Run(ctx context.Context) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	var df DeliverStream
 	var err error
 	for {
 		select {
-		case <-d.ctx.Done():
+		case <-d.stop:
+			// Time to stop
+			return nil
+		case <-ctx.Done():
 			// Time to cancel
 			return errors.New("context done")
 		default:
@@ -158,6 +161,10 @@ func (d *delivery) Run() error {
 			}
 		}
 	}
+}
+
+func (d *delivery) Stop() {
+	d.stop <- true
 }
 
 func (d *delivery) connect() (DeliverStream, error) {

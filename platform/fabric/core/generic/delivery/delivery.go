@@ -45,8 +45,7 @@ type Network interface {
 	LocalMembership() driver.LocalMembership
 }
 
-type delivery struct {
-	ctx                 context.Context
+type Delivery struct {
 	channel             string
 	sp                  view2.ServiceProvider
 	network             Network
@@ -55,54 +54,54 @@ type delivery struct {
 	vault               Vault
 	client              peer.Client
 	lastBlockReceived   uint64
+	stop                chan bool
 }
 
-func New(
-	ctx context.Context,
-	channel string,
-	sp view2.ServiceProvider,
-	network Network,
-	callback Callback,
-	vault Vault,
-	waitForEventTimeout time.Duration,
-) (*delivery, error) {
+func New(channel string, sp view2.ServiceProvider, network Network, callback Callback, vault Vault, waitForEventTimeout time.Duration) (*Delivery, error) {
 	if len(channel) == 0 {
 		panic("expected a channel, got empty string")
 	}
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	d := &delivery{
-		ctx:                 ctx,
+	d := &Delivery{
 		channel:             channel,
 		sp:                  sp,
 		network:             network,
 		waitForEventTimeout: waitForEventTimeout,
 		callback:            callback,
 		vault:               vault,
+		stop:                make(chan bool),
 	}
 	return d, nil
 }
 
 // Start runs the delivery service in a goroutine
-func (d *delivery) Start() {
-	go d.Run()
+func (d *Delivery) Start(ctx context.Context) {
+	go d.Run(ctx)
 }
 
-func (d *delivery) Run() error {
+func (d *Delivery) Stop() {
+	d.stop <- true
+}
+
+func (d *Delivery) Run(ctx context.Context) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	var df DeliverStream
 	var err error
 	for {
 		select {
-		case <-d.ctx.Done():
+		case <-d.stop:
+			// Time to stop
+			return nil
+		case <-ctx.Done():
 			// Time to cancel
 			return errors.New("context done")
 		default:
 			if df == nil {
 				if logger.IsEnabledFor(zapcore.DebugLevel) {
-					logger.Debugf("deliver service [%s], connecting...", d.channel)
+					logger.Debugf("deliver service [%s], connecting...", d.network, d.channel)
 				}
-				df, err = d.connect()
+				df, err = d.connect(ctx)
 				if err != nil {
 					logger.Errorf("failed connecting to delivery service [%s:%s] [%s]. Wait 10 sec before reconnecting", d.channel, err)
 					time.Sleep(10 * time.Second)
@@ -170,7 +169,7 @@ func (d *delivery) Run() error {
 	}
 }
 
-func (d *delivery) connect() (DeliverStream, error) {
+func (d *Delivery) connect(ctx context.Context) (DeliverStream, error) {
 	// first cleanup everything
 	d.cleanup()
 
@@ -192,7 +191,7 @@ func (d *delivery) connect() (DeliverStream, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get deliver client")
 	}
-	stream, err := deliverClient.NewDeliver(d.ctx)
+	stream, err := deliverClient.NewDeliver(ctx)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get delivery stream")
 	}
@@ -263,7 +262,7 @@ func (d *delivery) connect() (DeliverStream, error) {
 	return stream, nil
 }
 
-func (d *delivery) cleanup() {
+func (d *Delivery) cleanup() {
 	if d.client != nil {
 		d.client.Close()
 	}

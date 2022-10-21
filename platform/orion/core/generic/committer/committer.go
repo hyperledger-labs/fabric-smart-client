@@ -178,8 +178,6 @@ func (c *committer) DiscardTX(txID string, blockNum uint64, validationCode types
 		logger.Warnf("transaction [%s] in block [%d] is marked as valid but for orion is invalid", txID, blockNum)
 	case driver.Invalid:
 		logger.Debugf("transaction [%s] in block [%d] is marked as invalid, skipping", txID, blockNum)
-	case driver.Unknown:
-		logger.Debugf("transaction [%s] in block [%d] is marked as unknown, skipping", txID, blockNum)
 	default:
 		event.Err = errors.Errorf("transaction [%s] status is not valid: %d", txID, validationCode)
 		// rollback

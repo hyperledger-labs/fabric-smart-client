@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package fabric
 
 import (
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/context"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/opts"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
@@ -185,4 +186,18 @@ func WithOrionVaultPersistence(network, db, creator string) node.Option {
 		o.Put("fabric.vault.persistence.orion.creator", creator)
 		return nil
 	}
+}
+
+// Network returns the fabric network from the passed context bound to the passed id.
+// It returns nil, if nothing is found
+func Network(ctx *context.Context, id string) *Platform {
+	p := ctx.PlatformByName(id)
+	if p == nil {
+		return nil
+	}
+	fp, ok := p.(*Platform)
+	if ok {
+		return fp
+	}
+	return nil
 }

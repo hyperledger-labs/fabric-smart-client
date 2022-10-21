@@ -29,6 +29,7 @@ type Discovery struct {
 
 	FilterByMSPIDs      []string
 	ImplicitCollections []string
+	QueryForPeers       bool
 
 	DefaultTTL time.Duration
 }
@@ -42,6 +43,13 @@ func NewDiscovery(chaincode *Chaincode) *Discovery {
 }
 
 func (d *Discovery) Call() ([]driver.DiscoveredPeer, error) {
+	if d.QueryForPeers {
+		return d.GetPeers()
+	}
+	return d.GetEndorsers()
+}
+
+func (d *Discovery) GetEndorsers() ([]driver.DiscoveredPeer, error) {
 	response, err := d.Response()
 
 	// extract endorsers
@@ -68,41 +76,45 @@ func (d *Discovery) Call() ([]driver.DiscoveredPeer, error) {
 	if err != nil {
 		return nil, errors.WithMessagef(err, "failed getting endorsers for [%s:%s:%s]", d.chaincode.network.Name(), d.chaincode.channel.Name(), d.chaincode.name)
 	}
+
+	// prepare result
 	configResult, err := cr.Config()
 	if err != nil {
 		return nil, errors.WithMessagef(err, "failed getting config for [%s:%s:%s]", d.chaincode.network.Name(), d.chaincode.channel.Name(), d.chaincode.name)
 	}
+	return d.toDiscoveredPeers(configResult, endorsers)
+}
 
-	var discoveredEndorsers []driver.DiscoveredPeer
-	for _, peer := range endorsers {
-		// extract peer info
-		if peer.AliveMessage == nil {
-			continue
-		}
-		aliveMsg := peer.AliveMessage.GetAliveMsg()
-		if aliveMsg == nil {
-			continue
-		}
-		member := aliveMsg.Membership
-		if member == nil {
-			logger.Debugf("no membership info in alive message for peer [%s:%s]", peer.MSPID, view.Identity(peer.Identity).String())
-			continue
-		}
-
-		var tlsRootCerts [][]byte
-		if mspInfo, ok := configResult.GetMsps()[peer.MSPID]; ok {
-			tlsRootCerts = append(tlsRootCerts, mspInfo.GetTlsRootCerts()...)
-			tlsRootCerts = append(tlsRootCerts, mspInfo.GetTlsIntermediateCerts()...)
-		}
-		discoveredEndorsers = append(discoveredEndorsers, driver.DiscoveredPeer{
-			Identity:     peer.Identity,
-			MSPID:        peer.MSPID,
-			Endpoint:     member.Endpoint,
-			TLSRootCerts: tlsRootCerts,
-		})
+func (d *Discovery) GetPeers() ([]driver.DiscoveredPeer, error) {
+	response, err := d.Response()
+	if err != nil {
+		return nil, errors.WithMessagef(err, "failed to get discovery response")
 	}
 
-	return discoveredEndorsers, nil
+	// extract peers
+	cr := response.ForChannel(d.chaincode.channel.Name())
+	var peers []*discovery.Peer
+	peers, err = cr.Peers(ccCall(d.chaincode.name)...)
+	if err != nil {
+		return nil, errors.WithMessagef(err, "failed getting peers for [%s:%s:%s]", d.chaincode.network.Name(), d.chaincode.channel.Name(), d.chaincode.name)
+	}
+
+	// filter
+	switch {
+	case len(d.ImplicitCollections) > 0:
+		for _, collection := range d.ImplicitCollections {
+			peers = (&byMSPIDs{mspIDs: []string{collection}}).Filter(peers)
+		}
+	default:
+		peers = (&byMSPIDs{mspIDs: d.FilterByMSPIDs}).Filter(peers)
+	}
+
+	// prepare result
+	configResult, err := cr.Config()
+	if err != nil {
+		return nil, errors.WithMessagef(err, "failed getting config for [%s:%s:%s]", d.chaincode.network.Name(), d.chaincode.channel.Name(), d.chaincode.name)
+	}
+	return d.toDiscoveredPeers(configResult, peers)
 }
 
 func (d *Discovery) Response() (discovery.Response, error) {
@@ -112,6 +124,9 @@ func (d *Discovery) Response() (discovery.Response, error) {
 	sb.WriteString(d.chaincode.name)
 	for _, mspiD := range d.FilterByMSPIDs {
 		sb.WriteString(mspiD)
+	}
+	if d.QueryForPeers {
+		sb.WriteString("QueryForPeers")
 	}
 	key := sb.String()
 
@@ -135,7 +150,11 @@ func (d *Discovery) Response() (discovery.Response, error) {
 	}
 
 	// fetch the response
-	response, err = d.send()
+	if d.QueryForPeers {
+		response, err = d.queryPeers()
+	} else {
+		response, err = d.queryEndorsers()
+	}
 	if err != nil {
 		return nil, errors.WithMessage(err, "failed to send discovery request")
 	}
@@ -149,6 +168,11 @@ func (d *Discovery) Response() (discovery.Response, error) {
 	return response, nil
 }
 
+func (d *Discovery) WithForQuery() driver.ChaincodeDiscover {
+	d.QueryForPeers = true
+	return d
+}
+
 func (d *Discovery) WithFilterByMSPIDs(mspIDs ...string) driver.ChaincodeDiscover {
 	d.FilterByMSPIDs = mspIDs
 	return d
@@ -159,14 +183,18 @@ func (d *Discovery) WithImplicitCollections(mspIDs ...string) driver.ChaincodeDi
 	return d
 }
 
-func (d *Discovery) send() (discovery.Response, error) {
-	var peerClients []peer2.Client
-	defer func() {
-		for _, pCli := range peerClients {
-			pCli.Close()
-		}
-	}()
+func (d *Discovery) queryPeers() (discovery.Response, error) {
+	// New discovery request for:
+	// - peers and
+	// - config,
+	req := discovery.NewRequest().OfChannel(d.chaincode.channel.Name()).AddPeersQuery(
+		&discovery2.ChaincodeCall{Name: d.chaincode.name},
+	)
+	req = req.AddConfigQuery()
+	return d.query(req)
+}
 
+func (d *Discovery) queryEndorsers() (discovery.Response, error) {
 	// New discovery request for:
 	// - endorsers and
 	// - config,
@@ -177,7 +205,16 @@ func (d *Discovery) send() (discovery.Response, error) {
 		return nil, errors.Wrap(err, "failed creating request")
 	}
 	req = req.AddConfigQuery()
+	return d.query(req)
+}
 
+func (d *Discovery) query(req *discovery.Request) (discovery.Response, error) {
+	var peerClients []peer2.Client
+	defer func() {
+		for _, pCli := range peerClients {
+			pCli.Close()
+		}
+	}()
 	pc, err := d.chaincode.channel.NewPeerClientForAddress(*d.chaincode.network.PickPeer())
 	if err != nil {
 		return nil, err
@@ -212,6 +249,77 @@ func (d *Discovery) send() (discovery.Response, error) {
 	}
 
 	return response, nil
+}
+
+func (d *Discovery) toDiscoveredPeers(configResult *discovery2.ConfigResult, endorsers []*discovery.Peer) ([]driver.DiscoveredPeer, error) {
+	var discoveredEndorsers []driver.DiscoveredPeer
+	for _, peer := range endorsers {
+		// extract peer info
+		if peer.AliveMessage == nil {
+			continue
+		}
+		aliveMsg := peer.AliveMessage.GetAliveMsg()
+		if aliveMsg == nil {
+			continue
+		}
+		member := aliveMsg.Membership
+		if member == nil {
+			logger.Debugf("no membership info in alive message for peer [%s:%s]", peer.MSPID, view.Identity(peer.Identity).String())
+			continue
+		}
+
+		var tlsRootCerts [][]byte
+		if mspInfo, ok := configResult.GetMsps()[peer.MSPID]; ok {
+			tlsRootCerts = append(tlsRootCerts, mspInfo.GetTlsRootCerts()...)
+			tlsRootCerts = append(tlsRootCerts, mspInfo.GetTlsIntermediateCerts()...)
+		}
+		discoveredEndorsers = append(discoveredEndorsers, driver.DiscoveredPeer{
+			Identity:     peer.Identity,
+			MSPID:        peer.MSPID,
+			Endpoint:     member.Endpoint,
+			TLSRootCerts: tlsRootCerts,
+		})
+	}
+
+	return discoveredEndorsers, nil
+}
+
+func (d *Discovery) ChaincodeVersion() (string, error) {
+	response, err := d.Response()
+	if err != nil {
+		return "", errors.Wrapf(err, "unable to discover channel information for chaincode [%s] on channel [%s]", d.chaincode.name, d.chaincode.channel.Name())
+	}
+	endorsers, err := response.ForChannel(d.chaincode.channel.Name()).Endorsers([]*discovery2.ChaincodeCall{{
+		Name: d.chaincode.name,
+	}}, &noFilter{})
+	if err != nil {
+		return "", errors.Wrapf(err, "failed to get endorsers for chaincode [%s] on channel [%s]", d.chaincode.name, d.chaincode.channel.Name())
+	}
+	if len(endorsers) == 0 {
+		return "", errors.Errorf("no endorsers found for chaincode [%s] on channel [%s]", d.chaincode.name, d.chaincode.channel.Name())
+	}
+	stateInfoMessage := endorsers[0].StateInfoMessage
+	if stateInfoMessage == nil {
+		return "", errors.Errorf("no state info message found for chaincode [%s] on channel [%s]", d.chaincode.name, d.chaincode.channel.Name())
+	}
+	stateInfo := stateInfoMessage.GetStateInfo()
+	if stateInfo == nil {
+		return "", errors.Errorf("no state info found for chaincode [%s] on channel [%s]", d.chaincode.name, d.chaincode.channel.Name())
+	}
+	properties := stateInfo.GetProperties()
+	if properties == nil {
+		return "", errors.Errorf("no properties found for chaincode [%s] on channel [%s]", d.chaincode.name, d.chaincode.channel.Name())
+	}
+	chaincodes := properties.Chaincodes
+	if len(chaincodes) == 0 {
+		return "", errors.Errorf("no chaincode info found for chaincode [%s] on channel [%s]", d.chaincode.name, d.chaincode.channel.Name())
+	}
+	for _, chaincode := range chaincodes {
+		if chaincode.Name == d.chaincode.name {
+			return chaincode.Version, nil
+		}
+	}
+	return "", errors.Errorf("chaincode [%s] not found", d.chaincode.name)
 }
 
 func ccCall(ccNames ...string) []*discovery2.ChaincodeCall {
@@ -251,8 +359,7 @@ func (f *byMSPIDs) Filter(endorsers discovery.Endorsers) discovery.Endorsers {
 	return filteredEndorsers
 }
 
-type noFilter struct {
-}
+type noFilter struct{}
 
 func (f *noFilter) Filter(endorsers discovery.Endorsers) discovery.Endorsers {
 	return endorsers

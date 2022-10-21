@@ -23,6 +23,15 @@ func (c *channel) Status(txid string) (driver.ValidationCode, []string, error) {
 		logger.Errorf("failed to get status of [%s]: %s", txid, err)
 		return driver.Unknown, nil, err
 	}
+	if vc == driver.Unknown {
+		// give it a second chance
+		if c.EnvelopeService().Exists(txid) {
+			if err := c.extractStoredEnvelopeToVault(txid); err != nil {
+				return driver.Unknown, nil, errors.WithMessagef(err, "failed to extract stored enveloper for [%s]", txid)
+			}
+			vc = driver.Busy
+		}
+	}
 	if c.externalCommitter == nil {
 		return vc, nil, nil
 	}
@@ -56,8 +65,15 @@ func (c *channel) DiscardTx(txid string) error {
 		return errors.WithMessagef(err, "failed getting tx's status in state db [%s]", txid)
 	}
 	if vc == driver.Unknown {
-		logger.Debugf("Discarding transaction [%s] skipped, tx is unknown", txid)
-		return nil
+		// give it a second chance
+		if c.EnvelopeService().Exists(txid) {
+			if err := c.extractStoredEnvelopeToVault(txid); err != nil {
+				return errors.WithMessagef(err, "failed to extract stored enveloper for [%s]", txid)
+			}
+		} else {
+			logger.Debugf("Discarding transaction [%s] skipped, tx is unknown", txid)
+			return nil
+		}
 	}
 
 	if err := c.vault.DiscardTx(txid); err != nil {

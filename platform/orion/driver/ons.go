@@ -25,6 +25,7 @@ type OrionNetworkService interface {
 	ProcessorManager() ProcessorManager
 	Finality() Finality
 	Committer() Committer
+	DeliveryService() DeliveryService
 }
 
 type OrionNetworkServiceProvider interface {
