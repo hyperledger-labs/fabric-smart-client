@@ -8,3 +8,5 @@
 integration/**/testdata/
 integration/**/cmd/
 !integration/nwo/cmd/
+
+cmd/fsccli/cmd

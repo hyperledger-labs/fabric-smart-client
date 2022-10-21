@@ -457,10 +457,17 @@ func Topology() []api.Topology {
 
 ### Boostrap the networks
 
-Bootstrap of the networks requires some Fabric Docker images. To ensure you have the required images you can use the following Makefile target in the project root directory:
+Bootstrap of the networks requires both Fabric Docker images and Fabric binaries. To ensure you have the required images you can use the following Makefile target in the project root directory:
 
 ```shell
 make fabric-docker-images
+```
+
+To ensure you have the required fabric binary files and set the `FAB_BINS` environment variable to the correct place you can do the following in the project root directory
+
+```shell
+make download-fabric
+export FAB_BINS=$PWD/../fabric/bin
 ```
 
 To help us bootstrap the networks and then invoke the business views, the `iou` command line tool is provided.
@@ -473,7 +480,7 @@ go build -o iou
 
 If the compilation is successful, we can run the `iou` command line tool as follows:
 
-```
+```shell
 ./iou network start --path ./testdata
 ```
 
@@ -482,7 +489,7 @@ and store all configuration files under the `./testdata` directory.
 The CLI will also create the folder `./cmd` that contains a go main file for each FSC node.
 The CLI compiles these go main files and then runs them.
 
-If everything is successful, you will see something like the following:
+If everything is successful, you will see something like the following (note you may have to scroll up to find this output)
 
 ```shell
 2022-02-08 11:53:03.560 UTC [fsc.integration] Start -> INFO 027  _____   _   _   ____

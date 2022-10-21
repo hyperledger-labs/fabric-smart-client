@@ -12,7 +12,7 @@ import (
 	"github.com/ReneKroon/ttlcache/v2"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
-	discovery2 "github.com/hyperledger/fabric-protos-go/discovery"
+	"github.com/hyperledger/fabric-protos-go/peer"
 	"github.com/pkg/errors"
 )
 
@@ -78,7 +78,7 @@ func (c *Chaincode) Version() (string, error) {
 	if err != nil {
 		return "", errors.Wrapf(err, "unable to discover channel information for chaincode [%s] on channel [%s]", c.name, c.channel.Name())
 	}
-	endorsers, err := response.ForChannel(c.channel.Name()).Endorsers([]*discovery2.ChaincodeCall{{
+	endorsers, err := response.ForChannel(c.channel.Name()).Endorsers([]*peer.ChaincodeCall{{
 		Name: c.name,
 	}}, &noFilter{})
 	if err != nil {
