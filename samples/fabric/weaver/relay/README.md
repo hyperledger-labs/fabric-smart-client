@@ -239,6 +239,15 @@ return []api.Topology{f1Topology, f2Topology, wTopology, fscTopology}
 
 ### Boostrap the networks
 
+Bootstrap of the networks requires Fabric binaries
+
+To ensure you have the required fabric binary files and set the `FAB_BINS` environment variable to the correct place you can do the following in the project root directory
+
+```shell
+make download-fabric
+export FAB_BINS=$PWD/../fabric/bin
+```
+
 To help us bootstrap the networks and then invoke the business views, the `relay` command line tool is provided.
 To build it, we need to run the following command from the folder `$FSC_PATH/samples/fabric/weaver/relay`.
 (`$FSC_PATH` refers to the Fabric Smart Client repository in your filesystem see [getting started](../../../../README.md#getting-started))
@@ -249,7 +258,7 @@ go build -o relay
 
 If the compilation is successful, we can run the `relay` command line tool as follows:
 
-```
+```shell
 ./relay network start --path ./testdata
 ```
 
