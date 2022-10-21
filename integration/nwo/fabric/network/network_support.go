@@ -857,14 +857,18 @@ func (n *Network) Idemixgen(command common.Command) (*gexec.Session, error) {
 
 // ConfigTxGen starts a gexec.Session for the provided configtxgen command.
 func (n *Network) ConfigTxGen(command common.Command) (*gexec.Session, error) {
-	cmdPath := findOrBuild(configtxgenCMD, n.Builder.ConfigTxGen)
+	cmdPath := findCmdAtEnv(configtxgenCMD)
+	Expect(cmdPath).NotTo(Equal(""), "could not find %s in %s directory %s", configtxgenCMD, FabricBinsPathEnvKey, os.Getenv(FabricBinsPathEnvKey))
+
 	cmd := common.NewCommand(cmdPath, command)
 	return n.StartSession(cmd, command.SessionName())
 }
 
 // Discover starts a gexec.Session for the provided discover command.
 func (n *Network) Discover(command common.Command) (*gexec.Session, error) {
-	cmdPath := findOrBuild(discoverCMD, n.Builder.Discover)
+	cmdPath := findCmdAtEnv(discoverCMD)
+	Expect(cmdPath).NotTo(Equal(""), "could not find %s in %s directory %s", configtxgenCMD, FabricBinsPathEnvKey, os.Getenv(FabricBinsPathEnvKey))
+
 	cmd := common.NewCommand(cmdPath, command)
 	cmd.Args = append(cmd.Args, "--peerTLSCA", n.CACertsBundlePath())
 	return n.StartSession(cmd, command.SessionName())
@@ -873,7 +877,9 @@ func (n *Network) Discover(command common.Command) (*gexec.Session, error) {
 // OrdererRunner returns an ifrit.Runner for the specified orderer. The runner
 // can be used to start and manage an orderer process.
 func (n *Network) OrdererRunner(o *topology.Orderer) *runner2.Runner {
-	cmdPath := findOrBuild(ordererCMD, n.Builder.Orderer)
+	cmdPath := findCmdAtEnv(ordererCMD)
+	Expect(cmdPath).NotTo(Equal(""), "could not find %s in %s directory %s", configtxgenCMD, FabricBinsPathEnvKey, os.Getenv(FabricBinsPathEnvKey))
+
 	cmd := exec.Command(cmdPath)
 	cmd.Env = os.Environ()
 	cmd.Env = append(cmd.Env, fmt.Sprintf("FABRIC_CFG_PATH=%s", n.OrdererDir(o)))
@@ -932,6 +938,7 @@ func (n *Network) PeerRunner(p *topology.Peer, env ...string) *runner2.Runner {
 		fmt.Sprintf("FABRIC_CFG_PATH=%s", n.PeerDir(p)),
 		fmt.Sprintf("CORE_PEER_ID=%s", fmt.Sprintf("%s.%s", p.Name, n.Organization(p.Organization).Domain)),
 	)
+
 	cmd.Env = append(cmd.Env, env...)
 	//cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
@@ -995,9 +1002,7 @@ func (n *Network) PeerGroupRunner() ifrit.Runner {
 
 func (n *Network) peerCommand(executablePath string, command common.Command, tlsDir string, env ...string) *exec.Cmd {
 	cmdPath := findCmdAtEnv(peerCMD)
-	if len(cmdPath) == 0 {
-		cmdPath = n.Builder.Peer(executablePath)
-	}
+	Expect(cmdPath).NotTo(Equal(""), "could not find %s in %s directory %s", configtxgenCMD, FabricBinsPathEnvKey, os.Getenv(FabricBinsPathEnvKey))
 	logger.Debugf("Found %s => %s", peerCMD, cmdPath)
 
 	cmd := common.NewCommand(cmdPath, command)
@@ -1079,6 +1084,7 @@ func (n *Network) OrdererAdminSession(o *topology.Orderer, p *topology.Peer, com
 		fmt.Sprintf("FABRIC_CFG_PATH=%s", n.PeerDir(p)),
 		fmt.Sprintf("CORE_PEER_MSPCONFIGPATH=%s", n.OrdererUserMSPDir(o, "Admin")),
 	)
+
 	return n.StartSession(cmd, command.SessionName())
 }
 
