@@ -42,7 +42,7 @@ func RegisterWebHandler(server Server, kvs *KVS) *Browser {
 }
 
 func (b *Browser) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
-	it, err := b.KVS.GetByPartialCompositeIDInternal("", nil)
+	it, err := b.KVS.GetRawIteratorByPartialCompositeID("", nil)
 	if err != nil {
 		b.sendResponse(writer, http.StatusBadRequest, errors.WithMessage(err, "failed to get iterator over Vault"))
 	}

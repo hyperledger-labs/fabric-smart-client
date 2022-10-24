@@ -43,6 +43,8 @@ type ConfigProvider interface {
 	GetInt(key string) int
 }
 
+type RawResultsIterator = driver.ResultsIterator
+
 type KVS struct {
 	namespace string
 	store     driver.Persistence
@@ -239,15 +241,15 @@ func (o *KVS) Delete(id string) error {
 	return nil
 }
 
-func (o *KVS) GetByPartialCompositeID(prefix string, attrs []string) (*iteratorConverter, error) {
-	itr, err := o.GetByPartialCompositeIDInternal(prefix, attrs)
+func (o *KVS) GetByPartialCompositeID(prefix string, attrs []string) (*StateIterator, error) {
+	itr, err := o.GetRawIteratorByPartialCompositeID(prefix, attrs)
 	if err != nil {
 		return nil, errors.WithMessagef(err, "failed to get iterator")
 	}
-	return &iteratorConverter{ri: itr}, nil
+	return &StateIterator{ri: itr}, nil
 }
 
-func (o *KVS) GetByPartialCompositeIDInternal(prefix string, attrs []string) (driver.ResultsIterator, error) {
+func (o *KVS) GetRawIteratorByPartialCompositeID(prefix string, attrs []string) (RawResultsIterator, error) {
 	startKey := ""
 	endKey := ""
 	if len(prefix) != 0 {
@@ -272,12 +274,12 @@ func (o *KVS) Stop() {
 	}
 }
 
-type iteratorConverter struct {
+type StateIterator struct {
 	ri   driver.ResultsIterator
 	next *driver.Read
 }
 
-func (i *iteratorConverter) HasNext() bool {
+func (i *StateIterator) HasNext() bool {
 	var err error
 	i.next, err = i.ri.Next()
 	if err != nil || i.next == nil {
@@ -286,14 +288,14 @@ func (i *iteratorConverter) HasNext() bool {
 	return true
 }
 
-func (i *iteratorConverter) Close() error {
+func (i *StateIterator) Close() error {
 	i.ri.Close()
 	return nil
 }
 
 // Next unmarshals the current state into the given state object.
 // It also returns the key of the current state.
-func (i *iteratorConverter) Next(state interface{}) (string, error) {
+func (i *StateIterator) Next(state interface{}) (string, error) {
 	return i.next.Key, json.Unmarshal(i.next.Raw, state)
 }
 
