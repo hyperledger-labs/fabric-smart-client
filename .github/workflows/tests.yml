@@ -55,6 +55,10 @@ jobs:
         working-directory: ${{ env.FSC_PATH }}
         run: make install-tools
 
+      - name: Download fabric binaries
+        working-directory: ${{ env.FSC_PATH }}
+        run: make download-fabric
+
       - name: Run ${{ matrix.tests }}
         working-directory: ${{ env.FSC_PATH }}
         run: make ${{ matrix.tests }}
@@ -95,6 +99,10 @@ jobs:
       - name: Set up tools
         working-directory: ${{ env.FSC_PATH }}
         run: make install-tools
+
+      - name: Download fabric binaries
+        working-directory: ${{ env.FSC_PATH }}
+        run: make download-fabric
 
       - name: Docker
         working-directory: ${{ env.FSC_PATH }}
