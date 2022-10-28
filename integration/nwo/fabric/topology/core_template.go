@@ -300,6 +300,9 @@ fabric:
         default: {{ .Default }}
         numRetries: 3
         retrySleep: 1s
+        pvt:
+          enabled: true
+          chaincode: pvt
         chaincodes: {{range Chaincodes .Name }}
           - name: {{ .Chaincode.Name }}
             private: {{ .Private }}

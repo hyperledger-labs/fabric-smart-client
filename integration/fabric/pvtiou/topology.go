@@ -22,13 +22,7 @@ func Topology() []api.Topology {
 	fabricTopology.AddOrganizationsByName("Org1", "Org2", "Org3")
 	fabricTopology.SetNamespaceApproverOrgs("Org1")
 	fabricTopology.AddNamespaceWithUnanimity("iou", "Org1")
-	fabricTopology.AddManagedNamespace(
-		"pvt",
-		`AND ('Org1MSP.member')`,
-		"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/pvt/cc",
-		"",
-		"Org1_peer_0",
-	)
+	fabricTopology.AddPvtNamespace("Org1")
 
 	// Define an FSC topology with 3 FCS nodes.
 	// One for the approver, one for the borrower, and one for the lender.

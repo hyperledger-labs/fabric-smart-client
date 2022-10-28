@@ -310,6 +310,12 @@ fabric:
         default: true
         numRetries: 3 # number of retries on a chaincode operation failure
         retrySleep: 1s # waiting time before retry again a failed chaincode operation
+        # support for private transactions
+        pvt:
+          # enable the private transactions support for this channel
+          enabled: false
+          # name of the chaincode storing the hashes of the private transactions
+          chaincode: pvt
         chaincodes:
             # chaincode id
           - name: mychaincode

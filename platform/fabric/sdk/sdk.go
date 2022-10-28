@@ -28,7 +28,6 @@ var logger = flogging.MustGetLogger("fabric-sdk")
 
 type Registry interface {
 	GetService(v interface{}) (interface{}, error)
-
 	RegisterService(service interface{}) error
 }
 
@@ -79,17 +78,24 @@ func (p *SDK) Install() error {
 			"failed setting state processor for fabric network [%s]", name,
 		)
 
-		assert.NoError(
-			fns.ProcessorManager().AddProcessor("pvt", pvt.NewProcessor(fns)),
-			"failed to register pvt processor for fabric network [%s]", name,
-		)
-		// for each channel enbale pvt processing
-		for _, channelName := range fns.Channels() {
-			ch, err := fns.Channel(channelName)
-			assert.NoError(err, "failed to get channel [%s:%s]", fns.Name(), channelName)
+		networkConfig, err := fnsConfig.Network(name)
+		assert.NoError(err, "failed to get network config for [%s]", name)
+		var pvtChaincodes []string
+		for _, channel := range networkConfig.Channels {
+			if channel.Pvt.Enabled {
+				ch, err := fns.Channel(channel.Name)
+				assert.NoError(err, "failed to get channel [%s:%s]", fns.Name(), channel.Name)
+				assert.NoError(
+					ch.Committer().ProcessNamespace("pvt"),
+					"failed to register namespace to be processed to [%s:%s]", fns.Name(), channel.Name,
+				)
+				pvtChaincodes = append(pvtChaincodes, channel.Pvt.Chaincode)
+			}
+		}
+		for _, chaincode := range pvtChaincodes {
 			assert.NoError(
-				ch.Committer().ProcessNamespace("pvt"),
-				"failed to register namespace to be processed to [%s:%s]", fns.Name(), channelName,
+				fns.ProcessorManager().AddProcessor(chaincode, pvt.NewProcessor(fns)),
+				"failed to register pvt processor for fabric network [%s]", name,
 			)
 		}
 	}

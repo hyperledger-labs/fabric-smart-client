@@ -3,13 +3,13 @@ fabric:
   default:
     default: true
     mspCacheSize: 500
-    defaultMSP: alice
+    defaultMSP: approver
     msps:
-      - id: alice
+      - id: approver
         mspType: bccsp
         mspID: Org1MSP
         cacheSize: 0
-        path: /home/vagrant/testdata/fabric.default/crypto/peerOrganizations/org1.example.com/users/alice@org1.example.com/msp
+        path: /home/vagrant/go/src/github.com/hyperledger-labs/fabric-smart-client/samples/fabric/iou/testdata/fabric.default/crypto/peerOrganizations/org1.example.com/users/approver@org1.example.com/msp
         opts:
           BCCSP:
             Default: SW
@@ -20,156 +20,70 @@ fabric:
             # Settings for the PKCS#11 crypto provider (i.e. when DEFAULT: PKCS11)
             PKCS11:
               # Location of the PKCS11 module library
-              Library: /usr/local/lib/softhsm/libsofthsm2.so
+              Library:
               # Token Label
-              Label: ForFSC
+              Label:
               # User PIN
-              Pin: 98765432
-              Hash: SHA2
-              Security: 256
-      - id: approver-hsm
-        mspType: bccsp
-        mspID: Org1MSP
-        cacheSize: 0
-        path: /home/vagrant/testdata/fabric.default/crypto/peerOrganizations/org1.example.com/users/approver-hsm@org1.example.com/msp
-        opts:
-          BCCSP:
-            Default: PKCS11
-            # Settings for the SW crypto provider (i.e. when DEFAULT: SW)
-            SW:
-              Hash: SHA2
-              Security: 256
-            # Settings for the PKCS#11 crypto provider (i.e. when DEFAULT: PKCS11)
-            PKCS11:
-              # Location of the PKCS11 module library
-              Library: /usr/local/lib/softhsm/libsofthsm2.so
-              # Token Label
-              Label: ForFSC
-              # User PIN
-              Pin: 98765432
-              Hash: SHA2
-              Security: 256
-      - id: default
-        mspType: bccsp
-        mspID: Org1MSP
-        cacheSize: 500
-        path: /home/vagrant/testdata/fabric.default/crypto/peerOrganizations/org1.example.com/peers/approver.org1.example.com/msp
-        opts:
-          BCCSP:
-            Default: SW
-            # Settings for the SW crypto provider (i.e. when DEFAULT: SW)
-            SW:
-              Hash: SHA2
-              Security: 256
-            # Settings for the PKCS#11 crypto provider (i.e. when DEFAULT: PKCS11)
-            PKCS11:
-              # Location of the PKCS11 module library
-              Library: /usr/local/lib/softhsm/libsofthsm2.so
-              # Token Label
-              Label: ForFSC
-              # User PIN
-              Pin: 98765432
+              Pin:
               Hash: SHA2
               Security: 256
     tls:
       enabled:  true
       clientAuthRequired: false
-      cert:
-        file: /home/vagrant/testdata/fabric.default/crypto/peerOrganizations/org1.example.com/peers/approver.org1.example.com/tls/server.crt
-      key:
-        file: /home/vagrant/testdata/fabric.default/crypto/peerOrganizations/org1.example.com/peers/approver.org1.example.com/tls/server.key
-      clientCert:
-        file: /home/vagrant/testdata/fabric.default/crypto/peerOrganizations/org1.example.com/peers/approver.org1.example.com/tls/server.crt
-      clientKey:
-        file: /home/vagrant/testdata/fabric.default/crypto/peerOrganizations/org1.example.com/peers/approver.org1.example.com/tls/server.key
-      rootcert:
-        file: /home/vagrant/testdata/fabric.default/crypto/peerOrganizations/org1.example.com/peers/approver.org1.example.com/tls/ca.crt
-      clientRootCAs:
-        files:
-          - /home/vagrant/testdata/fabric.default/crypto/peerOrganizations/org1.example.com/peers/approver.org1.example.com/tls/ca.crt
-      rootCertFile: /home/vagrant/testdata/fabric.default/crypto/ca-certs.pem
     keepalive:
       interval: 60s
       timeout: 600s
+    ordering:
+      numRetries: 3
+      retryInterval: 3s
     peers:
-      - address: 127.0.0.1:22013
+      - address: 127.0.0.1:20013
         connectionTimeout: 10s
-        tlsRootCertFile: /home/vagrant/testdata/fabric.default/crypto/ca-certs.pem
+        tlsRootCertFile: /home/vagrant/go/src/github.com/hyperledger-labs/fabric-smart-client/samples/fabric/iou/testdata/fabric.default/crypto/ca-certs.pem
         serverNameOverride:
     channels:
       - name: testchannel
         default: true
+        pvt:
+          enabled: true
+          chaincode: pvt
         chaincodes:
           - name: iou
             private: false
     vault:
       persistence:
-        type: file
+        # Persistence type can be \'badger\' (on disk) or \'memory\'
+        type: badger
         opts:
-          path: /home/vagrant/testdata/fsc/nodes/approver/fabric.default/vault
+          path: /home/vagrant/go/src/github.com/hyperledger-labs/fabric-smart-client/samples/fabric/iou/testdata/fsc/nodes/approver/fabric.default/vault
       txidstore:
         cache:
           # Sets the maximum number of cached items
-          cache: 200
+          size: 200
     endpoint:
       resolvers:
-        - name: Org1_peer_0
-          domain: org1.example.com
-          identity:
-            id: Org1_peer_0
-            mspType: bccsp
-            mspID: Org1MSP
-            path: /home/vagrant/testdata/fabric.default/crypto/peerOrganizations/org1.example.com/peers/Org1_peer_0.org1.example.com/msp/signcerts/Org1_peer_0.org1.example.com-cert.pem
-          addresses:
-            Listen: 127.0.0.1:22013
-          aliases:
-        - name: Org2_peer_0
-          domain: org2.example.com
-          identity:
-            id: Org2_peer_0
-            mspType: bccsp
-            mspID: Org2MSP
-            path: /home/vagrant/testdata/fabric.default/crypto/peerOrganizations/org2.example.com/peers/Org2_peer_0.org2.example.com/msp/signcerts/Org2_peer_0.org2.example.com-cert.pem
-          addresses:
-            Listen: 127.0.0.1:22020
-          aliases:
-        - name: Org3_peer_0
-          domain: org3.example.com
-          identity:
-            id: Org3_peer_0
-            mspType: bccsp
-            mspID: Org3MSP
-            path: /home/vagrant/testdata/fabric.default/crypto/peerOrganizations/org3.example.com/peers/Org3_peer_0.org3.example.com/msp/signcerts/Org3_peer_0.org3.example.com-cert.pem
-          addresses:
-            Listen: 127.0.0.1:22027
-          aliases:
         - name: approver
           domain: org1.example.com
           identity:
-            id: approver
-            mspType: bccsp
             mspID: Org1MSP
-            path: /home/vagrant/testdata/fabric.default/crypto/peerOrganizations/org1.example.com/peers/approver.org1.example.com/msp/signcerts/approver.org1.example.com-cert.pem
+            path: /home/vagrant/go/src/github.com/hyperledger-labs/fabric-smart-client/samples/fabric/iou/testdata/fabric.default/crypto/peerOrganizations/org1.example.com/users/approver@org1.example.com/msp
           addresses:
           aliases:
-            - alice
-            - approver-hsm
+            - approver
         - name: borrower
           domain: org2.example.com
           identity:
-            id: borrower
-            mspType: bccsp
             mspID: Org2MSP
-            path: /home/vagrant/testdata/fabric.default/crypto/peerOrganizations/org2.example.com/peers/borrower.org2.example.com/msp/signcerts/borrower.org2.example.com-cert.pem
+            path: /home/vagrant/go/src/github.com/hyperledger-labs/fabric-smart-client/samples/fabric/iou/testdata/fabric.default/crypto/peerOrganizations/org2.example.com/users/borrower@org2.example.com/msp
           addresses:
           aliases:
+            - borrower
         - name: lender
           domain: org3.example.com
           identity:
-            id: lender
-            mspType: bccsp
             mspID: Org3MSP
-            path: /home/vagrant/testdata/fabric.default/crypto/peerOrganizations/org3.example.com/peers/lender.org3.example.com/msp/signcerts/lender.org3.example.com-cert.pem
+            path: /home/vagrant/go/src/github.com/hyperledger-labs/fabric-smart-client/samples/fabric/iou/testdata/fabric.default/crypto/peerOrganizations/org3.example.com/users/lender@org3.example.com/msp
           addresses:
           aliases:
-            - bob
+            - lender
+

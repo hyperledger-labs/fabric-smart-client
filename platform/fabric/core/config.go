@@ -9,6 +9,7 @@ package core
 import (
 	"strings"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	"github.com/pkg/errors"
 )
 
@@ -17,8 +18,9 @@ type ConfigProvider interface {
 }
 
 type Config struct {
-	names       []string
-	defaultName string
+	configProvider ConfigProvider
+	names          []string
+	defaultName    string
 }
 
 func NewConfig(configProvider ConfigProvider) (*Config, error) {
@@ -55,8 +57,9 @@ func NewConfig(configProvider ConfigProvider) (*Config, error) {
 	}
 
 	return &Config{
-		names:       names,
-		defaultName: defaultName,
+		configProvider: configProvider,
+		names:          names,
+		defaultName:    defaultName,
 	}, nil
 }
 
@@ -66,4 +69,12 @@ func (c *Config) Names() []string {
 
 func (c *Config) DefaultName() string {
 	return c.defaultName
+}
+
+func (c *Config) Network(name string) (*config.Network, error) {
+	network := &config.Network{}
+	if err := c.configProvider.UnmarshalKey("fabric."+name, network); err != nil {
+		return nil, errors.WithMessagef(err, "failed to unmarshal network config for [%s]", name)
+	}
+	return network, nil
 }

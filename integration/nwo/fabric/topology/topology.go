@@ -350,3 +350,34 @@ func (t *Topology) EnableLogPeersToFile() {
 func (t *Topology) EnableLogOrderersToFile() {
 	t.LogOrderersToFile = true
 }
+
+// AddPvtNamespace adds the private transaction chaincode definition.
+// The policy is set to the and of the passed organizations.
+// The chaincode is installed on the peers of the passed organizations.
+func (t *Topology) AddPvtNamespace(orgs ...string) {
+	policy := "AND ("
+	for i, org := range orgs {
+		if i > 0 {
+			policy += ","
+		}
+		policy += "'" + org + "MSP.member'"
+	}
+	policy += ")"
+
+	var peers []string
+	for _, org := range orgs {
+		for _, peer := range t.Peers {
+			if peer.Organization == org {
+				peers = append(peers, peer.Name)
+			}
+		}
+	}
+
+	t.AddManagedNamespace(
+		"pvt",
+		policy,
+		"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/pvt/cc",
+		"",
+		peers...,
+	)
+}

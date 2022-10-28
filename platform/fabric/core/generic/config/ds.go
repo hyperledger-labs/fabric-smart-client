@@ -65,13 +65,8 @@ type Files struct {
 type TLS struct {
 	Enabled            bool
 	ClientAuthRequired bool
-	Cert               File   `yaml:"cert"`
-	Key                File   `yaml:"key"`
-	ClientCert         File   `yaml:"clientCert"`
-	ClientKey          File   `yaml:"clientKey"`
-	RootCert           File   `yaml:"rootCert"`
-	ClientRootCAs      Files  `yaml:"clientRootCAs"`
-	RootCertFile       string `yaml:"rootCertFile"`
+	ClientCert         File `yaml:"clientCert"`
+	ClientKey          File `yaml:"clientKey"`
 }
 
 type ConnectionConfig struct {
@@ -84,27 +79,40 @@ type ConnectionConfig struct {
 }
 
 type Chaincode struct {
-	Name    string `yaml:"Name,omitempty"`
-	Private bool   `yaml:"Private,omitempty"`
+	Name    string `yaml:"name,omitempty"`
+	Private bool   `yaml:"private,omitempty"`
+}
+
+type PvT struct {
+	Enabled   bool   `yaml:"enabled,omitempty"`
+	Chaincode string `yaml:"chaincode,omitempty"`
 }
 
 type Channel struct {
-	Name       string        `yaml:"Name,omitempty"`
-	Default    bool          `yaml:"Default,omitempty"`
-	Quiet      bool          `yaml:"Quiet,omitempty"`
+	Name       string        `yaml:"name,omitempty"`
+	Default    bool          `yaml:"default,omitempty"`
+	Quiet      bool          `yaml:"quiet,omitempty"`
+	Pvt        PvT           `yaml:"pvt,omitempty"`
 	NumRetries uint          `yaml:"NumRetries,omitempty"`
 	RetrySleep time.Duration `yaml:"RetrySleep,omitempty"`
-	Chaincodes []*Chaincode  `yaml:"Chaincodes,omitempty"`
+	Chaincodes []*Chaincode  `yaml:"chaincodes,omitempty"`
+}
+
+type Ordering struct {
+	NumRetries    int           `yaml:"numRetries,omitempty"`
+	RetryInterval time.Duration `yaml:"retryInterval,omitempty"`
 }
 
 type Network struct {
-	Default    bool                `yaml:"default,omitempty"`
-	DefaultMSP string              `yaml:"defaultMSP"`
-	MSPs       []*MSP              `yaml:"msps"`
-	TLS        TLS                 `yaml:"tls"`
-	Orderers   []*ConnectionConfig `yaml:"orderers"`
-	Peers      []*ConnectionConfig `yaml:"peers"`
-	Channels   []*Channel          `yaml:"channels"`
-	Vault      Vault               `yaml:"vault"`
-	Endpoint   *Endpoint           `yaml:"endpoint,omitempty"`
+	Default      bool                `yaml:"default,omitempty"`
+	MSPCacheSize int                 `yaml:"mspCacheSize"`
+	DefaultMSP   string              `yaml:"defaultMSP"`
+	MSPs         []*MSP              `yaml:"msps"`
+	TLS          TLS                 `yaml:"tls"`
+	Ordering     *Ordering           `yaml:"ordering"`
+	Orderers     []*ConnectionConfig `yaml:"orderers"`
+	Peers        []*ConnectionConfig `yaml:"peers"`
+	Channels     []*Channel          `yaml:"channels"`
+	Vault        Vault               `yaml:"vault"`
+	Endpoint     *Endpoint           `yaml:"endpoint,omitempty"`
 }
