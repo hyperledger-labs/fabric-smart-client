@@ -29,7 +29,8 @@ type Channel interface {
 
 	EnvelopeService() EnvelopeService
 
-	TransactionService() EndorserTransactionService
+	// TransactionService returns the transaction service of this channel
+	TransactionService() TransactionService
 
 	MetadataService() MetadataService
 

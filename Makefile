@@ -81,6 +81,7 @@ orion-server-images:
 	docker image tag orionbcdb/orion-server:$(ORION_VERSION) orionbcdb/orion-server:latest
 
 INTEGRATION_TARGETS = integration-tests-iou
+INTEGRATION_TARGETS += integration-tests-pvtiou
 INTEGRATION_TARGETS += integration-tests-atsacc
 INTEGRATION_TARGETS += integration-tests-chaincode-events
 INTEGRATION_TARGETS += integration-tests-atsafsc
@@ -94,6 +95,10 @@ integration-tests: $(INTEGRATION_TARGETS)
 .PHONY: integration-tests-iou
 integration-tests-iou:
 	cd ./integration/fabric/iou; export FAB_BINS=$(FAB_BINS); ginkgo $(GINKGO_TEST_OPTS) .
+
+.PHONY: integration-tests-pvtiou
+integration-tests-pvtiou:
+	cd ./integration/fabric/pvtiou; export FAB_BINS=$(FAB_BINS); ginkgo $(GINKGO_TEST_OPTS) .
 
 .PHONY: integration-tests-iou-hsm
 integration-tests-iou-hsm:

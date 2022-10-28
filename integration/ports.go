@@ -30,6 +30,7 @@ const (
 	IOUPort
 	IOUHSMPort
 	IOUWithOrionBackendPort
+	PVTIOUPort
 	AssetTransferSecuredAgreementWithChaincode
 	AssetTransferSecuredAgreementWithApprovers
 	AssetTransferEventsAgreementWithChaincode

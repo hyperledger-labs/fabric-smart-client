@@ -11,8 +11,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/fabricutils"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
@@ -20,8 +18,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	common2 "github.com/hyperledger/fabric-protos-go/common"
-	ab "github.com/hyperledger/fabric-protos-go/orderer"
+	"github.com/hyperledger/fabric-protos-go/common"
+	"github.com/hyperledger/fabric-protos-go/orderer"
 	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
 )
@@ -37,9 +35,6 @@ type ViewManager interface {
 	InitiateView(view view.View) (interface{}, error)
 }
 
-type Configuration interface {
-}
-
 type Network interface {
 	PickOrderer() *grpc.ConnectionConfig
 	LocalMembership() driver.LocalMembership
@@ -50,32 +45,33 @@ type Network interface {
 	Config() *config.Config
 }
 
-type Transaction interface {
-	Channel() string
-	ID() string
-	Creator() view.Identity
-	Proposal() driver.Proposal
-	ProposalResponses() []driver.ProposalResponse
-	Bytes() ([]byte, error)
+type TransactionManager interface {
+	ToEnvelope(tx driver.Transaction) (*common.Envelope, error)
 }
 
-type service struct {
+type Transaction interface {
+	driver.Transaction
+}
+
+type Service struct {
 	lock    sync.RWMutex
 	oStream Broadcast
 	oClient *ordererClient
 	sp      view2.ServiceProvider
 	network Network
+	tm      TransactionManager
 }
 
-func NewService(sp view2.ServiceProvider, network Network) *service {
-	return &service{
+func NewService(sp view2.ServiceProvider, network Network, tm TransactionManager) *Service {
+	return &Service{
 		sp:      sp,
 		network: network,
+		tm:      tm,
 	}
 }
 
-func (o *service) Broadcast(blob interface{}) error {
-	var env *common2.Envelope
+func (o *Service) Broadcast(blob interface{}) error {
+	var env *common.Envelope
 	var err error
 	switch b := blob.(type) {
 	case Transaction:
@@ -91,11 +87,11 @@ func (o *service) Broadcast(blob interface{}) error {
 			logger.Debugf("new envelope to broadcast (boxed)...")
 		}
 		env = b.Envelope()
-	case *common2.Envelope:
+	case *common.Envelope:
 		if logger.IsEnabledFor(zapcore.DebugLevel) {
 			logger.Debugf("new envelope to broadcast...")
 		}
-		env = blob.(*common2.Envelope)
+		env = blob.(*common.Envelope)
 	default:
 		return errors.Errorf("invalid blob's type, got [%T]", blob)
 	}
@@ -103,7 +99,7 @@ func (o *service) Broadcast(blob interface{}) error {
 	return o.broadcastEnvelope(env)
 }
 
-func (o *service) createFabricEndorseTransactionEnvelope(tx Transaction) (*common2.Envelope, error) {
+func (o *Service) createFabricEndorseTransactionEnvelope(tx Transaction) (*common.Envelope, error) {
 	ch, err := o.network.Channel(tx.Channel())
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed getting channel [%s]", tx.Channel())
@@ -117,22 +113,10 @@ func (o *service) createFabricEndorseTransactionEnvelope(tx Transaction) (*commo
 		return nil, errors.Wrap(err, "failed storing tx")
 	}
 
-	// tx contains the proposal and the endorsements, assemble them in a fabric transaction
-	signerID := tx.Creator()
-	signer, err := o.network.SignerService().GetSigner(signerID)
-	if err != nil {
-		logger.Errorf("signer not found for %s while creating tx envelope for ordering [%s]", signerID.UniqueID(), err)
-		return nil, errors.Wrapf(err, "signer not found for %s while creating tx envelope for ordering", signerID.UniqueID())
-	}
-	env, err := fabricutils.CreateEndorserSignedTX(&signerWrapper{signerID, signer}, tx.Proposal(), tx.ProposalResponses()...)
-	if err != nil {
-		return nil, errors.WithMessage(err, "could not assemble transaction")
-	}
-
-	return env, nil
+	return o.tm.ToEnvelope(tx)
 }
 
-func (o *service) getOrSetOrdererClient() (Broadcast, error) {
+func (o *Service) getOrSetOrdererClient() (Broadcast, error) {
 	o.lock.RLock()
 	oc := o.oClient
 	os := o.oStream
@@ -156,7 +140,7 @@ func (o *service) getOrSetOrdererClient() (Broadcast, error) {
 	return o.oStream, nil
 }
 
-func (o *service) newOrdererClient() error {
+func (o *Service) newOrdererClient() error {
 	ordererConfig := o.network.PickOrderer()
 	if ordererConfig == nil {
 		return errors.New("no orderer configured")
@@ -179,7 +163,7 @@ func (o *service) newOrdererClient() error {
 	return nil
 }
 
-func (o *service) cleanupOrderedClient() {
+func (o *Service) cleanupOrderedClient() {
 	if o.oStream != nil {
 		logger.Debugf("cleanup ordering stream...")
 		o.oStream.CloseSend()
@@ -192,7 +176,7 @@ func (o *service) cleanupOrderedClient() {
 	}
 }
 
-func (o *service) broadcastEnvelope(env *common2.Envelope) error {
+func (o *Service) broadcastEnvelope(env *common.Envelope) error {
 	forceConnect := false
 	stream, err := o.getOrSetOrdererClient()
 	if err != nil {
@@ -204,7 +188,7 @@ func (o *service) broadcastEnvelope(env *common2.Envelope) error {
 	defer o.lock.Unlock()
 
 	// send the envelope for ordering
-	var status *ab.BroadcastResponse
+	var status *orderer.BroadcastResponse
 	retries := o.network.Config().BroadcastNumRetries()
 	retryInterval := o.network.Config().BroadcastRetryInterval()
 	for i := 0; i < retries; i++ {
@@ -235,24 +219,11 @@ func (o *service) broadcastEnvelope(env *common2.Envelope) error {
 			continue
 		}
 
-		if status.GetStatus() != common2.Status_SUCCESS {
-			return errors.Wrapf(err, "failed broadcasting, status %s", common2.Status_name[int32(status.GetStatus())])
+		if status.GetStatus() != common.Status_SUCCESS {
+			return errors.Wrapf(err, "failed broadcasting, status %s", common.Status_name[int32(status.GetStatus())])
 		}
 
 		return nil
 	}
 	return errors.Wrap(err, "failed to send transaction to orderer")
-}
-
-type signerWrapper struct {
-	creator view.Identity
-	signer  Signer
-}
-
-func (s *signerWrapper) Sign(message []byte) ([]byte, error) {
-	return s.signer.Sign(message)
-}
-
-func (s *signerWrapper) Serialize() ([]byte, error) {
-	return s.creator, nil
 }

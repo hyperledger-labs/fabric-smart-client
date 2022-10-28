@@ -8,6 +8,8 @@ package driver
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"github.com/hyperledger/fabric-protos-go/common"
+	"github.com/hyperledger/fabric-protos-go/peer"
 )
 
 type Envelope interface {
@@ -27,6 +29,7 @@ type ProposalResponse interface {
 	Results() []byte
 	ResponseStatus() int32
 	ResponseMessage() string
+	PR() *peer.ProposalResponse
 	Bytes() ([]byte, error)
 }
 
@@ -49,7 +52,7 @@ type EnvelopeService interface {
 	LoadEnvelope(txid string) ([]byte, error)
 }
 
-type EndorserTransactionService interface {
+type TransactionService interface {
 	Exists(txid string) bool
 	StoreTransaction(txid string, raw []byte) error
 	LoadTransaction(txid string) ([]byte, error)
@@ -61,6 +64,8 @@ type TransactionManager interface {
 	NewProposalResponseFromBytes(raw []byte) (ProposalResponse, error)
 	NewTransaction(creator view.Identity, nonce []byte, txid string, channel string) (Transaction, error)
 	NewTransactionFromBytes(channel string, raw []byte) (Transaction, error)
+	// ToEnvelope returns the Fabric envelope generated form the passed transaction
+	ToEnvelope(tx Transaction) (*common.Envelope, error)
 }
 
 // Verifier is an interface which wraps the Verify method.

@@ -10,11 +10,13 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/fpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 type InvokeCall struct {
+	TxID                   *fabric.TxID
 	InvokerIdentity        view.Identity
 	Network                string
 	Channel                string
@@ -34,12 +36,12 @@ type InvokeCall struct {
 	TxID                   fabric.TxID
 }
 
-type invokeChaincodeView struct {
+type InvokeChaincodeView struct {
 	*InvokeCall
 }
 
-func NewInvokeView(chaincode, function string, args ...interface{}) *invokeChaincodeView {
-	return &invokeChaincodeView{
+func NewInvokeView(chaincode, function string, args ...interface{}) *InvokeChaincodeView {
+	return &InvokeChaincodeView{
 		InvokeCall: &InvokeCall{
 			ChaincodeName: chaincode,
 			Function:      function,
@@ -48,15 +50,15 @@ func NewInvokeView(chaincode, function string, args ...interface{}) *invokeChain
 	}
 }
 
-func (i *invokeChaincodeView) Call(context view.Context) (interface{}, error) {
-	txid, result, err := i.Invoke(context)
+func (i *InvokeChaincodeView) Call(context view.Context) (interface{}, error) {
+	txID, result, err := i.Invoke(context)
 	if err != nil {
 		return nil, err
 	}
-	return []interface{}{txid, result}, nil
+	return []interface{}{txID, result}, nil
 }
 
-func (i *invokeChaincodeView) Invoke(context view.Context) (string, []byte, error) {
+func (i *InvokeChaincodeView) Invoke(context view.Context) (string, []byte, error) {
 	// TODO: endorse and then send to ordering
 	info := &info{
 		chaincodeName: i.ChaincodeName,
@@ -97,15 +99,18 @@ func (i *invokeChaincodeView) Invoke(context view.Context) (string, []byte, erro
 	if i.SetRetrySleep {
 		invocation.WithRetrySleep(i.RetrySleep)
 	}
+	if i.TxID != nil {
+		invocation.WithTxID(driver.TxID(*i.TxID))
+	}
 
-	txid, result, err := invocation.Submit()
+	txID, result, err := invocation.Submit()
 	if err != nil {
 		return "", nil, err
 	}
-	return txid, result, nil
+	return txID, result, nil
 }
 
-func (i *invokeChaincodeView) WithTransientEntry(k string, v interface{}) *invokeChaincodeView {
+func (i *InvokeChaincodeView) WithTransientEntry(k string, v interface{}) *InvokeChaincodeView {
 	if i.TransientMap == nil {
 		i.TransientMap = map[string]interface{}{}
 	}
@@ -113,28 +118,34 @@ func (i *invokeChaincodeView) WithTransientEntry(k string, v interface{}) *invok
 	return i
 }
 
-func (i *invokeChaincodeView) WithNetwork(name string) *invokeChaincodeView {
+func (i *InvokeChaincodeView) WithNetwork(name string) *InvokeChaincodeView {
 	i.InvokeCall.Network = name
 	return i
 }
 
-func (i *invokeChaincodeView) WithChannel(name string) *invokeChaincodeView {
+func (i *InvokeChaincodeView) WithChannel(name string) *InvokeChaincodeView {
 	i.InvokeCall.Channel = name
 	return i
 }
 
-func (i *invokeChaincodeView) WithEndorsersByMSPIDs(mspIDs ...string) *invokeChaincodeView {
+func (i *InvokeChaincodeView) WithEndorsersByMSPIDs(mspIDs ...string) *InvokeChaincodeView {
 	i.InvokeCall.EndorsersMSPIDs = mspIDs
 	return i
 }
 
-func (i *invokeChaincodeView) WithEndorsersFromMyOrg() *invokeChaincodeView {
+func (i *InvokeChaincodeView) WithEndorsersFromMyOrg() *InvokeChaincodeView {
 	i.EndorsersFromMyOrg = true
 	return i
 }
 
-func (i *invokeChaincodeView) WithSignerIdentity(id view.Identity) *invokeChaincodeView {
+func (i *InvokeChaincodeView) WithSignerIdentity(id view.Identity) *InvokeChaincodeView {
 	i.InvokerIdentity = id
+	return i
+}
+
+// WithTxID forces to use the passed transaction id
+func (i *InvokeChaincodeView) WithTxID(id fabric.TxID) *InvokeChaincodeView {
+	i.InvokeCall.TxID = &id
 	return i
 }
 

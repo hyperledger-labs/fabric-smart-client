@@ -23,7 +23,7 @@ import (
 
 var logger = flogging.MustGetLogger("fabric-sdk.core")
 
-type network struct {
+type Network struct {
 	sp view2.ServiceProvider
 
 	config *config2.Config
@@ -53,9 +53,9 @@ func NewNetwork(
 	idProvider driver.IdentityProvider,
 	localMembership driver.LocalMembership,
 	sigService driver.SignerService,
-) (*network, error) {
+) (*Network, error) {
 	// Load configuration
-	fsp := &network{
+	fsp := &Network{
 		sp:              sp,
 		name:            name,
 		config:          config,
@@ -71,15 +71,15 @@ func NewNetwork(
 	return fsp, nil
 }
 
-func (f *network) Name() string {
+func (f *Network) Name() string {
 	return f.name
 }
 
-func (f *network) DefaultChannel() string {
+func (f *Network) DefaultChannel() string {
 	return f.defaultChannel
 }
 
-func (f *network) Channels() []string {
+func (f *Network) Channels() []string {
 	var chs []string
 	for _, c := range f.channelDefs {
 		chs = append(chs, c.Name)
@@ -87,26 +87,26 @@ func (f *network) Channels() []string {
 	return chs
 }
 
-func (f *network) Orderers() []*grpc.ConnectionConfig {
+func (f *Network) Orderers() []*grpc.ConnectionConfig {
 	return f.orderers
 }
 
-func (f *network) PickOrderer() *grpc.ConnectionConfig {
+func (f *Network) PickOrderer() *grpc.ConnectionConfig {
 	if len(f.orderers) == 0 {
 		return nil
 	}
 	return f.orderers[rand.Intn(len(f.orderers))]
 }
 
-func (f *network) Peers() []*grpc.ConnectionConfig {
+func (f *Network) Peers() []*grpc.ConnectionConfig {
 	return f.peers
 }
 
-func (f *network) PickPeer() *grpc.ConnectionConfig {
+func (f *Network) PickPeer() *grpc.ConnectionConfig {
 	return f.peers[rand.Intn(len(f.peers))]
 }
 
-func (f *network) Channel(name string) (driver.Channel, error) {
+func (f *Network) Channel(name string) (driver.Channel, error) {
 	logger.Debugf("Getting channel [%s]", name)
 
 	if len(name) == 0 {
@@ -151,47 +151,47 @@ func (f *network) Channel(name string) (driver.Channel, error) {
 	return ch, nil
 }
 
-func (f *network) Ledger(name string) (driver.Ledger, error) {
+func (f *Network) Ledger(name string) (driver.Ledger, error) {
 	return f.Channel(name)
 }
 
-func (f *network) Committer(name string) (driver.Committer, error) {
+func (f *Network) Committer(name string) (driver.Committer, error) {
 	return f.Channel(name)
 }
 
-func (f *network) IdentityProvider() driver.IdentityProvider {
+func (f *Network) IdentityProvider() driver.IdentityProvider {
 	return f.idProvider
 }
 
-func (f *network) LocalMembership() driver.LocalMembership {
+func (f *Network) LocalMembership() driver.LocalMembership {
 	return f.localMembership
 }
 
-func (f *network) ProcessorManager() driver.ProcessorManager {
+func (f *Network) ProcessorManager() driver.ProcessorManager {
 	return f.processorManager
 }
 
-func (f *network) TransactionManager() driver.TransactionManager {
+func (f *Network) TransactionManager() driver.TransactionManager {
 	return f.transactionManager
 }
 
-func (f *network) Broadcast(blob interface{}) error {
+func (f *Network) Broadcast(blob interface{}) error {
 	return f.ordering.Broadcast(blob)
 }
 
-func (f *network) SignerService() driver.SignerService {
+func (f *Network) SignerService() driver.SignerService {
 	return f.sigService
 }
 
-func (f *network) ConfigService() driver.ConfigService {
+func (f *Network) ConfigService() driver.ConfigService {
 	return f.config
 }
 
-func (f *network) Config() *config2.Config {
+func (f *Network) Config() *config2.Config {
 	return f.config
 }
 
-func (f *network) init() error {
+func (f *Network) init() error {
 	f.processorManager = rwset.NewProcessorManager(f.sp, f, nil)
 	f.transactionManager = transaction.NewManager(f.sp, f)
 
@@ -221,11 +221,11 @@ func (f *network) init() error {
 		}
 	}
 
-	f.ordering = ordering.NewService(f.sp, f)
+	f.ordering = ordering.NewService(f.sp, f, f.transactionManager)
 	return nil
 }
 
-func (f *network) setConfigOrderers(orderers []*grpc.ConnectionConfig) {
+func (f *Network) setConfigOrderers(orderers []*grpc.ConnectionConfig) {
 	// the first configuredOrderers are from the configuration, keep them
 	// and append the new ones
 	f.orderers = append(f.orderers[:f.configuredOrderers], orderers...)

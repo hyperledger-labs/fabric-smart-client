@@ -12,6 +12,8 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"github.com/hyperledger/fabric/protoutil"
+	"github.com/pkg/errors"
 )
 
 type TransactionOptions struct {
@@ -395,6 +397,15 @@ func (t *TransactionManager) ComputeTxID(id *TxID) string {
 	return res
 }
 
+// ToEnvelope returns the serialized Fabric envelope generated form the passed transaction
+func (t *TransactionManager) ToEnvelope(tx *Transaction) ([]byte, error) {
+	env, err := t.fns.fns.TransactionManager().ToEnvelope(tx.tx)
+	if err != nil {
+		return nil, errors.WithMessagef(err, "failed to get envelope from transaction [%s]", tx.ID())
+	}
+	return protoutil.Marshal(env)
+}
+
 type MetadataService struct {
 	ms driver.MetadataService
 }
@@ -421,4 +432,28 @@ type EnvelopeService struct {
 
 func (m *EnvelopeService) Exists(txid string) bool {
 	return m.ms.Exists(txid)
+}
+
+// StoreEnvelope stores the passed serialized envelope and binds it to the passed transaction id
+func (m *EnvelopeService) StoreEnvelope(txID string, env []byte) error {
+	return m.ms.StoreEnvelope(txID, env)
+}
+
+type TransactionService struct {
+	ms driver.TransactionService
+}
+
+// Exists return true if the a transaction has been stored with the passed transaction id
+func (m *TransactionService) Exists(txid string) bool {
+	return m.ms.Exists(txid)
+}
+
+// StoreTransaction stores the passed serialized transaction and binds it to the passed transaction id
+func (m *TransactionService) StoreTransaction(txID string, raw []byte) error {
+	return m.ms.StoreTransaction(txID, raw)
+}
+
+// LoadTransaction returns the serialized transaction this service binds to the passed transaction id, if it exists
+func (m *TransactionService) LoadTransaction(txID string) ([]byte, error) {
+	return m.ms.LoadTransaction(txID)
 }

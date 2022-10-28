@@ -65,3 +65,8 @@ func (c *Channel) MetadataService() *MetadataService {
 func (c *Channel) EnvelopeService() *EnvelopeService {
 	return &EnvelopeService{ms: c.ch.EnvelopeService()}
 }
+
+// TransactionService returns the transaction service of this channel
+func (c *Channel) TransactionService() *TransactionService {
+	return &TransactionService{ms: c.ch.TransactionService()}
+}

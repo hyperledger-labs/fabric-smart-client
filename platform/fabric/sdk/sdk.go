@@ -13,6 +13,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core"
 	_ "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/crypto"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/pvt"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/weaver"
@@ -70,12 +71,27 @@ func (p *SDK) Install() error {
 	}
 	for _, name := range names {
 		fns := fabric.GetFabricNetworkService(p.registry, name)
-		if fns == nil {
-			return errors.Errorf("no fabric network service found for [%s]", name)
+		assert.NotNil(fns, "no fabric network service found for [%s]", name)
+		assert.NoError(
+			fns.ProcessorManager().SetDefaultProcessor(
+				state.NewRWSetProcessor(fabric.GetDefaultFNS(p.registry)),
+			),
+			"failed setting state processor for fabric network [%s]", name,
+		)
+
+		assert.NoError(
+			fns.ProcessorManager().AddProcessor("pvt", pvt.NewProcessor(fns)),
+			"failed to register pvt processor for fabric network [%s]", name,
+		)
+		// for each channel enbale pvt processing
+		for _, channelName := range fns.Channels() {
+			ch, err := fns.Channel(channelName)
+			assert.NoError(err, "failed to get channel [%s:%s]", fns.Name(), channelName)
+			assert.NoError(
+				ch.Committer().ProcessNamespace("pvt"),
+				"failed to register namespace to be processed to [%s:%s]", fns.Name(), channelName,
+			)
 		}
-		assert.NoError(fns.ProcessorManager().SetDefaultProcessor(
-			state.NewRWSetProcessor(fabric.GetDefaultFNS(p.registry)),
-		), "failed setting state processor for fabric network [%s]", name)
 	}
 
 	assert.NotNil(fabric.GetDefaultFNS(p.registry), "default fabric network service not found")

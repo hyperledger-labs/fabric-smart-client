@@ -223,6 +223,11 @@ func (t *Transaction) AppendVerifierProvider(vp VerifierProvider) {
 	t.verifierProviders = append(t.verifierProviders, vp)
 }
 
+// Nonce returns the nonce of this transaction
+func (t *Transaction) Nonce() []byte {
+	return t.Transaction.Nonce()
+}
+
 func (t *Transaction) Envelope() (*fabric.Envelope, error) {
 	return t.Transaction.Envelope()
 }

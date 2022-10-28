@@ -14,7 +14,7 @@ func (c *channel) EnvelopeService() driver.EnvelopeService {
 	return c.envelopeService
 }
 
-func (c *channel) TransactionService() driver.EndorserTransactionService {
+func (c *channel) TransactionService() driver.TransactionService {
 	return c.transactionService
 }
 

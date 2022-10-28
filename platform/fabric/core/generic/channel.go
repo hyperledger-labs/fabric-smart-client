@@ -61,14 +61,14 @@ type channel struct {
 	sp                 view2.ServiceProvider
 	channelConfig      *config2.Channel
 	config             *config2.Config
-	network            *network
+	network            *Network
 	name               string
 	finality           driver.Finality
 	vault              *vault.Vault
 	processNamespaces  []string
 	externalCommitter  *committer.ExternalCommitter
 	envelopeService    driver.EnvelopeService
-	transactionService driver.EndorserTransactionService
+	transactionService driver.TransactionService
 	metadataService    driver.MetadataService
 	eventsSubscriber   events.Subscriber
 	eventsPublisher    events.Publisher
@@ -91,7 +91,7 @@ type channel struct {
 	subscribers *events.Subscribers
 }
 
-func newChannel(network *network, name string, quiet bool) (*channel, error) {
+func newChannel(network *Network, name string, quiet bool) (*channel, error) {
 	sp := network.sp
 	// Vault
 	v, txIDStore, err := NewVault(sp, network.config, name)

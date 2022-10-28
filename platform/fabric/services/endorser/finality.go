@@ -15,42 +15,67 @@ import (
 	"github.com/pkg/errors"
 )
 
-type finalityView struct {
-	tx        *Transaction
-	endpoints []view.Identity
-	timeout   time.Duration
+type FinalityView struct {
+	Network   string
+	Channel   string
+	TxID      string
+	Endpoints []view.Identity
+	Timeout   time.Duration
 }
 
-func (f *finalityView) Call(ctx view.Context) (interface{}, error) {
-	fns := fabric.GetFabricNetworkService(ctx, f.tx.Network())
+func (f *FinalityView) Call(ctx view.Context) (interface{}, error) {
+	fns := fabric.GetFabricNetworkService(ctx, f.Network)
 	if fns == nil {
-		return nil, errors.Errorf("fabric network service [%s] not found", f.tx.Network())
+		return nil, errors.Errorf("fabric network service [%s] not found", f.Network)
 	}
-	ch, err := fns.Channel(f.tx.Channel())
+	ch, err := fns.Channel(f.Channel)
 	if err != nil {
-		return nil, errors.WithMessagef(err, "failed getting channel [%s:%s]", f.tx.Network(), f.tx.Channel())
+		return nil, errors.WithMessagef(err, "failed getting channel [%s:%s]", f.Network, f.Channel)
 	}
-	if len(f.endpoints) != 0 {
-		return nil, ch.Finality().IsFinalForParties(f.tx.ID(), f.endpoints...)
+	if len(f.Endpoints) != 0 {
+		return nil, ch.Finality().IsFinalForParties(f.TxID, f.Endpoints...)
 	}
 	c := ctx.Context()
-	if f.timeout != 0 {
+	if f.Timeout != 0 {
 		var cancel context.CancelFunc
-		c, cancel = context.WithTimeout(c, f.timeout)
+		c, cancel = context.WithTimeout(c, f.Timeout)
 		defer cancel()
 	}
-	return nil, ch.Finality().IsFinal(c, f.tx.ID())
+	return f.TxID, ch.Finality().IsFinal(c, f.TxID)
 }
 
-func NewFinalityView(tx *Transaction) *finalityView {
-	return &finalityView{tx: tx}
+func NewFinalityView(tx *Transaction) *FinalityView {
+	return &FinalityView{
+		Network: tx.Network(),
+		Channel: tx.Channel(),
+		TxID:    tx.ID(),
+	}
 }
 
-// NewFinalityWithTimeoutView runs the finality view for the passed transaction and timeout
-func NewFinalityWithTimeoutView(tx *Transaction, timeout time.Duration) *finalityView {
-	return &finalityView{tx: tx, timeout: timeout}
+// NewFinalityWithTimeoutView runs the finality view for the passed transaction and Timeout
+func NewFinalityWithTimeoutView(tx *Transaction, timeout time.Duration) *FinalityView {
+	return &FinalityView{
+		Network: tx.Network(),
+		Channel: tx.Channel(),
+		TxID:    tx.ID(),
+		Timeout: timeout,
+	}
 }
 
-func NewFinalityFromView(tx *Transaction, endpoints ...view.Identity) *finalityView {
-	return &finalityView{tx: tx, endpoints: endpoints}
+func NewFinalityFromView(tx *Transaction, endpoints ...view.Identity) *FinalityView {
+	return &FinalityView{
+		Network:   tx.Network(),
+		Channel:   tx.Channel(),
+		TxID:      tx.ID(),
+		Endpoints: endpoints,
+	}
+}
+
+func NewFinalityFor(network, channel, txID string, timeout time.Duration) *FinalityView {
+	return &FinalityView{
+		Network: network,
+		Channel: channel,
+		TxID:    txID,
+		Timeout: timeout,
+	}
 }

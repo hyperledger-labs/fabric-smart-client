@@ -7,9 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package endorser
 
 import (
-	"github.com/pkg/errors"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"github.com/pkg/errors"
 )
 
 type receiveTransactionView struct{}
