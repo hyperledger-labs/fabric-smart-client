@@ -143,6 +143,13 @@ func (c *channel) commitUnknown(txID string, block uint64, indexInBlock int, env
 	if ok, err := c.filterUnknownEnvelope(txID); err != nil || !ok {
 		logger.Debugf("[%s] unknown envelope will not be processed [%b,%s]", ok, err)
 		return nil
+	} else {
+		logger.Debugf("[%s] no known namespaces found", txID)
+		if err := c.DiscardTx(txID); err != nil {
+			logger.Errorf("failed discarding unknown transactions [%s]", txID)
+		}
+		// nothing to commit
+		return nil
 	}
 
 	return c.commit(txID, nil, block, indexInBlock, envelope)
