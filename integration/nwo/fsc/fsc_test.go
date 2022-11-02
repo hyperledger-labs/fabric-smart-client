@@ -58,7 +58,7 @@ var _ = Describe("EndToEnd", func() {
 			ExpectedMainOne, err := ioutil.ReadFile("./testdata/main/main.go.output")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(string(buf.Bytes())).To(BeEquivalentTo(string(ExpectedMainOne)))
-			// Expect(ioutil.WriteFile("./testdata/main/main.go.output", buf.Bytes(), 0777)).ToNot(HaveOccurred())
+			//Expect(ioutil.WriteFile("./testdata/main/main.go.output", buf.Bytes(), 0777)).ToNot(HaveOccurred())
 		})
 	})
 })

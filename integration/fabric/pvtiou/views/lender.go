@@ -3,6 +3,7 @@ Copyright IBM Corp All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
 */
+
 package views
 
 import (
@@ -57,7 +58,7 @@ func (i *CreateIOUResponderView) Call(context view.Context) (interface{}, error)
 	}
 
 	// The lender is ready to send back the transaction signed
-	_, err = context.RunView(state.NewEndorseView(tx))
+	_, err = context.RunView(state.NewPrivateEndorseView(tx))
 	assert.NoError(err)
 
 	return nil, nil
@@ -111,7 +112,7 @@ func (i *UpdateIOUResponderView) Call(context view.Context) (interface{}, error)
 	}
 
 	// The lender is ready to send back the transaction signed
-	_, err = context.RunView(state.NewEndorseView(tx))
+	_, err = context.RunView(state.NewPrivateEndorseView(tx))
 	assert.NoError(err)
 
 	return nil, nil

@@ -25,7 +25,6 @@ func NewProcessor(network *fabric.NetworkService) *Processor {
 
 func (p *Processor) Process(req fabric.Request, tx fabric.ProcessTransaction, rws *fabric.RWSet, ns string) error {
 	logger.Debugf("process namespace [%s]", ns)
-	// TODO: check hash
 	k, _, err := rws.GetWriteAt("pvt", 0)
 	if err != nil {
 		return errors.Wrapf(err, "failed to get stored hash")
@@ -47,16 +46,26 @@ func (p *Processor) Process(req fabric.Request, tx fabric.ProcessTransaction, rw
 		return errors.Wrapf(err, "failed to retrieve transaction [%s]", k)
 	}
 
+	//txRawHash := hash.Hashable(txRaw).String()
+	//if string(txHash) != txRawHash {
+	//	logger.Warningf("private transaction [%s] does not match hash [%s]!=[%s]", tx.ID(), txHash, txRawHash)
+	//	// don't do anything here
+	//	return nil
+	//}
+
 	storedTx, err := p.transactionManager.NewTransactionFromBytes(txRaw, fabric.WithChannel(tx.Channel()))
 	if err != nil {
 		return errors.WithMessagef(err, "failed to unmarshal transaction [%s]", k)
 	}
+
+	// TODO: Check Endorsement Policy
+
+	// Append RW Set
 	storedRWS, err := storedTx.GetRWSet()
 	if err != nil {
 		return errors.WithMessagef(err, "failed to get rws from transaction [%s]", k)
 	}
 	defer storedRWS.Done()
-
 	rawRWS, err := storedRWS.Bytes()
 	if err != nil {
 		return errors.WithMessagef(err, "failed to get rws from transaction [%s]", k)

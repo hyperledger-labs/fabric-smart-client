@@ -12,6 +12,10 @@ GINKGO_TEST_OPTS ?=
 GINKGO_TEST_OPTS += --keep-going
 GINKGO_TEST_OPTS += --slow-spec-threshold=60s
 
+# 3rd party image version
+# These versions are also set in the runners in ./integration/runners/
+COUCHDB_VER ?= 3.2.2
+
 TOP = .
 
 all: install-tools install-softhsm checks unit-tests #integration-tests
@@ -45,7 +49,7 @@ unit-tests-race:
 	cd integration/nwo/; export FAB_BINS=$(FAB_BINS); go test -cover ./...
 
 .PHONY: docker-images
-docker-images: fabric-docker-images weaver-docker-images fpc-docker-images orion-server-images monitoring-docker-images
+docker-images: fabric-docker-images weaver-docker-images fpc-docker-images orion-server-images monitoring-docker-images couchdb-docker-images
 
 .PHONY: fabric-docker-images
 fabric-docker-images:
@@ -79,6 +83,11 @@ monitoring-docker-images:
 orion-server-images:
 	docker pull orionbcdb/orion-server:$(ORION_VERSION)
 	docker image tag orionbcdb/orion-server:$(ORION_VERSION) orionbcdb/orion-server:latest
+
+.PHONY: couchdb-docker-images
+couchdb-docker-images:
+	docker pull couchdb:${COUCHDB_VER}
+
 
 INTEGRATION_TARGETS = integration-tests-iou
 INTEGRATION_TARGETS += integration-tests-pvtiou
@@ -167,6 +176,7 @@ clean:
 	rm -rf ./integration/fabric/iou/cmd/
 	rm -rf ./integration/fabric/iou/testdata/
 	rm -rf ./integration/fabric/iouorionbe/cmd/
+	rm -rf ./integration/fabric/pvtiou/cmd/
 	rm -rf ./integration/fabric/twonets/cmd
 	rm -rf ./integration/fabric/weaver/relay/cmd
 	rm -rf ./integration/fabric/fpc/echo/cmd

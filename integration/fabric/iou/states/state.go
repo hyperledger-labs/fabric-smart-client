@@ -14,11 +14,11 @@ import (
 // IOU models the IOU state
 type IOU struct {
 	// Amount the borrower owes the lender
-	Amount uint
+	Amount uint `json:"Amount,omitempty"`
 	// Unique identifier of this state
-	LinearID string
+	LinearID string `json:"LinearID,omitempty"`
 	// The list of owners of this state
-	Parties []view.Identity
+	Parties []view.Identity `json:"Parties,omitempty"`
 }
 
 func (i *IOU) SetLinearID(id string) string {

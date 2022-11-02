@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package pvtiou
 
 import (
+	fabric2 "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/pvtiou/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/pvtiou/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
@@ -28,6 +29,8 @@ func Topology() []api.Topology {
 	// One for the approver, one for the borrower, and one for the lender.
 	fscTopology := fsc.NewTopology()
 	fscTopology.SetLogging("db.driver.badger=info:debug", "")
+	// This SDK launch a couchdb instance and store the processed IOU States there
+	fscTopology.SetFabricSDK(&fabric2.SDK{})
 
 	// Add the approver FSC node.
 	approver := fscTopology.AddNodeByName("approver")

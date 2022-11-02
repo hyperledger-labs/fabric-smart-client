@@ -79,24 +79,38 @@ func (r *processorManager) ProcessByID(channel, txID string) error {
 	defer rws.Done()
 
 	logger.Debugf("process transaction namespaces [%s,%s,%d]", channel, txID, len(rws.Namespaces()))
-	for _, ns := range rws.Namespaces() {
-		logger.Debugf("process transaction namespace [%s,%s,%s]", channel, txID, ns)
-
-		// TODO: search channel first
-		p, ok := r.processors[ns]
-		if ok {
-			logger.Debugf("process transaction namespace, using custom processor [%s,%s,%s]", channel, txID, ns)
-			if err := p.Process(req, tx, rws, ns); err != nil {
-				return err
+	namespaces := map[string]bool{}
+	for {
+		finished := true
+		for _, ns := range rws.Namespaces() {
+			_, ok := namespaces[ns]
+			if ok {
+				continue
 			}
-		} else {
-			logger.Debugf("process transaction namespace, resorting to default processor [%s,%s,%s]", channel, txID, ns)
-			if r.defaultProcessor != nil {
-				if err := r.defaultProcessor.Process(req, tx, rws, ns); err != nil {
+			finished = false
+			logger.Debugf("process transaction namespace [%s,%s,%s]", channel, txID, ns)
+
+			// TODO: search channel first
+			p, ok := r.processors[ns]
+			if ok {
+				logger.Debugf("process transaction namespace, using custom processor [%s,%s,%s]", channel, txID, ns)
+				if err := p.Process(req, tx, rws, ns); err != nil {
 					return err
 				}
+			} else {
+				logger.Debugf("process transaction namespace, resorting to default processor [%s,%s,%s]", channel, txID, ns)
+				if r.defaultProcessor != nil {
+					if err := r.defaultProcessor.Process(req, tx, rws, ns); err != nil {
+						return err
+					}
+				}
+				logger.Debugf("no processors found for namespace [%s,%s,%s]", channel, txID, ns)
 			}
-			logger.Debugf("no processors found for namespace [%s,%s,%s]", channel, txID, ns)
+
+			namespaces[ns] = true
+		}
+		if finished {
+			break
 		}
 	}
 	return nil

@@ -61,7 +61,7 @@ func (i *CreateIOUView) Call(context view.Context) (interface{}, error) {
 	// The borrower is ready to collect all the required signatures.
 	// Namely, from the borrower itself, the lender, and the approver. In this order.
 	// All signatures are required.
-	_, err = context.RunView(state.NewCollectEndorsementsView(tx, borrower, lender, i.Approver))
+	_, err = context.RunView(state.NewPrivateCollectEndorsementsView(tx, borrower, lender, i.Approver))
 	assert.NoError(err)
 
 	// At this point the borrower can send the transaction to the ordering service and wait for finality.
@@ -119,7 +119,7 @@ func (u UpdateIOUView) Call(context view.Context) (interface{}, error) {
 	// The borrower is ready to collect all the required signatures.
 	// Namely, from the borrower itself, the lender, and the approver. In this order.
 	// All signatures are required.
-	_, err = context.RunView(state.NewCollectEndorsementsView(tx, iouState.Owners()[0], iouState.Owners()[1], u.Approver))
+	_, err = context.RunView(state.NewPrivateCollectEndorsementsView(tx, iouState.Owners()[0], iouState.Owners()[1], u.Approver))
 	assert.NoError(err)
 
 	// At this point the borrower can send the transaction to the ordering service and wait for finality.

@@ -9,6 +9,7 @@ package fsc
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/api"
+	fabric "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk"
 )
 
 const (
@@ -32,6 +33,8 @@ type Topology struct {
 	TracingProvider string `yaml:"tracingType,omitempty"`
 
 	MetricsProvider string `yaml:"metricsType,omitempty"`
+
+	FabricSDK api.SDK
 }
 
 // NewTopology returns an empty FSC network topology.
@@ -46,6 +49,7 @@ func NewTopology() *Topology {
 		},
 		TracingProvider: "none",
 		MetricsProvider: "none",
+		FabricSDK:       &fabric.SDK{},
 	}
 }
 
@@ -126,6 +130,10 @@ func (t *Topology) EnablePrometheusMetrics() {
 	t.MetricsProvider = "prometheus"
 }
 
+func (t *Topology) SetFabricSDK(sdk api.SDK) {
+	t.FabricSDK = sdk
+}
+
 func (t *Topology) AddSDK(sdk api.SDK) {
 	for _, n := range t.Nodes {
 		n.AddSDK(sdk)
@@ -135,6 +143,9 @@ func (t *Topology) AddSDK(sdk api.SDK) {
 func (t *Topology) addNode(node *node.Node) *node.Node {
 	if len(t.Nodes) == 0 {
 		node.Bootstrap = true
+	}
+	if t.FabricSDK != nil {
+		node.AddSDK(t.FabricSDK)
 	}
 	t.Nodes = append(t.Nodes, node)
 	return node

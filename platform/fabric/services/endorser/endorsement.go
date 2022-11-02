@@ -12,12 +12,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/pkg/errors"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracker"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"github.com/pkg/errors"
 )
 
 type collectEndorsementsView struct {
@@ -25,6 +24,14 @@ type collectEndorsementsView struct {
 	parties           []view.Identity
 	deleteTransient   bool
 	verifierProviders []VerifierProvider
+}
+
+func NewCollectEndorsementsView(tx *Transaction, parties ...view.Identity) *collectEndorsementsView {
+	return &collectEndorsementsView{tx: tx, parties: parties}
+}
+
+func NewCollectApprovesView(tx *Transaction, parties ...view.Identity) *collectEndorsementsView {
+	return &collectEndorsementsView{tx: tx, parties: parties, deleteTransient: true}
 }
 
 func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error) {
@@ -52,7 +59,7 @@ func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error
 		return nil, errors.Wrapf(err, "failed getting tx results")
 	}
 
-	// Contact sequantially all parties.
+	// Contact sequentially all parties.
 	for _, party := range c.parties {
 		logger.Debugf("Collect Endorsements On Simulation from [%s]", party)
 
@@ -175,17 +182,17 @@ func (c *collectEndorsementsView) SetVerifierProviders(p []VerifierProvider) *co
 	return c
 }
 
-func NewCollectEndorsementsView(tx *Transaction, parties ...view.Identity) *collectEndorsementsView {
-	return &collectEndorsementsView{tx: tx, parties: parties}
-}
-
-func NewCollectApprovesView(tx *Transaction, parties ...view.Identity) *collectEndorsementsView {
-	return &collectEndorsementsView{tx: tx, parties: parties, deleteTransient: true}
-}
-
 type endorseView struct {
 	tx         *Transaction
 	identities []view.Identity
+}
+
+func NewEndorseView(tx *Transaction, ids ...view.Identity) *endorseView {
+	return &endorseView{tx: tx, identities: ids}
+}
+
+func NewAcceptView(tx *Transaction, ids ...view.Identity) *endorseView {
+	return &endorseView{tx: tx, identities: ids}
 }
 
 func (s *endorseView) Call(context view.Context) (interface{}, error) {
@@ -236,14 +243,6 @@ func (s *endorseView) Call(context view.Context) (interface{}, error) {
 	}
 
 	return s.tx, nil
-}
-
-func NewEndorseView(tx *Transaction, ids ...view.Identity) *endorseView {
-	return &endorseView{tx: tx, identities: ids}
-}
-
-func NewAcceptView(tx *Transaction, ids ...view.Identity) *endorseView {
-	return &endorseView{tx: tx, identities: ids}
 }
 
 type verifierProviderWrapper struct {

@@ -12,6 +12,8 @@ require (
 	github.com/docker/go-connections v0.4.0
 	github.com/fsouza/go-dockerclient v1.7.3
 	github.com/go-kit/kit v0.10.0
+	github.com/go-kivik/couchdb/v3 v3.3.0
+	github.com/go-kivik/kivik/v3 v3.2.3
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/protobuf v1.5.2
 	github.com/google/go-cmp v0.5.6
@@ -37,7 +39,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.1.4
 	github.com/onsi/gomega v1.19.0
 	github.com/op/go-logging v0.0.0-20160315200505-970db520ece7
-	github.com/otiai10/copy v1.5.1
+	github.com/otiai10/copy v1.7.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.12.1
 	github.com/spf13/cobra v1.3.0
@@ -48,6 +50,7 @@ require (
 	github.com/test-go/testify v1.1.4
 	go.uber.org/atomic v1.7.0
 	go.uber.org/zap v1.19.1
+	golang.org/x/net v0.1.0
 	google.golang.org/grpc v1.48.0
 	google.golang.org/protobuf v1.27.1
 	gopkg.in/src-d/go-git.v4 v4.13.1
@@ -229,12 +232,11 @@ require (
 	go.uber.org/multierr v1.6.0 // indirect
 	golang.org/x/crypto v0.0.0-20220411220226-7b82a4e95df4 // indirect
 	golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4 // indirect
-	golang.org/x/net v0.0.0-20220225172249-27dd8689420f // indirect
-	golang.org/x/sync v0.0.0-20220601150217-0de741cfad7f // indirect
-	golang.org/x/sys v0.0.0-20220615213510-4f61da869c0c // indirect
-	golang.org/x/text v0.3.7 // indirect
-	golang.org/x/tools v0.1.11 // indirect
-	golang.org/x/xerrors v0.0.0-20220517211312-f3a8303e98df // indirect
+	golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4 // indirect
+	golang.org/x/sys v0.1.0 // indirect
+	golang.org/x/text v0.4.0 // indirect
+	golang.org/x/tools v0.1.12 // indirect
+	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 	google.golang.org/genproto v0.0.0-20211208223120-3a66f561d7aa // indirect
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6 // indirect
 	gopkg.in/ini.v1 v1.66.2 // indirect

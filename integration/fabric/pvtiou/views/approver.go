@@ -67,7 +67,7 @@ func (i *ApproverView) Call(context view.Context) (interface{}, error) {
 	}
 
 	// The approver is ready to send back the transaction signed
-	_, err = context.RunView(state.NewEndorseView(tx))
+	_, err = context.RunView(state.NewPrivateEndorseView(tx))
 	assert.NoError(err)
 
 	return nil, nil
