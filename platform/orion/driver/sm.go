@@ -18,25 +18,11 @@ type DataWrite struct {
 
 type AccessControl = interface{}
 
-type DeliveryServiceConfig = interface{}
-
 type Flag = int32
 
 const (
 	VALID Flag = iota
 )
-
-type DeliverStream interface {
-	// Receive returns
-	//    - *types.BlockHeader if IncludeTxIDs is set to false in the delivery config
-	//    - *types.AugmentedBlockHeader if IncludeTxIDs is set to true in the delivery config
-	//    - nil if service has been stopped either by the caller or due to an error
-	Receive() interface{}
-	// Stop stops the delivery service
-	Stop()
-	// Error returns any accumulated error
-	Error() error
-}
 
 type DataTx interface {
 	Put(db string, key string, bytes []byte, a AccessControl) error
@@ -58,7 +44,6 @@ type LoadedDataTx interface {
 }
 
 type Ledger interface {
-	NewBlockHeaderDeliveryService(conf DeliveryServiceConfig) (DeliverStream, error)
 	GetTransactionReceipt(txId string) (Flag, error)
 }
 

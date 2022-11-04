@@ -4,7 +4,7 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package generic
+package ledger
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
@@ -12,17 +12,22 @@ import (
 	"github.com/pkg/errors"
 )
 
+type DeliverStream interface {
+	Receive() interface{}
+	Stop()
+	Error() error
+}
+
 type Ledger struct {
 	ledger bcdb.Ledger
 }
 
-func (l *Ledger) NewBlockHeaderDeliveryService(conf driver.DeliveryServiceConfig) (driver.DeliverStream, error) {
-	c, ok := conf.(*bcdb.BlockHeaderDeliveryConfig)
-	if !ok {
-		return nil, errors.Errorf("expect *bcdb.BlockHeaderDeliveryConfig, got [%T]", conf)
-	}
+func NewLedger(ledger bcdb.Ledger) *Ledger {
+	return &Ledger{ledger: ledger}
+}
 
-	return l.ledger.NewBlockHeaderDeliveryService(c), nil
+func (l *Ledger) NewBlockHeaderDeliveryService(conf *bcdb.BlockHeaderDeliveryConfig) (DeliverStream, error) {
+	return l.ledger.NewBlockHeaderDeliveryService(conf), nil
 }
 
 func (l *Ledger) GetTransactionReceipt(txId string) (driver.Flag, error) {

@@ -9,6 +9,8 @@ package generic
 import (
 	"time"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic/ledger"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	config2 "github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
@@ -180,7 +182,7 @@ func (s *Session) Ledger() (driver.Ledger, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "failed getting ledger")
 	}
-	return &Ledger{ledger: l}, nil
+	return ledger.NewLedger(l), nil
 }
 
 func (s *Session) Query() (driver.Query, error) {
