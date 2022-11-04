@@ -153,6 +153,7 @@ func (s *Session) LoadDataTx(envBoxed interface{}) (driver.LoadedDataTx, error) 
 
 	switch v := envBoxed.(type) {
 	case []byte:
+		env = &types.DataTxEnvelope{}
 		if err := proto.Unmarshal(v, env); err != nil {
 			return nil, errors.WithMessagef(err, "failed to unmarshal env")
 		}
