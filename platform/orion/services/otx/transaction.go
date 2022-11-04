@@ -12,7 +12,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"github.com/hyperledger-labs/orion-server/pkg/types"
 	"github.com/pkg/errors"
 )
 
@@ -54,15 +53,15 @@ func (t *Transaction) ID() string {
 	return t.TxID
 }
 
-func (t *Transaction) Get(key string) ([]byte, *types.Metadata, error) {
+func (t *Transaction) Get(key string) ([]byte, error) {
 	s, err := t.getDataTx()
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	return s.Get(t.Namespace, key)
 }
 
-func (t *Transaction) Put(key string, bytes []byte, a *types.AccessControl) error {
+func (t *Transaction) Put(key string, bytes []byte, a orion.AccessControl) error {
 	s, err := t.getDataTx()
 	if err != nil {
 		return err

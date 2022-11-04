@@ -182,5 +182,5 @@ func (d *delivery) connect() (DeliverStream, error) {
 		Capacity:         5,
 		IncludeTxIDs:     true,
 	}
-	return ledger.NewBlockHeaderDeliveryService(conf), nil
+	return ledger.NewBlockHeaderDeliveryService(conf)
 }

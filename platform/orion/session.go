@@ -8,7 +8,6 @@ package orion
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
-	"github.com/hyperledger-labs/orion-server/pkg/types"
 	"github.com/pkg/errors"
 )
 
@@ -16,12 +15,8 @@ type QueryIterator struct {
 	it driver.QueryIterator
 }
 
-func (i *QueryIterator) Next() (*types.KVWithMetadata, bool, error) {
-	kv, b, err := i.it.Next()
-	if err != nil {
-		return nil, false, errors.Wrapf(err, "failed getting next")
-	}
-	return kv, b, nil
+func (i *QueryIterator) Next() (string, []byte, uint64, uint64, bool, error) {
+	return i.it.Next()
 }
 
 type SessionQueryExecutor struct {
@@ -30,7 +25,7 @@ type SessionQueryExecutor struct {
 	query  driver.Query
 }
 
-func (d *SessionQueryExecutor) Get(key string) ([]byte, *types.Metadata, error) {
+func (d *SessionQueryExecutor) Get(key string) ([]byte, error) {
 	return d.dataTx.Get(d.db, key)
 }
 

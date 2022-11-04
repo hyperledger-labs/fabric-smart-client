@@ -8,14 +8,13 @@ package orion
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
-	"github.com/hyperledger-labs/orion-server/pkg/types"
 	"github.com/pkg/errors"
 )
 
-type Flag = types.Flag
+type Flag = driver.Flag
 
 const (
-	VALID = types.Flag_VALID
+	VALID = driver.VALID
 	INVALID_MVCC_CONFLICT_WITHIN_BLOCK
 	INVALID_MVCC_CONFLICT_WITH_COMMITTED_STATE
 	INVALID_DATABASE_DOES_NOT_EXIST
@@ -46,12 +45,12 @@ type Ledger struct {
 }
 
 func (l *Ledger) GetTransactionByID(txID string) (*ProcessedTransaction, error) {
-	r, err := l.l.GetTransactionReceipt(txID)
+	flag, err := l.l.GetTransactionReceipt(txID)
 	if err != nil {
 		return nil, errors.WithMessagef(err, "failed to get transaction receipt for [%s]", txID)
 	}
 	return &ProcessedTransaction{
 		txID: txID,
-		vc:   Flag(r.Header.ValidationInfo[r.TxIndex].Flag),
+		vc:   flag,
 	}, nil
 }

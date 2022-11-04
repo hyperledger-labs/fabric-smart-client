@@ -10,7 +10,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"github.com/hyperledger-labs/orion-server/pkg/types"
 	"github.com/pkg/errors"
 )
 
@@ -71,7 +70,7 @@ func (lt *LoadedTransaction) CoSignAndClose() ([]byte, error) {
 	return t.CoSignAndClose()
 }
 
-func (lt *LoadedTransaction) Reads() []*types.DataRead {
+func (lt *LoadedTransaction) Reads() []*orion.DataRead {
 	t, err := lt.getLoadedDataTx()
 	if err != nil {
 		return nil
@@ -79,7 +78,7 @@ func (lt *LoadedTransaction) Reads() []*types.DataRead {
 	return t.Reads()[lt.Namespace]
 }
 
-func (lt *LoadedTransaction) Writes() []*types.DataWrite {
+func (lt *LoadedTransaction) Writes() []*orion.DataWrite {
 	t, err := lt.getLoadedDataTx()
 	if err != nil {
 		return nil

@@ -24,23 +24,32 @@ type DataTx struct {
 	dataTx bcdb.DataTxContext
 }
 
-func (d *DataTx) Put(db string, key string, bytes []byte, a *types.AccessControl) error {
-	if err := d.dataTx.Put(db, key, bytes, a); err != nil {
+func (d *DataTx) Put(db string, key string, bytes []byte, a driver.AccessControl) error {
+	var ac *types.AccessControl
+	if a != nil {
+		var ok bool
+		ac, ok = a.(*types.AccessControl)
+		if !ok {
+			return errors.Errorf("expecged *types.AccessControl, got [%T]", a)
+		}
+	}
+	if err := d.dataTx.Put(db, key, bytes, ac); err != nil {
 		return errors.Wrapf(err, "failed putting data")
 	}
 	return nil
 }
 
-func (d *DataTx) Get(db string, key string) ([]byte, *types.Metadata, error) {
-	r, m, err := d.dataTx.Get(db, key)
+func (d *DataTx) Get(db string, key string) ([]byte, error) {
+	r, _, err := d.dataTx.Get(db, key)
 	if err != nil {
-		return nil, nil, errors.Wrapf(err, "failed getting data")
+		return nil, errors.Wrapf(err, "failed getting data")
 	}
-	return r, m, nil
+	return r, nil
 }
 
-func (d *DataTx) Commit(sync bool) (string, *types.TxReceiptResponseEnvelope, error) {
-	return d.dataTx.Commit(sync)
+func (d *DataTx) Commit(sync bool) (string, error) {
+	s, _, err := d.dataTx.Commit(sync)
+	return s, err
 }
 
 func (d *DataTx) Delete(db string, key string) error {
@@ -81,12 +90,36 @@ func (l *LoadedDataTx) CoSignAndClose() ([]byte, error) {
 	return proto.Marshal(env)
 }
 
-func (l *LoadedDataTx) Reads() map[string][]*types.DataRead {
-	return l.loadedDataTx.Reads()
+func (l *LoadedDataTx) Reads() map[string][]*driver.DataRead {
+	res := map[string][]*driver.DataRead{}
+	source := l.loadedDataTx.Reads()
+	for s, reads := range source {
+		newReads := make([]*driver.DataRead, len(reads))
+		for i, read := range reads {
+			newReads[i] = &driver.DataRead{
+				Key: read.Key,
+			}
+		}
+		res[s] = newReads
+	}
+	return res
 }
 
-func (l *LoadedDataTx) Writes() map[string][]*types.DataWrite {
-	return l.loadedDataTx.Writes()
+func (l *LoadedDataTx) Writes() map[string][]*driver.DataWrite {
+	res := map[string][]*driver.DataWrite{}
+	source := l.loadedDataTx.Writes()
+	for s, writes := range source {
+		newWrites := make([]*driver.DataWrite, len(writes))
+		for i, write := range writes {
+			newWrites[i] = &driver.DataWrite{
+				Key:   write.Key,
+				Value: write.Value,
+				Acl:   write.Acl,
+			}
+		}
+		res[s] = newWrites
+	}
+	return res
 }
 
 func (l *LoadedDataTx) MustSignUsers() []string {
@@ -115,7 +148,20 @@ func (s *Session) DataTx(txID string) (driver.DataTx, error) {
 	return &DataTx{dataTx: dataTx}, nil
 }
 
-func (s *Session) LoadDataTx(env *types.DataTxEnvelope) (driver.LoadedDataTx, error) {
+func (s *Session) LoadDataTx(envBoxed interface{}) (driver.LoadedDataTx, error) {
+	var env *types.DataTxEnvelope
+
+	switch v := envBoxed.(type) {
+	case []byte:
+		if err := proto.Unmarshal(v, env); err != nil {
+			return nil, errors.WithMessagef(err, "failed to unmarshal env")
+		}
+	case *types.DataTxEnvelope:
+		env = v
+	default:
+		return nil, errors.Errorf("expected *types.DataTxEnvelope or []byte, got [%T]", envBoxed)
+	}
+
 	var dataTx bcdb.LoadedDataTxContext
 	var err error
 	dataTx, err = s.s.LoadDataTx(env)

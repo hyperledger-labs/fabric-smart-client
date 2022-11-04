@@ -11,11 +11,15 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
-	"github.com/hyperledger-labs/orion-server/pkg/types"
 	"github.com/pkg/errors"
 )
+
+type DataRead = driver.DataRead
+
+type DataWrite = driver.DataWrite
+
+type AccessControl = driver.AccessControl
 
 type TransientMap map[string][]byte
 
@@ -134,11 +138,11 @@ func (t *LoadedTransaction) CoSignAndClose() ([]byte, error) {
 	return t.loadedDataTx.CoSignAndClose()
 }
 
-func (t *LoadedTransaction) Reads() map[string][]*types.DataRead {
+func (t *LoadedTransaction) Reads() map[string][]*DataRead {
 	return t.loadedDataTx.Reads()
 }
 
-func (t *LoadedTransaction) Writes() map[string][]*types.DataWrite {
+func (t *LoadedTransaction) Writes() map[string][]*DataWrite {
 	return t.loadedDataTx.Writes()
 }
 
@@ -154,11 +158,11 @@ type Transaction struct {
 	dataTx driver.DataTx
 }
 
-func (d *Transaction) Put(db string, key string, bytes []byte, a *types.AccessControl) error {
+func (d *Transaction) Put(db string, key string, bytes []byte, a AccessControl) error {
 	return d.dataTx.Put(db, key, bytes, a)
 }
 
-func (d *Transaction) Get(db string, key string) ([]byte, *types.Metadata, error) {
+func (d *Transaction) Get(db string, key string) ([]byte, error) {
 	return d.dataTx.Get(db, key)
 }
 
@@ -170,7 +174,7 @@ func (d *Transaction) SignAndClose() ([]byte, error) {
 	return d.dataTx.SignAndClose()
 }
 
-func (d *Transaction) Commit(sync bool) (string, *types.TxReceiptResponseEnvelope, error) {
+func (d *Transaction) Commit(sync bool) (string, error) {
 	return d.dataTx.Commit(sync)
 }
 
@@ -213,11 +217,7 @@ func (t *TransactionManager) NewLoadedTransaction(env []byte, creator string) (*
 	if err != nil {
 		return nil, errors.WithMessagef(err, "failed to create session for creator [%s]", creator)
 	}
-	var e types.DataTxEnvelope
-	if err = proto.Unmarshal(env, &e); err != nil {
-		return nil, errors.WithMessagef(err, "failed to unmarshal env")
-	}
-	loadedDataTx, err := session.LoadDataTx(&e)
+	loadedDataTx, err := session.LoadDataTx(env)
 	if err != nil {
 		return nil, err
 	}

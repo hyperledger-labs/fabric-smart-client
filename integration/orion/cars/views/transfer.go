@@ -45,7 +45,7 @@ func (v *TransferView) Call(context view.Context) (interface{}, error) {
 	}
 	carKey := carRecord.Key()
 
-	recordBytes, _, err := tx.Get(carKey)
+	recordBytes, err := tx.Get(carKey)
 	if err != nil {
 		return nil, errors.Wrapf(err, "error getting car record, key: %s", carKey)
 	}
@@ -140,13 +140,13 @@ func buyerValidateTransaction(loadedTx *otx.LoadedTransaction, buyerID, dmvID st
 	writes := loadedTx.Writes()
 	for _, dw := range writes {
 		switch {
-		case strings.HasPrefix(dw.GetKey(), states.CarRecordKeyPrefix):
-			if err := json.Unmarshal(dw.GetValue(), newCarRec); err != nil {
+		case strings.HasPrefix(dw.Key, states.CarRecordKeyPrefix):
+			if err := json.Unmarshal(dw.Value, newCarRec); err != nil {
 				return err
 			}
-			newCarACL = dw.Acl
+			newCarACL = dw.Acl.(*types.AccessControl)
 		default:
-			return errors.Errorf("unexpected write key: %s", dw.GetKey())
+			return errors.Errorf("unexpected write key: %s", dw.Key)
 		}
 	}
 	if newCarRec.Owner != buyerID {
@@ -218,17 +218,17 @@ func dmvValidateTransaction(tx *otx.Transaction, loadedTx *otx.LoadedTransaction
 	carRec := &states.CarRecord{}
 	reads := loadedTx.Reads()
 	for _, dr := range reads {
-		recordBytes, _, err := tx.Get(dr.GetKey())
+		recordBytes, err := tx.Get(dr.Key)
 		if err != nil {
 			return err
 		}
 		switch {
-		case strings.HasPrefix(dr.GetKey(), states.CarRecordKeyPrefix):
+		case strings.HasPrefix(dr.Key, states.CarRecordKeyPrefix):
 			if err = json.Unmarshal(recordBytes, carRec); err != nil {
 				return err
 			}
 		default:
-			return errors.Errorf("unexpected read key: %s", dr.GetKey())
+			return errors.Errorf("unexpected read key: %s", dr.Key)
 		}
 	}
 
@@ -237,13 +237,13 @@ func dmvValidateTransaction(tx *otx.Transaction, loadedTx *otx.LoadedTransaction
 	writes := loadedTx.Writes()
 	for _, dw := range writes {
 		switch {
-		case strings.HasPrefix(dw.GetKey(), states.CarRecordKeyPrefix):
-			if err := json.Unmarshal(dw.GetValue(), newCarRec); err != nil {
+		case strings.HasPrefix(dw.Key, states.CarRecordKeyPrefix):
+			if err := json.Unmarshal(dw.Value, newCarRec); err != nil {
 				return err
 			}
-			newCarACL = dw.Acl
+			newCarACL = dw.Acl.(*types.AccessControl)
 		default:
-			return errors.Errorf("unexpected write key: %s", dw.GetKey())
+			return errors.Errorf("unexpected write key: %s", dw.Key)
 		}
 	}
 

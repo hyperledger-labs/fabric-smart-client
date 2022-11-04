@@ -25,7 +25,7 @@ func (o *orderingAndFinalityView) Call(context view.Context) (interface{}, error
 	if err != nil {
 		return "", errors.Wrap(err, "failed getting data tx")
 	}
-	_, _, err = dataTx.Commit(true)
+	_, err = dataTx.Commit(true)
 	if err != nil {
 		return "", errors.Wrap(err, "error during transaction commit")
 	}

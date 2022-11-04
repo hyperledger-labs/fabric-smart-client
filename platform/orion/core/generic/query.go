@@ -21,5 +21,22 @@ func (q *Query) GetDataByRange(dbName, startKey, endKey string, limit uint64) (d
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed getting data by range")
 	}
-	return it, nil
+	return &QueryIterator{it: it}, nil
+}
+
+type QueryIterator struct {
+	it bcdb.Iterator
+}
+
+func (q *QueryIterator) Next() (string, []byte, uint64, uint64, bool, error) {
+	v, b, err := q.it.Next()
+	if err != nil {
+		return "", nil, 0, 0, false, err
+	}
+
+	if !b {
+		return "", nil, 0, 0, false, nil
+	}
+
+	return v.Key, v.Value, v.Metadata.Version.BlockNum, v.Metadata.Version.TxNum, true, nil
 }
