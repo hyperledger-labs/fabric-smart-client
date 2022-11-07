@@ -10,6 +10,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic/ledger"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
@@ -172,7 +173,7 @@ func (d *delivery) connect() (DeliverStream, error) {
 	if err != nil {
 		return nil, errors.WithMessagef(err, "failed to create session with identity [%s]", d.me)
 	}
-	ledger, err := session.Ledger()
+	l, err := session.Ledger()
 	if err != nil {
 		return nil, errors.WithMessage(err, "failed to get ledger from session")
 	}
@@ -182,5 +183,5 @@ func (d *delivery) connect() (DeliverStream, error) {
 		Capacity:         5,
 		IncludeTxIDs:     true,
 	}
-	return ledger.NewBlockHeaderDeliveryService(conf), nil
+	return l.(*ledger.Ledger).NewBlockHeaderDeliveryService(conf)
 }

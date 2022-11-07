@@ -6,15 +6,28 @@ SPDX-License-Identifier: Apache-2.0
 
 package driver
 
-import (
-	"github.com/hyperledger-labs/orion-sdk-go/pkg/bcdb"
-	"github.com/hyperledger-labs/orion-server/pkg/types"
+type DataRead struct {
+	Key string
+}
+
+type DataWrite struct {
+	Key   string
+	Value []byte
+	Acl   interface{}
+}
+
+type AccessControl = interface{}
+
+type Flag = int32
+
+const (
+	VALID Flag = iota
 )
 
 type DataTx interface {
-	Put(db string, key string, bytes []byte, a *types.AccessControl) error
-	Get(db string, key string) ([]byte, *types.Metadata, error)
-	Commit(sync bool) (string, *types.TxReceiptResponseEnvelope, error)
+	Put(db string, key string, bytes []byte, a AccessControl) error
+	Get(db string, key string) ([]byte, error)
+	Commit(sync bool) (string, error)
 	Delete(db string, key string) error
 	SignAndClose() ([]byte, error)
 	AddMustSignUser(userID string)
@@ -24,22 +37,21 @@ type LoadedDataTx interface {
 	ID() string
 	Commit() error
 	CoSignAndClose() ([]byte, error)
-	Reads() map[string][]*types.DataRead
-	Writes() map[string][]*types.DataWrite
+	Reads() map[string][]*DataRead
+	Writes() map[string][]*DataWrite
 	MustSignUsers() []string
 	SignedUsers() []string
 }
 
 type Ledger interface {
-	NewBlockHeaderDeliveryService(conf *bcdb.BlockHeaderDeliveryConfig) bcdb.BlockHeaderDelivererService
-	GetTransactionReceipt(txId string) (*types.TxReceipt, error)
+	GetTransactionReceipt(txId string) (Flag, error)
 }
 
 // Session let the developer access orion
 type Session interface {
 	// DataTx returns a data transaction for the passed id
 	DataTx(txID string) (DataTx, error)
-	LoadDataTx(env *types.DataTxEnvelope) (LoadedDataTx, error)
+	LoadDataTx(env interface{}) (LoadedDataTx, error)
 	Ledger() (Ledger, error)
 	Query() (Query, error)
 }
@@ -51,7 +63,11 @@ type SessionManager interface {
 }
 
 // QueryIterator is an iterator over the results of a query
-type QueryIterator = bcdb.Iterator
+type QueryIterator interface {
+	// Next returns the next record. If there is no more records, it would return a nil value
+	// and a false value.
+	Next() (string, []byte, uint64, uint64, bool, error)
+}
 
 // Query allows the developer to perform queries over the orion database
 type Query interface {

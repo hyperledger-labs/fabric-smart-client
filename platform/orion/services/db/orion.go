@@ -249,7 +249,7 @@ func (db *Orion) Commit() error {
 		return errors.New("no commit in progress")
 	}
 
-	_, _, err := db.txn.Commit(true)
+	_, err := db.txn.Commit(true)
 	if err != nil {
 		return errors.Wrap(err, "could not commit transaction")
 	}
@@ -299,7 +299,7 @@ func orionKey(key string) string {
 }
 
 func (db *Orion) versionedValue(txn *orion.Transaction, dbKey string) (*dbproto.VersionedValue, error) {
-	v, _, err := txn.Get(db.name, dbKey)
+	v, err := txn.Get(db.name, dbKey)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not retrieve item for key %s", dbKey)
 	}
@@ -328,18 +328,18 @@ type VersionedResultsIterator struct {
 }
 
 func (v *VersionedResultsIterator) Next() (*driver.VersionedRead, error) {
-	r, _, err := v.it.Next()
+	k, value, blockNu, txNum, b, err := v.it.Next()
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get next item")
 	}
-	if r == nil {
+	if !b {
 		return nil, nil
 	}
 	return &driver.VersionedRead{
-		Key:          r.Key,
-		Raw:          r.Value,
-		Block:        r.Metadata.Version.BlockNum,
-		IndexInBlock: int(r.Metadata.Version.TxNum),
+		Key:          k,
+		Raw:          value,
+		Block:        blockNu,
+		IndexInBlock: int(txNum),
 	}, nil
 }
 

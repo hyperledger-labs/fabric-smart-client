@@ -49,7 +49,7 @@ func (v *MintRequestView) prepareRequest(context view.Context) *states.MintReque
 	}
 	key := record.Key()
 
-	recordBytes, _, err := tx.Get(key)
+	recordBytes, err := tx.Get(key)
 	assert.NoError(err, "error getting MintRequest: %s", key)
 	assert.True(len(recordBytes) == 0, recordBytes, "MintRequest already exists: %s", key)
 
@@ -84,7 +84,7 @@ func (v *MintRequestView) askApproval(context view.Context, request *states.Mint
 	qe, err := session.QueryExecutor("cars")
 	assert.NoError(err, "failed query executor")
 
-	carRecBytes, _, err := qe.Get(carKey)
+	carRecBytes, err := qe.Get(carKey)
 	assert.NoError(err, "error getting car record, key: %s", carKey)
 
 	assert.False(len(carRecBytes) == 0, "ListCar: executed, Car key: '%s',  Car record: %s\n", carKey, "not found")
@@ -123,7 +123,7 @@ func (m *MintRequestApprovalFlow) Call(context view.Context) (interface{}, error
 
 	mintReqRec := &states.MintRequestRecord{}
 
-	recordBytes, _, err := tx.Get(mintReqRecordKey)
+	recordBytes, err := tx.Get(mintReqRecordKey)
 	if err != nil {
 		return "", errors.Wrapf(err, "error getting MintRequest: %s", mintReqRecordKey)
 	}
@@ -145,7 +145,7 @@ func (m *MintRequestApprovalFlow) Call(context view.Context) (interface{}, error
 	}
 	carKey := carRecord.Key()
 
-	carRecordBytes, _, err := tx.Get(carKey)
+	carRecordBytes, err := tx.Get(carKey)
 	if err != nil {
 		return "", errors.Wrapf(err, "error getting Car: %s", carKey)
 	}
