@@ -33,7 +33,7 @@ func (l *Ledger) NewBlockHeaderDeliveryService(conf *bcdb.BlockHeaderDeliveryCon
 func (l *Ledger) GetTransactionReceipt(txId string) (driver.Flag, error) {
 	r, err := l.ledger.GetTransactionReceipt(txId)
 	if err != nil {
-		return 0, errors.Wrapf(err, "failed to ger transaction recipet for [%s]", txId)
+		return 0, errors.Wrapf(err, "failed to get transaction recipet for [%s]", txId)
 	}
 
 	return driver.Flag(r.Header.ValidationInfo[r.TxIndex].Flag), nil

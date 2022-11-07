@@ -9,10 +9,9 @@ package generic
 import (
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic/ledger"
-
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	config2 "github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic/config"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic/ledger"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	"github.com/hyperledger-labs/orion-sdk-go/pkg/bcdb"
 	"github.com/hyperledger-labs/orion-sdk-go/pkg/config"
