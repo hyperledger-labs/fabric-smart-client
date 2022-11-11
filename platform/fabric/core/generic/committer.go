@@ -7,9 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package generic
 
 import (
-	"strings"
-
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/compose"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
@@ -115,7 +114,7 @@ func (c *channel) CommitTX(txid string, block uint64, indexInBlock int, envelope
 	case driver.HasDependencies:
 		return c.commitDeps(txid, block, indexInBlock)
 	case driver.Busy:
-		return c.commit(txid, deps, block, indexInBlock, envelope, false)
+		return c.commit(txid, deps, block, indexInBlock, envelope)
 	default:
 		return errors.Errorf("invalid status code [%d] for [%s]", vc, txid)
 	}
@@ -126,49 +125,20 @@ func (c *channel) commitUnknown(txID string, block uint64, indexInBlock int, env
 	if c.EnvelopeService().Exists(txID) {
 		return c.commitStoredEnvelope(txID, block, indexInBlock)
 	}
-	knownProcessors := true
-	// process the transaction if it contains given namespaces
-	if len(c.processNamespaces) == 0 {
-		logger.Debugf("[%s] is unknown and will be ignored", txID)
-		knownProcessors = false
+	if envelope != nil {
+
+		envBytes, err := proto.Marshal(envelope)
+		if err != nil {
+			return errors.WithMessagef(err, "failed marshalling envelop for tx [%s]", txID)
+		}
+		c.EnvelopeService().StoreEnvelope(txID, envBytes)
 	}
 
 	logger.Debugf("[%s] is unknown but will be processed for known namespaces", txID)
 
-	rws, err := c.ExtractRWSet(txID)
-	if err != nil {
-		return errors.WithMessagef(err, "failed getting rwset for tx [%s]", txID)
-	}
-	defer rws.Done()
-
-	initKey := false
-	logger.Debugf("[%s] contains namespaces [%v]", txID, rws.Namespaces())
-
-	for _, ns := range rws.Namespaces() {
-		for i := 0; i < rws.NumReads(ns); i++ {
-
-			key, err := rws.GetReadKeyAt(ns, i)
-			if err != nil {
-				return errors.WithMessagef(err, "Error reading key at [%d]", i)
-			}
-			if strings.Contains(key, "initialized") {
-				initKey = true
-				break
-			}
-		}
-	}
-
-	rws.Done()
-
-	if !initKey && !knownProcessors {
-		logger.Debugf("[%s] no known namespacesor initkey found", txID)
-		// nothing to commit
-		return nil
-	}
-
 	// commit this transaction because it contains one of the namespaces to be processed anyway
-	logger.Debugf("[%s] known namespaces found, commit", txID)
-	return c.commit(txID, nil, block, indexInBlock, envelope, initKey)
+	// logger.Debugf("[%s] known namespaces found, commit", txID)
+	return c.commit(txID, nil, block, indexInBlock, envelope)
 }
 
 func (c *channel) commitStoredEnvelope(txID string, block uint64, indexInBlock int) error {
@@ -177,7 +147,7 @@ func (c *channel) commitStoredEnvelope(txID string, block uint64, indexInBlock i
 		return err
 	}
 	// commit
-	return c.commitLocal(txID, block, indexInBlock, nil, false)
+	return c.commitLocal(txID, block, indexInBlock, nil)
 }
 
 func (c *channel) extractStoredEnvelopeToVault(txID string) error {
@@ -203,7 +173,7 @@ func (c *channel) extractStoredEnvelopeToVault(txID string) error {
 	return nil
 }
 
-func (c *channel) commit(txid string, deps []string, block uint64, indexInBlock int, envelope *common.Envelope, initKey bool) error {
+func (c *channel) commit(txid string, deps []string, block uint64, indexInBlock int, envelope *common.Envelope) error {
 	logger.Debugf("[%s] is known.", txid)
 
 	switch {
@@ -212,7 +182,7 @@ func (c *channel) commit(txid string, deps []string, block uint64, indexInBlock 
 			return err
 		}
 	default:
-		if err := c.commitLocal(txid, block, indexInBlock, envelope, initKey); err != nil {
+		if err := c.commitLocal(txid, block, indexInBlock, envelope); err != nil {
 			return err
 		}
 	}
@@ -275,13 +245,13 @@ func (c *channel) commitExternal(txid string, block uint64, indexInBlock int) er
 	return nil
 }
 
-func (c *channel) commitLocal(txid string, block uint64, indexInBlock int, envelope *common.Envelope, initKey bool) error {
+func (c *channel) commitLocal(txid string, block uint64, indexInBlock int, envelope *common.Envelope) error {
 	// This is a normal transaction, validated by Fabric.
 	// Commit it cause Fabric says it is valid.
 	logger.Debugf("[%s] Committing", txid)
 
 	// Match rwsets if envelope is not empty
-	if envelope != nil && !initKey {
+	if envelope != nil {
 		logger.Debugf("[%s] txid", txid)
 
 		pt, err := newProcessedTransactionFromEnvelope(envelope)
@@ -306,7 +276,7 @@ func (c *channel) commitLocal(txid string, block uint64, indexInBlock int, envel
 	// Post-Processes
 	logger.Debugf("[%s] Post Processes", txid)
 
-	if err := c.postProcessTx(txid, envelope, initKey); err != nil {
+	if err := c.postProcessTx(txid); err != nil {
 		// This should generate a panic
 		return err
 	}
@@ -321,8 +291,8 @@ func (c *channel) commitLocal(txid string, block uint64, indexInBlock int, envel
 	return nil
 }
 
-func (c *channel) postProcessTx(txid string, envelope *common.Envelope, initKey bool) error {
-	if err := c.network.ProcessorManager().ProcessByID(c.name, txid, envelope, initKey); err != nil {
+func (c *channel) postProcessTx(txid string) error {
+	if err := c.network.ProcessorManager().ProcessByID(c.name, txid); err != nil {
 		// This should generate a panic
 		return err
 	}

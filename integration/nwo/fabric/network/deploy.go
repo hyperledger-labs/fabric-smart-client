@@ -68,6 +68,7 @@ func InstallChaincode(n *Network, chaincode *topology.Chaincode, peers ...*topol
 	if chaincode.PackageID == "" {
 		chaincode.SetPackageIDFromPackageFile()
 	}
+
 	for _, p := range peers {
 		sess, err := n.PeerAdminSession(p, commands.ChaincodeInstall{
 			NetworkPrefix: n.Prefix,

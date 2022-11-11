@@ -17,7 +17,6 @@ import (
 
 const CmdRoot = "core"
 
-//starts here
 func main() {
 	// For environment variables.
 	viper.SetEnvPrefix(CmdRoot)

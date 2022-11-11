@@ -53,7 +53,7 @@ func NewProcessorManager(sp view2.ServiceProvider, network Network, defaultProce
 	}
 }
 
-func (r *processorManager) ProcessByID(channel, txid string, envelope *common.Envelope, initKey bool) error {
+func (r *processorManager) ProcessByID(channel, txid string) error {
 	logger.Debugf("process transaction [%s,%s]", channel, txid)
 	var rws driver.RWSet
 	var tx driver.ProcessTransaction
@@ -67,19 +67,6 @@ func (r *processorManager) ProcessByID(channel, txid string, envelope *common.En
 	logger.Debugf("load transaction content [%s,%s]", channel, txid)
 
 	switch {
-	case initKey:
-		pt, err := ch.GetTransactionByID(txid)
-		if err != nil {
-			return errors.Wrapf(err, "failed getting rwset txn [%s]", ch)
-		}
-		tx, err = UnpackEnvelope(r.network.Name(), envelope)
-		if err != nil {
-			return errors.Wrapf(err, "failed getting rwset txn [%s]", ch)
-		}
-		rws, err = ch.GetRWSet(txid, pt.Results())
-		if err != nil {
-			return errors.WithMessagef(err, "failed getting rwset for tx [%s]", txid)
-		}
 	case ch.EnvelopeService().Exists(txid):
 		rws, tx, err = r.getTxFromEvn(ch, txid)
 	case ch.TransactionService().Exists(txid):
