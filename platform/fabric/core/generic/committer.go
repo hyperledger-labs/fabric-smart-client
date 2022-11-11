@@ -133,11 +133,28 @@ func (c *channel) commitUnknown(txID string, block uint64, indexInBlock int, env
 		}
 		c.EnvelopeService().StoreEnvelope(txID, envBytes)
 	}
+	rws, err := c.ExtractRWSet(txID)
+	if err != nil {
+		return errors.WithMessagef(err, "failed getting rwset for tx [%s]", txID)
+	}
+	defer rws.Done()
 
-	logger.Debugf("[%s] is unknown but will be processed for known namespaces", txID)
+	initKey := false
+	logger.Debugf("[%s] contains namespaces [%v]", txID, rws.Namespaces())
 
-	// commit this transaction because it contains one of the namespaces to be processed anyway
-	// logger.Debugf("[%s] known namespaces found, commit", txID)
+	for _, ns := range rws.Namespaces() {
+		initKey, err = rws.KeyExist(ns, "initialized")
+		if err != nil {
+			return errors.WithMessagef(err, "failed while finding key for tx [%s]", txID)
+		}
+	}
+	rws.Done()
+
+	if !initKey {
+		logger.Debugf("[%s] no known namespacesor initkey found", txID)
+		// nothing to commit
+		return nil
+	}
 	return c.commit(txID, nil, block, indexInBlock, envelope)
 }
 

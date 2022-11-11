@@ -45,6 +45,9 @@ type RWSet interface {
 	// NumReads returns the number of reads in the namespace ns  of this rwset.
 	NumReads(ns string) int
 
+	// KeyExist returns true if a key exist in the rwset otherwise false.
+	KeyExist(ns string, key string) (bool, error)
+
 	// NumWrites returns the number of writes in the namespace ns of this rwset.
 	NumWrites(ns string) int
 

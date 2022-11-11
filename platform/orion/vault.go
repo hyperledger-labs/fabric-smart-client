@@ -101,6 +101,11 @@ func (r *RWSet) NumWrites(ns string) int {
 	return r.rws.NumWrites(ns)
 }
 
+//KeyExist returns true if a key exist in the rwset otherwise false.
+func (r *RWSet) KeyExist(ns string, key string) (bool, error) {
+	return r.rws.KeyExist(ns, key)
+}
+
 // Namespaces returns the namespace labels in this rwset.
 func (r *RWSet) Namespaces() []string {
 	return r.rws.Namespaces()

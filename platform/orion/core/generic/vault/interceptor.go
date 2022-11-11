@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package vault
 
 import (
+	"strings"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 
 	"github.com/pkg/errors"
@@ -134,6 +136,23 @@ func (i *Interceptor) GetWriteAt(ns string, pos int) (string, []byte, error) {
 
 func (i *Interceptor) NumReads(ns string) int {
 	return len(i.rws.reads[ns])
+}
+
+func (i *Interceptor) KeyExist(ns string, key string) (bool, error) {
+	if i.closed {
+		return false, errors.New("this instance was closed")
+	}
+	for pos := 0; pos < i.NumReads(ns); pos++ {
+		k, err := i.GetReadKeyAt(ns, pos)
+		if err != nil {
+			return false, errors.WithMessagef(err, "Error reading key at [%d]", pos)
+		}
+		if strings.Contains(k, key) {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }
 
 func (i *Interceptor) NumWrites(ns string) int {
