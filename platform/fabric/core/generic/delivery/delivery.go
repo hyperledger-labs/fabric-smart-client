@@ -223,59 +223,56 @@ func (d *Delivery) connect(ctx context.Context) (DeliverStream, error) {
 }
 
 func (d *Delivery) GetStartPosition() *ab.SeekPosition {
-	start := &ab.SeekPosition{}
 	if d.lastBlockReceived != 0 {
 		if logger.IsEnabledFor(zapcore.DebugLevel) {
 			logger.Debugf("restarting from the last block received [%d]", d.lastBlockReceived)
 		}
 
-		start.Type = &ab.SeekPosition_Specified{
-			Specified: &ab.SeekSpecified{
-				Number: d.lastBlockReceived,
-			},
-		}
-	} else {
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("no last block received set [%d], check last TxID in the vault", d.lastBlockReceived)
-		}
-
-		lastTxID, err := d.vault.GetLastTxID()
-		if err != nil {
-			logger.Errorf("failed getting last transaction committed/discarded from the vault [%s], restarting from genesis", err)
-			return StartGenesis
-		}
-
-		if len(lastTxID) != 0 && !strings.HasPrefix(lastTxID, committer.ConfigTXPrefix) {
-			// Retrieve block from Fabric
-			ch, err := d.network.Channel(d.channel)
-			if err != nil {
-				logger.Errorf("failed getting channel [%s], restarting from genesis: [%s]", d.channel, err)
-				return StartGenesis
-			}
-			blockNumber, err := ch.GetBlockNumberByTxID(lastTxID)
-			if err != nil {
-				logger.Errorf("failed getting block number for transaction [%s], restart from genesis [%s]", lastTxID, err)
-				return StartGenesis
-			}
-			start.Type = &ab.SeekPosition_Specified{
+		return &ab.SeekPosition{
+			Type: &ab.SeekPosition_Specified{
 				Specified: &ab.SeekSpecified{
-					Number: blockNumber,
+					Number: d.lastBlockReceived,
 				},
-			}
-			if logger.IsEnabledFor(zapcore.DebugLevel) {
-				logger.Debugf("restarting from block [%d], tx [%s]", blockNumber, lastTxID)
-			}
-		} else {
-			start.Type = &ab.SeekPosition_Oldest{
-				Oldest: &ab.SeekOldest{},
-			}
-			if logger.IsEnabledFor(zapcore.DebugLevel) {
-				logger.Debugf("starting from the beginning, no last transaction found")
-			}
+			},
 		}
 	}
 
-	return start
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("no last block received set [%d], check last TxID in the vault", d.lastBlockReceived)
+	}
+
+	lastTxID, err := d.vault.GetLastTxID()
+	if err != nil {
+		logger.Errorf("failed getting last transaction committed/discarded from the vault [%s], restarting from genesis", err)
+		return StartGenesis
+	}
+
+	if len(lastTxID) != 0 && !strings.HasPrefix(lastTxID, committer.ConfigTXPrefix) {
+		// Retrieve block from Fabric
+		ch, err := d.network.Channel(d.channel)
+		if err != nil {
+			logger.Errorf("failed getting channel [%s], restarting from genesis: [%s]", d.channel, err)
+			return StartGenesis
+		}
+		blockNumber, err := ch.GetBlockNumberByTxID(lastTxID)
+		if err != nil {
+			logger.Errorf("failed getting block number for transaction [%s], restart from genesis [%s]", lastTxID, err)
+			return StartGenesis
+		}
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			logger.Debugf("restarting from block [%d], tx [%s]", blockNumber, lastTxID)
+		}
+
+		return &ab.SeekPosition{
+			Type: &ab.SeekPosition_Specified{
+				Specified: &ab.SeekSpecified{
+					Number: blockNumber,
+				},
+			},
+		}
+	}
+
+	return StartGenesis
 }
 
 func (d *Delivery) cleanup() {
