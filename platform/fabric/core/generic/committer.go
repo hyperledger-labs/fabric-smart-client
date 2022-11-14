@@ -159,6 +159,7 @@ func (c *channel) filterUnknownEnvelope(txID string) (bool, error) {
 	for _, ns := range rws.Namespaces() {
 		for _, namespace := range c.processNamespaces {
 			if namespace == ns {
+				logger.Debugf("[%s] contains namespaces [%v], select it", txID, rws.Namespaces())
 				return true, nil
 			}
 		}
@@ -170,6 +171,7 @@ func (c *channel) filterUnknownEnvelope(txID string) (bool, error) {
 				return false, errors.WithMessagef(err, "Error reading key at [%d]", pos)
 			}
 			if strings.Contains(k, "initialized") {
+				logger.Debugf("[%s] contains 'initialized' key [%v] in [%s], select it", txID, ns, rws.Namespaces())
 				return true, nil
 			}
 		}

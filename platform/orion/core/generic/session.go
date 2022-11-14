@@ -7,6 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 package generic
 
 import (
+	"encoding/base64"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
@@ -26,6 +29,7 @@ type DataTx struct {
 }
 
 func (d *DataTx) Put(db string, key string, bytes []byte, a driver.AccessControl) error {
+	key = sanitizeKey(key)
 	var ac *types.AccessControl
 	if a != nil {
 		var ok bool
@@ -41,6 +45,7 @@ func (d *DataTx) Put(db string, key string, bytes []byte, a driver.AccessControl
 }
 
 func (d *DataTx) Get(db string, key string) ([]byte, error) {
+	key = sanitizeKey(key)
 	r, _, err := d.dataTx.Get(db, key)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed getting data")
@@ -54,6 +59,7 @@ func (d *DataTx) Commit(sync bool) (string, error) {
 }
 
 func (d *DataTx) Delete(db string, key string) error {
+	key = sanitizeKey(key)
 	return d.dataTx.Delete(db, key)
 }
 
@@ -244,4 +250,32 @@ func (s *SessionManager) NewSession(id string) (driver.Session, error) {
 		TxTimeout: time.Second * 5,
 	})
 	return &Session{s: session}, err
+}
+
+// sanitizeKey makes sure that each component in the key can be correctly be url escaped
+func sanitizeKey(key string) string {
+	escaped := false
+	components := strings.Split(key, "~")
+	for i, c := range components {
+		cc := url.PathEscape(c)
+		if c != cc {
+			components[i] = base64.StdEncoding.EncodeToString([]byte(c))
+			escaped = true
+		}
+	}
+	if !escaped {
+		return key
+	}
+
+	b := strings.Builder{}
+	for i := 0; i < len(components); i++ {
+		b.WriteString(components[i])
+		if i < len(components)-1 {
+			b.WriteRune('~')
+		}
+	}
+	if strings.HasSuffix(key, "~") {
+		b.WriteRune('~')
+	}
+	return b.String()
 }
