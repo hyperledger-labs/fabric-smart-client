@@ -256,7 +256,7 @@ func (e *EnvelopeService) Exists(txid string) bool {
 	return e.es.Exists(txid)
 }
 
-func (e *EnvelopeService) StoreEnvelope(txid string, env []byte) error {
+func (e *EnvelopeService) StoreEnvelope(txid string, env interface{}) error {
 	return e.es.StoreEnvelope(txid, env)
 }
 

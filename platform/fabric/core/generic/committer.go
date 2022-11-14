@@ -7,8 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 package generic
 
 import (
+	"strings"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/compose"
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
@@ -125,37 +126,55 @@ func (c *channel) commitUnknown(txID string, block uint64, indexInBlock int, env
 	if c.EnvelopeService().Exists(txID) {
 		return c.commitStoredEnvelope(txID, block, indexInBlock)
 	}
-	if envelope != nil {
 
-		envBytes, err := proto.Marshal(envelope)
-		if err != nil {
-			return errors.WithMessagef(err, "failed marshalling envelop for tx [%s]", txID)
+	if envelope != nil {
+		// Store it
+		if err := c.EnvelopeService().StoreEnvelope(txID, envelope); err != nil {
+			return errors.WithMessagef(err, "failed to store unknown envelope for [%s]", txID)
 		}
-		c.EnvelopeService().StoreEnvelope(txID, envBytes)
+	} else {
+		// fetch envelope and store it
+		if err := c.FetchAndStoreEnvelope(txID); err != nil {
+			return errors.WithMessagef(err, "failed getting rwset for tx [%s]", txID)
+		}
 	}
-	rws, err := c.ExtractRWSet(txID)
+
+	// shall we commit this unknown envelope
+	if ok, err := c.filterUnknownEnvelope(txID); err != nil || !ok {
+		logger.Debugf("[%s] unknown envelope will not be processed [%b,%s]", ok, err)
+		return nil
+	}
+
+	return c.commit(txID, nil, block, indexInBlock, envelope)
+}
+
+func (c *channel) filterUnknownEnvelope(txID string) (bool, error) {
+	rws, _, err := c.GetRWSetFromEvn(txID)
 	if err != nil {
-		return errors.WithMessagef(err, "failed getting rwset for tx [%s]", txID)
+		return false, errors.WithMessagef(err, "failed to get rws from envelope [%s]", txID)
 	}
 	defer rws.Done()
 
-	initKey := false
-	logger.Debugf("[%s] contains namespaces [%v]", txID, rws.Namespaces())
-
+	logger.Debugf("[%s] contains namespaces [%v] or `initialized` key", txID, rws.Namespaces())
 	for _, ns := range rws.Namespaces() {
-		initKey, err = rws.KeyExist(ns, "initialized")
-		if err != nil {
-			return errors.WithMessagef(err, "failed while finding key for tx [%s]", txID)
+		for _, namespace := range c.processNamespaces {
+			if namespace == ns {
+				return true, nil
+			}
+		}
+
+		// search a read dependency on a key containing "initialized"
+		for pos := 0; pos < rws.NumReads(ns); pos++ {
+			k, err := rws.GetReadKeyAt(ns, pos)
+			if err != nil {
+				return false, errors.WithMessagef(err, "Error reading key at [%d]", pos)
+			}
+			if strings.Contains(k, "initialized") {
+				return true, nil
+			}
 		}
 	}
-	rws.Done()
-
-	if !initKey {
-		logger.Debugf("[%s] no known namespacesor initkey found", txID)
-		// nothing to commit
-		return nil
-	}
-	return c.commit(txID, nil, block, indexInBlock, envelope)
+	return false, nil
 }
 
 func (c *channel) commitStoredEnvelope(txID string, block uint64, indexInBlock int) error {
@@ -269,7 +288,7 @@ func (c *channel) commitLocal(txid string, block uint64, indexInBlock int, envel
 
 	// Match rwsets if envelope is not empty
 	if envelope != nil {
-		logger.Debugf("[%s] txid", txid)
+		logger.Debugf("[%s] Matching rwsets", txid)
 
 		pt, err := newProcessedTransactionFromEnvelope(envelope)
 		if err != nil {

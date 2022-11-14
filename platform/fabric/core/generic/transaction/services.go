@@ -7,10 +7,13 @@ SPDX-License-Identifier: Apache-2.0
 package transaction
 
 import (
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
+	"github.com/hyperledger/fabric-protos-go/common"
+	"github.com/pkg/errors"
 )
 
 var logger = flogging.MustGetLogger("fabric-sdk.core")
@@ -85,14 +88,25 @@ func (s *envs) Exists(txid string) bool {
 	return kvs.GetService(s.sp).Exists(key)
 }
 
-func (s *envs) StoreEnvelope(txid string, env []byte) error {
-	key, err := kvs.CreateCompositeKey("envelope", []string{s.channel, s.network, txid})
+func (s *envs) StoreEnvelope(txID string, env interface{}) error {
+	key, err := kvs.CreateCompositeKey("envelope", []string{s.channel, s.network, txID})
 	if err != nil {
 		return err
 	}
-	logger.Debugf("store env for [%s]", txid)
+	logger.Debugf("store env for [%s]", txID)
 
-	return kvs.GetService(s.sp).Put(key, env)
+	switch e := env.(type) {
+	case []byte:
+		return kvs.GetService(s.sp).Put(key, e)
+	case *common.Envelope:
+		envBytes, err := proto.Marshal(e)
+		if err != nil {
+			return errors.WithMessagef(err, "failed marshalling envelop for tx [%s]", txID)
+		}
+		return kvs.GetService(s.sp).Put(key, envBytes)
+	default:
+		return errors.Errorf("invalid env, expected []byte or *common.Envelope, got [%T]", env)
+	}
 }
 
 func (s *envs) LoadEnvelope(txid string) ([]byte, error) {

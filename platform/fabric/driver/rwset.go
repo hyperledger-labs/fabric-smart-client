@@ -39,9 +39,6 @@ type RWSet interface {
 	// does not match the key's version in the read, then it returns an error.
 	GetReadAt(ns string, i int) (string, []byte, error)
 
-	// KeyExist returns true if a key exist in the rwset otherwise false.
-	KeyExist(ns string, key string) (bool, error)
-
 	// GetWriteAt returns the i-th write (key, value) in the namespace ns of this rwset.
 	GetWriteAt(ns string, i int) (string, []byte, error)
 
@@ -61,4 +58,9 @@ type RWSet interface {
 	Done()
 
 	Equals(rws interface{}, nss ...string) error
+}
+
+type RWSetLoader interface {
+	GetRWSetFromEvn(txID string) (RWSet, ProcessTransaction, error)
+	GetRWSetFromETx(txID string) (RWSet, ProcessTransaction, error)
 }

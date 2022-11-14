@@ -45,6 +45,8 @@ type TxStatusChangeListener interface {
 
 // Committer models the committer service
 type Committer interface {
+	// ProcessNamespace registers namespaces that will be committed even if the rwset is not known
+	ProcessNamespace(nss ...string) error
 
 	// Status returns a validation code this committer bind to the passed transaction id, plus
 	// a list of dependant transaction ids if they exist.

@@ -7,11 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package vault
 
 import (
-	"strings"
-
-	"github.com/pkg/errors"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/pkg/errors"
 )
 
 type Inspector struct {
@@ -98,20 +95,6 @@ func (i *Inspector) NumReads(ns string) int {
 
 func (i *Inspector) NumWrites(ns string) int {
 	return len(i.rws.writes[ns])
-}
-
-func (i *Inspector) KeyExist(ns string, key string) (bool, error) {
-	for pos := 0; pos < i.NumReads(ns); pos++ {
-		k, err := i.GetReadKeyAt(ns, pos)
-		if err != nil {
-			return false, errors.WithMessagef(err, "Error reading key at [%d]", pos)
-		}
-		if strings.Contains(k, key) {
-			return true, nil
-		}
-	}
-
-	return false, nil
 }
 
 func (i *Inspector) Namespaces() []string {
