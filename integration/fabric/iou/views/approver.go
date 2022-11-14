@@ -88,3 +88,17 @@ func (i *ApproverView) Call(context view.Context) (interface{}, error) {
 	wg.Wait()
 	return nil, nil
 }
+
+type ApproverInitView struct{}
+
+func (a *ApproverInitView) Call(context view.Context) (interface{}, error) {
+	assert.NoError(fabric.GetDefaultChannel(context).Committer().ProcessNamespace("iou"), "failed to setup namespace to process")
+	return nil, nil
+}
+
+type ApproverInitViewFactory struct{}
+
+func (c *ApproverInitViewFactory) NewView(in []byte) (view.View, error) {
+	f := &ApproverInitView{}
+	return f, nil
+}
