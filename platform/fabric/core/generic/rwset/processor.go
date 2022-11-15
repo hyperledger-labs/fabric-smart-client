@@ -7,11 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 package rwset
 
 import (
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
-	"github.com/hyperledger/fabric-protos-go/common"
 	"github.com/pkg/errors"
 )
 
@@ -36,14 +34,14 @@ func (r *request) ID() string {
 }
 
 type processorManager struct {
-	sp                view2.ServiceProvider
+	sp                view.ServiceProvider
 	network           Network
 	defaultProcessor  driver.Processor
 	processors        map[string]driver.Processor
 	channelProcessors map[string]map[string]driver.Processor
 }
 
-func NewProcessorManager(sp view2.ServiceProvider, network Network, defaultProcessor driver.Processor) *processorManager {
+func NewProcessorManager(sp view.ServiceProvider, network Network, defaultProcessor driver.Processor) *processorManager {
 	return &processorManager{
 		sp:                sp,
 		network:           network,
@@ -53,52 +51,52 @@ func NewProcessorManager(sp view2.ServiceProvider, network Network, defaultProce
 	}
 }
 
-func (r *processorManager) ProcessByID(channel, txid string) error {
-	logger.Debugf("process transaction [%s,%s]", channel, txid)
+func (r *processorManager) ProcessByID(channel, txID string) error {
+	logger.Debugf("process transaction [%s,%s]", channel, txID)
 
 	ch, err := r.network.Channel(channel)
 	if err != nil {
 		return errors.Wrapf(err, "failed getting channel [%s]", ch)
 	}
 
-	req := &request{id: txid}
-	logger.Debugf("load transaction content [%s,%s]", channel, txid)
+	req := &request{id: txID}
+	logger.Debugf("load transaction content [%s,%s]", channel, txID)
 
 	var rws driver.RWSet
 	var tx driver.ProcessTransaction
 	switch {
-	case ch.EnvelopeService().Exists(txid):
-		rws, tx, err = r.getTxFromEvn(ch, txid)
-	case ch.TransactionService().Exists(txid):
-		rws, tx, err = r.getTxFromETx(ch, txid)
+	case ch.EnvelopeService().Exists(txID):
+		rws, tx, err = ch.GetRWSetFromEvn(txID)
+	case ch.TransactionService().Exists(txID):
+		rws, tx, err = ch.GetRWSetFromETx(txID)
 	default:
-		logger.Debugf("no entry found for [%s,%s]", channel, txid)
+		logger.Debugf("no entry found for [%s,%s]", channel, txID)
 		return nil
 	}
 	if err != nil {
-		return errors.Wrapf(err, "failed extraction for [%s,%s]", channel, txid)
+		return errors.Wrapf(err, "failed extraction for [%s,%s]", channel, txID)
 	}
 	defer rws.Done()
 
-	logger.Debugf("process transaction namespaces [%s,%s,%d]", channel, txid, len(rws.Namespaces()))
+	logger.Debugf("process transaction namespaces [%s,%s,%d]", channel, txID, len(rws.Namespaces()))
 	for _, ns := range rws.Namespaces() {
-		logger.Debugf("process transaction namespace [%s,%s,%s]", channel, txid, ns)
+		logger.Debugf("process transaction namespace [%s,%s,%s]", channel, txID, ns)
 
 		// TODO: search channel first
 		p, ok := r.processors[ns]
 		if ok {
-			logger.Debugf("process transaction namespace, using custom processor [%s,%s,%s]", channel, txid, ns)
+			logger.Debugf("process transaction namespace, using custom processor [%s,%s,%s]", channel, txID, ns)
 			if err := p.Process(req, tx, rws, ns); err != nil {
 				return err
 			}
 		} else {
-			logger.Debugf("process transaction namespace, resorting to default processor [%s,%s,%s]", channel, txid, ns)
+			logger.Debugf("process transaction namespace, resorting to default processor [%s,%s,%s]", channel, txID, ns)
 			if r.defaultProcessor != nil {
 				if err := r.defaultProcessor.Process(req, tx, rws, ns); err != nil {
 					return err
 				}
 			}
-			logger.Debugf("no processors found for namespace [%s,%s,%s]", channel, txid, ns)
+			logger.Debugf("no processors found for namespace [%s,%s,%s]", channel, txID, ns)
 		}
 	}
 	return nil
@@ -117,47 +115,4 @@ func (r *processorManager) SetDefaultProcessor(processor driver.Processor) error
 func (r *processorManager) AddChannelProcessor(channel string, ns string, processor driver.Processor) error {
 	r.channelProcessors[channel][ns] = processor
 	return nil
-}
-
-func (r *processorManager) getTxFromEvn(ch driver.Channel, txid string) (driver.RWSet, driver.ProcessTransaction, error) {
-	rawEnv, err := ch.EnvelopeService().LoadEnvelope(txid)
-	if err != nil {
-		return nil, nil, errors.Wrapf(err, "cannot load envelope [%s]", txid)
-	}
-	logger.Debugf("unmarshal envelope [%s,%s]", ch.Name(), txid)
-	env := &common.Envelope{}
-	err = proto.Unmarshal(rawEnv, env)
-	if err != nil {
-		return nil, nil, errors.Wrapf(err, "failed unmarshalling envelope [%s]", txid)
-	}
-	logger.Debugf("unpack envelope [%s,%s]", ch.Name(), txid)
-	upe, err := UnpackEnvelope(r.network.Name(), env)
-	if err != nil {
-		return nil, nil, errors.Wrapf(err, "failed unpacking envelope [%s]", txid)
-	}
-	logger.Debugf("retrieve rws [%s,%s]", ch.Name(), txid)
-
-	rws, err := ch.GetRWSet(txid, upe.Results)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return rws, upe, nil
-}
-
-func (r *processorManager) getTxFromETx(ch driver.Channel, txid string) (driver.RWSet, driver.ProcessTransaction, error) {
-	raw, err := ch.TransactionService().LoadTransaction(txid)
-	if err != nil {
-		return nil, nil, errors.Wrapf(err, "cannot load etx [%s]", txid)
-	}
-	tx, err := r.network.TransactionManager().NewTransactionFromBytes(ch.Name(), raw)
-	if err != nil {
-		return nil, nil, err
-	}
-	rws, err := tx.GetRWSet()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return rws, tx, nil
 }

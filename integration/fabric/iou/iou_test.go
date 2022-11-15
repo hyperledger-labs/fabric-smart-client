@@ -39,10 +39,12 @@ var _ = Describe("EndToEnd", func() {
 		})
 
 		It("succeeded", func() {
-			iouState := iou.CreateIOU(ii, "", 10)
+			iou.InitApprover(ii, "approver1")
+			iou.InitApprover(ii, "approver2")
+			iouState := iou.CreateIOU(ii, "", 10, "approver1")
 			iou.CheckState(ii, "borrower", iouState, 10)
 			iou.CheckState(ii, "lender", iouState, 10)
-			iou.UpdateIOU(ii, iouState, 5)
+			iou.UpdateIOU(ii, iouState, 5, "approver2")
 			iou.CheckState(ii, "borrower", iouState, 5)
 			iou.CheckState(ii, "lender", iouState, 5)
 		})

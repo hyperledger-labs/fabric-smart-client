@@ -174,7 +174,7 @@ func (db *Vault) CommitTX(txid string, block uint64, indexInBloc int) error {
 					logger.Errorf("got error %s; discarding caused %s", err.Error(), err1.Error())
 				}
 
-				return errors.Errorf("failed to commit operation on %s:%s at height %d:%d", ns, key, block, indexInBloc)
+				return errors.Wrapf(err, "failed to commit operation on [%s:%s] at height [%d:%d]", ns, key, block, indexInBloc)
 			}
 		}
 	}

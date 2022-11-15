@@ -7,12 +7,13 @@ SPDX-License-Identifier: Apache-2.0
 package generic
 
 import (
+	"strings"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/compose"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger/fabric-protos-go/common"
-	pb "github.com/hyperledger/fabric-protos-go/peer"
 	"github.com/hyperledger/fabric/protoutil"
 	"github.com/pkg/errors"
 )
@@ -110,7 +111,7 @@ func (c *channel) CommitTX(txid string, block uint64, indexInBlock int, envelope
 		logger.Debugf("[%s] is invalid", txid)
 		return errors.Errorf("[%s] is invalid", txid)
 	case driver.Unknown:
-		return c.commitUnknown(txid, block, indexInBlock)
+		return c.commitUnknown(txid, block, indexInBlock, envelope)
 	case driver.HasDependencies:
 		return c.commitDeps(txid, block, indexInBlock)
 	case driver.Busy:
@@ -120,56 +121,62 @@ func (c *channel) CommitTX(txid string, block uint64, indexInBlock int, envelope
 	}
 }
 
-func (c *channel) commitUnknown(txID string, block uint64, indexInBlock int) error {
+func (c *channel) commitUnknown(txID string, block uint64, indexInBlock int, envelope *common.Envelope) error {
 	// if an envelope exists for the passed txID, then commit it
 	if c.EnvelopeService().Exists(txID) {
 		return c.commitStoredEnvelope(txID, block, indexInBlock)
 	}
 
-	// process the transaction if it contains given namespaces
-	if len(c.processNamespaces) == 0 {
-		// This should be ignored
-		logger.Debugf("[%s] is unknown and will be ignored", txID)
+	if envelope != nil {
+		// Store it
+		if err := c.EnvelopeService().StoreEnvelope(txID, envelope); err != nil {
+			return errors.WithMessagef(err, "failed to store unknown envelope for [%s]", txID)
+		}
+	} else {
+		// fetch envelope and store it
+		if err := c.FetchAndStoreEnvelope(txID); err != nil {
+			return errors.WithMessagef(err, "failed getting rwset for tx [%s]", txID)
+		}
+	}
+
+	// shall we commit this unknown envelope
+	if ok, err := c.filterUnknownEnvelope(txID); err != nil || !ok {
+		logger.Debugf("[%s] unknown envelope will not be processed [%b,%s]", ok, err)
 		return nil
 	}
 
-	logger.Debugf("[%s] is unknown but will be processed for known namespaces", txID)
-	pt, err := c.GetTransactionByID(txID)
-	if err != nil {
-		return errors.WithMessagef(err, "failed fetching tx [%s]", txID)
-	}
-	if !pt.IsValid() {
-		return errors.Errorf("fetched tx [%s] should have been valid, instead it is [%s]", txID, pb.TxValidationCode_name[pt.ValidationCode()])
-	}
+	return c.commit(txID, nil, block, indexInBlock, envelope)
+}
 
-	rws, err := c.GetRWSet(txID, pt.Results())
+func (c *channel) filterUnknownEnvelope(txID string) (bool, error) {
+	rws, _, err := c.GetRWSetFromEvn(txID)
 	if err != nil {
-		return errors.WithMessagef(err, "failed getting rwset for tx [%s]", txID)
+		return false, errors.WithMessagef(err, "failed to get rws from envelope [%s]", txID)
 	}
-	found := false
-	logger.Debugf("[%s] contains namespaces [%v]", txID, rws.Namespaces())
+	defer rws.Done()
+
+	logger.Debugf("[%s] contains namespaces [%v] or `initialized` key", txID, rws.Namespaces())
 	for _, ns := range rws.Namespaces() {
-		for _, pns := range c.processNamespaces {
-			if ns == pns {
-				found = true
-				break
+		for _, namespace := range c.processNamespaces {
+			if namespace == ns {
+				logger.Debugf("[%s] contains namespaces [%v], select it", txID, rws.Namespaces())
+				return true, nil
 			}
 		}
-		if found {
-			break
+
+		// search a read dependency on a key containing "initialized"
+		for pos := 0; pos < rws.NumReads(ns); pos++ {
+			k, err := rws.GetReadKeyAt(ns, pos)
+			if err != nil {
+				return false, errors.WithMessagef(err, "Error reading key at [%d]", pos)
+			}
+			if strings.Contains(k, "initialized") {
+				logger.Debugf("[%s] contains 'initialized' key [%v] in [%s], select it", txID, ns, rws.Namespaces())
+				return true, nil
+			}
 		}
 	}
-	rws.Done()
-
-	if !found {
-		logger.Debugf("[%s] no known namespaces found", txID)
-		// nothing to commit
-		return nil
-	}
-
-	// commit this transaction because it contains one of the namespaces to be processed anyway
-	logger.Debugf("[%s] known namespaces found, commit", txID)
-	return c.commit(txID, nil, block, indexInBlock, nil)
+	return false, nil
 }
 
 func (c *channel) commitStoredEnvelope(txID string, block uint64, indexInBlock int) error {

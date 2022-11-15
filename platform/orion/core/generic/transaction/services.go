@@ -11,6 +11,7 @@ import (
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
+	"github.com/pkg/errors"
 )
 
 var logger = flogging.MustGetLogger("orion-sdk.core")
@@ -81,14 +82,19 @@ func (s *envs) Exists(txid string) bool {
 	return kvs.GetService(s.sp).Exists(key)
 }
 
-func (s *envs) StoreEnvelope(txid string, env []byte) error {
+func (s *envs) StoreEnvelope(txid string, env interface{}) error {
 	key, err := kvs.CreateCompositeKey("envelope", []string{s.network, txid})
 	if err != nil {
 		return err
 	}
 	logger.Debugf("store env for [%s]", txid)
 
-	return kvs.GetService(s.sp).Put(key, env)
+	switch e := env.(type) {
+	case []byte:
+		return kvs.GetService(s.sp).Put(key, e)
+	default:
+		return errors.Errorf("invalid env, expected []byte, got [%T]", env)
+	}
 }
 
 func (s *envs) LoadEnvelope(txid string) ([]byte, error) {

@@ -48,7 +48,7 @@ type MetadataService interface {
 
 type EnvelopeService interface {
 	Exists(txid string) bool
-	StoreEnvelope(txid string, env []byte) error
+	StoreEnvelope(txid string, env interface{}) error
 	LoadEnvelope(txid string) ([]byte, error)
 }
 

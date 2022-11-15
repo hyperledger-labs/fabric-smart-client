@@ -93,6 +93,5 @@ func (r *Registry) GetDeploymentPayload(ccType, path string, replacer replacer.F
 	if !ok {
 		return nil, fmt.Errorf("unknown chaincodeType: %s", ccType)
 	}
-
 	return platform.GetDeploymentPayload(path, replacer)
 }

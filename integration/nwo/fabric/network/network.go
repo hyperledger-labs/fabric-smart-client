@@ -8,6 +8,7 @@ package network
 
 import (
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
@@ -243,7 +244,7 @@ func (n *Network) DeployChaincode(chaincode *topology.ChannelChaincode) {
 			chaincode.Chaincode.Path = chaincodePath
 			chaincode.Chaincode.Lang = "binary"
 		}
-		chaincode.Chaincode.PackageFile = filepath.Join(n.Context.RootDir(), n.Prefix, chaincode.Chaincode.Name+".tar.gz")
+		chaincode.Chaincode.PackageFile = filepath.Join(n.Context.RootDir(), n.Prefix, chaincode.Chaincode.Name+chaincode.Chaincode.Version+".tar.gz")
 	}
 
 	PackageAndInstallChaincode(n, &chaincode.Chaincode, peers...)
@@ -259,8 +260,46 @@ func (n *Network) DeployChaincode(chaincode *topology.ChannelChaincode) {
 	if chaincode.Chaincode.InitRequired {
 		InitChaincode(n, chaincode.Channel, orderer, &chaincode.Chaincode, peers...)
 	}
+	//add new chaincode to the topology
+	n.topology.AddChaincode(chaincode)
 }
 
 func (n *Network) AddExtension(ex Extension) {
 	n.Extensions = append(n.Extensions, ex)
+}
+
+//UpdateChaincode deploys the new version of the chaincode passed by chaincodeId
+func (n *Network) UpdateChaincode(chaincodeId string, version string, path string, packageFile string) {
+	var cc *topology.ChannelChaincode
+	for _, chaincode := range n.topology.Chaincodes {
+		if chaincode.Chaincode.Name == chaincodeId {
+			cc = chaincode
+			break
+		}
+	}
+	Expect(cc).ToNot(BeNil(), "failed to find chaincode [%s]", chaincodeId)
+
+	seq, err := strconv.Atoi(cc.Chaincode.Sequence)
+	Expect(err).NotTo(HaveOccurred(), "failed to parse chaincode sequence [%s]", cc.Chaincode.Sequence)
+
+	newCC := &topology.ChannelChaincode{
+		Chaincode: topology.Chaincode{
+			Name:            cc.Chaincode.Name,
+			Version:         version,
+			Sequence:        strconv.Itoa(seq + 1),
+			InitRequired:    cc.Chaincode.InitRequired,
+			Path:            path,
+			Lang:            cc.Chaincode.Lang,
+			Label:           cc.Chaincode.Name,
+			Ctor:            cc.Chaincode.Ctor,
+			Policy:          cc.Chaincode.Policy,
+			SignaturePolicy: cc.Chaincode.SignaturePolicy,
+		},
+		Channel: cc.Channel,
+		Peers:   cc.Peers,
+	}
+	if len(packageFile) != 0 {
+		newCC.Chaincode.PackageFile = packageFile
+	}
+	n.DeployChaincode(newCC)
 }

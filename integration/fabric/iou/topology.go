@@ -27,14 +27,26 @@ func Topology() []api.Topology {
 	fscTopology := fsc.NewTopology()
 
 	// Add the approver FSC node.
-	approver := fscTopology.AddNodeByName("approver")
+	approver1 := fscTopology.AddNodeByName("approver1")
 	// This option equips the approver's FSC node with an identity belonging to Org1.
 	// Therefore, the approver is an endorser of the Fabric namespace we defined above.
-	approver.AddOptions(
+	approver1.AddOptions(
 		fabric.WithOrganization("Org1"),
 	)
-	approver.RegisterResponder(&views.ApproverView{}, &views.CreateIOUView{})
-	approver.RegisterResponder(&views.ApproverView{}, &views.UpdateIOUView{})
+	approver1.RegisterResponder(&views.ApproverView{}, &views.CreateIOUView{})
+	approver1.RegisterResponder(&views.ApproverView{}, &views.UpdateIOUView{})
+	approver1.RegisterViewFactory("init", &views.ApproverInitViewFactory{})
+
+	// Add another approver as well
+	approver2 := fscTopology.AddNodeByName("approver2")
+	// This option equips the approver's FSC node with an identity belonging to Org1.
+	// Therefore, the approver is an endorser of the Fabric namespace we defined above.
+	approver2.AddOptions(
+		fabric.WithOrganization("Org1"),
+	)
+	approver2.RegisterResponder(&views.ApproverView{}, &views.CreateIOUView{})
+	approver2.RegisterResponder(&views.ApproverView{}, &views.UpdateIOUView{})
+	approver2.RegisterViewFactory("init", &views.ApproverInitViewFactory{})
 
 	// Add the borrower's FSC node
 	borrower := fscTopology.AddNodeByName("borrower")

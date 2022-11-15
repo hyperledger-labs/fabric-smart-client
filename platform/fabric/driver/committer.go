@@ -48,8 +48,6 @@ type Committer interface {
 	// ProcessNamespace registers namespaces that will be committed even if the rwset is not known
 	ProcessNamespace(nss ...string) error
 
-	// AddProcessor(ns string, processor Processor) error
-
 	// Status returns a validation code this committer bind to the passed transaction id, plus
 	// a list of dependant transaction ids if they exist.
 	Status(txid string) (ValidationCode, []string, error)

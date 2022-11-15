@@ -59,3 +59,8 @@ type RWSet interface {
 
 	Equals(rws interface{}, nss ...string) error
 }
+
+type RWSetLoader interface {
+	GetRWSetFromEvn(txID string) (RWSet, ProcessTransaction, error)
+	GetRWSetFromETx(txID string) (RWSet, ProcessTransaction, error)
+}
