@@ -138,11 +138,11 @@ func (t *LoadedTransaction) CoSignAndClose() ([]byte, error) {
 	return t.loadedDataTx.CoSignAndClose()
 }
 
-func (t *LoadedTransaction) Reads() map[string][]*DataRead {
+func (t *LoadedTransaction) Reads() (map[string][]*driver.DataRead, error) {
 	return t.loadedDataTx.Reads()
 }
 
-func (t *LoadedTransaction) Writes() map[string][]*DataWrite {
+func (t *LoadedTransaction) Writes() (map[string][]*driver.DataWrite, error) {
 	return t.loadedDataTx.Writes()
 }
 

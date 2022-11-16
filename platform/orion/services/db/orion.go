@@ -7,8 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package db
 
 import (
-	"encoding/base64"
-	"strings"
 	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
@@ -284,18 +282,7 @@ func (db *Orion) Discard() error {
 }
 
 func dbKey(namespace, key string) string {
-	k := orionKey(namespace + keys.NamespaceSeparator + key)
-	components := strings.Split(k, "~")
-	var b strings.Builder
-	for _, component := range components {
-		b.WriteString(base64.StdEncoding.EncodeToString([]byte(component)))
-		b.WriteString("~")
-	}
-	return b.String()
-}
-
-func orionKey(key string) string {
-	return strings.ReplaceAll(key, string(rune(0)), "~")
+	return namespace + keys.NamespaceSeparator + key
 }
 
 func (db *Orion) versionedValue(txn *orion.Transaction, dbKey string) (*dbproto.VersionedValue, error) {

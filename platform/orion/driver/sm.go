@@ -37,8 +37,8 @@ type LoadedDataTx interface {
 	ID() string
 	Commit() error
 	CoSignAndClose() ([]byte, error)
-	Reads() map[string][]*DataRead
-	Writes() map[string][]*DataWrite
+	Reads() (map[string][]*DataRead, error)
+	Writes() (map[string][]*DataWrite, error)
 	MustSignUsers() []string
 	SignedUsers() []string
 }
