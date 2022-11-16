@@ -28,7 +28,7 @@ type DataTx struct {
 }
 
 func (d *DataTx) Put(db string, key string, bytes []byte, a driver.AccessControl) error {
-	key = sanitizeKey(key)
+	key = toOrionKey(key)
 	var ac *types.AccessControl
 	if a != nil {
 		var ok bool
@@ -44,7 +44,7 @@ func (d *DataTx) Put(db string, key string, bytes []byte, a driver.AccessControl
 }
 
 func (d *DataTx) Get(db string, key string) ([]byte, error) {
-	key = sanitizeKey(key)
+	key = toOrionKey(key)
 	r, _, err := d.dataTx.Get(db, key)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed getting data")
@@ -58,7 +58,7 @@ func (d *DataTx) Commit(sync bool) (string, error) {
 }
 
 func (d *DataTx) Delete(db string, key string) error {
-	key = sanitizeKey(key)
+	key = toOrionKey(key)
 	return d.dataTx.Delete(db, key)
 }
 
@@ -96,36 +96,44 @@ func (l *LoadedDataTx) CoSignAndClose() ([]byte, error) {
 	return proto.Marshal(env)
 }
 
-func (l *LoadedDataTx) Reads() map[string][]*driver.DataRead {
+func (l *LoadedDataTx) Reads() (map[string][]*driver.DataRead, error) {
 	res := map[string][]*driver.DataRead{}
 	source := l.loadedDataTx.Reads()
 	for s, reads := range source {
 		newReads := make([]*driver.DataRead, len(reads))
 		for i, read := range reads {
+			k, err := fromOrionKey(read.Key)
+			if err != nil {
+				return nil, errors.WithMessagef(err, "failed to decode read key [%s]", read.Key)
+			}
 			newReads[i] = &driver.DataRead{
-				Key: read.Key,
+				Key: k,
 			}
 		}
 		res[s] = newReads
 	}
-	return res
+	return res, nil
 }
 
-func (l *LoadedDataTx) Writes() map[string][]*driver.DataWrite {
+func (l *LoadedDataTx) Writes() (map[string][]*driver.DataWrite, error) {
 	res := map[string][]*driver.DataWrite{}
 	source := l.loadedDataTx.Writes()
 	for s, writes := range source {
 		newWrites := make([]*driver.DataWrite, len(writes))
 		for i, write := range writes {
+			k, err := fromOrionKey(write.Key)
+			if err != nil {
+				return nil, errors.WithMessagef(err, "failed to decode write key [%s]", write.Key)
+			}
 			newWrites[i] = &driver.DataWrite{
-				Key:   write.Key,
+				Key:   k,
 				Value: write.Value,
 				Acl:   write.Acl,
 			}
 		}
 		res[s] = newWrites
 	}
-	return res
+	return res, nil
 }
 
 func (l *LoadedDataTx) MustSignUsers() []string {
@@ -251,8 +259,8 @@ func (s *SessionManager) NewSession(id string) (driver.Session, error) {
 	return &Session{s: session}, err
 }
 
-// sanitizeKey makes sure that each component in the key can be correctly be url escaped
-func sanitizeKey(key string) string {
+// toOrionKey makes sure that each component in the key can be correctly be url escaped
+func toOrionKey(key string) string {
 	key = strings.ReplaceAll(key, string(rune(0)), "~")
 	components := strings.Split(key, "~")
 	b := strings.Builder{}
@@ -266,4 +274,23 @@ func sanitizeKey(key string) string {
 		b.WriteRune('~')
 	}
 	return b.String()
+}
+
+func fromOrionKey(key string) (string, error) {
+	components := strings.Split(key, "~")
+	b := strings.Builder{}
+	for i := 0; i < len(components); i++ {
+		decoded, err := hex.DecodeString(components[i])
+		if err != nil {
+			return "", errors.Wrapf(err, "failed to decode [%s]", key)
+		}
+		b.WriteString(string(decoded))
+		if i < len(components)-1 {
+			b.WriteRune('~')
+		}
+	}
+	if strings.HasSuffix(key, "~") {
+		b.WriteRune('~')
+	}
+	return b.String(), nil
 }
