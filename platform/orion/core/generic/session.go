@@ -255,6 +255,7 @@ func (s *SessionManager) NewSession(id string) (driver.Session, error) {
 // sanitizeKey makes sure that each component in the key can be correctly be url escaped
 func sanitizeKey(key string) string {
 	escaped := false
+	key = strings.ReplaceAll(key, string(rune(0)), "~")
 	components := strings.Split(key, "~")
 	for i, c := range components {
 		cc := url.PathEscape(c)
