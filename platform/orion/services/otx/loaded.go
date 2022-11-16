@@ -70,28 +70,20 @@ func (lt *LoadedTransaction) CoSignAndClose() ([]byte, error) {
 	return t.CoSignAndClose()
 }
 
-func (lt *LoadedTransaction) Reads() ([]*orion.DataRead, error) {
+func (lt *LoadedTransaction) Reads() []*orion.DataRead {
 	t, err := lt.getLoadedDataTx()
 	if err != nil {
-		return nil, err
+		return nil
 	}
-	reads, err := t.Reads()
-	if err != nil {
-		return nil, err
-	}
-	return reads[lt.Namespace], nil
+	return t.Reads()[lt.Namespace]
 }
 
-func (lt *LoadedTransaction) Writes() ([]*orion.DataWrite, error) {
+func (lt *LoadedTransaction) Writes() []*orion.DataWrite {
 	t, err := lt.getLoadedDataTx()
 	if err != nil {
-		return nil, err
+		return nil
 	}
-	writes, err := t.Writes()
-	if err != nil {
-		return nil, err
-	}
-	return writes[lt.Namespace], nil
+	return t.Writes()[lt.Namespace]
 }
 
 func (lt *LoadedTransaction) MustSignUsers() []string {
