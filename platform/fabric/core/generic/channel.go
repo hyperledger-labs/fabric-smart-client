@@ -314,19 +314,22 @@ func (c *channel) DefaultSigner() discovery.Signer {
 	return c.network.LocalMembership().DefaultSigningIdentity().Sign
 }
 
-// FetchAndStoreEnvelope fetches from the ledger and stores the enveloped correspoding to the passed id
-func (c *channel) FetchAndStoreEnvelope(txID string) error {
+// FetchEnvelope fetches the envelope corresponding to the passed id from the ledger
+func (c *channel) FetchEnvelope(txID string) (*common.Envelope, error) {
 	pt, err := c.GetTransactionByID(txID)
 	if err != nil {
-		return errors.WithMessagef(err, "failed fetching tx [%s]", txID)
+		return nil, errors.WithMessagef(err, "failed fetching tx [%s]", txID)
 	}
 	if !pt.IsValid() {
-		return errors.Errorf("fetched tx [%s] should have been valid, instead it is [%s]", txID, peer.TxValidationCode_name[pt.ValidationCode()])
+		return nil, errors.Errorf("fetched tx [%s] should have been valid, instead it is [%s]", txID, peer.TxValidationCode_name[pt.ValidationCode()])
 	}
-	if err := c.EnvelopeService().StoreEnvelope(txID, pt.Envelope()); err != nil {
-		return errors.WithMessagef(err, "failed to store fetched envelope for [%s]", txID)
+
+	env := &common.Envelope{}
+	err = proto.Unmarshal(pt.Envelope(), env)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to unmarshal envelope")
 	}
-	return nil
+	return env, nil
 }
 
 func (c *channel) GetRWSetFromEvn(txID string) (driver.RWSet, driver.ProcessTransaction, error) {
@@ -340,19 +343,7 @@ func (c *channel) GetRWSetFromEvn(txID string) (driver.RWSet, driver.ProcessTran
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "failed unmarshalling envelope [%s]", txID)
 	}
-	logger.Debugf("unpack envelope [%s,%s]", c.Name(), txID)
-	upe, err := rwset.UnpackEnvelope(c.network.Name(), env)
-	if err != nil {
-		return nil, nil, errors.Wrapf(err, "failed unpacking envelope [%s]", txID)
-	}
-	logger.Debugf("retrieve rws [%s,%s]", c.Name(), txID)
-
-	rws, err := c.GetRWSet(txID, upe.Results)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return rws, upe, nil
+	return c.ExtractRWSet(txID, env)
 }
 
 func (c *channel) GetRWSetFromETx(txID string) (driver.RWSet, driver.ProcessTransaction, error) {
@@ -370,6 +361,22 @@ func (c *channel) GetRWSetFromETx(txID string) (driver.RWSet, driver.ProcessTran
 	}
 
 	return rws, tx, nil
+}
+
+func (c *channel) ExtractRWSet(txID string, env *common.Envelope) (driver.RWSet, driver.ProcessTransaction, error) {
+	logger.Debugf("unpack envelope [%s,%s]", c.Name(), txID)
+	upe, err := rwset.UnpackEnvelope(c.network.Name(), env)
+	if err != nil {
+		return nil, nil, errors.Wrapf(err, "failed unpacking envelope [%s]", txID)
+	}
+	logger.Debugf("retrieve rws [%s,%s]", c.Name(), txID)
+
+	rws, err := c.GetRWSet(txID, upe.Results)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return rws, upe, nil
 }
 
 func (c *channel) init() error {

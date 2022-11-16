@@ -127,20 +127,17 @@ func (c *channel) commitUnknown(txID string, block uint64, indexInBlock int, env
 		return c.commitStoredEnvelope(txID, block, indexInBlock)
 	}
 
-	if envelope != nil {
-		// Store it
-		if err := c.EnvelopeService().StoreEnvelope(txID, envelope); err != nil {
-			return errors.WithMessagef(err, "failed to store unknown envelope for [%s]", txID)
-		}
-	} else {
-		// fetch envelope and store it
-		if err := c.FetchAndStoreEnvelope(txID); err != nil {
+	if envelope == nil {
+		// fetch envelope
+		var err error
+		envelope, err = c.FetchEnvelope(txID)
+		if err != nil {
 			return errors.WithMessagef(err, "failed getting rwset for tx [%s]", txID)
 		}
 	}
 
 	// shall we commit this unknown envelope
-	if ok, err := c.filterUnknownEnvelope(txID); err != nil || !ok {
+	if ok, err := c.filterUnknownEnvelope(envelope, txID); err != nil || !ok {
 		logger.Debugf("[%s] unknown envelope will not be processed [%b,%s]", ok, err)
 		if err := c.DiscardTx(txID); err != nil {
 			logger.Errorf("failed discarding unknown transactions [%s]", txID)
@@ -148,11 +145,16 @@ func (c *channel) commitUnknown(txID string, block uint64, indexInBlock int, env
 		return nil
 	}
 
+	// store the envelope before continuing
+	if err := c.EnvelopeService().StoreEnvelope(txID, envelope); err != nil {
+		return errors.WithMessagef(err, "failed to store unknown envelope for [%s]", txID)
+	}
+
 	return c.commit(txID, nil, block, indexInBlock, envelope)
 }
 
-func (c *channel) filterUnknownEnvelope(txID string) (bool, error) {
-	rws, _, err := c.GetRWSetFromEvn(txID)
+func (c *channel) filterUnknownEnvelope(env *common.Envelope, txID string) (bool, error) {
+	rws, _, err := c.ExtractRWSet(txID, env)
 	if err != nil {
 		return false, errors.WithMessagef(err, "failed to get rws from envelope [%s]", txID)
 	}

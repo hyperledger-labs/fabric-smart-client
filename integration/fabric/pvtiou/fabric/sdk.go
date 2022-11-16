@@ -90,24 +90,7 @@ func (p *SDK) Install() error {
 
 		networkConfig, err := fnsConfig.Network(name)
 		assert.NoError(err, "failed to get network config for [%s]", name)
-		var pvtChaincodes []string
-		for _, channel := range networkConfig.Channels {
-			if channel.Pvt.Enabled {
-				ch, err := fns.Channel(channel.Name)
-				assert.NoError(err, "failed to get channel [%s:%s]", fns.Name(), channel.Name)
-				assert.NoError(
-					ch.Committer().ProcessNamespace("pvt"),
-					"failed to register namespace to be processed to [%s:%s]", fns.Name(), channel.Name,
-				)
-				pvtChaincodes = append(pvtChaincodes, channel.Pvt.Chaincode)
-			}
-		}
-		for _, chaincode := range pvtChaincodes {
-			assert.NoError(
-				fns.ProcessorManager().AddProcessor(chaincode, pvt.NewProcessor(fns)),
-				"failed to register pvt processor for fabric network [%s]", name,
-			)
-		}
+		assert.NoError(pvt.Install(fns, networkConfig), "failed to install Private Transactions processors")
 		assert.NoError(
 			fns.ProcessorManager().AddProcessor("iou", p.couchdbSyncProcessor),
 			"failed to register couchdb sync processor for fabric network [%s]", name,

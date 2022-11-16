@@ -9,6 +9,7 @@ package couchdb
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	_ "github.com/go-kivik/couchdb/v3" // The CouchDB driver
 	"github.com/go-kivik/kivik/v3"
@@ -51,9 +52,11 @@ func (c *SyncProcessor) Process(req fabric.Request, tx fabric.ProcessTransaction
 			return errors.Wrapf(err, "failed to get read at [%s:%d]", ns, i)
 		}
 		logger.Debugf("lookup reference for key [%s]", k)
-		refs = append(refs, kivik.BulkGetReference{
-			ID: k,
-		})
+		if !strings.Contains(k, "initialized") {
+			refs = append(refs, kivik.BulkGetReference{
+				ID: k,
+			})
+		}
 	}
 	revs := map[string]string{}
 	if len(refs) != 0 {
@@ -61,6 +64,7 @@ func (c *SyncProcessor) Process(req fabric.Request, tx fabric.ProcessTransaction
 		if err != nil {
 			return errors.Wrapf(err, "failed to get read dependencies")
 		}
+		defer rows.Close()
 		for rows.Next() {
 			var x map[string]interface{}
 			if err := rows.ScanDoc(&x); err != nil {
@@ -80,6 +84,9 @@ func (c *SyncProcessor) Process(req fabric.Request, tx fabric.ProcessTransaction
 			return errors.Wrapf(err, "failed to get write at [%s:%d]", ns, i)
 		}
 		// TODO: support delete
+		if strings.Contains(k, "initialized") {
+			continue
+		}
 
 		logger.Debugf("appending write [%s:%s]...", k, string(v))
 
@@ -100,11 +107,12 @@ func (c *SyncProcessor) Process(req fabric.Request, tx fabric.ProcessTransaction
 	}
 
 	// push the changes
-	_, err = db.BulkDocs(context.TODO(), writes)
-	if err != nil {
-		return errors.Wrapf(err, "failed to store document at [%s:%d]", ns, len(writes))
+	if len(writes) > 0 {
+		_, err = db.BulkDocs(context.TODO(), writes)
+		if err != nil {
+			return errors.Wrapf(err, "failed to store document at [%s:%d]", ns, len(writes))
+		}
 	}
-
 	logger.Debugf("couchdb sync on [%s:%s:%s]", tx.Network(), tx.Channel(), ns)
 	return nil
 }

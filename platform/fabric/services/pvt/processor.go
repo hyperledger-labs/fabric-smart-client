@@ -8,6 +8,7 @@ package pvt
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/pkg/errors"
 )
@@ -21,6 +22,28 @@ type Processor struct {
 
 func NewProcessor(network *fabric.NetworkService) *Processor {
 	return &Processor{network: network, transactionManager: network.TransactionManager()}
+}
+
+func Install(fns *fabric.NetworkService, networkConfig *config.Network) error {
+	var pvtChaincodes []string
+	for _, channel := range networkConfig.Channels {
+		if channel.Pvt.Enabled {
+			ch, err := fns.Channel(channel.Name)
+			if err != nil {
+				return errors.WithMessagef(err, "failed to get channel [%s:%s]", fns.Name(), channel.Name)
+			}
+			if err := ch.Committer().ProcessNamespace("pvt"); err != nil {
+				return errors.WithMessagef(err, "failed to register namespace to be processed to [%s:%s]", fns.Name(), channel.Name)
+			}
+			pvtChaincodes = append(pvtChaincodes, channel.Pvt.Chaincode)
+		}
+	}
+	for _, chaincode := range pvtChaincodes {
+		if err := fns.ProcessorManager().AddProcessor(chaincode, NewProcessor(fns)); err != nil {
+			return errors.WithMessagef(err, "failed to register pvt processor for [%s:%s]", fns.Name(), chaincode)
+		}
+	}
+	return nil
 }
 
 func (p *Processor) Process(req fabric.Request, tx fabric.ProcessTransaction, rws *fabric.RWSet, ns string) error {
