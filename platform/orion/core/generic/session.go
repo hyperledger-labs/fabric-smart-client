@@ -7,8 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package generic
 
 import (
-	"encoding/base64"
-	"net/url"
+	"encoding/hex"
 	"strings"
 	"time"
 
@@ -254,23 +253,11 @@ func (s *SessionManager) NewSession(id string) (driver.Session, error) {
 
 // sanitizeKey makes sure that each component in the key can be correctly be url escaped
 func sanitizeKey(key string) string {
-	escaped := false
 	key = strings.ReplaceAll(key, string(rune(0)), "~")
 	components := strings.Split(key, "~")
-	for i, c := range components {
-		cc := url.PathEscape(c)
-		if c != cc {
-			components[i] = base64.StdEncoding.EncodeToString([]byte(c))
-			escaped = true
-		}
-	}
-	if !escaped {
-		return key
-	}
-
 	b := strings.Builder{}
 	for i := 0; i < len(components); i++ {
-		b.WriteString(components[i])
+		b.WriteString(hex.EncodeToString([]byte(components[i])))
 		if i < len(components)-1 {
 			b.WriteRune('~')
 		}
