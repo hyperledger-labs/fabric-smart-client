@@ -1,0 +1,32 @@
+@startuml
+'- force wrapping of longer text
+'skinparam wrapWidth 400
+!pragma teoz true
+hide footbox
+
+actor "Borrower" as Borrower
+actor "Lender" as Lender
+actor "Approver" as Approver
+participant "Fabric" as Fabric
+
+Borrower -> Borrower: Create IOU State
+Borrower -> Borrower: Prepare Transaction (TX)
+Borrower -> Lender: Run PrivateCollectEndorsementsView
+Lender -> Lender: Check Transaction
+Lender -> Lender: Store TX
+Lender -> Borrower: Run NewPrivateEndorseView
+Borrower -> Approver: Run PrivateCollectEndorsementsView
+Approver -> Approver: Check Transaction
+Approver -> Approver: Store TX
+Approver -> Borrower: Run NewPrivateEndorseView
+Borrower -> Borrower: Store TX
+Borrower -> Fabric: Run NewPrivateOrderingAndFinalityView (Hash(Tx))
+Fabric -> Fabric: Order Hash(TX) and \nbroadcast to all nodes
+Fabric -> Borrower: Hash(TX)
+Borrower -> Borrower: Commit into the Vault Tx
+Fabric -> Lender: Hash(TX)
+Lender -> Lender: Commit into the Vault Tx
+Fabric -> Approver: Hash(TX)
+Approver -> Approver: Commit into the Vault Tx
+
+@enduml

@@ -15,6 +15,5 @@ Borrower -> Lender: Run CollectEndorsementsView
 Lender -> Lender: Check Transaction
 Lender -> Borrower: Run EndorseView
 Borrower -> Fabric: Run OrderingView
-Lender -> Borrower: Run EndorseView
 
 @enduml
