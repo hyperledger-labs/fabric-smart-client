@@ -137,7 +137,7 @@ func (f *BuyerFlow) Call(context view.Context) (interface{}, error) {
 func buyerValidateTransaction(loadedTx *otx.LoadedTransaction, buyerID, dmvID string) error {
 	newCarRec := &states.CarRecord{}
 	var newCarACL *types.AccessControl
-	writes, _ := loadedTx.Writes()
+	writes := loadedTx.Writes()
 	for _, dw := range writes {
 		switch {
 		case strings.HasPrefix(dw.Key, states.CarRecordKeyPrefix):
@@ -202,7 +202,7 @@ func (f *DMVFlow) Call(context view.Context) (interface{}, error) {
 	tx.SetNamespace("cars") // Sets the namespace where the state should be stored
 
 	if err = dmvValidateTransaction(tx, loadedTx, me); err != nil {
-		return nil, errors.Wrap(err, "error during dmv validate transaction")
+		return nil, errors.Wrap(err, "error during buyer validate transaction")
 	}
 
 	if err = loadedTx.Commit(); err != nil {
@@ -216,7 +216,7 @@ func (f *DMVFlow) Call(context view.Context) (interface{}, error) {
 
 func dmvValidateTransaction(tx *otx.Transaction, loadedTx *otx.LoadedTransaction, dmvID string) error {
 	carRec := &states.CarRecord{}
-	reads, _ := loadedTx.Reads()
+	reads := loadedTx.Reads()
 	for _, dr := range reads {
 		recordBytes, err := tx.Get(dr.Key)
 		if err != nil {
@@ -234,7 +234,7 @@ func dmvValidateTransaction(tx *otx.Transaction, loadedTx *otx.LoadedTransaction
 
 	newCarRec := &states.CarRecord{}
 	var newCarACL *types.AccessControl
-	writes, _ := loadedTx.Writes()
+	writes := loadedTx.Writes()
 	for _, dw := range writes {
 		switch {
 		case strings.HasPrefix(dw.Key, states.CarRecordKeyPrefix):
