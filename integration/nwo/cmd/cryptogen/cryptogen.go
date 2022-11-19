@@ -480,7 +480,7 @@ func generateNodes(baseDir string, nodes []NodeSpec, signCA *ca2.CA, tlsCA *ca2.
 			if node.isAdmin && nodeOUs {
 				currentNodeType = msp2.ADMIN
 			}
-			err := msp2.GenerateLocalMSP(nodeDir, node.CommonName, node.SANS, signCA, tlsCA, currentNodeType, nodeOUs, node.HSM)
+			err := msp2.GenerateLocalMSP(nodeDir, node.CommonName, node.SANS, signCA, tlsCA, currentNodeType, nodeOUs, node.HSM, nil)
 			if err != nil {
 				fmt.Printf("Error generating local MSP for %v:\n%v\n", node, err)
 				os.Exit(1)

@@ -134,6 +134,45 @@ func NewCA(
 	return ca, err
 }
 
+func LoadCA(baseDir string) (*CA, error) {
+	var ca *CA
+
+	// check baseDir exist
+	_, err := os.Stat(baseDir)
+	if err != nil {
+		return nil, err
+	}
+
+	// Load private key
+	priv, err := csp2.LoadPrivateKey(baseDir)
+	if err != nil {
+		return nil, err
+	}
+
+	// load certificate
+	x509Cert, err := LoadCertificateECDSA(baseDir)
+	if err != nil {
+		return nil, err
+	}
+
+	// setup ca
+	ca = &CA{
+		Name: x509Cert.Subject.CommonName,
+		Signer: &csp2.ECDSASigner{
+			PrivateKey: priv,
+		},
+		SignCert:           x509Cert,
+		Country:            x509Cert.Subject.Country[0],
+		Province:           x509Cert.Subject.Province[0],
+		Locality:           x509Cert.Subject.Locality[0],
+		OrganizationalUnit: x509Cert.Subject.OrganizationalUnit[0],
+		StreetAddress:      x509Cert.Subject.StreetAddress[0],
+		PostalCode:         x509Cert.Subject.PostalCode[0],
+	}
+
+	return ca, err
+}
+
 // SignCertificate creates a signed certificate based on a built-in template
 // and saves it in baseDir/name
 func (ca *CA) SignCertificate(baseDir, name string, orgUnits, alternateNames []string, pub *ecdsa.PublicKey, ku x509.KeyUsage, eku []x509.ExtKeyUsage, nodeType int) (*x509.Certificate, error) {

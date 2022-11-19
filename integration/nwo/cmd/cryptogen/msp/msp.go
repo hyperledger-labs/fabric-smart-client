@@ -42,8 +42,7 @@ var nodeOUMap = map[int]string{
 	ORDERER: ORDEREROU,
 }
 
-func GenerateLocalMSP(baseDir, name string, sans []string, signCA, tlsCA *ca2.CA, nodeType int, nodeOUs, hsm bool) error {
-
+func GenerateLocalMSP(baseDir, name string, sans []string, signCA, tlsCA *ca2.CA, nodeType int, nodeOUs, hsm bool, pk *ecdsa.PublicKey) error {
 	// create folder structure
 	mspDir := filepath.Join(baseDir, "msp")
 	tlsDir := filepath.Join(baseDir, "tls")
@@ -63,20 +62,21 @@ func GenerateLocalMSP(baseDir, name string, sans []string, signCA, tlsCA *ca2.CA
 	*/
 
 	// generate private key
-	var pk *ecdsa.PublicKey
-	if hsm {
-		pk, err = pkcs11.GeneratePrivateKey()
-		if err != nil {
-			return err
+	if pk == nil {
+		if hsm {
+			pk, err = pkcs11.GeneratePrivateKey()
+			if err != nil {
+				return err
+			}
+		} else {
+			// get keystore path
+			keystore := filepath.Join(mspDir, "keystore")
+			priv, err := csp2.GeneratePrivateKey(keystore)
+			if err != nil {
+				return err
+			}
+			pk = &priv.PublicKey
 		}
-	} else {
-		// get keystore path
-		keystore := filepath.Join(mspDir, "keystore")
-		priv, err := csp2.GeneratePrivateKey(keystore)
-		if err != nil {
-			return err
-		}
-		pk = &priv.PublicKey
 	}
 
 	// generate X509 certificate using signing CA
