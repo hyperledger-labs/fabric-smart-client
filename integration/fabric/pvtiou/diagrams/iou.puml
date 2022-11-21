@@ -2,11 +2,13 @@
 '- force wrapping of longer text
 'skinparam wrapWidth 400
 !pragma teoz true
-hide footbox
+skinparam monochrome reverse
+'hide footbox
 
 actor "Borrower" as Borrower
 actor "Lender" as Lender
 actor "Approver" as Approver
+participant "PvtCC Endorsers" as Endorsers
 participant "Fabric" as Fabric
 
 Borrower -> Borrower: Create IOU State
@@ -20,13 +22,17 @@ Approver -> Approver: Check Transaction
 Approver -> Approver: Store TX
 Approver -> Borrower: Run NewPrivateEndorseView
 Borrower -> Borrower: Store TX
-Borrower -> Fabric: Run NewPrivateOrderingAndFinalityView (Hash(Tx))
-Fabric -> Fabric: Order Hash(TX) and \nbroadcast to all nodes
-Fabric -> Borrower: Hash(TX)
-Borrower -> Borrower: Commit into the Vault Tx
-Fabric -> Lender: Hash(TX)
-Lender -> Lender: Commit into the Vault Tx
-Fabric -> Approver: Hash(TX)
-Approver -> Approver: Commit into the Vault Tx
+group NewPrivateOrderingAndFinalityView(TX)
+Borrower -> Borrower: Prepare new Proposal to publishes Hash(TX)
+Borrower -> Endorsers: Collect endorsements from the endorsers of PvtCC
+Endorsers -> Borrower: Endorsements
+Borrower -> Fabric: Assemble TX_h with the proposal and the endorsements, and broadcast.
+end
+Fabric -> Borrower: TX_h
+Borrower -> Borrower: Validate and Commit TX into the Vault
+Fabric -> Lender: TX_h
+Lender -> Lender: Validate and Commit TX into the Vault
+Fabric -> Approver: TX_h
+Approver -> Approver: Validate and Commit TX into the Vault
 
 @enduml
