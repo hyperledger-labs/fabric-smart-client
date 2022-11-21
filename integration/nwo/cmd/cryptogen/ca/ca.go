@@ -161,13 +161,25 @@ func LoadCA(baseDir string) (*CA, error) {
 		Signer: &csp2.ECDSASigner{
 			PrivateKey: priv,
 		},
-		SignCert:           x509Cert,
-		Country:            x509Cert.Subject.Country[0],
-		Province:           x509Cert.Subject.Province[0],
-		Locality:           x509Cert.Subject.Locality[0],
-		OrganizationalUnit: x509Cert.Subject.OrganizationalUnit[0],
-		StreetAddress:      x509Cert.Subject.StreetAddress[0],
-		PostalCode:         x509Cert.Subject.PostalCode[0],
+		SignCert: x509Cert,
+	}
+	if len(x509Cert.Subject.Country) > 0 {
+		ca.Country = x509Cert.Subject.Country[0]
+	}
+	if len(x509Cert.Subject.Province) > 0 {
+		ca.Province = x509Cert.Subject.Province[0]
+	}
+	if len(x509Cert.Subject.Locality) > 0 {
+		ca.Locality = x509Cert.Subject.Locality[0]
+	}
+	if len(x509Cert.Subject.OrganizationalUnit) > 0 {
+		ca.OrganizationalUnit = x509Cert.Subject.OrganizationalUnit[0]
+	}
+	if len(x509Cert.Subject.StreetAddress) > 0 {
+		ca.StreetAddress = x509Cert.Subject.StreetAddress[0]
+	}
+	if len(x509Cert.Subject.PostalCode) > 0 {
+		ca.PostalCode = x509Cert.Subject.PostalCode[0]
 	}
 
 	return ca, err
