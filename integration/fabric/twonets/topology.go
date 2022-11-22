@@ -46,5 +46,8 @@ func Topology() []api.Topology {
 	)
 	bob.RegisterResponder(&views.Pong{}, &views.Ping{})
 
+	// Add Fabric SDK to FSC Nodes
+	f1Topology.AddSDK(fscTopology)
+
 	return []api.Topology{f1Topology, f2Topology, fscTopology}
 }

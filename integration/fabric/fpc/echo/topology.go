@@ -42,5 +42,8 @@ func Topology() []api.Topology {
 	bob.RegisterViewFactory("ListProvisionedEnclaves", &views.ListProvisionedEnclavesViewFactory{})
 	bob.RegisterViewFactory("Echo", &views.EchoViewFactory{})
 
+	// Add Fabric SDK to FSC Nodes
+	fabricTopology.AddSDK(fscTopology)
+
 	return []api.Topology{fabricTopology, fscTopology}
 }

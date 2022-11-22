@@ -59,5 +59,8 @@ func Topology() []api.Topology {
 	bob.RegisterViewFactory("get", &views.LocalGetViewFactory{})
 	bob.RegisterViewFactory("remoteGet", &views.RemoteGetViewFactory{})
 
+	// Add Fabric SDK to FSC Nodes
+	f1Topology.AddSDK(fscTopology)
+
 	return []api.Topology{f1Topology, f2Topology, wTopology, fscTopology}
 }

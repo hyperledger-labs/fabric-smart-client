@@ -36,8 +36,7 @@ type PeerIdentity struct {
 	Org          string
 }
 
-// Peer defines a peer instance, it's owning organization, and the list of
-// channels that the peer should be joined to.
+// Peer defines an FSC node instance
 type Peer struct {
 	*Node
 	Name            string          `yaml:"name,omitempty"`

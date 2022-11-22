@@ -49,6 +49,10 @@ func Topology() []api.Topology {
 	bob.AddOptions(fabric.WithOrganization("Org2"), fabric.WithClientRole())
 	// Register the factories of the initiator views for each business process
 	bob.RegisterViewFactory("EventsView", &views.EventsViewFactory{})
+
+	// Add Fabric SDK to FSC Nodes
+	fabricTopology.AddSDK(fscTopology)
+
 	// Done
 	return []api.Topology{fabricTopology, fscTopology}
 }

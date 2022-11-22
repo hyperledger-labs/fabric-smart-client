@@ -59,5 +59,8 @@ func Topology() []api.Topology {
 	lender.RegisterResponder(&views.UpdateIOUResponderView{}, &views.UpdateIOUView{})
 	lender.RegisterViewFactory("query", &views.QueryViewFactory{})
 
+	// Add Fabric SDK to FSC Nodes
+	fabricTopology.AddSDK(fscTopology)
+
 	return []api.Topology{borrowerTopology, fabricTopology, fscTopology}
 }

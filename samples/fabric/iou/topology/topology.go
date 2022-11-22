@@ -60,6 +60,9 @@ func Topology() []api.Topology {
 	//monitoringTopology.EnableHyperledgerExplorer()
 	//monitoringTopology.EnablePrometheusGrafana()
 
+	// Add Fabric SDK to FSC Nodes
+	fabricTopology.AddSDK(fscTopology)
+
 	return []api.Topology{
 		fabricTopology,
 		fscTopology,

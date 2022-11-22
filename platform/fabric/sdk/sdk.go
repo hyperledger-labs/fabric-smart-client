@@ -11,7 +11,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core"
-	_ "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic"
+	_ "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/crypto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state/vault"
@@ -36,16 +36,16 @@ type Startable interface {
 	Stop() error
 }
 
-type p struct {
+type SDK struct {
 	registry    Registry
 	fnsProvider Startable
 }
 
-func NewSDK(registry Registry) *p {
-	return &p{registry: registry}
+func NewSDK(registry Registry) *SDK {
+	return &SDK{registry: registry}
 }
 
-func (p *p) Install() error {
+func (p *SDK) Install() error {
 	if !view.GetConfigService(p.registry).GetBool("fabric.enabled") {
 		logger.Infof("Fabric platform not enabled, skipping")
 		return nil
@@ -91,11 +91,11 @@ func (p *p) Install() error {
 	return nil
 }
 
-func (p *p) Start(ctx context.Context) error {
+func (p *SDK) Start(ctx context.Context) error {
 	return nil
 }
 
-func (p *p) PostStart(ctx context.Context) error {
+func (p *SDK) PostStart(ctx context.Context) error {
 	if !view.GetConfigService(p.registry).GetBool("fabric.enabled") {
 		logger.Infof("Fabric platform not enabled, skipping start")
 		return nil

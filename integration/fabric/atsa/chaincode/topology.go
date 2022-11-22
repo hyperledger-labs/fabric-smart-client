@@ -63,6 +63,9 @@ func Topology() []api.Topology {
 	bob.RegisterViewFactory("AgreeToBuy", &views.AgreeToBuyViewFactory{})
 	bob.RegisterViewFactory("Transfer", &views.TransferViewFactory{})
 
+	// Add Fabric SDK to FSC Nodes
+	fabricTopology.AddSDK(fscTopology)
+
 	// Done
 	return []api.Topology{fabricTopology, fscTopology}
 }

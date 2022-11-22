@@ -10,6 +10,9 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
+	fabric "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk"
 )
 
 // Topology holds the basic information needed to generate
@@ -349,4 +352,8 @@ func (t *Topology) EnableLogPeersToFile() {
 
 func (t *Topology) EnableLogOrderersToFile() {
 	t.LogOrderersToFile = true
+}
+
+func (t *Topology) AddSDK(topology *fsc.Topology) {
+	topology.AddSDK(&fabric.SDK{})
 }
