@@ -10,9 +10,11 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 
+	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/driver"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
-	api2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/hyperledger/fabric-protos-go/msp"
@@ -20,11 +22,11 @@ import (
 )
 
 type SignerService interface {
-	RegisterSigner(identity view.Identity, signer api2.Signer, verifier api2.Verifier) error
+	RegisterSigner(identity view.Identity, signer fdriver.Signer, verifier fdriver.Verifier) error
 }
 
 type provider struct {
-	sID          SigningIdentity
+	sID          driver2.SigningIdentity
 	id           []byte
 	enrollmentID string
 }
@@ -56,7 +58,7 @@ func NewProviderWithBCCSPConfig(mspConfigPath, mspID string, signerService Signe
 	return &provider{sID: sID, id: idRaw, enrollmentID: enrollmentID}, nil
 }
 
-func (p *provider) Identity(opts *api2.IdentityOptions) (view.Identity, []byte, error) {
+func (p *provider) Identity(opts *fdriver.IdentityOptions) (view.Identity, []byte, error) {
 	return p.id, []byte(p.enrollmentID), nil
 }
 
@@ -101,7 +103,7 @@ func (p *provider) Info(raw []byte, auditInfo []byte) (string, error) {
 	return fmt.Sprintf("MSP.x509: [%s][%s][%s]", view.Identity(raw).UniqueID(), si.Mspid, cert.Subject.CommonName), nil
 }
 
-func (p *provider) SerializedIdentity() (SigningIdentity, error) {
+func (p *provider) SerializedIdentity() (driver2.SigningIdentity, error) {
 	return p.sID, nil
 }
 
