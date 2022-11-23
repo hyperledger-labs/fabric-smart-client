@@ -28,10 +28,9 @@ var logger = flogging.MustGetLogger("fabric-sdk.msp.x509")
 type IdentityLoader struct{}
 
 func (i *IdentityLoader) Load(manager driver.Manager, c config.MSP) error {
-	// Try without "msp"
 	var bccspOpts *config.BCCSP
 	if c.Opts != nil {
-		logger.Infof("Options [%v]", c.Opts)
+		logger.Debugf("Options [%v]", c.Opts)
 		bccspOptsBoxed, ok := c.Opts[BCCSPOptField]
 		if ok {
 			var err error
@@ -39,9 +38,11 @@ func (i *IdentityLoader) Load(manager driver.Manager, c config.MSP) error {
 			if err != nil {
 				return errors.Wrapf(err, "failed to unmarshal BCCSP opts")
 			}
-			logger.Infof("Options unmarshalled [%v]", bccspOpts)
+			logger.Debugf("Options unmarshalled [%v]", bccspOpts)
 		}
 	}
+
+	// Try without "msp"
 	provider, err := NewProviderWithBCCSPConfig(
 		manager.Config().TranslatePath(c.Path),
 		c.MSPID,
