@@ -46,12 +46,12 @@ type MSPOpts struct {
 }
 
 type MSP struct {
-	ID        string   `yaml:"id"`
-	MSPType   string   `yaml:"mspType"`
-	MSPID     string   `yaml:"mspID"`
-	Path      string   `yaml:"path"`
-	CacheSize int      `yaml:"cacheSize"`
-	Opts      *MSPOpts `yaml:"opts, omitempty"`
+	ID        string                      `yaml:"id"`
+	MSPType   string                      `yaml:"mspType"`
+	MSPID     string                      `yaml:"mspID"`
+	Path      string                      `yaml:"path"`
+	CacheSize int                         `yaml:"cacheSize"`
+	Opts      map[interface{}]interface{} `yaml:"opts, omitempty"`
 }
 
 type File struct {

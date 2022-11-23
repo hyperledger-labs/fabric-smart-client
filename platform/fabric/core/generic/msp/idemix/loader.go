@@ -10,9 +10,8 @@ import (
 	"io/ioutil"
 	"path/filepath"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/driver"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/driver"
 	msp2 "github.com/hyperledger/fabric/msp"
 	"github.com/pkg/errors"
 )

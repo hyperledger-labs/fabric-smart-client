@@ -10,6 +10,8 @@ import (
 	"io/ioutil"
 	"path/filepath"
 
+	"gopkg.in/yaml.v2"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
@@ -17,7 +19,8 @@ import (
 )
 
 const (
-	MSPType = "bccsp"
+	MSPType       = "bccsp"
+	BCCSPOptField = "BCCSP"
 )
 
 var logger = flogging.MustGetLogger("fabric-sdk.msp.x509")
@@ -28,7 +31,16 @@ func (i *IdentityLoader) Load(manager driver.Manager, c config.MSP) error {
 	// Try without "msp"
 	var bccspOpts *config.BCCSP
 	if c.Opts != nil {
-		bccspOpts = c.Opts.BCCSP
+		logger.Infof("Options [%v]", c.Opts)
+		bccspOptsBoxed, ok := c.Opts[BCCSPOptField]
+		if ok {
+			var err error
+			bccspOpts, err = ToBCCSPOpts(bccspOptsBoxed)
+			if err != nil {
+				return errors.Wrapf(err, "failed to unmarshal BCCSP opts")
+			}
+			logger.Infof("Options unmarshalled [%v]", bccspOpts)
+		}
 	}
 	provider, err := NewProviderWithBCCSPConfig(
 		manager.Config().TranslatePath(c.Path),
@@ -98,4 +110,16 @@ func (f *FolderIdentityLoader) Load(manager driver.Manager, c config.MSP) error 
 		}
 	}
 	return nil
+}
+
+func ToBCCSPOpts(boxed interface{}) (*config.BCCSP, error) {
+	raw, err := yaml.Marshal(boxed)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to marshal")
+	}
+	opts := &config.BCCSP{}
+	if err := yaml.Unmarshal(raw, opts); err != nil {
+		return nil, errors.Wrap(err, "failed to unmarshal")
+	}
+	return opts, nil
 }
