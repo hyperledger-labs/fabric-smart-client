@@ -380,7 +380,7 @@ func (s *service) loadLocalMSPs() error {
 			continue
 		}
 		if err := loader.Load(s, config); err != nil {
-			return errors.WithMessagef(err, "failed to load idemix msp [%s]", config.ID)
+			return errors.WithMessagef(err, "failed to load msp [%s:%s] at [%s]", config.ID, config.MSPType, config.Path)
 		}
 	}
 
