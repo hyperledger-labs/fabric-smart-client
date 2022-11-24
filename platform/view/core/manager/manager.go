@@ -218,6 +218,9 @@ func (cm *manager) InitiateContextWithIdentityAndID(view view.View, id view.Iden
 	if ctx == nil {
 		ctx = context.Background()
 	}
+	if id.IsNone() {
+		id = cm.me()
+	}
 	viewContext, err := NewContextForInitiator(contextID, ctx, cm.sp, GetCommLayer(cm.sp), driver.GetEndpointService(cm.sp), id, view)
 	if err != nil {
 		return nil, err
