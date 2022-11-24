@@ -22,6 +22,8 @@ type ViewManager interface {
 	InitiateView(view view.View) (interface{}, error)
 	// InitiateContext initiates a new context for the passed view
 	InitiateContext(view view.View) (view.Context, error)
+	// InitiateContextWithIdentityAndID initiates a new context
+	InitiateContextWithIdentityAndID(view view.View, id view.Identity, contextID string) (view.Context, error)
 }
 
 // GetViewManager returns an instance of the view manager.

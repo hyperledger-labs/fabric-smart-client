@@ -26,6 +26,10 @@ func (c *Context) ID() string {
 	return c.c.ID()
 }
 
+func (c *Context) GetSessionByID(id string, party view.Identity) (view.Session, error) {
+	return c.c.GetSessionByID(id, party)
+}
+
 // Manager manages the lifecycle of views and contexts
 type Manager struct {
 	m driver.ViewManager
@@ -58,6 +62,15 @@ func (m *Manager) InitiateContext(view View) (*Context, error) {
 		return nil, err
 	}
 	return &Context{c: context}, nil
+}
+
+// InitiateContextWithIdentityAndID initiates
+func (m *Manager) InitiateContextWithIdentityAndID(view View, id view.Identity, contextID string) (view.Context, error) {
+	context, err := m.m.InitiateContextWithIdentityAndID(view, id, contextID)
+	if err != nil {
+		return nil, err
+	}
+	return context, nil
 }
 
 // GetManager returns an instance of the view manager.
