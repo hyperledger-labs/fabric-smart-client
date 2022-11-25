@@ -658,6 +658,14 @@ func (t *Transaction) getProposalResponse(signer SerializableSigner) (*pb.Propos
 		}
 	}
 
+	// Note, mPrpBytes is the same as prpBytes by default endorsement plugin, but others could change it.
+	// serialize the signing identity
+	// sign the concatenation of the proposal response and the serialized endorser identity with this endorser's key
+	creator, err := signer.Serialize()
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not get the signer's identity")
+	}
+
 	prpBytes, err := protoutil.GetBytesProposalResponsePayload(
 		signedProposal.ProposalHash(),
 		response,
@@ -668,20 +676,14 @@ func (t *Transaction) getProposalResponse(signer SerializableSigner) (*pb.Propos
 			Version: version,
 		},
 	)
-	logger.Debugf("ProposalResponse [%s][%s]->[%s] \n",
+	logger.Debugf("ProposalResponse [%s][%s]->\n[%s]\n[%s] \n",
 		base64.StdEncoding.EncodeToString(signedProposal.ProposalHash()),
 		base64.StdEncoding.EncodeToString(pubSimResBytes),
 		base64.StdEncoding.EncodeToString(prpBytes),
+		base64.StdEncoding.EncodeToString(creator),
 	)
 	if err != nil {
 		return nil, errors.WithMessage(err, "failed to create the proposal response")
-	}
-	// Note, mPrpBytes is the same as prpBytes by default endorsement plugin, but others could change it.
-	// serialize the signing identity
-	// sign the concatenation of the proposal response and the serialized endorser identity with this endorser's key
-	creator, err := signer.Serialize()
-	if err != nil {
-		return nil, errors.Wrapf(err, "could not get the signer's identity")
 	}
 
 	signature, err := signer.Sign(append(prpBytes, creator...))
