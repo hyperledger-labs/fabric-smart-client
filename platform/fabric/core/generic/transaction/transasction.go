@@ -10,6 +10,8 @@ import (
 	"encoding/base64"
 	"encoding/json"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/fabricutils"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
@@ -559,6 +561,24 @@ func (t *Transaction) ProposalResponse() ([]byte, error) {
 		return nil, err
 	}
 	return raw, nil
+}
+
+func (t *Transaction) Envelope() (driver.Envelope, error) {
+	signerID := t.Creator()
+	signer, err := t.fns.SignerService().GetSigner(signerID)
+	if err != nil {
+		logger.Errorf("signer not found for %s while creating tx envelope for ordering [%s]", signerID.UniqueID(), err)
+		return nil, errors.Wrapf(err, "signer not found for %s while creating tx envelope for ordering", signerID.UniqueID())
+	}
+	env, err := fabricutils.CreateSignedTx(
+		t.Proposal(),
+		&signerWrapper{signerID, signer},
+		t.ProposalResponses()...,
+	)
+	if err != nil {
+		return nil, errors.WithMessage(err, "could not assemble transaction")
+	}
+	return NewEnvelopeFromEnv(env)
 }
 
 func (t *Transaction) generateProposal(signer SerializableSigner) error {

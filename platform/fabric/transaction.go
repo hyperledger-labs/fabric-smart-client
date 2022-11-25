@@ -315,6 +315,14 @@ func (t *Transaction) FabricNetworkService() *NetworkService {
 	return t.fns
 }
 
+func (t *Transaction) Envelope() (*Envelope, error) {
+	env, err := t.tx.Envelope()
+	if err != nil {
+		return nil, err
+	}
+	return &Envelope{e: env}, nil
+}
+
 type TransactionManager struct {
 	fns *NetworkService
 }

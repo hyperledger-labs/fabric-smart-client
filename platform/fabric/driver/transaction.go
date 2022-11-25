@@ -114,6 +114,7 @@ type Transaction interface {
 	ProposalResponses() []ProposalResponse
 	ProposalResponse() ([]byte, error)
 	BytesNoTransient() ([]byte, error)
+	Envelope() (Envelope, error)
 }
 
 type SignedProposal interface {

@@ -222,3 +222,7 @@ func (t *Transaction) FabricNetworkService() *fabric.NetworkService {
 func (t *Transaction) AppendVerifierProvider(vp VerifierProvider) {
 	t.verifierProviders = append(t.verifierProviders, vp)
 }
+
+func (t *Transaction) Envelope() (*fabric.Envelope, error) {
+	return t.Transaction.Envelope()
+}
