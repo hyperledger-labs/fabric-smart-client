@@ -168,10 +168,6 @@ func (w *metaWriteSet) add(ns, key string, meta map[string][]byte) error {
 		return err
 	}
 
-	if err := keys.ValidateKey(key); err != nil {
-		return err
-	}
-
 	nsMap, in := w.metawrites[ns]
 	if !in {
 		nsMap = keyedMetaWrites{}
@@ -261,10 +257,6 @@ type writeSet struct {
 
 func (w *writeSet) add(ns, key string, value []byte) error {
 	if err := keys.ValidateNs(ns); err != nil {
-		return err
-	}
-
-	if err := keys.ValidateKey(key); err != nil {
 		return err
 	}
 
