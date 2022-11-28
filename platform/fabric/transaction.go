@@ -23,7 +23,7 @@ type TransactionOptions struct {
 
 type TransactionOption func(*TransactionOptions) error
 
-func compileTransactionOptions(opts ...TransactionOption) (*TransactionOptions, error) {
+func CompileTransactionOptions(opts ...TransactionOption) (*TransactionOptions, error) {
 	txOptions := &TransactionOptions{}
 	for _, opt := range opts {
 		if err := opt(txOptions); err != nil {
@@ -344,7 +344,7 @@ func (t *TransactionManager) NewProposalResponseFromBytes(raw []byte) (*Proposal
 }
 
 func (t *TransactionManager) NewTransaction(opts ...TransactionOption) (*Transaction, error) {
-	options, err := compileTransactionOptions(opts...)
+	options, err := CompileTransactionOptions(opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -365,7 +365,7 @@ func (t *TransactionManager) NewTransaction(opts ...TransactionOption) (*Transac
 }
 
 func (t *TransactionManager) NewTransactionFromBytes(raw []byte, opts ...TransactionOption) (*Transaction, error) {
-	options, err := compileTransactionOptions(opts...)
+	options, err := CompileTransactionOptions(opts...)
 	if err != nil {
 		return nil, err
 	}

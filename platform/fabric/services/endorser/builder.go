@@ -37,12 +37,19 @@ func NewBuilderWithServiceProvider(sp view2.ServiceProvider) *Builder {
 	return &Builder{sp: sp}
 }
 
-func (t *Builder) NewTransaction() (*Transaction, error) {
-	return t.NewTransactionForChannel("")
-}
-
-func (t *Builder) NewTransactionForChannel(channel string) (*Transaction, error) {
-	return t.newTransaction(nil, "", channel, nil, nil, false)
+func (t *Builder) NewTransaction(opts ...fabric.TransactionOption) (*Transaction, error) {
+	fabricOptions, err := fabric.CompileTransactionOptions(opts...)
+	if err != nil {
+		return nil, errors.WithMessage(err, "failed to compile options")
+	}
+	return t.newTransaction(
+		fabricOptions.Creator,
+		"",
+		fabricOptions.Channel,
+		fabricOptions.Nonce,
+		nil,
+		false,
+	)
 }
 
 func (t *Builder) NewTransactionFromBytes(bytes []byte) (*Transaction, error) {
@@ -112,9 +119,9 @@ func (t *Builder) newTransaction(creator []byte, network, channel string, nonce,
 	return tx, nil
 }
 
-func NewTransaction(context view.Context) (*Builder, *Transaction, error) {
+func NewTransaction(context view.Context, opts ...fabric.TransactionOption) (*Builder, *Transaction, error) {
 	txBuilder := NewBuilder(context)
-	tx, err := txBuilder.NewTransaction()
+	tx, err := txBuilder.NewTransaction(opts...)
 	if err != nil {
 		return nil, nil, err
 	}
