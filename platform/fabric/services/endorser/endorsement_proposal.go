@@ -52,6 +52,8 @@ func (c *parallelCollectEndorsementsOnProposalView) Call(context view.Context) (
 			return nil, errors.Wrapf(a.err, "got failure [%s] from [%s]", a.party.String(), a.err)
 		}
 
+		logger.Debugf("answer from [%s] contains [%d] responses, adding them", a.party, len(a.prs))
+
 		for _, pr := range a.prs {
 			proposalResponse, err := tm.NewProposalResponseFromBytes(pr)
 			if err != nil {
@@ -114,6 +116,7 @@ func (s *endorsementsOnProposalResponderView) Call(context view.Context) (interf
 	}
 
 	for _, id := range s.identities {
+		logger.Debugf("endorse proposal response with [%s]", id)
 		err := s.tx.EndorseProposalResponseWithIdentity(id)
 		if err != nil {
 			return nil, err
@@ -124,6 +127,7 @@ func (s *endorsementsOnProposalResponderView) Call(context view.Context) (interf
 	if err != nil {
 		return nil, err
 	}
+	logger.Debugf("number of endorse proposal response produced [%d], send them back", len(prs))
 
 	session := session2.JSON(context)
 	if err != nil {
