@@ -150,7 +150,11 @@ func (c *Context) AddIdentityAlias(id string, alias string) {
 }
 
 func (c *Context) PlatformByName(name string) api.Platform {
-	return c.PlatformsByName[name]
+	p, ok := c.PlatformsByName[name]
+	if !ok {
+		logger.Errorf("cannot find platform with name [%s], platforms available [%v]", c.PlatformsByName)
+	}
+	return p
 }
 
 func (c *Context) PlatformsByType(typ string) []api.Platform {
@@ -164,7 +168,7 @@ func (c *Context) PlatformsByType(typ string) []api.Platform {
 }
 
 func (c *Context) AddPlatform(platform api.Platform) {
-	logger.Infof("add platform [%s:%s]", platform.Type(), platform.Name())
+	logger.Infof("Add platform [%s:%s]", platform.Type(), platform.Name())
 	c.PlatformsByName[platform.Name()] = platform
 }
 
