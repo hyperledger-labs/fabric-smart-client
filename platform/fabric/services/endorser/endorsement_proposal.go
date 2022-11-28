@@ -7,11 +7,10 @@ SPDX-License-Identifier: Apache-2.0
 package endorser
 
 import (
-	session2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/session"
-	"github.com/pkg/errors"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/session"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"github.com/pkg/errors"
 )
 
 type parallelCollectEndorsementsOnProposalView struct {
@@ -19,8 +18,8 @@ type parallelCollectEndorsementsOnProposalView struct {
 	parties []view.Identity
 }
 
-type response struct {
-	prs [][]byte
+type Response struct {
+	ProposalResponses [][]byte
 }
 
 type answer struct {
@@ -77,24 +76,24 @@ func (c *parallelCollectEndorsementsOnProposalView) callView(
 	raw []byte,
 	answerChan chan *answer) {
 
-	session, err := session2.NewJSON(context, context.Initiator(), party)
+	s, err := session.NewJSON(context, context.Initiator(), party)
 	if err != nil {
 		answerChan <- &answer{err: err}
 		return
 	}
 
 	// Wait to receive a Transaction back
-	err = session.SendRaw(raw)
+	err = s.SendRaw(raw)
 	if err != nil {
 		answerChan <- &answer{err: err}
 		return
 	}
-	r := &response{}
-	if err := session.Receive(r); err != nil {
+	r := &Response{}
+	if err := s.Receive(r); err != nil {
 		answerChan <- &answer{err: err}
 		return
 	}
-	answerChan <- &answer{prs: r.prs, party: party}
+	answerChan <- &answer{prs: r.ProposalResponses, party: party}
 }
 
 func NewParallelCollectEndorsementsOnProposalView(tx *Transaction, parties ...view.Identity) *parallelCollectEndorsementsOnProposalView {
@@ -129,13 +128,13 @@ func (s *endorsementsOnProposalResponderView) Call(context view.Context) (interf
 	}
 	logger.Debugf("number of endorse proposal response produced [%d], send them back", len(prs))
 
-	session := session2.JSON(context)
+	session := session.JSON(context)
 	if err != nil {
 		return nil, err
 	}
 
 	// Send the proposal responses back
-	err = session.Send(&response{prs: prs})
+	err = session.Send(&Response{ProposalResponses: prs})
 	if err != nil {
 		return nil, err
 	}
