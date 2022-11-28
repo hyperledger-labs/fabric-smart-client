@@ -226,3 +226,16 @@ func (t *Transaction) AppendVerifierProvider(vp VerifierProvider) {
 func (t *Transaction) Envelope() (*fabric.Envelope, error) {
 	return t.Transaction.Envelope()
 }
+
+func (t *Transaction) ProposalResponses() ([][]byte, error) {
+	prs := t.Transaction.ProposalResponses()
+	res := [][]byte{}
+	for _, pr := range prs {
+		prRaw, err := pr.Bytes()
+		if err != nil {
+			return nil, err
+		}
+		res = append(res, prRaw)
+	}
+	return res, nil
+}

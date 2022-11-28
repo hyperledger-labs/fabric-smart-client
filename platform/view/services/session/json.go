@@ -92,6 +92,11 @@ func (j *jsonSession) Send(state interface{}) error {
 	return j.s.Send(v)
 }
 
+func (j *jsonSession) SendRaw(raw []byte) error {
+	logger.Debugf("json session, send raw message [%s]", hash.Hashable(raw).String())
+	return j.s.Send(raw)
+}
+
 func (j *jsonSession) SendError(err string) error {
 	logger.Debugf("json session, send error [%s]", err)
 	return j.s.SendError([]byte(err))

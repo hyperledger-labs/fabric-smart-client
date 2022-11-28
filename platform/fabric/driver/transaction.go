@@ -27,6 +27,7 @@ type ProposalResponse interface {
 	Results() []byte
 	ResponseStatus() int32
 	ResponseMessage() string
+	Bytes() ([]byte, error)
 }
 
 type Proposal interface {

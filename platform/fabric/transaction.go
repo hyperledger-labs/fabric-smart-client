@@ -98,6 +98,10 @@ func (r *ProposalResponse) Results() []byte {
 	return r.pr.Results()
 }
 
+func (r *ProposalResponse) Bytes() ([]byte, error) {
+	return r.pr.Bytes()
+}
+
 type Proposal struct {
 	p driver.Proposal
 }
