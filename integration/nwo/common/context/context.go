@@ -9,9 +9,12 @@ package context
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/view"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
+
+var logger = flogging.MustGetLogger("fsc.integration")
 
 type Builder interface {
 	Build(path string) string
@@ -161,6 +164,7 @@ func (c *Context) PlatformsByType(typ string) []api.Platform {
 }
 
 func (c *Context) AddPlatform(platform api.Platform) {
+	logger.Infof("add platform [%s:%s]", platform.Type(), platform.Name())
 	c.PlatformsByName[platform.Name()] = platform
 }
 
