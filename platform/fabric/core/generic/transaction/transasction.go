@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package transaction
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
 
@@ -622,8 +623,14 @@ func (t *Transaction) generateProposal(signer SerializableSigner) error {
 }
 
 func (t *Transaction) appendProposalResponse(response *pb.ProposalResponse) error {
-	t.TProposalResponses = append(t.TProposalResponses, response)
+	for _, r := range t.TProposalResponses {
+		if bytes.Equal(r.Endorsement.Endorser, response.Endorsement.Endorser) {
+			logger.Debugf("an endorsement from [%s] found, skip it", view.Identity(r.Endorsement.Endorser))
+			return nil
+		}
+	}
 
+	t.TProposalResponses = append(t.TProposalResponses, response)
 	return nil
 }
 
