@@ -7,16 +7,13 @@ SPDX-License-Identifier: Apache-2.0
 package endorser
 
 import (
+	"time"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/session"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
 )
-
-type parallelCollectEndorsementsOnProposalView struct {
-	tx      *Transaction
-	parties []view.Identity
-}
 
 type Response struct {
 	ProposalResponses [][]byte
@@ -28,6 +25,17 @@ type answer struct {
 	party view.Identity
 }
 
+type parallelCollectEndorsementsOnProposalView struct {
+	tx      *Transaction
+	parties []view.Identity
+
+	timeout time.Duration
+}
+
+func NewParallelCollectEndorsementsOnProposalView(tx *Transaction, parties ...view.Identity) *parallelCollectEndorsementsOnProposalView {
+	return &parallelCollectEndorsementsOnProposalView{tx: tx, parties: parties}
+}
+
 func (c *parallelCollectEndorsementsOnProposalView) Call(context view.Context) (interface{}, error) {
 	// send Transaction to each party and wait for their responses
 	stateRaw, err := c.tx.Bytes()
@@ -36,7 +44,7 @@ func (c *parallelCollectEndorsementsOnProposalView) Call(context view.Context) (
 	}
 	answerChannel := make(chan *answer, len(c.parties))
 	for _, party := range c.parties {
-		go c.callView(context, party, stateRaw, answerChannel)
+		go c.collectEndorsement(context, party, stateRaw, answerChannel)
 	}
 
 	fns := fabric.GetFabricNetworkService(context, c.tx.Network())
@@ -70,7 +78,12 @@ func (c *parallelCollectEndorsementsOnProposalView) Call(context view.Context) (
 	return c.tx, nil
 }
 
-func (c *parallelCollectEndorsementsOnProposalView) callView(
+func (c *parallelCollectEndorsementsOnProposalView) WithTimeout(timeout time.Duration) *parallelCollectEndorsementsOnProposalView {
+	c.timeout = timeout
+	return c
+}
+
+func (c *parallelCollectEndorsementsOnProposalView) collectEndorsement(
 	context view.Context,
 	party view.Identity,
 	raw []byte,
@@ -89,20 +102,20 @@ func (c *parallelCollectEndorsementsOnProposalView) callView(
 		return
 	}
 	r := &Response{}
-	if err := s.Receive(r); err != nil {
+	if err := s.ReceiveWithTimeout(r, c.timeout); err != nil {
 		answerChan <- &answer{err: err}
 		return
 	}
 	answerChan <- &answer{prs: r.ProposalResponses, party: party}
 }
 
-func NewParallelCollectEndorsementsOnProposalView(tx *Transaction, parties ...view.Identity) *parallelCollectEndorsementsOnProposalView {
-	return &parallelCollectEndorsementsOnProposalView{tx: tx, parties: parties}
-}
-
 type endorsementsOnProposalResponderView struct {
 	tx         *Transaction
 	identities []view.Identity
+}
+
+func NewEndorsementOnProposalResponderView(tx *Transaction, identities ...view.Identity) *endorsementsOnProposalResponderView {
+	return &endorsementsOnProposalResponderView{tx: tx, identities: identities}
 }
 
 func (s *endorsementsOnProposalResponderView) Call(context view.Context) (interface{}, error) {
@@ -139,8 +152,4 @@ func (s *endorsementsOnProposalResponderView) Call(context view.Context) (interf
 		return nil, err
 	}
 	return s.tx, nil
-}
-
-func NewEndorsementOnProposalResponderView(tx *Transaction, identities ...view.Identity) *endorsementsOnProposalResponderView {
-	return &endorsementsOnProposalResponderView{tx: tx, identities: identities}
 }
