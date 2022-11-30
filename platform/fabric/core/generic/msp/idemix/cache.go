@@ -11,13 +11,12 @@ import (
 	"sync"
 	"time"
 
-	"go.uber.org/zap/zapcore"
-
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"go.uber.org/zap/zapcore"
 )
 
-type IdentityCacheBackendFunc func(opts *driver2.IdentityOptions) (view.Identity, []byte, error)
+type IdentityCacheBackendFunc func(opts *driver.IdentityOptions) (view.Identity, []byte, error)
 
 type identityCacheEntry struct {
 	Identity view.Identity
@@ -39,7 +38,7 @@ func NewIdentityCache(backed IdentityCacheBackendFunc, size int) *IdentityCache 
 	return ci
 }
 
-func (c *IdentityCache) Identity(opts *driver2.IdentityOptions) (view.Identity, []byte, error) {
+func (c *IdentityCache) Identity(opts *driver.IdentityOptions) (view.Identity, []byte, error) {
 	if opts != nil {
 		return c.fetchIdentityFromBackend(opts)
 	}
@@ -59,7 +58,7 @@ func (c *IdentityCache) Identity(opts *driver2.IdentityOptions) (view.Identity, 
 
 }
 
-func (c *IdentityCache) fetchIdentityFromCache(opts *driver2.IdentityOptions) (view.Identity, []byte, error) {
+func (c *IdentityCache) fetchIdentityFromCache(opts *driver.IdentityOptions) (view.Identity, []byte, error) {
 	var identity view.Identity
 	var audit []byte
 
@@ -98,7 +97,7 @@ func (c *IdentityCache) fetchIdentityFromCache(opts *driver2.IdentityOptions) (v
 	return identity, audit, nil
 }
 
-func (c *IdentityCache) fetchIdentityFromBackend(opts *driver2.IdentityOptions) (view.Identity, []byte, error) {
+func (c *IdentityCache) fetchIdentityFromBackend(opts *driver.IdentityOptions) (view.Identity, []byte, error) {
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("fetching identity from backend")
 	}
