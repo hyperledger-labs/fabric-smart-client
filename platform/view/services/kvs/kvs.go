@@ -31,6 +31,12 @@ const (
 	defaultCacheSize         = 100
 )
 
+type cache interface {
+	Get(key string) (interface{}, bool)
+	Add(key string, value interface{})
+	Delete(key string)
+}
+
 //go:generate counterfeiter -o mock/config_provider.go -fake-name ConfigProvider . ConfigProvider
 
 // ConfigProvider models the DB configuration provider
@@ -43,18 +49,18 @@ type ConfigProvider interface {
 	GetInt(key string) int
 }
 
+type Iterator interface {
+	HasNext() bool
+	Close() error
+	Next(state interface{}) (string, error)
+}
+
 type KVS struct {
 	namespace string
 	store     driver.Persistence
 
 	putMutex sync.RWMutex
 	cache    cache
-}
-
-type cache interface {
-	Get(key string) (interface{}, bool)
-	Add(key string, value interface{})
-	Delete(key string)
 }
 
 // New returns a new KVS instance for the passed namespace using the passed driver
@@ -81,22 +87,6 @@ func NewWithConfig(sp view.ServiceProvider, driverName, namespace string, cp Con
 		store:     persistence,
 		cache:     secondcache.New(cacheSize),
 	}, nil
-}
-
-// cacheSizeFromConfig returns the KVS cache size from current configuration.
-// Returns defaultCacheSize, if no configuration found.
-// Returns an error and defaultCacheSize, if the loaded value from configuration is invalid (must be >= 0).
-func cacheSizeFromConfig(cp ConfigProvider) (int, error) {
-	if !cp.IsSet(cacheSizeConfigKey) {
-		// no cache size configure, let's use default
-		return defaultCacheSize, nil
-	}
-
-	cacheSize := cp.GetInt(cacheSizeConfigKey)
-	if cacheSize < 0 {
-		return defaultCacheSize, errors.Errorf("invalid cache size configuration: expect value >= 0, actual %d", cacheSize)
-	}
-	return cacheSize, nil
 }
 
 func (o *KVS) Exists(id string) bool {
@@ -239,7 +229,7 @@ func (o *KVS) Delete(id string) error {
 	return nil
 }
 
-func (o *KVS) GetByPartialCompositeID(prefix string, attrs []string) (*iteratorConverter, error) {
+func (o *KVS) GetByPartialCompositeID(prefix string, attrs []string) (Iterator, error) {
 	partialCompositeKey, err := CreateCompositeKey(prefix, attrs)
 	if err != nil {
 		return nil, errors.Errorf("failed building composite key [%s]", err)
@@ -253,7 +243,7 @@ func (o *KVS) GetByPartialCompositeID(prefix string, attrs []string) (*iteratorC
 		return nil, errors.Errorf("store access failure for GetStateRangeScanIterator [%s], ns [%s] range [%s,%s]", err, o.namespace, startKey, endKey)
 	}
 
-	return &iteratorConverter{ri: itr}, nil
+	return &it{ri: itr}, nil
 }
 
 func (o *KVS) Stop() {
@@ -262,12 +252,12 @@ func (o *KVS) Stop() {
 	}
 }
 
-type iteratorConverter struct {
+type it struct {
 	ri   driver.ResultsIterator
 	next *driver.Read
 }
 
-func (i *iteratorConverter) HasNext() bool {
+func (i *it) HasNext() bool {
 	var err error
 	i.next, err = i.ri.Next()
 	if err != nil || i.next == nil {
@@ -276,14 +266,14 @@ func (i *iteratorConverter) HasNext() bool {
 	return true
 }
 
-func (i *iteratorConverter) Close() error {
+func (i *it) Close() error {
 	i.ri.Close()
 	return nil
 }
 
 // Next unmarshals the current state into the given state object.
 // It also returns the key of the current state.
-func (i *iteratorConverter) Next(state interface{}) (string, error) {
+func (i *it) Next(state interface{}) (string, error) {
 	return i.next.Key, json.Unmarshal(i.next.Raw, state)
 }
 
@@ -304,4 +294,20 @@ func GetDriverNameFromConf(sp view.ServiceProvider) string {
 		driverName = "memory"
 	}
 	return driverName
+}
+
+// cacheSizeFromConfig returns the KVS cache size from current configuration.
+// Returns defaultCacheSize, if no configuration found.
+// Returns an error and defaultCacheSize, if the loaded value from configuration is invalid (must be >= 0).
+func cacheSizeFromConfig(cp ConfigProvider) (int, error) {
+	if !cp.IsSet(cacheSizeConfigKey) {
+		// no cache size configure, let's use default
+		return defaultCacheSize, nil
+	}
+
+	cacheSize := cp.GetInt(cacheSizeConfigKey)
+	if cacheSize < 0 {
+		return defaultCacheSize, errors.Errorf("invalid cache size configuration: expect value >= 0, actual %d", cacheSize)
+	}
+	return cacheSize, nil
 }
