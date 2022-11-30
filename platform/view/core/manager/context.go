@@ -11,13 +11,12 @@ import (
 	"runtime/debug"
 	"sync"
 
-	"github.com/pkg/errors"
-	"go.uber.org/zap/zapcore"
-
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/registry"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"github.com/pkg/errors"
+	"go.uber.org/zap/zapcore"
 )
 
 type ctx struct {
@@ -37,8 +36,11 @@ type ctx struct {
 	errorCallbackFuncs []func()
 }
 
-func NewContextForInitiator(context context.Context, sp driver.ServiceProvider, sessionFactory SessionFactory, resolver driver.EndpointService, party view.Identity, initiator view.View) (*ctx, error) {
-	ctx, err := NewContext(context, sp, GenerateUUID(), sessionFactory, resolver, party, nil, nil)
+func NewContextForInitiator(contextID string, context context.Context, sp driver.ServiceProvider, sessionFactory SessionFactory, resolver driver.EndpointService, party view.Identity, initiator view.View) (*ctx, error) {
+	if len(contextID) == 0 {
+		contextID = GenerateUUID()
+	}
+	ctx, err := NewContext(context, sp, contextID, sessionFactory, resolver, party, nil, nil)
 	if err != nil {
 		return nil, err
 	}

@@ -27,6 +27,7 @@ type ProposalResponse interface {
 	Results() []byte
 	ResponseStatus() int32
 	ResponseMessage() string
+	Bytes() ([]byte, error)
 }
 
 type Proposal interface {
@@ -114,6 +115,7 @@ type Transaction interface {
 	ProposalResponses() []ProposalResponse
 	ProposalResponse() ([]byte, error)
 	BytesNoTransient() ([]byte, error)
+	Envelope() (Envelope, error)
 }
 
 type SignedProposal interface {

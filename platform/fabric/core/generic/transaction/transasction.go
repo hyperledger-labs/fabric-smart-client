@@ -7,8 +7,11 @@ SPDX-License-Identifier: Apache-2.0
 package transaction
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/fabricutils"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
@@ -561,6 +564,24 @@ func (t *Transaction) ProposalResponse() ([]byte, error) {
 	return raw, nil
 }
 
+func (t *Transaction) Envelope() (driver.Envelope, error) {
+	signerID := t.Creator()
+	signer, err := t.fns.SignerService().GetSigner(signerID)
+	if err != nil {
+		logger.Errorf("signer not found for %s while creating tx envelope for ordering [%s]", signerID.UniqueID(), err)
+		return nil, errors.Wrapf(err, "signer not found for %s while creating tx envelope for ordering", signerID.UniqueID())
+	}
+	env, err := fabricutils.CreateSignedTx(
+		t.Proposal(),
+		&signerWrapper{signerID, signer},
+		t.ProposalResponses()...,
+	)
+	if err != nil {
+		return nil, errors.WithMessage(err, "could not assemble transaction")
+	}
+	return NewEnvelopeFromEnv(env)
+}
+
 func (t *Transaction) generateProposal(signer SerializableSigner) error {
 	logger.Debugf("generate proposal...")
 	// Build the spec
@@ -602,8 +623,14 @@ func (t *Transaction) generateProposal(signer SerializableSigner) error {
 }
 
 func (t *Transaction) appendProposalResponse(response *pb.ProposalResponse) error {
-	t.TProposalResponses = append(t.TProposalResponses, response)
+	for _, r := range t.TProposalResponses {
+		if bytes.Equal(r.Endorsement.Endorser, response.Endorsement.Endorser) {
+			logger.Debugf("an endorsement from [%s] found, skip it", view.Identity(r.Endorsement.Endorser))
+			return nil
+		}
+	}
 
+	t.TProposalResponses = append(t.TProposalResponses, response)
 	return nil
 }
 
@@ -638,6 +665,14 @@ func (t *Transaction) getProposalResponse(signer SerializableSigner) (*pb.Propos
 		}
 	}
 
+	// Note, mPrpBytes is the same as prpBytes by default endorsement plugin, but others could change it.
+	// serialize the signing identity
+	// sign the concatenation of the proposal response and the serialized endorser identity with this endorser's key
+	creator, err := signer.Serialize()
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not get the signer's identity")
+	}
+
 	prpBytes, err := protoutil.GetBytesProposalResponsePayload(
 		signedProposal.ProposalHash(),
 		response,
@@ -648,20 +683,14 @@ func (t *Transaction) getProposalResponse(signer SerializableSigner) (*pb.Propos
 			Version: version,
 		},
 	)
-	logger.Debugf("ProposalResponse [%s][%s]->[%s] \n",
+	logger.Debugf("ProposalResponse [%s][%s]->\n[%s]\n[%s] \n",
 		base64.StdEncoding.EncodeToString(signedProposal.ProposalHash()),
 		base64.StdEncoding.EncodeToString(pubSimResBytes),
 		base64.StdEncoding.EncodeToString(prpBytes),
+		base64.StdEncoding.EncodeToString(creator),
 	)
 	if err != nil {
 		return nil, errors.WithMessage(err, "failed to create the proposal response")
-	}
-	// Note, mPrpBytes is the same as prpBytes by default endorsement plugin, but others could change it.
-	// serialize the signing identity
-	// sign the concatenation of the proposal response and the serialized endorser identity with this endorser's key
-	creator, err := signer.Serialize()
-	if err != nil {
-		return nil, errors.Wrapf(err, "could not get the signer's identity")
 	}
 
 	signature, err := signer.Sign(append(prpBytes, creator...))

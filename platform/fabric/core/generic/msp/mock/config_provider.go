@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/driver"
 )
 
 type ConfigProvider struct {
@@ -768,4 +768,4 @@ func (fake *ConfigProvider) recordInvocation(key string, args []interface{}) {
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ msp.ConfigProvider = new(ConfigProvider)
+var _ driver.ConfigProvider = new(ConfigProvider)

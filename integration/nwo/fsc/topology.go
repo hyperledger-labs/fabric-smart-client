@@ -6,7 +6,10 @@ SPDX-License-Identifier: Apache-2.0
 
 package fsc
 
-import "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
+import (
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/api"
+)
 
 const (
 	TopologyName = "fsc"
@@ -121,6 +124,12 @@ func (t *Topology) EnableLogToFile() {
 
 func (t *Topology) EnablePrometheusMetrics() {
 	t.MetricsProvider = "prometheus"
+}
+
+func (t *Topology) AddSDK(sdk api.SDK) {
+	for _, n := range t.Nodes {
+		n.AddSDK(sdk)
+	}
 }
 
 func (t *Topology) addNode(node *node.Node) *node.Node {

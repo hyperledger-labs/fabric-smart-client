@@ -23,7 +23,7 @@ type TransactionOptions struct {
 
 type TransactionOption func(*TransactionOptions) error
 
-func compileTransactionOptions(opts ...TransactionOption) (*TransactionOptions, error) {
+func CompileTransactionOptions(opts ...TransactionOption) (*TransactionOptions, error) {
 	txOptions := &TransactionOptions{}
 	for _, opt := range opts {
 		if err := opt(txOptions); err != nil {
@@ -96,6 +96,10 @@ func (r *ProposalResponse) EndorserSignature() []byte {
 
 func (r *ProposalResponse) Results() []byte {
 	return r.pr.Results()
+}
+
+func (r *ProposalResponse) Bytes() ([]byte, error) {
+	return r.pr.Bytes()
 }
 
 type Proposal struct {
@@ -315,6 +319,14 @@ func (t *Transaction) FabricNetworkService() *NetworkService {
 	return t.fns
 }
 
+func (t *Transaction) Envelope() (*Envelope, error) {
+	env, err := t.tx.Envelope()
+	if err != nil {
+		return nil, err
+	}
+	return &Envelope{e: env}, nil
+}
+
 type TransactionManager struct {
 	fns *NetworkService
 }
@@ -332,7 +344,7 @@ func (t *TransactionManager) NewProposalResponseFromBytes(raw []byte) (*Proposal
 }
 
 func (t *TransactionManager) NewTransaction(opts ...TransactionOption) (*Transaction, error) {
-	options, err := compileTransactionOptions(opts...)
+	options, err := CompileTransactionOptions(opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -353,7 +365,7 @@ func (t *TransactionManager) NewTransaction(opts ...TransactionOption) (*Transac
 }
 
 func (t *TransactionManager) NewTransactionFromBytes(raw []byte, opts ...TransactionOption) (*Transaction, error) {
-	options, err := compileTransactionOptions(opts...)
+	options, err := CompileTransactionOptions(opts...)
 	if err != nil {
 		return nil, err
 	}

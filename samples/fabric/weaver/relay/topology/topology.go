@@ -11,6 +11,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/weaver"
+	fabric2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk"
 	"github.com/hyperledger-labs/fabric-smart-client/samples/fabric/weaver/relay/views"
 )
 
@@ -58,6 +59,9 @@ func Topology() []api.Topology {
 	bob.RegisterViewFactory("put", &views.LocalPutViewFactory{})
 	bob.RegisterViewFactory("get", &views.LocalGetViewFactory{})
 	bob.RegisterViewFactory("remoteGet", &views.RemoteGetViewFactory{})
+
+	// Add Fabric SDK to FSC Nodes
+	fscTopology.AddSDK(&fabric2.SDK{})
 
 	return []api.Topology{f1Topology, f2Topology, wTopology, fscTopology}
 }

@@ -11,6 +11,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
+	fabric2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk"
 )
 
 func Topology() []api.Topology {
@@ -63,6 +64,9 @@ func Topology() []api.Topology {
 	lender.RegisterResponder(&views.CreateIOUResponderView{}, &views.CreateIOUView{})
 	lender.RegisterResponder(&views.UpdateIOUResponderView{}, &views.UpdateIOUView{})
 	lender.RegisterViewFactory("query", &views.QueryViewFactory{})
+
+	// Add Fabric SDK to FSC Nodes
+	fscTopology.AddSDK(&fabric2.SDK{})
 
 	return []api.Topology{fabricTopology, fscTopology}
 }

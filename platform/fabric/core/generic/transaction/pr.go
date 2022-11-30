@@ -75,3 +75,11 @@ func (p *ProposalResponse) ResponseStatus() int32 {
 func (p *ProposalResponse) ResponseMessage() string {
 	return p.pr.Response.Message
 }
+
+func (p *ProposalResponse) Bytes() ([]byte, error) {
+	raw, err := proto.Marshal(p.pr)
+	if err != nil {
+		return nil, err
+	}
+	return raw, nil
+}

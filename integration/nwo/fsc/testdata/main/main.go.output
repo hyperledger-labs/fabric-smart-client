@@ -8,7 +8,6 @@ package main
 
 import (
 	fscnode "github.com/hyperledger-labs/fabric-smart-client/node"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk"
 
 	viewregistry "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	fsc "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
@@ -19,7 +18,6 @@ import (
 
 func main() {
 	n := fscnode.New()
-	n.InstallSDK(fabric.NewSDK(n))
 	n.InstallSDK(fsc.NewDummySDK(n))
 	
 	n.Execute(func() error {

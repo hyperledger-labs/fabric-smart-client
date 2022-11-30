@@ -177,7 +177,7 @@ func (cm *manager) InitiateViewWithIdentity(view view.View, id view.Identity) (i
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	viewContext, err := NewContextForInitiator(ctx, cm.sp, GetCommLayer(cm.sp), driver.GetEndpointService(cm.sp), id, view)
+	viewContext, err := NewContextForInitiator("", ctx, cm.sp, GetCommLayer(cm.sp), driver.GetEndpointService(cm.sp), id, view)
 	if err != nil {
 		return nil, err
 	}
@@ -207,6 +207,10 @@ func (cm *manager) InitiateContext(view view.View) (view.Context, error) {
 }
 
 func (cm *manager) InitiateContextWithIdentity(view view.View, id view.Identity) (view.Context, error) {
+	return cm.InitiateContextWithIdentityAndID(view, id, "")
+}
+
+func (cm *manager) InitiateContextWithIdentityAndID(view view.View, id view.Identity, contextID string) (view.Context, error) {
 	// Create the context
 	cm.contextsSync.Lock()
 	ctx := cm.ctx
@@ -214,7 +218,10 @@ func (cm *manager) InitiateContextWithIdentity(view view.View, id view.Identity)
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	viewContext, err := NewContextForInitiator(ctx, cm.sp, GetCommLayer(cm.sp), driver.GetEndpointService(cm.sp), id, view)
+	if id.IsNone() {
+		id = cm.me()
+	}
+	viewContext, err := NewContextForInitiator(contextID, ctx, cm.sp, GetCommLayer(cm.sp), driver.GetEndpointService(cm.sp), id, view)
 	if err != nil {
 		return nil, err
 	}

@@ -67,6 +67,8 @@ type p struct {
 
 	context          context.Context
 	operationsSystem *operations.System
+
+	commService *comm2.Service
 }
 
 func NewSDK(confPath string, registry Registry) *p {
@@ -149,6 +151,8 @@ func (p *p) Install() error {
 	}
 
 	finality.InstallHandler(p.registry, p.viewService)
+
+	p.initCommLayer()
 
 	return nil
 }
@@ -234,7 +238,7 @@ func (p *p) initGRPCServer() error {
 	return nil
 }
 
-func (p *p) startCommLayer() error {
+func (p *p) initCommLayer() {
 	configProvider := view.GetConfigService(p.registry)
 
 	k, err := identity.NewCryptoPrivKeyFromMSP(configProvider.GetPath("fsc.identity.key.file"))
@@ -248,7 +252,11 @@ func (p *p) startCommLayer() error {
 	)
 	assert.NoError(err, "failed instantiating the communication service")
 	assert.NoError(p.registry.RegisterService(commService), "failed registering communication service")
-	commService.Start(p.context)
+	p.commService = commService
+}
+
+func (p *p) startCommLayer() error {
+	p.commService.Start(p.context)
 
 	return nil
 }

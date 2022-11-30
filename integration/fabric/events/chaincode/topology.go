@@ -11,6 +11,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
+	fabric2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk"
 )
 
 func Topology() []api.Topology {
@@ -49,6 +50,10 @@ func Topology() []api.Topology {
 	bob.AddOptions(fabric.WithOrganization("Org2"), fabric.WithClientRole())
 	// Register the factories of the initiator views for each business process
 	bob.RegisterViewFactory("EventsView", &views.EventsViewFactory{})
+
+	// Add Fabric SDK to FSC Nodes
+	fscTopology.AddSDK(&fabric2.SDK{})
+
 	// Done
 	return []api.Topology{fabricTopology, fscTopology}
 }

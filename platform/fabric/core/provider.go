@@ -12,12 +12,7 @@ import (
 	"reflect"
 	"sync"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/endpoint"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/finality"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/id"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/views"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
@@ -157,63 +152,17 @@ func (p *FSNProvider) InitFabricLogging() {
 }
 
 func (p *FSNProvider) newFNS(network string) (driver.FabricNetworkService, error) {
-	logger.Debugf("creating new fabric network service for network [%s]", network)
-	// bridge services
-	c, err := config.New(view.GetConfigService(p.sp), network, network == p.config.defaultName)
-	if err != nil {
-		return nil, err
+	for _, d := range drivers {
+		nw, err := d.New(p.sp, network, network == p.config.defaultName)
+		if err != nil {
+			logger.Warningf("failed to create network [%s]: %s", network, err)
+			continue
+		}
+		if nw != nil {
+			return nw, nil
+		}
 	}
-	sigService := generic.NewSigService(p.sp)
-
-	// Endpoint service
-	resolverService, err := endpoint.NewResolverService(
-		c,
-		view.GetEndpointService(p.sp),
-	)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed instantiating fabric endpoint resolver")
-	}
-	if err := resolverService.LoadResolvers(); err != nil {
-		return nil, errors.Wrap(err, "failed loading fabric endpoint resolvers")
-	}
-	endpointService, err := generic.NewEndpointResolver(resolverService, view.GetEndpointService(p.sp))
-	if err != nil {
-		return nil, errors.Wrap(err, "failed loading endpoint service")
-	}
-
-	// Local MSP Manager
-	mspService := msp.NewLocalMSPManager(
-		p.sp,
-		c,
-		sigService,
-		view.GetEndpointService(p.sp),
-		view.GetIdentityProvider(p.sp).DefaultIdentity(),
-		c.MSPCacheSize(),
-	)
-	if err := mspService.Load(); err != nil {
-		return nil, errors.Wrap(err, "failed loading local msp service")
-	}
-
-	// Identity Manager
-	idProvider, err := id.NewProvider(endpointService)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed creating id provider")
-	}
-
-	// New Network
-	net, err := generic.NewNetwork(
-		p.sp,
-		network,
-		c,
-		idProvider,
-		mspService,
-		sigService,
-	)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed instantiating fabric service provider")
-	}
-
-	return net, nil
+	return nil, errors.Errorf("no network driver found for [%s]", network)
 }
 
 func GetFabricNetworkServiceProvider(sp view.ServiceProvider) driver.FabricNetworkServiceProvider {
