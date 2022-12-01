@@ -60,8 +60,8 @@ func NewInvoke(chaincode *Chaincode, function string, args ...interface{}) *Invo
 		ChaincodeName:   chaincode.name,
 		Function:        function,
 		Args:            args,
-		NumRetries:      3,
-		RetrySleep:      1 * time.Second,
+		NumRetries:      int(chaincode.NumRetries),
+		RetrySleep:      chaincode.RetrySleep,
 	}
 }
 

@@ -304,6 +304,8 @@ fabric:
         # whether this is the default channel or not
         # TBD: What is the meaning of a default channel ?
         default: true
+        numRetries: 3
+        retrySleep: 1s
         chaincodes:
             # chaincode id
           - name: mychaincode

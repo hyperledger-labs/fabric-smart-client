@@ -8,6 +8,7 @@ package chaincode
 
 import (
 	"sync"
+	"time"
 
 	"github.com/ReneKroon/ttlcache/v2"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
@@ -15,10 +16,12 @@ import (
 )
 
 type Chaincode struct {
-	name    string
-	sp      view.ServiceProvider
-	network Network
-	channel Channel
+	name       string
+	sp         view.ServiceProvider
+	network    Network
+	channel    Channel
+	NumRetries uint
+	RetrySleep time.Duration
 
 	discoveryResultsCacheLock sync.RWMutex
 	discoveryResultsCache     ttlcache.SimpleCache
@@ -26,11 +29,14 @@ type Chaincode struct {
 
 func NewChaincode(name string, sp view.ServiceProvider, network Network, channel Channel) *Chaincode {
 	return &Chaincode{
-		name:                  name,
-		sp:                    sp,
-		network:               network,
-		channel:               channel,
-		discoveryResultsCache: ttlcache.NewCache(),
+		name:                      name,
+		sp:                        sp,
+		network:                   network,
+		channel:                   channel,
+		NumRetries:                channel.Config().NumRetries,
+		RetrySleep:                channel.Config().RetrySleep,
+		discoveryResultsCacheLock: sync.RWMutex{},
+		discoveryResultsCache:     ttlcache.NewCache(),
 	}
 }
 

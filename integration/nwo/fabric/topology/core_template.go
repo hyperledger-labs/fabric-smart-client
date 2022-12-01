@@ -298,6 +298,8 @@ fabric:
     channels: {{ range .Channels }}
       - name: {{ .Name }}
         default: {{ .Default }}
+        numRetries: 3
+        retrySleep: 1s
         chaincodes: {{range Chaincodes .Name }}
           - name: {{ .Chaincode.Name }}
             private: {{ .Private }}
