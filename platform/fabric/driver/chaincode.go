@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package driver
 
 import (
+	"time"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -41,6 +43,12 @@ type ChaincodeInvocation interface {
 	// WithDiscoveredEndorsersByEndpoints sets the endpoints to be used to filter the result of
 	// discovery. Discovery is used to identify the chaincode's endorsers, if not set otherwise.
 	WithDiscoveredEndorsersByEndpoints(endpoints ...string) ChaincodeInvocation
+
+	WithMatchEndorsementPolicy() ChaincodeInvocation
+
+	WithNumRetries(numRetries uint) ChaincodeInvocation
+
+	WithRetrySleep(duration time.Duration) ChaincodeInvocation
 }
 
 // DiscoveredPeer contains the information of a discovered peer

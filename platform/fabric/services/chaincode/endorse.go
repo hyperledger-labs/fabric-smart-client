@@ -7,36 +7,21 @@ SPDX-License-Identifier: Apache-2.0
 package chaincode
 
 import (
-	"github.com/pkg/errors"
+	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/fpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"github.com/pkg/errors"
 )
 
-type EndorseCall struct {
-	SignerIdentity     view.Identity
-	Network            string
-	Channel            string
-	ChaincodePath      string
-	ChaincodeName      string
-	ChaincodeVersion   string
-	TransientMap       map[string]interface{}
-	Endorsers          []view.Identity
-	EndorsersMSPIDs    []string
-	EndorsersFromMyOrg bool
-	Function           string
-	Args               []interface{}
-	TxID               fabric.TxID
-}
-
 type endorseChaincodeView struct {
-	*EndorseCall
+	*InvokeCall
 }
 
 func NewEndorseView(chaincode, function string, args ...interface{}) *endorseChaincodeView {
 	return &endorseChaincodeView{
-		EndorseCall: &EndorseCall{
+		InvokeCall: &InvokeCall{
 			ChaincodeName: chaincode,
 			Function:      function,
 			Args:          args,
@@ -61,8 +46,8 @@ func (i *endorseChaincodeView) Endorse(context view.Context) (*fabric.Envelope, 
 	if err != nil {
 		return nil, errors.WithMessagef(err, "failed getting channel [%s:%s]", i.Network, i.Channel)
 	}
-	if i.SignerIdentity.IsNone() {
-		i.SignerIdentity = fNetwork.IdentityProvider().DefaultIdentity()
+	if i.InvokerIdentity.IsNone() {
+		i.InvokerIdentity = fNetwork.IdentityProvider().DefaultIdentity()
 	}
 
 	var chaincode Chaincode
@@ -81,7 +66,7 @@ func (i *endorseChaincodeView) Endorse(context view.Context) (*fabric.Envelope, 
 		i.Function,
 		i.Args...,
 	).WithInvokerIdentity(
-		i.SignerIdentity,
+		i.InvokerIdentity,
 	).WithTxID(
 		i.TxID,
 	)
@@ -93,6 +78,12 @@ func (i *endorseChaincodeView) Endorse(context view.Context) (*fabric.Envelope, 
 	}
 	if i.EndorsersFromMyOrg {
 		invocation.WithEndorsersFromMyOrg()
+	}
+	if i.SetNumRetries {
+		invocation.WithNumRetries(i.NumRetries)
+	}
+	if i.SetRetrySleep {
+		invocation.WithRetrySleep(i.RetrySleep)
 	}
 
 	envelope, err := invocation.Call()
@@ -111,17 +102,17 @@ func (i *endorseChaincodeView) WithTransientEntry(k string, v interface{}) *endo
 }
 
 func (i *endorseChaincodeView) WithNetwork(name string) *endorseChaincodeView {
-	i.EndorseCall.Network = name
+	i.InvokeCall.Network = name
 	return i
 }
 
 func (i *endorseChaincodeView) WithChannel(name string) *endorseChaincodeView {
-	i.EndorseCall.Channel = name
+	i.InvokeCall.Channel = name
 	return i
 }
 
 func (i *endorseChaincodeView) WithEndorsersByMSPIDs(mspIDs ...string) *endorseChaincodeView {
-	i.EndorseCall.EndorsersMSPIDs = mspIDs
+	i.InvokeCall.EndorsersMSPIDs = mspIDs
 	return i
 }
 
@@ -131,11 +122,23 @@ func (i *endorseChaincodeView) WithEndorsersFromMyOrg() *endorseChaincodeView {
 }
 
 func (i *endorseChaincodeView) WithSignerIdentity(id view.Identity) *endorseChaincodeView {
-	i.SignerIdentity = id
+	i.InvokeCall.InvokerIdentity = id
 	return i
 }
 
 func (i *endorseChaincodeView) WithTxID(id fabric.TxID) *endorseChaincodeView {
 	i.TxID = id
+	return i
+}
+
+func (i *endorseChaincodeView) WithNumRetries(numRetries uint) *endorseChaincodeView {
+	i.SetNumRetries = true
+	i.NumRetries = numRetries
+	return i
+}
+
+func (i *endorseChaincodeView) WithRetrySleep(duration time.Duration) *endorseChaincodeView {
+	i.SetRetrySleep = true
+	i.RetrySleep = duration
 	return i
 }

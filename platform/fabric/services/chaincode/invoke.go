@@ -7,22 +7,31 @@ SPDX-License-Identifier: Apache-2.0
 package chaincode
 
 import (
+	"time"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/fpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 type InvokeCall struct {
-	InvokerIdentity    view.Identity
-	Network            string
-	Channel            string
-	ChaincodePath      string
-	ChaincodeName      string
-	ChaincodeVersion   string
-	TransientMap       map[string]interface{}
-	EndorsersMSPIDs    []string
-	EndorsersFromMyOrg bool
-	Function           string
-	Args               []interface{}
+	InvokerIdentity        view.Identity
+	Network                string
+	Channel                string
+	ChaincodePath          string
+	ChaincodeName          string
+	ChaincodeVersion       string
+	TransientMap           map[string]interface{}
+	EndorsersMSPIDs        []string
+	EndorsersFromMyOrg     bool
+	Function               string
+	Args                   []interface{}
+	MatchEndorsementPolicy bool
+	SetNumRetries          bool
+	NumRetries             uint
+	SetRetrySleep          bool
+	RetrySleep             time.Duration
+	TxID                   fabric.TxID
 }
 
 type invokeChaincodeView struct {
@@ -82,6 +91,12 @@ func (i *invokeChaincodeView) Invoke(context view.Context) (string, []byte, erro
 	if i.EndorsersFromMyOrg {
 		invocation.WithEndorsersFromMyOrg()
 	}
+	if i.SetNumRetries {
+		invocation.WithNumRetries(i.NumRetries)
+	}
+	if i.SetRetrySleep {
+		invocation.WithRetrySleep(i.RetrySleep)
+	}
 
 	txid, result, err := invocation.Submit()
 	if err != nil {
@@ -120,5 +135,17 @@ func (i *invokeChaincodeView) WithEndorsersFromMyOrg() *invokeChaincodeView {
 
 func (i *invokeChaincodeView) WithSignerIdentity(id view.Identity) *invokeChaincodeView {
 	i.InvokerIdentity = id
+	return i
+}
+
+func (i *invokeChaincodeView) WithNumRetries(numRetries uint) *invokeChaincodeView {
+	i.SetNumRetries = true
+	i.NumRetries = numRetries
+	return i
+}
+
+func (i *invokeChaincodeView) WithRetrySleep(duration time.Duration) *invokeChaincodeView {
+	i.SetRetrySleep = true
+	i.RetrySleep = duration
 	return i
 }

@@ -80,3 +80,6 @@ func (i *ChaincodeQuery) toString(arg interface{}) (string, error) {
 		return "", errors.Errorf("arg type [%T] not recognized.", v)
 	}
 }
+
+func (i *ChaincodeQuery) WithMatchEndorsementPolicy() {
+}
