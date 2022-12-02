@@ -571,11 +571,7 @@ func (t *Transaction) Envelope() (driver.Envelope, error) {
 		logger.Errorf("signer not found for %s while creating tx envelope for ordering [%s]", signerID.UniqueID(), err)
 		return nil, errors.Wrapf(err, "signer not found for %s while creating tx envelope for ordering", signerID.UniqueID())
 	}
-	env, err := fabricutils.CreateSignedTx(
-		t.Proposal(),
-		&signerWrapper{signerID, signer},
-		t.ProposalResponses()...,
-	)
+	env, err := fabricutils.CreateEndorserSignedTX(&signerWrapper{signerID, signer}, t.Proposal(), t.ProposalResponses()...)
 	if err != nil {
 		return nil, errors.WithMessage(err, "could not assemble transaction")
 	}

@@ -28,41 +28,50 @@ type SerializableSigner interface {
 	Serialize() ([]byte, error)
 }
 
-// CreateSignedTx assembles an Envelope message from proposal, endorsements,
+// CreateEndorserSignedTX assembles an Envelope message from proposal, endorsements,
 // and a signer. This function should be called by a client when it has
 // collected enough endorsements for a proposal to create a transaction and
 // submit it to peers for ordering
-func CreateSignedTx(proposal driver.Proposal, signer SerializableSigner, resps ...driver.ProposalResponse) (*common.Envelope, error) {
+func CreateEndorserSignedTX(signer SerializableSigner, proposal driver.Proposal, resps ...driver.ProposalResponse) (*common.Envelope, error) {
+	hdr, data, err := CreateEndorserTX(signer, proposal, resps...)
+	if err != nil {
+		return nil, err
+	}
+	return CreateEnvelope(signer, hdr, data)
+}
+
+// CreateEndorserTX creates header and payload for an endorser transaction
+func CreateEndorserTX(signer SerializableSigner, proposal driver.Proposal, resps ...driver.ProposalResponse) (*common.Header, []byte, error) {
 	if len(resps) == 0 {
-		return nil, errors.New("at least one proposal response is required")
+		return nil, nil, errors.New("at least one proposal response is required")
 	}
 
 	// the original header
 	hdr, err := protoutil.UnmarshalHeader(proposal.Header())
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// the original payload
 	pPayl, err := protoutil.UnmarshalChaincodeProposalPayload(proposal.Payload())
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// check that the signer is the same that is referenced in the header
 	// TODO: maybe worth removing?
 	signerBytes, err := signer.Serialize()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	shdr, err := protoutil.UnmarshalSignatureHeader(hdr.SignatureHeader)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if !bytes.Equal(signerBytes, shdr.Creator) {
-		return nil, errors.New("signer must be the same as the one referenced in the header")
+		return nil, nil, errors.New("signer must be the same as the one referenced in the header")
 	}
 
 	// ensure that all actions are bitwise equal and that they are successful
@@ -70,7 +79,7 @@ func CreateSignedTx(proposal driver.Proposal, signer SerializableSigner, resps .
 	var first driver.ProposalResponse
 	for n, r := range resps {
 		if r.ResponseStatus() < 200 || r.ResponseStatus() >= 400 {
-			return nil, errors.Errorf("proposal response was not successful, error code %d, msg %s", r.ResponseStatus(), r.ResponseMessage())
+			return nil, nil, errors.Errorf("proposal response was not successful, error code %d, msg %s", r.ResponseStatus(), r.ResponseMessage())
 		}
 
 		if n == 0 {
@@ -82,20 +91,20 @@ func CreateSignedTx(proposal driver.Proposal, signer SerializableSigner, resps .
 		if !bytes.Equal(a1, r.Payload()) {
 			upr1, err := UnpackProposalResponse(first.Payload())
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 			rwset1, err := json.MarshalIndent(upr1.TxRwSet, "", "  ")
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 
 			upr2, err := UnpackProposalResponse(r.Payload())
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 			rwset2, err := json.MarshalIndent(upr2.TxRwSet, "", "  ")
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 
 			if !bytes.Equal(rwset1, rwset2) {
@@ -107,11 +116,11 @@ func CreateSignedTx(proposal driver.Proposal, signer SerializableSigner, resps .
 			} else {
 				pr1, err := json.MarshalIndent(first, "", "  ")
 				if err != nil {
-					return nil, err
+					return nil, nil, err
 				}
 				pr2, err := json.MarshalIndent(r, "", "  ")
 				if err != nil {
-					return nil, err
+					return nil, nil, err
 				}
 
 				if logger.IsEnabledFor(zapcore.DebugLevel) {
@@ -121,7 +130,7 @@ func CreateSignedTx(proposal driver.Proposal, signer SerializableSigner, resps .
 				}
 			}
 
-			return nil, errors.Errorf(
+			return nil, nil, errors.Errorf(
 				"ProposalResponsePayloads do not match [%s]!=[%s]",
 				base64.StdEncoding.EncodeToString(a1),
 				base64.StdEncoding.EncodeToString(r.Payload()),
@@ -144,14 +153,14 @@ func CreateSignedTx(proposal driver.Proposal, signer SerializableSigner, resps .
 	// obtain the bytes of the proposal payload that will go to the transaction
 	propPayloadBytes, err := protoutil.GetBytesProposalPayloadForTx(pPayl)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// serialize the chaincode action payload
 	cap := &peer.ChaincodeActionPayload{ChaincodeProposalPayload: propPayloadBytes, Action: cea}
 	capBytes, err := protoutil.GetBytesChaincodeActionPayload(cap)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// create a transaction
@@ -163,11 +172,16 @@ func CreateSignedTx(proposal driver.Proposal, signer SerializableSigner, resps .
 	// serialize the tx
 	txBytes, err := protoutil.GetBytesTransaction(tx)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
+	return hdr, txBytes, nil
+}
+
+// CreateEnvelope creates a signed envelope from the passed header and data
+func CreateEnvelope(signer SerializableSigner, hdr *common.Header, data []byte) (*common.Envelope, error) {
 	// create the payload
-	payl := &common.Payload{Header: hdr, Data: txBytes}
+	payl := &common.Payload{Header: hdr, Data: data}
 	paylBytes, err := protoutil.GetBytesPayload(payl)
 	if err != nil {
 		return nil, err

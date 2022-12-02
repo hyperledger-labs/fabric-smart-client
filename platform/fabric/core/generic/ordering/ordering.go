@@ -124,11 +124,7 @@ func (o *service) createFabricEndorseTransactionEnvelope(tx Transaction) (*commo
 		logger.Errorf("signer not found for %s while creating tx envelope for ordering [%s]", signerID.UniqueID(), err)
 		return nil, errors.Wrapf(err, "signer not found for %s while creating tx envelope for ordering", signerID.UniqueID())
 	}
-	env, err := fabricutils.CreateSignedTx(
-		tx.Proposal(),
-		&signerWrapper{signerID, signer},
-		tx.ProposalResponses()...,
-	)
+	env, err := fabricutils.CreateEndorserSignedTX(&signerWrapper{signerID, signer}, tx.Proposal(), tx.ProposalResponses()...)
 	if err != nil {
 		return nil, errors.WithMessage(err, "could not assemble transaction")
 	}
