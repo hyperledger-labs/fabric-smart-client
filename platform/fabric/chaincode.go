@@ -164,11 +164,13 @@ func (i *ChaincodeInvocation) WithInvokerIdentity(id view.Identity) *ChaincodeIn
 	return i
 }
 
+// WithNumRetries sets the number of times the chaincode operation should be retried before returning a failure
 func (i *ChaincodeInvocation) WithNumRetries(numRetries uint) *ChaincodeInvocation {
 	i.ChaincodeInvocation.WithNumRetries(numRetries)
 	return i
 }
 
+// WithRetrySleep sets the time internal between each retry
 func (i *ChaincodeInvocation) WithRetrySleep(duration time.Duration) *ChaincodeInvocation {
 	i.ChaincodeInvocation.WithRetrySleep(duration)
 	return i
@@ -217,16 +219,20 @@ func (i *ChaincodeQuery) WithTxID(id TxID) *ChaincodeQuery {
 	return i
 }
 
+// WithMatchEndorsementPolicy enforces that the query is perfomed against a set of peers that satisfy the
+// endorsement policy of the chaincode
 func (i *ChaincodeQuery) WithMatchEndorsementPolicy() *ChaincodeQuery {
 	i.ChaincodeInvocation.WithMatchEndorsementPolicy()
 	return i
 }
 
+// WithNumRetries sets the number of times the chaincode operation should be retried before returning a failure
 func (i *ChaincodeQuery) WithNumRetries(numRetries uint) *ChaincodeQuery {
 	i.ChaincodeInvocation.WithNumRetries(numRetries)
 	return i
 }
 
+// WithRetrySleep sets the time internal between each retry
 func (i *ChaincodeQuery) WithRetrySleep(duration time.Duration) *ChaincodeQuery {
 	i.ChaincodeInvocation.WithRetrySleep(duration)
 	return i
@@ -277,11 +283,13 @@ func (i *ChaincodeEndorse) WithImplicitCollections(mspIDs ...string) *ChaincodeE
 	return i
 }
 
+// WithNumRetries sets the number of times the chaincode operation should be retried before returning a failure
 func (i *ChaincodeEndorse) WithNumRetries(numRetries uint) *ChaincodeEndorse {
 	i.ChaincodeInvocation.WithNumRetries(numRetries)
 	return i
 }
 
+// WithRetrySleep sets the time internal between each retry
 func (i *ChaincodeEndorse) WithRetrySleep(duration time.Duration) *ChaincodeEndorse {
 	i.ChaincodeInvocation.WithRetrySleep(duration)
 	return i

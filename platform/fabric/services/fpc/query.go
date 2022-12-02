@@ -9,9 +9,8 @@ package fpc
 import (
 	"strconv"
 
-	"github.com/pkg/errors"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"github.com/pkg/errors"
 )
 
 // ChaincodeQuery models the query of an FPC

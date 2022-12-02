@@ -44,10 +44,14 @@ type ChaincodeInvocation interface {
 	// discovery. Discovery is used to identify the chaincode's endorsers, if not set otherwise.
 	WithDiscoveredEndorsersByEndpoints(endpoints ...string) ChaincodeInvocation
 
+	// WithMatchEndorsementPolicy enforces that the query is perfomed against a set of peers that satisfy the
+	// endorsement policy of the chaincode
 	WithMatchEndorsementPolicy() ChaincodeInvocation
 
+	// WithNumRetries sets the number of times the chaincode operation should be retried before returning a failure
 	WithNumRetries(numRetries uint) ChaincodeInvocation
 
+	// WithRetrySleep sets the time internal between each retry
 	WithRetrySleep(duration time.Duration) ChaincodeInvocation
 }
 

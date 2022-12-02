@@ -8,6 +8,7 @@ package views
 
 import (
 	"encoding/json"
+	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/chaincode"
@@ -100,7 +101,7 @@ func (e *EchoView) Call(context view.Context) (interface{}, error) {
 		fpc.StringsToArgs(e.Args)...,
 	).WithSignerIdentity(
 		fabric.GetDefaultFNS(context).LocalMembership().AnonymousIdentity(),
-	).Endorse(context)
+	).WithNumRetries(4).WithRetrySleep(2 * time.Second).Endorse(context)
 	assert.NoError(err, "failed endorsing echo")
 	assert.Equal(e.Function, string(res))
 	assert.NoError(fabric.GetDefaultFNS(context).Ordering().Broadcast(envelope))

@@ -304,8 +304,8 @@ fabric:
         # whether this is the default channel or not
         # TBD: What is the meaning of a default channel ?
         default: true
-        numRetries: 3
-        retrySleep: 1s
+        numRetries: 3 # number of retries on a chaincode operation failure
+        retrySleep: 1s # waiting time before retry again a failed chaincode operation
         chaincodes:
             # chaincode id
           - name: mychaincode
