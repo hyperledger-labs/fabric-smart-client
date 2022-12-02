@@ -36,6 +36,10 @@ var (
 	}
 )
 
+// Callback is the callback function prototype to alert the rest of the stack about the availability of a new block.
+// The function returns two argument a boolean to signal if delivery should be stopped, and an error
+// to signal an issue during the processing of the block.
+// In case of an error, the same block is re-processed after a delay.
 type Callback func(block *common.Block) (bool, error)
 
 // Vault models a key-value store that can be updated by committing rwsets
@@ -64,7 +68,7 @@ type Delivery struct {
 
 func New(channel string, sp view2.ServiceProvider, network Network, callback Callback, vault Vault, waitForEventTimeout time.Duration) (*Delivery, error) {
 	if len(channel) == 0 {
-		panic("expected a channel, got empty string")
+		return nil, errors.Errorf("expected a channel, got empty string")
 	}
 	d := &Delivery{
 		channel:             channel,
@@ -143,17 +147,9 @@ func (d *Delivery) Run(ctx context.Context) error {
 
 				stop, err := d.callback(r.Block)
 				if err != nil {
-					switch errors.Cause(err) {
-					case ErrComm:
-						logger.Errorf("error occurred when processing filtered block [%s], retry", err)
-						// retry
-						time.Sleep(10 * time.Second)
-						df = nil
-					default:
-						// Stop here
-						logger.Errorf("error occurred when processing filtered block [%s]", err)
-						return err
-					}
+					logger.Errorf("error occurred when processing filtered block [%s], retry...", err)
+					time.Sleep(10 * time.Second)
+					df = nil
 				}
 				if stop {
 					return nil

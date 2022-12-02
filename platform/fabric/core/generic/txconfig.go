@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package generic
 
 import (
-	"fmt"
 	"strconv"
 	"sync"
 	"time"
@@ -45,16 +44,15 @@ func (c *channel) ReloadConfigTransactions() error {
 	logger.Infof("looking up the latest config block available")
 	var sequence uint64 = 1
 	for {
-		txid := committer.ConfigTXPrefix + strconv.FormatUint(sequence, 10)
-		vc, err := c.vault.Status(txid)
+		txID := committer.ConfigTXPrefix + strconv.FormatUint(sequence, 10)
+		vc, err := c.vault.Status(txID)
 		if err != nil {
-			panic(fmt.Sprintf("failed getting tx's status [%s], with err [%s]", txid, err))
+			return errors.WithMessagef(err, "failed getting tx's status [%s]", txID)
 		}
 		done := false
 		switch vc {
 		case driver.Valid:
-			txid := committer.ConfigTXPrefix + strconv.FormatUint(sequence, 10)
-			logger.Infof("config block available, txid [%s], loading...", txid)
+			logger.Infof("config block available, txID [%s], loading...", txID)
 
 			key, err := rwset.CreateCompositeKey(channelConfigKey, []string{strconv.FormatUint(sequence, 10)})
 			if err != nil {
@@ -66,17 +64,15 @@ func (c *channel) ReloadConfigTransactions() error {
 			}
 			env, err := protoutil.UnmarshalEnvelope(envelope)
 			if err != nil {
-				logger.Panicf("cannot get payload from config transaction [%s]: [%s]", txid, err)
+				return errors.Wrapf(err, "cannot get payload from config transaction [%s]", txID)
 			}
 			payload, err := protoutil.UnmarshalPayload(env.Payload)
 			if err != nil {
-				logger.Panicf("cannot get payload from config transaction [%s]: [%s]", txid, err)
+				return errors.Wrapf(err, "cannot get payload from config transaction [%s]", txID)
 			}
 			ctx, err := configtx.UnmarshalConfigEnvelope(payload.Data)
 			if err != nil {
-				err = errors.WithMessage(err, "error unmarshalling config which passed initial validity checks")
-				logger.Criticalf("%+v", err)
-				return err
+				return errors.Wrapf(err, "error unmarshalling config which passed initial validity checks [%s]", txID)
 			}
 
 			var bundle *channelconfig.Bundle
@@ -84,22 +80,24 @@ func (c *channel) ReloadConfigTransactions() error {
 				// setup the genesis block
 				bundle, err = channelconfig.NewBundle(c.name, ctx.Config, factory.GetDefault())
 				if err != nil {
-					return err
+					return errors.Wrapf(err, "failed to build a new bundle")
 				}
 			} else {
 				configTxValidator := c.Resources().ConfigtxValidator()
 				err := configTxValidator.Validate(ctx)
 				if err != nil {
-					return err
+					return errors.Wrapf(err, "failed to validate config transaction [%s]", txID)
 				}
 
 				bundle, err = channelconfig.NewBundle(configTxValidator.ChannelID(), ctx.Config, factory.GetDefault())
 				if err != nil {
-					return err
+					return errors.Wrapf(err, "failed to create next bundle")
 				}
 
 				channelconfig.LogSanityChecks(bundle)
-				capabilitiesSupportedOrPanic(bundle)
+				if err := capabilitiesSupported(bundle); err != nil {
+					return err
+				}
 			}
 
 			c.applyBundle(bundle)
@@ -109,7 +107,7 @@ func (c *channel) ReloadConfigTransactions() error {
 		case driver.Unknown:
 			done = true
 		default:
-			panic(fmt.Sprintf("invalid configtx's [%s] status [%d]", txid, vc))
+			return errors.Errorf("invalid configtx's [%s] status [%d]", txID, vc)
 		}
 		if done {
 			break
@@ -141,20 +139,18 @@ func (c *channel) CommitConfig(blockNumber uint64, raw []byte, env *common.Envel
 
 	payload, err := protoutil.UnmarshalPayload(env.Payload)
 	if err != nil {
-		logger.Panicf("Cannot get payload from config transaction [%s]: [%s]", blockNumber, err)
+		return errors.Wrapf(err, "cannot get payload from config transaction, block number [%d]", blockNumber)
 	}
 
 	ctx, err := configtx.UnmarshalConfigEnvelope(payload.Data)
 	if err != nil {
-		err = errors.WithMessage(err, "error unmarshalling config which passed initial validity checks")
-		logger.Criticalf("%+v", err)
-		return err
+		return errors.Wrapf(err, "error unmarshalling config which passed initial validity checks")
 	}
 
 	txid := committer.ConfigTXPrefix + strconv.FormatUint(ctx.Config.Sequence, 10)
 	vc, err := c.vault.Status(txid)
 	if err != nil {
-		panic(fmt.Sprintf("failed getting tx's status [%s], with err [%s]", txid, err))
+		return errors.Wrapf(err, "failed getting tx's status [%s]", txid)
 	}
 	switch vc {
 	case driver.Valid:
@@ -162,7 +158,7 @@ func (c *channel) CommitConfig(blockNumber uint64, raw []byte, env *common.Envel
 	case driver.Unknown:
 		// this is okay
 	default:
-		panic(fmt.Sprintf("invalid configtx's [%s] status [%d]", txid, vc))
+		return errors.Errorf("invalid configtx's [%s] status [%d]", txid, vc)
 	}
 
 	var bundle *channelconfig.Bundle
@@ -170,22 +166,24 @@ func (c *channel) CommitConfig(blockNumber uint64, raw []byte, env *common.Envel
 		// setup the genesis block
 		bundle, err = channelconfig.NewBundle(c.name, ctx.Config, factory.GetDefault())
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "failed to build a new bundle")
 		}
 	} else {
 		configTxValidator := c.Resources().ConfigtxValidator()
 		err := configTxValidator.Validate(ctx)
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "failed to validate config transaction, block number [%d]", blockNumber)
 		}
 
 		bundle, err = channelconfig.NewBundle(configTxValidator.ChannelID(), ctx.Config, factory.GetDefault())
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "failed to create next bundle")
 		}
 
 		channelconfig.LogSanityChecks(bundle)
-		capabilitiesSupportedOrPanic(bundle)
+		if err := capabilitiesSupported(bundle); err != nil {
+			return err
+		}
 	}
 
 	if err := c.commitConfig(txid, blockNumber, ctx.Config.Sequence, raw); err != nil {
@@ -267,17 +265,19 @@ func (c *channel) applyBundle(bundle *channelconfig.Bundle) {
 	}
 }
 
-func capabilitiesSupportedOrPanic(res channelconfig.Resources) {
+func capabilitiesSupported(res channelconfig.Resources) error {
 	ac, ok := res.ApplicationConfig()
 	if !ok {
-		logger.Panicf("[channel %s] does not have application config so is incompatible", res.ConfigtxValidator().ChannelID())
+		return errors.Errorf("[channel %s] does not have application config so is incompatible", res.ConfigtxValidator().ChannelID())
 	}
 
 	if err := ac.Capabilities().Supported(); err != nil {
-		logger.Panicf("[channel %s] incompatible: %s", res.ConfigtxValidator().ChannelID(), err)
+		return errors.Wrapf(err, "[channel %s] incompatible", res.ConfigtxValidator().ChannelID())
 	}
 
 	if err := res.ChannelConfig().Capabilities().Supported(); err != nil {
-		logger.Panicf("[channel %s] incompatible: %s", res.ConfigtxValidator().ChannelID(), err)
+		return errors.Wrapf(err, "[channel %s] incompatible", res.ConfigtxValidator().ChannelID())
 	}
+
+	return nil
 }

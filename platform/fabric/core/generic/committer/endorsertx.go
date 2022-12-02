@@ -17,7 +17,7 @@ import (
 
 type ValidationFlags []uint8
 
-func (c *committer) handleEndorserTransaction(block *common.Block, i int, event *TxEvent, env *common.Envelope, chHdr *common.ChannelHeader) {
+func (c *Committer) handleEndorserTransaction(block *common.Block, i int, event *TxEvent, env *common.Envelope, chHdr *common.ChannelHeader) error {
 	txID := chHdr.TxId
 	event.Txid = txID
 
@@ -25,38 +25,39 @@ func (c *committer) handleEndorserTransaction(block *common.Block, i int, event 
 	switch validationCode {
 	case pb.TxValidationCode_VALID:
 		if err := c.CommitEndorserTransaction(txID, block, i, env, event); err != nil {
-			logger.Panicf("failed committing transaction [%s] with err [%s]", txID, err)
+			return errors.Wrapf(err, "failed committing transaction [%s]", txID)
 		}
-		c.getChaincodeEvents(env, block)
+		if err := c.getChaincodeEvents(env, block); err != nil {
+			return errors.Wrapf(err, "failed to publish chaincode events [%s]", txID)
+		}
 	default:
 		if err := c.DiscardEndorserTransaction(txID, block, event, validationCode); err != nil {
-			logger.Panicf("failed discarding transaction [%s] with err [%s]", txID, err)
+			return errors.Wrapf(err, "failed discarding transaction [%s]", txID)
 		}
 	}
+	return nil
 }
 
 // getChaincodeEvents reads the chaincode events and notifies the listeners registered to the specific chaincode.
-func (c *committer) getChaincodeEvents(env *common.Envelope, block *common.Block) {
+func (c *Committer) getChaincodeEvents(env *common.Envelope, block *common.Block) error {
 	chaincodeEvent, err := readChaincodeEvent(env, block.Header.Number)
 	if err != nil {
-		logger.Panicf("error reading chaincode event", err)
+		return errors.Wrapf(err, "error reading chaincode event")
 	}
 	if chaincodeEvent != nil {
 		if logger.IsEnabledFor(zapcore.DebugLevel) {
 			logger.Debugf("Chaincode Event Received: ", chaincodeEvent)
 		}
-		err := c.notifyChaincodeListeners(chaincodeEvent)
-		if err != nil {
-			logger.Panicf("error sending chaincode events to listeners")
-		}
+		c.notifyChaincodeListeners(chaincodeEvent)
 	}
+	return nil
 }
 
 // CommitEndorserTransaction commits the transaction to the vault
-func (c *committer) CommitEndorserTransaction(txID string, block *common.Block, indexInBlock int, env *common.Envelope, event *TxEvent) error {
+func (c *Committer) CommitEndorserTransaction(txID string, block *common.Block, indexInBlock int, env *common.Envelope, event *TxEvent) error {
 	committer, err := c.network.Committer(c.channel)
 	if err != nil {
-		logger.Panicf("Cannot get Committer [%s]", err)
+		return errors.Wrapf(err, "cannot get Committer for channel [%s]", c.channel)
 	}
 
 	blockNum := block.Header.Number
@@ -70,7 +71,7 @@ func (c *committer) CommitEndorserTransaction(txID string, block *common.Block, 
 
 	vc, deps, err := committer.Status(txID)
 	if err != nil {
-		logger.Panicf("failed getting tx's status [%s], with err [%s]", txID, err)
+		return errors.Wrapf(err, "failed getting tx's status [%s]", txID)
 	}
 	event.DependantTxIDs = append(event.DependantTxIDs, deps...)
 
@@ -88,23 +89,23 @@ func (c *committer) CommitEndorserTransaction(txID string, block *common.Block, 
 	default:
 		if block != nil {
 			if err := committer.CommitTX(event.Txid, event.Block, event.IndexInBlock, env); err != nil {
-				logger.Panicf("failed committing transaction [%s] with deps [%v] with err [%s]", txID, deps, err)
+				return errors.Wrapf(err, "failed committing transaction [%s] with deps [%v]", txID, deps)
 			}
 			return nil
 		}
 
 		if err := committer.CommitTX(event.Txid, event.Block, event.IndexInBlock, nil); err != nil {
-			logger.Panicf("failed committing transaction [%s] with deps [%v] with err [%s]", txID, deps, err)
+			return errors.Wrapf(err, "failed committing transaction [%s] with deps [%v]", txID, deps)
 		}
 	}
 	return nil
 }
 
 // DiscardEndorserTransaction discards the transaction from the vault
-func (c *committer) DiscardEndorserTransaction(txID string, block *common.Block, event *TxEvent, validationCode pb.TxValidationCode) error {
+func (c *Committer) DiscardEndorserTransaction(txID string, block *common.Block, event *TxEvent, validationCode pb.TxValidationCode) error {
 	committer, err := c.network.Committer(c.channel)
 	if err != nil {
-		logger.Panicf("Cannot get Committer [%s]", err)
+		return errors.Wrapf(err, "cannot get Committer for channel [%s]", c.channel)
 	}
 
 	blockNum := block.Header.Number
@@ -114,7 +115,7 @@ func (c *committer) DiscardEndorserTransaction(txID string, block *common.Block,
 
 	vc, deps, err := committer.Status(txID)
 	if err != nil {
-		logger.Panicf("failed getting tx's status [%s], with err [%s]", txID, err)
+		return errors.Wrapf(err, "failed getting tx's status [%s]", txID)
 	}
 	event.DependantTxIDs = append(event.DependantTxIDs, deps...)
 	switch vc {
@@ -133,5 +134,6 @@ func (c *committer) DiscardEndorserTransaction(txID string, block *common.Block,
 			logger.Errorf("failed discarding tx in state db with err [%s]", err)
 		}
 	}
+
 	return nil
 }
