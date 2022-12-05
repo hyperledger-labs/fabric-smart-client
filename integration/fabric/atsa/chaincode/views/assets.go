@@ -8,6 +8,7 @@ package views
 
 import (
 	"encoding/json"
+	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/chaincode"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
@@ -33,7 +34,7 @@ func (c *CreateAssetView) Call(context view.Context) (interface{}, error) {
 			"CreateAsset",
 			c.AssetProperties.ID,
 			c.PublicDescription,
-		).WithTransientEntry("asset_properties", apRaw).WithEndorsersFromMyOrg(),
+		).WithTransientEntry("asset_properties", apRaw).WithEndorsersFromMyOrg().WithNumRetries(2).WithRetrySleep(2 * time.Second),
 	)
 	assert.NoError(err, "failed creating asset")
 
@@ -58,7 +59,10 @@ type ReadAssetView struct {
 }
 
 func (r *ReadAssetView) Call(context view.Context) (interface{}, error) {
-	res, err := context.RunView(chaincode.NewQueryView("asset_transfer", "ReadAsset", r.ID).WithEndorsersFromMyOrg())
+	res, err := context.RunView(
+		chaincode.NewQueryView(
+			"asset_transfer", "ReadAsset", r.ID,
+		).WithEndorsersFromMyOrg().WithNumRetries(2).WithRetrySleep(2 * time.Second).WithMatchEndorsementPolicy())
 	assert.NoError(err, "failed reading asset")
 	return res, nil
 }

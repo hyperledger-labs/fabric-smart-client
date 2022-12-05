@@ -48,6 +48,8 @@ const (
 	GetBlockByNumber   string = "GetBlockByNumber"
 	GetTransactionByID string = "GetTransactionByID"
 	GetBlockByTxID     string = "GetBlockByTxID"
+	DefaultNumRetries         = 3
+	DefaultRetrySleep         = 1 * time.Second
 )
 
 type Delivery interface {
@@ -57,6 +59,7 @@ type Delivery interface {
 
 type channel struct {
 	sp                 view2.ServiceProvider
+	channelConfig      *config2.Channel
 	config             *config2.Config
 	network            *network
 	name               string
@@ -148,9 +151,32 @@ func newChannel(network *network, name string, quiet bool) (*channel, error) {
 		return nil, errors.Wrap(err, "failed to get event subscriber")
 	}
 
+	// channel configuration
+	channelConfigs, err := network.config.Channels()
+	if err != nil {
+		return nil, errors.WithMessagef(err, "failed to get channel config")
+	}
+	var channelConfig *config2.Channel
+	for _, config := range channelConfigs {
+		if config.Name == name {
+			channelConfig = config
+			break
+		}
+	}
+	if channelConfig != nil {
+		channelConfig = &config2.Channel{
+			Name:       name,
+			Default:    false,
+			Quiet:      false,
+			NumRetries: DefaultNumRetries,
+			RetrySleep: DefaultRetrySleep,
+			Chaincodes: nil,
+		}
+	}
 	c := &channel{
 		name:               name,
 		config:             network.config,
+		channelConfig:      channelConfig,
 		network:            network,
 		vault:              v,
 		sp:                 sp,
@@ -278,6 +304,10 @@ func (c *channel) GetBlockNumberByTxID(txID string) (uint64, error) {
 func (c *channel) Close() error {
 	c.deliveryService.Stop()
 	return c.vault.Close()
+}
+
+func (c *channel) Config() *config2.Channel {
+	return c.channelConfig
 }
 
 func (c *channel) DefaultSigner() discovery.Signer {

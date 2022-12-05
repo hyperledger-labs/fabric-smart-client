@@ -7,11 +7,13 @@ SPDX-License-Identifier: Apache-2.0
 package chaincode
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	peer2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
@@ -44,6 +46,9 @@ type Invoke struct {
 	DiscoveredEndorsersByEndpoints []string
 	Function                       string
 	Args                           []interface{}
+	MatchEndorsementPolicy         bool
+	NumRetries                     int
+	RetrySleep                     time.Duration
 }
 
 func NewInvoke(chaincode *Chaincode, function string, args ...interface{}) *Invoke {
@@ -55,10 +60,27 @@ func NewInvoke(chaincode *Chaincode, function string, args ...interface{}) *Invo
 		ChaincodeName:   chaincode.name,
 		Function:        function,
 		Args:            args,
+		NumRetries:      int(chaincode.NumRetries),
+		RetrySleep:      chaincode.RetrySleep,
 	}
 }
 
 func (i *Invoke) Endorse() (driver.Envelope, error) {
+	for j := 0; j < i.NumRetries; j++ {
+		res, err := i.endorse()
+		if err != nil {
+			if j+1 >= i.NumRetries {
+				return nil, err
+			}
+			time.Sleep(i.RetrySleep)
+			continue
+		}
+		return res, nil
+	}
+	return nil, errors.Errorf("failed to perform endorse")
+}
+
+func (i *Invoke) endorse() (driver.Envelope, error) {
 	_, prop, responses, signer, err := i.prepare(false)
 	if err != nil {
 		return nil, err
@@ -79,21 +101,74 @@ func (i *Invoke) Endorse() (driver.Envelope, error) {
 }
 
 func (i *Invoke) Query() ([]byte, error) {
-	_, _, responses, _, err := i.prepare(true)
+	for j := 0; j < i.NumRetries; j++ {
+		res, err := i.query()
+		if err != nil {
+			if j+1 >= i.NumRetries {
+				return nil, err
+			}
+			time.Sleep(i.RetrySleep)
+			continue
+		}
+		return res, nil
+	}
+	return nil, errors.Errorf("failed to perform query")
+}
+
+func (i *Invoke) query() ([]byte, error) {
+	_, _, responses, _, err := i.prepare(!i.MatchEndorsementPolicy)
 	if err != nil {
 		return nil, err
 	}
-	proposalResp := responses[0]
-	if proposalResp == nil {
+
+	// check all responses match
+	resp := responses[0]
+	if resp == nil {
 		return nil, errors.New("error during query: received nil proposal response")
 	}
-	if proposalResp.Endorsement == nil {
-		return nil, errors.Errorf("endorsement failure during query. response: %v", proposalResp.Response)
+	if resp.Endorsement == nil {
+		return nil, errors.Errorf("endorsement failure during query. endorsement is nil: [%v]", resp.Response)
 	}
-	return proposalResp.Response.Payload, nil
+	if resp.Response == nil {
+		return nil, errors.Errorf("endorsement failure during query. response is nil: [%v]", resp.Endorsement)
+	}
+	for i := 1; i < len(responses); i++ {
+		if responses[i].Endorsement == nil {
+			return nil, errors.Errorf("endorsement failure during query. endorsement is nil: [%v]", resp.Response)
+		}
+		if responses[i].Response == nil {
+			return nil, errors.Errorf("endorsement failure during query. response is nil: [%v]", resp.Endorsement)
+		}
+		if !bytes.Equal(responses[i].Response.Payload, resp.Response.Payload) {
+			return nil, errors.Errorf("endorsement failure during query. response payload does not match")
+		}
+		if responses[i].Response.Status != resp.Response.Status {
+			return nil, errors.Errorf("endorsement failure during query. response status does not match")
+		}
+		if responses[i].Response.Message != resp.Response.Message {
+			return nil, errors.Errorf("endorsement failure during query. response message does not match")
+		}
+	}
+
+	return resp.Response.Payload, nil
 }
 
 func (i *Invoke) Submit() (string, []byte, error) {
+	for j := 0; j < i.NumRetries; j++ {
+		txID, res, err := i.submit()
+		if err != nil {
+			if j+1 >= i.NumRetries {
+				return "", nil, err
+			}
+			time.Sleep(i.RetrySleep)
+			continue
+		}
+		return txID, res, nil
+	}
+	return "", nil, errors.Errorf("failed to perform submit")
+}
+
+func (i *Invoke) submit() (string, []byte, error) {
 	txID, prop, responses, signer, err := i.prepare(false)
 	if err != nil {
 		return "", nil, err
@@ -148,6 +223,11 @@ func (i *Invoke) WithDiscoveredEndorsersByEndpoints(endpoints ...string) driver.
 	return i
 }
 
+func (i *Invoke) WithMatchEndorsementPolicy() driver.ChaincodeInvocation {
+	i.MatchEndorsementPolicy = true
+	return i
+}
+
 func (i *Invoke) WithSignerIdentity(id view.Identity) driver.ChaincodeInvocation {
 	i.SignerIdentity = id
 	return i
@@ -165,6 +245,16 @@ func (i *Invoke) WithImplicitCollections(mspIDs ...string) driver.ChaincodeInvoc
 
 func (i *Invoke) WithTxID(id driver.TxID) driver.ChaincodeInvocation {
 	i.TxID = id
+	return i
+}
+
+func (i *Invoke) WithNumRetries(numRetries uint) driver.ChaincodeInvocation {
+	i.NumRetries = int(numRetries)
+	return i
+}
+
+func (i *Invoke) WithRetrySleep(duration time.Duration) driver.ChaincodeInvocation {
+	i.RetrySleep = duration
 	return i
 }
 

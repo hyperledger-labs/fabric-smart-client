@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package chaincode
 
 import (
+	"time"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/fpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -19,6 +21,8 @@ type Endorse interface {
 	WithEndorsersFromMyOrg()
 	WithTxID(txID fabric.TxID) Endorse
 	Call() (*fabric.Envelope, error)
+	WithNumRetries(retries uint)
+	WithRetrySleep(sleep time.Duration)
 }
 
 type Query interface {
@@ -26,7 +30,10 @@ type Query interface {
 	WithTransientEntry(k string, v interface{})
 	WithEndorsersByMSPIDs(ds ...string)
 	WithEndorsersFromMyOrg()
+	WithMatchEndorsementPolicy()
 	Call() ([]byte, error)
+	WithNumRetries(retries uint)
+	WithRetrySleep(sleep time.Duration)
 }
 
 type Chaincode interface {
@@ -65,6 +72,14 @@ func (s *stdEndorse) WithEndorsersFromMyOrg() {
 	s.che.WithEndorsersFromMyOrg()
 }
 
+func (s *stdEndorse) WithNumRetries(numRetries uint) {
+	s.che.WithNumRetries(numRetries)
+}
+
+func (s *stdEndorse) WithRetrySleep(duration time.Duration) {
+	s.che.WithRetrySleep(duration)
+}
+
 type stdQuery struct {
 	chq *fabric.ChaincodeQuery
 }
@@ -88,6 +103,18 @@ func (s *stdQuery) WithEndorsersByMSPIDs(ds ...string) {
 
 func (s *stdQuery) WithEndorsersFromMyOrg() {
 	s.chq.WithEndorsersFromMyOrg()
+}
+
+func (s *stdQuery) WithMatchEndorsementPolicy() {
+	s.chq.WithMatchEndorsementPolicy()
+}
+
+func (s *stdQuery) WithNumRetries(numRetries uint) {
+	s.chq.WithNumRetries(numRetries)
+}
+
+func (s *stdQuery) WithRetrySleep(duration time.Duration) {
+	s.chq.WithRetrySleep(duration)
 }
 
 type stdChaincode struct {
@@ -136,6 +163,12 @@ func (s *fpcEndorse) WithEndorsersFromMyOrg() {
 	s.che.WithEndorsersFromMyOrg()
 }
 
+func (s *fpcEndorse) WithNumRetries(numRetries uint) {
+}
+
+func (s *fpcEndorse) WithRetrySleep(duration time.Duration) {
+}
+
 type fpcQuery struct {
 	chq *fpc.ChaincodeQuery
 }
@@ -159,6 +192,16 @@ func (s *fpcQuery) WithEndorsersByMSPIDs(ds ...string) {
 
 func (s *fpcQuery) WithEndorsersFromMyOrg() {
 	s.chq.WithEndorsersFromMyOrg()
+}
+
+func (s *fpcQuery) WithMatchEndorsementPolicy() {
+	s.chq.WithMatchEndorsementPolicy()
+}
+
+func (s *fpcQuery) WithNumRetries(numRetries uint) {
+}
+
+func (s *fpcQuery) WithRetrySleep(duration time.Duration) {
 }
 
 type fpcChaincode struct {

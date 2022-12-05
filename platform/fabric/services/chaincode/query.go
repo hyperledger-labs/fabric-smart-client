@@ -7,11 +7,12 @@ SPDX-License-Identifier: Apache-2.0
 package chaincode
 
 import (
-	"github.com/pkg/errors"
+	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/fpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"github.com/pkg/errors"
 )
 
 type queryChaincodeView struct {
@@ -71,6 +72,15 @@ func (i *queryChaincodeView) Query(context view.Context) ([]byte, error) {
 	if i.EndorsersFromMyOrg {
 		invocation.WithEndorsersFromMyOrg()
 	}
+	if i.MatchEndorsementPolicy {
+		invocation.WithMatchEndorsementPolicy()
+	}
+	if i.SetNumRetries {
+		invocation.WithNumRetries(i.NumRetries)
+	}
+	if i.SetRetrySleep {
+		invocation.WithRetrySleep(i.RetrySleep)
+	}
 
 	return invocation.Call()
 }
@@ -93,6 +103,11 @@ func (i *queryChaincodeView) WithChannel(name string) *queryChaincodeView {
 	return i
 }
 
+func (i *queryChaincodeView) WithMatchEndorsementPolicy() *queryChaincodeView {
+	i.InvokeCall.MatchEndorsementPolicy = true
+	return i
+}
+
 func (i *queryChaincodeView) WithEndorsersByMSPIDs(mspIDs ...string) *queryChaincodeView {
 	i.InvokeCall.EndorsersMSPIDs = mspIDs
 	return i
@@ -105,5 +120,17 @@ func (i *queryChaincodeView) WithEndorsersFromMyOrg() *queryChaincodeView {
 
 func (i *queryChaincodeView) WithSignerIdentity(id view.Identity) *queryChaincodeView {
 	i.InvokerIdentity = id
+	return i
+}
+
+func (i *queryChaincodeView) WithNumRetries(numRetries uint) *queryChaincodeView {
+	i.SetNumRetries = true
+	i.NumRetries = numRetries
+	return i
+}
+
+func (i *queryChaincodeView) WithRetrySleep(duration time.Duration) *queryChaincodeView {
+	i.SetRetrySleep = true
+	i.RetrySleep = duration
 	return i
 }

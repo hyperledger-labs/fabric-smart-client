@@ -44,6 +44,9 @@ type Channel interface {
 	// Name returns the name of the channel
 	Name() string
 
+	// Config returns the channel configuration
+	Config() *config.Channel
+
 	// NewPeerClientForAddress creates an instance of a Client using the
 	// provided peer connection config
 	NewPeerClientForAddress(cc grpc.ConnectionConfig) (peer.Client, error)

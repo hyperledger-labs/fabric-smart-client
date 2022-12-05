@@ -8,6 +8,7 @@ package fabric
 
 import (
 	"encoding/json"
+	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -82,7 +83,7 @@ func (c *Chaincode) Query(function string, args ...interface{}) *ChaincodeQuery 
 }
 
 func (c *Chaincode) Endorse(function string, args ...interface{}) *ChaincodeEndorse {
-	ci := &ChaincodeEndorse{ci: c.chaincode.NewInvocation(function, args...)}
+	ci := &ChaincodeEndorse{ChaincodeInvocation: c.chaincode.NewInvocation(function, args...)}
 	ci.WithInvokerIdentity(c.fns.LocalMembership().DefaultIdentity())
 	return ci
 }
@@ -163,6 +164,18 @@ func (i *ChaincodeInvocation) WithInvokerIdentity(id view.Identity) *ChaincodeIn
 	return i
 }
 
+// WithNumRetries sets the number of times the chaincode operation should be retried before returning a failure
+func (i *ChaincodeInvocation) WithNumRetries(numRetries uint) *ChaincodeInvocation {
+	i.ChaincodeInvocation.WithNumRetries(numRetries)
+	return i
+}
+
+// WithRetrySleep sets the time interval between each retry
+func (i *ChaincodeInvocation) WithRetrySleep(duration time.Duration) *ChaincodeInvocation {
+	i.ChaincodeInvocation.WithRetrySleep(duration)
+	return i
+}
+
 type ChaincodeQuery struct {
 	driver.ChaincodeInvocation
 }
@@ -206,12 +219,31 @@ func (i *ChaincodeQuery) WithTxID(id TxID) *ChaincodeQuery {
 	return i
 }
 
+// WithMatchEndorsementPolicy enforces that the query is perfomed against a set of peers that satisfy the
+// endorsement policy of the chaincode
+func (i *ChaincodeQuery) WithMatchEndorsementPolicy() *ChaincodeQuery {
+	i.ChaincodeInvocation.WithMatchEndorsementPolicy()
+	return i
+}
+
+// WithNumRetries sets the number of times the chaincode operation should be retried before returning a failure
+func (i *ChaincodeQuery) WithNumRetries(numRetries uint) *ChaincodeQuery {
+	i.ChaincodeInvocation.WithNumRetries(numRetries)
+	return i
+}
+
+// WithRetrySleep sets the time interval between each retry
+func (i *ChaincodeQuery) WithRetrySleep(duration time.Duration) *ChaincodeQuery {
+	i.ChaincodeInvocation.WithRetrySleep(duration)
+	return i
+}
+
 type ChaincodeEndorse struct {
-	ci driver.ChaincodeInvocation
+	ChaincodeInvocation driver.ChaincodeInvocation
 }
 
 func (i *ChaincodeEndorse) Call() (*Envelope, error) {
-	env, err := i.ci.Endorse()
+	env, err := i.ChaincodeInvocation.Endorse()
 	if err != nil {
 		return nil, err
 	}
@@ -219,27 +251,27 @@ func (i *ChaincodeEndorse) Call() (*Envelope, error) {
 }
 
 func (i *ChaincodeEndorse) WithTransientEntry(k string, v interface{}) *ChaincodeEndorse {
-	i.ci.WithTransientEntry(k, v)
+	i.ChaincodeInvocation.WithTransientEntry(k, v)
 	return i
 }
 
 func (i *ChaincodeEndorse) WithEndorsersByMSPIDs(mspIDs ...string) *ChaincodeEndorse {
-	i.ci.WithEndorsersByMSPIDs(mspIDs...)
+	i.ChaincodeInvocation.WithEndorsersByMSPIDs(mspIDs...)
 	return i
 }
 
 func (i *ChaincodeEndorse) WithEndorsersFromMyOrg() *ChaincodeEndorse {
-	i.ci.WithEndorsersFromMyOrg()
+	i.ChaincodeInvocation.WithEndorsersFromMyOrg()
 	return i
 }
 
 func (i *ChaincodeEndorse) WithInvokerIdentity(id view.Identity) *ChaincodeEndorse {
-	i.ci.WithSignerIdentity(id)
+	i.ChaincodeInvocation.WithSignerIdentity(id)
 	return i
 }
 
 func (i *ChaincodeEndorse) WithTxID(id TxID) *ChaincodeEndorse {
-	i.ci.WithTxID(driver.TxID{
+	i.ChaincodeInvocation.WithTxID(driver.TxID{
 		Nonce:   id.Nonce,
 		Creator: id.Creator,
 	})
@@ -247,6 +279,18 @@ func (i *ChaincodeEndorse) WithTxID(id TxID) *ChaincodeEndorse {
 }
 
 func (i *ChaincodeEndorse) WithImplicitCollections(mspIDs ...string) *ChaincodeEndorse {
-	i.ci.WithImplicitCollections(mspIDs...)
+	i.ChaincodeInvocation.WithImplicitCollections(mspIDs...)
+	return i
+}
+
+// WithNumRetries sets the number of times the chaincode operation should be retried before returning a failure
+func (i *ChaincodeEndorse) WithNumRetries(numRetries uint) *ChaincodeEndorse {
+	i.ChaincodeInvocation.WithNumRetries(numRetries)
+	return i
+}
+
+// WithRetrySleep sets the time interval between each retry
+func (i *ChaincodeEndorse) WithRetrySleep(duration time.Duration) *ChaincodeEndorse {
+	i.ChaincodeInvocation.WithRetrySleep(duration)
 	return i
 }

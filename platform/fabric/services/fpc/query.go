@@ -9,9 +9,8 @@ package fpc
 import (
 	"strconv"
 
-	"github.com/pkg/errors"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"github.com/pkg/errors"
 )
 
 // ChaincodeQuery models the query of an FPC
@@ -79,4 +78,7 @@ func (i *ChaincodeQuery) toString(arg interface{}) (string, error) {
 	default:
 		return "", errors.Errorf("arg type [%T] not recognized.", v)
 	}
+}
+
+func (i *ChaincodeQuery) WithMatchEndorsementPolicy() {
 }

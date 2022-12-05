@@ -89,10 +89,12 @@ type Chaincode struct {
 }
 
 type Channel struct {
-	Name       string       `yaml:"Name,omitempty"`
-	Default    bool         `yaml:"Default,omitempty"`
-	Quiet      bool         `yaml:"Quiet,omitempty"`
-	Chaincodes []*Chaincode `yaml:"Chaincodes,omitempty"`
+	Name       string        `yaml:"Name,omitempty"`
+	Default    bool          `yaml:"Default,omitempty"`
+	Quiet      bool          `yaml:"Quiet,omitempty"`
+	NumRetries uint          `yaml:"NumRetries,omitempty"`
+	RetrySleep time.Duration `yaml:"RetrySleep,omitempty"`
+	Chaincodes []*Chaincode  `yaml:"Chaincodes,omitempty"`
 }
 
 type Network struct {
