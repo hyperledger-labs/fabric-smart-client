@@ -170,7 +170,7 @@ func (i *ChaincodeInvocation) WithNumRetries(numRetries uint) *ChaincodeInvocati
 	return i
 }
 
-// WithRetrySleep sets the time internal between each retry
+// WithRetrySleep sets the time interval between each retry
 func (i *ChaincodeInvocation) WithRetrySleep(duration time.Duration) *ChaincodeInvocation {
 	i.ChaincodeInvocation.WithRetrySleep(duration)
 	return i
@@ -232,7 +232,7 @@ func (i *ChaincodeQuery) WithNumRetries(numRetries uint) *ChaincodeQuery {
 	return i
 }
 
-// WithRetrySleep sets the time internal between each retry
+// WithRetrySleep sets the time interval between each retry
 func (i *ChaincodeQuery) WithRetrySleep(duration time.Duration) *ChaincodeQuery {
 	i.ChaincodeInvocation.WithRetrySleep(duration)
 	return i
@@ -289,7 +289,7 @@ func (i *ChaincodeEndorse) WithNumRetries(numRetries uint) *ChaincodeEndorse {
 	return i
 }
 
-// WithRetrySleep sets the time internal between each retry
+// WithRetrySleep sets the time interval between each retry
 func (i *ChaincodeEndorse) WithRetrySleep(duration time.Duration) *ChaincodeEndorse {
 	i.ChaincodeInvocation.WithRetrySleep(duration)
 	return i

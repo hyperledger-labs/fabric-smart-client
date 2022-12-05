@@ -51,7 +51,7 @@ type ChaincodeInvocation interface {
 	// WithNumRetries sets the number of times the chaincode operation should be retried before returning a failure
 	WithNumRetries(numRetries uint) ChaincodeInvocation
 
-	// WithRetrySleep sets the time internal between each retry
+	// WithRetrySleep sets the time interval between each retry
 	WithRetrySleep(duration time.Duration) ChaincodeInvocation
 }
 
