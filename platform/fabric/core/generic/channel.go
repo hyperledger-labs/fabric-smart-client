@@ -125,10 +125,9 @@ func newChannel(network *network, name string, quiet bool) (*channel, error) {
 
 	// Delivery
 	deliveryService, err := delivery2.New(name, sp, network, func(block *common.Block) (bool, error) {
-		if err := committerInst.Commit(block); err != nil {
-			return true, err
-		}
-		return false, nil
+		// commit the block, if an error occurs then retry
+		err := committerInst.Commit(block)
+		return false, err
 	}, txIDStore, waitForEventTimeout)
 	if err != nil {
 		return nil, err

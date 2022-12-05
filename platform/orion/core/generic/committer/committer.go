@@ -170,7 +170,7 @@ func (c *committer) DiscardTX(txID string, blockNum uint64, validationCode types
 
 	vc, err := c.vault.Status(txID)
 	if err != nil {
-		logger.Panicf("failed getting tx's status [%s], with err [%s]", txID, err)
+		return errors.Wrapf(err, "failed getting tx's status [%s]", txID)
 	}
 	switch vc {
 	case driver.Valid:

@@ -41,7 +41,7 @@ type fabricFinality struct {
 
 func NewFabricFinality(channel string, network Network, hasher Hasher, waitForEventTimeout time.Duration) (*fabricFinality, error) {
 	if len(channel) == 0 {
-		panic("expected a channel, got empty string")
+		return nil, errors.Errorf("expected a channel, got empty string")
 	}
 
 	d := &fabricFinality{

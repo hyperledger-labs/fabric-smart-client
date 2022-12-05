@@ -64,21 +64,21 @@ func (c *ExternalCommitter) Status(txid string) (fdriver.ValidationCode, []strin
 
 func (c *ExternalCommitter) Validate(txid string) (fdriver.ValidationCode, error) {
 	if c.c == nil {
-		panic("no external committer defined, programming error")
+		panic("no external Committer defined, programming error")
 	}
 	return c.c.Validate(txid)
 }
 
 func (c *ExternalCommitter) CommitTX(txid string, block uint64, indexInBloc int) error {
 	if c.c == nil {
-		panic("no external committer defined, programming error")
+		panic("no external Committer defined, programming error")
 	}
 	return c.c.CommitTX(txid, block, indexInBloc)
 }
 
 func (c *ExternalCommitter) DiscardTX(txid string) error {
 	if c.c == nil {
-		panic("no external committer defined, programming error")
+		panic("no external Committer defined, programming error")
 	}
 	return c.c.DiscardTX(txid)
 }
@@ -91,7 +91,7 @@ func GetExternalCommitter(name string, sp view2.ServiceProvider, vault driver.Va
 	}
 	c, err := drivers[dNames[0]].Open(name, sp, vault)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed opening external committer [%s]", dNames[0])
+		return nil, errors.Wrapf(err, "failed opening external Committer [%s]", dNames[0])
 	}
 	return &ExternalCommitter{c: c}, nil
 }

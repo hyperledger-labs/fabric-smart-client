@@ -8,7 +8,6 @@ package committer
 
 import (
 	"context"
-	"fmt"
 	"runtime/debug"
 	"sync"
 	"time"
@@ -27,7 +26,7 @@ const (
 	ConfigTXPrefix = "configtx_"
 )
 
-var logger = flogging.MustGetLogger("fabric-sdk.committer")
+var logger = flogging.MustGetLogger("fabric-sdk.Committer")
 
 type Metrics interface {
 	EmitKey(val float32, event ...string)
@@ -43,7 +42,7 @@ type Network interface {
 	Ledger(channel string) (driver.Ledger, error)
 }
 
-type committer struct {
+type Committer struct {
 	channel             string
 	network             Network
 	finality            Finality
@@ -58,12 +57,12 @@ type committer struct {
 	publisher      events.Publisher
 }
 
-func New(channel string, network Network, finality Finality, waitForEventTimeout time.Duration, quiet bool, metrics Metrics, publisher events.Publisher) (*committer, error) {
+func New(channel string, network Network, finality Finality, waitForEventTimeout time.Duration, quiet bool, metrics Metrics, publisher events.Publisher) (*Committer, error) {
 	if len(channel) == 0 {
-		panic("expected a channel, got empty string")
+		return nil, errors.Errorf("expected a channel, got empty string")
 	}
 
-	d := &committer{
+	d := &Committer{
 		channel:             channel,
 		network:             network,
 		waitForEventTimeout: waitForEventTimeout,
@@ -79,7 +78,7 @@ func New(channel string, network Network, finality Finality, waitForEventTimeout
 }
 
 // Commit commits the transactions in the block passed as argument
-func (c *committer) Commit(block *common.Block) error {
+func (c *Committer) Commit(block *common.Block) error {
 	for i, tx := range block.Data.Data {
 
 		env, err := protoutil.UnmarshalEnvelope(tx)
@@ -100,13 +99,15 @@ func (c *committer) Commit(block *common.Block) error {
 
 		var event TxEvent
 
-		c.metrics.EmitKey(0, "committer", "start", "Commit", chdr.TxId)
+		c.metrics.EmitKey(0, "Committer", "start", "Commit", chdr.TxId)
 		switch common.HeaderType(chdr.Type) {
 		case common.HeaderType_CONFIG:
 			if logger.IsEnabledFor(zapcore.DebugLevel) {
 				logger.Debugf("[%s] Config transaction received: %s", c.channel, chdr.TxId)
 			}
-			c.handleConfig(block, i, env)
+			if err := c.handleConfig(block, i, env); err != nil {
+				return err
+			}
 		case common.HeaderType_ENDORSER_TRANSACTION:
 			if logger.IsEnabledFor(zapcore.DebugLevel) {
 				logger.Debugf("[%s] Endorser transaction received: %s", c.channel, chdr.TxId)
@@ -114,13 +115,15 @@ func (c *committer) Commit(block *common.Block) error {
 			if len(block.Metadata.Metadata) < int(common.BlockMetadataIndex_TRANSACTIONS_FILTER) {
 				return errors.Errorf("block metadata lacks transaction filter")
 			}
-			c.handleEndorserTransaction(block, i, &event, env, chdr)
+			if err := c.handleEndorserTransaction(block, i, &event, env, chdr); err != nil {
+				return err
+			}
 		default:
 			if logger.IsEnabledFor(zapcore.DebugLevel) {
 				logger.Debugf("[%s] Received unhandled transaction type: %s", c.channel, chdr.Type)
 			}
 		}
-		c.metrics.EmitKey(0, "committer", "end", "Commit", chdr.TxId)
+		c.metrics.EmitKey(0, "Committer", "end", "Commit", chdr.TxId)
 
 		c.notify(event)
 
@@ -135,9 +138,9 @@ func (c *committer) Commit(block *common.Block) error {
 // IsFinal takes in input a transaction id and waits for its confirmation
 // with the respect to the passed context that can be used to set a deadline
 // for the waiting time.
-func (c *committer) IsFinal(ctx context.Context, txID string) error {
-	c.metrics.EmitKey(0, "committer", "start", "IsFinal", txID)
-	defer c.metrics.EmitKey(0, "committer", "end", "IsFinal", txID)
+func (c *Committer) IsFinal(ctx context.Context, txID string) error {
+	c.metrics.EmitKey(0, "Committer", "start", "IsFinal", txID)
+	defer c.metrics.EmitKey(0, "Committer", "end", "IsFinal", txID)
 
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("Is [%s] final?", txID)
@@ -217,7 +220,7 @@ func (c *committer) IsFinal(ctx context.Context, txID string) error {
 				}
 				time.Sleep(100 * time.Millisecond)
 			default:
-				panic(fmt.Sprintf("invalid status code, got %c", vd))
+				return errors.Errorf("invalid status code, got [%c]", vd)
 			}
 		} else {
 			logger.Errorf("Is [%s] final? Failed getting transaction status from vault", txID)
@@ -229,7 +232,7 @@ func (c *committer) IsFinal(ctx context.Context, txID string) error {
 	return c.listenTo(ctx, txID, c.waitForEventTimeout)
 }
 
-func (c *committer) addListener(txid string, ch chan TxEvent) {
+func (c *Committer) addListener(txid string, ch chan TxEvent) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
@@ -242,7 +245,7 @@ func (c *committer) addListener(txid string, ch chan TxEvent) {
 	c.listeners[txid] = ls
 }
 
-func (c *committer) deleteListener(txid string, ch chan TxEvent) {
+func (c *Committer) deleteListener(txid string, ch chan TxEvent) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
@@ -259,7 +262,7 @@ func (c *committer) deleteListener(txid string, ch chan TxEvent) {
 	}
 }
 
-func (c *committer) notify(event TxEvent) {
+func (c *Committer) notify(event TxEvent) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
@@ -287,14 +290,13 @@ func (c *committer) notify(event TxEvent) {
 }
 
 // notifyChaincodeListeners notifies the chaincode event to the registered chaincode listeners.
-func (c *committer) notifyChaincodeListeners(event *ChaincodeEvent) error {
+func (c *Committer) notifyChaincodeListeners(event *ChaincodeEvent) {
 	c.publisher.Publish(event)
-	return nil
 }
 
-func (c *committer) listenTo(ctx context.Context, txid string, timeout time.Duration) error {
-	c.metrics.EmitKey(0, "committer", "start", "listenTo", txid)
-	defer c.metrics.EmitKey(0, "committer", "end", "listenTo", txid)
+func (c *Committer) listenTo(ctx context.Context, txid string, timeout time.Duration) error {
+	c.metrics.EmitKey(0, "Committer", "start", "listenTo", txid)
+	defer c.metrics.EmitKey(0, "Committer", "end", "listenTo", txid)
 
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("Listen to finality of [%s]", txid)
