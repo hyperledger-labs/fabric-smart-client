@@ -101,10 +101,10 @@ func (c *Client) CallView(fid string, in []byte) (interface{}, error) {
 	response := &protos2.CommandResponse_CallViewResponse{}
 	err = json.Unmarshal(buff, response)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to unmarshal response from http request to [%s], input length [%d]", url, len(in))
+		return nil, errors.Wrapf(err, "failed to unmarshal response from [%s], response [%s]", url, string(buff))
 	}
 	if response.CallViewResponse == nil {
-		return nil, errors.Errorf("got empty response from http request to [%s], input length [%d]", url, len(in))
+		return nil, errors.Errorf("invalid response from [%s], response [%s]", url, string(buff))
 	}
 	return response.CallViewResponse.Result, nil
 }

@@ -115,25 +115,6 @@ func (p *provider) loadDefaultIdentity() error {
 	return nil
 }
 
-func (p *provider) loadAdminIdentities() error {
-	certs := p.configProvider.GetStringSlice("fsc.admin.certs")
-	var admins []view.Identity
-	for _, cert := range certs {
-		// TODO: support cert as a folder
-		certPath := p.configProvider.TranslatePath(cert)
-		admin, err := LoadIdentity(certPath)
-		if err != nil {
-			logger.Errorf("failed loading admin cert at [%s]: [%s]", certPath, err)
-			continue
-		}
-		logger.Infof("loaded admin cert at [%s]: [%s]", certPath, err)
-		admins = append(admins, admin)
-	}
-	logger.Infof("loaded [%d] admin identities", len(admins))
-	p.admins = admins
-	return nil
-}
-
 func (p *provider) loadClientIdentities() error {
 	certs := p.configProvider.GetStringSlice("fsc.client.certs")
 	var clients []view.Identity
