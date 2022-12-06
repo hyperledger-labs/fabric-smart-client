@@ -65,6 +65,10 @@ func NewClient(config *Config) (*Client, error) {
 			return nil, errors.Wrapf(err, "failed to load x509 key pair")
 		}
 		tlsClientConfig.Certificates = []tls.Certificate{clientCert}
+	} else {
+		tlsClientConfig = &tls.Config{
+			InsecureSkipVerify: true,
+		}
 	}
 
 	return &Client{
@@ -93,6 +97,13 @@ func (c *Client) CallView(fid string, in []byte) (interface{}, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to process http request to [%s], input length [%d]", url, len(in))
 	}
+	if resp == nil {
+		return nil, errors.Errorf("failed to process http request to [%s], input length [%d], no response", url, len(in))
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, errors.Errorf("failed to process http request to [%s], input length [%d], status code [%d], status [%s]", url, len(in), resp.StatusCode, resp.Status)
+	}
+
 	buff, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to read response from http request to [%s], input length [%d]", url, len(in))
@@ -119,4 +130,29 @@ func (c *Client) Track(cid string) string {
 
 func (c *Client) IsTxFinal(txid string, opts ...api.ServiceOption) error {
 	panic("implement me")
+}
+
+func (c *Client) ServerVersion() (string, error) {
+	url := fmt.Sprintf("%s/version", c.url)
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return "", errors.Wrapf(err, "failed to create http request to [%s]", url)
+	}
+	logger.Debugf("version using http request to [%s]", url)
+
+	resp, err := c.c.Do(req)
+	if err != nil {
+		return "", errors.Wrapf(err, "failed to process http request to [%s]", url)
+	}
+	if resp == nil {
+		return "", errors.Errorf("failed to process http request to [%s], no response", url)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return "", errors.Errorf("failed to process http request to [%s], status code [%d], status [%s]", url, resp.StatusCode, resp.Status)
+	}
+	buff, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", errors.Wrapf(err, "failed to read response from http request to [%s]", url)
+	}
+	return string(buff), nil
 }

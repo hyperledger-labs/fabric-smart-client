@@ -34,6 +34,7 @@ type TLS struct {
 	Enabled           bool
 	CertFile          string
 	KeyFile           string
+	ClientAuth        bool
 	ClientCACertFiles []string
 }
 
@@ -74,8 +75,12 @@ func (t TLS) Config() (*tls.Config, error) {
 		},
 		MinVersion: tls.VersionTLS12,
 		MaxVersion: tls.VersionTLS13,
-		ClientAuth: tls.RequireAndVerifyClientCert,
 		ClientCAs:  caCertPool,
+	}
+	if t.ClientAuth {
+		tlsConfig.ClientAuth = tls.RequireAndVerifyClientCert
+	} else {
+		tlsConfig.ClientAuth = tls.VerifyClientCertIfGiven
 	}
 	return tlsConfig, nil
 }

@@ -63,6 +63,19 @@ var _ = Describe("EndToEnd", func() {
 			res, err := initiatorWebClient.CallView("init", bytes.NewBuffer([]byte("hi")).Bytes())
 			Expect(err).NotTo(HaveOccurred())
 			Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
+			version, err := initiatorWebClient.ServerVersion()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(version).To(BeEquivalentTo("{\"CommitSHA\":\"development build\",\"Version\":\"latest\"}"))
+
+			webClientConfig.CACert = ""
+			initiatorWebClient, err = web.NewClient(webClientConfig)
+			Expect(err).NotTo(HaveOccurred())
+			_, err = initiatorWebClient.CallView("init", bytes.NewBuffer([]byte("hi")).Bytes())
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainElements("status code [401], status [401 Unauthorized]"))
+			version, err = initiatorWebClient.ServerVersion()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(version).To(BeEquivalentTo("{\"CommitSHA\":\"development build\",\"Version\":\"latest\"}"))
 		})
 
 		It("successful pingpong", func() {

@@ -198,6 +198,7 @@ func (p *SDK) initWEBServer() error {
 		Enabled:           configProvider.GetBool("fsc.web.tls.enabled"),
 		CertFile:          configProvider.GetPath("fsc.web.tls.cert.file"),
 		KeyFile:           configProvider.GetPath("fsc.web.tls.key.file"),
+		ClientAuth:        configProvider.GetBool("fsc.web.tls.clientAuthRequired"),
 		ClientCACertFiles: clientRootCAs,
 	}
 	p.webServer = web2.NewServer(web2.Options{
