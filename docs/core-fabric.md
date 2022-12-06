@@ -24,18 +24,16 @@ fsc:
     key:
       file: /path/to/key.pwm
 
-  # TBD
+  # This is used to list the authorized clients of this FSC node.
+  # At least one client certificate must be specified
+  # The GRPC service uses this list to filter the connecting clients
   client:
     certs:
     - path/to/client-cert.pem
 
-  # TBD
-  admin:
-    certs:
-    - path/to/admin-cert.pem
-
   # ------------------- GRPC Server Configuration -------------------------
   grpc:
+    enabled: true
     # The listen address of this server
     address: 0.0.0.0:20000
     # ConnectionTimeout specifies the timeout for connection establishment for all new connections

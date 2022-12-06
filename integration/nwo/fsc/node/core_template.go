@@ -23,13 +23,14 @@ fsc:
     # Private key matching the X.509 certificate
     key:
       file: {{ .NodeLocalPrivateKeyPath Peer }}
-  # Admin X.509 certificates
-  admin:
+  # Client X.509 certificates
+  client:
     certs:
     {{- range Peer.Admins }}
     - {{ . }} 
     {{- end }}
   grpc:
+    enabled: true
     # This represents the endpoint to other FSC nodes in the same organization.
     address: 127.0.0.1:{{ .NodePort Peer "Listen" }}
     # TLS Settings

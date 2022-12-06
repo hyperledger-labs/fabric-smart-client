@@ -59,9 +59,9 @@ func (p *provider) Load() error {
 		return errors.WithMessagef(err, "failed loading default identity")
 	}
 
-	if err := p.loadAdminIdentities(); err != nil {
-		return errors.WithMessagef(err, "failed loading admin identities")
-	}
+	//if err := p.loadAdminIdentities(); err != nil {
+	//	return errors.WithMessagef(err, "failed loading admin identities")
+	//}
 
 	if err := p.loadClientIdentities(); err != nil {
 		return errors.WithMessagef(err, "failed loading client identities")
