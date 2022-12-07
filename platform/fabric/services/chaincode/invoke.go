@@ -33,7 +33,6 @@ type InvokeCall struct {
 	NumRetries             uint
 	SetRetrySleep          bool
 	RetrySleep             time.Duration
-	TxID                   fabric.TxID
 }
 
 type InvokeChaincodeView struct {
@@ -149,13 +148,13 @@ func (i *InvokeChaincodeView) WithTxID(id fabric.TxID) *InvokeChaincodeView {
 	return i
 }
 
-func (i *invokeChaincodeView) WithNumRetries(numRetries uint) *invokeChaincodeView {
+func (i *InvokeChaincodeView) WithNumRetries(numRetries uint) *InvokeChaincodeView {
 	i.SetNumRetries = true
 	i.NumRetries = numRetries
 	return i
 }
 
-func (i *invokeChaincodeView) WithRetrySleep(duration time.Duration) *invokeChaincodeView {
+func (i *InvokeChaincodeView) WithRetrySleep(duration time.Duration) *InvokeChaincodeView {
 	i.SetRetrySleep = true
 	i.RetrySleep = duration
 	return i

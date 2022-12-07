@@ -68,7 +68,7 @@ func (i *endorseChaincodeView) Endorse(context view.Context) (*fabric.Envelope, 
 	).WithInvokerIdentity(
 		i.InvokerIdentity,
 	).WithTxID(
-		i.TxID,
+		*i.TxID,
 	)
 	for k, v := range i.TransientMap {
 		invocation.WithTransientEntry(k, v)
@@ -127,7 +127,10 @@ func (i *endorseChaincodeView) WithSignerIdentity(id view.Identity) *endorseChai
 }
 
 func (i *endorseChaincodeView) WithTxID(id fabric.TxID) *endorseChaincodeView {
-	i.TxID = id
+	i.TxID = &fabric.TxID{
+		Nonce:   id.Nonce,
+		Creator: id.Creator,
+	}
 	return i
 }
 
