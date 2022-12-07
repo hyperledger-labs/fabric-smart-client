@@ -32,11 +32,6 @@ func TestLoad(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, raw, []byte(idProvider.DefaultIdentity()))
 
-	//raw, err = id.LoadIdentity("./testdata/admin/admin.pem")
-	//assert.NoError(t, err)
-	//assert.Len(t, idProvider.Admins(), 1)
-	//assert.Equal(t, raw, []byte(idProvider.Admins()[0]))
-
 	raw, err = id.LoadIdentity("./testdata/client/client.pem")
 	assert.NoError(t, err)
 	assert.Len(t, idProvider.Clients(), 1)
