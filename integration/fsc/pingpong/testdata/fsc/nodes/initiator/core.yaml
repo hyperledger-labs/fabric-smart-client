@@ -1,14 +1,12 @@
 ---
 # Logging section
 logging:
-  # Spec
-  spec: grpc=error:debug
-  # Format
-  format: '%{color}%{time:2006-01-02 15:04:05.000 MST} [%{module}] %{shortfunc} -> %{level:.4s} %{id:03x}%{color:reset} %{message}'
+ # Spec
+ spec: grpc=error:info
 fsc:
   # The FSC id provides a name for this node instance and is used when
   # naming docker resources.
-  id: initiator
+  id: fsc.initiator
   # Identity of this node, used to connect to other nodes
   identity:
     # X.509 certificate used as identity of this node
@@ -17,16 +15,16 @@ fsc:
     # Private key matching the X.509 certificate
     key:
       file: ./../../crypto/peerOrganizations/fsc.example.com/peers/initiator.fsc.example.com/msp/keystore/priv_sk
-  # Admin X.509 certificates    
-  admin:
+  # Client X.509 certificates
+  client:
     certs:
     - ./../../crypto/peerOrganizations/fsc.example.com/users/Admin@fsc.example.com/msp/signcerts/Admin@fsc.example.com-cert.pem
-  
   grpc:
+    enabled: true
     # This represents the endpoint to other FSC nodes in the same organization.
-    address: 127.0.0.1:20000
-
+    address: 127.0.0.1:21000
     # TLS Settings
+    # (We use here the same set of properties as Hyperledger Fabric)
     tls:
       # Require server-side TLS
       enabled:  true
@@ -40,7 +38,8 @@ fsc:
       # Private key used for TLS server
       key:
         file: ./../../crypto/peerOrganizations/fsc.example.com/peers/initiator.fsc.example.com/tls/server.key
-  
+      # If mutual TLS is enabled, clientRootCAs.files contains a list of additional root certificates
+      # used for verifying certificates of client connections.
     # Keepalive settings for node server and clients
     keepalive:
       # MinInterval is the minimum permitted time between client pings.
@@ -53,13 +52,12 @@ fsc:
       # Timeout is the duration the server waits for a response
       # from the client after sending a ping before closing the connection
       timeout: 600s
-    
   # P2P configuration
   p2p:
     # Listening address
-    listenAddress: /ip4/127.0.0.1/tcp/20001
+    listenAddress: /ip4/127.0.0.1/tcp/21001
     # If empty, this is a P2P boostrap node. Otherwise, it contains the name of the FCS node that is a bootstrap node
-    bootstrapNode:
+    bootstrapNode: 
   # The Key-Value Store is used to store various information related to the FSC node
   kvs:
     persistence:
@@ -67,41 +65,58 @@ fsc:
       type: memory
       opts:
         path: ./../../nodes/initiator/kvs
+    cache:
+        # Sets the maximum number of cached items 
+        size: 200
+  # HTML Server configuration for REST calls
   web:
     enabled: true
     # HTTPS server listener address
-    address: 127.0.0.1:19999
+    address: 0.0.0.0:21002
     tls:
       enabled:  true
       cert:
         file: ./../../crypto/peerOrganizations/fsc.example.com/peers/initiator.fsc.example.com/tls/server.crt
-      # Private key used for TLS server
       key:
         file: ./../../crypto/peerOrganizations/fsc.example.com/peers/initiator.fsc.example.com/tls/server.key
+      # Require client certificates / mutual TLS for inbound connections.
+      # Note that clients that are not configured to use a certificate will
+      # fail to connect to the node.
+      clientAuthRequired: false
+      # If mutual TLS is enabled, clientRootCAs.files contains a list of additional root certificates
+      # used for verifying certificates of client connections.
       clientRootCAs:
         files:
-          - ./../../crypto/peerOrganizations/fsc.example.com/peers/initiator.fsc.example.com/tls/ca.crt
+        - ./../../crypto/peerOrganizations/fsc.example.com/peers/initiator.fsc.example.com/tls/ca.crt
+  tracing:
+    provider: none
+    udp:
+      address: 127.0.0.1:8125
+  metrics:
+    # metrics provider is one of statsd, prometheus, or disabled
+    provider: none
+    # statsd configuration
+    statsd:
+      # network type: tcp or udp
+      network: udp
+      # statsd server address
+      address: 127.0.0.1:8125
+      # the interval at which locally cached counters and gauges are pushed
+      # to statsd; timings are pushed immediately
+      writeInterval: 10s
+      # prefix is prepended to all emitted statsd metrics
+      prefix:
+
   # The endpoint section tells how to reach other FSC node in the network.
   # For each node, the name, the domain, the identity of the node, and its addresses must be specified.
   endpoint:
-    resolvers:
-      - name: initiator
-        domain: fsc.example.com
-        identity:
-          id: initiator
-          path: ./../../crypto/peerOrganizations/fsc.example.com/peers/initiator.fsc.example.com/msp/signcerts/initiator.fsc.example.com-cert.pem
-        addresses:
-          Web: 127.0.0.1:19999
-          Listen: 127.0.0.1:20000
-          P2P: 127.0.0.1:20001
-          View: 127.0.0.1:20000
-      - name: responder
-        domain: fsc.example.com
-        identity:
-          id: responder
-          path: ./../../crypto/peerOrganizations/fsc.example.com/peers/responder.fsc.example.com/msp/signcerts/responder.fsc.example.com-cert.pem
-        addresses:
-          Web: 127.0.0.1:19998
-          Listen: 127.0.0.1:20002
-          P2P: 127.0.0.1:20003
-          View: 127.0.0.1:20002
+    resolvers: 
+    - name: responder
+      domain: fsc.example.com
+      identity:
+        path: ./../../crypto/peerOrganizations/fsc.example.com/peers/responder.fsc.example.com/msp/signcerts/responder.fsc.example.com-cert.pem
+      addresses: 
+      aliases: 
+        - bob
+
+

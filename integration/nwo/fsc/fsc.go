@@ -259,22 +259,6 @@ func (p *Platform) PostRun(bool) {
 		for _, alias := range node.Aliases {
 			p.Context.SetViewClient(alias, c)
 		}
-
-		// Setup admins
-		if id := p.Context.AdminSigningIdentity(node.Name); id != nil {
-			c, err := view.NewClient(
-				&view.Config{
-					ID:               v.GetString("fsc.id"),
-					ConnectionConfig: p.Context.ConnectionConfig(node.Name),
-				},
-				id,
-				crypto.NewProvider(),
-			)
-			Expect(err).NotTo(HaveOccurred())
-
-			p.Context.SetViewClient(node.Name+".admin", c)
-			p.Context.SetViewClient(node.ID()+".admin", c)
-		}
 	}
 }
 

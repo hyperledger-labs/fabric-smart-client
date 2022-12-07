@@ -1,0 +1,11 @@
+version: 0
+address: 127.0.0.1:21003
+tlsconfig:
+  certpath: ""
+  keypath: ""
+  peercacertpath: ./../../crypto/peerOrganizations/fsc.example.com/peers/responder.fsc.example.com/tls/ca.crt
+  timeout: 10m0s
+signerconfig:
+  mspid: ""
+  identitypath: ./../../crypto/peerOrganizations/fsc.example.com/peers/responder.fsc.example.com/msp/signcerts/responder.fsc.example.com-cert.pem
+  keypath: ./../../crypto/peerOrganizations/fsc.example.com/peers/responder.fsc.example.com/msp/keystore/priv_sk
