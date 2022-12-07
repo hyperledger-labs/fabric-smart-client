@@ -47,27 +47,25 @@ func NewClient(config *Config) (*Client, error) {
 	var tlsClientConfig *tls.Config
 
 	if len(config.CACert) != 0 {
-		clientCertPool := x509.NewCertPool()
+		rootCAs := x509.NewCertPool()
 		caCert, err := os.ReadFile(config.CACert)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to open ca cert")
 		}
-		clientCertPool.AppendCertsFromPEM(caCert)
+		rootCAs.AppendCertsFromPEM(caCert)
+		tlsClientConfig = &tls.Config{
+			RootCAs: rootCAs,
+		}
 
-		tlsClientConfig = &tls.Config{
-			RootCAs: clientCertPool,
-		}
-		clientCert, err := tls.LoadX509KeyPair(
-			config.TLSCert,
-			config.TLSKey,
-		)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to load x509 key pair")
-		}
-		tlsClientConfig.Certificates = []tls.Certificate{clientCert}
-	} else {
-		tlsClientConfig = &tls.Config{
-			InsecureSkipVerify: true,
+		if len(config.TLSCert) != 0 && len(config.TLSKey) != 0 {
+			clientCert, err := tls.LoadX509KeyPair(
+				config.TLSCert,
+				config.TLSKey,
+			)
+			if err != nil {
+				return nil, errors.Wrapf(err, "failed to load x509 key pair")
+			}
+			tlsClientConfig.Certificates = []tls.Certificate{clientCert}
 		}
 	}
 
@@ -103,7 +101,7 @@ func (c *Client) CallView(fid string, in []byte) (interface{}, error) {
 	if resp.StatusCode != http.StatusOK {
 		return nil, errors.Errorf("failed to process http request to [%s], input length [%d], status code [%d], status [%s]", url, len(in), resp.StatusCode, resp.Status)
 	}
-
+	defer resp.Body.Close()
 	buff, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to read response from http request to [%s], input length [%d]", url, len(in))
@@ -150,6 +148,7 @@ func (c *Client) ServerVersion() (string, error) {
 	if resp.StatusCode != http.StatusOK {
 		return "", errors.Errorf("failed to process http request to [%s], status code [%d], status [%s]", url, resp.StatusCode, resp.Status)
 	}
+	defer resp.Body.Close()
 	buff, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", errors.Wrapf(err, "failed to read response from http request to [%s]", url)
