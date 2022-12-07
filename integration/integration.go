@@ -238,14 +238,6 @@ func (i *Infrastructure) CLI(name string) api.ViewClient {
 	return i.Ctx.ViewCLIs[name]
 }
 
-func (i *Infrastructure) Admin(name string) api.ViewClient {
-	if i.NWO == nil {
-		panic("call generate or load first")
-	}
-
-	return i.Ctx.ViewClients[name+".admin"]
-}
-
 func (i *Infrastructure) Identity(name string) view.Identity {
 	if i.NWO == nil {
 		panic("call generate or load first")

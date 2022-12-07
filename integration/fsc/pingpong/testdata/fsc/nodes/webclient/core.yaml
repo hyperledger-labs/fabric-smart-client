@@ -1,6 +1,6 @@
 fsc:  
   web:
-    address: 127.0.0.1:19999
+    address: 127.0.0.1:21002
     tls:
       enabled:  true
       clientCert:

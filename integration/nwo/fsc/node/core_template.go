@@ -23,13 +23,14 @@ fsc:
     # Private key matching the X.509 certificate
     key:
       file: {{ .NodeLocalPrivateKeyPath Peer }}
-  # Admin X.509 certificates
-  admin:
+  # Client X.509 certificates
+  client:
     certs:
     {{- range Peer.Admins }}
     - {{ . }} 
     {{- end }}
   grpc:
+    enabled: true
     # This represents the endpoint to other FSC nodes in the same organization.
     address: 127.0.0.1:{{ .NodePort Peer "Listen" }}
     # TLS Settings
@@ -99,6 +100,12 @@ fsc:
         file: {{ .NodeLocalTLSDir Peer }}/server.crt
       key:
         file: {{ .NodeLocalTLSDir Peer }}/server.key
+      # Require client certificates / mutual TLS for inbound connections.
+      # Note that clients that are not configured to use a certificate will
+      # fail to connect to the node.
+      clientAuthRequired: false
+      # If mutual TLS is enabled, clientRootCAs.files contains a list of additional root certificates
+      # used for verifying certificates of client connections.
       clientRootCAs:
         files:
         - {{ .NodeLocalTLSDir Peer }}/ca.crt

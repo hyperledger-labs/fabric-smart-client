@@ -47,24 +47,26 @@ func NewClient(config *Config) (*Client, error) {
 	var tlsClientConfig *tls.Config
 
 	if len(config.CACert) != 0 {
-		clientCertPool := x509.NewCertPool()
+		rootCAs := x509.NewCertPool()
 		caCert, err := os.ReadFile(config.CACert)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to open ca cert")
 		}
-		clientCertPool.AppendCertsFromPEM(caCert)
-
+		rootCAs.AppendCertsFromPEM(caCert)
 		tlsClientConfig = &tls.Config{
-			RootCAs: clientCertPool,
+			RootCAs: rootCAs,
 		}
-		clientCert, err := tls.LoadX509KeyPair(
-			config.TLSCert,
-			config.TLSKey,
-		)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to load x509 key pair")
+
+		if len(config.TLSCert) != 0 && len(config.TLSKey) != 0 {
+			clientCert, err := tls.LoadX509KeyPair(
+				config.TLSCert,
+				config.TLSKey,
+			)
+			if err != nil {
+				return nil, errors.Wrapf(err, "failed to load x509 key pair")
+			}
+			tlsClientConfig.Certificates = []tls.Certificate{clientCert}
 		}
-		tlsClientConfig.Certificates = []tls.Certificate{clientCert}
 	}
 
 	return &Client{
@@ -93,6 +95,13 @@ func (c *Client) CallView(fid string, in []byte) (interface{}, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to process http request to [%s], input length [%d]", url, len(in))
 	}
+	if resp == nil {
+		return nil, errors.Errorf("failed to process http request to [%s], input length [%d], no response", url, len(in))
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, errors.Errorf("failed to process http request to [%s], input length [%d], status code [%d], status [%s]", url, len(in), resp.StatusCode, resp.Status)
+	}
+	defer resp.Body.Close()
 	buff, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to read response from http request to [%s], input length [%d]", url, len(in))
@@ -101,10 +110,10 @@ func (c *Client) CallView(fid string, in []byte) (interface{}, error) {
 	response := &protos2.CommandResponse_CallViewResponse{}
 	err = json.Unmarshal(buff, response)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to unmarshal response from http request to [%s], input length [%d]", url, len(in))
+		return nil, errors.Wrapf(err, "failed to unmarshal response from [%s], response [%s]", url, string(buff))
 	}
 	if response.CallViewResponse == nil {
-		return nil, errors.Errorf("got empty response from http request to [%s], input length [%d]", url, len(in))
+		return nil, errors.Errorf("invalid response from [%s], response [%s]", url, string(buff))
 	}
 	return response.CallViewResponse.Result, nil
 }
@@ -119,4 +128,30 @@ func (c *Client) Track(cid string) string {
 
 func (c *Client) IsTxFinal(txid string, opts ...api.ServiceOption) error {
 	panic("implement me")
+}
+
+func (c *Client) ServerVersion() (string, error) {
+	url := fmt.Sprintf("%s/version", c.url)
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return "", errors.Wrapf(err, "failed to create http request to [%s]", url)
+	}
+	logger.Debugf("version using http request to [%s]", url)
+
+	resp, err := c.c.Do(req)
+	if err != nil {
+		return "", errors.Wrapf(err, "failed to process http request to [%s]", url)
+	}
+	if resp == nil {
+		return "", errors.Errorf("failed to process http request to [%s], no response", url)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return "", errors.Errorf("failed to process http request to [%s], status code [%d], status [%s]", url, resp.StatusCode, resp.Status)
+	}
+	defer resp.Body.Close()
+	buff, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", errors.Wrapf(err, "failed to read response from http request to [%s]", url)
+	}
+	return string(buff), nil
 }

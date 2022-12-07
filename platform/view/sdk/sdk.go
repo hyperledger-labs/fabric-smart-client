@@ -10,6 +10,7 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"net/http"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	config2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/core/config"
@@ -55,11 +56,20 @@ type Stoppable interface {
 	Stop()
 }
 
-type p struct {
+type WebServer interface {
+	RegisterHandler(s string, handler http.Handler, secure bool)
+	Start() error
+	Stop() error
+}
+
+type GRPCServer interface {
+}
+
+type SDK struct {
 	confPath string
 	registry Registry
 
-	webServer *web2.Server
+	webServer WebServer
 
 	grpcServer  *grpc2.GRPCServer
 	viewService view2.Service
@@ -71,11 +81,11 @@ type p struct {
 	commService *comm2.Service
 }
 
-func NewSDK(confPath string, registry Registry) *p {
-	return &p{confPath: confPath, registry: registry}
+func NewSDK(confPath string, registry Registry) *SDK {
+	return &SDK{confPath: confPath, registry: registry}
 }
 
-func (p *p) Install() error {
+func (p *SDK) Install() error {
 	logger.Infof("View platform enabled, installing...")
 
 	configProvider, err := config2.NewProvider(p.confPath)
@@ -157,7 +167,7 @@ func (p *p) Install() error {
 	return nil
 }
 
-func (p *p) Start(ctx context.Context) error {
+func (p *SDK) Start(ctx context.Context) error {
 	p.context = ctx
 
 	assert.NoError(p.initGRPCServer(), "failed initializing grpc server")
@@ -168,10 +178,11 @@ func (p *p) Start(ctx context.Context) error {
 	return p.serve()
 }
 
-func (p *p) initWEBServer() error {
+func (p *SDK) initWEBServer() error {
 	configProvider := view.GetConfigService(p.registry)
 
 	if !configProvider.GetBool("fsc.web.enabled") {
+		p.webServer = web2.NewDummyServer()
 		logger.Info("web server not enabled")
 		return nil
 	}
@@ -187,6 +198,7 @@ func (p *p) initWEBServer() error {
 		Enabled:           configProvider.GetBool("fsc.web.tls.enabled"),
 		CertFile:          configProvider.GetPath("fsc.web.tls.cert.file"),
 		KeyFile:           configProvider.GetPath("fsc.web.tls.key.file"),
+		ClientAuth:        configProvider.GetBool("fsc.web.tls.clientAuthRequired"),
 		ClientCACertFiles: clientRootCAs,
 	}
 	p.webServer = web2.NewServer(web2.Options{
@@ -206,15 +218,24 @@ func (p *p) initWEBServer() error {
 	return nil
 }
 
-func (p *p) registerViewServiceServer() error {
+func (p *SDK) registerViewServiceServer() error {
+	if p.grpcServer == nil {
+		return nil
+	}
+
 	// Register the ViewService server
 	protos2.RegisterViewServiceServer(p.grpcServer.Server(), p.viewService)
 
 	return nil
 }
 
-func (p *p) initGRPCServer() error {
+func (p *SDK) initGRPCServer() error {
 	configProvider := view.GetConfigService(p.registry)
+
+	if !configProvider.GetBool("fsc.grpc.enabled") {
+		logger.Info("grpc server not enabled")
+		return nil
+	}
 
 	listenAddr := configProvider.GetString("fsc.grpc.address")
 	serverConfig, err := p.getServerConfig()
@@ -238,7 +259,7 @@ func (p *p) initGRPCServer() error {
 	return nil
 }
 
-func (p *p) initCommLayer() {
+func (p *SDK) initCommLayer() {
 	configProvider := view.GetConfigService(p.registry)
 
 	k, err := identity.NewCryptoPrivKeyFromMSP(configProvider.GetPath("fsc.identity.key.file"))
@@ -255,31 +276,32 @@ func (p *p) initCommLayer() {
 	p.commService = commService
 }
 
-func (p *p) startCommLayer() error {
+func (p *SDK) startCommLayer() error {
 	p.commService.Start(p.context)
 
 	return nil
 }
 
-func (p *p) startViewManager() error {
+func (p *SDK) startViewManager() error {
 	view2.InstallViewHandler(p.registry, p.viewService)
 	go p.viewManager.Start(p.context)
 
 	return nil
 }
 
-func (p *p) serve() error {
+func (p *SDK) serve() error {
 	// Start the grpc server. Done in a goroutine
 	go func() {
+		if p.grpcServer == nil {
+			return
+		}
+
 		logger.Info("Starting GRPC server...")
 		if err := p.grpcServer.Start(); err != nil {
 			logger.Fatalf("grpc server stopped with err [%s]", err)
 		}
 	}()
 	go func() {
-		if p.webServer == nil {
-			return
-		}
 		logger.Info("Starting WEB server...")
 		if err := p.webServer.Start(); err != nil {
 			logger.Fatalf("Failed starting WEB server: %v", err)
@@ -296,17 +318,17 @@ func (p *p) serve() error {
 	}()
 	go func() {
 		<-p.context.Done()
-		if p.webServer != nil {
-			logger.Info("web server stopping...")
-			if err := p.webServer.Stop(); err != nil {
-				logger.Errorf("failed stopping web server [%s]", err)
-			}
+		logger.Info("web server stopping...")
+		if err := p.webServer.Stop(); err != nil {
+			logger.Errorf("failed stopping web server [%s]", err)
 		}
 		logger.Info("web server stopping...done")
 
-		logger.Info("grpc server stopping...")
-		p.grpcServer.Stop()
-		logger.Info("grpc server stopping...done")
+		if p.grpcServer != nil {
+			logger.Info("grpc server stopping...")
+			p.grpcServer.Stop()
+			logger.Info("grpc server stopping...done")
+		}
 
 		logger.Info("kvs stopping...")
 		kvs.GetService(p.registry).Stop()
@@ -322,11 +344,11 @@ func (p *p) serve() error {
 	return nil
 }
 
-func (p *p) getServerConfig() (grpc2.ServerConfig, error) {
+func (p *SDK) getServerConfig() (grpc2.ServerConfig, error) {
 	configProvider := view.GetConfigService(p.registry)
 
 	serverConfig := grpc2.ServerConfig{
-		ConnectionTimeout: configProvider.GetDuration("fsc.connectiontimeout"),
+		ConnectionTimeout: configProvider.GetDuration("fsc.grpc.connectionTimeout"),
 		SecOpts: grpc2.SecureOptions{
 			UseTLS: configProvider.GetBool("fsc.grpc.tls.enabled"),
 		},
@@ -373,7 +395,7 @@ func (p *p) getServerConfig() (grpc2.ServerConfig, error) {
 	return serverConfig, nil
 }
 
-func (p *p) installTracing() error {
+func (p *SDK) installTracing() error {
 	confService := view.GetConfigService(p.registry)
 
 	provider := confService.GetString("fsc.tracing.provider")
@@ -407,7 +429,7 @@ func (p *p) installTracing() error {
 	return nil
 }
 
-func (p *p) initWebOperationEndpointsAndMetrics() error {
+func (p *SDK) initWebOperationEndpointsAndMetrics() error {
 	configProvider := view.GetConfigService(p.registry)
 
 	tlsEnabled := false

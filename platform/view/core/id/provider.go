@@ -59,10 +59,6 @@ func (p *provider) Load() error {
 		return errors.WithMessagef(err, "failed loading default identity")
 	}
 
-	if err := p.loadAdminIdentities(); err != nil {
-		return errors.WithMessagef(err, "failed loading admin identities")
-	}
-
 	if err := p.loadClientIdentities(); err != nil {
 		return errors.WithMessagef(err, "failed loading client identities")
 	}
@@ -112,25 +108,6 @@ func (p *provider) loadDefaultIdentity() error {
 		return errors.Wrapf(err, "failed registering default identity signer")
 	}
 	p.defaultID = defaultID
-	return nil
-}
-
-func (p *provider) loadAdminIdentities() error {
-	certs := p.configProvider.GetStringSlice("fsc.admin.certs")
-	var admins []view.Identity
-	for _, cert := range certs {
-		// TODO: support cert as a folder
-		certPath := p.configProvider.TranslatePath(cert)
-		admin, err := LoadIdentity(certPath)
-		if err != nil {
-			logger.Errorf("failed loading admin cert at [%s]: [%s]", certPath, err)
-			continue
-		}
-		logger.Infof("loaded admin cert at [%s]: [%s]", certPath, err)
-		admins = append(admins, admin)
-	}
-	logger.Infof("loaded [%d] admin identities", len(admins))
-	p.admins = admins
 	return nil
 }
 

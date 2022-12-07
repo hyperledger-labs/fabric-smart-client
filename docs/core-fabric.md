@@ -24,18 +24,16 @@ fsc:
     key:
       file: /path/to/key.pwm
 
-  # TBD
+  # This is used to list the authorized clients of this FSC node.
+  # At least one client certificate must be specified
+  # The GRPC service uses this list to filter the connecting clients
   client:
     certs:
     - path/to/client-cert.pem
 
-  # TBD
-  admin:
-    certs:
-    - path/to/admin-cert.pem
-
   # ------------------- GRPC Server Configuration -------------------------
   grpc:
+    enabled: true
     # The listen address of this server
     address: 0.0.0.0:20000
     # ConnectionTimeout specifies the timeout for connection establishment for all new connections
@@ -115,7 +113,13 @@ fsc:
         file: /path/to/tls/server.crt
       key:
         file: /path/to/tls/server.key
-      # root CAs for all clients that will connect to the web server
+      # Whether clients are required to provide their TLS certificates for verification
+      # Require client certificates / mutual TLS for inbound connections.
+      # Note that clients that are not configured to use a certificate will
+      # fail to connect to the node.
+      clientAuthRequired: false
+      # If mutual TLS is enabled, clientRootCAs.files contains a list of additional root certificates
+      # used for verifying certificates of client connections.
       clientRootCAs:
         files:
         - path/to/client/tls/ca.crt

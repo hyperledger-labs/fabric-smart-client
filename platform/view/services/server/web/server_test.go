@@ -116,6 +116,7 @@ var _ = Describe("Server", func() {
 				Enabled:           true,
 				CertFile:          filepath.Join(tempDir, "server-cert.pem"),
 				KeyFile:           filepath.Join(tempDir, "server-key.pem"),
+				ClientAuth:        true,
 				ClientCACertFiles: []string{filepath.Join(tempDir, "client-ca.pem")},
 			},
 		}
@@ -174,6 +175,7 @@ var _ = Describe("Server", func() {
 
 			url := fmt.Sprintf("https://%s%s", server.Addr(), someURL)
 			resp, err := client.Get(url)
+			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("remote error: tls: bad certificate"))
 			Expect(resp).To(BeNil())
 		})

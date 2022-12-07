@@ -63,6 +63,19 @@ var _ = Describe("EndToEnd", func() {
 			res, err := initiatorWebClient.CallView("init", bytes.NewBuffer([]byte("hi")).Bytes())
 			Expect(err).NotTo(HaveOccurred())
 			Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
+			version, err := initiatorWebClient.ServerVersion()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(version).To(BeEquivalentTo("{\"CommitSHA\":\"development build\",\"Version\":\"latest\"}"))
+
+			webClientConfig.TLSCert = ""
+			initiatorWebClient, err = web.NewClient(webClientConfig)
+			Expect(err).NotTo(HaveOccurred())
+			_, err = initiatorWebClient.CallView("init", bytes.NewBuffer([]byte("hi")).Bytes())
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("status code [401], status [401 Unauthorized]"))
+			version, err = initiatorWebClient.ServerVersion()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(version).To(BeEquivalentTo("{\"CommitSHA\":\"development build\",\"Version\":\"latest\"}"))
 		})
 
 		It("successful pingpong", func() {
@@ -99,6 +112,7 @@ var _ = Describe("EndToEnd", func() {
 
 		AfterEach(func() {
 			// Stop the ii
+			ii.DeleteOnStop = false
 			ii.Stop()
 		})
 
@@ -114,22 +128,6 @@ var _ = Describe("EndToEnd", func() {
 			initiator := ii.Client("initiator")
 			// Initiate a view and check the output
 			res, err := initiator.CallView("init", nil)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
-		})
-
-		It("generate artifacts & successful pingpong with Admin", func() {
-			var err error
-			// Create the integration ii
-			ii, err = integration.Generate(StartPortWithAdmin(), true, pingpong.Topology()...)
-			Expect(err).NotTo(HaveOccurred())
-			// Start the integration ii
-			ii.Start()
-			time.Sleep(3 * time.Second)
-			// Get an admin client for the fsc node labelled initiator
-			initiatorAdmin := ii.Admin("initiator")
-			// Initiate a view and check the output
-			res, err := initiatorAdmin.CallView("init", nil)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
 		})
