@@ -17,7 +17,7 @@ import (
 
 type AuditInfo struct {
 	*csp.NymEIDAuditData
-	Attributes      [][]byte
+	Attributes      [][]byte //revocationhandle
 	Csp             csp.BCCSP `json:"-"`
 	IssuerPublicKey csp.Key   `json:"-"`
 }
@@ -32,6 +32,11 @@ func (a *AuditInfo) FromBytes(raw []byte) error {
 
 func (a *AuditInfo) EnrollmentID() string {
 	return string(a.Attributes[2])
+}
+
+//RevocationHandle
+func (a *AuditInfo) RevocationHandle() string {
+	return string(a.Attributes[3])
 }
 
 func (a *AuditInfo) Match(id []byte) error {
