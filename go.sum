@@ -807,11 +807,11 @@ github.com/hyperledger-labs/orion-sdk-go v0.2.5 h1:HFGRTuMZgzo9EtyJeFAhVSlbrj6x3
 github.com/hyperledger-labs/orion-sdk-go v0.2.5/go.mod h1:At8hiFATfkDXQ4AFLVbaTiC9GDhVDo8aN/supb1KBb4=
 github.com/hyperledger-labs/orion-server v0.2.5 h1:aFudmB9SAnsT5v8jhazkuszEu0pdJNFqaYZF2GpvAuI=
 github.com/hyperledger-labs/orion-server v0.2.5/go.mod h1:8kXVAU1wvFYGbFL1qmXwMi2i8gKV2smOdp1F1kq0HMk=
-github.com/hyperledger-labs/weaver-dlt-interoperability/common/protos-go v1.2.3-alpha.1/go.mod h1:POCGO/RK9YDfgdhuyqjoD9tRNtWfK7Rh5AYYmsb1Chc=
-github.com/hyperledger-labs/weaver-dlt-interoperability/common/protos-go v1.3.1 h1:83ZKi0fyaNfHjnc59Cqgr8Zma11hSqYSW46VIhBKaWo=
-github.com/hyperledger-labs/weaver-dlt-interoperability/common/protos-go v1.3.1/go.mod h1:POCGO/RK9YDfgdhuyqjoD9tRNtWfK7Rh5AYYmsb1Chc=
-github.com/hyperledger-labs/weaver-dlt-interoperability/sdks/fabric/go-sdk v1.2.3 h1:ErX7LtSpGMu+Hi1lX8kMLZAEwHqsSQKE2FseA+4urQw=
-github.com/hyperledger-labs/weaver-dlt-interoperability/sdks/fabric/go-sdk v1.2.3/go.mod h1:OZKl7vqTVQvfB28tTkHcOjvDgLwZwmlfhGpDA2L74tI=
+github.com/hyperledger-labs/weaver-dlt-interoperability/common/protos-go v1.5.3/go.mod h1:POCGO/RK9YDfgdhuyqjoD9tRNtWfK7Rh5AYYmsb1Chc=
+github.com/hyperledger-labs/weaver-dlt-interoperability/common/protos-go v1.5.4 h1:3B4T3F5dpko3BxvfG6HvW07PhYfhevtECRd/EPbcD5o=
+github.com/hyperledger-labs/weaver-dlt-interoperability/common/protos-go v1.5.4/go.mod h1:POCGO/RK9YDfgdhuyqjoD9tRNtWfK7Rh5AYYmsb1Chc=
+github.com/hyperledger-labs/weaver-dlt-interoperability/sdks/fabric/go-sdk v1.2.5 h1:9Rdfkczmg4Hz3lG5aI6ReaCxPFNIAgAKOdtGvqXr8Bc=
+github.com/hyperledger-labs/weaver-dlt-interoperability/sdks/fabric/go-sdk v1.2.5/go.mod h1:Vbp+2je8XiRIS+wUXOcmfGhP+beQCwZnBQmdR5Wm9ps=
 github.com/hyperledger/fabric v1.4.0-rc1.0.20201118191903-ec81f3e74fa1/go.mod h1:ppiyrJ+sUSk/rAX9cTd8xwAwSQ7chEbOQMAqtQ3pLG4=
 github.com/hyperledger/fabric v1.4.0-rc1.0.20220808214918-83596078d0c3 h1:jyvu6MbYQFamEnJs9+sptdgtuJcuTlE1plZEMSun3OQ=
 github.com/hyperledger/fabric v1.4.0-rc1.0.20220808214918-83596078d0c3/go.mod h1:owdt10WC1/pKP9Qgayq7Abj/P4I7yPXlJ3fNTCUk4eI=

@@ -19,8 +19,8 @@ require (
 	github.com/grpc-ecosystem/go-grpc-middleware v1.2.0
 	github.com/hyperledger-labs/orion-sdk-go v0.2.5
 	github.com/hyperledger-labs/orion-server v0.2.5
-	github.com/hyperledger-labs/weaver-dlt-interoperability/common/protos-go v1.3.1
-	github.com/hyperledger-labs/weaver-dlt-interoperability/sdks/fabric/go-sdk v1.2.3
+	github.com/hyperledger-labs/weaver-dlt-interoperability/common/protos-go v1.5.4
+	github.com/hyperledger-labs/weaver-dlt-interoperability/sdks/fabric/go-sdk v1.2.5
 	github.com/hyperledger/fabric v1.4.0-rc1.0.20220808214918-83596078d0c3
 	github.com/hyperledger/fabric-chaincode-go v0.0.0-20210718160520-38d29fabecb9
 	github.com/hyperledger/fabric-contract-api-go v1.1.1
