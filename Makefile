@@ -2,6 +2,8 @@
 FABRIC_VERSION ?= 2.2.8
 FABRIC_TWO_DIGIT_VERSION = $(shell echo $(FABRIC_VERSION) | cut -d '.' -f 1,2)
 ORION_VERSION=v0.2.5
+WEAVER_RELAY ?= 1.5.4
+qWEAVER_FABRIC_DRIVER ?= 1.5.4
 
 # need to install fabric binaries outside of fsc tree for now (due to chaincode packaging issues)
 FABRIC_BINARY_BASE=$(PWD)/../fabric
@@ -56,10 +58,10 @@ fabric-docker-images:
 
 .PHONY: weaver-docker-images
 weaver-docker-images:
-	docker pull ghcr.io/hyperledger-labs/weaver-fabric-driver:1.4.2
-	docker image tag ghcr.io/hyperledger-labs/weaver-fabric-driver:1.4.2 hyperledger-labs/weaver-fabric-driver:latest
-	docker pull ghcr.io/hyperledger-labs/weaver-relay-server:1.4.2
-	docker image tag ghcr.io/hyperledger-labs/weaver-relay-server:1.4.2 hyperledger-labs/weaver-relay-server:latest
+	docker pull ghcr.io/hyperledger-labs/weaver-fabric-driver:${WEAVER_FABRIC_DRIVER}
+	docker image tag ghcr.io/hyperledger-labs/weaver-fabric-driver:${WEAVER_FABRIC_DRIVER} hyperledger-labs/weaver-fabric-driver:latest
+	docker pull ghcr.io/hyperledger-labs/weaver-relay-server:${WEAVER_RELAY}
+	docker image tag ghcr.io/hyperledger-labs/weaver-relay-server:${WEAVER_RELAY} hyperledger-labs/weaver-relay-server:latest
 
 .PHONY: fpc-docker-images
 fpc-docker-images:
