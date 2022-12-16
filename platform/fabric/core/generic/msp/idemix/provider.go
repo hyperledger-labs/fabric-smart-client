@@ -332,7 +332,7 @@ func (p *provider) Identity(opts *driver2.IdentityOptions) (view.Identity, []byt
 				[]byte(p.conf.Signer.OrganizationalUnitIdentifier),
 				[]byte(strconv.Itoa(getIdemixRoleFromMSPRole(role))),
 				[]byte(enrollmentID),
-				// []byte(enrollmentID), //replacement for revocationhandler
+				[]byte(enrollmentID), //replacement for revocationhandler
 			},
 		}
 		infoRaw, err = auditInfo.Bytes()
