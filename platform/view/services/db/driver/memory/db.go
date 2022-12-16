@@ -213,6 +213,11 @@ func (db *database) GetStateMetadata(namespace, key string) (map[string][]byte, 
 }
 
 func (db *database) SetState(namespace string, key string, value []byte, block, txnum uint64) error {
+	if len(value) == 0 {
+		logger.Warnf("set key [%s:%d:%d] to nil value, will be deleted instead", key, block, txnum)
+		return db.DeleteState(namespace, key)
+	}
+
 	db.mutex.Lock()
 	if db.txn == nil {
 		db.mutex.Unlock()
