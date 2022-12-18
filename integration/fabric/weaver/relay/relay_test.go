@@ -7,8 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package relay_test
 
 import (
-	"os"
-
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/weaver/relay"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
@@ -26,12 +24,10 @@ var _ = Describe("EndToEnd", func() {
 
 	Describe("Two Fabric Networks with Weaver Relay Life Cycle", func() {
 
-		var testdataPath = "./testdata"
-
 		BeforeEach(func() {
 			var err error
 			// Create the integration ii
-			ii, err = integration.GenerateAt(StartPort(), testdataPath, false, relay.Topology()...)
+			ii, err = integration.GenerateAt(StartPort(), "", false, relay.Topology()...)
 			Expect(err).NotTo(HaveOccurred())
 			// Start the integration ii
 			ii.Start()
@@ -41,11 +37,6 @@ var _ = Describe("EndToEnd", func() {
 			res, err := ii.Client("alice").CallView("init", nil)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
-
-			// cleanup testdata when test succeeds.
-			// if the test fails, we keep the test data for reviewing what went wrong
-			err = os.RemoveAll(testdataPath)
-			Expect(err).NotTo(HaveOccurred())
 		})
 	})
 })

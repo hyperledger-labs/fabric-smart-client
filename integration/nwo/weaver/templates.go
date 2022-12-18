@@ -21,7 +21,7 @@ remote_db_path="db/{{ Name }}/remote_request"
 # FOR TLS
 cert_path="credentials/fabric_cert.pem"
 key_path="credentials/fabric_key"
-# tls=true
+tls=false
 
 [networks]{{ range Networks }}
 [networks.{{ .Name }}]
@@ -32,12 +32,16 @@ network="{{ .Type }}"
 [relays.{{ .Name }}]
 hostname="{{ .Hostname }}"
 port="{{ .Port }}"
+tls=false
+tlsca_cert_path="credentials/fabric_ca_cert.pem"
 {{- end }}
 
 [drivers]{{ range Drivers }}
 [drivers.{{ .Name }}]
 hostname="{{ .Hostname }}"
 port="{{ .Port }}"
+tls=false
+tlsca_cert_path="credentials/fabric_ca_cert.pem"
 {{- end }}
 `
 

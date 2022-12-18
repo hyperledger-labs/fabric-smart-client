@@ -9,10 +9,9 @@ package relay_test
 import (
 	"testing"
 
+	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
-	"github.com/hyperledger-labs/fabric-smart-client/integration"
 )
 
 func TestEndToEnd(t *testing.T) {
