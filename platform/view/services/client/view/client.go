@@ -107,6 +107,7 @@ func NewClient(config *Config, sID SigningIdentity, hasher hash2.Hasher) (*clien
 
 func (s *client) CallView(fid string, input []byte) (interface{}, error) {
 	logger.Infof("Calling view [%s] on input [%s]", fid, string(input))
+	defer logger.Infof("Calling view [%s] on input [%s], done.", fid, string(input))
 	payload := &protos2.Command_CallView{CallView: &protos2.CallView{
 		Fid:   fid,
 		Input: input,

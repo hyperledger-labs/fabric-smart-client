@@ -28,6 +28,7 @@ var _ = Describe("EndToEnd", func() {
 			var err error
 			// Create the integration ii
 			ii, err = integration.GenerateAt(StartPort(), "", false, relay.Topology()...)
+			ii.SetLogSpec("debug")
 			Expect(err).NotTo(HaveOccurred())
 			// Start the integration ii
 			ii.Start()
