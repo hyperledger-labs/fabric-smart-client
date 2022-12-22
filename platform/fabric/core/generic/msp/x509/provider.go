@@ -58,7 +58,18 @@ func NewProviderWithBCCSPConfig(mspConfigPath, mspID string, signerService Signe
 }
 
 func (p *provider) Identity(opts *fdriver.IdentityOptions) (view.Identity, []byte, error) {
-	return p.id, []byte(p.enrollmentID), nil
+	ai := &AuditInfo{
+		Attributes: [][]byte{
+			[]byte(p.enrollmentID),
+			[]byte(p.enrollmentID),
+		},
+	}
+	infoRaw, err := ai.Bytes()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return p.id, infoRaw, nil
 }
 
 func (p *provider) EnrollmentID() string {
