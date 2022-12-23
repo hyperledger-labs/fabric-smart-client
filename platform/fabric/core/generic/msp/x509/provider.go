@@ -58,11 +58,13 @@ func NewProviderWithBCCSPConfig(mspConfigPath, mspID string, signerService Signe
 }
 
 func (p *provider) Identity(opts *fdriver.IdentityOptions) (view.Identity, []byte, error) {
+	revocationhandle, err := GetRevocationHandle(p.id)
+	if err != nil {
+		return nil, nil, errors.Wrapf(err, "failed getting revocation handle")
+	}
 	ai := &AuditInfo{
-		Attributes: [][]byte{
-			[]byte(p.enrollmentID),
-			[]byte(p.enrollmentID),
-		},
+		EnrollmentId:     p.enrollmentID,
+		RevocationHandle: revocationhandle,
 	}
 	infoRaw, err := ai.Bytes()
 	if err != nil {
