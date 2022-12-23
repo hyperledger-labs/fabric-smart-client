@@ -9,7 +9,8 @@ package x509
 import "encoding/json"
 
 type AuditInfo struct {
-	Attributes      [][]byte //revocationhandle
+	EnrollmentId     string
+	RevocationHandle string
 }
 
 func (a *AuditInfo) Bytes() ([]byte, error) {
@@ -21,10 +22,10 @@ func (a *AuditInfo) FromBytes(raw []byte) error {
 }
 
 func (a *AuditInfo) EnrollmentID() string {
-	return string(a.Attributes[0])
+	return string(a.EnrollmentId)
 }
 
 //RevocationHandle
-func (a *AuditInfo) RevocationHandle() string {
-	return string(a.Attributes[1])
+func (a *AuditInfo) GetRevocationHandle() string {
+	return string(a.RevocationHandle)
 }

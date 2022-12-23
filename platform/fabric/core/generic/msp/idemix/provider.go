@@ -316,8 +316,6 @@ func (p *provider) Identity(opts *driver2.IdentityOptions) (view.Identity, []byt
 	if err := GetSignerService(p.sp).RegisterSigner(raw, sID, sID); err != nil {
 		return nil, nil, err
 	}
-//get revocationhandle from idemix
-//add attribute
 
 	var infoRaw []byte
 	switch sigType {
