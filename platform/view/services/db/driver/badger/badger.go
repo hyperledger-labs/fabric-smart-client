@@ -199,6 +199,11 @@ func versionedValue(item *badger.Item, dbKey string) (*dbproto.VersionedValue, e
 }
 
 func (db *badgerDB) SetState(namespace, key string, value []byte, block, txnum uint64) error {
+	if len(value) == 0 {
+		logger.Warnf("set key [%s:%d:%d] to nil value, will be deleted instead", key, block, txnum)
+		return db.DeleteState(namespace, key)
+	}
+
 	if db.txn == nil {
 		panic("programming error, writing without ongoing update")
 	}
