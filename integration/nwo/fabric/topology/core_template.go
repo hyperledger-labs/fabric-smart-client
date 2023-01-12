@@ -248,6 +248,7 @@ fabric:
   enabled: true
   {{ FabricName }}:
     default: {{ DefaultNetwork }}
+    driver: {{ Driver }}
     mspCacheSize: 500
     defaultMSP: {{ Peer.DefaultIdentity }}
     msps: {{ range Peer.Identities }}

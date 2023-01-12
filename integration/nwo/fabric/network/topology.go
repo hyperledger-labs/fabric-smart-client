@@ -12,6 +12,7 @@ func NewEmptyTopology() *topology.Topology {
 	return &topology.Topology{
 		TopologyName:  "default",
 		TopologyType:  "fabric",
+		Driver:        "generic",
 		Organizations: []*topology.Organization{},
 		Consortiums:   []*topology.Consortium{},
 		Consensus:     &topology.Consensus{},

@@ -1575,6 +1575,7 @@ func (n *Network) GenerateCoreConfig(p *topology.Peer) {
 			"FSCNodeVaultPath":            func() string { return n.FSCNodeVaultDir(p) },
 			"FabricName":                  func() string { return n.topology.Name() },
 			"DefaultNetwork":              func() bool { return defaultNetwork },
+			"Driver":                      func() bool { return defaultNetwork },
 			"Chaincodes":                  func(channel string) []*topology.ChannelChaincode { return n.Chaincodes(channel) },
 		}).Parse(coreTemplate)
 		Expect(err).NotTo(HaveOccurred())
