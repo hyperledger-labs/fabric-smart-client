@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package driver
 
 import (
+	"context"
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
@@ -53,6 +54,8 @@ type ChaincodeInvocation interface {
 
 	// WithRetrySleep sets the time interval between each retry
 	WithRetrySleep(duration time.Duration) ChaincodeInvocation
+
+	WithContext(context context.Context) ChaincodeInvocation
 }
 
 // DiscoveredPeer contains the information of a discovered peer

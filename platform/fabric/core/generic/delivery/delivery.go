@@ -49,8 +49,9 @@ type Vault interface {
 }
 
 type Network interface {
+	Name() string
 	Channel(name string) (driver.Channel, error)
-	PickPeer() *grpc.ConnectionConfig
+	PickPeer(funcType driver.PeerFunctionType) *grpc.ConnectionConfig
 	LocalMembership() driver.LocalMembership
 }
 
@@ -108,14 +109,14 @@ func (d *Delivery) Run(ctx context.Context) error {
 		default:
 			if df == nil {
 				if logger.IsEnabledFor(zapcore.DebugLevel) {
-					logger.Debugf("deliver service [%s], connecting...", d.network, d.channel)
+					logger.Debugf("deliver service [%s], connecting...", d.network.Name(), d.channel)
 				}
 				df, err = d.connect(ctx)
 				if err != nil {
-					logger.Errorf("failed connecting to delivery service [%s:%s] [%s]. Wait 10 sec before reconnecting", d.channel, err)
+					logger.Errorf("failed connecting to delivery service [%s:%s] [%s]. Wait 10 sec before reconnecting", d.network.Name(), d.channel, err)
 					time.Sleep(10 * time.Second)
 					if logger.IsEnabledFor(zapcore.DebugLevel) {
-						logger.Debugf("reconnecting to delivery service [%s:%s]", d.channel)
+						logger.Debugf("reconnecting to delivery service [%s:%s]", d.network.Name(), d.channel)
 					}
 					continue
 				}
@@ -124,8 +125,8 @@ func (d *Delivery) Run(ctx context.Context) error {
 			resp, err := df.Recv()
 			if err != nil {
 				df = nil
-				logger.Errorf("delivery service [%s:%s], failed receiving response [%s]",
-					d.client.Address(), d.channel,
+				logger.Errorf("delivery service [%s:%s:%s], failed receiving response [%s]",
+					d.client.Address(), d.network.Name(), d.channel,
 					errors.WithMessagef(err, "error receiving deliver response from peer %s", d.client.Address()))
 				continue
 			}
@@ -134,14 +135,14 @@ func (d *Delivery) Run(ctx context.Context) error {
 			case *pb.DeliverResponse_Block:
 				if r.Block == nil || r.Block.Data == nil || r.Block.Header == nil || r.Block.Metadata == nil {
 					if logger.IsEnabledFor(zapcore.DebugLevel) {
-						logger.Debugf("deliver service [%s:%s], received nil block", d.client.Address(), d.channel)
+						logger.Debugf("deliver service [%s:%s:%s], received nil block", d.client.Address(), d.network.Name(), d.channel)
 					}
 					time.Sleep(10 * time.Second)
 					df = nil
 				}
 
 				if logger.IsEnabledFor(zapcore.DebugLevel) {
-					logger.Debugf("delivery service [%s:%s], commit block [%d]", d.client.Address(), d.channel, r.Block.Header.Number)
+					logger.Debugf("delivery service [%s:%s:%s], commit block [%d]", d.client.Address(), d.network.Name(), d.channel, r.Block.Header.Number)
 				}
 				d.lastBlockReceived = r.Block.Header.Number
 
@@ -157,14 +158,14 @@ func (d *Delivery) Run(ctx context.Context) error {
 			case *pb.DeliverResponse_Status:
 				if r.Status == common.Status_NOT_FOUND {
 					df = nil
-					logger.Warnf("delivery service [%s:%s] status [%s], wait a few seconds before retrying", d.client.Address(), d.channel, r.Status)
+					logger.Warnf("delivery service [%s:%s:%s] status [%s], wait a few seconds before retrying", d.client.Address(), d.network.Name(), d.channel, r.Status)
 					time.Sleep(10 * time.Second)
 				} else {
-					logger.Warnf("delivery service [%s:%s] status [%s]", d.client.Address(), d.channel, r.Status)
+					logger.Warnf("delivery service [%s:%s:%s] status [%s]", d.client.Address(), d.network.Name(), d.channel, r.Status)
 				}
 			default:
 				df = nil
-				logger.Errorf("delivery service [%s:%s], got [%s]", d.client.Address(), d.channel, r)
+				logger.Errorf("delivery service [%s:%s:%s], got [%s]", d.client.Address(), d.network.Name(), d.channel, r)
 			}
 		}
 	}
@@ -174,19 +175,19 @@ func (d *Delivery) connect(ctx context.Context) (DeliverStream, error) {
 	// first cleanup everything
 	d.cleanup()
 
-	peerConnConf := d.network.PickPeer()
+	peerConnConf := d.network.PickPeer(driver.PeerForDelivery)
 
 	address := peerConnConf.Address
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("connecting to deliver service at [%s] for channel [%s]", address, d.channel)
+		logger.Debugf("connecting to deliver service at [%s] for [%s:%s]", address, d.network.Name(), d.channel)
 	}
 	ch, err := d.network.Channel(d.channel)
 	if err != nil {
-		return nil, errors.WithMessagef(err, "failed connecting to channel [%s]", d.channel)
+		return nil, errors.WithMessagef(err, "failed connecting to channel [%s:%s]", d.network.Name(), d.channel)
 	}
 	d.client, err = ch.NewPeerClientForAddress(*peerConnConf)
 	if err != nil {
-		return nil, errors.WithMessagef(err, "failed creating peer client for address [%s]", address)
+		return nil, errors.WithMessagef(err, "failed creating peer client for address [%s][%s:%s]", address, d.network.Name(), d.channel)
 	}
 	deliverClient, err := NewDeliverClient(d.client)
 	if err != nil {

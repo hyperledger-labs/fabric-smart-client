@@ -248,6 +248,7 @@ fabric:
   enabled: true
   {{ FabricName }}:
     default: {{ DefaultNetwork }}
+    driver: {{ Driver }}
     mspCacheSize: 500
     defaultMSP: {{ Peer.DefaultIdentity }}
     msps: {{ range Peer.Identities }}
@@ -275,7 +276,7 @@ fabric:
                Security: {{ .Opts.PKCS11.Security }}
     {{- end }}
     tls:
-      enabled:  true
+      enabled:  {{ TLSEnabled }}
       clientAuthRequired: {{ .ClientAuthRequired }}
       {{- if .ClientAuthRequired }}
       clientCert:
@@ -294,6 +295,8 @@ fabric:
         connectionTimeout: 10s        
         tlsRootCertFile: {{ CACertsBundlePath }}
         serverNameOverride:
+        {{ if .TLSDisabled }}tlsDisabled: {{ .TLSDisabled }} {{ end }}
+        {{ if .Usage }}usage: {{ .Usage }} {{ end }}
     {{- end }}
     channels: {{ range .Channels }}
       - name: {{ .Name }}

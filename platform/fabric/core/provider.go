@@ -152,6 +152,32 @@ func (p *FSNProvider) InitFabricLogging() {
 }
 
 func (p *FSNProvider) newFNS(network string) (driver.FabricNetworkService, error) {
+	fnsConfig, err := NewConfig(view.GetConfigService(p.sp))
+	if err != nil {
+		return nil, errors.WithMessagef(err, "failed to load configuration")
+	}
+
+	netConfig, err := fnsConfig.Config(network)
+	if err != nil {
+		return nil, errors.WithMessagef(err, "failed to get configuration for [%s]", network)
+	}
+	if len(netConfig.Driver) != 0 {
+		logger.Debugf("instantiate Fabric Network Service [%s] with driver [%s]", network, netConfig.Driver)
+		// use the suggested driver
+		driver, ok := drivers[netConfig.Driver]
+		if !ok {
+			return nil, errors.Errorf("driver [%s] is not registered", netConfig.Driver)
+		}
+		nw, err := driver.New(p.sp, network, network == p.config.defaultName)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to create network [%s]", network)
+		}
+		return nw, nil
+	}
+
+	logger.Debugf("no driver specified for network [%s], try all", network)
+
+	// try all available drivers
 	for _, d := range drivers {
 		nw, err := d.New(p.sp, network, network == p.config.defaultName)
 		if err != nil {

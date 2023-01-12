@@ -148,6 +148,11 @@ type Peer struct {
 	Channels        []*PeerChannel  `yaml:"channels,omitempty"`
 	DefaultIdentity string          `yaml:"defaultMSP,omitempty"`
 	Identities      []*PeerIdentity `yaml:"identities,omitempty"`
+	Usage           string          `yaml:"usage,omitempty"`
+	SkipInit        bool            `yaml:"skipinit,omitempty"`
+	SkipRunning     bool            `yaml:"skiprunning,omitempty"`
+	TLSDisabled     bool            `yaml:"tlsdisabled,omitempty"`
+	Hostname        string          `yaml:"hostname,omitempty"`
 	DevMode         bool
 	DefaultNetwork  bool       `yaml:"-"`
 	FSCNode         *node.Node `yaml:"-"`

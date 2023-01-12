@@ -9,15 +9,12 @@ package endorser
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"time"
-
-	"github.com/pkg/errors"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracker"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"github.com/pkg/errors"
 )
 
 type collectEndorsementsView struct {
@@ -28,12 +25,6 @@ type collectEndorsementsView struct {
 }
 
 func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error) {
-	tracker, err := tracker.GetViewTracker(context)
-	if err != nil {
-		return nil, err
-	}
-	tracker.Report("collectEndorsementsView: Marshall State")
-
 	// Prepare verifiers
 	ch, err := c.tx.FabricNetworkService().Channel(c.tx.Channel())
 	if err != nil {
@@ -79,7 +70,6 @@ func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error
 			}
 		}
 
-		tracker.Report(fmt.Sprintf("collectEndorsementsView: collect signature from %s", party))
 		session, err := context.GetSession(context.Initiator(), party)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed getting session")
@@ -101,7 +91,6 @@ func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error
 		select {
 		case msg = <-ch:
 			timeout.Stop()
-			tracker.Report(fmt.Sprintf("collectEndorsementsView: reply received from [%s]", party))
 		case <-timeout.C:
 			timeout.Stop()
 			return nil, errors.Errorf("Timeout from party %s", party)
@@ -163,10 +152,7 @@ func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error
 		if !found {
 			return nil, errors.Errorf("invalid endorsement, expected one signed by [%s]", party.String())
 		}
-
-		tracker.Report(fmt.Sprintf("collectEndorsementsView: collected signature from %s", party))
 	}
-	tracker.Report("collectEndorsementsView done.")
 	return c.tx, nil
 }
 

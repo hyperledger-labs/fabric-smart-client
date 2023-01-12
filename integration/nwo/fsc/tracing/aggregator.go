@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/armon/go-metrics"
-	"github.com/op/go-logging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 )
 
 type eventType string
@@ -77,7 +77,7 @@ type Aggregator struct {
 	eventHandlers map[string]*dEventHandler
 	sink          metrics.MetricSink
 	storage       Storage
-	logger        *logging.Logger
+	logger        *flogging.FabricLogger
 	numEvents     uint64
 }
 
@@ -90,7 +90,7 @@ func NewAggregator(sink metrics.MetricSink, storage Storage, rawEventParser RawE
 		dEvents:       []*distEvent{},
 		sink:          sink,
 		storage:       storage,
-		logger:        logging.MustGetLogger(logModuleName),
+		logger:        flogging.MustGetLogger(logModuleName),
 	}
 	go a.run()
 	return a, nil

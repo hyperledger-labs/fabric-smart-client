@@ -12,6 +12,7 @@ import (
 	"encoding/binary"
 	io2 "io"
 	"runtime/debug"
+	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -188,8 +189,8 @@ func (p *P2PNode) sendTo(IDString string, address string, msg proto.Message) err
 		return err
 	}
 
-	if len(address) != 0 {
-		// reprogram the addresses of the peer before opening a new stream
+	if len(address) != 0 && strings.HasPrefix(address, "/ip4/") {
+		// reprogram the addresses of the peer before opening a new stream, if it is not in the right form yet
 		ps := p.host.Peerstore()
 		current := ps.Addrs(ID)
 

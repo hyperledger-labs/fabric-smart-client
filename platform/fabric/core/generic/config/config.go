@@ -8,17 +8,25 @@ package config
 
 import (
 	"strconv"
+	"strings"
 	"time"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/pkg/errors"
 )
 
 const (
-	DefaultMSPCacheSize        = 3
-	DefaultBroadcastNumRetries = 3
-	VaultPersistenceOptsKey    = "vault.persistence.opts"
+	DefaultMSPCacheSize               = 3
+	DefaultBroadcastNumRetries        = 3
+	VaultPersistenceOptsKey           = "vault.persistence.opts"
+	DefaultOrderingConnectionPoolSize = 10
 )
+
+var logger = flogging.MustGetLogger("fabric-sdk.core.generic.config")
 
 // configService models a configuration registry
 type configService interface {
@@ -115,16 +123,34 @@ func (c *Config) Orderers() ([]*grpc.ConnectionConfig, error) {
 	return res, nil
 }
 
-func (c *Config) Peers() ([]*grpc.ConnectionConfig, error) {
-	var res []*grpc.ConnectionConfig
-	if err := c.configService.UnmarshalKey("fabric."+c.prefix+"peers", &res); err != nil {
+func (c *Config) Peers() (map[driver.PeerFunctionType][]*grpc.ConnectionConfig, error) {
+	var connectionConfigs []*grpc.ConnectionConfig
+	if err := c.configService.UnmarshalKey("fabric."+c.prefix+"peers", &connectionConfigs); err != nil {
 		return nil, err
 	}
 
-	for _, v := range res {
+	res := map[driver.PeerFunctionType][]*grpc.ConnectionConfig{}
+	for _, v := range connectionConfigs {
 		v.TLSEnabled = c.TLSEnabled()
+		if v.TLSDisabled {
+			v.TLSEnabled = false
+		}
+		usage := strings.ToLower(v.Usage)
+		switch {
+		case len(usage) == 0:
+			res[driver.PeerForAnything] = append(res[driver.PeerForAnything], v)
+		case usage == "delivery":
+			res[driver.PeerForDelivery] = append(res[driver.PeerForDelivery], v)
+		case usage == "discovery":
+			res[driver.PeerForDiscovery] = append(res[driver.PeerForDiscovery], v)
+		case usage == "finality":
+			res[driver.PeerForFinality] = append(res[driver.PeerForFinality], v)
+		case usage == "query":
+			res[driver.PeerForQuery] = append(res[driver.PeerForQuery], v)
+		default:
+			logger.Warn("connection usage [%s] not recognized [%v]", usage, v)
+		}
 	}
-
 	return res, nil
 }
 
@@ -230,4 +256,12 @@ func (c *Config) BroadcastNumRetries() int {
 
 func (c *Config) BroadcastRetryInterval() time.Duration {
 	return c.configService.GetDuration("fabric." + c.prefix + "ordering.retryInterval")
+}
+
+func (c *Config) OrdererConnectionPoolSize() int {
+	v := c.configService.GetInt("fabric." + c.prefix + "ordering.connectionPoolSize")
+	if v == 0 {
+		v = DefaultOrderingConnectionPoolSize
+	}
+	return v
 }

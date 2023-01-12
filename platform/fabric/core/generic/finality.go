@@ -12,13 +12,13 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
-func (c *channel) IsFinal(ctx context.Context, txID string) error {
+func (c *Channel) IsFinal(ctx context.Context, txID string) error {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	return c.finality.IsFinal(ctx, txID)
+	return c.Finality.IsFinal(ctx, txID)
 }
 
-func (c *channel) IsFinalForParties(txID string, parties ...view.Identity) error {
-	return c.finality.IsFinalForParties(txID, parties...)
+func (c *Channel) IsFinalForParties(txID string, parties ...view.Identity) error {
+	return c.Finality.IsFinalForParties(txID, parties...)
 }

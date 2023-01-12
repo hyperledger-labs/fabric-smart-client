@@ -132,6 +132,8 @@ func NewTopologyWithName(name string) *topology.Topology {
 	return &topology.Topology{
 		TopologyName: name,
 		TopologyType: "fabric",
+		Driver:       "generic",
+		TLSEnabled:   true,
 		Logging: &topology.Logging{
 			Spec:   "info",
 			Format: "'%{color}%{time:2006-01-02 15:04:05.000 MST} [%{module}] %{shortfunc} -> %{level:.4s} %{id:03x}%{color:reset} %{message}'",

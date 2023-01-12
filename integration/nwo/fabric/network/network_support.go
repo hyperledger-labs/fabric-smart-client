@@ -236,6 +236,26 @@ func (n *Network) OrgPeerCACertificatePath(org *topology.Organization) string {
 	return n.orgCACertificatePath(org, "peerOrganizations")
 }
 
+func (n *Network) OrgOrdererCACertificatePath(org *topology.Organization) string {
+	return n.orgCACertificatePath(org, "ordererOrganizations")
+}
+
+func (n *Network) OrgOrdererTLSCACertificatePath(org *topology.Organization) string {
+	return n.orgTLSCACertificatePath(org, "ordererOrganizations")
+}
+
+func (n *Network) orgTLSCACertificatePath(org *topology.Organization, nodeOrganizationType string) string {
+	return filepath.Join(
+		n.Context.RootDir(),
+		n.Prefix,
+		"crypto",
+		nodeOrganizationType,
+		org.Domain,
+		"tlsca",
+		fmt.Sprintf("tlsca.%s-cert.pem", org.Domain),
+	)
+}
+
 func (n *Network) orgCACertificatePath(org *topology.Organization, nodeOrganizationType string) string {
 	return filepath.Join(
 		n.Context.RootDir(),
@@ -831,6 +851,9 @@ func (n *Network) JoinChannel(name string, o *topology.Orderer, peers ...*topolo
 	Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
 
 	for _, p := range peers {
+		if p.SkipInit {
+			continue
+		}
 		sess, err := n.PeerAdminSession(p, commands.ChannelJoin{
 			NetworkPrefix: n.Prefix,
 			BlockPath:     tempFile.Name(),
@@ -990,6 +1013,9 @@ func (n *Network) OrdererLogsFolder() string {
 func (n *Network) PeerGroupRunner() ifrit.Runner {
 	members := grouper.Members{}
 	for _, p := range n.Peers {
+		if p.SkipRunning {
+			continue
+		}
 		switch {
 		case p.Type == topology.FabricPeer:
 			members = append(members, grouper.Member{Name: p.ID(), Runner: n.PeerRunner(p)})
@@ -1389,6 +1415,9 @@ func (n *Network) OrdererHost(o *topology.Orderer) string {
 // This assumes that the peer is listening on 0.0.0.0 and is available on the
 // loopback address.
 func (n *Network) PeerAddress(p *topology.Peer, portName api.PortName) string {
+	if p.Hostname != "" {
+		return fmt.Sprintf("%s:%d", p.Hostname, n.PeerPort(p, portName))
+	}
 	return fmt.Sprintf("%s:%d", n.PeerHost(p), n.PeerPort(p, portName))
 }
 
@@ -1557,6 +1586,8 @@ func (n *Network) GenerateCoreConfig(p *topology.Peer) {
 		var refPeers []*topology.Peer
 		coreTemplate := n.Templates.CoreTemplate()
 		defaultNetwork := n.topology.Default
+		driver := n.topology.Driver
+		tlsEnabled := n.topology.TLSEnabled
 		if p.Type == topology.FSCPeer {
 			coreTemplate = n.Templates.FSCFabricExtensionTemplate()
 			peers := n.PeersInOrg(p.Organization)
@@ -1590,7 +1621,9 @@ func (n *Network) GenerateCoreConfig(p *topology.Peer) {
 			"FSCNodeVaultPath":            func() string { return n.FSCNodeVaultDir(p) },
 			"FabricName":                  func() string { return n.topology.Name() },
 			"DefaultNetwork":              func() bool { return defaultNetwork },
+			"Driver":                      func() string { return driver },
 			"Chaincodes":                  func(channel string) []*topology.ChannelChaincode { return n.Chaincodes(channel) },
+			"TLSEnabled":                  func() bool { return tlsEnabled },
 		}).Parse(coreTemplate)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -1604,6 +1637,22 @@ func (n *Network) GenerateCoreConfig(p *topology.Peer) {
 func (n *Network) PeersByName(names []string) []*topology.Peer {
 	var peers []*topology.Peer
 	for _, p := range n.Peers {
+		for _, name := range names {
+			if p.Name == name {
+				peers = append(peers, p)
+				break
+			}
+		}
+	}
+	return peers
+}
+
+func (n *Network) PeersForChaincodeByName(names []string) []*topology.Peer {
+	var peers []*topology.Peer
+	for _, p := range n.Peers {
+		if p.SkipInit {
+			continue
+		}
 		for _, name := range names {
 			if p.Name == name {
 				peers = append(peers, p)
@@ -1640,6 +1689,10 @@ func (n *Network) Chaincodes(channel string) []*topology.ChannelChaincode {
 		}
 	}
 	return res
+}
+
+func (n *Network) AppendPeer(peer *topology.Peer) {
+	n.Peers = append(n.Peers, peer)
 }
 
 func GetLinkedIdentities(peer *topology.Peer) []string {

@@ -11,8 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/op/go-logging"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 )
 
@@ -27,12 +25,12 @@ type RawEventParser interface {
 
 type Parser struct {
 	ch             <-chan *RawEvent
-	logger         *logging.Logger
+	logger         *flogging.FabricLogger
 	rawEventParser RawEventParser
 }
 
 func NewParser(rawEventParser RawEventParser, ch <-chan *RawEvent) *Parser {
-	return &Parser{rawEventParser: rawEventParser, ch: ch, logger: logging.MustGetLogger(logModuleName)}
+	return &Parser{rawEventParser: rawEventParser, ch: ch, logger: flogging.MustGetLogger(logModuleName)}
 }
 
 func (p *Parser) Read() <-chan *Event {

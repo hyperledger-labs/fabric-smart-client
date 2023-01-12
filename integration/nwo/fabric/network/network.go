@@ -234,7 +234,7 @@ func (n *Network) Cleanup() {
 
 func (n *Network) DeployChaincode(chaincode *topology.ChannelChaincode) {
 	orderer := n.Orderer("orderer")
-	peers := n.PeersByName(chaincode.Peers)
+	peers := n.PeersForChaincodeByName(chaincode.Peers)
 
 	if len(chaincode.Chaincode.PackageFile) == 0 {
 		if len(chaincode.Path) != 0 {

@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package fabric
 
 import (
+	"context"
 	"encoding/json"
 	"time"
 
@@ -144,6 +145,11 @@ func (i *ChaincodeInvocation) Call() (string, []byte, error) {
 	return i.ChaincodeInvocation.Submit()
 }
 
+func (i *ChaincodeInvocation) WithContext(context context.Context) *ChaincodeInvocation {
+	i.ChaincodeInvocation.WithContext(context)
+	return i
+}
+
 func (i *ChaincodeInvocation) WithTransientEntry(k string, v interface{}) *ChaincodeInvocation {
 	i.ChaincodeInvocation.WithTransientEntry(k, v)
 	return i
@@ -182,6 +188,11 @@ type ChaincodeQuery struct {
 
 func (i *ChaincodeQuery) Call() ([]byte, error) {
 	return i.ChaincodeInvocation.Query()
+}
+
+func (i *ChaincodeQuery) WithContext(context context.Context) *ChaincodeQuery {
+	i.ChaincodeInvocation.WithContext(context)
+	return i
 }
 
 func (i *ChaincodeQuery) WithTransientEntry(k string, v interface{}) *ChaincodeQuery {
@@ -248,6 +259,11 @@ func (i *ChaincodeEndorse) Call() (*Envelope, error) {
 		return nil, err
 	}
 	return &Envelope{e: env}, nil
+}
+
+func (i *ChaincodeEndorse) WithContext(context context.Context) *ChaincodeEndorse {
+	i.ChaincodeInvocation.WithContext(context)
+	return i
 }
 
 func (i *ChaincodeEndorse) WithTransientEntry(k string, v interface{}) *ChaincodeEndorse {
