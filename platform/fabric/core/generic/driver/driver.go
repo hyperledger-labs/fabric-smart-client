@@ -84,5 +84,5 @@ func (d *Driver) New(sp view.ServiceProvider, network string, defaultNetwork boo
 }
 
 func init() {
-	core.Register("fabric", &Driver{})
+	core.Register("generic", &Driver{})
 }

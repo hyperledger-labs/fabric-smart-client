@@ -18,6 +18,7 @@ type Topology struct {
 	TopologyName      string              `yaml:"name,omitempty"`
 	TopologyType      string              `yaml:"type,omitempty"`
 	Default           bool                `yaml:"default,omitempty"`
+	Driver            string              `yaml:"driver,omitempty"`
 	Logging           *Logging            `yaml:"logging,omitempty"`
 	Organizations     []*Organization     `yaml:"organizations,omitempty"`
 	Peers             []*Peer             `yaml:"peers,omitempty"`
