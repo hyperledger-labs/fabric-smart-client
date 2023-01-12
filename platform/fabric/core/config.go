@@ -35,17 +35,18 @@ func NewConfig(configProvider ConfigProvider) (*Config, error) {
 	m := value.(map[string]interface{})
 	var names []string
 	var defaultName string
-	var configurations map[string]*FSNConfig
+	configurations := map[string]*FSNConfig{}
 	for k := range m {
 		name := k
 		if strings.ToLower(name) != "enabled" {
 			names = append(names, name)
 
-			var fsnConfig *FSNConfig
-			if err := configProvider.UnmarshalKey("fabric."+name, fsnConfig); err != nil {
+			var fsnConfig FSNConfig
+			if err := configProvider.UnmarshalKey("fabric."+name, &fsnConfig); err != nil {
 				return nil, errors.Wrapf(err, "failed unmarshalling `fabric.%s` key", name)
 			}
-			configurations[name] = fsnConfig
+			configurations[name] = &fsnConfig
+			logger.Debugf("found fabric network [%s], driver [%s]", name, fsnConfig.Driver)
 
 			// is this default?
 			if fsnConfig.Default {
