@@ -30,6 +30,7 @@ type common struct {
 	epoch           int
 	VerType         bccsp.VerificationType
 	NymEID          []byte
+	RhNym           []byte
 }
 
 func (s *common) Deserialize(raw []byte, checkValidity bool) (*deserialized, error) {
