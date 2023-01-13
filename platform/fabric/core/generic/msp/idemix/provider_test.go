@@ -42,7 +42,7 @@ func TestProvider(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, p)
 
-	p, err = idemix2.NewProviderWithSigType(config, registry, bccsp.EidNym)
+	p, err = idemix2.NewProviderWithSigType(config, registry, bccsp.EidNymRhNym)
 	assert.NoError(t, err)
 	assert.NotNil(t, p)
 }

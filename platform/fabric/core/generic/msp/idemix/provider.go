@@ -65,7 +65,7 @@ type provider struct {
 }
 
 func NewEIDNymProvider(conf1 *m.MSPConfig, sp view2.ServiceProvider) (*provider, error) {
-	return NewProviderWithSigType(conf1, sp, bccsp.EidNym)
+	return NewProviderWithSigType(conf1, sp, bccsp.EidNymRhNym)
 }
 
 func NewStandardProvider(conf1 *m.MSPConfig, sp view2.ServiceProvider) (*provider, error) {
@@ -169,8 +169,8 @@ func NewProvider(conf1 *m.MSPConfig, sp view2.ServiceProvider, sigType bccsp.Sig
 	switch sigType {
 	case bccsp.Standard:
 		verType = bccsp.ExpectStandard
-	case bccsp.EidNym:
-		verType = bccsp.ExpectEidNym
+	case bccsp.EidNymRhNym:
+		verType = bccsp.ExpectEidNymRhNym
 	case Any:
 		verType = bccsp.BestEffort
 	default:
@@ -255,20 +255,21 @@ func (p *provider) Identity(opts *driver2.IdentityOptions) (view.Identity, []byt
 	}
 
 	enrollmentID := p.conf.Signer.EnrollmentId
-
 	sigType := p.sigType
 	var signerMetadata *bccsp.IdemixSignerMetadata
 	if opts != nil {
 		if opts.EIDExtension {
-			sigType = bccsp.EidNym
+			sigType = bccsp.EidNymRhNym
 		}
 		if len(opts.AuditInfo) != 0 {
 			ai, err := p.DeserializeAuditInfo(opts.AuditInfo)
 			if err != nil {
 				return nil, nil, err
 			}
+
 			signerMetadata = &bccsp.IdemixSignerMetadata{
-				NymEIDAuditData: ai.NymEIDAuditData,
+				EidNymAuditData: ai.EidNymAuditData,
+				RhNymAuditData:  ai.RhNymAuditData,
 			}
 		}
 	}
@@ -321,16 +322,17 @@ func (p *provider) Identity(opts *driver2.IdentityOptions) (view.Identity, []byt
 	switch sigType {
 	case bccsp.Standard:
 		infoRaw = nil
-	case bccsp.EidNym:
+	case bccsp.EidNymRhNym:
 		auditInfo := &AuditInfo{
 			Csp:             p.Csp,
 			IssuerPublicKey: p.IssuerPublicKey,
-			NymEIDAuditData: sigOpts.Metadata.NymEIDAuditData,
+			EidNymAuditData: sigOpts.Metadata.EidNymAuditData,
+			RhNymAuditData:  sigOpts.Metadata.RhNymAuditData,
 			Attributes: [][]byte{
 				[]byte(p.conf.Signer.OrganizationalUnitIdentifier),
 				[]byte(strconv.Itoa(getIdemixRoleFromMSPRole(role))),
 				[]byte(enrollmentID),
-				[]byte(enrollmentID), //replacement for revocationhandler
+				sigOpts.Metadata.RhNymAuditData.Attr.Bytes(),
 			},
 		}
 		infoRaw, err = auditInfo.Bytes()
