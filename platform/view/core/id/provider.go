@@ -96,18 +96,20 @@ func (p *provider) loadDefaultIdentity() error {
 	if err != nil {
 		return errors.Wrapf(err, "failed loading SFC Node Identity")
 	}
+	defaultID
+
 	id, verifier, err := ecdsa.NewIdentityFromPEMCert(defaultID)
 	if err != nil {
 		return errors.Wrap(err, "failed loading default verifier")
 	}
-	fileCont, err := ioutil.ReadFile(p.configProvider.GetPath("fsc.identity.key.file"))
-	if err != nil {
-		return errors.Wrapf(err, "failed reading file [%s]", fileCont)
-	}
-	signer, err := ecdsa.NewSignerFromPEM(fileCont)
-	if err != nil {
-		return errors.Wrapf(err, "failed loading default signer")
-	}
+	// fileCont, err := ioutil.ReadFile(p.configProvider.GetPath("fsc.identity.key.file"))
+	// if err != nil {
+	// 	return errors.Wrapf(err, "failed reading file [%s]", fileCont)
+	// }
+	// signer, err := ecdsa.NewSignerFromPEM(fileCont)
+	// if err != nil {
+	// 	return errors.Wrapf(err, "failed loading default signer")
+	// }
 	if err := p.sigService.RegisterSigner(id, signer, verifier); err != nil {
 		return errors.Wrapf(err, "failed registering default identity signer")
 	}
