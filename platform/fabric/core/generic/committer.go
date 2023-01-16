@@ -305,7 +305,7 @@ func (c *channel) commitLocal(txid string, block uint64, indexInBlock int, envel
 		}
 
 		if err := c.vault.Match(txid, pt.Results()); err != nil {
-			logger.Error("[%s] rwsets do not match [%s]", txid, err)
+			logger.Errorf("[%s] rwsets do not match [%s]", txid, err)
 			return err
 		}
 
