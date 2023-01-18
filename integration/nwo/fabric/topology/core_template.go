@@ -276,7 +276,7 @@ fabric:
                Security: {{ .Opts.PKCS11.Security }}
     {{- end }}
     tls:
-      enabled:  true
+      enabled:  {{ TLSEnabled }}
       clientAuthRequired: {{ .ClientAuthRequired }}
       {{- if .ClientAuthRequired }}
       clientCert:

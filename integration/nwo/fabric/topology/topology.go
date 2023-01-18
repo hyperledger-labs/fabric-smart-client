@@ -42,6 +42,7 @@ type Topology struct {
 	Weaver            bool                `yaml:"weaver,omitempty"`
 	LogPeersToFile    bool                `yaml:"logPeersToFile,omitempty"`
 	LogOrderersToFile bool                `yaml:"logOrderersToFile,omitempty"`
+	TLSEnabled        bool                `yaml:"tlsEnabled,omitempty"`
 }
 
 func (t *Topology) Name() string {

@@ -1558,6 +1558,7 @@ func (n *Network) GenerateCoreConfig(p *topology.Peer) {
 		coreTemplate := n.Templates.CoreTemplate()
 		defaultNetwork := n.topology.Default
 		driver := n.topology.Driver
+		tlsEnabled := n.topology.TLSEnabled
 		if p.Type == topology.FSCPeer {
 			coreTemplate = n.Templates.FSCFabricExtensionTemplate()
 			peers := n.PeersInOrg(p.Organization)
@@ -1593,6 +1594,7 @@ func (n *Network) GenerateCoreConfig(p *topology.Peer) {
 			"DefaultNetwork":              func() bool { return defaultNetwork },
 			"Driver":                      func() string { return driver },
 			"Chaincodes":                  func(channel string) []*topology.ChannelChaincode { return n.Chaincodes(channel) },
+			"TLSEnabled":                  func() bool { return tlsEnabled },
 		}).Parse(coreTemplate)
 		Expect(err).NotTo(HaveOccurred())
 
