@@ -50,7 +50,7 @@ type Vault interface {
 
 type Network interface {
 	Channel(name string) (driver.Channel, error)
-	PickPeer() *grpc.ConnectionConfig
+	PickPeer(funcType driver.PeerFunctionType) *grpc.ConnectionConfig
 	LocalMembership() driver.LocalMembership
 }
 
@@ -174,7 +174,7 @@ func (d *Delivery) connect(ctx context.Context) (DeliverStream, error) {
 	// first cleanup everything
 	d.cleanup()
 
-	peerConnConf := d.network.PickPeer()
+	peerConnConf := d.network.PickPeer(driver.PeerForDelivery)
 
 	address := peerConnConf.Address
 	if logger.IsEnabledFor(zapcore.DebugLevel) {

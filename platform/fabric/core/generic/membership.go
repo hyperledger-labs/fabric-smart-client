@@ -12,9 +12,9 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
 
-// GetMSPIDs retrieves the MSP IDs of the organizations in the current channel
+// GetMSPIDs retrieves the MSP IDs of the organizations in the current Channel
 // configuration.
-func (c *channel) GetMSPIDs() []string {
+func (c *Channel) GetMSPIDs() []string {
 	ac, ok := c.Resources().ApplicationConfig()
 	if !ok || ac.Organizations() == nil {
 		return nil
@@ -28,9 +28,9 @@ func (c *channel) GetMSPIDs() []string {
 	return mspIDs
 }
 
-// MSPManager returns the msp.MSPManager that reflects the current channel
+// MSPManager returns the msp.MSPManager that reflects the current Channel
 // configuration. Users should not memoize references to this object.
-func (c *channel) MSPManager() driver.MSPManager {
+func (c *Channel) MSPManager() driver.MSPManager {
 	return &mspManager{MSPManager: c.Resources().MSPManager()}
 }
 
