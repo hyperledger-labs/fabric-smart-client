@@ -22,7 +22,7 @@ import (
 
 type Network interface {
 	Name() string
-	PickPeer() *grpc.ConnectionConfig
+	PickPeer(driver.PeerFunctionType) *grpc.ConnectionConfig
 	LocalMembership() driver.LocalMembership
 	Channel(id string) (driver.Channel, error)
 	IdentityProvider() driver.IdentityProvider
@@ -66,7 +66,7 @@ func (d *fabricFinality) IsFinal(txID string, address string) error {
 	if err != nil {
 		return errors.WithMessagef(err, "failed connecting to channel [%s]", d.channel)
 	}
-	client, err := ch.NewPeerClientForAddress(*d.network.PickPeer())
+	client, err := ch.NewPeerClientForAddress(*d.network.PickPeer(driver.PeerForFinality))
 	if err != nil {
 		return errors.WithMessagef(err, "failed creating peer client for address [%s]", address)
 	}

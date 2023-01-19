@@ -12,7 +12,7 @@ import (
 )
 
 // Chaincode returns a chaincode handler for the passed chaincode name
-func (c *channel) Chaincode(name string) driver.Chaincode {
+func (c *Channel) Chaincode(name string) driver.Chaincode {
 	c.chaincodesLock.RLock()
 	ch, ok := c.chaincodes[name]
 	if ok {

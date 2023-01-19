@@ -57,11 +57,11 @@ type Delivery interface {
 	Stop()
 }
 
-type channel struct {
+type Channel struct {
 	sp                 view2.ServiceProvider
 	channelConfig      *config2.Channel
 	config             *config2.Config
-	network            *network
+	network            *Network
 	name               string
 	finality           driver.Finality
 	vault              *vault.Vault
@@ -91,8 +91,9 @@ type channel struct {
 	subscribers *events.Subscribers
 }
 
-func newChannel(network *network, name string, quiet bool) (*channel, error) {
-	sp := network.sp
+func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver.Channel, error) {
+	network := nw.(*Network)
+	sp := network.SP
 	// Vault
 	v, txIDStore, err := NewVault(sp, network.config, name)
 	if err != nil {
@@ -116,7 +117,7 @@ func newChannel(network *network, name string, quiet bool) (*channel, error) {
 		return nil, err
 	}
 
-	publisher, err := events.GetPublisher(network.sp)
+	publisher, err := events.GetPublisher(network.SP)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get event publisher")
 	}
@@ -151,10 +152,10 @@ func newChannel(network *network, name string, quiet bool) (*channel, error) {
 		return nil, errors.Wrap(err, "failed to get event subscriber")
 	}
 
-	// channel configuration
+	// Channel configuration
 	channelConfigs, err := network.config.Channels()
 	if err != nil {
-		return nil, errors.WithMessagef(err, "failed to get channel config")
+		return nil, errors.WithMessagef(err, "failed to get Channel config")
 	}
 	var channelConfig *config2.Channel
 	for _, config := range channelConfigs {
@@ -173,7 +174,7 @@ func newChannel(network *network, name string, quiet bool) (*channel, error) {
 			Chaincodes: nil,
 		}
 	}
-	c := &channel{
+	c := &Channel{
 		name:               name,
 		config:             network.config,
 		channelConfig:      channelConfig,
@@ -192,23 +193,23 @@ func newChannel(network *network, name string, quiet bool) (*channel, error) {
 		eventsSubscriber:   eventsSubscriber,
 		subscribers:        events.NewSubscribers(),
 	}
-	if err := c.init(); err != nil {
-		return nil, errors.WithMessagef(err, "failed initializing channel [%s]", name)
+	if err := c.Init(); err != nil {
+		return nil, errors.WithMessagef(err, "failed initializing Channel [%s]", name)
 	}
 
 	return c, nil
 }
 
-func (c *channel) Name() string {
+func (c *Channel) Name() string {
 	return c.name
 }
 
-func (c *channel) NewPeerClientForAddress(cc grpc.ConnectionConfig) (peer2.Client, error) {
+func (c *Channel) NewPeerClientForAddress(cc grpc.ConnectionConfig) (peer2.Client, error) {
 	logger.Debugf("NewPeerClientForAddress [%v]", cc)
 	return c.connCache.NewPeerClientForAddress(cc)
 }
 
-func (c *channel) IsValid(identity view.Identity) error {
+func (c *Channel) IsValid(identity view.Identity) error {
 	id, err := c.MSPManager().DeserializeIdentity(identity)
 	if err != nil {
 		return errors.Wrapf(err, "failed deserializing identity [%s]", identity.String())
@@ -217,7 +218,7 @@ func (c *channel) IsValid(identity view.Identity) error {
 	return id.Validate()
 }
 
-func (c *channel) GetVerifier(identity view.Identity) (api2.Verifier, error) {
+func (c *Channel) GetVerifier(identity view.Identity) (api2.Verifier, error) {
 	id, err := c.MSPManager().DeserializeIdentity(identity)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed deserializing identity [%s]", identity.String())
@@ -225,7 +226,7 @@ func (c *channel) GetVerifier(identity view.Identity) (api2.Verifier, error) {
 	return id, nil
 }
 
-func (c *channel) GetClientConfig(tlsRootCerts [][]byte) (*grpc.ClientConfig, string, error) {
+func (c *Channel) GetClientConfig(tlsRootCerts [][]byte) (*grpc.ClientConfig, string, error) {
 	override := c.config.TLSServerHostOverride()
 	clientConfig := &grpc.ClientConfig{}
 	clientConfig.Timeout = c.config.ClientConnTimeout()
@@ -267,10 +268,10 @@ func (c *channel) GetClientConfig(tlsRootCerts [][]byte) (*grpc.ClientConfig, st
 	return clientConfig, override, nil
 }
 
-func (c *channel) GetTransactionByID(txID string) (driver.ProcessedTransaction, error) {
+func (c *Channel) GetTransactionByID(txID string) (driver.ProcessedTransaction, error) {
 	raw, err := c.Chaincode("qscc").NewInvocation(GetTransactionByID, c.name, txID).WithSignerIdentity(
 		c.network.LocalMembership().DefaultIdentity(),
-	).WithEndorsersByConnConfig(c.network.PickPeer()).Query()
+	).WithEndorsersByConnConfig(c.network.PickPeer(driver.PeerForQuery)).Query()
 	if err != nil {
 		return nil, err
 	}
@@ -285,10 +286,10 @@ func (c *channel) GetTransactionByID(txID string) (driver.ProcessedTransaction, 
 	return newProcessedTransaction(pt)
 }
 
-func (c *channel) GetBlockNumberByTxID(txID string) (uint64, error) {
+func (c *Channel) GetBlockNumberByTxID(txID string) (uint64, error) {
 	res, err := c.Chaincode("qscc").NewInvocation(GetBlockByTxID, c.name, txID).WithSignerIdentity(
 		c.network.LocalMembership().DefaultIdentity(),
-	).WithEndorsersByConnConfig(c.network.PickPeer()).Query()
+	).WithEndorsersByConnConfig(c.network.PickPeer(driver.PeerForQuery)).Query()
 	if err != nil {
 		return 0, err
 	}
@@ -301,21 +302,21 @@ func (c *channel) GetBlockNumberByTxID(txID string) (uint64, error) {
 	return block.Header.Number, nil
 }
 
-func (c *channel) Close() error {
+func (c *Channel) Close() error {
 	c.deliveryService.Stop()
 	return c.vault.Close()
 }
 
-func (c *channel) Config() *config2.Channel {
+func (c *Channel) Config() *config2.Channel {
 	return c.channelConfig
 }
 
-func (c *channel) DefaultSigner() discovery.Signer {
+func (c *Channel) DefaultSigner() discovery.Signer {
 	return c.network.LocalMembership().DefaultSigningIdentity().Sign
 }
 
 // FetchAndStoreEnvelope fetches from the ledger and stores the enveloped correspoding to the passed id
-func (c *channel) FetchAndStoreEnvelope(txID string) error {
+func (c *Channel) FetchAndStoreEnvelope(txID string) error {
 	pt, err := c.GetTransactionByID(txID)
 	if err != nil {
 		return errors.WithMessagef(err, "failed fetching tx [%s]", txID)
@@ -329,7 +330,7 @@ func (c *channel) FetchAndStoreEnvelope(txID string) error {
 	return nil
 }
 
-func (c *channel) GetRWSetFromEvn(txID string) (driver.RWSet, driver.ProcessTransaction, error) {
+func (c *Channel) GetRWSetFromEvn(txID string) (driver.RWSet, driver.ProcessTransaction, error) {
 	rawEnv, err := c.EnvelopeService().LoadEnvelope(txID)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "cannot load envelope [%s]", txID)
@@ -355,7 +356,7 @@ func (c *channel) GetRWSetFromEvn(txID string) (driver.RWSet, driver.ProcessTran
 	return rws, upe, nil
 }
 
-func (c *channel) GetRWSetFromETx(txID string) (driver.RWSet, driver.ProcessTransaction, error) {
+func (c *Channel) GetRWSetFromETx(txID string) (driver.RWSet, driver.ProcessTransaction, error) {
 	raw, err := c.TransactionService().LoadTransaction(txID)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "cannot load etx [%s]", txID)
@@ -372,7 +373,7 @@ func (c *channel) GetRWSetFromETx(txID string) (driver.RWSet, driver.ProcessTran
 	return rws, tx, nil
 }
 
-func (c *channel) init() error {
+func (c *Channel) Init() error {
 	if err := c.ReloadConfigTransactions(); err != nil {
 		return errors.WithMessagef(err, "failed reloading config transactions")
 	}
@@ -455,7 +456,7 @@ func (p *processedTransaction) ValidationCode() int32 {
 }
 
 type connCreator struct {
-	ch *channel
+	ch *Channel
 }
 
 func (c *connCreator) NewPeerClientForAddress(cc grpc.ConnectionConfig) (peer2.Client, error) {

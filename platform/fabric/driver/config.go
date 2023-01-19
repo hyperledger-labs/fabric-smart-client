@@ -29,12 +29,36 @@ type ConfigService interface {
 	TranslatePath(path string) string
 }
 
+// PeerFunctionType defines classes of peers providing a specific functionality
+type PeerFunctionType int
+
+const (
+	// PeerForAnything defines the class of peers that can be used for any function
+	PeerForAnything = iota
+	// PeerForDelivery defines the class of peers to be used for delivery
+	PeerForDelivery
+	// PeerForDiscovery defines the class of peers to be used for discovery
+	PeerForDiscovery
+	// PeerForFinality defines the class of peers to be used for finality
+	PeerForFinality
+	// PeerForQuery defines the class of peers to be used for query
+	PeerForQuery
+)
+
+// Config defines basic information the configuration should provide
 type Config interface {
+	// DefaultChannel returns the name of the default channel
 	DefaultChannel() string
 
+	// Channels return the list of registered channel names
 	Channels() []string
 
+	// Orderers returns the list of all registered ordereres
 	Orderers() []*grpc.ConnectionConfig
 
+	// Peers returns the list of all registered peers
 	Peers() []*grpc.ConnectionConfig
+
+	// PickPeer picks a peer at random among the peers that provide the passed functionality
+	PickPeer(funcType PeerFunctionType) *grpc.ConnectionConfig
 }

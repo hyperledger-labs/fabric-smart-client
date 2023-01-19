@@ -68,16 +68,12 @@ func (d *Driver) New(sp view.ServiceProvider, network string, defaultNetwork boo
 	}
 
 	// New Network
-	net, err := generic.NewNetwork(
-		sp,
-		network,
-		c,
-		idProvider,
-		mspService,
-		sigService,
-	)
+	net, err := generic.NewNetwork(sp, network, c, idProvider, mspService, sigService, generic.NewChannel)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed instantiating fabric service provider")
+	}
+	if err := net.Init(); err != nil {
+		return nil, errors.Wrap(err, "failed to initialize fabric service provider")
 	}
 
 	return net, nil

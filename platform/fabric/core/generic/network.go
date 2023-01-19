@@ -23,8 +23,11 @@ import (
 
 var logger = flogging.MustGetLogger("fabric-sdk.core")
 
-type network struct {
-	sp view2.ServiceProvider
+type NewChannelFunc = func(network driver.FabricNetworkService, name string, quiet bool) (driver.Channel, error)
+
+type Network struct {
+	SP   view2.ServiceProvider
+	name string
 
 	config *config2.Config
 
@@ -38,84 +41,72 @@ type network struct {
 	configuredOrderers int
 	peers              []*grpc.ConnectionConfig
 	defaultChannel     string
-	channelDefs        []*config2.Channel
+	channelConfigs     []*config2.Channel
 
-	ordering driver.Ordering
-	channels map[string]driver.Channel
-	mutex    sync.RWMutex
-	name     string
+	Ordering     driver.Ordering
+	NewChannel   NewChannelFunc
+	ChannelMap   map[string]driver.Channel
+	ChannelMutex sync.RWMutex
 }
 
-func NewNetwork(
-	sp view2.ServiceProvider,
-	name string,
-	config *config2.Config,
-	idProvider driver.IdentityProvider,
-	localMembership driver.LocalMembership,
-	sigService driver.SignerService,
-) (*network, error) {
-	// Load configuration
-	fsp := &network{
-		sp:              sp,
+func NewNetwork(sp view2.ServiceProvider, name string, config *config2.Config, idProvider driver.IdentityProvider, localMembership driver.LocalMembership, sigService driver.SignerService, newChannel NewChannelFunc) (*Network, error) {
+	return &Network{
+		SP:              sp,
 		name:            name,
 		config:          config,
-		channels:        map[string]driver.Channel{},
+		ChannelMap:      map[string]driver.Channel{},
 		localMembership: localMembership,
 		idProvider:      idProvider,
 		sigService:      sigService,
-	}
-	err := fsp.init()
-	if err != nil {
-		return nil, err
-	}
-	return fsp, nil
+		NewChannel:      newChannel,
+	}, nil
 }
 
-func (f *network) Name() string {
+func (f *Network) Name() string {
 	return f.name
 }
 
-func (f *network) DefaultChannel() string {
+func (f *Network) DefaultChannel() string {
 	return f.defaultChannel
 }
 
-func (f *network) Channels() []string {
+func (f *Network) Channels() []string {
 	var chs []string
-	for _, c := range f.channelDefs {
+	for _, c := range f.channelConfigs {
 		chs = append(chs, c.Name)
 	}
 	return chs
 }
 
-func (f *network) Orderers() []*grpc.ConnectionConfig {
+func (f *Network) Orderers() []*grpc.ConnectionConfig {
 	return f.orderers
 }
 
-func (f *network) PickOrderer() *grpc.ConnectionConfig {
+func (f *Network) PickOrderer() *grpc.ConnectionConfig {
 	if len(f.orderers) == 0 {
 		return nil
 	}
 	return f.orderers[rand.Intn(len(f.orderers))]
 }
 
-func (f *network) Peers() []*grpc.ConnectionConfig {
+func (f *Network) Peers() []*grpc.ConnectionConfig {
 	return f.peers
 }
 
-func (f *network) PickPeer() *grpc.ConnectionConfig {
+func (f *Network) PickPeer(driver.PeerFunctionType) *grpc.ConnectionConfig {
 	return f.peers[rand.Intn(len(f.peers))]
 }
 
-func (f *network) Channel(name string) (driver.Channel, error) {
-	logger.Debugf("Getting channel [%s]", name)
+func (f *Network) Channel(name string) (driver.Channel, error) {
+	logger.Debugf("Getting Channel [%s]", name)
 
 	if len(name) == 0 {
 		name = f.DefaultChannel()
-		logger.Debugf("Resorting to default channel [%s]", name)
+		logger.Debugf("Resorting to default Channel [%s]", name)
 	}
 
 	chanQuiet := false
-	for _, chanDef := range f.channelDefs {
+	for _, chanDef := range f.channelConfigs {
 		if chanDef.Name == name {
 			chanQuiet = chanDef.Quiet
 			break
@@ -123,77 +114,77 @@ func (f *network) Channel(name string) (driver.Channel, error) {
 	}
 
 	// first check the cache
-	f.mutex.RLock()
-	ch, ok := f.channels[name]
-	f.mutex.RUnlock()
+	f.ChannelMutex.RLock()
+	ch, ok := f.ChannelMap[name]
+	f.ChannelMutex.RUnlock()
 	if ok {
-		logger.Debugf("Returning channel for [%s]", name)
+		logger.Debugf("Returning Channel for [%s]", name)
 		return ch, nil
 	}
 
-	// create channel and store in cache
-	f.mutex.Lock()
-	defer f.mutex.Unlock()
+	// create Channel and store in cache
+	f.ChannelMutex.Lock()
+	defer f.ChannelMutex.Unlock()
 
-	ch, ok = f.channels[name]
+	ch, ok = f.ChannelMap[name]
 	if !ok {
 		logger.Debugf("Channel [%s] not found, allocate resources", name)
 		var err error
-		ch, err = newChannel(f, name, chanQuiet)
+		ch, err = f.NewChannel(f, name, chanQuiet)
 		if err != nil {
 			return nil, err
 		}
-		f.channels[name] = ch
+		f.ChannelMap[name] = ch
 		logger.Debugf("Channel [%s] not found, created", name)
 	}
 
-	logger.Debugf("Returning channel for [%s]", name)
+	logger.Debugf("Returning Channel for [%s]", name)
 	return ch, nil
 }
 
-func (f *network) Ledger(name string) (driver.Ledger, error) {
+func (f *Network) Ledger(name string) (driver.Ledger, error) {
 	return f.Channel(name)
 }
 
-func (f *network) Committer(name string) (driver.Committer, error) {
+func (f *Network) Committer(name string) (driver.Committer, error) {
 	return f.Channel(name)
 }
 
-func (f *network) IdentityProvider() driver.IdentityProvider {
+func (f *Network) IdentityProvider() driver.IdentityProvider {
 	return f.idProvider
 }
 
-func (f *network) LocalMembership() driver.LocalMembership {
+func (f *Network) LocalMembership() driver.LocalMembership {
 	return f.localMembership
 }
 
-func (f *network) ProcessorManager() driver.ProcessorManager {
+func (f *Network) ProcessorManager() driver.ProcessorManager {
 	return f.processorManager
 }
 
-func (f *network) TransactionManager() driver.TransactionManager {
+func (f *Network) TransactionManager() driver.TransactionManager {
 	return f.transactionManager
 }
 
-func (f *network) Broadcast(blob interface{}) error {
-	return f.ordering.Broadcast(blob)
+func (f *Network) Broadcast(blob interface{}) error {
+	return f.Ordering.Broadcast(blob)
 }
 
-func (f *network) SignerService() driver.SignerService {
+func (f *Network) SignerService() driver.SignerService {
 	return f.sigService
 }
 
-func (f *network) ConfigService() driver.ConfigService {
+func (f *Network) ConfigService() driver.ConfigService {
 	return f.config
 }
 
-func (f *network) Config() *config2.Config {
+func (f *Network) Config() *config2.Config {
 	return f.config
 }
 
-func (f *network) init() error {
-	f.processorManager = rwset.NewProcessorManager(f.sp, f, nil)
-	f.transactionManager = transaction.NewManager(f.sp, f)
+func (f *Network) Init() error {
+	f.processorManager = rwset.NewProcessorManager(f.SP, f, nil)
+	f.transactionManager = transaction.NewManager(f.SP, f)
 
 	var err error
 	f.orderers, err = f.config.Orderers()
@@ -209,23 +200,23 @@ func (f *network) init() error {
 	}
 	logger.Debugf("Peers [%v]", f.peers)
 
-	f.channelDefs, err = f.config.Channels()
+	f.channelConfigs, err = f.config.Channels()
 	if err != nil {
 		return errors.Wrap(err, "failed loading channels")
 	}
-	logger.Debugf("Channels [%v]", f.channelDefs)
-	for _, channel := range f.channelDefs {
+	logger.Debugf("Channels [%v]", f.channelConfigs)
+	for _, channel := range f.channelConfigs {
 		if channel.Default {
 			f.defaultChannel = channel.Name
 			break
 		}
 	}
 
-	f.ordering = ordering.NewService(f.sp, f)
+	f.Ordering = ordering.NewService(f.SP, f)
 	return nil
 }
 
-func (f *network) setConfigOrderers(orderers []*grpc.ConnectionConfig) {
+func (f *Network) setConfigOrderers(orderers []*grpc.ConnectionConfig) {
 	// the first configuredOrderers are from the configuration, keep them
 	// and append the new ones
 	f.orderers = append(f.orderers[:f.configuredOrderers], orderers...)

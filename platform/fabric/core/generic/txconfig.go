@@ -31,7 +31,7 @@ const (
 // TODO: introduced due to a race condition in idemix.
 var commitConfigMutex = &sync.Mutex{}
 
-func (c *channel) ReloadConfigTransactions() error {
+func (c *Channel) ReloadConfigTransactions() error {
 	c.applyLock.Lock()
 	defer c.applyLock.Unlock()
 
@@ -123,18 +123,18 @@ func (c *channel) ReloadConfigTransactions() error {
 	return nil
 }
 
-// CommitConfig is used to validate and apply configuration transactions for a channel.
-func (c *channel) CommitConfig(blockNumber uint64, raw []byte, env *common.Envelope) error {
+// CommitConfig is used to validate and apply configuration transactions for a Channel.
+func (c *Channel) CommitConfig(blockNumber uint64, raw []byte, env *common.Envelope) error {
 	commitConfigMutex.Lock()
 	defer commitConfigMutex.Unlock()
 
 	c.applyLock.Lock()
 	defer c.applyLock.Unlock()
 
-	logger.Debugf("[channel: %s] received config transaction number %d", c.name, blockNumber)
+	logger.Debugf("[Channel: %s] received config transaction number %d", c.name, blockNumber)
 
 	if env == nil {
-		return errors.Errorf("channel config found nil")
+		return errors.Errorf("Channel config found nil")
 	}
 
 	payload, err := protoutil.UnmarshalPayload(env.Payload)
@@ -195,15 +195,15 @@ func (c *channel) CommitConfig(blockNumber uint64, raw []byte, env *common.Envel
 	return nil
 }
 
-// Resources returns the active channel configuration bundle.
-func (c *channel) Resources() channelconfig.Resources {
+// Resources returns the active Channel configuration bundle.
+func (c *Channel) Resources() channelconfig.Resources {
 	c.lock.RLock()
 	res := c.resources
 	c.lock.RUnlock()
 	return res
 }
 
-func (c *channel) commitConfig(txid string, blockNumber uint64, seq uint64, envelope []byte) error {
+func (c *Channel) commitConfig(txid string, blockNumber uint64, seq uint64, envelope []byte) error {
 	rws, err := c.vault.NewRWSet(txid)
 	if err != nil {
 		return errors.Wrapf(err, "cannot create rws for configtx")
@@ -227,7 +227,7 @@ func (c *channel) commitConfig(txid string, blockNumber uint64, seq uint64, enve
 	return nil
 }
 
-func (c *channel) applyBundle(bundle *channelconfig.Bundle) {
+func (c *Channel) applyBundle(bundle *channelconfig.Bundle) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	c.resources = bundle
@@ -235,7 +235,7 @@ func (c *channel) applyBundle(bundle *channelconfig.Bundle) {
 	// update the list of orderers
 	orderers, any := c.resources.OrdererConfig()
 	if any {
-		logger.Debugf("[channel: %s] Orderer config has changed, updating the list of orderers", c.name)
+		logger.Debugf("[Channel: %s] Orderer config has changed, updating the list of orderers", c.name)
 
 		var newOrderers []*grpc.ConnectionConfig
 		orgs := orderers.Organizations()
@@ -245,7 +245,7 @@ func (c *channel) applyBundle(bundle *channelconfig.Bundle) {
 			tlsRootCerts = append(tlsRootCerts, msp.GetTLSRootCerts()...)
 			tlsRootCerts = append(tlsRootCerts, msp.GetTLSIntermediateCerts()...)
 			for _, endpoint := range org.Endpoints() {
-				logger.Debugf("[channel: %s] Adding orderer endpoint: [%s:%s:%s]", c.name, org.Name(), org.MSPID(), endpoint)
+				logger.Debugf("[Channel: %s] Adding orderer endpoint: [%s:%s:%s]", c.name, org.Name(), org.MSPID(), endpoint)
 				newOrderers = append(newOrderers, &grpc.ConnectionConfig{
 					Address:           endpoint,
 					ConnectionTimeout: 10 * time.Second,
@@ -255,28 +255,28 @@ func (c *channel) applyBundle(bundle *channelconfig.Bundle) {
 			}
 		}
 		if len(newOrderers) != 0 {
-			logger.Debugf("[channel: %s] Updating the list of orderers: (%d) found", c.name, len(newOrderers))
+			logger.Debugf("[Channel: %s] Updating the list of orderers: (%d) found", c.name, len(newOrderers))
 			c.network.setConfigOrderers(newOrderers)
 		} else {
-			logger.Debugf("[channel: %s] No orderers found in channel config", c.name)
+			logger.Debugf("[Channel: %s] No orderers found in Channel config", c.name)
 		}
 	} else {
-		logger.Debugf("no orderer configuration found in channel config")
+		logger.Debugf("no orderer configuration found in Channel config")
 	}
 }
 
 func capabilitiesSupported(res channelconfig.Resources) error {
 	ac, ok := res.ApplicationConfig()
 	if !ok {
-		return errors.Errorf("[channel %s] does not have application config so is incompatible", res.ConfigtxValidator().ChannelID())
+		return errors.Errorf("[Channel %s] does not have application config so is incompatible", res.ConfigtxValidator().ChannelID())
 	}
 
 	if err := ac.Capabilities().Supported(); err != nil {
-		return errors.Wrapf(err, "[channel %s] incompatible", res.ConfigtxValidator().ChannelID())
+		return errors.Wrapf(err, "[Channel %s] incompatible", res.ConfigtxValidator().ChannelID())
 	}
 
 	if err := res.ChannelConfig().Capabilities().Supported(); err != nil {
-		return errors.Wrapf(err, "[channel %s] incompatible", res.ConfigtxValidator().ChannelID())
+		return errors.Wrapf(err, "[Channel %s] incompatible", res.ConfigtxValidator().ChannelID())
 	}
 
 	return nil
