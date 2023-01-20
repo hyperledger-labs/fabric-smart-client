@@ -39,7 +39,7 @@ type Network struct {
 
 	orderers           []*grpc.ConnectionConfig
 	configuredOrderers int
-	peers              []*grpc.ConnectionConfig
+	peers              map[driver.PeerFunctionType][]*grpc.ConnectionConfig
 	defaultChannel     string
 	channelConfigs     []*config2.Channel
 
@@ -90,11 +90,19 @@ func (f *Network) PickOrderer() *grpc.ConnectionConfig {
 }
 
 func (f *Network) Peers() []*grpc.ConnectionConfig {
-	return f.peers
+	var peers []*grpc.ConnectionConfig
+	for _, configs := range f.peers {
+		peers = append(peers, configs...)
+	}
+	return peers
 }
 
-func (f *Network) PickPeer(driver.PeerFunctionType) *grpc.ConnectionConfig {
-	return f.peers[rand.Intn(len(f.peers))]
+func (f *Network) PickPeer(ft driver.PeerFunctionType) *grpc.ConnectionConfig {
+	source, ok := f.peers[ft]
+	if !ok {
+		source = f.peers[driver.PeerForAnything]
+	}
+	return source[rand.Intn(len(source))]
 }
 
 func (f *Network) Channel(name string) (driver.Channel, error) {

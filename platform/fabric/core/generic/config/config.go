@@ -8,7 +8,12 @@ package config
 
 import (
 	"strconv"
+	"strings"
 	"time"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/pkg/errors"
@@ -19,6 +24,8 @@ const (
 	DefaultBroadcastNumRetries = 3
 	VaultPersistenceOptsKey    = "vault.persistence.opts"
 )
+
+var logger = flogging.MustGetLogger("fabric-sdk.core.generic.config")
 
 // configService models a configuration registry
 type configService interface {
@@ -115,16 +122,31 @@ func (c *Config) Orderers() ([]*grpc.ConnectionConfig, error) {
 	return res, nil
 }
 
-func (c *Config) Peers() ([]*grpc.ConnectionConfig, error) {
-	var res []*grpc.ConnectionConfig
-	if err := c.configService.UnmarshalKey("fabric."+c.prefix+"peers", &res); err != nil {
+func (c *Config) Peers() (map[driver.PeerFunctionType][]*grpc.ConnectionConfig, error) {
+	var connectionConfigs []*grpc.ConnectionConfig
+	if err := c.configService.UnmarshalKey("fabric."+c.prefix+"peers", &connectionConfigs); err != nil {
 		return nil, err
 	}
 
-	for _, v := range res {
+	res := map[driver.PeerFunctionType][]*grpc.ConnectionConfig{}
+	for _, v := range connectionConfigs {
 		v.TLSEnabled = c.TLSEnabled()
+		usage := strings.ToLower(v.Usage)
+		switch {
+		case len(usage) == 0:
+			res[driver.PeerForAnything] = append(res[driver.PeerForAnything], v)
+		case usage == "delivery":
+			res[driver.PeerForDelivery] = append(res[driver.PeerForDelivery], v)
+		case usage == "discovery":
+			res[driver.PeerForDiscovery] = append(res[driver.PeerForDiscovery], v)
+		case usage == "finality":
+			res[driver.PeerForFinality] = append(res[driver.PeerForFinality], v)
+		case usage == "query":
+			res[driver.PeerForQuery] = append(res[driver.PeerForQuery], v)
+		default:
+			logger.Warn("connection usage [%s] not recognized [%v]", usage, v)
+		}
 	}
-
 	return res, nil
 }
 
