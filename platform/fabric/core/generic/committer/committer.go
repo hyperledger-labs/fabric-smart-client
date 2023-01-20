@@ -38,6 +38,7 @@ type Finality interface {
 
 type Network interface {
 	Committer(channel string) (driver.Committer, error)
+	Channel(channel string) (driver.Channel, error)
 	PickPeer(funcType driver.PeerFunctionType) *grpc.ConnectionConfig
 	Ledger(channel string) (driver.Ledger, error)
 }
