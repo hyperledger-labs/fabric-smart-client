@@ -990,6 +990,9 @@ func (n *Network) OrdererLogsFolder() string {
 func (n *Network) PeerGroupRunner() ifrit.Runner {
 	members := grouper.Members{}
 	for _, p := range n.Peers {
+		if p.SkipRunning {
+			continue
+		}
 		switch {
 		case p.Type == topology.FabricPeer:
 			members = append(members, grouper.Member{Name: p.ID(), Runner: n.PeerRunner(p)})
@@ -1618,6 +1621,22 @@ func (n *Network) PeersByName(names []string) []*topology.Peer {
 	return peers
 }
 
+func (n *Network) PeersForChaincodeByName(names []string) []*topology.Peer {
+	var peers []*topology.Peer
+	for _, p := range n.Peers {
+		if p.SkipChaincode {
+			continue
+		}
+		for _, name := range names {
+			if p.Name == name {
+				peers = append(peers, p)
+				break
+			}
+		}
+	}
+	return peers
+}
+
 func (n *Network) PeerByName(name string) *topology.Peer {
 	for _, p := range n.Peers {
 		if p.Name == name {
@@ -1644,6 +1663,10 @@ func (n *Network) Chaincodes(channel string) []*topology.ChannelChaincode {
 		}
 	}
 	return res
+}
+
+func (n *Network) AppendPeer(peer *topology.Peer) {
+	n.Peers = append(n.Peers, peer)
 }
 
 func GetLinkedIdentities(peer *topology.Peer) []string {
