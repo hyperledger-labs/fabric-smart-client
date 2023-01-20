@@ -295,6 +295,7 @@ fabric:
         connectionTimeout: 10s        
         tlsRootCertFile: {{ CACertsBundlePath }}
         serverNameOverride:
+        {{- if neq .Usage "" }}usage: {{ .Usage }} {{- end }}
     {{- end }}
     channels: {{ range .Channels }}
       - name: {{ .Name }}
