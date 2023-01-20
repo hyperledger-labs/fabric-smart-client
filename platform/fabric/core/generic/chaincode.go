@@ -13,21 +13,21 @@ import (
 
 // Chaincode returns a chaincode handler for the passed chaincode name
 func (c *Channel) Chaincode(name string) driver.Chaincode {
-	c.chaincodesLock.RLock()
-	ch, ok := c.chaincodes[name]
+	c.ChaincodesLock.RLock()
+	ch, ok := c.Chaincodes[name]
 	if ok {
-		c.chaincodesLock.RUnlock()
+		c.ChaincodesLock.RUnlock()
 		return ch
 	}
-	c.chaincodesLock.RUnlock()
+	c.ChaincodesLock.RUnlock()
 
-	c.chaincodesLock.Lock()
-	defer c.chaincodesLock.Unlock()
-	ch, ok = c.chaincodes[name]
+	c.ChaincodesLock.Lock()
+	defer c.ChaincodesLock.Unlock()
+	ch, ok = c.Chaincodes[name]
 	if ok {
 		return ch
 	}
-	ch = chaincode.NewChaincode(name, c.sp, c.network, c)
-	c.chaincodes[name] = ch
+	ch = chaincode.NewChaincode(name, c.SP, c.Network, c)
+	c.Chaincodes[name] = ch
 	return ch
 }
