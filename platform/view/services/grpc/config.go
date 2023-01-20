@@ -51,6 +51,7 @@ type ConnectionConfig struct {
 	TLSRootCertFile    string        `yaml:"tlsRootCertFile,omitempty"`
 	TLSRootCertBytes   [][]byte      `yaml:"tlsRootCertBytes,omitempty"`
 	ServerNameOverride string        `yaml:"serverNameOverride,omitempty"`
+	Usage              string        `yaml:"usage,omitempty"`
 }
 
 // ServerConfig defines the parameters for configuring a GRPCServer instance
