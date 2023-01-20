@@ -7,17 +7,23 @@ SPDX-License-Identifier: Apache-2.0
 package committer
 
 import (
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger/fabric-protos-go/common"
 	pb "github.com/hyperledger/fabric-protos-go/peer"
 	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
-
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
 
 type ValidationFlags []uint8
 
-func (c *Committer) handleEndorserTransaction(block *common.Block, i int, event *TxEvent, env *common.Envelope, chHdr *common.ChannelHeader) error {
+func (c *Committer) HandleEndorserTransaction(block *common.Block, i int, event *TxEvent, env *common.Envelope, chHdr *common.ChannelHeader) error {
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("[%s] Endorser transaction received: %s", c.Channel, chHdr.TxId)
+	}
+	if len(block.Metadata.Metadata) < int(common.BlockMetadataIndex_TRANSACTIONS_FILTER) {
+		return errors.Errorf("block metadata lacks transaction filter")
+	}
+
 	txID := chHdr.TxId
 	event.Txid = txID
 
@@ -27,7 +33,7 @@ func (c *Committer) handleEndorserTransaction(block *common.Block, i int, event 
 		if err := c.CommitEndorserTransaction(txID, block, i, env, event); err != nil {
 			return errors.Wrapf(err, "failed committing transaction [%s]", txID)
 		}
-		if err := c.getChaincodeEvents(env, block); err != nil {
+		if err := c.GetChaincodeEvents(env, block); err != nil {
 			return errors.Wrapf(err, "failed to publish chaincode events [%s]", txID)
 		}
 	default:
@@ -38,8 +44,8 @@ func (c *Committer) handleEndorserTransaction(block *common.Block, i int, event 
 	return nil
 }
 
-// getChaincodeEvents reads the chaincode events and notifies the listeners registered to the specific chaincode.
-func (c *Committer) getChaincodeEvents(env *common.Envelope, block *common.Block) error {
+// GetChaincodeEvents reads the chaincode events and notifies the listeners registered to the specific chaincode.
+func (c *Committer) GetChaincodeEvents(env *common.Envelope, block *common.Block) error {
 	chaincodeEvent, err := readChaincodeEvent(env, block.Header.Number)
 	if err != nil {
 		return errors.Wrapf(err, "error reading chaincode event")
@@ -55,9 +61,9 @@ func (c *Committer) getChaincodeEvents(env *common.Envelope, block *common.Block
 
 // CommitEndorserTransaction commits the transaction to the vault
 func (c *Committer) CommitEndorserTransaction(txID string, block *common.Block, indexInBlock int, env *common.Envelope, event *TxEvent) error {
-	committer, err := c.network.Committer(c.channel)
+	committer, err := c.Network.Committer(c.Channel)
 	if err != nil {
-		return errors.Wrapf(err, "cannot get Committer for channel [%s]", c.channel)
+		return errors.Wrapf(err, "cannot get Committer for channel [%s]", c.Channel)
 	}
 
 	blockNum := block.Header.Number
@@ -103,9 +109,9 @@ func (c *Committer) CommitEndorserTransaction(txID string, block *common.Block, 
 
 // DiscardEndorserTransaction discards the transaction from the vault
 func (c *Committer) DiscardEndorserTransaction(txID string, block *common.Block, event *TxEvent, validationCode pb.TxValidationCode) error {
-	committer, err := c.network.Committer(c.channel)
+	committer, err := c.Network.Committer(c.Channel)
 	if err != nil {
-		return errors.Wrapf(err, "cannot get Committer for channel [%s]", c.channel)
+		return errors.Wrapf(err, "cannot get Committer for channel [%s]", c.Channel)
 	}
 
 	blockNum := block.Header.Number
