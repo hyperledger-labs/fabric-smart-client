@@ -11,13 +11,13 @@ import (
 )
 
 func (c *Channel) EnvelopeService() driver.EnvelopeService {
-	return c.envelopeService
+	return c.ES
 }
 
 func (c *Channel) TransactionService() driver.EndorserTransactionService {
-	return c.transactionService
+	return c.TS
 }
 
 func (c *Channel) MetadataService() driver.MetadataService {
-	return c.metadataService
+	return c.MS
 }

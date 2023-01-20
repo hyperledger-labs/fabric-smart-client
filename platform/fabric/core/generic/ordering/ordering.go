@@ -11,9 +11,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/fabricutils"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/fabricutils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
@@ -35,9 +34,6 @@ type Signer interface {
 
 type ViewManager interface {
 	InitiateView(view view.View) (interface{}, error)
-}
-
-type Configuration interface {
 }
 
 type Network interface {

@@ -39,8 +39,8 @@ import (
 )
 
 var (
-	waitForEventTimeout = 300 * time.Second
-	finalityWaitTimeout = 20 * time.Second
+	WaitForEventTimeout = 300 * time.Second
+	FinalityWaitTimeout = 20 * time.Second
 )
 
 // These are function names from Invoke first parameter
@@ -58,37 +58,39 @@ type Delivery interface {
 }
 
 type Channel struct {
-	sp                 view2.ServiceProvider
-	channelConfig      *config2.Channel
-	config             *config2.Config
-	network            *Network
-	name               string
-	finality           driver.Finality
-	vault              *vault.Vault
-	processNamespaces  []string
-	externalCommitter  *committer.ExternalCommitter
-	envelopeService    driver.EnvelopeService
-	transactionService driver.EndorserTransactionService
-	metadataService    driver.MetadataService
-	eventsSubscriber   events.Subscriber
-	eventsPublisher    events.Publisher
-	deliveryService    Delivery
+	SP                view2.ServiceProvider
+	ChannelConfig     *config2.Channel
+	NetworkConfig     *config2.Config
+	Network           *Network
+	ChannelName       string
+	Finality          driver.Finality
+	Vault             *vault.Vault
+	ProcessNamespaces []string
+	ExternalCommitter *committer.ExternalCommitter
+	ES                driver.EnvelopeService
+	TS                driver.EndorserTransactionService
+	MS                driver.MetadataService
+	DeliveryService   Delivery
 	driver.TXIDStore
 
-	// applyLock is used to serialize calls to CommitConfig and bundle update processing.
-	applyLock sync.Mutex
-	// lock is used to serialize access to resources
-	lock sync.RWMutex
+	// ResourcesApplyLock is used to serialize calls to CommitConfig and bundle update processing.
+	ResourcesApplyLock sync.Mutex
+	// ResourcesLock is used to serialize access to resources
+	ResourcesLock sync.RWMutex
 	// resources is used to acquire configuration bundle resources.
-	resources channelconfig.Resources
+	ChannelResources channelconfig.Resources
 
-	chaincodesLock sync.RWMutex
-	chaincodes     map[string]driver.Chaincode
+	// chaincodes
+	ChaincodesLock sync.RWMutex
+	Chaincodes     map[string]driver.Chaincode
 
-	connCache common2.CachingEndorserPool
+	// connection pool
+	ConnCache common2.CachingEndorserPool
 
-	// subscribers
-	subscribers *events.Subscribers
+	// events
+	Subscribers      *events.Subscribers
+	EventsSubscriber events.Subscriber
+	EventsPublisher  events.Publisher
 }
 
 func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver.Channel, error) {
@@ -105,7 +107,7 @@ func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver
 		name,
 		network,
 		hash.GetHasher(sp),
-		finalityWaitTimeout,
+		FinalityWaitTimeout,
 	)
 	if err != nil {
 		return nil, err
@@ -122,7 +124,7 @@ func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver
 		return nil, errors.Wrapf(err, "failed to get event publisher")
 	}
 
-	committerInst, err := committer.New(name, network, fabricFinality, waitForEventTimeout, quiet, tracing.Get(sp), publisher)
+	committerInst, err := committer.New(name, network, fabricFinality, WaitForEventTimeout, quiet, tracing.Get(sp), publisher)
 	if err != nil {
 		return nil, err
 	}
@@ -132,7 +134,7 @@ func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver
 		// commit the block, if an error occurs then retry
 		err := committerInst.Commit(block)
 		return false, err
-	}, txIDStore, waitForEventTimeout)
+	}, txIDStore, WaitForEventTimeout)
 	if err != nil {
 		return nil, err
 	}
@@ -175,23 +177,23 @@ func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver
 		}
 	}
 	c := &Channel{
-		name:               name,
-		config:             network.config,
-		channelConfig:      channelConfig,
-		network:            network,
-		vault:              v,
-		sp:                 sp,
-		finality:           fs,
-		deliveryService:    deliveryService,
-		externalCommitter:  externalCommitter,
-		TXIDStore:          txIDStore,
-		envelopeService:    transaction.NewEnvelopeService(sp, network.Name(), name),
-		transactionService: transaction.NewEndorseTransactionService(sp, network.Name(), name),
-		metadataService:    transaction.NewMetadataService(sp, network.Name(), name),
-		chaincodes:         map[string]driver.Chaincode{},
-		eventsPublisher:    eventsPublisher,
-		eventsSubscriber:   eventsSubscriber,
-		subscribers:        events.NewSubscribers(),
+		ChannelName:       name,
+		NetworkConfig:     network.config,
+		ChannelConfig:     channelConfig,
+		Network:           network,
+		Vault:             v,
+		SP:                sp,
+		Finality:          fs,
+		DeliveryService:   deliveryService,
+		ExternalCommitter: externalCommitter,
+		TXIDStore:         txIDStore,
+		ES:                transaction.NewEnvelopeService(sp, network.Name(), name),
+		TS:                transaction.NewEndorseTransactionService(sp, network.Name(), name),
+		MS:                transaction.NewMetadataService(sp, network.Name(), name),
+		Chaincodes:        map[string]driver.Chaincode{},
+		EventsPublisher:   eventsPublisher,
+		EventsSubscriber:  eventsSubscriber,
+		Subscribers:       events.NewSubscribers(),
 	}
 	if err := c.Init(); err != nil {
 		return nil, errors.WithMessagef(err, "failed initializing Channel [%s]", name)
@@ -201,12 +203,12 @@ func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver
 }
 
 func (c *Channel) Name() string {
-	return c.name
+	return c.ChannelName
 }
 
 func (c *Channel) NewPeerClientForAddress(cc grpc.ConnectionConfig) (peer2.Client, error) {
 	logger.Debugf("NewPeerClientForAddress [%v]", cc)
-	return c.connCache.NewPeerClientForAddress(cc)
+	return c.ConnCache.NewPeerClientForAddress(cc)
 }
 
 func (c *Channel) IsValid(identity view.Identity) error {
@@ -227,25 +229,25 @@ func (c *Channel) GetVerifier(identity view.Identity) (api2.Verifier, error) {
 }
 
 func (c *Channel) GetClientConfig(tlsRootCerts [][]byte) (*grpc.ClientConfig, string, error) {
-	override := c.config.TLSServerHostOverride()
+	override := c.NetworkConfig.TLSServerHostOverride()
 	clientConfig := &grpc.ClientConfig{}
-	clientConfig.Timeout = c.config.ClientConnTimeout()
+	clientConfig.Timeout = c.NetworkConfig.ClientConnTimeout()
 	if clientConfig.Timeout == time.Duration(0) {
 		clientConfig.Timeout = grpc.DefaultConnectionTimeout
 	}
 
 	secOpts := grpc.SecureOptions{
-		UseTLS:            c.config.TLSEnabled(),
-		RequireClientCert: c.config.TLSClientAuthRequired(),
+		UseTLS:            c.NetworkConfig.TLSEnabled(),
+		RequireClientCert: c.NetworkConfig.TLSClientAuthRequired(),
 	}
 
 	if secOpts.RequireClientCert {
-		keyPEM, err := ioutil.ReadFile(c.config.TLSClientKeyFile())
+		keyPEM, err := ioutil.ReadFile(c.NetworkConfig.TLSClientKeyFile())
 		if err != nil {
 			return nil, "", errors.WithMessage(err, "unable to load fabric.tls.clientKey.file")
 		}
 		secOpts.Key = keyPEM
-		certPEM, err := ioutil.ReadFile(c.config.TLSClientCertFile())
+		certPEM, err := ioutil.ReadFile(c.NetworkConfig.TLSClientCertFile())
 		if err != nil {
 			return nil, "", errors.WithMessage(err, "unable to load fabric.tls.clientCert.file")
 		}
@@ -261,17 +263,17 @@ func (c *Channel) GetClientConfig(tlsRootCerts [][]byte) (*grpc.ClientConfig, st
 	}
 
 	clientConfig.KaOpts = grpc.KeepaliveOptions{
-		ClientInterval: c.config.KeepAliveClientInterval(),
-		ClientTimeout:  c.config.KeepAliveClientTimeout(),
+		ClientInterval: c.NetworkConfig.KeepAliveClientInterval(),
+		ClientTimeout:  c.NetworkConfig.KeepAliveClientTimeout(),
 	}
 
 	return clientConfig, override, nil
 }
 
 func (c *Channel) GetTransactionByID(txID string) (driver.ProcessedTransaction, error) {
-	raw, err := c.Chaincode("qscc").NewInvocation(GetTransactionByID, c.name, txID).WithSignerIdentity(
-		c.network.LocalMembership().DefaultIdentity(),
-	).WithEndorsersByConnConfig(c.network.PickPeer(driver.PeerForQuery)).Query()
+	raw, err := c.Chaincode("qscc").NewInvocation(GetTransactionByID, c.ChannelName, txID).WithSignerIdentity(
+		c.Network.LocalMembership().DefaultIdentity(),
+	).WithEndorsersByConnConfig(c.Network.PickPeer(driver.PeerForQuery)).Query()
 	if err != nil {
 		return nil, err
 	}
@@ -287,9 +289,9 @@ func (c *Channel) GetTransactionByID(txID string) (driver.ProcessedTransaction, 
 }
 
 func (c *Channel) GetBlockNumberByTxID(txID string) (uint64, error) {
-	res, err := c.Chaincode("qscc").NewInvocation(GetBlockByTxID, c.name, txID).WithSignerIdentity(
-		c.network.LocalMembership().DefaultIdentity(),
-	).WithEndorsersByConnConfig(c.network.PickPeer(driver.PeerForQuery)).Query()
+	res, err := c.Chaincode("qscc").NewInvocation(GetBlockByTxID, c.ChannelName, txID).WithSignerIdentity(
+		c.Network.LocalMembership().DefaultIdentity(),
+	).WithEndorsersByConnConfig(c.Network.PickPeer(driver.PeerForQuery)).Query()
 	if err != nil {
 		return 0, err
 	}
@@ -303,16 +305,16 @@ func (c *Channel) GetBlockNumberByTxID(txID string) (uint64, error) {
 }
 
 func (c *Channel) Close() error {
-	c.deliveryService.Stop()
-	return c.vault.Close()
+	c.DeliveryService.Stop()
+	return c.Vault.Close()
 }
 
 func (c *Channel) Config() *config2.Channel {
-	return c.channelConfig
+	return c.ChannelConfig
 }
 
 func (c *Channel) DefaultSigner() discovery.Signer {
-	return c.network.LocalMembership().DefaultSigningIdentity().Sign
+	return c.Network.LocalMembership().DefaultSigningIdentity().Sign
 }
 
 // FetchAndStoreEnvelope fetches from the ledger and stores the enveloped correspoding to the passed id
@@ -342,7 +344,7 @@ func (c *Channel) GetRWSetFromEvn(txID string) (driver.RWSet, driver.ProcessTran
 		return nil, nil, errors.Wrapf(err, "failed unmarshalling envelope [%s]", txID)
 	}
 	logger.Debugf("unpack envelope [%s,%s]", c.Name(), txID)
-	upe, err := rwset.UnpackEnvelope(c.network.Name(), env)
+	upe, err := rwset.UnpackEnvelope(c.Network.Name(), env)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "failed unpacking envelope [%s]", txID)
 	}
@@ -361,7 +363,7 @@ func (c *Channel) GetRWSetFromETx(txID string) (driver.RWSet, driver.ProcessTran
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "cannot load etx [%s]", txID)
 	}
-	tx, err := c.network.TransactionManager().NewTransactionFromBytes(c.Name(), raw)
+	tx, err := c.Network.TransactionManager().NewTransactionFromBytes(c.Name(), raw)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -377,7 +379,7 @@ func (c *Channel) Init() error {
 	if err := c.ReloadConfigTransactions(); err != nil {
 		return errors.WithMessagef(err, "failed reloading config transactions")
 	}
-	c.connCache = common2.CachingEndorserPool{
+	c.ConnCache = common2.CachingEndorserPool{
 		Cache:       map[string]peer2.Client{},
 		ConnCreator: &connCreator{ch: c},
 		Signer:      c.DefaultSigner(),
