@@ -831,6 +831,9 @@ func (n *Network) JoinChannel(name string, o *topology.Orderer, peers ...*topolo
 	Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
 
 	for _, p := range peers {
+		if p.SkipInit {
+			continue
+		}
 		sess, err := n.PeerAdminSession(p, commands.ChannelJoin{
 			NetworkPrefix: n.Prefix,
 			BlockPath:     tempFile.Name(),
@@ -1624,7 +1627,7 @@ func (n *Network) PeersByName(names []string) []*topology.Peer {
 func (n *Network) PeersForChaincodeByName(names []string) []*topology.Peer {
 	var peers []*topology.Peer
 	for _, p := range n.Peers {
-		if p.SkipChaincode {
+		if p.SkipInit {
 			continue
 		}
 		for _, name := range names {
