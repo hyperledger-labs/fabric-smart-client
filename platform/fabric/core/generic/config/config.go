@@ -131,6 +131,9 @@ func (c *Config) Peers() (map[driver.PeerFunctionType][]*grpc.ConnectionConfig, 
 	res := map[driver.PeerFunctionType][]*grpc.ConnectionConfig{}
 	for _, v := range connectionConfigs {
 		v.TLSEnabled = c.TLSEnabled()
+		if v.TLSDisabled {
+			v.TLSEnabled = false
+		}
 		usage := strings.ToLower(v.Usage)
 		switch {
 		case len(usage) == 0:
