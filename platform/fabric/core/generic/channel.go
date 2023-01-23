@@ -228,7 +228,7 @@ func (c *Channel) GetVerifier(identity view.Identity) (api2.Verifier, error) {
 	return id, nil
 }
 
-func (c *Channel) GetClientConfig(tlsRootCerts [][]byte) (*grpc.ClientConfig, string, error) {
+func (c *Channel) GetClientConfig(tlsRootCerts [][]byte, UseTLS bool) (*grpc.ClientConfig, string, error) {
 	override := c.NetworkConfig.TLSServerHostOverride()
 	clientConfig := &grpc.ClientConfig{}
 	clientConfig.Timeout = c.NetworkConfig.ClientConnTimeout()
@@ -237,8 +237,11 @@ func (c *Channel) GetClientConfig(tlsRootCerts [][]byte) (*grpc.ClientConfig, st
 	}
 
 	secOpts := grpc.SecureOptions{
-		UseTLS:            c.NetworkConfig.TLSEnabled(),
+		UseTLS:            UseTLS,
 		RequireClientCert: c.NetworkConfig.TLSClientAuthRequired(),
+	}
+	if UseTLS {
+		secOpts.RequireClientCert = false
 	}
 
 	if secOpts.RequireClientCert {
@@ -482,7 +485,7 @@ func (c *connCreator) NewPeerClientForAddress(cc grpc.ConnectionConfig) (peer2.C
 		}
 	}
 
-	clientConfig, override, err := c.ch.GetClientConfig(certs)
+	clientConfig, override, err := c.ch.GetClientConfig(certs, cc.TLSEnabled)
 	if err != nil {
 		return nil, err
 	}
