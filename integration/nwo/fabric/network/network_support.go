@@ -235,6 +235,10 @@ func (n *Network) OrgPeerCACertificatePath(org *topology.Organization) string {
 	return n.orgCACertificatePath(org, "peerOrganizations")
 }
 
+func (n *Network) OrgOrdererCACertificatePath(org *topology.Organization) string {
+	return n.orgCACertificatePath(org, "ordererOrganizations")
+}
+
 func (n *Network) orgCACertificatePath(org *topology.Organization, nodeOrganizationType string) string {
 	return filepath.Join(
 		n.Context.RootDir(),
