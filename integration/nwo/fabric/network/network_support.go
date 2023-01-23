@@ -240,6 +240,22 @@ func (n *Network) OrgOrdererCACertificatePath(org *topology.Organization) string
 	return n.orgCACertificatePath(org, "ordererOrganizations")
 }
 
+func (n *Network) OrgOrdererTLSCACertificatePath(org *topology.Organization) string {
+	return n.orgTLSCACertificatePath(org, "ordererOrganizations")
+}
+
+func (n *Network) orgTLSCACertificatePath(org *topology.Organization, nodeOrganizationType string) string {
+	return filepath.Join(
+		n.Context.RootDir(),
+		n.Prefix,
+		"crypto",
+		nodeOrganizationType,
+		org.Domain,
+		"tlsca",
+		fmt.Sprintf("tlsca.%s-cert.pem", org.Domain),
+	)
+}
+
 func (n *Network) orgCACertificatePath(org *topology.Organization, nodeOrganizationType string) string {
 	return filepath.Join(
 		n.Context.RootDir(),
