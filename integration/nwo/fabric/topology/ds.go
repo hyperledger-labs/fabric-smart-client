@@ -152,6 +152,7 @@ type Peer struct {
 	SkipInit        bool            `yaml:"skipinit,omitempty"`
 	SkipRunning     bool            `yaml:"skiprunning,omitempty"`
 	TLSDisabled     bool            `yaml:"tlsdisabled,omitempty"`
+	Hostname        string          `yaml:"hostname,omitempty"`
 	DevMode         bool
 	DefaultNetwork  bool       `yaml:"-"`
 	FSCNode         *node.Node `yaml:"-"`

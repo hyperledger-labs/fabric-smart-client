@@ -1415,6 +1415,9 @@ func (n *Network) OrdererHost(o *topology.Orderer) string {
 // This assumes that the peer is listening on 0.0.0.0 and is available on the
 // loopback address.
 func (n *Network) PeerAddress(p *topology.Peer, portName api.PortName) string {
+	if p.Hostname != "" {
+		return fmt.Sprintf("%s:%d", p.Hostname, n.PeerPort(p, portName))
+	}
 	return fmt.Sprintf("%s:%d", n.PeerHost(p), n.PeerPort(p, portName))
 }
 
