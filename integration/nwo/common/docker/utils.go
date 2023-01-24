@@ -20,9 +20,7 @@ var logger = flogging.MustGetLogger("fsc.integration.fabric")
 
 // Docker is a helper to manage container related actions within nwo.
 type Docker struct {
-	Client  *docker.Client
-	sync    sync.Mutex
-	created bool
+	Client *docker.Client
 }
 
 var once sync.Once
@@ -64,13 +62,6 @@ func (d *Docker) CheckImagesExist(requiredImages ...string) error {
 
 // CreateNetwork starts a docker network with the provided `networkID` as name, returns an error in case of a failure.
 func (d *Docker) CreateNetwork(networkID string) error {
-	d.sync.Lock()
-	defer d.sync.Unlock()
-
-	if d.created {
-		return nil
-	}
-
 	_, err := d.Client.CreateNetwork(
 		docker.CreateNetworkOptions{
 			Name:   networkID,
@@ -80,8 +71,6 @@ func (d *Docker) CreateNetwork(networkID string) error {
 	if err != nil {
 		return errors.Wrapf(err, "failed creating new docker network with ID='%s'", networkID)
 	}
-
-	d.created = true
 	return nil
 }
 
