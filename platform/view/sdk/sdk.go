@@ -29,6 +29,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events/simple"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	grpc2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kms"
+	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kms/driver/default"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/operations"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view"
@@ -106,8 +108,14 @@ func (p *p) Install() error {
 	assert.NoError(err, "failed instantiating endpoint service")
 	assert.NoError(p.registry.RegisterService(endpointService), "failed registering endpoint service")
 
+	//Get Default KMS Driver
+	kmsDriver, err := kms.GetKMSDriver("default")
+	if err != nil {
+		return errors.Wrapf(err, "failed getting key management driver")
+	}
+
 	// Set Identity Provider
-	idProvider := id.NewProvider(configProvider, signerService, endpointService)
+	idProvider := id.NewProvider(configProvider, signerService, endpointService, kmsDriver)
 	assert.NoError(idProvider.Load(), "failed loading identities")
 	assert.NoError(p.registry.RegisterService(idProvider))
 
