@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
-	"github.com/op/go-logging"
 )
 
 const (
@@ -111,7 +110,7 @@ func (a *udpListener) demux(e *RawEvent) {
 
 type fileListener struct {
 	path   string
-	logger *logging.Logger
+	logger *flogging.FabricLogger
 	sync.RWMutex
 	subscriptions []chan *RawEvent
 	numEvents     uint64
@@ -120,7 +119,7 @@ type fileListener struct {
 func NewFileListener(path string) *fileListener {
 	return &fileListener{
 		path:   path,
-		logger: logging.MustGetLogger(logModuleName),
+		logger: flogging.MustGetLogger(logModuleName),
 	}
 }
 
