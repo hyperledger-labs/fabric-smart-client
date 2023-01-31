@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/op/go-logging"
 )
 
@@ -27,12 +28,16 @@ const (
 )
 
 func init() {
-	logging.SetLevel(logging.INFO, logModuleName)
+	flogging.Init(flogging.Config{
+		Format:  "%{message}",
+		LogSpec: "info",
+		Writer:  os.Stderr,
+	})
 }
 
 type udpListener struct {
 	udp    *net.UDPConn
-	logger *logging.Logger
+	logger *flogging.FabricLogger
 	sync.RWMutex
 	subscriptions []chan *RawEvent
 }
@@ -40,7 +45,7 @@ type udpListener struct {
 func NewUDPListener(port int) (*udpListener, error) {
 	a := &udpListener{
 		subscriptions: []chan *RawEvent{},
-		logger:        logging.MustGetLogger(logModuleName),
+		logger:        flogging.MustGetLogger(logModuleName),
 	}
 	if err := a.listen(port); err != nil {
 		return nil, err
