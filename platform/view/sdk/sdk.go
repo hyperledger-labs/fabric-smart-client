@@ -33,6 +33,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kms"
 	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kms/driver/file"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/operations"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view"
 	protos2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view/protos"
@@ -151,7 +152,7 @@ func (p *SDK) Install() error {
 			idProvider,
 			view.GetSigService(p.registry),
 		),
-		view2.NewMetrics(p.operationsSystem),
+		view2.NewMetrics(metrics.GetProvider(p.registry)),
 	)
 	if err != nil {
 		return fmt.Errorf("error creating view service server: %s", err)
