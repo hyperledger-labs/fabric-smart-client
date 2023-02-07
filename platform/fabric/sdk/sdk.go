@@ -19,7 +19,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracker"
 	"github.com/pkg/errors"
 )
 
@@ -80,8 +79,6 @@ func (p *SDK) Install() error {
 
 	assert.NotNil(fabric.GetDefaultFNS(p.registry), "default fabric network service not found")
 
-	// TODO: remove this
-	assert.NoError(p.registry.RegisterService(tracker.NewTracker()))
 	// TODO: change this
 	assert.NoError(p.registry.RegisterService(vault.NewService(p.registry)))
 

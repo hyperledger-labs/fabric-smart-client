@@ -13,16 +13,17 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/prometheus"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/statsd"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/statsd/goruntime"
+
 	kitstatsd "github.com/go-kit/kit/metrics/statsd"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/metadata"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging/httpadmin"
 	"github.com/hyperledger/fabric-lib-go/healthz"
-	"github.com/hyperledger/fabric/common/metrics"
-	"github.com/hyperledger/fabric/common/metrics/disabled"
-	"github.com/hyperledger/fabric/common/metrics/prometheus"
-	"github.com/hyperledger/fabric/common/metrics/statsd"
-	"github.com/hyperledger/fabric/common/metrics/statsd/goruntime"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
@@ -62,9 +63,9 @@ type Server interface {
 }
 
 type System struct {
-	Server Server
 	metrics.Provider
 
+	Server          Server
 	logger          Logger
 	healthHandler   *healthz.HealthHandler
 	options         Options

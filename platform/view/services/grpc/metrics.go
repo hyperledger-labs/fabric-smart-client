@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package grpc
 
 import (
-	"github.com/hyperledger/fabric/common/metrics"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 )
 
 var (
