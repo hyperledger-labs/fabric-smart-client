@@ -42,15 +42,15 @@ type provider struct {
 	defaultID       view.Identity
 	admins          []view.Identity
 	clients         []view.Identity
-	kms             kms.Driver
+	kms             *kms.KMS
 }
 
-func NewProvider(configProvider ConfigProvider, sigService SigService, endpointService EndpointService, driver kms.Driver) *provider {
+func NewProvider(configProvider ConfigProvider, sigService SigService, endpointService EndpointService, kms *kms.KMS) *provider {
 	return &provider{
 		configProvider:  configProvider,
 		sigService:      sigService,
 		endpointService: endpointService,
-		kms:             driver,
+		kms:             kms,
 	}
 }
 
@@ -92,12 +92,7 @@ func (p *provider) Clients() []view.Identity {
 }
 
 func (p *provider) loadDefaultIdentity() error {
-	defaultID, err := LoadIdentity(p.configProvider.GetPath("fsc.identity.cert.file"))
-	if err != nil {
-		return errors.Wrapf(err, "failed loading SFC Node Identity")
-	}
-
-	id, signer, verifier, err := p.kms.Load(p.configProvider, defaultID)
+	id, signer, verifier, err := p.kms.Load(p.configProvider)
 	if err != nil {
 		return errors.Wrapf(err, "failed loading default signer")
 	}
@@ -105,7 +100,7 @@ func (p *provider) loadDefaultIdentity() error {
 	if err := p.sigService.RegisterSigner(id, signer, verifier); err != nil {
 		return errors.Wrapf(err, "failed registering default identity signer")
 	}
-	p.defaultID = defaultID
+	p.defaultID = id
 	return nil
 }
 

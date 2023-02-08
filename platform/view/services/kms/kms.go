@@ -10,32 +10,19 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kms/driver"
 	"github.com/pkg/errors"
 )
 
 var (
 	driversMu sync.RWMutex
-	drivers   = make(map[string]Driver)
+	drivers   = make(map[string]driver.Driver)
 )
-
-// Driver models the key management interface
-type Driver interface {
-	// Load returns the signer, verifier and signing identity bound to the byte representation of passed pem encoded public key.
-	Load(configProvider ConfigProvider, pemBytes []byte) (view.Identity, driver.Signer, driver.Verifier, error)
-}
-
-type ConfigProvider interface {
-	GetPath(s string) string
-	GetStringSlice(key string) []string
-	TranslatePath(path string) string
-}
 
 // Register makes a kms driver available by the provided name.
 // If Register is called twice with the same name or if driver is nil,
 // it panics.
-func Register(name string, driver Driver) {
+func Register(name string, driver driver.Driver) {
 	driversMu.Lock()
 	defer driversMu.Unlock()
 	if driver == nil {
@@ -59,8 +46,12 @@ func Drivers() []string {
 	return list
 }
 
-// GetKMSDriver returns the registered drivers.
-func GetKMSDriver(driverName string) (Driver, error) {
+type KMS struct {
+	driver.Driver
+}
+
+// Get returns the registered drivers.
+func Get(driverName string) (*KMS, error) {
 	dNames := Drivers()
 	if len(dNames) == 0 {
 		return nil, errors.New("no kms driver found")
@@ -70,6 +61,5 @@ func GetKMSDriver(driverName string) (Driver, error) {
 		return nil, errors.New("no kms driver found with name" + driverName)
 
 	}
-	return driver, nil
-
+	return &KMS{Driver: driver}, nil
 }

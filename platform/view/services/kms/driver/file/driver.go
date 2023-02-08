@@ -4,27 +4,30 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package driver
+package file
 
 import (
 	"io/ioutil"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id/ecdsa"
 	kms "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kms"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kms/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-
 	"github.com/pkg/errors"
 )
 
 type Driver struct{}
 
-func (d *Driver) Load(configProvider kms.ConfigProvider, pemBytes []byte) (view.Identity, driver.Signer, driver.Verifier, error) {
+func (d *Driver) Load(configProvider driver.ConfigProvider) (view.Identity, driver.Signer, driver.Verifier, error) {
+	idPEM, err := ioutil.ReadFile(configProvider.GetPath("fsc.identity.cert.file"))
+	if err != nil {
+		return nil, nil, nil, errors.Wrapf(err, "failed loading SFC Node Identity")
+	}
 	fileCont, err := ioutil.ReadFile(configProvider.GetPath("fsc.identity.key.file"))
 	if err != nil {
 		return nil, nil, nil, errors.Wrapf(err, "failed reading file [%s]", fileCont)
 	}
-	id, verifier, err := ecdsa.NewIdentityFromPEMCert(pemBytes)
+	id, verifier, err := ecdsa.NewIdentityFromPEMCert(idPEM)
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, "failed loading default verifier")
 	}
@@ -36,5 +39,5 @@ func (d *Driver) Load(configProvider kms.ConfigProvider, pemBytes []byte) (view.
 }
 
 func init() {
-	kms.Register("default", &Driver{})
+	kms.Register("file", &Driver{})
 }
