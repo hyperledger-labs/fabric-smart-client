@@ -103,6 +103,7 @@ type Config interface {
 }
 
 type Driver interface {
+	//add load(identity) driver
 	// NewVersioned returns a new VersionedPersistence for the passed data source and config
 	NewVersioned(sp view.ServiceProvider, dataSourceName string, config Config) (VersionedPersistence, error)
 	// New returns a new Persistence for the passed data source and config

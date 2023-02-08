@@ -7,13 +7,11 @@ SPDX-License-Identifier: Apache-2.0
 package id
 
 import (
-	"io/ioutil"
-
 	"github.com/pkg/errors"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id/ecdsa"
+	kms "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kms"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -44,13 +42,15 @@ type provider struct {
 	defaultID       view.Identity
 	admins          []view.Identity
 	clients         []view.Identity
+	kms             *kms.KMS
 }
 
-func NewProvider(configProvider ConfigProvider, sigService SigService, endpointService EndpointService) *provider {
+func NewProvider(configProvider ConfigProvider, sigService SigService, endpointService EndpointService, kms *kms.KMS) *provider {
 	return &provider{
 		configProvider:  configProvider,
 		sigService:      sigService,
 		endpointService: endpointService,
+		kms:             kms,
 	}
 }
 
@@ -88,26 +88,15 @@ func (p *provider) Clients() []view.Identity {
 }
 
 func (p *provider) loadDefaultIdentity() error {
-	defaultID, err := LoadIdentity(p.configProvider.GetPath("fsc.identity.cert.file"))
-	if err != nil {
-		return errors.Wrapf(err, "failed loading SFC Node Identity")
-	}
-	id, verifier, err := ecdsa.NewIdentityFromPEMCert(defaultID)
-	if err != nil {
-		return errors.Wrap(err, "failed loading default verifier")
-	}
-	fileCont, err := ioutil.ReadFile(p.configProvider.GetPath("fsc.identity.key.file"))
-	if err != nil {
-		return errors.Wrapf(err, "failed reading file [%s]", fileCont)
-	}
-	signer, err := ecdsa.NewSignerFromPEM(fileCont)
+	id, signer, verifier, err := p.kms.Load(p.configProvider)
 	if err != nil {
 		return errors.Wrapf(err, "failed loading default signer")
 	}
+
 	if err := p.sigService.RegisterSigner(id, signer, verifier); err != nil {
 		return errors.Wrapf(err, "failed registering default identity signer")
 	}
-	p.defaultID = defaultID
+	p.defaultID = id
 	return nil
 }
 
