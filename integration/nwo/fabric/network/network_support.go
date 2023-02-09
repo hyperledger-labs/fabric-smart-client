@@ -1106,7 +1106,7 @@ func (n *Network) DiscoveredPeer(p *topology.Peer, chaincodes ...string) Discove
 
 	return DiscoveredPeer{
 		MSPID:      n.Organization(p.Organization).MSPID,
-		Endpoint:   fmt.Sprintf("127.0.0.1:%d", n.PeerPort(p, ListenPort)),
+		Endpoint:   fmt.Sprintf("0.0.0.0:%d", n.PeerPort(p, ListenPort)),
 		Identity:   string(peerCert),
 		Chaincodes: chaincodes,
 	}
@@ -1118,7 +1118,7 @@ func (n *Network) DiscoveredPeerMatcher(p *topology.Peer, chaincodes ...string) 
 
 	return gstruct.MatchAllFields(gstruct.Fields{
 		"MSPID":      Equal(n.Organization(p.Organization).MSPID),
-		"Endpoint":   Equal(fmt.Sprintf("127.0.0.1:%d", n.PeerPort(p, ListenPort))),
+		"Endpoint":   Equal(fmt.Sprintf("0.0.0.0:%d", n.PeerPort(p, ListenPort))),
 		"Identity":   Equal(string(peerCert)),
 		"Chaincodes": containElements(chaincodes...),
 	})
@@ -1364,7 +1364,7 @@ func OrdererPortNames() []api.PortName {
 // This assumes that the orderer is listening on 0.0.0.0 or 127.0.0.1 and is
 // available on the loopback address.
 func (n *Network) OrdererAddress(o *topology.Orderer, portName api.PortName) string {
-	return fmt.Sprintf("127.0.0.1:%d", n.OrdererPort(o, portName))
+	return fmt.Sprintf("0.0.0.0:%d", n.OrdererPort(o, portName))
 }
 
 // OrdererPort returns the named port reserved for the Orderer instance.
@@ -1381,11 +1381,11 @@ func (n *Network) OrdererPort(o *topology.Orderer, portName api.PortName) uint16
 // This assumes that the peer is listening on 0.0.0.0 and is available on the
 // loopback address.
 func (n *Network) PeerAddress(p *topology.Peer, portName api.PortName) string {
-	return fmt.Sprintf("127.0.0.1:%d", n.PeerPort(p, portName))
+	return fmt.Sprintf("0.0.0.0:%d", n.PeerPort(p, portName))
 }
 
 func (n *Network) PeerAddressByName(p *topology.Peer, portName api.PortName) string {
-	return fmt.Sprintf("127.0.0.1:%d", n.PeerPortByName(p, portName))
+	return fmt.Sprintf("0.0.0.0:%d", n.PeerPortByName(p, portName))
 }
 
 // PeerPort returns the named port reserved for the Peer instance.
