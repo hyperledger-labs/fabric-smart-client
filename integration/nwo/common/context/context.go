@@ -34,6 +34,7 @@ type Context struct {
 	PlatformsByName  map[string]api.Platform
 
 	portsByPeerID      map[string]api.Ports
+	portsByOrdererID   map[string]api.Ports
 	extensionsByPeerID map[string]api.Extensions
 
 	ViewClients             map[string]api.ViewClient
@@ -65,6 +66,7 @@ func New(rootDir string, portCounter uint16, builder api.Builder, topologies ...
 		ClientSigningIdentities: map[string]SigningIdentity{},
 		AdminSigningIdentities:  map[string]SigningIdentity{},
 		portsByPeerID:           map[string]api.Ports{},
+		portsByOrdererID:        map[string]api.Ports{},
 		extensionsByPeerID:      map[string]api.Extensions{},
 		TopologiesByName:        topologiesByName,
 		PlatformsByName:         map[string]api.Platform{},
@@ -81,6 +83,14 @@ func (c *Context) PortsByPeerID(prefix string, id string) api.Ports {
 
 func (c *Context) SetPortsByPeerID(prefix string, id string, ports api.Ports) {
 	c.portsByPeerID[prefix+id] = ports
+}
+
+func (c *Context) PortsByOrdererID(prefix string, id string) api.Ports {
+	return c.portsByOrdererID[prefix+id]
+}
+
+func (c *Context) SetPortsByOrdererID(prefix string, id string, ports api.Ports) {
+	c.portsByOrdererID[prefix+id] = ports
 }
 
 func (c *Context) TopologyByName(name string) api.Topology {

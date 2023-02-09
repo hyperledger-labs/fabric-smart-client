@@ -46,7 +46,6 @@ type Network struct {
 	StatsdEndpoint     string
 	ClientAuthRequired bool
 
-	PortsByOrdererID  map[string]api.Ports
 	Logging           *topology.Logging
 	PvtTxSupport      bool
 	PvtTxCCSupport    bool
@@ -87,7 +86,6 @@ func New(reg api.Context, topology *topology.Topology, builderClient BuilderClie
 		NetworkID:         NetworkID,
 		EventuallyTimeout: 20 * time.Minute,
 		MetricsProvider:   "prometheus",
-		PortsByOrdererID:  map[string]api.Ports{},
 
 		Organizations:     topology.Organizations,
 		Consensus:         topology.Consensus,

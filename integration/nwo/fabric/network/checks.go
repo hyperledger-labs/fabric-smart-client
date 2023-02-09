@@ -39,7 +39,7 @@ func (n *Network) CheckTopologyOrderers() {
 		for _, portName := range OrdererPortNames() {
 			ports[portName] = n.Context.ReservePort()
 		}
-		n.PortsByOrdererID[o.ID()] = ports
+		n.Context.SetPortsByOrdererID(n.Prefix, o.ID(), ports)
 	}
 }
 
