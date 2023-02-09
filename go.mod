@@ -4,7 +4,7 @@ go 1.20
 
 replace kilic/bls12-377 => github.com/kilic/bls12-377 v0.0.0-20201230075656-5449decbf102
 
-replace github.com/IBM/idemix => github.com/jrc-ibm/idemix v0.0.0-20230124160937-e58afc7ed1a6
+replace github.com/IBM/idemix => github.com/jrc-ibm/idemix v0.0.0-20230208172945-944f13522784
 
 require (
 	github.com/IBM/idemix v0.0.2-0.20230324134044-ad53d9388bb5
