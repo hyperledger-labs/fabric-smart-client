@@ -232,7 +232,7 @@ func (f *Network) Init() error {
 		}
 	}
 
-	f.Ordering = ordering.NewService(f.SP, f, f.Metrics)
+	f.Ordering = ordering.NewService(f.SP, f, len(f.Orderers())*5, f.Metrics)
 	return nil
 }
 
