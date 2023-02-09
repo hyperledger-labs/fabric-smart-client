@@ -13,6 +13,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/fabricutils"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
@@ -37,6 +38,7 @@ type ViewManager interface {
 }
 
 type Network interface {
+	Name() string
 	PickOrderer() *grpc.ConnectionConfig
 	LocalMembership() driver.LocalMembership
 	// Broadcast sends the passed blob to the ordering service to be ordered
@@ -61,12 +63,14 @@ type service struct {
 	oClient *ordererClient
 	sp      view2.ServiceProvider
 	network Network
+	metrics *metrics.Metrics
 }
 
-func NewService(sp view2.ServiceProvider, network Network) *service {
+func NewService(sp view2.ServiceProvider, network Network, metrics *metrics.Metrics) *service {
 	return &service{
 		sp:      sp,
 		network: network,
+		metrics: metrics,
 	}
 }
 
@@ -234,6 +238,11 @@ func (o *service) broadcastEnvelope(env *common2.Envelope) error {
 		if status.GetStatus() != common2.Status_SUCCESS {
 			return errors.Wrapf(err, "failed broadcasting, status %s", common2.Status_name[int32(status.GetStatus())])
 		}
+
+		labels := []string{
+			"network", o.network.Name(),
+		}
+		o.metrics.OrderedTransactions.With(labels...).Add(1)
 
 		return nil
 	}

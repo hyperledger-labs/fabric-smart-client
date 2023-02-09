@@ -11,6 +11,7 @@ import (
 	"sync"
 
 	config2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/ordering"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/rwset"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
@@ -43,13 +44,23 @@ type Network struct {
 	defaultChannel     string
 	channelConfigs     []*config2.Channel
 
+	Metrics      *metrics.Metrics
 	Ordering     driver.Ordering
 	NewChannel   NewChannelFunc
 	ChannelMap   map[string]driver.Channel
 	ChannelMutex sync.RWMutex
 }
 
-func NewNetwork(sp view2.ServiceProvider, name string, config *config2.Config, idProvider driver.IdentityProvider, localMembership driver.LocalMembership, sigService driver.SignerService, newChannel NewChannelFunc) (*Network, error) {
+func NewNetwork(
+	sp view2.ServiceProvider,
+	name string,
+	config *config2.Config,
+	idProvider driver.IdentityProvider,
+	localMembership driver.LocalMembership,
+	sigService driver.SignerService,
+	metrics *metrics.Metrics,
+	newChannel NewChannelFunc,
+) (*Network, error) {
 	return &Network{
 		SP:              sp,
 		name:            name,
@@ -58,6 +69,7 @@ func NewNetwork(sp view2.ServiceProvider, name string, config *config2.Config, i
 		localMembership: localMembership,
 		idProvider:      idProvider,
 		sigService:      sigService,
+		Metrics:         metrics,
 		NewChannel:      newChannel,
 	}, nil
 }
@@ -220,7 +232,7 @@ func (f *Network) Init() error {
 		}
 	}
 
-	f.Ordering = ordering.NewService(f.SP, f)
+	f.Ordering = ordering.NewService(f.SP, f, f.Metrics)
 	return nil
 }
 
