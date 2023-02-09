@@ -2,7 +2,7 @@ module github.com/hyperledger-labs/fabric-smart-client
 
 go 1.18
 
-replace github.com/IBM/idemix => github.com/jrc-ibm/idemix v0.0.0-20230124160937-e58afc7ed1a6
+replace github.com/IBM/idemix => github.com/jrc-ibm/idemix v0.0.0-20230208172945-944f13522784
 
 require (
 	github.com/IBM/idemix v0.0.0-20220113150823-80dd4cb2d74e
