@@ -62,7 +62,7 @@ func (a *AuditInfo) Match(id []byte) error {
 		&csp.EidNymAuditOpts{
 			EidIndex:     EIDIndex,
 			EnrollmentID: string(a.Attributes[EIDIndex]),
-			RNymEid:      a.RhNymAuditData.Attr,
+			RNymEid:      a.EidNymAuditData.Rand,
 		},
 	)
 	if err != nil {
