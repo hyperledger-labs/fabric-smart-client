@@ -198,35 +198,44 @@ func (o *service) broadcastEnvelope(context context.Context, env *common2.Envelo
 	return errors.Wrap(err, "failed to send transaction to orderer")
 }
 
-func (o *service) getConnection(context context.Context) (*Connection, error) {
-	select {
-	case connection := <-o.connections:
-		return connection, nil
-	default:
-		if err := o.connSem.Acquire(context, 1); err != nil {
-			return nil, errors.Wrapf(err, "failed to acquire connection rights")
-		}
+func (o *service) getConnection(ctx context.Context) (*Connection, error) {
+	for {
+		select {
+		case connection := <-o.connections:
+			// if there is a connection available, return it
+			return connection, nil
+		default:
+			// Try to acquire the right to create a new connection.
+			// If this fails, retry with an existing connection
+			semContext, cancel := context.WithTimeout(ctx, 1*time.Second)
+			if err := o.connSem.Acquire(semContext, 1); err != nil {
+				cancel()
+				break
+			}
+			cancel()
 
-		ordererConfig := o.network.PickOrderer()
-		if ordererConfig == nil {
-			return nil, errors.New("no orderer configured")
-		}
+			// create connection
+			ordererConfig := o.network.PickOrderer()
+			if ordererConfig == nil {
+				return nil, errors.New("no orderer configured")
+			}
 
-		oClient, err := NewOrdererClient(ordererConfig)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed creating orderer client for %s", ordererConfig.Address)
-		}
+			oClient, err := NewOrdererClient(ordererConfig)
+			if err != nil {
+				return nil, errors.Wrapf(err, "failed creating orderer client for %s", ordererConfig.Address)
+			}
 
-		stream, err := oClient.NewBroadcast(context)
-		if err != nil {
-			oClient.Close()
-			return nil, errors.Wrapf(err, "failed creating orderer stream for %s", ordererConfig.Address)
-		}
+			stream, err := oClient.NewBroadcast(ctx)
+			if err != nil {
+				oClient.Close()
+				return nil, errors.Wrapf(err, "failed creating orderer stream for %s", ordererConfig.Address)
+			}
 
-		return &Connection{
-			Stream: stream,
-			Client: oClient,
-		}, nil
+			return &Connection{
+				Stream: stream,
+				Client: oClient,
+			}, nil
+		}
 	}
 }
 
