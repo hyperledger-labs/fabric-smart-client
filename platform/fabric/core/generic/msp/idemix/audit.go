@@ -16,10 +16,7 @@ import (
 )
 
 type AuditInfo struct {
-	// *csp.AttrNymAuditData
-	// EidNym          []byte
 	EidNymAuditData *csp.AttrNymAuditData
-	// RhNym           []byte
 	RhNymAuditData  *csp.AttrNymAuditData
 	Attributes      [][]byte
 	Csp             csp.BCCSP `json:"-"`
