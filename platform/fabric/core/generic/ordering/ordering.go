@@ -10,6 +10,8 @@ import (
 	"context"
 	"time"
 
+	"go.uber.org/atomic"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/fabricutils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/metrics"
@@ -63,10 +65,12 @@ type Connection struct {
 }
 
 type service struct {
-	sp          view2.ServiceProvider
-	network     Network
-	metrics     *metrics.Metrics
-	connections chan *Connection
+	sp      view2.ServiceProvider
+	network Network
+	metrics *metrics.Metrics
+
+	connectionsCounter atomic.Int32
+	connections        chan *Connection
 }
 
 func NewService(sp view2.ServiceProvider, network Network, poolSize int, metrics *metrics.Metrics) *service {
@@ -193,6 +197,10 @@ func (o *service) getConnection() (*Connection, error) {
 	case connection := <-o.connections:
 		return connection, nil
 	default:
+		if o.connectionsCounter.Load() >= int32(cap(o.connections)) {
+			return nil, errors.New("no connection available")
+		}
+
 		ordererConfig := o.network.PickOrderer()
 		if ordererConfig == nil {
 			return nil, errors.New("no orderer configured")
@@ -209,6 +217,7 @@ func (o *service) getConnection() (*Connection, error) {
 			return nil, errors.Wrapf(err, "failed creating orderer stream for %s", ordererConfig.Address)
 		}
 
+		o.connectionsCounter.Inc()
 		return &Connection{
 			Stream: stream,
 			Client: oClient,
@@ -218,6 +227,7 @@ func (o *service) getConnection() (*Connection, error) {
 
 func (o *service) discardConnection(connection *Connection) {
 	if connection != nil {
+		o.connectionsCounter.Dec()
 		if connection.Stream != nil {
 			if err := connection.Stream.CloseSend(); err != nil {
 				logger.Warnf("failed to close connection to ordering [%s]", err)
