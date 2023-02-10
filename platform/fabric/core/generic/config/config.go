@@ -20,9 +20,10 @@ import (
 )
 
 const (
-	DefaultMSPCacheSize        = 3
-	DefaultBroadcastNumRetries = 3
-	VaultPersistenceOptsKey    = "vault.persistence.opts"
+	DefaultMSPCacheSize               = 3
+	DefaultBroadcastNumRetries        = 3
+	VaultPersistenceOptsKey           = "vault.persistence.opts"
+	DefaultOrderingConnectionPoolSize = 10
 )
 
 var logger = flogging.MustGetLogger("fabric-sdk.core.generic.config")
@@ -255,4 +256,12 @@ func (c *Config) BroadcastNumRetries() int {
 
 func (c *Config) BroadcastRetryInterval() time.Duration {
 	return c.configService.GetDuration("fabric." + c.prefix + "ordering.retryInterval")
+}
+
+func (c *Config) OrdererConnectionPoolSize() int {
+	v := c.configService.GetInt("fabric." + c.prefix + "ordering.connectionPoolSize")
+	if v == 0 {
+		v = DefaultOrderingConnectionPoolSize
+	}
+	return v
 }

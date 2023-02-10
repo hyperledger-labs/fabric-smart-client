@@ -10,7 +10,9 @@ import (
 	"context"
 	"time"
 
-	"go.uber.org/atomic"
+	context2 "golang.org/x/net/context"
+
+	"golang.org/x/sync/semaphore"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/fabricutils"
@@ -44,7 +46,7 @@ type Network interface {
 	Orderers() []*grpc.ConnectionConfig
 	LocalMembership() driver.LocalMembership
 	// Broadcast sends the passed blob to the ordering service to be ordered
-	Broadcast(blob interface{}) error
+	Broadcast(context context2.Context, blob interface{}) error
 	Channel(name string) (driver.Channel, error)
 	SignerService() driver.SignerService
 	Config() *config.Config
@@ -69,8 +71,8 @@ type service struct {
 	network Network
 	metrics *metrics.Metrics
 
-	connectionsCounter atomic.Int32
-	connections        chan *Connection
+	connSem     *semaphore.Weighted
+	connections chan *Connection
 }
 
 func NewService(sp view2.ServiceProvider, network Network, poolSize int, metrics *metrics.Metrics) *service {
@@ -79,10 +81,14 @@ func NewService(sp view2.ServiceProvider, network Network, poolSize int, metrics
 		network:     network,
 		metrics:     metrics,
 		connections: make(chan *Connection, poolSize),
+		connSem:     semaphore.NewWeighted(int64(poolSize)),
 	}
 }
 
-func (o *service) Broadcast(blob interface{}) error {
+func (o *service) Broadcast(ctx context2.Context, blob interface{}) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	var env *common2.Envelope
 	var err error
 	switch b := blob.(type) {
@@ -108,7 +114,7 @@ func (o *service) Broadcast(blob interface{}) error {
 		return errors.Errorf("invalid blob's type, got [%T]", blob)
 	}
 
-	return o.broadcastEnvelope(env)
+	return o.broadcastEnvelope(ctx, env)
 }
 
 func (o *service) createFabricEndorseTransactionEnvelope(tx Transaction) (*common2.Envelope, error) {
@@ -140,7 +146,7 @@ func (o *service) createFabricEndorseTransactionEnvelope(tx Transaction) (*commo
 	return env, nil
 }
 
-func (o *service) broadcastEnvelope(env *common2.Envelope) error {
+func (o *service) broadcastEnvelope(context context.Context, env *common2.Envelope) error {
 	// send the envelope for ordering
 	var status *ab.BroadcastResponse
 	var connection *Connection
@@ -160,7 +166,7 @@ func (o *service) broadcastEnvelope(env *common2.Envelope) error {
 		}
 		if i > 0 || forceConnect {
 			forceConnect = false
-			connection, err = o.getConnection()
+			connection, err = o.getConnection(context)
 			if err != nil {
 				logger.Warnf("failed to get connection to orderer [%s]", err)
 				continue
@@ -192,13 +198,13 @@ func (o *service) broadcastEnvelope(env *common2.Envelope) error {
 	return errors.Wrap(err, "failed to send transaction to orderer")
 }
 
-func (o *service) getConnection() (*Connection, error) {
+func (o *service) getConnection(context context.Context) (*Connection, error) {
 	select {
 	case connection := <-o.connections:
 		return connection, nil
 	default:
-		if o.connectionsCounter.Load() >= int32(cap(o.connections)) {
-			return nil, errors.New("no connection available")
+		if err := o.connSem.Acquire(context, 1); err != nil {
+			return nil, errors.Wrapf(err, "failed to acquire connection rights")
 		}
 
 		ordererConfig := o.network.PickOrderer()
@@ -211,13 +217,12 @@ func (o *service) getConnection() (*Connection, error) {
 			return nil, errors.Wrapf(err, "failed creating orderer client for %s", ordererConfig.Address)
 		}
 
-		stream, err := oClient.NewBroadcast(context.Background())
+		stream, err := oClient.NewBroadcast(context)
 		if err != nil {
 			oClient.Close()
 			return nil, errors.Wrapf(err, "failed creating orderer stream for %s", ordererConfig.Address)
 		}
 
-		o.connectionsCounter.Inc()
 		return &Connection{
 			Stream: stream,
 			Client: oClient,
@@ -227,7 +232,7 @@ func (o *service) getConnection() (*Connection, error) {
 
 func (o *service) discardConnection(connection *Connection) {
 	if connection != nil {
-		o.connectionsCounter.Dec()
+		o.connSem.Release(1)
 		if connection.Stream != nil {
 			if err := connection.Stream.CloseSend(); err != nil {
 				logger.Warnf("failed to close connection to ordering [%s]", err)

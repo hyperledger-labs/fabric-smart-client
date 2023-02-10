@@ -49,6 +49,7 @@ type Invoke struct {
 	MatchEndorsementPolicy         bool
 	NumRetries                     int
 	RetrySleep                     time.Duration
+	Context                        context.Context
 }
 
 func NewInvoke(chaincode *Chaincode, function string, args ...interface{}) *Invoke {
@@ -192,6 +193,11 @@ func (i *Invoke) submit() (string, []byte, error) {
 	}
 
 	return txID, proposalResp.Response.Payload, nil
+}
+
+func (i *Invoke) WithContext(context context.Context) driver.ChaincodeInvocation {
+	i.Context = context
+	return i
 }
 
 func (i *Invoke) WithTransientEntry(k string, v interface{}) driver.ChaincodeInvocation {
@@ -525,7 +531,7 @@ func (i *Invoke) toBytes(arg interface{}) ([]byte, error) {
 }
 
 func (i *Invoke) broadcast(txID string, env *common.Envelope) error {
-	if err := i.Network.Broadcast(env); err != nil {
+	if err := i.Network.Broadcast(i.Context, env); err != nil {
 		return err
 	}
 	return i.Channel.IsFinal(context.Background(), txID)

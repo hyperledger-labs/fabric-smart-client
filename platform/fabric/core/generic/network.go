@@ -10,6 +10,8 @@ import (
 	"math/rand"
 	"sync"
 
+	"golang.org/x/net/context"
+
 	config2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/ordering"
@@ -186,8 +188,8 @@ func (f *Network) TransactionManager() driver.TransactionManager {
 	return f.transactionManager
 }
 
-func (f *Network) Broadcast(blob interface{}) error {
-	return f.Ordering.Broadcast(blob)
+func (f *Network) Broadcast(context context.Context, blob interface{}) error {
+	return f.Ordering.Broadcast(context, blob)
 }
 
 func (f *Network) SignerService() driver.SignerService {
@@ -232,7 +234,7 @@ func (f *Network) Init() error {
 		}
 	}
 
-	f.Ordering = ordering.NewService(f.SP, f, len(f.Orderers())*5, f.Metrics)
+	f.Ordering = ordering.NewService(f.SP, f, f.config.OrdererConnectionPoolSize(), f.Metrics)
 	return nil
 }
 
