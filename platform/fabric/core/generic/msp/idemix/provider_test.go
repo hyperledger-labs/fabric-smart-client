@@ -204,7 +204,6 @@ func TestAuditEidNym(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, id)
 	assert.NotNil(t, audit)
-
 	id2, audit2, err := p2.Identity(nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, id2)
