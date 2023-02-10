@@ -9,8 +9,6 @@ package chaincode
 import (
 	"context"
 
-	context2 "golang.org/x/net/context"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
@@ -37,7 +35,7 @@ type Network interface {
 	PickPeer(funcType driver.PeerFunctionType) *grpc.ConnectionConfig
 	LocalMembership() driver.LocalMembership
 	// Broadcast sends the passed blob to the ordering service to be ordered
-	Broadcast(context context2.Context, blob interface{}) error
+	Broadcast(context context.Context, blob interface{}) error
 	SignerService() driver.SignerService
 	Config() *config.Config
 }
