@@ -41,6 +41,7 @@ func OpenDB(path string) (*badgerDB, error) {
 	// let's pass our logger badger
 	opt := badger.DefaultOptions(path)
 	opt.Logger = logger
+	opt.WithSyncWrites(true)
 
 	db, err := badger.Open(opt)
 	if err != nil {
