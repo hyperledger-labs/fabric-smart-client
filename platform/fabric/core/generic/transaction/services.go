@@ -45,7 +45,7 @@ func (s *mds) StoreTransient(txid string, transientMap driver.TransientMap) erro
 	if err != nil {
 		return err
 	}
-	logger.Debugf("store transient for [%s]", txid)
+	logger.Debugf("store transient for [%s][%v]", txid, transientMap)
 
 	return kvs.GetService(s.sp).Put(key, transientMap)
 }

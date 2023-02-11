@@ -73,8 +73,13 @@ func (n *NetworkService) Channel(id string) (*Channel, error) {
 	if err != nil {
 		return nil, err
 	}
+	c, ok = n.channels[ch.Name()]
+	if ok {
+		return c, nil
+	}
+
 	c = NewChannel(n.SP, n.fns, ch)
-	n.channels[id] = c
+	n.channels[ch.Name()] = c
 
 	return c, nil
 }
