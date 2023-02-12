@@ -48,6 +48,23 @@ func OpenDB(path string) (*badgerDB, error) {
 		return nil, errors.Wrapf(err, "could not open DB at '%s'", path)
 	}
 
+	// count number of key
+	counter := uint64(0)
+	if err := db.View(func(txn *badger.Txn) error {
+		opts := badger.DefaultIteratorOptions
+		opts.PrefetchValues = false
+		it := txn.NewIterator(opts)
+		defer it.Close()
+		for it.Rewind(); it.Valid(); it.Next() {
+			it.Item()
+			counter++
+		}
+		return nil
+	}); err != nil {
+		return nil, errors.Wrapf(err, "failed to count number of keys")
+	}
+	logger.Debugf("badger db at [%s] contains [%d] keys", path, counter)
+
 	// start our auto cleaner
 	cancel := autoCleaner(db, defaultGCInterval, defaultGCDiscardRatio)
 
