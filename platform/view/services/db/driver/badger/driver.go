@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/dgraph-io/badger/v3"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
@@ -18,6 +19,7 @@ import (
 )
 
 type Opts struct {
+	badger.Options
 	Path string
 }
 
@@ -30,12 +32,12 @@ func (v *Driver) NewVersioned(sp view.ServiceProvider, dataSourceName string, co
 		return nil, errors.Wrapf(err, "failed getting opts")
 	}
 	path := filepath.Join(opts.Path, dataSourceName)
-	logger.Debugf("opening badger at [%s], opts [%v]", path, opts)
+	logger.Infof("opening badger at [%s], opts [%v]", path, opts)
 	err = os.MkdirAll(path, 0755)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed creating directory [%s]", path)
 	}
-	return OpenDB(path)
+	return OpenDB(*opts, config)
 }
 
 func (v *Driver) New(sp view.ServiceProvider, dataSourceName string, config driver.Config) (driver.Persistence, error) {

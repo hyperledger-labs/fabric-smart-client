@@ -8,8 +8,11 @@ package badger
 
 import (
 	"context"
+	"reflect"
 	"sync"
 	"time"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 
 	"github.com/dgraph-io/badger/v3"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
@@ -33,19 +36,33 @@ const (
 	defaultGCDiscardRatio = 0.5             // recommended ratio by badger docs
 )
 
-func OpenDB(path string) (*badgerDB, error) {
-	if len(path) == 0 {
+func OpenDB(opts Opts, config driver.Config) (*badgerDB, error) {
+	if len(opts.Path) == 0 {
 		return nil, errors.Errorf("path cannot be empty")
 	}
 
 	// let's pass our logger badger
-	opt := badger.DefaultOptions(path)
+	opt := badger.DefaultOptions(opts.Path)
 	opt.Logger = logger
-	opt.WithSyncWrites(true)
+	if config != nil {
+		sourceOptsValue := reflect.ValueOf(opts.Options)
+		sourceTypeOfOpts := sourceOptsValue.Type()
+
+		destOptsValue := reflect.ValueOf(opt)
+		for i := 0; i < sourceTypeOfOpts.NumField(); i++ {
+			name := sourceTypeOfOpts.Field(i).Name
+			if config.IsSet(name) {
+				newValue := sourceOptsValue.Field(i)
+				// Set this property
+				logger.Infof("set badger options [%s] to [%v]", name, newValue)
+				destOptsValue.Set(newValue)
+			}
+		}
+	}
 
 	db, err := badger.Open(opt)
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not open DB at '%s'", path)
+		return nil, errors.Wrapf(err, "could not open DB at '%s'", opts.Path)
 	}
 
 	// count number of key
@@ -63,7 +80,7 @@ func OpenDB(path string) (*badgerDB, error) {
 	}); err != nil {
 		return nil, errors.Wrapf(err, "failed to count number of keys")
 	}
-	logger.Debugf("badger db at [%s] contains [%d] keys", path, counter)
+	logger.Debugf("badger db at [%s] contains [%d] keys", opts.Path, counter)
 
 	// start our auto cleaner
 	cancel := autoCleaner(db, defaultGCInterval, defaultGCDiscardRatio)
