@@ -85,7 +85,7 @@ fsc:
         creator: {{ KVSOrionCreator }}
         {{- else }}
         path: {{ NodeKVSPath }}
-        SyncWrites: true
+        SyncWrites: false
         {{- end }}
     cache:
         # Sets the maximum number of cached items 
