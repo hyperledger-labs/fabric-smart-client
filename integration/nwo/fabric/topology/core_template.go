@@ -14,10 +14,10 @@ logging:
 peer:
   id: {{ Peer.ID }}
   networkId: {{ .NetworkID }}
-  address: 127.0.0.1:{{ .PeerPort Peer "Listen" }}
+  address: {{ .PeerAddress Peer "Listen" }}
   addressAutoDetect: true
-  listenAddress: 0.0.0.0:{{ .PeerPort Peer "Listen" }}
-  chaincodeListenAddress: 0.0.0.0:{{ .PeerPort Peer "Chaincode" }}
+  listenAddress: {{ .PeerAddress Peer "Listen" }}
+  chaincodeListenAddress: {{ .PeerAddress Peer "Chaincode" }}
   keepalive:
     minInterval: 60s
     interval: 300s
@@ -29,9 +29,9 @@ peer:
       interval: 60s
       timeout: 20s
   gossip:
-    bootstrap: 127.0.0.1:{{ .PeerPort Peer "Listen" }}
-    endpoint: 127.0.0.1:{{ .PeerPort Peer "Listen" }}
-    externalEndpoint: 127.0.0.1:{{ .PeerPort Peer "Listen" }}
+    bootstrap: {{ .PeerAddress Peer "Listen" }}
+    endpoint: {{ .PeerAddress Peer "Listen" }}
+    externalEndpoint: {{ .PeerAddress Peer "Listen" }}
     useLeaderElection: true
     orgLeader: false
     membershipTrackerInterval: 5s
@@ -78,7 +78,7 @@ peer:
        blockBufferSize: 100
        maxRetries: 3
   events:
-    address: 127.0.0.1:{{ .PeerPort Peer "Events" }}
+    address: {{ .PeerAddress Peer "Events" }}
     buffersize: 100
     timeout: 10ms
     timewindow: 15m
@@ -117,7 +117,7 @@ peer:
   localMspType: bccsp
   profile:
     enabled:     false
-    listenAddress: 127.0.0.1:{{ .PeerPort Peer "ProfilePort" }}
+    listenAddress: {{ .PeerAddress Peer "ProfilePort" }}
   handlers:
     authFilters:
     - name: DefaultAuth
@@ -210,7 +210,7 @@ ledger:
   state:
     stateDatabase: goleveldb
     couchDBConfig:
-      couchDBAddress: 127.0.0.1:5984
+      couchDBAddress: 0.0.0.0:5984
       username:
       password:
       maxRetries: 3
@@ -223,7 +223,7 @@ ledger:
     enableHistoryDatabase: true
 
 operations:
-  listenAddress: 0.0.0.0:{{ .PeerPort Peer "Operations" }}
+  listenAddress: {{ .PeerAddress Peer "Operations" }}
   tls:
     enabled: false
     cert:
@@ -238,7 +238,7 @@ metrics:
   provider: {{ .MetricsProvider }}
   statsd:
     network: udp
-    address: {{ if .StatsdEndpoint }}{{ .StatsdEndpoint }}{{ else }}127.0.0.1:8125{{ end }}
+    address: {{ if .StatsdEndpoint }}{{ .StatsdEndpoint }}{{ else }}0.0.0.0:8125{{ end }}
     writeInterval: 5s
     prefix: {{ ReplaceAll (ToLower Peer.ID) "." "_" }}
 `
