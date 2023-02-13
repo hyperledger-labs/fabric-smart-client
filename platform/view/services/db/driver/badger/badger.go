@@ -43,21 +43,7 @@ func OpenDB(opts Opts, config driver.Config) (*badgerDB, error) {
 	// let's pass our logger badger
 	opt := badger.DefaultOptions(opts.Path)
 	opt.Logger = logger
-	//if config != nil {
-	//	sourceOptsValue := reflect.ValueOf(opts.Options)
-	//	sourceTypeOfOpts := sourceOptsValue.Type()
-	//
-	//	destOptsValue := reflect.ValueOf(opt)
-	//	for i := 0; i < sourceTypeOfOpts.NumField(); i++ {
-	//		name := sourceTypeOfOpts.Field(i).Name
-	//		if config.IsSet(name) {
-	//			newValue := sourceOptsValue.Field(i)
-	//			// Set this property
-	//			logger.Infof("set badger options [%s] to [%v]", name, newValue)
-	//			destOptsValue.Set(newValue)
-	//		}
-	//	}
-	//}
+	copy(&opt, opts, config)
 
 	db, err := badger.Open(opt)
 	if err != nil {
