@@ -39,7 +39,8 @@ func (n *Network) CheckTopologyOrderers() {
 		for _, portName := range OrdererPortNames() {
 			ports[portName] = n.Context.ReservePort()
 		}
-		n.PortsByOrdererID[o.ID()] = ports
+		n.Context.SetPortsByOrdererID(n.Prefix, o.ID(), ports)
+		n.Context.SetHostByOrdererID(n.Prefix, o.ID(), "0.0.0.0")
 	}
 }
 
@@ -134,6 +135,7 @@ func (n *Network) CheckTopologyFSCNodes() (users map[string]int, userSpecs map[s
 
 		n.Peers = append(n.Peers, p)
 		n.Context.SetPortsByPeerID("fsc", p.ID(), n.Context.PortsByPeerID(n.Prefix, node.Name))
+		n.Context.SetHostByPeerID("fsc", p.ID(), n.Context.HostByPeerID(n.Prefix, node.Name))
 	}
 
 	return
@@ -170,6 +172,7 @@ func (n *Network) CheckTopologyFabricPeers() {
 			ports[portName] = n.Context.ReservePort()
 		}
 		n.Context.SetPortsByPeerID(n.Prefix, p.ID(), ports)
+		n.Context.SetHostByPeerID(n.Prefix, p.ID(), "0.0.0.0")
 	}
 }
 
