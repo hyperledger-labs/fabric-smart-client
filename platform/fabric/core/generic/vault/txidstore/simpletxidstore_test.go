@@ -50,6 +50,7 @@ func TestTXIDStoreBadger(t *testing.T) {
 
 	c := &mocks.Config{}
 	c.UnmarshalKeyReturns(nil)
+	c.IsSetReturns(false)
 	db, err := db.Open(nil, "badger", tempDir, c)
 	assert.NoError(t, err)
 	assert.NotNil(t, db)

@@ -6,6 +6,17 @@ import (
 )
 
 type Config struct {
+	IsSetStub        func(string) bool
+	isSetMutex       sync.RWMutex
+	isSetArgsForCall []struct {
+		arg1 string
+	}
+	isSetReturns struct {
+		result1 bool
+	}
+	isSetReturnsOnCall map[int]struct {
+		result1 bool
+	}
 	UnmarshalKeyStub        func(string, interface{}) error
 	unmarshalKeyMutex       sync.RWMutex
 	unmarshalKeyArgsForCall []struct {
@@ -20,6 +31,67 @@ type Config struct {
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
+}
+
+func (fake *Config) IsSet(arg1 string) bool {
+	fake.isSetMutex.Lock()
+	ret, specificReturn := fake.isSetReturnsOnCall[len(fake.isSetArgsForCall)]
+	fake.isSetArgsForCall = append(fake.isSetArgsForCall, struct {
+		arg1 string
+	}{arg1})
+	stub := fake.IsSetStub
+	fakeReturns := fake.isSetReturns
+	fake.recordInvocation("IsSet", []interface{}{arg1})
+	fake.isSetMutex.Unlock()
+	if stub != nil {
+		return stub(arg1)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *Config) IsSetCallCount() int {
+	fake.isSetMutex.RLock()
+	defer fake.isSetMutex.RUnlock()
+	return len(fake.isSetArgsForCall)
+}
+
+func (fake *Config) IsSetCalls(stub func(string) bool) {
+	fake.isSetMutex.Lock()
+	defer fake.isSetMutex.Unlock()
+	fake.IsSetStub = stub
+}
+
+func (fake *Config) IsSetArgsForCall(i int) string {
+	fake.isSetMutex.RLock()
+	defer fake.isSetMutex.RUnlock()
+	argsForCall := fake.isSetArgsForCall[i]
+	return argsForCall.arg1
+}
+
+func (fake *Config) IsSetReturns(result1 bool) {
+	fake.isSetMutex.Lock()
+	defer fake.isSetMutex.Unlock()
+	fake.IsSetStub = nil
+	fake.isSetReturns = struct {
+		result1 bool
+	}{result1}
+}
+
+func (fake *Config) IsSetReturnsOnCall(i int, result1 bool) {
+	fake.isSetMutex.Lock()
+	defer fake.isSetMutex.Unlock()
+	fake.IsSetStub = nil
+	if fake.isSetReturnsOnCall == nil {
+		fake.isSetReturnsOnCall = make(map[int]struct {
+			result1 bool
+		})
+	}
+	fake.isSetReturnsOnCall[i] = struct {
+		result1 bool
+	}{result1}
 }
 
 func (fake *Config) UnmarshalKey(arg1 string, arg2 interface{}) error {
@@ -87,6 +159,8 @@ func (fake *Config) UnmarshalKeyReturnsOnCall(i int, result1 error) {
 func (fake *Config) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
+	fake.isSetMutex.RLock()
+	defer fake.isSetMutex.RUnlock()
 	fake.unmarshalKeyMutex.RLock()
 	defer fake.unmarshalKeyMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}

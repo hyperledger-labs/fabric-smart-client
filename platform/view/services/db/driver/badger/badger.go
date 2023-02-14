@@ -11,6 +11,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+
 	"github.com/dgraph-io/badger/v3"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	dbproto "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger/proto"
@@ -33,19 +35,37 @@ const (
 	defaultGCDiscardRatio = 0.5             // recommended ratio by badger docs
 )
 
-func OpenDB(path string) (*badgerDB, error) {
-	if len(path) == 0 {
+func OpenDB(opts Opts, config driver.Config) (*badgerDB, error) {
+	if len(opts.Path) == 0 {
 		return nil, errors.Errorf("path cannot be empty")
 	}
 
 	// let's pass our logger badger
-	opt := badger.DefaultOptions(path)
+	opt := badger.DefaultOptions(opts.Path)
 	opt.Logger = logger
+	copy(&opt, opts, config)
 
 	db, err := badger.Open(opt)
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not open DB at '%s'", path)
+		return nil, errors.Wrapf(err, "could not open DB at '%s'", opts.Path)
 	}
+
+	// count number of key
+	counter := uint64(0)
+	if err := db.View(func(txn *badger.Txn) error {
+		opts := badger.DefaultIteratorOptions
+		opts.PrefetchValues = false
+		it := txn.NewIterator(opts)
+		defer it.Close()
+		for it.Rewind(); it.Valid(); it.Next() {
+			it.Item()
+			counter++
+		}
+		return nil
+	}); err != nil {
+		return nil, errors.Wrapf(err, "failed to count number of keys")
+	}
+	logger.Debugf("badger db at [%s] contains [%d] keys", opts.Path, counter)
 
 	// start our auto cleaner
 	cancel := autoCleaner(db, defaultGCInterval, defaultGCDiscardRatio)

@@ -33,6 +33,7 @@ var tempDir string
 func TestRangeQueriesBadger(t *testing.T) {
 	c := &mocks.Config{}
 	c.UnmarshalKeyReturns(nil)
+	c.IsSetReturns(false)
 	dbpath := filepath.Join(tempDir, "DB-TestRangeQueries")
 	db, err := db.Open(nil, "badger", dbpath, c)
 	defer db.Close()

@@ -40,7 +40,7 @@ func TestRangeQueries(t *testing.T) {
 	ns := "namespace"
 
 	dbpath := filepath.Join(tempDir, "DB-TestRangeQueries")
-	db, err := OpenDB(dbpath)
+	db, err := OpenDB(Opts{Path: dbpath}, nil)
 	defer db.Close()
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
@@ -134,7 +134,7 @@ func TestMarshallingErrors(t *testing.T) {
 	key := "key"
 
 	dbpath := filepath.Join(tempDir, "DB-TestMarshallingErrors")
-	db, err := OpenDB(dbpath)
+	db, err := OpenDB(Opts{Path: dbpath}, nil)
 	defer db.Close()
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
@@ -187,7 +187,7 @@ func TestMeta(t *testing.T) {
 	key := "key"
 
 	dbpath := filepath.Join(tempDir, "DB-TestMeta")
-	db, err := OpenDB(dbpath)
+	db, err := OpenDB(Opts{Path: dbpath}, nil)
 	defer db.Close()
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
@@ -240,7 +240,7 @@ func TestSimpleReadWrite(t *testing.T) {
 	key := "key"
 
 	dbpath := filepath.Join(tempDir, "DB-TestSimpleReadWrite")
-	db, err := OpenDB(dbpath)
+	db, err := OpenDB(Opts{Path: dbpath}, nil)
 	defer db.Close()
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
@@ -338,7 +338,7 @@ func TestMain(m *testing.M) {
 
 func populateDB(t *testing.T, ns, key, keyWithSuffix, dbname string) *badgerDB {
 	dbpath := filepath.Join(tempDir, dbname)
-	db, err := OpenDB(dbpath)
+	db, err := OpenDB(Opts{Path: dbpath}, nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
 
@@ -386,7 +386,7 @@ func TestGetNonExistent(t *testing.T) {
 	key := "foo"
 
 	dbpath := filepath.Join(tempDir, "TestGetNonExistent")
-	db, err := OpenDB(dbpath)
+	db, err := OpenDB(Opts{Path: dbpath}, nil)
 	defer db.Close()
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
@@ -403,7 +403,7 @@ func TestMetadata(t *testing.T) {
 	key := "foo"
 
 	dbpath := filepath.Join(tempDir, "TestMetadata")
-	db, err := OpenDB(dbpath)
+	db, err := OpenDB(Opts{Path: dbpath}, nil)
 	defer db.Close()
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
@@ -489,7 +489,7 @@ func TestRangeQueries1(t *testing.T) {
 	ns := "namespace"
 
 	dbpath := filepath.Join(tempDir, "TestRangeQueries1")
-	db, err := OpenDB(dbpath)
+	db, err := OpenDB(Opts{Path: dbpath}, nil)
 	defer db.Close()
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
@@ -581,7 +581,7 @@ func TestCompositeKeys(t *testing.T) {
 	keyPrefix := "prefix"
 
 	dbpath := filepath.Join(tempDir, "TestCompositeKeys")
-	db, err := OpenDB(dbpath)
+	db, err := OpenDB(Opts{Path: dbpath}, nil)
 	defer db.Close()
 	assert.NoError(t, err)
 	assert.NotNil(t, db)

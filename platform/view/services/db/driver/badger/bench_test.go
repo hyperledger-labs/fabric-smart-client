@@ -22,7 +22,7 @@ var (
 
 func BenchmarkReadExisting(b *testing.B) {
 	dbpath := filepath.Join(tempDir, "badger-benchmark")
-	db, err := OpenDB(dbpath)
+	db, err := OpenDB(Opts{Path: dbpath}, nil)
 	defer db.Close()
 	assert.NoError(b, err)
 	assert.NotNil(b, db)
@@ -43,7 +43,7 @@ func BenchmarkReadExisting(b *testing.B) {
 
 func BenchmarkReadNonExisting(b *testing.B) {
 	dbpath := filepath.Join(tempDir, "badger-benchmark")
-	db, err := OpenDB(dbpath)
+	db, err := OpenDB(Opts{Path: dbpath}, nil)
 	defer db.Close()
 	assert.NoError(b, err)
 	assert.NotNil(b, db)
@@ -60,7 +60,7 @@ func BenchmarkReadNonExisting(b *testing.B) {
 
 func BenchmarkWriteOne(b *testing.B) {
 	dbpath := filepath.Join(tempDir, "badger-benchmark")
-	db, err := OpenDB(dbpath)
+	db, err := OpenDB(Opts{Path: dbpath}, nil)
 	defer db.Close()
 	assert.NoError(b, err)
 	assert.NotNil(b, db)
@@ -80,7 +80,7 @@ func BenchmarkWriteOne(b *testing.B) {
 
 func BenchmarkWriteMany(b *testing.B) {
 	dbpath := filepath.Join(tempDir, "badger-benchmark")
-	db, err := OpenDB(dbpath)
+	db, err := OpenDB(Opts{Path: dbpath}, nil)
 	defer db.Close()
 	assert.NoError(b, err)
 	assert.NotNil(b, db)

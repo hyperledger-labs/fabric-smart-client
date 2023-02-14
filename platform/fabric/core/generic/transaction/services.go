@@ -14,6 +14,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	"github.com/hyperledger/fabric-protos-go/common"
 	"github.com/pkg/errors"
+	"go.uber.org/zap/zapcore"
 )
 
 var logger = flogging.MustGetLogger("fabric-sdk.core")
@@ -45,8 +46,9 @@ func (s *mds) StoreTransient(txid string, transientMap driver.TransientMap) erro
 	if err != nil {
 		return err
 	}
-	logger.Debugf("store transient for [%s]", txid)
-
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("store transient for [%s][%v]", txid, transientMap)
+	}
 	return kvs.GetService(s.sp).Put(key, transientMap)
 }
 
