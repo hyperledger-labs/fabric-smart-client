@@ -9,7 +9,7 @@ package topology
 const DefaultOrdererTemplate = `---
 {{ with $w := . -}}
 General:
-  ListenAddress: {{ .OrdererHost Orderer }}
+  ListenAddress: 0.0.0.0
   ListenPort: {{ .OrdererPort Orderer "Listen" }}
   TLS:
     Enabled: true
@@ -29,7 +29,7 @@ General:
     ReplicationBufferSize: 20971520
     ReplicationPullTimeout: 5s
     ReplicationRetryTimeout: 5s
-    ListenAddress: {{ .OrdererHost Orderer }}
+    ListenAddress: 0.0.0.0
     ListenPort: {{ .OrdererPort Orderer "Cluster" }}
   Keepalive:
     ServerMinInterval: 60s
