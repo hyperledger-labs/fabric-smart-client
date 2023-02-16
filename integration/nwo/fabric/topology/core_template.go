@@ -16,7 +16,7 @@ peer:
   networkId: {{ .NetworkID }}
   address: {{ .PeerAddress Peer "Listen" }}
   addressAutoDetect: true
-  listenAddress: {{ .PeerAddress Peer "Listen" }}
+  listenAddress: 0.0.0.0:{{ .PeerPort Peer "Listen" }}
   chaincodeListenAddress: {{ .PeerAddress Peer "Chaincode" }}
   keepalive:
     minInterval: 60s

@@ -32,7 +32,7 @@ fsc:
   grpc:
     enabled: true
     # This represents the endpoint to other FSC nodes in the same organization.
-    address: 127.0.0.1:{{ .NodePort Peer "Listen" }}
+    address: 0.0.0.0:{{ .NodePort Peer "Listen" }}
     # TLS Settings
     # (We use here the same set of properties as Hyperledger Fabric)
     tls:
@@ -70,7 +70,7 @@ fsc:
   # P2P configuration
   p2p:
     # Listening address
-    listenAddress: /ip4/127.0.0.1/tcp/{{ .NodePort Peer "P2P" }}
+    listenAddress: /ip4/0.0.0.0/tcp/{{ .NodePort Peer "P2P" }}
     # If empty, this is a P2P boostrap node. Otherwise, it contains the name of the FCS node that is a bootstrap node
     bootstrapNode: {{ .BootstrapNode Peer }}
   # The Key-Value Store is used to store various information related to the FSC node

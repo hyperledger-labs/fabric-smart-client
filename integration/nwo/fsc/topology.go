@@ -27,6 +27,7 @@ type Topology struct {
 	GRPCLogging  bool         `yaml:"grpcLogging,omitempty"`
 	Logging      *Logging     `yaml:"logging,omitempty"`
 	LogToFile    bool         `yaml:"logToFile,omitempty"`
+	Templates    Templates    `yaml:"templates,omitempty"`
 
 	TraceAggregator string `yaml:"traceAggregator,omitempty"`
 	TracingProvider string `yaml:"tracingType,omitempty"`

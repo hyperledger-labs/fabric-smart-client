@@ -386,7 +386,7 @@ func (p *Platform) GenerateCryptoConfig() {
 	Expect(err).NotTo(HaveOccurred())
 	defer crypto.Close()
 
-	t, err := template.New("crypto").Parse(node2.DefaultCryptoTemplate)
+	t, err := template.New("crypto").Parse(p.Topology.Templates.CryptoTemplate())
 	Expect(err).NotTo(HaveOccurred())
 
 	Expect(t.Execute(io.MultiWriter(crypto), p)).NotTo(HaveOccurred())
@@ -437,7 +437,7 @@ func (p *Platform) GenerateCoreConfig(peer *node2.Peer) {
 		"KVSOrionDatabase":       func() string { return GetKVSOrionDatabase(peer) },
 		"KVSOrionCreator":        func() string { return GetKVSOrionCreator(peer) },
 		"Resolvers":              func() []*Resolver { return resolvers },
-	}).Parse(node2.CoreTemplate)
+	}).Parse(p.Topology.Templates.CoreTemplate())
 	Expect(err).NotTo(HaveOccurred())
 	Expect(t.Execute(io.MultiWriter(core), p)).NotTo(HaveOccurred())
 }
@@ -541,9 +541,13 @@ func (p *Platform) GenerateCmd(output io.Writer, node *node2.Peer) string {
 	t, err := template.New("node").Funcs(template.FuncMap{
 		"Alias":       func(s string) string { return node.Node.Alias(s) },
 		"InstallView": func() bool { return len(node.Node.Responders) != 0 || len(node.Node.Factories) != 0 },
-	}).Parse(node2.DefaultTemplate)
+	}).Parse(p.Topology.Templates.NodeTemplate())
 	Expect(err).NotTo(HaveOccurred())
-	Expect(t.Execute(io.MultiWriter(output), node)).NotTo(HaveOccurred())
+
+	Expect(t.Execute(io.MultiWriter(output), struct {
+		*Platform
+		*node2.Peer
+	}{p, node})).NotTo(HaveOccurred())
 
 	return p.NodeCmdPackage(node)
 }
@@ -714,7 +718,7 @@ func (p *Platform) PeersInOrg(orgName string) []*node2.Peer {
 }
 
 func (p *Platform) PeerAddress(peer *node2.Peer, portName api.PortName) string {
-	return fmt.Sprintf("127.0.0.1:%d", p.PeerPort(peer, portName))
+	return fmt.Sprintf("%s:%d", p.Context.HostByPeerID("fsc", peer.ID()), p.PeerPort(peer, portName))
 }
 
 func (p *Platform) PeerPort(peer *node2.Peer, portName api.PortName) uint16 {
