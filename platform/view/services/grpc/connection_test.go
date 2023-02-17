@@ -10,8 +10,8 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"io/ioutil"
 	"net"
+	"os"
 	"path/filepath"
 	"sync/atomic"
 	"testing"
@@ -48,13 +48,13 @@ VQQLDAtIeXBlcmxlZGdlcjESMBAGA1UEAwwJbG9jYWxob3N0MFkwEwYHKoZIzj0C
 func loadRootCAs() [][]byte {
 	rootCAs := [][]byte{}
 	for i := 1; i <= numOrgs; i++ {
-		root, err := ioutil.ReadFile(fmt.Sprintf(orgCACert, i))
+		root, err := os.ReadFile(fmt.Sprintf(orgCACert, i))
 		if err != nil {
 			return [][]byte{}
 		}
 		rootCAs = append(rootCAs, root)
 		for j := 1; j <= numChildOrgs; j++ {
-			root, err := ioutil.ReadFile(fmt.Sprintf(childCACert, i, j))
+			root, err := os.ReadFile(fmt.Sprintf(childCACert, i, j))
 			if err != nil {
 				return [][]byte{}
 			}
@@ -136,7 +136,7 @@ func newServer(org string) *srv {
 	}
 	for suffix := range certs {
 		fName := filepath.Join("testdata", "impersonation", org, suffix)
-		cert, err := ioutil.ReadFile(fName)
+		cert, err := os.ReadFile(fName)
 		if err != nil {
 			panic(fmt.Errorf("Failed reading %s: %v", fName, err))
 		}

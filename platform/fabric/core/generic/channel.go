@@ -8,7 +8,7 @@ package generic
 
 import (
 	"context"
-	"io/ioutil"
+	"os"
 	"sync"
 	"time"
 
@@ -239,12 +239,12 @@ func (c *channel) GetClientConfig(tlsRootCerts [][]byte) (*grpc.ClientConfig, st
 	}
 
 	if secOpts.RequireClientCert {
-		keyPEM, err := ioutil.ReadFile(c.config.TLSClientKeyFile())
+		keyPEM, err := os.ReadFile(c.config.TLSClientKeyFile())
 		if err != nil {
 			return nil, "", errors.WithMessage(err, "unable to load fabric.tls.clientKey.file")
 		}
 		secOpts.Key = keyPEM
-		certPEM, err := ioutil.ReadFile(c.config.TLSClientCertFile())
+		certPEM, err := os.ReadFile(c.config.TLSClientCertFile())
 		if err != nil {
 			return nil, "", errors.WithMessage(err, "unable to load fabric.tls.clientCert.file")
 		}
@@ -465,7 +465,7 @@ func (c *connCreator) NewPeerClientForAddress(cc grpc.ConnectionConfig) (peer2.C
 		switch {
 		case len(cc.TLSRootCertFile) != 0:
 			logger.Debugf("Loading TLSRootCert from file [%s]", cc.TLSRootCertFile)
-			caPEM, err := ioutil.ReadFile(cc.TLSRootCertFile)
+			caPEM, err := os.ReadFile(cc.TLSRootCertFile)
 			if err != nil {
 				logger.Error("unable to load TLS cert from %s", cc.TLSRootCertFile)
 				return nil, errors.WithMessagef(err, "unable to load TLS cert from %s", cc.TLSRootCertFile)

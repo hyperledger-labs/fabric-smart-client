@@ -11,7 +11,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -437,7 +436,7 @@ func (n *Extension) prepareExternalBuilderScripts() string {
 		{"release", externalbuilders.Release},
 	} {
 		scriptPath := filepath.Join(path, "bin", script.name)
-		Expect(ioutil.WriteFile(scriptPath, []byte(script.content), 0777)).NotTo(HaveOccurred())
+		Expect(os.WriteFile(scriptPath, []byte(script.content), 0777)).NotTo(HaveOccurred())
 	}
 
 	return path

@@ -10,7 +10,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"io/ioutil"
+	"os"
 	"sync"
 	"time"
 
@@ -131,7 +131,7 @@ func CreateGRPCClient(config *ConnectionConfig) (*Client, error) {
 		var certs [][]byte
 		switch {
 		case len(config.TLSRootCertFile) != 0:
-			caPEM, err := ioutil.ReadFile(config.TLSRootCertFile)
+			caPEM, err := os.ReadFile(config.TLSRootCertFile)
 			if err != nil {
 				return nil, errors.WithMessagef(err, "unable to load TLS cert from %s", config.TLSRootCertFile)
 			}

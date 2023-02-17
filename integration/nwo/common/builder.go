@@ -9,7 +9,7 @@ package common
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -38,7 +38,7 @@ func (c *BuilderClient) Build(path string) string {
 	resp, err := http.Get(fmt.Sprintf("http://%s/%s", c.ServerAddress, path))
 	Expect(err).NotTo(HaveOccurred())
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	Expect(err).NotTo(HaveOccurred())
 
 	if resp.StatusCode != http.StatusOK {
@@ -128,7 +128,7 @@ func (a *artifact) gBuild(input string, args ...string) (string, error) {
 		packagePath := entries[2]
 		cmd := entries[3]
 
-		testDir, err := ioutil.TempDir("", "fabric")
+		testDir, err := os.MkdirTemp("", "fabric")
 		if err != nil {
 			return "", err
 		}

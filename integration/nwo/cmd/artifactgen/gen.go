@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package artifactgen
 
 import (
-	"io/ioutil"
+	"os"
 
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -74,7 +74,7 @@ func gen(args []string) error {
 	if len(topologyFile) == 0 {
 		return errors.Errorf("expecting topology file path")
 	}
-	raw, err := ioutil.ReadFile(topologyFile)
+	raw, err := os.ReadFile(topologyFile)
 	if err != nil {
 		return errors.Wrapf(err, "failed reading topology file [%s]", topologyFile)
 	}

@@ -8,7 +8,6 @@ package vault
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -974,7 +973,7 @@ func TestShardLikeCommit(t *testing.T) {
 
 func TestMain(m *testing.M) {
 	var err error
-	tempDir, err = ioutil.TempDir("", "vault-test")
+	tempDir, err = os.MkdirTemp("", "vault-test")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to create temporary directory: %v", err)
 		os.Exit(-1)

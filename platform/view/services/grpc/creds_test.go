@@ -10,8 +10,8 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"io/ioutil"
 	"net"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -26,7 +26,7 @@ import (
 func TestCreds(t *testing.T) {
 	t.Parallel()
 
-	caPEM, err := ioutil.ReadFile(filepath.Join("testdata", "certs", "Org1-cert.pem"))
+	caPEM, err := os.ReadFile(filepath.Join("testdata", "certs", "Org1-cert.pem"))
 	if err != nil {
 		t.Fatalf("failed to read root certificate: %v", err)
 	}
@@ -129,7 +129,7 @@ func TestConfig(t *testing.T) {
 func TestAddRootCA(t *testing.T) {
 	t.Parallel()
 
-	caPEM, err := ioutil.ReadFile(filepath.Join("testdata", "certs", "Org1-cert.pem"))
+	caPEM, err := os.ReadFile(filepath.Join("testdata", "certs", "Org1-cert.pem"))
 	if err != nil {
 		t.Fatalf("failed to read root certificate: %v", err)
 	}

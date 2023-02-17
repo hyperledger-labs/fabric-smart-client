@@ -15,7 +15,6 @@ import (
 	"encoding/asn1"
 	"encoding/pem"
 	"io"
-	"io/ioutil"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -35,7 +34,7 @@ func LoadPrivateKey(keystorePath string) (*ecdsa.PrivateKey, error) {
 			return nil
 		}
 
-		rawKey, err := ioutil.ReadFile(path)
+		rawKey, err := os.ReadFile(path)
 		if err != nil {
 			return err
 		}
@@ -94,7 +93,7 @@ func GeneratePrivateKey(keystorePath string) (*ecdsa.PrivateKey, error) {
 	// when orchestrating networks' bootstrap.
 	// Use more restrictive permissions for secret keys, in production.
 	keyFile := filepath.Join(keystorePath, "priv_sk")
-	err = ioutil.WriteFile(keyFile, pemEncoded, 0644)
+	err = os.WriteFile(keyFile, pemEncoded, 0644)
 	if err != nil {
 		return nil, errors.WithMessagef(err, "failed to save private key to file %s", keyFile)
 	}

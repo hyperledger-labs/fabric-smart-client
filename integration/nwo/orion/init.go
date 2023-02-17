@@ -8,7 +8,7 @@ package orion
 
 import (
 	"encoding/pem"
-	"io/ioutil"
+	"os"
 	"time"
 
 	"github.com/hyperledger-labs/orion-sdk-go/pkg/bcdb"
@@ -92,7 +92,7 @@ func (p *Platform) initUsers(session bcdb.DBSession) {
 			Expect(err).ToNot(HaveOccurred())
 
 			certPath := p.pem(role)
-			certFile, err := ioutil.ReadFile(certPath)
+			certFile, err := os.ReadFile(certPath)
 			Expect(err).ToNot(HaveOccurred())
 			certBlock, _ := pem.Decode(certFile)
 			err = usersTx.PutUser(

@@ -8,7 +8,6 @@ package network
 
 import (
 	"encoding/json"
-	"io/ioutil"
 	"os"
 	"strconv"
 
@@ -28,7 +27,7 @@ import (
 func PackageAndInstallChaincode(n *Network, chaincode *topology.Chaincode, peers ...*topology.Peer) {
 	// create temp file for chaincode package if not provided
 	if chaincode.PackageFile == "" {
-		tempFile, err := ioutil.TempFile("", "chaincode-package")
+		tempFile, err := os.CreateTemp("", "chaincode-package")
 		Expect(err).NotTo(HaveOccurred())
 		tempFile.Close()
 		defer os.Remove(tempFile.Name())

@@ -10,7 +10,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
@@ -467,10 +466,10 @@ func (p *Platform) ConnectionProfile(name string, ca bool) *network.ConnectionPr
 				},
 			}
 		} else {
-			signCert, err := ioutil.ReadFile(p.Network.PeerUserCert(p.Network.PeerByName(peers[0].Name), "Admin"))
+			signCert, err := os.ReadFile(p.Network.PeerUserCert(p.Network.PeerByName(peers[0].Name), "Admin"))
 			Expect(err).NotTo(HaveOccurred())
 
-			adminPrivateKey, err := ioutil.ReadFile(p.Network.PeerUserKey(p.Network.PeerByName(peers[0].Name), "Admin"))
+			adminPrivateKey, err := os.ReadFile(p.Network.PeerUserKey(p.Network.PeerByName(peers[0].Name), "Admin"))
 			Expect(err).NotTo(HaveOccurred())
 
 			cp.Organizations[org.Name] = network.Organization{
@@ -500,7 +499,7 @@ func (p *Platform) ConnectionProfile(name string, ca bool) *network.ConnectionPr
 			bb := bytes.Buffer{}
 
 			for _, cert := range peer.TLSCACerts {
-				raw, err := ioutil.ReadFile(cert)
+				raw, err := os.ReadFile(cert)
 				Expect(err).NotTo(HaveOccurred())
 				bb.WriteString(string(raw))
 			}
@@ -531,7 +530,7 @@ func (p *Platform) ConnectionProfile(name string, ca bool) *network.ConnectionPr
 		bb := bytes.Buffer{}
 
 		for _, cert := range orderer.TLSCACerts {
-			raw, err := ioutil.ReadFile(cert)
+			raw, err := os.ReadFile(cert)
 			Expect(err).NotTo(HaveOccurred())
 			bb.WriteString(string(raw))
 		}

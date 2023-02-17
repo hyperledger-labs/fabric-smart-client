@@ -8,7 +8,6 @@ package main
 
 import (
 	"bytes"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -35,7 +34,7 @@ func TestArtifactsGen(t *testing.T) {
 	Expect(err).NotTo(HaveOccurred())
 	defer gexec.CleanupBuildArtifacts()
 
-	tmpDir, err := ioutil.TempDir("", t.Name())
+	tmpDir, err := os.MkdirTemp("", t.Name())
 	Expect(err).NotTo(HaveOccurred())
 
 	defer os.RemoveAll(tmpDir)

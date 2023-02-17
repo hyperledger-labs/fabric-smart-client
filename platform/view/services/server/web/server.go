@@ -11,7 +11,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
@@ -55,7 +54,7 @@ func (t TLS) Config() (*tls.Config, error) {
 
 	caCertPool := x509.NewCertPool()
 	for _, caPath := range t.ClientCACertFiles {
-		caPem, err := ioutil.ReadFile(caPath)
+		caPem, err := os.ReadFile(caPath)
 		if err != nil {
 			return nil, err
 		}

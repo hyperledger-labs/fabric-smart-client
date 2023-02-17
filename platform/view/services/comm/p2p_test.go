@@ -8,19 +8,19 @@ package comm
 
 import (
 	"context"
-	"io/ioutil"
+	"os"
 	"sync"
 	"testing"
 	"time"
 
 	assert2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
-	"github.com/libp2p/go-libp2p-core/crypto"
-	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p/core/crypto"
+	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/stretchr/testify/assert"
 )
 
 func idForParty(t *testing.T, keyFile string) string {
-	keyBytes, err := ioutil.ReadFile(keyFile)
+	keyBytes, err := os.ReadFile(keyFile)
 	assert.NoError(t, err)
 
 	key, err := crypto.UnmarshalECDSAPublicKey(keyBytes)

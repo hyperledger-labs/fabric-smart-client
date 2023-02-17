@@ -9,15 +9,15 @@ package comm
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"sync/atomic"
 	"time"
 
 	"github.com/libp2p/go-libp2p"
-	"github.com/libp2p/go-libp2p-core/crypto"
-	"github.com/libp2p/go-libp2p-core/peer"
-	"github.com/libp2p/go-libp2p-core/protocol"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
+	"github.com/libp2p/go-libp2p/core/crypto"
+	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/libp2p/go-libp2p/core/protocol"
 	"github.com/libp2p/go-libp2p/p2p/discovery/routing"
 	"github.com/multiformats/go-multiaddr"
 )
@@ -82,7 +82,7 @@ type PrivateKeyFromFile struct {
 }
 
 func (p *PrivateKeyFromFile) PrivateKey() (crypto.PrivKey, error) {
-	privBytes, err := ioutil.ReadFile(p.PrivateKeyFile)
+	privBytes, err := os.ReadFile(p.PrivateKeyFile)
 	if err != nil {
 		return nil, err
 	}
