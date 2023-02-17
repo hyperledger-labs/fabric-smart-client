@@ -14,7 +14,7 @@ type MockMsgReader struct {
 	messages [][]byte
 }
 
-//read each message and move it from the stack
+// read each message and move it from the stack
 func newMockMessageReader(messages [][]byte) *MockMsgReader {
 	return &MockMsgReader{
 		messages: messages,
