@@ -331,10 +331,16 @@ func (r *service) getBinding(key string) (*endpointEntry, error) {
 	return entry, nil
 }
 
+var portNameMap = map[string]driver.PortName{
+	strings.ToLower(string(driver.ListenPort)): driver.ListenPort,
+	strings.ToLower(string(driver.ViewPort)):   driver.ViewPort,
+	strings.ToLower(string(driver.P2PPort)):    driver.P2PPort,
+}
+
 func convert(o map[string]string) map[driver.PortName]string {
 	r := map[driver.PortName]string{}
 	for k, v := range o {
-		r[driver.PortName(k)] = v
+		r[portNameMap[strings.ToLower(k)]] = v
 	}
 	return r
 }

@@ -277,6 +277,9 @@ func (i *Infrastructure) initNWO() {
 	}
 	var platforms []api.Platform
 	var fscTopology api.Topology
+	if _, ok := i.PlatformFactories["fsc"]; !ok {
+		i.RegisterPlatformFactory(&fscDefaultPlatformFactory{})
+	}
 	for _, topology := range i.Topologies {
 		label := strings.ToLower(topology.Type())
 		switch label {
@@ -291,7 +294,7 @@ func (i *Infrastructure) initNWO() {
 		}
 	}
 	// Add FSC platform
-	fcsPlatform := fsc.NewPlatform(i.Ctx, fscTopology, i.BuildServer.Client())
+	fcsPlatform := i.PlatformFactories["fsc"].New(i.Ctx, fscTopology, i.BuildServer.Client()).(*fsc.Platform)
 	platforms = append(platforms, fcsPlatform)
 
 	// Register platforms to context
@@ -340,4 +343,13 @@ func handleSignals(handlers map[os.Signal]func()) {
 	for sig := range signalChan {
 		handlers[sig]()
 	}
+}
+
+type fscDefaultPlatformFactory struct{}
+
+func (p *fscDefaultPlatformFactory) Name() string {
+	return "fsc"
+}
+func (p *fscDefaultPlatformFactory) New(registry api.Context, t api.Topology, builder api.Builder) api.Platform {
+	return fsc.NewPlatform(registry, t, builder)
 }
