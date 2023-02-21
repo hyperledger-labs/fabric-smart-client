@@ -107,16 +107,16 @@ func TestNewAggregatorFakeInput(t *testing.T) {
 	}, 2, time.Second)
 	de.AddSample(MeasureBlock)
 
-	go func() {
-		agent := NewAgent("localhost", StatsDSink("localhost:8125"))
-		for i := 0; i < 11; i++ {
-			bn := strconv.Itoa(i + 1)
-			agent.EmitKey(1, "sent", "block", bn)
-			agent.EmitKey(1, "received", "block", bn)
-			agent.EmitKey(1, "received", "block", bn)
-			agent.EmitKey(1, "received", "block", bn)
-		}
-	}()
+	// go func() {
+	// 	agent := NewAgent("localhost", StatsDSink("localhost:8125"))
+	// 	for i := 0; i < 11; i++ {
+	// 		bn := strconv.Itoa(i + 1)
+	// 		agent.EmitKey(1, "sent", "block", bn)
+	// 		agent.EmitKey(1, "received", "block", bn)
+	// 		agent.EmitKey(1, "received", "block", bn)
+	// 		agent.EmitKey(1, "received", "block", bn)
+	// 	}
+	// }()
 
 	time.Sleep(5 * time.Second)
 	assert.Equal(t, aggr.sink.(*sinkMock).n, eventAmount/4*3)

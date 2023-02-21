@@ -31,7 +31,7 @@ func (p *Responder) Call(context view.Context) (interface{}, error) {
 	case <-time.After(5 * time.Second):
 		return nil, errors.New("time out reached")
 	}
-
+	tracing.Get(context).GetTracer().StartAt("Responder-pingpong", time.Now())
 	// Respond with a pong if a ping is received, an error otherwise
 	m := string(payload)
 	switch {
@@ -41,11 +41,13 @@ func (p *Responder) Call(context view.Context) (interface{}, error) {
 		assert.NoError(err)
 		return nil, fmt.Errorf("exptectd ping, got %s", m)
 	default:
-		tracing.Get(context).EmitKey(0, "received", "ping")
+		tracing.Get(context).GetTracer().AddEvent("Responder-pingpong", "receive dping")
 		// reply with pong
 		err := session.Send([]byte("pong"))
 		assert.NoError(err)
-		tracing.Get(context).EmitKey(0, "sent", "pong")
+		// tracing.Get(context).EmitKey(0, "sent", "pong")
+		tracing.Get(context).GetTracer().AddEvent("Responder-pingpong", "sent pong")
+
 	}
 
 	// Return

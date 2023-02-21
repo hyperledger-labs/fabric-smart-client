@@ -1,6 +1,7 @@
 # pinned versions
-FABRIC_VERSION ?= 2.4.6
+FABRIC_VERSION ?= 2.5.0-beta
 FABRIC_TWO_DIGIT_VERSION = $(shell echo $(FABRIC_VERSION) | cut -d '.' -f 1,2)
+FABRIC_THREE_DIGIT_VERSION = $(shell echo $(FABRIC_VERSION) | cut -d '.' -f 1,2,3)
 ORION_VERSION=v0.2.5
 
 # need to install fabric binaries outside of fsc tree for now (due to chaincode packaging issues)
@@ -52,10 +53,14 @@ docker-images: fabric-docker-images weaver-docker-images fpc-docker-images orion
 
 .PHONY: fabric-docker-images
 fabric-docker-images:
-	docker pull hyperledger/fabric-baseos:$(FABRIC_TWO_DIGIT_VERSION)
-	docker image tag hyperledger/fabric-baseos:$(FABRIC_TWO_DIGIT_VERSION) hyperledger/fabric-baseos:latest
-	docker pull hyperledger/fabric-ccenv:$(FABRIC_TWO_DIGIT_VERSION)
-	docker image tag hyperledger/fabric-ccenv:$(FABRIC_TWO_DIGIT_VERSION) hyperledger/fabric-ccenv:latest
+	docker pull hyperledger/fabric-baseos:$(FABRIC_THREE_DIGIT_VERSION)
+	docker image tag hyperledger/fabric-baseos:$(FABRIC_THREE_DIGIT_VERSION) hyperledger/fabric-baseos:latest
+	docker pull hyperledger/fabric-ccenv:$(FABRIC_THREE_DIGIT_VERSION)
+	docker image tag hyperledger/fabric-ccenv:$(FABRIC_THREE_DIGIT_VERSION) hyperledger/fabric-ccenv:v2.5.0-beta
+	
+	docker image tag hyperledger/fabric-ccenv:v2.5.0-beta hyperledger/fabric-ccenv:latest
+	docker image tag hyperledger/fabric-baseos:$(FABRIC_THREE_DIGIT_VERSION) hyperledger/fabric-baseos:v2.5.0-beta
+	docker image tag hyperledger/fabric-baseos:v2.5.0-beta hyperledger/fabric-baseos:latest
 
 .PHONY: weaver-docker-images
 weaver-docker-images:

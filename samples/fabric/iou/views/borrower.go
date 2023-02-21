@@ -8,9 +8,12 @@ package views
 import (
 	"encoding/json"
 
+	"time"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/hyperledger-labs/fabric-smart-client/samples/fabric/iou/states"
 )
@@ -30,6 +33,10 @@ type CreateIOUView struct {
 }
 
 func (i *CreateIOUView) Call(context view.Context) (interface{}, error) {
+
+	appTracer := tracing.Get(context)
+	appTracer.GetTracer().StartAt("create-view", time.Now())
+	appTracer.GetTracer().AddEvent("create-view", "HHHHAHAH")
 	// use default identities if not specified
 	if i.Lender.IsNone() {
 		i.Lender = view2.GetIdentityProvider(context).Identity("lender")
@@ -49,7 +56,7 @@ func (i *CreateIOUView) Call(context view.Context) (interface{}, error) {
 
 	// Sets the namespace where the state should be stored
 	tx.SetNamespace("iou")
-
+	appTracer.GetTracer().AddEvent("create-view", "SET NAMESPACE")
 	// Specifies the command this transaction wants to execute.
 	// In particular, the borrower wants to create a new IOU state owned by the borrower and the lender
 	// The approver will use this information to decide how validate the transaction
@@ -72,7 +79,8 @@ func (i *CreateIOUView) Call(context view.Context) (interface{}, error) {
 	// At this point the borrower can send the transaction to the ordering service and wait for finality.
 	_, err = context.RunView(state.NewOrderingAndFinalityView(tx))
 	assert.NoError(err)
-
+	// fmt.Prinln("calling enf of create view")
+	appTracer.GetTracer().End("create-view")
 	// Return the state ID
 	return iou.LinearID, nil
 }

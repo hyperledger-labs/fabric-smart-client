@@ -9,22 +9,18 @@ package tracing
 import (
 	"context"
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
-	"github.com/prometheus/client_golang/prometheus"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/jaeger"
+	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/resource"
-	"google.golang.org/grpc"
 
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/trace"
 
-	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
-	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 )
 
@@ -40,7 +36,6 @@ type LatencyTracer struct {
 	enabled bool
 	tracer  trace.Tracer
 	traces  map[string]*traceData
-	labels  []string
 }
 
 type LatencyTracerOpts struct {
@@ -53,6 +48,7 @@ func NewLatencyTracer(tp trace.TracerProvider, opts LatencyTracerOpts) *LatencyT
 		name:    opts.Name,
 		enabled: true,
 		tracer:  tp.Tracer(opts.Name),
+		traces:  make(map[string]*traceData),
 	}
 }
 
@@ -69,41 +65,56 @@ func NewTraceProvider(exp sdktrace.SpanExporter) *sdktrace.TracerProvider {
 
 	ctx := context.Background()
 	// Ensure default SDK resources and the required service name are set.
-	r, err := resource.Merge(
-		resource.Default(),
-		resource.NewWithAttributes(
-			semconv.SchemaURL,
-			semconv.ServiceNameKey.String("FSC"),
+	r, err := resource.New(ctx,
+		resource.WithFromEnv(),
+		resource.WithProcess(),
+		resource.WithTelemetrySDK(),
+		resource.WithHost(),
+		resource.WithAttributes(
+			// the service name used to display traces in backends
+			semconv.ServiceNameKey.String("	FSC"),
 		),
 	)
+	handleErr(err, "failed to create resource")
 
-	if err != nil {
-		panic(err)
-	}
+	// otelAgentAddr, ok := os.LookupEnv("OTEL_EXPORTER_OTLP_ENDPOINT")
+	// if !ok {
+	// 	otelAgentAddr = "0.0.0.0:4317"
+	// }
 
-	otelAgentAddr, ok := os.LookupEnv("OTEL_EXPORTER_OTLP_ENDPOINT")
-	if !ok {
-		otelAgentAddr = "0.0.0.0:4317"
-	}
+	// traceClient := otlptracegrpc.NewClient(
+	// 	otlptracegrpc.WithInsecure(),
+	// 	otlptracegrpc.WithEndpoint(otelAgentAddr),
+	// 	otlptracegrpc.WithDialOption(grpc.WithBlock()))
+	// // sctx, cancel := context.WithTimeout(ctx, time.Second)
+	// // defer cancel()
 
-	traceClient := otlptracegrpc.NewClient(
-		otlptracegrpc.WithInsecure(),
-		otlptracegrpc.WithEndpoint(otelAgentAddr),
-		otlptracegrpc.WithDialOption(grpc.WithBlock()))
-	sctx, cancel := context.WithTimeout(ctx, time.Second)
-	defer cancel()
-
-	traceExp, err := otlptrace.New(sctx, traceClient)
-	handleErr(err, "Failed to create the collector trace exporter")
-
-	bsp := sdktrace.NewBatchSpanProcessor(traceExp)
-
+	// // traceExp, err := otlptrace.New(sctx, traceClient)
+	// // handleErr(err, "Failed to create the collector trace exporter")
+	// // fmt.Println("traceExp--", traceExp)
+	bsp := sdktrace.NewBatchSpanProcessor(exp)
+	fmt.Println("bsp--", bsp)
 	tracerProvider := sdktrace.NewTracerProvider(
-		sdktrace.WithBatcher(exp),
+		sdktrace.WithSampler(sdktrace.AlwaysSample()),
 		sdktrace.WithResource(r),
 		sdktrace.WithSpanProcessor(bsp),
 	)
+	// defer func() {
+	// 	if err := tracerProvider.Shutdown(context.Background()); err != nil {
+	// 		panic(err)
+	// 	}
+	// }()
+	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}))
 	otel.SetTracerProvider(tracerProvider)
+
+	// return tracerProvider, func() {
+	// 	cxt, cancel := context.WithTimeout(ctx, time.Second)
+	// 	defer cancel()
+	// 	if err := traceExp.Shutdown(cxt); err != nil {
+	// 		otel.Handle(err)
+	// 	}
+
+	// }
 	return tracerProvider
 }
 
@@ -112,10 +123,12 @@ func (h *LatencyTracer) Start(key string) {
 }
 
 func (h *LatencyTracer) StartAt(key string, timestamp time.Time) {
-
+	fmt.Println("StartAt Called", key)
 	ctx := context.WithValue(context.Background(), key, key)
 	_, span := h.tracer.Start(ctx, key, trace.WithTimestamp(timestamp), trace.WithAttributes(attribute.String("id", key)))
+	fmt.Println("StartAt Called", key, span)
 	h.traces[key] = &traceData{timestamp, span}
+	fmt.Println("done--")
 
 }
 
@@ -140,23 +153,21 @@ func (h *LatencyTracer) End(key string, labels ...string) {
 
 func (h *LatencyTracer) EndAt(key string, timestamp time.Time, labels ...string) {
 
-	attributes := make([]attribute.KeyValue, len(h.labels))
-	for i, label := range h.labels {
-		attributes[i] = attribute.String(label, labels[i])
-	}
-
+	// attributes := make([]attribute.KeyValue, len(h.labels))
+	// for i, label := range h.labels {
+	// 	attributes[i] = attribute.String(label, labels[i])
+	// }
+	fmt.Println("key-------", key)
+	fmt.Println("h.traces", h.traces)
 	t, ok := h.traces[key]
 	if !ok {
-		panic("error with tracer: " + h.name + " at end")
+		panic("error with tracer: " + key + " at end")
 	}
-	t.span.SetAttributes(attributes...)
+	// t.span.SetAttributes(attributes...)
 	t.span.End(trace.WithTimestamp(timestamp))
 	delete(h.traces, key)
+	fmt.Println("delete done for key-------", key)
 
-}
-
-func (t *LatencyTracer) Collectors() []prometheus.Collector {
-	return []prometheus.Collector{}
 }
 
 func (h *LatencyTracer) handleError(s string) {
