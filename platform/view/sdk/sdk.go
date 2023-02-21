@@ -408,38 +408,12 @@ func (p *SDK) getServerConfig() (grpc2.ServerConfig, error) {
 }
 
 func (p *SDK) installTracing() error {
-	// confService := view.GetConfigService(p.registry)
-
-	// provider := confService.GetString("fsc.tracing.provider")
-	// var agent interface{}
-	// switch provider {
-	// case "", "none":
-	// 	logger.Infof("Tracing disabled")
-	// 	agent = tracing.NewNullAgent()
-	// case "udp":
-	// 	logger.Infof("Tracing enabled: UDP")
-	// 	address := confService.GetString("fsc.tracing.udp.address")
-	// 	if len(address) == 0 {
-	// 		address = "localhost:8125"
-	// 		logger.Infof("tracing server address not set, using default: ", address)
-	// 	}
-	// 	var err error
-	// 	agent, err = tracing.NewStatsdAgent(
-	// 		tracing.Host(confService.GetString("fsc.id")),
-	// 		tracing.StatsDSink(address),
-	// 	)
-	// 	if err != nil {
-	// 		return errors.Wrap(err, "error creating tracing agent")
-	// 	}
-	// 	logger.Infof("tracing enabled, listening on %s", address)
-	// default:
-	// 	return errors.Errorf("unknown tracing provider: %s", provider)
-	// }
 	m := tracing.NewMetrics(true)
 	m.LaunchOptl("http://localhost:14268/api/traces")
 	if err := p.registry.RegisterService(m); err != nil {
 		return err
 	}
+
 	return nil
 }
 

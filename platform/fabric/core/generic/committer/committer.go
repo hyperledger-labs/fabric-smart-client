@@ -16,6 +16,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger/fabric-protos-go/common"
 	"github.com/hyperledger/fabric/protoutil"
 	"github.com/pkg/errors"
@@ -28,9 +29,9 @@ const (
 
 var logger = flogging.MustGetLogger("fabric-sdk.Committer")
 
-type Metrics interface {
-	EmitKey(val float32, event ...string)
-}
+// type Metrics interface {
+// 	EmitKey(val float32, event ...string)
+// }
 
 type Finality interface {
 	IsFinal(txID string, address string) error
@@ -50,7 +51,7 @@ type Committer struct {
 	Network             Network
 	Finality            Finality
 	WaitForEventTimeout time.Duration
-	Metrics             Metrics
+	Metrics             tracing.AppMetrics
 	Handlers            map[common.HeaderType]TransactionHandler
 	QuietNotifier       bool
 
@@ -60,7 +61,7 @@ type Committer struct {
 	publisher      events.Publisher
 }
 
-func New(channel string, network Network, finality Finality, waitForEventTimeout time.Duration, quiet bool, metrics Metrics, publisher events.Publisher) (*Committer, error) {
+func New(channel string, network Network, finality Finality, waitForEventTimeout time.Duration, quiet bool, metrics tracing.AppMetrics, publisher events.Publisher) (*Committer, error) {
 	if len(channel) == 0 {
 		return nil, errors.Errorf("expected a channel, got empty string")
 	}
@@ -85,6 +86,7 @@ func New(channel string, network Network, finality Finality, waitForEventTimeout
 
 // Commit commits the transactions in the block passed as argument
 func (c *Committer) Commit(block *common.Block) error {
+	c.Metrics.GetTracer().StartAt("commit", time.Now())
 	for i, tx := range block.Data.Data {
 
 		env, err := protoutil.UnmarshalEnvelope(tx)
@@ -104,7 +106,8 @@ func (c *Committer) Commit(block *common.Block) error {
 		}
 
 		var event TxEvent
-		c.Metrics.EmitKey(0, "Committer", "start", "Commit", chdr.TxId)
+		c.Metrics.GetTracer().AddEventAt("commit", "start", time.Now())
+		// c.Metrics.GetTracer().AddEvent(0, "Committer", "start", "Commit", chdr.TxId)
 		handler, ok := c.Handlers[common.HeaderType(chdr.Type)]
 		if ok {
 			if err := handler(block, i, &event, env, chdr); err != nil {
@@ -115,7 +118,9 @@ func (c *Committer) Commit(block *common.Block) error {
 				logger.Debugf("[%s] Received unhandled transaction type: %s", c.Channel, chdr.Type)
 			}
 		}
-		c.Metrics.EmitKey(0, "Committer", "end", "Commit", chdr.TxId)
+		c.Metrics.GetTracer().AddEventAt("commit", "end", time.Now())
+
+		// c.Metrics.(0, "Committer", "end", "Commit", chdr.TxId)
 
 		c.Notify(event)
 		if logger.IsEnabledFor(zapcore.DebugLevel) {
@@ -130,8 +135,7 @@ func (c *Committer) Commit(block *common.Block) error {
 // with the respect to the passed context that can be used to set a deadline
 // for the waiting time.
 func (c *Committer) IsFinal(ctx context.Context, txID string) error {
-	c.Metrics.EmitKey(0, "Committer", "start", "IsFinal", txID)
-	defer c.Metrics.EmitKey(0, "Committer", "end", "IsFinal", txID)
+	// c.Metrics.GetTracer().StartAt("final", time.Now())
 
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("Is [%s] final?", txID)
@@ -218,7 +222,7 @@ func (c *Committer) IsFinal(ctx context.Context, txID string) error {
 			return errors.WithMessagef(err, "failed getting transaction status from vault [%s]", txID)
 		}
 	}
-
+	// c.Metrics.GetTracer().EndAt("final", time.Now())
 	// Listen to the event
 	return c.listenTo(ctx, txID, c.WaitForEventTimeout)
 }
@@ -286,8 +290,7 @@ func (c *Committer) notifyChaincodeListeners(event *ChaincodeEvent) {
 }
 
 func (c *Committer) listenTo(ctx context.Context, txid string, timeout time.Duration) error {
-	c.Metrics.EmitKey(0, "Committer", "start", "listenTo", txid)
-	defer c.Metrics.EmitKey(0, "Committer", "end", "listenTo", txid)
+	c.Metrics.GetTracer().Start("committer-listenTo-start")
 
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("Listen to finality of [%s]", txid)
@@ -352,5 +355,6 @@ func (c *Committer) listenTo(ctx context.Context, txid string, timeout time.Dura
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("Is [%s] final? Failed to listen to transaction for timeout", txid)
 	}
+	c.Metrics.GetTracer().End("committer-listenTo-end")
 	return errors.Errorf("failed to listen to transaction [%s] for timeout", txid)
 }
