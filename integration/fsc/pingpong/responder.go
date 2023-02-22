@@ -41,11 +41,10 @@ func (p *Responder) Call(context view.Context) (interface{}, error) {
 		assert.NoError(err)
 		return nil, fmt.Errorf("exptectd ping, got %s", m)
 	default:
-		tracing.Get(context).GetTracer().AddEvent("Responder-pingpong", "receive dping")
+		tracing.Get(context).GetTracer().AddEvent("Responder-pingpong", "received ping")
 		// reply with pong
 		err := session.Send([]byte("pong"))
 		assert.NoError(err)
-		// tracing.Get(context).EmitKey(0, "sent", "pong")
 		tracing.Get(context).GetTracer().AddEvent("Responder-pingpong", "sent pong")
 
 	}

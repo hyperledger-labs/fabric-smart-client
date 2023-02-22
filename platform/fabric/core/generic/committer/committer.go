@@ -29,10 +29,6 @@ const (
 
 var logger = flogging.MustGetLogger("fabric-sdk.Committer")
 
-// type Metrics interface {
-// 	EmitKey(val float32, event ...string)
-// }
-
 type Finality interface {
 	IsFinal(txID string, address string) error
 }
@@ -107,7 +103,6 @@ func (c *Committer) Commit(block *common.Block) error {
 
 		var event TxEvent
 		c.Metrics.GetTracer().AddEventAt("commit", "start", time.Now())
-		// c.Metrics.GetTracer().AddEvent(0, "Committer", "start", "Commit", chdr.TxId)
 		handler, ok := c.Handlers[common.HeaderType(chdr.Type)]
 		if ok {
 			if err := handler(block, i, &event, env, chdr); err != nil {
@@ -119,8 +114,6 @@ func (c *Committer) Commit(block *common.Block) error {
 			}
 		}
 		c.Metrics.GetTracer().AddEventAt("commit", "end", time.Now())
-
-		// c.Metrics.(0, "Committer", "end", "Commit", chdr.TxId)
 
 		c.Notify(event)
 		if logger.IsEnabledFor(zapcore.DebugLevel) {
@@ -135,8 +128,6 @@ func (c *Committer) Commit(block *common.Block) error {
 // with the respect to the passed context that can be used to set a deadline
 // for the waiting time.
 func (c *Committer) IsFinal(ctx context.Context, txID string) error {
-	// c.Metrics.GetTracer().StartAt("final", time.Now())
-
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("Is [%s] final?", txID)
 	}
@@ -222,7 +213,6 @@ func (c *Committer) IsFinal(ctx context.Context, txID string) error {
 			return errors.WithMessagef(err, "failed getting transaction status from vault [%s]", txID)
 		}
 	}
-	// c.Metrics.GetTracer().EndAt("final", time.Now())
 	// Listen to the event
 	return c.listenTo(ctx, txID, c.WaitForEventTimeout)
 }
