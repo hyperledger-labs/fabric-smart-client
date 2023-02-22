@@ -12,11 +12,13 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
 )
 
+var logger = flogging.MustGetLogger("tracing")
 var metricsType = reflect.TypeOf((*AppMetrics)(nil))
 
 type AppTracer interface {
@@ -26,6 +28,7 @@ type AppTracer interface {
 	AddEventAt(string, string, time.Time)
 	End(string, ...string)
 	EndAt(string, time.Time, ...string)
+	AddError(key string, err error)
 }
 
 type AppMetrics interface {
@@ -58,13 +61,13 @@ func (m *Metrics) IsEnabled() bool {
 }
 
 func setTracerProvider(m *Metrics, tp trace.TracerProvider) AppTracer {
-	return NewLatencyTracer(tp, LatencyTracerOpts{Name: "FSC-Tracing", Version: "1"})
+	return NewLatencyTracer(tp, LatencyTracerOpts{Name: "FSC-Tracing"})
 }
 
 func Get(sp view.ServiceProvider) AppMetrics {
 	s, err := sp.GetService(metricsType)
 	if err != nil {
-		panic(err)
+		logger.Panic(err)
 	}
 	return s.(AppMetrics)
 

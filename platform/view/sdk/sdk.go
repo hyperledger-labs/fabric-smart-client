@@ -415,7 +415,6 @@ func (p *SDK) installTracing() error {
 	if err := p.registry.RegisterService(m); err != nil {
 		return err
 	}
-
 	return nil
 }
 
