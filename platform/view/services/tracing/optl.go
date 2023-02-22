@@ -8,14 +8,12 @@ package tracing
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
-	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/exporters/jaeger"
-	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"go.opentelemetry.io/otel/sdk/resource"
 
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
@@ -39,8 +37,8 @@ type LatencyTracer struct {
 }
 
 type LatencyTracerOpts struct {
-	Name   string
-	Labels []string
+	Name    string
+	Version string
 }
 
 func NewLatencyTracer(tp trace.TracerProvider, opts LatencyTracerOpts) *LatencyTracer {
@@ -52,69 +50,76 @@ func NewLatencyTracer(tp trace.TracerProvider, opts LatencyTracerOpts) *LatencyT
 	}
 }
 
-func NewJaegerExporter(url string) sdktrace.SpanExporter /* (someExporter.Exporter, error) */ {
-	// Your preferred exporter: console, jaeger, zipkin, OTLP, etc.
+// func NewJaegerExporter(url string) sdktrace.SpanExporter /* (someExporter.Exporter, error) */ {
+// 	// Your preferred exporter: console, jaeger, zipkin, OTLP, etc.
 
-	exporter, err := jaeger.New(jaeger.WithCollectorEndpoint(jaeger.WithEndpoint(fmt.Sprintf("http://%s/api/traces", jaeger.WithEndpoint(url)))))
+// 	exporter, err := jaeger.New(jaeger.WithCollectorEndpoint(jaeger.WithEndpoint(fmt.Sprintf("http://%s/api/traces", jaeger.WithEndpoint(url)))))
+// 	if err != nil {
+// 		panic(err)
+// 	}
+// 	return exporter
+// }
+
+// func NewGRPCExporter(url string) sdktrace.SpanExporter /* (someExporter.Exporter, error) */ {
+// 	// Your preferred exporter: console, jaeger, zipkin, OTLP, etc.
+// 	ctx := context.Background()
+// 	// otelAgentAddr, ok := os.LookupEnv("OTEL_EXPORTER_OTLP_ENDPOINT")
+// 	// if !ok {
+// 	// 	otelAgentAddr = "0.0.0.0:4317"
+// 	// }
+
+// 	traceClient := otlptracegrpc.NewClient(
+// 		otlptracegrpc.WithInsecure(),
+// 		otlptracegrpc.WithEndpoint("http://localhost:4319/v1/traces"),
+// 		otlptracegrpc.WithDialOption(grpc.WithBlock()))
+// 	sctx, cancel := context.WithTimeout(ctx, time.Second)
+// 	defer cancel()
+
+//		traceExp, err := otlptrace.New(sctx, traceClient)
+//		handleErr(err, "Failed to create the collector trace exporter")
+//		return traceExp
+//	}
+func NewHTTPExporter(url string, context context.Context) sdktrace.SpanExporter /* (someExporter.Exporter, error) */ {
+
+	traceClient := otlptracehttp.NewClient(
+		otlptracehttp.WithInsecure(),
+		otlptracehttp.WithEndpoint(url))
+
+	// sctx, cancel := context.WithTimeout(ctx, time.Second)
+	// defer cancel()
+	traceExp, err := otlptrace.New(context, traceClient)
+	handleErr(err, "Failed to create the collector trace exporter")
+
+	return traceExp
+}
+
+func newResource(context context.Context) *resource.Resource {
+	// Ensure default SDK resources and the required service name are set.
+	r, err := resource.New(context,
+
+		resource.WithAttributes(
+			// the service name used to display traces in backends
+			semconv.ServiceNameKey.String("FSC"),
+		),
+	)
 	if err != nil {
 		panic(err)
 	}
-	return exporter
+	return r
+
 }
-func NewTraceProvider(exp sdktrace.SpanExporter) *sdktrace.TracerProvider {
 
-	ctx := context.Background()
-	// Ensure default SDK resources and the required service name are set.
-	r, err := resource.New(ctx,
-		resource.WithFromEnv(),
-		resource.WithProcess(),
-		resource.WithTelemetrySDK(),
-		resource.WithHost(),
-		resource.WithAttributes(
-			// the service name used to display traces in backends
-			semconv.ServiceNameKey.String("	FSC"),
-		),
-	)
-	handleErr(err, "failed to create resource")
-
-	// otelAgentAddr, ok := os.LookupEnv("OTEL_EXPORTER_OTLP_ENDPOINT")
-	// if !ok {
-	// 	otelAgentAddr = "0.0.0.0:4317"
-	// }
-
-	// traceClient := otlptracegrpc.NewClient(
-	// 	otlptracegrpc.WithInsecure(),
-	// 	otlptracegrpc.WithEndpoint(otelAgentAddr),
-	// 	otlptracegrpc.WithDialOption(grpc.WithBlock()))
-	// // sctx, cancel := context.WithTimeout(ctx, time.Second)
-	// // defer cancel()
-
-	// // traceExp, err := otlptrace.New(sctx, traceClient)
-	// // handleErr(err, "Failed to create the collector trace exporter")
-	// // fmt.Println("traceExp--", traceExp)
-	bsp := sdktrace.NewBatchSpanProcessor(exp)
-	fmt.Println("bsp--", bsp)
+func NewTraceProvider(exp sdktrace.SpanExporter, resource *resource.Resource) *sdktrace.TracerProvider {
 	tracerProvider := sdktrace.NewTracerProvider(
-		sdktrace.WithSampler(sdktrace.AlwaysSample()),
-		sdktrace.WithResource(r),
-		sdktrace.WithSpanProcessor(bsp),
+		sdktrace.WithBatcher(exp),
+		sdktrace.WithResource(resource),
 	)
 	// defer func() {
 	// 	if err := tracerProvider.Shutdown(context.Background()); err != nil {
 	// 		panic(err)
 	// 	}
 	// }()
-	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}))
-	otel.SetTracerProvider(tracerProvider)
 
-	// return tracerProvider, func() {
-	// 	cxt, cancel := context.WithTimeout(ctx, time.Second)
-	// 	defer cancel()
-	// 	if err := traceExp.Shutdown(cxt); err != nil {
-	// 		otel.Handle(err)
-	// 	}
-
-	// }
 	return tracerProvider
 }
 
@@ -123,13 +128,9 @@ func (h *LatencyTracer) Start(key string) {
 }
 
 func (h *LatencyTracer) StartAt(key string, timestamp time.Time) {
-	fmt.Println("StartAt Called", key)
 	ctx := context.WithValue(context.Background(), key, key)
 	_, span := h.tracer.Start(ctx, key, trace.WithTimestamp(timestamp), trace.WithAttributes(attribute.String("id", key)))
-	fmt.Println("StartAt Called", key, span)
 	h.traces[key] = &traceData{timestamp, span}
-	fmt.Println("done--")
-
 }
 
 func (h *LatencyTracer) AddEvent(key string, name string) {
@@ -152,22 +153,12 @@ func (h *LatencyTracer) End(key string, labels ...string) {
 }
 
 func (h *LatencyTracer) EndAt(key string, timestamp time.Time, labels ...string) {
-
-	// attributes := make([]attribute.KeyValue, len(h.labels))
-	// for i, label := range h.labels {
-	// 	attributes[i] = attribute.String(label, labels[i])
-	// }
-	fmt.Println("key-------", key)
-	fmt.Println("h.traces", h.traces)
 	t, ok := h.traces[key]
 	if !ok {
 		panic("error with tracer: " + key + " at end")
 	}
-	// t.span.SetAttributes(attributes...)
 	t.span.End(trace.WithTimestamp(timestamp))
 	delete(h.traces, key)
-	fmt.Println("delete done for key-------", key)
-
 }
 
 func (h *LatencyTracer) handleError(s string) {

@@ -398,7 +398,9 @@ func (p *SDK) getServerConfig() (grpc2.ServerConfig, error) {
 
 func (p *SDK) installTracing() error {
 	m := tracing.NewMetrics(true)
-	m.LaunchOptl("http://localhost:14268/api/traces")
+	ctx := context.Background()
+	endpoint := "localhost:4319"
+	m.LaunchOptl(endpoint, ctx)
 	if err := p.registry.RegisterService(m); err != nil {
 		return err
 	}

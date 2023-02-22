@@ -7,10 +7,13 @@ SPDX-License-Identifier: Apache-2.0
 package tracing
 
 import (
+	"context"
 	"reflect"
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -28,7 +31,7 @@ type AppTracer interface {
 type AppMetrics interface {
 	IsEnabled() bool
 	GetTracer() AppTracer
-	LaunchOptl(url string)
+	LaunchOptl(url string, context context.Context)
 }
 type Metrics struct {
 	enabled       bool
@@ -39,10 +42,12 @@ func NewMetrics(enabled bool) AppMetrics {
 	return &Metrics{enabled: enabled}
 }
 
-func (m *Metrics) LaunchOptl(url string) {
-	tp := NewTraceProvider(NewJaegerExporter(url))
+func (m *Metrics) LaunchOptl(url string, context context.Context) {
+	r := newResource(context)
+	tp := NewTraceProvider(NewHTTPExporter(url, context), r)
+	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}))
+	otel.SetTracerProvider(tp)
 	m.requestTracer = setTracerProvider(m, tp)
-
 }
 
 func (m *Metrics) GetTracer() AppTracer {
@@ -53,7 +58,7 @@ func (m *Metrics) IsEnabled() bool {
 }
 
 func setTracerProvider(m *Metrics, tp trace.TracerProvider) AppTracer {
-	return NewLatencyTracer(tp, LatencyTracerOpts{Name: "FSC-Tracing"})
+	return NewLatencyTracer(tp, LatencyTracerOpts{Name: "FSC-Tracing", Version: "1"})
 }
 
 func Get(sp view.ServiceProvider) AppMetrics {
