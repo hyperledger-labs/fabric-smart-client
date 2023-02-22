@@ -10,7 +10,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
@@ -21,8 +20,6 @@ import (
 
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 )
-
-var logger = flogging.MustGetLogger("fsc.integration")
 
 type traceData struct {
 	start time.Time
@@ -50,45 +47,16 @@ func NewLatencyTracer(tp trace.TracerProvider, opts LatencyTracerOpts) *LatencyT
 	}
 }
 
-// func NewJaegerExporter(url string) sdktrace.SpanExporter /* (someExporter.Exporter, error) */ {
-// 	// Your preferred exporter: console, jaeger, zipkin, OTLP, etc.
-
-// 	exporter, err := jaeger.New(jaeger.WithCollectorEndpoint(jaeger.WithEndpoint(fmt.Sprintf("http://%s/api/traces", jaeger.WithEndpoint(url)))))
-// 	if err != nil {
-// 		panic(err)
-// 	}
-// 	return exporter
-// }
-
-// func NewGRPCExporter(url string) sdktrace.SpanExporter /* (someExporter.Exporter, error) */ {
-// 	// Your preferred exporter: console, jaeger, zipkin, OTLP, etc.
-// 	ctx := context.Background()
-// 	// otelAgentAddr, ok := os.LookupEnv("OTEL_EXPORTER_OTLP_ENDPOINT")
-// 	// if !ok {
-// 	// 	otelAgentAddr = "0.0.0.0:4317"
-// 	// }
-
-// 	traceClient := otlptracegrpc.NewClient(
-// 		otlptracegrpc.WithInsecure(),
-// 		otlptracegrpc.WithEndpoint("http://localhost:4319/v1/traces"),
-// 		otlptracegrpc.WithDialOption(grpc.WithBlock()))
-// 	sctx, cancel := context.WithTimeout(ctx, time.Second)
-// 	defer cancel()
-
-//		traceExp, err := otlptrace.New(sctx, traceClient)
-//		handleErr(err, "Failed to create the collector trace exporter")
-//		return traceExp
-//	}
 func NewHTTPExporter(url string, context context.Context) sdktrace.SpanExporter /* (someExporter.Exporter, error) */ {
 
 	traceClient := otlptracehttp.NewClient(
 		otlptracehttp.WithInsecure(),
 		otlptracehttp.WithEndpoint(url))
 
-	// sctx, cancel := context.WithTimeout(ctx, time.Second)
-	// defer cancel()
 	traceExp, err := otlptrace.New(context, traceClient)
-	handleErr(err, "Failed to create the collector trace exporter")
+	if err != nil {
+		logger.Error(err, "Failed to create the collector trace exporter")
+	}
 
 	return traceExp
 }
@@ -96,14 +64,13 @@ func NewHTTPExporter(url string, context context.Context) sdktrace.SpanExporter 
 func newResource(context context.Context) *resource.Resource {
 	// Ensure default SDK resources and the required service name are set.
 	r, err := resource.New(context,
-
 		resource.WithAttributes(
 			// the service name used to display traces in backends
 			semconv.ServiceNameKey.String("FSC"),
 		),
 	)
 	if err != nil {
-		panic(err)
+		logger.Error(err)
 	}
 	return r
 
@@ -114,12 +81,6 @@ func NewTraceProvider(exp sdktrace.SpanExporter, resource *resource.Resource) *s
 		sdktrace.WithBatcher(exp),
 		sdktrace.WithResource(resource),
 	)
-	// defer func() {
-	// 	if err := tracerProvider.Shutdown(context.Background()); err != nil {
-	// 		panic(err)
-	// 	}
-	// }()
-
 	return tracerProvider
 }
 
@@ -138,14 +99,8 @@ func (h *LatencyTracer) AddEvent(key string, name string) {
 }
 
 func (h *LatencyTracer) AddEventAt(key string, name string, timestamp time.Time) {
-
-	t, ok := h.traces[key]
-	if !ok {
-		h.handleError("error with tracer: " + h.name + " at event: " + name)
-	} else {
-		t.span.AddEvent(name, trace.WithTimestamp(timestamp))
-	}
-
+	t := getTraceData(h, key)
+	t.span.AddEvent(name, trace.WithTimestamp(timestamp))
 }
 
 func (h *LatencyTracer) End(key string, labels ...string) {
@@ -153,21 +108,20 @@ func (h *LatencyTracer) End(key string, labels ...string) {
 }
 
 func (h *LatencyTracer) EndAt(key string, timestamp time.Time, labels ...string) {
-	t, ok := h.traces[key]
-	if !ok {
-		panic("error with tracer: " + key + " at end")
-	}
+	t := getTraceData(h, key)
 	t.span.End(trace.WithTimestamp(timestamp))
 	delete(h.traces, key)
 }
 
-func (h *LatencyTracer) handleError(s string) {
-
+func (h *LatencyTracer) AddError(key string, err error) {
+	t := getTraceData(h, key)
+	t.span.RecordError(err)
 }
 
-func handleErr(err error, message string) {
-	if err != nil {
-		// logger.Info()
-
+func getTraceData(h *LatencyTracer, key string) *traceData {
+	t, ok := h.traces[key]
+	if !ok {
+		logger.Errorf("error with tracer: " + key + " at end")
 	}
+	return t
 }
