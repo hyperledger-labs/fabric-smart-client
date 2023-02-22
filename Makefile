@@ -41,7 +41,8 @@ install-softhsm:
 	./ci/scripts/install_softhsm.sh
 
 run-optl:
-	cd platform/view/services/tracing; docker-compose up -d
+	cd platform/view/services/tracing; docker-compose up -d 
+	
  	
 .PHONY: unit-tests-race
 unit-tests-race:

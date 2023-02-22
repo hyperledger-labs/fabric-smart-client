@@ -1,7 +1,10 @@
 receivers:
   otlp:
     protocols:
-      grpc:
+      http:
+        endpoint: 0.0.0.0:4319    
+      # grpc:
+      #   endpoint: 0.0.0.0:4320
 
 exporters:
   # prometheus:
@@ -9,16 +12,17 @@ exporters:
   #   const_labels:
   #     label1: value1
 
-  # logging:
-
-  zipkin:
-    endpoint: "http://zipkin-all-in-one:9411/api/v2/spans"
-    format: proto
+  logging:
+    loglevel: debug
+    
+  # zipkin:
+  #   endpoint: "http://zipkin-all-in-one:9411/api/v2/spans"
+  #   format: proto
 
   jaeger:
     endpoint: jaeger-all-in-one:14250
     tls:
-      insecure: false
+      insecure: true
 
 processors:
   batch:
@@ -35,9 +39,9 @@ service:
   pipelines:
     traces:
       receivers: [otlp]
-      processors: [batch]
-      exporters: [logging, zipkin, jaeger]
-    metrics:
-      receivers: [otlp]
-      processors: [batch]
-      exporters: [logging, prometheus]
+      processors: []
+      exporters: [logging,jaeger]
+    # metrics:
+    #   receivers: [otlp]
+    #   processors: [batch]
+    #   exporters: [logging, prometheus]
