@@ -192,7 +192,7 @@ func (p *Platform) DeleteVault(id string) {
 	Expect(os.RemoveAll(p.Network.FSCNodeVaultDir(fscPeer))).ToNot(HaveOccurred())
 }
 
-//UpdateChaincode deploys the new version of the chaincode passed by chaincodeId
+// UpdateChaincode deploys the new version of the chaincode passed by chaincodeId
 func (p *Platform) UpdateChaincode(chaincodeId string, version string, path string, packageFile string) {
 	p.Network.UpdateChaincode(chaincodeId, version, path, packageFile)
 }

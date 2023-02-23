@@ -176,7 +176,8 @@ func NewIdentityFromPEMCert(raw []byte) (view.Identity, driver.Verifier, error) 
 	return raw, &Verifier{pk: publicKey}, nil
 }
 
-/**
+/*
+*
 When using ECDSA, both (r,s) and (r, -s mod n) are valid signatures.  In order
 to protect against signature malleability attacks, Fabric normalizes all
 signatures to a canonical form where s is at most half the order of the curve.
