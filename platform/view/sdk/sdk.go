@@ -420,10 +420,10 @@ func (p *SDK) installTracing() error {
 		tracingProvider = tracing.NewProvider(disabled.New())
 	case "optl":
 		logger.Infof("Tracing enabled: optl")
-		address := confService.GetString("fsc.tracing.udp.address")
+		address := confService.GetString("fsc.tracing.optl.address")
 		if len(address) == 0 {
 			address = "localhost:4319"
-			logger.Infof("tracing server address not set, using default: ", address)
+			logger.Infof("tracing server address not set, using default: [%s]", address)
 		}
 		tp := optl.LaunchOptl(address, context.Background())
 		tracingProvider = tracing.NewProvider(optl.NewLatencyTracer(tp, optl.LatencyTracerOpts{Name: "FSC-Tracing"}))

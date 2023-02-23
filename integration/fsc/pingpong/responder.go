@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -31,7 +30,6 @@ func (p *Responder) Call(context view.Context) (interface{}, error) {
 	case <-time.After(5 * time.Second):
 		return nil, errors.New("time out reached")
 	}
-	tracing.Get(context).GetTracer().StartAt("Responder-pingpong", time.Now())
 	// Respond with a pong if a ping is received, an error otherwise
 	m := string(payload)
 	switch {
@@ -41,12 +39,9 @@ func (p *Responder) Call(context view.Context) (interface{}, error) {
 		assert.NoError(err)
 		return nil, fmt.Errorf("exptectd ping, got %s", m)
 	default:
-		tracing.Get(context).GetTracer().AddEvent("Responder-pingpong", "received ping")
 		// reply with pong
 		err := session.Send([]byte("pong"))
 		assert.NoError(err)
-		tracing.Get(context).GetTracer().AddEvent("Responder-pingpong", "sent pong")
-
 	}
 
 	// Return

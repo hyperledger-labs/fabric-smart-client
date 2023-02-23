@@ -111,7 +111,7 @@ func (t *Topology) ListNodes(ids ...string) []*node.Node {
 	return res
 }
 
-func (t *Topology) EnableUDPTracing() {
+func (t *Topology) EnableOPTLTracing() {
 	t.TracingProvider = "optl"
 }
 

@@ -11,6 +11,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/monitoring"
 	fabric2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk"
 )
 
@@ -26,6 +27,8 @@ func Topology() []api.Topology {
 	// Define an FSC topology with 3 FCS nodes.
 	// One for the approver, one for the borrower, and one for the lender.
 	fscTopology := fsc.NewTopology()
+	//fscTopology.SetLogging("debug", "")
+	fscTopology.EnableOPTLTracing()
 
 	// Add the approver FSC node.
 	approver1 := fscTopology.AddNodeByName("approver1")
@@ -65,8 +68,16 @@ func Topology() []api.Topology {
 	lender.RegisterResponder(&views.UpdateIOUResponderView{}, &views.UpdateIOUView{})
 	lender.RegisterViewFactory("query", &views.QueryViewFactory{})
 
+	// Monitoring
+	monitoringTopology := monitoring.NewTopology()
+	monitoringTopology.EnableOPTL()
+
 	// Add Fabric SDK to FSC Nodes
 	fscTopology.AddSDK(&fabric2.SDK{})
 
-	return []api.Topology{fabricTopology, fscTopology}
+	return []api.Topology{
+		fabricTopology,
+		fscTopology,
+		monitoringTopology,
+	}
 }

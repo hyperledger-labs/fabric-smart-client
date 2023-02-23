@@ -3,6 +3,7 @@ Copyright IBM Corp All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
 */
+
 package views
 
 import (
@@ -33,9 +34,10 @@ type CreateIOUView struct {
 }
 
 func (i *CreateIOUView) Call(context view.Context) (interface{}, error) {
+	tracer := tracing.Get(context).GetTracer()
+	tracer.StartAt("create-view", time.Now())
+	defer tracer.End("create-view")
 
-	appTracer := tracing.Get(context)
-	appTracer.GetTracer().StartAt("create-view", time.Now())
 	// use default identities if not specified
 	if i.Lender.IsNone() {
 		i.Lender = view2.GetIdentityProvider(context).Identity("lender")
@@ -48,7 +50,7 @@ func (i *CreateIOUView) Call(context view.Context) (interface{}, error) {
 	// to exchange the identities to use to assign ownership of the freshly created IOU state.
 	borrower, lender, err := state.ExchangeRecipientIdentities(context, i.Lender)
 	assert.NoError(err, "failed exchanging recipient identity")
-	appTracer.GetTracer().AddEvent("create-view", "completed identity exchange")
+	tracer.AddEvent("create-view", "completed identity exchange")
 	// The borrower creates a new transaction
 	tx, err := state.NewTransaction(context)
 	assert.NoError(err, "failed creating a new transaction")
@@ -74,15 +76,13 @@ func (i *CreateIOUView) Call(context view.Context) (interface{}, error) {
 	// All signatures are required.
 	_, err = context.RunView(state.NewCollectEndorsementsView(tx, borrower, lender, i.Approver))
 	assert.NoError(err)
-	appTracer.GetTracer().AddEvent("create-view", "completed Endorsements View")
+	tracer.AddEvent("create-view", "completed Endorsements View")
 
 	// At this point the borrower can send the transaction to the ordering service and wait for finality.
 	_, err = context.RunView(state.NewOrderingAndFinalityView(tx))
 	assert.NoError(err)
-	appTracer.GetTracer().AddEvent("create-view", "completed finality View")
+	tracer.AddEvent("create-view", "completed finality View")
 
-	// fmt.Prinln("calling enf of create view")
-	appTracer.GetTracer().End("create-view")
 	// Return the state ID
 	return iou.LinearID, nil
 }
