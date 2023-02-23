@@ -167,12 +167,6 @@ func (n *Extension) startOPTLCollector() {
 					Source: n.configFilePath(),
 					Target: "/etc/optl-collector-config.yaml",
 				},
-				{
-					Type:     mount.TypeBind,
-					Source:   n.tracesFilePath(),
-					Target:   "/filename.json",
-					ReadOnly: false,
-				},
 			},
 			PortBindings: nat.PortMap{
 				nat.Port("13133" + "/tcp"): []nat.PortBinding{
