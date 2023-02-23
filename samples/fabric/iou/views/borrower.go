@@ -3,14 +3,18 @@ Copyright IBM Corp All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
 */
+
 package views
 
 import (
 	"encoding/json"
 
+	"time"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/hyperledger-labs/fabric-smart-client/samples/fabric/iou/states"
 )
@@ -30,6 +34,10 @@ type CreateIOUView struct {
 }
 
 func (i *CreateIOUView) Call(context view.Context) (interface{}, error) {
+	tracer := tracing.Get(context).GetTracer()
+	tracer.StartAt("create-view", time.Now())
+	defer tracer.End("create-view")
+
 	// use default identities if not specified
 	if i.Lender.IsNone() {
 		i.Lender = view2.GetIdentityProvider(context).Identity("lender")
@@ -42,7 +50,7 @@ func (i *CreateIOUView) Call(context view.Context) (interface{}, error) {
 	// to exchange the identities to use to assign ownership of the freshly created IOU state.
 	borrower, lender, err := state.ExchangeRecipientIdentities(context, i.Lender)
 	assert.NoError(err, "failed exchanging recipient identity")
-
+	tracer.AddEvent("create-view", "completed identity exchange")
 	// The borrower creates a new transaction
 	tx, err := state.NewTransaction(context)
 	assert.NoError(err, "failed creating a new transaction")
@@ -68,10 +76,12 @@ func (i *CreateIOUView) Call(context view.Context) (interface{}, error) {
 	// All signatures are required.
 	_, err = context.RunView(state.NewCollectEndorsementsView(tx, borrower, lender, i.Approver))
 	assert.NoError(err)
+	tracer.AddEvent("create-view", "completed Endorsements View")
 
 	// At this point the borrower can send the transaction to the ordering service and wait for finality.
 	_, err = context.RunView(state.NewOrderingAndFinalityView(tx))
 	assert.NoError(err)
+	tracer.AddEvent("create-view", "completed finality View")
 
 	// Return the state ID
 	return iou.LinearID, nil

@@ -147,16 +147,13 @@ func (p *Platform) Members() []grouper.Member {
 }
 
 func (p *Platform) PostRun(load bool) {
-	p.Network.PostRun(load)
-
-	if load {
-		return
-	}
-
 	// set up our docker environment for chaincode containers
 	err := p.setupDocker()
 	Expect(err).NotTo(HaveOccurred())
-
+	p.Network.PostRun(load)
+	if load {
+		return
+	}
 	for _, chaincode := range p.Network.Topology().Chaincodes {
 		for _, invocation := range chaincode.PostRunInvocations {
 			logger.Infof("Post run invocation [%s:%s][%v][%v]",
@@ -195,7 +192,7 @@ func (p *Platform) DeleteVault(id string) {
 	Expect(os.RemoveAll(p.Network.FSCNodeVaultDir(fscPeer))).ToNot(HaveOccurred())
 }
 
-//UpdateChaincode deploys the new version of the chaincode passed by chaincodeId
+// UpdateChaincode deploys the new version of the chaincode passed by chaincodeId
 func (p *Platform) UpdateChaincode(chaincodeId string, version string, path string, packageFile string) {
 	p.Network.UpdateChaincode(chaincodeId, version, path, packageFile)
 }

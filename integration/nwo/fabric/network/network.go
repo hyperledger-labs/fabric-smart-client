@@ -234,7 +234,7 @@ func (n *Network) Cleanup() {
 
 func (n *Network) DeployChaincode(chaincode *topology.ChannelChaincode) {
 	orderer := n.Orderer("orderer")
-	peers := n.PeersByName(chaincode.Peers)
+	peers := n.PeersForChaincodeByName(chaincode.Peers)
 
 	if len(chaincode.Chaincode.PackageFile) == 0 {
 		if len(chaincode.Path) != 0 {
@@ -266,7 +266,7 @@ func (n *Network) AddExtension(ex Extension) {
 	n.Extensions = append(n.Extensions, ex)
 }
 
-//UpdateChaincode deploys the new version of the chaincode passed by chaincodeId
+// UpdateChaincode deploys the new version of the chaincode passed by chaincodeId
 func (n *Network) UpdateChaincode(chaincodeId string, version string, path string, packageFile string) {
 	var cc *topology.ChannelChaincode
 	for _, chaincode := range n.topology.Chaincodes {

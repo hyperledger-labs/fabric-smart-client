@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/monitoring/optl"
+
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/docker"
@@ -67,6 +69,7 @@ func New(reg api.Context, topology *Topology) *Platform {
 	}
 	p.AddExtension(hle.NewExtension(p))
 	p.AddExtension(monitoring.NewExtension(p))
+	p.AddExtension(optl.NewExtension(p))
 
 	return p
 }
@@ -161,4 +164,12 @@ func (p *Platform) PrometheusPort() int {
 
 func (p *Platform) GrafanaPort() int {
 	return p.topology.GrafanaPort
+}
+
+func (p *Platform) OPTL() bool {
+	return p.topology.OPTL
+}
+
+func (p *Platform) OPTLPort() int {
+	return p.topology.OPTLPort
 }

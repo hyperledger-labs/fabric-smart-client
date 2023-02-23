@@ -31,11 +31,11 @@ const (
 // TODO: introduced due to a race condition in idemix.
 var commitConfigMutex = &sync.Mutex{}
 
-func (c *channel) ReloadConfigTransactions() error {
-	c.applyLock.Lock()
-	defer c.applyLock.Unlock()
+func (c *Channel) ReloadConfigTransactions() error {
+	c.ResourcesApplyLock.Lock()
+	defer c.ResourcesApplyLock.Unlock()
 
-	qe, err := c.vault.NewQueryExecutor()
+	qe, err := c.Vault.NewQueryExecutor()
 	if err != nil {
 		return errors.WithMessagef(err, "failed getting query executor")
 	}
@@ -45,7 +45,7 @@ func (c *channel) ReloadConfigTransactions() error {
 	var sequence uint64 = 1
 	for {
 		txID := committer.ConfigTXPrefix + strconv.FormatUint(sequence, 10)
-		vc, err := c.vault.Status(txID)
+		vc, err := c.Vault.Status(txID)
 		if err != nil {
 			return errors.WithMessagef(err, "failed getting tx's status [%s]", txID)
 		}
@@ -78,7 +78,7 @@ func (c *channel) ReloadConfigTransactions() error {
 			var bundle *channelconfig.Bundle
 			if c.Resources() == nil {
 				// setup the genesis block
-				bundle, err = channelconfig.NewBundle(c.name, ctx.Config, factory.GetDefault())
+				bundle, err = channelconfig.NewBundle(c.ChannelName, ctx.Config, factory.GetDefault())
 				if err != nil {
 					return errors.Wrapf(err, "failed to build a new bundle")
 				}
@@ -123,18 +123,18 @@ func (c *channel) ReloadConfigTransactions() error {
 	return nil
 }
 
-// CommitConfig is used to validate and apply configuration transactions for a channel.
-func (c *channel) CommitConfig(blockNumber uint64, raw []byte, env *common.Envelope) error {
+// CommitConfig is used to validate and apply configuration transactions for a Channel.
+func (c *Channel) CommitConfig(blockNumber uint64, raw []byte, env *common.Envelope) error {
 	commitConfigMutex.Lock()
 	defer commitConfigMutex.Unlock()
 
-	c.applyLock.Lock()
-	defer c.applyLock.Unlock()
+	c.ResourcesApplyLock.Lock()
+	defer c.ResourcesApplyLock.Unlock()
 
-	logger.Debugf("[channel: %s] received config transaction number %d", c.name, blockNumber)
+	logger.Debugf("[Channel: %s] received config transaction number %d", c.ChannelName, blockNumber)
 
 	if env == nil {
-		return errors.Errorf("channel config found nil")
+		return errors.Errorf("Channel config found nil")
 	}
 
 	payload, err := protoutil.UnmarshalPayload(env.Payload)
@@ -148,7 +148,7 @@ func (c *channel) CommitConfig(blockNumber uint64, raw []byte, env *common.Envel
 	}
 
 	txid := committer.ConfigTXPrefix + strconv.FormatUint(ctx.Config.Sequence, 10)
-	vc, err := c.vault.Status(txid)
+	vc, err := c.Vault.Status(txid)
 	if err != nil {
 		return errors.Wrapf(err, "failed getting tx's status [%s]", txid)
 	}
@@ -164,7 +164,7 @@ func (c *channel) CommitConfig(blockNumber uint64, raw []byte, env *common.Envel
 	var bundle *channelconfig.Bundle
 	if c.Resources() == nil {
 		// setup the genesis block
-		bundle, err = channelconfig.NewBundle(c.name, ctx.Config, factory.GetDefault())
+		bundle, err = channelconfig.NewBundle(c.ChannelName, ctx.Config, factory.GetDefault())
 		if err != nil {
 			return errors.Wrapf(err, "failed to build a new bundle")
 		}
@@ -195,16 +195,16 @@ func (c *channel) CommitConfig(blockNumber uint64, raw []byte, env *common.Envel
 	return nil
 }
 
-// Resources returns the active channel configuration bundle.
-func (c *channel) Resources() channelconfig.Resources {
-	c.lock.RLock()
-	res := c.resources
-	c.lock.RUnlock()
+// Resources returns the active Channel configuration bundle.
+func (c *Channel) Resources() channelconfig.Resources {
+	c.ResourcesLock.RLock()
+	res := c.ChannelResources
+	c.ResourcesLock.RUnlock()
 	return res
 }
 
-func (c *channel) commitConfig(txid string, blockNumber uint64, seq uint64, envelope []byte) error {
-	rws, err := c.vault.NewRWSet(txid)
+func (c *Channel) commitConfig(txid string, blockNumber uint64, seq uint64, envelope []byte) error {
+	rws, err := c.Vault.NewRWSet(txid)
 	if err != nil {
 		return errors.Wrapf(err, "cannot create rws for configtx")
 	}
@@ -227,15 +227,15 @@ func (c *channel) commitConfig(txid string, blockNumber uint64, seq uint64, enve
 	return nil
 }
 
-func (c *channel) applyBundle(bundle *channelconfig.Bundle) {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	c.resources = bundle
+func (c *Channel) applyBundle(bundle *channelconfig.Bundle) {
+	c.ResourcesLock.Lock()
+	defer c.ResourcesLock.Unlock()
+	c.ChannelResources = bundle
 
 	// update the list of orderers
-	orderers, any := c.resources.OrdererConfig()
+	orderers, any := c.ChannelResources.OrdererConfig()
 	if any {
-		logger.Debugf("[channel: %s] Orderer config has changed, updating the list of orderers", c.name)
+		logger.Debugf("[Channel: %s] Orderer config has changed, updating the list of orderers", c.ChannelName)
 
 		var newOrderers []*grpc.ConnectionConfig
 		orgs := orderers.Organizations()
@@ -245,7 +245,7 @@ func (c *channel) applyBundle(bundle *channelconfig.Bundle) {
 			tlsRootCerts = append(tlsRootCerts, msp.GetTLSRootCerts()...)
 			tlsRootCerts = append(tlsRootCerts, msp.GetTLSIntermediateCerts()...)
 			for _, endpoint := range org.Endpoints() {
-				logger.Debugf("[channel: %s] Adding orderer endpoint: [%s:%s:%s]", c.name, org.Name(), org.MSPID(), endpoint)
+				logger.Debugf("[Channel: %s] Adding orderer endpoint: [%s:%s:%s]", c.ChannelName, org.Name(), org.MSPID(), endpoint)
 				newOrderers = append(newOrderers, &grpc.ConnectionConfig{
 					Address:           endpoint,
 					ConnectionTimeout: 10 * time.Second,
@@ -255,28 +255,28 @@ func (c *channel) applyBundle(bundle *channelconfig.Bundle) {
 			}
 		}
 		if len(newOrderers) != 0 {
-			logger.Debugf("[channel: %s] Updating the list of orderers: (%d) found", c.name, len(newOrderers))
-			c.network.setConfigOrderers(newOrderers)
+			logger.Debugf("[Channel: %s] Updating the list of orderers: (%d) found", c.ChannelName, len(newOrderers))
+			c.Network.setConfigOrderers(newOrderers)
 		} else {
-			logger.Debugf("[channel: %s] No orderers found in channel config", c.name)
+			logger.Debugf("[Channel: %s] No orderers found in Channel config", c.ChannelName)
 		}
 	} else {
-		logger.Debugf("no orderer configuration found in channel config")
+		logger.Debugf("no orderer configuration found in Channel config")
 	}
 }
 
 func capabilitiesSupported(res channelconfig.Resources) error {
 	ac, ok := res.ApplicationConfig()
 	if !ok {
-		return errors.Errorf("[channel %s] does not have application config so is incompatible", res.ConfigtxValidator().ChannelID())
+		return errors.Errorf("[Channel %s] does not have application config so is incompatible", res.ConfigtxValidator().ChannelID())
 	}
 
 	if err := ac.Capabilities().Supported(); err != nil {
-		return errors.Wrapf(err, "[channel %s] incompatible", res.ConfigtxValidator().ChannelID())
+		return errors.Wrapf(err, "[Channel %s] incompatible", res.ConfigtxValidator().ChannelID())
 	}
 
 	if err := res.ChannelConfig().Capabilities().Supported(); err != nil {
-		return errors.Wrapf(err, "[channel %s] incompatible", res.ConfigtxValidator().ChannelID())
+		return errors.Wrapf(err, "[Channel %s] incompatible", res.ConfigtxValidator().ChannelID())
 	}
 
 	return nil

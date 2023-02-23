@@ -8,12 +8,15 @@ package ordering
 
 import (
 	"context"
-	"sync"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/fabricutils"
+	context2 "golang.org/x/net/context"
+
+	"golang.org/x/sync/semaphore"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/fabricutils"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
@@ -37,14 +40,13 @@ type ViewManager interface {
 	InitiateView(view view.View) (interface{}, error)
 }
 
-type Configuration interface {
-}
-
 type Network interface {
+	Name() string
 	PickOrderer() *grpc.ConnectionConfig
+	Orderers() []*grpc.ConnectionConfig
 	LocalMembership() driver.LocalMembership
 	// Broadcast sends the passed blob to the ordering service to be ordered
-	Broadcast(blob interface{}) error
+	Broadcast(context context2.Context, blob interface{}) error
 	Channel(name string) (driver.Channel, error)
 	SignerService() driver.SignerService
 	Config() *config.Config
@@ -59,22 +61,34 @@ type Transaction interface {
 	Bytes() ([]byte, error)
 }
 
-type service struct {
-	lock    sync.RWMutex
-	oStream Broadcast
-	oClient *ordererClient
-	sp      view2.ServiceProvider
-	network Network
+type Connection struct {
+	Stream Broadcast
+	Client *ordererClient
 }
 
-func NewService(sp view2.ServiceProvider, network Network) *service {
+type service struct {
+	sp      view2.ServiceProvider
+	network Network
+	metrics *metrics.Metrics
+
+	connSem     *semaphore.Weighted
+	connections chan *Connection
+}
+
+func NewService(sp view2.ServiceProvider, network Network, poolSize int, metrics *metrics.Metrics) *service {
 	return &service{
-		sp:      sp,
-		network: network,
+		sp:          sp,
+		network:     network,
+		metrics:     metrics,
+		connections: make(chan *Connection, poolSize),
+		connSem:     semaphore.NewWeighted(int64(poolSize)),
 	}
 }
 
-func (o *service) Broadcast(blob interface{}) error {
+func (o *service) Broadcast(ctx context2.Context, blob interface{}) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	var env *common2.Envelope
 	var err error
 	switch b := blob.(type) {
@@ -100,7 +114,7 @@ func (o *service) Broadcast(blob interface{}) error {
 		return errors.Errorf("invalid blob's type, got [%T]", blob)
 	}
 
-	return o.broadcastEnvelope(env)
+	return o.broadcastEnvelope(ctx, env)
 }
 
 func (o *service) createFabricEndorseTransactionEnvelope(tx Transaction) (*common2.Envelope, error) {
@@ -132,116 +146,121 @@ func (o *service) createFabricEndorseTransactionEnvelope(tx Transaction) (*commo
 	return env, nil
 }
 
-func (o *service) getOrSetOrdererClient() (Broadcast, error) {
-	o.lock.RLock()
-	oc := o.oClient
-	os := o.oStream
-	o.lock.RUnlock()
-
-	if oc != nil {
-		return os, nil
-	}
-
-	o.lock.Lock()
-	defer o.lock.Unlock()
-
-	if o.oClient != nil {
-		return o.oStream, nil
-	}
-
-	if err := o.newOrdererClient(); err != nil {
-		return nil, err
-	}
-
-	return o.oStream, nil
-}
-
-func (o *service) newOrdererClient() error {
-	ordererConfig := o.network.PickOrderer()
-	if ordererConfig == nil {
-		return errors.New("no orderer configured")
-	}
-
-	oClient, err := NewOrdererClient(ordererConfig)
-	if err != nil {
-		return errors.Wrapf(err, "failed creating orderer client for %s", ordererConfig.Address)
-	}
-
-	stream, err := oClient.NewBroadcast(context.Background())
-	if err != nil {
-		oClient.Close()
-		return errors.Wrapf(err, "failed creating orderer stream for %s", ordererConfig.Address)
-	}
-
-	o.oStream = stream
-	o.oClient = oClient
-
-	return nil
-}
-
-func (o *service) cleanupOrderedClient() {
-	if o.oStream != nil {
-		logger.Debugf("cleanup ordering stream...")
-		o.oStream.CloseSend()
-		o.oStream = nil
-	}
-	if o.oClient != nil {
-		logger.Debugf("cleanup ordering client to [%s]", o.oClient.ordererAddr)
-		o.oClient.Close()
-		o.oClient = nil
-	}
-}
-
-func (o *service) broadcastEnvelope(env *common2.Envelope) error {
-	forceConnect := false
-	stream, err := o.getOrSetOrdererClient()
-	if err != nil {
-		forceConnect = true
-		logger.Errorf("failed to get ordering stream [%s]", err)
-	}
-
-	o.lock.Lock()
-	defer o.lock.Unlock()
-
+func (o *service) broadcastEnvelope(context context.Context, env *common2.Envelope) error {
 	// send the envelope for ordering
 	var status *ab.BroadcastResponse
+	var connection *Connection
 	retries := o.network.Config().BroadcastNumRetries()
 	retryInterval := o.network.Config().BroadcastRetryInterval()
+	forceConnect := true
+	var err error
 	for i := 0; i < retries; i++ {
+		if connection != nil {
+			// throw away this connection
+			o.discardConnection(connection)
+		}
 		if i > 0 {
 			logger.Debugf("broadcast, retry [%d]...", i)
 			// wait a bit
 			time.Sleep(retryInterval)
 		}
-
 		if i > 0 || forceConnect {
-			o.cleanupOrderedClient()
 			forceConnect = false
-			// recreate client
-			if err := o.newOrdererClient(); err != nil {
-				logger.Errorf("failed to re-get ordering stream [%s], retry", err)
+			connection, err = o.getConnection(context)
+			if err != nil {
+				logger.Warnf("failed to get connection to orderer [%s]", err)
 				continue
 			}
-			stream = o.oStream
 		}
 
-		err = BroadcastSend(stream, env)
+		err = BroadcastSend(connection.Stream, env)
 		if err != nil {
 			continue
 		}
-
-		status, err = stream.Recv()
+		status, err = connection.Stream.Recv()
 		if err != nil {
 			continue
 		}
-
 		if status.GetStatus() != common2.Status_SUCCESS {
+			o.releaseConnection(connection)
 			return errors.Wrapf(err, "failed broadcasting, status %s", common2.Status_name[int32(status.GetStatus())])
 		}
 
+		labels := []string{
+			"network", o.network.Name(),
+		}
+		o.metrics.OrderedTransactions.With(labels...).Add(1)
+		o.releaseConnection(connection)
+
 		return nil
 	}
+	o.discardConnection(connection)
 	return errors.Wrap(err, "failed to send transaction to orderer")
+}
+
+func (o *service) getConnection(ctx context.Context) (*Connection, error) {
+	for {
+		select {
+		case connection := <-o.connections:
+			// if there is a connection available, return it
+			return connection, nil
+		default:
+			// Try to acquire the right to create a new connection.
+			// If this fails, retry with an existing connection
+			semContext, cancel := context.WithTimeout(ctx, 1*time.Second)
+			if err := o.connSem.Acquire(semContext, 1); err != nil {
+				cancel()
+				break
+			}
+			cancel()
+
+			// create connection
+			ordererConfig := o.network.PickOrderer()
+			if ordererConfig == nil {
+				return nil, errors.New("no orderer configured")
+			}
+
+			oClient, err := NewOrdererClient(ordererConfig)
+			if err != nil {
+				return nil, errors.Wrapf(err, "failed creating orderer client for %s", ordererConfig.Address)
+			}
+
+			stream, err := oClient.NewBroadcast(ctx)
+			if err != nil {
+				oClient.Close()
+				return nil, errors.Wrapf(err, "failed creating orderer stream for %s", ordererConfig.Address)
+			}
+
+			return &Connection{
+				Stream: stream,
+				Client: oClient,
+			}, nil
+		}
+	}
+}
+
+func (o *service) discardConnection(connection *Connection) {
+	if connection != nil {
+		o.connSem.Release(1)
+		if connection.Stream != nil {
+			if err := connection.Stream.CloseSend(); err != nil {
+				logger.Warnf("failed to close connection to ordering [%s]", err)
+			}
+		}
+		if connection.Client != nil {
+			connection.Client.Close()
+		}
+	}
+}
+
+func (o *service) releaseConnection(connection *Connection) {
+	select {
+	case o.connections <- connection:
+		return
+	default:
+		// if there is not enough space in the channel, then discuard the connection
+		o.discardConnection(connection)
+	}
 }
 
 type signerWrapper struct {

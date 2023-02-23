@@ -34,8 +34,9 @@ func pathExists(path string) bool {
 // findCmdAtEnv tries to find cmd at the path specified via FabricBinsPathEnvKey
 // Returns the full path of cmd if exists; otherwise an empty string
 // Example:
-//		export FAB_BINS=/tmp/fabric/bin/
-//		findCmdAtEnv("peer") will return "/tmp/fabric/bin/peer" if exists
+//
+//	export FAB_BINS=/tmp/fabric/bin/
+//	findCmdAtEnv("peer") will return "/tmp/fabric/bin/peer" if exists
 func findCmdAtEnv(cmd string) string {
 	cmdPath := path.Join(os.Getenv(FabricBinsPathEnvKey), cmd)
 	if !pathExists(cmdPath) {

@@ -1,5 +1,5 @@
 # pinned versions
-FABRIC_VERSION ?= 2.2.8
+FABRIC_VERSION ?= 2.4.6
 FABRIC_TWO_DIGIT_VERSION = $(shell echo $(FABRIC_VERSION) | cut -d '.' -f 1,2)
 ORION_VERSION=v0.2.5
 
@@ -39,6 +39,10 @@ unit-tests:
 install-softhsm:
 	./ci/scripts/install_softhsm.sh
 
+run-optl:
+	cd platform/view/services/tracing; docker-compose up -d 
+	
+ 	
 .PHONY: unit-tests-race
 unit-tests-race:
 	@export GORACE=history_size=7; export FAB_BINS=$(FAB_BINS); go test -race -cover $(shell go list ./... | grep -v '/integration/')
@@ -74,6 +78,8 @@ monitoring-docker-images:
 	docker pull hyperledger/explorer:latest
 	docker pull prom/prometheus:latest
 	docker pull grafana/grafana:latest
+	docker pull jaegertracing/all-in-one:latest
+	docker pull otel/opentelemetry-collector:latest
 
 .PHONY: orion-server-images
 orion-server-images:

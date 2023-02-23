@@ -93,7 +93,7 @@ func (e *EchoView) Call(context view.Context) (interface{}, error) {
 	).Call()
 	assert.NoError(err, "failed endorsing echo")
 	assert.NotNil(envelope)
-	assert.NoError(fabric.GetDefaultFNS(context).Ordering().Broadcast(envelope))
+	assert.NoError(fabric.GetDefaultFNS(context).Ordering().Broadcast(context.Context(), envelope))
 
 	envelope, err = chaincode.NewEndorseView(
 		"echo",
@@ -104,7 +104,7 @@ func (e *EchoView) Call(context view.Context) (interface{}, error) {
 	).WithNumRetries(4).WithRetrySleep(2 * time.Second).Endorse(context)
 	assert.NoError(err, "failed endorsing echo")
 	assert.Equal(e.Function, string(res))
-	assert.NoError(fabric.GetDefaultFNS(context).Ordering().Broadcast(envelope))
+	assert.NoError(fabric.GetDefaultFNS(context).Ordering().Broadcast(context.Context(), envelope))
 
 	return res, nil
 }

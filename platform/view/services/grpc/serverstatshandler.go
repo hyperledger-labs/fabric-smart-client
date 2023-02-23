@@ -9,7 +9,7 @@ package grpc
 import (
 	"context"
 
-	"github.com/hyperledger/fabric/common/metrics"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"google.golang.org/grpc/stats"
 )
 

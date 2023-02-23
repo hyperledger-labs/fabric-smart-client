@@ -10,14 +10,14 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
 
-func (c *channel) EnvelopeService() driver.EnvelopeService {
-	return c.envelopeService
+func (c *Channel) EnvelopeService() driver.EnvelopeService {
+	return c.ES
 }
 
-func (c *channel) TransactionService() driver.EndorserTransactionService {
-	return c.transactionService
+func (c *Channel) TransactionService() driver.EndorserTransactionService {
+	return c.TS
 }
 
-func (c *channel) MetadataService() driver.MetadataService {
-	return c.metadataService
+func (c *Channel) MetadataService() driver.MetadataService {
+	return c.MS
 }

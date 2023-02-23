@@ -18,14 +18,14 @@ import (
 
 type ValidationFlags []uint8
 
-func (c *channel) StartDelivery(ctx context.Context) error {
-	c.deliveryService.Start(ctx)
+func (c *Channel) StartDelivery(ctx context.Context) error {
+	c.DeliveryService.Start(ctx)
 	return nil
 }
 
-func (c *channel) Scan(ctx context.Context, txID string, callback driver.DeliveryCallback) error {
+func (c *Channel) Scan(ctx context.Context, txID string, callback driver.DeliveryCallback) error {
 	vault := &fakeVault{txID: txID}
-	deliveryService, err := delivery2.New(c.name, c.sp, c.network, func(block *common.Block) (bool, error) {
+	deliveryService, err := delivery2.New(c.ChannelName, c.SP, c.Network, func(block *common.Block) (bool, error) {
 		for i, tx := range block.Data.Data {
 			validationCode := ValidationFlags(block.Metadata.Metadata[common.BlockMetadataIndex_TRANSACTIONS_FILTER])[i]
 
@@ -40,12 +40,12 @@ func (c *channel) Scan(ctx context.Context, txID string, callback driver.Deliver
 			}
 			payload, err := protoutil.UnmarshalPayload(env.Payload)
 			if err != nil {
-				logger.Errorf("[%s] unmarshal payload failed: %s", c.name, err)
+				logger.Errorf("[%s] unmarshal payload failed: %s", c.ChannelName, err)
 				return false, err
 			}
 			channelHeader, err := protoutil.UnmarshalChannelHeader(payload.Header.ChannelHeader)
 			if err != nil {
-				logger.Errorf("[%s] unmarshal channel header failed: %s", c.name, err)
+				logger.Errorf("[%s] unmarshal Channel header failed: %s", c.ChannelName, err)
 				return false, err
 			}
 
@@ -70,7 +70,7 @@ func (c *channel) Scan(ctx context.Context, txID string, callback driver.Deliver
 			logger.Debugf("commit transaction [%s] in block [%d]", channelHeader.TxId, block.Header.Number)
 		}
 		return false, nil
-	}, vault, waitForEventTimeout)
+	}, vault, WaitForEventTimeout)
 	if err != nil {
 		return err
 	}

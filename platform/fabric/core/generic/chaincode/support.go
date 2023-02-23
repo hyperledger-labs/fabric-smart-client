@@ -32,10 +32,10 @@ type SerializableSigner interface {
 
 type Network interface {
 	Name() string
-	PickPeer() *grpc.ConnectionConfig
+	PickPeer(funcType driver.PeerFunctionType) *grpc.ConnectionConfig
 	LocalMembership() driver.LocalMembership
 	// Broadcast sends the passed blob to the ordering service to be ordered
-	Broadcast(blob interface{}) error
+	Broadcast(context context.Context, blob interface{}) error
 	SignerService() driver.SignerService
 	Config() *config.Config
 }

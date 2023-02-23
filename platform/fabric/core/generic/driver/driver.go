@@ -12,10 +12,12 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/endpoint"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/id"
+	metrics2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	metrics3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/pkg/errors"
 )
 
@@ -68,21 +70,18 @@ func (d *Driver) New(sp view.ServiceProvider, network string, defaultNetwork boo
 	}
 
 	// New Network
-	net, err := generic.NewNetwork(
-		sp,
-		network,
-		c,
-		idProvider,
-		mspService,
-		sigService,
-	)
+	metrics := metrics2.NewMetrics(metrics3.GetProvider(sp))
+	net, err := generic.NewNetwork(sp, network, c, idProvider, mspService, sigService, metrics, generic.NewChannel)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed instantiating fabric service provider")
+	}
+	if err := net.Init(); err != nil {
+		return nil, errors.Wrap(err, "failed to initialize fabric service provider")
 	}
 
 	return net, nil
 }
 
 func init() {
-	core.Register("fabric", &Driver{})
+	core.Register("generic", &Driver{})
 }

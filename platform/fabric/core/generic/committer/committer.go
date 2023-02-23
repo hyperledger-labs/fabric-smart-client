@@ -16,6 +16,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger/fabric-protos-go/common"
 	"github.com/hyperledger/fabric/protoutil"
 	"github.com/pkg/errors"
@@ -28,28 +29,27 @@ const (
 
 var logger = flogging.MustGetLogger("fabric-sdk.Committer")
 
-type Metrics interface {
-	EmitKey(val float32, event ...string)
-}
-
 type Finality interface {
 	IsFinal(txID string, address string) error
 }
 
 type Network interface {
 	Committer(channel string) (driver.Committer, error)
-	PickPeer() *grpc.ConnectionConfig
+	Channel(channel string) (driver.Channel, error)
+	PickPeer(funcType driver.PeerFunctionType) *grpc.ConnectionConfig
 	Ledger(channel string) (driver.Ledger, error)
 }
 
-type Committer struct {
-	channel             string
-	network             Network
-	finality            Finality
-	waitForEventTimeout time.Duration
-	metrics             Metrics
+type TransactionHandler = func(block *common.Block, i int, event *TxEvent, env *common.Envelope, chHdr *common.ChannelHeader) error
 
-	quietNotifier bool
+type Committer struct {
+	Channel             string
+	Network             Network
+	Finality            Finality
+	WaitForEventTimeout time.Duration
+	Tracer              tracing.Tracer
+	Handlers            map[common.HeaderType]TransactionHandler
+	QuietNotifier       bool
 
 	listeners      map[string][]chan TxEvent
 	mutex          sync.Mutex
@@ -57,28 +57,32 @@ type Committer struct {
 	publisher      events.Publisher
 }
 
-func New(channel string, network Network, finality Finality, waitForEventTimeout time.Duration, quiet bool, metrics Metrics, publisher events.Publisher) (*Committer, error) {
+func New(channel string, network Network, finality Finality, waitForEventTimeout time.Duration, quiet bool, metrics tracing.Tracer, publisher events.Publisher) (*Committer, error) {
 	if len(channel) == 0 {
 		return nil, errors.Errorf("expected a channel, got empty string")
 	}
 
 	d := &Committer{
-		channel:             channel,
-		network:             network,
-		waitForEventTimeout: waitForEventTimeout,
-		quietNotifier:       quiet,
+		Channel:             channel,
+		Network:             network,
+		WaitForEventTimeout: waitForEventTimeout,
+		QuietNotifier:       quiet,
 		listeners:           map[string][]chan TxEvent{},
 		mutex:               sync.Mutex{},
-		finality:            finality,
+		Finality:            finality,
 		pollingTimeout:      100 * time.Millisecond,
-		metrics:             metrics,
+		Tracer:              metrics,
 		publisher:           publisher,
+		Handlers:            map[common.HeaderType]TransactionHandler{},
 	}
+	d.Handlers[common.HeaderType_CONFIG] = d.HandleConfig
+	d.Handlers[common.HeaderType_ENDORSER_TRANSACTION] = d.HandleEndorserTransaction
 	return d, nil
 }
 
 // Commit commits the transactions in the block passed as argument
 func (c *Committer) Commit(block *common.Block) error {
+	c.Tracer.StartAt("commit", time.Now())
 	for i, tx := range block.Data.Data {
 
 		env, err := protoutil.UnmarshalEnvelope(tx)
@@ -88,45 +92,30 @@ func (c *Committer) Commit(block *common.Block) error {
 		}
 		payl, err := protoutil.UnmarshalPayload(env.Payload)
 		if err != nil {
-			logger.Errorf("[%s] unmarshal payload failed: %s", c.channel, err)
+			logger.Errorf("[%s] unmarshal payload failed: %s", c.Channel, err)
 			return err
 		}
 		chdr, err := protoutil.UnmarshalChannelHeader(payl.Header.ChannelHeader)
 		if err != nil {
-			logger.Errorf("[%s] unmarshal channel header failed: %s", c.channel, err)
+			logger.Errorf("[%s] unmarshal channel header failed: %s", c.Channel, err)
 			return err
 		}
 
 		var event TxEvent
-
-		c.metrics.EmitKey(0, "Committer", "start", "Commit", chdr.TxId)
-		switch common.HeaderType(chdr.Type) {
-		case common.HeaderType_CONFIG:
-			if logger.IsEnabledFor(zapcore.DebugLevel) {
-				logger.Debugf("[%s] Config transaction received: %s", c.channel, chdr.TxId)
-			}
-			if err := c.handleConfig(block, i, env); err != nil {
+		c.Tracer.AddEventAt("commit", "start", time.Now())
+		handler, ok := c.Handlers[common.HeaderType(chdr.Type)]
+		if ok {
+			if err := handler(block, i, &event, env, chdr); err != nil {
 				return err
 			}
-		case common.HeaderType_ENDORSER_TRANSACTION:
+		} else {
 			if logger.IsEnabledFor(zapcore.DebugLevel) {
-				logger.Debugf("[%s] Endorser transaction received: %s", c.channel, chdr.TxId)
-			}
-			if len(block.Metadata.Metadata) < int(common.BlockMetadataIndex_TRANSACTIONS_FILTER) {
-				return errors.Errorf("block metadata lacks transaction filter")
-			}
-			if err := c.handleEndorserTransaction(block, i, &event, env, chdr); err != nil {
-				return err
-			}
-		default:
-			if logger.IsEnabledFor(zapcore.DebugLevel) {
-				logger.Debugf("[%s] Received unhandled transaction type: %s", c.channel, chdr.Type)
+				logger.Debugf("[%s] Received unhandled transaction type: %s", c.Channel, chdr.Type)
 			}
 		}
-		c.metrics.EmitKey(0, "Committer", "end", "Commit", chdr.TxId)
+		c.Tracer.AddEventAt("commit", "end", time.Now())
 
-		c.notify(event)
-
+		c.Notify(event)
 		if logger.IsEnabledFor(zapcore.DebugLevel) {
 			logger.Debugf("commit transaction [%s] in filteredBlock [%d]", chdr.TxId, block.Header.Number)
 		}
@@ -139,14 +128,11 @@ func (c *Committer) Commit(block *common.Block) error {
 // with the respect to the passed context that can be used to set a deadline
 // for the waiting time.
 func (c *Committer) IsFinal(ctx context.Context, txID string) error {
-	c.metrics.EmitKey(0, "Committer", "start", "IsFinal", txID)
-	defer c.metrics.EmitKey(0, "Committer", "end", "IsFinal", txID)
-
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("Is [%s] final?", txID)
 	}
 
-	committer, err := c.network.Committer(c.channel)
+	committer, err := c.Network.Committer(c.Channel)
 	if err != nil {
 		return err
 	}
@@ -199,13 +185,13 @@ func (c *Committer) IsFinal(ctx context.Context, txID string) error {
 					}
 					return nil
 				}
-				return c.finality.IsFinal(txID, c.network.PickPeer().Address)
+				return c.Finality.IsFinal(txID, c.Network.PickPeer(driver.PeerForFinality).Address)
 			case driver.Unknown:
 				if iter >= 2 {
 					if logger.IsEnabledFor(zapcore.DebugLevel) {
 						logger.Debugf("Tx [%s] is unknown with no deps, remote check [%d][%s]", txID, iter, debug.Stack())
 					}
-					err := c.finality.IsFinal(txID, c.network.PickPeer().Address)
+					err := c.Finality.IsFinal(txID, c.Network.PickPeer(driver.PeerForFinality).Address)
 					if err == nil {
 						return nil
 					}
@@ -227,9 +213,8 @@ func (c *Committer) IsFinal(ctx context.Context, txID string) error {
 			return errors.WithMessagef(err, "failed getting transaction status from vault [%s]", txID)
 		}
 	}
-
 	// Listen to the event
-	return c.listenTo(ctx, txID, c.waitForEventTimeout)
+	return c.listenTo(ctx, txID, c.WaitForEventTimeout)
 }
 
 func (c *Committer) addListener(txid string, ch chan TxEvent) {
@@ -262,11 +247,11 @@ func (c *Committer) deleteListener(txid string, ch chan TxEvent) {
 	}
 }
 
-func (c *Committer) notify(event TxEvent) {
+func (c *Committer) Notify(event TxEvent) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	if event.Err != nil && !c.quietNotifier {
+	if event.Err != nil && !c.QuietNotifier {
 		logger.Warningf("An error occurred for tx [%s], event: [%v]", event.Txid, event)
 	}
 
@@ -295,8 +280,7 @@ func (c *Committer) notifyChaincodeListeners(event *ChaincodeEvent) {
 }
 
 func (c *Committer) listenTo(ctx context.Context, txid string, timeout time.Duration) error {
-	c.metrics.EmitKey(0, "Committer", "start", "listenTo", txid)
-	defer c.metrics.EmitKey(0, "Committer", "end", "listenTo", txid)
+	c.Tracer.Start("committer-listenTo-start")
 
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("Listen to finality of [%s]", txid)
@@ -308,7 +292,7 @@ func (c *Committer) listenTo(ctx context.Context, txid string, timeout time.Dura
 	c.addListener(txid, ch)
 	defer c.deleteListener(txid, ch)
 
-	committer, err := c.network.Committer(c.channel)
+	committer, err := c.Network.Committer(c.Channel)
 	if err != nil {
 		return err
 	}
@@ -361,5 +345,6 @@ func (c *Committer) listenTo(ctx context.Context, txid string, timeout time.Dura
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("Is [%s] final? Failed to listen to transaction for timeout", txid)
 	}
+	c.Tracer.End("committer-listenTo-end")
 	return errors.Errorf("failed to listen to transaction [%s] for timeout", txid)
 }

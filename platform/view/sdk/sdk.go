@@ -33,11 +33,14 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kms"
 	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kms/driver/file"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/operations"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view"
 	protos2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view/protos"
 	web2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/web"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing/disabled"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing/optl"
 	"github.com/hyperledger/fabric/common/grpclogging"
 	"github.com/pkg/errors"
 )
@@ -88,6 +91,7 @@ func NewSDK(confPath string, registry Registry) *SDK {
 }
 
 func (p *SDK) Install() error {
+
 	logger.Infof("View platform enabled, installing...")
 
 	configProvider, err := config2.NewProvider(p.confPath)
@@ -151,7 +155,7 @@ func (p *SDK) Install() error {
 			idProvider,
 			view.GetSigService(p.registry),
 		),
-		view2.NewMetrics(p.operationsSystem),
+		view2.NewMetrics(metrics.GetProvider(p.registry)),
 	)
 	if err != nil {
 		return fmt.Errorf("error creating view service server: %s", err)
@@ -166,7 +170,6 @@ func (p *SDK) Install() error {
 		return err
 	}
 	p.viewManager = viewManager
-
 	if err := p.installTracing(); err != nil {
 		return errors.WithMessage(err, "failed installing tracing")
 	}
@@ -409,32 +412,25 @@ func (p *SDK) getServerConfig() (grpc2.ServerConfig, error) {
 func (p *SDK) installTracing() error {
 	confService := view.GetConfigService(p.registry)
 
-	provider := confService.GetString("fsc.tracing.provider")
-	var agent interface{}
-	switch provider {
+	var tracingProvider *tracing.Provider
+	providerType := confService.GetString("fsc.tracing.provider")
+	switch providerType {
 	case "", "none":
 		logger.Infof("Tracing disabled")
-		agent = tracing.NewNullAgent()
-	case "udp":
-		logger.Infof("Tracing enabled: UDP")
-		address := confService.GetString("fsc.tracing.udp.address")
+		tracingProvider = tracing.NewProvider(disabled.New())
+	case "optl":
+		logger.Infof("Tracing enabled: optl")
+		address := confService.GetString("fsc.tracing.optl.address")
 		if len(address) == 0 {
-			address = "localhost:8125"
-			logger.Infof("tracing server address not set, using default: ", address)
+			address = "localhost:4319"
+			logger.Infof("tracing server address not set, using default: [%s]", address)
 		}
-		var err error
-		agent, err = tracing.NewStatsdAgent(
-			tracing.Host(confService.GetString("fsc.id")),
-			tracing.StatsDSink(address),
-		)
-		if err != nil {
-			return errors.Wrap(err, "error creating tracing agent")
-		}
-		logger.Infof("tracing enabled, listening on %s", address)
+		tp := optl.LaunchOptl(address, context.Background())
+		tracingProvider = tracing.NewProvider(optl.NewLatencyTracer(tp, optl.LatencyTracerOpts{Name: "FSC-Tracing"}))
 	default:
-		return errors.Errorf("unknown tracing provider: %s", provider)
+		return errors.Errorf("unknown tracing provider: %s", providerType)
 	}
-	if err := p.registry.RegisterService(agent); err != nil {
+	if err := p.registry.RegisterService(tracingProvider); err != nil {
 		return err
 	}
 	return nil

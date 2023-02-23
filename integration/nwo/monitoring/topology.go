@@ -14,6 +14,8 @@ type Topology struct {
 	PrometheusGrafana       bool   `yaml:"prometheus-grafana,omitempty"`
 	PrometheusPort          int    `yaml:"prometheus-port,omitempty"`
 	GrafanaPort             int    `yaml:"grafana-port,omitempty"`
+	OPTL                    bool   `yaml:"optl,omitempty"`
+	OPTLPort                int    `yaml:"optl-port,omitempty"`
 }
 
 func NewTopology() *Topology {
@@ -23,6 +25,7 @@ func NewTopology() *Topology {
 		HyperledgerExplorerPort: 8080,
 		PrometheusPort:          9090,
 		GrafanaPort:             3000,
+		OPTLPort:                4319,
 	}
 }
 
@@ -52,4 +55,12 @@ func (t *Topology) SetPrometheusPort(port int) {
 
 func (t *Topology) SetGrafanaPort(port int) {
 	t.GrafanaPort = port
+}
+
+func (t *Topology) EnableOPTL() {
+	t.OPTL = true
+}
+
+func (t *Topology) SetOPTLPort(port int) {
+	t.OPTLPort = port
 }

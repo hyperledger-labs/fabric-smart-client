@@ -12,7 +12,6 @@ import (
 
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
 )
@@ -29,7 +28,6 @@ func (p *Initiator) Call(context view.Context) (interface{}, error) {
 
 	err = session.Send([]byte("ping"))
 	assert.NoError(err) // Wait for the pong
-	tracing.Get(context).EmitKey(0, "sent", "ping")
 	ch := session.Receive()
 	select {
 	case msg := <-ch:
@@ -40,7 +38,6 @@ func (p *Initiator) Call(context view.Context) (interface{}, error) {
 		if m != "pong" {
 			return nil, fmt.Errorf("exptectd pong, got %s", m)
 		}
-		tracing.Get(context).EmitKey(0, "received", "pong")
 	case <-time.After(1 * time.Minute):
 		return nil, errors.New("responder didn't pong in time")
 	}

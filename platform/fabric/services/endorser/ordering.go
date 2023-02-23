@@ -26,7 +26,7 @@ func (o *orderingView) Call(ctx view.Context) (interface{}, error) {
 		return nil, errors.Errorf("fabric network service [%s] not found", o.tx.Network())
 	}
 	tx := o.tx
-	if err := fns.Ordering().Broadcast(tx.Transaction); err != nil {
+	if err := fns.Ordering().Broadcast(ctx.Context(), tx.Transaction); err != nil {
 		return nil, errors.WithMessagef(err, "failed broadcasting to [%s:%s]", o.tx.Network(), o.tx.Channel())
 	}
 	if o.finality {

@@ -11,7 +11,6 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view/protos"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracker"
 	"github.com/pkg/errors"
 )
 
@@ -66,25 +65,17 @@ func (s *viewHandler) RunView(manager *view.Manager, view view.View) (string, er
 		return "", errors.WithMessagef(err, "failed to initiate context")
 	}
 
-	// Get the tracker
-	viewTracker, err := tracker.GetViewTracker(s.sp)
-	if err != nil {
-		return "", errors.WithMessage(err, "failed to get view tracker")
-	}
-
 	// Run the view
-	go s.runViewWithTracking(view, context, viewTracker)
+	go s.runView(view, context)
 
 	return context.ID(), nil
 }
 
-func (s *viewHandler) runViewWithTracking(view view.View, context *view.Context, tracker tracker.ViewTracker) {
+func (s *viewHandler) runView(view view.View, context *view.Context) {
 	result, err := context.RunView(view)
 	if err != nil {
 		s.logger.Errorf("Failed view execution. Err [%s]\n", err)
-		tracker.Error(err)
 	} else {
-		s.logger.Errorf("Successful view execution. Result [%s]\n", result)
-		tracker.Done(result)
+		s.logger.Infof("Successful view execution. Result [%s]\n", result)
 	}
 }

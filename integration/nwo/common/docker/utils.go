@@ -36,7 +36,7 @@ func GetInstance() (*Docker, error) {
 			instanceError = errors.Wrapf(err, "failed to create new docker client instance")
 		}
 
-		singleInstance = &Docker{dockerClient}
+		singleInstance = &Docker{Client: dockerClient}
 	})
 
 	return singleInstance, instanceError
@@ -68,8 +68,10 @@ func (d *Docker) CreateNetwork(networkID string) error {
 			Driver: "bridge",
 		},
 	)
-
-	return errors.Wrapf(err, "failed creating new docker network with ID='%s'", networkID)
+	if err != nil {
+		return errors.Wrapf(err, "failed creating new docker network with ID='%s'", networkID)
+	}
+	return nil
 }
 
 // Cleanup is a helper function to release all container associated with `networkID`, returns an error in case of a failure.

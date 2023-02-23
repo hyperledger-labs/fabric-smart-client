@@ -211,9 +211,17 @@ func (w *metaWriteSet) clear(ns string) {
 
 type namespaceWrites map[string][]byte
 
+func (r namespaceWrites) Keys() []string {
+	var keys []string
+	for k := range r {
+		keys = append(keys, k)
+	}
+	return keys
+}
+
 func (r namespaceWrites) Equals(o namespaceWrites) error {
 	if len(r) != len(o) {
-		return errors.Errorf("number of writes do not match [%v]!=[%v]", len(r), len(o))
+		return errors.Errorf("number of writes do not match [%d]!=[%d], [%v]!=[%v]", len(r), len(o), r.Keys(), o.Keys())
 	}
 
 	for k, v := range r {

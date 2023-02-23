@@ -38,7 +38,6 @@ import (
 	runner2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/runner"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/commands"
 	node2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
-	commands2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/tracing/commands"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/view"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/view/cmd"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/crypto"
@@ -183,9 +182,6 @@ func (p *Platform) Members() []grouper.Member {
 		if !node.Bootstrap {
 			members = append(members, grouper.Member{Name: node.ID(), Runner: p.FSCNodeRunner(node)})
 		}
-	}
-	if len(p.Topology.TraceAggregator) != 0 {
-		members = append(members, grouper.Member{Name: "tracing-aggregator", Runner: p.MetricsAggregator()})
 	}
 	return members
 }
@@ -742,19 +738,6 @@ func (p *Platform) GetSigningIdentity(peer *node2.Peer) (view.SigningIdentity, e
 
 func (p *Platform) GetAdminSigningIdentity(peer *node2.Peer) (view.SigningIdentity, error) {
 	return view.NewX509SigningIdentity(p.AdminLocalMSPIdentityCert(peer), p.AdminLocalMSPPrivateKey(peer))
-}
-
-func (p *Platform) MetricsAggregator() *runner2.Runner {
-	cmd := common.NewCommand(p.Builder.Build(p.Topology.TraceAggregator), &commands2.AggregatorStart{NodeID: "aggregator"})
-	config := runner2.Config{
-		AnsiColorCode:     common.NextColor(),
-		Name:              "aggregator",
-		Command:           cmd,
-		StartCheck:        `Started aggregator`,
-		StartCheckTimeout: 1 * time.Minute,
-	}
-
-	return runner2.New(config)
 }
 
 func (p *Platform) listTLSCACertificates() []string {
