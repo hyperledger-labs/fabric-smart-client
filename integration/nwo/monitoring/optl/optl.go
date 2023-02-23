@@ -70,7 +70,3 @@ func (n *Extension) configFileDir() string {
 func (n *Extension) configFilePath() string {
 	return filepath.Join(n.configFileDir(), "optl-collector-config.yaml")
 }
-
-func (n *Extension) tracesFilePath() string {
-	return filepath.Join(n.configFileDir(), "filename.json")
-}
