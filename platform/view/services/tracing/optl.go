@@ -21,6 +21,8 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 )
 
+type MyKey string
+
 type traceData struct {
 	start time.Time
 	span  trace.Span
@@ -89,7 +91,7 @@ func (h *LatencyTracer) Start(key string) {
 }
 
 func (h *LatencyTracer) StartAt(key string, timestamp time.Time) {
-	ctx := context.WithValue(context.Background(), key, key)
+	ctx := context.WithValue(context.Background(), MyKey(key), key)
 	_, span := h.tracer.Start(ctx, key, trace.WithTimestamp(timestamp), trace.WithAttributes(attribute.String("id", key)))
 	h.traces[key] = &traceData{timestamp, span}
 }
