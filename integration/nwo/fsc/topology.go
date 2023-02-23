@@ -21,18 +21,15 @@ type Logging struct {
 }
 
 type Topology struct {
-	TopologyName string       `yaml:"name,omitempty"`
-	TopologyType string       `yaml:"type,omitempty"`
-	Nodes        []*node.Node `yaml:"peers,omitempty"`
-	GRPCLogging  bool         `yaml:"grpcLogging,omitempty"`
-	Logging      *Logging     `yaml:"logging,omitempty"`
-	LogToFile    bool         `yaml:"logToFile,omitempty"`
-	Templates    Templates    `yaml:"templates,omitempty"`
-
-	TraceAggregator string `yaml:"traceAggregator,omitempty"`
-	TracingProvider string `yaml:"tracingType,omitempty"`
-
-	MetricsProvider string `yaml:"metricsType,omitempty"`
+	TopologyName    string       `yaml:"name,omitempty"`
+	TopologyType    string       `yaml:"type,omitempty"`
+	Nodes           []*node.Node `yaml:"peers,omitempty"`
+	GRPCLogging     bool         `yaml:"grpcLogging,omitempty"`
+	Logging         *Logging     `yaml:"logging,omitempty"`
+	LogToFile       bool         `yaml:"logToFile,omitempty"`
+	Templates       Templates    `yaml:"templates,omitempty"`
+	TracingProvider string       `yaml:"tracingType,omitempty"`
+	MetricsProvider string       `yaml:"metricsType,omitempty"`
 }
 
 // NewTopology returns an empty FSC network topology.
@@ -115,8 +112,7 @@ func (t *Topology) ListNodes(ids ...string) []*node.Node {
 }
 
 func (t *Topology) EnableUDPTracing() {
-	t.TracingProvider = "udp"
-	t.TraceAggregator = "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/tracing/server"
+	t.TracingProvider = "optl"
 }
 
 func (t *Topology) EnableLogToFile() {

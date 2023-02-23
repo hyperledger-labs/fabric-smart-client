@@ -47,7 +47,7 @@ type Committer struct {
 	Network             Network
 	Finality            Finality
 	WaitForEventTimeout time.Duration
-	Metrics             tracing.AppMetrics
+	Tracer              tracing.Tracer
 	Handlers            map[common.HeaderType]TransactionHandler
 	QuietNotifier       bool
 
@@ -57,7 +57,7 @@ type Committer struct {
 	publisher      events.Publisher
 }
 
-func New(channel string, network Network, finality Finality, waitForEventTimeout time.Duration, quiet bool, metrics tracing.AppMetrics, publisher events.Publisher) (*Committer, error) {
+func New(channel string, network Network, finality Finality, waitForEventTimeout time.Duration, quiet bool, metrics tracing.Tracer, publisher events.Publisher) (*Committer, error) {
 	if len(channel) == 0 {
 		return nil, errors.Errorf("expected a channel, got empty string")
 	}
@@ -71,7 +71,7 @@ func New(channel string, network Network, finality Finality, waitForEventTimeout
 		mutex:               sync.Mutex{},
 		Finality:            finality,
 		pollingTimeout:      100 * time.Millisecond,
-		Metrics:             metrics,
+		Tracer:              metrics,
 		publisher:           publisher,
 		Handlers:            map[common.HeaderType]TransactionHandler{},
 	}
@@ -82,7 +82,7 @@ func New(channel string, network Network, finality Finality, waitForEventTimeout
 
 // Commit commits the transactions in the block passed as argument
 func (c *Committer) Commit(block *common.Block) error {
-	c.Metrics.GetTracer().StartAt("commit", time.Now())
+	c.Tracer.StartAt("commit", time.Now())
 	for i, tx := range block.Data.Data {
 
 		env, err := protoutil.UnmarshalEnvelope(tx)
@@ -102,7 +102,7 @@ func (c *Committer) Commit(block *common.Block) error {
 		}
 
 		var event TxEvent
-		c.Metrics.GetTracer().AddEventAt("commit", "start", time.Now())
+		c.Tracer.AddEventAt("commit", "start", time.Now())
 		handler, ok := c.Handlers[common.HeaderType(chdr.Type)]
 		if ok {
 			if err := handler(block, i, &event, env, chdr); err != nil {
@@ -113,7 +113,7 @@ func (c *Committer) Commit(block *common.Block) error {
 				logger.Debugf("[%s] Received unhandled transaction type: %s", c.Channel, chdr.Type)
 			}
 		}
-		c.Metrics.GetTracer().AddEventAt("commit", "end", time.Now())
+		c.Tracer.AddEventAt("commit", "end", time.Now())
 
 		c.Notify(event)
 		if logger.IsEnabledFor(zapcore.DebugLevel) {
@@ -280,7 +280,7 @@ func (c *Committer) notifyChaincodeListeners(event *ChaincodeEvent) {
 }
 
 func (c *Committer) listenTo(ctx context.Context, txid string, timeout time.Duration) error {
-	c.Metrics.GetTracer().Start("committer-listenTo-start")
+	c.Tracer.Start("committer-listenTo-start")
 
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("Listen to finality of [%s]", txid)
@@ -345,6 +345,6 @@ func (c *Committer) listenTo(ctx context.Context, txid string, timeout time.Dura
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("Is [%s] final? Failed to listen to transaction for timeout", txid)
 	}
-	c.Metrics.GetTracer().End("committer-listenTo-end")
+	c.Tracer.End("committer-listenTo-end")
 	return errors.Errorf("failed to listen to transaction [%s] for timeout", txid)
 }

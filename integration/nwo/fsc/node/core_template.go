@@ -112,8 +112,8 @@ fsc:
         - {{ .NodeLocalTLSDir Peer }}/ca.crt
   tracing:
     provider: {{ Topology.TracingProvider }}
-    udp:
-      address: 127.0.0.1:8125
+    optl:
+      address: 127.0.0.1:4319
   metrics:
     # metrics provider is one of statsd, prometheus, or disabled
     provider: {{ Topology.MetricsProvider }}

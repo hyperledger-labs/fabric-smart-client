@@ -124,7 +124,7 @@ func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver
 		return nil, errors.Wrapf(err, "failed to get event publisher")
 	}
 
-	committerInst, err := committer.New(name, network, fabricFinality, WaitForEventTimeout, quiet, tracing.Get(sp), publisher)
+	committerInst, err := committer.New(name, network, fabricFinality, WaitForEventTimeout, quiet, tracing.Get(sp).GetTracer(), publisher)
 	if err != nil {
 		return nil, err
 	}

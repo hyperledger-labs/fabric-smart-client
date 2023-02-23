@@ -39,6 +39,8 @@ import (
 	protos2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view/protos"
 	web2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/web"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing/disabled"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing/optl"
 	"github.com/hyperledger/fabric/common/grpclogging"
 	"github.com/pkg/errors"
 )
@@ -408,11 +410,27 @@ func (p *SDK) getServerConfig() (grpc2.ServerConfig, error) {
 }
 
 func (p *SDK) installTracing() error {
-	m := tracing.NewMetrics(true)
-	ctx := context.Background()
-	endpoint := "localhost:4319"
-	m.LaunchOptl(endpoint, ctx)
-	if err := p.registry.RegisterService(m); err != nil {
+	confService := view.GetConfigService(p.registry)
+
+	var tracingProvider *tracing.Provider
+	providerType := confService.GetString("fsc.tracing.provider")
+	switch providerType {
+	case "", "none":
+		logger.Infof("Tracing disabled")
+		tracingProvider = tracing.NewProvider(disabled.New())
+	case "optl":
+		logger.Infof("Tracing enabled: optl")
+		address := confService.GetString("fsc.tracing.udp.address")
+		if len(address) == 0 {
+			address = "localhost:4319"
+			logger.Infof("tracing server address not set, using default: ", address)
+		}
+		tp := optl.LaunchOptl(address, context.Background())
+		tracingProvider = tracing.NewProvider(optl.NewLatencyTracer(tp, optl.LatencyTracerOpts{Name: "FSC-Tracing"}))
+	default:
+		return errors.Errorf("unknown tracing provider: %s", providerType)
+	}
+	if err := p.registry.RegisterService(tracingProvider); err != nil {
 		return err
 	}
 	return nil
