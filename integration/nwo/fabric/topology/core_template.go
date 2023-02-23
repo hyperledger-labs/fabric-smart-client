@@ -17,7 +17,7 @@ peer:
   address: {{ .PeerAddress Peer "Listen" }}
   addressAutoDetect: true
   listenAddress: 0.0.0.0:{{ .PeerPort Peer "Listen" }}
-  chaincodeListenAddress: {{ .PeerAddress Peer "Chaincode" }}
+  chaincodeListenAddress: {{ if gt (.PeerPort Peer "Chaincode") 0 }}{{ .PeerAddress Peer "Chaincode" }}{{ end }}
   keepalive:
     minInterval: 60s
     interval: 300s
