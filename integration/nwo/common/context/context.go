@@ -34,6 +34,9 @@ type Context struct {
 	PlatformsByName  map[string]api.Platform
 
 	portsByPeerID      map[string]api.Ports
+	hostByPeerID       map[string]string
+	portsByOrdererID   map[string]api.Ports
+	hostByOrdererID    map[string]string
 	extensionsByPeerID map[string]api.Extensions
 
 	ViewClients             map[string]api.ViewClient
@@ -65,6 +68,9 @@ func New(rootDir string, portCounter uint16, builder api.Builder, topologies ...
 		ClientSigningIdentities: map[string]SigningIdentity{},
 		AdminSigningIdentities:  map[string]SigningIdentity{},
 		portsByPeerID:           map[string]api.Ports{},
+		hostByPeerID:            map[string]string{},
+		portsByOrdererID:        map[string]api.Ports{},
+		hostByOrdererID:         map[string]string{},
 		extensionsByPeerID:      map[string]api.Extensions{},
 		TopologiesByName:        topologiesByName,
 		PlatformsByName:         map[string]api.Platform{},
@@ -81,6 +87,30 @@ func (c *Context) PortsByPeerID(prefix string, id string) api.Ports {
 
 func (c *Context) SetPortsByPeerID(prefix string, id string, ports api.Ports) {
 	c.portsByPeerID[prefix+id] = ports
+}
+
+func (c *Context) HostByPeerID(prefix string, id string) string {
+	return c.hostByPeerID[prefix+id]
+}
+
+func (c *Context) SetHostByPeerID(prefix string, id string, host string) {
+	c.hostByPeerID[prefix+id] = host
+}
+
+func (c *Context) PortsByOrdererID(prefix string, id string) api.Ports {
+	return c.portsByOrdererID[prefix+id]
+}
+
+func (c *Context) SetPortsByOrdererID(prefix string, id string, ports api.Ports) {
+	c.portsByOrdererID[prefix+id] = ports
+}
+
+func (c *Context) HostByOrdererID(prefix string, id string) string {
+	return c.hostByOrdererID[prefix+id]
+}
+
+func (c *Context) SetHostByOrdererID(prefix string, id string, host string) {
+	c.hostByOrdererID[prefix+id] = host
 }
 
 func (c *Context) TopologyByName(name string) api.Topology {

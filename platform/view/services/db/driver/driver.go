@@ -98,11 +98,14 @@ type Persistence interface {
 
 // Config provides access to the underlying configuration
 type Config interface {
+	// IsSet checks to see if the key has been set in any of the data locations
+	IsSet(key string) bool
 	// UnmarshalKey takes the value corresponding to the passed key and unmarshals it into the passed structure
 	UnmarshalKey(key string, rawVal interface{}) error
 }
 
 type Driver interface {
+	//add load(identity) driver
 	// NewVersioned returns a new VersionedPersistence for the passed data source and config
 	NewVersioned(sp view.ServiceProvider, dataSourceName string, config Config) (VersionedPersistence, error)
 	// New returns a new Persistence for the passed data source and config

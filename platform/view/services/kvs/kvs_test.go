@@ -110,8 +110,11 @@ func TestBadgerKVS(t *testing.T) {
 
 	cp := &mock.ConfigProvider{}
 	cp.UnmarshalKeyStub = func(s string, i interface{}) error {
-		*(i.(*badger.Opts)) = badger.Opts{
-			Path: path,
+		_, ok := i.(*badger.Opts)
+		if ok {
+			*(i.(*badger.Opts)) = badger.Opts{
+				Path: path,
+			}
 		}
 		return nil
 	}

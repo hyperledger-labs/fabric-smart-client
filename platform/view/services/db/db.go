@@ -50,6 +50,8 @@ func Drivers() []string {
 
 // Config models the DB configuration
 type Config interface {
+	// IsSet checks to see if the key has been set in any of the data locations
+	IsSet(key string) bool
 	// UnmarshalKey takes a single key and unmarshals it into a Struct
 	UnmarshalKey(key string, rawVal interface{}) error
 }

@@ -309,6 +309,7 @@ func (p *Platform) CheckTopology() {
 			ports[portName] = p.Context.ReservePort()
 		}
 		p.Context.SetPortsByPeerID("fsc", peer.ID(), ports)
+		p.Context.SetHostByPeerID("fsc", peer.ID(), "0.0.0.0")
 		users[orgName] = users[orgName] + 1
 		userNames[orgName] = append(userNames[orgName], node.Name)
 

@@ -42,7 +42,7 @@ Organizations:{{ range .PeerOrgs }}
       Rule: OR('{{.MSPID}}.admin')
     {{- end }}
   AnchorPeers:{{ range $w.AnchorsInOrg .Name }}
-  - Host: 127.0.0.1
+  - Host: {{ $w.PeerHost . }}
     Port: {{ $w.PeerPort . "Listen" }}
   {{- end }}
 {{- end }}
@@ -109,7 +109,7 @@ Organizations:{{ range .PeerOrgs }}
       Rule: OR('{{.MSPID}}.admin')
   {{- end }}
   OrdererEndpoints:{{ range $w.OrderersInOrg .Name }}
-  - 127.0.0.1:{{ $w.OrdererPort . "Listen" }}
+  - {{ $w.OrdererAddress . "Listen" }}
   {{- end }}
 {{ end }}
 
@@ -142,7 +142,7 @@ Profiles:{{ range .Profiles }}
     Orderer:
       OrdererType: {{ $w.Consensus.Type }}
       Addresses:{{ range .Orderers }}{{ with $w.Orderer . }}
-      - 127.0.0.1:{{ $w.OrdererPort . "Listen" }}
+      - {{ $w.OrdererAddress . "Listen" }}
       {{- end }}{{ end }}
       BatchTimeout: 1s
       BatchSize:
@@ -157,7 +157,7 @@ Profiles:{{ range .Profiles }}
           TickInterval: 500ms
           SnapshotIntervalSize: 1 KB
         Consenters:{{ range .Orderers }}{{ with $w.Orderer . }}
-        - Host: 127.0.0.1
+        - Host: {{ $w.OrdererHost . }}
           Port: {{ $w.OrdererPort . "Cluster" }}
           ClientTLSCert: {{ $w.OrdererLocalCryptoDir . "tls" }}/server.crt
           ServerTLSCert: {{ $w.OrdererLocalCryptoDir . "tls" }}/server.crt
@@ -249,7 +249,7 @@ Organizations:{{ range .PeerOrgs }}
       Type: Signature
       Rule: OR('{{.MSPID}}.admin')
   AnchorPeers:{{ range $w.AnchorsInOrg .Name }}
-  - Host: 127.0.0.1
+  - Host: {{ $w.PeerHost . }}
     Port: {{ $w.PeerPort . "Listen" }}
   {{- end }}
 {{- end }}

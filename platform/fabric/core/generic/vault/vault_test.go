@@ -643,6 +643,7 @@ func TestVaultInMem(t *testing.T) {
 func TestVaultBadger(t *testing.T) {
 	c := &mocks.Config{}
 	c.UnmarshalKeyReturns(nil)
+	c.IsSetReturns(false)
 	db1, err := db.OpenVersioned(nil, "badger", filepath.Join(tempDir, "DB-TestVaultBadgerDB1"), c)
 	assert.NoError(t, err)
 	db2, err := db.OpenVersioned(nil, "badger", filepath.Join(tempDir, "DB-TestVaultBadgerDB2"), c)

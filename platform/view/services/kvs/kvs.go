@@ -106,6 +106,9 @@ func (o *KVS) Exists(id string) bool {
 	// is in cache, first?
 	v, ok = o.cache.Get(id)
 	if ok {
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			logger.Debugf("hit the cache, len state [%d]", len(v.([]byte)))
+		}
 		return v != nil && len(v.([]byte)) != 0
 	}
 	// get from store and store in cache
@@ -139,6 +142,7 @@ func (o *KVS) Put(id string, state interface{}) error {
 		return errors.WithMessagef(err, "begin update for id [%s] failed", id)
 	}
 
+	logger.Debugf("store [%d] bytes into key [%s:%s]", len(raw), o.namespace, id)
 	err = o.store.SetState(o.namespace, id, raw)
 	if err != nil {
 		if err1 := o.store.Discard(); err1 != nil {

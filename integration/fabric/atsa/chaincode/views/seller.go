@@ -92,7 +92,7 @@ func (a *TransferView) Call(ctx view.Context) (interface{}, error) {
 		},
 	), "the transaction [%s] has not been broadcast yet", envelope.TxID())
 
-	assert.NoError(fabric.GetDefaultFNS(ctx).Ordering().Broadcast(envelope), "failed sending to ordering")
+	assert.NoError(fabric.GetDefaultFNS(ctx).Ordering().Broadcast(ctx.Context(), envelope), "failed sending to ordering")
 
 	c, cancel = context.WithTimeout(context.Background(), 1*time.Minute)
 	defer cancel()

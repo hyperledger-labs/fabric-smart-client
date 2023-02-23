@@ -54,6 +54,13 @@ type Context interface {
 
 	PortsByPeerID(prefix string, id string) Ports
 	SetPortsByPeerID(prefix string, id string, ports Ports)
+	HostByPeerID(prefix string, id string) string
+	SetHostByPeerID(prefix string, id string, host string)
+
+	PortsByOrdererID(prefix string, id string) Ports
+	SetPortsByOrdererID(prefix string, id string, ports Ports)
+	HostByOrdererID(prefix string, id string) string
+	SetHostByOrdererID(prefix string, id string, host string)
 
 	AddIdentityAlias(name string, alias string)
 	TopologyByName(name string) Topology

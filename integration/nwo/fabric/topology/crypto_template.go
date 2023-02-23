@@ -20,6 +20,7 @@ OrdererOrgs:{{ range .OrdererOrgs }}
   Specs:{{ range $w.OrderersInOrg .Name }}
   - Hostname: {{ .Name }}
     SANS:
+    - {{ $w.OrdererHost . }}
     - 0.0.0.0
     - localhost
     - 127.0.0.1
@@ -55,6 +56,7 @@ PeerOrgs:{{ range .PeerOrgs }}
   Specs:{{ range $w.PeersInOrg .Name }}
   - Hostname: {{ .Name }}
     SANS:
+    - {{ $w.PeerHost . }}
     - 0.0.0.0
     - localhost
     - 127.0.0.1
