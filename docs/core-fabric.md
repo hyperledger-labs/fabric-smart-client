@@ -126,11 +126,11 @@ fsc:
 
   # ------------------- Tracing Configuration -------------------------
   tracing:
-    # provider can be udp or none
-    provider: udp
+    # provider can be optl or none (or empty)
+    provider: optl
 
     # only required if udp is specified as the provider
-    udp:
+    optl:
       address: 127.0.0.1:8125
 
   # ------------------- Metrics Configuration -------------------------
