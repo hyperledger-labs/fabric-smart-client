@@ -263,6 +263,36 @@ func (db *Vault) NewRWSet(txid string) (*Interceptor, error) {
 	return i, nil
 }
 
+func (db *Vault) GetExistingRWSet(txID string) (*Interceptor, error) {
+	logger.Debugf("GetExistingRWSet[%s][%d]", txID, db.counter.Load())
+
+	db.interceptorsLock.Lock()
+	interceptor, in := db.interceptors[txID]
+	if in {
+		if !interceptor.closed {
+			db.interceptorsLock.Unlock()
+			return nil, errors.Errorf("programming error: previous read-write set for %s has not been closed", txID)
+		}
+		if err := interceptor.Reopen(&interceptorQueryExecutor{db}); err != nil {
+			db.interceptorsLock.Unlock()
+			return nil, errors.Errorf("failed to reopen rwset [%s]", txID)
+		}
+	} else {
+		db.interceptorsLock.Unlock()
+		return nil, errors.Errorf("")
+	}
+	if err := db.SetBusy(txID); err != nil {
+		db.interceptorsLock.Unlock()
+		return nil, errors.Errorf("failed to ser status to busy for txid %s", txID)
+	}
+	db.interceptorsLock.Unlock()
+
+	db.counter.Inc()
+	db.storeLock.RLock()
+
+	return interceptor, nil
+}
+
 func (db *Vault) GetRWSet(txid string, rwsetBytes []byte) (*Interceptor, error) {
 	logger.Debugf("GetRWSet[%s][%d]", txid, db.counter.Load())
 	i := newInterceptor(&interceptorQueryExecutor{db}, db.txidStore, txid)

@@ -423,3 +423,14 @@ func (i *Interceptor) Done() {
 		i.qe.Done()
 	}
 }
+
+func (i *Interceptor) Reopen(qe QueryExecutor) error {
+	logger.Debugf("Reopen with [%s], closed [%v]", i.txid, i.closed)
+	if !i.closed {
+		return errors.Errorf("already open")
+	}
+	i.qe = qe
+	i.closed = false
+
+	return nil
+}
