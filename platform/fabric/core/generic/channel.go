@@ -19,7 +19,6 @@ import (
 	finality2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/finality"
 	peer2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
 	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer/common"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/rwset"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
@@ -72,6 +71,7 @@ type Channel struct {
 	MS                driver.MetadataService
 	DeliveryService   Delivery
 	driver.TXIDStore
+	RWSetLoader driver.RWSetLoader
 
 	// ResourcesApplyLock is used to serialize calls to CommitConfig and bundle update processing.
 	ResourcesApplyLock sync.Mutex
@@ -195,6 +195,11 @@ func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver
 		EventsSubscriber:  eventsSubscriber,
 		Subscribers:       events.NewSubscribers(),
 	}
+	c.RWSetLoader = NewRWSetLoader(
+		network.Name(), name,
+		c.ES, c.TS, network.TransactionManager(),
+		v,
+	)
 	if err := c.Init(); err != nil {
 		return nil, errors.WithMessagef(err, "failed initializing Channel [%s]", name)
 	}
@@ -336,46 +341,11 @@ func (c *Channel) FetchAndStoreEnvelope(txID string) error {
 }
 
 func (c *Channel) GetRWSetFromEvn(txID string) (driver.RWSet, driver.ProcessTransaction, error) {
-	rawEnv, err := c.EnvelopeService().LoadEnvelope(txID)
-	if err != nil {
-		return nil, nil, errors.Wrapf(err, "cannot load envelope [%s]", txID)
-	}
-	logger.Debugf("unmarshal envelope [%s,%s]", c.Name(), txID)
-	env := &common.Envelope{}
-	err = proto.Unmarshal(rawEnv, env)
-	if err != nil {
-		return nil, nil, errors.Wrapf(err, "failed unmarshalling envelope [%s]", txID)
-	}
-	logger.Debugf("unpack envelope [%s,%s]", c.Name(), txID)
-	upe, err := rwset.UnpackEnvelope(c.Network.Name(), env)
-	if err != nil {
-		return nil, nil, errors.Wrapf(err, "failed unpacking envelope [%s]", txID)
-	}
-	logger.Debugf("retrieve rws [%s,%s]", c.Name(), txID)
-
-	rws, err := c.GetRWSet(txID, upe.Results)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return rws, upe, nil
+	return c.RWSetLoader.GetRWSetFromEvn(txID)
 }
 
 func (c *Channel) GetRWSetFromETx(txID string) (driver.RWSet, driver.ProcessTransaction, error) {
-	raw, err := c.TransactionService().LoadTransaction(txID)
-	if err != nil {
-		return nil, nil, errors.Wrapf(err, "cannot load etx [%s]", txID)
-	}
-	tx, err := c.Network.TransactionManager().NewTransactionFromBytes(c.Name(), raw)
-	if err != nil {
-		return nil, nil, err
-	}
-	rws, err := tx.GetRWSet()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return rws, tx, nil
+	return c.RWSetLoader.GetRWSetFromETx(txID)
 }
 
 func (c *Channel) Init() error {
