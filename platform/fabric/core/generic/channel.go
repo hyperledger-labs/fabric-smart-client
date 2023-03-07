@@ -385,7 +385,7 @@ type processedTransaction struct {
 func newProcessedTransactionFromEnvelope(env *common.Envelope) (*processedTransaction, int32, error) {
 	ue, headerType, err := transaction.UnpackEnvelope(env)
 	if err != nil {
-		return nil, -1, err
+		return nil, headerType, err
 	}
 	return &processedTransaction{ue: ue}, headerType, nil
 }

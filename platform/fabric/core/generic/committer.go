@@ -294,7 +294,7 @@ func (c *Channel) commitLocal(txid string, block uint64, indexInBlock int, envel
 
 		pt, headerType, err := newProcessedTransactionFromEnvelope(envelope)
 		if err != nil && headerType == -1 {
-			logger.Error("[%s] failed to unmarshal envelope [%s]", txid, err)
+			logger.Errorf("[%s] failed to unmarshal envelope [%s]", txid, err)
 			return err
 		}
 		if headerType == int32(common.HeaderType_ENDORSER_TRANSACTION) {
