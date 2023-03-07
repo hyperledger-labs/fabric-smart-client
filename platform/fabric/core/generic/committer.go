@@ -198,7 +198,7 @@ func (c *Channel) extractStoredEnvelopeToVault(txID string) error {
 	if err != nil {
 		return errors.WithMessagef(err, "failed to unmarshal fabric envelope for [%s][%s]", txID, hash.Hashable(envRaw).String())
 	}
-	pt, err := newProcessedTransactionFromEnvelope(env)
+	pt, _, err := newProcessedTransactionFromEnvelope(env)
 	if err != nil {
 		return errors.WithMessagef(err, "failed to parse fabric envelope for [%s][%s]", txID, hash.Hashable(envRaw).String())
 	}
@@ -292,23 +292,23 @@ func (c *Channel) commitLocal(txid string, block uint64, indexInBlock int, envel
 	if envelope != nil {
 		logger.Debugf("[%s] Matching rwsets", txid)
 
-		pt, err := newProcessedTransactionFromEnvelope(envelope)
-		if err != nil {
+		pt, headerType, err := newProcessedTransactionFromEnvelope(envelope)
+		if err != nil && headerType == -1 {
 			logger.Error("[%s] failed to unmarshal envelope [%s]", txid, err)
 			return err
 		}
+		if headerType == int32(common.HeaderType_ENDORSER_TRANSACTION) {
+			if !c.Vault.RWSExists(txid) {
+				if err := c.extractStoredEnvelopeToVault(txid); err != nil {
+					return errors.WithMessagef(err, "failed to load stored enveloper into the vault")
+				}
+			}
 
-		if !c.Vault.RWSExists(txid) {
-			if err := c.extractStoredEnvelopeToVault(txid); err != nil {
-				return errors.WithMessagef(err, "failed to load stored enveloper into the vault")
+			if err := c.Vault.Match(txid, pt.Results()); err != nil {
+				logger.Errorf("[%s] rwsets do not match [%s]", txid, err)
+				return err
 			}
 		}
-
-		if err := c.Vault.Match(txid, pt.Results()); err != nil {
-			logger.Errorf("[%s] rwsets do not match [%s]", txid, err)
-			return err
-		}
-
 	}
 
 	// Post-Processes
