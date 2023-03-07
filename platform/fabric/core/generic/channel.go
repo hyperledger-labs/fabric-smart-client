@@ -382,16 +382,16 @@ type processedTransaction struct {
 	env []byte
 }
 
-func newProcessedTransactionFromEnvelope(env *common.Envelope) (*processedTransaction, error) {
-	ue, err := transaction.UnpackEnvelope(env)
+func newProcessedTransactionFromEnvelope(env *common.Envelope) (*processedTransaction, int32, error) {
+	ue, headerType, err := transaction.UnpackEnvelope(env)
 	if err != nil {
-		return nil, err
+		return nil, -1, err
 	}
-	return &processedTransaction{ue: ue}, nil
+	return &processedTransaction{ue: ue}, headerType, nil
 }
 
 func newProcessedTransactionFromEnvelopeRaw(env []byte) (*processedTransaction, error) {
-	ue, err := transaction.UnpackEnvelopeFromBytes(env)
+	ue, _, err := transaction.UnpackEnvelopeFromBytes(env)
 	if err != nil {
 		return nil, err
 	}
@@ -399,7 +399,7 @@ func newProcessedTransactionFromEnvelopeRaw(env []byte) (*processedTransaction, 
 }
 
 func newProcessedTransaction(pt *peer.ProcessedTransaction) (*processedTransaction, error) {
-	ue, err := transaction.UnpackEnvelope(pt.TransactionEnvelope)
+	ue, _, err := transaction.UnpackEnvelope(pt.TransactionEnvelope)
 	if err != nil {
 		return nil, err
 	}

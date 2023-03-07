@@ -226,7 +226,7 @@ func (t *Transaction) SetFromBytes(raw []byte) error {
 
 func (t *Transaction) SetFromEnvelopeBytes(raw []byte) error {
 	// TODO: check the current payload is compatible with the content of the signed proposal
-	upe, err := UnpackEnvelopeFromBytes(raw)
+	upe, _, err := UnpackEnvelopeFromBytes(raw)
 	if err != nil {
 		return err
 	}
