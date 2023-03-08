@@ -12,9 +12,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/compose"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger/fabric-protos-go/common"
-	"github.com/hyperledger/fabric/protoutil"
 	"github.com/pkg/errors"
 )
 
@@ -189,23 +187,9 @@ func (c *Channel) commitStoredEnvelope(txID string, block uint64, indexInBlock i
 }
 
 func (c *Channel) extractStoredEnvelopeToVault(txID string) error {
-	// extract envelope
-	envRaw, err := c.EnvelopeService().LoadEnvelope(txID)
+	rws, _, err := c.RWSetLoader.GetRWSetFromEvn(txID)
 	if err != nil {
-		return errors.WithMessagef(err, "failed to load fabric envelope for [%s]", txID)
-	}
-	env, err := protoutil.UnmarshalEnvelope(envRaw)
-	if err != nil {
-		return errors.WithMessagef(err, "failed to unmarshal fabric envelope for [%s][%s]", txID, hash.Hashable(envRaw).String())
-	}
-	pt, _, err := newProcessedTransactionFromEnvelope(env)
-	if err != nil {
-		return errors.WithMessagef(err, "failed to parse fabric envelope for [%s][%s]", txID, hash.Hashable(envRaw).String())
-	}
-	// load into the vault
-	rws, err := c.Vault.GetRWSet(txID, pt.Results())
-	if err != nil {
-		return errors.WithMessagef(err, "failed to parse fabric envelope's rws for [%s][%s]", txID, hash.Hashable(envRaw).String())
+		return errors.WithMessagef(err, "failed to extract rws from envelope [%s]", txID)
 	}
 	rws.Done()
 	return nil
