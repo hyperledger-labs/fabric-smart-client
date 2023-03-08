@@ -50,15 +50,24 @@ func validChaincodeEvent(event *peer.ChaincodeEvent) bool {
 // readChaincodeEvent parses the envelope proto message to get the chaincode events.
 func readChaincodeEvent(env *common.Envelope, blockNumber uint64) (*ChaincodeEvent, error) {
 	var chaincodeEvent *ChaincodeEvent
-	chaincodeAction, err := protoutil.GetActionFromEnvelopeMsg(env)
+	payl, err := protoutil.UnmarshalPayload(env.Payload)
 	if err != nil {
-		return nil, errors.Wrapf(err, "Error getting chaincode actions from envelope")
+		return nil, err
 	}
-
+	tx, err := protoutil.UnmarshalTransaction(payl.Data)
+	if err != nil {
+		return nil, err
+	}
+	if len(tx.Actions) == 0 {
+		return nil, nil
+	}
+	_, chaincodeAction, err := protoutil.GetPayloads(tx.Actions[0])
+	if err != nil {
+		return nil, err
+	}
 	if chaincodeAction == nil {
 		return nil, nil
 	}
-
 	chaincodeEventData, err := protoutil.UnmarshalChaincodeEvents(chaincodeAction.GetEvents())
 	if err != nil {
 		return nil, errors.Wrapf(err, "Error getting chaincode event from chaincode actions")
