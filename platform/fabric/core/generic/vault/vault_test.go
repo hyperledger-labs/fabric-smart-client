@@ -86,18 +86,18 @@ func TestMerge(t *testing.T) {
 			"key1": {"k1": []byte("v1")},
 			"key3": {"k3": []byte("v3")},
 		},
-	}, rws.rws.metawrites)
+	}, rws.Rws.metawrites)
 	assert.Equal(t, writes{"namespace": {
 		"key1": []byte("newv1"),
 		"key2": []byte("v2"),
-	}}, rws.rws.writes)
+	}}, rws.Rws.writes)
 	assert.Equal(t, reads{
 		"namespace": {
 			"key1":      {block: 35, txnum: 1},
 			"notexist1": {block: 0, txnum: 0},
 			"notexist2": {block: 0, txnum: 0},
 		},
-	}, rws.rws.reads)
+	}, rws.Rws.reads)
 
 	rwsb = rwsetutil.NewRWSetBuilder()
 	rwsb.AddToReadSet(ns, k1, rwsetutil.NewVersion(&kvrwset.Version{BlockNum: 36, TxNum: 1}))
@@ -542,7 +542,7 @@ func testRun(t *testing.T, db1, db2 driver.VersionedPersistence) {
 
 	compare(t, ns, db1, db2)
 
-	// we expect a busy txid in the store
+	// we expect a busy txid in the Store
 	code, err := vault1.Status(txid)
 	assert.NoError(t, err)
 	assert.Equal(t, fdriver.Busy, code)
@@ -558,12 +558,12 @@ func testRun(t *testing.T, db1, db2 driver.VersionedPersistence) {
 	err = vault2.CommitTX(txid, 35, 2)
 	assert.NoError(t, err)
 
-	// all interceptors should be gone
-	assert.Len(t, vault1.interceptors, 0)
-	assert.Len(t, vault2.interceptors, 0)
+	// all Interceptors should be gone
+	assert.Len(t, vault1.Interceptors, 0)
+	assert.Len(t, vault2.Interceptors, 0)
 
 	compare(t, ns, db1, db2)
-	// we expect a valid txid in the store
+	// we expect a valid txid in the Store
 	code, err = vault1.Status(txid)
 	assert.NoError(t, err)
 	assert.Equal(t, fdriver.Valid, code)
@@ -967,8 +967,8 @@ func TestShardLikeCommit(t *testing.T) {
 	assert.Equal(t, uint64(38), b)
 	assert.Equal(t, uint64(10), tx)
 
-	// all interceptors should be gone
-	assert.Len(t, vault.interceptors, 0)
+	// all Interceptors should be gone
+	assert.Len(t, vault.Interceptors, 0)
 }
 
 func TestMain(m *testing.M) {

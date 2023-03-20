@@ -25,6 +25,24 @@ type Opts struct {
 
 type Driver struct{}
 
+// NewTransactionalVersionedPersistence returns a new TransactionalVersionedPersistence for the passed data source and config
+func (o *Driver) NewTransactionalVersionedPersistence(sp view.ServiceProvider, dataSourceName string, config driver.Config) (driver.TransactionalVersionedPersistence, error) {
+	opts := &Opts{}
+	if err := config.UnmarshalKey("", opts); err != nil {
+		return nil, errors.Wrapf(err, "failed getting opts")
+	}
+	if err := config.UnmarshalKey("", &opts.Options); err != nil {
+		return nil, errors.Wrapf(err, "failed getting opts")
+	}
+	path := filepath.Join(opts.Path, dataSourceName)
+	opts.Path = path
+	logger.Infof("opening badger at [%s], opts [%v]", path, opts)
+	if err := os.MkdirAll(path, 0755); err != nil {
+		return nil, errors.Wrapf(err, "failed creating directory [%s]", path)
+	}
+	return OpenDB(*opts, config)
+}
+
 func (v *Driver) NewVersioned(sp view.ServiceProvider, dataSourceName string, config driver.Config) (driver.VersionedPersistence, error) {
 	opts := &Opts{}
 	if err := config.UnmarshalKey("", opts); err != nil {

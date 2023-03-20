@@ -64,7 +64,7 @@ func (r *rangeScanIterator) Close() {
 	r.txn.Discard()
 }
 
-func (db *badgerDB) GetStateRangeScanIterator(namespace string, startKey string, endKey string) (driver.VersionedResultsIterator, error) {
+func (db *DB) GetStateRangeScanIterator(namespace string, startKey string, endKey string) (driver.VersionedResultsIterator, error) {
 	txn := db.db.NewTransaction(false)
 	it := txn.NewIterator(iteratorOptions)
 	it.Seek([]byte(dbKey(namespace, startKey)))

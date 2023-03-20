@@ -12,12 +12,12 @@ import (
 )
 
 type Inspector struct {
-	rws readWriteSet
+	Rws readWriteSet
 }
 
-func newInspector() *Inspector {
+func NewInspector() *Inspector {
 	return &Inspector{
-		rws: readWriteSet{
+		Rws: readWriteSet{
 			readSet: readSet{
 				orderedReads: map[string][]string{},
 				reads:        reads{},
@@ -42,7 +42,7 @@ func (i *Inspector) SetState(namespace string, key string, value []byte) error {
 }
 
 func (i *Inspector) GetState(namespace string, key string, opts ...driver.GetStateOpt) ([]byte, error) {
-	return i.rws.writeSet.get(namespace, key), nil
+	return i.Rws.writeSet.get(namespace, key), nil
 }
 
 func (i *Inspector) DeleteState(namespace string, key string) error {
@@ -50,7 +50,7 @@ func (i *Inspector) DeleteState(namespace string, key string) error {
 }
 
 func (i *Inspector) GetStateMetadata(namespace, key string, opts ...driver.GetStateOpt) (map[string][]byte, error) {
-	return i.rws.metaWriteSet.get(namespace, key), nil
+	return i.Rws.metaWriteSet.get(namespace, key), nil
 }
 
 func (i *Inspector) SetStateMetadata(namespace, key string, metadata map[string][]byte) error {
@@ -58,7 +58,7 @@ func (i *Inspector) SetStateMetadata(namespace, key string, metadata map[string]
 }
 
 func (i *Inspector) GetReadKeyAt(ns string, pos int) (string, error) {
-	key, in := i.rws.readSet.getAt(ns, pos)
+	key, in := i.Rws.readSet.getAt(ns, pos)
 	if !in {
 		return "", errors.Errorf("no read at position %d for namespace %s", pos, ns)
 	}
@@ -66,7 +66,7 @@ func (i *Inspector) GetReadKeyAt(ns string, pos int) (string, error) {
 }
 
 func (i *Inspector) GetReadAt(ns string, pos int) (string, []byte, error) {
-	key, in := i.rws.readSet.getAt(ns, pos)
+	key, in := i.Rws.readSet.getAt(ns, pos)
 	if !in {
 		return "", nil, errors.Errorf("no read at position %d for namespace %s", pos, ns)
 	}
@@ -81,29 +81,29 @@ func (i *Inspector) GetReadAt(ns string, pos int) (string, []byte, error) {
 
 func (i *Inspector) GetWriteAt(ns string, pos int) (string, []byte, error) {
 
-	key, in := i.rws.writeSet.getAt(ns, pos)
+	key, in := i.Rws.writeSet.getAt(ns, pos)
 	if !in {
 		return "", nil, errors.Errorf("no write at position %d for namespace %s", pos, ns)
 	}
 
-	return key, i.rws.writeSet.get(ns, key), nil
+	return key, i.Rws.writeSet.get(ns, key), nil
 }
 
 func (i *Inspector) NumReads(ns string) int {
-	return len(i.rws.reads[ns])
+	return len(i.Rws.reads[ns])
 }
 
 func (i *Inspector) NumWrites(ns string) int {
-	return len(i.rws.writes[ns])
+	return len(i.Rws.writes[ns])
 }
 
 func (i *Inspector) Namespaces() []string {
 	mergedMaps := map[string]struct{}{}
 
-	for ns := range i.rws.reads {
+	for ns := range i.Rws.reads {
 		mergedMaps[ns] = struct{}{}
 	}
-	for ns := range i.rws.writes {
+	for ns := range i.Rws.writes {
 		mergedMaps[ns] = struct{}{}
 	}
 
