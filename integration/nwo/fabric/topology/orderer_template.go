@@ -61,7 +61,7 @@ Consensus:
   SnapDir: {{ .OrdererDir Orderer }}/etcdraft/snapshot
   EvictionSuspicion: 10s
 Operations:
-  ListenAddress: {{ .OrdererAddress Orderer "Operations" }}
+  ListenAddress: 0.0.0.0:{{ .OrdererPort Orderer "Operations" }}
   TLS:
     Enabled: false
     PrivateKey: {{ $w.OrdererLocalTLSDir Orderer }}/server.key
