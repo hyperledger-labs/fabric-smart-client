@@ -21,15 +21,20 @@ type Logging struct {
 }
 
 type Topology struct {
-	TopologyName    string       `yaml:"name,omitempty"`
-	TopologyType    string       `yaml:"type,omitempty"`
-	Nodes           []*node.Node `yaml:"peers,omitempty"`
-	GRPCLogging     bool         `yaml:"grpcLogging,omitempty"`
-	Logging         *Logging     `yaml:"logging,omitempty"`
-	LogToFile       bool         `yaml:"logToFile,omitempty"`
-	Templates       Templates    `yaml:"templates,omitempty"`
-	TracingProvider string       `yaml:"tracingType,omitempty"`
-	MetricsProvider string       `yaml:"metricsType,omitempty"`
+	TopologyName string       `yaml:"name,omitempty"`
+	TopologyType string       `yaml:"type,omitempty"`
+	Nodes        []*node.Node `yaml:"peers,omitempty"`
+	GRPCLogging  bool         `yaml:"grpcLogging,omitempty"`
+	Logging      *Logging     `yaml:"logging,omitempty"`
+	LogToFile    bool         `yaml:"logToFile,omitempty"`
+	Templates    Templates    `yaml:"templates,omitempty"`
+	Monitoring   Monitoring   `yaml:"monitoring,omitempty"`
+}
+
+type Monitoring struct {
+	TracingType     string `yaml:"tracingType,omitempty"`
+	TracingEndpoint string `yaml:"tracingEndpoint,omitempty"`
+	MetricsType     string `yaml:"metricsType,omitempty"`
 }
 
 // NewTopology returns an empty FSC network topology.
@@ -42,8 +47,10 @@ func NewTopology() *Topology {
 			Spec:   "grpc=error:info",
 			Format: "'%{color}%{time:2006-01-02 15:04:05.000 MST} [%{module}] %{shortfunc} -> %{level:.4s} %{id:03x}%{color:reset} %{message}'",
 		},
-		TracingProvider: "none",
-		MetricsProvider: "none",
+		Monitoring: Monitoring{
+			TracingType: "none",
+			MetricsType: "none",
+		},
 	}
 }
 
@@ -112,7 +119,7 @@ func (t *Topology) ListNodes(ids ...string) []*node.Node {
 }
 
 func (t *Topology) EnableOPTLTracing() {
-	t.TracingProvider = "optl"
+	t.Monitoring.TracingType = "optl"
 }
 
 func (t *Topology) EnableLogToFile() {
@@ -120,7 +127,7 @@ func (t *Topology) EnableLogToFile() {
 }
 
 func (t *Topology) EnablePrometheusMetrics() {
-	t.MetricsProvider = "prometheus"
+	t.Monitoring.MetricsType = "prometheus"
 }
 
 func (t *Topology) AddSDK(sdk api.SDK) {

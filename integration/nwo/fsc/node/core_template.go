@@ -111,12 +111,12 @@ fsc:
         files:
         - {{ .NodeLocalTLSDir Peer }}/ca.crt
   tracing:
-    provider: {{ Topology.TracingProvider }}
+    provider: {{ Topology.Monitoring.TracingType }}
     optl:
-      address: 127.0.0.1:4319
+      address: {{ if Topology.Monitoring.TracingEndpoint }}{{ Topology.Monitoring.TracingEndpoint }}{{ else }}127.0.0.1:4319{{ end }}
   metrics:
     # metrics provider is one of statsd, prometheus, or disabled
-    provider: {{ Topology.MetricsProvider }}
+    provider: {{ Topology.Monitoring.MetricsType }}
     # statsd configuration
     statsd:
       # network type: tcp or udp
