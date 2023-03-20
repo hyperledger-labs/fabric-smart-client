@@ -23,21 +23,21 @@ type QueryExecutor interface {
 }
 
 type Interceptor struct {
-	qe        QueryExecutor
-	txidStore TXIDStoreReader
-	rws       readWriteSet
-	closed    bool
-	txid      string
+	QE        QueryExecutor
+	TxIDStore TXIDStoreReader
+	Rws       readWriteSet
+	Closed    bool
+	TxID      string
 }
 
-func newInterceptor(qe QueryExecutor, txidStore TXIDStoreReader, txid string) *Interceptor {
+func NewInterceptor(qe QueryExecutor, txidStore TXIDStoreReader, txid string) *Interceptor {
 	logger.Debugf("new interceptor [%s]", txid)
 
 	return &Interceptor{
-		txid:      txid,
-		qe:        qe,
-		txidStore: txidStore,
-		rws: readWriteSet{
+		TxID:      txid,
+		QE:        qe,
+		TxIDStore: txidStore,
+		Rws: readWriteSet{
 			readSet: readSet{
 				orderedReads: map[string][]string{},
 				reads:        reads{},
@@ -54,48 +54,49 @@ func newInterceptor(qe QueryExecutor, txidStore TXIDStoreReader, txid string) *I
 }
 
 func (i *Interceptor) IsValid() error {
-	code, err := i.txidStore.Get(i.txid)
+	code, err := i.TxIDStore.Get(i.TxID)
 	if err != nil {
 		return err
 	}
 	if code == driver.Valid {
-		return errors.Errorf("duplicate txid %s", i.txid)
+		return errors.Errorf("duplicate txid %s", i.TxID)
 	}
+	if i.QE != nil {
 
-	for ns, nsMap := range i.rws.reads {
-		for k, v := range nsMap {
-			_, b, t, err := i.qe.GetState(ns, k)
-			if err != nil {
-				return err
-			}
+		for ns, nsMap := range i.Rws.reads {
+			for k, v := range nsMap {
+				_, b, t, err := i.QE.GetState(ns, k)
+				if err != nil {
+					return err
+				}
 
-			if b != v.block || t != v.txnum {
-				return errors.Errorf("invalid read: vault at version %s:%s %d:%d, read-write set at version %d:%d", ns, k, b, t, v.block, v.txnum)
+				if b != v.block || t != v.txnum {
+					return errors.Errorf("invalid read: vault at version %s:%s %d:%d, read-write set at version %d:%d", ns, k, b, t, v.block, v.txnum)
+				}
 			}
 		}
 	}
-
 	return nil
 }
 
 func (i *Interceptor) Clear(ns string) error {
-	if i.closed {
+	if i.Closed {
 		return errors.New("this instance was closed")
 	}
 
-	i.rws.readSet.clear(ns)
-	i.rws.writeSet.clear(ns)
-	i.rws.metaWriteSet.clear(ns)
+	i.Rws.readSet.clear(ns)
+	i.Rws.writeSet.clear(ns)
+	i.Rws.metaWriteSet.clear(ns)
 
 	return nil
 }
 
 func (i *Interceptor) GetReadKeyAt(ns string, pos int) (string, error) {
-	if i.closed {
+	if i.Closed {
 		return "", errors.New("this instance was closed")
 	}
 
-	key, in := i.rws.readSet.getAt(ns, pos)
+	key, in := i.Rws.readSet.getAt(ns, pos)
 	if !in {
 		return "", errors.Errorf("no read at position %d for namespace %s", pos, ns)
 	}
@@ -104,11 +105,11 @@ func (i *Interceptor) GetReadKeyAt(ns string, pos int) (string, error) {
 }
 
 func (i *Interceptor) GetReadAt(ns string, pos int) (string, []byte, error) {
-	if i.closed {
+	if i.Closed {
 		return "", nil, errors.New("this instance was closed")
 	}
 
-	key, in := i.rws.readSet.getAt(ns, pos)
+	key, in := i.Rws.readSet.getAt(ns, pos)
 	if !in {
 		return "", nil, errors.Errorf("no read at position %d for namespace %s", pos, ns)
 	}
@@ -122,33 +123,33 @@ func (i *Interceptor) GetReadAt(ns string, pos int) (string, []byte, error) {
 }
 
 func (i *Interceptor) GetWriteAt(ns string, pos int) (string, []byte, error) {
-	if i.closed {
+	if i.Closed {
 		return "", nil, errors.New("this instance was closed")
 	}
 
-	key, in := i.rws.writeSet.getAt(ns, pos)
+	key, in := i.Rws.writeSet.getAt(ns, pos)
 	if !in {
 		return "", nil, errors.Errorf("no write at position %d for namespace %s", pos, ns)
 	}
 
-	return key, i.rws.writeSet.get(ns, key), nil
+	return key, i.Rws.writeSet.get(ns, key), nil
 }
 
 func (i *Interceptor) NumReads(ns string) int {
-	return len(i.rws.reads[ns])
+	return len(i.Rws.reads[ns])
 }
 
 func (i *Interceptor) NumWrites(ns string) int {
-	return len(i.rws.writes[ns])
+	return len(i.Rws.writes[ns])
 }
 
 func (i *Interceptor) Namespaces() []string {
 	mergedMaps := map[string]struct{}{}
 
-	for ns := range i.rws.reads {
+	for ns := range i.Rws.reads {
 		mergedMaps[ns] = struct{}{}
 	}
-	for ns := range i.rws.writes {
+	for ns := range i.Rws.writes {
 		mergedMaps[ns] = struct{}{}
 	}
 
@@ -161,7 +162,7 @@ func (i *Interceptor) Namespaces() []string {
 }
 
 func (i *Interceptor) DeleteState(namespace string, key string) error {
-	if i.closed {
+	if i.Closed {
 		return errors.New("this instance was closed")
 	}
 
@@ -169,25 +170,29 @@ func (i *Interceptor) DeleteState(namespace string, key string) error {
 }
 
 func (i *Interceptor) SetState(namespace string, key string, value []byte) error {
-	if i.closed {
+	if i.Closed {
 		return errors.New("this instance was closed")
 	}
 	logger.Debugf("SetState [%s,%s,%s]", namespace, key, hash.Hashable(value).String())
 
-	return i.rws.writeSet.add(namespace, key, value)
+	return i.Rws.writeSet.add(namespace, key, value)
 }
 
 func (i *Interceptor) SetStateMetadata(namespace string, key string, value map[string][]byte) error {
-	if i.closed {
+	if i.Closed {
 		return errors.New("this instance was closed")
 	}
 
-	return i.rws.metaWriteSet.add(namespace, key, value)
+	return i.Rws.metaWriteSet.add(namespace, key, value)
 }
 
 func (i *Interceptor) GetStateMetadata(namespace, key string, opts ...driver.GetStateOpt) (map[string][]byte, error) {
-	if i.closed {
+	if i.Closed {
 		return nil, errors.New("this instance was closed")
+	}
+
+	if i.QE == nil {
+		return nil, errors.New("this instance is write only")
 	}
 
 	if len(opts) > 1 {
@@ -201,28 +206,28 @@ func (i *Interceptor) GetStateMetadata(namespace, key string, opts ...driver.Get
 
 	switch opt {
 	case driver.FromStorage:
-		val, block, txnum, err := i.qe.GetStateMetadata(namespace, key)
+		val, block, txnum, err := i.QE.GetStateMetadata(namespace, key)
 		if err != nil {
 			return nil, err
 		}
 
-		b, t, in := i.rws.readSet.get(namespace, key)
+		b, t, in := i.Rws.readSet.get(namespace, key)
 		if in {
 			if b != block || t != txnum {
 				return nil, errors.Errorf("invalid metadata read: previous value returned at version %d:%d, current value at version %d:%d", b, t, block, txnum)
 			}
 		} else {
-			i.rws.readSet.add(namespace, key, block, txnum)
+			i.Rws.readSet.add(namespace, key, block, txnum)
 		}
 
 		return val, nil
 
 	case driver.FromIntermediate:
-		return i.rws.metaWriteSet.get(namespace, key), nil
+		return i.Rws.metaWriteSet.get(namespace, key), nil
 
 	case driver.FromBoth:
 		val, err := i.GetStateMetadata(namespace, key, driver.FromIntermediate)
-		if err != nil || val != nil || i.rws.writeSet.in(namespace, key) {
+		if err != nil || val != nil || i.Rws.writeSet.in(namespace, key) {
 			return val, err
 		}
 
@@ -234,8 +239,12 @@ func (i *Interceptor) GetStateMetadata(namespace, key string, opts ...driver.Get
 }
 
 func (i *Interceptor) GetState(namespace string, key string, opts ...driver.GetStateOpt) ([]byte, error) {
-	if i.closed {
+	if i.Closed {
 		return nil, errors.New("this instance was closed")
+	}
+
+	if i.QE == nil {
+		return nil, errors.New("this instance is write only")
 	}
 
 	if len(opts) > 1 {
@@ -249,28 +258,28 @@ func (i *Interceptor) GetState(namespace string, key string, opts ...driver.GetS
 
 	switch opt {
 	case driver.FromStorage:
-		val, block, txnum, err := i.qe.GetState(namespace, key)
+		val, block, txnum, err := i.QE.GetState(namespace, key)
 		if err != nil {
 			return nil, err
 		}
 
-		b, t, in := i.rws.readSet.get(namespace, key)
+		b, t, in := i.Rws.readSet.get(namespace, key)
 		if in {
 			if b != block || t != txnum {
 				return nil, errors.Errorf("invalid read [%s:%s]: previous value returned at version %d:%d, current value at version %d:%d", namespace, key, b, t, block, txnum)
 			}
 		} else {
-			i.rws.readSet.add(namespace, key, block, txnum)
+			i.Rws.readSet.add(namespace, key, block, txnum)
 		}
 
 		return val, nil
 
 	case driver.FromIntermediate:
-		return i.rws.writeSet.get(namespace, key), nil
+		return i.Rws.writeSet.get(namespace, key), nil
 
 	case driver.FromBoth:
 		val, err := i.GetState(namespace, key, driver.FromIntermediate)
-		if err != nil || val != nil || i.rws.writeSet.in(namespace, key) {
+		if err != nil || val != nil || i.Rws.writeSet.in(namespace, key) {
 			return val, err
 		}
 
@@ -282,7 +291,7 @@ func (i *Interceptor) GetState(namespace string, key string, opts ...driver.GetS
 }
 
 func (i *Interceptor) AppendRWSet(raw []byte, nss ...string) error {
-	if i.closed {
+	if i.Closed {
 		return errors.New("this instance was closed")
 	}
 
@@ -320,26 +329,26 @@ func (i *Interceptor) AppendRWSet(raw []byte, nss ...string) error {
 				txnum = read.Version.TxNum
 			}
 
-			b, t, in := i.rws.readSet.get(ns, read.Key)
+			b, t, in := i.Rws.readSet.get(ns, read.Key)
 			if in && (b != bnum || t != txnum) {
 				return errors.Errorf("invalid read [%s:%s]: previous value returned at version %d:%d, current value at version %d:%d", ns, read.Key, b, t, b, txnum)
 			}
 
-			i.rws.readSet.add(ns, read.Key, bnum, txnum)
+			i.Rws.readSet.add(ns, read.Key, bnum, txnum)
 		}
 
 		for _, write := range nsrws.KvRwSet.Writes {
-			if i.rws.writeSet.in(ns, write.Key) {
+			if i.Rws.writeSet.in(ns, write.Key) {
 				return errors.Errorf("duplicate write entry for key %s:%s", ns, write.Key)
 			}
 
-			if err := i.rws.writeSet.add(ns, write.Key, write.Value); err != nil {
+			if err := i.Rws.writeSet.add(ns, write.Key, write.Value); err != nil {
 				return err
 			}
 		}
 
 		for _, metaWrite := range nsrws.KvRwSet.MetadataWrites {
-			if i.rws.metaWriteSet.in(ns, metaWrite.Key) {
+			if i.Rws.metaWriteSet.in(ns, metaWrite.Key) {
 				return errors.Errorf("duplicate metadata write entry for key %s:%s", ns, metaWrite.Key)
 			}
 
@@ -348,7 +357,7 @@ func (i *Interceptor) AppendRWSet(raw []byte, nss ...string) error {
 				metadata[entry.Name] = append([]byte(nil), entry.Value...)
 			}
 
-			if err := i.rws.metaWriteSet.add(ns, metaWrite.Key, metadata); err != nil {
+			if err := i.Rws.metaWriteSet.add(ns, metaWrite.Key, metadata); err != nil {
 				return err
 			}
 		}
@@ -360,7 +369,7 @@ func (i *Interceptor) AppendRWSet(raw []byte, nss ...string) error {
 func (i *Interceptor) Bytes() ([]byte, error) {
 	rwsb := rwsetutil.NewRWSetBuilder()
 
-	for ns, keyMap := range i.rws.reads {
+	for ns, keyMap := range i.Rws.reads {
 		for key, v := range keyMap {
 			if v.block != 0 || v.txnum != 0 {
 				rwsb.AddToReadSet(ns, key, rwsetutil.NewVersion(&kvrwset.Version{BlockNum: v.block, TxNum: v.txnum}))
@@ -369,12 +378,12 @@ func (i *Interceptor) Bytes() ([]byte, error) {
 			}
 		}
 	}
-	for ns, keyMap := range i.rws.writes {
+	for ns, keyMap := range i.Rws.writes {
 		for key, v := range keyMap {
 			rwsb.AddToWriteSet(ns, key, v)
 		}
 	}
-	for ns, keyMap := range i.rws.metawrites {
+	for ns, keyMap := range i.Rws.metawrites {
 		for key, v := range keyMap {
 			rwsb.AddToMetadataWriteSet(ns, key, v)
 		}
@@ -391,23 +400,23 @@ func (i *Interceptor) Bytes() ([]byte, error) {
 func (i *Interceptor) Equals(other interface{}, nss ...string) error {
 	switch o := other.(type) {
 	case *Interceptor:
-		if err := i.rws.reads.equals(o.rws.reads, nss...); err != nil {
+		if err := i.Rws.reads.equals(o.Rws.reads, nss...); err != nil {
 			return errors.Wrap(err, "reads do not match")
 		}
-		if err := i.rws.writes.equals(o.rws.writes, nss...); err != nil {
+		if err := i.Rws.writes.equals(o.Rws.writes, nss...); err != nil {
 			return errors.Wrap(err, "writes do not match")
 		}
-		if err := i.rws.metawrites.equals(o.rws.metawrites, nss...); err != nil {
+		if err := i.Rws.metawrites.equals(o.Rws.metawrites, nss...); err != nil {
 			return errors.Wrap(err, "meta writes do not match")
 		}
 	case *Inspector:
-		if err := i.rws.reads.equals(o.rws.reads, nss...); err != nil {
+		if err := i.Rws.reads.equals(o.Rws.reads, nss...); err != nil {
 			return errors.Wrap(err, "reads do not match")
 		}
-		if err := i.rws.writes.equals(o.rws.writes, nss...); err != nil {
+		if err := i.Rws.writes.equals(o.Rws.writes, nss...); err != nil {
 			return errors.Wrap(err, "writes do not match")
 		}
-		if err := i.rws.metawrites.equals(o.rws.metawrites, nss...); err != nil {
+		if err := i.Rws.metawrites.equals(o.Rws.metawrites, nss...); err != nil {
 			return errors.Wrap(err, "meta writes do not match")
 		}
 	default:
@@ -417,20 +426,22 @@ func (i *Interceptor) Equals(other interface{}, nss ...string) error {
 }
 
 func (i *Interceptor) Done() {
-	logger.Debugf("Done with [%s], closed [%v]", i.txid, i.closed)
-	if !i.closed {
-		i.closed = true
-		i.qe.Done()
+	logger.Debugf("Done with [%s], closed [%v]", i.TxID, i.Closed)
+	if !i.Closed {
+		i.Closed = true
+		if i.QE != nil {
+			i.QE.Done()
+		}
 	}
 }
 
 func (i *Interceptor) Reopen(qe QueryExecutor) error {
-	logger.Debugf("Reopen with [%s], closed [%v]", i.txid, i.closed)
-	if !i.closed {
+	logger.Debugf("Reopen with [%s], closed [%v]", i.TxID, i.Closed)
+	if !i.Closed {
 		return errors.Errorf("already open")
 	}
-	i.qe = qe
-	i.closed = false
+	i.QE = qe
+	i.Closed = false
 
 	return nil
 }

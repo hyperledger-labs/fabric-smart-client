@@ -52,6 +52,11 @@ func (o *Driver) New(sp view.ServiceProvider, dataSourceName string, config driv
 	return &unversioned.Unversioned{Versioned: db}, nil
 }
 
+// NewTransactionalVersionedPersistence returns a new TransactionalVersionedPersistence for the passed data source and config
+func (o *Driver) NewTransactionalVersionedPersistence(sp view.ServiceProvider, dataSourceName string, config driver.Config) (driver.TransactionalVersionedPersistence, error) {
+	panic("not supported")
+}
+
 func (o *Driver) OpenDB(sp view.ServiceProvider, onsName, dbName, creator string) (*Orion, error) {
 	o.lock.Lock()
 	defer o.lock.Unlock()

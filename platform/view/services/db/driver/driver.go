@@ -44,6 +44,21 @@ type VersionedResultsIterator interface {
 	Close()
 }
 
+type WriteTransaction interface {
+	// SetState sets the given value for the given namespace, key, and version
+	SetState(namespace, key string, value []byte, block, txnum uint64) error
+	// Commit commits the changes since BeginUpdate
+	Commit() error
+	// Discard discanrds the changes since BeginUpdate
+	Discard() error
+}
+
+type TransactionalVersionedPersistence interface {
+	VersionedPersistence
+
+	NewWriteTransaction() (WriteTransaction, error)
+}
+
 // VersionedPersistence models a versioned key-value storage place
 type VersionedPersistence interface {
 	// SetState sets the given value for the given namespace, key, and version
@@ -105,7 +120,8 @@ type Config interface {
 }
 
 type Driver interface {
-	//add load(identity) driver
+	// NewTransactionalVersionedPersistence returns a new TransactionalVersionedPersistence for the passed data source and config
+	NewTransactionalVersionedPersistence(sp view.ServiceProvider, dataSourceName string, config Config) (TransactionalVersionedPersistence, error)
 	// NewVersioned returns a new VersionedPersistence for the passed data source and config
 	NewVersioned(sp view.ServiceProvider, dataSourceName string, config Config) (VersionedPersistence, error)
 	// New returns a new Persistence for the passed data source and config

@@ -92,6 +92,24 @@ func OpenVersioned(sp view.ServiceProvider, driverName, dataSourceName string, c
 	return d, nil
 }
 
+// OpenTransactionalVersioned returns a new *transactional versioned* persistence handle. Similarly to database/sql:
+// driverName is a string that describes the driver
+// dataSourceName describes the data source in a driver-specific format.
+// The returned connection is only used by one goroutine at a time.
+func OpenTransactionalVersioned(sp view.ServiceProvider, driverName, dataSourceName string, config Config) (driver.TransactionalVersionedPersistence, error) {
+	driversMu.RLock()
+	driver, ok := drivers[driverName]
+	driversMu.RUnlock()
+	if !ok {
+		return nil, errors.Errorf("driver [%s] not found", driverName)
+	}
+	d, err := driver.NewTransactionalVersionedPersistence(sp, dataSourceName, config)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed opening datasource [%s][%s[", driverName, dataSourceName)
+	}
+	return d, nil
+}
+
 // Unversioned returns the unversioned persistence from the supplied versioned one
 func Unversioned(store driver.VersionedPersistence) driver.Persistence {
 	return &unversioned.Unversioned{Versioned: store}
