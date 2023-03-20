@@ -97,7 +97,7 @@ func (db *Vault) DiscardTx(txID string) error {
 
 	err = db.Store.BeginUpdate()
 	if err != nil {
-		return errors.WithMessagef(err, "begin update for txID '%s' failed", txID)
+		return errors.WithMessagef(err, "begin update for txid '%s' failed", txID)
 	}
 
 	err = db.TXIDStore.Set(txID, fdriver.Invalid)
@@ -107,7 +107,7 @@ func (db *Vault) DiscardTx(txID string) error {
 
 	err = db.Store.Commit()
 	if err != nil {
-		return errors.WithMessagef(err, "committing tx for txID '%s' failed", txID)
+		return errors.WithMessagef(err, "committing tx for txid '%s' failed", txID)
 	}
 
 	return nil
@@ -129,7 +129,7 @@ func (db *Vault) CommitTX(txID string, block uint64, indexInBloc int) error {
 
 	err = db.Store.BeginUpdate()
 	if err != nil {
-		return errors.WithMessagef(err, "begin update for txID '%s' failed", txID)
+		return errors.WithMessagef(err, "begin update for txid '%s' failed", txID)
 	}
 
 	logger.Debugf("parse writes [%s]", txID)
@@ -181,7 +181,7 @@ func (db *Vault) CommitTX(txID string, block uint64, indexInBloc int) error {
 
 	err = db.Store.Commit()
 	if err != nil {
-		return errors.WithMessagef(err, "committing tx for txID '%s' failed", txID)
+		return errors.WithMessagef(err, "committing tx for txid '%s' failed", txID)
 	}
 
 	return nil
@@ -203,7 +203,7 @@ func (db *Vault) SetBusy(txID string) error {
 
 	err = db.Store.BeginUpdate()
 	if err != nil {
-		return errors.WithMessagef(err, "begin update for txID '%s' failed", txID)
+		return errors.WithMessagef(err, "begin update for txid '%s' failed", txID)
 	}
 
 	err = db.TXIDStore.Set(txID, fdriver.Busy)
@@ -213,7 +213,7 @@ func (db *Vault) SetBusy(txID string) error {
 
 	err = db.Store.Commit()
 	if err != nil {
-		return errors.WithMessagef(err, "committing tx for txID '%s' failed", txID)
+		return errors.WithMessagef(err, "committing tx for txid '%s' failed", txID)
 	}
 
 	return nil
@@ -226,36 +226,17 @@ func (db *Vault) NewRWSet(txID string) (*Interceptor, error) {
 	db.InterceptorsLock.Lock()
 	if _, in := db.Interceptors[txID]; in {
 		db.InterceptorsLock.Unlock()
-		return nil, errors.Errorf("duplicate read-write set for txID %s", txID)
+		return nil, errors.Errorf("duplicate read-write set for txid %s", txID)
 	}
 	if err := db.SetBusy(txID); err != nil {
 		db.InterceptorsLock.Unlock()
-		return nil, errors.Errorf("failed to ser status to busy for txID %s", txID)
+		return nil, errors.Errorf("failed to ser status to busy for txid %s", txID)
 	}
 	db.Interceptors[txID] = i
 	db.InterceptorsLock.Unlock()
 
 	db.Counter.Inc()
 	db.StoreLock.RLock()
-
-	return i, nil
-}
-
-func (db *Vault) NewWriteOnlyRWSet(txID string) (*Interceptor, error) {
-	logger.Debugf("NewWriteOnlyRWSet[%s][%d]", txID, db.Counter.Load())
-	i := NewInterceptor(nil, db.TXIDStore, txID)
-
-	db.InterceptorsLock.Lock()
-	if _, in := db.Interceptors[txID]; in {
-		db.InterceptorsLock.Unlock()
-		return nil, errors.Errorf("duplicate read-write set for txID %s", txID)
-	}
-	if err := db.SetBusy(txID); err != nil {
-		db.InterceptorsLock.Unlock()
-		return nil, errors.Errorf("failed to ser status to busy for txID %s", txID)
-	}
-	db.Interceptors[txID] = i
-	db.InterceptorsLock.Unlock()
 
 	return i, nil
 }
@@ -307,7 +288,7 @@ func (db *Vault) GetRWSet(txID string, rwsetBytes []byte) (*Interceptor, error) 
 	}
 	if err := db.SetBusy(txID); err != nil {
 		db.InterceptorsLock.Unlock()
-		return nil, errors.Errorf("failed to ser status to busy for txID %s", txID)
+		return nil, errors.Errorf("failed to ser status to busy for txid %s", txID)
 	}
 	db.Interceptors[txID] = i
 	db.InterceptorsLock.Unlock()
@@ -338,7 +319,7 @@ func (db *Vault) Match(txID string, rwsRaw []byte) error {
 	defer db.InterceptorsLock.RUnlock()
 	i, in := db.Interceptors[txID]
 	if !in {
-		return errors.Errorf("read-write set for txID %s could not be found", txID)
+		return errors.Errorf("read-write set for txid %s could not be found", txID)
 	}
 	if !i.Closed {
 		return errors.Errorf("attempted to retrieve read-write set for %s when done has not been called", txID)
@@ -383,10 +364,10 @@ func (db *Vault) UnmapInterceptor(txID string) (*Interceptor, error) {
 	if !in {
 		vc, err := db.TXIDStore.Get(txID)
 		if err != nil {
-			return nil, errors.Errorf("read-write set for txID %s could not be found", txID)
+			return nil, errors.Errorf("read-write set for txid %s could not be found", txID)
 		}
 		if vc == fdriver.Unknown {
-			return nil, errors.Errorf("read-write set for txID %s could not be found", txID)
+			return nil, errors.Errorf("read-write set for txid %s could not be found", txID)
 		}
 		return nil, nil
 	}
