@@ -2,11 +2,12 @@ module github.com/hyperledger-labs/fabric-smart-client
 
 go 1.18
 
+replace kilic/bls12-377 => github.com/kilic/bls12-377 v0.0.0-20201230075656-5449decbf102
+
 require (
-	github.com/IBM/idemix v0.0.0-20220113150823-80dd4cb2d74e
-	github.com/IBM/mathlib v0.0.0-20220112091634-0a7378db6912
+	github.com/IBM/idemix v0.0.2-0.20230324134044-ad53d9388bb5
+	github.com/IBM/mathlib v0.0.3-0.20230310094401-6036a5c12341
 	github.com/ReneKroon/ttlcache/v2 v2.11.0
-	github.com/armon/go-metrics v0.3.10
 	github.com/dgraph-io/badger/v3 v3.2103.2
 	github.com/docker/docker v20.10.7+incompatible
 	github.com/docker/go-connections v0.4.0
@@ -40,7 +41,7 @@ require (
 	github.com/otiai10/copy v1.5.1
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.14.0
-	github.com/spf13/cobra v1.3.0
+	github.com/spf13/cobra v1.5.0
 	github.com/spf13/viper v1.10.1
 	github.com/stretchr/testify v1.8.1
 	github.com/sykesm/zap-logfmt v0.0.4
@@ -60,12 +61,16 @@ require (
 
 require (
 	github.com/cenkalti/backoff/v4 v4.2.0 // indirect
+	github.com/consensys/bavard v0.1.13 // indirect
 	github.com/go-logr/logr v1.2.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.7.0 // indirect
+	github.com/kilic/bls12-381 v0.1.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/internal/retry v1.13.0 // indirect
 	go.opentelemetry.io/proto/otlp v0.19.0 // indirect
 	go.uber.org/goleak v1.2.0 // indirect
+	kilic/bls12-377 v0.0.0-00010101000000-000000000000 // indirect
+	rsc.io/tmplfunc v0.0.3 // indirect
 )
 
 require (
@@ -89,7 +94,7 @@ require (
 	github.com/cespare/xxhash v1.1.0 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/cheekybits/genny v1.0.0 // indirect
-	github.com/consensys/gnark-crypto v0.6.0 // indirect
+	github.com/consensys/gnark-crypto v0.9.1 // indirect
 	github.com/containerd/cgroups v1.0.3 // indirect
 	github.com/containerd/containerd v1.5.18 // indirect
 	github.com/coreos/go-systemd v0.0.0-20190620071333-e64a0ec8b42a // indirect
@@ -130,7 +135,6 @@ require (
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/hashicorp/errwrap v1.0.0 // indirect
-	github.com/hashicorp/go-immutable-radix v1.3.1 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/hashicorp/go-uuid v1.0.2 // indirect
 	github.com/hashicorp/go-version v1.4.0 // indirect
@@ -243,7 +247,7 @@ require (
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.13.0
 	go.opentelemetry.io/otel/sdk v1.13.0
 	go.uber.org/multierr v1.6.0 // indirect
-	golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e // indirect
+	golang.org/x/crypto v0.0.0-20220722155217-630584e8d5aa // indirect
 	golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4 // indirect
 	golang.org/x/sys v0.3.0 // indirect
 	golang.org/x/text v0.5.0 // indirect
