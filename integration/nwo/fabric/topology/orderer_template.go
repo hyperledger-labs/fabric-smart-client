@@ -35,8 +35,12 @@ General:
     ServerMinInterval: 60s
     ServerInterval: 7200s
     ServerTimeout: 20s
+  {{ if not $w.SystemChannel -}}
+  BootstrapMethod: none
+  {{ else -}}
   BootstrapMethod: file
   BootstrapFile: {{ $w.OrdererBootstrapFile }}
+  {{ end -}}
   LocalMSPDir: {{ $w.OrdererLocalMSPDir Orderer }}
   LocalMSPID: {{ ($w.Organization Orderer.Organization).MSPID }}
   Profile:
@@ -51,6 +55,8 @@ General:
         KeyStore:
   Authentication:
     TimeWindow: 15m
+Admin:
+  ListenAddress: 0.0.0.0:{{ .OrdererPort Orderer "Admin" }}
 FileLedger:
   Location: {{ .OrdererDir Orderer }}/system
 Debug:
@@ -60,6 +66,7 @@ Consensus:
   WALDir: {{ .OrdererDir Orderer }}/etcdraft/wal
   SnapDir: {{ .OrdererDir Orderer }}/etcdraft/snapshot
   EvictionSuspicion: 10s
+  Type: {{ $w.Consensus.Type }}
 Operations:
   ListenAddress: 0.0.0.0:{{ .OrdererPort Orderer "Operations" }}
   TLS:
@@ -79,4 +86,7 @@ Metrics:
     WriteInterval: 5s
     Prefix: {{ ReplaceAll (ToLower Orderer.ID) "." "_" }}
 {{- end }}
+ChannelParticipation:
+  Enabled: true
+  MaxRequestBodySize: 100000000
 `
