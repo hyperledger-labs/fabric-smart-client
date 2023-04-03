@@ -2,11 +2,9 @@ module github.com/hyperledger-labs/fabric-smart-client
 
 go 1.18
 
-replace kilic/bls12-377 => github.com/kilic/bls12-377 v0.0.0-20201230075656-5449decbf102
-
 require (
-	github.com/IBM/idemix v0.0.2-0.20230324134044-ad53d9388bb5
-	github.com/IBM/mathlib v0.0.3-0.20230310094401-6036a5c12341
+	github.com/IBM/idemix v0.0.2-0.20230403120754-d7dbe0340c4a
+	github.com/IBM/mathlib v0.0.3-0.20230403084452-40ed1be38cf2
 	github.com/ReneKroon/ttlcache/v2 v2.11.0
 	github.com/dgraph-io/badger/v3 v3.2103.2
 	github.com/docker/docker v20.10.7+incompatible
@@ -69,7 +67,6 @@ require (
 	go.opentelemetry.io/otel/exporters/otlp/internal/retry v1.13.0 // indirect
 	go.opentelemetry.io/proto/otlp v0.19.0 // indirect
 	go.uber.org/goleak v1.2.0 // indirect
-	kilic/bls12-377 v0.0.0-00010101000000-000000000000 // indirect
 	rsc.io/tmplfunc v0.0.3 // indirect
 )
 
