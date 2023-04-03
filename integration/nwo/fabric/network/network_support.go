@@ -1370,6 +1370,7 @@ const (
 	P2PPort        api.PortName = "P2P"
 	ClusterPort    api.PortName = "Cluster"
 	WebPort        api.PortName = "Web"
+	AdminPort      api.PortName = "Admin"
 )
 
 // PeerPortNames returns the list of ports that need to be reserved for a Peer.
@@ -1380,7 +1381,7 @@ func PeerPortNames() []api.PortName {
 // OrdererPortNames  returns the list of ports that need to be reserved for an
 // Orderer.
 func OrdererPortNames() []api.PortName {
-	return []api.PortName{ListenPort, ProfilePort, OperationsPort, ClusterPort}
+	return []api.PortName{ListenPort, ProfilePort, OperationsPort, ClusterPort, AdminPort}
 }
 
 // OrdererAddress returns the address (host and port) exposed by the Orderer

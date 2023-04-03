@@ -95,7 +95,12 @@ func (t *Topology) AppendPeer(peer *Peer) {
 func (t *Topology) AppendOrganization(org *Organization) {
 	t.Organizations = append(t.Organizations, org)
 	t.Consortiums[0].Organizations = append(t.Consortiums[0].Organizations, org.Name)
-	t.Profiles[1].Organizations = append(t.Profiles[1].Organizations, org.Name)
+
+	for _, profile := range t.Profiles {
+		if t.SystemChannel == nil || profile.Name != t.SystemChannel.Profile {
+			profile.Organizations = append(profile.Organizations, org.Name)
+		}
+	}
 }
 
 func (t *Topology) EnableNodeOUs() {

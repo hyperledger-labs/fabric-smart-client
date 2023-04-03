@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/commands"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/fabricconfig"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
@@ -137,27 +138,14 @@ func (n *Network) GenerateArtifacts() {
 	n.bootstrapIdemix()
 	n.bootstrapExtraIdentities()
 
-	if len(n.SystemChannel.Name) != 0 {
-		sess, err = n.ConfigTxGen(commands.OutputBlock{
-			NetworkPrefix: n.Prefix,
-			ChannelID:     n.SystemChannel.Name,
-			Profile:       n.SystemChannel.Profile,
-			ConfigPath:    filepath.Join(n.Context.RootDir(), n.Prefix),
-			OutputBlock:   n.OutputBlockPath(n.SystemChannel.Name),
-		})
+	if n.SystemChannel != nil && len(n.SystemChannel.Name) != 0 {
+		sess, err = n.ConfigTxGen(n.systemChannelParams(n.SystemChannel))
 		Expect(err).NotTo(HaveOccurred())
 		Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
 	}
 
 	for _, c := range n.Channels {
-		sess, err := n.ConfigTxGen(commands.CreateChannelTx{
-			NetworkPrefix:         n.Prefix,
-			ChannelID:             c.Name,
-			Profile:               c.Profile,
-			BaseProfile:           c.BaseProfile,
-			ConfigPath:            filepath.Join(n.Context.RootDir(), n.Prefix),
-			OutputCreateChannelTx: n.CreateChannelTxPath(c.Name),
-		})
+		sess, err = n.ConfigTxGen(n.createChannelConfig(c))
 		Expect(err).NotTo(HaveOccurred())
 		Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
 	}
@@ -174,6 +162,30 @@ func (n *Network) GenerateArtifacts() {
 	// Extensions
 	for _, extension := range n.Extensions {
 		extension.GenerateArtifacts()
+	}
+}
+
+func (n *Network) createChannelConfig(c *topology.Channel) common.Command {
+	if n.SystemChannel == nil {
+		return n.systemChannelParams(&topology.SystemChannel{Name: c.Name, Profile: c.Profile})
+	}
+	return commands.CreateChannelTx{
+		NetworkPrefix:         n.Prefix,
+		ChannelID:             c.Name,
+		Profile:               c.Profile,
+		BaseProfile:           c.BaseProfile,
+		ConfigPath:            filepath.Join(n.Context.RootDir(), n.Prefix),
+		OutputCreateChannelTx: n.CreateChannelTxPath(c.Name),
+	}
+}
+
+func (n *Network) systemChannelParams(c *topology.SystemChannel) commands.OutputBlock {
+	return commands.OutputBlock{
+		NetworkPrefix: n.Prefix,
+		ChannelID:     c.Name,
+		Profile:       c.Profile,
+		ConfigPath:    filepath.Join(n.Context.RootDir(), n.Prefix),
+		OutputBlock:   n.OutputBlockPath(c.Name),
 	}
 }
 
