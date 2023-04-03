@@ -15,7 +15,6 @@ import (
 	"encoding/asn1"
 	"encoding/pem"
 	"fmt"
-	"io/ioutil"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -27,7 +26,7 @@ import (
 )
 
 func TestLoadPrivateKey(t *testing.T) {
-	testDir, err := ioutil.TempDir("", "csp-test")
+	testDir, err := os.MkdirTemp("", "csp-test")
 	if err != nil {
 		t.Fatalf("Failed to create test directory: %s", err)
 	}
@@ -46,7 +45,7 @@ func TestLoadPrivateKey(t *testing.T) {
 }
 
 func TestLoadPrivateKey_BadPEM(t *testing.T) {
-	testDir, err := ioutil.TempDir("", "csp-test")
+	testDir, err := os.MkdirTemp("", "csp-test")
 	if err != nil {
 		t.Fatalf("Failed to create test directory: %s", err)
 	}
@@ -93,7 +92,7 @@ func TestLoadPrivateKey_BadPEM(t *testing.T) {
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			err := ioutil.WriteFile(
+			err := os.WriteFile(
 				badPEMFile,
 				test.data,
 				0755,
@@ -109,7 +108,7 @@ func TestLoadPrivateKey_BadPEM(t *testing.T) {
 }
 
 func TestGeneratePrivateKey(t *testing.T) {
-	testDir, err := ioutil.TempDir("", "csp-test")
+	testDir, err := os.MkdirTemp("", "csp-test")
 	if err != nil {
 		t.Fatalf("Failed to create test directory: %s", err)
 	}

@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package network
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -26,7 +25,7 @@ import (
 
 // GetConfigBlock retrieves the current config block for a channel.
 func GetConfigBlock(n *Network, peer *topology.Peer, orderer *topology.Orderer, channel string) *common.Block {
-	tempDir, err := ioutil.TempDir(filepath.Join(n.Context.RootDir(), n.Prefix), "getConfigBlock")
+	tempDir, err := os.MkdirTemp(filepath.Join(n.Context.RootDir(), n.Prefix), "getConfigBlock")
 	Expect(err).NotTo(HaveOccurred())
 	defer os.RemoveAll(tempDir)
 
@@ -72,7 +71,7 @@ func GetConfig(n *Network, peer *topology.Peer, orderer *topology.Orderer, chann
 // UpdateConfig computes, signs, and submits a configuration update and waits
 // for the update to complete.
 func UpdateConfig(n *Network, orderer *topology.Orderer, channel string, current, updated *common.Config, getConfigBlockFromOrderer bool, submitter *topology.Peer, additionalSigners ...*topology.Peer) {
-	tempDir, err := ioutil.TempDir("", "updateConfig")
+	tempDir, err := os.MkdirTemp("", "updateConfig")
 	Expect(err).NotTo(HaveOccurred())
 	defer os.RemoveAll(tempDir)
 
@@ -93,7 +92,7 @@ func UpdateConfig(n *Network, orderer *topology.Orderer, channel string, current
 	Expect(signedEnvelope).NotTo(BeNil())
 
 	updateFile := filepath.Join(tempDir, "update.pb")
-	err = ioutil.WriteFile(updateFile, protoutil.MarshalOrPanic(signedEnvelope), 0600)
+	err = os.WriteFile(updateFile, protoutil.MarshalOrPanic(signedEnvelope), 0600)
 	Expect(err).NotTo(HaveOccurred())
 
 	for _, signer := range additionalSigners {
@@ -143,7 +142,7 @@ func UpdateConfig(n *Network, orderer *topology.Orderer, channel string, current
 // has completed. If an orderer is not provided, the current config block will
 // be fetched from the peer.
 func CurrentConfigBlockNumber(n *Network, peer *topology.Peer, orderer *topology.Orderer, channel string) uint64 {
-	tempDir, err := ioutil.TempDir(filepath.Join(n.Context.RootDir(), n.Prefix), "currentConfigBlock")
+	tempDir, err := os.MkdirTemp(filepath.Join(n.Context.RootDir(), n.Prefix), "currentConfigBlock")
 	Expect(err).NotTo(HaveOccurred())
 	defer os.RemoveAll(tempDir)
 
@@ -204,7 +203,7 @@ func FetchConfigBlock(n *Network, peer *topology.Peer, orderer *topology.Orderer
 // UpdateOrdererConfig computes, signs, and submits a configuration update
 // which requires orderers signature and waits for the update to complete.
 func UpdateOrdererConfig(n *Network, orderer *topology.Orderer, channel string, current, updated *common.Config, submitter *topology.Peer, additionalSigners ...*topology.Orderer) {
-	tempDir, err := ioutil.TempDir(filepath.Join(n.Context.RootDir(), n.Prefix), "updateConfig")
+	tempDir, err := os.MkdirTemp(filepath.Join(n.Context.RootDir(), n.Prefix), "updateConfig")
 	Expect(err).NotTo(HaveOccurred())
 	updateFile := filepath.Join(tempDir, "update.pb")
 	defer os.RemoveAll(tempDir)
@@ -239,7 +238,7 @@ func UpdateOrdererConfig(n *Network, orderer *topology.Orderer, channel string, 
 // update which requires orderer signatures. The caller should wait on the
 // returned seession retrieve the exit code.
 func UpdateOrdererConfigSession(n *Network, orderer *topology.Orderer, channel string, current, updated *common.Config, submitter *topology.Peer, additionalSigners ...*topology.Orderer) *gexec.Session {
-	tempDir, err := ioutil.TempDir(filepath.Join(n.Context.RootDir(), n.Prefix), "updateConfig")
+	tempDir, err := os.MkdirTemp(filepath.Join(n.Context.RootDir(), n.Prefix), "updateConfig")
 	Expect(err).NotTo(HaveOccurred())
 	updateFile := filepath.Join(tempDir, "update.pb")
 
@@ -274,7 +273,7 @@ func ComputeUpdateOrdererConfig(updateFile string, n *Network, channel string, c
 	Expect(err).NotTo(HaveOccurred())
 	Expect(signedEnvelope).NotTo(BeNil())
 
-	err = ioutil.WriteFile(updateFile, protoutil.MarshalOrPanic(signedEnvelope), 0600)
+	err = os.WriteFile(updateFile, protoutil.MarshalOrPanic(signedEnvelope), 0600)
 	Expect(err).NotTo(HaveOccurred())
 
 	for _, signer := range additionalSigners {
@@ -289,7 +288,7 @@ func ComputeUpdateOrdererConfig(updateFile string, n *Network, channel string, c
 
 // UnmarshalBlockFromFile unmarshals a proto encoded block from a file.
 func UnmarshalBlockFromFile(blockFile string) *common.Block {
-	blockBytes, err := ioutil.ReadFile(blockFile)
+	blockBytes, err := os.ReadFile(blockFile)
 	Expect(err).NotTo(HaveOccurred())
 
 	block, err := protoutil.UnmarshalBlock(blockBytes)

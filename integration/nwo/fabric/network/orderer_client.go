@@ -8,7 +8,7 @@ package network
 
 import (
 	"context"
-	"io/ioutil"
+	"os"
 	"path"
 	"time"
 
@@ -99,7 +99,7 @@ func createOrdererGRPCClient(n *Network, o *topology.Orderer) (*grpc.Client, err
 		RequireClientCert: false,
 	}
 
-	caPEM, err := ioutil.ReadFile(path.Join(n.OrdererLocalTLSDir(o), "ca.crt"))
+	caPEM, err := os.ReadFile(path.Join(n.OrdererLocalTLSDir(o), "ca.crt"))
 	if err != nil {
 		return nil, err
 	}

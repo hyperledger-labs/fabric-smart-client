@@ -9,7 +9,6 @@ package hle
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -72,7 +71,7 @@ func (n *Extension) GenerateArtifacts() {
 		Expect(err).NotTo(HaveOccurred())
 		// write config to file
 		Expect(os.MkdirAll(n.configFileDir(), 0o755)).NotTo(HaveOccurred())
-		Expect(ioutil.WriteFile(n.configFilePath(), configJSON, 0o644)).NotTo(HaveOccurred())
+		Expect(os.WriteFile(n.configFilePath(), configJSON, 0o644)).NotTo(HaveOccurred())
 
 		// Generate and store connection profile
 		cp := fabricPlatform.ConnectionProfile(fabricPlatform.Topology().Name(), false)
@@ -97,7 +96,7 @@ func (n *Extension) GenerateArtifacts() {
 		Expect(err).NotTo(HaveOccurred())
 		// write cp to file
 		Expect(os.MkdirAll(n.cpFileDir(), 0o755)).NotTo(HaveOccurred())
-		Expect(ioutil.WriteFile(n.cpFilePath(fabricPlatform.Topology().Name()), cpJSON, 0o644)).NotTo(HaveOccurred())
+		Expect(os.WriteFile(n.cpFilePath(fabricPlatform.Topology().Name()), cpJSON, 0o644)).NotTo(HaveOccurred())
 	}
 }
 

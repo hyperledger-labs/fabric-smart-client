@@ -8,7 +8,6 @@ package integration
 
 import (
 	"encoding/json"
-	"io/ioutil"
 	"os"
 	"os/signal"
 	"path"
@@ -70,7 +69,7 @@ func New(startPort int, path string, topologies ...api.Topology) (*Infrastructur
 			}
 		}
 	} else {
-		testDir, err = ioutil.TempDir("", "integration")
+		testDir, err = os.MkdirTemp("", "integration")
 		if err != nil {
 			return nil, err
 		}
@@ -314,7 +313,7 @@ func (i *Infrastructure) storeAdditionalConfigurations() {
 	if err != nil {
 		panic(err)
 	}
-	if err := ioutil.WriteFile(filepath.Join(i.TestDir, "conf.json"), raw, 0770); err != nil {
+	if err := os.WriteFile(filepath.Join(i.TestDir, "conf.json"), raw, 0770); err != nil {
 		panic(err)
 	}
 
@@ -324,7 +323,7 @@ func (i *Infrastructure) storeAdditionalConfigurations() {
 	if err != nil {
 		panic(err)
 	}
-	if err := ioutil.WriteFile(filepath.Join(i.TestDir, "topology.yaml"), raw, 0770); err != nil {
+	if err := os.WriteFile(filepath.Join(i.TestDir, "topology.yaml"), raw, 0770); err != nil {
 		panic(err)
 	}
 }

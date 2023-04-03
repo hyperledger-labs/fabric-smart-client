@@ -13,7 +13,6 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -33,7 +32,7 @@ func packageChaincode() (tmpDir string, cleanup func(), err error) {
 	}
 	defer resp.Body.Close()
 
-	tmpDir, err = ioutil.TempDir("", "interopCC")
+	tmpDir, err = os.MkdirTemp("", "interopCC")
 	if err != nil {
 		return "", nil, fmt.Errorf("failed creating temp directory: %v", err)
 	}
@@ -89,12 +88,12 @@ func packageChaincode() (tmpDir string, cleanup func(), err error) {
 			return "", nil, fmt.Errorf("invalid archive entry %s: %v", entry.Name, err)
 		}
 
-		bytes, err := ioutil.ReadAll(f)
+		bytes, err := io.ReadAll(f)
 		if err != nil {
 			return "", nil, fmt.Errorf("failed reading %s: %v", entry.Name, err)
 		}
 
-		err = ioutil.WriteFile(relPath, bytes, 0o644)
+		err = os.WriteFile(relPath, bytes, 0o644)
 		if err != nil {
 			return "", nil, fmt.Errorf("failed writing to %s: %v", relPath, err)
 		}
@@ -109,7 +108,7 @@ func packageChaincode() (tmpDir string, cleanup func(), err error) {
 		return tmpDir, func() {}, err
 	}
 
-	err = ioutil.WriteFile(metadataPath, []byte(metadataContent), 0o644)
+	err = os.WriteFile(metadataPath, []byte(metadataContent), 0o644)
 	if err != nil {
 		return
 	}

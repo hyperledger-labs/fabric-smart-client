@@ -11,14 +11,14 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
-	"io/ioutil"
+	"os"
 
-	"github.com/libp2p/go-libp2p-core/crypto"
+	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/pkg/errors"
 )
 
 func NewCryptoPrivKeyFromMSP(secretKeyPath string) (crypto.PrivKey, error) {
-	fileCont, err := ioutil.ReadFile(secretKeyPath)
+	fileCont, err := os.ReadFile(secretKeyPath)
 	if err != nil {
 		return nil, err
 	}
