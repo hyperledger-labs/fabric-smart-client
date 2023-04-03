@@ -172,13 +172,13 @@ vm:
       Memory: 2147483648
 
 chaincode:
-  builder: $(DOCKER_NS)/fabric-ccenv:$(PROJECT_VERSION)
+  builder: $(DOCKER_NS)/fabric-ccenv:latest
   pull: false
   golang:
-    runtime: $(DOCKER_NS)/fabric-baseos:$(PROJECT_VERSION)
+    runtime: $(DOCKER_NS)/fabric-baseos:latest
     dynamicLink: false
   car:
-    runtime: $(DOCKER_NS)/fabric-baseos:$(PROJECT_VERSION)
+    runtime: $(DOCKER_NS)/fabric-baseos:latest
   java:
     runtime: $(DOCKER_NS)/fabric-javaenv:latest
   node:
