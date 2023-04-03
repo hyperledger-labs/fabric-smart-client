@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"hash"
 	"io"
-	"io/ioutil"
 	"os"
 	"path"
 	"time"
@@ -94,7 +93,7 @@ func validateInput(config *Config) error {
 
 	// Check if input is to be read from stdin
 	if stdin {
-		stdinInput, err := ioutil.ReadAll(os.Stdin)
+		stdinInput, err := io.ReadAll(os.Stdin)
 		if err != nil {
 			return fmt.Errorf("failed reading input from stdin: %v", err)
 		}

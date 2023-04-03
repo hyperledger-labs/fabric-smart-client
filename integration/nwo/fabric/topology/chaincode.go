@@ -8,7 +8,7 @@ package topology
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 
 	"github.com/hyperledger/fabric/common/util"
 	"github.com/onsi/gomega"
@@ -35,7 +35,7 @@ type Chaincode struct {
 }
 
 func (c *Chaincode) SetPackageIDFromPackageFile() {
-	fileBytes, err := ioutil.ReadFile(c.PackageFile)
+	fileBytes, err := os.ReadFile(c.PackageFile)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	hashStr := fmt.Sprintf("%x", util.ComputeSHA256(fileBytes))
 	c.PackageID = c.Label + ":" + hashStr

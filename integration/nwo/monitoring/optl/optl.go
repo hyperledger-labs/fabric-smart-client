@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package optl
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -48,7 +47,7 @@ func (n *Extension) GenerateArtifacts() {
 	}
 
 	Expect(os.MkdirAll(n.configFileDir(), 0o777)).NotTo(HaveOccurred())
-	Expect(ioutil.WriteFile(n.configFilePath(), []byte(ConfigTemplate), 0o644)).NotTo(HaveOccurred())
+	Expect(os.WriteFile(n.configFilePath(), []byte(ConfigTemplate), 0o644)).NotTo(HaveOccurred())
 }
 
 func (n *Extension) PostRun(bool) {

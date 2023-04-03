@@ -9,7 +9,7 @@ package x509
 import (
 	"crypto/x509"
 	"encoding/pem"
-	"io/ioutil"
+	"os"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger/fabric-protos-go/msp"
@@ -67,7 +67,7 @@ func SerializeFromMSP(mspID string, path string) ([]byte, error) {
 }
 
 func readFile(file string) ([]byte, error) {
-	fileCont, err := ioutil.ReadFile(file)
+	fileCont, err := os.ReadFile(file)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not read file %s", file)
 	}

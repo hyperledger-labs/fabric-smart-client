@@ -11,8 +11,8 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"io/ioutil"
 	"net"
+	"os"
 	"path/filepath"
 	"sync"
 	"sync/atomic"
@@ -541,15 +541,15 @@ func loadCerts(t *testing.T) testCerts {
 
 	var certs testCerts
 	var err error
-	certs.caPEM, err = ioutil.ReadFile(filepath.Join("testdata", "certs", "Org1-cert.pem"))
+	certs.caPEM, err = os.ReadFile(filepath.Join("testdata", "certs", "Org1-cert.pem"))
 	if err != nil {
 		t.Fatalf("unexpected error reading root cert for test: %v", err)
 	}
-	certs.certPEM, err = ioutil.ReadFile(filepath.Join("testdata", "certs", "Org1-client1-cert.pem"))
+	certs.certPEM, err = os.ReadFile(filepath.Join("testdata", "certs", "Org1-client1-cert.pem"))
 	if err != nil {
 		t.Fatalf("unexpected error reading cert for test: %v", err)
 	}
-	certs.keyPEM, err = ioutil.ReadFile(filepath.Join("testdata", "certs", "Org1-client1-key.pem"))
+	certs.keyPEM, err = os.ReadFile(filepath.Join("testdata", "certs", "Org1-client1-key.pem"))
 	if err != nil {
 		t.Fatalf("unexpected error reading key for test: %v", err)
 	}

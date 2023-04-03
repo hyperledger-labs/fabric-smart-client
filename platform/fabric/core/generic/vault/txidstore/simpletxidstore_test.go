@@ -8,7 +8,6 @@ package txidstore
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"testing"
 
@@ -44,7 +43,7 @@ func TestTXIDStoreMem(t *testing.T) {
 }
 
 func TestTXIDStoreBadger(t *testing.T) {
-	tempDir, err := ioutil.TempDir("", "TestTXIDStoreBadger")
+	tempDir, err := os.MkdirTemp("", "TestTXIDStoreBadger")
 	assert.NoError(t, err)
 	defer os.RemoveAll(tempDir)
 

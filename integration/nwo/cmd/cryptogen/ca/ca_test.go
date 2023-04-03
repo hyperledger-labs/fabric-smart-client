@@ -9,7 +9,6 @@ package ca_test
 import (
 	"crypto/ecdsa"
 	"crypto/x509"
-	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
@@ -39,14 +38,14 @@ const (
 )
 
 func TestLoadCertificateECDSA(t *testing.T) {
-	testDir, err := ioutil.TempDir("", "ca-test")
+	testDir, err := os.MkdirTemp("", "ca-test")
 	if err != nil {
 		t.Fatalf("Failed to create test directory: %s", err)
 	}
 	defer os.RemoveAll(testDir)
 
 	// generate private key
-	certDir, err := ioutil.TempDir(testDir, "certs")
+	certDir, err := os.MkdirTemp(testDir, "certs")
 	if err != nil {
 		t.Fatalf("Failed to create certs directory: %s", err)
 	}
@@ -83,12 +82,12 @@ func TestLoadCertificateECDSA(t *testing.T) {
 }
 
 func TestLoadCertificateECDSA_wrongEncoding(t *testing.T) {
-	testDir, err := ioutil.TempDir("", "wrongEncoding")
+	testDir, err := os.MkdirTemp("", "wrongEncoding")
 	require.NoError(t, err, "failed to create test directory")
 	defer os.RemoveAll(testDir)
 
 	filename := filepath.Join(testDir, "wrong_encoding.pem")
-	err = ioutil.WriteFile(filename, []byte("wrong_encoding"), 0644) // Wrong encoded cert
+	err = os.WriteFile(filename, []byte("wrong_encoding"), 0644) // Wrong encoded cert
 	require.NoErrorf(t, err, "failed to create file %s", filename)
 
 	_, err = ca2.LoadCertificateECDSA(testDir)
@@ -97,13 +96,13 @@ func TestLoadCertificateECDSA_wrongEncoding(t *testing.T) {
 }
 
 func TestLoadCertificateECDSA_empty_DER_cert(t *testing.T) {
-	testDir, err := ioutil.TempDir("", "ca-test")
+	testDir, err := os.MkdirTemp("", "ca-test")
 	require.NoError(t, err, "failed to create test directory")
 	defer os.RemoveAll(testDir)
 
 	filename := filepath.Join(testDir, "empty.pem")
 	empty_cert := "-----BEGIN CERTIFICATE-----\n-----END CERTIFICATE-----"
-	err = ioutil.WriteFile(filename, []byte(empty_cert), 0644)
+	err = os.WriteFile(filename, []byte(empty_cert), 0644)
 	require.NoErrorf(t, err, "failed to create file %s", filename)
 
 	cert, err := ca2.LoadCertificateECDSA(testDir)
@@ -113,7 +112,7 @@ func TestLoadCertificateECDSA_empty_DER_cert(t *testing.T) {
 }
 
 func TestNewCA(t *testing.T) {
-	testDir, err := ioutil.TempDir("", "ca-test")
+	testDir, err := os.MkdirTemp("", "ca-test")
 	if err != nil {
 		t.Fatalf("Failed to create test directory: %s", err)
 	}
@@ -158,14 +157,14 @@ func TestNewCA(t *testing.T) {
 }
 
 func TestGenerateSignCertificate(t *testing.T) {
-	testDir, err := ioutil.TempDir("", "ca-test")
+	testDir, err := os.MkdirTemp("", "ca-test")
 	if err != nil {
 		t.Fatalf("Failed to create test directory: %s", err)
 	}
 	defer os.RemoveAll(testDir)
 
 	// generate private key
-	certDir, err := ioutil.TempDir(testDir, "certs")
+	certDir, err := os.MkdirTemp(testDir, "certs")
 	if err != nil {
 		t.Fatalf("Failed to create certs directory: %s", err)
 	}

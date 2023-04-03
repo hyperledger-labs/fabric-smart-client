@@ -9,8 +9,8 @@ package view
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net/http"
+	"os"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	config2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/core/config"
@@ -369,11 +369,11 @@ func (p *SDK) getServerConfig() (grpc2.ServerConfig, error) {
 	}
 	if serverConfig.SecOpts.UseTLS {
 		// get the certs from the file system
-		serverKey, err := ioutil.ReadFile(configProvider.GetPath("fsc.grpc.tls.key.file"))
+		serverKey, err := os.ReadFile(configProvider.GetPath("fsc.grpc.tls.key.file"))
 		if err != nil {
 			return serverConfig, fmt.Errorf("error loading TLS key (%s)", err)
 		}
-		serverCert, err := ioutil.ReadFile(configProvider.GetPath("fsc.grpc.tls.cert.file"))
+		serverCert, err := os.ReadFile(configProvider.GetPath("fsc.grpc.tls.cert.file"))
 		if err != nil {
 			return serverConfig, fmt.Errorf("error loading TLS certificate (%s)", err)
 		}
@@ -383,7 +383,7 @@ func (p *SDK) getServerConfig() (grpc2.ServerConfig, error) {
 		if serverConfig.SecOpts.RequireClientCert {
 			var clientRoots [][]byte
 			for _, file := range configProvider.GetStringSlice("fsc.grpc.tls.clientRootCAs.files") {
-				clientRoot, err := ioutil.ReadFile(configProvider.TranslatePath(file))
+				clientRoot, err := os.ReadFile(configProvider.TranslatePath(file))
 				if err != nil {
 					return serverConfig, fmt.Errorf("error loading client root CAs (%s)", err)
 				}

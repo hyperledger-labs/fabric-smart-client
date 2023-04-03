@@ -11,7 +11,6 @@ import (
 	"compress/gzip"
 	"encoding/json"
 	"io"
-	"io/ioutil"
 	"os"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
@@ -67,7 +66,7 @@ func writeMetadataJSON(tw *tar.Writer, path, ccType, label string) {
 
 func writeCodeTarGz(tw *tar.Writer, codeFiles map[string]string) {
 	// create temp file to hold code.tar.gz
-	tempfile, err := ioutil.TempFile("", "code.tar.gz")
+	tempfile, err := os.CreateTemp("", "code.tar.gz")
 	Expect(err).NotTo(HaveOccurred())
 	defer os.Remove(tempfile.Name())
 
