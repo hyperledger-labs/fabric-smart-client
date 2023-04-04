@@ -7,7 +7,7 @@ require (
 	github.com/IBM/mathlib v0.0.0-20220112091634-0a7378db6912
 	github.com/ReneKroon/ttlcache/v2 v2.11.0
 	github.com/dgraph-io/badger/v3 v3.2103.2
-	github.com/docker/docker v20.10.7+incompatible
+	github.com/docker/docker v20.10.24+incompatible
 	github.com/docker/go-connections v0.4.0
 	github.com/fsouza/go-dockerclient v1.7.3
 	github.com/go-kit/kit v0.10.0
