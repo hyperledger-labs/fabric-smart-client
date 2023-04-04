@@ -35,7 +35,7 @@ func NewGRPCLogger(l *zap.Logger) *zapgrpc.Logger {
 		zap.AddCaller(),
 		zap.AddCallerSkip(3),
 	)
-	return zapgrpc.NewLogger(l, zapgrpc.WithDebug())
+	return zapgrpc.NewLogger(l)
 }
 
 // NewFabricLogger creates a logger that delegates to the zap.SugaredLogger.
