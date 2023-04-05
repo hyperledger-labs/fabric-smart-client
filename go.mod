@@ -2,9 +2,11 @@ module github.com/hyperledger-labs/fabric-smart-client
 
 go 1.20
 
+replace kilic/bls12-377 => github.com/kilic/bls12-377 v0.0.0-20201230075656-5449decbf102
+
 require (
-	github.com/IBM/idemix v0.0.0-20220113150823-80dd4cb2d74e
-	github.com/IBM/mathlib v0.0.0-20220112091634-0a7378db6912
+	github.com/IBM/idemix v0.0.2-0.20230324134044-ad53d9388bb5
+	github.com/IBM/mathlib v0.0.3-0.20230310094401-6036a5c12341
 	github.com/ReneKroon/ttlcache/v2 v2.11.0
 	github.com/dgraph-io/badger/v3 v3.2103.2
 	github.com/docker/docker v20.10.24+incompatible
@@ -38,7 +40,7 @@ require (
 	github.com/otiai10/copy v1.5.1
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.14.0
-	github.com/spf13/cobra v1.3.0
+	github.com/spf13/cobra v1.5.0
 	github.com/spf13/viper v1.10.1
 	github.com/stretchr/testify v1.8.2
 	github.com/sykesm/zap-logfmt v0.0.4
@@ -59,12 +61,14 @@ require (
 require (
 	github.com/bits-and-blooms/bitset v1.2.1 // indirect
 	github.com/cenkalti/backoff/v4 v4.2.0 // indirect
+	github.com/consensys/bavard v0.1.13 // indirect
 	github.com/go-logr/logr v1.2.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/golang/mock v1.6.0 // indirect
 	github.com/google/pprof v0.0.0-20221203041831-ce31453925ec // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.7.0 // indirect
 	github.com/ipfs/boxo v0.8.0-rc1 // indirect
+	github.com/kilic/bls12-381 v0.1.0 // indirect
 	github.com/libp2p/go-yamux/v4 v4.0.0 // indirect
 	github.com/quic-go/qpack v0.4.0 // indirect
 	github.com/quic-go/qtls-go1-19 v0.2.1 // indirect
@@ -81,7 +85,9 @@ require (
 	go.uber.org/fx v1.18.2 // indirect
 	go.uber.org/goleak v1.2.0 // indirect
 	golang.org/x/exp v0.0.0-20230213192124-5e25df0256eb // indirect
+	kilic/bls12-377 v0.0.0-00010101000000-000000000000 // indirect
 	nhooyr.io/websocket v1.8.7 // indirect
+	rsc.io/tmplfunc v0.0.3 // indirect
 )
 
 require (
@@ -101,7 +107,7 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash v1.1.0 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
-	github.com/consensys/gnark-crypto v0.6.0 // indirect
+	github.com/consensys/gnark-crypto v0.9.1 // indirect
 	github.com/containerd/cgroups v1.0.4 // indirect
 	github.com/containerd/containerd v1.5.18 // indirect
 	github.com/coreos/go-systemd/v22 v22.5.0 // indirect
