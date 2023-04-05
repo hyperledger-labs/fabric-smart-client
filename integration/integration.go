@@ -50,10 +50,18 @@ type Infrastructure struct {
 	PlatformFactories map[string]api.PlatformFactory
 	Topologies        []api.Topology
 	FscPlatform       *fsc.Platform
+	LogConfig         *flogging.Config
 }
 
 func New(startPort int, path string, topologies ...api.Topology) (*Infrastructure, error) {
 	RegisterFailHandler(failMe)
+	logConfig := flogging.Config{
+		Format:  "%{color}%{time:2006-01-02 15:04:05.000 MST} [%{module}] %{shortfunc} -> %{level:.4s} %{id:03x}%{color:reset} %{message}",
+		LogSpec: "info",
+		Writer:  os.Stderr,
+	}
+	flogging.Init(logConfig)
+
 	defer ginkgo.GinkgoRecover()
 
 	var testDir string
@@ -93,6 +101,7 @@ func New(startPort int, path string, topologies ...api.Topology) (*Infrastructur
 			"monitoring": monitoring.NewPlatformFactory(),
 			"orion":      orion.NewPlatformFactory(),
 		},
+		LogConfig: &logConfig,
 	}
 	return n, nil
 }
@@ -268,6 +277,11 @@ func (i *Infrastructure) StartFSCNode(id string) {
 
 func (i *Infrastructure) EnableRaceDetector() {
 	i.BuildServer.EnableRaceDetector()
+}
+
+func (i *Infrastructure) SetLogSpec(spec string) {
+	i.LogConfig.LogSpec = spec
+	flogging.Init(*i.LogConfig)
 }
 
 func (i *Infrastructure) initNWO() {

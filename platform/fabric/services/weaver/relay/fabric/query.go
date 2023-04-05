@@ -203,6 +203,7 @@ func (q *Query) Call() (*Result, error) {
 		signer,
 		string(sID.IdBytes),
 		true,
+		false,
 	)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed running interop view")

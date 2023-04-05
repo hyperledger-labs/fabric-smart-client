@@ -52,6 +52,8 @@ func (p *Platform) RunRelayServer(name string, serverConfigPath, port string) {
 		Env: []string{
 			"DEBUG=true",
 			"RELAY_CONFIG=/opt/relay/config/server.toml",
+			"RELAY_TLS=false",
+			"DRIVER_TLS=false",
 		},
 		ExposedPorts: nat.PortSet{
 			nat.Port(port + "/tcp"): struct{}{},
