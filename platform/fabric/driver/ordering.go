@@ -12,4 +12,7 @@ import "context"
 type Ordering interface {
 	// Broadcast sends the passed blob to the ordering service to be ordered
 	Broadcast(context context.Context, blob interface{}) error
+
+	// SetConsensusType sets the consensus type the ordering service should use
+	SetConsensusType(consensusType string) error
 }

@@ -77,7 +77,7 @@ func (c *Channel) ReloadConfigTransactions() error {
 
 			var bundle *channelconfig.Bundle
 			if c.Resources() == nil {
-				// setup the genesis block
+				// set up the genesis block
 				bundle, err = channelconfig.NewBundle(c.ChannelName, ctx.Config, factory.GetDefault())
 				if err != nil {
 					return errors.Wrapf(err, "failed to build a new bundle")
@@ -100,7 +100,9 @@ func (c *Channel) ReloadConfigTransactions() error {
 				}
 			}
 
-			c.applyBundle(bundle)
+			if err := c.ApplyBundle(bundle); err != nil {
+				return err
+			}
 
 			sequence = sequence + 1
 			continue
@@ -163,7 +165,7 @@ func (c *Channel) CommitConfig(blockNumber uint64, raw []byte, env *common.Envel
 
 	var bundle *channelconfig.Bundle
 	if c.Resources() == nil {
-		// setup the genesis block
+		// set up the genesis block
 		bundle, err = channelconfig.NewBundle(c.ChannelName, ctx.Config, factory.GetDefault())
 		if err != nil {
 			return errors.Wrapf(err, "failed to build a new bundle")
@@ -190,9 +192,7 @@ func (c *Channel) CommitConfig(blockNumber uint64, raw []byte, env *common.Envel
 		return errors.Wrapf(err, "failed committing configtx to the vault")
 	}
 
-	c.applyBundle(bundle)
-
-	return nil
+	return c.ApplyBundle(bundle)
 }
 
 // Resources returns the active Channel configuration bundle.
@@ -203,8 +203,8 @@ func (c *Channel) Resources() channelconfig.Resources {
 	return res
 }
 
-func (c *Channel) commitConfig(txid string, blockNumber uint64, seq uint64, envelope []byte) error {
-	rws, err := c.Vault.NewRWSet(txid)
+func (c *Channel) commitConfig(txID string, blockNumber uint64, seq uint64, envelope []byte) error {
+	rws, err := c.Vault.NewRWSet(txID)
 	if err != nil {
 		return errors.Wrapf(err, "cannot create rws for configtx")
 	}
@@ -218,8 +218,8 @@ func (c *Channel) commitConfig(txid string, blockNumber uint64, seq uint64, enve
 		return errors.Wrapf(err, "failed setting configtx state in rws")
 	}
 	rws.Done()
-	if err := c.CommitTX(txid, blockNumber, 0, nil); err != nil {
-		if err2 := c.DiscardTx(txid); err2 != nil {
+	if err := c.CommitTX(txID, blockNumber, 0, nil); err != nil {
+		if err2 := c.DiscardTx(txID); err2 != nil {
 			logger.Errorf("failed committing configtx rws [%s]", err2)
 		}
 		return errors.Wrapf(err, "failed committing configtx rws")
@@ -227,18 +227,18 @@ func (c *Channel) commitConfig(txid string, blockNumber uint64, seq uint64, enve
 	return nil
 }
 
-func (c *Channel) applyBundle(bundle *channelconfig.Bundle) {
+func (c *Channel) ApplyBundle(bundle *channelconfig.Bundle) error {
 	c.ResourcesLock.Lock()
 	defer c.ResourcesLock.Unlock()
 	c.ChannelResources = bundle
 
 	// update the list of orderers
-	orderers, any := c.ChannelResources.OrdererConfig()
-	if any {
+	ordererConfig, exists := c.ChannelResources.OrdererConfig()
+	if exists {
 		logger.Debugf("[Channel: %s] Orderer config has changed, updating the list of orderers", c.ChannelName)
 
 		var newOrderers []*grpc.ConnectionConfig
-		orgs := orderers.Organizations()
+		orgs := ordererConfig.Organizations()
 		for _, org := range orgs {
 			msp := org.MSP()
 			var tlsRootCerts [][]byte
@@ -256,13 +256,17 @@ func (c *Channel) applyBundle(bundle *channelconfig.Bundle) {
 		}
 		if len(newOrderers) != 0 {
 			logger.Debugf("[Channel: %s] Updating the list of orderers: (%d) found", c.ChannelName, len(newOrderers))
-			c.Network.setConfigOrderers(newOrderers)
+			if err := c.Network.SetConfigOrderers(ordererConfig, newOrderers); err != nil {
+				return err
+			}
 		} else {
 			logger.Debugf("[Channel: %s] No orderers found in Channel config", c.ChannelName)
 		}
 	} else {
 		logger.Debugf("no orderer configuration found in Channel config")
 	}
+
+	return nil
 }
 
 func capabilitiesSupported(res channelconfig.Resources) error {

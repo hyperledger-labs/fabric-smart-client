@@ -10,8 +10,6 @@ import (
 	"math/rand"
 	"sync"
 
-	"golang.org/x/net/context"
-
 	config2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/ordering"
@@ -21,7 +19,9 @@ import (
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
+	"github.com/hyperledger/fabric/common/channelconfig"
 	"github.com/pkg/errors"
+	"golang.org/x/net/context"
 )
 
 var logger = flogging.MustGetLogger("fabric-sdk.core")
@@ -40,11 +40,17 @@ type Network struct {
 	transactionManager driver.TransactionManager
 	sigService         driver.SignerService
 
+	// Ordering related fields
 	orderers           []*grpc.ConnectionConfig
+	ConsensusType      string
 	configuredOrderers int
-	peers              map[driver.PeerFunctionType][]*grpc.ConnectionConfig
-	defaultChannel     string
-	channelConfigs     []*config2.Channel
+
+	// Peers related fields
+	peers map[driver.PeerFunctionType][]*grpc.ConnectionConfig
+
+	// Channel related fields
+	defaultChannel string
+	channelConfigs []*config2.Channel
 
 	Metrics      *metrics.Metrics
 	Ordering     driver.Ordering
@@ -192,6 +198,11 @@ func (f *Network) Broadcast(context context.Context, blob interface{}) error {
 	return f.Ordering.Broadcast(context, blob)
 }
 
+// SetConsensusType sets the consensus type the ordering service should use
+func (f *Network) SetConsensusType(consensusType string) error {
+	return f.Ordering.SetConsensusType(consensusType)
+}
+
 func (f *Network) SignerService() driver.SignerService {
 	return f.sigService
 }
@@ -238,9 +249,14 @@ func (f *Network) Init() error {
 	return nil
 }
 
-func (f *Network) setConfigOrderers(orderers []*grpc.ConnectionConfig) {
+func (f *Network) SetConfigOrderers(o channelconfig.Orderer, orderers []*grpc.ConnectionConfig) error {
+	if err := f.Ordering.SetConsensusType(o.ConsensusType()); err != nil {
+		return errors.WithMessagef(err, "failed to set consensus type from channel config")
+	}
 	// the first configuredOrderers are from the configuration, keep them
 	// and append the new ones
 	f.orderers = append(f.orderers[:f.configuredOrderers], orderers...)
 	logger.Debugf("New Orderers [%d]", len(f.orderers))
+
+	return nil
 }

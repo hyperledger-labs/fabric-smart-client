@@ -11,9 +11,9 @@ import (
 	"crypto/tls"
 	"io"
 	"strings"
+	"sync"
 
 	grpc2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
-
 	"github.com/hyperledger/fabric-protos-go/common"
 	ab "github.com/hyperledger/fabric-protos-go/orderer"
 	"github.com/pkg/errors"
@@ -21,7 +21,27 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-//go:generate counterfeiter -o mock/broadcast.go -fake-name Broadcast . Broadcast
+type Connection struct {
+	lock   sync.Mutex
+	Stream Broadcast
+	Client *Client
+}
+
+func (c *Connection) Send(m *common.Envelope) error {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	return c.Stream.Send(m)
+}
+
+func (c *Connection) Recv() (*ab.BroadcastResponse, error) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	return c.Stream.Recv()
+}
+
+//go:generate counterfeiter -o mock/Broadcaster.go -fake-name Broadcast . Broadcast
 
 // Broadcast defines the interface that abstracts grpc calls to broadcast transactions to orderer
 type Broadcast interface {
@@ -43,15 +63,15 @@ type OrdererClient interface {
 	Close()
 }
 
-// ordererClient implements OrdererClient interface
-type ordererClient struct {
+// Client implements OrdererClient interface
+type Client struct {
 	ordererAddr        string
 	serverNameOverride string
 	grpcClient         *grpc2.Client
 	conn               *grpc.ClientConn
 }
 
-func NewOrdererClient(config *grpc2.ConnectionConfig) (*ordererClient, error) {
+func NewClient(config *grpc2.ConnectionConfig) (*Client, error) {
 	grpcClient, err := grpc2.CreateGRPCClient(config)
 	if err != nil {
 		err = errors.WithMessagef(err, "failed to create a Client to orderer %s", config.Address)
@@ -62,7 +82,7 @@ func NewOrdererClient(config *grpc2.ConnectionConfig) (*ordererClient, error) {
 		return nil, errors.WithMessagef(err, "failed to connect to orderer %s", config.Address)
 	}
 
-	return &ordererClient{
+	return &Client{
 		ordererAddr:        config.Address,
 		serverNameOverride: config.ServerNameOverride,
 		grpcClient:         grpcClient,
@@ -70,13 +90,12 @@ func NewOrdererClient(config *grpc2.ConnectionConfig) (*ordererClient, error) {
 	}, nil
 }
 
-// TODO: improve by providing grpc connection pool
-func (oc *ordererClient) Close() {
+func (oc *Client) Close() {
 	go oc.grpcClient.Close()
 }
 
 // NewBroadcast creates a Broadcast
-func (oc *ordererClient) NewBroadcast(ctx context.Context, opts ...grpc.CallOption) (Broadcast, error) {
+func (oc *Client) NewBroadcast(ctx context.Context, opts ...grpc.CallOption) (Broadcast, error) {
 	// reuse the existing connection to create Broadcast client
 	broadcast, err := ab.NewAtomicBroadcastClient(oc.conn).Broadcast(ctx)
 	if err == nil {
@@ -98,12 +117,12 @@ func (oc *ordererClient) NewBroadcast(ctx context.Context, opts ...grpc.CallOpti
 	return broadcast, nil
 }
 
-func (oc *ordererClient) Certificate() *tls.Certificate {
+func (oc *Client) Certificate() *tls.Certificate {
 	cert := oc.grpcClient.Certificate()
 	return &cert
 }
 
-// BroadcastSend sends transaction envelope to orderer service
+// BroadcastSend sends transaction envelope to orderer Service
 func BroadcastSend(broadcast Broadcast, envelope *common.Envelope) error {
 	return broadcast.Send(envelope)
 }
@@ -132,9 +151,9 @@ func BroadcastReceive(broadcast Broadcast, addr string, responses chan common.St
 	}
 }
 
-// broadcastWaitForResponse reads from response and errs chans until responses chan is closed
+// BroadcastWaitForResponse reads from response and errs chans until responses chan is closed
 func BroadcastWaitForResponse(responses chan common.Status, errs chan error) (common.Status, error) {
-	var status common.Status
+	var st common.Status
 	allErrs := make([]error, 0)
 
 read:
@@ -144,7 +163,7 @@ read:
 			if !ok {
 				break read
 			}
-			status = s
+			st = s
 		case e := <-errs:
 			allErrs = append(allErrs, e)
 		}
@@ -157,7 +176,7 @@ read:
 	}
 	// close errs channel since we have read all of them
 	close(errs)
-	return status, toError(allErrs)
+	return st, toError(allErrs)
 }
 
 // toError converts []error to error
