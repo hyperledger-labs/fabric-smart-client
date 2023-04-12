@@ -15,34 +15,35 @@ import (
 // Topology holds the basic information needed to generate
 // fabric configuration files.
 type Topology struct {
-	TopologyName      string              `yaml:"name,omitempty"`
-	TopologyType      string              `yaml:"type,omitempty"`
-	Default           bool                `yaml:"default,omitempty"`
-	Driver            string              `yaml:"driver,omitempty"`
-	Logging           *Logging            `yaml:"logging,omitempty"`
-	Organizations     []*Organization     `yaml:"organizations,omitempty"`
-	Peers             []*Peer             `yaml:"peers,omitempty"`
-	Consortiums       []*Consortium       `yaml:"consortiums,omitempty"`
-	SystemChannel     *SystemChannel      `yaml:"system_channel,omitempty"`
-	Channels          []*Channel          `yaml:"channels,omitempty"`
-	Consensus         *Consensus          `yaml:"consensus,omitempty"`
-	Orderers          []*Orderer          `yaml:"orderers,omitempty"`
-	Profiles          []*Profile          `yaml:"profiles,omitempty"`
-	Templates         *Templates          `yaml:"templates,omitempty"`
-	Chaincodes        []*ChannelChaincode `yaml:"chaincodes,omitempty"`
-	PvtTxSupport      bool                `yaml:"pvttxsupport,omitempty"`
-	PvtTxCCSupport    bool                `yaml:"pvttxccsupport,omitempty"`
-	MSPvtTxSupport    bool                `yaml:"mspvttxsupport,omitempty"`
-	MSPvtCCSupport    bool                `yaml:"mspvtccsupport,omitempty"`
-	FabTokenSupport   bool                `yaml:"fabtokensupport,omitempty"`
-	FabTokenCCSupport bool                `yaml:"fabtokenccsupport,omitempty"`
-	GRPCLogging       bool                `yaml:"grpcLogging,omitempty"`
-	NodeOUs           bool                `yaml:"nodeous,omitempty"`
-	FPC               bool                `yaml:"fpc,omitempty"`
-	Weaver            bool                `yaml:"weaver,omitempty"`
-	LogPeersToFile    bool                `yaml:"logPeersToFile,omitempty"`
-	LogOrderersToFile bool                `yaml:"logOrderersToFile,omitempty"`
-	TLSEnabled        bool                `yaml:"tlsEnabled,omitempty"`
+	TopologyName      string                 `yaml:"name,omitempty"`
+	TopologyType      string                 `yaml:"type,omitempty"`
+	Default           bool                   `yaml:"default,omitempty"`
+	Driver            string                 `yaml:"driver,omitempty"`
+	Logging           *Logging               `yaml:"logging,omitempty"`
+	Organizations     []*Organization        `yaml:"organizations,omitempty"`
+	Peers             []*Peer                `yaml:"peers,omitempty"`
+	Consortiums       []*Consortium          `yaml:"consortiums,omitempty"`
+	SystemChannel     *SystemChannel         `yaml:"system_channel,omitempty"`
+	Channels          []*Channel             `yaml:"channels,omitempty"`
+	Consensus         *Consensus             `yaml:"consensus,omitempty"`
+	Orderers          []*Orderer             `yaml:"orderers,omitempty"`
+	Profiles          []*Profile             `yaml:"profiles,omitempty"`
+	Templates         *Templates             `yaml:"templates,omitempty"`
+	Chaincodes        []*ChannelChaincode    `yaml:"chaincodes,omitempty"`
+	PvtTxSupport      bool                   `yaml:"pvttxsupport,omitempty"`
+	PvtTxCCSupport    bool                   `yaml:"pvttxccsupport,omitempty"`
+	MSPvtTxSupport    bool                   `yaml:"mspvttxsupport,omitempty"`
+	MSPvtCCSupport    bool                   `yaml:"mspvtccsupport,omitempty"`
+	FabTokenSupport   bool                   `yaml:"fabtokensupport,omitempty"`
+	FabTokenCCSupport bool                   `yaml:"fabtokenccsupport,omitempty"`
+	GRPCLogging       bool                   `yaml:"grpcLogging,omitempty"`
+	NodeOUs           bool                   `yaml:"nodeous,omitempty"`
+	FPC               bool                   `yaml:"fpc,omitempty"`
+	Weaver            bool                   `yaml:"weaver,omitempty"`
+	LogPeersToFile    bool                   `yaml:"logPeersToFile,omitempty"`
+	LogOrderersToFile bool                   `yaml:"logOrderersToFile,omitempty"`
+	TLSEnabled        bool                   `yaml:"tlsEnabled,omitempty"`
+	ExtraParams       map[string]interface{} `yaml:"-"`
 }
 
 func (t *Topology) Name() string {
@@ -94,7 +95,12 @@ func (t *Topology) AppendPeer(peer *Peer) {
 func (t *Topology) AppendOrganization(org *Organization) {
 	t.Organizations = append(t.Organizations, org)
 	t.Consortiums[0].Organizations = append(t.Consortiums[0].Organizations, org.Name)
-	t.Profiles[1].Organizations = append(t.Profiles[1].Organizations, org.Name)
+
+	for _, profile := range t.Profiles {
+		if t.SystemChannel == nil || profile.Name != t.SystemChannel.Profile {
+			profile.Organizations = append(profile.Organizations, org.Name)
+		}
+	}
 }
 
 func (t *Topology) EnableNodeOUs() {

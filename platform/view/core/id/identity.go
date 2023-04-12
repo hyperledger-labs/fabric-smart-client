@@ -9,7 +9,7 @@ package id
 import (
 	"crypto/x509"
 	"encoding/pem"
-	"io/ioutil"
+	"os"
 
 	"github.com/pkg/errors"
 )
@@ -34,7 +34,7 @@ func LoadIdentity(certPath string) ([]byte, error) {
 }
 
 func readFile(file string) ([]byte, error) {
-	fileCont, err := ioutil.ReadFile(file)
+	fileCont, err := os.ReadFile(file)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not read file %s", file)
 	}

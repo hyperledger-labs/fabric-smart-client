@@ -8,11 +8,7 @@ package ordering
 
 import (
 	"context"
-	"time"
-
-	context2 "golang.org/x/net/context"
-
-	"golang.org/x/sync/semaphore"
+	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/fabricutils"
@@ -24,9 +20,9 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	common2 "github.com/hyperledger/fabric-protos-go/common"
-	ab "github.com/hyperledger/fabric-protos-go/orderer"
 	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
+	context2 "golang.org/x/net/context"
 )
 
 var logger = flogging.MustGetLogger("fabric-sdk.ordering")
@@ -45,7 +41,7 @@ type Network interface {
 	PickOrderer() *grpc.ConnectionConfig
 	Orderers() []*grpc.ConnectionConfig
 	LocalMembership() driver.LocalMembership
-	// Broadcast sends the passed blob to the ordering service to be ordered
+	// Broadcast sends the passed blob to the ordering Service to be ordered
 	Broadcast(context context2.Context, blob interface{}) error
 	Channel(name string) (driver.Channel, error)
 	SignerService() driver.SignerService
@@ -61,31 +57,34 @@ type Transaction interface {
 	Bytes() ([]byte, error)
 }
 
-type Connection struct {
-	Stream Broadcast
-	Client *ordererClient
+type BroadcastFnc = func(context context.Context, env *common2.Envelope) error
+
+type Service struct {
+	SP      view2.ServiceProvider
+	Network Network
+	Metrics *metrics.Metrics
+
+	Broadcasters   map[string]BroadcastFnc
+	BroadcastMutex sync.RWMutex
+	Broadcaster    BroadcastFnc
 }
 
-type service struct {
-	sp      view2.ServiceProvider
-	network Network
-	metrics *metrics.Metrics
-
-	connSem     *semaphore.Weighted
-	connections chan *Connection
-}
-
-func NewService(sp view2.ServiceProvider, network Network, poolSize int, metrics *metrics.Metrics) *service {
-	return &service{
-		sp:          sp,
-		network:     network,
-		metrics:     metrics,
-		connections: make(chan *Connection, poolSize),
-		connSem:     semaphore.NewWeighted(int64(poolSize)),
+func NewService(sp view2.ServiceProvider, network Network, poolSize int, metrics *metrics.Metrics) *Service {
+	s := &Service{
+		SP:           sp,
+		Network:      network,
+		Metrics:      metrics,
+		Broadcasters: map[string]BroadcastFnc{},
 	}
+	s.Broadcasters["BFT"] = NewBFTBroadcaster(network, poolSize, metrics).Broadcast
+	cft := NewCFTBroadcaster(network, poolSize, metrics)
+	s.Broadcasters["etcdraft"] = cft.Broadcast
+	s.Broadcasters["solo"] = cft.Broadcast
+
+	return s
 }
 
-func (o *service) Broadcast(ctx context2.Context, blob interface{}) error {
+func (o *Service) Broadcast(ctx context2.Context, blob interface{}) error {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -114,11 +113,30 @@ func (o *service) Broadcast(ctx context2.Context, blob interface{}) error {
 		return errors.Errorf("invalid blob's type, got [%T]", blob)
 	}
 
-	return o.broadcastEnvelope(ctx, env)
+	o.BroadcastMutex.RLock()
+	broadcaster := o.Broadcaster
+	o.BroadcastMutex.RUnlock()
+	if broadcaster == nil {
+		return errors.Errorf("cannot broadcast yet, no consensus type set")
+	}
+
+	return broadcaster(ctx, env)
 }
 
-func (o *service) createFabricEndorseTransactionEnvelope(tx Transaction) (*common2.Envelope, error) {
-	ch, err := o.network.Channel(tx.Channel())
+func (o *Service) SetConsensusType(consensusType string) error {
+	logger.Debugf("ordering, setting consensus type to [%s]", consensusType)
+	broadcaster, ok := o.Broadcasters[consensusType]
+	if !ok {
+		return errors.Errorf("no broadcaster found for consensus [%s]", consensusType)
+	}
+	o.BroadcastMutex.Lock()
+	defer o.BroadcastMutex.Unlock()
+	o.Broadcaster = broadcaster
+	return nil
+}
+
+func (o *Service) createFabricEndorseTransactionEnvelope(tx Transaction) (*common2.Envelope, error) {
+	ch, err := o.Network.Channel(tx.Channel())
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed getting channel [%s]", tx.Channel())
 	}
@@ -133,7 +151,7 @@ func (o *service) createFabricEndorseTransactionEnvelope(tx Transaction) (*commo
 
 	// tx contains the proposal and the endorsements, assemble them in a fabric transaction
 	signerID := tx.Creator()
-	signer, err := o.network.SignerService().GetSigner(signerID)
+	signer, err := o.Network.SignerService().GetSigner(signerID)
 	if err != nil {
 		logger.Errorf("signer not found for %s while creating tx envelope for ordering [%s]", signerID.UniqueID(), err)
 		return nil, errors.Wrapf(err, "signer not found for %s while creating tx envelope for ordering", signerID.UniqueID())
@@ -144,123 +162,6 @@ func (o *service) createFabricEndorseTransactionEnvelope(tx Transaction) (*commo
 	}
 
 	return env, nil
-}
-
-func (o *service) broadcastEnvelope(context context.Context, env *common2.Envelope) error {
-	// send the envelope for ordering
-	var status *ab.BroadcastResponse
-	var connection *Connection
-	retries := o.network.Config().BroadcastNumRetries()
-	retryInterval := o.network.Config().BroadcastRetryInterval()
-	forceConnect := true
-	var err error
-	for i := 0; i < retries; i++ {
-		if connection != nil {
-			// throw away this connection
-			o.discardConnection(connection)
-		}
-		if i > 0 {
-			logger.Debugf("broadcast, retry [%d]...", i)
-			// wait a bit
-			time.Sleep(retryInterval)
-		}
-		if i > 0 || forceConnect {
-			forceConnect = false
-			connection, err = o.getConnection(context)
-			if err != nil {
-				logger.Warnf("failed to get connection to orderer [%s]", err)
-				continue
-			}
-		}
-
-		err = BroadcastSend(connection.Stream, env)
-		if err != nil {
-			continue
-		}
-		status, err = connection.Stream.Recv()
-		if err != nil {
-			continue
-		}
-		if status.GetStatus() != common2.Status_SUCCESS {
-			o.releaseConnection(connection)
-			return errors.Wrapf(err, "failed broadcasting, status %s", common2.Status_name[int32(status.GetStatus())])
-		}
-
-		labels := []string{
-			"network", o.network.Name(),
-		}
-		o.metrics.OrderedTransactions.With(labels...).Add(1)
-		o.releaseConnection(connection)
-
-		return nil
-	}
-	o.discardConnection(connection)
-	return errors.Wrap(err, "failed to send transaction to orderer")
-}
-
-func (o *service) getConnection(ctx context.Context) (*Connection, error) {
-	for {
-		select {
-		case connection := <-o.connections:
-			// if there is a connection available, return it
-			return connection, nil
-		default:
-			// Try to acquire the right to create a new connection.
-			// If this fails, retry with an existing connection
-			semContext, cancel := context.WithTimeout(ctx, 1*time.Second)
-			if err := o.connSem.Acquire(semContext, 1); err != nil {
-				cancel()
-				break
-			}
-			cancel()
-
-			// create connection
-			ordererConfig := o.network.PickOrderer()
-			if ordererConfig == nil {
-				return nil, errors.New("no orderer configured")
-			}
-
-			oClient, err := NewOrdererClient(ordererConfig)
-			if err != nil {
-				return nil, errors.Wrapf(err, "failed creating orderer client for %s", ordererConfig.Address)
-			}
-
-			stream, err := oClient.NewBroadcast(ctx)
-			if err != nil {
-				oClient.Close()
-				return nil, errors.Wrapf(err, "failed creating orderer stream for %s", ordererConfig.Address)
-			}
-
-			return &Connection{
-				Stream: stream,
-				Client: oClient,
-			}, nil
-		}
-	}
-}
-
-func (o *service) discardConnection(connection *Connection) {
-	if connection != nil {
-		o.connSem.Release(1)
-		if connection.Stream != nil {
-			if err := connection.Stream.CloseSend(); err != nil {
-				logger.Warnf("failed to close connection to ordering [%s]", err)
-			}
-		}
-		if connection.Client != nil {
-			connection.Client.Close()
-		}
-	}
-}
-
-func (o *service) releaseConnection(connection *Connection) {
-	select {
-	case o.connections <- connection:
-		return
-	default:
-		// if there is not enough space in the channel, then discuard the connection
-		o.discardConnection(connection)
-	}
 }
 
 type signerWrapper struct {

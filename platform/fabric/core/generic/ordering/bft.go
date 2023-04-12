@@ -1,0 +1,220 @@
+/*
+Copyright IBM Corp. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
+
+package ordering
+
+import (
+	"context"
+	"math"
+	"sync"
+	"time"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/metrics"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
+	common2 "github.com/hyperledger/fabric-protos-go/common"
+	"github.com/pkg/errors"
+	"golang.org/x/sync/semaphore"
+)
+
+type BFTBroadcaster struct {
+	Network  Network
+	connSem  *semaphore.Weighted
+	metrics  *metrics.Metrics
+	poolSize int
+
+	connectionsLock sync.RWMutex
+	connections     map[string]chan *Connection
+}
+
+func NewBFTBroadcaster(network Network, poolSize int, metrics *metrics.Metrics) *BFTBroadcaster {
+	return &BFTBroadcaster{
+		Network:     network,
+		connections: map[string]chan *Connection{},
+		connSem:     semaphore.NewWeighted(int64(poolSize)),
+		metrics:     metrics,
+		poolSize:    poolSize,
+	}
+}
+
+func (o *BFTBroadcaster) Broadcast(context context.Context, env *common2.Envelope) error {
+	// send the envelope for ordering
+	retries := o.Network.Config().BroadcastNumRetries()
+	retryInterval := o.Network.Config().BroadcastRetryInterval()
+	orderers := o.Network.Orderers()
+	if len(orderers) < 4 {
+		return errors.Errorf("not enough orderers, 4 minimum got [%d]", len(orderers))
+	}
+
+	n := len(orderers)
+	f := (int(n) - 1) / 3
+	threshold := int(math.Ceil((float64(n) + float64(f) + 1) / 2.0))
+
+	for i := 0; i < retries; i++ {
+		if i > 0 {
+			logger.Debugf("broadcast, retry [%d]...", i)
+			// wait a bit
+			time.Sleep(retryInterval)
+		}
+
+		counter := 0
+		var errs []error
+		var usedConnections []*Connection
+
+		var wg sync.WaitGroup
+		wg.Add(n)
+
+		var lock sync.Mutex
+
+		for _, orderer := range orderers {
+			go func(orderer *grpc.ConnectionConfig) {
+				defer wg.Done()
+
+				logger.Debugf("get connection to [%s]", orderer.Address)
+				connection, err := o.getConnection(context, orderer)
+
+				lock.Lock()
+				if err != nil {
+					errs = append(errs, errors.Wrapf(err, "failed connecting to [%v]", orderer.Address))
+					logger.Warnf("failed to get connection to orderer [%s]", orderer.Address, err)
+					lock.Unlock()
+					return
+				}
+
+				lock.Unlock()
+
+				logger.Debugf("broadcast to [%s]", orderer.Address)
+				err = connection.Send(env)
+				if err != nil {
+					logger.Errorf("failed to broadcast to [%s]: %s", orderer.Address, err)
+					lock.Lock()
+					defer lock.Unlock()
+					usedConnections = append(usedConnections, connection)
+					return
+				}
+				status, err := connection.Recv()
+				if err != nil {
+					logger.Errorf("failed to get status after broadcast to [%s]: %s", orderer.Address, err)
+					lock.Lock()
+					defer lock.Unlock()
+					usedConnections = append(usedConnections, connection)
+					return
+				}
+
+				lock.Lock()
+				defer lock.Unlock()
+
+				switch status.GetStatus() {
+				case common2.Status_SUCCESS:
+					o.releaseConnection(connection, orderer)
+					counter++
+				default:
+					usedConnections = append(usedConnections, connection)
+					logger.Errorf("failed to get status after broadcast to [%s]: %s", orderer.Address, common2.Status_name[int32(status.GetStatus())])
+					errs = append(errs, errors.Errorf("failed to get status after broadcast to [%s]: %s", orderer.Address, common2.Status_name[int32(status.GetStatus())]))
+					return
+				}
+			}(orderer)
+
+		}
+
+		wg.Wait()
+
+		// did we send to enough orderers?
+		// if not, discard all connections
+		if counter >= threshold {
+			// success
+			return nil
+		}
+
+		// fail
+		logger.Warnf("failed to broadcast, got [%d of %d] success and errs [%v], retry after a delay", counter, threshold, errs)
+		// cleanup connections
+		for _, connection := range usedConnections {
+			o.discardConnection(connection)
+		}
+	}
+
+	return errors.Errorf("failed to send transaction to the orderering service")
+}
+
+func (o *BFTBroadcaster) getConnection(ctx context.Context, to *grpc.ConnectionConfig) (*Connection, error) {
+	pool := o.connectionPool(to.Address)
+	for {
+		select {
+		case connection := <-pool:
+			// if there is a connection available, return it
+			return connection, nil
+		default:
+			// Try to acquire the right to create a new connection.
+			// If this fails, retry with an existing connection
+			semContext, cancel := context.WithTimeout(ctx, 1*time.Second)
+			if err := o.connSem.Acquire(semContext, 1); err != nil {
+				cancel()
+				break
+			}
+			cancel()
+
+			// create connection
+			oClient, err := NewClient(to)
+			if err != nil {
+				return nil, errors.Wrapf(err, "failed creating orderer client for %s", to.Address)
+			}
+
+			stream, err := oClient.NewBroadcast(ctx)
+			if err != nil {
+				oClient.Close()
+				return nil, errors.Wrapf(err, "failed creating orderer stream for %s", to.Address)
+			}
+
+			return &Connection{
+				Stream: stream,
+				Client: oClient,
+			}, nil
+		}
+	}
+}
+
+func (o *BFTBroadcaster) discardConnection(connection *Connection) {
+	if connection != nil {
+		o.connSem.Release(1)
+		if connection.Stream != nil {
+			if err := connection.Stream.CloseSend(); err != nil {
+				logger.Warnf("failed to close connection to ordering [%s]", err)
+			}
+		}
+		if connection.Client != nil {
+			connection.Client.Close()
+		}
+	}
+}
+
+func (o *BFTBroadcaster) releaseConnection(connection *Connection, to *grpc.ConnectionConfig) {
+	pool := o.connectionPool(to.Address)
+	select {
+	case pool <- connection:
+		return
+	default:
+		// if there is not enough space in the channel, then discard the connection
+		o.discardConnection(connection)
+	}
+}
+
+func (o *BFTBroadcaster) connectionPool(id string) chan *Connection {
+	o.connectionsLock.RLock()
+	connections, ok := o.connections[id]
+	o.connectionsLock.RUnlock()
+	if !ok {
+		o.connectionsLock.Lock()
+		connections, ok = o.connections[id]
+		if !ok {
+			connections = make(chan *Connection, o.poolSize)
+			o.connections[id] = connections
+		}
+		o.connectionsLock.Unlock()
+	}
+
+	return connections
+}

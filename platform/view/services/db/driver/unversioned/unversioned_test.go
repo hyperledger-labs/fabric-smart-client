@@ -8,7 +8,6 @@ package unversioned_test
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -194,7 +193,7 @@ func testSimpleReadWrite(t *testing.T, db driver.Persistence) {
 
 func TestMain(m *testing.M) {
 	var err error
-	tempDir, err = ioutil.TempDir("", "badger-fsc-test")
+	tempDir, err = os.MkdirTemp("", "badger-fsc-test")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to create temporary directory: %v", err)
 		os.Exit(-1)

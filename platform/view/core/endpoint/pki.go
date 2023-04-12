@@ -10,8 +10,8 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 
-	"github.com/libp2p/go-libp2p-core/crypto"
-	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p/core/crypto"
+	"github.com/libp2p/go-libp2p/core/peer"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )

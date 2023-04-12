@@ -11,7 +11,6 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/url"
 	"os"
 	"path"
@@ -345,13 +344,13 @@ func (p *Platform) writeConfigFile() {
 	c, err := yaml.Marshal(p.localConfig)
 	Expect(err).ToNot(HaveOccurred())
 
-	err = ioutil.WriteFile(p.configFile(), c, 0644)
+	err = os.WriteFile(p.configFile(), c, 0644)
 	Expect(err).ToNot(HaveOccurred())
 
 	b, err := yaml.Marshal(bootstrap)
 	Expect(err).ToNot(HaveOccurred())
 
-	err = ioutil.WriteFile(p.boostrapSharedConfig(), b, 0644)
+	err = os.WriteFile(p.boostrapSharedConfig(), b, 0644)
 	Expect(err).ToNot(HaveOccurred())
 
 	p.serverUrl, err = url.Parse(fmt.Sprintf("http://%s:%d", "127.0.0.1", p.localConfig.Server.Network.Port))

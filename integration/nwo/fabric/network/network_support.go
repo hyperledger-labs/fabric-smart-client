@@ -10,7 +10,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -114,7 +113,7 @@ func (n *Network) OrdererConfigPath(o *topology.Orderer) string {
 // object approximating its contents.
 func (n *Network) ReadOrdererConfig(o *topology.Orderer) *fabricconfig.Orderer {
 	var orderer fabricconfig.Orderer
-	ordererBytes, err := ioutil.ReadFile(n.OrdererConfigPath(o))
+	ordererBytes, err := os.ReadFile(n.OrdererConfigPath(o))
 	Expect(err).NotTo(HaveOccurred())
 
 	err = yaml.Unmarshal(ordererBytes, &orderer)
@@ -129,7 +128,7 @@ func (n *Network) WriteOrdererConfig(o *topology.Orderer, config *fabricconfig.O
 	ordererBytes, err := yaml.Marshal(config)
 	Expect(err).NotTo(HaveOccurred())
 
-	err = ioutil.WriteFile(n.OrdererConfigPath(o), ordererBytes, 0644)
+	err = os.WriteFile(n.OrdererConfigPath(o), ordererBytes, 0644)
 	Expect(err).NotTo(HaveOccurred())
 }
 
@@ -137,7 +136,7 @@ func (n *Network) WriteOrdererConfig(o *topology.Orderer, config *fabricconfig.O
 // object approximating its contents.
 func (n *Network) ReadConfigTxConfig() *fabricconfig.ConfigTx {
 	var configtx fabricconfig.ConfigTx
-	configtxBytes, err := ioutil.ReadFile(n.ConfigTxConfigPath())
+	configtxBytes, err := os.ReadFile(n.ConfigTxConfigPath())
 	Expect(err).NotTo(HaveOccurred())
 
 	err = yaml.Unmarshal(configtxBytes, &configtx)
@@ -151,7 +150,7 @@ func (n *Network) WriteConfigTxConfig(config *fabricconfig.ConfigTx) {
 	configtxBytes, err := yaml.Marshal(config)
 	Expect(err).NotTo(HaveOccurred())
 
-	err = ioutil.WriteFile(n.ConfigTxConfigPath(), configtxBytes, 0644)
+	err = os.WriteFile(n.ConfigTxConfigPath(), configtxBytes, 0644)
 	Expect(err).NotTo(HaveOccurred())
 }
 
@@ -180,7 +179,7 @@ func (n *Network) PeerLedgerDir(p *topology.Peer) string {
 // approximating its contents.
 func (n *Network) ReadPeerConfig(p *topology.Peer) *fabricconfig.Core {
 	var core fabricconfig.Core
-	coreBytes, err := ioutil.ReadFile(n.PeerConfigPath(p))
+	coreBytes, err := os.ReadFile(n.PeerConfigPath(p))
 	Expect(err).NotTo(HaveOccurred())
 
 	err = yaml.Unmarshal(coreBytes, &core)
@@ -195,7 +194,7 @@ func (n *Network) WritePeerConfig(p *topology.Peer, config *fabricconfig.Core) {
 	coreBytes, err := yaml.Marshal(config)
 	Expect(err).NotTo(HaveOccurred())
 
-	err = ioutil.WriteFile(n.PeerConfigPath(p), coreBytes, 0644)
+	err = os.WriteFile(n.PeerConfigPath(p), coreBytes, 0644)
 	Expect(err).NotTo(HaveOccurred())
 }
 
@@ -637,7 +636,7 @@ func (n *Network) bootstrapExtraIdentities() {
 func (n *Network) ConcatenateTLSCACertificates() {
 	bundle := &bytes.Buffer{}
 	for _, tlsCertPath := range n.ListTLSCACertificates() {
-		certBytes, err := ioutil.ReadFile(tlsCertPath)
+		certBytes, err := os.ReadFile(tlsCertPath)
 		Expect(err).NotTo(HaveOccurred())
 		bundle.Write(certBytes)
 	}
@@ -645,7 +644,7 @@ func (n *Network) ConcatenateTLSCACertificates() {
 		return
 	}
 
-	err := ioutil.WriteFile(n.CACertsBundlePath(), bundle.Bytes(), 0660)
+	err := os.WriteFile(n.CACertsBundlePath(), bundle.Bytes(), 0660)
 	Expect(err).NotTo(HaveOccurred())
 }
 
@@ -701,7 +700,7 @@ func (n *Network) CreateAndJoinChannel(o *topology.Orderer, channelName string) 
 // creates an anchor peer update transaction for each organization, and submits
 // the update transactions to the orderer.
 func (n *Network) UpdateChannelAnchors(o *topology.Orderer, channelName string) {
-	tempFile, err := ioutil.TempFile("", "update-anchors")
+	tempFile, err := os.CreateTemp("", "update-anchors")
 	Expect(err).NotTo(HaveOccurred())
 	tempFile.Close()
 	defer os.Remove(tempFile.Name())
@@ -834,7 +833,7 @@ func (n *Network) JoinChannel(name string, o *topology.Orderer, peers ...*topolo
 		return
 	}
 
-	tempFile, err := ioutil.TempFile("", "genesis-block")
+	tempFile, err := os.CreateTemp("", "genesis-block")
 	Expect(err).NotTo(HaveOccurred())
 	tempFile.Close()
 	defer os.Remove(tempFile.Name())
@@ -1128,7 +1127,7 @@ func (n *Network) Peer(orgName, peerName string) *topology.Peer {
 // DiscoveredPeer creates a new DiscoveredPeer from the peer and chaincodes
 // passed as arguments.
 func (n *Network) DiscoveredPeer(p *topology.Peer, chaincodes ...string) DiscoveredPeer {
-	peerCert, err := ioutil.ReadFile(n.PeerCert(p))
+	peerCert, err := os.ReadFile(n.PeerCert(p))
 	Expect(err).NotTo(HaveOccurred())
 
 	return DiscoveredPeer{
@@ -1140,7 +1139,7 @@ func (n *Network) DiscoveredPeer(p *topology.Peer, chaincodes ...string) Discove
 }
 
 func (n *Network) DiscoveredPeerMatcher(p *topology.Peer, chaincodes ...string) types.GomegaMatcher {
-	peerCert, err := ioutil.ReadFile(n.PeerCert(p))
+	peerCert, err := os.ReadFile(n.PeerCert(p))
 	Expect(err).NotTo(HaveOccurred())
 
 	return gstruct.MatchAllFields(gstruct.Fields{
@@ -1371,6 +1370,7 @@ const (
 	P2PPort        api.PortName = "P2P"
 	ClusterPort    api.PortName = "Cluster"
 	WebPort        api.PortName = "Web"
+	AdminPort      api.PortName = "Admin"
 )
 
 // PeerPortNames returns the list of ports that need to be reserved for a Peer.
@@ -1381,7 +1381,7 @@ func PeerPortNames() []api.PortName {
 // OrdererPortNames  returns the list of ports that need to be reserved for an
 // Orderer.
 func OrdererPortNames() []api.PortName {
-	return []api.PortName{ListenPort, ProfilePort, OperationsPort, ClusterPort}
+	return []api.PortName{ListenPort, ProfilePort, OperationsPort, ClusterPort, AdminPort}
 }
 
 // OrdererAddress returns the address (host and port) exposed by the Orderer

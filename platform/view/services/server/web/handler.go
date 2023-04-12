@@ -10,7 +10,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
 
@@ -80,7 +80,7 @@ func (h *HttpHandler) handle(backToClient http.ResponseWriter, req *http.Request
 		return
 	}
 
-	reqPayload, err := ioutil.ReadAll(req.Body)
+	reqPayload, err := io.ReadAll(req.Body)
 	if err != nil {
 		sendErr(backToClient, http.StatusBadRequest, "failed reading request", h.Logger, err)
 		return

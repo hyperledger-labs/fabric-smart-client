@@ -10,7 +10,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"os"
 	"os/exec"
@@ -139,7 +138,7 @@ func (p *Platform) GenerateArtifacts() {
 		Expect(err).ToNot(HaveOccurred())
 		p.Context.SetAdminSigningIdentity(peer.Name, adminID)
 
-		cert, err := ioutil.ReadFile(p.LocalMSPIdentityCert(peer))
+		cert, err := os.ReadFile(p.LocalMSPIdentityCert(peer))
 		Expect(err).ToNot(HaveOccurred())
 		p.Context.SetViewIdentity(peer.Name, cert)
 
@@ -209,7 +208,7 @@ func (p *Platform) PostRun(bool) {
 		Expect(err).ToNot(HaveOccurred())
 		p.Context.SetAdminSigningIdentity(peer.Name, adminID)
 
-		cert, err := ioutil.ReadFile(p.LocalMSPIdentityCert(peer))
+		cert, err := os.ReadFile(p.LocalMSPIdentityCert(peer))
 		Expect(err).ToNot(HaveOccurred())
 		p.Context.SetViewIdentity(peer.Name, cert)
 	}
@@ -678,7 +677,7 @@ func (p *Platform) Organization(orgName string) *node2.Organization {
 func (p *Platform) ConcatenateTLSCACertificates() {
 	bundle := &bytes.Buffer{}
 	for _, tlsCertPath := range p.listTLSCACertificates() {
-		certBytes, err := ioutil.ReadFile(tlsCertPath)
+		certBytes, err := os.ReadFile(tlsCertPath)
 		Expect(err).NotTo(HaveOccurred())
 		bundle.Write(certBytes)
 	}
@@ -686,7 +685,7 @@ func (p *Platform) ConcatenateTLSCACertificates() {
 		return
 	}
 
-	err := ioutil.WriteFile(p.CACertsBundlePath(), bundle.Bytes(), 0660)
+	err := os.WriteFile(p.CACertsBundlePath(), bundle.Bytes(), 0660)
 	Expect(err).NotTo(HaveOccurred())
 }
 

@@ -26,7 +26,7 @@ func (q *directQueryExecutor) GetState(namespace string, key string) ([]byte, er
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("Get State [%s,%s]", namespace, key)
 	}
-	v, _, _, err := q.vault.store.GetState(namespace, key)
+	v, _, _, err := q.vault.Store.GetState(namespace, key)
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("Got State [%s,%s] -> [%v]", namespace, key, hash.Hashable(v).String())
 	}
@@ -34,16 +34,16 @@ func (q *directQueryExecutor) GetState(namespace string, key string) ([]byte, er
 }
 
 func (q *directQueryExecutor) GetStateRangeScanIterator(namespace string, startKey string, endKey string) (driver.VersionedResultsIterator, error) {
-	return q.vault.store.GetStateRangeScanIterator(namespace, startKey, endKey)
+	return q.vault.Store.GetStateRangeScanIterator(namespace, startKey, endKey)
 }
 
 func (q *directQueryExecutor) GetStateMetadata(namespace, key string) (map[string][]byte, uint64, uint64, error) {
-	return q.vault.store.GetStateMetadata(namespace, key)
+	return q.vault.Store.GetStateMetadata(namespace, key)
 }
 
 func (q *directQueryExecutor) Done() {
-	q.vault.counter.Dec()
-	q.vault.storeLock.RUnlock()
+	q.vault.Counter.Dec()
+	q.vault.StoreLock.RUnlock()
 }
 
 type interceptorQueryExecutor struct {
@@ -51,14 +51,14 @@ type interceptorQueryExecutor struct {
 }
 
 func (i *interceptorQueryExecutor) Done() {
-	i.counter.Dec()
-	i.storeLock.RUnlock()
+	i.Counter.Dec()
+	i.StoreLock.RUnlock()
 }
 
 func (i *interceptorQueryExecutor) GetStateMetadata(namespace, key string) (map[string][]byte, uint64, uint64, error) {
-	return i.store.GetStateMetadata(namespace, key)
+	return i.Store.GetStateMetadata(namespace, key)
 }
 
 func (i *interceptorQueryExecutor) GetState(namespace, key string) ([]byte, uint64, uint64, error) {
-	return i.store.GetState(namespace, key)
+	return i.Store.GetState(namespace, key)
 }

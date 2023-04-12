@@ -10,7 +10,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/x509"
 	"encoding/pem"
-	"io/ioutil"
+	"os"
 
 	"github.com/pkg/errors"
 
@@ -18,11 +18,11 @@ import (
 )
 
 func NewX509SigningIdentity(certPath, skPath string) (SigningIdentity, error) {
-	cert, err := ioutil.ReadFile(certPath)
+	cert, err := os.ReadFile(certPath)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed reading certificate from [%s]", certPath)
 	}
-	sk, err := ioutil.ReadFile(skPath)
+	sk, err := os.ReadFile(skPath)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed reading secret key from [%s]", skPath)
 	}

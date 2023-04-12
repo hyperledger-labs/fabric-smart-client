@@ -8,7 +8,7 @@ package generic
 
 import (
 	"context"
-	"io/ioutil"
+	"os"
 	"sync"
 	"time"
 
@@ -19,7 +19,6 @@ import (
 	finality2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/finality"
 	peer2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
 	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer/common"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/rwset"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
@@ -72,6 +71,7 @@ type Channel struct {
 	MS                driver.MetadataService
 	DeliveryService   Delivery
 	driver.TXIDStore
+	RWSetLoader driver.RWSetLoader
 
 	// ResourcesApplyLock is used to serialize calls to CommitConfig and bundle update processing.
 	ResourcesApplyLock sync.Mutex
@@ -195,6 +195,11 @@ func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver
 		EventsSubscriber:  eventsSubscriber,
 		Subscribers:       events.NewSubscribers(),
 	}
+	c.RWSetLoader = NewRWSetLoader(
+		network.Name(), name,
+		c.ES, c.TS, network.TransactionManager(),
+		v,
+	)
 	if err := c.Init(); err != nil {
 		return nil, errors.WithMessagef(err, "failed initializing Channel [%s]", name)
 	}
@@ -245,12 +250,12 @@ func (c *Channel) GetClientConfig(tlsRootCerts [][]byte, UseTLS bool) (*grpc.Cli
 	}
 
 	if secOpts.RequireClientCert {
-		keyPEM, err := ioutil.ReadFile(c.NetworkConfig.TLSClientKeyFile())
+		keyPEM, err := os.ReadFile(c.NetworkConfig.TLSClientKeyFile())
 		if err != nil {
 			return nil, "", errors.WithMessage(err, "unable to load fabric.tls.clientKey.file")
 		}
 		secOpts.Key = keyPEM
-		certPEM, err := ioutil.ReadFile(c.NetworkConfig.TLSClientCertFile())
+		certPEM, err := os.ReadFile(c.NetworkConfig.TLSClientCertFile())
 		if err != nil {
 			return nil, "", errors.WithMessage(err, "unable to load fabric.tls.clientCert.file")
 		}
@@ -336,46 +341,11 @@ func (c *Channel) FetchAndStoreEnvelope(txID string) error {
 }
 
 func (c *Channel) GetRWSetFromEvn(txID string) (driver.RWSet, driver.ProcessTransaction, error) {
-	rawEnv, err := c.EnvelopeService().LoadEnvelope(txID)
-	if err != nil {
-		return nil, nil, errors.Wrapf(err, "cannot load envelope [%s]", txID)
-	}
-	logger.Debugf("unmarshal envelope [%s,%s]", c.Name(), txID)
-	env := &common.Envelope{}
-	err = proto.Unmarshal(rawEnv, env)
-	if err != nil {
-		return nil, nil, errors.Wrapf(err, "failed unmarshalling envelope [%s]", txID)
-	}
-	logger.Debugf("unpack envelope [%s,%s]", c.Name(), txID)
-	upe, err := rwset.UnpackEnvelope(c.Network.Name(), env)
-	if err != nil {
-		return nil, nil, errors.Wrapf(err, "failed unpacking envelope [%s]", txID)
-	}
-	logger.Debugf("retrieve rws [%s,%s]", c.Name(), txID)
-
-	rws, err := c.GetRWSet(txID, upe.Results)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return rws, upe, nil
+	return c.RWSetLoader.GetRWSetFromEvn(txID)
 }
 
 func (c *Channel) GetRWSetFromETx(txID string) (driver.RWSet, driver.ProcessTransaction, error) {
-	raw, err := c.TransactionService().LoadTransaction(txID)
-	if err != nil {
-		return nil, nil, errors.Wrapf(err, "cannot load etx [%s]", txID)
-	}
-	tx, err := c.Network.TransactionManager().NewTransactionFromBytes(c.Name(), raw)
-	if err != nil {
-		return nil, nil, err
-	}
-	rws, err := tx.GetRWSet()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return rws, tx, nil
+	return c.RWSetLoader.GetRWSetFromETx(txID)
 }
 
 func (c *Channel) Init() error {
@@ -412,16 +382,16 @@ type processedTransaction struct {
 	env []byte
 }
 
-func newProcessedTransactionFromEnvelope(env *common.Envelope) (*processedTransaction, error) {
-	ue, err := transaction.UnpackEnvelope(env)
+func newProcessedTransactionFromEnvelope(env *common.Envelope) (*processedTransaction, int32, error) {
+	ue, headerType, err := transaction.UnpackEnvelope(env)
 	if err != nil {
-		return nil, err
+		return nil, headerType, err
 	}
-	return &processedTransaction{ue: ue}, nil
+	return &processedTransaction{ue: ue}, headerType, nil
 }
 
 func newProcessedTransactionFromEnvelopeRaw(env []byte) (*processedTransaction, error) {
-	ue, err := transaction.UnpackEnvelopeFromBytes(env)
+	ue, _, err := transaction.UnpackEnvelopeFromBytes(env)
 	if err != nil {
 		return nil, err
 	}
@@ -429,7 +399,7 @@ func newProcessedTransactionFromEnvelopeRaw(env []byte) (*processedTransaction, 
 }
 
 func newProcessedTransaction(pt *peer.ProcessedTransaction) (*processedTransaction, error) {
-	ue, err := transaction.UnpackEnvelope(pt.TransactionEnvelope)
+	ue, _, err := transaction.UnpackEnvelope(pt.TransactionEnvelope)
 	if err != nil {
 		return nil, err
 	}
@@ -471,7 +441,7 @@ func (c *connCreator) NewPeerClientForAddress(cc grpc.ConnectionConfig) (peer2.C
 		switch {
 		case len(cc.TLSRootCertFile) != 0:
 			logger.Debugf("Loading TLSRootCert from file [%s]", cc.TLSRootCertFile)
-			caPEM, err := ioutil.ReadFile(cc.TLSRootCertFile)
+			caPEM, err := os.ReadFile(cc.TLSRootCertFile)
 			if err != nil {
 				logger.Error("unable to load TLS cert from %s", cc.TLSRootCertFile)
 				return nil, errors.WithMessagef(err, "unable to load TLS cert from %s", cc.TLSRootCertFile)

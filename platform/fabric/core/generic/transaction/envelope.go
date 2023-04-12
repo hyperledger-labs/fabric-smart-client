@@ -30,7 +30,7 @@ func NewEnvelope() *Envelope {
 }
 
 func NewEnvelopeFromEnv(e *common.Envelope) (*Envelope, error) {
-	upe, err := UnpackEnvelope(e)
+	upe, _, err := UnpackEnvelope(e)
 	if err != nil {
 		return nil, err
 	}
@@ -64,7 +64,7 @@ func (e *Envelope) FromBytes(raw []byte) error {
 	if err := proto.Unmarshal(raw, e.e); err != nil {
 		return err
 	}
-	upe, err := UnpackEnvelope(e.e)
+	upe, _, err := UnpackEnvelope(e.e)
 	if err != nil {
 		return err
 	}
@@ -101,64 +101,64 @@ type UnpackedEnvelope struct {
 	Envelope          []byte
 }
 
-func UnpackEnvelopeFromBytes(raw []byte) (*UnpackedEnvelope, error) {
+func UnpackEnvelopeFromBytes(raw []byte) (*UnpackedEnvelope, int32, error) {
 	env := &common.Envelope{}
 	if err := proto.Unmarshal(raw, env); err != nil {
-		return nil, err
+		return nil, -1, err
 	}
 	return UnpackEnvelope(env)
 }
 
-func UnpackEnvelope(env *common.Envelope) (*UnpackedEnvelope, error) {
+func UnpackEnvelope(env *common.Envelope) (*UnpackedEnvelope, int32, error) {
 	payl, err := protoutil.UnmarshalPayload(env.Payload)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to unmarshal payload")
+		return nil, -1, errors.Wrap(err, "failed to unmarshal payload")
 	}
 
 	chdr, err := protoutil.UnmarshalChannelHeader(payl.Header.ChannelHeader)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to unmarshal channel header")
-	}
-
-	sdr, err := protoutil.UnmarshalSignatureHeader(payl.Header.SignatureHeader)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to unmarshal signature header")
+		return nil, -1, errors.Wrap(err, "failed to unmarshal channel header")
 	}
 
 	// validate the payload type
 	if common.HeaderType(chdr.Type) != common.HeaderType_ENDORSER_TRANSACTION {
-		return nil, fmt.Errorf("only Endorser Transactions are supported, provided type %d", chdr.Type)
+		return nil, chdr.Type, fmt.Errorf("only Endorser Transactions are supported, provided type %d", chdr.Type)
+	}
+
+	sdr, err := protoutil.UnmarshalSignatureHeader(payl.Header.SignatureHeader)
+	if err != nil {
+		return nil, chdr.Type, errors.Wrap(err, "failed to unmarshal signature header")
 	}
 
 	// ...and the transaction...
 	tx, err := protoutil.UnmarshalTransaction(payl.Data)
 	if err != nil {
-		return nil, errors.Wrap(err, "VSCC error: GetTransaction failed")
+		return nil, chdr.Type, errors.Wrap(err, "VSCC error: GetTransaction failed")
 	}
 
 	cap, err := protoutil.UnmarshalChaincodeActionPayload(tx.Actions[0].Payload)
 	if err != nil {
-		return nil, errors.Wrap(err, "VSCC error: GetChaincodeActionPayload failed")
+		return nil, chdr.Type, errors.Wrap(err, "VSCC error: GetChaincodeActionPayload failed")
 	}
 	cpp, err := protoutil.UnmarshalChaincodeProposalPayload(cap.ChaincodeProposalPayload)
 	if err != nil {
-		return nil, errors.Wrap(err, "VSCC error: GetChaincodeProposalPayload failed")
+		return nil, chdr.Type, errors.Wrap(err, "VSCC error: GetChaincodeProposalPayload failed")
 	}
 	cis, err := protoutil.UnmarshalChaincodeInvocationSpec(cpp.Input)
 	if err != nil {
-		return nil, errors.Wrap(err, "VSCC error: UnmarshalChaincodeInvocationSpec failed")
+		return nil, chdr.Type, errors.Wrap(err, "VSCC error: UnmarshalChaincodeInvocationSpec failed")
 	}
 
 	pRespPayload, err := protoutil.UnmarshalProposalResponsePayload(cap.Action.ProposalResponsePayload)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to unmarshal proposal response payload")
+		return nil, chdr.Type, errors.Wrap(err, "failed to unmarshal proposal response payload")
 	}
 	if pRespPayload.Extension == nil {
-		return nil, errors.Wrap(err, "nil pRespPayload.Extension")
+		return nil, chdr.Type, errors.Wrap(err, "nil pRespPayload.Extension")
 	}
 	respPayload, err := protoutil.UnmarshalChaincodeAction(pRespPayload.Extension)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to unmarshal chaincode action")
+		return nil, chdr.Type, errors.Wrap(err, "failed to unmarshal chaincode action")
 	}
 
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
@@ -214,7 +214,7 @@ func UnpackEnvelope(env *common.Envelope) (*UnpackedEnvelope, error) {
 		ChannelHeader:     chdr,
 		SignatureHeader:   sdr,
 		ProposalResponses: proposalResponses,
-	}, nil
+	}, chdr.Type, nil
 }
 
 func (u *UnpackedEnvelope) ID() string {

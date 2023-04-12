@@ -9,7 +9,7 @@ package fsc
 import (
 	"bytes"
 	"context"
-	"io/ioutil"
+	"os"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -55,10 +55,10 @@ var _ = Describe("EndToEnd", func() {
 				Node:         n,
 			})
 
-			ExpectedMainOne, err := ioutil.ReadFile("./testdata/main/main.go.output")
+			ExpectedMainOne, err := os.ReadFile("./testdata/main/main.go.output")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(string(buf.Bytes())).To(BeEquivalentTo(string(ExpectedMainOne)))
-			// Expect(ioutil.WriteFile("./testdata/main/main.go.output", buf.Bytes(), 0777)).ToNot(HaveOccurred())
+			// Expect(os.WriteFile("./testdata/main/main.go.output", buf.Bytes(), 0777)).ToNot(HaveOccurred())
 		})
 	})
 })

@@ -8,10 +8,10 @@ package badger
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 	"unicode/utf8"
@@ -326,7 +326,7 @@ func TestSimpleReadWrite(t *testing.T) {
 
 func TestMain(m *testing.M) {
 	var err error
-	tempDir, err = ioutil.TempDir("", "badger-fsc-test")
+	tempDir, err = os.MkdirTemp("", "badger-fsc-test")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to create temporary directory: %v", err)
 		os.Exit(-1)
@@ -336,7 +336,7 @@ func TestMain(m *testing.M) {
 	m.Run()
 }
 
-func populateDB(t *testing.T, ns, key, keyWithSuffix, dbname string) *badgerDB {
+func populateDB(t *testing.T, ns, key, keyWithSuffix, dbname string) *DB {
 	dbpath := filepath.Join(tempDir, dbname)
 	db, err := OpenDB(Opts{Path: dbpath}, nil)
 	assert.NoError(t, err)
@@ -541,6 +541,113 @@ func TestRangeQueries1(t *testing.T) {
 		{Key: "k111", Raw: []byte("k111_value"), Block: 35, IndexInBlock: 4},
 		{Key: "k2", Raw: []byte("k2_value"), Block: 35, IndexInBlock: 1},
 	}, res)
+}
+
+func TestMultiWritesAndRangeQueries(t *testing.T) {
+	ns := "namespace"
+
+	dbpath := filepath.Join(tempDir, "DB-TestRangeQueries")
+	db, err := OpenDB(Opts{Path: dbpath}, nil)
+	defer db.Close()
+	assert.NoError(t, err)
+	assert.NotNil(t, db)
+
+	var wg sync.WaitGroup
+	wg.Add(4)
+	go func() {
+		write(t, db, ns, "k2", []byte("k2_value"), 35, 1)
+		wg.Done()
+	}()
+	go func() {
+		write(t, db, ns, "k3", []byte("k3_value"), 35, 2)
+		wg.Done()
+	}()
+	go func() {
+		write(t, db, ns, "k1", []byte("k1_value"), 35, 3)
+		wg.Done()
+	}()
+	go func() {
+		write(t, db, ns, "k111", []byte("k111_value"), 35, 4)
+		wg.Done()
+	}()
+	wg.Wait()
+
+	itr, err := db.GetStateRangeScanIterator(ns, "", "")
+	defer itr.Close()
+	assert.NoError(t, err)
+
+	res := make([]driver.VersionedRead, 0, 4)
+	for n, err := itr.Next(); n != nil; n, err = itr.Next() {
+		assert.NoError(t, err)
+		res = append(res, *n)
+	}
+	assert.Len(t, res, 4)
+	assert.Equal(t, []driver.VersionedRead{
+		{Key: "k1", Raw: []byte("k1_value"), Block: 35, IndexInBlock: 3},
+		{Key: "k111", Raw: []byte("k111_value"), Block: 35, IndexInBlock: 4},
+		{Key: "k2", Raw: []byte("k2_value"), Block: 35, IndexInBlock: 1},
+		{Key: "k3", Raw: []byte("k3_value"), Block: 35, IndexInBlock: 2},
+	}, res)
+
+	itr, err = db.GetStateRangeScanIterator(ns, "k1", "k3")
+	defer itr.Close()
+	assert.NoError(t, err)
+
+	res = make([]driver.VersionedRead, 0, 3)
+	for n, err := itr.Next(); n != nil; n, err = itr.Next() {
+		assert.NoError(t, err)
+		res = append(res, *n)
+	}
+	expected := []driver.VersionedRead{
+		{Key: "k1", Raw: []byte("k1_value"), Block: 35, IndexInBlock: 3},
+		{Key: "k111", Raw: []byte("k111_value"), Block: 35, IndexInBlock: 4},
+		{Key: "k2", Raw: []byte("k2_value"), Block: 35, IndexInBlock: 1},
+	}
+	assert.Len(t, res, 3)
+	assert.Equal(t, expected, res)
+
+	itr, err = db.GetStateRangeScanIterator(ns, "k1", "k3")
+	defer itr.Close()
+	assert.NoError(t, err)
+
+	expected = []driver.VersionedRead{
+		{Key: "k1", Raw: []byte("k1_value"), Block: 35, IndexInBlock: 3},
+		{Key: "k111", Raw: []byte("k111_value"), Block: 35, IndexInBlock: 4},
+	}
+	res = make([]driver.VersionedRead, 0, 2)
+	for i := 0; i < 2; i++ {
+		n, err := itr.Next()
+		assert.NoError(t, err)
+		res = append(res, *n)
+	}
+	assert.Len(t, res, 2)
+	assert.Equal(t, expected, res)
+
+	expected = []driver.VersionedRead{
+		{Key: "k1", Raw: []byte("k1_value"), Block: 35, IndexInBlock: 3},
+		{Key: "k111", Raw: []byte("k111_value"), Block: 35, IndexInBlock: 4},
+		{Key: "k2", Raw: []byte("k2_value"), Block: 35, IndexInBlock: 1},
+	}
+	itr, err = db.GetStateRangeScanIterator(ns, "k1", "k3")
+	defer itr.Close()
+	assert.NoError(t, err)
+
+	res = make([]driver.VersionedRead, 0, 3)
+	for n, err := itr.Next(); n != nil; n, err = itr.Next() {
+		assert.NoError(t, err)
+		res = append(res, *n)
+	}
+	assert.Len(t, res, 3)
+	assert.Equal(t, expected, res)
+}
+
+func write(t *testing.T, db *DB, ns, key string, value []byte, block, txnum uint64) {
+	tx, err := db.NewWriteTransaction()
+	assert.NoError(t, err)
+	err = tx.SetState(ns, key, value, block, txnum)
+	assert.NoError(t, err)
+	err = tx.Commit()
+	assert.NoError(t, err)
 }
 
 const (

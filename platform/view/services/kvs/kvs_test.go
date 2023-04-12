@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package kvs_test
 
 import (
-	"io/ioutil"
 	"os"
 	"testing"
 
@@ -104,7 +103,7 @@ func testRound(t *testing.T, driver string, cp kvs.ConfigProvider) {
 }
 
 func TestBadgerKVS(t *testing.T) {
-	path, err := ioutil.TempDir(os.TempDir(), "kvstest-*")
+	path, err := os.MkdirTemp(os.TempDir(), "kvstest-*")
 	assert.NoError(t, err)
 	defer os.RemoveAll(path)
 

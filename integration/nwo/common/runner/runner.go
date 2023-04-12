@@ -137,7 +137,7 @@ func (r *Runner) Run(sigChan <-chan os.Signal, ready chan<- struct{}) error {
 		case <-startCheckTimeout:
 			// clean up hanging process
 			r.Command.Process.Signal(syscall.SIGKILL)
-			EventuallyWithOffset(1, r.exitCode).Should(gexec.Exit())
+			EventuallyWithOffset(1, r).Should(gexec.Exit())
 
 			// fail to start
 			return fmt.Errorf(

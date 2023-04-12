@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package file
 
 import (
-	"io/ioutil"
+	"os"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id/ecdsa"
 	kms "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kms"
@@ -19,11 +19,11 @@ import (
 type Driver struct{}
 
 func (d *Driver) Load(configProvider driver.ConfigProvider) (view.Identity, driver.Signer, driver.Verifier, error) {
-	idPEM, err := ioutil.ReadFile(configProvider.GetPath("fsc.identity.cert.file"))
+	idPEM, err := os.ReadFile(configProvider.GetPath("fsc.identity.cert.file"))
 	if err != nil {
 		return nil, nil, nil, errors.Wrapf(err, "failed loading SFC Node Identity")
 	}
-	fileCont, err := ioutil.ReadFile(configProvider.GetPath("fsc.identity.key.file"))
+	fileCont, err := os.ReadFile(configProvider.GetPath("fsc.identity.key.file"))
 	if err != nil {
 		return nil, nil, nil, errors.Wrapf(err, "failed reading file [%s]", fileCont)
 	}

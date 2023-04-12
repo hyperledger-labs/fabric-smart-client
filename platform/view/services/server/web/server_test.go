@@ -10,7 +10,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -44,28 +44,28 @@ func TestFabHTTP(t *testing.T) {
 }
 
 func generateCertificates(tempDir string) {
-	err := ioutil.WriteFile(filepath.Join(tempDir, "server-ca.pem"), tlsCA.CertBytes(), 0640)
+	err := os.WriteFile(filepath.Join(tempDir, "server-ca.pem"), tlsCA.CertBytes(), 0640)
 	Expect(err).NotTo(HaveOccurred())
 	serverKeyPair, err := tlsCA.NewServerCertKeyPair("127.0.0.1")
 	Expect(err).NotTo(HaveOccurred())
-	err = ioutil.WriteFile(filepath.Join(tempDir, "server-cert.pem"), serverKeyPair.Cert, 0640)
+	err = os.WriteFile(filepath.Join(tempDir, "server-cert.pem"), serverKeyPair.Cert, 0640)
 	Expect(err).NotTo(HaveOccurred())
-	err = ioutil.WriteFile(filepath.Join(tempDir, "server-key.pem"), serverKeyPair.Key, 0640)
+	err = os.WriteFile(filepath.Join(tempDir, "server-key.pem"), serverKeyPair.Key, 0640)
 	Expect(err).NotTo(HaveOccurred())
 
-	err = ioutil.WriteFile(filepath.Join(tempDir, "client-ca.pem"), tlsCA.CertBytes(), 0640)
+	err = os.WriteFile(filepath.Join(tempDir, "client-ca.pem"), tlsCA.CertBytes(), 0640)
 	Expect(err).NotTo(HaveOccurred())
 	clientKeyPair, err := tlsCA.NewClientCertKeyPair()
 	Expect(err).NotTo(HaveOccurred())
-	err = ioutil.WriteFile(filepath.Join(tempDir, "client-cert.pem"), clientKeyPair.Cert, 0640)
+	err = os.WriteFile(filepath.Join(tempDir, "client-cert.pem"), clientKeyPair.Cert, 0640)
 	Expect(err).NotTo(HaveOccurred())
-	err = ioutil.WriteFile(filepath.Join(tempDir, "client-key.pem"), clientKeyPair.Key, 0640)
+	err = os.WriteFile(filepath.Join(tempDir, "client-key.pem"), clientKeyPair.Key, 0640)
 	Expect(err).NotTo(HaveOccurred())
 }
 
 func newHTTPClient(tlsDir string, withClientCert bool) *http.Client {
 	clientCertPool := x509.NewCertPool()
-	caCert, err := ioutil.ReadFile(filepath.Join(tlsDir, "server-ca.pem"))
+	caCert, err := os.ReadFile(filepath.Join(tlsDir, "server-ca.pem"))
 	Expect(err).NotTo(HaveOccurred())
 	clientCertPool.AppendCertsFromPEM(caCert)
 
@@ -102,7 +102,7 @@ var _ = Describe("Server", func() {
 
 	BeforeEach(func() {
 		var err error
-		tempDir, err = ioutil.TempDir("", "http-test")
+		tempDir, err = os.MkdirTemp("", "http-test")
 		Expect(err).NotTo(HaveOccurred())
 
 		generateCertificates(tempDir)
@@ -157,7 +157,7 @@ var _ = Describe("Server", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(resp.StatusCode).To(Equal(http.StatusOK))
 			Expect(resp.Header.Get("Content-Type")).To(Equal("application/json"))
-			buff, err := ioutil.ReadAll(resp.Body)
+			buff, err := io.ReadAll(resp.Body)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(strings.Trim(string(buff), "\n")).To(Equal(`{"status":"OK"}`))
 			resp.Body.Close()
@@ -191,7 +191,7 @@ var _ = Describe("Server", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(resp.StatusCode).To(Equal(http.StatusOK))
 		Expect(resp.Header.Get("Content-Type")).To(Equal("text/plain; charset=utf-8"))
-		buff, err := ioutil.ReadAll(resp.Body)
+		buff, err := io.ReadAll(resp.Body)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(string(buff)).To(Equal("secure"))
 		resp.Body.Close()
