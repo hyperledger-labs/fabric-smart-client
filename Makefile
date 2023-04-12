@@ -154,7 +154,7 @@ integration-tests-orioncars:
 
 .PHONY: tidy
 tidy:
-	@go mod tidy -compat=1.18
+	@go mod tidy
 
 .PHONY: clean
 clean:
