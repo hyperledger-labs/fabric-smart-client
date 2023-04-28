@@ -204,6 +204,7 @@ func GetEnrollmentID(id []byte) (string, error) {
 		return "", errors.Errorf("bad block type %s, expected CERTIFICATE", block.Type)
 	}
 }
+
 func GetRevocationHandle(id []byte) (string, error) {
 	si := &msp2.SerializedIdentity{}
 	err := proto.Unmarshal(id, si)
