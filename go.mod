@@ -2,13 +2,9 @@ module github.com/hyperledger-labs/fabric-smart-client
 
 go 1.20
 
-replace kilic/bls12-377 => github.com/kilic/bls12-377 v0.0.0-20201230075656-5449decbf102
-
-replace github.com/IBM/idemix => github.com/jrc-ibm/idemix v0.0.0-20230208172945-944f13522784
-
 require (
-	github.com/IBM/idemix v0.0.2-0.20230324134044-ad53d9388bb5
-	github.com/IBM/mathlib v0.0.3-0.20230310094401-6036a5c12341
+	github.com/IBM/idemix v0.0.0-20220113150823-80dd4cb2d74e
+	github.com/IBM/mathlib v0.0.3-0.20230428120512-8afa4e643d4c
 	github.com/ReneKroon/ttlcache/v2 v2.11.0
 	github.com/dgraph-io/badger/v3 v3.2103.2
 	github.com/docker/docker v20.10.24+incompatible
@@ -109,6 +105,7 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash v1.1.0 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
+	github.com/consensys/bavard v0.1.13 // indirect
 	github.com/consensys/gnark-crypto v0.9.1 // indirect
 	github.com/containerd/cgroups v1.0.4 // indirect
 	github.com/containerd/containerd v1.5.18 // indirect
@@ -169,6 +166,7 @@ require (
 	github.com/jcmturner/gofork v1.0.0 // indirect
 	github.com/joho/godotenv v1.3.0 // indirect
 	github.com/kevinburke/ssh_config v0.0.0-20190725054713-01f96b0aa0cd // indirect
+	github.com/kilic/bls12-381 v0.1.0 // indirect
 	github.com/klauspost/compress v1.15.12 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.3 // indirect
 	github.com/koron/go-ssdp v0.0.3 // indirect
@@ -261,4 +259,5 @@ require (
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	lukechampine.com/blake3 v1.1.7 // indirect
+	rsc.io/tmplfunc v0.0.3 // indirect
 )
