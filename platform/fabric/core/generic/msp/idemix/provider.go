@@ -335,6 +335,7 @@ func (p *provider) Identity(opts *driver2.IdentityOptions) (view.Identity, []byt
 				sigOpts.Metadata.RhNymAuditData.Attr.Bytes(),
 			},
 		}
+		logger.Infof("new idemix identity generated with [%s:%s]", enrollmentID, hash.Hashable(auditInfo.Attributes[3]).String())
 		infoRaw, err = auditInfo.Bytes()
 		if err != nil {
 			return nil, nil, err
@@ -398,7 +399,7 @@ func (p *provider) Info(raw []byte, auditInfo []byte) (string, error) {
 		if err := ai.FromBytes(auditInfo); err != nil {
 			return "", err
 		}
-		if err := ai.Match(view.Identity(raw)); err != nil {
+		if err := ai.Match(raw); err != nil {
 			return "", err
 		}
 		eid = ai.EnrollmentID()
