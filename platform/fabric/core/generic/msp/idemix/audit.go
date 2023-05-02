@@ -35,8 +35,8 @@ func (a *AuditInfo) EnrollmentID() string {
 	return string(a.Attributes[2])
 }
 
-func (a *AuditInfo) RevocationHandle() string {
-	return string(a.Attributes[3])
+func (a *AuditInfo) RevocationHandle() []byte {
+	return a.Attributes[3]
 }
 
 func (a *AuditInfo) Match(id []byte) error {
