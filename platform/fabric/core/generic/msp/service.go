@@ -240,7 +240,7 @@ func (s *service) RegisterIdemixMSP(id string, path string, mspID string) error 
 	if err != nil {
 		return errors.Wrapf(err, "failed reading idemix msp configuration from [%s]", path)
 	}
-	provider, err := idemix.NewAnyProvider(conf, s.sp)
+	provider, err := idemix.NewProviderWithAnyPolicy(conf, s.sp)
 	if err != nil {
 		return errors.Wrapf(err, "failed instantiating idemix msp provider from [%s]", path)
 	}

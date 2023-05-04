@@ -52,6 +52,7 @@ func (a *AuditInfo) Match(id []byte) error {
 		return errors.Wrap(err, "could not deserialize a SerializedIdemixIdentity")
 	}
 
+	// Audit EID
 	valid, err := a.Csp.Verify(
 		a.IssuerPublicKey,
 		serialized.Proof,
@@ -65,7 +66,24 @@ func (a *AuditInfo) Match(id []byte) error {
 	if err != nil {
 		return errors.Wrap(err, "error while verifying the nym eid")
 	}
+	if !valid {
+		return errors.New("invalid nym rh")
+	}
 
+	// Audit RH
+	valid, err = a.Csp.Verify(
+		a.IssuerPublicKey,
+		serialized.Proof,
+		nil,
+		&csp.RhNymAuditOpts{
+			RhIndex:          RHIndex,
+			RevocationHandle: string(a.Attributes[RHIndex]),
+			RNymRh:           a.RhNymAuditData.Rand,
+		},
+	)
+	if err != nil {
+		return errors.Wrap(err, "error while verifying the nym rh")
+	}
 	if !valid {
 		return errors.New("invalid nym eid")
 	}

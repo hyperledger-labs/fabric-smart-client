@@ -27,7 +27,7 @@ func (i *IdentityLoader) Load(manager driver.Manager, c config.MSP) error {
 	if err != nil {
 		return errors.Wrapf(err, "failed reading idemix msp configuration from [%s]", manager.Config().TranslatePath(c.Path))
 	}
-	provider, err := NewAnyProvider(conf, manager.ServiceProvider())
+	provider, err := NewProviderWithAnyPolicy(conf, manager.ServiceProvider())
 	if err != nil {
 		return errors.Wrapf(err, "failed instantiating idemix msp provider from [%s]", manager.Config().TranslatePath(c.Path))
 	}
