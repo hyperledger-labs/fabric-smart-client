@@ -9,14 +9,25 @@ package chaincode
 import (
 	"time"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/fpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
 )
 
+type QueryPolicy = driver.QueryPolicy
+
+const (
+	QueryAll      = driver.QueryAll
+	QueryMajority = driver.QueryMajority
+	QueryOne      = driver.QueryOne
+)
+
 type queryChaincodeView struct {
 	*InvokeCall
+	policy QueryPolicy
 }
 
 func NewQueryView(chaincode, function string, args ...interface{}) *queryChaincodeView {
@@ -62,7 +73,7 @@ func (i *queryChaincodeView) Query(context view.Context) ([]byte, error) {
 		logger.Debugf("chaincode [%s:%s:%s] is a standard chaincode", i.Network, i.Channel, i.ChaincodeName)
 	}
 
-	invocation := chaincode.Query(i.Function, i.Args...).WithInvokerIdentity(i.InvokerIdentity)
+	invocation := chaincode.Query(i.Function, i.Args...).WithInvokerIdentity(i.InvokerIdentity).WithQueryPolicy(i.policy)
 	for k, v := range i.TransientMap {
 		invocation.WithTransientEntry(k, v)
 	}
@@ -132,5 +143,10 @@ func (i *queryChaincodeView) WithNumRetries(numRetries uint) *queryChaincodeView
 func (i *queryChaincodeView) WithRetrySleep(duration time.Duration) *queryChaincodeView {
 	i.SetRetrySleep = true
 	i.RetrySleep = duration
+	return i
+}
+
+func (i *queryChaincodeView) WithPolicy(policy QueryPolicy) *queryChaincodeView {
+	i.policy = policy
 	return i
 }

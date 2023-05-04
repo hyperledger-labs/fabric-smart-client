@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"fmt"
 	"strconv"
 	"strings"
 	"sync"
@@ -50,6 +51,7 @@ type Invoke struct {
 	NumRetries                     int
 	RetrySleep                     time.Duration
 	Context                        context.Context
+	QueryPolicy                    driver.QueryPolicy
 }
 
 func NewInvoke(chaincode *Chaincode, function string, args ...interface{}) *Invoke {
@@ -264,6 +266,11 @@ func (i *Invoke) WithRetrySleep(duration time.Duration) driver.ChaincodeInvocati
 	return i
 }
 
+func (i *Invoke) WithQueryPolicy(policy driver.QueryPolicy) driver.ChaincodeInvocation {
+	i.QueryPolicy = policy
+	return i
+}
+
 func (i *Invoke) prepare(query bool) (string, *pb.Proposal, []*pb.ProposalResponse, driver.SigningIdentity, error) {
 	// TODO: improve by providing grpc connection pool
 	var peerClients []peer2.Client
@@ -335,7 +342,8 @@ func (i *Invoke) prepare(query bool) (string, *pb.Proposal, []*pb.ProposalRespon
 		}
 	}
 
-	// get a peer client for all discovered peers
+	// get a peer client for all discovered peers and collect the errors
+	var errs []error
 	for _, peer := range discoveredPeers {
 		peerClient, err := i.Channel.NewPeerClientForAddress(grpc.ConnectionConfig{
 			Address:          peer.Endpoint,
@@ -343,18 +351,27 @@ func (i *Invoke) prepare(query bool) (string, *pb.Proposal, []*pb.ProposalRespon
 			TLSRootCertBytes: peer.TLSRootCerts,
 		})
 		if err != nil {
-			return "", nil, nil, nil, errors.WithMessagef(err, "error getting endorser client for %s", peer.Endpoint)
+			errs = append(errs, errors.WithMessagef(err, "error getting endorser client for %s", peer.Endpoint))
+			continue
 		}
 		peerClients = append(peerClients, peerClient)
 	}
+	if err := i.checkQueryPolicy(errs, len(discoveredPeers)); err != nil {
+		return "", nil, nil, nil, errors.WithMessagef(err, "cannot match query policy with the given discovered peers")
+	}
 
 	// get endorser clients
+	errs = nil
 	for _, client := range peerClients {
 		endorserClient, err := client.Endorser()
 		if err != nil {
-			return "", nil, nil, nil, errors.WithMessagef(err, "error getting endorser client for %s", client.Address())
+			errs = append(errs, errors.WithMessagef(err, "error getting endorser client for %s", client.Address()))
+			continue
 		}
 		endorserClients = append(endorserClients, endorserClient)
+	}
+	if err := i.checkQueryPolicy(errs, len(peerClients)); err != nil {
+		return "", nil, nil, nil, errors.WithMessagef(err, "cannot match query policy with the given peer clients")
 	}
 	if len(endorserClients) == 0 {
 		return "", nil, nil, nil, errors.New("no endorser clients retrieved with the current filters")
@@ -373,14 +390,16 @@ func (i *Invoke) prepare(query bool) (string, *pb.Proposal, []*pb.ProposalRespon
 	}
 
 	// collect responses
-	responses, err := i.collectResponses(endorserClients, signedProp)
+	responses, errs := i.collectResponses(endorserClients, signedProp)
 	if err != nil {
 		return "", nil, nil, nil, errors.Wrapf(err, "failed collecting proposal responses")
 	}
-
 	if len(responses) == 0 {
 		// this should only happen if some new code has introduced a bug
 		return "", nil, nil, nil, errors.New("no proposal responses received - this might indicate a bug")
+	}
+	if err := i.checkQueryPolicy(errs, len(endorserClients)); err != nil {
+		return "", nil, nil, nil, errors.WithMessagef(err, "cannot match query policy with the given peer clients")
 	}
 
 	return txID, prop, responses, signer, nil
@@ -447,7 +466,7 @@ func (i *Invoke) createChaincodeProposalWithTxIDAndTransient(typ common.HeaderTy
 }
 
 // collectResponses sends a signed proposal to a set of peers, and gathers all the responses.
-func (i *Invoke) collectResponses(endorserClients []pb.EndorserClient, signedProposal *pb.SignedProposal) ([]*pb.ProposalResponse, error) {
+func (i *Invoke) collectResponses(endorserClients []pb.EndorserClient, signedProposal *pb.SignedProposal) ([]*pb.ProposalResponse, []error) {
 	responsesCh := make(chan *pb.ProposalResponse, len(endorserClients))
 	errorCh := make(chan error, len(endorserClients))
 	wg := sync.WaitGroup{}
@@ -466,14 +485,15 @@ func (i *Invoke) collectResponses(endorserClients []pb.EndorserClient, signedPro
 	wg.Wait()
 	close(responsesCh)
 	close(errorCh)
+	var errs []error
 	for err := range errorCh {
-		return nil, err
+		errs = append(errs, err)
 	}
 	var responses []*pb.ProposalResponse
 	for response := range responsesCh {
 		responses = append(responses, response)
 	}
-	return responses, nil
+	return responses, errs
 }
 
 // getChaincodeSpec get chaincode spec from the fsccli cmd parameters
@@ -535,4 +555,24 @@ func (i *Invoke) broadcast(txID string, env *common.Envelope) error {
 		return err
 	}
 	return i.Channel.IsFinal(context.Background(), txID)
+}
+
+func (i *Invoke) checkQueryPolicy(errs []error, n int) error {
+	switch i.QueryPolicy {
+	case driver.QueryAll:
+		if len(errs) != 0 {
+			return errors.Errorf("query all policy, no errors expected [%v]", errs)
+		}
+	case driver.QueryOne:
+		if len(errs) == n {
+			return errors.Errorf("query one policy, errors occurred [%v]", errs)
+		}
+	case driver.QueryMajority:
+		if len(errs) > n/2 {
+			return errors.Errorf("query majority policy, no majority reached [%v]", errs)
+		}
+	default:
+		panic(fmt.Sprintf("programming error, policy [%d] is not valid", i.QueryPolicy))
+	}
+	return nil
 }

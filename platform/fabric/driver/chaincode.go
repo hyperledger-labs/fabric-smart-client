@@ -19,6 +19,14 @@ type TxID struct {
 	Creator []byte
 }
 
+type QueryPolicy int
+
+const (
+	QueryAll QueryPolicy = iota
+	QueryMajority
+	QueryOne
+)
+
 // ChaincodeInvocation models a client-side chaincode invocation
 type ChaincodeInvocation interface {
 	Endorse() (Envelope, error)
@@ -56,6 +64,8 @@ type ChaincodeInvocation interface {
 	WithRetrySleep(duration time.Duration) ChaincodeInvocation
 
 	WithContext(context context.Context) ChaincodeInvocation
+
+	WithQueryPolicy(policy QueryPolicy) ChaincodeInvocation
 }
 
 // DiscoveredPeer contains the information of a discovered peer

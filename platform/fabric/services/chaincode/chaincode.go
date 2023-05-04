@@ -9,6 +9,8 @@ package chaincode
 import (
 	"time"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/fpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -34,6 +36,7 @@ type Query interface {
 	Call() ([]byte, error)
 	WithNumRetries(retries uint)
 	WithRetrySleep(sleep time.Duration)
+	WithQueryPolicy(policy driver.QueryPolicy) Query
 }
 
 type Chaincode interface {
@@ -115,6 +118,11 @@ func (s *stdQuery) WithNumRetries(numRetries uint) {
 
 func (s *stdQuery) WithRetrySleep(duration time.Duration) {
 	s.chq.WithRetrySleep(duration)
+}
+
+func (s *stdQuery) WithQueryPolicy(policy driver.QueryPolicy) Query {
+	s.chq.WithQueryPolicy(policy)
+	return s
 }
 
 type stdChaincode struct {
@@ -202,6 +210,10 @@ func (s *fpcQuery) WithNumRetries(numRetries uint) {
 }
 
 func (s *fpcQuery) WithRetrySleep(duration time.Duration) {
+}
+
+func (s *fpcQuery) WithQueryPolicy(policy driver.QueryPolicy) Query {
+	return nil
 }
 
 type fpcChaincode struct {
