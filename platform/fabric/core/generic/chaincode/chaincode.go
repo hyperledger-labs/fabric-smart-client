@@ -88,7 +88,9 @@ func NewChaincode(
 }
 
 func (c *Chaincode) NewInvocation(function string, args ...interface{}) driver.ChaincodeInvocation {
-	return NewInvoke(c, function, args...)
+	return NewInvoke(c, func(chaincode *Chaincode) driver.ChaincodeDiscover {
+		return NewDiscovery(chaincode)
+	}, function, args...)
 }
 
 func (c *Chaincode) NewDiscover() driver.ChaincodeDiscover {

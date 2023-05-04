@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"fmt"
 	"strconv"
 	"strings"
 	"sync"
@@ -26,6 +27,8 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
 )
+
+type NewChaincodeDiscoverFunc = func(chaincode *Chaincode) driver.ChaincodeDiscover
 
 type Invoke struct {
 	Chaincode                      *Chaincode
@@ -46,16 +49,20 @@ type Invoke struct {
 	NumRetries                     int
 	RetrySleep                     time.Duration
 	Context                        context.Context
+	QueryPolicy                    driver.QueryPolicy
+	NewChaincodeDiscover           NewChaincodeDiscoverFunc
 }
 
-func NewInvoke(chaincode *Chaincode, function string, args ...interface{}) *Invoke {
+func NewInvoke(chaincode *Chaincode, newChaincodeDiscover NewChaincodeDiscoverFunc, function string, args ...interface{}) *Invoke {
 	return &Invoke{
-		Chaincode:     chaincode,
-		ChaincodeName: chaincode.name,
-		Function:      function,
-		Args:          args,
-		NumRetries:    int(chaincode.NumRetries),
-		RetrySleep:    chaincode.RetrySleep,
+		Chaincode: chaincode,
+
+		ChaincodeName:        chaincode.name,
+		Function:             function,
+		Args:                 args,
+		NumRetries:           int(chaincode.NumRetries),
+		RetrySleep:           chaincode.RetrySleep,
+		NewChaincodeDiscover: newChaincodeDiscover,
 	}
 }
 
@@ -257,6 +264,11 @@ func (i *Invoke) WithRetrySleep(duration time.Duration) driver.ChaincodeInvocati
 	return i
 }
 
+func (i *Invoke) WithQueryPolicy(policy driver.QueryPolicy) driver.ChaincodeInvocation {
+	i.QueryPolicy = policy
+	return i
+}
+
 func (i *Invoke) prepare(query bool) (string, *pb.Proposal, []*pb.ProposalResponse, driver.SigningIdentity, error) {
 	var peerClients []services.PeerClient
 	defer func() {
@@ -297,7 +309,7 @@ func (i *Invoke) prepare(query bool) (string, *pb.Proposal, []*pb.ProposalRespon
 
 		// discover
 		var err error
-		discovery := NewDiscovery(
+		discovery := i.NewChaincodeDiscover(
 			i.Chaincode,
 		)
 		discovery.WithFilterByMSPIDs(
@@ -327,7 +339,9 @@ func (i *Invoke) prepare(query bool) (string, *pb.Proposal, []*pb.ProposalRespon
 		}
 	}
 
-	// get a peer client for all discovered peers
+	n := len(discoveredPeers)
+	// get a peer client for all discovered peers and collect the errors
+	var errs []error
 	for _, peer := range discoveredPeers {
 		peerClient, err := i.Chaincode.Services.NewPeerClient(grpc.ConnectionConfig{
 			Address:           peer.Endpoint,
@@ -336,18 +350,27 @@ func (i *Invoke) prepare(query bool) (string, *pb.Proposal, []*pb.ProposalRespon
 			TLSRootCertBytes:  peer.TLSRootCerts,
 		})
 		if err != nil {
-			return "", nil, nil, nil, errors.WithMessagef(err, "error getting endorser client for %s", peer.Endpoint)
+			errs = append(errs, errors.WithMessagef(err, "error getting endorser client for %s", peer.Endpoint))
+			continue
 		}
 		peerClients = append(peerClients, peerClient)
 	}
+	if err := i.checkQueryPolicy(errs, len(peerClients), n); err != nil {
+		return "", nil, nil, nil, errors.WithMessagef(err, "cannot match query policy with the given discovered peers")
+	}
 
 	// get endorser clients
+	errs = nil
 	for _, client := range peerClients {
 		endorserClient, err := client.EndorserClient()
 		if err != nil {
-			return "", nil, nil, nil, errors.WithMessagef(err, "error getting endorser client for %s", client.Address())
+			errs = append(errs, errors.WithMessagef(err, "error getting endorser client for %s", client.Address()))
+			continue
 		}
 		endorserClients = append(endorserClients, endorserClient)
+	}
+	if err := i.checkQueryPolicy(errs, len(endorserClients), n); err != nil {
+		return "", nil, nil, nil, errors.WithMessagef(err, "cannot match query policy with the given peer clients")
 	}
 	if len(endorserClients) == 0 {
 		return "", nil, nil, nil, errors.New("no endorser clients retrieved with the current filters")
@@ -366,14 +389,16 @@ func (i *Invoke) prepare(query bool) (string, *pb.Proposal, []*pb.ProposalRespon
 	}
 
 	// collect responses
-	responses, err := i.collectResponses(endorserClients, signedProp)
+	responses, errs := i.collectResponses(endorserClients, signedProp)
 	if err != nil {
 		return "", nil, nil, nil, errors.Wrapf(err, "failed collecting proposal responses")
 	}
-
 	if len(responses) == 0 {
 		// this should only happen if some new code has introduced a bug
 		return "", nil, nil, nil, errors.New("no proposal responses received - this might indicate a bug")
+	}
+	if err := i.checkQueryPolicy(errs, len(responses), n); err != nil {
+		return "", nil, nil, nil, errors.WithMessagef(err, "cannot match query policy with the given peer clients")
 	}
 
 	return txID, prop, responses, signer, nil
@@ -440,12 +465,12 @@ func (i *Invoke) createChaincodeProposalWithTxIDAndTransient(typ common.HeaderTy
 }
 
 // collectResponses sends a signed proposal to a set of peers, and gathers all the responses.
-func (i *Invoke) collectResponses(endorserClients []pb.EndorserClient, signedProposal *pb.SignedProposal) ([]*pb.ProposalResponse, error) {
+func (i *Invoke) collectResponses(endorserClients []pb.EndorserClient, signedProposal *pb.SignedProposal) ([]*pb.ProposalResponse, []error) {
 	responsesCh := make(chan *pb.ProposalResponse, len(endorserClients))
 	errorCh := make(chan error, len(endorserClients))
 	wg := sync.WaitGroup{}
+	wg.Add(len(endorserClients))
 	for _, endorser := range endorserClients {
-		wg.Add(1)
 		go func(endorser pb.EndorserClient) {
 			defer wg.Done()
 			proposalResp, err := endorser.ProcessProposal(context.Background(), signedProposal)
@@ -459,14 +484,15 @@ func (i *Invoke) collectResponses(endorserClients []pb.EndorserClient, signedPro
 	wg.Wait()
 	close(responsesCh)
 	close(errorCh)
+	var errs []error
 	for err := range errorCh {
-		return nil, err
+		errs = append(errs, err)
 	}
 	var responses []*pb.ProposalResponse
 	for response := range responsesCh {
 		responses = append(responses, response)
 	}
-	return responses, nil
+	return responses, errs
 }
 
 // getChaincodeSpec get chaincode spec
@@ -528,4 +554,24 @@ func (i *Invoke) broadcast(txID string, env *common.Envelope) error {
 		return err
 	}
 	return i.Chaincode.Finality.IsFinal(context.Background(), txID)
+}
+
+func (i *Invoke) checkQueryPolicy(errs []error, successes int, n int) error {
+	switch i.QueryPolicy {
+	case driver.QueryAll:
+		if len(errs) != 0 {
+			return errors.Errorf("query all policy, no errors expected [%v]", errs)
+		}
+	case driver.QueryOne:
+		if successes == 0 {
+			return errors.Errorf("query one policy, errors occurred [%v]", errs)
+		}
+	case driver.QueryMajority:
+		if successes <= n/2 {
+			return errors.Errorf("query majority policy, no majority reached [%v]", errs)
+		}
+	default:
+		panic(fmt.Sprintf("programming error, policy [%d] is not valid", i.QueryPolicy))
+	}
+	return nil
 }

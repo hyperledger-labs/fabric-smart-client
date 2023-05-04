@@ -15,6 +15,18 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
+// QueryPolicy defines the policy to use to decide if a query is successful
+type QueryPolicy int
+
+const (
+	// QueryAll requires an answer from all selected peers
+	QueryAll QueryPolicy = iota
+	// QueryMajority requires an answer from the majority of the selected peers
+	QueryMajority
+	// QueryOne requires an answer from at least one of the selected peers
+	QueryOne
+)
+
 type Envelope struct {
 	e driver.Envelope
 }
@@ -246,6 +258,12 @@ func (i *ChaincodeQuery) WithNumRetries(numRetries uint) *ChaincodeQuery {
 // WithRetrySleep sets the time interval between each retry
 func (i *ChaincodeQuery) WithRetrySleep(duration time.Duration) *ChaincodeQuery {
 	i.ChaincodeInvocation.WithRetrySleep(duration)
+	return i
+}
+
+// WithQueryPolicy sets the query policy to use
+func (i *ChaincodeQuery) WithQueryPolicy(policy QueryPolicy) *ChaincodeQuery {
+	i.ChaincodeInvocation.WithQueryPolicy(driver.QueryPolicy(policy))
 	return i
 }
 

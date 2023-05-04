@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -33,6 +34,7 @@ type Query interface {
 	Call() ([]byte, error)
 	WithNumRetries(retries uint)
 	WithRetrySleep(sleep time.Duration)
+	WithQueryPolicy(policy driver.QueryPolicy) Query
 }
 
 type Chaincode interface {
@@ -114,6 +116,11 @@ func (s *stdQuery) WithNumRetries(numRetries uint) {
 
 func (s *stdQuery) WithRetrySleep(duration time.Duration) {
 	s.chq.WithRetrySleep(duration)
+}
+
+func (s *stdQuery) WithQueryPolicy(policy driver.QueryPolicy) Query {
+	s.chq.WithQueryPolicy(fabric.QueryPolicy(policy))
+	return s
 }
 
 type stdChaincode struct {
