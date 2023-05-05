@@ -19,11 +19,15 @@ type TxID struct {
 	Creator []byte
 }
 
+// QueryPolicy defines the policy to use to decide if a query is successful
 type QueryPolicy int
 
 const (
+	// QueryAll requires an answer from all selected peers
 	QueryAll QueryPolicy = iota
+	// QueryMajority requires an answer from the majority of the selected peers
 	QueryMajority
+	// QueryOne requires an answer from at least one of the selected peers
 	QueryOne
 )
 
@@ -86,6 +90,8 @@ type ChaincodeDiscover interface {
 	Call() ([]DiscoveredPeer, error)
 	WithFilterByMSPIDs(mspIDs ...string) ChaincodeDiscover
 	WithImplicitCollections(mspIDs ...string) ChaincodeDiscover
+	WithForQuery() ChaincodeDiscover
+	ChaincodeVersion() (string, error)
 }
 
 // Chaincode exposes chaincode-related functions

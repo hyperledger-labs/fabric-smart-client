@@ -9,9 +9,8 @@ package chaincode
 import (
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/fpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -121,7 +120,7 @@ func (s *stdQuery) WithRetrySleep(duration time.Duration) {
 }
 
 func (s *stdQuery) WithQueryPolicy(policy driver.QueryPolicy) Query {
-	s.chq.WithQueryPolicy(policy)
+	s.chq.WithQueryPolicy(fabric.QueryPolicy(policy))
 	return s
 }
 

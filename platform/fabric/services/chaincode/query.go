@@ -17,12 +17,16 @@ import (
 	"github.com/pkg/errors"
 )
 
-type QueryPolicy = driver.QueryPolicy
+// QueryPolicy defines the policy to use to decide if a query is successful
+type QueryPolicy int
 
 const (
-	QueryAll      = driver.QueryAll
-	QueryMajority = driver.QueryMajority
-	QueryOne      = driver.QueryOne
+	// QueryAll requires an answer from all selected peers
+	QueryAll QueryPolicy = iota
+	// QueryMajority requires an answer from the majority of the selected peers
+	QueryMajority
+	// QueryOne requires an answer from at least one of the selected peers
+	QueryOne
 )
 
 type queryChaincodeView struct {
@@ -73,7 +77,7 @@ func (i *queryChaincodeView) Query(context view.Context) ([]byte, error) {
 		logger.Debugf("chaincode [%s:%s:%s] is a standard chaincode", i.Network, i.Channel, i.ChaincodeName)
 	}
 
-	invocation := chaincode.Query(i.Function, i.Args...).WithInvokerIdentity(i.InvokerIdentity).WithQueryPolicy(i.policy)
+	invocation := chaincode.Query(i.Function, i.Args...).WithInvokerIdentity(i.InvokerIdentity).WithQueryPolicy(driver.QueryPolicy(i.policy))
 	for k, v := range i.TransientMap {
 		invocation.WithTransientEntry(k, v)
 	}
@@ -146,7 +150,7 @@ func (i *queryChaincodeView) WithRetrySleep(duration time.Duration) *queryChainc
 	return i
 }
 
-func (i *queryChaincodeView) WithPolicy(policy QueryPolicy) *queryChaincodeView {
+func (i *queryChaincodeView) WithQueryPolicy(policy QueryPolicy) *queryChaincodeView {
 	i.policy = policy
 	return i
 }

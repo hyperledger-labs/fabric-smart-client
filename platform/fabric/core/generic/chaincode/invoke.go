@@ -29,11 +29,14 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
+type NewChaincodeDiscoverFunc = func(chaincode *Chaincode) driver.ChaincodeDiscover
+
 type Invoke struct {
 	Chaincode                      *Chaincode
 	ServiceProvider                view2.ServiceProvider
 	Network                        Network
 	Channel                        Channel
+	NewChaincodeDiscover           NewChaincodeDiscoverFunc
 	TxID                           driver.TxID
 	SignerIdentity                 view.Identity
 	ChaincodePath                  string
@@ -54,17 +57,18 @@ type Invoke struct {
 	QueryPolicy                    driver.QueryPolicy
 }
 
-func NewInvoke(chaincode *Chaincode, function string, args ...interface{}) *Invoke {
+func NewInvoke(chaincode *Chaincode, newChaincodeDiscover NewChaincodeDiscoverFunc, function string, args ...interface{}) *Invoke {
 	return &Invoke{
-		Chaincode:       chaincode,
-		ServiceProvider: chaincode.sp,
-		Network:         chaincode.network,
-		Channel:         chaincode.channel,
-		ChaincodeName:   chaincode.name,
-		Function:        function,
-		Args:            args,
-		NumRetries:      int(chaincode.NumRetries),
-		RetrySleep:      chaincode.RetrySleep,
+		Chaincode:            chaincode,
+		ServiceProvider:      chaincode.sp,
+		Network:              chaincode.network,
+		Channel:              chaincode.channel,
+		ChaincodeName:        chaincode.name,
+		Function:             function,
+		Args:                 args,
+		NumRetries:           int(chaincode.NumRetries),
+		RetrySleep:           chaincode.RetrySleep,
+		NewChaincodeDiscover: newChaincodeDiscover,
 	}
 }
 
@@ -312,7 +316,7 @@ func (i *Invoke) prepare(query bool) (string, *pb.Proposal, []*pb.ProposalRespon
 
 		// discover
 		var err error
-		discovery := NewDiscovery(
+		discovery := i.NewChaincodeDiscover(
 			i.Chaincode,
 		)
 		discovery.WithFilterByMSPIDs(
@@ -342,6 +346,7 @@ func (i *Invoke) prepare(query bool) (string, *pb.Proposal, []*pb.ProposalRespon
 		}
 	}
 
+	n := len(discoveredPeers)
 	// get a peer client for all discovered peers and collect the errors
 	var errs []error
 	for _, peer := range discoveredPeers {
@@ -356,7 +361,7 @@ func (i *Invoke) prepare(query bool) (string, *pb.Proposal, []*pb.ProposalRespon
 		}
 		peerClients = append(peerClients, peerClient)
 	}
-	if err := i.checkQueryPolicy(errs, len(discoveredPeers)); err != nil {
+	if err := i.checkQueryPolicy(errs, len(peerClients), n); err != nil {
 		return "", nil, nil, nil, errors.WithMessagef(err, "cannot match query policy with the given discovered peers")
 	}
 
@@ -370,7 +375,7 @@ func (i *Invoke) prepare(query bool) (string, *pb.Proposal, []*pb.ProposalRespon
 		}
 		endorserClients = append(endorserClients, endorserClient)
 	}
-	if err := i.checkQueryPolicy(errs, len(peerClients)); err != nil {
+	if err := i.checkQueryPolicy(errs, len(endorserClients), n); err != nil {
 		return "", nil, nil, nil, errors.WithMessagef(err, "cannot match query policy with the given peer clients")
 	}
 	if len(endorserClients) == 0 {
@@ -398,7 +403,7 @@ func (i *Invoke) prepare(query bool) (string, *pb.Proposal, []*pb.ProposalRespon
 		// this should only happen if some new code has introduced a bug
 		return "", nil, nil, nil, errors.New("no proposal responses received - this might indicate a bug")
 	}
-	if err := i.checkQueryPolicy(errs, len(endorserClients)); err != nil {
+	if err := i.checkQueryPolicy(errs, len(responses), n); err != nil {
 		return "", nil, nil, nil, errors.WithMessagef(err, "cannot match query policy with the given peer clients")
 	}
 
@@ -470,8 +475,8 @@ func (i *Invoke) collectResponses(endorserClients []pb.EndorserClient, signedPro
 	responsesCh := make(chan *pb.ProposalResponse, len(endorserClients))
 	errorCh := make(chan error, len(endorserClients))
 	wg := sync.WaitGroup{}
+	wg.Add(len(endorserClients))
 	for _, endorser := range endorserClients {
-		wg.Add(1)
 		go func(endorser pb.EndorserClient) {
 			defer wg.Done()
 			proposalResp, err := endorser.ProcessProposal(context.Background(), signedProposal)
@@ -557,18 +562,18 @@ func (i *Invoke) broadcast(txID string, env *common.Envelope) error {
 	return i.Channel.IsFinal(context.Background(), txID)
 }
 
-func (i *Invoke) checkQueryPolicy(errs []error, n int) error {
+func (i *Invoke) checkQueryPolicy(errs []error, successes int, n int) error {
 	switch i.QueryPolicy {
 	case driver.QueryAll:
 		if len(errs) != 0 {
 			return errors.Errorf("query all policy, no errors expected [%v]", errs)
 		}
 	case driver.QueryOne:
-		if len(errs) == n {
+		if successes == 0 {
 			return errors.Errorf("query one policy, errors occurred [%v]", errs)
 		}
 	case driver.QueryMajority:
-		if len(errs) > n/2 {
+		if successes <= n/2 {
 			return errors.Errorf("query majority policy, no majority reached [%v]", errs)
 		}
 	default:
