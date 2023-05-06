@@ -10,14 +10,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hyperledger/fabric-protos-go/peer"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/chaincode"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/chaincode/mocks"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	config2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	mock2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger/fabric-protos-go/peer"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 )

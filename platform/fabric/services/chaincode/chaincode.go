@@ -212,7 +212,7 @@ func (s *fpcQuery) WithRetrySleep(duration time.Duration) {
 }
 
 func (s *fpcQuery) WithQueryPolicy(policy driver.QueryPolicy) Query {
-	return nil
+	return s
 }
 
 type fpcChaincode struct {
