@@ -47,7 +47,8 @@ func TestRegisterIdemixLocalMSP(t *testing.T) {
 	ii := mspService.GetIdentityInfoByLabel(msp2.IdemixMSP, "apple")
 	assert.NotNil(t, ii)
 	assert.Equal(t, "apple", ii.ID)
-	assert.Equal(t, "idemix", ii.EnrollmentID)
+	assert.Equal(t, "alice", ii.EnrollmentID)
+
 	id, info, err := ii.GetIdentity(nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, id)

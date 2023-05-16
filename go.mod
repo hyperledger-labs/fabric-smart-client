@@ -3,7 +3,7 @@ module github.com/hyperledger-labs/fabric-smart-client
 go 1.20
 
 require (
-	github.com/IBM/idemix v0.0.2-0.20230428124728-21406165ec11
+	github.com/IBM/idemix v0.0.2-0.20230510082947-a0c3ee5ebe35
 	github.com/IBM/mathlib v0.0.3-0.20230428120512-8afa4e643d4c
 	github.com/ReneKroon/ttlcache/v2 v2.11.0
 	github.com/dgraph-io/badger/v3 v3.2103.2

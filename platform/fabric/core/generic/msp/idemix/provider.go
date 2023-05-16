@@ -17,6 +17,7 @@ import (
 	bccsp "github.com/IBM/idemix/bccsp/schemes"
 	idemix2 "github.com/IBM/idemix/bccsp/schemes/dlog/crypto"
 	"github.com/IBM/idemix/bccsp/schemes/dlog/crypto/translator/amcl"
+	"github.com/IBM/idemix/idemixmsp"
 	math "github.com/IBM/mathlib"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
@@ -57,7 +58,7 @@ func GetSignerService(ctx view2.ServiceProvider) SignerService {
 type Provider struct {
 	*common
 	userKey bccsp.Key
-	conf    m.IdemixMSPConfig
+	conf    idemixmsp.IdemixMSPConfig
 	sp      view2.ServiceProvider
 
 	sigType bccsp.SignatureType
@@ -118,7 +119,7 @@ func NewProvider(conf1 *m.MSPConfig, sp view2.ServiceProvider, sigType bccsp.Sig
 		return nil, errors.Wrap(err, "failed getting crypto provider")
 	}
 
-	var conf m.IdemixMSPConfig
+	var conf idemixmsp.IdemixMSPConfig
 	err = proto.Unmarshal(conf1.Config, &conf)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed unmarshalling idemix provider config")
@@ -255,6 +256,7 @@ func (p *Provider) Identity(opts *driver2.IdentityOptions) (view.Identity, []byt
 	}
 
 	enrollmentID := p.conf.Signer.EnrollmentId
+	rh := p.conf.Signer.RevocationHandle
 	sigType := p.sigType
 	var signerMetadata *bccsp.IdemixSignerMetadata
 	if opts != nil {
@@ -332,7 +334,7 @@ func (p *Provider) Identity(opts *driver2.IdentityOptions) (view.Identity, []byt
 				[]byte(p.conf.Signer.OrganizationalUnitIdentifier),
 				[]byte(strconv.Itoa(getIdemixRoleFromMSPRole(role))),
 				[]byte(enrollmentID),
-				sigOpts.Metadata.RhNymAuditData.Attr.Bytes(),
+				[]byte(rh),
 			},
 		}
 		logger.Infof("new idemix identity generated with [%s:%s]", enrollmentID, hash.Hashable(auditInfo.Attributes[3]).String())

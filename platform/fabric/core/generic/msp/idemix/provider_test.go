@@ -69,7 +69,7 @@ func TestIdentityWithEidRhNymPolicy(t *testing.T) {
 	assert.NotNil(t, audit)
 	info, err := p.Info(id, audit)
 	assert.NoError(t, err)
-	assert.True(t, strings.HasPrefix(info, "MSP.Idemix: [idemix]"))
+	assert.True(t, strings.HasPrefix(info, "MSP.Idemix: [alice]"))
 	assert.True(t, strings.HasSuffix(info, "[idemix][idemixorg.example.com][ADMIN]"))
 
 	auditInfo, err := p.DeserializeAuditInfo(audit)
@@ -95,7 +95,7 @@ func TestIdentityWithEidRhNymPolicy(t *testing.T) {
 	assert.NotNil(t, audit)
 	info, err = p.Info(id, audit)
 	assert.NoError(t, err)
-	assert.True(t, strings.HasPrefix(info, "MSP.Idemix: [idemix]"))
+	assert.True(t, strings.HasPrefix(info, "MSP.Idemix: [alice]"))
 	assert.True(t, strings.HasSuffix(info, "[idemix][idemixorg.example.com][ADMIN]"))
 
 	auditInfo, err = p.DeserializeAuditInfo(audit)
