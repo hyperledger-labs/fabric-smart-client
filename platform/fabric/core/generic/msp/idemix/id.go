@@ -150,7 +150,8 @@ func (id *identity) verifyProof() error {
 	var metadata *csp.IdemixSignerMetadata
 	if len(id.common.NymEID) != 0 {
 		metadata = &csp.IdemixSignerMetadata{
-			NymEID: id.common.NymEID,
+			EidNym: id.common.NymEID,
+			RhNym:  id.common.RhNym,
 		}
 	}
 

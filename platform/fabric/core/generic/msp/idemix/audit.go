@@ -16,7 +16,8 @@ import (
 )
 
 type AuditInfo struct {
-	*csp.NymEIDAuditData
+	EidNymAuditData *csp.AttrNymAuditData
+	RhNymAuditData  *csp.AttrNymAuditData
 	Attributes      [][]byte
 	Csp             csp.BCCSP `json:"-"`
 	IssuerPublicKey csp.Key   `json:"-"`
@@ -34,6 +35,10 @@ func (a *AuditInfo) EnrollmentID() string {
 	return string(a.Attributes[2])
 }
 
+func (a *AuditInfo) RevocationHandle() string {
+	return string(a.Attributes[3])
+}
+
 func (a *AuditInfo) Match(id []byte) error {
 	si := &m.SerializedIdentity{}
 	err := proto.Unmarshal(id, si)
@@ -47,6 +52,7 @@ func (a *AuditInfo) Match(id []byte) error {
 		return errors.Wrap(err, "could not deserialize a SerializedIdemixIdentity")
 	}
 
+	// Audit EID
 	valid, err := a.Csp.Verify(
 		a.IssuerPublicKey,
 		serialized.Proof,
@@ -54,13 +60,30 @@ func (a *AuditInfo) Match(id []byte) error {
 		&csp.EidNymAuditOpts{
 			EidIndex:     EIDIndex,
 			EnrollmentID: string(a.Attributes[EIDIndex]),
-			RNymEid:      a.RNymEid,
+			RNymEid:      a.EidNymAuditData.Rand,
 		},
 	)
 	if err != nil {
 		return errors.Wrap(err, "error while verifying the nym eid")
 	}
+	if !valid {
+		return errors.New("invalid nym rh")
+	}
 
+	// Audit RH
+	valid, err = a.Csp.Verify(
+		a.IssuerPublicKey,
+		serialized.Proof,
+		nil,
+		&csp.RhNymAuditOpts{
+			RhIndex:          RHIndex,
+			RevocationHandle: string(a.Attributes[RHIndex]),
+			RNymRh:           a.RhNymAuditData.Rand,
+		},
+	)
+	if err != nil {
+		return errors.Wrap(err, "error while verifying the nym rh")
+	}
 	if !valid {
 		return errors.New("invalid nym eid")
 	}

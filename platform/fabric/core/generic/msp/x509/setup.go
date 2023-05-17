@@ -17,6 +17,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	msp2 "github.com/hyperledger/fabric-protos-go/msp"
 	"github.com/hyperledger/fabric/bccsp"
 	"github.com/hyperledger/fabric/bccsp/pkcs11"
@@ -201,6 +202,32 @@ func GetEnrollmentID(id []byte) (string, error) {
 		return cert.Subject.CommonName, nil
 	default:
 		return "", errors.Errorf("bad block type %s, expected CERTIFICATE", block.Type)
+	}
+}
+
+func GetRevocationHandle(id []byte) ([]byte, error) {
+	si := &msp2.SerializedIdentity{}
+	err := proto.Unmarshal(id, si)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to unmarshal to msp.SerializedIdentity{}")
+	}
+	block, _ := pem.Decode(si.IdBytes)
+	if block == nil {
+		return nil, errors.New("bytes are not PEM encoded")
+	}
+	switch block.Type {
+	case "CERTIFICATE":
+		cert, err := x5092.ParseCertificate(block.Bytes)
+		if err != nil {
+			return nil, errors.WithMessage(err, "pem bytes are not cert encoded ")
+		}
+		encoded, err := x5092.MarshalPKIXPublicKey(cert.PublicKey)
+		if err != nil {
+			return nil, errors.WithMessage(err, "Failed to marshal PKI public key")
+		}
+		return []byte(hash.Hashable(encoded).String()), nil
+	default:
+		return nil, errors.Errorf("bad block type %s, expected CERTIFICATE", block.Type)
 	}
 }
 

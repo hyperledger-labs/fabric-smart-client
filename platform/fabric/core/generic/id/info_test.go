@@ -33,7 +33,7 @@ func TestInfoIdemix(t *testing.T) {
 	config, err := msp2.GetLocalMspConfigWithType("./testdata/idemix", nil, "idemix", "idemix")
 	assert.NoError(t, err)
 
-	p, err := idemix2.NewEIDNymProvider(config, registry)
+	p, err := idemix2.NewProviderWithEidRhNymPolicy(config, registry)
 	assert.NoError(t, err)
 	assert.NotNil(t, p)
 

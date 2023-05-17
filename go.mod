@@ -2,11 +2,9 @@ module github.com/hyperledger-labs/fabric-smart-client
 
 go 1.20
 
-replace kilic/bls12-377 => github.com/kilic/bls12-377 v0.0.0-20201230075656-5449decbf102
-
 require (
-	github.com/IBM/idemix v0.0.2-0.20230324134044-ad53d9388bb5
-	github.com/IBM/mathlib v0.0.3-0.20230310094401-6036a5c12341
+	github.com/IBM/idemix v0.0.2-0.20230510082947-a0c3ee5ebe35
+	github.com/IBM/mathlib v0.0.3-0.20230428120512-8afa4e643d4c
 	github.com/ReneKroon/ttlcache/v2 v2.11.0
 	github.com/dgraph-io/badger/v3 v3.2103.2
 	github.com/docker/docker v20.10.24+incompatible
@@ -85,7 +83,6 @@ require (
 	go.uber.org/fx v1.18.2 // indirect
 	go.uber.org/goleak v1.2.0 // indirect
 	golang.org/x/exp v0.0.0-20230213192124-5e25df0256eb // indirect
-	kilic/bls12-377 v0.0.0-00010101000000-000000000000 // indirect
 	nhooyr.io/websocket v1.8.7 // indirect
 	rsc.io/tmplfunc v0.0.3 // indirect
 )

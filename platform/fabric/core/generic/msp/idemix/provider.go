@@ -17,6 +17,7 @@ import (
 	bccsp "github.com/IBM/idemix/bccsp/schemes"
 	idemix2 "github.com/IBM/idemix/bccsp/schemes/dlog/crypto"
 	"github.com/IBM/idemix/bccsp/schemes/dlog/crypto/translator/amcl"
+	"github.com/IBM/idemix/idemixmsp"
 	math "github.com/IBM/mathlib"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
@@ -54,37 +55,37 @@ func GetSignerService(ctx view2.ServiceProvider) SignerService {
 	return s.(SignerService)
 }
 
-type provider struct {
+type Provider struct {
 	*common
 	userKey bccsp.Key
-	conf    m.IdemixMSPConfig
+	conf    idemixmsp.IdemixMSPConfig
 	sp      view2.ServiceProvider
 
 	sigType bccsp.SignatureType
 	verType bccsp.VerificationType
 }
 
-func NewEIDNymProvider(conf1 *m.MSPConfig, sp view2.ServiceProvider) (*provider, error) {
-	return NewProviderWithSigType(conf1, sp, bccsp.EidNym)
+func NewProviderWithEidRhNymPolicy(conf1 *m.MSPConfig, sp view2.ServiceProvider) (*Provider, error) {
+	return NewProviderWithSigType(conf1, sp, bccsp.EidNymRhNym)
 }
 
-func NewStandardProvider(conf1 *m.MSPConfig, sp view2.ServiceProvider) (*provider, error) {
+func NewProviderWithStandardPolicy(conf1 *m.MSPConfig, sp view2.ServiceProvider) (*Provider, error) {
 	return NewProviderWithSigType(conf1, sp, bccsp.Standard)
 }
 
-func NewAnyProvider(conf1 *m.MSPConfig, sp view2.ServiceProvider) (*provider, error) {
+func NewProviderWithAnyPolicy(conf1 *m.MSPConfig, sp view2.ServiceProvider) (*Provider, error) {
 	return NewProviderWithSigType(conf1, sp, Any)
 }
 
-func NewAnyProviderWithCurve(conf1 *m.MSPConfig, sp view2.ServiceProvider, curveID math.CurveID) (*provider, error) {
+func NewProviderWithAnyPolicyAndCurve(conf1 *m.MSPConfig, sp view2.ServiceProvider, curveID math.CurveID) (*Provider, error) {
 	return NewProvider(conf1, sp, Any, curveID)
 }
 
-func NewProviderWithSigType(conf1 *m.MSPConfig, sp view2.ServiceProvider, sigType bccsp.SignatureType) (*provider, error) {
+func NewProviderWithSigType(conf1 *m.MSPConfig, sp view2.ServiceProvider, sigType bccsp.SignatureType) (*Provider, error) {
 	return NewProvider(conf1, sp, sigType, math.FP256BN_AMCL)
 }
 
-func NewProvider(conf1 *m.MSPConfig, sp view2.ServiceProvider, sigType bccsp.SignatureType, curveID math.CurveID) (*provider, error) {
+func NewProvider(conf1 *m.MSPConfig, sp view2.ServiceProvider, sigType bccsp.SignatureType, curveID math.CurveID) (*Provider, error) {
 	logger.Debugf("Setting up Idemix-based MSP instance")
 
 	if conf1 == nil {
@@ -118,7 +119,7 @@ func NewProvider(conf1 *m.MSPConfig, sp view2.ServiceProvider, sigType bccsp.Sig
 		return nil, errors.Wrap(err, "failed getting crypto provider")
 	}
 
-	var conf m.IdemixMSPConfig
+	var conf idemixmsp.IdemixMSPConfig
 	err = proto.Unmarshal(conf1.Config, &conf)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed unmarshalling idemix provider config")
@@ -169,8 +170,8 @@ func NewProvider(conf1 *m.MSPConfig, sp view2.ServiceProvider, sigType bccsp.Sig
 	switch sigType {
 	case bccsp.Standard:
 		verType = bccsp.ExpectStandard
-	case bccsp.EidNym:
-		verType = bccsp.ExpectEidNym
+	case bccsp.EidNymRhNym:
+		verType = bccsp.ExpectEidNymRhNym
 	case Any:
 		verType = bccsp.BestEffort
 	default:
@@ -206,7 +207,7 @@ func NewProvider(conf1 *m.MSPConfig, sp view2.ServiceProvider, sigType bccsp.Sig
 		return nil, errors.WithMessage(err, "credential is not cryptographically valid")
 	}
 
-	return &provider{
+	return &Provider{
 		common: &common{
 			name:            conf.Name,
 			Csp:             cryptoProvider,
@@ -223,7 +224,7 @@ func NewProvider(conf1 *m.MSPConfig, sp view2.ServiceProvider, sigType bccsp.Sig
 	}, nil
 }
 
-func (p *provider) Identity(opts *driver2.IdentityOptions) (view.Identity, []byte, error) {
+func (p *Provider) Identity(opts *driver2.IdentityOptions) (view.Identity, []byte, error) {
 	// Derive NymPublicKey
 	nymKey, err := p.Csp.KeyDeriv(
 		p.userKey,
@@ -255,20 +256,22 @@ func (p *provider) Identity(opts *driver2.IdentityOptions) (view.Identity, []byt
 	}
 
 	enrollmentID := p.conf.Signer.EnrollmentId
-
+	rh := p.conf.Signer.RevocationHandle
 	sigType := p.sigType
 	var signerMetadata *bccsp.IdemixSignerMetadata
 	if opts != nil {
 		if opts.EIDExtension {
-			sigType = bccsp.EidNym
+			sigType = bccsp.EidNymRhNym
 		}
 		if len(opts.AuditInfo) != 0 {
 			ai, err := p.DeserializeAuditInfo(opts.AuditInfo)
 			if err != nil {
 				return nil, nil, err
 			}
+
 			signerMetadata = &bccsp.IdemixSignerMetadata{
-				NymEIDAuditData: ai.NymEIDAuditData,
+				EidNymAuditData: ai.EidNymAuditData,
+				RhNymAuditData:  ai.RhNymAuditData,
 			}
 		}
 	}
@@ -321,17 +324,20 @@ func (p *provider) Identity(opts *driver2.IdentityOptions) (view.Identity, []byt
 	switch sigType {
 	case bccsp.Standard:
 		infoRaw = nil
-	case bccsp.EidNym:
+	case bccsp.EidNymRhNym:
 		auditInfo := &AuditInfo{
 			Csp:             p.Csp,
 			IssuerPublicKey: p.IssuerPublicKey,
-			NymEIDAuditData: sigOpts.Metadata.NymEIDAuditData,
+			EidNymAuditData: sigOpts.Metadata.EidNymAuditData,
+			RhNymAuditData:  sigOpts.Metadata.RhNymAuditData,
 			Attributes: [][]byte{
 				[]byte(p.conf.Signer.OrganizationalUnitIdentifier),
 				[]byte(strconv.Itoa(getIdemixRoleFromMSPRole(role))),
 				[]byte(enrollmentID),
+				[]byte(rh),
 			},
 		}
+		logger.Infof("new idemix identity generated with [%s:%s]", enrollmentID, hash.Hashable(auditInfo.Attributes[3]).String())
 		infoRaw, err = auditInfo.Bytes()
 		if err != nil {
 			return nil, nil, err
@@ -342,7 +348,7 @@ func (p *provider) Identity(opts *driver2.IdentityOptions) (view.Identity, []byt
 	return raw, infoRaw, nil
 }
 
-func (p *provider) DeserializeVerifier(raw []byte) (driver.Verifier, error) {
+func (p *Provider) DeserializeVerifier(raw []byte) (driver.Verifier, error) {
 	r, err := p.Deserialize(raw, true)
 	if err != nil {
 		return nil, err
@@ -351,7 +357,7 @@ func (p *provider) DeserializeVerifier(raw []byte) (driver.Verifier, error) {
 	return r.id, nil
 }
 
-func (p *provider) DeserializeSigner(raw []byte) (driver.Signer, error) {
+func (p *Provider) DeserializeSigner(raw []byte) (driver.Signer, error) {
 	r, err := p.Deserialize(raw, true)
 	if err != nil {
 		return nil, err
@@ -380,7 +386,7 @@ func (p *provider) DeserializeSigner(raw []byte) (driver.Signer, error) {
 	return si, nil
 }
 
-func (p *provider) Info(raw []byte, auditInfo []byte) (string, error) {
+func (p *Provider) Info(raw []byte, auditInfo []byte) (string, error) {
 	r, err := p.Deserialize(raw, true)
 	if err != nil {
 		return "", err
@@ -395,7 +401,7 @@ func (p *provider) Info(raw []byte, auditInfo []byte) (string, error) {
 		if err := ai.FromBytes(auditInfo); err != nil {
 			return "", err
 		}
-		if err := ai.Match(view.Identity(raw)); err != nil {
+		if err := ai.Match(raw); err != nil {
 			return "", err
 		}
 		eid = ai.EnrollmentID()
@@ -404,15 +410,15 @@ func (p *provider) Info(raw []byte, auditInfo []byte) (string, error) {
 	return fmt.Sprintf("MSP.Idemix: [%s][%s][%s][%s][%s]", eid, view.Identity(raw).UniqueID(), r.si.Mspid, r.ou.OrganizationalUnitIdentifier, r.role.Role.String()), nil
 }
 
-func (p *provider) String() string {
+func (p *Provider) String() string {
 	return fmt.Sprintf("Idemix Provider [%s]", hash.Hashable(p.Ipk).String())
 }
 
-func (p *provider) EnrollmentID() string {
+func (p *Provider) EnrollmentID() string {
 	return p.conf.Signer.EnrollmentId
 }
 
-func (p *provider) DeserializeSigningIdentity(raw []byte) (driver.SigningIdentity, error) {
+func (p *Provider) DeserializeSigningIdentity(raw []byte) (driver.SigningIdentity, error) {
 	si := &m.SerializedIdentity{}
 	err := proto.Unmarshal(raw, si)
 	if err != nil {

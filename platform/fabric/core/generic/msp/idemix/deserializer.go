@@ -102,8 +102,8 @@ func (i *deserializer) Info(raw []byte, auditInfo []byte) (string, error) {
 
 	eid := ""
 	if len(auditInfo) != 0 {
-		ai := &AuditInfo{}
-		if err := ai.FromBytes(auditInfo); err != nil {
+		ai, err := DeserializeAuditInfo(auditInfo)
+		if err != nil {
 			return "", err
 		}
 		if err := ai.Match(view.Identity(raw)); err != nil {

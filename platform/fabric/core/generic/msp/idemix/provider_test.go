@@ -34,7 +34,7 @@ func TestProvider(t *testing.T) {
 	config, err := msp2.GetLocalMspConfigWithType("./testdata/idemix", nil, "idemix", "idemix")
 	assert.NoError(t, err)
 
-	p, err := idemix2.NewEIDNymProvider(config, registry)
+	p, err := idemix2.NewProviderWithEidRhNymPolicy(config, registry)
 	assert.NoError(t, err)
 	assert.NotNil(t, p)
 
@@ -42,12 +42,12 @@ func TestProvider(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, p)
 
-	p, err = idemix2.NewProviderWithSigType(config, registry, bccsp.EidNym)
+	p, err = idemix2.NewProviderWithSigType(config, registry, bccsp.EidNymRhNym)
 	assert.NoError(t, err)
 	assert.NotNil(t, p)
 }
 
-func TestIdentityEidNym(t *testing.T) {
+func TestIdentityWithEidRhNymPolicy(t *testing.T) {
 	registry := registry2.New()
 
 	kvss, err := kvs.NewWithConfig(registry, "memory", "", &mock.ConfigProvider{})
@@ -59,7 +59,7 @@ func TestIdentityEidNym(t *testing.T) {
 	config, err := msp2.GetLocalMspConfigWithType("./testdata/idemix", nil, "idemix", "idemix")
 	assert.NoError(t, err)
 
-	p, err := idemix2.NewEIDNymProvider(config, registry)
+	p, err := idemix2.NewProviderWithEidRhNymPolicy(config, registry)
 	assert.NoError(t, err)
 	assert.NotNil(t, p)
 
@@ -69,7 +69,7 @@ func TestIdentityEidNym(t *testing.T) {
 	assert.NotNil(t, audit)
 	info, err := p.Info(id, audit)
 	assert.NoError(t, err)
-	assert.True(t, strings.HasPrefix(info, "MSP.Idemix: [idemix]"))
+	assert.True(t, strings.HasPrefix(info, "MSP.Idemix: [alice]"))
 	assert.True(t, strings.HasSuffix(info, "[idemix][idemixorg.example.com][ADMIN]"))
 
 	auditInfo, err := p.DeserializeAuditInfo(audit)
@@ -85,7 +85,7 @@ func TestIdentityEidNym(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NoError(t, verifier.Verify([]byte("hello world!!!"), sigma))
 
-	p, err = idemix2.NewAnyProvider(config, registry)
+	p, err = idemix2.NewProviderWithAnyPolicy(config, registry)
 	assert.NoError(t, err)
 	assert.NotNil(t, p)
 
@@ -95,7 +95,7 @@ func TestIdentityEidNym(t *testing.T) {
 	assert.NotNil(t, audit)
 	info, err = p.Info(id, audit)
 	assert.NoError(t, err)
-	assert.True(t, strings.HasPrefix(info, "MSP.Idemix: [idemix]"))
+	assert.True(t, strings.HasPrefix(info, "MSP.Idemix: [alice]"))
 	assert.True(t, strings.HasSuffix(info, "[idemix][idemixorg.example.com][ADMIN]"))
 
 	auditInfo, err = p.DeserializeAuditInfo(audit)
@@ -142,7 +142,7 @@ func TestIdentityStandard(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NoError(t, verifier.Verify([]byte("hello world!!!"), sigma))
 
-	p, err = idemix2.NewStandardProvider(config, registry)
+	p, err = idemix2.NewProviderWithStandardPolicy(config, registry)
 	assert.NoError(t, err)
 	assert.NotNil(t, p)
 
@@ -160,7 +160,7 @@ func TestIdentityStandard(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NoError(t, verifier.Verify([]byte("hello world!!!"), sigma))
 
-	p, err = idemix2.NewAnyProvider(config, registry)
+	p, err = idemix2.NewProviderWithAnyPolicy(config, registry)
 	assert.NoError(t, err)
 	assert.NotNil(t, p)
 
@@ -179,7 +179,7 @@ func TestIdentityStandard(t *testing.T) {
 	assert.NoError(t, verifier.Verify([]byte("hello world!!!"), sigma))
 }
 
-func TestAuditEidNym(t *testing.T) {
+func TestAuditWithEidRhNymPolicy(t *testing.T) {
 	registry := registry2.New()
 
 	kvss, err := kvs.NewWithConfig(registry, "memory", "", &mock.ConfigProvider{})
@@ -190,13 +190,13 @@ func TestAuditEidNym(t *testing.T) {
 
 	config, err := msp2.GetLocalMspConfigWithType("./testdata/idemix", nil, "idemix", "idemix")
 	assert.NoError(t, err)
-	p, err := idemix2.NewEIDNymProvider(config, registry)
+	p, err := idemix2.NewProviderWithEidRhNymPolicy(config, registry)
 	assert.NoError(t, err)
 	assert.NotNil(t, p)
 
 	config, err = msp2.GetLocalMspConfigWithType("./testdata/idemix2", nil, "idemix", "idemix")
 	assert.NoError(t, err)
-	p2, err := idemix2.NewEIDNymProvider(config, registry)
+	p2, err := idemix2.NewProviderWithEidRhNymPolicy(config, registry)
 	assert.NoError(t, err)
 	assert.NotNil(t, p2)
 
@@ -204,7 +204,6 @@ func TestAuditEidNym(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, id)
 	assert.NotNil(t, audit)
-
 	id2, audit2, err := p2.Identity(nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, id2)
@@ -233,13 +232,13 @@ func TestProvider_DeserializeSigner(t *testing.T) {
 
 	config, err := msp2.GetLocalMspConfigWithType("./testdata/sameissuer/idemix", nil, "idemix", "idemix")
 	assert.NoError(t, err)
-	p, err := idemix2.NewEIDNymProvider(config, registry)
+	p, err := idemix2.NewProviderWithEidRhNymPolicy(config, registry)
 	assert.NoError(t, err)
 	assert.NotNil(t, p)
 
 	config, err = msp2.GetLocalMspConfigWithType("./testdata/sameissuer/idemix2", nil, "idemix", "idemix")
 	assert.NoError(t, err)
-	p2, err := idemix2.NewEIDNymProvider(config, registry)
+	p2, err := idemix2.NewProviderWithEidRhNymPolicy(config, registry)
 	assert.NoError(t, err)
 	assert.NotNil(t, p2)
 

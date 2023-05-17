@@ -18,7 +18,11 @@ func TestDeserializer(t *testing.T) {
 	id, auditInfo, err := p.Identity(nil)
 	assert.NoError(t, err)
 	eID := p.EnrollmentID()
-	assert.Equal(t, eID, string(auditInfo))
+	ai := &AuditInfo{}
+	err = ai.FromBytes(auditInfo)
+	assert.NoError(t, err)
+
+	assert.Equal(t, eID, ai.EnrollmentId)
 	assert.Equal(t, "auditor.org1.example.com", eID)
 
 	des := &Deserializer{}
