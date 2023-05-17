@@ -53,8 +53,9 @@ func NewService(
 func (s *Service) Start(ctx context.Context) {
 	go func() {
 		for {
+			logger.Infof("start communication service...")
 			if err := s.init(); err != nil {
-				logger.Errorf("failed to initialize communication service [%s], wait a bit and try again")
+				logger.Errorf("failed to initialize communication service [%s], wait a bit and try again", err)
 				time.Sleep(10 * time.Second)
 				continue
 			}
@@ -67,7 +68,7 @@ func (s *Service) Start(ctx context.Context) {
 
 func (s *Service) Stop() {
 	if err := s.init(); err != nil {
-		logger.Warnf("communication service not ready [%s], cannot stop")
+		logger.Warnf("communication service not ready [%s], cannot stop", err)
 		return
 	}
 	s.Node.Stop()
@@ -96,7 +97,7 @@ func (s *Service) MasterSession() (view2.Session, error) {
 
 func (s *Service) DeleteSessions(sessionID string) {
 	if err := s.init(); err != nil {
-		logger.Warnf("communication service not ready [%s], cannot delete any session")
+		logger.Warnf("communication service not ready [%s], cannot delete any session", err)
 		return
 	}
 	s.Node.DeleteSessions(sessionID)
