@@ -8,11 +8,12 @@ package comm
 
 import (
 	"context"
-
-	"github.com/pkg/errors"
+	"sync"
+	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"github.com/pkg/errors"
 )
 
 type EndpointService interface {
@@ -29,7 +30,9 @@ type Service struct {
 	EndpointService     EndpointService
 	ConfigService       ConfigService
 	DefaultIdentity     view2.Identity
-	Node                *P2PNode
+
+	Node     *P2PNode
+	NodeSync sync.RWMutex
 }
 
 func NewService(
@@ -44,37 +47,75 @@ func NewService(
 		ConfigService:       configService,
 		DefaultIdentity:     defaultIdentity,
 	}
-	if err := s.init(); err != nil {
-		return nil, err
-	}
 	return s, nil
 }
 
 func (s *Service) Start(ctx context.Context) {
-	s.Node.Start(ctx)
+	go func() {
+		for {
+			logger.Infof("start communication service...")
+			if err := s.init(); err != nil {
+				logger.Errorf("failed to initialize communication service [%s], wait a bit and try again", err)
+				time.Sleep(10 * time.Second)
+				continue
+			}
+			// Init done, we can start
+			s.Node.Start(ctx)
+			break
+		}
+	}()
 }
 
 func (s *Service) Stop() {
+	if err := s.init(); err != nil {
+		logger.Warnf("communication service not ready [%s], cannot stop", err)
+		return
+	}
 	s.Node.Stop()
 }
 
 func (s *Service) NewSessionWithID(sessionID, contextID, endpoint string, pkid []byte, caller view2.Identity, msg *view2.Message) (view2.Session, error) {
+	if err := s.init(); err != nil {
+		return nil, errors.Errorf("communication service not ready [%s]", err)
+	}
 	return s.Node.NewSessionWithID(sessionID, contextID, endpoint, pkid, caller, msg)
 }
 
 func (s *Service) NewSession(caller string, contextID string, endpoint string, pkid []byte) (view2.Session, error) {
+	if err := s.init(); err != nil {
+		return nil, errors.Errorf("communication service not ready [%s]", err)
+	}
 	return s.Node.NewSession(caller, contextID, endpoint, pkid)
 }
 
 func (s *Service) MasterSession() (view2.Session, error) {
+	if err := s.init(); err != nil {
+		return nil, errors.Errorf("communication service not ready [%s]", err)
+	}
 	return s.Node.MasterSession()
 }
 
 func (s *Service) DeleteSessions(sessionID string) {
+	if err := s.init(); err != nil {
+		logger.Warnf("communication service not ready [%s], cannot delete any session", err)
+		return
+	}
 	s.Node.DeleteSessions(sessionID)
 }
 
 func (s *Service) init() error {
+	s.NodeSync.RLock()
+	if s.Node != nil {
+		s.NodeSync.RUnlock()
+		return nil
+	}
+	s.NodeSync.RUnlock()
+	s.NodeSync.Lock()
+	defer s.NodeSync.Unlock()
+	if s.Node != nil {
+		return nil
+	}
+
 	p2pListenAddress := s.ConfigService.GetString("fsc.p2p.listenAddress")
 	p2pBootstrapNode := s.ConfigService.GetString("fsc.p2p.bootstrapNode")
 	if len(p2pBootstrapNode) == 0 {
