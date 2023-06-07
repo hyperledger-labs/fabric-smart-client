@@ -8,6 +8,7 @@ package main
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fsc/pingpong"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/fsc/pingpong/mock"
 	fscnode "github.com/hyperledger-labs/fabric-smart-client/node"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 )
@@ -18,6 +19,9 @@ func main() {
 		registry := view.GetRegistry(node)
 		initiatorID := registry.GetIdentifier(&pingpong.Initiator{})
 		if err := registry.RegisterResponder(&pingpong.Responder{}, initiatorID); err != nil {
+			return err
+		}
+		if err := registry.RegisterResponder(&pingpong.Responder{}, &mock.Initiator{}); err != nil {
 			return err
 		}
 		return nil

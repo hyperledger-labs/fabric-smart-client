@@ -4,7 +4,7 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package pingpong
+package mock
 
 import (
 	"errors"
@@ -40,7 +40,7 @@ func (p *Responder) Call(context view.Context) (interface{}, error) {
 		return nil, fmt.Errorf("expected ping, got %s", m)
 	default:
 		// reply with pong
-		err := session.Send([]byte("pong"))
+		err := session.Send([]byte("mock pong"))
 		assert.NoError(err)
 	}
 
