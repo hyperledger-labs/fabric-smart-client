@@ -8,10 +8,12 @@ package pingpong_test
 
 import (
 	"bytes"
+	"strings"
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fsc/pingpong"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/fsc/pingpong/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/client"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/api"
@@ -170,4 +172,39 @@ var _ = Describe("EndToEnd", func() {
 		})
 	})
 
+	Describe("Network-based Mock Ping pong", func() {
+		var (
+			ii *integration.Infrastructure
+		)
+
+		AfterEach(func() {
+			// Stop the ii
+			ii.DeleteOnStop = true
+			ii.Stop()
+		})
+
+		It("generate artifacts & successful mock pingpong", func() {
+			var err error
+			// Create the integration ii
+			ii, err = integration.Generate(StartPortWithGeneration(), true, pingpong.Topology()...)
+			Expect(err).NotTo(HaveOccurred())
+			// Start the integration ii
+			ii.Start()
+			time.Sleep(3 * time.Second)
+
+			// Get a client for the fsc node labelled initiator
+			initiator := ii.Client("initiator")
+
+			// Init with mock=false, a failure must happen
+			_, err = initiator.CallView("mockInit", common.JSONMarshall(&mock.Params{Mock: false}))
+			Expect(err).To(HaveOccurred())
+			Expect(strings.Contains(err.Error(), "expected mock pong, got pong")).To(BeTrue())
+
+			// Init with mock=true, a success must happen
+			res, err := initiator.CallView("mockInit", common.JSONMarshall(&mock.Params{Mock: true}))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
+		})
+
+	})
 })
