@@ -192,6 +192,7 @@ func (db *Vault) Close() error {
 }
 
 func (db *Vault) SetBusy(txID string) error {
+	logger.Infof("set tx [%s]'s status to busy on [%s]", txID, db)
 	code, err := db.TXIDStore.Get(txID)
 	if err != nil {
 		return err

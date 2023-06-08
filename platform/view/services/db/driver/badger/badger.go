@@ -8,6 +8,7 @@ package badger
 
 import (
 	"context"
+	"runtime/debug"
 	"sync"
 
 	"github.com/dgraph-io/badger/v3"
@@ -24,6 +25,8 @@ type DB struct {
 	txn           *badger.Txn
 	txnLock       sync.RWMutex
 	cancelCleaner context.CancelFunc
+
+	debugStack []byte
 }
 
 func OpenDB(opts Opts, config driver.Config) (*DB, error) {
@@ -86,9 +89,11 @@ func (db *DB) BeginUpdate() error {
 	defer db.txnLock.Unlock()
 
 	if db.txn != nil {
+		logger.Errorf("previous commit in progress, locked by [%s]", db.debugStack)
 		return errors.New("previous commit in progress")
 	}
 	db.txn = db.db.NewTransaction(true)
+	db.debugStack = debug.Stack()
 
 	return nil
 }
