@@ -28,7 +28,7 @@ type TXIDStore interface {
 }
 
 func NewVault(sp view2.ServiceProvider, config *config.Config, channel string) (*vault.Vault, TXIDStore, error) {
-	logger.Infof("new fabric vault for channel [%s] with config [%v]", channel, config)
+	logger.Debugf("new fabric vault for channel [%s] with config [%v]", channel, config)
 	pType := config.VaultPersistenceType()
 	if pType == "file" {
 		// for retro compatibility

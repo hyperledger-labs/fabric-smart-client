@@ -95,6 +95,9 @@ func (db *Vault) DiscardTx(txID string) error {
 		return err
 	}
 
+	db.InterceptorsLock.Lock()
+	defer db.InterceptorsLock.Unlock()
+
 	err = db.Store.BeginUpdate()
 	if err != nil {
 		return errors.WithMessagef(err, "begin update for txid '%s' failed", txID)
@@ -192,7 +195,6 @@ func (db *Vault) Close() error {
 }
 
 func (db *Vault) SetBusy(txID string) error {
-	logger.Infof("set tx [%s]'s status to busy", txID)
 	code, err := db.TXIDStore.Get(txID)
 	if err != nil {
 		return err
