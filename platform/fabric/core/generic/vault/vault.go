@@ -95,6 +95,9 @@ func (db *Vault) DiscardTx(txID string) error {
 		return err
 	}
 
+	db.InterceptorsLock.Lock()
+	defer db.InterceptorsLock.Unlock()
+
 	err = db.Store.BeginUpdate()
 	if err != nil {
 		return errors.WithMessagef(err, "begin update for txid '%s' failed", txID)
