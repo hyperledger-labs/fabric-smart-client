@@ -188,7 +188,7 @@ func (i *Infrastructure) Stop() {
 	if i.NWO == nil {
 		panic("call generate or load first")
 	}
-	defer i.BuildServer.Shutdown()
+	defer i.BuildServer.Shutdown(i.DeleteOnStop)
 	if i.DeleteOnStop {
 		defer os.RemoveAll(i.TestDir)
 	}
