@@ -452,10 +452,17 @@ func (p *SDK) initWebOperationEndpointsAndMetrics() error {
 		}
 	}
 
+	prometheusTls := true
+	if configProvider.IsSet("fsc.metrics.prometheus.tls") {
+		prometheusTls = configProvider.GetBool("fsc.metrics.prometheus.tls")
+	}
+	logger.Infof("Starting prometheus with TLS: %v", prometheusTls)
+
 	p.operationsSystem = operations.NewSystem(p.webServer, operations.Options{
 		Metrics: operations.MetricsOptions{
 			Provider: provider,
 			Statsd:   statsdOperationsConfig,
+			TLS:      prometheusTls,
 		},
 		TLS: operations.TLS{
 			Enabled: tlsEnabled,
