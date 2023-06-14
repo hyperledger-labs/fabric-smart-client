@@ -35,6 +35,7 @@ type Monitoring struct {
 	TracingType     string `yaml:"tracingType,omitempty"`
 	TracingEndpoint string `yaml:"tracingEndpoint,omitempty"`
 	MetricsType     string `yaml:"metricsType,omitempty"`
+	TLS             bool   `yaml:"tls,omitempty"`
 }
 
 // NewTopology returns an empty FSC network topology.
@@ -50,6 +51,7 @@ func NewTopology() *Topology {
 		Monitoring: Monitoring{
 			TracingType: "none",
 			MetricsType: "none",
+			TLS:         true,
 		},
 	}
 }
@@ -128,6 +130,10 @@ func (t *Topology) EnableLogToFile() {
 
 func (t *Topology) EnablePrometheusMetrics() {
 	t.Monitoring.MetricsType = "prometheus"
+}
+
+func (t *Topology) DisablePrometheusTLS() {
+	t.Monitoring.TLS = false
 }
 
 func (t *Topology) AddSDK(sdk api.SDK) {
