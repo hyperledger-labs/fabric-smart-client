@@ -14,6 +14,7 @@ import (
 	"time"
 
 	assert2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/stretchr/testify/assert"
@@ -32,17 +33,17 @@ func idForParty(t *testing.T, keyFile string) string {
 	return ID.String()
 }
 
-func getBootstrapNode(t *testing.T, bootstrapNodeEndpoint string, keyDispenser PrivateKeyDispenser) *P2PNode {
-	node, err := NewBootstrapNode(bootstrapNodeEndpoint, keyDispenser)
+func getBootstrapNode(t *testing.T, bootstrapNodeEndpoint string, keyDispenser PrivateKeyDispenser, metrics *Metrics) *P2PNode {
+	node, err := NewBootstrapNode(bootstrapNodeEndpoint, keyDispenser, metrics)
 	assert.NoError(t, err)
 	assert.NotNil(t, node)
 
 	return node
 }
 
-func getNode(t *testing.T, bootstrapNodeID, bootstrapNodeEndpoint, nodeEndpoint string, keyDispenser PrivateKeyDispenser) *P2PNode {
+func getNode(t *testing.T, bootstrapNodeID, bootstrapNodeEndpoint, nodeEndpoint string, keyDispenser PrivateKeyDispenser, metrics *Metrics) *P2PNode {
 	bootstrapNodeDHTEndpoint := bootstrapNodeEndpoint + "/p2p/" + bootstrapNodeID
-	node, err := NewNode(nodeEndpoint, bootstrapNodeDHTEndpoint, keyDispenser)
+	node, err := NewNode(nodeEndpoint, bootstrapNodeDHTEndpoint, keyDispenser, metrics)
 	assert.NoError(t, err)
 	assert.NotNil(t, node)
 
@@ -58,8 +59,9 @@ func setupTwoNodes(t *testing.T, bootstrapNodeID, bootstrapNodeEndpoint, nodeID,
 			}
 		}
 	}()
-	bootstrapNode = getBootstrapNode(t, bootstrapNodeEndpoint, bootstrapNodeKeyDispenser)
-	anotherNode = getNode(t, bootstrapNodeID, bootstrapNodeEndpoint, nodeEndpoint, nodeKeyDispenser)
+	metrics := NewMetrics(&disabled.Provider{})
+	bootstrapNode = getBootstrapNode(t, bootstrapNodeEndpoint, bootstrapNodeKeyDispenser, metrics)
+	anotherNode = getNode(t, bootstrapNodeID, bootstrapNodeEndpoint, nodeEndpoint, nodeKeyDispenser, metrics)
 
 	assert.Eventually(t, func() bool {
 		addr, ok := bootstrapNode.Lookup(nodeID)

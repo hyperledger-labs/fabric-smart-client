@@ -22,7 +22,7 @@ import (
 	"github.com/multiformats/go-multiaddr"
 )
 
-func newHost(ListenAddress string, keyDispenser PrivateKeyDispenser) (*P2PNode, error) {
+func newHost(ListenAddress string, keyDispenser PrivateKeyDispenser, metrics *Metrics) (*P2PNode, error) {
 	priv, err := keyDispenser.PrivateKey()
 	if err != nil {
 		return nil, err
@@ -37,6 +37,7 @@ func newHost(ListenAddress string, keyDispenser PrivateKeyDispenser) (*P2PNode, 
 		libp2p.ListenAddrs(addr),
 		libp2p.Identity(priv),
 		libp2p.ForceReachabilityPublic(),
+		libp2p.BandwidthReporter(NewReporter(metrics)),
 	}
 
 	host, err := libp2p.New(opts...)
@@ -90,8 +91,8 @@ func (p *PrivateKeyFromFile) PrivateKey() (crypto.PrivKey, error) {
 	return crypto.UnmarshalECDSAPrivateKey(privBytes)
 }
 
-func NewBootstrapNode(ListenAddress string, keyDispenser PrivateKeyDispenser) (*P2PNode, error) {
-	node, err := newHost(ListenAddress, keyDispenser)
+func NewBootstrapNode(ListenAddress string, keyDispenser PrivateKeyDispenser, metrics *Metrics) (*P2PNode, error) {
+	node, err := newHost(ListenAddress, keyDispenser, metrics)
 	if err != nil {
 		return nil, err
 	}
@@ -103,8 +104,8 @@ func NewBootstrapNode(ListenAddress string, keyDispenser PrivateKeyDispenser) (*
 	return node, nil
 }
 
-func NewNode(ListenAddress, BootstrapNode string, keyDispenser PrivateKeyDispenser) (*P2PNode, error) {
-	node, err := newHost(ListenAddress, keyDispenser)
+func NewNode(ListenAddress, BootstrapNode string, keyDispenser PrivateKeyDispenser, metrics *Metrics) (*P2PNode, error) {
+	node, err := newHost(ListenAddress, keyDispenser, metrics)
 	if err != nil {
 		return nil, err
 	}

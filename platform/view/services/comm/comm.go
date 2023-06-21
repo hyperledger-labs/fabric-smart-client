@@ -30,6 +30,7 @@ type Service struct {
 	EndpointService     EndpointService
 	ConfigService       ConfigService
 	DefaultIdentity     view2.Identity
+	Metrics             *Metrics
 
 	Node     *P2PNode
 	NodeSync sync.RWMutex
@@ -40,12 +41,14 @@ func NewService(
 	endpointService EndpointService,
 	configService ConfigService,
 	defaultIdentity view2.Identity,
+	metrics *Metrics,
 ) (*Service, error) {
 	s := &Service{
 		PrivateKeyDispenser: privateKeyDispenser,
 		EndpointService:     endpointService,
 		ConfigService:       configService,
 		DefaultIdentity:     defaultIdentity,
+		Metrics:             metrics,
 	}
 	return s, nil
 }
@@ -126,6 +129,7 @@ func (s *Service) init() error {
 		s.Node, err = NewBootstrapNode(
 			p2pListenAddress,
 			s.PrivateKeyDispenser,
+			s.Metrics,
 		)
 		if err != nil {
 			return errors.Wrapf(err, "failed to initialize bootstrap p2p node [%s]", p2pListenAddress)
@@ -150,6 +154,7 @@ func (s *Service) init() error {
 			p2pListenAddress,
 			addr,
 			s.PrivateKeyDispenser,
+			s.Metrics,
 		)
 		if err != nil {
 			return errors.Wrapf(err, "failed to initialize node p2p manager [%s,%s]", p2pListenAddress, addr)
