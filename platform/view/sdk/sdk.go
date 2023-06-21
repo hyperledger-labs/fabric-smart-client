@@ -284,6 +284,7 @@ func (p *SDK) initCommLayer() {
 		view.GetEndpointService(p.registry),
 		view.GetConfigService(p.registry),
 		view.GetIdentityProvider(p.registry).DefaultIdentity(),
+		comm2.NewMetrics(metrics.GetProvider(p.registry)),
 	)
 	assert.NoError(err, "failed instantiating the communication service")
 	assert.NoError(p.registry.RegisterService(commService), "failed registering communication service")
