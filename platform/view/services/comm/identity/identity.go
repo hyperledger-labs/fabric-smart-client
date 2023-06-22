@@ -10,7 +10,6 @@ import (
 	"crypto/ecdsa"
 	"crypto/x509"
 	"encoding/pem"
-	"fmt"
 	"os"
 
 	"github.com/libp2p/go-libp2p/core/crypto"
@@ -27,7 +26,7 @@ func NewCryptoPrivKeyFromMSP(secretKeyPath string) (crypto.PrivKey, error) {
 	}
 	block, _ := pem.Decode(fileCont)
 	if block == nil {
-		return nil, fmt.Errorf("failed decoding pem, block must be different from nil [% x]", fileCont)
+		return nil, errors.Errorf("failed decoding pem, block must be different from nil [% x]", fileCont)
 	}
 
 	k, err := x509.ParsePKCS8PrivateKey(block.Bytes)

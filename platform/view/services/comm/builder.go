@@ -8,7 +8,6 @@ package comm
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"sync/atomic"
 	"time"
@@ -134,7 +133,7 @@ func (p *P2PNode) startFinder() {
 	for {
 		peerChan, err := p.finder.FindPeers(context.Background(), rendezVousString)
 		if err != nil {
-			fmt.Printf("got error from peer finder: %s\n", err.Error())
+			logger.Errorf("got error from peer finder: %s\n", err.Error())
 			goto sleep
 		}
 
@@ -145,7 +144,7 @@ func (p *P2PNode) startFinder() {
 
 			p.peersMutex.Lock()
 			if _, in := p.peers[peer.ID.String()]; !in {
-				// fmt.Print("Found peer:", peer)
+				logger.Debugf("found peer [%v]", peer)
 				p.peers[peer.ID.String()] = peer
 			}
 			p.peersMutex.Unlock()
@@ -165,7 +164,7 @@ func (p *P2PNode) startFinder() {
 func (p *P2PNode) start() {
 	_, err := p.finder.Advertise(context.Background(), rendezVousString)
 	if err != nil {
-		logger.Debugf("error while announcing: %s", err)
+		logger.Errorf("error while announcing: %s", err)
 	}
 
 	p.host.SetStreamHandler(protocol.ID(viewProtocol), p.handleStream())

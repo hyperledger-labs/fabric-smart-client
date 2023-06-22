@@ -106,6 +106,11 @@ func (s *Service) DeleteSessions(sessionID string) {
 	s.Node.DeleteSessions(sessionID)
 }
 
+func (s *Service) Addresses(id view2.Identity) ([]string, error) {
+	// TODO: implement this
+	return nil, nil
+}
+
 func (s *Service) init() error {
 	s.NodeSync.RLock()
 	if s.Node != nil {
