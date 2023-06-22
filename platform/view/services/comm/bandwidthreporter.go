@@ -1,3 +1,9 @@
+/*
+Copyright IBM Corp. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
+
 package comm
 
 import (
@@ -18,9 +24,11 @@ func NewReporter(m *Metrics) *MetricsReporter {
 func (r *MetricsReporter) LogSentMessageStream(size int64, proto protocol.ID, p peer.ID) {
 	r.m.BytesSent.With(PeerId, p.String(), ProtocolId, string(proto)).Add(float64(size))
 }
+
 func (r *MetricsReporter) LogRecvMessageStream(size int64, proto protocol.ID, p peer.ID) {
 	r.m.BytesReceived.With(PeerId, p.String(), ProtocolId, string(proto)).Add(float64(size))
 }
+
 func (r *MetricsReporter) LogSentMessage(int64)                              {}
 func (r *MetricsReporter) LogRecvMessage(int64)                              {}
 func (r *MetricsReporter) GetBandwidthForPeer(peer.ID) metrics.Stats         { return metrics.Stats{} }
@@ -29,6 +37,7 @@ func (r *MetricsReporter) GetBandwidthTotals() metrics.Stats                 { r
 func (r *MetricsReporter) GetBandwidthByPeer() map[peer.ID]metrics.Stats {
 	return map[peer.ID]metrics.Stats{}
 }
+
 func (r *MetricsReporter) GetBandwidthByProtocol() map[protocol.ID]metrics.Stats {
 	return map[protocol.ID]metrics.Stats{}
 }

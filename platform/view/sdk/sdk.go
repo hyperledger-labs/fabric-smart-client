@@ -67,6 +67,11 @@ type WebServer interface {
 	Stop() error
 }
 
+type CommService interface {
+	Start(ctx context.Context)
+	Stop()
+}
+
 type GRPCServer interface {
 }
 
@@ -83,7 +88,7 @@ type SDK struct {
 	context          context.Context
 	operationsSystem *operations.System
 
-	commService *comm2.Service
+	commService CommService
 }
 
 func NewSDK(confPath string, registry Registry) *SDK {

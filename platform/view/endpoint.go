@@ -38,6 +38,7 @@ type PKIResolver interface {
 // EndpointService provides endpoint-related services
 type EndpointService struct {
 	es driver.EndpointService
+	cs driver.CommService
 }
 
 // Endpoint returns the endpoint of the passed identity
@@ -101,7 +102,7 @@ func (e *EndpointService) IsBoundTo(a view.Identity, b view.Identity) bool {
 }
 
 // AddResolver adds a resolver for tha passed parameters. The passed id can be retrieved by using the passed name in a call to GetIdentity method.
-// The addresses can retrieved by passing the identity in a call to Resolve.
+// The addresses can be retrieved by passing the identity in a call to Resolve.
 // If a resolver is already bound to the passed name, then the passed identity is linked to the already existing identity. The already existing
 // identity is returned
 func (e *EndpointService) AddResolver(name string, domain string, addresses map[string]string, aliases []string, id []byte) (view.Identity, error) {
@@ -116,5 +117,5 @@ func (e *EndpointService) AddPKIResolver(pkiResolver PKIResolver) error {
 // GetEndpointService returns an instance of the endpoint service.
 // It panics, if no instance is found.
 func GetEndpointService(sp ServiceProvider) *EndpointService {
-	return &EndpointService{es: driver.GetEndpointService(sp)}
+	return &EndpointService{es: driver.GetEndpointService(sp), cs: driver.GetCommService(sp)}
 }
