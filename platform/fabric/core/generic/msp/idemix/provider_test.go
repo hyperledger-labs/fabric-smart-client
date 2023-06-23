@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 
+	math "github.com/IBM/mathlib"
+
 	bccsp "github.com/IBM/idemix/bccsp/schemes"
 	idemix2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/idemix"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
@@ -276,4 +278,71 @@ func TestProvider_DeserializeSigner(t *testing.T) {
 	sigma, err = signer.Sign(msg)
 	assert.NoError(t, err)
 	assert.NoError(t, verifier.Verify(msg, sigma))
+}
+
+func TestIdentityFromFabricCA(t *testing.T) {
+	registry := registry2.New()
+
+	kvss, err := kvs.NewWithConfig(registry, "memory", "", &mock.ConfigProvider{})
+	assert.NoError(t, err)
+	assert.NoError(t, registry.RegisterService(kvss))
+	sigService := sig2.NewSignService(registry, nil, kvss)
+	assert.NoError(t, registry.RegisterService(sigService))
+
+	config, err := idemix2.GetLocalMspConfigWithType("./testdata/charlie.ExtraId2", nil, "charlie.ExtraId2")
+	assert.NoError(t, err)
+
+	p, err := idemix2.NewProviderWithSigTypeAncCurve(config, registry, bccsp.Standard, math.BN254)
+	assert.NoError(t, err)
+	assert.NotNil(t, p)
+
+	id, audit, err := p.Identity(nil)
+	assert.NoError(t, err)
+	assert.NotNil(t, id)
+	assert.Nil(t, audit)
+
+	signer, err := p.DeserializeSigner(id)
+	assert.NoError(t, err)
+	verifier, err := p.DeserializeVerifier(id)
+	assert.NoError(t, err)
+
+	sigma, err := signer.Sign([]byte("hello world!!!"))
+	assert.NoError(t, err)
+	assert.NoError(t, verifier.Verify([]byte("hello world!!!"), sigma))
+
+	p, err = idemix2.NewProviderWithStandardPolicy(config, registry)
+	assert.NoError(t, err)
+	assert.NotNil(t, p)
+
+	id, audit, err = p.Identity(nil)
+	assert.NoError(t, err)
+	assert.NotNil(t, id)
+	assert.Nil(t, audit)
+
+	signer, err = p.DeserializeSigner(id)
+	assert.NoError(t, err)
+	verifier, err = p.DeserializeVerifier(id)
+	assert.NoError(t, err)
+
+	sigma, err = signer.Sign([]byte("hello world!!!"))
+	assert.NoError(t, err)
+	assert.NoError(t, verifier.Verify([]byte("hello world!!!"), sigma))
+
+	p, err = idemix2.NewProviderWithAnyPolicy(config, registry)
+	assert.NoError(t, err)
+	assert.NotNil(t, p)
+
+	id, audit, err = p.Identity(nil)
+	assert.NoError(t, err)
+	assert.NotNil(t, id)
+	assert.Nil(t, audit)
+
+	signer, err = p.DeserializeSigner(id)
+	assert.NoError(t, err)
+	verifier, err = p.DeserializeVerifier(id)
+	assert.NoError(t, err)
+
+	sigma, err = signer.Sign([]byte("hello world!!!"))
+	assert.NoError(t, err)
+	assert.NoError(t, verifier.Verify([]byte("hello world!!!"), sigma))
 }
