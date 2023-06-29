@@ -310,7 +310,7 @@ func TestIdentityFromFabricCA(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NoError(t, verifier.Verify([]byte("hello world!!!"), sigma))
 
-	p, err = idemix2.NewProviderWithStandardPolicy(config, registry)
+	p, err = idemix2.NewProviderWithSigTypeAncCurve(config, registry, bccsp.Standard, math.BN254)
 	assert.NoError(t, err)
 	assert.NotNil(t, p)
 
@@ -328,7 +328,7 @@ func TestIdentityFromFabricCA(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NoError(t, verifier.Verify([]byte("hello world!!!"), sigma))
 
-	p, err = idemix2.NewProviderWithAnyPolicy(config, registry)
+	p, err = idemix2.NewProviderWithSigTypeAncCurve(config, registry, idemix2.Any, math.BN254)
 	assert.NoError(t, err)
 	assert.NotNil(t, p)
 
