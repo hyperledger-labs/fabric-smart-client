@@ -38,7 +38,6 @@ type PKIResolver interface {
 // EndpointService provides endpoint-related services
 type EndpointService struct {
 	es driver.EndpointService
-	cs driver.CommService
 }
 
 // Endpoint returns the endpoint of the passed identity
@@ -117,5 +116,5 @@ func (e *EndpointService) AddPKIResolver(pkiResolver PKIResolver) error {
 // GetEndpointService returns an instance of the endpoint service.
 // It panics, if no instance is found.
 func GetEndpointService(sp ServiceProvider) *EndpointService {
-	return &EndpointService{es: driver.GetEndpointService(sp), cs: driver.GetCommService(sp)}
+	return &EndpointService{es: driver.GetEndpointService(sp)}
 }
