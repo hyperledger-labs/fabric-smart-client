@@ -696,8 +696,8 @@ github.com/hyperledger-labs/weaver-dlt-interoperability/common/protos-go v1.2.3-
 github.com/hyperledger-labs/weaver-dlt-interoperability/sdks/fabric/go-sdk v1.2.3-alpha.1.0.20210812140206-37f430515b8c h1:pKr8VnHlduEgdInwLWykYAw+lpUizjQJaJ8I5fVoRUo=
 github.com/hyperledger-labs/weaver-dlt-interoperability/sdks/fabric/go-sdk v1.2.3-alpha.1.0.20210812140206-37f430515b8c/go.mod h1:si2XAWZclHXC359OyYMpNHfonf2P7P2nzABdCA8mPqs=
 github.com/hyperledger/fabric v1.4.0-rc1.0.20201118191903-ec81f3e74fa1/go.mod h1:ppiyrJ+sUSk/rAX9cTd8xwAwSQ7chEbOQMAqtQ3pLG4=
-github.com/hyperledger/fabric v1.4.0-rc1.0.20230401164317-bd8e24856939 h1:+XwAnpbvmxEeRD1yT+gd77643Y1QQUv0B2HUr4CRNWE=
-github.com/hyperledger/fabric v1.4.0-rc1.0.20230401164317-bd8e24856939/go.mod h1:H7BI2gsTl4fW9ARtYG7UOGjwecXHSReVaIz4p2xqUB8=
+github.com/hyperledger/fabric v1.4.0-rc1.0.20230614194522-8e3bbcc13032 h1:zgv0GLkXGU4P18DKU+ldXmsX5XNBEsNiAqrqGu1KKII=
+github.com/hyperledger/fabric v1.4.0-rc1.0.20230614194522-8e3bbcc13032/go.mod h1:swoecoDgkq7HCeBdrGcc7M6VzckCV+2fIhQafkmQ6SI=
 github.com/hyperledger/fabric-amcl v0.0.0-20200128223036-d1aa2665426a/go.mod h1:X+DIyUsaTmalOpmpQfIvFZjKHQedrURQ5t4YqquX7lE=
 github.com/hyperledger/fabric-amcl v0.0.0-20230602173724-9e02669dceb2 h1:B1Nt8hKb//KvgGRprk0h1t4lCnwhE9/ryb1WqfZbV+M=
 github.com/hyperledger/fabric-amcl v0.0.0-20230602173724-9e02669dceb2/go.mod h1:X+DIyUsaTmalOpmpQfIvFZjKHQedrURQ5t4YqquX7lE=
