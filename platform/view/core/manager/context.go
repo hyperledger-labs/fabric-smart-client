@@ -22,7 +22,7 @@ import (
 type ctx struct {
 	context        context.Context
 	sp             driver.ServiceProvider
-	localSP        driver.ServiceProvider
+	localSP        *registry.ServiceProvider
 	id             string
 	session        view.Session
 	initiator      view.View
@@ -267,6 +267,10 @@ func (ctx *ctx) ResetSessions() error {
 	ctx.sessions = map[string]view.Session{}
 
 	return nil
+}
+
+func (ctx *ctx) PutService(service interface{}) error {
+	return ctx.localSP.RegisterService(service)
 }
 
 func (ctx *ctx) GetService(v interface{}) (interface{}, error) {

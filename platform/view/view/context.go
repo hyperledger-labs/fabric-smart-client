@@ -66,6 +66,8 @@ func WithSameContext() RunViewOption {
 type MutableContext interface {
 	// ResetSessions disposes all sessions created in this context
 	ResetSessions() error
+	// PutService registers a service in this context
+	PutService(v interface{}) error
 }
 
 // Context gives a view information about the environment in which it is in execution
@@ -97,8 +99,6 @@ type Context interface {
 	// GetSessionByID returns a session to the passed remote party and id.
 	// Cashing may be used.
 	GetSessionByID(id string, party Identity) (Session, error)
-
-	ResetSessions() error
 
 	// Session returns the session created to respond to a
 	// remote party, nil if the context was created

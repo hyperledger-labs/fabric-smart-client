@@ -21,20 +21,20 @@ var (
 	logger          = flogging.MustGetLogger("view-sdk.eregistry")
 )
 
-type serviceProvider struct {
+type ServiceProvider struct {
 	services   []interface{}
 	serviceMap map[reflect.Type]interface{}
 	lock       sync.Mutex
 }
 
-func New() *serviceProvider {
-	return &serviceProvider{
+func New() *ServiceProvider {
+	return &ServiceProvider{
 		services:   []interface{}{},
 		serviceMap: map[reflect.Type]interface{}{},
 	}
 }
 
-func (sp *serviceProvider) GetService(v interface{}) (interface{}, error) {
+func (sp *ServiceProvider) GetService(v interface{}) (interface{}, error) {
 	sp.lock.Lock()
 	defer sp.lock.Unlock()
 
@@ -80,7 +80,7 @@ func (sp *serviceProvider) GetService(v interface{}) (interface{}, error) {
 	return service, nil
 }
 
-func (sp *serviceProvider) RegisterService(service interface{}) error {
+func (sp *ServiceProvider) RegisterService(service interface{}) error {
 	sp.lock.Lock()
 	defer sp.lock.Unlock()
 
@@ -92,7 +92,7 @@ func (sp *serviceProvider) RegisterService(service interface{}) error {
 	return nil
 }
 
-func (sp *serviceProvider) String() string {
+func (sp *ServiceProvider) String() string {
 	res := "services ["
 	for _, service := range sp.services {
 		res += getIdentifier(service) + ", "

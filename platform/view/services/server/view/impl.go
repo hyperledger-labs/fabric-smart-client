@@ -27,8 +27,9 @@ type PolicyChecker interface {
 	Check(sc *protos2.SignedCommand, c *protos2.Command) error
 }
 
-// Service is responsible for processing view commands.
-type server struct {
+// Server is responsible for processing view commands.
+type Server struct {
+	protos2.UnimplementedViewServiceServer
 	Marshaller    Marshaller
 	PolicyChecker PolicyChecker
 
@@ -37,8 +38,8 @@ type server struct {
 	metrics    *Metrics
 }
 
-func NewViewServiceServer(marshaller Marshaller, policyChecker PolicyChecker, metrics *Metrics) (*server, error) {
-	return &server{
+func NewViewServiceServer(marshaller Marshaller, policyChecker PolicyChecker, metrics *Metrics) (*Server, error) {
+	return &Server{
 		Marshaller:    marshaller,
 		PolicyChecker: policyChecker,
 		processors:    map[reflect.Type]Processor{},
@@ -47,7 +48,7 @@ func NewViewServiceServer(marshaller Marshaller, policyChecker PolicyChecker, me
 	}, nil
 }
 
-func (s *server) ProcessCommand(ctx context.Context, sc *protos2.SignedCommand) (cr *protos2.SignedCommandResponse, err error) {
+func (s *Server) ProcessCommand(ctx context.Context, sc *protos2.SignedCommand) (cr *protos2.SignedCommandResponse, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			logger.Errorf("ProcessCommand triggered panic: %s\n%s\n", r, debug.Stack())
@@ -101,7 +102,15 @@ func (s *server) ProcessCommand(ctx context.Context, sc *protos2.SignedCommand) 
 	return
 }
 
-func (s *server) StreamCommand(sc *protos2.SignedCommand, commandServer protos2.ViewService_StreamCommandServer) (err error) {
+func (s *Server) StreamCommand(server protos2.ViewService_StreamCommandServer) error {
+	sc := &protos2.SignedCommand{}
+	if err := server.RecvMsg(sc); err != nil {
+		return err
+	}
+	return s.streamCommand(sc, server)
+}
+
+func (s *Server) streamCommand(sc *protos2.SignedCommand, commandServer protos2.ViewService_StreamCommandServer) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			logger.Errorf("ProcessCommand triggered panic: %s\n%s\n", r, debug.Stack())
@@ -142,7 +151,7 @@ func (s *server) StreamCommand(sc *protos2.SignedCommand, commandServer protos2.
 	return nil
 }
 
-func (s *server) ValidateHeader(header *protos2.Header) error {
+func (s *Server) ValidateHeader(header *protos2.Header) error {
 	if header == nil {
 		return errors.New("command header is required")
 	}
@@ -158,7 +167,7 @@ func (s *server) ValidateHeader(header *protos2.Header) error {
 	return nil
 }
 
-func (s *server) MarshalErrorResponse(command []byte, e error) (*protos2.SignedCommandResponse, error) {
+func (s *Server) MarshalErrorResponse(command []byte, e error) (*protos2.SignedCommandResponse, error) {
 	return s.Marshaller.MarshalCommandResponse(
 		command,
 		&protos2.CommandResponse_Err{
@@ -166,15 +175,15 @@ func (s *server) MarshalErrorResponse(command []byte, e error) (*protos2.SignedC
 		})
 }
 
-func (s *server) RegisterProcessor(typ reflect.Type, p Processor) {
+func (s *Server) RegisterProcessor(typ reflect.Type, p Processor) {
 	s.processors[typ] = p
 }
 
-func (s *server) RegisterStreamer(typ reflect.Type, streamer Streamer) {
+func (s *Server) RegisterStreamer(typ reflect.Type, streamer Streamer) {
 	s.streamers[typ] = streamer
 }
 
-func (s *server) streamError(err error, sc *protos2.SignedCommand, commandServer protos2.ViewService_StreamCommandServer) error {
+func (s *Server) streamError(err error, sc *protos2.SignedCommand, commandServer protos2.ViewService_StreamCommandServer) error {
 	r, err2 := s.MarshalErrorResponse(sc.Command, err)
 	if err2 != nil {
 		return errors.WithMessagef(err, "failed creating resposse [%s]", err2)

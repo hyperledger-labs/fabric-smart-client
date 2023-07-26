@@ -14,6 +14,7 @@ import (
 func Topology() []api.Topology {
 	// Create an empty FSC topology
 	topology := fsc.NewTopology()
+	topology.SetLogging("debug", "")
 
 	// Add the initiator fsc node
 	topology.AddNodeByName("initiator").SetExecutable(

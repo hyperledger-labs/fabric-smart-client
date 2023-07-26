@@ -10,10 +10,9 @@ import (
 	"context"
 	"runtime/debug"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
-
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 type disposableContext interface {
@@ -31,6 +30,14 @@ type childContext struct {
 
 func (w *childContext) GetService(v interface{}) (interface{}, error) {
 	return w.ParentContext.GetService(v)
+}
+
+func (w *childContext) PutService(v interface{}) error {
+	mutableContext, ok := w.ParentContext.(view.MutableContext)
+	if ok {
+		return mutableContext.PutService(v)
+	}
+	return nil
 }
 
 func (w *childContext) ID() string {
@@ -65,7 +72,11 @@ func (w *childContext) Session() view.Session {
 }
 
 func (w *childContext) ResetSessions() error {
-	return w.ParentContext.ResetSessions()
+	mutableContext, ok := w.ParentContext.(view.MutableContext)
+	if ok {
+		return mutableContext.ResetSessions()
+	}
+	return nil
 }
 
 func (w *childContext) Initiator() view.View {
