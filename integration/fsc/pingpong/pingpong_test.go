@@ -150,6 +150,47 @@ var _ = Describe("EndToEnd", func() {
 			Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
 		})
 
+		It("load artifact & successful pingpong with stream", func() {
+			var err error
+			// Create the integration ii
+			ii, err = integration.Load(0, "./testdata", true, pingpong.Topology()...)
+			Expect(err).NotTo(HaveOccurred())
+			// Start the integration ii
+			ii.Start()
+			time.Sleep(3 * time.Second)
+			// Get a client for the fsc node labelled initiator
+			initiator := ii.Client("initiator")
+			// Initiate a view and check the output
+			channel, err := initiator.StreamCallView("init", nil)
+			Expect(err).NotTo(HaveOccurred())
+			res, err := channel.Result()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
+		})
+
+		It("load artifact & successful stream", func() {
+			var err error
+			// Create the integration ii
+			ii, err = integration.Load(0, "./testdata", true, pingpong.Topology()...)
+			Expect(err).NotTo(HaveOccurred())
+			// Start the integration ii
+			ii.Start()
+			time.Sleep(10 * time.Second)
+			// Get a client for the fsc node labelled initiator
+			initiator := ii.Client("initiator")
+			// Initiate a view and check the output
+			channel, err := initiator.StreamCallView("stream", nil)
+			Expect(err).NotTo(HaveOccurred())
+			var s string
+			Expect(channel.Recv(&s)).NotTo(HaveOccurred())
+			Expect(s).To(BeEquivalentTo("hello"))
+			Expect(channel.Send("ciao")).NotTo(HaveOccurred())
+
+			res, err := channel.Result()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
+		})
+
 		It("load artifact & init clients & successful pingpong", func() {
 			var err error
 			// Create the integration ii

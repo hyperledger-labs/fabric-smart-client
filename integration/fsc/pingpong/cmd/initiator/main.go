@@ -23,6 +23,9 @@ func main() {
 		if err := registry.RegisterFactory("mockInit", &mock.InitiatorViewFactory{}); err != nil {
 			return err
 		}
+		if err := registry.RegisterFactory("stream", &pingpong.StreamerViewFactory{}); err != nil {
+			return err
+		}
 		return nil
 	})
 }

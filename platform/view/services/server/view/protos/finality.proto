@@ -6,7 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
 
-option go_package = "protos";
+option go_package = "./protos";
 option cc_generic_services = true;
 
 package protos;

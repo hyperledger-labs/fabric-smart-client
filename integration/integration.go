@@ -221,7 +221,7 @@ func (i *Infrastructure) Serve() error {
 	return <-serve
 }
 
-func (i *Infrastructure) Client(name string) api.ViewClient {
+func (i *Infrastructure) Client(name string) api.GRPCClient {
 	if i.NWO == nil {
 		panic("call generate or load first")
 	}
