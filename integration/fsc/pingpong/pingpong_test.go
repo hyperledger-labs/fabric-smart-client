@@ -32,7 +32,9 @@ var _ = Describe("EndToEnd", func() {
 		AfterEach(func() {
 			// Stop the ii
 			initiator.Stop()
-			responder.Stop()
+			if responder != nil {
+				responder.Stop()
+			}
 			time.Sleep(5 * time.Second)
 		})
 
@@ -76,6 +78,29 @@ var _ = Describe("EndToEnd", func() {
 			version, err = initiatorWebClient.ServerVersion()
 			Expect(err).NotTo(HaveOccurred())
 			Expect(version).To(BeEquivalentTo("{\"CommitSHA\":\"development build\",\"Version\":\"latest\"}"))
+		})
+
+		It("successful pingpong based on WebSocket", func() {
+			// Init and Start fsc nodes
+			initiator = node.NewFromConfPath("./testdata/fsc/nodes/initiator")
+			Expect(initiator).NotTo(BeNil())
+
+			err := initiator.Start()
+			Expect(err).NotTo(HaveOccurred())
+
+			// Register views and view factories
+			err = initiator.RegisterFactory("stream", &pingpong.StreamerViewFactory{})
+			Expect(err).NotTo(HaveOccurred())
+
+			time.Sleep(3 * time.Second)
+
+			initiatorWebClient := newWebClient("./testdata/fsc/nodes/webclient")
+			stream, err := initiatorWebClient.StreamCallView("stream")
+			Expect(err).NotTo(HaveOccurred())
+			var s string
+			Expect(stream.Recv(&s)).NotTo(HaveOccurred())
+			Expect(s).To(BeEquivalentTo("hello"))
+			Expect(stream.Send("ciao")).NotTo(HaveOccurred())
 		})
 
 		It("successful pingpong", func() {
@@ -189,6 +214,25 @@ var _ = Describe("EndToEnd", func() {
 			Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
 		})
 
+		It("load artifact & successful stream with websocket", func() {
+			var err error
+			// Create the integration ii
+			ii, err = integration.Load(0, "./testdata", true, pingpong.Topology()...)
+			Expect(err).NotTo(HaveOccurred())
+			// Start the integration ii
+			ii.Start()
+			time.Sleep(10 * time.Second)
+			// Get a client for the fsc node labelled initiator
+			initiator := newWebClient("./testdata/fsc/nodes/webclient")
+			// Initiate a view and check the output
+			channel, err := initiator.StreamCallView("stream")
+			Expect(err).NotTo(HaveOccurred())
+			var s string
+			Expect(channel.Recv(&s)).NotTo(HaveOccurred())
+			Expect(s).To(BeEquivalentTo("hello"))
+			Expect(channel.Send("ciao")).NotTo(HaveOccurred())
+		})
+
 		It("load artifact & init clients & successful pingpong", func() {
 			var err error
 			// Create the integration ii
@@ -212,3 +256,11 @@ var _ = Describe("EndToEnd", func() {
 	})
 
 })
+
+func newWebClient(confDir string) *web.Client {
+	c, err := client.NewWebClientConfigFromFSC(confDir)
+	Expect(err).NotTo(HaveOccurred())
+	initiator, err := web.NewClient(c)
+	Expect(err).NotTo(HaveOccurred())
+	return initiator
+}
