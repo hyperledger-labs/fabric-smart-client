@@ -68,6 +68,7 @@ func New(startPort int, path string, topologies ...api.Topology) (*Infrastructur
 				return nil, err
 			}
 		}
+		logger.Infof("Instantiating Integration infrastructure at [%s -> %s]", path, testDir)
 	} else {
 		testDir, err = os.MkdirTemp("", "integration")
 		if err != nil {
@@ -227,6 +228,14 @@ func (i *Infrastructure) Client(name string) api.GRPCClient {
 	}
 
 	return i.Ctx.ViewClients[name]
+}
+
+func (i *Infrastructure) WebClient(name string) api.WebClient {
+	if i.NWO == nil {
+		panic("call generate or load first")
+	}
+
+	return i.Ctx.WebClients[name]
 }
 
 func (i *Infrastructure) CLI(name string) api.ViewClient {

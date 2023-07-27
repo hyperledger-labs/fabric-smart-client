@@ -7,12 +7,12 @@ SPDX-License-Identifier: Apache-2.0
 package api
 
 import (
-	"github.com/tedsuo/ifrit/grouper"
-	"gopkg.in/yaml.v2"
-
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/api"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/view"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/web"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
+	"github.com/tedsuo/ifrit/grouper"
+	"gopkg.in/yaml.v2"
 )
 
 type PortName string
@@ -71,6 +71,7 @@ type Context interface {
 	ConnectionConfig(name string) *grpc.ConnectionConfig
 	ClientSigningIdentity(name string) view.SigningIdentity
 	SetViewClient(name string, c GRPCClient)
+	SetWebClient(name string, c WebClient)
 	SetCLI(name string, client ViewClient)
 	GetViewIdentityAliases(name string) []string
 	AdminSigningIdentity(name string) view.SigningIdentity
@@ -89,6 +90,11 @@ type ViewClient interface {
 type GRPCClient interface {
 	ViewClient
 	StreamCallView(fid string, input []byte) (*view.Stream, error)
+}
+
+type WebClient interface {
+	ViewClient
+	StreamCallView(fid string, input []byte) (*web.WSStream, error)
 }
 
 type Platform interface {

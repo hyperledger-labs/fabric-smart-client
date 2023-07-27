@@ -22,6 +22,17 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/client"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
+	runner2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/runner"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/commands"
+	node2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/view"
+	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/view/cmd"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/web"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/crypto"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger/fabric/cmd/common/comm"
 	"github.com/hyperledger/fabric/cmd/common/signer"
 	"github.com/miracl/conflate"
@@ -31,16 +42,6 @@ import (
 	"github.com/spf13/viper"
 	"github.com/tedsuo/ifrit"
 	"github.com/tedsuo/ifrit/grouper"
-
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
-	runner2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/runner"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/commands"
-	node2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/view"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/view/cmd"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/crypto"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 )
 
 func init() {
@@ -219,8 +220,10 @@ func (p *Platform) PostRun(bool) {
 		err := v.ReadInConfig() // Find and read the config file
 		Expect(err).NotTo(HaveOccurred())
 
-		// Get from the registry the signing identity and the connection config
-		c, err := view.NewClient(
+		// Prepare GRPC Client, Web Client, and CLI
+
+		// GRPC client
+		grpcClient, err := view.NewClient(
 			&view.Config{
 				ID:               v.GetString("fsc.id"),
 				ConnectionConfig: p.Context.ConnectionConfig(node.Name),
@@ -229,7 +232,36 @@ func (p *Platform) PostRun(bool) {
 			crypto.NewProvider(),
 		)
 		Expect(err).NotTo(HaveOccurred())
+		p.Context.SetViewClient(node.Name, grpcClient)
+		p.Context.SetViewClient(node.ID(), grpcClient)
+		for _, identity := range p.Context.GetViewIdentityAliases(node.ID()) {
+			p.Context.SetViewClient(identity, grpcClient)
+		}
+		for _, identity := range p.Context.GetViewIdentityAliases(node.Name) {
+			p.Context.SetViewClient(identity, grpcClient)
+		}
+		for _, alias := range node.Aliases {
+			p.Context.SetViewClient(alias, grpcClient)
+		}
 
+		// Web Client
+		webClientConfig, err := client.NewWebClientConfigFromFSC(p.NodeDir(node))
+		Expect(err).NotTo(HaveOccurred())
+		webClient, err := web.NewClient(webClientConfig)
+		Expect(err).NotTo(HaveOccurred())
+		p.Context.SetWebClient(node.Name, webClient)
+		p.Context.SetWebClient(node.ID(), webClient)
+		for _, identity := range p.Context.GetViewIdentityAliases(node.ID()) {
+			p.Context.SetWebClient(identity, webClient)
+		}
+		for _, identity := range p.Context.GetViewIdentityAliases(node.Name) {
+			p.Context.SetWebClient(identity, webClient)
+		}
+		for _, alias := range node.Aliases {
+			p.Context.SetWebClient(alias, webClient)
+		}
+
+		// CLI
 		cli := &fscCLIViewClient{
 			timeout: p.EventuallyTimeout,
 			p:       p,
@@ -243,17 +275,6 @@ func (p *Platform) PostRun(bool) {
 		}
 		p.Context.SetCLI(node.Name, cli)
 		p.Context.SetCLI(node.ID(), cli)
-		p.Context.SetViewClient(node.Name, c)
-		p.Context.SetViewClient(node.ID(), c)
-		for _, identity := range p.Context.GetViewIdentityAliases(node.ID()) {
-			p.Context.SetViewClient(identity, c)
-		}
-		for _, identity := range p.Context.GetViewIdentityAliases(node.Name) {
-			p.Context.SetViewClient(identity, c)
-		}
-		for _, alias := range node.Aliases {
-			p.Context.SetViewClient(alias, c)
-		}
 	}
 }
 
