@@ -26,8 +26,8 @@ var logger = flogging.MustGetLogger("view-sdk.web.client")
 
 // Config models the configuration for the web client
 type Config struct {
-	// URL to connect to
-	URL string
+	// Host to connect to
+	Host string
 	// CACert is the Certificate Authority Cert Path
 	CACert string
 	// TLSCert is the TLS client certificate path
@@ -36,10 +36,30 @@ type Config struct {
 	TLSKey string
 }
 
+func (c *Config) WsURL() string {
+	return c.url("ws")
+}
+
+func (c *Config) WebURL() string {
+	return c.url("http")
+}
+
+func (c *Config) url(protocol string) string {
+	if c.isTlsEnabled() {
+		protocol = protocol + "s"
+	}
+	return fmt.Sprintf("%s://%s", protocol, c.Host)
+}
+func (c *Config) isTlsEnabled() bool {
+	return c.CACert != ""
+}
+
 // Client models a client for an FSC node
 type Client struct {
-	c   *http.Client
-	url string
+	c         *http.Client
+	url       string
+	wsUrl     string
+	tlsConfig *tls.Config
 }
 
 // NewClient returns a new web client
@@ -75,8 +95,15 @@ func NewClient(config *Config) (*Client, error) {
 				TLSClientConfig: tlsClientConfig,
 			},
 		},
-		url: config.URL,
+		url:       config.WebURL(),
+		wsUrl:     config.WsURL(),
+		tlsConfig: tlsClientConfig,
 	}, nil
+}
+
+func (c *Client) CallStreamView(fid string) (*WsServiceStream, error) {
+	urlSuffix := fmt.Sprintf("/v1/Views/Stream/%s", fid)
+	return NewWsStream(c.wsUrl+urlSuffix, c.tlsConfig)
 }
 
 // CallView takes in input a view factory identifier, fid, and an input, in, and invokes the

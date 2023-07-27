@@ -78,6 +78,33 @@ var _ = Describe("EndToEnd", func() {
 			Expect(version).To(BeEquivalentTo("{\"CommitSHA\":\"development build\",\"Version\":\"latest\"}"))
 		})
 
+		It("successful pingpong based on WebSocket", func() {
+			// Init and Start fsc nodes
+			initiator = node.NewFromConfPath("./testdata/fsc/nodes/initiator")
+			Expect(initiator).NotTo(BeNil())
+
+			err := initiator.Start()
+			Expect(err).NotTo(HaveOccurred())
+
+			// Register views and view factories
+			err = initiator.RegisterFactory("stream", &pingpong.StreamerViewFactory{})
+			Expect(err).NotTo(HaveOccurred())
+
+			time.Sleep(3 * time.Second)
+
+			webClientConfig, err := client.NewWebClientConfigFromFSC("./testdata/fsc/nodes/webclient")
+			Expect(err).NotTo(HaveOccurred())
+			initiatorWebClient, err := web.NewClient(webClientConfig)
+			Expect(err).NotTo(HaveOccurred())
+			stream, err := initiatorWebClient.CallStreamView("stream")
+			Expect(err).NotTo(HaveOccurred())
+			res, err := stream.Recv()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(res).To(BeEquivalentTo("hello"))
+			err = stream.Send("ciao")
+			Expect(err).NotTo(HaveOccurred())
+		})
+
 		It("successful pingpong", func() {
 			// Init and Start fsc nodes
 			initiator = node.NewFromConfPath("./testdata/fsc/nodes/initiator")
