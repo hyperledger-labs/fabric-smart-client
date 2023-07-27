@@ -9,7 +9,7 @@ package web
 import "strings"
 
 type ViewCaller interface {
-	CallView(vid string, input []byte) (interface{}, error)
+	CallView(context *ReqContext, vid string, input []byte) (interface{}, error)
 }
 
 type Dispatcher struct {
@@ -30,7 +30,7 @@ func (rd *Dispatcher) HandleRequest(context *ReqContext) (response interface{}, 
 	escapedViewID := strings.Replace(viewID, "\n", "", -1)
 	escapedViewID = strings.Replace(escapedViewID, "\r", "", -1)
 
-	res, err := rd.vc.CallView(escapedViewID, context.Query.([]byte))
+	res, err := rd.vc.CallView(context, escapedViewID, context.Query.([]byte))
 	if err != nil {
 		return &ResponseErr{Reason: err.Error()}, 500
 	}
@@ -45,4 +45,9 @@ func (rd *Dispatcher) ParsePayload(bytes []byte) (interface{}, error) {
 func (rd *Dispatcher) WireViewCaller(vc ViewCaller) {
 	rd.vc = vc
 	rd.Handler.RegisterURI("/Views/{View}", "PUT", rd)
+}
+
+func (rd *Dispatcher) WireStreamViewCaller(vc ViewCaller) {
+	rd.vc = vc
+	rd.Handler.RegisterURI("/Views/Stream/{View}", "GET", rd)
 }

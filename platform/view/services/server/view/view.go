@@ -180,11 +180,3 @@ func (c *Stream) SendProtoMsg(m interface{}) error {
 func (c *Stream) RecvProtoMsg(m interface{}) error {
 	return c.scs.RecvMsg(m)
 }
-
-func GetStream(sp view.ServiceProvider) *Stream {
-	scsBoxed, err := sp.GetService(reflect.TypeOf((*Stream)(nil)))
-	if err != nil {
-		panic(err)
-	}
-	return scsBoxed.(*Stream)
-}

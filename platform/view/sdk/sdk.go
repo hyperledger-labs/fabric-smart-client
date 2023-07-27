@@ -228,11 +228,7 @@ func (p *SDK) initWEBServer() error {
 	h := web2.NewHttpHandler(logger)
 	p.webServer.RegisterHandler("/", h, true)
 
-	d := &web2.Dispatcher{
-		Logger:  logger,
-		Handler: h,
-	}
-	web2.InstallViewHandler(logger, p.registry, d)
+	web2.InstallViewHandler(logger, p.registry, h)
 
 	return nil
 }
