@@ -8,7 +8,7 @@ package pingpong
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view"
+	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
