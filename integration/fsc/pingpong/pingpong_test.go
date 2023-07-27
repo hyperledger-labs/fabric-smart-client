@@ -178,6 +178,7 @@ var _ = Describe("EndToEnd", func() {
 			initiator := ii.Client("initiator")
 			// Initiate a view and check the output
 			channel, err := initiator.StreamCallView("stream", nil)
+			Expect(err).NotTo(HaveOccurred())
 			var s string
 			Expect(channel.Recv(&s)).NotTo(HaveOccurred())
 			Expect(s).To(BeEquivalentTo("hello"))
