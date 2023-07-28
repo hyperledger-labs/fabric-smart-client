@@ -10,9 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	math "github.com/IBM/mathlib"
-
 	bccsp "github.com/IBM/idemix/bccsp/schemes"
+	math "github.com/IBM/mathlib"
 	idemix2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/idemix"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	sig2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/core/sig"
@@ -363,6 +362,8 @@ func TestIdentityFromFabricCAWithEidRhNymPolicy(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, p)
 
+	// get an identity with its own audit info from the provider
+	// id is in its serialized form
 	id, audit, err := p.Identity(nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, id)
