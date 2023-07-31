@@ -13,12 +13,20 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-type SocketConn struct {
+type Input struct {
+	Raw []byte
+}
+
+type Output struct {
+	Raw []byte
+}
+
+type WSStream struct {
 	ws     *websocket.Conn
 	logger logger
 }
 
-func NewSocketConn(l logger, writer http.ResponseWriter, request *http.Request) (*SocketConn, error) {
+func NewWSStream(l logger, writer http.ResponseWriter, request *http.Request) (*WSStream, error) {
 	upgrader := websocket.Upgrader{
 		ReadBufferSize:  1024,
 		WriteBufferSize: 1024,
@@ -31,10 +39,10 @@ func NewSocketConn(l logger, writer http.ResponseWriter, request *http.Request) 
 		return nil, err
 	}
 	l.Infof("Upgraded to web socket")
-	return &SocketConn{ws: ws, logger: l}, nil
+	return &WSStream{ws: ws, logger: l}, nil
 }
 
-func (c *SocketConn) Recv(p any) error {
+func (c *WSStream) Recv(p any) error {
 	message, err := c.Read()
 	if err != nil {
 		return err
@@ -42,7 +50,7 @@ func (c *SocketConn) Recv(p any) error {
 	return json.Unmarshal(message, p)
 }
 
-func (c *SocketConn) Send(p any) error {
+func (c *WSStream) Send(p any) error {
 	data, err := json.Marshal(p)
 	if err != nil {
 		return err
@@ -50,7 +58,7 @@ func (c *SocketConn) Send(p any) error {
 	return c.Write(data)
 }
 
-func (c *SocketConn) Read() ([]byte, error) {
+func (c *WSStream) Read() ([]byte, error) {
 	_, message, err := c.ws.ReadMessage()
 	c.logger.Infof("Received message: %s", message)
 	if err != nil {
@@ -59,7 +67,7 @@ func (c *SocketConn) Read() ([]byte, error) {
 	return message, nil
 }
 
-func (c *SocketConn) Write(message []byte) error {
+func (c *WSStream) Write(message []byte) error {
 	c.logger.Infof("Sending message: %s", message)
 	err := c.ws.WriteMessage(websocket.TextMessage, message)
 	if err != nil {
@@ -68,7 +76,19 @@ func (c *SocketConn) Write(message []byte) error {
 	return err
 }
 
-func (c *SocketConn) Close() error {
+func (c *WSStream) Close() error {
 	c.logger.Infof("Closing web socket")
 	return c.ws.Close()
+}
+
+func (c *WSStream) ReadInput() ([]byte, error) {
+	input := &Input{}
+	if err := c.Recv(input); err != nil {
+		return nil, err
+	}
+	return input.Raw, nil
+}
+
+func (c *WSStream) WriteResult(raw []byte) error {
+	return c.Send(&Output{Raw: raw})
 }

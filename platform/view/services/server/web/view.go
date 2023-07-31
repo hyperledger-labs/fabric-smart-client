@@ -54,6 +54,16 @@ func (s *viewHandler) CallView(context *ReqContext, vid string, input []byte) (i
 func (s *viewHandler) StreamCallView(context *ReqContext, vid string, input []byte) (interface{}, error) {
 	s.logger.Debugf("Call view [%s] on input [%v]", vid, string(input))
 
+	// we need to retrieve the input to the factory from the web socket
+	stream, err := NewWSStream(s.logger, context.ResponseWriter, context.Req)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to create web socket")
+	}
+	input, err = stream.ReadInput()
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to read input")
+	}
+
 	viewManager := view.GetManager(s.sp)
 	f, err := viewManager.NewView(vid, input)
 	if err != nil {
@@ -63,17 +73,16 @@ func (s *viewHandler) StreamCallView(context *ReqContext, vid string, input []by
 	if err != nil {
 		return nil, errors.Errorf("failed running view [%s], err %s", vid, err)
 	}
+
+	// register the web socket
 	mutable, ok := viewContext.Context.(view2.MutableContext)
 	if !ok {
 		return nil, errors.Errorf("expected a mutable contexdt")
 	}
-	webSocket, err := NewSocketConn(s.logger, context.ResponseWriter, context.Req)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to create web socket")
-	}
-	if err := mutable.PutService(webSocket); err != nil {
+	if err := mutable.PutService(stream); err != nil {
 		return nil, errors.Errorf("failed registering stream command server")
 	}
+	// run the view
 	result, err := viewContext.RunView(f)
 	if err != nil {
 		return nil, errors.Errorf("failed running view [%s], err %s", vid, err)
@@ -86,9 +95,9 @@ func (s *viewHandler) StreamCallView(context *ReqContext, vid string, input []by
 		}
 	}
 	s.logger.Debugf("Finished call view [%s] on input [%v]", vid, string(input))
-	return &protos.CommandResponse_CallViewResponse{CallViewResponse: &protos.CallViewResponse{
-		Result: raw,
-	}}, nil
+
+	// write back the result
+	return nil, stream.WriteResult(raw)
 }
 
 func InstallViewHandler(l logger, sp view.ServiceProvider, h *HttpHandler) {
