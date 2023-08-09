@@ -18,9 +18,17 @@ type Stream interface {
 }
 
 func GetStream(sp view.ServiceProvider) Stream {
-	scsBoxed, err := sp.GetService(reflect.TypeOf((*Stream)(nil)))
+	scsBoxed, err := GetStreamIfExists(sp)
 	if err != nil {
 		panic(err)
 	}
-	return scsBoxed.(Stream)
+	return scsBoxed
+}
+
+func GetStreamIfExists(sp view.ServiceProvider) (Stream, error) {
+	scsBoxed, err := sp.GetService(reflect.TypeOf((*Stream)(nil)))
+	if err != nil {
+		return nil, err
+	}
+	return scsBoxed.(Stream), nil
 }
