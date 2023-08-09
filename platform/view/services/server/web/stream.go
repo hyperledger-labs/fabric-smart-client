@@ -78,7 +78,11 @@ func (c *WSStream) Write(message []byte) error {
 
 func (c *WSStream) Close() error {
 	c.logger.Infof("Closing web socket")
-	return c.ws.Close()
+	err := c.ws.Close()
+	if err != nil {
+		c.logger.Errorf("error closing web socket: %v", err)
+	}
+	return err
 }
 
 func (c *WSStream) ReadInput() ([]byte, error) {
