@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	bccsp "github.com/IBM/idemix/bccsp/schemes"
+	math "github.com/IBM/mathlib"
 	idemix2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/idemix"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	sig2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/core/sig"
@@ -276,4 +277,138 @@ func TestProvider_DeserializeSigner(t *testing.T) {
 	sigma, err = signer.Sign(msg)
 	assert.NoError(t, err)
 	assert.NoError(t, verifier.Verify(msg, sigma))
+}
+
+func TestIdentityFromFabricCA(t *testing.T) {
+	registry := registry2.New()
+
+	kvss, err := kvs.NewWithConfig(registry, "memory", "", &mock.ConfigProvider{})
+	assert.NoError(t, err)
+	assert.NoError(t, registry.RegisterService(kvss))
+	sigService := sig2.NewSignService(registry, nil, kvss)
+	assert.NoError(t, registry.RegisterService(sigService))
+
+	config, err := idemix2.GetLocalMspConfigWithType("./testdata/charlie.ExtraId2", nil, "charlie.ExtraId2")
+	assert.NoError(t, err)
+
+	p, err := idemix2.NewProviderWithSigTypeAncCurve(config, registry, bccsp.Standard, math.BN254)
+	assert.NoError(t, err)
+	assert.NotNil(t, p)
+
+	id, audit, err := p.Identity(nil)
+	assert.NoError(t, err)
+	assert.NotNil(t, id)
+	assert.Nil(t, audit)
+
+	signer, err := p.DeserializeSigner(id)
+	assert.NoError(t, err)
+	verifier, err := p.DeserializeVerifier(id)
+	assert.NoError(t, err)
+
+	sigma, err := signer.Sign([]byte("hello world!!!"))
+	assert.NoError(t, err)
+	assert.NoError(t, verifier.Verify([]byte("hello world!!!"), sigma))
+
+	p, err = idemix2.NewProviderWithSigTypeAncCurve(config, registry, bccsp.Standard, math.BN254)
+	assert.NoError(t, err)
+	assert.NotNil(t, p)
+
+	id, audit, err = p.Identity(nil)
+	assert.NoError(t, err)
+	assert.NotNil(t, id)
+	assert.Nil(t, audit)
+
+	signer, err = p.DeserializeSigner(id)
+	assert.NoError(t, err)
+	verifier, err = p.DeserializeVerifier(id)
+	assert.NoError(t, err)
+
+	sigma, err = signer.Sign([]byte("hello world!!!"))
+	assert.NoError(t, err)
+	assert.NoError(t, verifier.Verify([]byte("hello world!!!"), sigma))
+
+	p, err = idemix2.NewProviderWithSigTypeAncCurve(config, registry, idemix2.Any, math.BN254)
+	assert.NoError(t, err)
+	assert.NotNil(t, p)
+
+	id, audit, err = p.Identity(nil)
+	assert.NoError(t, err)
+	assert.NotNil(t, id)
+	assert.Nil(t, audit)
+
+	signer, err = p.DeserializeSigner(id)
+	assert.NoError(t, err)
+	verifier, err = p.DeserializeVerifier(id)
+	assert.NoError(t, err)
+
+	sigma, err = signer.Sign([]byte("hello world!!!"))
+	assert.NoError(t, err)
+	assert.NoError(t, verifier.Verify([]byte("hello world!!!"), sigma))
+}
+
+func TestIdentityFromFabricCAWithEidRhNymPolicy(t *testing.T) {
+	registry := registry2.New()
+
+	kvss, err := kvs.NewWithConfig(registry, "memory", "", &mock.ConfigProvider{})
+	assert.NoError(t, err)
+	assert.NoError(t, registry.RegisterService(kvss))
+	sigService := sig2.NewSignService(registry, nil, kvss)
+	assert.NoError(t, registry.RegisterService(sigService))
+
+	config, err := idemix2.GetLocalMspConfigWithType("./testdata/charlie.ExtraId2", nil, "charlie.ExtraId2")
+	assert.NoError(t, err)
+
+	p, err := idemix2.NewProviderWithSigTypeAncCurve(config, registry, bccsp.EidNymRhNym, math.BN254)
+	assert.NoError(t, err)
+	assert.NotNil(t, p)
+
+	// get an identity with its own audit info from the provider
+	// id is in its serialized form
+	id, audit, err := p.Identity(nil)
+	assert.NoError(t, err)
+	assert.NotNil(t, id)
+	assert.NotNil(t, audit)
+	info, err := p.Info(id, audit)
+	assert.NoError(t, err)
+	assert.True(t, strings.HasPrefix(info, "MSP.Idemix: [charlie.ExtraId2]"))
+	assert.True(t, strings.HasSuffix(info, "[charlie.ExtraId2][][MEMBER]"))
+
+	auditInfo, err := p.DeserializeAuditInfo(audit)
+	assert.NoError(t, err)
+	assert.NoError(t, auditInfo.Match(id))
+
+	signer, err := p.DeserializeSigner(id)
+	assert.NoError(t, err)
+	verifier, err := p.DeserializeVerifier(id)
+	assert.NoError(t, err)
+
+	sigma, err := signer.Sign([]byte("hello world!!!"))
+	assert.NoError(t, err)
+	assert.NoError(t, verifier.Verify([]byte("hello world!!!"), sigma))
+
+	p, err = idemix2.NewProviderWithAnyPolicyAndCurve(config, registry, math.BN254)
+	assert.NoError(t, err)
+	assert.NotNil(t, p)
+
+	id, audit, err = p.Identity(&driver2.IdentityOptions{EIDExtension: true})
+	assert.NoError(t, err)
+	assert.NotNil(t, id)
+	assert.NotNil(t, audit)
+	info, err = p.Info(id, audit)
+	assert.NoError(t, err)
+	assert.True(t, strings.HasPrefix(info, "MSP.Idemix: [charlie.ExtraId2]"))
+	assert.True(t, strings.HasSuffix(info, "[charlie.ExtraId2][][MEMBER]"))
+
+	auditInfo, err = p.DeserializeAuditInfo(audit)
+	assert.NoError(t, err)
+	assert.NoError(t, auditInfo.Match(id))
+
+	signer, err = p.DeserializeSigner(id)
+	assert.NoError(t, err)
+	verifier, err = p.DeserializeVerifier(id)
+	assert.NoError(t, err)
+
+	sigma, err = signer.Sign([]byte("hello world!!!"))
+	assert.NoError(t, err)
+	assert.NoError(t, verifier.Verify([]byte("hello world!!!"), sigma))
 }

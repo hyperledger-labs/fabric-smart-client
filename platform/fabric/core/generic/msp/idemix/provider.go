@@ -85,6 +85,10 @@ func NewProviderWithSigType(conf1 *m.MSPConfig, sp view2.ServiceProvider, sigTyp
 	return NewProvider(conf1, sp, sigType, math.FP256BN_AMCL)
 }
 
+func NewProviderWithSigTypeAncCurve(conf1 *m.MSPConfig, sp view2.ServiceProvider, sigType bccsp.SignatureType, curveID math.CurveID) (*Provider, error) {
+	return NewProvider(conf1, sp, sigType, curveID)
+}
+
 func NewProvider(conf1 *m.MSPConfig, sp view2.ServiceProvider, sigType bccsp.SignatureType, curveID math.CurveID) (*Provider, error) {
 	logger.Debugf("Setting up Idemix-based MSP instance")
 
