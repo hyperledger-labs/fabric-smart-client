@@ -111,6 +111,8 @@ func NewProvider(conf1 *m.MSPConfig, sp view2.ServiceProvider, sigType bccsp.Sig
 		tr = &amcl.Fp256bn{C: curve}
 	case math.FP256BN_AMCL_MIRACL:
 		tr = &amcl.Fp256bnMiracl{C: curve}
+	case math.BLS12_381_BBS:
+		tr = &amcl.Gurvy{C: curve}
 	default:
 		return nil, errors.Errorf("unsupported curve ID: %d", curveID)
 	}
