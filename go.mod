@@ -2,9 +2,11 @@ module github.com/hyperledger-labs/fabric-smart-client
 
 go 1.20
 
+replace github.com/hyperledger/aries-framework-go/component/kmscrypto => github.com/ale-linux/aries-framework-go/component/kmscrypto v0.0.0-20230630075813-b7e4c6a2156c
+
 require (
-	github.com/IBM/idemix v0.0.2-0.20230510082947-a0c3ee5ebe35
-	github.com/IBM/mathlib v0.0.3-0.20230428120512-8afa4e643d4c
+	github.com/IBM/idemix v0.0.2-0.20230810140151-623043e02480
+	github.com/IBM/mathlib v0.0.3-0.20230605104224-932ab92f2ce0
 	github.com/ReneKroon/ttlcache/v2 v2.11.0
 	github.com/dgraph-io/badger/v3 v3.2103.2
 	github.com/docker/docker v20.10.24+incompatible
@@ -66,6 +68,7 @@ require (
 	github.com/golang/mock v1.6.0 // indirect
 	github.com/google/pprof v0.0.0-20230405160723-4a4c7d95572b // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.7.0 // indirect
+	github.com/hyperledger/aries-framework-go/component/kmscrypto v0.0.0 // indirect
 	github.com/ipfs/boxo v0.8.0-rc1 // indirect
 	github.com/kilic/bls12-381 v0.1.0 // indirect
 	github.com/libp2p/go-yamux/v4 v4.0.0 // indirect
@@ -149,7 +152,7 @@ require (
 	github.com/hashicorp/golang-lru v0.5.4 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/huin/goupnp v1.1.0 // indirect
-	github.com/hyperledger/fabric-amcl v0.0.0-20210603140002-2670f91851c8 // indirect
+	github.com/hyperledger/fabric-amcl v0.0.0-20230602173724-9e02669dceb2 // indirect
 	github.com/hyperledger/fabric-config v0.1.0 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/ipfs/go-cid v0.4.1 // indirect

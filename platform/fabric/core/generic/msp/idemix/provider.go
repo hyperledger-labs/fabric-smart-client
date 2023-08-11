@@ -78,18 +78,22 @@ func NewProviderWithAnyPolicy(conf1 *m.MSPConfig, sp view2.ServiceProvider) (*Pr
 }
 
 func NewProviderWithAnyPolicyAndCurve(conf1 *m.MSPConfig, sp view2.ServiceProvider, curveID math.CurveID) (*Provider, error) {
-	return NewProvider(conf1, sp, Any, curveID)
+	return NewProvider(conf1, sp, Any, curveID, false)
+}
+
+func NewProviderWithAriesAnyPolicyAndCurve(conf1 *m.MSPConfig, sp view2.ServiceProvider, curveID math.CurveID) (*Provider, error) {
+	return NewProvider(conf1, sp, Any, curveID, true)
 }
 
 func NewProviderWithSigType(conf1 *m.MSPConfig, sp view2.ServiceProvider, sigType bccsp.SignatureType) (*Provider, error) {
-	return NewProvider(conf1, sp, sigType, math.FP256BN_AMCL)
+	return NewProvider(conf1, sp, sigType, math.FP256BN_AMCL, false)
 }
 
 func NewProviderWithSigTypeAncCurve(conf1 *m.MSPConfig, sp view2.ServiceProvider, sigType bccsp.SignatureType, curveID math.CurveID) (*Provider, error) {
 	return NewProvider(conf1, sp, sigType, curveID)
 }
 
-func NewProvider(conf1 *m.MSPConfig, sp view2.ServiceProvider, sigType bccsp.SignatureType, curveID math.CurveID) (*Provider, error) {
+func NewProvider(conf1 *m.MSPConfig, sp view2.ServiceProvider, sigType bccsp.SignatureType, curveID math.CurveID, aries bool) (*Provider, error) {
 	logger.Debugf("Setting up Idemix-based MSP instance")
 
 	if conf1 == nil {
@@ -118,7 +122,13 @@ func NewProvider(conf1 *m.MSPConfig, sp view2.ServiceProvider, sigType bccsp.Sig
 		Translator: tr,
 	}
 
-	cryptoProvider, err := csp.New(keystore, curve, tr, true)
+	var cryptoProvider bccsp.BCCSP
+	var err error
+	if aries {
+		cryptoProvider, err = csp.NewAries(keystore, curve, tr, true)
+	} else {
+		cryptoProvider, err = csp.New(keystore, curve, tr, true)
+	}
 	if err != nil {
 		return nil, errors.Wrap(err, "failed getting crypto provider")
 	}
