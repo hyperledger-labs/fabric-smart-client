@@ -117,6 +117,9 @@ fsc:
   metrics:
     # metrics provider is one of statsd, prometheus, or disabled
     provider: {{ Topology.Monitoring.MetricsType }}
+    prometheus:
+      # defines whether we should use a certificate to access the metrics under /metrics
+      tls: {{ Topology.Monitoring.TLS }}
     # statsd configuration
     statsd:
       # network type: tcp or udp

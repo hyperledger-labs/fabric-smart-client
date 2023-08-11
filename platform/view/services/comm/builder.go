@@ -8,7 +8,6 @@ package comm
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"sync/atomic"
 	"time"
@@ -22,7 +21,7 @@ import (
 	"github.com/multiformats/go-multiaddr"
 )
 
-func newHost(ListenAddress string, keyDispenser PrivateKeyDispenser) (*P2PNode, error) {
+func newHost(ListenAddress string, keyDispenser PrivateKeyDispenser, metrics *Metrics) (*P2PNode, error) {
 	priv, err := keyDispenser.PrivateKey()
 	if err != nil {
 		return nil, err
@@ -37,6 +36,7 @@ func newHost(ListenAddress string, keyDispenser PrivateKeyDispenser) (*P2PNode, 
 		libp2p.ListenAddrs(addr),
 		libp2p.Identity(priv),
 		libp2p.ForceReachabilityPublic(),
+		libp2p.BandwidthReporter(NewReporter(metrics)),
 	}
 
 	host, err := libp2p.New(opts...)
@@ -90,8 +90,8 @@ func (p *PrivateKeyFromFile) PrivateKey() (crypto.PrivKey, error) {
 	return crypto.UnmarshalECDSAPrivateKey(privBytes)
 }
 
-func NewBootstrapNode(ListenAddress string, keyDispenser PrivateKeyDispenser) (*P2PNode, error) {
-	node, err := newHost(ListenAddress, keyDispenser)
+func NewBootstrapNode(ListenAddress string, keyDispenser PrivateKeyDispenser, metrics *Metrics) (*P2PNode, error) {
+	node, err := newHost(ListenAddress, keyDispenser, metrics)
 	if err != nil {
 		return nil, err
 	}
@@ -103,8 +103,8 @@ func NewBootstrapNode(ListenAddress string, keyDispenser PrivateKeyDispenser) (*
 	return node, nil
 }
 
-func NewNode(ListenAddress, BootstrapNode string, keyDispenser PrivateKeyDispenser) (*P2PNode, error) {
-	node, err := newHost(ListenAddress, keyDispenser)
+func NewNode(ListenAddress, BootstrapNode string, keyDispenser PrivateKeyDispenser, metrics *Metrics) (*P2PNode, error) {
+	node, err := newHost(ListenAddress, keyDispenser, metrics)
 	if err != nil {
 		return nil, err
 	}
@@ -133,7 +133,7 @@ func (p *P2PNode) startFinder() {
 	for {
 		peerChan, err := p.finder.FindPeers(context.Background(), rendezVousString)
 		if err != nil {
-			fmt.Printf("got error from peer finder: %s\n", err.Error())
+			logger.Errorf("got error from peer finder: %s\n", err.Error())
 			goto sleep
 		}
 
@@ -144,7 +144,7 @@ func (p *P2PNode) startFinder() {
 
 			p.peersMutex.Lock()
 			if _, in := p.peers[peer.ID.String()]; !in {
-				// fmt.Print("Found peer:", peer)
+				logger.Debugf("found peer [%v]", peer)
 				p.peers[peer.ID.String()] = peer
 			}
 			p.peersMutex.Unlock()
@@ -164,7 +164,7 @@ func (p *P2PNode) startFinder() {
 func (p *P2PNode) start() {
 	_, err := p.finder.Advertise(context.Background(), rendezVousString)
 	if err != nil {
-		logger.Debugf("error while announcing: %s", err)
+		logger.Errorf("error while announcing: %s", err)
 	}
 
 	p.host.SetStreamHandler(protocol.ID(viewProtocol), p.handleStream())

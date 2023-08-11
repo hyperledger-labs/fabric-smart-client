@@ -26,41 +26,70 @@ var logger = flogging.MustGetLogger("view-sdk.web.client")
 
 // Config models the configuration for the web client
 type Config struct {
-	// URL to connect to
-	URL string
-	// CACert is the Certificate Authority Cert Path
-	CACert string
-	// TLSCert is the TLS client certificate path
-	TLSCert string
-	// TLSKey is the TLS client key path
-	TLSKey string
+	// Host to connect to
+	Host string
+	// CACertRaw is the certificate authority's certificates
+	CACertRaw []byte
+	// CACertPath is the Certificate Authority Cert Path
+	CACertPath string
+	// TLSCertPath is the TLS client certificate path
+	TLSCertPath string
+	// TLSKeyPath is the TLS client key path
+	TLSKeyPath string
+}
+
+func (c *Config) WsURL() string {
+	return c.url("ws")
+}
+
+func (c *Config) WebURL() string {
+	return c.url("http")
+}
+
+func (c *Config) url(protocol string) string {
+	if c.isTlsEnabled() {
+		protocol = protocol + "s"
+	}
+	return fmt.Sprintf("%s://%s", protocol, c.Host)
+}
+func (c *Config) isTlsEnabled() bool {
+	return c.CACertPath != ""
 }
 
 // Client models a client for an FSC node
 type Client struct {
-	c   *http.Client
-	url string
+	c         *http.Client
+	url       string
+	wsUrl     string
+	tlsConfig *tls.Config
 }
 
 // NewClient returns a new web client
 func NewClient(config *Config) (*Client, error) {
 	var tlsClientConfig *tls.Config
 
-	if len(config.CACert) != 0 {
+	tlsEnabled := len(config.CACertPath) != 0 || len(config.CACertRaw) != 0
+
+	if tlsEnabled {
 		rootCAs := x509.NewCertPool()
-		caCert, err := os.ReadFile(config.CACert)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to open ca cert")
+
+		caCert := config.CACertRaw
+		if len(config.CACertPath) != 0 {
+			var err error
+			caCert, err = os.ReadFile(config.CACertPath)
+			if err != nil {
+				return nil, errors.Wrapf(err, "failed to open ca cert")
+			}
 		}
 		rootCAs.AppendCertsFromPEM(caCert)
 		tlsClientConfig = &tls.Config{
 			RootCAs: rootCAs,
 		}
 
-		if len(config.TLSCert) != 0 && len(config.TLSKey) != 0 {
+		if len(config.TLSCertPath) != 0 && len(config.TLSKeyPath) != 0 {
 			clientCert, err := tls.LoadX509KeyPair(
-				config.TLSCert,
-				config.TLSKey,
+				config.TLSCertPath,
+				config.TLSKeyPath,
 			)
 			if err != nil {
 				return nil, errors.Wrapf(err, "failed to load x509 key pair")
@@ -75,8 +104,23 @@ func NewClient(config *Config) (*Client, error) {
 				TLSClientConfig: tlsClientConfig,
 			},
 		},
-		url: config.URL,
+		url:       config.WebURL(),
+		wsUrl:     config.WsURL(),
+		tlsConfig: tlsClientConfig,
 	}, nil
+}
+
+func (c *Client) StreamCallView(fid string, in []byte) (*WSStream, error) {
+	urlSuffix := fmt.Sprintf("/v1/Views/Stream/%s", fid)
+	stream, err := NewWSStream(c.wsUrl+urlSuffix, c.tlsConfig)
+	if err != nil {
+		return nil, errors.WithMessage(err, "failed to init web socket stream")
+	}
+	// push input
+	if err := stream.SendInput(in); err != nil {
+		return nil, errors.WithMessage(err, "failed to send input")
+	}
+	return stream, nil
 }
 
 // CallView takes in input a view factory identifier, fid, and an input, in, and invokes the

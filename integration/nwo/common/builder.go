@@ -72,10 +72,12 @@ func (s *BuildServer) Serve() {
 	go s.server.Serve(lis)
 }
 
-func (s *BuildServer) Shutdown() {
+func (s *BuildServer) Shutdown(deleteOnStop bool) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
-	defer gexec.CleanupBuildArtifacts()
+	if deleteOnStop {
+		defer gexec.CleanupBuildArtifacts()
+	}
 
 	s.server.Shutdown(ctx)
 }

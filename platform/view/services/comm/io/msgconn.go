@@ -9,11 +9,10 @@ package io
 import (
 	"crypto/md5"
 	"encoding/base64"
-	"errors"
-	"fmt"
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -49,7 +48,7 @@ func (c *commSCCMsgConn) Write(data []byte) (n int, err error) {
 	c.writeCounter++
 	err = c.session.Send(data)
 	if err != nil {
-		errMsg := fmt.Errorf("failed sending message to [%s]: [%s]", c.session, err)
+		errMsg := errors.Errorf("failed sending message to [%s]: [%s]", c.session, err)
 		return 0, errMsg
 	}
 
@@ -66,7 +65,7 @@ func (c *commSCCMsgConn) Read() ([]byte, error) {
 
 	if len(msg.Payload) == 0 {
 		logger.Error("failed receiving message [%s][%s]", "", "")
-		errMsg := fmt.Errorf("failed receiving message [%s][%s]", "", "")
+		errMsg := errors.Errorf("failed receiving message [%s][%s]", "", "")
 		return nil, errMsg
 	}
 

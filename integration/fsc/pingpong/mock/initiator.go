@@ -4,7 +4,7 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package pingpong
+package mock
 
 import (
 	"fmt"
@@ -12,15 +12,30 @@ import (
 
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
+	view3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
 )
 
-type Initiator struct{}
+type Params struct {
+	Mock bool
+}
 
-func (p *Initiator) Call(context view.Context) (interface{}, error) {
+type Initiator struct {
+	*Params
+}
+
+func (p *Initiator) Call(ctx view.Context) (interface{}, error) {
 	// Retrieve responder identity
-	responder := view2.GetIdentityProvider(context).Identity("responder")
+	responder := view2.GetIdentityProvider(ctx).Identity("responder")
+	var context view.Context
+	if p.Mock {
+		c := &view3.MockContext{Ctx: ctx}
+		c.RespondToAs(ctx.Initiator(), responder, &Responder{})
+		context = c
+	} else {
+		context = ctx
+	}
 
 	// Open a session to the responder
 	session, err := context.GetSession(context.Initiator(), responder)
@@ -35,8 +50,8 @@ func (p *Initiator) Call(context view.Context) (interface{}, error) {
 			return nil, errors.New(string(msg.Payload))
 		}
 		m := string(msg.Payload)
-		if m != "pong" {
-			return nil, fmt.Errorf("expected pong, got %s", m)
+		if m != "mock pong" {
+			return nil, fmt.Errorf("expected mock pong, got %s", m)
 		}
 	case <-time.After(1 * time.Minute):
 		return nil, errors.New("responder didn't pong in time")

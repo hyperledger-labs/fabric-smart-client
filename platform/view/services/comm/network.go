@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/pkg/errors"
@@ -36,7 +37,8 @@ func NewVirtualNetwork(port int, numNodes int) (Network, error) {
 	var res []*node
 
 	// Setup master
-	bootstrapNode, err := newBootstrapNode(port)
+	metrics := NewMetrics(&disabled.Provider{})
+	bootstrapNode, err := newBootstrapNode(port, metrics)
 	if err != nil {
 		return nil, err
 	}
@@ -45,7 +47,7 @@ func NewVirtualNetwork(port int, numNodes int) (Network, error) {
 	var nodes []*node
 	for i := 0; i < numNodes-1; i++ {
 		port++
-		n, err := newNode(port, bootstrapNode)
+		n, err := newNode(port, bootstrapNode, metrics)
 		if err != nil {
 			return nil, err
 		}
@@ -112,7 +114,7 @@ func id(pk crypto.PubKey) (string, error) {
 	return ID.String(), nil
 }
 
-func newBootstrapNode(port int) (*node, error) {
+func newBootstrapNode(port int, metrics *Metrics) (*node, error) {
 	sk, pk, err := crypto.GenerateKeyPair(crypto.ECDSA, 0)
 	if err != nil {
 		return nil, err
@@ -123,7 +125,7 @@ func newBootstrapNode(port int) (*node, error) {
 	}
 	nodeEndpoint := "/ip4/127.0.0.1/tcp/" + strconv.Itoa(port)
 	nodeDHTEndpoint := nodeEndpoint + "/p2p/" + nodeID
-	p2pNode, err := NewBootstrapNode(nodeEndpoint, &PrivateKeyFromCryptoKey{Key: sk})
+	p2pNode, err := NewBootstrapNode(nodeEndpoint, &PrivateKeyFromCryptoKey{Key: sk}, metrics)
 	if err != nil {
 		return nil, err
 	}
@@ -136,7 +138,7 @@ func newBootstrapNode(port int) (*node, error) {
 	}, nil
 }
 
-func newNode(port int, bootstrapNode *node) (*node, error) {
+func newNode(port int, bootstrapNode *node, metrics *Metrics) (*node, error) {
 	sk, pk, err := crypto.GenerateKeyPair(crypto.ECDSA, 0)
 	if err != nil {
 		return nil, err
@@ -147,7 +149,7 @@ func newNode(port int, bootstrapNode *node) (*node, error) {
 	}
 	nodeEndpoint := "/ip4/127.0.0.1/tcp/" + strconv.Itoa(port)
 
-	p2pNode, err := NewNode(nodeEndpoint, bootstrapNode.DHTEndpoint, &PrivateKeyFromCryptoKey{Key: sk})
+	p2pNode, err := NewNode(nodeEndpoint, bootstrapNode.DHTEndpoint, &PrivateKeyFromCryptoKey{Key: sk}, metrics)
 	if err != nil {
 		return nil, err
 	}

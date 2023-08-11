@@ -67,6 +67,11 @@ type WebServer interface {
 	Stop() error
 }
 
+type CommService interface {
+	Start(ctx context.Context)
+	Stop()
+}
+
 type GRPCServer interface {
 }
 
@@ -83,7 +88,7 @@ type SDK struct {
 	context          context.Context
 	operationsSystem *operations.System
 
-	commService *comm2.Service
+	commService CommService
 }
 
 func NewSDK(confPath string, registry Registry) *SDK {
@@ -223,11 +228,7 @@ func (p *SDK) initWEBServer() error {
 	h := web2.NewHttpHandler(logger)
 	p.webServer.RegisterHandler("/", h, true)
 
-	d := &web2.Dispatcher{
-		Logger:  logger,
-		Handler: h,
-	}
-	web2.InstallViewHandler(logger, p.registry, d)
+	web2.InstallViewHandler(logger, p.registry, h)
 
 	return nil
 }
@@ -284,6 +285,7 @@ func (p *SDK) initCommLayer() {
 		view.GetEndpointService(p.registry),
 		view.GetConfigService(p.registry),
 		view.GetIdentityProvider(p.registry).DefaultIdentity(),
+		comm2.NewMetrics(metrics.GetProvider(p.registry)),
 	)
 	assert.NoError(err, "failed instantiating the communication service")
 	assert.NoError(p.registry.RegisterService(commService), "failed registering communication service")
@@ -452,10 +454,17 @@ func (p *SDK) initWebOperationEndpointsAndMetrics() error {
 		}
 	}
 
+	prometheusTls := true
+	if configProvider.IsSet("fsc.metrics.prometheus.tls") {
+		prometheusTls = configProvider.GetBool("fsc.metrics.prometheus.tls")
+	}
+	logger.Infof("Starting operations with TLS: %v", prometheusTls)
+
 	p.operationsSystem = operations.NewSystem(p.webServer, operations.Options{
 		Metrics: operations.MetricsOptions{
 			Provider: provider,
 			Statsd:   statsdOperationsConfig,
+			TLS:      prometheusTls,
 		},
 		TLS: operations.TLS{
 			Enabled: tlsEnabled,

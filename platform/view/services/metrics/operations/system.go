@@ -45,6 +45,7 @@ type Statsd struct {
 type MetricsOptions struct {
 	Provider string
 	Statsd   *Statsd
+	TLS      bool
 }
 
 type TLS struct {
@@ -151,7 +152,7 @@ func (s *System) initializeMetricsProvider() error {
 		// responses:
 		//     '200':
 		//        description: Ok.
-		s.Server.RegisterHandler("/metrics", promhttp.Handler(), s.options.TLS.Enabled)
+		s.Server.RegisterHandler("/metrics", promhttp.Handler(), s.options.Metrics.TLS)
 		return nil
 
 	default:

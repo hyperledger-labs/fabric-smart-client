@@ -103,6 +103,7 @@ func (r *Runner) Run(sigChan <-chan os.Signal, ready chan<- struct{}) error {
 	r.Command.Stderr = errWriter
 
 	exited := make(chan struct{})
+	logger.Infof("start [%s] with args [%v]", r.Command.Path, r.Command.Args)
 	err := r.Command.Start()
 	if err != nil {
 		return errors.Wrapf(err, "%s failed to start with err", r.Name)

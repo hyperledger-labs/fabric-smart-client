@@ -13,21 +13,7 @@ import (
 
 // Context gives a view information about the environment in which it is in execution
 type Context struct {
-	c view.Context
-}
-
-// RunView runs the passed view on input this context
-func (c *Context) RunView(f View) (interface{}, error) {
-	return c.c.RunView(f)
-}
-
-// ID returns the identifier of this context
-func (c *Context) ID() string {
-	return c.c.ID()
-}
-
-func (c *Context) GetSessionByID(id string, party view.Identity) (view.Session, error) {
-	return c.c.GetSessionByID(id, party)
+	view.Context
 }
 
 // Manager manages the lifecycle of views and contexts
@@ -47,7 +33,7 @@ func (m *Manager) Context(contextID string) (*Context, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Context{c: context}, nil
+	return &Context{Context: context}, nil
 }
 
 // InitiateView invokes the passed view and returns the result produced by that view
@@ -61,7 +47,7 @@ func (m *Manager) InitiateContext(view View) (*Context, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Context{c: context}, nil
+	return &Context{Context: context}, nil
 }
 
 // InitiateContextWithIdentityAndID initiates

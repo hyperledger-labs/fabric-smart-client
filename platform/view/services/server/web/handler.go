@@ -42,9 +42,10 @@ type logger interface {
 }
 
 type ReqContext struct {
-	Req   *http.Request
-	Vars  map[string]string
-	Query interface{}
+	ResponseWriter http.ResponseWriter
+	Req            *http.Request
+	Vars           map[string]string
+	Query          interface{}
 }
 
 //go:generate counterfeiter -o mocks/request_handler.go -fake-name FakeRequestHandler . RequestHandler
@@ -93,9 +94,10 @@ func (h *HttpHandler) handle(backToClient http.ResponseWriter, req *http.Request
 	}
 
 	reqCtx := &ReqContext{
-		Query: o,
-		Req:   req,
-		Vars:  mux.Vars(req),
+		Query:          o,
+		ResponseWriter: backToClient,
+		Req:            req,
+		Vars:           mux.Vars(req),
 	}
 
 	resultFromBackend, statusCode := rh.HandleRequest(reqCtx)
@@ -114,9 +116,16 @@ func (h *HttpHandler) handle(backToClient http.ResponseWriter, req *http.Request
 		return
 	}
 
-	backToClient.Header().Set("Content-Type", "application/json")
-	backToClient.WriteHeader(http.StatusOK)
-	backToClient.Write(response.Bytes())
+	if !isWebSocket(req.Header) {
+		backToClient.Header().Set("Content-Type", "application/json")
+		backToClient.WriteHeader(http.StatusOK)
+		backToClient.Write(response.Bytes())
+	}
+}
+
+func isWebSocket(h http.Header) bool {
+	upgrade, ok := h["Upgrade"]
+	return ok && upgrade[0] == "websocket"
 }
 
 func sendErr(resp http.ResponseWriter, code int, errToClient string, l logger, errLogged error) {

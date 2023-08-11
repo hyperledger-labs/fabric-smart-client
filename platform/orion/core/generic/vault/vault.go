@@ -252,7 +252,7 @@ func (db *Vault) NewRWSet(txid string) (*Interceptor, error) {
 	}
 	if err := db.SetBusy(txid); err != nil {
 		db.interceptorsLock.Unlock()
-		return nil, errors.Errorf("failed to ser status to busy for txid %s", txid)
+		return nil, errors.Wrapf(err, "failed to set status to busy for txid %s", txid)
 	}
 	db.interceptors[txid] = i
 	db.interceptorsLock.Unlock()
@@ -280,7 +280,7 @@ func (db *Vault) GetRWSet(txid string, rwsetBytes []byte) (*Interceptor, error) 
 	}
 	if err := db.SetBusy(txid); err != nil {
 		db.interceptorsLock.Unlock()
-		return nil, errors.Errorf("failed to ser status to busy for txid %s", txid)
+		return nil, errors.Wrapf(err, "failed to set status to busy for txid %s", txid)
 	}
 	db.interceptors[txid] = i
 	db.interceptorsLock.Unlock()

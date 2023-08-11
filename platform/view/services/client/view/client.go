@@ -182,6 +182,25 @@ func (s *client) IsTxFinal(txid string, opts ...api.ServiceOption) error {
 	return errors.New(string(respPayload))
 }
 
+func (s *client) StreamCallView(fid string, input []byte) (*Stream, error) {
+	logger.Infof("Streaming view call [%s] on input [%s]", fid, string(input))
+	payload := &protos2.Command_CallView{CallView: &protos2.CallView{
+		Fid:   fid,
+		Input: input,
+	}}
+	sc, err := s.CreateSignedCommand(payload, s.SigningIdentity)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed creating signed command for [%s,%s]", fid, string(input))
+	}
+
+	conn, scc, err := s.streamCommand(context.Background(), sc)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed stream command for [%s,%s]", fid, string(input))
+	}
+
+	return &Stream{conn: conn, scc: scc}, nil
+}
+
 // processCommand calls view client to send grpc request and returns a CommandResponse
 func (s *client) processCommand(ctx context.Context, sc *protos2.SignedCommand) (*protos2.CommandResponse, error) {
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
@@ -229,6 +248,40 @@ func (s *client) processCommand(ctx context.Context, sc *protos2.SignedCommand) 
 		logger.Debugf("process command [%s] done", sc.String())
 	}
 	return commandResp, nil
+}
+
+// streamCommand calls view client to send grpc request and returns a CommandResponse
+func (s *client) streamCommand(ctx context.Context, sc *protos2.SignedCommand) (*grpc.ClientConn, protos2.ViewService_StreamCommandClient, error) {
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("get view service client...")
+	}
+	conn, client, err := s.ViewServiceClient.CreateViewClient()
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("get view service client...done")
+	}
+	if conn != nil {
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			logger.Debugf("get view service client...got a connection")
+		}
+	}
+	if err != nil {
+		logger.Errorf("failed creating view client [%s]", err)
+		return nil, nil, errors.Wrap(err, "failed creating view client")
+	}
+
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("stream command [%s]", sc.String())
+	}
+	streamCommandClient, err := client.StreamCommand(ctx)
+	if err != nil {
+		logger.Errorf("failed view client stream command [%s]", err)
+		return nil, nil, errors.Wrap(err, "failed view client stream command")
+	}
+	if err := streamCommandClient.Send(sc); err != nil {
+		return nil, nil, errors.Wrapf(err, "failed to send signed command")
+	}
+
+	return conn, streamCommandClient, nil
 }
 
 func (s *client) CreateSignedCommand(payload interface{}, signingIdentity SigningIdentity) (*protos2.SignedCommand, error) {
