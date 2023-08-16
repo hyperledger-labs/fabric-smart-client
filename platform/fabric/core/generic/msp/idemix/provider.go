@@ -14,7 +14,7 @@ import (
 	"github.com/IBM/idemix"
 	csp "github.com/IBM/idemix/bccsp"
 	"github.com/IBM/idemix/bccsp/keystore"
-	bccsp "github.com/IBM/idemix/bccsp/schemes"
+	bccsp "github.com/IBM/idemix/bccsp/types"
 	idemix2 "github.com/IBM/idemix/bccsp/schemes/dlog/crypto"
 	"github.com/IBM/idemix/bccsp/schemes/dlog/crypto/translator/amcl"
 	"github.com/IBM/idemix/idemixmsp"

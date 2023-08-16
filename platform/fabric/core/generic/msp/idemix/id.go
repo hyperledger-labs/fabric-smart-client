@@ -11,7 +11,7 @@ import (
 	"fmt"
 	"time"
 
-	csp "github.com/IBM/idemix/bccsp/schemes"
+	csp "github.com/IBM/idemix/bccsp/types"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	m "github.com/hyperledger/fabric-protos-go/msp"

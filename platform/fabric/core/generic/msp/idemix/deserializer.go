@@ -12,7 +12,7 @@ import (
 	msp "github.com/IBM/idemix"
 	idemix "github.com/IBM/idemix/bccsp"
 	"github.com/IBM/idemix/bccsp/keystore"
-	csp "github.com/IBM/idemix/bccsp/schemes"
+	csp "github.com/IBM/idemix/bccsp/types"
 	"github.com/IBM/idemix/bccsp/schemes/dlog/crypto/translator/amcl"
 	math "github.com/IBM/mathlib"
 	"github.com/pkg/errors"

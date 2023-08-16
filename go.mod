@@ -1,11 +1,14 @@
 module github.com/hyperledger-labs/fabric-smart-client
 
-go 1.20
+go 1.19
 
 replace github.com/hyperledger/aries-framework-go/component/kmscrypto => github.com/ale-linux/aries-framework-go/component/kmscrypto v0.0.0-20230630075813-b7e4c6a2156c
 
 require (
-	github.com/IBM/idemix v0.0.2-0.20230810140151-623043e02480
+	github.com/IBM/idemix v0.0.0-20230810173054-c991cc1e54ca
+	github.com/IBM/idemix/bccsp/schemes/aries v0.0.0-20230810173054-c991cc1e54ca // indirect
+	github.com/IBM/idemix/bccsp/schemes/weak-bb v0.0.0-20230810173054-c991cc1e54ca // indirect
+	github.com/IBM/idemix/bccsp/types v0.0.0-20230810173054-c991cc1e54ca
 	github.com/IBM/mathlib v0.0.3-0.20230605104224-932ab92f2ce0
 	github.com/ReneKroon/ttlcache/v2 v2.11.0
 	github.com/dgraph-io/badger/v3 v3.2103.2
@@ -43,7 +46,7 @@ require (
 	github.com/prometheus/client_golang v1.14.0
 	github.com/spf13/cobra v1.5.0
 	github.com/spf13/viper v1.10.1
-	github.com/stretchr/testify v1.8.2
+	github.com/stretchr/testify v1.8.4
 	github.com/sykesm/zap-logfmt v0.0.4
 	github.com/tedsuo/ifrit v0.0.0-20220120221754-dd274de71113
 	github.com/test-go/testify v1.1.4
@@ -261,3 +264,5 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	lukechampine.com/blake3 v1.1.7 // indirect
 )
+
+replace github.com/IBM/idemix => github.com/IBM/idemix v0.0.0-20230810173054-c991cc1e54ca

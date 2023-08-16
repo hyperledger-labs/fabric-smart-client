@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	bccsp "github.com/IBM/idemix/bccsp/schemes"
+	bccsp "github.com/IBM/idemix/bccsp/types"
 	math "github.com/IBM/mathlib"
 	idemix2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/idemix"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
