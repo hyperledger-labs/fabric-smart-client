@@ -2,13 +2,9 @@ module github.com/hyperledger-labs/fabric-smart-client
 
 go 1.19
 
-replace github.com/hyperledger/aries-framework-go/component/kmscrypto => github.com/ale-linux/aries-framework-go/component/kmscrypto v0.0.0-20230630075813-b7e4c6a2156c
-
 require (
-	github.com/IBM/idemix v0.0.0-20230810173054-c991cc1e54ca
-	github.com/IBM/idemix/bccsp/schemes/aries v0.0.0-20230810173054-c991cc1e54ca // indirect
-	github.com/IBM/idemix/bccsp/schemes/weak-bb v0.0.0-20230810173054-c991cc1e54ca // indirect
-	github.com/IBM/idemix/bccsp/types v0.0.0-20230810173054-c991cc1e54ca
+	github.com/IBM/idemix v0.0.2-0.20230817165407-7c02a2e52512
+	github.com/IBM/idemix/bccsp/types v0.0.0-20230817165407-7c02a2e52512
 	github.com/IBM/mathlib v0.0.3-0.20230605104224-932ab92f2ce0
 	github.com/ReneKroon/ttlcache/v2 v2.11.0
 	github.com/dgraph-io/badger/v3 v3.2103.2
@@ -63,6 +59,9 @@ require (
 )
 
 require (
+	github.com/IBM/idemix/bccsp/schemes/aries v0.0.0-20230810173054-c991cc1e54ca // indirect
+	github.com/IBM/idemix/bccsp/schemes/weak-bb v0.0.0-20230810173054-c991cc1e54ca // indirect
+	github.com/ale-linux/aries-framework-go/component/kmscrypto v0.0.0-20230817163708-4b3de6d91874 // indirect
 	github.com/bits-and-blooms/bitset v1.2.1 // indirect
 	github.com/cenkalti/backoff/v4 v4.2.0 // indirect
 	github.com/consensys/bavard v0.1.13 // indirect
@@ -71,7 +70,7 @@ require (
 	github.com/golang/mock v1.6.0 // indirect
 	github.com/google/pprof v0.0.0-20230405160723-4a4c7d95572b // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.7.0 // indirect
-	github.com/hyperledger/aries-framework-go/component/kmscrypto v0.0.0 // indirect
+	github.com/hyperledger/aries-framework-go/component/kmscrypto v0.0.0-20230810150537-71e132ba5968 // indirect
 	github.com/ipfs/boxo v0.8.0-rc1 // indirect
 	github.com/kilic/bls12-381 v0.1.0 // indirect
 	github.com/libp2p/go-yamux/v4 v4.0.0 // indirect
@@ -264,5 +263,3 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	lukechampine.com/blake3 v1.1.7 // indirect
 )
-
-replace github.com/IBM/idemix => github.com/IBM/idemix v0.0.0-20230810173054-c991cc1e54ca
