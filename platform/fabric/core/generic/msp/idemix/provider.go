@@ -11,11 +11,9 @@ import (
 	"reflect"
 	"strconv"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
+
 	"github.com/IBM/idemix"
-	csp "github.com/IBM/idemix/bccsp"
-	"github.com/IBM/idemix/bccsp/keystore"
-	idemix2 "github.com/IBM/idemix/bccsp/schemes/dlog/crypto"
-	"github.com/IBM/idemix/bccsp/schemes/dlog/crypto/translator/amcl"
 	bccsp "github.com/IBM/idemix/bccsp/types"
 	"github.com/IBM/idemix/idemixmsp"
 	math "github.com/IBM/mathlib"
@@ -25,7 +23,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	m "github.com/hyperledger/fabric-protos-go/msp"
 	"github.com/pkg/errors"
@@ -78,65 +75,38 @@ func NewProviderWithAnyPolicy(conf1 *m.MSPConfig, sp view2.ServiceProvider) (*Pr
 }
 
 func NewProviderWithAnyPolicyAndCurve(conf1 *m.MSPConfig, sp view2.ServiceProvider, curveID math.CurveID) (*Provider, error) {
-	return NewProvider(conf1, sp, Any, curveID, false)
-}
-
-func NewProviderWithAriesAnyPolicyAndCurve(conf1 *m.MSPConfig, sp view2.ServiceProvider, curveID math.CurveID) (*Provider, error) {
-	return NewProvider(conf1, sp, Any, curveID, true)
+	cryptoProvider, err := NewKSVBCCSP(kvs.GetService(sp), curveID, false)
+	if err != nil {
+		return nil, err
+	}
+	return NewProvider(conf1, sp, Any, cryptoProvider)
 }
 
 func NewProviderWithSigType(conf1 *m.MSPConfig, sp view2.ServiceProvider, sigType bccsp.SignatureType) (*Provider, error) {
-	return NewProvider(conf1, sp, sigType, math.FP256BN_AMCL, false)
+	cryptoProvider, err := NewKSVBCCSP(kvs.GetService(sp), math.FP256BN_AMCL, false)
+	if err != nil {
+		return nil, err
+	}
+	return NewProvider(conf1, sp, sigType, cryptoProvider)
 }
 
 func NewProviderWithSigTypeAncCurve(conf1 *m.MSPConfig, sp view2.ServiceProvider, sigType bccsp.SignatureType, curveID math.CurveID) (*Provider, error) {
-	return NewProvider(conf1, sp, sigType, curveID)
+	cryptoProvider, err := NewKSVBCCSP(kvs.GetService(sp), curveID, false)
+	if err != nil {
+		return nil, err
+	}
+	return NewProvider(conf1, sp, sigType, cryptoProvider)
 }
 
-func NewProvider(conf1 *m.MSPConfig, sp view2.ServiceProvider, sigType bccsp.SignatureType, curveID math.CurveID, aries bool) (*Provider, error) {
+func NewProvider(conf1 *m.MSPConfig, sp view2.ServiceProvider, sigType bccsp.SignatureType, cryptoProvider bccsp.BCCSP) (*Provider, error) {
 	logger.Debugf("Setting up Idemix-based MSP instance")
 
 	if conf1 == nil {
 		return nil, errors.Errorf("setup error: nil conf reference")
 	}
 
-	curve := math.Curves[curveID]
-	var tr idemix2.Translator
-	switch curveID {
-	case math.BN254:
-		tr = &amcl.Gurvy{C: curve}
-	case math.BLS12_377_GURVY:
-		tr = &amcl.Gurvy{C: curve}
-	case math.FP256BN_AMCL:
-		tr = &amcl.Fp256bn{C: curve}
-	case math.FP256BN_AMCL_MIRACL:
-		tr = &amcl.Fp256bnMiracl{C: curve}
-	case math.BLS12_381_BBS:
-		tr = &amcl.Gurvy{C: curve}
-	default:
-		return nil, errors.Errorf("unsupported curve ID: %d", curveID)
-	}
-
-	kvss := kvs.GetService(sp)
-	keystore := &keystore.KVSStore{
-		KVS:        kvss,
-		Curve:      curve,
-		Translator: tr,
-	}
-
-	var cryptoProvider bccsp.BCCSP
-	var err error
-	if aries {
-		cryptoProvider, err = csp.NewAries(keystore, curve, tr, true)
-	} else {
-		cryptoProvider, err = csp.New(keystore, curve, tr, true)
-	}
-	if err != nil {
-		return nil, errors.Wrap(err, "failed getting crypto provider")
-	}
-
 	var conf idemixmsp.IdemixMSPConfig
-	err = proto.Unmarshal(conf1.Config, &conf)
+	err := proto.Unmarshal(conf1.Config, &conf)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed unmarshalling idemix provider config")
 	}
