@@ -225,11 +225,11 @@ func NewProvider(conf1 *m.MSPConfig, sp view2.ServiceProvider, sigType bccsp.Sig
 
 	return &Provider{
 		Idemix: &Idemix{
-			name:            conf.Name,
+			Name:            conf.Name,
 			Csp:             cryptoProvider,
 			IssuerPublicKey: issuerPublicKey,
-			revocationPK:    RevocationPublicKey,
-			epoch:           0,
+			RevocationPK:    RevocationPublicKey,
+			Epoch:           0,
 			VerType:         verType,
 		},
 		userKey: userKey,
@@ -258,7 +258,7 @@ func (p *Provider) Identity(opts *driver2.IdentityOptions) (view.Identity, []byt
 	}
 
 	role := &m.MSPRole{
-		MspIdentifier: p.name,
+		MspIdentifier: p.Name,
 		Role:          m.MSPRole_MEMBER,
 	}
 	if CheckRole(int(p.conf.Signer.Role), ADMIN) {
@@ -266,7 +266,7 @@ func (p *Provider) Identity(opts *driver2.IdentityOptions) (view.Identity, []byt
 	}
 
 	ou := &m.OrganizationUnit{
-		MspIdentifier:                p.name,
+		MspIdentifier:                p.Name,
 		OrganizationalUnitIdentifier: p.conf.Signer.OrganizationalUnitIdentifier,
 		CertifiersIdentifier:         p.IssuerPublicKey.SKI(),
 	}
@@ -320,7 +320,7 @@ func (p *Provider) Identity(opts *driver2.IdentityOptions) (view.Identity, []byt
 
 	// Set up default signer
 	sID := &MSPSigningIdentity{
-		MSPIdentity:  newIdentityWithVerType(p.Idemix, NymPublicKey, role, ou, proof, p.verType),
+		MSPIdentity:  NewMSPIdentityWithVerType(p.Idemix, NymPublicKey, role, ou, proof, p.verType),
 		Cred:         p.conf.Signer.Cred,
 		UserKey:      p.userKey,
 		NymKey:       nymKey,
@@ -370,7 +370,7 @@ func (p *Provider) DeserializeVerifier(raw []byte) (driver.Verifier, error) {
 		return nil, err
 	}
 
-	return r.id, nil
+	return r.Identity, nil
 }
 
 func (p *Provider) DeserializeSigner(raw []byte) (driver.Signer, error) {
@@ -385,7 +385,7 @@ func (p *Provider) DeserializeSigner(raw []byte) (driver.Signer, error) {
 	}
 
 	si := &MSPSigningIdentity{
-		MSPIdentity:  r.id,
+		MSPIdentity:  r.Identity,
 		Cred:         p.conf.Signer.Cred,
 		UserKey:      p.userKey,
 		NymKey:       nymKey,
@@ -423,7 +423,7 @@ func (p *Provider) Info(raw []byte, auditInfo []byte) (string, error) {
 		eid = ai.EnrollmentID()
 	}
 
-	return fmt.Sprintf("MSP.Idemix: [%s][%s][%s][%s][%s]", eid, view.Identity(raw).UniqueID(), r.si.Mspid, r.ou.OrganizationalUnitIdentifier, r.role.Role.String()), nil
+	return fmt.Sprintf("MSP.Idemix: [%s][%s][%s][%s][%s]", eid, view.Identity(raw).UniqueID(), r.SerializedIdentity.Mspid, r.OU.OrganizationalUnitIdentifier, r.Role.Role.String()), nil
 }
 
 func (p *Provider) String() string {
@@ -476,7 +476,7 @@ func (p *Provider) DeserializeSigningIdentity(raw []byte) (driver.SigningIdentit
 		return nil, errors.Wrap(err, "cannot deserialize the role of the identity")
 	}
 
-	id := newIdentityWithVerType(p.Idemix, NymPublicKey, role, ou, serialized.Proof, p.verType)
+	id := NewMSPIdentityWithVerType(p.Idemix, NymPublicKey, role, ou, serialized.Proof, p.verType)
 	if err := id.Validate(); err != nil {
 		return nil, errors.Wrap(err, "cannot deserialize, invalid identity")
 	}

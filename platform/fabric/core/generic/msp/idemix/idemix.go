@@ -14,20 +14,20 @@ import (
 )
 
 type Identity struct {
-	id           *MSPIdentity
-	NymPublicKey bccsp.Key
-	si           *m.SerializedIdentity
-	ou           *m.OrganizationUnit
-	role         *m.MSPRole
+	Identity           *MSPIdentity
+	NymPublicKey       bccsp.Key
+	SerializedIdentity *m.SerializedIdentity
+	OU                 *m.OrganizationUnit
+	Role               *m.MSPRole
 }
 
 type Idemix struct {
-	name            string
+	Name            string
 	Ipk             []byte
 	Csp             bccsp.BCCSP
 	IssuerPublicKey bccsp.Key
-	revocationPK    bccsp.Key
-	epoch           int
+	RevocationPK    bccsp.Key
+	Epoch           int
 	VerType         bccsp.VerificationType
 	NymEID          []byte
 	RhNym           []byte
@@ -75,7 +75,7 @@ func (s *Idemix) Deserialize(raw []byte, checkValidity bool) (*Identity, error) 
 		return nil, errors.Wrap(err, "cannot deserialize the role of the identity")
 	}
 
-	id := newIdentityWithVerType(s, NymPublicKey, role, ou, serialized.Proof, s.VerType)
+	id := NewMSPIdentityWithVerType(s, NymPublicKey, role, ou, serialized.Proof, s.VerType)
 	if checkValidity {
 		if err := id.Validate(); err != nil {
 			return nil, errors.Wrap(err, "cannot deserialize, invalid identity")
@@ -83,11 +83,11 @@ func (s *Idemix) Deserialize(raw []byte, checkValidity bool) (*Identity, error) 
 	}
 
 	return &Identity{
-		id:           id,
-		NymPublicKey: NymPublicKey,
-		si:           si,
-		ou:           ou,
-		role:         role,
+		Identity:           id,
+		NymPublicKey:       NymPublicKey,
+		SerializedIdentity: si,
+		OU:                 ou,
+		Role:               role,
 	}, nil
 }
 
@@ -102,18 +102,19 @@ func (s *Idemix) DeserializeAuditInfo(raw []byte) (*AuditInfo, error) {
 	return ai, nil
 }
 
-type Verifier struct {
-	idd          *Deserializer
-	nymPublicKey bccsp.Key
+type NymSignatureVerifier struct {
+	CSP   bccsp.BCCSP
+	IPK   bccsp.Key
+	NymPK bccsp.Key
 }
 
-func (v *Verifier) Verify(message, sigma []byte) error {
-	_, err := v.idd.Csp.Verify(
-		v.nymPublicKey,
+func (v *NymSignatureVerifier) Verify(message, sigma []byte) error {
+	_, err := v.CSP.Verify(
+		v.NymPK,
 		sigma,
 		message,
 		&bccsp.IdemixNymSignerOpts{
-			IssuerPK: v.idd.IssuerPublicKey,
+			IssuerPK: v.IPK,
 		},
 	)
 	return err

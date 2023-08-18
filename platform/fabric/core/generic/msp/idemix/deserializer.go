@@ -74,14 +74,15 @@ func NewDeserializerWithBCCSP(ipk []byte, verType csp.VerificationType, nymEID [
 }
 
 func (i *Deserializer) DeserializeVerifier(raw []byte) (driver.Verifier, error) {
-	r, err := i.Deserialize(raw, true)
+	identity, err := i.Deserialize(raw, true)
 	if err != nil {
 		return nil, err
 	}
 
-	return &Verifier{
-		idd:          i,
-		nymPublicKey: r.NymPublicKey,
+	return &NymSignatureVerifier{
+		CSP:   i.Idemix.Csp,
+		IPK:   i.Idemix.IssuerPublicKey,
+		NymPK: identity.NymPublicKey,
 	}, nil
 }
 
@@ -111,7 +112,7 @@ func (i *Deserializer) Info(raw []byte, auditInfo []byte) (string, error) {
 		eid = ai.EnrollmentID()
 	}
 
-	return fmt.Sprintf("MSP.Idemix: [%s][%s][%s][%s][%s]", eid, view.Identity(raw).UniqueID(), r.si.Mspid, r.ou.OrganizationalUnitIdentifier, r.role.Role.String()), nil
+	return fmt.Sprintf("MSP.Idemix: [%s][%s][%s][%s][%s]", eid, view.Identity(raw).UniqueID(), r.SerializedIdentity.Mspid, r.OU.OrganizationalUnitIdentifier, r.Role.Role.String()), nil
 }
 
 func (i *Deserializer) String() string {
