@@ -3,8 +3,8 @@ module github.com/hyperledger-labs/fabric-smart-client
 go 1.19
 
 require (
-	github.com/IBM/idemix v0.0.2-0.20230817180308-5ce875859f7b
-	github.com/IBM/idemix/bccsp/types v0.0.0-20230817180308-5ce875859f7b
+	github.com/IBM/idemix v0.0.2-0.20230818094413-71dd11112cb5
+	github.com/IBM/idemix/bccsp/types v0.0.0-20230818094413-71dd11112cb5
 	github.com/IBM/mathlib v0.0.3-0.20230605104224-932ab92f2ce0
 	github.com/ReneKroon/ttlcache/v2 v2.11.0
 	github.com/dgraph-io/badger/v3 v3.2103.2
@@ -59,8 +59,8 @@ require (
 )
 
 require (
-	github.com/IBM/idemix/bccsp/schemes/aries v0.0.0-20230817180308-5ce875859f7b // indirect
-	github.com/IBM/idemix/bccsp/schemes/weak-bb v0.0.0-20230817180308-5ce875859f7b // indirect
+	github.com/IBM/idemix/bccsp/schemes/aries v0.0.0-20230818094413-71dd11112cb5 // indirect
+	github.com/IBM/idemix/bccsp/schemes/weak-bb v0.0.0-20230818094413-71dd11112cb5 // indirect
 	github.com/ale-linux/aries-framework-go/component/kmscrypto v0.0.0-20230817163708-4b3de6d91874 // indirect
 	github.com/bits-and-blooms/bitset v1.2.1 // indirect
 	github.com/cenkalti/backoff/v4 v4.2.0 // indirect
