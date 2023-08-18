@@ -75,7 +75,7 @@ func (s *Idemix) Deserialize(raw []byte, checkValidity bool) (*Identity, error) 
 		return nil, errors.Wrap(err, "cannot deserialize the role of the identity")
 	}
 
-	id := NewMSPIdentityWithVerType(s, NymPublicKey, role, ou, serialized.Proof, s.VerType)
+	id, _ := NewMSPIdentityWithVerType(s, NymPublicKey, role, ou, serialized.Proof, s.VerType)
 	if checkValidity {
 		if err := id.Validate(); err != nil {
 			return nil, errors.Wrap(err, "cannot deserialize, invalid identity")

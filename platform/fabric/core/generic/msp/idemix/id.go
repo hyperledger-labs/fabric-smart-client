@@ -8,10 +8,9 @@ package idemix
 
 import (
 	"bytes"
-	"fmt"
 	"time"
 
-	csp "github.com/IBM/idemix/bccsp/types"
+	bccsp "github.com/IBM/idemix/bccsp/types"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	m "github.com/hyperledger/fabric-protos-go/msp"
@@ -20,7 +19,7 @@ import (
 )
 
 type MSPIdentity struct {
-	NymPublicKey csp.Key
+	NymPublicKey bccsp.Key
 	Idemix       *Idemix
 	ID           *msp.IdentityIdentifier
 	Role         *m.MSPRole
@@ -29,10 +28,10 @@ type MSPIdentity struct {
 	// belongs to the MSP id.provider, i.e., it proves that the pseudonym
 	// is constructed from a secret key on which the CA issued a credential.
 	AssociationProof []byte
-	VerificationType csp.VerificationType
+	VerificationType bccsp.VerificationType
 }
 
-func NewMSPIdentityWithVerType(idemix *Idemix, NymPublicKey csp.Key, role *m.MSPRole, ou *m.OrganizationUnit, proof []byte, verificationType csp.VerificationType) *MSPIdentity {
+func NewMSPIdentityWithVerType(idemix *Idemix, NymPublicKey bccsp.Key, role *m.MSPRole, ou *m.OrganizationUnit, proof []byte, verificationType bccsp.VerificationType) (*MSPIdentity, error) {
 	id := &MSPIdentity{}
 	id.Idemix = idemix
 	id.NymPublicKey = NymPublicKey
@@ -43,14 +42,14 @@ func NewMSPIdentityWithVerType(idemix *Idemix, NymPublicKey csp.Key, role *m.MSP
 
 	raw, err := NymPublicKey.Bytes()
 	if err != nil {
-		panic(fmt.Sprintf("unexpected condition, failed marshalling nym public key [%s]", err))
+		return nil, errors.Wrapf(err, "failed to marshal nym public key")
 	}
 	id.ID = &msp.IdentityIdentifier{
 		Mspid: idemix.Name,
 		Id:    bytes.NewBuffer(raw).String(),
 	}
 
-	return id
+	return id, nil
 }
 
 func (id *MSPIdentity) Anonymous() bool {
@@ -95,7 +94,7 @@ func (id *MSPIdentity) Verify(msg []byte, sig []byte) error {
 		id.NymPublicKey,
 		sig,
 		msg,
-		&csp.IdemixNymSignerOpts{
+		&bccsp.IdemixNymSignerOpts{
 			IssuerPK: id.Idemix.IssuerPublicKey,
 		},
 	)
@@ -103,7 +102,7 @@ func (id *MSPIdentity) Verify(msg []byte, sig []byte) error {
 }
 
 func (id *MSPIdentity) SatisfiesPrincipal(principal *m.MSPPrincipal) error {
-	panic("not implemented yet")
+	return errors.Errorf("not supported")
 }
 
 func (id *MSPIdentity) Serialize() ([]byte, error) {
@@ -147,9 +146,9 @@ func (id *MSPIdentity) Serialize() ([]byte, error) {
 
 func (id *MSPIdentity) verifyProof() error {
 	// Verify signature
-	var metadata *csp.IdemixSignerMetadata
+	var metadata *bccsp.IdemixSignerMetadata
 	if len(id.Idemix.NymEID) != 0 {
-		metadata = &csp.IdemixSignerMetadata{
+		metadata = &bccsp.IdemixSignerMetadata{
 			EidNym: id.Idemix.NymEID,
 			RhNym:  id.Idemix.RhNym,
 		}
@@ -159,13 +158,13 @@ func (id *MSPIdentity) verifyProof() error {
 		id.Idemix.IssuerPublicKey,
 		id.AssociationProof,
 		nil,
-		&csp.IdemixSignerOpts{
+		&bccsp.IdemixSignerOpts{
 			RevocationPublicKey: id.Idemix.RevocationPK,
-			Attributes: []csp.IdemixAttribute{
-				{Type: csp.IdemixBytesAttribute, Value: []byte(id.OU.OrganizationalUnitIdentifier)},
-				{Type: csp.IdemixIntAttribute, Value: GetIdemixRoleFromMSPRole(id.Role)},
-				{Type: csp.IdemixHiddenAttribute},
-				{Type: csp.IdemixHiddenAttribute},
+			Attributes: []bccsp.IdemixAttribute{
+				{Type: bccsp.IdemixBytesAttribute, Value: []byte(id.OU.OrganizationalUnitIdentifier)},
+				{Type: bccsp.IdemixIntAttribute, Value: GetIdemixRoleFromMSPRole(id.Role)},
+				{Type: bccsp.IdemixHiddenAttribute},
+				{Type: bccsp.IdemixHiddenAttribute},
 			},
 			RhIndex:          RHIndex,
 			EidIndex:         EIDIndex,
@@ -175,7 +174,7 @@ func (id *MSPIdentity) verifyProof() error {
 		},
 	)
 	if err == nil && !valid {
-		panic("unexpected condition, an error should be returned for an invalid signature")
+		return errors.Errorf("unexpected condition, an error should be returned for an invalid signature")
 	}
 
 	return err
@@ -184,9 +183,9 @@ func (id *MSPIdentity) verifyProof() error {
 type MSPSigningIdentity struct {
 	*MSPIdentity
 	Cred         []byte
-	UserKey      csp.Key
-	NymKey       csp.Key
-	enrollmentId string
+	UserKey      bccsp.Key
+	NymKey       bccsp.Key
+	EnrollmentId string
 }
 
 func (id *MSPSigningIdentity) Sign(msg []byte) ([]byte, error) {
@@ -195,7 +194,7 @@ func (id *MSPSigningIdentity) Sign(msg []byte) ([]byte, error) {
 	sig, err := id.Idemix.Csp.Sign(
 		id.UserKey,
 		msg,
-		&csp.IdemixNymSignerOpts{
+		&bccsp.IdemixNymSignerOpts{
 			Nym:      id.NymKey,
 			IssuerPK: id.Idemix.IssuerPublicKey,
 		},

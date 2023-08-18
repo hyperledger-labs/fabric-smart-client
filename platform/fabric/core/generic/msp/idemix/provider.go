@@ -319,14 +319,17 @@ func (p *Provider) Identity(opts *driver2.IdentityOptions) (view.Identity, []byt
 	}
 
 	// Set up default signer
+	id, err := NewMSPIdentityWithVerType(p.Idemix, NymPublicKey, role, ou, proof, p.verType)
+	if err != nil {
+		return nil, nil, err
+	}
 	sID := &MSPSigningIdentity{
-		MSPIdentity:  NewMSPIdentityWithVerType(p.Idemix, NymPublicKey, role, ou, proof, p.verType),
+		MSPIdentity:  id,
 		Cred:         p.conf.Signer.Cred,
 		UserKey:      p.userKey,
 		NymKey:       nymKey,
-		enrollmentId: enrollmentID,
+		EnrollmentId: enrollmentID,
 	}
-
 	raw, err := sID.Serialize()
 	if err != nil {
 		return nil, nil, err
@@ -389,7 +392,7 @@ func (p *Provider) DeserializeSigner(raw []byte) (driver.Signer, error) {
 		Cred:         p.conf.Signer.Cred,
 		UserKey:      p.userKey,
 		NymKey:       nymKey,
-		enrollmentId: p.conf.Signer.EnrollmentId,
+		EnrollmentId: p.conf.Signer.EnrollmentId,
 	}
 	msg := []byte("hello world!!!")
 	sigma, err := si.Sign(msg)
@@ -476,7 +479,7 @@ func (p *Provider) DeserializeSigningIdentity(raw []byte) (driver.SigningIdentit
 		return nil, errors.Wrap(err, "cannot deserialize the role of the identity")
 	}
 
-	id := NewMSPIdentityWithVerType(p.Idemix, NymPublicKey, role, ou, serialized.Proof, p.verType)
+	id, _ := NewMSPIdentityWithVerType(p.Idemix, NymPublicKey, role, ou, serialized.Proof, p.verType)
 	if err := id.Validate(); err != nil {
 		return nil, errors.Wrap(err, "cannot deserialize, invalid identity")
 	}
@@ -490,6 +493,6 @@ func (p *Provider) DeserializeSigningIdentity(raw []byte) (driver.SigningIdentit
 		Cred:         p.conf.Signer.Cred,
 		UserKey:      p.userKey,
 		NymKey:       nymKey,
-		enrollmentId: p.conf.Signer.EnrollmentId,
+		EnrollmentId: p.conf.Signer.EnrollmentId,
 	}, nil
 }
