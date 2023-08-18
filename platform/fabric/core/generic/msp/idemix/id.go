@@ -181,10 +181,10 @@ func (id *MSPIdentity) verifyProof() error {
 }
 
 type MSPSigningIdentity struct {
-	*MSPIdentity
+	*MSPIdentity `json:"-"`
 	Cred         []byte
-	UserKey      bccsp.Key
-	NymKey       bccsp.Key
+	UserKey      bccsp.Key `json:"-"`
+	NymKey       bccsp.Key `json:"-"`
 	EnrollmentId string
 }
 
