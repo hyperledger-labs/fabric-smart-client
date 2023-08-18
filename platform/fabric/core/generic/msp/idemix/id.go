@@ -19,9 +19,9 @@ import (
 	"github.com/pkg/errors"
 )
 
-type identity struct {
+type MSPIdentity struct {
 	NymPublicKey csp.Key
-	common       *common
+	common       *Idemix
 	id           *msp.IdentityIdentifier
 	Role         *m.MSPRole
 	OU           *m.OrganizationUnit
@@ -32,8 +32,8 @@ type identity struct {
 	VerificationType csp.VerificationType
 }
 
-func newIdentityWithVerType(common *common, NymPublicKey csp.Key, role *m.MSPRole, ou *m.OrganizationUnit, proof []byte, verificationType csp.VerificationType) *identity {
-	id := &identity{}
+func newIdentityWithVerType(common *Idemix, NymPublicKey csp.Key, role *m.MSPRole, ou *m.OrganizationUnit, proof []byte, verificationType csp.VerificationType) *MSPIdentity {
+	id := &MSPIdentity{}
 	id.common = common
 	id.NymPublicKey = NymPublicKey
 	id.Role = role
@@ -53,25 +53,25 @@ func newIdentityWithVerType(common *common, NymPublicKey csp.Key, role *m.MSPRol
 	return id
 }
 
-func (id *identity) Anonymous() bool {
+func (id *MSPIdentity) Anonymous() bool {
 	return true
 }
 
-func (id *identity) ExpiresAt() time.Time {
+func (id *MSPIdentity) ExpiresAt() time.Time {
 	// Idemix MSP currently does not use expiration dates or revocation,
 	// so we return the zero time to indicate this.
 	return time.Time{}
 }
 
-func (id *identity) GetIdentifier() *msp.IdentityIdentifier {
+func (id *MSPIdentity) GetIdentifier() *msp.IdentityIdentifier {
 	return id.id
 }
 
-func (id *identity) GetMSPIdentifier() string {
+func (id *MSPIdentity) GetMSPIdentifier() string {
 	return id.common.name
 }
 
-func (id *identity) GetOrganizationalUnits() []*msp.OUIdentifier {
+func (id *MSPIdentity) GetOrganizationalUnits() []*msp.OUIdentifier {
 	// we use the (serialized) public key of this MSP as the CertifiersIdentifier
 	certifiersIdentifier, err := id.common.IssuerPublicKey.Bytes()
 	if err != nil {
@@ -82,7 +82,7 @@ func (id *identity) GetOrganizationalUnits() []*msp.OUIdentifier {
 	return []*msp.OUIdentifier{{CertifiersIdentifier: certifiersIdentifier, OrganizationalUnitIdentifier: id.OU.OrganizationalUnitIdentifier}}
 }
 
-func (id *identity) Validate() error {
+func (id *MSPIdentity) Validate() error {
 	// logger.Debugf("Validating identity %+v", id)
 	if id.GetMSPIdentifier() != id.common.name {
 		return errors.Errorf("the supplied identity does not belong to this msp")
@@ -90,7 +90,7 @@ func (id *identity) Validate() error {
 	return id.verifyProof()
 }
 
-func (id *identity) Verify(msg []byte, sig []byte) error {
+func (id *MSPIdentity) Verify(msg []byte, sig []byte) error {
 	_, err := id.common.Csp.Verify(
 		id.NymPublicKey,
 		sig,
@@ -102,11 +102,11 @@ func (id *identity) Verify(msg []byte, sig []byte) error {
 	return err
 }
 
-func (id *identity) SatisfiesPrincipal(principal *m.MSPPrincipal) error {
+func (id *MSPIdentity) SatisfiesPrincipal(principal *m.MSPPrincipal) error {
 	panic("not implemented yet")
 }
 
-func (id *identity) Serialize() ([]byte, error) {
+func (id *MSPIdentity) Serialize() ([]byte, error) {
 	serialized := &m.SerializedIdemixIdentity{}
 
 	raw, err := id.NymPublicKey.Bytes()
@@ -145,7 +145,7 @@ func (id *identity) Serialize() ([]byte, error) {
 	return idBytes, nil
 }
 
-func (id *identity) verifyProof() error {
+func (id *MSPIdentity) verifyProof() error {
 	// Verify signature
 	var metadata *csp.IdemixSignerMetadata
 	if len(id.common.NymEID) != 0 {
@@ -163,7 +163,7 @@ func (id *identity) verifyProof() error {
 			RevocationPublicKey: id.common.revocationPK,
 			Attributes: []csp.IdemixAttribute{
 				{Type: csp.IdemixBytesAttribute, Value: []byte(id.OU.OrganizationalUnitIdentifier)},
-				{Type: csp.IdemixIntAttribute, Value: getIdemixRoleFromMSPRole(id.Role)},
+				{Type: csp.IdemixIntAttribute, Value: GetIdemixRoleFromMSPRole(id.Role)},
 				{Type: csp.IdemixHiddenAttribute},
 				{Type: csp.IdemixHiddenAttribute},
 			},
@@ -181,15 +181,15 @@ func (id *identity) verifyProof() error {
 	return err
 }
 
-type signingIdentity struct {
-	*identity
+type MSPSigningIdentity struct {
+	*MSPIdentity
 	Cred         []byte
 	UserKey      csp.Key
 	NymKey       csp.Key
 	enrollmentId string
 }
 
-func (id *signingIdentity) Sign(msg []byte) ([]byte, error) {
+func (id *MSPSigningIdentity) Sign(msg []byte) ([]byte, error) {
 	// logger.Debugf("Idemix identity %s is signing", id.GetIdentifier())
 
 	sig, err := id.common.Csp.Sign(
@@ -206,6 +206,6 @@ func (id *signingIdentity) Sign(msg []byte) ([]byte, error) {
 	return sig, nil
 }
 
-func (id *signingIdentity) GetPublicVersion() driver.Identity {
-	return id.identity
+func (id *MSPSigningIdentity) GetPublicVersion() driver.Identity {
+	return id.MSPIdentity
 }

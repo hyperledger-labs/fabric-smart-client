@@ -13,15 +13,15 @@ import (
 	"github.com/pkg/errors"
 )
 
-type deserialized struct {
-	id           *identity
+type Identity struct {
+	id           *MSPIdentity
 	NymPublicKey bccsp.Key
 	si           *m.SerializedIdentity
 	ou           *m.OrganizationUnit
 	role         *m.MSPRole
 }
 
-type common struct {
+type Idemix struct {
 	name            string
 	Ipk             []byte
 	Csp             bccsp.BCCSP
@@ -33,7 +33,7 @@ type common struct {
 	RhNym           []byte
 }
 
-func (s *common) Deserialize(raw []byte, checkValidity bool) (*deserialized, error) {
+func (s *Idemix) Deserialize(raw []byte, checkValidity bool) (*Identity, error) {
 	si := &m.SerializedIdentity{}
 	err := proto.Unmarshal(raw, si)
 	if err != nil {
@@ -82,7 +82,7 @@ func (s *common) Deserialize(raw []byte, checkValidity bool) (*deserialized, err
 		}
 	}
 
-	return &deserialized{
+	return &Identity{
 		id:           id,
 		NymPublicKey: NymPublicKey,
 		si:           si,
@@ -91,7 +91,7 @@ func (s *common) Deserialize(raw []byte, checkValidity bool) (*deserialized, err
 	}, nil
 }
 
-func (s *common) DeserializeAuditInfo(raw []byte) (*AuditInfo, error) {
+func (s *Idemix) DeserializeAuditInfo(raw []byte) (*AuditInfo, error) {
 	ai := &AuditInfo{
 		Csp:             s.Csp,
 		IssuerPublicKey: s.IssuerPublicKey,
@@ -100,4 +100,21 @@ func (s *common) DeserializeAuditInfo(raw []byte) (*AuditInfo, error) {
 		return nil, errors.Wrapf(err, "failed deserializing audit info [%s]", string(raw))
 	}
 	return ai, nil
+}
+
+type Verifier struct {
+	idd          *Deserializer
+	nymPublicKey bccsp.Key
+}
+
+func (v *Verifier) Verify(message, sigma []byte) error {
+	_, err := v.idd.Csp.Verify(
+		v.nymPublicKey,
+		sigma,
+		message,
+		&bccsp.IdemixNymSignerOpts{
+			IssuerPK: v.idd.IssuerPublicKey,
+		},
+	)
+	return err
 }
