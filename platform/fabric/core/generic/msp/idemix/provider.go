@@ -11,8 +11,6 @@ import (
 	"reflect"
 	"strconv"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
-
 	"github.com/IBM/idemix"
 	bccsp "github.com/IBM/idemix/bccsp/types"
 	"github.com/IBM/idemix/idemixmsp"
@@ -23,6 +21,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	m "github.com/hyperledger/fabric-protos-go/msp"
 	"github.com/pkg/errors"

@@ -11,12 +11,11 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/hyperledger/fabric/bccsp/factory"
-	"github.com/hyperledger/fabric/msp"
-
 	im "github.com/IBM/idemix/idemixmsp"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	m "github.com/hyperledger/fabric-protos-go/msp"
+	"github.com/hyperledger/fabric/bccsp/factory"
+	"github.com/hyperledger/fabric/msp"
 	"github.com/pkg/errors"
 )
 
