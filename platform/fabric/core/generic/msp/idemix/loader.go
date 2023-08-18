@@ -36,7 +36,7 @@ func (i *IdentityLoader) Load(manager driver.Manager, c config.MSP) error {
 	if c.CacheSize > 0 {
 		cacheSize = c.CacheSize
 	}
-	manager.AddMSP(c.ID, c.MSPType, provider.EnrollmentID(), NewIdentityCache(provider.Identity, cacheSize).Identity)
+	manager.AddMSP(c.ID, c.MSPType, provider.EnrollmentID(), NewIdentityCache(provider.Identity, cacheSize, nil).Identity)
 	logger.Debugf("added %s msp for id %s with cache of size %d", c.MSPType, c.ID+"@"+provider.EnrollmentID(), cacheSize)
 
 	return nil

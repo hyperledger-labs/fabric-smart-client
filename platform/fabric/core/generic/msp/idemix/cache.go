@@ -27,12 +27,14 @@ type IdentityCache struct {
 	once   sync.Once
 	backed IdentityCacheBackendFunc
 	cache  chan identityCacheEntry
+	opts   *driver.IdentityOptions
 }
 
-func NewIdentityCache(backed IdentityCacheBackendFunc, size int) *IdentityCache {
+func NewIdentityCache(backed IdentityCacheBackendFunc, size int, opts *driver.IdentityOptions) *IdentityCache {
 	ci := &IdentityCache{
 		backed: backed,
 		cache:  make(chan identityCacheEntry, size),
+		opts:   opts,
 	}
 
 	return ci
@@ -44,9 +46,11 @@ func (c *IdentityCache) Identity(opts *driver.IdentityOptions) (view.Identity, [
 	}
 
 	c.once.Do(func() {
-		// Spin up as many background goroutines as we need to prepare identities in the background.
-		for i := 0; i < runtime.NumCPU(); i++ {
-			go c.provisionIdentities()
+		if cap(c.cache) > 0 {
+			// Spin up as many background goroutines as we need to prepare identities in the background.
+			for i := 0; i < runtime.NumCPU(); i++ {
+				go c.provisionIdentities()
+			}
 		}
 	})
 
@@ -114,7 +118,7 @@ func (c *IdentityCache) fetchIdentityFromBackend(opts *driver.IdentityOptions) (
 
 func (c *IdentityCache) provisionIdentities() {
 	for {
-		id, audit, err := c.backed(nil)
+		id, audit, err := c.backed(c.opts)
 		if err != nil {
 			continue
 		}

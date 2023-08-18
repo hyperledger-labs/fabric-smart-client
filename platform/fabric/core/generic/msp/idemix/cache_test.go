@@ -17,12 +17,9 @@ import (
 )
 
 func TestIdentityCache(t *testing.T) {
-	c := NewIdentityCache(
-		func(opts *api2.IdentityOptions) (view.Identity, []byte, error) {
-			return []byte("hello world"), []byte("audit"), nil
-		},
-		100,
-	)
+	c := NewIdentityCache(func(opts *api2.IdentityOptions) (view.Identity, []byte, error) {
+		return []byte("hello world"), []byte("audit"), nil
+	}, 100, nil)
 	id, audit, err := c.Identity(&api2.IdentityOptions{
 		EIDExtension: true,
 		AuditInfo:    nil,
