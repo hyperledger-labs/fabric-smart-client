@@ -33,7 +33,11 @@ type Idemix struct {
 	RhNym           []byte
 }
 
-func (s *Idemix) Deserialize(raw []byte, checkValidity bool) (*Identity, error) {
+func (c *Idemix) Deserialize(raw []byte, checkValidity bool) (*Identity, error) {
+	return c.DeserializeAgainstNymEID(raw, checkValidity, nil)
+}
+
+func (c *Idemix) DeserializeAgainstNymEID(raw []byte, checkValidity bool, nymEID []byte) (*Identity, error) {
 	si := &m.SerializedIdentity{}
 	err := proto.Unmarshal(raw, si)
 	if err != nil {
@@ -53,7 +57,7 @@ func (s *Idemix) Deserialize(raw []byte, checkValidity bool) (*Identity, error) 
 	var rawNymPublicKey []byte
 	rawNymPublicKey = append(rawNymPublicKey, serialized.NymX...)
 	rawNymPublicKey = append(rawNymPublicKey, serialized.NymY...)
-	NymPublicKey, err := s.Csp.KeyImport(
+	NymPublicKey, err := c.Csp.KeyImport(
 		rawNymPublicKey,
 		&bccsp.IdemixNymPublicKeyImportOpts{Temporary: true},
 	)
@@ -75,7 +79,31 @@ func (s *Idemix) Deserialize(raw []byte, checkValidity bool) (*Identity, error) 
 		return nil, errors.Wrap(err, "cannot deserialize the role of the identity")
 	}
 
-	id, _ := NewMSPIdentityWithVerType(s, NymPublicKey, role, ou, serialized.Proof, s.VerType)
+	idemix := c
+	if len(nymEID) != 0 {
+		idemix = &Idemix{
+			Name:            c.Name,
+			Ipk:             c.Ipk,
+			Csp:             c.Csp,
+			IssuerPublicKey: c.IssuerPublicKey,
+			RevocationPK:    c.RevocationPK,
+			Epoch:           c.Epoch,
+			VerType:         c.VerType,
+			NymEID:          nymEID,
+		}
+	}
+
+	id, err := NewMSPIdentityWithVerType(
+		idemix,
+		NymPublicKey,
+		role,
+		ou,
+		serialized.Proof,
+		c.VerType,
+	)
+	if err != nil {
+		return nil, errors.Wrap(err, "cannot deserialize")
+	}
 	if checkValidity {
 		if err := id.Validate(); err != nil {
 			return nil, errors.Wrap(err, "cannot deserialize, invalid identity")
@@ -92,13 +120,12 @@ func (s *Idemix) Deserialize(raw []byte, checkValidity bool) (*Identity, error) 
 }
 
 func (s *Idemix) DeserializeAuditInfo(raw []byte) (*AuditInfo, error) {
-	ai := &AuditInfo{
-		Csp:             s.Csp,
-		IssuerPublicKey: s.IssuerPublicKey,
-	}
-	if err := ai.FromBytes(raw); err != nil {
+	ai, err := DeserializeAuditInfo(raw)
+	if err != nil {
 		return nil, errors.Wrapf(err, "failed deserializing audit info [%s]", string(raw))
 	}
+	ai.Csp = s.Csp
+	ai.IssuerPublicKey = s.IssuerPublicKey
 	return ai, nil
 }
 

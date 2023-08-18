@@ -31,14 +31,6 @@ func NewDeserializer(ipk []byte) (*Deserializer, error) {
 	return NewDeserializerWithBCCSP(ipk, csp.BestEffort, nil, bccsp)
 }
 
-func NewDeserializerForNymEID(ipk []byte, nymEID []byte) (*Deserializer, error) {
-	bccsp, err := NewBCCSP(math.FP256BN_AMCL)
-	if err != nil {
-		return nil, errors.WithMessagef(err, "failed to instantiate bccsp")
-	}
-	return NewDeserializerWithBCCSP(ipk, csp.BestEffort, nymEID, bccsp)
-}
-
 func NewDeserializerWithBCCSP(ipk []byte, verType csp.VerificationType, nymEID []byte, cryptoProvider csp.BCCSP) (*Deserializer, error) {
 	logger.Debugf("Setting up Idemix-based MSP instance")
 
