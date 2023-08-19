@@ -9,11 +9,9 @@ package idemix
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-
 	api2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestIdentityCache(t *testing.T) {
