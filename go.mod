@@ -1,10 +1,11 @@
 module github.com/hyperledger-labs/fabric-smart-client
 
-go 1.20
+go 1.19
 
 require (
-	github.com/IBM/idemix v0.0.2-0.20230510082947-a0c3ee5ebe35
-	github.com/IBM/mathlib v0.0.3-0.20230428120512-8afa4e643d4c
+	github.com/IBM/idemix v0.0.2-0.20230818094413-71dd11112cb5
+	github.com/IBM/idemix/bccsp/types v0.0.0-20230818094413-71dd11112cb5
+	github.com/IBM/mathlib v0.0.3-0.20230605104224-932ab92f2ce0
 	github.com/ReneKroon/ttlcache/v2 v2.11.0
 	github.com/dgraph-io/badger/v3 v3.2103.2
 	github.com/docker/docker v20.10.24+incompatible
@@ -41,7 +42,7 @@ require (
 	github.com/prometheus/client_golang v1.14.0
 	github.com/spf13/cobra v1.5.0
 	github.com/spf13/viper v1.10.1
-	github.com/stretchr/testify v1.8.2
+	github.com/stretchr/testify v1.8.4
 	github.com/sykesm/zap-logfmt v0.0.4
 	github.com/tedsuo/ifrit v0.0.0-20220120221754-dd274de71113
 	github.com/test-go/testify v1.1.4
@@ -58,6 +59,9 @@ require (
 )
 
 require (
+	github.com/IBM/idemix/bccsp/schemes/aries v0.0.0-20230818094413-71dd11112cb5 // indirect
+	github.com/IBM/idemix/bccsp/schemes/weak-bb v0.0.0-20230818094413-71dd11112cb5 // indirect
+	github.com/ale-linux/aries-framework-go/component/kmscrypto v0.0.0-20230817163708-4b3de6d91874 // indirect
 	github.com/bits-and-blooms/bitset v1.2.1 // indirect
 	github.com/cenkalti/backoff/v4 v4.2.0 // indirect
 	github.com/consensys/bavard v0.1.13 // indirect
@@ -149,7 +153,7 @@ require (
 	github.com/hashicorp/golang-lru v0.5.4 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/huin/goupnp v1.1.0 // indirect
-	github.com/hyperledger/fabric-amcl v0.0.0-20210603140002-2670f91851c8 // indirect
+	github.com/hyperledger/fabric-amcl v0.0.0-20230602173724-9e02669dceb2 // indirect
 	github.com/hyperledger/fabric-config v0.1.0 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/ipfs/go-cid v0.4.1 // indirect

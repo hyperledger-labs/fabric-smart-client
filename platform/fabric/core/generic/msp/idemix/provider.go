@@ -12,11 +12,7 @@ import (
 	"strconv"
 
 	"github.com/IBM/idemix"
-	csp "github.com/IBM/idemix/bccsp"
-	"github.com/IBM/idemix/bccsp/keystore"
-	bccsp "github.com/IBM/idemix/bccsp/schemes"
-	idemix2 "github.com/IBM/idemix/bccsp/schemes/dlog/crypto"
-	"github.com/IBM/idemix/bccsp/schemes/dlog/crypto/translator/amcl"
+	bccsp "github.com/IBM/idemix/bccsp/types"
 	"github.com/IBM/idemix/idemixmsp"
 	math "github.com/IBM/mathlib"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
@@ -42,7 +38,6 @@ const (
 	Any bccsp.SignatureType = 100
 )
 
-// TODO: remove this
 type SignerService interface {
 	RegisterSigner(identity view.Identity, signer driver.Signer, verifier driver.Verifier) error
 }
@@ -56,10 +51,10 @@ func GetSignerService(ctx view2.ServiceProvider) SignerService {
 }
 
 type Provider struct {
-	*common
-	userKey bccsp.Key
-	conf    idemixmsp.IdemixMSPConfig
-	sp      view2.ServiceProvider
+	*Idemix
+	userKey       bccsp.Key
+	conf          idemixmsp.IdemixMSPConfig
+	SignerService SignerService
 
 	sigType bccsp.SignatureType
 	verType bccsp.VerificationType
@@ -78,53 +73,38 @@ func NewProviderWithAnyPolicy(conf1 *m.MSPConfig, sp view2.ServiceProvider) (*Pr
 }
 
 func NewProviderWithAnyPolicyAndCurve(conf1 *m.MSPConfig, sp view2.ServiceProvider, curveID math.CurveID) (*Provider, error) {
-	return NewProvider(conf1, sp, Any, curveID)
+	cryptoProvider, err := NewKSVBCCSP(kvs.GetService(sp), curveID, false)
+	if err != nil {
+		return nil, err
+	}
+	return NewProvider(conf1, GetSignerService(sp), Any, cryptoProvider)
 }
 
 func NewProviderWithSigType(conf1 *m.MSPConfig, sp view2.ServiceProvider, sigType bccsp.SignatureType) (*Provider, error) {
-	return NewProvider(conf1, sp, sigType, math.FP256BN_AMCL)
+	cryptoProvider, err := NewKSVBCCSP(kvs.GetService(sp), math.FP256BN_AMCL, false)
+	if err != nil {
+		return nil, err
+	}
+	return NewProvider(conf1, GetSignerService(sp), sigType, cryptoProvider)
 }
 
 func NewProviderWithSigTypeAncCurve(conf1 *m.MSPConfig, sp view2.ServiceProvider, sigType bccsp.SignatureType, curveID math.CurveID) (*Provider, error) {
-	return NewProvider(conf1, sp, sigType, curveID)
+	cryptoProvider, err := NewKSVBCCSP(kvs.GetService(sp), curveID, false)
+	if err != nil {
+		return nil, err
+	}
+	return NewProvider(conf1, GetSignerService(sp), sigType, cryptoProvider)
 }
 
-func NewProvider(conf1 *m.MSPConfig, sp view2.ServiceProvider, sigType bccsp.SignatureType, curveID math.CurveID) (*Provider, error) {
+func NewProvider(conf1 *m.MSPConfig, signerService SignerService, sigType bccsp.SignatureType, cryptoProvider bccsp.BCCSP) (*Provider, error) {
 	logger.Debugf("Setting up Idemix-based MSP instance")
 
 	if conf1 == nil {
 		return nil, errors.Errorf("setup error: nil conf reference")
 	}
 
-	curve := math.Curves[curveID]
-	var tr idemix2.Translator
-	switch curveID {
-	case math.BN254:
-		tr = &amcl.Gurvy{C: curve}
-	case math.BLS12_377_GURVY:
-		tr = &amcl.Gurvy{C: curve}
-	case math.FP256BN_AMCL:
-		tr = &amcl.Fp256bn{C: curve}
-	case math.FP256BN_AMCL_MIRACL:
-		tr = &amcl.Fp256bnMiracl{C: curve}
-	default:
-		return nil, errors.Errorf("unsupported curve ID: %d", curveID)
-	}
-
-	kvss := kvs.GetService(sp)
-	keystore := &keystore.KVSStore{
-		KVS:        kvss,
-		Curve:      curve,
-		Translator: tr,
-	}
-
-	cryptoProvider, err := csp.New(keystore, curve, tr, true)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed getting crypto provider")
-	}
-
 	var conf idemixmsp.IdemixMSPConfig
-	err = proto.Unmarshal(conf1.Config, &conf)
+	err := proto.Unmarshal(conf1.Config, &conf)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed unmarshalling idemix provider config")
 	}
@@ -162,7 +142,7 @@ func NewProvider(conf1 *m.MSPConfig, sp view2.ServiceProvider, sigType bccsp.Sig
 		return nil, errors.Errorf("idemix provider setup as verification only provider (no key material found)")
 	}
 
-	// A credential is present in the config, so we setup a default signer
+	// A credential is present in the config, so we set up a default signer
 
 	// Import User secret key
 	userKey, err := cryptoProvider.KeyImport(conf.Signer.Sk, &bccsp.IdemixUserSecretKeyImportOpts{Temporary: true})
@@ -190,7 +170,7 @@ func NewProvider(conf1 *m.MSPConfig, sp view2.ServiceProvider, sigType bccsp.Sig
 		MspIdentifier: conf.Name,
 		Role:          m.MSPRole_MEMBER,
 	}
-	if checkRole(int(conf.Signer.Role), ADMIN) {
+	if CheckRole(int(conf.Signer.Role), ADMIN) {
 		role.Role = m.MSPRole_ADMIN
 	}
 	valid, err := cryptoProvider.Verify(
@@ -201,7 +181,7 @@ func NewProvider(conf1 *m.MSPConfig, sp view2.ServiceProvider, sigType bccsp.Sig
 			IssuerPK: issuerPublicKey,
 			Attributes: []bccsp.IdemixAttribute{
 				{Type: bccsp.IdemixBytesAttribute, Value: []byte(conf.Signer.OrganizationalUnitIdentifier)},
-				{Type: bccsp.IdemixIntAttribute, Value: getIdemixRoleFromMSPRole(role)},
+				{Type: bccsp.IdemixIntAttribute, Value: GetIdemixRoleFromMSPRole(role)},
 				{Type: bccsp.IdemixBytesAttribute, Value: []byte(conf.Signer.EnrollmentId)},
 				{Type: bccsp.IdemixHiddenAttribute},
 			},
@@ -212,19 +192,19 @@ func NewProvider(conf1 *m.MSPConfig, sp view2.ServiceProvider, sigType bccsp.Sig
 	}
 
 	return &Provider{
-		common: &common{
-			name:            conf.Name,
+		Idemix: &Idemix{
+			Name:            conf.Name,
 			Csp:             cryptoProvider,
 			IssuerPublicKey: issuerPublicKey,
-			revocationPK:    RevocationPublicKey,
-			epoch:           0,
+			RevocationPK:    RevocationPublicKey,
+			Epoch:           0,
 			VerType:         verType,
 		},
-		userKey: userKey,
-		conf:    conf,
-		sp:      sp,
-		sigType: sigType,
-		verType: verType,
+		userKey:       userKey,
+		conf:          conf,
+		SignerService: signerService,
+		sigType:       sigType,
+		verType:       verType,
 	}, nil
 }
 
@@ -246,15 +226,15 @@ func (p *Provider) Identity(opts *driver2.IdentityOptions) (view.Identity, []byt
 	}
 
 	role := &m.MSPRole{
-		MspIdentifier: p.name,
+		MspIdentifier: p.Name,
 		Role:          m.MSPRole_MEMBER,
 	}
-	if checkRole(int(p.conf.Signer.Role), ADMIN) {
+	if CheckRole(int(p.conf.Signer.Role), ADMIN) {
 		role.Role = m.MSPRole_ADMIN
 	}
 
 	ou := &m.OrganizationUnit{
-		MspIdentifier:                p.name,
+		MspIdentifier:                p.Name,
 		OrganizationalUnitIdentifier: p.conf.Signer.OrganizationalUnitIdentifier,
 		CertifiersIdentifier:         p.IssuerPublicKey.SKI(),
 	}
@@ -307,21 +287,26 @@ func (p *Provider) Identity(opts *driver2.IdentityOptions) (view.Identity, []byt
 	}
 
 	// Set up default signer
-	sID := &signingIdentity{
-		identity:     newIdentityWithVerType(p.common, NymPublicKey, role, ou, proof, p.verType),
+	id, err := NewMSPIdentityWithVerType(p.Idemix, NymPublicKey, role, ou, proof, p.verType)
+	if err != nil {
+		return nil, nil, err
+	}
+	sID := &MSPSigningIdentity{
+		MSPIdentity:  id,
 		Cred:         p.conf.Signer.Cred,
 		UserKey:      p.userKey,
 		NymKey:       nymKey,
-		enrollmentId: enrollmentID,
+		EnrollmentId: enrollmentID,
 	}
-
 	raw, err := sID.Serialize()
 	if err != nil {
 		return nil, nil, err
 	}
 
-	if err := GetSignerService(p.sp).RegisterSigner(raw, sID, sID); err != nil {
-		return nil, nil, err
+	if p.SignerService != nil {
+		if err := p.SignerService.RegisterSigner(raw, sID, sID); err != nil {
+			return nil, nil, err
+		}
 	}
 
 	var infoRaw []byte
@@ -336,7 +321,7 @@ func (p *Provider) Identity(opts *driver2.IdentityOptions) (view.Identity, []byt
 			RhNymAuditData:  sigOpts.Metadata.RhNymAuditData,
 			Attributes: [][]byte{
 				[]byte(p.conf.Signer.OrganizationalUnitIdentifier),
-				[]byte(strconv.Itoa(getIdemixRoleFromMSPRole(role))),
+				[]byte(strconv.Itoa(GetIdemixRoleFromMSPRole(role))),
 				[]byte(enrollmentID),
 				[]byte(rh),
 			},
@@ -358,7 +343,7 @@ func (p *Provider) DeserializeVerifier(raw []byte) (driver.Verifier, error) {
 		return nil, err
 	}
 
-	return r.id, nil
+	return r.Identity, nil
 }
 
 func (p *Provider) DeserializeSigner(raw []byte) (driver.Signer, error) {
@@ -372,12 +357,12 @@ func (p *Provider) DeserializeSigner(raw []byte) (driver.Signer, error) {
 		return nil, errors.Wrap(err, "cannot find nym secret key")
 	}
 
-	si := &signingIdentity{
-		identity:     r.id,
+	si := &MSPSigningIdentity{
+		MSPIdentity:  r.Identity,
 		Cred:         p.conf.Signer.Cred,
 		UserKey:      p.userKey,
 		NymKey:       nymKey,
-		enrollmentId: p.conf.Signer.EnrollmentId,
+		EnrollmentId: p.conf.Signer.EnrollmentId,
 	}
 	msg := []byte("hello world!!!")
 	sigma, err := si.Sign(msg)
@@ -411,7 +396,7 @@ func (p *Provider) Info(raw []byte, auditInfo []byte) (string, error) {
 		eid = ai.EnrollmentID()
 	}
 
-	return fmt.Sprintf("MSP.Idemix: [%s][%s][%s][%s][%s]", eid, view.Identity(raw).UniqueID(), r.si.Mspid, r.ou.OrganizationalUnitIdentifier, r.role.Role.String()), nil
+	return fmt.Sprintf("MSP.Idemix: [%s][%s][%s][%s][%s]", eid, view.Identity(raw).UniqueID(), r.SerializedIdentity.Mspid, r.OU.OrganizationalUnitIdentifier, r.Role.Role.String()), nil
 }
 
 func (p *Provider) String() string {
@@ -464,7 +449,7 @@ func (p *Provider) DeserializeSigningIdentity(raw []byte) (driver.SigningIdentit
 		return nil, errors.Wrap(err, "cannot deserialize the role of the identity")
 	}
 
-	id := newIdentityWithVerType(p.common, NymPublicKey, role, ou, serialized.Proof, p.verType)
+	id, _ := NewMSPIdentityWithVerType(p.Idemix, NymPublicKey, role, ou, serialized.Proof, p.verType)
 	if err := id.Validate(); err != nil {
 		return nil, errors.Wrap(err, "cannot deserialize, invalid identity")
 	}
@@ -473,11 +458,11 @@ func (p *Provider) DeserializeSigningIdentity(raw []byte) (driver.SigningIdentit
 		return nil, errors.Wrap(err, "cannot find nym secret key")
 	}
 
-	return &signingIdentity{
-		identity:     id,
+	return &MSPSigningIdentity{
+		MSPIdentity:  id,
 		Cred:         p.conf.Signer.Cred,
 		UserKey:      p.userKey,
 		NymKey:       nymKey,
-		enrollmentId: p.conf.Signer.EnrollmentId,
+		EnrollmentId: p.conf.Signer.EnrollmentId,
 	}, nil
 }

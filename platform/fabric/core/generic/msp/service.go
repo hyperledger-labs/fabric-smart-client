@@ -246,7 +246,7 @@ func (s *service) RegisterIdemixMSP(id string, path string, mspID string) error 
 	}
 
 	s.DeserializerManager().AddDeserializer(provider)
-	s.AddMSP(id, IdemixMSP, provider.EnrollmentID(), idemix.NewIdentityCache(provider.Identity, s.cacheSize).Identity)
+	s.AddMSP(id, IdemixMSP, provider.EnrollmentID(), idemix.NewIdentityCache(provider.Identity, s.cacheSize, nil).Identity)
 	logger.Debugf("added IdemixMSP msp for id %s with cache of size %d", id+"@"+provider.EnrollmentID(), s.cacheSize)
 	return nil
 }

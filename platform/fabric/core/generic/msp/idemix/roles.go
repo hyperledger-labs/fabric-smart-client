@@ -26,13 +26,13 @@ func (role Role) getValue() int {
 	return int(role)
 }
 
-// checkRole Prove that the desired role is contained or not in the bitmask
-func checkRole(bitmask int, role Role) bool {
+// CheckRole Prove that the desired role is contained or not in the bitmask
+func CheckRole(bitmask int, role Role) bool {
 	return (bitmask & role.getValue()) == role.getValue()
 }
 
-// getRoleMaskFromIdemixRoles Receive a list of roles to combine in a single bitmask
-func getRoleMaskFromIdemixRoles(roles []Role) int {
+// GetRoleMaskFromIdemixRoles Receive a list of roles to combine in a single bitmask
+func GetRoleMaskFromIdemixRoles(roles []Role) int {
 	mask := 0
 	for _, role := range roles {
 		mask = mask | role.getValue()
@@ -42,21 +42,21 @@ func getRoleMaskFromIdemixRoles(roles []Role) int {
 
 // GetRoleMaskFromIdemixRole return a bitmask for one role
 func GetRoleMaskFromIdemixRole(role Role) int {
-	return getRoleMaskFromIdemixRoles([]Role{role})
+	return GetRoleMaskFromIdemixRoles([]Role{role})
 }
 
-// getIdemixRoleFromMSPRole gets a MSP Role type and returns the integer value
-func getIdemixRoleFromMSPRole(role *m.MSPRole) int {
-	return getIdemixRoleFromMSPRoleType(role.GetRole())
+// GetIdemixRoleFromMSPRole gets a MSP Role type and returns the integer value
+func GetIdemixRoleFromMSPRole(role *m.MSPRole) int {
+	return GetIdemixRoleFromMSPRoleType(role.GetRole())
 }
 
 // GetIdemixRoleFromMSPRoleType gets a MSP role type and returns the integer value
-func getIdemixRoleFromMSPRoleType(rtype m.MSPRole_MSPRoleType) int {
-	return getIdemixRoleFromMSPRoleValue(int(rtype))
+func GetIdemixRoleFromMSPRoleType(rtype m.MSPRole_MSPRoleType) int {
+	return GetIdemixRoleFromMSPRoleValue(int(rtype))
 }
 
-// getIdemixRoleFromMSPRoleValue Receives a MSP role value and returns the idemix equivalent
-func getIdemixRoleFromMSPRoleValue(role int) int {
+// GetIdemixRoleFromMSPRoleValue Receives a MSP role value and returns the idemix equivalent
+func GetIdemixRoleFromMSPRoleValue(role int) int {
 	switch role {
 	case int(m.MSPRole_ADMIN):
 		return ADMIN.getValue()
