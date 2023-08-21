@@ -1,5 +1,5 @@
 # pinned versions
-FABRIC_VERSION ?= 2.5.3
+FABRIC_VERSION ?= 2.5.4
 FABRIC_TWO_DIGIT_VERSION = $(shell echo $(FABRIC_VERSION) | cut -d '.' -f 1,2)
 ORION_VERSION=v0.2.5
 
