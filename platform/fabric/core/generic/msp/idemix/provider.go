@@ -138,16 +138,47 @@ func NewProvider(conf1 *m.MSPConfig, signerService SignerService, sigType bccsp.
 
 	if conf.Signer == nil {
 		// No credential in config, so we don't setup a default signer
-		logger.Debug("idemix provider setup as verification only provider (no key material found)")
-		return nil, errors.Errorf("idemix provider setup as verification only provider (no key material found)")
+		return nil, errors.Errorf("no signer information found")
 	}
 
-	// A credential is present in the config, so we set up a default signer
+	var userKey bccsp.Key
+	if len(conf.Signer.Sk) != 0 && len(conf.Signer.Cred) != 0 {
+		// A credential is present in the config, so we set up a default signer
+		logger.Debugf("the signer contains key material, load it")
 
-	// Import User secret key
-	userKey, err := cryptoProvider.KeyImport(conf.Signer.Sk, &bccsp.IdemixUserSecretKeyImportOpts{Temporary: true})
-	if err != nil {
-		return nil, errors.WithMessage(err, "failed importing signer secret key")
+		// Import User secret key
+		userKey, err = cryptoProvider.KeyImport(conf.Signer.Sk, &bccsp.IdemixUserSecretKeyImportOpts{Temporary: true})
+		if err != nil {
+			return nil, errors.WithMessage(err, "failed importing signer secret key")
+		}
+
+		// Verify credential
+		role := &m.MSPRole{
+			MspIdentifier: conf.Name,
+			Role:          m.MSPRole_MEMBER,
+		}
+		if CheckRole(int(conf.Signer.Role), ADMIN) {
+			role.Role = m.MSPRole_ADMIN
+		}
+		valid, err := cryptoProvider.Verify(
+			userKey,
+			conf.Signer.Cred,
+			nil,
+			&bccsp.IdemixCredentialSignerOpts{
+				IssuerPK: issuerPublicKey,
+				Attributes: []bccsp.IdemixAttribute{
+					{Type: bccsp.IdemixBytesAttribute, Value: []byte(conf.Signer.OrganizationalUnitIdentifier)},
+					{Type: bccsp.IdemixIntAttribute, Value: GetIdemixRoleFromMSPRole(role)},
+					{Type: bccsp.IdemixBytesAttribute, Value: []byte(conf.Signer.EnrollmentId)},
+					{Type: bccsp.IdemixHiddenAttribute},
+				},
+			},
+		)
+		if err != nil || !valid {
+			return nil, errors.WithMessage(err, "credential is not cryptographically valid")
+		}
+	} else {
+		logger.Debugf("the signer does not contain full key material [cred=%d,sk=%d]", len(conf.Signer.Cred), len(conf.Signer.Sk))
 	}
 
 	var verType bccsp.VerificationType
@@ -163,32 +194,6 @@ func NewProvider(conf1 *m.MSPConfig, signerService SignerService, sigType bccsp.
 	}
 	if verType == bccsp.BestEffort {
 		sigType = bccsp.Standard
-	}
-
-	// Verify credential
-	role := &m.MSPRole{
-		MspIdentifier: conf.Name,
-		Role:          m.MSPRole_MEMBER,
-	}
-	if CheckRole(int(conf.Signer.Role), ADMIN) {
-		role.Role = m.MSPRole_ADMIN
-	}
-	valid, err := cryptoProvider.Verify(
-		userKey,
-		conf.Signer.Cred,
-		nil,
-		&bccsp.IdemixCredentialSignerOpts{
-			IssuerPK: issuerPublicKey,
-			Attributes: []bccsp.IdemixAttribute{
-				{Type: bccsp.IdemixBytesAttribute, Value: []byte(conf.Signer.OrganizationalUnitIdentifier)},
-				{Type: bccsp.IdemixIntAttribute, Value: GetIdemixRoleFromMSPRole(role)},
-				{Type: bccsp.IdemixBytesAttribute, Value: []byte(conf.Signer.EnrollmentId)},
-				{Type: bccsp.IdemixHiddenAttribute},
-			},
-		},
-	)
-	if err != nil || !valid {
-		return nil, errors.WithMessage(err, "credential is not cryptographically valid")
 	}
 
 	return &Provider{
@@ -335,6 +340,10 @@ func (p *Provider) Identity(opts *driver2.IdentityOptions) (view.Identity, []byt
 		panic("invalid sig type")
 	}
 	return raw, infoRaw, nil
+}
+
+func (p *Provider) IsRemote() bool {
+	return p.userKey == nil
 }
 
 func (p *Provider) DeserializeVerifier(raw []byte) (driver.Verifier, error) {
