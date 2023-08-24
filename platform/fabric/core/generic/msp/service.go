@@ -255,7 +255,7 @@ func (s *service) RegisterX509MSP(id string, path string, mspID string) error {
 	s.mspsMutex.Lock()
 	defer s.mspsMutex.Unlock()
 
-	provider, err := x509.NewProvider(path, mspID, s.signerService)
+	provider, err := x509.NewProvider(path, "", mspID, s.signerService)
 	if err != nil {
 		return errors.Wrapf(err, "failed instantiating idemix msp provider from [%s]", path)
 	}
