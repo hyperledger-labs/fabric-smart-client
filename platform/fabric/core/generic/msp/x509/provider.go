@@ -32,15 +32,15 @@ type Provider struct {
 
 // NewProvider returns a new X509 provider. If the configuration path contains the secret key,
 // then the provider can generate also signatures, otherwise it cannot.
-func NewProvider(mspConfigPath, mspID string, signerService SignerService) (*Provider, error) {
-	return NewProviderWithBCCSPConfig(mspConfigPath, mspID, signerService, nil)
+func NewProvider(mspConfigPath, keyStorePath, mspID string, signerService SignerService) (*Provider, error) {
+	return NewProviderWithBCCSPConfig(mspConfigPath, keyStorePath, mspID, signerService, nil)
 }
 
 // NewProviderWithBCCSPConfig returns a new X509 provider with the passed BCCSP configuration.
 // If the configuration path contains the secret key,
 // then the provider can generate also signatures, otherwise it cannot.
-func NewProviderWithBCCSPConfig(mspConfigPath, mspID string, signerService SignerService, bccspConfig *config.BCCSP) (*Provider, error) {
-	p, err := newProvider(mspConfigPath, mspID, signerService, bccspConfig)
+func NewProviderWithBCCSPConfig(mspConfigPath, keyStorePath, mspID string, signerService SignerService, bccspConfig *config.BCCSP) (*Provider, error) {
+	p, err := newProvider(mspConfigPath, keyStorePath, mspID, signerService, bccspConfig)
 	if err == nil {
 		return p, nil
 	}
@@ -57,8 +57,8 @@ func NewProviderWithBCCSPConfig(mspConfigPath, mspID string, signerService Signe
 	return &Provider{id: idRaw, enrollmentID: enrollmentID}, nil
 }
 
-func newProvider(mspConfigPath, mspID string, signerService SignerService, bccspConfig *config.BCCSP) (*Provider, error) {
-	sID, err := GetSigningIdentity(mspConfigPath, mspID, bccspConfig)
+func newProvider(mspConfigPath, keyStorePath, mspID string, signerService SignerService, bccspConfig *config.BCCSP) (*Provider, error) {
+	sID, err := GetSigningIdentity(mspConfigPath, keyStorePath, mspID, bccspConfig)
 	if err != nil {
 		return nil, err
 	}

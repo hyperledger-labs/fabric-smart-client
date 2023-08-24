@@ -46,7 +46,7 @@ func TestInfoIdemix(t *testing.T) {
 }
 
 func TestInfoX509(t *testing.T) {
-	p, err := x5092.NewProvider("./testdata/x509", "apple", nil)
+	p, err := x5092.NewProvider("./testdata/x509", "", "apple", nil)
 	assert.NoError(t, err)
 	id, _, err := p.Identity(nil)
 	assert.NoError(t, err)

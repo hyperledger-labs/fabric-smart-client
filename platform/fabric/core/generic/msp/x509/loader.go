@@ -44,21 +44,11 @@ func (i *IdentityLoader) Load(manager driver.Manager, c config.MSP) error {
 
 	// Try without "msp"
 	rootPath := filepath.Join(manager.Config().TranslatePath(c.Path))
-	provider, err := NewProviderWithBCCSPConfig(
-		rootPath,
-		c.MSPID,
-		manager.SignerService(),
-		bccspOpts,
-	)
+	provider, err := NewProviderWithBCCSPConfig(rootPath, "", c.MSPID, manager.SignerService(), bccspOpts)
 	if err != nil {
 		logger.Warnf("failed reading bccsp msp configuration from [%s]: [%s]", rootPath, err)
 		// Try with "msp"
-		provider, err = NewProviderWithBCCSPConfig(
-			filepath.Join(rootPath, "msp"),
-			c.MSPID,
-			manager.SignerService(),
-			bccspOpts,
-		)
+		provider, err = NewProviderWithBCCSPConfig(filepath.Join(rootPath, "msp"), "", c.MSPID, manager.SignerService(), bccspOpts)
 		if err != nil {
 			logger.Warnf("failed reading bccsp msp configuration from [%s and %s]: [%s]",
 				rootPath, filepath.Join(rootPath, "msp"), err,

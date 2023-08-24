@@ -31,9 +31,10 @@ const (
 	SignCerts = "signcerts"
 )
 
-// GetSigningIdentity retrieves a signing identity from the passed arguments
-func GetSigningIdentity(mspConfigPath, mspID string, bccspConfig *config.BCCSP) (driver.SigningIdentity, error) {
-	mspInstance, err := LoadLocalMSPAt(mspConfigPath, mspID, BCCSPType, bccspConfig)
+// GetSigningIdentity retrieves a signing identity from the passed arguments.
+// If keyStorePath is empty, then it is assumed that the key is at mspConfigPath/keystore
+func GetSigningIdentity(mspConfigPath, keyStorePath, mspID string, bccspConfig *config.BCCSP) (driver.SigningIdentity, error) {
+	mspInstance, err := LoadLocalMSPAt(mspConfigPath, keyStorePath, mspID, BCCSPType, bccspConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +49,7 @@ func GetSigningIdentity(mspConfigPath, mspID string, bccspConfig *config.BCCSP) 
 
 // LoadLocalMSPAt loads an MSP whose configuration is stored at 'dir', and whose
 // id and type are the passed as arguments.
-func LoadLocalMSPAt(dir, id, mspType string, bccspConfig *config.BCCSP) (msp.MSP, error) {
+func LoadLocalMSPAt(dir, keyStorePath, id, mspType string, bccspConfig *config.BCCSP) (msp.MSP, error) {
 	if mspType != BCCSPType {
 		return nil, errors.Errorf("invalid msp type, expected 'bccsp', got %s", mspType)
 	}
@@ -57,7 +58,7 @@ func LoadLocalMSPAt(dir, id, mspType string, bccspConfig *config.BCCSP) (msp.MSP
 		return nil, errors.WithMessagef(err, "could not get msp config from dir [%s]", dir)
 	}
 
-	cp, _, err := GetBCCSPFromConf(dir, bccspConfig)
+	cp, _, err := GetBCCSPFromConf(dir, keyStorePath, bccspConfig)
 	if err != nil {
 		return nil, errors.WithMessagef(err, "failed to get bccsp from config [%v]", bccspConfig)
 	}
@@ -89,7 +90,7 @@ func LoadVerifyingMSPAt(dir, id, mspType string) (msp.MSP, error) {
 		return nil, errors.WithMessagef(err, "could not get msp config from dir [%s]", dir)
 	}
 
-	cp, _, err := GetBCCSPFromConf(dir, nil)
+	cp, _, err := GetBCCSPFromConf(dir, "", nil)
 	if err != nil {
 		return nil, errors.WithMessagef(err, "failed to get bccsp")
 	}
@@ -121,14 +122,17 @@ func LoadLocalMSPSignerCert(dir string) ([]byte, error) {
 
 // GetBCCSPFromConf returns a BCCSP instance and its relative key store from the passed configuration.
 // If no configuration is passed, the default one is used, namely the `SW` provider.
-func GetBCCSPFromConf(dir string, conf *config.BCCSP) (bccsp.BCCSP, bccsp.KeyStore, error) {
+func GetBCCSPFromConf(dir string, keyStorePath string, conf *config.BCCSP) (bccsp.BCCSP, bccsp.KeyStore, error) {
+	if len(keyStorePath) == 0 {
+		keyStorePath = filepath.Join(dir, "keystore")
+	}
 	if conf == nil {
-		return GetSWBCCSP(dir)
+		return GetSWBCCSP(keyStorePath)
 	}
 
 	switch conf.Default {
 	case "SW":
-		return GetSWBCCSP(dir)
+		return GetSWBCCSP(keyStorePath)
 	case "PKCS11":
 		return GetPKCS11BCCSP(conf)
 	default:
@@ -172,7 +176,7 @@ func skiMapper(p11Opts config.PKCS11) func([]byte) []byte {
 
 // GetSWBCCSP returns a new instance of the software-based BCCSP
 func GetSWBCCSP(dir string) (bccsp.BCCSP, bccsp.KeyStore, error) {
-	ks, err := sw.NewFileBasedKeyStore(nil, filepath.Join(dir, "keystore"), true)
+	ks, err := sw.NewFileBasedKeyStore(nil, dir, true)
 	if err != nil {
 		return nil, nil, err
 	}
