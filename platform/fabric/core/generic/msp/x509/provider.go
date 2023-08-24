@@ -24,17 +24,40 @@ type SignerService interface {
 	RegisterSigner(identity view.Identity, signer fdriver.Signer, verifier fdriver.Verifier) error
 }
 
-type provider struct {
+type Provider struct {
 	sID          driver2.SigningIdentity
 	id           []byte
 	enrollmentID string
 }
 
-func NewProvider(mspConfigPath, mspID string, signerService SignerService) (*provider, error) {
+// NewProvider returns a new X509 provider. If the configuration path contains the secret key,
+// then the provider can generate also signatures, otherwise it cannot.
+func NewProvider(mspConfigPath, mspID string, signerService SignerService) (*Provider, error) {
 	return NewProviderWithBCCSPConfig(mspConfigPath, mspID, signerService, nil)
 }
 
-func NewProviderWithBCCSPConfig(mspConfigPath, mspID string, signerService SignerService, bccspConfig *config.BCCSP) (*provider, error) {
+// NewProviderWithBCCSPConfig returns a new X509 provider with the passed BCCSP configuration.
+// If the configuration path contains the secret key,
+// then the provider can generate also signatures, otherwise it cannot.
+func NewProviderWithBCCSPConfig(mspConfigPath, mspID string, signerService SignerService, bccspConfig *config.BCCSP) (*Provider, error) {
+	p, err := newProvider(mspConfigPath, mspID, signerService, bccspConfig)
+	if err == nil {
+		return p, nil
+	}
+
+	// load as verify only
+	idRaw, err := SerializeFromMSP(mspID, mspConfigPath)
+	if err != nil {
+		return nil, errors.WithMessagef(err, "failed to load msp identity at [%s]", mspConfigPath)
+	}
+	enrollmentID, err := GetEnrollmentID(idRaw)
+	if err != nil {
+		return nil, errors.WithMessagef(err, "failed to extract endorllment id from msp identity at [%s]", mspConfigPath)
+	}
+	return &Provider{id: idRaw, enrollmentID: enrollmentID}, nil
+}
+
+func newProvider(mspConfigPath, mspID string, signerService SignerService, bccspConfig *config.BCCSP) (*Provider, error) {
 	sID, err := GetSigningIdentity(mspConfigPath, mspID, bccspConfig)
 	if err != nil {
 		return nil, err
@@ -54,17 +77,21 @@ func NewProviderWithBCCSPConfig(mspConfigPath, mspID string, signerService Signe
 		return nil, errors.Wrapf(err, "failed getting enrollment id for [%s:%s]", mspConfigPath, mspID)
 	}
 
-	return &provider{sID: sID, id: idRaw, enrollmentID: enrollmentID}, nil
+	return &Provider{sID: sID, id: idRaw, enrollmentID: enrollmentID}, nil
 }
 
-func (p *provider) Identity(opts *fdriver.IdentityOptions) (view.Identity, []byte, error) {
-	revocationhandle, err := GetRevocationHandle(p.id)
+func (p *Provider) IsRemote() bool {
+	return p.sID == nil
+}
+
+func (p *Provider) Identity(opts *fdriver.IdentityOptions) (view.Identity, []byte, error) {
+	revocationHandle, err := GetRevocationHandle(p.id)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "failed getting revocation handle")
 	}
 	ai := &AuditInfo{
 		EnrollmentId:     p.enrollmentID,
-		RevocationHandle: revocationhandle,
+		RevocationHandle: revocationHandle,
 	}
 	infoRaw, err := ai.Bytes()
 	if err != nil {
@@ -74,11 +101,11 @@ func (p *provider) Identity(opts *fdriver.IdentityOptions) (view.Identity, []byt
 	return p.id, infoRaw, nil
 }
 
-func (p *provider) EnrollmentID() string {
+func (p *Provider) EnrollmentID() string {
 	return p.enrollmentID
 }
 
-func (p *provider) DeserializeVerifier(raw []byte) (driver.Verifier, error) {
+func (p *Provider) DeserializeVerifier(raw []byte) (driver.Verifier, error) {
 	si := &msp.SerializedIdentity{}
 	err := proto.Unmarshal(raw, si)
 	if err != nil {
@@ -98,11 +125,11 @@ func (p *provider) DeserializeVerifier(raw []byte) (driver.Verifier, error) {
 	return NewVerifier(publicKey), nil
 }
 
-func (p *provider) DeserializeSigner(raw []byte) (driver.Signer, error) {
+func (p *Provider) DeserializeSigner(raw []byte) (driver.Signer, error) {
 	return nil, errors.New("not supported")
 }
 
-func (p *provider) Info(raw []byte, auditInfo []byte) (string, error) {
+func (p *Provider) Info(raw []byte, auditInfo []byte) (string, error) {
 	si := &msp.SerializedIdentity{}
 	err := proto.Unmarshal(raw, si)
 	if err != nil {
@@ -115,10 +142,10 @@ func (p *provider) Info(raw []byte, auditInfo []byte) (string, error) {
 	return fmt.Sprintf("MSP.x509: [%s][%s][%s]", view.Identity(raw).UniqueID(), si.Mspid, cert.Subject.CommonName), nil
 }
 
-func (p *provider) SerializedIdentity() (driver2.SigningIdentity, error) {
+func (p *Provider) SerializedIdentity() (driver2.SigningIdentity, error) {
 	return p.sID, nil
 }
 
-func (p *provider) String() string {
+func (p *Provider) String() string {
 	return fmt.Sprintf("X509 Provider for EID [%s]", p.enrollmentID)
 }
