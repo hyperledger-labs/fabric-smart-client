@@ -119,13 +119,13 @@ func (c *Idemix) DeserializeAgainstNymEID(raw []byte, checkValidity bool, nymEID
 	}, nil
 }
 
-func (s *Idemix) DeserializeAuditInfo(raw []byte) (*AuditInfo, error) {
+func (c *Idemix) DeserializeAuditInfo(raw []byte) (*AuditInfo, error) {
 	ai, err := DeserializeAuditInfo(raw)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed deserializing audit info [%s]", string(raw))
 	}
-	ai.Csp = s.Csp
-	ai.IssuerPublicKey = s.IssuerPublicKey
+	ai.Csp = c.Csp
+	ai.IssuerPublicKey = c.IssuerPublicKey
 	return ai, nil
 }
 
