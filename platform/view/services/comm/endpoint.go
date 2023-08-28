@@ -16,6 +16,11 @@ import (
 
 func AddressToEndpoint(endpoint string) (string, error) {
 	s := strings.Split(endpoint, ":")
+	if len(s) > 2 {
+		if host := strings.Join(s[:len(s)-1], ":"); host == "[::1]" {
+			s = []string{"0.0.0.0", s[len(s)-1]}
+		}
+	}
 	if len(s) != 2 {
 		return "", errors.Errorf("invalid endpoint [%s], expected 2 components, got [%d]", endpoint, len(s))
 	}
