@@ -70,12 +70,12 @@ func GetLocalMspConfigWithType(dir string, id string) (*m.MSPConfig, error) {
 
 // GetIdemixMspConfigWithType returns the configuration for the Idemix MSP of the specified type
 func GetIdemixMspConfigWithType(dir string, ID string) (*m.MSPConfig, error) {
-	ipkBytes, err := readFile(filepath.Join(dir, idemix.IdemixConfigDirMsp, idemix.IdemixConfigFileIssuerPublicKey))
+	ipkBytes, err := ReadFile(filepath.Join(dir, idemix.IdemixConfigDirMsp, idemix.IdemixConfigFileIssuerPublicKey))
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to read issuer public key file")
 	}
 
-	revocationPkBytes, err := readFile(filepath.Join(dir, idemix.IdemixConfigDirMsp, idemix.IdemixConfigFileRevocationPublicKey))
+	revocationPkBytes, err := ReadFile(filepath.Join(dir, idemix.IdemixConfigDirMsp, idemix.IdemixConfigFileRevocationPublicKey))
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to read revocation public key file")
 	}
@@ -86,7 +86,7 @@ func GetIdemixMspConfigWithType(dir string, ID string) (*m.MSPConfig, error) {
 		RevocationPk: revocationPkBytes,
 	}
 
-	signerBytes, err := readFile(filepath.Join(dir, idemix.IdemixConfigDirUser, idemix.IdemixConfigFileSigner))
+	signerBytes, err := ReadFile(filepath.Join(dir, idemix.IdemixConfigDirUser, idemix.IdemixConfigFileSigner))
 	if err == nil {
 		signerConfig := &im.IdemixMSPSignerConfig{}
 		err = proto.Unmarshal(signerBytes, signerConfig)
