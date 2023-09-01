@@ -288,7 +288,7 @@ func TestIdentityFromFabricCA(t *testing.T) {
 	sigService := sig2.NewSignService(registry, nil, kvss)
 	assert.NoError(t, registry.RegisterService(sigService))
 
-	config, err := idemix2.GetLocalMspConfigWithType("./testdata/charlie.ExtraId2", nil, "charlie.ExtraId2")
+	config, err := idemix2.GetLocalMspConfigWithType("./testdata/charlie.ExtraId2", "charlie.ExtraId2")
 	assert.NoError(t, err)
 
 	p, err := idemix2.NewProviderWithSigTypeAncCurve(config, registry, bccsp.Standard, math.BN254)
@@ -355,7 +355,7 @@ func TestIdentityFromFabricCAWithEidRhNymPolicy(t *testing.T) {
 	sigService := sig2.NewSignService(registry, nil, kvss)
 	assert.NoError(t, registry.RegisterService(sigService))
 
-	config, err := idemix2.GetLocalMspConfigWithType("./testdata/charlie.ExtraId2", nil, "charlie.ExtraId2")
+	config, err := idemix2.GetLocalMspConfigWithType("./testdata/charlie.ExtraId2", "charlie.ExtraId2")
 	assert.NoError(t, err)
 
 	p, err := idemix2.NewProviderWithSigTypeAncCurve(config, registry, bccsp.EidNymRhNym, math.BN254)
