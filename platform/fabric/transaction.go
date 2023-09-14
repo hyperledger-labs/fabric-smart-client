@@ -14,11 +14,19 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
+type TransactionType int
+
+const (
+	_ TransactionType = iota
+	EndorserTransaction
+)
+
 type TransactionOptions struct {
-	Creator view.Identity
-	Nonce   []byte
-	TxID    string
-	Channel string
+	Creator         view.Identity
+	Nonce           []byte
+	TxID            string
+	Channel         string
+	TransactionType TransactionType
 }
 
 type TransactionOption func(*TransactionOptions) error
@@ -57,6 +65,13 @@ func WithNonce(nonce []byte) TransactionOption {
 func WithTxID(txid string) TransactionOption {
 	return func(o *TransactionOptions) error {
 		o.TxID = txid
+		return nil
+	}
+}
+
+func WithTransactionType(tt TransactionType) TransactionOption {
+	return func(o *TransactionOptions) error {
+		o.TransactionType = tt
 		return nil
 	}
 }
@@ -353,7 +368,13 @@ func (t *TransactionManager) NewTransaction(opts ...TransactionOption) (*Transac
 		return nil, err
 	}
 
-	tx, err := t.fns.fns.TransactionManager().NewTransaction(options.Creator, options.Nonce, options.TxID, ch.Name())
+	tx, err := t.fns.fns.TransactionManager().NewTransaction(
+		driver.TransactionType(options.TransactionType),
+		options.Creator,
+		options.Nonce,
+		options.TxID,
+		ch.Name(),
+	)
 	if err != nil {
 		return nil, err
 	}

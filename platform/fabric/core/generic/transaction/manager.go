@@ -38,7 +38,7 @@ func (m *Manager) NewProposalResponseFromBytes(raw []byte) (driver.ProposalRespo
 	return NewProposalResponseFromBytes(raw)
 }
 
-func (m *Manager) NewTransaction(creator view2.Identity, nonce []byte, txid string, channel string) (driver.Transaction, error) {
+func (m *Manager) NewTransaction(transactionType driver.TransactionType, creator view2.Identity, nonce []byte, txid string, channel string) (driver.Transaction, error) {
 	ch, err := m.fns.Channel(channel)
 	if err != nil {
 		return nil, err

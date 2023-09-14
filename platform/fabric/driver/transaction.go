@@ -10,6 +10,12 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
+type TransactionType int
+
+const (
+	EndorserTransaction TransactionType = iota
+)
+
 type Envelope interface {
 	TxID() string
 	Nonce() []byte
@@ -59,7 +65,7 @@ type TransactionManager interface {
 	ComputeTxID(id *TxID) string
 	NewEnvelope() Envelope
 	NewProposalResponseFromBytes(raw []byte) (ProposalResponse, error)
-	NewTransaction(creator view.Identity, nonce []byte, txid string, channel string) (Transaction, error)
+	NewTransaction(transactionType TransactionType, creator view.Identity, nonce []byte, txid string, channel string) (Transaction, error)
 	NewTransactionFromBytes(channel string, raw []byte) (Transaction, error)
 }
 
