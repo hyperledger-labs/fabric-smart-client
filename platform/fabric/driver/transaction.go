@@ -67,6 +67,7 @@ type TransactionManager interface {
 	NewProposalResponseFromBytes(raw []byte) (ProposalResponse, error)
 	NewTransaction(transactionType TransactionType, creator view.Identity, nonce []byte, txid string, channel string) (Transaction, error)
 	NewTransactionFromBytes(channel string, raw []byte) (Transaction, error)
+	NewTransactionFromEnvelopeBytes(channel string, raw []byte) (Transaction, error)
 }
 
 // Verifier is an interface which wraps the Verify method.

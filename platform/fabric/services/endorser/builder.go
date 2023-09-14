@@ -106,15 +106,13 @@ func (t *Builder) newTransaction(creator []byte, network, channel string, nonce,
 		}
 	} else {
 		if envelope {
-			fabricTransaction, err = fNetwork.TransactionManager().NewTransaction(
+			fabricTransaction, err = fNetwork.TransactionManager().NewTransactionFromEnvelopeBytes(
+				raw,
 				fabric.WithCreator(creator),
 				fabric.WithNonce(nonce),
 				fabric.WithChannel(channel),
 			)
 			if err != nil {
-				return nil, err
-			}
-			if err := fabricTransaction.SetFromEnvelopeBytes(raw); err != nil {
 				return nil, err
 			}
 		} else {

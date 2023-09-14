@@ -88,6 +88,27 @@ func (m *Manager) NewTransactionFromBytes(channel string, raw []byte) (driver.Tr
 	return tx, nil
 }
 
+func (m *Manager) NewTransactionFromEnvelopeBytes(channel string, raw []byte) (driver.Transaction, error) {
+	ch, err := m.fns.Channel(channel)
+	if err != nil {
+		return nil, err
+	}
+
+	tx := &Transaction{
+		sp:         m.sp,
+		fns:        m.fns,
+		channel:    ch,
+		TChannel:   channel,
+		TNetwork:   m.fns.Name(),
+		TTransient: map[string][]byte{},
+	}
+	err = tx.SetFromEnvelopeBytes(raw)
+	if err != nil {
+		return nil, err
+	}
+	return tx, nil
+}
+
 func getRandomNonce() ([]byte, error) {
 	key := make([]byte, 24)
 

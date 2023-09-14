@@ -406,6 +406,27 @@ func (t *TransactionManager) NewTransactionFromBytes(raw []byte, opts ...Transac
 	}, nil
 }
 
+func (t *TransactionManager) NewTransactionFromEnvelopeBytes(raw []byte, opts ...TransactionOption) (*Transaction, error) {
+	options, err := CompileTransactionOptions(opts...)
+	if err != nil {
+		return nil, err
+	}
+	ch, err := t.fns.Channel(options.Channel)
+	if err != nil {
+		return nil, err
+	}
+
+	tx, err := t.fns.fns.TransactionManager().NewTransactionFromBytes(ch.Name(), raw)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Transaction{
+		fns: t.fns,
+		tx:  tx,
+	}, nil
+}
+
 func (t *TransactionManager) ComputeTxID(id *TxID) string {
 	txID := &driver.TxID{
 		Nonce: id.Nonce, Creator: id.Creator,
