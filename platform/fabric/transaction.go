@@ -416,7 +416,7 @@ func (t *TransactionManager) NewTransactionFromEnvelopeBytes(raw []byte, opts ..
 		return nil, err
 	}
 
-	tx, err := t.fns.fns.TransactionManager().NewTransactionFromBytes(ch.Name(), raw)
+	tx, err := t.fns.fns.TransactionManager().NewTransactionFromEnvelopeBytes(ch.Name(), raw)
 	if err != nil {
 		return nil, err
 	}
