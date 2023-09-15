@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package transaction
 
 import (
-	"crypto/rand"
+	"encoding/json"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
@@ -49,63 +49,56 @@ func (m *Manager) NewTransaction(transactionType driver.TransactionType, creator
 	if !ok {
 		return nil, errors.Errorf("transaction tyep [%d] not recognized", transactionType)
 	}
-	return factory.NewTransaction(channel, nonce, creator, txid)
+	tx, err := factory.NewTransaction(channel, nonce, creator, txid)
+	if err != nil {
+		return nil, err
+	}
+	return &WrappedTransaction{Transaction: tx, TransactionType: transactionType}, nil
 }
 
 func (m *Manager) NewTransactionFromBytes(channel string, raw []byte) (driver.Transaction, error) {
-	ch, err := m.fns.Channel(channel)
+	//logger.Infof("new transaction from bytes [%s]", hash.Hashable(raw))
+	txRaw := &SerializedTransaction{}
+	if err := json.Unmarshal(raw, txRaw); err != nil {
+		return nil, err
+	}
+	factory, ok := m.factories[txRaw.Type]
+	if !ok {
+		return nil, errors.Errorf("transaction tyep [%d] not recognized", txRaw.Type)
+	}
+	tx, err := factory.NewTransaction(channel, nil, nil, "")
 	if err != nil {
 		return nil, err
 	}
-
-	tx := &Transaction{
-		sp:         m.sp,
-		fns:        m.fns,
-		channel:    ch,
-		TChannel:   channel,
-		TNetwork:   m.fns.Name(),
-		TTransient: map[string][]byte{},
-	}
-	err = tx.SetFromBytes(raw)
-	if err != nil {
+	if err := tx.SetFromBytes(txRaw.Raw); err != nil {
 		return nil, err
 	}
-	return tx, nil
+	return &WrappedTransaction{Transaction: tx, TransactionType: txRaw.Type}, nil
 }
 
 func (m *Manager) NewTransactionFromEnvelopeBytes(channel string, raw []byte) (driver.Transaction, error) {
-	ch, err := m.fns.Channel(channel)
+	cht, err := GetChannelHeaderType(raw)
 	if err != nil {
-		return nil, err
+		return nil, errors.WithMessagef(err, "failed to extract channel header type")
 	}
 
-	tx := &Transaction{
-		sp:         m.sp,
-		fns:        m.fns,
-		channel:    ch,
-		TChannel:   channel,
-		TNetwork:   m.fns.Name(),
-		TTransient: map[string][]byte{},
+	factory, ok := m.factories[driver.TransactionType(cht)]
+	if !ok {
+		return nil, errors.Errorf("transaction tyep [%d] not recognized", cht)
+	}
+	tx, err := factory.NewTransaction(channel, nil, nil, "")
+	if err != nil {
+		return nil, err
 	}
 	err = tx.SetFromEnvelopeBytes(raw)
 	if err != nil {
 		return nil, err
 	}
-	return tx, nil
+	return &WrappedTransaction{Transaction: tx, TransactionType: driver.TransactionType(cht)}, nil
 }
 
 func (m *Manager) AddFactory(tt driver.TransactionType, factory Factory) {
 	m.factories[tt] = factory
-}
-
-func getRandomNonce() ([]byte, error) {
-	key := make([]byte, 24)
-
-	_, err := rand.Read(key)
-	if err != nil {
-		return nil, errors.Wrap(err, "error getting random bytes")
-	}
-	return key, nil
 }
 
 type EndorserTransactionFactory struct {
@@ -120,7 +113,7 @@ func (e *EndorserTransactionFactory) NewTransaction(channel string, nonce []byte
 	}
 
 	if len(nonce) == 0 {
-		nonce, err = getRandomNonce()
+		nonce, err = GetRandomNonce()
 		if err != nil {
 			return nil, err
 		}
@@ -140,4 +133,29 @@ func (e *EndorserTransactionFactory) NewTransaction(channel string, nonce []byte
 		TChannel:   channel,
 		TTransient: map[string][]byte{},
 	}, nil
+}
+
+type WrappedTransaction struct {
+	driver.Transaction
+	TransactionType driver.TransactionType
+}
+
+func (w *WrappedTransaction) Bytes() ([]byte, error) {
+	//return w.Transaction.Bytes()
+	raw, err := w.Transaction.Bytes()
+	if err != nil {
+		return nil, err
+	}
+	out, err := json.Marshal(&SerializedTransaction{
+		Type: w.TransactionType,
+		Raw:  raw,
+	})
+	//logger.Infof("new transaction from bytes [%s]", hash.Hashable(out))
+
+	return out, err
+}
+
+type SerializedTransaction struct {
+	Type driver.TransactionType
+	Raw  []byte
 }

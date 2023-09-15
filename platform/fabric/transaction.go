@@ -14,11 +14,10 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
-type TransactionType int
+type TransactionType = driver.TransactionType
 
 const (
-	_ TransactionType = iota
-	EndorserTransaction
+	EndorserTransaction = driver.EndorserTransaction
 )
 
 type TransactionOptions struct {
@@ -32,7 +31,9 @@ type TransactionOptions struct {
 type TransactionOption func(*TransactionOptions) error
 
 func CompileTransactionOptions(opts ...TransactionOption) (*TransactionOptions, error) {
-	txOptions := &TransactionOptions{}
+	txOptions := &TransactionOptions{
+		TransactionType: EndorserTransaction,
+	}
 	for _, opt := range opts {
 		if err := opt(txOptions); err != nil {
 			return nil, err

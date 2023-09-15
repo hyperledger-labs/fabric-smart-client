@@ -8,12 +8,13 @@ package driver
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"github.com/hyperledger/fabric-protos-go/common"
 )
 
-type TransactionType int
+type TransactionType int32
 
 const (
-	EndorserTransaction TransactionType = iota
+	EndorserTransaction = TransactionType(common.HeaderType_ENDORSER_TRANSACTION)
 )
 
 type Envelope interface {
