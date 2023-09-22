@@ -28,7 +28,7 @@ type Manager struct {
 
 func NewManager(sp view.ServiceProvider, fns driver.FabricNetworkService) *Manager {
 	factories := map[driver.TransactionType]Factory{}
-	factories[driver.EndorserTransaction] = &EndorserTransactionFactory{sp: sp, fns: fns}
+	factories[driver.EndorserTransaction] = NewEndorserTransactionFactory(sp, fns)
 	return &Manager{sp: sp, fns: fns, factories: factories}
 }
 
@@ -104,6 +104,10 @@ func (m *Manager) AddFactory(tt driver.TransactionType, factory Factory) {
 type EndorserTransactionFactory struct {
 	sp  view.ServiceProvider
 	fns driver.FabricNetworkService
+}
+
+func NewEndorserTransactionFactory(sp view.ServiceProvider, fns driver.FabricNetworkService) *EndorserTransactionFactory {
+	return &EndorserTransactionFactory{sp: sp, fns: fns}
 }
 
 func (e *EndorserTransactionFactory) NewTransaction(channel string, nonce []byte, creator []byte, txid string) (driver.Transaction, error) {

@@ -42,13 +42,14 @@ func (t *Builder) NewTransaction(opts ...fabric.TransactionOption) (*Transaction
 	if err != nil {
 		return nil, errors.WithMessage(err, "failed to compile options")
 	}
-	return t.newTransaction(
+	return t.newTransactionWithType(
 		fabricOptions.Creator,
 		"",
 		fabricOptions.Channel,
 		fabricOptions.Nonce,
 		nil,
 		false,
+		&fabricOptions.TransactionType,
 	)
 }
 
@@ -82,6 +83,10 @@ func (t *Builder) NewTransactionWithIdentity(id view.Identity) (*Transaction, er
 }
 
 func (t *Builder) newTransaction(creator []byte, network, channel string, nonce, raw []byte, envelope bool) (*Transaction, error) {
+	return t.newTransactionWithType(creator, network, channel, nonce, raw, envelope, nil)
+}
+
+func (t *Builder) newTransactionWithType(creator []byte, network, channel string, nonce, raw []byte, envelope bool, tType *fabric.TransactionType) (*Transaction, error) {
 	logger.Debugf("NewTransaction [%s,%s,%s]", view.Identity(creator).UniqueID(), channel, hash.Hashable(raw).String())
 	defer logger.Debugf("NewTransaction...done.")
 
@@ -93,41 +98,28 @@ func (t *Builder) newTransaction(creator []byte, network, channel string, nonce,
 		creator = fNetwork.IdentityProvider().DefaultIdentity()
 	}
 
+	options := []fabric.TransactionOption{
+		fabric.WithCreator(creator),
+		fabric.WithNonce(nonce),
+		fabric.WithChannel(channel),
+	}
+	if tType != nil {
+		options = append(options, fabric.WithTransactionType(*tType))
+	}
+
 	var fabricTransaction *fabric.Transaction
 	var err error
 	if len(raw) == 0 {
-		fabricTransaction, err = fNetwork.TransactionManager().NewTransaction(
-			fabric.WithCreator(creator),
-			fabric.WithNonce(nonce),
-			fabric.WithChannel(channel),
-		)
-		if err != nil {
-			return nil, err
-		}
+		fabricTransaction, err = fNetwork.TransactionManager().NewTransaction(options...)
+	} else if envelope {
+		fabricTransaction, err = fNetwork.TransactionManager().NewTransactionFromEnvelopeBytes(raw, options...)
 	} else {
-		if envelope {
-			fabricTransaction, err = fNetwork.TransactionManager().NewTransactionFromEnvelopeBytes(
-				raw,
-				fabric.WithCreator(creator),
-				fabric.WithNonce(nonce),
-				fabric.WithChannel(channel),
-			)
-			if err != nil {
-				return nil, err
-			}
-		} else {
-			fabricTransaction, err = fNetwork.TransactionManager().NewTransactionFromBytes(
-				raw,
-				fabric.WithCreator(creator),
-				fabric.WithNonce(nonce),
-				fabric.WithChannel(channel),
-			)
-			if err != nil {
-				return nil, err
-			}
-		}
+		fabricTransaction, err = fNetwork.TransactionManager().NewTransactionFromBytes(raw, options...)
 	}
 
+	if err != nil {
+		return nil, err
+	}
 	return &Transaction{
 		ServiceProvider: t.sp,
 		Transaction:     fabricTransaction,
