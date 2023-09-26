@@ -49,6 +49,7 @@ func (t *Builder) NewTransaction(opts ...fabric.TransactionOption) (*Transaction
 		fabricOptions.Nonce,
 		nil,
 		false,
+		fabricOptions.RawRequest,
 		&fabricOptions.TransactionType,
 	)
 }
@@ -83,10 +84,10 @@ func (t *Builder) NewTransactionWithIdentity(id view.Identity) (*Transaction, er
 }
 
 func (t *Builder) newTransaction(creator []byte, network, channel string, nonce, raw []byte, envelope bool) (*Transaction, error) {
-	return t.newTransactionWithType(creator, network, channel, nonce, raw, envelope, nil)
+	return t.newTransactionWithType(creator, network, channel, nonce, raw, envelope, nil, nil)
 }
 
-func (t *Builder) newTransactionWithType(creator []byte, network, channel string, nonce, raw []byte, envelope bool, tType *fabric.TransactionType) (*Transaction, error) {
+func (t *Builder) newTransactionWithType(creator []byte, network, channel string, nonce, raw []byte, envelope bool, rawRequest []byte, tType *fabric.TransactionType) (*Transaction, error) {
 	logger.Debugf("NewTransaction [%s,%s,%s]", view.Identity(creator).UniqueID(), channel, hash.Hashable(raw).String())
 	defer logger.Debugf("NewTransaction...done.")
 
@@ -105,6 +106,9 @@ func (t *Builder) newTransactionWithType(creator []byte, network, channel string
 	}
 	if tType != nil {
 		options = append(options, fabric.WithTransactionType(*tType))
+	}
+	if rawRequest != nil {
+		options = append(options, fabric.WithRawRequest(rawRequest))
 	}
 
 	var fabricTransaction *fabric.Transaction

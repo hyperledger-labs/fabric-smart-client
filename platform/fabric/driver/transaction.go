@@ -66,7 +66,7 @@ type TransactionManager interface {
 	ComputeTxID(id *TxID) string
 	NewEnvelope() Envelope
 	NewProposalResponseFromBytes(raw []byte) (ProposalResponse, error)
-	NewTransaction(transactionType TransactionType, creator view.Identity, nonce []byte, txid string, channel string) (Transaction, error)
+	NewTransaction(transactionType TransactionType, creator view.Identity, nonce []byte, txid string, channel string, rawRequest []byte) (Transaction, error)
 	NewTransactionFromBytes(channel string, raw []byte) (Transaction, error)
 	NewTransactionFromEnvelopeBytes(channel string, raw []byte) (Transaction, error)
 }

@@ -17,7 +17,7 @@ import (
 )
 
 type Factory interface {
-	NewTransaction(channel string, nonce []byte, creator []byte, txid string) (driver.Transaction, error)
+	NewTransaction(channel string, nonce []byte, creator []byte, txid string, rawRequest []byte) (driver.Transaction, error)
 }
 
 type Manager struct {
@@ -44,12 +44,12 @@ func (m *Manager) NewProposalResponseFromBytes(raw []byte) (driver.ProposalRespo
 	return NewProposalResponseFromBytes(raw)
 }
 
-func (m *Manager) NewTransaction(transactionType driver.TransactionType, creator view2.Identity, nonce []byte, txid string, channel string) (driver.Transaction, error) {
+func (m *Manager) NewTransaction(transactionType driver.TransactionType, creator view2.Identity, nonce []byte, txid string, channel string, rawRequest []byte) (driver.Transaction, error) {
 	factory, ok := m.factories[transactionType]
 	if !ok {
 		return nil, errors.Errorf("transaction tyep [%d] not recognized", transactionType)
 	}
-	tx, err := factory.NewTransaction(channel, nonce, creator, txid)
+	tx, err := factory.NewTransaction(channel, nonce, creator, txid, rawRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -66,7 +66,7 @@ func (m *Manager) NewTransactionFromBytes(channel string, raw []byte) (driver.Tr
 	if !ok {
 		return nil, errors.Errorf("transaction tyep [%d] not recognized", txRaw.Type)
 	}
-	tx, err := factory.NewTransaction(channel, nil, nil, "")
+	tx, err := factory.NewTransaction(channel, nil, nil, "", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -86,7 +86,7 @@ func (m *Manager) NewTransactionFromEnvelopeBytes(channel string, raw []byte) (d
 	if !ok {
 		return nil, errors.Errorf("transaction tyep [%d] not recognized", cht)
 	}
-	tx, err := factory.NewTransaction(channel, nil, nil, "")
+	tx, err := factory.NewTransaction(channel, nil, nil, "", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -110,7 +110,7 @@ func NewEndorserTransactionFactory(sp view.ServiceProvider, fns driver.FabricNet
 	return &EndorserTransactionFactory{sp: sp, fns: fns}
 }
 
-func (e *EndorserTransactionFactory) NewTransaction(channel string, nonce []byte, creator []byte, txid string) (driver.Transaction, error) {
+func (e *EndorserTransactionFactory) NewTransaction(channel string, nonce []byte, creator []byte, txid string, rawRequest []byte) (driver.Transaction, error) {
 	ch, err := e.fns.Channel(channel)
 	if err != nil {
 		return nil, err

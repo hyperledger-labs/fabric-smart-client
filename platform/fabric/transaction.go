@@ -25,6 +25,7 @@ type TransactionOptions struct {
 	Nonce           []byte
 	TxID            string
 	Channel         string
+	RawRequest      []byte
 	TransactionType TransactionType
 }
 
@@ -66,6 +67,13 @@ func WithNonce(nonce []byte) TransactionOption {
 func WithTxID(txid string) TransactionOption {
 	return func(o *TransactionOptions) error {
 		o.TxID = txid
+		return nil
+	}
+}
+
+func WithRawRequest(rawRequest []byte) TransactionOption {
+	return func(o *TransactionOptions) error {
+		o.RawRequest = rawRequest
 		return nil
 	}
 }
@@ -369,13 +377,7 @@ func (t *TransactionManager) NewTransaction(opts ...TransactionOption) (*Transac
 		return nil, err
 	}
 
-	tx, err := t.fns.fns.TransactionManager().NewTransaction(
-		driver.TransactionType(options.TransactionType),
-		options.Creator,
-		options.Nonce,
-		options.TxID,
-		ch.Name(),
-	)
+	tx, err := t.fns.fns.TransactionManager().NewTransaction(driver.TransactionType(options.TransactionType), options.Creator, options.Nonce, options.TxID, ch.Name(), options.RawRequest)
 	if err != nil {
 		return nil, err
 	}
