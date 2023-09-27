@@ -176,7 +176,7 @@ var _ = Describe("Server", func() {
 			url := fmt.Sprintf("https://%s%s", server.Addr(), someURL)
 			resp, err := client.Get(url)
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("remote error: tls: bad certificate"))
+			Expect(err.Error()).To(ContainSubstring("remote error: tls: certificate required"))
 			Expect(resp).To(BeNil())
 		})
 	})
