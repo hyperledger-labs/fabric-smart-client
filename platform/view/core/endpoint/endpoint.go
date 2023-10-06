@@ -12,6 +12,8 @@ import (
 	"strings"
 	"sync"
 
+	"golang.org/x/exp/slices"
+
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
@@ -200,12 +202,7 @@ func (r *Service) GetIdentity(endpoint string, pkid []byte) (view.Identity, erro
 		}
 		if !found {
 			// check aliases
-			for _, alias := range resolver.Aliases {
-				if endpoint == alias {
-					found = true
-					break
-				}
-			}
+			found = slices.Contains(resolver.Aliases, endpoint)
 		}
 		if endpoint == resolver.Name ||
 			found ||
@@ -242,11 +239,9 @@ func (r *Service) AddResolver(name string, domain string, addresses map[string]s
 			return resolver.Id, r.Bind(resolver.Id, id)
 		}
 		for _, alias := range resolver.Aliases {
-			for _, newAlias := range aliases {
-				if alias == newAlias {
-					r.resolversMutex.RUnlock()
-					return nil, errors.Errorf("alias [%s] already defined by resolver [%s]", newAlias, resolver.Name)
-				}
+			if slices.Contains(aliases, alias) {
+				r.resolversMutex.RUnlock()
+				return nil, errors.Errorf("alias [%s] already defined by resolver [%s]", alias, resolver.Name)
 			}
 		}
 	}
