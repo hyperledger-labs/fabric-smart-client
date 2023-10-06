@@ -19,6 +19,6 @@ func Topology() []api.Topology {
 
 	topology.AddNodeByName("bob").RegisterResponder(
 		&Responder{}, &Initiator{},
-	)
+	).AddOptions(fsc.WithAlias("bob_alias"))
 	return []api.Topology{topology}
 }

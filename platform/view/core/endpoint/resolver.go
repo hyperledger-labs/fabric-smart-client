@@ -50,34 +50,34 @@ type IdentityService interface {
 	DefaultIdentity() view.Identity
 }
 
-type Service interface {
+type Backend interface {
 	Bind(longTerm view.Identity, ephemeral view.Identity) error
 	AddResolver(name string, domain string, addresses map[string]string, aliases []string, id []byte) (view.Identity, error)
 	AddPKIResolver(resolver view2.PKIResolver) error
 }
 
-type resolverService struct {
+type ResolverService struct {
 	config  ConfigService
-	service Service
+	backend Backend
 	is      IdentityService
 }
 
 // NewResolverService returns a new instance of the view-sdk endpoint resolverService
-func NewResolverService(config ConfigService, service Service, is IdentityService) (*resolverService, error) {
-	er := &resolverService{
+func NewResolverService(config ConfigService, backend Backend, is IdentityService) (*ResolverService, error) {
+	er := &ResolverService{
 		config:  config,
-		service: service,
+		backend: backend,
 		is:      is,
 	}
-	if err := service.AddPKIResolver(NewPKIResolver()); err != nil {
+	if err := backend.AddPKIResolver(NewPKIResolver()); err != nil {
 		return nil, errors.Wrapf(err, "failed adding fabric pki resolver")
 	}
 	return er, nil
 }
 
-func (r *resolverService) LoadResolvers() error {
+func (r *ResolverService) LoadResolvers() error {
 	// add default
-	_, err := r.service.AddResolver(
+	_, err := r.backend.AddResolver(
 		r.config.GetString("fsc.id"),
 		"",
 		map[string]string{
@@ -115,7 +115,7 @@ func (r *resolverService) LoadResolvers() error {
 			)
 
 			// Add entry
-			if _, err := r.service.AddResolver(resolver.Name, resolver.Domain, resolver.Addresses, resolver.Aliases, resolver.Id); err != nil {
+			if _, err := r.backend.AddResolver(resolver.Name, resolver.Domain, resolver.Addresses, resolver.Aliases, resolver.Id); err != nil {
 				return errors.Wrapf(err, "failed adding resolver")
 			}
 
@@ -124,7 +124,7 @@ func (r *resolverService) LoadResolvers() error {
 				if logger.IsEnabledFor(zapcore.DebugLevel) {
 					logger.Debugf("binding [%s] to [%s]", resolver.Name, alias)
 				}
-				if err := r.service.Bind(resolver.Id, []byte(alias)); err != nil {
+				if err := r.backend.Bind(resolver.Id, []byte(alias)); err != nil {
 					return errors.WithMessagef(err, "failed binding identity [%s] to alias [%s]", resolver.Name, alias)
 				}
 			}
