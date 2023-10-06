@@ -21,6 +21,8 @@ type Initiator struct{}
 func (p *Initiator) Call(context view.Context) (interface{}, error) {
 	// Retrieve responder identity
 	responder := view2.GetIdentityProvider(context).Identity("bob")
+	responder2 := view2.GetIdentityProvider(context).Identity("bob_alias")
+	assert.Equal(responder, responder2, "expected same identity for bob and its alias")
 
 	// Open a session to the responder
 	session, err := context.GetSession(context.Initiator(), responder)

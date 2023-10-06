@@ -16,14 +16,14 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
-type pkiResolver struct {
+type PkiResolver struct {
 }
 
-func NewPKIResolver() *pkiResolver {
-	return &pkiResolver{}
+func NewPKIResolver() *PkiResolver {
+	return &PkiResolver{}
 }
 
-func (p pkiResolver) GetPKIidOfCert(peerIdentity view.Identity) []byte {
+func (p PkiResolver) GetPKIidOfCert(peerIdentity view.Identity) []byte {
 	certRaw, _ := pem.Decode(peerIdentity)
 	switch {
 	case certRaw != nil:

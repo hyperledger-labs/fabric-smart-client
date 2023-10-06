@@ -35,7 +35,7 @@ type EndpointService interface {
 	GetIdentity(label string, pkid []byte) (view.Identity, error)
 }
 
-type provider struct {
+type Provider struct {
 	configProvider  ConfigProvider
 	sigService      SigService
 	endpointService EndpointService
@@ -45,8 +45,8 @@ type provider struct {
 	kms             *kms.KMS
 }
 
-func NewProvider(configProvider ConfigProvider, sigService SigService, endpointService EndpointService, kms *kms.KMS) *provider {
-	return &provider{
+func NewProvider(configProvider ConfigProvider, sigService SigService, endpointService EndpointService, kms *kms.KMS) *Provider {
+	return &Provider{
 		configProvider:  configProvider,
 		sigService:      sigService,
 		endpointService: endpointService,
@@ -54,7 +54,7 @@ func NewProvider(configProvider ConfigProvider, sigService SigService, endpointS
 	}
 }
 
-func (p *provider) Load() error {
+func (p *Provider) Load() error {
 	if err := p.loadDefaultIdentity(); err != nil {
 		return errors.WithMessagef(err, "failed loading default identity")
 	}
@@ -66,11 +66,11 @@ func (p *provider) Load() error {
 	return nil
 }
 
-func (p *provider) DefaultIdentity() view.Identity {
+func (p *Provider) DefaultIdentity() view.Identity {
 	return p.defaultID
 }
 
-func (p *provider) Identity(label string) view.Identity {
+func (p *Provider) Identity(label string) view.Identity {
 	id, err := p.endpointService.GetIdentity(label, nil)
 	if err != nil {
 		logger.Warningf("failed to get identity for label %s: %s", label, err)
@@ -79,15 +79,15 @@ func (p *provider) Identity(label string) view.Identity {
 	return id
 }
 
-func (p *provider) Admins() []view.Identity {
+func (p *Provider) Admins() []view.Identity {
 	return p.admins
 }
 
-func (p *provider) Clients() []view.Identity {
+func (p *Provider) Clients() []view.Identity {
 	return p.clients
 }
 
-func (p *provider) loadDefaultIdentity() error {
+func (p *Provider) loadDefaultIdentity() error {
 	id, signer, verifier, err := p.kms.Load(p.configProvider)
 	if err != nil {
 		return errors.Wrapf(err, "failed loading default signer")
@@ -100,7 +100,7 @@ func (p *provider) loadDefaultIdentity() error {
 	return nil
 }
 
-func (p *provider) loadClientIdentities() error {
+func (p *Provider) loadClientIdentities() error {
 	certs := p.configProvider.GetStringSlice("fsc.client.certs")
 	var clients []view.Identity
 	for _, cert := range certs {
