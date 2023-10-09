@@ -57,6 +57,7 @@ func (f *finality) IsFinalForParties(txID string, parties ...view.Identity) erro
 		logger.Debugf("Is [%s] final for parties [%v]?", txID, parties)
 	}
 
+	// TODO: load 1*time.Minute from configuration
 	for _, party := range parties {
 		_, err := view2.GetManager(f.sp).InitiateView(
 			NewIsFinalInitiatorView(

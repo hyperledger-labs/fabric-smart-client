@@ -45,6 +45,7 @@ func NewVault(sp view2.ServiceProvider, config *config.Config, channel string) (
 		return nil, nil, errors.Wrapf(err, "failed creating txid store")
 	}
 
+	// TODO: load defaultCacheSize from configuration
 	txIDStoreCacheSize := config.VaultTXStoreCacheSize(defaultCacheSize)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "failed loading txID store cache size from configuration")

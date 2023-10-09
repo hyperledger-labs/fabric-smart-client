@@ -10,14 +10,12 @@ import (
 	"context"
 	"time"
 
-	ab "github.com/hyperledger/fabric-protos-go/orderer"
-	"go.uber.org/zap/zapcore"
-
-	"github.com/pkg/errors"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/delivery"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
+	ab "github.com/hyperledger/fabric-protos-go/orderer"
+	"github.com/pkg/errors"
+	"go.uber.org/zap/zapcore"
 )
 
 type Network interface {

@@ -98,6 +98,7 @@ func (d *Delivery) Run(ctx context.Context) error {
 	}
 	var df DeliverStream
 	var err error
+	// TODO: load time.Sleep(10 * time.Second) from configuration
 	for {
 		select {
 		case <-d.stop:

@@ -37,6 +37,7 @@ type Discovery struct {
 
 func NewDiscovery(chaincode *Chaincode) *Discovery {
 	// set key to the concatenation of chaincode name and version
+	// TODO: load DefaultTTL from configuration
 	return &Discovery{
 		chaincode:  chaincode,
 		DefaultTTL: 5 * time.Minute,
@@ -235,6 +236,7 @@ func (d *Discovery) query(req *discovery.Request) (discovery.Response, error) {
 		ClientIdentity:    signerRaw,
 		ClientTlsCertHash: ClientTLSCertHash,
 	}
+	// TODO: load defaultTimeout from configuration
 	timeout, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 	defer cancel()
 	cl, err := pc.DiscoveryClient()

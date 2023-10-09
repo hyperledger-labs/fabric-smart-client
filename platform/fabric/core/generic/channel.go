@@ -103,6 +103,7 @@ func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver
 	}
 
 	// Fabric finality
+	// TODO: load FinalityWaitTimeout from configuration
 	fabricFinality, err := finality2.NewFabricFinality(
 		name,
 		network,
@@ -124,12 +125,14 @@ func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver
 		return nil, errors.Wrapf(err, "failed to get event publisher")
 	}
 
+	// TODO: Load from WaitForEventTimeout
 	committerInst, err := committer.New(name, network, fabricFinality, WaitForEventTimeout, quiet, tracing.Get(sp).GetTracer(), publisher)
 	if err != nil {
 		return nil, err
 	}
 
 	// Delivery
+	// TODO: load WaitForEventTimeout from configuration
 	deliveryService, err := delivery2.New(name, sp, network, func(block *common.Block) (bool, error) {
 		// commit the block, if an error occurs then retry
 		err := committerInst.Commit(block)
@@ -166,7 +169,7 @@ func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver
 			break
 		}
 	}
-	if channelConfig != nil {
+	if channelConfig == nil {
 		channelConfig = &config2.Channel{
 			Name:       name,
 			Default:    false,

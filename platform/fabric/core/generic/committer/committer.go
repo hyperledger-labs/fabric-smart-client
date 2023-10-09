@@ -62,6 +62,7 @@ func New(channel string, network Network, finality Finality, waitForEventTimeout
 		return nil, errors.Errorf("expected a channel, got empty string")
 	}
 
+	// TODO: load pollingTimeout from configuration
 	d := &Committer{
 		Channel:             channel,
 		Network:             network,
@@ -137,6 +138,7 @@ func (c *Committer) IsFinal(ctx context.Context, txID string) error {
 		return err
 	}
 
+	// TODO: load 3 from configuration
 	for iter := 0; iter < 3; iter++ {
 		vd, deps, err := committer.Status(txID)
 		if err == nil {
@@ -204,6 +206,7 @@ func (c *Committer) IsFinal(ctx context.Context, txID string) error {
 				if logger.IsEnabledFor(zapcore.DebugLevel) {
 					logger.Debugf("Tx [%s] is unknown with no deps, wait a bit and retry [%d]", txID, iter)
 				}
+				// TODO: load 100 * time.Millisecond from configuration
 				time.Sleep(100 * time.Millisecond)
 			default:
 				return errors.Errorf("invalid status code, got [%c]", vd)

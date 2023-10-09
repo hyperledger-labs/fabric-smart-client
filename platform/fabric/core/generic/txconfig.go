@@ -246,6 +246,7 @@ func (c *Channel) ApplyBundle(bundle *channelconfig.Bundle) error {
 			tlsRootCerts = append(tlsRootCerts, msp.GetTLSIntermediateCerts()...)
 			for _, endpoint := range org.Endpoints() {
 				logger.Debugf("[Channel: %s] Adding orderer endpoint: [%s:%s:%s]", c.ChannelName, org.Name(), org.MSPID(), endpoint)
+				// TODO: load from configuration
 				newOrderers = append(newOrderers, &grpc.ConnectionConfig{
 					Address:           endpoint,
 					ConnectionTimeout: 10 * time.Second,
