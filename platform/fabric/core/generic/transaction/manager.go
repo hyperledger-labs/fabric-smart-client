@@ -16,18 +16,14 @@ import (
 	"github.com/pkg/errors"
 )
 
-type Factory interface {
-	NewTransaction(channel string, nonce []byte, creator []byte, txid string, rawRequest []byte) (driver.Transaction, error)
-}
-
 type Manager struct {
 	sp        view.ServiceProvider
 	fns       driver.FabricNetworkService
-	factories map[driver.TransactionType]Factory
+	factories map[driver.TransactionType]driver.TransactionFactory
 }
 
 func NewManager(sp view.ServiceProvider, fns driver.FabricNetworkService) *Manager {
-	factories := map[driver.TransactionType]Factory{}
+	factories := map[driver.TransactionType]driver.TransactionFactory{}
 	factories[driver.EndorserTransaction] = NewEndorserTransactionFactory(sp, fns)
 	return &Manager{sp: sp, fns: fns, factories: factories}
 }
@@ -97,7 +93,7 @@ func (m *Manager) NewTransactionFromEnvelopeBytes(channel string, raw []byte) (d
 	return &WrappedTransaction{Transaction: tx, TransactionType: driver.TransactionType(cht)}, nil
 }
 
-func (m *Manager) AddFactory(tt driver.TransactionType, factory Factory) {
+func (m *Manager) AddTransactionFactory(tt driver.TransactionType, factory driver.TransactionFactory) {
 	m.factories[tt] = factory
 }
 

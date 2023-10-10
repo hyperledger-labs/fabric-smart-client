@@ -62,6 +62,10 @@ type EndorserTransactionService interface {
 	LoadTransaction(txid string) ([]byte, error)
 }
 
+type TransactionFactory interface {
+	NewTransaction(channel string, nonce []byte, creator []byte, txid string, rawRequest []byte) (Transaction, error)
+}
+
 type TransactionManager interface {
 	ComputeTxID(id *TxID) string
 	NewEnvelope() Envelope
@@ -69,6 +73,7 @@ type TransactionManager interface {
 	NewTransaction(transactionType TransactionType, creator view.Identity, nonce []byte, txid string, channel string, rawRequest []byte) (Transaction, error)
 	NewTransactionFromBytes(channel string, raw []byte) (Transaction, error)
 	NewTransactionFromEnvelopeBytes(channel string, raw []byte) (Transaction, error)
+	AddTransactionFactory(tt TransactionType, factory TransactionFactory)
 }
 
 // Verifier is an interface which wraps the Verify method.
