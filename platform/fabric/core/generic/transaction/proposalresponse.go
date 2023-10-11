@@ -8,7 +8,6 @@ package transaction
 
 import (
 	pb "github.com/hyperledger/fabric-protos-go/peer"
-	"github.com/hyperledger/fabric/core/ledger/kvledger/txmgmt/rwsetutil"
 	"github.com/hyperledger/fabric/protoutil"
 )
 
@@ -16,7 +15,6 @@ import (
 type UnpackedProposalResponse struct {
 	ProposalResponse *pb.ProposalResponse
 	ChaincodeAction  *pb.ChaincodeAction
-	TxRwSet          *rwsetutil.TxRwSet
 }
 
 func (p *UnpackedProposalResponse) Results() []byte {
@@ -36,14 +34,8 @@ func UnpackProposalResponse(proposalResponse *pb.ProposalResponse) (*UnpackedPro
 		return nil, err
 	}
 
-	txRWSet := &rwsetutil.TxRwSet{}
-	if err = txRWSet.FromProtoBytes(chAction.Results); err != nil {
-		return nil, err
-	}
-
 	return &UnpackedProposalResponse{
 		ProposalResponse: proposalResponse,
 		ChaincodeAction:  chAction,
-		TxRwSet:          txRWSet,
 	}, nil
 }

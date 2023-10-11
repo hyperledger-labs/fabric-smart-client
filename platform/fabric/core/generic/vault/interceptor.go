@@ -25,7 +25,7 @@ type QueryExecutor interface {
 type Interceptor struct {
 	QE        QueryExecutor
 	TxIDStore TXIDStoreReader
-	Rws       readWriteSet
+	Rws       ReadWriteSet
 	Closed    bool
 	TxID      string
 }
@@ -37,17 +37,17 @@ func NewInterceptor(qe QueryExecutor, txidStore TXIDStoreReader, txid string) *I
 		TxID:      txid,
 		QE:        qe,
 		TxIDStore: txidStore,
-		Rws: readWriteSet{
-			readSet: readSet{
-				orderedReads: map[string][]string{},
-				reads:        reads{},
+		Rws: ReadWriteSet{
+			ReadSet: ReadSet{
+				OrderedReads: map[string][]string{},
+				Reads:        Reads{},
 			},
-			writeSet: writeSet{
-				orderedWrites: map[string][]string{},
-				writes:        writes{},
+			WriteSet: WriteSet{
+				OrderedWrites: map[string][]string{},
+				Writes:        Writes{},
 			},
-			metaWriteSet: metaWriteSet{
-				metawrites: namespaceKeyedMetaWrites{},
+			MetaWriteSet: MetaWriteSet{
+				MetaWrites: NamespaceKeyedMetaWrites{},
 			},
 		},
 	}
@@ -63,15 +63,15 @@ func (i *Interceptor) IsValid() error {
 	}
 	if i.QE != nil {
 
-		for ns, nsMap := range i.Rws.reads {
+		for ns, nsMap := range i.Rws.Reads {
 			for k, v := range nsMap {
 				_, b, t, err := i.QE.GetState(ns, k)
 				if err != nil {
 					return err
 				}
 
-				if b != v.block || t != v.txnum {
-					return errors.Errorf("invalid read: vault at version %s:%s %d:%d, read-write set at version %d:%d", ns, k, b, t, v.block, v.txnum)
+				if b != v.Block || t != v.TxNum {
+					return errors.Errorf("invalid read: vault at version %s:%s %d:%d, read-write set at version %d:%d", ns, k, b, t, v.Block, v.TxNum)
 				}
 			}
 		}
@@ -84,9 +84,9 @@ func (i *Interceptor) Clear(ns string) error {
 		return errors.New("this instance was closed")
 	}
 
-	i.Rws.readSet.clear(ns)
-	i.Rws.writeSet.clear(ns)
-	i.Rws.metaWriteSet.clear(ns)
+	i.Rws.ReadSet.clear(ns)
+	i.Rws.WriteSet.clear(ns)
+	i.Rws.MetaWriteSet.clear(ns)
 
 	return nil
 }
@@ -96,7 +96,7 @@ func (i *Interceptor) GetReadKeyAt(ns string, pos int) (string, error) {
 		return "", errors.New("this instance was closed")
 	}
 
-	key, in := i.Rws.readSet.getAt(ns, pos)
+	key, in := i.Rws.ReadSet.getAt(ns, pos)
 	if !in {
 		return "", errors.Errorf("no read at position %d for namespace %s", pos, ns)
 	}
@@ -109,7 +109,7 @@ func (i *Interceptor) GetReadAt(ns string, pos int) (string, []byte, error) {
 		return "", nil, errors.New("this instance was closed")
 	}
 
-	key, in := i.Rws.readSet.getAt(ns, pos)
+	key, in := i.Rws.ReadSet.getAt(ns, pos)
 	if !in {
 		return "", nil, errors.Errorf("no read at position %d for namespace %s", pos, ns)
 	}
@@ -127,29 +127,29 @@ func (i *Interceptor) GetWriteAt(ns string, pos int) (string, []byte, error) {
 		return "", nil, errors.New("this instance was closed")
 	}
 
-	key, in := i.Rws.writeSet.getAt(ns, pos)
+	key, in := i.Rws.WriteSet.getAt(ns, pos)
 	if !in {
 		return "", nil, errors.Errorf("no write at position %d for namespace %s", pos, ns)
 	}
 
-	return key, i.Rws.writeSet.get(ns, key), nil
+	return key, i.Rws.WriteSet.get(ns, key), nil
 }
 
 func (i *Interceptor) NumReads(ns string) int {
-	return len(i.Rws.reads[ns])
+	return len(i.Rws.Reads[ns])
 }
 
 func (i *Interceptor) NumWrites(ns string) int {
-	return len(i.Rws.writes[ns])
+	return len(i.Rws.Writes[ns])
 }
 
 func (i *Interceptor) Namespaces() []string {
 	mergedMaps := map[string]struct{}{}
 
-	for ns := range i.Rws.reads {
+	for ns := range i.Rws.Reads {
 		mergedMaps[ns] = struct{}{}
 	}
-	for ns := range i.Rws.writes {
+	for ns := range i.Rws.Writes {
 		mergedMaps[ns] = struct{}{}
 	}
 
@@ -175,7 +175,7 @@ func (i *Interceptor) SetState(namespace string, key string, value []byte) error
 	}
 	logger.Debugf("SetState [%s,%s,%s]", namespace, key, hash.Hashable(value).String())
 
-	return i.Rws.writeSet.add(namespace, key, value)
+	return i.Rws.WriteSet.add(namespace, key, value)
 }
 
 func (i *Interceptor) SetStateMetadata(namespace string, key string, value map[string][]byte) error {
@@ -183,7 +183,7 @@ func (i *Interceptor) SetStateMetadata(namespace string, key string, value map[s
 		return errors.New("this instance was closed")
 	}
 
-	return i.Rws.metaWriteSet.add(namespace, key, value)
+	return i.Rws.MetaWriteSet.add(namespace, key, value)
 }
 
 func (i *Interceptor) GetStateMetadata(namespace, key string, opts ...driver.GetStateOpt) (map[string][]byte, error) {
@@ -211,23 +211,23 @@ func (i *Interceptor) GetStateMetadata(namespace, key string, opts ...driver.Get
 			return nil, err
 		}
 
-		b, t, in := i.Rws.readSet.get(namespace, key)
+		b, t, in := i.Rws.ReadSet.get(namespace, key)
 		if in {
 			if b != block || t != txnum {
 				return nil, errors.Errorf("invalid metadata read: previous value returned at version %d:%d, current value at version %d:%d", b, t, block, txnum)
 			}
 		} else {
-			i.Rws.readSet.add(namespace, key, block, txnum)
+			i.Rws.ReadSet.add(namespace, key, block, txnum)
 		}
 
 		return val, nil
 
 	case driver.FromIntermediate:
-		return i.Rws.metaWriteSet.get(namespace, key), nil
+		return i.Rws.MetaWriteSet.get(namespace, key), nil
 
 	case driver.FromBoth:
 		val, err := i.GetStateMetadata(namespace, key, driver.FromIntermediate)
-		if err != nil || val != nil || i.Rws.writeSet.in(namespace, key) {
+		if err != nil || val != nil || i.Rws.WriteSet.in(namespace, key) {
 			return val, err
 		}
 
@@ -263,23 +263,23 @@ func (i *Interceptor) GetState(namespace string, key string, opts ...driver.GetS
 			return nil, err
 		}
 
-		b, t, in := i.Rws.readSet.get(namespace, key)
+		b, t, in := i.Rws.ReadSet.get(namespace, key)
 		if in {
 			if b != block || t != txnum {
 				return nil, errors.Errorf("invalid read [%s:%s]: previous value returned at version %d:%d, current value at version %d:%d", namespace, key, b, t, block, txnum)
 			}
 		} else {
-			i.Rws.readSet.add(namespace, key, block, txnum)
+			i.Rws.ReadSet.add(namespace, key, block, txnum)
 		}
 
 		return val, nil
 
 	case driver.FromIntermediate:
-		return i.Rws.writeSet.get(namespace, key), nil
+		return i.Rws.WriteSet.get(namespace, key), nil
 
 	case driver.FromBoth:
 		val, err := i.GetState(namespace, key, driver.FromIntermediate)
-		if err != nil || val != nil || i.Rws.writeSet.in(namespace, key) {
+		if err != nil || val != nil || i.Rws.WriteSet.in(namespace, key) {
 			return val, err
 		}
 
@@ -329,26 +329,26 @@ func (i *Interceptor) AppendRWSet(raw []byte, nss ...string) error {
 				txnum = read.Version.TxNum
 			}
 
-			b, t, in := i.Rws.readSet.get(ns, read.Key)
+			b, t, in := i.Rws.ReadSet.get(ns, read.Key)
 			if in && (b != bnum || t != txnum) {
 				return errors.Errorf("invalid read [%s:%s]: previous value returned at version %d:%d, current value at version %d:%d", ns, read.Key, b, t, b, txnum)
 			}
 
-			i.Rws.readSet.add(ns, read.Key, bnum, txnum)
+			i.Rws.ReadSet.add(ns, read.Key, bnum, txnum)
 		}
 
 		for _, write := range nsrws.KvRwSet.Writes {
-			if i.Rws.writeSet.in(ns, write.Key) {
+			if i.Rws.WriteSet.in(ns, write.Key) {
 				return errors.Errorf("duplicate write entry for key %s:%s", ns, write.Key)
 			}
 
-			if err := i.Rws.writeSet.add(ns, write.Key, write.Value); err != nil {
+			if err := i.Rws.WriteSet.add(ns, write.Key, write.Value); err != nil {
 				return err
 			}
 		}
 
 		for _, metaWrite := range nsrws.KvRwSet.MetadataWrites {
-			if i.Rws.metaWriteSet.in(ns, metaWrite.Key) {
+			if i.Rws.MetaWriteSet.in(ns, metaWrite.Key) {
 				return errors.Errorf("duplicate metadata write entry for key %s:%s", ns, metaWrite.Key)
 			}
 
@@ -357,7 +357,7 @@ func (i *Interceptor) AppendRWSet(raw []byte, nss ...string) error {
 				metadata[entry.Name] = append([]byte(nil), entry.Value...)
 			}
 
-			if err := i.Rws.metaWriteSet.add(ns, metaWrite.Key, metadata); err != nil {
+			if err := i.Rws.MetaWriteSet.add(ns, metaWrite.Key, metadata); err != nil {
 				return err
 			}
 		}
@@ -369,21 +369,21 @@ func (i *Interceptor) AppendRWSet(raw []byte, nss ...string) error {
 func (i *Interceptor) Bytes() ([]byte, error) {
 	rwsb := rwsetutil.NewRWSetBuilder()
 
-	for ns, keyMap := range i.Rws.reads {
+	for ns, keyMap := range i.Rws.Reads {
 		for key, v := range keyMap {
-			if v.block != 0 || v.txnum != 0 {
-				rwsb.AddToReadSet(ns, key, rwsetutil.NewVersion(&kvrwset.Version{BlockNum: v.block, TxNum: v.txnum}))
+			if v.Block != 0 || v.TxNum != 0 {
+				rwsb.AddToReadSet(ns, key, rwsetutil.NewVersion(&kvrwset.Version{BlockNum: v.Block, TxNum: v.TxNum}))
 			} else {
 				rwsb.AddToReadSet(ns, key, nil)
 			}
 		}
 	}
-	for ns, keyMap := range i.Rws.writes {
+	for ns, keyMap := range i.Rws.Writes {
 		for key, v := range keyMap {
 			rwsb.AddToWriteSet(ns, key, v)
 		}
 	}
-	for ns, keyMap := range i.Rws.metawrites {
+	for ns, keyMap := range i.Rws.MetaWrites {
 		for key, v := range keyMap {
 			rwsb.AddToMetadataWriteSet(ns, key, v)
 		}
@@ -400,23 +400,23 @@ func (i *Interceptor) Bytes() ([]byte, error) {
 func (i *Interceptor) Equals(other interface{}, nss ...string) error {
 	switch o := other.(type) {
 	case *Interceptor:
-		if err := i.Rws.reads.equals(o.Rws.reads, nss...); err != nil {
+		if err := i.Rws.Reads.equals(o.Rws.Reads, nss...); err != nil {
 			return errors.Wrap(err, "reads do not match")
 		}
-		if err := i.Rws.writes.equals(o.Rws.writes, nss...); err != nil {
+		if err := i.Rws.Writes.equals(o.Rws.Writes, nss...); err != nil {
 			return errors.Wrap(err, "writes do not match")
 		}
-		if err := i.Rws.metawrites.equals(o.Rws.metawrites, nss...); err != nil {
+		if err := i.Rws.MetaWrites.equals(o.Rws.MetaWrites, nss...); err != nil {
 			return errors.Wrap(err, "meta writes do not match")
 		}
 	case *Inspector:
-		if err := i.Rws.reads.equals(o.Rws.reads, nss...); err != nil {
+		if err := i.Rws.Reads.equals(o.Rws.Reads, nss...); err != nil {
 			return errors.Wrap(err, "reads do not match")
 		}
-		if err := i.Rws.writes.equals(o.Rws.writes, nss...); err != nil {
+		if err := i.Rws.Writes.equals(o.Rws.Writes, nss...); err != nil {
 			return errors.Wrap(err, "writes do not match")
 		}
-		if err := i.Rws.metawrites.equals(o.Rws.metawrites, nss...); err != nil {
+		if err := i.Rws.MetaWrites.equals(o.Rws.MetaWrites, nss...); err != nil {
 			return errors.Wrap(err, "meta writes do not match")
 		}
 	default:

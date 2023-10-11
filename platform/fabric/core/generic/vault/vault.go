@@ -136,7 +136,7 @@ func (db *Vault) CommitTX(txID string, block uint64, indexInBloc int) error {
 	}
 
 	logger.Debugf("parse writes [%s]", txID)
-	for ns, keyMap := range i.Rws.writes {
+	for ns, keyMap := range i.Rws.Writes {
 		for key, v := range keyMap {
 			logger.Debugf("Store write [%s,%s,%v]", ns, key, hash.Hashable(v).String())
 			var err error
@@ -157,7 +157,7 @@ func (db *Vault) CommitTX(txID string, block uint64, indexInBloc int) error {
 	}
 
 	logger.Debugf("parse meta writes [%s]", txID)
-	for ns, keyMap := range i.Rws.metawrites {
+	for ns, keyMap := range i.Rws.MetaWrites {
 		for key, v := range keyMap {
 			logger.Debugf("Store meta write [%s,%s]", ns, key)
 
