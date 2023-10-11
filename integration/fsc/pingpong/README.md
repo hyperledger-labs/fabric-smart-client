@@ -60,7 +60,7 @@ func (p *Initiator) Call(context view.Context) (interface{}, error) {
 		}
 		m := string(msg.Payload)
 		if m != "pong" {
-			return nil, fmt.Errorf("expected pong, got %s", m)
+			return nil, errors.Errorf("expected pong, got %s", m)
 		}
 	case <-time.After(1 * time.Minute):
 		return nil, errors.New("responder didn't pong in time")
@@ -123,7 +123,7 @@ func (p *Responder) Call(context view.Context) (interface{}, error) {
 		// reply with an error
 		err := session.SendError([]byte(fmt.Sprintf("expected ping, got %s", m)))
 		assert.NoError(err)
-		return nil, fmt.Errorf("expected ping, got %s", m)
+		return nil, errors.Errorf("expected ping, got %s", m)
 	default:
 		// reply with pong
 		err := session.Send([]byte("pong"))

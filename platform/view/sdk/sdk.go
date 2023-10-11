@@ -8,7 +8,6 @@ package view
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"os"
 
@@ -152,7 +151,7 @@ func (p *SDK) Install() error {
 	// View Service Server
 	marshaller, err := view2.NewResponseMarshaler(p.registry)
 	if err != nil {
-		return fmt.Errorf("error creating view service response marshaller: %s", err)
+		return errors.Errorf("error creating view service response marshaller: %s", err)
 	}
 	p.viewService, err = view2.NewViewServiceServer(
 		marshaller,
@@ -163,7 +162,7 @@ func (p *SDK) Install() error {
 		view2.NewMetrics(metrics.GetProvider(p.registry)),
 	)
 	if err != nil {
-		return fmt.Errorf("error creating view service server: %s", err)
+		return errors.Errorf("error creating view service server: %s", err)
 	}
 	if err := p.registry.RegisterService(p.viewService); err != nil {
 		return err
@@ -373,11 +372,11 @@ func (p *SDK) getServerConfig() (grpc2.ServerConfig, error) {
 		// get the certs from the file system
 		serverKey, err := os.ReadFile(configProvider.GetPath("fsc.grpc.tls.key.file"))
 		if err != nil {
-			return serverConfig, fmt.Errorf("error loading TLS key (%s)", err)
+			return serverConfig, errors.Errorf("error loading TLS key (%s)", err)
 		}
 		serverCert, err := os.ReadFile(configProvider.GetPath("fsc.grpc.tls.cert.file"))
 		if err != nil {
-			return serverConfig, fmt.Errorf("error loading TLS certificate (%s)", err)
+			return serverConfig, errors.Errorf("error loading TLS certificate (%s)", err)
 		}
 		serverConfig.SecOpts.Certificate = serverCert
 		serverConfig.SecOpts.Key = serverKey
@@ -387,7 +386,7 @@ func (p *SDK) getServerConfig() (grpc2.ServerConfig, error) {
 			for _, file := range configProvider.GetStringSlice("fsc.grpc.tls.clientRootCAs.files") {
 				clientRoot, err := os.ReadFile(configProvider.TranslatePath(file))
 				if err != nil {
-					return serverConfig, fmt.Errorf("error loading client root CAs (%s)", err)
+					return serverConfig, errors.Errorf("error loading client root CAs (%s)", err)
 				}
 				clientRoots = append(clientRoots, clientRoot)
 			}

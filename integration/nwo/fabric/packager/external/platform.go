@@ -56,7 +56,7 @@ func (p *Platform) ValidateCodePackage(code []byte) error {
 	is := bytes.NewReader(code)
 	gr, err := gzip.NewReader(is)
 	if err != nil {
-		return fmt.Errorf("failure opening codepackage gzip stream: %s", err)
+		return errors.Errorf("failure opening codepackage gzip stream: %s", err)
 	}
 
 	re := regexp.MustCompile(`^(src|META-INF)/`)
@@ -72,7 +72,7 @@ func (p *Platform) ValidateCodePackage(code []byte) error {
 
 		// maintain check for conforming paths for validation
 		if !re.MatchString(header.Name) {
-			return fmt.Errorf("illegal file name in payload: %s", header.Name)
+			return errors.Errorf("illegal file name in payload: %s", header.Name)
 		}
 
 		// only files and directories; no links or special files

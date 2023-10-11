@@ -141,7 +141,7 @@ func (r *Runner) Run(sigChan <-chan os.Signal, ready chan<- struct{}) error {
 			EventuallyWithOffset(1, r).Should(gexec.Exit())
 
 			// fail to start
-			return fmt.Errorf(
+			return errors.Errorf(
 				"did not see %s in command's output within %s. full output:\n\n%s",
 				r.StartCheck,
 				startCheckDuration,
@@ -160,7 +160,7 @@ func (r *Runner) Run(sigChan <-chan os.Signal, ready chan<- struct{}) error {
 				return nil
 			}
 
-			return fmt.Errorf("exit status %d", r.exitCode)
+			return errors.Errorf("exit status %d", r.exitCode)
 		case signal := <-r.stop:
 			logger.Infof("dispatch signal [%d] to process [%s]", signal, r.Name)
 			if signal != nil {

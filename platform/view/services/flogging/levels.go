@@ -7,9 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 package flogging
 
 import (
-	"fmt"
 	"math"
 
+	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
 )
 
@@ -58,7 +58,7 @@ func nameToLevel(level string) (zapcore.Level, error) {
 		return zapcore.ErrorLevel, nil // future
 
 	default:
-		return DisabledLevel, fmt.Errorf("invalid log level: %s", level)
+		return DisabledLevel, errors.Errorf("invalid log level: %s", level)
 	}
 }
 

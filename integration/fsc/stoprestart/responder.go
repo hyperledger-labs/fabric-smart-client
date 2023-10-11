@@ -7,13 +7,12 @@ SPDX-License-Identifier: Apache-2.0
 package stoprestart
 
 import (
-	"errors"
 	"fmt"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"github.com/pkg/errors"
 )
 
 type Responder struct{}
@@ -39,7 +38,7 @@ func (p *Responder) Call(context view.Context) (interface{}, error) {
 		// reply with an error
 		err := session.SendError([]byte(fmt.Sprintf("exptectd ping, got %s", m)))
 		assert.NoError(err)
-		return nil, fmt.Errorf("exptectd ping, got %s", m)
+		return nil, errors.Errorf("exptectd ping, got %s", m)
 	default:
 		// reply with pong
 		err := session.Send([]byte("pong"))

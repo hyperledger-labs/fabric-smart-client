@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package pingpong
 
 import (
-	"fmt"
 	"time"
 
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
@@ -36,7 +35,7 @@ func (p *Initiator) Call(context view.Context) (interface{}, error) {
 		}
 		m := string(msg.Payload)
 		if m != "pong" {
-			return nil, fmt.Errorf("expected pong, got %s", m)
+			return nil, errors.Errorf("expected pong, got %s", m)
 		}
 	case <-time.After(1 * time.Minute):
 		return nil, errors.New("responder didn't pong in time")

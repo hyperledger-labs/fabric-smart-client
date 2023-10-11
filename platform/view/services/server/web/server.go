@@ -10,13 +10,13 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"fmt"
 	"net"
 	"net/http"
 	"os"
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/web/middleware"
+	"github.com/pkg/errors"
 )
 
 //go:generate counterfeiter -o fakes/logger.go -fake-name Logger . Logger
@@ -49,7 +49,7 @@ func (t TLS) Config() (*tls.Config, error) {
 	}
 
 	if len(t.ClientCACertFiles) == 0 {
-		return nil, fmt.Errorf("client TLS CA certificate pool must not be empty")
+		return nil, errors.Errorf("client TLS CA certificate pool must not be empty")
 	}
 
 	caCertPool := x509.NewCertPool()

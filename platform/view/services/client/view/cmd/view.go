@@ -18,6 +18,7 @@ import (
 
 	"github.com/hyperledger/fabric/cmd/common/comm"
 	"github.com/hyperledger/fabric/cmd/common/signer"
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/view"
@@ -84,18 +85,18 @@ func NewCmd() *cobra.Command {
 
 func validateInput(config *Config) error {
 	if config.Address == "" {
-		return fmt.Errorf("endpoint must be specified")
+		return errors.Errorf("endpoint must be specified")
 	}
 
 	if function == "" {
-		return fmt.Errorf("function name must be specified")
+		return errors.Errorf("function name must be specified")
 	}
 
 	// Check if input is to be read from stdin
 	if stdin {
 		stdinInput, err := io.ReadAll(os.Stdin)
 		if err != nil {
-			return fmt.Errorf("failed reading input from stdin: %v", err)
+			return errors.Errorf("failed reading input from stdin: %v", err)
 		}
 		rawInput = stdinInput
 		return nil

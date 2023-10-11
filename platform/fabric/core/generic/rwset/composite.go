@@ -7,8 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 package rwset
 
 import (
-	"fmt"
 	"unicode/utf8"
+
+	"github.com/pkg/errors"
 )
 
 const (
@@ -66,11 +67,11 @@ func SplitCompositeKey(compositeKey string) (string, []string, error) {
 
 func validateCompositeKeyAttribute(str string) error {
 	if !utf8.ValidString(str) {
-		return fmt.Errorf("not a valid utf8 string: [%x]", str)
+		return errors.Errorf("not a valid utf8 string: [%x]", str)
 	}
 	for index, runeValue := range str {
 		if runeValue == minUnicodeRuneValue || runeValue == maxUnicodeRuneValue {
-			return fmt.Errorf(`input contains unicode %#U starting at position [%d]. %#U and %#U are not allowed in the input attribute of a composite key`,
+			return errors.Errorf(`input contains unicode %#U starting at position [%d]. %#U and %#U are not allowed in the input attribute of a composite key`,
 				runeValue, index, minUnicodeRuneValue, maxUnicodeRuneValue)
 		}
 	}

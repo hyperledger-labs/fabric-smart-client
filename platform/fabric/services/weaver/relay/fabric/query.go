@@ -59,14 +59,14 @@ func NewResult(address string, view *common.View) (*Result, error) {
 	// TODO: check consistency with the requested query
 	respPayload, err := protoutil.UnmarshalChaincodeAction(fv.ProposalResponsePayload.Extension)
 	if err != nil {
-		err = fmt.Errorf("GetChaincodeAction error %s", err)
+		err = errors.Errorf("GetChaincodeAction error %s", err)
 		return nil, err
 	}
 
 	interopPayload := &common.InteropPayload{}
 	err = proto.Unmarshal(fv.Response.Payload, interopPayload)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal InteropPayload: %v", err)
+		return nil, errors.Errorf("failed to unmarshal InteropPayload: %v", err)
 	}
 
 	return &Result{

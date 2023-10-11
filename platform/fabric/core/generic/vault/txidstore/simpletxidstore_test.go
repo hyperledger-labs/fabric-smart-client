@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package txidstore
 
 import (
-	"fmt"
 	"os"
 	"testing"
 
@@ -16,6 +15,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db"
 	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger"
 	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
+	"github.com/pkg/errors"
 	"github.com/test-go/testify/assert"
 )
 
@@ -178,7 +178,7 @@ func testTXIDStore(t *testing.T, store *SimpleTXIDStore) {
 	func() {
 		defer func() {
 			if r := recover(); r != nil {
-				err = fmt.Errorf("%s", r)
+				err = errors.Errorf("%s", r)
 			}
 		}()
 

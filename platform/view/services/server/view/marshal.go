@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package view
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
@@ -91,7 +90,7 @@ func (s *ResponseMarshaler) createSignedCommandResponse(cr *protos2.CommandRespo
 func (s *ResponseMarshaler) computeHash(data []byte) (hash []byte) {
 	hash, err := hash2.GetHasher(s.sp).Hash(data)
 	if err != nil {
-		panic(fmt.Errorf("failed computing hash on [% x]", data))
+		panic(errors.Errorf("failed computing hash on [% x]", data))
 	}
 	return
 }

@@ -7,12 +7,11 @@ SPDX-License-Identifier: Apache-2.0
 package rwset
 
 import (
-	"fmt"
-
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger/fabric-protos-go/common"
 	"github.com/hyperledger/fabric-protos-go/peer"
 	"github.com/hyperledger/fabric/protoutil"
+	"github.com/pkg/errors"
 )
 
 // TODO: remove this and merge with that in transaction
@@ -61,7 +60,7 @@ func UnpackEnvelope(networkID string, env *common.Envelope) (*UnpackedEnvelope, 
 	// validate the payload type
 	if common.HeaderType(chdr.Type) != common.HeaderType_ENDORSER_TRANSACTION {
 		logger.Errorf("Only Endorser Transactions are supported, provided type %d", chdr.Type)
-		return nil, fmt.Errorf("only Endorser Transactions are supported, provided type %d", chdr.Type)
+		return nil, errors.Errorf("only Endorser Transactions are supported, provided type %d", chdr.Type)
 	}
 
 	// ...and the transaction...
@@ -89,16 +88,16 @@ func UnpackEnvelope(networkID string, env *common.Envelope) (*UnpackedEnvelope, 
 
 	pRespPayload, err := protoutil.UnmarshalProposalResponsePayload(cap.Action.ProposalResponsePayload)
 	if err != nil {
-		err = fmt.Errorf("GetProposalResponsePayload error %s", err)
+		err = errors.Errorf("GetProposalResponsePayload error %s", err)
 		return nil, err
 	}
 	if pRespPayload.Extension == nil {
-		err = fmt.Errorf("nil pRespPayload.Extension")
+		err = errors.Errorf("nil pRespPayload.Extension")
 		return nil, err
 	}
 	respPayload, err := protoutil.UnmarshalChaincodeAction(pRespPayload.Extension)
 	if err != nil {
-		err = fmt.Errorf("GetChaincodeAction error %s", err)
+		err = errors.Errorf("GetChaincodeAction error %s", err)
 		return nil, err
 	}
 

@@ -13,6 +13,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	cb "github.com/hyperledger/fabric-protos-go/common"
 	"github.com/hyperledger/fabric/protoutil"
+	"github.com/pkg/errors"
 )
 
 func computePoliciesMapUpdate(original, updated map[string]*cb.ConfigPolicy) (readSet, writeSet, sameSet map[string]*cb.ConfigPolicy, updatedMembers bool) {
@@ -216,7 +217,7 @@ func computeGroupUpdate(original, updated *cb.ConfigGroup) (readSet, writeSet *c
 
 func Compute(original, updated *cb.Config) (*cb.ConfigUpdate, error) {
 	if original.ChannelGroup == nil {
-		return nil, fmt.Errorf("no channel group included for original config")
+		return nil, errors.Errorf("no channel group included for original config")
 	}
 
 	if updated.ChannelGroup == nil {

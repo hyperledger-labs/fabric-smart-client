@@ -8,7 +8,6 @@ package viperutil
 
 import (
 	"encoding/pem"
-	"fmt"
 	"math"
 	"os"
 	"reflect"
@@ -68,7 +67,7 @@ func byteSizeDecodeHook(f reflect.Kind, t reflect.Kind, data interface{}) (inter
 			size = size << 10
 		}
 		if size > math.MaxUint32 {
-			return size, fmt.Errorf("value '%s' overflows uint32", raw)
+			return size, errors.Errorf("value '%s' overflows uint32", raw)
 		}
 		return size, nil
 	}
@@ -103,7 +102,7 @@ func stringFromFileDecodeHook(f reflect.Kind, t reflect.Kind, data interface{}) 
 			return string(bytes), nil
 		case ok:
 			// fileName was nil
-			return nil, fmt.Errorf("value of File: was nil")
+			return nil, errors.Errorf("value of File: was nil")
 		}
 	}
 	return data, nil
@@ -161,7 +160,7 @@ func pemBlocksFromFileDecodeHook(f reflect.Kind, t reflect.Kind, data interface{
 			return result, nil
 		case ok:
 			// fileName was nil
-			return nil, fmt.Errorf("value of File: was nil")
+			return nil, errors.Errorf("value of File: was nil")
 		}
 	}
 	return data, nil

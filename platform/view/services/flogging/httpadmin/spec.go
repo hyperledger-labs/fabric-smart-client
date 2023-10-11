@@ -8,10 +8,10 @@ package httpadmin
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	"github.com/pkg/errors"
 )
 
 //go:generate counterfeiter -o fakes/logging.go -fake-name Logging . Logging
@@ -62,7 +62,7 @@ func (h *SpecHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 		h.sendResponse(resp, http.StatusOK, &LogSpec{Spec: h.Logging.Spec()})
 
 	default:
-		err := fmt.Errorf("invalid request method: %s", req.Method)
+		err := errors.Errorf("invalid request method: %s", req.Method)
 		h.sendResponse(resp, http.StatusBadRequest, err)
 	}
 }

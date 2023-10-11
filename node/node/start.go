@@ -17,6 +17,7 @@ import (
 	node3 "github.com/hyperledger-labs/fabric-smart-client/pkg/node"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
 
@@ -58,7 +59,7 @@ func startCmd() *cobra.Command {
 		Long:  `Starts the fabric smart client node that interacts with the network.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 0 {
-				return fmt.Errorf("trailing args detected")
+				return errors.Errorf("trailing args detected")
 			}
 			cmd.SilenceUsage = true
 			return serve()

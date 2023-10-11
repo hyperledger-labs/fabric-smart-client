@@ -9,7 +9,6 @@ package golang
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -78,7 +77,7 @@ func gopathDependencyPackageInfo(goos, goarch, pkg string) ([]PackageInfo, error
 			return nil, err
 		}
 		if packageInfo.Incomplete {
-			return nil, fmt.Errorf("failed to calculate dependencies: incomplete package: %s", packageInfo.ImportPath)
+			return nil, errors.Errorf("failed to calculate dependencies: incomplete package: %s", packageInfo.ImportPath)
 		}
 		if packageInfo.Goroot {
 			continue

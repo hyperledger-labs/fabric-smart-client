@@ -183,7 +183,7 @@ func invokeEmptyStream(address string, dialOptions ...grpc.DialOption) (*testpb.
 	// depends on timing.
 	err = stream.Send(&testpb.Empty{})
 	if err != nil && err != io.EOF {
-		return nil, fmt.Errorf("stream send failed: %s", err)
+		return nil, errors.Errorf("stream send failed: %s", err)
 	}
 
 	stream.CloseSend()
@@ -900,7 +900,7 @@ func runMutualAuth(t *testing.T, servers []testServer, trustedClients, unTrusted
 			if err != nil {
 				t.Logf("Untrusted client%d was correctly rejected by %s", k, srvAddr)
 			} else {
-				return fmt.Errorf("Untrusted client %d should not have been able to connect to %s", k, srvAddr)
+				return errors.Errorf("Untrusted client %d should not have been able to connect to %s", k, srvAddr)
 			}
 		}
 	}
@@ -1044,7 +1044,7 @@ func TestUpdateTLSCert(t *testing.T) {
 		fName := filepath.Join("testdata", "dynamic_cert_update", path)
 		data, err := os.ReadFile(fName)
 		if err != nil {
-			panic(fmt.Errorf("Failed reading %s: %v", fName, err))
+			panic(errors.Errorf("Failed reading %s: %v", fName, err))
 		}
 		return data
 	}

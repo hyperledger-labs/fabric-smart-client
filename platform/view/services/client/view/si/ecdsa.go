@@ -12,8 +12,9 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/asn1"
-	"fmt"
 	"math/big"
+
+	"github.com/pkg/errors"
 )
 
 var (
@@ -60,7 +61,7 @@ func (d *ecdsaSigner) Sign(message []byte) ([]byte, error) {
 func isLowS(k *ecdsa.PublicKey, s *big.Int) (bool, error) {
 	halfOrder, ok := curveHalfOrders[k.Curve]
 	if !ok {
-		return false, fmt.Errorf("curve not recognized [%s]", k.Curve)
+		return false, errors.Errorf("curve not recognized [%s]", k.Curve)
 	}
 
 	return s.Cmp(halfOrder) != 1, nil

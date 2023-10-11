@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package mock
 
 import (
-	"fmt"
 	"time"
 
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
@@ -51,7 +50,7 @@ func (p *Initiator) Call(ctx view.Context) (interface{}, error) {
 		}
 		m := string(msg.Payload)
 		if m != "mock pong" {
-			return nil, fmt.Errorf("expected mock pong, got %s", m)
+			return nil, errors.Errorf("expected mock pong, got %s", m)
 		}
 	case <-time.After(1 * time.Minute):
 		return nil, errors.New("responder didn't pong in time")

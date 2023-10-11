@@ -171,7 +171,7 @@ func (p *provider) initViper(v *viper.Viper, configName string) error {
 		// we will consider
 
 		if !dirExists(altPath) {
-			return fmt.Errorf("FSCNODE_CFG_PATH %s does not exist", altPath)
+			return errors.Errorf("FSCNODE_CFG_PATH %s does not exist", altPath)
 		}
 
 		AddConfigPath(v, altPath)

@@ -15,6 +15,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
 )
 
@@ -142,7 +143,7 @@ func NewFormatter(verb, format string) (Formatter, error) {
 	case "time":
 		return newTimeFormatter(format), nil
 	default:
-		return nil, fmt.Errorf("unknown verb: %s", verb)
+		return nil, errors.Errorf("unknown verb: %s", verb)
 	}
 }
 
@@ -161,7 +162,7 @@ func newColorFormatter(f string) (ColorFormatter, error) {
 	case "":
 		return ColorFormatter{}, nil
 	default:
-		return ColorFormatter{}, fmt.Errorf("invalid color option: %s", f)
+		return ColorFormatter{}, errors.Errorf("invalid color option: %s", f)
 	}
 }
 
