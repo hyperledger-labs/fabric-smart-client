@@ -71,7 +71,7 @@ func (c *Channel) Scan(ctx context.Context, txID string, callback driver.Deliver
 			logger.Debugf("commit transaction [%s] in block [%d]", channelHeader.TxId, block.Header.Number)
 		}
 		return false, nil
-	}, vault, WaitForEventTimeout)
+	}, vault, c.Network.Config().CommitterWaitForEventTimeout())
 	if err != nil {
 		return err
 	}

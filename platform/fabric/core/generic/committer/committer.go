@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
@@ -38,6 +39,7 @@ type Network interface {
 	Channel(channel string) (driver.Channel, error)
 	PickPeer(funcType driver.PeerFunctionType) *grpc.ConnectionConfig
 	Ledger(channel string) (driver.Ledger, error)
+	Config() *config.Config
 }
 
 type TransactionHandler = func(block *common.Block, i int, event *TxEvent, env *common.Envelope, chHdr *common.ChannelHeader) error
@@ -71,7 +73,7 @@ func New(channel string, network Network, finality Finality, waitForEventTimeout
 		listeners:           map[string][]chan TxEvent{},
 		mutex:               sync.Mutex{},
 		Finality:            finality,
-		pollingTimeout:      100 * time.Millisecond,
+		pollingTimeout:      network.Config().CommitterPollingTimeout(),
 		Tracer:              metrics,
 		publisher:           publisher,
 		Handlers:            map[common.HeaderType]TransactionHandler{},

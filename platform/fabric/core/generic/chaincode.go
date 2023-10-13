@@ -27,7 +27,7 @@ func (c *Channel) Chaincode(name string) driver.Chaincode {
 	if ok {
 		return ch
 	}
-	ch = chaincode.NewChaincode(name, c.SP, c.Network, c)
+	ch = chaincode.NewChaincode(name, c.Network, c)
 	c.Chaincodes[name] = ch
 	return ch
 }

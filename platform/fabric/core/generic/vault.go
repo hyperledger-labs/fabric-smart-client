@@ -17,10 +17,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-const (
-	defaultCacheSize = 100
-)
-
 type TXIDStore interface {
 	fdriver.TXIDStore
 	Get(txid string) (fdriver.ValidationCode, error)
@@ -46,7 +42,7 @@ func NewVault(sp view2.ServiceProvider, config *config.Config, channel string) (
 	}
 
 	// TODO: load defaultCacheSize from configuration
-	txIDStoreCacheSize := config.VaultTXStoreCacheSize(defaultCacheSize)
+	txIDStoreCacheSize := config.VaultTXStoreCacheSize()
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "failed loading txID store cache size from configuration")
 	}

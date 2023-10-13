@@ -170,7 +170,8 @@ func (c *Config) VaultPersistencePrefix() string {
 	return VaultPersistenceOptsKey
 }
 
-func (c *Config) VaultTXStoreCacheSize(defaultCacheSize int) int {
+func (c *Config) VaultTXStoreCacheSize() int {
+	defaultCacheSize := 100
 	v := c.configService.GetString("fabric." + c.prefix + "vault.txidstore.cache.size")
 	cacheSize, err := strconv.Atoi(v)
 	if err != nil {
@@ -264,4 +265,25 @@ func (c *Config) OrdererConnectionPoolSize() int {
 		v = DefaultOrderingConnectionPoolSize
 	}
 	return v
+}
+
+// TODO:
+func (c *Config) DiscoveryDefaultTTLS() time.Duration {
+	return 5 * time.Minute
+}
+
+func (c *Config) CommitterPollingTimeout() time.Duration {
+	return 100 * time.Millisecond
+}
+
+func (c *Config) DeliverySleepAfterFailure() time.Duration {
+	return 10 * time.Second
+}
+
+func (c *Config) FinalityWaitTimeout() time.Duration {
+	return 20 * time.Second
+}
+
+func (c *Config) CommitterWaitForEventTimeout() time.Duration {
+	return 300 * time.Second
 }

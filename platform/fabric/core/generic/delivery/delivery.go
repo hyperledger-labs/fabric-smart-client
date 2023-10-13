@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
@@ -53,6 +54,7 @@ type Network interface {
 	Channel(name string) (driver.Channel, error)
 	PickPeer(funcType driver.PeerFunctionType) *grpc.ConnectionConfig
 	LocalMembership() driver.LocalMembership
+	Config() *config.Config
 }
 
 type Delivery struct {
@@ -98,7 +100,7 @@ func (d *Delivery) Run(ctx context.Context) error {
 	}
 	var df DeliverStream
 	var err error
-	// TODO: load time.Sleep(10 * time.Second) from configuration
+	waitTime := d.network.Config().DeliverySleepAfterFailure()
 	for {
 		select {
 		case <-d.stop:
@@ -115,7 +117,7 @@ func (d *Delivery) Run(ctx context.Context) error {
 				df, err = d.connect(ctx)
 				if err != nil {
 					logger.Errorf("failed connecting to delivery service [%s:%s] [%s]. Wait 10 sec before reconnecting", d.network.Name(), d.channel, err)
-					time.Sleep(10 * time.Second)
+					time.Sleep(waitTime)
 					if logger.IsEnabledFor(zapcore.DebugLevel) {
 						logger.Debugf("reconnecting to delivery service [%s:%s]", d.network.Name(), d.channel)
 					}
@@ -138,7 +140,7 @@ func (d *Delivery) Run(ctx context.Context) error {
 					if logger.IsEnabledFor(zapcore.DebugLevel) {
 						logger.Debugf("deliver service [%s:%s:%s], received nil block", d.client.Address(), d.network.Name(), d.channel)
 					}
-					time.Sleep(10 * time.Second)
+					time.Sleep(waitTime)
 					df = nil
 				}
 
@@ -150,7 +152,7 @@ func (d *Delivery) Run(ctx context.Context) error {
 				stop, err := d.callback(r.Block)
 				if err != nil {
 					logger.Errorf("error occurred when processing filtered block [%s], retry...", err)
-					time.Sleep(10 * time.Second)
+					time.Sleep(waitTime)
 					df = nil
 				}
 				if stop {
@@ -160,7 +162,7 @@ func (d *Delivery) Run(ctx context.Context) error {
 				if r.Status == common.Status_NOT_FOUND {
 					df = nil
 					logger.Warnf("delivery service [%s:%s:%s] status [%s], wait a few seconds before retrying", d.client.Address(), d.network.Name(), d.channel, r.Status)
-					time.Sleep(10 * time.Second)
+					time.Sleep(waitTime)
 				} else {
 					logger.Warnf("delivery service [%s:%s:%s] status [%s]", d.client.Address(), d.network.Name(), d.channel, r.Status)
 				}

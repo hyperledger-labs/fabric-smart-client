@@ -37,11 +37,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-var (
-	WaitForEventTimeout = 300 * time.Second
-	FinalityWaitTimeout = 20 * time.Second
-)
-
 // These are function names from Invoke first parameter
 const (
 	GetBlockByNumber   string = "GetBlockByNumber"
@@ -108,7 +103,7 @@ func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver
 		name,
 		network,
 		hash.GetHasher(sp),
-		FinalityWaitTimeout,
+		network.Config().FinalityWaitTimeout(),
 	)
 	if err != nil {
 		return nil, err
@@ -126,7 +121,15 @@ func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver
 	}
 
 	// TODO: Load from WaitForEventTimeout
-	committerInst, err := committer.New(name, network, fabricFinality, WaitForEventTimeout, quiet, tracing.Get(sp).GetTracer(), publisher)
+	committerInst, err := committer.New(
+		name,
+		network,
+		fabricFinality,
+		network.Config().CommitterWaitForEventTimeout(),
+		quiet,
+		tracing.Get(sp).GetTracer(),
+		publisher,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -137,7 +140,7 @@ func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver
 		// commit the block, if an error occurs then retry
 		err := committerInst.Commit(block)
 		return false, err
-	}, txIDStore, WaitForEventTimeout)
+	}, txIDStore, network.Config().CommitterWaitForEventTimeout())
 	if err != nil {
 		return nil, err
 	}
