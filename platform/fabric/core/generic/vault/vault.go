@@ -260,7 +260,7 @@ func (db *Vault) GetExistingRWSet(txID string) (*Interceptor, error) {
 		}
 	} else {
 		db.InterceptorsLock.Unlock()
-		return nil, errors.Errorf("")
+		return nil, errors.Errorf("rws for [%s] not found", txID)
 	}
 	if err := db.SetBusy(txID); err != nil {
 		db.InterceptorsLock.Unlock()
