@@ -137,6 +137,9 @@ func (p *provider) load() error {
 	if len(loggingSpec) == 0 {
 		loggingSpec = p.v.GetString("logging.spec")
 	}
+	if len(loggingFormat) == 0 {
+		loggingFormat = p.v.GetString("logging.format")
+	}
 
 	flogging.Init(flogging.Config{
 		Format:  loggingFormat,
