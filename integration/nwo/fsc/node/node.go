@@ -145,10 +145,11 @@ func NewNode(name string) *Node {
 func NewNodeFromTemplate(name string, template *Node) *Node {
 	return &Node{
 		Synthesizer: Synthesizer{
-			Aliases:    map[string]Alias{},
+			Aliases:    template.Aliases,
 			Imports:    template.Imports,
 			Factories:  template.Factories,
 			Responders: template.Responders,
+			SDKs:       template.SDKs,
 		},
 		Name:           name,
 		Bootstrap:      template.Bootstrap,
