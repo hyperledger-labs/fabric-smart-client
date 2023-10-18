@@ -12,10 +12,14 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/api"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"gopkg.in/yaml.v2"
 )
+
+var logger = flogging.MustGetLogger("fsc.integration.nwo.fsc.node")
 
 // Factory is used to create instances of the View interface
 type Factory interface {
@@ -269,6 +273,7 @@ func (n *Node) addImport(i string) string {
 		Original: elements[len(elements)-1],
 		Alias:    newAlias,
 	}
+	logger.Debugf("add new alias [%s,%s,%d,%v][%s]", n.Aliases[i].Original, n.Aliases[i].Alias, counter, elements, n.Aliases)
 
 	var imports []string
 	imports = append(imports, n.Imports[:index]...)
