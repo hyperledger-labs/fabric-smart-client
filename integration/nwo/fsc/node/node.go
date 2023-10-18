@@ -149,7 +149,6 @@ func NewNodeFromTemplate(name string, template *Node) *Node {
 			Imports:    template.Imports,
 			Factories:  template.Factories,
 			Responders: template.Responders,
-			SDKs:       template.SDKs,
 		},
 		Name:           name,
 		Bootstrap:      template.Bootstrap,
