@@ -560,7 +560,7 @@ func (p *Platform) GenerateCmd(output io.Writer, node *node2.Peer) string {
 	}).Parse(p.Topology.Templates.NodeTemplate())
 	Expect(err).NotTo(HaveOccurred())
 
-	Expect(t.Execute(io.MultiWriter(output, os.Stderr), struct {
+	Expect(t.Execute(io.MultiWriter(output), struct {
 		*Platform
 		*node2.Peer
 	}{p, node})).NotTo(HaveOccurred())
