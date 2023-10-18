@@ -273,7 +273,7 @@ func (n *Node) addImport(i string) string {
 		Original: elements[len(elements)-1],
 		Alias:    newAlias,
 	}
-	logger.Debugf("add new alias [%s,%s,%d,%v][%s]", n.Aliases[i].Original, n.Aliases[i].Alias, counter, elements, n.Aliases)
+	logger.Debugf("[%s] add new alias [%s,%s,%d,%v][%s]", n.Name, n.Aliases[i].Original, n.Aliases[i].Alias, counter, elements, n.Aliases)
 
 	var imports []string
 	imports = append(imports, n.Imports[:index]...)
