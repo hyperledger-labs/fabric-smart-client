@@ -7,8 +7,10 @@ SPDX-License-Identifier: Apache-2.0
 package views
 
 import (
+	context2 "context"
 	"encoding/json"
 	"sync"
+	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/chaincode"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
@@ -36,12 +38,18 @@ func (c *EventsView) Call(context view.Context) (interface{}, error) {
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	var eventReceived *chaincode.Event
+	var eventError error
 
 	// Register for events
 	callBack := func(event *chaincode.Event) (bool, error) {
 		if logger.IsEnabledFor(zapcore.DebugLevel) {
 			logger.Debugf("Chaincode Event Received in callback %s", event.EventName)
 		}
+		if event.Err != nil {
+			eventError = event.Err
+			defer wg.Done()
+		}
+
 		if event.EventName == c.EventName {
 			eventReceived = event
 			defer wg.Done()
@@ -50,7 +58,9 @@ func (c *EventsView) Call(context view.Context) (interface{}, error) {
 		return false, nil
 	}
 
-	_, err := context.RunView(chaincode.NewListenToEventsView("events", callBack))
+	ctx, cancelFunc := context2.WithTimeout(context.Context(), 1*time.Minute)
+	defer cancelFunc()
+	_, err := context.RunView(chaincode.NewListenToEventsViewWithContext(ctx, "events", callBack))
 	assert.NoError(err, "failed to listen to events")
 	// Invoke the chaincode
 	_, err = context.RunView(
@@ -63,6 +73,7 @@ func (c *EventsView) Call(context view.Context) (interface{}, error) {
 
 	// wait for the event to arriver
 	wg.Wait()
+	assert.NoError(eventError, "failed processing events")
 	return &EventReceived{
 		Event: eventReceived,
 	}, nil
