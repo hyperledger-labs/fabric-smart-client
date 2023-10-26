@@ -16,6 +16,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
 )
 
@@ -36,7 +37,7 @@ type EventReceived struct {
 
 func (c *EventsView) Call(context view.Context) (interface{}, error) {
 	wg := sync.WaitGroup{}
-	wg.Add(1)
+	wg.Add(2)
 	var eventReceived *chaincode.Event
 	var eventError error
 
@@ -58,11 +59,22 @@ func (c *EventsView) Call(context view.Context) (interface{}, error) {
 		return false, nil
 	}
 
-	ctx, cancelFunc := context2.WithTimeout(context.Context(), 1*time.Minute)
+	// Test timeout
+	ctx, cancelFunc := context2.WithTimeout(context.Context(), 10*time.Second)
 	defer cancelFunc()
 	_, err := context.RunView(chaincode.NewListenToEventsViewWithContext(ctx, "events", callBack))
 	assert.NoError(err, "failed to listen to events")
+	wg.Wait()
+	assert.Error(eventError, "expected error to have happened")
+	assert.Equal(errors.Cause(eventError), context2.DeadlineExceeded, "expected deadline exceeded error")
+
+	// Now invoke the chaincode
 	// Invoke the chaincode
+	ctx1, cancelFunc1 := context2.WithTimeout(context.Context(), 1*time.Minute)
+	defer cancelFunc1()
+	_, err = context.RunView(chaincode.NewListenToEventsViewWithContext(ctx1, "events", callBack))
+	assert.NoError(err, "failed to listen to events")
+	assert.NoError(eventError, "expected no error to have happened")
 	_, err = context.RunView(
 		chaincode.NewInvokeView(
 			"events",
@@ -70,10 +82,8 @@ func (c *EventsView) Call(context view.Context) (interface{}, error) {
 		),
 	)
 	assert.NoError(err, "Failed Running Invoke View ")
-
-	// wait for the event to arriver
 	wg.Wait()
-	assert.NoError(eventError, "failed processing events")
+
 	return &EventReceived{
 		Event: eventReceived,
 	}, nil
