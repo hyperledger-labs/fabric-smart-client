@@ -16,39 +16,41 @@ type eventHandler struct {
 	receiver events.Listener
 }
 
-type eventBus struct {
+type EventBus struct {
 	handlers map[string][]*eventHandler
 	lock     sync.RWMutex
 }
 
-func NewEventBus() *eventBus {
-	return &eventBus{
+func NewEventBus() *EventBus {
+	return &EventBus{
 		handlers: make(map[string][]*eventHandler),
 		lock:     sync.RWMutex{},
 	}
 }
 
-func (e *eventBus) Publish(event events.Event) {
+func (e *EventBus) Publish(event events.Event) {
 	if event == nil {
 		return
 	}
 
 	e.lock.RLock()
-	defer e.lock.RUnlock()
-
 	subs, ok := e.handlers[event.Topic()]
 	if !ok {
+		e.lock.RUnlock()
 		// no subscriber ok
 		return
 	}
+	cloned := make([]*eventHandler, len(subs))
+	copy(cloned, subs)
+	e.lock.RUnlock()
 
 	// call all receivers
-	for _, sub := range subs {
+	for _, sub := range cloned {
 		sub.receiver.OnReceive(event)
 	}
 }
 
-func (e *eventBus) Subscribe(topic string, receiver events.Listener) {
+func (e *EventBus) Subscribe(topic string, receiver events.Listener) {
 	if receiver == nil {
 		return
 	}
@@ -60,7 +62,7 @@ func (e *eventBus) Subscribe(topic string, receiver events.Listener) {
 	e.handlers[topic] = append(handlers, &eventHandler{receiver: receiver})
 }
 
-func (e *eventBus) Unsubscribe(topic string, receiver events.Listener) {
+func (e *EventBus) Unsubscribe(topic string, receiver events.Listener) {
 	if receiver == nil {
 		return
 	}
