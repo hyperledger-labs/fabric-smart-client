@@ -12,6 +12,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/libp2p/go-libp2p"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/libp2p/go-libp2p/core/crypto"
@@ -97,9 +99,9 @@ func NewBootstrapNode(ListenAddress string, keyDispenser PrivateKeyDispenser, me
 	}
 
 	node.host.Peerstore().AddAddrs(node.host.ID(), node.host.Addrs(), time.Hour)
-
-	node.start()
-
+	if err := node.start(); err != nil {
+		return nil, err
+	}
 	return node, nil
 }
 
@@ -123,9 +125,9 @@ func NewNode(ListenAddress, BootstrapNode string, keyDispenser PrivateKeyDispens
 	if err != nil {
 		return nil, err
 	}
-
-	node.start()
-
+	if err := node.start(); err != nil {
+		return nil, err
+	}
 	return node, nil
 }
 
@@ -161,14 +163,16 @@ func (p *P2PNode) startFinder() {
 	}
 }
 
-func (p *P2PNode) start() {
+func (p *P2PNode) start() error {
 	_, err := p.finder.Advertise(context.Background(), rendezVousString)
 	if err != nil {
-		logger.Errorf("error while announcing: %s", err)
+		return errors.Wrap(err, "error while announcing")
 	}
 
 	p.host.SetStreamHandler(protocol.ID(viewProtocol), p.handleStream())
 
 	p.finderWg.Add(1)
 	go p.startFinder()
+
+	return nil
 }
