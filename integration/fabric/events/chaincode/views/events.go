@@ -17,7 +17,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
-	"go.uber.org/zap/zapcore"
 )
 
 var logger = flogging.MustGetLogger("view-events")
@@ -37,25 +36,25 @@ type EventReceived struct {
 
 func (c *EventsView) Call(context view.Context) (interface{}, error) {
 	wg := sync.WaitGroup{}
-	wg.Add(2)
+	wg.Add(1)
 	var eventReceived *chaincode.Event
 	var eventError error
 
 	// Register for events
 	callBack := func(event *chaincode.Event) (bool, error) {
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("Chaincode Event Received in callback %s", event.EventName)
-		}
+		logger.Debugf("Chaincode Event Received in callback %s", event.EventName)
 		if event.Err != nil {
 			eventError = event.Err
-			defer wg.Done()
+			wg.Done()
+			return true, nil
 		}
 
 		if event.EventName == c.EventName {
 			eventReceived = event
-			defer wg.Done()
+			wg.Done()
 			return true, nil
 		}
+
 		return false, nil
 	}
 
@@ -67,22 +66,27 @@ func (c *EventsView) Call(context view.Context) (interface{}, error) {
 	wg.Wait()
 	assert.Error(eventError, "expected error to have happened")
 	assert.Equal(errors.Cause(eventError), context2.DeadlineExceeded, "expected deadline exceeded error")
+	cancelFunc()
 
 	// Now invoke the chaincode
 	// Invoke the chaincode
-	ctx1, cancelFunc1 := context2.WithTimeout(context.Context(), 1*time.Minute)
+	wg.Add(1)
+	eventReceived = nil
+	eventError = nil
+	ctx1, cancelFunc1 := context2.WithTimeout(context.Context(), 10*time.Minute)
 	defer cancelFunc1()
 	_, err = context.RunView(chaincode.NewListenToEventsViewWithContext(ctx1, "events", callBack))
 	assert.NoError(err, "failed to listen to events")
-	assert.NoError(eventError, "expected no error to have happened")
 	_, err = context.RunView(
 		chaincode.NewInvokeView(
 			"events",
 			c.Function,
 		),
 	)
-	assert.NoError(err, "Failed Running Invoke View ")
+	assert.NoError(err, "Failed Running Invoke View")
 	wg.Wait()
+	assert.NoError(eventError, "expected error to not have happened")
+	assert.NotNil(eventReceived, "expected to have received an event")
 
 	return &EventReceived{
 		Event: eventReceived,

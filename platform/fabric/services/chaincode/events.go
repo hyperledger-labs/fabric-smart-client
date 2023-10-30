@@ -113,6 +113,7 @@ func (r *ListenToEventsView) RegisterChaincodeEvents(viewContext view.Context) e
 				}
 			case <-ctx.Done():
 				originErr := ctx.Err()
+				logger.Debugf("context done with err [%s]", originErr)
 				_, err = r.CallBack(&committer.ChaincodeEvent{
 					Err: errors.Wrapf(originErr, "context done"),
 				})
@@ -122,6 +123,7 @@ func (r *ListenToEventsView) RegisterChaincodeEvents(viewContext view.Context) e
 				stop = true
 			case <-viewContext.Context().Done():
 				originErr := viewContext.Context().Err()
+				logger.Debugf("view context done with err [%s]", originErr)
 				_, err = r.CallBack(&committer.ChaincodeEvent{
 					Err: errors.Wrapf(originErr, "view context done"),
 				})
