@@ -164,6 +164,9 @@ func NewIdentityFromBytes(raw []byte) (view.Identity, driver.Verifier, error) {
 
 func NewIdentityFromPEMCert(raw []byte) (view.Identity, driver.Verifier, error) {
 	p, _ := pem.Decode(raw)
+	if p == nil {
+		return nil, nil, errors.Errorf("cannot pem decode [%v]", raw)
+	}
 	cert, err := x509.ParseCertificate(p.Bytes)
 	if err != nil {
 		return nil, nil, err
