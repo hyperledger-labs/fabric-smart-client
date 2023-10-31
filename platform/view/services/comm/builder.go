@@ -99,7 +99,7 @@ func NewBootstrapNode(ListenAddress string, keyDispenser PrivateKeyDispenser, me
 	}
 
 	node.host.Peerstore().AddAddrs(node.host.ID(), node.host.Addrs(), time.Hour)
-	if err := node.start(); err != nil {
+	if err := node.start(false); err != nil {
 		return nil, err
 	}
 	return node, nil
@@ -125,7 +125,7 @@ func NewNode(ListenAddress, BootstrapNode string, keyDispenser PrivateKeyDispens
 	if err != nil {
 		return nil, err
 	}
-	if err := node.start(); err != nil {
+	if err := node.start(false); err != nil {
 		return nil, err
 	}
 	return node, nil
@@ -163,10 +163,13 @@ func (p *P2PNode) startFinder() {
 	}
 }
 
-func (p *P2PNode) start() error {
+func (p *P2PNode) start(failAdv bool) error {
 	_, err := p.finder.Advertise(context.Background(), rendezVousString)
 	if err != nil {
-		return errors.Wrap(err, "error while announcing")
+		if failAdv {
+			return errors.Wrap(err, "error while announcing")
+		}
+		logger.Errorf("error while announcing [%s]", err)
 	}
 
 	p.host.SetStreamHandler(protocol.ID(viewProtocol), p.handleStream())
