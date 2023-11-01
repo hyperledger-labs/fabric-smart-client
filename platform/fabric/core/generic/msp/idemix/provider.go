@@ -11,6 +11,8 @@ import (
 	"reflect"
 	"strconv"
 
+	"go.uber.org/zap/zapcore"
+
 	"github.com/IBM/idemix"
 	bccsp "github.com/IBM/idemix/bccsp/types"
 	"github.com/IBM/idemix/idemixmsp"
@@ -331,7 +333,9 @@ func (p *Provider) Identity(opts *driver2.IdentityOptions) (view.Identity, []byt
 				[]byte(rh),
 			},
 		}
-		logger.Infof("new idemix identity generated with [%s:%s]", enrollmentID, hash.Hashable(auditInfo.Attributes[3]).String())
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			logger.Debugf("new idemix identity generated with [%s:%s]", enrollmentID, hash.Hashable(auditInfo.Attributes[3]).String())
+		}
 		infoRaw, err = auditInfo.Bytes()
 		if err != nil {
 			return nil, nil, err

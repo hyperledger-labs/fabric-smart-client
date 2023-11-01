@@ -8,10 +8,10 @@ package operations
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	"github.com/pkg/errors"
 )
 
 type VersionInfoHandler struct {
@@ -24,7 +24,7 @@ func (m *VersionInfoHandler) ServeHTTP(resp http.ResponseWriter, req *http.Reque
 	case http.MethodGet:
 		m.sendResponse(resp, http.StatusOK, m)
 	default:
-		err := fmt.Errorf("invalid request method: %s", req.Method)
+		err := errors.Errorf("invalid request method: %s", req.Method)
 		m.sendResponse(resp, http.StatusBadRequest, err)
 	}
 }

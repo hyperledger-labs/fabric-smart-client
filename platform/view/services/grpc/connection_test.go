@@ -17,6 +17,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc/testpb"
@@ -138,13 +139,13 @@ func newServer(org string) *srv {
 		fName := filepath.Join("testdata", "impersonation", org, suffix)
 		cert, err := os.ReadFile(fName)
 		if err != nil {
-			panic(fmt.Errorf("Failed reading %s: %v", fName, err))
+			panic(errors.Errorf("Failed reading %s: %v", fName, err))
 		}
 		certs[suffix] = cert
 	}
 	l, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
-		panic(fmt.Errorf("Failed to create listener: %v", err))
+		panic(errors.Errorf("Failed to create listener: %v", err))
 	}
 	gSrv, err := NewGRPCServerFromListener(l, ServerConfig{
 		ConnectionTimeout: 250 * time.Millisecond,
@@ -155,7 +156,7 @@ func newServer(org string) *srv {
 		},
 	})
 	if err != nil {
-		panic(fmt.Errorf("Failed starting gRPC server: %v", err))
+		panic(errors.Errorf("Failed starting gRPC server: %v", err))
 	}
 	s := &srv{
 		address:    l.Addr().String(),

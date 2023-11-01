@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package network
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
@@ -68,7 +67,7 @@ func GenerateCmd(topologies Topologies) *cobra.Command {
 		Long:  `Generate Artifacts.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 0 {
-				return fmt.Errorf("trailing args detected")
+				return errors.Errorf("trailing args detected")
 			}
 			// Parsing of the command line is done so silence cmd usage
 			cmd.SilenceUsage = true
@@ -107,7 +106,7 @@ func CleanCmd() *cobra.Command {
 		Long:  `Clean Artifacts.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 0 {
-				return fmt.Errorf("trailing args detected")
+				return errors.Errorf("trailing args detected")
 			}
 			// Parsing of the command line is done so silence cmd usage
 			cmd.SilenceUsage = true
@@ -143,7 +142,7 @@ func StartCmd(topologies Topologies) *cobra.Command {
 		Long:  `Start Artifacts.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 0 {
-				return fmt.Errorf("trailing args detected")
+				return errors.Errorf("trailing args detected")
 			}
 			// Parsing of the command line is done so silence cmd usage
 			cmd.SilenceUsage = true

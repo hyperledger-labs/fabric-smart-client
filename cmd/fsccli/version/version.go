@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"runtime"
 
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
 
@@ -27,7 +28,7 @@ var cobraCommand = &cobra.Command{
 	Long:  `Print current version of Fabric Smart Client CLI.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if len(args) != 0 {
-			return fmt.Errorf("trailing args detected")
+			return errors.Errorf("trailing args detected")
 		}
 		// Parsing of the command line is done so silence cmd usage
 		cmd.SilenceUsage = true

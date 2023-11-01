@@ -8,6 +8,13 @@ package driver
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"github.com/hyperledger/fabric-protos-go/common"
+)
+
+type TransactionType int32
+
+const (
+	EndorserTransaction = TransactionType(common.HeaderType_ENDORSER_TRANSACTION)
 )
 
 type Envelope interface {
@@ -55,12 +62,18 @@ type EndorserTransactionService interface {
 	LoadTransaction(txid string) ([]byte, error)
 }
 
+type TransactionFactory interface {
+	NewTransaction(channel string, nonce []byte, creator []byte, txid string, rawRequest []byte) (Transaction, error)
+}
+
 type TransactionManager interface {
 	ComputeTxID(id *TxID) string
 	NewEnvelope() Envelope
 	NewProposalResponseFromBytes(raw []byte) (ProposalResponse, error)
-	NewTransaction(creator view.Identity, nonce []byte, txid string, channel string) (Transaction, error)
+	NewTransaction(transactionType TransactionType, creator view.Identity, nonce []byte, txid string, channel string, rawRequest []byte) (Transaction, error)
 	NewTransactionFromBytes(channel string, raw []byte) (Transaction, error)
+	NewTransactionFromEnvelopeBytes(channel string, raw []byte) (Transaction, error)
+	AddTransactionFactory(tt TransactionType, factory TransactionFactory)
 }
 
 // Verifier is an interface which wraps the Verify method.

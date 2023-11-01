@@ -260,3 +260,11 @@ func (f *Network) SetConfigOrderers(o channelconfig.Orderer, orderers []*grpc.Co
 
 	return nil
 }
+
+func (f *Network) SetTransactionManager(tm driver.TransactionManager) {
+	f.transactionManager = tm
+}
+
+func (f *Network) SetProcessorManager(pm driver.ProcessorManager) {
+	f.processorManager = pm
+}

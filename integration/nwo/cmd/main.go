@@ -12,6 +12,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -66,7 +67,7 @@ func VersionCmd(pName string) *cobra.Command {
 		Long:  `Print current version of IOU CLI.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 0 {
-				return fmt.Errorf("trailing args detected")
+				return errors.Errorf("trailing args detected")
 			}
 			// Parsing of the command line is done so silence cmd usage
 			cmd.SilenceUsage = true

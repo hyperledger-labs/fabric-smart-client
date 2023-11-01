@@ -8,7 +8,6 @@ package transaction
 
 import (
 	"encoding/json"
-	"fmt"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger/fabric-protos-go/common"
@@ -109,6 +108,24 @@ func UnpackEnvelopeFromBytes(raw []byte) (*UnpackedEnvelope, int32, error) {
 	return UnpackEnvelope(env)
 }
 
+func GetChannelHeaderType(raw []byte) (common.HeaderType, error) {
+	env := &common.Envelope{}
+	if err := proto.Unmarshal(raw, env); err != nil {
+		return -1, err
+	}
+	payl, err := protoutil.UnmarshalPayload(env.Payload)
+	if err != nil {
+		return -1, errors.Wrap(err, "failed to unmarshal payload")
+	}
+
+	chdr, err := protoutil.UnmarshalChannelHeader(payl.Header.ChannelHeader)
+	if err != nil {
+		return -1, errors.Wrap(err, "failed to unmarshal channel header")
+	}
+
+	return common.HeaderType(chdr.Type), nil
+}
+
 func UnpackEnvelope(env *common.Envelope) (*UnpackedEnvelope, int32, error) {
 	payl, err := protoutil.UnmarshalPayload(env.Payload)
 	if err != nil {
@@ -122,7 +139,7 @@ func UnpackEnvelope(env *common.Envelope) (*UnpackedEnvelope, int32, error) {
 
 	// validate the payload type
 	if common.HeaderType(chdr.Type) != common.HeaderType_ENDORSER_TRANSACTION {
-		return nil, chdr.Type, fmt.Errorf("only Endorser Transactions are supported, provided type %d", chdr.Type)
+		return nil, chdr.Type, errors.Errorf("only Endorser Transactions are supported, provided type %d", chdr.Type)
 	}
 
 	sdr, err := protoutil.UnmarshalSignatureHeader(payl.Header.SignatureHeader)

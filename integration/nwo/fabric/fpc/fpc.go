@@ -299,7 +299,7 @@ func validateSGXMode(mode string) error {
 	if strings.ToUpper(mode) == SGX_MODE_HW || strings.ToUpper(mode) == SGX_MODE_SIM {
 		return nil
 	}
-	return fmt.Errorf("invalid SGX Mode = %s", mode)
+	return errors.Errorf("invalid SGX Mode = %s", mode)
 }
 
 func validateSGXDevicesPaths(paths []string) error {

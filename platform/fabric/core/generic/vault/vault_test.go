@@ -81,23 +81,23 @@ func TestMerge(t *testing.T) {
 
 	err = rws.AppendRWSet(rwsBytes)
 	assert.NoError(t, err)
-	assert.Equal(t, namespaceKeyedMetaWrites{
+	assert.Equal(t, NamespaceKeyedMetaWrites{
 		"namespace": {
 			"key1": {"k1": []byte("v1")},
 			"key3": {"k3": []byte("v3")},
 		},
-	}, rws.Rws.metawrites)
-	assert.Equal(t, writes{"namespace": {
+	}, rws.Rws.MetaWrites)
+	assert.Equal(t, Writes{"namespace": {
 		"key1": []byte("newv1"),
 		"key2": []byte("v2"),
-	}}, rws.Rws.writes)
-	assert.Equal(t, reads{
+	}}, rws.Rws.Writes)
+	assert.Equal(t, Reads{
 		"namespace": {
-			"key1":      {block: 35, txnum: 1},
-			"notexist1": {block: 0, txnum: 0},
-			"notexist2": {block: 0, txnum: 0},
+			"key1":      {Block: 35, TxNum: 1},
+			"notexist1": {Block: 0, TxNum: 0},
+			"notexist2": {Block: 0, TxNum: 0},
 		},
-	}, rws.Rws.reads)
+	}, rws.Rws.Reads)
 
 	rwsb = rwsetutil.NewRWSetBuilder()
 	rwsb.AddToReadSet(ns, k1, rwsetutil.NewVersion(&kvrwset.Version{BlockNum: 36, TxNum: 1}))

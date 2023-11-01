@@ -13,7 +13,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/fabricutils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/metrics"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
@@ -55,6 +54,10 @@ type Transaction interface {
 	Proposal() driver.Proposal
 	ProposalResponses() []driver.ProposalResponse
 	Bytes() ([]byte, error)
+}
+
+type TransactionWithEnvelope interface {
+	Envelope() *common2.Envelope
 }
 
 type BroadcastFnc = func(context context.Context, env *common2.Envelope) error
@@ -99,7 +102,7 @@ func (o *Service) Broadcast(ctx context2.Context, blob interface{}) error {
 		if err != nil {
 			return err
 		}
-	case *transaction.Envelope:
+	case TransactionWithEnvelope:
 		if logger.IsEnabledFor(zapcore.DebugLevel) {
 			logger.Debugf("new envelope to broadcast (boxed)...")
 		}

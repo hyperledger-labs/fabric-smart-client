@@ -7,10 +7,13 @@ SPDX-License-Identifier: Apache-2.0
 package node
 
 import (
+	"encoding/json"
 	"reflect"
 	"sort"
 	"strconv"
 	"strings"
+
+	. "github.com/onsi/gomega"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/api"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -136,6 +139,7 @@ func NewNode(name string) *Node {
 			Imports:    []string{},
 			Factories:  []FactoryEntry{},
 			Responders: []ResponderEntry{},
+			SDKs:       []SDKEntry{},
 		},
 		Name:    name,
 		Options: &Options{Mapping: map[string]interface{}{}},
@@ -143,19 +147,16 @@ func NewNode(name string) *Node {
 }
 
 func NewNodeFromTemplate(name string, template *Node) *Node {
-	return &Node{
-		Synthesizer: Synthesizer{
-			Aliases:    map[string]Alias{},
-			Imports:    template.Imports,
-			Factories:  template.Factories,
-			Responders: template.Responders,
-		},
-		Name:           name,
-		Bootstrap:      template.Bootstrap,
-		ExecutablePath: template.ExecutablePath,
-		Path:           template.Path,
-		Options:        cloneOptions(template.Options),
+	newNode := &Node{
+		Synthesizer: Synthesizer{},
 	}
+	raw, err := json.Marshal(template)
+	Expect(err).ToNot(HaveOccurred())
+	err = json.Unmarshal(raw, newNode)
+	Expect(err).ToNot(HaveOccurred())
+	newNode.Name = name
+	newNode.Options = cloneOptions(template.Options)
+	return newNode
 }
 
 func (n *Node) ID() string {

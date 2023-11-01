@@ -7,10 +7,10 @@ SPDX-License-Identifier: Apache-2.0
 package assert
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -34,5 +34,5 @@ func Retry(attempts int, sleep time.Duration, f func() error) (err error) {
 			return nil
 		}
 	}
-	return fmt.Errorf("no luck after %d attempts: last error: %v", attempts, err)
+	return errors.Errorf("no luck after %d attempts: last error: %v", attempts, err)
 }
