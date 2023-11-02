@@ -32,6 +32,7 @@ type ChaincodeEvent struct {
 	ChaincodeID   string
 	EventName     string
 	Payload       []byte
+	Err           error
 }
 
 func (chaincodeEvent *ChaincodeEvent) Message() interface{} {

@@ -19,6 +19,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/protocol"
 	"github.com/libp2p/go-libp2p/p2p/discovery/routing"
 	"github.com/multiformats/go-multiaddr"
+	"github.com/pkg/errors"
 )
 
 func newHost(ListenAddress string, keyDispenser PrivateKeyDispenser, metrics *Metrics) (*P2PNode, error) {
@@ -97,9 +98,9 @@ func NewBootstrapNode(ListenAddress string, keyDispenser PrivateKeyDispenser, me
 	}
 
 	node.host.Peerstore().AddAddrs(node.host.ID(), node.host.Addrs(), time.Hour)
-
-	node.start()
-
+	if err := node.start(false); err != nil {
+		return nil, err
+	}
 	return node, nil
 }
 
@@ -123,9 +124,9 @@ func NewNode(ListenAddress, BootstrapNode string, keyDispenser PrivateKeyDispens
 	if err != nil {
 		return nil, err
 	}
-
-	node.start()
-
+	if err := node.start(false); err != nil {
+		return nil, err
+	}
 	return node, nil
 }
 
@@ -161,14 +162,19 @@ func (p *P2PNode) startFinder() {
 	}
 }
 
-func (p *P2PNode) start() {
+func (p *P2PNode) start(failAdv bool) error {
 	_, err := p.finder.Advertise(context.Background(), rendezVousString)
 	if err != nil {
-		logger.Errorf("error while announcing: %s", err)
+		if failAdv {
+			return errors.Wrap(err, "error while announcing")
+		}
+		logger.Errorf("error while announcing [%s]", err)
 	}
 
 	p.host.SetStreamHandler(protocol.ID(viewProtocol), p.handleStream())
 
 	p.finderWg.Add(1)
 	go p.startFinder()
+
+	return nil
 }

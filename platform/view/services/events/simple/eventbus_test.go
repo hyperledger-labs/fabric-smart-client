@@ -34,7 +34,7 @@ var _ = Describe("Event system", func() {
 	})
 
 	When("publish and subscribe", func() {
-		var notifier *eventBus
+		var notifier *EventBus
 
 		var alice events.Subscriber
 		var bob events.Publisher
