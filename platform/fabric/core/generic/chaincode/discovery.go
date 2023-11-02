@@ -21,10 +21,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-const (
-	defaultTimeout = time.Second * 10
-)
-
 type Discovery struct {
 	chaincode *Chaincode
 
@@ -39,7 +35,7 @@ func NewDiscovery(chaincode *Chaincode) *Discovery {
 	// set key to the concatenation of chaincode name and version
 	return &Discovery{
 		chaincode:  chaincode,
-		DefaultTTL: chaincode.Network.Config().DiscoveryDefaultTTLS(),
+		DefaultTTL: chaincode.channel.Config().DiscoveryDefaultTTLS(),
 	}
 }
 
@@ -235,8 +231,7 @@ func (d *Discovery) query(req *discovery.Request) (discovery.Response, error) {
 		ClientIdentity:    signerRaw,
 		ClientTlsCertHash: ClientTLSCertHash,
 	}
-	// TODO: load defaultTimeout from configuration
-	timeout, cancel := context.WithTimeout(context.Background(), defaultTimeout)
+	timeout, cancel := context.WithTimeout(context.Background(), d.chaincode.channel.Config().DiscoveryTimeout())
 	defer cancel()
 	cl, err := pc.DiscoveryClient()
 	if err != nil {

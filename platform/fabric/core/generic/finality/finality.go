@@ -8,7 +8,8 @@ package finality
 
 import (
 	"context"
-	"time"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
@@ -27,42 +28,43 @@ type Committer interface {
 	IsFinal(ctx context.Context, txID string) error
 }
 
-type finality struct {
-	channel    string
-	network    Network
-	sp         view2.ServiceProvider
-	committer  Committer
-	TLSEnabled bool
+type Finality struct {
+	channel       string
+	network       Network
+	sp            view2.ServiceProvider
+	committer     Committer
+	TLSEnabled    bool
+	channelConfig *config.Channel
 }
 
-func NewService(sp view2.ServiceProvider, network Network, channel string, committer Committer) (*finality, error) {
-	return &finality{
-		sp:         sp,
-		network:    network,
-		committer:  committer,
-		channel:    channel,
-		TLSEnabled: true,
+func NewService(sp view2.ServiceProvider, network Network, channelConfig *config.Channel, committer Committer) (*Finality, error) {
+	return &Finality{
+		sp:            sp,
+		network:       network,
+		committer:     committer,
+		channel:       channelConfig.Name,
+		channelConfig: channelConfig,
+		TLSEnabled:    true,
 	}, nil
 }
 
-func (f *finality) IsFinal(ctx context.Context, txID string) error {
+func (f *Finality) IsFinal(ctx context.Context, txID string) error {
 	if ctx == nil {
 		ctx = context.Background()
 	}
 	return f.committer.IsFinal(ctx, txID)
 }
 
-func (f *finality) IsFinalForParties(txID string, parties ...view.Identity) error {
+func (f *Finality) IsFinalForParties(txID string, parties ...view.Identity) error {
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("Is [%s] final for parties [%v]?", txID, parties)
 	}
 
-	// TODO: load 1*time.Minute from configuration
 	for _, party := range parties {
 		_, err := view2.GetManager(f.sp).InitiateView(
 			NewIsFinalInitiatorView(
 				f.network.Name(), f.channel, txID, party,
-				1*time.Minute,
+				f.channelConfig.FinalityForPartiesWaitTimeout(),
 			),
 		)
 		if logger.IsEnabledFor(zapcore.DebugLevel) {

@@ -46,6 +46,7 @@ type TransactionHandler = func(block *common.Block, i int, event *TxEvent, env *
 
 type Committer struct {
 	Channel             string
+	ChannelConfig       *config.Channel
 	Network             Network
 	Finality            Finality
 	WaitForEventTimeout time.Duration
@@ -59,21 +60,21 @@ type Committer struct {
 	publisher      events.Publisher
 }
 
-func New(channel string, network Network, finality Finality, waitForEventTimeout time.Duration, quiet bool, metrics tracing.Tracer, publisher events.Publisher) (*Committer, error) {
-	if len(channel) == 0 {
-		return nil, errors.Errorf("expected a channel, got empty string")
+func New(channelConfig *config.Channel, network Network, finality Finality, waitForEventTimeout time.Duration, quiet bool, metrics tracing.Tracer, publisher events.Publisher) (*Committer, error) {
+	if channelConfig == nil {
+		return nil, errors.Errorf("expected channel config, got nil")
 	}
 
-	// TODO: load pollingTimeout from configuration
 	d := &Committer{
-		Channel:             channel,
+		Channel:             channelConfig.Name,
+		ChannelConfig:       channelConfig,
 		Network:             network,
 		WaitForEventTimeout: waitForEventTimeout,
 		QuietNotifier:       quiet,
 		listeners:           map[string][]chan TxEvent{},
 		mutex:               sync.Mutex{},
 		Finality:            finality,
-		pollingTimeout:      network.Config().CommitterPollingTimeout(),
+		pollingTimeout:      channelConfig.CommitterPollingTimeout(),
 		Tracer:              metrics,
 		publisher:           publisher,
 		Handlers:            map[common.HeaderType]TransactionHandler{},
@@ -140,8 +141,7 @@ func (c *Committer) IsFinal(ctx context.Context, txID string) error {
 		return err
 	}
 
-	// TODO: load 3 from configuration
-	for iter := 0; iter < 3; iter++ {
+	for iter := 0; iter < c.ChannelConfig.CommitterFinalityNumRetries(); iter++ {
 		vd, deps, err := committer.Status(txID)
 		if err == nil {
 			switch vd {
@@ -208,8 +208,7 @@ func (c *Committer) IsFinal(ctx context.Context, txID string) error {
 				if logger.IsEnabledFor(zapcore.DebugLevel) {
 					logger.Debugf("Tx [%s] is unknown with no deps, wait a bit and retry [%d]", txID, iter)
 				}
-				// TODO: load 100 * time.Millisecond from configuration
-				time.Sleep(100 * time.Millisecond)
+				time.Sleep(c.ChannelConfig.CommitterFinalityUnknownTXTimeout())
 			default:
 				return errors.Errorf("invalid status code, got [%c]", vd)
 			}

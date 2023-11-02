@@ -262,7 +262,6 @@ func (i *Invoke) WithRetrySleep(duration time.Duration) driver.ChaincodeInvocati
 }
 
 func (i *Invoke) prepare(query bool) (string, *pb.Proposal, []*pb.ProposalResponse, driver.SigningIdentity, error) {
-	// TODO: improve by providing grpc connection pool
 	var peerClients []peer2.Client
 	defer func() {
 		for _, pCli := range peerClients {

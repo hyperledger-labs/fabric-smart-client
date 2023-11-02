@@ -11,10 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/pkg/errors"
 )
@@ -260,30 +258,9 @@ func (c *Config) BroadcastRetryInterval() time.Duration {
 }
 
 func (c *Config) OrdererConnectionPoolSize() int {
-	v := c.configService.GetInt("fabric." + c.prefix + "ordering.connectionPoolSize")
-	if v == 0 {
-		v = DefaultOrderingConnectionPoolSize
+	k := "fabric." + c.prefix + "ordering.connectionPoolSize"
+	if c.configService.IsSet(k) {
+		return c.configService.GetInt(k)
 	}
-	return v
-}
-
-// TODO:
-func (c *Config) DiscoveryDefaultTTLS() time.Duration {
-	return 5 * time.Minute
-}
-
-func (c *Config) CommitterPollingTimeout() time.Duration {
-	return 100 * time.Millisecond
-}
-
-func (c *Config) DeliverySleepAfterFailure() time.Duration {
-	return 10 * time.Second
-}
-
-func (c *Config) FinalityWaitTimeout() time.Duration {
-	return 20 * time.Second
-}
-
-func (c *Config) CommitterWaitForEventTimeout() time.Duration {
-	return 300 * time.Second
+	return DefaultOrderingConnectionPoolSize
 }

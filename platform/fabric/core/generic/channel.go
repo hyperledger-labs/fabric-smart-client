@@ -91,74 +91,6 @@ type Channel struct {
 func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver.Channel, error) {
 	network := nw.(*Network)
 	sp := network.SP
-	// Vault
-	v, txIDStore, err := NewVault(sp, network.config, name)
-	if err != nil {
-		return nil, err
-	}
-
-	// Fabric finality
-	// TODO: load FinalityWaitTimeout from configuration
-	fabricFinality, err := finality2.NewFabricFinality(
-		name,
-		network,
-		hash.GetHasher(sp),
-		network.Config().FinalityWaitTimeout(),
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	// Committers
-	externalCommitter, err := committer.GetExternalCommitter(name, sp, v)
-	if err != nil {
-		return nil, err
-	}
-
-	publisher, err := events.GetPublisher(network.SP)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get event publisher")
-	}
-
-	// TODO: Load from WaitForEventTimeout
-	committerInst, err := committer.New(
-		name,
-		network,
-		fabricFinality,
-		network.Config().CommitterWaitForEventTimeout(),
-		quiet,
-		tracing.Get(sp).GetTracer(),
-		publisher,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	// Delivery
-	// TODO: load WaitForEventTimeout from configuration
-	deliveryService, err := delivery2.New(name, sp, network, func(block *common.Block) (bool, error) {
-		// commit the block, if an error occurs then retry
-		err := committerInst.Commit(block)
-		return false, err
-	}, txIDStore, network.Config().CommitterWaitForEventTimeout())
-	if err != nil {
-		return nil, err
-	}
-
-	// Finality
-	fs, err := finality2.NewService(sp, network, name, committerInst)
-	if err != nil {
-		return nil, err
-	}
-	// Events
-	eventsPublisher, err := events.GetPublisher(sp)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get event publisher")
-	}
-	eventsSubscriber, err := events.GetSubscriber(sp)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get event subscriber")
-	}
 
 	// Channel configuration
 	channelConfigs, err := network.config.Channels()
@@ -182,6 +114,73 @@ func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver
 			Chaincodes: nil,
 		}
 	}
+
+	// Vault
+	v, txIDStore, err := NewVault(sp, network.config, name)
+	if err != nil {
+		return nil, err
+	}
+
+	// Fabric finality
+	fabricFinality, err := finality2.NewFabricFinality(
+		name,
+		network,
+		hash.GetHasher(sp),
+		channelConfig.FinalityWaitTimeout(),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// Committers
+	externalCommitter, err := committer.GetExternalCommitter(name, sp, v)
+	if err != nil {
+		return nil, err
+	}
+
+	publisher, err := events.GetPublisher(network.SP)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get event publisher")
+	}
+
+	committerInst, err := committer.New(
+		channelConfig,
+		network,
+		fabricFinality,
+		channelConfig.CommitterWaitForEventTimeout(),
+		quiet,
+		tracing.Get(sp).GetTracer(),
+		publisher,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// Delivery
+	deliveryService, err := delivery2.New(channelConfig, sp, network, func(block *common.Block) (bool, error) {
+		// commit the block, if an error occurs then retry
+		err := committerInst.Commit(block)
+		return false, err
+	}, txIDStore, channelConfig.CommitterWaitForEventTimeout())
+	if err != nil {
+		return nil, err
+	}
+
+	// Finality
+	fs, err := finality2.NewService(sp, network, channelConfig, committerInst)
+	if err != nil {
+		return nil, err
+	}
+	// Events
+	eventsPublisher, err := events.GetPublisher(sp)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get event publisher")
+	}
+	eventsSubscriber, err := events.GetSubscriber(sp)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get event subscriber")
+	}
+
 	c := &Channel{
 		ChannelName:       name,
 		NetworkConfig:     network.config,

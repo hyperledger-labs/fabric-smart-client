@@ -10,6 +10,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/delivery"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
@@ -24,25 +26,26 @@ type Network interface {
 	LocalMembership() driver.LocalMembership
 	Channel(id string) (driver.Channel, error)
 	IdentityProvider() driver.IdentityProvider
+	Config() *config.Config
 }
 
 type Hasher interface {
 	Hash(msg []byte) (hash []byte, err error)
 }
 
-type fabricFinality struct {
+type FabricFinality struct {
 	channel             string
 	network             Network
 	hasher              Hasher
 	waitForEventTimeout time.Duration
 }
 
-func NewFabricFinality(channel string, network Network, hasher Hasher, waitForEventTimeout time.Duration) (*fabricFinality, error) {
+func NewFabricFinality(channel string, network Network, hasher Hasher, waitForEventTimeout time.Duration) (*FabricFinality, error) {
 	if len(channel) == 0 {
 		return nil, errors.Errorf("expected a channel, got empty string")
 	}
 
-	d := &fabricFinality{
+	d := &FabricFinality{
 		channel:             channel,
 		network:             network,
 		hasher:              hasher,
@@ -52,7 +55,7 @@ func NewFabricFinality(channel string, network Network, hasher Hasher, waitForEv
 	return d, nil
 }
 
-func (d *fabricFinality) IsFinal(txID string, address string) error {
+func (d *FabricFinality) IsFinal(txID string, address string) error {
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("remote checking if transaction [%s] is final in channel [%s]", txID, d.channel)
 	}

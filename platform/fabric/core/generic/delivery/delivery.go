@@ -59,6 +59,7 @@ type Network interface {
 
 type Delivery struct {
 	channel             string
+	channelConfig       *config.Channel
 	sp                  view2.ServiceProvider
 	network             Network
 	waitForEventTimeout time.Duration
@@ -69,12 +70,14 @@ type Delivery struct {
 	stop                chan bool
 }
 
-func New(channel string, sp view2.ServiceProvider, network Network, callback Callback, vault Vault, waitForEventTimeout time.Duration) (*Delivery, error) {
-	if len(channel) == 0 {
-		return nil, errors.Errorf("expected a channel, got empty string")
+func New(channelConfig *config.Channel, sp view2.ServiceProvider, network Network, callback Callback, vault Vault, waitForEventTimeout time.Duration) (*Delivery, error) {
+	if channelConfig == nil {
+		return nil, errors.Errorf("expected channel config, got nil")
 	}
+
 	d := &Delivery{
-		channel:             channel,
+		channel:             channelConfig.Name,
+		channelConfig:       channelConfig,
 		sp:                  sp,
 		network:             network,
 		waitForEventTimeout: waitForEventTimeout,
@@ -100,7 +103,7 @@ func (d *Delivery) Run(ctx context.Context) error {
 	}
 	var df DeliverStream
 	var err error
-	waitTime := d.network.Config().DeliverySleepAfterFailure()
+	waitTime := d.channelConfig.DeliverySleepAfterFailure()
 	for {
 		select {
 		case <-d.stop:
