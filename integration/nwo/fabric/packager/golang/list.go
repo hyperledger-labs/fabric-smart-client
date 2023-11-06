@@ -42,6 +42,9 @@ func (p PackageInfo) Files() []string {
 	files = append(files, p.CgoFiles...)
 	files = append(files, p.HFiles...)
 	files = append(files, p.SFiles...)
+	for _, file := range p.IgnoredGoFiles {
+		logger.Infof("ignore go files [%s]", file)
+	}
 	files = append(files, p.IgnoredGoFiles...)
 	return files
 }
