@@ -146,6 +146,7 @@ func (p *Platform) GetDeploymentPayload(codepath string, replacer replacer.Func)
 				Name: path.Join("src", pkg.ImportPath, filename),
 				Path: filepath.Join(pkg.Dir, filename),
 			}
+			logger.Infof("add source [%s][%s]", sd.Name, sd.Path)
 			fileMap[sd.Name] = sd
 		}
 	}
