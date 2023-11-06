@@ -8,6 +8,9 @@ package chaincode_test
 
 import (
 	"encoding/json"
+	"os"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/events/chaincode"
@@ -36,6 +39,11 @@ var _ = Describe("EndToEnd", func() {
 		BeforeEach(func() {
 			var err error
 			// Create the integration ii
+			flogging.Init(flogging.Config{
+				Format:  "%{color}%{time:2006-01-02 15:04:05.000 MST} [%{module}] %{shortfunc} -> %{level:.4s} %{id:03x}%{color:reset} %{message}",
+				LogSpec: "info",
+				Writer:  os.Stderr,
+			})
 			ii, err = integration.Generate(StartPort(), true, chaincode.Topology()...)
 			Expect(err).NotTo(HaveOccurred())
 			// Start the integration ii

@@ -11,8 +11,6 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/packager"
-
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/commands"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 
@@ -40,7 +38,7 @@ func PackageAndInstallChaincode(n *Network, chaincode *topology.Chaincode, peers
 		case "binary":
 			PackageChaincodeBinary(chaincode)
 		default:
-			packager := packager.New()
+			packager := n.PackagerFactory()
 			err := packager.PackageChaincode(chaincode.Path, chaincode.Lang, chaincode.Label, chaincode.PackageFile, nil)
 			Expect(err).NotTo(HaveOccurred())
 		}
