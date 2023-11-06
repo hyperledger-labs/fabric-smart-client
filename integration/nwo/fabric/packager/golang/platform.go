@@ -234,12 +234,14 @@ elif [ -f "/chaincode/input/src/%[2]s/go.mod" ]; then
     cd /chaincode/input/src/%[2]s
     GO111MODULE=on go build -v -mod=readonly %[1]s -o /chaincode/output/chaincode .
 else
-	go mod init
-	go mod tidy
-    GOPATH=/chaincode/input:$GOPATH go build -v %[1]s -o /chaincode/output/chaincode %[2]s
+	GO111MODULE=off GOPATH=/chaincode/input:$GOPATH go build -v %[1]s -o /chaincode/output/chaincode %[2]s
 fi
 echo Done!
 `
+
+//go mod init
+//go mod tidy
+//GOPATH=/chaincode/input:$GOPATH go build -v %[1]s -o /chaincode/output/chaincode %[2]s
 
 func (p *Platform) DockerBuildOptions(path string) (util.DockerBuildOptions, error) {
 	env := []string{}
