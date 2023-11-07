@@ -78,10 +78,9 @@ func New() *Packager {
 	}
 }
 
-func NewWithRegistry() *Packager {
-	pr := NewRegistry(SupportedPlatforms...)
+func NewWithRegistry(PlatformRegistry PlatformRegistry) *Packager {
 	return &Packager{
-		PlatformRegistry: pr,
+		PlatformRegistry: PlatformRegistry,
 		Writer:           &persistence.FilesystemIO{},
 	}
 }
