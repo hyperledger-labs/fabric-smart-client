@@ -12,6 +12,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"runtime"
 	"strings"
 	"time"
 
@@ -52,7 +53,7 @@ func gopathDependencyPackageInfo(goos, goarch, pkg string) ([]PackageInfo, error
 	ctx, cancel := context.WithTimeout(context.Background(), listTimeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "go", "list", "-deps", "-json", "-tags", "go1.20", pkg)
+	cmd := exec.CommandContext(ctx, "go", "list", "-deps", "-json", "-tags", runtime.Version(), pkg)
 	cmd.Env = append(os.Environ(), "GOOS="+goos, "GOARCH="+goarch)
 
 	stdout, err := cmd.StdoutPipe()
@@ -113,7 +114,7 @@ func listModuleInfo(extraEnv ...string) (*ModuleInfo, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), listTimeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "go", "list", "-json", "-tags", "go1.20", ".")
+	cmd := exec.CommandContext(ctx, "go", "list", "-json", "-tags", runtime.Version(), ".")
 	cmd.Env = append(os.Environ(), "GO111MODULE=on")
 	cmd.Env = append(cmd.Env, extraEnv...)
 
