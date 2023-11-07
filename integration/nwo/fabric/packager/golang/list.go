@@ -43,7 +43,7 @@ func (p PackageInfo) Files() []string {
 	files = append(files, p.CgoFiles...)
 	files = append(files, p.HFiles...)
 	files = append(files, p.SFiles...)
-	//files = append(files, p.IgnoredGoFiles...)
+	files = append(files, p.IgnoredGoFiles...)
 	return files
 }
 
