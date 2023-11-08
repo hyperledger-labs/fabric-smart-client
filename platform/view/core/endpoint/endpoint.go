@@ -240,8 +240,7 @@ func (r *Service) AddResolver(name string, domain string, addresses map[string]s
 		}
 		for _, alias := range resolver.Aliases {
 			if slices.Contains(aliases, alias) {
-				r.resolversMutex.RUnlock()
-				return nil, errors.Errorf("alias [%s] already defined by resolver [%s]", alias, resolver.Name)
+				logger.Warnf("alias [%s] already defined by resolver [%s]", alias, resolver.Name)
 			}
 		}
 	}
