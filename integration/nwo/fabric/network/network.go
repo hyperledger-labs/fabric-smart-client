@@ -15,6 +15,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/commands"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/fabricconfig"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/packager"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/packager/replacer"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	. "github.com/onsi/gomega"
@@ -33,6 +35,12 @@ type Extension interface {
 	GenerateArtifacts()
 	PostRun(load bool)
 }
+
+type Packager interface {
+	PackageChaincode(path, typ, label, outputFile string, replacer replacer.Func) error
+}
+
+type PackagerFactory = func() Packager
 
 type Network struct {
 	Context            api.Context
@@ -66,7 +74,8 @@ type Network struct {
 	Templates         *topology.Templates
 	Resolvers         []*Resolver
 
-	Extensions []Extension
+	Extensions      []Extension
+	PackagerFactory PackagerFactory
 
 	colorIndex uint
 	ccps       []ChaincodeProcessor
@@ -107,6 +116,9 @@ func New(reg api.Context, topology *topology.Topology, builderClient BuilderClie
 		PvtTxCCSupport:    topology.PvtTxCCSupport,
 		ccps:              ccps,
 		Extensions:        []Extension{},
+		PackagerFactory: func() Packager {
+			return packager.New()
+		},
 	}
 	return network
 }

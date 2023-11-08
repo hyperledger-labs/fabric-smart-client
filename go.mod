@@ -3,9 +3,9 @@ module github.com/hyperledger-labs/fabric-smart-client
 go 1.20
 
 require (
-	github.com/IBM/idemix v0.0.2-0.20230831093709-b7a940638990
-	github.com/IBM/idemix/bccsp/types v0.0.0-20230831093709-b7a940638990
-	github.com/IBM/mathlib v0.0.3-0.20230831091907-c532c4d3b65c
+	github.com/IBM/idemix v0.0.2-0.20231107110441-534ea4193b8f
+	github.com/IBM/idemix/bccsp/types v0.0.0-20231107110234-4cf31dd43660
+	github.com/IBM/mathlib v0.0.3-0.20231011094432-44ee0eb539da
 	github.com/ReneKroon/ttlcache/v2 v2.11.0
 	github.com/dgraph-io/badger/v3 v3.2103.2
 	github.com/docker/docker v20.10.24+incompatible
@@ -60,10 +60,10 @@ require (
 )
 
 require (
-	github.com/IBM/idemix/bccsp/schemes/aries v0.0.0-20230831093709-b7a940638990 // indirect
-	github.com/IBM/idemix/bccsp/schemes/weak-bb v0.0.0-20230831093709-b7a940638990 // indirect
-	github.com/ale-linux/aries-framework-go/component/kmscrypto v0.0.0-20230817163708-4b3de6d91874 // indirect
-	github.com/bits-and-blooms/bitset v1.2.1 // indirect
+	github.com/IBM/idemix/bccsp/schemes/aries v0.0.0-20231107110234-4cf31dd43660 // indirect
+	github.com/IBM/idemix/bccsp/schemes/weak-bb v0.0.0-20231107110234-4cf31dd43660 // indirect
+	github.com/ale-linux/aries-framework-go/component/kmscrypto v0.0.0-20231023164747-f3f972769504 // indirect
+	github.com/bits-and-blooms/bitset v1.7.0 // indirect
 	github.com/cenkalti/backoff/v4 v4.2.0 // indirect
 	github.com/consensys/bavard v0.1.13 // indirect
 	github.com/go-logr/logr v1.2.4 // indirect
@@ -107,7 +107,7 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash v1.1.0 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
-	github.com/consensys/gnark-crypto v0.9.1 // indirect
+	github.com/consensys/gnark-crypto v0.12.1 // indirect
 	github.com/containerd/cgroups v1.1.0 // indirect
 	github.com/containerd/containerd v1.5.18 // indirect
 	github.com/coreos/go-systemd/v22 v22.5.0 // indirect
@@ -221,7 +221,7 @@ require (
 	github.com/prometheus/procfs v0.9.0 // indirect
 	github.com/raulk/go-watchdog v1.3.0 // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475 // indirect
-	github.com/rogpeppe/go-internal v1.9.0 // indirect
+	github.com/rogpeppe/go-internal v1.11.0 // indirect
 	github.com/sergi/go-diff v1.0.0 // indirect
 	github.com/sirupsen/logrus v1.9.0 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect

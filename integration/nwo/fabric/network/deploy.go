@@ -11,16 +11,12 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/packager"
-
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/commands"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
-
 	"github.com/hyperledger/fabric-protos-go/peer/lifecycle"
+	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
 	"github.com/onsi/gomega/gexec"
-
-	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gstruct"
 )
 
@@ -40,7 +36,7 @@ func PackageAndInstallChaincode(n *Network, chaincode *topology.Chaincode, peers
 		case "binary":
 			PackageChaincodeBinary(chaincode)
 		default:
-			packager := packager.New()
+			packager := n.PackagerFactory()
 			err := packager.PackageChaincode(chaincode.Path, chaincode.Lang, chaincode.Label, chaincode.PackageFile, nil)
 			Expect(err).NotTo(HaveOccurred())
 		}

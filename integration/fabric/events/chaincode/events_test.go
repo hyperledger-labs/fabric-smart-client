@@ -35,7 +35,6 @@ var _ = Describe("EndToEnd", func() {
 
 		BeforeEach(func() {
 			var err error
-			// Create the integration ii
 			ii, err = integration.Generate(StartPort(), true, chaincode.Topology()...)
 			Expect(err).NotTo(HaveOccurred())
 			// Start the integration ii

@@ -78,6 +78,13 @@ func New() *Packager {
 	}
 }
 
+func NewWithRegistry(PlatformRegistry PlatformRegistry) *Packager {
+	return &Packager{
+		PlatformRegistry: PlatformRegistry,
+		Writer:           &persistence.FilesystemIO{},
+	}
+}
+
 // PackageChaincode packages a chaincode.
 func (p *Packager) PackageChaincode(path, typ, label, outputFile string, replacer replacer.Func) error {
 	p.setInput(path, typ, label, outputFile)
