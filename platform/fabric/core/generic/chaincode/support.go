@@ -9,6 +9,8 @@ package chaincode
 import (
 	"context"
 
+	pb "github.com/hyperledger/fabric-protos-go/peer"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
@@ -19,6 +21,27 @@ import (
 )
 
 var logger = flogging.MustGetLogger("fabric-sdk.chaincode")
+
+//go:generate counterfeiter -o mocks/sp.go -fake-name SignerProvider . SignerProvider
+//go:generate counterfeiter -o mocks/sersig.go -fake-name SerializableSigner . SerializableSigner
+//go:generate counterfeiter -o mocks/network.go -fake-name Network . Network
+//go:generate counterfeiter -o mocks/channel.go -fake-name Channel . Channel
+//go:generate counterfeiter -o mocks/cd.go -fake-name Discover . Discover
+//go:generate counterfeiter -o mocks/mspm.go -fake-name MSPManager . MSPManager
+//go:generate counterfeiter -o mocks/mspid.go -fake-name MSPIdentity . MSPIdentity
+//go:generate counterfeiter -o mocks/pc.go -fake-name PeerClient . PeerClient
+//go:generate counterfeiter -o mocks/ec.go -fake-name EndorserClient . EndorserClient
+//go:generate counterfeiter -o mocks/sc.go -fake-name SignerService . SignerService
+//go:generate counterfeiter -o mocks/si.go -fake-name SigningIdentity . SigningIdentity
+
+type SigningIdentity = driver.SigningIdentity
+type SignerService = driver.SignerService
+type EndorserClient = pb.EndorserClient
+type PeerClient = peer.Client
+type MSPIdentity = driver.MSPIdentity
+type MSPManager = driver.MSPManager
+
+type Discover = driver.ChaincodeDiscover
 
 type SignerProvider interface {
 	GetSigningIdentity(identity view.Identity) (*view2.SigningIdentity, error)
