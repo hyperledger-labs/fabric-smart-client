@@ -88,13 +88,105 @@ type Chaincode struct {
 	Private bool   `yaml:"Private,omitempty"`
 }
 
+type Finality struct {
+	WaitForEventTimeout   time.Duration `yaml:"WaitForEventTimeout,omitempty"`
+	ForPartiesWaitTimeout time.Duration `yaml:"ForPartiesWaitTimeout,omitempty"`
+}
+
+type Delivery struct {
+	WaitForEventTimeout time.Duration `yaml:"WaitForEventTimeout,omitempty"`
+	SleepAfterFailure   time.Duration `yaml:"SleepAfterFailure,omitempty"`
+}
+
+type Discovery struct {
+	Timeout time.Duration `yaml:"Timeout,omitempty"`
+}
+
+type CommitterFinality struct {
+	NumRetries       uint          `yaml:"NumRetries,omitempty"`
+	UnknownTxTimeout time.Duration `yaml:"UnknownTxTimeout,omitempty"`
+}
+
+type Committer struct {
+	WaitForEventTimeout time.Duration     `yaml:"WaitForEventTimeout,omitempty"`
+	PollingTimeout      time.Duration     `yaml:"PollingTimeout,omitempty"`
+	Finality            CommitterFinality `yaml:"Finality,omitempty"`
+}
+
 type Channel struct {
 	Name       string        `yaml:"Name,omitempty"`
 	Default    bool          `yaml:"Default,omitempty"`
 	Quiet      bool          `yaml:"Quiet,omitempty"`
 	NumRetries uint          `yaml:"NumRetries,omitempty"`
 	RetrySleep time.Duration `yaml:"RetrySleep,omitempty"`
+	Finality   Finality      `yaml:"Finality,omitempty"`
+	Committer  Committer     `yaml:"Committer,omitempty"`
+	Delivery   Delivery      `yaml:"Delivery,omitempty"`
+	Discovery  Discovery     `yaml:"Discovery,omitempty"`
 	Chaincodes []*Chaincode  `yaml:"Chaincodes,omitempty"`
+}
+
+func (c *Channel) DiscoveryDefaultTTLS() time.Duration {
+	if c.Discovery.Timeout == 0 {
+		return 5 * time.Minute
+	}
+	return c.Discovery.Timeout
+}
+
+func (c *Channel) CommitterPollingTimeout() time.Duration {
+	if c.Committer.PollingTimeout == 0 {
+		return 100 * time.Millisecond
+	}
+	return c.Committer.PollingTimeout
+}
+
+func (c *Channel) DeliverySleepAfterFailure() time.Duration {
+	if c.Delivery.SleepAfterFailure == 0 {
+		return 10 * time.Second
+	}
+	return c.Delivery.SleepAfterFailure
+}
+
+func (c *Channel) FinalityWaitTimeout() time.Duration {
+	if c.Finality.WaitForEventTimeout == 0 {
+		return 20 * time.Second
+	}
+	return c.Finality.WaitForEventTimeout
+}
+
+func (c *Channel) CommitterWaitForEventTimeout() time.Duration {
+	if c.Committer.WaitForEventTimeout == 0 {
+		return 300 * time.Second
+	}
+	return c.Committer.WaitForEventTimeout
+}
+
+func (c *Channel) DiscoveryTimeout() time.Duration {
+	if c.Discovery.Timeout == 0 {
+		return 20 * time.Second
+	}
+	return c.Discovery.Timeout
+}
+
+func (c *Channel) CommitterFinalityNumRetries() int {
+	if c.Committer.Finality.NumRetries == 0 {
+		return 3
+	}
+	return int(c.Committer.Finality.NumRetries)
+}
+
+func (c *Channel) CommitterFinalityUnknownTXTimeout() time.Duration {
+	if c.Committer.Finality.UnknownTxTimeout == 0 {
+		return 100 * time.Millisecond
+	}
+	return c.Discovery.Timeout
+}
+
+func (c *Channel) FinalityForPartiesWaitTimeout() time.Duration {
+	if c.Finality.ForPartiesWaitTimeout == 0 {
+		return 1 * time.Minute
+	}
+	return c.Finality.ForPartiesWaitTimeout
 }
 
 type Network struct {

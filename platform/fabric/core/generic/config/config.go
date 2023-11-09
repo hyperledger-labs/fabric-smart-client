@@ -11,10 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/pkg/errors"
 )
@@ -170,7 +168,8 @@ func (c *Config) VaultPersistencePrefix() string {
 	return VaultPersistenceOptsKey
 }
 
-func (c *Config) VaultTXStoreCacheSize(defaultCacheSize int) int {
+func (c *Config) VaultTXStoreCacheSize() int {
+	defaultCacheSize := 100
 	v := c.configService.GetString("fabric." + c.prefix + "vault.txidstore.cache.size")
 	cacheSize, err := strconv.Atoi(v)
 	if err != nil {
@@ -259,9 +258,9 @@ func (c *Config) BroadcastRetryInterval() time.Duration {
 }
 
 func (c *Config) OrdererConnectionPoolSize() int {
-	v := c.configService.GetInt("fabric." + c.prefix + "ordering.connectionPoolSize")
-	if v == 0 {
-		v = DefaultOrderingConnectionPoolSize
+	k := "fabric." + c.prefix + "ordering.connectionPoolSize"
+	if c.configService.IsSet(k) {
+		return c.configService.GetInt(k)
 	}
-	return v
+	return DefaultOrderingConnectionPoolSize
 }

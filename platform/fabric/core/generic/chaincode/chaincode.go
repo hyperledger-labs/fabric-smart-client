@@ -12,13 +12,11 @@ import (
 
 	"github.com/ReneKroon/ttlcache/v2"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 )
 
 type Chaincode struct {
 	name       string
-	sp         view.ServiceProvider
-	network    Network
+	Network    Network
 	channel    Channel
 	NumRetries uint
 	RetrySleep time.Duration
@@ -27,11 +25,10 @@ type Chaincode struct {
 	discoveryResultsCache     ttlcache.SimpleCache
 }
 
-func NewChaincode(name string, sp view.ServiceProvider, network Network, channel Channel) *Chaincode {
+func NewChaincode(name string, network Network, channel Channel) *Chaincode {
 	return &Chaincode{
 		name:                      name,
-		sp:                        sp,
-		network:                   network,
+		Network:                   network,
 		channel:                   channel,
 		NumRetries:                channel.Config().NumRetries,
 		RetrySleep:                channel.Config().RetrySleep,
@@ -57,7 +54,7 @@ func (c *Chaincode) IsAvailable() (bool, error) {
 }
 
 func (c *Chaincode) IsPrivate() bool {
-	channels, err := c.network.Config().Channels()
+	channels, err := c.Network.Config().Channels()
 	if err != nil {
 		logger.Error("failed getting channels' configurations [%s]", err)
 		return false

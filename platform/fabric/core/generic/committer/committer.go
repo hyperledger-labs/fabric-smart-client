@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
@@ -38,12 +39,14 @@ type Network interface {
 	Channel(channel string) (driver.Channel, error)
 	PickPeer(funcType driver.PeerFunctionType) *grpc.ConnectionConfig
 	Ledger(channel string) (driver.Ledger, error)
+	Config() *config.Config
 }
 
 type TransactionHandler = func(block *common.Block, i int, event *TxEvent, env *common.Envelope, chHdr *common.ChannelHeader) error
 
 type Committer struct {
 	Channel             string
+	ChannelConfig       *config.Channel
 	Network             Network
 	Finality            Finality
 	WaitForEventTimeout time.Duration
@@ -57,20 +60,21 @@ type Committer struct {
 	publisher      events.Publisher
 }
 
-func New(channel string, network Network, finality Finality, waitForEventTimeout time.Duration, quiet bool, metrics tracing.Tracer, publisher events.Publisher) (*Committer, error) {
-	if len(channel) == 0 {
-		return nil, errors.Errorf("expected a channel, got empty string")
+func New(channelConfig *config.Channel, network Network, finality Finality, waitForEventTimeout time.Duration, quiet bool, metrics tracing.Tracer, publisher events.Publisher) (*Committer, error) {
+	if channelConfig == nil {
+		return nil, errors.Errorf("expected channel config, got nil")
 	}
 
 	d := &Committer{
-		Channel:             channel,
+		Channel:             channelConfig.Name,
+		ChannelConfig:       channelConfig,
 		Network:             network,
 		WaitForEventTimeout: waitForEventTimeout,
 		QuietNotifier:       quiet,
 		listeners:           map[string][]chan TxEvent{},
 		mutex:               sync.Mutex{},
 		Finality:            finality,
-		pollingTimeout:      100 * time.Millisecond,
+		pollingTimeout:      channelConfig.CommitterPollingTimeout(),
 		Tracer:              metrics,
 		publisher:           publisher,
 		Handlers:            map[common.HeaderType]TransactionHandler{},
@@ -137,7 +141,7 @@ func (c *Committer) IsFinal(ctx context.Context, txID string) error {
 		return err
 	}
 
-	for iter := 0; iter < 3; iter++ {
+	for iter := 0; iter < c.ChannelConfig.CommitterFinalityNumRetries(); iter++ {
 		vd, deps, err := committer.Status(txID)
 		if err == nil {
 			switch vd {
@@ -204,7 +208,7 @@ func (c *Committer) IsFinal(ctx context.Context, txID string) error {
 				if logger.IsEnabledFor(zapcore.DebugLevel) {
 					logger.Debugf("Tx [%s] is unknown with no deps, wait a bit and retry [%d]", txID, iter)
 				}
-				time.Sleep(100 * time.Millisecond)
+				time.Sleep(c.ChannelConfig.CommitterFinalityUnknownTXTimeout())
 			default:
 				return errors.Errorf("invalid status code, got [%c]", vd)
 			}

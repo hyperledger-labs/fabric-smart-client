@@ -37,11 +37,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-var (
-	WaitForEventTimeout = 300 * time.Second
-	FinalityWaitTimeout = 20 * time.Second
-)
-
 // These are function names from Invoke first parameter
 const (
 	GetBlockByNumber   string = "GetBlockByNumber"
@@ -96,6 +91,30 @@ type Channel struct {
 func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver.Channel, error) {
 	network := nw.(*Network)
 	sp := network.SP
+
+	// Channel configuration
+	channelConfigs, err := network.config.Channels()
+	if err != nil {
+		return nil, errors.WithMessagef(err, "failed to get Channel config")
+	}
+	var channelConfig *config2.Channel
+	for _, config := range channelConfigs {
+		if config.Name == name {
+			channelConfig = config
+			break
+		}
+	}
+	if channelConfig == nil {
+		channelConfig = &config2.Channel{
+			Name:       name,
+			Default:    false,
+			Quiet:      false,
+			NumRetries: DefaultNumRetries,
+			RetrySleep: DefaultRetrySleep,
+			Chaincodes: nil,
+		}
+	}
+
 	// Vault
 	v, txIDStore, err := NewVault(sp, network.config, name)
 	if err != nil {
@@ -107,7 +126,7 @@ func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver
 		name,
 		network,
 		hash.GetHasher(sp),
-		FinalityWaitTimeout,
+		channelConfig.FinalityWaitTimeout(),
 	)
 	if err != nil {
 		return nil, err
@@ -124,23 +143,31 @@ func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver
 		return nil, errors.Wrapf(err, "failed to get event publisher")
 	}
 
-	committerInst, err := committer.New(name, network, fabricFinality, WaitForEventTimeout, quiet, tracing.Get(sp).GetTracer(), publisher)
+	committerInst, err := committer.New(
+		channelConfig,
+		network,
+		fabricFinality,
+		channelConfig.CommitterWaitForEventTimeout(),
+		quiet,
+		tracing.Get(sp).GetTracer(),
+		publisher,
+	)
 	if err != nil {
 		return nil, err
 	}
 
 	// Delivery
-	deliveryService, err := delivery2.New(name, sp, network, func(block *common.Block) (bool, error) {
+	deliveryService, err := delivery2.New(channelConfig, sp, network, func(block *common.Block) (bool, error) {
 		// commit the block, if an error occurs then retry
 		err := committerInst.Commit(block)
 		return false, err
-	}, txIDStore, WaitForEventTimeout)
+	}, txIDStore, channelConfig.CommitterWaitForEventTimeout())
 	if err != nil {
 		return nil, err
 	}
 
 	// Finality
-	fs, err := finality2.NewService(sp, network, name, committerInst)
+	fs, err := finality2.NewService(sp, network, channelConfig, committerInst)
 	if err != nil {
 		return nil, err
 	}
@@ -154,28 +181,6 @@ func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver
 		return nil, errors.Wrap(err, "failed to get event subscriber")
 	}
 
-	// Channel configuration
-	channelConfigs, err := network.config.Channels()
-	if err != nil {
-		return nil, errors.WithMessagef(err, "failed to get Channel config")
-	}
-	var channelConfig *config2.Channel
-	for _, config := range channelConfigs {
-		if config.Name == name {
-			channelConfig = config
-			break
-		}
-	}
-	if channelConfig != nil {
-		channelConfig = &config2.Channel{
-			Name:       name,
-			Default:    false,
-			Quiet:      false,
-			NumRetries: DefaultNumRetries,
-			RetrySleep: DefaultRetrySleep,
-			Chaincodes: nil,
-		}
-	}
 	c := &Channel{
 		ChannelName:       name,
 		NetworkConfig:     network.config,

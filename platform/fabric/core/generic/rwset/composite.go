@@ -16,7 +16,6 @@ const (
 	minUnicodeRuneValue   = 0            // U+0000
 	maxUnicodeRuneValue   = utf8.MaxRune // U+10FFFF - maximum (and unallocated) code point
 	compositeKeyNamespace = "\x00"
-	emptyKeySubstitute    = "\x01"
 )
 
 func CreateCompositeKey(objectType string, attributes []string) (string, error) {

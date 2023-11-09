@@ -18,7 +18,6 @@ import (
 	peer2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/hyperledger/fabric-protos-go/common"
@@ -30,7 +29,6 @@ import (
 
 type Invoke struct {
 	Chaincode                      *Chaincode
-	ServiceProvider                view2.ServiceProvider
 	Network                        Network
 	Channel                        Channel
 	TxID                           driver.TxID
@@ -54,15 +52,14 @@ type Invoke struct {
 
 func NewInvoke(chaincode *Chaincode, function string, args ...interface{}) *Invoke {
 	return &Invoke{
-		Chaincode:       chaincode,
-		ServiceProvider: chaincode.sp,
-		Network:         chaincode.network,
-		Channel:         chaincode.channel,
-		ChaincodeName:   chaincode.name,
-		Function:        function,
-		Args:            args,
-		NumRetries:      int(chaincode.NumRetries),
-		RetrySleep:      chaincode.RetrySleep,
+		Chaincode:     chaincode,
+		Network:       chaincode.Network,
+		Channel:       chaincode.channel,
+		ChaincodeName: chaincode.name,
+		Function:      function,
+		Args:          args,
+		NumRetries:    int(chaincode.NumRetries),
+		RetrySleep:    chaincode.RetrySleep,
 	}
 }
 
@@ -265,7 +262,6 @@ func (i *Invoke) WithRetrySleep(duration time.Duration) driver.ChaincodeInvocati
 }
 
 func (i *Invoke) prepare(query bool) (string, *pb.Proposal, []*pb.ProposalResponse, driver.SigningIdentity, error) {
-	// TODO: improve by providing grpc connection pool
 	var peerClients []peer2.Client
 	defer func() {
 		for _, pCli := range peerClients {
@@ -476,7 +472,7 @@ func (i *Invoke) collectResponses(endorserClients []pb.EndorserClient, signedPro
 	return responses, nil
 }
 
-// getChaincodeSpec get chaincode spec from the fsccli cmd parameters
+// getChaincodeSpec get chaincode spec
 func (i *Invoke) getChaincodeSpec() (*pb.ChaincodeSpec, error) {
 	// prepare args
 	args, err := i.prepareArgs()

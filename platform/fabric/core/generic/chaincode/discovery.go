@@ -21,10 +21,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-const (
-	defaultTimeout = time.Second * 10
-)
-
 type Discovery struct {
 	chaincode *Chaincode
 
@@ -39,7 +35,7 @@ func NewDiscovery(chaincode *Chaincode) *Discovery {
 	// set key to the concatenation of chaincode name and version
 	return &Discovery{
 		chaincode:  chaincode,
-		DefaultTTL: 5 * time.Minute,
+		DefaultTTL: chaincode.channel.Config().DiscoveryDefaultTTLS(),
 	}
 }
 
@@ -75,13 +71,13 @@ func (d *Discovery) GetEndorsers() ([]driver.DiscoveredPeer, error) {
 		)
 	}
 	if err != nil {
-		return nil, errors.WithMessagef(err, "failed getting endorsers for [%s:%s:%s]", d.chaincode.network.Name(), d.chaincode.channel.Name(), d.chaincode.name)
+		return nil, errors.WithMessagef(err, "failed getting endorsers for [%s:%s:%s]", d.chaincode.Network.Name(), d.chaincode.channel.Name(), d.chaincode.name)
 	}
 
 	// prepare result
 	configResult, err := cr.Config()
 	if err != nil {
-		return nil, errors.WithMessagef(err, "failed getting config for [%s:%s:%s]", d.chaincode.network.Name(), d.chaincode.channel.Name(), d.chaincode.name)
+		return nil, errors.WithMessagef(err, "failed getting config for [%s:%s:%s]", d.chaincode.Network.Name(), d.chaincode.channel.Name(), d.chaincode.name)
 	}
 	return d.toDiscoveredPeers(configResult, endorsers)
 }
@@ -97,7 +93,7 @@ func (d *Discovery) GetPeers() ([]driver.DiscoveredPeer, error) {
 	var peers []*discovery.Peer
 	peers, err = cr.Peers(ccCall(d.chaincode.name)...)
 	if err != nil {
-		return nil, errors.WithMessagef(err, "failed getting peers for [%s:%s:%s]", d.chaincode.network.Name(), d.chaincode.channel.Name(), d.chaincode.name)
+		return nil, errors.WithMessagef(err, "failed getting peers for [%s:%s:%s]", d.chaincode.Network.Name(), d.chaincode.channel.Name(), d.chaincode.name)
 	}
 
 	// filter
@@ -113,14 +109,14 @@ func (d *Discovery) GetPeers() ([]driver.DiscoveredPeer, error) {
 	// prepare result
 	configResult, err := cr.Config()
 	if err != nil {
-		return nil, errors.WithMessagef(err, "failed getting config for [%s:%s:%s]", d.chaincode.network.Name(), d.chaincode.channel.Name(), d.chaincode.name)
+		return nil, errors.WithMessagef(err, "failed getting config for [%s:%s:%s]", d.chaincode.Network.Name(), d.chaincode.channel.Name(), d.chaincode.name)
 	}
 	return d.toDiscoveredPeers(configResult, peers)
 }
 
 func (d *Discovery) Response() (discovery.Response, error) {
 	var sb strings.Builder
-	sb.WriteString(d.chaincode.network.Name())
+	sb.WriteString(d.chaincode.Network.Name())
 	sb.WriteString(d.chaincode.channel.Name())
 	sb.WriteString(d.chaincode.name)
 	for _, mspiD := range d.FilterByMSPIDs {
@@ -216,13 +212,13 @@ func (d *Discovery) query(req *discovery.Request) (discovery.Response, error) {
 			pCli.Close()
 		}
 	}()
-	pc, err := d.chaincode.channel.NewPeerClientForAddress(*d.chaincode.network.PickPeer(driver.PeerForDiscovery))
+	pc, err := d.chaincode.channel.NewPeerClientForAddress(*d.chaincode.Network.PickPeer(driver.PeerForDiscovery))
 	if err != nil {
 		return nil, err
 	}
 	peerClients = append(peerClients, pc)
 
-	signer := d.chaincode.network.LocalMembership().DefaultSigningIdentity()
+	signer := d.chaincode.Network.LocalMembership().DefaultSigningIdentity()
 	signerRaw, err := signer.Serialize()
 	if err != nil {
 		return nil, err
@@ -235,7 +231,7 @@ func (d *Discovery) query(req *discovery.Request) (discovery.Response, error) {
 		ClientIdentity:    signerRaw,
 		ClientTlsCertHash: ClientTLSCertHash,
 	}
-	timeout, cancel := context.WithTimeout(context.Background(), defaultTimeout)
+	timeout, cancel := context.WithTimeout(context.Background(), d.chaincode.channel.Config().DiscoveryTimeout())
 	defer cancel()
 	cl, err := pc.DiscoveryClient()
 	if err != nil {

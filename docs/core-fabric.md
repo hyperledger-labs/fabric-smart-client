@@ -271,6 +271,8 @@ fabric:
       interval: 60s
       # If not provided, the default is 20 seconds
       timeout: 600s
+      connectionTimeout: 10s
+      tlsEnabled: true
 
     ordering:
       # number of retries to attempt to send a transaction to an orderer
@@ -310,6 +312,25 @@ fabric:
         default: true
         numRetries: 3 # number of retries on a chaincode operation failure
         retrySleep: 1s # waiting time before retry again a failed chaincode operation
+        # section about the finality service
+        finality:
+          waitForEventTimeout: 20s
+          forPartiesWaitTimeout: 1m
+        # section about the committer service
+        committer:
+          waitForEventTimeout: 300s
+          pollingTimeout: 100ms
+          finality:
+            numRetries: 3
+            unknownTxTimeout: 100ms
+        # section about the delivery service
+        delivery:
+          waitForEventTimeout: 300s
+          sleepAfterFailure: 10s
+        # section about the discovery service  
+        discovery:
+          timeout: 10s
+        # section about the chaincode this node should be aware of  
         chaincodes:
             # chaincode id
           - name: mychaincode

@@ -25,7 +25,7 @@ func (c *Channel) StartDelivery(ctx context.Context) error {
 
 func (c *Channel) Scan(ctx context.Context, txID string, callback driver.DeliveryCallback) error {
 	vault := &fakeVault{txID: txID}
-	deliveryService, err := delivery2.New(c.ChannelName, c.SP, c.Network, func(block *common.Block) (bool, error) {
+	deliveryService, err := delivery2.New(c.ChannelConfig, c.SP, c.Network, func(block *common.Block) (bool, error) {
 		for i, tx := range block.Data.Data {
 			validationCode := ValidationFlags(block.Metadata.Metadata[common.BlockMetadataIndex_TRANSACTIONS_FILTER])[i]
 
@@ -70,7 +70,7 @@ func (c *Channel) Scan(ctx context.Context, txID string, callback driver.Deliver
 			logger.Debugf("commit transaction [%s] in block [%d]", channelHeader.TxId, block.Header.Number)
 		}
 		return false, nil
-	}, vault, WaitForEventTimeout)
+	}, vault, c.ChannelConfig.CommitterWaitForEventTimeout())
 	if err != nil {
 		return err
 	}
