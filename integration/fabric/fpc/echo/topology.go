@@ -17,11 +17,12 @@ import (
 func Topology() []api.Topology {
 	// Create an empty fabric topology
 	fabricTopology := fabric.NewDefaultTopology()
-	fabricTopology.EnableIdemix()
+	// Note that Idemix is currently not supported by FPC
+	// fabricTopology.EnableIdemix()
 	// Add two organizations
 	fabricTopology.AddOrganizationsByName("Org1", "Org2")
 	// Add a standard chaincode
-	fabricTopology.AddNamespaceWithUnanimity("mycc", "Org1", "Org2")
+	// fabricTopology.AddNamespaceWithUnanimity("mycc", "Org1", "Org2")
 	// Add an FPC by passing chaincode's id and docker image
 	fabricTopology.AddFPC("echo", "fpc/fpc-echo").AddPostRunInvocation(
 		"init", "init", []byte("init"),
@@ -33,7 +34,7 @@ func Topology() []api.Topology {
 
 	// Alice
 	alice := fscTopology.AddNodeByName("alice")
-	alice.AddOptions(fabric.WithOrganization("Org2"), fabric.WithAnonymousIdentity())
+	alice.AddOptions(fabric.WithOrganization("Org2"))
 	alice.RegisterViewFactory("ListProvisionedEnclaves", &views.ListProvisionedEnclavesViewFactory{})
 	alice.RegisterViewFactory("Echo", &views.EchoViewFactory{})
 
