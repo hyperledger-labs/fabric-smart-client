@@ -57,7 +57,7 @@ func (e *EchoView) Call(context view.Context) (interface{}, error) {
 		e.Function,
 		fpc.StringsToArgs(e.Args)...,
 	).WithSignerIdentity(
-		fabric.GetDefaultFNS(context).LocalMembership().AnonymousIdentity(),
+		fabric.GetDefaultFNS(context).LocalMembership().DefaultIdentity(),
 	).Invoke(context)
 	assert.NoError(err, "failed invoking echo")
 	assert.Equal(e.Function, string(res))
@@ -68,7 +68,7 @@ func (e *EchoView) Call(context view.Context) (interface{}, error) {
 	).Query(
 		e.Function, fpc.StringsToArgs(e.Args)...,
 	).WithSignerIdentity(
-		fabric.GetDefaultFNS(context).LocalMembership().AnonymousIdentity(),
+		fabric.GetDefaultFNS(context).LocalMembership().DefaultIdentity(),
 	).Call()
 	assert.NoError(err, "failed querying echo")
 	assert.Equal(e.Function, string(res))
@@ -78,7 +78,7 @@ func (e *EchoView) Call(context view.Context) (interface{}, error) {
 		e.Function,
 		fpc.StringsToArgs(e.Args)...,
 	).WithSignerIdentity(
-		fabric.GetDefaultFNS(context).LocalMembership().AnonymousIdentity(),
+		fabric.GetDefaultFNS(context).LocalMembership().DefaultIdentity(),
 	).Query(context)
 	assert.NoError(err, "failed querying echo")
 	assert.Equal(e.Function, string(res))
@@ -89,7 +89,7 @@ func (e *EchoView) Call(context view.Context) (interface{}, error) {
 	).Endorse(
 		e.Function, fpc.StringsToArgs(e.Args)...,
 	).WithSignerIdentity(
-		fabric.GetDefaultFNS(context).LocalMembership().AnonymousIdentity(),
+		fabric.GetDefaultFNS(context).LocalMembership().DefaultIdentity(),
 	).Call()
 	assert.NoError(err, "failed endorsing echo")
 	assert.NotNil(envelope)
@@ -100,7 +100,7 @@ func (e *EchoView) Call(context view.Context) (interface{}, error) {
 		e.Function,
 		fpc.StringsToArgs(e.Args)...,
 	).WithSignerIdentity(
-		fabric.GetDefaultFNS(context).LocalMembership().AnonymousIdentity(),
+		fabric.GetDefaultFNS(context).LocalMembership().DefaultIdentity(),
 	).WithNumRetries(4).WithRetrySleep(2 * time.Second).Endorse(context)
 	assert.NoError(err, "failed endorsing echo")
 	assert.Equal(e.Function, string(res))
