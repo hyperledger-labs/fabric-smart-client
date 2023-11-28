@@ -67,7 +67,7 @@ func (n *Extension) startExplorerDB() {
 	containerName := n.platform.NetworkID() + "-explorerdb.mynetwork.com"
 
 	pgdataVolumeName := n.platform.NetworkID() + "-pgdata"
-	_, err = cli.VolumeCreate(ctx, volume.VolumeCreateBody{
+	_, err = cli.VolumeCreate(ctx, volume.CreateOptions{
 		Name: pgdataVolumeName,
 	})
 	Expect(err).ToNot(HaveOccurred())
@@ -139,7 +139,7 @@ func (n *Extension) startExplorer() {
 	containerName := n.platform.NetworkID() + "-explorer.mynetwork.com"
 
 	walletStoreVolumeName := n.platform.NetworkID() + "-walletstore"
-	_, err = cli.VolumeCreate(ctx, volume.VolumeCreateBody{
+	_, err = cli.VolumeCreate(ctx, volume.CreateOptions{
 		Name: walletStoreVolumeName,
 	})
 	Expect(err).ToNot(HaveOccurred())
