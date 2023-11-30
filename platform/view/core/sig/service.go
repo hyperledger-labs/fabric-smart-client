@@ -8,6 +8,7 @@ package sig
 
 import (
 	"fmt"
+	"reflect"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -54,10 +55,10 @@ func (o *service) RegisterSigner(identity view.Identity, signer driver.Signer, v
 
 	idHash := identity.UniqueID()
 	o.viewsSync.Lock()
-	_, ok := o.signers[idHash]
+	s, ok := o.signers[idHash]
 	o.viewsSync.Unlock()
 	if ok {
-		logger.Warnf("another signer bound to [%s]", identity)
+		logger.Warnf("another signer bound to [%s][%s]", identity, GetIdentifier(s), GetIdentifier(signer))
 		return nil
 	}
 	o.viewsSync.Lock()
@@ -78,7 +79,7 @@ func (o *service) RegisterSigner(identity view.Identity, signer driver.Signer, v
 		return o.RegisterVerifier(identity, verifier)
 	}
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("signer for [id:%s] registered, no verifier passed", idHash)
+		logger.Debugf("signer for [%s][%s] registered, no verifier passed", idHash, GetIdentifier(signer))
 	}
 	return nil
 }
@@ -93,14 +94,14 @@ func (o *service) RegisterVerifier(identity view.Identity, verifier driver.Verif
 	v, ok := o.verifiers[idHash]
 	o.viewsSync.Unlock()
 	if ok {
-		logger.Warnf("another verifier bound to [%s][%v]", idHash, v)
+		logger.Warnf("another verifier bound to [%s][%s][%s]", idHash, GetIdentifier(v), GetIdentifier(verifier))
 		return nil
 	}
 	o.viewsSync.Lock()
 	o.verifiers[idHash] = verifier
 	o.viewsSync.Unlock()
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("register verifier to [%s]", idHash)
+		logger.Debugf("register verifier to [%s][%s]", idHash, GetIdentifier(verifier))
 	}
 
 	return nil
@@ -277,4 +278,15 @@ func (s *si) Sign(bytes []byte) ([]byte, error) {
 
 func (s *si) Serialize() ([]byte, error) {
 	return s.id, nil
+}
+
+func GetIdentifier(f any) string {
+	if f == nil {
+		return "<nil>"
+	}
+	t := reflect.TypeOf(f)
+	for t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+	return t.PkgPath() + "/" + t.Name()
 }
