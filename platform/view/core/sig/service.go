@@ -120,7 +120,7 @@ func (o *Service) RegisterVerifier(identity view.Identity, verifier driver.Verif
 	o.verifiers[idHash] = entry
 	o.viewsSync.Unlock()
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("register verifier to [%s]:[%s]\n[%s]", idHash, GetIdentifier(verifier))
+		logger.Debugf("register verifier to [%s]:[%s]", idHash, GetIdentifier(verifier))
 	}
 
 	return nil
