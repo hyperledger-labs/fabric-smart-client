@@ -9,6 +9,7 @@ package sig
 import (
 	"fmt"
 	"reflect"
+	"runtime/debug"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -58,7 +59,7 @@ func (o *service) RegisterSigner(identity view.Identity, signer driver.Signer, v
 	s, ok := o.signers[idHash]
 	o.viewsSync.Unlock()
 	if ok {
-		logger.Warnf("another signer bound to [%s][%s]", identity, GetIdentifier(s), GetIdentifier(signer))
+		logger.Warnf("another signer bound to [%s]:[%s][%s]", identity, GetIdentifier(s), GetIdentifier(signer))
 		return nil
 	}
 	o.viewsSync.Lock()
@@ -94,14 +95,14 @@ func (o *service) RegisterVerifier(identity view.Identity, verifier driver.Verif
 	v, ok := o.verifiers[idHash]
 	o.viewsSync.Unlock()
 	if ok {
-		logger.Warnf("another verifier bound to [%s][%s][%s]", idHash, GetIdentifier(v), GetIdentifier(verifier))
+		logger.Warnf("another verifier bound to [%s]:[%s][%s]", idHash, GetIdentifier(v), GetIdentifier(verifier))
 		return nil
 	}
 	o.viewsSync.Lock()
 	o.verifiers[idHash] = verifier
 	o.viewsSync.Unlock()
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("register verifier to [%s][%s]", idHash, GetIdentifier(verifier))
+		logger.Debugf("register verifier to [%s]:[%s]\n[%s]", idHash, GetIdentifier(verifier), debug.Stack())
 	}
 
 	return nil
