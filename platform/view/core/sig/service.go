@@ -8,16 +8,16 @@ package sig
 
 import (
 	"fmt"
+	"reflect"
+	"runtime/debug"
 	"sync"
 
-	"github.com/pkg/errors"
-	"go.uber.org/zap/zapcore"
-
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"github.com/pkg/errors"
+	"go.uber.org/zap/zapcore"
 )
 
 var logger = flogging.MustGetLogger("view-sdk.sig")
@@ -28,40 +28,56 @@ type KVS interface {
 	Get(id string, state interface{}) error
 }
 
-type service struct {
+type VerifierEntry struct {
+	Verifier   driver.Verifier
+	DebugStack []byte
+}
+
+type SignerEntry struct {
+	Signer     driver.Signer
+	DebugStack []byte
+}
+
+type Service struct {
 	sp           driver.ServiceProvider
-	signers      map[string]driver.Signer
-	verifiers    map[string]driver.Verifier
+	signers      map[string]SignerEntry
+	verifiers    map[string]VerifierEntry
 	deserializer Deserializer
 	viewsSync    sync.RWMutex
 	kvs          KVS
 }
 
-func NewSignService(sp driver.ServiceProvider, deserializer Deserializer, kvs KVS) *service {
-	return &service{
+func NewSignService(sp driver.ServiceProvider, deserializer Deserializer, kvs KVS) *Service {
+	return &Service{
 		sp:           sp,
-		signers:      map[string]driver.Signer{},
-		verifiers:    map[string]driver.Verifier{},
+		signers:      map[string]SignerEntry{},
+		verifiers:    map[string]VerifierEntry{},
 		deserializer: deserializer,
 		kvs:          kvs,
 	}
 }
 
-func (o *service) RegisterSigner(identity view.Identity, signer driver.Signer, verifier driver.Verifier) error {
+func (o *Service) RegisterSigner(identity view.Identity, signer driver.Signer, verifier driver.Verifier) error {
 	if signer == nil {
 		return errors.New("invalid signer, expected a valid instance")
 	}
 
 	idHash := identity.UniqueID()
 	o.viewsSync.Lock()
-	_, ok := o.signers[idHash]
+	s, ok := o.signers[idHash]
 	o.viewsSync.Unlock()
 	if ok {
-		logger.Warnf("another signer bound to [%s]", identity)
+		logger.Warnf("another signer bound to [%s]:[%s][%s] from [%s]", identity, GetIdentifier(s), GetIdentifier(signer), string(s.DebugStack))
 		return nil
 	}
 	o.viewsSync.Lock()
-	o.signers[idHash] = signer
+
+	entry := SignerEntry{Signer: signer}
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		entry.DebugStack = debug.Stack()
+	}
+
+	o.signers[idHash] = entry
 	if o.kvs != nil {
 		k, err := kvs.CreateCompositeKey("sigService", []string{"signer", idHash})
 		if err != nil {
@@ -78,12 +94,12 @@ func (o *service) RegisterSigner(identity view.Identity, signer driver.Signer, v
 		return o.RegisterVerifier(identity, verifier)
 	}
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("signer for [id:%s] registered, no verifier passed", idHash)
+		logger.Debugf("signer for [%s][%s] registered, no verifier passed", idHash, GetIdentifier(signer))
 	}
 	return nil
 }
 
-func (o *service) RegisterVerifier(identity view.Identity, verifier driver.Verifier) error {
+func (o *Service) RegisterVerifier(identity view.Identity, verifier driver.Verifier) error {
 	if verifier == nil {
 		return errors.New("invalid verifier, expected a valid instance")
 	}
@@ -93,17 +109,24 @@ func (o *service) RegisterVerifier(identity view.Identity, verifier driver.Verif
 	v, ok := o.verifiers[idHash]
 	o.viewsSync.Unlock()
 	if ok {
-		logger.Warnf("another verifier bound to [%s][%v]", idHash, v)
+		logger.Warnf("another verifier bound to [%s]:[%s][%s] from [%s]", idHash, GetIdentifier(v), GetIdentifier(verifier), string(v.DebugStack))
 		return nil
 	}
+	entry := VerifierEntry{Verifier: verifier}
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		entry.DebugStack = debug.Stack()
+	}
 	o.viewsSync.Lock()
-	o.verifiers[idHash] = verifier
+	o.verifiers[idHash] = entry
 	o.viewsSync.Unlock()
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("register verifier to [%s]:[%s]", idHash, GetIdentifier(verifier))
+	}
 
 	return nil
 }
 
-func (o *service) RegisterAuditInfo(identity view.Identity, info []byte) error {
+func (o *Service) RegisterAuditInfo(identity view.Identity, info []byte) error {
 	k := kvs.CreateCompositeKeyOrPanic(
 		"fsc.platform.view.sig",
 		[]string{
@@ -117,7 +140,7 @@ func (o *service) RegisterAuditInfo(identity view.Identity, info []byte) error {
 	return nil
 }
 
-func (o *service) GetAuditInfo(identity view.Identity) ([]byte, error) {
+func (o *Service) GetAuditInfo(identity view.Identity) ([]byte, error) {
 	k := kvs.CreateCompositeKeyOrPanic(
 		"fsc.platform.view.sig",
 		[]string{
@@ -135,7 +158,7 @@ func (o *service) GetAuditInfo(identity view.Identity) ([]byte, error) {
 	return res, nil
 }
 
-func (o *service) IsMe(identity view.Identity) bool {
+func (o *Service) IsMe(identity view.Identity) bool {
 	idHash := identity.UniqueID()
 	// check local cache
 	o.viewsSync.Lock()
@@ -163,7 +186,7 @@ func (o *service) IsMe(identity view.Identity) bool {
 	return false
 }
 
-func (o *service) Info(id view.Identity) string {
+func (o *Service) Info(id view.Identity) string {
 	auditInfo, err := o.GetAuditInfo(id)
 	if err != nil {
 		if logger.IsEnabledFor(zapcore.DebugLevel) {
@@ -181,13 +204,13 @@ func (o *service) Info(id view.Identity) string {
 	return info
 }
 
-func (o *service) GetSigner(identity view.Identity) (driver.Signer, error) {
+func (o *Service) GetSigner(identity view.Identity) (driver.Signer, error) {
 	idHash := identity.UniqueID()
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("get signer for [%s]", idHash)
 	}
 	o.viewsSync.Lock()
-	signer, ok := o.signers[idHash]
+	entry, ok := o.signers[idHash]
 	o.viewsSync.Unlock()
 	if !ok {
 		if logger.IsEnabledFor(zapcore.DebugLevel) {
@@ -198,48 +221,55 @@ func (o *service) GetSigner(identity view.Identity) (driver.Signer, error) {
 			return nil, errors.Errorf("cannot find signer for [%s], no deserializer set", identity)
 		}
 		var err error
-		signer, err = o.deserializer.DeserializeSigner(identity)
+		signer, err := o.deserializer.DeserializeSigner(identity)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed deserializing identity for signer [%s]", identity)
 		}
+		entry = SignerEntry{Signer: signer}
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			entry.DebugStack = debug.Stack()
+		}
+
 		o.viewsSync.Lock()
-		o.signers[idHash] = signer
+		o.signers[idHash] = entry
 		o.viewsSync.Unlock()
 	} else {
 		if logger.IsEnabledFor(zapcore.DebugLevel) {
 			logger.Debugf("signer for [%s] found", idHash)
 		}
 	}
-	return signer, nil
+	return entry.Signer, nil
 }
 
-func (o *service) GetVerifier(identity view.Identity) (driver.Verifier, error) {
+func (o *Service) GetVerifier(identity view.Identity) (driver.Verifier, error) {
 	idHash := identity.UniqueID()
 	o.viewsSync.Lock()
-	verifier, ok := o.verifiers[idHash]
+	entry, ok := o.verifiers[idHash]
 	o.viewsSync.Unlock()
 	if !ok {
-		// ask the deserialiser
+		// ask the deserializer
 		if o.deserializer == nil {
 			return nil, errors.Errorf("cannot find verifier for [%s], no deserializer set", identity)
 		}
 		var err error
-		verifier, err = o.deserializer.DeserializeVerifier(identity)
+		verifier, err := o.deserializer.DeserializeVerifier(identity)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed deserializing identity for verifier %v", identity)
 		}
 
+		entry = VerifierEntry{Verifier: verifier}
 		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("add verifier for [%s]", idHash)
+			entry.DebugStack = debug.Stack()
+			logger.Debugf("add deserialized verifier for [%s]:[%s]", idHash, GetIdentifier(verifier))
 		}
 		o.viewsSync.Lock()
-		o.verifiers[idHash] = verifier
+		o.verifiers[idHash] = entry
 		o.viewsSync.Unlock()
 	}
-	return verifier, nil
+	return entry.Verifier, nil
 }
 
-func (o *service) GetSigningIdentity(identity view.Identity) (driver.SigningIdentity, error) {
+func (o *Service) GetSigningIdentity(identity view.Identity) (driver.SigningIdentity, error) {
 	signer, err := o.GetSigner(identity)
 	if err != nil {
 		return nil, err
@@ -274,4 +304,15 @@ func (s *si) Sign(bytes []byte) ([]byte, error) {
 
 func (s *si) Serialize() ([]byte, error) {
 	return s.id, nil
+}
+
+func GetIdentifier(f any) string {
+	if f == nil {
+		return "<nil>"
+	}
+	t := reflect.TypeOf(f)
+	for t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+	return t.PkgPath() + "/" + t.Name()
 }
