@@ -117,10 +117,15 @@ func (c *IdentityCache) fetchIdentityFromBackend(opts *driver.IdentityOptions) (
 }
 
 func (c *IdentityCache) provisionIdentities() {
+	count := 0
 	for {
 		id, audit, err := c.backed(c.opts)
 		if err != nil {
+			logger.Errorf("failed to provision identity [%s]", err)
 			continue
+		}
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			logger.Debugf("generated new idemix identity [%d]", count)
 		}
 		c.cache <- identityCacheEntry{Identity: id, Audit: audit}
 	}
