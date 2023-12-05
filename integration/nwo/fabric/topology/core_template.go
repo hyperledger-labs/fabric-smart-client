@@ -249,7 +249,7 @@ fabric:
   {{ FabricName }}:
     default: {{ DefaultNetwork }}
     driver: {{ Driver }}
-    mspCacheSize: 500
+    mspCacheSize: 3
     defaultMSP: {{ Peer.DefaultIdentity }}
     msps: {{ range Peer.Identities }}
       - id: {{ .ID }}
