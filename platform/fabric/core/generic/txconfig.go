@@ -42,7 +42,7 @@ func (c *Channel) ReloadConfigTransactions() error {
 	defer qe.Done()
 
 	logger.Infof("looking up the latest config block available")
-	var sequence uint64 = 1
+	var sequence uint64 = 0
 	for {
 		txID := committer.ConfigTXPrefix + strconv.FormatUint(sequence, 10)
 		vc, err := c.Vault.Status(txID)
