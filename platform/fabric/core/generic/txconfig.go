@@ -42,7 +42,7 @@ func (c *Channel) ReloadConfigTransactions() error {
 	defer qe.Done()
 
 	logger.Infof("looking up the latest config block available")
-	var sequence uint64 = 1
+	var sequence uint64 = 0
 	for {
 		txID := committer.ConfigTXPrefix + strconv.FormatUint(sequence, 10)
 		vc, err := c.Vault.Status(txID)
@@ -108,6 +108,12 @@ func (c *Channel) ReloadConfigTransactions() error {
 			sequence = sequence + 1
 			continue
 		case driver.Unknown:
+			if sequence == 0 {
+				// Give a chance to 1, in certain setting the first block starts with 1
+				sequence++
+				continue
+			}
+
 			logger.Infof("config block at txID [%s] unavailable, stop loading", txID)
 			done = true
 		default:
