@@ -49,6 +49,7 @@ func (c *Channel) ReloadConfigTransactions() error {
 		if err != nil {
 			return errors.WithMessagef(err, "failed getting tx's status [%s]", txID)
 		}
+		logger.Infof("check config block at txID [%s]...", txID)
 		done := false
 		switch vc {
 		case driver.Valid:
@@ -107,11 +108,13 @@ func (c *Channel) ReloadConfigTransactions() error {
 			sequence = sequence + 1
 			continue
 		case driver.Unknown:
+			logger.Infof("config block at txID [%s] unavailable, stop loading", txID)
 			done = true
 		default:
 			return errors.Errorf("invalid configtx's [%s] status [%d]", txID, vc)
 		}
 		if done {
+			logger.Infof("loading config block done")
 			break
 		}
 	}
@@ -132,8 +135,6 @@ func (c *Channel) CommitConfig(blockNumber uint64, raw []byte, env *common.Envel
 
 	c.ResourcesApplyLock.Lock()
 	defer c.ResourcesApplyLock.Unlock()
-
-	logger.Debugf("[Channel: %s] received config transaction number %d", c.ChannelName, blockNumber)
 
 	if env == nil {
 		return errors.Errorf("Channel config found nil")
@@ -204,6 +205,8 @@ func (c *Channel) Resources() channelconfig.Resources {
 }
 
 func (c *Channel) commitConfig(txID string, blockNumber uint64, seq uint64, envelope []byte) error {
+	logger.Infof("[Channel: %s] commit config transaction number [bn:%d][seq:%d]", c.ChannelName, blockNumber, seq)
+
 	rws, err := c.Vault.NewRWSet(txID)
 	if err != nil {
 		return errors.Wrapf(err, "cannot create rws for configtx")
