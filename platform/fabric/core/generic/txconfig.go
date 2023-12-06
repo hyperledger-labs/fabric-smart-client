@@ -157,8 +157,10 @@ func (c *Channel) CommitConfig(blockNumber uint64, raw []byte, env *common.Envel
 	}
 	switch vc {
 	case driver.Valid:
+		logger.Infof("config block [%s] already committed, skip it.", txid)
 		return nil
 	case driver.Unknown:
+		logger.Infof("config block [%s] not committed, commit it.", txid)
 		// this is okay
 	default:
 		return errors.Errorf("invalid configtx's [%s] status [%d]", txid, vc)
