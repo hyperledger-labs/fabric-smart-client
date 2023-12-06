@@ -42,14 +42,14 @@ func (c *Channel) ReloadConfigTransactions() error {
 	defer qe.Done()
 
 	logger.Infof("looking up the latest config block available")
-	var sequence uint64 = 0
+	var sequence uint64 = 1
 	for {
 		txID := committer.ConfigTXPrefix + strconv.FormatUint(sequence, 10)
 		vc, err := c.Vault.Status(txID)
 		if err != nil {
 			return errors.WithMessagef(err, "failed getting tx's status [%s]", txID)
 		}
-		logger.Infof("check config block at txID [%s]...", txID)
+		logger.Infof("check config block at txID [%s], status [%v]...", txID, vc)
 		done := false
 		switch vc {
 		case driver.Valid:
