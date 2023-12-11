@@ -153,11 +153,16 @@ func (c *Config) Peers() (map[driver.PeerFunctionType][]*grpc.ConnectionConfig, 
 }
 
 func (c *Config) Channels() ([]*Channel, error) {
-	var res []*Channel
-	if err := c.configService.UnmarshalKey("fabric."+c.prefix+"channels", &res); err != nil {
+	var channels []*Channel
+	if err := c.configService.UnmarshalKey("fabric."+c.prefix+"channels", &channels); err != nil {
 		return nil, err
 	}
-	return res, nil
+	for _, channel := range channels {
+		if err := channel.Verify(); err != nil {
+			return nil, err
+		}
+	}
+	return channels, nil
 }
 
 func (c *Config) VaultPersistenceType() string {
