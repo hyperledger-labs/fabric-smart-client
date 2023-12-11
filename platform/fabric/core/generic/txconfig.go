@@ -42,13 +42,14 @@ func (c *Channel) ReloadConfigTransactions() error {
 	defer qe.Done()
 
 	logger.Infof("looking up the latest config block available")
-	var sequence uint64 = 1
+	var sequence uint64 = 0
 	for {
 		txID := committer.ConfigTXPrefix + strconv.FormatUint(sequence, 10)
 		vc, err := c.Vault.Status(txID)
 		if err != nil {
 			return errors.WithMessagef(err, "failed getting tx's status [%s]", txID)
 		}
+		logger.Infof("check config block at txID [%s], status [%v]...", txID, vc)
 		done := false
 		switch vc {
 		case driver.Valid:
@@ -107,11 +108,19 @@ func (c *Channel) ReloadConfigTransactions() error {
 			sequence = sequence + 1
 			continue
 		case driver.Unknown:
+			if sequence == 0 {
+				// Give a chance to 1, in certain setting the first block starts with 1
+				sequence++
+				continue
+			}
+
+			logger.Infof("config block at txID [%s] unavailable, stop loading", txID)
 			done = true
 		default:
 			return errors.Errorf("invalid configtx's [%s] status [%d]", txID, vc)
 		}
 		if done {
+			logger.Infof("loading config block done")
 			break
 		}
 	}
@@ -132,8 +141,6 @@ func (c *Channel) CommitConfig(blockNumber uint64, raw []byte, env *common.Envel
 
 	c.ResourcesApplyLock.Lock()
 	defer c.ResourcesApplyLock.Unlock()
-
-	logger.Debugf("[Channel: %s] received config transaction number %d", c.ChannelName, blockNumber)
 
 	if env == nil {
 		return errors.Errorf("Channel config found nil")
@@ -156,8 +163,10 @@ func (c *Channel) CommitConfig(blockNumber uint64, raw []byte, env *common.Envel
 	}
 	switch vc {
 	case driver.Valid:
+		logger.Infof("config block [%s] already committed, skip it.", txid)
 		return nil
 	case driver.Unknown:
+		logger.Infof("config block [%s] not committed, commit it.", txid)
 		// this is okay
 	default:
 		return errors.Errorf("invalid configtx's [%s] status [%d]", txid, vc)
@@ -204,6 +213,8 @@ func (c *Channel) Resources() channelconfig.Resources {
 }
 
 func (c *Channel) commitConfig(txID string, blockNumber uint64, seq uint64, envelope []byte) error {
+	logger.Infof("[Channel: %s] commit config transaction number [bn:%d][seq:%d]", c.ChannelName, blockNumber, seq)
+
 	rws, err := c.Vault.NewRWSet(txID)
 	if err != nil {
 		return errors.Wrapf(err, "cannot create rws for configtx")

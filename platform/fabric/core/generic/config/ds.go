@@ -126,6 +126,14 @@ type Channel struct {
 	Chaincodes []*Chaincode  `yaml:"Chaincodes,omitempty"`
 }
 
+func (c *Channel) Verify() error {
+	if c.NumRetries == 0 {
+		c.NumRetries = 1
+		logger.Warnf("channel configuration [%s], num retries set to 0", c.Name)
+	}
+	return nil
+}
+
 func (c *Channel) DiscoveryDefaultTTLS() time.Duration {
 	if c.Discovery.Timeout == 0 {
 		return 5 * time.Minute

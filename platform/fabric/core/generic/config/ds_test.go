@@ -10,10 +10,9 @@ import (
 	"strings"
 	"testing"
 
+	viperutil "github.com/hyperledger-labs/fabric-smart-client/platform/view/core/config/viper"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
-
-	viperutil "github.com/hyperledger-labs/fabric-smart-client/platform/view/core/config/viper"
 )
 
 func TestLoad(t *testing.T) {
