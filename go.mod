@@ -28,8 +28,8 @@ require (
 	github.com/hyperledger/fabric-lib-go v1.0.0
 	github.com/hyperledger/fabric-private-chaincode v1.0.0-rc3.0.20231026135044-67a19b0fcda0
 	github.com/hyperledger/fabric-protos-go v0.3.1
-	github.com/libp2p/go-libp2p v0.32.1
-	github.com/libp2p/go-libp2p-kad-dht v0.25.2
+	github.com/libp2p/go-libp2p v0.32.0
+	github.com/libp2p/go-libp2p-kad-dht v0.23.0
 	github.com/miekg/pkcs11 v1.1.1
 	github.com/miracl/conflate v1.3.2
 	github.com/mitchellh/mapstructure v1.5.0
@@ -85,7 +85,6 @@ require (
 	github.com/ipfs/boxo v0.16.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/kilic/bls12-381 v0.1.0 // indirect
-	github.com/libp2p/go-libp2p-routing-helpers v0.7.3 // indirect
 	github.com/libp2p/go-yamux/v4 v4.0.1 // indirect
 	github.com/matttproud/golang_protobuf_extensions/v2 v2.0.0 // indirect
 	github.com/moby/patternmatcher v0.6.0 // indirect
