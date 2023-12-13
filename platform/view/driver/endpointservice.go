@@ -27,7 +27,7 @@ const (
 // PublicKeyExtractor extracts public keys from identities
 type PublicKeyExtractor interface {
 	// ExtractPublicKey returns the public key corresponding to the passed identity
-	ExtractPublicKey(id view.Identity) any
+	ExtractPublicKey(id view.Identity) (any, error)
 }
 
 type PublicKeyIDSynthesizer interface {

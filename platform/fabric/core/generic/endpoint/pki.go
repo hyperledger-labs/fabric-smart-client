@@ -18,11 +18,11 @@ import (
 
 type PublicKeyExtractor struct{}
 
-func (p PublicKeyExtractor) ExtractPublicKey(id view.Identity) any {
+func (p PublicKeyExtractor) ExtractPublicKey(id view.Identity) (any, error) {
 	si := &msp.SerializedIdentity{}
 	err := proto.Unmarshal(id, si)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 
 	certRaw, _ := pem.Decode(si.IdBytes)
@@ -30,23 +30,23 @@ func (p PublicKeyExtractor) ExtractPublicKey(id view.Identity) any {
 	case certRaw != nil:
 		cert, err := x509.ParseCertificate(certRaw.Bytes)
 		if err != nil {
-			return nil
+			return nil, err
 		}
 		raw, err := x509.MarshalPKIXPublicKey(cert.PublicKey)
 		if err != nil {
-			return nil
+			return nil, err
 		}
 		pk, err := x509.ParsePKIXPublicKey(raw)
 		if err != nil {
-			return nil
+			return nil, err
 		}
-		return pk
+		return pk, nil
 	default:
 		// This can only be an idemix identity then
 		serialized := &msp.SerializedIdemixIdentity{}
 		err := proto.Unmarshal(si.IdBytes, serialized)
 		if err != nil {
-			return nil
+			return nil, err
 		}
 
 		h := sha256.New()
@@ -55,6 +55,6 @@ func (p PublicKeyExtractor) ExtractPublicKey(id view.Identity) any {
 		h.Write(serialized.Proof)
 		h.Write(serialized.Ou)
 		h.Write(serialized.Role)
-		return h.Sum(nil)
+		return h.Sum(nil), nil
 	}
 }
