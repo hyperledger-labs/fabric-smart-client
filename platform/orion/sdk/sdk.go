@@ -58,7 +58,7 @@ func (p *SDK) Install() error {
 	assert.NoError(p.registry.RegisterService(orion.NewNetworkServiceProvider(p.registry)))
 
 	// Install finality handler
-	finality.GetManager(p.registry).AddHandler(&FinalityHandler{})
+	finality.GetManager(p.registry).AddHandler(&FinalityHandler{sp: p.registry})
 
 	return nil
 }
