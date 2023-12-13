@@ -29,11 +29,10 @@ const (
 	P2PPort PortName = "P2P"
 )
 
-// PKIResolver extracts public key ids from identities
-type PKIResolver interface {
-	// GetPKIidOfCert returns the id of the public key contained in the passed identity
-	GetPKIidOfCert(peerIdentity view.Identity) []byte
-}
+// PublicKeyExtractor extracts public keys from identities
+type PublicKeyExtractor = driver.PublicKeyExtractor
+
+type PublicKeyIDSynthesizer = driver.PublicKeyIDSynthesizer
 
 // EndpointService provides endpoint-related services
 type EndpointService struct {
@@ -108,9 +107,13 @@ func (e *EndpointService) AddResolver(name string, domain string, addresses map[
 	return e.es.AddResolver(name, domain, addresses, aliases, id)
 }
 
-// AddPKIResolver add a new PKI resolver
-func (e *EndpointService) AddPKIResolver(pkiResolver PKIResolver) error {
-	return e.es.AddPKIResolver(pkiResolver)
+// AddPublicKeyExtractor add a new PKI resolver
+func (e *EndpointService) AddPublicKeyExtractor(publicKeyExtractor PublicKeyExtractor) error {
+	return e.es.AddPublicKeyExtractor(publicKeyExtractor)
+}
+
+func (e *EndpointService) SetPublicKeyIDSynthesizer(publicKeyIDSynthesizer PublicKeyIDSynthesizer) {
+	e.es.SetPublicKeyIDSynthesizer(publicKeyIDSynthesizer)
 }
 
 // GetEndpointService returns an instance of the endpoint service.

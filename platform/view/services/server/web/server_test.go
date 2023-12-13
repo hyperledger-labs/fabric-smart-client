@@ -19,15 +19,14 @@ import (
 	"syscall"
 	"testing"
 
-	"github.com/hyperledger/fabric/core/operations/fakes"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-	"github.com/tedsuo/ifrit"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc/tlsgen"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/operations/fakes"
 	web2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/web"
 	fakes3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/web/fakes"
 	mocks2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/web/mocks"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"github.com/tedsuo/ifrit"
 )
 
 var (

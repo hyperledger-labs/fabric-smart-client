@@ -14,22 +14,15 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/hyperledger/fabric-protos-go/msp"
-	"github.com/libp2p/go-libp2p/core/crypto"
-	"github.com/libp2p/go-libp2p/core/peer"
 )
 
-type pkiResolver struct {
-}
+type PublicKeyExtractor struct{}
 
-func NewPKIResolver() *pkiResolver {
-	return &pkiResolver{}
-}
-
-func (p pkiResolver) GetPKIidOfCert(peerIdentity view.Identity) []byte {
+func (p PublicKeyExtractor) ExtractPublicKey(id view.Identity) (any, error) {
 	si := &msp.SerializedIdentity{}
-	err := proto.Unmarshal(peerIdentity, si)
+	err := proto.Unmarshal(id, si)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 
 	certRaw, _ := pem.Decode(si.IdBytes)
@@ -37,28 +30,23 @@ func (p pkiResolver) GetPKIidOfCert(peerIdentity view.Identity) []byte {
 	case certRaw != nil:
 		cert, err := x509.ParseCertificate(certRaw.Bytes)
 		if err != nil {
-			return nil
+			return nil, err
 		}
 		raw, err := x509.MarshalPKIXPublicKey(cert.PublicKey)
 		if err != nil {
-			return nil
+			return nil, err
 		}
-		pubclikey, err := crypto.UnmarshalECDSAPublicKey(raw)
+		pk, err := x509.ParsePKIXPublicKey(raw)
 		if err != nil {
-			return nil
+			return nil, err
 		}
-		ID, err := peer.IDFromPublicKey(pubclikey)
-		if err != nil {
-			return nil
-		}
-
-		return []byte(ID.String())
+		return pk, nil
 	default:
 		// This can only be an idemix identity then
 		serialized := &msp.SerializedIdemixIdentity{}
 		err := proto.Unmarshal(si.IdBytes, serialized)
 		if err != nil {
-			return nil
+			return nil, err
 		}
 
 		h := sha256.New()
@@ -67,6 +55,6 @@ func (p pkiResolver) GetPKIidOfCert(peerIdentity view.Identity) []byte {
 		h.Write(serialized.Proof)
 		h.Write(serialized.Ou)
 		h.Write(serialized.Role)
-		return h.Sum(nil)
+		return h.Sum(nil), nil
 	}
 }

@@ -4,10 +4,16 @@ package fakes
 import (
 	"sync"
 
-	"github.com/hyperledger/fabric/core/operations"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/operations"
 )
 
 type Logger struct {
+	DebugfStub        func(string, ...interface{})
+	debugfMutex       sync.RWMutex
+	debugfArgsForCall []struct {
+		arg1 string
+		arg2 []interface{}
+	}
 	WarnStub        func(...interface{})
 	warnMutex       sync.RWMutex
 	warnArgsForCall []struct {
@@ -23,14 +29,48 @@ type Logger struct {
 	invocationsMutex sync.RWMutex
 }
 
+func (fake *Logger) Debugf(arg1 string, arg2 ...interface{}) {
+	fake.debugfMutex.Lock()
+	fake.debugfArgsForCall = append(fake.debugfArgsForCall, struct {
+		arg1 string
+		arg2 []interface{}
+	}{arg1, arg2})
+	stub := fake.DebugfStub
+	fake.recordInvocation("Debugf", []interface{}{arg1, arg2})
+	fake.debugfMutex.Unlock()
+	if stub != nil {
+		fake.DebugfStub(arg1, arg2...)
+	}
+}
+
+func (fake *Logger) DebugfCallCount() int {
+	fake.debugfMutex.RLock()
+	defer fake.debugfMutex.RUnlock()
+	return len(fake.debugfArgsForCall)
+}
+
+func (fake *Logger) DebugfCalls(stub func(string, ...interface{})) {
+	fake.debugfMutex.Lock()
+	defer fake.debugfMutex.Unlock()
+	fake.DebugfStub = stub
+}
+
+func (fake *Logger) DebugfArgsForCall(i int) (string, []interface{}) {
+	fake.debugfMutex.RLock()
+	defer fake.debugfMutex.RUnlock()
+	argsForCall := fake.debugfArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2
+}
+
 func (fake *Logger) Warn(arg1 ...interface{}) {
 	fake.warnMutex.Lock()
 	fake.warnArgsForCall = append(fake.warnArgsForCall, struct {
 		arg1 []interface{}
 	}{arg1})
+	stub := fake.WarnStub
 	fake.recordInvocation("Warn", []interface{}{arg1})
 	fake.warnMutex.Unlock()
-	if fake.WarnStub != nil {
+	if stub != nil {
 		fake.WarnStub(arg1...)
 	}
 }
@@ -60,9 +100,10 @@ func (fake *Logger) Warnf(arg1 string, arg2 ...interface{}) {
 		arg1 string
 		arg2 []interface{}
 	}{arg1, arg2})
+	stub := fake.WarnfStub
 	fake.recordInvocation("Warnf", []interface{}{arg1, arg2})
 	fake.warnfMutex.Unlock()
-	if fake.WarnfStub != nil {
+	if stub != nil {
 		fake.WarnfStub(arg1, arg2...)
 	}
 }
@@ -89,6 +130,8 @@ func (fake *Logger) WarnfArgsForCall(i int) (string, []interface{}) {
 func (fake *Logger) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
+	fake.debugfMutex.RLock()
+	defer fake.debugfMutex.RUnlock()
 	fake.warnMutex.RLock()
 	defer fake.warnMutex.RUnlock()
 	fake.warnfMutex.RLock()

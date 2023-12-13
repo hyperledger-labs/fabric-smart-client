@@ -33,8 +33,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/web"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/crypto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
-	"github.com/hyperledger/fabric/cmd/common/comm"
-	"github.com/hyperledger/fabric/cmd/common/signer"
 	"github.com/miracl/conflate"
 	"github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -148,11 +146,11 @@ func (p *Platform) GenerateArtifacts() {
 		c := view2.Config{
 			Version: 0,
 			Address: p.PeerAddress(peer, ListenPort),
-			TLSConfig: comm.Config{
+			TLSConfig: view2.TLSConfig{
 				PeerCACertPath: path.Join(p.NodeLocalTLSDir(peer), "ca.crt"),
 				Timeout:        10 * time.Minute,
 			},
-			SignerConfig: signer.Config{
+			SignerConfig: view2.SignerConfig{
 				IdentityPath: p.LocalMSPIdentityCert(peer),
 				KeyPath:      p.LocalMSPPrivateKey(peer),
 			},

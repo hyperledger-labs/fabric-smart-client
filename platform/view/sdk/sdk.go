@@ -29,6 +29,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events/simple"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	grpc2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpclogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kms"
 	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kms/driver/file"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
@@ -40,7 +41,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing/disabled"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing/optl"
-	"github.com/hyperledger/fabric/common/grpclogging"
 	"github.com/pkg/errors"
 )
 
@@ -279,15 +279,19 @@ func (p *SDK) initCommLayer() {
 	k, err := identity.NewCryptoPrivKeyFromMSP(configProvider.GetPath("fsc.identity.key.file"))
 	assert.NoError(err, "failed loading p2p node secret key")
 
+	es := view.GetEndpointService(p.registry)
 	commService, err := comm2.NewService(
 		&comm2.PrivateKeyFromCryptoKey{Key: k},
-		view.GetEndpointService(p.registry),
+		es,
 		view.GetConfigService(p.registry),
 		view.GetIdentityProvider(p.registry).DefaultIdentity(),
 		comm2.NewMetrics(metrics.GetProvider(p.registry)),
 	)
 	assert.NoError(err, "failed instantiating the communication service")
 	assert.NoError(p.registry.RegisterService(commService), "failed registering communication service")
+	pkiSupport := &comm2.PKISupport{}
+	assert.NoError(es.AddPublicKeyExtractor(pkiSupport), "failed addi,ng fabric pki resolver")
+	es.SetPublicKeyIDSynthesizer(pkiSupport)
 	p.commService = commService
 }
 

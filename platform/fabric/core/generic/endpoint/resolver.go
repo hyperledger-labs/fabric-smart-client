@@ -39,29 +39,29 @@ func (r *Resolver) GetIdentity() (view.Identity, error) {
 type Service interface {
 	Bind(longTerm view.Identity, ephemeral view.Identity) error
 	AddResolver(name string, domain string, addresses map[string]string, aliases []string, id []byte) (view.Identity, error)
-	AddPKIResolver(resolver view2.PKIResolver) error
+	AddPublicKeyExtractor(extractor view2.PublicKeyExtractor) error
 }
 
-type resolverService struct {
+type ResolverService struct {
 	config    *config.Config
 	service   Service
 	resolvers []*Resolver
 }
 
 // NewResolverService returns a new instance of the view-sdk endpoint resolverService
-func NewResolverService(config *config.Config, service Service) (*resolverService, error) {
-	er := &resolverService{
+func NewResolverService(config *config.Config, service Service) (*ResolverService, error) {
+	er := &ResolverService{
 		config:  config,
 		service: service,
 	}
-	if err := service.AddPKIResolver(NewPKIResolver()); err != nil {
+	if err := service.AddPublicKeyExtractor(PublicKeyExtractor{}); err != nil {
 		return nil, errors.Wrapf(err, "failed adding fabric pki resolver")
 	}
 	return er, nil
 }
 
 // LoadResolvers loads the resolvers specified in the configuration file, if any
-func (r *resolverService) LoadResolvers() error {
+func (r *ResolverService) LoadResolvers() error {
 	// Load Resolver
 	logger.Infof("loading resolvers")
 	cfgResolvers, err := r.config.Resolvers()
@@ -132,7 +132,7 @@ func (r *resolverService) LoadResolvers() error {
 
 // GetIdentity returns the identity associated to the passed label.
 // The label is matched against the name
-func (r *resolverService) GetIdentity(label string) view.Identity {
+func (r *ResolverService) GetIdentity(label string) view.Identity {
 	for _, resolver := range r.resolvers {
 		if resolver.Name == label {
 			return resolver.Id

@@ -12,7 +12,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core"
 	_ "github.com/hyperledger-labs/fabric-smart-client/platform/orion/services/db"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/finality"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/pkg/errors"
@@ -41,7 +42,7 @@ func NewSDK(registry Registry) *SDK {
 }
 
 func (p *SDK) Install() error {
-	if !view2.GetConfigService(p.registry).GetBool("orion.enabled") {
+	if !view.GetConfigService(p.registry).GetBool("orion.enabled") {
 		logger.Infof("Orion platform not enabled, skipping")
 		return nil
 	}
@@ -49,12 +50,15 @@ func (p *SDK) Install() error {
 
 	logger.Infof("Set Orion Network Service Provider")
 	var err error
-	onspConfig, err := core.NewConfig(view2.GetConfigService(p.registry))
+	onspConfig, err := core.NewConfig(view.GetConfigService(p.registry))
 	assert.NoError(err, "failed parsing configuration")
 	p.onsProvider, err = core.NewOrionNetworkServiceProvider(p.registry, onspConfig)
 	assert.NoError(err, "failed instantiating orion network service provider")
 	assert.NoError(p.registry.RegisterService(p.onsProvider))
 	assert.NoError(p.registry.RegisterService(orion.NewNetworkServiceProvider(p.registry)))
+
+	// Install finality handler
+	finality.GetManager(p.registry).AddHandler(&FinalityHandler{sp: p.registry})
 
 	return nil
 }
@@ -64,7 +68,7 @@ func (p *SDK) Start(context.Context) error {
 }
 
 func (p *SDK) PostStart(ctx context.Context) error {
-	if !view2.GetConfigService(p.registry).GetBool("orion.enabled") {
+	if !view.GetConfigService(p.registry).GetBool("orion.enabled") {
 		logger.Infof("Orion platform not enabled, skipping start")
 		return nil
 	}
@@ -80,4 +84,16 @@ func (p *SDK) PostStart(ctx context.Context) error {
 		}
 	}()
 	return nil
+}
+
+type FinalityHandler struct {
+	sp view.ServiceProvider
+}
+
+func (f *FinalityHandler) IsFinal(ctx context.Context, network, channel, txID string) error {
+	ons := orion.GetOrionNetworkService(f.sp, network)
+	if ons != nil {
+		return ons.Finality().IsFinal(ctx, txID)
+	}
+	return errors.Errorf("cannot find orio network [%s]", network)
 }
