@@ -11,7 +11,6 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
 
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/id"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -53,7 +52,6 @@ type IdentityService interface {
 type Backend interface {
 	Bind(longTerm view.Identity, ephemeral view.Identity) error
 	AddResolver(name string, domain string, addresses map[string]string, aliases []string, id []byte) (view.Identity, error)
-	AddPKIResolver(resolver view2.PKIResolver) error
 }
 
 type ResolverService struct {
@@ -68,9 +66,6 @@ func NewResolverService(config ConfigService, backend Backend, is IdentityServic
 		config:  config,
 		backend: backend,
 		is:      is,
-	}
-	if err := backend.AddPKIResolver(NewPKIResolver()); err != nil {
-		return nil, errors.Wrapf(err, "failed adding fabric pki resolver")
 	}
 	return er, nil
 }

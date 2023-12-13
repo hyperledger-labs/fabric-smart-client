@@ -74,17 +74,19 @@ type Service struct {
 	discovery      Discovery
 	kvs            KVS
 
-	pkiResolverLock sync.RWMutex
-	pkiResolvers    []driver.PKIResolver
+	pkiResolverLock        sync.RWMutex
+	publicKeyExtractors    []driver.PublicKeyExtractor
+	publicKeyIDSynthesizer driver.PublicKeyIDSynthesizer
 }
 
 // NewService returns a new instance of the view-sdk endpoint service
 func NewService(sp view2.ServiceProvider, discovery Discovery, kvs KVS) (*Service, error) {
 	er := &Service{
-		sp:           sp,
-		discovery:    discovery,
-		kvs:          kvs,
-		pkiResolvers: []driver.PKIResolver{},
+		sp:                     sp,
+		discovery:              discovery,
+		kvs:                    kvs,
+		publicKeyExtractors:    []driver.PublicKeyExtractor{},
+		publicKeyIDSynthesizer: DefaultPublicKeyIDSynthesizer{},
 	}
 	return er, nil
 }
@@ -263,14 +265,14 @@ func (r *Service) AddResolver(name string, domain string, addresses map[string]s
 	return nil, nil
 }
 
-func (r *Service) AddPKIResolver(pkiResolver driver.PKIResolver) error {
+func (r *Service) AddPublicKeyExtractor(publicKeyExtractor driver.PublicKeyExtractor) error {
 	r.pkiResolverLock.Lock()
 	defer r.pkiResolverLock.Unlock()
 
-	if pkiResolver == nil {
+	if publicKeyExtractor == nil {
 		return errors.New("pki resolver should not be nil")
 	}
-	r.pkiResolvers = append(r.pkiResolvers, pkiResolver)
+	r.publicKeyExtractors = append(r.publicKeyExtractors, publicKeyExtractor)
 	return nil
 }
 
@@ -278,6 +280,10 @@ func (r *Service) AddLongTermIdentity(identity view.Identity) error {
 	return r.putBinding(identity.String(), &endpointEntry{
 		Identity: identity,
 	})
+}
+
+func (r *Service) SetPublicKeyIDSynthesizer(publicKeyIDSynthesizer driver.PublicKeyIDSynthesizer) {
+	r.publicKeyIDSynthesizer = publicKeyIDSynthesizer
 }
 
 func (r *Service) pkiResolve(resolver *Resolver) []byte {
@@ -290,13 +296,13 @@ func (r *Service) pkiResolve(resolver *Resolver) []byte {
 
 	r.pkiResolverLock.Lock()
 	defer r.pkiResolverLock.Unlock()
-	for _, pkiResolver := range r.pkiResolvers {
-		if res := pkiResolver.GetPKIidOfCert(resolver.Id); len(res) != 0 {
+	for _, pkiResolver := range r.publicKeyExtractors {
+		if pk := pkiResolver.ExtractPublicKey(resolver.Id); pk != nil {
 			if logger.IsEnabledFor(zapcore.DebugLevel) {
 				logger.Debugf("pki resolved for [%s]", resolver.Id)
 			}
-			resolver.PKI = res
-			return res
+			resolver.PKI = r.publicKeyIDSynthesizer.PublicKeyID(pk)
+			return resolver.PKI
 		}
 	}
 	logger.Warnf("cannot resolve pki for [%s]", resolver.Id)

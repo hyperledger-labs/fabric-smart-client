@@ -279,15 +279,19 @@ func (p *SDK) initCommLayer() {
 	k, err := identity.NewCryptoPrivKeyFromMSP(configProvider.GetPath("fsc.identity.key.file"))
 	assert.NoError(err, "failed loading p2p node secret key")
 
+	es := view.GetEndpointService(p.registry)
 	commService, err := comm2.NewService(
 		&comm2.PrivateKeyFromCryptoKey{Key: k},
-		view.GetEndpointService(p.registry),
+		es,
 		view.GetConfigService(p.registry),
 		view.GetIdentityProvider(p.registry).DefaultIdentity(),
 		comm2.NewMetrics(metrics.GetProvider(p.registry)),
 	)
 	assert.NoError(err, "failed instantiating the communication service")
 	assert.NoError(p.registry.RegisterService(commService), "failed registering communication service")
+	pkiSupport := &comm2.PKISupport{}
+	assert.NoError(es.AddPublicKeyExtractor(pkiSupport), "failed addi,ng fabric pki resolver")
+	es.SetPublicKeyIDSynthesizer(pkiSupport)
 	p.commService = commService
 }
 

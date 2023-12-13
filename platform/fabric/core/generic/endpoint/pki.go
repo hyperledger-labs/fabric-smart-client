@@ -14,20 +14,13 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/hyperledger/fabric-protos-go/msp"
-	"github.com/libp2p/go-libp2p/core/crypto"
-	"github.com/libp2p/go-libp2p/core/peer"
 )
 
-type pkiResolver struct {
-}
+type PublicKeyExtractor struct{}
 
-func NewPKIResolver() *pkiResolver {
-	return &pkiResolver{}
-}
-
-func (p pkiResolver) GetPKIidOfCert(peerIdentity view.Identity) []byte {
+func (p PublicKeyExtractor) ExtractPublicKey(id view.Identity) any {
 	si := &msp.SerializedIdentity{}
-	err := proto.Unmarshal(peerIdentity, si)
+	err := proto.Unmarshal(id, si)
 	if err != nil {
 		return nil
 	}
@@ -43,16 +36,11 @@ func (p pkiResolver) GetPKIidOfCert(peerIdentity view.Identity) []byte {
 		if err != nil {
 			return nil
 		}
-		pubclikey, err := crypto.UnmarshalECDSAPublicKey(raw)
+		pk, err := x509.ParsePKIXPublicKey(raw)
 		if err != nil {
 			return nil
 		}
-		ID, err := peer.IDFromPublicKey(pubclikey)
-		if err != nil {
-			return nil
-		}
-
-		return []byte(ID.String())
+		return pk
 	default:
 		// This can only be an idemix identity then
 		serialized := &msp.SerializedIdemixIdentity{}

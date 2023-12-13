@@ -13,6 +13,21 @@ import (
 
 type Hashable []byte
 
+func (id Hashable) Raw() []byte {
+	if len(id) == 0 {
+		return nil
+	}
+	hash := sha256.New()
+	n, err := hash.Write(id)
+	if n != len(id) {
+		panic("hash failure")
+	}
+	if err != nil {
+		panic(err)
+	}
+	return hash.Sum(nil)
+}
+
 func (id Hashable) String() string {
 	if len(id) == 0 {
 		return ""
