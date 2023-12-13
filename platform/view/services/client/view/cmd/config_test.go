@@ -14,8 +14,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hyperledger/fabric/cmd/common/comm"
-	"github.com/hyperledger/fabric/cmd/common/signer"
 	"github.com/stretchr/testify/require"
 )
 
@@ -25,13 +23,13 @@ func TestConfig(t *testing.T) {
 	fmt.Println(configFilePath)
 	t.Run("save and load a config", func(t *testing.T) {
 		c := Config{
-			TLSConfig: comm.Config{
+			TLSConfig: TLSConfig{
 				CertPath:       "foo",
 				KeyPath:        "foo",
 				PeerCACertPath: "foo",
 				Timeout:        time.Second * 3,
 			},
-			SignerConfig: signer.Config{
+			SignerConfig: SignerConfig{
 				KeyPath:      "foo",
 				IdentityPath: "foo",
 				MSPID:        "foo",

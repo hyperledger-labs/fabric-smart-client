@@ -8,19 +8,32 @@ package view
 
 import (
 	"os"
+	"time"
 
-	"github.com/hyperledger/fabric/cmd/common/comm"
-	"github.com/hyperledger/fabric/cmd/common/signer"
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
 )
+
+type SignerConfig struct {
+	MSPID        string
+	IdentityPath string
+	KeyPath      string
+}
+
+// TLSConfig defines configuration of a Client
+type TLSConfig struct {
+	CertPath       string
+	KeyPath        string
+	PeerCACertPath string
+	Timeout        time.Duration
+}
 
 // Config aggregates configuration of TLS and signing
 type Config struct {
 	Version      int
 	Address      string
-	TLSConfig    comm.Config
-	SignerConfig signer.Config
+	TLSConfig    TLSConfig
+	SignerConfig SignerConfig
 }
 
 // ConfigFromFile loads the given file and converts it to a Config

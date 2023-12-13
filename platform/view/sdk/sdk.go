@@ -29,6 +29,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events/simple"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	grpc2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpclogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kms"
 	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kms/driver/file"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
@@ -40,7 +41,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing/disabled"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing/optl"
-	"github.com/hyperledger/fabric/common/grpclogging"
 	"github.com/pkg/errors"
 )
 

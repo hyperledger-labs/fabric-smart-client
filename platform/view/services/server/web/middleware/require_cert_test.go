@@ -11,8 +11,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 
-	"github.com/hyperledger/fabric/core/middleware"
-	"github.com/hyperledger/fabric/core/middleware/fakes"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/web/middleware"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/web/middleware/fakes"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )

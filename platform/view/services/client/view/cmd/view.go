@@ -16,13 +16,10 @@ import (
 	"path"
 	"time"
 
-	"github.com/hyperledger/fabric/cmd/common/comm"
-	"github.com/hyperledger/fabric/cmd/common/signer"
-	"github.com/pkg/errors"
-	"github.com/spf13/cobra"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
+	"github.com/pkg/errors"
+	"github.com/spf13/cobra"
 )
 
 var (
@@ -122,11 +119,11 @@ func validateInput(config *Config) error {
 func parseFlagsToConfig() Config {
 	conf := Config{
 		Address: endpoint,
-		SignerConfig: signer.Config{
+		SignerConfig: SignerConfig{
 			IdentityPath: userCert,
 			KeyPath:      userKey,
 		},
-		TLSConfig: comm.Config{
+		TLSConfig: TLSConfig{
 			KeyPath:        tlsKey,
 			CertPath:       tlsCert,
 			PeerCACertPath: tlsCA,
