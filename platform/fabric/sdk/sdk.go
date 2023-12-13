@@ -9,6 +9,8 @@ package fabric
 import (
 	"context"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/finality"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core"
 	_ "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver"
@@ -85,6 +87,9 @@ func (p *SDK) Install() error {
 	// weaver provider
 	assert.NoError(p.registry.RegisterService(weaver.NewProvider()))
 
+	// Install finality handler
+	finality.GetManager(p.registry).AddHandler(&FinalityHandler{})
+
 	return nil
 }
 
@@ -115,4 +120,20 @@ func (p *SDK) PostStart(ctx context.Context) error {
 	}()
 
 	return nil
+}
+
+type FinalityHandler struct {
+	sp view.ServiceProvider
+}
+
+func (f *FinalityHandler) IsFinal(ctx context.Context, network, channel, txID string) error {
+	fns := fabric.GetFabricNetworkService(f.sp, network)
+	if fns != nil {
+		ch, err := fns.Channel(channel)
+		if err != nil {
+			return errors.Wrapf(err, "failed to get channel [%s] on fabric network [%s]", channel, network)
+		}
+		return ch.Finality().IsFinal(ctx, txID)
+	}
+	return errors.Errorf("cannot find fabric network [%s]", network)
 }

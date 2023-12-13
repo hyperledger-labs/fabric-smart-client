@@ -10,75 +10,72 @@ import (
 	"context"
 	"reflect"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/orion"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view"
 	protos2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view/protos"
-	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
 )
 
-var logger = flogging.MustGetLogger("view-sdk.finality")
+var (
+	managerType = reflect.TypeOf((*Manager)(nil))
+	logger      = flogging.MustGetLogger("view-sdk.finality")
+)
+
+type Registry interface {
+	RegisterService(service interface{}) error
+}
 
 type Server interface {
 	RegisterProcessor(typ reflect.Type, p view2.Processor)
 }
 
-type NetworkProvider interface {
-	FabricNetworkService(network string) (driver.FabricNetworkService, error)
+type Handler interface {
+	IsFinal(ctx context.Context, network, channel, txID string) error
 }
 
-type finalityHandler struct {
-	sp view.ServiceProvider
+type Manager struct {
+	Handlers []Handler
 }
 
-func InstallHandler(sp view.ServiceProvider, server Server) {
-	fh := &finalityHandler{sp: sp}
+func InstallHandler(registry Registry, server Server) error {
+	fh := &Manager{}
 	server.RegisterProcessor(reflect.TypeOf(&protos2.Command_IsTxFinal{}), fh.isTxFinal)
+	return registry.RegisterService(fh)
 }
 
-func (s *finalityHandler) isTxFinal(ctx context.Context, command *protos2.Command) (interface{}, error) {
+func (s *Manager) isTxFinal(ctx context.Context, command *protos2.Command) (interface{}, error) {
 	c := command.Payload.(*protos2.Command_IsTxFinal).IsTxFinal
 
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("Answering: Is [%s] final on [%s:%s]?", c.Txid, c.Network, c.Channel)
 	}
 
-	checkOrion := true
-	fns := fabric.GetFabricNetworkService(s.sp, c.Network)
-	var isFinal func(context.Context, string) error
-	if fns != nil {
-		ch, err := fns.Channel(c.Channel)
-		if err == nil {
-			checkOrion = false
-			isFinal = ch.Finality().IsFinal
+	for _, handler := range s.Handlers {
+		if err := handler.IsFinal(ctx, c.Network, c.Channel, c.Txid); err == nil {
+			if logger.IsEnabledFor(zapcore.DebugLevel) {
+				logger.Debugf("Answering: Is [%s] final on [%s:%s]? Yes", c.Txid, c.Network, c.Channel)
+			}
+			return &protos2.CommandResponse_IsTxFinalResponse{IsTxFinalResponse: &protos2.IsTxFinalResponse{}}, nil
 		} else {
-			logger.Errorf("Failed to get channel [%s] on network [%s]: %s", c.Channel, c.Network, err)
+			logger.Debugf("Answering: Is [%s] final on [%s:%s]? err [%s]", c.Txid, c.Network, c.Channel, err)
 		}
 	}
 
-	if checkOrion {
-		ons := orion.GetOrionNetworkService(s.sp, c.Network)
-		if ons == nil {
-			return nil, errors.Errorf("no network service provider found for network [%s]", c.Network)
-		}
-		isFinal = ons.Finality().IsFinal
-	}
+	return &protos2.CommandResponse_IsTxFinalResponse{IsTxFinalResponse: &protos2.IsTxFinalResponse{
+		Payload: []byte("no handler found for the request"),
+	}}, nil
+}
 
-	err := isFinal(ctx, c.Txid)
+func (s *Manager) AddHandler(handler Handler) {
+	s.Handlers = append(s.Handlers, handler)
+}
+
+func GetManager(sp view.ServiceProvider) *Manager {
+	s, err := sp.GetService(managerType)
 	if err != nil {
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("Answering: Is [%s] final on [%s:%s]? No", c.Txid, c.Network, c.Channel)
-		}
-		return &protos2.CommandResponse_IsTxFinalResponse{IsTxFinalResponse: &protos2.IsTxFinalResponse{
-			Payload: []byte(err.Error()),
-		}}, nil
+		logger.Warnf("failed getting finality manager: %s", err)
+		return nil
 	}
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("Answering: Is [%s] final on [%s:%s]? Yes", c.Txid, c.Network, c.Channel)
-	}
-	return &protos2.CommandResponse_IsTxFinalResponse{IsTxFinalResponse: &protos2.IsTxFinalResponse{}}, nil
+	return s.(*Manager)
 }
