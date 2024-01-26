@@ -13,6 +13,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/events/chaincode"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/events/chaincode/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
+	fabric2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -35,7 +36,7 @@ var _ = Describe("EndToEnd", func() {
 
 		BeforeEach(func() {
 			var err error
-			ii, err = integration.Generate(StartPort(), true, chaincode.Topology()...)
+			ii, err = integration.Generate(StartPort(), true, chaincode.Topology(&fabric2.SDK{})...)
 			Expect(err).NotTo(HaveOccurred())
 			// Start the integration ii
 			ii.Start()

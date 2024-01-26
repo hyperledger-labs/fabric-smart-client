@@ -10,10 +10,10 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
-	fabric2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk"
+	api2 "github.com/hyperledger-labs/fabric-smart-client/pkg/api"
 )
 
-func Topology() []api.Topology {
+func Topology(sdk api2.SDK) []api.Topology {
 	// Fabric
 	fabricTopology := fabric.NewDefaultTopology()
 	fabricTopology.AddOrganizationsByName("Org1", "Org2")
@@ -31,7 +31,7 @@ func Topology() []api.Topology {
 	)
 
 	// Add Fabric SDK to FSC Nodes
-	fscTopology.AddSDK(&fabric2.SDK{})
+	fscTopology.AddSDK(sdk)
 
 	return []api.Topology{fabricTopology, fscTopology}
 }
