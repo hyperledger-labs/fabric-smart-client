@@ -88,7 +88,7 @@ func (p *SDK) Install() error {
 	assert.NoError(p.registry.RegisterService(weaver.NewProvider()))
 
 	// Install finality handler
-	finality.GetManager(p.registry).AddHandler(&FinalityHandler{sp: p.registry})
+	finality.GetManager(p.registry).AddHandler(NewFinalityHandler(fabric.GetNetworkServiceProvider(p.registry)))
 
 	return nil
 }
@@ -123,17 +123,25 @@ func (p *SDK) PostStart(ctx context.Context) error {
 }
 
 type FinalityHandler struct {
-	sp view.ServiceProvider
+	nsp *fabric.NetworkServiceProvider
+}
+
+func NewFinalityHandler(nsp *fabric.NetworkServiceProvider) *FinalityHandler {
+	return &FinalityHandler{nsp: nsp}
 }
 
 func (f *FinalityHandler) IsFinal(ctx context.Context, network, channel, txID string) error {
-	fns := fabric.GetFabricNetworkService(f.sp, network)
-	if fns != nil {
-		ch, err := fns.Channel(channel)
-		if err != nil {
-			return errors.Wrapf(err, "failed to get channel [%s] on fabric network [%s]", channel, network)
-		}
-		return ch.Finality().IsFinal(ctx, txID)
+	if f.nsp == nil {
+		return errors.Errorf("cannot find fabric network provider")
 	}
-	return errors.Errorf("cannot find fabric network [%s]", network)
+	fns, err := f.nsp.FabricNetworkService(network)
+	if fns == nil || err != nil {
+		return errors.Wrapf(err, "cannot find fabric network [%s]", network)
+	}
+
+	ch, err := fns.Channel(channel)
+	if err != nil {
+		return errors.Wrapf(err, "failed to get channel [%s] on fabric network [%s]", channel, network)
+	}
+	return ch.Finality().IsFinal(ctx, txID)
 }
