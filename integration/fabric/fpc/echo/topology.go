@@ -11,10 +11,10 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
-	fabric2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk"
+	api2 "github.com/hyperledger-labs/fabric-smart-client/pkg/api"
 )
 
-func Topology() []api.Topology {
+func Topology(sdk api2.SDK) []api.Topology {
 	// Create an empty fabric topology
 	fabricTopology := fabric.NewDefaultTopology()
 	// Note that Idemix is currently not supported by FPC
@@ -45,7 +45,7 @@ func Topology() []api.Topology {
 	bob.RegisterViewFactory("Echo", &views.EchoViewFactory{})
 
 	// Add Fabric SDK to FSC Nodes
-	fscTopology.AddSDK(&fabric2.SDK{})
+	fscTopology.AddSDK(sdk)
 
 	return []api.Topology{fabricTopology, fscTopology}
 }

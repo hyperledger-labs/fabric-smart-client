@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou"
+	fabric "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iouorionbe"
@@ -32,7 +33,7 @@ var _ = Describe("EndToEnd", func() {
 		BeforeEach(func() {
 			var err error
 			// Create the integration ii
-			ii, err = integration.GenerateAt(StartPort(), "", true, iouorionbe.Topology()...)
+			ii, err = integration.GenerateAt(StartPort(), "", true, iouorionbe.Topology(&fabric.SDK{})...)
 			Expect(err).NotTo(HaveOccurred())
 			// Start the integration ii
 			ii.Start()

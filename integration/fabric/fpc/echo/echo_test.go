@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package echo_test
 
 import (
+	fabric "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -30,7 +31,7 @@ var _ = Describe("EndToEnd", func() {
 		BeforeEach(func() {
 			var err error
 			// Create the integration ii
-			ii, err = integration.Generate(StartPort(), true, echo.Topology()...)
+			ii, err = integration.Generate(StartPort(), true, echo.Topology(&fabric.SDK{})...)
 			Expect(err).NotTo(HaveOccurred())
 			// Start the integration ii
 			ii.Start()

@@ -12,10 +12,10 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/monitoring"
-	fabric2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk"
+	api2 "github.com/hyperledger-labs/fabric-smart-client/pkg/api"
 )
 
-func Topology() []api.Topology {
+func Topology(sdk api2.SDK) []api.Topology {
 	// Define a Fabric topology with:
 	// 1. Three organization: Org1, Org2, and Org3
 	// 2. A namespace whose changes can be endorsed by Org1.
@@ -73,7 +73,7 @@ func Topology() []api.Topology {
 	monitoringTopology.EnableOPTL()
 
 	// Add Fabric SDK to FSC Nodes
-	fscTopology.AddSDK(&fabric2.SDK{})
+	fscTopology.AddSDK(sdk)
 
 	return []api.Topology{
 		fabricTopology,

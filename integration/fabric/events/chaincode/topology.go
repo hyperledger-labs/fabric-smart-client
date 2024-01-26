@@ -11,10 +11,10 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
-	fabric2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk"
+	api2 "github.com/hyperledger-labs/fabric-smart-client/pkg/api"
 )
 
-func Topology() []api.Topology {
+func Topology(sdk api2.SDK) []api.Topology {
 	// Define a new Fabric topology starting from a Default configuration with a single channel `testchannel`
 	// and solo ordering.
 	fabricTopology := fabric.NewDefaultTopology()
@@ -52,7 +52,7 @@ func Topology() []api.Topology {
 	bob.RegisterViewFactory("EventsView", &views.EventsViewFactory{})
 
 	// Add Fabric SDK to FSC Nodes
-	fscTopology.AddSDK(&fabric2.SDK{})
+	fscTopology.AddSDK(sdk)
 
 	// Done
 	return []api.Topology{fabricTopology, fscTopology}
