@@ -63,7 +63,7 @@ func (f *Finality) IsFinalForParties(txID string, parties ...view.Identity) erro
 	for _, party := range parties {
 		_, err := view2.GetManager(f.sp).InitiateView(
 			NewIsFinalInitiatorView(
-				f.network.Name(), f.channel, txID, party,
+				f.network.Config().Name(), f.channel, txID, party,
 				f.channelConfig.FinalityForPartiesWaitTimeout(),
 			),
 		)
