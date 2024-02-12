@@ -75,6 +75,14 @@ func NewFromConfPath(confPath string) *node {
 	return node
 }
 
+func NewEmptyFromConfPath(confPath string) *node {
+	return &node{
+		confPath: confPath,
+		sdks:     []api.SDK{},
+		registry: registry2.New(),
+	}
+}
+
 func (n *node) Start() (err error) {
 	defer func() {
 		if r := recover(); r != nil {
