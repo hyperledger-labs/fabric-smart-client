@@ -13,25 +13,29 @@ import (
 )
 
 type SigService struct {
-	sp view2.ServiceProvider
+	sigService *view2.SigService
 }
 
 func NewSigService(sp view2.ServiceProvider) *SigService {
-	return &SigService{sp: sp}
+	return NewSignerService(view2.GetSigService(sp))
+}
+
+func NewSignerService(sigService *view2.SigService) *SigService {
+	return &SigService{sigService: sigService}
 }
 
 func (s *SigService) GetVerifier(id view.Identity) (driver.Verifier, error) {
-	return view2.GetSigService(s.sp).GetVerifier(id)
+	return s.sigService.GetVerifier(id)
 }
 
 func (s *SigService) GetSigner(id view.Identity) (driver.Signer, error) {
-	return view2.GetSigService(s.sp).GetSigner(id)
+	return s.sigService.GetSigner(id)
 }
 
 func (s *SigService) GetSigningIdentity(id view.Identity) (driver.SigningIdentity, error) {
-	return view2.GetSigService(s.sp).GetSigningIdentity(id)
+	return s.sigService.GetSigningIdentity(id)
 }
 
 func (s *SigService) RegisterSigner(identity view.Identity, signer driver.Signer, verifier driver.Verifier) error {
-	return view2.GetSigService(s.sp).RegisterSigner(identity, signer, verifier)
+	return s.sigService.RegisterSigner(identity, signer, verifier)
 }
