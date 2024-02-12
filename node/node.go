@@ -50,9 +50,13 @@ func New() *node {
 }
 
 func NewFromConfPath(confPath string) *node {
+	return NewFromFSCNode(node3.NewFromConfPath(confPath))
+}
+
+func NewFromFSCNode(fscNode FabricSmartClient) *node {
 	mainCmd := &cobra.Command{Use: "peer"}
 	node := &node{
-		FabricSmartClient: node3.NewFromConfPath(confPath),
+		FabricSmartClient: fscNode,
 		mainCmd:           mainCmd,
 		callbackChannel:   make(chan error, 1),
 	}

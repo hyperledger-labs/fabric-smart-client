@@ -39,6 +39,10 @@ type EndpointService struct {
 	es driver.EndpointService
 }
 
+func NewEndpointService(es driver.EndpointService) *EndpointService {
+	return &EndpointService{es: es}
+}
+
 // Endpoint returns the endpoint of the passed identity
 func (e *EndpointService) Endpoint(party view.Identity) (map[PortName]string, error) {
 	res, err := e.es.Endpoint(party)
@@ -119,5 +123,5 @@ func (e *EndpointService) SetPublicKeyIDSynthesizer(publicKeyIDSynthesizer Publi
 // GetEndpointService returns an instance of the endpoint service.
 // It panics, if no instance is found.
 func GetEndpointService(sp ServiceProvider) *EndpointService {
-	return &EndpointService{es: driver.GetEndpointService(sp)}
+	return NewEndpointService(driver.GetEndpointService(sp))
 }

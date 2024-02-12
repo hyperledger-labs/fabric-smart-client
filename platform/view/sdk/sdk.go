@@ -18,6 +18,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/id/x509"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/manager"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/sig"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/finality"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
 	comm2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm"
@@ -30,6 +31,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	grpc2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpclogging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kms"
 	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kms/driver/file"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
@@ -114,7 +116,7 @@ func (p *SDK) Install() error {
 	assert.NoError(p.registry.RegisterService(defaultKVS))
 
 	// Sig Service
-	des, err := sig.NewMultiplexDeserializer(p.registry)
+	des, err := sig.NewMultiplexDeserializer()
 	assert.NoError(err, "failed loading sig verifier deserializer service")
 	des.AddDeserializer(&x509.Deserializer{})
 	assert.NoError(p.registry.RegisterService(des))
@@ -149,7 +151,7 @@ func (p *SDK) Install() error {
 	assert.NoError(p.initWebOperationEndpointsAndMetrics(), "failed initializing web server endpoints and metrics")
 
 	// View Service Server
-	marshaller, err := view2.NewResponseMarshaler(p.registry)
+	marshaller, err := view2.NewResponseMarshaler(hash.GetHasher(p.registry), driver.GetIdentityProvider(p.registry), view.GetSigService(p.registry))
 	if err != nil {
 		return errors.Errorf("error creating view service response marshaller: %s", err)
 	}

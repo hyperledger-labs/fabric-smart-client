@@ -21,14 +21,12 @@ type Deserializer interface {
 }
 
 type deserializer struct {
-	sp                 driver.ServiceProvider
 	deserializersMutex sync.RWMutex
 	deserializers      []Deserializer
 }
 
-func NewMultiplexDeserializer(sp driver.ServiceProvider) (*deserializer, error) {
+func NewMultiplexDeserializer() (*deserializer, error) {
 	return &deserializer{
-		sp:            sp,
 		deserializers: []Deserializer{},
 	}, nil
 }

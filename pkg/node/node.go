@@ -18,7 +18,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/api"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	view3 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
-	viewsdk "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	registry2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/registry"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -62,17 +61,15 @@ func New() *node {
 
 func NewFromConfPath(confPath string) *node {
 	registry := registry2.New()
-	platforms := []api.SDK{
-		viewsdk.NewSDK(confPath, registry),
-	}
+	return NewNode(confPath, registry)
+}
 
-	node := &node{
+func NewNode(confPath string, registry Registry) *node {
+	return &node{
 		confPath: confPath,
-		sdks:     platforms,
+		sdks:     []api.SDK{},
 		registry: registry,
 	}
-
-	return node
 }
 
 func (n *node) Start() (err error) {
