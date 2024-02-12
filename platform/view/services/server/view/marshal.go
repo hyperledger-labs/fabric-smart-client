@@ -13,6 +13,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view/protos"
+	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -30,15 +31,19 @@ func UnmarshalCommand(raw []byte) (*protos.Command, error) {
 
 type TimeFunc func() time.Time
 
+type SignerProvider interface {
+	GetSigner(identity view2.Identity) (view.Signer, error)
+}
+
 // ResponseMarshaler produces SignedCommandResponse
 type ResponseMarshaler struct {
 	hasher           hash.Hasher
 	identityProvider IdentityProvider
-	sigService       *view.SigService
+	sigService       SignerProvider
 	time             TimeFunc
 }
 
-func NewResponseMarshaler(hasher hash.Hasher, identityProvider IdentityProvider, sigService *view.SigService) (*ResponseMarshaler, error) {
+func NewResponseMarshaler(hasher hash.Hasher, identityProvider IdentityProvider, sigService SignerProvider) (*ResponseMarshaler, error) {
 	return &ResponseMarshaler{
 		hasher:           hasher,
 		identityProvider: identityProvider,
