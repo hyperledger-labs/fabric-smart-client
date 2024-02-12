@@ -116,9 +116,13 @@ func (s *SigService) GetSigningIdentity(identity view.Identity) (*SigningIdentit
 // GetSigService returns an instance of the sig service.
 // It panics, if no instance is found.
 func GetSigService(sp ServiceProvider) *SigService {
+	return NewSigService(driver.GetSigService(sp), driver.GetSigRegistry(sp), driver.GetAuditRegistry(sp))
+}
+
+func NewSigService(sigService driver.SigService, sigRegistry driver.SigRegistry, auditRegistry driver.AuditRegistry) *SigService {
 	return &SigService{
-		sigService:    driver.GetSigService(sp),
-		sigRegistry:   driver.GetSigRegistry(sp),
-		auditRegistry: driver.GetAuditRegistry(sp),
+		sigService:    sigService,
+		sigRegistry:   sigRegistry,
+		auditRegistry: auditRegistry,
 	}
 }

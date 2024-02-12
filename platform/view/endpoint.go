@@ -39,6 +39,10 @@ type EndpointService struct {
 	es driver.EndpointService
 }
 
+func NewEndpointService(es driver.EndpointService) *EndpointService {
+	return &EndpointService{es: es}
+}
+
 // Resolve returns the endpoints of the passed identity.
 // If the passed identity does not have any endpoint set, the service checks
 // if the passed identity is bound to another identity that is returned together with its endpoints and public-key identifier.
@@ -106,5 +110,5 @@ func (e *EndpointService) SetPublicKeyIDSynthesizer(publicKeyIDSynthesizer Publi
 // GetEndpointService returns an instance of the endpoint service.
 // It panics, if no instance is found.
 func GetEndpointService(sp ServiceProvider) *EndpointService {
-	return &EndpointService{es: driver.GetEndpointService(sp)}
+	return NewEndpointService(driver.GetEndpointService(sp))
 }

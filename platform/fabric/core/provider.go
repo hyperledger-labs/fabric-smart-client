@@ -14,6 +14,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
+	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	fabricLogging "github.com/hyperledger/fabric/common/flogging"
 	"github.com/pkg/errors"
@@ -29,14 +30,20 @@ type FSNProvider struct {
 	config *Config
 
 	networksMutex sync.Mutex
+	configService driver2.ConfigService
 	networks      map[string]driver.FabricNetworkService
 }
 
-func NewFabricNetworkServiceProvider(sp view.ServiceProvider, config *Config) (*FSNProvider, error) {
+func NewFabricNetworkServiceProvider(sp view.ServiceProvider, configService driver2.ConfigService) (*FSNProvider, error) {
+	fnsConfig, err := NewConfig(configService)
+	if err != nil {
+		return nil, err
+	}
 	provider := &FSNProvider{
-		sp:       sp,
-		config:   config,
-		networks: map[string]driver.FabricNetworkService{},
+		sp:            sp,
+		config:        fnsConfig,
+		configService: configService,
+		networks:      map[string]driver.FabricNetworkService{},
 	}
 	provider.InitFabricLogging()
 	return provider, nil

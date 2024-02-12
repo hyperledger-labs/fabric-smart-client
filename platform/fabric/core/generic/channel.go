@@ -12,6 +12,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/finality"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/membership"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/rwset"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
@@ -21,6 +22,11 @@ import (
 	"github.com/hyperledger/fabric-protos-go/common"
 	"github.com/pkg/errors"
 )
+
+type committerService interface {
+	ReloadConfigTransactions() error
+	driver.Committer
+}
 
 // These are function names from Invoke first parameter
 const (
@@ -50,7 +56,7 @@ type Channel struct {
 	LedgerService            driver.Ledger
 	ChannelMembershipService *membership.Service
 	ChaincodeManagerService  driver.ChaincodeManager
-	CommitterService         *committer.Service
+	CommitterService         committerService
 	PeerManager              *PeerManager
 }
 
@@ -109,7 +115,9 @@ func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver
 		ES, TS, network.TransactionManager(),
 		v,
 	)
-
+	if err := RWSetLoaderService.AddHandlerProvider(common.HeaderType_ENDORSER_TRANSACTION, rwset.NewEndorserTransactionHandler); err != nil {
+		return nil, err
+	}
 	ChaincodeManagerService := NewChaincodeManager(
 		network.Name(),
 		name,
