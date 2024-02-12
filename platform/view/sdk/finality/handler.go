@@ -40,11 +40,11 @@ type Manager struct {
 
 func InstallHandler(registry Registry, server Server) error {
 	fh := &Manager{}
-	server.RegisterProcessor(reflect.TypeOf(&protos2.Command_IsTxFinal{}), fh.isTxFinal)
+	server.RegisterProcessor(reflect.TypeOf(&protos2.Command_IsTxFinal{}), fh.IsTxFinal)
 	return registry.RegisterService(fh)
 }
 
-func (s *Manager) isTxFinal(ctx context.Context, command *protos2.Command) (interface{}, error) {
+func (s *Manager) IsTxFinal(ctx context.Context, command *protos2.Command) (interface{}, error) {
 	c := command.Payload.(*protos2.Command_IsTxFinal).IsTxFinal
 
 	if logger.IsEnabledFor(zapcore.DebugLevel) {

@@ -30,6 +30,10 @@ type viewEntry struct {
 type manager struct {
 	sp driver.ServiceProvider
 
+	commLayer        CommLayer
+	endpointService  driver.EndpointService
+	identityProvider driver.IdentityProvider
+
 	ctx context.Context
 
 	factoriesSync sync.RWMutex
@@ -42,9 +46,12 @@ type manager struct {
 	factories  map[string]driver.Factory
 }
 
-func New(serviceProvider driver.ServiceProvider) *manager {
+func New(serviceProvider driver.ServiceProvider, commLayer CommLayer, endpointService driver.EndpointService, identityProvider driver.IdentityProvider) *manager {
 	return &manager{
-		sp: serviceProvider,
+		sp:               serviceProvider,
+		commLayer:        commLayer,
+		endpointService:  endpointService,
+		identityProvider: identityProvider,
 
 		contexts:   map[string]disposableContext{},
 		views:      map[string][]*viewEntry{},
@@ -176,7 +183,7 @@ func (cm *manager) InitiateViewWithIdentity(view view.View, id view.Identity) (i
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	viewContext, err := NewContextForInitiator("", ctx, cm.sp, GetCommLayer(cm.sp), driver.GetEndpointService(cm.sp), id, view)
+	viewContext, err := NewContextForInitiator("", ctx, cm.sp, cm.commLayer, cm.endpointService, id, view)
 	if err != nil {
 		return nil, err
 	}
@@ -220,7 +227,7 @@ func (cm *manager) InitiateContextWithIdentityAndID(view view.View, id view.Iden
 	if id.IsNone() {
 		id = cm.me()
 	}
-	viewContext, err := NewContextForInitiator(contextID, ctx, cm.sp, GetCommLayer(cm.sp), driver.GetEndpointService(cm.sp), id, view)
+	viewContext, err := NewContextForInitiator(contextID, ctx, cm.sp, cm.commLayer, cm.endpointService, id, view)
 	if err != nil {
 		return nil, err
 	}
@@ -240,7 +247,7 @@ func (cm *manager) Start(ctx context.Context) {
 	cm.contextsSync.Lock()
 	cm.ctx = ctx
 	cm.contextsSync.Unlock()
-	session, err := GetCommLayer(cm.sp).MasterSession()
+	session, err := cm.commLayer.MasterSession()
 	if err != nil {
 		return
 	}
@@ -270,9 +277,8 @@ func (cm *manager) Context(contextID string) (view.Context, error) {
 
 func (cm *manager) ResolveIdentities(endpoints ...string) ([]view.Identity, error) {
 	var ids []view.Identity
-	resolver := driver.GetEndpointService(cm.sp)
 	for _, endpoint := range endpoints {
-		id, err := resolver.GetIdentity(endpoint, nil)
+		id, err := cm.endpointService.GetIdentity(endpoint, nil)
 		if err != nil {
 			return nil, errors.Wrapf(err, "cannot find the idnetity at %s", endpoint)
 		}
@@ -355,7 +361,7 @@ func (cm *manager) newContext(id view.Identity, msg *view.Message) (view.Context
 	defer cm.contextsSync.Unlock()
 
 	isNew := false
-	caller, err := driver.GetEndpointService(cm.sp).GetIdentity(msg.FromEndpoint, msg.FromPKID)
+	caller, err := cm.endpointService.GetIdentity(msg.FromEndpoint, msg.FromPKID)
 	if err != nil {
 		return nil, false, err
 	}
@@ -379,7 +385,7 @@ func (cm *manager) newContext(id view.Identity, msg *view.Message) (view.Context
 		if logger.IsEnabledFor(zapcore.DebugLevel) {
 			logger.Debugf("[%s] Create new context to respond [contextID:%s]\n", id, msg.ContextID)
 		}
-		backend, err := GetCommLayer(cm.sp).NewSessionWithID(msg.SessionID, contextID, msg.FromEndpoint, msg.FromPKID, caller, msg)
+		backend, err := cm.commLayer.NewSessionWithID(msg.SessionID, contextID, msg.FromEndpoint, msg.FromPKID, caller, msg)
 		if err != nil {
 			return nil, false, err
 		}
@@ -387,7 +393,7 @@ func (cm *manager) newContext(id view.Identity, msg *view.Message) (view.Context
 		if ctx == nil {
 			ctx = context.Background()
 		}
-		newCtx, err := NewContext(ctx, cm.sp, contextID, GetCommLayer(cm.sp), driver.GetEndpointService(cm.sp), id, backend, caller)
+		newCtx, err := NewContext(ctx, cm.sp, contextID, cm.commLayer, cm.endpointService, id, backend, caller)
 		if err != nil {
 			return nil, false, err
 		}
@@ -456,7 +462,7 @@ func (cm *manager) callView(msg *view.Message) {
 }
 
 func (cm *manager) me() view.Identity {
-	return driver.GetIdentityProvider(cm.sp).DefaultIdentity()
+	return cm.identityProvider.DefaultIdentity()
 }
 
 func getIdentifier(f view.View) string {

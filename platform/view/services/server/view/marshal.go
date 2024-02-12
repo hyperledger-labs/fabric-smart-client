@@ -11,16 +11,16 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
-	hash2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
-	protos2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view/protos"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view/protos"
+	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // UnmarshalCommand unmarshal Command messages
-func UnmarshalCommand(raw []byte) (*protos2.Command, error) {
-	command := &protos2.Command{}
+func UnmarshalCommand(raw []byte) (*protos.Command, error) {
+	command := &protos.Command{}
 	err := proto.Unmarshal(raw, command)
 	if err != nil {
 		return nil, err
@@ -31,20 +31,28 @@ func UnmarshalCommand(raw []byte) (*protos2.Command, error) {
 
 type TimeFunc func() time.Time
 
-// ResponseMarshaler produces SignedCommandResponse
-type ResponseMarshaler struct {
-	sp   driver.ServiceProvider
-	time TimeFunc
+type SignerProvider interface {
+	GetSigner(identity view2.Identity) (view.Signer, error)
 }
 
-func NewResponseMarshaler(sp driver.ServiceProvider) (*ResponseMarshaler, error) {
+// ResponseMarshaler produces SignedCommandResponse
+type ResponseMarshaler struct {
+	hasher           hash.Hasher
+	identityProvider IdentityProvider
+	sigService       SignerProvider
+	time             TimeFunc
+}
+
+func NewResponseMarshaler(hasher hash.Hasher, identityProvider IdentityProvider, sigService SignerProvider) (*ResponseMarshaler, error) {
 	return &ResponseMarshaler{
-		sp:   sp,
-		time: time.Now,
+		hasher:           hasher,
+		identityProvider: identityProvider,
+		sigService:       sigService,
+		time:             time.Now,
 	}, nil
 }
 
-func (s *ResponseMarshaler) MarshalCommandResponse(command []byte, responsePayload interface{}) (*protos2.SignedCommandResponse, error) {
+func (s *ResponseMarshaler) MarshalCommandResponse(command []byte, responsePayload interface{}) (*protos.SignedCommandResponse, error) {
 	cr, err := commandResponseFromPayload(responsePayload)
 	if err != nil {
 		return nil, err
@@ -55,8 +63,8 @@ func (s *ResponseMarshaler) MarshalCommandResponse(command []byte, responsePaylo
 		return nil, err
 	}
 
-	did := driver.GetIdentityProvider(s.sp).DefaultIdentity()
-	cr.Header = &protos2.CommandResponseHeader{
+	did := s.identityProvider.DefaultIdentity()
+	cr.Header = &protos.CommandResponseHeader{
 		Creator:     did,
 		CommandHash: s.computeHash(command),
 		Timestamp:   ts,
@@ -65,14 +73,14 @@ func (s *ResponseMarshaler) MarshalCommandResponse(command []byte, responsePaylo
 	return s.createSignedCommandResponse(cr)
 }
 
-func (s *ResponseMarshaler) createSignedCommandResponse(cr *protos2.CommandResponse) (*protos2.SignedCommandResponse, error) {
+func (s *ResponseMarshaler) createSignedCommandResponse(cr *protos.CommandResponse) (*protos.SignedCommandResponse, error) {
 	raw, err := proto.Marshal(cr)
 	if err != nil {
 		return nil, err
 	}
 
-	did := driver.GetIdentityProvider(s.sp).DefaultIdentity()
-	dSigner, err := view.GetSigService(s.sp).GetSigner(did)
+	did := s.identityProvider.DefaultIdentity()
+	dSigner, err := s.sigService.GetSigner(did)
 	if err != nil {
 		return nil, err
 	}
@@ -81,32 +89,32 @@ func (s *ResponseMarshaler) createSignedCommandResponse(cr *protos2.CommandRespo
 		return nil, err
 	}
 
-	return &protos2.SignedCommandResponse{
+	return &protos.SignedCommandResponse{
 		Response:  raw,
 		Signature: signature,
 	}, nil
 }
 
 func (s *ResponseMarshaler) computeHash(data []byte) (hash []byte) {
-	hash, err := hash2.GetHasher(s.sp).Hash(data)
+	hash, err := s.hasher.Hash(data)
 	if err != nil {
 		panic(errors.Errorf("failed computing hash on [% x]", data))
 	}
 	return
 }
 
-func commandResponseFromPayload(payload interface{}) (*protos2.CommandResponse, error) {
+func commandResponseFromPayload(payload interface{}) (*protos.CommandResponse, error) {
 	switch t := payload.(type) {
-	case *protos2.CommandResponse_Err:
-		return &protos2.CommandResponse{Payload: t}, nil
-	case *protos2.CommandResponse_InitiateViewResponse:
-		return &protos2.CommandResponse{Payload: t}, nil
-	case *protos2.CommandResponse_TrackViewResponse:
-		return &protos2.CommandResponse{Payload: t}, nil
-	case *protos2.CommandResponse_CallViewResponse:
-		return &protos2.CommandResponse{Payload: t}, nil
-	case *protos2.CommandResponse_IsTxFinalResponse:
-		return &protos2.CommandResponse{Payload: t}, nil
+	case *protos.CommandResponse_Err:
+		return &protos.CommandResponse{Payload: t}, nil
+	case *protos.CommandResponse_InitiateViewResponse:
+		return &protos.CommandResponse{Payload: t}, nil
+	case *protos.CommandResponse_TrackViewResponse:
+		return &protos.CommandResponse{Payload: t}, nil
+	case *protos.CommandResponse_CallViewResponse:
+		return &protos.CommandResponse{Payload: t}, nil
+	case *protos.CommandResponse_IsTxFinalResponse:
+		return &protos.CommandResponse{Payload: t}, nil
 	default:
 		return nil, errors.Errorf("command type not recognized: %T", t)
 	}

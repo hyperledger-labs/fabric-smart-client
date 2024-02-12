@@ -138,7 +138,7 @@ func (ctx *ctx) Me() view.Identity {
 
 // TODO: remove this
 func (ctx *ctx) Identity(ref string) (view.Identity, error) {
-	return driver.GetEndpointService(ctx.sp).GetIdentity(ref, nil)
+	return ctx.resolver.GetIdentity(ref, nil)
 }
 
 func (ctx *ctx) IsMe(id view.Identity) bool {

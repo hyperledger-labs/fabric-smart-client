@@ -54,12 +54,11 @@ func (p *SDK) Install() error {
 	logger.Infof("Fabric platform enabled, installing...")
 
 	cryptoProvider := crypto.NewProvider()
-	assert.NoError(p.registry.RegisterService(cryptoProvider))
+	err := p.registry.RegisterService(cryptoProvider)
+	assert.NoError(err)
 
 	logger.Infof("Set Fabric Network Service Provider")
-	fnsConfig, err := core.NewConfig(view.GetConfigService(p.registry))
-	assert.NoError(err, "failed parsing configuration")
-	p.fnsProvider, err = core.NewFabricNetworkServiceProvider(p.registry, fnsConfig)
+	p.fnsProvider, err = core.NewFabricNetworkServiceProvider(p.registry, view.GetConfigService(p.registry))
 	assert.NoError(err, "failed instantiating fabric network service provider")
 	assert.NoError(p.registry.RegisterService(p.fnsProvider))
 	assert.NoError(p.registry.RegisterService(fabric.NewNetworkServiceProvider(p.registry)))
