@@ -10,10 +10,10 @@ import (
 	"bytes"
 	"database/sql"
 	"encoding/gob"
+	"errors"
 	"fmt"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
-	"github.com/pkg/errors"
 )
 
 type Persistence struct {
@@ -41,7 +41,6 @@ func (db *Persistence) setStateWithTx(tx *sql.Tx, ns, key string, val []byte, bl
 	if tx == nil {
 		tx = db.txn
 	}
-
 	if tx == nil {
 		panic("programming error, writing without ongoing update")
 	}
@@ -49,7 +48,8 @@ func (db *Persistence) setStateWithTx(tx *sql.Tx, ns, key string, val []byte, bl
 
 	val = append([]byte(nil), val...)
 
-	// Portable upsert
+	// Note: INSERT ON CONFLICT works for postgres and sqlite, but there is no single-shot upsert in the sql standard.
+	// Here we sacrifice a bit of performance to remain compatible with other databases.
 	exists, err := db.exists(tx, ns, key)
 	if err != nil {
 		return err
@@ -60,7 +60,7 @@ func (db *Persistence) setStateWithTx(tx *sql.Tx, ns, key string, val []byte, bl
 
 		_, err := tx.Exec(query, block, txnum, val, ns, key)
 		if err != nil {
-			return errors.Wrapf(err, "could not set val for key [%s]", key)
+			return fmt.Errorf("could not set val for key [%s]: %w", key, err)
 		}
 	} else {
 		query := fmt.Sprintf("INSERT INTO %s (ns, pkey, block, txnum, val) VALUES ($1, $2, $3, $4, $5)", db.table)
@@ -68,7 +68,7 @@ func (db *Persistence) setStateWithTx(tx *sql.Tx, ns, key string, val []byte, bl
 
 		_, err := tx.Exec(query, ns, key, block, txnum, val)
 		if err != nil {
-			return errors.Wrapf(err, "could not insert [%s]", key)
+			return fmt.Errorf("could not insert [%s]: %w", key, err)
 		}
 	}
 
@@ -88,7 +88,7 @@ func (db *Persistence) GetState(ns, key string) ([]byte, uint64, uint64, error) 
 			logger.Debugf("not found: [%s:%s]", ns, key)
 			return val, block, txnum, nil
 		}
-		return val, block, txnum, errors.Wrapf(err, "error querying db")
+		return val, block, txnum, fmt.Errorf("error querying db: %w", err)
 	}
 
 	return val, block, txnum, nil
@@ -106,7 +106,7 @@ func (db *Persistence) SetStateMetadata(ns, key string, metadata map[string][]by
 	}
 	m, err := marshallMetadata(metadata)
 	if err != nil {
-		return errors.Wrap(err, "error encoding metadata")
+		return fmt.Errorf("error encoding metadata: %w", err)
 	}
 
 	exists, err := db.exists(db.txn, ns, key)
@@ -119,7 +119,7 @@ func (db *Persistence) SetStateMetadata(ns, key string, metadata map[string][]by
 		logger.Debug(query, len(m), block, txnum, ns, key)
 		_, err = db.txn.Exec(query, m, block, txnum, ns, key)
 		if err != nil {
-			return errors.Wrapf(err, "could not set metadata for key [%s]", key)
+			return fmt.Errorf("could not set metadata for key [%s]: %w", key, err)
 		}
 	} else {
 		logger.Warnf("storing metadata without existing value at [%s]", key)
@@ -127,7 +127,7 @@ func (db *Persistence) SetStateMetadata(ns, key string, metadata map[string][]by
 		logger.Debug(query, ns, key, len(m), block, txnum)
 		_, err = db.txn.Exec(query, ns, key, m, block, txnum)
 		if err != nil {
-			return errors.Wrapf(err, "could not set metadata for key [%s]", key)
+			return fmt.Errorf("could not set metadata for key [%s]: %w", key, err)
 		}
 	}
 
@@ -148,11 +148,11 @@ func (db *Persistence) GetStateMetadata(ns, key string) (map[string][]byte, uint
 			logger.Debugf("not found: [%s:%s]", ns, key)
 			return meta, block, txnum, nil
 		}
-		return meta, block, txnum, errors.Wrapf(err, "error querying db")
+		return meta, block, txnum, fmt.Errorf("error querying db: %w", err)
 	}
 	meta, err := unmarshalMetadata(m)
 	if err != nil {
-		return meta, block, txnum, errors.Wrap(err, "error decoding metadata")
+		return meta, block, txnum, fmt.Errorf("error decoding metadata: %w", err)
 	}
 
 	return meta, block, txnum, err
@@ -199,7 +199,7 @@ func (db *Persistence) GetStateRangeScanIterator(ns string, startKey string, end
 
 	rows, err := db.db.Query(query, args...)
 	if err != nil {
-		return nil, errors.Wrap(err, "query error")
+		return nil, fmt.Errorf("query error: %w", err)
 	}
 
 	return &VersionedReadIterator{
@@ -240,7 +240,7 @@ func (db *Persistence) CreateSchema() error {
 
 	logger.Debug(query)
 	if _, err := db.db.Exec(query); err != nil {
-		return errors.Wrap(err, "can't create table")
+		return fmt.Errorf("can't create table: %w", err)
 	}
 	return nil
 }
@@ -272,7 +272,7 @@ func (w *WriteTransaction) SetState(namespace, key string, value []byte, block, 
 
 func (w *WriteTransaction) Commit() error {
 	if err := w.txn.Commit(); err != nil {
-		return errors.Wrap(err, "could not commit transaction")
+		return fmt.Errorf("could not commit transaction: %w", err)
 	}
 	w.txn = nil
 	return nil

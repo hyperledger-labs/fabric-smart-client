@@ -8,6 +8,7 @@ package sql
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"os"
 	"regexp"
@@ -16,7 +17,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
-	"github.com/pkg/errors"
 )
 
 var logger = flogging.MustGetLogger("db.driver.sql")
@@ -41,16 +41,16 @@ func (d *Driver) NewTransactionalVersionedPersistence(_ view.ServiceProvider, da
 	logger.Infof("opening new transactional versioned database %s", dataSourceName)
 	opts, err := d.getOps(config)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed getting options for datasource")
+		return nil, fmt.Errorf("failed getting options for datasource: %w", err)
 	}
 	db, err := openDB(opts.Driver, opts.DataSource, opts.MaxOpenConns)
 	if err != nil {
 		logger.Error(err)
-		return nil, errors.Wrap(err, "can't open sql database")
+		return nil, fmt.Errorf("can't open sql database: %w", err)
 	}
 	table, valid := getTableName(opts.TablePrefix, dataSourceName)
 	if !valid {
-		return nil, errors.Errorf("invalid table name [%s]: only letters and underscores allowed", table)
+		return nil, fmt.Errorf("invalid table name [%s]: only letters and underscores allowed: %w", table, err)
 	}
 	p := NewPersistence(db, table)
 	if !opts.SchemaExists {
@@ -69,16 +69,16 @@ func (d *Driver) New(_ view.ServiceProvider, dataSourceName string, config drive
 	logger.Infof("opening new unversioned database %s", dataSourceName)
 	opts, err := d.getOps(config)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed getting options for datasource")
+		return nil, fmt.Errorf("failed getting options for datasource")
 	}
 	db, err := openDB(opts.Driver, opts.DataSource, opts.MaxOpenConns)
 	if err != nil {
 		logger.Error(err)
-		return nil, errors.Wrap(err, "can't open sql database")
+		return nil, fmt.Errorf("can't open sql database: %w", err)
 	}
 	table, valid := getTableName(opts.TablePrefix, dataSourceName)
 	if !valid {
-		return nil, errors.Errorf("invalid table name [%s]: only letters and underscores allowed", table)
+		return nil, fmt.Errorf("invalid table name [%s]: only letters and underscores allowed", table)
 	}
 
 	p := NewUnversioned(db, table)
@@ -107,7 +107,7 @@ func openDB(driverName, dataSourceName string, maxOpenConns int) (*sql.DB, error
 func (d *Driver) getOps(config driver.Config) (Opts, error) {
 	opts := Opts{}
 	if err := config.UnmarshalKey("", &opts); err != nil {
-		return opts, errors.Wrapf(err, "failed getting opts")
+		return opts, fmt.Errorf("failed getting opts: %w", err)
 	}
 	if opts.Driver == "" {
 		return opts, errors.New("sql driver not set in core.yaml. See https://github.com/golang/go/wiki/SQLDrivers")
@@ -118,7 +118,7 @@ func (d *Driver) getOps(config driver.Config) (Opts, error) {
 		opts.DataSource = dataSourceOverride
 	}
 	if opts.DataSource == "" {
-		return opts, errors.Errorf("either the dataSource in core.yaml or %s environment variable must be set to a dataSource that can be used with the %s golang driver", EnvVarKey, opts.Driver)
+		return opts, fmt.Errorf("either the dataSource in core.yaml or %s environment variable must be set to a dataSource that can be used with the %s golang driver", EnvVarKey, opts.Driver)
 	}
 	if opts.TablePrefix == "" {
 		opts.TablePrefix = "fsc"

@@ -50,7 +50,9 @@ func TTestRangeQueries(t *testing.T, db driver.TransactionalVersionedPersistence
 	populateForRangeQueries(t, db, ns)
 
 	itr, err := db.GetStateRangeScanIterator(ns, "", "")
-	assert.NoError(t, err)
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer itr.Close()
 
 	res := make([]driver.VersionedRead, 0, 4)
@@ -67,7 +69,9 @@ func TTestRangeQueries(t *testing.T, db driver.TransactionalVersionedPersistence
 	}, res)
 
 	itr, err = db.GetStateRangeScanIterator(ns, "k1", "k3")
-	assert.NoError(t, err)
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer itr.Close()
 
 	res = make([]driver.VersionedRead, 0, 3)
@@ -169,36 +173,39 @@ func TTestSimpleReadWrite(t *testing.T, db driver.TransactionalVersionedPersiste
 	ns := "ns"
 	key := "key"
 
+	// empty state
 	v, bn, tn, err := db.GetState(ns, key)
 	assert.NoError(t, err)
 	assert.Equal(t, []byte(nil), v)
 	assert.Equal(t, uint64(0), bn)
 	assert.Equal(t, uint64(0), tn)
 
+	// empty metadata
 	m, bn, tn, err := db.GetStateMetadata(ns, key)
 	assert.NoError(t, err)
 	assert.Len(t, m, 0)
 	assert.Equal(t, uint64(0), bn)
 	assert.Equal(t, uint64(0), tn)
 
+	// add data
 	err = db.BeginUpdate()
 	assert.NoError(t, err)
-
 	err = db.SetState(ns, key, []byte("val"), 35, 1)
 	assert.NoError(t, err)
-
 	err = db.Commit()
 	assert.NoError(t, err)
 
+	// get data
 	v, bn, tn, err = db.GetState(ns, key)
 	assert.NoError(t, err)
 	assert.Equal(t, []byte("val"), v)
 	assert.Equal(t, uint64(35), bn)
 	assert.Equal(t, uint64(1), tn)
 
+	// logging because this can cause a deadlock if maxOpenConnections is only 1
+	t.Logf("get state [%s] during set state tx", key)
 	err = db.BeginUpdate()
 	assert.NoError(t, err)
-
 	err = db.SetState(ns, key, []byte("val1"), 36, 2)
 	assert.NoError(t, err)
 
@@ -207,10 +214,10 @@ func TTestSimpleReadWrite(t *testing.T, db driver.TransactionalVersionedPersiste
 	assert.Equal(t, []byte("val"), v)
 	assert.Equal(t, uint64(35), bn)
 	assert.Equal(t, uint64(1), tn)
-
 	err = db.Commit()
 	assert.NoError(t, err)
 
+	t.Logf("get state after tx [%s]", key)
 	v, bn, tn, err = db.GetState(ns, key)
 	assert.NoError(t, err)
 	assert.Equal(t, []byte("val1"), v)
@@ -232,15 +239,15 @@ func TTestSimpleReadWrite(t *testing.T, db driver.TransactionalVersionedPersiste
 	assert.Equal(t, uint64(36), bn)
 	assert.Equal(t, uint64(2), tn)
 
+	// delete state
 	err = db.BeginUpdate()
 	assert.NoError(t, err)
-
 	err = db.DeleteState(ns, key)
 	assert.NoError(t, err)
-
 	err = db.Commit()
 	assert.NoError(t, err)
 
+	// expect state to be empty
 	v, bn, tn, err = db.GetState(ns, key)
 	assert.NoError(t, err)
 	assert.Equal(t, []byte(nil), v)
@@ -449,34 +456,21 @@ func TTestMultiWritesAndRangeQueries(t *testing.T, db driver.TransactionalVersio
 	if err != nil {
 		t.Fatal(err)
 	}
-	assert.NoError(t, err)
 
 	err = db.SetState(ns, "k2", []byte("k2_value"), 35, 1)
-	if err != nil {
-		t.Fatal(err)
-	}
 	assert.NoError(t, err)
 	err = db.SetState(ns, "k3", []byte("k3_value"), 35, 2)
-	if err != nil {
-		t.Fatal(err)
-	}
 	assert.NoError(t, err)
 	err = db.SetState(ns, "k1", []byte("k1_value"), 35, 3)
-	if err != nil {
-		t.Fatal(err)
-	}
 	assert.NoError(t, err)
 	err = db.SetState(ns, "k111", []byte("k111_value"), 35, 4)
-	if err != nil {
-		t.Fatal(err)
-	}
 	assert.NoError(t, err)
 
 	err = db.Commit()
 	if err != nil {
 		t.Fatal(err)
 	}
-	assert.NoError(t, err)
+
 	var wg sync.WaitGroup
 	wg.Add(4)
 	go func() {

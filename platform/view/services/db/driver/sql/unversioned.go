@@ -11,7 +11,6 @@ import (
 	"fmt"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
-	"github.com/pkg/errors"
 )
 
 type Unversioned struct {
@@ -50,7 +49,7 @@ func (db *Unversioned) SetState(ns, key string, val []byte) error {
 
 		_, err := db.txn.Exec(query, val, ns, key)
 		if err != nil {
-			return errors.Wrapf(err, "could not set val for key [%s]", key)
+			return fmt.Errorf("could not set val for key [%s]: %w", key, err)
 		}
 	} else {
 		query := fmt.Sprintf("INSERT INTO %s (ns, pkey, val) VALUES ($1, $2, $3)", db.table)
@@ -58,7 +57,7 @@ func (db *Unversioned) SetState(ns, key string, val []byte) error {
 
 		_, err := db.txn.Exec(query, ns, key, val)
 		if err != nil {
-			return errors.Wrapf(err, "could not insert [%s]", key)
+			return fmt.Errorf("could not insert [%s]: %w", key, err)
 		}
 	}
 
@@ -77,7 +76,7 @@ func (db *Unversioned) GetState(ns, key string) ([]byte, error) {
 			logger.Debugf("not found: [%s:%s]", ns, key)
 			return val, nil
 		}
-		return val, errors.Wrapf(err, "error querying db")
+		return val, fmt.Errorf("error querying db: %w", err)
 	}
 
 	return val, nil
@@ -104,7 +103,7 @@ func (db *Unversioned) GetStateRangeScanIterator(ns string, startKey string, end
 
 	rows, err := db.db.Query(query, args...)
 	if err != nil {
-		return nil, errors.Wrap(err, "query error")
+		return nil, fmt.Errorf("query error: %w", err)
 	}
 
 	return &UnversionedReadIterator{
@@ -141,7 +140,7 @@ func (db *Unversioned) CreateSchema() error {
 
 	logger.Debug(query)
 	if _, err := db.db.Exec(query); err != nil {
-		return errors.Wrap(err, "can't create table")
+		return fmt.Errorf("can't create table: %w", err)
 	}
 	return nil
 }

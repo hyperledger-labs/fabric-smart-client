@@ -30,14 +30,14 @@ func (db *base) Close() error {
 
 	err := db.db.Close()
 	if err != nil {
-		return errors.Wrap(err, "could not close DB")
+		return fmt.Errorf("could not close DB: %w", err)
 	}
 
 	return nil
 }
 
 func (db *base) BeginUpdate() error {
-	logger.Debug(fmt.Sprintf("begin db transaction on table %s", db.table))
+	logger.Debugf("begin db transaction [%s]", db.table)
 	db.txnLock.Lock()
 	defer db.txnLock.Unlock()
 
@@ -48,7 +48,7 @@ func (db *base) BeginUpdate() error {
 
 	tx, err := db.db.Begin()
 	if err != nil {
-		return errors.Wrap(err, "error starting db transaction")
+		return fmt.Errorf("error starting db transaction: %w", err)
 	}
 	db.txn = tx
 	db.debugStack = debug.Stack()
@@ -57,7 +57,7 @@ func (db *base) BeginUpdate() error {
 }
 
 func (db *base) Commit() error {
-	logger.Debug(fmt.Sprintf("commit db transaction on table %s", db.table))
+	logger.Debugf("commit db transaction [%s]", db.table)
 	db.txnLock.Lock()
 	defer db.txnLock.Unlock()
 
@@ -67,7 +67,7 @@ func (db *base) Commit() error {
 
 	err := db.txn.Commit()
 	if err != nil {
-		return errors.Wrap(err, "could not commit transaction")
+		return fmt.Errorf("could not commit transaction: %w", err)
 	}
 	db.txn = nil
 
@@ -101,7 +101,7 @@ func (db *base) exists(tx *sql.Tx, ns, key string) (bool, error) {
 		return false, nil
 	}
 	if err != nil {
-		return false, errors.Wrap(err, "cannot check if key exists")
+		return false, fmt.Errorf("cannot check if key exists: %w", err)
 	}
 	return true, nil
 }
@@ -118,7 +118,7 @@ func (db *base) DeleteState(ns, key string) error {
 	logger.Debug(query, ns, key)
 	_, err := db.txn.Exec(query, ns, key)
 	if err != nil {
-		return errors.Wrapf(err, "could not delete val for key %s", key)
+		return fmt.Errorf("could not delete val for key [%s]: %w", key, err)
 	}
 
 	return nil
