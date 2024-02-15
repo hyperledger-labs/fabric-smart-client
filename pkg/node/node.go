@@ -13,7 +13,6 @@ import (
 	"reflect"
 	"runtime/debug"
 
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk"
 	"github.com/pkg/errors"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/api"
@@ -68,7 +67,7 @@ func NewFromConfPath(confPath string) *node {
 func NewNode(confPath string, registry Registry) *node {
 	return &node{
 		confPath: confPath,
-		sdks:     []api.SDK{view2.NewSDK(confPath, registry)},
+		sdks:     []api.SDK{},
 		registry: registry,
 	}
 }
