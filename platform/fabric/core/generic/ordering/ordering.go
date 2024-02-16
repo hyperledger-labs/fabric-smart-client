@@ -14,7 +14,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/fabricutils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -63,7 +62,6 @@ type TransactionWithEnvelope interface {
 type BroadcastFnc = func(context context.Context, env *common2.Envelope) error
 
 type Service struct {
-	SP      view2.ServiceProvider
 	Network Network
 	Metrics *metrics.Metrics
 
@@ -72,9 +70,8 @@ type Service struct {
 	Broadcaster    BroadcastFnc
 }
 
-func NewService(sp view2.ServiceProvider, network Network, poolSize int, metrics *metrics.Metrics) *Service {
+func NewService(network Network, poolSize int, metrics *metrics.Metrics) *Service {
 	s := &Service{
-		SP:           sp,
 		Network:      network,
 		Metrics:      metrics,
 		Broadcasters: map[string]BroadcastFnc{},

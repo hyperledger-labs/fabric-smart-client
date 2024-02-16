@@ -216,8 +216,8 @@ func (f *Network) Config() *config2.Config {
 }
 
 func (f *Network) Init() error {
-	f.processorManager = rwset.NewProcessorManager(f.SP, f, nil)
-	f.transactionManager = transaction.NewManager(f.SP, f)
+	f.processorManager = rwset.NewProcessorManager(f, nil)
+	f.transactionManager = transaction.NewManager(f)
 
 	var err error
 	f.orderers, err = f.config.Orderers()
@@ -245,7 +245,7 @@ func (f *Network) Init() error {
 		}
 	}
 
-	f.Ordering = ordering.NewService(f.SP, f, f.config.OrdererConnectionPoolSize(), f.Metrics)
+	f.Ordering = ordering.NewService(f, f.config.OrdererConnectionPoolSize(), f.Metrics)
 	return nil
 }
 

@@ -15,7 +15,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
@@ -60,7 +59,7 @@ type Network interface {
 type Delivery struct {
 	channel             string
 	channelConfig       *config.Channel
-	sp                  view2.ServiceProvider
+	hasher              hash.Hasher
 	network             Network
 	waitForEventTimeout time.Duration
 	callback            Callback
@@ -70,7 +69,7 @@ type Delivery struct {
 	stop                chan bool
 }
 
-func New(channelConfig *config.Channel, sp view2.ServiceProvider, network Network, callback Callback, vault Vault, waitForEventTimeout time.Duration) (*Delivery, error) {
+func New(channelConfig *config.Channel, hasher hash.Hasher, network Network, callback Callback, vault Vault, waitForEventTimeout time.Duration) (*Delivery, error) {
 	if channelConfig == nil {
 		return nil, errors.Errorf("expected channel config, got nil")
 	}
@@ -78,7 +77,7 @@ func New(channelConfig *config.Channel, sp view2.ServiceProvider, network Networ
 	d := &Delivery{
 		channel:             channelConfig.Name,
 		channelConfig:       channelConfig,
-		sp:                  sp,
+		hasher:              hasher,
 		network:             network,
 		waitForEventTimeout: waitForEventTimeout,
 		callback:            callback,
@@ -208,7 +207,7 @@ func (d *Delivery) connect(ctx context.Context) (DeliverStream, error) {
 		d.channel,
 		d.network.LocalMembership().DefaultSigningIdentity(),
 		deliverClient.Certificate(),
-		hash.GetHasher(d.sp),
+		d.hasher,
 		d.GetStartPosition(),
 	)
 	if err != nil {

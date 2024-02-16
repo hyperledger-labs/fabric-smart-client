@@ -15,7 +15,6 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	pcommon "github.com/hyperledger/fabric-protos-go/common"
 	pb "github.com/hyperledger/fabric-protos-go/peer"
@@ -75,7 +74,6 @@ func (p *SignedProposal) ChaincodeVersion() string {
 }
 
 type Transaction struct {
-	sp               view2.ServiceProvider
 	fns              driver.FabricNetworkService
 	rwset            driver.RWSet
 	channel          driver.Channel

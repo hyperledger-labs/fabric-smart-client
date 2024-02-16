@@ -24,9 +24,11 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/endpoint"
 	api2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/hyperledger/fabric-protos-go/common"
 	"github.com/hyperledger/fabric-protos-go/peer"
@@ -57,15 +59,34 @@ type ChannelProvider interface {
 type RWSetLoaderConstructor = func(network string, channel string, envelopeService driver.EnvelopeService, transactionService driver.EndorserTransactionService, transactionManager driver.TransactionManager, vault *vault.Vault) driver.RWSetLoader
 type VaultConstructor = func(sp view2.ServiceProvider, config *config.Config, channel string) (*vault.Vault, TXIDStore, error)
 
-func NewGenericChannelProvider(committerProvider CommitterProvider, eventsPublisher events.Publisher, eventsSubscriber events.Subscriber) *provider {
-	return NewChannelProvider(committerProvider, eventsPublisher, eventsSubscriber, NewRWSetLoader, NewVault)
+func NewGenericChannelProvider(
+	committerProvider CommitterProvider,
+	eventsPublisher events.Publisher,
+	eventsSubscriber events.Subscriber,
+	hasher hash.Hasher,
+	viewManager api2.ViewManager,
+	kvsStore endpoint.KVS,
+) *provider {
+	return NewChannelProvider(committerProvider, eventsPublisher, eventsSubscriber, hasher, viewManager, kvsStore, NewRWSetLoader, NewVault)
 }
 
-func NewChannelProvider(committerProvider CommitterProvider, eventsPublisher events.Publisher, eventsSubscriber events.Subscriber, rwSetLoaderConstructor RWSetLoaderConstructor, vaultConstructor VaultConstructor) *provider {
+func NewChannelProvider(
+	committerProvider CommitterProvider,
+	eventsPublisher events.Publisher,
+	eventsSubscriber events.Subscriber,
+	hasher hash.Hasher,
+	viewManager api2.ViewManager,
+	kvsStore endpoint.KVS,
+	rwSetLoaderConstructor RWSetLoaderConstructor,
+	vaultConstructor VaultConstructor,
+) *provider {
 	return &provider{
 		committerProvider:      committerProvider,
 		eventsPublisher:        eventsPublisher,
 		eventsSubscriber:       eventsSubscriber,
+		hasher:                 hasher,
+		viewManager:            viewManager,
+		kvsStore:               kvsStore,
 		rwSetLoaderConstructor: rwSetLoaderConstructor,
 		vaultConstructor:       vaultConstructor,
 	}
@@ -77,6 +98,9 @@ type provider struct {
 	eventsSubscriber       events.Subscriber
 	rwSetLoaderConstructor RWSetLoaderConstructor
 	vaultConstructor       VaultConstructor
+	hasher                 hash.Hasher
+	viewManager            api2.ViewManager
+	kvsStore               endpoint.KVS
 }
 
 func (p *provider) NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver.Channel, error) {
@@ -106,7 +130,7 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, name string, quiet
 	}
 
 	// Delivery
-	deliveryService, err := delivery.New(channelConfig, sp, network, func(block *common.Block) (bool, error) {
+	deliveryService, err := delivery.New(channelConfig, p.hasher, network, func(block *common.Block) (bool, error) {
 		// commit the block, if an error occurs then retry
 		err := committerInst.Commit(block)
 		return false, err
@@ -116,7 +140,7 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, name string, quiet
 	}
 
 	// Finality
-	fs, err := finality.NewService(sp, network, channelConfig, committerInst)
+	fs, err := finality.NewService(p.viewManager, network, channelConfig, committerInst)
 	if err != nil {
 		return nil, err
 	}
@@ -132,9 +156,9 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, name string, quiet
 		DeliveryService:   deliveryService,
 		ExternalCommitter: externalCommitter,
 		TXIDStore:         txIDStore,
-		ES:                transaction.NewEnvelopeService(sp, network.Name(), name),
-		TS:                transaction.NewEndorseTransactionService(sp, network.Name(), name),
-		MS:                transaction.NewMetadataService(sp, network.Name(), name),
+		ES:                transaction.NewEnvelopeService(p.kvsStore, network.Name(), name),
+		TS:                transaction.NewEndorseTransactionService(p.kvsStore, network.Name(), name),
+		MS:                transaction.NewMetadataService(p.kvsStore, network.Name(), name),
 		Chaincodes:        map[string]driver.Chaincode{},
 		EventsPublisher:   p.eventsPublisher,
 		EventsSubscriber:  p.eventsSubscriber,

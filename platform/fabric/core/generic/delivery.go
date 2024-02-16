@@ -11,6 +11,7 @@ import (
 
 	delivery2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/delivery"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger/fabric-protos-go/common"
 	pb "github.com/hyperledger/fabric-protos-go/peer"
 	"github.com/hyperledger/fabric/protoutil"
@@ -25,7 +26,7 @@ func (c *Channel) StartDelivery(ctx context.Context) error {
 
 func (c *Channel) Scan(ctx context.Context, txID string, callback driver.DeliveryCallback) error {
 	vault := &fakeVault{txID: txID}
-	deliveryService, err := delivery2.New(c.ChannelConfig, c.SP, c.Network, func(block *common.Block) (bool, error) {
+	deliveryService, err := delivery2.New(c.ChannelConfig, hash.GetHasher(c.SP), c.Network, func(block *common.Block) (bool, error) {
 		for i, tx := range block.Data.Data {
 			validationCode := ValidationFlags(block.Metadata.Metadata[common.BlockMetadataIndex_TRANSACTIONS_FILTER])[i]
 

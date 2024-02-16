@@ -7,9 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 package driver
 
 import (
+	"github.com/IBM/idemix/bccsp/keystore"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/sig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -51,7 +51,8 @@ type Manager interface {
 	Config() Config
 	DefaultMSP() string
 	SignerService() SignerService
-	ServiceProvider() view2.ServiceProvider
+	GetSigRegistry() driver.SigRegistry
+	GetKVS() keystore.KVS
 	CacheSize() int
 	SetDefaultIdentity(id string, defaultIdentity view.Identity, defaultSigningIdentity SigningIdentity)
 }

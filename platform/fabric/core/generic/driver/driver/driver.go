@@ -9,6 +9,7 @@ package driver
 import (
 	"fmt"
 
+	"github.com/IBM/idemix/bccsp/keystore"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic"
 	metrics2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp"
@@ -18,28 +19,55 @@ import (
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	metrics3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
+	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 var logger = flogging.MustGetLogger("fabric-sdk.core.generic.driver")
 
+type DefaultIdentityProvider interface {
+	DefaultIdentity() view2.Identity
+}
+
 type driverProvider struct {
+	sigService       driver2.SigService
+	deserializer     driver3.DeserializerManager
+	sigRegistry      driver2.SigRegistry
+	kvss             keystore.KVS
 	configProvider   ConfigProvider
 	identityProvider IdentityProvider
+	idProvider       DefaultIdentityProvider
 	metricsProvider  metrics3.Provider
 	endpointService  driver2.EndpointService
 	channelProvider  generic.ChannelProvider
-	sigService       driver.SignerService
+	signerService    driver.SignerService
 	identityLoaders  map[string]driver3.IdentityLoader
 }
 
-func NewDriverProvider(configProvider ConfigProvider, channelProvider generic.ChannelProvider, idProvider IdentityProvider, metricsProvider metrics3.Provider, endpointService driver2.EndpointService, sigService driver.SignerService, identityLoaders map[string]driver3.IdentityLoader) *driverProvider {
+func NewDriverProvider(idProvider DefaultIdentityProvider,
+	sigService driver2.SigService,
+	deserializer driver3.DeserializerManager,
+	sigRegistry driver2.SigRegistry,
+	kvss keystore.KVS,
+	configProvider ConfigProvider,
+	channelProvider generic.ChannelProvider,
+	identityProvider IdentityProvider,
+	metricsProvider metrics3.Provider,
+	endpointService driver2.EndpointService,
+	signerService driver.SignerService,
+	identityLoaders map[string]driver3.IdentityLoader,
+) *driverProvider {
 	return &driverProvider{
+		idProvider:       idProvider,
+		sigService:       sigService,
+		deserializer:     deserializer,
+		sigRegistry:      sigRegistry,
+		kvss:             kvss,
 		configProvider:   configProvider,
 		channelProvider:  channelProvider,
-		identityProvider: idProvider,
+		identityProvider: identityProvider,
 		metricsProvider:  metricsProvider,
 		endpointService:  endpointService,
-		sigService:       sigService,
+		signerService:    signerService,
 		identityLoaders:  identityLoaders,
 	}
 }
@@ -59,12 +87,16 @@ func (d *driverProvider) New(sp view.ServiceProvider, network string, defaultNet
 	}
 
 	// Local MSP Manager
-	mspService := msp.NewLocalMSPManager(
-		sp,
-		genericConfig,
+	mspService := msp.CreateLocalMSPManager(
 		d.sigService,
 		d.endpointService,
-		view.GetIdentityProvider(sp).DefaultIdentity(),
+		d.deserializer,
+		d.sigRegistry,
+		d.kvss,
+		genericConfig,
+		d.signerService,
+		d.endpointService,
+		d.idProvider.DefaultIdentity(),
 		genericConfig.MSPCacheSize(),
 	)
 	for idType, loader := range d.identityLoaders {
@@ -81,7 +113,7 @@ func (d *driverProvider) New(sp view.ServiceProvider, network string, defaultNet
 		genericConfig,
 		idProvider,
 		mspService,
-		d.sigService,
+		d.signerService,
 		metrics2.NewMetrics(d.metricsProvider),
 		d.channelProvider.NewChannel,
 	)

@@ -86,7 +86,7 @@ func TestIdentityWithEidRhNymPolicy(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NoError(t, verifier.Verify([]byte("hello world!!!"), sigma))
 
-	p, err = idemix2.NewProviderWithAnyPolicy(config, registry)
+	p, err = idemix2.NewProviderWithSigType(config, registry, idemix2.Any)
 	assert.NoError(t, err)
 	assert.NotNil(t, p)
 
@@ -161,7 +161,7 @@ func TestIdentityStandard(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NoError(t, verifier.Verify([]byte("hello world!!!"), sigma))
 
-	p, err = idemix2.NewProviderWithAnyPolicy(config, registry)
+	p, err = idemix2.NewProviderWithSigType(config, registry, idemix2.Any)
 	assert.NoError(t, err)
 	assert.NotNil(t, p)
 

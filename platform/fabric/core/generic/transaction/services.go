@@ -9,7 +9,7 @@ package transaction
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/endpoint"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	"github.com/hyperledger/fabric-protos-go/common"
@@ -20,14 +20,14 @@ import (
 var logger = flogging.MustGetLogger("fabric-sdk.core")
 
 type mds struct {
-	sp      view2.ServiceProvider
+	kvs     endpoint.KVS
 	network string
 	channel string
 }
 
-func NewMetadataService(sp view2.ServiceProvider, network string, channel string) *mds {
+func NewMetadataService(kvs endpoint.KVS, network string, channel string) *mds {
 	return &mds{
-		sp:      sp,
+		kvs:     kvs,
 		network: network,
 		channel: channel,
 	}
@@ -38,7 +38,7 @@ func (s *mds) Exists(txid string) bool {
 	if err != nil {
 		return false
 	}
-	return kvs.GetService(s.sp).Exists(key)
+	return s.kvs.Exists(key)
 }
 
 func (s *mds) StoreTransient(txid string, transientMap driver.TransientMap) error {
@@ -49,7 +49,7 @@ func (s *mds) StoreTransient(txid string, transientMap driver.TransientMap) erro
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("store transient for [%s][%v]", txid, transientMap)
 	}
-	return kvs.GetService(s.sp).Put(key, transientMap)
+	return s.kvs.Put(key, transientMap)
 }
 
 func (s *mds) LoadTransient(txid string) (driver.TransientMap, error) {
@@ -60,7 +60,7 @@ func (s *mds) LoadTransient(txid string) (driver.TransientMap, error) {
 		return nil, err
 	}
 	transientMap := driver.TransientMap{}
-	err = kvs.GetService(s.sp).Get(key, &transientMap)
+	err = s.kvs.Get(key, &transientMap)
 	if err != nil {
 		return nil, err
 	}
@@ -68,14 +68,14 @@ func (s *mds) LoadTransient(txid string) (driver.TransientMap, error) {
 }
 
 type envs struct {
-	sp      view2.ServiceProvider
+	kvs     endpoint.KVS
 	network string
 	channel string
 }
 
-func NewEnvelopeService(sp view2.ServiceProvider, network string, channel string) *envs {
+func NewEnvelopeService(kvs endpoint.KVS, network string, channel string) *envs {
 	return &envs{
-		sp:      sp,
+		kvs:     kvs,
 		network: network,
 		channel: channel,
 	}
@@ -87,7 +87,7 @@ func (s *envs) Exists(txid string) bool {
 		return false
 	}
 
-	return kvs.GetService(s.sp).Exists(key)
+	return s.kvs.Exists(key)
 }
 
 func (s *envs) StoreEnvelope(txID string, env interface{}) error {
@@ -99,13 +99,13 @@ func (s *envs) StoreEnvelope(txID string, env interface{}) error {
 
 	switch e := env.(type) {
 	case []byte:
-		return kvs.GetService(s.sp).Put(key, e)
+		return s.kvs.Put(key, e)
 	case *common.Envelope:
 		envBytes, err := proto.Marshal(e)
 		if err != nil {
 			return errors.WithMessagef(err, "failed marshalling envelop for tx [%s]", txID)
 		}
-		return kvs.GetService(s.sp).Put(key, envBytes)
+		return s.kvs.Put(key, envBytes)
 	default:
 		return errors.Errorf("invalid env, expected []byte or *common.Envelope, got [%T]", env)
 	}
@@ -119,7 +119,7 @@ func (s *envs) LoadEnvelope(txid string) ([]byte, error) {
 		return nil, err
 	}
 	env := []byte{}
-	err = kvs.GetService(s.sp).Get(key, &env)
+	err = s.kvs.Get(key, &env)
 	if err != nil {
 		return nil, err
 	}
@@ -127,14 +127,14 @@ func (s *envs) LoadEnvelope(txid string) ([]byte, error) {
 }
 
 type ets struct {
-	sp      view2.ServiceProvider
+	kvs     endpoint.KVS
 	network string
 	channel string
 }
 
-func NewEndorseTransactionService(sp view2.ServiceProvider, network string, channel string) *ets {
+func NewEndorseTransactionService(kvs endpoint.KVS, network string, channel string) *ets {
 	return &ets{
-		sp:      sp,
+		kvs:     kvs,
 		network: network,
 		channel: channel,
 	}
@@ -145,7 +145,7 @@ func (s *ets) Exists(txid string) bool {
 	if err != nil {
 		return false
 	}
-	return kvs.GetService(s.sp).Exists(key)
+	return s.kvs.Exists(key)
 }
 
 func (s *ets) StoreTransaction(txid string, env []byte) error {
@@ -155,7 +155,7 @@ func (s *ets) StoreTransaction(txid string, env []byte) error {
 	}
 	logger.Debugf("store etx for [%s]", txid)
 
-	return kvs.GetService(s.sp).Put(key, env)
+	return s.kvs.Put(key, env)
 }
 
 func (s *ets) LoadTransaction(txid string) ([]byte, error) {
@@ -166,7 +166,7 @@ func (s *ets) LoadTransaction(txid string) ([]byte, error) {
 		return nil, err
 	}
 	env := []byte{}
-	err = kvs.GetService(s.sp).Get(key, &env)
+	err = s.kvs.Get(key, &env)
 	if err != nil {
 		return nil, err
 	}

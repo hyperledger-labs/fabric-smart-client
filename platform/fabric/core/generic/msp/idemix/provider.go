@@ -11,6 +11,7 @@ import (
 	"reflect"
 	"strconv"
 
+	"github.com/IBM/idemix/bccsp/keystore"
 	"go.uber.org/zap/zapcore"
 
 	"github.com/IBM/idemix"
@@ -70,8 +71,8 @@ func NewProviderWithStandardPolicy(conf1 *m.MSPConfig, sp view2.ServiceProvider)
 	return NewProviderWithSigType(conf1, sp, bccsp.Standard)
 }
 
-func NewProviderWithAnyPolicy(conf1 *m.MSPConfig, sp view2.ServiceProvider) (*Provider, error) {
-	return NewProviderWithSigType(conf1, sp, Any)
+func NewProviderWithAnyPolicy(conf1 *m.MSPConfig, kvsStore keystore.KVS, signerService SignerService) (*Provider, error) {
+	return newProviderWithSigType(conf1, kvsStore, signerService, Any)
 }
 
 func NewProviderWithAnyPolicyAndCurve(conf1 *m.MSPConfig, sp view2.ServiceProvider, curveID math.CurveID) (*Provider, error) {
@@ -83,11 +84,15 @@ func NewProviderWithAnyPolicyAndCurve(conf1 *m.MSPConfig, sp view2.ServiceProvid
 }
 
 func NewProviderWithSigType(conf1 *m.MSPConfig, sp view2.ServiceProvider, sigType bccsp.SignatureType) (*Provider, error) {
-	cryptoProvider, err := NewKSVBCCSP(kvs.GetService(sp), math.FP256BN_AMCL, false)
+	return newProviderWithSigType(conf1, kvs.GetService(sp), GetSignerService(sp), sigType)
+}
+
+func newProviderWithSigType(conf1 *m.MSPConfig, kvsStore keystore.KVS, signerService SignerService, sigType bccsp.SignatureType) (*Provider, error) {
+	cryptoProvider, err := NewKSVBCCSP(kvsStore, math.FP256BN_AMCL, false)
 	if err != nil {
 		return nil, err
 	}
-	return NewProvider(conf1, GetSignerService(sp), sigType, cryptoProvider)
+	return NewProvider(conf1, signerService, sigType, cryptoProvider)
 }
 
 func NewProviderWithSigTypeAncCurve(conf1 *m.MSPConfig, sp view2.ServiceProvider, sigType bccsp.SignatureType, curveID math.CurveID) (*Provider, error) {

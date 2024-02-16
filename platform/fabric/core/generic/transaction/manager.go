@@ -10,22 +10,20 @@ import (
 	"encoding/json"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/hyperledger/fabric/protoutil"
 	"github.com/pkg/errors"
 )
 
 type Manager struct {
-	sp        view.ServiceProvider
 	fns       driver.FabricNetworkService
 	factories map[driver.TransactionType]driver.TransactionFactory
 }
 
-func NewManager(sp view.ServiceProvider, fns driver.FabricNetworkService) *Manager {
+func NewManager(fns driver.FabricNetworkService) *Manager {
 	factories := map[driver.TransactionType]driver.TransactionFactory{}
-	factories[driver.EndorserTransaction] = NewEndorserTransactionFactory(sp, fns)
-	return &Manager{sp: sp, fns: fns, factories: factories}
+	factories[driver.EndorserTransaction] = NewEndorserTransactionFactory(fns)
+	return &Manager{fns: fns, factories: factories}
 }
 
 func (m *Manager) ComputeTxID(id *driver.TxID) string {
@@ -98,12 +96,11 @@ func (m *Manager) AddTransactionFactory(tt driver.TransactionType, factory drive
 }
 
 type EndorserTransactionFactory struct {
-	sp  view.ServiceProvider
 	fns driver.FabricNetworkService
 }
 
-func NewEndorserTransactionFactory(sp view.ServiceProvider, fns driver.FabricNetworkService) *EndorserTransactionFactory {
-	return &EndorserTransactionFactory{sp: sp, fns: fns}
+func NewEndorserTransactionFactory(fns driver.FabricNetworkService) *EndorserTransactionFactory {
+	return &EndorserTransactionFactory{fns: fns}
 }
 
 func (e *EndorserTransactionFactory) NewTransaction(channel string, nonce []byte, creator []byte, txid string, rawRequest []byte) (driver.Transaction, error) {
@@ -123,7 +120,6 @@ func (e *EndorserTransactionFactory) NewTransaction(channel string, nonce []byte
 	}
 
 	return &Transaction{
-		sp:         e.sp,
 		fns:        e.fns,
 		channel:    ch,
 		TCreator:   creator,
