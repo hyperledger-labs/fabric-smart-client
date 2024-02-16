@@ -9,77 +9,55 @@ package driver
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/endpoint"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/id"
-	metrics2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/metrics"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp"
+	driver4 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/driver"
+	driver3 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	metrics3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/pkg/errors"
 )
 
-var logger = flogging.MustGetLogger("fabric-sdk.core.generic.driver")
-
 type Driver struct{}
 
+func newDriverProvider(sp view.ServiceProvider) (driver.Driver, error) {
+	publisher, err := events.GetPublisher(sp)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not find publisher")
+	}
+	subscriber, err := events.GetSubscriber(sp)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not find subscriber")
+	}
+	tracer := tracing.Get(sp).GetTracer()
+	committerProvider := generic.NewCommitterProvider(hash.GetHasher(sp), publisher, tracer)
+	configProvider, err := driver4.NewConfigProvider(driver2.GetConfigService(sp))
+	if err != nil {
+		return nil, errors.Wrap(err, "could not create config provider")
+	}
+	endpointService := driver2.GetEndpointService(sp)
+	identityProvider := driver4.NewIdentityProvider(configProvider, endpointService)
+	channelProvider := generic.NewGenericChannelProvider(committerProvider, publisher, subscriber)
+	return driver4.NewDriverProvider(
+		configProvider,
+		channelProvider,
+		identityProvider,
+		metrics3.GetProvider(sp),
+		endpointService,
+		generic.NewSigService(sp),
+		map[string]driver3.IdentityLoader{},
+	), nil
+}
+
 func (d *Driver) New(sp view.ServiceProvider, network string, defaultNetwork bool) (driver.FabricNetworkService, error) {
-	logger.Debugf("creating new fabric network service for network [%s]", network)
-	// bridge services
-	c, err := config.New(view.GetConfigService(sp), network, defaultNetwork)
+	p, err := newDriverProvider(sp)
 	if err != nil {
 		return nil, err
 	}
-	sigService := generic.NewSigService(sp)
-
-	// Endpoint service
-	resolverService, err := endpoint.NewResolverService(
-		c,
-		view.GetEndpointService(sp),
-	)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed instantiating fabric endpoint resolver")
-	}
-	if err := resolverService.LoadResolvers(); err != nil {
-		return nil, errors.Wrap(err, "failed loading fabric endpoint resolvers")
-	}
-	endpointService, err := generic.NewEndpointResolver(resolverService, view.GetEndpointService(sp))
-	if err != nil {
-		return nil, errors.Wrap(err, "failed loading endpoint service")
-	}
-
-	// Local MSP Manager
-	mspService := msp.NewLocalMSPManager(
-		sp,
-		c,
-		sigService,
-		view.GetEndpointService(sp),
-		view.GetIdentityProvider(sp).DefaultIdentity(),
-		c.MSPCacheSize(),
-	)
-	if err := mspService.Load(); err != nil {
-		return nil, errors.Wrap(err, "failed loading local msp service")
-	}
-
-	// Identity Manager
-	idProvider, err := id.NewProvider(endpointService)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed creating id provider")
-	}
-
-	// New Network
-	metrics := metrics2.NewMetrics(metrics3.GetProvider(sp))
-	net, err := generic.NewNetwork(sp, network, c, idProvider, mspService, sigService, metrics, generic.NewChannel)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed instantiating fabric service provider")
-	}
-	if err := net.Init(); err != nil {
-		return nil, errors.Wrap(err, "failed to initialize fabric service provider")
-	}
-
-	return net, nil
+	return p.New(sp, network, defaultNetwork)
 }
 
 func init() {

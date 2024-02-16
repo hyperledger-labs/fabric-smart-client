@@ -25,7 +25,7 @@ type RWSetLoader struct {
 	Vault *vault.Vault
 }
 
-func NewRWSetLoader(network string, channel string, envelopeService driver.EnvelopeService, transactionService driver.EndorserTransactionService, transactionManager driver.TransactionManager, vault *vault.Vault) *RWSetLoader {
+func NewRWSetLoader(network string, channel string, envelopeService driver.EnvelopeService, transactionService driver.EndorserTransactionService, transactionManager driver.TransactionManager, vault *vault.Vault) driver.RWSetLoader {
 	return &RWSetLoader{Network: network, Channel: channel, EnvelopeService: envelopeService, TransactionService: transactionService, TransactionManager: transactionManager, Vault: vault}
 }
 

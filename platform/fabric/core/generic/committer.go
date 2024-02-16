@@ -10,11 +10,56 @@ import (
 	"strings"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/compose"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/finality"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger/fabric-protos-go/common"
 	"github.com/pkg/errors"
 )
+
+type CommitterProvider interface {
+	New(network *Network, quiet bool, channelConfig *config.Channel) (*committer.Committer, error)
+}
+
+type committerProvider struct {
+	hasher    hash.Hasher
+	publisher events.Publisher
+	tracer    tracing.Tracer
+}
+
+func NewCommitterProvider(hasher hash.Hasher, publisher events.Publisher, tracer tracing.Tracer) *committerProvider {
+	return &committerProvider{
+		hasher:    hasher,
+		publisher: publisher,
+		tracer:    tracer,
+	}
+}
+
+func (p *committerProvider) New(network *Network, quiet bool, channelConfig *config.Channel) (*committer.Committer, error) {
+	// Fabric finality
+	fabricFinality, err := finality.NewFabricFinality(
+		channelConfig.Name,
+		network,
+		p.hasher,
+		channelConfig.FinalityWaitTimeout(),
+	)
+	if err != nil {
+		return nil, err
+	}
+	return committer.New(
+		channelConfig,
+		network,
+		fabricFinality,
+		channelConfig.CommitterWaitForEventTimeout(),
+		quiet,
+		p.tracer,
+		p.publisher,
+	)
+}
 
 func (c *Channel) Status(txid string) (driver.ValidationCode, []string, error) {
 	vc, err := c.Vault.Status(txid)

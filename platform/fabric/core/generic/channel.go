@@ -8,15 +8,16 @@ package generic
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"sync"
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
-	config2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
-	delivery2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/delivery"
-	finality2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/finality"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/delivery"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/finality"
 	peer2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
 	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
@@ -26,8 +27,6 @@ import (
 	api2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/hyperledger/fabric-protos-go/common"
 	"github.com/hyperledger/fabric-protos-go/peer"
@@ -51,10 +50,129 @@ type Delivery interface {
 	Stop()
 }
 
+type ChannelProvider interface {
+	NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver.Channel, error)
+}
+
+type RWSetLoaderConstructor = func(network string, channel string, envelopeService driver.EnvelopeService, transactionService driver.EndorserTransactionService, transactionManager driver.TransactionManager, vault *vault.Vault) driver.RWSetLoader
+type VaultConstructor = func(sp view2.ServiceProvider, config *config.Config, channel string) (*vault.Vault, TXIDStore, error)
+
+func NewGenericChannelProvider(committerProvider CommitterProvider, eventsPublisher events.Publisher, eventsSubscriber events.Subscriber) *provider {
+	return NewChannelProvider(committerProvider, eventsPublisher, eventsSubscriber, NewRWSetLoader, NewVault)
+}
+
+func NewChannelProvider(committerProvider CommitterProvider, eventsPublisher events.Publisher, eventsSubscriber events.Subscriber, rwSetLoaderConstructor RWSetLoaderConstructor, vaultConstructor VaultConstructor) *provider {
+	return &provider{
+		committerProvider:      committerProvider,
+		eventsPublisher:        eventsPublisher,
+		eventsSubscriber:       eventsSubscriber,
+		rwSetLoaderConstructor: rwSetLoaderConstructor,
+		vaultConstructor:       vaultConstructor,
+	}
+}
+
+type provider struct {
+	committerProvider      CommitterProvider
+	eventsPublisher        events.Publisher
+	eventsSubscriber       events.Subscriber
+	rwSetLoaderConstructor RWSetLoaderConstructor
+	vaultConstructor       VaultConstructor
+}
+
+func (p *provider) NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver.Channel, error) {
+	network := nw.(*Network)
+	sp := network.SP
+
+	// Vault
+	v, txIDStore, err := p.vaultConstructor(sp, network.Config(), name)
+	if err != nil {
+		return nil, err
+	}
+
+	channelConfig, err := getConfig(network.Config(), name)
+	if err != nil {
+		return nil, err
+	}
+
+	// Committers
+	externalCommitter, err := committer.GetExternalCommitter(name, sp, v)
+	if err != nil {
+		return nil, err
+	}
+
+	committerInst, err := p.committerProvider.New(network, quiet, channelConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	// Delivery
+	deliveryService, err := delivery.New(channelConfig, sp, network, func(block *common.Block) (bool, error) {
+		// commit the block, if an error occurs then retry
+		err := committerInst.Commit(block)
+		return false, err
+	}, txIDStore, channelConfig.CommitterWaitForEventTimeout())
+	if err != nil {
+		return nil, err
+	}
+
+	// Finality
+	fs, err := finality.NewService(sp, network, channelConfig, committerInst)
+	if err != nil {
+		return nil, err
+	}
+
+	c := &Channel{
+		ChannelName:       name,
+		NetworkConfig:     network.Config(),
+		ChannelConfig:     channelConfig,
+		Network:           network,
+		Vault:             v,
+		SP:                sp,
+		Finality:          fs,
+		DeliveryService:   deliveryService,
+		ExternalCommitter: externalCommitter,
+		TXIDStore:         txIDStore,
+		ES:                transaction.NewEnvelopeService(sp, network.Name(), name),
+		TS:                transaction.NewEndorseTransactionService(sp, network.Name(), name),
+		MS:                transaction.NewMetadataService(sp, network.Name(), name),
+		Chaincodes:        map[string]driver.Chaincode{},
+		EventsPublisher:   p.eventsPublisher,
+		EventsSubscriber:  p.eventsSubscriber,
+		Subscribers:       events.NewSubscribers(),
+	}
+	c.RWSetLoader = p.rwSetLoaderConstructor(network.Name(), name, c.ES, c.TS, network.TransactionManager(), v)
+	if err := c.Init(); err != nil {
+		return nil, errors.WithMessagef(err, "failed initializing Channel [%s]", name)
+	}
+
+	return c, nil
+}
+
+func getConfig(c *config.Config, name string) (*config.Channel, error) {
+	// Channel configuration
+	channelConfigs, err := c.Channels()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get Channel config: %w", err)
+	}
+	for _, config := range channelConfigs {
+		if config.Name == name {
+			return config, nil
+		}
+	}
+	return &config.Channel{
+		Name:       name,
+		Default:    false,
+		Quiet:      false,
+		NumRetries: DefaultNumRetries,
+		RetrySleep: DefaultRetrySleep,
+		Chaincodes: nil,
+	}, nil
+}
+
 type Channel struct {
 	SP                view2.ServiceProvider
-	ChannelConfig     *config2.Channel
-	NetworkConfig     *config2.Config
+	ChannelConfig     *config.Channel
+	NetworkConfig     *config.Config
 	Network           *Network
 	ChannelName       string
 	Finality          driver.Finality
@@ -86,130 +204,6 @@ type Channel struct {
 	Subscribers      *events.Subscribers
 	EventsSubscriber events.Subscriber
 	EventsPublisher  events.Publisher
-}
-
-func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver.Channel, error) {
-	network := nw.(*Network)
-	sp := network.SP
-
-	// Channel configuration
-	channelConfigs, err := network.config.Channels()
-	if err != nil {
-		return nil, errors.WithMessagef(err, "failed to get Channel config")
-	}
-	var channelConfig *config2.Channel
-	for _, config := range channelConfigs {
-		if config.Name == name {
-			channelConfig = config
-			break
-		}
-	}
-	if channelConfig == nil {
-		channelConfig = &config2.Channel{
-			Name:       name,
-			Default:    false,
-			Quiet:      false,
-			NumRetries: DefaultNumRetries,
-			RetrySleep: DefaultRetrySleep,
-			Chaincodes: nil,
-		}
-	}
-
-	// Vault
-	v, txIDStore, err := NewVault(sp, network.config, name)
-	if err != nil {
-		return nil, err
-	}
-
-	// Fabric finality
-	fabricFinality, err := finality2.NewFabricFinality(
-		name,
-		network,
-		hash.GetHasher(sp),
-		channelConfig.FinalityWaitTimeout(),
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	// Committers
-	externalCommitter, err := committer.GetExternalCommitter(name, sp, v)
-	if err != nil {
-		return nil, err
-	}
-
-	publisher, err := events.GetPublisher(network.SP)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get event publisher")
-	}
-
-	committerInst, err := committer.New(
-		channelConfig,
-		network,
-		fabricFinality,
-		channelConfig.CommitterWaitForEventTimeout(),
-		quiet,
-		tracing.Get(sp).GetTracer(),
-		publisher,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	// Delivery
-	deliveryService, err := delivery2.New(channelConfig, sp, network, func(block *common.Block) (bool, error) {
-		// commit the block, if an error occurs then retry
-		err := committerInst.Commit(block)
-		return false, err
-	}, txIDStore, channelConfig.CommitterWaitForEventTimeout())
-	if err != nil {
-		return nil, err
-	}
-
-	// Finality
-	fs, err := finality2.NewService(sp, network, channelConfig, committerInst)
-	if err != nil {
-		return nil, err
-	}
-	// Events
-	eventsPublisher, err := events.GetPublisher(sp)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get event publisher")
-	}
-	eventsSubscriber, err := events.GetSubscriber(sp)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get event subscriber")
-	}
-
-	c := &Channel{
-		ChannelName:       name,
-		NetworkConfig:     network.config,
-		ChannelConfig:     channelConfig,
-		Network:           network,
-		Vault:             v,
-		SP:                sp,
-		Finality:          fs,
-		DeliveryService:   deliveryService,
-		ExternalCommitter: externalCommitter,
-		TXIDStore:         txIDStore,
-		ES:                transaction.NewEnvelopeService(sp, network.Name(), name),
-		TS:                transaction.NewEndorseTransactionService(sp, network.Name(), name),
-		MS:                transaction.NewMetadataService(sp, network.Name(), name),
-		Chaincodes:        map[string]driver.Chaincode{},
-		EventsPublisher:   eventsPublisher,
-		EventsSubscriber:  eventsSubscriber,
-		Subscribers:       events.NewSubscribers(),
-	}
-	c.RWSetLoader = NewRWSetLoader(
-		network.Name(), name,
-		c.ES, c.TS, network.TransactionManager(),
-		v,
-	)
-	if err := c.Init(); err != nil {
-		return nil, errors.WithMessagef(err, "failed initializing Channel [%s]", name)
-	}
-
-	return c, nil
 }
 
 func (c *Channel) Name() string {
@@ -322,7 +316,7 @@ func (c *Channel) Close() error {
 	return c.Vault.Close()
 }
 
-func (c *Channel) Config() *config2.Channel {
+func (c *Channel) Config() *config.Channel {
 	return c.ChannelConfig
 }
 
