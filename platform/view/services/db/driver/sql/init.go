@@ -47,7 +47,7 @@ type Driver struct {
 // NewTransactionalVersionedPersistence returns a new TransactionalVersionedPersistence for the passed data source and config
 func (d *Driver) NewTransactionalVersionedPersistence(_ view.ServiceProvider, dataSourceName string, config driver.Config) (driver.TransactionalVersionedPersistence, error) {
 	logger.Infof("opening new transactional versioned database %s", dataSourceName)
-	opts, err := d.getOps(config)
+	opts, err := getOps(config)
 	if err != nil {
 		return nil, fmt.Errorf("failed getting options for datasource: %w", err)
 	}
@@ -75,7 +75,7 @@ func (d *Driver) NewVersioned(_ view.ServiceProvider, dataSourceName string, con
 
 func (d *Driver) New(_ view.ServiceProvider, dataSourceName string, config driver.Config) (driver.Persistence, error) {
 	logger.Infof("opening new unversioned database %s", dataSourceName)
-	opts, err := d.getOps(config)
+	opts, err := getOps(config)
 	if err != nil {
 		return nil, fmt.Errorf("failed getting options for datasource")
 	}
@@ -101,7 +101,10 @@ func openDB(driverName, dataSourceName string, maxOpenConns int, skipPragmas boo
 	readDB, err = sql.Open(driverName, dataSourceName)
 	if err != nil {
 		logger.Error(err)
-		return nil, nil, fmt.Errorf("can't open sql database: %w", err)
+		if strings.Contains(err.Error(), "out of memory (14)") {
+			return nil, nil, fmt.Errorf("can't open %s database, does the folder exist?: %w", driverName, err)
+		}
+		return nil, nil, fmt.Errorf("can't open %s database: %w", driverName, err)
 	}
 	readDB.SetMaxOpenConns(maxOpenConns)
 	if err = readDB.Ping(); err != nil {
@@ -141,7 +144,7 @@ func openDB(driverName, dataSourceName string, maxOpenConns int, skipPragmas boo
 	return readDB, writeDB, nil
 }
 
-func (d *Driver) getOps(config driver.Config) (Opts, error) {
+func getOps(config driver.Config) (Opts, error) {
 	opts := Opts{}
 	if err := config.UnmarshalKey("", &opts); err != nil {
 		return opts, fmt.Errorf("failed getting opts: %w", err)

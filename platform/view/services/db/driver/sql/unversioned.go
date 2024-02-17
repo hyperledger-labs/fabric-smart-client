@@ -84,6 +84,21 @@ func (db *Unversioned) GetState(ns, key string) ([]byte, error) {
 }
 
 func (db *Unversioned) GetStateRangeScanIterator(ns string, startKey string, endKey string) (driver.ResultsIterator, error) {
+	where, args := rangeWhere(ns, startKey, endKey)
+	query := fmt.Sprintf("SELECT pkey, val FROM %s WHERE ns = $1 %s ORDER BY pkey;", db.table, where)
+	logger.Debug(query, ns, startKey, endKey)
+
+	rows, err := db.readDB.Query(query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("query error: %w", err)
+	}
+
+	return &UnversionedReadIterator{
+		txs: rows,
+	}, nil
+}
+
+func rangeWhere(ns, startKey, endKey string) (string, []interface{}) {
 	where := ""
 	args := []interface{}{ns}
 
@@ -98,18 +113,7 @@ func (db *Unversioned) GetStateRangeScanIterator(ns string, startKey string, end
 		where = "AND pkey < $2"
 		args = []interface{}{ns, endKey}
 	}
-
-	query := fmt.Sprintf("SELECT pkey, val FROM %s WHERE ns = $1 ", db.table) + where + " ORDER BY pkey;"
-	logger.Debug(query, ns, startKey, endKey)
-
-	rows, err := db.readDB.Query(query, args...)
-	if err != nil {
-		return nil, fmt.Errorf("query error: %w", err)
-	}
-
-	return &UnversionedReadIterator{
-		txs: rows,
-	}, nil
+	return where, args
 }
 
 type UnversionedReadIterator struct {

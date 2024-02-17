@@ -247,8 +247,8 @@ func startPostgres(t Logger, printLogs bool) (func(), string, error) {
 			closeFunc()
 			return nil, "", fmt.Errorf("postgres container unhealthy")
 		case "healthy":
-			// wait half a second longer, the healthcheck can be overly optimistic
-			time.Sleep(500 * time.Millisecond)
+			// wait a bit longer, the healthcheck can be overly optimistic
+			time.Sleep(2000 * time.Millisecond)
 			return closeFunc, pgConnStr, nil
 		default:
 			time.Sleep(500 * time.Millisecond)

@@ -180,21 +180,7 @@ func unmarshalMetadata(input []byte) (m map[string][]byte, err error) {
 }
 
 func (db *Persistence) GetStateRangeScanIterator(ns string, startKey string, endKey string) (driver.VersionedResultsIterator, error) {
-	where := ""
-	args := []interface{}{ns}
-
-	// To match badger behavior, we don't include the endKey
-	if startKey != "" && endKey != "" {
-		where = "AND pkey >= $2 AND pkey < $3"
-		args = []interface{}{ns, startKey, endKey}
-	} else if startKey != "" {
-		where = "AND pkey >= $2"
-		args = []interface{}{ns, startKey}
-	} else if endKey != "" {
-		where = "AND pkey < $2"
-		args = []interface{}{ns, endKey}
-	}
-
+	where, args := rangeWhere(ns, startKey, endKey)
 	query := fmt.Sprintf("SELECT pkey, block, txnum, val FROM %s WHERE ns = $1 ", db.table) + where + " ORDER BY pkey;"
 	logger.Debug(query, ns, startKey, endKey)
 
