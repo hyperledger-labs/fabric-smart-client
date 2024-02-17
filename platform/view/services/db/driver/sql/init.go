@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"strings"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db"
@@ -22,15 +23,22 @@ import (
 var logger = flogging.MustGetLogger("db.driver.sql")
 
 const (
-	EnvVarKey = "FSC_DB_DATASOURCE"
+	EnvVarKey     = "FSC_DB_DATASOURCE"
+	sqlitePragmas = `
+	PRAGMA journal_mode = WAL;
+	PRAGMA busy_timeout = 5000;
+	PRAGMA synchronous = NORMAL;
+	PRAGMA cache_size = 1000000000;
+	PRAGMA temp_store = memory;`
 )
 
 type Opts struct {
-	Driver       string
-	DataSource   string
-	TablePrefix  string
-	SchemaExists bool
-	MaxOpenConns int
+	Driver          string
+	DataSource      string
+	TablePrefix     string
+	SkipCreateTable bool
+	SkipPragmas     bool
+	MaxOpenConns    int
 }
 
 type Driver struct {
@@ -43,17 +51,17 @@ func (d *Driver) NewTransactionalVersionedPersistence(_ view.ServiceProvider, da
 	if err != nil {
 		return nil, fmt.Errorf("failed getting options for datasource: %w", err)
 	}
-	db, err := openDB(opts.Driver, opts.DataSource, opts.MaxOpenConns)
+
+	readDB, writeDB, err := openDB(opts.Driver, opts.DataSource, opts.MaxOpenConns, opts.SkipPragmas)
 	if err != nil {
-		logger.Error(err)
-		return nil, fmt.Errorf("can't open sql database: %w", err)
+		return nil, fmt.Errorf("error opening db: %w", err)
 	}
 	table, valid := getTableName(opts.TablePrefix, dataSourceName)
 	if !valid {
 		return nil, fmt.Errorf("invalid table name [%s]: only letters and underscores allowed: %w", table, err)
 	}
-	p := NewPersistence(db, table)
-	if !opts.SchemaExists {
+	p := NewPersistence(readDB, writeDB, table)
+	if !opts.SkipCreateTable {
 		if err := p.CreateSchema(); err != nil {
 			return nil, err
 		}
@@ -71,18 +79,17 @@ func (d *Driver) New(_ view.ServiceProvider, dataSourceName string, config drive
 	if err != nil {
 		return nil, fmt.Errorf("failed getting options for datasource")
 	}
-	db, err := openDB(opts.Driver, opts.DataSource, opts.MaxOpenConns)
+
+	readDB, writeDB, err := openDB(opts.Driver, opts.DataSource, opts.MaxOpenConns, opts.SkipPragmas)
 	if err != nil {
-		logger.Error(err)
-		return nil, fmt.Errorf("can't open sql database: %w", err)
+		return nil, fmt.Errorf("error opening db: %w", err)
 	}
 	table, valid := getTableName(opts.TablePrefix, dataSourceName)
 	if !valid {
-		return nil, fmt.Errorf("invalid table name [%s]: only letters and underscores allowed", table)
+		return nil, fmt.Errorf("invalid table name [%s]: only letters and underscores allowed: %w", table, err)
 	}
-
-	p := NewUnversioned(db, table)
-	if !opts.SchemaExists {
+	p := NewUnversioned(readDB, writeDB, table)
+	if !opts.SkipCreateTable {
 		if err := p.CreateSchema(); err != nil {
 			return nil, err
 		}
@@ -90,18 +97,48 @@ func (d *Driver) New(_ view.ServiceProvider, dataSourceName string, config drive
 	return p, nil
 }
 
-func openDB(driverName, dataSourceName string, maxOpenConns int) (*sql.DB, error) {
-	db, err := sql.Open(driverName, dataSourceName)
+func openDB(driverName, dataSourceName string, maxOpenConns int, skipPragmas bool) (readDB *sql.DB, writeDB *sql.DB, err error) {
+	readDB, err = sql.Open(driverName, dataSourceName)
 	if err != nil {
-		return nil, err
+		logger.Error(err)
+		return nil, nil, fmt.Errorf("can't open sql database: %w", err)
 	}
-	db.SetMaxOpenConns(maxOpenConns)
-	if err = db.Ping(); err != nil {
-		return nil, err
+	readDB.SetMaxOpenConns(maxOpenConns)
+	if err = readDB.Ping(); err != nil {
+		return nil, nil, err
 	}
-	logger.Infof("connected to [%s,%d]", driverName, maxOpenConns)
+	logger.Infof("connected to [%s] for reads, max open connections: %d", driverName, maxOpenConns)
 
-	return db, nil
+	// sqlite can handle concurrent reads in WAL mode if the writes are throttled in 1 connection
+	if driverName == "sqlite" {
+		writeDB, err = sql.Open(driverName, dataSourceName)
+		if err != nil {
+			logger.Error(err)
+			return nil, nil, fmt.Errorf("can't open sql database: %w", err)
+		}
+		writeDB.SetMaxOpenConns(1)
+		if err = writeDB.Ping(); err != nil {
+			return nil, nil, err
+		}
+		if skipPragmas {
+			if !strings.Contains(dataSourceName, "WAL") {
+				logger.Warn("skipping default pragmas. Set at least ?_pragma=journal_mode(WAL) or similar in the dataSource to prevent SQLITE_BUSY errors")
+			}
+		} else {
+			logger.Debug(sqlitePragmas)
+			if _, err = readDB.Exec(sqlitePragmas); err != nil {
+				return nil, nil, fmt.Errorf("error setting pragmas: %w", err)
+			}
+			if _, err = writeDB.Exec(sqlitePragmas); err != nil {
+				return nil, nil, fmt.Errorf("error setting pragmas: %w", err)
+			}
+		}
+		logger.Infof("connected to [%s] for writes, max open connections: 1", driverName)
+	} else {
+		logger.Info("using same db for writes")
+		writeDB = readDB
+	}
+	return readDB, writeDB, nil
 }
 
 func (d *Driver) getOps(config driver.Config) (Opts, error) {
@@ -110,7 +147,7 @@ func (d *Driver) getOps(config driver.Config) (Opts, error) {
 		return opts, fmt.Errorf("failed getting opts: %w", err)
 	}
 	if opts.Driver == "" {
-		return opts, errors.New("sql driver not set in core.yaml. See https://github.com/golang/go/wiki/SQLDrivers")
+		return opts, errors.New("sql driver not set in core.yaml. See ")
 	}
 	dataSourceOverride := os.Getenv(EnvVarKey)
 	if dataSourceOverride != "" {

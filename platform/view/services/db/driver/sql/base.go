@@ -16,7 +16,8 @@ import (
 )
 
 type base struct {
-	db         *sql.DB
+	writeDB    *sql.DB
+	readDB     *sql.DB
 	txn        *sql.Tx
 	txnLock    sync.Mutex
 	debugStack []byte
@@ -28,7 +29,7 @@ func (db *base) Close() error {
 
 	// TODO: what to do with db.txn if it's not nil?
 
-	err := db.db.Close()
+	err := db.writeDB.Close()
 	if err != nil {
 		return fmt.Errorf("could not close DB: %w", err)
 	}
@@ -46,7 +47,7 @@ func (db *base) BeginUpdate() error {
 		return errors.New("previous commit in progress")
 	}
 
-	tx, err := db.db.Begin()
+	tx, err := db.writeDB.Begin()
 	if err != nil {
 		return fmt.Errorf("error starting db transaction: %w", err)
 	}
@@ -66,10 +67,10 @@ func (db *base) Commit() error {
 	}
 
 	err := db.txn.Commit()
+	db.txn = nil
 	if err != nil {
 		return fmt.Errorf("could not commit transaction: %w", err)
 	}
-	db.txn = nil
 
 	return nil
 }
@@ -83,11 +84,11 @@ func (db *base) Discard() error {
 		return errors.New("no commit in progress")
 	}
 	err := db.txn.Rollback()
+	db.txn = nil
 	if err != nil {
 		logger.Infof("error rolling back (ignoring): %s", err.Error())
 		return nil
 	}
-	db.txn = nil
 
 	return nil
 }

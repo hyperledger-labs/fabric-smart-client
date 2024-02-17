@@ -28,16 +28,21 @@ import (
 
 func TestSqlite(t *testing.T) {
 	tempDir := t.TempDir()
-
 	for _, c := range dbtest.Cases {
-		db := initSqliteVersioned(t, tempDir, c.Name)
+		db, err := initSqliteVersioned(tempDir, c.Name)
+		if err != nil {
+			t.Fatal(err)
+		}
 		t.Run(c.Name, func(xt *testing.T) {
 			defer db.Close()
 			c.Fn(xt, db)
 		})
 	}
 	for _, c := range dbtest.UnversionedCases {
-		un := initSqliteUnversioned(t, tempDir, c.Name)
+		un, err := initSqliteUnversioned(tempDir, c.Name)
+		if err != nil {
+			t.Fatal(err)
+		}
 		t.Run(c.Name, func(xt *testing.T) {
 			defer un.Close()
 			c.Fn(xt, un)
@@ -46,23 +51,35 @@ func TestSqlite(t *testing.T) {
 }
 
 func TestPostgres(t *testing.T) {
+	if os.Getenv("TEST_POSTGRES") != "true" {
+		t.Skip("set environment variable TEST_POSTGRES to true to include postgres test")
+	}
 	if testing.Short() {
 		t.Skip("skipping postgres test in short mode")
 	}
 	t.Log("starting postgres")
-	terminate, pgConnStr := startPostgres(t, false)
+	terminate, pgConnStr, err := startPostgres(t, false)
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer terminate()
 	t.Log("postgres ready")
 
 	for _, c := range dbtest.Cases {
-		db := initPostgresVersioned(t, pgConnStr, c.Name)
+		db, err := initPostgresVersioned(pgConnStr, c.Name)
+		if err != nil {
+			t.Fatal(err)
+		}
 		t.Run(c.Name, func(xt *testing.T) {
 			defer db.Close()
 			c.Fn(xt, db)
 		})
 	}
 	for _, c := range dbtest.UnversionedCases {
-		un := initPostgresUnversioned(t, pgConnStr, c.Name)
+		un, err := initPostgresUnversioned(pgConnStr, c.Name)
+		if err != nil {
+			t.Fatal(err)
+		}
 		t.Run(c.Name, func(xt *testing.T) {
 			defer un.Close()
 			c.Fn(xt, un)
@@ -70,61 +87,60 @@ func TestPostgres(t *testing.T) {
 	}
 }
 
-func initSqliteUnversioned(t *testing.T, tempDir, key string) *Unversioned {
-	db, err := openDB("sqlite", fmt.Sprintf("file:%s?_pragma=busy_timeout(5000)", path.Join(tempDir, key)), 2)
+func initSqliteUnversioned(tempDir, key string) (*Unversioned, error) {
+	readDB, writeDB, err := openDB("sqlite", fmt.Sprintf("file:%s.sqlite?_pragma=busy_timeout(1000)", path.Join(tempDir, key)), 0, false)
 	if err != nil {
-		t.Fatal(err)
+		return nil, err
 	}
-	p := NewUnversioned(db, "test")
+	p := NewUnversioned(readDB, writeDB, "test")
 	if err := p.CreateSchema(); err != nil {
-		t.Fatal(err)
+		return nil, err
 	}
-	return p
+	return p, nil
 }
 
-func initSqliteVersioned(t *testing.T, tempDir, key string) *Persistence {
-	db, err := openDB("sqlite", fmt.Sprintf("file:%s?_pragma=busy_timeout(5000)", path.Join(tempDir, key)), 2)
-	if err != nil {
-		t.Fatal(err)
+func initSqliteVersioned(tempDir, key string) (*Persistence, error) {
+	readDB, writeDB, err := openDB("sqlite", fmt.Sprintf("%s.sqlite", path.Join(tempDir, key)), 0, false)
+	if err != nil || readDB == nil || writeDB == nil {
+		return nil, fmt.Errorf("database not open: %w", err)
 	}
-	p := NewPersistence(db, "test")
+	p := NewPersistence(readDB, writeDB, "test")
 	if err := p.CreateSchema(); err != nil {
-		t.Fatal(err)
+		return nil, err
 	}
-	return p
+	return p, nil
 }
 
-func initPostgresVersioned(t *testing.T, pgConnStr, key string) *Persistence {
-	db, err := openDB("postgres", pgConnStr, 10)
-	if err != nil {
-		t.Fatal(err)
+func initPostgresVersioned(pgConnStr, key string) (*Persistence, error) {
+	readDB, writeDB, err := openDB("postgres", pgConnStr, 50, false)
+	if err != nil || readDB == nil || writeDB == nil {
+		return nil, fmt.Errorf("database not open: %w", err)
 	}
-	if db == nil {
-		t.Fatal("database is nil")
-	}
-	p := NewPersistence(db, key)
+	p := NewPersistence(readDB, writeDB, key)
 	if err := p.CreateSchema(); err != nil {
-		t.Fatal(err)
+		return nil, err
 	}
-	return p
+	return p, nil
 }
 
-func initPostgresUnversioned(t *testing.T, pgConnStr, key string) *Unversioned {
-	db, err := openDB("postgres", pgConnStr, 10)
-	if err != nil {
-		t.Fatal(err)
+func initPostgresUnversioned(pgConnStr, key string) (*Unversioned, error) {
+	readDB, writeDB, err := openDB("postgres", pgConnStr, 0, false)
+	if err != nil || readDB == nil || writeDB == nil {
+		return nil, fmt.Errorf("database not open: %w", err)
 	}
-	if db == nil {
-		t.Fatal("database is nil")
-	}
-	p := NewUnversioned(db, key)
+	p := NewUnversioned(readDB, writeDB, key)
 	if err := p.CreateSchema(); err != nil {
-		t.Fatal(err)
+		return nil, fmt.Errorf("can't create schema: %w", err)
 	}
-	return p
+	return p, nil
 }
 
-func startPostgres(t *testing.T, printLogs bool) (func(), string) {
+type Logger interface {
+	Log(...any)
+	Errorf(string, ...any)
+}
+
+func startPostgres(t Logger, printLogs bool) (func(), string, error) {
 	containerImage := getEnv("POSTGRES_IMAGE", "postgres:latest")
 	containerName := getEnv("POSTGRES_CONTAINER", "fsc-postgres")
 	host := getEnv("POSTGRES_HOST", "localhost")
@@ -134,24 +150,24 @@ func startPostgres(t *testing.T, printLogs bool) (func(), string) {
 	port := getEnv("POSTGRES_PORT", "5432")
 	p, err := strconv.Atoi(port)
 	if err != nil {
-		t.Fatalf("port must be a number: %s", port)
+		return nil, "", fmt.Errorf("port must be a number: %s", port)
 	}
 	pgConnStr := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", host, p, user, pass, dbName)
 
 	// images
 	d, err := docker.GetInstance()
 	if err != nil {
-		t.Fatalf("can't get docker instance: %s", err)
+		return nil, "", fmt.Errorf("can't get docker instance: %s", err)
 	}
 	err = d.CheckImagesExist(containerImage)
 	if err != nil {
-		t.Fatalf("image does not exist. Do: docker pull %s", containerImage)
+		return nil, "", fmt.Errorf("image does not exist. Do: docker pull %s", containerImage)
 	}
 
 	// start container
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
-		t.Fatalf("can't start postgres: %s", err)
+		return nil, "", fmt.Errorf("can't start postgres: %s", err)
 	}
 	ctx := context.Background()
 	resp, err := cli.ContainerCreate(ctx, &container.Config{
@@ -183,7 +199,7 @@ func startPostgres(t *testing.T, printLogs bool) (func(), string) {
 		},
 	}, nil, nil, containerName)
 	if err != nil {
-		t.Fatalf("can't start postgres: %s", err)
+		return nil, "", fmt.Errorf("can't start postgres: %s", err)
 	}
 	closeFunc := func() {
 		t.Log("removing postgres container")
@@ -191,7 +207,7 @@ func startPostgres(t *testing.T, printLogs bool) (func(), string) {
 	}
 	if err := cli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{}); err != nil {
 		closeFunc()
-		t.Fatalf("can't start postgres: %s", err)
+		return nil, "", fmt.Errorf("can't start postgres: %s", err)
 	}
 
 	// Forward logs to test logger
@@ -219,21 +235,21 @@ func startPostgres(t *testing.T, printLogs bool) (func(), string) {
 		inspect, err := cli.ContainerInspect(ctx, resp.ID)
 		if err != nil {
 			closeFunc()
-			t.Fatalf("can't inspect postgres container: %s", err)
+			return nil, "", fmt.Errorf("can't inspect postgres container: %s", err)
 		}
 		if inspect.State.Health == nil {
 			closeFunc()
-			t.Fatal("can't start postgres: cannot get health")
+			return nil, "", fmt.Errorf("can't start postgres: cannot get health")
 		}
 		status := inspect.State.Health.Status
 		switch status {
 		case "unhealthy":
 			closeFunc()
-			t.Fatal("postgres container unhealthy")
+			return nil, "", fmt.Errorf("postgres container unhealthy")
 		case "healthy":
 			// wait half a second longer, the healthcheck can be overly optimistic
 			time.Sleep(500 * time.Millisecond)
-			return closeFunc, pgConnStr
+			return closeFunc, pgConnStr, nil
 		default:
 			time.Sleep(500 * time.Millisecond)
 		}

@@ -17,11 +17,12 @@ type Unversioned struct {
 	base
 }
 
-func NewUnversioned(db *sql.DB, table string) *Unversioned {
+func NewUnversioned(readDB *sql.DB, writeDB *sql.DB, table string) *Unversioned {
 	return &Unversioned{
 		base: base{
-			db:    db,
-			table: table,
+			writeDB: writeDB,
+			readDB:  readDB,
+			table:   table,
 		},
 	}
 }
@@ -70,7 +71,7 @@ func (db *Unversioned) GetState(ns, key string) ([]byte, error) {
 	query := fmt.Sprintf("SELECT val FROM %s WHERE ns = $1 AND pkey = $2", db.table)
 	logger.Debug(query, ns, key)
 
-	row := db.db.QueryRow(query, ns, key)
+	row := db.readDB.QueryRow(query, ns, key)
 	if err := row.Scan(&val); err != nil {
 		if err == sql.ErrNoRows {
 			logger.Debugf("not found: [%s:%s]", ns, key)
@@ -101,7 +102,7 @@ func (db *Unversioned) GetStateRangeScanIterator(ns string, startKey string, end
 	query := fmt.Sprintf("SELECT pkey, val FROM %s WHERE ns = $1 ", db.table) + where + " ORDER BY pkey;"
 	logger.Debug(query, ns, startKey, endKey)
 
-	rows, err := db.db.Query(query, args...)
+	rows, err := db.readDB.Query(query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("query error: %w", err)
 	}
@@ -139,7 +140,7 @@ func (db *Unversioned) CreateSchema() error {
 	);`, db.table)
 
 	logger.Debug(query)
-	if _, err := db.db.Exec(query); err != nil {
+	if _, err := db.writeDB.Exec(query); err != nil {
 		return fmt.Errorf("can't create table: %w", err)
 	}
 	return nil

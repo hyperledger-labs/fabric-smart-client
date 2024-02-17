@@ -20,11 +20,12 @@ type Persistence struct {
 	base
 }
 
-func NewPersistence(db *sql.DB, table string) *Persistence {
+func NewPersistence(readDB *sql.DB, writeDB *sql.DB, table string) *Persistence {
 	return &Persistence{
 		base: base{
-			db:    db,
-			table: table,
+			readDB:  readDB,
+			writeDB: writeDB,
+			table:   table,
 		},
 	}
 }
@@ -82,7 +83,7 @@ func (db *Persistence) GetState(ns, key string) ([]byte, uint64, uint64, error) 
 	query := fmt.Sprintf("SELECT val, block, txnum FROM %s WHERE ns = $1 AND pkey = $2", db.table)
 	logger.Debug(query, ns, key)
 
-	row := db.db.QueryRow(query, ns, key)
+	row := db.readDB.QueryRow(query, ns, key)
 	if err := row.Scan(&val, &block, &txnum); err != nil {
 		if err == sql.ErrNoRows {
 			logger.Debugf("not found: [%s:%s]", ns, key)
@@ -142,7 +143,7 @@ func (db *Persistence) GetStateMetadata(ns, key string) (map[string][]byte, uint
 	query := fmt.Sprintf("SELECT metadata, block, txnum FROM %s WHERE ns = $1 AND pkey = $2", db.table)
 	logger.Debug(query, ns, key)
 
-	row := db.db.QueryRow(query, ns, key)
+	row := db.readDB.QueryRow(query, ns, key)
 	if err := row.Scan(&m, &block, &txnum); err != nil {
 		if err == sql.ErrNoRows {
 			logger.Debugf("not found: [%s:%s]", ns, key)
@@ -197,7 +198,7 @@ func (db *Persistence) GetStateRangeScanIterator(ns string, startKey string, end
 	query := fmt.Sprintf("SELECT pkey, block, txnum, val FROM %s WHERE ns = $1 ", db.table) + where + " ORDER BY pkey;"
 	logger.Debug(query, ns, startKey, endKey)
 
-	rows, err := db.db.Query(query, args...)
+	rows, err := db.readDB.Query(query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("query error: %w", err)
 	}
@@ -239,14 +240,14 @@ func (db *Persistence) CreateSchema() error {
 	);`, db.table)
 
 	logger.Debug(query)
-	if _, err := db.db.Exec(query); err != nil {
+	if _, err := db.writeDB.Exec(query); err != nil {
 		return fmt.Errorf("can't create table: %w", err)
 	}
 	return nil
 }
 
 func (db *Persistence) NewWriteTransaction() (driver.WriteTransaction, error) {
-	txn, err := db.db.Begin()
+	txn, err := db.writeDB.Begin()
 	if err != nil {
 		return nil, err
 	}

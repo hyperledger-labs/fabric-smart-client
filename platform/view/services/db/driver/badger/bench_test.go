@@ -7,96 +7,49 @@ SPDX-License-Identifier: Apache-2.0
 package badger
 
 import (
-	"fmt"
 	"path/filepath"
 	"testing"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/dbtest"
 	"github.com/stretchr/testify/assert"
-)
-
-var (
-	returnValue []byte
-	returnErr   error
-	payload     = []byte("hallo")
 )
 
 func BenchmarkReadExisting(b *testing.B) {
 	dbpath := filepath.Join(tempDir, "badger-benchmark")
 	db, err := OpenDB(Opts{Path: dbpath}, nil)
-	defer db.Close()
 	assert.NoError(b, err)
 	assert.NotNil(b, db)
+	defer db.Close()
 
-	db.BeginUpdate()
-	db.SetState(namespace, key, payload, 0, 0)
-	db.Commit()
-
-	var v []byte
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		v, _, _, _ = db.GetState(namespace, key)
-	}
-	b.StopTimer()
-	returnValue = v
-	assert.NotNil(b, returnValue)
+	dbtest.ReadExisting(b, db)
 }
 
 func BenchmarkReadNonExisting(b *testing.B) {
 	dbpath := filepath.Join(tempDir, "badger-benchmark")
 	db, err := OpenDB(Opts{Path: dbpath}, nil)
-	defer db.Close()
 	assert.NoError(b, err)
 	assert.NotNil(b, db)
+	defer db.Close()
 
-	var v []byte
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		v, _, _, _ = db.GetState(namespace, key)
-	}
-	b.StopTimer()
-	returnValue = v
-	assert.NotNil(b, returnValue)
+	dbtest.ReadNonExisting(b, db)
 }
 
 func BenchmarkWriteOne(b *testing.B) {
 	dbpath := filepath.Join(tempDir, "badger-benchmark")
 	db, err := OpenDB(Opts{Path: dbpath}, nil)
-	defer db.Close()
 	assert.NoError(b, err)
 	assert.NotNil(b, db)
+	defer db.Close()
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		err = db.BeginUpdate()
-		_ = err
-		err = db.SetState(namespace, key, payload, 0, 0)
-		_ = err
-		err = db.Commit()
-	}
-	b.StopTimer()
-	returnErr = err
-	assert.NoError(b, returnErr)
+	dbtest.WriteOne(b, db)
 }
 
 func BenchmarkWriteMany(b *testing.B) {
 	dbpath := filepath.Join(tempDir, "badger-benchmark")
 	db, err := OpenDB(Opts{Path: dbpath}, nil)
-	defer db.Close()
 	assert.NoError(b, err)
 	assert.NotNil(b, db)
+	defer db.Close()
 
-	var k string
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		k = fmt.Sprintf("key_%d", i)
-
-		err = db.BeginUpdate()
-		_ = err
-		err = db.SetState(namespace, k, payload, 0, 0)
-		_ = err
-		err = db.Commit()
-	}
-	b.StopTimer()
-	returnErr = err
-	assert.NoError(b, returnErr)
+	dbtest.WriteMany(b, db)
 }

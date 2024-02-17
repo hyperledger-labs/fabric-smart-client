@@ -91,15 +91,16 @@ func TTestRangeQueries(t *testing.T, db driver.TransactionalVersionedPersistence
 	assert.NoError(t, err)
 	defer itr.Close()
 
-	expected = []driver.VersionedRead{
-		{Key: "k1", Raw: []byte("k1_value"), Block: 35, IndexInBlock: 3},
-		{Key: "k111", Raw: []byte("k111_value"), Block: 35, IndexInBlock: 4},
-	}
 	res = make([]driver.VersionedRead, 0, 2)
 	for i := 0; i < 2; i++ {
 		n, err := itr.Next()
 		assert.NoError(t, err)
 		res = append(res, *n)
+	}
+	itr.Close()
+	expected = []driver.VersionedRead{
+		{Key: "k1", Raw: []byte("k1_value"), Block: 35, IndexInBlock: 3},
+		{Key: "k111", Raw: []byte("k111_value"), Block: 35, IndexInBlock: 4},
 	}
 	assert.Len(t, res, 2)
 	assert.Equal(t, expected, res)
@@ -529,15 +530,15 @@ func TTestMultiWritesAndRangeQueries(t *testing.T, db driver.TransactionalVersio
 	assert.NoError(t, err)
 	defer itr.Close()
 
-	expected = []driver.VersionedRead{
-		{Key: "k1", Raw: []byte("k1_value"), Block: 35, IndexInBlock: 3},
-		{Key: "k111", Raw: []byte("k111_value"), Block: 35, IndexInBlock: 4},
-	}
 	res = make([]driver.VersionedRead, 0, 2)
 	for i := 0; i < 2; i++ {
 		n, err := itr.Next()
 		assert.NoError(t, err)
 		res = append(res, *n)
+	}
+	expected = []driver.VersionedRead{
+		{Key: "k1", Raw: []byte("k1_value"), Block: 35, IndexInBlock: 3},
+		{Key: "k111", Raw: []byte("k111_value"), Block: 35, IndexInBlock: 4},
 	}
 	assert.Len(t, res, 2)
 	assert.Equal(t, expected, res)
