@@ -341,7 +341,7 @@ fabric:
     # Internal vault used to keep track of the RW sets assembed by this node during in progress transactions
     vault:
       persistence:
-        # type can be badger (disk) or memory
+        # type can be badger (disk) sql or memory. See below for sql configuration options.
         type: badger
         opts:
           # persistence location
@@ -375,3 +375,82 @@ fabric:
           path: /path/to/fscnodeB/msp
           addresses:
 ```
+
+## Persistence: sql
+
+Badger is the default key/valuestore for Fabric Smart Client and is the most performant. Alternatively, you can
+select a golang/sql compatible driver. Although the data in Fabric Smart Client is key/value and not relational,
+reasons to choose sql may include:
+
+- Using a managed database for high availability, failover and backups
+- Wanting a stateless Fabric Smart Client
+- The ability to inspect stored data using standard tooling
+- Compliance to organization policies.
+
+The driver has been tested with the following sql drivers:
+
+- SQLite: (pure go): modernc.org/sqlite
+- Postgres (pure Go): github.com/lib/pq
+
+In theory you can use any [sql driver](https://github.com/golang/go/wiki/SQLDrivers) if you import it in your application.
+To try a new sql driver, add a test here: `token/services/db/driver/sql/sql_test.go`.
+
+### Config example for sqlite:
+
+Simple:
+
+```yaml
+persistence:
+  type: sql
+  opts:
+    driver: sqlite
+    dataSource: /some/path/fsc.sqlite
+```
+
+Make sure that in your main.go, you `import _ "modernc.org/sqlite"`. This uses the following settings:
+
+```sql
+  PRAGMA journal_mode = WAL;
+  PRAGMA busy_timeout = 5000;
+  PRAGMA synchronous = NORMAL;
+  PRAGMA cache_size = 1000000000;
+  PRAGMA temp_store = memory;
+```
+We use one connection for writes, and an unlimited number for concurrent read connections 
+(see the excellent https://kerkour.com/sqlite-for-servers for more information).
+
+Advanced, more customized settings:
+
+```yaml
+persistence:
+  type: sql
+  opts:
+    driver: sqlite
+    dataSource: file:/some/path/fsc.sqlite?_pragma=journal_mode(WAL)&_pragma=busy_timeout(1000)
+    tablePrefix: fsc  # optional
+    skipCreateTable: true # tells FSC _not_ to create a table when starting up (because it already exists).
+    skipPragmas: true # if this is false, the pragmas we set in the datasource will be overridden with the defaults.
+    maxOpenConns: 50  # optional: max open read connections to the database. Defaults to unlimited.
+```
+
+Set any [pragmas](https://www.sqlite.org/pragma.html) as per the example above. Make sure that journal mode is always WAL.
+
+### Config example for postgres
+
+`import _ "github.com/lib/pq"` in main.go. The same configuration flags as above apply,
+but for Postgres we always use one connection pool for reads and writes, and the sqlite pragmas don't apply.
+
+> [!WARNING]  
+> The 'dataSource' field is sensitive because it contains a password. Instead of in this file, set it in an
+> `FSC_DB_DATASOURCE` environment variable.
+
+```yaml
+persistence:
+  type: sql
+  opts:
+    driver: postgres
+    dataSource: host=localhost port=5432 user=postgres password=example dbname=tokendb sslmode=disable
+```
+
+See [pq docs](https://pkg.go.dev/github.com/lib/pq#hdr-Connection_String_Parameters) for more information about the
+postgres connection string.

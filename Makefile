@@ -49,7 +49,7 @@ unit-tests-race:
 	cd integration/nwo/; export FAB_BINS=$(FAB_BINS); go test -cover ./...
 
 .PHONY: docker-images
-docker-images: fabric-docker-images weaver-docker-images fpc-docker-images orion-server-images monitoring-docker-images
+docker-images: fabric-docker-images weaver-docker-images fpc-docker-images orion-server-images monitoring-docker-images testing-docker-images
 
 .PHONY: fabric-docker-images
 fabric-docker-images:
@@ -85,6 +85,11 @@ monitoring-docker-images:
 orion-server-images:
 	docker pull orionbcdb/orion-server:$(ORION_VERSION)
 	docker image tag orionbcdb/orion-server:$(ORION_VERSION) orionbcdb/orion-server:latest
+
+.PHONY: testing-docker-images
+testing-docker-images:
+	docker pull postgres:16.2-alpine
+	docker tag postgres:16.2-alpine postgres:latest
 
 INTEGRATION_TARGETS = integration-tests-iou
 INTEGRATION_TARGETS += integration-tests-atsacc
