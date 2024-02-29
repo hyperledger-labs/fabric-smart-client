@@ -48,11 +48,6 @@ func TestNewWithEnvironment(t *testing.T) {
 	assert.Equal(t, zapcore.InfoLevel, logging.DefaultLevel())
 }
 
-//go:generate counterfeiter -o mock/write_syncer.go -fake-name WriteSyncer . writeSyncer
-type writeSyncer interface {
-	zapcore.WriteSyncer
-}
-
 func TestLoggingSetWriter(t *testing.T) {
 	ws := &mock.WriteSyncer{}
 

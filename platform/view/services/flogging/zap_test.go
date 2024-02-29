@@ -9,18 +9,17 @@ package flogging_test
 import (
 	"bytes"
 	"errors"
-	"io/ioutil"
+	"io"
 	"testing"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging/fabenc"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging/mock"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 	"google.golang.org/grpc/grpclog"
-
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging/fabenc"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging/mock"
 )
 
 func TestFabricLoggerEncoding(t *testing.T) {
@@ -283,7 +282,7 @@ func TestIsEnabledFor(t *testing.T) {
 		return l == zapcore.ErrorLevel
 	})
 
-	core := zapcore.NewCore(enc, zapcore.AddSync(ioutil.Discard), enabler)
+	core := zapcore.NewCore(enc, zapcore.AddSync(io.Discard), enabler)
 	zl := zap.New(core).Named("test")
 	fl := flogging.NewFabricLogger(zl)
 
@@ -292,8 +291,8 @@ func TestIsEnabledFor(t *testing.T) {
 	assert.Equal(t, 2, enablerCallCount)
 }
 
-func logCaller(l grpclog.Logger, msg string)   { l.Println(msg) }
-func callWrapper(l grpclog.Logger, msg string) { logCaller(l, msg) }
+func logCaller(l grpclog.LoggerV2, msg string)   { l.Infof(msg) }
+func callWrapper(l grpclog.LoggerV2, msg string) { logCaller(l, msg) }
 
 func TestGRPCLogger(t *testing.T) {
 	// ensure it includes the name as module, logs at debug level, and the caller with appropriate skip level

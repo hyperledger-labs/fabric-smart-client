@@ -255,7 +255,7 @@ func testTXIDStore(t *testing.T, store *SimpleTXIDStore) {
 	}
 	assert.Equal(t, []string{"txid1", "txid2", "txid10", "txid12", "txid21", "txid100", "txid200", "txid1025"}, txids)
 
-	it, err = store.Iterator(&driver.SeekPos{Txid: "boh"})
+	_, err = store.Iterator(&driver.SeekPos{Txid: "boh"})
 	assert.EqualError(t, err, "txid boh was not found")
 
 	it, err = store.Iterator(&driver.SeekPos{Txid: "txid12"})

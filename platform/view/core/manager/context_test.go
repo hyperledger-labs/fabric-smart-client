@@ -10,6 +10,8 @@ import (
 	"sync"
 	"testing"
 
+	"golang.org/x/net/context"
+
 	"github.com/stretchr/testify/assert"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/manager"
@@ -36,7 +38,7 @@ func TestContext(t *testing.T) {
 	assert.NoError(t, registry.RegisterService(resolver))
 	assert.NoError(t, registry.RegisterService(&mock2.SessionFactory{}))
 	session := &mock.Session{}
-	ctx, err := manager.NewContext(nil, registry, "pineapple", nil, nil, []byte("charlie"), session, []byte("caller"))
+	ctx, err := manager.NewContext(context.TODO(), registry, "pineapple", nil, nil, []byte("charlie"), session, []byte("caller"))
 	assert.NoError(t, err)
 
 	// Session
@@ -83,7 +85,7 @@ func TestContextRace(t *testing.T) {
 	sessionFactory := &mock2.SessionFactory{}
 	sessionFactory.NewSessionReturns(session, nil)
 
-	ctx, err := manager.NewContext(nil, registry, "pineapple", sessionFactory, resolver, []byte("charlie"), defaultSession, []byte("caller"))
+	ctx, err := manager.NewContext(context.TODO(), registry, "pineapple", sessionFactory, resolver, []byte("charlie"), defaultSession, []byte("caller"))
 	assert.NoError(t, err)
 
 	wg := &sync.WaitGroup{}

@@ -610,8 +610,8 @@ func testRun(t *testing.T, db1, db2 driver.VersionedPersistence) {
 func compare(t *testing.T, ns string, db1, db2 driver.VersionedPersistence) {
 	// we expect the underlying databases to be identical
 	itr, err := db1.GetStateRangeScanIterator(ns, "", "")
-	defer itr.Close()
 	assert.NoError(t, err)
+	defer itr.Close()
 
 	res1 := make([]driver.VersionedRead, 0, 4)
 	for n, err := itr.Next(); n != nil; n, err = itr.Next() {

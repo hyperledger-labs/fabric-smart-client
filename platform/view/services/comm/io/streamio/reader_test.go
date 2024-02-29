@@ -36,9 +36,7 @@ func (m *MockMsgReader) Read() ([]byte, error) {
 }
 
 func TestRead(t *testing.T) {
-	var buf []byte
-
-	buf = make([]byte, 7)
+	var buf = make([]byte, 7)
 
 	mrr := newMockMessageReader([][]byte{
 		[]byte("hello"),

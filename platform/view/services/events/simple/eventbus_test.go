@@ -116,12 +116,9 @@ var _ = Describe("Event system", func() {
 			event.TopicReturns("topicAAA")
 			event.MessageReturns("HelloWorld")
 
-			var listeners []*fakes.Listener
-
 			for i := 0; i < 10000; i++ {
 				l := &fakes.Listener{}
 				alice.Subscribe(fmt.Sprintf("topic_%d", i), l)
-				listeners = append(listeners, l)
 				Expect(len(notifier.handlers)).To(Equal(i + 1))
 			}
 		})
@@ -131,12 +128,9 @@ var _ = Describe("Event system", func() {
 			event.TopicReturns("topicAAA")
 			event.MessageReturns("HelloWorld")
 
-			var listeners []*fakes.Listener
-
 			for i := 0; i < 10000; i++ {
 				l := &fakes.Listener{}
 				alice.Subscribe("topic", l)
-				listeners = append(listeners, l)
 				Expect(len(notifier.handlers)).To(Equal(1))
 				Expect(len(notifier.handlers["topic"])).To(Equal(i + 1))
 			}

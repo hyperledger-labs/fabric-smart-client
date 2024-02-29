@@ -21,12 +21,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-//go:generate counterfeiter -o mocks/config.go -fake-name Config . config
-
-type config interface {
-	db.Config
-}
-
 var tempDir string
 
 func TestRangeQueriesBadger(t *testing.T) {
@@ -35,9 +29,9 @@ func TestRangeQueriesBadger(t *testing.T) {
 	c.IsSetReturns(false)
 	dbpath := filepath.Join(tempDir, "DB-TestRangeQueries")
 	db, err := db.Open(nil, "badger", dbpath, c)
-	defer db.Close()
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
+	defer assert.NoError(t, db.Close())
 
 	testRangeQueries(t, db)
 }
@@ -46,9 +40,9 @@ func TestRangeQueriesMemory(t *testing.T) {
 	c := &mocks.Config{}
 	c.UnmarshalKeyReturns(nil)
 	db, err := db.Open(nil, "memory", "", c)
-	defer db.Close()
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
+	defer assert.NoError(t, db.Close())
 
 	testRangeQueries(t, db)
 }
@@ -112,9 +106,9 @@ func TestSimpleReadWriteBadger(t *testing.T) {
 	c.UnmarshalKeyReturns(nil)
 	dbpath := filepath.Join(tempDir, "DB-TestRangeQueries")
 	db, err := db.Open(nil, "badger", dbpath, c)
-	defer db.Close()
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
+	defer assert.NoError(t, db.Close())
 
 	testSimpleReadWrite(t, db)
 }
@@ -123,9 +117,9 @@ func TestSimpleReadWriteMemory(t *testing.T) {
 	c := &mocks.Config{}
 	c.UnmarshalKeyReturns(nil)
 	db, err := db.Open(nil, "memory", "", c)
-	defer db.Close()
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
+	defer assert.NoError(t, db.Close())
 
 	testSimpleReadWrite(t, db)
 }

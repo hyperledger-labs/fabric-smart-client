@@ -19,12 +19,6 @@ import (
 	"github.com/test-go/testify/assert"
 )
 
-//go:generate counterfeiter -o mocks/config.go -fake-name Config . config
-
-type config interface {
-	db.Config
-}
-
 func TestTXIDStoreMem(t *testing.T) {
 	db, err := db.Open(nil, "memory", "", nil)
 	assert.NoError(t, err)
@@ -255,7 +249,7 @@ func testTXIDStore(t *testing.T, store *SimpleTXIDStore) {
 	}
 	assert.Equal(t, []string{"txid1", "txid2", "txid10", "txid12", "txid21", "txid100", "txid200", "txid1025"}, txids)
 
-	it, err = store.Iterator(&driver.SeekPos{Txid: "boh"})
+	_, err = store.Iterator(&driver.SeekPos{Txid: "boh"})
 	assert.EqualError(t, err, "txid boh was not found")
 
 	it, err = store.Iterator(&driver.SeekPos{Txid: "txid12"})
