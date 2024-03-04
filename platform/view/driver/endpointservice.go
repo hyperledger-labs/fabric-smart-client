@@ -38,9 +38,6 @@ type PublicKeyIDSynthesizer interface {
 
 // EndpointService models the endpoint service
 type EndpointService interface {
-	// Endpoint returns the known endpoints bound to the passed identity
-	Endpoint(party view.Identity) (map[PortName]string, error)
-
 	// Resolve returns the identity the passed identity is bound to.
 	// It returns also: the endpoints and the pkiID
 	Resolve(party view.Identity) (string, view.Identity, map[PortName]string, []byte, error)
