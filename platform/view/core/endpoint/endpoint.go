@@ -62,12 +62,6 @@ type KVS interface {
 	Get(id string, state interface{}) error
 }
 
-type endpointEntry struct {
-	Endpoints map[driver.PortName]string
-	Ephemeral view.Identity
-	Identity  view.Identity
-}
-
 type Service struct {
 	sp             view2.ServiceProvider
 	resolvers      []*Resolver
@@ -93,80 +87,45 @@ func NewService(sp view2.ServiceProvider, discovery Discovery, kvs KVS) (*Servic
 }
 
 func (r *Service) Endpoint(party view.Identity) (map[driver.PortName]string, error) {
-	cursor := party
-	for {
-		// root endpoints have addresses
-		// is this a root endpoint
-		_, e, err := r.rootEndpoint(cursor)
-		if err != nil {
-			if logger.IsEnabledFor(zapcore.DebugLevel) {
-				logger.Debugf("resolving via binding for %s", cursor)
-			}
-			ee, err := r.getBinding(cursor.UniqueID())
-			if err != nil {
-				return nil, errors.Wrapf(err, "endpoint not found for identity [%s,%s]", string(cursor), cursor.UniqueID())
-			}
-			if ee.Identity.Equal(cursor) {
-				// find a loop, return
-				logger.Errorf("loop detected for %s", cursor)
-				return nil, errors.Errorf("endpoint loop detected for identity [%s,%s]", string(cursor), cursor.UniqueID())
-			}
-			cursor = ee.Identity
-			if logger.IsEnabledFor(zapcore.DebugLevel) {
-				logger.Debugf("continue to [%s,%s,%s]", cursor, ee.Endpoints, ee.Identity)
-			}
-			continue
-		}
-
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("endpoint for [%s] to [%s] with ports [%v]", party, cursor, e)
-		}
-		return e, nil
-	}
+	_, e, _, err := r.resolve(party)
+	return e, err
 }
 
 func (r *Service) Resolve(party view.Identity) (string, view.Identity, map[driver.PortName]string, []byte, error) {
+	cursor, e, resolver, err := r.resolve(party)
+	if err != nil {
+		return "", nil, nil, nil, err
+	}
+	return resolver.Name, cursor, e, r.pkiResolve(resolver), nil
+}
+
+func (r *Service) resolve(party view.Identity) (view.Identity, map[driver.PortName]string, *Resolver, error) {
 	cursor := party
 	for {
 		// root endpoints have addresses
 		// is this a root endpoint
 		resolver, e, err := r.rootEndpoint(cursor)
-		if err != nil {
-			if logger.IsEnabledFor(zapcore.DebugLevel) {
-				logger.Debugf("resolving via binding for %s", cursor)
-			}
-			ee, err := r.getBinding(cursor.UniqueID())
-			if err != nil {
-				return "", nil, nil, nil, errors.Wrapf(err, "endpoint not found for identity [%s,%s]", string(cursor), cursor.UniqueID())
-			}
-
-			cursor = ee.Identity
-			if logger.IsEnabledFor(zapcore.DebugLevel) {
-				logger.Debugf("continue to [%s,%s,%s]", cursor, ee.Endpoints, ee.Identity)
-			}
-			continue
+		if err == nil {
+			return cursor, e, resolver, nil
 		}
-
-		return resolver.Name, cursor, e, r.pkiResolve(resolver), nil
+		logger.Debugf("resolving via binding for %s", cursor)
+		cursor, err = r.getBinding(cursor)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		logger.Debugf("continue to [%s]", cursor)
 	}
 }
 
 func (r *Service) Bind(longTerm view.Identity, ephemeral view.Identity) error {
 	if longTerm.Equal(ephemeral) {
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("cannot bind [%s] to [%s], they are the same", longTerm, ephemeral)
-		}
+		logger.Debugf("cannot bind [%s] to [%s], they are the same", longTerm, ephemeral)
 		return nil
 	}
 
-	e, err := r.Endpoint(longTerm)
-	if err != nil {
-		return errors.Errorf("long term identity not found for identity [%s]", longTerm.UniqueID())
-	}
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("bind [%s] to [%s]", ephemeral.String(), longTerm.String())
-	}
-	if err := r.putBinding(ephemeral.UniqueID(), &endpointEntry{Endpoints: e, Identity: longTerm, Ephemeral: ephemeral}); err != nil {
+	logger.Debugf("bind [%s] to [%s]", ephemeral, longTerm)
+
+	if err := r.putBinding(ephemeral, longTerm); err != nil {
 		return errors.WithMessagef(err, "failed storing binding of [%s]  to [%s]", ephemeral.UniqueID(), longTerm.UniqueID())
 	}
 
@@ -178,14 +137,14 @@ func (r *Service) IsBoundTo(a view.Identity, b view.Identity) bool {
 		if a.Equal(b) {
 			return true
 		}
-		next, err := r.getBinding(a.UniqueID())
+		next, err := r.getBinding(a)
 		if err != nil {
 			return false
 		}
-		if next.Identity.Equal(b) {
+		if next.Equal(b) {
 			return true
 		}
-		a = next.Identity
+		a = next
 	}
 }
 
@@ -277,12 +236,6 @@ func (r *Service) AddPublicKeyExtractor(publicKeyExtractor driver.PublicKeyExtra
 	return nil
 }
 
-func (r *Service) AddLongTermIdentity(identity view.Identity) error {
-	return r.putBinding(identity.String(), &endpointEntry{
-		Identity: identity,
-	})
-}
-
 func (r *Service) SetPublicKeyIDSynthesizer(publicKeyIDSynthesizer driver.PublicKeyIDSynthesizer) {
 	r.publicKeyIDSynthesizer = publicKeyIDSynthesizer
 }
@@ -331,30 +284,30 @@ func (r *Service) rootEndpoint(party view.Identity) (*Resolver, map[driver.PortN
 	return nil, nil, errors.Errorf("endpoint not found for identity %s", party.UniqueID())
 }
 
-func (r *Service) putBinding(key string, entry *endpointEntry) error {
+func (r *Service) putBinding(ephemeral, longTerm view.Identity) error {
 	k := kvs.CreateCompositeKeyOrPanic(
 		"platform.fsc.endpoint.binding",
-		[]string{key},
+		[]string{ephemeral.UniqueID()},
 	)
-	if err := r.kvs.Put(k, entry); err != nil {
+	if err := r.kvs.Put(k, longTerm); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (r *Service) getBinding(key string) (*endpointEntry, error) {
+func (r *Service) getBinding(ephemeral view.Identity) (view.Identity, error) {
 	k := kvs.CreateCompositeKeyOrPanic(
 		"platform.fsc.endpoint.binding",
-		[]string{key},
+		[]string{ephemeral.UniqueID()},
 	)
 	if !r.kvs.Exists(k) {
-		return nil, errors.Errorf("binding not found for [%s]", key)
+		return nil, errors.Errorf("binding not found for [%s]", ephemeral.UniqueID())
 	}
-	entry := &endpointEntry{}
-	if err := r.kvs.Get(k, entry); err != nil {
+	longTerm := view.Identity{}
+	if err := r.kvs.Get(k, &longTerm); err != nil {
 		return nil, err
 	}
-	return entry, nil
+	return longTerm, nil
 }
 
 var portNameMap = map[string]driver.PortName{
