@@ -93,39 +93,19 @@ func NewService(sp view2.ServiceProvider, discovery Discovery, kvs KVS) (*Servic
 }
 
 func (r *Service) Endpoint(party view.Identity) (map[driver.PortName]string, error) {
-	cursor := party
-	for {
-		// root endpoints have addresses
-		// is this a root endpoint
-		_, e, err := r.rootEndpoint(cursor)
-		if err != nil {
-			if logger.IsEnabledFor(zapcore.DebugLevel) {
-				logger.Debugf("resolving via binding for %s", cursor)
-			}
-			ee, err := r.getBinding(cursor.UniqueID())
-			if err != nil {
-				return nil, errors.Wrapf(err, "endpoint not found for identity [%s,%s]", string(cursor), cursor.UniqueID())
-			}
-			if ee.Identity.Equal(cursor) {
-				// find a loop, return
-				logger.Errorf("loop detected for %s", cursor)
-				return nil, errors.Errorf("endpoint loop detected for identity [%s,%s]", string(cursor), cursor.UniqueID())
-			}
-			cursor = ee.Identity
-			if logger.IsEnabledFor(zapcore.DebugLevel) {
-				logger.Debugf("continue to [%s,%s,%s]", cursor, ee.Endpoints, ee.Identity)
-			}
-			continue
-		}
-
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("endpoint for [%s] to [%s] with ports [%v]", party, cursor, e)
-		}
-		return e, nil
-	}
+	_, e, _, err := r.resolve(party)
+	return e, err
 }
 
 func (r *Service) Resolve(party view.Identity) (view.Identity, map[driver.PortName]string, []byte, error) {
+	cursor, e, resolver, err := r.resolve(party)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	return cursor, e, r.pkiResolve(resolver), nil
+}
+
+func (r *Service) resolve(party view.Identity) (view.Identity, map[driver.PortName]string, *Resolver, error) {
 	cursor := party
 	for {
 		// root endpoints have addresses
@@ -147,7 +127,7 @@ func (r *Service) Resolve(party view.Identity) (view.Identity, map[driver.PortNa
 			continue
 		}
 
-		return cursor, e, r.pkiResolve(resolver), nil
+		return cursor, e, resolver, nil
 	}
 }
 
