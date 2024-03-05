@@ -592,7 +592,9 @@ func (p *Platform) generateFabricExtension() {
 		err = t.Execute(io.MultiWriter(extension), p)
 		Expect(err).NotTo(HaveOccurred())
 
-		p.Context.AddExtension(node.ID(), api2.FabricExtension, extension.String())
+		for _, uniqueName := range node.ReplicaUniqueNames() {
+			p.Context.AddExtension(uniqueName, api2.FabricExtension, extension.String())
+		}
 	}
 }
 

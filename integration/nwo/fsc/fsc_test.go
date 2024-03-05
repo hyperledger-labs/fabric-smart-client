@@ -53,11 +53,11 @@ var _ = Describe("EndToEnd", func() {
 			n.RegisterViewFactory("initiator2", &initiator2.Factory{})
 			n.RegisterResponder(&responder.Responder{}, &initiator2.Initiator{})
 			buf := bytes.NewBuffer(nil)
-			p.GenerateCmd(buf, &node.Peer{
+			p.GenerateCmd(buf, node.NewReplica(&node.Peer{
 				Name:         "initiator",
 				Organization: "fsc",
 				Node:         n,
-			})
+			}, "initiator.0"))
 
 			ExpectedMainOne, err := os.ReadFile("./testdata/main/main.go.output")
 			Expect(err).ToNot(HaveOccurred())
@@ -81,11 +81,11 @@ var _ = Describe("EndToEnd", func() {
 			n.AddSDK(&mocks2.SDK{})
 
 			buf := bytes.NewBuffer(nil)
-			p.GenerateCmd(buf, &node.Peer{
+			p.GenerateCmd(buf, node.NewReplica(&node.Peer{
 				Name:         "initiator",
 				Organization: "fsc",
 				Node:         n,
-			})
+			}, "initiator.0"))
 
 			ExpectedMainOne, err := os.ReadFile("./testdata/main/main.go.output")
 			Expect(err).ToNot(HaveOccurred())

@@ -187,8 +187,9 @@ func (p *Platform) DeployChaincode(chaincode *topology.ChannelChaincode) {
 func (p *Platform) DeleteVault(id string) {
 	fscPeer := p.Network.FSCPeerByName(id)
 	Expect(fscPeer).ToNot(BeNil())
-	p.Network.FSCNodeVaultDir(fscPeer)
-	Expect(os.RemoveAll(p.Network.FSCNodeVaultDir(fscPeer))).ToNot(HaveOccurred())
+	for _, uniqueName := range fscPeer.FSCNode.ReplicaUniqueNames() {
+		Expect(os.RemoveAll(p.Network.FSCNodeVaultDir(uniqueName))).ToNot(HaveOccurred())
+	}
 }
 
 // UpdateChaincode deploys the new version of the chaincode passed by chaincodeId
