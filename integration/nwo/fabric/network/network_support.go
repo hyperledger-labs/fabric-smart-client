@@ -950,17 +950,11 @@ func (n *Network) OrdererGroupRunner() ifrit.Runner {
 // PeerRunner returns an ifrit.Runner for the specified peer. The runner can be
 // used to start and manage a peer process.
 func (n *Network) PeerRunner(p *topology.Peer, env ...string) *runner2.Runner {
-	cmd := n.peerCommand(
-		p.ExecutablePath,
-		commands.NodeStart{
-			NetworkPrefix: n.Prefix,
-			PeerID:        p.ID(),
-			DevMode:       p.DevMode,
-		},
-		"",
-		fmt.Sprintf("FABRIC_CFG_PATH=%s", n.PeerDir(p)),
-		fmt.Sprintf("CORE_PEER_ID=%s", fmt.Sprintf("%s.%s", p.Name, n.Organization(p.Organization).Domain)),
-	)
+	cmd := n.peerCommand(commands.NodeStart{
+		NetworkPrefix: n.Prefix,
+		PeerID:        p.ID(),
+		DevMode:       p.DevMode,
+	}, "", fmt.Sprintf("FABRIC_CFG_PATH=%s", n.PeerDir(p)), fmt.Sprintf("CORE_PEER_ID=%s", fmt.Sprintf("%s.%s", p.Name, n.Organization(p.Organization).Domain)))
 
 	cmd.Env = append(cmd.Env, env...)
 	//cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
@@ -1026,7 +1020,7 @@ func (n *Network) PeerGroupRunner() ifrit.Runner {
 	return grouper.NewParallel(syscall.SIGTERM, members)
 }
 
-func (n *Network) peerCommand(executablePath string, command common.Command, tlsDir string, env ...string) *exec.Cmd {
+func (n *Network) peerCommand(command common.Command, tlsDir string, env ...string) *exec.Cmd {
 	cmdPath := findCmdAtEnv(peerCMD)
 	Expect(cmdPath).NotTo(Equal(""), "could not find %s in %s directory %s", configtxgenCMD, FabricBinsPathEnvKey, os.Getenv(FabricBinsPathEnvKey))
 	logger.Debugf("Found %s => %s", peerCMD, cmdPath)
@@ -1090,7 +1084,6 @@ func (n *Network) PeerAdminSession(p *topology.Peer, command common.Command) (*g
 // execute in the context of a peer configuration.
 func (n *Network) PeerUserSession(p *topology.Peer, user string, command common.Command) (*gexec.Session, error) {
 	cmd := n.peerCommand(
-		p.ExecutablePath,
 		command,
 		n.PeerUserTLSDir(p, user),
 		fmt.Sprintf("FABRIC_CFG_PATH=%s", n.PeerDir(p)),
@@ -1103,7 +1096,6 @@ func (n *Network) PeerUserSession(p *topology.Peer, user string, command common.
 // is used primarily to generate orderer configuration updates.
 func (n *Network) OrdererAdminSession(o *topology.Orderer, p *topology.Peer, command common.Command) (*gexec.Session, error) {
 	cmd := n.peerCommand(
-		p.ExecutablePath,
 		command,
 		n.ordererUserCryptoDir(o, "Admin", "tls"),
 		fmt.Sprintf("CORE_PEER_LOCALMSPID=%s", n.Organization(o.Organization).MSPID),

@@ -71,8 +71,6 @@ type Service struct {
 	endpointSelector       SelectionStrategy[AddressSet]
 }
 
-type SelectionStrategy[T any] func([]T) T
-
 // NewService returns a new instance of the view-sdk endpoint service
 func NewService(sp view2.ServiceProvider, discovery Discovery, kvs KVS) (*Service, error) {
 	er := &Service{
@@ -81,9 +79,7 @@ func NewService(sp view2.ServiceProvider, discovery Discovery, kvs KVS) (*Servic
 		kvs:                    kvs,
 		publicKeyExtractors:    []driver.PublicKeyExtractor{},
 		publicKeyIDSynthesizer: DefaultPublicKeyIDSynthesizer{},
-		endpointSelector: func(sets []AddressSet) AddressSet {
-			return sets[0]
-		},
+		endpointSelector:       AlwaysFirst[AddressSet](),
 	}
 	return er, nil
 }

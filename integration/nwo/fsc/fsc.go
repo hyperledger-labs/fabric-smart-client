@@ -61,6 +61,13 @@ const (
 	WebPort    api.PortName = "Web"    // Port at which the Web Server respond
 )
 
+func WithReplication(factor int) node2.Option {
+	return func(o *node2.Options) error {
+		o.Put("Replication", factor)
+		return nil
+	}
+}
+
 func WithAlias(alias string) node2.Option {
 	return func(o *node2.Options) error {
 		o.AddAlias(alias)
@@ -81,6 +88,8 @@ type Platform struct {
 	colorIndex               int
 	metricsAggregatorProcess ifrit.Process
 }
+
+func (p *Platform) ReplicatedPeers() []*node2.ReplicatedPeer {}
 
 func NewPlatform(Registry api.Context, t api.Topology, builderClient BuilderClient) *Platform {
 	p := &Platform{
@@ -171,14 +180,14 @@ func (p *Platform) Load() {
 
 func (p *Platform) Members() []grouper.Member {
 	members := grouper.Members{}
-	for _, node := range p.Peers {
+	for _, node := range p.ReplicatedPeers() {
 		if node.Bootstrap {
-			members = append(members, grouper.Member{Name: node.ID(), Runner: p.FSCNodeRunner(node)})
+			members = append(members, grouper.Member{Name: node.ID(), Runner: p.FSCNodeRunner(node.Peer)})
 		}
 	}
-	for _, node := range p.Peers {
+	for _, node := range p.ReplicatedPeers() {
 		if !node.Bootstrap {
-			members = append(members, grouper.Member{Name: node.ID(), Runner: p.FSCNodeRunner(node)})
+			members = append(members, grouper.Member{Name: node.ID(), Runner: p.FSCNodeRunner(node.Peer)})
 		}
 	}
 	return members
@@ -306,24 +315,19 @@ func (p *Platform) CheckTopology() {
 
 		var extraIdentities []*node2.PeerIdentity
 		peer := &node2.Peer{
-			Name:            node.Name,
-			Organization:    org.Name,
-			Bootstrap:       node.Bootstrap,
-			ExecutablePath:  node.ExecutablePath,
-			ExtraIdentities: extraIdentities,
-			Node:            node,
-			Aliases:         node.Options.Aliases(),
+			Name:              node.Name,
+			Organization:      org.Name,
+			Bootstrap:         node.Bootstrap,
+			ExecutablePath:    node.ExecutablePath,
+			ExtraIdentities:   extraIdentities,
+			Node:              node,
+			Aliases:           node.Options.Aliases(),
+			ReplicationFactor: node.Options.ReplicationFactor(),
 		}
 		peer.Admins = []string{
 			p.AdminLocalMSPIdentityCert(peer),
 		}
 		p.Peers = append(p.Peers, peer)
-		ports := api.Ports{}
-		for _, portName := range PeerPortNames() {
-			ports[portName] = p.Context.ReservePort()
-		}
-		p.Context.SetPortsByPeerID("fsc", peer.ID(), ports)
-		p.Context.SetHostByPeerID("fsc", peer.ID(), "0.0.0.0")
 		users[orgName] = users[orgName] + 1
 		userNames[orgName] = append(userNames[orgName], node.Name)
 
@@ -331,6 +335,14 @@ func (p *Platform) CheckTopology() {
 		if node.Bootstrap {
 			bootstrapNodeFound = true
 		}
+	}
+	for _, peer := range p.ReplicatedPeers() {
+		ports := api.Ports{}
+		for _, portName := range PeerPortNames() {
+			ports[portName] = p.Context.ReservePort()
+		}
+		p.Context.SetPortsByPeerID("fsc", peer.ID(), ports)
+		p.Context.SetHostByPeerID("fsc", peer.ID(), "0.0.0.0")
 	}
 
 	for _, organization := range p.Organizations {
@@ -586,7 +598,7 @@ func (p *Platform) NodeCmdDir(peer *node2.Peer) string {
 	wd, err := os.Getwd()
 	Expect(err).ToNot(HaveOccurred())
 
-	return filepath.Join(wd, "cmd", peer.Name)
+	return filepath.Join(wd, "cmd", peer.ReplicaName())
 }
 
 func (p *Platform) NodeCmdPackage(peer *node2.Peer) string {
@@ -599,7 +611,7 @@ func (p *Platform) NodeCmdPackage(peer *node2.Peer) string {
 	// both can be built from these paths
 	if withoutGoPath := strings.TrimPrefix(wd, filepath.Join(gopath, "src")); withoutGoPath != wd {
 		return strings.TrimPrefix(
-			filepath.Join(withoutGoPath, "cmd", peer.Name),
+			filepath.Join(withoutGoPath, "cmd", peer.ReplicaName()),
 			string(filepath.Separator),
 		)
 	}
