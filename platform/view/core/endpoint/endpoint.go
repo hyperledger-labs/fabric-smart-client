@@ -62,10 +62,6 @@ type KVS interface {
 	Get(id string, state interface{}) error
 }
 
-type endpointEntry struct {
-	Identity view.Identity
-}
-
 type Service struct {
 	sp             view2.ServiceProvider
 	resolvers      []*Resolver
