@@ -445,9 +445,9 @@ func (p *Platform) GenerateCoreConfig(peer *node2.Peer) {
 	var resolvers []*Resolver
 	// remove myself from the resolvers
 	for _, r := range p.Resolvers {
-		//if r.Name != peer.Name {
-		resolvers = append(resolvers, r)
-		//}
+		if r.Name != peer.Name {
+			resolvers = append(resolvers, r)
+		}
 	}
 
 	t, err := template.New("peer").Funcs(template.FuncMap{
