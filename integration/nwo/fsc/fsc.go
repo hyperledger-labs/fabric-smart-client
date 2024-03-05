@@ -595,7 +595,7 @@ func (p *Platform) NodeCmdDir(peer *node2.Peer) string {
 	wd, err := os.Getwd()
 	Expect(err).ToNot(HaveOccurred())
 
-	return filepath.Join(wd, "cmd", peer.ReplicaName())
+	return filepath.Join(wd, "cmd", peer.Name)
 }
 
 func (p *Platform) NodeCmdPackage(peer *node2.Peer) string {
@@ -608,7 +608,7 @@ func (p *Platform) NodeCmdPackage(peer *node2.Peer) string {
 	// both can be built from these paths
 	if withoutGoPath := strings.TrimPrefix(wd, filepath.Join(gopath, "src")); withoutGoPath != wd {
 		return strings.TrimPrefix(
-			filepath.Join(withoutGoPath, "cmd", peer.ReplicaName()),
+			filepath.Join(withoutGoPath, "cmd", peer.Name),
 			string(filepath.Separator),
 		)
 	}
