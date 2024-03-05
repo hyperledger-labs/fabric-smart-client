@@ -89,8 +89,6 @@ type Platform struct {
 	metricsAggregatorProcess ifrit.Process
 }
 
-func (p *Platform) ReplicatedPeers() []*node2.ReplicatedPeer {}
-
 func NewPlatform(Registry api.Context, t api.Topology, builderClient BuilderClient) *Platform {
 	p := &Platform{
 		Context:           Registry,
@@ -180,14 +178,14 @@ func (p *Platform) Load() {
 
 func (p *Platform) Members() []grouper.Member {
 	members := grouper.Members{}
-	for _, node := range p.ReplicatedPeers() {
+	for _, node := range p.Peers {
 		if node.Bootstrap {
-			members = append(members, grouper.Member{Name: node.ID(), Runner: p.FSCNodeRunner(node.Peer)})
+			members = append(members, grouper.Member{Name: node.ID(), Runner: p.FSCNodeRunner(node)})
 		}
 	}
-	for _, node := range p.ReplicatedPeers() {
+	for _, node := range p.Peers {
 		if !node.Bootstrap {
-			members = append(members, grouper.Member{Name: node.ID(), Runner: p.FSCNodeRunner(node.Peer)})
+			members = append(members, grouper.Member{Name: node.ID(), Runner: p.FSCNodeRunner(node)})
 		}
 	}
 	return members
@@ -336,7 +334,7 @@ func (p *Platform) CheckTopology() {
 			bootstrapNodeFound = true
 		}
 	}
-	for _, peer := range p.ReplicatedPeers() {
+	for _, peer := range p.Peers {
 		ports := api.Ports{}
 		for _, portName := range PeerPortNames() {
 			ports[portName] = p.Context.ReservePort()
