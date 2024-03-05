@@ -950,17 +950,11 @@ func (n *Network) OrdererGroupRunner() ifrit.Runner {
 // PeerRunner returns an ifrit.Runner for the specified peer. The runner can be
 // used to start and manage a peer process.
 func (n *Network) PeerRunner(p *topology.Peer, env ...string) *runner2.Runner {
-	cmd := n.peerCommand(
-		p.ExecutablePath,
-		commands.NodeStart{
-			NetworkPrefix: n.Prefix,
-			PeerID:        p.ID(),
-			DevMode:       p.DevMode,
-		},
-		"",
-		fmt.Sprintf("FABRIC_CFG_PATH=%s", n.PeerDir(p)),
-		fmt.Sprintf("CORE_PEER_ID=%s", fmt.Sprintf("%s.%s", p.Name, n.Organization(p.Organization).Domain)),
-	)
+	cmd := n.peerCommand(commands.NodeStart{
+		NetworkPrefix: n.Prefix,
+		PeerID:        p.ID(),
+		DevMode:       p.DevMode,
+	}, "", fmt.Sprintf("FABRIC_CFG_PATH=%s", n.PeerDir(p)), fmt.Sprintf("CORE_PEER_ID=%s", fmt.Sprintf("%s.%s", p.Name, n.Organization(p.Organization).Domain)))
 
 	cmd.Env = append(cmd.Env, env...)
 	//cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
@@ -1026,7 +1020,7 @@ func (n *Network) PeerGroupRunner() ifrit.Runner {
 	return grouper.NewParallel(syscall.SIGTERM, members)
 }
 
-func (n *Network) peerCommand(executablePath string, command common.Command, tlsDir string, env ...string) *exec.Cmd {
+func (n *Network) peerCommand(command common.Command, tlsDir string, env ...string) *exec.Cmd {
 	cmdPath := findCmdAtEnv(peerCMD)
 	Expect(cmdPath).NotTo(Equal(""), "could not find %s in %s directory %s", configtxgenCMD, FabricBinsPathEnvKey, os.Getenv(FabricBinsPathEnvKey))
 	logger.Debugf("Found %s => %s", peerCMD, cmdPath)
@@ -1090,7 +1084,6 @@ func (n *Network) PeerAdminSession(p *topology.Peer, command common.Command) (*g
 // execute in the context of a peer configuration.
 func (n *Network) PeerUserSession(p *topology.Peer, user string, command common.Command) (*gexec.Session, error) {
 	cmd := n.peerCommand(
-		p.ExecutablePath,
 		command,
 		n.PeerUserTLSDir(p, user),
 		fmt.Sprintf("FABRIC_CFG_PATH=%s", n.PeerDir(p)),
@@ -1103,7 +1096,6 @@ func (n *Network) PeerUserSession(p *topology.Peer, user string, command common.
 // is used primarily to generate orderer configuration updates.
 func (n *Network) OrdererAdminSession(o *topology.Orderer, p *topology.Peer, command common.Command) (*gexec.Session, error) {
 	cmd := n.peerCommand(
-		p.ExecutablePath,
 		command,
 		n.ordererUserCryptoDir(o, "Admin", "tls"),
 		fmt.Sprintf("CORE_PEER_LOCALMSPID=%s", n.Organization(o.Organization).MSPID),
@@ -1604,33 +1596,38 @@ func (n *Network) GenerateCoreConfig(p *topology.Peer) {
 			}
 		}
 
-		t, err := template.New("peer").Funcs(template.FuncMap{
-			"Peer":                        func() *topology.Peer { return p },
-			"Orderers":                    func() []*topology.Orderer { return n.Orderers },
-			"PeerLocalExtraIdentityDir":   func(p *topology.Peer, id string) string { return n.PeerLocalExtraIdentityDir(p, id) },
-			"ToLower":                     func(s string) string { return strings.ToLower(s) },
-			"ReplaceAll":                  func(s, old, new string) string { return strings.Replace(s, old, new, -1) },
-			"Peers":                       func() []*topology.Peer { return refPeers },
-			"OrdererAddress":              func(o *topology.Orderer, portName api.PortName) string { return n.OrdererAddress(o, portName) },
-			"PeerAddress":                 func(o *topology.Peer, portName api.PortName) string { return n.PeerAddress(o, portName) },
-			"CACertsBundlePath":           func() string { return n.CACertsBundlePath() },
-			"FSCNodeVaultPersistenceType": func() string { return GetPersistenceType(p) },
-			"FSCNodeVaultOrionNetwork":    func() string { return GetVaultPersistenceOrionNetwork(p) },
-			"FSCNodeVaultOrionDatabase":   func() string { return GetVaultPersistenceOrionDatabase(p) },
-			"FSCNodeVaultOrionCreator":    func() string { return GetVaultPersistenceOrionCreator(p) },
-			"FSCNodeVaultPath":            func() string { return n.FSCNodeVaultDir(p) },
-			"FabricName":                  func() string { return n.topology.Name() },
-			"DefaultNetwork":              func() bool { return defaultNetwork },
-			"Driver":                      func() string { return driver },
-			"Chaincodes":                  func(channel string) []*topology.ChannelChaincode { return n.Chaincodes(channel) },
-			"TLSEnabled":                  func() bool { return tlsEnabled },
-		}).Parse(coreTemplate)
-		Expect(err).NotTo(HaveOccurred())
+		for r := 0; r < p.FSCNode.Options.ReplicationFactor(); r++ {
+			uniqueName := fmt.Sprintf("%s.%d", p.FSCNode.Name, r)
+			t, err := template.New("peer").Funcs(template.FuncMap{
+				"Peer":                        func() *topology.Peer { return p },
+				"Orderers":                    func() []*topology.Orderer { return n.Orderers },
+				"PeerLocalExtraIdentityDir":   func(p *topology.Peer, id string) string { return n.PeerLocalExtraIdentityDir(p, id) },
+				"ToLower":                     func(s string) string { return strings.ToLower(s) },
+				"ReplaceAll":                  func(s, old, new string) string { return strings.Replace(s, old, new, -1) },
+				"Peers":                       func() []*topology.Peer { return refPeers },
+				"OrdererAddress":              func(o *topology.Orderer, portName api.PortName) string { return n.OrdererAddress(o, portName) },
+				"PeerAddress":                 func(o *topology.Peer, portName api.PortName) string { return n.PeerAddress(o, portName) },
+				"CACertsBundlePath":           func() string { return n.CACertsBundlePath() },
+				"FSCNodeVaultPersistenceType": func() string { return GetPersistenceType(p) },
+				"FSCNodeVaultOrionNetwork":    func() string { return GetVaultPersistenceOrionNetwork(p) },
+				"FSCNodeVaultOrionDatabase":   func() string { return GetVaultPersistenceOrionDatabase(p) },
+				"FSCNodeVaultOrionCreator":    func() string { return GetVaultPersistenceOrionCreator(p) },
+				"FSCNodeVaultPath": func() string {
+					return filepath.Join(n.Context.RootDir(), "fsc", "nodes", uniqueName, n.Prefix, "vault")
+				},
+				"FabricName":     func() string { return n.topology.Name() },
+				"DefaultNetwork": func() bool { return defaultNetwork },
+				"Driver":         func() string { return driver },
+				"Chaincodes":     func(channel string) []*topology.ChannelChaincode { return n.Chaincodes(channel) },
+				"TLSEnabled":     func() bool { return tlsEnabled },
+			}).Parse(coreTemplate)
+			Expect(err).NotTo(HaveOccurred())
 
-		extension := bytes.NewBuffer([]byte{})
-		err = t.Execute(io.MultiWriter(extension), n)
-		Expect(err).NotTo(HaveOccurred())
-		n.Context.AddExtension(p.Name, api.FabricExtension, extension.String())
+			extension := bytes.NewBuffer([]byte{})
+			err = t.Execute(io.MultiWriter(extension), n)
+			Expect(err).NotTo(HaveOccurred())
+			n.Context.AddExtension(uniqueName, api.FabricExtension, extension.String())
+		}
 	}
 }
 

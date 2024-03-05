@@ -148,7 +148,7 @@ func (i *Infrastructure) ViewCmd(node *smartclient.Peer) commands.View {
 		UserCert:      p.LocalMSPIdentityCert(node),
 		UserKey:       p.LocalMSPPrivateKey(node),
 		NetworkPrefix: p.NetworkID,
-		Server:        p.Context.ConnectionConfig(node.Name).Address,
+		Server:        p.Context.ConnectionConfig(node.UniqueName).Address,
 	}
 }
 

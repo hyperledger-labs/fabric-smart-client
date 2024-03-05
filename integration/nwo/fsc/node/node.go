@@ -54,6 +54,13 @@ func (o *Options) Get(k string) interface{} {
 	return o.Mapping[k]
 }
 
+func (o *Options) ReplicationFactor() int {
+	if f, ok := o.Mapping["Replication"]; ok && f.(int) > 0 {
+		return f.(int)
+	}
+	return 1
+}
+
 func (o *Options) Aliases() []string {
 	boxed := o.Mapping["Aliases"]
 	if boxed == nil {

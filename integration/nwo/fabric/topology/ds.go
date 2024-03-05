@@ -146,7 +146,6 @@ type Peer struct {
 	Organization    string          `yaml:"organization,omitempty"`
 	Type            PeerType        `yaml:"type,omitempty"`
 	Bootstrap       bool            `yaml:"bootstrap,omitempty"`
-	ExecutablePath  string          `yaml:"executablepath,omitempty"`
 	Role            string          `yaml:"role,omitempty"`
 	Channels        []*PeerChannel  `yaml:"channels,omitempty"`
 	DefaultIdentity string          `yaml:"defaultMSP,omitempty"`

@@ -12,7 +12,7 @@ type fscOrg struct {
 }
 
 func (fo *fscOrg) AddPeer(name string) *fscOrg {
-	fo.c.AddPeer(name, fo.o.ID, FabricPeer, false, "")
+	fo.c.AddPeer(name, fo.o.ID, FabricPeer, false)
 
 	return fo
 }
