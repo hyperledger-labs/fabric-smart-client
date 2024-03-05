@@ -61,7 +61,7 @@ const (
 	WebPort    api.PortName = "Web"    // Port at which the Web Server respond
 )
 
-func WithReplication(factor int) node2.Option {
+func WithReplicationFactor(factor int) node2.Option {
 	return func(o *node2.Options) error {
 		o.Put("Replication", factor)
 		return nil
@@ -310,36 +310,39 @@ func (p *Platform) CheckTopology() {
 	}
 
 	for _, node := range p.Topology.Nodes {
+		if node.Bootstrap && node.Options.ReplicationFactor() > 1 {
+			panic("bootstrap node must not be replicated")
+		}
+		for r := 0; r < node.Options.ReplicationFactor(); r++ {
+			var extraIdentities []*node2.PeerIdentity
+			peer := &node2.Peer{
+				Name:            node.Name,
+				UniqueName:      fmt.Sprintf("%s.%d", node.Name, r),
+				Organization:    org.Name,
+				Bootstrap:       node.Bootstrap,
+				ExecutablePath:  node.ExecutablePath,
+				ExtraIdentities: extraIdentities,
+				Node:            node,
+				Aliases:         node.Options.Aliases(),
+			}
+			peer.Admins = []string{
+				p.AdminLocalMSPIdentityCert(peer),
+			}
+			ports := api.Ports{}
+			for _, portName := range PeerPortNames() {
+				ports[portName] = p.Context.ReservePort()
+			}
+			p.Context.SetPortsByPeerID("fsc", peer.ID(), ports)
+			p.Context.SetHostByPeerID("fsc", peer.ID(), "0.0.0.0")
+			p.Peers = append(p.Peers, peer)
+			users[orgName] = users[orgName] + 1
+			userNames[orgName] = append(userNames[orgName], node.Name)
 
-		var extraIdentities []*node2.PeerIdentity
-		peer := &node2.Peer{
-			Name:            node.Name,
-			Organization:    org.Name,
-			Bootstrap:       node.Bootstrap,
-			ExecutablePath:  node.ExecutablePath,
-			ExtraIdentities: extraIdentities,
-			Node:            node,
-			Aliases:         node.Options.Aliases(),
+			// Is this a bootstrap node/
+			if node.Bootstrap {
+				bootstrapNodeFound = true
+			}
 		}
-		peer.Admins = []string{
-			p.AdminLocalMSPIdentityCert(peer),
-		}
-		p.Peers = append(p.Peers, peer)
-		users[orgName] = users[orgName] + 1
-		userNames[orgName] = append(userNames[orgName], node.Name)
-
-		// Is this a bootstrap node/
-		if node.Bootstrap {
-			bootstrapNodeFound = true
-		}
-	}
-	for _, peer := range p.Peers {
-		ports := api.Ports{}
-		for _, portName := range PeerPortNames() {
-			ports[portName] = p.Context.ReservePort()
-		}
-		p.Context.SetPortsByPeerID("fsc", peer.ID(), ports)
-		p.Context.SetHostByPeerID("fsc", peer.ID(), "0.0.0.0")
 	}
 
 	for _, organization := range p.Organizations {
@@ -442,9 +445,9 @@ func (p *Platform) GenerateCoreConfig(peer *node2.Peer) {
 	var resolvers []*Resolver
 	// remove myself from the resolvers
 	for _, r := range p.Resolvers {
-		if r.Name != peer.Name {
-			resolvers = append(resolvers, r)
-		}
+		//if r.Name != peer.Name {
+		resolvers = append(resolvers, r)
+		//}
 	}
 
 	t, err := template.New("peer").Funcs(template.FuncMap{
@@ -576,15 +579,15 @@ func (p *Platform) GenerateCmd(output io.Writer, node *node2.Peer) string {
 }
 
 func (p *Platform) NodeDir(peer *node2.Peer) string {
-	return filepath.Join(p.Context.RootDir(), "fsc", "nodes", peer.Name)
+	return filepath.Join(p.Context.RootDir(), "fsc", "nodes", peer.UniqueName)
 }
 
 func (p *Platform) NodeClientConfigPath(peer *node2.Peer) string {
-	return filepath.Join(p.Context.RootDir(), "fsc", "nodes", peer.Name, "client-config.yaml")
+	return filepath.Join(p.Context.RootDir(), "fsc", "nodes", peer.UniqueName, "client-config.yaml")
 }
 
 func (p *Platform) NodeKVSDir(peer *node2.Peer) string {
-	return filepath.Join(p.Context.RootDir(), "fsc", "nodes", peer.Name, "kvs")
+	return filepath.Join(p.Context.RootDir(), "fsc", "nodes", peer.UniqueName, "kvs")
 }
 
 func (p *Platform) NodeConfigPath(peer *node2.Peer) string {
@@ -595,7 +598,7 @@ func (p *Platform) NodeCmdDir(peer *node2.Peer) string {
 	wd, err := os.Getwd()
 	Expect(err).ToNot(HaveOccurred())
 
-	return filepath.Join(wd, "cmd", peer.Name)
+	return filepath.Join(wd, "cmd", peer.UniqueName)
 }
 
 func (p *Platform) NodeCmdPackage(peer *node2.Peer) string {
@@ -608,11 +611,11 @@ func (p *Platform) NodeCmdPackage(peer *node2.Peer) string {
 	// both can be built from these paths
 	if withoutGoPath := strings.TrimPrefix(wd, filepath.Join(gopath, "src")); withoutGoPath != wd {
 		return strings.TrimPrefix(
-			filepath.Join(withoutGoPath, "cmd", peer.Name),
+			filepath.Join(withoutGoPath, "cmd", peer.UniqueName),
 			string(filepath.Separator),
 		)
 	}
-	return filepath.Join(wd, "cmd", peer.Name)
+	return filepath.Join(wd, "cmd", peer.UniqueName)
 }
 
 func (p *Platform) NodeCmdPath(peer *node2.Peer) string {
