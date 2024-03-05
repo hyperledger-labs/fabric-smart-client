@@ -70,6 +70,7 @@ type Service struct {
 	pkiExtractorsLock      sync.RWMutex
 	publicKeyExtractors    []driver.PublicKeyExtractor
 	publicKeyIDSynthesizer driver.PublicKeyIDSynthesizer
+	endpointSelector       func([]AddressSet) AddressSet
 }
 
 // NewService returns a new instance of the view-sdk endpoint service
@@ -80,6 +81,9 @@ func NewService(sp view2.ServiceProvider, discovery Discovery, kvs KVS) (*Servic
 		kvs:                    kvs,
 		publicKeyExtractors:    []driver.PublicKeyExtractor{},
 		publicKeyIDSynthesizer: DefaultPublicKeyIDSynthesizer{},
+		endpointSelector: func(sets []AddressSet) AddressSet {
+			return sets[0]
+		},
 	}
 	return er, nil
 }
@@ -94,7 +98,7 @@ func (r *Service) Resolve(party view.Identity) (view.Identity, AddressSet, []byt
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	return cursor, e[0], r.pkiResolve(resolver), nil
+	return cursor, r.endpointSelector(e), r.pkiResolve(resolver), nil
 }
 
 func (r *Service) resolve(party view.Identity) (view.Identity, []AddressSet, *Resolver, error) {
