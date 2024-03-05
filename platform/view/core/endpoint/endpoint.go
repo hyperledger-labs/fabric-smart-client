@@ -8,9 +8,7 @@ package endpoint
 
 import (
 	"bytes"
-	"net"
 	"reflect"
-	"strings"
 	"sync"
 
 	"golang.org/x/exp/slices"
@@ -90,19 +88,6 @@ func NewService(sp view2.ServiceProvider, discovery Discovery, kvs KVS) (*Servic
 //	_, e, _, err := r.resolve(party)
 //	return e, err
 //}
-
-type AddressSet = map[driver.PortName]string
-
-func contains(addressSets []AddressSet, address string) bool {
-	for _, addressSet := range addressSets {
-		for _, a := range addressSet {
-			if a == address {
-				return true
-			}
-		}
-	}
-	return false
-}
 
 func (r *Service) Resolve(party view.Identity) (view.Identity, AddressSet, []byte, error) {
 	cursor, e, resolver, err := r.resolve(party)
@@ -229,14 +214,6 @@ func (r *Service) AddResolver(name string, domain string, addresses map[string]s
 	return nil, nil
 }
 
-func newAddressSet(addresses map[string]string) AddressSet {
-	addressSet := make(AddressSet, len(addresses))
-	for k, v := range addresses {
-		addressSet[portNameMap[strings.ToLower(k)]] = LookupIPv4(v)
-	}
-	return addressSet
-}
-
 func (r *Service) AddPublicKeyExtractor(publicKeyExtractor driver.PublicKeyExtractor) error {
 	r.pkiExtractorsLock.Lock()
 	defer r.pkiExtractorsLock.Unlock()
@@ -349,36 +326,6 @@ func key(id view.Identity) string {
 //func (r *Service) getBindings(id view.Identity) Iterator[view.Identity] {
 //	return newBindingIterator(id, r.kvs)
 //}
-
-var portNameMap = map[string]driver.PortName{
-	strings.ToLower(string(driver.ListenPort)): driver.ListenPort,
-	strings.ToLower(string(driver.ViewPort)):   driver.ViewPort,
-	strings.ToLower(string(driver.P2PPort)):    driver.P2PPort,
-}
-
-func convert(o map[string]string) AddressSet {
-	r := map[driver.PortName]string{}
-	for k, v := range o {
-		r[portNameMap[strings.ToLower(k)]] = v
-	}
-	return r
-}
-
-func LookupIPv4(endpoint string) string {
-	s := strings.Split(endpoint, ":")
-	if len(s) < 2 {
-		return endpoint
-	}
-	var addrS string
-	addr, err := net.LookupIP(s[0])
-	if err != nil {
-		addrS = s[0]
-	} else {
-		addrS = addr[0].String()
-	}
-	port := s[1]
-	return net.JoinHostPort(addrS, port)
-}
 
 func getIdentifier(f any) string {
 	if f == nil {
