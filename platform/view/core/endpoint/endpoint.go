@@ -11,8 +11,6 @@ import (
 	"reflect"
 	"sync"
 
-	"golang.org/x/exp/slices"
-
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
@@ -28,7 +26,7 @@ type Resolver struct {
 	Name           string
 	Domain         string
 	Addresses      []AddressSet
-	Aliases        []string
+	Aliases        Set[string]
 	PKI            []byte
 	Id             []byte
 	IdentityGetter func() (view.Identity, []byte, error)
@@ -153,13 +151,12 @@ func (r *Service) GetIdentity(endpoint string, pkID []byte) (view.Identity, erro
 
 	// search in the resolver list
 	for _, resolver := range r.resolvers {
-		resolverPKID := r.pkiResolve(resolver)
-		found := contains(resolver.Addresses, endpoint) || slices.Contains(resolver.Aliases, endpoint)
 		if endpoint == resolver.Name ||
-			found ||
+			resolver.Aliases.Contains(endpoint) ||
 			endpoint == resolver.Name+"."+resolver.Domain ||
+			contains(resolver.Addresses, endpoint) ||
 			bytes.Equal(pkID, resolver.Id) ||
-			bytes.Equal(pkID, resolverPKID) {
+			bytes.Equal(pkID, r.pkiResolve(resolver)) {
 
 			id, err := resolver.GetIdentity()
 			if err != nil {
@@ -193,8 +190,8 @@ func (r *Service) AddResolver(name string, domain string, addresses map[string]s
 			logger.Debugf("Added new address set and binding [%v] -> [%v]: %v", id, resolver.Id, addresses)
 			return resolver.Id, r.Bind(resolver.Id, id)
 		}
-		for _, alias := range resolver.Aliases {
-			if slices.Contains(aliases, alias) {
+		for _, alias := range aliases {
+			if resolver.Aliases.Contains(alias) {
 				logger.Warnf("alias [%s] already defined by resolver [%s]", alias, resolver.Name)
 			}
 		}
@@ -209,7 +206,7 @@ func (r *Service) AddResolver(name string, domain string, addresses map[string]s
 		Name:      name,
 		Domain:    domain,
 		Addresses: []AddressSet{newAddressSet(addresses)},
-		Aliases:   aliases,
+		Aliases:   newSet(aliases),
 		Id:        id,
 	})
 	return nil, nil

@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
+	"golang.org/x/exp/constraints"
 )
 
 type AddressSet = map[driver.PortName]string
@@ -54,4 +55,21 @@ var portNameMap = map[string]driver.PortName{
 	strings.ToLower(string(driver.ListenPort)): driver.ListenPort,
 	strings.ToLower(string(driver.ViewPort)):   driver.ViewPort,
 	strings.ToLower(string(driver.P2PPort)):    driver.P2PPort,
+}
+
+type Set[T constraints.Ordered] map[T]struct{}
+
+func newSet[T constraints.Ordered](aliases []T) Set[T] {
+	a := make(Set[T], len(aliases))
+	a.Add(aliases...)
+	return a
+}
+func (a *Set[T]) Contains(alias T) bool {
+	_, ok := (*a)[alias]
+	return ok
+}
+func (a *Set[T]) Add(aliases ...T) {
+	for _, alias := range aliases {
+		(*a)[alias] = struct{}{}
+	}
 }
