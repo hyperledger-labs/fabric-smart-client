@@ -313,14 +313,13 @@ func (p *Platform) CheckTopology() {
 
 		var extraIdentities []*node2.PeerIdentity
 		peer := &node2.Peer{
-			Name:              node.Name,
-			Organization:      org.Name,
-			Bootstrap:         node.Bootstrap,
-			ExecutablePath:    node.ExecutablePath,
-			ExtraIdentities:   extraIdentities,
-			Node:              node,
-			Aliases:           node.Options.Aliases(),
-			ReplicationFactor: node.Options.ReplicationFactor(),
+			Name:            node.Name,
+			Organization:    org.Name,
+			Bootstrap:       node.Bootstrap,
+			ExecutablePath:  node.ExecutablePath,
+			ExtraIdentities: extraIdentities,
+			Node:            node,
+			Aliases:         node.Options.Aliases(),
 		}
 		peer.Admins = []string{
 			p.AdminLocalMSPIdentityCert(peer),
