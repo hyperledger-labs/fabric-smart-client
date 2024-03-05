@@ -92,7 +92,7 @@ func NewService(sp view2.ServiceProvider, discovery Discovery, kvs KVS) (*Servic
 
 func (r *Service) Endpoint(party view.Identity) (map[driver.PortName]string, error) {
 	_, e, _, err := r.resolve(party)
-	return e, err
+	return r.endpointSelector(e), err
 }
 
 func (r *Service) Resolve(party view.Identity) (view.Identity, AddressSet, []byte, error) {
