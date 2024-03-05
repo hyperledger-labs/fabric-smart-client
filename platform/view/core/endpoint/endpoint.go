@@ -90,10 +90,10 @@ func NewService(sp view2.ServiceProvider, discovery Discovery, kvs KVS) (*Servic
 	return er, nil
 }
 
-//func (r *Service) Endpoint(party view.Identity) (map[driver.PortName]string, error) {
-//	_, e, _, err := r.resolve(party)
-//	return e, err
-//}
+func (r *Service) Endpoint(party view.Identity) (map[driver.PortName]string, error) {
+	_, e, _, err := r.resolve(party)
+	return e, err
+}
 
 func (r *Service) Resolve(party view.Identity) (view.Identity, AddressSet, []byte, error) {
 	cursor, e, resolver, err := r.resolve(party)
@@ -297,41 +297,6 @@ func (r *Service) getBinding(ephemeral view.Identity) (view.Identity, error) {
 func key(id view.Identity) string {
 	return kvs.CreateCompositeKeyOrPanic("platform.fsc.endpoint.binding", []string{id.UniqueID()})
 }
-
-//type Iterator[T any] interface {
-//	Next() (T, error)
-//	HasNext() bool
-//}
-//
-//
-//type bindingIterator struct {
-//	cursor string
-//	kvs KVS
-//}
-//
-//func newBindingIterator(id view.Identity, kvs KVS) Iterator[view.Identity] {
-//	return &bindingIterator{
-//		cursor: key(id),
-//		kvs:    kvs,
-//	}
-//}
-//
-//func (i *bindingIterator) Next() (view.Identity, error) {
-//	next := view.Identity{}
-//	if err := i.kvs.Get(i.cursor, &next); err != nil {
-//		return nil, err
-//	}
-//	i.cursor = key(next)
-//	return next, nil
-//}
-//
-//func (i *bindingIterator) HasNext() bool {
-//	return i.kvs.Exists(i.cursor)
-//}
-//
-//func (r *Service) getBindings(id view.Identity) Iterator[view.Identity] {
-//	return newBindingIterator(id, r.kvs)
-//}
 
 func getIdentifier(f any) string {
 	if f == nil {
