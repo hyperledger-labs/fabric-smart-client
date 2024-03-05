@@ -70,8 +70,10 @@ type Service struct {
 	pkiExtractorsLock      sync.RWMutex
 	publicKeyExtractors    []driver.PublicKeyExtractor
 	publicKeyIDSynthesizer driver.PublicKeyIDSynthesizer
-	endpointSelector       func([]AddressSet) AddressSet
+	endpointSelector       SelectionStrategy[AddressSet]
 }
+
+type SelectionStrategy[T any] func([]T) T
 
 // NewService returns a new instance of the view-sdk endpoint service
 func NewService(sp view2.ServiceProvider, discovery Discovery, kvs KVS) (*Service, error) {
