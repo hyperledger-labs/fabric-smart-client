@@ -85,26 +85,27 @@ func NewService(sp view2.ServiceProvider, discovery Discovery, kvs KVS) (*Servic
 }
 
 func (r *Service) Resolve(party view.Identity) (view.Identity, AddressSet, []byte, error) {
-	cursor, e, resolver, err := r.resolve(party)
+	resolver, err := r.resolve(party)
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	return cursor, r.endpointSelector(e), r.pkiResolve(resolver), nil
+	endpoint := r.endpointSelector(resolver.Addresses)
+	return resolver.Id, endpoint, r.pkiResolve(resolver), nil
 }
 
-func (r *Service) resolve(party view.Identity) (view.Identity, []AddressSet, *Resolver, error) {
+func (r *Service) resolve(party view.Identity) (*Resolver, error) {
 	cursor := party
 	for {
 		// root endpoints have addresses
 		// is this a root endpoint
-		resolver, e, err := r.rootEndpoint(cursor)
+		resolver, err := r.rootEndpoint(cursor)
 		if err == nil {
-			return cursor, e, resolver, nil
+			return resolver, nil
 		}
 		logger.Debugf("resolving via binding for %s", cursor)
 		cursor, err = r.getBinding(cursor)
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, err
 		}
 		logger.Debugf("continue to [%s]", cursor)
 	}
@@ -183,7 +184,6 @@ func (r *Service) AddResolver(name string, domain string, addresses map[string]s
 			r.resolversMutex.Lock()
 			resolver.Addresses = append(resolver.Addresses, newAddressSet(addresses))
 			r.resolversMutex.Unlock()
-			logger.Debugf("Added new address set and binding [%v] -> [%v]: %v", id, resolver.Id, addresses)
 			return resolver.Id, r.Bind(resolver.Id, id)
 		}
 		for _, alias := range aliases {
@@ -250,17 +250,17 @@ func (r *Service) pkiResolve(resolver *Resolver) []byte {
 	return nil
 }
 
-func (r *Service) rootEndpoint(party view.Identity) (*Resolver, []AddressSet, error) {
+func (r *Service) rootEndpoint(party view.Identity) (*Resolver, error) {
 	r.resolversMutex.RLock()
 	defer r.resolversMutex.RUnlock()
 
 	for _, resolver := range r.resolvers {
 		if bytes.Equal(resolver.Id, party) {
-			return resolver, resolver.Addresses, nil
+			return resolver, nil
 		}
 	}
 
-	return nil, nil, errors.Errorf("endpoint not found for identity %s", party.UniqueID())
+	return nil, errors.Errorf("endpoint not found for identity %s", party.UniqueID())
 }
 
 func (r *Service) putBinding(ephemeral, longTerm view.Identity) error {
