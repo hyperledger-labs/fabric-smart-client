@@ -51,7 +51,7 @@ func (p *Platform) GenerateResolverMap() {
 			Name: peer.Name,
 			Identity: ResolverIdentity{
 				ID:   peer.Name,
-				Path: p.LocalMSPIdentityCert(peer),
+				Path: p.LocalMSPIdentityCert(peer.Peer),
 			},
 			Domain:    org.Domain,
 			Addresses: addresses,
