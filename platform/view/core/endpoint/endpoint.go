@@ -29,7 +29,7 @@ var logger = flogging.MustGetLogger("view-sdk.endpoint")
 type Resolver struct {
 	Name           string
 	Domain         string
-	Addresses      map[driver.PortName]string
+	Addresses      []AddressSet
 	Aliases        []string
 	PKI            []byte
 	Id             []byte
@@ -86,20 +86,33 @@ func NewService(sp view2.ServiceProvider, discovery Discovery, kvs KVS) (*Servic
 	return er, nil
 }
 
-func (r *Service) Endpoint(party view.Identity) (map[driver.PortName]string, error) {
-	_, e, _, err := r.resolve(party)
-	return e, err
+//func (r *Service) Endpoint(party view.Identity) (map[driver.PortName]string, error) {
+//	_, e, _, err := r.resolve(party)
+//	return e, err
+//}
+
+type AddressSet = map[driver.PortName]string
+
+func contains(addressSets []AddressSet, address string) bool {
+	for _, addressSet := range addressSets {
+		for _, a := range addressSet {
+			if a == address {
+				return true
+			}
+		}
+	}
+	return false
 }
 
-func (r *Service) Resolve(party view.Identity) (view.Identity, map[driver.PortName]string, []byte, error) {
+func (r *Service) Resolve(party view.Identity) (view.Identity, AddressSet, []byte, error) {
 	cursor, e, resolver, err := r.resolve(party)
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	return cursor, e, r.pkiResolve(resolver), nil
+	return cursor, e[0], r.pkiResolve(resolver), nil
 }
 
-func (r *Service) resolve(party view.Identity) (view.Identity, map[driver.PortName]string, *Resolver, error) {
+func (r *Service) resolve(party view.Identity) (view.Identity, []AddressSet, *Resolver, error) {
 	cursor := party
 	for {
 		// root endpoints have addresses
@@ -155,17 +168,7 @@ func (r *Service) GetIdentity(endpoint string, pkID []byte) (view.Identity, erro
 	// search in the resolver list
 	for _, resolver := range r.resolvers {
 		resolverPKID := r.pkiResolve(resolver)
-		found := false
-		for _, addr := range resolver.Addresses {
-			if endpoint == addr {
-				found = true
-				break
-			}
-		}
-		if !found {
-			// check aliases
-			found = slices.Contains(resolver.Aliases, endpoint)
-		}
+		found := contains(resolver.Addresses, endpoint) || slices.Contains(resolver.Aliases, endpoint)
 		if endpoint == resolver.Name ||
 			found ||
 			endpoint == resolver.Name+"."+resolver.Domain ||
@@ -198,6 +201,10 @@ func (r *Service) AddResolver(name string, domain string, addresses map[string]s
 
 			// Then bind
 			r.resolversMutex.RUnlock()
+			r.resolversMutex.Lock()
+			resolver.Addresses = append(resolver.Addresses, newAddressSet(addresses))
+			r.resolversMutex.Unlock()
+			logger.Debugf("Added new address set and binding [%v] -> [%v]: %v", id, resolver.Id, addresses)
 			return resolver.Id, r.Bind(resolver.Id, id)
 		}
 		for _, alias := range resolver.Aliases {
@@ -212,17 +219,22 @@ func (r *Service) AddResolver(name string, domain string, addresses map[string]s
 	defer r.resolversMutex.Unlock()
 
 	// resolve addresses to their IPs, if needed
-	for k, v := range addresses {
-		addresses[k] = LookupIPv4(v)
-	}
 	r.resolvers = append(r.resolvers, &Resolver{
 		Name:      name,
 		Domain:    domain,
-		Addresses: convert(addresses),
+		Addresses: []AddressSet{newAddressSet(addresses)},
 		Aliases:   aliases,
 		Id:        id,
 	})
 	return nil, nil
+}
+
+func newAddressSet(addresses map[string]string) AddressSet {
+	addressSet := make(AddressSet, len(addresses))
+	for k, v := range addresses {
+		addressSet[portNameMap[strings.ToLower(k)]] = LookupIPv4(v)
+	}
+	return addressSet
 }
 
 func (r *Service) AddPublicKeyExtractor(publicKeyExtractor driver.PublicKeyExtractor) error {
@@ -267,7 +279,7 @@ func (r *Service) pkiResolve(resolver *Resolver) []byte {
 	return nil
 }
 
-func (r *Service) rootEndpoint(party view.Identity) (*Resolver, map[driver.PortName]string, error) {
+func (r *Service) rootEndpoint(party view.Identity) (*Resolver, []AddressSet, error) {
 	r.resolversMutex.RLock()
 	defer r.resolversMutex.RUnlock()
 
@@ -281,21 +293,14 @@ func (r *Service) rootEndpoint(party view.Identity) (*Resolver, map[driver.PortN
 }
 
 func (r *Service) putBinding(ephemeral, longTerm view.Identity) error {
-	k := kvs.CreateCompositeKeyOrPanic(
-		"platform.fsc.endpoint.binding",
-		[]string{ephemeral.UniqueID()},
-	)
-	if err := r.kvs.Put(k, longTerm); err != nil {
+	if err := r.kvs.Put(key(ephemeral), longTerm); err != nil {
 		return err
 	}
 	return nil
 }
 
 func (r *Service) getBinding(ephemeral view.Identity) (view.Identity, error) {
-	k := kvs.CreateCompositeKeyOrPanic(
-		"platform.fsc.endpoint.binding",
-		[]string{ephemeral.UniqueID()},
-	)
+	k := key(ephemeral)
 	if !r.kvs.Exists(k) {
 		return nil, errors.Errorf("binding not found for [%s]", ephemeral.UniqueID())
 	}
@@ -306,13 +311,52 @@ func (r *Service) getBinding(ephemeral view.Identity) (view.Identity, error) {
 	return longTerm, nil
 }
 
+func key(id view.Identity) string {
+	return kvs.CreateCompositeKeyOrPanic("platform.fsc.endpoint.binding", []string{id.UniqueID()})
+}
+
+//type Iterator[T any] interface {
+//	Next() (T, error)
+//	HasNext() bool
+//}
+//
+//
+//type bindingIterator struct {
+//	cursor string
+//	kvs KVS
+//}
+//
+//func newBindingIterator(id view.Identity, kvs KVS) Iterator[view.Identity] {
+//	return &bindingIterator{
+//		cursor: key(id),
+//		kvs:    kvs,
+//	}
+//}
+//
+//func (i *bindingIterator) Next() (view.Identity, error) {
+//	next := view.Identity{}
+//	if err := i.kvs.Get(i.cursor, &next); err != nil {
+//		return nil, err
+//	}
+//	i.cursor = key(next)
+//	return next, nil
+//}
+//
+//func (i *bindingIterator) HasNext() bool {
+//	return i.kvs.Exists(i.cursor)
+//}
+//
+//func (r *Service) getBindings(id view.Identity) Iterator[view.Identity] {
+//	return newBindingIterator(id, r.kvs)
+//}
+
 var portNameMap = map[string]driver.PortName{
 	strings.ToLower(string(driver.ListenPort)): driver.ListenPort,
 	strings.ToLower(string(driver.ViewPort)):   driver.ViewPort,
 	strings.ToLower(string(driver.P2PPort)):    driver.P2PPort,
 }
 
-func convert(o map[string]string) map[driver.PortName]string {
+func convert(o map[string]string) AddressSet {
 	r := map[driver.PortName]string{}
 	for k, v := range o {
 		r[portNameMap[strings.ToLower(k)]] = v
