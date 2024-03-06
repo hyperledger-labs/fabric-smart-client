@@ -42,10 +42,10 @@ var _ = Describe("EndToEnd", func() {
 
 		It("successful pingpong based on REST API", func() {
 			// Init and Start fsc nodes
-			initiator = node.NewFromConfPath("./testdata/fsc/nodes/initiator")
+			initiator = node.NewFromConfPath("./testdata/fsc/nodes/initiator.0")
 			Expect(initiator).NotTo(BeNil())
 
-			responder = node.NewFromConfPath("./testdata/fsc/nodes/responder")
+			responder = node.NewFromConfPath("./testdata/fsc/nodes/responder.0")
 			Expect(responder).NotTo(BeNil())
 
 			err := initiator.Start()
@@ -60,7 +60,7 @@ var _ = Describe("EndToEnd", func() {
 
 			time.Sleep(3 * time.Second)
 
-			webClientConfig, err := client.NewWebClientConfigFromFSC("./testdata/fsc/nodes/initiator")
+			webClientConfig, err := client.NewWebClientConfigFromFSC("./testdata/fsc/nodes/initiator.0")
 			Expect(err).NotTo(HaveOccurred())
 			initiatorWebClient, err := web.NewClient(webClientConfig)
 			Expect(err).NotTo(HaveOccurred())
@@ -84,7 +84,7 @@ var _ = Describe("EndToEnd", func() {
 
 		It("successful pingpong based on WebSocket", func() {
 			// Init and Start fsc nodes
-			initiator = node.NewFromConfPath("./testdata/fsc/nodes/initiator")
+			initiator = node.NewFromConfPath("./testdata/fsc/nodes/initiator.0")
 			Expect(initiator).NotTo(BeNil())
 
 			err := initiator.Start()
@@ -96,7 +96,7 @@ var _ = Describe("EndToEnd", func() {
 
 			time.Sleep(3 * time.Second)
 
-			initiatorWebClient := newWebClient("./testdata/fsc/nodes/initiator")
+			initiatorWebClient := newWebClient("./testdata/fsc/nodes/initiator.0")
 			stream, err := initiatorWebClient.StreamCallView("stream", nil)
 			Expect(err).NotTo(HaveOccurred())
 			var s string
@@ -111,10 +111,10 @@ var _ = Describe("EndToEnd", func() {
 
 		It("successful pingpong", func() {
 			// Init and Start fsc nodes
-			initiator = node.NewFromConfPath("./testdata/fsc/nodes/initiator")
+			initiator = node.NewFromConfPath("./testdata/fsc/nodes/initiator.0")
 			Expect(initiator).NotTo(BeNil())
 
-			responder = node.NewFromConfPath("./testdata/fsc/nodes/responder")
+			responder = node.NewFromConfPath("./testdata/fsc/nodes/responder.0")
 			Expect(responder).NotTo(BeNil())
 
 			err := initiator.Start()
