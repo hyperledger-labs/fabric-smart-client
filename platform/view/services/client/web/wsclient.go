@@ -21,10 +21,15 @@ type WSStream struct {
 	conn *websocket.Conn
 }
 
-func NewWSStream(url string, config *tls.Config) (*WSStream, error) {
-	logger.Debugf("Connecting to %s", url)
+func OpenWSClientConn(url string, config *tls.Config) (*websocket.Conn, error) {
 	dialer := &websocket.Dialer{TLSClientConfig: config}
 	ws, _, err := dialer.Dial(url, nil)
+	return ws, err
+}
+
+func NewWSStream(url string, config *tls.Config) (*WSStream, error) {
+	logger.Debugf("Connecting to %s", url)
+	ws, err := OpenWSClientConn(url, config)
 	logger.Infof("Successfully connected to websocket")
 	if err != nil {
 		logger.Errorf("Dial failed: %s\n", err.Error())
