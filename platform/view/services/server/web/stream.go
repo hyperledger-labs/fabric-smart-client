@@ -26,7 +26,7 @@ type WSStream struct {
 	logger logger
 }
 
-func NewWSStream(l logger, writer http.ResponseWriter, request *http.Request) (*WSStream, error) {
+func OpenWSServerConn(writer http.ResponseWriter, request *http.Request) (*websocket.Conn, error) {
 	upgrader := websocket.Upgrader{
 		ReadBufferSize:  1024,
 		WriteBufferSize: 1024,
@@ -34,7 +34,11 @@ func NewWSStream(l logger, writer http.ResponseWriter, request *http.Request) (*
 			return true
 		},
 	}
-	ws, err := upgrader.Upgrade(writer, request, nil)
+	return upgrader.Upgrade(writer, request, nil)
+}
+
+func NewWSStream(l logger, writer http.ResponseWriter, request *http.Request) (*WSStream, error) {
+	ws, err := OpenWSServerConn(writer, request)
 	if err != nil {
 		return nil, err
 	}
