@@ -4,7 +4,7 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package comm
+package libp2p
 
 import "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 
@@ -35,7 +35,7 @@ type Metrics struct {
 	BytesReceived metrics.Counter
 }
 
-func NewMetrics(p metrics.Provider) *Metrics {
+func newMetrics(p metrics.Provider) *Metrics {
 	return &Metrics{
 		BytesSent:     p.NewCounter(bytesSent),
 		BytesReceived: p.NewCounter(bytesReceived),

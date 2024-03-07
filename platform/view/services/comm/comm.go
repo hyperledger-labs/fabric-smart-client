@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/utils"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
 )
@@ -26,29 +28,21 @@ type ConfigService interface {
 }
 
 type Service struct {
-	PrivateKeyDispenser PrivateKeyDispenser
-	EndpointService     EndpointService
-	ConfigService       ConfigService
-	DefaultIdentity     view2.Identity
-	Metrics             *Metrics
+	HostProvider    host.GeneratorProvider
+	EndpointService EndpointService
+	ConfigService   ConfigService
+	DefaultIdentity view2.Identity
 
 	Node     *P2PNode
 	NodeSync sync.RWMutex
 }
 
-func NewService(
-	privateKeyDispenser PrivateKeyDispenser,
-	endpointService EndpointService,
-	configService ConfigService,
-	defaultIdentity view2.Identity,
-	metrics *Metrics,
-) (*Service, error) {
+func NewService(hostProvider host.GeneratorProvider, endpointService EndpointService, configService ConfigService, defaultIdentity view2.Identity) (*Service, error) {
 	s := &Service{
-		PrivateKeyDispenser: privateKeyDispenser,
-		EndpointService:     endpointService,
-		ConfigService:       configService,
-		DefaultIdentity:     defaultIdentity,
-		Metrics:             metrics,
+		HostProvider:    hostProvider,
+		EndpointService: endpointService,
+		ConfigService:   configService,
+		DefaultIdentity: defaultIdentity,
 	}
 	return s, nil
 }
@@ -130,12 +124,11 @@ func (s *Service) init() error {
 		// this is a bootstrap node
 		logger.Infof("new p2p bootstrap node [%s]", p2pListenAddress)
 
-		var err error
-		s.Node, err = NewBootstrapNode(
-			p2pListenAddress,
-			s.PrivateKeyDispenser,
-			s.Metrics,
-		)
+		h, err := s.HostProvider.NewBootstrapHost(p2pListenAddress)
+		if err != nil {
+			return err
+		}
+		s.Node, err = NewNode(h)
 		if err != nil {
 			return errors.Wrapf(err, "failed to initialize bootstrap p2p node [%s]", p2pListenAddress)
 		}
@@ -149,18 +142,17 @@ func (s *Service) init() error {
 			return errors.WithMessagef(err, "failed to resolve bootstrap node id [%s:%s]", p2pBootstrapNode, bootstrapNodeID)
 		}
 
-		addr, err := AddressToEndpoint(endpoints[view.P2PPort])
+		addr, err := utils.AddressToEndpoint(endpoints[view.P2PPort])
 		if err != nil {
 			return errors.WithMessagef(err, "failed to get the endpoint of the bootstrap node from [%s:%s], [%s]", p2pBootstrapNode, bootstrapNodeID, endpoints[view.P2PPort])
 		}
 		addr = addr + "/p2p/" + string(pkID)
 		logger.Infof("new p2p node [%s,%s]", p2pListenAddress, addr)
-		s.Node, err = NewNode(
-			p2pListenAddress,
-			addr,
-			s.PrivateKeyDispenser,
-			s.Metrics,
-		)
+		h, err := s.HostProvider.NewHost(p2pListenAddress, addr)
+		if err != nil {
+			return err
+		}
+		s.Node, err = NewNode(h)
 		if err != nil {
 			return errors.Wrapf(err, "failed to initialize node p2p manager [%s,%s]", p2pListenAddress, addr)
 		}

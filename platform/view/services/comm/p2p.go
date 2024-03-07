@@ -12,31 +12,20 @@ import (
 	"encoding/binary"
 	io2 "io"
 	"runtime/debug"
-	"strings"
 	"sync"
-	"sync/atomic"
 
 	"github.com/gogo/protobuf/io"
 	"github.com/gogo/protobuf/proto"
 	proto2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
+	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	dht "github.com/libp2p/go-libp2p-kad-dht"
-	"github.com/libp2p/go-libp2p/core/host"
-	"github.com/libp2p/go-libp2p/core/network"
-	"github.com/libp2p/go-libp2p/core/peer"
-	"github.com/libp2p/go-libp2p/core/peerstore"
-	"github.com/libp2p/go-libp2p/core/protocol"
-	"github.com/libp2p/go-libp2p/p2p/discovery/routing"
-	"github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
 )
 
 const (
-	viewProtocol     = "/fsc/view/1.0.0"
-	rendezVousString = "fsc"
-	masterSession    = "master of puppets I'm pulling your strings"
+	masterSession = "master of puppets I'm pulling your strings"
 )
 
 var errStreamNotFound = errors.New("stream not found")
@@ -49,20 +38,29 @@ type messageWithStream struct {
 }
 
 type P2PNode struct {
-	host             host.Host
-	dht              *dht.IpfsDHT
-	finder           *routing.RoutingDiscovery
-	peersMutex       sync.RWMutex
-	peers            map[string]peer.AddrInfo
+	host             host2.P2PHost
 	incomingMessages chan *messageWithStream
 	streamsMutex     sync.RWMutex
-	streams          map[peer.ID][]*streamHandler
+	streams          map[host2.PeerID][]*streamHandler
 	dispatchMutex    sync.Mutex
 	sessionsMutex    sync.Mutex
 	sessions         map[string]*NetworkStreamSession
-	stopFinder       int32
 	finderWg         sync.WaitGroup
 	isStopping       bool
+}
+
+func NewNode(h host2.P2PHost) (*P2PNode, error) {
+	p := &P2PNode{
+		host:             h,
+		incomingMessages: make(chan *messageWithStream),
+		streams:          make(map[host2.PeerID][]*streamHandler),
+		sessions:         make(map[string]*NetworkStreamSession),
+		isStopping:       false,
+	}
+	if err := h.Start(p.handleStream); err != nil {
+		return nil, err
+	}
+	return p, nil
 }
 
 func (p *P2PNode) Start(ctx context.Context) {
@@ -79,7 +77,6 @@ func (p *P2PNode) Stop() {
 	p.streamsMutex.Unlock()
 
 	p.host.Close()
-	atomic.StoreInt32(&p.stopFinder, 1)
 
 	for _, streams := range p.streams {
 		for _, stream := range streams {
@@ -161,97 +158,63 @@ func (p *P2PNode) dispatchMessages(ctx context.Context) {
 	}
 }
 
-func (p *P2PNode) sendWithCachedStreams(ID peer.ID, msg proto.Message) error {
+func (p *P2PNode) sendWithCachedStreams(peerID host2.PeerID, msg proto.Message) error {
 	p.streamsMutex.RLock()
 	defer p.streamsMutex.RUnlock()
-	for _, stream := range p.streams[ID] {
+	for _, stream := range p.streams[peerID] {
 		err := stream.send(msg)
 		if err == nil {
 			return nil
 		}
 		// TODO: handle the case in which there's an error
-		logger.Errorf("error while sending message [%s] to peer [%s]: %s", msg, ID, err)
+		logger.Errorf("error while sending message [%s] to peer [%s]: %s", msg, peerID, err)
 	}
 
 	return errStreamNotFound
 }
 
-// sendTo sends the passed messaged to the libp2p peer with the passed ID.
-// If no address is specified, then libp2p will use one of the IP addresses associated to the peer in its peer store.
+// sendTo sends the passed messaged to the p2p peer with the passed ID.
+// If no address is specified, then p2p will use one of the IP addresses associated to the peer in its peer store.
 // If an address is specified, then the peer store will be updated with the passed address.
 func (p *P2PNode) sendTo(IDString string, address string, msg proto.Message) error {
-	ID, err := peer.Decode(IDString)
-	if err != nil {
+	if err := p.sendWithCachedStreams(IDString, msg); err != errStreamNotFound {
 		return err
 	}
 
-	if err := p.sendWithCachedStreams(ID, msg); err != errStreamNotFound {
-		return err
-	}
-
-	if len(address) != 0 && strings.HasPrefix(address, "/ip4/") {
-		// reprogram the addresses of the peer before opening a new stream, if it is not in the right form yet
-		ps := p.host.Peerstore()
-		current := ps.Addrs(ID)
-
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("sendTo, reprogram address [%s:%s]", IDString, address)
-			for _, m := range current {
-				logger.Debugf("sendTo, current address [%s:%s]", IDString, m.String())
-			}
-		}
-
-		ps.ClearAddrs(ID)
-		addr, err := AddressToEndpoint(address)
-		if err != nil {
-			return errors.WithMessagef(err, "failed to parse endpoint's address [%s]", address)
-		}
-		s, err := multiaddr.NewMultiaddr(addr)
-		if err != nil {
-			return errors.Wrapf(err, "failed to get mutliaddr for [%s]", address)
-		}
-		ps.AddAddr(ID, s, peerstore.OwnObservedAddrTTL)
-	}
-
-	nwStream, err := p.host.NewStream(context.Background(), ID, protocol.ID(viewProtocol))
+	nwStream, err := p.host.NewStream(context.Background(), address, IDString)
 	if err != nil {
-		return errors.Wrapf(err, "failed to create new stream to [%s]", ID)
+		return errors.Wrapf(err, "failed to create new stream to [%s]", IDString)
 	}
 
-	p.handleStream()(nwStream)
+	p.handleStream(nwStream)
 
-	return p.sendWithCachedStreams(ID, msg)
+	return p.sendWithCachedStreams(IDString, msg)
 }
 
-func (p *P2PNode) handleStream() network.StreamHandler {
-	return func(stream network.Stream) {
-		sh := &streamHandler{
-			stream: stream,
-			reader: NewDelimitedReader(stream, 655360*2),
-			writer: io.NewDelimitedWriter(stream),
-			node:   p,
-		}
+func (p *P2PNode) handleStream(stream host2.P2PStream) {
 
-		remotePeerID := sh.stream.Conn().RemotePeer()
-		p.streamsMutex.Lock()
-		p.streams[remotePeerID] = append(p.streams[remotePeerID], sh)
-		p.streamsMutex.Unlock()
-
-		go sh.handleIncoming()
+	sh := &streamHandler{
+		stream: stream,
+		reader: NewDelimitedReader(stream, 655360*2),
+		writer: io.NewDelimitedWriter(stream),
+		node:   p,
 	}
+
+	remotePeerID := stream.RemotePeerID()
+	p.streamsMutex.Lock()
+	p.streams[remotePeerID] = append(p.streams[remotePeerID], sh)
+	p.streamsMutex.Unlock()
+
+	go sh.handleIncoming()
 }
 
-func (p *P2PNode) Lookup(peerID string) (peer.AddrInfo, bool) {
-	p.peersMutex.RLock()
-	defer p.peersMutex.RUnlock()
-
-	peer, in := p.peers[peerID]
-	return peer, in
+func (p *P2PNode) Lookup(peerID string) ([]string, bool) {
+	return p.host.Lookup(peerID)
 }
 
 type streamHandler struct {
 	lock   sync.Mutex
-	stream network.Stream
+	stream host2.P2PStream
 	reader io.ReadCloser
 	writer io.WriteCloser
 	node   *P2PNode
@@ -281,7 +244,7 @@ func (s *streamHandler) handleIncoming() {
 			logger.Debugf("error reading message: [%s][%s]", err.Error(), debug.Stack())
 
 			// remove stream handler
-			remotePeerID := s.stream.Conn().RemotePeer()
+			remotePeerID := s.stream.RemotePeerID()
 			s.node.streamsMutex.Lock()
 			for i, thisSH := range s.node.streams[remotePeerID] {
 				if thisSH == s {
@@ -307,8 +270,8 @@ func (s *streamHandler) handleIncoming() {
 				Status:       msg.Status,
 				Payload:      msg.Payload,
 				Caller:       msg.Caller,
-				FromEndpoint: s.stream.Conn().RemoteMultiaddr().String(),
-				FromPKID:     []byte(s.stream.Conn().RemotePeer().String()),
+				FromEndpoint: s.stream.RemotePeerAddress(),
+				FromPKID:     []byte(s.stream.RemotePeerID()),
 			},
 			stream: s,
 		}
