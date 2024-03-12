@@ -29,7 +29,7 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-var logger = flogging.MustGetLogger("view-sdk")
+var logger = flogging.MustGetLogger("libp2p-host")
 
 const (
 	viewProtocol     = "/fsc/view/1.0.0"
