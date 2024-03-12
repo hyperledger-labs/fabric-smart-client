@@ -45,7 +45,7 @@ func NewVirtualNetwork(port int, numNodes int) (Network, error) {
 	var res []*node
 
 	// Setup master
-	provider := NewHostProvider(&disabled.Provider{})
+	provider := newHostProvider(&disabled.Provider{})
 	bootstrapNode, err := newBootstrapNode(port, provider)
 	if err != nil {
 		return nil, err
@@ -102,7 +102,7 @@ func id(pk crypto.PubKey) (string, error) {
 	return ID.String(), nil
 }
 
-func newBootstrapNode(port int, provider HostProvider) (*node, error) {
+func newBootstrapNode(port int, provider *hostProvider) (*node, error) {
 	sk, pk, err := crypto.GenerateKeyPair(crypto.ECDSA, 0)
 	if err != nil {
 		return nil, err
@@ -130,7 +130,7 @@ func newBootstrapNode(port int, provider HostProvider) (*node, error) {
 	}, nil
 }
 
-func newNode(port int, bootstrapNode *node, provider HostProvider) (*node, error) {
+func newNode(port int, bootstrapNode *node, provider *hostProvider) (*node, error) {
 	sk, pk, err := crypto.GenerateKeyPair(crypto.ECDSA, 0)
 	if err != nil {
 		return nil, err

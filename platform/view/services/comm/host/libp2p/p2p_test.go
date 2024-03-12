@@ -62,7 +62,7 @@ func setupTwoNodes(t *testing.T, bootstrapNodeID, bootstrapNodeEndpoint, nodeID,
 		}
 	}()
 
-	provider := NewHostProvider(&disabled.Provider{})
+	provider := newHostProvider(&disabled.Provider{})
 
 	bootstrapNodePrivBytes, err := os.ReadFile(bootstrapNodeSK)
 	assert.NoError(t, err)
