@@ -71,15 +71,21 @@ type StreamInfo struct {
 	PeerID   host2.PeerID `json:"peer_id"`
 }
 
-func newClientStream(peerAddress host2.PeerIPAddress, src, dst host2.PeerID) (*wsStream, error) {
+var schemes = map[bool]string{
+	true:  "wss",
+	false: "ws",
+}
+
+func newClientStream(peerAddress host2.PeerIPAddress, src, dst host2.PeerID, config *tls.Config) (*wsStream, error) {
 	logger.Infof("Creating new stream from [%s] to [%s@%s]...", src, dst, peerAddress)
+	tlsEnabled := config.InsecureSkipVerify || config.RootCAs != nil
+	url := url.URL{Scheme: schemes[tlsEnabled], Host: peerAddress, Path: "/p2p"}
 	streamID := make([]byte, streamIDLength)
 	if _, err := rand.Read(streamID); err != nil {
 		return nil, err
 	}
 
-	url := url.URL{Scheme: "ws", Host: peerAddress, Path: "/p2p"}
-	conn, err := web2.OpenWSClientConn(url.String(), &tls.Config{})
+	conn, err := web2.OpenWSClientConn(url.String(), config)
 	logger.Infof("Successfully connected to websocket")
 	if err != nil {
 		logger.Errorf("Dial failed: %s\n", err.Error())

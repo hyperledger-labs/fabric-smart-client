@@ -22,26 +22,28 @@ func (p *hostProvider) NewHost(listenAddress, bootstrapListenAddress host2.PeerI
 
 type hostGeneratorProvider struct {
 	*hostProvider
-	key crypto.PrivKey
 }
 
-func NewHostGeneratorProvider(provider metrics2.Provider, mspPath string) (*hostGeneratorProvider, error) {
-	k, err := newCryptoPrivKeyFromMSP(mspPath)
+func NewHostGeneratorProvider(provider metrics2.Provider) *hostGeneratorProvider {
+	return &hostGeneratorProvider{
+		hostProvider: newHostProvider(provider),
+	}
+}
+
+func (p *hostGeneratorProvider) NewBootstrapHost(listenAddress host2.PeerIPAddress, privateKeyPath string, certPath string) (host2.P2PHost, error) {
+	k, err := newCryptoPrivKeyFromMSP(privateKeyPath)
 	if err != nil {
 		return nil, err
 	}
-	return &hostGeneratorProvider{
-		hostProvider: newHostProvider(provider),
-		key:          k,
-	}, nil
+	return p.hostProvider.NewBootstrapHost(listenAddress, k)
 }
 
-func (p *hostGeneratorProvider) NewBootstrapHost(listenAddress host2.PeerIPAddress) (host2.P2PHost, error) {
-	return p.hostProvider.NewBootstrapHost(listenAddress, p.key)
-}
-
-func (p *hostGeneratorProvider) NewHost(listenAddress, bootstrapListenAddress host2.PeerIPAddress) (host2.P2PHost, error) {
-	return p.hostProvider.NewHost(listenAddress, bootstrapListenAddress, p.key)
+func (p *hostGeneratorProvider) NewHost(listenAddress host2.PeerIPAddress, privateKeyPath string, certPath string, bootstrapListenAddress host2.PeerIPAddress) (host2.P2PHost, error) {
+	k, err := newCryptoPrivKeyFromMSP(privateKeyPath)
+	if err != nil {
+		return nil, err
+	}
+	return p.hostProvider.NewHost(listenAddress, bootstrapListenAddress, k)
 }
 
 type hostProvider struct {

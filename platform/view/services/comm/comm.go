@@ -25,6 +25,7 @@ type EndpointService interface {
 
 type ConfigService interface {
 	GetString(key string) string
+	GetPath(key string) string
 }
 
 type Service struct {
@@ -120,11 +121,13 @@ func (s *Service) init() error {
 
 	p2pListenAddress := s.ConfigService.GetString("fsc.p2p.listenAddress")
 	p2pBootstrapNode := s.ConfigService.GetString("fsc.p2p.bootstrapNode")
+	keyFile := s.ConfigService.GetPath("fsc.identity.key.file")
+	certFile := s.ConfigService.GetPath("fsc.identity.cert.file")
 	if len(p2pBootstrapNode) == 0 {
 		// this is a bootstrap node
 		logger.Infof("new p2p bootstrap node [%s]", p2pListenAddress)
 
-		h, err := s.HostProvider.NewBootstrapHost(p2pListenAddress)
+		h, err := s.HostProvider.NewBootstrapHost(p2pListenAddress, keyFile, certFile)
 		if err != nil {
 			return err
 		}
@@ -148,7 +151,7 @@ func (s *Service) init() error {
 		}
 		addr = addr + "/p2p/" + string(pkID)
 		logger.Infof("new p2p node [%s,%s]", p2pListenAddress, addr)
-		h, err := s.HostProvider.NewHost(p2pListenAddress, addr)
+		h, err := s.HostProvider.NewHost(p2pListenAddress, keyFile, certFile, addr)
 		if err != nil {
 			return err
 		}

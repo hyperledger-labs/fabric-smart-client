@@ -34,11 +34,17 @@ func setupTwoNodes(t *testing.T) (*comm.P2PNode, *comm.P2PNode, string, string) 
 		"bootstrap": []host2.PeerIPAddress{"127.0.0.1:1234"},
 		"other":     []host2.PeerIPAddress{"127.0.0.1:5678"},
 	})
-	bootstrap, _ := provider.NewHost("127.0.0.1:1234", "")
+	bootstrap, _ := provider.NewHost("127.0.0.1:1234",
+		"../libp2p/testdata/msp/user1/keystore/priv_sk",
+		"../libp2p/testdata/msp/user1/signcerts/User1@org1.example.com-cert.pem",
+		"")
 	bootstrapNode, err := comm.NewNode(bootstrap)
 	assert.NoError(t, err)
 
-	other, _ := provider.NewHost("127.0.0.1:5678", "")
+	other, _ := provider.NewHost("127.0.0.1:5678",
+		"../libp2p/testdata/msp/user2/keystore/priv_sk",
+		"../libp2p/testdata/msp/user2/signcerts/User2@org1.example.com-cert.pem",
+		"")
 	otherNode, err := comm.NewNode(other)
 	assert.NoError(t, err)
 

@@ -275,12 +275,9 @@ func (p *SDK) initGRPCServer() error {
 }
 
 func (p *SDK) initCommLayer() {
-	configProvider := view.GetConfigService(p.registry)
-	provider, err := libp2p.NewHostGeneratorProvider(metrics.GetProvider(p.registry), configProvider.GetPath("fsc.identity.key.file"))
-	assert.NoError(err, "failed creating host provider")
 	es := view.GetEndpointService(p.registry)
 	commService, err := comm2.NewService(
-		provider,
+		libp2p.NewHostGeneratorProvider(metrics.GetProvider(p.registry)),
 		es,
 		view.GetConfigService(p.registry),
 		view.GetIdentityProvider(p.registry).DefaultIdentity(),
