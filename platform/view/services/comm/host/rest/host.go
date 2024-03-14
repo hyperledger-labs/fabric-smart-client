@@ -8,12 +8,7 @@ package rest
 
 import (
 	"context"
-	"fmt"
-	"io"
-	"time"
 
-	"github.com/gin-contrib/cors"
-	"github.com/gin-gonic/gin"
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/pkg/errors"
@@ -22,57 +17,28 @@ import (
 var logger = flogging.MustGetLogger("rest-p2p-host")
 
 type host struct {
-	listenAddress     host2.PeerIPAddress
-	certFile, keyFile string
-
-	nodeID  host2.PeerID
 	routing routing
-	server  io.Closer
+	server  *server
+	client  *client
 }
 
-func NewHost(nodeID host2.PeerID, listenAddress host2.PeerIPAddress, routing routing, certFile, keyFile string) *host {
-	logger.Infof("Creating new host on %s", listenAddress)
-	return &host{
-		listenAddress: listenAddress,
-		nodeID:        nodeID,
-		routing:       routing,
-		certFile:      certFile,
-		keyFile:       keyFile,
+func NewHost(nodeID host2.PeerID, listenAddress host2.PeerIPAddress, routing routing, keyFile, certFile string, rootCACertFiles []string) (*host, error) {
+	logger.Infof("Creating new host for node [%s] on [%s] with key, cert at: [%s], [%s]", nodeID, listenAddress, keyFile, certFile)
+	p2pClient, err := newClient(nodeID, rootCACertFiles, len(keyFile) > 0 && len(certFile) > 0)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to create client")
 	}
+	p2pServer := newServer(listenAddress, keyFile, certFile)
+	return &host{
+		server:  p2pServer,
+		client:  p2pClient,
+		routing: routing,
+	}, nil
 }
 
 func (h *host) Start(newStreamCallback func(stream host2.P2PStream)) error {
-	logger.Infof("Starting up REST server on [%s]...", h.listenAddress)
-	r := gin.New()
-	r.Use(gin.LoggerWithFormatter(func(param gin.LogFormatterParams) string {
-		// your custom format
-		return fmt.Sprintf("%s - [%s] \"%s %s %s %d %s \"%s\" %s\"\n",
-			param.ClientIP,
-			param.TimeStamp.Format(time.RFC1123),
-			param.Method,
-			param.Path,
-			param.Request.Proto,
-			param.StatusCode,
-			param.Latency,
-			param.Request.UserAgent(),
-			param.ErrorMessage,
-		)
-	}))
-	config := cors.DefaultConfig()
-	config.AllowOrigins = []string{"*"}
-	config.AllowHeaders = []string{"*"}
-	r.Use(cors.New(config))
-	r.GET("/p2p", func(c *gin.Context) {
-		logger.Infof("New incoming stream from [%s]", c.Request.RemoteAddr)
-		stream, err := newServerStream(c.Writer, c.Request)
-		if err != nil {
-			logger.Errorf("error receiving websocket: %v", err)
-		}
-		newStreamCallback(stream)
-	})
-
 	go func() {
-		if err := r.Run(h.listenAddress); err != nil {
+		if err := h.server.Start(newStreamCallback); err != nil {
 			panic(err)
 		}
 	}()
@@ -89,7 +55,7 @@ func (h *host) NewStream(_ context.Context, address host2.PeerIPAddress, peerID 
 		logger.Debugf("Resolved %d addresses of peer [%s] and picking the first one.", len(addresses), peerID)
 		address = addresses[0]
 	}
-	return newClientStream(address, h.nodeID, peerID)
+	return h.client.OpenStream(address, peerID)
 }
 
 func (h *host) Lookup(peerID host2.PeerID) ([]host2.PeerIPAddress, bool) {
@@ -97,11 +63,7 @@ func (h *host) Lookup(peerID host2.PeerID) ([]host2.PeerIPAddress, bool) {
 }
 
 func (h *host) Close() error {
-	logger.Infof("Shutting down REST server")
-	if h.server != nil {
-		return h.server.Close()
-	}
-	return nil
+	return h.server.Close()
 }
 
 func (h *host) Wait() {}

@@ -16,8 +16,8 @@ type PeerIPAddress = string
 
 // GeneratorProvider provides the hosts and generates their PKs
 type GeneratorProvider interface {
-	NewBootstrapHost(listenAddress PeerIPAddress) (P2PHost, error)
-	NewHost(listenAddress, bootstrapListenAddress PeerIPAddress) (P2PHost, error)
+	NewBootstrapHost(listenAddress PeerIPAddress, privateKeyPath string, certPath string) (P2PHost, error)
+	NewHost(listenAddress PeerIPAddress, privateKeyPath string, certPath string, bootstrapListenAddress PeerIPAddress) (P2PHost, error)
 }
 
 type P2PHost interface {
