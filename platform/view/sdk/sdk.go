@@ -21,7 +21,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/finality"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
 	comm2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/identity"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/libp2p"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/crypto"
 	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger"
 	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
@@ -276,21 +276,18 @@ func (p *SDK) initGRPCServer() error {
 
 func (p *SDK) initCommLayer() {
 	configProvider := view.GetConfigService(p.registry)
-
-	k, err := identity.NewCryptoPrivKeyFromMSP(configProvider.GetPath("fsc.identity.key.file"))
-	assert.NoError(err, "failed loading p2p node secret key")
-
+	provider, err := libp2p.NewHostGeneratorProvider(metrics.GetProvider(p.registry), configProvider.GetPath("fsc.identity.key.file"))
+	assert.NoError(err, "failed creating host provider")
 	es := view.GetEndpointService(p.registry)
 	commService, err := comm2.NewService(
-		&comm2.PrivateKeyFromCryptoKey{Key: k},
+		provider,
 		es,
 		view.GetConfigService(p.registry),
 		view.GetIdentityProvider(p.registry).DefaultIdentity(),
-		comm2.NewMetrics(metrics.GetProvider(p.registry)),
 	)
 	assert.NoError(err, "failed instantiating the communication service")
 	assert.NoError(p.registry.RegisterService(commService), "failed registering communication service")
-	pkiSupport := &comm2.PKISupport{}
+	pkiSupport := &libp2p.PKISupport{}
 	assert.NoError(es.AddPublicKeyExtractor(pkiSupport), "failed addi,ng fabric pki resolver")
 	es.SetPublicKeyIDSynthesizer(pkiSupport)
 	p.commService = commService

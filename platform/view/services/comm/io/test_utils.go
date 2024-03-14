@@ -4,33 +4,39 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package io_test
+package io
 
 import (
+	"context"
 	"sync"
 	"testing"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/stretchr/testify/assert"
-
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/io"
 )
 
-func TestSessionTwoParties(t *testing.T) {
-	network, err := comm.NewVirtualNetwork(12345, 2)
-	assert.NoError(t, err)
-	network.Start()
+type networkNode interface {
+	NewSessionWithID(sessionID, contextID, endpoint string, pkid []byte, caller view.Identity, msg *view.Message) (view.Session, error)
+	Start(ctx context.Context)
+	ID() string
+}
 
-	session01, err := network[0].Node.NewSessionWithID(
-		"session_id", "context_id", "", []byte(network[1].ID), nil, nil)
+func SessionTwoParties(t *testing.T, network ...networkNode) {
+	ctx := context.Background()
+	for _, node := range network {
+		node.Start(ctx)
+	}
+
+	session01, err := network[0].NewSessionWithID(
+		"session_id", "context_id", "", []byte(network[1].ID()), nil, nil)
 	assert.NoError(t, err)
-	conn01, err := io.NewConn(0, session01)
+	conn01, err := NewConn(0, session01)
 	assert.NoError(t, err)
 
-	session10, err := network[1].Node.NewSessionWithID(
-		"session_id", "context_id", "", []byte(network[0].ID), nil, nil)
+	session10, err := network[1].NewSessionWithID(
+		"session_id", "context_id", "", []byte(network[0].ID()), nil, nil)
 	assert.NoError(t, err)
-	conn10, err := io.NewConn(1, session10)
+	conn10, err := NewConn(1, session10)
 	assert.NoError(t, err)
 
 	num := 10000
@@ -47,7 +53,7 @@ func TestSessionTwoParties(t *testing.T) {
 	waitGroup.Wait()
 }
 
-func receive(t *testing.T, session io.Conn, waitGroup *sync.WaitGroup, num int, payload []byte) {
+func receive(t *testing.T, session Conn, waitGroup *sync.WaitGroup, num int, payload []byte) {
 	for i := 0; i < num; i++ {
 		msg := make([]byte, len(payload))
 		n, err := session.Read(msg)
@@ -60,7 +66,7 @@ func receive(t *testing.T, session io.Conn, waitGroup *sync.WaitGroup, num int, 
 	waitGroup.Done()
 }
 
-func send(t *testing.T, session io.Conn, waitGroup *sync.WaitGroup, num int, payload []byte) {
+func send(t *testing.T, session Conn, waitGroup *sync.WaitGroup, num int, payload []byte) {
 	for i := 0; i < num; i++ {
 		n, err := session.Write(payload)
 		assert.NoError(t, err)

@@ -4,41 +4,49 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package comm
+package libp2p
 
 import (
-	"context"
 	"strconv"
+	"testing"
 	"time"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/io"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
+	"golang.org/x/exp/slices"
 )
 
 type Network []*node
 
-func (n Network) Start() {
-	ctx := context.Background()
-	for _, node := range n {
-		node.Node.Start(ctx)
-	}
+func TestSessionTwoParties(t *testing.T) {
+	network, err := NewVirtualNetwork(12345, 2)
+	assert.NoError(t, err)
+
+	io.SessionTwoParties(t, network[0], network[1])
 }
 
 type node struct {
-	ID          string
-	Node        *P2PNode
-	Endpoint    string
-	DHTEndpoint string
+	*comm.P2PNode
+	id          string
+	endpoint    string
+	dhtEndpoint string
+}
+
+func (n *node) ID() string {
+	return n.id
 }
 
 func NewVirtualNetwork(port int, numNodes int) (Network, error) {
 	var res []*node
 
 	// Setup master
-	metrics := NewMetrics(&disabled.Provider{})
-	bootstrapNode, err := newBootstrapNode(port, metrics)
+	provider := newHostProvider(&disabled.Provider{})
+	bootstrapNode, err := newBootstrapNode(port, provider)
 	if err != nil {
 		return nil, err
 	}
@@ -47,7 +55,7 @@ func NewVirtualNetwork(port int, numNodes int) (Network, error) {
 	var nodes []*node
 	for i := 0; i < numNodes-1; i++ {
 		port++
-		n, err := newNode(port, bootstrapNode, metrics)
+		n, err := newNode(port, bootstrapNode, provider)
 		if err != nil {
 			return nil, err
 		}
@@ -58,18 +66,8 @@ func NewVirtualNetwork(port int, numNodes int) (Network, error) {
 	for _, node := range nodes {
 		err := eventually(
 			func() bool {
-				addr, ok := bootstrapNode.Node.Lookup(node.ID)
-				if !ok {
-					return false
-				}
-
-				for _, multiaddr := range addr.Addrs {
-					if multiaddr.String() == node.Endpoint {
-						return true
-					}
-				}
-
-				return false
+				addrs, ok := bootstrapNode.Lookup(node.id)
+				return ok && slices.Contains(addrs, node.endpoint)
 			},
 			60*time.Second,
 			500*time.Millisecond,
@@ -82,18 +80,8 @@ func NewVirtualNetwork(port int, numNodes int) (Network, error) {
 	for _, node := range nodes {
 		err := eventually(
 			func() bool {
-				addr, ok := node.Node.Lookup(bootstrapNode.ID)
-				if !ok {
-					return false
-				}
-
-				for _, multiaddr := range addr.Addrs {
-					if multiaddr.String() == bootstrapNode.Endpoint {
-						return true
-					}
-				}
-
-				return false
+				addrs, ok := node.Lookup(bootstrapNode.id)
+				return ok && slices.Contains(addrs, bootstrapNode.endpoint)
 			},
 			60*time.Second,
 			500*time.Millisecond,
@@ -114,7 +102,7 @@ func id(pk crypto.PubKey) (string, error) {
 	return ID.String(), nil
 }
 
-func newBootstrapNode(port int, metrics *Metrics) (*node, error) {
+func newBootstrapNode(port int, provider *hostProvider) (*node, error) {
 	sk, pk, err := crypto.GenerateKeyPair(crypto.ECDSA, 0)
 	if err != nil {
 		return nil, err
@@ -125,20 +113,24 @@ func newBootstrapNode(port int, metrics *Metrics) (*node, error) {
 	}
 	nodeEndpoint := "/ip4/127.0.0.1/tcp/" + strconv.Itoa(port)
 	nodeDHTEndpoint := nodeEndpoint + "/p2p/" + nodeID
-	p2pNode, err := NewBootstrapNode(nodeEndpoint, &PrivateKeyFromCryptoKey{Key: sk}, metrics)
+	h, err := provider.NewBootstrapHost(nodeEndpoint, sk)
+	if err != nil {
+		return nil, err
+	}
+	p2pNode, err := comm.NewNode(h)
 	if err != nil {
 		return nil, err
 	}
 
 	return &node{
-		ID:          nodeID,
-		Endpoint:    nodeEndpoint,
-		DHTEndpoint: nodeDHTEndpoint,
-		Node:        p2pNode,
+		P2PNode:     p2pNode,
+		id:          nodeID,
+		endpoint:    nodeEndpoint,
+		dhtEndpoint: nodeDHTEndpoint,
 	}, nil
 }
 
-func newNode(port int, bootstrapNode *node, metrics *Metrics) (*node, error) {
+func newNode(port int, bootstrapNode *node, provider *hostProvider) (*node, error) {
 	sk, pk, err := crypto.GenerateKeyPair(crypto.ECDSA, 0)
 	if err != nil {
 		return nil, err
@@ -149,15 +141,19 @@ func newNode(port int, bootstrapNode *node, metrics *Metrics) (*node, error) {
 	}
 	nodeEndpoint := "/ip4/127.0.0.1/tcp/" + strconv.Itoa(port)
 
-	p2pNode, err := NewNode(nodeEndpoint, bootstrapNode.DHTEndpoint, &PrivateKeyFromCryptoKey{Key: sk}, metrics)
+	h, err := provider.NewHost(nodeEndpoint, bootstrapNode.dhtEndpoint, sk)
+	if err != nil {
+		return nil, err
+	}
+	p2pNode, err := comm.NewNode(h)
 	if err != nil {
 		return nil, err
 	}
 
 	return &node{
-		ID:       nodeID,
-		Endpoint: nodeEndpoint,
-		Node:     p2pNode,
+		id:       nodeID,
+		endpoint: nodeEndpoint,
+		P2PNode:  p2pNode,
 	}, nil
 }
 

@@ -4,7 +4,7 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package identity
+package libp2p
 
 import (
 	"crypto/ecdsa"
@@ -16,7 +16,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-func NewCryptoPrivKeyFromMSP(secretKeyPath string) (crypto.PrivKey, error) {
+func newCryptoPrivKeyFromMSP(secretKeyPath string) (crypto.PrivKey, error) {
 	fileCont, err := os.ReadFile(secretKeyPath)
 	if err != nil {
 		return nil, err
