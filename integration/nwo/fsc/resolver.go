@@ -35,9 +35,9 @@ func (p *Platform) GenerateResolverMap() {
 			//ViewPort: fmt.Sprintf("127.0.0.1:%d", p.Context.PortsByPeerID("fsc", peer.ID())[ListenPort]),
 			//ListenPort: fmt.Sprintf("127.0.0.1:%d", p.Context.PortsByPeerID("fsc", peer.ID())[ListenPort]),
 		}
-		if peer.Bootstrap {
-			addresses[P2PPort] = fmt.Sprintf("%s:%d", p.Context.HostByPeerID("fsc", peer.ID()), p.Context.PortsByPeerID("fsc", peer.ID())[P2PPort])
-		}
+		//if peer.Bootstrap { //TODO: Temporary solution to allow us deactivate libp2p until we have an IP resolution mechanism
+		addresses[P2PPort] = fmt.Sprintf("%s:%d", p.Context.HostByPeerID("fsc", peer.ID()), p.Context.PortsByPeerID("fsc", peer.ID())[P2PPort])
+		//}
 
 		p.Resolvers = append(p.Resolvers, &Resolver{
 			Name: peer.Name,

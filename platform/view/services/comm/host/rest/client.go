@@ -38,7 +38,7 @@ func newClient(nodeID host2.PeerID, rootCAs []string, tlsEnabled bool) (*client,
 }
 
 func newRootCACertPool(rootCAs []string) (*x509.CertPool, error) {
-	if rootCAs == nil || len(rootCAs) == 0 {
+	if len(rootCAs) == 0 {
 		return nil, nil
 	}
 	caCertPool := x509.NewCertPool()
