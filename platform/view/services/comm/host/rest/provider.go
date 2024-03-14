@@ -6,21 +6,37 @@ SPDX-License-Identifier: Apache-2.0
 
 package rest
 
-import host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
+import (
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/id"
+	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
+	"github.com/pkg/errors"
+)
 
-type mapRouteProvider struct {
-	routes *mapRouter
+type pkiExtractor interface {
+	ExtractPKI(id []byte) []byte
 }
 
-func newMapRouteProvider(routes *mapRouter) *mapRouteProvider {
-	return &mapRouteProvider{routes: routes}
+type endpointServiceBasedProvider struct {
+	pkiExtractor pkiExtractor
+	routing      routing
 }
 
-func (p *mapRouteProvider) NewBootstrapHost(listenAddress host2.PeerIPAddress, privateKeyPath, certPath string) (host2.P2PHost, error) {
-	nodeID, _ := p.routes.reverseLookup(listenAddress)
-	return NewHost(nodeID, listenAddress, p.routes, privateKeyPath, certPath, nil)
+func NewEndpointBasedProvider(extractor pkiExtractor, resolver endpointResolver) *endpointServiceBasedProvider {
+	return &endpointServiceBasedProvider{
+		pkiExtractor: extractor,
+		routing:      &endpointServiceRouting{resolver: resolver},
+	}
 }
 
-func (p *mapRouteProvider) NewHost(listenAddress host2.PeerIPAddress, privateKeyPath, certPath string, _ host2.PeerIPAddress) (host2.P2PHost, error) {
+func (p *endpointServiceBasedProvider) NewBootstrapHost(listenAddress host2.PeerIPAddress, privateKeyPath, certPath string) (host2.P2PHost, error) {
+	raw, err := id.LoadIdentity(certPath)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to load identity in [%s]", certPath)
+	}
+	nodeID := string(p.pkiExtractor.ExtractPKI(raw))
+	return NewHost(nodeID, convertAddress(listenAddress), p.routing, privateKeyPath, certPath, nil)
+}
+
+func (p *endpointServiceBasedProvider) NewHost(listenAddress host2.PeerIPAddress, privateKeyPath, certPath string, _ host2.PeerIPAddress) (host2.P2PHost, error) {
 	return p.NewBootstrapHost(listenAddress, privateKeyPath, certPath)
 }

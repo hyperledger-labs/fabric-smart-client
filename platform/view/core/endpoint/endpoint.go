@@ -295,22 +295,26 @@ func (r *Service) pkiResolve(resolver *Resolver) []byte {
 	}
 	r.pkiExtractorsLock.RUnlock()
 
+	resolver.PKI = r.ExtractPKI(resolver.Id)
+	return resolver.PKI
+}
+
+func (r *Service) ExtractPKI(id []byte) []byte {
 	r.pkiExtractorsLock.Lock()
 	defer r.pkiExtractorsLock.Unlock()
 	for _, extractor := range r.publicKeyExtractors {
-		if pk, err := extractor.ExtractPublicKey(resolver.Id); pk != nil {
+		if pk, err := extractor.ExtractPublicKey(id); pk != nil {
 			if logger.IsEnabledFor(zapcore.DebugLevel) {
-				logger.Debugf("pki resolved for [%s]", resolver.Id)
+				logger.Debugf("pki resolved for [%s]", id)
 			}
-			resolver.PKI = r.publicKeyIDSynthesizer.PublicKeyID(pk)
-			return resolver.PKI
+			return r.publicKeyIDSynthesizer.PublicKeyID(pk)
 		} else {
 			if logger.IsEnabledFor(zapcore.DebugLevel) {
-				logger.Debugf("pki not resolved by [%s] for [%s]: [%s]", getIdentifier(extractor), resolver.Id, err)
+				logger.Debugf("pki not resolved by [%s] for [%s]: [%s]", getIdentifier(extractor), id, err)
 			}
 		}
 	}
-	logger.Warnf("cannot resolve pki for [%s]", resolver.Id)
+	logger.Warnf("cannot resolve pki for [%s]", id)
 	return nil
 }
 

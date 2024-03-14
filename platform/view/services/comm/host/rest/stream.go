@@ -10,8 +10,10 @@ import (
 	"bytes"
 	"crypto/rand"
 	"crypto/tls"
+	"encoding/binary"
 	"net/http"
 	"net/url"
+	"strconv"
 
 	"github.com/gorilla/websocket"
 	web2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/web"
@@ -37,13 +39,17 @@ func (r *bufferedReader) Read(p []byte) []byte {
 
 	r.bytes = append(r.bytes, p...)
 	if r.length <= 0 {
-		r.length = int(p[0]) + len(p)
+		length, err := binary.ReadUvarint(bytes.NewReader(p))
+		if err != nil {
+			panic("failed to read length [" + string(p) + "]: " + err.Error())
+		}
+		r.length = int(length) + len(p)
 		logger.Infof("Reading only size: %d [%v]", r.length, len(p))
 		return nil
 	}
 
 	if len(r.bytes) > r.length {
-		panic("too many elements added")
+		panic("too many elements added [" + strconv.Itoa(len(r.bytes)) + "/" + strconv.Itoa(r.length) + "]")
 	}
 
 	logger.Infof("appended [%s] and expecting %d in total. current length: %d", string(p), r.length, len(r.bytes))
@@ -64,6 +70,12 @@ type wsStream struct {
 	peerID      host2.PeerID
 	peerAddress host2.PeerIPAddress
 	reads       <-chan result
+
+	// Sometimes Read doesn't read the whole value that comes from the reads channel, because of buffering.
+	// In this case, we store what was not read in readLeftover, and on the next read, we attempt first to check whether
+	// there were any leftover bytes from the previous value of the reads.
+	// If not, then we consume the next value from the reads channel
+	readLeftover []byte
 }
 
 type StreamInfo struct {
@@ -131,12 +143,13 @@ func newWSStream(conn *websocket.Conn, streamID []byte, peerID host2.PeerID, pee
 	}()
 
 	return &wsStream{
-		conn:        conn,
-		streamID:    string(streamID),
-		peerID:      peerID,
-		peerAddress: peerAddress,
-		accumulator: newBufferedReader(),
-		reads:       reads,
+		conn:         conn,
+		streamID:     string(streamID),
+		peerID:       peerID,
+		peerAddress:  peerAddress,
+		accumulator:  newBufferedReader(),
+		reads:        reads,
+		readLeftover: []byte{},
 	}
 }
 
@@ -153,25 +166,32 @@ type result struct {
 	err   error
 }
 
-func (s *wsStream) Read(p []byte) (n int, err error) {
-	logger.Infof("[%s@%s] waits to read...", s.peerID, s.peerAddress)
-	r := <-s.reads
-	if r.err != nil {
-		logger.Infof("error occurred while [%s] was reading: %v", s.peerID, r.err)
-		return 0, r.err
+func (s *wsStream) Read(p []byte) (int, error) {
+	if len(s.readLeftover) == 0 {
+		// The previous value from the channel has been read completely
+		logger.Debugf("[%s@%s] waits to read from channel...", s.peerID, s.peerAddress)
+		r := <-s.reads
+		if r.err != nil {
+			logger.Errorf("error occurred while [%s] was reading: %v", s.peerID, r.err)
+			return 0, r.err
+		}
+		s.readLeftover = r.value
+	} else {
+		logger.Debugf("Reading from remaining %d bytes from previous value", len(s.readLeftover))
 	}
-	copy(p, r.value)
-	logger.Infof("[%s@%s] read: %s", s.peerID, s.peerAddress, r.value)
-	return len(r.value), nil
+	n := copy(p, s.readLeftover)
+	s.readLeftover = s.readLeftover[n:]
+	logger.Debugf("[%s@%s] copied %d bytes, remaining %d bytes", s.peerID, s.peerAddress, n, len(s.readLeftover))
+	return n, nil
 }
 
 func (s *wsStream) Write(p []byte) (int, error) {
 	content := s.accumulator.Read(p)
 	if content == nil {
-		logger.Infof("Wrote to [%s@%s], but message not ready yet (%d/%d received): [%s]", s.peerID, s.peerAddress, len(s.accumulator.bytes), s.accumulator.length, string(s.accumulator.bytes))
+		logger.Debugf("Wrote to [%s@%s], but message not ready yet (%d/%d received): [%s]", s.peerID, s.peerAddress, len(s.accumulator.bytes), s.accumulator.length, string(s.accumulator.bytes))
 		return len(p), nil
 	}
-	logger.Infof("Ready to send to [%s@%s]: [%s]", s.peerID, s.peerAddress, content)
+	logger.Debugf("Ready to send to [%s@%s]: [%s]", s.peerID, s.peerAddress, content)
 	if err := s.conn.WriteMessage(websocket.TextMessage, content); err != nil {
 		return 0, err
 	}
