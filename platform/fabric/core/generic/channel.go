@@ -330,19 +330,16 @@ func (c *Channel) DefaultSigner() discovery.Signer {
 	return c.Network.LocalMembership().DefaultSigningIdentity().Sign
 }
 
-// FetchAndStoreEnvelope fetches from the ledger and stores the enveloped correspoding to the passed id
-func (c *Channel) FetchAndStoreEnvelope(txID string) error {
+// FetchEnvelope fetches from the ledger and stores the enveloped correspoding to the passed id
+func (c *Channel) FetchEnvelope(txID string) ([]byte, error) {
 	pt, err := c.GetTransactionByID(txID)
 	if err != nil {
-		return errors.WithMessagef(err, "failed fetching tx [%s]", txID)
+		return nil, errors.WithMessagef(err, "failed fetching tx [%s]", txID)
 	}
 	if !pt.IsValid() {
-		return errors.Errorf("fetched tx [%s] should have been valid, instead it is [%s]", txID, peer.TxValidationCode_name[pt.ValidationCode()])
+		return nil, errors.Errorf("fetched tx [%s] should have been valid, instead it is [%s]", txID, peer.TxValidationCode_name[pt.ValidationCode()])
 	}
-	if err := c.EnvelopeService().StoreEnvelope(txID, pt.Envelope()); err != nil {
-		return errors.WithMessagef(err, "failed to store fetched envelope for [%s]", txID)
-	}
-	return nil
+	return pt.Envelope(), nil
 }
 
 func (c *Channel) GetRWSetFromEvn(txID string) (driver.RWSet, driver.ProcessTransaction, error) {
@@ -351,6 +348,10 @@ func (c *Channel) GetRWSetFromEvn(txID string) (driver.RWSet, driver.ProcessTran
 
 func (c *Channel) GetRWSetFromETx(txID string) (driver.RWSet, driver.ProcessTransaction, error) {
 	return c.RWSetLoader.GetRWSetFromETx(txID)
+}
+
+func (c *Channel) GetInspectingRWSetFromEvn(txID string, envelopeRaw []byte) (driver.RWSet, driver.ProcessTransaction, error) {
+	return c.RWSetLoader.GetInspectingRWSetFromEvn(txID, envelopeRaw)
 }
 
 func (c *Channel) Init() error {

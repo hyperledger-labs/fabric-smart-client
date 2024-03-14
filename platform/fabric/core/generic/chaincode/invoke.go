@@ -530,5 +530,6 @@ func (i *Invoke) broadcast(txID string, env *common.Envelope) error {
 	if err := i.Network.Broadcast(i.Context, env); err != nil {
 		return err
 	}
+	time.Sleep(10 * time.Second)
 	return i.Channel.IsFinal(context.Background(), txID)
 }

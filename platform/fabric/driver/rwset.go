@@ -63,4 +63,5 @@ type RWSet interface {
 type RWSetLoader interface {
 	GetRWSetFromEvn(txID string) (RWSet, ProcessTransaction, error)
 	GetRWSetFromETx(txID string) (RWSet, ProcessTransaction, error)
+	GetInspectingRWSetFromEvn(id string, envelopeRaw []byte) (RWSet, ProcessTransaction, error)
 }
