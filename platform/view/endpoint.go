@@ -56,7 +56,7 @@ func (e *EndpointService) Endpoint(party view.Identity) (map[PortName]string, er
 // If the passed identity does not have any endpoint set, the service checks
 // if the passed identity is bound to another identity that is returned together with its endpoints and public-key identifier.
 func (e *EndpointService) Resolve(party view.Identity) (view.Identity, map[PortName]string, []byte, error) {
-	id, ports, raw, err := e.es.Resolve(party)
+	_, id, ports, raw, err := e.es.Resolve(party)
 	if err != nil {
 		return nil, nil, nil, err
 	}
