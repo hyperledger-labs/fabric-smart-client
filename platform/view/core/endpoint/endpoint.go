@@ -125,7 +125,7 @@ func (r *Service) Endpoint(party view.Identity) (map[driver.PortName]string, err
 	}
 }
 
-func (r *Service) Resolve(party view.Identity) (view.Identity, map[driver.PortName]string, []byte, error) {
+func (r *Service) Resolve(party view.Identity) (string, view.Identity, map[driver.PortName]string, []byte, error) {
 	cursor := party
 	for {
 		// root endpoints have addresses
@@ -137,7 +137,7 @@ func (r *Service) Resolve(party view.Identity) (view.Identity, map[driver.PortNa
 			}
 			ee, err := r.getBinding(cursor.UniqueID())
 			if err != nil {
-				return nil, nil, nil, errors.Wrapf(err, "endpoint not found for identity [%s,%s]", string(cursor), cursor.UniqueID())
+				return "", nil, nil, nil, errors.Wrapf(err, "endpoint not found for identity [%s,%s]", string(cursor), cursor.UniqueID())
 			}
 
 			cursor = ee.Identity
@@ -147,7 +147,7 @@ func (r *Service) Resolve(party view.Identity) (view.Identity, map[driver.PortNa
 			continue
 		}
 
-		return cursor, e, r.pkiResolve(resolver), nil
+		return resolver.Name, cursor, e, r.pkiResolve(resolver), nil
 	}
 }
 

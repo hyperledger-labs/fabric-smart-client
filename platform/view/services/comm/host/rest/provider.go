@@ -21,10 +21,10 @@ type endpointServiceBasedProvider struct {
 	routing      routing
 }
 
-func NewEndpointBasedProvider(extractor pkiExtractor, resolver endpointResolver) *endpointServiceBasedProvider {
+func NewEndpointBasedProvider(extractor pkiExtractor, routing routing) *endpointServiceBasedProvider {
 	return &endpointServiceBasedProvider{
 		pkiExtractor: extractor,
-		routing:      &endpointServiceRouting{resolver: resolver},
+		routing:      routing,
 	}
 }
 

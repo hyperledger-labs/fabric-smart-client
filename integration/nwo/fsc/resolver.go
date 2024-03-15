@@ -27,19 +27,27 @@ type Resolver struct {
 }
 
 func (p *Platform) GenerateResolverMap() {
-	p.Resolvers = []*Resolver{}
-	for _, peer := range p.Peers {
+	resolvers := make([]*Resolver, len(p.Peers))
+	routing := make(map[string][]string)
+	for i, peer := range p.Peers {
 		org := p.Organization(peer.Organization)
 
 		addresses := map[api.PortName]string{
 			//ViewPort: fmt.Sprintf("127.0.0.1:%d", p.Context.PortsByPeerID("fsc", peer.ID())[ListenPort]),
 			//ListenPort: fmt.Sprintf("127.0.0.1:%d", p.Context.PortsByPeerID("fsc", peer.ID())[ListenPort]),
 		}
-		//if peer.Bootstrap { //TODO: Temporary solution to allow us deactivate libp2p until we have an IP resolution mechanism
-		addresses[P2PPort] = fmt.Sprintf("%s:%d", p.Context.HostByPeerID("fsc", peer.ID()), p.Context.PortsByPeerID("fsc", peer.ID())[P2PPort])
-		//}
+		p2pEndpoint := fmt.Sprintf("%s:%d", p.Context.HostByPeerID("fsc", peer.ID()), p.Context.PortsByPeerID("fsc", peer.ID())[P2PPort])
+		if peer.Bootstrap {
+			addresses[P2PPort] = p2pEndpoint
+		}
 
-		p.Resolvers = append(p.Resolvers, &Resolver{
+		if peerRoutes, ok := routing[peer.Name]; ok {
+			routing[peer.Name] = append(peerRoutes, p2pEndpoint)
+		} else {
+			routing[peer.Name] = []string{p2pEndpoint}
+		}
+
+		resolvers[i] = &Resolver{
 			Name: peer.Name,
 			Identity: ResolverIdentity{
 				ID:   peer.Name,
@@ -48,6 +56,8 @@ func (p *Platform) GenerateResolverMap() {
 			Domain:    org.Domain,
 			Addresses: addresses,
 			Aliases:   peer.Aliases,
-		})
+		}
 	}
+	p.Resolvers = resolvers
+	p.Routing = routing
 }

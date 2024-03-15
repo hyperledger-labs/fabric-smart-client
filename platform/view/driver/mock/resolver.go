@@ -88,7 +88,7 @@ type EndpointService struct {
 	isBoundToReturnsOnCall map[int]struct {
 		result1 bool
 	}
-	ResolveStub        func(view.Identity) (view.Identity, map[driver.PortName]string, []byte, error)
+	ResolveStub        func(view.Identity) (string, view.Identity, map[driver.PortName]string, []byte, error)
 	resolveMutex       sync.RWMutex
 	resolveArgsForCall []struct {
 		arg1 view.Identity
@@ -511,7 +511,7 @@ func (fake *EndpointService) IsBoundToReturnsOnCall(i int, result1 bool) {
 	}{result1}
 }
 
-func (fake *EndpointService) Resolve(arg1 view.Identity) (view.Identity, map[driver.PortName]string, []byte, error) {
+func (fake *EndpointService) Resolve(arg1 view.Identity) (string, view.Identity, map[driver.PortName]string, []byte, error) {
 	fake.resolveMutex.Lock()
 	ret, specificReturn := fake.resolveReturnsOnCall[len(fake.resolveArgsForCall)]
 	fake.resolveArgsForCall = append(fake.resolveArgsForCall, struct {
@@ -525,9 +525,9 @@ func (fake *EndpointService) Resolve(arg1 view.Identity) (view.Identity, map[dri
 		return stub(arg1)
 	}
 	if specificReturn {
-		return ret.result1, ret.result2, ret.result3, ret.result4
+		return "", ret.result1, ret.result2, ret.result3, ret.result4
 	}
-	return fakeReturns.result1, fakeReturns.result2, fakeReturns.result3, fakeReturns.result4
+	return "", fakeReturns.result1, fakeReturns.result2, fakeReturns.result3, fakeReturns.result4
 }
 
 func (fake *EndpointService) ResolveCallCount() int {
@@ -536,7 +536,7 @@ func (fake *EndpointService) ResolveCallCount() int {
 	return len(fake.resolveArgsForCall)
 }
 
-func (fake *EndpointService) ResolveCalls(stub func(view.Identity) (view.Identity, map[driver.PortName]string, []byte, error)) {
+func (fake *EndpointService) ResolveCalls(stub func(view.Identity) (string, view.Identity, map[driver.PortName]string, []byte, error)) {
 	fake.resolveMutex.Lock()
 	defer fake.resolveMutex.Unlock()
 	fake.ResolveStub = stub

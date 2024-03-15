@@ -1,0 +1,6 @@
+---
+routes:
+  initiator:
+    - 0.0.0.0:21001
+  responder:
+    - 0.0.0.0:21004

@@ -306,7 +306,7 @@ func (ctx *ctx) Dispose() {
 }
 
 func (ctx *ctx) newSession(view view.View, contextID string, party view.Identity) (view.Session, error) {
-	_, endpoints, pkid, err := ctx.resolver.Resolve(party)
+	_, _, endpoints, pkid, err := ctx.resolver.Resolve(party)
 	if err != nil {
 		return nil, err
 	}
@@ -314,7 +314,7 @@ func (ctx *ctx) newSession(view view.View, contextID string, party view.Identity
 }
 
 func (ctx *ctx) newSessionByID(sessionID, contextID string, party view.Identity) (view.Session, error) {
-	_, endpoints, pkid, err := ctx.resolver.Resolve(party)
+	_, _, endpoints, pkid, err := ctx.resolver.Resolve(party)
 	if err != nil {
 		return nil, err
 	}

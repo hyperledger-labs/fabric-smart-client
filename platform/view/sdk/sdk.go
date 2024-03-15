@@ -22,6 +22,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/finality"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
 	comm2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/libp2p"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/rest"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/crypto"
@@ -276,11 +277,23 @@ func (p *SDK) initGRPCServer() error {
 	return nil
 }
 
+//func newLibP2PHostProvider(sp driver.ServiceProvider) host.GeneratorProvider {
+//	return libp2p.NewHostGeneratorProvider(metrics.GetProvider(sp))
+//}
+
+func newRestP2PHostProvider(sp driver.ServiceProvider) host.GeneratorProvider {
+	config := driver.GetConfigService(sp)
+	endpointService := driver.GetEndpointService(sp).(*endpoint.Service)
+	//routing := rest.NewEndpointServiceRouting(endpointService)
+	routing, err := rest.NewResolvedStaticRouter(config.GetPath("fsc.p2p.routing.path"), endpointService)
+	assert.NoError(err)
+	return rest.NewEndpointBasedProvider(endpointService, routing)
+}
+
 func (p *SDK) initCommLayer() {
 	es := view.GetEndpointService(p.registry)
-	endpointService := driver.GetEndpointService(p.registry).(*endpoint.Service)
 	commService, err := comm2.NewService(
-		rest.NewEndpointBasedProvider(endpointService, endpointService),
+		newRestP2PHostProvider(p.registry),
 		es,
 		view.GetConfigService(p.registry),
 		view.GetIdentityProvider(p.registry).DefaultIdentity(),

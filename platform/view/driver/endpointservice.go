@@ -43,7 +43,7 @@ type EndpointService interface {
 
 	// Resolve returns the identity the passed identity is bound to.
 	// It returns also: the endpoints and the pkiID
-	Resolve(party view.Identity) (view.Identity, map[PortName]string, []byte, error)
+	Resolve(party view.Identity) (string, view.Identity, map[PortName]string, []byte, error)
 
 	// GetIdentity returns an identity bound to either the passed label or public-key identifier.
 	GetIdentity(label string, pkiID []byte) (view.Identity, error)

@@ -78,6 +78,7 @@ type Platform struct {
 	Organizations            []*node2.Organization
 	Peers                    []*node2.Peer
 	Resolvers                []*Resolver
+	Routing                  map[string][]string
 	colorIndex               int
 	metricsAggregatorProcess ifrit.Process
 }
@@ -142,6 +143,7 @@ func (p *Platform) GenerateArtifacts() {
 		p.Context.SetViewIdentity(peer.Name, cert)
 
 		p.GenerateCoreConfig(peer)
+		p.GenerateRoutingConfig()
 
 		c := view2.Config{
 			Version: 0,
@@ -393,6 +395,10 @@ func (p *Platform) CryptoConfigPath() string {
 	return filepath.Join(p.Context.RootDir(), "fsc", "crypto-config.yaml")
 }
 
+func (p *Platform) RoutingConfigPath() string {
+	return filepath.Join(p.Context.RootDir(), "fsc", "routing-config.yaml")
+}
+
 func (p *Platform) GenerateCryptoConfig() {
 	Expect(os.MkdirAll(p.CryptoPath(), 0755)).NotTo(HaveOccurred())
 
@@ -404,6 +410,17 @@ func (p *Platform) GenerateCryptoConfig() {
 	Expect(err).NotTo(HaveOccurred())
 
 	Expect(t.Execute(io.MultiWriter(crypto), p)).NotTo(HaveOccurred())
+}
+
+func (p *Platform) GenerateRoutingConfig() {
+	routing, err := os.Create(p.RoutingConfigPath())
+	Expect(err).NotTo(HaveOccurred())
+	defer routing.Close()
+
+	t, err := template.New("routing").Parse(node2.RoutingTemplate)
+	Expect(err).NotTo(HaveOccurred())
+
+	Expect(t.Execute(io.MultiWriter(routing), p)).NotTo(HaveOccurred())
 }
 
 func (p *Platform) GenerateCoreConfig(peer *node2.Peer) {
