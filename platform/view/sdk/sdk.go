@@ -277,32 +277,33 @@ func (p *SDK) initGRPCServer() error {
 	return nil
 }
 
-//func newLibP2PHostProvider(sp driver.ServiceProvider) host.GeneratorProvider {
-//	return libp2p.NewHostGeneratorProvider(metrics.GetProvider(sp))
-//}
+func NewLibP2PHostProvider(sp driver.ServiceProvider) host.GeneratorProvider {
+	endpointService := driver.GetEndpointService(sp).(*endpoint.Service)
+	endpointService.SetPublicKeyIDSynthesizer(&libp2p.PKIDSynthesizer{})
+	return libp2p.NewHostGeneratorProvider(metrics.GetProvider(sp))
+}
 
-func newRestP2PHostProvider(sp driver.ServiceProvider) host.GeneratorProvider {
+func NewRestP2PHostProvider(sp driver.ServiceProvider) host.GeneratorProvider {
 	config := driver.GetConfigService(sp)
 	endpointService := driver.GetEndpointService(sp).(*endpoint.Service)
 	//routing := rest.NewEndpointServiceRouting(endpointService)
 	routing, err := rest.NewResolvedStaticRouter(config.GetPath("fsc.p2p.routing.path"), endpointService)
 	assert.NoError(err)
+	endpointService.SetPublicKeyIDSynthesizer(&rest.PKIDSynthesizer{})
 	return rest.NewEndpointBasedProvider(endpointService, routing)
 }
 
 func (p *SDK) initCommLayer() {
 	es := view.GetEndpointService(p.registry)
 	commService, err := comm2.NewService(
-		newRestP2PHostProvider(p.registry),
+		NewRestP2PHostProvider(p.registry),
 		es,
 		view.GetConfigService(p.registry),
 		view.GetIdentityProvider(p.registry).DefaultIdentity(),
 	)
 	assert.NoError(err, "failed instantiating the communication service")
 	assert.NoError(p.registry.RegisterService(commService), "failed registering communication service")
-	pkiSupport := &libp2p.PKISupport{}
-	assert.NoError(es.AddPublicKeyExtractor(pkiSupport), "failed addi,ng fabric pki resolver")
-	es.SetPublicKeyIDSynthesizer(pkiSupport)
+	assert.NoError(es.AddPublicKeyExtractor(&comm2.PKExtractor{}), "failed addi,ng fabric pki resolver")
 	p.commService = commService
 }
 
