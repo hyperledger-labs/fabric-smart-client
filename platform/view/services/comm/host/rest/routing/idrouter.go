@@ -4,44 +4,39 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package rest
+package routing
 
 import (
-	"os"
 	"strings"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
-	"gopkg.in/yaml.v2"
 )
 
-type routing interface {
-	Lookup(id host2.PeerID) ([]host2.PeerIPAddress, bool)
-}
-
-type endpointResolver interface {
+type endpointService interface {
 	GetIdentity(endpoint string, pkID []byte) (view2.Identity, error)
 	Resolve(party view2.Identity) (string, view2.Identity, map[driver.PortName]string, []byte, error)
 }
 
-type endpointServiceRouting struct {
-	resolver endpointResolver
+// endpointServiceIDRouter resolves the IP addresses using the resolvers of the endpoint service.
+type endpointServiceIDRouter struct {
+	es endpointService
 }
 
-func NewEndpointServiceRouting(resolver endpointResolver) *endpointServiceRouting {
-	return &endpointServiceRouting{resolver: resolver}
+func NewEndpointServiceIDRouter(es endpointService) *endpointServiceIDRouter {
+	return &endpointServiceIDRouter{es: es}
 }
 
-func (r *endpointServiceRouting) Lookup(id host2.PeerID) ([]host2.PeerIPAddress, bool) {
+func (r *endpointServiceIDRouter) Lookup(id host2.PeerID) ([]host2.PeerIPAddress, bool) {
 	logger.Infof("Looking up endpoint of peer [%s]", id)
-	identity, err := r.resolver.GetIdentity("", []byte(id))
+	identity, err := r.es.GetIdentity("", []byte(id))
 	if err != nil {
 		logger.Errorf("failed getting identity for peer [%s]", id)
 		return []host2.PeerIPAddress{}, false
 	}
-	_, _, addresses, _, err := r.resolver.Resolve(identity)
+	_, _, addresses, _, err := r.es.Resolve(identity)
 	if err != nil {
 		logger.Errorf("failed resolving [%s]: %v", id, err)
 		return []host2.PeerIPAddress{}, false
@@ -54,22 +49,15 @@ func (r *endpointServiceRouting) Lookup(id host2.PeerID) ([]host2.PeerIPAddress,
 	return []host2.PeerIPAddress{}, false
 }
 
-func convertAddress(addr string) string {
-	parts := strings.Split(addr, "/")
-	if len(parts) != 5 {
-		panic("unexpected address found: " + addr)
-	}
-	return parts[2] + ":" + parts[4]
-}
+// StaticIDRouter is a map implementation that contains all hard-coded routes
+type StaticIDRouter map[host2.PeerID][]host2.PeerIPAddress
 
-type StaticRouter map[host2.PeerID][]host2.PeerIPAddress
-
-func (r StaticRouter) Lookup(id string) ([]host2.PeerIPAddress, bool) {
+func (r StaticIDRouter) Lookup(id string) ([]host2.PeerIPAddress, bool) {
 	addr, ok := r[id]
 	return addr, ok
 }
 
-func (r StaticRouter) ReverseLookup(ipAddress host2.PeerIPAddress) (host2.PeerID, bool) {
+func (r StaticIDRouter) ReverseLookup(ipAddress host2.PeerIPAddress) (host2.PeerID, bool) {
 	for id, addrs := range r {
 		for _, addr := range addrs {
 			if ipAddress == addr {
@@ -80,50 +68,45 @@ func (r StaticRouter) ReverseLookup(ipAddress host2.PeerIPAddress) (host2.PeerID
 	return "", false
 }
 
-type resolvedStaticRouter struct {
-	routes   map[string][]host2.PeerIPAddress
+// resolvedStaticIDRouter resolves the address of a peer ID by finding the label with the help of the endpoint service,
+// and then using a labelResolver to find the IPs of the peers that share this label.
+type resolvedStaticIDRouter struct {
+	routes   LabelRouter
 	resolver *labelResolver
 }
 
-func NewResolvedStaticRouter(configPath string, resolver endpointResolver) (*resolvedStaticRouter, error) {
-	bytes, err := os.ReadFile(configPath)
+func NewResolvedStaticIDRouter(configPath string, es endpointService) (*resolvedStaticIDRouter, error) {
+	labelRouting, err := newStaticLabelRouter(configPath)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to read config file")
-	}
-	wrapper := struct {
-		Routes map[string][]host2.PeerIPAddress `yaml:"routes"`
-	}{}
-	if err := yaml.Unmarshal(bytes, &wrapper); err != nil {
-		return nil, errors.Wrapf(err, "failed to unmarshal config")
+		return nil, err
 	}
 
-	logger.Infof("Found routes: %v", wrapper.Routes)
-
-	return &resolvedStaticRouter{
-		routes:   wrapper.Routes,
-		resolver: newLabelResolver(resolver),
+	return &resolvedStaticIDRouter{
+		routes:   labelRouting,
+		resolver: newLabelResolver(es),
 	}, nil
 }
 
-func (r *resolvedStaticRouter) Lookup(id host2.PeerID) ([]host2.PeerIPAddress, bool) {
+func (r *resolvedStaticIDRouter) Lookup(id host2.PeerID) ([]host2.PeerIPAddress, bool) {
 	label, err := r.resolver.getLabel(id)
 	if err != nil {
 		logger.Errorf("failed to look up peer ID [%s]", id)
 		return nil, false
 	}
-	addresses, ok := r.routes[label]
+	addresses, ok := r.routes.Lookup(label)
 	return addresses, ok
 }
 
+// labelResolver resolves a peer ID into its label
 type labelResolver struct {
-	resolver endpointResolver
-	cache    map[host2.PeerID]string
+	es    endpointService
+	cache map[host2.PeerID]string
 }
 
-func newLabelResolver(resolver endpointResolver) *labelResolver {
+func newLabelResolver(es endpointService) *labelResolver {
 	return &labelResolver{
-		resolver: resolver,
-		cache:    make(map[host2.PeerID]string),
+		es:    es,
+		cache: make(map[host2.PeerID]string),
 	}
 }
 
@@ -132,12 +115,12 @@ func (r *labelResolver) getLabel(peerID host2.PeerID) (string, error) {
 		return label, nil
 	}
 	logger.Debugf("Label not found in cache. Looking up in endpoint service.")
-	identity, err := r.resolver.GetIdentity("", []byte(peerID))
+	identity, err := r.es.GetIdentity("", []byte(peerID))
 	if identity == nil && err != nil {
 		return "", errors.Wrapf(err, "failed to find identity for peer [%s]", peerID)
 	}
 
-	label, _, _, pkid, err := r.resolver.Resolve(identity)
+	label, _, _, pkid, err := r.es.Resolve(identity)
 	if pkid == nil && err != nil {
 		return "", errors.Wrapf(err, "failed to resolve identity [%s] for label [%s]", identity, label)
 	}

@@ -25,6 +25,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/libp2p"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/rest"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/rest/routing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/crypto"
 	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger"
 	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
@@ -287,7 +288,7 @@ func NewRestP2PHostProvider(sp driver.ServiceProvider) host.GeneratorProvider {
 	config := driver.GetConfigService(sp)
 	endpointService := driver.GetEndpointService(sp).(*endpoint.Service)
 	//routing := rest.NewEndpointServiceRouting(endpointService)
-	routing, err := rest.NewResolvedStaticRouter(config.GetPath("fsc.p2p.routing.path"), endpointService)
+	routing, err := routing.NewResolvedStaticIDRouter(config.GetPath("fsc.p2p.routing.path"), endpointService)
 	assert.NoError(err)
 	endpointService.SetPublicKeyIDSynthesizer(&rest.PKIDSynthesizer{})
 	return rest.NewEndpointBasedProvider(endpointService, routing)
