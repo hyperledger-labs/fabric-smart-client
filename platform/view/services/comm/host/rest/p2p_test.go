@@ -14,6 +14,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm"
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/rest"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/rest/routing"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -38,7 +39,7 @@ func TestSessionsForMPCTestRound(t *testing.T) {
 func setupTwoNodes(t *testing.T, port int) (*comm.P2PNode, *comm.P2PNode, string, string) {
 	bootstrapAddress := fmt.Sprintf("127.0.0.1:%d", port)
 	otherAddress := fmt.Sprintf("127.0.0.1:%d", port+1)
-	provider := newStaticRouteHostProvider(&rest.StaticRouter{
+	provider := newStaticRouteHostProvider(&routing.StaticIDRouter{
 		"bootstrap": []host2.PeerIPAddress{bootstrapAddress},
 		"other":     []host2.PeerIPAddress{otherAddress},
 	})
@@ -60,10 +61,10 @@ func setupTwoNodes(t *testing.T, port int) (*comm.P2PNode, *comm.P2PNode, string
 }
 
 type staticRoutHostProvider struct {
-	routes *rest.StaticRouter
+	routes *routing.StaticIDRouter
 }
 
-func newStaticRouteHostProvider(routes *rest.StaticRouter) *staticRoutHostProvider {
+func newStaticRouteHostProvider(routes *routing.StaticIDRouter) *staticRoutHostProvider {
 	return &staticRoutHostProvider{routes: routes}
 }
 

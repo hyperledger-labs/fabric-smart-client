@@ -21,9 +21,9 @@ import (
 
 const streamIDLength = 128
 
-type wsStream struct {
+type stream struct {
 	conn        connection
-	accumulator *bufferedReader
+	accumulator *delimitedReader
 	streamID    string
 	peerID      host2.PeerID
 	peerAddress host2.PeerIPAddress
@@ -52,7 +52,7 @@ type connection interface {
 	Close() error
 }
 
-func newClientStream(peerAddress host2.PeerIPAddress, src, dst host2.PeerID, config *tls.Config) (*wsStream, error) {
+func newClientStream(peerAddress host2.PeerIPAddress, src, dst host2.PeerID, config *tls.Config) (*stream, error) {
 	logger.Infof("Creating new stream from [%s] to [%s@%s]...", src, dst, peerAddress)
 	tlsEnabled := config.InsecureSkipVerify || config.RootCAs != nil
 	url := url.URL{Scheme: schemes[tlsEnabled], Host: peerAddress, Path: "/p2p"}
@@ -78,7 +78,7 @@ func newClientStream(peerAddress host2.PeerIPAddress, src, dst host2.PeerID, con
 	return NewWSStream(conn, streamID, dst, peerAddress), nil
 }
 
-func newServerStream(writer http.ResponseWriter, request *http.Request) (*wsStream, error) {
+func newServerStream(writer http.ResponseWriter, request *http.Request) (*stream, error) {
 	conn, err := web.OpenWSServerConn(writer, request)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to open websocket")
@@ -93,7 +93,7 @@ func newServerStream(writer http.ResponseWriter, request *http.Request) (*wsStre
 	return NewWSStream(conn, info.StreamID, info.PeerID, request.RemoteAddr), nil
 }
 
-func NewWSStream(conn connection, streamID []byte, peerID host2.PeerID, peerAddress host2.PeerIPAddress) *wsStream {
+func NewWSStream(conn connection, streamID []byte, peerID host2.PeerID, peerAddress host2.PeerIPAddress) *stream {
 	reads := make(chan result, 100)
 	go func() {
 		for {
@@ -106,22 +106,22 @@ func NewWSStream(conn connection, streamID []byte, peerID host2.PeerID, peerAddr
 		}
 	}()
 
-	return &wsStream{
+	return &stream{
 		conn:         conn,
 		streamID:     string(streamID),
 		peerID:       peerID,
 		peerAddress:  peerAddress,
-		accumulator:  newBufferedReader(),
+		accumulator:  newDelimitedReader(),
 		reads:        reads,
 		readLeftover: []byte{},
 	}
 }
 
-func (s *wsStream) RemotePeerID() host2.PeerID {
+func (s *stream) RemotePeerID() host2.PeerID {
 	return s.peerID
 }
 
-func (s *wsStream) RemotePeerAddress() host2.PeerIPAddress {
+func (s *stream) RemotePeerAddress() host2.PeerIPAddress {
 	return s.peerAddress
 }
 
@@ -130,7 +130,7 @@ type result struct {
 	err   error
 }
 
-func (s *wsStream) Read(p []byte) (int, error) {
+func (s *stream) Read(p []byte) (int, error) {
 	if len(s.readLeftover) == 0 {
 		// The previous value from the channel has been read completely
 		logger.Debugf("[%s@%s] waits to read from channel...", s.peerID, s.peerAddress)
@@ -149,14 +149,14 @@ func (s *wsStream) Read(p []byte) (int, error) {
 	return n, nil
 }
 
-func (s *wsStream) Write(p []byte) (int, error) {
+func (s *stream) Write(p []byte) (int, error) {
 	n, err := s.accumulator.Read(p)
 	if err != nil {
 		return 0, err
 	}
 	content := s.accumulator.Flush()
 	if content == nil {
-		logger.Debugf("Wrote to [%s@%s], but message not ready yet (%d/%d received): [%s]", s.peerID, s.peerAddress, len(s.accumulator.bytes), s.accumulator.length, string(s.accumulator.bytes))
+		logger.Debugf("Wrote to [%s@%s], but message not ready yet.", s.peerID, s.peerAddress)
 		return n, nil
 	}
 	logger.Debugf("Ready to send to [%s@%s]: [%s]", s.peerID, s.peerAddress, content)
@@ -166,6 +166,6 @@ func (s *wsStream) Write(p []byte) (int, error) {
 	return n, nil
 }
 
-func (s *wsStream) Close() error {
+func (s *stream) Close() error {
 	return s.conn.Close()
 }

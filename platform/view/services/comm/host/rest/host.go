@@ -10,6 +10,7 @@ import (
 	"context"
 
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
+	routing2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/rest/routing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/pkg/errors"
 )
@@ -17,12 +18,12 @@ import (
 var logger = flogging.MustGetLogger("rest-p2p-host")
 
 type host struct {
-	routing routing
+	routing routing2.IDRouter
 	server  *server
 	client  *client
 }
 
-func NewHost(nodeID host2.PeerID, listenAddress host2.PeerIPAddress, routing routing, keyFile, certFile string, rootCACertFiles []string) (*host, error) {
+func NewHost(nodeID host2.PeerID, listenAddress host2.PeerIPAddress, routing routing2.IDRouter, keyFile, certFile string, rootCACertFiles []string) (*host, error) {
 	logger.Infof("Creating new host for node [%s] on [%s] with key, cert at: [%s], [%s]", nodeID, listenAddress, keyFile, certFile)
 	p2pClient, err := newClient(nodeID, rootCACertFiles, len(keyFile) > 0 && len(certFile) > 0)
 	if err != nil {
