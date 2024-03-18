@@ -7,13 +7,10 @@ SPDX-License-Identifier: Apache-2.0
 package rest
 
 import (
-	"bytes"
 	"crypto/rand"
 	"crypto/tls"
-	"encoding/binary"
 	"net/http"
 	"net/url"
-	"strconv"
 
 	"github.com/gorilla/websocket"
 	web2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/web"
@@ -24,47 +21,8 @@ import (
 
 const streamIDLength = 128
 
-type bufferedReader struct {
-	bytes  []byte
-	length int
-}
-
-func newBufferedReader() *bufferedReader {
-	return &bufferedReader{
-		bytes: []byte{},
-	}
-}
-
-func (r *bufferedReader) Read(p []byte) []byte {
-
-	r.bytes = append(r.bytes, p...)
-	if r.length <= 0 {
-		length, err := binary.ReadUvarint(bytes.NewReader(p))
-		if err != nil {
-			panic("failed to read length [" + string(p) + "]: " + err.Error())
-		}
-		r.length = int(length) + len(p)
-		logger.Infof("Reading only size: %d [%v]", r.length, len(p))
-		return nil
-	}
-
-	if len(r.bytes) > r.length {
-		panic("too many elements added [" + strconv.Itoa(len(r.bytes)) + "/" + strconv.Itoa(r.length) + "]")
-	}
-
-	logger.Infof("appended [%s] and expecting %d in total. current length: %d", string(p), r.length, len(r.bytes))
-	if len(r.bytes) < r.length {
-		return nil
-	}
-	defer func() {
-		r.bytes = []byte{}
-		r.length = 0
-	}()
-	return bytes.Clone(r.bytes)
-}
-
 type wsStream struct {
-	conn        *websocket.Conn
+	conn        connection
 	accumulator *bufferedReader
 	streamID    string
 	peerID      host2.PeerID
@@ -86,6 +44,12 @@ type StreamInfo struct {
 var schemes = map[bool]string{
 	true:  "wss",
 	false: "ws",
+}
+
+type connection interface {
+	ReadMessage() (messageType int, p []byte, err error)
+	WriteMessage(messageType int, data []byte) error
+	Close() error
 }
 
 func newClientStream(peerAddress host2.PeerIPAddress, src, dst host2.PeerID, config *tls.Config) (*wsStream, error) {
@@ -111,7 +75,7 @@ func newClientStream(peerAddress host2.PeerIPAddress, src, dst host2.PeerID, con
 		return nil, errors.Wrapf(err, "failed to send init message")
 	}
 	logger.Infof("Stream opened to [%s@%s]", dst, peerAddress)
-	return newWSStream(conn, streamID, dst, peerAddress), nil
+	return NewWSStream(conn, streamID, dst, peerAddress), nil
 }
 
 func newServerStream(writer http.ResponseWriter, request *http.Request) (*wsStream, error) {
@@ -126,10 +90,10 @@ func newServerStream(writer http.ResponseWriter, request *http.Request) (*wsStre
 		return nil, errors.Wrapf(err, "failed to read init info")
 	}
 	logger.Infof("Read init info: %v", info)
-	return newWSStream(conn, info.StreamID, info.PeerID, request.RemoteAddr), nil
+	return NewWSStream(conn, info.StreamID, info.PeerID, request.RemoteAddr), nil
 }
 
-func newWSStream(conn *websocket.Conn, streamID []byte, peerID host2.PeerID, peerAddress host2.PeerIPAddress) *wsStream {
+func NewWSStream(conn connection, streamID []byte, peerID host2.PeerID, peerAddress host2.PeerIPAddress) *wsStream {
 	reads := make(chan result, 100)
 	go func() {
 		for {
@@ -186,16 +150,20 @@ func (s *wsStream) Read(p []byte) (int, error) {
 }
 
 func (s *wsStream) Write(p []byte) (int, error) {
-	content := s.accumulator.Read(p)
+	n, err := s.accumulator.Read(p)
+	if err != nil {
+		return 0, err
+	}
+	content := s.accumulator.Flush()
 	if content == nil {
 		logger.Debugf("Wrote to [%s@%s], but message not ready yet (%d/%d received): [%s]", s.peerID, s.peerAddress, len(s.accumulator.bytes), s.accumulator.length, string(s.accumulator.bytes))
-		return len(p), nil
+		return n, nil
 	}
 	logger.Debugf("Ready to send to [%s@%s]: [%s]", s.peerID, s.peerAddress, content)
 	if err := s.conn.WriteMessage(websocket.TextMessage, content); err != nil {
 		return 0, err
 	}
-	return len(p), nil
+	return n, nil
 }
 
 func (s *wsStream) Close() error {
