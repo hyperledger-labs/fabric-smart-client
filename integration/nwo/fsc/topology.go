@@ -20,15 +20,23 @@ type Logging struct {
 	Format string `yaml:"format,omitempty"`
 }
 
+type P2PCommunicationType = string
+
+const (
+	LibP2P    P2PCommunicationType = "libp2p"
+	WebSocket P2PCommunicationType = "websocket"
+)
+
 type Topology struct {
-	TopologyName string       `yaml:"name,omitempty"`
-	TopologyType string       `yaml:"type,omitempty"`
-	Nodes        []*node.Node `yaml:"peers,omitempty"`
-	GRPCLogging  bool         `yaml:"grpcLogging,omitempty"`
-	Logging      *Logging     `yaml:"logging,omitempty"`
-	LogToFile    bool         `yaml:"logToFile,omitempty"`
-	Templates    Templates    `yaml:"templates,omitempty"`
-	Monitoring   Monitoring   `yaml:"monitoring,omitempty"`
+	TopologyName         string               `yaml:"name,omitempty"`
+	TopologyType         string               `yaml:"type,omitempty"`
+	Nodes                []*node.Node         `yaml:"peers,omitempty"`
+	GRPCLogging          bool                 `yaml:"grpcLogging,omitempty"`
+	Logging              *Logging             `yaml:"logging,omitempty"`
+	LogToFile            bool                 `yaml:"logToFile,omitempty"`
+	Templates            Templates            `yaml:"templates,omitempty"`
+	Monitoring           Monitoring           `yaml:"monitoring,omitempty"`
+	P2PCommunicationType P2PCommunicationType `yaml:"p2p_communication_type,omitempty"`
 }
 
 type Monitoring struct {
@@ -53,6 +61,7 @@ func NewTopology() *Topology {
 			MetricsType: "none",
 			TLS:         true,
 		},
+		P2PCommunicationType: LibP2P,
 	}
 }
 

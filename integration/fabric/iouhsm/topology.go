@@ -14,7 +14,7 @@ import (
 	api2 "github.com/hyperledger-labs/fabric-smart-client/pkg/api"
 )
 
-func Topology(sdk api2.SDK) []api.Topology {
+func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType) []api.Topology {
 	// Define a Fabric topology with:
 	// 1. Three organization: Org1, Org2, and Org3
 	// 2. A namespace whose changes can be endorsed by Org1.
@@ -26,6 +26,7 @@ func Topology(sdk api2.SDK) []api.Topology {
 	// Define an FSC topology with 3 FCS nodes.
 	// One for the approver, one for the borrower, and one for the lender.
 	fscTopology := fsc.NewTopology()
+	fscTopology.P2PCommunicationType = commType
 
 	// Add the approver FSC node.
 	approver := fscTopology.AddNodeByName("approver")

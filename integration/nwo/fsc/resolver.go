@@ -59,5 +59,7 @@ func (p *Platform) GenerateResolverMap() {
 		}
 	}
 	p.Resolvers = resolvers
-	p.Routing = routing
+	if p.P2PCommunicationType() == WebSocket {
+		p.Routing = routing
+	}
 }

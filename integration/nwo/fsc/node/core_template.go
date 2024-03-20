@@ -69,13 +69,21 @@ fsc:
       timeout: 600s
   # P2P configuration
   p2p:
+    # Type of p2p communication. Currently supported: libp2p (default), rest
+    type: {{ .P2PCommunicationType }}
     # Listening address
     listenAddress: /ip4/0.0.0.0/tcp/{{ .NodePort Peer "P2P" }}
-    # If empty, this is a P2P boostrap node. Otherwise, it contains the name of the FCS node that is a bootstrap node
-    bootstrapNode: {{ .BootstrapNode Peer }}
-    # Defines how to fetch a router in case we use P2P communication through REST and not libp2p
-    routing:
-      path: {{ .RoutingConfigPath }}
+    opts:
+      # Only needed when type == libp2p
+      # If empty, this is a P2P boostrap node. Otherwise, it contains the name of the FCS node that is a bootstrap node
+      bootstrapNode: {{ if eq .P2PCommunicationType "libp2p" }}{{ .BootstrapNode Peer }}{{ end}}
+      # Only needed when type == rest
+      # Defines how to fetch a router
+      routing:
+        {{- if eq .P2PCommunicationType "websocket" }}
+        # The path to the file that contains the routing, if the routing is static
+        path: {{ .RoutingConfigPath }}
+        {{- end }}
   # The Key-Value Store is used to store various information related to the FSC node
   kvs:
     persistence:

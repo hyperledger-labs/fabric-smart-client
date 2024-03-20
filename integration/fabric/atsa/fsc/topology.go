@@ -14,7 +14,7 @@ import (
 	api2 "github.com/hyperledger-labs/fabric-smart-client/pkg/api"
 )
 
-func Topology(sdk api2.SDK) []api.Topology {
+func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType) []api.Topology {
 	// Create an empty fabric topology
 	fabricTopology := fabric.NewDefaultTopology()
 	// Enabled Idemix for Anonymous Identities
@@ -27,6 +27,7 @@ func Topology(sdk api2.SDK) []api.Topology {
 
 	// Create an empty FSC topology
 	fscTopology := fsc.NewTopology()
+	fscTopology.P2PCommunicationType = commType
 
 	// Approver
 	approver := fscTopology.AddNodeByName("approver")

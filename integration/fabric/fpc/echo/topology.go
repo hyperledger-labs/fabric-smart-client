@@ -14,7 +14,7 @@ import (
 	api2 "github.com/hyperledger-labs/fabric-smart-client/pkg/api"
 )
 
-func Topology(sdk api2.SDK) []api.Topology {
+func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType) []api.Topology {
 	// Create an empty fabric topology
 	fabricTopology := fabric.NewDefaultTopology()
 	// Note that Idemix is currently not supported by FPC
@@ -30,7 +30,8 @@ func Topology(sdk api2.SDK) []api.Topology {
 
 	// Create an empty FSC topology
 	fscTopology := fsc.NewTopology()
-	fscTopology.SetLogging("debug", "")
+	fscTopology.P2PCommunicationType = commType
+	//fscTopology.SetLogging("debug", "")
 
 	// Alice
 	alice := fscTopology.AddNodeByName("alice")
