@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package topology
 
 import (
+	"os"
+
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
@@ -30,6 +32,9 @@ func Topology() []api.Topology {
 	// Define an FSC topology with 3 FCS nodes.
 	// One for the approver, one for the borrower, and one for the lender.
 	fscTopology := fsc.NewTopology()
+	if p2pCommunicationType := os.Getenv("FSC_P2P_COMMUNICATION_TYPE"); len(p2pCommunicationType) > 0 {
+		fscTopology.P2PCommunicationType = p2pCommunicationType
+	}
 	fscTopology.SetLogging("debug", "")
 	fscTopology.EnableLogToFile()
 	fscTopology.EnablePrometheusMetrics()

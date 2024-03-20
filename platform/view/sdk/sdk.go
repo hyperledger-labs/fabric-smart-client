@@ -10,7 +10,9 @@ import (
 	"context"
 	"net/http"
 	"os"
+	"strings"
 
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	config2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/core/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/endpoint"
@@ -278,34 +280,33 @@ func (p *SDK) initGRPCServer() error {
 	return nil
 }
 
-func NewLibP2PHostProvider(sp driver.ServiceProvider) host.GeneratorProvider {
-	endpointService := driver.GetEndpointService(sp).(*endpoint.Service)
-	endpointService.SetPublicKeyIDSynthesizer(&libp2p.PKIDSynthesizer{})
-	return libp2p.NewHostGeneratorProvider(metrics.GetProvider(sp))
-}
-
-func NewRestP2PHostProvider(sp driver.ServiceProvider) host.GeneratorProvider {
-	config := driver.GetConfigService(sp)
-	endpointService := driver.GetEndpointService(sp).(*endpoint.Service)
-	//routing := rest.NewEndpointServiceRouting(endpointService)
-	routing, err := routing.NewResolvedStaticIDRouter(config.GetPath("fsc.p2p.routing.path"), endpointService)
-	assert.NoError(err)
-	endpointService.SetPublicKeyIDSynthesizer(&rest.PKIDSynthesizer{})
-	return rest.NewEndpointBasedProvider(endpointService, routing)
-}
-
 func (p *SDK) initCommLayer() {
-	es := view.GetEndpointService(p.registry)
 	commService, err := comm2.NewService(
-		NewRestP2PHostProvider(p.registry),
-		es,
+		p.newHostProvider(),
+		view.GetEndpointService(p.registry),
 		view.GetConfigService(p.registry),
 		view.GetIdentityProvider(p.registry).DefaultIdentity(),
 	)
 	assert.NoError(err, "failed instantiating the communication service")
 	assert.NoError(p.registry.RegisterService(commService), "failed registering communication service")
-	assert.NoError(es.AddPublicKeyExtractor(&comm2.PKExtractor{}), "failed addi,ng fabric pki resolver")
+
 	p.commService = commService
+}
+
+func (p *SDK) newHostProvider() host.GeneratorProvider {
+	config := driver.GetConfigService(p.registry)
+	endpointService := driver.GetEndpointService(p.registry).(*endpoint.Service)
+	assert.NoError(endpointService.AddPublicKeyExtractor(&comm2.PKExtractor{}), "failed addi,ng fabric pki resolver")
+
+	if p2pCommType := config.GetString("fsc.p2p.type"); strings.EqualFold(p2pCommType, fsc.WebSocket) {
+		routingConfigPath := config.GetPath("fsc.p2p.opts.routing.path")
+		r, err := routing.NewResolvedStaticIDRouter(routingConfigPath, endpointService)
+		assert.NoError(err)
+		endpointService.SetPublicKeyIDSynthesizer(&rest.PKIDSynthesizer{})
+		return rest.NewEndpointBasedProvider(endpointService, r)
+	}
+	endpointService.SetPublicKeyIDSynthesizer(&libp2p.PKIDSynthesizer{})
+	return libp2p.NewHostGeneratorProvider(metrics.GetProvider(p.registry))
 }
 
 func (p *SDK) startCommLayer() error {

@@ -120,7 +120,7 @@ func (s *Service) init() error {
 	}
 
 	p2pListenAddress := s.ConfigService.GetString("fsc.p2p.listenAddress")
-	p2pBootstrapNode := s.ConfigService.GetString("fsc.p2p.bootstrapNode")
+	p2pBootstrapNode := s.ConfigService.GetString("fsc.p2p.opts.bootstrapNode")
 	keyFile := s.ConfigService.GetPath("fsc.identity.key.file")
 	certFile := s.ConfigService.GetPath("fsc.identity.cert.file")
 	if len(p2pBootstrapNode) == 0 {

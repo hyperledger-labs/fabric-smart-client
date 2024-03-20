@@ -11,9 +11,10 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 )
 
-func Topology() []api.Topology {
+func Topology(commType fsc.P2PCommunicationType) []api.Topology {
 	// Create an empty FSC topology
 	topology := fsc.NewTopology()
+	topology.P2PCommunicationType = commType
 
 	// Add the initiator fsc node
 	topology.AddNodeByName("initiator").SetExecutable(

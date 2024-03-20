@@ -143,7 +143,9 @@ func (p *Platform) GenerateArtifacts() {
 		p.Context.SetViewIdentity(peer.Name, cert)
 
 		p.GenerateCoreConfig(peer)
-		p.GenerateRoutingConfig()
+		if p.P2PCommunicationType() == WebSocket {
+			p.GenerateRoutingConfig()
+		}
 
 		c := view2.Config{
 			Version: 0,
@@ -393,6 +395,13 @@ func (p *Platform) StartSession(cmd *exec.Cmd, name string) (*gexec.Session, err
 
 func (p *Platform) CryptoConfigPath() string {
 	return filepath.Join(p.Context.RootDir(), "fsc", "crypto-config.yaml")
+}
+
+func (p *Platform) P2PCommunicationType() P2PCommunicationType {
+	if typ := p.Topology.P2PCommunicationType; len(typ) > 0 {
+		return typ
+	}
+	return LibP2P
 }
 
 func (p *Platform) RoutingConfigPath() string {

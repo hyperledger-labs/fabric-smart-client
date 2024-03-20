@@ -13,7 +13,7 @@ import (
 	api2 "github.com/hyperledger-labs/fabric-smart-client/pkg/api"
 )
 
-func Topology(sdk api2.SDK) []api.Topology {
+func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType) []api.Topology {
 	// Fabric
 	fabricTopology := fabric.NewDefaultTopology()
 	fabricTopology.AddOrganizationsByName("Org1", "Org2")
@@ -21,6 +21,8 @@ func Topology(sdk api2.SDK) []api.Topology {
 
 	// FSC
 	fscTopology := fsc.NewTopology()
+	fscTopology.P2PCommunicationType = commType
+
 	fscTopology.AddNodeByName("alice").AddOptions(
 		fabric.WithOrganization("Org1"),
 	).RegisterViewFactory("init", &InitiatorViewFactory{})
