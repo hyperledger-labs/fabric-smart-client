@@ -136,6 +136,10 @@ func newLibP2PHost(listenAddress host2.PeerIPAddress, priv crypto.PrivKey, metri
 
 }
 
+func (h *host) StreamHash(input host2.StreamInfo) host2.StreamHash {
+	return streamHash(input.RemotePeerID)
+}
+
 func (h *host) Close() error {
 
 	err := h.Host.Close()
@@ -143,32 +147,32 @@ func (h *host) Close() error {
 	return err
 }
 
-func (h *host) NewStream(ctx context.Context, address host2.PeerIPAddress, peerID host2.PeerID) (host2.P2PStream, error) {
-	ID, err := peer.Decode(peerID)
+func (h *host) NewStream(ctx context.Context, info host2.StreamInfo) (host2.P2PStream, error) {
+	ID, err := peer.Decode(info.RemotePeerID)
 	if err != nil {
 		return nil, err
 	}
 
-	if len(address) != 0 && strings.HasPrefix(address, "/ip4/") {
+	if len(info.RemotePeerAddress) != 0 && strings.HasPrefix(info.RemotePeerAddress, "/ip4/") {
 		// reprogram the addresses of the peer before opening a new stream, if it is not in the right form yet
 		ps := h.Host.Peerstore()
 		current := ps.Addrs(ID)
 
 		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("sendTo, reprogram address [%s:%s]", peerID, address)
+			logger.Debugf("sendTo, reprogram address [%s:%s]", info.RemotePeerID, info.RemotePeerAddress)
 			for _, m := range current {
-				logger.Debugf("sendTo, current address [%s:%s]", peerID, m.String())
+				logger.Debugf("sendTo, current address [%s:%s]", info.RemotePeerID, m)
 			}
 		}
 
 		ps.ClearAddrs(ID)
-		addr, err := utils.AddressToEndpoint(address)
+		addr, err := utils.AddressToEndpoint(info.RemotePeerAddress)
 		if err != nil {
-			return nil, errors.WithMessagef(err, "failed to parse endpoint's address [%s]", address)
+			return nil, errors.WithMessagef(err, "failed to parse endpoint's address [%s]", info.RemotePeerAddress)
 		}
 		s, err := multiaddr.NewMultiaddr(addr)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to get mutliaddr for [%s]", address)
+			return nil, errors.Wrapf(err, "failed to get mutliaddr for [%s]", info.RemotePeerAddress)
 		}
 		ps.AddAddr(ID, s, peerstore.OwnObservedAddrTTL)
 	}
