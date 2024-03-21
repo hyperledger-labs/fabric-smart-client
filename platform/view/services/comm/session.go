@@ -9,6 +9,7 @@ package comm
 import (
 	"sync"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"go.uber.org/zap/zapcore"
 )
@@ -89,7 +90,13 @@ func (n *NetworkStreamSession) Close() {
 }
 
 func (n *NetworkStreamSession) sendWithStatus(payload []byte, status int32) error {
-	err := n.node.sendTo(string(n.endpointID), n.endpointAddress, &ViewPacket{
+	info := host.StreamInfo{
+		RemotePeerID:      string(n.endpointID),
+		RemotePeerAddress: n.endpointAddress,
+		ContextID:         n.contextID,
+		SessionID:         n.sessionID,
+	}
+	err := n.node.sendTo(info, &ViewPacket{
 		ContextID: n.contextID,
 		SessionID: n.sessionID,
 		Caller:    n.callerViewID,
