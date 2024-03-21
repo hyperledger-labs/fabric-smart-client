@@ -54,6 +54,6 @@ func newRootCACertPool(rootCAs []string) (*x509.CertPool, error) {
 	return caCertPool, nil
 }
 
-func (c *client) OpenStream(peerAddress host2.PeerIPAddress, peerID host2.PeerID) (host2.P2PStream, error) {
-	return newClientStream(peerAddress, c.nodeID, peerID, c.tlsConfig)
+func (c *client) OpenStream(info host2.StreamInfo) (host2.P2PStream, error) {
+	return newClientStream(info, c.nodeID, c.tlsConfig)
 }

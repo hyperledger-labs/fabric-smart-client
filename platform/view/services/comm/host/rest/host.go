@@ -18,12 +18,12 @@ import (
 var logger = flogging.MustGetLogger("rest-p2p-host")
 
 type host struct {
-	routing routing2.IDRouter
+	routing routing2.ServiceDiscovery
 	server  *server
 	client  *client
 }
 
-func NewHost(nodeID host2.PeerID, listenAddress host2.PeerIPAddress, routing routing2.IDRouter, keyFile, certFile string, rootCACertFiles []string) (*host, error) {
+func NewHost(nodeID host2.PeerID, listenAddress host2.PeerIPAddress, routing routing2.ServiceDiscovery, keyFile, certFile string, rootCACertFiles []string) (*host, error) {
 	logger.Infof("Creating new host for node [%s] on [%s] with key, cert at: [%s], [%s]", nodeID, listenAddress, keyFile, certFile)
 	p2pClient, err := newClient(nodeID, rootCACertFiles, len(keyFile) > 0 && len(certFile) > 0)
 	if err != nil {
@@ -46,21 +46,23 @@ func (h *host) Start(newStreamCallback func(stream host2.P2PStream)) error {
 	return nil
 }
 
-func (h *host) NewStream(_ context.Context, address host2.PeerIPAddress, peerID host2.PeerID) (host2.P2PStream, error) {
-	if len(address) == 0 {
-		logger.Debugf("No address passed for peer [%s]. Resolving...", peerID)
-		addresses, ok := h.routing.Lookup(peerID)
-		if !ok || len(addresses) == 0 {
-			return nil, errors.Errorf("no address found for peer [%s]", peerID)
-		}
-		logger.Debugf("Resolved %d addresses of peer [%s] and picking the first one.", len(addresses), peerID)
-		address = addresses[0]
+func (h *host) NewStream(_ context.Context, info host2.StreamInfo) (host2.P2PStream, error) {
+	//if len(address) == 0 { //TODO
+	logger.Debugf("No address passed for peer [%s]. Resolving...", info.RemotePeerID)
+	if info.RemotePeerAddress = h.routing.Lookup(info.RemotePeerID); len(info.RemotePeerAddress) == 0 {
+		return nil, errors.Errorf("no address found for peer [%s]", info.RemotePeerID)
 	}
-	return h.client.OpenStream(address, peerID)
+	logger.Debugf("Resolved address of peer [%s]: %s", info.RemotePeerID, info.RemotePeerAddress)
+	//}
+	return h.client.OpenStream(info)
 }
 
 func (h *host) Lookup(peerID host2.PeerID) ([]host2.PeerIPAddress, bool) {
-	return h.routing.Lookup(peerID)
+	return h.routing.LookupAll(peerID)
+}
+
+func (h *host) StreamHash(info host2.StreamInfo) string {
+	return streamHash(info)
 }
 
 func (h *host) Close() error {

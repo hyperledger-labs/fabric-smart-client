@@ -21,10 +21,10 @@ type pkiExtractor interface {
 
 type endpointServiceBasedProvider struct {
 	pkiExtractor pkiExtractor
-	routing      routing2.IDRouter
+	routing      routing2.ServiceDiscovery
 }
 
-func NewEndpointBasedProvider(extractor pkiExtractor, routing routing2.IDRouter) *endpointServiceBasedProvider {
+func NewEndpointBasedProvider(extractor pkiExtractor, routing routing2.ServiceDiscovery) *endpointServiceBasedProvider {
 	return &endpointServiceBasedProvider{
 		pkiExtractor: extractor,
 		routing:      routing,

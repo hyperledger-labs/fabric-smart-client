@@ -13,7 +13,12 @@ import (
 
 var logger = flogging.MustGetLogger("rest-p2p-routing")
 
-// IDRouter is the interface that resolves the IP addresses given the ID of a peer
+// ServiceDiscovery is the interface that resolves the IP addresses given the ID of a peer
+type ServiceDiscovery interface {
+	LookupAll(id host2.PeerID) ([]host2.PeerIPAddress, bool)
+	Lookup(id host2.PeerID) host2.PeerIPAddress
+}
+
 type IDRouter interface {
 	Lookup(id host2.PeerID) ([]host2.PeerIPAddress, bool)
 }
