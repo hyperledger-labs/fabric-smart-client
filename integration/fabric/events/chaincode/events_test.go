@@ -41,6 +41,7 @@ var _ = Describe("EndToEnd", func() {
 
 type TestSuite struct {
 	commType fsc.P2PCommunicationType
+	replicas map[string]int
 
 	ii *integration.Infrastructure
 
@@ -54,7 +55,7 @@ func (s *TestSuite) TearDown() {
 
 func (s *TestSuite) Setup() {
 	// Create the integration ii
-	ii, err := integration.Generate(StartPort(), true, chaincode.Topology(&fabric2.SDK{}, s.commType)...)
+	ii, err := integration.Generate(StartPort(), true, chaincode.Topology(&fabric2.SDK{}, s.commType, s.replicas)...)
 	Expect(err).NotTo(HaveOccurred())
 	s.ii = ii
 	// Start the integration ii

@@ -14,7 +14,10 @@ import (
 	api2 "github.com/hyperledger-labs/fabric-smart-client/pkg/api"
 )
 
-func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType) []api.Topology {
+func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType, replicas map[string]int) []api.Topology {
+	if replicas == nil {
+		replicas = map[string]int{}
+	}
 	// Define a new Fabric topology starting from a Default configuration with a single channel `testchannel`
 	// and solo ordering.
 	fabricTopology := fabric.NewDefaultTopology()
@@ -42,7 +45,7 @@ func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType) []api.Topology {
 	// Define Alice's FSC node
 	alice := fscTopology.AddNodeByName("alice")
 	// Equip it with a Fabric identity from Org1 that is a client
-	alice.AddOptions(fabric.WithOrganization("Org1"), fabric.WithClientRole())
+	alice.AddOptions(fabric.WithOrganization("Org1"), fabric.WithClientRole(), fsc.WithReplicationFactor(replicas["alice"]))
 	// Register the factories of the initiator views for each business process
 	alice.RegisterViewFactory("CreateAsset", &views.CreateAssetViewFactory{})
 	alice.RegisterViewFactory("ReadAsset", &views.ReadAssetViewFactory{})
@@ -55,7 +58,7 @@ func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType) []api.Topology {
 	// Define Bob's FSC node
 	bob := fscTopology.AddNodeByName("bob")
 	// Equip it with a Fabric identity from Org2 that is a client
-	bob.AddOptions(fabric.WithOrganization("Org2"), fabric.WithClientRole())
+	bob.AddOptions(fabric.WithOrganization("Org2"), fabric.WithClientRole(), fsc.WithReplicationFactor(replicas["bob"]))
 	// Register the factories of the initiator views for each business process
 	bob.RegisterViewFactory("CreateAsset", &views.CreateAssetViewFactory{})
 	bob.RegisterViewFactory("ReadAsset", &views.ReadAssetViewFactory{})

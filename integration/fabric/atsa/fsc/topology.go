@@ -14,7 +14,10 @@ import (
 	api2 "github.com/hyperledger-labs/fabric-smart-client/pkg/api"
 )
 
-func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType) []api.Topology {
+func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType, replicas map[string]int) []api.Topology {
+	if replicas == nil {
+		replicas = map[string]int{}
+	}
 	// Create an empty fabric topology
 	fabricTopology := fabric.NewDefaultTopology()
 	// Enabled Idemix for Anonymous Identities
@@ -31,7 +34,7 @@ func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType) []api.Topology {
 
 	// Approver
 	approver := fscTopology.AddNodeByName("approver")
-	approver.AddOptions(fabric.WithOrganization("Org1"))
+	approver.AddOptions(fabric.WithOrganization("Org1"), fsc.WithReplicationFactor(replicas["approver"]))
 	approver.RegisterResponder(&views.ApproverView{}, &views.IssueView{})
 	approver.RegisterResponder(&views.ApproverView{}, &views.AgreeToSellView{})
 	approver.RegisterResponder(&views.ApproverView{}, &views.AgreeToBuyView{})
@@ -39,12 +42,12 @@ func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType) []api.Topology {
 
 	// Issuer
 	issuer := fscTopology.AddNodeByName("issuer")
-	issuer.AddOptions(fabric.WithOrganization("Org3"))
+	issuer.AddOptions(fabric.WithOrganization("Org3"), fsc.WithReplicationFactor(replicas["issuer"]))
 	issuer.RegisterViewFactory("issue", &views.IssueViewFactory{})
 
 	// Alice
 	alice := fscTopology.AddNodeByName("alice")
-	alice.AddOptions(fabric.WithOrganization("Org2"), fabric.WithAnonymousIdentity())
+	alice.AddOptions(fabric.WithOrganization("Org2"), fabric.WithAnonymousIdentity(), fsc.WithReplicationFactor(replicas["alice"]))
 	alice.RegisterViewFactory("transfer", &views.TransferViewFactory{})
 	alice.RegisterViewFactory("agreeToSell", &views.AgreeToSellViewFactory{})
 	alice.RegisterViewFactory("agreeToBuy", &views.AgreeToBuyViewFactory{})
@@ -53,7 +56,7 @@ func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType) []api.Topology {
 
 	// Bob
 	bob := fscTopology.AddNodeByName("bob")
-	bob.AddOptions(fabric.WithOrganization("Org2"), fabric.WithAnonymousIdentity())
+	bob.AddOptions(fabric.WithOrganization("Org2"), fabric.WithAnonymousIdentity(), fsc.WithReplicationFactor(replicas["bob"]))
 	bob.RegisterViewFactory("transfer", &views.TransferViewFactory{})
 	bob.RegisterViewFactory("agreeToSell", &views.AgreeToSellViewFactory{})
 	bob.RegisterViewFactory("agreeToBuy", &views.AgreeToBuyViewFactory{})

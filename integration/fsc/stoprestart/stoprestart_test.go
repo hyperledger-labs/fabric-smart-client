@@ -32,10 +32,25 @@ var _ = Describe("EndToEnd", func() {
 		AfterEach(s.TearDown)
 		It("stop and restart successfully", s.TestSucceeded)
 	})
+
+	Describe("Stop and Restart with Fabric With Replicas many to one", func() {
+		s := TestSuite{commType: fsc.WebSocket, replicas: map[string]int{"alice": 4, "bob": 1}}
+		BeforeEach(s.Setup)
+		AfterEach(s.TearDown)
+		It("stop and restart successfully", s.TestSucceededWithReplicas)
+	})
+
+	Describe("Stop and Restart with Fabric With Replicas many to many", func() {
+		s := TestSuite{commType: fsc.WebSocket, replicas: map[string]int{"alice": 4, "bob": 4}}
+		BeforeEach(s.Setup)
+		AfterEach(s.TearDown)
+		It("stop and restart successfully", s.TestSucceededWithReplicas)
+	})
 })
 
 type TestSuite struct {
 	commType fsc.P2PCommunicationType
+	replicas map[string]int
 
 	ii *integration.Infrastructure
 }
@@ -46,7 +61,7 @@ func (s *TestSuite) TearDown() {
 
 func (s *TestSuite) Setup() {
 	// Create the integration ii
-	ii, err := integration.Generate(StartPort(), true, stoprestart.Topology(s.commType)...)
+	ii, err := integration.Generate(StartPort(), true, stoprestart.Topology(s.commType, s.replicas)...)
 	Expect(err).NotTo(HaveOccurred())
 	s.ii = ii
 	// Start the integration ii
@@ -65,6 +80,37 @@ func (s *TestSuite) TestSucceeded() {
 	time.Sleep(3 * time.Second)
 
 	res, err = s.ii.Client("alice").CallView("init", nil)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
+}
+
+func (s *TestSuite) TestSucceededWithReplicas() {
+	res, err := s.ii.Client("fsc.alice.0").CallView("init", nil)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
+
+	res, err = s.ii.Client("fsc.alice.1").CallView("init", nil)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
+
+	res, err = s.ii.Client("fsc.alice.2").CallView("init", nil)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
+
+	s.ii.StopFSCNode("bob")
+	time.Sleep(3 * time.Second)
+	s.ii.StartFSCNode("bob")
+	time.Sleep(3 * time.Second)
+
+	res, err = s.ii.Client("fsc.alice.0").CallView("init", nil)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
+
+	res, err = s.ii.Client("fsc.alice.1").CallView("init", nil)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
+
+	res, err = s.ii.Client("fsc.alice.2").CallView("init", nil)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
 }

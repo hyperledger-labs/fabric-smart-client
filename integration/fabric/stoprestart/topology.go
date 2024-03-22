@@ -13,7 +13,10 @@ import (
 	api2 "github.com/hyperledger-labs/fabric-smart-client/pkg/api"
 )
 
-func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType) []api.Topology {
+func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType, replicas map[string]int) []api.Topology {
+	if replicas == nil {
+		replicas = map[string]int{}
+	}
 	// Fabric
 	fabricTopology := fabric.NewDefaultTopology()
 	fabricTopology.AddOrganizationsByName("Org1", "Org2")
@@ -23,14 +26,12 @@ func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType) []api.Topology {
 	fscTopology := fsc.NewTopology()
 	fscTopology.P2PCommunicationType = commType
 
-	fscTopology.AddNodeByName("alice").AddOptions(
-		fabric.WithOrganization("Org1"),
-	).RegisterViewFactory("init", &InitiatorViewFactory{})
-	fscTopology.AddNodeByName("bob").AddOptions(
-		fabric.WithOrganization("Org2"),
-	).RegisterResponder(
-		&Responder{}, &Initiator{},
-	)
+	fscTopology.AddNodeByName("alice").
+		AddOptions(fabric.WithOrganization("Org1"), fsc.WithReplicationFactor(replicas["alice"])).
+		RegisterViewFactory("init", &InitiatorViewFactory{})
+	fscTopology.AddNodeByName("bob").
+		AddOptions(fabric.WithOrganization("Org2"), fsc.WithReplicationFactor(replicas["bob"])).
+		RegisterResponder(&Responder{}, &Initiator{})
 
 	// Add Fabric SDK to FSC Nodes
 	fscTopology.AddSDK(sdk)

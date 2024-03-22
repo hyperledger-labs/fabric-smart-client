@@ -36,6 +36,7 @@ var _ = Describe("EndToEnd", func() {
 
 type TestSuite struct {
 	commType fsc.P2PCommunicationType
+	replicas map[string]int
 
 	ii *integration.Infrastructure
 }
@@ -48,7 +49,7 @@ const testdataPath = "./testdata"
 
 func (s *TestSuite) Setup() {
 	// Create the integration ii
-	ii, err := integration.GenerateAt(StartPort(), testdataPath, true, relay.Topology(&fabric.SDK{}, s.commType)...)
+	ii, err := integration.GenerateAt(StartPort(), testdataPath, true, relay.Topology(&fabric.SDK{}, s.commType, s.replicas)...)
 	Expect(err).NotTo(HaveOccurred())
 	s.ii = ii
 	// Start the integration ii
