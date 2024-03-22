@@ -14,7 +14,10 @@ import (
 	api2 "github.com/hyperledger-labs/fabric-smart-client/pkg/api"
 )
 
-func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType) []api.Topology {
+func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType, replicas map[string]int) []api.Topology {
+	if replicas == nil {
+		replicas = map[string]int{}
+	}
 	// Define a Fabric topology with:
 	// 1. Three organization: Org1, Org2, and Org3
 	// 2. A namespace whose changes can be endorsed by Org1.
@@ -35,6 +38,7 @@ func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType) []api.Topology {
 	approver.AddOptions(
 		fabric.WithOrganization("Org1"),
 		fabric.WithDefaultIdentityByHSM(),
+		fsc.WithReplicationFactor(replicas["approver"]),
 	)
 	approver.RegisterResponder(&views.ApproverView{}, &views.CreateIOUView{})
 	approver.RegisterResponder(&views.ApproverView{}, &views.UpdateIOUView{})
@@ -45,6 +49,7 @@ func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType) []api.Topology {
 		fabric.WithOrganization("Org2"),
 		fabric.WithDefaultIdentityByHSM(),
 		fabric.WithX509IdentityByHSM("borrower-hsm-2"),
+		fsc.WithReplicationFactor(replicas["borrower"]),
 	)
 	borrower.RegisterViewFactory("create", &views.CreateIOUViewFactory{})
 	borrower.RegisterViewFactory("update", &views.UpdateIOUViewFactory{})
@@ -55,6 +60,7 @@ func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType) []api.Topology {
 	lender.AddOptions(
 		fabric.WithOrganization("Org3"),
 		fabric.WithDefaultIdentityWithLabel("lender"),
+		fsc.WithReplicationFactor(replicas["lender"]),
 	)
 	lender.RegisterResponder(&views.CreateIOUResponderView{}, &views.CreateIOUView{})
 	lender.RegisterResponder(&views.UpdateIOUResponderView{}, &views.UpdateIOUView{})

@@ -178,6 +178,7 @@ var _ = Describe("EndToEnd", func() {
 
 type TestSuite struct {
 	commType fsc.P2PCommunicationType
+	replicas map[string]int
 
 	ii *integration.Infrastructure
 
@@ -194,9 +195,9 @@ func (s *TestSuite) Setup() {
 	// Create the integration ii
 	var err error
 	if s.ii == nil {
-		s.ii, err = integration.Generate(StartPortWithGeneration(), true, pingpong.Topology(s.commType)...)
+		s.ii, err = integration.Generate(StartPortWithGeneration(), true, pingpong.Topology(s.commType, s.replicas)...)
 	} else {
-		s.ii, err = integration.Load(0, "./testdata", true, pingpong.Topology(s.commType)...)
+		s.ii, err = integration.Load(0, "./testdata", true, pingpong.Topology(s.commType, s.replicas)...)
 	}
 	Expect(err).NotTo(HaveOccurred())
 	// Start the integration ii
@@ -264,7 +265,7 @@ func (s *TestSuite) TestLoadAndStreamWebsocket() {
 
 func (s *TestSuite) TestLoadInitPingPong() {
 	// Use another ii to create clients
-	iiClients, err := integration.Clients("./testdata", pingpong.Topology(s.commType)...)
+	iiClients, err := integration.Clients("./testdata", pingpong.Topology(s.commType, s.replicas)...)
 	Expect(err).NotTo(HaveOccurred())
 
 	// Get a client for the fsc node labelled initiator
