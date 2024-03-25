@@ -1608,6 +1608,7 @@ func (n *Network) GenerateCoreConfig(p *topology.Peer) {
 				"PeerAddress":                 func(o *topology.Peer, portName api.PortName) string { return n.PeerAddress(o, portName) },
 				"CACertsBundlePath":           func() string { return n.CACertsBundlePath() },
 				"FSCNodeVaultPersistenceType": func() string { return GetPersistenceType(p) },
+				"FSCNodeVaultSQLDataSource":   func() string { return GetPersistenceDataSource(p) },
 				"FSCNodeVaultOrionNetwork":    func() string { return GetVaultPersistenceOrionNetwork(p) },
 				"FSCNodeVaultOrionDatabase":   func() string { return GetVaultPersistenceOrionDatabase(p) },
 				"FSCNodeVaultOrionCreator":    func() string { return GetVaultPersistenceOrionCreator(p) },
@@ -1706,11 +1707,20 @@ func GetLinkedIdentities(peer *topology.Peer) []string {
 }
 
 func GetPersistenceType(peer *topology.Peer) string {
-	v := peer.FSCNode.Options.Get("fabric.vault.persistence.orion")
-	if v == nil {
-		return "badger"
+	if v := peer.FSCNode.Options.Get("fabric.vault.persistence.orion"); v != nil {
+		return "orion"
 	}
-	return "orion"
+	if v := peer.FSCNode.Options.Get("fabric.vault.persistence.sql"); v != nil {
+		return "sql"
+	}
+	return "badger"
+}
+
+func GetPersistenceDataSource(peer *topology.Peer) string {
+	if v := peer.FSCNode.Options.Get("fabric.vault.persistence.sql"); v != nil {
+		return v.(string)
+	}
+	return ""
 }
 
 func GetVaultPersistenceOrionNetwork(peer *topology.Peer) string {
