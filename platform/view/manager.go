@@ -62,5 +62,9 @@ func (m *Manager) InitiateContextWithIdentityAndID(view View, id view.Identity, 
 // GetManager returns an instance of the view manager.
 // It panics, if no instance is found.
 func GetManager(sp ServiceProvider) *Manager {
-	return &Manager{m: driver.GetViewManager(sp)}
+	return NewManager(driver.GetViewManager(sp))
+}
+
+func NewManager(m driver.ViewManager) *Manager {
+	return &Manager{m: m}
 }

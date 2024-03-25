@@ -266,7 +266,7 @@ func TestProvider_DeserializeSigner(t *testing.T) {
 	assert.NoError(t, err)
 
 	// this must work
-	des, err := sig2.NewMultiplexDeserializer(registry)
+	des, err := sig2.NewMultiplexDeserializer()
 	assert.NoError(t, err)
 	des.AddDeserializer(p)
 	des.AddDeserializer(p2)
