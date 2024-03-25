@@ -474,6 +474,7 @@ func (p *Platform) GenerateCoreConfig(peer *node2.Replica) {
 		"ReplaceAll":             func(s, old, new string) string { return strings.Replace(s, old, new, -1) },
 		"NodeKVSPath":            func() string { return p.NodeKVSDir(peer) },
 		"NodeKVSPersistenceType": func() string { return GetPersistenceType(peer.Peer) },
+		"NodeKVSSQLDataSource":   func() string { return GetPersistenceDataSource(peer.Peer) },
 		"KVSOrionNetwork":        func() string { return GetKVSOrionNetwork(peer.Peer) },
 		"KVSOrionDatabase":       func() string { return GetKVSOrionDatabase(peer.Peer) },
 		"KVSOrionCreator":        func() string { return GetKVSOrionCreator(peer.Peer) },
@@ -568,8 +569,9 @@ func (p *Platform) GenerateCmd(output io.Writer, node *node2.Replica) string {
 	}
 
 	t, err := template.New("node").Funcs(template.FuncMap{
-		"Alias":       func(s string) string { return node.Node.Alias(s) },
-		"InstallView": func() bool { return len(node.Node.Responders) != 0 || len(node.Node.Factories) != 0 },
+		"Alias":           func(s string) string { return node.Node.Alias(s) },
+		"InstallView":     func() bool { return len(node.Node.Responders) != 0 || len(node.Node.Factories) != 0 },
+		"InstallPostgres": func() bool { return GetPersistenceType(node.Peer) == "sql" },
 	}).Parse(p.Topology.Templates.NodeTemplate())
 	Expect(err).NotTo(HaveOccurred())
 
@@ -839,11 +841,20 @@ func (p *Platform) nextColor() string {
 }
 
 func GetPersistenceType(peer *node2.Peer) string {
-	v := peer.Options.Get("fsc.persistence.orion")
-	if v == nil {
-		return "badger"
+	if v := peer.Options.Get("fsc.persistence.orion"); v != nil {
+		return "orion"
 	}
-	return "orion"
+	if v := peer.Options.Get("fsc.persistence.sql"); v != nil {
+		return "sql"
+	}
+	return "badger"
+}
+
+func GetPersistenceDataSource(peer *node2.Peer) string {
+	if v := peer.Options.Get("fsc.persistence.sql"); v != nil {
+		return v.(string)
+	}
+	return ""
 }
 
 func GetKVSOrionNetwork(peer *node2.Peer) string {
