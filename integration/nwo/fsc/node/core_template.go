@@ -94,6 +94,9 @@ fsc:
         network: {{ KVSOrionNetwork }}
         database: {{ KVSOrionDatabase }}
         creator: {{ KVSOrionCreator }}
+        {{- else if eq NodeKVSPersistenceType "sql" }}
+        driver: postgres
+        dataSource: {{ NodeKVSSQLDataSource }}
         {{- else }}
         path: {{ NodeKVSPath }}
         SyncWrites: false
