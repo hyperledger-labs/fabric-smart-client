@@ -70,3 +70,25 @@ func (c *RWSetLoader) GetRWSetFromETx(txID string) (driver.RWSet, driver.Process
 	}
 	return rws, tx, nil
 }
+
+func (c *RWSetLoader) GetInspectingRWSetFromEvn(txID string, envelopeRaw []byte) (driver.RWSet, driver.ProcessTransaction, error) {
+	logger.Debugf("unmarshal envelope [%s,%s]", c.Channel, txID)
+	env := &common.Envelope{}
+	err := proto.Unmarshal(envelopeRaw, env)
+	if err != nil {
+		return nil, nil, errors.Wrapf(err, "failed unmarshalling envelope [%s]", txID)
+	}
+	logger.Debugf("unpack envelope [%s,%s]", c.Channel, txID)
+	upe, err := rwset.UnpackEnvelope(c.Network, env)
+	if err != nil {
+		return nil, nil, errors.Wrapf(err, "failed unpacking envelope [%s]", txID)
+	}
+	logger.Debugf("retrieve rws [%s,%s]", c.Channel, txID)
+
+	rws, err := c.Vault.InspectRWSet(upe.Results)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return rws, upe, nil
+}

@@ -9,6 +9,8 @@ package generic
 import (
 	"strings"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/compose"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
@@ -125,29 +127,36 @@ func (c *Channel) commitUnknown(txID string, block uint64, indexInBlock int, env
 		return c.commitStoredEnvelope(txID, block, indexInBlock)
 	}
 
+	var envelopeRaw []byte
+	var err error
 	if envelope != nil {
 		// Store it
-		if err := c.EnvelopeService().StoreEnvelope(txID, envelope); err != nil {
+		envelopeRaw, err = proto.Marshal(envelope)
+		if err != nil {
 			return errors.WithMessagef(err, "failed to store unknown envelope for [%s]", txID)
 		}
 	} else {
 		// fetch envelope and store it
-		if err := c.FetchAndStoreEnvelope(txID); err != nil {
+		envelopeRaw, err = c.FetchEnvelope(txID)
+		if err != nil {
 			return errors.WithMessagef(err, "failed getting rwset for tx [%s]", txID)
 		}
 	}
 
 	// shall we commit this unknown envelope
-	if ok, err := c.filterUnknownEnvelope(txID); err != nil || !ok {
+	if ok, err := c.filterUnknownEnvelope(txID, envelopeRaw); err != nil || !ok {
 		logger.Debugf("[%s] unknown envelope will not be processed [%b,%s]", ok, err)
 		return nil
 	}
 
+	if err := c.EnvelopeService().StoreEnvelope(txID, envelopeRaw); err != nil {
+		return errors.WithMessagef(err, "failed to store unknown envelope for [%s]", txID)
+	}
 	return c.commit(txID, nil, block, indexInBlock, envelope)
 }
 
-func (c *Channel) filterUnknownEnvelope(txID string) (bool, error) {
-	rws, _, err := c.GetRWSetFromEvn(txID)
+func (c *Channel) filterUnknownEnvelope(txID string, envelope []byte) (bool, error) {
+	rws, _, err := c.RWSetLoader.GetInspectingRWSetFromEvn(txID, envelope)
 	if err != nil {
 		return false, errors.WithMessagef(err, "failed to get rws from envelope [%s]", txID)
 	}
