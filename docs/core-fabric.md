@@ -76,14 +76,23 @@ fsc:
 
   # ------------------- P2P Configuration -------------------------
   p2p:
+    # Type of p2p communication. Currently supported: libp2p (default), rest
+    type: libp2p
     # listen address see https://github.com/libp2p/specs/blob/master/addressing/README.md
     # for information on the format
     listenAddress: /dns4/myhostname/tcp/20001
-    # bootstrap node
-    # if it's empty then this node is the bootstrap node, otherwise it's the name
-    # of the bootstrap node, which must be defined in the FSC endpoint resolvers section
-    # and that entry must have an address with an entry P2P.
-    bootstrapNode: theBootstrapNode
+    opts:
+      # Only needed when type == libp2p
+      # bootstrap node
+      # if it's empty then this node is the bootstrap node, otherwise it's the name
+      # of the bootstrap node, which must be defined in the FSC endpoint resolvers section
+      # and that entry must have an address with an entry P2P.
+      bootstrapNode: theBootstrapNode
+      # Only needed when type == rest
+      # Defines how to instantiate a router, i.e. the component that maps a service name (e.g. alice) to one or more IPs
+      routing:
+        # The path to the file that contains the routing, if the routing is static
+        path: /path/to/routing-config.yaml
 
   # ------------------- KVS Configuration -------------------------
   # Internal key/value store used by the node to store information
