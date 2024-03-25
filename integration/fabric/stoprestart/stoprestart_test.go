@@ -33,6 +33,30 @@ var _ = Describe("EndToEnd", func() {
 		AfterEach(s.TearDown)
 		It("stop and restart successfully", s.TestSucceeded)
 	})
+
+	Describe("Stop and Restart with Fabric With Replicas many to one", func() {
+		s := NewTestSuite(fsc.WebSocket, &integration.ReplicationOptions{
+			ReplicationFactors: map[string]int{
+				"alice": 4,
+				"bob":   1,
+			},
+		})
+		BeforeEach(s.Setup)
+		AfterEach(s.TearDown)
+		It("stop and restart successfully", s.TestSucceededWithReplicas)
+	})
+
+	Describe("Stop and Restart with Fabric With Replicas many to many", func() {
+		s := NewTestSuite(fsc.WebSocket, &integration.ReplicationOptions{
+			ReplicationFactors: map[string]int{
+				"alice": 4,
+				"bob":   4,
+			},
+		})
+		BeforeEach(s.Setup)
+		AfterEach(s.TearDown)
+		It("stop and restart successfully", s.TestSucceededWithReplicas)
+	})
 })
 
 type TestSuite struct {
@@ -56,6 +80,37 @@ func (s *TestSuite) TestSucceeded() {
 	time.Sleep(3 * time.Second)
 
 	res, err = s.II.Client("alice").CallView("init", nil)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
+}
+
+func (s *TestSuite) TestSucceededWithReplicas() {
+	res, err := s.II.Client("fsc.alice.0").CallView("init", nil)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
+
+	res, err = s.II.Client("fsc.alice.1").CallView("init", nil)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
+
+	res, err = s.II.Client("fsc.alice.2").CallView("init", nil)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
+
+	s.II.StopFSCNode("bob")
+	time.Sleep(3 * time.Second)
+	s.II.StartFSCNode("bob")
+	time.Sleep(3 * time.Second)
+
+	res, err = s.II.Client("fsc.alice.0").CallView("init", nil)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
+
+	res, err = s.II.Client("fsc.alice.1").CallView("init", nil)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
+
+	res, err = s.II.Client("fsc.alice.2").CallView("init", nil)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
 }
