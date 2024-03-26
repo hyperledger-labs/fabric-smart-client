@@ -186,6 +186,7 @@ func (i *Infrastructure) Start() {
 }
 
 func (i *Infrastructure) Stop() {
+	logger.Infof("stopping ...")
 	if i.NWO == nil {
 		panic("call generate or load first")
 	}
@@ -285,32 +286,39 @@ func (i *Infrastructure) initNWO() {
 	}
 	var platforms []api.Platform
 	var fscTopology api.Topology
-	if _, ok := i.PlatformFactories["fsc"]; !ok {
-		i.RegisterPlatformFactory(&fscDefaultPlatformFactory{})
-	}
+
 	for _, topology := range i.Topologies {
 		label := strings.ToLower(topology.Type())
 		switch label {
 		case "fsc":
-			// treat fsc as special
+			// treat fsc as last topo
 			fscTopology = topology
 			continue
 		default:
+			logger.Infof("Register %s", label)
 			factory, ok := i.PlatformFactories[label]
 			Expect(ok).To(BeTrue(), "expected to find platform [%s]", label)
 			platforms = append(platforms, factory.New(i.Ctx, topology, i.BuildServer.Client()))
 		}
 	}
+
 	// Add FSC platform
-	fcsPlatform := i.PlatformFactories["fsc"].New(i.Ctx, fscTopology, i.BuildServer.Client()).(*fsc.Platform)
-	platforms = append(platforms, fcsPlatform)
+	if fscTopology != nil {
+		if _, ok := i.PlatformFactories["fsc"]; !ok {
+			i.RegisterPlatformFactory(&fscDefaultPlatformFactory{})
+		}
+		factory := i.PlatformFactories["fsc"]
+
+		fscPlatform := factory.New(i.Ctx, fscTopology, i.BuildServer.Client())
+		platforms = append(platforms, fscPlatform)
+		i.FscPlatform = fscPlatform.(*fsc.Platform)
+	}
 
 	// Register platforms to context
 	for _, platform := range platforms {
 		i.Ctx.AddPlatform(platform)
 	}
 	i.NWO = nwo.New(i.Ctx, platforms...)
-	i.FscPlatform = fcsPlatform
 }
 
 func (i *Infrastructure) storeAdditionalConfigurations() {

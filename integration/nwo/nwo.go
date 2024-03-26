@@ -113,19 +113,35 @@ func (n *NWO) Start() {
 	n.Members = members
 	n.ViewMembers = fscMembers
 
-	logger.Infof("Run nodes...")
+	// store PIDs of all processes
+	f, err := os.Create(filepath.Join(n.ctx.RootDir(), "pids.txt"))
+	Expect(err).NotTo(HaveOccurred())
+	defer func() {
+		// write PIDs to file
+		Expect(f.Sync()).NotTo(HaveOccurred())
+		Expect(f.Close()).NotTo(HaveOccurred())
+	}()
+
+	logger.Infof("Run platform nodes...")
 
 	// Execute members on their own stuff...
 	Runner := grouper.NewOrdered(n.TerminationSignal, members)
 	process := ifrit.Invoke(Runner)
 	n.Processes = append(n.Processes, process)
 	Eventually(process.Ready(), n.StartEventuallyTimeout).Should(BeClosed())
+	n.storePIDs(f, members)
 
 	logger.Infof("Post execution for nodes...")
 	for _, platform := range n.Platforms {
 		if platform.Type() != "fsc" {
 			platform.PostRun(n.isLoading)
 		}
+	}
+
+	// deal with fsc nodes separately
+	if len(fscMembers) == 0 {
+		logger.Infof("Skipping starting FSC nodes and post execution as no FSC members are defined")
+		return
 	}
 
 	// Execute the fsc members in isolation so can be stopped and restarted as needed
@@ -139,14 +155,7 @@ func (n *NWO) Start() {
 		n.Processes = append(n.Processes, process)
 		n.FSCProcesses = append(n.FSCProcesses, process)
 	}
-
-	// store PIDs of all processes
-	f, err := os.Create(filepath.Join(n.ctx.RootDir(), "pids.txt"))
-	Expect(err).NotTo(HaveOccurred())
-	n.storePIDs(f, members)
 	n.storePIDs(f, fscMembers)
-	Expect(f.Sync()).NotTo(HaveOccurred())
-	Expect(f.Close()).NotTo(HaveOccurred())
 
 	logger.Infof("Post execution for FSC nodes...")
 	for _, platform := range n.Platforms {
