@@ -11,6 +11,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/compose"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger/fabric-protos-go/common"
@@ -87,37 +88,63 @@ func (c *Channel) DiscardTx(txID string, message string) error {
 	return nil
 }
 
-func (c *Channel) CommitTX(txid string, block uint64, indexInBlock int, envelope *common.Envelope) (err error) {
-	logger.Debugf("Committing transaction [%s,%d,%d]", txid, block, indexInBlock)
-	defer logger.Debugf("Committing transaction [%s,%d,%d] done [%s]", txid, block, indexInBlock, err)
+func (c *Channel) CommitTX(txID string, block uint64, indexInBlock int, envelope *common.Envelope) (err error) {
+	logger.Debugf("Committing transaction [%s,%d,%d]", txID, block, indexInBlock)
+	defer logger.Debugf("Committing transaction [%s,%d,%d] done [%s]", txID, block, indexInBlock, err)
 	defer func() {
 		if err == nil {
-			c.notifyTxStatus(txid, driver.Valid, "")
+			c.notifyTxStatus(txID, driver.Valid, "")
 		}
 	}()
 
-	vc, _, deps, err := c.Status(txid)
+	vc, _, deps, err := c.Status(txID)
 	if err != nil {
-		return errors.WithMessagef(err, "failed getting tx's status in state db [%s]", txid)
+		return errors.WithMessagef(err, "failed getting tx's status in state db [%s]", txID)
 	}
 	switch vc {
 	case driver.Valid:
 		// This should generate a panic
-		logger.Debugf("[%s] is already valid", txid)
-		return errors.Errorf("[%s] is already valid", txid)
+		logger.Debugf("[%s] is already valid", txID)
+		return errors.Errorf("[%s] is already valid", txID)
 	case driver.Invalid:
 		// This should generate a panic
-		logger.Debugf("[%s] is invalid", txid)
-		return errors.Errorf("[%s] is invalid", txid)
+		logger.Debugf("[%s] is invalid", txID)
+		return errors.Errorf("[%s] is invalid", txID)
 	case driver.Unknown:
-		return c.commitUnknown(txid, block, indexInBlock, envelope)
+		return c.commitUnknown(txID, block, indexInBlock, envelope)
 	case driver.HasDependencies:
-		return c.commitDeps(txid, block, indexInBlock)
+		return c.commitDeps(txID, block, indexInBlock)
 	case driver.Busy:
-		return c.commit(txid, deps, block, indexInBlock, envelope)
+		return c.commit(txID, deps, block, indexInBlock, envelope)
 	default:
-		return errors.Errorf("invalid status code [%d] for [%s]", vc, txid)
+		return errors.Errorf("invalid status code [%d] for [%s]", vc, txID)
 	}
+}
+
+func (c *Channel) SubscribeTxStatusChanges(txID string, listener driver.TxStatusChangeListener) error {
+	_, topic := compose.CreateTxTopic(c.Network.Name(), c.ChannelName, txID)
+	l := &TxEventsListener{listener: listener}
+	logger.Debugf("[%s] Subscribing to transaction status changes", txID)
+	c.EventsSubscriber.Subscribe(topic, l)
+	logger.Debugf("[%s] store mapping", txID)
+	c.Subscribers.Set(topic, listener, l)
+	logger.Debugf("[%s] Subscribing to transaction status changes done", txID)
+	return nil
+}
+
+func (c *Channel) UnsubscribeTxStatusChanges(txID string, listener driver.TxStatusChangeListener) error {
+	_, topic := compose.CreateTxTopic(c.Network.Name(), c.ChannelName, txID)
+	l, ok := c.Subscribers.Get(topic, listener)
+	if !ok {
+		return errors.Errorf("listener not found for txID [%s]", txID)
+	}
+	el, ok := l.(events.Listener)
+	if !ok {
+		return errors.Errorf("listener not found for txID [%s]", txID)
+	}
+	c.Subscribers.Delete(topic, listener)
+	c.EventsSubscriber.Unsubscribe(topic, el)
+	return nil
 }
 
 func (c *Channel) commitUnknown(txID string, block uint64, indexInBlock int, envelope *common.Envelope) error {
@@ -207,117 +234,116 @@ func (c *Channel) extractStoredEnvelopeToVault(txID string) error {
 	return nil
 }
 
-func (c *Channel) commit(txid string, deps []string, block uint64, indexInBlock int, envelope *common.Envelope) error {
-	logger.Debugf("[%s] is known.", txid)
+func (c *Channel) commit(txID string, deps []string, block uint64, indexInBlock int, envelope *common.Envelope) error {
+	logger.Debugf("[%s] is known.", txID)
 
 	switch {
 	case len(deps) != 0:
-		if err := c.commitExternal(txid, block, indexInBlock); err != nil {
+		if err := c.commitExternal(txID, block, indexInBlock); err != nil {
 			return err
 		}
 	default:
-		if err := c.commitLocal(txid, block, indexInBlock, envelope); err != nil {
+		if err := c.commitLocal(txID, block, indexInBlock, envelope); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (c *Channel) commitDeps(txid string, block uint64, indexInBlock int) error {
+func (c *Channel) commitDeps(txID string, block uint64, indexInBlock int) error {
 	// This should not generate a panic if the transaction is deemed invalid
-	logger.Debugf("[%s] is unknown but have dependencies, commit as multi-shard pvt", txid)
+	logger.Debugf("[%s] is unknown but have dependencies, commit as multi-shard pvt", txID)
 
 	// Validate and commit
-	vc, err := c.ExternalCommitter.Validate(txid)
+	vc, err := c.ExternalCommitter.Validate(txID)
 	if err != nil {
-		return errors.WithMessagef(err, "failed validating transaction [%s]", txid)
+		return errors.WithMessagef(err, "failed validating transaction [%s]", txID)
 	}
 	switch vc {
 	case driver.Valid:
-		if err := c.ExternalCommitter.CommitTX(txid, block, indexInBlock); err != nil {
-			return errors.WithMessagef(err, "failed committing tx [%s]", txid)
+		if err := c.ExternalCommitter.CommitTX(txID, block, indexInBlock); err != nil {
+			return errors.WithMessagef(err, "failed committing tx [%s]", txID)
 		}
 		return nil
 	case driver.Invalid:
-		if err := c.ExternalCommitter.DiscardTX(txid); err != nil {
-			logger.Errorf("failed committing tx [%s] with err [%s]", txid, err)
+		if err := c.ExternalCommitter.DiscardTX(txID); err != nil {
+			logger.Errorf("failed committing tx [%s] with err [%s]", txID, err)
 		}
 		return nil
 	}
 	return nil
 }
 
-func (c *Channel) commitExternal(txid string, block uint64, indexInBlock int) error {
-	logger.Debugf("[%s] Committing as multi-shard pvt.", txid)
+func (c *Channel) commitExternal(txID string, block uint64, indexInBlock int) error {
+	logger.Debugf("[%s] Committing as multi-shard pvt.", txID)
 
 	// Ask for finality
-	_, _, parties, err := c.ExternalCommitter.Status(txid)
+	_, _, parties, err := c.ExternalCommitter.Status(txID)
 	if err != nil {
-		return errors.Wrapf(err, "failed getting parties for [%s]", txid)
+		return errors.Wrapf(err, "failed getting parties for [%s]", txID)
 	}
-	if err := c.IsFinalForParties(txid, parties...); err != nil {
+	if err := c.IsFinalForParties(txID, parties...); err != nil {
 		return err
 	}
 
 	// Validate and commit
-	vc, err := c.ExternalCommitter.Validate(txid)
+	vc, err := c.ExternalCommitter.Validate(txID)
 	if err != nil {
-		return errors.WithMessagef(err, "failed validating transaction [%s]", txid)
+		return errors.WithMessagef(err, "failed validating transaction [%s]", txID)
 	}
 	switch vc {
 	case driver.Valid:
-		if err := c.ExternalCommitter.CommitTX(txid, block, indexInBlock); err != nil {
-			return errors.WithMessagef(err, "failed committing tx [%s]", txid)
+		if err := c.ExternalCommitter.CommitTX(txID, block, indexInBlock); err != nil {
+			return errors.WithMessagef(err, "failed committing tx [%s]", txID)
 		}
 		return nil
 	case driver.Invalid:
-		if err := c.ExternalCommitter.DiscardTX(txid); err != nil {
-			logger.Errorf("failed committing tx [%s] with err [%s]", txid, err)
+		if err := c.ExternalCommitter.DiscardTX(txID); err != nil {
+			logger.Errorf("failed committing tx [%s] with err [%s]", txID, err)
 		}
 		return nil
 	}
 	return nil
 }
 
-func (c *Channel) commitLocal(txid string, block uint64, indexInBlock int, envelope *common.Envelope) error {
+func (c *Channel) commitLocal(txID string, block uint64, indexInBlock int, envelope *common.Envelope) error {
 	// This is a normal transaction, validated by Fabric.
 	// Commit it cause Fabric says it is valid.
-	logger.Debugf("[%s] Committing", txid)
+	logger.Debugf("[%s] committing", txID)
 
 	// Match rwsets if envelope is not empty
 	if envelope != nil {
-		logger.Debugf("[%s] Matching rwsets", txid)
+		logger.Debugf("[%s] matching rwsets", txID)
 
 		pt, headerType, err := newProcessedTransactionFromEnvelope(envelope)
 		if err != nil && headerType == -1 {
-			logger.Errorf("[%s] failed to unmarshal envelope [%s]", txid, err)
+			logger.Errorf("[%s] failed to unmarshal envelope [%s]", txID, err)
 			return err
 		}
 		if headerType == int32(common.HeaderType_ENDORSER_TRANSACTION) {
-			if !c.Vault.RWSExists(txid) {
-				if err := c.extractStoredEnvelopeToVault(txid); err != nil {
+			if !c.Vault.RWSExists(txID) {
+				if err := c.extractStoredEnvelopeToVault(txID); err != nil {
 					return errors.WithMessagef(err, "failed to load stored enveloper into the vault")
 				}
 			}
-
-			if err := c.Vault.Match(txid, pt.Results()); err != nil {
-				logger.Errorf("[%s] rwsets do not match [%s]", txid, err)
-				return err
+			if err := c.Vault.Match(txID, pt.Results()); err != nil {
+				logger.Errorf("[%s] rwsets do not match [%s]", txID, err)
+				return errors.Wrapf(committer.ErrDiscardTX, "[%s] rwsets do not match [%s]", txID, err)
 			}
 		}
 	}
 
 	// Post-Processes
-	logger.Debugf("[%s] Post Processes", txid)
+	logger.Debugf("[%s] post process rwset", txID)
 
-	if err := c.postProcessTx(txid); err != nil {
+	if err := c.postProcessTx(txID); err != nil {
 		// This should generate a panic
 		return err
 	}
 
 	// Commit
-	logger.Debugf("[%s] Commit in vault", txid)
-	if err := c.Vault.CommitTX(txid, block, indexInBlock); err != nil {
+	logger.Debugf("[%s] commit in vault", txID)
+	if err := c.Vault.CommitTX(txID, block, indexInBlock); err != nil {
 		// This should generate a panic
 		return err
 	}
@@ -325,41 +351,11 @@ func (c *Channel) commitLocal(txid string, block uint64, indexInBlock int, envel
 	return nil
 }
 
-func (c *Channel) postProcessTx(txid string) error {
-	if err := c.Network.ProcessorManager().ProcessByID(c.ChannelName, txid); err != nil {
+func (c *Channel) postProcessTx(txID string) error {
+	if err := c.Network.ProcessorManager().ProcessByID(c.ChannelName, txID); err != nil {
 		// This should generate a panic
 		return err
 	}
-	return nil
-}
-
-// SubscribeTxStatusChanges registers a listener for transaction status changes for the passed transaction id.
-// If the transaction id is empty, the listener will be called for all transactions.
-func (c *Channel) SubscribeTxStatusChanges(txID string, listener driver.TxStatusChangeListener) error {
-	_, topic := compose.CreateTxTopic(c.Network.Name(), c.ChannelName, txID)
-	l := &TxEventsListener{listener: listener}
-	logger.Debugf("[%s] Subscribing to transaction status changes", txID)
-	c.EventsSubscriber.Subscribe(topic, l)
-	logger.Debugf("[%s] store mapping", txID)
-	c.Subscribers.Set(topic, listener, l)
-	logger.Debugf("[%s] Subscribing to transaction status changes done", txID)
-	return nil
-}
-
-// UnsubscribeTxStatusChanges unregisters a listener for transaction status changes for the passed transaction id.
-// If the transaction id is empty, the listener will be called for all transactions.
-func (c *Channel) UnsubscribeTxStatusChanges(txID string, listener driver.TxStatusChangeListener) error {
-	_, topic := compose.CreateTxTopic(c.Network.Name(), c.ChannelName, txID)
-	l, ok := c.Subscribers.Get(topic, listener)
-	if !ok {
-		return errors.Errorf("listener not found for txID [%s]", txID)
-	}
-	el, ok := l.(events.Listener)
-	if !ok {
-		return errors.Errorf("listener not found for txID [%s]", txID)
-	}
-	c.Subscribers.Delete(topic, listener)
-	c.EventsSubscriber.Unsubscribe(topic, el)
 	return nil
 }
 
