@@ -321,7 +321,7 @@ func (p *Platform) CheckTopology() {
 			var extraIdentities []*node2.PeerIdentity
 			peer := &node2.Peer{
 				Name:            node.Name,
-				UniqueName:      fmt.Sprintf("%s.%d", node.Name, r),
+				UniqueName:      node2.ReplicaUniqueName(node.Name, r),
 				Organization:    org.Name,
 				Bootstrap:       node.Bootstrap,
 				ExecutablePath:  node.ExecutablePath,

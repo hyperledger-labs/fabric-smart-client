@@ -23,7 +23,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/docker"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
+	node2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/orion-server/config"
 	"github.com/hyperledger-labs/orion-server/pkg/server/testutils"
@@ -213,7 +213,9 @@ func (p *Platform) DeleteVault(id string) {
 	found := false
 	for _, node := range fscTopology.Nodes {
 		if strings.Contains(node.Name, id) {
-			Expect(os.RemoveAll(p.FSCNodeVaultDir(node))).ToNot(HaveOccurred())
+			for r := 0; r < node.Options.ReplicationFactor(); r++ {
+				Expect(os.RemoveAll(p.FSCNodeVaultDir(node2.ReplicaUniqueName(node.Name, r)))).ToNot(HaveOccurred())
+			}
 			found = true
 		}
 	}
@@ -234,29 +236,31 @@ func (p *Platform) generateExtension() {
 			continue
 		}
 
-		t, err := template.New("view_extension").Funcs(template.FuncMap{
-			"Name":       func() string { return p.Name() },
-			"ServerURL":  func() string { return p.serverUrl.String() },
-			"ServerID":   func() string { return p.localConfig.Server.Identity.ID },
-			"CACertPath": func() string { return p.caPem() },
-			"Identities": func() []Identity {
-				return []Identity{
-					{
-						Name: role,
-						Cert: p.pem(role),
-						Key:  p.key(role),
-					},
-				}
-			},
-			"FSCNodeVaultPath": func() string { return p.FSCNodeVaultDir(node) },
-		}).Parse(ExtensionTemplate)
-		Expect(err).NotTo(HaveOccurred())
+		for r := 0; r < node.Options.ReplicationFactor(); r++ {
+			t, err := template.New("view_extension").Funcs(template.FuncMap{
+				"Name":       func() string { return p.Name() },
+				"ServerURL":  func() string { return p.serverUrl.String() },
+				"ServerID":   func() string { return p.localConfig.Server.Identity.ID },
+				"CACertPath": func() string { return p.caPem() },
+				"Identities": func() []Identity {
+					return []Identity{
+						{
+							Name: role,
+							Cert: p.pem(role),
+							Key:  p.key(role),
+						},
+					}
+				},
+				"FSCNodeVaultPath": func() string { return p.FSCNodeVaultDir(node2.ReplicaUniqueName(node.Name, r)) },
+			}).Parse(ExtensionTemplate)
+			Expect(err).NotTo(HaveOccurred())
 
-		extension := bytes.NewBuffer([]byte{})
-		err = t.Execute(io.MultiWriter(extension), p)
-		Expect(err).NotTo(HaveOccurred())
+			extension := bytes.NewBuffer([]byte{})
+			err = t.Execute(io.MultiWriter(extension), p)
+			Expect(err).NotTo(HaveOccurred())
 
-		p.Context.AddExtension(node.ID(), api2.OrionExtension, extension.String())
+			p.Context.AddExtension(node2.ReplicaUniqueName(node.Name, r), api2.OrionExtension, extension.String())
+		}
 	}
 }
 
@@ -469,6 +473,6 @@ func (p *Platform) saveServerUrl(url *url.URL) {
 	serverUrlFile.Close()
 }
 
-func (p *Platform) FSCNodeVaultDir(peer *node.Node) string {
-	return filepath.Join(p.Context.RootDir(), "fsc", "nodes", peer.ID(), "vault")
+func (p *Platform) FSCNodeVaultDir(uniqueName string) string {
+	return filepath.Join(p.Context.RootDir(), "fsc", "nodes", uniqueName, "vault")
 }
