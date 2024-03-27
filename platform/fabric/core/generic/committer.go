@@ -58,7 +58,7 @@ func (c *Channel) GetProcessNamespace() []string {
 }
 
 func (c *Channel) DiscardTx(txID string, message string) error {
-	logger.Debugf("Discarding transaction [%s]", txID)
+	logger.Debugf("discarding transaction [%s] with message [%s]", txID, message)
 
 	defer c.notifyTxStatus(txID, driver.Invalid, message)
 	vc, _, deps, err := c.Status(txID)
