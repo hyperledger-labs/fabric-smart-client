@@ -31,7 +31,7 @@ type Finality interface {
 }
 
 type Vault interface {
-	Status(txID string) (driver.ValidationCode, error)
+	Status(txID string) (driver.ValidationCode, string, error)
 	DiscardTx(txID string, message string) error
 	CommitTX(txid string, block uint64, indexInBloc int) error
 }
@@ -135,7 +135,7 @@ func (c *committer) CommitTX(txID string, bn uint64, index int, event *TxEvent) 
 	logger.Debugf("transaction [%s] in block [%d] is valid for orion", txID, bn)
 
 	// if is already committed, do nothing
-	vc, err := c.vault.Status(txID)
+	vc, _, err := c.vault.Status(txID)
 	if err != nil {
 		return errors.Wrapf(err, "failed to get status of tx %s", txID)
 	}
@@ -171,7 +171,7 @@ func (c *committer) CommitTX(txID string, bn uint64, index int, event *TxEvent) 
 func (c *committer) DiscardTX(txID string, blockNum uint64, validationCode types.Flag, event *TxEvent) error {
 	logger.Debugf("transaction [%s] in block [%d] is not valid for orion [%s], discard!", txID, blockNum, validationCode)
 
-	vc, err := c.vault.Status(txID)
+	vc, _, err := c.vault.Status(txID)
 	if err != nil {
 		return errors.Wrapf(err, "failed getting tx's status [%s]", txID)
 	}
@@ -201,7 +201,7 @@ func (c *committer) IsFinal(ctx context.Context, txID string) error {
 
 	skipLoop := false
 	for iter := 0; iter < c.finalityNumRetries; iter++ {
-		vd, err := c.vault.Status(txID)
+		vd, _, err := c.vault.Status(txID)
 		if err == nil {
 			switch vd {
 			case driver.Valid:
@@ -406,7 +406,7 @@ func (c *committer) listenToFinality(ctx context.Context, txID string, timeout t
 			if logger.IsEnabledFor(zapcore.DebugLevel) {
 				logger.Debugf("Got a timeout for finality of [%s], check the status", txID)
 			}
-			vd, err := c.vault.Status(txID)
+			vd, _, err := c.vault.Status(txID)
 			if err == nil {
 				switch vd {
 				case driver.Valid:
