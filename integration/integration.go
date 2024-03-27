@@ -140,13 +140,13 @@ func Clients(dir string, topologies ...api.Topology) (*Infrastructure, error) {
 	return n, nil
 }
 
-func (i *Infrastructure) ViewCmd(node *smartclient.Peer) commands.View {
+func (i *Infrastructure) ViewCmd(node *smartclient.Replica) commands.View {
 	p := i.Ctx.PlatformsByName[fsc.TopologyName].(*fsc.Platform)
 
 	return commands.View{
-		TLSCA:         path.Join(p.NodeLocalTLSDir(node), "ca.crt"),
-		UserCert:      p.LocalMSPIdentityCert(node),
-		UserKey:       p.LocalMSPPrivateKey(node),
+		TLSCA:         path.Join(p.NodeLocalTLSDir(node.Peer), "ca.crt"),
+		UserCert:      p.LocalMSPIdentityCert(node.Peer),
+		UserKey:       p.LocalMSPPrivateKey(node.Peer),
 		NetworkPrefix: p.NetworkID,
 		Server:        p.Context.ConnectionConfig(node.UniqueName).Address,
 	}

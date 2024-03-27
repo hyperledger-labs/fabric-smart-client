@@ -142,9 +142,9 @@ func (n *Extension) fscScrapes(p *Prometheus) {
 				},
 			},
 			TLSConfig: &TLSConfig{
-				CAFile:             replace(platform.NodeLocalTLSDir(peer) + "/ca.crt"),
-				CertFile:           replace(platform.NodeLocalTLSDir(peer) + "/server.crt"),
-				KeyFile:            replace(platform.NodeLocalTLSDir(peer) + "/server.key"),
+				CAFile:             replace(platform.NodeLocalTLSDir(peer.Peer) + "/ca.crt"),
+				CertFile:           replace(platform.NodeLocalTLSDir(peer.Peer) + "/server.crt"),
+				KeyFile:            replace(platform.NodeLocalTLSDir(peer.Peer) + "/server.key"),
 				ServerName:         "",
 				InsecureSkipVerify: true,
 			},

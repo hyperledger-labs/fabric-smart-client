@@ -23,7 +23,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/docker"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
-	node2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/orion-server/config"
 	"github.com/hyperledger-labs/orion-server/pkg/server/testutils"
@@ -213,8 +212,8 @@ func (p *Platform) DeleteVault(id string) {
 	found := false
 	for _, node := range fscTopology.Nodes {
 		if strings.Contains(node.Name, id) {
-			for r := 0; r < node.Options.ReplicationFactor(); r++ {
-				Expect(os.RemoveAll(p.FSCNodeVaultDir(node2.ReplicaUniqueName(node.Name, r)))).ToNot(HaveOccurred())
+			for _, uniqueName := range node.ReplicaUniqueNames() {
+				Expect(os.RemoveAll(p.FSCNodeVaultDir(uniqueName))).ToNot(HaveOccurred())
 			}
 			found = true
 		}
@@ -236,7 +235,7 @@ func (p *Platform) generateExtension() {
 			continue
 		}
 
-		for r := 0; r < node.Options.ReplicationFactor(); r++ {
+		for _, uniqueName := range node.ReplicaUniqueNames() {
 			t, err := template.New("view_extension").Funcs(template.FuncMap{
 				"Name":       func() string { return p.Name() },
 				"ServerURL":  func() string { return p.serverUrl.String() },
@@ -251,7 +250,7 @@ func (p *Platform) generateExtension() {
 						},
 					}
 				},
-				"FSCNodeVaultPath": func() string { return p.FSCNodeVaultDir(node2.ReplicaUniqueName(node.Name, r)) },
+				"FSCNodeVaultPath": func() string { return p.FSCNodeVaultDir(uniqueName) },
 			}).Parse(ExtensionTemplate)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -259,7 +258,7 @@ func (p *Platform) generateExtension() {
 			err = t.Execute(io.MultiWriter(extension), p)
 			Expect(err).NotTo(HaveOccurred())
 
-			p.Context.AddExtension(node2.ReplicaUniqueName(node.Name, r), api2.OrionExtension, extension.String())
+			p.Context.AddExtension(uniqueName, api2.OrionExtension, extension.String())
 		}
 	}
 }

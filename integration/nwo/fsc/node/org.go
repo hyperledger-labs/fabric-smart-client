@@ -40,7 +40,6 @@ type PeerIdentity struct {
 type Peer struct {
 	*Node
 	Name            string          `yaml:"name,omitempty"`
-	UniqueName      string          `yaml:"uniquename,omitempty"`
 	Organization    string          `yaml:"organization,omitempty"`
 	Bootstrap       bool            `yaml:"bootstrap,omitempty"`
 	ExecutablePath  string          `yaml:"executablepath,omitempty"`
@@ -49,7 +48,19 @@ type Peer struct {
 	Aliases         []string        `yaml:"aliases,omitempty"`
 }
 
+type Replica struct {
+	*Peer
+	UniqueName string
+}
+
+func NewReplica(peer *Peer, uniqueName string) *Replica {
+	return &Replica{
+		Peer:       peer,
+		UniqueName: uniqueName,
+	}
+}
+
 // ID provides a unique identifier for a peer instance.
-func (p *Peer) ID() string {
+func (p *Replica) ID() string {
 	return fmt.Sprintf("%s.%s", p.Organization, p.UniqueName)
 }
