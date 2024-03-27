@@ -147,7 +147,7 @@ func (c *Committer) DiscardEndorserTransaction(txID string, block *common.Block,
 		}
 		// Nothing to commit
 	default:
-		event.Err = errors.Errorf("transaction [%s] status is not valid: %d", txID, event.ValidationCode)
+		event.Err = errors.Errorf("transaction [%s] status is not valid [%d], message [%s]", txID, event.ValidationCode, event.ValidationMessage)
 		err = committer.DiscardTx(event.TxID, event.ValidationMessage)
 		if err != nil {
 			logger.Errorf("failed discarding tx in state db with err [%s]", err)
