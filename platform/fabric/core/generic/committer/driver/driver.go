@@ -15,7 +15,7 @@ import (
 // Vault models a key-value store that can be updated by committing rwsets
 type Vault interface {
 	CommitTX(txid string, block uint64, indexInBloc int) error
-	DiscardTx(txid string) error
+	DiscardTx(txID string, message string) error
 }
 
 type Committer interface {

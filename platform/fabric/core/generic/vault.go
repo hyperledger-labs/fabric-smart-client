@@ -19,8 +19,8 @@ import (
 
 type TXIDStore interface {
 	fdriver.TXIDStore
-	Get(txid string) (fdriver.ValidationCode, error)
-	Set(txid string, code fdriver.ValidationCode) error
+	Get(txid string) (fdriver.ValidationCode, string, error)
+	Set(txID string, code fdriver.ValidationCode, message string) error
 }
 
 func NewVault(sp view2.ServiceProvider, config *config.Config, channel string) (*vault.Vault, TXIDStore, error) {

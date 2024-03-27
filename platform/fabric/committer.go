@@ -33,9 +33,9 @@ func (c *Committer) ProcessNamespace(nss ...string) error {
 
 // Status returns a validation code this committer bind to the passed transaction id, plus
 // a list of dependant transaction ids if they exist.
-func (c *Committer) Status(txid string) (ValidationCode, []string, error) {
-	vc, deps, err := c.ch.Status(txid)
-	return ValidationCode(vc), deps, err
+func (c *Committer) Status(txID string) (ValidationCode, string, []string, error) {
+	vc, message, deps, err := c.ch.Status(txID)
+	return ValidationCode(vc), message, deps, err
 }
 
 // SubscribeTxStatusChanges registers a listener for transaction status changes for the passed transaction id.

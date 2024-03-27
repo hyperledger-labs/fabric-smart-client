@@ -28,7 +28,11 @@ const (
 	ConfigTXPrefix = "configtx_"
 )
 
-var logger = flogging.MustGetLogger("fabric-sdk.Committer")
+var (
+	logger = flogging.MustGetLogger("fabric-sdk.Committer")
+	// ErrDiscardTX this error can be used to signal that a valid transaction should be discarded anyway
+	ErrDiscardTX = errors.New("discard tx")
+)
 
 type Finality interface {
 	IsFinal(txID string, address string) error
@@ -142,7 +146,7 @@ func (c *Committer) IsFinal(ctx context.Context, txID string) error {
 	}
 
 	for iter := 0; iter < c.ChannelConfig.CommitterFinalityNumRetries(); iter++ {
-		vd, deps, err := committer.Status(txID)
+		vd, _, deps, err := committer.Status(txID)
 		if err == nil {
 			switch vd {
 			case driver.Valid:
@@ -200,7 +204,7 @@ func (c *Committer) IsFinal(ctx context.Context, txID string) error {
 						return nil
 					}
 
-					if vd, _, err2 := committer.Status(txID); err2 == nil && vd == driver.Unknown {
+					if vd, _, _, err2 := committer.Status(txID); err2 == nil && vd == driver.Unknown {
 						return err
 					}
 					continue
@@ -256,12 +260,12 @@ func (c *Committer) Notify(event TxEvent) {
 	defer c.mutex.Unlock()
 
 	if event.Err != nil && !c.QuietNotifier {
-		logger.Warningf("An error occurred for tx [%s], event: [%v]", event.Txid, event)
+		logger.Warningf("An error occurred for tx [%s], event: [%v]", event.TxID, event)
 	}
 
-	listeners := c.listeners[event.Txid]
+	listeners := c.listeners[event.TxID]
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("Notify the finality of [%s] to [%d] listeners, event: [%v]", event.Txid, len(listeners), event)
+		logger.Debugf("Notify the finality of [%s] to [%d] listeners, event: [%v]", event.TxID, len(listeners), event)
 	}
 	for _, listener := range listeners {
 		listener <- event
@@ -323,7 +327,7 @@ func (c *Committer) listenTo(ctx context.Context, txid string, timeout time.Dura
 			if logger.IsEnabledFor(zapcore.DebugLevel) {
 				logger.Debugf("Got a timeout for finality of [%s], check the status", txid)
 			}
-			vd, _, err := committer.Status(txid)
+			vd, _, _, err := committer.Status(txid)
 			if err == nil {
 				switch vd {
 				case driver.Valid:

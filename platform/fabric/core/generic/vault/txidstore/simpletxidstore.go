@@ -16,6 +16,8 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+//go:generate  protoc -I=. --go_out=. txid.proto
+
 const (
 	txidNamespace = "txid"
 	ctrKey        = "ctr"
@@ -27,42 +29,6 @@ const (
 type SimpleTXIDStore struct {
 	persistence driver.Persistence
 	ctr         uint64
-}
-
-func keyByCtr(ctr uint64) string {
-	ctrBytes := make([]byte, binary.MaxVarintLen64)
-	binary.BigEndian.PutUint64(ctrBytes, ctr)
-
-	return byCtrPrefix + string(ctrBytes)
-}
-
-func keyByTxid(txid string) string {
-	return byTxidPrefix + txid
-}
-
-func setCtr(persistence driver.Persistence, ctr uint64) error {
-	ctrBytes := make([]byte, binary.MaxVarintLen64)
-	binary.BigEndian.PutUint64(ctrBytes, ctr)
-
-	err := persistence.SetState(txidNamespace, ctrKey, ctrBytes)
-	if err != nil {
-		return errors.Errorf("error storing the counter [%s]", err.Error())
-	}
-
-	return nil
-}
-
-func getCtr(persistence driver.Persistence) (uint64, error) {
-	ctrBytes, err := persistence.GetState(txidNamespace, ctrKey)
-	if err != nil {
-		return 0, errors.Errorf("error retrieving txid counter [%s]", err.Error())
-	}
-
-	return getCtrFromBytes(ctrBytes), nil
-}
-
-func getCtrFromBytes(ctrBytes []byte) uint64 {
-	return binary.BigEndian.Uint64(ctrBytes)
 }
 
 func NewTXIDStore(persistence driver.Persistence) (*SimpleTXIDStore, error) {
@@ -97,10 +63,10 @@ func NewTXIDStore(persistence driver.Persistence) (*SimpleTXIDStore, error) {
 	}, nil
 }
 
-func (s *SimpleTXIDStore) get(txid string) (*ByTxid, error) {
-	bytes, err := s.persistence.GetState(txidNamespace, keyByTxid(txid))
+func (s *SimpleTXIDStore) get(txID string) (*ByTxid, error) {
+	bytes, err := s.persistence.GetState(txidNamespace, keyByTxID(txID))
 	if err != nil {
-		return nil, errors.Errorf("error retrieving txid %s [%s]", txid, err.Error())
+		return nil, errors.Errorf("error retrieving txid %s [%s]", txID, err.Error())
 	}
 
 	if len(bytes) == 0 {
@@ -110,26 +76,26 @@ func (s *SimpleTXIDStore) get(txid string) (*ByTxid, error) {
 	bt := &ByTxid{}
 	err = proto.Unmarshal(bytes, bt)
 	if err != nil {
-		return nil, errors.Errorf("error unmarshalling data for txid %s [%s]", txid, err.Error())
+		return nil, errors.Errorf("error unmarshalling data for txid %s [%s]", txID, err.Error())
 	}
 
 	return bt, nil
 }
 
-func (s *SimpleTXIDStore) Get(txid string) (fdriver.ValidationCode, error) {
-	bt, err := s.get(txid)
+func (s *SimpleTXIDStore) Get(txID string) (fdriver.ValidationCode, string, error) {
+	bt, err := s.get(txID)
 	if err != nil {
-		return fdriver.Unknown, err
+		return fdriver.Unknown, "", err
 	}
 
 	if bt == nil {
-		return fdriver.Unknown, nil
+		return fdriver.Unknown, "", nil
 	}
 
-	return fdriver.ValidationCode(bt.Code), nil
+	return fdriver.ValidationCode(bt.Code), bt.Message, nil
 }
 
-func (s *SimpleTXIDStore) Set(txid string, code fdriver.ValidationCode) error {
+func (s *SimpleTXIDStore) Set(txID string, code fdriver.ValidationCode, message string) error {
 	// NOTE: we assume that the commit is in progress so no need to update/commit
 	// err := s.persistence.BeginUpdate()
 	// if err != nil {
@@ -140,44 +106,46 @@ func (s *SimpleTXIDStore) Set(txid string, code fdriver.ValidationCode) error {
 	err := setCtr(s.persistence, s.ctr+1)
 	if err != nil {
 		s.persistence.Discard()
-		return errors.Errorf("error storing updated counter for txid %s [%s]", txid, err.Error())
+		return errors.Errorf("error storing updated counter for txid %s [%s]", txID, err.Error())
 	}
 
 	// 2: store by counter
 	byCtrBytes, err := proto.Marshal(&ByNum{
-		Txid: txid,
-		Code: int32(code),
+		Txid:    txID,
+		Code:    int32(code),
+		Message: message,
 	})
 	if err != nil {
 		s.persistence.Discard()
-		return errors.Errorf("error marshalling ByNum for txid %s [%s]", txid, err.Error())
+		return errors.Errorf("error marshalling ByNum for txID %s [%s]", txID, err.Error())
 	}
 	err = s.persistence.SetState(txidNamespace, keyByCtr(s.ctr), byCtrBytes)
 	if err != nil {
 		s.persistence.Discard()
-		return errors.Errorf("error storing ByNum for txid %s [%s]", txid, err.Error())
+		return errors.Errorf("error storing ByNum for txid %s [%s]", txID, err.Error())
 	}
 
 	// 3: store by txid
 	byTxidBytes, err := proto.Marshal(&ByTxid{
-		Pos:  s.ctr,
-		Code: int32(code),
+		Pos:     s.ctr,
+		Code:    int32(code),
+		Message: message,
 	})
 	if err != nil {
 		s.persistence.Discard()
-		return errors.Errorf("error marshalling ByTxid for txid %s [%s]", txid, err.Error())
+		return errors.Errorf("error marshalling ByTxid for txid %s [%s]", txID, err.Error())
 	}
-	err = s.persistence.SetState(txidNamespace, keyByTxid(txid), byTxidBytes)
+	err = s.persistence.SetState(txidNamespace, keyByTxID(txID), byTxidBytes)
 	if err != nil {
 		s.persistence.Discard()
-		return errors.Errorf("error storing ByTxid for txid %s [%s]", txid, err.Error())
+		return errors.Errorf("error storing ByTxid for txid %s [%s]", txID, err.Error())
 	}
 
 	if code == fdriver.Valid {
-		err = s.persistence.SetState(txidNamespace, lastTX, []byte(txid))
+		err = s.persistence.SetState(txidNamespace, lastTX, []byte(txID))
 		if err != nil {
 			s.persistence.Discard()
-			return errors.Errorf("error storing ByTxid for txid %s [%s]", txid, err.Error())
+			return errors.Errorf("error storing ByTxid for txid %s [%s]", txID, err.Error())
 		}
 	}
 	// NOTE: we assume that the commit is in progress so no need to update/commit
@@ -239,14 +207,14 @@ func (s *SimpleTXIDStore) Iterator(pos interface{}) (fdriver.TxidIterator, error
 		return nil, err
 	}
 
-	return &SimpleTxidIterator{it}, nil
+	return &SimpleTxIDIterator{it}, nil
 }
 
-type SimpleTxidIterator struct {
+type SimpleTxIDIterator struct {
 	t driver.ResultsIterator
 }
 
-func (i *SimpleTxidIterator) Next() (*fdriver.ByNum, error) {
+func (i *SimpleTxIDIterator) Next() (*fdriver.ByNum, error) {
 	d, err := i.t.Next()
 	if err != nil {
 		return nil, err
@@ -263,11 +231,48 @@ func (i *SimpleTxidIterator) Next() (*fdriver.ByNum, error) {
 	}
 
 	return &fdriver.ByNum{
-		Txid: bn.Txid,
-		Code: fdriver.ValidationCode(bn.Code),
+		TxID:    bn.Txid,
+		Code:    fdriver.ValidationCode(bn.Code),
+		Message: bn.Message,
 	}, nil
 }
 
-func (i *SimpleTxidIterator) Close() {
+func (i *SimpleTxIDIterator) Close() {
 	i.t.Close()
+}
+
+func keyByCtr(ctr uint64) string {
+	ctrBytes := make([]byte, binary.MaxVarintLen64)
+	binary.BigEndian.PutUint64(ctrBytes, ctr)
+
+	return byCtrPrefix + string(ctrBytes)
+}
+
+func keyByTxID(txID string) string {
+	return byTxidPrefix + txID
+}
+
+func setCtr(persistence driver.Persistence, ctr uint64) error {
+	ctrBytes := make([]byte, binary.MaxVarintLen64)
+	binary.BigEndian.PutUint64(ctrBytes, ctr)
+
+	err := persistence.SetState(txidNamespace, ctrKey, ctrBytes)
+	if err != nil {
+		return errors.Errorf("error storing the counter [%s]", err.Error())
+	}
+
+	return nil
+}
+
+func getCtr(persistence driver.Persistence) (uint64, error) {
+	ctrBytes, err := persistence.GetState(txidNamespace, ctrKey)
+	if err != nil {
+		return 0, errors.Errorf("error retrieving txid counter [%s]", err.Error())
+	}
+
+	return getCtrFromBytes(ctrBytes), nil
+}
+
+func getCtrFromBytes(ctrBytes []byte) uint64 {
+	return binary.BigEndian.Uint64(ctrBytes)
 }

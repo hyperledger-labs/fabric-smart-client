@@ -16,13 +16,14 @@ import (
 
 // TxEvent contains information for token transaction commit
 type TxEvent struct {
-	Txid           string
-	DependantTxIDs []string
-	Committed      bool
-	Block          uint64
-	IndexInBlock   int
-	CommitPeer     string
-	Err            error
+	TxID              string
+	DependantTxIDs    []string
+	Committed         bool
+	ValidationCode    peer.TxValidationCode
+	ValidationMessage string
+	Block             uint64
+	IndexInBlock      int
+	Err               error
 }
 
 // ChaincodeEvent models the chaincode event details.

@@ -17,8 +17,8 @@ type cache interface {
 
 type txidStore interface {
 	fdriver.TXIDStore
-	Get(txid string) (fdriver.ValidationCode, error)
-	Set(txid string, code fdriver.ValidationCode) error
+	Get(txid string) (fdriver.ValidationCode, string, error)
+	Set(txID string, code fdriver.ValidationCode, message string) error
 }
 
 type Cache struct {
@@ -30,25 +30,25 @@ func NewCache(backed txidStore, cache cache) *Cache {
 	return &Cache{backed: backed, cache: cache}
 }
 
-func (s *Cache) Get(txid string) (fdriver.ValidationCode, error) {
+func (s *Cache) Get(txID string) (fdriver.ValidationCode, string, error) {
 	// first cache
-	if val, ok := s.cache.Get(txid); ok {
-		return val.(fdriver.ValidationCode), nil
+	if val, ok := s.cache.Get(txID); ok {
+		return val.(fdriver.ValidationCode), "", nil
 	}
 	// then backed
-	vs, err := s.backed.Get(txid)
+	vs, msg, err := s.backed.Get(txID)
 	if err != nil {
-		return vs, err
+		return vs, "", err
 	}
-	s.cache.Add(txid, vs)
-	return vs, nil
+	s.cache.Add(txID, vs)
+	return vs, msg, nil
 }
 
-func (s *Cache) Set(txid string, code fdriver.ValidationCode) error {
-	if err := s.backed.Set(txid, code); err != nil {
+func (s *Cache) Set(txID string, code fdriver.ValidationCode, message string) error {
+	if err := s.backed.Set(txID, code, message); err != nil {
 		return err
 	}
-	s.cache.Add(txid, code)
+	s.cache.Add(txID, code)
 	return nil
 }
 

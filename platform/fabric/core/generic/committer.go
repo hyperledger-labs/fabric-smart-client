@@ -9,43 +9,42 @@ package generic
 import (
 	"strings"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
-
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/compose"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger/fabric-protos-go/common"
 	"github.com/pkg/errors"
 )
 
-func (c *Channel) Status(txid string) (driver.ValidationCode, []string, error) {
-	vc, err := c.Vault.Status(txid)
+func (c *Channel) Status(txID string) (driver.ValidationCode, string, []string, error) {
+	vc, message, err := c.Vault.Status(txID)
 	if err != nil {
-		logger.Errorf("failed to get status of [%s]: %s", txid, err)
-		return driver.Unknown, nil, err
+		logger.Errorf("failed to get status of [%s]: %s", txID, err)
+		return driver.Unknown, "", nil, err
 	}
 	if vc == driver.Unknown {
 		// give it a second chance
-		if c.EnvelopeService().Exists(txid) {
-			if err := c.extractStoredEnvelopeToVault(txid); err != nil {
-				return driver.Unknown, nil, errors.WithMessagef(err, "failed to extract stored enveloper for [%s]", txid)
+		if c.EnvelopeService().Exists(txID) {
+			if err := c.extractStoredEnvelopeToVault(txID); err != nil {
+				return driver.Unknown, "", nil, errors.WithMessagef(err, "failed to extract stored enveloper for [%s]", txID)
 			}
 			vc = driver.Busy
 		}
 	}
 	if c.ExternalCommitter == nil {
-		return vc, nil, nil
+		return vc, message, nil, nil
 	}
 
-	_, dependantTxIDs, _, err := c.ExternalCommitter.Status(txid)
+	_, dependantTxIDs, _, err := c.ExternalCommitter.Status(txID)
 	if err != nil {
-		logger.Errorf("failed to get external status of [%s]: %s", txid, err)
-		return driver.Unknown, nil, err
+		logger.Errorf("failed to get external status of [%s]: %s", txID, err)
+		return driver.Unknown, "", nil, err
 	}
 	if vc == driver.Unknown && len(dependantTxIDs) != 0 {
-		return driver.HasDependencies, dependantTxIDs, nil
+		return driver.HasDependencies, "", dependantTxIDs, nil
 	}
-	return vc, dependantTxIDs, nil
+	return vc, message, dependantTxIDs, nil
 }
 
 func (c *Channel) ProcessNamespace(nss ...string) error {
@@ -57,32 +56,32 @@ func (c *Channel) GetProcessNamespace() []string {
 	return c.ProcessNamespaces
 }
 
-func (c *Channel) DiscardTx(txid string) error {
-	logger.Debugf("Discarding transaction [%s]", txid)
+func (c *Channel) DiscardTx(txID string, message string) error {
+	logger.Debugf("Discarding transaction [%s]", txID)
 
-	defer c.notifyTxStatus(txid, driver.Invalid)
-	vc, deps, err := c.Status(txid)
+	defer c.notifyTxStatus(txID, driver.Invalid, message)
+	vc, _, deps, err := c.Status(txID)
 	if err != nil {
-		return errors.WithMessagef(err, "failed getting tx's status in state db [%s]", txid)
+		return errors.WithMessagef(err, "failed getting tx's status in state db [%s]", txID)
 	}
 	if vc == driver.Unknown {
 		// give it a second chance
-		if c.EnvelopeService().Exists(txid) {
-			if err := c.extractStoredEnvelopeToVault(txid); err != nil {
-				return errors.WithMessagef(err, "failed to extract stored enveloper for [%s]", txid)
+		if c.EnvelopeService().Exists(txID) {
+			if err := c.extractStoredEnvelopeToVault(txID); err != nil {
+				return errors.WithMessagef(err, "failed to extract stored enveloper for [%s]", txID)
 			}
 		} else {
-			logger.Debugf("Discarding transaction [%s] skipped, tx is unknown", txid)
+			logger.Debugf("Discarding transaction [%s] skipped, tx is unknown", txID)
 			return nil
 		}
 	}
 
-	if err := c.Vault.DiscardTx(txid); err != nil {
-		logger.Errorf("failed discarding tx [%s] in vault: %s", txid, err)
+	if err := c.Vault.DiscardTx(txID, message); err != nil {
+		logger.Errorf("failed discarding tx [%s] in vault: %s", txID, err)
 	}
 	for _, dep := range deps {
-		if err := c.Vault.DiscardTx(dep); err != nil {
-			logger.Errorf("failed discarding dependant tx [%s] of [%s] in vault: %s", dep, txid, err)
+		if err := c.Vault.DiscardTx(dep, message); err != nil {
+			logger.Errorf("failed discarding dependant tx [%s] of [%s] in vault: %s", dep, txID, err)
 		}
 	}
 	return nil
@@ -93,11 +92,11 @@ func (c *Channel) CommitTX(txid string, block uint64, indexInBlock int, envelope
 	defer logger.Debugf("Committing transaction [%s,%d,%d] done [%s]", txid, block, indexInBlock, err)
 	defer func() {
 		if err == nil {
-			c.notifyTxStatus(txid, driver.Valid)
+			c.notifyTxStatus(txid, driver.Valid, "")
 		}
 	}()
 
-	vc, deps, err := c.Status(txid)
+	vc, _, deps, err := c.Status(txid)
 	if err != nil {
 		return errors.WithMessagef(err, "failed getting tx's status in state db [%s]", txid)
 	}
@@ -364,20 +363,22 @@ func (c *Channel) UnsubscribeTxStatusChanges(txID string, listener driver.TxStat
 	return nil
 }
 
-func (c *Channel) notifyTxStatus(txID string, vc driver.ValidationCode) {
+func (c *Channel) notifyTxStatus(txID string, vc driver.ValidationCode, message string) {
 	// We publish two events here:
 	// 1. The first will be caught by the listeners that are listening for any transaction id.
 	// 2. The second will be caught by the listeners that are listening for the specific transaction id.
 	sb, topic := compose.CreateTxTopic(c.Network.Name(), c.ChannelName, "")
 	c.EventsPublisher.Publish(&driver.TransactionStatusChanged{
-		ThisTopic: topic,
-		TxID:      txID,
-		VC:        vc,
+		ThisTopic:         topic,
+		TxID:              txID,
+		VC:                vc,
+		ValidationMessage: message,
 	})
 	c.EventsPublisher.Publish(&driver.TransactionStatusChanged{
-		ThisTopic: compose.AppendAttributesOrPanic(sb, txID),
-		TxID:      txID,
-		VC:        vc,
+		ThisTopic:         compose.AppendAttributesOrPanic(sb, txID),
+		TxID:              txID,
+		VC:                vc,
+		ValidationMessage: message,
 	})
 }
 
