@@ -198,7 +198,11 @@ func (c *Channel) commitStoredEnvelope(txID string, block uint64, indexInBlock i
 func (c *Channel) extractStoredEnvelopeToVault(txID string) error {
 	rws, _, err := c.RWSetLoader.GetRWSetFromEvn(txID)
 	if err != nil {
-		return errors.WithMessagef(err, "failed to extract rws from envelope [%s]", txID)
+		// If another replica of the same node created the RWSet
+		rws, _, err = c.RWSetLoader.GetRWSetFromETx(txID)
+		if err != nil {
+			return errors.WithMessagef(err, "failed to extract rws from envelope and etx [%s]", txID)
+		}
 	}
 	rws.Done()
 	return nil
