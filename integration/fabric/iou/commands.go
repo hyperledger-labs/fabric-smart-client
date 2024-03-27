@@ -14,7 +14,11 @@ import (
 )
 
 func CreateIOU(ii *integration.Infrastructure, identityLabel string, amount uint, approver string) string {
-	res, err := ii.Client("borrower").CallView(
+	return CreateIOUWithBorrower(ii, "borrower", identityLabel, amount, approver)
+}
+
+func CreateIOUWithBorrower(ii *integration.Infrastructure, borrower, identityLabel string, amount uint, approver string) string {
+	res, err := ii.Client(borrower).CallView(
 		"create", common.JSONMarshall(&views.Create{
 			Amount:   amount,
 			Identity: identityLabel,
@@ -34,7 +38,11 @@ func CheckState(ii *integration.Infrastructure, partyID, iouStateID string, expe
 }
 
 func UpdateIOU(ii *integration.Infrastructure, iouStateID string, amount uint, approver string) {
-	txIDBoxed, err := ii.Client("borrower").CallView("update",
+	UpdateIOUWithBorrower(ii, "borrower", iouStateID, amount, approver)
+}
+
+func UpdateIOUWithBorrower(ii *integration.Infrastructure, borrower, iouStateID string, amount uint, approver string) {
+	txIDBoxed, err := ii.Client(borrower).CallView("update",
 		common.JSONMarshall(&views.Update{
 			LinearID: iouStateID,
 			Amount:   amount,
