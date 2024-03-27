@@ -41,7 +41,7 @@ func (t *TransactionStatusChanged) Message() interface{} {
 // TxStatusChangeListener is the interface that must be implemented to receive transaction status change notifications
 type TxStatusChangeListener interface {
 	// OnStatusChange is called when the status of a transaction changes
-	OnStatusChange(txID string, status int) error
+	OnStatusChange(txID string, status int, statusMessage string) error
 }
 
 // Committer models the committer service

@@ -16,6 +16,8 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+//go:generate  protoc -I=. --go_out=. txid.proto
+
 const (
 	txidNamespace = "txid"
 	ctrKey        = "ctr"
