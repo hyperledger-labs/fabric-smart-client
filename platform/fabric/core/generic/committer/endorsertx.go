@@ -33,7 +33,7 @@ func (c *Committer) HandleEndorserTransaction(block *common.Block, i int, event 
 	case pb.TxValidationCode_VALID:
 		processed, err := c.CommitEndorserTransaction(txID, block, i, env, event)
 		if err != nil {
-			if errors.Cause(err) == ErrDiscardTX {
+			if HasCause(err, ErrDiscardTX) {
 				// in this case, we will discard the transaction
 				event.ValidationCode = pb.TxValidationCode_INVALID_OTHER_REASON
 				event.ValidationMessage = err.Error()
@@ -155,4 +155,24 @@ func (c *Committer) DiscardEndorserTransaction(txID string, block *common.Block,
 	}
 
 	return nil
+}
+
+func HasCause(source, target error) bool {
+	if source == nil {
+		return false
+	}
+	if target == nil {
+		return false
+	}
+	if source == target {
+		return true
+	}
+	cause := errors.Cause(source)
+	if cause == target {
+		return true
+	}
+	if cause == source {
+		return false
+	}
+	return HasCause(cause, target)
 }
