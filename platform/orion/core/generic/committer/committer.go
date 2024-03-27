@@ -13,6 +13,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/hyperledger/fabric-protos-go/peer"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/compose"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
@@ -40,13 +42,14 @@ type ProcessorManager interface {
 
 // TxEvent contains information for token transaction commit
 type TxEvent struct {
-	Txid           string
-	DependantTxIDs []string
-	Committed      bool
-	Block          uint64
-	IndexInBlock   int
-	CommitPeer     string
-	Err            error
+	TxID              string
+	DependantTxIDs    []string
+	Committed         bool
+	ValidationCode    peer.TxValidationCode
+	ValidationMessage string
+	Block             uint64
+	IndexInBlock      int
+	Err               error
 }
 
 type committer struct {
@@ -108,7 +111,7 @@ func (c *committer) Commit(block *types.AugmentedBlockHeader) error {
 	bn := block.Header.BaseHeader.Number
 	for i, txID := range block.TxIds {
 		var event TxEvent
-		event.Txid = txID
+		event.TxID = txID
 		event.Block = bn
 		event.IndexInBlock = i
 
@@ -287,20 +290,22 @@ func (c *committer) UnsubscribeTxStatusChanges(txID string, listener driver.TxSt
 	return nil
 }
 
-func (c *committer) notifyTxStatus(txID string, vc driver.ValidationCode) {
+func (c *committer) notifyTxStatus(txID string, vc driver.ValidationCode, message string) {
 	// We publish two events here:
 	// 1. The first will be caught by the listeners that are listening for any transaction id.
 	// 2. The second will be caught by the listeners that are listening for the specific transaction id.
 	var sb strings.Builder
 	c.eventsPublisher.Publish(&driver.TransactionStatusChanged{
-		ThisTopic: compose.CreateCompositeKeyOrPanic(&sb, "tx", c.networkName),
-		TxID:      txID,
-		VC:        vc,
+		ThisTopic:         compose.CreateCompositeKeyOrPanic(&sb, "tx", c.networkName),
+		TxID:              txID,
+		VC:                vc,
+		ValidationMessage: message,
 	})
 	c.eventsPublisher.Publish(&driver.TransactionStatusChanged{
-		ThisTopic: compose.AppendAttributesOrPanic(&sb, txID),
-		TxID:      txID,
-		VC:        vc,
+		ThisTopic:         compose.AppendAttributesOrPanic(&sb, txID),
+		TxID:              txID,
+		VC:                vc,
+		ValidationMessage: message,
 	})
 }
 
@@ -339,18 +344,18 @@ func (c *committer) notifyFinality(event TxEvent) {
 	defer c.mutex.Unlock()
 
 	if event.Committed {
-		c.notifyTxStatus(event.Txid, driver.Valid)
+		c.notifyTxStatus(event.TxID, driver.Valid, "")
 	} else {
-		c.notifyTxStatus(event.Txid, driver.Invalid)
+		c.notifyTxStatus(event.TxID, driver.Invalid, "")
 	}
 
 	if event.Err != nil && !c.quietNotifier {
-		logger.Warningf("An error occurred for tx [%s], event: [%v]", event.Txid, event)
+		logger.Warningf("An error occurred for tx [%s], event: [%v]", event.TxID, event)
 	}
 
-	listeners := c.listeners[event.Txid]
+	listeners := c.listeners[event.TxID]
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("Notify the finality of [%s] to [%d] listeners, event: [%v]", event.Txid, len(listeners), event)
+		logger.Debugf("Notify the finality of [%s] to [%d] listeners, event: [%v]", event.TxID, len(listeners), event)
 	}
 	for _, listener := range listeners {
 		listener <- event
@@ -436,7 +441,7 @@ type TxEventsListener struct {
 
 func (l *TxEventsListener) OnReceive(event events.Event) {
 	tsc := event.Message().(*driver.TransactionStatusChanged)
-	if err := l.listener.OnStatusChange(tsc.TxID, int(tsc.VC)); err != nil {
+	if err := l.listener.OnStatusChange(tsc.TxID, int(tsc.VC), ""); err != nil {
 		logger.Errorf("failed to notify listener for tx [%s] with err [%s]", tsc.TxID, err)
 	}
 }

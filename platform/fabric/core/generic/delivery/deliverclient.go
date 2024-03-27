@@ -31,7 +31,7 @@ type Hasher interface {
 
 // TxEvent contains information for token transaction commit
 type TxEvent struct {
-	Txid         string
+	TxID         string
 	Committed    bool
 	Block        uint64
 	IndexInBlock int
@@ -172,7 +172,7 @@ func DeliverSend(df DeliverStream, envelope *common.Envelope) error {
 
 func DeliverReceive(df DeliverFiltered, address string, txid string, eventCh chan<- TxEvent) error {
 	event := TxEvent{
-		Txid:       txid,
+		TxID:       txid,
 		Committed:  false,
 		CommitPeer: address,
 	}
@@ -231,7 +231,7 @@ read:
 func DeliverWaitForResponse(ctx context.Context, eventCh <-chan TxEvent, txid string) (bool, uint64, int, error) {
 	select {
 	case event := <-eventCh:
-		if txid == event.Txid {
+		if txid == event.TxID {
 			return event.Committed, event.Block, event.IndexInBlock, event.Err
 		}
 		// should never get here
