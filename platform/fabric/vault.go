@@ -313,12 +313,12 @@ func (c *Vault) TxIDIterator(pos interface{}) (*TxIDIterator, error) {
 	return &TxIDIterator{TxidIterator: it}, nil
 }
 
-func (c *Vault) Status(txid string) (ValidationCode, []string, error) {
-	code, _, deps, err := c.ch.Status(txid)
+func (c *Vault) Status(txID string) (ValidationCode, string, []string, error) {
+	code, message, deps, err := c.ch.Status(txID)
 	if err != nil {
-		return Unknown, deps, err
+		return Unknown, "", deps, err
 	}
-	return ValidationCode(code), deps, nil
+	return ValidationCode(code), message, deps, nil
 }
 
 func (c *Vault) DiscardTx(txID string, message string) error {

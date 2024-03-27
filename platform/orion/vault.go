@@ -249,9 +249,9 @@ func (v *Vault) StoreTransient(id string, tm TransientMap) error {
 	return v.ons.MetadataService().StoreTransient(id, driver.TransientMap(tm))
 }
 
-func (v *Vault) Status(txID string) (ValidationCode, error) {
-	vc, err := v.ons.Vault().Status(txID)
-	return ValidationCode(vc), err
+func (v *Vault) Status(txID string) (ValidationCode, string, error) {
+	vc, message, err := v.ons.Vault().Status(txID)
+	return ValidationCode(vc), message, err
 }
 
 func (v *Vault) DiscardTx(txID string, message string) error {

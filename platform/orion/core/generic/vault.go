@@ -65,21 +65,21 @@ func (v *Vault) GetRWSet(id string, results []byte) (driver.RWSet, error) {
 	return v.Vault.GetRWSet(id, results)
 }
 
-func (v *Vault) Status(txID string) (driver.ValidationCode, error) {
+func (v *Vault) Status(txID string) (driver.ValidationCode, string, error) {
 	vc, err := v.Vault.Status(txID)
 	if err != nil {
-		return driver.Unknown, err
+		return driver.Unknown, "", err
 	}
 	if vc == driver.Unknown {
 		// give it a second chance
 		if v.network.EnvelopeService().Exists(txID) {
 			if err := v.extractStoredEnvelopeToVault(txID); err != nil {
-				return driver.Unknown, errors.WithMessagef(err, "failed to extract stored enveloper for [%s]", txID)
+				return driver.Unknown, "", errors.WithMessagef(err, "failed to extract stored enveloper for [%s]", txID)
 			}
 			vc = driver.Busy
 		}
 	}
-	return vc, nil
+	return vc, "", nil
 }
 
 func (v *Vault) DiscardTx(txID string, message string) error {

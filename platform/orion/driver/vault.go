@@ -12,7 +12,7 @@ type Vault interface {
 	NewQueryExecutor() (QueryExecutor, error)
 	NewRWSet(txid string) (RWSet, error)
 	GetRWSet(id string, results []byte) (RWSet, error)
-	Status(txID string) (ValidationCode, error)
+	Status(txID string) (ValidationCode, string, error)
 	DiscardTx(txID string, message string) error
 	CommitTX(txid string, block uint64, indexInBloc int) error
 }
