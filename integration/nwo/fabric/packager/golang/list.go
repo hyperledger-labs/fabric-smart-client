@@ -34,6 +34,8 @@ type PackageInfo struct {
 	SFiles         []string
 	IgnoredGoFiles []string
 	Incomplete     bool
+	EmbedPatterns  []string
+	EmbedFiles     []string
 }
 
 func (p PackageInfo) Files() []string {
@@ -44,6 +46,7 @@ func (p PackageInfo) Files() []string {
 	files = append(files, p.HFiles...)
 	files = append(files, p.SFiles...)
 	files = append(files, p.IgnoredGoFiles...)
+	files = append(files, p.EmbedFiles...)
 	return files
 }
 
