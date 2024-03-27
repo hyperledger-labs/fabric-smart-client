@@ -82,7 +82,7 @@ func (v *Vault) Status(txID string) (driver.ValidationCode, error) {
 	return vc, nil
 }
 
-func (v *Vault) DiscardTx(txID string) error {
+func (v *Vault) DiscardTx(txID string, message string) error {
 	vc, err := v.Vault.Status(txID)
 	if err != nil {
 		return errors.Wrapf(err, "failed getting tx's status in state db [%s]", txID)
@@ -91,7 +91,7 @@ func (v *Vault) DiscardTx(txID string) error {
 		return nil
 	}
 
-	return v.Vault.DiscardTx(txID)
+	return v.Vault.DiscardTx(txID, "")
 }
 
 func (v *Vault) CommitTX(txID string, block uint64, indexInBloc int) error {

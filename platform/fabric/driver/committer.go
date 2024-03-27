@@ -22,9 +22,10 @@ const (
 
 // TransactionStatusChanged is sent when the status of a transaction changes
 type TransactionStatusChanged struct {
-	ThisTopic string
-	TxID      string
-	VC        ValidationCode
+	ThisTopic         string
+	TxID              string
+	VC                ValidationCode
+	ValidationMessage string
 }
 
 // Topic returns the topic for the transaction status change
@@ -50,10 +51,10 @@ type Committer interface {
 
 	// Status returns a validation code this committer bind to the passed transaction id, plus
 	// a list of dependant transaction ids if they exist.
-	Status(txid string) (ValidationCode, []string, error)
+	Status(txID string) (ValidationCode, string, []string, error)
 
 	// DiscardTx discards the transaction with the passed id and all its dependencies, if they exists.
-	DiscardTx(txid string) error
+	DiscardTx(txID string, message string) error
 
 	// CommitTX commits the transaction with the passed id and all its dependencies, if they exists.
 	// Depending on tx's status, CommitTX does the following:

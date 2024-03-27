@@ -13,8 +13,9 @@ type SeekPos struct {
 }
 
 type ByNum struct {
-	Txid string
-	Code ValidationCode
+	TxID    string
+	Code    ValidationCode
+	Message string
 }
 
 type TxidIterator interface {

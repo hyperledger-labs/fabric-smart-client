@@ -45,7 +45,7 @@ func (c *Channel) ReloadConfigTransactions() error {
 	var sequence uint64 = 0
 	for {
 		txID := committer.ConfigTXPrefix + strconv.FormatUint(sequence, 10)
-		vc, err := c.Vault.Status(txID)
+		vc, _, err := c.Vault.Status(txID)
 		if err != nil {
 			return errors.WithMessagef(err, "failed getting tx's status [%s]", txID)
 		}
@@ -157,7 +157,7 @@ func (c *Channel) CommitConfig(blockNumber uint64, raw []byte, env *common.Envel
 	}
 
 	txid := committer.ConfigTXPrefix + strconv.FormatUint(ctx.Config.Sequence, 10)
-	vc, err := c.Vault.Status(txid)
+	vc, _, err := c.Vault.Status(txid)
 	if err != nil {
 		return errors.Wrapf(err, "failed getting tx's status [%s]", txid)
 	}
@@ -230,7 +230,7 @@ func (c *Channel) commitConfig(txID string, blockNumber uint64, seq uint64, enve
 	}
 	rws.Done()
 	if err := c.CommitTX(txID, blockNumber, 0, nil); err != nil {
-		if err2 := c.DiscardTx(txID); err2 != nil {
+		if err2 := c.DiscardTx(txID, ""); err2 != nil {
 			logger.Errorf("failed committing configtx rws [%s]", err2)
 		}
 		return errors.Wrapf(err, "failed committing configtx rws")

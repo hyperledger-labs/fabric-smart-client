@@ -30,7 +30,7 @@ type Finality interface {
 
 type Vault interface {
 	Status(txID string) (driver.ValidationCode, error)
-	DiscardTx(txid string) error
+	DiscardTx(txID string, message string) error
 	CommitTX(txid string, block uint64, indexInBloc int) error
 }
 
@@ -181,7 +181,7 @@ func (c *committer) DiscardTX(txID string, blockNum uint64, validationCode types
 	default:
 		event.Err = errors.Errorf("transaction [%s] status is not valid: %d", txID, validationCode)
 		// rollback
-		if err := c.vault.DiscardTx(txID); err != nil {
+		if err := c.vault.DiscardTx(txID, ""); err != nil {
 			return errors.WithMessagef(err, "failed to discard tx %s", txID)
 		}
 	}
