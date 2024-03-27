@@ -1462,8 +1462,8 @@ func (n *Network) nextColor() string {
 	return fmt.Sprintf("%dm", color)
 }
 
-func (n *Network) FSCNodeVaultDir(peer *topology.Peer) string {
-	return filepath.Join(n.Context.RootDir(), "fsc", "nodes", peer.Name, n.Prefix, "vault")
+func (n *Network) FSCNodeVaultDir(uniqueName string) string {
+	return filepath.Join(n.Context.RootDir(), "fsc", "nodes", uniqueName, n.Prefix, "vault")
 }
 
 func (n *Network) OrdererBootstrapFile() string {
@@ -1596,8 +1596,7 @@ func (n *Network) GenerateCoreConfig(p *topology.Peer) {
 			}
 		}
 
-		for r := 0; r < p.FSCNode.Options.ReplicationFactor(); r++ {
-			uniqueName := fmt.Sprintf("%s.%d", p.FSCNode.Name, r)
+		for _, uniqueName := range p.FSCNode.ReplicaUniqueNames() {
 			t, err := template.New("peer").Funcs(template.FuncMap{
 				"Peer":                        func() *topology.Peer { return p },
 				"Orderers":                    func() []*topology.Orderer { return n.Orderers },
@@ -1612,14 +1611,12 @@ func (n *Network) GenerateCoreConfig(p *topology.Peer) {
 				"FSCNodeVaultOrionNetwork":    func() string { return GetVaultPersistenceOrionNetwork(p) },
 				"FSCNodeVaultOrionDatabase":   func() string { return GetVaultPersistenceOrionDatabase(p) },
 				"FSCNodeVaultOrionCreator":    func() string { return GetVaultPersistenceOrionCreator(p) },
-				"FSCNodeVaultPath": func() string {
-					return filepath.Join(n.Context.RootDir(), "fsc", "nodes", uniqueName, n.Prefix, "vault")
-				},
-				"FabricName":     func() string { return n.topology.Name() },
-				"DefaultNetwork": func() bool { return defaultNetwork },
-				"Driver":         func() string { return driver },
-				"Chaincodes":     func(channel string) []*topology.ChannelChaincode { return n.Chaincodes(channel) },
-				"TLSEnabled":     func() bool { return tlsEnabled },
+				"FSCNodeVaultPath":            func() string { return n.FSCNodeVaultDir(uniqueName) },
+				"FabricName":                  func() string { return n.topology.Name() },
+				"DefaultNetwork":              func() bool { return defaultNetwork },
+				"Driver":                      func() string { return driver },
+				"Chaincodes":                  func(channel string) []*topology.ChannelChaincode { return n.Chaincodes(channel) },
+				"TLSEnabled":                  func() bool { return tlsEnabled },
 			}).Parse(coreTemplate)
 			Expect(err).NotTo(HaveOccurred())
 

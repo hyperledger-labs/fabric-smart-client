@@ -8,6 +8,7 @@ package node
 
 import (
 	"encoding/json"
+	"fmt"
 	"reflect"
 	"sort"
 	"strconv"
@@ -151,6 +152,15 @@ func NewNode(name string) *Node {
 		Name:    name,
 		Options: &Options{Mapping: map[string]interface{}{}},
 	}
+}
+
+func (n *Node) ReplicaUniqueNames() []string {
+	replicationFactor := n.Options.ReplicationFactor()
+	names := make([]string, replicationFactor)
+	for r := 0; r < replicationFactor; r++ {
+		names[r] = ReplicaUniqueName(n.Name, r)
+	}
+	return names
 }
 
 func NewNodeFromTemplate(name string, template *Node) *Node {
@@ -297,4 +307,8 @@ func cloneOptions(options *Options) *Options {
 		panic(err.Error())
 	}
 	return &clone
+}
+
+func ReplicaUniqueName(nodeName string, r int) string {
+	return fmt.Sprintf("%s.%d", nodeName, r)
 }
