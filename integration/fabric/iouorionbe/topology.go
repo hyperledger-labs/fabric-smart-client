@@ -13,9 +13,10 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/orion"
 	api2 "github.com/hyperledger-labs/fabric-smart-client/pkg/api"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql"
 )
 
-func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType, replicas map[string]int) []api.Topology {
+func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType, replicas map[string]int, sqlConfigs map[string]*sql.PostgresConfig) []api.Topology {
 	if replicas == nil {
 		replicas = map[string]int{}
 	}
@@ -41,6 +42,8 @@ func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType, replicas map[stri
 		fabric.WithOrganization("Org1"),
 		fabric.WithX509Identity("alice"),
 		fsc.WithReplicationFactor(replicas["approver"]),
+		fsc.WithPostgresPersistence(sqlConfigs["approver"]),
+		fabric.WithPostgresVaultPersistence(sqlConfigs["approver"]),
 	)
 	approver.RegisterResponder(&views.ApproverView{}, &views.CreateIOUView{})
 	approver.RegisterResponder(&views.ApproverView{}, &views.UpdateIOUView{})
@@ -49,6 +52,9 @@ func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType, replicas map[stri
 	borrower := fscTopology.AddNodeByName("borrower")
 	borrower.AddOptions(
 		fabric.WithOrganization("Org2"),
+		fsc.WithReplicationFactor(replicas["borrower"]),
+		fsc.WithPostgresPersistence(sqlConfigs["borrower"]),
+		fabric.WithPostgresVaultPersistence(sqlConfigs["borrower"]),
 	)
 	borrower.RegisterViewFactory("create", &views.CreateIOUViewFactory{})
 	borrower.RegisterViewFactory("update", &views.UpdateIOUViewFactory{})
@@ -61,6 +67,8 @@ func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType, replicas map[stri
 		fabric.WithOrganization("Org3"),
 		fabric.WithX509Identity("bob"),
 		fsc.WithReplicationFactor(replicas["lender"]),
+		fsc.WithPostgresPersistence(sqlConfigs["lender"]),
+		fabric.WithPostgresVaultPersistence(sqlConfigs["lender"]),
 	)
 	lender.RegisterResponder(&views.CreateIOUResponderView{}, &views.CreateIOUView{})
 	lender.RegisterResponder(&views.UpdateIOUResponderView{}, &views.UpdateIOUView{})
