@@ -11,6 +11,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/opts"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql"
 )
 
 var (
@@ -186,6 +187,16 @@ func WithOrionVaultPersistence(network, db, creator string) node.Option {
 		o.Put("fabric.vault.persistence.orion", network)
 		o.Put("fabric.vault.persistence.orion.database", db)
 		o.Put("fabric.vault.persistence.orion.creator", creator)
+		return nil
+	}
+}
+
+// WithPostgresVaultPersistence is a configuration with SQL vault persistence
+func WithPostgresVaultPersistence(config *sql.PostgresConfig) node.Option {
+	return func(o *node.Options) error {
+		if config != nil {
+			o.Put("fabric.vault.persistence.sql", config.DataSource())
+		}
 		return nil
 	}
 }

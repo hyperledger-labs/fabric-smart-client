@@ -112,7 +112,6 @@ func (n *Network) CheckTopologyFSCNodes() (users map[string]int, userSpecs map[s
 			Type:           topology.FSCPeer,
 			Role:           nodeOpts.Role(),
 			Bootstrap:      node.Bootstrap,
-			ExecutablePath: node.ExecutablePath,
 			Identities:     identities,
 			DefaultNetwork: defaultNetwork,
 			FSCNode:        node,

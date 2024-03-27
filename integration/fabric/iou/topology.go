@@ -13,9 +13,16 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/monitoring"
 	api2 "github.com/hyperledger-labs/fabric-smart-client/pkg/api"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql"
 )
 
-func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType) []api.Topology {
+func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType, replicas map[string]int, sqlConfigs map[string]*sql.PostgresConfig) []api.Topology {
+	if replicas == nil {
+		replicas = map[string]int{}
+	}
+	if sqlConfigs == nil {
+		sqlConfigs = map[string]*sql.PostgresConfig{}
+	}
 	// Define a Fabric topology with:
 	// 1. Three organization: Org1, Org2, and Org3
 	// 2. A namespace whose changes can be endorsed by Org1.
@@ -38,6 +45,9 @@ func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType) []api.Topology {
 	// Therefore, the approver is an endorser of the Fabric namespace we defined above.
 	approver1.AddOptions(
 		fabric.WithOrganization("Org1"),
+		fsc.WithReplicationFactor(replicas["approver1"]),
+		fsc.WithPostgresPersistence(sqlConfigs["approver1"]),
+		fabric.WithPostgresVaultPersistence(sqlConfigs["approver1"]),
 	)
 	approver1.RegisterResponder(&views.ApproverView{}, &views.CreateIOUView{})
 	approver1.RegisterResponder(&views.ApproverView{}, &views.UpdateIOUView{})
@@ -49,6 +59,9 @@ func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType) []api.Topology {
 	// Therefore, the approver is an endorser of the Fabric namespace we defined above.
 	approver2.AddOptions(
 		fabric.WithOrganization("Org1"),
+		fsc.WithReplicationFactor(replicas["approver2"]),
+		fsc.WithPostgresPersistence(sqlConfigs["approver2"]),
+		fabric.WithPostgresVaultPersistence(sqlConfigs["approver2"]),
 	)
 	approver2.RegisterResponder(&views.ApproverView{}, &views.CreateIOUView{})
 	approver2.RegisterResponder(&views.ApproverView{}, &views.UpdateIOUView{})
@@ -56,7 +69,12 @@ func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType) []api.Topology {
 
 	// Add the borrower's FSC node
 	borrower := fscTopology.AddNodeByName("borrower")
-	borrower.AddOptions(fabric.WithOrganization("Org2"))
+	borrower.AddOptions(
+		fabric.WithOrganization("Org2"),
+		fsc.WithReplicationFactor(replicas["borrower"]),
+		fsc.WithPostgresPersistence(sqlConfigs["borrower"]),
+		fabric.WithPostgresVaultPersistence(sqlConfigs["borrower"]),
+	)
 	borrower.RegisterViewFactory("create", &views.CreateIOUViewFactory{})
 	borrower.RegisterViewFactory("update", &views.UpdateIOUViewFactory{})
 	borrower.RegisterViewFactory("query", &views.QueryViewFactory{})
@@ -65,6 +83,9 @@ func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType) []api.Topology {
 	lender := fscTopology.AddNodeByName("lender")
 	lender.AddOptions(
 		fabric.WithOrganization("Org3"),
+		fsc.WithReplicationFactor(replicas["lender"]),
+		fsc.WithPostgresPersistence(sqlConfigs["lender"]),
+		fabric.WithPostgresVaultPersistence(sqlConfigs["lender"]),
 	)
 	lender.RegisterResponder(&views.CreateIOUResponderView{}, &views.CreateIOUView{})
 	lender.RegisterResponder(&views.UpdateIOUResponderView{}, &views.UpdateIOUView{})

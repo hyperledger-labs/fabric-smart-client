@@ -302,8 +302,9 @@ func (p *SDK) newHostProvider() host.GeneratorProvider {
 		routingConfigPath := config.GetPath("fsc.p2p.opts.routing.path")
 		r, err := routing.NewResolvedStaticIDRouter(routingConfigPath, endpointService)
 		assert.NoError(err)
+		discovery := routing.NewServiceDiscovery(r, routing.Random[host.PeerIPAddress]())
 		endpointService.SetPublicKeyIDSynthesizer(&rest.PKIDSynthesizer{})
-		return rest.NewEndpointBasedProvider(endpointService, r)
+		return rest.NewEndpointBasedProvider(endpointService, discovery)
 	}
 	endpointService.SetPublicKeyIDSynthesizer(&libp2p.PKIDSynthesizer{})
 	return libp2p.NewHostGeneratorProvider(metrics.GetProvider(p.registry))

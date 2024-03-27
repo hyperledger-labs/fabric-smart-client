@@ -21,7 +21,7 @@ import (
 )
 
 func newMockStream(conn *mockConn) host.P2PStream {
-	return rest.NewWSStream(conn, []byte{}, "", "")
+	return rest.NewWSStream(conn, host.StreamInfo{})
 }
 
 type mockConn struct {

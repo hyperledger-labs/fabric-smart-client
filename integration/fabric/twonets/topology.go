@@ -14,7 +14,10 @@ import (
 	api2 "github.com/hyperledger-labs/fabric-smart-client/pkg/api"
 )
 
-func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType) []api.Topology {
+func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType, replicas map[string]int) []api.Topology {
+	if replicas == nil {
+		replicas = map[string]int{}
+	}
 	// Define two Fabric topologies
 	f1Topology := fabric.NewTopologyWithName("alpha").SetDefault()
 	f1Topology.AddOrganizationsByName("Org1", "Org2")
@@ -36,6 +39,7 @@ func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType) []api.Topology {
 		fabric.WithNetworkOrganization("alpha", "Org1"),
 		fabric.WithNetworkOrganization("beta", "Org3"),
 		fabric.WithDefaultNetwork("alpha"),
+		fsc.WithReplicationFactor(replicas["alice"]),
 	)
 	alice.RegisterViewFactory("ping", &views.PingFactory{})
 
@@ -45,6 +49,7 @@ func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType) []api.Topology {
 		fabric.WithNetworkOrganization("alpha", "Org1"),
 		fabric.WithNetworkOrganization("beta", "Org3"),
 		fabric.WithDefaultNetwork("beta"),
+		fsc.WithReplicationFactor(replicas["bob"]),
 	)
 	bob.RegisterResponder(&views.Pong{}, &views.Ping{})
 

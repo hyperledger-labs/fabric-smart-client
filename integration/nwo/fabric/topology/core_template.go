@@ -317,6 +317,9 @@ fabric:
           network: {{ FSCNodeVaultOrionNetwork }}
           database: {{ FSCNodeVaultOrionDatabase }}
           creator: {{ FSCNodeVaultOrionCreator }}
+          {{- else if eq FSCNodeVaultPersistenceType "sql" }}
+          driver: postgres
+          dataSource: {{ FSCNodeVaultSQLDataSource }}
           {{- else }}
           path: {{ FSCNodeVaultPath }}
           {{- end }}

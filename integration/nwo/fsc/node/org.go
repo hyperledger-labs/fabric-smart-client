@@ -40,6 +40,7 @@ type PeerIdentity struct {
 type Peer struct {
 	*Node
 	Name            string          `yaml:"name,omitempty"`
+	UniqueName      string          `yaml:"uniquename,omitempty"`
 	Organization    string          `yaml:"organization,omitempty"`
 	Bootstrap       bool            `yaml:"bootstrap,omitempty"`
 	ExecutablePath  string          `yaml:"executablepath,omitempty"`
@@ -50,5 +51,5 @@ type Peer struct {
 
 // ID provides a unique identifier for a peer instance.
 func (p *Peer) ID() string {
-	return fmt.Sprintf("%s.%s", p.Organization, p.Name)
+	return fmt.Sprintf("%s.%s", p.Organization, p.UniqueName)
 }

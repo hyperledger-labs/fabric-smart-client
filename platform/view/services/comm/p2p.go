@@ -41,7 +41,7 @@ type P2PNode struct {
 	host             host2.P2PHost
 	incomingMessages chan *messageWithStream
 	streamsMutex     sync.RWMutex
-	streams          map[host2.PeerID][]*streamHandler
+	streams          map[host2.StreamHash][]*streamHandler
 	dispatchMutex    sync.Mutex
 	sessionsMutex    sync.Mutex
 	sessions         map[string]*NetworkStreamSession
@@ -53,7 +53,7 @@ func NewNode(h host2.P2PHost) (*P2PNode, error) {
 	p := &P2PNode{
 		host:             h,
 		incomingMessages: make(chan *messageWithStream),
-		streams:          make(map[host2.PeerID][]*streamHandler),
+		streams:          make(map[host2.StreamHash][]*streamHandler),
 		sessions:         make(map[string]*NetworkStreamSession),
 		isStopping:       false,
 	}
@@ -158,16 +158,16 @@ func (p *P2PNode) dispatchMessages(ctx context.Context) {
 	}
 }
 
-func (p *P2PNode) sendWithCachedStreams(peerID host2.PeerID, msg proto.Message) error {
+func (p *P2PNode) sendWithCachedStreams(streamHash string, msg proto.Message) error {
 	p.streamsMutex.RLock()
 	defer p.streamsMutex.RUnlock()
-	for _, stream := range p.streams[peerID] {
+	for _, stream := range p.streams[streamHash] {
 		err := stream.send(msg)
 		if err == nil {
 			return nil
 		}
 		// TODO: handle the case in which there's an error
-		logger.Errorf("error while sending message [%s] to peer [%s]: %s", msg, peerID, err)
+		logger.Errorf("error while sending message [%s] to stream with hash [%s]: %s", msg, streamHash, err)
 	}
 
 	return errStreamNotFound
@@ -176,19 +176,24 @@ func (p *P2PNode) sendWithCachedStreams(peerID host2.PeerID, msg proto.Message) 
 // sendTo sends the passed messaged to the p2p peer with the passed ID.
 // If no address is specified, then p2p will use one of the IP addresses associated to the peer in its peer store.
 // If an address is specified, then the peer store will be updated with the passed address.
-func (p *P2PNode) sendTo(IDString string, address string, msg proto.Message) error {
-	if err := p.sendWithCachedStreams(IDString, msg); err != errStreamNotFound {
+func (p *P2PNode) sendTo(info host2.StreamInfo, msg proto.Message) error {
+	streamHash := p.host.StreamHash(info)
+	if err := p.sendWithCachedStreams(streamHash, msg); err != errStreamNotFound {
 		return err
 	}
 
-	nwStream, err := p.host.NewStream(context.Background(), address, IDString)
+	nwStream, err := p.host.NewStream(context.Background(), info)
 	if err != nil {
-		return errors.Wrapf(err, "failed to create new stream to [%s]", IDString)
+		return errors.Wrapf(err, "failed to create new stream to [%s]", info.RemotePeerID)
+	}
+	if p.host.StreamHash(info) != nwStream.Hash() {
+		logger.Errorf("Inconsistent hashes: [%s] [%s]", p.host.StreamHash(info), nwStream.Hash())
+		panic("programming error: hashes are not calculated consistently")
 	}
 
 	p.handleStream(nwStream)
 
-	return p.sendWithCachedStreams(IDString, msg)
+	return p.sendWithCachedStreams(streamHash, msg)
 }
 
 func (p *P2PNode) handleStream(stream host2.P2PStream) {
@@ -200,9 +205,9 @@ func (p *P2PNode) handleStream(stream host2.P2PStream) {
 		node:   p,
 	}
 
-	remotePeerID := stream.RemotePeerID()
+	streamHash := stream.Hash()
 	p.streamsMutex.Lock()
-	p.streams[remotePeerID] = append(p.streams[remotePeerID], sh)
+	p.streams[streamHash] = append(p.streams[streamHash], sh)
 	p.streamsMutex.Unlock()
 
 	go sh.handleIncoming()
@@ -244,11 +249,16 @@ func (s *streamHandler) handleIncoming() {
 			logger.Debugf("error reading message: [%s][%s]", err.Error(), debug.Stack())
 
 			// remove stream handler
-			remotePeerID := s.stream.RemotePeerID()
+			streamHash := s.node.host.StreamHash(host2.StreamInfo{
+				RemotePeerID:      s.stream.RemotePeerID(),
+				RemotePeerAddress: s.stream.RemotePeerAddress(),
+				ContextID:         msg.ContextID,
+				SessionID:         msg.SessionID,
+			})
 			s.node.streamsMutex.Lock()
-			for i, thisSH := range s.node.streams[remotePeerID] {
+			for i, thisSH := range s.node.streams[streamHash] {
 				if thisSH == s {
-					s.node.streams[remotePeerID] = append(s.node.streams[remotePeerID][:i], s.node.streams[remotePeerID][i+1:]...)
+					s.node.streams[streamHash] = append(s.node.streams[streamHash][:i], s.node.streams[streamHash][i+1:]...)
 					s.wg.Done()
 					s.node.streamsMutex.Unlock()
 					return
