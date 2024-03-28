@@ -12,11 +12,15 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	api2 "github.com/hyperledger-labs/fabric-smart-client/pkg/api"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql"
 )
 
-func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType, replicas map[string]int) []api.Topology {
+func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType, replicas map[string]int, sqlConfigs map[string]*sql.PostgresConfig) []api.Topology {
 	if replicas == nil {
 		replicas = map[string]int{}
+	}
+	if sqlConfigs == nil {
+		sqlConfigs = map[string]*sql.PostgresConfig{}
 	}
 	// Create an empty fabric topology
 	fabricTopology := fabric.NewDefaultTopology()
@@ -30,11 +34,17 @@ func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType, replicas map[stri
 
 	// Create an empty FSC topology
 	fscTopology := fsc.NewTopology()
+	fscTopology.SetLogging("", "debug")
 	fscTopology.P2PCommunicationType = commType
 
 	// Approver
 	approver := fscTopology.AddNodeByName("approver")
-	approver.AddOptions(fabric.WithOrganization("Org1"), fsc.WithReplicationFactor(replicas["approver"]))
+	approver.AddOptions(
+		fabric.WithOrganization("Org1"),
+		fsc.WithReplicationFactor(replicas["approver"]),
+		fsc.WithPostgresPersistence(sqlConfigs["approver"]),
+		fabric.WithPostgresVaultPersistence(sqlConfigs["approver"]),
+	)
 	approver.RegisterResponder(&views.ApproverView{}, &views.IssueView{})
 	approver.RegisterResponder(&views.ApproverView{}, &views.AgreeToSellView{})
 	approver.RegisterResponder(&views.ApproverView{}, &views.AgreeToBuyView{})
@@ -42,12 +52,23 @@ func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType, replicas map[stri
 
 	// Issuer
 	issuer := fscTopology.AddNodeByName("issuer")
-	issuer.AddOptions(fabric.WithOrganization("Org3"), fsc.WithReplicationFactor(replicas["issuer"]))
+	issuer.AddOptions(
+		fabric.WithOrganization("Org3"),
+		fsc.WithReplicationFactor(replicas["issuer"]),
+		fsc.WithPostgresPersistence(sqlConfigs["issuer"]),
+		fabric.WithPostgresVaultPersistence(sqlConfigs["issuer"]),
+	)
 	issuer.RegisterViewFactory("issue", &views.IssueViewFactory{})
 
 	// Alice
 	alice := fscTopology.AddNodeByName("alice")
-	alice.AddOptions(fabric.WithOrganization("Org2"), fabric.WithAnonymousIdentity(), fsc.WithReplicationFactor(replicas["alice"]))
+	alice.AddOptions(
+		fabric.WithOrganization("Org2"),
+		fabric.WithAnonymousIdentity(),
+		fsc.WithReplicationFactor(replicas["alice"]),
+		fsc.WithPostgresPersistence(sqlConfigs["alice"]),
+		fabric.WithPostgresVaultPersistence(sqlConfigs["alice"]),
+	)
 	alice.RegisterViewFactory("transfer", &views.TransferViewFactory{})
 	alice.RegisterViewFactory("agreeToSell", &views.AgreeToSellViewFactory{})
 	alice.RegisterViewFactory("agreeToBuy", &views.AgreeToBuyViewFactory{})
@@ -56,7 +77,13 @@ func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType, replicas map[stri
 
 	// Bob
 	bob := fscTopology.AddNodeByName("bob")
-	bob.AddOptions(fabric.WithOrganization("Org2"), fabric.WithAnonymousIdentity(), fsc.WithReplicationFactor(replicas["bob"]))
+	bob.AddOptions(
+		fabric.WithOrganization("Org2"),
+		fabric.WithAnonymousIdentity(),
+		fsc.WithReplicationFactor(replicas["bob"]),
+		fsc.WithPostgresPersistence(sqlConfigs["bob"]),
+		fabric.WithPostgresVaultPersistence(sqlConfigs["bob"]),
+	)
 	bob.RegisterViewFactory("transfer", &views.TransferViewFactory{})
 	bob.RegisterViewFactory("agreeToSell", &views.AgreeToSellViewFactory{})
 	bob.RegisterViewFactory("agreeToBuy", &views.AgreeToBuyViewFactory{})
