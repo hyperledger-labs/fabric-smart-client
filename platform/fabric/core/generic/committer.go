@@ -31,6 +31,15 @@ func (c *Channel) Status(txID string) (driver.ValidationCode, string, []string, 
 				return driver.Unknown, "", nil, errors.WithMessagef(err, "failed to extract stored enveloper for [%s]", txID)
 			}
 			vc = driver.Busy
+		} else {
+			// check status reporter, if any
+			for _, reporter := range c.StatusReporters {
+				externalStatus, externalMessage, _, err := reporter.Status(txID)
+				if err == nil && externalStatus != driver.Unknown {
+					vc = externalStatus
+					message = externalMessage
+				}
+			}
 		}
 	}
 	if c.ExternalCommitter == nil {
@@ -57,6 +66,11 @@ func (c *Channel) GetProcessNamespace() []string {
 	return c.ProcessNamespaces
 }
 
+func (c *Channel) AddStatusReporter(sr driver.StatusReporter) error {
+	c.StatusReporters = append(c.StatusReporters, sr)
+	return nil
+}
+
 func (c *Channel) DiscardTx(txID string, message string) error {
 	logger.Debugf("discarding transaction [%s] with message [%s]", txID, message)
 
@@ -72,8 +86,19 @@ func (c *Channel) DiscardTx(txID string, message string) error {
 				return errors.WithMessagef(err, "failed to extract stored enveloper for [%s]", txID)
 			}
 		} else {
-			logger.Debugf("Discarding transaction [%s] skipped, tx is unknown", txID)
-			return nil
+			// check status reporter, if any
+			found := false
+			for _, reporter := range c.StatusReporters {
+				externalStatus, _, _, err := reporter.Status(txID)
+				if err == nil && externalStatus != driver.Unknown {
+					found = true
+					break
+				}
+			}
+			if !found {
+				logger.Debugf("Discarding transaction [%s] skipped, tx is unknown", txID)
+				return nil
+			}
 		}
 	}
 

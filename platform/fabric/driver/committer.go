@@ -44,10 +44,16 @@ type TxStatusChangeListener interface {
 	OnStatusChange(txID string, status int, statusMessage string) error
 }
 
+type StatusReporter interface {
+	Status(txID string) (ValidationCode, string, []string, error)
+}
+
 // Committer models the committer service
 type Committer interface {
 	// ProcessNamespace registers namespaces that will be committed even if the rwset is not known
 	ProcessNamespace(nss ...string) error
+
+	AddStatusReporter(sr StatusReporter) error
 
 	// Status returns a validation code this committer bind to the passed transaction id, plus
 	// a list of dependant transaction ids if they exist.
