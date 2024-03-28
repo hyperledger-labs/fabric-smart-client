@@ -10,6 +10,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/fsc"
 	fsc2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	fabric "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -18,77 +19,94 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/fsc/states"
 )
 
+type node = [2]string
+
 var _ = Describe("EndToEnd", func() {
 	Describe("Asset Transfer Secured Agreement (With Approvers) with LibP2P", func() {
-		s := TestSuite{commType: fsc2.LibP2P}
+		s := NewTestSuite(fsc2.LibP2P, &integration.NodeOptions{})
 		BeforeEach(s.Setup)
 		AfterEach(s.TearDown)
-		It("succeeded", s.TestSucceeded)
+		It("succeeded", func() {
+			s.TestSucceeded(node{"issuer", "issuer"}, node{"alice", "alice"}, node{"bob", "bob"}, node{"alice", "alice"})
+		})
 	})
 
 	Describe("Asset Transfer Secured Agreement (With Approvers) with Websockets", func() {
-		s := TestSuite{commType: fsc2.WebSocket}
+		s := NewTestSuite(fsc2.WebSocket, &integration.NodeOptions{})
 		BeforeEach(s.Setup)
 		AfterEach(s.TearDown)
-		It("succeeded", s.TestSucceeded)
+		It("succeeded", func() {
+			s.TestSucceeded(node{"issuer", "issuer"}, node{"alice", "alice"}, node{"bob", "bob"}, node{"alice", "alice"})
+		})
+	})
+
+	Describe("Asset Transfer Secured Agreement (With Approvers) with Websockets with replicas", func() {
+		s := NewTestSuite(
+			fsc2.WebSocket,
+			&integration.NodeOptions{
+				ReplicationFactors: map[string]int{
+					"issuer":    2,
+					"alice":     3,
+					"bob":       2,
+					"approvers": 2,
+				},
+				SQLConfigs: map[string]*sql.PostgresConfig{
+					"alice": sql.DefaultConfig("alice-db"),
+				},
+			})
+
+		BeforeEach(s.Setup)
+		AfterEach(s.TearDown)
+		It("succeeded 1", func() {
+			s.TestSucceeded(node{"issuer", "fsc.issuer.0"}, node{"alice", "fsc.alice.0"}, node{"bob", "fsc.bob.0"}, node{"alice", "fsc.alice.1"})
+		})
+		It("succeeded 2", func() {
+			s.TestSucceeded(node{"issuer", "fsc.issuer.1"}, node{"alice", "fsc.alice.1"}, node{"bob", "fsc.bob.1"}, node{"alice", "fsc.alice.1"})
+		})
 	})
 })
 
 type TestSuite struct {
-	commType fsc2.P2PCommunicationType
-	replicas map[string]int
-
-	ii *integration.Infrastructure
-
-	issuer *client.Client
-	alice  *client.Client
-	bob    *client.Client
+	*integration.TestSuite
 }
 
-func (s *TestSuite) TearDown() {
-	s.ii.Stop()
+func NewTestSuite(commType fsc2.P2PCommunicationType, nodeOpts *integration.NodeOptions) *TestSuite {
+	return &TestSuite{integration.NewTestSuite(nodeOpts.SQLConfigs, func() (*integration.Infrastructure, error) {
+		return integration.Generate(StartPort(), true, fsc.Topology(&fabric.SDK{}, commType, nodeOpts)...)
+	})}
 }
 
-func (s *TestSuite) Setup() {
-	// Create the integration ii
-	ii, err := integration.Generate(StartPort(), true, fsc.Topology(&fabric.SDK{}, s.commType, s.replicas)...)
-	Expect(err).NotTo(HaveOccurred())
-	s.ii = ii
-	// Start the integration ii
-	ii.Start()
+func (s *TestSuite) TestSucceeded(issuerId node, sellerId node, buyerId node, transfererId node) {
+	approver := s.II.Identity("approver")
 
-	approver := ii.Identity("approver")
-
-	s.issuer = client.New(ii.Client("issuer"), ii.Identity("issuer"), approver)
-	s.alice = client.New(ii.Client("alice"), ii.Identity("alice"), approver)
-	s.bob = client.New(ii.Client("bob"), ii.Identity("bob"), approver)
-}
-
-func (s *TestSuite) TestSucceeded() {
-	txID, err := s.issuer.Issue(&states.Asset{
+	issuer := client.New(s.II.Client(issuerId[1]), s.II.Identity(issuerId[0]), approver)
+	txID, err := issuer.Issue(&states.Asset{
 		ObjectType:        "coin",
 		ID:                "1234",
-		Owner:             s.ii.Identity("alice"),
+		Owner:             s.II.Identity(sellerId[0]),
 		PublicDescription: "Coin",
 		PrivateProperties: []byte("Hello World!!!"),
 	})
 	Expect(err).ToNot(HaveOccurred())
-	Expect(s.alice.IsTxFinal(txID)).NotTo(HaveOccurred())
 
-	agreementID, err := s.alice.AgreeToSell(&states.AgreementToSell{
+	seller := client.New(s.II.Client(sellerId[1]), s.II.Identity(sellerId[0]), approver)
+	Expect(seller.IsTxFinal(txID)).NotTo(HaveOccurred())
+	agreementID, err := seller.AgreeToSell(&states.AgreementToSell{
 		TradeID: "1234",
 		ID:      "1234",
 		Price:   100,
 	})
 	Expect(err).ToNot(HaveOccurred())
 
-	_, err = s.bob.AgreeToBuy(&states.AgreementToBuy{
+	buyer := client.New(s.II.Client(buyerId[1]), s.II.Identity(buyerId[0]), approver)
+	_, err = buyer.AgreeToBuy(&states.AgreementToBuy{
 		TradeID: "1234",
 		ID:      "1234",
 		Price:   100,
 	})
 	Expect(err).ToNot(HaveOccurred())
 
-	err = s.alice.Transfer("1234", agreementID, s.ii.Identity("bob"))
+	transferer := client.New(s.II.Client(transfererId[1]), s.II.Identity(transfererId[0]), approver)
+	err = transferer.Transfer("1234", agreementID, s.II.Identity(buyerId[0]))
 	Expect(err).ToNot(HaveOccurred())
 }
