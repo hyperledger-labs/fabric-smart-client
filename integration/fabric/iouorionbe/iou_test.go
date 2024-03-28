@@ -7,12 +7,14 @@ SPDX-License-Identifier: Apache-2.0
 package iouorionbe_test
 
 import (
-	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
-	fabric "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk"
+	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iouorionbe"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
+	fabric "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql"
 	. "github.com/onsi/ginkgo/v2"
 )
 
@@ -30,6 +32,22 @@ var _ = Describe("EndToEnd", func() {
 		AfterEach(s.TearDown)
 		It("succeeded", s.TestSucceeded)
 	})
+
+	Describe("IOU Life Cycle With Websockets and replicas", func() {
+		s := NewTestSuite(fsc.WebSocket, &integration.ReplicationOptions{
+			ReplicationFactors: map[string]int{
+				"borrower": 3,
+				"lender":   2,
+			},
+			SQLConfigs: map[string]*sql.PostgresConfig{
+				"borrower": sql.DefaultConfig("borrower-db"),
+				"lender":   sql.DefaultConfig("lender-db"),
+			},
+		})
+		BeforeEach(s.Setup)
+		AfterEach(s.TearDown)
+		It("succeeded", s.TestSucceededWithReplicas)
+	})
 })
 
 type TestSuite struct {
@@ -37,7 +55,7 @@ type TestSuite struct {
 }
 
 func NewTestSuite(commType fsc.P2PCommunicationType, nodeOpts *integration.ReplicationOptions) *TestSuite {
-	return &TestSuite{integration.NewTestSuite(func() (*integration.Infrastructure, error) {
+	return &TestSuite{integration.NewTestSuiteWithSQL(nodeOpts.SQLConfigs, func() (*integration.Infrastructure, error) {
 		return integration.Generate(StartPort(), true, iouorionbe.Topology(&fabric.SDK{}, commType, nodeOpts)...)
 	})}
 }
@@ -49,4 +67,21 @@ func (s *TestSuite) TestSucceeded() {
 	iou.UpdateIOU(s.II, iouState, 5, "approver")
 	iou.CheckState(s.II, "borrower", iouState, 5)
 	iou.CheckState(s.II, "lender", iouState, 5)
+}
+
+func (s *TestSuite) TestSucceededWithReplicas() {
+	iouState := iou.CreateIOUWithBorrower(s.II, "fsc.borrower.0", "", 10, "approver")
+	iou.CheckState(s.II, "fsc.borrower.0", iouState, 10)
+	iou.CheckState(s.II, "fsc.borrower.1", iouState, 10)
+	iou.CheckState(s.II, "fsc.borrower.2", iouState, 10)
+	iou.CheckState(s.II, "fsc.lender.0", iouState, 10)
+	iou.CheckState(s.II, "fsc.lender.1", iouState, 10)
+
+	iou.UpdateIOUWithBorrower(s.II, "fsc.borrower.1", iouState, 5, "approver")
+	iou.CheckState(s.II, "fsc.borrower.0", iouState, 5)
+	iou.CheckState(s.II, "fsc.borrower.1", iouState, 5)
+	iou.CheckState(s.II, "fsc.borrower.2", iouState, 5)
+	time.Sleep(15 * time.Second)
+	iou.CheckState(s.II, "fsc.lender.0", iouState, 5)
+	iou.CheckState(s.II, "fsc.lender.1", iouState, 5)
 }
