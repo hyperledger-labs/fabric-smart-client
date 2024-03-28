@@ -39,19 +39,6 @@ type EndpointService struct {
 	es driver.EndpointService
 }
 
-// Endpoint returns the endpoint of the passed identity
-func (e *EndpointService) Endpoint(party view.Identity) (map[PortName]string, error) {
-	res, err := e.es.Endpoint(party)
-	if err != nil {
-		return nil, err
-	}
-	out := map[PortName]string{}
-	for name, s := range res {
-		out[PortName(name)] = s
-	}
-	return out, nil
-}
-
 // Resolve returns the endpoints of the passed identity.
 // If the passed identity does not have any endpoint set, the service checks
 // if the passed identity is bound to another identity that is returned together with its endpoints and public-key identifier.

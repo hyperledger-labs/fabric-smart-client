@@ -154,18 +154,17 @@ func (t *Topology) AddOrganizationsByMapping(mapping map[string][]string) *Topol
 	return t
 }
 
-func (t *Topology) AddPeer(name string, org string, typ PeerType, bootstrap bool, executable string) *Peer {
+func (t *Topology) AddPeer(name string, org string, typ PeerType, bootstrap bool) *Peer {
 	peerChannels := []*PeerChannel{}
 	for _, channel := range t.Channels {
 		peerChannels = append(peerChannels, &PeerChannel{Name: channel.Name, Anchor: true})
 	}
 	p := &Peer{
-		Name:           name,
-		Organization:   org,
-		Type:           typ,
-		Bootstrap:      bootstrap,
-		ExecutablePath: executable,
-		Channels:       peerChannels,
+		Name:         name,
+		Organization: org,
+		Type:         typ,
+		Bootstrap:    bootstrap,
+		Channels:     peerChannels,
 	}
 	t.AppendPeer(p)
 

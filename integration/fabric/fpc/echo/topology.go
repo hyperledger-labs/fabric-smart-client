@@ -14,7 +14,10 @@ import (
 	api2 "github.com/hyperledger-labs/fabric-smart-client/pkg/api"
 )
 
-func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType) []api.Topology {
+func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType, replicas map[string]int) []api.Topology {
+	if replicas == nil {
+		replicas = map[string]int{}
+	}
 	// Create an empty fabric topology
 	fabricTopology := fabric.NewDefaultTopology()
 	// Note that Idemix is currently not supported by FPC
@@ -35,13 +38,13 @@ func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType) []api.Topology {
 
 	// Alice
 	alice := fscTopology.AddNodeByName("alice")
-	alice.AddOptions(fabric.WithOrganization("Org2"))
+	alice.AddOptions(fabric.WithOrganization("Org2"), fsc.WithReplicationFactor(replicas["alice"]))
 	alice.RegisterViewFactory("ListProvisionedEnclaves", &views.ListProvisionedEnclavesViewFactory{})
 	alice.RegisterViewFactory("Echo", &views.EchoViewFactory{})
 
 	// Bob
 	bob := fscTopology.AddNodeByName("bob")
-	bob.AddOptions(fabric.WithOrganization("Org2"))
+	bob.AddOptions(fabric.WithOrganization("Org2"), fsc.WithReplicationFactor(replicas["bob"]))
 	bob.RegisterViewFactory("ListProvisionedEnclaves", &views.ListProvisionedEnclavesViewFactory{})
 	bob.RegisterViewFactory("Echo", &views.EchoViewFactory{})
 

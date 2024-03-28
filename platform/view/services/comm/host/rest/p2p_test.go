@@ -19,24 +19,24 @@ import (
 )
 
 func TestP2PLayerTestRound(t *testing.T) {
-	bootstrapNode, node, bootstrapNodeID, nodeID := setupTwoNodes(t, 1254)
+	bootstrapNode, node := setupTwoNodes(t, 1254)
 	<-time.After(5 * time.Second)
-	comm.P2PLayerTestRound(t, bootstrapNode, node, bootstrapNodeID, nodeID)
+	comm.P2PLayerTestRound(t, bootstrapNode, node)
 }
 
 func TestSessionsTestRound(t *testing.T) {
-	bootstrapNode, node, bootstrapNodeID, nodeID := setupTwoNodes(t, 1256)
+	bootstrapNode, node := setupTwoNodes(t, 1256)
 	<-time.After(5 * time.Second)
-	comm.SessionsTestRound(t, bootstrapNode, node, bootstrapNodeID, nodeID)
+	comm.SessionsTestRound(t, bootstrapNode, node)
 }
 
 func TestSessionsForMPCTestRound(t *testing.T) {
-	bootstrapNode, node, bootstrapNodeID, nodeID := setupTwoNodes(t, 1258)
+	bootstrapNode, node := setupTwoNodes(t, 1258)
 	<-time.After(5 * time.Second)
-	comm.SessionsForMPCTestRound(t, bootstrapNode, node, bootstrapNodeID, nodeID)
+	comm.SessionsForMPCTestRound(t, bootstrapNode, node)
 }
 
-func setupTwoNodes(t *testing.T, port int) (*comm.P2PNode, *comm.P2PNode, string, string) {
+func setupTwoNodes(t *testing.T, port int) (*comm.HostNode, *comm.HostNode) {
 	bootstrapAddress := fmt.Sprintf("127.0.0.1:%d", port)
 	otherAddress := fmt.Sprintf("127.0.0.1:%d", port+1)
 	provider := newStaticRouteHostProvider(&routing.StaticIDRouter{
@@ -57,7 +57,8 @@ func setupTwoNodes(t *testing.T, port int) (*comm.P2PNode, *comm.P2PNode, string
 	otherNode, err := comm.NewNode(other)
 	assert.NoError(t, err)
 
-	return bootstrapNode, otherNode, "bootstrap", "other"
+	return &comm.HostNode{P2PNode: bootstrapNode, ID: "bootstrap", Address: bootstrapAddress},
+		&comm.HostNode{P2PNode: otherNode, ID: "other", Address: otherAddress}
 }
 
 type staticRoutHostProvider struct {
@@ -70,7 +71,8 @@ func newStaticRouteHostProvider(routes *routing.StaticIDRouter) *staticRoutHostP
 
 func (p *staticRoutHostProvider) NewBootstrapHost(listenAddress host2.PeerIPAddress, privateKeyPath, certPath string) (host2.P2PHost, error) {
 	nodeID, _ := p.routes.ReverseLookup(listenAddress)
-	return rest.NewHost(nodeID, listenAddress, p.routes, privateKeyPath, certPath, nil)
+	discovery := routing.NewServiceDiscovery(p.routes, routing.RoundRobin[host2.PeerIPAddress]())
+	return rest.NewHost(nodeID, listenAddress, discovery, privateKeyPath, certPath, nil)
 }
 
 func (p *staticRoutHostProvider) NewHost(listenAddress host2.PeerIPAddress, privateKeyPath, certPath string, _ host2.PeerIPAddress) (host2.P2PHost, error) {

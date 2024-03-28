@@ -21,3 +21,11 @@ func (s *stream) RemotePeerID() host2.PeerID {
 func (s *stream) RemotePeerAddress() host2.PeerIPAddress {
 	return s.Conn().RemoteMultiaddr().String()
 }
+
+func (s *stream) Hash() host2.StreamHash {
+	return streamHash(s.RemotePeerID())
+}
+
+func streamHash(peerID host2.PeerID) host2.StreamHash {
+	return peerID
+}

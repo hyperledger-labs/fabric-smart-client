@@ -21,21 +21,21 @@ import (
 )
 
 func TestP2PLayerTestRound(t *testing.T) {
-	bootstrapNode, node, bootstrapNodeID, nodeID := setupTwoNodesFromFiles(t)
-	comm.P2PLayerTestRound(t, bootstrapNode, node, bootstrapNodeID, nodeID)
+	bootstrapNode, node := setupTwoNodesFromFiles(t)
+	comm.P2PLayerTestRound(t, bootstrapNode, node)
 }
 
 func TestSessionsTestRound(t *testing.T) {
-	bootstrapNode, node, bootstrapNodeID, nodeID := setupTwoNodesFromFiles(t)
-	comm.SessionsTestRound(t, bootstrapNode, node, bootstrapNodeID, nodeID)
+	bootstrapNode, node := setupTwoNodesFromFiles(t)
+	comm.SessionsTestRound(t, bootstrapNode, node)
 }
 
 func TestSessionsForMPCTestRound(t *testing.T) {
-	bootstrapNode, node, bootstrapNodeID, nodeID := setupTwoNodesFromFiles(t)
-	comm.SessionsForMPCTestRound(t, bootstrapNode, node, bootstrapNodeID, nodeID)
+	bootstrapNode, node := setupTwoNodesFromFiles(t)
+	comm.SessionsForMPCTestRound(t, bootstrapNode, node)
 }
 
-func setupTwoNodesFromFiles(t *testing.T) (*comm.P2PNode, *comm.P2PNode, string, string) {
+func setupTwoNodesFromFiles(t *testing.T) (*comm.HostNode, *comm.HostNode) {
 	bootstrapNodePK := "testdata/dht.pub"
 	bootstrapNodeSK := "testdata/dht.priv"
 	bootstrapNodeID := idForParty(t, bootstrapNodePK)
@@ -48,7 +48,8 @@ func setupTwoNodesFromFiles(t *testing.T) (*comm.P2PNode, *comm.P2PNode, string,
 	bootstrapNode, anotherNode, err := setupTwoNodes(t, bootstrapNodeID, bootstrapNodeEndpoint, nodeID, nodeEndpoint, bootstrapNodeSK, nodeSK)
 	assert2.NoError(err)
 
-	return bootstrapNode, anotherNode, bootstrapNodeID, nodeID
+	return &comm.HostNode{P2PNode: bootstrapNode, ID: bootstrapNodeID, Address: ""},
+		&comm.HostNode{P2PNode: anotherNode, ID: nodeID, Address: ""}
 }
 
 func setupTwoNodes(t *testing.T, bootstrapNodeID, bootstrapNodeEndpoint, nodeID, nodeEndpoint string, bootstrapNodeSK, nodeSK string) (*comm.P2PNode, *comm.P2PNode, error) {

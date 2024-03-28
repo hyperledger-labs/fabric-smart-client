@@ -16,6 +16,9 @@ package main
 
 import (
 	fscnode "github.com/hyperledger-labs/fabric-smart-client/node"
+{{- if InstallPostgres }}
+	_ "github.com/lib/pq"
+{{ end }}
 
 	{{ if InstallView }}viewregistry "github.com/hyperledger-labs/fabric-smart-client/platform/view"{{ end }}
 	{{- range .Imports }}

@@ -315,25 +315,6 @@ func (fake *EndpointService) BindReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
-func (fake *EndpointService) Endpoint(arg1 view.Identity) (map[driver.PortName]string, error) {
-	fake.endpointMutex.Lock()
-	ret, specificReturn := fake.endpointReturnsOnCall[len(fake.endpointArgsForCall)]
-	fake.endpointArgsForCall = append(fake.endpointArgsForCall, struct {
-		arg1 view.Identity
-	}{arg1})
-	stub := fake.EndpointStub
-	fakeReturns := fake.endpointReturns
-	fake.recordInvocation("Endpoint", []interface{}{arg1})
-	fake.endpointMutex.Unlock()
-	if stub != nil {
-		return stub(arg1)
-	}
-	if specificReturn {
-		return ret.result1, ret.result2
-	}
-	return fakeReturns.result1, fakeReturns.result2
-}
-
 func (fake *EndpointService) EndpointCallCount() int {
 	fake.endpointMutex.RLock()
 	defer fake.endpointMutex.RUnlock()
