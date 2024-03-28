@@ -7,21 +7,15 @@ SPDX-License-Identifier: Apache-2.0
 package iouhsm
 
 import (
+	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	api2 "github.com/hyperledger-labs/fabric-smart-client/pkg/api"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql"
 )
 
-func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType, replicas map[string]int, sqlConfigs map[string]*sql.PostgresConfig) []api.Topology {
-	if replicas == nil {
-		replicas = map[string]int{}
-	}
-	if sqlConfigs == nil {
-		sqlConfigs = map[string]*sql.PostgresConfig{}
-	}
+func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType, nodeOpts *integration.NodeOptions) []api.Topology {
 	// Define a Fabric topology with:
 	// 1. Three organization: Org1, Org2, and Org3
 	// 2. A namespace whose changes can be endorsed by Org1.
@@ -36,45 +30,29 @@ func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType, replicas map[stri
 	fscTopology.P2PCommunicationType = commType
 
 	// Add the approver FSC node.
-	approver := fscTopology.AddNodeByName("approver")
-	// This option equips the approver's FSC node with an identity belonging to Org1.
-	// Therefore, the approver is an endorser of the Fabric namespace we defined above.
-	approver.AddOptions(
-		fabric.WithOrganization("Org1"),
-		fabric.WithDefaultIdentityByHSM(),
-		fsc.WithReplicationFactor(replicas["approver"]),
-		fsc.WithPostgresPersistence(sqlConfigs["approver"]),
-		fabric.WithPostgresVaultPersistence(sqlConfigs["approver"]),
-	)
-	approver.RegisterResponder(&views.ApproverView{}, &views.CreateIOUView{})
-	approver.RegisterResponder(&views.ApproverView{}, &views.UpdateIOUView{})
+	fscTopology.AddNodeByName("approver").
+		// This option equips the approver's FSC node with an identity belonging to Org1.
+		// Therefore, the approver is an endorser of the Fabric namespace we defined above.
+		AddOptions(fabric.WithOrganization("Org1"), fabric.WithDefaultIdentityByHSM()).
+		AddOptions(nodeOpts.For("approver")...).
+		RegisterResponder(&views.ApproverView{}, &views.CreateIOUView{}).
+		RegisterResponder(&views.ApproverView{}, &views.UpdateIOUView{})
 
 	// Add the borrower's FSC node
-	borrower := fscTopology.AddNodeByName("borrower")
-	borrower.AddOptions(
-		fabric.WithOrganization("Org2"),
-		fabric.WithDefaultIdentityByHSM(),
-		fabric.WithX509IdentityByHSM("borrower-hsm-2"),
-		fsc.WithReplicationFactor(replicas["borrower"]),
-		fsc.WithPostgresPersistence(sqlConfigs["borrower"]),
-		fabric.WithPostgresVaultPersistence(sqlConfigs["borrower"]),
-	)
-	borrower.RegisterViewFactory("create", &views.CreateIOUViewFactory{})
-	borrower.RegisterViewFactory("update", &views.UpdateIOUViewFactory{})
-	borrower.RegisterViewFactory("query", &views.QueryViewFactory{})
+	fscTopology.AddNodeByName("borrower").
+		AddOptions(fabric.WithOrganization("Org2"), fabric.WithDefaultIdentityByHSM(), fabric.WithX509IdentityByHSM("borrower-hsm-2")).
+		AddOptions(nodeOpts.For("borrower")...).
+		RegisterViewFactory("create", &views.CreateIOUViewFactory{}).
+		RegisterViewFactory("update", &views.UpdateIOUViewFactory{}).
+		RegisterViewFactory("query", &views.QueryViewFactory{})
 
 	// Add the lender's FSC node
-	lender := fscTopology.AddNodeByName("lender")
-	lender.AddOptions(
-		fabric.WithOrganization("Org3"),
-		fabric.WithDefaultIdentityWithLabel("lender"),
-		fsc.WithReplicationFactor(replicas["lender"]),
-		fsc.WithPostgresPersistence(sqlConfigs["lender"]),
-		fabric.WithPostgresVaultPersistence(sqlConfigs["lender"]),
-	)
-	lender.RegisterResponder(&views.CreateIOUResponderView{}, &views.CreateIOUView{})
-	lender.RegisterResponder(&views.UpdateIOUResponderView{}, &views.UpdateIOUView{})
-	lender.RegisterViewFactory("query", &views.QueryViewFactory{})
+	fscTopology.AddNodeByName("lender").
+		AddOptions(fabric.WithOrganization("Org3"), fabric.WithDefaultIdentityWithLabel("lender")).
+		AddOptions(nodeOpts.For("lender")...).
+		RegisterResponder(&views.CreateIOUResponderView{}, &views.CreateIOUView{}).
+		RegisterResponder(&views.UpdateIOUResponderView{}, &views.UpdateIOUView{}).
+		RegisterViewFactory("query", &views.QueryViewFactory{})
 
 	// Add Fabric SDK to FSC Nodes
 	fscTopology.AddSDK(sdk)
