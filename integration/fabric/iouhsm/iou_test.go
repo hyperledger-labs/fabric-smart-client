@@ -7,27 +7,24 @@ SPDX-License-Identifier: Apache-2.0
 package iouhsm_test
 
 import (
-	"time"
-
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iouhsm"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	fabric "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk"
 	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("EndToEnd", func() {
 	Describe("IOU (With HSM) Life Cycle With LibP2P", func() {
-		s := TestSuite{commType: fsc.LibP2P}
+		s := NewTestSuite(fsc.LibP2P, integration.NoReplication)
 		BeforeEach(s.Setup)
 		AfterEach(s.TearDown)
 		It("succeeded", s.TestSucceeded)
 	})
 
 	Describe("IOU (With HSM) Life Cycle With Websockets", func() {
-		s := TestSuite{commType: fsc.WebSocket}
+		s := NewTestSuite(fsc.WebSocket, integration.NoReplication)
 		BeforeEach(s.Setup)
 		AfterEach(s.TearDown)
 		It("succeeded", s.TestSucceeded)
@@ -35,38 +32,27 @@ var _ = Describe("EndToEnd", func() {
 })
 
 type TestSuite struct {
-	commType fsc.P2PCommunicationType
-
-	ii *integration.Infrastructure
+	*integration.TestSuite
 }
 
-func (s *TestSuite) TearDown() {
-	s.ii.Stop()
-}
-
-func (s *TestSuite) Setup() {
-	// Create the integration ii
-	ii, err := integration.Generate(StartPort(), true, iouhsm.Topology(&fabric.SDK{}, s.commType)...)
-	Expect(err).NotTo(HaveOccurred())
-	s.ii = ii
-	// Start the integration ii
-	ii.Start()
-	// Sleep for a while to allow the networks to be ready
-	time.Sleep(20 * time.Second)
+func NewTestSuite(commType fsc.P2PCommunicationType, nodeOpts *integration.ReplicationOptions) *TestSuite {
+	return &TestSuite{integration.NewTestSuite(func() (*integration.Infrastructure, error) {
+		return integration.Generate(StartPort(), true, iouhsm.Topology(&fabric.SDK{}, commType, nodeOpts)...)
+	})}
 }
 
 func (s *TestSuite) TestSucceeded() {
-	iouState := iou.CreateIOU(s.ii, "", 10, "approver")
-	iou.CheckState(s.ii, "borrower", iouState, 10)
-	iou.CheckState(s.ii, "lender", iouState, 10)
-	iou.UpdateIOU(s.ii, iouState, 5, "approver")
-	iou.CheckState(s.ii, "borrower", iouState, 5)
-	iou.CheckState(s.ii, "lender", iouState, 5)
+	iouState := iou.CreateIOU(s.II, "", 10, "approver")
+	iou.CheckState(s.II, "borrower", iouState, 10)
+	iou.CheckState(s.II, "lender", iouState, 10)
+	iou.UpdateIOU(s.II, iouState, 5, "approver")
+	iou.CheckState(s.II, "borrower", iouState, 5)
+	iou.CheckState(s.II, "lender", iouState, 5)
 
-	iouState = iou.CreateIOU(s.ii, "borrower-hsm-2", 10, "approver")
-	iou.CheckState(s.ii, "borrower", iouState, 10)
-	iou.CheckState(s.ii, "lender", iouState, 10)
-	iou.UpdateIOU(s.ii, iouState, 5, "approver")
-	iou.CheckState(s.ii, "borrower", iouState, 5)
-	iou.CheckState(s.ii, "lender", iouState, 5)
+	iouState = iou.CreateIOU(s.II, "borrower-hsm-2", 10, "approver")
+	iou.CheckState(s.II, "borrower", iouState, 10)
+	iou.CheckState(s.II, "lender", iouState, 10)
+	iou.UpdateIOU(s.II, iouState, 5, "approver")
+	iou.CheckState(s.II, "borrower", iouState, 5)
+	iou.CheckState(s.II, "lender", iouState, 5)
 }

@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package chaincode
 
 import (
+	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/chaincode/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
@@ -14,7 +15,7 @@ import (
 	api2 "github.com/hyperledger-labs/fabric-smart-client/pkg/api"
 )
 
-func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType) []api.Topology {
+func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType, replicationOpts *integration.ReplicationOptions) []api.Topology {
 	// Define a new Fabric topology starting from a Default configuration with a single channel `testchannel`
 	// and solo ordering.
 	fabricTopology := fabric.NewDefaultTopology()
@@ -40,30 +41,32 @@ func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType) []api.Topology {
 	//fscTopology.SetLogging("debug", "")
 
 	// Define Alice's FSC node
-	alice := fscTopology.AddNodeByName("alice")
-	// Equip it with a Fabric identity from Org1 that is a client
-	alice.AddOptions(fabric.WithOrganization("Org1"), fabric.WithClientRole())
-	// Register the factories of the initiator views for each business process
-	alice.RegisterViewFactory("CreateAsset", &views.CreateAssetViewFactory{})
-	alice.RegisterViewFactory("ReadAsset", &views.ReadAssetViewFactory{})
-	alice.RegisterViewFactory("ReadAssetPrivateProperties", &views.ReadAssetPrivatePropertiesViewFactory{})
-	alice.RegisterViewFactory("ChangePublicDescription", &views.ChangePublicDescriptionViewFactory{})
-	alice.RegisterViewFactory("AgreeToSell", &views.AgreeToSellViewFactory{})
-	alice.RegisterViewFactory("AgreeToBuy", &views.AgreeToBuyViewFactory{})
-	alice.RegisterViewFactory("Transfer", &views.TransferViewFactory{})
+	fscTopology.AddNodeByName("alice").
+		// Equip it with a Fabric identity from Org1 that is a client
+		AddOptions(fabric.WithOrganization("Org1"), fabric.WithClientRole()).
+		AddOptions(replicationOpts.For("alice")...).
+		// Register the factories of the initiator views for each business process
+		RegisterViewFactory("CreateAsset", &views.CreateAssetViewFactory{}).
+		RegisterViewFactory("ReadAsset", &views.ReadAssetViewFactory{}).
+		RegisterViewFactory("ReadAssetPrivateProperties", &views.ReadAssetPrivatePropertiesViewFactory{}).
+		RegisterViewFactory("ChangePublicDescription", &views.ChangePublicDescriptionViewFactory{}).
+		RegisterViewFactory("AgreeToSell", &views.AgreeToSellViewFactory{}).
+		RegisterViewFactory("AgreeToBuy", &views.AgreeToBuyViewFactory{}).
+		RegisterViewFactory("Transfer", &views.TransferViewFactory{})
 
 	// Define Bob's FSC node
-	bob := fscTopology.AddNodeByName("bob")
-	// Equip it with a Fabric identity from Org2 that is a client
-	bob.AddOptions(fabric.WithOrganization("Org2"), fabric.WithClientRole())
-	// Register the factories of the initiator views for each business process
-	bob.RegisterViewFactory("CreateAsset", &views.CreateAssetViewFactory{})
-	bob.RegisterViewFactory("ReadAsset", &views.ReadAssetViewFactory{})
-	bob.RegisterViewFactory("ReadAssetPrivateProperties", &views.ReadAssetPrivatePropertiesViewFactory{})
-	bob.RegisterViewFactory("ChangePublicDescription", &views.ChangePublicDescriptionViewFactory{})
-	bob.RegisterViewFactory("AgreeToSell", &views.AgreeToSellViewFactory{})
-	bob.RegisterViewFactory("AgreeToBuy", &views.AgreeToBuyViewFactory{})
-	bob.RegisterViewFactory("Transfer", &views.TransferViewFactory{})
+	fscTopology.AddNodeByName("bob").
+		// Equip it with a Fabric identity from Org2 that is a client
+		AddOptions(fabric.WithOrganization("Org2"), fabric.WithClientRole()).
+		AddOptions(replicationOpts.For("bob")...).
+		// Register the factories of the initiator views for each business process
+		RegisterViewFactory("CreateAsset", &views.CreateAssetViewFactory{}).
+		RegisterViewFactory("ReadAsset", &views.ReadAssetViewFactory{}).
+		RegisterViewFactory("ReadAssetPrivateProperties", &views.ReadAssetPrivatePropertiesViewFactory{}).
+		RegisterViewFactory("ChangePublicDescription", &views.ChangePublicDescriptionViewFactory{}).
+		RegisterViewFactory("AgreeToSell", &views.AgreeToSellViewFactory{}).
+		RegisterViewFactory("AgreeToBuy", &views.AgreeToBuyViewFactory{}).
+		RegisterViewFactory("Transfer", &views.TransferViewFactory{})
 
 	// Add Fabric SDK to FSC Nodes
 	fscTopology.AddSDK(sdk)

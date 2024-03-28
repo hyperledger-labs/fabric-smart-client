@@ -19,14 +19,14 @@ import (
 
 var _ = Describe("EndToEnd", func() {
 	Describe("Two Fabric Networks Life Cycle With LibP2P", func() {
-		s := TestSuite{commType: fsc.LibP2P}
+		s := NewTestSuite(fsc.LibP2P, integration.NoReplication)
 		BeforeEach(s.Setup)
 		AfterEach(s.TearDown)
 		It("succeeded", s.TestSucceeded)
 	})
 
 	Describe("Two Fabric Networks Life Cycle With Websockets", func() {
-		s := TestSuite{commType: fsc.WebSocket}
+		s := NewTestSuite(fsc.WebSocket, integration.NoReplication)
 		BeforeEach(s.Setup)
 		AfterEach(s.TearDown)
 		It("succeeded", s.TestSucceeded)
@@ -34,26 +34,17 @@ var _ = Describe("EndToEnd", func() {
 })
 
 type TestSuite struct {
-	commType fsc.P2PCommunicationType
-
-	ii *integration.Infrastructure
+	*integration.TestSuite
 }
 
-func (s *TestSuite) TearDown() {
-	s.ii.Stop()
-}
-
-func (s *TestSuite) Setup() {
-	// Create the integration ii
-	ii, err := integration.Generate(StartPort(), true, twonets.Topology(&fabric.SDK{}, s.commType)...)
-	Expect(err).NotTo(HaveOccurred())
-	s.ii = ii
-	// Start the integration ii
-	ii.Start()
+func NewTestSuite(commType fsc.P2PCommunicationType, nodeOpts *integration.ReplicationOptions) *TestSuite {
+	return &TestSuite{integration.NewTestSuite(func() (*integration.Infrastructure, error) {
+		return integration.Generate(StartPort(), true, twonets.Topology(&fabric.SDK{}, commType, nodeOpts)...)
+	})}
 }
 
 func (s *TestSuite) TestSucceeded() {
-	res, err := s.ii.Client("alice").CallView("ping", nil)
+	res, err := s.II.Client("alice").CallView("ping", nil)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
 }

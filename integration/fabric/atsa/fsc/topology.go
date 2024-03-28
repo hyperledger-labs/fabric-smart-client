@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package fsc
 
 import (
+	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/fsc/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
@@ -14,7 +15,7 @@ import (
 	api2 "github.com/hyperledger-labs/fabric-smart-client/pkg/api"
 )
 
-func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType) []api.Topology {
+func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType, replicationOpts *integration.ReplicationOptions) []api.Topology {
 	// Create an empty fabric topology
 	fabricTopology := fabric.NewDefaultTopology()
 	// Enabled Idemix for Anonymous Identities
@@ -30,35 +31,39 @@ func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType) []api.Topology {
 	fscTopology.P2PCommunicationType = commType
 
 	// Approver
-	approver := fscTopology.AddNodeByName("approver")
-	approver.AddOptions(fabric.WithOrganization("Org1"))
-	approver.RegisterResponder(&views.ApproverView{}, &views.IssueView{})
-	approver.RegisterResponder(&views.ApproverView{}, &views.AgreeToSellView{})
-	approver.RegisterResponder(&views.ApproverView{}, &views.AgreeToBuyView{})
-	approver.RegisterResponder(&views.ApproverView{}, &views.TransferView{})
+	fscTopology.AddNodeByName("approver").
+		AddOptions(fabric.WithOrganization("Org1")).
+		AddOptions(replicationOpts.For("approver")...).
+		RegisterResponder(&views.ApproverView{}, &views.IssueView{}).
+		RegisterResponder(&views.ApproverView{}, &views.AgreeToSellView{}).
+		RegisterResponder(&views.ApproverView{}, &views.AgreeToBuyView{}).
+		RegisterResponder(&views.ApproverView{}, &views.TransferView{})
 
 	// Issuer
-	issuer := fscTopology.AddNodeByName("issuer")
-	issuer.AddOptions(fabric.WithOrganization("Org3"))
-	issuer.RegisterViewFactory("issue", &views.IssueViewFactory{})
+	fscTopology.AddNodeByName("issuer").
+		AddOptions(fabric.WithOrganization("Org3")).
+		AddOptions(replicationOpts.For("issuer")...).
+		RegisterViewFactory("issue", &views.IssueViewFactory{})
 
 	// Alice
-	alice := fscTopology.AddNodeByName("alice")
-	alice.AddOptions(fabric.WithOrganization("Org2"), fabric.WithAnonymousIdentity())
-	alice.RegisterViewFactory("transfer", &views.TransferViewFactory{})
-	alice.RegisterViewFactory("agreeToSell", &views.AgreeToSellViewFactory{})
-	alice.RegisterViewFactory("agreeToBuy", &views.AgreeToBuyViewFactory{})
-	alice.RegisterResponder(&views.AcceptAssetView{}, &views.IssueView{})
-	alice.RegisterResponder(&views.TransferResponderView{}, &views.TransferView{})
+	fscTopology.AddNodeByName("alice").
+		AddOptions(fabric.WithOrganization("Org2"), fabric.WithAnonymousIdentity()).
+		AddOptions(replicationOpts.For("alice")...).
+		RegisterViewFactory("transfer", &views.TransferViewFactory{}).
+		RegisterViewFactory("agreeToSell", &views.AgreeToSellViewFactory{}).
+		RegisterViewFactory("agreeToBuy", &views.AgreeToBuyViewFactory{}).
+		RegisterResponder(&views.AcceptAssetView{}, &views.IssueView{}).
+		RegisterResponder(&views.TransferResponderView{}, &views.TransferView{})
 
 	// Bob
-	bob := fscTopology.AddNodeByName("bob")
-	bob.AddOptions(fabric.WithOrganization("Org2"), fabric.WithAnonymousIdentity())
-	bob.RegisterViewFactory("transfer", &views.TransferViewFactory{})
-	bob.RegisterViewFactory("agreeToSell", &views.AgreeToSellViewFactory{})
-	bob.RegisterViewFactory("agreeToBuy", &views.AgreeToBuyViewFactory{})
-	bob.RegisterResponder(&views.AcceptAssetView{}, &views.IssueView{})
-	bob.RegisterResponder(&views.TransferResponderView{}, &views.TransferView{})
+	fscTopology.AddNodeByName("bob").
+		AddOptions(fabric.WithOrganization("Org2"), fabric.WithAnonymousIdentity()).
+		AddOptions(replicationOpts.For("bob")...).
+		RegisterViewFactory("transfer", &views.TransferViewFactory{}).
+		RegisterViewFactory("agreeToSell", &views.AgreeToSellViewFactory{}).
+		RegisterViewFactory("agreeToBuy", &views.AgreeToBuyViewFactory{}).
+		RegisterResponder(&views.AcceptAssetView{}, &views.IssueView{}).
+		RegisterResponder(&views.TransferResponderView{}, &views.TransferView{})
 
 	// Add Fabric SDK to FSC Nodes
 	fscTopology.AddSDK(sdk)
