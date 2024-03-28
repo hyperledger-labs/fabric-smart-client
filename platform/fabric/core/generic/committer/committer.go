@@ -199,12 +199,15 @@ func (c *Committer) IsFinal(ctx context.Context, txID string) error {
 					if logger.IsEnabledFor(zapcore.DebugLevel) {
 						logger.Debugf("Tx [%s] is unknown with no deps, remote check [%d][%s]", txID, iter, debug.Stack())
 					}
-					err := c.Finality.IsFinal(txID, c.Network.PickPeer(driver.PeerForFinality).Address)
+					peer := c.Network.PickPeer(driver.PeerForFinality).Address
+					err := c.Finality.IsFinal(txID, peer)
 					if err == nil {
+						logger.Debugf("Tx [%s] is final, remote check on [%s]", txID, peer)
 						return nil
 					}
 
 					if vd, _, _, err2 := committer.Status(txID); err2 == nil && vd == driver.Unknown {
+						logger.Debugf("Tx [%s] is not final for remote [%s], return [%s], [%d][%s]", txID, peer, err, vd, err2)
 						return err
 					}
 					continue
@@ -221,6 +224,8 @@ func (c *Committer) IsFinal(ctx context.Context, txID string) error {
 			return errors.WithMessagef(err, "failed getting transaction status from vault [%s]", txID)
 		}
 	}
+
+	logger.Debugf("Tx [%s] start listening...", txID)
 	// Listen to the event
 	return c.listenTo(ctx, txID, c.WaitForEventTimeout)
 }
