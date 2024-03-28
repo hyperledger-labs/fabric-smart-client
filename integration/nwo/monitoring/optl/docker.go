@@ -13,7 +13,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/api/types/network"
@@ -108,11 +107,11 @@ func (n *Extension) startJaeger() {
 	})
 	Expect(err).ToNot(HaveOccurred())
 
-	Expect(cli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{})).ToNot(HaveOccurred())
+	Expect(cli.ContainerStart(ctx, resp.ID, container.StartOptions{})).ToNot(HaveOccurred())
 
 	dockerLogger := flogging.MustGetLogger("monitoring.optl.jaegertracing.container")
 	go func() {
-		reader, err := cli.ContainerLogs(context.Background(), resp.ID, types.ContainerLogsOptions{
+		reader, err := cli.ContainerLogs(context.Background(), resp.ID, container.LogsOptions{
 			ShowStdout: true,
 			ShowStderr: true,
 			Follow:     true,
@@ -210,12 +209,12 @@ func (n *Extension) startOPTLCollector() {
 	})
 	Expect(err).ToNot(HaveOccurred())
 
-	Expect(cli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{})).ToNot(HaveOccurred())
+	Expect(cli.ContainerStart(ctx, resp.ID, container.StartOptions{})).ToNot(HaveOccurred())
 	time.Sleep(3 * time.Second)
 
 	dockerLogger := flogging.MustGetLogger("monitoring.optl.container")
 	go func() {
-		reader, err := cli.ContainerLogs(context.Background(), resp.ID, types.ContainerLogsOptions{
+		reader, err := cli.ContainerLogs(context.Background(), resp.ID, container.LogsOptions{
 			ShowStdout: true,
 			ShowStderr: true,
 			Follow:     true,
