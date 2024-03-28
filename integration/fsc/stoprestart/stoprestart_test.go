@@ -20,51 +20,96 @@ import (
 
 var _ = Describe("EndToEnd", func() {
 	Describe("Stop and Restart With LibP2P", func() {
-		s := TestSuite{commType: fsc.LibP2P}
+		s := NewTestSuite(fsc.LibP2P, integration.NoReplication)
 		BeforeEach(s.Setup)
 		AfterEach(s.TearDown)
 		It("stop and restart successfully", s.TestSucceeded)
 	})
 
 	Describe("Stop and Restart With Websockets", func() {
-		s := TestSuite{commType: fsc.WebSocket}
+		s := NewTestSuite(fsc.WebSocket, integration.NoReplication)
 		BeforeEach(s.Setup)
 		AfterEach(s.TearDown)
 		It("stop and restart successfully", s.TestSucceeded)
 	})
+
+	Describe("Stop and Restart with Fabric With Replicas many to one", func() {
+		s := NewTestSuite(fsc.WebSocket, &integration.ReplicationOptions{
+			ReplicationFactors: map[string]int{
+				"alice": 4,
+				"bob":   1,
+			},
+		})
+		BeforeEach(s.Setup)
+		AfterEach(s.TearDown)
+		It("stop and restart successfully", s.TestSucceededWithReplicas)
+	})
+
+	Describe("Stop and Restart with Fabric With Replicas many to many", func() {
+		s := NewTestSuite(fsc.WebSocket, &integration.ReplicationOptions{
+			ReplicationFactors: map[string]int{
+				"alice": 4,
+				"bob":   4,
+			},
+		})
+		BeforeEach(s.Setup)
+		AfterEach(s.TearDown)
+		It("stop and restart successfully", s.TestSucceededWithReplicas)
+	})
 })
 
 type TestSuite struct {
-	commType fsc.P2PCommunicationType
-
-	ii *integration.Infrastructure
+	*integration.TestSuite
 }
 
-func (s *TestSuite) TearDown() {
-	s.ii.Stop()
-}
-
-func (s *TestSuite) Setup() {
-	// Create the integration ii
-	ii, err := integration.Generate(StartPort(), true, stoprestart.Topology(s.commType)...)
-	Expect(err).NotTo(HaveOccurred())
-	s.ii = ii
-	// Start the integration ii
-	ii.Start()
-	time.Sleep(3 * time.Second)
+func NewTestSuite(commType fsc.P2PCommunicationType, nodeOpts *integration.ReplicationOptions) *TestSuite {
+	return &TestSuite{integration.NewTestSuite(func() (*integration.Infrastructure, error) {
+		return integration.Generate(StartPort(), true, stoprestart.Topology(commType, nodeOpts)...)
+	})}
 }
 
 func (s *TestSuite) TestSucceeded() {
-	res, err := s.ii.Client("alice").CallView("init", nil)
+	res, err := s.II.Client("alice").CallView("init", nil)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
 
-	s.ii.StopFSCNode("bob")
+	s.II.StopFSCNode("bob")
 	time.Sleep(3 * time.Second)
-	s.ii.StartFSCNode("bob")
+	s.II.StartFSCNode("bob")
 	time.Sleep(3 * time.Second)
 
-	res, err = s.ii.Client("alice").CallView("init", nil)
+	res, err = s.II.Client("alice").CallView("init", nil)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
+}
+
+func (s *TestSuite) TestSucceededWithReplicas() {
+	res, err := s.II.Client("fsc.alice.0").CallView("init", nil)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
+
+	res, err = s.II.Client("fsc.alice.1").CallView("init", nil)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
+
+	res, err = s.II.Client("fsc.alice.2").CallView("init", nil)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
+
+	s.II.StopFSCNode("bob")
+	time.Sleep(3 * time.Second)
+	s.II.StartFSCNode("bob")
+	time.Sleep(3 * time.Second)
+
+	res, err = s.II.Client("fsc.alice.0").CallView("init", nil)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
+
+	res, err = s.II.Client("fsc.alice.1").CallView("init", nil)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
+
+	res, err = s.II.Client("fsc.alice.2").CallView("init", nil)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
 }

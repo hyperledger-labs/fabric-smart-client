@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package relay
 
 import (
+	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/weaver/relay/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
@@ -15,7 +16,7 @@ import (
 	api2 "github.com/hyperledger-labs/fabric-smart-client/pkg/api"
 )
 
-func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType) []api.Topology {
+func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType, replicationOpts *integration.ReplicationOptions) []api.Topology {
 	// Define two Fabric topologies
 	f1Topology := fabric.NewTopologyWithName("alpha")
 	f1Topology.AddOrganizationsByName("Org1", "Org2")
@@ -42,20 +43,16 @@ func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType) []api.Topology {
 	fscTopology.P2PCommunicationType = commType
 
 	// Add alice's FSC node
-	alice := fscTopology.AddNodeByName("alice")
-	alice.AddOptions(
-		fabric.WithDefaultNetwork("alpha"),
-		fabric.WithNetworkOrganization("alpha", "Org1"),
-	)
-	alice.RegisterViewFactory("init", &views.InitiatorViewFactory{})
+	fscTopology.AddNodeByName("alice").
+		AddOptions(fabric.WithDefaultNetwork("alpha"), fabric.WithNetworkOrganization("alpha", "Org1")).
+		AddOptions(replicationOpts.For("alice")...).
+		RegisterViewFactory("init", &views.InitiatorViewFactory{})
 
 	// Add bob's FSC node
-	bob := fscTopology.AddNodeByName("bob")
-	bob.AddOptions(
-		fabric.WithDefaultNetwork("beta"),
-		fabric.WithNetworkOrganization("beta", "Org3"),
-	)
-	bob.RegisterResponder(&views.Responder{}, &views.InitiatorView{})
+	fscTopology.AddNodeByName("bob").
+		AddOptions(fabric.WithDefaultNetwork("beta"), fabric.WithNetworkOrganization("beta", "Org3")).
+		AddOptions(replicationOpts.For("bob")...).
+		RegisterResponder(&views.Responder{}, &views.InitiatorView{})
 
 	// Add Fabric SDK to FSC Nodes
 	fscTopology.AddSDK(sdk)

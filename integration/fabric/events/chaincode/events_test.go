@@ -21,7 +21,7 @@ import (
 
 var _ = Describe("EndToEnd", func() {
 	Describe("Events (With Chaincode) With LibP2P", func() {
-		s := TestSuite{commType: fsc.LibP2P}
+		s := NewTestSuite(fsc.LibP2P, integration.NoReplication)
 		BeforeEach(s.Setup)
 		AfterEach(s.TearDown)
 		It("clients listening to single chaincode events", s.TestSingleChaincodeEvents)
@@ -30,7 +30,7 @@ var _ = Describe("EndToEnd", func() {
 	})
 
 	Describe("Events (With Chaincode) With Websockets", func() {
-		s := TestSuite{commType: fsc.WebSocket}
+		s := NewTestSuite(fsc.WebSocket, integration.NoReplication)
 		BeforeEach(s.Setup)
 		AfterEach(s.TearDown)
 		It("clients listening to single chaincode events", s.TestSingleChaincodeEvents)
@@ -40,33 +40,18 @@ var _ = Describe("EndToEnd", func() {
 })
 
 type TestSuite struct {
-	commType fsc.P2PCommunicationType
-
-	ii *integration.Infrastructure
-
-	alice *chaincode.Client
-	bob   *chaincode.Client
+	*integration.TestSuite
 }
 
-func (s *TestSuite) TearDown() {
-	s.ii.Stop()
-}
-
-func (s *TestSuite) Setup() {
-	// Create the integration ii
-	ii, err := integration.Generate(StartPort(), true, chaincode.Topology(&fabric2.SDK{}, s.commType)...)
-	Expect(err).NotTo(HaveOccurred())
-	s.ii = ii
-	// Start the integration ii
-	ii.Start()
-
-	s.alice = chaincode.NewClient(ii.Client("alice"), ii.Identity("alice"))
-	s.bob = chaincode.NewClient(ii.Client("bob"), ii.Identity("bob"))
+func NewTestSuite(commType fsc.P2PCommunicationType, nodeOpts *integration.ReplicationOptions) *TestSuite {
+	return &TestSuite{integration.NewTestSuite(func() (*integration.Infrastructure, error) {
+		return integration.Generate(StartPort(), true, chaincode.Topology(&fabric2.SDK{}, commType, nodeOpts)...)
+	})}
 }
 
 func (s *TestSuite) TestSingleChaincodeEvents() {
-	alice := s.alice
-	bob := s.bob
+	alice := chaincode.NewClient(s.II.Client("alice"), s.II.Identity("alice"))
+	bob := chaincode.NewClient(s.II.Client("bob"), s.II.Identity("bob"))
 	// - Operate from Alice (Org1)
 
 	event, err := alice.EventsView("CreateAsset", "CreateAsset")
@@ -85,10 +70,12 @@ func (s *TestSuite) TestSingleChaincodeEvents() {
 }
 
 func (s *TestSuite) TestMultipleChaincodeEvents() {
+	alice := chaincode.NewClient(s.II.Client("alice"), s.II.Identity("alice"))
+
 	expectedEventPayloads := []string{"Invoked Create Asset Successfully", "Invoked Update Asset Successfully"}
 	var payloadsReceived []string
 	// - Operate from Alice (Org1)
-	events, err := s.alice.MultipleEventsView([]string{"CreateAsset", "UpdateAsset"}, 2)
+	events, err := alice.MultipleEventsView([]string{"CreateAsset", "UpdateAsset"}, 2)
 	Expect(err).ToNot(HaveOccurred())
 	eventsReceived := &views.MultipleEventsReceived{}
 	err = json.Unmarshal(events.([]byte), eventsReceived)
@@ -103,20 +90,21 @@ func (s *TestSuite) TestMultipleChaincodeEvents() {
 }
 
 func (s *TestSuite) TestUpgradeChaincode() {
+	alice := chaincode.NewClient(s.II.Client("alice"), s.II.Identity("alice"))
 	// Old chaincode
-	event, err := s.alice.EventsView("CreateAsset", "CreateAsset")
+	event, err := alice.EventsView("CreateAsset", "CreateAsset")
 	Expect(err).ToNot(HaveOccurred())
 	eventReceived := &views.EventReceived{}
 	json.Unmarshal(event.([]byte), eventReceived)
 	Expect(string(eventReceived.Event.Payload)).To(Equal("Invoked Create Asset Successfully"))
 
 	// Update
-	fabricNetwork := fabric.Network(s.ii.Ctx, "default")
+	fabricNetwork := fabric.Network(s.II.Ctx, "default")
 	Expect(fabricNetwork).ToNot(BeNil(), "failed to find fabric network 'default'")
 	fabricNetwork.UpdateChaincode("events", "Version-1.0", "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/events/chaincode/newChaincode", "")
 
 	// New chaincode
-	event, err = s.alice.EventsView("CreateAsset", "CreateAsset")
+	event, err = alice.EventsView("CreateAsset", "CreateAsset")
 	Expect(err).ToNot(HaveOccurred())
 	eventReceived = &views.EventReceived{}
 	json.Unmarshal(event.([]byte), eventReceived)

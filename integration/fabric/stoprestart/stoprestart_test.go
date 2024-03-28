@@ -21,14 +21,14 @@ import (
 
 var _ = Describe("EndToEnd", func() {
 	Describe("Stop and Restart with Fabric With LibP2P", func() {
-		s := TestSuite{commType: fsc.LibP2P}
+		s := NewTestSuite(fsc.LibP2P, integration.NoReplication)
 		BeforeEach(s.Setup)
 		AfterEach(s.TearDown)
 		It("stop and restart successfully", s.TestSucceeded)
 	})
 
 	Describe("Stop and Restart with Fabric With Websockets", func() {
-		s := TestSuite{commType: fsc.WebSocket}
+		s := NewTestSuite(fsc.WebSocket, integration.NoReplication)
 		BeforeEach(s.Setup)
 		AfterEach(s.TearDown)
 		It("stop and restart successfully", s.TestSucceeded)
@@ -36,36 +36,26 @@ var _ = Describe("EndToEnd", func() {
 })
 
 type TestSuite struct {
-	commType fsc.P2PCommunicationType
-
-	ii *integration.Infrastructure
+	*integration.TestSuite
 }
 
-func (s *TestSuite) TearDown() {
-	s.ii.Stop()
-}
-
-func (s *TestSuite) Setup() {
-	// Create the integration ii
-	ii, err := integration.Generate(StartPort(), true, stoprestart.Topology(&fabric.SDK{}, s.commType)...)
-	Expect(err).NotTo(HaveOccurred())
-	s.ii = ii
-	// Start the integration ii
-	ii.Start()
-	time.Sleep(3 * time.Second)
+func NewTestSuite(commType fsc.P2PCommunicationType, nodeOpts *integration.ReplicationOptions) *TestSuite {
+	return &TestSuite{integration.NewTestSuite(func() (*integration.Infrastructure, error) {
+		return integration.Generate(StartPort(), true, stoprestart.Topology(&fabric.SDK{}, commType, nodeOpts)...)
+	})}
 }
 
 func (s *TestSuite) TestSucceeded() {
-	res, err := s.ii.CLI("alice").CallView("init", []byte("foo"))
+	res, err := s.II.CLI("alice").CallView("init", []byte("foo"))
 	Expect(err).NotTo(HaveOccurred())
 	Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
 
-	s.ii.StopFSCNode("bob")
+	s.II.StopFSCNode("bob")
 	time.Sleep(3 * time.Second)
-	s.ii.StartFSCNode("bob")
+	s.II.StartFSCNode("bob")
 	time.Sleep(3 * time.Second)
 
-	res, err = s.ii.Client("alice").CallView("init", nil)
+	res, err = s.II.Client("alice").CallView("init", nil)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
 }

@@ -22,14 +22,14 @@ import (
 
 var _ = Describe("EndToEnd", func() {
 	Describe("Asset Transfer Secured Agreement (With Chaincode) with LibP2P", func() {
-		s := TestSuite{commType: fsc.LibP2P}
+		s := NewTestSuite(fsc.LibP2P, integration.NoReplication)
 		BeforeEach(s.Setup)
 		AfterEach(s.TearDown)
 		It("succeeded", s.TestSucceeded)
 	})
 
 	Describe("Asset Transfer Secured Agreement (With Chaincode) with WebSockets", func() {
-		s := TestSuite{commType: fsc.WebSocket}
+		s := NewTestSuite(fsc.WebSocket, integration.NoReplication)
 		BeforeEach(s.Setup)
 		AfterEach(s.TearDown)
 		It("succeeded", s.TestSucceeded)
@@ -37,31 +37,18 @@ var _ = Describe("EndToEnd", func() {
 })
 
 type TestSuite struct {
-	commType fsc.P2PCommunicationType
-
-	ii *integration.Infrastructure
-
-	alice *chaincode.Client
-	bob   *chaincode.Client
+	*integration.TestSuite
 }
 
-func (s *TestSuite) TearDown() {
-	s.ii.Stop()
-}
-
-func (s *TestSuite) Setup() {
-	// Create the integration ii
-	ii, err := integration.Generate(StartPort(), true, chaincode.Topology(&fabric.SDK{}, s.commType)...)
-	Expect(err).NotTo(HaveOccurred())
-	s.ii = ii
-	// Start the integration ii
-	ii.Start()
-
-	s.alice = chaincode.NewClient(ii.Client("alice"), ii.Identity("alice"))
-	s.bob = chaincode.NewClient(ii.Client("bob"), ii.Identity("bob"))
+func NewTestSuite(commType fsc.P2PCommunicationType, nodeOpts *integration.ReplicationOptions) *TestSuite {
+	return &TestSuite{integration.NewTestSuite(func() (*integration.Infrastructure, error) {
+		return integration.Generate(StartPort(), true, chaincode.Topology(&fabric.SDK{}, commType, nodeOpts)...)
+	})}
 }
 
 func (s *TestSuite) TestSucceeded() {
+	alice := chaincode.NewClient(s.II.Client("alice"), s.II.Identity("alice"))
+	bob := chaincode.NewClient(s.II.Client("bob"), s.II.Identity("bob"))
 	// Create an asset
 
 	// - Operate from Alice (Org1)
@@ -74,35 +61,35 @@ func (s *TestSuite) TestSucceeded() {
 		Size:       35,
 		Salt:       nonce,
 	}
-	Expect(s.alice.CreateAsset(ap, "A new asset for Org1MSP")).ToNot(HaveOccurred())
+	Expect(alice.CreateAsset(ap, "A new asset for Org1MSP")).ToNot(HaveOccurred())
 
-	ap2, err := s.alice.ReadAssetPrivateProperties(ap.ID)
+	ap2, err := alice.ReadAssetPrivateProperties(ap.ID)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(ap2).To(BeEquivalentTo(ap))
 
-	asset, err := s.alice.ReadAsset(ap.ID)
+	asset, err := alice.ReadAsset(ap.ID)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(asset.ID).To(BeEquivalentTo(ap.ID))
 	Expect(asset.ObjectType).To(BeEquivalentTo("asset"))
 	Expect(asset.PublicDescription).To(BeEquivalentTo("A new asset for Org1MSP"))
 	Expect(asset.OwnerOrg).To(BeEquivalentTo("Org1MSP"))
 
-	Expect(s.alice.ChangePublicDescription(ap.ID, "This asset is for sale")).ToNot(HaveOccurred())
-	asset, err = s.alice.ReadAsset(ap.ID)
+	Expect(alice.ChangePublicDescription(ap.ID, "This asset is for sale")).ToNot(HaveOccurred())
+	asset, err = alice.ReadAsset(ap.ID)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(asset.ID).To(BeEquivalentTo(ap.ID))
 	Expect(asset.ObjectType).To(BeEquivalentTo("asset"))
 	Expect(asset.PublicDescription).To(BeEquivalentTo("This asset is for sale"))
 
 	// - Operate from Bob (Org2)
-	asset, err = s.bob.ReadAsset(ap.ID)
+	asset, err = bob.ReadAsset(ap.ID)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(asset.ID).To(BeEquivalentTo(ap.ID))
 	Expect(asset.ObjectType).To(BeEquivalentTo("asset"))
 	Expect(asset.PublicDescription).To(BeEquivalentTo("This asset is for sale"))
 	Expect(asset.OwnerOrg).To(BeEquivalentTo("Org1MSP"))
 
-	Expect(s.bob.ChangePublicDescription(ap.ID, "This asset is NOT for sale")).To(HaveOccurred())
+	Expect(bob.ChangePublicDescription(ap.ID, "This asset is NOT for sale")).To(HaveOccurred())
 
 	// Agree to sell the asset
 
@@ -116,7 +103,7 @@ func (s *TestSuite) TestSucceeded() {
 		TradeID: tradeID,
 		Price:   110,
 	}
-	err = s.alice.AgreeToSell(assetPriceSell)
+	err = alice.AgreeToSell(assetPriceSell)
 	Expect(err).ToNot(HaveOccurred())
 
 	// Bob (Org2) agree to buy
@@ -125,36 +112,36 @@ func (s *TestSuite) TestSucceeded() {
 		TradeID: tradeID,
 		Price:   100,
 	}
-	err = s.bob.AgreeToBuy(assetPriceBuy)
+	err = bob.AgreeToBuy(assetPriceBuy)
 	Expect(err).ToNot(HaveOccurred())
 
 	// Transfer the asset from Alice (Org1) to Bob (Org2)
-	err = s.alice.Transfer(ap, assetPriceSell, s.bob.Identity())
+	err = alice.Transfer(ap, assetPriceSell, bob.Identity())
 	Expect(err).To(HaveOccurred())
 
 	// Alice (Org1) agree to sell
 	assetPriceSell.Price = 100
-	err = s.alice.AgreeToSell(assetPriceSell)
+	err = alice.AgreeToSell(assetPriceSell)
 	Expect(err).ToNot(HaveOccurred())
 
 	// Transfer the asset from Alice (Org1) to Bob (Org2)
-	err = s.alice.Transfer(ap, assetPriceSell, s.bob.Identity())
+	err = alice.Transfer(ap, assetPriceSell, bob.Identity())
 	Expect(err).ToNot(HaveOccurred())
 
 	// Update the asset description as Bob (Org2)
-	asset, err = s.bob.ReadAsset(ap.ID)
+	asset, err = bob.ReadAsset(ap.ID)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(asset.ID).To(BeEquivalentTo(ap.ID))
 	Expect(asset.ObjectType).To(BeEquivalentTo("asset"))
 	Expect(asset.PublicDescription).To(BeEquivalentTo("This asset is for sale"))
 	Expect(asset.OwnerOrg).To(BeEquivalentTo("Org2MSP"))
 
-	ap2, err = s.bob.ReadAssetPrivateProperties(ap.ID)
+	ap2, err = bob.ReadAssetPrivateProperties(ap.ID)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(ap2).To(BeEquivalentTo(ap))
 
-	Expect(s.bob.ChangePublicDescription(ap.ID, "This asset is not for sale")).ToNot(HaveOccurred())
-	asset, err = s.bob.ReadAsset(ap.ID)
+	Expect(bob.ChangePublicDescription(ap.ID, "This asset is not for sale")).ToNot(HaveOccurred())
+	asset, err = bob.ReadAsset(ap.ID)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(asset.ID).To(BeEquivalentTo(ap.ID))
 	Expect(asset.ObjectType).To(BeEquivalentTo("asset"))
