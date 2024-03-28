@@ -346,14 +346,15 @@ func (c *Channel) commitLocal(txID string, block uint64, indexInBlock int, envel
 			return err
 		}
 		if headerType == int32(common.HeaderType_ENDORSER_TRANSACTION) {
-			if !c.Vault.RWSExists(txID) {
+			if !c.Vault.RWSExists(txID) && c.EnvelopeService().Exists(txID) {
+				// Then match rwsets
 				if err := c.extractStoredEnvelopeToVault(txID); err != nil {
 					return errors.WithMessagef(err, "failed to load stored enveloper into the vault")
 				}
-			}
-			if err := c.Vault.Match(txID, pt.Results()); err != nil {
-				logger.Errorf("[%s] rwsets do not match [%s]", txID, err)
-				return errors.Wrapf(committer.ErrDiscardTX, "[%s] rwsets do not match [%s]", txID, err)
+				if err := c.Vault.Match(txID, pt.Results()); err != nil {
+					logger.Errorf("[%s] rwsets do not match [%s]", txID, err)
+					return errors.Wrapf(committer.ErrDiscardTX, "[%s] rwsets do not match [%s]", txID, err)
+				}
 			}
 		}
 	}
