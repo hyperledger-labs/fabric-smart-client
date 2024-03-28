@@ -120,7 +120,7 @@ func (db *Vault) CommitTX(txID string, block uint64, indexInBloc int) error {
 	logger.Debugf("UnmapInterceptor [%s]", txID)
 	i, err := db.UnmapInterceptor(txID)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "failed to unmap interceptor for [%s]", txID)
 	}
 	if i == nil {
 		return errors.Errorf("cannot find rwset for [%s]", txID)

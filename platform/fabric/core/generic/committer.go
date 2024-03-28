@@ -203,6 +203,11 @@ func (c *Channel) commitUnknown(txID string, block uint64, indexInBlock int, env
 	if err := c.EnvelopeService().StoreEnvelope(txID, envelopeRaw); err != nil {
 		return errors.WithMessagef(err, "failed to store unknown envelope for [%s]", txID)
 	}
+	rws, _, err := c.RWSetLoader.GetRWSetFromEvn(txID)
+	if err != nil {
+		return errors.WithMessagef(err, "failed to get rws from envelope [%s]", txID)
+	}
+	rws.Done()
 	return c.commit(txID, nil, block, indexInBlock, envelope)
 }
 
