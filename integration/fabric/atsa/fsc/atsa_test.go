@@ -76,7 +76,7 @@ func NewTestSuite(commType fsc2.P2PCommunicationType, nodeOpts *integration.Node
 	})}
 }
 
-func (s *TestSuite) TestSucceeded(issuerId node, sellerId node, buyerId node, transferringUserId node) {
+func (s *TestSuite) TestSucceeded(issuerId node, sellerId node, buyerId node, transfererId node) {
 	approver := s.II.Identity("approver")
 
 	issuer := client.New(s.II.Client(issuerId[1]), s.II.Identity(issuerId[0]), approver)
@@ -106,7 +106,7 @@ func (s *TestSuite) TestSucceeded(issuerId node, sellerId node, buyerId node, tr
 	})
 	Expect(err).ToNot(HaveOccurred())
 
-	transferringUser := client.New(s.II.Client(transferringUserId[1]), s.II.Identity(transferringUserId[0]), approver)
-	err = transferringUser.Transfer("1234", agreementID, s.II.Identity(buyerId[0]))
+	transferer := client.New(s.II.Client(transfererId[1]), s.II.Identity(transfererId[0]), approver)
+	err = transferer.Transfer("1234", agreementID, s.II.Identity(buyerId[0]))
 	Expect(err).ToNot(HaveOccurred())
 }
