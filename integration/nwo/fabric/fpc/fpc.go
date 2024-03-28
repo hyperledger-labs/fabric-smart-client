@@ -17,7 +17,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/client"
@@ -268,12 +267,12 @@ func (n *Extension) runDockerContainers(chaincode *topology.ChannelChaincode, pa
 			nil, nil, containerName,
 		)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(cli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{})).ToNot(HaveOccurred())
+		Expect(cli.ContainerStart(ctx, resp.ID, container.StartOptions{})).ToNot(HaveOccurred())
 		time.Sleep(3 * time.Second)
 
 		dockerLogger := flogging.MustGetLogger("fpc.container." + containerName)
 		go func() {
-			reader, err := cli.ContainerLogs(context.Background(), resp.ID, types.ContainerLogsOptions{
+			reader, err := cli.ContainerLogs(context.Background(), resp.ID, container.LogsOptions{
 				ShowStdout: true,
 				ShowStderr: true,
 				Follow:     true,

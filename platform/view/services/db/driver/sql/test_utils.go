@@ -15,7 +15,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
@@ -143,9 +142,9 @@ func startPostgresWithLogger(c PostgresConfig, t Logger, printLogs bool) (func()
 	}
 	closeFunc := func() {
 		t.Log("removing postgres container")
-		cli.ContainerRemove(ctx, resp.ID, types.ContainerRemoveOptions{Force: true})
+		cli.ContainerRemove(ctx, resp.ID, container.RemoveOptions{Force: true})
 	}
-	if err := cli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{}); err != nil {
+	if err := cli.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
 		closeFunc()
 		return nil, fmt.Errorf("can't start postgres: %s", err)
 	}
@@ -153,7 +152,7 @@ func startPostgresWithLogger(c PostgresConfig, t Logger, printLogs bool) (func()
 	// Forward logs to test logger
 	if printLogs {
 		go func() {
-			reader, err := cli.ContainerLogs(ctx, resp.ID, types.ContainerLogsOptions{
+			reader, err := cli.ContainerLogs(ctx, resp.ID, container.LogsOptions{
 				ShowStdout: false,
 				ShowStderr: true,
 				Follow:     true,

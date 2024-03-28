@@ -11,7 +11,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/api/types/network"
@@ -87,12 +86,12 @@ func (p *Platform) RunRelayServer(name string, serverConfigPath, port string) {
 		NetworkID: p.NetworkID,
 	})
 
-	err = cli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{})
+	err = cli.ContainerStart(ctx, resp.ID, container.StartOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
 	dockerLogger := flogging.MustGetLogger("weaver.container." + hostname)
 	go func() {
-		reader, err := cli.ContainerLogs(context.Background(), resp.ID, types.ContainerLogsOptions{
+		reader, err := cli.ContainerLogs(context.Background(), resp.ID, container.LogsOptions{
 			ShowStdout: true,
 			ShowStderr: true,
 			Follow:     true,
@@ -198,12 +197,12 @@ func (p *Platform) RunRelayFabricDriver(
 		NetworkID: p.NetworkID,
 	})
 
-	err = cli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{})
+	err = cli.ContainerStart(ctx, resp.ID, container.StartOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
 	dockerLogger := flogging.MustGetLogger("weaver.fabric.driver.container." + hostname)
 	go func() {
-		reader, err := cli.ContainerLogs(context.Background(), resp.ID, types.ContainerLogsOptions{
+		reader, err := cli.ContainerLogs(context.Background(), resp.ID, container.LogsOptions{
 			ShowStdout: true,
 			ShowStderr: true,
 			Follow:     true,

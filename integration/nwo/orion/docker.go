@@ -13,7 +13,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/api/types/network"
@@ -105,13 +104,13 @@ func (p *Platform) StartOrionServer() {
 		NetworkID: p.NetworkID,
 	})
 
-	if err := cli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{}); err != nil {
+	if err := cli.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
 		panic(err)
 	}
 
 	dockerLogger := flogging.MustGetLogger("orion.container." + containerName)
 	go func() {
-		reader, err := cli.ContainerLogs(context.Background(), resp.ID, types.ContainerLogsOptions{
+		reader, err := cli.ContainerLogs(context.Background(), resp.ID, container.LogsOptions{
 			ShowStdout: true,
 			ShowStderr: true,
 			Follow:     true,
