@@ -38,6 +38,10 @@ func (c *Committer) Status(txID string) (ValidationCode, string, []string, error
 	return ValidationCode(vc), message, deps, err
 }
 
+func (c *Committer) AddStatusReporter(sr driver.StatusReporter) error {
+	return c.ch.AddStatusReporter(sr)
+}
+
 // SubscribeTxStatusChanges registers a listener for transaction status changes for the passed transaction id.
 // If the transaction id is empty, the listener will be called for all transactions.
 func (c *Committer) SubscribeTxStatusChanges(txID string, listener TxStatusChangeListener) error {
