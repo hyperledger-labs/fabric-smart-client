@@ -14,7 +14,7 @@ import (
 // TxStatusChangeListener is the interface that must be implemented to receive transaction status change notifications
 type TxStatusChangeListener interface {
 	// OnStatusChange is called when the status of a transaction changes
-	OnStatusChange(txID string, status int) error
+	OnStatusChange(txID string, status int, statusMessage string) error
 }
 
 type Committer struct {
@@ -33,9 +33,13 @@ func (c *Committer) ProcessNamespace(nss ...string) error {
 
 // Status returns a validation code this committer bind to the passed transaction id, plus
 // a list of dependant transaction ids if they exist.
-func (c *Committer) Status(txid string) (ValidationCode, []string, error) {
-	vc, deps, err := c.ch.Status(txid)
-	return ValidationCode(vc), deps, err
+func (c *Committer) Status(txID string) (ValidationCode, string, []string, error) {
+	vc, message, deps, err := c.ch.Status(txID)
+	return ValidationCode(vc), message, deps, err
+}
+
+func (c *Committer) AddStatusReporter(sr driver.StatusReporter) error {
+	return c.ch.AddStatusReporter(sr)
 }
 
 // SubscribeTxStatusChanges registers a listener for transaction status changes for the passed transaction id.

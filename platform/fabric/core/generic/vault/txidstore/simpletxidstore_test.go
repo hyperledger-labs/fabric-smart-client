@@ -19,12 +19,6 @@ import (
 	"github.com/test-go/testify/assert"
 )
 
-//go:generate counterfeiter -o mocks/config.go -fake-name Config . config
-
-type config interface {
-	db.Config
-}
-
 func TestTXIDStoreMem(t *testing.T) {
 	db, err := db.Open(nil, "memory", "", nil)
 	assert.NoError(t, err)
@@ -69,14 +63,15 @@ func TestTXIDStoreBadger(t *testing.T) {
 func testOneMore(t *testing.T, store *SimpleTXIDStore) {
 	err := store.persistence.BeginUpdate()
 	assert.NoError(t, err)
-	err = store.Set("txid3", driver.Valid)
+	err = store.Set("txid3", driver.Valid, "pineapple")
 	assert.NoError(t, err)
 	err = store.persistence.Commit()
 	assert.NoError(t, err)
 
-	status, err := store.Get("txid3")
+	status, message, err := store.Get("txid3")
 	assert.NoError(t, err)
 	assert.Equal(t, driver.Valid, status)
+	assert.Equal(t, "pineapple", message)
 
 	it, err := store.Iterator(&driver.SeekStart{})
 	assert.NoError(t, err)
@@ -90,7 +85,7 @@ func testOneMore(t *testing.T, store *SimpleTXIDStore) {
 			break
 		}
 
-		txids = append(txids, tid.Txid)
+		txids = append(txids, tid.TxID)
 	}
 	assert.Equal(t, []string{"txid1", "txid2", "txid10", "txid12", "txid21", "txid100", "txid200", "txid1025", "txid3"}, txids)
 
@@ -106,7 +101,7 @@ func testOneMore(t *testing.T, store *SimpleTXIDStore) {
 			break
 		}
 
-		txids = append(txids, tid.Txid)
+		txids = append(txids, tid.TxID)
 	}
 	assert.Equal(t, []string{"txid3"}, txids)
 
@@ -117,7 +112,7 @@ func testOneMore(t *testing.T, store *SimpleTXIDStore) {
 	// add a busy tx
 	err = store.persistence.BeginUpdate()
 	assert.NoError(t, err)
-	err = store.Set("txid4", driver.Busy)
+	err = store.Set("txid4", driver.Busy, "")
 	assert.NoError(t, err)
 	err = store.persistence.Commit()
 	assert.NoError(t, err)
@@ -139,14 +134,14 @@ func testOneMore(t *testing.T, store *SimpleTXIDStore) {
 			break
 		}
 
-		txids = append(txids, tid.Txid)
+		txids = append(txids, tid.TxID)
 	}
 	assert.Equal(t, []string{"txid1", "txid2", "txid10", "txid12", "txid21", "txid100", "txid200", "txid1025", "txid3", "txid4"}, txids)
 
 	// update the busy tx
 	err = store.persistence.BeginUpdate()
 	assert.NoError(t, err)
-	err = store.Set("txid4", driver.Valid)
+	err = store.Set("txid4", driver.Valid, "")
 	assert.NoError(t, err)
 	err = store.persistence.Commit()
 	assert.NoError(t, err)
@@ -168,7 +163,7 @@ func testOneMore(t *testing.T, store *SimpleTXIDStore) {
 			break
 		}
 
-		txids = append(txids, tid.Txid)
+		txids = append(txids, tid.TxID)
 	}
 	assert.Equal(t, []string{"txid1", "txid2", "txid10", "txid12", "txid21", "txid100", "txid200", "txid1025", "txid3", "txid4", "txid4"}, txids)
 }
@@ -182,7 +177,7 @@ func testTXIDStore(t *testing.T, store *SimpleTXIDStore) {
 			}
 		}()
 
-		store.Set("txid1", driver.Valid)
+		store.Set("txid1", driver.Valid, "")
 	}()
 	assert.EqualError(t, err, "programming error, writing without ongoing update")
 
@@ -194,29 +189,29 @@ func testTXIDStore(t *testing.T, store *SimpleTXIDStore) {
 
 	err = store.persistence.BeginUpdate()
 	assert.NoError(t, err)
-	err = store.Set("txid1", driver.Valid)
+	err = store.Set("txid1", driver.Valid, "")
 	assert.NoError(t, err)
-	err = store.Set("txid2", driver.Valid)
+	err = store.Set("txid2", driver.Valid, "")
 	assert.NoError(t, err)
-	err = store.Set("txid10", driver.Valid)
+	err = store.Set("txid10", driver.Valid, "")
 	assert.NoError(t, err)
-	err = store.Set("txid12", driver.Valid)
+	err = store.Set("txid12", driver.Valid, "")
 	assert.NoError(t, err)
-	err = store.Set("txid21", driver.Valid)
+	err = store.Set("txid21", driver.Valid, "")
 	assert.NoError(t, err)
-	err = store.Set("txid100", driver.Valid)
+	err = store.Set("txid100", driver.Valid, "")
 	assert.NoError(t, err)
-	err = store.Set("txid200", driver.Valid)
+	err = store.Set("txid200", driver.Valid, "")
 	assert.NoError(t, err)
-	err = store.Set("txid1025", driver.Valid)
+	err = store.Set("txid1025", driver.Valid, "")
 	assert.NoError(t, err)
 	err = store.persistence.Commit()
 	assert.NoError(t, err)
 
-	status, err := store.Get("txid3")
+	status, _, err := store.Get("txid3")
 	assert.NoError(t, err)
 	assert.Equal(t, driver.Unknown, status)
-	status, err = store.Get("txid10")
+	status, _, err = store.Get("txid10")
 	assert.NoError(t, err)
 	assert.Equal(t, driver.Valid, status)
 
@@ -235,7 +230,7 @@ func testTXIDStore(t *testing.T, store *SimpleTXIDStore) {
 			break
 		}
 
-		txids = append(txids, tid.Txid)
+		txids = append(txids, tid.TxID)
 	}
 	assert.Equal(t, []string{"txid1025"}, txids)
 
@@ -251,7 +246,7 @@ func testTXIDStore(t *testing.T, store *SimpleTXIDStore) {
 			break
 		}
 
-		txids = append(txids, tid.Txid)
+		txids = append(txids, tid.TxID)
 	}
 	assert.Equal(t, []string{"txid1", "txid2", "txid10", "txid12", "txid21", "txid100", "txid200", "txid1025"}, txids)
 
@@ -270,7 +265,7 @@ func testTXIDStore(t *testing.T, store *SimpleTXIDStore) {
 			break
 		}
 
-		txids = append(txids, tid.Txid)
+		txids = append(txids, tid.TxID)
 	}
 	assert.Equal(t, []string{"txid12", "txid21", "txid100", "txid200", "txid1025"}, txids)
 }

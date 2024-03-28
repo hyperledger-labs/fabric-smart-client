@@ -19,12 +19,6 @@ import (
 	"github.com/test-go/testify/assert"
 )
 
-//go:generate counterfeiter -o mocks/config.go -fake-name Config . config
-
-type config interface {
-	db.Config
-}
-
 func TestTXIDStoreMem(t *testing.T) {
 	db, err := db.Open(nil, "memory", "", nil)
 	assert.NoError(t, err)

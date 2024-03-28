@@ -13,6 +13,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/hyperledger/fabric-protos-go/peer"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/compose"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
@@ -29,8 +31,8 @@ type Finality interface {
 }
 
 type Vault interface {
-	Status(txID string) (driver.ValidationCode, error)
-	DiscardTx(txid string) error
+	Status(txID string) (driver.ValidationCode, string, error)
+	DiscardTx(txID string, message string) error
 	CommitTX(txid string, block uint64, indexInBloc int) error
 }
 
@@ -40,13 +42,14 @@ type ProcessorManager interface {
 
 // TxEvent contains information for token transaction commit
 type TxEvent struct {
-	Txid           string
-	DependantTxIDs []string
-	Committed      bool
-	Block          uint64
-	IndexInBlock   int
-	CommitPeer     string
-	Err            error
+	TxID              string
+	DependantTxIDs    []string
+	Committed         bool
+	ValidationCode    peer.TxValidationCode
+	ValidationMessage string
+	Block             uint64
+	IndexInBlock      int
+	Err               error
 }
 
 type committer struct {
@@ -108,7 +111,7 @@ func (c *committer) Commit(block *types.AugmentedBlockHeader) error {
 	bn := block.Header.BaseHeader.Number
 	for i, txID := range block.TxIds {
 		var event TxEvent
-		event.Txid = txID
+		event.TxID = txID
 		event.Block = bn
 		event.IndexInBlock = i
 
@@ -132,7 +135,7 @@ func (c *committer) CommitTX(txID string, bn uint64, index int, event *TxEvent) 
 	logger.Debugf("transaction [%s] in block [%d] is valid for orion", txID, bn)
 
 	// if is already committed, do nothing
-	vc, err := c.vault.Status(txID)
+	vc, _, err := c.vault.Status(txID)
 	if err != nil {
 		return errors.Wrapf(err, "failed to get status of tx %s", txID)
 	}
@@ -168,7 +171,7 @@ func (c *committer) CommitTX(txID string, bn uint64, index int, event *TxEvent) 
 func (c *committer) DiscardTX(txID string, blockNum uint64, validationCode types.Flag, event *TxEvent) error {
 	logger.Debugf("transaction [%s] in block [%d] is not valid for orion [%s], discard!", txID, blockNum, validationCode)
 
-	vc, err := c.vault.Status(txID)
+	vc, _, err := c.vault.Status(txID)
 	if err != nil {
 		return errors.Wrapf(err, "failed getting tx's status [%s]", txID)
 	}
@@ -181,7 +184,7 @@ func (c *committer) DiscardTX(txID string, blockNum uint64, validationCode types
 	default:
 		event.Err = errors.Errorf("transaction [%s] status is not valid: %d", txID, validationCode)
 		// rollback
-		if err := c.vault.DiscardTx(txID); err != nil {
+		if err := c.vault.DiscardTx(txID, ""); err != nil {
 			return errors.WithMessagef(err, "failed to discard tx %s", txID)
 		}
 	}
@@ -198,7 +201,7 @@ func (c *committer) IsFinal(ctx context.Context, txID string) error {
 
 	skipLoop := false
 	for iter := 0; iter < c.finalityNumRetries; iter++ {
-		vd, err := c.vault.Status(txID)
+		vd, _, err := c.vault.Status(txID)
 		if err == nil {
 			switch vd {
 			case driver.Valid:
@@ -287,20 +290,22 @@ func (c *committer) UnsubscribeTxStatusChanges(txID string, listener driver.TxSt
 	return nil
 }
 
-func (c *committer) notifyTxStatus(txID string, vc driver.ValidationCode) {
+func (c *committer) notifyTxStatus(txID string, vc driver.ValidationCode, message string) {
 	// We publish two events here:
 	// 1. The first will be caught by the listeners that are listening for any transaction id.
 	// 2. The second will be caught by the listeners that are listening for the specific transaction id.
 	var sb strings.Builder
 	c.eventsPublisher.Publish(&driver.TransactionStatusChanged{
-		ThisTopic: compose.CreateCompositeKeyOrPanic(&sb, "tx", c.networkName),
-		TxID:      txID,
-		VC:        vc,
+		ThisTopic:         compose.CreateCompositeKeyOrPanic(&sb, "tx", c.networkName),
+		TxID:              txID,
+		VC:                vc,
+		ValidationMessage: message,
 	})
 	c.eventsPublisher.Publish(&driver.TransactionStatusChanged{
-		ThisTopic: compose.AppendAttributesOrPanic(&sb, txID),
-		TxID:      txID,
-		VC:        vc,
+		ThisTopic:         compose.AppendAttributesOrPanic(&sb, txID),
+		TxID:              txID,
+		VC:                vc,
+		ValidationMessage: message,
 	})
 }
 
@@ -339,18 +344,18 @@ func (c *committer) notifyFinality(event TxEvent) {
 	defer c.mutex.Unlock()
 
 	if event.Committed {
-		c.notifyTxStatus(event.Txid, driver.Valid)
+		c.notifyTxStatus(event.TxID, driver.Valid, "")
 	} else {
-		c.notifyTxStatus(event.Txid, driver.Invalid)
+		c.notifyTxStatus(event.TxID, driver.Invalid, "")
 	}
 
 	if event.Err != nil && !c.quietNotifier {
-		logger.Warningf("An error occurred for tx [%s], event: [%v]", event.Txid, event)
+		logger.Warningf("An error occurred for tx [%s], event: [%v]", event.TxID, event)
 	}
 
-	listeners := c.listeners[event.Txid]
+	listeners := c.listeners[event.TxID]
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("Notify the finality of [%s] to [%d] listeners, event: [%v]", event.Txid, len(listeners), event)
+		logger.Debugf("Notify the finality of [%s] to [%d] listeners, event: [%v]", event.TxID, len(listeners), event)
 	}
 	for _, listener := range listeners {
 		listener <- event
@@ -401,7 +406,7 @@ func (c *committer) listenToFinality(ctx context.Context, txID string, timeout t
 			if logger.IsEnabledFor(zapcore.DebugLevel) {
 				logger.Debugf("Got a timeout for finality of [%s], check the status", txID)
 			}
-			vd, err := c.vault.Status(txID)
+			vd, _, err := c.vault.Status(txID)
 			if err == nil {
 				switch vd {
 				case driver.Valid:
@@ -436,7 +441,7 @@ type TxEventsListener struct {
 
 func (l *TxEventsListener) OnReceive(event events.Event) {
 	tsc := event.Message().(*driver.TransactionStatusChanged)
-	if err := l.listener.OnStatusChange(tsc.TxID, int(tsc.VC)); err != nil {
+	if err := l.listener.OnStatusChange(tsc.TxID, int(tsc.VC), ""); err != nil {
 		logger.Errorf("failed to notify listener for tx [%s] with err [%s]", tsc.TxID, err)
 	}
 }

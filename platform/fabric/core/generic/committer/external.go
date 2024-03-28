@@ -55,11 +55,11 @@ type ExternalCommitter struct {
 	c driver.Committer
 }
 
-func (c *ExternalCommitter) Status(txid string) (fdriver.ValidationCode, []string, []view.Identity, error) {
+func (c *ExternalCommitter) Status(txID string) (fdriver.ValidationCode, []string, []view.Identity, error) {
 	if c.c == nil {
 		return fdriver.Unknown, nil, nil, nil
 	}
-	return c.c.Status(txid)
+	return c.c.Status(txID)
 }
 
 func (c *ExternalCommitter) Validate(txid string) (fdriver.ValidationCode, error) {

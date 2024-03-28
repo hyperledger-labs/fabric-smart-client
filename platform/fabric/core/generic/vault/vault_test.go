@@ -543,10 +543,10 @@ func testRun(t *testing.T, db1, db2 driver.VersionedPersistence) {
 	compare(t, ns, db1, db2)
 
 	// we expect a busy txid in the Store
-	code, err := vault1.Status(txid)
+	code, _, err := vault1.Status(txid)
 	assert.NoError(t, err)
 	assert.Equal(t, fdriver.Busy, code)
-	code, err = vault2.Status(txid)
+	code, _, err = vault2.Status(txid)
 	assert.NoError(t, err)
 	assert.Equal(t, fdriver.Busy, code)
 
@@ -564,10 +564,10 @@ func testRun(t *testing.T, db1, db2 driver.VersionedPersistence) {
 
 	compare(t, ns, db1, db2)
 	// we expect a valid txid in the Store
-	code, err = vault1.Status(txid)
+	code, _, err = vault1.Status(txid)
 	assert.NoError(t, err)
 	assert.Equal(t, fdriver.Valid, code)
-	code, err = vault2.Status(txid)
+	code, _, err = vault2.Status(txid)
 	assert.NoError(t, err)
 	assert.Equal(t, fdriver.Valid, code)
 
@@ -661,7 +661,7 @@ func TestVaultErr(t *testing.T) {
 	vault1 := New(ddb, tidstore)
 	err = vault1.CommitTX("non-existent", 0, 0)
 	assert.EqualError(t, err, "read-write set for txid non-existent could not be found")
-	err = vault1.DiscardTx("non-existent")
+	err = vault1.DiscardTx("non-existent", "")
 	assert.EqualError(t, err, "read-write set for txid non-existent could not be found")
 
 	ncrwset, err := vault1.NewRWSet("not-closed")
@@ -672,13 +672,17 @@ func TestVaultErr(t *testing.T) {
 	assert.EqualError(t, err, "programming error: previous read-write set for not-closed has not been closed")
 	err = vault1.CommitTX("not-closed", 0, 0)
 	assert.EqualError(t, err, "attempted to retrieve read-write set for not-closed when done has not been called")
-	err = vault1.DiscardTx("not-closed")
+	err = vault1.DiscardTx("not-closed", "")
 	assert.EqualError(t, err, "attempted to retrieve read-write set for not-closed when done has not been called")
 
 	// as a sanity-check we close it now and will be able to discard it
 	ncrwset.Done()
-	err = vault1.DiscardTx("not-closed")
+	err = vault1.DiscardTx("not-closed", "pineapple")
 	assert.NoError(t, err)
+	vc, message, err := vault1.Status("not-closed")
+	assert.NoError(t, err)
+	assert.Equal(t, "pineapple", message)
+	assert.Equal(t, fdriver.Invalid, vc)
 
 	_, err = vault1.GetRWSet("bogus", []byte("barf"))
 	assert.Contains(t, err.Error(), "cannot parse invalid wire-format data")
@@ -694,7 +698,7 @@ func TestVaultErr(t *testing.T) {
 	_, err = vault1.GetRWSet("bogus", rwsb)
 	assert.Contains(t, err.Error(), "cannot parse invalid wire-format data")
 
-	code, err := vault1.Status("unknown-txid")
+	code, _, err := vault1.Status("unknown-txid")
 	assert.NoError(t, err)
 	assert.Equal(t, fdriver.Unknown, code)
 }
@@ -903,16 +907,16 @@ func TestShardLikeCommit(t *testing.T) {
 	rwset.Done()
 
 	// check the status, it should be busy
-	code, err := vault.Status("txid-invalid")
+	code, _, err := vault.Status("txid-invalid")
 	assert.NoError(t, err)
 	assert.Equal(t, fdriver.Busy, code)
 
 	// now in case of error we won't commit the read-write set, so we should discard it
-	err = vault.DiscardTx("txid-invalid")
+	err = vault.DiscardTx("txid-invalid", "")
 	assert.NoError(t, err)
 
 	// check the status, it should be invalid
-	code, err = vault.Status("txid-invalid")
+	code, _, err = vault.Status("txid-invalid")
 	assert.NoError(t, err)
 	assert.Equal(t, fdriver.Invalid, code)
 
@@ -941,7 +945,7 @@ func TestShardLikeCommit(t *testing.T) {
 	// presumably the cross-shard protocol continues...
 
 	// check the status, it should be busy
-	code, err = vault.Status("txid-valid")
+	code, _, err = vault.Status("txid-valid")
 	assert.NoError(t, err)
 	assert.Equal(t, fdriver.Busy, code)
 
@@ -950,7 +954,7 @@ func TestShardLikeCommit(t *testing.T) {
 	assert.NoError(t, err)
 
 	// check the status, it should be valid
-	code, err = vault.Status("txid-valid")
+	code, _, err = vault.Status("txid-valid")
 	assert.NoError(t, err)
 	assert.Equal(t, fdriver.Valid, code)
 

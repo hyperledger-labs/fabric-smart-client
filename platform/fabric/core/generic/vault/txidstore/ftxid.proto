@@ -1,8 +1,8 @@
 syntax = "proto3";
 
-option go_package = "github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic/vault";
+option go_package = "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/vault/txidstore";
 
-package vault;
+package txidstore;
 
 message ByNum {
     string txid = 1;

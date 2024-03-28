@@ -115,25 +115,25 @@ func (db *Vault) Status(txid string) (odriver.ValidationCode, error) {
 	return odriver.Unknown, nil
 }
 
-func (db *Vault) DiscardTx(txid string) error {
-	_, err := db.unmapInterceptor(txid)
+func (db *Vault) DiscardTx(txID string, message string) error {
+	_, err := db.unmapInterceptor(txID)
 	if err != nil {
 		return err
 	}
 
 	err = db.store.BeginUpdate()
 	if err != nil {
-		return errors.WithMessagef(err, "begin update for txid '%s' failed", txid)
+		return errors.WithMessagef(err, "begin update for txid '%s' failed", txID)
 	}
 
-	err = db.txidStore.Set(txid, odriver.Invalid)
+	err = db.txidStore.Set(txID, odriver.Invalid)
 	if err != nil {
 		return err
 	}
 
 	err = db.store.Commit()
 	if err != nil {
-		return errors.WithMessagef(err, "committing tx for txid '%s' failed", txid)
+		return errors.WithMessagef(err, "committing tx for txid '%s' failed", txID)
 	}
 
 	return nil
