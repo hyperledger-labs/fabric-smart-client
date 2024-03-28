@@ -196,7 +196,7 @@ func (c *Channel) commitUnknown(txID string, block uint64, indexInBlock int, env
 
 	// shall we commit this unknown envelope
 	if ok, err := c.filterUnknownEnvelope(txID, envelopeRaw); err != nil || !ok {
-		logger.Debugf("[%s] unknown envelope will not be processed [%b,%s]", ok, err)
+		logger.Debugf("[%s] unknown envelope will not be processed [%b,%s]", txID, ok, err)
 		return nil
 	}
 
@@ -234,7 +234,9 @@ func (c *Channel) filterUnknownEnvelope(txID string, envelope []byte) (bool, err
 			}
 		}
 	}
-	return false, nil
+
+	status, _, _, _ := c.Status(txID)
+	return status == driver.Busy, nil
 }
 
 func (c *Channel) commitStoredEnvelope(txID string, block uint64, indexInBlock int) error {
