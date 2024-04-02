@@ -52,7 +52,7 @@ func newInterceptor(qe QueryExecutor, txidStore TXIDStoreReader, txid string) *I
 }
 
 func (i *Interceptor) IsValid() error {
-	code, err := i.txidStore.Get(i.txid)
+	code, _, err := i.txidStore.Get(i.txid)
 	if err != nil {
 		return err
 	}

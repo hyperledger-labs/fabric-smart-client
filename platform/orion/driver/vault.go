@@ -15,4 +15,5 @@ type Vault interface {
 	Status(txID string) (ValidationCode, string, error)
 	DiscardTx(txID string, message string) error
 	CommitTX(txid string, block uint64, indexInBloc int) error
+	AddStatusReporter(sr StatusReporter) error
 }

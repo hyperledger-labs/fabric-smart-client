@@ -118,20 +118,20 @@ func (s *SimpleTXIDStore) get(txid string) (*ByTxid, error) {
 	return bt, nil
 }
 
-func (s *SimpleTXIDStore) Get(txid string) (odriver.ValidationCode, error) {
+func (s *SimpleTXIDStore) Get(txid string) (odriver.ValidationCode, string, error) {
 	bt, err := s.get(txid)
 	if err != nil {
-		return odriver.Unknown, err
+		return odriver.Unknown, "", err
 	}
 
 	if bt == nil {
-		return odriver.Unknown, nil
+		return odriver.Unknown, "", nil
 	}
 
-	return odriver.ValidationCode(bt.Code), nil
+	return odriver.ValidationCode(bt.Code), bt.Message, nil
 }
 
-func (s *SimpleTXIDStore) Set(txid string, code odriver.ValidationCode) error {
+func (s *SimpleTXIDStore) Set(txid string, code odriver.ValidationCode, message string) error {
 	// NOTE: we assume that the commit is in progress so no need to update/commit
 	// err := s.persistence.BeginUpdate()
 	// if err != nil {
@@ -147,8 +147,9 @@ func (s *SimpleTXIDStore) Set(txid string, code odriver.ValidationCode) error {
 
 	// 2: store by counter
 	byCtrBytes, err := proto.Marshal(&ByNum{
-		Txid: txid,
-		Code: int32(code),
+		Txid:    txid,
+		Code:    int32(code),
+		Message: message,
 	})
 	if err != nil {
 		s.persistence.Discard()
@@ -162,8 +163,9 @@ func (s *SimpleTXIDStore) Set(txid string, code odriver.ValidationCode) error {
 
 	// 3: store by txid
 	byTxidBytes, err := proto.Marshal(&ByTxid{
-		Pos:  s.ctr,
-		Code: int32(code),
+		Pos:     s.ctr,
+		Code:    int32(code),
+		Message: message,
 	})
 	if err != nil {
 		s.persistence.Discard()

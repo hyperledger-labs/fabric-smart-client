@@ -21,12 +21,12 @@ import (
 var logger = flogging.MustGetLogger("orion-sdk.vault")
 
 type TXIDStoreReader interface {
-	Get(txid string) (odriver.ValidationCode, error)
+	Get(txid string) (odriver.ValidationCode, string, error)
 }
 
 type TXIDStore interface {
 	TXIDStoreReader
-	Set(txid string, code odriver.ValidationCode) error
+	Set(txid string, code odriver.ValidationCode, message string) error
 }
 
 // Vault models a key-value store that can be modified by committing rwsets
@@ -76,7 +76,7 @@ func (db *Vault) unmapInterceptor(txid string) (*Interceptor, error) {
 	i, in := db.interceptors[txid]
 
 	if !in {
-		vc, err := db.txidStore.Get(txid)
+		vc, _, err := db.txidStore.Get(txid)
 		if err != nil {
 			return nil, errors.Errorf("read-write set for txid %s could not be found", txid)
 		}
@@ -95,24 +95,24 @@ func (db *Vault) unmapInterceptor(txid string) (*Interceptor, error) {
 	return i, nil
 }
 
-func (db *Vault) Status(txid string) (odriver.ValidationCode, error) {
-	code, err := db.txidStore.Get(txid)
+func (db *Vault) Status(txid string) (odriver.ValidationCode, string, error) {
+	code, message, err := db.txidStore.Get(txid)
 	if err != nil {
-		return 0, nil
+		return odriver.Unknown, "", nil
 	}
 
 	if code != odriver.Unknown {
-		return code, nil
+		return code, "", nil
 	}
 
 	db.interceptorsLock.RLock()
 	defer db.interceptorsLock.RUnlock()
 
 	if _, in := db.interceptors[txid]; in {
-		return odriver.Busy, nil
+		return odriver.Busy, "", nil
 	}
 
-	return odriver.Unknown, nil
+	return odriver.Unknown, message, nil
 }
 
 func (db *Vault) DiscardTx(txID string, message string) error {
@@ -126,7 +126,7 @@ func (db *Vault) DiscardTx(txID string, message string) error {
 		return errors.WithMessagef(err, "begin update for txid '%s' failed", txID)
 	}
 
-	err = db.txidStore.Set(txID, odriver.Invalid)
+	err = db.txidStore.Set(txID, odriver.Invalid, message)
 	if err != nil {
 		return err
 	}
@@ -196,7 +196,7 @@ func (db *Vault) CommitTX(txid string, block uint64, indexInBloc int) error {
 	}
 
 	logger.Debugf("set state to valid [%s]", txid)
-	err = db.txidStore.Set(txid, odriver.Valid)
+	err = db.txidStore.Set(txid, odriver.Valid, "")
 	if err != nil {
 		if err1 := db.store.Discard(); err1 != nil {
 			logger.Errorf("got error %s; discarding caused %s", err.Error(), err1.Error())
@@ -214,7 +214,7 @@ func (db *Vault) CommitTX(txid string, block uint64, indexInBloc int) error {
 }
 
 func (db *Vault) SetBusy(txid string) error {
-	code, err := db.txidStore.Get(txid)
+	code, _, err := db.txidStore.Get(txid)
 	if err != nil {
 		return err
 	}
@@ -228,7 +228,7 @@ func (db *Vault) SetBusy(txid string) error {
 		return errors.WithMessagef(err, "begin update for txid '%s' failed", txid)
 	}
 
-	err = db.txidStore.Set(txid, odriver.Busy)
+	err = db.txidStore.Set(txid, odriver.Busy, "")
 	if err != nil {
 		return err
 	}

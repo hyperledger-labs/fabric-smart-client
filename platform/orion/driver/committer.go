@@ -6,6 +6,10 @@ SPDX-License-Identifier: Apache-2.0
 
 package driver
 
+type StatusReporter interface {
+	Status(txID string) (ValidationCode, string, []string, error)
+}
+
 // TransactionStatusChanged is the message sent when the status of a transaction changes
 type TransactionStatusChanged struct {
 	ThisTopic         string

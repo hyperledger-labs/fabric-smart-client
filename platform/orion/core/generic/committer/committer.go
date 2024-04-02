@@ -13,8 +13,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hyperledger/fabric-protos-go/peer"
-
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/compose"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
@@ -24,7 +22,11 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-var logger = flogging.MustGetLogger("orion-sdk.committer")
+var (
+	logger = flogging.MustGetLogger("orion-sdk.committer")
+	// ErrDiscardTX this error can be used to signal that a valid transaction should be discarded anyway
+	ErrDiscardTX = errors.New("discard tx")
+)
 
 type Finality interface {
 	IsFinal(txID string, address string) error
@@ -45,7 +47,7 @@ type TxEvent struct {
 	TxID              string
 	DependantTxIDs    []string
 	Committed         bool
-	ValidationCode    peer.TxValidationCode
+	ValidationCode    types.Flag
 	ValidationMessage string
 	Block             uint64
 	IndexInBlock      int
@@ -114,15 +116,25 @@ func (c *committer) Commit(block *types.AugmentedBlockHeader) error {
 		event.TxID = txID
 		event.Block = bn
 		event.IndexInBlock = i
+		event.ValidationCode = block.Header.ValidationInfo[i].Flag
+		event.ValidationMessage = block.Header.ValidationInfo[i].ReasonIfInvalid
 
-		validationCode := block.Header.ValidationInfo[i].Flag
-		switch validationCode {
-		case types.Flag_VALID:
+		discard := false
+		if event.ValidationCode == types.Flag_VALID {
 			if err := c.CommitTX(txID, bn, i, &event); err != nil {
-				return errors.Wrapf(err, "failed to commit tx %s", txID)
+				if HasCause(err, ErrDiscardTX) {
+					// in this case, we will discard the transaction
+					event.ValidationCode = types.Flag_INVALID_INCORRECT_ENTRIES
+					event.ValidationMessage = err.Error()
+					discard = true
+				} else {
+					return errors.Wrapf(err, "failed to commit tx %s", txID)
+				}
 			}
-		default:
-			if err := c.DiscardTX(txID, bn, validationCode, &event); err != nil {
+		}
+
+		if discard {
+			if err := c.DiscardTX(txID, bn, &event); err != nil {
 				return errors.Wrapf(err, "failed to discard tx %s", txID)
 			}
 		}
@@ -168,8 +180,8 @@ func (c *committer) CommitTX(txID string, bn uint64, index int, event *TxEvent) 
 	return nil
 }
 
-func (c *committer) DiscardTX(txID string, blockNum uint64, validationCode types.Flag, event *TxEvent) error {
-	logger.Debugf("transaction [%s] in block [%d] is not valid for orion [%s], discard!", txID, blockNum, validationCode)
+func (c *committer) DiscardTX(txID string, blockNum uint64, event *TxEvent) error {
+	logger.Debugf("transaction [%s] in block [%d] is not valid for orion [%s], discard!", txID, blockNum, event.ValidationCode)
 
 	vc, _, err := c.vault.Status(txID)
 	if err != nil {
@@ -182,9 +194,9 @@ func (c *committer) DiscardTX(txID string, blockNum uint64, validationCode types
 	case driver.Invalid:
 		logger.Debugf("transaction [%s] in block [%d] is marked as invalid, skipping", txID, blockNum)
 	default:
-		event.Err = errors.Errorf("transaction [%s] status is not valid: %d", txID, validationCode)
+		event.Err = errors.Errorf("transaction [%s] status is not valid: %d", txID, event.ValidationCode)
 		// rollback
-		if err := c.vault.DiscardTx(txID, ""); err != nil {
+		if err := c.vault.DiscardTx(txID, event.ValidationMessage); err != nil {
 			return errors.WithMessagef(err, "failed to discard tx %s", txID)
 		}
 	}
@@ -444,4 +456,24 @@ func (l *TxEventsListener) OnReceive(event events.Event) {
 	if err := l.listener.OnStatusChange(tsc.TxID, int(tsc.VC), ""); err != nil {
 		logger.Errorf("failed to notify listener for tx [%s] with err [%s]", tsc.TxID, err)
 	}
+}
+
+func HasCause(source, target error) bool {
+	if source == nil {
+		return false
+	}
+	if target == nil {
+		return false
+	}
+	if source == target {
+		return true
+	}
+	cause := errors.Cause(source)
+	if cause == target {
+		return true
+	}
+	if cause == source {
+		return false
+	}
+	return HasCause(cause, target)
 }

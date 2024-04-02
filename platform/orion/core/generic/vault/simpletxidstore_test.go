@@ -63,12 +63,12 @@ func TestTXIDStoreBadger(t *testing.T) {
 func testOneMore(t *testing.T, store *SimpleTXIDStore) {
 	err := store.persistence.BeginUpdate()
 	assert.NoError(t, err)
-	err = store.Set("txid3", driver.Valid)
+	err = store.Set("txid3", driver.Valid, "")
 	assert.NoError(t, err)
 	err = store.persistence.Commit()
 	assert.NoError(t, err)
 
-	status, err := store.Get("txid3")
+	status, _, err := store.Get("txid3")
 	assert.NoError(t, err)
 	assert.Equal(t, driver.Valid, status)
 
@@ -111,7 +111,7 @@ func testOneMore(t *testing.T, store *SimpleTXIDStore) {
 	// add a busy tx
 	err = store.persistence.BeginUpdate()
 	assert.NoError(t, err)
-	err = store.Set("txid4", driver.Busy)
+	err = store.Set("txid4", driver.Busy, "")
 	assert.NoError(t, err)
 	err = store.persistence.Commit()
 	assert.NoError(t, err)
@@ -140,7 +140,7 @@ func testOneMore(t *testing.T, store *SimpleTXIDStore) {
 	// update the busy tx
 	err = store.persistence.BeginUpdate()
 	assert.NoError(t, err)
-	err = store.Set("txid4", driver.Valid)
+	err = store.Set("txid4", driver.Valid, "")
 	assert.NoError(t, err)
 	err = store.persistence.Commit()
 	assert.NoError(t, err)
@@ -176,7 +176,7 @@ func testTXIDStore(t *testing.T, store *SimpleTXIDStore) {
 			}
 		}()
 
-		store.Set("txid1", driver.Valid)
+		store.Set("txid1", driver.Valid, "")
 	}()
 	assert.EqualError(t, err, "programming error, writing without ongoing update")
 
@@ -188,29 +188,29 @@ func testTXIDStore(t *testing.T, store *SimpleTXIDStore) {
 
 	err = store.persistence.BeginUpdate()
 	assert.NoError(t, err)
-	err = store.Set("txid1", driver.Valid)
+	err = store.Set("txid1", driver.Valid, "")
 	assert.NoError(t, err)
-	err = store.Set("txid2", driver.Valid)
+	err = store.Set("txid2", driver.Valid, "")
 	assert.NoError(t, err)
-	err = store.Set("txid10", driver.Valid)
+	err = store.Set("txid10", driver.Valid, "")
 	assert.NoError(t, err)
-	err = store.Set("txid12", driver.Valid)
+	err = store.Set("txid12", driver.Valid, "")
 	assert.NoError(t, err)
-	err = store.Set("txid21", driver.Valid)
+	err = store.Set("txid21", driver.Valid, "")
 	assert.NoError(t, err)
-	err = store.Set("txid100", driver.Valid)
+	err = store.Set("txid100", driver.Valid, "")
 	assert.NoError(t, err)
-	err = store.Set("txid200", driver.Valid)
+	err = store.Set("txid200", driver.Valid, "")
 	assert.NoError(t, err)
-	err = store.Set("txid1025", driver.Valid)
+	err = store.Set("txid1025", driver.Valid, "")
 	assert.NoError(t, err)
 	err = store.persistence.Commit()
 	assert.NoError(t, err)
 
-	status, err := store.Get("txid3")
+	status, _, err := store.Get("txid3")
 	assert.NoError(t, err)
 	assert.Equal(t, driver.Unknown, status)
-	status, err = store.Get("txid10")
+	status, _, err = store.Get("txid10")
 	assert.NoError(t, err)
 	assert.Equal(t, driver.Valid, status)
 
