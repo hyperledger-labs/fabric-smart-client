@@ -176,7 +176,7 @@ func (n *NWO) Stop() {
 func (n *NWO) StopFSCNode(id string) {
 	logger.Infof("Search FSC node [%s]...", id)
 	for _, member := range n.ViewMembers {
-		if strings.HasSuffix(member.Name, id) {
+		if strings.HasPrefix(member.Name, fmt.Sprintf("fsc.%s.", id)) {
 			logger.Infof("FSC node [%s] found. Stopping...", id)
 			member.Runner.(*runner.Runner).Stop()
 			logger.Infof("FSC node [%s:%s] stopped", member.Name, id)
@@ -189,7 +189,7 @@ func (n *NWO) StopFSCNode(id string) {
 func (n *NWO) StartFSCNode(id string) {
 	logger.Infof("Search FSC node [%s]...", id)
 	for i, member := range n.ViewMembers {
-		if strings.HasSuffix(member.Name, id) {
+		if strings.HasPrefix(member.Name, fmt.Sprintf("fsc.%s.", id)) {
 			logger.Infof("FSC node [%s] found. Starting...", id)
 			member.Runner = member.Runner.(*runner.Runner).Clone()
 			n.ViewMembers[i] = member
