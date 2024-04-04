@@ -8,6 +8,7 @@ package rest_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"testing"
 	"time"
@@ -21,7 +22,7 @@ import (
 )
 
 func newMockStream(conn *mockConn) host.P2PStream {
-	return rest.NewWSStream(conn, host.StreamInfo{})
+	return rest.NewWSStream(conn, context.Background(), host.StreamInfo{})
 }
 
 type mockConn struct {

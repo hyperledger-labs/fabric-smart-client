@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package rest
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"os"
@@ -54,6 +55,6 @@ func newRootCACertPool(rootCAs []string) (*x509.CertPool, error) {
 	return caCertPool, nil
 }
 
-func (c *client) OpenStream(info host2.StreamInfo) (host2.P2PStream, error) {
-	return newClientStream(info, c.nodeID, c.tlsConfig)
+func (c *client) OpenStream(info host2.StreamInfo, ctx context.Context) (host2.P2PStream, error) {
+	return newClientStream(info, ctx, c.nodeID, c.tlsConfig)
 }

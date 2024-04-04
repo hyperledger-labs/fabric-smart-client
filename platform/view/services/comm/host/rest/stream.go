@@ -7,7 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 package rest
 
 import (
+	"context"
 	"crypto/tls"
+	"io"
 	"net/http"
 	"net/url"
 
@@ -18,10 +20,13 @@ import (
 	"github.com/pkg/errors"
 )
 
+var streamEOF = result{err: io.EOF}
+
 type stream struct {
 	conn        connection
+	cancel      context.CancelFunc
 	accumulator *delimitedReader
-	reads       <-chan result
+	reads       chan result
 	info        host2.StreamInfo
 
 	// Sometimes Read doesn't read the whole value that comes from the reads channel, because of buffering.
@@ -49,10 +54,13 @@ type connection interface {
 	Close() error
 }
 
-func newClientStream(info host2.StreamInfo, src host2.PeerID, config *tls.Config) (*stream, error) {
+func newClientStream(info host2.StreamInfo, ctx context.Context, src host2.PeerID, config *tls.Config) (*stream, error) {
 	logger.Infof("Creating new stream from [%s] to [%s@%s]...", src, info.RemotePeerID, info.RemotePeerAddress)
 	tlsEnabled := config.InsecureSkipVerify || config.RootCAs != nil
 	url := url.URL{Scheme: schemes[tlsEnabled], Host: info.RemotePeerAddress, Path: "/p2p"}
+	// We use the background context instead of passing the existing context,
+	// because the net/http server doesn't monitor connections upgraded to WebSocket.
+	// Hence, when the connection is lost, the context will not be cancelled.
 	conn, err := web2.OpenWSClientConn(url.String(), config)
 	logger.Infof("Successfully connected to websocket")
 	if err != nil {
@@ -69,7 +77,7 @@ func newClientStream(info host2.StreamInfo, src host2.PeerID, config *tls.Config
 		return nil, errors.Wrapf(err, "failed to send meta message")
 	}
 	logger.Infof("Stream opened to [%s@%s]", info.RemotePeerID, info.RemotePeerAddress)
-	return NewWSStream(conn, info), nil
+	return NewWSStream(conn, ctx, info), nil
 }
 
 func newServerStream(writer http.ResponseWriter, request *http.Request) (*stream, error) {
@@ -84,7 +92,8 @@ func newServerStream(writer http.ResponseWriter, request *http.Request) (*stream
 		return nil, errors.Wrapf(err, "failed to read meta info")
 	}
 	logger.Infof("Read meta info: %v", meta)
-	return NewWSStream(conn, host2.StreamInfo{
+	// Propagating the request context will not make a difference (see comment in newClientStream)
+	return NewWSStream(conn, context.Background(), host2.StreamInfo{
 		RemotePeerID:      meta.PeerID,
 		RemotePeerAddress: request.RemoteAddr,
 		ContextID:         meta.ContextID,
@@ -92,25 +101,38 @@ func newServerStream(writer http.ResponseWriter, request *http.Request) (*stream
 	}), nil
 }
 
-func NewWSStream(conn connection, info host2.StreamInfo) *stream {
-	reads := make(chan result, 100)
-	go func() {
-		for {
-			_, msg, err := conn.ReadMessage()
-			logger.Infof("Received message on [%s@%s]: [%s], errors: [%s]", info.RemotePeerID, info.RemotePeerAddress, string(msg), err)
-			reads <- result{
-				value: msg,
-				err:   err,
-			}
-		}
-	}()
-
-	return &stream{
+func NewWSStream(conn connection, ctx context.Context, info host2.StreamInfo) *stream {
+	ctx, cancel := context.WithCancel(ctx)
+	s := &stream{
 		conn:         conn,
+		cancel:       cancel,
 		accumulator:  newDelimitedReader(),
-		reads:        reads,
+		reads:        make(chan result, 100),
 		readLeftover: []byte{},
 		info:         info,
+	}
+	go s.readMessages(ctx)
+	return s
+}
+
+func (s *stream) readMessages(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			logger.Warnf("Context for stream [%s] closed by us. Error: %w", s.Hash(), ctx.Err())
+			s.reads <- streamEOF
+			return
+		default:
+			_, msg, err := s.conn.ReadMessage()
+			if err != nil && websocket.IsCloseError(err, websocket.CloseAbnormalClosure) {
+				logger.Warnf("Websocket connection closed unexpectedly")
+				s.reads <- streamEOF
+				s.Close()
+				return
+			}
+			logger.Debugf("Read message on [%s]: [%s]. Error encountered: %w", s.Hash(), string(msg), err)
+			s.reads <- result{value: msg, err: err}
+		}
 	}
 }
 
@@ -172,5 +194,6 @@ func (s *stream) Write(p []byte) (int, error) {
 }
 
 func (s *stream) Close() error {
+	s.cancel()
 	return s.conn.Close()
 }
