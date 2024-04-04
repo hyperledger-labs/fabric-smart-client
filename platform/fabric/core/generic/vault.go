@@ -48,7 +48,7 @@ func NewVault(sp view2.ServiceProvider, config *config.Config, channel string) (
 
 	if txIDStoreCacheSize > 0 {
 		logger.Debugf("creating txID store second cache with size [%d]", txIDStoreCacheSize)
-		txidStore = txidstore.NewCache(txidStore, secondcache.New(txIDStoreCacheSize))
+		txidStore = txidstore.NewCache(txidStore, secondcache.NewTyped[*txidstore.Entry](txIDStoreCacheSize))
 	}
 
 	return vault.New(persistence, txidStore), txidStore, nil

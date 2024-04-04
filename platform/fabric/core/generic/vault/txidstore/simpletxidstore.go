@@ -171,21 +171,18 @@ func (s *SimpleTXIDStore) GetLastTxID() (string, error) {
 }
 
 func (s *SimpleTXIDStore) Iterator(pos interface{}) (fdriver.TxidIterator, error) {
-	var startKey string
-	var endKey string
+	var startKey uint64
 
 	switch ppos := pos.(type) {
 	case *fdriver.SeekStart:
-		startKey = keyByCtr(0)
-		endKey = keyByCtr(math.MaxUint64)
+		startKey = 0
 	case *fdriver.SeekEnd:
 		ctr, err := getCtr(s.persistence)
 		if err != nil {
 			return nil, err
 		}
 
-		startKey = keyByCtr(ctr - 1)
-		endKey = keyByCtr(math.MaxUint64)
+		startKey = ctr - 1
 	case *fdriver.SeekPos:
 		bt, err := s.get(ppos.Txid)
 		if err != nil {
@@ -196,13 +193,12 @@ func (s *SimpleTXIDStore) Iterator(pos interface{}) (fdriver.TxidIterator, error
 			return nil, errors.Errorf("txid %s was not found", ppos.Txid)
 		}
 
-		startKey = keyByCtr(bt.Pos)
-		endKey = keyByCtr(math.MaxUint64)
+		startKey = bt.Pos
 	default:
 		return nil, errors.Errorf("invalid position %T", pos)
 	}
 
-	it, err := s.persistence.GetStateRangeScanIterator(txidNamespace, startKey, endKey)
+	it, err := s.persistence.GetStateRangeScanIterator(txidNamespace, keyByCtr(startKey), keyByCtr(math.MaxUint64))
 	if err != nil {
 		return nil, err
 	}
@@ -242,10 +238,10 @@ func (i *SimpleTxIDIterator) Close() {
 }
 
 func keyByCtr(ctr uint64) string {
-	ctrBytes := make([]byte, binary.MaxVarintLen64)
-	binary.BigEndian.PutUint64(ctrBytes, ctr)
+	ctrBytes := new([binary.MaxVarintLen64]byte)
+	binary.BigEndian.PutUint64(ctrBytes[:], ctr)
 
-	return byCtrPrefix + string(ctrBytes)
+	return byCtrPrefix + string(ctrBytes[:])
 }
 
 func keyByTxID(txID string) string {
@@ -253,10 +249,10 @@ func keyByTxID(txID string) string {
 }
 
 func setCtr(persistence driver.Persistence, ctr uint64) error {
-	ctrBytes := make([]byte, binary.MaxVarintLen64)
-	binary.BigEndian.PutUint64(ctrBytes, ctr)
+	ctrBytes := new([binary.MaxVarintLen64]byte)
+	binary.BigEndian.PutUint64(ctrBytes[:], ctr)
 
-	err := persistence.SetState(txidNamespace, ctrKey, ctrBytes)
+	err := persistence.SetState(txidNamespace, ctrKey, ctrBytes[:])
 	if err != nil {
 		return errors.Errorf("error storing the counter [%s]", err.Error())
 	}

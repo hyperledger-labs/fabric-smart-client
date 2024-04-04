@@ -16,8 +16,8 @@ type Entry struct {
 }
 
 type cache interface {
-	Get(key string) (interface{}, bool)
-	Add(key string, value interface{})
+	Get(key string) (*Entry, bool)
+	Add(key string, value *Entry)
 }
 
 type txidStore interface {
@@ -37,8 +37,7 @@ func NewCache(backed txidStore, cache cache) *Cache {
 
 func (s *Cache) Get(txID string) (fdriver.ValidationCode, string, error) {
 	// first cache
-	if val, ok := s.cache.Get(txID); ok {
-		entry := val.(*Entry)
+	if entry, ok := s.cache.Get(txID); ok {
 		return entry.ValidationCode, entry.ValidationMessage, nil
 	}
 	// then backed

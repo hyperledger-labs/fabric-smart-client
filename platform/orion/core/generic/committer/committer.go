@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/compose"
+	errors2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
@@ -122,7 +123,7 @@ func (c *committer) Commit(block *types.AugmentedBlockHeader) error {
 		discard := false
 		if event.ValidationCode == types.Flag_VALID {
 			if err := c.CommitTX(txID, bn, i, &event); err != nil {
-				if HasCause(err, ErrDiscardTX) {
+				if errors2.HasCause(err, ErrDiscardTX) {
 					// in this case, we will discard the transaction
 					event.ValidationCode = types.Flag_INVALID_INCORRECT_ENTRIES
 					event.ValidationMessage = err.Error()
@@ -456,24 +457,4 @@ func (l *TxEventsListener) OnReceive(event events.Event) {
 	if err := l.listener.OnStatusChange(tsc.TxID, int(tsc.VC), ""); err != nil {
 		logger.Errorf("failed to notify listener for tx [%s] with err [%s]", tsc.TxID, err)
 	}
-}
-
-func HasCause(source, target error) bool {
-	if source == nil {
-		return false
-	}
-	if target == nil {
-		return false
-	}
-	if source == target {
-		return true
-	}
-	cause := errors.Cause(source)
-	if cause == target {
-		return true
-	}
-	if cause == source {
-		return false
-	}
-	return HasCause(cause, target)
 }

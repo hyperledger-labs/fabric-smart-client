@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package committer
 
 import (
+	errors2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger/fabric-protos-go/common"
 	pb "github.com/hyperledger/fabric-protos-go/peer"
@@ -33,7 +34,7 @@ func (c *Committer) HandleEndorserTransaction(block *common.Block, i int, event 
 	case pb.TxValidationCode_VALID:
 		processed, err := c.CommitEndorserTransaction(txID, block, i, env, event)
 		if err != nil {
-			if HasCause(err, ErrDiscardTX) {
+			if errors2.HasCause(err, ErrDiscardTX) {
 				// in this case, we will discard the transaction
 				event.ValidationCode = pb.TxValidationCode_INVALID_OTHER_REASON
 				event.ValidationMessage = err.Error()
@@ -155,24 +156,4 @@ func (c *Committer) DiscardEndorserTransaction(txID string, block *common.Block,
 	}
 
 	return nil
-}
-
-func HasCause(source, target error) bool {
-	if source == nil {
-		return false
-	}
-	if target == nil {
-		return false
-	}
-	if source == target {
-		return true
-	}
-	cause := errors.Cause(source)
-	if cause == target {
-		return true
-	}
-	if cause == source {
-		return false
-	}
-	return HasCause(cause, target)
 }

@@ -147,81 +147,66 @@ func (c *Committer) IsFinal(ctx context.Context, txID string) error {
 
 	for iter := 0; iter < c.ChannelConfig.CommitterFinalityNumRetries(); iter++ {
 		vd, _, deps, err := committer.Status(txID)
-		if err == nil {
-			switch vd {
-			case driver.Valid:
-				if logger.IsEnabledFor(zapcore.DebugLevel) {
-					logger.Debugf("Tx [%s] is valid", txID)
-				}
-				return nil
-			case driver.Invalid:
-				if logger.IsEnabledFor(zapcore.DebugLevel) {
-					logger.Debugf("Tx [%s] is not valid", txID)
-				}
-				return errors.Errorf("transaction [%s] is not valid", txID)
-			case driver.Busy:
-				if logger.IsEnabledFor(zapcore.DebugLevel) {
-					logger.Debugf("Tx [%s] is known with deps [%v]", txID, deps)
-				}
-				if len(deps) != 0 {
-					for _, id := range deps {
-						if logger.IsEnabledFor(zapcore.DebugLevel) {
-							logger.Debugf("Check finality of dependant transaction [%s]", id)
-						}
-						err := c.IsFinal(ctx, id)
-						if err != nil {
-							logger.Errorf("Check finality of dependant transaction [%s], failed [%s]", id, err)
-							return err
-						}
-					}
-					return nil
-				}
-			case driver.HasDependencies:
-				if logger.IsEnabledFor(zapcore.DebugLevel) {
-					logger.Debugf("Tx [%s] is unknown with deps [%v]", txID, deps)
-				}
-				if len(deps) != 0 {
-					for _, id := range deps {
-						if logger.IsEnabledFor(zapcore.DebugLevel) {
-							logger.Debugf("Check finality of dependant transaction [%s]", id)
-						}
-						err := c.IsFinal(ctx, id)
-						if err != nil {
-							logger.Errorf("Check finality of dependant transaction [%s], failed [%s]", id, err)
-							return err
-						}
-					}
-					return nil
-				}
-				return c.Finality.IsFinal(txID, c.Network.PickPeer(driver.PeerForFinality).Address)
-			case driver.Unknown:
-				if iter >= 2 {
-					if logger.IsEnabledFor(zapcore.DebugLevel) {
-						logger.Debugf("Tx [%s] is unknown with no deps, remote check [%d][%s]", txID, iter, debug.Stack())
-					}
-					peer := c.Network.PickPeer(driver.PeerForFinality).Address
-					err := c.Finality.IsFinal(txID, peer)
-					if err == nil {
-						logger.Debugf("Tx [%s] is final, remote check on [%s]", txID, peer)
-						return nil
-					}
-
-					if vd, _, _, err2 := committer.Status(txID); err2 == nil && vd == driver.Unknown {
-						logger.Debugf("Tx [%s] is not final for remote [%s], return [%s], [%d][%s]", txID, peer, err, vd, err2)
-						return err
-					}
-					continue
-				}
-				if logger.IsEnabledFor(zapcore.DebugLevel) {
-					logger.Debugf("Tx [%s] is unknown with no deps, wait a bit and retry [%d]", txID, iter)
-				}
-				time.Sleep(c.ChannelConfig.CommitterFinalityUnknownTXTimeout())
-			default:
-				return errors.Errorf("invalid status code, got [%c]", vd)
-			}
-		} else {
+		if err != nil {
 			logger.Errorf("Is [%s] final? Failed getting transaction status from vault", txID)
 			return errors.WithMessagef(err, "failed getting transaction status from vault [%s]", txID)
+		}
+
+		switch vd {
+		case driver.Valid:
+			logger.Debugf("Tx [%s] is valid", txID)
+			return nil
+		case driver.Invalid:
+			logger.Debugf("Tx [%s] is not valid", txID)
+			return errors.Errorf("transaction [%s] is not valid", txID)
+		case driver.Busy:
+			logger.Debugf("Tx [%s] is known with deps [%v]", txID, deps)
+			if len(deps) == 0 {
+				continue
+			}
+			for _, id := range deps {
+				logger.Debugf("Check finality of dependant transaction [%s]", id)
+				if err := c.IsFinal(ctx, id); err != nil {
+					logger.Errorf("Check finality of dependant transaction [%s], failed [%s]", id, err)
+					return err
+				}
+			}
+			return nil
+		case driver.HasDependencies:
+			logger.Debugf("Tx [%s] is unknown with deps [%v]", txID, deps)
+			if len(deps) == 0 {
+				return c.Finality.IsFinal(txID, c.Network.PickPeer(driver.PeerForFinality).Address)
+			}
+			for _, id := range deps {
+				logger.Debugf("Check finality of dependant transaction [%s]", id)
+				if err := c.IsFinal(ctx, id); err != nil {
+					logger.Errorf("Check finality of dependant transaction [%s], failed [%s]", id, err)
+					return err
+				}
+			}
+			return nil
+		case driver.Unknown:
+			if iter <= 1 {
+				logger.Debugf("Tx [%s] is unknown with no deps, wait a bit and retry [%d]", txID, iter)
+				time.Sleep(c.ChannelConfig.CommitterFinalityUnknownTXTimeout())
+			}
+
+			if logger.IsEnabledFor(zapcore.DebugLevel) {
+				logger.Debugf("Tx [%s] is unknown with no deps, remote check [%d][%s]", txID, iter, debug.Stack())
+			}
+			peer := c.Network.PickPeer(driver.PeerForFinality).Address
+			err := c.Finality.IsFinal(txID, peer)
+			if err == nil {
+				logger.Debugf("Tx [%s] is final, remote check on [%s]", txID, peer)
+				return nil
+			}
+
+			if vd, _, _, err2 := committer.Status(txID); err2 == nil && vd == driver.Unknown {
+				logger.Debugf("Tx [%s] is not final for remote [%s], return [%s], [%d][%s]", txID, peer, err, vd, err2)
+				return err
+			}
+		default:
+			return errors.Errorf("invalid status code, got [%c]", vd)
 		}
 	}
 
