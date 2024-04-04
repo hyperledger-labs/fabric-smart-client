@@ -57,7 +57,7 @@ func NewNode(h host2.P2PHost) (*P2PNode, error) {
 		sessions:         make(map[string]*NetworkStreamSession),
 		isStopping:       false,
 	}
-	if err := h.Start(p.handleStream); err != nil {
+	if err := h.Start(p.handleIncomingStream); err != nil {
 		return nil, err
 	}
 	return p, nil
@@ -190,10 +190,17 @@ func (p *P2PNode) sendTo(info host2.StreamInfo, msg proto.Message) error {
 	if err != nil {
 		return errors.Wrapf(err, "failed to create new stream to [%s]", info.RemotePeerID)
 	}
-
-	p.handleStream(nwStream)
+	p.handleOutgoingStream(nwStream)
 
 	return p.sendWithCachedStreams(nwStream.Hash(), msg)
+}
+
+func (p *P2PNode) handleOutgoingStream(stream host2.P2PStream) {
+	p.handleStream(stream)
+}
+
+func (p *P2PNode) handleIncomingStream(stream host2.P2PStream) {
+	p.handleStream(stream)
 }
 
 func (p *P2PNode) handleStream(stream host2.P2PStream) {
@@ -205,6 +212,7 @@ func (p *P2PNode) handleStream(stream host2.P2PStream) {
 		node:   p,
 	}
 
+	logger.Debugf("Adding new stream [%s]", stream.Hash())
 	streamHash := stream.Hash()
 	p.streamsMutex.Lock()
 	p.streams[streamHash] = append(p.streams[streamHash], sh)
