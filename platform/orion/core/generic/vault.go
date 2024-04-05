@@ -51,6 +51,14 @@ func NewVault(sp view.ServiceProvider, config *config.Config, network Network, c
 	}, nil
 }
 
+func (v *Vault) NewRWSet(txID string) (driver.RWSet, error) {
+	return v.Vault.NewRWSet(txID)
+}
+
+func (v *Vault) GetRWSet(id string, results []byte) (driver.RWSet, error) {
+	return v.Vault.GetRWSet(id, results)
+}
+
 func (v *Vault) Status(txID string) (driver.ValidationCode, string, error) {
 	vc, message, err := v.Vault.Status(txID)
 	if err != nil {

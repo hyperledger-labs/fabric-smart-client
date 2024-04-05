@@ -59,7 +59,7 @@ func (cache *typedSecondChanceCache[T]) Get(key string) (T, bool) {
 
 	item, ok := cache.table[key]
 	if !ok {
-		return nil, false
+		return zero[T](), false
 	}
 
 	// referenced bit is set to true to indicate that this item is recently accessed.
@@ -116,10 +116,15 @@ func (cache *typedSecondChanceCache[T]) Delete(key string) {
 	defer cache.rwlock.Unlock()
 
 	if old, ok := cache.table[key]; ok {
-		old.value = nil
+		old.value = zero[T]()
 		atomic.StoreInt32(&old.referenced, 1)
 		return
 	}
+}
+
+func zero[T any]() T {
+	var result T
+	return result
 }
 
 type Slice [64]byte
