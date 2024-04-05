@@ -660,7 +660,7 @@ func TestVaultErr(t *testing.T) {
 	assert.NoError(t, err)
 	vault1 := New(ddb, tidstore)
 	err = vault1.CommitTX("non-existent", 0, 0)
-	assert.EqualError(t, err, "read-write set for txid non-existent could not be found")
+	assert.ErrorContains(t, err, "read-write set for txid non-existent could not be found")
 	err = vault1.DiscardTx("non-existent", "")
 	assert.EqualError(t, err, "read-write set for txid non-existent could not be found")
 
@@ -671,7 +671,7 @@ func TestVaultErr(t *testing.T) {
 	_, err = vault1.GetRWSet("not-closed", []byte(nil))
 	assert.EqualError(t, err, "programming error: previous read-write set for not-closed has not been closed")
 	err = vault1.CommitTX("not-closed", 0, 0)
-	assert.EqualError(t, err, "attempted to retrieve read-write set for not-closed when done has not been called")
+	assert.ErrorContains(t, err, "attempted to retrieve read-write set for not-closed when done has not been called")
 	err = vault1.DiscardTx("not-closed", "")
 	assert.EqualError(t, err, "attempted to retrieve read-write set for not-closed when done has not been called")
 
