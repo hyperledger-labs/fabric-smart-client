@@ -49,7 +49,6 @@ type ProcessorManager interface {
 type TxEvent struct {
 	TxID              string
 	DependantTxIDs    []string
-	Committed         bool
 	ValidationCode    types.Flag
 	ValidationMessage string
 	Block             uint64
@@ -179,7 +178,6 @@ func (c *committer) CommitTX(txID string, bn uint64, index int, event *TxEvent) 
 		return errors.WithMessagef(err, "failed to commit tx %s", txID)
 	}
 
-	event.Committed = true
 	return nil
 }
 
@@ -358,10 +356,10 @@ func (c *committer) notifyFinality(event TxEvent) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	if event.Committed {
+	if event.ValidationCode == types.Flag_VALID {
 		c.notifyTxStatus(event.TxID, driver.Valid, "")
 	} else {
-		c.notifyTxStatus(event.TxID, driver.Invalid, "")
+		c.notifyTxStatus(event.TxID, driver.Invalid, event.ValidationMessage)
 	}
 
 	if event.Err != nil && !c.quietNotifier {
