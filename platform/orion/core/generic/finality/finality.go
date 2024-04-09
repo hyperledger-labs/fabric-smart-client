@@ -42,9 +42,15 @@ func (f *finality) IsFinal(ctx context.Context, txID string) error {
 	if ctx == nil {
 		ctx = context.Background()
 	}
+
 	// ask the committer first
-	var err2 error
 	err := f.committer.IsFinal(ctx, txID)
+	if err == nil {
+		return nil
+	}
+
+	// if the transaction is unknown, then check the custodian
+	var err2 error
 	if errors.HasCause(err, committer.ErrUnknownTX) {
 		// ask the ledger
 		s, err2 := f.network.SessionManager().NewSession(f.network.IdentityManager().Me())
