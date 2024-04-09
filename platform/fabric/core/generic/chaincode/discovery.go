@@ -35,7 +35,7 @@ func NewDiscovery(chaincode *Chaincode) *Discovery {
 	// set key to the concatenation of chaincode name and version
 	return &Discovery{
 		chaincode:  chaincode,
-		DefaultTTL: chaincode.channel.Config().DiscoveryDefaultTTLS(),
+		DefaultTTL: chaincode.ChannelConfig.DiscoveryDefaultTTLS(),
 	}
 }
 
@@ -50,7 +50,7 @@ func (d *Discovery) GetEndorsers() ([]driver.DiscoveredPeer, error) {
 	response, err := d.Response()
 
 	// extract endorsers
-	cr := response.ForChannel(d.chaincode.channel.Name())
+	cr := response.ForChannel(d.chaincode.ChannelID)
 	var endorsers discovery.Endorsers
 	switch {
 	case len(d.ImplicitCollections) > 0:
@@ -71,13 +71,13 @@ func (d *Discovery) GetEndorsers() ([]driver.DiscoveredPeer, error) {
 		)
 	}
 	if err != nil {
-		return nil, errors.WithMessagef(err, "failed getting endorsers for [%s:%s:%s]", d.chaincode.Network.Name(), d.chaincode.channel.Name(), d.chaincode.name)
+		return nil, errors.WithMessagef(err, "failed getting endorsers for [%s:%s:%s]", d.chaincode.NetworkID, d.chaincode.ChannelID, d.chaincode.name)
 	}
 
 	// prepare result
 	configResult, err := cr.Config()
 	if err != nil {
-		return nil, errors.WithMessagef(err, "failed getting config for [%s:%s:%s]", d.chaincode.Network.Name(), d.chaincode.channel.Name(), d.chaincode.name)
+		return nil, errors.WithMessagef(err, "failed getting config for [%s:%s:%s]", d.chaincode.NetworkID, d.chaincode.ChannelID, d.chaincode.name)
 	}
 	return d.toDiscoveredPeers(configResult, endorsers)
 }
@@ -89,11 +89,11 @@ func (d *Discovery) GetPeers() ([]driver.DiscoveredPeer, error) {
 	}
 
 	// extract peers
-	cr := response.ForChannel(d.chaincode.channel.Name())
+	cr := response.ForChannel(d.chaincode.ChannelID)
 	var peers []*discovery.Peer
 	peers, err = cr.Peers(ccCall(d.chaincode.name)...)
 	if err != nil {
-		return nil, errors.WithMessagef(err, "failed getting peers for [%s:%s:%s]", d.chaincode.Network.Name(), d.chaincode.channel.Name(), d.chaincode.name)
+		return nil, errors.WithMessagef(err, "failed getting peers for [%s:%s:%s]", d.chaincode.NetworkID, d.chaincode.ChannelID, d.chaincode.name)
 	}
 
 	// filter
@@ -109,15 +109,15 @@ func (d *Discovery) GetPeers() ([]driver.DiscoveredPeer, error) {
 	// prepare result
 	configResult, err := cr.Config()
 	if err != nil {
-		return nil, errors.WithMessagef(err, "failed getting config for [%s:%s:%s]", d.chaincode.Network.Name(), d.chaincode.channel.Name(), d.chaincode.name)
+		return nil, errors.WithMessagef(err, "failed getting config for [%s:%s:%s]", d.chaincode.NetworkID, d.chaincode.ChannelID, d.chaincode.name)
 	}
 	return d.toDiscoveredPeers(configResult, peers)
 }
 
 func (d *Discovery) Response() (discovery.Response, error) {
 	var sb strings.Builder
-	sb.WriteString(d.chaincode.Network.Name())
-	sb.WriteString(d.chaincode.channel.Name())
+	sb.WriteString(d.chaincode.NetworkID)
+	sb.WriteString(d.chaincode.ChannelID)
 	sb.WriteString(d.chaincode.name)
 	for _, mspiD := range d.FilterByMSPIDs {
 		sb.WriteString(mspiD)
@@ -184,7 +184,7 @@ func (d *Discovery) queryPeers() (discovery.Response, error) {
 	// New discovery request for:
 	// - peers and
 	// - config,
-	req := discovery.NewRequest().OfChannel(d.chaincode.channel.Name()).AddPeersQuery(
+	req := discovery.NewRequest().OfChannel(d.chaincode.ChannelID).AddPeersQuery(
 		&peer.ChaincodeCall{Name: d.chaincode.name},
 	)
 	req = req.AddConfigQuery()
@@ -195,7 +195,7 @@ func (d *Discovery) queryEndorsers() (discovery.Response, error) {
 	// New discovery request for:
 	// - endorsers and
 	// - config,
-	req, err := discovery.NewRequest().OfChannel(d.chaincode.channel.Name()).AddEndorsersQuery(
+	req, err := discovery.NewRequest().OfChannel(d.chaincode.ChannelID).AddEndorsersQuery(
 		&peer.ChaincodeInterest{Chaincodes: []*peer.ChaincodeCall{{Name: d.chaincode.name}}},
 	)
 	if err != nil {
@@ -212,13 +212,13 @@ func (d *Discovery) query(req *discovery.Request) (discovery.Response, error) {
 			pCli.Close()
 		}
 	}()
-	pc, err := d.chaincode.channel.NewPeerClientForAddress(*d.chaincode.Network.PickPeer(driver.PeerForDiscovery))
+	pc, err := d.chaincode.PeerManager.NewPeerClientForAddress(*d.chaincode.PeerManager.PickPeer(driver.PeerForDiscovery))
 	if err != nil {
 		return nil, err
 	}
 	peerClients = append(peerClients, pc)
 
-	signer := d.chaincode.Network.LocalMembership().DefaultSigningIdentity()
+	signer := d.chaincode.LocalMembership.DefaultSigningIdentity()
 	signerRaw, err := signer.Serialize()
 	if err != nil {
 		return nil, err
@@ -231,7 +231,7 @@ func (d *Discovery) query(req *discovery.Request) (discovery.Response, error) {
 		ClientIdentity:    signerRaw,
 		ClientTlsCertHash: ClientTLSCertHash,
 	}
-	timeout, cancel := context.WithTimeout(context.Background(), d.chaincode.channel.Config().DiscoveryTimeout())
+	timeout, cancel := context.WithTimeout(context.Background(), d.chaincode.ChannelConfig.DiscoveryTimeout())
 	defer cancel()
 	cl, err := pc.DiscoveryClient()
 	if err != nil {
@@ -284,32 +284,32 @@ func (d *Discovery) toDiscoveredPeers(configResult *discovery2.ConfigResult, end
 func (d *Discovery) ChaincodeVersion() (string, error) {
 	response, err := d.Response()
 	if err != nil {
-		return "", errors.Wrapf(err, "unable to discover channel information for chaincode [%s] on channel [%s]", d.chaincode.name, d.chaincode.channel.Name())
+		return "", errors.Wrapf(err, "unable to discover channel information for chaincode [%s] on channel [%s]", d.chaincode.name, d.chaincode.ChannelID)
 	}
-	endorsers, err := response.ForChannel(d.chaincode.channel.Name()).Endorsers([]*peer.ChaincodeCall{{
+	endorsers, err := response.ForChannel(d.chaincode.ChannelID).Endorsers([]*peer.ChaincodeCall{{
 		Name: d.chaincode.name,
 	}}, &noFilter{})
 	if err != nil {
-		return "", errors.Wrapf(err, "failed to get endorsers for chaincode [%s] on channel [%s]", d.chaincode.name, d.chaincode.channel.Name())
+		return "", errors.Wrapf(err, "failed to get endorsers for chaincode [%s] on channel [%s]", d.chaincode.name, d.chaincode.ChannelID)
 	}
 	if len(endorsers) == 0 {
-		return "", errors.Errorf("no endorsers found for chaincode [%s] on channel [%s]", d.chaincode.name, d.chaincode.channel.Name())
+		return "", errors.Errorf("no endorsers found for chaincode [%s] on channel [%s]", d.chaincode.name, d.chaincode.ChannelID)
 	}
 	stateInfoMessage := endorsers[0].StateInfoMessage
 	if stateInfoMessage == nil {
-		return "", errors.Errorf("no state info message found for chaincode [%s] on channel [%s]", d.chaincode.name, d.chaincode.channel.Name())
+		return "", errors.Errorf("no state info message found for chaincode [%s] on channel [%s]", d.chaincode.name, d.chaincode.ChannelID)
 	}
 	stateInfo := stateInfoMessage.GetStateInfo()
 	if stateInfo == nil {
-		return "", errors.Errorf("no state info found for chaincode [%s] on channel [%s]", d.chaincode.name, d.chaincode.channel.Name())
+		return "", errors.Errorf("no state info found for chaincode [%s] on channel [%s]", d.chaincode.name, d.chaincode.ChannelID)
 	}
 	properties := stateInfo.GetProperties()
 	if properties == nil {
-		return "", errors.Errorf("no properties found for chaincode [%s] on channel [%s]", d.chaincode.name, d.chaincode.channel.Name())
+		return "", errors.Errorf("no properties found for chaincode [%s] on channel [%s]", d.chaincode.name, d.chaincode.ChannelID)
 	}
 	chaincodes := properties.Chaincodes
 	if len(chaincodes) == 0 {
-		return "", errors.Errorf("no chaincode info found for chaincode [%s] on channel [%s]", d.chaincode.name, d.chaincode.channel.Name())
+		return "", errors.Errorf("no chaincode info found for chaincode [%s] on channel [%s]", d.chaincode.name, d.chaincode.ChannelID)
 	}
 	for _, chaincode := range chaincodes {
 		if chaincode.Name == d.chaincode.name {
