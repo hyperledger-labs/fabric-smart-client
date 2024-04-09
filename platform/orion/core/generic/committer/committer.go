@@ -122,7 +122,8 @@ func (c *committer) Commit(block *types.AugmentedBlockHeader) error {
 		event.ValidationMessage = block.Header.ValidationInfo[i].ReasonIfInvalid
 
 		discard := false
-		if event.ValidationCode == types.Flag_VALID {
+		switch event.ValidationCode {
+		case types.Flag_VALID:
 			if err := c.CommitTX(txID, bn, i, &event); err != nil {
 				if errors2.HasCause(err, ErrDiscardTX) {
 					// in this case, we will discard the transaction
@@ -133,6 +134,8 @@ func (c *committer) Commit(block *types.AugmentedBlockHeader) error {
 					return errors.Wrapf(err, "failed to commit tx %s", txID)
 				}
 			}
+		default:
+			discard = true
 		}
 
 		if discard {
