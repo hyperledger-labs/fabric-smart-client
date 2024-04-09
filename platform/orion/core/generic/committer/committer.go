@@ -27,7 +27,7 @@ var (
 	logger = flogging.MustGetLogger("orion-sdk.committer")
 	// ErrDiscardTX this error can be used to signal that a valid transaction should be discarded anyway
 	ErrDiscardTX = errors.New("discard tx")
-
+	// ErrUnknownTX this erro can be used to signal that a transaction is unknown
 	ErrUnknownTX = errors.New("unknown tx")
 )
 

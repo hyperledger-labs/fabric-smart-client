@@ -53,6 +53,8 @@ type Committer interface {
 	// ProcessNamespace registers namespaces that will be committed even if the rwset is not known
 	ProcessNamespace(nss ...string) error
 
+	// AddStatusReporter adds an external status reporter that can be used to understand
+	// if a given transaction is known.
 	AddStatusReporter(sr StatusReporter) error
 
 	// Status returns a validation code this committer bind to the passed transaction id, plus
