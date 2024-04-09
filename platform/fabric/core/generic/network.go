@@ -21,7 +21,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger/fabric/common/channelconfig"
 	"github.com/pkg/errors"
-	"golang.org/x/net/context"
 )
 
 var logger = flogging.MustGetLogger("fabric-sdk.core")
@@ -194,13 +193,8 @@ func (f *Network) TransactionManager() driver.TransactionManager {
 	return f.transactionManager
 }
 
-func (f *Network) Broadcast(context context.Context, blob interface{}) error {
-	return f.Ordering.Broadcast(context, blob)
-}
-
-// SetConsensusType sets the consensus type the ordering service should use
-func (f *Network) SetConsensusType(consensusType string) error {
-	return f.Ordering.SetConsensusType(consensusType)
+func (f *Network) OrderingService() driver.Ordering {
+	return f.Ordering
 }
 
 func (f *Network) SignerService() driver.SignerService {

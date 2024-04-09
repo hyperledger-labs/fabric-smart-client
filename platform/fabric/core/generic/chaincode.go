@@ -36,7 +36,7 @@ func (c *Channel) Chaincode(name string) driver.Chaincode {
 		c.Network.LocalMembership(),
 		&PeerManager{Network: c.Network, Channel: c},
 		c.Network.SignerService(),
-		c.Network,
+		c.Network.OrderingService(),
 		c,
 		c,
 	)

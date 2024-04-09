@@ -25,10 +25,10 @@ func (n *Ordering) Orderers() []*grpc.ConnectionConfig {
 func (n *Ordering) Broadcast(context context.Context, blob interface{}) error {
 	switch b := blob.(type) {
 	case *Envelope:
-		return n.network.Broadcast(context, b.e)
+		return n.network.OrderingService().Broadcast(context, b.e)
 	case *Transaction:
-		return n.network.Broadcast(context, b.tx)
+		return n.network.OrderingService().Broadcast(context, b.tx)
 	default:
-		return n.network.Broadcast(context, blob)
+		return n.network.OrderingService().Broadcast(context, blob)
 	}
 }

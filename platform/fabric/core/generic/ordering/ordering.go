@@ -40,8 +40,7 @@ type Network interface {
 	PickOrderer() *grpc.ConnectionConfig
 	Orderers() []*grpc.ConnectionConfig
 	LocalMembership() driver.LocalMembership
-	// Broadcast sends the passed blob to the ordering Service to be ordered
-	Broadcast(context context2.Context, blob interface{}) error
+	OrderingService() driver.Ordering
 	Channel(name string) (driver.Channel, error)
 	SignerService() driver.SignerService
 	Config() *config.Config
