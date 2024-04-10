@@ -651,7 +651,7 @@ func (t *Transaction) getProposalResponse(signer SerializableSigner) (*pb.Propos
 	version := signedProposal.ChaincodeName()
 	if len(signedProposal.ChaincodeVersion()) == 0 {
 		// fetch current chaincode version
-		chaincode := t.channel.Chaincode(signedProposal.ChaincodeName())
+		chaincode := t.channel.ChaincodeManager().Chaincode(signedProposal.ChaincodeName())
 		var err error
 		version, err = chaincode.Version()
 		if err != nil {

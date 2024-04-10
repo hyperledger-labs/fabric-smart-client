@@ -12,7 +12,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
 	delivery2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/delivery"
 	finality2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/finality"
@@ -71,9 +70,7 @@ type Channel struct {
 	// resources is used to acquire configuration bundle resources.
 	ChannelResources channelconfig.Resources
 
-	// chaincodes
-	ChaincodesLock sync.RWMutex
-	Chaincodes     map[string]driver.Chaincode
+	CM driver.ChaincodeManager
 
 	// connection pool
 	PeerManager *PeerManager
@@ -130,7 +127,6 @@ func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver
 		ES:               transaction.NewEnvelopeService(kvsService, network.Name(), name),
 		TS:               transaction.NewEndorseTransactionService(kvsService, network.Name(), name),
 		MS:               transaction.NewMetadataService(kvsService, network.Name(), name),
-		Chaincodes:       map[string]driver.Chaincode{},
 		EventsPublisher:  eventsPublisher,
 		EventsSubscriber: eventsSubscriber,
 		Subscribers:      events.NewSubscribers(),
@@ -207,6 +203,21 @@ func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver
 		return nil, errors.WithMessagef(err, "failed initializing Channel [%s]", name)
 	}
 
+	c.CM = NewChaincodeManager(
+		network.Name(),
+		name,
+		network.configService,
+		channelConfig,
+		channelConfig.GetNumRetries(),
+		channelConfig.GetRetrySleep(),
+		network.localMembership,
+		c.PeerManager,
+		network.sigService,
+		network.Ordering,
+		c.FinalityService,
+		c,
+	)
+
 	return c, nil
 }
 
@@ -276,40 +287,6 @@ func (c *Channel) GetClientConfig(tlsRootCerts [][]byte, UseTLS bool) (*grpc.Cli
 	return clientConfig, override, nil
 }
 
-func (c *Channel) GetTransactionByID(txID string) (driver.ProcessedTransaction, error) {
-	raw, err := c.Chaincode("qscc").NewInvocation(GetTransactionByID, c.ChannelName, txID).WithSignerIdentity(
-		c.Network.LocalMembership().DefaultIdentity(),
-	).WithEndorsersByConnConfig(c.Network.ConfigService().PickPeer(driver.PeerForQuery)).Query()
-	if err != nil {
-		return nil, err
-	}
-
-	logger.Debugf("got transaction by id [%s] of len [%d]", txID, len(raw))
-
-	pt := &peer.ProcessedTransaction{}
-	err = proto.Unmarshal(raw, pt)
-	if err != nil {
-		return nil, err
-	}
-	return newProcessedTransaction(pt)
-}
-
-func (c *Channel) GetBlockNumberByTxID(txID string) (uint64, error) {
-	res, err := c.Chaincode("qscc").NewInvocation(GetBlockByTxID, c.ChannelName, txID).WithSignerIdentity(
-		c.Network.LocalMembership().DefaultIdentity(),
-	).WithEndorsersByConnConfig(c.Network.ConfigService().PickPeer(driver.PeerForQuery)).Query()
-	if err != nil {
-		return 0, err
-	}
-
-	block := &common.Block{}
-	err = proto.Unmarshal(res, block)
-	if err != nil {
-		return 0, err
-	}
-	return block.Header.Number, nil
-}
-
 func (c *Channel) Close() error {
 	c.DeliveryService.Stop()
 	return c.Vault().Close()
@@ -325,6 +302,10 @@ func (c *Channel) Finality() driver.Finality {
 
 func (c *Channel) Config() driver.ChannelConfig {
 	return c.ChannelConfig
+}
+
+func (c *Channel) ChaincodeManager() driver.ChaincodeManager {
+	return c.CM
 }
 
 // FetchEnvelope fetches from the ledger and stores the enveloped correspoding to the passed id

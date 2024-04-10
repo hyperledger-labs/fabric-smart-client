@@ -14,9 +14,43 @@ import (
 	"github.com/hyperledger/fabric/protoutil"
 )
 
+func (c *Channel) GetTransactionByID(txID string) (driver.ProcessedTransaction, error) {
+	raw, err := c.ChaincodeManager().Chaincode("qscc").NewInvocation(GetTransactionByID, c.ChannelName, txID).WithSignerIdentity(
+		c.Network.LocalMembership().DefaultIdentity(),
+	).WithEndorsersByConnConfig(c.Network.ConfigService().PickPeer(driver.PeerForQuery)).Query()
+	if err != nil {
+		return nil, err
+	}
+
+	logger.Debugf("got transaction by id [%s] of len [%d]", txID, len(raw))
+
+	pt := &peer.ProcessedTransaction{}
+	err = proto.Unmarshal(raw, pt)
+	if err != nil {
+		return nil, err
+	}
+	return newProcessedTransaction(pt)
+}
+
+func (c *Channel) GetBlockNumberByTxID(txID string) (uint64, error) {
+	res, err := c.ChaincodeManager().Chaincode("qscc").NewInvocation(GetBlockByTxID, c.ChannelName, txID).WithSignerIdentity(
+		c.Network.LocalMembership().DefaultIdentity(),
+	).WithEndorsersByConnConfig(c.Network.ConfigService().PickPeer(driver.PeerForQuery)).Query()
+	if err != nil {
+		return 0, err
+	}
+
+	block := &common.Block{}
+	err = proto.Unmarshal(res, block)
+	if err != nil {
+		return 0, err
+	}
+	return block.Header.Number, nil
+}
+
 // GetBlockByNumber fetches a block by number
 func (c *Channel) GetBlockByNumber(number uint64) (driver.Block, error) {
-	res, err := c.Chaincode("qscc").NewInvocation(GetBlockByNumber, c.ChannelName, number).WithSignerIdentity(
+	res, err := c.ChaincodeManager().Chaincode("qscc").NewInvocation(GetBlockByNumber, c.ChannelName, number).WithSignerIdentity(
 		c.Network.LocalMembership().DefaultIdentity(),
 	).WithEndorsersByConnConfig(c.Network.ConfigService().PickPeer(driver.PeerForQuery)).Query()
 	if err != nil {

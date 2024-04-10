@@ -18,7 +18,7 @@ type Channel interface {
 
 	ChannelMembership
 	TXIDStore
-	ChaincodeManager
+	ChaincodeManager() ChaincodeManager
 	RWSetLoader
 
 	// Name returns the name of the channel this instance is bound to
