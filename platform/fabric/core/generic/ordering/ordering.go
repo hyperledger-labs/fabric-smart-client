@@ -10,13 +10,13 @@ import (
 	"context"
 	"sync"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/fabricutils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	common2 "github.com/hyperledger/fabric-protos-go/common"
 	"github.com/pkg/errors"
@@ -25,26 +25,6 @@ import (
 )
 
 var logger = flogging.MustGetLogger("fabric-sdk.ordering")
-
-type Signer interface {
-	// Sign the message
-	Sign(msg []byte) ([]byte, error)
-}
-
-type ViewManager interface {
-	InitiateView(view view.View) (interface{}, error)
-}
-
-type Network interface {
-	Name() string
-	PickOrderer() *grpc.ConnectionConfig
-	Orderers() []*grpc.ConnectionConfig
-	LocalMembership() driver.LocalMembership
-	OrderingService() driver.Ordering
-	Channel(name string) (driver.Channel, error)
-	SignerService() driver.SignerService
-	Config() *config.Config
-}
 
 type Transaction interface {
 	Channel() string
@@ -59,27 +39,36 @@ type TransactionWithEnvelope interface {
 	Envelope() *common2.Envelope
 }
 
+type OrdererService interface {
+	PickOrderer() *grpc.ConnectionConfig
+	Orderers() []*grpc.ConnectionConfig
+}
+
 type BroadcastFnc = func(context context.Context, env *common2.Envelope) error
 
+type GetEndorserTransactionServiceFunc = func(channelID string) (driver.EndorserTransactionService, error)
+
 type Service struct {
-	SP      view2.ServiceProvider
-	Network Network
-	Metrics *metrics.Metrics
+	GetEndorserTransactionService GetEndorserTransactionServiceFunc
+	SigService                    driver.SignerService
+	Metrics                       *metrics.Metrics
 
 	Broadcasters   map[string]BroadcastFnc
 	BroadcastMutex sync.RWMutex
 	Broadcaster    BroadcastFnc
 }
 
-func NewService(sp view2.ServiceProvider, network Network, poolSize int, metrics *metrics.Metrics) *Service {
+func NewService(getEndorserTransactionService GetEndorserTransactionServiceFunc, sigService driver.SignerService, NetworkConfig *config.Config, OrdererService OrdererService, poolSize int, metrics *metrics.Metrics) *Service {
 	s := &Service{
-		SP:           sp,
-		Network:      network,
-		Metrics:      metrics,
-		Broadcasters: map[string]BroadcastFnc{},
+		GetEndorserTransactionService: getEndorserTransactionService,
+		SigService:                    sigService,
+		Metrics:                       metrics,
+		Broadcasters:                  map[string]BroadcastFnc{},
+		BroadcastMutex:                sync.RWMutex{},
+		Broadcaster:                   nil,
 	}
-	s.Broadcasters["BFT"] = NewBFTBroadcaster(network, poolSize, metrics).Broadcast
-	cft := NewCFTBroadcaster(network, poolSize, metrics)
+	s.Broadcasters["BFT"] = NewBFTBroadcaster(NetworkConfig, OrdererService, poolSize, metrics).Broadcast
+	cft := NewCFTBroadcaster(NetworkConfig, OrdererService, poolSize, metrics)
 	s.Broadcasters["etcdraft"] = cft.Broadcast
 	s.Broadcasters["solo"] = cft.Broadcast
 
@@ -138,7 +127,7 @@ func (o *Service) SetConsensusType(consensusType string) error {
 }
 
 func (o *Service) createFabricEndorseTransactionEnvelope(tx Transaction) (*common2.Envelope, error) {
-	ch, err := o.Network.Channel(tx.Channel())
+	ets, err := o.GetEndorserTransactionService(tx.Channel())
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed getting channel [%s]", tx.Channel())
 	}
@@ -146,14 +135,14 @@ func (o *Service) createFabricEndorseTransactionEnvelope(tx Transaction) (*commo
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed marshalling tx [%s]", tx.ID())
 	}
-	err = ch.TransactionService().StoreTransaction(tx.ID(), txRaw)
+	err = ets.StoreTransaction(tx.ID(), txRaw)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed storing tx")
 	}
 
 	// tx contains the proposal and the endorsements, assemble them in a fabric transaction
 	signerID := tx.Creator()
-	signer, err := o.Network.SignerService().GetSigner(signerID)
+	signer, err := o.SigService.GetSigner(signerID)
 	if err != nil {
 		logger.Errorf("signer not found for %s while creating tx envelope for ordering [%s]", signerID.UniqueID(), err)
 		return nil, errors.Wrapf(err, "signer not found for %s while creating tx envelope for ordering", signerID.UniqueID())
@@ -168,7 +157,7 @@ func (o *Service) createFabricEndorseTransactionEnvelope(tx Transaction) (*commo
 
 type signerWrapper struct {
 	creator view.Identity
-	signer  Signer
+	signer  driver.Signer
 }
 
 func (s *signerWrapper) Sign(message []byte) ([]byte, error) {

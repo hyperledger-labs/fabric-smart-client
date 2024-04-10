@@ -239,7 +239,20 @@ func (f *Network) Init() error {
 		}
 	}
 
-	f.Ordering = ordering.NewService(f.SP, f, f.config.OrdererConnectionPoolSize(), f.Metrics)
+	f.Ordering = ordering.NewService(
+		func(channelID string) (driver.EndorserTransactionService, error) {
+			ch, err := f.Channel(channelID)
+			if err != nil {
+				return nil, err
+			}
+			return ch.TransactionService(), nil
+		},
+		f.sigService,
+		f.config,
+		f,
+		f.config.OrdererConnectionPoolSize(),
+		f.Metrics,
+	)
 	return nil
 }
 
