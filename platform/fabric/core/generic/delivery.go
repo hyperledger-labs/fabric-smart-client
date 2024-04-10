@@ -11,6 +11,7 @@ import (
 
 	delivery2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/delivery"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger/fabric-protos-go/common"
 	pb "github.com/hyperledger/fabric-protos-go/peer"
 	"github.com/hyperledger/fabric/protoutil"
@@ -25,52 +26,63 @@ func (c *Channel) StartDelivery(ctx context.Context) error {
 
 func (c *Channel) Scan(ctx context.Context, txID string, callback driver.DeliveryCallback) error {
 	vault := &fakeVault{txID: txID}
-	deliveryService, err := delivery2.New(c.ChannelConfig, c.SP, c.Network, func(block *common.Block) (bool, error) {
-		for i, tx := range block.Data.Data {
-			validationCode := ValidationFlags(block.Metadata.Metadata[common.BlockMetadataIndex_TRANSACTIONS_FILTER])[i]
+	deliveryService, err := delivery2.New(
+		c.Network.Name(),
+		c.ChannelConfig,
+		hash.GetHasher(c.SP),
+		c.Network.LocalMembership(),
+		c.Network.ConfigService(),
+		c,
+		c,
+		func(block *common.Block) (bool, error) {
+			for i, tx := range block.Data.Data {
+				validationCode := ValidationFlags(block.Metadata.Metadata[common.BlockMetadataIndex_TRANSACTIONS_FILTER])[i]
 
-			if pb.TxValidationCode(validationCode) != pb.TxValidationCode_VALID {
-				continue
-			}
+				if pb.TxValidationCode(validationCode) != pb.TxValidationCode_VALID {
+					continue
+				}
 
-			env, err := protoutil.UnmarshalEnvelope(tx)
-			if err != nil {
-				logger.Errorf("Error getting tx from block: %s", err)
-				return false, err
-			}
-			payload, err := protoutil.UnmarshalPayload(env.Payload)
-			if err != nil {
-				logger.Errorf("[%s] unmarshal payload failed: %s", c.ChannelName, err)
-				return false, err
-			}
-			channelHeader, err := protoutil.UnmarshalChannelHeader(payload.Header.ChannelHeader)
-			if err != nil {
-				logger.Errorf("[%s] unmarshal Channel header failed: %s", c.ChannelName, err)
-				return false, err
-			}
+				env, err := protoutil.UnmarshalEnvelope(tx)
+				if err != nil {
+					logger.Errorf("Error getting tx from block: %s", err)
+					return false, err
+				}
+				payload, err := protoutil.UnmarshalPayload(env.Payload)
+				if err != nil {
+					logger.Errorf("[%s] unmarshal payload failed: %s", c.ChannelName, err)
+					return false, err
+				}
+				channelHeader, err := protoutil.UnmarshalChannelHeader(payload.Header.ChannelHeader)
+				if err != nil {
+					logger.Errorf("[%s] unmarshal Channel header failed: %s", c.ChannelName, err)
+					return false, err
+				}
 
-			if common.HeaderType(channelHeader.Type) != common.HeaderType_ENDORSER_TRANSACTION {
-				continue
-			}
+				if common.HeaderType(channelHeader.Type) != common.HeaderType_ENDORSER_TRANSACTION {
+					continue
+				}
 
-			ptx, err := newProcessedTransactionFromEnvelopeRaw(tx)
-			if err != nil {
-				return false, err
-			}
+				ptx, err := newProcessedTransactionFromEnvelopeRaw(tx)
+				if err != nil {
+					return false, err
+				}
 
-			stop, err := callback(ptx)
-			if err != nil {
-				// if an error occurred, stop processing
-				return false, err
+				stop, err := callback(ptx)
+				if err != nil {
+					// if an error occurred, stop processing
+					return false, err
+				}
+				if stop {
+					return true, nil
+				}
+				vault.txID = channelHeader.TxId
+				logger.Debugf("commit transaction [%s] in block [%d]", channelHeader.TxId, block.Header.Number)
 			}
-			if stop {
-				return true, nil
-			}
-			vault.txID = channelHeader.TxId
-			logger.Debugf("commit transaction [%s] in block [%d]", channelHeader.TxId, block.Header.Number)
-		}
-		return false, nil
-	}, vault, c.ChannelConfig.CommitterWaitForEventTimeout())
+			return false, nil
+		},
+		vault,
+		c.ChannelConfig.CommitterWaitForEventTimeout(),
+	)
 	if err != nil {
 		return err
 	}

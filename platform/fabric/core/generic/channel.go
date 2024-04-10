@@ -144,16 +144,6 @@ func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver
 		return nil, err
 	}
 
-	// Delivery
-	deliveryService, err := delivery2.New(channelConfig, sp, network, func(block *common.Block) (bool, error) {
-		// commit the block, if an error occurs then retry
-		err := committerInst.Commit(block)
-		return false, err
-	}, txIDStore, channelConfig.CommitterWaitForEventTimeout())
-	if err != nil {
-		return nil, err
-	}
-
 	// Finality
 	fs, err := finality2.NewService(sp, network, channelConfig, committerInst)
 	if err != nil {
@@ -177,7 +167,6 @@ func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver
 		Vault:             v,
 		SP:                sp,
 		Finality:          fs,
-		DeliveryService:   deliveryService,
 		ExternalCommitter: externalCommitter,
 		TXIDStore:         txIDStore,
 		ES:                transaction.NewEnvelopeService(sp, network.Name(), name),
@@ -188,6 +177,28 @@ func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver
 		EventsSubscriber:  eventsSubscriber,
 		Subscribers:       events.NewSubscribers(),
 	}
+	// Delivery
+	deliveryService, err := delivery2.New(
+		network.Name(),
+		channelConfig,
+		hash.GetHasher(sp),
+		network.LocalMembership(),
+		network.ConfigService(),
+		c,
+		c,
+		func(block *common.Block) (bool, error) {
+			// commit the block, if an error occurs then retry
+			err := committerInst.Commit(block)
+			return false, err
+		},
+		txIDStore,
+		channelConfig.CommitterWaitForEventTimeout(),
+	)
+	if err != nil {
+		return nil, err
+	}
+	c.DeliveryService = deliveryService
+
 	c.RWSetLoader = NewRWSetLoader(
 		network.Name(), name,
 		c.ES, c.TS, network.TransactionManager(),
