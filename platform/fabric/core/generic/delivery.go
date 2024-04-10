@@ -8,6 +8,7 @@ package generic
 
 import (
 	"context"
+	"time"
 
 	delivery2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/delivery"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
@@ -19,21 +20,82 @@ import (
 
 type ValidationFlags []uint8
 
-func (c *Channel) StartDelivery(ctx context.Context) error {
-	c.DeliveryService.Start(ctx)
+type DeliveryService struct {
+	channel             string
+	channelConfig       driver.ChannelConfig
+	hasher              hash.Hasher
+	NetworkName         string
+	LocalMembership     driver.LocalMembership
+	ConfigService       driver.ConfigService
+	PeerManager         delivery2.PeerManager
+	Ledger              driver.Ledger
+	waitForEventTimeout time.Duration
+
+	deliveryService *delivery2.Delivery
+}
+
+func NewDeliveryService(
+	channel string,
+	channelConfig driver.ChannelConfig,
+	hasher hash.Hasher,
+	networkName string,
+	localMembership driver.LocalMembership,
+	configService driver.ConfigService,
+	peerManager delivery2.PeerManager,
+	ledger driver.Ledger,
+	waitForEventTimeout time.Duration,
+	txIDStore driver.TXIDStore,
+	callback delivery2.Callback,
+) (*DeliveryService, error) {
+	deliveryService, err := delivery2.New(
+		networkName,
+		channelConfig,
+		hasher,
+		localMembership,
+		configService,
+		peerManager,
+		ledger,
+		callback,
+		txIDStore,
+		channelConfig.CommitterWaitForEventTimeout(),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return &DeliveryService{
+		channel:             channel,
+		channelConfig:       channelConfig,
+		hasher:              hasher,
+		NetworkName:         networkName,
+		LocalMembership:     localMembership,
+		ConfigService:       configService,
+		PeerManager:         peerManager,
+		Ledger:              ledger,
+		waitForEventTimeout: waitForEventTimeout,
+		deliveryService:     deliveryService,
+	}, nil
+}
+
+func (c *DeliveryService) Start(ctx context.Context) error {
+	c.deliveryService.Start(ctx)
 	return nil
 }
 
-func (c *Channel) Scan(ctx context.Context, txID string, callback driver.DeliveryCallback) error {
+func (c *DeliveryService) Stop() {
+	c.deliveryService.Stop()
+}
+
+func (c *DeliveryService) Scan(ctx context.Context, txID string, callback driver.DeliveryCallback) error {
 	vault := &fakeVault{txID: txID}
 	deliveryService, err := delivery2.New(
-		c.Network.Name(),
-		c.ChannelConfig,
-		hash.GetHasher(c.SP),
-		c.Network.LocalMembership(),
-		c.Network.ConfigService(),
+		c.NetworkName,
+		c.channelConfig,
+		c.hasher,
+		c.LocalMembership,
+		c.ConfigService,
 		c.PeerManager,
-		c.LedgerService,
+		c.Ledger,
 		func(block *common.Block) (bool, error) {
 			for i, tx := range block.Data.Data {
 				validationCode := ValidationFlags(block.Metadata.Metadata[common.BlockMetadataIndex_TRANSACTIONS_FILTER])[i]
@@ -49,12 +111,12 @@ func (c *Channel) Scan(ctx context.Context, txID string, callback driver.Deliver
 				}
 				payload, err := protoutil.UnmarshalPayload(env.Payload)
 				if err != nil {
-					logger.Errorf("[%s] unmarshal payload failed: %s", c.ChannelName, err)
+					logger.Errorf("[%s] unmarshal payload failed: %s", c.channel, err)
 					return false, err
 				}
 				channelHeader, err := protoutil.UnmarshalChannelHeader(payload.Header.ChannelHeader)
 				if err != nil {
-					logger.Errorf("[%s] unmarshal Channel header failed: %s", c.ChannelName, err)
+					logger.Errorf("[%s] unmarshal Channel header failed: %s", c.channelConfig, err)
 					return false, err
 				}
 
@@ -81,7 +143,7 @@ func (c *Channel) Scan(ctx context.Context, txID string, callback driver.Deliver
 			return false, nil
 		},
 		vault,
-		c.ChannelConfig.CommitterWaitForEventTimeout(),
+		c.channelConfig.CommitterWaitForEventTimeout(),
 	)
 	if err != nil {
 		return err

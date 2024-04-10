@@ -56,7 +56,7 @@ func (p *FSNProvider) Start(ctx context.Context) error {
 				return errors.Wrapf(err, "failed to get channel [%s] for fabric network service [%s]", channelName, name)
 			}
 			logger.Infof("start fabric [%s:%s]'s delivery service...", name, channelName)
-			if err := ch.StartDelivery(ctx); err != nil {
+			if err := ch.Delivery().Start(ctx); err != nil {
 				return errors.WithMessagef(err, "failed to start delivery on channel [%s] for fabric network service [%s]", channelName, name)
 			}
 		}

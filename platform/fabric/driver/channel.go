@@ -10,7 +10,7 @@ package driver
 type Channel interface {
 	Committer
 	Vault() Vault
-	Delivery
+	Delivery() Delivery
 
 	Ledger() Ledger
 

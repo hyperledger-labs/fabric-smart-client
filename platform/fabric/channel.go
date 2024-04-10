@@ -55,7 +55,7 @@ func (c *Channel) Chaincode(name string) *Chaincode {
 }
 
 func (c *Channel) Delivery() *Delivery {
-	return &Delivery{ch: c}
+	return &Delivery{delivery: c.ch.Delivery()}
 }
 
 func (c *Channel) MetadataService() *MetadataService {

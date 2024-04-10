@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
-	delivery2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/delivery"
 	finality2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/finality"
 	peer2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
@@ -60,7 +59,7 @@ type Channel struct {
 	ES                driver.EnvelopeService
 	TS                driver.EndorserTransactionService
 	MS                driver.MetadataService
-	DeliveryService   Delivery
+	DeliveryService   *DeliveryService
 	RWSetLoader       driver.RWSetLoader
 	LedgerService     driver.Ledger
 
@@ -196,21 +195,22 @@ func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver
 	)
 
 	// Delivery
-	deliveryService, err := delivery2.New(
-		network.Name(),
+	deliveryService, err := NewDeliveryService(
+		name,
 		channelConfig,
 		hash.GetHasher(sp),
+		network.Name(),
 		network.LocalMembership(),
 		network.ConfigService(),
 		c.PeerManager,
 		c.LedgerService,
+		channelConfig.CommitterWaitForEventTimeout(),
+		txIDStore,
 		func(block *common.Block) (bool, error) {
 			// commit the block, if an error occurs then retry
 			err := committerInst.Commit(block)
 			return false, err
 		},
-		txIDStore,
-		channelConfig.CommitterWaitForEventTimeout(),
 	)
 	if err != nil {
 		return nil, err
@@ -314,6 +314,10 @@ func (c *Channel) Ledger() driver.Ledger {
 
 func (c *Channel) Config() driver.ChannelConfig {
 	return c.ChannelConfig
+}
+
+func (c *Channel) Delivery() driver.Delivery {
+	return c.DeliveryService
 }
 
 func (c *Channel) ChaincodeManager() driver.ChaincodeManager {
