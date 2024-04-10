@@ -43,7 +43,7 @@ func (c *Channel) Committer() *Committer {
 }
 
 func (c *Channel) Finality() *Finality {
-	return &Finality{ch: c.ch}
+	return &Finality{finality: c.ch.Finality()}
 }
 
 func (c *Channel) Chaincode(name string) *Chaincode {

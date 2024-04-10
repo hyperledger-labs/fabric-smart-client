@@ -13,7 +13,9 @@ type Channel interface {
 	Delivery
 
 	Ledger
-	Finality
+
+	Finality() Finality
+
 	ChannelMembership
 	TXIDStore
 	ChaincodeManager

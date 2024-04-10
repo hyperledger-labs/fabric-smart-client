@@ -13,12 +13,9 @@ import (
 )
 
 type Finality struct {
-	ch driver.Channel
+	finality driver.Finality
 }
 
 func (c *Finality) IsFinal(ctx context.Context, txID string) error {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	return c.ch.IsFinal(ctx, txID)
+	return c.finality.IsFinal(ctx, txID)
 }

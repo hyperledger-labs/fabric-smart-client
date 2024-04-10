@@ -55,7 +55,7 @@ type Channel struct {
 	ConfigService     driver.ConfigService
 	Network           *Network
 	ChannelName       string
-	Finality          driver.Finality
+	FinalityService   driver.Finality
 	Vault             *vault.Vault
 	ProcessNamespaces []string
 	StatusReporters   []driver.StatusReporter
@@ -176,7 +176,7 @@ func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver
 	if err != nil {
 		return nil, err
 	}
-	c.Finality = fs
+	c.FinalityService = fs
 
 	// Delivery
 	deliveryService, err := delivery2.New(
@@ -315,6 +315,10 @@ func (c *Channel) GetBlockNumberByTxID(txID string) (uint64, error) {
 func (c *Channel) Close() error {
 	c.DeliveryService.Stop()
 	return c.Vault.Close()
+}
+
+func (c *Channel) Finality() driver.Finality {
+	return c.FinalityService
 }
 
 func (c *Channel) Config() driver.ChannelConfig {

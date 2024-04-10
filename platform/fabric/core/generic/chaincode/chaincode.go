@@ -28,10 +28,6 @@ type Broadcaster interface {
 	Broadcast(context context.Context, blob interface{}) error
 }
 
-type Finality interface {
-	IsFinal(ctx context.Context, txID string) error
-}
-
 type SerializableSigner interface {
 	Sign(message []byte) ([]byte, error)
 
@@ -54,7 +50,7 @@ type Chaincode struct {
 	PeerManager     PeerManager
 	SignerService   driver.SignerService
 	Broadcaster     Broadcaster
-	Finality        Finality
+	Finality        driver.Finality
 	MSPProvider     MSPProvider
 
 	discoveryResultsCacheLock sync.RWMutex
@@ -69,7 +65,7 @@ func NewChaincode(
 	peerManager PeerManager,
 	signerService driver.SignerService,
 	broadcaster Broadcaster,
-	finality Finality,
+	finality driver.Finality,
 	MSPProvider MSPProvider,
 ) *Chaincode {
 	return &Chaincode{

@@ -62,7 +62,7 @@ func (i *IsFinalResponderView) Call(ctx view.Context) (interface{}, error) {
 			c, cancel = context.WithTimeout(c, isFinalRequest.Timeout)
 			defer cancel()
 		}
-		err = ch.IsFinal(c, isFinalRequest.TxID)
+		err = ch.Finality().IsFinal(c, isFinalRequest.TxID)
 	} else {
 		err = errors.Wrapf(err, "channel %s not found", isFinalRequest.Channel)
 	}

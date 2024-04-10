@@ -35,7 +35,7 @@ func (c *Channel) Chaincode(name string) driver.Chaincode {
 		c.PeerManager,
 		c.Network.SignerService(),
 		c.Network.OrderingService(),
-		c,
+		c.Finality(),
 		c,
 	)
 	c.Chaincodes[name] = ch
