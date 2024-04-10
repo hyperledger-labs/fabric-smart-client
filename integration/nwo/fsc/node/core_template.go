@@ -90,11 +90,7 @@ fsc:
       # Persistence type can be \'badger\' (on disk) or \'memory\'
       type: {{ NodeKVSPersistenceType }}
       opts:
-        {{- if eq NodeKVSPersistenceType "orion" }}
-        network: {{ KVSOrionNetwork }}
-        database: {{ KVSOrionDatabase }}
-        creator: {{ KVSOrionCreator }}
-        {{- else if eq NodeKVSPersistenceType "sql" }}
+        {{- if eq NodeKVSPersistenceType "sql" }}
         driver: postgres
         dataSource: {{ NodeKVSSQLDataSource }}
         {{- else }}

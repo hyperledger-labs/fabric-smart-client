@@ -475,9 +475,6 @@ func (p *Platform) GenerateCoreConfig(peer *node2.Replica) {
 		"NodeKVSPath":            func() string { return p.NodeKVSDir(peer) },
 		"NodeKVSPersistenceType": func() string { return GetPersistenceType(peer.Peer) },
 		"NodeKVSSQLDataSource":   func() string { return GetPersistenceDataSource(peer.Peer) },
-		"KVSOrionNetwork":        func() string { return GetKVSOrionNetwork(peer.Peer) },
-		"KVSOrionDatabase":       func() string { return GetKVSOrionDatabase(peer.Peer) },
-		"KVSOrionCreator":        func() string { return GetKVSOrionCreator(peer.Peer) },
 		"Resolvers":              func() []*Resolver { return resolvers },
 	}).Parse(p.Topology.Templates.CoreTemplate())
 	Expect(err).NotTo(HaveOccurred())
@@ -841,9 +838,6 @@ func (p *Platform) nextColor() string {
 }
 
 func GetPersistenceType(peer *node2.Peer) string {
-	if v := peer.Options.Get("fsc.persistence.orion"); v != nil {
-		return "orion"
-	}
 	if v := peer.Options.Get("fsc.persistence.sql"); v != nil {
 		return "sql"
 	}
@@ -855,24 +849,6 @@ func GetPersistenceDataSource(peer *node2.Peer) string {
 		return v.(string)
 	}
 	return ""
-}
-
-func GetKVSOrionNetwork(peer *node2.Peer) string {
-	v := peer.Options.Get("fsc.persistence.orion")
-	Expect(v).NotTo(BeNil())
-	return v.(string)
-}
-
-func GetKVSOrionDatabase(peer *node2.Peer) string {
-	v := peer.Options.Get("fsc.persistence.orion.database")
-	Expect(v).NotTo(BeNil())
-	return v.(string)
-}
-
-func GetKVSOrionCreator(peer *node2.Peer) string {
-	v := peer.Options.Get("fsc.persistence.orion.creator")
-	Expect(v).NotTo(BeNil())
-	return v.(string)
 }
 
 // PeerPortNames returns the list of ports that need to be reserved for a Peer.
