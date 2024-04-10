@@ -17,7 +17,7 @@ import (
 )
 
 type VaultService struct {
-	Vault *vault.Vault
+	*vault.Vault
 }
 
 // NewRWSet returns a RWSet for this ledger.
@@ -40,37 +40,6 @@ func (c *VaultService) GetRWSet(txid string, rwset []byte) (driver.RWSet, error)
 // If namespaces is not empty, the returned RWSet will be filtered by the passed namespaces
 func (c *VaultService) GetEphemeralRWSet(rwset []byte, namespaces ...string) (driver.RWSet, error) {
 	return c.Vault.InspectRWSet(rwset, namespaces...)
-}
-
-// NewQueryExecutor gives handle to a query executor.
-// A client can obtain more than one 'QueryExecutor's for parallel execution.
-// Any synchronization should be performed at the implementation level if required
-func (c *VaultService) NewQueryExecutor() (driver.QueryExecutor, error) {
-	return c.Vault.NewQueryExecutor()
-}
-
-func (c *VaultService) Close() error {
-	return c.Vault.Close()
-}
-
-func (c *VaultService) CommitTX(id string, block uint64, index int) error {
-	return c.Vault.CommitTX(id, block, index)
-}
-
-func (c *VaultService) Status(id string) (driver.ValidationCode, string, error) {
-	return c.Vault.Status(id)
-}
-
-func (c *VaultService) DiscardTx(id string, message string) error {
-	return c.Vault.DiscardTx(id, message)
-}
-
-func (c *VaultService) RWSExists(id string) bool {
-	return c.Vault.RWSExists(id)
-}
-
-func (c *VaultService) Match(id string, results []byte) error {
-	return c.Vault.Match(id, results)
 }
 
 type TXIDStore interface {
