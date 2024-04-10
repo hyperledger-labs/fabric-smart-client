@@ -136,6 +136,7 @@ func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver
 		EventsPublisher:  eventsPublisher,
 		EventsSubscriber: eventsSubscriber,
 		Subscribers:      events.NewSubscribers(),
+		PeerManager:      NewPeerManager(network.configService, network.LocalMembership().DefaultSigningIdentity()),
 	}
 
 	// Fabric finality
@@ -348,7 +349,6 @@ func (c *Channel) Init() error {
 	if err := c.ReloadConfigTransactions(); err != nil {
 		return errors.WithMessagef(err, "failed reloading config transactions")
 	}
-	c.PeerManager = NewPeerManager(c.ConfigService, c.Network.LocalMembership().DefaultSigningIdentity())
 	return nil
 }
 
