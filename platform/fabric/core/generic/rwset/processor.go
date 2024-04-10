@@ -64,9 +64,9 @@ func (r *processorManager) ProcessByID(channel, txID string) error {
 	var tx driver.ProcessTransaction
 	switch {
 	case ch.EnvelopeService().Exists(txID):
-		rws, tx, err = ch.GetRWSetFromEvn(txID)
+		rws, tx, err = ch.RWSetLoader().GetRWSetFromEvn(txID)
 	case ch.TransactionService().Exists(txID):
-		rws, tx, err = ch.GetRWSetFromETx(txID)
+		rws, tx, err = ch.RWSetLoader().GetRWSetFromETx(txID)
 	default:
 		logger.Debugf("no entry found for [%s,%s]", channel, txID)
 		return nil

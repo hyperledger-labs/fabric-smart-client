@@ -46,22 +46,22 @@ type Delivery interface {
 }
 
 type Channel struct {
-	SP                view2.ServiceProvider
-	ChannelConfig     driver.ChannelConfig
-	ConfigService     driver.ConfigService
-	Network           *Network
-	ChannelName       string
-	FinalityService   driver.Finality
-	VaultService      driver.Vault
-	TXIDStoreService  driver.TXIDStore
-	ProcessNamespaces []string
-	StatusReporters   []driver.StatusReporter
-	ES                driver.EnvelopeService
-	TS                driver.EndorserTransactionService
-	MS                driver.MetadataService
-	DeliveryService   *DeliveryService
-	RWSetLoader       driver.RWSetLoader
-	LedgerService     driver.Ledger
+	SP                 view2.ServiceProvider
+	ChannelConfig      driver.ChannelConfig
+	ConfigService      driver.ConfigService
+	Network            *Network
+	ChannelName        string
+	FinalityService    driver.Finality
+	VaultService       driver.Vault
+	TXIDStoreService   driver.TXIDStore
+	ProcessNamespaces  []string
+	StatusReporters    []driver.StatusReporter
+	ES                 driver.EnvelopeService
+	TS                 driver.EndorserTransactionService
+	MS                 driver.MetadataService
+	DeliveryService    *DeliveryService
+	RWSetLoaderService driver.RWSetLoader
+	LedgerService      driver.Ledger
 
 	// ResourcesApplyLock is used to serialize calls to CommitConfig and bundle update processing.
 	ResourcesApplyLock sync.Mutex
@@ -217,7 +217,7 @@ func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver
 	}
 	c.DeliveryService = deliveryService
 
-	c.RWSetLoader = NewRWSetLoader(
+	c.RWSetLoaderService = NewRWSetLoader(
 		network.Name(), name,
 		c.ES, c.TS, network.TransactionManager(),
 		v,
@@ -328,6 +328,10 @@ func (c *Channel) TXIDStore() driver.TXIDStore {
 	return c.TXIDStoreService
 }
 
+func (c *Channel) RWSetLoader() driver.RWSetLoader {
+	return c.RWSetLoaderService
+}
+
 // FetchEnvelope fetches from the ledger and stores the enveloped correspoding to the passed id
 func (c *Channel) FetchEnvelope(txID string) ([]byte, error) {
 	pt, err := c.Ledger().GetTransactionByID(txID)
@@ -338,18 +342,6 @@ func (c *Channel) FetchEnvelope(txID string) ([]byte, error) {
 		return nil, errors.Errorf("fetched tx [%s] should have been valid, instead it is [%s]", txID, peer.TxValidationCode_name[pt.ValidationCode()])
 	}
 	return pt.Envelope(), nil
-}
-
-func (c *Channel) GetRWSetFromEvn(txID string) (driver.RWSet, driver.ProcessTransaction, error) {
-	return c.RWSetLoader.GetRWSetFromEvn(txID)
-}
-
-func (c *Channel) GetRWSetFromETx(txID string) (driver.RWSet, driver.ProcessTransaction, error) {
-	return c.RWSetLoader.GetRWSetFromETx(txID)
-}
-
-func (c *Channel) GetInspectingRWSetFromEvn(txID string, envelopeRaw []byte) (driver.RWSet, driver.ProcessTransaction, error) {
-	return c.RWSetLoader.GetInspectingRWSetFromEvn(txID, envelopeRaw)
 }
 
 func (c *Channel) Init() error {

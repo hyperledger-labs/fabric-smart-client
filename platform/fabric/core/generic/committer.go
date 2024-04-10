@@ -189,7 +189,7 @@ func (c *Channel) commitUnknown(txID string, block uint64, indexInBlock int, env
 	if err := c.EnvelopeService().StoreEnvelope(txID, envelopeRaw); err != nil {
 		return errors.WithMessagef(err, "failed to store unknown envelope for [%s]", txID)
 	}
-	rws, _, err := c.RWSetLoader.GetRWSetFromEvn(txID)
+	rws, _, err := c.RWSetLoaderService.GetRWSetFromEvn(txID)
 	if err != nil {
 		return errors.WithMessagef(err, "failed to get rws from envelope [%s]", txID)
 	}
@@ -198,7 +198,7 @@ func (c *Channel) commitUnknown(txID string, block uint64, indexInBlock int, env
 }
 
 func (c *Channel) filterUnknownEnvelope(txID string, envelope []byte) (bool, error) {
-	rws, _, err := c.RWSetLoader.GetInspectingRWSetFromEvn(txID, envelope)
+	rws, _, err := c.RWSetLoaderService.GetInspectingRWSetFromEvn(txID, envelope)
 	if err != nil {
 		return false, errors.WithMessagef(err, "failed to get rws from envelope [%s]", txID)
 	}
@@ -240,10 +240,10 @@ func (c *Channel) commitStoredEnvelope(txID string, block uint64, indexInBlock i
 }
 
 func (c *Channel) extractStoredEnvelopeToVault(txID string) error {
-	rws, _, err := c.RWSetLoader.GetRWSetFromEvn(txID)
+	rws, _, err := c.RWSetLoaderService.GetRWSetFromEvn(txID)
 	if err != nil {
 		// If another replica of the same node created the RWSet
-		rws, _, err = c.RWSetLoader.GetRWSetFromETx(txID)
+		rws, _, err = c.RWSetLoaderService.GetRWSetFromETx(txID)
 		if err != nil {
 			return errors.WithMessagef(err, "failed to extract rws from envelope and etx [%s]", txID)
 		}
@@ -293,7 +293,7 @@ func (c *Channel) commitLocal(txID string, block uint64, indexInBlock int, envel
 				if err := c.EnvelopeService().StoreEnvelope(txID, envelopeRaw); err != nil {
 					return errors.WithMessagef(err, "failed to store unknown envelope for [%s]", txID)
 				}
-				rws, _, err := c.RWSetLoader.GetRWSetFromEvn(txID)
+				rws, _, err := c.RWSetLoaderService.GetRWSetFromEvn(txID)
 				if err != nil {
 					return errors.WithMessagef(err, "failed to get rws from envelope [%s]", txID)
 				}

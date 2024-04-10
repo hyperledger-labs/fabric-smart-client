@@ -9,7 +9,9 @@ package driver
 // Channel gives access to Fabric channel related information
 type Channel interface {
 	Committer
+
 	Vault() Vault
+
 	Delivery() Delivery
 
 	Ledger() Ledger
@@ -17,9 +19,12 @@ type Channel interface {
 	Finality() Finality
 
 	ChannelMembership
+
 	TXIDStore() TXIDStore
+
 	ChaincodeManager() ChaincodeManager
-	RWSetLoader
+
+	RWSetLoader() RWSetLoader
 
 	// Name returns the name of the channel this instance is bound to
 	Name() string
