@@ -14,10 +14,26 @@ import (
 	"github.com/hyperledger/fabric/protoutil"
 )
 
-func (c *Channel) GetTransactionByID(txID string) (driver.ProcessedTransaction, error) {
-	raw, err := c.ChaincodeManager().Chaincode("qscc").NewInvocation(GetTransactionByID, c.ChannelName, txID).WithSignerIdentity(
-		c.Network.LocalMembership().DefaultIdentity(),
-	).WithEndorsersByConnConfig(c.Network.ConfigService().PickPeer(driver.PeerForQuery)).Query()
+type Ledger struct {
+	ChannelName      string
+	ChaincodeManager driver.ChaincodeManager
+	LocalMembership  driver.LocalMembership
+	ConfigService    driver.ConfigService
+}
+
+func NewLedger(
+	channelName string,
+	chaincodeManager driver.ChaincodeManager,
+	localMembership driver.LocalMembership,
+	configService driver.ConfigService,
+) *Ledger {
+	return &Ledger{ChannelName: channelName, ChaincodeManager: chaincodeManager, LocalMembership: localMembership, ConfigService: configService}
+}
+
+func (c *Ledger) GetTransactionByID(txID string) (driver.ProcessedTransaction, error) {
+	raw, err := c.ChaincodeManager.Chaincode("qscc").NewInvocation(GetTransactionByID, c.ChannelName, txID).WithSignerIdentity(
+		c.LocalMembership.DefaultIdentity(),
+	).WithEndorsersByConnConfig(c.ConfigService.PickPeer(driver.PeerForQuery)).Query()
 	if err != nil {
 		return nil, err
 	}
@@ -32,10 +48,10 @@ func (c *Channel) GetTransactionByID(txID string) (driver.ProcessedTransaction, 
 	return newProcessedTransaction(pt)
 }
 
-func (c *Channel) GetBlockNumberByTxID(txID string) (uint64, error) {
-	res, err := c.ChaincodeManager().Chaincode("qscc").NewInvocation(GetBlockByTxID, c.ChannelName, txID).WithSignerIdentity(
-		c.Network.LocalMembership().DefaultIdentity(),
-	).WithEndorsersByConnConfig(c.Network.ConfigService().PickPeer(driver.PeerForQuery)).Query()
+func (c *Ledger) GetBlockNumberByTxID(txID string) (uint64, error) {
+	res, err := c.ChaincodeManager.Chaincode("qscc").NewInvocation(GetBlockByTxID, c.ChannelName, txID).WithSignerIdentity(
+		c.LocalMembership.DefaultIdentity(),
+	).WithEndorsersByConnConfig(c.ConfigService.PickPeer(driver.PeerForQuery)).Query()
 	if err != nil {
 		return 0, err
 	}
@@ -49,10 +65,10 @@ func (c *Channel) GetBlockNumberByTxID(txID string) (uint64, error) {
 }
 
 // GetBlockByNumber fetches a block by number
-func (c *Channel) GetBlockByNumber(number uint64) (driver.Block, error) {
-	res, err := c.ChaincodeManager().Chaincode("qscc").NewInvocation(GetBlockByNumber, c.ChannelName, number).WithSignerIdentity(
-		c.Network.LocalMembership().DefaultIdentity(),
-	).WithEndorsersByConnConfig(c.Network.ConfigService().PickPeer(driver.PeerForQuery)).Query()
+func (c *Ledger) GetBlockByNumber(number uint64) (driver.Block, error) {
+	res, err := c.ChaincodeManager.Chaincode("qscc").NewInvocation(GetBlockByNumber, c.ChannelName, number).WithSignerIdentity(
+		c.LocalMembership.DefaultIdentity(),
+	).WithEndorsersByConnConfig(c.ConfigService.PickPeer(driver.PeerForQuery)).Query()
 	if err != nil {
 		return nil, err
 	}

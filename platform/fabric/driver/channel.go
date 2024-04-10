@@ -12,7 +12,7 @@ type Channel interface {
 	Vault() Vault
 	Delivery
 
-	Ledger
+	Ledger() Ledger
 
 	Finality() Finality
 

@@ -61,7 +61,8 @@ type Channel struct {
 	MS                driver.MetadataService
 	DeliveryService   Delivery
 	driver.TXIDStore
-	RWSetLoader driver.RWSetLoader
+	RWSetLoader   driver.RWSetLoader
+	LedgerService driver.Ledger
 
 	// ResourcesApplyLock is used to serialize calls to CommitConfig and bundle update processing.
 	ResourcesApplyLock sync.Mutex
@@ -172,6 +173,28 @@ func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver
 	}
 	c.FinalityService = fs
 
+	c.CM = NewChaincodeManager(
+		network.Name(),
+		name,
+		network.configService,
+		channelConfig,
+		channelConfig.GetNumRetries(),
+		channelConfig.GetRetrySleep(),
+		network.localMembership,
+		c.PeerManager,
+		network.sigService,
+		network.Ordering,
+		c.FinalityService,
+		c,
+	)
+
+	c.LedgerService = NewLedger(
+		name,
+		c.CM,
+		network.localMembership,
+		network.configService,
+	)
+
 	// Delivery
 	deliveryService, err := delivery2.New(
 		network.Name(),
@@ -180,7 +203,7 @@ func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver
 		network.LocalMembership(),
 		network.ConfigService(),
 		c.PeerManager,
-		c,
+		c.LedgerService,
 		func(block *common.Block) (bool, error) {
 			// commit the block, if an error occurs then retry
 			err := committerInst.Commit(block)
@@ -202,21 +225,6 @@ func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver
 	if err := c.Init(); err != nil {
 		return nil, errors.WithMessagef(err, "failed initializing Channel [%s]", name)
 	}
-
-	c.CM = NewChaincodeManager(
-		network.Name(),
-		name,
-		network.configService,
-		channelConfig,
-		channelConfig.GetNumRetries(),
-		channelConfig.GetRetrySleep(),
-		network.localMembership,
-		c.PeerManager,
-		network.sigService,
-		network.Ordering,
-		c.FinalityService,
-		c,
-	)
 
 	return c, nil
 }
@@ -300,6 +308,10 @@ func (c *Channel) Finality() driver.Finality {
 	return c.FinalityService
 }
 
+func (c *Channel) Ledger() driver.Ledger {
+	return c.LedgerService
+}
+
 func (c *Channel) Config() driver.ChannelConfig {
 	return c.ChannelConfig
 }
@@ -310,7 +322,7 @@ func (c *Channel) ChaincodeManager() driver.ChaincodeManager {
 
 // FetchEnvelope fetches from the ledger and stores the enveloped correspoding to the passed id
 func (c *Channel) FetchEnvelope(txID string) ([]byte, error) {
-	pt, err := c.GetTransactionByID(txID)
+	pt, err := c.Ledger().GetTransactionByID(txID)
 	if err != nil {
 		return nil, errors.WithMessagef(err, "failed fetching tx [%s]", txID)
 	}

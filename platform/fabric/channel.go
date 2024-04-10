@@ -31,7 +31,7 @@ func (c *Channel) Vault() *Vault {
 }
 
 func (c *Channel) Ledger() *Ledger {
-	return &Ledger{ch: c}
+	return &Ledger{l: c.ch.Ledger()}
 }
 
 func (c *Channel) MSPManager() *MSPManager {

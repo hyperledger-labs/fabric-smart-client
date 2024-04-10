@@ -33,7 +33,7 @@ func (c *Channel) Scan(ctx context.Context, txID string, callback driver.Deliver
 		c.Network.LocalMembership(),
 		c.Network.ConfigService(),
 		c.PeerManager,
-		c,
+		c.LedgerService,
 		func(block *common.Block) (bool, error) {
 			for i, tx := range block.Data.Data {
 				validationCode := ValidationFlags(block.Metadata.Metadata[common.BlockMetadataIndex_TRANSACTIONS_FILTER])[i]
