@@ -17,7 +17,6 @@ import (
 	delivery2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/delivery"
 	finality2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/finality"
 	peer2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
-	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
@@ -78,7 +77,7 @@ type Channel struct {
 	Chaincodes     map[string]driver.Chaincode
 
 	// connection pool
-	ConnCache common2.CachingEndorserPool
+	ConnCache peer2.CachingEndorserPool
 
 	// events
 	Subscribers      *events.Subscribers
@@ -355,7 +354,7 @@ func (c *Channel) Init() error {
 	if err := c.ReloadConfigTransactions(); err != nil {
 		return errors.WithMessagef(err, "failed reloading config transactions")
 	}
-	c.ConnCache = common2.CachingEndorserPool{
+	c.ConnCache = peer2.CachingEndorserPool{
 		Cache:       map[string]peer2.Client{},
 		ConnCreator: &connCreator{ch: c},
 		Signer:      c.DefaultSigner(),
@@ -363,14 +362,14 @@ func (c *Channel) Init() error {
 	return nil
 }
 
-func newPeerClientForClientConfig(signer discovery.Signer, address, override string, clientConfig grpc.ClientConfig) (*common2.PeerClient, error) {
+func newPeerClientForClientConfig(signer discovery.Signer, address, override string, clientConfig grpc.ClientConfig) (*peer2.PeerClient, error) {
 	gClient, err := grpc.NewGRPCClient(clientConfig)
 	if err != nil {
 		return nil, errors.WithMessage(err, "failed to create Client from config")
 	}
-	pClient := &common2.PeerClient{
+	pClient := &peer2.PeerClient{
 		Signer: signer,
-		CommonClient: common2.CommonClient{
+		GRPCClient: peer2.GRPCClient{
 			Client:  gClient,
 			Address: address,
 			Sn:      override,

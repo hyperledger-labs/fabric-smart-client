@@ -4,13 +4,12 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package common
+package peer
 
 import (
 	"context"
 	"sync"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger/fabric-protos-go/discovery"
@@ -23,13 +22,13 @@ import (
 var logger = flogging.MustGetLogger("fabric-sdk.core.generic.peer.conn")
 
 type ConnCreator interface {
-	NewPeerClientForAddress(cc grpc.ConnectionConfig) (peer.Client, error)
+	NewPeerClientForAddress(cc grpc.ConnectionConfig) (Client, error)
 }
 
 type statefulClient struct {
 	pb.EndorserClient
 	discovery.DiscoveryClient
-	DC            peer.DiscoveryClient
+	DC            DiscoveryClient
 	onErr         func()
 	DeliverClient pb.DeliverClient
 }
@@ -72,7 +71,7 @@ func (sc *statefulClient) Send(ctx context.Context, req *discovery2.Request, aut
 
 type peerClient struct {
 	lock sync.RWMutex
-	peer.Client
+	Client
 	connect func() (*grpc2.ClientConn, error)
 	conn    *grpc2.ClientConn
 	signer  discovery2.Signer
@@ -150,7 +149,7 @@ func (pc *peerClient) DeliverClient() (pb.DeliverClient, error) {
 	}, nil
 }
 
-func (pc *peerClient) DiscoveryClient() (peer.DiscoveryClient, error) {
+func (pc *peerClient) DiscoveryClient() (DiscoveryClient, error) {
 	dc := discovery2.NewClient(
 		func() (*grpc2.ClientConn, error) {
 			conn, err := pc.getOrConn()
@@ -187,17 +186,17 @@ func (pc *peerClient) Close() {
 type CachingEndorserPool struct {
 	ConnCreator
 	lock   sync.RWMutex
-	Cache  map[string]peer.Client
+	Cache  map[string]Client
 	Signer discovery2.Signer
 }
 
-func (cep *CachingEndorserPool) NewPeerClientForAddress(cc grpc.ConnectionConfig) (peer.Client, error) {
-	return cep.getOrCreateClient(cc.Address, func() (peer.Client, error) {
+func (cep *CachingEndorserPool) NewPeerClientForAddress(cc grpc.ConnectionConfig) (Client, error) {
+	return cep.getOrCreateClient(cc.Address, func() (Client, error) {
 		return cep.ConnCreator.NewPeerClientForAddress(cc)
 	})
 }
 
-func (cep *CachingEndorserPool) getOrCreateClient(key string, newClient func() (peer.Client, error)) (peer.Client, error) {
+func (cep *CachingEndorserPool) getOrCreateClient(key string, newClient func() (Client, error)) (Client, error) {
 	if cl, found := cep.lookup(key); found {
 		return cl, nil
 	}
@@ -231,12 +230,12 @@ func (cep *CachingEndorserPool) getOrCreateClient(key string, newClient func() (
 	return cl, nil
 }
 
-func (cep *CachingEndorserPool) lookupNoLock(key string) (peer.Client, bool) {
+func (cep *CachingEndorserPool) lookupNoLock(key string) (Client, bool) {
 	cl, ok := cep.Cache[key]
 	return cl, ok
 }
 
-func (cep *CachingEndorserPool) lookup(key string) (peer.Client, bool) {
+func (cep *CachingEndorserPool) lookup(key string) (Client, bool) {
 	cep.lock.RLock()
 	defer cep.lock.RUnlock()
 
