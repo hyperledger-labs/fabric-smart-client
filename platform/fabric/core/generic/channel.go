@@ -12,6 +12,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
 	delivery2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/delivery"
@@ -118,6 +120,8 @@ func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver
 		return nil, errors.Wrap(err, "failed to get event subscriber")
 	}
 
+	kvsService := kvs.GetService(sp)
+
 	c := &Channel{
 		ChannelName:      name,
 		ConfigService:    network.configService,
@@ -126,9 +130,9 @@ func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver
 		Vault:            v,
 		SP:               sp,
 		TXIDStore:        txIDStore,
-		ES:               transaction.NewEnvelopeService(sp, network.Name(), name),
-		TS:               transaction.NewEndorseTransactionService(sp, network.Name(), name),
-		MS:               transaction.NewMetadataService(sp, network.Name(), name),
+		ES:               transaction.NewEnvelopeService(kvsService, network.Name(), name),
+		TS:               transaction.NewEndorseTransactionService(kvsService, network.Name(), name),
+		MS:               transaction.NewMetadataService(kvsService, network.Name(), name),
 		Chaincodes:       map[string]driver.Chaincode{},
 		EventsPublisher:  eventsPublisher,
 		EventsSubscriber: eventsSubscriber,

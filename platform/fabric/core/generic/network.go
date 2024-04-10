@@ -150,7 +150,11 @@ func (f *Network) ConfigService() driver.ConfigService {
 
 func (f *Network) Init() error {
 	f.processorManager = rwset.NewProcessorManager(f, nil)
-	f.transactionManager = transaction.NewManager(f.SP, f)
+	f.transactionManager = transaction.NewManager()
+	f.transactionManager.AddTransactionFactory(
+		driver.EndorserTransaction,
+		transaction.NewEndorserTransactionFactory(f.Name(), f, f.sigService),
+	)
 	f.Ordering = ordering.NewService(
 		func(channelID string) (driver.EndorserTransactionService, error) {
 			ch, err := f.Channel(channelID)

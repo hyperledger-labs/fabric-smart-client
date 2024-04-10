@@ -11,11 +11,9 @@ import (
 	"encoding/base64"
 	"encoding/json"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/fabricutils"
-
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/fabricutils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	pcommon "github.com/hyperledger/fabric-protos-go/common"
 	pb "github.com/hyperledger/fabric-protos-go/peer"
@@ -75,8 +73,8 @@ func (p *SignedProposal) ChaincodeVersion() string {
 }
 
 type Transaction struct {
-	sp               view2.ServiceProvider
-	fns              driver.FabricNetworkService
+	channelProvider  ChannelProvider
+	sigService       driver.SignerService
 	rwset            driver.RWSet
 	channel          driver.Channel
 	signedProposal   *SignedProposal
@@ -215,7 +213,7 @@ func (t *Transaction) SetFromBytes(raw []byte) error {
 	}
 
 	// Set the channel
-	ch, err := t.fns.Channel(t.Channel())
+	ch, err := t.channelProvider.Channel(t.Channel())
 	if err != nil {
 		return err
 	}
@@ -248,7 +246,7 @@ func (t *Transaction) SetFromEnvelopeBytes(raw []byte) error {
 	t.TProposalResponses = upe.ProposalResponses
 
 	// Set the channel
-	ch, err := t.fns.Channel(t.Channel())
+	ch, err := t.channelProvider.Channel(t.Channel())
 	if err != nil {
 		return err
 	}
@@ -414,7 +412,7 @@ func (t *Transaction) EndorseWithIdentity(identity view.Identity) error {
 		logger.Debugf("endorse transaction [%s] with identity [%s]", t.ID(), identity.String())
 	}
 	// prepare signer
-	s, err := t.fns.SignerService().GetSigner(identity)
+	s, err := t.sigService.GetSigner(identity)
 	if err != nil {
 		return err
 	}
@@ -493,7 +491,7 @@ func (t *Transaction) EndorseProposal() error {
 
 func (t *Transaction) EndorseProposalWithIdentity(identity view.Identity) error {
 	// prepare signer
-	s, err := t.fns.SignerService().GetSigner(identity)
+	s, err := t.sigService.GetSigner(identity)
 	if err != nil {
 		return err
 	}
@@ -513,7 +511,7 @@ func (t *Transaction) EndorseProposalResponse() error {
 
 func (t *Transaction) EndorseProposalResponseWithIdentity(identity view.Identity) error {
 	// prepare signer
-	s, err := t.fns.SignerService().GetSigner(identity)
+	s, err := t.sigService.GetSigner(identity)
 	if err != nil {
 		return err
 	}
@@ -566,7 +564,7 @@ func (t *Transaction) ProposalResponse() ([]byte, error) {
 
 func (t *Transaction) Envelope() (driver.Envelope, error) {
 	signerID := t.Creator()
-	signer, err := t.fns.SignerService().GetSigner(signerID)
+	signer, err := t.sigService.GetSigner(signerID)
 	if err != nil {
 		logger.Errorf("signer not found for %s while creating tx envelope for ordering [%s]", signerID.UniqueID(), err)
 		return nil, errors.Wrapf(err, "signer not found for %s while creating tx envelope for ordering", signerID.UniqueID())
