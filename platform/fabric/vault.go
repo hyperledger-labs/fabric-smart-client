@@ -256,8 +256,9 @@ type SeekPos struct {
 }
 
 type TxIDEntry struct {
-	Txid string
-	Code ValidationCode
+	Txid    string
+	Code    ValidationCode
+	Message string
 }
 
 type TxIDIterator struct {
@@ -273,8 +274,9 @@ func (t *TxIDIterator) Next() (*TxIDEntry, error) {
 		return nil, nil
 	}
 	return &TxIDEntry{
-		Txid: n.Txid,
-		Code: ValidationCode(n.Code),
+		Txid:    n.TxID,
+		Code:    ValidationCode(n.Code),
+		Message: n.Message,
 	}, nil
 }
 
@@ -311,16 +313,16 @@ func (c *Vault) TxIDIterator(pos interface{}) (*TxIDIterator, error) {
 	return &TxIDIterator{TxidIterator: it}, nil
 }
 
-func (c *Vault) Status(txid string) (ValidationCode, []string, error) {
-	code, deps, err := c.ch.Status(txid)
+func (c *Vault) Status(txID string) (ValidationCode, string, []string, error) {
+	code, message, deps, err := c.ch.Status(txID)
 	if err != nil {
-		return Unknown, deps, err
+		return Unknown, "", deps, err
 	}
-	return ValidationCode(code), deps, nil
+	return ValidationCode(code), message, deps, nil
 }
 
-func (c *Vault) DiscardTx(txid string) error {
-	return c.ch.DiscardTx(txid)
+func (c *Vault) DiscardTx(txID string, message string) error {
+	return c.ch.DiscardTx(txID, message)
 }
 
 func (c *Vault) CommitTX(txid string, block uint64, indexInBloc int) error {

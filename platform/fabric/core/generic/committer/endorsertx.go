@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package committer
 
 import (
+	errors2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger/fabric-protos-go/common"
 	pb "github.com/hyperledger/fabric-protos-go/peer"
@@ -25,13 +26,20 @@ func (c *Committer) HandleEndorserTransaction(block *common.Block, i int, event 
 	}
 
 	txID := chHdr.TxId
-	event.Txid = txID
+	event.TxID = txID
+	event.ValidationCode = pb.TxValidationCode(ValidationFlags(block.Metadata.Metadata[common.BlockMetadataIndex_TRANSACTIONS_FILTER])[i])
+	event.ValidationMessage = pb.TxValidationCode_name[int32(event.ValidationCode)]
 
-	validationCode := pb.TxValidationCode(ValidationFlags(block.Metadata.Metadata[common.BlockMetadataIndex_TRANSACTIONS_FILTER])[i])
-	switch validationCode {
+	switch event.ValidationCode {
 	case pb.TxValidationCode_VALID:
 		processed, err := c.CommitEndorserTransaction(txID, block, i, env, event)
 		if err != nil {
+			if errors2.HasCause(err, ErrDiscardTX) {
+				// in this case, we will discard the transaction
+				event.ValidationCode = pb.TxValidationCode_INVALID_OTHER_REASON
+				event.ValidationMessage = err.Error()
+				break
+			}
 			return errors.Wrapf(err, "failed committing transaction [%s]", txID)
 		}
 		if !processed {
@@ -39,10 +47,11 @@ func (c *Committer) HandleEndorserTransaction(block *common.Block, i int, event 
 				return errors.Wrapf(err, "failed to publish chaincode events [%s]", txID)
 			}
 		}
-	default:
-		if err := c.DiscardEndorserTransaction(txID, block, event, validationCode); err != nil {
-			return errors.Wrapf(err, "failed discarding transaction [%s]", txID)
-		}
+		return nil
+	}
+
+	if err := c.DiscardEndorserTransaction(txID, block, event); err != nil {
+		return errors.Wrapf(err, "failed discarding transaction [%s]", txID)
 	}
 	return nil
 }
@@ -79,7 +88,7 @@ func (c *Committer) CommitEndorserTransaction(txID string, block *common.Block, 
 	event.Block = blockNum
 	event.IndexInBlock = indexInBlock
 
-	vc, deps, err := committer.Status(txID)
+	vc, _, deps, err := committer.Status(txID)
 	if err != nil {
 		return false, errors.Wrapf(err, "failed getting tx's status [%s]", txID)
 	}
@@ -101,19 +110,19 @@ func (c *Committer) CommitEndorserTransaction(txID string, block *common.Block, 
 	}
 
 	if block != nil {
-		if err := committer.CommitTX(event.Txid, event.Block, event.IndexInBlock, env); err != nil {
+		if err := committer.CommitTX(event.TxID, event.Block, event.IndexInBlock, env); err != nil {
 			return false, errors.Wrapf(err, "failed committing transaction [%s] with deps [%v]", txID, deps)
 		}
 		return false, nil
 	}
-	if err := committer.CommitTX(event.Txid, event.Block, event.IndexInBlock, nil); err != nil {
+	if err := committer.CommitTX(event.TxID, event.Block, event.IndexInBlock, nil); err != nil {
 		return false, errors.Wrapf(err, "failed committing transaction [%s] with deps [%v]", txID, deps)
 	}
 	return false, nil
 }
 
 // DiscardEndorserTransaction discards the transaction from the vault
-func (c *Committer) DiscardEndorserTransaction(txID string, block *common.Block, event *TxEvent, validationCode pb.TxValidationCode) error {
+func (c *Committer) DiscardEndorserTransaction(txID string, block *common.Block, event *TxEvent) error {
 	committer, err := c.Network.Committer(c.Channel)
 	if err != nil {
 		return errors.Wrapf(err, "cannot get Committer for channel [%s]", c.Channel)
@@ -121,10 +130,10 @@ func (c *Committer) DiscardEndorserTransaction(txID string, block *common.Block,
 
 	blockNum := block.Header.Number
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("transaction [%s] in block [%d] is not valid for fabric [%s], discard!", txID, blockNum, validationCode)
+		logger.Debugf("transaction [%s] in block [%d] is not valid for fabric [%s], discard!", txID, blockNum, event.ValidationCode)
 	}
 
-	vc, deps, err := committer.Status(txID)
+	vc, _, deps, err := committer.Status(txID)
 	if err != nil {
 		return errors.Wrapf(err, "failed getting tx's status [%s]", txID)
 	}
@@ -139,8 +148,8 @@ func (c *Committer) DiscardEndorserTransaction(txID string, block *common.Block,
 		}
 		// Nothing to commit
 	default:
-		event.Err = errors.Errorf("transaction [%s] status is not valid: %d", txID, validationCode)
-		err = committer.DiscardTx(event.Txid)
+		event.Err = errors.Errorf("transaction [%s] status is not valid [%d], message [%s]", txID, event.ValidationCode, event.ValidationMessage)
+		err = committer.DiscardTx(event.TxID, event.ValidationMessage)
 		if err != nil {
 			logger.Errorf("failed discarding tx in state db with err [%s]", err)
 		}

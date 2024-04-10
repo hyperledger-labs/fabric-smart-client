@@ -10,6 +10,8 @@ import (
 	"bytes"
 	"sort"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
+
 	"github.com/google/go-cmp/cmp"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/keys"
@@ -97,7 +99,7 @@ func (r MetaWrites) Equals(o MetaWrites) error {
 			return errors.Errorf("read not found [%s]", k)
 		}
 		if !bytes.Equal(v, v2) {
-			return errors.Errorf("writes for [%s] do not match [%v]!=[%v]", k, v, v2)
+			return errors.Errorf("writes for [%s] do not match [%v]!=[%v]", k, hash.Hashable(v), hash.Hashable(v2))
 		}
 	}
 
@@ -230,7 +232,7 @@ func (r NamespaceWrites) Equals(o NamespaceWrites) error {
 			return errors.Errorf("read not found [%s]", k)
 		}
 		if !bytes.Equal(v, v2) {
-			return errors.Errorf("writes for [%s] do not match [%v]!=[%v]", k, v, v2)
+			return errors.Errorf("writes for [%s] do not match [%v]!=[%v]", k, hash.Hashable(v), hash.Hashable(v2))
 		}
 	}
 

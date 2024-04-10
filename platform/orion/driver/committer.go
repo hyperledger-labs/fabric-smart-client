@@ -6,11 +6,16 @@ SPDX-License-Identifier: Apache-2.0
 
 package driver
 
+type StatusReporter interface {
+	Status(txID string) (ValidationCode, string, []string, error)
+}
+
 // TransactionStatusChanged is the message sent when the status of a transaction changes
 type TransactionStatusChanged struct {
-	ThisTopic string
-	TxID      string
-	VC        ValidationCode
+	ThisTopic         string
+	TxID              string
+	VC                ValidationCode
+	ValidationMessage string
 }
 
 // Topic returns the topic for the message
@@ -26,7 +31,7 @@ func (t *TransactionStatusChanged) Message() interface{} {
 // TxStatusChangeListener is the interface that must be implemented to receive transaction status change notifications
 type TxStatusChangeListener interface {
 	// OnStatusChange is called when the status of a transaction changes
-	OnStatusChange(txID string, status int) error
+	OnStatusChange(txID string, status int, statusMessage string) error
 }
 
 // Committer models the committer service

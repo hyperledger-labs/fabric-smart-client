@@ -24,6 +24,8 @@ type Vault struct {
 	*vault.Vault
 	*vault.SimpleTXIDStore
 	network Network
+
+	StatusReporters []driver.StatusReporter
 }
 
 func NewVault(sp view.ServiceProvider, config *config.Config, network Network, channel string) (*Vault, error) {
@@ -49,14 +51,6 @@ func NewVault(sp view.ServiceProvider, config *config.Config, network Network, c
 	}, nil
 }
 
-func (v *Vault) GetLastTxID() (string, error) {
-	return v.SimpleTXIDStore.GetLastTxID()
-}
-
-func (v *Vault) NewQueryExecutor() (driver.QueryExecutor, error) {
-	return v.Vault.NewQueryExecutor()
-}
-
 func (v *Vault) NewRWSet(txID string) (driver.RWSet, error) {
 	return v.Vault.NewRWSet(txID)
 }
@@ -65,37 +59,56 @@ func (v *Vault) GetRWSet(id string, results []byte) (driver.RWSet, error) {
 	return v.Vault.GetRWSet(id, results)
 }
 
-func (v *Vault) Status(txID string) (driver.ValidationCode, error) {
-	vc, err := v.Vault.Status(txID)
+func (v *Vault) Status(txID string) (driver.ValidationCode, string, error) {
+	vc, message, err := v.Vault.Status(txID)
 	if err != nil {
-		return driver.Unknown, err
+		return driver.Unknown, "", err
 	}
-	if vc == driver.Unknown {
-		// give it a second chance
-		if v.network.EnvelopeService().Exists(txID) {
-			if err := v.extractStoredEnvelopeToVault(txID); err != nil {
-				return driver.Unknown, errors.WithMessagef(err, "failed to extract stored enveloper for [%s]", txID)
-			}
-			vc = driver.Busy
+	if vc != driver.Unknown {
+		return vc, message, nil
+	}
+
+	// give it a second chance
+	if v.network.EnvelopeService().Exists(txID) {
+		if err := v.extractStoredEnvelopeToVault(txID); err != nil {
+			return driver.Unknown, "", errors.WithMessagef(err, "failed to extract stored enveloper for [%s]", txID)
+		}
+		return driver.Busy, message, nil
+	}
+
+	// check status reporter, if any
+	for _, reporter := range v.StatusReporters {
+		if externalStatus, externalMessage, _, err := reporter.Status(txID); err == nil && externalStatus != driver.Unknown {
+			return externalStatus, externalMessage, nil
 		}
 	}
-	return vc, nil
+
+	return driver.Unknown, message, nil
 }
 
-func (v *Vault) DiscardTx(txID string) error {
-	vc, err := v.Vault.Status(txID)
+func (v *Vault) DiscardTx(txID string, message string) error {
+	vc, _, err := v.Vault.Status(txID)
 	if err != nil {
 		return errors.Wrapf(err, "failed getting tx's status in state db [%s]", txID)
 	}
-	if vc == driver.Unknown {
-		return nil
+	if vc != driver.Unknown {
+		return v.Vault.DiscardTx(txID, message)
 	}
 
-	return v.Vault.DiscardTx(txID)
+	// check status reporter, if any
+	for _, reporter := range v.StatusReporters {
+		if externalStatus, _, _, err := reporter.Status(txID); err == nil && externalStatus != driver.Unknown {
+			return v.Vault.DiscardTx(txID, message)
+		}
+	}
+
+	logger.Debugf("Discarding transaction [%s] skipped, tx is unknown", txID)
+	return nil
 }
 
-func (v *Vault) CommitTX(txID string, block uint64, indexInBloc int) error {
-	return v.Vault.CommitTX(txID, block, indexInBloc)
+func (v *Vault) AddStatusReporter(sr driver.StatusReporter) error {
+	v.StatusReporters = append(v.StatusReporters, sr)
+	return nil
 }
 
 func (v *Vault) extractStoredEnvelopeToVault(txID string) error {

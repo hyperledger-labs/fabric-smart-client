@@ -10,15 +10,20 @@ import (
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
 
+type Entry struct {
+	ValidationCode    fdriver.ValidationCode
+	ValidationMessage string
+}
+
 type cache interface {
-	Get(key string) (interface{}, bool)
-	Add(key string, value interface{})
+	Get(key string) (*Entry, bool)
+	Add(key string, value *Entry)
 }
 
 type txidStore interface {
 	fdriver.TXIDStore
-	Get(txid string) (fdriver.ValidationCode, error)
-	Set(txid string, code fdriver.ValidationCode) error
+	Get(txid string) (fdriver.ValidationCode, string, error)
+	Set(txID string, code fdriver.ValidationCode, message string) error
 }
 
 type Cache struct {
@@ -30,25 +35,25 @@ func NewCache(backed txidStore, cache cache) *Cache {
 	return &Cache{backed: backed, cache: cache}
 }
 
-func (s *Cache) Get(txid string) (fdriver.ValidationCode, error) {
+func (s *Cache) Get(txID string) (fdriver.ValidationCode, string, error) {
 	// first cache
-	if val, ok := s.cache.Get(txid); ok {
-		return val.(fdriver.ValidationCode), nil
+	if entry, ok := s.cache.Get(txID); ok {
+		return entry.ValidationCode, entry.ValidationMessage, nil
 	}
 	// then backed
-	vs, err := s.backed.Get(txid)
+	vc, msg, err := s.backed.Get(txID)
 	if err != nil {
-		return vs, err
+		return vc, "", err
 	}
-	s.cache.Add(txid, vs)
-	return vs, nil
+	s.cache.Add(txID, &Entry{ValidationCode: vc, ValidationMessage: msg})
+	return vc, msg, nil
 }
 
-func (s *Cache) Set(txid string, code fdriver.ValidationCode) error {
-	if err := s.backed.Set(txid, code); err != nil {
+func (s *Cache) Set(txID string, code fdriver.ValidationCode, message string) error {
+	if err := s.backed.Set(txID, code, message); err != nil {
 		return err
 	}
-	s.cache.Add(txid, code)
+	s.cache.Add(txID, &Entry{ValidationCode: code, ValidationMessage: message})
 	return nil
 }
 

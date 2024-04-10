@@ -22,9 +22,10 @@ const (
 
 // TransactionStatusChanged is sent when the status of a transaction changes
 type TransactionStatusChanged struct {
-	ThisTopic string
-	TxID      string
-	VC        ValidationCode
+	ThisTopic         string
+	TxID              string
+	VC                ValidationCode
+	ValidationMessage string
 }
 
 // Topic returns the topic for the transaction status change
@@ -40,7 +41,11 @@ func (t *TransactionStatusChanged) Message() interface{} {
 // TxStatusChangeListener is the interface that must be implemented to receive transaction status change notifications
 type TxStatusChangeListener interface {
 	// OnStatusChange is called when the status of a transaction changes
-	OnStatusChange(txID string, status int) error
+	OnStatusChange(txID string, status int, statusMessage string) error
+}
+
+type StatusReporter interface {
+	Status(txID string) (ValidationCode, string, []string, error)
 }
 
 // Committer models the committer service
@@ -48,12 +53,16 @@ type Committer interface {
 	// ProcessNamespace registers namespaces that will be committed even if the rwset is not known
 	ProcessNamespace(nss ...string) error
 
+	// AddStatusReporter adds an external status reporter that can be used to understand
+	// if a given transaction is known.
+	AddStatusReporter(sr StatusReporter) error
+
 	// Status returns a validation code this committer bind to the passed transaction id, plus
 	// a list of dependant transaction ids if they exist.
-	Status(txid string) (ValidationCode, []string, error)
+	Status(txID string) (ValidationCode, string, []string, error)
 
 	// DiscardTx discards the transaction with the passed id and all its dependencies, if they exists.
-	DiscardTx(txid string) error
+	DiscardTx(txID string, message string) error
 
 	// CommitTX commits the transaction with the passed id and all its dependencies, if they exists.
 	// Depending on tx's status, CommitTX does the following:

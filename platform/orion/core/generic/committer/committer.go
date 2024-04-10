@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/compose"
+	errors2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
@@ -22,15 +23,21 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-var logger = flogging.MustGetLogger("orion-sdk.committer")
+var (
+	logger = flogging.MustGetLogger("orion-sdk.committer")
+	// ErrDiscardTX this error can be used to signal that a valid transaction should be discarded anyway
+	ErrDiscardTX = errors.New("discard tx")
+	// ErrUnknownTX this erro can be used to signal that a transaction is unknown
+	ErrUnknownTX = errors.New("unknown tx")
+)
 
 type Finality interface {
 	IsFinal(txID string, address string) error
 }
 
 type Vault interface {
-	Status(txID string) (driver.ValidationCode, error)
-	DiscardTx(txid string) error
+	Status(txID string) (driver.ValidationCode, string, error)
+	DiscardTx(txID string, message string) error
 	CommitTX(txid string, block uint64, indexInBloc int) error
 }
 
@@ -40,13 +47,13 @@ type ProcessorManager interface {
 
 // TxEvent contains information for token transaction commit
 type TxEvent struct {
-	Txid           string
-	DependantTxIDs []string
-	Committed      bool
-	Block          uint64
-	IndexInBlock   int
-	CommitPeer     string
-	Err            error
+	TxID              string
+	DependantTxIDs    []string
+	ValidationCode    types.Flag
+	ValidationMessage string
+	Block             uint64
+	IndexInBlock      int
+	Err               error
 }
 
 type committer struct {
@@ -108,18 +115,31 @@ func (c *committer) Commit(block *types.AugmentedBlockHeader) error {
 	bn := block.Header.BaseHeader.Number
 	for i, txID := range block.TxIds {
 		var event TxEvent
-		event.Txid = txID
+		event.TxID = txID
 		event.Block = bn
 		event.IndexInBlock = i
+		event.ValidationCode = block.Header.ValidationInfo[i].Flag
+		event.ValidationMessage = block.Header.ValidationInfo[i].ReasonIfInvalid
 
-		validationCode := block.Header.ValidationInfo[i].Flag
-		switch validationCode {
+		discard := false
+		switch event.ValidationCode {
 		case types.Flag_VALID:
 			if err := c.CommitTX(txID, bn, i, &event); err != nil {
-				return errors.Wrapf(err, "failed to commit tx %s", txID)
+				if errors2.HasCause(err, ErrDiscardTX) {
+					// in this case, we will discard the transaction
+					event.ValidationCode = types.Flag_INVALID_INCORRECT_ENTRIES
+					event.ValidationMessage = err.Error()
+					discard = true
+				} else {
+					return errors.Wrapf(err, "failed to commit tx %s", txID)
+				}
 			}
 		default:
-			if err := c.DiscardTX(txID, bn, validationCode, &event); err != nil {
+			discard = true
+		}
+
+		if discard {
+			if err := c.DiscardTX(txID, bn, &event); err != nil {
 				return errors.Wrapf(err, "failed to discard tx %s", txID)
 			}
 		}
@@ -132,7 +152,7 @@ func (c *committer) CommitTX(txID string, bn uint64, index int, event *TxEvent) 
 	logger.Debugf("transaction [%s] in block [%d] is valid for orion", txID, bn)
 
 	// if is already committed, do nothing
-	vc, err := c.vault.Status(txID)
+	vc, _, err := c.vault.Status(txID)
 	if err != nil {
 		return errors.Wrapf(err, "failed to get status of tx %s", txID)
 	}
@@ -161,14 +181,13 @@ func (c *committer) CommitTX(txID string, bn uint64, index int, event *TxEvent) 
 		return errors.WithMessagef(err, "failed to commit tx %s", txID)
 	}
 
-	event.Committed = true
 	return nil
 }
 
-func (c *committer) DiscardTX(txID string, blockNum uint64, validationCode types.Flag, event *TxEvent) error {
-	logger.Debugf("transaction [%s] in block [%d] is not valid for orion [%s], discard!", txID, blockNum, validationCode)
+func (c *committer) DiscardTX(txID string, blockNum uint64, event *TxEvent) error {
+	logger.Debugf("transaction [%s] in block [%d] is not valid for orion [%s], discard!", txID, blockNum, event.ValidationCode)
 
-	vc, err := c.vault.Status(txID)
+	vc, _, err := c.vault.Status(txID)
 	if err != nil {
 		return errors.Wrapf(err, "failed getting tx's status [%s]", txID)
 	}
@@ -179,9 +198,9 @@ func (c *committer) DiscardTX(txID string, blockNum uint64, validationCode types
 	case driver.Invalid:
 		logger.Debugf("transaction [%s] in block [%d] is marked as invalid, skipping", txID, blockNum)
 	default:
-		event.Err = errors.Errorf("transaction [%s] status is not valid: %d", txID, validationCode)
+		event.Err = errors.Errorf("transaction [%s] status is not valid: %d", txID, event.ValidationCode)
 		// rollback
-		if err := c.vault.DiscardTx(txID); err != nil {
+		if err := c.vault.DiscardTx(txID, event.ValidationMessage); err != nil {
 			return errors.WithMessagef(err, "failed to discard tx %s", txID)
 		}
 	}
@@ -198,7 +217,7 @@ func (c *committer) IsFinal(ctx context.Context, txID string) error {
 
 	skipLoop := false
 	for iter := 0; iter < c.finalityNumRetries; iter++ {
-		vd, err := c.vault.Status(txID)
+		vd, _, err := c.vault.Status(txID)
 		if err == nil {
 			switch vd {
 			case driver.Valid:
@@ -226,7 +245,7 @@ func (c *committer) IsFinal(ctx context.Context, txID string) error {
 
 				// wait a bit to see if something changes
 				if iter >= c.finalityNumRetries-1 {
-					return errors.Errorf("transaction [%s] is unknown", txID)
+					return errors.Wrapf(ErrUnknownTX, "transaction [%s] is unknown", txID)
 				}
 				if logger.IsEnabledFor(zapcore.DebugLevel) {
 					logger.Debugf("Tx [%s] is unknown with no deps, wait a bit and retry [%d]", txID, iter)
@@ -287,20 +306,22 @@ func (c *committer) UnsubscribeTxStatusChanges(txID string, listener driver.TxSt
 	return nil
 }
 
-func (c *committer) notifyTxStatus(txID string, vc driver.ValidationCode) {
+func (c *committer) notifyTxStatus(txID string, vc driver.ValidationCode, message string) {
 	// We publish two events here:
 	// 1. The first will be caught by the listeners that are listening for any transaction id.
 	// 2. The second will be caught by the listeners that are listening for the specific transaction id.
 	var sb strings.Builder
 	c.eventsPublisher.Publish(&driver.TransactionStatusChanged{
-		ThisTopic: compose.CreateCompositeKeyOrPanic(&sb, "tx", c.networkName),
-		TxID:      txID,
-		VC:        vc,
+		ThisTopic:         compose.CreateCompositeKeyOrPanic(&sb, "tx", c.networkName),
+		TxID:              txID,
+		VC:                vc,
+		ValidationMessage: message,
 	})
 	c.eventsPublisher.Publish(&driver.TransactionStatusChanged{
-		ThisTopic: compose.AppendAttributesOrPanic(&sb, txID),
-		TxID:      txID,
-		VC:        vc,
+		ThisTopic:         compose.AppendAttributesOrPanic(&sb, txID),
+		TxID:              txID,
+		VC:                vc,
+		ValidationMessage: message,
 	})
 }
 
@@ -338,19 +359,19 @@ func (c *committer) notifyFinality(event TxEvent) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	if event.Committed {
-		c.notifyTxStatus(event.Txid, driver.Valid)
+	if event.ValidationCode == types.Flag_VALID {
+		c.notifyTxStatus(event.TxID, driver.Valid, "")
 	} else {
-		c.notifyTxStatus(event.Txid, driver.Invalid)
+		c.notifyTxStatus(event.TxID, driver.Invalid, event.ValidationMessage)
 	}
 
 	if event.Err != nil && !c.quietNotifier {
-		logger.Warningf("An error occurred for tx [%s], event: [%v]", event.Txid, event)
+		logger.Warningf("An error occurred for tx [%s], event: [%v]", event.TxID, event)
 	}
 
-	listeners := c.listeners[event.Txid]
+	listeners := c.listeners[event.TxID]
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("Notify the finality of [%s] to [%d] listeners, event: [%v]", event.Txid, len(listeners), event)
+		logger.Debugf("Notify the finality of [%s] to [%d] listeners, event: [%v]", event.TxID, len(listeners), event)
 	}
 	for _, listener := range listeners {
 		listener <- event
@@ -401,7 +422,7 @@ func (c *committer) listenToFinality(ctx context.Context, txID string, timeout t
 			if logger.IsEnabledFor(zapcore.DebugLevel) {
 				logger.Debugf("Got a timeout for finality of [%s], check the status", txID)
 			}
-			vd, err := c.vault.Status(txID)
+			vd, _, err := c.vault.Status(txID)
 			if err == nil {
 				switch vd {
 				case driver.Valid:
@@ -436,7 +457,7 @@ type TxEventsListener struct {
 
 func (l *TxEventsListener) OnReceive(event events.Event) {
 	tsc := event.Message().(*driver.TransactionStatusChanged)
-	if err := l.listener.OnStatusChange(tsc.TxID, int(tsc.VC)); err != nil {
+	if err := l.listener.OnStatusChange(tsc.TxID, int(tsc.VC), ""); err != nil {
 		logger.Errorf("failed to notify listener for tx [%s] with err [%s]", tsc.TxID, err)
 	}
 }

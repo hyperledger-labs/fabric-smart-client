@@ -30,6 +30,10 @@ func NewRWSetLoader(network string, channel string, envelopeService driver.Envel
 }
 
 func (c *RWSetLoader) GetRWSetFromEvn(txID string) (driver.RWSet, driver.ProcessTransaction, error) {
+	if !c.EnvelopeService.Exists(txID) {
+		return nil, nil, errors.Errorf("envelope does not exists for [%s]", txID)
+	}
+
 	rawEnv, err := c.EnvelopeService.LoadEnvelope(txID)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "cannot load envelope [%s]", txID)
@@ -56,6 +60,10 @@ func (c *RWSetLoader) GetRWSetFromEvn(txID string) (driver.RWSet, driver.Process
 }
 
 func (c *RWSetLoader) GetRWSetFromETx(txID string) (driver.RWSet, driver.ProcessTransaction, error) {
+	if !c.TransactionService.Exists(txID) {
+		return nil, nil, errors.Errorf("transaction does not exists for [%s]", txID)
+	}
+
 	raw, err := c.TransactionService.LoadTransaction(txID)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "cannot load etx [%s]", txID)

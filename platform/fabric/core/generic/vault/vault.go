@@ -21,12 +21,12 @@ import (
 var logger = flogging.MustGetLogger("fabric-sdk.vault")
 
 type TXIDStoreReader interface {
-	Get(txID string) (fdriver.ValidationCode, error)
+	Get(txID string) (fdriver.ValidationCode, string, error)
 }
 
 type TXIDStore interface {
 	TXIDStoreReader
-	Set(txID string, code fdriver.ValidationCode) error
+	Set(txID string, code fdriver.ValidationCode, message string) error
 }
 
 // Vault models a key-value Store that can be modified by committing rwsets
@@ -69,27 +69,27 @@ func (db *Vault) NewQueryExecutor() (fdriver.QueryExecutor, error) {
 	}, nil
 }
 
-func (db *Vault) Status(txID string) (fdriver.ValidationCode, error) {
-	code, err := db.TXIDStore.Get(txID)
+func (db *Vault) Status(txID string) (fdriver.ValidationCode, string, error) {
+	code, message, err := db.TXIDStore.Get(txID)
 	if err != nil {
-		return 0, nil
+		return 0, "", nil
 	}
 
 	if code != fdriver.Unknown {
-		return code, nil
+		return code, message, nil
 	}
 
 	db.InterceptorsLock.RLock()
 	defer db.InterceptorsLock.RUnlock()
 
 	if _, in := db.Interceptors[txID]; in {
-		return fdriver.Busy, nil
+		return fdriver.Busy, message, nil
 	}
 
-	return fdriver.Unknown, nil
+	return fdriver.Unknown, message, nil
 }
 
-func (db *Vault) DiscardTx(txID string) error {
+func (db *Vault) DiscardTx(txID string, message string) error {
 	_, err := db.UnmapInterceptor(txID)
 	if err != nil {
 		return err
@@ -103,7 +103,7 @@ func (db *Vault) DiscardTx(txID string) error {
 		return errors.WithMessagef(err, "begin update for txid '%s' failed", txID)
 	}
 
-	err = db.TXIDStore.Set(txID, fdriver.Invalid)
+	err = db.TXIDStore.Set(txID, fdriver.Invalid, message)
 	if err != nil {
 		return err
 	}
@@ -120,7 +120,7 @@ func (db *Vault) CommitTX(txID string, block uint64, indexInBloc int) error {
 	logger.Debugf("UnmapInterceptor [%s]", txID)
 	i, err := db.UnmapInterceptor(txID)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "failed to unmap interceptor for [%s]", txID)
 	}
 	if i == nil {
 		return errors.Errorf("cannot find rwset for [%s]", txID)
@@ -173,7 +173,7 @@ func (db *Vault) CommitTX(txID string, block uint64, indexInBloc int) error {
 	}
 
 	logger.Debugf("set state to valid [%s]", txID)
-	err = db.TXIDStore.Set(txID, fdriver.Valid)
+	err = db.TXIDStore.Set(txID, fdriver.Valid, "")
 	if err != nil {
 		if err1 := db.Store.Discard(); err1 != nil {
 			logger.Errorf("got error %s; discarding caused %s", err.Error(), err1.Error())
@@ -195,7 +195,7 @@ func (db *Vault) Close() error {
 }
 
 func (db *Vault) SetBusy(txID string) error {
-	code, err := db.TXIDStore.Get(txID)
+	code, _, err := db.TXIDStore.Get(txID)
 	if err != nil {
 		return err
 	}
@@ -209,7 +209,7 @@ func (db *Vault) SetBusy(txID string) error {
 		return errors.WithMessagef(err, "begin update for txid '%s' failed", txID)
 	}
 
-	err = db.TXIDStore.Set(txID, fdriver.Busy)
+	err = db.TXIDStore.Set(txID, fdriver.Busy, "")
 	if err != nil {
 		return err
 	}
@@ -365,7 +365,7 @@ func (db *Vault) UnmapInterceptor(txID string) (*Interceptor, error) {
 	i, in := db.Interceptors[txID]
 
 	if !in {
-		vc, err := db.TXIDStore.Get(txID)
+		vc, _, err := db.TXIDStore.Get(txID)
 		if err != nil {
 			return nil, errors.Errorf("read-write set for txid %s could not be found", txID)
 		}

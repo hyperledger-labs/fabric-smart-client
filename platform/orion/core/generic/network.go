@@ -150,7 +150,7 @@ func NewNetwork(ctx context.Context, sp view2.ServiceProvider, config *config2.C
 	}
 	n.committer = committer
 
-	finality, err := finality.NewService(committer)
+	finality, err := finality.NewService(committer, n)
 	if err != nil {
 		return nil, errors.WithMessagef(err, "failed to create finality service")
 	}
