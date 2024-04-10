@@ -149,7 +149,7 @@ func (f *Network) ConfigService() driver.ConfigService {
 }
 
 func (f *Network) Init() error {
-	f.processorManager = rwset.NewProcessorManager(f.SP, f, nil)
+	f.processorManager = rwset.NewProcessorManager(f, nil)
 	f.transactionManager = transaction.NewManager(f.SP, f)
 	f.Ordering = ordering.NewService(
 		func(channelID string) (driver.EndorserTransactionService, error) {

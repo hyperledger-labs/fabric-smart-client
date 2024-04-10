@@ -8,17 +8,14 @@ package rwset
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/pkg/errors"
 )
 
 var logger = flogging.MustGetLogger("fabric-sdk.rwset")
 
-type Network interface {
+type ChannelProvider interface {
 	Channel(name string) (driver.Channel, error)
-	TransactionManager() driver.TransactionManager
-	Name() string
 }
 
 type RWSExtractor interface {
@@ -34,17 +31,18 @@ func (r *request) ID() string {
 }
 
 type processorManager struct {
-	sp                view.ServiceProvider
-	network           Network
+	channelProvider   ChannelProvider
 	defaultProcessor  driver.Processor
 	processors        map[string]driver.Processor
 	channelProcessors map[string]map[string]driver.Processor
 }
 
-func NewProcessorManager(sp view.ServiceProvider, network Network, defaultProcessor driver.Processor) *processorManager {
+func NewProcessorManager(
+	channelProvider ChannelProvider,
+	defaultProcessor driver.Processor,
+) *processorManager {
 	return &processorManager{
-		sp:                sp,
-		network:           network,
+		channelProvider:   channelProvider,
 		defaultProcessor:  defaultProcessor,
 		processors:        map[string]driver.Processor{},
 		channelProcessors: map[string]map[string]driver.Processor{},
@@ -54,7 +52,7 @@ func NewProcessorManager(sp view.ServiceProvider, network Network, defaultProces
 func (r *processorManager) ProcessByID(channel, txID string) error {
 	logger.Debugf("process transaction [%s,%s]", channel, txID)
 
-	ch, err := r.network.Channel(channel)
+	ch, err := r.channelProvider.Channel(channel)
 	if err != nil {
 		return errors.Wrapf(err, "failed getting channel [%s]", ch)
 	}
