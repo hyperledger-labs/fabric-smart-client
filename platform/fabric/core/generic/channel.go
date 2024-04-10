@@ -9,10 +9,9 @@ package generic
 import (
 	"context"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/membership"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
-	finality2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/finality"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/finality"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/membership"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
@@ -104,7 +103,7 @@ func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver
 	}
 
 	// Fabric finality
-	fabricFinality, err := finality2.NewFabricFinality(
+	fabricFinality, err := finality.NewFabricFinality(
 		name,
 		network.ConfigService(),
 		c.PeerManager,

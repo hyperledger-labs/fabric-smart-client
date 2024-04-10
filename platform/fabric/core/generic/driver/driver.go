@@ -71,7 +71,16 @@ func (d *Driver) New(sp view.ServiceProvider, network string, defaultNetwork boo
 
 	// New Network
 	metrics := metrics2.NewMetrics(metrics3.GetProvider(sp))
-	net, err := generic.NewNetwork(sp, network, configService, idProvider, mspService, sigService, metrics, generic.NewChannel)
+	net, err := generic.NewNetwork(
+		sp,
+		network,
+		configService,
+		idProvider,
+		mspService,
+		sigService,
+		metrics,
+		generic.NewChannel,
+	)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed instantiating fabric service provider")
 	}

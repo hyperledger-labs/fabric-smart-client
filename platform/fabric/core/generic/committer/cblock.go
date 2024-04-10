@@ -32,7 +32,7 @@ var (
 	ErrDiscardTX = errors.New("discard tx")
 )
 
-type Finality interface {
+type FabricFinality interface {
 	IsFinal(txID string, address string) error
 }
 
@@ -43,7 +43,7 @@ type Committer struct {
 	ConfigService       driver.ConfigService
 	ChannelConfig       driver.ChannelConfig
 	Committer           driver.Committer
-	Finality            Finality
+	FabricFinality      FabricFinality
 	WaitForEventTimeout time.Duration
 	Tracer              tracing.Tracer
 	Handlers            map[common.HeaderType]TransactionHandler
@@ -59,7 +59,7 @@ func NewBlockCommitter(
 	ConfigService driver.ConfigService,
 	channelConfig driver.ChannelConfig,
 	committer driver.Committer,
-	finality Finality,
+	fabricFinality FabricFinality,
 	waitForEventTimeout time.Duration,
 	quiet bool,
 	metrics tracing.Tracer,
@@ -78,7 +78,7 @@ func NewBlockCommitter(
 		QuietNotifier:       quiet,
 		listeners:           map[string][]chan TxEvent{},
 		mutex:               sync.Mutex{},
-		Finality:            finality,
+		FabricFinality:      fabricFinality,
 		pollingTimeout:      channelConfig.CommitterPollingTimeout(),
 		Tracer:              metrics,
 		publisher:           publisher,
@@ -178,7 +178,7 @@ func (c *Committer) IsFinal(ctx context.Context, txID string) error {
 				logger.Debugf("Tx [%s] is unknown with no deps, remote check [%d][%s]", txID, iter, debug.Stack())
 			}
 			peer := c.ConfigService.PickPeer(driver.PeerForFinality).Address
-			err := c.Finality.IsFinal(txID, peer)
+			err := c.FabricFinality.IsFinal(txID, peer)
 			if err == nil {
 				logger.Debugf("Tx [%s] is final, remote check on [%s]", txID, peer)
 				return nil
