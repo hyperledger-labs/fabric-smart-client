@@ -59,7 +59,6 @@ type Channel struct {
 	Vault             *vault.Vault
 	ProcessNamespaces []string
 	StatusReporters   []driver.StatusReporter
-	ExternalCommitter *committer.ExternalCommitter
 	ES                driver.EnvelopeService
 	TS                driver.EndorserTransactionService
 	MS                driver.MetadataService

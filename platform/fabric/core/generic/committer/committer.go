@@ -169,19 +169,6 @@ func (c *Committer) IsFinal(ctx context.Context, txID string) error {
 				}
 			}
 			return nil
-		case driver.HasDependencies:
-			logger.Debugf("Tx [%s] is unknown with deps [%v]", txID, deps)
-			if len(deps) == 0 {
-				return c.Finality.IsFinal(txID, c.Network.ConfigService().PickPeer(driver.PeerForFinality).Address)
-			}
-			for _, id := range deps {
-				logger.Debugf("Check finality of dependant transaction [%s]", id)
-				if err := c.IsFinal(ctx, id); err != nil {
-					logger.Errorf("Check finality of dependant transaction [%s], failed [%s]", id, err)
-					return err
-				}
-			}
-			return nil
 		case driver.Unknown:
 			if iter <= 1 {
 				logger.Debugf("Tx [%s] is unknown with no deps, wait a bit and retry [%d]", txID, iter)

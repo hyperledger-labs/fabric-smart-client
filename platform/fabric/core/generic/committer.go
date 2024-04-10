@@ -42,19 +42,7 @@ func (c *Channel) Status(txID string) (driver.ValidationCode, string, []string, 
 			}
 		}
 	}
-	if c.ExternalCommitter == nil {
-		return vc, message, nil, nil
-	}
-
-	_, dependantTxIDs, _, err := c.ExternalCommitter.Status(txID)
-	if err != nil {
-		logger.Errorf("failed to get external status of [%s]: %s", txID, err)
-		return driver.Unknown, "", nil, err
-	}
-	if vc == driver.Unknown && len(dependantTxIDs) != 0 {
-		return driver.HasDependencies, "", dependantTxIDs, nil
-	}
-	return vc, message, dependantTxIDs, nil
+	return vc, message, nil, nil
 }
 
 func (c *Channel) ProcessNamespace(nss ...string) error {
