@@ -8,7 +8,7 @@ package driver
 
 // Channel gives access to Fabric channel related information
 type Channel interface {
-	Committer
+	Committer() Committer
 
 	Vault() Vault
 

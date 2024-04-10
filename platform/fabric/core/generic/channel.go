@@ -43,8 +43,6 @@ type Channel struct {
 	FinalityService          driver.Finality
 	VaultService             driver.Vault
 	TXIDStoreService         driver.TXIDStore
-	ProcessNamespaces        []string
-	StatusReporters          []driver.StatusReporter
 	ES                       driver.EnvelopeService
 	TS                       driver.EndorserTransactionService
 	MS                       driver.MetadataService
@@ -53,14 +51,10 @@ type Channel struct {
 	LedgerService            driver.Ledger
 	ChannelMembershipService *ChannelMembershipService
 	CM                       driver.ChaincodeManager
+	CommitterService         *CommitterService
 
 	// connection pool
 	PeerManager *PeerManager
-
-	// events
-	Subscribers      *events.Subscribers
-	EventsSubscriber events.Subscriber
-	EventsPublisher  events.Publisher
 }
 
 func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver.Channel, error) {
@@ -109,9 +103,6 @@ func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver
 		ES:               transaction.NewEnvelopeService(kvsService, network.Name(), name),
 		TS:               transaction.NewEndorseTransactionService(kvsService, network.Name(), name),
 		MS:               transaction.NewMetadataService(kvsService, network.Name(), name),
-		EventsPublisher:  eventsPublisher,
-		EventsSubscriber: eventsSubscriber,
-		Subscribers:      events.NewSubscribers(),
 		PeerManager:      NewPeerManager(network.configService, network.LocalMembership().DefaultSigningIdentity()),
 	}
 
@@ -207,6 +198,20 @@ func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver
 		v,
 	)
 
+	c.CommitterService = NewCommitterService(
+		network.Name(),
+		name,
+		c.VaultService,
+		c.ES,
+		c.LedgerService,
+		c.RWSetLoaderService,
+		c.Network.processorManager,
+		eventsSubscriber,
+		eventsPublisher,
+		c.ChannelMembershipService,
+		c.Network,
+	)
+
 	if err := c.Init(); err != nil {
 		return nil, errors.WithMessagef(err, "failed initializing Channel [%s]", name)
 	}
@@ -255,8 +260,12 @@ func (c *Channel) RWSetLoader() driver.RWSetLoader {
 	return c.RWSetLoaderService
 }
 
+func (c *Channel) Committer() driver.Committer {
+	return c.CommitterService
+}
+
 func (c *Channel) Init() error {
-	if err := c.ReloadConfigTransactions(); err != nil {
+	if err := c.CommitterService.ReloadConfigTransactions(); err != nil {
 		return errors.WithMessagef(err, "failed reloading config transactions")
 	}
 	return nil

@@ -121,7 +121,11 @@ func (f *Network) Ledger(name string) (driver.Ledger, error) {
 }
 
 func (f *Network) Committer(name string) (driver.Committer, error) {
-	return f.Channel(name)
+	ch, err := f.Channel(name)
+	if err != nil {
+		return nil, err
+	}
+	return ch.Committer(), nil
 }
 
 func (f *Network) IdentityProvider() driver.IdentityProvider {
