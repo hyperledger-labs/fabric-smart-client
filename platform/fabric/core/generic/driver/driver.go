@@ -28,7 +28,7 @@ type Driver struct{}
 func (d *Driver) New(sp view.ServiceProvider, network string, defaultNetwork bool) (driver.FabricNetworkService, error) {
 	logger.Debugf("creating new fabric network service for network [%s]", network)
 	// bridge services
-	c, err := config.NewService(view.GetConfigService(sp), network, defaultNetwork)
+	configService, err := config.NewService(view.GetConfigService(sp), network, defaultNetwork)
 	if err != nil {
 		return nil, err
 	}
@@ -36,7 +36,7 @@ func (d *Driver) New(sp view.ServiceProvider, network string, defaultNetwork boo
 
 	// Endpoint service
 	resolverService, err := endpoint.NewResolverService(
-		c,
+		configService,
 		view.GetEndpointService(sp),
 	)
 	if err != nil {
@@ -53,11 +53,11 @@ func (d *Driver) New(sp view.ServiceProvider, network string, defaultNetwork boo
 	// Local MSP Manager
 	mspService := msp.NewLocalMSPManager(
 		sp,
-		c,
+		configService,
 		sigService,
 		view.GetEndpointService(sp),
 		view.GetIdentityProvider(sp).DefaultIdentity(),
-		c.MSPCacheSize(),
+		configService.MSPCacheSize(),
 	)
 	if err := mspService.Load(); err != nil {
 		return nil, errors.Wrap(err, "failed loading local msp service")
@@ -71,7 +71,7 @@ func (d *Driver) New(sp view.ServiceProvider, network string, defaultNetwork boo
 
 	// New Network
 	metrics := metrics2.NewMetrics(metrics3.GetProvider(sp))
-	net, err := generic.NewNetwork(sp, network, c, idProvider, mspService, sigService, metrics, generic.NewChannel)
+	net, err := generic.NewNetwork(sp, network, configService, idProvider, mspService, sigService, metrics, generic.NewChannel)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed instantiating fabric service provider")
 	}

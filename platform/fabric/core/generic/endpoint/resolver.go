@@ -42,14 +42,19 @@ type Service interface {
 	AddPublicKeyExtractor(extractor view2.PublicKeyExtractor) error
 }
 
+type Config interface {
+	Resolvers() ([]config.Resolver, error)
+	TranslatePath(path string) string
+}
+
 type ResolverService struct {
-	config    *config.Service
+	config    Config
 	service   Service
 	resolvers []*Resolver
 }
 
 // NewResolverService returns a new instance of the view-sdk endpoint resolverService
-func NewResolverService(config *config.Service, service Service) (*ResolverService, error) {
+func NewResolverService(config Config, service Service) (*ResolverService, error) {
 	er := &ResolverService{
 		config:  config,
 		service: service,

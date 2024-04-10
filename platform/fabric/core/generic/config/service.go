@@ -12,6 +12,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
@@ -71,33 +73,41 @@ func NewService(configService configService, name string, defaultConfig bool) (*
 			prefix:        name + ".",
 			configService: configService,
 		}
-	}
-	if defaultConfig {
-		service = &Service{
-			name:          name,
-			prefix:        "",
-			configService: configService,
+	} else {
+		if defaultConfig {
+			service = &Service{
+				name:          name,
+				prefix:        "",
+				configService: configService,
+			}
+		} else {
+			return nil, errors.Errorf("configuration for [%s] not found", name)
 		}
 	}
-
 	// populate it
-
-	// orderers
-	var orderers []*grpc.ConnectionConfig
-	if err := configService.UnmarshalKey("fabric."+service.prefix+"orderers", &orderers); err != nil {
+	if err := service.init(); err != nil {
 		return nil, err
 	}
-	tlsEnabled := service.TLSEnabled()
+	return service, nil
+}
+
+func (s *Service) init() error {
+	// orderers
+	var orderers []*grpc.ConnectionConfig
+	if err := s.configService.UnmarshalKey("fabric."+s.prefix+"orderers", &orderers); err != nil {
+		return err
+	}
+	tlsEnabled := s.TLSEnabled()
 	for _, v := range orderers {
 		v.TLSEnabled = tlsEnabled
 	}
-	service.configuredOrderers = orderers
-	service.orderers = orderers
+	s.configuredOrderers = orderers
+	s.orderers = orderers
 
 	// peers
 	var peers []*grpc.ConnectionConfig
-	if err := configService.UnmarshalKey("fabric."+service.prefix+"peers", &peers); err != nil {
-		return nil, err
+	if err := s.configService.UnmarshalKey("fabric."+s.prefix+"peers", &peers); err != nil {
+		return err
 	}
 
 	peerMapping := map[driver.PeerFunctionType][]*grpc.ConnectionConfig{}
@@ -122,33 +132,32 @@ func NewService(configService configService, name string, defaultConfig bool) (*
 			logger.Warn("connection usage [%s] not recognized [%v]", usage, v)
 		}
 	}
-	service.peerMapping = peerMapping
+	s.peerMapping = peerMapping
 
 	// channels
 	var channels []*Channel
 	var channelIDs []string
 	var channelConfigs []driver.ChannelConfig
-	if err := configService.UnmarshalKey("fabric."+service.prefix+"channels", &channels); err != nil {
-		return nil, err
+	if err := s.configService.UnmarshalKey("fabric."+s.prefix+"channels", &channels); err != nil {
+		return err
 	}
 	for _, channel := range channels {
 		if err := channel.Verify(); err != nil {
-			return nil, err
+			return err
 		}
 		channelIDs = append(channelIDs, channel.Name)
 		channelConfigs = append(channelConfigs, channel)
 	}
-	service.channels = channels
-	service.channelIDs = channelIDs
-	service.channelConfigs = channelConfigs
+	s.channels = channels
+	s.channelIDs = channelIDs
+	s.channelConfigs = channelConfigs
 	for _, channel := range channels {
 		if channel.Default {
-			service.defaultChannel = channel.Name
+			s.defaultChannel = channel.Name
 			break
 		}
 	}
-
-	return service, nil
+	return nil
 }
 
 func (s *Service) NetworkName() string {
@@ -200,37 +209,6 @@ func (s *Service) NewDefaultChannelConfig(name string) driver.ChannelConfig {
 
 func (s *Service) Orderers() []*grpc.ConnectionConfig {
 	return s.orderers
-}
-
-func (s *Service) Peers() (map[driver.PeerFunctionType][]*grpc.ConnectionConfig, error) {
-	var connectionConfigs []*grpc.ConnectionConfig
-	if err := s.configService.UnmarshalKey("fabric."+s.prefix+"peers", &connectionConfigs); err != nil {
-		return nil, err
-	}
-
-	res := map[driver.PeerFunctionType][]*grpc.ConnectionConfig{}
-	for _, v := range connectionConfigs {
-		v.TLSEnabled = s.TLSEnabled()
-		if v.TLSDisabled {
-			v.TLSEnabled = false
-		}
-		usage := strings.ToLower(v.Usage)
-		switch {
-		case len(usage) == 0:
-			res[driver.PeerForAnything] = append(res[driver.PeerForAnything], v)
-		case usage == "delivery":
-			res[driver.PeerForDelivery] = append(res[driver.PeerForDelivery], v)
-		case usage == "discovery":
-			res[driver.PeerForDiscovery] = append(res[driver.PeerForDiscovery], v)
-		case usage == "finality":
-			res[driver.PeerForFinality] = append(res[driver.PeerForFinality], v)
-		case usage == "query":
-			res[driver.PeerForQuery] = append(res[driver.PeerForQuery], v)
-		default:
-			logger.Warn("connection usage [%s] not recognized [%v]", usage, v)
-		}
-	}
-	return res, nil
 }
 
 func (s *Service) VaultPersistenceType() string {
