@@ -11,18 +11,16 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/delivery"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	ab "github.com/hyperledger/fabric-protos-go/orderer"
 	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
 )
 
-type Network interface {
-	Name() string
-	LocalMembership() driver.LocalMembership
-	Channel(id string) (driver.Channel, error)
-	IdentityProvider() driver.IdentityProvider
-	ConfigService() driver.ConfigService
+type PeerManager interface {
+	NewPeerClientForAddress(cc grpc.ConnectionConfig) (peer.Client, error)
 }
 
 type Hasher interface {
@@ -30,22 +28,33 @@ type Hasher interface {
 }
 
 type FabricFinality struct {
-	channel             string
-	network             Network
-	hasher              Hasher
-	waitForEventTimeout time.Duration
+	channel                string
+	ConfigService          driver.ConfigService
+	PeerManager            PeerManager
+	DefaultSigningIdentity driver.SigningIdentity
+	hasher                 Hasher
+	waitForEventTimeout    time.Duration
 }
 
-func NewFabricFinality(channel string, network Network, hasher Hasher, waitForEventTimeout time.Duration) (*FabricFinality, error) {
+func NewFabricFinality(
+	channel string,
+	ConfigService driver.ConfigService,
+	PeerManager PeerManager,
+	DefaultSigningIdentity driver.SigningIdentity,
+	hasher Hasher,
+	waitForEventTimeout time.Duration,
+) (*FabricFinality, error) {
 	if len(channel) == 0 {
 		return nil, errors.Errorf("expected a channel, got empty string")
 	}
 
 	d := &FabricFinality{
-		channel:             channel,
-		network:             network,
-		hasher:              hasher,
-		waitForEventTimeout: waitForEventTimeout,
+		channel:                channel,
+		ConfigService:          ConfigService,
+		PeerManager:            PeerManager,
+		DefaultSigningIdentity: DefaultSigningIdentity,
+		hasher:                 hasher,
+		waitForEventTimeout:    waitForEventTimeout,
 	}
 
 	return d, nil
@@ -59,11 +68,7 @@ func (d *FabricFinality) IsFinal(txID string, address string) error {
 	var ctx context.Context
 	var cancelFunc context.CancelFunc
 
-	ch, err := d.network.Channel(d.channel)
-	if err != nil {
-		return errors.WithMessagef(err, "failed connecting to channel [%s]", d.channel)
-	}
-	client, err := ch.NewPeerClientForAddress(*d.network.ConfigService().PickPeer(driver.PeerForFinality))
+	client, err := d.PeerManager.NewPeerClientForAddress(*d.ConfigService.PickPeer(driver.PeerForFinality))
 	if err != nil {
 		return errors.WithMessagef(err, "failed creating peer client for address [%s]", address)
 	}
@@ -83,7 +88,7 @@ func (d *FabricFinality) IsFinal(txID string, address string) error {
 
 	blockEnvelope, err := delivery.CreateDeliverEnvelope(
 		d.channel,
-		d.network.LocalMembership().DefaultSigningIdentity(),
+		d.DefaultSigningIdentity,
 		deliverClient.Certificate(),
 		d.hasher,
 		&ab.SeekPosition{

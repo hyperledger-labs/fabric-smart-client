@@ -122,7 +122,7 @@ func (c *Channel) CommitTX(txID string, block uint64, indexInBlock int, envelope
 		}
 	}()
 
-	vc, _, deps, err := c.Status(txID)
+	vc, _, _, err := c.Status(txID)
 	if err != nil {
 		return errors.WithMessagef(err, "failed getting tx's status in state db [%s]", txID)
 	}
@@ -137,10 +137,8 @@ func (c *Channel) CommitTX(txID string, block uint64, indexInBlock int, envelope
 		return errors.Errorf("[%s] is invalid", txID)
 	case driver.Unknown:
 		return c.commitUnknown(txID, block, indexInBlock, envelope)
-	case driver.HasDependencies:
-		return c.commitDeps(txID, block, indexInBlock)
 	case driver.Busy:
-		return c.commit(txID, deps, block, indexInBlock, envelope)
+		return c.commit(txID, block, indexInBlock, envelope)
 	default:
 		return errors.Errorf("invalid status code [%d] for [%s]", vc, txID)
 	}
@@ -208,7 +206,7 @@ func (c *Channel) commitUnknown(txID string, block uint64, indexInBlock int, env
 		return errors.WithMessagef(err, "failed to get rws from envelope [%s]", txID)
 	}
 	rws.Done()
-	return c.commit(txID, nil, block, indexInBlock, envelope)
+	return c.commit(txID, block, indexInBlock, envelope)
 }
 
 func (c *Channel) filterUnknownEnvelope(txID string, envelope []byte) (bool, error) {
@@ -266,74 +264,10 @@ func (c *Channel) extractStoredEnvelopeToVault(txID string) error {
 	return nil
 }
 
-func (c *Channel) commit(txID string, deps []string, block uint64, indexInBlock int, envelope *common.Envelope) error {
+func (c *Channel) commit(txID string, block uint64, indexInBlock int, envelope *common.Envelope) error {
 	logger.Debugf("[%s] is known.", txID)
-
-	switch {
-	case len(deps) != 0:
-		if err := c.commitExternal(txID, block, indexInBlock); err != nil {
-			return err
-		}
-	default:
-		if err := c.commitLocal(txID, block, indexInBlock, envelope); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (c *Channel) commitDeps(txID string, block uint64, indexInBlock int) error {
-	// This should not generate a panic if the transaction is deemed invalid
-	logger.Debugf("[%s] is unknown but have dependencies, commit as multi-shard pvt", txID)
-
-	// Validate and commit
-	vc, err := c.ExternalCommitter.Validate(txID)
-	if err != nil {
-		return errors.WithMessagef(err, "failed validating transaction [%s]", txID)
-	}
-	switch vc {
-	case driver.Valid:
-		if err := c.ExternalCommitter.CommitTX(txID, block, indexInBlock); err != nil {
-			return errors.WithMessagef(err, "failed committing tx [%s]", txID)
-		}
-		return nil
-	case driver.Invalid:
-		if err := c.ExternalCommitter.DiscardTX(txID); err != nil {
-			logger.Errorf("failed committing tx [%s] with err [%s]", txID, err)
-		}
-		return nil
-	}
-	return nil
-}
-
-func (c *Channel) commitExternal(txID string, block uint64, indexInBlock int) error {
-	logger.Debugf("[%s] Committing as multi-shard pvt.", txID)
-
-	// Ask for finality
-	_, _, parties, err := c.ExternalCommitter.Status(txID)
-	if err != nil {
-		return errors.Wrapf(err, "failed getting parties for [%s]", txID)
-	}
-	if err := c.IsFinalForParties(txID, parties...); err != nil {
+	if err := c.commitLocal(txID, block, indexInBlock, envelope); err != nil {
 		return err
-	}
-
-	// Validate and commit
-	vc, err := c.ExternalCommitter.Validate(txID)
-	if err != nil {
-		return errors.WithMessagef(err, "failed validating transaction [%s]", txID)
-	}
-	switch vc {
-	case driver.Valid:
-		if err := c.ExternalCommitter.CommitTX(txID, block, indexInBlock); err != nil {
-			return errors.WithMessagef(err, "failed committing tx [%s]", txID)
-		}
-		return nil
-	case driver.Invalid:
-		if err := c.ExternalCommitter.DiscardTX(txID); err != nil {
-			logger.Errorf("failed committing tx [%s] with err [%s]", txID, err)
-		}
-		return nil
 	}
 	return nil
 }

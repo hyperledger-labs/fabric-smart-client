@@ -109,10 +109,39 @@ func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver
 		return nil, err
 	}
 
+	// Events
+	eventsPublisher, err := events.GetPublisher(sp)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get event publisher")
+	}
+	eventsSubscriber, err := events.GetSubscriber(sp)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get event subscriber")
+	}
+
+	c := &Channel{
+		ChannelName:      name,
+		ConfigService:    network.configService,
+		ChannelConfig:    channelConfig,
+		Network:          network,
+		Vault:            v,
+		SP:               sp,
+		TXIDStore:        txIDStore,
+		ES:               transaction.NewEnvelopeService(sp, network.Name(), name),
+		TS:               transaction.NewEndorseTransactionService(sp, network.Name(), name),
+		MS:               transaction.NewMetadataService(sp, network.Name(), name),
+		Chaincodes:       map[string]driver.Chaincode{},
+		EventsPublisher:  eventsPublisher,
+		EventsSubscriber: eventsSubscriber,
+		Subscribers:      events.NewSubscribers(),
+	}
+
 	// Fabric finality
 	fabricFinality, err := finality2.NewFabricFinality(
 		name,
-		network,
+		network.ConfigService(),
+		c,
+		network.LocalMembership().DefaultSigningIdentity(),
 		hash.GetHasher(sp),
 		channelConfig.FinalityWaitTimeout(),
 	)
@@ -121,11 +150,6 @@ func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver
 	}
 
 	// Committers
-	externalCommitter, err := committer.GetExternalCommitter(name, sp, v)
-	if err != nil {
-		return nil, err
-	}
-
 	publisher, err := events.GetPublisher(network.SP)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get event publisher")
@@ -145,38 +169,12 @@ func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver
 	}
 
 	// Finality
-	fs, err := finality2.NewService(sp, network, channelConfig, committerInst)
+	fs, err := finality2.NewService(committerInst)
 	if err != nil {
 		return nil, err
 	}
-	// Events
-	eventsPublisher, err := events.GetPublisher(sp)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get event publisher")
-	}
-	eventsSubscriber, err := events.GetSubscriber(sp)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get event subscriber")
-	}
+	c.Finality = fs
 
-	c := &Channel{
-		ChannelName:       name,
-		ConfigService:     network.configService,
-		ChannelConfig:     channelConfig,
-		Network:           network,
-		Vault:             v,
-		SP:                sp,
-		Finality:          fs,
-		ExternalCommitter: externalCommitter,
-		TXIDStore:         txIDStore,
-		ES:                transaction.NewEnvelopeService(sp, network.Name(), name),
-		TS:                transaction.NewEndorseTransactionService(sp, network.Name(), name),
-		MS:                transaction.NewMetadataService(sp, network.Name(), name),
-		Chaincodes:        map[string]driver.Chaincode{},
-		EventsPublisher:   eventsPublisher,
-		EventsSubscriber:  eventsSubscriber,
-		Subscribers:       events.NewSubscribers(),
-	}
 	// Delivery
 	deliveryService, err := delivery2.New(
 		network.Name(),

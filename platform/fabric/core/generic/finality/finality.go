@@ -9,19 +9,10 @@ package finality
 import (
 	"context"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"go.uber.org/zap/zapcore"
 )
 
 var logger = flogging.MustGetLogger("fabric-sdk.finality")
-
-type Config interface {
-	TLSEnabled() bool
-}
 
 type Committer interface {
 	// IsFinal takes in input a transaction id and waits for its confirmation.
@@ -29,22 +20,12 @@ type Committer interface {
 }
 
 type Finality struct {
-	channel       string
-	network       Network
-	sp            view2.ServiceProvider
-	committer     Committer
-	TLSEnabled    bool
-	channelConfig driver.ChannelConfig
+	committer Committer
 }
 
-func NewService(sp view2.ServiceProvider, network Network, channelConfig driver.ChannelConfig, committer Committer) (*Finality, error) {
+func NewService(committer Committer) (*Finality, error) {
 	return &Finality{
-		sp:            sp,
-		network:       network,
-		committer:     committer,
-		channel:       channelConfig.ID(),
-		channelConfig: channelConfig,
-		TLSEnabled:    true,
+		committer: committer,
 	}, nil
 }
 
@@ -53,26 +34,4 @@ func (f *Finality) IsFinal(ctx context.Context, txID string) error {
 		ctx = context.Background()
 	}
 	return f.committer.IsFinal(ctx, txID)
-}
-
-func (f *Finality) IsFinalForParties(txID string, parties ...view.Identity) error {
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("Is [%s] final for parties [%v]?", txID, parties)
-	}
-
-	for _, party := range parties {
-		_, err := view2.GetManager(f.sp).InitiateView(
-			NewIsFinalInitiatorView(
-				f.network.ConfigService().NetworkName(), f.channel, txID, party,
-				f.channelConfig.FinalityForPartiesWaitTimeout(),
-			),
-		)
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("Is [%s] final on [%s]: [%s]?", txID, party, err)
-		}
-		if err != nil {
-			return err
-		}
-	}
-	return nil
 }
