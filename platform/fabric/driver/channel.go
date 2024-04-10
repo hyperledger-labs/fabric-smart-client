@@ -6,11 +6,6 @@ SPDX-License-Identifier: Apache-2.0
 
 package driver
 
-import (
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
-)
-
 // Channel gives access to Fabric channel related information
 type Channel interface {
 	Committer
@@ -32,10 +27,6 @@ type Channel interface {
 	TransactionService() EndorserTransactionService
 
 	MetadataService() MetadataService
-
-	// NewPeerClientForAddress creates an instance of a Client using the
-	// provided peer connection config
-	NewPeerClientForAddress(cc grpc.ConnectionConfig) (peer.Client, error)
 
 	Close() error
 }

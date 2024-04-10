@@ -10,6 +10,8 @@ import (
 	"context"
 	"sync"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger/fabric-protos-go/discovery"
@@ -187,7 +189,7 @@ type CachingEndorserPool struct {
 	ConnCreator
 	lock   sync.RWMutex
 	Cache  map[string]Client
-	Signer discovery2.Signer
+	Signer driver.Signer
 }
 
 func (cep *CachingEndorserPool) NewPeerClientForAddress(cc grpc.ConnectionConfig) (Client, error) {
@@ -221,7 +223,7 @@ func (cep *CachingEndorserPool) getOrCreateClient(key string, newClient func() (
 		},
 		address: pc.Address(),
 		Client:  cl,
-		signer:  cep.Signer,
+		signer:  cep.Signer.Sign,
 	}
 
 	logger.Debugf("Created new client for [%s]", key)

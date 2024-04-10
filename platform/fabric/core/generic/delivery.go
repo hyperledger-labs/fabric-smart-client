@@ -32,7 +32,7 @@ func (c *Channel) Scan(ctx context.Context, txID string, callback driver.Deliver
 		hash.GetHasher(c.SP),
 		c.Network.LocalMembership(),
 		c.Network.ConfigService(),
-		c,
+		c.PeerManager,
 		c,
 		func(block *common.Block) (bool, error) {
 			for i, tx := range block.Data.Data {

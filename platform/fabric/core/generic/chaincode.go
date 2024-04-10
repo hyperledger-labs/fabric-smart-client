@@ -8,9 +8,7 @@ package generic
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/chaincode"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 )
 
 // Chaincode returns a chaincode handler for the passed chaincode name
@@ -34,7 +32,7 @@ func (c *Channel) Chaincode(name string) driver.Chaincode {
 		c.ConfigService,
 		c.ChannelConfig,
 		c.Network.LocalMembership(),
-		&PeerManager{Network: c.Network, Channel: c},
+		c.PeerManager,
 		c.Network.SignerService(),
 		c.Network.OrderingService(),
 		c,
@@ -42,17 +40,4 @@ func (c *Channel) Chaincode(name string) driver.Chaincode {
 	)
 	c.Chaincodes[name] = ch
 	return ch
-}
-
-type PeerManager struct {
-	Network *Network
-	Channel *Channel
-}
-
-func (p PeerManager) NewPeerClientForAddress(cc grpc.ConnectionConfig) (peer.Client, error) {
-	return p.Channel.NewPeerClientForAddress(cc)
-}
-
-func (p PeerManager) PickPeer(funcType driver.PeerFunctionType) *grpc.ConnectionConfig {
-	return p.Network.ConfigService().PickPeer(funcType)
 }

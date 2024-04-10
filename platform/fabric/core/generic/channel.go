@@ -78,7 +78,7 @@ type Channel struct {
 	Chaincodes     map[string]driver.Chaincode
 
 	// connection pool
-	ConnCache peer2.CachingEndorserPool
+	PeerManager *PeerManager
 
 	// events
 	Subscribers      *events.Subscribers
@@ -142,7 +142,7 @@ func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver
 	fabricFinality, err := finality2.NewFabricFinality(
 		name,
 		network.ConfigService(),
-		c,
+		c.PeerManager,
 		network.LocalMembership().DefaultSigningIdentity(),
 		hash.GetHasher(sp),
 		channelConfig.FinalityWaitTimeout(),
@@ -184,7 +184,7 @@ func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver
 		hash.GetHasher(sp),
 		network.LocalMembership(),
 		network.ConfigService(),
-		c,
+		c.PeerManager,
 		c,
 		func(block *common.Block) (bool, error) {
 			// commit the block, if an error occurs then retry
@@ -213,11 +213,6 @@ func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver
 
 func (c *Channel) Name() string {
 	return c.ChannelName
-}
-
-func (c *Channel) NewPeerClientForAddress(cc grpc.ConnectionConfig) (peer2.Client, error) {
-	logger.Debugf("NewPeerClientForAddress [%v]", cc)
-	return c.ConnCache.NewPeerClientForAddress(cc)
 }
 
 func (c *Channel) IsValid(identity view.Identity) error {
@@ -325,10 +320,6 @@ func (c *Channel) Config() driver.ChannelConfig {
 	return c.ChannelConfig
 }
 
-func (c *Channel) DefaultSigner() discovery.Signer {
-	return c.Network.LocalMembership().DefaultSigningIdentity().Sign
-}
-
 // FetchEnvelope fetches from the ledger and stores the enveloped correspoding to the passed id
 func (c *Channel) FetchEnvelope(txID string) ([]byte, error) {
 	pt, err := c.GetTransactionByID(txID)
@@ -357,11 +348,7 @@ func (c *Channel) Init() error {
 	if err := c.ReloadConfigTransactions(); err != nil {
 		return errors.WithMessagef(err, "failed reloading config transactions")
 	}
-	c.ConnCache = peer2.CachingEndorserPool{
-		Cache:       map[string]peer2.Client{},
-		ConnCreator: &connCreator{ch: c},
-		Signer:      c.DefaultSigner(),
-	}
+	c.PeerManager = NewPeerManager(c.ConfigService, c.Network.LocalMembership().DefaultSigningIdentity())
 	return nil
 }
 
@@ -433,46 +420,4 @@ func (p *processedTransaction) Envelope() []byte {
 
 func (p *processedTransaction) ValidationCode() int32 {
 	return p.vc
-}
-
-type connCreator struct {
-	ch *Channel
-}
-
-func (c *connCreator) NewPeerClientForAddress(cc grpc.ConnectionConfig) (peer2.Client, error) {
-	logger.Debugf("Creating new peer client for address [%s]", cc.Address)
-	var certs [][]byte
-	if cc.TLSEnabled {
-		switch {
-		case len(cc.TLSRootCertFile) != 0:
-			logger.Debugf("Loading TLSRootCert from file [%s]", cc.TLSRootCertFile)
-			caPEM, err := os.ReadFile(cc.TLSRootCertFile)
-			if err != nil {
-				logger.Error("unable to load TLS cert from %s", cc.TLSRootCertFile)
-				return nil, errors.WithMessagef(err, "unable to load TLS cert from %s", cc.TLSRootCertFile)
-			}
-			certs = append(certs, caPEM)
-		case len(cc.TLSRootCertBytes) != 0:
-			logger.Debugf("Loading TLSRootCert from passed bytes [%s[", cc.TLSRootCertBytes)
-			certs = cc.TLSRootCertBytes
-		default:
-			return nil, errors.New("missing TLSRootCertFile in client config")
-		}
-	}
-
-	clientConfig, override, err := c.ch.GetClientConfig(certs, cc.TLSEnabled)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(cc.ServerNameOverride) != 0 {
-		override = cc.ServerNameOverride
-	}
-
-	return newPeerClientForClientConfig(
-		c.ch.DefaultSigner(),
-		cc.Address,
-		override,
-		*clientConfig,
-	)
 }
