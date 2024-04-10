@@ -8,6 +8,8 @@ package config
 
 import (
 	"time"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
 
 type BCCSP struct {
@@ -88,6 +90,14 @@ type Chaincode struct {
 	Private bool   `yaml:"Private,omitempty"`
 }
 
+func (c Chaincode) ID() string {
+	return c.Name
+}
+
+func (c Chaincode) IsPrivate() bool {
+	return c.Private
+}
+
 type Finality struct {
 	WaitForEventTimeout   time.Duration `yaml:"WaitForEventTimeout,omitempty"`
 	ForPartiesWaitTimeout time.Duration `yaml:"ForPartiesWaitTimeout,omitempty"`
@@ -134,6 +144,10 @@ func (c *Channel) Verify() error {
 	return nil
 }
 
+func (c *Channel) ID() string {
+	return c.Name
+}
+
 func (c *Channel) DiscoveryDefaultTTLS() time.Duration {
 	if c.Discovery.Timeout == 0 {
 		return 5 * time.Minute
@@ -153,6 +167,14 @@ func (c *Channel) DeliverySleepAfterFailure() time.Duration {
 		return 10 * time.Second
 	}
 	return c.Delivery.SleepAfterFailure
+}
+
+func (c *Channel) ChaincodeConfigs() []driver.ChaincodeConfig {
+	res := make([]driver.ChaincodeConfig, len(c.Chaincodes))
+	for i, config := range c.Chaincodes {
+		res[i] = config
+	}
+	return res
 }
 
 func (c *Channel) FinalityWaitTimeout() time.Duration {
@@ -195,6 +217,14 @@ func (c *Channel) FinalityForPartiesWaitTimeout() time.Duration {
 		return 1 * time.Minute
 	}
 	return c.Finality.ForPartiesWaitTimeout
+}
+
+func (c *Channel) GetNumRetries() uint {
+	return c.NumRetries
+}
+
+func (c *Channel) GetRetrySleep() time.Duration {
+	return c.RetrySleep
 }
 
 type Network struct {

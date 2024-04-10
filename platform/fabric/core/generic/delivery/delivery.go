@@ -12,12 +12,10 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger/fabric-protos-go/common"
 	ab "github.com/hyperledger/fabric-protos-go/orderer"
@@ -52,14 +50,13 @@ type Vault interface {
 type Network interface {
 	Name() string
 	Channel(name string) (driver.Channel, error)
-	PickPeer(funcType driver.PeerFunctionType) *grpc.ConnectionConfig
 	LocalMembership() driver.LocalMembership
-	Config() *config.Config
+	ConfigService() driver.ConfigService
 }
 
 type Delivery struct {
 	channel             string
-	channelConfig       *config.Channel
+	channelConfig       driver.ChannelConfig
 	sp                  view2.ServiceProvider
 	network             Network
 	waitForEventTimeout time.Duration
@@ -70,13 +67,13 @@ type Delivery struct {
 	stop                chan bool
 }
 
-func New(channelConfig *config.Channel, sp view2.ServiceProvider, network Network, callback Callback, vault Vault, waitForEventTimeout time.Duration) (*Delivery, error) {
+func New(channelConfig driver.ChannelConfig, sp view2.ServiceProvider, network Network, callback Callback, vault Vault, waitForEventTimeout time.Duration) (*Delivery, error) {
 	if channelConfig == nil {
 		return nil, errors.Errorf("expected channel config, got nil")
 	}
 
 	d := &Delivery{
-		channel:             channelConfig.Name,
+		channel:             channelConfig.ID(),
 		channelConfig:       channelConfig,
 		sp:                  sp,
 		network:             network,
@@ -181,7 +178,7 @@ func (d *Delivery) connect(ctx context.Context) (DeliverStream, error) {
 	// first cleanup everything
 	d.cleanup()
 
-	peerConnConf := d.network.PickPeer(driver.PeerForDelivery)
+	peerConnConf := d.network.ConfigService().PickPeer(driver.PeerForDelivery)
 
 	address := peerConnConf.Address
 	if logger.IsEnabledFor(zapcore.DebugLevel) {

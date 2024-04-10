@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package generic
 
 import (
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/vault/txidstore"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
@@ -23,14 +22,14 @@ type TXIDStore interface {
 	Set(txID string, code fdriver.ValidationCode, message string) error
 }
 
-func NewVault(sp view2.ServiceProvider, config *config.Config, channel string) (*vault.Vault, TXIDStore, error) {
-	logger.Debugf("new fabric vault for channel [%s] with config [%v]", channel, config)
-	pType := config.VaultPersistenceType()
+func NewVault(sp view2.ServiceProvider, configService fdriver.ConfigService, channel string) (*vault.Vault, TXIDStore, error) {
+	logger.Debugf("new fabric vault for channel [%s] with config [%v]", channel, configService)
+	pType := configService.VaultPersistenceType()
 	if pType == "file" {
 		// for retro compatibility
 		pType = "badger"
 	}
-	persistence, err := db.OpenVersioned(sp, pType, channel, db.NewPrefixConfig(config, config.VaultPersistencePrefix()))
+	persistence, err := db.OpenVersioned(sp, pType, channel, db.NewPrefixConfig(configService, configService.VaultPersistencePrefix()))
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "failed creating vault")
 	}
@@ -41,7 +40,7 @@ func NewVault(sp view2.ServiceProvider, config *config.Config, channel string) (
 		return nil, nil, errors.Wrapf(err, "failed creating txid store")
 	}
 
-	txIDStoreCacheSize := config.VaultTXStoreCacheSize()
+	txIDStoreCacheSize := configService.VaultTXStoreCacheSize()
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "failed loading txID store cache size from configuration")
 	}

@@ -9,7 +9,7 @@ package finality
 import (
 	"context"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
@@ -34,15 +34,15 @@ type Finality struct {
 	sp            view2.ServiceProvider
 	committer     Committer
 	TLSEnabled    bool
-	channelConfig *config.Channel
+	channelConfig driver.ChannelConfig
 }
 
-func NewService(sp view2.ServiceProvider, network Network, channelConfig *config.Channel, committer Committer) (*Finality, error) {
+func NewService(sp view2.ServiceProvider, network Network, channelConfig driver.ChannelConfig, committer Committer) (*Finality, error) {
 	return &Finality{
 		sp:            sp,
 		network:       network,
 		committer:     committer,
-		channel:       channelConfig.Name,
+		channel:       channelConfig.ID(),
 		channelConfig: channelConfig,
 		TLSEnabled:    true,
 	}, nil
@@ -63,7 +63,7 @@ func (f *Finality) IsFinalForParties(txID string, parties ...view.Identity) erro
 	for _, party := range parties {
 		_, err := view2.GetManager(f.sp).InitiateView(
 			NewIsFinalInitiatorView(
-				f.network.Config().Name(), f.channel, txID, party,
+				f.network.ConfigService().NetworkName(), f.channel, txID, party,
 				f.channelConfig.FinalityForPartiesWaitTimeout(),
 			),
 		)

@@ -383,7 +383,7 @@ func (s *service) loadLocalMSPs() error {
 	}
 
 	if s.defaultIdentity == nil {
-		return errors.Errorf("no default identity set for network [%s]", s.config.Name())
+		return errors.Errorf("no default identity set for network [%s]", s.config.NetworkName())
 	}
 
 	return nil

@@ -10,11 +10,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/delivery"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	ab "github.com/hyperledger/fabric-protos-go/orderer"
 	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
@@ -22,11 +19,10 @@ import (
 
 type Network interface {
 	Name() string
-	PickPeer(driver.PeerFunctionType) *grpc.ConnectionConfig
 	LocalMembership() driver.LocalMembership
 	Channel(id string) (driver.Channel, error)
 	IdentityProvider() driver.IdentityProvider
-	Config() *config.Config
+	ConfigService() driver.ConfigService
 }
 
 type Hasher interface {
@@ -67,7 +63,7 @@ func (d *FabricFinality) IsFinal(txID string, address string) error {
 	if err != nil {
 		return errors.WithMessagef(err, "failed connecting to channel [%s]", d.channel)
 	}
-	client, err := ch.NewPeerClientForAddress(*d.network.PickPeer(driver.PeerForFinality))
+	client, err := ch.NewPeerClientForAddress(*d.network.ConfigService().PickPeer(driver.PeerForFinality))
 	if err != nil {
 		return errors.WithMessagef(err, "failed creating peer client for address [%s]", address)
 	}

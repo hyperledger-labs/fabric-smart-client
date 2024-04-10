@@ -23,7 +23,7 @@ type MSP struct {
 }
 
 type Config interface {
-	Name() string
+	NetworkName() string
 	DefaultMSP() string
 	MSPs() ([]config.MSP, error)
 	TranslatePath(path string) string

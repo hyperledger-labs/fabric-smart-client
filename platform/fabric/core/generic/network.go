@@ -7,10 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package generic
 
 import (
-	"math/rand"
 	"sync"
 
-	config2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/ordering"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/rwset"
@@ -31,28 +29,18 @@ type Network struct {
 	SP   view2.ServiceProvider
 	name string
 
-	config *config2.Config
-
+	configService      driver.ConfigService
 	localMembership    driver.LocalMembership
 	idProvider         driver.IdentityProvider
 	processorManager   driver.ProcessorManager
 	transactionManager driver.TransactionManager
 	sigService         driver.SignerService
 
-	// Ordering related fields
-	orderers           []*grpc.ConnectionConfig
-	ConsensusType      string
-	configuredOrderers int
+	ConsensusType string
+	Ordering      driver.Ordering
 
-	// Peers related fields
-	peers map[driver.PeerFunctionType][]*grpc.ConnectionConfig
+	Metrics *metrics.Metrics
 
-	// Channel related fields
-	defaultChannel string
-	channelConfigs []*config2.Channel
-
-	Metrics      *metrics.Metrics
-	Ordering     driver.Ordering
 	NewChannel   NewChannelFunc
 	ChannelMap   map[string]driver.Channel
 	ChannelMutex sync.RWMutex
@@ -61,7 +49,7 @@ type Network struct {
 func NewNetwork(
 	sp view2.ServiceProvider,
 	name string,
-	config *config2.Config,
+	config driver.ConfigService,
 	idProvider driver.IdentityProvider,
 	localMembership driver.LocalMembership,
 	sigService driver.SignerService,
@@ -71,7 +59,7 @@ func NewNetwork(
 	return &Network{
 		SP:              sp,
 		name:            name,
-		config:          config,
+		configService:   config,
 		ChannelMap:      map[string]driver.Channel{},
 		localMembership: localMembership,
 		idProvider:      idProvider,
@@ -85,60 +73,15 @@ func (f *Network) Name() string {
 	return f.name
 }
 
-func (f *Network) DefaultChannel() string {
-	return f.defaultChannel
-}
-
-func (f *Network) Channels() []string {
-	var chs []string
-	for _, c := range f.channelConfigs {
-		chs = append(chs, c.Name)
-	}
-	return chs
-}
-
-func (f *Network) Orderers() []*grpc.ConnectionConfig {
-	return f.orderers
-}
-
-func (f *Network) PickOrderer() *grpc.ConnectionConfig {
-	if len(f.orderers) == 0 {
-		return nil
-	}
-	return f.orderers[rand.Intn(len(f.orderers))]
-}
-
-func (f *Network) Peers() []*grpc.ConnectionConfig {
-	var peers []*grpc.ConnectionConfig
-	for _, configs := range f.peers {
-		peers = append(peers, configs...)
-	}
-	return peers
-}
-
-func (f *Network) PickPeer(ft driver.PeerFunctionType) *grpc.ConnectionConfig {
-	source, ok := f.peers[ft]
-	if !ok {
-		source = f.peers[driver.PeerForAnything]
-	}
-	return source[rand.Intn(len(source))]
-}
-
 func (f *Network) Channel(name string) (driver.Channel, error) {
 	logger.Debugf("Getting Channel [%s]", name)
 
 	if len(name) == 0 {
-		name = f.DefaultChannel()
+		name = f.ConfigService().DefaultChannel()
 		logger.Debugf("Resorting to default Channel [%s]", name)
 	}
 
-	chanQuiet := false
-	for _, chanDef := range f.channelConfigs {
-		if chanDef.Name == name {
-			chanQuiet = chanDef.Quiet
-			break
-		}
-	}
+	chanQuiet := f.ConfigService().IsChannelQuite(name)
 
 	// first check the cache
 	f.ChannelMutex.RLock()
@@ -202,43 +145,12 @@ func (f *Network) SignerService() driver.SignerService {
 }
 
 func (f *Network) ConfigService() driver.ConfigService {
-	return f.config
-}
-
-func (f *Network) Config() *config2.Config {
-	return f.config
+	return f.configService
 }
 
 func (f *Network) Init() error {
 	f.processorManager = rwset.NewProcessorManager(f.SP, f, nil)
 	f.transactionManager = transaction.NewManager(f.SP, f)
-
-	var err error
-	f.orderers, err = f.config.Orderers()
-	if err != nil {
-		return errors.Wrap(err, "failed loading orderers")
-	}
-	f.configuredOrderers = len(f.orderers)
-	logger.Debugf("Orderers [%v]", f.orderers)
-
-	f.peers, err = f.config.Peers()
-	if err != nil {
-		return errors.Wrap(err, "failed loading peers")
-	}
-	logger.Debugf("Peers [%v]", f.peers)
-
-	f.channelConfigs, err = f.config.Channels()
-	if err != nil {
-		return errors.Wrap(err, "failed loading channels")
-	}
-	logger.Debugf("Channels [%v]", f.channelConfigs)
-	for _, channel := range f.channelConfigs {
-		if channel.Default {
-			f.defaultChannel = channel.Name
-			break
-		}
-	}
-
 	f.Ordering = ordering.NewService(
 		func(channelID string) (driver.EndorserTransactionService, error) {
 			ch, err := f.Channel(channelID)
@@ -248,9 +160,7 @@ func (f *Network) Init() error {
 			return ch.TransactionService(), nil
 		},
 		f.sigService,
-		f.config,
-		f,
-		f.config.OrdererConnectionPoolSize(),
+		f.configService,
 		f.Metrics,
 	)
 	return nil
@@ -260,11 +170,9 @@ func (f *Network) SetConfigOrderers(o channelconfig.Orderer, orderers []*grpc.Co
 	if err := f.Ordering.SetConsensusType(o.ConsensusType()); err != nil {
 		return errors.WithMessagef(err, "failed to set consensus type from channel config")
 	}
-	// the first configuredOrderers are from the configuration, keep them
-	// and append the new ones
-	f.orderers = append(f.orderers[:f.configuredOrderers], orderers...)
-	logger.Debugf("New Orderers [%d]", len(f.orderers))
-
+	if err := f.ConfigService().SetConfigOrderers(orderers); err != nil {
+		return errors.WithMessagef(err, "failed to set ordererss")
+	}
 	return nil
 }
 

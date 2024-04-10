@@ -14,8 +14,6 @@ import (
 
 // FabricNetworkService gives access to a Fabric network components
 type FabricNetworkService interface {
-	Config
-
 	Name() string
 
 	OrderingService() Ordering

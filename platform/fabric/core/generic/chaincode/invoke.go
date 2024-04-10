@@ -331,7 +331,7 @@ func (i *Invoke) prepare(query bool) (string, *pb.Proposal, []*pb.ProposalRespon
 	for _, peer := range discoveredPeers {
 		peerClient, err := i.Chaincode.PeerManager.NewPeerClientForAddress(grpc.ConnectionConfig{
 			Address:          peer.Endpoint,
-			TLSEnabled:       i.Chaincode.NetworkConfig.TLSEnabled(),
+			TLSEnabled:       i.Chaincode.ConfigService.TLSEnabled(),
 			TLSRootCertBytes: peer.TLSRootCerts,
 		})
 		if err != nil {

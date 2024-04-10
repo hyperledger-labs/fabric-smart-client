@@ -28,7 +28,7 @@ type Driver struct{}
 func (d *Driver) New(sp view.ServiceProvider, network string, defaultNetwork bool) (driver.FabricNetworkService, error) {
 	logger.Debugf("creating new fabric network service for network [%s]", network)
 	// bridge services
-	c, err := config.New(view.GetConfigService(sp), network, defaultNetwork)
+	c, err := config.NewService(view.GetConfigService(sp), network, defaultNetwork)
 	if err != nil {
 		return nil, err
 	}

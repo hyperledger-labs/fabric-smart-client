@@ -43,13 +43,13 @@ type Service interface {
 }
 
 type ResolverService struct {
-	config    *config.Config
+	config    *config.Service
 	service   Service
 	resolvers []*Resolver
 }
 
 // NewResolverService returns a new instance of the view-sdk endpoint resolverService
-func NewResolverService(config *config.Config, service Service) (*ResolverService, error) {
+func NewResolverService(config *config.Service, service Service) (*ResolverService, error) {
 	er := &ResolverService{
 		config:  config,
 		service: service,

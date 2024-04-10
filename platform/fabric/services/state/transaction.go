@@ -59,7 +59,7 @@ func NewAnonymousTransaction(context view.Context) (*Transaction, error) {
 	_, tx, err := endorser.NewTransactionWithSigner(
 		context,
 		fns.Name(),
-		fns.DefaultChannel(),
+		fns.ConfigService().DefaultChannel(),
 		fns.LocalMembership().AnonymousIdentity(),
 	)
 	if err != nil {

@@ -55,7 +55,7 @@ func (p *FSNProvider) Start(ctx context.Context) error {
 		if err != nil {
 			return errors.Wrapf(err, "failed to start fabric network service [%s]", name)
 		}
-		for _, channelName := range fns.Channels() {
+		for _, channelName := range fns.ConfigService().ChannelIDs() {
 			ch, err := fns.Channel(channelName)
 			if err != nil {
 				return errors.Wrapf(err, "failed to get channel [%s] for fabric network service [%s]", channelName, name)
@@ -76,7 +76,7 @@ func (p *FSNProvider) Stop() error {
 		if err != nil {
 			return err
 		}
-		for _, channelName := range fns.Channels() {
+		for _, channelName := range fns.ConfigService().ChannelIDs() {
 			ch, err := fns.Channel(channelName)
 			if err != nil {
 				return err

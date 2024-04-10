@@ -10,9 +10,6 @@ import (
 	"context"
 	"sync"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
-
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/fabricutils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
@@ -39,11 +36,6 @@ type TransactionWithEnvelope interface {
 	Envelope() *common2.Envelope
 }
 
-type OrdererService interface {
-	PickOrderer() *grpc.ConnectionConfig
-	Orderers() []*grpc.ConnectionConfig
-}
-
 type BroadcastFnc = func(context context.Context, env *common2.Envelope) error
 
 type GetEndorserTransactionServiceFunc = func(channelID string) (driver.EndorserTransactionService, error)
@@ -58,7 +50,7 @@ type Service struct {
 	Broadcaster    BroadcastFnc
 }
 
-func NewService(getEndorserTransactionService GetEndorserTransactionServiceFunc, sigService driver.SignerService, NetworkConfig *config.Config, OrdererService OrdererService, poolSize int, metrics *metrics.Metrics) *Service {
+func NewService(getEndorserTransactionService GetEndorserTransactionServiceFunc, sigService driver.SignerService, configService driver.ConfigService, metrics *metrics.Metrics) *Service {
 	s := &Service{
 		GetEndorserTransactionService: getEndorserTransactionService,
 		SigService:                    sigService,
@@ -67,8 +59,8 @@ func NewService(getEndorserTransactionService GetEndorserTransactionServiceFunc,
 		BroadcastMutex:                sync.RWMutex{},
 		Broadcaster:                   nil,
 	}
-	s.Broadcasters["BFT"] = NewBFTBroadcaster(NetworkConfig, OrdererService, poolSize, metrics).Broadcast
-	cft := NewCFTBroadcaster(NetworkConfig, OrdererService, poolSize, metrics)
+	s.Broadcasters["BFT"] = NewBFTBroadcaster(configService, metrics).Broadcast
+	cft := NewCFTBroadcaster(configService, metrics)
 	s.Broadcasters["etcdraft"] = cft.Broadcast
 	s.Broadcasters["solo"] = cft.Broadcast
 

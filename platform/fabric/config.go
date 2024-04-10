@@ -15,3 +15,7 @@ type ConfigService struct {
 func (s *ConfigService) GetString(key string) string {
 	return s.confService.GetString(key)
 }
+
+func (s *ConfigService) DefaultChannel() string {
+	return s.confService.DefaultChannel()
+}

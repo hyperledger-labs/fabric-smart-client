@@ -15,7 +15,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/pkg/errors"
 )
 
@@ -36,21 +35,6 @@ type NetworkService struct {
 
 func NewNetworkService(SP view2.ServiceProvider, fns driver.FabricNetworkService, name string) *NetworkService {
 	return &NetworkService{SP: SP, fns: fns, name: name, channels: map[string]*Channel{}}
-}
-
-// DefaultChannel returns the name of the default channel
-func (n *NetworkService) DefaultChannel() string {
-	return n.fns.DefaultChannel()
-}
-
-// Channels returns the channel names
-func (n *NetworkService) Channels() []string {
-	return n.fns.Channels()
-}
-
-// Peers returns the list of known Peer nodes
-func (n *NetworkService) Peers() []*grpc.ConnectionConfig {
-	return n.fns.Peers()
 }
 
 // Channel returns the channel service for the passed id

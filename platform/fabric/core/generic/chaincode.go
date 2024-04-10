@@ -31,7 +31,7 @@ func (c *Channel) Chaincode(name string) driver.Chaincode {
 	}
 	ch = chaincode.NewChaincode(
 		name,
-		c.NetworkConfig,
+		c.ConfigService,
 		c.ChannelConfig,
 		c.Network.LocalMembership(),
 		&PeerManager{Network: c.Network, Channel: c},
@@ -54,5 +54,5 @@ func (p PeerManager) NewPeerClientForAddress(cc grpc.ConnectionConfig) (peer.Cli
 }
 
 func (p PeerManager) PickPeer(funcType driver.PeerFunctionType) *grpc.ConnectionConfig {
-	return p.Network.PickPeer(funcType)
+	return p.Network.ConfigService().PickPeer(funcType)
 }

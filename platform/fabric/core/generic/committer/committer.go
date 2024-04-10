@@ -12,11 +12,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger/fabric-protos-go/common"
 	"github.com/hyperledger/fabric/protoutil"
@@ -41,16 +39,15 @@ type Finality interface {
 type Network interface {
 	Committer(channel string) (driver.Committer, error)
 	Channel(channel string) (driver.Channel, error)
-	PickPeer(funcType driver.PeerFunctionType) *grpc.ConnectionConfig
 	Ledger(channel string) (driver.Ledger, error)
-	Config() *config.Config
+	ConfigService() driver.ConfigService
 }
 
 type TransactionHandler = func(block *common.Block, i int, event *TxEvent, env *common.Envelope, chHdr *common.ChannelHeader) error
 
 type Committer struct {
 	Channel             string
-	ChannelConfig       *config.Channel
+	ChannelConfig       driver.ChannelConfig
 	Network             Network
 	Finality            Finality
 	WaitForEventTimeout time.Duration
@@ -64,13 +61,13 @@ type Committer struct {
 	publisher      events.Publisher
 }
 
-func New(channelConfig *config.Channel, network Network, finality Finality, waitForEventTimeout time.Duration, quiet bool, metrics tracing.Tracer, publisher events.Publisher) (*Committer, error) {
+func New(channelConfig driver.ChannelConfig, network Network, finality Finality, waitForEventTimeout time.Duration, quiet bool, metrics tracing.Tracer, publisher events.Publisher) (*Committer, error) {
 	if channelConfig == nil {
 		return nil, errors.Errorf("expected channel config, got nil")
 	}
 
 	d := &Committer{
-		Channel:             channelConfig.Name,
+		Channel:             channelConfig.ID(),
 		ChannelConfig:       channelConfig,
 		Network:             network,
 		WaitForEventTimeout: waitForEventTimeout,

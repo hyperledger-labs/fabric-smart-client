@@ -11,12 +11,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
-
 	"github.com/ReneKroon/ttlcache/v2"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 )
 
@@ -49,8 +47,8 @@ type Chaincode struct {
 	name            string
 	NetworkID       string
 	ChannelID       string
-	NetworkConfig   *config.Config
-	ChannelConfig   *config.Channel
+	ConfigService   driver.ConfigService
+	ChannelConfig   driver.ChannelConfig
 	NumRetries      uint
 	RetrySleep      time.Duration
 	LocalMembership driver.LocalMembership
@@ -66,8 +64,8 @@ type Chaincode struct {
 
 func NewChaincode(
 	name string,
-	networkConfig *config.Config,
-	channelConfig *config.Channel,
+	networkConfig driver.ConfigService,
+	channelConfig driver.ChannelConfig,
 	localMembership driver.LocalMembership,
 	peerManager PeerManager,
 	signerService driver.SignerService,
@@ -77,12 +75,12 @@ func NewChaincode(
 ) *Chaincode {
 	return &Chaincode{
 		name:                      name,
-		NetworkID:                 networkConfig.Name(),
-		ChannelID:                 channelConfig.Name,
-		NetworkConfig:             networkConfig,
+		NetworkID:                 networkConfig.NetworkName(),
+		ChannelID:                 channelConfig.ID(),
+		ConfigService:             networkConfig,
 		ChannelConfig:             channelConfig,
-		NumRetries:                channelConfig.NumRetries,
-		RetrySleep:                channelConfig.RetrySleep,
+		NumRetries:                channelConfig.GetNumRetries(),
+		RetrySleep:                channelConfig.GetRetrySleep(),
 		LocalMembership:           localMembership,
 		PeerManager:               peerManager,
 		SignerService:             signerService,
@@ -111,16 +109,12 @@ func (c *Chaincode) IsAvailable() (bool, error) {
 }
 
 func (c *Chaincode) IsPrivate() bool {
-	channels, err := c.NetworkConfig.Channels()
-	if err != nil {
-		logger.Error("failed getting channels' configurations [%s]", err)
-		return false
-	}
+	channels := c.ConfigService.Channels()
 	for _, channel := range channels {
-		if channel.Name == c.ChannelID {
-			for _, chaincode := range channel.Chaincodes {
-				if chaincode.Name == c.name {
-					return chaincode.Private
+		if channel.ID() == c.ChannelID {
+			for _, chaincode := range channel.ChaincodeConfigs() {
+				if chaincode.ID() == c.name {
+					return chaincode.IsPrivate()
 				}
 			}
 		}

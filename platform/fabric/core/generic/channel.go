@@ -14,7 +14,6 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
-	config2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	delivery2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/delivery"
 	finality2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/finality"
 	peer2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
@@ -42,8 +41,6 @@ const (
 	GetBlockByNumber   string = "GetBlockByNumber"
 	GetTransactionByID string = "GetTransactionByID"
 	GetBlockByTxID     string = "GetBlockByTxID"
-	DefaultNumRetries         = 3
-	DefaultRetrySleep         = 1 * time.Second
 )
 
 type Delivery interface {
@@ -53,8 +50,8 @@ type Delivery interface {
 
 type Channel struct {
 	SP                view2.ServiceProvider
-	ChannelConfig     *config2.Channel
-	NetworkConfig     *config2.Config
+	ChannelConfig     driver.ChannelConfig
+	ConfigService     driver.ConfigService
 	Network           *Network
 	ChannelName       string
 	Finality          driver.Finality
@@ -94,30 +91,20 @@ func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver
 	sp := network.SP
 
 	// Channel configuration
-	channelConfigs, err := network.config.Channels()
-	if err != nil {
-		return nil, errors.WithMessagef(err, "failed to get Channel config")
-	}
-	var channelConfig *config2.Channel
+	channelConfigs := network.ConfigService().Channels()
+	var channelConfig driver.ChannelConfig
 	for _, config := range channelConfigs {
-		if config.Name == name {
+		if config.ID() == name {
 			channelConfig = config
 			break
 		}
 	}
 	if channelConfig == nil {
-		channelConfig = &config2.Channel{
-			Name:       name,
-			Default:    false,
-			Quiet:      false,
-			NumRetries: DefaultNumRetries,
-			RetrySleep: DefaultRetrySleep,
-			Chaincodes: nil,
-		}
+		channelConfig = network.ConfigService().NewDefaultChannelConfig(name)
 	}
 
 	// Vault
-	v, txIDStore, err := NewVault(sp, network.config, name)
+	v, txIDStore, err := NewVault(sp, network.configService, name)
 	if err != nil {
 		return nil, err
 	}
@@ -184,7 +171,7 @@ func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver
 
 	c := &Channel{
 		ChannelName:       name,
-		NetworkConfig:     network.config,
+		ConfigService:     network.configService,
 		ChannelConfig:     channelConfig,
 		Network:           network,
 		Vault:             v,
@@ -240,28 +227,28 @@ func (c *Channel) GetVerifier(identity view.Identity) (api2.Verifier, error) {
 }
 
 func (c *Channel) GetClientConfig(tlsRootCerts [][]byte, UseTLS bool) (*grpc.ClientConfig, string, error) {
-	override := c.NetworkConfig.TLSServerHostOverride()
+	override := c.ConfigService.TLSServerHostOverride()
 	clientConfig := &grpc.ClientConfig{}
-	clientConfig.Timeout = c.NetworkConfig.ClientConnTimeout()
+	clientConfig.Timeout = c.ConfigService.ClientConnTimeout()
 	if clientConfig.Timeout == time.Duration(0) {
 		clientConfig.Timeout = grpc.DefaultConnectionTimeout
 	}
 
 	secOpts := grpc.SecureOptions{
 		UseTLS:            UseTLS,
-		RequireClientCert: c.NetworkConfig.TLSClientAuthRequired(),
+		RequireClientCert: c.ConfigService.TLSClientAuthRequired(),
 	}
 	if UseTLS {
 		secOpts.RequireClientCert = false
 	}
 
 	if secOpts.RequireClientCert {
-		keyPEM, err := os.ReadFile(c.NetworkConfig.TLSClientKeyFile())
+		keyPEM, err := os.ReadFile(c.ConfigService.TLSClientKeyFile())
 		if err != nil {
 			return nil, "", errors.WithMessage(err, "unable to load fabric.tls.clientKey.file")
 		}
 		secOpts.Key = keyPEM
-		certPEM, err := os.ReadFile(c.NetworkConfig.TLSClientCertFile())
+		certPEM, err := os.ReadFile(c.ConfigService.TLSClientCertFile())
 		if err != nil {
 			return nil, "", errors.WithMessage(err, "unable to load fabric.tls.clientCert.file")
 		}
@@ -277,8 +264,8 @@ func (c *Channel) GetClientConfig(tlsRootCerts [][]byte, UseTLS bool) (*grpc.Cli
 	}
 
 	clientConfig.KaOpts = grpc.KeepaliveOptions{
-		ClientInterval: c.NetworkConfig.KeepAliveClientInterval(),
-		ClientTimeout:  c.NetworkConfig.KeepAliveClientTimeout(),
+		ClientInterval: c.ConfigService.KeepAliveClientInterval(),
+		ClientTimeout:  c.ConfigService.KeepAliveClientTimeout(),
 	}
 
 	return clientConfig, override, nil
@@ -287,7 +274,7 @@ func (c *Channel) GetClientConfig(tlsRootCerts [][]byte, UseTLS bool) (*grpc.Cli
 func (c *Channel) GetTransactionByID(txID string) (driver.ProcessedTransaction, error) {
 	raw, err := c.Chaincode("qscc").NewInvocation(GetTransactionByID, c.ChannelName, txID).WithSignerIdentity(
 		c.Network.LocalMembership().DefaultIdentity(),
-	).WithEndorsersByConnConfig(c.Network.PickPeer(driver.PeerForQuery)).Query()
+	).WithEndorsersByConnConfig(c.Network.ConfigService().PickPeer(driver.PeerForQuery)).Query()
 	if err != nil {
 		return nil, err
 	}
@@ -305,7 +292,7 @@ func (c *Channel) GetTransactionByID(txID string) (driver.ProcessedTransaction, 
 func (c *Channel) GetBlockNumberByTxID(txID string) (uint64, error) {
 	res, err := c.Chaincode("qscc").NewInvocation(GetBlockByTxID, c.ChannelName, txID).WithSignerIdentity(
 		c.Network.LocalMembership().DefaultIdentity(),
-	).WithEndorsersByConnConfig(c.Network.PickPeer(driver.PeerForQuery)).Query()
+	).WithEndorsersByConnConfig(c.Network.ConfigService().PickPeer(driver.PeerForQuery)).Query()
 	if err != nil {
 		return 0, err
 	}
@@ -323,7 +310,7 @@ func (c *Channel) Close() error {
 	return c.Vault.Close()
 }
 
-func (c *Channel) Config() *config2.Channel {
+func (c *Channel) Config() driver.ChannelConfig {
 	return c.ChannelConfig
 }
 
