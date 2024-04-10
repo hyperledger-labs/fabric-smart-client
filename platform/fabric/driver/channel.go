@@ -17,7 +17,7 @@ type Channel interface {
 	Finality() Finality
 
 	ChannelMembership
-	TXIDStore
+	TXIDStore() TXIDStore
 	ChaincodeManager() ChaincodeManager
 	RWSetLoader
 

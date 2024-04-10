@@ -54,15 +54,15 @@ type Channel struct {
 	ChannelName       string
 	FinalityService   driver.Finality
 	VaultService      driver.Vault
+	TXIDStoreService  driver.TXIDStore
 	ProcessNamespaces []string
 	StatusReporters   []driver.StatusReporter
 	ES                driver.EnvelopeService
 	TS                driver.EndorserTransactionService
 	MS                driver.MetadataService
 	DeliveryService   Delivery
-	driver.TXIDStore
-	RWSetLoader   driver.RWSetLoader
-	LedgerService driver.Ledger
+	RWSetLoader       driver.RWSetLoader
+	LedgerService     driver.Ledger
 
 	// ResourcesApplyLock is used to serialize calls to CommitConfig and bundle update processing.
 	ResourcesApplyLock sync.Mutex
@@ -123,8 +123,8 @@ func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver
 		ChannelConfig:    channelConfig,
 		Network:          network,
 		VaultService:     &VaultService{Vault: v},
+		TXIDStoreService: txIDStore,
 		SP:               sp,
-		TXIDStore:        txIDStore,
 		ES:               transaction.NewEnvelopeService(kvsService, network.Name(), name),
 		TS:               transaction.NewEndorseTransactionService(kvsService, network.Name(), name),
 		MS:               transaction.NewMetadataService(kvsService, network.Name(), name),
@@ -318,6 +318,10 @@ func (c *Channel) Config() driver.ChannelConfig {
 
 func (c *Channel) ChaincodeManager() driver.ChaincodeManager {
 	return c.CM
+}
+
+func (c *Channel) TXIDStore() driver.TXIDStore {
+	return c.TXIDStoreService
 }
 
 // FetchEnvelope fetches from the ledger and stores the enveloped correspoding to the passed id
