@@ -27,7 +27,7 @@ func (c *Channel) Name() string {
 }
 
 func (c *Channel) Vault() *Vault {
-	return &Vault{ch: c.ch}
+	return &Vault{ch: c.ch, vault: c.ch.Vault()}
 }
 
 func (c *Channel) Ledger() *Ledger {

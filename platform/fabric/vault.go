@@ -285,7 +285,8 @@ func (t *TxIDIterator) Close() {
 
 // Vault models a key-value store that can be updated by committing rwsets
 type Vault struct {
-	ch fdriver.Channel
+	vault fdriver.Vault
+	ch    fdriver.Channel
 }
 
 // GetLastTxID returns the last transaction id committed
@@ -332,7 +333,7 @@ func (c *Vault) CommitTX(txid string, block uint64, indexInBloc int) error {
 // A client can obtain more than one 'QueryExecutor's for parallel execution.
 // Any synchronization should be performed at the implementation level if required
 func (c *Vault) NewQueryExecutor() (*QueryExecutor, error) {
-	qe, err := c.ch.NewQueryExecutor()
+	qe, err := c.vault.NewQueryExecutor()
 	if err != nil {
 		return nil, err
 	}
@@ -343,7 +344,7 @@ func (c *Vault) NewQueryExecutor() (*QueryExecutor, error) {
 // A client may obtain more than one such simulator; they are made unique
 // by way of the supplied txid
 func (c *Vault) NewRWSet(txid string) (*RWSet, error) {
-	rws, err := c.ch.NewRWSet(txid)
+	rws, err := c.vault.NewRWSet(txid)
 	if err != nil {
 		return nil, err
 	}
@@ -355,7 +356,7 @@ func (c *Vault) NewRWSet(txid string) (*RWSet, error) {
 // A client may obtain more than one such simulator; they are made unique
 // by way of the supplied txid
 func (c *Vault) GetRWSet(txid string, rwset []byte) (*RWSet, error) {
-	rws, err := c.ch.GetRWSet(txid, rwset)
+	rws, err := c.vault.GetRWSet(txid, rwset)
 	if err != nil {
 		return nil, err
 	}
@@ -366,7 +367,7 @@ func (c *Vault) GetRWSet(txid string, rwset []byte) (*RWSet, error) {
 // from the passed bytes.
 // If namespaces is not empty, the returned RWSet will be filtered by the passed namespaces
 func (c *Vault) GetEphemeralRWSet(rwset []byte, namespaces ...string) (*RWSet, error) {
-	rws, err := c.ch.GetEphemeralRWSet(rwset, namespaces...)
+	rws, err := c.vault.GetEphemeralRWSet(rwset, namespaces...)
 	if err != nil {
 		return nil, err
 	}

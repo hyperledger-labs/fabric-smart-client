@@ -35,7 +35,7 @@ func (c *Channel) ReloadConfigTransactions() error {
 	c.ResourcesApplyLock.Lock()
 	defer c.ResourcesApplyLock.Unlock()
 
-	qe, err := c.Vault.NewQueryExecutor()
+	qe, err := c.Vault().NewQueryExecutor()
 	if err != nil {
 		return errors.WithMessagef(err, "failed getting query executor")
 	}
@@ -45,7 +45,7 @@ func (c *Channel) ReloadConfigTransactions() error {
 	var sequence uint64 = 0
 	for {
 		txID := committer.ConfigTXPrefix + strconv.FormatUint(sequence, 10)
-		vc, _, err := c.Vault.Status(txID)
+		vc, _, err := c.Vault().Status(txID)
 		if err != nil {
 			return errors.WithMessagef(err, "failed getting tx's status [%s]", txID)
 		}
@@ -157,7 +157,7 @@ func (c *Channel) CommitConfig(blockNumber uint64, raw []byte, env *common.Envel
 	}
 
 	txid := committer.ConfigTXPrefix + strconv.FormatUint(ctx.Config.Sequence, 10)
-	vc, _, err := c.Vault.Status(txid)
+	vc, _, err := c.Vault().Status(txid)
 	if err != nil {
 		return errors.Wrapf(err, "failed getting tx's status [%s]", txid)
 	}
@@ -215,7 +215,7 @@ func (c *Channel) Resources() channelconfig.Resources {
 func (c *Channel) commitConfig(txID string, blockNumber uint64, seq uint64, envelope []byte) error {
 	logger.Infof("[Channel: %s] commit config transaction number [bn:%d][seq:%d]", c.ChannelName, blockNumber, seq)
 
-	rws, err := c.Vault.NewRWSet(txID)
+	rws, err := c.Vault().NewRWSet(txID)
 	if err != nil {
 		return errors.Wrapf(err, "cannot create rws for configtx")
 	}

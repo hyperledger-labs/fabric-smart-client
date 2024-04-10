@@ -20,7 +20,6 @@ import (
 	finality2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/finality"
 	peer2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	api2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
@@ -56,7 +55,7 @@ type Channel struct {
 	Network           *Network
 	ChannelName       string
 	FinalityService   driver.Finality
-	Vault             *vault.Vault
+	VaultService      *VaultService
 	ProcessNamespaces []string
 	StatusReporters   []driver.StatusReporter
 	ES                driver.EnvelopeService
@@ -126,7 +125,7 @@ func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver
 		ConfigService:    network.configService,
 		ChannelConfig:    channelConfig,
 		Network:          network,
-		Vault:            v,
+		VaultService:     &VaultService{Vault: v},
 		SP:               sp,
 		TXIDStore:        txIDStore,
 		ES:               transaction.NewEnvelopeService(kvsService, network.Name(), name),
@@ -314,7 +313,11 @@ func (c *Channel) GetBlockNumberByTxID(txID string) (uint64, error) {
 
 func (c *Channel) Close() error {
 	c.DeliveryService.Stop()
-	return c.Vault.Close()
+	return c.Vault().Close()
+}
+
+func (c *Channel) Vault() driver.Vault {
+	return c.VaultService
 }
 
 func (c *Channel) Finality() driver.Finality {

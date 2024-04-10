@@ -307,21 +307,21 @@ func (t *Transaction) SetRWSet() error {
 		if err != nil {
 			return errors.WithMessagef(err, "failed to get rws from proposal response")
 		}
-		t.rwset, err = t.channel.GetRWSet(t.ID(), results)
+		t.rwset, err = t.channel.Vault().GetRWSet(t.ID(), results)
 		if err != nil {
 			return errors.WithMessagef(err, "failed to populate rws from proposal response")
 		}
 	case len(t.RWSet) != 0:
 		logger.Debugf("populate rws from rwset")
 		var err error
-		t.rwset, err = t.channel.GetRWSet(t.ID(), t.RWSet)
+		t.rwset, err = t.channel.Vault().GetRWSet(t.ID(), t.RWSet)
 		if err != nil {
 			return errors.WithMessagef(err, "failed to populate rws from existing rws")
 		}
 	default:
 		logger.Debugf("populate rws from scratch")
 		var err error
-		t.rwset, err = t.channel.NewRWSet(t.ID())
+		t.rwset, err = t.channel.Vault().NewRWSet(t.ID())
 		if err != nil {
 			return errors.WithMessagef(err, "failed to create fresh rws")
 		}

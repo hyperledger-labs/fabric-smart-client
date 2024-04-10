@@ -9,7 +9,7 @@ package driver
 // Channel gives access to Fabric channel related information
 type Channel interface {
 	Committer
-	Vault
+	Vault() Vault
 	Delivery
 
 	Ledger

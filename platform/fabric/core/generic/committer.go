@@ -19,7 +19,7 @@ import (
 )
 
 func (c *Channel) Status(txID string) (driver.ValidationCode, string, []string, error) {
-	vc, message, err := c.Vault.Status(txID)
+	vc, message, err := c.Vault().Status(txID)
 	if err != nil {
 		logger.Errorf("failed to get status of [%s]: %s", txID, err)
 		return driver.Unknown, "", nil, err
@@ -90,11 +90,11 @@ func (c *Channel) DiscardTx(txID string, message string) error {
 		}
 	}
 
-	if err := c.Vault.DiscardTx(txID, message); err != nil {
+	if err := c.Vault().DiscardTx(txID, message); err != nil {
 		logger.Errorf("failed discarding tx [%s] in vault: %s", txID, err)
 	}
 	for _, dep := range deps {
-		if err := c.Vault.DiscardTx(dep, message); err != nil {
+		if err := c.Vault().DiscardTx(dep, message); err != nil {
 			logger.Errorf("failed discarding dependant tx [%s] of [%s] in vault: %s", dep, txID, err)
 		}
 	}
@@ -275,12 +275,12 @@ func (c *Channel) commitLocal(txID string, block uint64, indexInBlock int, envel
 			return err
 		}
 		if headerType == int32(common.HeaderType_ENDORSER_TRANSACTION) {
-			if !c.Vault.RWSExists(txID) && c.EnvelopeService().Exists(txID) {
+			if !c.Vault().RWSExists(txID) && c.EnvelopeService().Exists(txID) {
 				// Then match rwsets
 				if err := c.extractStoredEnvelopeToVault(txID); err != nil {
 					return errors.WithMessagef(err, "failed to load stored enveloper into the vault")
 				}
-				if err := c.Vault.Match(txID, pt.Results()); err != nil {
+				if err := c.Vault().Match(txID, pt.Results()); err != nil {
 					logger.Errorf("[%s] rwsets do not match [%s]", txID, err)
 					return errors.Wrapf(committer.ErrDiscardTX, "[%s] rwsets do not match [%s]", txID, err)
 				}
@@ -312,7 +312,7 @@ func (c *Channel) commitLocal(txID string, block uint64, indexInBlock int, envel
 
 	// Commit
 	logger.Debugf("[%s] commit in vault", txID)
-	if err := c.Vault.CommitTX(txID, block, indexInBlock); err != nil {
+	if err := c.Vault().CommitTX(txID, block, indexInBlock); err != nil {
 		// This should generate a panic
 		return err
 	}

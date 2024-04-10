@@ -28,4 +28,15 @@ type Vault interface {
 	// from the passed bytes.
 	// If namespaces is not empty, the returned RWSet will be filtered by the passed namespaces
 	GetEphemeralRWSet(rwset []byte, namespaces ...string) (RWSet, error)
+
+	CommitTX(id string, block uint64, index int) error
+
+	Status(id string) (ValidationCode, string, error)
+
+	DiscardTx(id string, message string) error
+
+	RWSExists(id string) bool
+
+	Match(id string, results []byte) error
+	Close() error
 }
