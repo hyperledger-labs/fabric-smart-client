@@ -32,8 +32,8 @@ const (
 var commitConfigMutex = &sync.Mutex{}
 
 func (c *Channel) ReloadConfigTransactions() error {
-	c.ResourcesApplyLock.Lock()
-	defer c.ResourcesApplyLock.Unlock()
+	c.ChannelMembershipService.ResourcesApplyLock.Lock()
+	defer c.ChannelMembershipService.ResourcesApplyLock.Unlock()
 
 	qe, err := c.Vault().NewQueryExecutor()
 	if err != nil {
@@ -77,14 +77,14 @@ func (c *Channel) ReloadConfigTransactions() error {
 			}
 
 			var bundle *channelconfig.Bundle
-			if c.Resources() == nil {
+			if c.ChannelMembershipService.Resources() == nil {
 				// set up the genesis block
 				bundle, err = channelconfig.NewBundle(c.ChannelName, ctx.Config, factory.GetDefault())
 				if err != nil {
 					return errors.Wrapf(err, "failed to build a new bundle")
 				}
 			} else {
-				configTxValidator := c.Resources().ConfigtxValidator()
+				configTxValidator := c.ChannelMembershipService.Resources().ConfigtxValidator()
 				err := configTxValidator.Validate(ctx)
 				if err != nil {
 					return errors.Wrapf(err, "failed to validate config transaction [%s]", txID)
@@ -139,8 +139,8 @@ func (c *Channel) CommitConfig(blockNumber uint64, raw []byte, env *common.Envel
 	commitConfigMutex.Lock()
 	defer commitConfigMutex.Unlock()
 
-	c.ResourcesApplyLock.Lock()
-	defer c.ResourcesApplyLock.Unlock()
+	c.ChannelMembershipService.ResourcesApplyLock.Lock()
+	defer c.ChannelMembershipService.ResourcesApplyLock.Unlock()
 
 	if env == nil {
 		return errors.Errorf("Channel config found nil")
@@ -173,14 +173,14 @@ func (c *Channel) CommitConfig(blockNumber uint64, raw []byte, env *common.Envel
 	}
 
 	var bundle *channelconfig.Bundle
-	if c.Resources() == nil {
+	if c.ChannelMembershipService.Resources() == nil {
 		// set up the genesis block
 		bundle, err = channelconfig.NewBundle(c.ChannelName, ctx.Config, factory.GetDefault())
 		if err != nil {
 			return errors.Wrapf(err, "failed to build a new bundle")
 		}
 	} else {
-		configTxValidator := c.Resources().ConfigtxValidator()
+		configTxValidator := c.ChannelMembershipService.Resources().ConfigtxValidator()
 		err := configTxValidator.Validate(ctx)
 		if err != nil {
 			return errors.Wrapf(err, "failed to validate config transaction, block number [%d]", blockNumber)
@@ -202,14 +202,6 @@ func (c *Channel) CommitConfig(blockNumber uint64, raw []byte, env *common.Envel
 	}
 
 	return c.ApplyBundle(bundle)
-}
-
-// Resources returns the active Channel configuration bundle.
-func (c *Channel) Resources() channelconfig.Resources {
-	c.ResourcesLock.RLock()
-	res := c.ChannelResources
-	c.ResourcesLock.RUnlock()
-	return res
 }
 
 func (c *Channel) commitConfig(txID string, blockNumber uint64, seq uint64, envelope []byte) error {
@@ -239,12 +231,12 @@ func (c *Channel) commitConfig(txID string, blockNumber uint64, seq uint64, enve
 }
 
 func (c *Channel) ApplyBundle(bundle *channelconfig.Bundle) error {
-	c.ResourcesLock.Lock()
-	defer c.ResourcesLock.Unlock()
-	c.ChannelResources = bundle
+	c.ChannelMembershipService.ResourcesLock.Lock()
+	defer c.ChannelMembershipService.ResourcesLock.Unlock()
+	c.ChannelMembershipService.ChannelResources = bundle
 
 	// update the list of orderers
-	ordererConfig, exists := c.ChannelResources.OrdererConfig()
+	ordererConfig, exists := c.ChannelMembershipService.ChannelResources.OrdererConfig()
 	if exists {
 		logger.Debugf("[Channel: %s] Orderer config has changed, updating the list of orderers", c.ChannelName)
 

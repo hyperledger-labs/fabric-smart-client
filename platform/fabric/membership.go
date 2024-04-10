@@ -141,7 +141,7 @@ type Verifier interface {
 }
 
 type MSPManager struct {
-	ch driver.Channel
+	ch driver.ChannelMembership
 }
 
 func (c *MSPManager) GetMSPIDs() []string {

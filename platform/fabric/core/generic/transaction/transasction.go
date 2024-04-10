@@ -530,7 +530,7 @@ func (t *Transaction) AppendProposalResponse(response driver.ProposalResponse) e
 }
 
 func (t *Transaction) ProposalHasBeenEndorsedBy(party view.Identity) error {
-	verifier, err := t.channel.GetVerifier(party)
+	verifier, err := t.channel.ChannelMembership().GetVerifier(party)
 	if err != nil {
 		return err
 	}

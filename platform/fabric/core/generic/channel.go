@@ -8,7 +8,6 @@ package generic
 
 import (
 	"context"
-	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
 	finality2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/finality"
@@ -20,7 +19,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger/fabric-protos-go/common"
-	"github.com/hyperledger/fabric/common/channelconfig"
 	"github.com/pkg/errors"
 )
 
@@ -37,31 +35,24 @@ type Delivery interface {
 }
 
 type Channel struct {
-	SP                 view2.ServiceProvider
-	ChannelConfig      driver.ChannelConfig
-	ConfigService      driver.ConfigService
-	Network            *Network
-	ChannelName        string
-	FinalityService    driver.Finality
-	VaultService       driver.Vault
-	TXIDStoreService   driver.TXIDStore
-	ProcessNamespaces  []string
-	StatusReporters    []driver.StatusReporter
-	ES                 driver.EnvelopeService
-	TS                 driver.EndorserTransactionService
-	MS                 driver.MetadataService
-	DeliveryService    *DeliveryService
-	RWSetLoaderService driver.RWSetLoader
-	LedgerService      driver.Ledger
-
-	// ResourcesApplyLock is used to serialize calls to CommitConfig and bundle update processing.
-	ResourcesApplyLock sync.Mutex
-	// ResourcesLock is used to serialize access to resources
-	ResourcesLock sync.RWMutex
-	// resources is used to acquire configuration bundle resources.
-	ChannelResources channelconfig.Resources
-
-	CM driver.ChaincodeManager
+	SP                       view2.ServiceProvider
+	ChannelConfig            driver.ChannelConfig
+	ConfigService            driver.ConfigService
+	Network                  *Network
+	ChannelName              string
+	FinalityService          driver.Finality
+	VaultService             driver.Vault
+	TXIDStoreService         driver.TXIDStore
+	ProcessNamespaces        []string
+	StatusReporters          []driver.StatusReporter
+	ES                       driver.EnvelopeService
+	TS                       driver.EndorserTransactionService
+	MS                       driver.MetadataService
+	DeliveryService          *DeliveryService
+	RWSetLoaderService       driver.RWSetLoader
+	LedgerService            driver.Ledger
+	ChannelMembershipService *ChannelMembershipService
+	CM                       driver.ChaincodeManager
 
 	// connection pool
 	PeerManager *PeerManager
@@ -163,6 +154,8 @@ func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver
 	}
 	c.FinalityService = fs
 
+	c.ChannelMembershipService = NewChannelMembershipService()
+
 	c.CM = NewChaincodeManager(
 		network.Name(),
 		name,
@@ -175,7 +168,7 @@ func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver
 		network.sigService,
 		network.Ordering,
 		c.FinalityService,
-		c,
+		c.ChannelMembershipService,
 	)
 
 	c.LedgerService = NewLedger(
@@ -213,6 +206,7 @@ func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver
 		c.ES, c.TS, network.TransactionManager(),
 		v,
 	)
+
 	if err := c.Init(); err != nil {
 		return nil, errors.WithMessagef(err, "failed initializing Channel [%s]", name)
 	}
@@ -247,6 +241,10 @@ func (c *Channel) Delivery() driver.Delivery {
 
 func (c *Channel) ChaincodeManager() driver.ChaincodeManager {
 	return c.CM
+}
+
+func (c *Channel) ChannelMembership() driver.ChannelMembership {
+	return c.ChannelMembershipService
 }
 
 func (c *Channel) TXIDStore() driver.TXIDStore {

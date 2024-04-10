@@ -18,7 +18,7 @@ type Channel interface {
 
 	Finality() Finality
 
-	ChannelMembership
+	ChannelMembership() ChannelMembership
 
 	TXIDStore() TXIDStore
 

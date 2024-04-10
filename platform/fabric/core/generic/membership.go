@@ -7,16 +7,39 @@ SPDX-License-Identifier: Apache-2.0
 package generic
 
 import (
-	api2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"github.com/hyperledger/fabric/msp"
-	"github.com/pkg/errors"
+	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	api2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"github.com/hyperledger/fabric/common/channelconfig"
+	"github.com/hyperledger/fabric/msp"
+	"github.com/pkg/errors"
 )
 
-func (c *Channel) IsValid(identity view.Identity) error {
-	id, err := c.MSPManager().DeserializeIdentity(identity)
+type ChannelMembershipService struct {
+	// ResourcesApplyLock is used to serialize calls to CommitConfig and bundle update processing.
+	ResourcesApplyLock sync.Mutex
+	// ResourcesLock is used to serialize access to resources
+	ResourcesLock sync.RWMutex
+	// resources is used to acquire configuration bundle resources.
+	ChannelResources channelconfig.Resources
+}
+
+func NewChannelMembershipService() *ChannelMembershipService {
+	return &ChannelMembershipService{}
+}
+
+// Resources returns the active Channel configuration bundle.
+func (c *ChannelMembershipService) Resources() channelconfig.Resources {
+	c.ResourcesLock.RLock()
+	res := c.ChannelResources
+	c.ResourcesLock.RUnlock()
+	return res
+}
+
+func (c *ChannelMembershipService) IsValid(identity view.Identity) error {
+	id, err := c.Resources().MSPManager().DeserializeIdentity(identity)
 	if err != nil {
 		return errors.Wrapf(err, "failed deserializing identity [%s]", identity.String())
 	}
@@ -24,8 +47,8 @@ func (c *Channel) IsValid(identity view.Identity) error {
 	return id.Validate()
 }
 
-func (c *Channel) GetVerifier(identity view.Identity) (api2.Verifier, error) {
-	id, err := c.MSPManager().DeserializeIdentity(identity)
+func (c *ChannelMembershipService) GetVerifier(identity view.Identity) (api2.Verifier, error) {
+	id, err := c.Resources().MSPManager().DeserializeIdentity(identity)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed deserializing identity [%s]", identity.String())
 	}
@@ -34,7 +57,7 @@ func (c *Channel) GetVerifier(identity view.Identity) (api2.Verifier, error) {
 
 // GetMSPIDs retrieves the MSP IDs of the organizations in the current Channel
 // configuration.
-func (c *Channel) GetMSPIDs() []string {
+func (c *ChannelMembershipService) GetMSPIDs() []string {
 	ac, ok := c.Resources().ApplicationConfig()
 	if !ok || ac.Organizations() == nil {
 		return nil
@@ -50,18 +73,18 @@ func (c *Channel) GetMSPIDs() []string {
 
 // MSPManager returns the msp.MSPManager that reflects the current Channel
 // configuration. Users should not memoize references to this object.
-func (c *Channel) MSPManager() driver.MSPManager {
-	return &mspManager{MSPManager: c.Resources().MSPManager()}
+func (c *ChannelMembershipService) MSPManager() driver.MSPManager {
+	return &mspManager{FabricMSPManager: c.Resources().MSPManager()}
 }
 
-type MSPManager interface {
+type FabricMSPManager interface {
 	DeserializeIdentity(serializedIdentity []byte) (msp.Identity, error)
 }
 
 type mspManager struct {
-	MSPManager
+	FabricMSPManager
 }
 
 func (m *mspManager) DeserializeIdentity(serializedIdentity []byte) (driver.MSPIdentity, error) {
-	return m.MSPManager.DeserializeIdentity(serializedIdentity)
+	return m.FabricMSPManager.DeserializeIdentity(serializedIdentity)
 }

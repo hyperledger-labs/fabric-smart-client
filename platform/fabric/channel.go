@@ -35,7 +35,7 @@ func (c *Channel) Ledger() *Ledger {
 }
 
 func (c *Channel) MSPManager() *MSPManager {
-	return &MSPManager{ch: c.ch}
+	return &MSPManager{ch: c.ch.ChannelMembership()}
 }
 
 func (c *Channel) Committer() *Committer {
