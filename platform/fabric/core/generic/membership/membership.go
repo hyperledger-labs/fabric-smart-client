@@ -4,7 +4,7 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package generic
+package membership
 
 import (
 	"sync"
@@ -17,7 +17,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-type ChannelMembershipService struct {
+type Service struct {
 	// ResourcesApplyLock is used to serialize calls to CommitConfig and bundle update processing.
 	ResourcesApplyLock sync.Mutex
 	// ResourcesLock is used to serialize access to resources
@@ -26,19 +26,19 @@ type ChannelMembershipService struct {
 	ChannelResources channelconfig.Resources
 }
 
-func NewChannelMembershipService() *ChannelMembershipService {
-	return &ChannelMembershipService{}
+func NewService() *Service {
+	return &Service{}
 }
 
 // Resources returns the active Channel configuration bundle.
-func (c *ChannelMembershipService) Resources() channelconfig.Resources {
+func (c *Service) Resources() channelconfig.Resources {
 	c.ResourcesLock.RLock()
 	res := c.ChannelResources
 	c.ResourcesLock.RUnlock()
 	return res
 }
 
-func (c *ChannelMembershipService) IsValid(identity view.Identity) error {
+func (c *Service) IsValid(identity view.Identity) error {
 	id, err := c.Resources().MSPManager().DeserializeIdentity(identity)
 	if err != nil {
 		return errors.Wrapf(err, "failed deserializing identity [%s]", identity.String())
@@ -47,7 +47,7 @@ func (c *ChannelMembershipService) IsValid(identity view.Identity) error {
 	return id.Validate()
 }
 
-func (c *ChannelMembershipService) GetVerifier(identity view.Identity) (api2.Verifier, error) {
+func (c *Service) GetVerifier(identity view.Identity) (api2.Verifier, error) {
 	id, err := c.Resources().MSPManager().DeserializeIdentity(identity)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed deserializing identity [%s]", identity.String())
@@ -57,7 +57,7 @@ func (c *ChannelMembershipService) GetVerifier(identity view.Identity) (api2.Ver
 
 // GetMSPIDs retrieves the MSP IDs of the organizations in the current Channel
 // configuration.
-func (c *ChannelMembershipService) GetMSPIDs() []string {
+func (c *Service) GetMSPIDs() []string {
 	ac, ok := c.Resources().ApplicationConfig()
 	if !ok || ac.Organizations() == nil {
 		return nil
@@ -73,7 +73,7 @@ func (c *ChannelMembershipService) GetMSPIDs() []string {
 
 // MSPManager returns the msp.MSPManager that reflects the current Channel
 // configuration. Users should not memoize references to this object.
-func (c *ChannelMembershipService) MSPManager() driver.MSPManager {
+func (c *Service) MSPManager() driver.MSPManager {
 	return &mspManager{FabricMSPManager: c.Resources().MSPManager()}
 }
 

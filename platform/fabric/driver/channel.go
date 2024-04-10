@@ -8,6 +8,9 @@ package driver
 
 // Channel gives access to Fabric channel related information
 type Channel interface {
+	// Name returns the name of the channel this instance is bound to
+	Name() string
+
 	Committer() Committer
 
 	Vault() Vault
@@ -25,9 +28,6 @@ type Channel interface {
 	ChaincodeManager() ChaincodeManager
 
 	RWSetLoader() RWSetLoader
-
-	// Name returns the name of the channel this instance is bound to
-	Name() string
 
 	EnvelopeService() EnvelopeService
 

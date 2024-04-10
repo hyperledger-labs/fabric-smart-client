@@ -9,11 +9,12 @@ package generic
 import (
 	"context"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/membership"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
 	finality2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/finality"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
@@ -35,7 +36,6 @@ type Delivery interface {
 }
 
 type Channel struct {
-	SP                       view2.ServiceProvider
 	ChannelConfig            driver.ChannelConfig
 	ConfigService            driver.ConfigService
 	Network                  *Network
@@ -49,12 +49,10 @@ type Channel struct {
 	DeliveryService          *DeliveryService
 	RWSetLoaderService       driver.RWSetLoader
 	LedgerService            driver.Ledger
-	ChannelMembershipService *ChannelMembershipService
-	CM                       driver.ChaincodeManager
-	CommitterService         *CommitterService
-
-	// connection pool
-	PeerManager *PeerManager
+	ChannelMembershipService *membership.Service
+	ChaincodeManagerService  driver.ChaincodeManager
+	CommitterService         *committer.Service
+	PeerManager              *PeerManager
 }
 
 func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver.Channel, error) {
@@ -99,7 +97,6 @@ func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver
 		Network:          network,
 		VaultService:     NewVaultService(v),
 		TXIDStoreService: txIDStore,
-		SP:               sp,
 		ES:               transaction.NewEnvelopeService(kvsService, network.Name(), name),
 		TS:               transaction.NewEndorseTransactionService(kvsService, network.Name(), name),
 		MS:               transaction.NewMetadataService(kvsService, network.Name(), name),
@@ -119,35 +116,9 @@ func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver
 		return nil, err
 	}
 
-	// Committers
-	publisher, err := events.GetPublisher(network.SP)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get event publisher")
-	}
+	c.ChannelMembershipService = membership.NewService()
 
-	committerInst, err := committer.New(
-		channelConfig,
-		network,
-		fabricFinality,
-		channelConfig.CommitterWaitForEventTimeout(),
-		quiet,
-		tracing.Get(sp).GetTracer(),
-		publisher,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	// Finality
-	fs, err := finality2.NewService(committerInst)
-	if err != nil {
-		return nil, err
-	}
-	c.FinalityService = fs
-
-	c.ChannelMembershipService = NewChannelMembershipService()
-
-	c.CM = NewChaincodeManager(
+	c.ChaincodeManagerService = NewChaincodeManager(
 		network.Name(),
 		name,
 		network.configService,
@@ -164,10 +135,54 @@ func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver
 
 	c.LedgerService = NewLedger(
 		name,
-		c.CM,
+		c.ChaincodeManagerService,
 		network.localMembership,
 		network.configService,
 	)
+
+	// Committers
+	publisher, err := events.GetPublisher(network.SP)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get event publisher")
+	}
+
+	c.RWSetLoaderService = NewRWSetLoader(
+		network.Name(), name,
+		c.ES, c.TS, network.TransactionManager(),
+		v,
+	)
+
+	c.CommitterService = committer.NewService(
+		network.Name(),
+		name,
+		c.VaultService,
+		c.ES,
+		c.LedgerService,
+		c.RWSetLoaderService,
+		c.Network.processorManager,
+		eventsSubscriber,
+		eventsPublisher,
+		c.ChannelMembershipService,
+		c.Network,
+	)
+
+	committerInst, err := committer.NewBlockCommitter(
+		network.configService,
+		channelConfig,
+		c.CommitterService,
+		fabricFinality,
+		channelConfig.CommitterWaitForEventTimeout(),
+		quiet,
+		tracing.Get(sp).GetTracer(),
+		publisher,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Finality
+	c.FinalityService = committerInst
 
 	// Delivery
 	deliveryService, err := NewDeliveryService(
@@ -191,26 +206,6 @@ func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver
 		return nil, err
 	}
 	c.DeliveryService = deliveryService
-
-	c.RWSetLoaderService = NewRWSetLoader(
-		network.Name(), name,
-		c.ES, c.TS, network.TransactionManager(),
-		v,
-	)
-
-	c.CommitterService = NewCommitterService(
-		network.Name(),
-		name,
-		c.VaultService,
-		c.ES,
-		c.LedgerService,
-		c.RWSetLoaderService,
-		c.Network.processorManager,
-		eventsSubscriber,
-		eventsPublisher,
-		c.ChannelMembershipService,
-		c.Network,
-	)
 
 	if err := c.Init(); err != nil {
 		return nil, errors.WithMessagef(err, "failed initializing Channel [%s]", name)
@@ -245,7 +240,7 @@ func (c *Channel) Delivery() driver.Delivery {
 }
 
 func (c *Channel) ChaincodeManager() driver.ChaincodeManager {
-	return c.CM
+	return c.ChaincodeManagerService
 }
 
 func (c *Channel) ChannelMembership() driver.ChannelMembership {

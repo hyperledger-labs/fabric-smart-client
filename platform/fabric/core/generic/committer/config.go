@@ -16,11 +16,7 @@ func (c *Committer) HandleConfig(block *common.Block, i int, event *TxEvent, env
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("[%s] Config transaction received: %s", c.Channel, chHdr.TxId)
 	}
-	committer, err := c.Network.Committer(c.Channel)
-	if err != nil {
-		return errors.Wrapf(err, "cannot get Committer for channel [%s]", c.Channel)
-	}
-	if err := committer.CommitConfig(block.Header.Number, block.Data.Data[i], env); err != nil {
+	if err := c.Committer.CommitConfig(block.Header.Number, block.Data.Data[i], env); err != nil {
 		return errors.Wrapf(err, "cannot commit config envelope for channel [%s]", c.Channel)
 	}
 	return nil
