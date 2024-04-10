@@ -8,28 +8,19 @@ package generic
 
 import (
 	"context"
-	"os"
 	"sync"
-	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
 	finality2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/finality"
-	peer2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
-	api2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/hyperledger/fabric-protos-go/common"
-	"github.com/hyperledger/fabric-protos-go/peer"
 	"github.com/hyperledger/fabric/common/channelconfig"
-	discovery "github.com/hyperledger/fabric/discovery/client"
-	"github.com/hyperledger/fabric/protoutil"
 	"github.com/pkg/errors"
 )
 
@@ -121,7 +112,7 @@ func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver
 		ConfigService:    network.configService,
 		ChannelConfig:    channelConfig,
 		Network:          network,
-		VaultService:     &VaultService{Vault: v},
+		VaultService:     NewVaultService(v),
 		TXIDStoreService: txIDStore,
 		SP:               sp,
 		ES:               transaction.NewEnvelopeService(kvsService, network.Name(), name),
@@ -233,68 +224,6 @@ func (c *Channel) Name() string {
 	return c.ChannelName
 }
 
-func (c *Channel) IsValid(identity view.Identity) error {
-	id, err := c.MSPManager().DeserializeIdentity(identity)
-	if err != nil {
-		return errors.Wrapf(err, "failed deserializing identity [%s]", identity.String())
-	}
-
-	return id.Validate()
-}
-
-func (c *Channel) GetVerifier(identity view.Identity) (api2.Verifier, error) {
-	id, err := c.MSPManager().DeserializeIdentity(identity)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed deserializing identity [%s]", identity.String())
-	}
-	return id, nil
-}
-
-func (c *Channel) GetClientConfig(tlsRootCerts [][]byte, UseTLS bool) (*grpc.ClientConfig, string, error) {
-	override := c.ConfigService.TLSServerHostOverride()
-	clientConfig := &grpc.ClientConfig{}
-	clientConfig.Timeout = c.ConfigService.ClientConnTimeout()
-	if clientConfig.Timeout == time.Duration(0) {
-		clientConfig.Timeout = grpc.DefaultConnectionTimeout
-	}
-
-	secOpts := grpc.SecureOptions{
-		UseTLS:            UseTLS,
-		RequireClientCert: c.ConfigService.TLSClientAuthRequired(),
-	}
-	if UseTLS {
-		secOpts.RequireClientCert = false
-	}
-
-	if secOpts.RequireClientCert {
-		keyPEM, err := os.ReadFile(c.ConfigService.TLSClientKeyFile())
-		if err != nil {
-			return nil, "", errors.WithMessage(err, "unable to load fabric.tls.clientKey.file")
-		}
-		secOpts.Key = keyPEM
-		certPEM, err := os.ReadFile(c.ConfigService.TLSClientCertFile())
-		if err != nil {
-			return nil, "", errors.WithMessage(err, "unable to load fabric.tls.clientCert.file")
-		}
-		secOpts.Certificate = certPEM
-	}
-	clientConfig.SecOpts = secOpts
-
-	if clientConfig.SecOpts.UseTLS {
-		if len(tlsRootCerts) == 0 {
-			return nil, "", errors.New("tls root cert file must be set")
-		}
-		clientConfig.SecOpts.ServerRootCAs = tlsRootCerts
-	}
-
-	clientConfig.KaOpts = grpc.KeepaliveOptions{
-		ClientInterval: c.ConfigService.KeepAliveClientInterval(),
-		ClientTimeout:  c.ConfigService.KeepAliveClientTimeout(),
-	}
-
-	return clientConfig, override, nil
-}
-
 func (c *Channel) Close() error {
 	c.DeliveryService.Stop()
 	return c.Vault().Close()
@@ -310,10 +239,6 @@ func (c *Channel) Finality() driver.Finality {
 
 func (c *Channel) Ledger() driver.Ledger {
 	return c.LedgerService
-}
-
-func (c *Channel) Config() driver.ChannelConfig {
-	return c.ChannelConfig
 }
 
 func (c *Channel) Delivery() driver.Delivery {
@@ -332,91 +257,9 @@ func (c *Channel) RWSetLoader() driver.RWSetLoader {
 	return c.RWSetLoaderService
 }
 
-// FetchEnvelope fetches from the ledger and stores the enveloped correspoding to the passed id
-func (c *Channel) FetchEnvelope(txID string) ([]byte, error) {
-	pt, err := c.Ledger().GetTransactionByID(txID)
-	if err != nil {
-		return nil, errors.WithMessagef(err, "failed fetching tx [%s]", txID)
-	}
-	if !pt.IsValid() {
-		return nil, errors.Errorf("fetched tx [%s] should have been valid, instead it is [%s]", txID, peer.TxValidationCode_name[pt.ValidationCode()])
-	}
-	return pt.Envelope(), nil
-}
-
 func (c *Channel) Init() error {
 	if err := c.ReloadConfigTransactions(); err != nil {
 		return errors.WithMessagef(err, "failed reloading config transactions")
 	}
 	return nil
-}
-
-func newPeerClientForClientConfig(signer discovery.Signer, address, override string, clientConfig grpc.ClientConfig) (*peer2.PeerClient, error) {
-	gClient, err := grpc.NewGRPCClient(clientConfig)
-	if err != nil {
-		return nil, errors.WithMessage(err, "failed to create Client from config")
-	}
-	pClient := &peer2.PeerClient{
-		Signer: signer,
-		GRPCClient: peer2.GRPCClient{
-			Client:  gClient,
-			Address: address,
-			Sn:      override,
-		},
-	}
-	return pClient, nil
-}
-
-type processedTransaction struct {
-	vc  int32
-	ue  *transaction.UnpackedEnvelope
-	env []byte
-}
-
-func newProcessedTransactionFromEnvelope(env *common.Envelope) (*processedTransaction, int32, error) {
-	ue, headerType, err := transaction.UnpackEnvelope(env)
-	if err != nil {
-		return nil, headerType, err
-	}
-	return &processedTransaction{ue: ue}, headerType, nil
-}
-
-func newProcessedTransactionFromEnvelopeRaw(env []byte) (*processedTransaction, error) {
-	ue, _, err := transaction.UnpackEnvelopeFromBytes(env)
-	if err != nil {
-		return nil, err
-	}
-	return &processedTransaction{ue: ue, env: env}, nil
-}
-
-func newProcessedTransaction(pt *peer.ProcessedTransaction) (*processedTransaction, error) {
-	ue, _, err := transaction.UnpackEnvelope(pt.TransactionEnvelope)
-	if err != nil {
-		return nil, err
-	}
-	env, err := protoutil.Marshal(pt.TransactionEnvelope)
-	if err != nil {
-		return nil, err
-	}
-	return &processedTransaction{vc: pt.ValidationCode, ue: ue, env: env}, nil
-}
-
-func (p *processedTransaction) TxID() string {
-	return p.ue.TxID
-}
-
-func (p *processedTransaction) Results() []byte {
-	return p.ue.Results
-}
-
-func (p *processedTransaction) IsValid() bool {
-	return p.vc == int32(peer.TxValidationCode_VALID)
-}
-
-func (p *processedTransaction) Envelope() []byte {
-	return p.env
-}
-
-func (p *processedTransaction) ValidationCode() int32 {
-	return p.vc
 }

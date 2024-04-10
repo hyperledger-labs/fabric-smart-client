@@ -10,9 +10,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-
 	peer2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/pkg/errors"
 )
@@ -75,7 +74,7 @@ func (c *connCreator) NewPeerClientForAddress(cc grpc.ConnectionConfig) (peer2.C
 	}
 
 	return newPeerClientForClientConfig(
-		c.Singer.Sign,
+		c.Singer,
 		cc.Address,
 		override,
 		*clientConfig,
@@ -125,4 +124,20 @@ func (c *connCreator) GetClientConfig(tlsRootCerts [][]byte, UseTLS bool) (*grpc
 	}
 
 	return clientConfig, override, nil
+}
+
+func newPeerClientForClientConfig(signer driver.Signer, address, override string, clientConfig grpc.ClientConfig) (*peer2.PeerClient, error) {
+	gClient, err := grpc.NewGRPCClient(clientConfig)
+	if err != nil {
+		return nil, errors.WithMessage(err, "failed to create Client from config")
+	}
+	pClient := &peer2.PeerClient{
+		Signer: signer.Sign,
+		GRPCClient: peer2.GRPCClient{
+			Client:  gClient,
+			Address: address,
+			Sn:      override,
+		},
+	}
+	return pClient, nil
 }

@@ -722,3 +722,57 @@ func (s *signerWrapper) Sign(message []byte) ([]byte, error) {
 func (s *signerWrapper) Serialize() ([]byte, error) {
 	return s.creator, nil
 }
+
+type processedTransaction struct {
+	vc  int32
+	ue  *UnpackedEnvelope
+	env []byte
+}
+
+func NewProcessedTransactionFromEnvelope(env *pcommon.Envelope) (*processedTransaction, int32, error) {
+	ue, headerType, err := UnpackEnvelope(env)
+	if err != nil {
+		return nil, headerType, err
+	}
+	return &processedTransaction{ue: ue}, headerType, nil
+}
+
+func NewProcessedTransactionFromEnvelopeRaw(env []byte) (*processedTransaction, error) {
+	ue, _, err := UnpackEnvelopeFromBytes(env)
+	if err != nil {
+		return nil, err
+	}
+	return &processedTransaction{ue: ue, env: env}, nil
+}
+
+func NewProcessedTransaction(pt *pb.ProcessedTransaction) (*processedTransaction, error) {
+	ue, _, err := UnpackEnvelope(pt.TransactionEnvelope)
+	if err != nil {
+		return nil, err
+	}
+	env, err := protoutil.Marshal(pt.TransactionEnvelope)
+	if err != nil {
+		return nil, err
+	}
+	return &processedTransaction{vc: pt.ValidationCode, ue: ue, env: env}, nil
+}
+
+func (p *processedTransaction) TxID() string {
+	return p.ue.TxID
+}
+
+func (p *processedTransaction) Results() []byte {
+	return p.ue.Results
+}
+
+func (p *processedTransaction) IsValid() bool {
+	return p.vc == int32(pb.TxValidationCode_VALID)
+}
+
+func (p *processedTransaction) Envelope() []byte {
+	return p.env
+}
+
+func (p *processedTransaction) ValidationCode() int32 {
+	return p.vc
+}

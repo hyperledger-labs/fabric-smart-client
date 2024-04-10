@@ -20,6 +20,10 @@ type VaultService struct {
 	*vault.Vault
 }
 
+func NewVaultService(vault *vault.Vault) *VaultService {
+	return &VaultService{Vault: vault}
+}
+
 // NewRWSet returns a RWSet for this ledger.
 // A client may obtain more than one such simulator; they are made unique
 // by way of the supplied txid

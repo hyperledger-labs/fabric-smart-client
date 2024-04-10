@@ -8,6 +8,7 @@ package generic
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger/fabric-protos-go/common"
 	"github.com/hyperledger/fabric-protos-go/peer"
@@ -45,7 +46,7 @@ func (c *Ledger) GetTransactionByID(txID string) (driver.ProcessedTransaction, e
 	if err != nil {
 		return nil, err
 	}
-	return newProcessedTransaction(pt)
+	return transaction.NewProcessedTransaction(pt)
 }
 
 func (c *Ledger) GetBlockNumberByTxID(txID string) (uint64, error) {
@@ -96,7 +97,7 @@ func (b *Block) ProcessedTransaction(i int) (driver.ProcessedTransaction, error)
 	if err := proto.Unmarshal(b.Data.Data[i], env); err != nil {
 		return nil, err
 	}
-	return newProcessedTransaction(&peer.ProcessedTransaction{
+	return transaction.NewProcessedTransaction(&peer.ProcessedTransaction{
 		TransactionEnvelope: env,
 		ValidationCode:      int32(b.Metadata.Metadata[common.BlockMetadataIndex_TRANSACTIONS_FILTER][i]),
 	})

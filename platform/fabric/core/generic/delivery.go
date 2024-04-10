@@ -10,6 +10,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
+
 	delivery2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/delivery"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
@@ -124,7 +126,7 @@ func (c *DeliveryService) Scan(ctx context.Context, txID string, callback driver
 					continue
 				}
 
-				ptx, err := newProcessedTransactionFromEnvelopeRaw(tx)
+				ptx, err := transaction.NewProcessedTransactionFromEnvelopeRaw(tx)
 				if err != nil {
 					return false, err
 				}

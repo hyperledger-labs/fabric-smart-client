@@ -9,6 +9,10 @@ package generic
 import (
 	"strings"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
+
+	"github.com/hyperledger/fabric-protos-go/peer"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/compose"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
@@ -158,6 +162,18 @@ func (c *Channel) UnsubscribeTxStatusChanges(txID string, listener driver.TxStat
 	return nil
 }
 
+// FetchEnvelope fetches from the ledger and stores the enveloped correspoding to the passed id
+func (c *Channel) FetchEnvelope(txID string) ([]byte, error) {
+	pt, err := c.Ledger().GetTransactionByID(txID)
+	if err != nil {
+		return nil, errors.WithMessagef(err, "failed fetching tx [%s]", txID)
+	}
+	if !pt.IsValid() {
+		return nil, errors.Errorf("fetched tx [%s] should have been valid, instead it is [%s]", txID, peer.TxValidationCode_name[pt.ValidationCode()])
+	}
+	return pt.Envelope(), nil
+}
+
 func (c *Channel) commitUnknown(txID string, block uint64, indexInBlock int, envelope *common.Envelope) error {
 	// if an envelope exists for the passed txID, then commit it
 	if c.EnvelopeService().Exists(txID) {
@@ -269,7 +285,7 @@ func (c *Channel) commitLocal(txID string, block uint64, indexInBlock int, envel
 	if envelope != nil {
 		logger.Debugf("[%s] matching rwsets", txID)
 
-		pt, headerType, err := newProcessedTransactionFromEnvelope(envelope)
+		pt, headerType, err := transaction.NewProcessedTransactionFromEnvelope(envelope)
 		if err != nil && headerType == -1 {
 			logger.Errorf("[%s] failed to unmarshal envelope [%s]", txID, err)
 			return err
