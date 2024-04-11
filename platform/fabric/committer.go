@@ -38,8 +38,8 @@ func (c *Committer) Status(txID string) (ValidationCode, string, error) {
 	return ValidationCode(vc), message, err
 }
 
-func (c *Committer) AddStatusReporter(sr driver.StatusReporter) error {
-	return c.committer.AddStatusReporter(sr)
+func (c *Committer) AddStatusReporter(sr driver.TransactionFilter) error {
+	return c.committer.AddTransactionFilter(sr)
 }
 
 // SubscribeTxStatusChanges registers a listener for transaction status changes for the passed transaction id.
