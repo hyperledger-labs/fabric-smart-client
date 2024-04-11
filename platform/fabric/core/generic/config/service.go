@@ -70,10 +70,10 @@ func NewService(configService driver.Configuration, name string, defaultConfig b
 		v.TLSEnabled = tlsEnabled
 	}
 	peers, err := readItems[*grpc.ConnectionConfig](configService, prefix, "peers")
-	peerMapping, err := createPeerMap(peers, tlsEnabled)
 	if err != nil {
 		return nil, err
 	}
+	peerMapping := createPeerMap(peers, tlsEnabled)
 
 	channels, err := readItems[*Channel](configService, prefix, "channels")
 	if err != nil {
@@ -111,7 +111,7 @@ func createChannelMap(channels []*Channel) (map[string]*Channel, string, error) 
 	return channelMap, defaultChannel, nil
 }
 
-func createPeerMap(peers []*grpc.ConnectionConfig, tlsEnabled bool) (map[driver.PeerFunctionType][]*grpc.ConnectionConfig, error) {
+func createPeerMap(peers []*grpc.ConnectionConfig, tlsEnabled bool) map[driver.PeerFunctionType][]*grpc.ConnectionConfig {
 	peerMapping := map[driver.PeerFunctionType][]*grpc.ConnectionConfig{}
 	for _, v := range peers {
 		v.TLSEnabled = tlsEnabled && !v.TLSDisabled
@@ -122,7 +122,7 @@ func createPeerMap(peers []*grpc.ConnectionConfig, tlsEnabled bool) (map[driver.
 			logger.Warn("connection usage [%s] not recognized [%v]", v.Usage, v)
 		}
 	}
-	return peerMapping, nil
+	return peerMapping
 }
 
 func readItems[T any](configService driver.Configuration, prefix, key string) ([]T, error) {
