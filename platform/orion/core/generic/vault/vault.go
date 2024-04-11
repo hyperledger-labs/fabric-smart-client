@@ -241,6 +241,24 @@ func (db *Vault) SetBusy(txid string) error {
 	return nil
 }
 
+func (db *Vault) SetStatus(txID string, code odriver.ValidationCode) error {
+	err := db.store.BeginUpdate()
+	if err != nil {
+		return errors.WithMessagef(err, "begin update for txid '%s' failed", txID)
+	}
+	err = db.txidStore.Set(txID, code, "")
+	if err != nil {
+		db.store.Discard()
+		return err
+	}
+	err = db.store.Commit()
+	if err != nil {
+		db.store.Discard()
+		return errors.WithMessagef(err, "committing tx for txid '%s' failed", txID)
+	}
+	return nil
+}
+
 func (db *Vault) NewRWSet(txid string) (*Interceptor, error) {
 	logger.Debugf("NewRWSet[%s][%d]", txid, db.counter.Load())
 	i := newInterceptor(&interceptorQueryExecutor{db}, db.txidStore, txid)

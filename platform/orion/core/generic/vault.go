@@ -24,8 +24,6 @@ type Vault struct {
 	*vault.Vault
 	*vault.SimpleTXIDStore
 	network Network
-
-	StatusReporters []driver.StatusReporter
 }
 
 func NewVault(sp view.ServiceProvider, config *config.Config, network Network, channel string) (*Vault, error) {
@@ -76,13 +74,6 @@ func (v *Vault) Status(txID string) (driver.ValidationCode, string, error) {
 		return driver.Busy, message, nil
 	}
 
-	// check status reporter, if any
-	for _, reporter := range v.StatusReporters {
-		if externalStatus, externalMessage, _, err := reporter.Status(txID); err == nil && externalStatus != driver.Unknown {
-			return externalStatus, externalMessage, nil
-		}
-	}
-
 	return driver.Unknown, message, nil
 }
 
@@ -92,23 +83,11 @@ func (v *Vault) DiscardTx(txID string, message string) error {
 		return errors.Wrapf(err, "failed getting tx's status in state db [%s]", txID)
 	}
 	if vc != driver.Unknown {
+		logger.Debugf("discarding transaction [%s], tx is known", txID)
 		return v.Vault.DiscardTx(txID, message)
 	}
-
-	// check status reporter, if any
-	for _, reporter := range v.StatusReporters {
-		if externalStatus, _, _, err := reporter.Status(txID); err == nil && externalStatus != driver.Unknown {
-			return v.Vault.DiscardTx(txID, message)
-		}
-	}
-
-	logger.Debugf("Discarding transaction [%s] skipped, tx is unknown", txID)
-	return nil
-}
-
-func (v *Vault) AddStatusReporter(sr driver.StatusReporter) error {
-	v.StatusReporters = append(v.StatusReporters, sr)
-	return nil
+	logger.Debugf("discarding transaction [%s], tx is unknown, set status to invalid", txID)
+	return v.Vault.SetStatus(txID, driver.Invalid)
 }
 
 func (v *Vault) extractStoredEnvelopeToVault(txID string) error {

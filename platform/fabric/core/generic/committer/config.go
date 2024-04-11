@@ -12,7 +12,7 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-func (c *Service) HandleConfig(block *common.Block, i int, event *TxEvent, env *common.Envelope, chHdr *common.ChannelHeader) error {
+func (c *Service) HandleConfig(block *common.Block, i int, event *TxEvent, envRaw []byte, env *common.Envelope, chHdr *common.ChannelHeader) error {
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("[%s] Config transaction received: %s", c.ChannelConfig.ID(), chHdr.TxId)
 	}

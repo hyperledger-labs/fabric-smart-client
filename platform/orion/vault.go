@@ -260,7 +260,3 @@ func (v *Vault) DiscardTx(txID string, message string) error {
 func (v *Vault) CommitTX(txid string, block uint64, indexInBloc int) error {
 	return v.ons.Vault().CommitTX(txid, block, indexInBloc)
 }
-
-func (v *Vault) AddStatusReporter(sr driver.StatusReporter) error {
-	return v.v.AddStatusReporter(sr)
-}
