@@ -24,11 +24,6 @@ type IdentityInfo struct {
 	GetIdentity  GetIdentityFunc
 }
 
-type SigningIdentity interface {
-	Serialize() ([]byte, error)
-	Sign(msg []byte) ([]byte, error)
-}
-
 type LocalMembership interface {
 	DefaultIdentity() view.Identity
 	AnonymousIdentity() view.Identity

@@ -13,15 +13,14 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/driver"
-	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
+	driver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/hyperledger/fabric-protos-go/msp"
 	"github.com/pkg/errors"
 )
 
 type SignerService interface {
-	RegisterSigner(identity view.Identity, signer fdriver.Signer, verifier fdriver.Verifier) error
+	RegisterSigner(identity view.Identity, signer driver.Signer, verifier driver.Verifier) error
 }
 
 type Provider struct {
@@ -84,7 +83,7 @@ func (p *Provider) IsRemote() bool {
 	return p.sID == nil
 }
 
-func (p *Provider) Identity(opts *fdriver.IdentityOptions) (view.Identity, []byte, error) {
+func (p *Provider) Identity(opts *driver.IdentityOptions) (view.Identity, []byte, error) {
 	revocationHandle, err := GetRevocationHandle(p.id)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "failed getting revocation handle")

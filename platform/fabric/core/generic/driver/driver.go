@@ -7,6 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 package driver
 
 import (
+	"fmt"
+	"reflect"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
@@ -14,9 +17,12 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/id"
 	metrics2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp"
+	mspdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/sig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	metrics3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/pkg/errors"
 )
@@ -32,7 +38,10 @@ func (d *Driver) New(sp view.ServiceProvider, network string, defaultNetwork boo
 	if err != nil {
 		return nil, err
 	}
-	sigService := generic.NewSigService(view.GetSigService(sp))
+	kvss := kvs.GetService(sp)
+
+	deserialier := sig.NewMultiplexDeserializer()
+	sigService := sig.NewService(deserialier, kvss)
 
 	// Endpoint service
 	resolverService, err := endpoint.NewResolverService(
@@ -52,11 +61,12 @@ func (d *Driver) New(sp view.ServiceProvider, network string, defaultNetwork boo
 
 	// Local MSP Manager
 	mspService := msp.NewLocalMSPManager(
-		sp,
 		configService,
+		kvss,
 		sigService,
 		view.GetEndpointService(sp),
 		view.GetIdentityProvider(sp).DefaultIdentity(),
+		deserialier,
 		configService.MSPCacheSize(),
 	)
 	if err := mspService.Load(); err != nil {
@@ -93,4 +103,12 @@ func (d *Driver) New(sp view.ServiceProvider, network string, defaultNetwork boo
 
 func init() {
 	core.Register("generic", &Driver{})
+}
+
+func DeserializerManager(sp view.ServiceProvider) mspdriver.DeserializerManager {
+	dm, err := sp.GetService(reflect.TypeOf((*mspdriver.DeserializerManager)(nil)))
+	if err != nil {
+		panic(fmt.Sprintf("failed looking up deserializer manager [%s]", err))
+	}
+	return dm.(mspdriver.DeserializerManager)
 }

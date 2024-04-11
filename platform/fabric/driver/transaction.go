@@ -76,16 +76,6 @@ type TransactionManager interface {
 	AddTransactionFactory(tt TransactionType, factory TransactionFactory)
 }
 
-// Verifier is an interface which wraps the Verify method.
-type Verifier interface {
-	// Verify verifies the signature over the passed message.
-	Verify(message, sigma []byte) error
-}
-
-type Signer interface {
-	Sign(message []byte) ([]byte, error)
-}
-
 type Transaction interface {
 	Creator() view.Identity
 	Nonce() []byte

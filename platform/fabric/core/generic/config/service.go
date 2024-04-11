@@ -30,30 +30,10 @@ const (
 
 var logger = flogging.MustGetLogger("fabric-sdk.core.generic.config")
 
-// configService models a configuration registry
-type configService interface {
-	// GetString returns the value associated with the key as a string
-	GetString(key string) string
-	// GetDuration returns the value associated with the key as a duration
-	GetDuration(key string) time.Duration
-	// GetBool returns the value associated with the key as a boolean
-	GetBool(key string) bool
-	// IsSet checks to see if the key has been set in any of the data locations
-	IsSet(key string) bool
-	// UnmarshalKey takes a single key and unmarshals it into a Struct
-	UnmarshalKey(key string, rawVal interface{}) error
-	// GetPath allows configuration strings that specify a (config-file) relative path
-	GetPath(key string) string
-	// TranslatePath translates the passed path relative to the config path
-	TranslatePath(path string) string
-	// GetInt returns the value associated with the key as an int
-	GetInt(key string) int
-}
-
 type Service struct {
-	name          string
-	prefix        string
-	configService configService
+	driver.Configuration
+	name   string
+	prefix string
 
 	configuredOrderers []*grpc.ConnectionConfig
 	orderers           []*grpc.ConnectionConfig
@@ -64,21 +44,21 @@ type Service struct {
 	defaultChannel     string
 }
 
-func NewService(configService configService, name string, defaultConfig bool) (*Service, error) {
+func NewService(configService driver.Configuration, name string, defaultConfig bool) (*Service, error) {
 	// instantiate base service
 	var service *Service
 	if configService.IsSet("fabric." + name) {
 		service = &Service{
 			name:          name,
 			prefix:        name + ".",
-			configService: configService,
+			Configuration: configService,
 		}
 	} else {
 		if defaultConfig {
 			service = &Service{
 				name:          name,
 				prefix:        "",
-				configService: configService,
+				Configuration: configService,
 			}
 		} else {
 			return nil, errors.Errorf("configuration for [%s] not found", name)
@@ -94,7 +74,7 @@ func NewService(configService configService, name string, defaultConfig bool) (*
 func (s *Service) init() error {
 	// orderers
 	var orderers []*grpc.ConnectionConfig
-	if err := s.configService.UnmarshalKey("fabric."+s.prefix+"orderers", &orderers); err != nil {
+	if err := s.Configuration.UnmarshalKey("fabric."+s.prefix+"orderers", &orderers); err != nil {
 		return err
 	}
 	tlsEnabled := s.TLSEnabled()
@@ -106,7 +86,7 @@ func (s *Service) init() error {
 
 	// peers
 	var peers []*grpc.ConnectionConfig
-	if err := s.configService.UnmarshalKey("fabric."+s.prefix+"peers", &peers); err != nil {
+	if err := s.Configuration.UnmarshalKey("fabric."+s.prefix+"peers", &peers); err != nil {
 		return err
 	}
 
@@ -138,7 +118,7 @@ func (s *Service) init() error {
 	var channels []*Channel
 	var channelIDs []string
 	var channelConfigs []driver.ChannelConfig
-	if err := s.configService.UnmarshalKey("fabric."+s.prefix+"channels", &channels); err != nil {
+	if err := s.Configuration.UnmarshalKey("fabric."+s.prefix+"channels", &channels); err != nil {
 		return err
 	}
 	for _, channel := range channels {
@@ -165,35 +145,35 @@ func (s *Service) NetworkName() string {
 }
 
 func (s *Service) TLSEnabled() bool {
-	return s.configService.GetBool("fabric." + s.prefix + "tls.enabled")
+	return s.Configuration.GetBool("fabric." + s.prefix + "tls.enabled")
 }
 
 func (s *Service) TLSClientAuthRequired() bool {
-	return s.configService.GetBool("fabric." + s.prefix + "tls.clientAuthRequired")
+	return s.Configuration.GetBool("fabric." + s.prefix + "tls.clientAuthRequired")
 }
 
 func (s *Service) TLSServerHostOverride() string {
-	return s.configService.GetString("fabric." + s.prefix + "tls.serverhostoverride")
+	return s.Configuration.GetString("fabric." + s.prefix + "tls.serverhostoverride")
 }
 
 func (s *Service) ClientConnTimeout() time.Duration {
-	return s.configService.GetDuration("fabric." + s.prefix + "client.connTimeout")
+	return s.Configuration.GetDuration("fabric." + s.prefix + "client.connTimeout")
 }
 
 func (s *Service) TLSClientKeyFile() string {
-	return s.configService.GetPath("fabric." + s.prefix + "tls.clientKey.file")
+	return s.Configuration.GetPath("fabric." + s.prefix + "tls.clientKey.file")
 }
 
 func (s *Service) TLSClientCertFile() string {
-	return s.configService.GetPath("fabric." + s.prefix + "tls.clientCert.file")
+	return s.Configuration.GetPath("fabric." + s.prefix + "tls.clientCert.file")
 }
 
 func (s *Service) KeepAliveClientInterval() time.Duration {
-	return s.configService.GetDuration("fabric." + s.prefix + "keepalive.interval")
+	return s.Configuration.GetDuration("fabric." + s.prefix + "keepalive.interval")
 }
 
 func (s *Service) KeepAliveClientTimeout() time.Duration {
-	return s.configService.GetDuration("fabric." + s.prefix + "keepalive.timeout")
+	return s.Configuration.GetDuration("fabric." + s.prefix + "keepalive.timeout")
 }
 
 func (s *Service) NewDefaultChannelConfig(name string) driver.ChannelConfig {
@@ -212,7 +192,7 @@ func (s *Service) Orderers() []*grpc.ConnectionConfig {
 }
 
 func (s *Service) VaultPersistenceType() string {
-	return s.configService.GetString("fabric." + s.prefix + "vault.persistence.type")
+	return s.Configuration.GetString("fabric." + s.prefix + "vault.persistence.type")
 }
 
 func (s *Service) VaultPersistencePrefix() string {
@@ -221,7 +201,7 @@ func (s *Service) VaultPersistencePrefix() string {
 
 func (s *Service) VaultTXStoreCacheSize() int {
 	defaultCacheSize := 100
-	v := s.configService.GetString("fabric." + s.prefix + "vault.txidstore.cache.size")
+	v := s.Configuration.GetString("fabric." + s.prefix + "vault.txidstore.cache.size")
 	cacheSize, err := strconv.Atoi(v)
 	if err != nil {
 		return defaultCacheSize
@@ -236,12 +216,12 @@ func (s *Service) VaultTXStoreCacheSize() int {
 
 // DefaultMSP returns the default MSP
 func (s *Service) DefaultMSP() string {
-	return s.configService.GetString("fabric." + s.prefix + "defaultMSP")
+	return s.Configuration.GetString("fabric." + s.prefix + "defaultMSP")
 }
 
 func (s *Service) MSPs() ([]MSP, error) {
 	var confs []MSP
-	if err := s.configService.UnmarshalKey("fabric."+s.prefix+"msps", &confs); err != nil {
+	if err := s.Configuration.UnmarshalKey("fabric."+s.prefix+"msps", &confs); err != nil {
 		return nil, err
 	}
 	return confs, nil
@@ -249,7 +229,7 @@ func (s *Service) MSPs() ([]MSP, error) {
 
 // TranslatePath translates the passed path relative to the path from which the configuration has been loaded
 func (s *Service) TranslatePath(path string) string {
-	return s.configService.TranslatePath(path)
+	return s.Configuration.TranslatePath(path)
 }
 
 func (s *Service) DefaultChannel() string {
@@ -266,38 +246,38 @@ func (s *Service) Channels() []driver.ChannelConfig {
 
 func (s *Service) Resolvers() ([]Resolver, error) {
 	var resolvers []Resolver
-	if err := s.configService.UnmarshalKey("fabric."+s.prefix+"endpoint.resolvers", &resolvers); err != nil {
+	if err := s.Configuration.UnmarshalKey("fabric."+s.prefix+"endpoint.resolvers", &resolvers); err != nil {
 		return nil, err
 	}
 	return resolvers, nil
 }
 
 func (s *Service) GetString(key string) string {
-	return s.configService.GetString("fabric." + s.prefix + key)
+	return s.Configuration.GetString("fabric." + s.prefix + key)
 }
 
 func (s *Service) GetDuration(key string) time.Duration {
-	return s.configService.GetDuration("fabric." + s.prefix + key)
+	return s.Configuration.GetDuration("fabric." + s.prefix + key)
 }
 
 func (s *Service) GetBool(key string) bool {
-	return s.configService.GetBool("fabric." + s.prefix + key)
+	return s.Configuration.GetBool("fabric." + s.prefix + key)
 }
 
 func (s *Service) IsSet(key string) bool {
-	return s.configService.IsSet("fabric." + s.prefix + key)
+	return s.Configuration.IsSet("fabric." + s.prefix + key)
 }
 
 func (s *Service) UnmarshalKey(key string, rawVal interface{}) error {
-	return s.configService.UnmarshalKey("fabric."+s.prefix+key, rawVal)
+	return s.Configuration.UnmarshalKey("fabric."+s.prefix+key, rawVal)
 }
 
 func (s *Service) GetPath(key string) string {
-	return s.configService.GetPath("fabric." + s.prefix + key)
+	return s.Configuration.GetPath("fabric." + s.prefix + key)
 }
 
 func (s *Service) MSPCacheSize() int {
-	v := s.configService.GetString("fabric." + s.prefix + "mspCacheSize")
+	v := s.Configuration.GetString("fabric." + s.prefix + "mspCacheSize")
 	if len(v) == 0 {
 		return DefaultMSPCacheSize
 	}
@@ -309,7 +289,7 @@ func (s *Service) MSPCacheSize() int {
 }
 
 func (s *Service) BroadcastNumRetries() int {
-	v := s.configService.GetInt("fabric." + s.prefix + "ordering.numRetries")
+	v := s.Configuration.GetInt("fabric." + s.prefix + "ordering.numRetries")
 	if v == 0 {
 		return DefaultBroadcastNumRetries
 	}
@@ -317,13 +297,13 @@ func (s *Service) BroadcastNumRetries() int {
 }
 
 func (s *Service) BroadcastRetryInterval() time.Duration {
-	return s.configService.GetDuration("fabric." + s.prefix + "ordering.retryInterval")
+	return s.Configuration.GetDuration("fabric." + s.prefix + "ordering.retryInterval")
 }
 
 func (s *Service) OrdererConnectionPoolSize() int {
 	k := "fabric." + s.prefix + "ordering.connectionPoolSize"
-	if s.configService.IsSet(k) {
-		return s.configService.GetInt(k)
+	if s.Configuration.IsSet(k) {
+		return s.Configuration.GetInt(k)
 	}
 	return DefaultOrderingConnectionPoolSize
 }

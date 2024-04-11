@@ -8,10 +8,8 @@ package driver
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
-	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/sig"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/sig"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -19,7 +17,7 @@ type MSP struct {
 	Name         string `yaml:"name,omitempty"`
 	Type         string `yaml:"type,omitempty"`
 	EnrollmentID string
-	GetIdentity  fdriver.GetIdentityFunc
+	GetIdentity  driver.GetIdentityFunc
 }
 
 type Config interface {
@@ -30,12 +28,16 @@ type Config interface {
 }
 
 type SignerService interface {
-	RegisterSigner(identity view.Identity, signer fdriver.Signer, verifier fdriver.Verifier) error
+	RegisterSigner(identity view.Identity, signer driver.Signer, verifier driver.Verifier) error
+	IsMe(id view.Identity) bool
 }
 
 type BinderService interface {
 	Bind(longTerm view.Identity, ephemeral view.Identity) error
+	GetIdentity(label string, pkiID []byte) (view.Identity, error)
 }
+
+//go:generate counterfeiter -o mock/config_provider.go -fake-name ConfigProvider . ConfigProvider
 
 type ConfigProvider interface {
 	driver.ConfigService
@@ -47,11 +49,10 @@ type DeserializerManager interface {
 
 type Manager interface {
 	AddDeserializer(deserializer sig.Deserializer)
-	AddMSP(name string, mspType string, enrollmentID string, idGetter fdriver.GetIdentityFunc)
+	AddMSP(name string, mspType string, enrollmentID string, idGetter driver.GetIdentityFunc)
 	Config() Config
 	DefaultMSP() string
 	SignerService() SignerService
-	ServiceProvider() view2.ServiceProvider
 	CacheSize() int
 	SetDefaultIdentity(id string, defaultIdentity view.Identity, defaultSigningIdentity SigningIdentity)
 }

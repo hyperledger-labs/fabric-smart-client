@@ -8,15 +8,13 @@ package msp
 
 import (
 	"fmt"
-	"reflect"
 	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/idemix"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/x509"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/sig"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/sig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/hyperledger/fabric/msp"
@@ -32,13 +30,20 @@ const (
 
 var logger = flogging.MustGetLogger("fabric-sdk.msp")
 
+type KVS interface {
+	Exists(id string) bool
+	Put(id string, state interface{}) error
+	Get(id string, state interface{}) error
+}
+
 type service struct {
-	sp                     view2.ServiceProvider
 	defaultIdentity        view.Identity
 	defaultSigningIdentity driver.SigningIdentity
 	signerService          driver.SignerService
 	binderService          driver.BinderService
+	deserializerManager    driver.DeserializerManager
 	defaultViewIdentity    view.Identity
+	KVS                    KVS
 	config                 driver.Config
 
 	mspsMutex           sync.RWMutex
@@ -53,18 +58,20 @@ type service struct {
 }
 
 func NewLocalMSPManager(
-	sp view2.ServiceProvider,
 	config driver.Config,
+	KVS KVS,
 	signerService driver.SignerService,
 	binderService driver.BinderService,
 	defaultViewIdentity view.Identity,
+	deserializerManager driver.DeserializerManager,
 	cacheSize int,
 ) *service {
 	s := &service{
-		sp:                  sp,
 		config:              config,
+		KVS:                 KVS,
 		signerService:       signerService,
 		binderService:       binderService,
+		deserializerManager: deserializerManager,
 		defaultViewIdentity: defaultViewIdentity,
 		mspsByTypeAndName:   map[string]*driver.MSP{},
 		bccspMspsByIdentity: map[string]*driver.MSP{},
@@ -75,13 +82,21 @@ func NewLocalMSPManager(
 	}
 	s.PutIdentityLoader(BccspMSP, &x509.IdentityLoader{})
 	s.PutIdentityLoader(BccspMSPFolder, &x509.FolderIdentityLoader{})
-	s.PutIdentityLoader(IdemixMSP, &idemix.IdentityLoader{})
-	s.PutIdentityLoader(IdemixMSPFolder, &idemix.FolderIdentityLoader{})
+	s.PutIdentityLoader(IdemixMSP, &idemix.IdentityLoader{
+		KVS:           KVS,
+		SignerService: signerService,
+	})
+	s.PutIdentityLoader(IdemixMSPFolder, &idemix.FolderIdentityLoader{
+		IdentityLoader: &idemix.IdentityLoader{
+			KVS:           KVS,
+			SignerService: signerService,
+		},
+	})
 	return s
 }
 
 func (s *service) AddDeserializer(deserializer sig.Deserializer) {
-	s.DeserializerManager().AddDeserializer(deserializer)
+	s.deserializerManager.AddDeserializer(deserializer)
 }
 
 func (s *service) Config() driver.Config {
@@ -95,10 +110,6 @@ func (s *service) DefaultMSP() string {
 
 func (s *service) SignerService() driver.SignerService {
 	return s.signerService
-}
-
-func (s *service) ServiceProvider() view2.ServiceProvider {
-	return s.sp
 }
 
 func (s *service) CacheSize() int {
@@ -123,12 +134,9 @@ func (s *service) DefaultIdentity() view.Identity {
 
 func (s *service) AnonymousIdentity() view.Identity {
 	id := s.Identity("idemix")
-
-	es := view2.GetEndpointService(s.sp)
-	if err := es.Bind(s.defaultViewIdentity, id); err != nil {
+	if err := s.binderService.Bind(s.defaultViewIdentity, id); err != nil {
 		panic(err)
 	}
-
 	return id
 }
 
@@ -141,7 +149,7 @@ func (s *service) Identity(label string) view.Identity {
 }
 
 func (s *service) IsMe(id view.Identity) bool {
-	return view2.GetSigService(s.sp).IsMe(id)
+	return s.signerService.IsMe(id)
 }
 
 func (s *service) DefaultSigningIdentity() fdriver.SigningIdentity {
@@ -225,7 +233,7 @@ func (s *service) GetIdentityByID(id string) (view.Identity, error) {
 		}
 	}
 
-	identity, err := view2.GetEndpointService(s.sp).GetIdentity(id, nil)
+	identity, err := s.binderService.GetIdentity(id, nil)
 	if err != nil {
 		return nil, errors.Errorf("identity [%s] not found", id)
 	}
@@ -240,12 +248,12 @@ func (s *service) RegisterIdemixMSP(id string, path string, mspID string) error 
 	if err != nil {
 		return errors.Wrapf(err, "failed reading idemix msp configuration from [%s]", path)
 	}
-	provider, err := idemix.NewProviderWithAnyPolicy(conf, s.sp)
+	provider, err := idemix.NewProviderWithAnyPolicy(conf, s.KVS, s.signerService)
 	if err != nil {
 		return errors.Wrapf(err, "failed instantiating idemix msp provider from [%s]", path)
 	}
 
-	s.DeserializerManager().AddDeserializer(provider)
+	s.deserializerManager.AddDeserializer(provider)
 	s.AddMSP(id, IdemixMSP, provider.EnrollmentID(), idemix.NewIdentityCache(provider.Identity, s.cacheSize, nil).Identity)
 	logger.Debugf("added IdemixMSP msp for id %s with cache of size %d", id+"@"+provider.EnrollmentID(), s.cacheSize)
 	return nil
@@ -260,7 +268,7 @@ func (s *service) RegisterX509MSP(id string, path string, mspID string) error {
 		return errors.Wrapf(err, "failed instantiating idemix msp provider from [%s]", path)
 	}
 
-	s.DeserializerManager().AddDeserializer(provider)
+	s.deserializerManager.AddDeserializer(provider)
 	s.AddMSP(id, BccspMSP, provider.EnrollmentID(), provider.Identity)
 
 	return nil
@@ -346,14 +354,6 @@ func (s *service) Msps() []string {
 		res = append(res, r.Name)
 	}
 	return res
-}
-
-func (s *service) DeserializerManager() driver.DeserializerManager {
-	dm, err := s.sp.GetService(reflect.TypeOf((*driver.DeserializerManager)(nil)))
-	if err != nil {
-		panic(fmt.Sprintf("failed looking up deserializer manager [%s]", err))
-	}
-	return dm.(driver.DeserializerManager)
 }
 
 func (s *service) loadLocalMSPs() error {
