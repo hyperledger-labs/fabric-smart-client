@@ -12,12 +12,12 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-func (c *Committer) HandleConfig(block *common.Block, i int, event *TxEvent, env *common.Envelope, chHdr *common.ChannelHeader) error {
+func (c *Service) HandleConfig(block *common.Block, i int, event *TxEvent, env *common.Envelope, chHdr *common.ChannelHeader) error {
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("[%s] Config transaction received: %s", c.Channel, chHdr.TxId)
+		logger.Debugf("[%s] Config transaction received: %s", c.ChannelConfig.ID(), chHdr.TxId)
 	}
-	if err := c.Committer.CommitConfig(block.Header.Number, block.Data.Data[i], env); err != nil {
-		return errors.Wrapf(err, "cannot commit config envelope for channel [%s]", c.Channel)
+	if err := c.CommitConfig(block.Header.Number, block.Data.Data[i], env); err != nil {
+		return errors.Wrapf(err, "cannot commit config envelope for channel [%s]", c.ChannelConfig.ID())
 	}
 	return nil
 }

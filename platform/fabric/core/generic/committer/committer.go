@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package committer
 
 import (
+	"context"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"sync"
@@ -19,7 +21,9 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger/fabric-protos-go/common"
 	"github.com/hyperledger/fabric-protos-go/peer"
 	"github.com/hyperledger/fabric/bccsp/factory"
@@ -27,20 +31,36 @@ import (
 	"github.com/hyperledger/fabric/common/configtx"
 	"github.com/hyperledger/fabric/protoutil"
 	"github.com/pkg/errors"
+	"go.uber.org/zap/zapcore"
 )
 
 const (
 	channelConfigKey = "CHANNEL_CONFIG_ENV_BYTES"
 	peerNamespace    = "_configtx"
+	ConfigTXPrefix   = "configtx_"
 )
+
+var (
+	// TODO: introduced due to a race condition in idemix.
+	commitConfigMutex = &sync.Mutex{}
+	logger            = flogging.MustGetLogger("fabric-sdk.Committer")
+	// ErrDiscardTX this error can be used to signal that a valid transaction should be discarded anyway
+	ErrDiscardTX = errors.New("discard tx")
+)
+
+type FabricFinality interface {
+	IsFinal(txID string, address string) error
+}
+
+type TransactionHandler = func(block *common.Block, i int, event *TxEvent, env *common.Envelope, chHdr *common.ChannelHeader) error
 
 type OrderingService interface {
 	SetConfigOrderers(o channelconfig.Orderer, orderers []*grpc.ConnectionConfig) error
 }
 
 type Service struct {
-	NetworkName string
-	ChannelName string
+	ConfigService driver.ConfigService
+	ChannelConfig driver.ChannelConfig
 
 	Vault              driver.Vault
 	EnvelopeService    driver.EnvelopeService
@@ -51,16 +71,26 @@ type Service struct {
 	ProcessorManager   driver.ProcessorManager
 	MembershipService  *membership.Service
 	OrderingService    OrderingService
+	FabricFinality     FabricFinality
+	Tracer             tracing.Tracer
 
 	// events
 	Subscribers      *events.Subscribers
 	EventsSubscriber events.Subscriber
 	EventsPublisher  events.Publisher
+
+	WaitForEventTimeout time.Duration
+	Handlers            map[common.HeaderType]TransactionHandler
+	QuietNotifier       bool
+
+	listeners      map[string][]chan TxEvent
+	mutex          sync.Mutex
+	pollingTimeout time.Duration
 }
 
 func NewService(
-	networkName string,
-	channelName string,
+	ConfigService driver.ConfigService,
+	channelConfig driver.ChannelConfig,
 	vault driver.Vault,
 	envelopeService driver.EnvelopeService,
 	ledger driver.Ledger,
@@ -70,21 +100,36 @@ func NewService(
 	eventsPublisher events.Publisher,
 	ChannelMembershipService *membership.Service,
 	OrderingService OrderingService,
+	fabricFinality FabricFinality,
+	waitForEventTimeout time.Duration,
+	quiet bool,
+	metrics tracing.Tracer,
 ) *Service {
-	return &Service{
-		NetworkName:        networkName,
-		ChannelName:        channelName,
-		Vault:              vault,
-		EnvelopeService:    envelopeService,
-		Ledger:             ledger,
-		RWSetLoaderService: RWSetLoaderService,
-		ProcessorManager:   processorManager,
-		Subscribers:        events.NewSubscribers(),
-		EventsSubscriber:   eventsSubscriber,
-		EventsPublisher:    eventsPublisher,
-		MembershipService:  ChannelMembershipService,
-		OrderingService:    OrderingService,
+	s := &Service{
+		ConfigService:       ConfigService,
+		ChannelConfig:       channelConfig,
+		Vault:               vault,
+		EnvelopeService:     envelopeService,
+		StatusReporters:     []driver.StatusReporter{},
+		ProcessNamespaces:   []string{},
+		Ledger:              ledger,
+		RWSetLoaderService:  RWSetLoaderService,
+		ProcessorManager:    processorManager,
+		MembershipService:   ChannelMembershipService,
+		OrderingService:     OrderingService,
+		Subscribers:         events.NewSubscribers(),
+		EventsSubscriber:    eventsSubscriber,
+		EventsPublisher:     eventsPublisher,
+		FabricFinality:      fabricFinality,
+		WaitForEventTimeout: waitForEventTimeout,
+		QuietNotifier:       quiet,
+		Tracer:              metrics,
+		listeners:           map[string][]chan TxEvent{},
+		Handlers:            map[common.HeaderType]TransactionHandler{},
 	}
+	s.Handlers[common.HeaderType_CONFIG] = s.HandleConfig
+	s.Handlers[common.HeaderType_ENDORSER_TRANSACTION] = s.HandleEndorserTransaction
+	return s
 }
 
 func (c *Service) Status(txID string) (driver.ValidationCode, string, []string, error) {
@@ -198,7 +243,7 @@ func (c *Service) CommitTX(txID string, block uint64, indexInBlock int, envelope
 }
 
 func (c *Service) SubscribeTxStatusChanges(txID string, listener driver.TxStatusChangeListener) error {
-	_, topic := compose.CreateTxTopic(c.NetworkName, c.ChannelName, txID)
+	_, topic := compose.CreateTxTopic(c.ConfigService.NetworkName(), c.ChannelConfig.ID(), txID)
 	l := &TxEventsListener{listener: listener}
 	logger.Debugf("[%s] Subscribing to transaction status changes", txID)
 	c.EventsSubscriber.Subscribe(topic, l)
@@ -209,7 +254,7 @@ func (c *Service) SubscribeTxStatusChanges(txID string, listener driver.TxStatus
 }
 
 func (c *Service) UnsubscribeTxStatusChanges(txID string, listener driver.TxStatusChangeListener) error {
-	_, topic := compose.CreateTxTopic(c.NetworkName, c.ChannelName, txID)
+	_, topic := compose.CreateTxTopic(c.ConfigService.NetworkName(), c.ChannelConfig.ID(), txID)
 	l, ok := c.Subscribers.Get(topic, listener)
 	if !ok {
 		return errors.Errorf("listener not found for txID [%s]", txID)
@@ -221,10 +266,6 @@ func (c *Service) UnsubscribeTxStatusChanges(txID string, listener driver.TxStat
 	c.Subscribers.Delete(topic, listener)
 	c.EventsSubscriber.Unsubscribe(topic, el)
 	return nil
-}
-
-func (c *Service) GetProcessNamespace() []string {
-	return c.ProcessNamespaces
 }
 
 // CommitConfig is used to validate and apply configuration transactions for a Channel.
@@ -268,7 +309,7 @@ func (c *Service) CommitConfig(blockNumber uint64, raw []byte, env *common.Envel
 	var bundle *channelconfig.Bundle
 	if c.MembershipService.Resources() == nil {
 		// set up the genesis block
-		bundle, err = channelconfig.NewBundle(c.ChannelName, ctx.Config, factory.GetDefault())
+		bundle, err = channelconfig.NewBundle(c.ChannelConfig.ID(), ctx.Config, factory.GetDefault())
 		if err != nil {
 			return errors.Wrapf(err, "failed to build a new bundle")
 		}
@@ -297,8 +338,246 @@ func (c *Service) CommitConfig(blockNumber uint64, raw []byte, env *common.Envel
 	return c.applyBundle(bundle)
 }
 
-// TODO: introduced due to a race condition in idemix.
-var commitConfigMutex = &sync.Mutex{}
+// Commit commits the transactions in the block passed as argument
+func (c *Service) Commit(block *common.Block) error {
+	c.Tracer.StartAt("commit", time.Now())
+	for i, tx := range block.Data.Data {
+
+		env, err := protoutil.UnmarshalEnvelope(tx)
+		if err != nil {
+			logger.Errorf("Error getting tx from block: %s", err)
+			return err
+		}
+		payl, err := protoutil.UnmarshalPayload(env.Payload)
+		if err != nil {
+			logger.Errorf("[%s] unmarshal payload failed: %s", c.ChannelConfig.ID(), err)
+			return err
+		}
+		chdr, err := protoutil.UnmarshalChannelHeader(payl.Header.ChannelHeader)
+		if err != nil {
+			logger.Errorf("[%s] unmarshal channel header failed: %s", c.ChannelConfig.ID(), err)
+			return err
+		}
+
+		var event TxEvent
+		c.Tracer.AddEventAt("commit", "start", time.Now())
+		handler, ok := c.Handlers[common.HeaderType(chdr.Type)]
+		if ok {
+			if err := handler(block, i, &event, env, chdr); err != nil {
+				return err
+			}
+		} else {
+			if logger.IsEnabledFor(zapcore.DebugLevel) {
+				logger.Debugf("[%s] Received unhandled transaction type: %s", c.ChannelConfig.ID(), chdr.Type)
+			}
+		}
+		c.Tracer.AddEventAt("commit", "end", time.Now())
+
+		c.notify(event)
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			logger.Debugf("commit transaction [%s] in filteredBlock [%d]", chdr.TxId, block.Header.Number)
+		}
+	}
+
+	return nil
+}
+
+// IsFinal takes in input a transaction id and waits for its confirmation
+// with the respect to the passed context that can be used to set a deadline
+// for the waiting time.
+func (c *Service) IsFinal(ctx context.Context, txID string) error {
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("Is [%s] final?", txID)
+	}
+
+	for iter := 0; iter < c.ChannelConfig.CommitterFinalityNumRetries(); iter++ {
+		vd, _, deps, err := c.Status(txID)
+		if err != nil {
+			logger.Errorf("Is [%s] final? Failed getting transaction status from vault", txID)
+			return errors.WithMessagef(err, "failed getting transaction status from vault [%s]", txID)
+		}
+
+		switch vd {
+		case driver.Valid:
+			logger.Debugf("Tx [%s] is valid", txID)
+			return nil
+		case driver.Invalid:
+			logger.Debugf("Tx [%s] is not valid", txID)
+			return errors.Errorf("transaction [%s] is not valid", txID)
+		case driver.Busy:
+			logger.Debugf("Tx [%s] is known with deps [%v]", txID, deps)
+			if len(deps) == 0 {
+				continue
+			}
+			for _, id := range deps {
+				logger.Debugf("Check finality of dependant transaction [%s]", id)
+				if err := c.IsFinal(ctx, id); err != nil {
+					logger.Errorf("Check finality of dependant transaction [%s], failed [%s]", id, err)
+					return err
+				}
+			}
+			return nil
+		case driver.Unknown:
+			if iter <= 1 {
+				logger.Debugf("Tx [%s] is unknown with no deps, wait a bit and retry [%d]", txID, iter)
+				time.Sleep(c.ChannelConfig.CommitterFinalityUnknownTXTimeout())
+			}
+
+			if logger.IsEnabledFor(zapcore.DebugLevel) {
+				logger.Debugf("Tx [%s] is unknown with no deps, remote check [%d][%s]", txID, iter, debug.Stack())
+			}
+			peer := c.ConfigService.PickPeer(driver.PeerForFinality).Address
+			err := c.FabricFinality.IsFinal(txID, peer)
+			if err == nil {
+				logger.Debugf("Tx [%s] is final, remote check on [%s]", txID, peer)
+				return nil
+			}
+
+			if vd, _, _, err2 := c.Status(txID); err2 == nil && vd == driver.Unknown {
+				logger.Debugf("Tx [%s] is not final for remote [%s], return [%s], [%d][%s]", txID, peer, err, vd, err2)
+				return err
+			}
+		default:
+			return errors.Errorf("invalid status code, got [%c]", vd)
+		}
+	}
+
+	logger.Debugf("Tx [%s] start listening...", txID)
+	// Listen to the event
+	return c.listenTo(ctx, txID, c.WaitForEventTimeout)
+}
+
+func (c *Service) addListener(txid string, ch chan TxEvent) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	ls, ok := c.listeners[txid]
+	if !ok {
+		ls = []chan TxEvent{}
+		c.listeners[txid] = ls
+	}
+	ls = append(ls, ch)
+	c.listeners[txid] = ls
+}
+
+func (c *Service) deleteListener(txid string, ch chan TxEvent) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	ls, ok := c.listeners[txid]
+	if !ok {
+		return
+	}
+	for i, l := range ls {
+		if l == ch {
+			ls = append(ls[:i], ls[i+1:]...)
+			c.listeners[txid] = ls
+			return
+		}
+	}
+}
+
+func (c *Service) notify(event TxEvent) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	if event.Err != nil && !c.QuietNotifier {
+		logger.Warningf("An error occurred for tx [%s], event: [%v]", event.TxID, event)
+	}
+
+	listeners := c.listeners[event.TxID]
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("Notify the finality of [%s] to [%d] listeners, event: [%v]", event.TxID, len(listeners), event)
+	}
+	for _, listener := range listeners {
+		listener <- event
+	}
+
+	for _, txid := range event.DependantTxIDs {
+		listeners := c.listeners[txid]
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			logger.Debugf("Notify the finality of [%s] (dependant) to [%d] listeners, event: [%v]", txid, len(listeners), event)
+		}
+		for _, listener := range listeners {
+			listener <- event
+		}
+	}
+}
+
+// notifyChaincodeListeners notifies the chaincode event to the registered chaincode listeners.
+func (c *Service) notifyChaincodeListeners(event *ChaincodeEvent) {
+	c.EventsPublisher.Publish(event)
+}
+
+func (c *Service) listenTo(ctx context.Context, txid string, timeout time.Duration) error {
+	c.Tracer.Start("committer-listenTo-start")
+
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("Listen to finality of [%s]", txid)
+	}
+
+	// notice that adding the listener can happen after the event we are looking for has already happened
+	// therefore we need to check more often before the timeout happens
+	ch := make(chan TxEvent, 100)
+	c.addListener(txid, ch)
+	defer c.deleteListener(txid, ch)
+
+	iterations := int(timeout.Milliseconds() / c.pollingTimeout.Milliseconds())
+	if iterations == 0 {
+		iterations = 1
+	}
+	for i := 0; i < iterations; i++ {
+		timeout := time.NewTimer(c.pollingTimeout)
+
+		stop := false
+		select {
+		case <-ctx.Done():
+			timeout.Stop()
+			stop = true
+		case event := <-ch:
+			if logger.IsEnabledFor(zapcore.DebugLevel) {
+				logger.Debugf("Got an answer to finality of [%s]: [%s]", txid, event.Err)
+			}
+			timeout.Stop()
+			return event.Err
+		case <-timeout.C:
+			timeout.Stop()
+			if logger.IsEnabledFor(zapcore.DebugLevel) {
+				logger.Debugf("Got a timeout for finality of [%s], check the status", txid)
+			}
+			vd, _, _, err := c.Status(txid)
+			if err == nil {
+				switch vd {
+				case driver.Valid:
+					if logger.IsEnabledFor(zapcore.DebugLevel) {
+						logger.Debugf("Listen to finality of [%s]. VALID", txid)
+					}
+					return nil
+				case driver.Invalid:
+					if logger.IsEnabledFor(zapcore.DebugLevel) {
+						logger.Debugf("Listen to finality of [%s]. NOT VALID", txid)
+					}
+					return errors.Errorf("transaction [%s] is not valid", txid)
+				}
+			}
+			if logger.IsEnabledFor(zapcore.DebugLevel) {
+				logger.Debugf("Is [%s] final? not available yet, wait [err:%s, vc:%d]", txid, err, vd)
+			}
+		}
+		if stop {
+			break
+		}
+	}
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("Is [%s] final? Failed to listen to transaction for timeout", txid)
+	}
+	c.Tracer.End("committer-listenTo-end")
+	return errors.Errorf("failed to listen to transaction [%s] for timeout", txid)
+}
+
+func (c *Service) GetProcessNamespace() []string {
+	return c.ProcessNamespaces
+}
 
 func (c *Service) ReloadConfigTransactions() error {
 	c.MembershipService.ResourcesApplyLock.Lock()
@@ -348,7 +627,7 @@ func (c *Service) ReloadConfigTransactions() error {
 			var bundle *channelconfig.Bundle
 			if c.MembershipService.Resources() == nil {
 				// set up the genesis block
-				bundle, err = channelconfig.NewBundle(c.ChannelName, ctx.Config, factory.GetDefault())
+				bundle, err = channelconfig.NewBundle(c.ChannelConfig.ID(), ctx.Config, factory.GetDefault())
 				if err != nil {
 					return errors.Wrapf(err, "failed to build a new bundle")
 				}
@@ -404,7 +683,7 @@ func (c *Service) ReloadConfigTransactions() error {
 }
 
 func (c *Service) commitConfig(txID string, blockNumber uint64, seq uint64, envelope []byte) error {
-	logger.Infof("[Channel: %s] commit config transaction number [bn:%d][seq:%d]", c.ChannelName, blockNumber, seq)
+	logger.Infof("[Channel: %s] commit config transaction number [bn:%d][seq:%d]", c.ChannelConfig.ID(), blockNumber, seq)
 
 	rws, err := c.Vault.NewRWSet(txID)
 	if err != nil {
@@ -437,7 +716,7 @@ func (c *Service) applyBundle(bundle *channelconfig.Bundle) error {
 	// update the list of orderers
 	ordererConfig, exists := c.MembershipService.ChannelResources.OrdererConfig()
 	if exists {
-		logger.Debugf("[Channel: %s] Orderer config has changed, updating the list of orderers", c.ChannelName)
+		logger.Debugf("[Channel: %s] Orderer config has changed, updating the list of orderers", c.ChannelConfig.ID())
 
 		var newOrderers []*grpc.ConnectionConfig
 		orgs := ordererConfig.Organizations()
@@ -447,7 +726,7 @@ func (c *Service) applyBundle(bundle *channelconfig.Bundle) error {
 			tlsRootCerts = append(tlsRootCerts, msp.GetTLSRootCerts()...)
 			tlsRootCerts = append(tlsRootCerts, msp.GetTLSIntermediateCerts()...)
 			for _, endpoint := range org.Endpoints() {
-				logger.Debugf("[Channel: %s] Adding orderer endpoint: [%s:%s:%s]", c.ChannelName, org.Name(), org.MSPID(), endpoint)
+				logger.Debugf("[Channel: %s] Adding orderer endpoint: [%s:%s:%s]", c.ChannelConfig.ID(), org.Name(), org.MSPID(), endpoint)
 				// TODO: load from configuration
 				newOrderers = append(newOrderers, &grpc.ConnectionConfig{
 					Address:           endpoint,
@@ -458,32 +737,15 @@ func (c *Service) applyBundle(bundle *channelconfig.Bundle) error {
 			}
 		}
 		if len(newOrderers) != 0 {
-			logger.Debugf("[Channel: %s] Updating the list of orderers: (%d) found", c.ChannelName, len(newOrderers))
+			logger.Debugf("[Channel: %s] Updating the list of orderers: (%d) found", c.ChannelConfig.ID(), len(newOrderers))
 			if err := c.OrderingService.SetConfigOrderers(ordererConfig, newOrderers); err != nil {
 				return err
 			}
 		} else {
-			logger.Debugf("[Channel: %s] No orderers found in Channel config", c.ChannelName)
+			logger.Debugf("[Channel: %s] No orderers found in Channel config", c.ChannelConfig.ID())
 		}
 	} else {
 		logger.Debugf("no orderer configuration found in Channel config")
-	}
-
-	return nil
-}
-
-func capabilitiesSupported(res channelconfig.Resources) error {
-	ac, ok := res.ApplicationConfig()
-	if !ok {
-		return errors.Errorf("[Channel %s] does not have application config so is incompatible", res.ConfigtxValidator().ChannelID())
-	}
-
-	if err := ac.Capabilities().Supported(); err != nil {
-		return errors.Wrapf(err, "[Channel %s] incompatible", res.ConfigtxValidator().ChannelID())
-	}
-
-	if err := res.ChannelConfig().Capabilities().Supported(); err != nil {
-		return errors.Wrapf(err, "[Channel %s] incompatible", res.ConfigtxValidator().ChannelID())
 	}
 
 	return nil
@@ -664,7 +926,7 @@ func (c *Service) commitLocal(txID string, block uint64, indexInBlock int, envel
 }
 
 func (c *Service) postProcessTx(txID string) error {
-	if err := c.ProcessorManager.ProcessByID(c.ChannelName, txID); err != nil {
+	if err := c.ProcessorManager.ProcessByID(c.ChannelConfig.ID(), txID); err != nil {
 		// This should generate a panic
 		return err
 	}
@@ -675,7 +937,7 @@ func (c *Service) notifyTxStatus(txID string, vc driver.ValidationCode, message 
 	// We publish two events here:
 	// 1. The first will be caught by the listeners that are listening for any transaction id.
 	// 2. The second will be caught by the listeners that are listening for the specific transaction id.
-	sb, topic := compose.CreateTxTopic(c.NetworkName, c.ChannelName, "")
+	sb, topic := compose.CreateTxTopic(c.ConfigService.NetworkName(), c.ChannelConfig.ID(), "")
 	c.EventsPublisher.Publish(&driver.TransactionStatusChanged{
 		ThisTopic:         topic,
 		TxID:              txID,
@@ -688,6 +950,23 @@ func (c *Service) notifyTxStatus(txID string, vc driver.ValidationCode, message 
 		VC:                vc,
 		ValidationMessage: message,
 	})
+}
+
+func capabilitiesSupported(res channelconfig.Resources) error {
+	ac, ok := res.ApplicationConfig()
+	if !ok {
+		return errors.Errorf("[Channel %s] does not have application config so is incompatible", res.ConfigtxValidator().ChannelID())
+	}
+
+	if err := ac.Capabilities().Supported(); err != nil {
+		return errors.Wrapf(err, "[Channel %s] incompatible", res.ConfigtxValidator().ChannelID())
+	}
+
+	if err := res.ChannelConfig().Capabilities().Supported(); err != nil {
+		return errors.Wrapf(err, "[Channel %s] incompatible", res.ConfigtxValidator().ChannelID())
+	}
+
+	return nil
 }
 
 type TxEventsListener struct {

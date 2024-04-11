@@ -118,11 +118,6 @@ func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver
 	c.ChannelMembershipService = membership.NewService()
 
 	// Committers
-	publisher, err := events.GetPublisher(network.SP)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get event publisher")
-	}
-
 	c.RWSetLoaderService = NewRWSetLoader(
 		network.Name(), name,
 		c.ES, c.TS, network.TransactionManager(),
@@ -130,8 +125,8 @@ func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver
 	)
 
 	c.CommitterService = committer.NewService(
-		network.Name(),
-		name,
+		network.configService,
+		channelConfig,
 		c.VaultService,
 		c.ES,
 		c.LedgerService,
@@ -141,17 +136,10 @@ func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver
 		eventsPublisher,
 		c.ChannelMembershipService,
 		c.Network,
-	)
-
-	committerInst, err := committer.NewBlockCommitter(
-		network.configService,
-		channelConfig,
-		c.CommitterService,
 		fabricFinality,
 		channelConfig.CommitterWaitForEventTimeout(),
 		quiet,
 		tracing.Get(sp).GetTracer(),
-		publisher,
 	)
 
 	if err != nil {
@@ -159,7 +147,7 @@ func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver
 	}
 
 	// Finality
-	c.FinalityService = committerInst
+	c.FinalityService = c.CommitterService
 
 	c.ChaincodeManagerService = NewChaincodeManager(
 		network.Name(),
@@ -197,7 +185,7 @@ func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver
 		txIDStore,
 		func(block *common.Block) (bool, error) {
 			// commit the block, if an error occurs then retry
-			err := committerInst.Commit(block)
+			err := c.CommitterService.Commit(block)
 			return false, err
 		},
 	)
