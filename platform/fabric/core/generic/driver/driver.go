@@ -32,7 +32,7 @@ func (d *Driver) New(sp view.ServiceProvider, network string, defaultNetwork boo
 	if err != nil {
 		return nil, err
 	}
-	sigService := generic.NewSigService(sp)
+	sigService := generic.NewSigService(view.GetSigService(sp))
 
 	// Endpoint service
 	resolverService, err := endpoint.NewResolverService(

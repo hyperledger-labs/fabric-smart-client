@@ -33,23 +33,23 @@ const (
 var logger = flogging.MustGetLogger("fabric-sdk.msp")
 
 type service struct {
-	sp                     view2.ServiceProvider
-	defaultIdentity        view.Identity
-	defaultSigningIdentity driver.SigningIdentity
-	signerService          driver.SignerService
-	binderService          driver.BinderService
-	defaultViewIdentity    view.Identity
-	config                 driver.Config
+	sp                     view2.ServiceProvider  `json:"sp,omitempty"`
+	defaultIdentity        view.Identity          `json:"default_identity,omitempty"`
+	defaultSigningIdentity driver.SigningIdentity `json:"default_signing_identity,omitempty"`
+	signerService          driver.SignerService   `json:"signer_service,omitempty"`
+	binderService          driver.BinderService   `json:"binder_service,omitempty"`
+	defaultViewIdentity    view.Identity          `json:"default_view_identity,omitempty"`
+	config                 driver.Config          `json:"config,omitempty"`
 
-	mspsMutex           sync.RWMutex
-	defaultMSP          string
-	identityLoaders     map[string]driver.IdentityLoader
-	msps                []*driver.MSP
-	mspsByName          map[string]*driver.MSP
-	mspsByEnrollmentID  map[string]*driver.MSP
-	mspsByTypeAndName   map[string]*driver.MSP
-	bccspMspsByIdentity map[string]*driver.MSP
-	cacheSize           int
+	mspsMutex           sync.RWMutex                     `json:"msps_mutex"`
+	defaultMSP          string                           `json:"default_msp,omitempty"`
+	identityLoaders     map[string]driver.IdentityLoader `json:"identity_loaders,omitempty"`
+	msps                []*driver.MSP                    `json:"msps,omitempty"`
+	mspsByName          map[string]*driver.MSP           `json:"msps_by_name,omitempty"`
+	mspsByEnrollmentID  map[string]*driver.MSP           `json:"msps_by_enrollment_id,omitempty"`
+	mspsByTypeAndName   map[string]*driver.MSP           `json:"msps_by_type_and_name,omitempty"`
+	bccspMspsByIdentity map[string]*driver.MSP           `json:"bccsp_msps_by_identity,omitempty"`
+	cacheSize           int                              `json:"cache_size,omitempty"`
 }
 
 func NewLocalMSPManager(

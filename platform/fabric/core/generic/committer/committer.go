@@ -126,6 +126,7 @@ func NewService(
 		Tracer:              metrics,
 		listeners:           map[string][]chan TxEvent{},
 		Handlers:            map[common.HeaderType]TransactionHandler{},
+		pollingTimeout:      1 * time.Second,
 	}
 	s.Handlers[common.HeaderType_CONFIG] = s.HandleConfig
 	s.Handlers[common.HeaderType_ENDORSER_TRANSACTION] = s.HandleEndorserTransaction
