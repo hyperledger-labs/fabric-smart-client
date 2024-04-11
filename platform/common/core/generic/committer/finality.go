@@ -40,8 +40,8 @@ type FinalityEvent[V comparable] struct {
 
 // FinalityListener is the interface that must be implemented to receive transaction status notifications
 type FinalityListener[V comparable] interface {
-	// OnStatus is called when the status of a transaction changes, or it is valid or invalid
-	OnStatus(txID core.TxID, status V, statusMessage string)
+	// OnStatusChange is called when the status of a transaction changes, or it is valid or invalid
+	OnStatusChange(txID core.TxID, status V, statusMessage string) error
 }
 
 type Vault[V comparable] interface {
@@ -114,7 +114,7 @@ func (c *FinalityManager[V]) invokeListener(l FinalityListener[V], txID core.TxI
 			logger.Errorf("caught panic while running dispatching event [%s:%d:%s]: [%s][%s]", txID, status, statusMessage, r, debug.Stack())
 		}
 	}()
-	l.OnStatus(txID, status, statusMessage)
+	l.OnStatusChange(txID, status, statusMessage)
 }
 
 func (c *FinalityManager[V]) runEventQueue(context context.Context) {

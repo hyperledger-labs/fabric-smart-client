@@ -15,7 +15,7 @@ type Channel struct {
 	sp        view2.ServiceProvider
 	fns       driver.FabricNetworkService
 	ch        driver.Channel
-	committer *Committer
+	committer Committer
 }
 
 func NewChannel(sp view2.ServiceProvider, fns driver.FabricNetworkService, ch driver.Channel) *Channel {
@@ -38,7 +38,7 @@ func (c *Channel) MSPManager() *MSPManager {
 	return &MSPManager{ch: c.ch.ChannelMembership()}
 }
 
-func (c *Channel) Committer() *Committer {
+func (c *Channel) Committer() Committer {
 	return c.committer
 }
 

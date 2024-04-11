@@ -39,7 +39,6 @@ type Vault interface {
 	NewRWSet(txid string) (*RWSet, error)
 	GetRWSet(id string, results []byte) (*RWSet, error)
 	CommitTX(txid string, block uint64, indexInBloc int) error
-	AddStatusReporter(sr driver.StatusReporter) error
 }
 
 // vault models a key-value store that can be updated by committing rwsets
