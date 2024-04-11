@@ -433,6 +433,113 @@ func (c *Service) IsFinal(ctx context.Context, txID string) error {
 	return c.listenTo(ctx, txID, c.WaitForEventTimeout)
 }
 
+func (c *Service) GetProcessNamespace() []string {
+	return c.ProcessNamespaces
+}
+
+func (c *Service) ReloadConfigTransactions() error {
+	c.MembershipService.ResourcesApplyLock.Lock()
+	defer c.MembershipService.ResourcesApplyLock.Unlock()
+
+	qe, err := c.Vault.NewQueryExecutor()
+	if err != nil {
+		return errors.WithMessagef(err, "failed getting query executor")
+	}
+	defer qe.Done()
+
+	logger.Infof("looking up the latest config block available")
+	var sequence uint64 = 0
+	for {
+		txID := ConfigTXPrefix + strconv.FormatUint(sequence, 10)
+		vc, _, err := c.Vault.Status(txID)
+		if err != nil {
+			return errors.WithMessagef(err, "failed getting tx's status [%s]", txID)
+		}
+		logger.Infof("check config block at txID [%s], status [%v]...", txID, vc)
+		done := false
+		switch vc {
+		case driver.Valid:
+			logger.Infof("config block available, txID [%s], loading...", txID)
+
+			key, err := rwset.CreateCompositeKey(channelConfigKey, []string{strconv.FormatUint(sequence, 10)})
+			if err != nil {
+				return errors.Wrapf(err, "cannot create configtx rws key")
+			}
+			envelope, err := qe.GetState(peerNamespace, key)
+			if err != nil {
+				return errors.Wrapf(err, "failed setting configtx state in rws")
+			}
+			env, err := protoutil.UnmarshalEnvelope(envelope)
+			if err != nil {
+				return errors.Wrapf(err, "cannot get payload from config transaction [%s]", txID)
+			}
+			payload, err := protoutil.UnmarshalPayload(env.Payload)
+			if err != nil {
+				return errors.Wrapf(err, "cannot get payload from config transaction [%s]", txID)
+			}
+			ctx, err := configtx.UnmarshalConfigEnvelope(payload.Data)
+			if err != nil {
+				return errors.Wrapf(err, "error unmarshalling config which passed initial validity checks [%s]", txID)
+			}
+
+			var bundle *channelconfig.Bundle
+			if c.MembershipService.Resources() == nil {
+				// set up the genesis block
+				bundle, err = channelconfig.NewBundle(c.ChannelConfig.ID(), ctx.Config, factory.GetDefault())
+				if err != nil {
+					return errors.Wrapf(err, "failed to build a new bundle")
+				}
+			} else {
+				configTxValidator := c.MembershipService.Resources().ConfigtxValidator()
+				err := configTxValidator.Validate(ctx)
+				if err != nil {
+					return errors.Wrapf(err, "failed to validate config transaction [%s]", txID)
+				}
+
+				bundle, err = channelconfig.NewBundle(configTxValidator.ChannelID(), ctx.Config, factory.GetDefault())
+				if err != nil {
+					return errors.Wrapf(err, "failed to create next bundle")
+				}
+
+				channelconfig.LogSanityChecks(bundle)
+				if err := capabilitiesSupported(bundle); err != nil {
+					return err
+				}
+			}
+
+			if err := c.applyBundle(bundle); err != nil {
+				return err
+			}
+
+			sequence = sequence + 1
+			continue
+		case driver.Unknown:
+			if sequence == 0 {
+				// Give a chance to 1, in certain setting the first block starts with 1
+				sequence++
+				continue
+			}
+
+			logger.Infof("config block at txID [%s] unavailable, stop loading", txID)
+			done = true
+		default:
+			return errors.Errorf("invalid configtx's [%s] status [%d]", txID, vc)
+		}
+		if done {
+			logger.Infof("loading config block done")
+			break
+		}
+	}
+	if sequence == 1 {
+		logger.Infof("no config block available, must start from genesis")
+		// no configuration block found
+		return nil
+	}
+	logger.Infof("latest config block available at sequence [%d]", sequence-1)
+
+	return nil
+}
+
 func (c *Service) addListener(txid string, ch chan TxEvent) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
@@ -551,113 +658,6 @@ func (c *Service) listenTo(ctx context.Context, txid string, timeout time.Durati
 	return errors.Errorf("failed to listen to transaction [%s] for timeout", txid)
 }
 
-func (c *Service) GetProcessNamespace() []string {
-	return c.ProcessNamespaces
-}
-
-func (c *Service) ReloadConfigTransactions() error {
-	c.MembershipService.ResourcesApplyLock.Lock()
-	defer c.MembershipService.ResourcesApplyLock.Unlock()
-
-	qe, err := c.Vault.NewQueryExecutor()
-	if err != nil {
-		return errors.WithMessagef(err, "failed getting query executor")
-	}
-	defer qe.Done()
-
-	logger.Infof("looking up the latest config block available")
-	var sequence uint64 = 0
-	for {
-		txID := ConfigTXPrefix + strconv.FormatUint(sequence, 10)
-		vc, _, err := c.Vault.Status(txID)
-		if err != nil {
-			return errors.WithMessagef(err, "failed getting tx's status [%s]", txID)
-		}
-		logger.Infof("check config block at txID [%s], status [%v]...", txID, vc)
-		done := false
-		switch vc {
-		case driver.Valid:
-			logger.Infof("config block available, txID [%s], loading...", txID)
-
-			key, err := rwset.CreateCompositeKey(channelConfigKey, []string{strconv.FormatUint(sequence, 10)})
-			if err != nil {
-				return errors.Wrapf(err, "cannot create configtx rws key")
-			}
-			envelope, err := qe.GetState(peerNamespace, key)
-			if err != nil {
-				return errors.Wrapf(err, "failed setting configtx state in rws")
-			}
-			env, err := protoutil.UnmarshalEnvelope(envelope)
-			if err != nil {
-				return errors.Wrapf(err, "cannot get payload from config transaction [%s]", txID)
-			}
-			payload, err := protoutil.UnmarshalPayload(env.Payload)
-			if err != nil {
-				return errors.Wrapf(err, "cannot get payload from config transaction [%s]", txID)
-			}
-			ctx, err := configtx.UnmarshalConfigEnvelope(payload.Data)
-			if err != nil {
-				return errors.Wrapf(err, "error unmarshalling config which passed initial validity checks [%s]", txID)
-			}
-
-			var bundle *channelconfig.Bundle
-			if c.MembershipService.Resources() == nil {
-				// set up the genesis block
-				bundle, err = channelconfig.NewBundle(c.ChannelConfig.ID(), ctx.Config, factory.GetDefault())
-				if err != nil {
-					return errors.Wrapf(err, "failed to build a new bundle")
-				}
-			} else {
-				configTxValidator := c.MembershipService.Resources().ConfigtxValidator()
-				err := configTxValidator.Validate(ctx)
-				if err != nil {
-					return errors.Wrapf(err, "failed to validate config transaction [%s]", txID)
-				}
-
-				bundle, err = channelconfig.NewBundle(configTxValidator.ChannelID(), ctx.Config, factory.GetDefault())
-				if err != nil {
-					return errors.Wrapf(err, "failed to create next bundle")
-				}
-
-				channelconfig.LogSanityChecks(bundle)
-				if err := capabilitiesSupported(bundle); err != nil {
-					return err
-				}
-			}
-
-			if err := c.applyBundle(bundle); err != nil {
-				return err
-			}
-
-			sequence = sequence + 1
-			continue
-		case driver.Unknown:
-			if sequence == 0 {
-				// Give a chance to 1, in certain setting the first block starts with 1
-				sequence++
-				continue
-			}
-
-			logger.Infof("config block at txID [%s] unavailable, stop loading", txID)
-			done = true
-		default:
-			return errors.Errorf("invalid configtx's [%s] status [%d]", txID, vc)
-		}
-		if done {
-			logger.Infof("loading config block done")
-			break
-		}
-	}
-	if sequence == 1 {
-		logger.Infof("no config block available, must start from genesis")
-		// no configuration block found
-		return nil
-	}
-	logger.Infof("latest config block available at sequence [%d]", sequence-1)
-
-	return nil
-}
-
 func (c *Service) commitConfig(txID string, blockNumber uint64, seq uint64, envelope []byte) error {
 	logger.Infof("[Channel: %s] commit config transaction number [bn:%d][seq:%d]", c.ChannelConfig.ID(), blockNumber, seq)
 
@@ -684,164 +684,7 @@ func (c *Service) commitConfig(txID string, blockNumber uint64, seq uint64, enve
 	return nil
 }
 
-func (c *Service) applyBundle(bundle *channelconfig.Bundle) error {
-	c.MembershipService.ResourcesLock.Lock()
-	defer c.MembershipService.ResourcesLock.Unlock()
-	c.MembershipService.ChannelResources = bundle
-
-	// update the list of orderers
-	ordererConfig, exists := c.MembershipService.ChannelResources.OrdererConfig()
-	if exists {
-		logger.Debugf("[Channel: %s] Orderer config has changed, updating the list of orderers", c.ChannelConfig.ID())
-
-		var newOrderers []*grpc.ConnectionConfig
-		orgs := ordererConfig.Organizations()
-		for _, org := range orgs {
-			msp := org.MSP()
-			var tlsRootCerts [][]byte
-			tlsRootCerts = append(tlsRootCerts, msp.GetTLSRootCerts()...)
-			tlsRootCerts = append(tlsRootCerts, msp.GetTLSIntermediateCerts()...)
-			for _, endpoint := range org.Endpoints() {
-				logger.Debugf("[Channel: %s] Adding orderer endpoint: [%s:%s:%s]", c.ChannelConfig.ID(), org.Name(), org.MSPID(), endpoint)
-				// TODO: load from configuration
-				newOrderers = append(newOrderers, &grpc.ConnectionConfig{
-					Address:           endpoint,
-					ConnectionTimeout: 10 * time.Second,
-					TLSEnabled:        true,
-					TLSRootCertBytes:  tlsRootCerts,
-				})
-			}
-		}
-		if len(newOrderers) != 0 {
-			logger.Debugf("[Channel: %s] Updating the list of orderers: (%d) found", c.ChannelConfig.ID(), len(newOrderers))
-			if err := c.OrderingService.SetConfigOrderers(ordererConfig, newOrderers); err != nil {
-				return err
-			}
-		} else {
-			logger.Debugf("[Channel: %s] No orderers found in Channel config", c.ChannelConfig.ID())
-		}
-	} else {
-		logger.Debugf("no orderer configuration found in Channel config")
-	}
-
-	return nil
-}
-
-// FetchEnvelope fetches from the ledger and stores the enveloped corresponding to the passed id
-func (c *Service) fetchEnvelope(txID string) ([]byte, error) {
-	pt, err := c.Ledger.GetTransactionByID(txID)
-	if err != nil {
-		return nil, errors.WithMessagef(err, "failed fetching tx [%s]", txID)
-	}
-	if !pt.IsValid() {
-		return nil, errors.Errorf("fetched tx [%s] should have been valid, instead it is [%s]", txID, peer.TxValidationCode_name[pt.ValidationCode()])
-	}
-	return pt.Envelope(), nil
-}
-
-func (c *Service) commitUnknown(txID string, block uint64, indexInBlock int, envelope *common.Envelope) error {
-	// if an envelope exists for the passed txID, then commit it
-	if c.EnvelopeService.Exists(txID) {
-		return c.commitStoredEnvelope(txID, block, indexInBlock)
-	}
-
-	var envelopeRaw []byte
-	var err error
-	if envelope != nil {
-		// Store it
-		envelopeRaw, err = proto.Marshal(envelope)
-		if err != nil {
-			return errors.WithMessagef(err, "failed to store unknown envelope for [%s]", txID)
-		}
-	} else {
-		// fetch envelope and store it
-		envelopeRaw, err = c.fetchEnvelope(txID)
-		if err != nil {
-			return errors.WithMessagef(err, "failed getting rwset for tx [%s]", txID)
-		}
-	}
-
-	// shall we commit this unknown envelope
-	if ok, err := c.filterUnknownEnvelope(txID, envelopeRaw); err != nil || !ok {
-		logger.Debugf("[%s] unknown envelope will not be processed [%b,%s]", txID, ok, err)
-		return nil
-	}
-
-	if err := c.EnvelopeService.StoreEnvelope(txID, envelopeRaw); err != nil {
-		return errors.WithMessagef(err, "failed to store unknown envelope for [%s]", txID)
-	}
-	rws, _, err := c.RWSetLoaderService.GetRWSetFromEvn(txID)
-	if err != nil {
-		return errors.WithMessagef(err, "failed to get rws from envelope [%s]", txID)
-	}
-	rws.Done()
-	return c.commit(txID, block, indexInBlock, envelope)
-}
-
-func (c *Service) filterUnknownEnvelope(txID string, envelope []byte) (bool, error) {
-	rws, _, err := c.RWSetLoaderService.GetInspectingRWSetFromEvn(txID, envelope)
-	if err != nil {
-		return false, errors.WithMessagef(err, "failed to get rws from envelope [%s]", txID)
-	}
-	defer rws.Done()
-
-	logger.Debugf("[%s] contains namespaces [%v] or `initialized` key", txID, rws.Namespaces())
-	for _, ns := range rws.Namespaces() {
-		for _, namespace := range c.ProcessNamespaces {
-			if namespace == ns {
-				logger.Debugf("[%s] contains namespaces [%v], select it", txID, rws.Namespaces())
-				return true, nil
-			}
-		}
-
-		// search a read dependency on a key containing "initialized"
-		for pos := 0; pos < rws.NumReads(ns); pos++ {
-			k, err := rws.GetReadKeyAt(ns, pos)
-			if err != nil {
-				return false, errors.WithMessagef(err, "Error reading key at [%d]", pos)
-			}
-			if strings.Contains(k, "initialized") {
-				logger.Debugf("[%s] contains 'initialized' key [%v] in [%s], select it", txID, ns, rws.Namespaces())
-				return true, nil
-			}
-		}
-	}
-
-	status, _, _ := c.Status(txID)
-	return status == driver.Busy, nil
-}
-
-func (c *Service) commitStoredEnvelope(txID string, block uint64, indexInBlock int) error {
-	logger.Debugf("found envelope for transaction [%s], committing it...", txID)
-	if err := c.extractStoredEnvelopeToVault(txID); err != nil {
-		return err
-	}
-	// commit
-	return c.commitLocal(txID, block, indexInBlock, nil)
-}
-
-func (c *Service) extractStoredEnvelopeToVault(txID string) error {
-	rws, _, err := c.RWSetLoaderService.GetRWSetFromEvn(txID)
-	if err != nil {
-		// If another replica of the same node created the RWSet
-		rws, _, err = c.RWSetLoaderService.GetRWSetFromETx(txID)
-		if err != nil {
-			return errors.WithMessagef(err, "failed to extract rws from envelope and etx [%s]", txID)
-		}
-	}
-	rws.Done()
-	return nil
-}
-
 func (c *Service) commit(txID string, block uint64, indexInBlock int, envelope *common.Envelope) error {
-	logger.Debugf("[%s] is known.", txID)
-	if err := c.commitLocal(txID, block, indexInBlock, envelope); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (c *Service) commitLocal(txID string, block uint64, indexInBlock int, envelope *common.Envelope) error {
 	// This is a normal transaction, validated by Fabric.
 	// Commit it cause Fabric says it is valid.
 	logger.Debugf("[%s] committing", txID)
@@ -898,6 +741,154 @@ func (c *Service) commitLocal(txID string, block uint64, indexInBlock int, envel
 		return err
 	}
 
+	return nil
+}
+
+func (c *Service) commitUnknown(txID string, block uint64, indexInBlock int, envelope *common.Envelope) error {
+	// if an envelope exists for the passed txID, then commit it
+	if c.EnvelopeService.Exists(txID) {
+		return c.commitStoredEnvelope(txID, block, indexInBlock)
+	}
+
+	var envelopeRaw []byte
+	var err error
+	if envelope != nil {
+		// Store it
+		envelopeRaw, err = proto.Marshal(envelope)
+		if err != nil {
+			return errors.WithMessagef(err, "failed to store unknown envelope for [%s]", txID)
+		}
+	} else {
+		// fetch envelope and store it
+		envelopeRaw, err = c.fetchEnvelope(txID)
+		if err != nil {
+			return errors.WithMessagef(err, "failed getting rwset for tx [%s]", txID)
+		}
+	}
+
+	// shall we commit this unknown envelope
+	if ok, err := c.filterUnknownEnvelope(txID, envelopeRaw); err != nil || !ok {
+		logger.Debugf("[%s] unknown envelope will not be processed [%b,%s]", txID, ok, err)
+		return nil
+	}
+
+	if err := c.EnvelopeService.StoreEnvelope(txID, envelopeRaw); err != nil {
+		return errors.WithMessagef(err, "failed to store unknown envelope for [%s]", txID)
+	}
+	rws, _, err := c.RWSetLoaderService.GetRWSetFromEvn(txID)
+	if err != nil {
+		return errors.WithMessagef(err, "failed to get rws from envelope [%s]", txID)
+	}
+	rws.Done()
+	return c.commit(txID, block, indexInBlock, envelope)
+}
+
+func (c *Service) commitStoredEnvelope(txID string, block uint64, indexInBlock int) error {
+	logger.Debugf("found envelope for transaction [%s], committing it...", txID)
+	if err := c.extractStoredEnvelopeToVault(txID); err != nil {
+		return err
+	}
+	// commit
+	return c.commit(txID, block, indexInBlock, nil)
+}
+
+func (c *Service) applyBundle(bundle *channelconfig.Bundle) error {
+	c.MembershipService.ResourcesLock.Lock()
+	defer c.MembershipService.ResourcesLock.Unlock()
+	c.MembershipService.ChannelResources = bundle
+
+	// update the list of orderers
+	ordererConfig, exists := c.MembershipService.ChannelResources.OrdererConfig()
+	if exists {
+		logger.Debugf("[Channel: %s] Orderer config has changed, updating the list of orderers", c.ChannelConfig.ID())
+
+		var newOrderers []*grpc.ConnectionConfig
+		orgs := ordererConfig.Organizations()
+		for _, org := range orgs {
+			msp := org.MSP()
+			var tlsRootCerts [][]byte
+			tlsRootCerts = append(tlsRootCerts, msp.GetTLSRootCerts()...)
+			tlsRootCerts = append(tlsRootCerts, msp.GetTLSIntermediateCerts()...)
+			for _, endpoint := range org.Endpoints() {
+				logger.Debugf("[Channel: %s] Adding orderer endpoint: [%s:%s:%s]", c.ChannelConfig.ID(), org.Name(), org.MSPID(), endpoint)
+				// TODO: load from configuration
+				newOrderers = append(newOrderers, &grpc.ConnectionConfig{
+					Address:           endpoint,
+					ConnectionTimeout: 10 * time.Second,
+					TLSEnabled:        true,
+					TLSRootCertBytes:  tlsRootCerts,
+				})
+			}
+		}
+		if len(newOrderers) != 0 {
+			logger.Debugf("[Channel: %s] Updating the list of orderers: (%d) found", c.ChannelConfig.ID(), len(newOrderers))
+			if err := c.OrderingService.SetConfigOrderers(ordererConfig, newOrderers); err != nil {
+				return err
+			}
+		} else {
+			logger.Debugf("[Channel: %s] No orderers found in Channel config", c.ChannelConfig.ID())
+		}
+	} else {
+		logger.Debugf("no orderer configuration found in Channel config")
+	}
+
+	return nil
+}
+
+func (c *Service) fetchEnvelope(txID string) ([]byte, error) {
+	pt, err := c.Ledger.GetTransactionByID(txID)
+	if err != nil {
+		return nil, errors.WithMessagef(err, "failed fetching tx [%s]", txID)
+	}
+	if !pt.IsValid() {
+		return nil, errors.Errorf("fetched tx [%s] should have been valid, instead it is [%s]", txID, peer.TxValidationCode_name[pt.ValidationCode()])
+	}
+	return pt.Envelope(), nil
+}
+
+func (c *Service) filterUnknownEnvelope(txID string, envelope []byte) (bool, error) {
+	rws, _, err := c.RWSetLoaderService.GetInspectingRWSetFromEvn(txID, envelope)
+	if err != nil {
+		return false, errors.WithMessagef(err, "failed to get rws from envelope [%s]", txID)
+	}
+	defer rws.Done()
+
+	logger.Debugf("[%s] contains namespaces [%v] or `initialized` key", txID, rws.Namespaces())
+	for _, ns := range rws.Namespaces() {
+		for _, namespace := range c.ProcessNamespaces {
+			if namespace == ns {
+				logger.Debugf("[%s] contains namespaces [%v], select it", txID, rws.Namespaces())
+				return true, nil
+			}
+		}
+
+		// search a read dependency on a key containing "initialized"
+		for pos := 0; pos < rws.NumReads(ns); pos++ {
+			k, err := rws.GetReadKeyAt(ns, pos)
+			if err != nil {
+				return false, errors.WithMessagef(err, "Error reading key at [%d]", pos)
+			}
+			if strings.Contains(k, "initialized") {
+				logger.Debugf("[%s] contains 'initialized' key [%v] in [%s], select it", txID, ns, rws.Namespaces())
+				return true, nil
+			}
+		}
+	}
+
+	status, _, _ := c.Status(txID)
+	return status == driver.Busy, nil
+}
+
+func (c *Service) extractStoredEnvelopeToVault(txID string) error {
+	rws, _, err := c.RWSetLoaderService.GetRWSetFromEvn(txID)
+	if err != nil {
+		// If another replica of the same node created the RWSet
+		rws, _, err = c.RWSetLoaderService.GetRWSetFromETx(txID)
+		if err != nil {
+			return errors.WithMessagef(err, "failed to extract rws from envelope and etx [%s]", txID)
+		}
+	}
+	rws.Done()
 	return nil
 }
 
