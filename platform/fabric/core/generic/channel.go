@@ -117,28 +117,6 @@ func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver
 
 	c.ChannelMembershipService = membership.NewService()
 
-	c.ChaincodeManagerService = NewChaincodeManager(
-		network.Name(),
-		name,
-		network.configService,
-		channelConfig,
-		channelConfig.GetNumRetries(),
-		channelConfig.GetRetrySleep(),
-		network.localMembership,
-		c.PeerManager,
-		network.sigService,
-		network.Ordering,
-		c.FinalityService,
-		c.ChannelMembershipService,
-	)
-
-	c.LedgerService = NewLedger(
-		name,
-		c.ChaincodeManagerService,
-		network.localMembership,
-		network.configService,
-	)
-
 	// Committers
 	publisher, err := events.GetPublisher(network.SP)
 	if err != nil {
@@ -182,6 +160,28 @@ func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver
 
 	// Finality
 	c.FinalityService = committerInst
+
+	c.ChaincodeManagerService = NewChaincodeManager(
+		network.Name(),
+		name,
+		network.configService,
+		channelConfig,
+		channelConfig.GetNumRetries(),
+		channelConfig.GetRetrySleep(),
+		network.localMembership,
+		c.PeerManager,
+		network.sigService,
+		network.Ordering,
+		c.FinalityService,
+		c.ChannelMembershipService,
+	)
+
+	c.LedgerService = NewLedger(
+		name,
+		c.ChaincodeManagerService,
+		network.localMembership,
+		network.configService,
+	)
 
 	// Delivery
 	deliveryService, err := NewDeliveryService(
