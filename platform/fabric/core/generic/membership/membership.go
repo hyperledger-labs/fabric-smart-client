@@ -32,10 +32,7 @@ func NewService() *Service {
 
 // Resources returns the active Channel configuration bundle.
 func (c *Service) Resources() channelconfig.Resources {
-	c.ResourcesLock.RLock()
-	res := c.ChannelResources
-	c.ResourcesLock.RUnlock()
-	return res
+	return c.ChannelResources
 }
 
 func (c *Service) IsValid(identity view.Identity) error {

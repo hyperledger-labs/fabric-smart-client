@@ -12,7 +12,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger/fabric-protos-go/common"
 	"github.com/hyperledger/fabric-protos-go/peer"
-	"github.com/hyperledger/fabric/protoutil"
+	"github.com/pkg/errors"
 )
 
 type Ledger struct {
@@ -32,34 +32,16 @@ func NewLedger(
 }
 
 func (c *Ledger) GetTransactionByID(txID string) (driver.ProcessedTransaction, error) {
-	raw, err := c.ChaincodeManager.Chaincode("qscc").NewInvocation(GetTransactionByID, c.ChannelName, txID).WithSignerIdentity(
-		c.LocalMembership.DefaultIdentity(),
-	).WithEndorsersByConnConfig(c.ConfigService.PickPeer(driver.PeerForQuery)).Query()
-	if err != nil {
-		return nil, err
-	}
-
-	logger.Debugf("got transaction by id [%s] of len [%d]", txID, len(raw))
-
 	pt := &peer.ProcessedTransaction{}
-	err = proto.Unmarshal(raw, pt)
-	if err != nil {
+	if err := c.queryChaincode(GetTransactionByID, txID, pt); err != nil {
 		return nil, err
 	}
 	return transaction.NewProcessedTransaction(pt)
 }
 
 func (c *Ledger) GetBlockNumberByTxID(txID string) (uint64, error) {
-	res, err := c.ChaincodeManager.Chaincode("qscc").NewInvocation(GetBlockByTxID, c.ChannelName, txID).WithSignerIdentity(
-		c.LocalMembership.DefaultIdentity(),
-	).WithEndorsersByConnConfig(c.ConfigService.PickPeer(driver.PeerForQuery)).Query()
-	if err != nil {
-		return 0, err
-	}
-
 	block := &common.Block{}
-	err = proto.Unmarshal(res, block)
-	if err != nil {
+	if err := c.queryChaincode(GetBlockByTxID, txID, block); err != nil {
 		return 0, err
 	}
 	return block.Header.Number, nil
@@ -67,18 +49,27 @@ func (c *Ledger) GetBlockNumberByTxID(txID string) (uint64, error) {
 
 // GetBlockByNumber fetches a block by number
 func (c *Ledger) GetBlockByNumber(number uint64) (driver.Block, error) {
-	res, err := c.ChaincodeManager.Chaincode("qscc").NewInvocation(GetBlockByNumber, c.ChannelName, number).WithSignerIdentity(
-		c.LocalMembership.DefaultIdentity(),
-	).WithEndorsersByConnConfig(c.ConfigService.PickPeer(driver.PeerForQuery)).Query()
-	if err != nil {
+	block := &common.Block{}
+	if err := c.queryChaincode(GetBlockByNumber, number, block); err != nil {
 		return nil, err
+	}
+	return &Block{Block: block}, nil
+}
+
+func (c *Ledger) queryChaincode(function string, param any, result proto.Message) error {
+	raw, err := c.ChaincodeManager.Chaincode("qscc").
+		NewInvocation(function, c.ChannelName, param).
+		WithSignerIdentity(c.LocalMembership.DefaultIdentity()).
+		WithEndorsersByConnConfig(c.ConfigService.PickPeer(driver.PeerForQuery)).
+		Query()
+	if err != nil {
+		return errors.Wrap(err, "query chaincode failed")
 	}
 
-	b, err := protoutil.UnmarshalBlock(res)
-	if err != nil {
-		return nil, err
+	if err := proto.Unmarshal(raw, result); err != nil {
+		return errors.Wrap(err, "unmashal failed")
 	}
-	return &Block{Block: b}, nil
+	return nil
 }
 
 // Block wraps a Fabric block

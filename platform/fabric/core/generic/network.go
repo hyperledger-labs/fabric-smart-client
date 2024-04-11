@@ -81,7 +81,7 @@ func (f *Network) Channel(name string) (driver.Channel, error) {
 		logger.Debugf("Resorting to default Channel [%s]", name)
 	}
 
-	chanQuiet := f.ConfigService().IsChannelQuite(name)
+	chanQuiet := f.ConfigService().IsChannelQuiet(name)
 
 	// first check the cache
 	f.ChannelMutex.RLock()

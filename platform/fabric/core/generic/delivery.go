@@ -10,6 +10,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/fabricutils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
 
 	delivery2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/delivery"
@@ -17,7 +18,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger/fabric-protos-go/common"
 	pb "github.com/hyperledger/fabric-protos-go/peer"
-	"github.com/hyperledger/fabric/protoutil"
 )
 
 type ValidationFlags []uint8
@@ -105,20 +105,9 @@ func (c *DeliveryService) Scan(ctx context.Context, txID string, callback driver
 				if pb.TxValidationCode(validationCode) != pb.TxValidationCode_VALID {
 					continue
 				}
-
-				env, err := protoutil.UnmarshalEnvelope(tx)
+				_, _, channelHeader, err := fabricutils.UnmarshalTx(tx)
 				if err != nil {
-					logger.Errorf("Error getting tx from block: %s", err)
-					return false, err
-				}
-				payload, err := protoutil.UnmarshalPayload(env.Payload)
-				if err != nil {
-					logger.Errorf("[%s] unmarshal payload failed: %s", c.channel, err)
-					return false, err
-				}
-				channelHeader, err := protoutil.UnmarshalChannelHeader(payload.Header.ChannelHeader)
-				if err != nil {
-					logger.Errorf("[%s] unmarshal Channel header failed: %s", c.channelConfig, err)
+					logger.Errorf("[%s] unmarshal tx failed: %s", c.channel, err)
 					return false, err
 				}
 

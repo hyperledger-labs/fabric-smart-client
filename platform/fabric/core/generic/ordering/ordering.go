@@ -21,6 +21,14 @@ import (
 	context2 "golang.org/x/net/context"
 )
 
+type ConsensusType = string
+
+const (
+	BFT  ConsensusType = "BFT"
+	Raft ConsensusType = "etcdraft"
+	Solo ConsensusType = "solo"
+)
+
 var logger = flogging.MustGetLogger("fabric-sdk.ordering")
 
 type Transaction interface {
@@ -45,7 +53,7 @@ type Service struct {
 	SigService                    driver.SignerService
 	Metrics                       *metrics.Metrics
 
-	Broadcasters   map[string]BroadcastFnc
+	Broadcasters   map[ConsensusType]BroadcastFnc
 	BroadcastMutex sync.RWMutex
 	Broadcaster    BroadcastFnc
 }
@@ -55,14 +63,14 @@ func NewService(getEndorserTransactionService GetEndorserTransactionServiceFunc,
 		GetEndorserTransactionService: getEndorserTransactionService,
 		SigService:                    sigService,
 		Metrics:                       metrics,
-		Broadcasters:                  map[string]BroadcastFnc{},
+		Broadcasters:                  map[ConsensusType]BroadcastFnc{},
 		BroadcastMutex:                sync.RWMutex{},
 		Broadcaster:                   nil,
 	}
-	s.Broadcasters["BFT"] = NewBFTBroadcaster(configService, metrics).Broadcast
+	s.Broadcasters[BFT] = NewBFTBroadcaster(configService, metrics).Broadcast
 	cft := NewCFTBroadcaster(configService, metrics)
-	s.Broadcasters["etcdraft"] = cft.Broadcast
-	s.Broadcasters["solo"] = cft.Broadcast
+	s.Broadcasters[Raft] = cft.Broadcast
+	s.Broadcasters[Solo] = cft.Broadcast
 
 	return s
 }
@@ -106,7 +114,7 @@ func (o *Service) Broadcast(ctx context2.Context, blob interface{}) error {
 	return broadcaster(ctx, env)
 }
 
-func (o *Service) SetConsensusType(consensusType string) error {
+func (o *Service) SetConsensusType(consensusType ConsensusType) error {
 	logger.Debugf("ordering, setting consensus type to [%s]", consensusType)
 	broadcaster, ok := o.Broadcasters[consensusType]
 	if !ok {

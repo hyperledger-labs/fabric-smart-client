@@ -28,6 +28,23 @@ type SerializableSigner interface {
 	Serialize() ([]byte, error)
 }
 
+func UnmarshalTx(tx []byte) (*common.Envelope, *common.Payload, *common.ChannelHeader, error) {
+	env, err := protoutil.UnmarshalEnvelope(tx)
+	if err != nil {
+
+		return nil, nil, nil, errors.Wrap(err, "Error getting tx from block")
+	}
+	payl, err := protoutil.UnmarshalPayload(env.Payload)
+	if err != nil {
+		return nil, nil, nil, errors.Wrap(err, "unmarshal payload failed")
+	}
+	chdr, err := protoutil.UnmarshalChannelHeader(payl.Header.ChannelHeader)
+	if err != nil {
+		return nil, nil, nil, errors.Wrap(err, "unmarshal channel header failed")
+	}
+	return env, payl, chdr, nil
+}
+
 // CreateEndorserSignedTX assembles an Envelope message from proposal, endorsements,
 // and a signer. This function should be called by a client when it has
 // collected enough endorsements for a proposal to create a transaction and

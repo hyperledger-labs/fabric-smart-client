@@ -31,6 +31,17 @@ type ConfigProvider struct {
 	broadcastRetryIntervalReturnsOnCall map[int]struct {
 		result1 time.Duration
 	}
+	ChannelStub        func(string) drivera.ChannelConfig
+	channelMutex       sync.RWMutex
+	channelArgsForCall []struct {
+		arg1 string
+	}
+	channelReturns struct {
+		result1 drivera.ChannelConfig
+	}
+	channelReturnsOnCall map[int]struct {
+		result1 drivera.ChannelConfig
+	}
 	ChannelIDsStub        func() []string
 	channelIDsMutex       sync.RWMutex
 	channelIDsArgsForCall []struct {
@@ -40,16 +51,6 @@ type ConfigProvider struct {
 	}
 	channelIDsReturnsOnCall map[int]struct {
 		result1 []string
-	}
-	ChannelsStub        func() []drivera.ChannelConfig
-	channelsMutex       sync.RWMutex
-	channelsArgsForCall []struct {
-	}
-	channelsReturns struct {
-		result1 []drivera.ChannelConfig
-	}
-	channelsReturnsOnCall map[int]struct {
-		result1 []drivera.ChannelConfig
 	}
 	ClientConnTimeoutStub        func() time.Duration
 	clientConnTimeoutMutex       sync.RWMutex
@@ -147,15 +148,15 @@ type ConfigProvider struct {
 	getStringSliceReturnsOnCall map[int]struct {
 		result1 []string
 	}
-	IsChannelQuiteStub        func(string) bool
-	isChannelQuiteMutex       sync.RWMutex
-	isChannelQuiteArgsForCall []struct {
+	IsChannelQuietStub        func(string) bool
+	isChannelQuietMutex       sync.RWMutex
+	isChannelQuietArgsForCall []struct {
 		arg1 string
 	}
-	isChannelQuiteReturns struct {
+	isChannelQuietReturns struct {
 		result1 bool
 	}
-	isChannelQuiteReturnsOnCall map[int]struct {
+	isChannelQuietReturnsOnCall map[int]struct {
 		result1 bool
 	}
 	IsSetStub        func(string) bool
@@ -475,6 +476,67 @@ func (fake *ConfigProvider) BroadcastRetryIntervalReturnsOnCall(i int, result1 t
 	}{result1}
 }
 
+func (fake *ConfigProvider) Channel(arg1 string) drivera.ChannelConfig {
+	fake.channelMutex.Lock()
+	ret, specificReturn := fake.channelReturnsOnCall[len(fake.channelArgsForCall)]
+	fake.channelArgsForCall = append(fake.channelArgsForCall, struct {
+		arg1 string
+	}{arg1})
+	stub := fake.ChannelStub
+	fakeReturns := fake.channelReturns
+	fake.recordInvocation("Channel", []interface{}{arg1})
+	fake.channelMutex.Unlock()
+	if stub != nil {
+		return stub(arg1)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *ConfigProvider) ChannelCallCount() int {
+	fake.channelMutex.RLock()
+	defer fake.channelMutex.RUnlock()
+	return len(fake.channelArgsForCall)
+}
+
+func (fake *ConfigProvider) ChannelCalls(stub func(string) drivera.ChannelConfig) {
+	fake.channelMutex.Lock()
+	defer fake.channelMutex.Unlock()
+	fake.ChannelStub = stub
+}
+
+func (fake *ConfigProvider) ChannelArgsForCall(i int) string {
+	fake.channelMutex.RLock()
+	defer fake.channelMutex.RUnlock()
+	argsForCall := fake.channelArgsForCall[i]
+	return argsForCall.arg1
+}
+
+func (fake *ConfigProvider) ChannelReturns(result1 drivera.ChannelConfig) {
+	fake.channelMutex.Lock()
+	defer fake.channelMutex.Unlock()
+	fake.ChannelStub = nil
+	fake.channelReturns = struct {
+		result1 drivera.ChannelConfig
+	}{result1}
+}
+
+func (fake *ConfigProvider) ChannelReturnsOnCall(i int, result1 drivera.ChannelConfig) {
+	fake.channelMutex.Lock()
+	defer fake.channelMutex.Unlock()
+	fake.ChannelStub = nil
+	if fake.channelReturnsOnCall == nil {
+		fake.channelReturnsOnCall = make(map[int]struct {
+			result1 drivera.ChannelConfig
+		})
+	}
+	fake.channelReturnsOnCall[i] = struct {
+		result1 drivera.ChannelConfig
+	}{result1}
+}
+
 func (fake *ConfigProvider) ChannelIDs() []string {
 	fake.channelIDsMutex.Lock()
 	ret, specificReturn := fake.channelIDsReturnsOnCall[len(fake.channelIDsArgsForCall)]
@@ -525,59 +587,6 @@ func (fake *ConfigProvider) ChannelIDsReturnsOnCall(i int, result1 []string) {
 	}
 	fake.channelIDsReturnsOnCall[i] = struct {
 		result1 []string
-	}{result1}
-}
-
-func (fake *ConfigProvider) Channels() []drivera.ChannelConfig {
-	fake.channelsMutex.Lock()
-	ret, specificReturn := fake.channelsReturnsOnCall[len(fake.channelsArgsForCall)]
-	fake.channelsArgsForCall = append(fake.channelsArgsForCall, struct {
-	}{})
-	stub := fake.ChannelsStub
-	fakeReturns := fake.channelsReturns
-	fake.recordInvocation("Channels", []interface{}{})
-	fake.channelsMutex.Unlock()
-	if stub != nil {
-		return stub()
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	return fakeReturns.result1
-}
-
-func (fake *ConfigProvider) ChannelsCallCount() int {
-	fake.channelsMutex.RLock()
-	defer fake.channelsMutex.RUnlock()
-	return len(fake.channelsArgsForCall)
-}
-
-func (fake *ConfigProvider) ChannelsCalls(stub func() []drivera.ChannelConfig) {
-	fake.channelsMutex.Lock()
-	defer fake.channelsMutex.Unlock()
-	fake.ChannelsStub = stub
-}
-
-func (fake *ConfigProvider) ChannelsReturns(result1 []drivera.ChannelConfig) {
-	fake.channelsMutex.Lock()
-	defer fake.channelsMutex.Unlock()
-	fake.ChannelsStub = nil
-	fake.channelsReturns = struct {
-		result1 []drivera.ChannelConfig
-	}{result1}
-}
-
-func (fake *ConfigProvider) ChannelsReturnsOnCall(i int, result1 []drivera.ChannelConfig) {
-	fake.channelsMutex.Lock()
-	defer fake.channelsMutex.Unlock()
-	fake.ChannelsStub = nil
-	if fake.channelsReturnsOnCall == nil {
-		fake.channelsReturnsOnCall = make(map[int]struct {
-			result1 []drivera.ChannelConfig
-		})
-	}
-	fake.channelsReturnsOnCall[i] = struct {
-		result1 []drivera.ChannelConfig
 	}{result1}
 }
 
@@ -1106,16 +1115,16 @@ func (fake *ConfigProvider) GetStringSliceReturnsOnCall(i int, result1 []string)
 	}{result1}
 }
 
-func (fake *ConfigProvider) IsChannelQuite(arg1 string) bool {
-	fake.isChannelQuiteMutex.Lock()
-	ret, specificReturn := fake.isChannelQuiteReturnsOnCall[len(fake.isChannelQuiteArgsForCall)]
-	fake.isChannelQuiteArgsForCall = append(fake.isChannelQuiteArgsForCall, struct {
+func (fake *ConfigProvider) IsChannelQuiet(arg1 string) bool {
+	fake.isChannelQuietMutex.Lock()
+	ret, specificReturn := fake.isChannelQuietReturnsOnCall[len(fake.isChannelQuietArgsForCall)]
+	fake.isChannelQuietArgsForCall = append(fake.isChannelQuietArgsForCall, struct {
 		arg1 string
 	}{arg1})
-	stub := fake.IsChannelQuiteStub
-	fakeReturns := fake.isChannelQuiteReturns
-	fake.recordInvocation("IsChannelQuite", []interface{}{arg1})
-	fake.isChannelQuiteMutex.Unlock()
+	stub := fake.IsChannelQuietStub
+	fakeReturns := fake.isChannelQuietReturns
+	fake.recordInvocation("IsChannelQuiet", []interface{}{arg1})
+	fake.isChannelQuietMutex.Unlock()
 	if stub != nil {
 		return stub(arg1)
 	}
@@ -1125,44 +1134,44 @@ func (fake *ConfigProvider) IsChannelQuite(arg1 string) bool {
 	return fakeReturns.result1
 }
 
-func (fake *ConfigProvider) IsChannelQuiteCallCount() int {
-	fake.isChannelQuiteMutex.RLock()
-	defer fake.isChannelQuiteMutex.RUnlock()
-	return len(fake.isChannelQuiteArgsForCall)
+func (fake *ConfigProvider) IsChannelQuietCallCount() int {
+	fake.isChannelQuietMutex.RLock()
+	defer fake.isChannelQuietMutex.RUnlock()
+	return len(fake.isChannelQuietArgsForCall)
 }
 
-func (fake *ConfigProvider) IsChannelQuiteCalls(stub func(string) bool) {
-	fake.isChannelQuiteMutex.Lock()
-	defer fake.isChannelQuiteMutex.Unlock()
-	fake.IsChannelQuiteStub = stub
+func (fake *ConfigProvider) IsChannelQuietCalls(stub func(string) bool) {
+	fake.isChannelQuietMutex.Lock()
+	defer fake.isChannelQuietMutex.Unlock()
+	fake.IsChannelQuietStub = stub
 }
 
-func (fake *ConfigProvider) IsChannelQuiteArgsForCall(i int) string {
-	fake.isChannelQuiteMutex.RLock()
-	defer fake.isChannelQuiteMutex.RUnlock()
-	argsForCall := fake.isChannelQuiteArgsForCall[i]
+func (fake *ConfigProvider) IsChannelQuietArgsForCall(i int) string {
+	fake.isChannelQuietMutex.RLock()
+	defer fake.isChannelQuietMutex.RUnlock()
+	argsForCall := fake.isChannelQuietArgsForCall[i]
 	return argsForCall.arg1
 }
 
-func (fake *ConfigProvider) IsChannelQuiteReturns(result1 bool) {
-	fake.isChannelQuiteMutex.Lock()
-	defer fake.isChannelQuiteMutex.Unlock()
-	fake.IsChannelQuiteStub = nil
-	fake.isChannelQuiteReturns = struct {
+func (fake *ConfigProvider) IsChannelQuietReturns(result1 bool) {
+	fake.isChannelQuietMutex.Lock()
+	defer fake.isChannelQuietMutex.Unlock()
+	fake.IsChannelQuietStub = nil
+	fake.isChannelQuietReturns = struct {
 		result1 bool
 	}{result1}
 }
 
-func (fake *ConfigProvider) IsChannelQuiteReturnsOnCall(i int, result1 bool) {
-	fake.isChannelQuiteMutex.Lock()
-	defer fake.isChannelQuiteMutex.Unlock()
-	fake.IsChannelQuiteStub = nil
-	if fake.isChannelQuiteReturnsOnCall == nil {
-		fake.isChannelQuiteReturnsOnCall = make(map[int]struct {
+func (fake *ConfigProvider) IsChannelQuietReturnsOnCall(i int, result1 bool) {
+	fake.isChannelQuietMutex.Lock()
+	defer fake.isChannelQuietMutex.Unlock()
+	fake.IsChannelQuietStub = nil
+	if fake.isChannelQuietReturnsOnCall == nil {
+		fake.isChannelQuietReturnsOnCall = make(map[int]struct {
 			result1 bool
 		})
 	}
-	fake.isChannelQuiteReturnsOnCall[i] = struct {
+	fake.isChannelQuietReturnsOnCall[i] = struct {
 		result1 bool
 	}{result1}
 }
@@ -2288,10 +2297,10 @@ func (fake *ConfigProvider) Invocations() map[string][][]interface{} {
 	defer fake.broadcastNumRetriesMutex.RUnlock()
 	fake.broadcastRetryIntervalMutex.RLock()
 	defer fake.broadcastRetryIntervalMutex.RUnlock()
+	fake.channelMutex.RLock()
+	defer fake.channelMutex.RUnlock()
 	fake.channelIDsMutex.RLock()
 	defer fake.channelIDsMutex.RUnlock()
-	fake.channelsMutex.RLock()
-	defer fake.channelsMutex.RUnlock()
 	fake.clientConnTimeoutMutex.RLock()
 	defer fake.clientConnTimeoutMutex.RUnlock()
 	fake.configFileUsedMutex.RLock()
@@ -2310,8 +2319,8 @@ func (fake *ConfigProvider) Invocations() map[string][][]interface{} {
 	defer fake.getStringMutex.RUnlock()
 	fake.getStringSliceMutex.RLock()
 	defer fake.getStringSliceMutex.RUnlock()
-	fake.isChannelQuiteMutex.RLock()
-	defer fake.isChannelQuiteMutex.RUnlock()
+	fake.isChannelQuietMutex.RLock()
+	defer fake.isChannelQuietMutex.RUnlock()
 	fake.isSetMutex.RLock()
 	defer fake.isSetMutex.RUnlock()
 	fake.keepAliveClientIntervalMutex.RLock()

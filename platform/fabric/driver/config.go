@@ -76,7 +76,7 @@ type ConfigService interface {
 	Configuration
 	NetworkName() string
 	DefaultChannel() string
-	Channels() []ChannelConfig
+	Channel(name string) ChannelConfig
 	ChannelIDs() []string
 	Orderers() []*grpc.ConnectionConfig
 	SetConfigOrderers([]*grpc.ConnectionConfig) error
@@ -85,7 +85,7 @@ type ConfigService interface {
 	BroadcastRetryInterval() time.Duration
 	OrdererConnectionPoolSize() int
 	PickPeer(funcType PeerFunctionType) *grpc.ConnectionConfig
-	IsChannelQuite(name string) bool
+	IsChannelQuiet(name string) bool
 	VaultPersistenceType() string
 	VaultPersistencePrefix() string
 	VaultTXStoreCacheSize() int

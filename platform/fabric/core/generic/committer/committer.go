@@ -16,6 +16,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/compose"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/fabricutils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/membership"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/rwset"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
@@ -339,19 +340,9 @@ func (c *Service) Commit(block *common.Block) error {
 	c.Tracer.StartAt("commit", time.Now())
 	for i, tx := range block.Data.Data {
 
-		env, err := protoutil.UnmarshalEnvelope(tx)
+		env, _, chdr, err := fabricutils.UnmarshalTx(tx)
 		if err != nil {
-			logger.Errorf("Error getting tx from block: %s", err)
-			return err
-		}
-		payl, err := protoutil.UnmarshalPayload(env.Payload)
-		if err != nil {
-			logger.Errorf("[%s] unmarshal payload failed: %s", c.ChannelConfig.ID(), err)
-			return err
-		}
-		chdr, err := protoutil.UnmarshalChannelHeader(payl.Header.ChannelHeader)
-		if err != nil {
-			logger.Errorf("[%s] unmarshal channel header failed: %s", c.ChannelConfig.ID(), err)
+			logger.Errorf("[%s] unmarshal tx failed: %s", c.ChannelConfig.ID(), err)
 			return err
 		}
 

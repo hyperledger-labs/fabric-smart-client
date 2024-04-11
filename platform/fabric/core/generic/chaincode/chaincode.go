@@ -104,14 +104,13 @@ func (c *Chaincode) IsAvailable() (bool, error) {
 }
 
 func (c *Chaincode) IsPrivate() bool {
-	channels := c.ConfigService.Channels()
-	for _, channel := range channels {
-		if channel.ID() == c.ChannelID {
-			for _, chaincode := range channel.ChaincodeConfigs() {
-				if chaincode.ID() == c.name {
-					return chaincode.IsPrivate()
-				}
-			}
+	channel := c.ConfigService.Channel(c.ChannelID)
+	if channel == nil {
+		return false
+	}
+	for _, chaincode := range channel.ChaincodeConfigs() {
+		if chaincode.ID() == c.name {
+			return chaincode.IsPrivate()
 		}
 	}
 	// Nothing was found

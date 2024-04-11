@@ -59,14 +59,7 @@ func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver
 	sp := network.SP
 
 	// Channel configuration
-	channelConfigs := network.ConfigService().Channels()
-	var channelConfig driver.ChannelConfig
-	for _, config := range channelConfigs {
-		if config.ID() == name {
-			channelConfig = config
-			break
-		}
-	}
+	channelConfig := network.ConfigService().Channel(name)
 	if channelConfig == nil {
 		channelConfig = network.ConfigService().NewDefaultChannelConfig(name)
 	}

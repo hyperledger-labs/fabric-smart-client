@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package config
 
 import (
+	"fmt"
 	"math/rand"
 	"strconv"
 	"strings"
@@ -20,124 +21,116 @@ import (
 )
 
 const (
-	DefaultMSPCacheSize               = 3
-	DefaultBroadcastNumRetries        = 3
-	VaultPersistenceOptsKey           = "vault.persistence.opts"
-	DefaultOrderingConnectionPoolSize = 10
-	DefaultNumRetries                 = 3
-	DefaultRetrySleep                 = 1 * time.Second
+	defaultMSPCacheSize               = 3
+	defaultBroadcastNumRetries        = 3
+	vaultPersistenceOptsKey           = "vault.persistence.opts"
+	defaultOrderingConnectionPoolSize = 10
+	defaultNumRetries                 = 3
+	defaultRetrySleep                 = 1 * time.Second
+	defaultCacheSize                  = 100
 )
 
 var logger = flogging.MustGetLogger("fabric-sdk.core.generic.config")
+
+var funcTypeMap = map[string]driver.PeerFunctionType{
+	"":          driver.PeerForAnything,
+	"delivery":  driver.PeerForDelivery,
+	"discovery": driver.PeerForDiscovery,
+	"finality":  driver.PeerForFinality,
+	"query":     driver.PeerForQuery,
+}
 
 type Service struct {
 	driver.Configuration
 	name   string
 	prefix string
 
-	configuredOrderers []*grpc.ConnectionConfig
+	configuredOrderers int
 	orderers           []*grpc.ConnectionConfig
 	peerMapping        map[driver.PeerFunctionType][]*grpc.ConnectionConfig
-	channels           []*Channel
-	channelConfigs     []driver.ChannelConfig
-	channelIDs         []string
+	channels           map[string]*Channel
 	defaultChannel     string
 }
 
 func NewService(configService driver.Configuration, name string, defaultConfig bool) (*Service, error) {
-	// instantiate base service
-	var service *Service
+	var prefix string
 	if configService.IsSet("fabric." + name) {
-		service = &Service{
-			name:          name,
-			prefix:        name + ".",
-			Configuration: configService,
-		}
-	} else {
-		if defaultConfig {
-			service = &Service{
-				name:          name,
-				prefix:        "",
-				Configuration: configService,
-			}
-		} else {
-			return nil, errors.Errorf("configuration for [%s] not found", name)
-		}
+		prefix = name + "."
 	}
-	// populate it
-	if err := service.init(); err != nil {
+	if len(prefix) == 0 && !defaultConfig {
+		return nil, errors.Errorf("configuration for [%s] not found", name)
+	}
+
+	tlsEnabled := configService.GetBool(fmt.Sprintf("fabric.%stls.enabled", prefix))
+	orderers, err := readItems[*grpc.ConnectionConfig](configService, prefix, "orderers")
+	if err != nil {
 		return nil, err
 	}
-	return service, nil
-}
-
-func (s *Service) init() error {
-	// orderers
-	var orderers []*grpc.ConnectionConfig
-	if err := s.Configuration.UnmarshalKey("fabric."+s.prefix+"orderers", &orderers); err != nil {
-		return err
-	}
-	tlsEnabled := s.TLSEnabled()
 	for _, v := range orderers {
 		v.TLSEnabled = tlsEnabled
 	}
-	s.configuredOrderers = orderers
-	s.orderers = orderers
-
-	// peers
-	var peers []*grpc.ConnectionConfig
-	if err := s.Configuration.UnmarshalKey("fabric."+s.prefix+"peers", &peers); err != nil {
-		return err
+	peers, err := readItems[*grpc.ConnectionConfig](configService, prefix, "peers")
+	peerMapping, err := createPeerMap(peers, tlsEnabled)
+	if err != nil {
+		return nil, err
 	}
 
-	peerMapping := map[driver.PeerFunctionType][]*grpc.ConnectionConfig{}
-	for _, v := range peers {
-		v.TLSEnabled = tlsEnabled
-		if v.TLSDisabled {
-			v.TLSEnabled = false
-		}
-		usage := strings.ToLower(v.Usage)
-		switch {
-		case len(usage) == 0:
-			peerMapping[driver.PeerForAnything] = append(peerMapping[driver.PeerForAnything], v)
-		case usage == "delivery":
-			peerMapping[driver.PeerForDelivery] = append(peerMapping[driver.PeerForDelivery], v)
-		case usage == "discovery":
-			peerMapping[driver.PeerForDiscovery] = append(peerMapping[driver.PeerForDiscovery], v)
-		case usage == "finality":
-			peerMapping[driver.PeerForFinality] = append(peerMapping[driver.PeerForFinality], v)
-		case usage == "query":
-			peerMapping[driver.PeerForQuery] = append(peerMapping[driver.PeerForQuery], v)
-		default:
-			logger.Warn("connection usage [%s] not recognized [%v]", usage, v)
-		}
+	channels, err := readItems[*Channel](configService, prefix, "channels")
+	if err != nil {
+		return nil, err
 	}
-	s.peerMapping = peerMapping
+	channelMap, defaultChannel, err := createChannelMap(channels)
+	if err != nil {
+		return nil, err
+	}
 
-	// channels
-	var channels []*Channel
-	var channelIDs []string
-	var channelConfigs []driver.ChannelConfig
-	if err := s.Configuration.UnmarshalKey("fabric."+s.prefix+"channels", &channels); err != nil {
-		return err
-	}
+	return &Service{
+		Configuration:      configService,
+		name:               name,
+		prefix:             prefix,
+		configuredOrderers: len(orderers),
+		orderers:           orderers,
+		peerMapping:        peerMapping,
+		channels:           channelMap,
+		defaultChannel:     defaultChannel,
+	}, nil
+}
+
+func createChannelMap(channels []*Channel) (map[string]*Channel, string, error) {
+	channelMap := make(map[string]*Channel, len(channels))
+	var defaultChannel string
 	for _, channel := range channels {
 		if err := channel.Verify(); err != nil {
-			return err
+			return nil, "", err
 		}
-		channelIDs = append(channelIDs, channel.Name)
-		channelConfigs = append(channelConfigs, channel)
-	}
-	s.channels = channels
-	s.channelIDs = channelIDs
-	s.channelConfigs = channelConfigs
-	for _, channel := range channels {
+		channelMap[channel.Name] = channel
 		if channel.Default {
-			s.defaultChannel = channel.Name
-			break
+			defaultChannel = channel.Name
 		}
 	}
-	return nil
+	return channelMap, defaultChannel, nil
+}
+
+func createPeerMap(peers []*grpc.ConnectionConfig, tlsEnabled bool) (map[driver.PeerFunctionType][]*grpc.ConnectionConfig, error) {
+	peerMapping := map[driver.PeerFunctionType][]*grpc.ConnectionConfig{}
+	for _, v := range peers {
+		v.TLSEnabled = tlsEnabled && !v.TLSDisabled
+
+		if funcType, ok := funcTypeMap[strings.ToLower(v.Usage)]; ok {
+			peerMapping[funcType] = append(peerMapping[funcType], v)
+		} else {
+			logger.Warn("connection usage [%s] not recognized [%v]", v.Usage, v)
+		}
+	}
+	return peerMapping, nil
+}
+
+func readItems[T any](configService driver.Configuration, prefix, key string) ([]T, error) {
+	var items []T
+	if err := configService.UnmarshalKey(fmt.Sprintf("fabric.%s%s", prefix, key), &items); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 func (s *Service) NetworkName() string {
@@ -145,35 +138,35 @@ func (s *Service) NetworkName() string {
 }
 
 func (s *Service) TLSEnabled() bool {
-	return s.Configuration.GetBool("fabric." + s.prefix + "tls.enabled")
+	return s.GetBool("tls.enabled")
 }
 
 func (s *Service) TLSClientAuthRequired() bool {
-	return s.Configuration.GetBool("fabric." + s.prefix + "tls.clientAuthRequired")
+	return s.GetBool("tls.clientAuthRequired")
 }
 
 func (s *Service) TLSServerHostOverride() string {
-	return s.Configuration.GetString("fabric." + s.prefix + "tls.serverhostoverride")
+	return s.GetString("tls.serverhostoverride")
 }
 
 func (s *Service) ClientConnTimeout() time.Duration {
-	return s.Configuration.GetDuration("fabric." + s.prefix + "client.connTimeout")
+	return s.GetDuration("client.connTimeout")
 }
 
 func (s *Service) TLSClientKeyFile() string {
-	return s.Configuration.GetPath("fabric." + s.prefix + "tls.clientKey.file")
+	return s.GetPath("tls.clientKey.file")
 }
 
 func (s *Service) TLSClientCertFile() string {
-	return s.Configuration.GetPath("fabric." + s.prefix + "tls.clientCert.file")
+	return s.GetPath("tls.clientCert.file")
 }
 
 func (s *Service) KeepAliveClientInterval() time.Duration {
-	return s.Configuration.GetDuration("fabric." + s.prefix + "keepalive.interval")
+	return s.GetDuration("keepalive.interval")
 }
 
 func (s *Service) KeepAliveClientTimeout() time.Duration {
-	return s.Configuration.GetDuration("fabric." + s.prefix + "keepalive.timeout")
+	return s.GetDuration("keepalive.timeout")
 }
 
 func (s *Service) NewDefaultChannelConfig(name string) driver.ChannelConfig {
@@ -181,8 +174,8 @@ func (s *Service) NewDefaultChannelConfig(name string) driver.ChannelConfig {
 		Name:       name,
 		Default:    false,
 		Quiet:      false,
-		NumRetries: DefaultNumRetries,
-		RetrySleep: DefaultRetrySleep,
+		NumRetries: defaultNumRetries,
+		RetrySleep: defaultRetrySleep,
 		Chaincodes: nil,
 	}
 }
@@ -192,36 +185,28 @@ func (s *Service) Orderers() []*grpc.ConnectionConfig {
 }
 
 func (s *Service) VaultPersistenceType() string {
-	return s.Configuration.GetString("fabric." + s.prefix + "vault.persistence.type")
+	return s.GetString("vault.persistence.type")
 }
 
 func (s *Service) VaultPersistencePrefix() string {
-	return VaultPersistenceOptsKey
+	return vaultPersistenceOptsKey
 }
 
 func (s *Service) VaultTXStoreCacheSize() int {
-	defaultCacheSize := 100
-	v := s.Configuration.GetString("fabric." + s.prefix + "vault.txidstore.cache.size")
-	cacheSize, err := strconv.Atoi(v)
-	if err != nil {
-		return defaultCacheSize
+	if cacheSize, err := strconv.Atoi(s.GetString("vault.txidstore.cache.size")); err == nil && cacheSize >= 0 {
+		return cacheSize
 	}
-
-	if cacheSize < 0 {
-		return defaultCacheSize
-	}
-
-	return cacheSize
+	return defaultCacheSize
 }
 
 // DefaultMSP returns the default MSP
 func (s *Service) DefaultMSP() string {
-	return s.Configuration.GetString("fabric." + s.prefix + "defaultMSP")
+	return s.GetString("defaultMSP")
 }
 
 func (s *Service) MSPs() ([]MSP, error) {
 	var confs []MSP
-	if err := s.Configuration.UnmarshalKey("fabric."+s.prefix+"msps", &confs); err != nil {
+	if err := s.UnmarshalKey("msps", &confs); err != nil {
 		return nil, err
 	}
 	return confs, nil
@@ -237,16 +222,22 @@ func (s *Service) DefaultChannel() string {
 }
 
 func (s *Service) ChannelIDs() []string {
-	return s.channelIDs
+	channelIDs := make([]string, len(s.channels))
+	var i int
+	for channelID := range s.channels {
+		channelIDs[i] = channelID
+		i++
+	}
+	return channelIDs
 }
 
-func (s *Service) Channels() []driver.ChannelConfig {
-	return s.channelConfigs
+func (s *Service) Channel(name string) driver.ChannelConfig {
+	return s.channels[name]
 }
 
 func (s *Service) Resolvers() ([]Resolver, error) {
 	var resolvers []Resolver
-	if err := s.Configuration.UnmarshalKey("fabric."+s.prefix+"endpoint.resolvers", &resolvers); err != nil {
+	if err := s.UnmarshalKey("endpoint.resolvers", &resolvers); err != nil {
 		return nil, err
 	}
 	return resolvers, nil
@@ -277,39 +268,32 @@ func (s *Service) GetPath(key string) string {
 }
 
 func (s *Service) MSPCacheSize() int {
-	v := s.Configuration.GetString("fabric." + s.prefix + "mspCacheSize")
-	if len(v) == 0 {
-		return DefaultMSPCacheSize
+	if cacheSize, err := strconv.Atoi(s.GetString("mspCacheSize")); err == nil {
+		return cacheSize
 	}
-	i, err := strconv.Atoi(v)
-	if err != nil {
-		return DefaultMSPCacheSize
-	}
-	return i
+	return defaultMSPCacheSize
 }
 
 func (s *Service) BroadcastNumRetries() int {
-	v := s.Configuration.GetInt("fabric." + s.prefix + "ordering.numRetries")
-	if v == 0 {
-		return DefaultBroadcastNumRetries
+	if v := s.GetInt("ordering.numRetries"); v != 0 {
+		return v
 	}
-	return v
+	return defaultBroadcastNumRetries
 }
 
 func (s *Service) BroadcastRetryInterval() time.Duration {
-	return s.Configuration.GetDuration("fabric." + s.prefix + "ordering.retryInterval")
+	return s.GetDuration("ordering.retryInterval")
 }
 
 func (s *Service) OrdererConnectionPoolSize() int {
-	k := "fabric." + s.prefix + "ordering.connectionPoolSize"
-	if s.Configuration.IsSet(k) {
-		return s.Configuration.GetInt(k)
+	if s.IsSet("ordering.connectionPoolSize") {
+		return s.GetInt("ordering.connectionPoolSize")
 	}
-	return DefaultOrderingConnectionPoolSize
+	return defaultOrderingConnectionPoolSize
 }
 
 func (s *Service) SetConfigOrderers(orderers []*grpc.ConnectionConfig) error {
-	s.orderers = append(s.orderers[:len(s.configuredOrderers)], orderers...)
+	s.orderers = append(s.orderers[:s.configuredOrderers], orderers...)
 	logger.Debugf("New Orderers [%d]", len(s.orderers))
 
 	return nil
@@ -330,11 +314,7 @@ func (s *Service) PickPeer(ft driver.PeerFunctionType) *grpc.ConnectionConfig {
 	return source[rand.Intn(len(source))]
 }
 
-func (s *Service) IsChannelQuite(name string) bool {
-	for _, chanDef := range s.channels {
-		if chanDef.Name == name {
-			return chanDef.Quiet
-		}
-	}
-	return false
+func (s *Service) IsChannelQuiet(name string) bool {
+	channel, ok := s.channels[name]
+	return ok && channel.Quiet
 }
