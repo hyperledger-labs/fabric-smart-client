@@ -11,6 +11,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 )
 
+type TransactionFilter = driver.TransactionFilter
+
 // TxStatusChangeListener is the interface that must be implemented to receive transaction status change notifications
 type TxStatusChangeListener interface {
 	// OnStatusChange is called when the status of a transaction changes
@@ -38,7 +40,7 @@ func (c *Committer) Status(txID string) (ValidationCode, string, error) {
 	return ValidationCode(vc), message, err
 }
 
-func (c *Committer) AddStatusReporter(sr driver.TransactionFilter) error {
+func (c *Committer) AddTransactionFilter(sr TransactionFilter) error {
 	return c.committer.AddTransactionFilter(sr)
 }
 

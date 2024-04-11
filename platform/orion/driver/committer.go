@@ -28,6 +28,10 @@ func (t *TransactionStatusChanged) Message() interface{} {
 	return t
 }
 
+type TransactionFilter interface {
+	Accept(txID string, env []byte) (bool, error)
+}
+
 // TxStatusChangeListener is the interface that must be implemented to receive transaction status change notifications
 type TxStatusChangeListener interface {
 	// OnStatusChange is called when the status of a transaction changes
@@ -36,6 +40,10 @@ type TxStatusChangeListener interface {
 
 // Committer models the committer service
 type Committer interface {
+	// AddTransactionFilter adds a new transaction filter to this commit pipeline.
+	// The transaction filter is used to check if an unknown transaction needs to be processed anyway
+	AddTransactionFilter(tf TransactionFilter) error
+
 	// SubscribeTxStatusChanges registers a listener for transaction status changes for the passed transaction id.
 	// If the transaction id is empty, the listener will be called for all transactions.
 	SubscribeTxStatusChanges(txID string, listener TxStatusChangeListener) error

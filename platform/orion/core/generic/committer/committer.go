@@ -37,6 +37,7 @@ type Finality interface {
 
 type Vault interface {
 	Status(txID string) (driver.ValidationCode, string, error)
+	SetStatus(txID string, code driver.ValidationCode) error
 	DiscardTx(txID string, message string) error
 	CommitTX(txid string, block uint64, indexInBloc int) error
 }
@@ -62,6 +63,7 @@ type committer struct {
 	pm                  ProcessorManager
 	em                  driver.EnvelopeService
 	waitForEventTimeout time.Duration
+	TransactionFilters  []driver.TransactionFilter
 
 	quietNotifier bool
 
@@ -164,8 +166,8 @@ func (c *committer) CommitTX(txID string, bn uint64, index int, event *TxEvent) 
 		return errors.Errorf("tx %s is already invalid but it is marked as valid by orion", txID)
 	case driver.Unknown:
 		if !c.em.Exists(txID) {
-			logger.Debugf("tx %s is unknown, ignore it", txID)
-			return nil
+			logger.Debugf("tx %s is unknown, check the transaction filters...", txID)
+			return c.commitWithFilter(txID)
 		}
 		logger.Debugf("tx %s is unknown, but it was found its envelope has been found, process it", txID)
 	}
@@ -302,6 +304,24 @@ func (c *committer) UnsubscribeTxStatusChanges(txID string, listener driver.TxSt
 	}
 	c.subscribers.Delete(topic, listener)
 	c.eventsSubscriber.Unsubscribe(topic, el)
+	return nil
+}
+
+func (c *committer) AddTransactionFilter(sr driver.TransactionFilter) error {
+	c.TransactionFilters = append(c.TransactionFilters, sr)
+	return nil
+}
+
+func (c *committer) commitWithFilter(txID string) error {
+	for _, filter := range c.TransactionFilters {
+		ok, err := filter.Accept(txID, nil)
+		if err != nil {
+			return err
+		}
+		if ok {
+			return c.vault.SetStatus(txID, driver.Valid)
+		}
+	}
 	return nil
 }
 
