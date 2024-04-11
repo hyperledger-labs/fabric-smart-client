@@ -12,8 +12,6 @@ import (
 	"reflect"
 	"sync"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/finality"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/views"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
@@ -40,9 +38,6 @@ func NewFabricNetworkServiceProvider(sp view.ServiceProvider, config *Config) (*
 		config:   config,
 		networks: map[string]driver.FabricNetworkService{},
 	}
-	if err := provider.InstallViews(); err != nil {
-		return nil, errors.WithMessage(err, "failed to install fns provider")
-	}
 	provider.InitFabricLogging()
 	return provider, nil
 }
@@ -55,13 +50,13 @@ func (p *FSNProvider) Start(ctx context.Context) error {
 		if err != nil {
 			return errors.Wrapf(err, "failed to start fabric network service [%s]", name)
 		}
-		for _, channelName := range fns.Channels() {
+		for _, channelName := range fns.ConfigService().ChannelIDs() {
 			ch, err := fns.Channel(channelName)
 			if err != nil {
 				return errors.Wrapf(err, "failed to get channel [%s] for fabric network service [%s]", channelName, name)
 			}
 			logger.Infof("start fabric [%s:%s]'s delivery service...", name, channelName)
-			if err := ch.StartDelivery(ctx); err != nil {
+			if err := ch.Delivery().Start(ctx); err != nil {
 				return errors.WithMessagef(err, "failed to start delivery on channel [%s] for fabric network service [%s]", channelName, name)
 			}
 		}
@@ -76,7 +71,7 @@ func (p *FSNProvider) Stop() error {
 		if err != nil {
 			return err
 		}
-		for _, channelName := range fns.Channels() {
+		for _, channelName := range fns.ConfigService().ChannelIDs() {
 			ch, err := fns.Channel(channelName)
 			if err != nil {
 				return err
@@ -115,13 +110,6 @@ func (p *FSNProvider) FabricNetworkService(network string) (driver.FabricNetwork
 		p.networks[network] = net
 	}
 	return net, nil
-}
-
-func (p *FSNProvider) InstallViews() error {
-	if err := view.GetRegistry(p.sp).RegisterResponder(views.NewIsFinalResponderView(p), &finality.IsFinalInitiatorView{}); err != nil {
-		return errors.WithMessagef(err, "failed to register finality responder")
-	}
-	return nil
 }
 
 // InitFabricLogging initializes the fabric logging system

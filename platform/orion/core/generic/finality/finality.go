@@ -12,7 +12,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic/committer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	errors2 "github.com/pkg/errors"
 )
 
@@ -68,8 +67,4 @@ func (f *finality) IsFinal(ctx context.Context, txID string) error {
 		}
 	}
 	return errors2.Errorf("failed retrieveing transaction finality for [%s]: [%s][%s]", txID, err, err2)
-}
-
-func (f *finality) IsFinalForParties(txID string, parties ...view.Identity) error {
-	panic("implement me")
 }

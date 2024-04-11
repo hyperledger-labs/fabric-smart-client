@@ -10,22 +10,21 @@ import (
 	"encoding/json"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/hyperledger/fabric/protoutil"
 	"github.com/pkg/errors"
 )
 
+type ChannelProvider interface {
+	Channel(name string) (driver.Channel, error)
+}
+
 type Manager struct {
-	sp        view.ServiceProvider
-	fns       driver.FabricNetworkService
 	factories map[driver.TransactionType]driver.TransactionFactory
 }
 
-func NewManager(sp view.ServiceProvider, fns driver.FabricNetworkService) *Manager {
-	factories := map[driver.TransactionType]driver.TransactionFactory{}
-	factories[driver.EndorserTransaction] = NewEndorserTransactionFactory(sp, fns)
-	return &Manager{sp: sp, fns: fns, factories: factories}
+func NewManager() *Manager {
+	return &Manager{factories: map[driver.TransactionType]driver.TransactionFactory{}}
 }
 
 func (m *Manager) ComputeTxID(id *driver.TxID) string {
@@ -98,16 +97,17 @@ func (m *Manager) AddTransactionFactory(tt driver.TransactionType, factory drive
 }
 
 type EndorserTransactionFactory struct {
-	sp  view.ServiceProvider
-	fns driver.FabricNetworkService
+	networkName     string
+	channelProvider ChannelProvider
+	sigService      driver.SignerService
 }
 
-func NewEndorserTransactionFactory(sp view.ServiceProvider, fns driver.FabricNetworkService) *EndorserTransactionFactory {
-	return &EndorserTransactionFactory{sp: sp, fns: fns}
+func NewEndorserTransactionFactory(networkName string, channelProvider ChannelProvider, sigService driver.SignerService) *EndorserTransactionFactory {
+	return &EndorserTransactionFactory{networkName: networkName, channelProvider: channelProvider, sigService: sigService}
 }
 
 func (e *EndorserTransactionFactory) NewTransaction(channel string, nonce []byte, creator []byte, txid string, rawRequest []byte) (driver.Transaction, error) {
-	ch, err := e.fns.Channel(channel)
+	ch, err := e.channelProvider.Channel(channel)
 	if err != nil {
 		return nil, err
 	}
@@ -123,15 +123,15 @@ func (e *EndorserTransactionFactory) NewTransaction(channel string, nonce []byte
 	}
 
 	return &Transaction{
-		sp:         e.sp,
-		fns:        e.fns,
-		channel:    ch,
-		TCreator:   creator,
-		TNonce:     nonce,
-		TTxID:      txid,
-		TNetwork:   e.fns.Name(),
-		TChannel:   channel,
-		TTransient: map[string][]byte{},
+		channelProvider: e.channelProvider,
+		sigService:      e.sigService,
+		channel:         ch,
+		TCreator:        creator,
+		TNonce:          nonce,
+		TTxID:           txid,
+		TNetwork:        e.networkName,
+		TChannel:        channel,
+		TTransient:      map[string][]byte{},
 	}, nil
 }
 

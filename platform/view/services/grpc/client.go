@@ -110,13 +110,76 @@ func NewGRPCClient(config ClientConfig) (*Client, error) {
 	return client, nil
 }
 
+type TLSClientConfig struct {
+	TLSClientAuthRequired bool
+	TLSClientKeyFile      string
+	TLSClientCertFile     string
+}
+
+func CreateSecOpts(connConfig ConnectionConfig, cliConfig TLSClientConfig) (*SecureOptions, error) {
+	return createSecOpts(connConfig, false, &cliConfig)
+}
+
+func createTLSSecOpts(connConfig ConnectionConfig) (*SecureOptions, error) {
+	return createSecOpts(connConfig, true, nil)
+}
+
+func createSecOpts(connConfig ConnectionConfig, forceTLS bool, cliConfig *TLSClientConfig) (*SecureOptions, error) {
+	var certs [][]byte
+	if connConfig.TLSEnabled {
+		switch {
+		case len(connConfig.TLSRootCertFile) != 0:
+			caPEM, err := os.ReadFile(connConfig.TLSRootCertFile)
+			if err != nil {
+				return nil, errors.WithMessagef(err, "unable to load TLS cert from %s", connConfig.TLSRootCertFile)
+			}
+			certs = append(certs, caPEM)
+		case len(connConfig.TLSRootCertBytes) != 0:
+			certs = connConfig.TLSRootCertBytes
+		default:
+			return nil, errors.New("missing TLSRootCertFile in client config")
+		}
+	}
+
+	tlsEnabled := connConfig.TLSEnabled || forceTLS
+	secOpts := &SecureOptions{
+		UseTLS:            tlsEnabled,
+		RequireClientCert: !tlsEnabled && cliConfig.TLSClientAuthRequired,
+	}
+
+	if secOpts.RequireClientCert {
+		keyPEM, err := os.ReadFile(cliConfig.TLSClientKeyFile)
+		if err != nil {
+			return nil, errors.WithMessage(err, "unable to load fabric.tls.clientKey.file")
+		}
+		secOpts.Key = keyPEM
+		certPEM, err := os.ReadFile(cliConfig.TLSClientCertFile)
+		if err != nil {
+			return nil, errors.WithMessage(err, "unable to load fabric.tls.clientCert.file")
+		}
+		secOpts.Certificate = certPEM
+	}
+
+	if tlsEnabled {
+		if len(certs) == 0 {
+			return nil, errors.New("tls root cert file must be set")
+		}
+		secOpts.ServerRootCAs = certs
+	}
+	return secOpts, nil
+}
+
 // CreateGRPCClient returns a comm.Client based on toke client config
 func CreateGRPCClient(config *ConnectionConfig) (*Client, error) {
+	secOpts, err := createTLSSecOpts(*config)
+	if err != nil {
+		return nil, err
+	}
 	timeout := config.ConnectionTimeout
 	if timeout <= 0 {
 		timeout = DefaultConnectionTimeout
 	}
-	clientConfig := ClientConfig{
+	return NewGRPCClient(ClientConfig{
 		KaOpts: KeepaliveOptions{
 			ClientInterval:    60 * time.Second,
 			ClientTimeout:     60 * time.Second,
@@ -125,32 +188,8 @@ func CreateGRPCClient(config *ConnectionConfig) (*Client, error) {
 			ServerMinInterval: 60 * time.Second,
 		},
 		Timeout: timeout,
-	}
-
-	if config.TLSEnabled {
-		var certs [][]byte
-		switch {
-		case len(config.TLSRootCertFile) != 0:
-			caPEM, err := os.ReadFile(config.TLSRootCertFile)
-			if err != nil {
-				return nil, errors.WithMessagef(err, "unable to load TLS cert from %s", config.TLSRootCertFile)
-			}
-			certs = append(certs, caPEM)
-		case len(config.TLSRootCertBytes) != 0:
-			certs = config.TLSRootCertBytes
-		default:
-			return nil, errors.New("missing TLSRootCertFile in client config")
-		}
-
-		secOpts := SecureOptions{
-			UseTLS:            true,
-			ServerRootCAs:     certs,
-			RequireClientCert: false,
-		}
-		clientConfig.SecOpts = secOpts
-	}
-
-	return NewGRPCClient(clientConfig)
+		SecOpts: *secOpts,
+	})
 }
 
 func (client *Client) parseSecureOptions(opts SecureOptions) error {

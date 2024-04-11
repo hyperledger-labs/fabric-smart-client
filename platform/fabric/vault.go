@@ -239,12 +239,11 @@ func (qe *QueryExecutor) Done() {
 type ValidationCode int
 
 const (
-	_               ValidationCode = iota
-	Valid                          // Transaction is valid and committed
-	Invalid                        // Transaction is invalid and has been discarded
-	Busy                           // Transaction does not yet have a validity state
-	Unknown                        // Transaction is unknown
-	HasDependencies                // Transaction is unknown but has known dependencies
+	_       ValidationCode = iota
+	Valid                  // Transaction is valid and committed
+	Invalid                // Transaction is invalid and has been discarded
+	Busy                   // Transaction does not yet have a validity state
+	Unknown                // Transaction is unknown
 )
 
 type SeekStart struct{}
@@ -286,12 +285,14 @@ func (t *TxIDIterator) Close() {
 
 // Vault models a key-value store that can be updated by committing rwsets
 type Vault struct {
-	ch fdriver.Channel
+	vault     fdriver.Vault
+	txidStore fdriver.TXIDStore
+	ch        fdriver.Channel
 }
 
 // GetLastTxID returns the last transaction id committed
 func (c *Vault) GetLastTxID() (string, error) {
-	return c.ch.GetLastTxID()
+	return c.txidStore.GetLastTxID()
 }
 
 func (c *Vault) TxIDIterator(pos interface{}) (*TxIDIterator, error) {
@@ -306,34 +307,34 @@ func (c *Vault) TxIDIterator(pos interface{}) (*TxIDIterator, error) {
 	default:
 		return nil, errors.Errorf("invalid position %T", pos)
 	}
-	it, err := c.ch.Iterator(iPos)
+	it, err := c.txidStore.Iterator(iPos)
 	if err != nil {
 		return nil, err
 	}
 	return &TxIDIterator{TxidIterator: it}, nil
 }
 
-func (c *Vault) Status(txID string) (ValidationCode, string, []string, error) {
-	code, message, deps, err := c.ch.Status(txID)
+func (c *Vault) Status(txID string) (ValidationCode, string, error) {
+	code, message, err := c.vault.Status(txID)
 	if err != nil {
-		return Unknown, "", deps, err
+		return Unknown, "", err
 	}
-	return ValidationCode(code), message, deps, nil
+	return ValidationCode(code), message, nil
 }
 
 func (c *Vault) DiscardTx(txID string, message string) error {
-	return c.ch.DiscardTx(txID, message)
+	return c.vault.DiscardTx(txID, message)
 }
 
 func (c *Vault) CommitTX(txid string, block uint64, indexInBloc int) error {
-	return c.ch.CommitTX(txid, block, indexInBloc, nil)
+	return c.vault.CommitTX(txid, block, indexInBloc)
 }
 
 // NewQueryExecutor gives handle to a query executor.
 // A client can obtain more than one 'QueryExecutor's for parallel execution.
 // Any synchronization should be performed at the implementation level if required
 func (c *Vault) NewQueryExecutor() (*QueryExecutor, error) {
-	qe, err := c.ch.NewQueryExecutor()
+	qe, err := c.vault.NewQueryExecutor()
 	if err != nil {
 		return nil, err
 	}
@@ -344,7 +345,7 @@ func (c *Vault) NewQueryExecutor() (*QueryExecutor, error) {
 // A client may obtain more than one such simulator; they are made unique
 // by way of the supplied txid
 func (c *Vault) NewRWSet(txid string) (*RWSet, error) {
-	rws, err := c.ch.NewRWSet(txid)
+	rws, err := c.vault.NewRWSet(txid)
 	if err != nil {
 		return nil, err
 	}
@@ -356,7 +357,7 @@ func (c *Vault) NewRWSet(txid string) (*RWSet, error) {
 // A client may obtain more than one such simulator; they are made unique
 // by way of the supplied txid
 func (c *Vault) GetRWSet(txid string, rwset []byte) (*RWSet, error) {
-	rws, err := c.ch.GetRWSet(txid, rwset)
+	rws, err := c.vault.GetRWSet(txid, rwset)
 	if err != nil {
 		return nil, err
 	}
@@ -367,7 +368,7 @@ func (c *Vault) GetRWSet(txid string, rwset []byte) (*RWSet, error) {
 // from the passed bytes.
 // If namespaces is not empty, the returned RWSet will be filtered by the passed namespaces
 func (c *Vault) GetEphemeralRWSet(rwset []byte, namespaces ...string) (*RWSet, error) {
-	rws, err := c.ch.GetEphemeralRWSet(rwset, namespaces...)
+	rws, err := c.vault.GetEphemeralRWSet(rwset, namespaces...)
 	if err != nil {
 		return nil, err
 	}

@@ -13,6 +13,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	grpc2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger/fabric-protos-go/common"
 	ab "github.com/hyperledger/fabric-protos-go/orderer"
@@ -115,7 +116,7 @@ func (d *deliverClient) Certificate() *tls.Certificate {
 }
 
 // CreateDeliverEnvelope creates a signed envelope with SeekPosition_Newest for block
-func CreateDeliverEnvelope(channelID string, signingIdentity SigningIdentity, cert *tls.Certificate, hasher Hasher, start *ab.SeekPosition) (*common.Envelope, error) {
+func CreateDeliverEnvelope(channelID string, signingIdentity driver.SigningIdentity, cert *tls.Certificate, hasher Hasher, start *ab.SeekPosition) (*common.Envelope, error) {
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("create delivery envelope starting from: [%s]", start.String())
 	}
@@ -284,7 +285,7 @@ func CreateHeader(txType common.HeaderType, channelID string, creator []byte, tl
 }
 
 // CreateEnvelope creates a common.Envelope with given tx bytes, header, and SigningIdentity
-func CreateEnvelope(data []byte, header *common.Header, signingIdentity SigningIdentity) (*common.Envelope, error) {
+func CreateEnvelope(data []byte, header *common.Header, signingIdentity driver.SigningIdentity) (*common.Envelope, error) {
 	payload := &common.Payload{
 		Header: header,
 		Data:   data,

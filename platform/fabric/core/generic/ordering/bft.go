@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/metrics"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	common2 "github.com/hyperledger/fabric-protos-go/common"
 	"github.com/pkg/errors"
@@ -20,7 +21,8 @@ import (
 )
 
 type BFTBroadcaster struct {
-	Network  Network
+	ConfigService driver.ConfigService
+
 	connSem  *semaphore.Weighted
 	metrics  *metrics.Metrics
 	poolSize int
@@ -29,21 +31,21 @@ type BFTBroadcaster struct {
 	connections     map[string]chan *Connection
 }
 
-func NewBFTBroadcaster(network Network, poolSize int, metrics *metrics.Metrics) *BFTBroadcaster {
+func NewBFTBroadcaster(configService driver.ConfigService, metrics *metrics.Metrics) *BFTBroadcaster {
 	return &BFTBroadcaster{
-		Network:     network,
-		connections: map[string]chan *Connection{},
-		connSem:     semaphore.NewWeighted(int64(poolSize)),
-		metrics:     metrics,
-		poolSize:    poolSize,
+		ConfigService: configService,
+		connections:   map[string]chan *Connection{},
+		connSem:       semaphore.NewWeighted(int64(configService.OrdererConnectionPoolSize())),
+		metrics:       metrics,
+		poolSize:      configService.OrdererConnectionPoolSize(),
 	}
 }
 
 func (o *BFTBroadcaster) Broadcast(context context.Context, env *common2.Envelope) error {
 	// send the envelope for ordering
-	retries := o.Network.Config().BroadcastNumRetries()
-	retryInterval := o.Network.Config().BroadcastRetryInterval()
-	orderers := o.Network.Orderers()
+	retries := o.ConfigService.BroadcastNumRetries()
+	retryInterval := o.ConfigService.BroadcastRetryInterval()
+	orderers := o.ConfigService.Orderers()
 	if len(orderers) < 4 {
 		return errors.Errorf("not enough orderers, 4 minimum got [%d]", len(orderers))
 	}

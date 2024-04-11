@@ -20,14 +20,17 @@ const (
 	MSPType = "idemix"
 )
 
-type IdentityLoader struct{}
+type IdentityLoader struct {
+	KVS           KVS
+	SignerService driver.SignerService
+}
 
 func (i *IdentityLoader) Load(manager driver.Manager, c config.MSP) error {
 	conf, err := msp2.GetLocalMspConfigWithType(manager.Config().TranslatePath(c.Path), nil, c.MSPID, c.MSPType)
 	if err != nil {
 		return errors.Wrapf(err, "failed reading idemix msp configuration from [%s]", manager.Config().TranslatePath(c.Path))
 	}
-	provider, err := NewProviderWithAnyPolicy(conf, manager.ServiceProvider())
+	provider, err := NewProviderWithAnyPolicy(conf, i.KVS, i.SignerService)
 	if err != nil {
 		return errors.Wrapf(err, "failed instantiating idemix msp provider from [%s]", manager.Config().TranslatePath(c.Path))
 	}

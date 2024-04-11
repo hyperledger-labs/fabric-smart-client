@@ -18,38 +18,38 @@ type TxStatusChangeListener interface {
 }
 
 type Committer struct {
-	ch          driver.Channel
+	committer   driver.Committer
 	subscribers *events.Subscribers
 }
 
 func NewCommitter(ch driver.Channel) *Committer {
-	return &Committer{ch: ch, subscribers: events.NewSubscribers()}
+	return &Committer{committer: ch.Committer(), subscribers: events.NewSubscribers()}
 }
 
 // ProcessNamespace registers namespaces that will be committed even if the rwset is not known
 func (c *Committer) ProcessNamespace(nss ...string) error {
-	return c.ch.ProcessNamespace(nss...)
+	return c.committer.ProcessNamespace(nss...)
 }
 
 // Status returns a validation code this committer bind to the passed transaction id, plus
 // a list of dependant transaction ids if they exist.
-func (c *Committer) Status(txID string) (ValidationCode, string, []string, error) {
-	vc, message, deps, err := c.ch.Status(txID)
-	return ValidationCode(vc), message, deps, err
+func (c *Committer) Status(txID string) (ValidationCode, string, error) {
+	vc, message, err := c.committer.Status(txID)
+	return ValidationCode(vc), message, err
 }
 
 func (c *Committer) AddStatusReporter(sr driver.StatusReporter) error {
-	return c.ch.AddStatusReporter(sr)
+	return c.committer.AddStatusReporter(sr)
 }
 
 // SubscribeTxStatusChanges registers a listener for transaction status changes for the passed transaction id.
 // If the transaction id is empty, the listener will be called for all transactions.
 func (c *Committer) SubscribeTxStatusChanges(txID string, listener TxStatusChangeListener) error {
-	return c.ch.SubscribeTxStatusChanges(txID, listener)
+	return c.committer.SubscribeTxStatusChanges(txID, listener)
 }
 
 // UnsubscribeTxStatusChanges unregisters a listener for transaction status changes for the passed transaction id.
 // If the transaction id is empty, the listener will be called for all transactions.
 func (c *Committer) UnsubscribeTxStatusChanges(txID string, listener TxStatusChangeListener) error {
-	return c.ch.UnsubscribeTxStatusChanges(txID, listener)
+	return c.committer.UnsubscribeTxStatusChanges(txID, listener)
 }

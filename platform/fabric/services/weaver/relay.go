@@ -21,9 +21,10 @@ type Relay struct {
 
 // ToFabric gives access to the Relay services towards a Fabric network
 func (r *Relay) ToFabric() *fabric.Fabric {
-	ch, err := r.fns.Channel(r.fns.DefaultChannel())
+	defaultChannel := r.fns.ConfigService().DefaultChannel()
+	ch, err := r.fns.Channel(defaultChannel)
 	if err != nil {
-		logger.Errorf("cannot get channel [%s:%s]: [%s]", r.fns.Name(), r.fns.DefaultChannel())
+		logger.Errorf("cannot get channel [%s:%s]: [%s]", r.fns.Name(), defaultChannel)
 		return nil
 	}
 

@@ -8,55 +8,68 @@ package generic
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger/fabric-protos-go/common"
 	"github.com/hyperledger/fabric-protos-go/peer"
-	"github.com/hyperledger/fabric/protoutil"
+	"github.com/pkg/errors"
 )
 
-// NewRWSet returns a RWSet for this ledger.
-// A client may obtain more than one such simulator; they are made unique
-// by way of the supplied txid
-func (c *Channel) NewRWSet(txid string) (driver.RWSet, error) {
-	return c.Vault.NewRWSet(txid)
+type Ledger struct {
+	ChannelName      string
+	ChaincodeManager driver.ChaincodeManager
+	LocalMembership  driver.LocalMembership
+	ConfigService    driver.ConfigService
 }
 
-// GetRWSet returns a RWSet for this ledger whose content is unmarshalled
-// from the passed bytes.
-// A client may obtain more than one such simulator; they are made unique
-// by way of the supplied txid
-func (c *Channel) GetRWSet(txid string, rwset []byte) (driver.RWSet, error) {
-	return c.Vault.GetRWSet(txid, rwset)
+func NewLedger(
+	channelName string,
+	chaincodeManager driver.ChaincodeManager,
+	localMembership driver.LocalMembership,
+	configService driver.ConfigService,
+) *Ledger {
+	return &Ledger{ChannelName: channelName, ChaincodeManager: chaincodeManager, LocalMembership: localMembership, ConfigService: configService}
 }
 
-// GetEphemeralRWSet returns an ephemeral RWSet for this ledger whose content is unmarshalled
-// from the passed bytes.
-// If namespaces is not empty, the returned RWSet will be filtered by the passed namespaces
-func (c *Channel) GetEphemeralRWSet(rwset []byte, namespaces ...string) (driver.RWSet, error) {
-	return c.Vault.InspectRWSet(rwset, namespaces...)
+func (c *Ledger) GetTransactionByID(txID string) (driver.ProcessedTransaction, error) {
+	pt := &peer.ProcessedTransaction{}
+	if err := c.queryChaincode(GetTransactionByID, txID, pt); err != nil {
+		return nil, err
+	}
+	return transaction.NewProcessedTransaction(pt)
 }
 
-// NewQueryExecutor gives handle to a query executor.
-// A client can obtain more than one 'QueryExecutor's for parallel execution.
-// Any synchronization should be performed at the implementation level if required
-func (c *Channel) NewQueryExecutor() (driver.QueryExecutor, error) {
-	return c.Vault.NewQueryExecutor()
+func (c *Ledger) GetBlockNumberByTxID(txID string) (uint64, error) {
+	block := &common.Block{}
+	if err := c.queryChaincode(GetBlockByTxID, txID, block); err != nil {
+		return 0, err
+	}
+	return block.Header.Number, nil
 }
 
 // GetBlockByNumber fetches a block by number
-func (c *Channel) GetBlockByNumber(number uint64) (driver.Block, error) {
-	res, err := c.Chaincode("qscc").NewInvocation(GetBlockByNumber, c.ChannelName, number).WithSignerIdentity(
-		c.Network.LocalMembership().DefaultIdentity(),
-	).WithEndorsersByConnConfig(c.Network.PickPeer(driver.PeerForQuery)).Query()
-	if err != nil {
+func (c *Ledger) GetBlockByNumber(number uint64) (driver.Block, error) {
+	block := &common.Block{}
+	if err := c.queryChaincode(GetBlockByNumber, number, block); err != nil {
 		return nil, err
+	}
+	return &Block{Block: block}, nil
+}
+
+func (c *Ledger) queryChaincode(function string, param any, result proto.Message) error {
+	raw, err := c.ChaincodeManager.Chaincode("qscc").
+		NewInvocation(function, c.ChannelName, param).
+		WithSignerIdentity(c.LocalMembership.DefaultIdentity()).
+		WithEndorsersByConnConfig(c.ConfigService.PickPeer(driver.PeerForQuery)).
+		Query()
+	if err != nil {
+		return errors.Wrap(err, "query chaincode failed")
 	}
 
-	b, err := protoutil.UnmarshalBlock(res)
-	if err != nil {
-		return nil, err
+	if err := proto.Unmarshal(raw, result); err != nil {
+		return errors.Wrap(err, "unmashal failed")
 	}
-	return &Block{Block: b}, nil
+	return nil
 }
 
 // Block wraps a Fabric block
@@ -75,7 +88,7 @@ func (b *Block) ProcessedTransaction(i int) (driver.ProcessedTransaction, error)
 	if err := proto.Unmarshal(b.Data.Data[i], env); err != nil {
 		return nil, err
 	}
-	return newProcessedTransaction(&peer.ProcessedTransaction{
+	return transaction.NewProcessedTransaction(&peer.ProcessedTransaction{
 		TransactionEnvelope: env,
 		ValidationCode:      int32(b.Metadata.Metadata[common.BlockMetadataIndex_TRANSACTIONS_FILTER][i]),
 	})

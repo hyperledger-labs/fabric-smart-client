@@ -48,7 +48,6 @@ type ProcessorManager interface {
 // TxEvent contains information for token transaction commit
 type TxEvent struct {
 	TxID              string
-	DependantTxIDs    []string
 	ValidationCode    types.Flag
 	ValidationMessage string
 	Block             uint64
@@ -375,16 +374,6 @@ func (c *committer) notifyFinality(event TxEvent) {
 	}
 	for _, listener := range listeners {
 		listener <- event
-	}
-
-	for _, txid := range event.DependantTxIDs {
-		listeners := c.listeners[txid]
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("Notify the finality of [%s] (dependant) to [%d] listeners, event: [%v]", txid, len(listeners), event)
-		}
-		for _, listener := range listeners {
-			listener <- event
-		}
 	}
 }
 

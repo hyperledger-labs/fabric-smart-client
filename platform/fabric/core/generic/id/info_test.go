@@ -10,9 +10,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/sig"
+
 	idemix2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/idemix"
 	x5092 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/x509"
-	sig2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/core/sig"
 	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs/mock"
@@ -27,13 +28,13 @@ func TestInfoIdemix(t *testing.T) {
 	kvss, err := kvs.NewWithConfig(registry, "memory", "", &mock.ConfigProvider{})
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
-	sigService := sig2.NewSignService(registry, nil, kvss)
+	sigService := sig.NewService(sig.NewMultiplexDeserializer(), kvss)
 	assert.NoError(t, registry.RegisterService(sigService))
 
 	config, err := msp2.GetLocalMspConfigWithType("./testdata/idemix", nil, "idemix", "idemix")
 	assert.NoError(t, err)
 
-	p, err := idemix2.NewProviderWithEidRhNymPolicy(config, registry)
+	p, err := idemix2.NewProviderWithEidRhNymPolicy(config, kvss, sigService)
 	assert.NoError(t, err)
 	assert.NotNil(t, p)
 

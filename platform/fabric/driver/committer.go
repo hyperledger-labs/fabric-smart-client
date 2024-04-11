@@ -12,12 +12,11 @@ import "github.com/hyperledger/fabric-protos-go/common"
 type ValidationCode int
 
 const (
-	_               ValidationCode = iota
-	Valid                          // Transaction is valid and committed
-	Invalid                        // Transaction is invalid and has been discarded
-	Busy                           // Transaction does not yet have a validity state
-	Unknown                        // Transaction is unknown
-	HasDependencies                // Transaction is unknown but has known dependencies
+	_       ValidationCode = iota
+	Valid                  // Transaction is valid and committed
+	Invalid                // Transaction is invalid and has been discarded
+	Busy                   // Transaction does not yet have a validity state
+	Unknown                // Transaction is unknown
 )
 
 // TransactionStatusChanged is sent when the status of a transaction changes
@@ -59,7 +58,7 @@ type Committer interface {
 
 	// Status returns a validation code this committer bind to the passed transaction id, plus
 	// a list of dependant transaction ids if they exist.
-	Status(txID string) (ValidationCode, string, []string, error)
+	Status(txID string) (ValidationCode, string, error)
 
 	// DiscardTx discards the transaction with the passed id and all its dependencies, if they exists.
 	DiscardTx(txID string, message string) error
@@ -67,7 +66,6 @@ type Committer interface {
 	// CommitTX commits the transaction with the passed id and all its dependencies, if they exists.
 	// Depending on tx's status, CommitTX does the following:
 	// Tx is Unknown, CommitTx does nothing and returns no error.
-	// Tx is HasDependencies, CommitTx proceeds with the multi-shard private transaction commit protocol.
 	// Tx is Valid, CommitTx does nothing and returns an error.
 	// Tx is Invalid, CommitTx does nothing and returns an error.
 	// Tx is Busy, if Tx is a multi-shard private transaction then CommitTx proceeds with the multi-shard private transaction commit protocol,

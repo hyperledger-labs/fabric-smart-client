@@ -10,20 +10,12 @@ import (
 	"context"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 type Finality struct {
-	ch driver.Channel
+	finality driver.Finality
 }
 
 func (c *Finality) IsFinal(ctx context.Context, txID string) error {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	return c.ch.IsFinal(ctx, txID)
-}
-
-func (c *Finality) IsFinalForParties(txID string, parties ...view.Identity) error {
-	return c.ch.IsFinalForParties(txID, parties...)
+	return c.finality.IsFinal(ctx, txID)
 }

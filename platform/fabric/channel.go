@@ -27,15 +27,15 @@ func (c *Channel) Name() string {
 }
 
 func (c *Channel) Vault() *Vault {
-	return &Vault{ch: c.ch}
+	return &Vault{txidStore: c.ch.TXIDStore(), vault: c.ch.Vault(), ch: c.ch}
 }
 
 func (c *Channel) Ledger() *Ledger {
-	return &Ledger{ch: c}
+	return &Ledger{l: c.ch.Ledger()}
 }
 
 func (c *Channel) MSPManager() *MSPManager {
-	return &MSPManager{ch: c.ch}
+	return &MSPManager{ch: c.ch.ChannelMembership()}
 }
 
 func (c *Channel) Committer() *Committer {
@@ -43,19 +43,19 @@ func (c *Channel) Committer() *Committer {
 }
 
 func (c *Channel) Finality() *Finality {
-	return &Finality{ch: c.ch}
+	return &Finality{finality: c.ch.Finality()}
 }
 
 func (c *Channel) Chaincode(name string) *Chaincode {
 	return &Chaincode{
 		fns:           c.fns,
-		chaincode:     c.ch.Chaincode(name),
+		chaincode:     c.ch.ChaincodeManager().Chaincode(name),
 		EventListener: newEventListener(c.sp, name),
 	}
 }
 
 func (c *Channel) Delivery() *Delivery {
-	return &Delivery{ch: c}
+	return &Delivery{delivery: c.ch.Delivery()}
 }
 
 func (c *Channel) MetadataService() *MetadataService {

@@ -7,30 +7,59 @@ SPDX-License-Identifier: Apache-2.0
 package generic
 
 import (
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/vault/txidstore"
-	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/cache/secondcache"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db"
 	"github.com/pkg/errors"
 )
 
-type TXIDStore interface {
-	fdriver.TXIDStore
-	Get(txid string) (fdriver.ValidationCode, string, error)
-	Set(txID string, code fdriver.ValidationCode, message string) error
+type VaultService struct {
+	*vault.Vault
 }
 
-func NewVault(sp view2.ServiceProvider, config *config.Config, channel string) (*vault.Vault, TXIDStore, error) {
-	logger.Debugf("new fabric vault for channel [%s] with config [%v]", channel, config)
-	pType := config.VaultPersistenceType()
+func NewVaultService(vault *vault.Vault) *VaultService {
+	return &VaultService{Vault: vault}
+}
+
+// NewRWSet returns a RWSet for this ledger.
+// A client may obtain more than one such simulator; they are made unique
+// by way of the supplied txid
+func (c *VaultService) NewRWSet(txid string) (driver.RWSet, error) {
+	return c.Vault.NewRWSet(txid)
+}
+
+// GetRWSet returns a RWSet for this ledger whose content is unmarshalled
+// from the passed bytes.
+// A client may obtain more than one such simulator; they are made unique
+// by way of the supplied txid
+func (c *VaultService) GetRWSet(txid string, rwset []byte) (driver.RWSet, error) {
+	return c.Vault.GetRWSet(txid, rwset)
+}
+
+// GetEphemeralRWSet returns an ephemeral RWSet for this ledger whose content is unmarshalled
+// from the passed bytes.
+// If namespaces is not empty, the returned RWSet will be filtered by the passed namespaces
+func (c *VaultService) GetEphemeralRWSet(rwset []byte, namespaces ...string) (driver.RWSet, error) {
+	return c.Vault.InspectRWSet(rwset, namespaces...)
+}
+
+type TXIDStore interface {
+	driver.TXIDStore
+	Get(txid string) (driver.ValidationCode, string, error)
+	Set(txID string, code driver.ValidationCode, message string) error
+}
+
+func NewVault(sp view2.ServiceProvider, configService driver.ConfigService, channel string) (*vault.Vault, TXIDStore, error) {
+	logger.Debugf("new fabric vault for channel [%s] with config [%v]", channel, configService)
+	pType := configService.VaultPersistenceType()
 	if pType == "file" {
 		// for retro compatibility
 		pType = "badger"
 	}
-	persistence, err := db.OpenVersioned(sp, pType, channel, db.NewPrefixConfig(config, config.VaultPersistencePrefix()))
+	persistence, err := db.OpenVersioned(sp, pType, channel, db.NewPrefixConfig(configService, configService.VaultPersistencePrefix()))
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "failed creating vault")
 	}
@@ -41,7 +70,7 @@ func NewVault(sp view2.ServiceProvider, config *config.Config, channel string) (
 		return nil, nil, errors.Wrapf(err, "failed creating txid store")
 	}
 
-	txIDStoreCacheSize := config.VaultTXStoreCacheSize()
+	txIDStoreCacheSize := configService.VaultTXStoreCacheSize()
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "failed loading txID store cache size from configuration")
 	}

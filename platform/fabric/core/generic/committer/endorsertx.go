@@ -17,9 +17,9 @@ import (
 
 type ValidationFlags []uint8
 
-func (c *Committer) HandleEndorserTransaction(block *common.Block, i int, event *TxEvent, env *common.Envelope, chHdr *common.ChannelHeader) error {
+func (c *Service) HandleEndorserTransaction(block *common.Block, i int, event *TxEvent, env *common.Envelope, chHdr *common.ChannelHeader) error {
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("[%s] Endorser transaction received: %s", c.Channel, chHdr.TxId)
+		logger.Debugf("[%s] Endorser transaction received: %s", c.ChannelConfig.ID(), chHdr.TxId)
 	}
 	if len(block.Metadata.Metadata) < int(common.BlockMetadataIndex_TRANSACTIONS_FILTER) {
 		return errors.Errorf("block metadata lacks transaction filter")
@@ -57,7 +57,7 @@ func (c *Committer) HandleEndorserTransaction(block *common.Block, i int, event 
 }
 
 // GetChaincodeEvents reads the chaincode events and notifies the listeners registered to the specific chaincode.
-func (c *Committer) GetChaincodeEvents(env *common.Envelope, block *common.Block) error {
+func (c *Service) GetChaincodeEvents(env *common.Envelope, block *common.Block) error {
 	chaincodeEvent, err := readChaincodeEvent(env, block.Header.Number)
 	if err != nil {
 		return errors.Wrapf(err, "error reading chaincode event")
@@ -73,12 +73,7 @@ func (c *Committer) GetChaincodeEvents(env *common.Envelope, block *common.Block
 
 // CommitEndorserTransaction commits the transaction to the vault.
 // It returns true, if the transaction was already processed, false otherwise.
-func (c *Committer) CommitEndorserTransaction(txID string, block *common.Block, indexInBlock int, env *common.Envelope, event *TxEvent) (bool, error) {
-	committer, err := c.Network.Committer(c.Channel)
-	if err != nil {
-		return false, errors.Wrapf(err, "cannot get Committer for channel [%s]", c.Channel)
-	}
-
+func (c *Service) CommitEndorserTransaction(txID string, block *common.Block, indexInBlock int, env *common.Envelope, event *TxEvent) (bool, error) {
 	blockNum := block.Header.Number
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("transaction [%s] in block [%d] is valid for fabric, commit!", txID, blockNum)
@@ -88,11 +83,10 @@ func (c *Committer) CommitEndorserTransaction(txID string, block *common.Block, 
 	event.Block = blockNum
 	event.IndexInBlock = indexInBlock
 
-	vc, _, deps, err := committer.Status(txID)
+	vc, _, err := c.Status(txID)
 	if err != nil {
 		return false, errors.Wrapf(err, "failed getting tx's status [%s]", txID)
 	}
-	event.DependantTxIDs = append(event.DependantTxIDs, deps...)
 
 	switch vc {
 	case driver.Valid:
@@ -110,34 +104,28 @@ func (c *Committer) CommitEndorserTransaction(txID string, block *common.Block, 
 	}
 
 	if block != nil {
-		if err := committer.CommitTX(event.TxID, event.Block, event.IndexInBlock, env); err != nil {
-			return false, errors.Wrapf(err, "failed committing transaction [%s] with deps [%v]", txID, deps)
+		if err := c.CommitTX(event.TxID, event.Block, event.IndexInBlock, env); err != nil {
+			return false, errors.Wrapf(err, "failed committing transaction [%s]", txID)
 		}
 		return false, nil
 	}
-	if err := committer.CommitTX(event.TxID, event.Block, event.IndexInBlock, nil); err != nil {
-		return false, errors.Wrapf(err, "failed committing transaction [%s] with deps [%v]", txID, deps)
+	if err := c.CommitTX(event.TxID, event.Block, event.IndexInBlock, nil); err != nil {
+		return false, errors.Wrapf(err, "failed committing transaction [%s]", txID)
 	}
 	return false, nil
 }
 
 // DiscardEndorserTransaction discards the transaction from the vault
-func (c *Committer) DiscardEndorserTransaction(txID string, block *common.Block, event *TxEvent) error {
-	committer, err := c.Network.Committer(c.Channel)
-	if err != nil {
-		return errors.Wrapf(err, "cannot get Committer for channel [%s]", c.Channel)
-	}
-
+func (c *Service) DiscardEndorserTransaction(txID string, block *common.Block, event *TxEvent) error {
 	blockNum := block.Header.Number
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("transaction [%s] in block [%d] is not valid for fabric [%s], discard!", txID, blockNum, event.ValidationCode)
 	}
 
-	vc, _, deps, err := committer.Status(txID)
+	vc, _, err := c.Status(txID)
 	if err != nil {
 		return errors.Wrapf(err, "failed getting tx's status [%s]", txID)
 	}
-	event.DependantTxIDs = append(event.DependantTxIDs, deps...)
 	switch vc {
 	case driver.Valid:
 		// TODO: this might be due the fact that there are transactions with the same tx-id, the first is valid, the others are all invalid
@@ -149,7 +137,7 @@ func (c *Committer) DiscardEndorserTransaction(txID string, block *common.Block,
 		// Nothing to commit
 	default:
 		event.Err = errors.Errorf("transaction [%s] status is not valid [%d], message [%s]", txID, event.ValidationCode, event.ValidationMessage)
-		err = committer.DiscardTx(event.TxID, event.ValidationMessage)
+		err = c.DiscardTx(event.TxID, event.ValidationMessage)
 		if err != nil {
 			logger.Errorf("failed discarding tx in state db with err [%s]", err)
 		}

@@ -13,8 +13,8 @@ import (
 	bccsp "github.com/IBM/idemix/bccsp/types"
 	math "github.com/IBM/mathlib"
 	idemix2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/idemix"
+	sig2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/sig"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	sig2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/core/sig"
 	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs/mock"
@@ -29,21 +29,21 @@ func TestProvider(t *testing.T) {
 	kvss, err := kvs.NewWithConfig(registry, "memory", "", &mock.ConfigProvider{})
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
-	sigService := sig2.NewSignService(registry, nil, kvss)
+	sigService := sig2.NewService(sig2.NewMultiplexDeserializer(), kvss)
 	assert.NoError(t, registry.RegisterService(sigService))
 
 	config, err := msp2.GetLocalMspConfigWithType("./testdata/idemix", nil, "idemix", "idemix")
 	assert.NoError(t, err)
 
-	p, err := idemix2.NewProviderWithEidRhNymPolicy(config, registry)
+	p, err := idemix2.NewProviderWithEidRhNymPolicy(config, kvss, sigService)
 	assert.NoError(t, err)
 	assert.NotNil(t, p)
 
-	p, err = idemix2.NewProviderWithSigType(config, registry, bccsp.Standard)
+	p, err = idemix2.NewProviderWithSigType(config, kvss, sigService, bccsp.Standard)
 	assert.NoError(t, err)
 	assert.NotNil(t, p)
 
-	p, err = idemix2.NewProviderWithSigType(config, registry, bccsp.EidNymRhNym)
+	p, err = idemix2.NewProviderWithSigType(config, kvss, sigService, bccsp.EidNymRhNym)
 	assert.NoError(t, err)
 	assert.NotNil(t, p)
 }
@@ -54,13 +54,13 @@ func TestIdentityWithEidRhNymPolicy(t *testing.T) {
 	kvss, err := kvs.NewWithConfig(registry, "memory", "", &mock.ConfigProvider{})
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
-	sigService := sig2.NewSignService(registry, nil, kvss)
+	sigService := sig2.NewService(sig2.NewMultiplexDeserializer(), kvss)
 	assert.NoError(t, registry.RegisterService(sigService))
 
 	config, err := msp2.GetLocalMspConfigWithType("./testdata/idemix", nil, "idemix", "idemix")
 	assert.NoError(t, err)
 
-	p, err := idemix2.NewProviderWithEidRhNymPolicy(config, registry)
+	p, err := idemix2.NewProviderWithEidRhNymPolicy(config, kvss, sigService)
 	assert.NoError(t, err)
 	assert.NotNil(t, p)
 
@@ -86,7 +86,7 @@ func TestIdentityWithEidRhNymPolicy(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NoError(t, verifier.Verify([]byte("hello world!!!"), sigma))
 
-	p, err = idemix2.NewProviderWithAnyPolicy(config, registry)
+	p, err = idemix2.NewProviderWithAnyPolicy(config, kvss, sigService)
 	assert.NoError(t, err)
 	assert.NotNil(t, p)
 
@@ -119,13 +119,13 @@ func TestIdentityStandard(t *testing.T) {
 	kvss, err := kvs.NewWithConfig(registry, "memory", "", &mock.ConfigProvider{})
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
-	sigService := sig2.NewSignService(registry, nil, kvss)
+	sigService := sig2.NewService(sig2.NewMultiplexDeserializer(), kvss)
 	assert.NoError(t, registry.RegisterService(sigService))
 
 	config, err := msp2.GetLocalMspConfigWithType("./testdata/idemix", nil, "idemix", "idemix")
 	assert.NoError(t, err)
 
-	p, err := idemix2.NewProviderWithSigType(config, registry, bccsp.Standard)
+	p, err := idemix2.NewProviderWithSigType(config, kvss, sigService, bccsp.Standard)
 	assert.NoError(t, err)
 	assert.NotNil(t, p)
 
@@ -143,7 +143,7 @@ func TestIdentityStandard(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NoError(t, verifier.Verify([]byte("hello world!!!"), sigma))
 
-	p, err = idemix2.NewProviderWithStandardPolicy(config, registry)
+	p, err = idemix2.NewProviderWithStandardPolicy(config, kvss, sigService)
 	assert.NoError(t, err)
 	assert.NotNil(t, p)
 
@@ -161,7 +161,7 @@ func TestIdentityStandard(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NoError(t, verifier.Verify([]byte("hello world!!!"), sigma))
 
-	p, err = idemix2.NewProviderWithAnyPolicy(config, registry)
+	p, err = idemix2.NewProviderWithAnyPolicy(config, kvss, sigService)
 	assert.NoError(t, err)
 	assert.NotNil(t, p)
 
@@ -186,18 +186,18 @@ func TestAuditWithEidRhNymPolicy(t *testing.T) {
 	kvss, err := kvs.NewWithConfig(registry, "memory", "", &mock.ConfigProvider{})
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
-	sigService := sig2.NewSignService(registry, nil, kvss)
+	sigService := sig2.NewService(sig2.NewMultiplexDeserializer(), kvss)
 	assert.NoError(t, registry.RegisterService(sigService))
 
 	config, err := msp2.GetLocalMspConfigWithType("./testdata/idemix", nil, "idemix", "idemix")
 	assert.NoError(t, err)
-	p, err := idemix2.NewProviderWithEidRhNymPolicy(config, registry)
+	p, err := idemix2.NewProviderWithEidRhNymPolicy(config, kvss, sigService)
 	assert.NoError(t, err)
 	assert.NotNil(t, p)
 
 	config, err = msp2.GetLocalMspConfigWithType("./testdata/idemix2", nil, "idemix", "idemix")
 	assert.NoError(t, err)
-	p2, err := idemix2.NewProviderWithEidRhNymPolicy(config, registry)
+	p2, err := idemix2.NewProviderWithEidRhNymPolicy(config, kvss, sigService)
 	assert.NoError(t, err)
 	assert.NotNil(t, p2)
 
@@ -228,18 +228,18 @@ func TestProvider_DeserializeSigner(t *testing.T) {
 	kvss, err := kvs.NewWithConfig(registry, "memory", "", &mock.ConfigProvider{})
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
-	sigService := sig2.NewSignService(registry, nil, kvss)
+	sigService := sig2.NewService(sig2.NewMultiplexDeserializer(), kvss)
 	assert.NoError(t, registry.RegisterService(sigService))
 
 	config, err := msp2.GetLocalMspConfigWithType("./testdata/sameissuer/idemix", nil, "idemix", "idemix")
 	assert.NoError(t, err)
-	p, err := idemix2.NewProviderWithEidRhNymPolicy(config, registry)
+	p, err := idemix2.NewProviderWithEidRhNymPolicy(config, kvss, sigService)
 	assert.NoError(t, err)
 	assert.NotNil(t, p)
 
 	config, err = msp2.GetLocalMspConfigWithType("./testdata/sameissuer/idemix2", nil, "idemix", "idemix")
 	assert.NoError(t, err)
-	p2, err := idemix2.NewProviderWithEidRhNymPolicy(config, registry)
+	p2, err := idemix2.NewProviderWithEidRhNymPolicy(config, kvss, sigService)
 	assert.NoError(t, err)
 	assert.NotNil(t, p2)
 
@@ -266,8 +266,7 @@ func TestProvider_DeserializeSigner(t *testing.T) {
 	assert.NoError(t, err)
 
 	// this must work
-	des, err := sig2.NewMultiplexDeserializer(registry)
-	assert.NoError(t, err)
+	des := sig2.NewMultiplexDeserializer()
 	des.AddDeserializer(p)
 	des.AddDeserializer(p2)
 	signer, err = des.DeserializeSigner(id)
@@ -285,13 +284,13 @@ func TestIdentityFromFabricCA(t *testing.T) {
 	kvss, err := kvs.NewWithConfig(registry, "memory", "", &mock.ConfigProvider{})
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
-	sigService := sig2.NewSignService(registry, nil, kvss)
+	sigService := sig2.NewService(sig2.NewMultiplexDeserializer(), kvss)
 	assert.NoError(t, registry.RegisterService(sigService))
 
 	config, err := idemix2.GetLocalMspConfigWithType("./testdata/charlie.ExtraId2", "charlie.ExtraId2")
 	assert.NoError(t, err)
 
-	p, err := idemix2.NewProviderWithSigTypeAncCurve(config, registry, bccsp.Standard, math.BN254)
+	p, err := idemix2.NewProviderWithSigTypeAncCurve(config, kvss, sigService, bccsp.Standard, math.BN254)
 	assert.NoError(t, err)
 	assert.NotNil(t, p)
 
@@ -309,7 +308,7 @@ func TestIdentityFromFabricCA(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NoError(t, verifier.Verify([]byte("hello world!!!"), sigma))
 
-	p, err = idemix2.NewProviderWithSigTypeAncCurve(config, registry, bccsp.Standard, math.BN254)
+	p, err = idemix2.NewProviderWithSigTypeAncCurve(config, kvss, sigService, bccsp.Standard, math.BN254)
 	assert.NoError(t, err)
 	assert.NotNil(t, p)
 
@@ -327,7 +326,7 @@ func TestIdentityFromFabricCA(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NoError(t, verifier.Verify([]byte("hello world!!!"), sigma))
 
-	p, err = idemix2.NewProviderWithSigTypeAncCurve(config, registry, idemix2.Any, math.BN254)
+	p, err = idemix2.NewProviderWithSigTypeAncCurve(config, kvss, sigService, idemix2.Any, math.BN254)
 	assert.NoError(t, err)
 	assert.NotNil(t, p)
 
@@ -352,13 +351,13 @@ func TestIdentityFromFabricCAWithEidRhNymPolicy(t *testing.T) {
 	kvss, err := kvs.NewWithConfig(registry, "memory", "", &mock.ConfigProvider{})
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
-	sigService := sig2.NewSignService(registry, nil, kvss)
+	sigService := sig2.NewService(sig2.NewMultiplexDeserializer(), kvss)
 	assert.NoError(t, registry.RegisterService(sigService))
 
 	config, err := idemix2.GetLocalMspConfigWithType("./testdata/charlie.ExtraId2", "charlie.ExtraId2")
 	assert.NoError(t, err)
 
-	p, err := idemix2.NewProviderWithSigTypeAncCurve(config, registry, bccsp.EidNymRhNym, math.BN254)
+	p, err := idemix2.NewProviderWithSigTypeAncCurve(config, kvss, sigService, bccsp.EidNymRhNym, math.BN254)
 	assert.NoError(t, err)
 	assert.NotNil(t, p)
 
@@ -386,7 +385,7 @@ func TestIdentityFromFabricCAWithEidRhNymPolicy(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NoError(t, verifier.Verify([]byte("hello world!!!"), sigma))
 
-	p, err = idemix2.NewProviderWithAnyPolicyAndCurve(config, registry, math.BN254)
+	p, err = idemix2.NewProviderWithAnyPolicyAndCurve(config, kvss, sigService, math.BN254)
 	assert.NoError(t, err)
 	assert.NotNil(t, p)
 

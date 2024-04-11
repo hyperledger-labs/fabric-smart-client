@@ -4,13 +4,12 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package common
+package peer
 
 import (
 	"context"
 	"crypto/tls"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger/fabric-protos-go/discovery"
 	pb "github.com/hyperledger/fabric-protos-go/peer"
@@ -21,16 +20,16 @@ import (
 
 // PeerClient represents a client for communicating with a peer
 type PeerClient struct {
-	CommonClient
+	GRPCClient
 	Signer discovery2.Signer
 }
 
 func (pc *PeerClient) Close() {
-	pc.CommonClient.Client.Close()
+	pc.GRPCClient.Client.Close()
 }
 
 func (pc *PeerClient) Connection() (*grpc2.ClientConn, error) {
-	conn, err := pc.CommonClient.NewConnection(pc.Address(), grpc.ServerNameOverride(pc.Sn))
+	conn, err := pc.GRPCClient.NewConnection(pc.Address(), grpc.ServerNameOverride(pc.Sn))
 	if err != nil {
 		return nil, errors.WithMessagef(err, "endorser client failed to connect to %s", pc.Address())
 	}
@@ -39,7 +38,7 @@ func (pc *PeerClient) Connection() (*grpc2.ClientConn, error) {
 
 // Endorser returns a client for the Endorser service
 func (pc *PeerClient) Endorser() (pb.EndorserClient, error) {
-	conn, err := pc.CommonClient.NewConnection(pc.Address(), grpc.ServerNameOverride(pc.Sn))
+	conn, err := pc.GRPCClient.NewConnection(pc.Address(), grpc.ServerNameOverride(pc.Sn))
 	if err != nil {
 		return nil, errors.WithMessagef(err, "endorser client failed to connect to %s", pc.Address())
 	}
@@ -47,17 +46,17 @@ func (pc *PeerClient) Endorser() (pb.EndorserClient, error) {
 }
 
 func (pc *PeerClient) Discovery() (discovery.DiscoveryClient, error) {
-	conn, err := pc.CommonClient.NewConnection(pc.Address(), grpc.ServerNameOverride(pc.Sn))
+	conn, err := pc.GRPCClient.NewConnection(pc.Address(), grpc.ServerNameOverride(pc.Sn))
 	if err != nil {
 		return nil, errors.WithMessagef(err, "discovery client failed to connect to %s", pc.Address())
 	}
 	return discovery.NewDiscoveryClient(conn), nil
 }
 
-func (pc *PeerClient) DiscoveryClient() (peer.DiscoveryClient, error) {
+func (pc *PeerClient) DiscoveryClient() (DiscoveryClient, error) {
 	return discovery2.NewClient(
 		func() (*grpc2.ClientConn, error) {
-			conn, err := pc.CommonClient.NewConnection(pc.Address(), grpc.ServerNameOverride(pc.Sn))
+			conn, err := pc.GRPCClient.NewConnection(pc.Address(), grpc.ServerNameOverride(pc.Sn))
 			if err != nil {
 				return nil, errors.WithMessagef(err, "discovery client failed to connect to %s", pc.Address())
 			}
@@ -68,7 +67,7 @@ func (pc *PeerClient) DiscoveryClient() (peer.DiscoveryClient, error) {
 }
 
 func (pc *PeerClient) DeliverClient() (pb.DeliverClient, error) {
-	conn, err := pc.CommonClient.NewConnection(pc.Address(), grpc.ServerNameOverride(pc.Sn))
+	conn, err := pc.GRPCClient.NewConnection(pc.Address(), grpc.ServerNameOverride(pc.Sn))
 	if err != nil {
 		return nil, errors.WithMessagef(err, "endorser client failed to connect to %s", pc.Address())
 	}
@@ -77,7 +76,7 @@ func (pc *PeerClient) DeliverClient() (pb.DeliverClient, error) {
 
 // Deliver returns a client for the Deliver service
 func (pc *PeerClient) Deliver() (pb.Deliver_DeliverClient, error) {
-	conn, err := pc.CommonClient.NewConnection(pc.Address(), grpc.ServerNameOverride(pc.Sn))
+	conn, err := pc.GRPCClient.NewConnection(pc.Address(), grpc.ServerNameOverride(pc.Sn))
 	if err != nil {
 		return nil, errors.WithMessagef(err, "deliver client failed to connect to %s", pc.Address())
 	}
@@ -86,9 +85,9 @@ func (pc *PeerClient) Deliver() (pb.Deliver_DeliverClient, error) {
 
 // Certificate returns the TLS client certificate (if available)
 func (pc *PeerClient) Certificate() tls.Certificate {
-	return pc.CommonClient.Certificate()
+	return pc.GRPCClient.Certificate()
 }
 
 func (pc *PeerClient) Address() string {
-	return pc.CommonClient.Address
+	return pc.GRPCClient.Address
 }

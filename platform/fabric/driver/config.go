@@ -12,23 +12,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 )
 
-type ConfigService interface {
-	// GetString returns the value associated with the key as a string
-	GetString(key string) string
-	// GetDuration returns the value associated with the key as a duration
-	GetDuration(key string) time.Duration
-	// GetBool returns the value associated with the key asa boolean
-	GetBool(key string) bool
-	// IsSet checks to see if the key has been set in any of the data locations
-	IsSet(key string) bool
-	// UnmarshalKey takes a single key and unmarshals it into a Struct
-	UnmarshalKey(key string, rawVal interface{}) error
-	// GetPath allows configuration strings that specify a (config-file) relative path
-	GetPath(key string) string
-	// TranslatePath translates the passed path relative to the config path
-	TranslatePath(path string) string
-}
-
 // PeerFunctionType defines classes of peers providing a specific functionality
 type PeerFunctionType int
 
@@ -45,20 +28,74 @@ const (
 	PeerForQuery
 )
 
-// Config defines basic information the configuration should provide
-type Config interface {
-	// DefaultChannel returns the name of the default channel
+type ChaincodeConfig interface {
+	ID() string
+	IsPrivate() bool
+}
+
+type ChannelConfig interface {
+	ID() string
+	FinalityWaitTimeout() time.Duration
+	FinalityForPartiesWaitTimeout() time.Duration
+	CommitterPollingTimeout() time.Duration
+	CommitterFinalityNumRetries() int
+	CommitterFinalityUnknownTXTimeout() time.Duration
+	CommitterWaitForEventTimeout() time.Duration
+	DeliverySleepAfterFailure() time.Duration
+	ChaincodeConfigs() []ChaincodeConfig
+	GetNumRetries() uint
+	GetRetrySleep() time.Duration
+	DiscoveryDefaultTTLS() time.Duration
+	DiscoveryTimeout() time.Duration
+}
+
+type Configuration interface {
+	// GetString returns the value associated with the key as a string
+	GetString(key string) string
+	// GetInt returns the value associated with the key as an integer
+	GetInt(key string) int
+	// GetDuration returns the value associated with the key as a duration
+	GetDuration(key string) time.Duration
+	// GetBool returns the value associated with the key asa boolean
+	GetBool(key string) bool
+	// GetStringSlice returns the value associated with the key as a slice of strings
+	GetStringSlice(key string) []string
+	// IsSet checks to see if the key has been set in any of the data locations
+	IsSet(key string) bool
+	// UnmarshalKey takes a single key and unmarshals it into a Struct
+	UnmarshalKey(key string, rawVal interface{}) error
+	// ConfigFileUsed returns the file used to populate the config registry
+	ConfigFileUsed() string
+	// GetPath allows configuration strings that specify a (config-file) relative path
+	GetPath(key string) string
+	// TranslatePath translates the passed path relative to the config path
+	TranslatePath(path string) string
+}
+
+type ConfigService interface {
+	Configuration
+	NetworkName() string
 	DefaultChannel() string
-
-	// Channels return the list of registered channel names
-	Channels() []string
-
-	// Orderers returns the list of all registered ordereres
+	Channel(name string) ChannelConfig
+	ChannelIDs() []string
 	Orderers() []*grpc.ConnectionConfig
-
-	// Peers returns the list of all registered peers
-	Peers() []*grpc.ConnectionConfig
-
-	// PickPeer picks a peer at random among the peers that provide the passed functionality
+	SetConfigOrderers([]*grpc.ConnectionConfig) error
+	PickOrderer() *grpc.ConnectionConfig
+	BroadcastNumRetries() int
+	BroadcastRetryInterval() time.Duration
+	OrdererConnectionPoolSize() int
 	PickPeer(funcType PeerFunctionType) *grpc.ConnectionConfig
+	IsChannelQuiet(name string) bool
+	VaultPersistenceType() string
+	VaultPersistencePrefix() string
+	VaultTXStoreCacheSize() int
+	TLSServerHostOverride() string
+	ClientConnTimeout() time.Duration
+	TLSClientAuthRequired() bool
+	TLSClientKeyFile() string
+	TLSClientCertFile() string
+	KeepAliveClientInterval() time.Duration
+	KeepAliveClientTimeout() time.Duration
+	NewDefaultChannelConfig(name string) ChannelConfig
+	TLSEnabled() bool
 }

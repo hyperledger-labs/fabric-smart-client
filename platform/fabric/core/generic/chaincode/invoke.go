@@ -29,8 +29,6 @@ import (
 
 type Invoke struct {
 	Chaincode                      *Chaincode
-	Network                        Network
-	Channel                        Channel
 	TxID                           driver.TxID
 	SignerIdentity                 view.Identity
 	ChaincodePath                  string
@@ -53,8 +51,6 @@ type Invoke struct {
 func NewInvoke(chaincode *Chaincode, function string, args ...interface{}) *Invoke {
 	return &Invoke{
 		Chaincode:     chaincode,
-		Network:       chaincode.Network,
-		Channel:       chaincode.channel,
 		ChaincodeName: chaincode.name,
 		Function:      function,
 		Args:          args,
@@ -283,7 +279,7 @@ func (i *Invoke) prepare(query bool) (string, *pb.Proposal, []*pb.ProposalRespon
 	case len(i.EndorsersByConnConfig) != 0:
 		// get a peer client for each connection config
 		for _, config := range i.EndorsersByConnConfig {
-			peerClient, err := i.Channel.NewPeerClientForAddress(*config)
+			peerClient, err := i.Chaincode.PeerManager.NewPeerClientForAddress(*config)
 			if err != nil {
 				return "", nil, nil, nil, err
 			}
@@ -292,7 +288,7 @@ func (i *Invoke) prepare(query bool) (string, *pb.Proposal, []*pb.ProposalRespon
 	default:
 		if i.EndorsersFromMyOrg && len(i.EndorsersMSPIDs) == 0 {
 			// retrieve invoker's MSP-ID
-			invokerMSPID, err := i.Channel.MSPManager().DeserializeIdentity(i.SignerIdentity)
+			invokerMSPID, err := i.Chaincode.MSPProvider.MSPManager().DeserializeIdentity(i.SignerIdentity)
 			if err != nil {
 				return "", nil, nil, nil, errors.WithMessagef(err, "failed to deserializer the invoker identity")
 			}
@@ -333,9 +329,9 @@ func (i *Invoke) prepare(query bool) (string, *pb.Proposal, []*pb.ProposalRespon
 
 	// get a peer client for all discovered peers
 	for _, peer := range discoveredPeers {
-		peerClient, err := i.Channel.NewPeerClientForAddress(grpc.ConnectionConfig{
+		peerClient, err := i.Chaincode.PeerManager.NewPeerClientForAddress(grpc.ConnectionConfig{
 			Address:          peer.Endpoint,
-			TLSEnabled:       i.Network.Config().TLSEnabled(),
+			TLSEnabled:       i.Chaincode.ConfigService.TLSEnabled(),
 			TLSRootCertBytes: peer.TLSRootCerts,
 		})
 		if err != nil {
@@ -357,7 +353,7 @@ func (i *Invoke) prepare(query bool) (string, *pb.Proposal, []*pb.ProposalRespon
 	}
 
 	// load signer
-	signer, err := i.Network.SignerService().GetSigningIdentity(i.SignerIdentity)
+	signer, err := i.Chaincode.SignerService.GetSigningIdentity(i.SignerIdentity)
 	if err != nil {
 		return "", nil, nil, nil, err
 	}
@@ -396,7 +392,7 @@ func (i *Invoke) prepareProposal(signer SerializableSigner) (*pb.SignedProposal,
 	funcName := "invoke"
 	prop, txID, err := i.createChaincodeProposalWithTxIDAndTransient(
 		common.HeaderType_ENDORSER_TRANSACTION,
-		i.Channel.Name(),
+		i.Chaincode.ChannelID,
 		invocation,
 		creator,
 		i.TransientMap)
@@ -527,8 +523,8 @@ func (i *Invoke) toBytes(arg interface{}) ([]byte, error) {
 }
 
 func (i *Invoke) broadcast(txID string, env *common.Envelope) error {
-	if err := i.Network.Broadcast(i.Context, env); err != nil {
+	if err := i.Chaincode.Broadcaster.Broadcast(i.Context, env); err != nil {
 		return err
 	}
-	return i.Channel.IsFinal(context.Background(), txID)
+	return i.Chaincode.Finality.IsFinal(context.Background(), txID)
 }

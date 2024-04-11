@@ -11,11 +11,9 @@ import (
 	"encoding/base64"
 	"encoding/json"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/fabricutils"
-
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/fabricutils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	pcommon "github.com/hyperledger/fabric-protos-go/common"
 	pb "github.com/hyperledger/fabric-protos-go/peer"
@@ -75,8 +73,8 @@ func (p *SignedProposal) ChaincodeVersion() string {
 }
 
 type Transaction struct {
-	sp               view2.ServiceProvider
-	fns              driver.FabricNetworkService
+	channelProvider  ChannelProvider
+	sigService       driver.SignerService
 	rwset            driver.RWSet
 	channel          driver.Channel
 	signedProposal   *SignedProposal
@@ -215,7 +213,7 @@ func (t *Transaction) SetFromBytes(raw []byte) error {
 	}
 
 	// Set the channel
-	ch, err := t.fns.Channel(t.Channel())
+	ch, err := t.channelProvider.Channel(t.Channel())
 	if err != nil {
 		return err
 	}
@@ -248,7 +246,7 @@ func (t *Transaction) SetFromEnvelopeBytes(raw []byte) error {
 	t.TProposalResponses = upe.ProposalResponses
 
 	// Set the channel
-	ch, err := t.fns.Channel(t.Channel())
+	ch, err := t.channelProvider.Channel(t.Channel())
 	if err != nil {
 		return err
 	}
@@ -309,21 +307,21 @@ func (t *Transaction) SetRWSet() error {
 		if err != nil {
 			return errors.WithMessagef(err, "failed to get rws from proposal response")
 		}
-		t.rwset, err = t.channel.GetRWSet(t.ID(), results)
+		t.rwset, err = t.channel.Vault().GetRWSet(t.ID(), results)
 		if err != nil {
 			return errors.WithMessagef(err, "failed to populate rws from proposal response")
 		}
 	case len(t.RWSet) != 0:
 		logger.Debugf("populate rws from rwset")
 		var err error
-		t.rwset, err = t.channel.GetRWSet(t.ID(), t.RWSet)
+		t.rwset, err = t.channel.Vault().GetRWSet(t.ID(), t.RWSet)
 		if err != nil {
 			return errors.WithMessagef(err, "failed to populate rws from existing rws")
 		}
 	default:
 		logger.Debugf("populate rws from scratch")
 		var err error
-		t.rwset, err = t.channel.NewRWSet(t.ID())
+		t.rwset, err = t.channel.Vault().NewRWSet(t.ID())
 		if err != nil {
 			return errors.WithMessagef(err, "failed to create fresh rws")
 		}
@@ -414,7 +412,7 @@ func (t *Transaction) EndorseWithIdentity(identity view.Identity) error {
 		logger.Debugf("endorse transaction [%s] with identity [%s]", t.ID(), identity.String())
 	}
 	// prepare signer
-	s, err := t.fns.SignerService().GetSigner(identity)
+	s, err := t.sigService.GetSigner(identity)
 	if err != nil {
 		return err
 	}
@@ -493,7 +491,7 @@ func (t *Transaction) EndorseProposal() error {
 
 func (t *Transaction) EndorseProposalWithIdentity(identity view.Identity) error {
 	// prepare signer
-	s, err := t.fns.SignerService().GetSigner(identity)
+	s, err := t.sigService.GetSigner(identity)
 	if err != nil {
 		return err
 	}
@@ -513,7 +511,7 @@ func (t *Transaction) EndorseProposalResponse() error {
 
 func (t *Transaction) EndorseProposalResponseWithIdentity(identity view.Identity) error {
 	// prepare signer
-	s, err := t.fns.SignerService().GetSigner(identity)
+	s, err := t.sigService.GetSigner(identity)
 	if err != nil {
 		return err
 	}
@@ -532,7 +530,7 @@ func (t *Transaction) AppendProposalResponse(response driver.ProposalResponse) e
 }
 
 func (t *Transaction) ProposalHasBeenEndorsedBy(party view.Identity) error {
-	verifier, err := t.channel.GetVerifier(party)
+	verifier, err := t.channel.ChannelMembership().GetVerifier(party)
 	if err != nil {
 		return err
 	}
@@ -566,7 +564,7 @@ func (t *Transaction) ProposalResponse() ([]byte, error) {
 
 func (t *Transaction) Envelope() (driver.Envelope, error) {
 	signerID := t.Creator()
-	signer, err := t.fns.SignerService().GetSigner(signerID)
+	signer, err := t.sigService.GetSigner(signerID)
 	if err != nil {
 		logger.Errorf("signer not found for %s while creating tx envelope for ordering [%s]", signerID.UniqueID(), err)
 		return nil, errors.Wrapf(err, "signer not found for %s while creating tx envelope for ordering", signerID.UniqueID())
@@ -653,7 +651,7 @@ func (t *Transaction) getProposalResponse(signer SerializableSigner) (*pb.Propos
 	version := signedProposal.ChaincodeName()
 	if len(signedProposal.ChaincodeVersion()) == 0 {
 		// fetch current chaincode version
-		chaincode := t.channel.Chaincode(signedProposal.ChaincodeName())
+		chaincode := t.channel.ChaincodeManager().Chaincode(signedProposal.ChaincodeName())
 		var err error
 		version, err = chaincode.Version()
 		if err != nil {
@@ -723,4 +721,58 @@ func (s *signerWrapper) Sign(message []byte) ([]byte, error) {
 
 func (s *signerWrapper) Serialize() ([]byte, error) {
 	return s.creator, nil
+}
+
+type processedTransaction struct {
+	vc  int32
+	ue  *UnpackedEnvelope
+	env []byte
+}
+
+func NewProcessedTransactionFromEnvelope(env *pcommon.Envelope) (*processedTransaction, int32, error) {
+	ue, headerType, err := UnpackEnvelope(env)
+	if err != nil {
+		return nil, headerType, err
+	}
+	return &processedTransaction{ue: ue}, headerType, nil
+}
+
+func NewProcessedTransactionFromEnvelopeRaw(env []byte) (*processedTransaction, error) {
+	ue, _, err := UnpackEnvelopeFromBytes(env)
+	if err != nil {
+		return nil, err
+	}
+	return &processedTransaction{ue: ue, env: env}, nil
+}
+
+func NewProcessedTransaction(pt *pb.ProcessedTransaction) (*processedTransaction, error) {
+	ue, _, err := UnpackEnvelope(pt.TransactionEnvelope)
+	if err != nil {
+		return nil, err
+	}
+	env, err := protoutil.Marshal(pt.TransactionEnvelope)
+	if err != nil {
+		return nil, err
+	}
+	return &processedTransaction{vc: pt.ValidationCode, ue: ue, env: env}, nil
+}
+
+func (p *processedTransaction) TxID() string {
+	return p.ue.TxID
+}
+
+func (p *processedTransaction) Results() []byte {
+	return p.ue.Results
+}
+
+func (p *processedTransaction) IsValid() bool {
+	return p.vc == int32(pb.TxValidationCode_VALID)
+}
+
+func (p *processedTransaction) Envelope() []byte {
+	return p.env
+}
+
+func (p *processedTransaction) ValidationCode() int32 {
+	return p.vc
 }

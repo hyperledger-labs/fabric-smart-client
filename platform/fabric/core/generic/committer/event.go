@@ -17,7 +17,6 @@ import (
 // TxEvent contains information for token transaction commit
 type TxEvent struct {
 	TxID              string
-	DependantTxIDs    []string
 	Committed         bool
 	ValidationCode    peer.TxValidationCode
 	ValidationMessage string

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/metrics"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	common2 "github.com/hyperledger/fabric-protos-go/common"
 	ab "github.com/hyperledger/fabric-protos-go/orderer"
 	"github.com/pkg/errors"
@@ -18,18 +19,22 @@ import (
 )
 
 type CFTBroadcaster struct {
-	Network     Network
+	NetworkID     string
+	ConfigService driver.ConfigService
+
 	connSem     *semaphore.Weighted
 	connections chan *Connection
 	metrics     *metrics.Metrics
 }
 
-func NewCFTBroadcaster(network Network, poolSize int, metrics *metrics.Metrics) *CFTBroadcaster {
+func NewCFTBroadcaster(configService driver.ConfigService, metrics *metrics.Metrics) *CFTBroadcaster {
+	poolSize := configService.OrdererConnectionPoolSize()
 	return &CFTBroadcaster{
-		Network:     network,
-		connections: make(chan *Connection, poolSize),
-		connSem:     semaphore.NewWeighted(int64(poolSize)),
-		metrics:     metrics,
+		NetworkID:     configService.NetworkName(),
+		ConfigService: configService,
+		connections:   make(chan *Connection, poolSize),
+		connSem:       semaphore.NewWeighted(int64(poolSize)),
+		metrics:       metrics,
 	}
 }
 
@@ -37,8 +42,8 @@ func (o *CFTBroadcaster) Broadcast(context context.Context, env *common2.Envelop
 	// send the envelope for ordering
 	var status *ab.BroadcastResponse
 	var connection *Connection
-	retries := o.Network.Config().BroadcastNumRetries()
-	retryInterval := o.Network.Config().BroadcastRetryInterval()
+	retries := o.ConfigService.BroadcastNumRetries()
+	retryInterval := o.ConfigService.BroadcastRetryInterval()
 	forceConnect := true
 	var err error
 	for i := 0; i < retries; i++ {
@@ -74,7 +79,7 @@ func (o *CFTBroadcaster) Broadcast(context context.Context, env *common2.Envelop
 		}
 
 		labels := []string{
-			"network", o.Network.Name(),
+			"network", o.NetworkID,
 		}
 		o.metrics.OrderedTransactions.With(labels...).Add(1)
 		o.releaseConnection(connection)
@@ -102,7 +107,7 @@ func (o *CFTBroadcaster) getConnection(ctx context.Context) (*Connection, error)
 			cancel()
 
 			// create connection
-			ordererConfig := o.Network.PickOrderer()
+			ordererConfig := o.ConfigService.PickOrderer()
 			if ordererConfig == nil {
 				return nil, errors.New("no orderer configured")
 			}
