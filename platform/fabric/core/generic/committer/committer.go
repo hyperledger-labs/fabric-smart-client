@@ -133,17 +133,17 @@ func NewService(
 	return s
 }
 
-func (c *Service) Status(txID string) (driver.ValidationCode, string, []string, error) {
+func (c *Service) Status(txID string) (driver.ValidationCode, string, error) {
 	vc, message, err := c.Vault.Status(txID)
 	if err != nil {
 		logger.Errorf("failed to get status of [%s]: %s", txID, err)
-		return driver.Unknown, "", nil, err
+		return driver.Unknown, "", err
 	}
 	if vc == driver.Unknown {
 		// give it a second chance
 		if c.EnvelopeService.Exists(txID) {
 			if err := c.extractStoredEnvelopeToVault(txID); err != nil {
-				return driver.Unknown, "", nil, errors.WithMessagef(err, "failed to extract stored enveloper for [%s]", txID)
+				return driver.Unknown, "", errors.WithMessagef(err, "failed to extract stored enveloper for [%s]", txID)
 			}
 			vc = driver.Busy
 		} else {
@@ -157,7 +157,7 @@ func (c *Service) Status(txID string) (driver.ValidationCode, string, []string, 
 			}
 		}
 	}
-	return vc, message, nil, nil
+	return vc, message, nil
 }
 
 func (c *Service) ProcessNamespace(nss ...string) error {
@@ -174,7 +174,7 @@ func (c *Service) DiscardTx(txID string, message string) error {
 	logger.Debugf("discarding transaction [%s] with message [%s]", txID, message)
 
 	defer c.notifyTxStatus(txID, driver.Invalid, message)
-	vc, _, deps, err := c.Status(txID)
+	vc, _, err := c.Status(txID)
 	if err != nil {
 		return errors.WithMessagef(err, "failed getting tx's status in state db [%s]", txID)
 	}
@@ -204,11 +204,6 @@ func (c *Service) DiscardTx(txID string, message string) error {
 	if err := c.Vault.DiscardTx(txID, message); err != nil {
 		logger.Errorf("failed discarding tx [%s] in vault: %s", txID, err)
 	}
-	for _, dep := range deps {
-		if err := c.Vault.DiscardTx(dep, message); err != nil {
-			logger.Errorf("failed discarding dependant tx [%s] of [%s] in vault: %s", dep, txID, err)
-		}
-	}
 	return nil
 }
 
@@ -221,7 +216,7 @@ func (c *Service) CommitTX(txID string, block uint64, indexInBlock int, envelope
 		}
 	}()
 
-	vc, _, _, err := c.Status(txID)
+	vc, _, err := c.Status(txID)
 	if err != nil {
 		return errors.WithMessagef(err, "failed getting tx's status in state db [%s]", txID)
 	}
@@ -392,7 +387,7 @@ func (c *Service) IsFinal(ctx context.Context, txID string) error {
 	}
 
 	for iter := 0; iter < c.ChannelConfig.CommitterFinalityNumRetries(); iter++ {
-		vd, _, deps, err := c.Status(txID)
+		vd, _, err := c.Status(txID)
 		if err != nil {
 			logger.Errorf("Is [%s] final? Failed getting transaction status from vault", txID)
 			return errors.WithMessagef(err, "failed getting transaction status from vault [%s]", txID)
@@ -406,18 +401,8 @@ func (c *Service) IsFinal(ctx context.Context, txID string) error {
 			logger.Debugf("Tx [%s] is not valid", txID)
 			return errors.Errorf("transaction [%s] is not valid", txID)
 		case driver.Busy:
-			logger.Debugf("Tx [%s] is known with deps [%v]", txID, deps)
-			if len(deps) == 0 {
-				continue
-			}
-			for _, id := range deps {
-				logger.Debugf("Check finality of dependant transaction [%s]", id)
-				if err := c.IsFinal(ctx, id); err != nil {
-					logger.Errorf("Check finality of dependant transaction [%s], failed [%s]", id, err)
-					return err
-				}
-			}
-			return nil
+			logger.Debugf("Tx [%s] is known", txID)
+			continue
 		case driver.Unknown:
 			if iter <= 1 {
 				logger.Debugf("Tx [%s] is unknown with no deps, wait a bit and retry [%d]", txID, iter)
@@ -434,7 +419,7 @@ func (c *Service) IsFinal(ctx context.Context, txID string) error {
 				return nil
 			}
 
-			if vd, _, _, err2 := c.Status(txID); err2 == nil && vd == driver.Unknown {
+			if vd, _, err2 := c.Status(txID); err2 == nil && vd == driver.Unknown {
 				logger.Debugf("Tx [%s] is not final for remote [%s], return [%s], [%d][%s]", txID, peer, err, vd, err2)
 				return err
 			}
@@ -493,16 +478,6 @@ func (c *Service) notify(event TxEvent) {
 	for _, listener := range listeners {
 		listener <- event
 	}
-
-	for _, txid := range event.DependantTxIDs {
-		listeners := c.listeners[txid]
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("Notify the finality of [%s] (dependant) to [%d] listeners, event: [%v]", txid, len(listeners), event)
-		}
-		for _, listener := range listeners {
-			listener <- event
-		}
-	}
 }
 
 // notifyChaincodeListeners notifies the chaincode event to the registered chaincode listeners.
@@ -546,7 +521,7 @@ func (c *Service) listenTo(ctx context.Context, txid string, timeout time.Durati
 			if logger.IsEnabledFor(zapcore.DebugLevel) {
 				logger.Debugf("Got a timeout for finality of [%s], check the status", txid)
 			}
-			vd, _, _, err := c.Status(txid)
+			vd, _, err := c.Status(txid)
 			if err == nil {
 				switch vd {
 				case driver.Valid:
@@ -832,7 +807,7 @@ func (c *Service) filterUnknownEnvelope(txID string, envelope []byte) (bool, err
 		}
 	}
 
-	status, _, _, _ := c.Status(txID)
+	status, _, _ := c.Status(txID)
 	return status == driver.Busy, nil
 }
 

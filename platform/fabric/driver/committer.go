@@ -58,7 +58,7 @@ type Committer interface {
 
 	// Status returns a validation code this committer bind to the passed transaction id, plus
 	// a list of dependant transaction ids if they exist.
-	Status(txID string) (ValidationCode, string, []string, error)
+	Status(txID string) (ValidationCode, string, error)
 
 	// DiscardTx discards the transaction with the passed id and all its dependencies, if they exists.
 	DiscardTx(txID string, message string) error

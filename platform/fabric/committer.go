@@ -33,9 +33,9 @@ func (c *Committer) ProcessNamespace(nss ...string) error {
 
 // Status returns a validation code this committer bind to the passed transaction id, plus
 // a list of dependant transaction ids if they exist.
-func (c *Committer) Status(txID string) (ValidationCode, string, []string, error) {
-	vc, message, deps, err := c.committer.Status(txID)
-	return ValidationCode(vc), message, deps, err
+func (c *Committer) Status(txID string) (ValidationCode, string, error) {
+	vc, message, err := c.committer.Status(txID)
+	return ValidationCode(vc), message, err
 }
 
 func (c *Committer) AddStatusReporter(sr driver.StatusReporter) error {

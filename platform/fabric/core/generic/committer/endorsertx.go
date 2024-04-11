@@ -83,11 +83,10 @@ func (c *Service) CommitEndorserTransaction(txID string, block *common.Block, in
 	event.Block = blockNum
 	event.IndexInBlock = indexInBlock
 
-	vc, _, deps, err := c.Status(txID)
+	vc, _, err := c.Status(txID)
 	if err != nil {
 		return false, errors.Wrapf(err, "failed getting tx's status [%s]", txID)
 	}
-	event.DependantTxIDs = append(event.DependantTxIDs, deps...)
 
 	switch vc {
 	case driver.Valid:
@@ -106,12 +105,12 @@ func (c *Service) CommitEndorserTransaction(txID string, block *common.Block, in
 
 	if block != nil {
 		if err := c.CommitTX(event.TxID, event.Block, event.IndexInBlock, env); err != nil {
-			return false, errors.Wrapf(err, "failed committing transaction [%s] with deps [%v]", txID, deps)
+			return false, errors.Wrapf(err, "failed committing transaction [%s]", txID)
 		}
 		return false, nil
 	}
 	if err := c.CommitTX(event.TxID, event.Block, event.IndexInBlock, nil); err != nil {
-		return false, errors.Wrapf(err, "failed committing transaction [%s] with deps [%v]", txID, deps)
+		return false, errors.Wrapf(err, "failed committing transaction [%s]", txID)
 	}
 	return false, nil
 }
@@ -123,11 +122,10 @@ func (c *Service) DiscardEndorserTransaction(txID string, block *common.Block, e
 		logger.Debugf("transaction [%s] in block [%d] is not valid for fabric [%s], discard!", txID, blockNum, event.ValidationCode)
 	}
 
-	vc, _, deps, err := c.Status(txID)
+	vc, _, err := c.Status(txID)
 	if err != nil {
 		return errors.Wrapf(err, "failed getting tx's status [%s]", txID)
 	}
-	event.DependantTxIDs = append(event.DependantTxIDs, deps...)
 	switch vc {
 	case driver.Valid:
 		// TODO: this might be due the fact that there are transactions with the same tx-id, the first is valid, the others are all invalid
