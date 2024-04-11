@@ -42,7 +42,7 @@ type TxStatusChangeListener interface {
 }
 
 type TransactionFilter interface {
-	Accept(txID string) (bool, error)
+	Accept(txID string, env []byte) (bool, error)
 }
 
 // Committer models the committer service

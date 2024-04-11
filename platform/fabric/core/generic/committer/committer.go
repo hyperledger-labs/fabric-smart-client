@@ -860,7 +860,7 @@ func (c *Service) filterUnknownEnvelope(txID string, envelope []byte) (bool, err
 
 	// check the filters
 	for _, filter := range c.TransactionFilters {
-		ok, err := filter.Accept(txID)
+		ok, err := filter.Accept(txID, envelope)
 		if err != nil {
 			return false, err
 		}
