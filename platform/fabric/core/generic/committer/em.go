@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	pb "github.com/hyperledger/fabric-protos-go/peer"
 )
 
 // EventManager manages events for the commit pipeline.
@@ -21,15 +22,17 @@ import (
 // A single thread reads from this queue and invokes the listeners in a blocking way
 type EventManager struct {
 	EventQueue chan TxEvent
+	Vault      driver.Vault
 
 	allListeners  []driver.TxStatusListener
 	txIDListeners map[string][]driver.TxStatusListener
 	mutex         sync.RWMutex
 }
 
-func NewEventManager(size int) *EventManager {
+func NewEventManager(vault driver.Vault, size int) *EventManager {
 	return &EventManager{
 		EventQueue:    make(chan TxEvent, size),
+		Vault:         vault,
 		allListeners:  nil,
 		txIDListeners: map[string][]driver.TxStatusListener{},
 	}
@@ -122,6 +125,15 @@ func (c *EventManager) runStatusListener(context context.Context) {
 			for _, txID := range txIDs {
 				// check txID status, if it is valid or invalid, post an event
 				logger.Debugf("check tx [%s]'s status", txID)
+				vc, message, err := c.Vault.Status(txID)
+				if err == nil && (vc == driver.Valid || vc == driver.Invalid) {
+					// post the event
+					c.Post(TxEvent{
+						TxID:              txID,
+						ValidationCode:    pb.TxValidationCode(vc),
+						ValidationMessage: message,
+					})
+				}
 			}
 		}
 	}
