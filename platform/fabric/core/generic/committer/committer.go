@@ -247,7 +247,7 @@ func (c *Service) AddFinalityListener(txID string, listener driver.FinalityListe
 }
 
 func (c *Service) RemoveFinalityStatus(txID string, listener driver.FinalityListener) error {
-	c.EventManager.DeleteListener(txID, listener)
+	c.EventManager.RemoveListener(txID, listener)
 	return nil
 }
 

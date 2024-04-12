@@ -399,14 +399,3 @@ func (c *committer) listenToFinality(ctx context.Context, txID string, timeout t
 	}
 	return errors.Errorf("failed to listen to transaction [%s] for timeout", txID)
 }
-
-type TxEventsListener struct {
-	listener driver.FinalityListener
-}
-
-func (l *TxEventsListener) OnReceive(event events.Event) {
-	tsc := event.Message().(*driver.TransactionStatusChanged)
-	if err := l.listener.OnStatus(tsc.TxID, int(tsc.VC), ""); err != nil {
-		logger.Errorf("failed to notify listener for tx [%s] with err [%s]", tsc.TxID, err)
-	}
-}

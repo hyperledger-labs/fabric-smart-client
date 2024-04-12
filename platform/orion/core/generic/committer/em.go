@@ -55,24 +55,36 @@ func (c *EventManager) AddListener(txID string, l driver.FinalityListener) {
 	c.txIDListeners[txID] = ls
 }
 
-func (c *EventManager) RemoveListener(txID string, ch driver.FinalityListener) {
+func (c *EventManager) RemoveListener(txID string, toRemove driver.FinalityListener) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	var ls []driver.FinalityListener
 	if len(txID) == 0 {
-		ls = c.allListeners
-	} else {
-		var ok bool
-		ls, ok = c.txIDListeners[txID]
-		if !ok {
+		c.removeAllListener(toRemove)
+		return
+	}
+
+	ls, ok := c.txIDListeners[txID]
+	if !ok {
+		return
+	}
+	for i, l := range ls {
+		if l == toRemove {
+			ls = append(ls[:i], ls[i+1:]...)
+			c.txIDListeners[txID] = ls
+			if len(ls) == 0 {
+				delete(c.txIDListeners, txID)
+			}
 			return
 		}
 	}
+}
+
+func (c *EventManager) removeAllListener(toRemove driver.FinalityListener) {
+	ls := c.allListeners
 	for i, l := range ls {
-		if l == ch {
-			ls = append(ls[:i], ls[i+1:]...)
-			c.txIDListeners[txID] = ls
+		if l == toRemove {
+			c.allListeners = append(ls[:i], ls[i+1:]...)
 			return
 		}
 	}
@@ -83,23 +95,24 @@ func (c *EventManager) Post(event TxEvent) {
 }
 
 func (c *EventManager) Dispatch(event TxEvent) {
-	defer func() {
-		if r := recover(); r != nil {
-			logger.Errorf("caught panic while running dispatching event [%v]: [%s][%s]", event, r, debug.Stack())
-		}
-	}()
 	l := c.cloneListeners(event.TxID)
 	for _, listener := range l {
-		if err := listener.OnStatus(event.TxID, int(event.ValidationCode), event.ValidationMessage); err != nil {
-			logger.Errorf("failed on status call [%v]: [%s][%s]", event, err, debug.Stack())
-		}
-		c.RemoveListener(event.TxID, listener)
+		c.invokeListener(listener, event.TxID, int(event.ValidationCode), event.ValidationMessage)
 	}
 }
 
 func (c *EventManager) Run(context context.Context) {
 	go c.runEventQueue(context)
 	go c.runStatusListener(context)
+}
+
+func (c *EventManager) invokeListener(l driver.FinalityListener, txID string, status int, statusMessage string) {
+	defer func() {
+		if r := recover(); r != nil {
+			logger.Errorf("caught panic while running dispatching event [%s:%d:%s]: [%s][%s]", txID, status, statusMessage, r, debug.Stack())
+		}
+	}()
+	l.OnStatus(txID, status, statusMessage)
 }
 
 func (c *EventManager) runEventQueue(context context.Context) {
@@ -147,9 +160,10 @@ func (c *EventManager) cloneListeners(txID string) []driver.FinalityListener {
 	if !ok {
 		return nil
 	}
-
 	clone := make([]driver.FinalityListener, len(ls))
 	copy(clone, ls)
+	delete(c.txIDListeners, txID)
+
 	return append(clone, c.allListeners...)
 }
 
