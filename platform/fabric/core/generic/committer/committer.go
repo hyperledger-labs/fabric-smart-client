@@ -76,9 +76,8 @@ type Service struct {
 	Tracer             tracing.Tracer
 
 	// events
-	Subscribers      *events.Subscribers
-	EventsSubscriber events.Subscriber
-	EventsPublisher  events.Publisher
+	EventManager    *EventManager
+	EventsPublisher events.Publisher
 
 	WaitForEventTimeout time.Duration
 	Handlers            map[common.HeaderType]TransactionHandler
@@ -118,8 +117,7 @@ func NewService(
 		ProcessorManager:    processorManager,
 		MembershipService:   ChannelMembershipService,
 		OrderingService:     OrderingService,
-		Subscribers:         events.NewSubscribers(),
-		EventsSubscriber:    eventsSubscriber,
+		EventManager:        NewEventManager(1000),
 		EventsPublisher:     eventsPublisher,
 		FabricFinality:      fabricFinality,
 		WaitForEventTimeout: waitForEventTimeout,
@@ -132,6 +130,11 @@ func NewService(
 	s.Handlers[common.HeaderType_CONFIG] = s.HandleConfig
 	s.Handlers[common.HeaderType_ENDORSER_TRANSACTION] = s.HandleEndorserTransaction
 	return s
+}
+
+func (c *Service) Start(context context.Context) error {
+	go c.EventManager.Run(context)
+	return nil
 }
 
 func (c *Service) Status(txID string) (driver.ValidationCode, string, error) {
@@ -240,28 +243,12 @@ func (c *Service) CommitTX(txID string, block uint64, indexInBlock int, envelope
 }
 
 func (c *Service) SubscribeTxStatus(txID string, listener driver.TxStatusListener) error {
-	_, topic := compose.CreateTxTopic(c.ConfigService.NetworkName(), c.ChannelConfig.ID(), txID)
-	l := &TxEventsListener{listener: listener}
-	logger.Debugf("[%s] Subscribing to transaction status changes", txID)
-	c.EventsSubscriber.Subscribe(topic, l)
-	logger.Debugf("[%s] store mapping", txID)
-	c.Subscribers.Set(topic, listener, l)
-	logger.Debugf("[%s] Subscribing to transaction status changes done", txID)
+	c.EventManager.AddListener(txID, listener)
 	return nil
 }
 
 func (c *Service) UnsubscribeTxStatus(txID string, listener driver.TxStatusListener) error {
-	_, topic := compose.CreateTxTopic(c.ConfigService.NetworkName(), c.ChannelConfig.ID(), txID)
-	l, ok := c.Subscribers.Get(topic, listener)
-	if !ok {
-		return errors.Errorf("listener not found for txID [%s]", txID)
-	}
-	el, ok := l.(events.Listener)
-	if !ok {
-		return errors.Errorf("listener not found for txID [%s]", txID)
-	}
-	c.Subscribers.Delete(topic, listener)
-	c.EventsSubscriber.Unsubscribe(topic, el)
+	c.EventManager.DeleteListener(txID, listener)
 	return nil
 }
 
@@ -361,6 +348,7 @@ func (c *Service) Commit(block *common.Block) error {
 		c.Tracer.AddEventAt("commit", "end", time.Now())
 
 		c.notify(event)
+		c.EventManager.Post(event)
 		if logger.IsEnabledFor(zapcore.DebugLevel) {
 			logger.Debugf("commit transaction [%s] in filteredBlock [%d]", chdr.TxId, block.Header.Number)
 		}

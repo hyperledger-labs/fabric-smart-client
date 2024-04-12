@@ -6,7 +6,11 @@ SPDX-License-Identifier: Apache-2.0
 
 package driver
 
-import "github.com/hyperledger/fabric-protos-go/common"
+import (
+	"context"
+
+	"github.com/hyperledger/fabric-protos-go/common"
+)
 
 // ValidationCode of transaction
 type ValidationCode int
@@ -49,6 +53,8 @@ type StatusReporter interface {
 
 // Committer models the committer service
 type Committer interface {
+	Start(context context.Context) error
+
 	// ProcessNamespace registers namespaces that will be committed even if the rwset is not known
 	ProcessNamespace(nss ...string) error
 
