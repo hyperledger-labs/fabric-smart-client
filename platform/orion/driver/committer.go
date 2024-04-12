@@ -28,19 +28,20 @@ func (t *TransactionStatusChanged) Message() interface{} {
 	return t
 }
 
-// TxStatusListener is the interface that must be implemented to receive transaction status notifications
-type TxStatusListener interface {
+// FinalityListener is the interface that must be implemented to receive transaction status notifications
+type FinalityListener interface {
 	// OnStatus is called when the status of a transaction changes, or it is valid or invalid
 	OnStatus(txID string, status int, statusMessage string) error
 }
 
 // Committer models the committer service
 type Committer interface {
-	// SubscribeTxStatus registers a listener for transaction status for the passed transaction id.
+	// AddFinalityListener registers a listener for transaction status for the passed transaction id.
 	// If the status is already valid or invalid, the listener is called immediately.
 	// If the transaction id is empty, the listener will be called on status changes of any transaction.
-	SubscribeTxStatus(txID string, listener TxStatusListener) error
+	// When the listener is invoked, then it is also removed.
+	AddFinalityListener(txID string, listener FinalityListener) error
 
-	// UnsubscribeTxStatus unregisters the passed listener.
-	UnsubscribeTxStatus(txID string, listener TxStatusListener) error
+	// RemoveFinalityListener unregisters the passed listener.
+	RemoveFinalityListener(txID string, listener FinalityListener) error
 }

@@ -45,11 +45,11 @@ func (c *Committer) AddStatusReporter(sr driver.StatusReporter) error {
 // SubscribeTxStatusChanges registers a listener for transaction status changes for the passed transaction id.
 // If the transaction id is empty, the listener will be called for all transactions.
 func (c *Committer) SubscribeTxStatusChanges(txID string, listener TxStatusChangeListener) error {
-	return c.committer.SubscribeTxStatus(txID, listener)
+	return c.committer.AddFinalityListener(txID, listener)
 }
 
 // UnsubscribeTxStatusChanges unregisters a listener for transaction status changes for the passed transaction id.
 // If the transaction id is empty, the listener will be called for all transactions.
 func (c *Committer) UnsubscribeTxStatusChanges(txID string, listener TxStatusChangeListener) error {
-	return c.committer.UnsubscribeTxStatus(txID, listener)
+	return c.committer.RemoveFinalityStatus(txID, listener)
 }

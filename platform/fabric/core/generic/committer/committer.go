@@ -241,12 +241,12 @@ func (c *Service) CommitTX(txID string, block uint64, indexInBlock int, envelope
 	}
 }
 
-func (c *Service) SubscribeTxStatus(txID string, listener driver.TxStatusListener) error {
+func (c *Service) AddFinalityListener(txID string, listener driver.FinalityListener) error {
 	c.EventManager.AddListener(txID, listener)
 	return nil
 }
 
-func (c *Service) UnsubscribeTxStatus(txID string, listener driver.TxStatusListener) error {
+func (c *Service) RemoveFinalityStatus(txID string, listener driver.FinalityListener) error {
 	c.EventManager.DeleteListener(txID, listener)
 	return nil
 }
@@ -346,7 +346,7 @@ func (c *Service) Commit(block *common.Block) error {
 		}
 		c.Tracer.AddEventAt("commit", "end", time.Now())
 
-		c.notify(event)
+		c.notifyFinality(event)
 		c.EventManager.Post(event)
 		if logger.IsEnabledFor(zapcore.DebugLevel) {
 			logger.Debugf("commit transaction [%s] in filteredBlock [%d]", chdr.TxId, block.Header.Number)
@@ -548,7 +548,7 @@ func (c *Service) deleteListener(txid string, ch chan TxEvent) {
 	}
 }
 
-func (c *Service) notify(event TxEvent) {
+func (c *Service) notifyFinality(event TxEvent) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 

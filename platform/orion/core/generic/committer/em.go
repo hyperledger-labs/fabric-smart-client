@@ -12,8 +12,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	pb "github.com/hyperledger/fabric-protos-go/peer"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
+	"github.com/hyperledger-labs/orion-server/pkg/types"
 )
 
 // EventManager manages events for the commit pipeline.
@@ -22,14 +22,14 @@ import (
 // A single thread reads from this queue and invokes the listeners in a blocking way
 type EventManager struct {
 	EventQueue chan TxEvent
-	Vault      driver.Vault
+	Vault      Vault
 
 	allListeners  []driver.FinalityListener
 	txIDListeners map[string][]driver.FinalityListener
 	mutex         sync.RWMutex
 }
 
-func NewEventManager(vault driver.Vault, size int) *EventManager {
+func NewEventManager(vault Vault, size int) *EventManager {
 	return &EventManager{
 		EventQueue:    make(chan TxEvent, size),
 		Vault:         vault,
@@ -55,7 +55,7 @@ func (c *EventManager) AddListener(txID string, l driver.FinalityListener) {
 	c.txIDListeners[txID] = ls
 }
 
-func (c *EventManager) DeleteListener(txID string, ch driver.FinalityListener) {
+func (c *EventManager) RemoveListener(txID string, ch driver.FinalityListener) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
@@ -93,7 +93,7 @@ func (c *EventManager) Dispatch(event TxEvent) {
 		if err := listener.OnStatus(event.TxID, int(event.ValidationCode), event.ValidationMessage); err != nil {
 			logger.Errorf("failed on status call [%v]: [%s][%s]", event, err, debug.Stack())
 		}
-		c.DeleteListener(event.TxID, listener)
+		c.RemoveListener(event.TxID, listener)
 	}
 }
 
@@ -130,7 +130,7 @@ func (c *EventManager) runStatusListener(context context.Context) {
 					// post the event
 					c.Post(TxEvent{
 						TxID:              txID,
-						ValidationCode:    pb.TxValidationCode(vc),
+						ValidationCode:    types.Flag(vc),
 						ValidationMessage: message,
 					})
 				}
