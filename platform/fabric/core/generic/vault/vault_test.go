@@ -862,6 +862,37 @@ func TestQueryExecutor(t *testing.T) {
 		{Key: "k111", Raw: []byte("k111_value"), Block: 35, IndexInBlock: 4},
 		{Key: "k2", Raw: []byte("k2_value"), Block: 35, IndexInBlock: 1},
 	}, res)
+
+	itr, err = ddb.GetStateSetIterator(ns, "k1", "k2", "k111")
+	defer itr.Close()
+	assert.NoError(t, err)
+
+	res = make([]driver.VersionedRead, 0, 3)
+	for n, err := itr.Next(); n != nil; n, err = itr.Next() {
+		assert.NoError(t, err)
+		res = append(res, *n)
+	}
+	assert.Len(t, res, 3)
+	assert.Equal(t, []driver.VersionedRead{
+		{Key: "k1", Raw: []byte("k1_value"), Block: 35, IndexInBlock: 3},
+		{Key: "k2", Raw: []byte("k2_value"), Block: 35, IndexInBlock: 1},
+		{Key: "k111", Raw: []byte("k111_value"), Block: 35, IndexInBlock: 4},
+	}, res)
+
+	itr, err = ddb.GetStateSetIterator(ns, "k1", "k5")
+	defer itr.Close()
+	assert.NoError(t, err)
+
+	res = make([]driver.VersionedRead, 0, 2)
+	for n, err := itr.Next(); n != nil; n, err = itr.Next() {
+		assert.NoError(t, err)
+		res = append(res, *n)
+	}
+	assert.Len(t, res, 2)
+	assert.Equal(t, []driver.VersionedRead{
+		{Key: "k1", Raw: []byte("k1_value"), Block: 35, IndexInBlock: 3},
+		{Key: "k5"},
+	}, res)
 }
 
 func TestShardLikeCommit(t *testing.T) {

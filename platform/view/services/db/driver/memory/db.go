@@ -11,6 +11,7 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/keys"
 	"go.uber.org/zap/zapcore"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
@@ -184,6 +185,23 @@ func (db *database) GetStateRangeScanIterator(namespace string, startKey string,
 		db:   db,
 		keys: sortedKeys,
 	}, nil
+}
+
+func (db *database) GetStateSetIterator(ns string, ks ...string) (driver.VersionedResultsIterator, error) {
+	reads := make([]*driver.VersionedRead, len(ks))
+	for i, key := range ks {
+		value, blockNum, txNum, err := db.GetState(ns, key)
+		if err != nil {
+			return nil, err
+		}
+		reads[i] = &driver.VersionedRead{
+			Key:          key,
+			Raw:          value,
+			Block:        blockNum,
+			IndexInBlock: int(txNum),
+		}
+	}
+	return &keys.DummyVersionedIterator{Items: reads}, nil
 }
 
 func (db *database) GetCachedStateRangeScanIterator(namespace string, startKey string, endKey string) (driver.VersionedResultsIterator, error) {

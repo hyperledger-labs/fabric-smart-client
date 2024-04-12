@@ -11,6 +11,9 @@ type SeekEnd struct{}
 type SeekPos struct {
 	Txid string
 }
+type SeekSet struct {
+	TxIDs []string
+}
 
 type ByNum struct {
 	TxID    string

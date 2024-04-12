@@ -6,6 +6,12 @@ SPDX-License-Identifier: Apache-2.0
 
 package driver
 
+type TxValidationStatus struct {
+	TxID           string
+	ValidationCode ValidationCode
+	Message        string
+}
+
 // Vault models a key value store that can be updated by committing rwsets
 type Vault interface {
 	// NewQueryExecutor gives handle to a query executor.
@@ -32,6 +38,8 @@ type Vault interface {
 	CommitTX(id string, block uint64, index int) error
 
 	Status(id string) (ValidationCode, string, error)
+
+	Statuses(ids ...string) ([]TxValidationStatus, error)
 
 	DiscardTx(id string, message string) error
 

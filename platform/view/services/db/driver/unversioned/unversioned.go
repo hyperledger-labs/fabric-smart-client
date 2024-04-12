@@ -60,6 +60,15 @@ func (db *Unversioned) GetStateRangeScanIterator(namespace string, startKey stri
 	return &iterator{vitr}, nil
 }
 
+func (db *Unversioned) GetStateSetIterator(ns string, keys ...string) (driver.ResultsIterator, error) {
+	vitr, err := db.Versioned.GetStateSetIterator(ns, keys...)
+	if err != nil {
+		return nil, err
+	}
+
+	return &iterator{vitr}, nil
+}
+
 func (db *Unversioned) Close() error {
 	return db.Versioned.Close()
 }

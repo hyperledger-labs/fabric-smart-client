@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"unicode/utf8"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/pkg/errors"
 )
 
@@ -36,3 +37,18 @@ func ValidateNs(ns string) error {
 
 	return nil
 }
+
+type DummyVersionedIterator struct {
+	idx   int
+	Items []*driver.VersionedRead
+}
+
+func (r *DummyVersionedIterator) Next() (*driver.VersionedRead, error) {
+	if r.Items == nil || r.idx == len(r.Items) {
+		return nil, nil
+	}
+	r.idx++
+	return r.Items[r.idx-1], nil
+}
+
+func (r *DummyVersionedIterator) Close() {}

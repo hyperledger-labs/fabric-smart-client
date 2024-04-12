@@ -172,31 +172,16 @@ func (s *SimpleTXIDStore) GetLastTxID() (string, error) {
 }
 
 func (s *SimpleTXIDStore) Iterator(pos interface{}) (fdriver.TxidIterator, error) {
-	var startKey uint64
-
-	switch ppos := pos.(type) {
-	case *fdriver.SeekStart:
-		startKey = 0
-	case *fdriver.SeekEnd:
-		ctr, err := getCtr(s.persistence)
+	if ppos, ok := pos.(fdriver.SeekSet); ok {
+		it, err := s.persistence.GetStateSetIterator(txidNamespace, ppos.TxIDs...)
 		if err != nil {
 			return nil, err
 		}
-
-		startKey = ctr - 1
-	case *fdriver.SeekPos:
-		bt, err := s.get(ppos.Txid)
-		if err != nil {
-			return nil, err
-		}
-
-		if bt == nil {
-			return nil, errors.Errorf("txid %s was not found", ppos.Txid)
-		}
-
-		startKey = bt.Pos
-	default:
-		return nil, errors.Errorf("invalid position %T", pos)
+		return &SimpleTxIDIterator{it}, nil
+	}
+	startKey, err := s.getStartKey(pos)
+	if err != nil {
+		return nil, err
 	}
 
 	it, err := s.persistence.GetStateRangeScanIterator(txidNamespace, keyByCtr(startKey), keyByCtr(math.MaxUint64))
@@ -205,6 +190,29 @@ func (s *SimpleTXIDStore) Iterator(pos interface{}) (fdriver.TxidIterator, error
 	}
 
 	return &SimpleTxIDIterator{it}, nil
+}
+
+func (s *SimpleTXIDStore) getStartKey(pos interface{}) (uint64, error) {
+	switch ppos := pos.(type) {
+	case *fdriver.SeekStart:
+		return 0, nil
+	case *fdriver.SeekEnd:
+		ctr, err := getCtr(s.persistence)
+		if err != nil {
+			return 0, err
+		}
+		return ctr - 1, nil
+	case *fdriver.SeekPos:
+		bt, err := s.get(ppos.Txid)
+		if err != nil {
+			return 0, err
+		}
+		if bt == nil {
+			return 0, errors.Errorf("txid %s was not found", ppos.Txid)
+		}
+		return bt.Pos, nil
+	}
+	return 0, errors.Errorf("invalid position %T", pos)
 }
 
 type SimpleTxIDIterator struct {

@@ -134,17 +134,20 @@ func (c *EventManager) runStatusListener(context context.Context) {
 		case <-context.Done():
 			return
 		case <-ticker.C:
-			txIDs := c.txIDs()
-			for _, txID := range txIDs {
+			statuses, err := c.Vault.Statuses(c.txIDs()...)
+			if err != nil {
+				logger.Errorf("error fetching statuses: %w", err)
+				continue
+			}
+			for _, status := range statuses {
 				// check txID status, if it is valid or invalid, post an event
-				logger.Debugf("check tx [%s]'s status", txID)
-				vc, message, err := c.Vault.Status(txID)
-				if err == nil && (vc == driver.Valid || vc == driver.Invalid) {
+				logger.Debugf("check tx [%s]'s status", status.TxID)
+				if status.ValidationCode == driver.Valid || status.ValidationCode == driver.Invalid {
 					// post the event
 					c.Post(TxEvent{
-						TxID:              txID,
-						ValidationCode:    pb.TxValidationCode(vc),
-						ValidationMessage: message,
+						TxID:              status.TxID,
+						ValidationCode:    pb.TxValidationCode(status.ValidationCode),
+						ValidationMessage: status.Message,
 					})
 				}
 			}

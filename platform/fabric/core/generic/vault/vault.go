@@ -22,6 +22,7 @@ import (
 var logger = flogging.MustGetLogger("fabric-sdk.vault")
 
 type TXIDStoreReader interface {
+	Iterator(pos interface{}) (fdriver.TxidIterator, error)
 	Get(txID string) (fdriver.ValidationCode, string, error)
 }
 
@@ -68,6 +69,25 @@ func (db *Vault) NewQueryExecutor() (fdriver.QueryExecutor, error) {
 	return &directQueryExecutor{
 		vault: db,
 	}, nil
+}
+
+func (db *Vault) Statuses(txIDs ...string) ([]fdriver.TxValidationStatus, error) {
+	it, err := db.TXIDStore.Iterator(&fdriver.SeekSet{TxIDs: txIDs})
+	if err != nil {
+		return nil, err
+	}
+	statuses := make([]fdriver.TxValidationStatus, 0, len(txIDs))
+	for status, err := it.Next(); status != nil; status, err = it.Next() {
+		if err != nil {
+			return nil, err
+		}
+		statuses = append(statuses, fdriver.TxValidationStatus{
+			TxID:           status.TxID,
+			ValidationCode: status.Code,
+			Message:        status.Message,
+		})
+	}
+	return statuses, nil
 }
 
 func (db *Vault) Status(txID string) (fdriver.ValidationCode, string, error) {
