@@ -6,7 +6,10 @@ SPDX-License-Identifier: Apache-2.0
 
 package driver
 
-import "github.com/hyperledger-labs/fabric-smart-client/platform/view"
+import (
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
+	"github.com/pkg/errors"
+)
 
 type Read struct {
 	Key string
@@ -57,6 +60,18 @@ type TransactionalVersionedPersistence interface {
 	VersionedPersistence
 
 	NewWriteTransaction() (WriteTransaction, error)
+}
+
+type SQLError = error
+
+var (
+	// UniqueKeyViolation happens when we try to insert a record with a conflicting unique key (e.g. replicas)
+	UniqueKeyViolation = errors.New("unique key violation")
+)
+
+// SQLErrorWrapper transforms the different errors returned by various SQL implementations into an SQLError that is common
+type SQLErrorWrapper interface {
+	WrapError(error) error
 }
 
 // VersionedPersistence models a versioned key-value storage place

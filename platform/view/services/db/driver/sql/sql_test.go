@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package sql
 
 import (
+	"database/sql"
 	"fmt"
 	"os"
 	"path"
@@ -14,6 +15,7 @@ import (
 	"testing"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/dbtest"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	_ "github.com/lib/pq"
 	_ "modernc.org/sqlite"
 )
@@ -21,7 +23,7 @@ import (
 func TestSqlite(t *testing.T) {
 	tempDir := t.TempDir()
 	for _, c := range dbtest.Cases {
-		db, err := initSqliteVersioned(tempDir, c.Name)
+		db, _, _, _, err := initSqliteVersioned(tempDir, c.Name)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -31,13 +33,23 @@ func TestSqlite(t *testing.T) {
 		})
 	}
 	for _, c := range dbtest.UnversionedCases {
-		un, err := initSqliteUnversioned(tempDir, c.Name)
+		un, _, _, _, err := initSqliteUnversioned(tempDir, c.Name)
 		if err != nil {
 			t.Fatal(err)
 		}
 		t.Run(c.Name, func(xt *testing.T) {
 			defer un.Close()
 			c.Fn(xt, un)
+		})
+	}
+	for _, c := range dbtest.ErrorCases {
+		un, readDB, writeDB, errorWrapper, err := initSqliteUnversioned(tempDir, c.Name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Run(c.Name, func(xt *testing.T) {
+			defer un.Close()
+			c.Fn(xt, readDB, writeDB, errorWrapper, "test")
 		})
 	}
 }
@@ -58,7 +70,7 @@ func TestPostgres(t *testing.T) {
 	t.Log("postgres ready")
 
 	for _, c := range dbtest.Cases {
-		db, err := initPostgresVersioned(pgConnStr, c.Name)
+		db, _, _, _, err := initPostgresVersioned(pgConnStr, c.Name)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -68,7 +80,7 @@ func TestPostgres(t *testing.T) {
 		})
 	}
 	for _, c := range dbtest.UnversionedCases {
-		un, err := initPostgresUnversioned(pgConnStr, c.Name)
+		un, _, _, _, err := initPostgresUnversioned(pgConnStr, c.Name)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -77,54 +89,58 @@ func TestPostgres(t *testing.T) {
 			c.Fn(xt, un)
 		})
 	}
+	for _, c := range dbtest.ErrorCases {
+		un, readDB, writeDB, errorWrapper, err := initPostgresUnversioned(pgConnStr, c.Name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Run(c.Name, func(xt *testing.T) {
+			defer un.Close()
+			c.Fn(xt, readDB, writeDB, errorWrapper, c.Name)
+		})
+	}
 }
 
-func initSqliteUnversioned(tempDir, key string) (*Unversioned, error) {
-	readDB, writeDB, err := openDB("sqlite", fmt.Sprintf("file:%s.sqlite?_pragma=busy_timeout(1000)", path.Join(tempDir, key)), 0, false)
-	if err != nil {
-		return nil, err
-	}
-	p := NewUnversioned(readDB, writeDB, "test")
-	if err := p.CreateSchema(); err != nil {
-		return nil, err
-	}
-	return p, nil
+func initSqliteVersioned(tempDir, key string) (*Persistence, *sql.DB, *sql.DB, driver.SQLErrorWrapper, error) {
+	return initVersioned("sqlite", fmt.Sprintf("%s.sqlite", path.Join(tempDir, key)), "test", 0)
 }
 
-func initSqliteVersioned(tempDir, key string) (*Persistence, error) {
-	readDB, writeDB, err := openDB("sqlite", fmt.Sprintf("%s.sqlite", path.Join(tempDir, key)), 0, false)
+func initPostgresVersioned(pgConnStr, key string) (*Persistence, *sql.DB, *sql.DB, driver.SQLErrorWrapper, error) {
+	return initVersioned("postgres", pgConnStr, key, 50)
+}
+
+func initVersioned(driverName, dataSource, table string, maxOpenConns int) (*Persistence, *sql.DB, *sql.DB, driver.SQLErrorWrapper, error) {
+	readDB, writeDB, err := openDB(driverName, dataSource, maxOpenConns, false)
 	if err != nil || readDB == nil || writeDB == nil {
-		return nil, fmt.Errorf("database not open: %w", err)
+		return nil, nil, nil, nil, fmt.Errorf("database not open: %w", err)
 	}
-	p := NewPersistence(readDB, writeDB, "test")
+	errorWrapper := sqlErrorWrapper(driverName)
+	p := NewPersistence(readDB, writeDB, table, errorWrapper)
 	if err := p.CreateSchema(); err != nil {
-		return nil, err
+		return nil, nil, nil, nil, err
 	}
-	return p, nil
+	return p, readDB, writeDB, errorWrapper, nil
 }
 
-func initPostgresVersioned(pgConnStr, key string) (*Persistence, error) {
-	readDB, writeDB, err := openDB("postgres", pgConnStr, 50, false)
-	if err != nil || readDB == nil || writeDB == nil {
-		return nil, fmt.Errorf("database not open: %w", err)
-	}
-	p := NewPersistence(readDB, writeDB, key)
-	if err := p.CreateSchema(); err != nil {
-		return nil, err
-	}
-	return p, nil
+func initPostgresUnversioned(pgConnStr, key string) (*Unversioned, *sql.DB, *sql.DB, driver.SQLErrorWrapper, error) {
+	return initUnversioned("postgres", pgConnStr, key)
 }
 
-func initPostgresUnversioned(pgConnStr, key string) (*Unversioned, error) {
-	readDB, writeDB, err := openDB("postgres", pgConnStr, 0, false)
+func initSqliteUnversioned(tempDir, key string) (*Unversioned, *sql.DB, *sql.DB, driver.SQLErrorWrapper, error) {
+	return initUnversioned("sqlite", fmt.Sprintf("file:%s.sqlite?_pragma=busy_timeout(1000)", path.Join(tempDir, key)), "test")
+}
+
+func initUnversioned(driverName, dataSource, table string) (*Unversioned, *sql.DB, *sql.DB, driver.SQLErrorWrapper, error) {
+	readDB, writeDB, err := openDB(driverName, dataSource, 0, false)
 	if err != nil || readDB == nil || writeDB == nil {
-		return nil, fmt.Errorf("database not open: %w", err)
+		return nil, nil, nil, nil, fmt.Errorf("database not open: %w", err)
 	}
-	p := NewUnversioned(readDB, writeDB, key)
+	errorWrapper := sqlErrorWrapper(driverName)
+	p := NewUnversioned(readDB, writeDB, table, errorWrapper)
 	if err := p.CreateSchema(); err != nil {
-		return nil, fmt.Errorf("can't create schema: %w", err)
+		return nil, nil, nil, nil, fmt.Errorf("can't create schema: %w", err)
 	}
-	return p, nil
+	return p, readDB, writeDB, errorWrapper, nil
 }
 
 func startPostgres(t Logger, printLogs bool) (func(), string, error) {

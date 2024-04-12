@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"sync"
 
+	errors2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/cache/secondcache"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db"
@@ -137,26 +138,23 @@ func (o *KVS) Put(id string, state interface{}) error {
 		return errors.Wrapf(err, "cannot marshal state with id [%s]", id)
 	}
 
-	err = o.store.BeginUpdate()
-	if err != nil {
+	if err := o.store.BeginUpdate(); err != nil {
 		return errors.WithMessagef(err, "begin update for id [%s] failed", id)
 	}
 
 	logger.Debugf("store [%d] bytes into key [%s:%s]", len(raw), o.namespace, id)
-	err = o.store.SetState(o.namespace, id, raw)
-	if err != nil {
+	if err := o.store.SetState(o.namespace, id, raw); err != nil {
 		if err1 := o.store.Discard(); err1 != nil {
-			if logger.IsEnabledFor(zapcore.DebugLevel) {
-				logger.Debugf("got error %s; discarding caused %s", err.Error(), err1.Error())
-			}
+			logger.Debugf("got error %v; discarding caused %v", err, err1)
 		}
 
-		return errors.WithMessagef(err, "failed to commit value for id [%s]", id)
-	}
-
-	err = o.store.Commit()
-	if err != nil {
-		return errors.WithMessagef(err, "committing value for id [%s] failed", id)
+		if !errors2.HasCause(err, driver.UniqueKeyViolation) {
+			return errors.WithMessagef(err, "failed to commit value for id [%s]", id)
+		}
+	} else {
+		if err := o.store.Commit(); err != nil {
+			return errors.WithMessagef(err, "committing value for id [%s] failed", id)
+		}
 	}
 
 	o.cache.Add(id, raw)
@@ -207,25 +205,22 @@ func (o *KVS) Delete(id string) error {
 	o.putMutex.Lock()
 	defer o.putMutex.Unlock()
 
-	err := o.store.BeginUpdate()
-	if err != nil {
+	if err := o.store.BeginUpdate(); err != nil {
 		return errors.WithMessagef(err, "begin update for id [%s] failed", id)
 	}
 
-	err = o.store.DeleteState(o.namespace, id)
-	if err != nil {
+	if err := o.store.DeleteState(o.namespace, id); err != nil {
 		if err1 := o.store.Discard(); err1 != nil {
-			if logger.IsEnabledFor(zapcore.DebugLevel) {
-				logger.Debugf("got error %s; discarding caused %s", err.Error(), err1.Error())
-			}
+			logger.Debugf("got error %v; discarding caused %v", err, err1)
 		}
 
-		return errors.WithMessagef(err, "failed to commit value for id [%s]", id)
-	}
-
-	err = o.store.Commit()
-	if err != nil {
-		return errors.WithMessagef(err, "committing value for id [%s] failed", id)
+		if !errors2.HasCause(err, driver.UniqueKeyViolation) {
+			return errors.WithMessagef(err, "failed to commit value for id [%s]", id)
+		}
+	} else {
+		if err := o.store.Commit(); err != nil {
+			return errors.WithMessagef(err, "committing value for id [%s] failed", id)
+		}
 	}
 
 	o.cache.Delete(id)

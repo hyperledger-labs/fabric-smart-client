@@ -14,19 +14,22 @@ import (
 	"fmt"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	errors2 "github.com/pkg/errors"
 )
 
 type Persistence struct {
 	base
+	errorWrapper driver.SQLErrorWrapper
 }
 
-func NewPersistence(readDB *sql.DB, writeDB *sql.DB, table string) *Persistence {
+func NewPersistence(readDB *sql.DB, writeDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper) *Persistence {
 	return &Persistence{
 		base: base{
 			readDB:  readDB,
 			writeDB: writeDB,
 			table:   table,
 		},
+		errorWrapper: errorWrapper,
 	}
 }
 
@@ -61,7 +64,7 @@ func (db *Persistence) setStateWithTx(tx *sql.Tx, ns, key string, val []byte, bl
 
 		_, err := tx.Exec(query, block, txnum, val, ns, key)
 		if err != nil {
-			return fmt.Errorf("could not set val for key [%s]: %w", key, err)
+			return errors2.Wrapf(db.errorWrapper.WrapError(err), "could not set val for key [%s]", key)
 		}
 	} else {
 		query := fmt.Sprintf("INSERT INTO %s (ns, pkey, block, txnum, val) VALUES ($1, $2, $3, $4, $5)", db.table)
@@ -69,7 +72,7 @@ func (db *Persistence) setStateWithTx(tx *sql.Tx, ns, key string, val []byte, bl
 
 		_, err := tx.Exec(query, ns, key, block, txnum, val)
 		if err != nil {
-			return fmt.Errorf("could not insert [%s]: %w", key, err)
+			return errors2.Wrapf(db.errorWrapper.WrapError(err), "could not insert [%s]", key)
 		}
 	}
 
@@ -120,7 +123,7 @@ func (db *Persistence) SetStateMetadata(ns, key string, metadata map[string][]by
 		logger.Debug(query, len(m), block, txnum, ns, key)
 		_, err = db.txn.Exec(query, m, block, txnum, ns, key)
 		if err != nil {
-			return fmt.Errorf("could not set metadata for key [%s]: %w", key, err)
+			return errors2.Wrapf(db.errorWrapper.WrapError(err), "could not set metadata for key [%s]", key)
 		}
 	} else {
 		logger.Warnf("storing metadata without existing value at [%s]", key)
@@ -128,7 +131,7 @@ func (db *Persistence) SetStateMetadata(ns, key string, metadata map[string][]by
 		logger.Debug(query, ns, key, len(m), block, txnum)
 		_, err = db.txn.Exec(query, ns, key, m, block, txnum)
 		if err != nil {
-			return fmt.Errorf("could not set metadata for key [%s]: %w", key, err)
+			return errors2.Wrapf(db.errorWrapper.WrapError(err), "could not set metadata for key [%s]", key)
 		}
 	}
 

@@ -7,8 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package iou_test
 
 import (
-	"time"
-
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
@@ -85,7 +83,6 @@ func (s *TestSuite) TestSucceededWithReplicas() {
 	iou.CheckState(s.II, "fsc.borrower.0", iouState, 5)
 	iou.CheckState(s.II, "fsc.borrower.1", iouState, 5)
 	iou.CheckState(s.II, "fsc.borrower.2", iouState, 5)
-	time.Sleep(15 * time.Second)
 	iou.CheckState(s.II, "fsc.lender.0", iouState, 5)
 	iou.CheckState(s.II, "fsc.lender.1", iouState, 5)
 }

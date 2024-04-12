@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"sync"
 
+	errors2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
@@ -90,30 +91,14 @@ func (db *Vault) Status(txID string) (fdriver.ValidationCode, string, error) {
 }
 
 func (db *Vault) DiscardTx(txID string, message string) error {
-	_, err := db.UnmapInterceptor(txID)
-	if err != nil {
+	if _, err := db.UnmapInterceptor(txID); err != nil {
 		return err
 	}
 
 	db.InterceptorsLock.Lock()
 	defer db.InterceptorsLock.Unlock()
 
-	err = db.Store.BeginUpdate()
-	if err != nil {
-		return errors.WithMessagef(err, "begin update for txid '%s' failed", txID)
-	}
-
-	err = db.TXIDStore.Set(txID, fdriver.Invalid, message)
-	if err != nil {
-		return err
-	}
-
-	err = db.Store.Commit()
-	if err != nil {
-		return errors.WithMessagef(err, "committing tx for txid '%s' failed", txID)
-	}
-
-	return nil
+	return db.setValidationCode(txID, fdriver.Invalid, message)
 }
 
 func (db *Vault) CommitTX(txID string, block uint64, indexInBloc int) error {
@@ -130,13 +115,80 @@ func (db *Vault) CommitTX(txID string, block uint64, indexInBloc int) error {
 	db.StoreLock.Lock()
 	defer db.StoreLock.Unlock()
 
-	err = db.Store.BeginUpdate()
-	if err != nil {
+	if err := db.Store.BeginUpdate(); err != nil {
 		return errors.WithMessagef(err, "begin update for txid '%s' failed", txID)
 	}
 
 	logger.Debugf("parse writes [%s]", txID)
-	for ns, keyMap := range i.Rws.Writes {
+	if discarded, err := db.storeWrites(i.Rws.Writes, block, indexInBloc); err != nil {
+		return errors.Wrapf(err, "failed storing writes")
+	} else if discarded {
+		logger.Infof("Discarded changes while storing writes as duplicates. Skipping...")
+		return nil
+	}
+
+	logger.Debugf("parse meta writes [%s]", txID)
+	if discarded, err := db.storeMetaWrites(i.Rws.MetaWrites, block, indexInBloc); err != nil {
+		return errors.Wrapf(err, "failed storing meta writes")
+	} else if discarded {
+		logger.Infof("Discarded changes while storing meta writes as duplicates. Skipping...")
+		return nil
+	}
+
+	logger.Debugf("set state to valid [%s]", txID)
+	if discarded, err := db.setTxValid(txID); err != nil {
+		return errors.Wrapf(err, "failed setting tx state to valid")
+	} else if discarded {
+		logger.Infof("Discarded changes while setting tx state to valid as duplicates. Skipping...")
+		return nil
+	}
+
+	if err = db.Store.Commit(); err != nil {
+		return errors.WithMessagef(err, "committing tx for txid '%s' failed", txID)
+	}
+
+	return nil
+}
+
+func (db *Vault) setTxValid(txID string) (bool, error) {
+	err := db.TXIDStore.Set(txID, fdriver.Valid, "")
+	if err == nil {
+		return false, nil
+	}
+
+	if err1 := db.Store.Discard(); err1 != nil {
+		logger.Errorf("got error %s; discarding caused %s", err.Error(), err1.Error())
+	}
+
+	if !errors2.HasCause(err, driver.UniqueKeyViolation) {
+		return true, err
+	}
+	return true, nil
+}
+
+func (db *Vault) storeMetaWrites(writes NamespaceKeyedMetaWrites, block uint64, indexInBloc int) (bool, error) {
+	for ns, keyMap := range writes {
+		for key, v := range keyMap {
+			logger.Debugf("Store meta write [%s,%s]", ns, key)
+
+			if err := db.Store.SetStateMetadata(ns, key, v, block, uint64(indexInBloc)); err != nil {
+				if err1 := db.Store.Discard(); err1 != nil {
+					logger.Errorf("got error %s; discarding caused %s", err.Error(), err1.Error())
+				}
+
+				if !errors2.HasCause(err, driver.UniqueKeyViolation) {
+					return true, errors.Errorf("failed to commit metadata operation on %s:%s at height %d:%d", ns, key, block, indexInBloc)
+				} else {
+					return true, nil
+				}
+			}
+		}
+	}
+	return false, nil
+}
+
+func (db *Vault) storeWrites(writes Writes, block uint64, indexInBloc int) (bool, error) {
+	for ns, keyMap := range writes {
 		for key, v := range keyMap {
 			logger.Debugf("Store write [%s,%s,%v]", ns, key, hash.Hashable(v).String())
 			var err error
@@ -151,43 +203,15 @@ func (db *Vault) CommitTX(txID string, block uint64, indexInBloc int) error {
 					logger.Errorf("got error %s; discarding caused %s", err.Error(), err1.Error())
 				}
 
-				return errors.Wrapf(err, "failed to commit operation on [%s:%s] at height [%d:%d]", ns, key, block, indexInBloc)
-			}
-		}
-	}
-
-	logger.Debugf("parse meta writes [%s]", txID)
-	for ns, keyMap := range i.Rws.MetaWrites {
-		for key, v := range keyMap {
-			logger.Debugf("Store meta write [%s,%s]", ns, key)
-
-			err := db.Store.SetStateMetadata(ns, key, v, block, uint64(indexInBloc))
-			if err != nil {
-				if err1 := db.Store.Discard(); err1 != nil {
-					logger.Errorf("got error %s; discarding caused %s", err.Error(), err1.Error())
+				if !errors2.HasCause(err, driver.UniqueKeyViolation) {
+					return true, errors.Wrapf(err, "failed to commit operation on [%s:%s] at height [%d:%d]", ns, key, block, indexInBloc)
+				} else {
+					return true, nil
 				}
-
-				return errors.Errorf("failed to commit metadata operation on %s:%s at height %d:%d", ns, key, block, indexInBloc)
 			}
 		}
 	}
-
-	logger.Debugf("set state to valid [%s]", txID)
-	err = db.TXIDStore.Set(txID, fdriver.Valid, "")
-	if err != nil {
-		if err1 := db.Store.Discard(); err1 != nil {
-			logger.Errorf("got error %s; discarding caused %s", err.Error(), err1.Error())
-		}
-
-		return err
-	}
-
-	err = db.Store.Commit()
-	if err != nil {
-		return errors.WithMessagef(err, "committing tx for txid '%s' failed", txID)
-	}
-
-	return nil
+	return false, nil
 }
 
 func (db *Vault) Close() error {
@@ -204,18 +228,21 @@ func (db *Vault) SetBusy(txID string) error {
 		return nil
 	}
 
-	err = db.Store.BeginUpdate()
-	if err != nil {
+	return db.setValidationCode(txID, fdriver.Busy, "")
+}
+
+func (db *Vault) setValidationCode(txID string, code fdriver.ValidationCode, message string) error {
+	if err := db.Store.BeginUpdate(); err != nil {
 		return errors.WithMessagef(err, "begin update for txid '%s' failed", txID)
 	}
 
-	err = db.TXIDStore.Set(txID, fdriver.Busy, "")
-	if err != nil {
-		return err
+	if err := db.TXIDStore.Set(txID, code, message); err != nil {
+		if !errors2.HasCause(err, driver.UniqueKeyViolation) {
+			return err
+		}
 	}
 
-	err = db.Store.Commit()
-	if err != nil {
+	if err := db.Store.Commit(); err != nil {
 		return errors.WithMessagef(err, "committing tx for txid '%s' failed", txID)
 	}
 

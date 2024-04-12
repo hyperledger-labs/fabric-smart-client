@@ -60,7 +60,7 @@ func (d *Driver) NewTransactionalVersionedPersistence(_ view.ServiceProvider, da
 	if !valid {
 		return nil, fmt.Errorf("invalid table name [%s]: only letters and underscores allowed: %w", table, err)
 	}
-	p := NewPersistence(readDB, writeDB, table)
+	p := NewPersistence(readDB, writeDB, table, sqlErrorWrapper(opts.Driver))
 	if !opts.SkipCreateTable {
 		if err := p.CreateSchema(); err != nil {
 			return nil, err
@@ -88,13 +88,24 @@ func (d *Driver) New(_ view.ServiceProvider, dataSourceName string, config drive
 	if !valid {
 		return nil, fmt.Errorf("invalid table name [%s]: only letters and underscores allowed: %w", table, err)
 	}
-	p := NewUnversioned(readDB, writeDB, table)
+	p := NewUnversioned(readDB, writeDB, table, sqlErrorWrapper(opts.Driver))
 	if !opts.SkipCreateTable {
 		if err := p.CreateSchema(); err != nil {
 			return nil, err
 		}
 	}
 	return p, nil
+}
+
+func sqlErrorWrapper(driver string) driver.SQLErrorWrapper {
+	switch driver {
+	case "postgres":
+		return &postgresErrorMapper{}
+	case "sqlite":
+		return &sqliteErrorMapper{}
+	default:
+		return &noErrorMapper{}
+	}
 }
 
 func openDB(driverName, dataSourceName string, maxOpenConns int, skipPragmas bool) (readDB *sql.DB, writeDB *sql.DB, err error) {
