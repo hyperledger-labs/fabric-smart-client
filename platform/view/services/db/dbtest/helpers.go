@@ -7,12 +7,14 @@ SPDX-License-Identifier: Apache-2.0
 package dbtest
 
 import (
+	"database/sql"
 	"fmt"
 	"strings"
 	"sync"
 	"testing"
 	"unicode/utf8"
 
+	errors2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/keys"
 	"github.com/pkg/errors"
@@ -43,6 +45,32 @@ var UnversionedCases = []struct {
 	{"UnversionedSimple", TTestUnversionedSimple},
 	{"UnversionedRange", TTestUnversionedRange},
 	{"NonUTF8keys", TTestNonUTF8keys},
+}
+
+var ErrorCases = []struct {
+	Name string
+	Fn   func(t *testing.T, readDB *sql.DB, writeDB *sql.DB, errorWrapper driver.SQLErrorWrapper, table string)
+}{
+	{"Duplicate", TTestDuplicate},
+}
+
+func TTestDuplicate(t *testing.T, _ *sql.DB, writeDB *sql.DB, errorWrapper driver.SQLErrorWrapper, table string) {
+	ns := "namespace"
+
+	tx, err := writeDB.Begin()
+	assert.NoError(t, err, "should start tx")
+
+	query := fmt.Sprintf("INSERT INTO %s (ns, pkey, val) VALUES ($1, $2, $3)", table)
+
+	_, err = tx.Exec(query, ns, "key", []byte("test 1"))
+	assert.NoError(t, err, "should insert first row")
+
+	_, err = tx.Exec(query, ns, "key", []byte("test 2"))
+	assert.Error(t, err, "should fail on duplicate")
+	assert.True(t, errors2.HasCause(errorWrapper.WrapError(err), driver.UniqueKeyViolation), "should be a unique-key violation")
+
+	err = tx.Rollback()
+	assert.NoError(t, err, "should rollback")
 }
 
 func TTestRangeQueries(t *testing.T, db driver.TransactionalVersionedPersistence) {

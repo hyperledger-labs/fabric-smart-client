@@ -14,7 +14,7 @@ import (
 )
 
 func BenchmarkReadExistingSqlite(b *testing.B) {
-	db, err := initSqliteVersioned(b.TempDir(), "benchmark")
+	db, _, _, _, err := initSqliteVersioned(b.TempDir(), "benchmark")
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -25,7 +25,7 @@ func BenchmarkReadExistingSqlite(b *testing.B) {
 }
 
 func BenchmarkReadNonExistingSqlite(b *testing.B) {
-	db, err := initSqliteVersioned(b.TempDir(), "benchmark")
+	db, _, _, _, err := initSqliteVersioned(b.TempDir(), "benchmark")
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -37,7 +37,7 @@ func BenchmarkReadNonExistingSqlite(b *testing.B) {
 }
 
 func BenchmarkWriteOneSqlite(b *testing.B) {
-	db, err := initSqliteVersioned(b.TempDir(), "benchmark")
+	db, _, _, _, err := initSqliteVersioned(b.TempDir(), "benchmark")
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -48,7 +48,7 @@ func BenchmarkWriteOneSqlite(b *testing.B) {
 }
 
 func BenchmarkWriteManySqlite(b *testing.B) {
-	db, err := initSqliteVersioned(b.TempDir(), "benchmark")
+	db, _, _, _, err := initSqliteVersioned(b.TempDir(), "benchmark")
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -63,7 +63,7 @@ func BenchmarkReadExistingPostgres(b *testing.B) {
 		b.Fatal(err)
 	}
 	defer terminate()
-	db, err := initPostgresVersioned(pgConnStr, "benchmark")
+	db, _, _, _, err := initPostgresVersioned(pgConnStr, "benchmark")
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -78,7 +78,7 @@ func BenchmarkReadNonExistingPostgres(b *testing.B) {
 		b.Fatal(err)
 	}
 	defer terminate()
-	db, err := initPostgresVersioned(pgConnStr, "benchmark")
+	db, _, _, _, err := initPostgresVersioned(pgConnStr, "benchmark")
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -93,7 +93,7 @@ func BenchmarkWriteOnePostgres(b *testing.B) {
 		b.Fatal(err)
 	}
 	defer terminate()
-	db, err := initPostgresVersioned(pgConnStr, "benchmark")
+	db, _, _, _, err := initPostgresVersioned(pgConnStr, "benchmark")
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -108,7 +108,7 @@ func BenchmarkWriteManyPostgres(b *testing.B) {
 		b.Fatal(err)
 	}
 	defer terminate()
-	db, err := initPostgresVersioned(pgConnStr, "benchmark")
+	db, _, _, _, err := initPostgresVersioned(pgConnStr, "benchmark")
 	if err != nil {
 		b.Fatal(err)
 	}

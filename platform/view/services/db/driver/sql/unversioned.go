@@ -11,19 +11,22 @@ import (
 	"fmt"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	"github.com/pkg/errors"
 )
 
 type Unversioned struct {
 	base
+	errorWrapper driver.SQLErrorWrapper
 }
 
-func NewUnversioned(readDB *sql.DB, writeDB *sql.DB, table string) *Unversioned {
+func NewUnversioned(readDB *sql.DB, writeDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper) *Unversioned {
 	return &Unversioned{
 		base: base{
 			writeDB: writeDB,
 			readDB:  readDB,
 			table:   table,
 		},
+		errorWrapper: errorWrapper,
 	}
 }
 
@@ -50,7 +53,7 @@ func (db *Unversioned) SetState(ns, key string, val []byte) error {
 
 		_, err := db.txn.Exec(query, val, ns, key)
 		if err != nil {
-			return fmt.Errorf("could not set val for key [%s]: %w", key, err)
+			return errors.Wrapf(db.errorWrapper.WrapError(err), "could not set val for key [%s]", key)
 		}
 	} else {
 		query := fmt.Sprintf("INSERT INTO %s (ns, pkey, val) VALUES ($1, $2, $3)", db.table)
@@ -58,7 +61,7 @@ func (db *Unversioned) SetState(ns, key string, val []byte) error {
 
 		_, err := db.txn.Exec(query, ns, key, val)
 		if err != nil {
-			return fmt.Errorf("could not insert [%s]: %w", key, err)
+			return errors.Wrapf(db.errorWrapper.WrapError(err), "could not insert [%s]", key)
 		}
 	}
 

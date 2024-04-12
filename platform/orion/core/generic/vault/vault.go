@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"sync"
 
+	errors2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	odriver "github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
@@ -132,7 +133,7 @@ func (db *Vault) DiscardTx(txID string, message string) error {
 	}
 
 	err = db.store.Commit()
-	if err != nil {
+	if err != nil && !errors2.HasCause(err, driver.UniqueKeyViolation) {
 		return errors.WithMessagef(err, "committing tx for txid '%s' failed", txID)
 	}
 
@@ -169,7 +170,7 @@ func (db *Vault) CommitTX(txid string, block uint64, indexInBloc int) error {
 				err = db.store.DeleteState(ns, key)
 			}
 
-			if err != nil {
+			if err != nil && !errors2.HasCause(err, driver.UniqueKeyViolation) {
 				if err1 := db.store.Discard(); err1 != nil {
 					logger.Errorf("got error %s; discarding caused %s", err.Error(), err1.Error())
 				}
@@ -206,7 +207,7 @@ func (db *Vault) CommitTX(txid string, block uint64, indexInBloc int) error {
 	}
 
 	err = db.store.Commit()
-	if err != nil {
+	if err != nil && !errors2.HasCause(err, driver.UniqueKeyViolation) {
 		return errors.WithMessagef(err, "committing tx for txid '%s' failed", txid)
 	}
 
@@ -234,7 +235,7 @@ func (db *Vault) SetBusy(txid string) error {
 	}
 
 	err = db.store.Commit()
-	if err != nil {
+	if err != nil && !errors2.HasCause(err, driver.UniqueKeyViolation) {
 		return errors.WithMessagef(err, "committing tx for txid '%s' failed", txid)
 	}
 

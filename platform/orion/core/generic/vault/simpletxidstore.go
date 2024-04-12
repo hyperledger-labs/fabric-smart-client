@@ -10,6 +10,7 @@ import (
 	"encoding/binary"
 	"math"
 
+	errors2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	odriver "github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/pkg/errors"
@@ -47,7 +48,7 @@ func setCtr(persistence driver.Persistence, ctr uint64) error {
 	binary.BigEndian.PutUint64(ctrBytes, ctr)
 
 	err := persistence.SetState(txidNamespace, ctrKey, ctrBytes)
-	if err != nil {
+	if err != nil && !errors2.HasCause(err, driver.UniqueKeyViolation) {
 		return errors.Errorf("error storing the counter [%s]", err.Error())
 	}
 
@@ -140,7 +141,7 @@ func (s *SimpleTXIDStore) Set(txid string, code odriver.ValidationCode, message 
 
 	// 1: increment ctr in persistence
 	err := setCtr(s.persistence, s.ctr+1)
-	if err != nil {
+	if err != nil && !errors2.HasCause(err, driver.UniqueKeyViolation) {
 		s.persistence.Discard()
 		return errors.Errorf("error storing updated counter for txid %s [%s]", txid, err.Error())
 	}
@@ -156,7 +157,7 @@ func (s *SimpleTXIDStore) Set(txid string, code odriver.ValidationCode, message 
 		return errors.Errorf("error marshalling ByNum for txid %s [%s]", txid, err.Error())
 	}
 	err = s.persistence.SetState(txidNamespace, keyByCtr(s.ctr), byCtrBytes)
-	if err != nil {
+	if err != nil && !errors2.HasCause(err, driver.UniqueKeyViolation) {
 		s.persistence.Discard()
 		return errors.Errorf("error storing ByNum for txid %s [%s]", txid, err.Error())
 	}
@@ -172,14 +173,14 @@ func (s *SimpleTXIDStore) Set(txid string, code odriver.ValidationCode, message 
 		return errors.Errorf("error marshalling ByTxid for txid %s [%s]", txid, err.Error())
 	}
 	err = s.persistence.SetState(txidNamespace, keyByTxid(txid), byTxidBytes)
-	if err != nil {
+	if err != nil && !errors2.HasCause(err, driver.UniqueKeyViolation) {
 		s.persistence.Discard()
 		return errors.Errorf("error storing ByTxid for txid %s [%s]", txid, err.Error())
 	}
 
 	if code == odriver.Valid {
 		err = s.persistence.SetState(txidNamespace, lastTX, []byte(txid))
-		if err != nil {
+		if err != nil && !errors2.HasCause(err, driver.UniqueKeyViolation) {
 			s.persistence.Discard()
 			return errors.Errorf("error storing ByTxid for txid %s [%s]", txid, err.Error())
 		}

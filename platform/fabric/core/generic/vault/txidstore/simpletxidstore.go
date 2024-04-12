@@ -10,6 +10,7 @@ import (
 	"encoding/binary"
 	"math"
 
+	errors2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/pkg/errors"
@@ -104,9 +105,9 @@ func (s *SimpleTXIDStore) Set(txID string, code fdriver.ValidationCode, message 
 
 	// 1: increment ctr in persistence
 	err := setCtr(s.persistence, s.ctr+1)
-	if err != nil {
+	if err != nil && !errors2.HasCause(err, driver.UniqueKeyViolation) {
 		s.persistence.Discard()
-		return errors.Errorf("error storing updated counter for txid %s [%s]", txID, err.Error())
+		return errors.Errorf("error storing updated counter for txid %s and code %d [%s]", txID, code, err.Error())
 	}
 
 	// 2: store by counter
@@ -120,7 +121,7 @@ func (s *SimpleTXIDStore) Set(txID string, code fdriver.ValidationCode, message 
 		return errors.Errorf("error marshalling ByNum for txID %s [%s]", txID, err.Error())
 	}
 	err = s.persistence.SetState(txidNamespace, keyByCtr(s.ctr), byCtrBytes)
-	if err != nil {
+	if err != nil && !errors2.HasCause(err, driver.UniqueKeyViolation) {
 		s.persistence.Discard()
 		return errors.Errorf("error storing ByNum for txid %s [%s]", txID, err.Error())
 	}
@@ -136,14 +137,14 @@ func (s *SimpleTXIDStore) Set(txID string, code fdriver.ValidationCode, message 
 		return errors.Errorf("error marshalling ByTxid for txid %s [%s]", txID, err.Error())
 	}
 	err = s.persistence.SetState(txidNamespace, keyByTxID(txID), byTxidBytes)
-	if err != nil {
+	if err != nil && !errors2.HasCause(err, driver.UniqueKeyViolation) {
 		s.persistence.Discard()
 		return errors.Errorf("error storing ByTxid for txid %s [%s]", txID, err.Error())
 	}
 
 	if code == fdriver.Valid {
 		err = s.persistence.SetState(txidNamespace, lastTX, []byte(txID))
-		if err != nil {
+		if err != nil && !errors2.HasCause(err, driver.UniqueKeyViolation) {
 			s.persistence.Discard()
 			return errors.Errorf("error storing ByTxid for txid %s [%s]", txID, err.Error())
 		}
@@ -253,7 +254,7 @@ func setCtr(persistence driver.Persistence, ctr uint64) error {
 	binary.BigEndian.PutUint64(ctrBytes[:], ctr)
 
 	err := persistence.SetState(txidNamespace, ctrKey, ctrBytes[:])
-	if err != nil {
+	if err != nil && !errors2.HasCause(err, driver.UniqueKeyViolation) {
 		return errors.Errorf("error storing the counter [%s]", err.Error())
 	}
 
