@@ -923,14 +923,3 @@ func capabilitiesSupported(res channelconfig.Resources) error {
 
 	return nil
 }
-
-type TxEventsListener struct {
-	listener driver.TxStatusListener
-}
-
-func (l *TxEventsListener) OnReceive(event events.Event) {
-	tsc := event.Message().(*driver.TransactionStatusChanged)
-	if err := l.listener.OnStatus(tsc.TxID, int(tsc.VC), tsc.ValidationMessage); err != nil {
-		logger.Errorf("failed to notify listener for tx [%s] with err [%s]", tsc.TxID, err)
-	}
-}

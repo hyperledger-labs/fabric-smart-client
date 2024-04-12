@@ -10,6 +10,7 @@ import (
 	"context"
 	"runtime/debug"
 	"sync"
+	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
@@ -89,16 +90,39 @@ func (c *EventManager) Dispatch(event TxEvent) {
 		if err := listener.OnStatus(event.TxID, int(event.ValidationCode), event.ValidationMessage); err != nil {
 			logger.Errorf("failed on status call [%v]: [%s][%s]", event, err, debug.Stack())
 		}
+		c.DeleteListener(event.TxID, listener)
 	}
 }
 
 func (c *EventManager) Run(context context.Context) {
+	go c.runEventQueue(context)
+	go c.runStatusListener(context)
+}
+
+func (c *EventManager) runEventQueue(context context.Context) {
 	for {
 		select {
 		case <-context.Done():
 			return
 		case event := <-c.EventQueue:
 			c.Dispatch(event)
+		}
+	}
+}
+
+func (c *EventManager) runStatusListener(context context.Context) {
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-context.Done():
+			return
+		case <-ticker.C:
+			txIDs := c.txIDs()
+			for _, txID := range txIDs {
+				// check txID status, if it is valid or invalid, post an event
+				logger.Debugf("check tx [%s]'s status", txID)
+			}
 		}
 	}
 }
@@ -115,4 +139,18 @@ func (c *EventManager) cloneListeners(txID string) []driver.TxStatusListener {
 	clone := make([]driver.TxStatusListener, len(ls))
 	copy(clone, ls)
 	return append(clone, c.allListeners...)
+}
+
+func (c *EventManager) txIDs() []string {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	res := make([]string, len(c.txIDListeners))
+	i := 0
+	for txID := range c.txIDListeners {
+		res[i] = txID
+		i++
+	}
+
+	return res
 }
