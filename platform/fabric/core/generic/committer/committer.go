@@ -116,7 +116,7 @@ func NewService(
 		ProcessorManager:    processorManager,
 		MembershipService:   channelMembershipService,
 		OrderingService:     orderingService,
-		EventManager:        NewEventManager(1000),
+		EventManager:        NewEventManager(vault, 1000),
 		EventsPublisher:     eventsPublisher,
 		FabricFinality:      fabricFinality,
 		WaitForEventTimeout: waitForEventTimeout,
