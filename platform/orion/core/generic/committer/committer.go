@@ -266,9 +266,9 @@ func (c *committer) IsFinal(ctx context.Context, txID string) error {
 	return c.listenToFinality(ctx, txID, c.waitForEventTimeout)
 }
 
-// SubscribeTxStatusChanges registers a listener for transaction status changes for the passed transaction id.
+// SubscribeTxStatus registers a listener for transaction status changes for the passed transaction id.
 // If the transaction id is empty, the listener will be called for all transactions.
-func (c *committer) SubscribeTxStatusChanges(txID string, wrapped driver.TxStatusChangeListener) error {
+func (c *committer) SubscribeTxStatus(txID string, wrapped driver.TxStatusListener) error {
 	logger.Debugf("Subscribing to tx status changes for [%s]", txID)
 	var topic string
 	if len(txID) == 0 {
@@ -283,9 +283,9 @@ func (c *committer) SubscribeTxStatusChanges(txID string, wrapped driver.TxStatu
 	return nil
 }
 
-// UnsubscribeTxStatusChanges unregisters a listener for transaction status changes for the passed transaction id.
+// UnsubscribeTxStatus unregisters a listener for transaction status changes for the passed transaction id.
 // If the transaction id is empty, the listener will be called for all transactions.
-func (c *committer) UnsubscribeTxStatusChanges(txID string, listener driver.TxStatusChangeListener) error {
+func (c *committer) UnsubscribeTxStatus(txID string, listener driver.TxStatusListener) error {
 	var topic string
 	if len(txID) == 0 {
 		topic = compose.CreateCompositeKeyOrPanic(&strings.Builder{}, "tx", c.networkName)
@@ -441,12 +441,12 @@ func (c *committer) listenToFinality(ctx context.Context, txID string, timeout t
 }
 
 type TxEventsListener struct {
-	listener driver.TxStatusChangeListener
+	listener driver.TxStatusListener
 }
 
 func (l *TxEventsListener) OnReceive(event events.Event) {
 	tsc := event.Message().(*driver.TransactionStatusChanged)
-	if err := l.listener.OnStatusChange(tsc.TxID, int(tsc.VC), ""); err != nil {
+	if err := l.listener.OnStatus(tsc.TxID, int(tsc.VC), ""); err != nil {
 		logger.Errorf("failed to notify listener for tx [%s] with err [%s]", tsc.TxID, err)
 	}
 }

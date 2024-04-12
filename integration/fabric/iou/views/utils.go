@@ -17,7 +17,7 @@ func NewTxStatusChangeListener(expectedTxID string, WG *sync.WaitGroup) *TxStatu
 	return &TxStatusChangeListener{ExpectedTxID: expectedTxID, WG: WG}
 }
 
-func (t *TxStatusChangeListener) OnStatusChange(txID string, status int, statusMessage string) error {
+func (t *TxStatusChangeListener) OnStatus(txID string, status int, statusMessage string) error {
 	if txID == t.ExpectedTxID {
 		t.WG.Done()
 	}

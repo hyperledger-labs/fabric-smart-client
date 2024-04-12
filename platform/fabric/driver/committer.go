@@ -37,10 +37,10 @@ func (t *TransactionStatusChanged) Message() interface{} {
 	return t
 }
 
-// TxStatusChangeListener is the interface that must be implemented to receive transaction status change notifications
-type TxStatusChangeListener interface {
-	// OnStatusChange is called when the status of a transaction changes
-	OnStatusChange(txID string, status int, statusMessage string) error
+// TxStatusListener is the interface that must be implemented to receive transaction status notifications
+type TxStatusListener interface {
+	// OnStatus is called when the status of a transaction changes, or it is valid or invalid
+	OnStatus(txID string, status int, statusMessage string) error
 }
 
 type StatusReporter interface {
@@ -75,11 +75,11 @@ type Committer interface {
 	// CommitConfig commits the passed configuration envelope.
 	CommitConfig(blockNumber uint64, raw []byte, envelope *common.Envelope) error
 
-	// SubscribeTxStatusChanges registers a listener for transaction status changes for the passed transaction id.
-	// If the transaction id is empty, the listener will be called for all transactions.
-	SubscribeTxStatusChanges(txID string, listener TxStatusChangeListener) error
+	// SubscribeTxStatus registers a listener for transaction status for the passed transaction id.
+	// If the status is already valid or invalid, the listener is called immediately.
+	// If the transaction id is empty, the listener will be called on status changes of any transaction.
+	SubscribeTxStatus(txID string, listener TxStatusListener) error
 
-	// UnsubscribeTxStatusChanges unregisters a listener for transaction status changes for the passed transaction id.
-	// If the transaction id is empty, the listener will be called for all transactions.
-	UnsubscribeTxStatusChanges(txID string, listener TxStatusChangeListener) error
+	// UnsubscribeTxStatus unregisters the passed listener.
+	UnsubscribeTxStatus(txID string, listener TxStatusListener) error
 }

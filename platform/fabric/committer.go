@@ -14,7 +14,7 @@ import (
 // TxStatusChangeListener is the interface that must be implemented to receive transaction status change notifications
 type TxStatusChangeListener interface {
 	// OnStatusChange is called when the status of a transaction changes
-	OnStatusChange(txID string, status int, statusMessage string) error
+	OnStatus(txID string, status int, statusMessage string) error
 }
 
 type Committer struct {
@@ -45,11 +45,11 @@ func (c *Committer) AddStatusReporter(sr driver.StatusReporter) error {
 // SubscribeTxStatusChanges registers a listener for transaction status changes for the passed transaction id.
 // If the transaction id is empty, the listener will be called for all transactions.
 func (c *Committer) SubscribeTxStatusChanges(txID string, listener TxStatusChangeListener) error {
-	return c.committer.SubscribeTxStatusChanges(txID, listener)
+	return c.committer.SubscribeTxStatus(txID, listener)
 }
 
 // UnsubscribeTxStatusChanges unregisters a listener for transaction status changes for the passed transaction id.
 // If the transaction id is empty, the listener will be called for all transactions.
 func (c *Committer) UnsubscribeTxStatusChanges(txID string, listener TxStatusChangeListener) error {
-	return c.committer.UnsubscribeTxStatusChanges(txID, listener)
+	return c.committer.UnsubscribeTxStatus(txID, listener)
 }

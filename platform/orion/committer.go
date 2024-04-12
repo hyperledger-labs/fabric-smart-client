@@ -14,7 +14,7 @@ import (
 // TxStatusChangeListener is the interface that must be implemented to receive transaction status change notifications
 type TxStatusChangeListener interface {
 	// OnStatusChange is called when the status of a transaction changes
-	OnStatusChange(txID string, status int, statusMessage string) error
+	OnStatus(txID string, status int, statusMessage string) error
 }
 
 // Committer models the committer service
@@ -30,11 +30,11 @@ func NewCommitter(c driver.Committer) *Committer {
 // SubscribeTxStatusChanges registers a listener for transaction status changes for the passed transaction id.
 // If the transaction id is empty, the listener will be called for all transactions.
 func (c *Committer) SubscribeTxStatusChanges(txID string, listener TxStatusChangeListener) error {
-	return c.c.SubscribeTxStatusChanges(txID, listener)
+	return c.c.SubscribeTxStatus(txID, listener)
 }
 
 // UnsubscribeTxStatusChanges unregisters a listener for transaction status changes for the passed transaction id.
 // If the transaction id is empty, the listener will be called for all transactions.
 func (c *Committer) UnsubscribeTxStatusChanges(txID string, listener TxStatusChangeListener) error {
-	return c.c.UnsubscribeTxStatusChanges(txID, listener)
+	return c.c.UnsubscribeTxStatus(txID, listener)
 }

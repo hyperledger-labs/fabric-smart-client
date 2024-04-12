@@ -239,7 +239,7 @@ func (c *Service) CommitTX(txID string, block uint64, indexInBlock int, envelope
 	}
 }
 
-func (c *Service) SubscribeTxStatusChanges(txID string, listener driver.TxStatusChangeListener) error {
+func (c *Service) SubscribeTxStatus(txID string, listener driver.TxStatusListener) error {
 	_, topic := compose.CreateTxTopic(c.ConfigService.NetworkName(), c.ChannelConfig.ID(), txID)
 	l := &TxEventsListener{listener: listener}
 	logger.Debugf("[%s] Subscribing to transaction status changes", txID)
@@ -250,7 +250,7 @@ func (c *Service) SubscribeTxStatusChanges(txID string, listener driver.TxStatus
 	return nil
 }
 
-func (c *Service) UnsubscribeTxStatusChanges(txID string, listener driver.TxStatusChangeListener) error {
+func (c *Service) UnsubscribeTxStatus(txID string, listener driver.TxStatusListener) error {
 	_, topic := compose.CreateTxTopic(c.ConfigService.NetworkName(), c.ChannelConfig.ID(), txID)
 	l, ok := c.Subscribers.Get(topic, listener)
 	if !ok {
@@ -937,12 +937,12 @@ func capabilitiesSupported(res channelconfig.Resources) error {
 }
 
 type TxEventsListener struct {
-	listener driver.TxStatusChangeListener
+	listener driver.TxStatusListener
 }
 
 func (l *TxEventsListener) OnReceive(event events.Event) {
 	tsc := event.Message().(*driver.TransactionStatusChanged)
-	if err := l.listener.OnStatusChange(tsc.TxID, int(tsc.VC), tsc.ValidationMessage); err != nil {
+	if err := l.listener.OnStatus(tsc.TxID, int(tsc.VC), tsc.ValidationMessage); err != nil {
 		logger.Errorf("failed to notify listener for tx [%s] with err [%s]", tsc.TxID, err)
 	}
 }
