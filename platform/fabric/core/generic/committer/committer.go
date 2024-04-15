@@ -53,7 +53,7 @@ type FabricFinality interface {
 	IsFinal(txID string, address string) error
 }
 
-type TransactionHandler = func(block *common.Block, i int, event *TxEvent, env *common.Envelope, chHdr *common.ChannelHeader) error
+type TransactionHandler = func(block *common.Block, i int, event *FinalityEvent, env *common.Envelope, chHdr *common.ChannelHeader) error
 
 type OrderingService interface {
 	SetConfigOrderers(o channelconfig.Orderer, orderers []*grpc.ConnectionConfig) error
@@ -83,7 +83,7 @@ type Service struct {
 	Handlers            map[common.HeaderType]TransactionHandler
 	QuietNotifier       bool
 
-	listeners      map[string][]chan TxEvent
+	listeners      map[string][]chan FinalityEvent
 	mutex          sync.Mutex
 	pollingTimeout time.Duration
 }
@@ -122,7 +122,7 @@ func NewService(
 		WaitForEventTimeout: waitForEventTimeout,
 		QuietNotifier:       quiet,
 		Tracer:              metrics,
-		listeners:           map[string][]chan TxEvent{},
+		listeners:           map[string][]chan FinalityEvent{},
 		Handlers:            map[common.HeaderType]TransactionHandler{},
 		pollingTimeout:      1 * time.Second,
 	}
@@ -332,7 +332,7 @@ func (c *Service) Commit(block *common.Block) error {
 			return err
 		}
 
-		var event TxEvent
+		var event FinalityEvent
 		c.Tracer.AddEventAt("commit", "start", time.Now())
 		handler, ok := c.Handlers[common.HeaderType(chdr.Type)]
 		if ok {
@@ -518,20 +518,20 @@ func (c *Service) ReloadConfigTransactions() error {
 	return nil
 }
 
-func (c *Service) addListener(txID string, ch chan TxEvent) {
+func (c *Service) addListener(txID string, ch chan FinalityEvent) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
 	ls, ok := c.listeners[txID]
 	if !ok {
-		ls = []chan TxEvent{}
+		ls = []chan FinalityEvent{}
 		c.listeners[txID] = ls
 	}
 	ls = append(ls, ch)
 	c.listeners[txID] = ls
 }
 
-func (c *Service) deleteListener(txID string, ch chan TxEvent) {
+func (c *Service) deleteListener(txID string, ch chan FinalityEvent) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
@@ -548,7 +548,7 @@ func (c *Service) deleteListener(txID string, ch chan TxEvent) {
 	}
 }
 
-func (c *Service) notifyFinality(event TxEvent) {
+func (c *Service) notifyFinality(event FinalityEvent) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
@@ -579,7 +579,7 @@ func (c *Service) listenTo(ctx context.Context, txID string, timeout time.Durati
 
 	// notice that adding the listener can happen after the event we are looking for has already happened
 	// therefore we need to check more often before the timeout happens
-	ch := make(chan TxEvent, 100)
+	ch := make(chan FinalityEvent, 100)
 	c.addListener(txID, ch)
 	defer c.deleteListener(txID, ch)
 

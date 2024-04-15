@@ -15,6 +15,16 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
 
+// FinalityEvent contains information about the finality of a given transaction
+type FinalityEvent struct {
+	TxID              string
+	ValidationCode    int
+	ValidationMessage string
+	Block             uint64
+	IndexInBlock      int
+	Err               error
+}
+
 // FinalityListener is the interface that must be implemented to receive transaction status notifications
 type FinalityListener interface {
 	// OnStatus is called when the status of a transaction changes, or it is valid or invalid
@@ -30,7 +40,7 @@ type Vault interface {
 // The queue is fed by multiple sources.
 // A single thread reads from this queue and invokes the listeners in a blocking way
 type FinalityManager struct {
-	EventQueue chan TxEvent
+	EventQueue chan FinalityEvent
 	Vault      Vault
 
 	statuses      []int
@@ -41,7 +51,7 @@ type FinalityManager struct {
 
 func NewFinalityManager(vault Vault, size int, statuses []int) *FinalityManager {
 	return &FinalityManager{
-		EventQueue:    make(chan TxEvent, size),
+		EventQueue:    make(chan FinalityEvent, size),
 		Vault:         vault,
 		statuses:      statuses,
 		allListeners:  nil,
@@ -101,11 +111,11 @@ func (c *FinalityManager) removeAllListener(toRemove FinalityListener) {
 	}
 }
 
-func (c *FinalityManager) Post(event TxEvent) {
+func (c *FinalityManager) Post(event FinalityEvent) {
 	c.EventQueue <- event
 }
 
-func (c *FinalityManager) Dispatch(event TxEvent) {
+func (c *FinalityManager) Dispatch(event FinalityEvent) {
 	l := c.cloneListeners(event.TxID)
 	for _, listener := range l {
 		c.invokeListener(listener, event.TxID, event.ValidationCode, event.ValidationMessage)
@@ -156,7 +166,7 @@ func (c *FinalityManager) runStatusListener(context context.Context) {
 				for _, target := range c.statuses {
 					if int(status.ValidationCode) == target {
 						// post the event
-						c.Post(TxEvent{
+						c.Post(FinalityEvent{
 							TxID:              status.TxID,
 							ValidationCode:    int(status.ValidationCode),
 							ValidationMessage: status.Message,
