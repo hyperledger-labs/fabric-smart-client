@@ -13,32 +13,43 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	pb "github.com/hyperledger/fabric-protos-go/peer"
 )
 
-// EventManager manages events for the commit pipeline.
+// FinalityListener is the interface that must be implemented to receive transaction status notifications
+type FinalityListener interface {
+	// OnStatus is called when the status of a transaction changes, or it is valid or invalid
+	OnStatus(txID string, status int, statusMessage string)
+}
+
+type Vault interface {
+	Statuses(txIDs ...string) ([]driver.TxValidationStatus, error)
+}
+
+// FinalityManager manages events for the commit pipeline.
 // It consists of a central queue of events.
 // The queue is fed by multiple sources.
 // A single thread reads from this queue and invokes the listeners in a blocking way
-type EventManager struct {
+type FinalityManager struct {
 	EventQueue chan TxEvent
-	Vault      driver.Vault
+	Vault      Vault
 
-	allListeners  []driver.FinalityListener
-	txIDListeners map[string][]driver.FinalityListener
+	statuses      []int
+	allListeners  []FinalityListener
+	txIDListeners map[string][]FinalityListener
 	mutex         sync.RWMutex
 }
 
-func NewEventManager(vault driver.Vault, size int) *EventManager {
-	return &EventManager{
+func NewFinalityManager(vault Vault, size int, statuses []int) *FinalityManager {
+	return &FinalityManager{
 		EventQueue:    make(chan TxEvent, size),
 		Vault:         vault,
+		statuses:      statuses,
 		allListeners:  nil,
-		txIDListeners: map[string][]driver.FinalityListener{},
+		txIDListeners: map[string][]FinalityListener{},
 	}
 }
 
-func (c *EventManager) AddListener(txID string, toAdd driver.FinalityListener) {
+func (c *FinalityManager) AddListener(txID string, toAdd FinalityListener) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
@@ -48,14 +59,14 @@ func (c *EventManager) AddListener(txID string, toAdd driver.FinalityListener) {
 
 	ls, ok := c.txIDListeners[txID]
 	if !ok {
-		ls = []driver.FinalityListener{}
+		ls = []FinalityListener{}
 		c.txIDListeners[txID] = ls
 	}
 	ls = append(ls, toAdd)
 	c.txIDListeners[txID] = ls
 }
 
-func (c *EventManager) RemoveListener(txID string, toRemove driver.FinalityListener) {
+func (c *FinalityManager) RemoveListener(txID string, toRemove FinalityListener) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
@@ -80,7 +91,7 @@ func (c *EventManager) RemoveListener(txID string, toRemove driver.FinalityListe
 	}
 }
 
-func (c *EventManager) removeAllListener(toRemove driver.FinalityListener) {
+func (c *FinalityManager) removeAllListener(toRemove FinalityListener) {
 	ls := c.allListeners
 	for i, l := range ls {
 		if l == toRemove {
@@ -90,23 +101,23 @@ func (c *EventManager) removeAllListener(toRemove driver.FinalityListener) {
 	}
 }
 
-func (c *EventManager) Post(event TxEvent) {
+func (c *FinalityManager) Post(event TxEvent) {
 	c.EventQueue <- event
 }
 
-func (c *EventManager) Dispatch(event TxEvent) {
+func (c *FinalityManager) Dispatch(event TxEvent) {
 	l := c.cloneListeners(event.TxID)
 	for _, listener := range l {
-		c.invokeListener(listener, event.TxID, int(event.ValidationCode), event.ValidationMessage)
+		c.invokeListener(listener, event.TxID, event.ValidationCode, event.ValidationMessage)
 	}
 }
 
-func (c *EventManager) Run(context context.Context) {
+func (c *FinalityManager) Run(context context.Context) {
 	go c.runEventQueue(context)
 	go c.runStatusListener(context)
 }
 
-func (c *EventManager) invokeListener(l driver.FinalityListener, txID string, status int, statusMessage string) {
+func (c *FinalityManager) invokeListener(l FinalityListener, txID string, status int, statusMessage string) {
 	defer func() {
 		if r := recover(); r != nil {
 			logger.Errorf("caught panic while running dispatching event [%s:%d:%s]: [%s][%s]", txID, status, statusMessage, r, debug.Stack())
@@ -115,7 +126,7 @@ func (c *EventManager) invokeListener(l driver.FinalityListener, txID string, st
 	l.OnStatus(txID, status, statusMessage)
 }
 
-func (c *EventManager) runEventQueue(context context.Context) {
+func (c *FinalityManager) runEventQueue(context context.Context) {
 	for {
 		select {
 		case <-context.Done():
@@ -126,7 +137,7 @@ func (c *EventManager) runEventQueue(context context.Context) {
 	}
 }
 
-func (c *EventManager) runStatusListener(context context.Context) {
+func (c *FinalityManager) runStatusListener(context context.Context) {
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 	for {
@@ -142,20 +153,23 @@ func (c *EventManager) runStatusListener(context context.Context) {
 			for _, status := range statuses {
 				// check txID status, if it is valid or invalid, post an event
 				logger.Debugf("check tx [%s]'s status", status.TxID)
-				if status.ValidationCode == driver.Valid || status.ValidationCode == driver.Invalid {
-					// post the event
-					c.Post(TxEvent{
-						TxID:              status.TxID,
-						ValidationCode:    pb.TxValidationCode(status.ValidationCode),
-						ValidationMessage: status.Message,
-					})
+				for _, target := range c.statuses {
+					if int(status.ValidationCode) == target {
+						// post the event
+						c.Post(TxEvent{
+							TxID:              status.TxID,
+							ValidationCode:    int(status.ValidationCode),
+							ValidationMessage: status.Message,
+						})
+						break
+					}
 				}
 			}
 		}
 	}
 }
 
-func (c *EventManager) cloneListeners(txID string) []driver.FinalityListener {
+func (c *FinalityManager) cloneListeners(txID string) []FinalityListener {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
@@ -163,14 +177,14 @@ func (c *EventManager) cloneListeners(txID string) []driver.FinalityListener {
 	if !ok {
 		return nil
 	}
-	clone := make([]driver.FinalityListener, len(ls))
+	clone := make([]FinalityListener, len(ls))
 	copy(clone, ls)
 	delete(c.txIDListeners, txID)
 
 	return append(clone, c.allListeners...)
 }
 
-func (c *EventManager) txIDs() []string {
+func (c *FinalityManager) txIDs() []string {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 

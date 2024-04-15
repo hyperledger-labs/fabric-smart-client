@@ -18,7 +18,7 @@ import (
 type TxEvent struct {
 	TxID              string
 	Committed         bool
-	ValidationCode    peer.TxValidationCode
+	ValidationCode    int
 	ValidationMessage string
 	Block             uint64
 	IndexInBlock      int

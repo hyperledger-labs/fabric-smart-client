@@ -76,7 +76,7 @@ type Service struct {
 	Tracer             tracing.Tracer
 
 	// events
-	EventManager    *EventManager
+	EventManager    *FinalityManager
 	EventsPublisher events.Publisher
 
 	WaitForEventTimeout time.Duration
@@ -116,7 +116,7 @@ func NewService(
 		ProcessorManager:    processorManager,
 		MembershipService:   channelMembershipService,
 		OrderingService:     orderingService,
-		EventManager:        NewEventManager(vault, 1000),
+		EventManager:        NewFinalityManager(vault, 1000, []int{int(driver.Valid), int(driver.Invalid)}),
 		EventsPublisher:     eventsPublisher,
 		FabricFinality:      fabricFinality,
 		WaitForEventTimeout: waitForEventTimeout,
@@ -273,20 +273,20 @@ func (c *Service) CommitConfig(blockNumber uint64, raw []byte, env *common.Envel
 		return errors.Wrapf(err, "error unmarshalling config which passed initial validity checks")
 	}
 
-	txid := ConfigTXPrefix + strconv.FormatUint(ctx.Config.Sequence, 10)
-	vc, _, err := c.Vault.Status(txid)
+	txID := ConfigTXPrefix + strconv.FormatUint(ctx.Config.Sequence, 10)
+	vc, _, err := c.Vault.Status(txID)
 	if err != nil {
-		return errors.Wrapf(err, "failed getting tx's status [%s]", txid)
+		return errors.Wrapf(err, "failed getting tx's status [%s]", txID)
 	}
 	switch vc {
 	case driver.Valid:
-		logger.Infof("config block [%s] already committed, skip it.", txid)
+		logger.Infof("config block [%s] already committed, skip it.", txID)
 		return nil
 	case driver.Unknown:
-		logger.Infof("config block [%s] not committed, commit it.", txid)
+		logger.Infof("config block [%s] not committed, commit it.", txID)
 		// this is okay
 	default:
-		return errors.Errorf("invalid configtx's [%s] status [%d]", txid, vc)
+		return errors.Errorf("invalid configtx's [%s] status [%d]", txID, vc)
 	}
 
 	var bundle *channelconfig.Bundle
@@ -314,7 +314,7 @@ func (c *Service) CommitConfig(blockNumber uint64, raw []byte, env *common.Envel
 		}
 	}
 
-	if err := c.commitConfig(txid, blockNumber, ctx.Config.Sequence, raw); err != nil {
+	if err := c.commitConfig(txID, blockNumber, ctx.Config.Sequence, raw); err != nil {
 		return errors.Wrapf(err, "failed committing configtx to the vault")
 	}
 
@@ -390,15 +390,15 @@ func (c *Service) IsFinal(ctx context.Context, txID string) error {
 			if logger.IsEnabledFor(zapcore.DebugLevel) {
 				logger.Debugf("Tx [%s] is unknown with no deps, remote check [%d][%s]", txID, iter, debug.Stack())
 			}
-			peer := c.ConfigService.PickPeer(driver.PeerForFinality).Address
-			err := c.FabricFinality.IsFinal(txID, peer)
+			peerForFinality := c.ConfigService.PickPeer(driver.PeerForFinality).Address
+			err := c.FabricFinality.IsFinal(txID, peerForFinality)
 			if err == nil {
-				logger.Debugf("Tx [%s] is final, remote check on [%s]", txID, peer)
+				logger.Debugf("Tx [%s] is final, remote check on [%s]", txID, peerForFinality)
 				return nil
 			}
 
 			if vd, _, err2 := c.Status(txID); err2 == nil && vd == driver.Unknown {
-				logger.Debugf("Tx [%s] is not final for remote [%s], return [%s], [%d][%s]", txID, peer, err, vd, err2)
+				logger.Debugf("Tx [%s] is not final for remote [%s], return [%s], [%d][%s]", txID, peerForFinality, err, vd, err2)
 				return err
 			}
 		default:
@@ -518,31 +518,31 @@ func (c *Service) ReloadConfigTransactions() error {
 	return nil
 }
 
-func (c *Service) addListener(txid string, ch chan TxEvent) {
+func (c *Service) addListener(txID string, ch chan TxEvent) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	ls, ok := c.listeners[txid]
+	ls, ok := c.listeners[txID]
 	if !ok {
 		ls = []chan TxEvent{}
-		c.listeners[txid] = ls
+		c.listeners[txID] = ls
 	}
 	ls = append(ls, ch)
-	c.listeners[txid] = ls
+	c.listeners[txID] = ls
 }
 
-func (c *Service) deleteListener(txid string, ch chan TxEvent) {
+func (c *Service) deleteListener(txID string, ch chan TxEvent) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	ls, ok := c.listeners[txid]
+	ls, ok := c.listeners[txID]
 	if !ok {
 		return
 	}
 	for i, l := range ls {
 		if l == ch {
 			ls = append(ls[:i], ls[i+1:]...)
-			c.listeners[txid] = ls
+			c.listeners[txID] = ls
 			return
 		}
 	}
@@ -570,18 +570,18 @@ func (c *Service) notifyChaincodeListeners(event *ChaincodeEvent) {
 	c.EventsPublisher.Publish(event)
 }
 
-func (c *Service) listenTo(ctx context.Context, txid string, timeout time.Duration) error {
+func (c *Service) listenTo(ctx context.Context, txID string, timeout time.Duration) error {
 	c.Tracer.Start("committer-listenTo-start")
 
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("Listen to finality of [%s]", txid)
+		logger.Debugf("Listen to finality of [%s]", txID)
 	}
 
 	// notice that adding the listener can happen after the event we are looking for has already happened
 	// therefore we need to check more often before the timeout happens
 	ch := make(chan TxEvent, 100)
-	c.addListener(txid, ch)
-	defer c.deleteListener(txid, ch)
+	c.addListener(txID, ch)
+	defer c.deleteListener(txID, ch)
 
 	iterations := int(timeout.Milliseconds() / c.pollingTimeout.Milliseconds())
 	if iterations == 0 {
@@ -597,32 +597,32 @@ func (c *Service) listenTo(ctx context.Context, txid string, timeout time.Durati
 			stop = true
 		case event := <-ch:
 			if logger.IsEnabledFor(zapcore.DebugLevel) {
-				logger.Debugf("Got an answer to finality of [%s]: [%s]", txid, event.Err)
+				logger.Debugf("Got an answer to finality of [%s]: [%s]", txID, event.Err)
 			}
 			timeout.Stop()
 			return event.Err
 		case <-timeout.C:
 			timeout.Stop()
 			if logger.IsEnabledFor(zapcore.DebugLevel) {
-				logger.Debugf("Got a timeout for finality of [%s], check the status", txid)
+				logger.Debugf("Got a timeout for finality of [%s], check the status", txID)
 			}
-			vd, _, err := c.Status(txid)
+			vd, _, err := c.Status(txID)
 			if err == nil {
 				switch vd {
 				case driver.Valid:
 					if logger.IsEnabledFor(zapcore.DebugLevel) {
-						logger.Debugf("Listen to finality of [%s]. VALID", txid)
+						logger.Debugf("Listen to finality of [%s]. VALID", txID)
 					}
 					return nil
 				case driver.Invalid:
 					if logger.IsEnabledFor(zapcore.DebugLevel) {
-						logger.Debugf("Listen to finality of [%s]. NOT VALID", txid)
+						logger.Debugf("Listen to finality of [%s]. NOT VALID", txID)
 					}
-					return errors.Errorf("transaction [%s] is not valid", txid)
+					return errors.Errorf("transaction [%s] is not valid", txID)
 				}
 			}
 			if logger.IsEnabledFor(zapcore.DebugLevel) {
-				logger.Debugf("Is [%s] final? not available yet, wait [err:%s, vc:%d]", txid, err, vd)
+				logger.Debugf("Is [%s] final? not available yet, wait [err:%s, vc:%d]", txID, err, vd)
 			}
 		}
 		if stop {
@@ -630,10 +630,10 @@ func (c *Service) listenTo(ctx context.Context, txid string, timeout time.Durati
 		}
 	}
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("Is [%s] final? Failed to listen to transaction for timeout", txid)
+		logger.Debugf("Is [%s] final? Failed to listen to transaction for timeout", txID)
 	}
 	c.Tracer.End("committer-listenTo-end")
-	return errors.Errorf("failed to listen to transaction [%s] for timeout", txid)
+	return errors.Errorf("failed to listen to transaction [%s] for timeout", txID)
 }
 
 func (c *Service) commitConfig(txID string, blockNumber uint64, seq uint64, envelope []byte) error {

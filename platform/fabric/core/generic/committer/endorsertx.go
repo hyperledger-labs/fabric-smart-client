@@ -27,16 +27,16 @@ func (c *Service) HandleEndorserTransaction(block *common.Block, i int, event *T
 
 	txID := chHdr.TxId
 	event.TxID = txID
-	event.ValidationCode = pb.TxValidationCode(ValidationFlags(block.Metadata.Metadata[common.BlockMetadataIndex_TRANSACTIONS_FILTER])[i])
+	event.ValidationCode = int(ValidationFlags(block.Metadata.Metadata[common.BlockMetadataIndex_TRANSACTIONS_FILTER])[i])
 	event.ValidationMessage = pb.TxValidationCode_name[int32(event.ValidationCode)]
 
-	switch event.ValidationCode {
+	switch pb.TxValidationCode(event.ValidationCode) {
 	case pb.TxValidationCode_VALID:
 		processed, err := c.CommitEndorserTransaction(txID, block, i, env, event)
 		if err != nil {
 			if errors2.HasCause(err, ErrDiscardTX) {
 				// in this case, we will discard the transaction
-				event.ValidationCode = pb.TxValidationCode_INVALID_OTHER_REASON
+				event.ValidationCode = int(pb.TxValidationCode_INVALID_OTHER_REASON)
 				event.ValidationMessage = err.Error()
 				break
 			}
