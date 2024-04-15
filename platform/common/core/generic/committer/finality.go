@@ -21,7 +21,7 @@ const checkVaultFrequency = 1 * time.Second
 
 type TxID = string
 
-var logger = flogging.MustGetLogger("fabric-sdk.Committer")
+var logger = flogging.MustGetLogger("common-sdk.Committer")
 
 // FinalityEvent contains information about the finality of a given transaction
 type FinalityEvent[V comparable] struct {
