@@ -17,7 +17,13 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 )
 
-const checkVaultFrequency = 1 * time.Second
+const (
+	// How often to poll the vault for newly-committed transactions
+	checkVaultFrequency = 1 * time.Second
+	// Listeners that do not listen for a specific txID, but for all transactions
+	allListenersKey       = ""
+	defaultEventQueueSize = 1000
+)
 
 type TxID = string
 
@@ -48,21 +54,18 @@ type Vault[V comparable] interface {
 // The queue is fed by multiple sources.
 // A single thread reads from this queue and invokes the listeners in a blocking way
 type FinalityManager[V comparable] struct {
-	EventQueue chan FinalityEvent[V]
-	Vault      Vault[V]
-
-	statuses      utils.Set[V]
-	allListeners  []FinalityListener[V]
+	eventQueue    chan FinalityEvent[V]
+	vault         Vault[V]
+	postStatuses  utils.Set[V]
 	txIDListeners map[TxID][]FinalityListener[V]
 	mutex         sync.RWMutex
 }
 
-func NewFinalityManager[V comparable](vault Vault[V], size int, statuses ...V) *FinalityManager[V] {
+func NewFinalityManager[V comparable](vault Vault[V], statuses ...V) *FinalityManager[V] {
 	return &FinalityManager[V]{
-		EventQueue:    make(chan FinalityEvent[V], size),
-		Vault:         vault,
-		statuses:      utils.NewSet(statuses...),
-		allListeners:  []FinalityListener[V]{},
+		eventQueue:    make(chan FinalityEvent[V], defaultEventQueueSize),
+		vault:         vault,
+		postStatuses:  utils.NewSet(statuses...),
 		txIDListeners: map[string][]FinalityListener[V]{},
 	}
 }
@@ -71,60 +74,32 @@ func (c *FinalityManager[V]) AddListener(txID TxID, toAdd FinalityListener[V]) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	if len(txID) == 0 {
-		c.allListeners = append(c.allListeners, toAdd)
-	}
-
 	ls, ok := c.txIDListeners[txID]
 	if !ok {
 		ls = []FinalityListener[V]{}
 	}
-	ls = append(ls, toAdd)
-	c.txIDListeners[txID] = ls
+	c.txIDListeners[txID] = append(ls, toAdd)
 }
 
 func (c *FinalityManager[V]) RemoveListener(txID TxID, toRemove FinalityListener[V]) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	if len(txID) == 0 {
-		c.removeAllListener(toRemove)
-		return
-	}
-
-	ls, ok := c.txIDListeners[txID]
-	if !ok {
-		return
-	}
-	for i, l := range ls {
-		if l == toRemove {
-			ls = append(ls[:i], ls[i+1:]...)
-			c.txIDListeners[txID] = ls
-			if len(ls) == 0 {
-				delete(c.txIDListeners, txID)
-			}
-			return
-		}
-	}
-}
-
-func (c *FinalityManager[V]) removeAllListener(toRemove FinalityListener[V]) {
-	ls := c.allListeners
-	for i, l := range ls {
-		if l == toRemove {
-			c.allListeners = append(ls[:i], ls[i+1:]...)
-			return
+	if ls, ok := utils.Remove(c.txIDListeners[txID], toRemove); ok {
+		c.txIDListeners[txID] = ls
+		if len(ls) == 0 {
+			delete(c.txIDListeners, txID)
 		}
 	}
 }
 
 func (c *FinalityManager[V]) Post(event FinalityEvent[V]) {
-	c.EventQueue <- event
+	c.eventQueue <- event
 }
 
 func (c *FinalityManager[V]) Dispatch(event FinalityEvent[V]) {
-	l := c.cloneListeners(event.TxID)
-	for _, listener := range l {
+	listeners := c.cloneListeners(event.TxID)
+	for _, listener := range listeners {
 		c.invokeListener(listener, event.TxID, event.ValidationCode, event.ValidationMessage)
 	}
 }
@@ -148,7 +123,7 @@ func (c *FinalityManager[V]) runEventQueue(context context.Context) {
 		select {
 		case <-context.Done():
 			return
-		case event := <-c.EventQueue:
+		case event := <-c.eventQueue:
 			c.Dispatch(event)
 		}
 	}
@@ -162,7 +137,7 @@ func (c *FinalityManager[V]) runStatusListener(context context.Context) {
 		case <-context.Done():
 			return
 		case <-ticker.C:
-			statuses, err := c.Vault.Statuses(c.txIDs()...)
+			statuses, err := c.vault.Statuses(c.txIDs()...)
 			if err != nil {
 				logger.Errorf("error fetching statuses: %w", err)
 				continue
@@ -170,7 +145,7 @@ func (c *FinalityManager[V]) runStatusListener(context context.Context) {
 			for _, status := range statuses {
 				// check txID status, if it is valid or invalid, post an event
 				logger.Debugf("check tx [%s]'s status", status.TxID)
-				if c.statuses.Contains(status.ValidationCode) {
+				if c.postStatuses.Contains(status.ValidationCode) {
 					// post the event
 					c.Post(FinalityEvent[V]{
 						TxID:              status.TxID,
@@ -187,20 +162,20 @@ func (c *FinalityManager[V]) cloneListeners(txID TxID) []FinalityListener[V] {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
-	ls, ok := c.txIDListeners[txID]
-	if !ok {
-		return nil
-	}
-	clone := make([]FinalityListener[V], len(ls))
-	copy(clone, ls)
+	txListeners := c.txIDListeners[txID]
+	allListeners := c.txIDListeners[allListenersKey]
+	clone := make([]FinalityListener[V], len(txListeners)+len(allListeners))
+	copy(clone[:len(txListeners)], txListeners)
+	copy(clone[len(txListeners):], allListeners)
 	delete(c.txIDListeners, txID)
 
-	return append(clone, c.allListeners...)
+	return clone
 }
 
 func (c *FinalityManager[V]) txIDs() []TxID {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
-	return utils.Keys(c.txIDListeners)
+	keys, _ := utils.Remove(utils.Keys(c.txIDListeners), allListenersKey)
+	return keys
 }

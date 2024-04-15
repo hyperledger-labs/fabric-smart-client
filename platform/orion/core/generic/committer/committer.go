@@ -96,7 +96,7 @@ func New(
 		pm:                  pm,
 		em:                  em,
 		pollingTimeout:      100 * time.Millisecond,
-		EventManager:        committer2.NewFinalityManager[driver.ValidationCode](vault, 1000, driver.Valid, driver.Invalid),
+		EventManager:        committer2.NewFinalityManager[driver.ValidationCode](vault, driver.Valid, driver.Invalid),
 		eventsSubscriber:    eventsSubscriber,
 		eventsPublisher:     eventsPublisher,
 		subscribers:         events.NewSubscribers(),

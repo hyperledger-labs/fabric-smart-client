@@ -42,3 +42,15 @@ func Values[K comparable, V any](m map[K]V) []V {
 
 	return res
 }
+
+func Remove[T comparable](items []T, toRemove T) ([]T, bool) {
+	if items == nil {
+		return nil, false
+	}
+	for i, l := range items {
+		if l == toRemove {
+			return append(items[:i], items[i+1:]...), true
+		}
+	}
+	return items, false
+}

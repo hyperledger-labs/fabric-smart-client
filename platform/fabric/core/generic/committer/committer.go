@@ -122,7 +122,7 @@ func NewService(
 		ProcessorManager:    processorManager,
 		MembershipService:   channelMembershipService,
 		OrderingService:     orderingService,
-		EventManager:        committer.NewFinalityManager[driver.ValidationCode](vault, 1000, driver.Valid, driver.Invalid),
+		EventManager:        committer.NewFinalityManager[driver.ValidationCode](vault, driver.Valid, driver.Invalid),
 		EventsPublisher:     eventsPublisher,
 		FabricFinality:      fabricFinality,
 		WaitForEventTimeout: waitForEventTimeout,
