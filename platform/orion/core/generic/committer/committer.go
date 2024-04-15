@@ -13,6 +13,7 @@ import (
 	"time"
 
 	errors2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	committer2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/committer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
@@ -29,28 +30,24 @@ var (
 	ErrUnknownTX = errors.New("unknown tx")
 )
 
+type (
+	EventManager = committer2.FinalityManager[driver.ValidationCode]
+	TxEvent      = committer2.FinalityEvent[driver.ValidationCode]
+)
+
 type Finality interface {
 	IsFinal(txID string, address string) error
 }
 
 type Vault interface {
 	Status(txID string) (driver.ValidationCode, string, error)
+	Statuses(ids ...string) ([]driver.TxValidationStatus, error)
 	DiscardTx(txID string, message string) error
 	CommitTX(txid string, block uint64, indexInBloc int) error
 }
 
 type ProcessorManager interface {
 	ProcessByID(txid string) error
-}
-
-// TxEvent contains information for token transaction commit
-type TxEvent struct {
-	TxID              string
-	ValidationCode    types.Flag
-	ValidationMessage string
-	Block             uint64
-	IndexInBlock      int
-	Err               error
 }
 
 type committer struct {
@@ -99,7 +96,7 @@ func New(
 		pm:                  pm,
 		em:                  em,
 		pollingTimeout:      100 * time.Millisecond,
-		EventManager:        NewEventManager(vault, 1000),
+		EventManager:        committer2.NewFinalityManager[driver.ValidationCode](vault, 1000, driver.Valid, driver.Invalid),
 		eventsSubscriber:    eventsSubscriber,
 		eventsPublisher:     eventsPublisher,
 		subscribers:         events.NewSubscribers(),
@@ -117,16 +114,16 @@ func (c *committer) Commit(block *types.AugmentedBlockHeader) error {
 		event.TxID = txID
 		event.Block = bn
 		event.IndexInBlock = i
-		event.ValidationCode = block.Header.ValidationInfo[i].Flag
+		event.ValidationCode = driver.ValidationCode(block.Header.ValidationInfo[i].Flag)
 		event.ValidationMessage = block.Header.ValidationInfo[i].ReasonIfInvalid
 
 		discard := false
-		switch event.ValidationCode {
+		switch block.Header.ValidationInfo[i].Flag {
 		case types.Flag_VALID:
 			if err := c.CommitTX(txID, bn, i, &event); err != nil {
 				if errors2.HasCause(err, ErrDiscardTX) {
 					// in this case, we will discard the transaction
-					event.ValidationCode = types.Flag_INVALID_INCORRECT_ENTRIES
+					event.ValidationCode = driver.ValidationCode(types.Flag_INVALID_INCORRECT_ENTRIES)
 					event.ValidationMessage = err.Error()
 					discard = true
 				} else {
@@ -279,7 +276,7 @@ func (c *committer) RemoveFinalityListener(txID string, listener driver.Finality
 func (c *committer) postFinality(txID string, vc driver.ValidationCode, message string) {
 	c.EventManager.Post(TxEvent{
 		TxID:              txID,
-		ValidationCode:    types.Flag(vc),
+		ValidationCode:    vc,
 		ValidationMessage: message,
 	})
 }
@@ -318,7 +315,7 @@ func (c *committer) notifyFinality(event TxEvent) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	if event.ValidationCode == types.Flag_VALID {
+	if types.Flag(event.ValidationCode) == types.Flag_VALID {
 		c.postFinality(event.TxID, driver.Valid, "")
 	} else {
 		c.postFinality(event.TxID, driver.Invalid, event.ValidationMessage)

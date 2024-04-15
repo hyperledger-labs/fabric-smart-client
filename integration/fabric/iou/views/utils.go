@@ -6,7 +6,11 @@ SPDX-License-Identifier: Apache-2.0
 
 package views
 
-import "sync"
+import (
+	"sync"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+)
 
 type TxStatusChangeListener struct {
 	ExpectedTxID string
@@ -17,7 +21,7 @@ func NewTxStatusChangeListener(expectedTxID string, WG *sync.WaitGroup) *TxStatu
 	return &TxStatusChangeListener{ExpectedTxID: expectedTxID, WG: WG}
 }
 
-func (t *TxStatusChangeListener) OnStatus(txID string, status int, statusMessage string) {
+func (t *TxStatusChangeListener) OnStatus(txID string, _ driver.ValidationCode, _ string) {
 	if txID == t.ExpectedTxID {
 		t.WG.Done()
 	}

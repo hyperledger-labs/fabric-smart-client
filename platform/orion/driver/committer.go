@@ -31,7 +31,7 @@ func (t *TransactionStatusChanged) Message() interface{} {
 // FinalityListener is the interface that must be implemented to receive transaction status notifications
 type FinalityListener interface {
 	// OnStatus is called when the status of a transaction changes, or it is valid or invalid
-	OnStatus(txID string, status int, statusMessage string)
+	OnStatus(txID string, status ValidationCode, statusMessage string)
 }
 
 // Committer models the committer service

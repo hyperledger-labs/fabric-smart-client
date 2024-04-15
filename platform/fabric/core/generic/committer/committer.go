@@ -16,6 +16,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/compose"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/committer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/fabricutils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/membership"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/rwset"
@@ -47,6 +48,11 @@ var (
 	logger            = flogging.MustGetLogger("fabric-sdk.Committer")
 	// ErrDiscardTX this error can be used to signal that a valid transaction should be discarded anyway
 	ErrDiscardTX = errors.New("discard tx")
+)
+
+type (
+	FinalityEvent   = committer.FinalityEvent[driver.ValidationCode]
+	FinalityManager = committer.FinalityManager[driver.ValidationCode]
 )
 
 type FabricFinality interface {
@@ -116,7 +122,7 @@ func NewService(
 		ProcessorManager:    processorManager,
 		MembershipService:   channelMembershipService,
 		OrderingService:     orderingService,
-		EventManager:        NewFinalityManager(vault, 1000, []int{int(driver.Valid), int(driver.Invalid)}),
+		EventManager:        committer.NewFinalityManager[driver.ValidationCode](vault, 1000, driver.Valid, driver.Invalid),
 		EventsPublisher:     eventsPublisher,
 		FabricFinality:      fabricFinality,
 		WaitForEventTimeout: waitForEventTimeout,

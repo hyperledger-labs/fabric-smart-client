@@ -86,6 +86,22 @@ func (v *Vault) Status(txID string) (driver.ValidationCode, string, error) {
 	return driver.Unknown, message, nil
 }
 
+func (v *Vault) Statuses(ids ...string) ([]driver.TxValidationStatus, error) {
+	statuses := make([]driver.TxValidationStatus, len(ids))
+	for i, id := range ids {
+		vc, message, err := v.Status(id)
+		if err != nil {
+			return nil, err
+		}
+		statuses[i] = driver.TxValidationStatus{
+			TxID:           id,
+			ValidationCode: vc,
+			Message:        message,
+		}
+	}
+	return statuses, nil
+}
+
 func (v *Vault) DiscardTx(txID string, message string) error {
 	vc, _, err := v.Vault.Status(txID)
 	if err != nil {

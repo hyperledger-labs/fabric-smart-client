@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/pkg/errors"
 )
@@ -213,7 +214,7 @@ func (r *ResultsIterator) Close() {
 }
 
 type QueryExecutor struct {
-	qe fdriver.QueryExecutor
+	qe driver2.QueryExecutor
 }
 
 func (qe *QueryExecutor) GetState(namespace string, key string) ([]byte, error) {

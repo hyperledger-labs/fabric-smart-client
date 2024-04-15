@@ -13,8 +13,8 @@ import (
 
 // TxStatusChangeListener is the interface that must be implemented to receive transaction status change notifications
 type TxStatusChangeListener interface {
-	// OnStatusChange is called when the status of a transaction changes
-	OnStatus(txID string, status int, statusMessage string)
+	// OnStatus is called when the status of a transaction changes
+	OnStatus(txID string, status driver.ValidationCode, statusMessage string)
 }
 
 type Committer struct {

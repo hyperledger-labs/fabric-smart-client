@@ -8,6 +8,7 @@ package driver
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/pkg/errors"
 )
 
@@ -24,28 +25,9 @@ type ResultsIterator interface {
 	Close()
 }
 
-type VersionedRead struct {
-	Key          string
-	Raw          []byte
-	Block        uint64
-	IndexInBlock int
-}
+type VersionedRead = driver.VersionedRead
 
-func (v *VersionedRead) K() string {
-	return v.Key
-}
-
-func (v *VersionedRead) V() []byte {
-	return v.Raw
-}
-
-type VersionedResultsIterator interface {
-	// Next returns the next item in the result set. The `QueryResult` is expected to be nil when
-	// the iterator gets exhausted
-	Next() (*VersionedRead, error)
-	// Close releases resources occupied by the iterator
-	Close()
-}
+type VersionedResultsIterator = driver.VersionedResultsIterator
 
 type WriteTransaction interface {
 	// SetState sets the given value for the given namespace, key, and version

@@ -6,14 +6,19 @@ SPDX-License-Identifier: Apache-2.0
 
 package driver
 
+import "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
+
+const (
+	FromStorage      = driver.FromStorage
+	FromIntermediate = driver.FromIntermediate
+	FromBoth         = driver.FromBoth
+)
+
+type TxValidationStatus = driver.TxValidationStatus[ValidationCode]
+
 // Vault models a key value store that can be updated by committing rwsets
 type Vault interface {
-	GetLastTxID() (string, error)
-	NewQueryExecutor() (QueryExecutor, error)
-	NewRWSet(txid string) (RWSet, error)
-	GetRWSet(id string, results []byte) (RWSet, error)
-	Status(txID string) (ValidationCode, string, error)
-	DiscardTx(txID string, message string) error
-	CommitTX(txid string, block uint64, indexInBloc int) error
+	driver.Vault[ValidationCode]
 	AddStatusReporter(sr StatusReporter) error
+	GetLastTxID() (string, error)
 }

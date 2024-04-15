@@ -12,6 +12,7 @@ import (
 
 	errors2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
@@ -60,7 +61,7 @@ func New(store driver.VersionedPersistence, txIDStore TXIDStore) *Vault {
 	}
 }
 
-func (db *Vault) NewQueryExecutor() (fdriver.QueryExecutor, error) {
+func (db *Vault) NewQueryExecutor() (driver2.QueryExecutor, error) {
 	logger.Debugf("getting lock for query executor")
 	db.Counter.Inc()
 	db.StoreLock.RLock()
