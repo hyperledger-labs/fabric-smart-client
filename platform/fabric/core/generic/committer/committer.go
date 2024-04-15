@@ -790,19 +790,33 @@ func (c *Service) applyBundle(bundle *channelconfig.Bundle) error {
 
 	// update the list of orderers
 	ordererConfig, exists := c.MembershipService.ChannelResources.OrdererConfig()
-	if exists {
-		logger.Debugf("[Channel: %s] Orderer config has changed, updating the list of orderers", c.ChannelConfig.ID())
+	if !exists {
+		logger.Infof("no orderer configuration found in Channel config")
+		return nil
+	}
+	logger.Debugf("[Channel: %s] Orderer config has changed, updating the list of orderers", c.ChannelConfig.ID())
 
-		var newOrderers []*grpc.ConnectionConfig
-		orgs := ordererConfig.Organizations()
-		for _, org := range orgs {
-			msp := org.MSP()
-			var tlsRootCerts [][]byte
-			tlsRootCerts = append(tlsRootCerts, msp.GetTLSRootCerts()...)
-			tlsRootCerts = append(tlsRootCerts, msp.GetTLSIntermediateCerts()...)
-			for _, endpoint := range org.Endpoints() {
-				logger.Debugf("[Channel: %s] Adding orderer endpoint: [%s:%s:%s]", c.ChannelConfig.ID(), org.Name(), org.MSPID(), endpoint)
-				// TODO: load from configuration
+	var newOrderers []*grpc.ConnectionConfig
+	orgs := ordererConfig.Organizations()
+	for _, org := range orgs {
+		msp := org.MSP()
+		var tlsRootCerts [][]byte
+		tlsRootCerts = append(tlsRootCerts, msp.GetTLSRootCerts()...)
+		tlsRootCerts = append(tlsRootCerts, msp.GetTLSIntermediateCerts()...)
+		for _, endpoint := range org.Endpoints() {
+			logger.Debugf("[Channel: %s] Adding orderer endpoint: [%s:%s:%s]", c.ChannelConfig.ID(), org.Name(), org.MSPID(), endpoint)
+			// TODO: load from configuration
+			newOrderers = append(newOrderers, &grpc.ConnectionConfig{
+				Address:           endpoint,
+				ConnectionTimeout: 10 * time.Second,
+				TLSEnabled:        true,
+				TLSRootCertBytes:  tlsRootCerts,
+			})
+		}
+		// If the Orderer MSP config omits the Endpoints and there is only one orderer org, we try to get the addresses from another key in the channel config.
+		if len(newOrderers) == 0 && len(orgs) == 1 {
+			for _, endpoint := range bundle.ChannelConfig().OrdererAddresses() {
+				logger.Debugf("[Channel: %s] Adding orderer address [%s:%s:%s]", c.ChannelConfig.ID(), org.Name(), org.MSPID(), endpoint)
 				newOrderers = append(newOrderers, &grpc.ConnectionConfig{
 					Address:           endpoint,
 					ConnectionTimeout: 10 * time.Second,
@@ -811,17 +825,12 @@ func (c *Service) applyBundle(bundle *channelconfig.Bundle) error {
 				})
 			}
 		}
-		if len(newOrderers) != 0 {
-			logger.Debugf("[Channel: %s] Updating the list of orderers: (%d) found", c.ChannelConfig.ID(), len(newOrderers))
-			if err := c.OrderingService.SetConfigOrderers(ordererConfig, newOrderers); err != nil {
-				return err
-			}
-		} else {
-			logger.Debugf("[Channel: %s] No orderers found in Channel config", c.ChannelConfig.ID())
-		}
-	} else {
-		logger.Debugf("no orderer configuration found in Channel config")
 	}
+	if len(newOrderers) != 0 {
+		logger.Debugf("[Channel: %s] Updating the list of orderers: (%d) found", c.ChannelConfig.ID(), len(newOrderers))
+		return c.OrderingService.SetConfigOrderers(ordererConfig, newOrderers)
+	}
+	logger.Infof("[Channel: %s] No orderers found in Channel config", c.ChannelConfig.ID())
 
 	return nil
 }
