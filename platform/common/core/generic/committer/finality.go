@@ -12,8 +12,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 )
 
@@ -25,13 +26,11 @@ const (
 	defaultEventQueueSize = 1000
 )
 
-type TxID = string
-
 var logger = flogging.MustGetLogger("common-sdk.Committer")
 
 // FinalityEvent contains information about the finality of a given transaction
 type FinalityEvent[V comparable] struct {
-	TxID              TxID
+	TxID              core.TxID
 	ValidationCode    V
 	ValidationMessage string
 	Block             uint64
@@ -42,7 +41,7 @@ type FinalityEvent[V comparable] struct {
 // FinalityListener is the interface that must be implemented to receive transaction status notifications
 type FinalityListener[V comparable] interface {
 	// OnStatus is called when the status of a transaction changes, or it is valid or invalid
-	OnStatus(txID TxID, status V, statusMessage string)
+	OnStatus(txID core.TxID, status V, statusMessage string)
 }
 
 type Vault[V comparable] interface {
@@ -57,7 +56,7 @@ type FinalityManager[V comparable] struct {
 	eventQueue    chan FinalityEvent[V]
 	vault         Vault[V]
 	postStatuses  utils.Set[V]
-	txIDListeners map[TxID][]FinalityListener[V]
+	txIDListeners map[core.TxID][]FinalityListener[V]
 	mutex         sync.RWMutex
 }
 
@@ -70,7 +69,7 @@ func NewFinalityManager[V comparable](vault Vault[V], statuses ...V) *FinalityMa
 	}
 }
 
-func (c *FinalityManager[V]) AddListener(txID TxID, toAdd FinalityListener[V]) {
+func (c *FinalityManager[V]) AddListener(txID core.TxID, toAdd FinalityListener[V]) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
@@ -81,7 +80,7 @@ func (c *FinalityManager[V]) AddListener(txID TxID, toAdd FinalityListener[V]) {
 	c.txIDListeners[txID] = append(ls, toAdd)
 }
 
-func (c *FinalityManager[V]) RemoveListener(txID TxID, toRemove FinalityListener[V]) {
+func (c *FinalityManager[V]) RemoveListener(txID core.TxID, toRemove FinalityListener[V]) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
@@ -109,7 +108,7 @@ func (c *FinalityManager[V]) Run(context context.Context) {
 	go c.runStatusListener(context)
 }
 
-func (c *FinalityManager[V]) invokeListener(l FinalityListener[V], txID TxID, status V, statusMessage string) {
+func (c *FinalityManager[V]) invokeListener(l FinalityListener[V], txID core.TxID, status V, statusMessage string) {
 	defer func() {
 		if r := recover(); r != nil {
 			logger.Errorf("caught panic while running dispatching event [%s:%d:%s]: [%s][%s]", txID, status, statusMessage, r, debug.Stack())
@@ -158,7 +157,7 @@ func (c *FinalityManager[V]) runStatusListener(context context.Context) {
 	}
 }
 
-func (c *FinalityManager[V]) cloneListeners(txID TxID) []FinalityListener[V] {
+func (c *FinalityManager[V]) cloneListeners(txID core.TxID) []FinalityListener[V] {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
@@ -172,7 +171,7 @@ func (c *FinalityManager[V]) cloneListeners(txID TxID) []FinalityListener[V] {
 	return clone
 }
 
-func (c *FinalityManager[V]) txIDs() []TxID {
+func (c *FinalityManager[V]) txIDs() []core.TxID {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
