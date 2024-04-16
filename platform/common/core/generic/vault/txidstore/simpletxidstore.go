@@ -11,6 +11,7 @@ import (
 	"math"
 
 	errors2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
@@ -65,7 +66,7 @@ func NewSimpleTXIDStore[V vault.ValidationCode](persistence driver.Persistence, 
 	}, nil
 }
 
-func (s *SimpleTXIDStore[V]) get(txID string) (*ByTxid, error) {
+func (s *SimpleTXIDStore[V]) get(txID core.TxID) (*ByTxid, error) {
 	bytes, err := s.persistence.GetState(txidNamespace, keyByTxID(txID))
 	if err != nil {
 		return nil, errors.Errorf("error retrieving txid %s [%s]", txID, err.Error())
@@ -84,7 +85,7 @@ func (s *SimpleTXIDStore[V]) get(txID string) (*ByTxid, error) {
 	return bt, nil
 }
 
-func (s *SimpleTXIDStore[V]) Get(txID string) (V, string, error) {
+func (s *SimpleTXIDStore[V]) Get(txID core.TxID) (V, string, error) {
 	bt, err := s.get(txID)
 	if err != nil {
 		return s.vcProvider.Unknown(), "", err
@@ -97,7 +98,7 @@ func (s *SimpleTXIDStore[V]) Get(txID string) (V, string, error) {
 	return s.vcProvider.FromInt32(bt.Code), bt.Message, nil
 }
 
-func (s *SimpleTXIDStore[V]) Set(txID string, code V, message string) error {
+func (s *SimpleTXIDStore[V]) Set(txID core.TxID, code V, message string) error {
 	// NOTE: we assume that the commit is in progress so no need to update/commit
 	// err := s.persistence.BeginUpdate()
 	// if err != nil {
@@ -161,7 +162,7 @@ func (s *SimpleTXIDStore[V]) Set(txID string, code V, message string) error {
 	return nil
 }
 
-func (s *SimpleTXIDStore[V]) GetLastTxID() (string, error) {
+func (s *SimpleTXIDStore[V]) GetLastTxID() (core.TxID, error) {
 	v, err := s.persistence.GetState(txidNamespace, lastTX)
 	if err != nil {
 		return "", errors.Wrapf(err, "failed to get last TxID")
@@ -248,12 +249,6 @@ func (i *SimpleTxIDIterator) Next() (*ByNum, error) {
 		return nil, err
 	}
 	return bn, err
-
-	//return &vault.ByNum[V]{
-	//	TxID:    bn.Txid,
-	//	Code:    fdriver.ValidationCode(bn.Code),
-	//	Message: bn.Message,
-	//}, nil
 }
 
 func (i *SimpleTxIDIterator) Close() {
@@ -267,7 +262,7 @@ func keyByCtr(ctr uint64) string {
 	return byCtrPrefix + string(ctrBytes[:])
 }
 
-func keyByTxID(txID string) string {
+func keyByTxID(txID core.TxID) string {
 	return byTxidPrefix + txID
 }
 

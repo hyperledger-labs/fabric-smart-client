@@ -6,6 +6,8 @@ SPDX-License-Identifier: Apache-2.0
 
 package vault
 
+import "github.com/hyperledger-labs/fabric-smart-client/platform/common/core"
+
 type ValidationCode interface {
 	comparable
 }
@@ -22,15 +24,15 @@ type SeekStart struct{}
 type SeekEnd struct{}
 
 type SeekPos struct {
-	Txid string
+	Txid core.TxID
 }
 
 type SeekSet struct {
-	TxIDs []string
+	TxIDs []core.TxID
 }
 
 type ByNum[V comparable] struct {
-	TxID    string
+	TxID    core.TxID
 	Code    V
 	Message string
 }
@@ -41,6 +43,6 @@ type TxIDIterator[V comparable] interface {
 }
 
 type TXIDStore[V comparable] interface {
-	GetLastTxID() (string, error)
+	GetLastTxID() (core.TxID, error)
 	Iterator(pos interface{}) (TxIDIterator[V], error)
 }
