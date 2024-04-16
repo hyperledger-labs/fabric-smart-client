@@ -11,8 +11,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 )
 
-// TxStatusChangeListener is the interface that must be implemented to receive transaction status change notifications
-type TxStatusChangeListener interface {
+// FinalityListener is the interface that must be implemented to receive transaction status notifications
+type FinalityListener interface {
 	// OnStatus is called when the status of a transaction changes
 	OnStatus(txID string, status driver.ValidationCode, statusMessage string)
 }
@@ -47,11 +47,11 @@ func (c *Committer) AddStatusReporter(sr driver.StatusReporter) error {
 // When the listener is invoked, then it is also removed.
 // If the transaction id is empty, the listener will be called on status changes of any transaction.
 // In this case, the listener is not removed
-func (c *Committer) AddFinalityListener(txID string, listener TxStatusChangeListener) error {
+func (c *Committer) AddFinalityListener(txID string, listener FinalityListener) error {
 	return c.committer.AddFinalityListener(txID, listener)
 }
 
 // RemoveFinalityListener unregisters the passed listener.
-func (c *Committer) RemoveFinalityListener(txID string, listener TxStatusChangeListener) error {
+func (c *Committer) RemoveFinalityListener(txID string, listener FinalityListener) error {
 	return c.committer.RemoveFinalityListener(txID, listener)
 }
