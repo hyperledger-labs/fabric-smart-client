@@ -12,7 +12,7 @@ func HasCause(source, target error) bool {
 	if source == nil || target == nil {
 		return false
 	}
-	if errors.Is(source, target) {
+	if source == target {
 		return true
 	}
 	cause := errors.Cause(source)
