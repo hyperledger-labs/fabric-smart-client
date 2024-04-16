@@ -10,9 +10,9 @@ import (
 	"bytes"
 	"sync"
 
+	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	errors2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	odriver "github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"

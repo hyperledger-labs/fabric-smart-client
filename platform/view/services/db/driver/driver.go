@@ -7,8 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package driver
 
 import (
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/pkg/errors"
 )
 
@@ -74,6 +74,8 @@ type VersionedPersistence interface {
 	// can be supplied as empty strings. However, a full scan should be used judiciously for performance reasons.
 	// The returned VersionedResultsIterator contains results of type *VersionedRead.
 	GetStateRangeScanIterator(namespace string, startKey string, endKey string) (VersionedResultsIterator, error)
+	// GetStateSetIterator returns an iterator that contains all the values for the passed keys.
+	// The order is not respected.
 	GetStateSetIterator(ns string, keys ...string) (VersionedResultsIterator, error)
 	// Close closes this persistence instance
 	Close() error
@@ -99,6 +101,8 @@ type Persistence interface {
 	// can be supplied as empty strings. However, a full scan should be used judiciously for performance reasons.
 	// The returned ResultsIterator contains results of type *Read.
 	GetStateRangeScanIterator(namespace string, startKey string, endKey string) (ResultsIterator, error)
+	// GetStateSetIterator returns an iterator that contains all the values for the passed keys.
+	// The order is not respected.
 	GetStateSetIterator(ns string, keys ...string) (ResultsIterator, error)
 	// Close closes this persistence instance
 	Close() error

@@ -13,7 +13,7 @@ import (
 )
 
 // ValidationCode of transaction
-type ValidationCode int
+type ValidationCode = int
 
 const (
 	_       ValidationCode = iota
@@ -88,6 +88,6 @@ type Committer interface {
 	// In this case, the listener is not removed
 	AddFinalityListener(txID string, listener FinalityListener) error
 
-	// RemoveFinalityStatus unregisters the passed listener.
-	RemoveFinalityStatus(txID string, listener FinalityListener) error
+	// RemoveFinalityListener unregisters the passed listener.
+	RemoveFinalityListener(txID string, listener FinalityListener) error
 }

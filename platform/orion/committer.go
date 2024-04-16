@@ -11,11 +11,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 )
 
-// TxStatusChangeListener is the interface that must be implemented to receive transaction status change notifications
-type TxStatusChangeListener interface {
-	// OnStatusChange is called when the status of a transaction changes
-	OnStatus(txID string, status driver.ValidationCode, statusMessage string)
-}
+// FinalityListener is the interface that must be implemented to receive transaction status change notifications
+type FinalityListener = driver.FinalityListener
 
 // Committer models the committer service
 type Committer struct {
@@ -27,14 +24,16 @@ func NewCommitter(c driver.Committer) *Committer {
 	return &Committer{c: c, subscribers: events.NewSubscribers()}
 }
 
-// SubscribeTxStatusChanges registers a listener for transaction status changes for the passed transaction id.
-// If the transaction id is empty, the listener will be called for all transactions.
-func (c *Committer) SubscribeTxStatusChanges(txID string, listener TxStatusChangeListener) error {
+// AddFinalityListener registers a listener for transaction status for the passed transaction id.
+// If the status is already valid or invalid, the listener is called immediately.
+// When the listener is invoked, then it is also removed.
+// If the transaction id is empty, the listener will be called on status changes of any transaction.
+// In this case, the listener is not removed
+func (c *Committer) AddFinalityListener(txID string, listener FinalityListener) error {
 	return c.c.AddFinalityListener(txID, listener)
 }
 
-// UnsubscribeTxStatusChanges unregisters a listener for transaction status changes for the passed transaction id.
-// If the transaction id is empty, the listener will be called for all transactions.
-func (c *Committer) UnsubscribeTxStatusChanges(txID string, listener TxStatusChangeListener) error {
+// RemoveFinalityListener unregisters the passed listener.
+func (c *Committer) RemoveFinalityListener(txID string, listener FinalityListener) error {
 	return c.c.RemoveFinalityListener(txID, listener)
 }

@@ -171,7 +171,7 @@ func (s *SimpleTXIDStore) GetLastTxID() (string, error) {
 	return string(v), nil
 }
 
-func (s *SimpleTXIDStore) Iterator(pos interface{}) (fdriver.TxidIterator, error) {
+func (s *SimpleTXIDStore) Iterator(pos interface{}) (fdriver.TxIDIterator, error) {
 	if ppos, ok := pos.(fdriver.SeekSet); ok {
 		it, err := s.persistence.GetStateSetIterator(txidNamespace, ppos.TxIDs...)
 		if err != nil {

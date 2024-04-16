@@ -11,11 +11,10 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/keys"
-	"go.uber.org/zap/zapcore"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/keys"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	"go.uber.org/zap/zapcore"
 )
 
 var logger = flogging.MustGetLogger("view-sdk")

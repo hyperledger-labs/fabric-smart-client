@@ -14,9 +14,15 @@ const (
 	FromBoth
 )
 
+// RWSet models a namespaced versioned read-write set
 type RWSet interface {
+	// IsValid returns true if this rwset is valid.
+	// A rwset is valid if:
+	// 1. It exists in the vault as valid
+	// 2. All the read dependencies are satisfied by the vault
 	IsValid() error
 
+	// Clear remove the passed namespace from this rwset
 	Clear(ns string) error
 
 	// SetState sets the given value for the given namespace and key.
