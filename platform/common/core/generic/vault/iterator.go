@@ -13,10 +13,12 @@ type ValidationCode interface {
 }
 
 type ValidationCodeProvider[V ValidationCode] interface {
-	IsValid(V) bool
 	ToInt32(V) int32
 	FromInt32(int32) V
 	Unknown() V
+	Busy() V
+	Valid() V
+	Invalid() V
 }
 
 type SeekStart struct{}
@@ -40,9 +42,4 @@ type ByNum[V comparable] struct {
 type TxIDIterator[V comparable] interface {
 	Next() (*ByNum[V], error)
 	Close()
-}
-
-type TXIDStore[V comparable] interface {
-	GetLastTxID() (core.TxID, error)
-	Iterator(pos interface{}) (TxIDIterator[V], error)
 }

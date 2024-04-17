@@ -14,58 +14,70 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/keys"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
-	"github.com/hyperledger-labs/orion-server/pkg/types"
+	"github.com/hyperledger/fabric-protos-go/ledger/rwset"
+	"github.com/hyperledger/fabric/core/ledger/kvledger/txmgmt/rwsetutil"
 	"github.com/pkg/errors"
 )
 
-type readWriteSet struct {
-	readSet
-	writeSet
-	metaWriteSet
+type ReadWriteSet struct {
+	ReadSet
+	WriteSet
+	MetaWriteSet
 }
 
-func (rws *readWriteSet) populate(rwsetBytes []byte, txid string) error {
-	txRWSet := &types.DataTx{}
+func (rws *ReadWriteSet) populate(rwsetBytes []byte, txid string, namespaces ...string) error {
+	txRWSet := &rwset.TxReadWriteSet{}
 	err := proto.Unmarshal(rwsetBytes, txRWSet)
 	if err != nil {
 		return errors.Wrapf(err, "provided invalid read-write set bytes for txid %s, unmarshal failed", txid)
 	}
 
-	for _, operation := range txRWSet.DbOperations {
+	rwsIn, err := rwsetutil.TxRwSetFromProtoMsg(txRWSet)
+	if err != nil {
+		return errors.Wrapf(err, "provided invalid read-write set bytes for txid %s, TxRwSetFromProtoMsg failed", txid)
+	}
 
-		for _, read := range operation.DataReads {
+	for _, nsrws := range rwsIn.NsRwSets {
+		ns := nsrws.NameSpace
+
+		// skip if not in the list of namespaces
+		if len(namespaces) > 0 {
+			notFound := true
+			for _, s := range namespaces {
+				if s == ns {
+					notFound = false
+					break
+				}
+			}
+			if notFound {
+				continue
+			}
+		}
+
+		for _, read := range nsrws.KvRwSet.Reads {
 			bn := uint64(0)
 			txn := uint64(0)
 			if read.Version != nil {
 				bn = read.Version.BlockNum
 				txn = read.Version.TxNum
 			}
-			rws.readSet.add(
-				operation.DbName,
-				read.Key,
-				bn,
-				txn,
-			)
+			rws.ReadSet.add(ns, read.Key, bn, txn)
 		}
 
-		for _, write := range operation.DataWrites {
-			if err := rws.writeSet.add(
-				operation.DbName,
-				write.Key,
-				write.Value,
-			); err != nil {
-				return errors.Wrapf(err, "failed to add write to read-write set for txid %s", txid)
+		for _, write := range nsrws.KvRwSet.Writes {
+			if err := rws.WriteSet.add(ns, write.Key, write.Value); err != nil {
+				return err
 			}
-			// TODO: What about write.ACL? Shall we store it as metadata?
 		}
 
-		for _, del := range operation.DataDeletes {
-			if err := rws.writeSet.add(
-				operation.DbName,
-				del.Key,
-				nil,
-			); err != nil {
-				return errors.Wrapf(err, "failed to add delete to read-write set for txid %s", txid)
+		for _, metaWrite := range nsrws.KvRwSet.MetadataWrites {
+			metadata := map[string][]byte{}
+			for _, entry := range metaWrite.Entries {
+				metadata[entry.Name] = append([]byte(nil), entry.Value...)
+			}
+
+			if err := rws.MetaWriteSet.add(ns, metaWrite.Key, metadata); err != nil {
+				return err
 			}
 		}
 	}
@@ -73,9 +85,9 @@ func (rws *readWriteSet) populate(rwsetBytes []byte, txid string) error {
 	return nil
 }
 
-type metaWrites map[string][]byte
+type MetaWrites map[string][]byte
 
-func (r metaWrites) Equals(o metaWrites) error {
+func (r MetaWrites) Equals(o MetaWrites) error {
 	if len(r) != len(o) {
 		return errors.Errorf("number of meta writes do not match [%v]!=[%v]", len(r), len(o))
 	}
@@ -93,9 +105,9 @@ func (r metaWrites) Equals(o metaWrites) error {
 	return nil
 }
 
-type keyedMetaWrites map[string]metaWrites
+type KeyedMetaWrites map[string]MetaWrites
 
-func (r keyedMetaWrites) Equals(o keyedMetaWrites) error {
+func (r KeyedMetaWrites) Equals(o KeyedMetaWrites) error {
 	rKeys := r.keys()
 	sort.Strings(rKeys)
 	oKeys := o.keys()
@@ -113,7 +125,7 @@ func (r keyedMetaWrites) Equals(o keyedMetaWrites) error {
 	return nil
 }
 
-func (r keyedMetaWrites) keys() []string {
+func (r KeyedMetaWrites) keys() []string {
 	var res []string
 	for k := range r {
 		res = append(res, k)
@@ -121,9 +133,9 @@ func (r keyedMetaWrites) keys() []string {
 	return res
 }
 
-type namespaceKeyedMetaWrites map[string]keyedMetaWrites
+type NamespaceKeyedMetaWrites map[string]KeyedMetaWrites
 
-func (r namespaceKeyedMetaWrites) equals(o namespaceKeyedMetaWrites, nss ...string) error {
+func (r NamespaceKeyedMetaWrites) equals(o NamespaceKeyedMetaWrites, nss ...string) error {
 	rKeys := r.keys(nss...)
 	sort.Strings(rKeys)
 	oKeys := o.keys(nss...)
@@ -142,7 +154,7 @@ func (r namespaceKeyedMetaWrites) equals(o namespaceKeyedMetaWrites, nss ...stri
 	return nil
 }
 
-func (r namespaceKeyedMetaWrites) keys(nss ...string) []string {
+func (r NamespaceKeyedMetaWrites) keys(nss ...string) []string {
 	var res []string
 	for k := range r {
 		if len(nss) == 0 {
@@ -160,19 +172,19 @@ func (r namespaceKeyedMetaWrites) keys(nss ...string) []string {
 	return res
 }
 
-type metaWriteSet struct {
-	metawrites namespaceKeyedMetaWrites
+type MetaWriteSet struct {
+	MetaWrites NamespaceKeyedMetaWrites
 }
 
-func (w *metaWriteSet) add(ns, key string, meta map[string][]byte) error {
+func (w *MetaWriteSet) add(ns, key string, meta map[string][]byte) error {
 	if err := keys.ValidateNs(ns); err != nil {
 		return err
 	}
 
-	nsMap, in := w.metawrites[ns]
+	nsMap, in := w.MetaWrites[ns]
 	if !in {
-		nsMap = keyedMetaWrites{}
-		w.metawrites[ns] = nsMap
+		nsMap = KeyedMetaWrites{}
+		w.MetaWrites[ns] = nsMap
 	}
 
 	metadata := map[string][]byte{}
@@ -185,17 +197,22 @@ func (w *metaWriteSet) add(ns, key string, meta map[string][]byte) error {
 	return nil
 }
 
-func (w *metaWriteSet) get(ns, key string) map[string][]byte {
-	return w.metawrites[ns][key]
+func (w *MetaWriteSet) get(ns, key string) map[string][]byte {
+	return w.MetaWrites[ns][key]
 }
 
-func (w *metaWriteSet) clear(ns string) {
-	w.metawrites[ns] = keyedMetaWrites{}
+func (w *MetaWriteSet) in(ns, key string) bool {
+	_, in := w.MetaWrites[ns][key]
+	return in
 }
 
-type namespaceWrites map[string][]byte
+func (w *MetaWriteSet) clear(ns string) {
+	w.MetaWrites[ns] = KeyedMetaWrites{}
+}
 
-func (r namespaceWrites) Keys() []string {
+type NamespaceWrites map[string][]byte
+
+func (r NamespaceWrites) Keys() []string {
 	var keys []string
 	for k := range r {
 		keys = append(keys, k)
@@ -203,7 +220,7 @@ func (r namespaceWrites) Keys() []string {
 	return keys
 }
 
-func (r namespaceWrites) Equals(o namespaceWrites) error {
+func (r NamespaceWrites) Equals(o NamespaceWrites) error {
 	if len(r) != len(o) {
 		return errors.Errorf("number of writes do not match [%d]!=[%d], [%v]!=[%v]", len(r), len(o), r.Keys(), o.Keys())
 	}
@@ -221,9 +238,9 @@ func (r namespaceWrites) Equals(o namespaceWrites) error {
 	return nil
 }
 
-type writes map[string]namespaceWrites
+type Writes map[string]NamespaceWrites
 
-func (r writes) equals(o writes, nss ...string) error {
+func (r Writes) equals(o Writes, nss ...string) error {
 	rKeys := r.keys(nss...)
 	sort.Strings(rKeys)
 	oKeys := o.keys(nss...)
@@ -241,7 +258,7 @@ func (r writes) equals(o writes, nss ...string) error {
 	return nil
 }
 
-func (r writes) keys(nss ...string) []string {
+func (r Writes) keys(nss ...string) []string {
 	var res []string
 	for k := range r {
 		if len(nss) == 0 {
@@ -259,36 +276,36 @@ func (r writes) keys(nss ...string) []string {
 	return res
 }
 
-type writeSet struct {
-	writes        writes
-	orderedWrites map[string][]string
+type WriteSet struct {
+	Writes        Writes
+	OrderedWrites map[string][]string
 }
 
-func (w *writeSet) add(ns, key string, value []byte) error {
+func (w *WriteSet) add(ns, key string, value []byte) error {
 	if err := keys.ValidateNs(ns); err != nil {
 		return err
 	}
 
-	nsMap, in := w.writes[ns]
+	nsMap, in := w.Writes[ns]
 	if !in {
 		nsMap = map[string][]byte{}
 
-		w.writes[ns] = nsMap
-		w.orderedWrites[ns] = make([]string, 0, 8)
+		w.Writes[ns] = nsMap
+		w.OrderedWrites[ns] = make([]string, 0, 8)
 	}
 
 	nsMap[key] = append([]byte(nil), value...)
-	w.orderedWrites[ns] = append(w.orderedWrites[ns], key)
+	w.OrderedWrites[ns] = append(w.OrderedWrites[ns], key)
 
 	return nil
 }
 
-func (w *writeSet) get(ns, key string) []byte {
-	return w.writes[ns][key]
+func (w *WriteSet) get(ns, key string) []byte {
+	return w.Writes[ns][key]
 }
 
-func (w *writeSet) getAt(ns string, i int) (key string, in bool) {
-	slice := w.orderedWrites[ns]
+func (w *WriteSet) getAt(ns string, i int) (key string, in bool) {
+	slice := w.OrderedWrites[ns]
 	if i < 0 || i > len(slice)-1 {
 		return "", false
 	}
@@ -296,22 +313,22 @@ func (w *writeSet) getAt(ns string, i int) (key string, in bool) {
 	return slice[i], true
 }
 
-func (w *writeSet) in(ns, key string) bool {
-	_, in := w.writes[ns][key]
+func (w *WriteSet) in(ns, key string) bool {
+	_, in := w.Writes[ns][key]
 	return in
 }
 
-func (w *writeSet) clear(ns string) {
-	w.writes[ns] = map[string][]byte{}
-	w.orderedWrites[ns] = []string{}
+func (w *WriteSet) clear(ns string) {
+	w.Writes[ns] = map[string][]byte{}
+	w.OrderedWrites[ns] = []string{}
 }
 
-type namespaceReads map[string]struct {
-	block uint64
-	txnum uint64
+type NamespaceReads map[string]struct {
+	Block uint64
+	TxNum uint64
 }
 
-func (r namespaceReads) Equals(o namespaceReads) error {
+func (r NamespaceReads) Equals(o NamespaceReads) error {
 	if len(r) != len(o) {
 		return errors.Errorf("number of reads do not match [%v]!=[%v]", len(r), len(o))
 	}
@@ -321,17 +338,17 @@ func (r namespaceReads) Equals(o namespaceReads) error {
 		if !ok {
 			return errors.Errorf("read not found [%s]", k)
 		}
-		if v.block != v2.block || v.txnum != v2.txnum {
-			return errors.Errorf("reads for [%s] do not match [%d,%d]!=[%d,%d]", k, v.block, v.txnum, v2.block, v2.txnum)
+		if v.Block != v2.Block || v.TxNum != v2.TxNum {
+			return errors.Errorf("reads for [%s] do not match [%d,%d]!=[%d,%d]", k, v.Block, v.TxNum, v2.Block, v2.TxNum)
 		}
 	}
 
 	return nil
 }
 
-type reads map[string]namespaceReads
+type Reads map[string]NamespaceReads
 
-func (r reads) equals(o reads, nss ...string) error {
+func (r Reads) equals(o Reads, nss ...string) error {
 	rKeys := r.keys(nss...)
 	sort.Strings(rKeys)
 	oKeys := o.keys(nss...)
@@ -349,7 +366,7 @@ func (r reads) equals(o reads, nss ...string) error {
 	return nil
 }
 
-func (r reads) keys(nss ...string) []string {
+func (r Reads) keys(nss ...string) []string {
 	var res []string
 	for k := range r {
 		if len(nss) == 0 {
@@ -367,39 +384,39 @@ func (r reads) keys(nss ...string) []string {
 	return res
 }
 
-type readSet struct {
-	reads        reads
-	orderedReads map[string][]string
+type ReadSet struct {
+	Reads        Reads
+	OrderedReads map[string][]string
 }
 
-func (r *readSet) add(ns, key string, block, txnum uint64) {
-	nsMap, in := r.reads[ns]
+func (r *ReadSet) add(ns, key string, block, txnum uint64) {
+	nsMap, in := r.Reads[ns]
 	if !in {
 		nsMap = make(map[string]struct {
-			block uint64
-			txnum uint64
+			Block uint64
+			TxNum uint64
 		})
 
-		r.reads[ns] = nsMap
-		r.orderedReads[ns] = make([]string, 0, 8)
+		r.Reads[ns] = nsMap
+		r.OrderedReads[ns] = make([]string, 0, 8)
 	}
 
 	nsMap[key] = struct {
-		block uint64
-		txnum uint64
+		Block uint64
+		TxNum uint64
 	}{block, txnum}
-	r.orderedReads[ns] = append(r.orderedReads[ns], key)
+	r.OrderedReads[ns] = append(r.OrderedReads[ns], key)
 }
 
-func (r *readSet) get(ns, key string) (block, txnum uint64, in bool) {
-	entry, in := r.reads[ns][key]
-	block = entry.block
-	txnum = entry.txnum
+func (r *ReadSet) get(ns, key string) (block, txnum uint64, in bool) {
+	entry, in := r.Reads[ns][key]
+	block = entry.Block
+	txnum = entry.TxNum
 	return
 }
 
-func (r *readSet) getAt(ns string, i int) (key string, in bool) {
-	slice := r.orderedReads[ns]
+func (r *ReadSet) getAt(ns string, i int) (key string, in bool) {
+	slice := r.OrderedReads[ns]
 	if i < 0 || i > len(slice)-1 {
 		return "", false
 	}
@@ -407,10 +424,10 @@ func (r *readSet) getAt(ns string, i int) (key string, in bool) {
 	return slice[i], true
 }
 
-func (r *readSet) clear(ns string) {
-	r.reads[ns] = map[string]struct {
-		block uint64
-		txnum uint64
+func (r *ReadSet) clear(ns string) {
+	r.Reads[ns] = map[string]struct {
+		Block uint64
+		TxNum uint64
 	}{}
-	r.orderedReads[ns] = []string{}
+	r.OrderedReads[ns] = []string{}
 }

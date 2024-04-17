@@ -8,6 +8,7 @@ package txidstore
 
 import (
 	"encoding/binary"
+	"fmt"
 	"math"
 
 	errors2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
@@ -30,7 +31,7 @@ const (
 )
 
 type SimpleTXIDStore[V vault.ValidationCode] struct {
-	persistence driver.Persistence
+	Persistence driver.Persistence
 	ctr         uint64
 	vcProvider  vault.ValidationCodeProvider[V]
 }
@@ -60,14 +61,14 @@ func NewSimpleTXIDStore[V vault.ValidationCode](persistence driver.Persistence, 
 	}
 
 	return &SimpleTXIDStore[V]{
-		persistence: persistence,
+		Persistence: persistence,
 		ctr:         getCtrFromBytes(ctrBytes),
 		vcProvider:  vcProvider,
 	}, nil
 }
 
 func (s *SimpleTXIDStore[V]) get(txID core.TxID) (*ByTxid, error) {
-	bytes, err := s.persistence.GetState(txidNamespace, keyByTxID(txID))
+	bytes, err := s.Persistence.GetState(txidNamespace, keyByTxID(txID))
 	if err != nil {
 		return nil, errors.Errorf("error retrieving txid %s [%s]", txID, err.Error())
 	}
@@ -100,15 +101,15 @@ func (s *SimpleTXIDStore[V]) Get(txID core.TxID) (V, string, error) {
 
 func (s *SimpleTXIDStore[V]) Set(txID core.TxID, code V, message string) error {
 	// NOTE: we assume that the commit is in progress so no need to update/commit
-	// err := s.persistence.BeginUpdate()
+	// err := s.Persistence.BeginUpdate()
 	// if err != nil {
 	// 	return errors.Errorf("error starting update to set txid %s [%s]", txid, err.Error())
 	// }
 
-	// 1: increment ctr in persistence
-	err := setCtr(s.persistence, s.ctr+1)
+	// 1: increment ctr in Persistence
+	err := setCtr(s.Persistence, s.ctr+1)
 	if err != nil { // TODO: && !errors2.HasCause(err, driver.UniqueKeyViolation)
-		s.persistence.Discard()
+		s.Persistence.Discard()
 		return errors.Errorf("error storing updated counter for txid %s [%s]", txID, err.Error())
 	}
 
@@ -119,12 +120,12 @@ func (s *SimpleTXIDStore[V]) Set(txID core.TxID, code V, message string) error {
 		Message: message,
 	})
 	if err != nil {
-		s.persistence.Discard()
+		s.Persistence.Discard()
 		return errors.Errorf("error marshalling ByNum for txID %s [%s]", txID, err.Error())
 	}
-	err = s.persistence.SetState(txidNamespace, keyByCtr(s.ctr), byCtrBytes)
+	err = s.Persistence.SetState(txidNamespace, keyByCtr(s.ctr), byCtrBytes)
 	if err != nil { // TODO: && !errors2.HasCause(err, driver.UniqueKeyViolation)
-		s.persistence.Discard()
+		s.Persistence.Discard()
 		return errors.Errorf("error storing ByNum for txid %s [%s]", txID, err.Error())
 	}
 
@@ -135,24 +136,24 @@ func (s *SimpleTXIDStore[V]) Set(txID core.TxID, code V, message string) error {
 		Message: message,
 	})
 	if err != nil {
-		s.persistence.Discard()
+		s.Persistence.Discard()
 		return errors.Errorf("error marshalling ByTxid for txid %s [%s]", txID, err.Error())
 	}
-	err = s.persistence.SetState(txidNamespace, keyByTxID(txID), byTxidBytes)
+	err = s.Persistence.SetState(txidNamespace, keyByTxID(txID), byTxidBytes)
 	if err != nil {
-		s.persistence.Discard()
+		s.Persistence.Discard()
 		return errors.Errorf("error storing ByTxid for txid %s [%s]", txID, err.Error())
 	}
 
-	if s.vcProvider.IsValid(code) {
-		err = s.persistence.SetState(txidNamespace, lastTX, []byte(txID))
+	if code == s.vcProvider.Valid() {
+		err = s.Persistence.SetState(txidNamespace, lastTX, []byte(txID))
 		if err != nil { // TODO: && !errors2.HasCause(err, driver.UniqueKeyViolation)
-			s.persistence.Discard()
+			s.Persistence.Discard()
 			return errors.Errorf("error storing ByTxid for txid %s [%s]", txID, err.Error())
 		}
 	}
 	// NOTE: we assume that the commit is in progress so no need to update/commit
-	// err = s.persistence.Commit()
+	// err = s.Persistence.Commit()
 	// if err != nil {
 	// 	return errors.Errorf("error committing update to set txid %s [%s]", txid, err.Error())
 	// }
@@ -163,7 +164,7 @@ func (s *SimpleTXIDStore[V]) Set(txID core.TxID, code V, message string) error {
 }
 
 func (s *SimpleTXIDStore[V]) GetLastTxID() (core.TxID, error) {
-	v, err := s.persistence.GetState(txidNamespace, lastTX)
+	v, err := s.Persistence.GetState(txidNamespace, lastTX)
 	if err != nil {
 		return "", errors.Wrapf(err, "failed to get last TxID")
 	}
@@ -176,7 +177,7 @@ func (s *SimpleTXIDStore[V]) GetLastTxID() (core.TxID, error) {
 func (s *SimpleTXIDStore[V]) Iterator(pos interface{}) (vault.TxIDIterator[V], error) {
 	var iterator utils.Iterator[*ByNum]
 	if ppos, ok := pos.(*vault.SeekSet); ok {
-		it, err := s.persistence.GetStateSetIterator(txidNamespace, ppos.TxIDs...)
+		it, err := s.Persistence.GetStateSetIterator(txidNamespace, ppos.TxIDs...)
 		if err != nil {
 			return nil, err
 		}
@@ -188,7 +189,7 @@ func (s *SimpleTXIDStore[V]) Iterator(pos interface{}) (vault.TxIDIterator[V], e
 			return nil, err
 		}
 
-		it, err := s.persistence.GetStateRangeScanIterator(txidNamespace, keyByCtr(startKey), keyByCtr(math.MaxUint64))
+		it, err := s.Persistence.GetStateRangeScanIterator(txidNamespace, keyByCtr(startKey), keyByCtr(math.MaxUint64))
 		if err != nil {
 			return nil, err
 		}
@@ -203,7 +204,7 @@ func (s *SimpleTXIDStore[V]) getStartKey(pos interface{}) (uint64, error) {
 	case *vault.SeekStart:
 		return 0, nil
 	case *vault.SeekEnd:
-		ctr, err := getCtr(s.persistence)
+		ctr, err := getCtr(s.Persistence)
 		if err != nil {
 			return 0, err
 		}
@@ -222,6 +223,10 @@ func (s *SimpleTXIDStore[V]) getStartKey(pos interface{}) (uint64, error) {
 }
 
 func (s *SimpleTXIDStore[V]) mapByNum(bn *ByNum) (*vault.ByNum[V], error) {
+	if bn == nil {
+		return nil, nil
+	}
+	fmt.Printf("here is the prov!!!: %v, %v", s.vcProvider, bn.Code)
 	return &vault.ByNum[V]{
 		TxID:    bn.Txid,
 		Code:    s.vcProvider.FromInt32(bn.Code),

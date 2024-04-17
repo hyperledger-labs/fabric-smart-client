@@ -8,7 +8,8 @@ package vault
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger/fabric-protos-go/ledger/rwset"
 	"github.com/hyperledger/fabric-protos-go/ledger/rwset/kvrwset"
@@ -22,18 +23,19 @@ type QueryExecutor interface {
 	Done()
 }
 
-type Interceptor struct {
-	QE        QueryExecutor
-	TxIDStore TXIDStoreReader
-	Rws       ReadWriteSet
-	Closed    bool
-	TxID      string
+type Interceptor[V ValidationCode] struct {
+	QE         QueryExecutor
+	TxIDStore  TXIDStoreReader[V]
+	Rws        ReadWriteSet
+	Closed     bool
+	TxID       string
+	vcProvider ValidationCodeProvider[V] // TODO
 }
 
-func NewInterceptor(qe QueryExecutor, txidStore TXIDStoreReader, txid string) *Interceptor {
+func NewInterceptor[V ValidationCode](qe QueryExecutor, txidStore TXIDStoreReader[V], txid core.TxID, vcProvider ValidationCodeProvider[V]) *Interceptor[V] {
 	logger.Debugf("new interceptor [%s]", txid)
 
-	return &Interceptor{
+	return &Interceptor[V]{
 		TxID:      txid,
 		QE:        qe,
 		TxIDStore: txidStore,
@@ -50,15 +52,16 @@ func NewInterceptor(qe QueryExecutor, txidStore TXIDStoreReader, txid string) *I
 				MetaWrites: NamespaceKeyedMetaWrites{},
 			},
 		},
+		vcProvider: vcProvider,
 	}
 }
 
-func (i *Interceptor) IsValid() error {
+func (i *Interceptor[V]) IsValid() error {
 	code, _, err := i.TxIDStore.Get(i.TxID)
 	if err != nil {
 		return err
 	}
-	if code == driver.Valid {
+	if code == i.vcProvider.Valid() {
 		return errors.Errorf("duplicate txid %s", i.TxID)
 	}
 	if i.QE != nil {
@@ -79,7 +82,7 @@ func (i *Interceptor) IsValid() error {
 	return nil
 }
 
-func (i *Interceptor) Clear(ns string) error {
+func (i *Interceptor[V]) Clear(ns string) error {
 	if i.Closed {
 		return errors.New("this instance was closed")
 	}
@@ -91,7 +94,7 @@ func (i *Interceptor) Clear(ns string) error {
 	return nil
 }
 
-func (i *Interceptor) GetReadKeyAt(ns string, pos int) (string, error) {
+func (i *Interceptor[V]) GetReadKeyAt(ns string, pos int) (string, error) {
 	if i.Closed {
 		return "", errors.New("this instance was closed")
 	}
@@ -104,7 +107,7 @@ func (i *Interceptor) GetReadKeyAt(ns string, pos int) (string, error) {
 	return key, nil
 }
 
-func (i *Interceptor) GetReadAt(ns string, pos int) (string, []byte, error) {
+func (i *Interceptor[V]) GetReadAt(ns string, pos int) (string, []byte, error) {
 	if i.Closed {
 		return "", nil, errors.New("this instance was closed")
 	}
@@ -122,7 +125,7 @@ func (i *Interceptor) GetReadAt(ns string, pos int) (string, []byte, error) {
 	return key, val, nil
 }
 
-func (i *Interceptor) GetWriteAt(ns string, pos int) (string, []byte, error) {
+func (i *Interceptor[V]) GetWriteAt(ns string, pos int) (string, []byte, error) {
 	if i.Closed {
 		return "", nil, errors.New("this instance was closed")
 	}
@@ -135,15 +138,15 @@ func (i *Interceptor) GetWriteAt(ns string, pos int) (string, []byte, error) {
 	return key, i.Rws.WriteSet.get(ns, key), nil
 }
 
-func (i *Interceptor) NumReads(ns string) int {
+func (i *Interceptor[V]) NumReads(ns string) int {
 	return len(i.Rws.Reads[ns])
 }
 
-func (i *Interceptor) NumWrites(ns string) int {
+func (i *Interceptor[V]) NumWrites(ns string) int {
 	return len(i.Rws.Writes[ns])
 }
 
-func (i *Interceptor) Namespaces() []string {
+func (i *Interceptor[V]) Namespaces() []string {
 	mergedMaps := map[string]struct{}{}
 
 	for ns := range i.Rws.Reads {
@@ -161,7 +164,7 @@ func (i *Interceptor) Namespaces() []string {
 	return namespaces
 }
 
-func (i *Interceptor) DeleteState(namespace string, key string) error {
+func (i *Interceptor[V]) DeleteState(namespace string, key string) error {
 	if i.Closed {
 		return errors.New("this instance was closed")
 	}
@@ -169,7 +172,7 @@ func (i *Interceptor) DeleteState(namespace string, key string) error {
 	return i.SetState(namespace, key, nil)
 }
 
-func (i *Interceptor) SetState(namespace string, key string, value []byte) error {
+func (i *Interceptor[V]) SetState(namespace string, key string, value []byte) error {
 	if i.Closed {
 		return errors.New("this instance was closed")
 	}
@@ -178,7 +181,7 @@ func (i *Interceptor) SetState(namespace string, key string, value []byte) error
 	return i.Rws.WriteSet.add(namespace, key, value)
 }
 
-func (i *Interceptor) SetStateMetadata(namespace string, key string, value map[string][]byte) error {
+func (i *Interceptor[V]) SetStateMetadata(namespace string, key string, value map[string][]byte) error {
 	if i.Closed {
 		return errors.New("this instance was closed")
 	}
@@ -186,7 +189,7 @@ func (i *Interceptor) SetStateMetadata(namespace string, key string, value map[s
 	return i.Rws.MetaWriteSet.add(namespace, key, value)
 }
 
-func (i *Interceptor) GetStateMetadata(namespace, key string, opts ...driver.GetStateOpt) (map[string][]byte, error) {
+func (i *Interceptor[V]) GetStateMetadata(namespace, key string, opts ...driver.GetStateOpt) (map[string][]byte, error) {
 	if i.Closed {
 		return nil, errors.New("this instance was closed")
 	}
@@ -238,7 +241,7 @@ func (i *Interceptor) GetStateMetadata(namespace, key string, opts ...driver.Get
 	}
 }
 
-func (i *Interceptor) GetState(namespace string, key string, opts ...driver.GetStateOpt) ([]byte, error) {
+func (i *Interceptor[V]) GetState(namespace string, key string, opts ...driver.GetStateOpt) ([]byte, error) {
 	if i.Closed {
 		return nil, errors.New("this instance was closed")
 	}
@@ -290,7 +293,7 @@ func (i *Interceptor) GetState(namespace string, key string, opts ...driver.GetS
 	}
 }
 
-func (i *Interceptor) AppendRWSet(raw []byte, nss ...string) error {
+func (i *Interceptor[V]) AppendRWSet(raw []byte, nss ...string) error {
 	if i.Closed {
 		return errors.New("this instance was closed")
 	}
@@ -366,7 +369,7 @@ func (i *Interceptor) AppendRWSet(raw []byte, nss ...string) error {
 	return nil
 }
 
-func (i *Interceptor) Bytes() ([]byte, error) {
+func (i *Interceptor[V]) Bytes() ([]byte, error) {
 	rwsb := rwsetutil.NewRWSetBuilder()
 
 	for ns, keyMap := range i.Rws.Reads {
@@ -397,9 +400,9 @@ func (i *Interceptor) Bytes() ([]byte, error) {
 	return simRes.GetPubSimulationBytes()
 }
 
-func (i *Interceptor) Equals(other interface{}, nss ...string) error {
+func (i *Interceptor[V]) Equals(other interface{}, nss ...string) error {
 	switch o := other.(type) {
-	case *Interceptor:
+	case *Interceptor[V]:
 		if err := i.Rws.Reads.equals(o.Rws.Reads, nss...); err != nil {
 			return errors.Wrap(err, "reads do not match")
 		}
@@ -425,7 +428,7 @@ func (i *Interceptor) Equals(other interface{}, nss ...string) error {
 	return nil
 }
 
-func (i *Interceptor) Done() {
+func (i *Interceptor[V]) Done() {
 	logger.Debugf("Done with [%s], closed [%v]", i.TxID, i.Closed)
 	if !i.Closed {
 		i.Closed = true
@@ -435,7 +438,7 @@ func (i *Interceptor) Done() {
 	}
 }
 
-func (i *Interceptor) Reopen(qe QueryExecutor) error {
+func (i *Interceptor[V]) Reopen(qe QueryExecutor) error {
 	logger.Debugf("Reopen with [%s], closed [%v]", i.TxID, i.Closed)
 	if !i.Closed {
 		return errors.Errorf("already open")
@@ -444,4 +447,11 @@ func (i *Interceptor) Reopen(qe QueryExecutor) error {
 	i.Closed = false
 
 	return nil
+}
+
+func (i *Interceptor[V]) IsClosed() bool {
+	return i.Closed
+}
+func (i *Interceptor[V]) RWs() *ReadWriteSet {
+	return &i.Rws
 }
