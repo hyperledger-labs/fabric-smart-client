@@ -8,9 +8,8 @@ package state
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
-	"github.com/pkg/errors"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
+	"github.com/pkg/errors"
 )
 
 type Network interface {

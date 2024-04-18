@@ -14,10 +14,9 @@ import (
 	"reflect"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
-	"github.com/pkg/errors"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/rwset"
+	"github.com/pkg/errors"
 )
 
 func (n *Namespace) setFieldMapping(namespace string, key string, mapping map[string][]byte) error {

@@ -10,12 +10,11 @@ import (
 	"encoding/json"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
-	"github.com/pkg/errors"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/endorser"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
+	"github.com/pkg/errors"
 )
 
 type ListStateQueryIteratorInterface struct {
@@ -45,13 +44,13 @@ func (l *ListStateQueryIteratorInterface) Next(state interface{}) (string, error
 type NewQueryExecutorFunc func() (driver.QueryExecutor, error)
 
 type vault struct {
-	sp               view2.ServiceProvider
+	sp               view.ServiceProvider
 	network          string
 	channel          string
 	NewQueryExecutor NewQueryExecutorFunc
 }
 
-func New(sp view2.ServiceProvider, network, channel string, NewQueryExecutor func() (driver.QueryExecutor, error)) *vault {
+func New(sp view.ServiceProvider, network, channel string, NewQueryExecutor func() (driver.QueryExecutor, error)) *vault {
 	return &vault{
 		sp:               sp,
 		network:          network,
@@ -136,13 +135,13 @@ func (f *vault) GetStateCertification(namespace string, key string) ([]byte, err
 	return raw, nil
 }
 
-type VaultFunc func(ctx view2.ServiceProvider, id string) *fabric.Vault
+type VaultFunc func(ctx view.ServiceProvider, id string) *fabric.Vault
 
 type service struct {
-	sp view2.ServiceProvider
+	sp view.ServiceProvider
 }
 
-func NewService(sp view2.ServiceProvider) *service {
+func NewService(sp view.ServiceProvider) *service {
 	return &service{sp: sp}
 }
 
