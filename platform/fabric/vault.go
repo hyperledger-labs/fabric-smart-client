@@ -10,7 +10,7 @@ import (
 	"encoding/json"
 	"strings"
 
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/pkg/errors"
@@ -59,86 +59,12 @@ func (m TransientMap) GetState(key string, state interface{}) error {
 	return json.Unmarshal(value, state)
 }
 
-type GetStateOpt int
-
-const (
-	FromStorage GetStateOpt = iota
-	FromIntermediate
-	FromBoth
-)
-
 type RWSet struct {
-	rws fdriver.RWSet
+	fdriver.RWSet
 }
 
-func (r *RWSet) IsValid() error {
-	return r.rws.IsValid()
-}
-
-func (r *RWSet) Clear(ns string) error {
-	return r.rws.Clear(ns)
-}
-
-// SetState sets the given value for the given namespace and key.
-func (r *RWSet) SetState(namespace string, key string, value []byte) error {
-	return r.rws.SetState(namespace, key, value)
-}
-
-func (r *RWSet) GetState(namespace string, key string, opts ...GetStateOpt) ([]byte, error) {
-	var o []fdriver.GetStateOpt
-	for _, opt := range opts {
-		o = append(o, fdriver.GetStateOpt(opt))
-	}
-	return r.rws.GetState(namespace, key, o...)
-}
-
-// DeleteState deletes the given namespace and key
-func (r *RWSet) DeleteState(namespace string, key string) error {
-	return r.rws.DeleteState(namespace, key)
-}
-
-func (r *RWSet) GetStateMetadata(namespace, key string, opts ...GetStateOpt) (map[string][]byte, error) {
-	var o []fdriver.GetStateOpt
-	for _, opt := range opts {
-		o = append(o, fdriver.GetStateOpt(opt))
-	}
-	return r.rws.GetStateMetadata(namespace, key, o...)
-}
-
-// SetStateMetadata sets the metadata associated with an existing key-tuple <namespace, key>
-func (r *RWSet) SetStateMetadata(namespace, key string, metadata map[string][]byte) error {
-	return r.rws.SetStateMetadata(namespace, key, metadata)
-}
-
-func (r *RWSet) GetReadKeyAt(ns string, i int) (string, error) {
-	return r.rws.GetReadKeyAt(ns, i)
-}
-
-// GetReadAt returns the i-th read (key, value) in the namespace ns  of this rwset.
-// The value is loaded from the ledger, if present. If the key's version in the ledger
-// does not match the key's version in the read, then it returns an error.
-func (r *RWSet) GetReadAt(ns string, i int) (string, []byte, error) {
-	return r.rws.GetReadAt(ns, i)
-}
-
-// GetWriteAt returns the i-th write (key, value) in the namespace ns of this rwset.
-func (r *RWSet) GetWriteAt(ns string, i int) (string, []byte, error) {
-	return r.rws.GetWriteAt(ns, i)
-}
-
-// NumReads returns the number of reads in the namespace ns  of this rwset.
-func (r *RWSet) NumReads(ns string) int {
-	return r.rws.NumReads(ns)
-}
-
-// NumWrites returns the number of writes in the namespace ns of this rwset.
-func (r *RWSet) NumWrites(ns string) int {
-	return r.rws.NumWrites(ns)
-}
-
-// Namespaces returns the namespace labels in this rwset.
-func (r *RWSet) Namespaces() []string {
-	return r.rws.Namespaces()
+func NewRWSet(rws fdriver.RWSet) *RWSet {
+	return &RWSet{RWSet: rws}
 }
 
 // KeyExist returns true if a key exist in the rwset otherwise false.
@@ -155,202 +81,42 @@ func (r *RWSet) KeyExist(key string, ns string) (bool, error) {
 	return false, nil
 }
 
-func (r *RWSet) AppendRWSet(raw []byte, nss ...string) error {
-	return r.rws.AppendRWSet(raw, nss...)
-}
-
-func (r *RWSet) Bytes() ([]byte, error) {
-	return r.rws.Bytes()
-}
-
-func (r *RWSet) Done() {
-	r.rws.Done()
-}
-
 func (r *RWSet) Equals(rws interface{}, nss ...string) error {
-	r, ok := rws.(*RWSet)
-	if !ok {
+	if rw, ok := rws.(*RWSet); !ok {
 		return errors.Errorf("expected instance of *RWSet, got [%t]", rws)
+	} else {
+		return r.RWSet.Equals(rw.RWSet, nss...)
 	}
-	return r.rws.Equals(r.rws, nss...)
 }
 
-func (r *RWSet) RWS() fdriver.RWSet {
-	return r.rws
-}
-
-type Read driver.VersionedRead
-
-func (v *Read) K() string {
-	return v.Key
-}
-
-func (v *Read) V() []byte {
-	return v.Raw
-}
-
-// ResultsIterator models an query result iterator
-type ResultsIterator struct {
-	ri driver.VersionedResultsIterator
-}
-
-// Next returns the next item in the result set. The `QueryResult` is expected to be nil when
-// the iterator gets exhausted
-func (r *ResultsIterator) Next() (*Read, error) {
-	read, err := r.ri.Next()
-	if err != nil {
-		return nil, err
-	}
-	if read == nil {
-		return nil, nil
-	}
-
-	return (*Read)(read), nil
-}
-
-// Close releases resources occupied by the iterator
-func (r *ResultsIterator) Close() {
-	r.ri.Close()
-}
-
-type QueryExecutor struct {
-	qe driver2.QueryExecutor
-}
-
-func (qe *QueryExecutor) GetState(namespace string, key string) ([]byte, error) {
-	return qe.qe.GetState(namespace, key)
-}
-
-func (qe *QueryExecutor) GetStateMetadata(namespace, key string) (map[string][]byte, uint64, uint64, error) {
-	return qe.qe.GetStateMetadata(namespace, key)
-}
-
-func (qe *QueryExecutor) GetStateRangeScanIterator(namespace string, startKey string, endKey string) (*ResultsIterator, error) {
-	ri, err := qe.qe.GetStateRangeScanIterator(namespace, startKey, endKey)
-	if err != nil {
-		return nil, err
-	}
-	return &ResultsIterator{ri: ri}, nil
-}
-
-func (qe *QueryExecutor) Done() {
-	qe.qe.Done()
-}
-
-type ValidationCode int
-
-const (
-	_       ValidationCode = iota
-	Valid                  // Transaction is valid and committed
-	Invalid                // Transaction is invalid and has been discarded
-	Busy                   // Transaction does not yet have a validity state
-	Unknown                // Transaction is unknown
+type (
+	Read            = driver.VersionedRead
+	ResultsIterator = driver.VersionedResultsIterator
+	ValidationCode  = fdriver.ValidationCode
+	TxIDEntry       = vault.ByNum[ValidationCode]
+	TxIDIterator    = fdriver.TxIDIterator
 )
-
-type SeekStart struct{}
-
-type SeekEnd struct{}
-
-type SeekPos struct {
-	Txid string
-}
-
-type TxIDEntry struct {
-	Txid    string
-	Code    ValidationCode
-	Message string
-}
-
-type TxIDIterator struct {
-	fdriver.TxIDIterator
-}
-
-func (t *TxIDIterator) Next() (*TxIDEntry, error) {
-	n, err := t.TxIDIterator.Next()
-	if err != nil {
-		return nil, err
-	}
-	if n == nil {
-		return nil, nil
-	}
-	return &TxIDEntry{
-		Txid:    n.TxID,
-		Code:    ValidationCode(n.Code),
-		Message: n.Message,
-	}, nil
-}
-
-func (t *TxIDIterator) Close() {
-	t.TxIDIterator.Close()
-}
 
 // Vault models a key-value store that can be updated by committing rwsets
 type Vault struct {
-	vault     fdriver.Vault
-	txidStore fdriver.TXIDStore
-	ch        fdriver.Channel
+	fdriver.Vault
+	fdriver.TXIDStore
+	ch fdriver.Channel
 }
 
-// GetLastTxID returns the last transaction id committed
-func (c *Vault) GetLastTxID() (string, error) {
-	return c.txidStore.GetLastTxID()
-}
-
-func (c *Vault) TxIDIterator(pos interface{}) (*TxIDIterator, error) {
-	var iPos interface{}
-	switch p := pos.(type) {
-	case *fdriver.SeekStart:
-		iPos = &fdriver.SeekStart{}
-	case *fdriver.SeekEnd:
-		iPos = &fdriver.SeekEnd{}
-	case *fdriver.SeekPos:
-		iPos = &fdriver.SeekPos{Txid: p.Txid}
-	default:
-		return nil, errors.Errorf("invalid position %T", pos)
-	}
-	it, err := c.txidStore.Iterator(iPos)
-	if err != nil {
-		return nil, err
-	}
-	return &TxIDIterator{TxIDIterator: it}, nil
-}
-
-func (c *Vault) Status(txID string) (ValidationCode, string, error) {
-	code, message, err := c.vault.Status(txID)
-	if err != nil {
-		return Unknown, "", err
-	}
-	return ValidationCode(code), message, nil
-}
-
-func (c *Vault) DiscardTx(txID string, message string) error {
-	return c.vault.DiscardTx(txID, message)
-}
-
-func (c *Vault) CommitTX(txid string, block uint64, indexInBloc int) error {
-	return c.vault.CommitTX(txid, block, indexInBloc)
-}
-
-// NewQueryExecutor gives handle to a query executor.
-// A client can obtain more than one 'QueryExecutor's for parallel execution.
-// Any synchronization should be performed at the implementation level if required
-func (c *Vault) NewQueryExecutor() (*QueryExecutor, error) {
-	qe, err := c.vault.NewQueryExecutor()
-	if err != nil {
-		return nil, err
-	}
-	return &QueryExecutor{qe: qe}, nil
+func newVault(vault fdriver.Vault, txidStore fdriver.TXIDStore, ch fdriver.Channel) *Vault {
+	return &Vault{Vault: vault, TXIDStore: txidStore, ch: ch}
 }
 
 // NewRWSet returns a RWSet for this ledger.
 // A client may obtain more than one such simulator; they are made unique
 // by way of the supplied txid
 func (c *Vault) NewRWSet(txid string) (*RWSet, error) {
-	rws, err := c.vault.NewRWSet(txid)
+	rws, err := c.Vault.NewRWSet(txid)
 	if err != nil {
 		return nil, err
 	}
-	return &RWSet{rws: rws}, nil
+	return &RWSet{RWSet: rws}, nil
 }
 
 // GetRWSet returns a RWSet for this ledger whose content is unmarshalled
@@ -358,22 +124,22 @@ func (c *Vault) NewRWSet(txid string) (*RWSet, error) {
 // A client may obtain more than one such simulator; they are made unique
 // by way of the supplied txid
 func (c *Vault) GetRWSet(txid string, rwset []byte) (*RWSet, error) {
-	rws, err := c.vault.GetRWSet(txid, rwset)
+	rws, err := c.Vault.GetRWSet(txid, rwset)
 	if err != nil {
 		return nil, err
 	}
-	return &RWSet{rws: rws}, nil
+	return &RWSet{RWSet: rws}, nil
 }
 
 // GetEphemeralRWSet returns an ephemeral RWSet for this ledger whose content is unmarshalled
 // from the passed bytes.
 // If namespaces is not empty, the returned RWSet will be filtered by the passed namespaces
 func (c *Vault) GetEphemeralRWSet(rwset []byte, namespaces ...string) (*RWSet, error) {
-	rws, err := c.vault.GetEphemeralRWSet(rwset, namespaces...)
+	rws, err := c.Vault.GetEphemeralRWSet(rwset, namespaces...)
 	if err != nil {
 		return nil, err
 	}
-	return &RWSet{rws: rws}, nil
+	return &RWSet{RWSet: rws}, nil
 }
 
 func (c *Vault) StoreEnvelope(id string, env []byte) error {

@@ -7,114 +7,17 @@ SPDX-License-Identifier: Apache-2.0
 package orion
 
 import (
-	driver3 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/pkg/errors"
 )
 
-type GetStateOpt = int
-
-const (
-	FromStorage GetStateOpt = iota
-	FromIntermediate
-	FromBoth
-)
-
-type ValidationCode = int
-
-const (
-	_       ValidationCode = iota
-	Valid                  // Transaction is valid and committed
-	Invalid                // Transaction is invalid and has been discarded
-	Busy                   // Transaction does not yet have a validity state
-	Unknown                // Transaction is unknown
-)
-
 type RWSet struct {
-	rws driver.RWSet
+	driver.RWSet
 }
 
-func (r *RWSet) IsValid() error {
-	return r.rws.IsValid()
-}
-
-func (r *RWSet) Clear(ns string) error {
-	return r.rws.Clear(ns)
-}
-
-// SetState sets the given value for the given namespace and key.
-func (r *RWSet) SetState(namespace string, key string, value []byte) error {
-	return r.rws.SetState(namespace, key, value)
-}
-
-func (r *RWSet) GetState(namespace string, key string, opts ...GetStateOpt) ([]byte, error) {
-	var o []driver.GetStateOpt
-	for _, opt := range opts {
-		o = append(o, driver.GetStateOpt(opt))
-	}
-	return r.rws.GetState(namespace, key, o...)
-}
-
-// DeleteState deletes the given namespace and key
-func (r *RWSet) DeleteState(namespace string, key string) error {
-	return r.rws.DeleteState(namespace, key)
-}
-
-func (r *RWSet) GetStateMetadata(namespace, key string, opts ...GetStateOpt) (map[string][]byte, error) {
-	var o []driver.GetStateOpt
-	for _, opt := range opts {
-		o = append(o, driver.GetStateOpt(opt))
-	}
-	return r.rws.GetStateMetadata(namespace, key, o...)
-}
-
-// SetStateMetadata sets the metadata associated with an existing key-tuple <namespace, key>
-func (r *RWSet) SetStateMetadata(namespace, key string, metadata map[string][]byte) error {
-	return r.rws.SetStateMetadata(namespace, key, metadata)
-}
-
-func (r *RWSet) GetReadKeyAt(ns string, i int) (string, error) {
-	return r.rws.GetReadKeyAt(ns, i)
-}
-
-// GetReadAt returns the i-th read (key, value) in the namespace ns  of this rwset.
-// The value is loaded from the ledger, if present. If the key's version in the ledger
-// does not match the key's version in the read, then it returns an error.
-func (r *RWSet) GetReadAt(ns string, i int) (string, []byte, error) {
-	return r.rws.GetReadAt(ns, i)
-}
-
-// GetWriteAt returns the i-th write (key, value) in the namespace ns of this rwset.
-func (r *RWSet) GetWriteAt(ns string, i int) (string, []byte, error) {
-	return r.rws.GetWriteAt(ns, i)
-}
-
-// NumReads returns the number of reads in the namespace ns  of this rwset.
-func (r *RWSet) NumReads(ns string) int {
-	return r.rws.NumReads(ns)
-}
-
-// NumWrites returns the number of writes in the namespace ns of this rwset.
-func (r *RWSet) NumWrites(ns string) int {
-	return r.rws.NumWrites(ns)
-}
-
-// Namespaces returns the namespace labels in this rwset.
-func (r *RWSet) Namespaces() []string {
-	return r.rws.Namespaces()
-}
-
-func (r *RWSet) AppendRWSet(raw []byte, nss ...string) error {
-	return r.rws.AppendRWSet(raw, nss...)
-}
-
-func (r *RWSet) Bytes() ([]byte, error) {
-	return r.rws.Bytes()
-}
-
-func (r *RWSet) Done() {
-	r.rws.Done()
+func NewRWSet(rws driver.RWSet) *RWSet {
+	return &RWSet{RWSet: rws}
 }
 
 func (r *RWSet) Equals(rws interface{}, nss ...string) error {
@@ -122,145 +25,59 @@ func (r *RWSet) Equals(rws interface{}, nss ...string) error {
 	if !ok {
 		return errors.Errorf("expected instance of *RWSet, got [%t]", rws)
 	}
-	return r.rws.Equals(r.rws, nss...)
+	return r.RWSet.Equals(r.RWSet, nss...)
 }
 
-func (r *RWSet) RWS() driver.RWSet {
-	return r.rws
+type Vault interface {
+	StoreEnvelope(id string, env interface{}) error
+	StoreTransaction(id string, raw []byte) error
+	StoreTransient(id string, tm driver.TransientMap) error
+	Status(txID string) (driver.ValidationCode, string, error)
+	DiscardTx(txID string, message string) error
+	GetLastTxID() (string, error)
+	NewQueryExecutor() (driver2.QueryExecutor, error)
+	NewRWSet(txid string) (*RWSet, error)
+	GetRWSet(id string, results []byte) (*RWSet, error)
+	CommitTX(txid string, block uint64, indexInBloc int) error
+	AddStatusReporter(sr driver.StatusReporter) error
 }
 
-type Read struct {
-	Key          string
-	Raw          []byte
-	Block        uint64
-	IndexInBlock int
+// vault models a key-value store that can be updated by committing rwsets
+type vault struct {
+	driver.Vault
+	driver.EnvelopeService
+	driver.TransactionService
+	driver.MetadataService
 }
 
-func (v *Read) K() string {
-	return v.Key
-}
-
-func (v *Read) V() []byte {
-	return v.Raw
-}
-
-// ResultsIterator models an query result iterator
-type ResultsIterator struct {
-	ri driver2.VersionedResultsIterator
-}
-
-// Next returns the next item in the result set. The `QueryResult` is expected to be nil when
-// the iterator gets exhausted
-func (r *ResultsIterator) Next() (*Read, error) {
-	read, err := r.ri.Next()
-	if err != nil {
-		return nil, err
+func newVault(ons driver.OrionNetworkService) Vault {
+	return &vault{
+		Vault:              ons.Vault(),
+		EnvelopeService:    ons.EnvelopeService(),
+		TransactionService: ons.TransactionService(),
+		MetadataService:    ons.MetadataService(),
 	}
-	if read == nil {
-		return nil, nil
-	}
-
-	return &Read{
-		Key:          read.Key,
-		Raw:          read.Raw,
-		Block:        read.Block,
-		IndexInBlock: read.IndexInBlock,
-	}, nil
 }
 
-// Close releases resources occupied by the iterator
-func (r *ResultsIterator) Close() {
-	r.ri.Close()
+func (v *vault) Status(txID string) (driver.ValidationCode, string, error) {
+	return v.Vault.Status(txID)
 }
 
-type QueryExecutor struct {
-	qe driver3.QueryExecutor
-}
-
-func (qe *QueryExecutor) GetState(namespace string, key string) ([]byte, error) {
-	return qe.qe.GetState(namespace, key)
-}
-
-func (qe *QueryExecutor) GetStateMetadata(namespace, key string) (map[string][]byte, uint64, uint64, error) {
-	return qe.qe.GetStateMetadata(namespace, key)
-}
-
-func (qe *QueryExecutor) GetStateRangeScanIterator(namespace string, startKey string, endKey string) (*ResultsIterator, error) {
-	ri, err := qe.qe.GetStateRangeScanIterator(namespace, startKey, endKey)
-	if err != nil {
-		return nil, err
-	}
-	return &ResultsIterator{ri: ri}, nil
-}
-
-func (qe *QueryExecutor) Done() {
-	qe.qe.Done()
-}
-
-// Vault models a key-value store that can be updated by committing rwsets
-type Vault struct {
-	ons driver.OrionNetworkService
-	v   driver.Vault
-}
-
-// GetLastTxID returns the last transaction id committed
-func (v *Vault) GetLastTxID() (string, error) {
-	return v.v.GetLastTxID()
-}
-
-func (v *Vault) NewQueryExecutor() (*QueryExecutor, error) {
-	qe, err := v.v.NewQueryExecutor()
+func (v *vault) NewRWSet(txid string) (*RWSet, error) {
+	rws, err := v.Vault.NewRWSet(txid)
 	if err != nil {
 		return nil, err
 	}
 
-	return &QueryExecutor{qe: qe}, nil
+	return &RWSet{RWSet: rws}, nil
+
 }
 
-func (v *Vault) NewRWSet(txid string) (*RWSet, error) {
-	rws, err := v.v.NewRWSet(txid)
+func (v *vault) GetRWSet(id string, results []byte) (*RWSet, error) {
+	rws, err := v.Vault.GetRWSet(id, results)
 	if err != nil {
 		return nil, err
 	}
 
-	return &RWSet{rws: rws}, nil
-
-}
-
-func (v *Vault) GetRWSet(id string, results []byte) (*RWSet, error) {
-	rws, err := v.v.GetRWSet(id, results)
-	if err != nil {
-		return nil, err
-	}
-
-	return &RWSet{rws: rws}, nil
-}
-
-func (v *Vault) StoreEnvelope(id string, env []byte) error {
-	return v.ons.EnvelopeService().StoreEnvelope(id, env)
-}
-
-func (v *Vault) StoreTransaction(id string, raw []byte) error {
-	return v.ons.TransactionService().StoreTransaction(id, raw)
-}
-
-func (v *Vault) StoreTransient(id string, tm TransientMap) error {
-	return v.ons.MetadataService().StoreTransient(id, driver.TransientMap(tm))
-}
-
-func (v *Vault) Status(txID string) (ValidationCode, string, error) {
-	vc, message, err := v.ons.Vault().Status(txID)
-	return ValidationCode(vc), message, err
-}
-
-func (v *Vault) DiscardTx(txID string, message string) error {
-	return v.ons.Vault().DiscardTx(txID, "")
-}
-
-func (v *Vault) CommitTX(txid string, block uint64, indexInBloc int) error {
-	return v.ons.Vault().CommitTX(txid, block, indexInBloc)
-}
-
-func (v *Vault) AddStatusReporter(sr driver.StatusReporter) error {
-	return v.v.AddStatusReporter(sr)
+	return &RWSet{RWSet: rws}, nil
 }

@@ -7,9 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package state
 
 import (
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/pkg/errors"
-
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 )
 
 type contractMetaHandler struct{}
@@ -25,7 +24,7 @@ func (s2 *contractMetaHandler) StoreMeta(ns *Namespace, s interface{}, namespace
 		return errors.Wrap(err, "filed getting rw set")
 	}
 
-	meta, err := rws.GetStateMetadata(namespace, key, fabric.FromIntermediate)
+	meta, err := rws.GetStateMetadata(namespace, key, driver.FromIntermediate)
 	if err != nil {
 		return errors.Wrap(err, "filed getting metadata")
 	}

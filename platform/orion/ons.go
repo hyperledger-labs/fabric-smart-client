@@ -60,8 +60,8 @@ func (n *NetworkService) EnvelopeService() *EnvelopeService {
 	return &EnvelopeService{es: n.ons.EnvelopeService()}
 }
 
-func (n *NetworkService) Vault() *Vault {
-	return &Vault{ons: n.ons, v: n.ons.Vault()}
+func (n *NetworkService) Vault() Vault {
+	return newVault(n.ons)
 }
 
 // Committer returns the committer service
