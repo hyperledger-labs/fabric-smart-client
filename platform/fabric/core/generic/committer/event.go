@@ -14,17 +14,6 @@ import (
 	"github.com/hyperledger/fabric/protoutil"
 )
 
-// TxEvent contains information for token transaction commit
-type TxEvent struct {
-	TxID              string
-	Committed         bool
-	ValidationCode    peer.TxValidationCode
-	ValidationMessage string
-	Block             uint64
-	IndexInBlock      int
-	Err               error
-}
-
 // ChaincodeEvent models the chaincode event details.
 type ChaincodeEvent struct {
 	BlockNumber   uint64

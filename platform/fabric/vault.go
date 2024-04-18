@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"strings"
 
+	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/pkg/errors"
@@ -213,7 +214,7 @@ func (r *ResultsIterator) Close() {
 }
 
 type QueryExecutor struct {
-	qe fdriver.QueryExecutor
+	qe driver2.QueryExecutor
 }
 
 func (qe *QueryExecutor) GetState(namespace string, key string) ([]byte, error) {
@@ -261,11 +262,11 @@ type TxIDEntry struct {
 }
 
 type TxIDIterator struct {
-	fdriver.TxidIterator
+	fdriver.TxIDIterator
 }
 
 func (t *TxIDIterator) Next() (*TxIDEntry, error) {
-	n, err := t.TxidIterator.Next()
+	n, err := t.TxIDIterator.Next()
 	if err != nil {
 		return nil, err
 	}
@@ -280,7 +281,7 @@ func (t *TxIDIterator) Next() (*TxIDEntry, error) {
 }
 
 func (t *TxIDIterator) Close() {
-	t.TxidIterator.Close()
+	t.TxIDIterator.Close()
 }
 
 // Vault models a key-value store that can be updated by committing rwsets
@@ -311,7 +312,7 @@ func (c *Vault) TxIDIterator(pos interface{}) (*TxIDIterator, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &TxIDIterator{TxidIterator: it}, nil
+	return &TxIDIterator{TxIDIterator: it}, nil
 }
 
 func (c *Vault) Status(txID string) (ValidationCode, string, error) {

@@ -65,7 +65,7 @@ func NewVault(sp view2.ServiceProvider, configService driver.ConfigService, chan
 	}
 
 	var txidStore TXIDStore
-	txidStore, err = txidstore.NewTXIDStore(db.Unversioned(persistence))
+	txidStore, err = vault.NewTXIDStore(db.Unversioned(persistence))
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "failed creating txid store")
 	}

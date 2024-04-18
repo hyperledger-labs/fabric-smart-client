@@ -11,10 +11,10 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 )
 
-// TxStatusChangeListener is the interface that must be implemented to receive transaction status change notifications
-type TxStatusChangeListener interface {
-	// OnStatusChange is called when the status of a transaction changes
-	OnStatusChange(txID string, status int, statusMessage string) error
+// FinalityListener is the interface that must be implemented to receive transaction status notifications
+type FinalityListener interface {
+	// OnStatus is called when the status of a transaction changes
+	OnStatus(txID string, status driver.ValidationCode, statusMessage string)
 }
 
 type Committer struct {
@@ -42,14 +42,16 @@ func (c *Committer) AddStatusReporter(sr driver.StatusReporter) error {
 	return c.committer.AddStatusReporter(sr)
 }
 
-// SubscribeTxStatusChanges registers a listener for transaction status changes for the passed transaction id.
-// If the transaction id is empty, the listener will be called for all transactions.
-func (c *Committer) SubscribeTxStatusChanges(txID string, listener TxStatusChangeListener) error {
-	return c.committer.SubscribeTxStatusChanges(txID, listener)
+// AddFinalityListener registers a listener for transaction status for the passed transaction id.
+// If the status is already valid or invalid, the listener is called immediately.
+// When the listener is invoked, then it is also removed.
+// If the transaction id is empty, the listener will be called on status changes of any transaction.
+// In this case, the listener is not removed
+func (c *Committer) AddFinalityListener(txID string, listener FinalityListener) error {
+	return c.committer.AddFinalityListener(txID, listener)
 }
 
-// UnsubscribeTxStatusChanges unregisters a listener for transaction status changes for the passed transaction id.
-// If the transaction id is empty, the listener will be called for all transactions.
-func (c *Committer) UnsubscribeTxStatusChanges(txID string, listener TxStatusChangeListener) error {
-	return c.committer.UnsubscribeTxStatusChanges(txID, listener)
+// RemoveFinalityListener unregisters the passed listener.
+func (c *Committer) RemoveFinalityListener(txID string, listener FinalityListener) error {
+	return c.committer.RemoveFinalityListener(txID, listener)
 }

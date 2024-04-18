@@ -9,12 +9,11 @@ package committer
 import (
 	"context"
 	"fmt"
-	"strings"
 	"sync"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/compose"
 	errors2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	committer2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/committer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
@@ -31,28 +30,24 @@ var (
 	ErrUnknownTX = errors.New("unknown tx")
 )
 
+type (
+	EventManager = committer2.FinalityManager[driver.ValidationCode]
+	TxEvent      = committer2.FinalityEvent[driver.ValidationCode]
+)
+
 type Finality interface {
 	IsFinal(txID string, address string) error
 }
 
 type Vault interface {
 	Status(txID string) (driver.ValidationCode, string, error)
+	Statuses(ids ...string) ([]driver.TxValidationStatus, error)
 	DiscardTx(txID string, message string) error
 	CommitTX(txid string, block uint64, indexInBloc int) error
 }
 
 type ProcessorManager interface {
 	ProcessByID(txid string) error
-}
-
-// TxEvent contains information for token transaction commit
-type TxEvent struct {
-	TxID              string
-	ValidationCode    types.Flag
-	ValidationMessage string
-	Block             uint64
-	IndexInBlock      int
-	Err               error
 }
 
 type committer struct {
@@ -63,6 +58,7 @@ type committer struct {
 	em                  driver.EnvelopeService
 	waitForEventTimeout time.Duration
 
+	EventManager  *EventManager
 	quietNotifier bool
 
 	listeners      map[string][]chan TxEvent
@@ -100,6 +96,7 @@ func New(
 		pm:                  pm,
 		em:                  em,
 		pollingTimeout:      100 * time.Millisecond,
+		EventManager:        committer2.NewFinalityManager[driver.ValidationCode](vault, driver.Valid, driver.Invalid),
 		eventsSubscriber:    eventsSubscriber,
 		eventsPublisher:     eventsPublisher,
 		subscribers:         events.NewSubscribers(),
@@ -117,16 +114,16 @@ func (c *committer) Commit(block *types.AugmentedBlockHeader) error {
 		event.TxID = txID
 		event.Block = bn
 		event.IndexInBlock = i
-		event.ValidationCode = block.Header.ValidationInfo[i].Flag
+		event.ValidationCode = driver.ValidationCode(block.Header.ValidationInfo[i].Flag)
 		event.ValidationMessage = block.Header.ValidationInfo[i].ReasonIfInvalid
 
 		discard := false
-		switch event.ValidationCode {
+		switch block.Header.ValidationInfo[i].Flag {
 		case types.Flag_VALID:
 			if err := c.CommitTX(txID, bn, i, &event); err != nil {
 				if errors2.HasCause(err, ErrDiscardTX) {
 					// in this case, we will discard the transaction
-					event.ValidationCode = types.Flag_INVALID_INCORRECT_ENTRIES
+					event.ValidationCode = driver.ValidationCode(types.Flag_INVALID_INCORRECT_ENTRIES)
 					event.ValidationMessage = err.Error()
 					discard = true
 				} else {
@@ -266,60 +263,20 @@ func (c *committer) IsFinal(ctx context.Context, txID string) error {
 	return c.listenToFinality(ctx, txID, c.waitForEventTimeout)
 }
 
-// SubscribeTxStatusChanges registers a listener for transaction status changes for the passed transaction id.
-// If the transaction id is empty, the listener will be called for all transactions.
-func (c *committer) SubscribeTxStatusChanges(txID string, wrapped driver.TxStatusChangeListener) error {
-	logger.Debugf("Subscribing to tx status changes for [%s]", txID)
-	var topic string
-	if len(txID) == 0 {
-		topic = compose.CreateCompositeKeyOrPanic(&strings.Builder{}, "tx", c.networkName)
-	} else {
-		topic = compose.CreateCompositeKeyOrPanic(&strings.Builder{}, "tx", c.networkName, txID)
-	}
-	wrapper := &TxEventsListener{listener: wrapped}
-	c.eventsSubscriber.Subscribe(topic, wrapper)
-	c.subscribers.Set(topic, wrapped, wrapper)
-	logger.Debugf("Subscribed to tx status changes for [%s] done", txID)
+func (c *committer) AddFinalityListener(txID string, listener driver.FinalityListener) error {
+	c.EventManager.AddListener(txID, listener)
 	return nil
 }
 
-// UnsubscribeTxStatusChanges unregisters a listener for transaction status changes for the passed transaction id.
-// If the transaction id is empty, the listener will be called for all transactions.
-func (c *committer) UnsubscribeTxStatusChanges(txID string, listener driver.TxStatusChangeListener) error {
-	var topic string
-	if len(txID) == 0 {
-		topic = compose.CreateCompositeKeyOrPanic(&strings.Builder{}, "tx", c.networkName)
-	} else {
-		topic = compose.CreateCompositeKeyOrPanic(&strings.Builder{}, "tx", c.networkName, txID)
-	}
-	l, ok := c.subscribers.Get(topic, listener)
-	if !ok {
-		return errors.Errorf("listener not found for txID [%s]", txID)
-	}
-	el, ok := l.(events.Listener)
-	if !ok {
-		return errors.Errorf("listener not found for txID [%s]", txID)
-	}
-	c.subscribers.Delete(topic, listener)
-	c.eventsSubscriber.Unsubscribe(topic, el)
+func (c *committer) RemoveFinalityListener(txID string, listener driver.FinalityListener) error {
+	c.EventManager.RemoveListener(txID, listener)
 	return nil
 }
 
-func (c *committer) notifyTxStatus(txID string, vc driver.ValidationCode, message string) {
-	// We publish two events here:
-	// 1. The first will be caught by the listeners that are listening for any transaction id.
-	// 2. The second will be caught by the listeners that are listening for the specific transaction id.
-	var sb strings.Builder
-	c.eventsPublisher.Publish(&driver.TransactionStatusChanged{
-		ThisTopic:         compose.CreateCompositeKeyOrPanic(&sb, "tx", c.networkName),
+func (c *committer) postFinality(txID string, vc driver.ValidationCode, message string) {
+	c.EventManager.Post(TxEvent{
 		TxID:              txID,
-		VC:                vc,
-		ValidationMessage: message,
-	})
-	c.eventsPublisher.Publish(&driver.TransactionStatusChanged{
-		ThisTopic:         compose.AppendAttributesOrPanic(&sb, txID),
-		TxID:              txID,
-		VC:                vc,
+		ValidationCode:    vc,
 		ValidationMessage: message,
 	})
 }
@@ -358,10 +315,10 @@ func (c *committer) notifyFinality(event TxEvent) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	if event.ValidationCode == types.Flag_VALID {
-		c.notifyTxStatus(event.TxID, driver.Valid, "")
+	if types.Flag(event.ValidationCode) == types.Flag_VALID {
+		c.postFinality(event.TxID, driver.Valid, "")
 	} else {
-		c.notifyTxStatus(event.TxID, driver.Invalid, event.ValidationMessage)
+		c.postFinality(event.TxID, driver.Invalid, event.ValidationMessage)
 	}
 
 	if event.Err != nil && !c.quietNotifier {
@@ -438,15 +395,4 @@ func (c *committer) listenToFinality(ctx context.Context, txID string, timeout t
 		logger.Debugf("Is [%s] final? Failed to listen to transaction for timeout", txID)
 	}
 	return errors.Errorf("failed to listen to transaction [%s] for timeout", txID)
-}
-
-type TxEventsListener struct {
-	listener driver.TxStatusChangeListener
-}
-
-func (l *TxEventsListener) OnReceive(event events.Event) {
-	tsc := event.Message().(*driver.TransactionStatusChanged)
-	if err := l.listener.OnStatusChange(tsc.TxID, int(tsc.VC), ""); err != nil {
-		logger.Errorf("failed to notify listener for tx [%s] with err [%s]", tsc.TxID, err)
-	}
 }

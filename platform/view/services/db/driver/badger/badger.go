@@ -14,6 +14,7 @@ import (
 	"github.com/dgraph-io/badger/v3"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	keys2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/keys"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/pkg/errors"
 )
@@ -219,6 +220,23 @@ func (db *DB) GetState(namespace, key string) ([]byte, uint64, uint64, error) {
 	}
 
 	return v.Value, v.Block, v.Txnum, nil
+}
+
+func (db *DB) GetStateSetIterator(ns string, keys ...string) (driver.VersionedResultsIterator, error) {
+	reads := make([]*driver.VersionedRead, len(keys))
+	for i, key := range keys {
+		value, blockNum, txNum, err := db.GetState(ns, key)
+		if err != nil {
+			return nil, err
+		}
+		reads[i] = &driver.VersionedRead{
+			Key:          key,
+			Raw:          value,
+			Block:        blockNum,
+			IndexInBlock: int(txNum),
+		}
+	}
+	return &keys2.DummyVersionedIterator{Items: reads}, nil
 }
 
 func (db *DB) GetStateMetadata(namespace, key string) (map[string][]byte, uint64, uint64, error) {

@@ -6,7 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 
 package driver
 
-type ValidationCode int
+type ValidationCode = int
 
 const (
 	_       ValidationCode = iota
@@ -15,6 +15,17 @@ const (
 	Busy                   // Transaction does not yet have a validity state
 	Unknown                // Transaction is unknown
 )
+
+type ValidationCodeProvider struct{}
+
+func (p *ValidationCodeProvider) ToInt32(code ValidationCode) int32 { return int32(code) }
+func (p *ValidationCodeProvider) FromInt32(code int32) ValidationCode {
+	return ValidationCode(code)
+}
+func (p *ValidationCodeProvider) Unknown() ValidationCode { return Unknown }
+func (p *ValidationCodeProvider) Busy() ValidationCode    { return Busy }
+func (p *ValidationCodeProvider) Valid() ValidationCode   { return Valid }
+func (p *ValidationCodeProvider) Invalid() ValidationCode { return Invalid }
 
 type Envelope interface {
 	TxID() string

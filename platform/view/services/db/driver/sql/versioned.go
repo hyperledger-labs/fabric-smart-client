@@ -12,6 +12,7 @@ import (
 	"encoding/gob"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	errors2 "github.com/pkg/errors"
@@ -182,6 +183,23 @@ func unmarshalMetadata(input []byte) (m map[string][]byte, err error) {
 	return
 }
 
+func (db *Persistence) GetStateSetIterator(ns string, keys ...string) (driver.VersionedResultsIterator, error) {
+	if len(keys) == 0 {
+		return &EmptyVersionedIterator{}, nil
+	}
+	query := fmt.Sprintf("SELECT pkey, block, txnum, val FROM %s WHERE ns = ? AND pkey = ANY(%s);", db.table, "?"+strings.Repeat(",?", len(keys)-1))
+	logger.Debug(query, ns, keys)
+
+	rows, err := db.readDB.Query(query, append([]any{ns}, castAny(keys)...)...)
+	if err != nil {
+		return nil, fmt.Errorf("query error: %w", err)
+	}
+
+	return &VersionedReadIterator{
+		txs: rows,
+	}, nil
+}
+
 func (db *Persistence) GetStateRangeScanIterator(ns string, startKey string, endKey string) (driver.VersionedResultsIterator, error) {
 	where, args := rangeWhere(ns, startKey, endKey)
 	query := fmt.Sprintf("SELECT pkey, block, txnum, val FROM %s WHERE ns = $1 ", db.table) + where + " ORDER BY pkey;"
@@ -196,6 +214,12 @@ func (db *Persistence) GetStateRangeScanIterator(ns string, startKey string, end
 		txs: rows,
 	}, nil
 }
+
+type EmptyVersionedIterator struct{}
+
+func (t *EmptyVersionedIterator) Close() {}
+
+func (t *EmptyVersionedIterator) Next() (*driver.VersionedRead, error) { return nil, nil }
 
 type VersionedReadIterator struct {
 	txs *sql.Rows

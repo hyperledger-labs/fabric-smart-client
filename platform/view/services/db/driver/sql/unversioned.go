@@ -9,6 +9,7 @@ package sql
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/pkg/errors"
@@ -86,6 +87,34 @@ func (db *Unversioned) GetState(ns, key string) ([]byte, error) {
 	return val, nil
 }
 
+func (db *Unversioned) GetStateSetIterator(ns string, keys ...string) (driver.ResultsIterator, error) {
+	if len(keys) == 0 {
+		return &EmptyIterator{}, nil
+	}
+	query := fmt.Sprintf("SELECT pkey, val FROM %s WHERE ns = ? AND pkey = ANY(%s);", db.table, "?"+strings.Repeat(",?", len(keys)-1))
+	logger.Debug(query, ns, keys)
+
+	rows, err := db.readDB.Query(query, append([]any{ns}, castAny(keys)...)...)
+	if err != nil {
+		return nil, fmt.Errorf("query error: %w", err)
+	}
+
+	return &UnversionedReadIterator{
+		txs: rows,
+	}, nil
+}
+
+func castAny[A any](as []A) []any {
+	if as == nil {
+		return nil
+	}
+	bs := make([]any, len(as))
+	for i, a := range as {
+		bs[i] = a
+	}
+	return bs
+}
+
 func (db *Unversioned) GetStateRangeScanIterator(ns string, startKey string, endKey string) (driver.ResultsIterator, error) {
 	where, args := rangeWhere(ns, startKey, endKey)
 	query := fmt.Sprintf("SELECT pkey, val FROM %s WHERE ns = $1 %s ORDER BY pkey;", db.table, where)
@@ -118,6 +147,12 @@ func rangeWhere(ns, startKey, endKey string) (string, []interface{}) {
 	}
 	return where, args
 }
+
+type EmptyIterator struct{}
+
+func (t *EmptyIterator) Close() {}
+
+func (t *EmptyIterator) Next() (*driver.Read, error) { return nil, nil }
 
 type UnversionedReadIterator struct {
 	txs *sql.Rows

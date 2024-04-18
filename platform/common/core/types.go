@@ -4,6 +4,6 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package vault
+package core
 
-//go:generate protoc txid.proto --go_out=.
+type TxID = string

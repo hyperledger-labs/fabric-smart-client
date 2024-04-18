@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package driver
 
 import (
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/pkg/errors"
 )
@@ -24,28 +25,9 @@ type ResultsIterator interface {
 	Close()
 }
 
-type VersionedRead struct {
-	Key          string
-	Raw          []byte
-	Block        uint64
-	IndexInBlock int
-}
+type VersionedRead = driver.VersionedRead
 
-func (v *VersionedRead) K() string {
-	return v.Key
-}
-
-func (v *VersionedRead) V() []byte {
-	return v.Raw
-}
-
-type VersionedResultsIterator interface {
-	// Next returns the next item in the result set. The `QueryResult` is expected to be nil when
-	// the iterator gets exhausted
-	Next() (*VersionedRead, error)
-	// Close releases resources occupied by the iterator
-	Close()
-}
+type VersionedResultsIterator = driver.VersionedResultsIterator
 
 type WriteTransaction interface {
 	// SetState sets the given value for the given namespace, key, and version
@@ -92,6 +74,9 @@ type VersionedPersistence interface {
 	// can be supplied as empty strings. However, a full scan should be used judiciously for performance reasons.
 	// The returned VersionedResultsIterator contains results of type *VersionedRead.
 	GetStateRangeScanIterator(namespace string, startKey string, endKey string) (VersionedResultsIterator, error)
+	// GetStateSetIterator returns an iterator that contains all the values for the passed keys.
+	// The order is not respected.
+	GetStateSetIterator(ns string, keys ...string) (VersionedResultsIterator, error)
 	// Close closes this persistence instance
 	Close() error
 	// BeginUpdate starts the session
@@ -116,6 +101,9 @@ type Persistence interface {
 	// can be supplied as empty strings. However, a full scan should be used judiciously for performance reasons.
 	// The returned ResultsIterator contains results of type *Read.
 	GetStateRangeScanIterator(namespace string, startKey string, endKey string) (ResultsIterator, error)
+	// GetStateSetIterator returns an iterator that contains all the values for the passed keys.
+	// The order is not respected.
+	GetStateSetIterator(ns string, keys ...string) (ResultsIterator, error)
 	// Close closes this persistence instance
 	Close() error
 	// BeginUpdate starts the session

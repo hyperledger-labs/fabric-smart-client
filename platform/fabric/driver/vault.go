@@ -6,37 +6,26 @@ SPDX-License-Identifier: Apache-2.0
 
 package driver
 
-// Vault models a key value store that can be updated by committing rwsets
+import (
+	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+)
+
+const (
+	FromStorage      = driver2.FromStorage
+	FromIntermediate = driver2.FromIntermediate
+	FromBoth         = driver2.FromBoth
+)
+
+type TxValidationStatus = driver2.TxValidationStatus[ValidationCode]
+
 type Vault interface {
-	// NewQueryExecutor gives handle to a query executor.
-	// A client can obtain more than one 'QueryExecutor's for parallel execution.
-	// Any synchronization should be performed at the implementation level if required
-	NewQueryExecutor() (QueryExecutor, error)
-
-	// NewRWSet returns a RWSet for this ledger.
-	// A client may obtain more than one such simulator; they are made unique
-	// by way of the supplied txid
-	NewRWSet(txid string) (RWSet, error)
-
-	// GetRWSet returns a RWSet for this ledger whose content is unmarshalled
-	// from the passed bytes.
-	// A client may obtain more than one such simulator; they are made unique
-	// by way of the supplied txid
-	GetRWSet(txid string, rwset []byte) (RWSet, error)
+	driver2.Vault[ValidationCode]
 
 	// GetEphemeralRWSet returns an ephemeral RWSet for this ledger whose content is unmarshalled
 	// from the passed bytes.
 	// If namespaces is not empty, the returned RWSet will be filtered by the passed namespaces
 	GetEphemeralRWSet(rwset []byte, namespaces ...string) (RWSet, error)
-
-	CommitTX(id string, block uint64, index int) error
-
-	Status(id string) (ValidationCode, string, error)
-
-	DiscardTx(id string, message string) error
-
 	RWSExists(id string) bool
-
 	Match(id string, results []byte) error
 	Close() error
 }

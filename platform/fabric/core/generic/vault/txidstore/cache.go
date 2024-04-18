@@ -61,6 +61,6 @@ func (s *Cache) GetLastTxID() (string, error) {
 	return s.backed.GetLastTxID()
 }
 
-func (s *Cache) Iterator(pos interface{}) (fdriver.TxidIterator, error) {
+func (s *Cache) Iterator(pos interface{}) (fdriver.TxIDIterator, error) {
 	return s.backed.Iterator(pos)
 }

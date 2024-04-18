@@ -7,13 +7,13 @@ SPDX-License-Identifier: Apache-2.0
 package orion
 
 import (
+	driver3 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
-
 	"github.com/pkg/errors"
 )
 
-type GetStateOpt int
+type GetStateOpt = int
 
 const (
 	FromStorage GetStateOpt = iota
@@ -21,7 +21,7 @@ const (
 	FromBoth
 )
 
-type ValidationCode int
+type ValidationCode = int
 
 const (
 	_       ValidationCode = iota
@@ -174,7 +174,7 @@ func (r *ResultsIterator) Close() {
 }
 
 type QueryExecutor struct {
-	qe driver.QueryExecutor
+	qe driver3.QueryExecutor
 }
 
 func (qe *QueryExecutor) GetState(namespace string, key string) ([]byte, error) {

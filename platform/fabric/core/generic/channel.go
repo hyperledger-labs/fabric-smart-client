@@ -75,10 +75,6 @@ func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get event publisher")
 	}
-	eventsSubscriber, err := events.GetSubscriber(sp)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get event subscriber")
-	}
 
 	kvsService := kvs.GetService(sp)
 
@@ -125,7 +121,6 @@ func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver
 		c.LedgerService,
 		c.RWSetLoaderService,
 		c.Network.processorManager,
-		eventsSubscriber,
 		eventsPublisher,
 		c.ChannelMembershipService,
 		c.Network,

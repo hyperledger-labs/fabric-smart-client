@@ -17,7 +17,7 @@ import (
 
 type ValidationFlags []uint8
 
-func (c *Service) HandleEndorserTransaction(block *common.Block, i int, event *TxEvent, env *common.Envelope, chHdr *common.ChannelHeader) error {
+func (c *Service) HandleEndorserTransaction(block *common.Block, i int, event *FinalityEvent, env *common.Envelope, chHdr *common.ChannelHeader) error {
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("[%s] Endorser transaction received: %s", c.ChannelConfig.ID(), chHdr.TxId)
 	}
@@ -27,16 +27,16 @@ func (c *Service) HandleEndorserTransaction(block *common.Block, i int, event *T
 
 	txID := chHdr.TxId
 	event.TxID = txID
-	event.ValidationCode = pb.TxValidationCode(ValidationFlags(block.Metadata.Metadata[common.BlockMetadataIndex_TRANSACTIONS_FILTER])[i])
+	event.ValidationCode = driver.ValidationCode(ValidationFlags(block.Metadata.Metadata[common.BlockMetadataIndex_TRANSACTIONS_FILTER])[i])
 	event.ValidationMessage = pb.TxValidationCode_name[int32(event.ValidationCode)]
 
-	switch event.ValidationCode {
+	switch pb.TxValidationCode(event.ValidationCode) {
 	case pb.TxValidationCode_VALID:
 		processed, err := c.CommitEndorserTransaction(txID, block, i, env, event)
 		if err != nil {
 			if errors2.HasCause(err, ErrDiscardTX) {
 				// in this case, we will discard the transaction
-				event.ValidationCode = pb.TxValidationCode_INVALID_OTHER_REASON
+				event.ValidationCode = driver.ValidationCode(pb.TxValidationCode_INVALID_OTHER_REASON)
 				event.ValidationMessage = err.Error()
 				break
 			}
@@ -73,13 +73,12 @@ func (c *Service) GetChaincodeEvents(env *common.Envelope, block *common.Block) 
 
 // CommitEndorserTransaction commits the transaction to the vault.
 // It returns true, if the transaction was already processed, false otherwise.
-func (c *Service) CommitEndorserTransaction(txID string, block *common.Block, indexInBlock int, env *common.Envelope, event *TxEvent) (bool, error) {
+func (c *Service) CommitEndorserTransaction(txID string, block *common.Block, indexInBlock int, env *common.Envelope, event *FinalityEvent) (bool, error) {
 	blockNum := block.Header.Number
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("transaction [%s] in block [%d] is valid for fabric, commit!", txID, blockNum)
 	}
 
-	event.Committed = true
 	event.Block = blockNum
 	event.IndexInBlock = indexInBlock
 
@@ -116,7 +115,7 @@ func (c *Service) CommitEndorserTransaction(txID string, block *common.Block, in
 }
 
 // DiscardEndorserTransaction discards the transaction from the vault
-func (c *Service) DiscardEndorserTransaction(txID string, block *common.Block, event *TxEvent) error {
+func (c *Service) DiscardEndorserTransaction(txID string, block *common.Block, event *FinalityEvent) error {
 	blockNum := block.Header.Number
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("transaction [%s] in block [%d] is not valid for fabric [%s], discard!", txID, blockNum, event.ValidationCode)
