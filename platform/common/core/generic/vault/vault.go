@@ -443,3 +443,21 @@ func (db *Vault[V]) GetExistingRWSet(txID core.TxID) (TxInterceptor, error) {
 
 	return interceptor, nil
 }
+
+func (db *Vault[V]) SetStatus(txID core.TxID, code V) error {
+	err := db.store.BeginUpdate()
+	if err != nil {
+		return errors.WithMessagef(err, "begin update for txid '%s' failed", txID)
+	}
+	err = db.txIDStore.Set(txID, code, "")
+	if err != nil {
+		db.store.Discard()
+		return err
+	}
+	err = db.store.Commit()
+	if err != nil {
+		db.store.Discard()
+		return errors.WithMessagef(err, "committing tx for txid '%s' failed", txID)
+	}
+	return nil
+}

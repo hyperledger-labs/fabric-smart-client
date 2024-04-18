@@ -6,6 +6,11 @@ SPDX-License-Identifier: Apache-2.0
 
 package driver
 
+import (
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/committer"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
+)
+
 type StatusReporter interface {
 	Status(txID string) (ValidationCode, string, []string, error)
 }
@@ -28,14 +33,17 @@ func (t *TransactionStatusChanged) Message() interface{} {
 	return t
 }
 
-// FinalityListener is the interface that must be implemented to receive transaction status notifications
-type FinalityListener interface {
-	// OnStatus is called when the status of a transaction changes, or it is valid or invalid
-	OnStatus(txID string, status ValidationCode, statusMessage string)
-}
+type TransactionFilter = driver.TransactionFilter
+
+// FinalityListener is the interface that must be implemented to receive transaction status change notifications
+type FinalityListener = committer.FinalityListener[ValidationCode]
 
 // Committer models the committer service
 type Committer interface {
+	// AddTransactionFilter adds a new transaction filter to this commit pipeline.
+	// The transaction filter is used to check if an unknown transaction needs to be processed anyway
+	AddTransactionFilter(tf TransactionFilter) error
+
 	// AddFinalityListener registers a listener for transaction status for the passed transaction id.
 	// If the status is already valid or invalid, the listener is called immediately.
 	// When the listener is invoked, then it is also removed.

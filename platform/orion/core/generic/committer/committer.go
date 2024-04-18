@@ -14,6 +14,7 @@ import (
 
 	errors2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	committer2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/committer"
+	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
@@ -41,6 +42,7 @@ type Finality interface {
 
 type Vault interface {
 	Status(txID string) (driver.ValidationCode, string, error)
+	SetStatus(txID string, code driver.ValidationCode) error
 	Statuses(ids ...string) ([]driver.TxValidationStatus, error)
 	DiscardTx(txID string, message string) error
 	CommitTX(txid string, block uint64, indexInBloc int) error
@@ -57,6 +59,7 @@ type committer struct {
 	pm                  ProcessorManager
 	em                  driver.EnvelopeService
 	waitForEventTimeout time.Duration
+	TransactionFilters  *driver2.AggregatedTransactionFilter
 
 	EventManager  *EventManager
 	quietNotifier bool
@@ -102,6 +105,7 @@ func New(
 		subscribers:         events.NewSubscribers(),
 		finalityNumRetries:  3,
 		finalitySleepTime:   100 * time.Millisecond,
+		TransactionFilters:  driver2.NewAggregatedTransactionFilter(),
 	}
 	return d, nil
 }
@@ -161,8 +165,8 @@ func (c *committer) CommitTX(txID string, bn uint64, index int, event *TxEvent) 
 		return errors.Errorf("tx %s is already invalid but it is marked as valid by orion", txID)
 	case driver.Unknown:
 		if !c.em.Exists(txID) {
-			logger.Debugf("tx %s is unknown, ignore it", txID)
-			return nil
+			logger.Debugf("tx %s is unknown, check the transaction filters...", txID)
+			return c.commitWithFilter(txID)
 		}
 		logger.Debugf("tx %s is unknown, but it was found its envelope has been found, process it", txID)
 	}
@@ -270,6 +274,22 @@ func (c *committer) AddFinalityListener(txID string, listener driver.FinalityLis
 
 func (c *committer) RemoveFinalityListener(txID string, listener driver.FinalityListener) error {
 	c.EventManager.RemoveListener(txID, listener)
+	return nil
+}
+
+func (c *committer) AddTransactionFilter(sr driver.TransactionFilter) error {
+	c.TransactionFilters.Add(sr)
+	return nil
+}
+
+func (c *committer) commitWithFilter(txID string) error {
+	ok, err := c.TransactionFilters.Accept(txID, nil)
+	if err != nil {
+		return err
+	}
+	if ok {
+		return c.vault.SetStatus(txID, driver.Valid)
+	}
 	return nil
 }
 

@@ -17,6 +17,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/compose"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/committer"
+	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/fabricutils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/membership"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/rwset"
@@ -59,7 +60,7 @@ type FabricFinality interface {
 	IsFinal(txID string, address string) error
 }
 
-type TransactionHandler = func(block *common.Block, i int, event *FinalityEvent, env *common.Envelope, chHdr *common.ChannelHeader) error
+type TransactionHandler = func(block *common.Block, i int, event *FinalityEvent, envRaw []byte, env *common.Envelope, chHdr *common.ChannelHeader) error
 
 type OrderingService interface {
 	SetConfigOrderers(o channelconfig.Orderer, orderers []*grpc.ConnectionConfig) error
@@ -71,7 +72,7 @@ type Service struct {
 
 	Vault              driver.Vault
 	EnvelopeService    driver.EnvelopeService
-	StatusReporters    []driver.StatusReporter
+	TransactionFilters *driver2.AggregatedTransactionFilter
 	ProcessNamespaces  []string
 	Ledger             driver.Ledger
 	RWSetLoaderService driver.RWSetLoader
@@ -115,7 +116,7 @@ func NewService(
 		ChannelConfig:       channelConfig,
 		Vault:               vault,
 		EnvelopeService:     envelopeService,
-		StatusReporters:     []driver.StatusReporter{},
+		TransactionFilters:  driver2.NewAggregatedTransactionFilter(),
 		ProcessNamespaces:   []string{},
 		Ledger:              ledger,
 		RWSetLoaderService:  rwsetLoaderService,
@@ -155,15 +156,6 @@ func (c *Service) Status(txID string) (driver.ValidationCode, string, error) {
 				return driver.Unknown, "", errors.WithMessagef(err, "failed to extract stored enveloper for [%s]", txID)
 			}
 			vc = driver.Busy
-		} else {
-			// check status reporter, if any
-			for _, reporter := range c.StatusReporters {
-				externalStatus, externalMessage, _, err := reporter.Status(txID)
-				if err == nil && externalStatus != driver.Unknown {
-					vc = externalStatus
-					message = externalMessage
-				}
-			}
 		}
 	}
 	return vc, message, nil
@@ -174,15 +166,14 @@ func (c *Service) ProcessNamespace(nss ...string) error {
 	return nil
 }
 
-func (c *Service) AddStatusReporter(sr driver.StatusReporter) error {
-	c.StatusReporters = append(c.StatusReporters, sr)
+func (c *Service) AddTransactionFilter(sr driver.TransactionFilter) error {
+	c.TransactionFilters.Add(sr)
 	return nil
 }
 
 func (c *Service) DiscardTx(txID string, message string) error {
 	logger.Debugf("discarding transaction [%s] with message [%s]", txID, message)
 
-	defer c.notifyTxStatus(txID, driver.Invalid, message)
 	vc, _, err := c.Status(txID)
 	if err != nil {
 		return errors.WithMessagef(err, "failed getting tx's status in state db [%s]", txID)
@@ -194,19 +185,8 @@ func (c *Service) DiscardTx(txID string, message string) error {
 				return errors.WithMessagef(err, "failed to extract stored enveloper for [%s]", txID)
 			}
 		} else {
-			// check status reporter, if any
-			found := false
-			for _, reporter := range c.StatusReporters {
-				externalStatus, _, _, err := reporter.Status(txID)
-				if err == nil && externalStatus != driver.Unknown {
-					found = true
-					break
-				}
-			}
-			if !found {
-				logger.Debugf("Discarding transaction [%s] skipped, tx is unknown", txID)
-				return nil
-			}
+			logger.Debugf("Discarding transaction [%s] skipped, tx is unknown", txID)
+			return nil
 		}
 	}
 
@@ -219,11 +199,6 @@ func (c *Service) DiscardTx(txID string, message string) error {
 func (c *Service) CommitTX(txID string, block uint64, indexInBlock int, envelope *common.Envelope) (err error) {
 	logger.Debugf("Committing transaction [%s,%d,%d]", txID, block, indexInBlock)
 	defer logger.Debugf("Committing transaction [%s,%d,%d] done [%s]", txID, block, indexInBlock, err)
-	defer func() {
-		if err == nil {
-			c.notifyTxStatus(txID, driver.Valid, "")
-		}
-	}()
 
 	vc, _, err := c.Status(txID)
 	if err != nil {
@@ -342,7 +317,7 @@ func (c *Service) Commit(block *common.Block) error {
 		c.Tracer.AddEventAt("commit", "start", time.Now())
 		handler, ok := c.Handlers[common.HeaderType(chdr.Type)]
 		if ok {
-			if err := handler(block, i, &event, env, chdr); err != nil {
+			if err := handler(block, i, &event, tx, env, chdr); err != nil {
 				return err
 			}
 		} else {
@@ -354,6 +329,14 @@ func (c *Service) Commit(block *common.Block) error {
 
 		c.notifyFinality(event)
 		c.EventManager.Post(event)
+
+		var driverVC driver.ValidationCode
+		if peer.TxValidationCode(event.ValidationCode) == peer.TxValidationCode_VALID {
+			driverVC = driver.Valid
+		} else {
+			driverVC = driver.Invalid
+		}
+		c.notifyTxStatus(event.TxID, driverVC, event.ValidationMessage)
 		if logger.IsEnabledFor(zapcore.DebugLevel) {
 			logger.Debugf("commit transaction [%s] in filteredBlock [%d]", chdr.TxId, block.Header.Number)
 		}
@@ -660,7 +643,7 @@ func (c *Service) commitConfig(txID string, blockNumber uint64, seq uint64, enve
 	}
 	rws.Done()
 	if err := c.CommitTX(txID, blockNumber, 0, nil); err != nil {
-		if err2 := c.DiscardTx(txID, ""); err2 != nil {
+		if err2 := c.DiscardTx(txID, err.Error()); err2 != nil {
 			logger.Errorf("failed committing configtx rws [%s]", err2)
 		}
 		return errors.Wrapf(err, "failed committing configtx rws")
@@ -846,6 +829,7 @@ func (c *Service) filterUnknownEnvelope(txID string, envelope []byte) (bool, err
 	}
 	defer rws.Done()
 
+	// check namespaces
 	logger.Debugf("[%s] contains namespaces [%v] or `initialized` key", txID, rws.Namespaces())
 	for _, ns := range rws.Namespaces() {
 		for _, namespace := range c.ProcessNamespaces {
@@ -866,6 +850,11 @@ func (c *Service) filterUnknownEnvelope(txID string, envelope []byte) (bool, err
 				return true, nil
 			}
 		}
+	}
+
+	// check the filters
+	if ok, err := c.TransactionFilters.Accept(txID, envelope); err != nil || ok {
+		return ok, err
 	}
 
 	status, _, _ := c.Status(txID)

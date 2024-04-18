@@ -15,6 +15,5 @@ type TxValidationStatus = driver2.TxValidationStatus[ValidationCode]
 // Vault models a key value store that can be updated by committing rwsets
 type Vault interface {
 	driver2.Vault[ValidationCode]
-	AddStatusReporter(sr StatusReporter) error
 	GetLastTxID() (string, error)
 }

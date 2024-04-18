@@ -9,6 +9,7 @@ package views
 import (
 	"sync"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
 
@@ -21,8 +22,9 @@ func NewFinalityListener(expectedTxID string, WG *sync.WaitGroup) *FinalityListe
 	return &FinalityListener{ExpectedTxID: expectedTxID, WaitGroup: WG}
 }
 
-func (t *FinalityListener) OnStatus(txID string, _ driver.ValidationCode, _ string) {
+func (t *FinalityListener) OnStatusChange(txID core.TxID, _ driver.ValidationCode, _ string) error {
 	if txID == t.ExpectedTxID {
 		t.WaitGroup.Done()
 	}
+	return nil
 }
