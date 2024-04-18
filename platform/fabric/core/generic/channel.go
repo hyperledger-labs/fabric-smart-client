@@ -113,7 +113,22 @@ func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver
 		v,
 	)
 
-	c.CommitterService = committer.NewService(network.configService, channelConfig, c.VaultService, c.ES, c.LedgerService, c.RWSetLoaderService, c.Network.processorManager, eventsPublisher, c.ChannelMembershipService, c.Network, fabricFinality, channelConfig.CommitterWaitForEventTimeout(), quiet, tracing.Get(sp).GetTracer())
+	c.CommitterService = committer.NewService(
+		network.configService,
+		channelConfig,
+		c.VaultService,
+		c.ES,
+		c.LedgerService,
+		c.RWSetLoaderService,
+		c.Network.processorManager,
+		eventsPublisher,
+		c.ChannelMembershipService,
+		c.Network,
+		fabricFinality,
+		channelConfig.CommitterWaitForEventTimeout(),
+		quiet,
+		tracing.Get(sp).GetTracer(),
+	)
 
 	if err != nil {
 		return nil, err

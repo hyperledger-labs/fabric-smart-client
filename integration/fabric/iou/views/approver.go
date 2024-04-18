@@ -78,8 +78,8 @@ func (i *ApproverView) Call(context view.Context) (interface{}, error) {
 	var wg sync.WaitGroup
 	wg.Add(2)
 	committer := fabric.GetDefaultChannel(context).Committer()
-	assert.NoError(err, committer.AddFinalityListener(tx.ID(), NewTxStatusChangeListener(tx.ID(), &wg)), "failed to add committer listener")
-	assert.NoError(err, committer.AddFinalityListener("", NewTxStatusChangeListener(tx.ID(), &wg)), "failed to add committer listener")
+	assert.NoError(err, committer.AddFinalityListener(tx.ID(), NewFinalityListener(tx.ID(), &wg)), "failed to add committer listener")
+	assert.NoError(err, committer.AddFinalityListener("", NewFinalityListener(tx.ID(), &wg)), "failed to add committer listener")
 
 	// Finally, the approver waits that the transaction completes its lifecycle
 	_, err = context.RunView(state.NewFinalityWithTimeoutView(tx, 1*time.Minute))

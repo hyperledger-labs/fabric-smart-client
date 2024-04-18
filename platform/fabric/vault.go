@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
-
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/pkg/errors"
