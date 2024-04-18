@@ -49,7 +49,7 @@ func (p *processor) Process(req driver.Request, tx driver.ProcessTransaction, r 
 	return p.p.Process(
 		&request{Request: req},
 		&transaction{ProcessTransaction: tx},
-		&RWSet{rws: r},
+		NewRWSet(r),
 		ns,
 	)
 }

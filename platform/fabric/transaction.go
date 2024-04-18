@@ -256,7 +256,7 @@ func (t *Transaction) SetRWSet() error {
 }
 
 func (t *Transaction) RWS() *RWSet {
-	return &RWSet{rws: t.tx.RWS()}
+	return NewRWSet(t.tx.RWS())
 }
 
 func (t *Transaction) Done() error {
@@ -276,7 +276,7 @@ func (t *Transaction) GetRWSet() (*RWSet, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &RWSet{rws: rws}, nil
+	return NewRWSet(rws), nil
 }
 
 func (t *Transaction) Bytes() ([]byte, error) {

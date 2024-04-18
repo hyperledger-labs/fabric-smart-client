@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"reflect"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/pkg/errors"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
@@ -67,7 +68,7 @@ func (n *Namespace) getFieldMapping(namespace string, key string, flag bool) (ma
 		if err != nil {
 			return nil, errors.Wrap(err, "filed getting rw set")
 		}
-		meta, err := rws.GetStateMetadata(namespace, key, fabric.FromBoth)
+		meta, err := rws.GetStateMetadata(namespace, key, driver.FromBoth)
 		if err != nil {
 			return nil, errors.Wrap(err, "filed getting metadata")
 		}

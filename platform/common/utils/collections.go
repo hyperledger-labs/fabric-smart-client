@@ -16,9 +16,27 @@ func NewSet[K comparable](items ...K) Set[K] {
 	return set
 }
 
+func Intersection[V comparable](a, b []V) []V {
+	//if len(a) > len(b) {
+	//	a, b = b, a
+	//}
+	aSet := NewSet(a...)
+	var res []V
+	for _, k := range b {
+		if aSet.Contains(k) {
+			res = append(res, k)
+		}
+	}
+	return res
+}
+
 func (s *Set[K]) Contains(key K) bool {
 	_, ok := (*s)[key]
 	return ok
+}
+
+func (s *Set[K]) Empty() bool {
+	return len(*s) == 0
 }
 
 func Keys[K comparable, V any](m map[K]V) []K {

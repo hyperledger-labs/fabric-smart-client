@@ -24,12 +24,12 @@ var logger = flogging.MustGetLogger("fabric-sdk.vault")
 
 type TXIDStoreReader[V ValidationCode] interface {
 	Iterator(pos interface{}) (TxIDIterator[V], error)
-	Get(txID string) (V, string, error)
+	Get(txID core.TxID) (V, string, error)
 }
 
 type TXIDStore[V ValidationCode] interface {
 	TXIDStoreReader[V]
-	Set(txID string, code V, message string) error
+	Set(txID core.TxID, code V, message string) error
 }
 
 type TxInterceptor interface {
@@ -65,7 +65,7 @@ type Vault[V ValidationCode] struct {
 // New returns a new instance of Vault
 func New[V ValidationCode](store driver.VersionedPersistence, txIDStore TXIDStore[V], vcProvider ValidationCodeProvider[V], newInterceptor func(qe QueryExecutor, txidStore TXIDStoreReader[V], txid core.TxID) TxInterceptor) *Vault[V] {
 	return &Vault[V]{
-		Interceptors:   make(map[string]TxInterceptor),
+		Interceptors:   make(map[core.TxID]TxInterceptor),
 		store:          store,
 		txIDStore:      txIDStore,
 		vcProvider:     vcProvider,
@@ -141,7 +141,7 @@ func (db *Vault[V]) UnmapInterceptor(txID core.TxID) (TxInterceptor, error) {
 	return i, nil
 }
 
-func (db *Vault[V]) CommitTX(txID string, block uint64, indexInBloc int) error {
+func (db *Vault[V]) CommitTX(txID core.TxID, block core.BlockNum, indexInBloc int) error {
 	logger.Debugf("UnmapInterceptor [%s]", txID)
 	i, err := db.UnmapInterceptor(txID)
 	if err != nil {
@@ -160,7 +160,7 @@ func (db *Vault[V]) CommitTX(txID string, block uint64, indexInBloc int) error {
 	}
 
 	logger.Debugf("parse writes [%s]", txID)
-	if discarded, err := db.storeWrites(i.RWs().Writes, block, indexInBloc); err != nil {
+	if discarded, err := db.storeWrites(i.RWs().Writes, block, uint64(indexInBloc)); err != nil {
 		return errors.Wrapf(err, "failed storing writes")
 	} else if discarded {
 		logger.Infof("Discarded changes while storing writes as duplicates. Skipping...")
@@ -168,7 +168,7 @@ func (db *Vault[V]) CommitTX(txID string, block uint64, indexInBloc int) error {
 	}
 
 	logger.Debugf("parse meta writes [%s]", txID)
-	if discarded, err := db.storeMetaWrites(i.RWs().MetaWrites, block, indexInBloc); err != nil {
+	if discarded, err := db.storeMetaWrites(i.RWs().MetaWrites, block, uint64(indexInBloc)); err != nil {
 		return errors.Wrapf(err, "failed storing meta writes")
 	} else if discarded {
 		logger.Infof("Discarded changes while storing meta writes as duplicates. Skipping...")
@@ -190,7 +190,7 @@ func (db *Vault[V]) CommitTX(txID string, block uint64, indexInBloc int) error {
 	return nil
 }
 
-func (db *Vault[V]) setTxValid(txID string) (bool, error) {
+func (db *Vault[V]) setTxValid(txID core.TxID) (bool, error) {
 	err := db.txIDStore.Set(txID, db.vcProvider.Valid(), "")
 	if err == nil {
 		return false, nil
@@ -206,7 +206,7 @@ func (db *Vault[V]) setTxValid(txID string) (bool, error) {
 	return true, nil
 }
 
-func (db *Vault[V]) storeMetaWrites(writes NamespaceKeyedMetaWrites, block uint64, indexInBloc int) (bool, error) {
+func (db *Vault[V]) storeMetaWrites(writes NamespaceKeyedMetaWrites, block core.BlockNum, indexInBloc core.TxNum) (bool, error) {
 	for ns, keyMap := range writes {
 		for key, v := range keyMap {
 			logger.Debugf("Store meta write [%s,%s]", ns, key)
@@ -227,13 +227,13 @@ func (db *Vault[V]) storeMetaWrites(writes NamespaceKeyedMetaWrites, block uint6
 	return false, nil
 }
 
-func (db *Vault[V]) storeWrites(writes Writes, block uint64, indexInBloc int) (bool, error) {
+func (db *Vault[V]) storeWrites(writes Writes, block core.BlockNum, indexInBloc core.TxNum) (bool, error) {
 	for ns, keyMap := range writes {
 		for key, v := range keyMap {
 			logger.Debugf("Store write [%s,%s,%v]", ns, key, hash.Hashable(v).String())
 			var err error
 			if len(v) != 0 {
-				err = db.store.SetState(ns, key, v, block, uint64(indexInBloc))
+				err = db.store.SetState(ns, key, v, block, indexInBloc)
 			} else {
 				err = db.store.DeleteState(ns, key)
 			}
@@ -317,7 +317,7 @@ func (db *Vault[V]) GetRWSet(txID core.TxID, rwsetBytes []byte) (TxInterceptor, 
 	return i, nil
 }
 
-func (db *Vault[V]) InspectRWSet(rwsetBytes []byte, namespaces ...string) (driver2.RWSet, error) {
+func (db *Vault[V]) InspectRWSet(rwsetBytes []byte, namespaces ...core.Namespace) (driver2.RWSet, error) {
 	i := NewInspector()
 
 	if err := i.Rws.populate(rwsetBytes, "ephemeral", namespaces...); err != nil {
@@ -327,7 +327,7 @@ func (db *Vault[V]) InspectRWSet(rwsetBytes []byte, namespaces ...string) (drive
 	return i, nil
 }
 
-func (db *Vault[V]) Match(txID string, rwsRaw []byte) error {
+func (db *Vault[V]) Match(txID core.TxID, rwsRaw []byte) error {
 	if len(rwsRaw) == 0 {
 		return errors.Errorf("passed empty rwset")
 	}
@@ -396,7 +396,7 @@ func (db *Vault[V]) Statuses(txIDs ...core.TxID) ([]driver2.TxValidationStatus[V
 	return statuses, nil
 }
 
-func (db *Vault[V]) setValidationCode(txID string, code V, message string) error {
+func (db *Vault[V]) setValidationCode(txID core.TxID, code V, message string) error {
 	if err := db.store.BeginUpdate(); err != nil {
 		return errors.WithMessagef(err, "begin update for txid '%s' failed", txID)
 	}
@@ -414,7 +414,7 @@ func (db *Vault[V]) setValidationCode(txID string, code V, message string) error
 	return nil
 }
 
-func (db *Vault[V]) GetExistingRWSet(txID string) (TxInterceptor, error) {
+func (db *Vault[V]) GetExistingRWSet(txID core.TxID) (TxInterceptor, error) {
 	logger.Debugf("GetExistingRWSet[%s][%d]", txID, db.counter.Load())
 
 	db.interceptorsLock.Lock()

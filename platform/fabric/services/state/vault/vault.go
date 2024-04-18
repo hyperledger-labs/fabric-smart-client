@@ -9,6 +9,7 @@ package vault
 import (
 	"encoding/json"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/pkg/errors"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
@@ -18,7 +19,7 @@ import (
 )
 
 type ListStateQueryIteratorInterface struct {
-	it   *fabric.ResultsIterator
+	it   fabric.ResultsIterator
 	next *fabric.Read
 }
 
@@ -41,7 +42,7 @@ func (l *ListStateQueryIteratorInterface) Next(state interface{}) (string, error
 	return "", json.Unmarshal(l.next.Raw, state)
 }
 
-type NewQueryExecutorFunc func() (*fabric.QueryExecutor, error)
+type NewQueryExecutorFunc func() (driver.QueryExecutor, error)
 
 type vault struct {
 	sp               view2.ServiceProvider
@@ -50,7 +51,7 @@ type vault struct {
 	NewQueryExecutor NewQueryExecutorFunc
 }
 
-func New(sp view2.ServiceProvider, network, channel string, NewQueryExecutor func() (*fabric.QueryExecutor, error)) *vault {
+func New(sp view2.ServiceProvider, network, channel string, NewQueryExecutor func() (driver.QueryExecutor, error)) *vault {
 	return &vault{
 		sp:               sp,
 		network:          network,

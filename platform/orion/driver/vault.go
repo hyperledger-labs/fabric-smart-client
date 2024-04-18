@@ -10,12 +10,6 @@ import (
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 )
 
-const (
-	FromStorage      = driver2.FromStorage
-	FromIntermediate = driver2.FromIntermediate
-	FromBoth         = driver2.FromBoth
-)
-
 type TxValidationStatus = driver2.TxValidationStatus[ValidationCode]
 
 // Vault models a key value store that can be updated by committing rwsets
