@@ -154,7 +154,7 @@ func TTestRangeQueries(t *testing.T, db driver.TransactionalVersionedPersistence
 		{Key: "k1", Raw: []byte("k1_value"), Block: 35, IndexInBlock: 3},
 		{Key: "k3", Raw: []byte("k3_value"), Block: 35, IndexInBlock: 2},
 	}
-	itr, err = db.GetStateSetIterator(ns, "k1", "k100", "k3", "k200")
+	itr, err = db.GetStateSetIterator(ns, "k1", "k3")
 	assert.NoError(t, err)
 	defer itr.Close()
 
@@ -830,7 +830,7 @@ func TTestUnversionedRange(t *testing.T, db driver.Persistence) {
 		{Key: "k2", Raw: []byte("k2_value")},
 	}, res)
 
-	itr, err = db.GetStateSetIterator(ns, "k1", "k2", "k100")
+	itr, err = db.GetStateSetIterator(ns, "k1", "k2")
 	assert.NoError(t, err)
 	defer itr.Close()
 	res = make([]driver.Read, 0, 2)
