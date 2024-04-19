@@ -78,24 +78,21 @@ func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver
 
 	kvsService := kvs.GetService(sp)
 
-	c := &Channel{
-		ChannelName:      name,
-		ConfigService:    network.configService,
-		ChannelConfig:    channelConfig,
-		Network:          network,
-		VaultService:     NewVaultService(v),
-		TXIDStoreService: txIDStore,
-		ES:               transaction.NewEnvelopeService(kvsService, network.Name(), name),
-		TS:               transaction.NewEndorseTransactionService(kvsService, network.Name(), name),
-		MS:               transaction.NewMetadataService(kvsService, network.Name(), name),
-		PeerManager:      NewPeerManager(network.configService, network.LocalMembership().DefaultSigningIdentity()),
-	}
+	ChannelName := name
+	ConfigService := network.configService
+	Network := network
+	VaultService := NewVaultService(v)
+	TXIDStoreService := txIDStore
+	ES := transaction.NewEnvelopeService(kvsService, network.Name(), name)
+	TS := transaction.NewEndorseTransactionService(kvsService, network.Name(), name)
+	MS := transaction.NewMetadataService(kvsService, network.Name(), name)
+	PeerManager := NewPeerManager(network.configService, network.LocalMembership().DefaultSigningIdentity())
 
 	// Fabric finality
 	fabricFinality, err := finality.NewFabricFinality(
 		name,
 		network.ConfigService(),
-		c.PeerManager,
+		PeerManager,
 		network.LocalMembership().DefaultSigningIdentity(),
 		hash.GetHasher(sp),
 		channelConfig.FinalityWaitTimeout(),
@@ -104,40 +101,16 @@ func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver
 		return nil, err
 	}
 
-	c.ChannelMembershipService = membership.NewService()
+	ChannelMembershipService := membership.NewService()
 
 	// Committers
-	c.RWSetLoaderService = NewRWSetLoader(
+	RWSetLoaderService := NewRWSetLoader(
 		network.Name(), name,
-		c.ES, c.TS, network.TransactionManager(),
+		ES, TS, network.TransactionManager(),
 		v,
 	)
 
-	c.CommitterService = committer.NewService(
-		network.configService,
-		channelConfig,
-		c.VaultService,
-		c.ES,
-		c.LedgerService,
-		c.RWSetLoaderService,
-		c.Network.processorManager,
-		eventsPublisher,
-		c.ChannelMembershipService,
-		c.Network,
-		fabricFinality,
-		channelConfig.CommitterWaitForEventTimeout(),
-		quiet,
-		tracing.Get(sp).GetTracer(),
-	)
-
-	if err != nil {
-		return nil, err
-	}
-
-	// Finality
-	c.FinalityService = c.CommitterService
-
-	c.ChaincodeManagerService = NewChaincodeManager(
+	ChaincodeManagerService := NewChaincodeManager(
 		network.Name(),
 		name,
 		network.configService,
@@ -145,19 +118,42 @@ func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver
 		channelConfig.GetNumRetries(),
 		channelConfig.GetRetrySleep(),
 		network.localMembership,
-		c.PeerManager,
+		PeerManager,
 		network.sigService,
 		network.Ordering,
-		c.FinalityService,
-		c.ChannelMembershipService,
+		nil,
+		ChannelMembershipService,
 	)
 
-	c.LedgerService = NewLedger(
+	LedgerService := NewLedger(
 		name,
-		c.ChaincodeManagerService,
+		ChaincodeManagerService,
 		network.localMembership,
 		network.configService,
 	)
+
+	CommitterService := committer.NewService(
+		network.configService,
+		channelConfig,
+		VaultService,
+		ES,
+		LedgerService,
+		RWSetLoaderService,
+		Network.processorManager,
+		eventsPublisher,
+		ChannelMembershipService,
+		Network,
+		fabricFinality,
+		channelConfig.CommitterWaitForEventTimeout(),
+		quiet,
+		tracing.Get(sp).GetTracer(),
+	)
+	if err != nil {
+		return nil, err
+	}
+	// Finality
+	FinalityService := CommitterService
+	ChaincodeManagerService.Finality = FinalityService
 
 	// Delivery
 	deliveryService, err := NewDeliveryService(
@@ -167,25 +163,42 @@ func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver
 		network.Name(),
 		network.LocalMembership(),
 		network.ConfigService(),
-		c.PeerManager,
-		c.LedgerService,
+		PeerManager,
+		LedgerService,
 		channelConfig.CommitterWaitForEventTimeout(),
 		txIDStore,
 		func(block *common.Block) (bool, error) {
 			// commit the block, if an error occurs then retry
-			err := c.CommitterService.Commit(block)
+			err := CommitterService.Commit(block)
 			return false, err
 		},
 	)
 	if err != nil {
 		return nil, err
 	}
-	c.DeliveryService = deliveryService
 
+	c := &Channel{
+		ChannelConfig:            channelConfig,
+		ConfigService:            ConfigService,
+		Network:                  network,
+		ChannelName:              ChannelName,
+		FinalityService:          FinalityService,
+		VaultService:             VaultService,
+		TXIDStoreService:         TXIDStoreService,
+		ES:                       ES,
+		TS:                       TS,
+		MS:                       MS,
+		DeliveryService:          deliveryService,
+		RWSetLoaderService:       RWSetLoaderService,
+		LedgerService:            LedgerService,
+		ChannelMembershipService: ChannelMembershipService,
+		ChaincodeManagerService:  ChaincodeManagerService,
+		CommitterService:         CommitterService,
+		PeerManager:              PeerManager,
+	}
 	if err := c.Init(); err != nil {
 		return nil, errors.WithMessagef(err, "failed initializing Channel [%s]", name)
 	}
-
 	return c, nil
 }
 

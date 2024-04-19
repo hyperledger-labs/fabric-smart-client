@@ -8,8 +8,8 @@ package txidstore
 
 import (
 	"encoding/binary"
-	"fmt"
 	"math"
+	"strings"
 
 	errors2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core"
@@ -177,11 +177,15 @@ func (s *SimpleTXIDStore[V]) GetLastTxID() (core.TxID, error) {
 func (s *SimpleTXIDStore[V]) Iterator(pos interface{}) (vault.TxIDIterator[V], error) {
 	var iterator utils.Iterator[*ByNum]
 	if ppos, ok := pos.(*vault.SeekSet); ok {
-		it, err := s.Persistence.GetStateSetIterator(txidNamespace, ppos.TxIDs...)
+		keys := make([]string, len(ppos.TxIDs))
+		for i, txID := range ppos.TxIDs {
+			keys[i] = keyByTxID(txID)
+		}
+		it, err := s.Persistence.GetStateSetIterator(txidNamespace, keys...)
 		if err != nil {
 			return nil, err
 		}
-		iterator = &SimpleTxIDIterator{it}
+		iterator = &SimpleTxIDIteratorByTxID{it}
 
 	} else {
 		startKey, err := s.getStartKey(pos)
@@ -193,7 +197,7 @@ func (s *SimpleTXIDStore[V]) Iterator(pos interface{}) (vault.TxIDIterator[V], e
 		if err != nil {
 			return nil, err
 		}
-		iterator = &SimpleTxIDIterator{it}
+		iterator = &SimpleTxIDIteratorByNum{it}
 	}
 
 	return utils.Map(iterator, s.mapByNum), nil
@@ -226,7 +230,6 @@ func (s *SimpleTXIDStore[V]) mapByNum(bn *ByNum) (*vault.ByNum[V], error) {
 	if bn == nil {
 		return nil, nil
 	}
-	fmt.Printf("here is the prov!!!: %v, %v", s.vcProvider, bn.Code)
 	return &vault.ByNum[V]{
 		TxID:    bn.Txid,
 		Code:    s.vcProvider.FromInt32(bn.Code),
@@ -234,12 +237,12 @@ func (s *SimpleTXIDStore[V]) mapByNum(bn *ByNum) (*vault.ByNum[V], error) {
 	}, nil
 }
 
-type SimpleTxIDIterator struct {
-	t driver.ResultsIterator
+type SimpleTxIDIteratorByNum struct {
+	driver.ResultsIterator
 }
 
-func (i *SimpleTxIDIterator) Next() (*ByNum, error) {
-	d, err := i.t.Next()
+func (i *SimpleTxIDIteratorByNum) Next() (*ByNum, error) {
+	d, err := i.ResultsIterator.Next()
 	if err != nil {
 		return nil, err
 	}
@@ -256,8 +259,26 @@ func (i *SimpleTxIDIterator) Next() (*ByNum, error) {
 	return bn, err
 }
 
-func (i *SimpleTxIDIterator) Close() {
-	i.t.Close()
+type SimpleTxIDIteratorByTxID struct {
+	driver.ResultsIterator
+}
+
+func (i *SimpleTxIDIteratorByTxID) Next() (*ByNum, error) {
+	d, err := i.ResultsIterator.Next()
+	if err != nil {
+		return nil, err
+	}
+
+	if d == nil {
+		return nil, nil
+	}
+
+	bn := &ByTxid{}
+	err = proto.Unmarshal(d.Raw, bn)
+	if err != nil {
+		return nil, err
+	}
+	return &ByNum{Txid: strings.TrimLeft(d.Key, byTxidPrefix), Code: bn.Code, Message: bn.Message}, nil
 }
 
 func keyByCtr(ctr uint64) string {

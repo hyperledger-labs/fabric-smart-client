@@ -24,6 +24,16 @@ const (
 	Unknown                // Transaction is unknown
 )
 
+var (
+	// ValidationCodeMessage maps ValidationCode to string
+	ValidationCodeMessage = map[ValidationCode]string{
+		Valid:   "Valid",
+		Invalid: "Invalid",
+		Busy:    "Busy",
+		Unknown: "Unknown",
+	}
+)
+
 type ValidationCodeProvider struct{}
 
 func (p *ValidationCodeProvider) ToInt32(code ValidationCode) int32 { return int32(code) }
