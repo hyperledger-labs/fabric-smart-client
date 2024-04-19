@@ -149,6 +149,22 @@ func TTestRangeQueries(t *testing.T, db driver.TransactionalVersionedPersistence
 	}
 	assert.Len(t, res, 3)
 	assert.Equal(t, expected, res)
+
+	expected = []driver.VersionedRead{
+		{Key: "k1", Raw: []byte("k1_value"), Block: 35, IndexInBlock: 3},
+		{Key: "k3", Raw: []byte("k3_value"), Block: 35, IndexInBlock: 2},
+	}
+	itr, err = db.GetStateSetIterator(ns, "k1", "k100", "k3", "k200")
+	assert.NoError(t, err)
+	defer itr.Close()
+
+	res = make([]driver.VersionedRead, 0, 2)
+	for n, err := itr.Next(); n != nil; n, err = itr.Next() {
+		assert.NoError(t, err)
+		res = append(res, *n)
+	}
+	assert.Len(t, res, 2)
+	assert.Equal(t, expected, res)
 }
 
 func TTestMeta(t *testing.T, db driver.TransactionalVersionedPersistence) {
@@ -811,6 +827,20 @@ func TTestUnversionedRange(t *testing.T, db driver.Persistence) {
 	assert.Equal(t, []driver.Read{
 		{Key: "k1", Raw: []byte("k1_value")},
 		{Key: "k111", Raw: []byte("k111_value")},
+		{Key: "k2", Raw: []byte("k2_value")},
+	}, res)
+
+	itr, err = db.GetStateSetIterator(ns, "k1", "k2", "k100")
+	assert.NoError(t, err)
+	defer itr.Close()
+	res = make([]driver.Read, 0, 2)
+	for n, err := itr.Next(); n != nil; n, err = itr.Next() {
+		assert.NoError(t, err)
+		res = append(res, *n)
+	}
+	assert.Len(t, res, 2)
+	assert.Equal(t, []driver.Read{
+		{Key: "k1", Raw: []byte("k1_value")},
 		{Key: "k2", Raw: []byte("k2_value")},
 	}, res)
 }
