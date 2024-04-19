@@ -40,8 +40,8 @@ type FinalityEvent[V comparable] struct {
 
 // FinalityListener is the interface that must be implemented to receive transaction status notifications
 type FinalityListener[V comparable] interface {
-	// OnStatusChange is called when the status of a transaction changes, or it is valid or invalid
-	OnStatusChange(txID core.TxID, status V, statusMessage string) error
+	// OnStatus is called when the status of a transaction changes, or it is already valid or invalid
+	OnStatus(txID core.TxID, status V, statusMessage string)
 }
 
 type Vault[V comparable] interface {
@@ -93,11 +93,13 @@ func (c *FinalityManager[V]) RemoveListener(txID core.TxID, toRemove FinalityLis
 }
 
 func (c *FinalityManager[V]) Post(event FinalityEvent[V]) {
+	logger.Debugf("post event [%s][%d]", event.TxID, event.ValidationCode)
 	c.eventQueue <- event
 }
 
 func (c *FinalityManager[V]) Dispatch(event FinalityEvent[V]) {
 	listeners := c.cloneListeners(event.TxID)
+	logger.Debugf("dispatch event [%s][%d]", event.TxID, event.ValidationCode)
 	for _, listener := range listeners {
 		c.invokeListener(listener, event.TxID, event.ValidationCode, event.ValidationMessage)
 	}
@@ -114,7 +116,7 @@ func (c *FinalityManager[V]) invokeListener(l FinalityListener[V], txID core.TxI
 			logger.Errorf("caught panic while running dispatching event [%s:%d:%s]: [%s][%s]", txID, status, statusMessage, r, debug.Stack())
 		}
 	}()
-	l.OnStatusChange(txID, status, statusMessage)
+	l.OnStatus(txID, status, statusMessage)
 }
 
 func (c *FinalityManager[V]) runEventQueue(context context.Context) {
@@ -136,11 +138,19 @@ func (c *FinalityManager[V]) runStatusListener(context context.Context) {
 		case <-context.Done():
 			return
 		case <-ticker.C:
-			statuses, err := c.vault.Statuses(c.txIDs()...)
+			txIDs := c.txIDs()
+			if len(txIDs) <= 1 {
+				logger.Debugf("no transactions to check vault status")
+				break
+			}
+
+			logger.Debugf("check vault status for [%d] transactions [%v]", len(txIDs), txIDs)
+			statuses, err := c.vault.Statuses(txIDs...)
 			if err != nil {
 				logger.Errorf("error fetching statuses: %w", err)
 				continue
 			}
+			logger.Debugf("got vault status for [%d] transactions [%v], post event...", len(txIDs), txIDs)
 			for _, status := range statuses {
 				// check txID status, if it is valid or invalid, post an event
 				logger.Debugf("check tx [%s]'s status", status.TxID)
@@ -175,6 +185,5 @@ func (c *FinalityManager[V]) txIDs() []core.TxID {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
-	keys, _ := utils.Remove(utils.Keys(c.txIDListeners), allListenersKey)
-	return keys
+	return utils.Keys(c.txIDListeners)
 }

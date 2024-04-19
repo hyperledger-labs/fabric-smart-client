@@ -97,6 +97,17 @@ type (
 	TxIDIterator    = fdriver.TxIDIterator
 )
 
+var (
+	ValidationCodeMessage = fdriver.ValidationCodeMessage
+)
+
+const (
+	Valid   = fdriver.Valid   // Transaction is valid and committed
+	Invalid = fdriver.Invalid // Transaction is invalid and has been discarded
+	Busy    = fdriver.Busy    // Transaction does not yet have a validity state
+	Unknown = fdriver.Unknown // Transaction is unknown
+)
+
 // Vault models a key-value store that can be updated by committing rwsets
 type Vault struct {
 	fdriver.Vault

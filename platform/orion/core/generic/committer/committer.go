@@ -118,7 +118,7 @@ func (c *committer) Commit(block *types.AugmentedBlockHeader) error {
 		event.TxID = txID
 		event.Block = bn
 		event.IndexInBlock = i
-		event.ValidationCode = driver.ValidationCode(block.Header.ValidationInfo[i].Flag)
+		event.ValidationCode = convertValidationCode(block.Header.ValidationInfo[i].Flag)
 		event.ValidationMessage = block.Header.ValidationInfo[i].ReasonIfInvalid
 
 		discard := false
@@ -127,7 +127,7 @@ func (c *committer) Commit(block *types.AugmentedBlockHeader) error {
 			if err := c.CommitTX(txID, bn, i, &event); err != nil {
 				if errors2.HasCause(err, ErrDiscardTX) {
 					// in this case, we will discard the transaction
-					event.ValidationCode = driver.ValidationCode(types.Flag_INVALID_INCORRECT_ENTRIES)
+					event.ValidationCode = convertValidationCode(types.Flag_INVALID_INCORRECT_ENTRIES)
 					event.ValidationMessage = err.Error()
 					discard = true
 				} else {
@@ -335,11 +335,7 @@ func (c *committer) notifyFinality(event TxEvent) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	if types.Flag(event.ValidationCode) == types.Flag_VALID {
-		c.postFinality(event.TxID, driver.Valid, "")
-	} else {
-		c.postFinality(event.TxID, driver.Invalid, event.ValidationMessage)
-	}
+	c.postFinality(event.TxID, event.ValidationCode, event.ValidationMessage)
 
 	if event.Err != nil && !c.quietNotifier {
 		logger.Warningf("An error occurred for tx [%s], event: [%v]", event.TxID, event)
@@ -415,4 +411,13 @@ func (c *committer) listenToFinality(ctx context.Context, txID string, timeout t
 		logger.Debugf("Is [%s] final? Failed to listen to transaction for timeout", txID)
 	}
 	return errors.Errorf("failed to listen to transaction [%s] for timeout", txID)
+}
+
+func convertValidationCode(vc types.Flag) driver.ValidationCode {
+	switch vc {
+	case types.Flag_VALID:
+		return driver.Valid
+	default:
+		return driver.Invalid
+	}
 }

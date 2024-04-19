@@ -29,6 +29,7 @@ func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType, replicationOpts *
 	// One for the approver, one for the borrower, and one for the lender.
 	fscTopology := fsc.NewTopology()
 	fscTopology.P2PCommunicationType = commType
+	//fscTopology.SetLogging("debug", "")
 
 	//fscTopology.SetLogging("debug", "")
 	fscTopology.EnableOPTLTracing()

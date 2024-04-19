@@ -26,17 +26,19 @@ func (c *Service) HandleEndorserTransaction(block *common.Block, i int, event *F
 	}
 
 	txID := chHdr.TxId
-	event.TxID = txID
-	event.ValidationCode = driver.ValidationCode(ValidationFlags(block.Metadata.Metadata[common.BlockMetadataIndex_TRANSACTIONS_FILTER])[i])
-	event.ValidationMessage = pb.TxValidationCode_name[int32(event.ValidationCode)]
+	fabricValidationCode := ValidationFlags(block.Metadata.Metadata[common.BlockMetadataIndex_TRANSACTIONS_FILTER])[i]
 
-	switch pb.TxValidationCode(event.ValidationCode) {
+	event.TxID = txID
+	event.ValidationCode = convertValidationCode(int32(fabricValidationCode))
+	event.ValidationMessage = pb.TxValidationCode_name[int32(fabricValidationCode)]
+
+	switch pb.TxValidationCode(fabricValidationCode) {
 	case pb.TxValidationCode_VALID:
 		processed, err := c.CommitEndorserTransaction(txID, block, i, env, event)
 		if err != nil {
 			if errors2.HasCause(err, ErrDiscardTX) {
 				// in this case, we will discard the transaction
-				event.ValidationCode = driver.ValidationCode(pb.TxValidationCode_INVALID_OTHER_REASON)
+				event.ValidationCode = convertValidationCode(int32(pb.TxValidationCode_INVALID_OTHER_REASON))
 				event.ValidationMessage = err.Error()
 				break
 			}
@@ -160,4 +162,13 @@ func (c *Service) DiscardEndorserTransaction(txID string, block *common.Block, e
 		logger.Errorf("failed discarding tx in state db with err [%s]", err)
 	}
 	return nil
+}
+
+func convertValidationCode(vc int32) driver.ValidationCode {
+	switch pb.TxValidationCode(vc) {
+	case pb.TxValidationCode_VALID:
+		return driver.Valid
+	default:
+		return driver.Invalid
+	}
 }
