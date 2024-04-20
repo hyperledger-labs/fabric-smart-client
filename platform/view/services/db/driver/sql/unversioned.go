@@ -91,7 +91,7 @@ func (db *Unversioned) GetStateSetIterator(ns string, keys ...string) (driver.Re
 	if len(keys) == 0 {
 		return &EmptyIterator{}, nil
 	}
-	query := fmt.Sprintf("SELECT pkey, val FROM %s WHERE ns = ? AND pkey = ANY(%s);", db.table, "?"+strings.Repeat(",?", len(keys)-1))
+	query := fmt.Sprintf("SELECT pkey, val FROM %s WHERE ns = $1 AND pkey IN %s", db.table, generateParamSet(2, len(keys)))
 	logger.Debug(query, ns, keys)
 
 	rows, err := db.readDB.Query(query, append([]any{ns}, castAny(keys)...)...)
@@ -102,6 +102,14 @@ func (db *Unversioned) GetStateSetIterator(ns string, keys ...string) (driver.Re
 	return &UnversionedReadIterator{
 		txs: rows,
 	}, nil
+}
+
+func generateParamSet(offset, count int) string {
+	params := make([]string, count)
+	for i := 0; i < count; i++ {
+		params[i] = fmt.Sprintf("$%d", i+offset)
+	}
+	return fmt.Sprintf("(%s)", strings.Join(params, ", "))
 }
 
 func castAny[A any](as []A) []any {

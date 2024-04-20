@@ -12,7 +12,6 @@ import (
 	"encoding/gob"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	errors2 "github.com/pkg/errors"
@@ -187,7 +186,7 @@ func (db *Persistence) GetStateSetIterator(ns string, keys ...string) (driver.Ve
 	if len(keys) == 0 {
 		return &EmptyVersionedIterator{}, nil
 	}
-	query := fmt.Sprintf("SELECT pkey, block, txnum, val FROM %s WHERE ns = ? AND pkey = ANY(%s);", db.table, "?"+strings.Repeat(",?", len(keys)-1))
+	query := fmt.Sprintf("SELECT pkey, block, txnum, val FROM %s WHERE ns = $1 AND pkey IN %s", db.table, generateParamSet(2, len(keys)))
 	logger.Debug(query, ns, keys)
 
 	rows, err := db.readDB.Query(query, append([]any{ns}, castAny(keys)...)...)

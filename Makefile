@@ -30,8 +30,7 @@ download-fabric:
 include $(TOP)/checks.mk
 
 .PHONY: unit-tests
-unit-tests:
-
+unit-tests: testing-docker-images
 	@export FAB_BINS=$(FAB_BINS); go test -cover $(shell go list ./... | grep -v '/integration/')
 	cd integration/nwo/; go test -cover ./...
 
