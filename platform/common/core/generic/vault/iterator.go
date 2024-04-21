@@ -19,6 +19,7 @@ type ValidationCodeProvider[V ValidationCode] interface {
 	Busy() V
 	Valid() V
 	Invalid() V
+	NotFound() V
 }
 
 type SeekStart struct{}

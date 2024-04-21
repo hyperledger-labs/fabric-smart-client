@@ -33,5 +33,4 @@ func (t *FinalityListener) OnStatus(txID core.TxID, vc fabric.ValidationCode, _ 
 		time.Sleep(5 * time.Second)
 		t.WaitGroup.Done()
 	}
-	return
 }

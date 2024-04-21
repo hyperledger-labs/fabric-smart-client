@@ -35,10 +35,11 @@ func (p *vcProvider) ToInt32(code vc) int32 { return int32(code) }
 func (p *vcProvider) FromInt32(code int32) vc {
 	return vc(code)
 }
-func (p *vcProvider) Unknown() vc { return unknown }
-func (p *vcProvider) Busy() vc    { return busy }
-func (p *vcProvider) Valid() vc   { return valid }
-func (p *vcProvider) Invalid() vc { return invalid }
+func (p *vcProvider) Unknown() vc  { return unknown }
+func (p *vcProvider) Busy() vc     { return busy }
+func (p *vcProvider) Valid() vc    { return valid }
+func (p *vcProvider) Invalid() vc  { return invalid }
+func (p *vcProvider) NotFound() vc { return 0 }
 
 func TestTXIDStoreMem(t *testing.T) {
 	db, err := db.Open(nil, "memory", "", nil)

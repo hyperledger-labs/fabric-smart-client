@@ -40,10 +40,11 @@ func (p *ValidationCodeProvider) ToInt32(code ValidationCode) int32 { return int
 func (p *ValidationCodeProvider) FromInt32(code int32) ValidationCode {
 	return ValidationCode(code)
 }
-func (p *ValidationCodeProvider) Unknown() ValidationCode { return Unknown }
-func (p *ValidationCodeProvider) Valid() ValidationCode   { return Valid }
-func (p *ValidationCodeProvider) Invalid() ValidationCode { return Invalid }
-func (p *ValidationCodeProvider) Busy() ValidationCode    { return Busy }
+func (p *ValidationCodeProvider) Unknown() ValidationCode  { return Unknown }
+func (p *ValidationCodeProvider) Valid() ValidationCode    { return Valid }
+func (p *ValidationCodeProvider) Invalid() ValidationCode  { return Invalid }
+func (p *ValidationCodeProvider) Busy() ValidationCode     { return Busy }
+func (p *ValidationCodeProvider) NotFound() ValidationCode { return 0 }
 
 // TransactionStatusChanged is sent when the status of a transaction changes
 type TransactionStatusChanged struct {

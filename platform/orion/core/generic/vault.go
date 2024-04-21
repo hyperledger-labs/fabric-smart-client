@@ -62,6 +62,9 @@ func (v *Vault) Status(txID string) (driver.ValidationCode, string, error) {
 	if err != nil {
 		return driver.Unknown, "", err
 	}
+	//if vc == driver.Busy {
+	//	return vc, "", nil
+	//}
 	if vc != driver.Unknown {
 		return vc, message, nil
 	}
