@@ -7,10 +7,13 @@ SPDX-License-Identifier: Apache-2.0
 package vault
 
 import (
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault/txidstore"
 	odriver "github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	"github.com/hyperledger-labs/orion-server/pkg/types"
 	"github.com/pkg/errors"
 )
 
@@ -27,7 +30,7 @@ func NewSimpleTXIDStore(persistence driver.Persistence) (*SimpleTXIDStore, error
 
 // New returns a new instance of Vault
 func New(store driver.VersionedPersistence, txIDStore TXIDStore) *Vault {
-	return vault.New[odriver.ValidationCode](store, txIDStore, &odriver.ValidationCodeProvider{}, newInterceptor)
+	return vault.New[odriver.ValidationCode](store, txIDStore, &odriver.ValidationCodeProvider{}, newInterceptor, &populator{})
 }
 
 type Interceptor struct {
@@ -54,4 +57,55 @@ func (i *Interceptor) Equals(other interface{}, nss ...string) error {
 		return i.Interceptor.Equals(other, nss...)
 	}
 	return errors.Errorf("cannot compare to the passed value [%v]", other)
+}
+
+type populator struct{}
+
+func (p *populator) Populate(rws *vault.ReadWriteSet, rwsetBytes []byte, namespaces ...core.Namespace) error {
+	txRWSet := &types.DataTx{}
+	err := proto.Unmarshal(rwsetBytes, txRWSet)
+	if err != nil {
+		return errors.Wrapf(err, "provided invalid read-write set bytes, unmarshal failed")
+	}
+
+	for _, operation := range txRWSet.DbOperations {
+
+		for _, read := range operation.DataReads {
+			bn := uint64(0)
+			txn := uint64(0)
+			if read.Version != nil {
+				bn = read.Version.BlockNum
+				txn = read.Version.TxNum
+			}
+			rws.ReadSet.Add(
+				operation.DbName,
+				read.Key,
+				bn,
+				txn,
+			)
+		}
+
+		for _, write := range operation.DataWrites {
+			if err := rws.WriteSet.Add(
+				operation.DbName,
+				write.Key,
+				write.Value,
+			); err != nil {
+				return errors.Wrapf(err, "failed to add write to read-write set")
+			}
+			// TODO: What about write.ACL? Shall we store it as metadata?
+		}
+
+		for _, del := range operation.DataDeletes {
+			if err := rws.WriteSet.Add(
+				operation.DbName,
+				del.Key,
+				nil,
+			); err != nil {
+				return errors.Wrapf(err, "failed to add delete to read-write set")
+			}
+		}
+	}
+
+	return nil
 }

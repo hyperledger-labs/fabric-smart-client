@@ -32,26 +32,30 @@ type Interceptor[V ValidationCode] struct {
 	vcProvider ValidationCodeProvider[V] // TODO
 }
 
+func EmptyRWSet() ReadWriteSet {
+	return ReadWriteSet{
+		ReadSet: ReadSet{
+			OrderedReads: map[string][]string{},
+			Reads:        Reads{},
+		},
+		WriteSet: WriteSet{
+			OrderedWrites: map[string][]string{},
+			Writes:        Writes{},
+		},
+		MetaWriteSet: MetaWriteSet{
+			MetaWrites: NamespaceKeyedMetaWrites{},
+		},
+	}
+}
+
 func NewInterceptor[V ValidationCode](qe QueryExecutor, txidStore TXIDStoreReader[V], txid core.TxID, vcProvider ValidationCodeProvider[V]) *Interceptor[V] {
 	logger.Debugf("new interceptor [%s]", txid)
 
 	return &Interceptor[V]{
-		TxID:      txid,
-		QE:        qe,
-		TxIDStore: txidStore,
-		Rws: ReadWriteSet{
-			ReadSet: ReadSet{
-				OrderedReads: map[string][]string{},
-				Reads:        Reads{},
-			},
-			WriteSet: WriteSet{
-				OrderedWrites: map[string][]string{},
-				Writes:        Writes{},
-			},
-			MetaWriteSet: MetaWriteSet{
-				MetaWrites: NamespaceKeyedMetaWrites{},
-			},
-		},
+		TxID:       txid,
+		QE:         qe,
+		TxIDStore:  txidStore,
+		Rws:        EmptyRWSet(),
 		vcProvider: vcProvider,
 	}
 }
@@ -178,7 +182,7 @@ func (i *Interceptor[V]) SetState(namespace string, key string, value []byte) er
 	}
 	logger.Debugf("SetState [%s,%s,%s]", namespace, key, hash.Hashable(value).String())
 
-	return i.Rws.WriteSet.add(namespace, key, value)
+	return i.Rws.WriteSet.Add(namespace, key, value)
 }
 
 func (i *Interceptor[V]) SetStateMetadata(namespace string, key string, value map[string][]byte) error {
@@ -186,7 +190,7 @@ func (i *Interceptor[V]) SetStateMetadata(namespace string, key string, value ma
 		return errors.New("this instance was closed")
 	}
 
-	return i.Rws.MetaWriteSet.add(namespace, key, value)
+	return i.Rws.MetaWriteSet.Add(namespace, key, value)
 }
 
 func (i *Interceptor[V]) GetStateMetadata(namespace, key string, opts ...driver.GetStateOpt) (map[string][]byte, error) {
@@ -220,7 +224,7 @@ func (i *Interceptor[V]) GetStateMetadata(namespace, key string, opts ...driver.
 				return nil, errors.Errorf("invalid metadata read: previous value returned at version %d:%d, current value at version %d:%d", b, t, block, txnum)
 			}
 		} else {
-			i.Rws.ReadSet.add(namespace, key, block, txnum)
+			i.Rws.ReadSet.Add(namespace, key, block, txnum)
 		}
 
 		return val, nil
@@ -272,7 +276,7 @@ func (i *Interceptor[V]) GetState(namespace string, key string, opts ...driver.G
 				return nil, errors.Errorf("invalid read [%s:%s]: previous value returned at version %d:%d, current value at version %d:%d", namespace, key, b, t, block, txnum)
 			}
 		} else {
-			i.Rws.ReadSet.add(namespace, key, block, txnum)
+			i.Rws.ReadSet.Add(namespace, key, block, txnum)
 		}
 
 		return val, nil
@@ -337,7 +341,7 @@ func (i *Interceptor[V]) AppendRWSet(raw []byte, nss ...string) error {
 				return errors.Errorf("invalid read [%s:%s]: previous value returned at version %d:%d, current value at version %d:%d", ns, read.Key, b, t, b, txnum)
 			}
 
-			i.Rws.ReadSet.add(ns, read.Key, bnum, txnum)
+			i.Rws.ReadSet.Add(ns, read.Key, bnum, txnum)
 		}
 
 		for _, write := range nsrws.KvRwSet.Writes {
@@ -345,7 +349,7 @@ func (i *Interceptor[V]) AppendRWSet(raw []byte, nss ...string) error {
 				return errors.Errorf("duplicate write entry for key %s:%s", ns, write.Key)
 			}
 
-			if err := i.Rws.WriteSet.add(ns, write.Key, write.Value); err != nil {
+			if err := i.Rws.WriteSet.Add(ns, write.Key, write.Value); err != nil {
 				return err
 			}
 		}
@@ -360,7 +364,7 @@ func (i *Interceptor[V]) AppendRWSet(raw []byte, nss ...string) error {
 				metadata[entry.Name] = append([]byte(nil), entry.Value...)
 			}
 
-			if err := i.Rws.MetaWriteSet.add(ns, metaWrite.Key, metadata); err != nil {
+			if err := i.Rws.MetaWriteSet.Add(ns, metaWrite.Key, metadata); err != nil {
 				return err
 			}
 		}

@@ -10,12 +10,9 @@ import (
 	"bytes"
 	"sort"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/keys"
-	"github.com/hyperledger/fabric-protos-go/ledger/rwset"
-	"github.com/hyperledger/fabric/core/ledger/kvledger/txmgmt/rwsetutil"
 	"github.com/pkg/errors"
 )
 
@@ -23,58 +20,6 @@ type ReadWriteSet struct {
 	ReadSet
 	WriteSet
 	MetaWriteSet
-}
-
-func (rws *ReadWriteSet) populate(rwsetBytes []byte, txid core.TxID, namespaces ...core.Namespace) error {
-	txRWSet := &rwset.TxReadWriteSet{}
-	err := proto.Unmarshal(rwsetBytes, txRWSet)
-	if err != nil {
-		return errors.Wrapf(err, "provided invalid read-write set bytes for txid %s, unmarshal failed", txid)
-	}
-
-	rwsIn, err := rwsetutil.TxRwSetFromProtoMsg(txRWSet)
-	if err != nil {
-		return errors.Wrapf(err, "provided invalid read-write set bytes for txid %s, TxRwSetFromProtoMsg failed", txid)
-	}
-
-	namespaceSet := utils.NewSet(namespaces...)
-	for _, nsrws := range rwsIn.NsRwSets {
-		ns := nsrws.NameSpace
-
-		// skip if not in the list of namespaces
-		if !namespaceSet.Empty() && !namespaceSet.Contains(ns) {
-			continue
-		}
-
-		for _, read := range nsrws.KvRwSet.Reads {
-			bn := core.BlockNum(0)
-			txn := core.TxNum(0)
-			if read.Version != nil {
-				bn = read.Version.BlockNum
-				txn = read.Version.TxNum
-			}
-			rws.ReadSet.add(ns, read.Key, bn, txn)
-		}
-
-		for _, write := range nsrws.KvRwSet.Writes {
-			if err := rws.WriteSet.add(ns, write.Key, write.Value); err != nil {
-				return err
-			}
-		}
-
-		for _, metaWrite := range nsrws.KvRwSet.MetadataWrites {
-			metadata := map[string][]byte{}
-			for _, entry := range metaWrite.Entries {
-				metadata[entry.Name] = append([]byte(nil), entry.Value...)
-			}
-
-			if err := rws.MetaWriteSet.add(ns, metaWrite.Key, metadata); err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
 }
 
 type MetaWrites map[string][]byte
@@ -99,7 +44,7 @@ type MetaWriteSet struct {
 	MetaWrites NamespaceKeyedMetaWrites
 }
 
-func (w *MetaWriteSet) add(ns, key string, meta map[string][]byte) error {
+func (w *MetaWriteSet) Add(ns, key string, meta map[string][]byte) error {
 	if err := keys.ValidateNs(ns); err != nil {
 		return err
 	}
@@ -154,7 +99,7 @@ type WriteSet struct {
 	OrderedWrites map[string][]string
 }
 
-func (w *WriteSet) add(ns, key string, value []byte) error {
+func (w *WriteSet) Add(ns, key string, value []byte) error {
 	if err := keys.ValidateNs(ns); err != nil {
 		return err
 	}
@@ -220,7 +165,7 @@ type ReadSet struct {
 	OrderedReads map[string][]string
 }
 
-func (r *ReadSet) add(ns core.Namespace, key string, block core.BlockNum, txnum core.TxNum) {
+func (r *ReadSet) Add(ns core.Namespace, key string, block core.BlockNum, txnum core.TxNum) {
 	nsMap, in := r.Reads[ns]
 	if !in {
 		nsMap = make(map[core.Namespace]txPosition)
