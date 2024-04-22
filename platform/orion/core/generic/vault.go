@@ -106,7 +106,7 @@ func (v *Vault) DiscardTx(txID string, message string) error {
 		return v.Vault.DiscardTx(txID, message)
 	}
 	logger.Debugf("discarding transaction [%s], tx is unknown, set status to invalid", txID)
-	return v.Vault.SetStatus(txID, driver.Invalid)
+	return nil
 }
 
 func (v *Vault) extractStoredEnvelopeToVault(txID string) error {

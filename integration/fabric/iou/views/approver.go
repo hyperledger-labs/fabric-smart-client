@@ -12,6 +12,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou/states"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -78,8 +79,8 @@ func (i *ApproverView) Call(context view.Context) (interface{}, error) {
 	var wg sync.WaitGroup
 	wg.Add(3)
 	committer := fabric.GetDefaultChannel(context).Committer()
-	assert.NoError(err, committer.AddFinalityListener(tx.ID(), NewFinalityListener(tx.ID(), fabric.Valid, &wg)), "failed to add committer listener")
-	assert.NoError(err, committer.AddFinalityListener("", NewFinalityListener(tx.ID(), fabric.Valid, &wg)), "failed to add committer listener")
+	assert.NoError(err, committer.AddFinalityListener(tx.ID(), NewFinalityListener(tx.ID(), driver.Valid, &wg)), "failed to add committer listener")
+	assert.NoError(err, committer.AddFinalityListener("", NewFinalityListener(tx.ID(), driver.Valid, &wg)), "failed to add committer listener")
 
 	// Finally, the approver waits that the transaction completes its lifecycle
 	_, err = context.RunView(state.NewFinalityWithTimeoutView(tx, 1*time.Minute))
@@ -88,7 +89,7 @@ func (i *ApproverView) Call(context view.Context) (interface{}, error) {
 
 	wg = sync.WaitGroup{}
 	wg.Add(1)
-	assert.NoError(err, committer.AddFinalityListener(tx.ID(), NewFinalityListener(tx.ID(), fabric.Valid, &wg)), "failed to add committer listener")
+	assert.NoError(err, committer.AddFinalityListener(tx.ID(), NewFinalityListener(tx.ID(), driver.Valid, &wg)), "failed to add committer listener")
 	wg.Wait()
 
 	return nil, nil

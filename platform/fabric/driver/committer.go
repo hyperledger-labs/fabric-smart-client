@@ -11,6 +11,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/committer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
+	"github.com/hyperledger/fabric-protos-go/common"
 )
 
 // ValidationCode of transaction
@@ -90,4 +91,8 @@ type Committer interface {
 
 	// RemoveFinalityListener unregisters the passed listener.
 	RemoveFinalityListener(txID string, listener FinalityListener) error
+
+	DiscardTx(txID string, message string) error
+
+	CommitTX(txID string, block uint64, indexInBlock int, envelope *common.Envelope) error
 }
