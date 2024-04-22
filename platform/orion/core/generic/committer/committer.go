@@ -99,7 +99,7 @@ func New(
 		pm:                  pm,
 		em:                  em,
 		pollingTimeout:      100 * time.Millisecond,
-		EventManager:        committer2.NewFinalityManager[driver.ValidationCode](vault, driver.Valid, driver.Invalid),
+		EventManager:        committer2.NewFinalityManager[driver.ValidationCode](logger, vault, driver.Valid, driver.Invalid),
 		eventsSubscriber:    eventsSubscriber,
 		eventsPublisher:     eventsPublisher,
 		subscribers:         events.NewSubscribers(),
@@ -108,6 +108,11 @@ func New(
 		TransactionFilters:  driver2.NewAggregatedTransactionFilter(),
 	}
 	return d, nil
+}
+
+func (c *committer) Start(context context.Context) error {
+	go c.EventManager.Run(context)
+	return nil
 }
 
 // Commit commits the transactions in the block passed as argument

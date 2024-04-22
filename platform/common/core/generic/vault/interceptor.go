@@ -24,6 +24,7 @@ type QueryExecutor interface {
 }
 
 type Interceptor[V ValidationCode] struct {
+	Logger     Logger
 	QE         QueryExecutor
 	TxIDStore  TXIDStoreReader[V]
 	Rws        ReadWriteSet
@@ -48,10 +49,11 @@ func EmptyRWSet() ReadWriteSet {
 	}
 }
 
-func NewInterceptor[V ValidationCode](qe QueryExecutor, txidStore TXIDStoreReader[V], txid core.TxID, vcProvider ValidationCodeProvider[V]) *Interceptor[V] {
+func NewInterceptor[V ValidationCode](logger Logger, qe QueryExecutor, txidStore TXIDStoreReader[V], txid core.TxID, vcProvider ValidationCodeProvider[V]) *Interceptor[V] {
 	logger.Debugf("new interceptor [%s]", txid)
 
 	return &Interceptor[V]{
+		Logger:     logger,
 		TxID:       txid,
 		QE:         qe,
 		TxIDStore:  txidStore,
@@ -180,7 +182,7 @@ func (i *Interceptor[V]) SetState(namespace string, key string, value []byte) er
 	if i.Closed {
 		return errors.New("this instance was closed")
 	}
-	logger.Debugf("SetState [%s,%s,%s]", namespace, key, hash.Hashable(value).String())
+	i.Logger.Debugf("SetState [%s,%s,%s]", namespace, key, hash.Hashable(value).String())
 
 	return i.Rws.WriteSet.Add(namespace, key, value)
 }
@@ -433,7 +435,7 @@ func (i *Interceptor[V]) Equals(other interface{}, nss ...string) error {
 }
 
 func (i *Interceptor[V]) Done() {
-	logger.Debugf("Done with [%s], closed [%v]", i.TxID, i.Closed)
+	i.Logger.Debugf("Done with [%s], closed [%v]", i.TxID, i.Closed)
 	if !i.Closed {
 		i.Closed = true
 		if i.QE != nil {
@@ -443,7 +445,7 @@ func (i *Interceptor[V]) Done() {
 }
 
 func (i *Interceptor[V]) Reopen(qe QueryExecutor) error {
-	logger.Debugf("Reopen with [%s], closed [%v]", i.TxID, i.Closed)
+	i.Logger.Debugf("Reopen with [%s], closed [%v]", i.TxID, i.Closed)
 	if !i.Closed {
 		return errors.Errorf("already open")
 	}

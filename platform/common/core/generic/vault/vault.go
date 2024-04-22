@@ -14,13 +14,16 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/pkg/errors"
 	"go.uber.org/atomic"
 )
 
-var logger = flogging.MustGetLogger("fabric-sdk.vault")
+type Logger interface {
+	Debugf(template string, args ...interface{})
+	Infof(template string, args ...interface{})
+	Errorf(template string, args ...interface{})
+}
 
 type TXIDStoreReader[V ValidationCode] interface {
 	Iterator(pos interface{}) (TxIDIterator[V], error)
@@ -43,8 +46,11 @@ type Populator interface {
 	Populate(rws *ReadWriteSet, rwsetBytes []byte, namespaces ...core.Namespace) error
 }
 
+type NewInterceptorFunc[V ValidationCode] func(logger Logger, qe QueryExecutor, txidStore TXIDStoreReader[V], txid core.TxID) TxInterceptor
+
 // Vault models a key-value Store that can be modified by committing rwsets
 type Vault[V ValidationCode] struct {
+	logger           Logger
 	txIDStore        TXIDStore[V]
 	interceptorsLock sync.RWMutex
 	Interceptors     map[core.TxID]TxInterceptor
@@ -63,13 +69,14 @@ type Vault[V ValidationCode] struct {
 	storeLock  sync.RWMutex
 	vcProvider ValidationCodeProvider[V]
 
-	newInterceptor func(qe QueryExecutor, txidStore TXIDStoreReader[V], txid core.TxID) TxInterceptor
+	newInterceptor NewInterceptorFunc[V]
 	populator      Populator
 }
 
 // New returns a new instance of Vault
-func New[V ValidationCode](store driver.VersionedPersistence, txIDStore TXIDStore[V], vcProvider ValidationCodeProvider[V], newInterceptor func(qe QueryExecutor, txidStore TXIDStoreReader[V], txid core.TxID) TxInterceptor, populator Populator) *Vault[V] {
+func New[V ValidationCode](logger Logger, store driver.VersionedPersistence, txIDStore TXIDStore[V], vcProvider ValidationCodeProvider[V], newInterceptor NewInterceptorFunc[V], populator Populator) *Vault[V] {
 	return &Vault[V]{
+		logger:         logger,
 		Interceptors:   make(map[core.TxID]TxInterceptor),
 		store:          store,
 		txIDStore:      txIDStore,
@@ -80,11 +87,11 @@ func New[V ValidationCode](store driver.VersionedPersistence, txIDStore TXIDStor
 }
 
 func (db *Vault[V]) NewQueryExecutor() (driver2.QueryExecutor, error) {
-	logger.Debugf("getting lock for query executor")
+	db.logger.Debugf("getting lock for query executor")
 	db.counter.Inc()
 	db.storeLock.RLock()
 
-	logger.Debugf("return new query executor")
+	db.logger.Debugf("return new query executor")
 	return &directQueryExecutor[V]{
 		vault: db,
 	}, nil
@@ -148,7 +155,7 @@ func (db *Vault[V]) UnmapInterceptor(txID core.TxID) (TxInterceptor, error) {
 }
 
 func (db *Vault[V]) CommitTX(txID core.TxID, block core.BlockNum, indexInBloc int) error {
-	logger.Debugf("UnmapInterceptor [%s]", txID)
+	db.logger.Debugf("UnmapInterceptor [%s]", txID)
 	i, err := db.UnmapInterceptor(txID)
 	if err != nil {
 		return errors.Wrapf(err, "failed to unmap interceptor for [%s]", txID)
@@ -157,7 +164,7 @@ func (db *Vault[V]) CommitTX(txID core.TxID, block core.BlockNum, indexInBloc in
 		return errors.Errorf("cannot find rwset for [%s]", txID)
 	}
 
-	logger.Debugf("get lock [%s][%d]", txID, db.counter.Load())
+	db.logger.Debugf("get lock [%s][%d]", txID, db.counter.Load())
 	db.storeLock.Lock()
 	defer db.storeLock.Unlock()
 
@@ -165,27 +172,27 @@ func (db *Vault[V]) CommitTX(txID core.TxID, block core.BlockNum, indexInBloc in
 		return errors.WithMessagef(err, "begin update for txid '%s' failed", txID)
 	}
 
-	logger.Debugf("parse writes [%s]", txID)
+	db.logger.Debugf("parse writes [%s]", txID)
 	if discarded, err := db.storeWrites(i.RWs().Writes, block, uint64(indexInBloc)); err != nil {
 		return errors.Wrapf(err, "failed storing writes")
 	} else if discarded {
-		logger.Infof("Discarded changes while storing writes as duplicates. Skipping...")
+		db.logger.Infof("Discarded changes while storing writes as duplicates. Skipping...")
 		return nil
 	}
 
-	logger.Debugf("parse meta writes [%s]", txID)
+	db.logger.Debugf("parse meta writes [%s]", txID)
 	if discarded, err := db.storeMetaWrites(i.RWs().MetaWrites, block, uint64(indexInBloc)); err != nil {
 		return errors.Wrapf(err, "failed storing meta writes")
 	} else if discarded {
-		logger.Infof("Discarded changes while storing meta writes as duplicates. Skipping...")
+		db.logger.Infof("Discarded changes while storing meta writes as duplicates. Skipping...")
 		return nil
 	}
 
-	logger.Debugf("set state to valid [%s]", txID)
+	db.logger.Debugf("set state to valid [%s]", txID)
 	if discarded, err := db.setTxValid(txID); err != nil {
 		return errors.Wrapf(err, "failed setting tx state to valid")
 	} else if discarded {
-		logger.Infof("Discarded changes while setting tx state to valid as duplicates. Skipping...")
+		db.logger.Infof("Discarded changes while setting tx state to valid as duplicates. Skipping...")
 		return nil
 	}
 
@@ -203,7 +210,7 @@ func (db *Vault[V]) setTxValid(txID core.TxID) (bool, error) {
 	}
 
 	if err1 := db.store.Discard(); err1 != nil {
-		logger.Errorf("got error %s; discarding caused %s", err.Error(), err1.Error())
+		db.logger.Errorf("got error %s; discarding caused %s", err.Error(), err1.Error())
 	}
 
 	if !errors2.HasCause(err, driver.UniqueKeyViolation) {
@@ -215,11 +222,11 @@ func (db *Vault[V]) setTxValid(txID core.TxID) (bool, error) {
 func (db *Vault[V]) storeMetaWrites(writes NamespaceKeyedMetaWrites, block core.BlockNum, indexInBloc core.TxNum) (bool, error) {
 	for ns, keyMap := range writes {
 		for key, v := range keyMap {
-			logger.Debugf("Store meta write [%s,%s]", ns, key)
+			db.logger.Debugf("Store meta write [%s,%s]", ns, key)
 
 			if err := db.store.SetStateMetadata(ns, key, v, block, uint64(indexInBloc)); err != nil {
 				if err1 := db.store.Discard(); err1 != nil {
-					logger.Errorf("got error %s; discarding caused %s", err.Error(), err1.Error())
+					db.logger.Errorf("got error %s; discarding caused %s", err.Error(), err1.Error())
 				}
 
 				if !errors2.HasCause(err, driver.UniqueKeyViolation) {
@@ -236,7 +243,7 @@ func (db *Vault[V]) storeMetaWrites(writes NamespaceKeyedMetaWrites, block core.
 func (db *Vault[V]) storeWrites(writes Writes, block core.BlockNum, indexInBloc core.TxNum) (bool, error) {
 	for ns, keyMap := range writes {
 		for key, v := range keyMap {
-			logger.Debugf("Store write [%s,%s,%v]", ns, key, hash.Hashable(v).String())
+			db.logger.Debugf("Store write [%s,%s,%v]", ns, key, hash.Hashable(v).String())
 			var err error
 			if len(v) != 0 {
 				err = db.store.SetState(ns, key, v, block, indexInBloc)
@@ -246,7 +253,7 @@ func (db *Vault[V]) storeWrites(writes Writes, block core.BlockNum, indexInBloc 
 
 			if err != nil {
 				if err1 := db.store.Discard(); err1 != nil {
-					logger.Errorf("got error %s; discarding caused %s", err.Error(), err1.Error())
+					db.logger.Errorf("got error %s; discarding caused %s", err.Error(), err1.Error())
 				}
 
 				if !errors2.HasCause(err, driver.UniqueKeyViolation) {
@@ -274,8 +281,8 @@ func (db *Vault[V]) SetBusy(txID core.TxID) error {
 }
 
 func (db *Vault[V]) NewRWSet(txID core.TxID) (TxInterceptor, error) {
-	logger.Debugf("NewRWSet[%s][%d]", txID, db.counter.Load())
-	i := db.newInterceptor(&interceptorQueryExecutor[V]{db}, db.txIDStore, txID)
+	db.logger.Debugf("NewRWSet[%s][%d]", txID, db.counter.Load())
+	i := db.newInterceptor(db.logger, &interceptorQueryExecutor[V]{db}, db.txIDStore, txID)
 
 	db.interceptorsLock.Lock()
 	if _, in := db.Interceptors[txID]; in {
@@ -296,8 +303,8 @@ func (db *Vault[V]) NewRWSet(txID core.TxID) (TxInterceptor, error) {
 }
 
 func (db *Vault[V]) GetRWSet(txID core.TxID, rwsetBytes []byte) (TxInterceptor, error) {
-	logger.Debugf("GetRWSet[%s][%d]", txID, db.counter.Load())
-	i := db.newInterceptor(&interceptorQueryExecutor[V]{db}, db.txIDStore, txID)
+	db.logger.Debugf("GetRWSet[%s][%d]", txID, db.counter.Load())
+	i := db.newInterceptor(db.logger, &interceptorQueryExecutor[V]{db}, db.txIDStore, txID)
 
 	if err := db.populator.Populate(i.RWs(), rwsetBytes); err != nil {
 		return nil, errors.Wrapf(err, "failed populating tx [%s]", txID)
@@ -338,7 +345,7 @@ func (db *Vault[V]) Match(txID core.TxID, rwsRaw []byte) error {
 		return errors.Errorf("passed empty rwset")
 	}
 
-	logger.Debugf("UnmapInterceptor [%s]", txID)
+	db.logger.Debugf("UnmapInterceptor [%s]", txID)
 	db.interceptorsLock.RLock()
 	defer db.interceptorsLock.RUnlock()
 	i, in := db.Interceptors[txID]
@@ -349,7 +356,7 @@ func (db *Vault[V]) Match(txID core.TxID, rwsRaw []byte) error {
 		return errors.Errorf("attempted to retrieve read-write set for %s when done has not been called", txID)
 	}
 
-	logger.Debugf("get lock [%s][%d]", txID, db.counter.Load())
+	db.logger.Debugf("get lock [%s][%d]", txID, db.counter.Load())
 	db.storeLock.Lock()
 	defer db.storeLock.Unlock()
 
@@ -367,7 +374,7 @@ func (db *Vault[V]) Match(txID core.TxID, rwsRaw []byte) error {
 			return errors.Wrapf(err2, "rwsets do not match")
 		}
 		// TODO: vault should support Fabric's rwset fully
-		logger.Debugf("byte representation differs, but rwsets match [%s]", txID)
+		db.logger.Debugf("byte representation differs, but rwsets match [%s]", txID)
 	}
 	return nil
 }
@@ -421,7 +428,7 @@ func (db *Vault[V]) setValidationCode(txID core.TxID, code V, message string) er
 }
 
 func (db *Vault[V]) GetExistingRWSet(txID core.TxID) (TxInterceptor, error) {
-	logger.Debugf("GetExistingRWSet[%s][%d]", txID, db.counter.Load())
+	db.logger.Debugf("GetExistingRWSet[%s][%d]", txID, db.counter.Load())
 
 	db.interceptorsLock.Lock()
 	interceptor, in := db.Interceptors[txID]
