@@ -12,6 +12,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/pkg/errors"
 )
@@ -97,33 +98,44 @@ type (
 	TxIDIterator    = fdriver.TxIDIterator
 )
 
-var (
-	ValidationCodeMessage = fdriver.ValidationCodeMessage
-)
-
-const (
-	Valid   = fdriver.Valid   // Transaction is valid and committed
-	Invalid = fdriver.Invalid // Transaction is invalid and has been discarded
-	Busy    = fdriver.Busy    // Transaction does not yet have a validity state
-	Unknown = fdriver.Unknown // Transaction is unknown
-)
-
 // Vault models a key-value store that can be updated by committing rwsets
 type Vault struct {
-	fdriver.Vault
-	fdriver.TXIDStore
-	ch fdriver.Channel
+	vault              fdriver.Vault
+	txIDStore          fdriver.TXIDStore
+	committer          fdriver.Committer
+	transactionService fdriver.EndorserTransactionService
+	envelopeService    fdriver.EnvelopeService
+	metadataService    fdriver.MetadataService
 }
 
-func newVault(vault fdriver.Vault, txidStore fdriver.TXIDStore, ch fdriver.Channel) *Vault {
-	return &Vault{Vault: vault, TXIDStore: txidStore, ch: ch}
+func newVault(ch fdriver.Channel) *Vault {
+	return &Vault{
+		vault:              ch.Vault(),
+		txIDStore:          ch.TXIDStore(),
+		committer:          ch.Committer(),
+		transactionService: ch.TransactionService(),
+		envelopeService:    ch.EnvelopeService(),
+		metadataService:    ch.MetadataService(),
+	}
+}
+
+func (c *Vault) NewQueryExecutor() (driver2.QueryExecutor, error) {
+	return c.vault.NewQueryExecutor()
+}
+
+func (c *Vault) Status(id string) (ValidationCode, string, error) {
+	return c.vault.Status(id)
+}
+
+func (c *Vault) GetLastTxID() (string, error) {
+	return c.txIDStore.GetLastTxID()
 }
 
 // NewRWSet returns a RWSet for this ledger.
 // A client may obtain more than one such simulator; they are made unique
 // by way of the supplied txid
 func (c *Vault) NewRWSet(txid string) (*RWSet, error) {
-	rws, err := c.Vault.NewRWSet(txid)
+	rws, err := c.vault.NewRWSet(txid)
 	if err != nil {
 		return nil, err
 	}
@@ -135,7 +147,7 @@ func (c *Vault) NewRWSet(txid string) (*RWSet, error) {
 // A client may obtain more than one such simulator; they are made unique
 // by way of the supplied txid
 func (c *Vault) GetRWSet(txid string, rwset []byte) (*RWSet, error) {
-	rws, err := c.Vault.GetRWSet(txid, rwset)
+	rws, err := c.vault.GetRWSet(txid, rwset)
 	if err != nil {
 		return nil, err
 	}
@@ -146,7 +158,7 @@ func (c *Vault) GetRWSet(txid string, rwset []byte) (*RWSet, error) {
 // from the passed bytes.
 // If namespaces is not empty, the returned RWSet will be filtered by the passed namespaces
 func (c *Vault) GetEphemeralRWSet(rwset []byte, namespaces ...string) (*RWSet, error) {
-	rws, err := c.Vault.GetEphemeralRWSet(rwset, namespaces...)
+	rws, err := c.vault.GetEphemeralRWSet(rwset, namespaces...)
 	if err != nil {
 		return nil, err
 	}
@@ -154,13 +166,21 @@ func (c *Vault) GetEphemeralRWSet(rwset []byte, namespaces ...string) (*RWSet, e
 }
 
 func (c *Vault) StoreEnvelope(id string, env []byte) error {
-	return c.ch.EnvelopeService().StoreEnvelope(id, env)
+	return c.envelopeService.StoreEnvelope(id, env)
 }
 
 func (c *Vault) StoreTransaction(id string, raw []byte) error {
-	return c.ch.TransactionService().StoreTransaction(id, raw)
+	return c.transactionService.StoreTransaction(id, raw)
 }
 
 func (c *Vault) StoreTransient(id string, tm TransientMap) error {
-	return c.ch.MetadataService().StoreTransient(id, fdriver.TransientMap(tm))
+	return c.metadataService.StoreTransient(id, fdriver.TransientMap(tm))
+}
+
+func (c *Vault) DiscardTx(txID string, message string) error {
+	return c.committer.DiscardTx(txID, message)
+}
+
+func (c *Vault) CommitTX(txID string, block uint64, indexInBlock int) error {
+	return c.committer.CommitTX(txID, block, indexInBlock, nil)
 }
