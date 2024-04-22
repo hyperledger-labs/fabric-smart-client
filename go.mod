@@ -54,7 +54,7 @@ require (
 	go.uber.org/atomic v1.11.0
 	go.uber.org/zap v1.25.0
 	golang.org/x/exp v0.0.0-20230817173708-d852ddb80c63
-	golang.org/x/net v0.22.0
+	golang.org/x/net v0.23.0
 	golang.org/x/sync v0.5.0
 	google.golang.org/grpc v1.59.0
 	google.golang.org/protobuf v1.33.0
