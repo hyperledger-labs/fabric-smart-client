@@ -8,7 +8,6 @@ package vault
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 )
 
 // this file contains all structs that perform DB access. They
@@ -21,9 +20,9 @@ type directQueryExecutor[V ValidationCode] struct {
 }
 
 func (q *directQueryExecutor[V]) GetState(namespace string, key string) ([]byte, error) {
-	logger.Debugf("Get State [%s,%s]", namespace, key)
+	//logger.Debugf("Get State [%s,%s]", namespace, key)
 	v, _, _, err := q.vault.store.GetState(namespace, key)
-	logger.Debugf("Got State [%s,%s] -> [%v]", namespace, key, hash.Hashable(v).String())
+	//logger.Debugf("Got State [%s,%s] -> [%v]", namespace, key, hash.Hashable(v).String())
 	return v, err
 }
 

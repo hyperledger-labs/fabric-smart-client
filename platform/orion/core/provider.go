@@ -49,6 +49,9 @@ func (p *ONSProvider) Start(ctx context.Context) error {
 		if err != nil {
 			return errors.Wrapf(err, "failed to start orion network service [%s]", name)
 		}
+		if err := fns.Committer().Start(ctx); err != nil {
+			return errors.WithMessagef(err, "failed to start committer on orion network service [%s]", name)
+		}
 		if err := fns.DeliveryService().StartDelivery(ctx); err != nil {
 			return errors.WithMessagef(err, "failed to start delivery on orion network service [%s]", name)
 		}

@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package driver
 
 import (
+	"context"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/committer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 )
@@ -40,6 +42,8 @@ type FinalityListener = committer.FinalityListener[ValidationCode]
 
 // Committer models the committer service
 type Committer interface {
+	Start(context context.Context) error
+
 	// AddTransactionFilter adds a new transaction filter to this commit pipeline.
 	// The transaction filter is used to check if an unknown transaction needs to be processed anyway
 	AddTransactionFilter(tf TransactionFilter) error

@@ -15,7 +15,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 )
 
 const (
@@ -26,7 +25,11 @@ const (
 	defaultEventQueueSize = 1000
 )
 
-var logger = flogging.MustGetLogger("common-sdk.Committer")
+type Logger interface {
+	Debugf(template string, args ...interface{})
+	Infof(template string, args ...interface{})
+	Errorf(template string, args ...interface{})
+}
 
 // FinalityEvent contains information about the finality of a given transaction
 type FinalityEvent[V comparable] struct {
@@ -53,6 +56,7 @@ type Vault[V comparable] interface {
 // The queue is fed by multiple sources.
 // A single thread reads from this queue and invokes the listeners in a blocking way
 type FinalityManager[V comparable] struct {
+	logger        Logger
 	eventQueue    chan FinalityEvent[V]
 	vault         Vault[V]
 	postStatuses  utils.Set[V]
@@ -60,8 +64,9 @@ type FinalityManager[V comparable] struct {
 	mutex         sync.RWMutex
 }
 
-func NewFinalityManager[V comparable](vault Vault[V], statuses ...V) *FinalityManager[V] {
+func NewFinalityManager[V comparable](logger Logger, vault Vault[V], statuses ...V) *FinalityManager[V] {
 	return &FinalityManager[V]{
+		logger:        logger,
 		eventQueue:    make(chan FinalityEvent[V], defaultEventQueueSize),
 		vault:         vault,
 		postStatuses:  utils.NewSet(statuses...),
@@ -93,13 +98,13 @@ func (c *FinalityManager[V]) RemoveListener(txID core.TxID, toRemove FinalityLis
 }
 
 func (c *FinalityManager[V]) Post(event FinalityEvent[V]) {
-	logger.Debugf("post event [%s][%d]", event.TxID, event.ValidationCode)
+	c.logger.Debugf("post event [%s][%d]", event.TxID, event.ValidationCode)
 	c.eventQueue <- event
 }
 
 func (c *FinalityManager[V]) Dispatch(event FinalityEvent[V]) {
 	listeners := c.cloneListeners(event.TxID)
-	logger.Debugf("dispatch event [%s][%d]", event.TxID, event.ValidationCode)
+	c.logger.Debugf("dispatch event [%s][%d]", event.TxID, event.ValidationCode)
 	for _, listener := range listeners {
 		c.invokeListener(listener, event.TxID, event.ValidationCode, event.ValidationMessage)
 	}
@@ -113,7 +118,7 @@ func (c *FinalityManager[V]) Run(context context.Context) {
 func (c *FinalityManager[V]) invokeListener(l FinalityListener[V], txID core.TxID, status V, statusMessage string) {
 	defer func() {
 		if r := recover(); r != nil {
-			logger.Errorf("caught panic while running dispatching event [%s:%d:%s]: [%s][%s]", txID, status, statusMessage, r, debug.Stack())
+			c.logger.Errorf("caught panic while running dispatching event [%s:%d:%s]: [%s][%s]", txID, status, statusMessage, r, debug.Stack())
 		}
 	}()
 	l.OnStatus(txID, status, statusMessage)
@@ -140,20 +145,20 @@ func (c *FinalityManager[V]) runStatusListener(context context.Context) {
 		case <-ticker.C:
 			txIDs := c.txIDs()
 			if len(txIDs) <= 1 {
-				logger.Debugf("no transactions to check vault status")
+				c.logger.Debugf("no transactions to check vault status")
 				break
 			}
 
-			logger.Debugf("check vault status for [%d] transactions [%v]", len(txIDs), txIDs)
+			c.logger.Debugf("check vault status for [%d] transactions [%v]", len(txIDs), txIDs)
 			statuses, err := c.vault.Statuses(txIDs...)
 			if err != nil {
-				logger.Errorf("error fetching statuses: %w", err)
+				c.logger.Errorf("error fetching statuses: %w", err)
 				continue
 			}
-			logger.Debugf("got vault status for [%d] transactions [%v], post event...", len(txIDs), txIDs)
+			c.logger.Debugf("got vault status for [%d] transactions [%v], post event...", len(txIDs), txIDs)
 			for _, status := range statuses {
 				// check txID status, if it is valid or invalid, post an event
-				logger.Debugf("check tx [%s]'s status", status.TxID)
+				c.logger.Debugf("check tx [%s]'s status [%v]", status.TxID, status.ValidationCode)
 				if c.postStatuses.Contains(status.ValidationCode) {
 					// post the event
 					c.Post(FinalityEvent[V]{

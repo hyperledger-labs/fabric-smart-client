@@ -9,6 +9,8 @@ package vault_test
 import (
 	"testing"
 
+	"github.com/op/go-logging"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault"
@@ -46,8 +48,8 @@ func (p *vcProvider) Valid() vc    { return valid }
 func (p *vcProvider) Invalid() vc  { return invalid }
 func (p *vcProvider) NotFound() vc { return 0 }
 
-func newInterceptor(qe vault.QueryExecutor, txidStore vault.TXIDStoreReader[vc], txid core.TxID) vault.TxInterceptor {
-	return vault.NewInterceptor[vc](qe, txidStore, txid, &vcProvider{})
+func newInterceptor(logger vault.Logger, qe vault.QueryExecutor, txidStore vault.TXIDStoreReader[vc], txid core.TxID) vault.TxInterceptor {
+	return vault.NewInterceptor[vc](logger, qe, txidStore, txid, &vcProvider{})
 }
 
 type populator struct{}
@@ -127,7 +129,7 @@ var DoubleDBCases = []struct {
 func TTestInterceptorErr(t *testing.T, ddb driver.VersionedPersistence) {
 	tidstore, err := txidstore.NewSimpleTXIDStore[vc](db.Unversioned(ddb), &vcProvider{})
 	assert.NoError(t, err)
-	vault1 := vault.New[vc](ddb, tidstore, &vcProvider{}, newInterceptor, &populator{})
+	vault1 := vault.New[vc](logging.MustGetLogger("vault"), ddb, tidstore, &vcProvider{}, newInterceptor, &populator{})
 	rws, err := vault1.NewRWSet("txid")
 	assert.NoError(t, err)
 
@@ -178,7 +180,7 @@ func TTestInterceptorConcurrency(t *testing.T, ddb driver.VersionedPersistence) 
 
 	tidstore, err := txidstore.NewSimpleTXIDStore[vc](db.Unversioned(ddb), &vcProvider{})
 	assert.NoError(t, err)
-	vault1 := vault.New[vc](ddb, tidstore, &vcProvider{}, newInterceptor, &populator{})
+	vault1 := vault.New[vc](logging.MustGetLogger("vault"), ddb, tidstore, &vcProvider{}, newInterceptor, &populator{})
 	rws, err := vault1.NewRWSet("txid")
 	assert.NoError(t, err)
 
@@ -219,7 +221,7 @@ func TTestQueryExecutor(t *testing.T, ddb driver.VersionedPersistence) {
 
 	tidstore, err := txidstore.NewSimpleTXIDStore[vc](db.Unversioned(ddb), &vcProvider{})
 	assert.NoError(t, err)
-	vault := vault.New[vc](ddb, tidstore, &vcProvider{}, newInterceptor, &populator{})
+	vault := vault.New[vc](logging.MustGetLogger("vault"), ddb, tidstore, &vcProvider{}, newInterceptor, &populator{})
 
 	err = ddb.BeginUpdate()
 	assert.NoError(t, err)
@@ -327,7 +329,7 @@ func TTestShardLikeCommit(t *testing.T, ddb driver.VersionedPersistence) {
 
 	tidstore, err := txidstore.NewSimpleTXIDStore[vc](db.Unversioned(ddb), &vcProvider{})
 	assert.NoError(t, err)
-	vault := vault.New[vc](ddb, tidstore, &vcProvider{}, newInterceptor, &populator{})
+	vault := vault.New[vc](logging.MustGetLogger("vault"), ddb, tidstore, &vcProvider{}, newInterceptor, &populator{})
 
 	// SCENARIO 1: there is a read conflict in the proposed rwset
 	// create the read-write set
@@ -422,7 +424,7 @@ func TTestShardLikeCommit(t *testing.T, ddb driver.VersionedPersistence) {
 func TTestVaultErr(t *testing.T, ddb driver.VersionedPersistence) {
 	tidstore, err := txidstore.NewSimpleTXIDStore[vc](db.Unversioned(ddb), &vcProvider{})
 	assert.NoError(t, err)
-	vault1 := vault.New[vc](ddb, tidstore, &vcProvider{}, newInterceptor, &populator{})
+	vault1 := vault.New[vc](logging.MustGetLogger("vault"), ddb, tidstore, &vcProvider{}, newInterceptor, &populator{})
 	err = vault1.CommitTX("non-existent", 0, 0)
 	assert.ErrorContains(t, err, "read-write set for txid non-existent could not be found")
 	err = vault1.DiscardTx("non-existent", "")
@@ -479,7 +481,7 @@ func TTestMerge(t *testing.T, ddb driver.VersionedPersistence) {
 	// create DB and kvs
 	tidstore, err := txidstore.NewSimpleTXIDStore[vc](db.Unversioned(ddb), &vcProvider{})
 	assert.NoError(t, err)
-	vault2 := vault.New[vc](ddb, tidstore, &vcProvider{}, newInterceptor, &populator{})
+	vault2 := vault.New[vc](logging.MustGetLogger("vault"), ddb, tidstore, &vcProvider{}, newInterceptor, &populator{})
 	err = ddb.BeginUpdate()
 	assert.NoError(t, err)
 	err = ddb.SetState(ns, k1, []byte("v1"), 35, 1)
@@ -584,7 +586,7 @@ func TTestInspector(t *testing.T, ddb driver.VersionedPersistence) {
 	// create DB and kvs
 	tidstore, err := txidstore.NewSimpleTXIDStore[vc](db.Unversioned(ddb), &vcProvider{})
 	assert.NoError(t, err)
-	vault := vault.New[vc](ddb, tidstore, &vcProvider{}, newInterceptor, &populator{})
+	vault := vault.New[vc](logging.MustGetLogger("vault"), ddb, tidstore, &vcProvider{}, newInterceptor, &populator{})
 	err = ddb.BeginUpdate()
 	assert.NoError(t, err)
 	err = ddb.SetState(ns, k1, []byte("v1"), 35, 1)
@@ -676,8 +678,8 @@ func TTestRun(t *testing.T, db1, db2 driver.VersionedPersistence) {
 	assert.NoError(t, err)
 	tidstore2, err := txidstore.NewSimpleTXIDStore[vc](db.Unversioned(db2), &vcProvider{})
 	assert.NoError(t, err)
-	vault1 := vault.New[vc](db1, tidstore1, &vcProvider{}, newInterceptor, &populator{})
-	vault2 := vault.New[vc](db2, tidstore2, &vcProvider{}, newInterceptor, &populator{})
+	vault1 := vault.New[vc](logging.MustGetLogger("vault"), db1, tidstore1, &vcProvider{}, newInterceptor, &populator{})
+	vault2 := vault.New[vc](logging.MustGetLogger("vault"), db2, tidstore2, &vcProvider{}, newInterceptor, &populator{})
 
 	rws, err := vault1.NewRWSet(txid)
 	assert.NoError(t, err)
