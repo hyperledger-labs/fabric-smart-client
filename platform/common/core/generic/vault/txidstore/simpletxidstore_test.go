@@ -7,16 +7,15 @@ SPDX-License-Identifier: Apache-2.0
 package txidstore
 
 import (
-	"os"
 	"testing"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault/txidstore/mocks"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger"
 	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
 	"github.com/pkg/errors"
 	"github.com/test-go/testify/assert"
+	"golang.org/x/exp/slices"
 )
 
 type vc int
@@ -41,33 +40,49 @@ func (p *vcProvider) Valid() vc    { return valid }
 func (p *vcProvider) Invalid() vc  { return invalid }
 func (p *vcProvider) NotFound() vc { return 0 }
 
+// When we ask for a TX that does not exist in the DB, some DBs return the key with a nil value and others don't return it at all.
+var removeNils func(items []*vault.ByNum[vc]) []*vault.ByNum[vc]
+
 func TestTXIDStoreMem(t *testing.T) {
-	db, err := db.Open(nil, "memory", "", nil)
+	removeNils = func(items []*vault.ByNum[vc]) []*vault.ByNum[vc] {
+		return slices.DeleteFunc(items, func(e *vault.ByNum[vc]) bool { return e.Code == 0 })
+	}
+	db, err := vault.OpenMemory()
 	assert.NoError(t, err)
-	assert.NotNil(t, db)
-	store, err := NewSimpleTXIDStore[vc](db, &vcProvider{})
-	assert.NoError(t, err)
-	assert.NotNil(t, store)
 
-	testTXIDStore(t, store)
-
-	store, err = NewSimpleTXIDStore[vc](db, &vcProvider{})
-	assert.NoError(t, err)
-	assert.NotNil(t, store)
-
-	testOneMore(t, store)
+	testAll(t, db)
 }
 
 func TestTXIDStoreBadger(t *testing.T) {
-	tempDir, err := os.MkdirTemp("", "TestTXIDStoreBadger")
+	removeNils = func(items []*vault.ByNum[vc]) []*vault.ByNum[vc] {
+		return slices.DeleteFunc(items, func(e *vault.ByNum[vc]) bool { return e.Code == 0 })
+	}
+	db, err := vault.OpenBadger(t.TempDir(), "TestTXIDStoreBadger")
 	assert.NoError(t, err)
-	defer os.RemoveAll(tempDir)
 
-	c := &mocks.Config{}
-	c.UnmarshalKeyReturns(nil)
-	c.IsSetReturns(false)
-	db, err := db.Open(nil, "badger", tempDir, c)
+	testAll(t, db)
+}
+
+func TestTXIDStoreSqlite(t *testing.T) {
+	removeNils = func(items []*vault.ByNum[vc]) []*vault.ByNum[vc] { return items }
+	db, err := vault.OpenSqlite("testdb", t.TempDir())
 	assert.NoError(t, err)
+	defer db.Close()
+
+	testAll(t, db)
+}
+
+func TestTXIDStorePostgres(t *testing.T) {
+	removeNils = func(items []*vault.ByNum[vc]) []*vault.ByNum[vc] { return items }
+	db, terminate, err := vault.OpenPostgres("testdb")
+	assert.NoError(t, err)
+	defer db.Close()
+	defer terminate()
+
+	testAll(t, db)
+}
+
+func testAll(t *testing.T, db driver.Persistence) {
 	assert.NotNil(t, db)
 	store, err := NewSimpleTXIDStore[vc](db, &vcProvider{})
 	assert.NoError(t, err)
@@ -224,7 +239,7 @@ func testTXIDStore(t *testing.T, store *SimpleTXIDStore[vc]) {
 	assert.NoError(t, err)
 	err = store.Set("txid200", valid, "")
 	assert.NoError(t, err)
-	err = store.Set("txid1025", valid, "")
+	err = store.Set("txid1025", invalid, "")
 	assert.NoError(t, err)
 	err = store.Persistence.Commit()
 	assert.NoError(t, err)
@@ -289,4 +304,26 @@ func testTXIDStore(t *testing.T, store *SimpleTXIDStore[vc]) {
 		txids = append(txids, tid.TxID)
 	}
 	assert.Equal(t, []string{"txid12", "txid21", "txid100", "txid200", "txid1025"}, txids)
+
+	it, err = store.Iterator(&vault.SeekSet{TxIDs: []string{"txid1025", "txid999", "txid21"}})
+
+	assert.NoError(t, err)
+	var results []*vault.ByNum[vc]
+	for {
+		tid, err := it.Next()
+		assert.NoError(t, err)
+		if tid == nil {
+			it.Close()
+			break
+		}
+
+		results = append(results, tid)
+	}
+	results = removeNils(results)
+	txids = make([]string, len(results))
+	for i, result := range results {
+		txids[i] = result.TxID
+	}
+	assert.Len(t, txids, 2)
+	assert.Equal(t, []string{"txid1025", "txid21"}, txids)
 }

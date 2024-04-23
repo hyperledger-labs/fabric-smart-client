@@ -257,7 +257,7 @@ func TTestQueryExecutor(t *testing.T, ddb driver.VersionedPersistence) {
 		res = append(res, *n)
 	}
 	assert.Len(t, res, 4)
-	assert.Equal(t, []driver.VersionedRead{
+	assert.ElementsMatch(t, []driver.VersionedRead{
 		{Key: "k1", Raw: []byte("k1_value"), Block: 35, IndexInBlock: 3},
 		{Key: "k111", Raw: []byte("k111_value"), Block: 35, IndexInBlock: 4},
 		{Key: "k2", Raw: []byte("k2_value"), Block: 35, IndexInBlock: 1},
@@ -290,7 +290,7 @@ func TTestQueryExecutor(t *testing.T, ddb driver.VersionedPersistence) {
 		res = append(res, *n)
 	}
 	assert.Len(t, res, 3)
-	assert.Equal(t, []driver.VersionedRead{
+	assert.ElementsMatch(t, []driver.VersionedRead{
 		{Key: "k1", Raw: []byte("k1_value"), Block: 35, IndexInBlock: 3},
 		{Key: "k2", Raw: []byte("k2_value"), Block: 35, IndexInBlock: 1},
 		{Key: "k111", Raw: []byte("k111_value"), Block: 35, IndexInBlock: 4},
@@ -305,11 +305,11 @@ func TTestQueryExecutor(t *testing.T, ddb driver.VersionedPersistence) {
 		assert.NoError(t, err)
 		res = append(res, *n)
 	}
-	assert.Len(t, res, 2)
-	assert.Equal(t, []driver.VersionedRead{
+	var expected = removeNils([]driver.VersionedRead{
 		{Key: "k1", Raw: []byte("k1_value"), Block: 35, IndexInBlock: 3},
 		{Key: "k5"},
-	}, res)
+	})
+	assert.Equal(t, expected, res)
 }
 
 func TTestShardLikeCommit(t *testing.T, ddb driver.VersionedPersistence) {
