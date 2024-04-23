@@ -12,12 +12,12 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
-	"sync/atomic"
 	"time"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
+	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/docker"
 	_ "github.com/lib/pq"
 	_ "modernc.org/sqlite"
@@ -27,8 +27,6 @@ type Logger interface {
 	Log(...any)
 	Errorf(string, ...any)
 }
-
-var port int32 = 5432
 
 type PostgresConfig struct {
 	Image     string
@@ -54,6 +52,14 @@ func (l *fmtLogger) Errorf(format string, args ...any) {
 }
 
 func DefaultConfig(node string) *PostgresConfig {
+	ports, err := freeport.Take(1)
+	if err != nil {
+		panic("could not take free port: " + err.Error())
+	}
+	return defaultConfigWithPort(node, ports[0])
+}
+
+func defaultConfigWithPort(node string, port int) *PostgresConfig {
 	return &PostgresConfig{
 		Image:     "postgres:latest",
 		Container: fmt.Sprintf("fsc-postgres-%s", node),
@@ -61,7 +67,7 @@ func DefaultConfig(node string) *PostgresConfig {
 		User:      "postgres",
 		Pass:      "example",
 		Host:      "localhost",
-		Port:      int(atomic.AddInt32(&port, 1)),
+		Port:      port,
 	}
 }
 
