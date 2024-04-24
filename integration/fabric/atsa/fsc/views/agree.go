@@ -44,8 +44,10 @@ func (a *AgreeToSellView) Call(context view.Context) (interface{}, error) {
 	assetID, err := asset.GetLinearID()
 	assert.NoError(err, "cannot compute linear state's id")
 
+	vault, err := state.GetVault(context)
+	assert.NoError(err)
 	assert.NoError(
-		state.GetVault(context).GetState("asset_transfer", assetID, asset),
+		vault.GetState("asset_transfer", assetID, asset),
 		"failed loading asset [%s]", assetID,
 	)
 
@@ -95,7 +97,9 @@ func (a *AgreeToBuyView) Call(context view.Context) (interface{}, error) {
 	tx, err := state.NewAnonymousTransaction(context)
 	assert.NoError(err, "failed creating transaction")
 	tx.SetNamespace("asset_transfer")
-	me := fabric.GetDefaultIdentityProvider(context).DefaultIdentity()
+	fns, err := fabric.GetDefaultFNS(context)
+	assert.NoError(err)
+	me := fns.IdentityProvider().DefaultIdentity()
 	assert.NoError(tx.AddCommand("agreeToBuy", me), "failed adding issue command")
 
 	a.Agreement.Owner = me

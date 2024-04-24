@@ -71,7 +71,9 @@ func (i *CreateIOUView) Call(context view.Context) (interface{}, error) {
 	// Check committer events
 	var wg sync.WaitGroup
 	wg.Add(2)
-	committer := fabric.GetDefaultChannel(context).Committer()
+	_, ch, err := fabric.GetDefaultChannel(context)
+	assert.NoError(err)
+	committer := ch.Committer()
 	assert.NoError(err, committer.AddFinalityListener(tx.ID(), NewFinalityListener(tx.ID(), driver.Valid, &wg)), "failed to add committer listener")
 	assert.NoError(err, committer.AddFinalityListener("", NewFinalityListener(tx.ID(), driver.Valid, &wg)), "failed to add committer listener")
 
@@ -138,7 +140,9 @@ func (u UpdateIOUView) Call(context view.Context) (interface{}, error) {
 	// Check committer events
 	var wg sync.WaitGroup
 	wg.Add(2)
-	committer := fabric.GetDefaultChannel(context).Committer()
+	_, ch, err := fabric.GetDefaultChannel(context)
+	assert.NoError(err)
+	committer := ch.Committer()
 	assert.NoError(err, committer.AddFinalityListener(tx.ID(), NewFinalityListener(tx.ID(), driver.Valid, &wg)), "failed to add committer listener")
 	assert.NoError(err, committer.AddFinalityListener("", NewFinalityListener(tx.ID(), driver.Valid, &wg)), "failed to add committer listener")
 

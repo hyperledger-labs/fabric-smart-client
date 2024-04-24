@@ -108,11 +108,10 @@ func (p *ONSProvider) newONS(network string) (driver.OrionNetworkService, error)
 	return generic.NewNetwork(p.ctx, p.sp, c, network)
 }
 
-func GetOrionNetworkServiceProvider(sp view.ServiceProvider) driver.OrionNetworkServiceProvider {
+func GetOrionNetworkServiceProvider(sp view.ServiceProvider) (driver.OrionNetworkServiceProvider, error) {
 	s, err := sp.GetService(key)
 	if err != nil {
-		logger.Errorf("Failed to get service [%s]: [%s]", key, err)
-		return nil
+		return nil, err
 	}
-	return s.(driver.OrionNetworkServiceProvider)
+	return s.(driver.OrionNetworkServiceProvider), nil
 }

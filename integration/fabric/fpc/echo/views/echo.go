@@ -31,20 +31,22 @@ type EchoView struct {
 }
 
 func (e *EchoView) Call(context view.Context) (interface{}, error) {
-	v, err := fpc.GetDefaultChannel(context).EnclaveRegistry().IsAvailable()
+	ch, err := fpc.GetDefaultChannel(context)
+	assert.NoError(err)
+	v, err := ch.EnclaveRegistry().IsAvailable()
 	assert.NoError(err, "failed checking availability of the enclave registry")
 	assert.True(v, "the enclave registry is not available")
 
-	v, err = fpc.GetDefaultChannel(context).EnclaveRegistry().IsPrivate("echo")
+	v, err = ch.EnclaveRegistry().IsPrivate("echo")
 	assert.NoError(err, "failed checking echo deployment")
 	assert.True(v, "echo should be an FPC")
 
-	v, err = fpc.GetDefaultChannel(context).EnclaveRegistry().IsPrivate("mycc")
+	v, err = ch.EnclaveRegistry().IsPrivate("mycc")
 	assert.NoError(err, "failed checking mycc deployment")
 	assert.False(v, "mycc should be a standard CC")
 
 	// Invoke the `echo` chaincode deployed on the default channel of the default Fabric network
-	res, err := fpc.GetDefaultChannel(context).Chaincode(
+	res, err := ch.Chaincode(
 		"echo",
 	).Invoke(
 		e.Function, fpc.StringsToArgs(e.Args)...,
@@ -52,23 +54,25 @@ func (e *EchoView) Call(context view.Context) (interface{}, error) {
 	assert.NoError(err, "failed invoking echo")
 	assert.Equal(e.Function, string(res))
 
+	fns, err := fabric.GetDefaultFNS(context)
+	assert.NoError(err)
 	_, res, err = chaincode.NewInvokeView(
 		"echo",
 		e.Function,
 		fpc.StringsToArgs(e.Args)...,
 	).WithSignerIdentity(
-		fabric.GetDefaultFNS(context).LocalMembership().DefaultIdentity(),
+		fns.LocalMembership().DefaultIdentity(),
 	).Invoke(context)
 	assert.NoError(err, "failed invoking echo")
 	assert.Equal(e.Function, string(res))
 
 	// Query the `echo` chaincode deployed on the default channel of the default Fabric network
-	res, err = fpc.GetDefaultChannel(context).Chaincode(
+	res, err = ch.Chaincode(
 		"echo",
 	).Query(
 		e.Function, fpc.StringsToArgs(e.Args)...,
 	).WithSignerIdentity(
-		fabric.GetDefaultFNS(context).LocalMembership().DefaultIdentity(),
+		fns.LocalMembership().DefaultIdentity(),
 	).Call()
 	assert.NoError(err, "failed querying echo")
 	assert.Equal(e.Function, string(res))
@@ -78,33 +82,33 @@ func (e *EchoView) Call(context view.Context) (interface{}, error) {
 		e.Function,
 		fpc.StringsToArgs(e.Args)...,
 	).WithSignerIdentity(
-		fabric.GetDefaultFNS(context).LocalMembership().DefaultIdentity(),
+		fns.LocalMembership().DefaultIdentity(),
 	).Query(context)
 	assert.NoError(err, "failed querying echo")
 	assert.Equal(e.Function, string(res))
 
 	// Endorse the `echo` chaincode deployed on the default channel of the default Fabric network
-	envelope, err := fpc.GetDefaultChannel(context).Chaincode(
+	envelope, err := ch.Chaincode(
 		"echo",
 	).Endorse(
 		e.Function, fpc.StringsToArgs(e.Args)...,
 	).WithSignerIdentity(
-		fabric.GetDefaultFNS(context).LocalMembership().DefaultIdentity(),
+		fns.LocalMembership().DefaultIdentity(),
 	).Call()
 	assert.NoError(err, "failed endorsing echo")
 	assert.NotNil(envelope)
-	assert.NoError(fabric.GetDefaultFNS(context).Ordering().Broadcast(context.Context(), envelope))
+	assert.NoError(fns.Ordering().Broadcast(context.Context(), envelope))
 
 	envelope, err = chaincode.NewEndorseView(
 		"echo",
 		e.Function,
 		fpc.StringsToArgs(e.Args)...,
 	).WithSignerIdentity(
-		fabric.GetDefaultFNS(context).LocalMembership().DefaultIdentity(),
+		fns.LocalMembership().DefaultIdentity(),
 	).WithNumRetries(4).WithRetrySleep(2 * time.Second).Endorse(context)
 	assert.NoError(err, "failed endorsing echo")
 	assert.Equal(e.Function, string(res))
-	assert.NoError(fabric.GetDefaultFNS(context).Ordering().Broadcast(context.Context(), envelope))
+	assert.NoError(fns.Ordering().Broadcast(context.Context(), envelope))
 
 	return res, nil
 }

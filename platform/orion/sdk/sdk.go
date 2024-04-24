@@ -90,9 +90,9 @@ type FinalityHandler struct {
 }
 
 func (f *FinalityHandler) IsFinal(ctx context.Context, network, channel, txID string) error {
-	ons := orion.GetOrionNetworkService(f.sp, network)
-	if ons != nil {
-		return ons.Finality().IsFinal(ctx, txID)
+	ons, err := orion.GetOrionNetworkService(f.sp, network)
+	if err != nil {
+		return err
 	}
-	return errors.Errorf("cannot find orio network [%s]", network)
+	return ons.Finality().IsFinal(ctx, txID)
 }

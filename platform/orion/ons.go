@@ -13,16 +13,14 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/pkg/errors"
 )
 
 var (
 	orionNetworkServiceType = reflect.TypeOf((*NetworkServiceProvider)(nil))
-	logger                  = flogging.MustGetLogger("orion-sdk")
 )
 
-// NetworkService models a Orion Network
+// NetworkService models an Orion network
 type NetworkService struct {
 	SP        view2.ServiceProvider
 	ons       driver.OrionNetworkService
@@ -103,13 +101,13 @@ func (nsp *NetworkServiceProvider) NetworkService(id string) (*NetworkService, e
 		return ns, nil
 	}
 
-	provider := core.GetOrionNetworkServiceProvider(nsp.sp)
-	if provider == nil {
-		return nil, errors.New("no orion Network Service Provider found")
+	provider, err := core.GetOrionNetworkServiceProvider(nsp.sp)
+	if err != nil {
+		return nil, errors.WithMessagef(err, "no orion Network Service Provider found")
 	}
 	internalOns, err := provider.OrionNetworkService(id)
 	if err != nil {
-		return nil, errors.WithMessagef(err, "Failed to get orion Network Service for id [%s]", id)
+		return nil, errors.WithMessagef(err, "failed to get orion Network Service for id [%s]", id)
 	}
 	ns, ok = nsp.networkServices[internalOns.Name()]
 	if ok {
@@ -122,38 +120,28 @@ func (nsp *NetworkServiceProvider) NetworkService(id string) (*NetworkService, e
 	return ns, nil
 }
 
-func GetNetworkServiceProvider(sp view2.ServiceProvider) *NetworkServiceProvider {
+func GetNetworkServiceProvider(sp view2.ServiceProvider) (*NetworkServiceProvider, error) {
 	s, err := sp.GetService(orionNetworkServiceType)
 	if err != nil {
-		logger.Warnf("failed getting orion network service provider: %s", err)
-		return nil
+		return nil, err
 	}
-	return s.(*NetworkServiceProvider)
-}
-
-func GetOrionNetworkNames(sp view2.ServiceProvider) []string {
-	onsp := core.GetOrionNetworkServiceProvider(sp)
-	if onsp == nil {
-		return nil
-	}
-	return onsp.Names()
+	return s.(*NetworkServiceProvider), nil
 }
 
 // GetOrionNetworkService returns the Orion Network Service for the passed id, nil if not found
-func GetOrionNetworkService(sp view2.ServiceProvider, id string) *NetworkService {
-	provider := GetNetworkServiceProvider(sp)
-	if provider == nil {
-		return nil
+func GetOrionNetworkService(sp view2.ServiceProvider, id string) (*NetworkService, error) {
+	provider, err := GetNetworkServiceProvider(sp)
+	if err != nil {
+		return nil, err
 	}
 	ons, err := provider.NetworkService(id)
 	if err != nil {
-		logger.Warnf("Failed to get orion Network Service for id [%s]: [%s]", id, err)
-		return nil
+		return nil, err
 	}
-	return ons
+	return ons, nil
 }
 
 // GetDefaultONS returns the default Orion Network Service
-func GetDefaultONS(sp view2.ServiceProvider) *NetworkService {
+func GetDefaultONS(sp view2.ServiceProvider) (*NetworkService, error) {
 	return GetOrionNetworkService(sp, "")
 }

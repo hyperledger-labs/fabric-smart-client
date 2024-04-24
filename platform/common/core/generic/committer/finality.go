@@ -104,7 +104,7 @@ func (c *FinalityManager[V]) Post(event FinalityEvent[V]) {
 
 func (c *FinalityManager[V]) Dispatch(event FinalityEvent[V]) {
 	listeners := c.cloneListeners(event.TxID)
-	c.logger.Debugf("dispatch event [%s][%d]", event.TxID, event.ValidationCode)
+	c.logger.Debugf("dispatch event [%s][%d][%d]", event.TxID, event.ValidationCode, len(listeners))
 	for _, listener := range listeners {
 		c.invokeListener(listener, event.TxID, event.ValidationCode, event.ValidationMessage)
 	}

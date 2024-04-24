@@ -19,12 +19,10 @@ import (
 )
 
 const (
-	CertificationType string = "CertificationType"
-	Certification     string = "Certification"
-
+	CertificationType      string = "CertificationType"
+	Certification          string = "Certification"
 	ChaincodeCertification string = "ChaincodesCertification"
-
-	CertificationFnc string = "state_certification"
+	CertificationFnc       string = "state_certification"
 )
 
 type TxTransientStore interface {
@@ -119,7 +117,7 @@ func (n *Namespace) VerifyInputCertificationAt(index int, key string) error {
 
 		// raw is an envelope, it must be signed by enough endorsers
 		cn, cv := n.tx.Chaincode()
-		ch, err := fabric.GetFabricNetworkService(n.tx.ServiceProvider, n.tx.Network()).Channel(n.tx.Channel())
+		_, ch, err := fabric.GetChannel(n.tx.ServiceProvider, n.tx.Network(), n.tx.Channel())
 		if err != nil {
 			return errors.Wrapf(err, "failed getting channel [%s:%s]", n.tx.Network(), n.tx.Channel())
 		}
@@ -176,12 +174,12 @@ func (n *Namespace) certifyInput(id string) error {
 	case ChaincodeCertification:
 		// Invoke chaincode
 		cn, cv := n.tx.Chaincode()
-		ch, err := fabric.GetFabricNetworkService(n.tx.ServiceProvider, n.tx.Network()).Channel(n.tx.Channel())
+		fns, ch, err := fabric.GetChannel(n.tx.ServiceProvider, n.tx.Network(), n.tx.Channel())
 		if err != nil {
 			return errors.Wrapf(err, "failed getting channel [%s:%s]", n.tx.Network(), n.tx.Channel())
 		}
 		env, err := ch.Chaincode(cn).Endorse(CertificationFnc, id, n.tx.ID()).WithInvokerIdentity(
-			fabric.GetFabricNetworkService(n.tx.ServiceProvider, n.tx.Network()).IdentityProvider().DefaultIdentity(),
+			fns.IdentityProvider().DefaultIdentity(),
 		).Call()
 		if err != nil {
 			return errors.Wrapf(err, "failed asking certification to [%s,%s,%s] for [%s]", n.tx.Channel(), cn, cv, id)
@@ -210,7 +208,8 @@ type CertificationView struct {
 }
 
 func (c *CertificationView) Call(context view.Context) (interface{}, error) {
-	vault := GetVaultForChannel(context, c.Channel)
+	vault, err := GetVaultForChannel(context, c.Channel)
+	assert.NoError(err)
 	cert, err := vault.GetStateCertification(c.Namespace, c.Key)
 	assert.NoError(err, "failed getting certification")
 

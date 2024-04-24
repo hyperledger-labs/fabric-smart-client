@@ -13,8 +13,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault/txidstore"
 	odriver "github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/orion-server/pkg/types"
-	"github.com/op/go-logging"
 	"github.com/pkg/errors"
 )
 
@@ -31,7 +31,7 @@ func NewSimpleTXIDStore(persistence driver.Persistence) (*SimpleTXIDStore, error
 
 // New returns a new instance of Vault
 func New(store driver.VersionedPersistence, txIDStore TXIDStore) *Vault {
-	return vault.New[odriver.ValidationCode](logging.MustGetLogger("orion-sdk.generic.vault"), store, txIDStore, &odriver.ValidationCodeProvider{}, newInterceptor, &populator{})
+	return vault.New[odriver.ValidationCode](flogging.MustGetLogger("orion-sdk.generic.vault"), store, txIDStore, &odriver.ValidationCodeProvider{}, newInterceptor, &populator{})
 }
 
 type Interceptor struct {

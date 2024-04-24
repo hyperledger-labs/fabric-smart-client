@@ -9,8 +9,6 @@ package vault_test
 import (
 	"testing"
 
-	"github.com/op/go-logging"
-
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault"
@@ -19,9 +17,11 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger/fabric-protos-go/ledger/rwset"
 	"github.com/hyperledger/fabric-protos-go/ledger/rwset/kvrwset"
 	"github.com/hyperledger/fabric/core/ledger/kvledger/txmgmt/rwsetutil"
+	"github.com/op/go-logging"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 )
@@ -129,7 +129,7 @@ var DoubleDBCases = []struct {
 func TTestInterceptorErr(t *testing.T, ddb driver.VersionedPersistence) {
 	tidstore, err := txidstore.NewSimpleTXIDStore[vc](db.Unversioned(ddb), &vcProvider{})
 	assert.NoError(t, err)
-	vault1 := vault.New[vc](logging.MustGetLogger("vault"), ddb, tidstore, &vcProvider{}, newInterceptor, &populator{})
+	vault1 := vault.New[vc](flogging.MustGetLogger("vault"), ddb, tidstore, &vcProvider{}, newInterceptor, &populator{})
 	rws, err := vault1.NewRWSet("txid")
 	assert.NoError(t, err)
 
@@ -221,7 +221,7 @@ func TTestQueryExecutor(t *testing.T, ddb driver.VersionedPersistence) {
 
 	tidstore, err := txidstore.NewSimpleTXIDStore[vc](db.Unversioned(ddb), &vcProvider{})
 	assert.NoError(t, err)
-	vault := vault.New[vc](logging.MustGetLogger("vault"), ddb, tidstore, &vcProvider{}, newInterceptor, &populator{})
+	vault := vault.New[vc](flogging.MustGetLogger("vault"), ddb, tidstore, &vcProvider{}, newInterceptor, &populator{})
 
 	err = ddb.BeginUpdate()
 	assert.NoError(t, err)

@@ -36,8 +36,10 @@ func (v *MintRequestView) Call(context view.Context) (interface{}, error) {
 }
 
 func (v *MintRequestView) prepareRequest(context view.Context) *states.MintRequestRecord {
-	me := orion.GetDefaultONS(context).IdentityManager().Me()
-	tx, err := otx.NewTransaction(context, me, orion.GetDefaultONS(context).Name())
+	ons, err := orion.GetDefaultONS(context)
+	assert.NoError(err)
+	me := ons.IdentityManager().Me()
+	tx, err := otx.NewTransaction(context, me, ons.Name())
 	assert.NoError(err, "failed creating orion transaction")
 
 	// Sets the namespace where the state should be stored
@@ -78,8 +80,10 @@ func (v *MintRequestView) askApproval(context view.Context, request *states.Mint
 	var carKey string
 	assert.NoError(commSession.Receive(&carKey), "failed receiving car record key")
 
-	me := orion.GetDefaultONS(context).IdentityManager().Me()
-	session, err := orion.GetDefaultONS(context).SessionManager().NewSession(me)
+	ons, err := orion.GetDefaultONS(context)
+	assert.NoError(err)
+	me := ons.IdentityManager().Me()
+	session, err := ons.SessionManager().NewSession(me)
 	assert.NoError(err, "failed getting orion session")
 	qe, err := session.QueryExecutor("cars")
 	assert.NoError(err, "failed query executor")
@@ -113,9 +117,11 @@ func (m *MintRequestApprovalFlow) Call(context view.Context) (interface{}, error
 	assert.NoError(s.Receive(&mintReqRecordKey), "failed receiving key")
 
 	// Prepare transaction
-	me := orion.GetDefaultONS(context).IdentityManager().Me()
+	ons, err := orion.GetDefaultONS(context)
+	assert.NoError(err)
+	me := ons.IdentityManager().Me()
 
-	tx, err := otx.NewTransaction(context, me, orion.GetDefaultONS(context).Name())
+	tx, err := otx.NewTransaction(context, me, ons.Name())
 	assert.NoError(err, "failed creating orion transaction")
 
 	// Sets the namespace where the state should be stored

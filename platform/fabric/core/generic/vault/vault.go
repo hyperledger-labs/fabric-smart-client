@@ -14,9 +14,9 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger/fabric-protos-go/ledger/rwset"
 	"github.com/hyperledger/fabric/core/ledger/kvledger/txmgmt/rwsetutil"
-	"github.com/op/go-logging"
 	"github.com/pkg/errors"
 )
 
@@ -33,7 +33,7 @@ func NewTXIDStore(persistence driver.Persistence) (*SimpleTXIDStore, error) {
 
 // New returns a new instance of Vault
 func New(store driver.VersionedPersistence, txIDStore TXIDStore) *Vault {
-	return vault.New[fdriver.ValidationCode](logging.MustGetLogger("fabric-sdk.generic.vault"), store, txIDStore, &fdriver.ValidationCodeProvider{}, newInterceptor, &populator{})
+	return vault.New[fdriver.ValidationCode](flogging.MustGetLogger("fabric-sdk.generic.vault"), store, txIDStore, &fdriver.ValidationCodeProvider{}, newInterceptor, &populator{})
 }
 
 func newInterceptor(logger vault.Logger, qe vault.QueryExecutor, txidStore TXIDStoreReader, txid string) vault.TxInterceptor {

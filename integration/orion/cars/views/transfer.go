@@ -31,9 +31,11 @@ type TransferView struct {
 }
 
 func (v *TransferView) Call(context view.Context) (interface{}, error) {
-	me := orion.GetDefaultONS(context).IdentityManager().Me()
+	ons, err := orion.GetDefaultONS(context)
+	assert.NoError(err)
+	me := ons.IdentityManager().Me()
 
-	tx, err := otx.NewTransaction(context, me, orion.GetDefaultONS(context).Name())
+	tx, err := otx.NewTransaction(context, me, ons.Name())
 	assert.NoError(err, "failed creating orion transaction")
 	tx.SetNamespace("cars") // Sets the namespace where the state should be stored
 
@@ -102,13 +104,15 @@ type BuyerFlow struct {
 }
 
 func (f *BuyerFlow) Call(context view.Context) (interface{}, error) {
-	me := orion.GetDefaultONS(context).IdentityManager().Me()
+	ons, err := orion.GetDefaultONS(context)
+	assert.NoError(err)
+	me := ons.IdentityManager().Me()
 
 	sellerSeesion := session.JSON(context)
 	var env []byte
 	assert.NoError(sellerSeesion.Receive(&env), "failed receiving envelope")
 
-	loadedTx, err := otx.NewLoadedTransaction(context, me, orion.GetDefaultONS(context).Name(), "cars", env)
+	loadedTx, err := otx.NewLoadedTransaction(context, me, ons.Name(), "cars", env)
 	assert.NoError(err, "failed creating orion loaded transaction")
 
 	if err = buyerValidateTransaction(loadedTx, me, "dmv"); err != nil {
@@ -188,16 +192,18 @@ type DMVFlow struct {
 }
 
 func (f *DMVFlow) Call(context view.Context) (interface{}, error) {
-	me := orion.GetDefaultONS(context).IdentityManager().Me()
+	ons, err := orion.GetDefaultONS(context)
+	assert.NoError(err)
+	me := ons.IdentityManager().Me()
 
 	buyerSession := session.JSON(context)
 	var env []byte
 	assert.NoError(buyerSession.Receive(&env), "failed receiving envelope")
 
-	loadedTx, err := otx.NewLoadedTransaction(context, me, orion.GetDefaultONS(context).Name(), "cars", env)
+	loadedTx, err := otx.NewLoadedTransaction(context, me, ons.Name(), "cars", env)
 	assert.NoError(err, "failed creating orion loaded transaction")
 
-	tx, err := otx.NewTransaction(context, me, orion.GetDefaultONS(context).Name())
+	tx, err := otx.NewTransaction(context, me, ons.Name())
 	assert.NoError(err, "failed creating orion transaction")
 	tx.SetNamespace("cars") // Sets the namespace where the state should be stored
 

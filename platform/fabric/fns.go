@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package fabric
 
 import (
-	"fmt"
 	"reflect"
 	"sync"
 
@@ -156,97 +155,62 @@ func (nsp *NetworkServiceProvider) FabricNetworkService(id string) (*NetworkServ
 	return ns, nil
 }
 
-func GetNetworkServiceProvider(sp view2.ServiceProvider) *NetworkServiceProvider {
+func GetNetworkServiceProvider(sp view2.ServiceProvider) (*NetworkServiceProvider, error) {
 	s, err := sp.GetService(networkServiceProviderType)
 	if err != nil {
-		logger.Warnf("failed getting fabric network service provider: %s", err)
-		return nil
+		return nil, errors.WithMessagef(err, "failed getting fabric network service provider")
 	}
-	return s.(*NetworkServiceProvider)
+	return s.(*NetworkServiceProvider), nil
 }
 
-func GetFabricNetworkNames(sp view2.ServiceProvider) []string {
-	provider := core.GetFabricNetworkServiceProvider(sp)
-	if provider == nil {
-		return nil
+func GetFabricNetworkNames(sp view2.ServiceProvider) ([]string, error) {
+	provider, err := core.GetFabricNetworkServiceProvider(sp)
+	if err != nil {
+		return nil, err
 	}
-	return provider.Names()
+	return provider.Names(), nil
 }
 
 // GetFabricNetworkService returns the Fabric Network Service for the passed id, nil if not found
-func GetFabricNetworkService(sp view2.ServiceProvider, id string) *NetworkService {
-	provider := GetNetworkServiceProvider(sp)
-	if provider == nil {
-		return nil
+func GetFabricNetworkService(sp view2.ServiceProvider, id string) (*NetworkService, error) {
+	provider, err := GetNetworkServiceProvider(sp)
+	if err != nil {
+		return nil, err
 	}
 	fns, err := provider.FabricNetworkService(id)
 	if err != nil {
-		logger.Warnf("Failed to get Fabric Network Service for id [%s]: [%s]", id, err)
-		return nil
+		return nil, err
 	}
-	return fns
+	return fns, nil
 }
 
 // GetDefaultFNS returns the default Fabric Network Service
-func GetDefaultFNS(sp view2.ServiceProvider) *NetworkService {
+func GetDefaultFNS(sp view2.ServiceProvider) (*NetworkService, error) {
 	return GetFabricNetworkService(sp, "")
 }
 
 // GetDefaultChannel returns the default channel of the default fns
-func GetDefaultChannel(sp view2.ServiceProvider) *Channel {
-	network := GetDefaultFNS(sp)
+func GetDefaultChannel(sp view2.ServiceProvider) (*NetworkService, *Channel, error) {
+	network, err := GetDefaultFNS(sp)
+	if err != nil {
+		return nil, nil, err
+	}
 	channel, err := network.Channel("")
 	if err != nil {
-		panic(err)
+		return nil, nil, err
 	}
-
-	return channel
-}
-
-// GetDefaultIdentityProvider returns the identity provider of the default fabric network service
-func GetDefaultIdentityProvider(sp view2.ServiceProvider) *IdentityProvider {
-	return GetDefaultFNS(sp).IdentityProvider()
-}
-
-// GetDefaultLocalMembership returns the local membership of the default fabric network service
-func GetDefaultLocalMembership(sp view2.ServiceProvider) *LocalMembership {
-	return GetDefaultFNS(sp).LocalMembership()
+	return network, channel, nil
 }
 
 // GetChannel returns the requested channel for the passed network
-func GetChannel(sp view2.ServiceProvider, network, channel string) *Channel {
-	fns := GetFabricNetworkService(sp, network)
-	if fns == nil {
-		panic(fmt.Sprintf("fabric network service [%s] not found", network))
+func GetChannel(sp view2.ServiceProvider, network, channel string) (*NetworkService, *Channel, error) {
+	fns, err := GetFabricNetworkService(sp, network)
+	if err != nil {
+		return nil, nil, err
 	}
 	ch, err := fns.Channel(channel)
 	if err != nil {
-		panic(err)
+		return nil, nil, err
 	}
-
-	return ch
-}
-
-// GetVault returns the vualt for the requested channel for the passed network
-func GetVault(sp view2.ServiceProvider, network, channel string) *Vault {
-	fns := GetFabricNetworkService(sp, network)
-	if fns == nil {
-		panic(fmt.Sprintf("fabric network service [%s] not found", network))
-	}
-	ch, err := fns.Channel(channel)
-	if err != nil {
-		panic(err)
-	}
-
-	return ch.Vault()
-}
-
-// GetIdentityProvider returns the identity provider for the passed network
-func GetIdentityProvider(sp view2.ServiceProvider, network string) *IdentityProvider {
-	return GetFabricNetworkService(sp, network).IdentityProvider()
-}
-
-// GetLocalMembership returns the local membership for the passed network
-func GetLocalMembership(sp view2.ServiceProvider, network string) *LocalMembership {
-	return GetFabricNetworkService(sp, network).LocalMembership()
+	return fns, ch, nil
 }

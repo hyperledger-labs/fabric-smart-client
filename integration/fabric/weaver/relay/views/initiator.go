@@ -23,7 +23,9 @@ func (p *InitiatorView) Call(context view.Context) (interface{}, error) {
 	// Alice puts new data in `alpha` inside a given namespace of a given channel.
 	// `alpha` is the default fabric network for Alice
 	value := "sweet"
-	_, _, err := fabric.GetDefaultChannel(context).Chaincode("ns1").Invoke(
+	_, ch, err := fabric.GetDefaultChannel(context)
+	assert.NoError(err)
+	_, _, err = ch.Chaincode("ns1").Invoke(
 		"Put", "pineapple", value,
 	).Call()
 	assert.NoError(err, "failed putting state")
@@ -38,7 +40,9 @@ func (p *InitiatorView) Call(context view.Context) (interface{}, error) {
 	assert.Equal("ack", ack, "failed getting ack back, got [%s]", ack)
 
 	// Finally, Alice checks that Bob has actually stored the data she put in `alpha`, using `Weaver`.
-	relay := weaver.GetProvider(context).Relay(fabric.GetDefaultFNS(context))
+	fns, err := fabric.GetDefaultFNS(context)
+	assert.NoError(err)
+	relay := weaver.GetProvider(context).Relay(fns)
 	query, err := relay.ToFabric().Query("fabric://beta.testchannel.ns2/", "Get", "pineapple")
 	assert.NoError(err, "failed creating fabric query")
 	res, err := query.Call()

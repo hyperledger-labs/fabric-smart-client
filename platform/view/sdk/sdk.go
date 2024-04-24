@@ -270,11 +270,11 @@ func (p *SDK) initGRPCServer() error {
 	serverConfig.Logger = flogging.MustGetLogger("core.comm").With("server", "PeerServer")
 	serverConfig.UnaryInterceptors = append(
 		serverConfig.UnaryInterceptors,
-		grpclogging.UnaryServerInterceptor(flogging.MustGetLogger("comm.grpc.server").Zap()),
+		grpclogging.UnaryServerInterceptor(flogging.MustGetLogger("view-sdk.comm.grpc.server").Zap()),
 	)
 	serverConfig.StreamInterceptors = append(
 		serverConfig.StreamInterceptors,
-		grpclogging.StreamServerInterceptor(flogging.MustGetLogger("comm.grpc.server").Zap()),
+		grpclogging.StreamServerInterceptor(flogging.MustGetLogger("view-sdk.comm.grpc.server").Zap()),
 	)
 
 	p.grpcServer, err = grpc2.NewGRPCServer(listenAddr, serverConfig)

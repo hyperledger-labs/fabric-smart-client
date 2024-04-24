@@ -29,7 +29,9 @@ type RemoteGetView struct {
 
 func (g *RemoteGetView) Call(context view.Context) (interface{}, error) {
 	// Get a weaver client to the relay of the given network
-	relay := weaver.GetProvider(context).Relay(fabric.GetDefaultFNS(context))
+	fns, err := fabric.GetDefaultFNS(context)
+	assert.NoError(err)
+	relay := weaver.GetProvider(context).Relay(fns)
 
 	// Build a query to the remote Fabric network.
 	// Invoke the `Get` function on the passed key, on the passed chaincode deployed on the passed network and channel.

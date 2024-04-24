@@ -41,7 +41,8 @@ func (p *Ping) Call(context view.Context) (interface{}, error) {
 		var names []string
 		assert.NoError(json.Unmarshal(msg.Payload, &names))
 		sort.Strings(names)
-		names2 := fabric.GetFabricNetworkNames(context)
+		names2, err := fabric.GetFabricNetworkNames(context)
+		assert.NoError(err)
 		sort.Strings(names2)
 		if len(names) == 0 || !reflect.DeepEqual(names, names2) {
 			return nil, fmt.Errorf("exptectd the same list of fabric networks, [%v]!=[%v]", names, names2)

@@ -56,12 +56,17 @@ type TransferView struct {
 }
 
 func (a *TransferView) Call(ctx view.Context) (interface{}, error) {
-	senderMSPID, err := fabric.GetDefaultChannel(ctx).MSPManager().GetMSPIdentifier(
-		fabric.GetDefaultFNS(ctx).IdentityProvider().DefaultIdentity(),
+	_, ch, err := fabric.GetDefaultChannel(ctx)
+	assert.NoError(err)
+	fns, err := fabric.GetDefaultFNS(ctx)
+	assert.NoError(err)
+
+	senderMSPID, err := ch.MSPManager().GetMSPIdentifier(
+		fns.IdentityProvider().DefaultIdentity(),
 	)
 	assert.NoError(err, "failed getting sender MSP-ID")
-	recipientMSPID, err := fabric.GetDefaultChannel(ctx).MSPManager().GetMSPIdentifier(
-		fabric.GetDefaultFNS(ctx).IdentityProvider().Identity(a.Recipient.UniqueID()),
+	recipientMSPID, err := ch.MSPManager().GetMSPIdentifier(
+		fns.IdentityProvider().Identity(a.Recipient.UniqueID()),
 	)
 	assert.NoError(err, "failed getting recipient MSP-ID")
 
@@ -71,7 +76,7 @@ func (a *TransferView) Call(ctx view.Context) (interface{}, error) {
 	assetProperties, err := a.AssetProperties.Bytes()
 	assert.NoError(err, "failed marshalling assetProperties")
 
-	envelope, err := fabric.GetDefaultChannel(ctx).Chaincode("asset_transfer").Endorse(
+	envelope, err := ch.Chaincode("asset_transfer").Endorse(
 		"TransferAsset",
 		a.AssetProperties.ID,
 		recipientMSPID,
@@ -84,7 +89,7 @@ func (a *TransferView) Call(ctx view.Context) (interface{}, error) {
 
 	c, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	assert.Error(fabric.GetDefaultChannel(ctx).Delivery().Scan(
+	assert.Error(ch.Delivery().Scan(
 		c,
 		envelope.TxID(),
 		func(tx *fabric.ProcessedTransaction) (bool, error) {
@@ -92,11 +97,11 @@ func (a *TransferView) Call(ctx view.Context) (interface{}, error) {
 		},
 	), "the transaction [%s] has not been broadcast yet", envelope.TxID())
 
-	assert.NoError(fabric.GetDefaultFNS(ctx).Ordering().Broadcast(ctx.Context(), envelope), "failed sending to ordering")
+	assert.NoError(fns.Ordering().Broadcast(ctx.Context(), envelope), "failed sending to ordering")
 
 	c, cancel = context.WithTimeout(context.Background(), 1*time.Minute)
 	defer cancel()
-	assert.NoError(fabric.GetDefaultChannel(ctx).Delivery().Scan(
+	assert.NoError(ch.Delivery().Scan(
 		c,
 		envelope.TxID(),
 		func(tx *fabric.ProcessedTransaction) (bool, error) {

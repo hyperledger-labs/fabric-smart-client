@@ -52,18 +52,27 @@ func (p *Channel) Chaincode(cid string) *Chaincode {
 }
 
 // GetDefaultChannel returns the default channel on which to invoke an FPC
-func GetDefaultChannel(sp view.ServiceProvider) *Channel {
-	fns := fabric.GetDefaultFNS(sp)
-	ch := fabric.GetDefaultChannel(sp)
-	return newChannel(fns, ch, NewEnclaveRegistry(fns, ch))
+func GetDefaultChannel(sp view.ServiceProvider) (*Channel, error) {
+	fns, err := fabric.GetDefaultFNS(sp)
+	if err != nil {
+		return nil, err
+	}
+	ch, err := fns.Channel("")
+	if err != nil {
+		return nil, err
+	}
+	return newChannel(fns, ch, NewEnclaveRegistry(fns, ch)), nil
 }
 
 // GetChannel returns the channel for the passed network and channel name on which to invoke an FPC
-func GetChannel(sp view.ServiceProvider, network, channelName string) *Channel {
-	fns := fabric.GetFabricNetworkService(sp, network)
-	if fns == nil {
-		return nil
+func GetChannel(sp view.ServiceProvider, network, channelName string) (*Channel, error) {
+	fns, err := fabric.GetFabricNetworkService(sp, network)
+	if err != nil {
+		return nil, err
 	}
-	ch := fabric.GetChannel(sp, network, channelName)
-	return newChannel(fns, ch, NewEnclaveRegistry(fns, ch))
+	ch, err := fns.Channel(channelName)
+	if err != nil {
+		return nil, err
+	}
+	return newChannel(fns, ch, NewEnclaveRegistry(fns, ch)), nil
 }
