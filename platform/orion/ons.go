@@ -27,7 +27,7 @@ type NetworkService struct {
 	SP        view2.ServiceProvider
 	ons       driver.OrionNetworkService
 	name      string
-	committer Committer
+	committer *Committer
 }
 
 func NewNetworkService(SP view2.ServiceProvider, ons driver.OrionNetworkService, name string) *NetworkService {
@@ -65,7 +65,7 @@ func (n *NetworkService) Vault() Vault {
 }
 
 // Committer returns the committer service
-func (n *NetworkService) Committer() Committer {
+func (n *NetworkService) Committer() *Committer {
 	return n.committer
 }
 

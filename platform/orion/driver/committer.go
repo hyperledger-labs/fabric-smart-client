@@ -9,8 +9,9 @@ package driver
 import (
 	"context"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/committer"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 )
 
 type StatusReporter interface {
@@ -35,6 +36,8 @@ func (t *TransactionStatusChanged) Message() interface{} {
 	return t
 }
 
+// TransactionFilter is used to filter unknown transactions.
+// If the filter accepts, the transaction is processed by the commit pipeline anyway.
 type TransactionFilter = driver.TransactionFilter
 
 // FinalityListener is the interface that must be implemented to receive transaction status change notifications

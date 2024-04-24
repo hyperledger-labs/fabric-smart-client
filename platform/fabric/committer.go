@@ -11,10 +11,11 @@ import (
 )
 
 // FinalityListener is the interface that must be implemented to receive transaction status notifications
-type FinalityListener interface {
-	// OnStatus is called when the status of a transaction changes
-	OnStatus(txID string, status driver.ValidationCode, statusMessage string)
-}
+type FinalityListener = driver.FinalityListener
+
+// TransactionFilter is used to filter unknown transactions.
+// If the filter accepts, the transaction is processed by the commit pipeline anyway.
+type TransactionFilter = driver.TransactionFilter
 
 type Committer struct {
 	committer driver.Committer
@@ -47,4 +48,10 @@ func (c *Committer) AddFinalityListener(txID string, listener FinalityListener) 
 // RemoveFinalityListener unregisters the passed listener.
 func (c *Committer) RemoveFinalityListener(txID string, listener FinalityListener) error {
 	return c.committer.RemoveFinalityListener(txID, listener)
+}
+
+// AddTransactionFilter adds a new transaction filter to this commit pipeline.
+// The transaction filter is used to check if an unknown transaction needs to be processed anyway
+func (c *Committer) AddTransactionFilter(tf TransactionFilter) error {
+	return c.committer.AddTransactionFilter(tf)
 }
