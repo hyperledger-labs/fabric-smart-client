@@ -14,7 +14,6 @@ import (
 
 	errors2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	committer2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/committer"
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
@@ -59,7 +58,7 @@ type committer struct {
 	pm                  ProcessorManager
 	em                  driver.EnvelopeService
 	waitForEventTimeout time.Duration
-	TransactionFilters  *driver2.AggregatedTransactionFilter
+	TransactionFilters  *committer2.AggregatedTransactionFilter
 
 	EventManager  *EventManager
 	quietNotifier bool
@@ -105,7 +104,7 @@ func New(
 		subscribers:         events.NewSubscribers(),
 		finalityNumRetries:  3,
 		finalitySleepTime:   100 * time.Millisecond,
-		TransactionFilters:  driver2.NewAggregatedTransactionFilter(),
+		TransactionFilters:  committer2.NewAggregatedTransactionFilter(),
 	}
 	return d, nil
 }

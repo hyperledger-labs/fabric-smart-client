@@ -17,7 +17,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/compose"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/committer"
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/fabricutils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/membership"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/rwset"
@@ -72,7 +71,7 @@ type Service struct {
 
 	Vault              driver.Vault
 	EnvelopeService    driver.EnvelopeService
-	TransactionFilters *driver2.AggregatedTransactionFilter
+	TransactionFilters *committer.AggregatedTransactionFilter
 	ProcessNamespaces  []string
 	Ledger             driver.Ledger
 	RWSetLoaderService driver.RWSetLoader
@@ -116,7 +115,7 @@ func NewService(
 		ChannelConfig:       channelConfig,
 		Vault:               vault,
 		EnvelopeService:     envelopeService,
-		TransactionFilters:  driver2.NewAggregatedTransactionFilter(),
+		TransactionFilters:  committer.NewAggregatedTransactionFilter(),
 		ProcessNamespaces:   []string{},
 		Ledger:              ledger,
 		RWSetLoaderService:  rwsetLoaderService,
