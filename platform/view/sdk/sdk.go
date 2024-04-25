@@ -14,7 +14,6 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
-	config2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/core/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/endpoint"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/id"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/id/x509"
@@ -83,10 +82,11 @@ type GRPCServer interface {
 }
 
 type SDK struct {
-	confPath string
-	registry Registry
+	configService driver.ConfigService
+	registry      Registry
 
-	webServer WebServer
+	webServer  WebServer
+	webHandler *web2.HttpHandler
 
 	grpcServer  *grpc2.GRPCServer
 	viewService view2.Service
@@ -98,16 +98,15 @@ type SDK struct {
 	commService CommService
 }
 
-func NewSDK(confPath string, registry Registry) *SDK {
-	return &SDK{confPath: confPath, registry: registry}
+func NewSDK(configService driver.ConfigService, registry Registry) *SDK {
+	return &SDK{configService: configService, registry: registry}
 }
 
 func (p *SDK) Install() error {
 
 	logger.Infof("View platform enabled, installing...")
 
-	configProvider, err := config2.NewProvider(p.confPath)
-	assert.NoError(err, "failed instantiating config provider")
+	configProvider := p.configService
 	assert.NoError(p.registry.RegisterService(configProvider), "failed registering config provider")
 
 	assert.NoError(p.registry.RegisterService(crypto.NewProvider()))
@@ -176,6 +175,7 @@ func (p *SDK) Install() error {
 		return err
 	}
 
+	p.initCommLayer()
 	// View Manager
 	viewManager := manager.New(p.registry, manager.GetCommLayer(p.registry), driver.GetEndpointService(p.registry), driver.GetIdentityProvider(p.registry))
 	if err := p.registry.RegisterService(viewManager); err != nil {
@@ -188,14 +188,13 @@ func (p *SDK) Install() error {
 
 	finality.InstallHandler(p.registry, p.viewService)
 
-	p.initCommLayer()
-
 	return nil
 }
 
 func (p *SDK) Start(ctx context.Context) error {
 	p.context = ctx
 
+	p.installViewHandler()
 	assert.NoError(p.initGRPCServer(), "failed initializing grpc server")
 	assert.NoError(p.startCommLayer(), "failed starting comm layer")
 	assert.NoError(p.registerViewServiceServer(), "failed registering view service server")
@@ -234,10 +233,13 @@ func (p *SDK) initWEBServer() error {
 	})
 	h := web2.NewHttpHandler(logger)
 	p.webServer.RegisterHandler("/", h, true)
-
-	web2.InstallViewHandler(logger, p.registry, h)
+	p.webHandler = h
 
 	return nil
+}
+
+func (p *SDK) installViewHandler() {
+	web2.InstallViewHandler(logger, view.GetManager(p.registry), p.webHandler)
 }
 
 func (p *SDK) registerViewServiceServer() error {
@@ -318,7 +320,7 @@ func (p *SDK) startCommLayer() error {
 }
 
 func (p *SDK) startViewManager() error {
-	view2.InstallViewHandler(p.registry, p.viewService)
+	view2.InstallViewHandler(view.GetManager(p.registry), p.viewService)
 	go p.viewManager.Start(p.context)
 
 	return nil

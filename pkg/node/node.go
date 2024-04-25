@@ -13,6 +13,7 @@ import (
 	"reflect"
 	"runtime/debug"
 
+	config2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/core/config"
 	"github.com/pkg/errors"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/api"
@@ -42,18 +43,22 @@ type Registry interface {
 	RegisterService(service interface{}) error
 }
 
+type ConfigService interface {
+	GetString(key string) string
+}
+
 // PostStart enables a platform to execute additional tasks after all platforms have started
 type PostStart interface {
 	PostStart(context.Context) error
 }
 
 type node struct {
-	registry Registry
-	confPath string
-	sdks     []api.SDK
-	context  context.Context
-	cancel   context.CancelFunc
-	running  bool
+	registry      Registry
+	configService ConfigService
+	sdks          []api.SDK
+	context       context.Context
+	cancel        context.CancelFunc
+	running       bool
 }
 
 func New() *node {
@@ -62,25 +67,37 @@ func New() *node {
 
 func NewFromConfPath(confPath string) *node {
 	registry := registry2.New()
+	configService, err := config2.NewProvider(confPath)
+	if err != nil {
+		panic(err)
+	}
 	platforms := []api.SDK{
-		viewsdk.NewSDK(confPath, registry),
+		viewsdk.NewSDK(configService, registry),
 	}
 
 	node := &node{
-		confPath: confPath,
-		sdks:     platforms,
-		registry: registry,
+		sdks:          platforms,
+		registry:      registry,
+		configService: configService,
 	}
 
 	return node
 }
 
-func NewEmptyFromConfPath(confPath string) *node {
-	return &node{
-		confPath: confPath,
-		sdks:     []api.SDK{},
-		registry: registry2.New(),
+func NewEmpty(confPath string) *node {
+	configService, err := config2.NewProvider(confPath)
+	if err != nil {
+		panic(err)
 	}
+	return &node{
+		sdks:          []api.SDK{},
+		registry:      registry2.New(),
+		configService: configService,
+	}
+}
+
+func (n *node) ConfigService() ConfigService {
+	return n.configService
 }
 
 func (n *node) Start() (err error) {

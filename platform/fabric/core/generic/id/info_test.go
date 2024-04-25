@@ -25,7 +25,7 @@ import (
 func TestInfoIdemix(t *testing.T) {
 	registry := registry2.New()
 
-	kvss, err := kvs.NewWithConfig(registry, "memory", "", &mock.ConfigProvider{})
+	kvss, err := kvs.NewWithConfig("memory", "", &mock.ConfigProvider{})
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
 	sigService := sig.NewService(sig.NewMultiplexDeserializer(), kvss)

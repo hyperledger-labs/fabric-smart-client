@@ -13,14 +13,13 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault/txidstore/mocks"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql"
 	"github.com/pkg/errors"
 )
 
-type opener[V any] func(sp view.ServiceProvider, driverName, dataSourceName string, config db.Config) (V, error)
+type opener[V any] func(driverName, dataSourceName string, config db.Config) (V, error)
 
 func OpenMemoryVersioned() (driver.VersionedPersistence, error) {
 	return openMemory[driver.VersionedPersistence](db.OpenVersioned)
@@ -30,7 +29,7 @@ func OpenMemory() (driver.Persistence, error) {
 }
 
 func openMemory[V any](open opener[V]) (V, error) {
-	return open(nil, "memory", "", nil)
+	return open("memory", "", nil)
 }
 
 func OpenBadgerVersioned(tempDir, dir string) (driver.VersionedPersistence, error) {
@@ -44,7 +43,7 @@ func openBadger[V any](tempDir, dir string, open opener[V]) (V, error) {
 	c := &mocks.Config{}
 	c.UnmarshalKeyReturns(nil)
 	c.IsSetReturns(false)
-	return open(nil, "badger", filepath.Join(tempDir, dir), c)
+	return open("badger", filepath.Join(tempDir, dir), c)
 }
 
 type dbConfig sql.Opts
@@ -61,7 +60,7 @@ func (c *dbConfig) UnmarshalKey(key string, rawVal interface{}) error {
 	return errors.New("invalid pointer type")
 }
 
-type driverOpener[V any] func(_ view.ServiceProvider, dataSourceName string, config driver.Config) (V, error)
+type driverOpener[V any] func(dataSourceName string, config driver.Config) (V, error)
 
 func OpenSqliteVersioned(key, tempDir string) (driver.VersionedPersistence, error) {
 	return openSqlite[driver.VersionedPersistence](key, tempDir, (&sql.Driver{}).NewVersioned)
@@ -77,7 +76,7 @@ func openSqlite[V any](key, tempDir string, open driverOpener[V]) (V, error) {
 		MaxOpenConns: 0,
 		SkipPragmas:  false,
 	}
-	return open(nil, "test_table", conf)
+	return open("test_table", conf)
 }
 
 func OpenPostgresVersioned(name string) (driver.VersionedPersistence, func(), error) {
@@ -99,6 +98,6 @@ func openPostgres[V any](name string, open driverOpener[V]) (V, func(), error) {
 	if err != nil {
 		return utils.Zero[V](), func() {}, err
 	}
-	persistence, err := open(nil, "test_table", conf)
+	persistence, err := open("test_table", conf)
 	return persistence, terminate, err
 }

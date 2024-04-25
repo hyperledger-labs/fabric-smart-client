@@ -66,12 +66,12 @@ type KVS struct {
 
 // New returns a new KVS instance for the passed namespace using the passed driver
 func New(sp view.ServiceProvider, driverName, namespace string) (*KVS, error) {
-	return NewWithConfig(sp, driverName, namespace, view.GetConfigService(sp))
+	return NewWithConfig(driverName, namespace, view.GetConfigService(sp))
 }
 
 // NewWithConfig returns a new KVS instance for the passed namespace using the passed driver and config provider
-func NewWithConfig(sp view.ServiceProvider, driverName, namespace string, cp ConfigProvider) (*KVS, error) {
-	persistence, err := db.Open(sp, driverName, namespace, db.NewPrefixConfig(cp, persistenceOptsConfigKey))
+func NewWithConfig(driverName, namespace string, cp ConfigProvider) (*KVS, error) {
+	persistence, err := db.Open(driverName, namespace, db.NewPrefixConfig(cp, persistenceOptsConfigKey))
 	if err != nil {
 		return nil, errors.WithMessagef(err, "no driver found for [%s]", driverName)
 	}

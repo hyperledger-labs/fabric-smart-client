@@ -26,7 +26,7 @@ import (
 func TestProvider(t *testing.T) {
 	registry := registry2.New()
 
-	kvss, err := kvs.NewWithConfig(registry, "memory", "", &mock.ConfigProvider{})
+	kvss, err := kvs.NewWithConfig("memory", "", &mock.ConfigProvider{})
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
 	sigService := sig2.NewService(sig2.NewMultiplexDeserializer(), kvss)
@@ -51,7 +51,7 @@ func TestProvider(t *testing.T) {
 func TestIdentityWithEidRhNymPolicy(t *testing.T) {
 	registry := registry2.New()
 
-	kvss, err := kvs.NewWithConfig(registry, "memory", "", &mock.ConfigProvider{})
+	kvss, err := kvs.NewWithConfig("memory", "", &mock.ConfigProvider{})
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
 	sigService := sig2.NewService(sig2.NewMultiplexDeserializer(), kvss)
@@ -116,7 +116,7 @@ func TestIdentityWithEidRhNymPolicy(t *testing.T) {
 func TestIdentityStandard(t *testing.T) {
 	registry := registry2.New()
 
-	kvss, err := kvs.NewWithConfig(registry, "memory", "", &mock.ConfigProvider{})
+	kvss, err := kvs.NewWithConfig("memory", "", &mock.ConfigProvider{})
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
 	sigService := sig2.NewService(sig2.NewMultiplexDeserializer(), kvss)
@@ -183,7 +183,7 @@ func TestIdentityStandard(t *testing.T) {
 func TestAuditWithEidRhNymPolicy(t *testing.T) {
 	registry := registry2.New()
 
-	kvss, err := kvs.NewWithConfig(registry, "memory", "", &mock.ConfigProvider{})
+	kvss, err := kvs.NewWithConfig("memory", "", &mock.ConfigProvider{})
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
 	sigService := sig2.NewService(sig2.NewMultiplexDeserializer(), kvss)
@@ -225,7 +225,7 @@ func TestAuditWithEidRhNymPolicy(t *testing.T) {
 func TestProvider_DeserializeSigner(t *testing.T) {
 	registry := registry2.New()
 
-	kvss, err := kvs.NewWithConfig(registry, "memory", "", &mock.ConfigProvider{})
+	kvss, err := kvs.NewWithConfig("memory", "", &mock.ConfigProvider{})
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
 	sigService := sig2.NewService(sig2.NewMultiplexDeserializer(), kvss)
@@ -281,7 +281,7 @@ func TestProvider_DeserializeSigner(t *testing.T) {
 func TestIdentityFromFabricCA(t *testing.T) {
 	registry := registry2.New()
 
-	kvss, err := kvs.NewWithConfig(registry, "memory", "", &mock.ConfigProvider{})
+	kvss, err := kvs.NewWithConfig("memory", "", &mock.ConfigProvider{})
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
 	sigService := sig2.NewService(sig2.NewMultiplexDeserializer(), kvss)
@@ -348,7 +348,7 @@ func TestIdentityFromFabricCA(t *testing.T) {
 func TestIdentityFromFabricCAWithEidRhNymPolicy(t *testing.T) {
 	registry := registry2.New()
 
-	kvss, err := kvs.NewWithConfig(registry, "memory", "", &mock.ConfigProvider{})
+	kvss, err := kvs.NewWithConfig("memory", "", &mock.ConfigProvider{})
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
 	sigService := sig2.NewService(sig2.NewMultiplexDeserializer(), kvss)

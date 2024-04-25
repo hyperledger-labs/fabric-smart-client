@@ -10,7 +10,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db"
 	"github.com/pkg/errors"
 )
@@ -26,13 +25,13 @@ type Vault struct {
 	network Network
 }
 
-func NewVault(sp view.ServiceProvider, config *config.Config, network Network, channel string) (*Vault, error) {
+func NewVault(config *config.Config, network Network, channel string) (*Vault, error) {
 	pType := config.VaultPersistenceType()
 	if pType == "file" {
 		// for retro compatibility
 		pType = "badger"
 	}
-	persistence, err := db.OpenVersioned(sp, pType, channel, db.NewPrefixConfig(config, config.VaultPersistencePrefix()))
+	persistence, err := db.OpenVersioned(pType, channel, db.NewPrefixConfig(config, config.VaultPersistencePrefix()))
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed creating vault")
 	}

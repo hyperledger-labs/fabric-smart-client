@@ -36,7 +36,7 @@ func TestContext(t *testing.T) {
 	assert.NoError(t, registry.RegisterService(resolver))
 	assert.NoError(t, registry.RegisterService(&mock2.SessionFactory{}))
 	session := &mock.Session{}
-	ctx, err := manager.NewContext(nil, registry, "pineapple", nil, nil, []byte("charlie"), session, []byte("caller"))
+	ctx, err := manager.NewContext(nil, registry, "pineapple", nil, driver.GetEndpointService(registry), []byte("charlie"), session, []byte("caller"))
 	assert.NoError(t, err)
 
 	// Session

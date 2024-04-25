@@ -126,14 +126,13 @@ func (p *FSNProvider) FabricNetworkService(network string) (driver.FabricNetwork
 // InitFabricLogging initializes the fabric logging system
 // using the FSC configuration.
 func (p *FSNProvider) InitFabricLogging() {
-	cs := view.GetConfigService(p.sp)
 	// read in the legacy logging level settings and, if set,
 	// notify users of the FSCNODE_LOGGING_SPEC env variable
 	var loggingLevel string
-	if cs.GetString("logging_level") != "" {
-		loggingLevel = cs.GetString("logging_level")
+	if p.configService.GetString("logging_level") != "" {
+		loggingLevel = p.configService.GetString("logging_level")
 	} else {
-		loggingLevel = cs.GetString("logging.level")
+		loggingLevel = p.configService.GetString("logging.level")
 	}
 	if loggingLevel != "" {
 		logger.Warning("CORE_LOGGING_LEVEL is no longer supported, please use the FSCNODE_LOGGING_SPEC environment variable")
@@ -141,7 +140,7 @@ func (p *FSNProvider) InitFabricLogging() {
 	loggingSpec := os.Getenv("FSCNODE_LOGGING_SPEC")
 	loggingFormat := os.Getenv("FSCNODE_LOGGING_FORMAT")
 	if len(loggingSpec) == 0 {
-		loggingSpec = cs.GetString("logging.spec")
+		loggingSpec = p.configService.GetString("logging.spec")
 	}
 	fabricLogging.Init(fabricLogging.Config{
 		Format:  loggingFormat,
@@ -151,7 +150,7 @@ func (p *FSNProvider) InitFabricLogging() {
 }
 
 func (p *FSNProvider) newFNS(network string) (driver.FabricNetworkService, error) {
-	fnsConfig, err := NewConfig(view.GetConfigService(p.sp))
+	fnsConfig, err := NewConfig(p.configService)
 	if err != nil {
 		return nil, errors.WithMessagef(err, "failed to load configuration")
 	}

@@ -28,6 +28,7 @@ type FabricSmartClient interface {
 	Start() error
 	Stop()
 	InstallSDK(p api.SDK) error
+	ConfigService() node3.ConfigService
 	Registry() node3.Registry
 	GetService(v interface{}) (interface{}, error)
 	RegisterService(service interface{}) error
@@ -75,12 +76,8 @@ func newFromFsc(fscNode FabricSmartClient) *node {
 	return node
 }
 
-func NewEmpty() *node {
-	return NewEmptyFromConfPath("")
-}
-
-func NewEmptyFromConfPath(confPath string) *node {
-	return newFromFsc(node3.NewEmptyFromConfPath(confPath))
+func NewEmpty(confPath string) *node {
+	return newFromFsc(node3.NewEmpty(confPath))
 }
 
 func (n *node) Callback() chan<- error {

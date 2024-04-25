@@ -14,7 +14,6 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
@@ -45,7 +44,7 @@ type Driver struct {
 }
 
 // NewTransactionalVersionedPersistence returns a new TransactionalVersionedPersistence for the passed data source and config
-func (d *Driver) NewTransactionalVersionedPersistence(_ view.ServiceProvider, dataSourceName string, config driver.Config) (driver.TransactionalVersionedPersistence, error) {
+func (d *Driver) NewTransactionalVersionedPersistence(dataSourceName string, config driver.Config) (driver.TransactionalVersionedPersistence, error) {
 	logger.Infof("opening new transactional versioned database %s", dataSourceName)
 	opts, err := getOps(config)
 	if err != nil {
@@ -69,11 +68,11 @@ func (d *Driver) NewTransactionalVersionedPersistence(_ view.ServiceProvider, da
 	return p, nil
 }
 
-func (d *Driver) NewVersioned(_ view.ServiceProvider, dataSourceName string, config driver.Config) (driver.VersionedPersistence, error) {
-	return d.NewTransactionalVersionedPersistence(nil, dataSourceName, config)
+func (d *Driver) NewVersioned(dataSourceName string, config driver.Config) (driver.VersionedPersistence, error) {
+	return d.NewTransactionalVersionedPersistence(dataSourceName, config)
 }
 
-func (d *Driver) New(_ view.ServiceProvider, dataSourceName string, config driver.Config) (driver.Persistence, error) {
+func (d *Driver) New(dataSourceName string, config driver.Config) (driver.Persistence, error) {
 	logger.Infof("opening new unversioned database %s", dataSourceName)
 	opts, err := getOps(config)
 	if err != nil {

@@ -10,7 +10,6 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/unversioned"
 	"github.com/pkg/errors"
@@ -60,14 +59,14 @@ type Config interface {
 // driverName is a string that describes the driver
 // dataSourceName describes the data source in a driver-specific format.
 // The returned connection is only used by one goroutine at a time.
-func Open(sp view.ServiceProvider, driverName, dataSourceName string, config Config) (driver.Persistence, error) {
+func Open(driverName, dataSourceName string, config Config) (driver.Persistence, error) {
 	driversMu.RLock()
 	driver, ok := drivers[driverName]
 	driversMu.RUnlock()
 	if !ok {
 		return nil, errors.Errorf("driver [%s] not found", driverName)
 	}
-	d, err := driver.New(sp, dataSourceName, config)
+	d, err := driver.New(dataSourceName, config)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed opening datasource [%s][%s[", driverName, dataSourceName)
 	}
@@ -78,14 +77,14 @@ func Open(sp view.ServiceProvider, driverName, dataSourceName string, config Con
 // driverName is a string that describes the driver
 // dataSourceName describes the data source in a driver-specific format.
 // The returned connection is only used by one goroutine at a time.
-func OpenVersioned(sp view.ServiceProvider, driverName, dataSourceName string, config Config) (driver.VersionedPersistence, error) {
+func OpenVersioned(driverName, dataSourceName string, config Config) (driver.VersionedPersistence, error) {
 	driversMu.RLock()
 	driver, ok := drivers[driverName]
 	driversMu.RUnlock()
 	if !ok {
 		return nil, errors.Errorf("driver [%s] not found", driverName)
 	}
-	d, err := driver.NewVersioned(sp, dataSourceName, config)
+	d, err := driver.NewVersioned(dataSourceName, config)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed opening datasource [%s][%s[", driverName, dataSourceName)
 	}
@@ -96,14 +95,14 @@ func OpenVersioned(sp view.ServiceProvider, driverName, dataSourceName string, c
 // driverName is a string that describes the driver
 // dataSourceName describes the data source in a driver-specific format.
 // The returned connection is only used by one goroutine at a time.
-func OpenTransactionalVersioned(sp view.ServiceProvider, driverName, dataSourceName string, config Config) (driver.TransactionalVersionedPersistence, error) {
+func OpenTransactionalVersioned(driverName, dataSourceName string, config Config) (driver.TransactionalVersionedPersistence, error) {
 	driversMu.RLock()
 	driver, ok := drivers[driverName]
 	driversMu.RUnlock()
 	if !ok {
 		return nil, errors.Errorf("driver [%s] not found", driverName)
 	}
-	d, err := driver.NewTransactionalVersionedPersistence(sp, dataSourceName, config)
+	d, err := driver.NewTransactionalVersionedPersistence(dataSourceName, config)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed opening datasource [%s][%s[", driverName, dataSourceName)
 	}

@@ -19,11 +19,11 @@ import (
 )
 
 type viewHandler struct {
-	sp view.ServiceProvider
+	viewManager *view.Manager
 }
 
-func InstallViewHandler(sp view.ServiceProvider, server Service) {
-	fh := &viewHandler{sp: sp}
+func InstallViewHandler(viewManager *view.Manager, server Service) {
+	fh := &viewHandler{viewManager: viewManager}
 	server.RegisterProcessor(reflect.TypeOf(&protos2.Command_InitiateView{}), fh.initiateView)
 	server.RegisterProcessor(reflect.TypeOf(&protos2.Command_CallView{}), fh.callView)
 	server.RegisterStreamer(reflect.TypeOf(&protos2.Command_CallView{}), fh.streamCallView)
@@ -36,12 +36,11 @@ func (s *viewHandler) initiateView(ctx context.Context, command *protos2.Command
 	input := initiateView.Input
 	log.Printf("Initiate view [%s]", fid)
 
-	viewManager := view.GetManager(s.sp)
-	f, err := viewManager.NewView(fid, input)
+	f, err := s.viewManager.NewView(fid, input)
 	if err != nil {
 		return nil, errors.Errorf("failed instantiating view [%s], err [%s]", fid, err)
 	}
-	contextID, err := s.RunView(viewManager, f)
+	contextID, err := s.RunView(s.viewManager, f)
 	if err != nil {
 		return nil, errors.Errorf("failed running view [%s], err %s", fid, err)
 	}
@@ -57,12 +56,11 @@ func (s *viewHandler) callView(ctx context.Context, command *protos2.Command) (i
 	input := callView.Input
 	logger.Debugf("Call view [%s] on input [%v]", fid, string(input))
 
-	viewManager := view.GetManager(s.sp)
-	f, err := viewManager.NewView(fid, input)
+	f, err := s.viewManager.NewView(fid, input)
 	if err != nil {
 		return nil, errors.Errorf("failed instantiating view [%s], err [%s]", fid, err)
 	}
-	result, err := viewManager.InitiateView(f)
+	result, err := s.viewManager.InitiateView(f)
 	if err != nil {
 		return nil, errors.Errorf("failed running view [%s], err %s", fid, err)
 	}
@@ -86,12 +84,11 @@ func (s *viewHandler) streamCallView(sc *protos2.SignedCommand, command *protos2
 	input := callView.Input
 	logger.Debugf("Stream call view [%s] on input [%v]", fid, string(input))
 
-	viewManager := view.GetManager(s.sp)
-	f, err := viewManager.NewView(fid, input)
+	f, err := s.viewManager.NewView(fid, input)
 	if err != nil {
 		return errors.Errorf("failed instantiating view [%s], err [%s]", fid, err)
 	}
-	context, err := viewManager.InitiateContext(f)
+	context, err := s.viewManager.InitiateContext(f)
 	if err != nil {
 		return errors.Errorf("failed running view [%s], err %s", fid, err)
 	}
