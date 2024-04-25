@@ -14,7 +14,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/rwset"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger/fabric/common/channelconfig"
@@ -26,7 +25,6 @@ var logger = flogging.MustGetLogger("fabric-sdk.core")
 type NewChannelFunc = func(network driver.FabricNetworkService, name string, quiet bool) (driver.Channel, error)
 
 type Network struct {
-	SP   view2.ServiceProvider
 	name string
 
 	configService      driver.ConfigService
@@ -46,18 +44,8 @@ type Network struct {
 	ChannelMutex sync.RWMutex
 }
 
-func NewNetwork(
-	sp view2.ServiceProvider,
-	name string,
-	config driver.ConfigService,
-	idProvider driver.IdentityProvider,
-	localMembership driver.LocalMembership,
-	sigService driver.SignerService,
-	metrics *metrics.Metrics,
-	newChannel NewChannelFunc,
-) (*Network, error) {
+func NewNetwork(name string, config driver.ConfigService, idProvider driver.IdentityProvider, localMembership driver.LocalMembership, sigService driver.SignerService, metrics *metrics.Metrics, newChannel NewChannelFunc) (*Network, error) {
 	return &Network{
-		SP:              sp,
 		name:            name,
 		configService:   config,
 		ChannelMap:      map[string]driver.Channel{},

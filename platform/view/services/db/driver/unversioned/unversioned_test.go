@@ -34,7 +34,7 @@ func TestRangeQueriesBadger(t *testing.T) {
 	c.UnmarshalKeyReturns(nil)
 	c.IsSetReturns(false)
 	dbpath := filepath.Join(tempDir, "DB-TestRangeQueries")
-	db, err := db.Open(nil, "badger", dbpath, c)
+	db, err := db.Open("badger", dbpath, c)
 	defer db.Close()
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
@@ -45,7 +45,7 @@ func TestRangeQueriesBadger(t *testing.T) {
 func TestRangeQueriesMemory(t *testing.T) {
 	c := &mocks.Config{}
 	c.UnmarshalKeyReturns(nil)
-	db, err := db.Open(nil, "memory", "", c)
+	db, err := db.Open("memory", "", c)
 	defer db.Close()
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
@@ -111,7 +111,7 @@ func TestSimpleReadWriteBadger(t *testing.T) {
 	c := &mocks.Config{}
 	c.UnmarshalKeyReturns(nil)
 	dbpath := filepath.Join(tempDir, "DB-TestRangeQueries")
-	db, err := db.Open(nil, "badger", dbpath, c)
+	db, err := db.Open("badger", dbpath, c)
 	defer db.Close()
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
@@ -122,7 +122,7 @@ func TestSimpleReadWriteBadger(t *testing.T) {
 func TestSimpleReadWriteMemory(t *testing.T) {
 	c := &mocks.Config{}
 	c.UnmarshalKeyReturns(nil)
-	db, err := db.Open(nil, "memory", "", c)
+	db, err := db.Open("memory", "", c)
 	defer db.Close()
 	assert.NoError(t, err)
 	assert.NotNil(t, db)

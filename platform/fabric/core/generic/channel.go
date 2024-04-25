@@ -15,6 +15,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/rwset"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
@@ -43,7 +44,6 @@ type Delivery interface {
 type Channel struct {
 	ChannelConfig            driver.ChannelConfig
 	ConfigService            driver.ConfigService
-	Network                  *Network
 	ChannelName              string
 	FinalityService          driver.Finality
 	VaultService             driver.Vault
@@ -60,9 +60,8 @@ type Channel struct {
 	PeerManager              *PeerManager
 }
 
-func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver.Channel, error) {
+func NewChannel(sp view.ServiceProvider, nw driver.FabricNetworkService, name string, quiet bool) (driver.Channel, error) {
 	network := nw.(*Network)
-	sp := network.SP
 
 	// Channel configuration
 	channelConfig := network.ConfigService().Channel(name)
@@ -71,7 +70,7 @@ func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver
 	}
 
 	// Vault
-	v, txIDStore, err := NewVault(sp, network.configService, name)
+	v, txIDStore, err := NewVault(network.configService, name)
 	if err != nil {
 		return nil, err
 	}
@@ -188,7 +187,6 @@ func NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver
 	c := &Channel{
 		ChannelConfig:            channelConfig,
 		ConfigService:            ConfigService,
-		Network:                  network,
 		ChannelName:              ChannelName,
 		FinalityService:          FinalityService,
 		VaultService:             VaultService,

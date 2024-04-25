@@ -10,6 +10,7 @@ import (
 	"context"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/finality"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core"
@@ -58,10 +59,13 @@ func (p *SDK) Install() error {
 	assert.NoError(err)
 
 	logger.Infof("Set Fabric Network Service Provider")
-	p.fnsProvider, err = core.NewFabricNetworkServiceProvider(p.registry, view.GetConfigService(p.registry))
+	fnsProvider, err := core.NewFabricNetworkServiceProvider(p.registry, view.GetConfigService(p.registry))
+	p.fnsProvider = fnsProvider
 	assert.NoError(err, "failed instantiating fabric network service provider")
 	assert.NoError(p.registry.RegisterService(p.fnsProvider))
-	assert.NoError(p.registry.RegisterService(fabric.NewNetworkServiceProvider(p.registry)))
+	subscriber, err := events.GetSubscriber(p.registry)
+	assert.NoError(err, "failed to get subscriber")
+	assert.NoError(p.registry.RegisterService(fabric.NewNetworkServiceProvider(fnsProvider, subscriber)))
 
 	// Register processors
 	names := fabric.GetFabricNetworkNames(p.registry)

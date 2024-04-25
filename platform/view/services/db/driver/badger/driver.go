@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 
 	"github.com/dgraph-io/badger/v3"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/unversioned"
@@ -26,7 +25,7 @@ type Opts struct {
 type Driver struct{}
 
 // NewTransactionalVersionedPersistence returns a new TransactionalVersionedPersistence for the passed data source and config
-func (o *Driver) NewTransactionalVersionedPersistence(sp view.ServiceProvider, dataSourceName string, config driver.Config) (driver.TransactionalVersionedPersistence, error) {
+func (o *Driver) NewTransactionalVersionedPersistence(dataSourceName string, config driver.Config) (driver.TransactionalVersionedPersistence, error) {
 	opts := &Opts{}
 	if err := config.UnmarshalKey("", opts); err != nil {
 		return nil, errors.Wrapf(err, "failed getting opts")
@@ -43,7 +42,7 @@ func (o *Driver) NewTransactionalVersionedPersistence(sp view.ServiceProvider, d
 	return OpenDB(*opts, config)
 }
 
-func (v *Driver) NewVersioned(sp view.ServiceProvider, dataSourceName string, config driver.Config) (driver.VersionedPersistence, error) {
+func (v *Driver) NewVersioned(dataSourceName string, config driver.Config) (driver.VersionedPersistence, error) {
 	opts := &Opts{}
 	if err := config.UnmarshalKey("", opts); err != nil {
 		return nil, errors.Wrapf(err, "failed getting opts")
@@ -60,8 +59,8 @@ func (v *Driver) NewVersioned(sp view.ServiceProvider, dataSourceName string, co
 	return OpenDB(*opts, config)
 }
 
-func (v *Driver) New(sp view.ServiceProvider, dataSourceName string, config driver.Config) (driver.Persistence, error) {
-	db, err := v.NewVersioned(sp, dataSourceName, config)
+func (v *Driver) New(dataSourceName string, config driver.Config) (driver.Persistence, error) {
+	db, err := v.NewVersioned(dataSourceName, config)
 	if err != nil {
 		return nil, errors.WithMessagef(err, "failed to create badger driver for [%s]", dataSourceName)
 	}

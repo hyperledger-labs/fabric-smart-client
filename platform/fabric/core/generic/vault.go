@@ -10,7 +10,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/vault/txidstore"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/cache/secondcache"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db"
 	"github.com/pkg/errors"
@@ -52,14 +51,14 @@ type TXIDStore interface {
 	Set(txID string, code driver.ValidationCode, message string) error
 }
 
-func NewVault(sp view2.ServiceProvider, configService driver.ConfigService, channel string) (*vault.Vault, TXIDStore, error) {
+func NewVault(configService driver.ConfigService, channel string) (*vault.Vault, TXIDStore, error) {
 	logger.Debugf("new fabric vault for channel [%s] with config [%v]", channel, configService)
 	pType := configService.VaultPersistenceType()
 	if pType == "file" {
 		// for retro compatibility
 		pType = "badger"
 	}
-	persistence, err := db.OpenVersioned(sp, pType, channel, db.NewPrefixConfig(configService, configService.VaultPersistencePrefix()))
+	persistence, err := db.OpenVersioned(pType, channel, db.NewPrefixConfig(configService, configService.VaultPersistencePrefix()))
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "failed creating vault")
 	}

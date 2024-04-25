@@ -10,7 +10,6 @@ import (
 	"context"
 	"net"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
@@ -21,7 +20,6 @@ import (
 
 	kitstatsd "github.com/go-kit/kit/metrics/statsd"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/metadata"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging/httpadmin"
 	"github.com/hyperledger/fabric-lib-go/healthz"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -67,7 +65,7 @@ type System struct {
 	metrics.Provider
 
 	Server          Server
-	logger          Logger
+	logger          OperationsLogger
 	healthHandler   *healthz.HealthHandler
 	options         Options
 	statsd          *kitstatsd.Statsd
@@ -77,27 +75,29 @@ type System struct {
 }
 
 func NewSystem(server Server, o Options) *System {
-	logger := o.Logger
-	if logger == nil {
-		logger = flogging.MustGetLogger("operations.runner")
-	}
+	logger := NewOperationsLogger(o.Logger)
+	metricsProvider := NewMetricsProvider(o.Metrics, logger)
+	return NewOperationSystem(server, logger, metricsProvider, o)
+}
 
+func NewOperationSystem(server Server, l OperationsLogger, metricsProvider metrics.Provider, o Options) *System {
 	system := &System{
 		Server:  server,
-		logger:  logger,
+		logger:  l,
 		options: o,
 	}
 
 	system.initializeHealthCheckHandler()
-	system.initializeLoggingHandler()
-	system.initializeMetricsProvider()
+	system.initializeLoggingHandler(o.TLS.Enabled)
+
+	system.initializeMetricsProvider(metricsProvider, o.Metrics)
 	system.initializeVersionInfoHandler()
 
 	return system
 }
 
 func (s *System) Start() error {
-	err := s.startMetricsTickers()
+	err := s.startMetricsTickers(s.options.Metrics.Statsd)
 	if err != nil {
 		return err
 	}
@@ -123,50 +123,32 @@ func (s *System) RegisterChecker(component string, checker healthz.HealthChecker
 }
 
 func (s *System) Log(keyvals ...interface{}) error {
-	s.logger.Warn(keyvals...)
-	return nil
+	return s.logger.Log(keyvals)
 }
 
-func (s *System) initializeMetricsProvider() error {
-	m := s.options.Metrics
-	providerType := m.Provider
-	s.logger.Debugf("Initializing metrics provider: [%s]", providerType)
-	switch providerType {
-	case "statsd":
-		prefix := m.Statsd.Prefix
-		if prefix != "" && !strings.HasSuffix(prefix, ".") {
-			prefix = prefix + "."
-		}
-
-		ks := kitstatsd.New(prefix, s)
-		s.Provider = &statsd.Provider{Statsd: ks}
-		s.statsd = ks
-		s.versionGauge = versionGauge(s.Provider)
-		return nil
-
-	case "prometheus":
-		s.Provider = &prometheus.Provider{}
-		s.versionGauge = versionGauge(s.Provider)
+func (s *System) initializeMetricsProvider(provider metrics.Provider, m MetricsOptions) error {
+	s.logger.Debugf("Initializing metrics provider: [%s]", m.Provider)
+	s.Provider = provider
+	switch p := s.Provider.(type) {
+	case *statsd.Provider:
+		s.statsd = p.Statsd
+	case *prometheus.Provider:
 		// swagger:operation GET /metrics operations metrics
 		// ---
 		// responses:
 		//     '200':
 		//        description: Ok.
-		s.Server.RegisterHandler("/metrics", promhttp.Handler(), s.options.Metrics.TLS)
-		return nil
-
-	default:
-		if providerType != "disabled" && providerType != "none" {
-			s.logger.Warnf("Unknown provider type: %s; metrics disabled", providerType)
+		s.Server.RegisterHandler("/metrics", promhttp.Handler(), m.TLS)
+	case *disabled.Provider:
+		if m.Provider != "disabled" && m.Provider != "none" {
+			s.logger.Warnf("Unknown provider type: %s; metrics disabled", m.Provider)
 		}
-
-		s.Provider = &disabled.Provider{}
-		s.versionGauge = versionGauge(s.Provider)
-		return nil
 	}
+	s.versionGauge = versionGauge(s.Provider)
+	return nil
 }
 
-func (s *System) initializeLoggingHandler() {
+func (s *System) initializeLoggingHandler(tlsEnabled bool) {
 	// swagger:operation GET /logspec operations logspecget
 	// ---
 	// summary: Retrieves the active logging spec for a peer or orderer.
@@ -191,7 +173,7 @@ func (s *System) initializeLoggingHandler() {
 	//        description: Bad request.
 	// consumes:
 	//   - multipart/form-data
-	s.Server.RegisterHandler("/logspec", httpadmin.NewSpecHandler(), s.options.TLS.Enabled)
+	s.Server.RegisterHandler("/logspec", httpadmin.NewSpecHandler(), tlsEnabled)
 }
 
 func (s *System) initializeHealthCheckHandler() {
@@ -221,19 +203,17 @@ func (s *System) initializeVersionInfoHandler() {
 	s.Server.RegisterHandler("/version", versionInfo, false)
 }
 
-func (s *System) startMetricsTickers() error {
-	m := s.options.Metrics
+func (s *System) startMetricsTickers(m *Statsd) error {
 	if s.statsd != nil {
-		network := m.Statsd.Network
-		address := m.Statsd.Address
+		network := m.Network
+		address := m.Address
 		c, err := net.Dial(network, address)
 		if err != nil {
 			return err
 		}
 		c.Close()
 
-		opts := s.options.Metrics.Statsd
-		writeInterval := opts.WriteInterval
+		writeInterval := m.WriteInterval
 
 		s.collectorTicker = time.NewTicker(writeInterval / 2)
 		goCollector := goruntime.NewCollector(s.Provider)

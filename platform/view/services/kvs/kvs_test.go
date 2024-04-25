@@ -16,7 +16,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs/mock"
-	registry2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/registry"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -26,8 +25,7 @@ type stuff struct {
 }
 
 func testRound(t *testing.T, driver string, cp kvs.ConfigProvider) {
-	registry := registry2.New()
-	kvstore, err := kvs.NewWithConfig(registry, driver, "_default", cp)
+	kvstore, err := kvs.NewWithConfig(driver, "_default", cp)
 	assert.NoError(t, err)
 
 	k1, err := kvs.CreateCompositeKey("k", []string{"1"})

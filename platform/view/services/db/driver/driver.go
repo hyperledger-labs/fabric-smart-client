@@ -8,7 +8,6 @@ package driver
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/pkg/errors"
 )
 
@@ -124,9 +123,9 @@ type Config interface {
 
 type Driver interface {
 	// NewTransactionalVersionedPersistence returns a new TransactionalVersionedPersistence for the passed data source and config
-	NewTransactionalVersionedPersistence(sp view.ServiceProvider, dataSourceName string, config Config) (TransactionalVersionedPersistence, error)
+	NewTransactionalVersionedPersistence(dataSourceName string, config Config) (TransactionalVersionedPersistence, error)
 	// NewVersioned returns a new VersionedPersistence for the passed data source and config
-	NewVersioned(sp view.ServiceProvider, dataSourceName string, config Config) (VersionedPersistence, error)
+	NewVersioned(dataSourceName string, config Config) (VersionedPersistence, error)
 	// New returns a new Persistence for the passed data source and config
-	New(sp view.ServiceProvider, dataSourceName string, config Config) (Persistence, error)
+	New(dataSourceName string, config Config) (Persistence, error)
 }

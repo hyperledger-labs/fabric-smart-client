@@ -23,12 +23,12 @@ func (vcf viewCallFunc) CallView(context *ReqContext, vid string, input []byte) 
 }
 
 type viewHandler struct {
-	c  *client
-	sp view.ServiceProvider
+	c           *client
+	viewManager *view.Manager
 }
 
 func (s *viewHandler) CallView(context *ReqContext, vid string, input []byte) (interface{}, error) {
-	s.c.viewManager = view.GetManager(s.sp)
+	s.c.viewManager = s.viewManager
 	result, err := s.c.CallView(vid, input)
 	if err != nil {
 		return nil, errors.Errorf("failed running view [%s], err %s", vid, err)
@@ -46,12 +46,12 @@ func (s *viewHandler) CallView(context *ReqContext, vid string, input []byte) (i
 }
 
 func (s *viewHandler) StreamCallView(context *ReqContext, vid string, input []byte) (interface{}, error) {
-	s.c.viewManager = view.GetManager(s.sp)
+	s.c.viewManager = s.viewManager
 	return nil, s.c.StreamCallView(vid, context.ResponseWriter, context.Req)
 }
 
-func InstallViewHandler(l logger, sp view.ServiceProvider, h *HttpHandler) {
-	fh := &viewHandler{c: &client{logger: l, viewManager: nil}, sp: sp}
+func InstallViewHandler(l logger, viewManager *view.Manager, h *HttpHandler) {
+	fh := &viewHandler{c: &client{logger: l, viewManager: nil}, viewManager: viewManager}
 
 	d := &Dispatcher{Logger: l, Handler: h}
 	d.WireViewCaller(viewCallFunc(fh.CallView))

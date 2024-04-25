@@ -14,6 +14,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/pkg/errors"
 )
@@ -25,16 +26,16 @@ var (
 
 // NetworkService models a Fabric Network
 type NetworkService struct {
-	SP   view2.ServiceProvider
-	fns  driver.FabricNetworkService
-	name string
+	subscriber events.Subscriber
+	fns        driver.FabricNetworkService
+	name       string
 
 	channelMutex sync.RWMutex
 	channels     map[string]*Channel
 }
 
-func NewNetworkService(SP view2.ServiceProvider, fns driver.FabricNetworkService, name string) *NetworkService {
-	return &NetworkService{SP: SP, fns: fns, name: name, channels: map[string]*Channel{}}
+func NewNetworkService(subscriber events.Subscriber, fns driver.FabricNetworkService, name string) *NetworkService {
+	return &NetworkService{subscriber: subscriber, fns: fns, name: name, channels: map[string]*Channel{}}
 }
 
 // Channel returns the channel service for the passed id
@@ -62,7 +63,7 @@ func (n *NetworkService) Channel(id string) (*Channel, error) {
 		return c, nil
 	}
 
-	c = NewChannel(n.SP, n.fns, ch)
+	c = NewChannel(n.subscriber, n.fns, ch)
 	n.channels[ch.Name()] = c
 
 	return c, nil
@@ -113,13 +114,14 @@ func (n *NetworkService) ConfigService() *ConfigService {
 }
 
 type NetworkServiceProvider struct {
-	sp              view2.ServiceProvider
+	fnsProvider     driver.FabricNetworkServiceProvider
+	subscriber      events.Subscriber
 	mutex           sync.RWMutex
 	networkServices map[string]*NetworkService
 }
 
-func NewNetworkServiceProvider(sp view2.ServiceProvider) *NetworkServiceProvider {
-	return &NetworkServiceProvider{sp: sp, networkServices: make(map[string]*NetworkService)}
+func NewNetworkServiceProvider(fnsProvider driver.FabricNetworkServiceProvider, subscriber events.Subscriber) *NetworkServiceProvider {
+	return &NetworkServiceProvider{fnsProvider: fnsProvider, subscriber: subscriber, networkServices: make(map[string]*NetworkService)}
 }
 
 func (nsp *NetworkServiceProvider) FabricNetworkService(id string) (*NetworkService, error) {
@@ -137,11 +139,7 @@ func (nsp *NetworkServiceProvider) FabricNetworkService(id string) (*NetworkServ
 		return ns, nil
 	}
 
-	provider := core.GetFabricNetworkServiceProvider(nsp.sp)
-	if provider == nil {
-		return nil, errors.New("no Fabric Network Service Provider found")
-	}
-	internalFns, err := provider.FabricNetworkService(id)
+	internalFns, err := nsp.fnsProvider.FabricNetworkService(id)
 	if err != nil {
 		logger.Errorf("Failed to get Fabric Network Service for id [%s]: [%s]", id, err)
 		return nil, errors.WithMessagef(err, "Failed to get Fabric Network Service for id [%s]", id)
@@ -151,7 +149,7 @@ func (nsp *NetworkServiceProvider) FabricNetworkService(id string) (*NetworkServ
 		return ns, nil
 	}
 
-	ns = NewNetworkService(nsp.sp, internalFns, internalFns.Name())
+	ns = NewNetworkService(nsp.subscriber, internalFns, internalFns.Name())
 	nsp.networkServices[id] = ns
 	nsp.networkServices[internalFns.Name()] = ns
 
