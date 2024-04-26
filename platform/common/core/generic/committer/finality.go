@@ -144,7 +144,7 @@ func (c *FinalityManager[V]) runStatusListener(context context.Context) {
 			return
 		case <-ticker.C:
 			txIDs := c.txIDs()
-			if len(txIDs) <= 1 {
+			if len(txIDs) == 0 {
 				c.logger.Debugf("no transactions to check vault status")
 				break
 			}
