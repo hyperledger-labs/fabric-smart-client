@@ -190,5 +190,17 @@ func (c *FinalityManager[V]) txIDs() []core.TxID {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
-	return utils.Keys(c.txIDListeners)
+	allListenersKeyOffset := 0
+	if _, ok := c.txIDListeners[allListenersKey]; ok {
+		allListenersKeyOffset = 1
+	}
+	res := make([]core.TxID, len(c.txIDListeners)-allListenersKeyOffset)
+	i := 0
+	for k := range c.txIDListeners {
+		if len(k) != 0 {
+			res[i] = k
+			i++
+		}
+	}
+	return res
 }
