@@ -74,7 +74,10 @@ func (i *invokeChaincodeView) Invoke(context view.Context) (string, []byte, erro
 	if chaincode.IsPrivate() {
 		logger.Debugf("chaincode [%s:%s:%s] is a FPC", i.Network, i.Channel, i.ChaincodeName)
 		// This is a Fabric Private Chaincode, use the corresponding service
-		fpcChannel := fpc.GetChannel(context, i.Network, i.Channel)
+		fpcChannel, err := fpc.GetChannel(context, i.Network, i.Channel)
+		if err != nil {
+			return "", nil, err
+		}
 		res, err := fpcChannel.Chaincode(i.ChaincodeName).Invoke(i.Function, i.Args...).Call()
 		return "", res, err
 	} else {

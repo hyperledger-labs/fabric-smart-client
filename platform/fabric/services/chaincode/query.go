@@ -38,9 +38,9 @@ func (i *queryChaincodeView) Query(context view.Context) ([]byte, error) {
 		return nil, errors.Errorf("no chaincode specified")
 	}
 
-	fNetwork := fabric.GetFabricNetworkService(context, i.Network)
-	if fNetwork == nil {
-		return nil, errors.Errorf("fabric network service [%s] not found", i.Network)
+	fNetwork, err := fabric.GetFabricNetworkService(context, i.Network)
+	if err != nil {
+		return nil, err
 	}
 	channel, err := fNetwork.Channel(i.Channel)
 	if err != nil {
@@ -54,7 +54,10 @@ func (i *queryChaincodeView) Query(context view.Context) ([]byte, error) {
 	stdChannelChaincode := channel.Chaincode(i.ChaincodeName)
 	if stdChannelChaincode.IsPrivate() {
 		// This is a Fabric Private Chaincode, use the corresponding service
-		fpcChannel := fpc.GetChannel(context, i.Network, i.Channel)
+		fpcChannel, err := fpc.GetChannel(context, i.Network, i.Channel)
+		if err != nil {
+			return nil, err
+		}
 		chaincode = &fpcChaincode{ch: fpcChannel.Chaincode(i.ChaincodeName)}
 		logger.Debugf("chaincode [%s:%s:%s] is a FPC", i.Network, i.Channel, i.ChaincodeName)
 	} else {

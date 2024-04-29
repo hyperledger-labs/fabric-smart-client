@@ -106,9 +106,9 @@ func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error
 		}
 
 		found := false
-		fns := fabric.GetFabricNetworkService(context, c.tx.Network())
-		if fns == nil {
-			return nil, errors.Errorf("fabric network service [%s] not found", c.tx.Network())
+		fns, err := fabric.GetFabricNetworkService(context, c.tx.Network())
+		if err != nil {
+			return nil, errors.WithMessagef(err, "fabric network service [%s] not found", c.tx.Network())
 		}
 		tm := fns.TransactionManager()
 		for _, response := range responses {
@@ -176,9 +176,9 @@ type endorseView struct {
 
 func (s *endorseView) Call(context view.Context) (interface{}, error) {
 	if len(s.identities) == 0 {
-		fns := fabric.GetFabricNetworkService(context, s.tx.Network())
-		if fns == nil {
-			return nil, errors.Errorf("fabric network service [%s] not found", s.tx.Network())
+		fns, err := fabric.GetFabricNetworkService(context, s.tx.Network())
+		if err != nil {
+			return nil, errors.WithMessagef(err, "fabric network service [%s] not found", s.tx.Network())
 		}
 		s.identities = []view.Identity{fns.IdentityProvider().DefaultIdentity()}
 	}
@@ -201,7 +201,11 @@ func (s *endorseView) Call(context view.Context) (interface{}, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "failed marshalling tx")
 	}
-	ch, err := fabric.GetDefaultFNS(context).Channel(s.tx.Channel())
+	fns, err := fabric.GetDefaultFNS(context)
+	if err != nil {
+		return nil, errors.WithMessage(err, "failed getting default network")
+	}
+	ch, err := fns.Channel(s.tx.Channel())
 	if err != nil {
 		return nil, errors.WithMessagef(err, "failed getting channel [%s]", s.tx.Channel())
 	}

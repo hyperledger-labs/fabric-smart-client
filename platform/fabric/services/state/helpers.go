@@ -9,37 +9,46 @@ package state
 import (
 	"reflect"
 
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
+	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 )
 
-func GetVaultService(ctx view2.ServiceProvider) VaultService {
+func GetVaultService(ctx view2.ServiceProvider) (VaultService, error) {
 	s, err := ctx.GetService(reflect.TypeOf((*VaultService)(nil)))
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	return s.(VaultService)
+	return s.(VaultService), nil
 }
 
-func GetVault(ctx view2.ServiceProvider) Vault {
-	ws, err := GetVaultService(ctx).Vault(
-		fabric.GetDefaultFNS(ctx).Name(),
-		fabric.GetDefaultChannel(ctx).Name(),
-	)
+func GetVault(ctx view2.ServiceProvider) (Vault, error) {
+	vs, err := GetVaultService(ctx)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	return ws
+	fsc, ch, err := fabric.GetDefaultChannel(ctx)
+	if err != nil {
+		return nil, err
+	}
+	ws, err := vs.Vault(fsc.Name(), ch.Name())
+	if err != nil {
+		return nil, err
+	}
+	return ws, nil
 }
 
-func GetVaultForChannel(ctx view2.ServiceProvider, channel string) Vault {
-	ws, err := GetVaultService(ctx).Vault(
-		fabric.GetDefaultFNS(ctx).Name(),
-		channel,
-	)
+func GetVaultForChannel(ctx view2.ServiceProvider, channel string) (Vault, error) {
+	vs, err := GetVaultService(ctx)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	return ws
+	fns, err := fabric.GetDefaultFNS(ctx)
+	if err != nil {
+		return nil, err
+	}
+	ws, err := vs.Vault(fns.Name(), channel)
+	if err != nil {
+		return nil, err
+	}
+	return ws, nil
 }

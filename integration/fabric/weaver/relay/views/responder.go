@@ -25,7 +25,9 @@ func (p *Responder) Call(context view.Context) (interface{}, error) {
 	assert.NoError(session.ReceiveWithTimeout(&stateVariable, 60*time.Second), "failed getting state variable")
 
 	// Bob `queries` Fabric network `alpha`, using `Weaver`, to get a proof that what Alice said is trustable.
-	relay := weaver.GetProvider(context).Relay(fabric.GetDefaultFNS(context))
+	fsn, err := fabric.GetDefaultFNS(context)
+	assert.NoError(err)
+	relay := weaver.GetProvider(context).Relay(fsn)
 	query, err := relay.ToFabric().Query("fabric://alpha.testchannel.ns1/", "Get", stateVariable)
 	assert.NoError(err, "failed creating fabric query")
 	res, err := query.Call()
@@ -52,7 +54,9 @@ func (p *Responder) Call(context view.Context) (interface{}, error) {
 	assert.Equal(v1, v2, "excepted same write [%s]!=[%s]", string(v1), string(v2))
 
 	// If the previous step is successful, then Bob stores the same data in `beta` (inside a given namespace of a given channel).
-	_, _, err = fabric.GetDefaultChannel(context).Chaincode("ns2").Invoke(
+	_, ch, err := fabric.GetDefaultChannel(context)
+	assert.NoError(err)
+	_, _, err = ch.Chaincode("ns2").Invoke(
 		"Put", stateVariable, string(res.Result()),
 	).Call()
 	assert.NoError(err, "failed putting state")

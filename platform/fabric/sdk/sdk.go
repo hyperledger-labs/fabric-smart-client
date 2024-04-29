@@ -68,21 +68,18 @@ func (p *SDK) Install() error {
 	assert.NoError(p.registry.RegisterService(fabric.NewNetworkServiceProvider(fnsProvider, subscriber)))
 
 	// Register processors
-	names := fabric.GetFabricNetworkNames(p.registry)
+	names, err := fabric.GetFabricNetworkNames(p.registry)
+	assert.NoError(err)
 	if len(names) == 0 {
 		return errors.New("no fabric network names found")
 	}
 	for _, name := range names {
-		fns := fabric.GetFabricNetworkService(p.registry, name)
-		if fns == nil {
-			return errors.Errorf("no fabric network service found for [%s]", name)
-		}
-		assert.NoError(fns.ProcessorManager().SetDefaultProcessor(
-			state.NewRWSetProcessor(fabric.GetDefaultFNS(p.registry)),
-		), "failed setting state processor for fabric network [%s]", name)
+		fns, err := fabric.GetFabricNetworkService(p.registry, name)
+		assert.NoError(err, "no fabric network service found for [%s]", name)
+		assert.NoError(fns.ProcessorManager().SetDefaultProcessor(state.NewRWSetProcessor(fns)), "failed setting state processor for fabric network [%s]", name)
 	}
-
-	assert.NotNil(fabric.GetDefaultFNS(p.registry), "default fabric network service not found")
+	_, err = fabric.GetDefaultFNS(p.registry)
+	assert.NoError(err, "default fabric network service not found")
 
 	// TODO: change this
 	assert.NoError(p.registry.RegisterService(vault.NewService(p.registry)))
@@ -91,7 +88,9 @@ func (p *SDK) Install() error {
 	assert.NoError(p.registry.RegisterService(weaver.NewProvider()))
 
 	// Install finality handler
-	finality.GetManager(p.registry).AddHandler(NewFinalityHandler(fabric.GetNetworkServiceProvider(p.registry)))
+	fns, err := fabric.GetNetworkServiceProvider(p.registry)
+	assert.NoError(err)
+	finality.GetManager(p.registry).AddHandler(NewFinalityHandler(fns))
 
 	return nil
 }

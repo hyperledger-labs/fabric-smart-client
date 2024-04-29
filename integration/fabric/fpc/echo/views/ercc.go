@@ -23,7 +23,9 @@ type ListProvisionedEnclavesView struct {
 }
 
 func (l *ListProvisionedEnclavesView) Call(context view.Context) (interface{}, error) {
-	pEnclaves, err := fpc.GetDefaultChannel(context).EnclaveRegistry().ListProvisionedEnclaves(l.CID)
+	ch, err := fpc.GetDefaultChannel(context)
+	assert.NoError(err)
+	pEnclaves, err := ch.EnclaveRegistry().ListProvisionedEnclaves(l.CID)
 	assert.NoError(err, "failed getting list of provisioned enclaves for [%s]", l.CID)
 
 	return pEnclaves, nil

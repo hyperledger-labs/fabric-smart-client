@@ -102,11 +102,15 @@ func (f *vault) GetStateByPartialCompositeID(ns string, prefix string, attrs []s
 }
 
 func (f *vault) GetStateCertification(namespace string, key string) ([]byte, error) {
+	fns, err := fabric.GetFabricNetworkService(f.sp, f.network)
+	if err != nil {
+		return nil, err
+	}
 	_, tx, err := endorser.NewTransactionWith(
 		f.sp,
 		f.network,
 		f.channel,
-		fabric.GetFabricNetworkService(f.sp, f.network).LocalMembership().DefaultIdentity(),
+		fns.LocalMembership().DefaultIdentity(),
 	)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed creating transaction [%s:%s]", namespace, key)
@@ -146,7 +150,11 @@ func NewService(sp view.ServiceProvider) *service {
 }
 
 func (w *service) Vault(network string, channel string) (state.Vault, error) {
-	ch, err := fabric.GetFabricNetworkService(w.sp, network).Channel(channel)
+	fns, err := fabric.GetFabricNetworkService(w.sp, network)
+	if err != nil {
+		return nil, err
+	}
+	ch, err := fns.Channel(channel)
 	if err != nil {
 		return nil, err
 	}

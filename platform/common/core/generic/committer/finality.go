@@ -104,7 +104,7 @@ func (c *FinalityManager[V]) Post(event FinalityEvent[V]) {
 
 func (c *FinalityManager[V]) Dispatch(event FinalityEvent[V]) {
 	listeners := c.cloneListeners(event.TxID)
-	c.logger.Debugf("dispatch event [%s][%d]", event.TxID, event.ValidationCode)
+	c.logger.Debugf("dispatch event [%s][%d][%d]", event.TxID, event.ValidationCode, len(listeners))
 	for _, listener := range listeners {
 		c.invokeListener(listener, event.TxID, event.ValidationCode, event.ValidationMessage)
 	}
@@ -144,7 +144,7 @@ func (c *FinalityManager[V]) runStatusListener(context context.Context) {
 			return
 		case <-ticker.C:
 			txIDs := c.txIDs()
-			if len(txIDs) <= 1 {
+			if len(txIDs) == 0 {
 				c.logger.Debugf("no transactions to check vault status")
 				break
 			}
@@ -190,5 +190,17 @@ func (c *FinalityManager[V]) txIDs() []core.TxID {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
-	return utils.Keys(c.txIDListeners)
+	allListenersKeyOffset := 0
+	if _, ok := c.txIDListeners[allListenersKey]; ok {
+		allListenersKeyOffset = 1
+	}
+	res := make([]core.TxID, len(c.txIDListeners)-allListenersKeyOffset)
+	i := 0
+	for k := range c.txIDListeners {
+		if len(k) != 0 {
+			res[i] = k
+			i++
+		}
+	}
+	return res
 }

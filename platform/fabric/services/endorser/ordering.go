@@ -21,9 +21,9 @@ type orderingView struct {
 }
 
 func (o *orderingView) Call(ctx view.Context) (interface{}, error) {
-	fns := fabric.GetFabricNetworkService(ctx, o.tx.Network())
-	if fns == nil {
-		return nil, errors.Errorf("fabric network service [%s] not found", o.tx.Network())
+	fns, err := fabric.GetFabricNetworkService(ctx, o.tx.Network())
+	if err != nil {
+		return nil, errors.WithMessagef(err, "fabric network service [%s] not found", o.tx.Network())
 	}
 	tx := o.tx
 	if err := fns.Ordering().Broadcast(ctx.Context(), tx.Transaction); err != nil {

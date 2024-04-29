@@ -43,7 +43,9 @@ func (f *IssueView) Call(context view.Context) (interface{}, error) {
 	tx.SetNamespace("asset_transfer")
 
 	f.Asset.Owner = assetOwner
-	me := fabric.GetDefaultIdentityProvider(context).DefaultIdentity()
+	fns, err := fabric.GetDefaultFNS(context)
+	assert.NoError(err)
+	me := fns.IdentityProvider().DefaultIdentity()
 
 	// Specifies the command this transaction wants to execute.
 	// In particular, the issuer wants to create a new asset owned by a given recipient.

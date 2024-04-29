@@ -73,7 +73,10 @@ func (t *Transaction) getDataTx() (*orion.Transaction, error) {
 	if t.DataTx == nil {
 		var err error
 		// set tx id
-		ons := t.GetONS()
+		ons, err := t.GetONS()
+		if err != nil {
+			return nil, err
+		}
 		txID := &orion.TxID{
 			Nonce:   t.Nonce,
 			Creator: []byte(t.Creator),
@@ -88,11 +91,15 @@ func (t *Transaction) getDataTx() (*orion.Transaction, error) {
 	return t.DataTx, nil
 }
 
-func (t *Transaction) GetONS() *orion.NetworkService {
+func (t *Transaction) GetONS() (*orion.NetworkService, error) {
 	if t.ONS == nil {
-		t.ONS = orion.GetOrionNetworkService(t.SP, t.Network)
+		ons, err := orion.GetOrionNetworkService(t.SP, t.Network)
+		if err != nil {
+			return nil, err
+		}
+		t.ONS = ons
 	}
-	return t.ONS
+	return t.ONS, nil
 }
 
 func getRandomNonce() ([]byte, error) {

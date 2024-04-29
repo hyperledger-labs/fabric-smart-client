@@ -26,7 +26,9 @@ type LocalPutView struct {
 
 func (p *LocalPutView) Call(context view.Context) (interface{}, error) {
 	// Invoke the passed chaincode to put the key/value pair
-	txID, _, err := fabric.GetDefaultChannel(context).Chaincode(p.Chaincode).Invoke(
+	_, ch, err := fabric.GetDefaultChannel(context)
+	assert.NoError(err)
+	txID, _, err := ch.Chaincode(p.Chaincode).Invoke(
 		"Put", p.Key, p.Value,
 	).Call()
 	assert.NoError(err, "failed to put key %s", p.Key)
@@ -54,7 +56,9 @@ type LocalGetView struct {
 
 func (g *LocalGetView) Call(context view.Context) (interface{}, error) {
 	// Invoke the passed chaincode to get the value corresponding to the passed key
-	v, err := fabric.GetDefaultChannel(context).Chaincode(g.Chaincode).Query(
+	_, ch, err := fabric.GetDefaultChannel(context)
+	assert.NoError(err)
+	v, err := ch.Chaincode(g.Chaincode).Query(
 		"Get", g.Key,
 	).Call()
 	assert.NoError(err, "failed to get key %s", g.Key)

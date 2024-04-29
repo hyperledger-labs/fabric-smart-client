@@ -91,9 +91,9 @@ func (t *Builder) newTransactionWithType(creator []byte, network, channel string
 	logger.Debugf("NewTransaction [%s,%s,%s]", view.Identity(creator).UniqueID(), channel, hash.Hashable(raw).String())
 	defer logger.Debugf("NewTransaction...done.")
 
-	fNetwork := fabric.GetFabricNetworkService(t.sp, network)
-	if fNetwork == nil {
-		return nil, errors.Errorf("fabric network service [%s] not found", network)
+	fNetwork, err := fabric.GetFabricNetworkService(t.sp, network)
+	if err != nil {
+		return nil, errors.WithMessagef(err, "fabric network service [%s] not found", network)
 	}
 	if len(creator) == 0 {
 		creator = fNetwork.IdentityProvider().DefaultIdentity()
@@ -112,7 +112,6 @@ func (t *Builder) newTransactionWithType(creator []byte, network, channel string
 	}
 
 	var fabricTransaction *fabric.Transaction
-	var err error
 	if len(raw) == 0 {
 		fabricTransaction, err = fNetwork.TransactionManager().NewTransaction(options...)
 	} else if envelope {

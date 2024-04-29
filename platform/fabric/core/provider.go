@@ -189,11 +189,10 @@ func (p *FSNProvider) newFNS(network string) (driver.FabricNetworkService, error
 	return nil, errors.Errorf("no network driver found for [%s]", network)
 }
 
-func GetFabricNetworkServiceProvider(sp view.ServiceProvider) driver.FabricNetworkServiceProvider {
+func GetFabricNetworkServiceProvider(sp view.ServiceProvider) (driver.FabricNetworkServiceProvider, error) {
 	s, err := sp.GetService(fabricNetworkServiceType)
 	if err != nil {
-		logger.Warnf("failed getting fabric network service provider: %s", err)
-		return nil
+		return nil, errors.Wrapf(err, "failed getting fabric network service provider")
 	}
-	return s.(driver.FabricNetworkServiceProvider)
+	return s.(driver.FabricNetworkServiceProvider), nil
 }

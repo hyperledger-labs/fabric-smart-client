@@ -146,7 +146,11 @@ func (s *RespondRequestRecipientIdentityView) Call(context view.Context) (interf
 	}
 
 	if s.Identity.IsNone() {
-		s.Identity = fabric.GetFabricNetworkService(context, rr.Network).IdentityProvider().DefaultIdentity()
+		fns, err := fabric.GetFabricNetworkService(context, rr.Network)
+		if err != nil {
+			return nil, err
+		}
+		s.Identity = fns.IdentityProvider().DefaultIdentity()
 	}
 
 	recipientData := &RecipientData{
@@ -221,14 +225,18 @@ func (f *ExchangeRecipientIdentitiesView) Call(context view.Context) (interface{
 		return nil, err
 	}
 
+	fns, err := fabric.GetFabricNetworkService(context, f.Network)
+	if err != nil {
+		return nil, err
+	}
 	var me view.Identity
 	if len(f.IdentityLabel) != 0 {
-		me, err = fabric.GetFabricNetworkService(context, f.Network).LocalMembership().GetIdentityByID(f.IdentityLabel)
+		me, err = fns.LocalMembership().GetIdentityByID(f.IdentityLabel)
 		if err != nil {
 			return nil, errors.WithMessagef(err, "failed to get identity with label %s", f.IdentityLabel)
 		}
 	} else {
-		me = fabric.GetFabricNetworkService(context, f.Network).LocalMembership().DefaultIdentity()
+		me = fns.LocalMembership().DefaultIdentity()
 	}
 	if me.IsNone() {
 		return nil, errors.Errorf("no identity found with label %s", f.IdentityLabel)
@@ -312,14 +320,18 @@ func (s *RespondExchangeRecipientIdentitiesView) Call(context view.Context) (int
 		return nil, err
 	}
 
+	fns, err := fabric.GetFabricNetworkService(context, s.Network)
+	if err != nil {
+		return nil, err
+	}
 	var me view.Identity
 	if len(s.IdentityLabel) != 0 {
-		me, err = fabric.GetFabricNetworkService(context, s.Network).LocalMembership().GetIdentityByID(s.IdentityLabel)
+		me, err = fns.LocalMembership().GetIdentityByID(s.IdentityLabel)
 		if err != nil {
 			return nil, errors.WithMessagef(err, "failed to get identity with label %s", s.IdentityLabel)
 		}
 	} else {
-		me = fabric.GetFabricNetworkService(context, s.Network).LocalMembership().DefaultIdentity()
+		me = fns.LocalMembership().DefaultIdentity()
 	}
 	if me.IsNone() {
 		return nil, errors.Errorf("no identity found with label %s", s.IdentityLabel)

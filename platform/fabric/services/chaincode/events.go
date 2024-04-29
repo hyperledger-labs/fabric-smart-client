@@ -146,9 +146,9 @@ func getChaincode(context view.Context, info *info) (*fabric.Chaincode, error) {
 		return nil, errors.Errorf("no chaincode specified")
 	}
 
-	fNetwork := fabric.GetFabricNetworkService(context, info.network)
-	if fNetwork == nil {
-		return nil, errors.Errorf("fabric network service [%s] not found", info.network)
+	fNetwork, err := fabric.GetFabricNetworkService(context, info.network)
+	if err != nil {
+		return nil, err
 	}
 	channel, err := fNetwork.Channel(info.channel)
 	if err != nil {

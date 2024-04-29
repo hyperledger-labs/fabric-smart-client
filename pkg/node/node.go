@@ -215,7 +215,11 @@ func (n *node) IsTxFinal(txID string, opts ...api.ServiceOption) error {
 		defer cancel()
 	}
 	// TODO: network might refer to orion
-	return fabric.GetChannel(n.registry, options.Network, options.Channel).Finality().IsFinal(c, txID)
+	_, ch, err := fabric.GetChannel(n.registry, options.Network, options.Channel)
+	if err != nil {
+		return err
+	}
+	return ch.Finality().IsFinal(c, txID)
 }
 
 func (n *node) CallView(fid string, in []byte) (interface{}, error) {
