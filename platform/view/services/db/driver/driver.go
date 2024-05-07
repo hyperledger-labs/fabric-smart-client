@@ -48,6 +48,8 @@ type SQLError = error
 var (
 	// UniqueKeyViolation happens when we try to insert a record with a conflicting unique key (e.g. replicas)
 	UniqueKeyViolation = errors.New("unique key violation")
+	// DeadlockDetected happens when two transactions are taking place at the same time and interact with the same rows
+	DeadlockDetected = errors.New("deadlock detected")
 )
 
 // SQLErrorWrapper transforms the different errors returned by various SQL implementations into an SQLError that is common
