@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package generic
 
 import (
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault/txidstore"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
@@ -42,7 +43,7 @@ func NewVault(config *config.Config, network Network, channel string) (*Vault, e
 	}
 
 	return &Vault{
-		Vault:           vault.New(persistence, txIDStore),
+		Vault:           vault.New(persistence, txidstore.NewNoCache[driver.ValidationCode](txIDStore)),
 		SimpleTXIDStore: txIDStore,
 		network:         network,
 	}, nil

@@ -76,8 +76,11 @@ func NewVault(configService driver.ConfigService, channel string) (*vault.Vault,
 
 	if txIDStoreCacheSize > 0 {
 		logger.Debugf("creating txID store second cache with size [%d]", txIDStoreCacheSize)
-		txidStore = txidstore.NewCache(txidStore, secondcache.NewTyped[*txidstore.Entry](txIDStoreCacheSize))
+		c := txidstore.NewCache(txidStore, secondcache.NewTyped[*txidstore.Entry](txIDStoreCacheSize), logger)
+		return vault.New(persistence, c), c, nil
+	} else {
+		logger.Debugf("txID store without cache selected")
+		c := txidstore.NewNoCache(txidStore)
+		return vault.New(persistence, c), c, nil
 	}
-
-	return vault.New(persistence, txidStore), txidStore, nil
 }

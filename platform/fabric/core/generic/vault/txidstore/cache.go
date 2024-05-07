@@ -7,17 +7,22 @@ SPDX-License-Identifier: Apache-2.0
 package txidstore
 
 import (
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault/txidstore"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
 
-type Entry struct {
-	ValidationCode    fdriver.ValidationCode
-	ValidationMessage string
-}
+type Entry = txidstore.Entry[fdriver.ValidationCode]
 
 type cache interface {
 	Get(key string) (*Entry, bool)
 	Add(key string, value *Entry)
+	Delete(key string)
+}
+
+type Logger interface {
+	Debugf(template string, args ...interface{})
+	Infof(template string, args ...interface{})
+	Errorf(template string, args ...interface{})
 }
 
 type txidStore interface {
@@ -26,41 +31,34 @@ type txidStore interface {
 	Set(txID string, code fdriver.ValidationCode, message string) error
 }
 
-type Cache struct {
+type cachedStore struct {
+	*txidstore.CachedStore[fdriver.ValidationCode]
 	backed txidStore
-	cache  cache
 }
 
-func NewCache(backed txidStore, cache cache) *Cache {
-	return &Cache{backed: backed, cache: cache}
+type notCachedStore struct {
+	*txidstore.NotCachedStore[fdriver.ValidationCode]
+	backed txidStore
 }
 
-func (s *Cache) Get(txID string) (fdriver.ValidationCode, string, error) {
-	// first cache
-	if entry, ok := s.cache.Get(txID); ok {
-		return entry.ValidationCode, entry.ValidationMessage, nil
-	}
-	// then backed
-	vc, msg, err := s.backed.Get(txID)
-	if err != nil {
-		return vc, "", err
-	}
-	s.cache.Add(txID, &Entry{ValidationCode: vc, ValidationMessage: msg})
-	return vc, msg, nil
-}
-
-func (s *Cache) Set(txID string, code fdriver.ValidationCode, message string) error {
-	if err := s.backed.Set(txID, code, message); err != nil {
-		return err
-	}
-	s.cache.Add(txID, &Entry{ValidationCode: code, ValidationMessage: message})
-	return nil
-}
-
-func (s *Cache) GetLastTxID() (string, error) {
+func (s *notCachedStore) GetLastTxID() (string, error) {
 	return s.backed.GetLastTxID()
 }
 
-func (s *Cache) Iterator(pos interface{}) (fdriver.TxIDIterator, error) {
-	return s.backed.Iterator(pos)
+func NewNoCache(backed txidStore) *notCachedStore {
+	return &notCachedStore{
+		NotCachedStore: txidstore.NewNoCache[fdriver.ValidationCode](backed),
+		backed:         backed,
+	}
+}
+
+func NewCache(backed txidStore, cache cache, logger Logger) *cachedStore {
+	return &cachedStore{
+		CachedStore: txidstore.NewCache[fdriver.ValidationCode](backed, cache, logger),
+		backed:      backed,
+	}
+}
+
+func (s *cachedStore) GetLastTxID() (string, error) {
+	return s.backed.GetLastTxID()
 }
