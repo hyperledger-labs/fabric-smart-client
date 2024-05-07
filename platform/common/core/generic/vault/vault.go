@@ -164,7 +164,23 @@ func (db *Vault[V]) CommitTX(txID core.TxID, block core.BlockNum, indexInBloc in
 	if i == nil {
 		return errors.Errorf("cannot find rwset for [%s]", txID)
 	}
+	rws := i.RWs()
 
+	db.logger.Debugf("[%s] commit in vault", txID)
+	for {
+		err := db.commitRWs(txID, block, indexInBloc, rws)
+		if err == nil {
+			return nil
+		}
+		if !errors2.HasCause(err, driver.DeadlockDetected) {
+			// This should generate a panic
+			return err
+		}
+		db.logger.Debugf("Deadlock detected. Retrying... [%v]", err)
+	}
+}
+
+func (db *Vault[V]) commitRWs(txID core.TxID, block core.BlockNum, indexInBloc int, rws *ReadWriteSet) error {
 	db.logger.Debugf("get lock [%s][%d]", txID, db.counter.Load())
 	db.storeLock.Lock()
 	defer db.storeLock.Unlock()
@@ -174,7 +190,7 @@ func (db *Vault[V]) CommitTX(txID core.TxID, block core.BlockNum, indexInBloc in
 	}
 
 	db.logger.Debugf("parse writes [%s]", txID)
-	if discarded, err := db.storeWrites(i.RWs().Writes, block, uint64(indexInBloc)); err != nil {
+	if discarded, err := db.storeWrites(rws.Writes, block, uint64(indexInBloc)); err != nil {
 		return errors.Wrapf(err, "failed storing writes")
 	} else if discarded {
 		db.logger.Infof("Discarded changes while storing writes as duplicates. Skipping...")
@@ -183,7 +199,7 @@ func (db *Vault[V]) CommitTX(txID core.TxID, block core.BlockNum, indexInBloc in
 	}
 
 	db.logger.Debugf("parse meta writes [%s]", txID)
-	if discarded, err := db.storeMetaWrites(i.RWs().MetaWrites, block, uint64(indexInBloc)); err != nil {
+	if discarded, err := db.storeMetaWrites(rws.MetaWrites, block, uint64(indexInBloc)); err != nil {
 		return errors.Wrapf(err, "failed storing meta writes")
 	} else if discarded {
 		db.logger.Infof("Discarded changes while storing meta writes as duplicates. Skipping...")
@@ -199,7 +215,7 @@ func (db *Vault[V]) CommitTX(txID core.TxID, block core.BlockNum, indexInBloc in
 		return nil
 	}
 
-	if err = db.store.Commit(); err != nil {
+	if err := db.store.Commit(); err != nil {
 		return errors.WithMessagef(err, "committing tx for txid '%s' failed", txID)
 	}
 

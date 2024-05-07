@@ -16,8 +16,15 @@ import (
 type postgresErrorMapper struct{}
 
 func (m *postgresErrorMapper) WrapError(err error) error {
-	if err, ok := err.(*pq.Error); ok && err.Code == "23505" {
-		return errors.Wrapf(driver.UniqueKeyViolation, err.Error())
+	if err, ok := err.(*pq.Error); ok {
+		switch err.Code {
+		case "23505":
+			return errors.Wrapf(driver.UniqueKeyViolation, err.Error())
+		case "40P01":
+			return errors.Wrapf(driver.DeadlockDetected, err.Error())
+		default:
+			logger.Warnf("Unmapped postgres error with code [%s]", err.Code)
+		}
 	}
 	return err
 }
@@ -25,8 +32,13 @@ func (m *postgresErrorMapper) WrapError(err error) error {
 type sqliteErrorMapper struct{}
 
 func (m *sqliteErrorMapper) WrapError(err error) error {
-	if err, ok := err.(*sqlite.Error); ok && err.Code() == 1555 {
-		return errors.Wrapf(driver.UniqueKeyViolation, err.Error())
+	if err, ok := err.(*sqlite.Error); ok {
+		switch err.Code() {
+		case 1555:
+			return errors.Wrapf(driver.UniqueKeyViolation, err.Error())
+		default:
+			logger.Warnf("Unmapped sqlite error with code [%d]", err.Code())
+		}
 	}
 	return err
 }

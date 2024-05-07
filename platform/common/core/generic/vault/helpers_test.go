@@ -119,6 +119,7 @@ var SingleDBCases = []struct {
 	{"ShardLikeCommit", TTestShardLikeCommit},
 	{"VaultErr", TTestVaultErr},
 	{"ParallelVaults", TTestParallelVaults},
+	{"Deadlock", TTestDeadlock},
 }
 
 var DoubleDBCases = []struct {
@@ -265,6 +266,40 @@ func TTestParallelVaults(t *testing.T, ddb driver.VersionedPersistence) {
 	assert.Equal(t, 2, blkNum)
 
 	val, mval, txNum, blkNum, err = queryVault(vault2, ns, k, mk)
+	assert.NoError(t, err)
+	assert.Equal(t, []byte("val_v1"), val)
+	assert.Equal(t, map[string][]byte{"k1": []byte("mval1_v1")}, mval)
+	assert.Equal(t, 1, txNum)
+	assert.Equal(t, 2, blkNum)
+}
+
+func TTestDeadlock(t *testing.T, ddb driver.VersionedPersistence) {
+	ns := "namespace"
+	k := "key1"
+	mk := "meyakey1"
+	txID := "txid"
+	deadlockDB := &deadlockErrorPersistence{ddb, 3, k}
+
+	vault1, err := newCachedVault(deadlockDB)
+	assert.NoError(t, err)
+
+	rws1, err := vault1.NewRWSet(txID)
+	assert.NoError(t, err)
+	assert.NoError(t, rws1.SetState(ns, k, []byte("val_v1")))
+	assert.NoError(t, rws1.SetStateMetadata(ns, mk, map[string][]byte{"k1": []byte("mval1_v1")}))
+	rws1.Done()
+
+	val, mval, txNum, blkNum, err := queryVault(vault1, ns, k, mk)
+	assert.NoError(t, err)
+	assert.Nil(t, val)
+	assert.Nil(t, mval)
+	assert.Zero(t, txNum)
+	assert.Zero(t, blkNum)
+
+	assert.NoError(t, vault1.CommitTX(txID, 1, 2))
+	assert.Zero(t, deadlockDB.failures, "failed 3 times because of deadlock")
+
+	val, mval, txNum, blkNum, err = queryVault(vault1, ns, k, mk)
 	assert.NoError(t, err)
 	assert.Equal(t, []byte("val_v1"), val)
 	assert.Equal(t, map[string][]byte{"k1": []byte("mval1_v1")}, mval)
@@ -1143,6 +1178,20 @@ func queryVault(v *vault.Vault[vc], ns, key, mkey string) ([]byte, map[string][]
 		return nil, nil, 0, 0, err
 	}
 	return val, mval, int(txNum), int(blkNum), nil
+}
+
+type deadlockErrorPersistence struct {
+	driver.VersionedPersistence
+	failures int
+	key      string
+}
+
+func (db *deadlockErrorPersistence) SetState(namespace, key string, value []byte, block, txnum uint64) error {
+	if key == db.key && db.failures > 0 {
+		db.failures--
+		return driver.DeadlockDetected
+	}
+	return db.VersionedPersistence.SetState(namespace, key, value, block, txnum)
 }
 
 type duplicateErrorPersistence struct {
