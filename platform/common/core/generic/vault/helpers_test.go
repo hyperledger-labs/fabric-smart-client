@@ -15,6 +15,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault/txidstore"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/cache/secondcache"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
@@ -117,6 +118,7 @@ var SingleDBCases = []struct {
 	{"QueryExecutor", TTestQueryExecutor},
 	{"ShardLikeCommit", TTestShardLikeCommit},
 	{"VaultErr", TTestVaultErr},
+	{"ParallelVaults", TTestParallelVaults},
 }
 
 var DoubleDBCases = []struct {
@@ -127,9 +129,8 @@ var DoubleDBCases = []struct {
 }
 
 func TTestInterceptorErr(t *testing.T, ddb driver.VersionedPersistence) {
-	tidstore, err := txidstore.NewSimpleTXIDStore[vc](db.Unversioned(ddb), &vcProvider{})
+	vault1, err := newNonCachedVault(ddb)
 	assert.NoError(t, err)
-	vault1 := vault.New[vc](flogging.MustGetLogger("vault"), ddb, tidstore, &vcProvider{}, newInterceptor, &populator{})
 	rws, err := vault1.NewRWSet("txid")
 	assert.NoError(t, err)
 
@@ -178,9 +179,8 @@ func TTestInterceptorConcurrency(t *testing.T, ddb driver.VersionedPersistence) 
 	k := "key1"
 	mk := "meyakey1"
 
-	tidstore, err := txidstore.NewSimpleTXIDStore[vc](db.Unversioned(ddb), &vcProvider{})
+	vault1, err := newNonCachedVault(ddb)
 	assert.NoError(t, err)
-	vault1 := vault.New[vc](logging.MustGetLogger("vault"), ddb, tidstore, &vcProvider{}, newInterceptor, &populator{})
 	rws, err := vault1.NewRWSet("txid")
 	assert.NoError(t, err)
 
@@ -216,12 +216,67 @@ func TTestInterceptorConcurrency(t *testing.T, ddb driver.VersionedPersistence) 
 	assert.EqualError(t, err, "invalid metadata read: previous value returned at version 0:0, current value at version 36:2")
 }
 
+func TTestParallelVaults(t *testing.T, ddb driver.VersionedPersistence) {
+	ns := "namespace"
+	k := "key1"
+	mk := "meyakey1"
+	txID := "txid"
+
+	vault1, err := newCachedVault(ddb)
+	assert.NoError(t, err)
+
+	vault2, err := newCachedVault(&duplicateErrorPersistence{ddb})
+	assert.NoError(t, err)
+
+	rws1, err := vault1.NewRWSet(txID)
+	assert.NoError(t, err)
+	assert.NoError(t, rws1.SetState(ns, k, []byte("val_v1")))
+	assert.NoError(t, rws1.SetStateMetadata(ns, mk, map[string][]byte{"k1": []byte("mval1_v1")}))
+	rws1.Done()
+
+	rws2, err := vault2.NewRWSet(txID)
+	assert.NoError(t, err)
+	assert.NoError(t, rws2.SetState(ns, k, []byte("val_v2")))
+	assert.NoError(t, rws2.SetStateMetadata(ns, mk, map[string][]byte{"k1": []byte("mval1_v2"), "k2": []byte("mval2_v2")}))
+	rws2.Done()
+
+	val, mval, txNum, blkNum, err := queryVault(vault1, ns, k, mk)
+	assert.NoError(t, err)
+	assert.Nil(t, val)
+	assert.Nil(t, mval)
+	assert.Zero(t, txNum)
+	assert.Zero(t, blkNum)
+
+	val, mval, txNum, blkNum, err = queryVault(vault2, ns, k, mk)
+	assert.NoError(t, err)
+	assert.Nil(t, val)
+	assert.Nil(t, mval)
+	assert.Zero(t, txNum)
+	assert.Zero(t, blkNum)
+
+	assert.NoError(t, vault1.CommitTX(txID, 1, 2))
+	assert.NoError(t, vault2.CommitTX(txID, 1, 2))
+
+	val, mval, txNum, blkNum, err = queryVault(vault1, ns, k, mk)
+	assert.NoError(t, err)
+	assert.Equal(t, []byte("val_v1"), val)
+	assert.Equal(t, map[string][]byte{"k1": []byte("mval1_v1")}, mval)
+	assert.Equal(t, 1, txNum)
+	assert.Equal(t, 2, blkNum)
+
+	val, mval, txNum, blkNum, err = queryVault(vault2, ns, k, mk)
+	assert.NoError(t, err)
+	assert.Equal(t, []byte("val_v1"), val)
+	assert.Equal(t, map[string][]byte{"k1": []byte("mval1_v1")}, mval)
+	assert.Equal(t, 1, txNum)
+	assert.Equal(t, 2, blkNum)
+}
+
 func TTestQueryExecutor(t *testing.T, ddb driver.VersionedPersistence) {
 	ns := "namespace"
 
-	tidstore, err := txidstore.NewSimpleTXIDStore[vc](db.Unversioned(ddb), &vcProvider{})
+	vault, err := newNonCachedVault(ddb)
 	assert.NoError(t, err)
-	vault := vault.New[vc](flogging.MustGetLogger("vault"), ddb, tidstore, &vcProvider{}, newInterceptor, &populator{})
 
 	err = ddb.BeginUpdate()
 	assert.NoError(t, err)
@@ -327,9 +382,8 @@ func TTestShardLikeCommit(t *testing.T, ddb driver.VersionedPersistence) {
 	err = ddb.Commit()
 	assert.NoError(t, err)
 
-	tidstore, err := txidstore.NewSimpleTXIDStore[vc](db.Unversioned(ddb), &vcProvider{})
+	vault, err := newNonCachedVault(ddb)
 	assert.NoError(t, err)
-	vault := vault.New[vc](logging.MustGetLogger("vault"), ddb, tidstore, &vcProvider{}, newInterceptor, &populator{})
 
 	// SCENARIO 1: there is a read conflict in the proposed rwset
 	// create the read-write set
@@ -422,9 +476,8 @@ func TTestShardLikeCommit(t *testing.T, ddb driver.VersionedPersistence) {
 }
 
 func TTestVaultErr(t *testing.T, ddb driver.VersionedPersistence) {
-	tidstore, err := txidstore.NewSimpleTXIDStore[vc](db.Unversioned(ddb), &vcProvider{})
+	vault1, err := newNonCachedVault(ddb)
 	assert.NoError(t, err)
-	vault1 := vault.New[vc](logging.MustGetLogger("vault"), ddb, tidstore, &vcProvider{}, newInterceptor, &populator{})
 	err = vault1.CommitTX("non-existent", 0, 0)
 	assert.ErrorContains(t, err, "read-write set for txid non-existent could not be found")
 	err = vault1.DiscardTx("non-existent", "")
@@ -479,9 +532,8 @@ func TTestMerge(t *testing.T, ddb driver.VersionedPersistence) {
 	ne2Key := "notexist2"
 
 	// create DB and kvs
-	tidstore, err := txidstore.NewSimpleTXIDStore[vc](db.Unversioned(ddb), &vcProvider{})
+	vault2, err := newNonCachedVault(ddb)
 	assert.NoError(t, err)
-	vault2 := vault.New[vc](logging.MustGetLogger("vault"), ddb, tidstore, &vcProvider{}, newInterceptor, &populator{})
 	err = ddb.BeginUpdate()
 	assert.NoError(t, err)
 	err = ddb.SetState(ns, k1, []byte("v1"), 35, 1)
@@ -584,9 +636,8 @@ func TTestInspector(t *testing.T, ddb driver.VersionedPersistence) {
 	k2 := "k2"
 
 	// create DB and kvs
-	tidstore, err := txidstore.NewSimpleTXIDStore[vc](db.Unversioned(ddb), &vcProvider{})
+	vault, err := newNonCachedVault(ddb)
 	assert.NoError(t, err)
-	vault := vault.New[vc](logging.MustGetLogger("vault"), ddb, tidstore, &vcProvider{}, newInterceptor, &populator{})
 	err = ddb.BeginUpdate()
 	assert.NoError(t, err)
 	err = ddb.SetState(ns, k1, []byte("v1"), 35, 1)
@@ -674,12 +725,10 @@ func TTestRun(t *testing.T, db1, db2 driver.VersionedPersistence) {
 	compare(t, ns, db1, db2)
 
 	// create 2 vaults
-	tidstore1, err := txidstore.NewSimpleTXIDStore[vc](db.Unversioned(db1), &vcProvider{})
+	vault1, err := newNonCachedVault(db1)
 	assert.NoError(t, err)
-	tidstore2, err := txidstore.NewSimpleTXIDStore[vc](db.Unversioned(db2), &vcProvider{})
+	vault2, err := newNonCachedVault(db2)
 	assert.NoError(t, err)
-	vault1 := vault.New[vc](logging.MustGetLogger("vault"), db1, tidstore1, &vcProvider{}, newInterceptor, &populator{})
-	vault2 := vault.New[vc](logging.MustGetLogger("vault"), db2, tidstore2, &vcProvider{}, newInterceptor, &populator{})
 
 	rws, err := vault1.NewRWSet(txid)
 	assert.NoError(t, err)
@@ -1060,4 +1109,46 @@ func compare(t *testing.T, ns string, db1, db2 driver.VersionedPersistence) {
 	}
 
 	assert.Equal(t, res1, res2)
+}
+
+func newCachedVault(ddb driver.VersionedPersistence) (*vault.Vault[vc], error) {
+	txidStore, err := txidstore.NewSimpleTXIDStore[vc](db.Unversioned(ddb), &vcProvider{})
+	if err != nil {
+		return nil, err
+	}
+	vaultLogger := logging.MustGetLogger("vault-logger")
+	return vault.New[vc](vaultLogger, ddb, txidstore.NewCache[vc](txidStore, secondcache.NewTyped[*txidstore.Entry[vc]](100), vaultLogger), &vcProvider{}, newInterceptor, &populator{}), nil
+}
+
+func newNonCachedVault(ddb driver.VersionedPersistence) (*vault.Vault[vc], error) {
+	txidStore, err := txidstore.NewSimpleTXIDStore[vc](db.Unversioned(ddb), &vcProvider{})
+	if err != nil {
+		return nil, err
+	}
+	return vault.New[vc](flogging.MustGetLogger("vault"), ddb, txidstore.NewNoCache[vc](txidStore), &vcProvider{}, newInterceptor, &populator{}), nil
+}
+
+func queryVault(v *vault.Vault[vc], ns, key, mkey string) ([]byte, map[string][]byte, int, int, error) {
+	qe, err := v.NewQueryExecutor()
+	defer qe.Done()
+	if err != nil {
+		return nil, nil, 0, 0, err
+	}
+	val, err := qe.GetState(ns, key)
+	if err != nil {
+		return nil, nil, 0, 0, err
+	}
+	mval, txNum, blkNum, err := qe.GetStateMetadata(ns, mkey)
+	if err != nil {
+		return nil, nil, 0, 0, err
+	}
+	return val, mval, int(txNum), int(blkNum), nil
+}
+
+type duplicateErrorPersistence struct {
+	driver.VersionedPersistence
+}
+
+func (db *duplicateErrorPersistence) SetState(string, string, []byte, uint64, uint64) error {
+	return driver.UniqueKeyViolation
 }

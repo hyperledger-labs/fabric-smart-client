@@ -33,6 +33,7 @@ type TXIDStoreReader[V ValidationCode] interface {
 type TXIDStore[V ValidationCode] interface {
 	TXIDStoreReader[V]
 	Set(txID core.TxID, code V, message string) error
+	Invalidate(txID core.TxID)
 }
 
 type TxInterceptor interface {
@@ -177,6 +178,7 @@ func (db *Vault[V]) CommitTX(txID core.TxID, block core.BlockNum, indexInBloc in
 		return errors.Wrapf(err, "failed storing writes")
 	} else if discarded {
 		db.logger.Infof("Discarded changes while storing writes as duplicates. Skipping...")
+		db.txIDStore.Invalidate(txID)
 		return nil
 	}
 
@@ -185,6 +187,7 @@ func (db *Vault[V]) CommitTX(txID core.TxID, block core.BlockNum, indexInBloc in
 		return errors.Wrapf(err, "failed storing meta writes")
 	} else if discarded {
 		db.logger.Infof("Discarded changes while storing meta writes as duplicates. Skipping...")
+		db.txIDStore.Invalidate(txID)
 		return nil
 	}
 
@@ -214,6 +217,7 @@ func (db *Vault[V]) setTxValid(txID core.TxID) (bool, error) {
 	}
 
 	if !errors2.HasCause(err, driver.UniqueKeyViolation) {
+		db.txIDStore.Invalidate(txID)
 		return true, err
 	}
 	return true, nil
