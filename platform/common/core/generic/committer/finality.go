@@ -12,11 +12,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -183,7 +182,7 @@ func (c *FinalityManager[V]) cloneListeners(txID core.TxID) []FinalityListener[V
 
 	txListeners := c.txIDListeners[txID]
 	clone := make([]FinalityListener[V], len(txListeners))
-	copy(clone[:len(txListeners)], txListeners)
+	copy(clone, txListeners)
 	delete(c.txIDListeners, txID)
 
 	return clone
