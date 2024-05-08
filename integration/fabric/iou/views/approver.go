@@ -82,7 +82,7 @@ func (i *ApproverView) Call(context view.Context) (interface{}, error) {
 	assert.NoError(err)
 	committer := ch.Committer()
 	assert.NoError(err, committer.AddFinalityListener(tx.ID(), NewFinalityListener(tx.ID(), driver.Valid, &wg)), "failed to add committer listener")
-	assert.Error(err, committer.AddFinalityListener("", NewFinalityListener(tx.ID(), driver.Valid, &wg)), "must have failed")
+	assert.Error(committer.AddFinalityListener("", NewFinalityListener(tx.ID(), driver.Valid, &wg)), "must have failed")
 
 	// Finally, the approver waits that the transaction completes its lifecycle
 	_, err = context.RunView(state.NewFinalityWithTimeoutView(tx, 1*time.Minute))
