@@ -15,6 +15,7 @@ import (
 func Topology(commType fsc.P2PCommunicationType, replicationOpts *integration.ReplicationOptions) []api.Topology {
 	// Create an empty FSC topology
 	topology := fsc.NewTopology()
+	topology.WebEnabled = true
 	topology.P2PCommunicationType = commType
 
 	// Add the initiator fsc node
