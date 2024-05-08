@@ -37,6 +37,7 @@ type Topology struct {
 	Templates            Templates            `yaml:"templates,omitempty"`
 	Monitoring           Monitoring           `yaml:"monitoring,omitempty"`
 	P2PCommunicationType P2PCommunicationType `yaml:"p2p_communication_type,omitempty"`
+	WebEnabled           bool                 `yaml:"web_enabled,omitempty"`
 }
 
 type Monitoring struct {
@@ -149,6 +150,10 @@ func (t *Topology) AddSDK(sdk api.SDK) {
 	for _, n := range t.Nodes {
 		n.AddSDK(sdk)
 	}
+}
+
+func (t *Topology) EnableWeb() {
+	t.WebEnabled = true
 }
 
 func (t *Topology) addNode(node *node.Node) *node.Node {

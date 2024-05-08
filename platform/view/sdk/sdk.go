@@ -206,12 +206,6 @@ func (p *SDK) Start(ctx context.Context) error {
 func (p *SDK) initWEBServer() error {
 	configProvider := view.GetConfigService(p.registry)
 
-	if !configProvider.GetBool("fsc.web.enabled") {
-		p.webServer = web2.NewDummyServer()
-		logger.Info("web server not enabled")
-		return nil
-	}
-
 	listenAddr := configProvider.GetString("fsc.web.address")
 
 	var tlsConfig web2.TLS
@@ -226,11 +220,16 @@ func (p *SDK) initWEBServer() error {
 		ClientAuth:        configProvider.GetBool("fsc.web.tls.clientAuthRequired"),
 		ClientCACertFiles: clientRootCAs,
 	}
-	p.webServer = web2.NewServer(web2.Options{
-		ListenAddress: listenAddr,
-		Logger:        logger,
-		TLS:           tlsConfig,
-	})
+	if !configProvider.GetBool("fsc.web.enabled") {
+		p.webServer = web2.NewDummyServer()
+		logger.Info("web server not enabled")
+	} else {
+		p.webServer = web2.NewServer(web2.Options{
+			ListenAddress: listenAddr,
+			Logger:        logger,
+			TLS:           tlsConfig,
+		})
+	}
 	h := web2.NewHttpHandler(logger)
 	p.webServer.RegisterHandler("/", h, true)
 	p.webHandler = h

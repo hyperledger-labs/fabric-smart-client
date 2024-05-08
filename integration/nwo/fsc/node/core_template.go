@@ -102,7 +102,7 @@ fsc:
         size: 200
   # HTML Server configuration for REST calls
   web:
-    enabled: true
+    enabled: {{ WebEnabled }}
     # HTTPS server listener address
     address: 0.0.0.0:{{ .NodePort Replica "Web" }}
     tls:
