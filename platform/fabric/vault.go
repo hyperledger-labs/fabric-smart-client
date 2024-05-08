@@ -177,6 +177,8 @@ func (c *Vault) StoreTransient(id string, tm TransientMap) error {
 	return c.metadataService.StoreTransient(id, fdriver.TransientMap(tm))
 }
 
+// DiscardTx discards the transaction with the given transaction id.
+// If no error occurs, invoking Status on the same transaction id will return the Invalid flag.
 func (c *Vault) DiscardTx(txID string, message string) error {
 	return c.committer.DiscardTx(txID, message)
 }
