@@ -185,6 +185,9 @@ func (c *Service) DiscardTx(txID string, message string) error {
 			}
 		} else {
 			logger.Debugf("Discarding transaction [%s] skipped, tx is unknown", txID)
+			if err := c.Vault.SetDiscarded(txID, message); err != nil {
+				logger.Errorf("failed setting tx discarded [%s] in vault: %s", txID, err)
+			}
 			return nil
 		}
 	}

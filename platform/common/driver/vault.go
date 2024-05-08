@@ -30,10 +30,14 @@ type Vault[V comparable] interface {
 	// by way of the supplied txid
 	GetRWSet(txid string, rwset []byte) (RWSet, error)
 
+	SetDiscarded(txID string, message string) error
+
 	Status(id string) (V, string, error)
 
 	Statuses(ids ...string) ([]TxValidationStatus[V], error)
 
+	// DiscardTx discards the transaction with the given transaction id.
+	// If no error occurs, invoking Status on the same transaction id will return the Invalid flag.
 	DiscardTx(id string, message string) error
 
 	CommitTX(id string, block uint64, index int) error
