@@ -30,6 +30,8 @@ type Vault[V comparable] interface {
 	// by way of the supplied txid
 	GetRWSet(txid string, rwset []byte) (RWSet, error)
 
+	SetDiscarded(txID string, message string) error
+
 	Status(id string) (V, string, error)
 
 	Statuses(ids ...string) ([]TxValidationStatus[V], error)

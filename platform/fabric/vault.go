@@ -178,7 +178,7 @@ func (c *Vault) StoreTransient(id string, tm TransientMap) error {
 }
 
 func (c *Vault) DiscardTx(txID string, message string) error {
-	return c.committer.DiscardTx(txID, message)
+	return c.vault.DiscardTx(txID, message)
 }
 
 func (c *Vault) CommitTX(txID string, block uint64, indexInBlock int) error {

@@ -105,6 +105,9 @@ func (v *Vault) DiscardTx(txID string, message string) error {
 		return v.Vault.DiscardTx(txID, message)
 	}
 	logger.Debugf("discarding transaction [%s], tx is unknown, set status to invalid", txID)
+	if err := v.Vault.SetDiscarded(txID, message); err != nil {
+		logger.Errorf("failed setting tx discarded [%s] in vault: %s", txID, err)
+	}
 	return nil
 }
 

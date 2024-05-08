@@ -267,6 +267,10 @@ func (db *Vault[V]) storeWrites(writes Writes, block core.BlockNum, indexInBloc 
 	return false, nil
 }
 
+func (db *Vault[V]) SetDiscarded(txID core.TxID, message string) error {
+	return db.setValidationCode(txID, db.vcProvider.Invalid(), message)
+}
+
 func (db *Vault[V]) SetBusy(txID core.TxID) error {
 	code, _, err := db.txIDStore.Get(txID)
 	if err != nil {
