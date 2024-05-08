@@ -272,8 +272,7 @@ func (c *committer) IsFinal(ctx context.Context, txID string) error {
 }
 
 func (c *committer) AddFinalityListener(txID string, listener driver.FinalityListener) error {
-	c.EventManager.AddListener(txID, listener)
-	return nil
+	return c.EventManager.AddListener(txID, listener)
 }
 
 func (c *committer) RemoveFinalityListener(txID string, listener driver.FinalityListener) error {

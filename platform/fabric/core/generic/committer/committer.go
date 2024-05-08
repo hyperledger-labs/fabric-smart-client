@@ -225,8 +225,7 @@ func (c *Service) CommitTX(txID string, block uint64, indexInBlock int, envelope
 }
 
 func (c *Service) AddFinalityListener(txID string, listener driver.FinalityListener) error {
-	c.EventManager.AddListener(txID, listener)
-	return nil
+	return c.EventManager.AddListener(txID, listener)
 }
 
 func (c *Service) RemoveFinalityListener(txID string, listener driver.FinalityListener) error {

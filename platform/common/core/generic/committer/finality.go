@@ -12,6 +12,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
@@ -19,9 +21,7 @@ import (
 
 const (
 	// How often to poll the vault for newly-committed transactions
-	checkVaultFrequency = 1 * time.Second
-	// Listeners that do not listen for a specific txID, but for all transactions
-	allListenersKey       = ""
+	checkVaultFrequency   = 1 * time.Second
 	defaultEventQueueSize = 1000
 )
 
@@ -74,7 +74,10 @@ func NewFinalityManager[V comparable](logger Logger, vault Vault[V], statuses ..
 	}
 }
 
-func (c *FinalityManager[V]) AddListener(txID core.TxID, toAdd FinalityListener[V]) {
+func (c *FinalityManager[V]) AddListener(txID core.TxID, toAdd FinalityListener[V]) error {
+	if len(txID) == 0 {
+		return errors.Errorf("tx id must be not empty")
+	}
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
@@ -83,6 +86,8 @@ func (c *FinalityManager[V]) AddListener(txID core.TxID, toAdd FinalityListener[
 		ls = []FinalityListener[V]{}
 	}
 	c.txIDListeners[txID] = append(ls, toAdd)
+
+	return nil
 }
 
 func (c *FinalityManager[V]) RemoveListener(txID core.TxID, toRemove FinalityListener[V]) {
@@ -177,10 +182,8 @@ func (c *FinalityManager[V]) cloneListeners(txID core.TxID) []FinalityListener[V
 	defer c.mutex.RUnlock()
 
 	txListeners := c.txIDListeners[txID]
-	allListeners := c.txIDListeners[allListenersKey]
-	clone := make([]FinalityListener[V], len(txListeners)+len(allListeners))
+	clone := make([]FinalityListener[V], len(txListeners))
 	copy(clone[:len(txListeners)], txListeners)
-	copy(clone[len(txListeners):], allListeners)
 	delete(c.txIDListeners, txID)
 
 	return clone
@@ -190,17 +193,5 @@ func (c *FinalityManager[V]) txIDs() []core.TxID {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
-	allListenersKeyOffset := 0
-	if _, ok := c.txIDListeners[allListenersKey]; ok {
-		allListenersKeyOffset = 1
-	}
-	res := make([]core.TxID, len(c.txIDListeners)-allListenersKeyOffset)
-	i := 0
-	for k := range c.txIDListeners {
-		if len(k) != 0 {
-			res[i] = k
-			i++
-		}
-	}
-	return res
+	return utils.Keys(c.txIDListeners)
 }

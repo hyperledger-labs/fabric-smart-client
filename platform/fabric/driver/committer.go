@@ -88,8 +88,10 @@ type Committer interface {
 	// a list of dependant transaction ids if they exist.
 	Status(txID string) (ValidationCode, string, error)
 
-	// AddFinalityListener registers a listener for transaction status changes for the passed transaction id.
-	// If the transaction id is empty, the listener will be called for all transactions.
+	// AddFinalityListener registers a listener for transaction status for the passed transaction id.
+	// If the status is already valid or invalid, the listener is called immediately.
+	// When the listener is invoked, then it is also removed.
+	// The transaction id must not be empty.
 	AddFinalityListener(txID string, listener FinalityListener) error
 
 	// RemoveFinalityListener unregisters the passed listener.

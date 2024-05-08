@@ -39,8 +39,7 @@ func (c *Committer) Status(txID string) (ValidationCode, string, error) {
 // AddFinalityListener registers a listener for transaction status for the passed transaction id.
 // If the status is already valid or invalid, the listener is called immediately.
 // When the listener is invoked, then it is also removed.
-// If the transaction id is empty, the listener will be called on status changes of any transaction.
-// In this case, the listener is not removed
+// The transaction id must not be empty.
 func (c *Committer) AddFinalityListener(txID string, listener FinalityListener) error {
 	return c.committer.AddFinalityListener(txID, listener)
 }
