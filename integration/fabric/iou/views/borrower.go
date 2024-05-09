@@ -138,7 +138,7 @@ func (u UpdateIOUView) Call(context view.Context) (interface{}, error) {
 
 	// Check committer events
 	var wg sync.WaitGroup
-	wg.Add(2)
+	wg.Add(1)
 	_, ch, err := fabric.GetDefaultChannel(context)
 	assert.NoError(err)
 	committer := ch.Committer()
