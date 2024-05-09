@@ -70,12 +70,11 @@ func (i *CreateIOUView) Call(context view.Context) (interface{}, error) {
 
 	// Check committer events
 	var wg sync.WaitGroup
-	wg.Add(2)
+	wg.Add(1)
 	_, ch, err := fabric.GetDefaultChannel(context)
 	assert.NoError(err)
 	committer := ch.Committer()
 	assert.NoError(err, committer.AddFinalityListener(tx.ID(), NewFinalityListener(tx.ID(), driver.Valid, &wg)), "failed to add committer listener")
-	assert.NoError(err, committer.AddFinalityListener("", NewFinalityListener(tx.ID(), driver.Valid, &wg)), "failed to add committer listener")
 
 	// At this point the borrower can send the transaction to the ordering service and wait for finality.
 	_, err = context.RunView(state.NewOrderingAndFinalityWithTimeoutView(tx, 1*time.Minute))
@@ -139,12 +138,11 @@ func (u UpdateIOUView) Call(context view.Context) (interface{}, error) {
 
 	// Check committer events
 	var wg sync.WaitGroup
-	wg.Add(2)
+	wg.Add(1)
 	_, ch, err := fabric.GetDefaultChannel(context)
 	assert.NoError(err)
 	committer := ch.Committer()
 	assert.NoError(err, committer.AddFinalityListener(tx.ID(), NewFinalityListener(tx.ID(), driver.Valid, &wg)), "failed to add committer listener")
-	assert.NoError(err, committer.AddFinalityListener("", NewFinalityListener(tx.ID(), driver.Valid, &wg)), "failed to add committer listener")
 
 	// At this point the borrower can send the transaction to the ordering service and wait for finality.
 	_, err = context.RunView(state.NewOrderingAndFinalityWithTimeoutView(tx, 1*time.Minute))
