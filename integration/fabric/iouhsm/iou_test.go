@@ -12,7 +12,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iouhsm"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	fabric "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/postgres"
 	. "github.com/onsi/ginkgo/v2"
 )
 
@@ -37,9 +37,9 @@ var _ = Describe("EndToEnd", func() {
 				"borrower": 3,
 				"lender":   2,
 			},
-			SQLConfigs: map[string]*sql.PostgresConfig{
-				"borrower": sql.DefaultConfig("borrower-db"),
-				"lender":   sql.DefaultConfig("lender-db"),
+			SQLConfigs: map[string]*postgres.PostgresConfig{
+				"borrower": postgres.DefaultConfig("borrower-db"),
+				"lender":   postgres.DefaultConfig("lender-db"),
 			},
 		})
 		BeforeEach(s.Setup)

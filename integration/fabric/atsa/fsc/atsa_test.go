@@ -10,7 +10,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/fsc"
 	fsc2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	fabric "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/postgres"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -46,9 +46,9 @@ var _ = Describe("EndToEnd", func() {
 					"bob":       2,
 					"approvers": 2,
 				},
-				SQLConfigs: map[string]*sql.PostgresConfig{
-					"alice": sql.DefaultConfig("alice-db"),
-					"bob":   sql.DefaultConfig("bob-db"),
+				SQLConfigs: map[string]*postgres.PostgresConfig{
+					"alice": postgres.DefaultConfig("alice-db"),
+					"bob":   postgres.DefaultConfig("bob-db"),
 				},
 			})
 

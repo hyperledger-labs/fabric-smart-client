@@ -16,6 +16,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
+	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/postgres"
 	"github.com/pkg/errors"
 )
 
@@ -46,15 +48,15 @@ func openBadger[V any](tempDir, dir string, open opener[V]) (V, error) {
 	return open("badger", filepath.Join(tempDir, dir), c)
 }
 
-type dbConfig sql.Opts
+type dbConfig common.Opts
 
 func (c *dbConfig) IsSet(string) bool { panic("not supported") }
 func (c *dbConfig) UnmarshalKey(key string, rawVal interface{}) error {
 	if len(key) > 0 {
 		return errors.New("invalid key")
 	}
-	if val, ok := rawVal.(*sql.Opts); ok {
-		*val = sql.Opts(*c)
+	if val, ok := rawVal.(*common.Opts); ok {
+		*val = common.Opts(*c)
 		return nil
 	}
 	return errors.New("invalid pointer type")
@@ -87,14 +89,14 @@ func OpenPostgres(name string) (driver.Persistence, func(), error) {
 }
 
 func openPostgres[V any](name string, open driverOpener[V]) (V, func(), error) {
-	postgresConfig := sql.DefaultConfig(fmt.Sprintf("%s-db", name))
+	postgresConfig := common2.DefaultConfig(fmt.Sprintf("%s-db", name))
 	conf := &dbConfig{
 		Driver:       "postgres",
 		DataSource:   postgresConfig.DataSource(),
 		MaxOpenConns: 50,
 		SkipPragmas:  false,
 	}
-	terminate, err := sql.StartPostgresWithFmt(map[string]*sql.PostgresConfig{name: postgresConfig})
+	terminate, err := common2.StartPostgresWithFmt(map[string]*common2.PostgresConfig{name: postgresConfig})
 	if err != nil {
 		return utils.Zero[V](), func() {}, err
 	}
