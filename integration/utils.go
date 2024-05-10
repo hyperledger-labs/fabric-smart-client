@@ -12,7 +12,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/postgres"
 	. "github.com/onsi/gomega"
 )
 
@@ -20,7 +20,7 @@ var NoReplication = &ReplicationOptions{}
 
 type ReplicationOptions struct {
 	ReplicationFactors map[string]int
-	SQLConfigs         map[string]*sql.PostgresConfig
+	SQLConfigs         map[string]*postgres.PostgresConfig
 }
 
 func (o *ReplicationOptions) For(name string) []node.Option {
@@ -38,7 +38,7 @@ func NewTestSuite(generator func() (*Infrastructure, error)) *TestSuite {
 	return NewTestSuiteWithSQL(nil, generator)
 }
 
-func NewTestSuiteWithSQL(sqlConfigs map[string]*sql.PostgresConfig, generator func() (*Infrastructure, error)) *TestSuite {
+func NewTestSuiteWithSQL(sqlConfigs map[string]*postgres.PostgresConfig, generator func() (*Infrastructure, error)) *TestSuite {
 	return &TestSuite{
 		sqlConfigs: sqlConfigs,
 		generator:  generator,
@@ -47,7 +47,7 @@ func NewTestSuiteWithSQL(sqlConfigs map[string]*sql.PostgresConfig, generator fu
 }
 
 type TestSuite struct {
-	sqlConfigs map[string]*sql.PostgresConfig
+	sqlConfigs map[string]*postgres.PostgresConfig
 	generator  func() (*Infrastructure, error)
 
 	closeFunc func()
@@ -62,7 +62,7 @@ func (s *TestSuite) TearDown() {
 func (s *TestSuite) Setup() {
 	logger.Warnf("setting up for: %v", s.sqlConfigs)
 	if len(s.sqlConfigs) > 0 {
-		closeFunc, err := sql.StartPostgresWithFmt(s.sqlConfigs)
+		closeFunc, err := postgres.StartPostgresWithFmt(s.sqlConfigs)
 		Expect(err).NotTo(HaveOccurred())
 		s.closeFunc = closeFunc
 	}

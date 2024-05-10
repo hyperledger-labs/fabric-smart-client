@@ -131,3 +131,31 @@ type Driver interface {
 	// New returns a new Persistence for the passed data source and config
 	New(dataSourceName string, config Config) (Persistence, error)
 }
+
+type ColumnKey = string
+type Topic string
+type Operation int
+
+const (
+	Unknown Operation = iota
+	Delete
+	Insert
+	Update
+)
+
+type TriggerCallback func(Operation, map[ColumnKey]string)
+
+type notifier interface {
+	Subscribe(topic Topic, callback TriggerCallback) error
+	UnsubscribeAll(topic Topic) error
+}
+
+type UnversionedNotifier interface {
+	Persistence
+	notifier
+}
+
+type VersionedNotifier interface {
+	VersionedPersistence
+	notifier
+}

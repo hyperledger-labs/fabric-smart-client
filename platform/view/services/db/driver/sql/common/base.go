@@ -4,7 +4,7 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package sql
+package common
 
 import (
 	"database/sql"
@@ -12,8 +12,11 @@ import (
 	"runtime/debug"
 	"sync"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/pkg/errors"
 )
+
+var logger = flogging.MustGetLogger("db.driver.sql")
 
 type base struct {
 	writeDB    *sql.DB
@@ -123,4 +126,13 @@ func (db *base) DeleteState(ns, key string) error {
 	}
 
 	return nil
+}
+
+type Opts struct {
+	Driver          string
+	DataSource      string
+	TablePrefix     string
+	SkipCreateTable bool
+	SkipPragmas     bool
+	MaxOpenConns    int
 }
