@@ -37,6 +37,8 @@ type Topology struct {
 	Templates            Templates            `yaml:"templates,omitempty"`
 	Monitoring           Monitoring           `yaml:"monitoring,omitempty"`
 	P2PCommunicationType P2PCommunicationType `yaml:"p2p_communication_type,omitempty"`
+	// WebEnabled is used to activate the FSC web server
+	WebEnabled bool `yaml:"web_enabled,omitempty"`
 }
 
 type Monitoring struct {

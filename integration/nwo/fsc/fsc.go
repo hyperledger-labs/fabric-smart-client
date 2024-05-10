@@ -476,6 +476,7 @@ func (p *Platform) GenerateCoreConfig(peer *node2.Replica) {
 		"NodeKVSPersistenceType": func() string { return GetPersistenceType(peer.Peer) },
 		"NodeKVSSQLDataSource":   func() string { return GetPersistenceDataSource(peer.Peer) },
 		"Resolvers":              func() []*Resolver { return resolvers },
+		"WebEnabled":             func() bool { return p.Topology.WebEnabled },
 	}).Parse(p.Topology.Templates.CoreTemplate())
 	Expect(err).NotTo(HaveOccurred())
 	Expect(t.Execute(io.MultiWriter(core), p)).NotTo(HaveOccurred())
