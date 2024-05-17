@@ -1047,7 +1047,7 @@ func (n *Network) peerCommand(command common.Command, tlsDir string, env ...stri
 		cmd.Args = append(cmd.Args, "--keyfile", keyfilePath)
 	}
 
-	cmd.Args = append(cmd.Args, "--logging-level", n.Logging.Spec)
+	cmd.Env = append(cmd.Env, fmt.Sprintf("FABRIC_LOGGING_SPEC=%s", n.Logging.Spec))
 
 	// In case we have a peer invoke with multiple certificates,
 	// we need to mimic the correct peer CLI usage,

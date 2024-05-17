@@ -550,7 +550,7 @@ func (p *Platform) fscNodeCommand(node *node2.Replica, command common.Command, t
 		cmd.Args = append(cmd.Args, "--keyfile", keyfilePath)
 	}
 
-	cmd.Args = append(cmd.Args, "--logging-level", p.Topology.Logging.Spec)
+	cmd.Env = append(cmd.Env, fmt.Sprintf("FSCNODE_LOGGING_SPEC=%s", p.Topology.Logging.Spec))
 
 	return cmd
 }
