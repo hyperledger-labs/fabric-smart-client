@@ -9,15 +9,13 @@ package node
 import (
 	"os"
 
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
-
 	node2 "github.com/hyperledger-labs/fabric-smart-client/node/node"
 	"github.com/hyperledger-labs/fabric-smart-client/node/version"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/api"
 	node3 "github.com/hyperledger-labs/fabric-smart-client/pkg/node"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"github.com/spf13/cobra"
 )
 
 var logger = flogging.MustGetLogger("fsc")
@@ -61,14 +59,6 @@ func newFromFsc(fscNode FabricSmartClient) *node {
 		mainCmd:           mainCmd,
 		callbackChannel:   make(chan error, 1),
 	}
-
-	// Define command-line flags that are valid for all peer commands and
-	// subcommands.
-	mainFlags := mainCmd.PersistentFlags()
-
-	mainFlags.String("logging-level", "", "Legacy logging level flag")
-	viper.BindPFlag("logging_level", mainFlags.Lookup("logging-level"))
-	mainFlags.MarkHidden("logging-level")
 
 	mainCmd.AddCommand(version.Cmd())
 	mainCmd.AddCommand(node2.Cmd(node))
