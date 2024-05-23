@@ -10,11 +10,14 @@ import (
 	"testing"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/dbtest"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	_ "github.com/lib/pq"
 	_ "modernc.org/sqlite"
 )
 
-func TestCases(t *testing.T, versionedProvider func(name string) (*Persistence, error), unversionedProvider func(name string) (*Unversioned, error)) {
+type provider[V any] func(name string) (V, error)
+
+func TestCases(t *testing.T, versionedProvider provider[*Persistence], unversionedProvider provider[*Unversioned], unversionedNotifierProvider provider[driver.UnversionedNotifier], versionedNotifierProvider provider[driver.VersionedNotifier]) {
 	for _, c := range dbtest.Cases {
 		db, err := versionedProvider(c.Name)
 		if err != nil {
@@ -43,6 +46,26 @@ func TestCases(t *testing.T, versionedProvider func(name string) (*Persistence, 
 		t.Run(c.Name, func(xt *testing.T) {
 			defer un.Close()
 			c.Fn(xt, un.readDB, un.writeDB, un.errorWrapper, un.table)
+		})
+	}
+	for _, c := range dbtest.UnversionedNotifierCases {
+		un, err := unversionedNotifierProvider(c.Name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Run(c.Name, func(xt *testing.T) {
+			defer un.Close()
+			c.Fn(xt, un)
+		})
+	}
+	for _, c := range dbtest.VersionedNotifierCases {
+		un, err := versionedNotifierProvider(c.Name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Run(c.Name, func(xt *testing.T) {
+			defer un.Close()
+			c.Fn(xt, un)
 		})
 	}
 }

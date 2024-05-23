@@ -132,9 +132,11 @@ type Driver interface {
 	New(dataSourceName string, config Config) (Persistence, error)
 }
 
-type ColumnKey = string
-type Topic string
-type Operation int
+type (
+	ColumnKey       = string
+	TriggerCallback func(Operation, map[ColumnKey]string)
+	Operation       int
+)
 
 const (
 	Unknown Operation = iota
@@ -143,18 +145,17 @@ const (
 	Update
 )
 
-type TriggerCallback func(Operation, map[ColumnKey]string)
-
 type notifier interface {
-	Subscribe(topic Topic, callback TriggerCallback) error
-	UnsubscribeAll(topic Topic) error
+	// Subscribe registers a listener for when a value is inserted/updated/deleted in the given table
+	Subscribe(callback TriggerCallback) error
+	// UnsubscribeAll removes all registered listeners for the given table
+	UnsubscribeAll() error
 }
 
 type UnversionedNotifier interface {
 	Persistence
 	notifier
 }
-
 type VersionedNotifier interface {
 	VersionedPersistence
 	notifier

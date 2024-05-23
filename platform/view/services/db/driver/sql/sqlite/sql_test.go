@@ -11,46 +11,42 @@ import (
 	"path"
 	"testing"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
 	_ "github.com/lib/pq"
+	"github.com/stretchr/testify/assert"
 	_ "modernc.org/sqlite"
 )
 
 func TestSqlite(t *testing.T) {
 	tempDir := t.TempDir()
 	common2.TestCases(t, func(name string) (*common2.Persistence, error) {
-		return initSqliteVersioned(tempDir, name)
+		p, err := NewVersionedPersistence(versionedOpts(name, tempDir), "test")
+		assert.NoError(t, err)
+		assert.NoError(t, p.CreateSchema())
+		return p, nil
 	}, func(name string) (*common2.Unversioned, error) {
-		return initSqliteUnversioned(tempDir, name)
+		p, err := NewUnversionedPersistence(unversionedOpts(name, tempDir), "test")
+		assert.NoError(t, err)
+		assert.NoError(t, p.CreateSchema())
+		return p, nil
+	}, func(name string) (driver.UnversionedNotifier, error) {
+		p, err := NewUnversionedPersistenceNotifier(unversionedOpts(name, tempDir), "test")
+		assert.NoError(t, err)
+		assert.NoError(t, p.Persistence.CreateSchema())
+		return p, nil
+	}, func(name string) (driver.VersionedNotifier, error) {
+		p, err := NewVersionedPersistenceNotifier(versionedOpts(name, tempDir), "test")
+		assert.NoError(t, err)
+		assert.NoError(t, p.Persistence.CreateSchema())
+		return p, nil
 	})
 }
-func initSqliteVersioned(tempDir, name string) (*common2.Persistence, error) {
-	p, err := NewPersistence(common2.Opts{
-		Driver:       "sqlite",
-		DataSource:   fmt.Sprintf("%s.sqlite", path.Join(tempDir, name)),
-		MaxOpenConns: 0,
-		SkipPragmas:  false,
-	}, "test")
-	if err != nil {
-		return nil, err
-	}
-	if err := p.CreateSchema(); err != nil {
-		return nil, err
-	}
-	return p, nil
+
+func unversionedOpts(name string, tempDir string) common2.Opts {
+	return common2.Opts{DataSource: fmt.Sprintf("file:%s.sqlite?_pragma=busy_timeout(1000)", path.Join(tempDir, name))}
 }
-func initSqliteUnversioned(tempDir, name string) (*common2.Unversioned, error) {
-	p, err := NewUnversioned(common2.Opts{
-		Driver:       "sqlite",
-		DataSource:   fmt.Sprintf("file:%s.sqlite?_pragma=busy_timeout(1000)", path.Join(tempDir, name)),
-		MaxOpenConns: 0,
-		SkipPragmas:  false,
-	}, "test")
-	if err != nil {
-		return nil, err
-	}
-	if err := p.CreateSchema(); err != nil {
-		return nil, fmt.Errorf("can't create schema: %w", err)
-	}
-	return p, nil
+
+func versionedOpts(name string, tempDir string) common2.Opts {
+	return common2.Opts{DataSource: fmt.Sprintf("%s.sqlite", path.Join(tempDir, name))}
 }
