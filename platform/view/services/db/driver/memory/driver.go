@@ -14,7 +14,7 @@ import (
 type Driver struct{}
 
 // NewTransactionalVersionedPersistence returns a new TransactionalVersionedPersistence for the passed data source and config
-func (v *Driver) NewTransactionalVersionedPersistence(string, driver.Config) (driver.TransactionalVersionedPersistence, error) {
+func (v *Driver) NewTransactionalVersioned(string, driver.Config) (driver.TransactionalVersionedPersistence, error) {
 	panic("not supported")
 }
 
@@ -22,7 +22,7 @@ func (v *Driver) NewVersioned(string, driver.Config) (driver.VersionedPersistenc
 	return NewVersionedPersistence(), nil
 }
 
-func (v *Driver) New(string, driver.Config) (driver.Persistence, error) {
+func (v *Driver) NewUnversioned(string, driver.Config) (driver.UnversionedPersistence, error) {
 	return NewUnversionedPersistence(), nil
 }
 

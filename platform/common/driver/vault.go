@@ -6,6 +6,23 @@ SPDX-License-Identifier: Apache-2.0
 
 package driver
 
+import "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+
+var (
+	DeadlockDetected   = driver.DeadlockDetected
+	UniqueKeyViolation = driver.UniqueKeyViolation
+)
+
+type (
+	QueryExecutor              = driver.QueryExecutor
+	VersionedPersistence       = driver.VersionedPersistence
+	VersionedValue             = driver.VersionedValue
+	VersionedRead              = driver.VersionedRead
+	VersionedResultsIterator   = driver.VersionedResultsIterator
+	UnversionedPersistence     = driver.UnversionedPersistence
+	UnversionedResultsIterator = driver.UnversionedResultsIterator
+)
+
 type TxValidationStatus[V comparable] struct {
 	TxID           string
 	ValidationCode V

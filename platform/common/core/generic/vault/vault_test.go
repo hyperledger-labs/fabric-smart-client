@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger"
 	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
 	"github.com/stretchr/testify/assert"
@@ -19,10 +18,10 @@ import (
 
 //go:generate counterfeiter -o mocks/config.go -fake-name Config . config
 
-var removeNils func(items []driver.VersionedRead) []driver.VersionedRead
+var removeNils func(items []vault.VersionedRead) []vault.VersionedRead
 
 func TestMemory(t *testing.T) {
-	removeNils = func(items []driver.VersionedRead) []driver.VersionedRead { return items }
+	removeNils = func(items []vault.VersionedRead) []vault.VersionedRead { return items }
 	for _, c := range SingleDBCases {
 		ddb, err := vault.OpenMemoryVersioned()
 		assert.NoError(t, err)
@@ -46,7 +45,7 @@ func TestMemory(t *testing.T) {
 }
 
 func TestBadger(t *testing.T) {
-	removeNils = func(items []driver.VersionedRead) []driver.VersionedRead { return items }
+	removeNils = func(items []vault.VersionedRead) []vault.VersionedRead { return items }
 	//for _, c := range SingleDBCases {
 	//	ddb, terminate, err := vault.OpenBadgerVersioned(t.TempDir(), "DB-TestVaultBadgerDB1")
 	//	assert.NoError(t, err)
@@ -70,8 +69,8 @@ func TestBadger(t *testing.T) {
 }
 
 func TestSqlite(t *testing.T) {
-	removeNils = func(items []driver.VersionedRead) []driver.VersionedRead {
-		return slices.DeleteFunc(items, func(e driver.VersionedRead) bool { return e.Raw == nil })
+	removeNils = func(items []vault.VersionedRead) []vault.VersionedRead {
+		return slices.DeleteFunc(items, func(e vault.VersionedRead) bool { return e.Raw == nil })
 	}
 
 	for _, c := range SingleDBCases {
@@ -97,8 +96,8 @@ func TestSqlite(t *testing.T) {
 }
 
 func TestPostgres(t *testing.T) {
-	removeNils = func(items []driver.VersionedRead) []driver.VersionedRead {
-		return slices.DeleteFunc(items, func(e driver.VersionedRead) bool { return e.Raw == nil })
+	removeNils = func(items []vault.VersionedRead) []vault.VersionedRead {
+		return slices.DeleteFunc(items, func(e vault.VersionedRead) bool { return e.Raw == nil })
 	}
 
 	for _, c := range SingleDBCases {

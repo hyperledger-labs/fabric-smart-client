@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger"
 	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
 	"github.com/pkg/errors"
@@ -82,7 +81,7 @@ func TestTXIDStorePostgres(t *testing.T) {
 	testAll(t, db)
 }
 
-func testAll(t *testing.T, db driver.Persistence) {
+func testAll(t *testing.T, db UnversionedPersistence) {
 	assert.NotNil(t, db)
 	store, err := NewSimpleTXIDStore[vc](db, &vcProvider{})
 	assert.NoError(t, err)

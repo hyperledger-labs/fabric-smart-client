@@ -36,27 +36,27 @@ type dbObject interface {
 
 type persistenceConstructor[V dbObject] func(common.Opts, string) (V, error)
 
-var versionedConstructors = map[string]persistenceConstructor[*common.Persistence]{
+var versionedConstructors = map[string]persistenceConstructor[*common.VersionedPersistence]{
 	"postgres": postgres.NewPersistence,
 	"sqlite":   sqlite.NewVersionedPersistence,
 }
 
-var unversionedConstructors = map[string]persistenceConstructor[*common.Unversioned]{
+var unversionedConstructors = map[string]persistenceConstructor[*common.UnversionedPersistence]{
 	"postgres": postgres.NewUnversioned,
 	"sqlite":   sqlite.NewUnversionedPersistence,
 }
 
 func (d *Driver) NewVersioned(dataSourceName string, config driver.Config) (driver.VersionedPersistence, error) {
-	return d.NewTransactionalVersionedPersistence(dataSourceName, config)
+	return d.NewTransactionalVersioned(dataSourceName, config)
 }
 
 // NewTransactionalVersionedPersistence returns a new TransactionalVersionedPersistence for the passed data source and config
-func (d *Driver) NewTransactionalVersionedPersistence(dataSourceName string, config driver.Config) (driver.TransactionalVersionedPersistence, error) {
-	return newPersistence[*common.Persistence](dataSourceName, config, versionedConstructors)
+func (d *Driver) NewTransactionalVersioned(dataSourceName string, config driver.Config) (driver.TransactionalVersionedPersistence, error) {
+	return newPersistence[*common.VersionedPersistence](dataSourceName, config, versionedConstructors)
 }
 
-func (d *Driver) New(dataSourceName string, config driver.Config) (driver.Persistence, error) {
-	return newPersistence[*common.Unversioned](dataSourceName, config, unversionedConstructors)
+func (d *Driver) NewUnversioned(dataSourceName string, config driver.Config) (driver.UnversionedPersistence, error) {
+	return newPersistence[*common.UnversionedPersistence](dataSourceName, config, unversionedConstructors)
 }
 
 func newPersistence[V dbObject](dataSourceName string, config driver.Config, constructors map[string]persistenceConstructor[V]) (V, error) {

@@ -7,7 +7,11 @@ SPDX-License-Identifier: Apache-2.0
 package utils
 
 type Iterator[V any] interface {
+	// Next returns the next item in the result set. The `QueryResult` is expected to be nil when
+	// the iterator gets exhausted
 	Next() (V, error)
+
+	// Close releases resources occupied by the iterator
 	Close()
 }
 
@@ -27,3 +31,13 @@ func (it *mappedIterator[A, B]) Next() (B, error) {
 		return it.transformer(next)
 	}
 }
+
+func NewEmptyIterator[K any]() *emptyIterator[K] { return &emptyIterator[K]{zero: Zero[K]()} }
+
+type emptyIterator[K any] struct{ zero K }
+
+func (i *emptyIterator[K]) HasNext() bool { return false }
+
+func (i *emptyIterator[K]) Close() {}
+
+func (i *emptyIterator[K]) Next() (K, error) { return i.zero, nil }

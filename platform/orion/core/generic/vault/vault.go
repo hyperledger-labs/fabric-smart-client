@@ -12,7 +12,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault/txidstore"
 	odriver "github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/orion-server/pkg/types"
 	"github.com/pkg/errors"
@@ -25,12 +24,12 @@ type (
 	SimpleTXIDStore = txidstore.SimpleTXIDStore[odriver.ValidationCode]
 )
 
-func NewSimpleTXIDStore(persistence driver.Persistence) (*SimpleTXIDStore, error) {
+func NewSimpleTXIDStore(persistence txidstore.UnversionedPersistence) (*SimpleTXIDStore, error) {
 	return txidstore.NewSimpleTXIDStore[odriver.ValidationCode](persistence, &odriver.ValidationCodeProvider{})
 }
 
 // New returns a new instance of Vault
-func New(store driver.VersionedPersistence, txIDStore TXIDStore) *Vault {
+func New(store vault.VersionedPersistence, txIDStore TXIDStore) *Vault {
 	return vault.New[odriver.ValidationCode](flogging.MustGetLogger("orion-sdk.generic.vault"), store, txIDStore, &odriver.ValidationCodeProvider{}, newInterceptor, &populator{})
 }
 
@@ -38,7 +37,7 @@ type Interceptor struct {
 	*vault.Interceptor[odriver.ValidationCode]
 }
 
-func newInterceptor(logger vault.Logger, qe vault.QueryExecutor, txidStore vault.TXIDStoreReader[odriver.ValidationCode], txid string) vault.TxInterceptor {
+func newInterceptor(logger vault.Logger, qe vault.VersionedQueryExecutor, txidStore vault.TXIDStoreReader[odriver.ValidationCode], txid string) vault.TxInterceptor {
 	return &Interceptor{Interceptor: vault.NewInterceptor[odriver.ValidationCode](logger, qe, txidStore, txid, &odriver.ValidationCodeProvider{})}
 }
 

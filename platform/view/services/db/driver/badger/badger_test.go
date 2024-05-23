@@ -98,11 +98,9 @@ func TestMarshallingErrors(t *testing.T) {
 	err = txn.Commit()
 	assert.NoError(t, err)
 
-	v, bn, tn, err := db.GetState(ns, key)
+	vv, err := db.GetState(ns, key)
 	assert.Contains(t, err.Error(), "could not unmarshal VersionedValue for key ")
-	assert.Equal(t, []byte(nil), v)
-	assert.Equal(t, uint64(0), bn)
-	assert.Equal(t, uint64(0), tn)
+	assert.Equal(t, driver.VersionedValue{}, vv)
 
 	m, bn, tn, err := db.GetStateMetadata(ns, key)
 	assert.Contains(t, err.Error(), "could not unmarshal VersionedValue for key")
@@ -120,11 +118,9 @@ func TestMarshallingErrors(t *testing.T) {
 	err = txn.Commit()
 	assert.NoError(t, err)
 
-	v, bn, tn, err = db.GetState(ns, key)
+	vv, err = db.GetState(ns, key)
 	assert.EqualError(t, err, "could not get value for key ns\x00key: invalid version, expected 1, got 34")
-	assert.Equal(t, []byte(nil), v)
-	assert.Equal(t, uint64(0), bn)
-	assert.Equal(t, uint64(0), tn)
+	assert.Equal(t, driver.VersionedValue{}, vv)
 
 	m, bn, tn, err = db.GetStateMetadata(ns, key)
 	assert.EqualError(t, err, "could not get value for key ns\x00key: invalid version, expected 1, got 34")

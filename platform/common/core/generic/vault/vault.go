@@ -12,8 +12,7 @@ import (
 
 	errors2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core"
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/pkg/errors"
 	"go.uber.org/atomic"
@@ -37,17 +36,30 @@ type TXIDStore[V ValidationCode] interface {
 }
 
 type TxInterceptor interface {
-	driver2.RWSet
+	driver.RWSet
 	IsClosed() bool
 	RWs() *ReadWriteSet
-	Reopen(qe QueryExecutor) error
+	Reopen(qe VersionedQueryExecutor) error
 }
 
 type Populator interface {
 	Populate(rws *ReadWriteSet, rwsetBytes []byte, namespaces ...core.Namespace) error
 }
 
-type NewInterceptorFunc[V ValidationCode] func(logger Logger, qe QueryExecutor, txidStore TXIDStoreReader[V], txid core.TxID) TxInterceptor
+type NewInterceptorFunc[V ValidationCode] func(logger Logger, qe VersionedQueryExecutor, txidStore TXIDStoreReader[V], txid core.TxID) TxInterceptor
+
+type (
+	VersionedPersistence     = driver.VersionedPersistence
+	VersionedValue           = driver.VersionedValue
+	VersionedRead            = driver.VersionedRead
+	VersionedResultsIterator = driver.VersionedResultsIterator
+	QueryExecutor            = driver.QueryExecutor
+)
+
+var (
+	DeadlockDetected   = driver.DeadlockDetected
+	UniqueKeyViolation = driver.UniqueKeyViolation
+)
 
 // Vault models a key-value Store that can be modified by committing rwsets
 type Vault[V ValidationCode] struct {
@@ -66,7 +78,7 @@ type Vault[V ValidationCode] struct {
 	//   (in case the transaction context is received from another node)),
 	//   it holds a read-lock; when Done is called on it, the lock is released.
 	// * an exclusive lock is held when Commit is called.
-	store      driver.VersionedPersistence
+	store      VersionedPersistence
 	storeLock  sync.RWMutex
 	vcProvider ValidationCodeProvider[V]
 
@@ -75,7 +87,7 @@ type Vault[V ValidationCode] struct {
 }
 
 // New returns a new instance of Vault
-func New[V ValidationCode](logger Logger, store driver.VersionedPersistence, txIDStore TXIDStore[V], vcProvider ValidationCodeProvider[V], newInterceptor NewInterceptorFunc[V], populator Populator) *Vault[V] {
+func New[V ValidationCode](logger Logger, store VersionedPersistence, txIDStore TXIDStore[V], vcProvider ValidationCodeProvider[V], newInterceptor NewInterceptorFunc[V], populator Populator) *Vault[V] {
 	return &Vault[V]{
 		logger:         logger,
 		Interceptors:   make(map[core.TxID]TxInterceptor),
@@ -87,7 +99,7 @@ func New[V ValidationCode](logger Logger, store driver.VersionedPersistence, txI
 	}
 }
 
-func (db *Vault[V]) NewQueryExecutor() (driver2.QueryExecutor, error) {
+func (db *Vault[V]) NewQueryExecutor() (QueryExecutor, error) {
 	db.logger.Debugf("getting lock for query executor")
 	db.counter.Inc()
 	db.storeLock.RLock()
@@ -172,7 +184,7 @@ func (db *Vault[V]) CommitTX(txID core.TxID, block core.BlockNum, indexInBloc in
 		if err == nil {
 			return nil
 		}
-		if !errors2.HasCause(err, driver.DeadlockDetected) {
+		if !errors2.HasCause(err, DeadlockDetected) {
 			// This should generate a panic
 			return err
 		}
@@ -232,7 +244,7 @@ func (db *Vault[V]) setTxValid(txID core.TxID) (bool, error) {
 		db.logger.Errorf("got error %s; discarding caused %s", err.Error(), err1.Error())
 	}
 
-	if !errors2.HasCause(err, driver.UniqueKeyViolation) {
+	if !errors2.HasCause(err, UniqueKeyViolation) {
 		db.txIDStore.Invalidate(txID)
 		return true, err
 	}
@@ -249,7 +261,7 @@ func (db *Vault[V]) storeMetaWrites(writes NamespaceKeyedMetaWrites, block core.
 					db.logger.Errorf("got error %s; discarding caused %s", err.Error(), err1.Error())
 				}
 
-				if !errors2.HasCause(err, driver.UniqueKeyViolation) {
+				if !errors2.HasCause(err, UniqueKeyViolation) {
 					return true, errors.Errorf("failed to commit metadata operation on %s:%s at height %d:%d", ns, key, block, indexInBloc)
 				} else {
 					return true, nil
@@ -266,7 +278,7 @@ func (db *Vault[V]) storeWrites(writes Writes, block core.BlockNum, indexInBloc 
 			db.logger.Debugf("Store write [%s,%s,%v]", ns, key, hash.Hashable(v).String())
 			var err error
 			if len(v) != 0 {
-				err = db.store.SetState(ns, key, v, block, indexInBloc)
+				err = db.store.SetState(ns, key, VersionedValue{Raw: v, Block: block, TxNum: indexInBloc})
 			} else {
 				err = db.store.DeleteState(ns, key)
 			}
@@ -276,7 +288,7 @@ func (db *Vault[V]) storeWrites(writes Writes, block core.BlockNum, indexInBloc 
 					db.logger.Errorf("got error %s; discarding caused %s", err.Error(), err1.Error())
 				}
 
-				if !errors2.HasCause(err, driver.UniqueKeyViolation) {
+				if !errors2.HasCause(err, UniqueKeyViolation) {
 					return true, errors.Wrapf(err, "failed to commit operation on [%s:%s] at height [%d:%d]", ns, key, block, indexInBloc)
 				} else {
 					return true, nil
@@ -354,7 +366,7 @@ func (db *Vault[V]) GetRWSet(txID core.TxID, rwsetBytes []byte) (TxInterceptor, 
 	return i, nil
 }
 
-func (db *Vault[V]) InspectRWSet(rwsetBytes []byte, namespaces ...core.Namespace) (driver2.RWSet, error) {
+func (db *Vault[V]) InspectRWSet(rwsetBytes []byte, namespaces ...core.Namespace) (driver.RWSet, error) {
 	i := NewInspector()
 
 	if err := db.populator.Populate(&i.Rws, rwsetBytes, namespaces...); err != nil {
@@ -414,17 +426,17 @@ func (db *Vault[V]) RWSExists(txID core.TxID) bool {
 	return in
 }
 
-func (db *Vault[V]) Statuses(txIDs ...core.TxID) ([]driver2.TxValidationStatus[V], error) {
+func (db *Vault[V]) Statuses(txIDs ...core.TxID) ([]driver.TxValidationStatus[V], error) {
 	it, err := db.txIDStore.Iterator(&SeekSet{TxIDs: txIDs})
 	if err != nil {
 		return nil, err
 	}
-	statuses := make([]driver2.TxValidationStatus[V], 0, len(txIDs))
+	statuses := make([]driver.TxValidationStatus[V], 0, len(txIDs))
 	for status, err := it.Next(); status != nil; status, err = it.Next() {
 		if err != nil {
 			return nil, err
 		}
-		statuses = append(statuses, driver2.TxValidationStatus[V]{
+		statuses = append(statuses, driver.TxValidationStatus[V]{
 			TxID:           status.TxID,
 			ValidationCode: status.Code,
 			Message:        status.Message,
@@ -439,7 +451,7 @@ func (db *Vault[V]) setValidationCode(txID core.TxID, code V, message string) er
 	}
 
 	if err := db.txIDStore.Set(txID, code, message); err != nil {
-		if !errors2.HasCause(err, driver.UniqueKeyViolation) {
+		if !errors2.HasCause(err, UniqueKeyViolation) {
 			return err
 		}
 	}

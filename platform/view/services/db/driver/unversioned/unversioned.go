@@ -15,12 +15,12 @@ type Unversioned struct {
 }
 
 func (db *Unversioned) SetState(namespace, key string, value []byte) error {
-	return db.Versioned.SetState(namespace, key, value, 0, 0)
+	return db.Versioned.SetState(namespace, key, driver.VersionedValue{Raw: value})
 }
 
 func (db *Unversioned) GetState(namespace, key string) ([]byte, error) {
-	bytes, _, _, err := db.Versioned.GetState(namespace, key)
-	return bytes, err
+	vv, err := db.Versioned.GetState(namespace, key)
+	return vv.Raw, err
 }
 
 func (db *Unversioned) DeleteState(namespace, key string) error {
@@ -31,7 +31,7 @@ type iterator struct {
 	itr driver.VersionedResultsIterator
 }
 
-func (i *iterator) Next() (*driver.Read, error) {
+func (i *iterator) Next() (*driver.UnversionedRead, error) {
 	r, err := i.itr.Next()
 	if err != nil {
 		return nil, err
@@ -41,7 +41,7 @@ func (i *iterator) Next() (*driver.Read, error) {
 		return nil, nil
 	}
 
-	return &driver.Read{
+	return &driver.UnversionedRead{
 		Key: r.Key,
 		Raw: r.Raw,
 	}, nil
@@ -51,7 +51,7 @@ func (i *iterator) Close() {
 	i.itr.Close()
 }
 
-func (db *Unversioned) GetStateRangeScanIterator(namespace string, startKey string, endKey string) (driver.ResultsIterator, error) {
+func (db *Unversioned) GetStateRangeScanIterator(namespace string, startKey string, endKey string) (driver.UnversionedResultsIterator, error) {
 	vitr, err := db.Versioned.GetStateRangeScanIterator(namespace, startKey, endKey)
 	if err != nil {
 		return nil, err
@@ -60,7 +60,7 @@ func (db *Unversioned) GetStateRangeScanIterator(namespace string, startKey stri
 	return &iterator{vitr}, nil
 }
 
-func (db *Unversioned) GetStateSetIterator(ns string, keys ...string) (driver.ResultsIterator, error) {
+func (db *Unversioned) GetStateSetIterator(ns string, keys ...string) (driver.UnversionedResultsIterator, error) {
 	vitr, err := db.Versioned.GetStateSetIterator(ns, keys...)
 	if err != nil {
 		return nil, err

@@ -13,6 +13,7 @@ import (
 
 	"github.com/dgraph-io/badger/v3"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	keys2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/keys"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
@@ -130,9 +131,9 @@ func (db *DB) Discard() error {
 	return nil
 }
 
-func (db *DB) SetState(namespace, key string, value []byte, block, txnum uint64) error {
-	if len(value) == 0 {
-		logger.Warnf("set key [%s:%d:%d] to nil value, will be deleted instead", key, block, txnum)
+func (db *DB) SetState(namespace core.Namespace, key string, value driver.VersionedValue) error {
+	if len(value.Raw) == 0 {
+		logger.Warnf("set key [%s:%d:%d] to nil value, will be deleted instead", key, value.Block, value.TxNum)
 		return db.DeleteState(namespace, key)
 	}
 
@@ -147,9 +148,9 @@ func (db *DB) SetState(namespace, key string, value []byte, block, txnum uint64)
 		return err
 	}
 
-	v.Value = value
-	v.Block = block
-	v.Txnum = txnum
+	v.Value = value.Raw
+	v.Block = value.Block
+	v.Txnum = value.TxNum
 
 	bytes, err := proto.Marshal(v)
 	if err != nil {
@@ -208,7 +209,7 @@ func (db *DB) DeleteState(namespace, key string) error {
 	return nil
 }
 
-func (db *DB) GetState(namespace, key string) ([]byte, uint64, uint64, error) {
+func (db *DB) GetState(namespace core.Namespace, key string) (driver.VersionedValue, error) {
 	dbKey := dbKey(namespace, key)
 
 	txn := db.db.NewTransaction(false)
@@ -216,24 +217,24 @@ func (db *DB) GetState(namespace, key string) ([]byte, uint64, uint64, error) {
 
 	v, err := txVersionedValue(txn, dbKey)
 	if err != nil {
-		return nil, 0, 0, err
+		return driver.VersionedValue{}, err
 	}
 
-	return v.Value, v.Block, v.Txnum, nil
+	return driver.VersionedValue{Raw: v.Value, Block: v.Block, TxNum: v.Txnum}, err
 }
 
 func (db *DB) GetStateSetIterator(ns string, keys ...string) (driver.VersionedResultsIterator, error) {
 	reads := make([]*driver.VersionedRead, len(keys))
 	for i, key := range keys {
-		value, blockNum, txNum, err := db.GetState(ns, key)
+		vv, err := db.GetState(ns, key)
 		if err != nil {
 			return nil, err
 		}
 		reads[i] = &driver.VersionedRead{
-			Key:          key,
-			Raw:          value,
-			Block:        blockNum,
-			IndexInBlock: int(txNum),
+			Key:   key,
+			Raw:   vv.Raw,
+			Block: vv.Block,
+			TxNum: vv.TxNum,
 		}
 	}
 	return &keys2.DummyVersionedIterator{Items: reads}, nil
@@ -266,7 +267,7 @@ type WriteTransaction struct {
 	txn *badger.Txn
 }
 
-func (w *WriteTransaction) SetState(namespace, key string, value []byte, block, txnum uint64) error {
+func (w *WriteTransaction) SetState(namespace core.Namespace, key string, value driver.VersionedValue) error {
 	if w.txn == nil {
 		panic("programming error, writing without ongoing update")
 	}
@@ -278,9 +279,9 @@ func (w *WriteTransaction) SetState(namespace, key string, value []byte, block, 
 		return err
 	}
 
-	v.Value = value
-	v.Block = block
-	v.Txnum = txnum
+	v.Value = value.Raw
+	v.Block = value.Block
+	v.Txnum = value.TxNum
 
 	bytes, err := proto.Marshal(v)
 	if err != nil {

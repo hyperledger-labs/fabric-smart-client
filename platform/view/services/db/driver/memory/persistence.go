@@ -20,7 +20,7 @@ func NewVersionedPersistenceNotifier(dataSourceName string, config driver.Config
 	return notifier.NewVersioned(NewVersionedPersistence())
 }
 
-func NewUnversionedPersistence() driver.Persistence {
+func NewUnversionedPersistence() driver.UnversionedPersistence {
 	return &unversioned.Unversioned{Versioned: NewVersionedPersistence()}
 }
 

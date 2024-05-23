@@ -21,7 +21,7 @@ var notifyOperations = []driver.Operation{driver.Insert, driver.Update, driver.D
 
 const driverName = "postgres"
 
-func NewUnversioned(opts common.Opts, table string) (*common.Unversioned, error) {
+func NewUnversioned(opts common.Opts, table string) (*common.UnversionedPersistence, error) {
 	readWriteDB, err := openDB(opts.DataSource, opts.MaxOpenConns)
 	if err != nil {
 		return nil, fmt.Errorf("error opening db: %w", err)
@@ -35,17 +35,17 @@ func NewUnversionedNotifier(opts common.Opts, table string) (*unversionedPersist
 		return nil, fmt.Errorf("error opening db: %w", err)
 	}
 	return &unversionedPersistenceNotifier{
-		Unversioned: common.NewUnversioned(readWriteDB, readWriteDB, table, &errorMapper{}),
-		notifier:    newNotifier(readWriteDB, table, opts.DataSource, notifyOperations, "ns", "pkey"),
+		UnversionedPersistence: common.NewUnversioned(readWriteDB, readWriteDB, table, &errorMapper{}),
+		notifier:               newNotifier(readWriteDB, table, opts.DataSource, notifyOperations, "ns", "pkey"),
 	}, nil
 }
 
-func NewPersistence(opts common.Opts, table string) (*common.Persistence, error) {
+func NewPersistence(opts common.Opts, table string) (*common.VersionedPersistence, error) {
 	readWriteDB, err := openDB(opts.DataSource, opts.MaxOpenConns)
 	if err != nil {
 		return nil, fmt.Errorf("error opening db: %w", err)
 	}
-	return common.NewPersistence(readWriteDB, readWriteDB, table, &errorMapper{}), nil
+	return common.NewVersionedPersistence(readWriteDB, readWriteDB, table, &errorMapper{}), nil
 }
 
 func NewPersistenceNotifier(opts common.Opts, table string) (*versionedPersistenceNotifier, error) {
@@ -54,8 +54,8 @@ func NewPersistenceNotifier(opts common.Opts, table string) (*versionedPersisten
 		return nil, fmt.Errorf("error opening db: %w", err)
 	}
 	return &versionedPersistenceNotifier{
-		Persistence: common.NewPersistence(readWriteDB, readWriteDB, table, &errorMapper{}),
-		notifier:    newNotifier(readWriteDB, table, opts.DataSource, notifyOperations, "ns", "pkey"),
+		VersionedPersistence: common.NewVersionedPersistence(readWriteDB, readWriteDB, table, &errorMapper{}),
+		notifier:             newNotifier(readWriteDB, table, opts.DataSource, notifyOperations, "ns", "pkey"),
 	}, nil
 }
 
