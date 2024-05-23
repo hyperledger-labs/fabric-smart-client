@@ -6,10 +6,6 @@ SPDX-License-Identifier: Apache-2.0
 
 package vault
 
-import (
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
-)
-
 // this file contains all structs that perform DB access. They
 // differ in terms of the results that they return. They are both
 // created with the assumption that a read lock on the vault is held.
@@ -21,12 +17,12 @@ type directQueryExecutor[V ValidationCode] struct {
 
 func (q *directQueryExecutor[V]) GetState(namespace string, key string) ([]byte, error) {
 	//logger.Debugf("Get State [%s,%s]", namespace, key)
-	v, _, _, err := q.vault.store.GetState(namespace, key)
+	vv, err := q.vault.store.GetState(namespace, key)
 	//logger.Debugf("Got State [%s,%s] -> [%v]", namespace, key, hash.Hashable(v).String())
-	return v, err
+	return vv.Raw, err
 }
 
-func (q *directQueryExecutor[V]) GetStateRangeScanIterator(namespace string, startKey string, endKey string) (driver.VersionedResultsIterator, error) {
+func (q *directQueryExecutor[V]) GetStateRangeScanIterator(namespace string, startKey string, endKey string) (VersionedResultsIterator, error) {
 	return q.vault.store.GetStateRangeScanIterator(namespace, startKey, endKey)
 }
 
@@ -52,6 +48,6 @@ func (i *interceptorQueryExecutor[V]) GetStateMetadata(namespace, key string) (m
 	return i.store.GetStateMetadata(namespace, key)
 }
 
-func (i *interceptorQueryExecutor[V]) GetState(namespace, key string) ([]byte, uint64, uint64, error) {
+func (i *interceptorQueryExecutor[V]) GetState(namespace, key string) (VersionedValue, error) {
 	return i.store.GetState(namespace, key)
 }

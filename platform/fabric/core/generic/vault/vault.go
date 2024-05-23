@@ -13,7 +13,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault/txidstore"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger/fabric-protos-go/ledger/rwset"
 	"github.com/hyperledger/fabric/core/ledger/kvledger/txmgmt/rwsetutil"
@@ -27,16 +26,16 @@ type (
 	SimpleTXIDStore = txidstore.SimpleTXIDStore[fdriver.ValidationCode]
 )
 
-func NewTXIDStore(persistence driver.Persistence) (*SimpleTXIDStore, error) {
+func NewTXIDStore(persistence txidstore.UnversionedPersistence) (*SimpleTXIDStore, error) {
 	return txidstore.NewSimpleTXIDStore[fdriver.ValidationCode](persistence, &fdriver.ValidationCodeProvider{})
 }
 
 // New returns a new instance of Vault
-func New(store driver.VersionedPersistence, txIDStore TXIDStore) *Vault {
+func New(store vault.VersionedPersistence, txIDStore TXIDStore) *Vault {
 	return vault.New[fdriver.ValidationCode](flogging.MustGetLogger("fabric-sdk.generic.vault"), store, txIDStore, &fdriver.ValidationCodeProvider{}, newInterceptor, &populator{})
 }
 
-func newInterceptor(logger vault.Logger, qe vault.QueryExecutor, txidStore TXIDStoreReader, txid string) vault.TxInterceptor {
+func newInterceptor(logger vault.Logger, qe vault.VersionedQueryExecutor, txidStore TXIDStoreReader, txid string) vault.TxInterceptor {
 	return vault.NewInterceptor[fdriver.ValidationCode](logger, qe, txidStore, txid, &fdriver.ValidationCodeProvider{})
 }
 

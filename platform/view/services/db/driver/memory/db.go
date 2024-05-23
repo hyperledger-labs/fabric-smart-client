@@ -11,6 +11,7 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/keys"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
@@ -46,13 +47,15 @@ func (r *rangeIterator) Next() (*driver.VersionedRead, error) {
 		return nil, nil
 	}
 
-	var err error
-	var idx uint64
-	kv := &driver.VersionedRead{Key: r.keys[r.cur]}
-	kv.Raw, kv.Block, idx, err = r.db.GetState(r.ns, r.keys[r.cur])
-	kv.IndexInBlock = int(idx)
+	vv, err := r.db.GetState(r.ns, r.keys[r.cur])
 	if err != nil {
 		return nil, err
+	}
+	kv := &driver.VersionedRead{
+		Key:   r.keys[r.cur],
+		Raw:   vv.Raw,
+		Block: vv.Block,
+		TxNum: vv.TxNum,
 	}
 
 	r.cur++
@@ -189,15 +192,15 @@ func (db *database) GetStateRangeScanIterator(namespace string, startKey string,
 func (db *database) GetStateSetIterator(ns string, ks ...string) (driver.VersionedResultsIterator, error) {
 	reads := make([]*driver.VersionedRead, len(ks))
 	for i, key := range ks {
-		value, blockNum, txNum, err := db.GetState(ns, key)
+		vv, err := db.GetState(ns, key)
 		if err != nil {
 			return nil, err
 		}
 		reads[i] = &driver.VersionedRead{
-			Key:          key,
-			Raw:          value,
-			Block:        blockNum,
-			IndexInBlock: int(txNum),
+			Key:   key,
+			Raw:   vv.Raw,
+			Block: vv.Block,
+			TxNum: vv.TxNum,
 		}
 	}
 	return &keys.DummyVersionedIterator{Items: reads}, nil
@@ -207,13 +210,13 @@ func (db *database) GetCachedStateRangeScanIterator(namespace string, startKey s
 	return db.GetStateRangeScanIterator(namespace, startKey, endKey)
 }
 
-func (db *database) GetState(namespace string, key string) ([]byte, uint64, uint64, error) {
+func (db *database) GetState(namespace core.Namespace, key string) (driver.VersionedValue, error) {
 	vv, in := db.mapForNamespaceForReading(namespace, false)[key]
 	if !in {
-		return nil, 0, 0, nil
+		return driver.VersionedValue{}, nil
 	}
 
-	return append([]byte(nil), vv.value...), vv.block, vv.txnum, nil
+	return driver.VersionedValue{Raw: append([]byte(nil), vv.value...), Block: vv.block, TxNum: vv.txnum}, nil
 }
 
 func (db *database) GetStateMetadata(namespace, key string) (map[string][]byte, uint64, uint64, error) {
@@ -229,9 +232,9 @@ func (db *database) GetStateMetadata(namespace, key string) (map[string][]byte, 
 	return metadata, vv.block, vv.txnum, nil
 }
 
-func (db *database) SetState(namespace string, key string, value []byte, block, txnum uint64) error {
-	if len(value) == 0 {
-		logger.Warnf("set key [%s:%d:%d] to nil value, will be deleted instead", key, block, txnum)
+func (db *database) SetState(namespace core.Namespace, key string, value driver.VersionedValue) error {
+	if len(value.Raw) == 0 {
+		logger.Warnf("set key [%s:%d:%d] to nil value, will be deleted instead", key, value.Block, value.TxNum)
 		return db.DeleteState(namespace, key)
 	}
 
@@ -252,9 +255,9 @@ func (db *database) SetState(namespace string, key string, value []byte, block, 
 		db.mapForNamespaceForWriting(namespace, true)[key] = vv
 	}
 
-	vv.block = block
-	vv.txnum = txnum
-	vv.value = append([]byte(nil), value...)
+	vv.block = value.Block
+	vv.txnum = value.TxNum
+	vv.value = append([]byte(nil), value.Raw...)
 
 	return nil
 }

@@ -53,7 +53,7 @@ func TestRangeQueriesMemory(t *testing.T) {
 	testRangeQueries(t, db)
 }
 
-func testRangeQueries(t *testing.T, db driver.Persistence) {
+func testRangeQueries(t *testing.T, db driver.UnversionedPersistence) {
 	var err error
 
 	ns := "namespace"
@@ -77,13 +77,13 @@ func testRangeQueries(t *testing.T, db driver.Persistence) {
 	defer itr.Close()
 	assert.NoError(t, err)
 
-	res := make([]driver.Read, 0, 4)
+	res := make([]driver.UnversionedRead, 0, 4)
 	for n, err := itr.Next(); n != nil; n, err = itr.Next() {
 		assert.NoError(t, err)
 		res = append(res, *n)
 	}
 	assert.Len(t, res, 4)
-	assert.Equal(t, []driver.Read{
+	assert.Equal(t, []driver.UnversionedRead{
 		{Key: "k1", Raw: []byte("k1_value")},
 		{Key: "k111", Raw: []byte("k111_value")},
 		{Key: "k2", Raw: []byte("k2_value")},
@@ -94,13 +94,13 @@ func testRangeQueries(t *testing.T, db driver.Persistence) {
 	defer itr.Close()
 	assert.NoError(t, err)
 
-	res = make([]driver.Read, 0, 3)
+	res = make([]driver.UnversionedRead, 0, 3)
 	for n, err := itr.Next(); n != nil; n, err = itr.Next() {
 		assert.NoError(t, err)
 		res = append(res, *n)
 	}
 	assert.Len(t, res, 3)
-	assert.Equal(t, []driver.Read{
+	assert.Equal(t, []driver.UnversionedRead{
 		{Key: "k1", Raw: []byte("k1_value")},
 		{Key: "k111", Raw: []byte("k111_value")},
 		{Key: "k2", Raw: []byte("k2_value")},
@@ -130,7 +130,7 @@ func TestSimpleReadWriteMemory(t *testing.T) {
 	testSimpleReadWrite(t, db)
 }
 
-func testSimpleReadWrite(t *testing.T, db driver.Persistence) {
+func testSimpleReadWrite(t *testing.T, db driver.UnversionedPersistence) {
 	ns := "ns"
 	key := "key"
 

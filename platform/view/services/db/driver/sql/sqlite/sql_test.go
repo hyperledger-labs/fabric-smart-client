@@ -20,12 +20,12 @@ import (
 
 func TestSqlite(t *testing.T) {
 	tempDir := t.TempDir()
-	common2.TestCases(t, func(name string) (*common2.Persistence, error) {
+	common2.TestCases(t, func(name string) (*common2.VersionedPersistence, error) {
 		p, err := NewVersionedPersistence(versionedOpts(name, tempDir), "test")
 		assert.NoError(t, err)
 		assert.NoError(t, p.CreateSchema())
 		return p, nil
-	}, func(name string) (*common2.Unversioned, error) {
+	}, func(name string) (*common2.UnversionedPersistence, error) {
 		p, err := NewUnversionedPersistence(unversionedOpts(name, tempDir), "test")
 		assert.NoError(t, err)
 		assert.NoError(t, p.CreateSchema())

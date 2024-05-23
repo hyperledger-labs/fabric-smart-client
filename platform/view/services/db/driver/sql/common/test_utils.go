@@ -17,7 +17,7 @@ import (
 
 type provider[V any] func(name string) (V, error)
 
-func TestCases(t *testing.T, versionedProvider provider[*Persistence], unversionedProvider provider[*Unversioned], unversionedNotifierProvider provider[driver.UnversionedNotifier], versionedNotifierProvider provider[driver.VersionedNotifier]) {
+func TestCases(t *testing.T, versionedProvider provider[*VersionedPersistence], unversionedProvider provider[*UnversionedPersistence], unversionedNotifierProvider provider[driver.UnversionedNotifier], versionedNotifierProvider provider[driver.VersionedNotifier]) {
 	for _, c := range dbtest.Cases {
 		db, err := versionedProvider(c.Name)
 		if err != nil {
@@ -45,7 +45,7 @@ func TestCases(t *testing.T, versionedProvider provider[*Persistence], unversion
 		}
 		t.Run(c.Name, func(xt *testing.T) {
 			defer un.Close()
-			c.Fn(xt, un.readDB, un.writeDB, un.errorWrapper, un.table)
+			c.Fn(xt, un.readDB, un.writeDB, un.basePersistence.errorWrapper, un.table)
 		})
 	}
 	for _, c := range dbtest.UnversionedNotifierCases {

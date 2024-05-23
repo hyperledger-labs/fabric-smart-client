@@ -22,13 +22,14 @@ var (
 
 func ReadExisting(b *testing.B, db driver.TransactionalVersionedPersistence) {
 	db.BeginUpdate()
-	db.SetState(namespace, key, payload, 0, 0)
+	db.SetState(namespace, key, driver.VersionedValue{Raw: payload})
 	db.Commit()
 
 	var v []byte
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		v, _, _, _ = db.GetState(namespace, key)
+		vv, _ := db.GetState(namespace, key)
+		v = vv.Raw
 	}
 	b.StopTimer()
 	returnValue = v
@@ -40,7 +41,8 @@ func ReadNonExisting(b *testing.B, db driver.TransactionalVersionedPersistence) 
 	var v []byte
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		v, _, _, _ = db.GetState(namespace, key)
+		vv, _ := db.GetState(namespace, key)
+		v = vv.Raw
 	}
 	b.StopTimer()
 	returnValue = v
@@ -54,7 +56,7 @@ func WriteOne(b *testing.B, db driver.TransactionalVersionedPersistence) {
 	for i := 0; i < b.N; i++ {
 		err = db.BeginUpdate()
 		_ = err
-		err = db.SetState(namespace, key, payload, 0, 0)
+		err = db.SetState(namespace, key, driver.VersionedValue{Raw: payload})
 		_ = err
 		err = db.Commit()
 	}
@@ -73,7 +75,7 @@ func WriteMany(b *testing.B, db driver.TransactionalVersionedPersistence) {
 
 		err = db.BeginUpdate()
 		_ = err
-		err = db.SetState(namespace, k, payload, 0, 0)
+		err = db.SetState(namespace, k, driver.VersionedValue{Raw: payload})
 		_ = err
 		err = db.Commit()
 	}

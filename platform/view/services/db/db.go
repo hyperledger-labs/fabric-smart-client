@@ -59,25 +59,25 @@ type Config interface {
 // driverName is a string that describes the driver
 // dataSourceName describes the data source in a driver-specific format.
 // The returned connection is only used by one goroutine at a time.
-func Open(driverName, dataSourceName string, config Config) (driver.Persistence, error) {
+func Open(driverName, dataSourceName string, config Config) (*UnversionedPersistence, error) {
 	driversMu.RLock()
 	driver, ok := drivers[driverName]
 	driversMu.RUnlock()
 	if !ok {
 		return nil, errors.Errorf("driver [%s] not found", driverName)
 	}
-	d, err := driver.New(dataSourceName, config)
+	d, err := driver.NewUnversioned(dataSourceName, config)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed opening datasource [%s][%s[", driverName, dataSourceName)
 	}
-	return d, nil
+	return &UnversionedPersistence{UnversionedPersistence: d}, nil
 }
 
 // OpenVersioned returns a new *versioned* persistence handle. Similarly to database/sql:
 // driverName is a string that describes the driver
 // dataSourceName describes the data source in a driver-specific format.
 // The returned connection is only used by one goroutine at a time.
-func OpenVersioned(driverName, dataSourceName string, config Config) (driver.VersionedPersistence, error) {
+func OpenVersioned(driverName, dataSourceName string, config Config) (*VersionedPersistence, error) {
 	driversMu.RLock()
 	driver, ok := drivers[driverName]
 	driversMu.RUnlock()
@@ -88,28 +88,40 @@ func OpenVersioned(driverName, dataSourceName string, config Config) (driver.Ver
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed opening datasource [%s][%s[", driverName, dataSourceName)
 	}
-	return d, nil
+	return &VersionedPersistence{VersionedPersistence: d}, nil
 }
 
 // OpenTransactionalVersioned returns a new *transactional versioned* persistence handle. Similarly to database/sql:
 // driverName is a string that describes the driver
 // dataSourceName describes the data source in a driver-specific format.
 // The returned connection is only used by one goroutine at a time.
-func OpenTransactionalVersioned(driverName, dataSourceName string, config Config) (driver.TransactionalVersionedPersistence, error) {
+func OpenTransactionalVersioned(driverName, dataSourceName string, config Config) (*TransactionalVersionedPersistence, error) {
 	driversMu.RLock()
 	driver, ok := drivers[driverName]
 	driversMu.RUnlock()
 	if !ok {
 		return nil, errors.Errorf("driver [%s] not found", driverName)
 	}
-	d, err := driver.NewTransactionalVersionedPersistence(dataSourceName, config)
+	d, err := driver.NewTransactionalVersioned(dataSourceName, config)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed opening datasource [%s][%s[", driverName, dataSourceName)
 	}
-	return d, nil
+	return &TransactionalVersionedPersistence{TransactionalVersionedPersistence: d}, nil
 }
 
 // Unversioned returns the unversioned persistence from the supplied versioned one
-func Unversioned(store driver.VersionedPersistence) driver.Persistence {
+func Unversioned(store driver.VersionedPersistence) driver.UnversionedPersistence {
 	return &unversioned.Unversioned{Versioned: store}
+}
+
+type UnversionedPersistence struct {
+	driver.UnversionedPersistence
+}
+
+type VersionedPersistence struct {
+	driver.VersionedPersistence
+}
+
+type TransactionalVersionedPersistence struct {
+	driver.TransactionalVersionedPersistence
 }

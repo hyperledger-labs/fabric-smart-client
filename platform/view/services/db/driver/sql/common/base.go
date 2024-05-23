@@ -10,24 +10,188 @@ import (
 	"database/sql"
 	"fmt"
 	"runtime/debug"
+	"strings"
 	"sync"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/pkg/errors"
+	"golang.org/x/exp/slices"
 )
 
 var logger = flogging.MustGetLogger("db.driver.sql")
 
-type base struct {
+type scannable interface {
+	Scan(dest ...any) error
+}
+
+type readScanner[V any] interface {
+	// Columns returns a slice of the columns to be read into the V struct
+	Columns() []string
+	// ReadValue reads the columns in the order given above into a V struct
+	ReadValue(scannable) (V, error)
+}
+
+type valueScanner[V any] interface {
+	readScanner[V]
+	// WriteValue writes the values of the V struct in the order given by the Columns method
+	WriteValue(V) []any
+}
+
+type basePersistence[V any, R any] struct {
 	writeDB    *sql.DB
 	readDB     *sql.DB
 	txn        *sql.Tx
 	txnLock    sync.Mutex
 	debugStack []byte
 	table      string
+
+	readScanner  readScanner[R]
+	valueScanner valueScanner[V]
+	errorWrapper driver.SQLErrorWrapper
 }
 
-func (db *base) Close() error {
+func (db *basePersistence[V, R]) GetStateRangeScanIterator(ns core.Namespace, startKey, endKey string) (utils.Iterator[*R], error) {
+	where, args := rangeWhere(ns, startKey, endKey)
+	query := fmt.Sprintf("SELECT %s FROM %s WHERE ns = $1 %s ORDER BY pkey;", strings.Join(db.readScanner.Columns(), ", "), db.table, where)
+	logger.Debug(query, ns, startKey, endKey)
+
+	rows, err := db.readDB.Query(query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("query error: %w", err)
+	}
+
+	return &readIterator[R]{txs: rows, scanner: db.readScanner}, nil
+}
+
+func rangeWhere(ns, startKey, endKey string) (string, []interface{}) {
+	where := ""
+	args := []interface{}{ns}
+
+	// To match badger behavior, we don't include the endKey
+	if startKey != "" && endKey != "" {
+		where = "AND pkey >= $2 AND pkey < $3"
+		args = []interface{}{ns, startKey, endKey}
+	} else if startKey != "" {
+		where = "AND pkey >= $2"
+		args = []interface{}{ns, startKey}
+	} else if endKey != "" {
+		where = "AND pkey < $2"
+		args = []interface{}{ns, endKey}
+	}
+	return where, args
+}
+
+func (db *basePersistence[V, R]) GetState(namespace core.Namespace, key string) (V, error) {
+	query := fmt.Sprintf("SELECT %s FROM %s WHERE ns = $1 AND pkey = $2", strings.Join(db.valueScanner.Columns(), ", "), db.table)
+	logger.Debug(query, namespace, key)
+
+	row := db.readDB.QueryRow(query, namespace, key)
+	if value, err := db.valueScanner.ReadValue(row); err == nil {
+		return value, nil
+	} else if err == sql.ErrNoRows {
+		logger.Debugf("not found: [%s:%s]", namespace, key)
+		return value, nil
+	} else {
+		return value, fmt.Errorf("error querying db: %w", err)
+	}
+}
+
+func (db *basePersistence[V, R]) SetState(ns core.Namespace, pkey string, value V) error {
+	return db.setState(db.txn, ns, pkey, value)
+}
+
+func (db *basePersistence[V, R]) setState(tx *sql.Tx, ns core.Namespace, pkey string, value V) error {
+	keys := db.valueScanner.Columns()
+	values := db.valueScanner.WriteValue(value)
+	// Get rawVal
+	valIndex := slices.Index(keys, "val")
+	val := values[valIndex].([]byte)
+
+	if len(val) == 0 {
+		logger.Warnf("set key [%s:%s] to nil value, will be deleted instead", ns, pkey)
+		return db.DeleteState(ns, pkey)
+	}
+	if tx == nil {
+		panic("programming error, writing without ongoing update")
+	}
+	logger.Debugf("set state [%s,%s]", ns, pkey)
+
+	// Overwrite rawVal
+	val = append([]byte(nil), val...)
+	values[valIndex] = val
+
+	// Portable upsert
+	exists, err := db.exists(tx, ns, pkey)
+	if err != nil {
+		return err
+	}
+
+	if exists {
+		sets := make([]string, len(keys))
+		for i, key := range keys {
+			sets[i] = fmt.Sprintf("%s = $%d", key, i+1)
+		}
+
+		query := fmt.Sprintf("UPDATE %s SET %s WHERE ns = $%d AND pkey = $%d", db.table, strings.Join(sets, ", "), len(keys)+1, len(keys)+2)
+		logger.Debug(query, ns, pkey, values)
+
+		_, err := tx.Exec(query, append(values, ns, pkey)...)
+		if err != nil {
+			return errors.Wrapf(db.errorWrapper.WrapError(err), "could not set val for key [%s]", pkey)
+		}
+	} else {
+		keys = append(keys, "ns", "pkey")
+		values = append(values, ns, pkey)
+		query := fmt.Sprintf("INSERT INTO %s (%s) VALUES %s", db.table, strings.Join(keys, ", "), generateParamSet(1, len(keys)))
+		logger.Debug(query, ns, pkey, values)
+
+		_, err := tx.Exec(query, values...)
+		if err != nil {
+			return errors.Wrapf(db.errorWrapper.WrapError(err), "could not insert [%s]", pkey)
+		}
+	}
+
+	return nil
+}
+
+func (db *basePersistence[V, R]) GetStateSetIterator(ns core.Namespace, keys ...string) (utils.Iterator[*R], error) {
+	if len(keys) == 0 {
+		return utils.NewEmptyIterator[*R](), nil
+	}
+	query := fmt.Sprintf("SELECT %s FROM %s WHERE ns = $1 AND pkey IN %s", strings.Join(db.readScanner.Columns(), ", "), db.table, generateParamSet(2, len(keys)))
+	logger.Debug(query, ns, keys)
+
+	rows, err := db.readDB.Query(query, append([]any{ns}, castAny(keys)...)...)
+	if err != nil {
+		return nil, fmt.Errorf("query error: %w", err)
+	}
+
+	return &readIterator[R]{txs: rows, scanner: db.readScanner}, nil
+}
+
+func generateParamSet(offset, count int) string {
+	params := make([]string, count)
+	for i := 0; i < count; i++ {
+		params[i] = fmt.Sprintf("$%d", i+offset)
+	}
+	return fmt.Sprintf("(%s)", strings.Join(params, ", "))
+}
+
+func castAny[A any](as []A) []any {
+	if as == nil {
+		return nil
+	}
+	bs := make([]any, len(as))
+	for i, a := range as {
+		bs[i] = a
+	}
+	return bs
+}
+
+func (db *basePersistence[V, R]) Close() error {
 	logger.Info("closing database")
 
 	// TODO: what to do with db.txn if it's not nil?
@@ -40,7 +204,7 @@ func (db *base) Close() error {
 	return nil
 }
 
-func (db *base) BeginUpdate() error {
+func (db *basePersistence[V, R]) BeginUpdate() error {
 	logger.Debugf("begin db transaction [%s]", db.table)
 	db.txnLock.Lock()
 	defer db.txnLock.Unlock()
@@ -60,7 +224,7 @@ func (db *base) BeginUpdate() error {
 	return nil
 }
 
-func (db *base) Commit() error {
+func (db *basePersistence[V, R]) Commit() error {
 	logger.Debugf("commit db transaction [%s]", db.table)
 	db.txnLock.Lock()
 	defer db.txnLock.Unlock()
@@ -78,7 +242,7 @@ func (db *base) Commit() error {
 	return nil
 }
 
-func (db *base) Discard() error {
+func (db *basePersistence[V, R]) Discard() error {
 	logger.Debug(fmt.Sprintf("rollback db transaction on table %s", db.table))
 	db.txnLock.Lock()
 	defer db.txnLock.Unlock()
@@ -96,7 +260,7 @@ func (db *base) Discard() error {
 	return nil
 }
 
-func (db *base) exists(tx *sql.Tx, ns, key string) (bool, error) {
+func (db *basePersistence[V, R]) exists(tx *sql.Tx, ns, key string) (bool, error) {
 	var pkey string
 	query := fmt.Sprintf("SELECT pkey FROM %s WHERE ns = $1 AND pkey = $2", db.table)
 	logger.Debug(query, ns, key)
@@ -110,7 +274,7 @@ func (db *base) exists(tx *sql.Tx, ns, key string) (bool, error) {
 	return true, nil
 }
 
-func (db *base) DeleteState(ns, key string) error {
+func (db *basePersistence[V, R]) DeleteState(ns, key string) error {
 	if db.txn == nil {
 		panic("programming error, writing without ongoing update")
 	}
@@ -126,6 +290,33 @@ func (db *base) DeleteState(ns, key string) error {
 	}
 
 	return nil
+}
+
+func (db *basePersistence[V, R]) createSchema(query string) error {
+	logger.Debug(query)
+	if _, err := db.writeDB.Exec(query); err != nil {
+		return fmt.Errorf("can't create table: %w", err)
+	}
+	return nil
+}
+
+type readIterator[V any] struct {
+	txs     *sql.Rows
+	scanner readScanner[V]
+}
+
+func (t *readIterator[V]) Close() {
+	t.txs.Close()
+}
+
+func (t *readIterator[V]) Next() (*V, error) {
+	if !t.txs.Next() {
+		return nil, nil
+	}
+
+	r, err := t.scanner.ReadValue(t.txs)
+
+	return &r, err
 }
 
 type Opts struct {

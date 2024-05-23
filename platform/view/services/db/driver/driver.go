@@ -7,43 +7,10 @@ SPDX-License-Identifier: Apache-2.0
 package driver
 
 import (
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/pkg/errors"
 )
-
-type Read struct {
-	Key string
-	Raw []byte
-}
-
-type ResultsIterator interface {
-	// Next returns the next item in the result set. The `QueryResult` is expected to be nil when
-	// the iterator gets exhausted
-	Next() (*Read, error)
-	// Close releases resources occupied by the iterator
-	Close()
-}
-
-type VersionedRead = driver.VersionedRead
-
-type VersionedResultsIterator = driver.VersionedResultsIterator
-
-type WriteTransaction interface {
-	// SetState sets the given value for the given namespace, key, and version
-	SetState(namespace, key string, value []byte, block, txnum uint64) error
-	// Commit commits the changes since BeginUpdate
-	Commit() error
-	// Discard discanrds the changes since BeginUpdate
-	Discard() error
-}
-
-type TransactionalVersionedPersistence interface {
-	VersionedPersistence
-
-	NewWriteTransaction() (WriteTransaction, error)
-}
-
-type SQLError = error
 
 var (
 	// UniqueKeyViolation happens when we try to insert a record with a conflicting unique key (e.g. replicas)
@@ -52,59 +19,68 @@ var (
 	DeadlockDetected = errors.New("deadlock detected")
 )
 
+type SQLError = error
+
+type VersionedRead struct {
+	Key   string
+	Raw   []byte
+	Block core.BlockNum
+	TxNum core.TxNum
+}
+
+type VersionedResultsIterator = utils.Iterator[*VersionedRead]
+
+type VersionedValue struct {
+	Raw   []byte
+	Block core.BlockNum
+	TxNum core.TxNum
+}
+
+type UnversionedRead struct {
+	Key string
+	Raw []byte
+}
+
+type UnversionedResultsIterator = utils.Iterator[*UnversionedRead]
+
+type UnversionedValue = []byte
+
+func (v *VersionedRead) K() string {
+	return v.Key
+}
+
+func (v *VersionedRead) V() []byte {
+	return v.Raw
+}
+
+type QueryExecutor interface {
+	GetState(namespace string, key string) ([]byte, error)
+	GetStateMetadata(namespace, key string) (map[string][]byte, uint64, uint64, error)
+	GetStateRangeScanIterator(namespace string, startKey string, endKey string) (VersionedResultsIterator, error)
+	Done()
+}
+
 // SQLErrorWrapper transforms the different errors returned by various SQL implementations into an SQLError that is common
 type SQLErrorWrapper interface {
 	WrapError(error) error
 }
 
-// VersionedPersistence models a versioned key-value storage place
-type VersionedPersistence interface {
+type basePersistence[V any, R any] interface {
 	// SetState sets the given value for the given namespace, key, and version
-	SetState(namespace, key string, value []byte, block, txnum uint64) error
+	SetState(namespace core.Namespace, key string, value V) error
 	// GetState gets the value and version for given namespace and key
-	GetState(namespace, key string) ([]byte, uint64, uint64, error)
+	GetState(namespace core.Namespace, key string) (V, error)
 	// DeleteState deletes the given namespace and key
-	DeleteState(namespace, key string) error
-	// GetStateMetadata gets the metadata and version for given namespace and key
-	GetStateMetadata(namespace, key string) (map[string][]byte, uint64, uint64, error)
-	// SetStateMetadata sets the given metadata for the given namespace, key, and version
-	SetStateMetadata(namespace, key string, metadata map[string][]byte, block, txnum uint64) error
+	DeleteState(namespace core.Namespace, key string) error
 	// GetStateRangeScanIterator returns an iterator that contains all the key-values between given key ranges.
 	// startKey is included in the results and endKey is excluded. An empty startKey refers to the first available key
 	// and an empty endKey refers to the last available key. For scanning all the keys, both the startKey and the endKey
 	// can be supplied as empty strings. However, a full scan should be used judiciously for performance reasons.
 	// The returned VersionedResultsIterator contains results of type *VersionedRead.
-	GetStateRangeScanIterator(namespace string, startKey string, endKey string) (VersionedResultsIterator, error)
+	GetStateRangeScanIterator(namespace core.Namespace, startKey string, endKey string) (utils.Iterator[*R], error)
 	// GetStateSetIterator returns an iterator that contains all the values for the passed keys.
 	// The order is not respected.
-	GetStateSetIterator(ns string, keys ...string) (VersionedResultsIterator, error)
-	// Close closes this persistence instance
-	Close() error
-	// BeginUpdate starts the session
-	BeginUpdate() error
-	// Commit commits the changes since BeginUpdate
-	Commit() error
-	// Discard discanrds the changes since BeginUpdate
-	Discard() error
-}
-
-// Persistence models a key-value storage place
-type Persistence interface {
-	// SetState sets the given value for the given namespace and key
-	SetState(namespace, key string, value []byte) error
-	// GetState gets the value for given namespace and key
-	GetState(namespace, key string) ([]byte, error)
-	// DeleteState deletes the given namespace and key
-	DeleteState(namespace, key string) error
-	// GetStateRangeScanIterator returns an iterator that contains all the key-values between given key ranges.
-	// startKey is included in the results and endKey is excluded. An empty startKey refers to the first available key
-	// and an empty endKey refers to the last available key. For scanning all the keys, both the startKey and the endKey
-	// can be supplied as empty strings. However, a full scan should be used judiciously for performance reasons.
-	// The returned ResultsIterator contains results of type *Read.
-	GetStateRangeScanIterator(namespace string, startKey string, endKey string) (ResultsIterator, error)
-	// GetStateSetIterator returns an iterator that contains all the values for the passed keys.
-	// The order is not respected.
-	GetStateSetIterator(ns string, keys ...string) (ResultsIterator, error)
+	GetStateSetIterator(ns core.Namespace, keys ...string) (utils.Iterator[*R], error)
 	// Close closes this persistence instance
 	Close() error
 	// BeginUpdate starts the session
@@ -113,6 +89,35 @@ type Persistence interface {
 	Commit() error
 	// Discard discards the changes since BeginUpdate
 	Discard() error
+}
+
+// UnversionedPersistence models a key-value storage place
+type UnversionedPersistence interface {
+	basePersistence[UnversionedValue, UnversionedRead]
+}
+
+// VersionedPersistence models a versioned key-value storage place
+type VersionedPersistence interface {
+	basePersistence[VersionedValue, VersionedRead]
+	// GetStateMetadata gets the metadata and version for given namespace and key
+	GetStateMetadata(namespace core.Namespace, key string) (map[string][]byte, uint64, uint64, error)
+	// SetStateMetadata sets the given metadata for the given namespace, key, and version
+	SetStateMetadata(namespace core.Namespace, key string, metadata map[string][]byte, block, txnum uint64) error
+}
+
+type WriteTransaction interface {
+	// SetState sets the given value for the given namespace, key, and version
+	SetState(namespace core.Namespace, key string, value VersionedValue) error
+	// Commit commits the changes since BeginUpdate
+	Commit() error
+	// Discard discards the changes since BeginUpdate
+	Discard() error
+}
+
+type TransactionalVersionedPersistence interface {
+	VersionedPersistence
+
+	NewWriteTransaction() (WriteTransaction, error)
 }
 
 // Config provides access to the underlying configuration
@@ -124,12 +129,12 @@ type Config interface {
 }
 
 type Driver interface {
-	// NewTransactionalVersionedPersistence returns a new TransactionalVersionedPersistence for the passed data source and config
-	NewTransactionalVersionedPersistence(dataSourceName string, config Config) (TransactionalVersionedPersistence, error)
+	// NewTransactionalVersioned returns a new TransactionalVersionedPersistence for the passed data source and config
+	NewTransactionalVersioned(dataSourceName string, config Config) (TransactionalVersionedPersistence, error)
 	// NewVersioned returns a new VersionedPersistence for the passed data source and config
 	NewVersioned(dataSourceName string, config Config) (VersionedPersistence, error)
-	// New returns a new Persistence for the passed data source and config
-	New(dataSourceName string, config Config) (Persistence, error)
+	// NewUnversioned returns a new UnversionedPersistence for the passed data source and config
+	NewUnversioned(dataSourceName string, config Config) (UnversionedPersistence, error)
 }
 
 type (
@@ -153,7 +158,7 @@ type notifier interface {
 }
 
 type UnversionedNotifier interface {
-	Persistence
+	UnversionedPersistence
 	notifier
 }
 type VersionedNotifier interface {

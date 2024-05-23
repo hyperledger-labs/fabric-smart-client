@@ -24,7 +24,7 @@ type Opts struct {
 type Driver struct{}
 
 // NewTransactionalVersionedPersistence returns a new TransactionalVersionedPersistence for the passed data source and config
-func (o *Driver) NewTransactionalVersionedPersistence(dataSourceName string, config driver.Config) (driver.TransactionalVersionedPersistence, error) {
+func (o *Driver) NewTransactionalVersioned(dataSourceName string, config driver.Config) (driver.TransactionalVersionedPersistence, error) {
 	opts := &Opts{}
 	if err := config.UnmarshalKey("", opts); err != nil {
 		return nil, errors.Wrapf(err, "failed getting opts")
@@ -45,7 +45,7 @@ func (v *Driver) NewVersioned(dataSourceName string, config driver.Config) (driv
 	return NewVersionedPersistence(dataSourceName, config)
 }
 
-func (v *Driver) New(dataSourceName string, config driver.Config) (driver.Persistence, error) {
+func (v *Driver) NewUnversioned(dataSourceName string, config driver.Config) (driver.UnversionedPersistence, error) {
 	return NewUnversionedPersistence(dataSourceName, config)
 }
 

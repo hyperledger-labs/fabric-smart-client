@@ -14,8 +14,8 @@ import (
 	errors2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 )
@@ -30,13 +30,22 @@ const (
 	lastTX        = "last"
 )
 
+type (
+	UnversionedPersistence     = driver.UnversionedPersistence
+	UnversionedResultsIterator = driver.UnversionedResultsIterator
+)
+
+var (
+	UniqueKeyViolation = driver.UniqueKeyViolation
+)
+
 type SimpleTXIDStore[V vault.ValidationCode] struct {
-	Persistence driver.Persistence
+	Persistence UnversionedPersistence
 	ctr         uint64
 	vcProvider  vault.ValidationCodeProvider[V]
 }
 
-func NewSimpleTXIDStore[V vault.ValidationCode](persistence driver.Persistence, vcProvider vault.ValidationCodeProvider[V]) (*SimpleTXIDStore[V], error) {
+func NewSimpleTXIDStore[V vault.ValidationCode](persistence UnversionedPersistence, vcProvider vault.ValidationCodeProvider[V]) (*SimpleTXIDStore[V], error) {
 	ctrBytes, err := persistence.GetState(txidNamespace, ctrKey)
 	if err != nil {
 		return nil, errors.Errorf("error retrieving txid counter [%s]", err.Error())
@@ -101,14 +110,14 @@ func (s *SimpleTXIDStore[V]) Get(txID core.TxID) (V, string, error) {
 
 func (s *SimpleTXIDStore[V]) Set(txID core.TxID, code V, message string) error {
 	// NOTE: we assume that the commit is in progress so no need to update/commit
-	// err := s.Persistence.BeginUpdate()
+	// err := s.UnversionedPersistence.BeginUpdate()
 	// if err != nil {
 	// 	return errors.Errorf("error starting update to set txid %s [%s]", txid, err.Error())
 	// }
 
-	// 1: increment ctr in Persistence
+	// 1: increment ctr in UnversionedPersistence
 	err := setCtr(s.Persistence, s.ctr+1)
-	if err != nil { // TODO: && !errors2.HasCause(err, driver.UniqueKeyViolation)
+	if err != nil { // TODO: && !errors2.HasCause(err, UniqueKeyViolation)
 		s.Persistence.Discard()
 		return errors.Errorf("error storing updated counter for txid %s [%s]", txID, err.Error())
 	}
@@ -124,7 +133,7 @@ func (s *SimpleTXIDStore[V]) Set(txID core.TxID, code V, message string) error {
 		return errors.Errorf("error marshalling ByNum for txID %s [%s]", txID, err.Error())
 	}
 	err = s.Persistence.SetState(txidNamespace, keyByCtr(s.ctr), byCtrBytes)
-	if err != nil { // TODO: && !errors2.HasCause(err, driver.UniqueKeyViolation)
+	if err != nil { // TODO: && !errors2.HasCause(err, UniqueKeyViolation)
 		s.Persistence.Discard()
 		return errors.Errorf("error storing ByNum for txid %s [%s]", txID, err.Error())
 	}
@@ -147,13 +156,13 @@ func (s *SimpleTXIDStore[V]) Set(txID core.TxID, code V, message string) error {
 
 	if code == s.vcProvider.Valid() {
 		err = s.Persistence.SetState(txidNamespace, lastTX, []byte(txID))
-		if err != nil { // TODO: && !errors2.HasCause(err, driver.UniqueKeyViolation)
+		if err != nil { // TODO: && !errors2.HasCause(err, UniqueKeyViolation)
 			s.Persistence.Discard()
 			return errors.Errorf("error storing ByTxid for txid %s [%s]", txID, err.Error())
 		}
 	}
 	// NOTE: we assume that the commit is in progress so no need to update/commit
-	// err = s.Persistence.Commit()
+	// err = s.UnversionedPersistence.Commit()
 	// if err != nil {
 	// 	return errors.Errorf("error committing update to set txid %s [%s]", txid, err.Error())
 	// }
@@ -238,11 +247,11 @@ func (s *SimpleTXIDStore[V]) mapByNum(bn *ByNum) (*vault.ByNum[V], error) {
 }
 
 type SimpleTxIDIteratorByNum struct {
-	driver.ResultsIterator
+	UnversionedResultsIterator
 }
 
 func (i *SimpleTxIDIteratorByNum) Next() (*ByNum, error) {
-	d, err := i.ResultsIterator.Next()
+	d, err := i.UnversionedResultsIterator.Next()
 	if err != nil {
 		return nil, err
 	}
@@ -260,11 +269,11 @@ func (i *SimpleTxIDIteratorByNum) Next() (*ByNum, error) {
 }
 
 type SimpleTxIDIteratorByTxID struct {
-	driver.ResultsIterator
+	UnversionedResultsIterator
 }
 
 func (i *SimpleTxIDIteratorByTxID) Next() (*ByNum, error) {
-	d, err := i.ResultsIterator.Next()
+	d, err := i.UnversionedResultsIterator.Next()
 	if err != nil {
 		return nil, err
 	}
@@ -292,19 +301,19 @@ func keyByTxID(txID core.TxID) string {
 	return byTxidPrefix + txID
 }
 
-func setCtr(persistence driver.Persistence, ctr uint64) error {
+func setCtr(persistence UnversionedPersistence, ctr uint64) error {
 	ctrBytes := make([]byte, binary.MaxVarintLen64)
 	binary.BigEndian.PutUint64(ctrBytes, ctr)
 
 	err := persistence.SetState(txidNamespace, ctrKey, ctrBytes)
-	if err != nil && !errors2.HasCause(err, driver.UniqueKeyViolation) {
+	if err != nil && !errors2.HasCause(err, UniqueKeyViolation) {
 		return errors.Errorf("error storing the counter [%s]", err.Error())
 	}
 
 	return nil
 }
 
-func getCtr(persistence driver.Persistence) (uint64, error) {
+func getCtr(persistence UnversionedPersistence) (uint64, error) {
 	ctrBytes, err := persistence.GetState(txidNamespace, ctrKey)
 	if err != nil {
 		return 0, errors.Errorf("error retrieving txid counter [%s]", err.Error())

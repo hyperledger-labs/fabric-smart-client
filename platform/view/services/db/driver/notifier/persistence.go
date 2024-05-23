@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package notifier
 
 import (
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 )
@@ -14,14 +15,14 @@ import (
 // We treat update/inserts as the same, because we don't need the operation type.
 // Distinguishing the two cases for sqlite would require more logic.
 
-func NewUnversioned[P driver.Persistence](persistence P) *UnversionedPersistenceNotifier[P] {
+func NewUnversioned[P driver.UnversionedPersistence](persistence P) *UnversionedPersistenceNotifier[P] {
 	return &UnversionedPersistenceNotifier[P]{
 		Persistence: persistence,
 		notifier:    newNotifier(),
 	}
 }
 
-type UnversionedPersistenceNotifier[P driver.Persistence] struct {
+type UnversionedPersistenceNotifier[P driver.UnversionedPersistence] struct {
 	Persistence P
 	*notifier
 }
@@ -68,11 +69,11 @@ func (db *UnversionedPersistenceNotifier[P]) GetState(namespace, key string) ([]
 	return db.Persistence.GetState(namespace, key)
 }
 
-func (db *UnversionedPersistenceNotifier[P]) GetStateRangeScanIterator(namespace string, startKey string, endKey string) (driver.ResultsIterator, error) {
+func (db *UnversionedPersistenceNotifier[P]) GetStateRangeScanIterator(namespace string, startKey string, endKey string) (driver.UnversionedResultsIterator, error) {
 	return db.Persistence.GetStateRangeScanIterator(namespace, startKey, endKey)
 }
 
-func (db *UnversionedPersistenceNotifier[P]) GetStateSetIterator(ns string, keys ...string) (driver.ResultsIterator, error) {
+func (db *UnversionedPersistenceNotifier[P]) GetStateSetIterator(ns string, keys ...string) (driver.UnversionedResultsIterator, error) {
 	return db.Persistence.GetStateSetIterator(ns, keys...)
 }
 
@@ -100,11 +101,11 @@ type VersionedPersistenceNotifier[P driver.VersionedPersistence] struct {
 	*notifier
 }
 
-func (db *VersionedPersistenceNotifier[P]) SetState(ns string, key string, val []byte, block, txnum uint64) error {
-	if err := db.Persistence.SetState(ns, key, val, block, txnum); err != nil {
+func (db *VersionedPersistenceNotifier[P]) SetState(namespace core.Namespace, key string, value driver.VersionedValue) error {
+	if err := db.Persistence.SetState(namespace, key, value); err != nil {
 		return err
 	}
-	db.notifier.enqueueEvent(driver.Update, map[driver.ColumnKey]string{"ns": ns, "pkey": utils.EncodeByteA(key)})
+	db.notifier.enqueueEvent(driver.Update, map[driver.ColumnKey]string{"ns": namespace, "pkey": utils.EncodeByteA(key)})
 	return nil
 }
 
@@ -134,7 +135,7 @@ func (db *VersionedPersistenceNotifier[P]) DeleteState(ns, key string) error {
 	return nil
 }
 
-func (db *VersionedPersistenceNotifier[P]) GetState(namespace, key string) ([]byte, uint64, uint64, error) {
+func (db *VersionedPersistenceNotifier[P]) GetState(namespace core.Namespace, key string) (driver.VersionedValue, error) {
 	return db.Persistence.GetState(namespace, key)
 }
 

@@ -26,8 +26,6 @@ func marshalOrPanic(o proto.Message) []byte {
 	return data
 }
 
-var tempDir string
-
 func TestRangeQueries1(t *testing.T) {
 	ns := "namespace"
 
@@ -37,13 +35,13 @@ func TestRangeQueries1(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, db.keys, db.txn)
 
-	err = db.SetState(ns, "k2", []byte("k2_value"), 35, 1)
+	err = db.SetState(ns, "k2", driver.VersionedValue{Raw: []byte("k2_value"), Block: 35, TxNum: 1})
 	assert.NoError(t, err)
-	err = db.SetState(ns, "k3", []byte("k3_value"), 35, 2)
+	err = db.SetState(ns, "k3", driver.VersionedValue{Raw: []byte("k3_value"), Block: 35, TxNum: 2})
 	assert.NoError(t, err)
-	err = db.SetState(ns, "k1", []byte("k1_value"), 35, 3)
+	err = db.SetState(ns, "k1", driver.VersionedValue{Raw: []byte("k1_value"), Block: 35, TxNum: 3})
 	assert.NoError(t, err)
-	err = db.SetState(ns, "k111", []byte("k111_value"), 35, 4)
+	err = db.SetState(ns, "k111", driver.VersionedValue{Raw: []byte("k111_value"), Block: 35, TxNum: 4})
 	assert.NoError(t, err)
 
 	err = db.Commit()
@@ -60,10 +58,10 @@ func TestRangeQueries1(t *testing.T) {
 	}
 	assert.Len(t, res, 4)
 	assert.Equal(t, []driver.VersionedRead{
-		{Key: "k1", Raw: []byte("k1_value"), Block: 35, IndexInBlock: 3},
-		{Key: "k111", Raw: []byte("k111_value"), Block: 35, IndexInBlock: 4},
-		{Key: "k2", Raw: []byte("k2_value"), Block: 35, IndexInBlock: 1},
-		{Key: "k3", Raw: []byte("k3_value"), Block: 35, IndexInBlock: 2},
+		{Key: "k1", Raw: []byte("k1_value"), Block: 35, TxNum: 3},
+		{Key: "k111", Raw: []byte("k111_value"), Block: 35, TxNum: 4},
+		{Key: "k2", Raw: []byte("k2_value"), Block: 35, TxNum: 1},
+		{Key: "k3", Raw: []byte("k3_value"), Block: 35, TxNum: 2},
 	}, res)
 
 	itr, err = db.GetStateRangeScanIterator(ns, "k1", "k3")
@@ -77,9 +75,9 @@ func TestRangeQueries1(t *testing.T) {
 	}
 	assert.Len(t, res, 3)
 	assert.Equal(t, []driver.VersionedRead{
-		{Key: "k1", Raw: []byte("k1_value"), Block: 35, IndexInBlock: 3},
-		{Key: "k111", Raw: []byte("k111_value"), Block: 35, IndexInBlock: 4},
-		{Key: "k2", Raw: []byte("k2_value"), Block: 35, IndexInBlock: 1},
+		{Key: "k1", Raw: []byte("k1_value"), Block: 35, TxNum: 3},
+		{Key: "k111", Raw: []byte("k111_value"), Block: 35, TxNum: 4},
+		{Key: "k2", Raw: []byte("k2_value"), Block: 35, TxNum: 1},
 	}, res)
 }
 
@@ -93,17 +91,15 @@ func TestMeta(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, db.keys, db.txn)
 
-	err = db.SetState(ns, key, []byte("val"), 35, 1)
+	err = db.SetState(ns, key, driver.VersionedValue{Raw: []byte("val"), Block: 35, TxNum: 1})
 	assert.NoError(t, err)
 
 	err = db.Commit()
 	assert.NoError(t, err)
 
-	v, bn, tn, err := db.GetState(ns, key)
+	vv, err := db.GetState(ns, key)
 	assert.NoError(t, err)
-	assert.Equal(t, []byte("val"), v)
-	assert.Equal(t, uint64(35), bn)
-	assert.Equal(t, uint64(1), tn)
+	assert.Equal(t, driver.VersionedValue{Raw: []byte("val"), Block: 35, TxNum: 1}, vv)
 
 	m, bn, tn, err := db.GetStateMetadata(ns, key)
 	assert.NoError(t, err)
@@ -121,11 +117,9 @@ func TestMeta(t *testing.T) {
 	err = db.Commit()
 	assert.NoError(t, err)
 
-	v, bn, tn, err = db.GetState(ns, key)
+	vv, err = db.GetState(ns, key)
 	assert.NoError(t, err)
-	assert.Equal(t, []byte("val"), v)
-	assert.Equal(t, uint64(36), bn)
-	assert.Equal(t, uint64(2), tn)
+	assert.Equal(t, driver.VersionedValue{Raw: []byte("val"), Block: 36, TxNum: 2}, vv)
 
 	m, bn, tn, err = db.GetStateMetadata(ns, key)
 	assert.NoError(t, err)
@@ -140,11 +134,9 @@ func TestSimpleReadWrite(t *testing.T) {
 
 	db := New()
 
-	v, bn, tn, err := db.GetState(ns, key)
+	vv, err := db.GetState(ns, key)
 	assert.NoError(t, err)
-	assert.Equal(t, []byte(nil), v)
-	assert.Equal(t, uint64(0), bn)
-	assert.Equal(t, uint64(0), tn)
+	assert.Equal(t, driver.VersionedValue{}, vv)
 
 	m, bn, tn, err := db.GetStateMetadata(ns, key)
 	assert.NoError(t, err)
@@ -156,55 +148,47 @@ func TestSimpleReadWrite(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, db.keys, db.txn)
 
-	err = db.SetState(ns, key, []byte("val"), 35, 1)
+	err = db.SetState(ns, key, driver.VersionedValue{Raw: []byte("val"), Block: 35, TxNum: 1})
 	assert.NoError(t, err)
 
 	err = db.Commit()
 	assert.NoError(t, err)
 
-	v, bn, tn, err = db.GetState(ns, key)
+	vv, err = db.GetState(ns, key)
 	assert.NoError(t, err)
-	assert.Equal(t, []byte("val"), v)
-	assert.Equal(t, uint64(35), bn)
-	assert.Equal(t, uint64(1), tn)
+	assert.Equal(t, driver.VersionedValue{Raw: []byte("val"), Block: 35, TxNum: 1}, vv)
 
 	err = db.BeginUpdate()
 	assert.NoError(t, err)
 	assert.Equal(t, db.keys, db.txn)
 
-	err = db.SetState(ns, key, []byte("val1"), 36, 2)
+	err = db.SetState(ns, key, driver.VersionedValue{Raw: []byte("val1"), Block: 36, TxNum: 2})
 	assert.NoError(t, err)
 
-	v, bn, tn, err = db.GetState(ns, key)
+	vv, err = db.GetState(ns, key)
 	assert.NoError(t, err)
-	assert.Equal(t, []byte("val"), v)
-	assert.Equal(t, uint64(35), bn)
-	assert.Equal(t, uint64(1), tn)
+	assert.Equal(t, driver.VersionedValue{Raw: []byte("val"), Block: 35, TxNum: 1}, vv)
 
 	err = db.Commit()
 	assert.NoError(t, err)
 
-	v, bn, tn, err = db.GetState(ns, key)
+	vv, err = db.GetState(ns, key)
 	assert.NoError(t, err)
-	assert.Equal(t, []byte("val1"), v)
-	assert.Equal(t, uint64(36), bn)
-	assert.Equal(t, uint64(2), tn)
+	assert.Equal(t, driver.VersionedValue{Raw: []byte("val1"), Block: 36, TxNum: 2}, vv)
 
 	err = db.BeginUpdate()
 	assert.NoError(t, err)
 	assert.Equal(t, db.keys, db.txn)
 
-	err = db.SetState(ns, key, []byte("val0"), 37, 3)
+	err = db.SetState(ns, key, driver.VersionedValue{Raw: []byte("val0"), Block: 37, TxNum: 3})
 	assert.NoError(t, err)
 
 	err = db.Discard()
 	assert.NoError(t, err)
 
-	v, bn, tn, err = db.GetState(ns, key)
+	vv, err = db.GetState(ns, key)
 	assert.NoError(t, err)
-	assert.Equal(t, []byte("val1"), v)
-	assert.Equal(t, uint64(36), bn)
-	assert.Equal(t, uint64(2), tn)
+	assert.Equal(t, driver.VersionedValue{Raw: []byte("val1"), Block: 36, TxNum: 2}, vv)
 
 	err = db.BeginUpdate()
 	assert.NoError(t, err)
@@ -216,11 +200,9 @@ func TestSimpleReadWrite(t *testing.T) {
 	err = db.Commit()
 	assert.NoError(t, err)
 
-	v, bn, tn, err = db.GetState(ns, key)
+	vv, err = db.GetState(ns, key)
 	assert.NoError(t, err)
-	assert.Equal(t, []byte(nil), v)
-	assert.Equal(t, uint64(0), bn)
-	assert.Equal(t, uint64(0), tn)
+	assert.Equal(t, driver.VersionedValue{}, vv)
 }
 
 func populateDB(t *testing.T, ns, key, keyWithSuffix string) *database {
@@ -230,38 +212,30 @@ func populateDB(t *testing.T, ns, key, keyWithSuffix string) *database {
 	assert.NoError(t, err)
 	assert.Equal(t, db.keys, db.txn)
 
-	err = db.SetState(ns, key, []byte("bar"), 1, 1)
+	err = db.SetState(ns, key, driver.VersionedValue{Raw: []byte("bar"), Block: 1, TxNum: 1})
 	assert.NoError(t, err)
 
-	err = db.SetState(ns, keyWithSuffix, []byte("bar1"), 1, 1)
+	err = db.SetState(ns, keyWithSuffix, driver.VersionedValue{Raw: []byte("bar1"), Block: 1, TxNum: 1})
 	assert.NoError(t, err)
 
 	err = db.Commit()
 	assert.NoError(t, err)
 
-	val, block, txnum, err := db.GetState(ns, key)
+	vv, err := db.GetState(ns, key)
 	assert.NoError(t, err)
-	assert.Equal(t, val, []byte("bar"))
-	assert.Equal(t, block, uint64(1))
-	assert.Equal(t, txnum, uint64(1))
+	assert.Equal(t, driver.VersionedValue{Raw: []byte("bar"), Block: 1, TxNum: 1}, vv)
 
-	val, block, txnum, err = db.GetState(ns, keyWithSuffix)
+	vv, err = db.GetState(ns, keyWithSuffix)
 	assert.NoError(t, err)
-	assert.Equal(t, val, []byte("bar1"))
-	assert.Equal(t, block, uint64(1))
-	assert.Equal(t, txnum, uint64(1))
+	assert.Equal(t, driver.VersionedValue{Raw: []byte("bar1"), Block: 1, TxNum: 1}, vv)
 
-	val, block, txnum, err = db.GetState(ns, "barf")
+	vv, err = db.GetState(ns, "barf")
 	assert.NoError(t, err)
-	assert.Nil(t, val)
-	assert.Equal(t, block, uint64(0))
-	assert.Equal(t, txnum, uint64(0))
+	assert.Equal(t, driver.VersionedValue{}, vv)
 
-	val, block, txnum, err = db.GetState("barf", "barf")
+	vv, err = db.GetState("barf", "barf")
 	assert.NoError(t, err)
-	assert.Nil(t, val)
-	assert.Equal(t, block, uint64(0))
-	assert.Equal(t, txnum, uint64(0))
+	assert.Equal(t, driver.VersionedValue{}, vv)
 
 	return db
 }
@@ -272,11 +246,9 @@ func TestGetNonExistent(t *testing.T) {
 
 	db := New()
 
-	v, bn, tn, err := db.GetState(ns, key)
+	vv, err := db.GetState(ns, key)
 	assert.NoError(t, err)
-	assert.Nil(t, v)
-	assert.Equal(t, uint64(0x0), bn)
-	assert.Equal(t, uint64(0x0), tn)
+	assert.Equal(t, driver.VersionedValue{}, vv)
 }
 
 func TestMetadata(t *testing.T) {
@@ -379,13 +351,13 @@ func TestRangeQueries(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, db.keys, db.txn)
 
-	err = db.SetState(ns, "k2", []byte("k2_value"), 35, 1)
+	err = db.SetState(ns, "k2", driver.VersionedValue{Raw: []byte("k2_value"), Block: 35, TxNum: 1})
 	assert.NoError(t, err)
-	err = db.SetState(ns, "k3", []byte("k3_value"), 35, 2)
+	err = db.SetState(ns, "k3", driver.VersionedValue{Raw: []byte("k3_value"), Block: 35, TxNum: 2})
 	assert.NoError(t, err)
-	err = db.SetState(ns, "k1", []byte("k1_value"), 35, 3)
+	err = db.SetState(ns, "k1", driver.VersionedValue{Raw: []byte("k1_value"), Block: 35, TxNum: 3})
 	assert.NoError(t, err)
-	err = db.SetState(ns, "k111", []byte("k111_value"), 35, 4)
+	err = db.SetState(ns, "k111", driver.VersionedValue{Raw: []byte("k111_value"), Block: 35, TxNum: 4})
 	assert.NoError(t, err)
 
 	err = db.Commit()
@@ -402,10 +374,10 @@ func TestRangeQueries(t *testing.T) {
 	}
 	assert.Len(t, res, 4)
 	assert.Equal(t, []driver.VersionedRead{
-		{Key: "k1", Raw: []byte("k1_value"), Block: 35, IndexInBlock: 3},
-		{Key: "k111", Raw: []byte("k111_value"), Block: 35, IndexInBlock: 4},
-		{Key: "k2", Raw: []byte("k2_value"), Block: 35, IndexInBlock: 1},
-		{Key: "k3", Raw: []byte("k3_value"), Block: 35, IndexInBlock: 2},
+		{Key: "k1", Raw: []byte("k1_value"), Block: 35, TxNum: 3},
+		{Key: "k111", Raw: []byte("k111_value"), Block: 35, TxNum: 4},
+		{Key: "k2", Raw: []byte("k2_value"), Block: 35, TxNum: 1},
+		{Key: "k3", Raw: []byte("k3_value"), Block: 35, TxNum: 2},
 	}, res)
 
 	itr, err = db.GetStateRangeScanIterator(ns, "k1", "k3")
@@ -419,9 +391,9 @@ func TestRangeQueries(t *testing.T) {
 	}
 	assert.Len(t, res, 3)
 	assert.Equal(t, []driver.VersionedRead{
-		{Key: "k1", Raw: []byte("k1_value"), Block: 35, IndexInBlock: 3},
-		{Key: "k111", Raw: []byte("k111_value"), Block: 35, IndexInBlock: 4},
-		{Key: "k2", Raw: []byte("k2_value"), Block: 35, IndexInBlock: 1},
+		{Key: "k1", Raw: []byte("k1_value"), Block: 35, TxNum: 3},
+		{Key: "k111", Raw: []byte("k111_value"), Block: 35, TxNum: 4},
+		{Key: "k2", Raw: []byte("k2_value"), Block: 35, TxNum: 1},
 	}, res)
 }
 
@@ -476,7 +448,7 @@ func TestCompositeKeys(t *testing.T) {
 	} {
 		k, err := createCompositeKey(keyPrefix, comps)
 		assert.NoError(t, err)
-		err = db.SetState(ns, k, []byte(k), 35, 1)
+		err = db.SetState(ns, k, driver.VersionedValue{Raw: []byte(k), Block: 35, TxNum: 1})
 		assert.NoError(t, err)
 	}
 
@@ -499,10 +471,10 @@ func TestCompositeKeys(t *testing.T) {
 	}
 	assert.Len(t, res, 4)
 	assert.Equal(t, []driver.VersionedRead{
-		{Key: "\x00prefix0a0b0", Raw: []uint8{0x0, 0x70, 0x72, 0x65, 0x66, 0x69, 0x78, 0x30, 0x61, 0x30, 0x62, 0x30}, Block: 0x23, IndexInBlock: 1},
-		{Key: "\x00prefix0a0b010", Raw: []uint8{0x0, 0x70, 0x72, 0x65, 0x66, 0x69, 0x78, 0x30, 0x61, 0x30, 0x62, 0x30, 0x31, 0x30}, Block: 0x23, IndexInBlock: 1},
-		{Key: "\x00prefix0a0b030", Raw: []uint8{0x0, 0x70, 0x72, 0x65, 0x66, 0x69, 0x78, 0x30, 0x61, 0x30, 0x62, 0x30, 0x33, 0x30}, Block: 0x23, IndexInBlock: 1},
-		{Key: "\x00prefix0a0d0", Raw: []uint8{0x0, 0x70, 0x72, 0x65, 0x66, 0x69, 0x78, 0x30, 0x61, 0x30, 0x64, 0x30}, Block: 0x23, IndexInBlock: 1},
+		{Key: "\x00prefix0a0b0", Raw: []uint8{0x0, 0x70, 0x72, 0x65, 0x66, 0x69, 0x78, 0x30, 0x61, 0x30, 0x62, 0x30}, Block: 0x23, TxNum: 1},
+		{Key: "\x00prefix0a0b010", Raw: []uint8{0x0, 0x70, 0x72, 0x65, 0x66, 0x69, 0x78, 0x30, 0x61, 0x30, 0x62, 0x30, 0x31, 0x30}, Block: 0x23, TxNum: 1},
+		{Key: "\x00prefix0a0b030", Raw: []uint8{0x0, 0x70, 0x72, 0x65, 0x66, 0x69, 0x78, 0x30, 0x61, 0x30, 0x62, 0x30, 0x33, 0x30}, Block: 0x23, TxNum: 1},
+		{Key: "\x00prefix0a0d0", Raw: []uint8{0x0, 0x70, 0x72, 0x65, 0x66, 0x69, 0x78, 0x30, 0x61, 0x30, 0x64, 0x30}, Block: 0x23, TxNum: 1},
 	},
 		res)
 
@@ -522,8 +494,8 @@ func TestCompositeKeys(t *testing.T) {
 	}
 	assert.Len(t, res, 3)
 	assert.Equal(t, []driver.VersionedRead{
-		{Key: "\x00prefix0a0b0", Raw: []uint8{0x0, 0x70, 0x72, 0x65, 0x66, 0x69, 0x78, 0x30, 0x61, 0x30, 0x62, 0x30}, Block: 0x23, IndexInBlock: 1},
-		{Key: "\x00prefix0a0b010", Raw: []uint8{0x0, 0x70, 0x72, 0x65, 0x66, 0x69, 0x78, 0x30, 0x61, 0x30, 0x62, 0x30, 0x31, 0x30}, Block: 0x23, IndexInBlock: 1},
-		{Key: "\x00prefix0a0b030", Raw: []uint8{0x0, 0x70, 0x72, 0x65, 0x66, 0x69, 0x78, 0x30, 0x61, 0x30, 0x62, 0x30, 0x33, 0x30}, Block: 0x23, IndexInBlock: 1},
+		{Key: "\x00prefix0a0b0", Raw: []uint8{0x0, 0x70, 0x72, 0x65, 0x66, 0x69, 0x78, 0x30, 0x61, 0x30, 0x62, 0x30}, Block: 0x23, TxNum: 1},
+		{Key: "\x00prefix0a0b010", Raw: []uint8{0x0, 0x70, 0x72, 0x65, 0x66, 0x69, 0x78, 0x30, 0x61, 0x30, 0x62, 0x30, 0x31, 0x30}, Block: 0x23, TxNum: 1},
+		{Key: "\x00prefix0a0b030", Raw: []uint8{0x0, 0x70, 0x72, 0x65, 0x66, 0x69, 0x78, 0x30, 0x61, 0x30, 0x62, 0x30, 0x33, 0x30}, Block: 0x23, TxNum: 1},
 	}, res)
 }

@@ -17,15 +17,15 @@ import (
 	"github.com/pkg/errors"
 )
 
-type QueryExecutor interface {
+type VersionedQueryExecutor interface {
 	GetStateMetadata(namespace, key string) (map[string][]byte, uint64, uint64, error)
-	GetState(namespace, key string) ([]byte, uint64, uint64, error)
+	GetState(namespace, key string) (VersionedValue, error)
 	Done()
 }
 
 type Interceptor[V ValidationCode] struct {
 	Logger     Logger
-	QE         QueryExecutor
+	QE         VersionedQueryExecutor
 	TxIDStore  TXIDStoreReader[V]
 	Rws        ReadWriteSet
 	Closed     bool
@@ -49,7 +49,7 @@ func EmptyRWSet() ReadWriteSet {
 	}
 }
 
-func NewInterceptor[V ValidationCode](logger Logger, qe QueryExecutor, txidStore TXIDStoreReader[V], txid core.TxID, vcProvider ValidationCodeProvider[V]) *Interceptor[V] {
+func NewInterceptor[V ValidationCode](logger Logger, qe VersionedQueryExecutor, txidStore TXIDStoreReader[V], txid core.TxID, vcProvider ValidationCodeProvider[V]) *Interceptor[V] {
 	logger.Debugf("new interceptor [%s]", txid)
 
 	return &Interceptor[V]{
@@ -74,13 +74,13 @@ func (i *Interceptor[V]) IsValid() error {
 
 		for ns, nsMap := range i.Rws.Reads {
 			for k, v := range nsMap {
-				_, b, t, err := i.QE.GetState(ns, k)
+				vv, err := i.QE.GetState(ns, k)
 				if err != nil {
 					return err
 				}
 
-				if b != v.Block || t != v.TxNum {
-					return errors.Errorf("invalid read: vault at version %s:%s %d:%d, read-write set at version %d:%d", ns, k, b, t, v.Block, v.TxNum)
+				if vv.Block != v.Block || vv.TxNum != v.TxNum {
+					return errors.Errorf("invalid read: vault at version %s:%s %d:%d, read-write set at version %d:%d", ns, k, vv.Block, vv.TxNum, v.Block, v.TxNum)
 				}
 			}
 		}
@@ -267,21 +267,21 @@ func (i *Interceptor[V]) GetState(namespace string, key string, opts ...driver.G
 
 	switch opt {
 	case driver.FromStorage:
-		val, block, txnum, err := i.QE.GetState(namespace, key)
+		vv, err := i.QE.GetState(namespace, key)
 		if err != nil {
 			return nil, err
 		}
 
 		b, t, in := i.Rws.ReadSet.get(namespace, key)
 		if in {
-			if b != block || t != txnum {
-				return nil, errors.Errorf("invalid read [%s:%s]: previous value returned at version %d:%d, current value at version %d:%d", namespace, key, b, t, block, txnum)
+			if b != vv.Block || t != vv.TxNum {
+				return nil, errors.Errorf("invalid read [%s:%s]: previous value returned at version %d:%d, current value at version %d:%d", namespace, key, b, t, vv.Block, vv.TxNum)
 			}
 		} else {
-			i.Rws.ReadSet.Add(namespace, key, block, txnum)
+			i.Rws.ReadSet.Add(namespace, key, vv.Block, vv.TxNum)
 		}
 
-		return val, nil
+		return vv.Raw, nil
 
 	case driver.FromIntermediate:
 		return i.Rws.WriteSet.get(namespace, key), nil
@@ -444,7 +444,7 @@ func (i *Interceptor[V]) Done() {
 	}
 }
 
-func (i *Interceptor[V]) Reopen(qe QueryExecutor) error {
+func (i *Interceptor[V]) Reopen(qe VersionedQueryExecutor) error {
 	i.Logger.Debugf("Reopen with [%s], closed [%v]", i.TxID, i.Closed)
 	if !i.Closed {
 		return errors.Errorf("already open")

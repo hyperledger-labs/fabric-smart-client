@@ -52,10 +52,10 @@ func (r *rangeScanIterator) Next() (*driver.VersionedRead, error) {
 	r.it.Next()
 
 	return &driver.VersionedRead{
-		Key:          dbKey,
-		Block:        v.Block,
-		IndexInBlock: int(v.Txnum),
-		Raw:          v.Value,
+		Key:   dbKey,
+		Block: v.Block,
+		TxNum: v.Txnum,
+		Raw:   v.Value,
 	}, nil
 }
 

@@ -41,7 +41,7 @@ func NewVersionedPersistenceNotifier(dataSourceName string, config driver.Config
 	return notifier.NewVersioned(persistence), nil
 }
 
-func NewUnversionedPersistence(dataSourceName string, config driver.Config) (driver.Persistence, error) {
+func NewUnversionedPersistence(dataSourceName string, config driver.Config) (driver.UnversionedPersistence, error) {
 	db, err := NewVersionedPersistence(dataSourceName, config)
 	if err != nil {
 		return nil, errors.WithMessagef(err, "failed to create badger driver for [%s]", dataSourceName)

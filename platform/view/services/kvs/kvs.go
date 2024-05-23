@@ -58,7 +58,7 @@ type Iterator interface {
 
 type KVS struct {
 	namespace string
-	store     driver.Persistence
+	store     driver.UnversionedPersistence
 
 	putMutex sync.RWMutex
 	cache    cache
@@ -252,8 +252,8 @@ func (o *KVS) Stop() {
 }
 
 type it struct {
-	ri   driver.ResultsIterator
-	next *driver.Read
+	ri   driver.UnversionedResultsIterator
+	next *driver.UnversionedRead
 }
 
 func (i *it) HasNext() bool {

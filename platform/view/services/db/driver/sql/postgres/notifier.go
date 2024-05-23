@@ -22,24 +22,24 @@ import (
 )
 
 type unversionedPersistenceNotifier struct {
-	*common.Unversioned
+	*common.UnversionedPersistence
 	*notifier
 }
 
 func (db *unversionedPersistenceNotifier) CreateSchema() error {
-	if err := db.Unversioned.CreateSchema(); err != nil {
+	if err := db.UnversionedPersistence.CreateSchema(); err != nil {
 		return err
 	}
 	return db.notifier.CreateSchema()
 }
 
 type versionedPersistenceNotifier struct {
-	*common.Persistence
+	*common.VersionedPersistence
 	*notifier
 }
 
 func (db *versionedPersistenceNotifier) CreateSchema() error {
-	if err := db.Persistence.CreateSchema(); err != nil {
+	if err := db.VersionedPersistence.CreateSchema(); err != nil {
 		return err
 	}
 	return db.notifier.CreateSchema()

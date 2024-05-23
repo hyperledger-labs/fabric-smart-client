@@ -13,7 +13,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/pkg/errors"
 )
 
@@ -91,8 +90,8 @@ func (r *RWSet) Equals(rws interface{}, nss ...string) error {
 }
 
 type (
-	Read            = driver.VersionedRead
-	ResultsIterator = driver.VersionedResultsIterator
+	Read            = vault.VersionedRead
+	ResultsIterator = vault.VersionedResultsIterator
 	ValidationCode  = fdriver.ValidationCode
 	TxIDEntry       = vault.ByNum[ValidationCode]
 	TxIDIterator    = fdriver.TxIDIterator

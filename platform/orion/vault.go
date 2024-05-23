@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package orion
 
 import (
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	"github.com/pkg/errors"
 )
@@ -35,7 +34,6 @@ type Vault interface {
 	Status(txID string) (driver.ValidationCode, string, error)
 	DiscardTx(txID string, message string) error
 	GetLastTxID() (string, error)
-	NewQueryExecutor() (driver2.QueryExecutor, error)
 	NewRWSet(txid string) (*RWSet, error)
 	GetRWSet(id string, results []byte) (*RWSet, error)
 	CommitTX(txid string, block uint64, indexInBloc int) error

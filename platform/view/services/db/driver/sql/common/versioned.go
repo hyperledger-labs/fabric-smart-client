@@ -13,92 +13,31 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	errors2 "github.com/pkg/errors"
 )
 
-type Persistence struct {
-	base
+type VersionedPersistence struct {
+	basePersistence[driver.VersionedValue, driver.VersionedRead]
 	errorWrapper driver.SQLErrorWrapper
 }
 
-func NewPersistence(readDB *sql.DB, writeDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper) *Persistence {
-	return &Persistence{
-		base: base{
-			readDB:  readDB,
-			writeDB: writeDB,
-			table:   table,
+func NewVersionedPersistence(readDB *sql.DB, writeDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper) *VersionedPersistence {
+	return &VersionedPersistence{
+		basePersistence: basePersistence[driver.VersionedValue, driver.VersionedRead]{
+			readDB:       readDB,
+			writeDB:      writeDB,
+			table:        table,
+			readScanner:  &versionedReadScanner{},
+			valueScanner: &versionedValueScanner{},
+			errorWrapper: errorWrapper,
 		},
 		errorWrapper: errorWrapper,
 	}
 }
 
-func (db *Persistence) SetState(ns string, key string, val []byte, block, txnum uint64) error {
-	return db.setStateWithTx(nil, ns, key, val, block, txnum)
-}
-
-func (db *Persistence) setStateWithTx(tx *sql.Tx, ns, key string, val []byte, block, txnum uint64) error {
-	if len(val) == 0 {
-		logger.Warnf("set key [%s:%d:%d] to nil value, will be deleted instead", key, block, txnum)
-		return db.DeleteState(ns, key)
-	}
-	if tx == nil {
-		tx = db.txn
-	}
-	if tx == nil {
-		panic("programming error, writing without ongoing update")
-	}
-	logger.Debugf("set state [%s,%s]", ns, key)
-
-	val = append([]byte(nil), val...)
-
-	// Note: INSERT ON CONFLICT works for postgres and sqlite, but there is no single-shot upsert in the sql standard.
-	// Here we sacrifice a bit of performance to remain compatible with other databases.
-	exists, err := db.exists(tx, ns, key)
-	if err != nil {
-		return err
-	}
-	if exists {
-		query := fmt.Sprintf("UPDATE %s SET block = $1, txnum = $2, val = $3 WHERE ns = $4 AND pkey = $5", db.table)
-		logger.Debug(query, block, txnum, len(val), ns, key)
-
-		_, err := tx.Exec(query, block, txnum, val, ns, key)
-		if err != nil {
-			return errors2.Wrapf(db.errorWrapper.WrapError(err), "could not set val for key [%s]", key)
-		}
-	} else {
-		query := fmt.Sprintf("INSERT INTO %s (ns, pkey, block, txnum, val) VALUES ($1, $2, $3, $4, $5)", db.table)
-		logger.Debug(query, ns, key, block, txnum, len(val))
-
-		_, err := tx.Exec(query, ns, key, block, txnum, val)
-		if err != nil {
-			return errors2.Wrapf(db.errorWrapper.WrapError(err), "could not insert [%s]", key)
-		}
-	}
-
-	return nil
-}
-
-func (db *Persistence) GetState(ns, key string) ([]byte, uint64, uint64, error) {
-	var val []byte
-	var block, txnum uint64
-
-	query := fmt.Sprintf("SELECT val, block, txnum FROM %s WHERE ns = $1 AND pkey = $2", db.table)
-	logger.Debug(query, ns, key)
-
-	row := db.readDB.QueryRow(query, ns, key)
-	if err := row.Scan(&val, &block, &txnum); err != nil {
-		if err == sql.ErrNoRows {
-			logger.Debugf("not found: [%s:%s]", ns, key)
-			return val, block, txnum, nil
-		}
-		return val, block, txnum, fmt.Errorf("error querying db: %w", err)
-	}
-
-	return val, block, txnum, nil
-}
-
-func (db *Persistence) SetStateMetadata(ns, key string, metadata map[string][]byte, block, txnum uint64) error {
+func (db *VersionedPersistence) SetStateMetadata(ns, key string, metadata map[string][]byte, block, txnum uint64) error {
 	if db.txn == nil {
 		panic("programming error, writing without ongoing update")
 	}
@@ -138,7 +77,7 @@ func (db *Persistence) SetStateMetadata(ns, key string, metadata map[string][]by
 	return nil
 }
 
-func (db *Persistence) GetStateMetadata(ns, key string) (map[string][]byte, uint64, uint64, error) {
+func (db *VersionedPersistence) GetStateMetadata(ns, key string) (map[string][]byte, uint64, uint64, error) {
 	var m []byte
 	var meta map[string][]byte
 	var block, txnum uint64
@@ -182,64 +121,31 @@ func unmarshalMetadata(input []byte) (m map[string][]byte, err error) {
 	return
 }
 
-func (db *Persistence) GetStateSetIterator(ns string, keys ...string) (driver.VersionedResultsIterator, error) {
-	if len(keys) == 0 {
-		return &EmptyVersionedIterator{}, nil
-	}
-	query := fmt.Sprintf("SELECT pkey, block, txnum, val FROM %s WHERE ns = $1 AND pkey IN %s", db.table, generateParamSet(2, len(keys)))
-	logger.Debug(query, ns, keys)
+type versionedReadScanner struct{}
 
-	rows, err := db.readDB.Query(query, append([]any{ns}, castAny(keys)...)...)
-	if err != nil {
-		return nil, fmt.Errorf("query error: %w", err)
-	}
+func (s *versionedReadScanner) Columns() []string { return []string{"pkey", "block", "txnum", "val"} }
 
-	return &VersionedReadIterator{
-		txs: rows,
-	}, nil
-}
-
-func (db *Persistence) GetStateRangeScanIterator(ns string, startKey string, endKey string) (driver.VersionedResultsIterator, error) {
-	where, args := rangeWhere(ns, startKey, endKey)
-	query := fmt.Sprintf("SELECT pkey, block, txnum, val FROM %s WHERE ns = $1 ", db.table) + where + " ORDER BY pkey;"
-	logger.Debug(query, ns, startKey, endKey)
-
-	rows, err := db.readDB.Query(query, args...)
-	if err != nil {
-		return nil, fmt.Errorf("query error: %w", err)
-	}
-
-	return &VersionedReadIterator{
-		txs: rows,
-	}, nil
-}
-
-type EmptyVersionedIterator struct{}
-
-func (t *EmptyVersionedIterator) Close() {}
-
-func (t *EmptyVersionedIterator) Next() (*driver.VersionedRead, error) { return nil, nil }
-
-type VersionedReadIterator struct {
-	txs *sql.Rows
-}
-
-func (t *VersionedReadIterator) Close() {
-	t.txs.Close()
-}
-
-func (t *VersionedReadIterator) Next() (*driver.VersionedRead, error) {
+func (s *versionedReadScanner) ReadValue(txs scannable) (driver.VersionedRead, error) {
 	var r driver.VersionedRead
-	if !t.txs.Next() {
-		return nil, nil
-	}
-	err := t.txs.Scan(&r.Key, &r.Block, &r.IndexInBlock, &r.Raw)
-
-	return &r, err
+	err := txs.Scan(&r.Key, &r.Block, &r.TxNum, &r.Raw)
+	return r, err
 }
 
-func (db *Persistence) CreateSchema() error {
-	query := fmt.Sprintf(`
+type versionedValueScanner struct{}
+
+func (s *versionedValueScanner) Columns() []string { return []string{"val", "block", "txnum"} }
+
+func (s *versionedValueScanner) ReadValue(txs scannable) (driver.VersionedValue, error) {
+	var r driver.VersionedValue
+	err := txs.Scan(&r.Raw, &r.Block, &r.TxNum)
+	return r, err
+}
+func (s *versionedValueScanner) WriteValue(value driver.VersionedValue) []any {
+	return []any{value.Raw, value.Block, value.TxNum}
+}
+
+func (db *VersionedPersistence) CreateSchema() error {
+	return db.createSchema(fmt.Sprintf(`
 	CREATE TABLE IF NOT EXISTS %s (
 		ns TEXT NOT NULL,
 		pkey BYTEA NOT NULL,
@@ -249,16 +155,10 @@ func (db *Persistence) CreateSchema() error {
 		metadata BYTEA NOT NULL DEFAULT '',
 		version INT NOT NULL DEFAULT 0,
 		PRIMARY KEY (pkey, ns)
-	);`, db.table)
-
-	logger.Debug(query)
-	if _, err := db.writeDB.Exec(query); err != nil {
-		return fmt.Errorf("can't create table: %w", err)
-	}
-	return nil
+	);`, db.table))
 }
 
-func (db *Persistence) NewWriteTransaction() (driver.WriteTransaction, error) {
+func (db *VersionedPersistence) NewWriteTransaction() (driver.WriteTransaction, error) {
 	txn, err := db.writeDB.Begin()
 	if err != nil {
 		return nil, err
@@ -272,15 +172,11 @@ func (db *Persistence) NewWriteTransaction() (driver.WriteTransaction, error) {
 
 type WriteTransaction struct {
 	txn *sql.Tx
-	db  *Persistence
+	db  *VersionedPersistence
 }
 
-func (w *WriteTransaction) SetState(namespace, key string, value []byte, block, txnum uint64) error {
-	if w.txn == nil {
-		panic("programming error, writing without ongoing update")
-	}
-
-	return w.db.setStateWithTx(w.txn, namespace, key, value, block, txnum)
+func (w *WriteTransaction) SetState(namespace core.Namespace, key string, value driver.VersionedValue) error {
+	return w.db.setState(w.txn, namespace, key, value)
 }
 
 func (w *WriteTransaction) Commit() error {
