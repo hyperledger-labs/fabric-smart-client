@@ -27,10 +27,7 @@ const (
 
 const OfficialPath = "/etc/hyperledger-labs/fabric-smart-client-node"
 
-var (
-	logger    = flogging.MustGetLogger("view-sdk.config")
-	logOutput = os.Stderr
-)
+var logOutput = os.Stderr
 
 type provider struct {
 	confPath string
@@ -117,18 +114,6 @@ func (p *provider) load() error {
 		} else {
 			return errors.WithMessagef(err, "error when reading %s config file", CmdRoot)
 		}
-	}
-
-	// read in the legacy logging level settings and, if set,
-	// notify users of the FSCNODE_LOGGING_SPEC env variable
-	var loggingLevel string
-	if p.v.GetString("logging_level") != "" {
-		loggingLevel = p.v.GetString("logging_level")
-	} else {
-		loggingLevel = p.v.GetString("logging.level")
-	}
-	if loggingLevel != "" {
-		logger.Warning("CORE_LOGGING_LEVEL is no longer supported, please use the FSCNODE_LOGGING_SPEC environment variable")
 	}
 
 	loggingSpec := os.Getenv("FSCNODE_LOGGING_SPEC")

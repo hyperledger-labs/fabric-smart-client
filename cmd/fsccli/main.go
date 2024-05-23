@@ -33,14 +33,6 @@ func main() {
 	replacer := strings.NewReplacer(".", "_")
 	viper.SetEnvKeyReplacer(replacer)
 
-	// Define command-line flags that are valid for all peer commands and
-	// subcommands.
-	mainFlags := mainCmd.PersistentFlags()
-
-	mainFlags.String("logging-level", "", "Legacy logging level flag")
-	viper.BindPFlag("logging_level", mainFlags.Lookup("logging-level"))
-	mainFlags.MarkHidden("logging-level")
-
 	mainCmd.AddCommand(artifactgen.NewCmd())
 	mainCmd.AddCommand(cryptogen.NewCmd())
 	mainCmd.AddCommand(view.NewCmd())
