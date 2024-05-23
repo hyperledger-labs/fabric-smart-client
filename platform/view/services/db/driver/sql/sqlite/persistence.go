@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/notifier"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 )
@@ -26,7 +27,7 @@ const driverName = "sqlite"
 
 var logger = flogging.MustGetLogger("postgres-db")
 
-func NewUnversioned(opts common.Opts, table string) (*common.Unversioned, error) {
+func NewUnversionedPersistence(opts common.Opts, table string) (*common.Unversioned, error) {
 	readDB, writeDB, err := openDB(opts.DataSource, opts.MaxOpenConns, opts.SkipPragmas)
 	if err != nil {
 		return nil, fmt.Errorf("error opening db: %w", err)
@@ -34,12 +35,28 @@ func NewUnversioned(opts common.Opts, table string) (*common.Unversioned, error)
 	return common.NewUnversioned(readDB, writeDB, table, &errorMapper{}), nil
 }
 
-func NewPersistence(opts common.Opts, table string) (*common.Persistence, error) {
+func NewUnversionedPersistenceNotifier(opts common.Opts, table string) (*notifier.UnversionedPersistenceNotifier[*common.Unversioned], error) {
+	readDB, writeDB, err := openDB(opts.DataSource, opts.MaxOpenConns, opts.SkipPragmas)
+	if err != nil {
+		return nil, fmt.Errorf("error opening db: %w", err)
+	}
+	return notifier.NewUnversioned(common.NewUnversioned(readDB, writeDB, table, &errorMapper{})), nil
+}
+
+func NewVersionedPersistence(opts common.Opts, table string) (*common.Persistence, error) {
 	readDB, writeDB, err := openDB(opts.DataSource, opts.MaxOpenConns, opts.SkipPragmas)
 	if err != nil {
 		return nil, fmt.Errorf("error opening db: %w", err)
 	}
 	return common.NewPersistence(readDB, writeDB, table, &errorMapper{}), nil
+}
+
+func NewVersionedPersistenceNotifier(opts common.Opts, table string) (*notifier.VersionedPersistenceNotifier[*common.Persistence], error) {
+	readDB, writeDB, err := openDB(opts.DataSource, opts.MaxOpenConns, opts.SkipPragmas)
+	if err != nil {
+		return nil, fmt.Errorf("error opening db: %w", err)
+	}
+	return notifier.NewVersioned[*common.Persistence](common.NewPersistence(readDB, writeDB, table, &errorMapper{})), nil
 }
 
 func openDB(dataSourceName string, maxOpenConns int, skipPragmas bool) (readDB *sql.DB, writeDB *sql.DB, err error) {

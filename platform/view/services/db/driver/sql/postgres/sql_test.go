@@ -12,10 +12,18 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
 	_ "github.com/lib/pq"
 	_ "modernc.org/sqlite"
 )
+
+type dbObject interface {
+	CreateSchema() error
+}
+
+type persistenceConstructor[V dbObject] func(common2.Opts, string) (V, error)
 
 func TestPostgres(t *testing.T) {
 	if os.Getenv("TEST_POSTGRES") != "true" {
@@ -33,39 +41,23 @@ func TestPostgres(t *testing.T) {
 	t.Log("postgres ready")
 
 	common2.TestCases(t, func(name string) (*common2.Persistence, error) {
-		return initPostgresVersioned(pgConnStr, name)
+		return initPersistence(NewPersistence, pgConnStr, name, 50)
 	}, func(name string) (*common2.Unversioned, error) {
-		return initPostgresUnversioned(pgConnStr, name)
+		return initPersistence(NewUnversioned, pgConnStr, name, 0)
+	}, func(name string) (driver.UnversionedNotifier, error) {
+		return initPersistence(NewUnversionedNotifier, pgConnStr, name, 0)
+	}, func(name string) (driver.VersionedNotifier, error) {
+		return initPersistence(NewPersistenceNotifier, pgConnStr, name, 50)
 	})
 }
 
-func initPostgresVersioned(pgConnStr, name string) (*common2.Persistence, error) {
-	p, err := NewPersistence(common2.Opts{
-		Driver:       "postgres",
-		DataSource:   pgConnStr,
-		MaxOpenConns: 50,
-		SkipPragmas:  false,
-	}, name)
+func initPersistence[V dbObject](constructor persistenceConstructor[V], pgConnStr, name string, maxOpenConns int) (V, error) {
+	p, err := constructor(common2.Opts{DataSource: pgConnStr, MaxOpenConns: maxOpenConns}, name)
 	if err != nil {
-		return nil, err
+		return utils.Zero[V](), err
 	}
 	if err := p.CreateSchema(); err != nil {
-		return nil, err
-	}
-	return p, nil
-}
-func initPostgresUnversioned(pgConnStr, name string) (*common2.Unversioned, error) {
-	p, err := NewUnversioned(common2.Opts{
-		Driver:       "postgres",
-		DataSource:   pgConnStr,
-		MaxOpenConns: 0,
-		SkipPragmas:  false,
-	}, name)
-	if err != nil {
-		return nil, err
-	}
-	if err := p.CreateSchema(); err != nil {
-		return nil, err
+		return utils.Zero[V](), err
 	}
 	return p, nil
 }

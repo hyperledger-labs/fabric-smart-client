@@ -12,9 +12,11 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 	"unicode/utf8"
 
 	errors2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/keys"
 	"github.com/pkg/errors"
@@ -45,6 +47,20 @@ var UnversionedCases = []struct {
 	{"UnversionedSimple", TTestUnversionedSimple},
 	{"UnversionedRange", TTestUnversionedRange},
 	{"NonUTF8keys", TTestNonUTF8keys},
+}
+
+var UnversionedNotifierCases = []struct {
+	Name string
+	Fn   func(*testing.T, driver.UnversionedNotifier)
+}{
+	{"UnversionedNotifierSimple", TTestUnversionedNotifierSimple},
+}
+
+var VersionedNotifierCases = []struct {
+	Name string
+	Fn   func(*testing.T, driver.VersionedNotifier)
+}{
+	{"VersionedNotifierSimple", TTestVersionedNotifierSimple},
 }
 
 var ErrorCases = []struct {
@@ -924,4 +940,195 @@ func BenchmarkBuilder(b *testing.B) {
 		s = sb.String()
 	}
 	_ = s
+}
+
+type notifyEvent struct {
+	Op  opType
+	NS  string
+	Key string
+}
+
+func waitForResults[V any](ch <-chan V, times int, timeout time.Duration) ([]V, error) {
+	results := make([]V, 0, times)
+
+	for {
+		select {
+		case k := <-ch:
+			results = append(results, k)
+			if len(results) == times {
+				return results, nil
+			}
+		case <-time.After(timeout):
+			return nil, errors.New("timeout")
+		}
+	}
+}
+
+func TTestUnversionedNotifierSimple(t *testing.T, db driver.UnversionedNotifier) {
+	ch, err := subscribe(db)
+	assert.NoError(t, err)
+
+	ns := "ns"
+	key := "key"
+
+	v, err := db.GetState(ns, key)
+	assert.NoError(t, err)
+	assert.Equal(t, []byte(nil), v)
+
+	err = db.BeginUpdate()
+	assert.NoError(t, err)
+	err = db.SetState(ns, key, []byte("val"))
+	assert.NoError(t, err)
+	err = db.Commit()
+	assert.NoError(t, err)
+
+	v, err = db.GetState(ns, key)
+	assert.NoError(t, err)
+	assert.Equal(t, []byte("val"), v)
+
+	err = db.BeginUpdate()
+	assert.NoError(t, err)
+
+	err = db.SetState(ns, key, []byte("val1"))
+	assert.NoError(t, err)
+
+	v, err = db.GetState(ns, key)
+	assert.NoError(t, err)
+	assert.Equal(t, []byte("val"), v)
+
+	err = db.Commit()
+	assert.NoError(t, err)
+
+	v, err = db.GetState(ns, key)
+	assert.NoError(t, err)
+	assert.Equal(t, []byte("val1"), v)
+
+	// Discard an update
+	err = db.BeginUpdate()
+	assert.NoError(t, err)
+	err = db.SetState(ns, key, []byte("val0"))
+	assert.NoError(t, err)
+	err = db.Discard()
+	assert.NoError(t, err)
+
+	// Expect state to be same as before the rollback
+	v, err = db.GetState(ns, key)
+	assert.NoError(t, err)
+	assert.Equal(t, []byte("val1"), v)
+
+	err = db.BeginUpdate()
+	assert.NoError(t, err)
+	err = db.DeleteState(ns, key)
+	assert.NoError(t, err)
+	err = db.Commit()
+	assert.NoError(t, err)
+
+	v, err = db.GetState(ns, key)
+	assert.NoError(t, err)
+	assert.Equal(t, []byte(nil), v)
+
+	results, err := waitForResults(ch, 3, 1*time.Second)
+	assert.NoError(t, err)
+	assert.Equal(t, []notifyEvent{{upsert, "ns", "key"}, {upsert, "ns", "key"}, {delete, "ns", "key"}}, results)
+}
+
+func TTestVersionedNotifierSimple(t *testing.T, db driver.VersionedNotifier) {
+	ch, err := subscribe(db)
+	assert.NoError(t, err)
+
+	ns := "ns"
+	key := "key"
+
+	v, _, _, err := db.GetState(ns, key)
+	assert.NoError(t, err)
+	assert.Equal(t, []byte(nil), v)
+
+	err = db.BeginUpdate()
+	assert.NoError(t, err)
+	err = db.SetState(ns, key, []byte("val"), 0, 0)
+	assert.NoError(t, err)
+	err = db.Commit()
+	assert.NoError(t, err)
+
+	v, _, _, err = db.GetState(ns, key)
+	assert.NoError(t, err)
+	assert.Equal(t, []byte("val"), v)
+
+	err = db.BeginUpdate()
+	assert.NoError(t, err)
+
+	err = db.SetState(ns, key, []byte("val1"), 0, 0)
+	assert.NoError(t, err)
+
+	v, _, _, err = db.GetState(ns, key)
+	assert.NoError(t, err)
+	assert.Equal(t, []byte("val"), v)
+
+	err = db.Commit()
+	assert.NoError(t, err)
+
+	v, _, _, err = db.GetState(ns, key)
+	assert.NoError(t, err)
+	assert.Equal(t, []byte("val1"), v)
+
+	// Discard an update
+	err = db.BeginUpdate()
+	assert.NoError(t, err)
+	err = db.SetState(ns, key, []byte("val0"), 0, 0)
+	assert.NoError(t, err)
+	err = db.Discard()
+	assert.NoError(t, err)
+
+	// Expect state to be same as before the rollback
+	v, _, _, err = db.GetState(ns, key)
+	assert.NoError(t, err)
+	assert.Equal(t, []byte("val1"), v)
+
+	err = db.BeginUpdate()
+	assert.NoError(t, err)
+	err = db.DeleteState(ns, key)
+	assert.NoError(t, err)
+	err = db.Commit()
+	assert.NoError(t, err)
+
+	v, _, _, err = db.GetState(ns, key)
+	assert.NoError(t, err)
+	assert.Equal(t, []byte(nil), v)
+
+	results, err := waitForResults(ch, 3, 1*time.Second)
+	assert.NoError(t, err)
+	assert.Equal(t, []notifyEvent{{upsert, "ns", "key"}, {upsert, "ns", "key"}, {delete, "ns", "key"}}, results)
+}
+
+type opType int
+
+const (
+	unknown opType = iota
+	delete
+	upsert
+)
+
+// We treat update/inserts as the same, because we don't need the operation type.
+// Distinguishing the two cases for sqlite would require more logic.
+var opTypeMap = map[driver.Operation]opType{
+	driver.Unknown: unknown,
+	driver.Update:  upsert,
+	driver.Insert:  upsert,
+	driver.Delete:  delete,
+}
+
+type notifier interface {
+	Subscribe(callback driver.TriggerCallback) error
+}
+
+func subscribe(db notifier) (chan notifyEvent, error) {
+	ch := make(chan notifyEvent, 100) //TODO: AF Why deadlock
+	err := db.Subscribe(func(operation driver.Operation, m map[driver.ColumnKey]string) {
+		key, _ := utils.DecodeByteA(m["pkey"])
+		ch <- notifyEvent{Op: opTypeMap[operation], NS: m["ns"], Key: string(key)}
+	})
+	if err != nil {
+		return nil, err
+	}
+	return ch, nil
 }

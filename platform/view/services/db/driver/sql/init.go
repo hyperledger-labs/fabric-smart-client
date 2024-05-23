@@ -38,12 +38,12 @@ type persistenceConstructor[V dbObject] func(common.Opts, string) (V, error)
 
 var versionedConstructors = map[string]persistenceConstructor[*common.Persistence]{
 	"postgres": postgres.NewPersistence,
-	"sqlite":   sqlite.NewPersistence,
+	"sqlite":   sqlite.NewVersionedPersistence,
 }
 
 var unversionedConstructors = map[string]persistenceConstructor[*common.Unversioned]{
 	"postgres": postgres.NewUnversioned,
-	"sqlite":   sqlite.NewUnversioned,
+	"sqlite":   sqlite.NewUnversionedPersistence,
 }
 
 func (d *Driver) NewVersioned(dataSourceName string, config driver.Config) (driver.VersionedPersistence, error) {

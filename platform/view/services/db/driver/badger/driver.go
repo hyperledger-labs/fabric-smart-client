@@ -13,7 +13,6 @@ import (
 	"github.com/dgraph-io/badger/v3"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/unversioned"
 	"github.com/pkg/errors"
 )
 
@@ -43,28 +42,11 @@ func (o *Driver) NewTransactionalVersionedPersistence(dataSourceName string, con
 }
 
 func (v *Driver) NewVersioned(dataSourceName string, config driver.Config) (driver.VersionedPersistence, error) {
-	opts := &Opts{}
-	if err := config.UnmarshalKey("", opts); err != nil {
-		return nil, errors.Wrapf(err, "failed getting opts")
-	}
-	if err := config.UnmarshalKey("", &opts.Options); err != nil {
-		return nil, errors.Wrapf(err, "failed getting opts")
-	}
-	path := filepath.Join(opts.Path, dataSourceName)
-	opts.Path = path
-	logger.Infof("opening badger at [%s], opts [%v]", path, opts)
-	if err := os.MkdirAll(path, 0755); err != nil {
-		return nil, errors.Wrapf(err, "failed creating directory [%s]", path)
-	}
-	return OpenDB(*opts, config)
+	return NewVersionedPersistence(dataSourceName, config)
 }
 
 func (v *Driver) New(dataSourceName string, config driver.Config) (driver.Persistence, error) {
-	db, err := v.NewVersioned(dataSourceName, config)
-	if err != nil {
-		return nil, errors.WithMessagef(err, "failed to create badger driver for [%s]", dataSourceName)
-	}
-	return &unversioned.Unversioned{Versioned: db}, nil
+	return NewUnversionedPersistence(dataSourceName, config)
 }
 
 func init() {

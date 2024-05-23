@@ -72,3 +72,11 @@ func Remove[T comparable](items []T, toRemove T) ([]T, bool) {
 	}
 	return items, false
 }
+
+func InverseMap[K comparable, V comparable](in map[K]V) map[V]K {
+	out := make(map[V]K, len(in))
+	for k, v := range in {
+		out[v] = k
+	}
+	return out
+}

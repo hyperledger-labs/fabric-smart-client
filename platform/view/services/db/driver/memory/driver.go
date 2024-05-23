@@ -9,7 +9,6 @@ package mem
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/unversioned"
 )
 
 type Driver struct{}
@@ -20,11 +19,11 @@ func (v *Driver) NewTransactionalVersionedPersistence(string, driver.Config) (dr
 }
 
 func (v *Driver) NewVersioned(string, driver.Config) (driver.VersionedPersistence, error) {
-	return New(), nil
+	return NewVersionedPersistence(), nil
 }
 
 func (v *Driver) New(string, driver.Config) (driver.Persistence, error) {
-	return &unversioned.Unversioned{Versioned: New()}, nil
+	return NewUnversionedPersistence(), nil
 }
 
 func init() {
