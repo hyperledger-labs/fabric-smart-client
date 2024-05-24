@@ -14,7 +14,7 @@ import (
 	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/pkg/errors"
@@ -53,7 +53,7 @@ type basePersistence[V any, R any] struct {
 	errorWrapper driver.SQLErrorWrapper
 }
 
-func (db *basePersistence[V, R]) GetStateRangeScanIterator(ns core.Namespace, startKey, endKey string) (utils.Iterator[*R], error) {
+func (db *basePersistence[V, R]) GetStateRangeScanIterator(ns core.Namespace, startKey, endKey string) (collections.Iterator[*R], error) {
 	where, args := rangeWhere(ns, startKey, endKey)
 	query := fmt.Sprintf("SELECT %s FROM %s WHERE ns = $1 %s ORDER BY pkey;", strings.Join(db.readScanner.Columns(), ", "), db.table, where)
 	logger.Debug(query, ns, startKey, endKey)
@@ -157,9 +157,9 @@ func (db *basePersistence[V, R]) setState(tx *sql.Tx, ns core.Namespace, pkey st
 	return nil
 }
 
-func (db *basePersistence[V, R]) GetStateSetIterator(ns core.Namespace, keys ...string) (utils.Iterator[*R], error) {
+func (db *basePersistence[V, R]) GetStateSetIterator(ns core.Namespace, keys ...string) (collections.Iterator[*R], error) {
 	if len(keys) == 0 {
-		return utils.NewEmptyIterator[*R](), nil
+		return collections.NewEmptyIterator[*R](), nil
 	}
 	query := fmt.Sprintf("SELECT %s FROM %s WHERE ns = $1 AND pkey IN %s", strings.Join(db.readScanner.Columns(), ", "), db.table, generateParamSet(2, len(keys)))
 	logger.Debug(query, ns, keys)

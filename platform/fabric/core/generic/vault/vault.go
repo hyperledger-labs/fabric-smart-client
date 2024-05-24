@@ -11,7 +11,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault/txidstore"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger/fabric-protos-go/ledger/rwset"
@@ -53,7 +53,7 @@ func (p *populator) Populate(rws *vault.ReadWriteSet, rwsetBytes []byte, namespa
 		return errors.Wrapf(err, "provided invalid read-write set bytes, TxRwSetFromProtoMsg failed")
 	}
 
-	namespaceSet := utils.NewSet(namespaces...)
+	namespaceSet := collections.NewSet(namespaces...)
 	for _, nsrws := range rwsIn.NsRwSets {
 		ns := nsrws.NameSpace
 

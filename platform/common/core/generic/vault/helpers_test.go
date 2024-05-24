@@ -14,7 +14,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault/txidstore"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/cache/secondcache"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
@@ -66,7 +66,7 @@ func (p *populator) Populate(rws *vault.ReadWriteSet, rwsetBytes []byte, namespa
 		return errors.Wrapf(err, "provided invalid read-write set bytes, TxRwSetFromProtoMsg failed")
 	}
 
-	namespaceSet := utils.NewSet(namespaces...)
+	namespaceSet := collections.NewSet(namespaces...)
 	for _, nsrws := range rwsIn.NsRwSets {
 		ns := nsrws.NameSpace
 
@@ -1180,11 +1180,11 @@ func (db *deadlockErrorPersistence) GetState(namespace core.Namespace, key strin
 	return db.VersionedPersistence.GetState(namespace, key)
 }
 
-func (db *deadlockErrorPersistence) GetStateRangeScanIterator(namespace core.Namespace, startKey string, endKey string) (utils.Iterator[*vault.VersionedRead], error) {
+func (db *deadlockErrorPersistence) GetStateRangeScanIterator(namespace core.Namespace, startKey string, endKey string) (collections.Iterator[*vault.VersionedRead], error) {
 	return db.VersionedPersistence.GetStateRangeScanIterator(namespace, startKey, endKey)
 }
 
-func (db *deadlockErrorPersistence) GetStateSetIterator(ns core.Namespace, keys ...string) (utils.Iterator[*vault.VersionedRead], error) {
+func (db *deadlockErrorPersistence) GetStateSetIterator(ns core.Namespace, keys ...string) (collections.Iterator[*vault.VersionedRead], error) {
 	return db.VersionedPersistence.GetStateSetIterator(ns, keys...)
 }
 
@@ -1208,10 +1208,10 @@ func (db *duplicateErrorPersistence) GetState(namespace core.Namespace, key stri
 	return db.VersionedPersistence.GetState(namespace, key)
 }
 
-func (db *duplicateErrorPersistence) GetStateRangeScanIterator(namespace core.Namespace, startKey string, endKey string) (utils.Iterator[*vault.VersionedRead], error) {
+func (db *duplicateErrorPersistence) GetStateRangeScanIterator(namespace core.Namespace, startKey string, endKey string) (collections.Iterator[*vault.VersionedRead], error) {
 	return db.VersionedPersistence.GetStateRangeScanIterator(namespace, startKey, endKey)
 }
 
-func (db *duplicateErrorPersistence) GetStateSetIterator(ns core.Namespace, keys ...string) (utils.Iterator[*vault.VersionedRead], error) {
+func (db *duplicateErrorPersistence) GetStateSetIterator(ns core.Namespace, keys ...string) (collections.Iterator[*vault.VersionedRead], error) {
 	return db.VersionedPersistence.GetStateSetIterator(ns, keys...)
 }
