@@ -13,7 +13,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -90,7 +90,7 @@ func TestFinalityManager_RunStatusListener(t *testing.T) {
 
 	vault := &MockVault{}
 	manager := NewFinalityManager[int](flogging.MustGetLogger("committer"), vault)
-	manager.postStatuses = utils.NewSet(1)
+	manager.postStatuses = collections.NewSet(1)
 
 	// no listeners
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)

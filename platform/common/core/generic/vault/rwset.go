@@ -11,7 +11,7 @@ import (
 	"sort"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/keys"
 	"github.com/pkg/errors"
 )
@@ -81,7 +81,7 @@ func (w *MetaWriteSet) clear(ns string) {
 type NamespaceWrites map[string][]byte
 
 func (r NamespaceWrites) Keys() []string {
-	return utils.Keys(r)
+	return collections.Keys(r)
 }
 
 func (r NamespaceWrites) Equals(o NamespaceWrites) error {
@@ -221,9 +221,9 @@ func entriesEqual[T any](r, o map[string]T, compare func(T, T) bool, nss ...core
 }
 
 func getKeys[V any](m map[core.Namespace]V, nss ...core.Namespace) []string {
-	metaWriteNamespaces := utils.Keys(m)
+	metaWriteNamespaces := collections.Keys(m)
 	if len(nss) == 0 {
 		return metaWriteNamespaces
 	}
-	return utils.Intersection(nss, metaWriteNamespaces)
+	return collections.Intersection(nss, metaWriteNamespaces)
 }

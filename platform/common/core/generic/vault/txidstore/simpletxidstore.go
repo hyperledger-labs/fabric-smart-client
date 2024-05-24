@@ -15,7 +15,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 )
@@ -184,7 +184,7 @@ func (s *SimpleTXIDStore[V]) GetLastTxID() (core.TxID, error) {
 }
 
 func (s *SimpleTXIDStore[V]) Iterator(pos interface{}) (vault.TxIDIterator[V], error) {
-	var iterator utils.Iterator[*ByNum]
+	var iterator collections.Iterator[*ByNum]
 	if ppos, ok := pos.(*vault.SeekSet); ok {
 		keys := make([]string, len(ppos.TxIDs))
 		for i, txID := range ppos.TxIDs {
@@ -209,7 +209,7 @@ func (s *SimpleTXIDStore[V]) Iterator(pos interface{}) (vault.TxIDIterator[V], e
 		iterator = &SimpleTxIDIteratorByNum{it}
 	}
 
-	return utils.Map(iterator, s.mapByNum), nil
+	return collections.Map(iterator, s.mapByNum), nil
 }
 
 func (s *SimpleTXIDStore[V]) getStartKey(pos interface{}) (uint64, error) {

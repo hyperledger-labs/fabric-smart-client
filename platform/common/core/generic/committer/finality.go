@@ -14,7 +14,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/pkg/errors"
 )
 
@@ -58,7 +58,7 @@ type FinalityManager[V comparable] struct {
 	logger        Logger
 	eventQueue    chan FinalityEvent[V]
 	vault         Vault[V]
-	postStatuses  utils.Set[V]
+	postStatuses  collections.Set[V]
 	txIDListeners map[core.TxID][]FinalityListener[V]
 	mutex         sync.RWMutex
 }
@@ -68,7 +68,7 @@ func NewFinalityManager[V comparable](logger Logger, vault Vault[V], statuses ..
 		logger:        logger,
 		eventQueue:    make(chan FinalityEvent[V], defaultEventQueueSize),
 		vault:         vault,
-		postStatuses:  utils.NewSet(statuses...),
+		postStatuses:  collections.NewSet(statuses...),
 		txIDListeners: map[string][]FinalityListener[V]{},
 	}
 }
@@ -93,7 +93,7 @@ func (c *FinalityManager[V]) RemoveListener(txID core.TxID, toRemove FinalityLis
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	if ls, ok := utils.Remove(c.txIDListeners[txID], toRemove); ok {
+	if ls, ok := collections.Remove(c.txIDListeners[txID], toRemove); ok {
 		c.txIDListeners[txID] = ls
 		if len(ls) == 0 {
 			delete(c.txIDListeners, txID)
@@ -192,5 +192,5 @@ func (c *FinalityManager[V]) txIDs() []core.TxID {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
-	return utils.Keys(c.txIDListeners)
+	return collections.Keys(c.txIDListeners)
 }

@@ -8,7 +8,7 @@ package driver
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/pkg/errors"
 )
 
@@ -28,7 +28,7 @@ type VersionedRead struct {
 	TxNum core.TxNum
 }
 
-type VersionedResultsIterator = utils.Iterator[*VersionedRead]
+type VersionedResultsIterator = collections.Iterator[*VersionedRead]
 
 type VersionedValue struct {
 	Raw   []byte
@@ -41,7 +41,7 @@ type UnversionedRead struct {
 	Raw []byte
 }
 
-type UnversionedResultsIterator = utils.Iterator[*UnversionedRead]
+type UnversionedResultsIterator = collections.Iterator[*UnversionedRead]
 
 type UnversionedValue = []byte
 
@@ -69,10 +69,10 @@ type basePersistence[V any, R any] interface {
 	// and an empty endKey refers to the last available key. For scanning all the keys, both the startKey and the endKey
 	// can be supplied as empty strings. However, a full scan should be used judiciously for performance reasons.
 	// The returned VersionedResultsIterator contains results of type *VersionedRead.
-	GetStateRangeScanIterator(namespace core.Namespace, startKey string, endKey string) (utils.Iterator[*R], error)
+	GetStateRangeScanIterator(namespace core.Namespace, startKey string, endKey string) (collections.Iterator[*R], error)
 	// GetStateSetIterator returns an iterator that contains all the values for the passed keys.
 	// The order is not respected.
-	GetStateSetIterator(ns core.Namespace, keys ...string) (utils.Iterator[*R], error)
+	GetStateSetIterator(ns core.Namespace, keys ...string) (collections.Iterator[*R], error)
 	// Close closes this persistence instance
 	Close() error
 	// BeginUpdate starts the session

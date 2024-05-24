@@ -14,7 +14,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
 	"github.com/lib/pq"
@@ -191,7 +191,7 @@ func (db *notifier) CreateSchema() error {
 }
 
 func convertOperations(ops []driver.Operation) string {
-	opMap := utils.InverseMap(operationMap)
+	opMap := collections.InverseMap(operationMap)
 	opStrings := make([]string, len(ops))
 	for i, op := range ops {
 		opString, ok := opMap[op]
