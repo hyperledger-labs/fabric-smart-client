@@ -45,14 +45,6 @@ type UnversionedResultsIterator = utils.Iterator[*UnversionedRead]
 
 type UnversionedValue = []byte
 
-func (v *VersionedRead) K() string {
-	return v.Key
-}
-
-func (v *VersionedRead) V() []byte {
-	return v.Raw
-}
-
 type QueryExecutor interface {
 	GetState(namespace string, key string) ([]byte, error)
 	GetStateMetadata(namespace, key string) (map[string][]byte, uint64, uint64, error)
