@@ -25,8 +25,8 @@ import (
 )
 
 const (
-	ExplorerDB = "hyperledger/explorer-db:latest"
-	Explorer   = "hyperledger/explorer:latest"
+	ExplorerDB = "ghcr.io/hyperledger-labs/explorer-db:latest"
+	Explorer   = "ghcr.io/hyperledger-labs/explorer:latest"
 )
 
 var RequiredImages = []string{
@@ -73,7 +73,7 @@ func (n *Extension) startExplorerDB() {
 
 	resp, err := cli.ContainerCreate(ctx, &container.Config{
 		Hostname: "explorerdb.mynetwork.com",
-		Image:    "hyperledger/explorer-db:latest",
+		Image:    ExplorerDB,
 		Tty:      false,
 		Env: []string{
 			"DATABASE_DATABASE=fabricexplorer",
@@ -149,7 +149,7 @@ func (n *Extension) startExplorer() {
 	port := strconv.Itoa(n.platform.HyperledgerExplorerPort())
 	resp, err := cli.ContainerCreate(ctx, &container.Config{
 		Hostname: "explorer.mynetwork.com",
-		Image:    "hyperledger/explorer:latest",
+		Image:    Explorer,
 		Tty:      false,
 		Env: []string{
 			"DATABASE_HOST=explorerdb.mynetwork.com",

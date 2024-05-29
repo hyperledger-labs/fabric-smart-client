@@ -524,7 +524,7 @@ If you reached this point, you can now invoke the business views on the FSC node
 To create an IOU, you can run the following command in a new terminal window:
 
 ```shell
-./iou view -c ./testdata/fsc/nodes/borrower/client-config.yaml -f create -i '{"Amount":10}'
+./iou view -c ./testdata/fsc/nodes/borrower.0/client-config.yaml -f create -i '{"Amount":10}'
 ```
 
 The above command invoke the `create` view on the borrower's FSC node. The `-c` option specifies the client configuration file.
@@ -540,7 +540,7 @@ The above is the IOU ID that we will use to update the IOU or query it.
 Indeed, once the IOU is created, you can query the IOUs by running the following command (substituting the IOU LinearID output from the previous command):
 
 ```shell
-./iou view -c ./testdata/fsc/nodes/borrower/client-config.yaml -f query -i '{"LinearID":"bd90b6c8-0a54-4719-8caa-00759bad7d69"}'
+./iou view -c ./testdata/fsc/nodes/borrower.0/client-config.yaml -f query -i '{"LinearID":"bd90b6c8-0a54-4719-8caa-00759bad7d69"}'
 ```
 
 The above command will query the IOU with the linear ID `bd90b6c8-0a54-4719-8caa-00759bad7d69` on the borrower's FSC node.
@@ -549,13 +549,13 @@ If everything is successful, you will the current amount contained in the IOU st
 If you want to query the IOU start on the lender node, you can run the following command:
 
 ```shell
-./iou view -c ./testdata/fsc/nodes/lender/client-config.yaml -f query -i '{"LinearID":"bd90b6c8-0a54-4719-8caa-00759bad7d69"}'
+./iou view -c ./testdata/fsc/nodes/lender.0/client-config.yaml -f query -i '{"LinearID":"bd90b6c8-0a54-4719-8caa-00759bad7d69"}'
 ```
 
 To update the IOU, you can run the following command:
 
 ```shell
-./iou view -c ./testdata/fsc/nodes/borrower/client-config.yaml -f update -i '{"LinearID":"bd90b6c8-0a54-4719-8caa-00759bad7d69","Amount":8}'
+./iou view -c ./testdata/fsc/nodes/borrower.0/client-config.yaml -f update -i '{"LinearID":"bd90b6c8-0a54-4719-8caa-00759bad7d69","Amount":8}'
 ```
 
 The above command will update the IOU with the linear ID `bd90b6c8-0a54-4719-8caa-00759bad7d69`. The new amount will be 8.
