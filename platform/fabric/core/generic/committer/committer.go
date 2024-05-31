@@ -8,6 +8,7 @@ package committer
 
 import (
 	"context"
+	"fmt"
 	"runtime/debug"
 	"strconv"
 	"strings"
@@ -33,7 +34,6 @@ import (
 	"github.com/hyperledger/fabric/common/configtx"
 	"github.com/hyperledger/fabric/protoutil"
 	"github.com/pkg/errors"
-	"go.uber.org/zap/zapcore"
 )
 
 const (
@@ -80,6 +80,8 @@ type Service struct {
 	OrderingService    OrderingService
 	FabricFinality     FabricFinality
 	Tracer             tracing.Tracer
+
+	logger committer.Logger
 
 	// events
 	EventManager    *FinalityManager
@@ -128,6 +130,7 @@ func NewService(
 		WaitForEventTimeout: waitForEventTimeout,
 		QuietNotifier:       quiet,
 		Tracer:              metrics,
+		logger:              logger.Named(fmt.Sprintf("[%s:%s]", configService.NetworkName(), channelConfig.ID())),
 		listeners:           map[string][]chan FinalityEvent{},
 		Handlers:            map[common.HeaderType]TransactionHandler{},
 		pollingTimeout:      1 * time.Second,
@@ -145,7 +148,7 @@ func (c *Service) Start(context context.Context) error {
 func (c *Service) Status(txID string) (driver.ValidationCode, string, error) {
 	vc, message, err := c.Vault.Status(txID)
 	if err != nil {
-		logger.Errorf("failed to get status of [%s]: %s", txID, err)
+		c.logger.Errorf("failed to get status of [%s]: %s", txID, err)
 		return driver.Unknown, "", err
 	}
 	if vc == driver.Unknown {
@@ -171,7 +174,7 @@ func (c *Service) AddTransactionFilter(sr driver.TransactionFilter) error {
 }
 
 func (c *Service) DiscardTx(txID string, message string) error {
-	logger.Debugf("discarding transaction [%s] with message [%s]", txID, message)
+	c.logger.Debugf("discarding transaction [%s] with message [%s]", txID, message)
 
 	vc, _, err := c.Status(txID)
 	if err != nil {
@@ -184,23 +187,23 @@ func (c *Service) DiscardTx(txID string, message string) error {
 				return errors.WithMessagef(err, "failed to extract stored enveloper for [%s]", txID)
 			}
 		} else {
-			logger.Debugf("Discarding transaction [%s] skipped, tx is unknown", txID)
+			c.logger.Debugf("Discarding transaction [%s] skipped, tx is unknown", txID)
 			if err := c.Vault.SetDiscarded(txID, message); err != nil {
-				logger.Errorf("failed setting tx discarded [%s] in vault: %s", txID, err)
+				c.logger.Errorf("failed setting tx discarded [%s] in vault: %s", txID, err)
 			}
 			return nil
 		}
 	}
 
 	if err := c.Vault.DiscardTx(txID, message); err != nil {
-		logger.Errorf("failed discarding tx [%s] in vault: %s", txID, err)
+		c.logger.Errorf("failed discarding tx [%s] in vault: %s", txID, err)
 	}
 	return nil
 }
 
 func (c *Service) CommitTX(txID string, block uint64, indexInBlock int, envelope *common.Envelope) (err error) {
-	logger.Debugf("Committing transaction [%s,%d,%d]", txID, block, indexInBlock)
-	defer logger.Debugf("Committing transaction [%s,%d,%d] done [%s]", txID, block, indexInBlock, err)
+	c.logger.Debugf("Committing transaction [%s,%d,%d]", txID, block, indexInBlock)
+	defer c.logger.Debugf("Committing transaction [%s,%d,%d] done [%s]", txID, block, indexInBlock, err)
 
 	vc, _, err := c.Status(txID)
 	if err != nil {
@@ -209,11 +212,11 @@ func (c *Service) CommitTX(txID string, block uint64, indexInBlock int, envelope
 	switch vc {
 	case driver.Valid:
 		// This should generate a panic
-		logger.Debugf("[%s] is already valid", txID)
+		c.logger.Debugf("[%s] is already valid", txID)
 		return errors.Errorf("[%s] is already valid", txID)
 	case driver.Invalid:
 		// This should generate a panic
-		logger.Debugf("[%s] is invalid", txID)
+		c.logger.Debugf("[%s] is invalid", txID)
 		return errors.Errorf("[%s] is invalid", txID)
 	case driver.Unknown:
 		return c.commitUnknown(txID, block, indexInBlock, envelope)
@@ -262,10 +265,10 @@ func (c *Service) CommitConfig(blockNumber uint64, raw []byte, env *common.Envel
 	}
 	switch vc {
 	case driver.Valid:
-		logger.Infof("config block [%s] already committed, skip it.", txID)
+		c.logger.Infof("config block [%s] already committed, skip it.", txID)
 		return nil
 	case driver.Unknown:
-		logger.Infof("config block [%s] not committed, commit it.", txID)
+		c.logger.Infof("config block [%s] not committed, commit it.", txID)
 		// this is okay
 	default:
 		return errors.Errorf("invalid configtx's [%s] status [%d]", txID, vc)
@@ -310,7 +313,7 @@ func (c *Service) Commit(block *common.Block) error {
 
 		env, _, chdr, err := fabricutils.UnmarshalTx(tx)
 		if err != nil {
-			logger.Errorf("[%s] unmarshal tx failed: %s", c.ChannelConfig.ID(), err)
+			c.logger.Errorf("[%s] unmarshal tx failed: %s", c.ChannelConfig.ID(), err)
 			return err
 		}
 
@@ -322,9 +325,7 @@ func (c *Service) Commit(block *common.Block) error {
 				return err
 			}
 		} else {
-			if logger.IsEnabledFor(zapcore.DebugLevel) {
-				logger.Debugf("[%s] Received unhandled transaction type: %s", c.ChannelConfig.ID(), chdr.Type)
-			}
+			c.logger.Debugf("[%s] Received unhandled transaction type: %s", c.ChannelConfig.ID(), chdr.Type)
 		}
 		c.Tracer.AddEventAt("commit", "end", time.Now())
 
@@ -338,9 +339,8 @@ func (c *Service) Commit(block *common.Block) error {
 			driverVC = driver.Invalid
 		}
 		c.notifyTxStatus(event.TxID, driverVC, event.ValidationMessage)
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("commit transaction [%s] in filteredBlock [%d]", chdr.TxId, block.Header.Number)
-		}
+
+		c.logger.Debugf("commit transaction [%s] in filteredBlock [%d]", chdr.TxId, block.Header.Number)
 	}
 
 	return nil
@@ -350,45 +350,41 @@ func (c *Service) Commit(block *common.Block) error {
 // with the respect to the passed context that can be used to set a deadline
 // for the waiting time.
 func (c *Service) IsFinal(ctx context.Context, txID string) error {
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("Is [%s] final?", txID)
-	}
+	c.logger.Debugf("Is [%s] final?", txID)
 
 	for iter := 0; iter < c.ChannelConfig.CommitterFinalityNumRetries(); iter++ {
 		vd, _, err := c.Status(txID)
 		if err != nil {
-			logger.Errorf("Is [%s] final? Failed getting transaction status from vault", txID)
+			c.logger.Errorf("Is [%s] final? Failed getting transaction status from vault", txID)
 			return errors.WithMessagef(err, "failed getting transaction status from vault [%s]", txID)
 		}
 
 		switch vd {
 		case driver.Valid:
-			logger.Debugf("Tx [%s] is valid", txID)
+			c.logger.Debugf("Tx [%s] is valid", txID)
 			return nil
 		case driver.Invalid:
-			logger.Debugf("Tx [%s] is not valid", txID)
+			c.logger.Debugf("Tx [%s] is not valid", txID)
 			return errors.Errorf("transaction [%s] is not valid", txID)
 		case driver.Busy:
-			logger.Debugf("Tx [%s] is known", txID)
+			c.logger.Debugf("Tx [%s] is known", txID)
 			continue
 		case driver.Unknown:
 			if iter <= 1 {
-				logger.Debugf("Tx [%s] is unknown with no deps, wait a bit and retry [%d]", txID, iter)
+				c.logger.Debugf("Tx [%s] is unknown with no deps, wait a bit and retry [%d]", txID, iter)
 				time.Sleep(c.ChannelConfig.CommitterFinalityUnknownTXTimeout())
 			}
 
-			if logger.IsEnabledFor(zapcore.DebugLevel) {
-				logger.Debugf("Tx [%s] is unknown with no deps, remote check [%d][%s]", txID, iter, debug.Stack())
-			}
+			c.logger.Debugf("Tx [%s] is unknown with no deps, remote check [%d][%s]", txID, iter, debug.Stack())
 			peerForFinality := c.ConfigService.PickPeer(driver.PeerForFinality).Address
 			err := c.FabricFinality.IsFinal(txID, peerForFinality)
 			if err == nil {
-				logger.Debugf("Tx [%s] is final, remote check on [%s]", txID, peerForFinality)
+				c.logger.Debugf("Tx [%s] is final, remote check on [%s]", txID, peerForFinality)
 				return nil
 			}
 
 			if vd, _, err2 := c.Status(txID); err2 == nil && vd == driver.Unknown {
-				logger.Debugf("Tx [%s] is not final for remote [%s], return [%s], [%d][%s]", txID, peerForFinality, err, vd, err2)
+				c.logger.Debugf("Tx [%s] is not final for remote [%s], return [%s], [%d][%s]", txID, peerForFinality, err, vd, err2)
 				return err
 			}
 		default:
@@ -396,7 +392,7 @@ func (c *Service) IsFinal(ctx context.Context, txID string) error {
 		}
 	}
 
-	logger.Debugf("Tx [%s] start listening...", txID)
+	c.logger.Debugf("Tx [%s] start listening...", txID)
 	// Listen to the event
 	return c.listenTo(ctx, txID, c.WaitForEventTimeout)
 }
@@ -415,7 +411,7 @@ func (c *Service) ReloadConfigTransactions() error {
 	}
 	defer qe.Done()
 
-	logger.Infof("looking up the latest config block available")
+	c.logger.Infof("looking up the latest config block available")
 	var sequence uint64 = 0
 	for {
 		txID := ConfigTXPrefix + strconv.FormatUint(sequence, 10)
@@ -423,11 +419,11 @@ func (c *Service) ReloadConfigTransactions() error {
 		if err != nil {
 			return errors.WithMessagef(err, "failed getting tx's status [%s]", txID)
 		}
-		logger.Infof("check config block at txID [%s], status [%v]...", txID, vc)
+		c.logger.Infof("check config block at txID [%s], status [%v]...", txID, vc)
 		done := false
 		switch vc {
 		case driver.Valid:
-			logger.Infof("config block available, txID [%s], loading...", txID)
+			c.logger.Infof("config block available, txID [%s], loading...", txID)
 
 			key, err := rwset.CreateCompositeKey(channelConfigKey, []string{strconv.FormatUint(sequence, 10)})
 			if err != nil {
@@ -488,22 +484,22 @@ func (c *Service) ReloadConfigTransactions() error {
 				continue
 			}
 
-			logger.Infof("config block at txID [%s] unavailable, stop loading", txID)
+			c.logger.Infof("config block at txID [%s] unavailable, stop loading", txID)
 			done = true
 		default:
 			return errors.Errorf("invalid configtx's [%s] status [%d]", txID, vc)
 		}
 		if done {
-			logger.Infof("loading config block done")
+			c.logger.Infof("loading config block done")
 			break
 		}
 	}
 	if sequence == 1 {
-		logger.Infof("no config block available, must start from genesis")
+		c.logger.Infof("no config block available, must start from genesis")
 		// no configuration block found
 		return nil
 	}
-	logger.Infof("latest config block available at sequence [%d]", sequence-1)
+	c.logger.Infof("latest config block available at sequence [%d]", sequence-1)
 
 	return nil
 }
@@ -543,13 +539,11 @@ func (c *Service) notifyFinality(event FinalityEvent) {
 	defer c.mutex.Unlock()
 
 	if event.Err != nil && !c.QuietNotifier {
-		logger.Warningf("An error occurred for tx [%s], event: [%v]", event.TxID, event)
+		c.logger.Warnf("An error occurred for tx [%s], event: [%v]", event.TxID, event)
 	}
 
 	listeners := c.listeners[event.TxID]
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("Notify the finality of [%s] to [%d] listeners, event: [%v]", event.TxID, len(listeners), event)
-	}
+	c.logger.Debugf("Notify the finality of [%s] to [%d] listeners, event: [%v]", event.TxID, len(listeners), event)
 	for _, listener := range listeners {
 		listener <- event
 	}
@@ -563,9 +557,7 @@ func (c *Service) notifyChaincodeListeners(event *ChaincodeEvent) {
 func (c *Service) listenTo(ctx context.Context, txID string, timeout time.Duration) error {
 	c.Tracer.Start("committer-listenTo-start")
 
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("Listen to finality of [%s]", txID)
-	}
+	c.logger.Debugf("Listen to finality of [%s]", txID)
 
 	// notice that adding the listener can happen after the event we are looking for has already happened
 	// therefore we need to check more often before the timeout happens
@@ -586,48 +578,36 @@ func (c *Service) listenTo(ctx context.Context, txID string, timeout time.Durati
 			timeout.Stop()
 			stop = true
 		case event := <-ch:
-			if logger.IsEnabledFor(zapcore.DebugLevel) {
-				logger.Debugf("Got an answer to finality of [%s]: [%s]", txID, event.Err)
-			}
+			c.logger.Debugf("Got an answer to finality of [%s]: [%s]", txID, event.Err)
 			timeout.Stop()
 			return event.Err
 		case <-timeout.C:
 			timeout.Stop()
-			if logger.IsEnabledFor(zapcore.DebugLevel) {
-				logger.Debugf("Got a timeout for finality of [%s], check the status", txID)
-			}
+			c.logger.Debugf("Got a timeout for finality of [%s], check the status", txID)
 			vd, _, err := c.Status(txID)
 			if err == nil {
 				switch vd {
 				case driver.Valid:
-					if logger.IsEnabledFor(zapcore.DebugLevel) {
-						logger.Debugf("Listen to finality of [%s]. VALID", txID)
-					}
+					c.logger.Debugf("Listen to finality of [%s]. VALID", txID)
 					return nil
 				case driver.Invalid:
-					if logger.IsEnabledFor(zapcore.DebugLevel) {
-						logger.Debugf("Listen to finality of [%s]. NOT VALID", txID)
-					}
+					c.logger.Debugf("Listen to finality of [%s]. NOT VALID", txID)
 					return errors.Errorf("transaction [%s] is not valid", txID)
 				}
 			}
-			if logger.IsEnabledFor(zapcore.DebugLevel) {
-				logger.Debugf("Is [%s] final? not available yet, wait [err:%s, vc:%d]", txID, err, vd)
-			}
+			c.logger.Debugf("Is [%s] final? not available yet, wait [err:%s, vc:%d]", txID, err, vd)
 		}
 		if stop {
 			break
 		}
 	}
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("Is [%s] final? Failed to listen to transaction for timeout", txID)
-	}
+	c.logger.Debugf("Is [%s] final? Failed to listen to transaction for timeout", txID)
 	c.Tracer.End("committer-listenTo-end")
 	return errors.Errorf("failed to listen to transaction [%s] for timeout", txID)
 }
 
 func (c *Service) commitConfig(txID string, blockNumber uint64, seq uint64, envelope []byte) error {
-	logger.Infof("[Channel: %s] commit config transaction number [bn:%d][seq:%d]", c.ChannelConfig.ID(), blockNumber, seq)
+	c.logger.Infof("[Channel: %s] commit config transaction number [bn:%d][seq:%d]", c.ChannelConfig.ID(), blockNumber, seq)
 
 	rws, err := c.Vault.NewRWSet(txID)
 	if err != nil {
@@ -645,7 +625,7 @@ func (c *Service) commitConfig(txID string, blockNumber uint64, seq uint64, enve
 	rws.Done()
 	if err := c.CommitTX(txID, blockNumber, 0, nil); err != nil {
 		if err2 := c.DiscardTx(txID, err.Error()); err2 != nil {
-			logger.Errorf("failed committing configtx rws [%s]", err2)
+			c.logger.Errorf("failed committing configtx rws [%s]", err2)
 		}
 		return errors.Wrapf(err, "failed committing configtx rws")
 	}
@@ -655,15 +635,15 @@ func (c *Service) commitConfig(txID string, blockNumber uint64, seq uint64, enve
 func (c *Service) commit(txID string, block uint64, indexInBlock int, envelope *common.Envelope) error {
 	// This is a normal transaction, validated by Fabric.
 	// Commit it cause Fabric says it is valid.
-	logger.Debugf("[%s] committing", txID)
+	c.logger.Debugf("[%s] committing", txID)
 
 	// Match rwsets if envelope is not empty
 	if envelope != nil {
-		logger.Debugf("[%s] matching rwsets", txID)
+		c.logger.Debugf("[%s] matching rwsets", txID)
 
 		pt, headerType, err := transaction.NewProcessedTransactionFromEnvelope(envelope)
 		if err != nil && headerType == -1 {
-			logger.Errorf("[%s] failed to unmarshal envelope [%s]", txID, err)
+			c.logger.Errorf("[%s] failed to unmarshal envelope [%s]", txID, err)
 			return err
 		}
 		if headerType == int32(common.HeaderType_ENDORSER_TRANSACTION) {
@@ -673,7 +653,7 @@ func (c *Service) commit(txID string, block uint64, indexInBlock int, envelope *
 					return errors.WithMessagef(err, "failed to load stored enveloper into the vault")
 				}
 				if err := c.Vault.Match(txID, pt.Results()); err != nil {
-					logger.Errorf("[%s] rwsets do not match [%s]", txID, err)
+					c.logger.Errorf("[%s] rwsets do not match [%s]", txID, err)
 					return errors.Wrapf(ErrDiscardTX, "[%s] rwsets do not match [%s]", txID, err)
 				}
 			} else {
@@ -695,7 +675,7 @@ func (c *Service) commit(txID string, block uint64, indexInBlock int, envelope *
 	}
 
 	// Post-Processes
-	logger.Debugf("[%s] post process rwset", txID)
+	c.logger.Debugf("[%s] post process rwset", txID)
 
 	if err := c.postProcessTx(txID); err != nil {
 		// This should generate a panic
@@ -703,7 +683,7 @@ func (c *Service) commit(txID string, block uint64, indexInBlock int, envelope *
 	}
 
 	// Commit
-	logger.Debugf("[%s] commit in vault", txID)
+	c.logger.Debugf("[%s] commit in vault", txID)
 	if err := c.Vault.CommitTX(txID, block, indexInBlock); err != nil {
 		// This should generate a panic
 		return err
@@ -736,7 +716,7 @@ func (c *Service) commitUnknown(txID string, block uint64, indexInBlock int, env
 
 	// shall we commit this unknown envelope
 	if ok, err := c.filterUnknownEnvelope(txID, envelopeRaw); err != nil || !ok {
-		logger.Debugf("[%s] unknown envelope will not be processed [%b,%s]", txID, ok, err)
+		c.logger.Debugf("[%s] unknown envelope will not be processed [%b,%s]", txID, ok, err)
 		return nil
 	}
 
@@ -752,7 +732,7 @@ func (c *Service) commitUnknown(txID string, block uint64, indexInBlock int, env
 }
 
 func (c *Service) commitStoredEnvelope(txID string, block uint64, indexInBlock int) error {
-	logger.Debugf("found envelope for transaction [%s], committing it...", txID)
+	c.logger.Debugf("found envelope for transaction [%s], committing it...", txID)
 	if err := c.extractStoredEnvelopeToVault(txID); err != nil {
 		return err
 	}
@@ -768,10 +748,10 @@ func (c *Service) applyBundle(bundle *channelconfig.Bundle) error {
 	// update the list of orderers
 	ordererConfig, exists := c.MembershipService.ChannelResources.OrdererConfig()
 	if !exists {
-		logger.Infof("no orderer configuration found in Channel config")
+		c.logger.Infof("no orderer configuration found in Channel config")
 		return nil
 	}
-	logger.Debugf("[Channel: %s] Orderer config has changed, updating the list of orderers", c.ChannelConfig.ID())
+	c.logger.Debugf("[Channel: %s] Orderer config has changed, updating the list of orderers", c.ChannelConfig.ID())
 
 	var newOrderers []*grpc.ConnectionConfig
 	orgs := ordererConfig.Organizations()
@@ -781,7 +761,7 @@ func (c *Service) applyBundle(bundle *channelconfig.Bundle) error {
 		tlsRootCerts = append(tlsRootCerts, msp.GetTLSRootCerts()...)
 		tlsRootCerts = append(tlsRootCerts, msp.GetTLSIntermediateCerts()...)
 		for _, endpoint := range org.Endpoints() {
-			logger.Debugf("[Channel: %s] Adding orderer endpoint: [%s:%s:%s]", c.ChannelConfig.ID(), org.Name(), org.MSPID(), endpoint)
+			c.logger.Debugf("[Channel: %s] Adding orderer endpoint: [%s:%s:%s]", c.ChannelConfig.ID(), org.Name(), org.MSPID(), endpoint)
 			// TODO: load from configuration
 			newOrderers = append(newOrderers, &grpc.ConnectionConfig{
 				Address:           endpoint,
@@ -793,7 +773,7 @@ func (c *Service) applyBundle(bundle *channelconfig.Bundle) error {
 		// If the Orderer MSP config omits the Endpoints and there is only one orderer org, we try to get the addresses from another key in the channel config.
 		if len(newOrderers) == 0 && len(orgs) == 1 {
 			for _, endpoint := range bundle.ChannelConfig().OrdererAddresses() {
-				logger.Debugf("[Channel: %s] Adding orderer address [%s:%s:%s]", c.ChannelConfig.ID(), org.Name(), org.MSPID(), endpoint)
+				c.logger.Debugf("[Channel: %s] Adding orderer address [%s:%s:%s]", c.ChannelConfig.ID(), org.Name(), org.MSPID(), endpoint)
 				newOrderers = append(newOrderers, &grpc.ConnectionConfig{
 					Address:           endpoint,
 					ConnectionTimeout: 10 * time.Second,
@@ -804,10 +784,10 @@ func (c *Service) applyBundle(bundle *channelconfig.Bundle) error {
 		}
 	}
 	if len(newOrderers) != 0 {
-		logger.Debugf("[Channel: %s] Updating the list of orderers: (%d) found", c.ChannelConfig.ID(), len(newOrderers))
+		c.logger.Debugf("[Channel: %s] Updating the list of orderers: (%d) found", c.ChannelConfig.ID(), len(newOrderers))
 		return c.OrderingService.SetConfigOrderers(ordererConfig, newOrderers)
 	}
-	logger.Infof("[Channel: %s] No orderers found in Channel config", c.ChannelConfig.ID())
+	c.logger.Infof("[Channel: %s] No orderers found in Channel config", c.ChannelConfig.ID())
 
 	return nil
 }
@@ -831,11 +811,11 @@ func (c *Service) filterUnknownEnvelope(txID string, envelope []byte) (bool, err
 	defer rws.Done()
 
 	// check namespaces
-	logger.Debugf("[%s] contains namespaces [%v] or `initialized` key", txID, rws.Namespaces())
+	c.logger.Debugf("[%s] contains namespaces [%v] or `initialized` key", txID, rws.Namespaces())
 	for _, ns := range rws.Namespaces() {
 		for _, namespace := range c.ProcessNamespaces {
 			if namespace == ns {
-				logger.Debugf("[%s] contains namespaces [%v], select it", txID, rws.Namespaces())
+				c.logger.Debugf("[%s] contains namespaces [%v], select it", txID, rws.Namespaces())
 				return true, nil
 			}
 		}
@@ -847,7 +827,7 @@ func (c *Service) filterUnknownEnvelope(txID string, envelope []byte) (bool, err
 				return false, errors.WithMessagef(err, "Error reading key at [%d]", pos)
 			}
 			if strings.Contains(k, "initialized") {
-				logger.Debugf("[%s] contains 'initialized' key [%v] in [%s], select it", txID, ns, rws.Namespaces())
+				c.logger.Debugf("[%s] contains 'initialized' key [%v] in [%s], select it", txID, ns, rws.Namespaces())
 				return true, nil
 			}
 		}
