@@ -302,7 +302,7 @@ The `./testdata` and `./cmd` folders will be deleted.
 We start with Alice. Alice stores a key-value pair in her local KVS (the one in the Fabric network Alice has an identity for).
 
 ```go
-./relay view -c ./testdata/fsc/nodes/alice/client-config.yaml -f put -i "{\"Chaincode\":\"ns1\", \"Key\":\"pineapple\", \"Value\":\"sweet\"}"
+./relay view -c ./testdata/fsc/nodes/alice.0/client-config.yaml -f put -i "{\"Chaincode\":\"ns1\", \"Key\":\"pineapple\", \"Value\":\"sweet\"}"
 ```
 
 The above command will output the transaction id of the transaction that Alice has produced.
@@ -314,7 +314,7 @@ The above command will output the transaction id of the transaction that Alice h
 Then, Alice checks the value of her key is actually in her local KVS.
 
 ```go
-./relay view -c ./testdata/fsc/nodes/alice/client-config.yaml -f get -i "{\"Chaincode\":\"ns1\", \"Key\":\"pineapple\"}"
+./relay view -c ./testdata/fsc/nodes/alice.0/client-config.yaml -f get -i "{\"Chaincode\":\"ns1\", \"Key\":\"pineapple\"}"
 ```
 
 If everything is successful, you will see the value corresponding to the requested key:
@@ -327,7 +327,7 @@ At this point, Bob can query Alice's key. Recall that, Bob does not have a valid
 Therefore, Bob cannot call the chaincode directly. Though, Bob can perform that query using Weaver and by invoking the `RemoteGetView` view.
 
 ```go
-./relay view -c ./testdata/fsc/nodes/bob/client-config.yaml -f remoteGet -i "{\"Network\":\"alpha\",\"Channel\":\"testchannel\",\"Chaincode\":\"ns1\", \"Key\":\"pineapple\"}"
+./relay view -c ./testdata/fsc/nodes/bob.0/client-config.yaml -f remoteGet -i "{\"Network\":\"alpha\",\"Channel\":\"testchannel\",\"Chaincode\":\"ns1\", \"Key\":\"pineapple\"}"
 ```
 
 Again, if everything is successful, you will see the value corresponding to the requested key:

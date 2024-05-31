@@ -12,6 +12,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/monitoring"
 	fabric2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk"
 	"github.com/hyperledger-labs/fabric-smart-client/samples/fabric/iou/views"
 )
@@ -35,7 +36,7 @@ func Topology() []api.Topology {
 	if p2pCommunicationType := os.Getenv("FSC_P2P_COMMUNICATION_TYPE"); len(p2pCommunicationType) > 0 {
 		fscTopology.P2PCommunicationType = p2pCommunicationType
 	}
-	fscTopology.SetLogging("debug", "")
+	fscTopology.SetLogging("info", "")
 	fscTopology.EnableLogToFile()
 	fscTopology.EnablePrometheusMetrics()
 
@@ -62,9 +63,9 @@ func Topology() []api.Topology {
 	lender.RegisterViewFactory("query", &views.QueryViewFactory{})
 
 	// Monitoring
-	//monitoringTopology := monitoring.NewTopology()
-	//monitoringTopology.EnableHyperledgerExplorer()
-	//monitoringTopology.EnablePrometheusGrafana()
+	monitoringTopology := monitoring.NewTopology()
+	monitoringTopology.EnableHyperledgerExplorer()
+	monitoringTopology.EnablePrometheusGrafana()
 
 	// Add Fabric SDK to FSC Nodes
 	fscTopology.AddSDK(&fabric2.SDK{})
@@ -72,6 +73,6 @@ func Topology() []api.Topology {
 	return []api.Topology{
 		fabricTopology,
 		fscTopology,
-		//monitoringTopology,
+		monitoringTopology,
 	}
 }

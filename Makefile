@@ -73,8 +73,8 @@ fpc-docker-images:
 
 .PHONY: monitoring-docker-images
 monitoring-docker-images:
-	docker pull hyperledger/explorer-db:latest
-	docker pull hyperledger/explorer:latest
+	docker pull ghcr.io/hyperledger-labs/explorer-db:latest
+	docker pull ghcr.io/hyperledger-labs/explorer:latest
 	docker pull prom/prometheus:latest
 	docker pull grafana/grafana:latest
 	docker pull jaegertracing/all-in-one:latest
