@@ -58,7 +58,7 @@ func NewVault(configService driver.ConfigService, channel string) (*vault.Vault,
 		// for retro compatibility
 		pType = "badger"
 	}
-	persistence, err := db.OpenVersioned(pType, channel, db.NewPrefixConfig(configService, configService.VaultPersistencePrefix()))
+	persistence, err := db.OpenVersioned(pType, db.EscapeForTableName(configService.NetworkName(), channel), db.NewPrefixConfig(configService, configService.VaultPersistencePrefix()))
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "failed creating vault")
 	}
