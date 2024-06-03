@@ -60,7 +60,7 @@ func (db *basePersistence[V, R]) GetStateRangeScanIterator(ns core.Namespace, st
 
 	rows, err := db.readDB.Query(query, args...)
 	if err != nil {
-		return nil, fmt.Errorf("query error: %w", err)
+		return nil, errors.Wrapf(err, "query error: %s", query)
 	}
 
 	return &readIterator[R]{txs: rows, scanner: db.readScanner}, nil
@@ -95,7 +95,7 @@ func (db *basePersistence[V, R]) GetState(namespace core.Namespace, key string) 
 		logger.Debugf("not found: [%s:%s]", namespace, key)
 		return value, nil
 	} else {
-		return value, fmt.Errorf("error querying db: %w", err)
+		return value, errors.Wrapf(err, "error querying db: %s", query)
 	}
 }
 
@@ -166,7 +166,7 @@ func (db *basePersistence[V, R]) GetStateSetIterator(ns core.Namespace, keys ...
 
 	rows, err := db.readDB.Query(query, append([]any{ns}, castAny(keys)...)...)
 	if err != nil {
-		return nil, fmt.Errorf("query error: %w", err)
+		return nil, errors.Wrapf(err, "query error: %s", query)
 	}
 
 	return &readIterator[R]{txs: rows, scanner: db.readScanner}, nil
@@ -198,7 +198,7 @@ func (db *basePersistence[V, R]) Close() error {
 
 	err := db.writeDB.Close()
 	if err != nil {
-		return fmt.Errorf("could not close DB: %w", err)
+		return errors.Wrapf(err, "could not close DB")
 	}
 
 	return nil
@@ -216,7 +216,7 @@ func (db *basePersistence[V, R]) BeginUpdate() error {
 
 	tx, err := db.writeDB.Begin()
 	if err != nil {
-		return fmt.Errorf("error starting db transaction: %w", err)
+		return errors.Wrapf(err, "error starting db transaction")
 	}
 	db.txn = tx
 	db.debugStack = debug.Stack()
@@ -236,7 +236,7 @@ func (db *basePersistence[V, R]) Commit() error {
 	err := db.txn.Commit()
 	db.txn = nil
 	if err != nil {
-		return fmt.Errorf("could not commit transaction: %w", err)
+		return errors.Wrapf(err, "could not commit transaction")
 	}
 
 	return nil
@@ -269,7 +269,7 @@ func (db *basePersistence[V, R]) exists(tx *sql.Tx, ns, key string) (bool, error
 		return false, nil
 	}
 	if err != nil {
-		return false, fmt.Errorf("cannot check if key exists: %w", err)
+		return false, errors.Wrapf(err, "cannot check if key exists: %s", key)
 	}
 	return true, nil
 }
@@ -286,7 +286,7 @@ func (db *basePersistence[V, R]) DeleteState(ns, key string) error {
 	logger.Debug(query, ns, key)
 	_, err := db.txn.Exec(query, ns, key)
 	if err != nil {
-		return fmt.Errorf("could not delete val for key [%s]: %w", key, err)
+		return errors.Wrapf(db.errorWrapper.WrapError(err), "could not delete val for key [%s]", key)
 	}
 
 	return nil
@@ -295,7 +295,7 @@ func (db *basePersistence[V, R]) DeleteState(ns, key string) error {
 func (db *basePersistence[V, R]) createSchema(query string) error {
 	logger.Debug(query)
 	if _, err := db.writeDB.Exec(query); err != nil {
-		return fmt.Errorf("can't create table: %w", err)
+		return errors.Wrapf(err, "can't create table")
 	}
 	return nil
 }
