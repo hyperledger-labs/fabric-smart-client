@@ -7,8 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package sqlite
 
 import (
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
-	"github.com/pkg/errors"
 	"modernc.org/sqlite"
 )
 

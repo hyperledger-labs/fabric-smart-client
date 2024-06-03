@@ -15,12 +15,12 @@ import (
 
 func TestWrapfSimpleNesting(t *testing.T) {
 	nestedErr := errors.New("nested err")
-	err := errors.Wrapf(nestedErr, "some error")
+	err := Wrapf(nestedErr, "some error")
 	assert.True(t, HasCause(err, nestedErr))
 }
 
 func TestWrapfDoubleNesting(t *testing.T) {
 	nestedErr := errors.New("nested err")
-	err := errors.Wrapf(errors.Wrapf(nestedErr, "some error"), "other error")
+	err := Wrapf(errors.Wrapf(nestedErr, "some error"), "other error")
 	assert.True(t, HasCause(err, nestedErr))
 }

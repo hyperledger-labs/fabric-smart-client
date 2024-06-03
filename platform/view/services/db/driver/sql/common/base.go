@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync"
 
+	errors2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
@@ -60,7 +61,7 @@ func (db *basePersistence[V, R]) GetStateRangeScanIterator(ns core.Namespace, st
 
 	rows, err := db.readDB.Query(query, args...)
 	if err != nil {
-		return nil, errors.Wrapf(err, "query error: %s", query)
+		return nil, errors2.Wrapf(err, "query error: %s", query)
 	}
 
 	return &readIterator[R]{txs: rows, scanner: db.readScanner}, nil
@@ -95,7 +96,7 @@ func (db *basePersistence[V, R]) GetState(namespace core.Namespace, key string) 
 		logger.Debugf("not found: [%s:%s]", namespace, key)
 		return value, nil
 	} else {
-		return value, errors.Wrapf(err, "error querying db: %s", query)
+		return value, errors2.Wrapf(err, "error querying db: %s", query)
 	}
 }
 
@@ -140,7 +141,7 @@ func (db *basePersistence[V, R]) setState(tx *sql.Tx, ns core.Namespace, pkey st
 
 		_, err := tx.Exec(query, append(values, ns, pkey)...)
 		if err != nil {
-			return errors.Wrapf(db.errorWrapper.WrapError(err), "could not set val for key [%s]", pkey)
+			return errors2.Wrapf(db.errorWrapper.WrapError(err), "could not set val for key [%s]", pkey)
 		}
 	} else {
 		keys = append(keys, "ns", "pkey")
@@ -150,7 +151,7 @@ func (db *basePersistence[V, R]) setState(tx *sql.Tx, ns core.Namespace, pkey st
 
 		_, err := tx.Exec(query, values...)
 		if err != nil {
-			return errors.Wrapf(db.errorWrapper.WrapError(err), "could not insert [%s]", pkey)
+			return errors2.Wrapf(db.errorWrapper.WrapError(err), "could not insert [%s]", pkey)
 		}
 	}
 
@@ -166,7 +167,7 @@ func (db *basePersistence[V, R]) GetStateSetIterator(ns core.Namespace, keys ...
 
 	rows, err := db.readDB.Query(query, append([]any{ns}, castAny(keys)...)...)
 	if err != nil {
-		return nil, errors.Wrapf(err, "query error: %s", query)
+		return nil, errors2.Wrapf(err, "query error: %s", query)
 	}
 
 	return &readIterator[R]{txs: rows, scanner: db.readScanner}, nil
@@ -198,7 +199,7 @@ func (db *basePersistence[V, R]) Close() error {
 
 	err := db.writeDB.Close()
 	if err != nil {
-		return errors.Wrapf(err, "could not close DB")
+		return errors2.Wrapf(err, "could not close DB")
 	}
 
 	return nil
@@ -216,7 +217,7 @@ func (db *basePersistence[V, R]) BeginUpdate() error {
 
 	tx, err := db.writeDB.Begin()
 	if err != nil {
-		return errors.Wrapf(err, "error starting db transaction")
+		return errors2.Wrapf(err, "error starting db transaction")
 	}
 	db.txn = tx
 	db.debugStack = debug.Stack()
@@ -236,7 +237,7 @@ func (db *basePersistence[V, R]) Commit() error {
 	err := db.txn.Commit()
 	db.txn = nil
 	if err != nil {
-		return errors.Wrapf(err, "could not commit transaction")
+		return errors2.Wrapf(err, "could not commit transaction")
 	}
 
 	return nil
@@ -269,7 +270,7 @@ func (db *basePersistence[V, R]) exists(tx *sql.Tx, ns, key string) (bool, error
 		return false, nil
 	}
 	if err != nil {
-		return false, errors.Wrapf(err, "cannot check if key exists: %s", key)
+		return false, errors2.Wrapf(err, "cannot check if key exists: %s", key)
 	}
 	return true, nil
 }
@@ -286,7 +287,7 @@ func (db *basePersistence[V, R]) DeleteState(ns, key string) error {
 	logger.Debug(query, ns, key)
 	_, err := db.txn.Exec(query, ns, key)
 	if err != nil {
-		return errors.Wrapf(db.errorWrapper.WrapError(err), "could not delete val for key [%s]", key)
+		return errors2.Wrapf(db.errorWrapper.WrapError(err), "could not delete val for key [%s]", key)
 	}
 
 	return nil
@@ -295,7 +296,7 @@ func (db *basePersistence[V, R]) DeleteState(ns, key string) error {
 func (db *basePersistence[V, R]) createSchema(query string) error {
 	logger.Debug(query)
 	if _, err := db.writeDB.Exec(query); err != nil {
-		return errors.Wrapf(err, "can't create table")
+		return errors2.Wrapf(err, "can't create table")
 	}
 	return nil
 }

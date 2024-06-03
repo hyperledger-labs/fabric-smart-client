@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/compose"
+	errors2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/committer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/fabricutils"
@@ -654,7 +655,7 @@ func (c *Service) commit(txID string, block uint64, indexInBlock int, envelope *
 				}
 				if err := c.Vault.Match(txID, pt.Results()); err != nil {
 					c.logger.Errorf("[%s] rwsets do not match [%s]", txID, err)
-					return errors.Wrapf(ErrDiscardTX, "[%s] rwsets do not match [%s]", txID, err)
+					return errors2.Wrapf(ErrDiscardTX, "[%s] rwsets do not match [%s]", txID, err)
 				}
 			} else {
 				// Store it

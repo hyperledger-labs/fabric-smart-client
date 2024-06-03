@@ -249,7 +249,7 @@ func (c *committer) IsFinal(ctx context.Context, txID string) error {
 
 				// wait a bit to see if something changes
 				if iter >= c.finalityNumRetries-1 {
-					return errors.Wrapf(ErrUnknownTX, "transaction [%s] is unknown", txID)
+					return errors2.Wrapf(ErrUnknownTX, "transaction [%s] is unknown", txID)
 				}
 				if logger.IsEnabledFor(zapcore.DebugLevel) {
 					logger.Debugf("Tx [%s] is unknown with no deps, wait a bit and retry [%d]", txID, iter)
