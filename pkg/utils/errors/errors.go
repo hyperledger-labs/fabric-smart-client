@@ -8,19 +8,14 @@ package errors
 
 import "github.com/pkg/errors"
 
+// HasType recursively checks errors wrapped using Wrapf until it detects the target error type
+func HasType(source, target error) bool {
+	return source != nil && target != nil && errors.As(source, &target)
+}
+
 // HasCause recursively checks errors wrapped using Wrapf until it detects the target error
 func HasCause(source, target error) bool {
-	if source == nil || target == nil {
-		return false
-	}
-	if source == target {
-		return true
-	}
-	cause := errors.Cause(source)
-	if cause == source {
-		return false
-	}
-	return HasCause(cause, target)
+	return source != nil && target != nil && errors.Is(source, target)
 }
 
 // Wrapf wraps an error in a way compatible with HasCause
