@@ -11,13 +11,12 @@ import (
 	"math"
 	"strings"
 
-	errors2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
-	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -50,12 +49,12 @@ type SimpleTXIDStore[V vault.ValidationCode] struct {
 func NewSimpleTXIDStore[V vault.ValidationCode](persistence UnversionedPersistence, vcProvider vault.ValidationCodeProvider[V]) (*SimpleTXIDStore[V], error) {
 	ctrBytes, err := persistence.GetState(txidNamespace, ctrKey)
 	if err != nil {
-		return nil, errors.Errorf("error retrieving txid counter [%s]", err.Error())
+		return nil, errors.Wrapf(err, "error retrieving txid counter")
 	}
 
 	if ctrBytes == nil {
 		if err = persistence.BeginUpdate(); err != nil {
-			return nil, errors.Errorf("error starting update to store counter [%s]", err.Error())
+			return nil, errors.Wrapf(err, "error starting update to store counter")
 		}
 
 		err = setCtr(persistence, 0)
@@ -65,7 +64,7 @@ func NewSimpleTXIDStore[V vault.ValidationCode](persistence UnversionedPersisten
 		}
 
 		if err = persistence.Commit(); err != nil {
-			return nil, errors.Errorf("error committing update to store counter [%s]", err.Error())
+			return nil, errors.Wrapf(err, "error committing update to store counter")
 		}
 
 		ctrBytes = make([]byte, binary.MaxVarintLen64)
@@ -81,7 +80,7 @@ func NewSimpleTXIDStore[V vault.ValidationCode](persistence UnversionedPersisten
 func (s *SimpleTXIDStore[V]) get(txID core.TxID) (*ByTxid, error) {
 	bytes, err := s.Persistence.GetState(txidNamespace, keyByTxID(txID))
 	if err != nil {
-		return nil, errors.Errorf("error retrieving txid %s [%s]", txID, err.Error())
+		return nil, errors.Wrapf(err, "error retrieving txid %s", txID)
 	}
 
 	if len(bytes) == 0 {
@@ -91,7 +90,7 @@ func (s *SimpleTXIDStore[V]) get(txID core.TxID) (*ByTxid, error) {
 	bt := &ByTxid{}
 	err = proto.Unmarshal(bytes, bt)
 	if err != nil {
-		return nil, errors.Errorf("error unmarshalling data for txid %s [%s]", txID, err.Error())
+		return nil, errors.Wrapf(err, "error unmarshalling data for txid %s", txID)
 	}
 
 	return bt, nil
@@ -122,7 +121,7 @@ func (s *SimpleTXIDStore[V]) Set(txID core.TxID, code V, message string) error {
 	err := setCtr(s.Persistence, s.ctr+1)
 	if err != nil { // TODO: && !errors2.HasCause(err, UniqueKeyViolation)
 		s.Persistence.Discard()
-		return errors.Errorf("error storing updated counter for txid %s [%s]", txID, err.Error())
+		return errors.Wrapf(err, "error storing updated counter for txid %s", txID)
 	}
 
 	// 2: store by counter
@@ -134,12 +133,12 @@ func (s *SimpleTXIDStore[V]) Set(txID core.TxID, code V, message string) error {
 	})
 	if err != nil {
 		s.Persistence.Discard()
-		return errors.Errorf("error marshalling ByNum for txID %s [%s]", txID, err.Error())
+		return errors.Wrapf(err, "error marshalling ByNum for txID %s", txID)
 	}
 	err = s.Persistence.SetState(txidNamespace, keyByCtr(s.ctr), byCtrBytes)
 	if err != nil { // TODO: && !errors2.HasCause(err, UniqueKeyViolation)
 		s.Persistence.Discard()
-		return errors.Errorf("error storing ByNum for txid %s [%s]", txID, err.Error())
+		return errors.Wrapf(err, "error storing ByNum for txid %s", txID)
 	}
 
 	// 3: store by txid
@@ -151,19 +150,19 @@ func (s *SimpleTXIDStore[V]) Set(txID core.TxID, code V, message string) error {
 	})
 	if err != nil {
 		s.Persistence.Discard()
-		return errors.Errorf("error marshalling ByTxid for txid %s [%s]", txID, err.Error())
+		return errors.Wrapf(err, "error marshalling ByTxid for txid %s", txID)
 	}
 	err = s.Persistence.SetState(txidNamespace, keyByTxID(txID), byTxidBytes)
 	if err != nil {
 		s.Persistence.Discard()
-		return errors.Errorf("error storing ByTxid for txid %s [%s]", txID, err.Error())
+		return errors.Wrapf(err, "error storing ByTxid for txid %s", txID)
 	}
 
 	if code == s.vcProvider.Valid() {
 		err = s.Persistence.SetState(txidNamespace, lastTX, []byte(txID))
 		if err != nil { // TODO: && !errors2.HasCause(err, UniqueKeyViolation)
 			s.Persistence.Discard()
-			return errors.Errorf("error storing ByTxid for txid %s [%s]", txID, err.Error())
+			return errors.Wrapf(err, "error storing ByTxid for txid %s", txID)
 		}
 	}
 	// NOTE: we assume that the commit is in progress so no need to update/commit
@@ -311,8 +310,8 @@ func setCtr(persistence UnversionedPersistence, ctr uint64) error {
 	binary.BigEndian.PutUint64(ctrBytes, ctr)
 
 	err := persistence.SetState(txidNamespace, ctrKey, ctrBytes)
-	if err != nil && !errors2.HasCause(err, UniqueKeyViolation) {
-		return errors.Errorf("error storing the counter [%s]", err.Error())
+	if err != nil && !errors.HasCause(err, UniqueKeyViolation) {
+		return errors.Wrapf(err, "error storing the counter")
 	}
 
 	return nil
@@ -321,7 +320,7 @@ func setCtr(persistence UnversionedPersistence, ctr uint64) error {
 func getCtr(persistence UnversionedPersistence) (uint64, error) {
 	ctrBytes, err := persistence.GetState(txidNamespace, ctrKey)
 	if err != nil {
-		return 0, errors.Errorf("error retrieving txid counter [%s]", err.Error())
+		return 0, errors.Wrapf(err, "error retrieving txid counter")
 	}
 
 	return getCtrFromBytes(ctrBytes), nil

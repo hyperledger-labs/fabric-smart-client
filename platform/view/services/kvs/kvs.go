@@ -10,13 +10,12 @@ import (
 	"encoding/json"
 	"sync"
 
-	errors2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/cache/secondcache"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
-	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
 )
 
@@ -73,7 +72,7 @@ func New(sp view.ServiceProvider, driverName, namespace string) (*KVS, error) {
 func NewWithConfig(driverName, namespace string, cp ConfigProvider) (*KVS, error) {
 	persistence, err := db.Open(driverName, namespace, db.NewPrefixConfig(cp, persistenceOptsConfigKey))
 	if err != nil {
-		return nil, errors.WithMessagef(err, "no driver found for [%s]", driverName)
+		return nil, errors.Wrapf(err, "no driver found for [%s]", driverName)
 	}
 
 	cacheSize, err := cacheSizeFromConfig(cp)
@@ -139,7 +138,7 @@ func (o *KVS) Put(id string, state interface{}) error {
 	}
 
 	if err := o.store.BeginUpdate(); err != nil {
-		return errors.WithMessagef(err, "begin update for id [%s] failed", id)
+		return errors.Wrapf(err, "begin update for id [%s] failed", id)
 	}
 
 	logger.Debugf("store [%d] bytes into key [%s:%s]", len(raw), o.namespace, id)
@@ -148,12 +147,12 @@ func (o *KVS) Put(id string, state interface{}) error {
 			logger.Debugf("got error %v; discarding caused %v", err, err1)
 		}
 
-		if !errors2.HasCause(err, driver.UniqueKeyViolation) {
-			return errors.WithMessagef(err, "failed to commit value for id [%s]", id)
+		if !errors.HasCause(err, driver.UniqueKeyViolation) {
+			return errors.Wrapf(err, "failed to commit value for id [%s]", id)
 		}
 	} else {
 		if err := o.store.Commit(); err != nil {
-			return errors.WithMessagef(err, "committing value for id [%s] failed", id)
+			return errors.Wrapf(err, "committing value for id [%s] failed", id)
 		}
 	}
 
@@ -177,7 +176,7 @@ func (o *KVS) Get(id string, state interface{}) error {
 			if logger.IsEnabledFor(zapcore.DebugLevel) {
 				logger.Debugf("failed retrieving state [%s,%s]", o.namespace, id)
 			}
-			return errors.WithMessagef(err, "failed retrieving state [%s,%s]", o.namespace, id)
+			return errors.Wrapf(err, "failed retrieving state [%s,%s]", o.namespace, id)
 		}
 		if len(raw) == 0 {
 			return errors.Errorf("state [%s,%s] does not exist", o.namespace, id)
@@ -206,7 +205,7 @@ func (o *KVS) Delete(id string) error {
 	defer o.putMutex.Unlock()
 
 	if err := o.store.BeginUpdate(); err != nil {
-		return errors.WithMessagef(err, "begin update for id [%s] failed", id)
+		return errors.Wrapf(err, "begin update for id [%s] failed", id)
 	}
 
 	if err := o.store.DeleteState(o.namespace, id); err != nil {
@@ -214,12 +213,12 @@ func (o *KVS) Delete(id string) error {
 			logger.Debugf("got error %v; discarding caused %v", err, err1)
 		}
 
-		if !errors2.HasCause(err, driver.UniqueKeyViolation) {
-			return errors.WithMessagef(err, "failed to commit value for id [%s]", id)
+		if !errors.HasCause(err, driver.UniqueKeyViolation) {
+			return errors.Wrapf(err, "failed to commit value for id [%s]", id)
 		}
 	} else {
 		if err := o.store.Commit(); err != nil {
-			return errors.WithMessagef(err, "committing value for id [%s] failed", id)
+			return errors.Wrapf(err, "committing value for id [%s] failed", id)
 		}
 	}
 
@@ -231,7 +230,7 @@ func (o *KVS) Delete(id string) error {
 func (o *KVS) GetByPartialCompositeID(prefix string, attrs []string) (Iterator, error) {
 	partialCompositeKey, err := CreateCompositeKey(prefix, attrs)
 	if err != nil {
-		return nil, errors.Errorf("failed building composite key [%s]", err)
+		return nil, errors.Wrapf(err, "failed building composite key")
 	}
 
 	startKey := partialCompositeKey
@@ -239,7 +238,7 @@ func (o *KVS) GetByPartialCompositeID(prefix string, attrs []string) (Iterator, 
 
 	itr, err := o.store.GetStateRangeScanIterator(o.namespace, startKey, endKey)
 	if err != nil {
-		return nil, errors.Errorf("store access failure for GetStateRangeScanIterator [%s], ns [%s] range [%s,%s]", err, o.namespace, startKey, endKey)
+		return nil, errors.Wrapf(err, "store access failure for GetStateRangeScanIterator, ns [%s] range [%s,%s]", o.namespace, startKey, endKey)
 	}
 
 	return &it{ri: itr}, nil

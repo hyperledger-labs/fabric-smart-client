@@ -10,11 +10,10 @@ import (
 	"bytes"
 	"sync"
 
-	errors2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
-	"github.com/pkg/errors"
 	"go.uber.org/atomic"
 )
 
@@ -150,7 +149,7 @@ func (db *Vault[V]) UnmapInterceptor(txID core.TxID) (TxInterceptor, error) {
 	if !in {
 		vc, _, err := db.txIDStore.Get(txID)
 		if err != nil {
-			return nil, errors.Errorf("read-write set for txid %s could not be found", txID)
+			return nil, errors.Wrapf(err, "read-write set for txid %s could not be found", txID)
 		}
 		if vc == db.vcProvider.Unknown() {
 			return nil, errors.Errorf("read-write set for txid %s could not be found", txID)
@@ -184,7 +183,7 @@ func (db *Vault[V]) CommitTX(txID core.TxID, block core.BlockNum, indexInBloc in
 		if err == nil {
 			return nil
 		}
-		if !errors2.HasCause(err, DeadlockDetected) {
+		if !errors.HasCause(err, DeadlockDetected) {
 			// This should generate a panic
 			return err
 		}
@@ -198,7 +197,7 @@ func (db *Vault[V]) commitRWs(txID core.TxID, block core.BlockNum, indexInBloc i
 	defer db.storeLock.Unlock()
 
 	if err := db.store.BeginUpdate(); err != nil {
-		return errors.WithMessagef(err, "begin update for txid '%s' failed", txID)
+		return errors.Wrapf(err, "begin update for txid '%s' failed", txID)
 	}
 
 	db.logger.Debugf("parse writes [%s]", txID)
@@ -228,7 +227,7 @@ func (db *Vault[V]) commitRWs(txID core.TxID, block core.BlockNum, indexInBloc i
 	}
 
 	if err := db.store.Commit(); err != nil {
-		return errors.WithMessagef(err, "committing tx for txid '%s' failed", txID)
+		return errors.Wrapf(err, "committing tx for txid '%s' failed", txID)
 	}
 
 	return nil
@@ -244,9 +243,9 @@ func (db *Vault[V]) setTxValid(txID core.TxID) (bool, error) {
 		db.logger.Errorf("got error %s; discarding caused %s", err.Error(), err1.Error())
 	}
 
-	if !errors2.HasCause(err, UniqueKeyViolation) {
+	if !errors.HasCause(err, UniqueKeyViolation) {
 		db.txIDStore.Invalidate(txID)
-		return true, err
+		return true, errors.Wrapf(err, "error setting tx valid")
 	}
 	return true, nil
 }
@@ -261,8 +260,8 @@ func (db *Vault[V]) storeMetaWrites(writes NamespaceKeyedMetaWrites, block core.
 					db.logger.Errorf("got error %s; discarding caused %s", err.Error(), err1.Error())
 				}
 
-				if !errors2.HasCause(err, UniqueKeyViolation) {
-					return true, errors.Errorf("failed to commit metadata operation on %s:%s at height %d:%d", ns, key, block, indexInBloc)
+				if !errors.HasCause(err, UniqueKeyViolation) {
+					return true, errors.Wrapf(err, "failed to commit metadata operation on %s:%s at height %d:%d", ns, key, block, indexInBloc)
 				} else {
 					return true, nil
 				}
@@ -288,7 +287,7 @@ func (db *Vault[V]) storeWrites(writes Writes, block core.BlockNum, indexInBloc 
 					db.logger.Errorf("got error %s; discarding caused %s", err.Error(), err1.Error())
 				}
 
-				if !errors2.HasCause(err, UniqueKeyViolation) {
+				if !errors.HasCause(err, UniqueKeyViolation) {
 					return true, errors.Wrapf(err, "failed to commit operation on [%s:%s] at height [%d:%d]", ns, key, block, indexInBloc)
 				} else {
 					return true, nil
@@ -447,17 +446,17 @@ func (db *Vault[V]) Statuses(txIDs ...core.TxID) ([]driver.TxValidationStatus[V]
 
 func (db *Vault[V]) setValidationCode(txID core.TxID, code V, message string) error {
 	if err := db.store.BeginUpdate(); err != nil {
-		return errors.WithMessagef(err, "begin update for txid '%s' failed", txID)
+		return errors.Wrapf(err, "begin update for txid '%s' failed", txID)
 	}
 
 	if err := db.txIDStore.Set(txID, code, message); err != nil {
-		if !errors2.HasCause(err, UniqueKeyViolation) {
+		if !errors.HasCause(err, UniqueKeyViolation) {
 			return err
 		}
 	}
 
 	if err := db.store.Commit(); err != nil {
-		return errors.WithMessagef(err, "committing tx for txid '%s' failed", txID)
+		return errors.Wrapf(err, "committing tx for txid '%s' failed", txID)
 	}
 
 	return nil
@@ -496,7 +495,7 @@ func (db *Vault[V]) GetExistingRWSet(txID core.TxID) (TxInterceptor, error) {
 func (db *Vault[V]) SetStatus(txID core.TxID, code V) error {
 	err := db.store.BeginUpdate()
 	if err != nil {
-		return errors.WithMessagef(err, "begin update for txid '%s' failed", txID)
+		return errors.Wrapf(err, "begin update for txid '%s' failed", txID)
 	}
 	err = db.txIDStore.Set(txID, code, "")
 	if err != nil {
@@ -506,7 +505,7 @@ func (db *Vault[V]) SetStatus(txID core.TxID, code V) error {
 	err = db.store.Commit()
 	if err != nil {
 		db.store.Discard()
-		return errors.WithMessagef(err, "committing tx for txid '%s' failed", txID)
+		return errors.Wrapf(err, "committing tx for txid '%s' failed", txID)
 	}
 	return nil
 }
