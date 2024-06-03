@@ -16,6 +16,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 )
@@ -37,6 +38,7 @@ type (
 
 var (
 	UniqueKeyViolation = driver.UniqueKeyViolation
+	logger             = flogging.MustGetLogger("simple-txid-store")
 )
 
 type SimpleTXIDStore[V vault.ValidationCode] struct {
@@ -116,6 +118,7 @@ func (s *SimpleTXIDStore[V]) Set(txID core.TxID, code V, message string) error {
 	// }
 
 	// 1: increment ctr in UnversionedPersistence
+	logger.Debugf("Incrementing ctr value in Unversioned persistence: %d", s.ctr)
 	err := setCtr(s.Persistence, s.ctr+1)
 	if err != nil { // TODO: && !errors2.HasCause(err, UniqueKeyViolation)
 		s.Persistence.Discard()
@@ -123,6 +126,7 @@ func (s *SimpleTXIDStore[V]) Set(txID core.TxID, code V, message string) error {
 	}
 
 	// 2: store by counter
+	logger.Debugf("Store TX [%s] with status [%v] by counter: %d", txID, code, s.ctr)
 	byCtrBytes, err := proto.Marshal(&ByNum{
 		Txid:    txID,
 		Code:    s.vcProvider.ToInt32(code),
@@ -139,6 +143,7 @@ func (s *SimpleTXIDStore[V]) Set(txID core.TxID, code V, message string) error {
 	}
 
 	// 3: store by txid
+	logger.Debugf("Store TX [%s] with status [%v] by txid", txID, code)
 	byTxidBytes, err := proto.Marshal(&ByTxid{
 		Pos:     s.ctr,
 		Code:    s.vcProvider.ToInt32(code),
