@@ -8,6 +8,7 @@ package routing
 
 import (
 	"strings"
+	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
@@ -99,8 +100,9 @@ func (r *resolvedStaticIDRouter) Lookup(id host2.PeerID) ([]host2.PeerIPAddress,
 
 // labelResolver resolves a peer ID into its label
 type labelResolver struct {
-	es    endpointService
-	cache map[host2.PeerID]string
+	es        endpointService
+	cache     map[host2.PeerID]string
+	cacheLock sync.RWMutex
 }
 
 func newLabelResolver(es endpointService) *labelResolver {
@@ -111,6 +113,14 @@ func newLabelResolver(es endpointService) *labelResolver {
 }
 
 func (r *labelResolver) getLabel(peerID host2.PeerID) (string, error) {
+	r.cacheLock.RLock()
+	if label, ok := r.cache[peerID]; ok {
+		r.cacheLock.RUnlock()
+		return label, nil
+	}
+	r.cacheLock.RUnlock()
+	r.cacheLock.Lock()
+	defer r.cacheLock.Unlock()
 	if label, ok := r.cache[peerID]; ok {
 		return label, nil
 	}
