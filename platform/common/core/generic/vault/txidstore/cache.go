@@ -57,9 +57,6 @@ func NewCache[V vault.ValidationCode](backed txidStore[V], cache cache[V], logge
 func (s *CachedStore[V]) Invalidate(txID core.TxID) {
 	s.logger.Debugf("Invalidating cache entry for [%s]", txID)
 	s.cache.Delete(txID)
-	if _, _, err := s.forceGet(txID); err != nil {
-		s.logger.Errorf("failed getting new value from backed: %v", err)
-	}
 }
 
 func (s *CachedStore[V]) Get(txID core.TxID) (V, string, error) {
