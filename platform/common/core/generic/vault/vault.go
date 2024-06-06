@@ -197,7 +197,13 @@ func (db *Vault[V]) commitRWs(txID core.TxID, block core.BlockNum, indexInBloc i
 	defer db.storeLock.Unlock()
 
 	if err := db.store.BeginUpdate(); err != nil {
-		return errors.Wrapf(err, "begin update for txid '%s' failed", txID)
+		return errors.Wrapf(err, "begin update in store for txid '%s' failed", txID)
+	}
+
+	if err := db.txIDStore.Set(txID, db.vcProvider.Busy(), ""); err != nil {
+		if !errors.HasCause(err, UniqueKeyViolation) {
+			return err
+		}
 	}
 
 	db.logger.Debugf("parse writes [%s]", txID)
@@ -227,7 +233,7 @@ func (db *Vault[V]) commitRWs(txID core.TxID, block core.BlockNum, indexInBloc i
 	}
 
 	if err := db.store.Commit(); err != nil {
-		return errors.Wrapf(err, "committing tx for txid '%s' failed", txID)
+		return errors.Wrapf(err, "committing tx for txid in store '%s' failed", txID)
 	}
 
 	return nil
