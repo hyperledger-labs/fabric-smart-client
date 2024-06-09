@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"go.opentelemetry.io/otel/trace/noop"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/manager"
 	mock2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/core/manager/mock"
@@ -19,6 +20,8 @@ import (
 	registry2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/registry"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
+
+var emptyTracer = noop.NewTracerProvider().Tracer("empty")
 
 type Context interface {
 	GetSession(f view.View, party view.Identity) (view.Session, error)
@@ -36,7 +39,7 @@ func TestContext(t *testing.T) {
 	assert.NoError(t, registry.RegisterService(resolver))
 	assert.NoError(t, registry.RegisterService(&mock2.SessionFactory{}))
 	session := &mock.Session{}
-	ctx, err := manager.NewContext(nil, registry, "pineapple", nil, driver.GetEndpointService(registry), []byte("charlie"), session, []byte("caller"))
+	ctx, err := manager.NewContext(nil, registry, "pineapple", nil, driver.GetEndpointService(registry), []byte("charlie"), session, []byte("caller"), emptyTracer)
 	assert.NoError(t, err)
 
 	// Session
@@ -83,7 +86,7 @@ func TestContextRace(t *testing.T) {
 	sessionFactory := &mock2.SessionFactory{}
 	sessionFactory.NewSessionReturns(session, nil)
 
-	ctx, err := manager.NewContext(nil, registry, "pineapple", sessionFactory, resolver, []byte("charlie"), defaultSession, []byte("caller"))
+	ctx, err := manager.NewContext(nil, registry, "pineapple", sessionFactory, resolver, []byte("charlie"), defaultSession, []byte("caller"), emptyTracer)
 	assert.NoError(t, err)
 
 	wg := &sync.WaitGroup{}

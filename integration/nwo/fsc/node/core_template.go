@@ -121,8 +121,15 @@ fsc:
         files:
         - {{ .NodeLocalTLSDir Peer }}/ca.crt
   tracing:
+    # Type of provider to be used: none (default), file, optl, console
     provider: {{ Topology.Monitoring.TracingType }}
+    # Tracer configuration when provider == 'file'
+    file:
+      # The file where the traces are going to be stored
+      path: {{ .NodeDir Replica }}/trace.out
+    # Tracer configuration when provider == 'optl'
     optl:
+      # The address of collector where we should send the traces
       address: {{ if Topology.Monitoring.TracingEndpoint }}{{ Topology.Monitoring.TracingEndpoint }}{{ else }}127.0.0.1:4319{{ end }}
   metrics:
     # metrics provider is one of statsd, prometheus, or disabled

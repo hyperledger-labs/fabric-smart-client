@@ -135,12 +135,17 @@ func (t *Topology) EnableOPTLTracing() {
 	t.Monitoring.TracingType = "optl"
 }
 
+func (t *Topology) EnableFileTracing() {
+	t.Monitoring.TracingType = "file"
+}
+
 func (t *Topology) EnableLogToFile() {
 	t.LogToFile = true
 }
 
 func (t *Topology) EnablePrometheusMetrics() {
 	t.Monitoring.MetricsType = "prometheus"
+	t.WebEnabled = true
 }
 
 func (t *Topology) DisablePrometheusTLS() {

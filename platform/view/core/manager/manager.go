@@ -14,9 +14,17 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap/zapcore"
+)
+
+const (
+	SuccessLabel       tracing.LabelName = "success"
+	ViewLabel          tracing.LabelName = "view"
+	InitiatorViewLabel tracing.LabelName = "initiator_view"
 )
 
 var logger = flogging.MustGetLogger("view-sdk.manager")
@@ -44,9 +52,11 @@ type manager struct {
 	views      map[string][]*viewEntry
 	initiators map[string]string
 	factories  map[string]driver.Factory
+
+	viewTracer trace.Tracer
 }
 
-func New(serviceProvider driver.ServiceProvider, commLayer CommLayer, endpointService driver.EndpointService, identityProvider driver.IdentityProvider) *manager {
+func New(serviceProvider driver.ServiceProvider, commLayer CommLayer, endpointService driver.EndpointService, identityProvider driver.IdentityProvider, provider trace.TracerProvider) *manager {
 	return &manager{
 		sp:               serviceProvider,
 		commLayer:        commLayer,
@@ -57,6 +67,11 @@ func New(serviceProvider driver.ServiceProvider, commLayer CommLayer, endpointSe
 		views:      map[string][]*viewEntry{},
 		initiators: map[string]string{},
 		factories:  map[string]driver.Factory{},
+
+		viewTracer: provider.Tracer("view", tracing.WithMetricsOpts(tracing.MetricsOpts{
+			Namespace:  "fsc",
+			LabelNames: []string{SuccessLabel, ViewLabel, InitiatorViewLabel},
+		})),
 	}
 }
 
@@ -183,7 +198,7 @@ func (cm *manager) InitiateViewWithIdentity(view view.View, id view.Identity) (i
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	viewContext, err := NewContextForInitiator("", ctx, cm.sp, cm.commLayer, cm.endpointService, id, view)
+	viewContext, err := NewContextForInitiator("", ctx, cm.sp, cm.commLayer, cm.endpointService, id, view, cm.viewTracer)
 	if err != nil {
 		return nil, err
 	}
@@ -227,7 +242,7 @@ func (cm *manager) InitiateContextWithIdentityAndID(view view.View, id view.Iden
 	if id.IsNone() {
 		id = cm.me()
 	}
-	viewContext, err := NewContextForInitiator(contextID, ctx, cm.sp, cm.commLayer, cm.endpointService, id, view)
+	viewContext, err := NewContextForInitiator(contextID, ctx, cm.sp, cm.commLayer, cm.endpointService, id, view, cm.viewTracer)
 	if err != nil {
 		return nil, err
 	}
@@ -393,7 +408,7 @@ func (cm *manager) newContext(id view.Identity, msg *view.Message) (view.Context
 		if ctx == nil {
 			ctx = context.Background()
 		}
-		newCtx, err := NewContext(ctx, cm.sp, contextID, cm.commLayer, cm.endpointService, id, backend, caller)
+		newCtx, err := NewContext(ctx, cm.sp, contextID, cm.commLayer, cm.endpointService, id, backend, caller, cm.viewTracer)
 		if err != nil {
 			return nil, false, err
 		}

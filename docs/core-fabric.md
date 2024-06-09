@@ -135,11 +135,15 @@ fsc:
 
   # ------------------- Tracing Configuration -------------------------
   tracing:
-    # provider can be optl or none (or empty)
+    # Type of provider to be used: none (default), file, optl, console
     provider: optl
-
-    # only required if udp is specified as the provider
+    # Tracer configuration when provider == 'file'
+    file:
+      # The file where the traces are going to be stored
+      path: /path/to/client/trace.out
+    # Tracer configuration when provider == 'optl'
     optl:
+      # The address of collector where we should send the traces
       address: 127.0.0.1:8125
 
   # ------------------- Metrics Configuration -------------------------

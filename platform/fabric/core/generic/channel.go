@@ -11,11 +11,6 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/membership"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/pkg/errors"
 )
 
@@ -53,15 +48,6 @@ type Channel struct {
 	ChaincodeManagerService  driver.ChaincodeManager
 	CommitterService         committerService
 	PeerManager              *PeerManager
-}
-
-func NewChannel(sp view.ServiceProvider, nw driver.FabricNetworkService, name string, quiet bool) (driver.Channel, error) {
-	publisher, err := events.GetPublisher(sp)
-	if err != nil {
-		return nil, err
-	}
-	p := NewProvider(kvs.GetService(sp), publisher, hash.GetHasher(sp), tracing.Get(sp))
-	return p.NewChannel(nw, name, quiet)
 }
 
 func (c *Channel) Name() string {
