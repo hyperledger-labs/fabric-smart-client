@@ -11,6 +11,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/web"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/prometheus"
 	"github.com/tedsuo/ifrit/grouper"
 	"gopkg.in/yaml.v2"
 )
@@ -94,6 +95,7 @@ type GRPCClient interface {
 
 type WebClient interface {
 	ViewClient
+	Metrics() (prometheus.MetricsResult, error)
 	StreamCallView(fid string, input []byte) (*web.WSStream, error)
 }
 

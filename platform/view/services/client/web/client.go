@@ -18,6 +18,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/api"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/prometheus"
 	protos2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view/protos"
 	"github.com/pkg/errors"
 )
@@ -110,6 +111,14 @@ func NewClient(config *Config) (*Client, error) {
 	}, nil
 }
 
+func (c *Client) Metrics() (prometheus.MetricsResult, error) {
+	buff, err := c.req(http.MethodGet, fmt.Sprintf("%s/metrics", c.url), nil)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed calling metrics")
+	}
+	return prometheus.ReadAll(bytes.NewBuffer(buff))
+}
+
 func (c *Client) StreamCallView(fid string, in []byte) (*WSStream, error) {
 	urlSuffix := fmt.Sprintf("/v1/Views/Stream/%s", fid)
 	stream, err := NewWSStream(c.wsUrl+urlSuffix, c.tlsConfig)
@@ -123,17 +132,12 @@ func (c *Client) StreamCallView(fid string, in []byte) (*WSStream, error) {
 	return stream, nil
 }
 
-// CallView takes in input a view factory identifier, fid, and an input, in, and invokes the
-// factory f bound to fid on input in. The view returned by the factory is invoked on
-// a freshly created context. This call is blocking until the result is produced or
-// an error is returned.
-func (c *Client) CallView(fid string, in []byte) (interface{}, error) {
-	url := fmt.Sprintf("%s/v1/Views/%s", c.url, fid)
-	req, err := http.NewRequest(http.MethodPut, url, bytes.NewBuffer(in))
+func (c *Client) req(method string, url string, in []byte) ([]byte, error) {
+	req, err := http.NewRequest(method, url, bytes.NewBuffer(in))
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create http request to [%s], input length [%d]", url, len(in))
 	}
-	logger.Debugf("call view [%s] using http request to [%s], input length [%d]", fid, url, len(in))
+	logger.Debugf("send http request to [%s], input length [%d]", url, len(in))
 
 	resp, err := c.c.Do(req)
 	if err != nil {
@@ -149,6 +153,19 @@ func (c *Client) CallView(fid string, in []byte) (interface{}, error) {
 	buff, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to read response from http request to [%s], input length [%d]", url, len(in))
+	}
+	return buff, nil
+}
+
+// CallView takes in input a view factory identifier, fid, and an input, in, and invokes the
+// factory f bound to fid on input in. The view returned by the factory is invoked on
+// a freshly created context. This call is blocking until the result is produced or
+// an error is returned.
+func (c *Client) CallView(fid string, in []byte) (interface{}, error) {
+	url := fmt.Sprintf("%s/v1/Views/%s", c.url, fid)
+	buff, err := c.req(http.MethodPut, url, in)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to call [%s]", fid)
 	}
 
 	response := &protos2.CommandResponse_CallViewResponse{}
