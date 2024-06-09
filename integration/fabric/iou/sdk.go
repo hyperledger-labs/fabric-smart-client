@@ -14,7 +14,6 @@ import (
 	digutils "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/dig"
 	sdk "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 )
 
 type SDK struct {
@@ -32,6 +31,5 @@ func (p *SDK) Install() error {
 
 	return errors.Join(
 		digutils.Register[state.VaultService](p.Container()),
-		digutils.Register[*tracing.Provider](p.Container()),
 	)
 }

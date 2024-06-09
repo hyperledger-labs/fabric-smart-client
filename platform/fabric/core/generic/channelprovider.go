@@ -16,9 +16,9 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger/fabric-protos-go/common"
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type VaultConstructor = func(configService driver.ConfigService, channel string) (*vault.Vault, TXIDStore, error)
@@ -27,11 +27,11 @@ type Provider interface {
 	NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver.Channel, error)
 }
 
-func NewProvider(kvss *kvs.KVS, publisher events.Publisher, hasher hash.Hasher, tracerProvider *tracing.Provider) Provider {
+func NewProvider(kvss *kvs.KVS, publisher events.Publisher, hasher hash.Hasher, tracerProvider trace.TracerProvider) Provider {
 	return NewProviderWithVault(kvss, publisher, hasher, tracerProvider, NewVault)
 }
 
-func NewProviderWithVault(kvss *kvs.KVS, publisher events.Publisher, hasher hash.Hasher, tracerProvider *tracing.Provider, newVault VaultConstructor) *provider {
+func NewProviderWithVault(kvss *kvs.KVS, publisher events.Publisher, hasher hash.Hasher, tracerProvider trace.TracerProvider, newVault VaultConstructor) *provider {
 	return &provider{kvss: kvss, publisher: publisher, hasher: hasher, newVault: newVault, tracerProvider: tracerProvider}
 }
 
@@ -40,7 +40,7 @@ type provider struct {
 	publisher      events.Publisher
 	hasher         hash.Hasher
 	newVault       VaultConstructor
-	tracerProvider *tracing.Provider
+	tracerProvider trace.TracerProvider
 }
 
 func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string, quiet bool) (driver.Channel, error) {
@@ -115,7 +115,7 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 		fabricFinality,
 		channelConfig.CommitterWaitForEventTimeout(),
 		quiet,
-		p.tracerProvider.GetTracer(),
+		p.tracerProvider,
 	)
 	if err != nil {
 		return nil, err

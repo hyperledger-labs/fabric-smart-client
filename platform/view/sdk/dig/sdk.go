@@ -23,7 +23,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/sig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/finality"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/web"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
@@ -35,6 +34,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events/simple"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kms/driver/file"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
@@ -42,6 +42,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/operations"
 	view3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view/protos"
+	tracing2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"go.uber.org/dig"
 )
 
@@ -102,18 +103,21 @@ func (p *SDK) Install() error {
 		p.C.Provide(web.NewServer),
 		p.C.Provide(digutils.Identity[web.Server](), dig.As(new(operations.Server))),
 		p.C.Provide(web.NewOperationsLogger),
+		p.C.Provide(web.NewGRPCServer),
 		p.C.Provide(digutils.Identity[operations.OperationsLogger](), dig.As(new(operations.Logger)), dig.As(new(log.Logger))),
 		p.C.Provide(web.NewOperationsOptions),
 		p.C.Provide(operations.NewOperationSystem),
 		p.C.Provide(view3.NewResponseMarshaler, dig.As(new(view3.Marshaller))),
-		p.C.Provide(metrics.NewProvider, dig.As(new(metrics2.Provider))),
-		p.C.Provide(metrics.NewTracer),
+		p.C.Provide(func(o *operations.Options, l operations.OperationsLogger) metrics2.Provider {
+			return operations.NewMetricsProvider(o.Metrics, l)
+		}),
+		p.C.Provide(tracing2.NewTracerProvider),
 		p.C.Provide(view3.NewMetrics),
 		p.C.Provide(view3.NewAccessControlChecker, dig.As(new(view3.PolicyChecker))),
 		p.C.Provide(view3.NewViewServiceServer, dig.As(new(view3.Service), new(finality.Server))),
 		p.C.Provide(manager.New, dig.As(new(ViewManager), new(node.ViewManager), new(driver.ViewManager), new(driver.Registry))),
 		p.C.Provide(view.NewManager),
-		p.C.Provide(metrics.NewTracingProvider),
+
 		p.C.Provide(func(hostProvider host.GeneratorProvider, configProvider driver.ConfigService, endpointService *view.EndpointService, identityProvider view3.IdentityProvider) (*comm.Service, error) {
 			return comm.NewService(hostProvider, endpointService, configProvider, identityProvider.DefaultIdentity())
 		}),
@@ -154,6 +158,7 @@ func (p *SDK) Start(ctx context.Context) error {
 		dig.In
 		ConfigProvider driver.ConfigService
 
+		GRPCServer   *grpc.GRPCServer
 		ViewManager  *view.Manager
 		ViewManager2 ViewManager
 		ViewService  view3.Service
@@ -162,18 +167,14 @@ func (p *SDK) Start(ctx context.Context) error {
 		System       *operations.System
 		KVS          *kvs.KVS
 	}) error {
-		grpcServer, err := web.NewGRPCServer(in.ConfigProvider)
-		if err != nil {
-			return err
-		}
-		protos.RegisterViewServiceServer(grpcServer.Server(), in.ViewService)
+		protos.RegisterViewServiceServer(in.GRPCServer.Server(), in.ViewService)
 
 		in.CommService.Start(ctx)
 
 		view3.InstallViewHandler(in.ViewManager, in.ViewService)
 		go in.ViewManager2.Start(ctx)
 
-		web.Serve(grpcServer, in.WebServer, in.System, in.KVS, ctx)
+		web.Serve(in.GRPCServer, in.WebServer, in.System, in.KVS, ctx)
 
 		return nil
 	})

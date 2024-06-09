@@ -14,8 +14,11 @@ import (
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/registry"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap/zapcore"
 )
 
@@ -34,13 +37,15 @@ type ctx struct {
 	sessionsLock       sync.RWMutex
 	sessions           map[string]view.Session
 	errorCallbackFuncs []func()
+
+	tracer trace.Tracer
 }
 
-func NewContextForInitiator(contextID string, context context.Context, sp driver.ServiceProvider, sessionFactory SessionFactory, resolver driver.EndpointService, party view.Identity, initiator view.View) (*ctx, error) {
+func NewContextForInitiator(contextID string, context context.Context, sp driver.ServiceProvider, sessionFactory SessionFactory, resolver driver.EndpointService, party view.Identity, initiator view.View, tracer trace.Tracer) (*ctx, error) {
 	if len(contextID) == 0 {
 		contextID = GenerateUUID()
 	}
-	ctx, err := NewContext(context, sp, contextID, sessionFactory, resolver, party, nil, nil)
+	ctx, err := NewContext(context, sp, contextID, sessionFactory, resolver, party, nil, nil, tracer)
 	if err != nil {
 		return nil, err
 	}
@@ -49,7 +54,7 @@ func NewContextForInitiator(contextID string, context context.Context, sp driver
 	return ctx, nil
 }
 
-func NewContext(context context.Context, sp driver.ServiceProvider, contextID string, sessionFactory SessionFactory, resolver driver.EndpointService, party view.Identity, session view.Session, caller view.Identity) (*ctx, error) {
+func NewContext(context context.Context, sp driver.ServiceProvider, contextID string, sessionFactory SessionFactory, resolver driver.EndpointService, party view.Identity, session view.Session, caller view.Identity, tracer trace.Tracer) (*ctx, error) {
 	ctx := &ctx{
 		context:        context,
 		id:             contextID,
@@ -61,6 +66,8 @@ func NewContext(context context.Context, sp driver.ServiceProvider, contextID st
 		caller:         caller,
 		sp:             sp,
 		localSP:        registry.New(),
+
+		tracer: tracer,
 	}
 	if session != nil {
 		// Register default session
@@ -78,7 +85,15 @@ func (ctx *ctx) Initiator() view.View {
 	return ctx.initiator
 }
 
+func (ctx *ctx) getTracer() trace.Tracer { return ctx.tracer }
+
+func (ctx *ctx) setContext(context context.Context) { ctx.context = context }
+
 func (ctx *ctx) RunView(v view.View, opts ...view.RunViewOption) (res interface{}, err error) {
+	return runViewOn(v, opts, ctx)
+}
+
+func runViewOn(v view.View, opts []view.RunViewOption, ctx localContext) (res interface{}, err error) {
 	options, err := view.CompileRunViewOptions(opts...)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed compiling options")
@@ -88,6 +103,12 @@ func (ctx *ctx) RunView(v view.View, opts ...view.RunViewOption) (res interface{
 		initiator = v
 	}
 
+	newCtx, span := ctx.getTracer().Start(ctx.Context(), "run_view", tracing.WithAttributes(
+		tracing.String(ViewLabel, getIdentifier(v)),
+		tracing.String(InitiatorViewLabel, getIdentifier(initiator)),
+	), trace.WithSpanKind(trace.SpanKindInternal))
+	ctx.setContext(newCtx)
+	defer span.End()
 	var cc localContext
 	if options.SameContext {
 		cc = ctx
@@ -125,6 +146,7 @@ func (ctx *ctx) RunView(v view.View, opts ...view.RunViewOption) (res interface{
 	} else {
 		res, err = v.Call(cc)
 	}
+	span.SetAttributes(attribute.Bool(SuccessLabel, err != nil))
 	if err != nil {
 		cc.cleanup()
 		return nil, err
@@ -340,6 +362,8 @@ func (ctx *ctx) safeInvoke(f func()) {
 }
 
 type localContext interface {
-	view.Context
+	disposableContext
+	getTracer() trace.Tracer
+	setContext(context.Context)
 	cleanup()
 }

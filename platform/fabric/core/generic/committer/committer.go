@@ -35,6 +35,7 @@ import (
 	"github.com/hyperledger/fabric/common/configtx"
 	"github.com/hyperledger/fabric/protoutil"
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel/trace"
 )
 
 const (
@@ -80,7 +81,7 @@ type Service struct {
 	MembershipService  *membership.Service
 	OrderingService    OrderingService
 	FabricFinality     FabricFinality
-	Tracer             tracing.Tracer
+	metrics            *Metrics
 
 	logger committer.Logger
 
@@ -111,7 +112,7 @@ func NewService(
 	fabricFinality FabricFinality,
 	waitForEventTimeout time.Duration,
 	quiet bool,
-	metrics tracing.Tracer,
+	tracerProvider trace.TracerProvider,
 ) *Service {
 	s := &Service{
 		ConfigService:       configService,
@@ -130,7 +131,7 @@ func NewService(
 		FabricFinality:      fabricFinality,
 		WaitForEventTimeout: waitForEventTimeout,
 		QuietNotifier:       quiet,
-		Tracer:              metrics,
+		metrics:             NewMetrics(tracerProvider),
 		logger:              logger.Named(fmt.Sprintf("[%s:%s]", configService.NetworkName(), channelConfig.ID())),
 		listeners:           map[string][]chan FinalityEvent{},
 		Handlers:            map[common.HeaderType]TransactionHandler{},
@@ -309,7 +310,8 @@ func (c *Service) CommitConfig(blockNumber uint64, raw []byte, env *common.Envel
 
 // Commit commits the transactions in the block passed as argument
 func (c *Service) Commit(block *common.Block) error {
-	c.Tracer.StartAt("commit", time.Now())
+	_, span := c.metrics.Commits.Start(context.Background(), "commit")
+	defer span.End()
 	for i, tx := range block.Data.Data {
 
 		env, _, chdr, err := fabricutils.UnmarshalTx(tx)
@@ -319,7 +321,7 @@ func (c *Service) Commit(block *common.Block) error {
 		}
 
 		var event FinalityEvent
-		c.Tracer.AddEventAt("commit", "start", time.Now())
+		span.AddEvent("start_tx_handler", trace.WithAttributes(tracing.Int(HeaderTypeLabel, int(chdr.Type))))
 		handler, ok := c.Handlers[common.HeaderType(chdr.Type)]
 		if ok {
 			if err := handler(block, i, &event, tx, env, chdr); err != nil {
@@ -328,7 +330,7 @@ func (c *Service) Commit(block *common.Block) error {
 		} else {
 			c.logger.Debugf("[%s] Received unhandled transaction type: %s", c.ChannelConfig.ID(), chdr.Type)
 		}
-		c.Tracer.AddEventAt("commit", "end", time.Now())
+		span.AddEvent("end_tx_handler")
 
 		c.notifyFinality(event)
 		c.EventManager.Post(event)
@@ -556,7 +558,8 @@ func (c *Service) notifyChaincodeListeners(event *ChaincodeEvent) {
 }
 
 func (c *Service) listenTo(ctx context.Context, txID string, timeout time.Duration) error {
-	c.Tracer.Start("committer-listenTo-start")
+	_, span := c.metrics.Listens.Start(ctx, "committer-listenTo-start")
+	defer span.End()
 
 	c.logger.Debugf("Listen to finality of [%s]", txID)
 
@@ -603,7 +606,6 @@ func (c *Service) listenTo(ctx context.Context, txID string, timeout time.Durati
 		}
 	}
 	c.logger.Debugf("Is [%s] final? Failed to listen to transaction for timeout", txID)
-	c.Tracer.End("committer-listenTo-end")
 	return errors.Errorf("failed to listen to transaction [%s] for timeout", txID)
 }
 

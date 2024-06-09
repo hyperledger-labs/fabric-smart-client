@@ -22,8 +22,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger/fabric-protos-go/common"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/dig"
 )
 
@@ -32,7 +32,7 @@ type channelProviderResult struct {
 	generic.Provider `name:"generic"`
 }
 
-func NewChannelProvider(kvss *kvs.KVS, publisher events.Publisher, hasher hash.Hasher, tracerProvider *tracing.Provider) channelProviderResult {
+func NewChannelProvider(kvss *kvs.KVS, publisher events.Publisher, hasher hash.Hasher, tracerProvider trace.TracerProvider) channelProviderResult {
 	return channelProviderResult{Provider: generic.NewProvider(kvss, publisher, hasher, tracerProvider)}
 }
 

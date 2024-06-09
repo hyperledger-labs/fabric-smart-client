@@ -17,8 +17,10 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/context"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/runner"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/monitoring"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	. "github.com/onsi/gomega"
+	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/tedsuo/ifrit"
 	"github.com/tedsuo/ifrit/grouper"
 )
@@ -223,4 +225,13 @@ func (n *NWO) storePIDs(f *os.File, members grouper.Members) {
 			n.storePIDs(f, r.Members())
 		}
 	}
+}
+
+func (n *NWO) PrometheusAPI() (v1.API, error) {
+	for _, platform := range n.Platforms {
+		if metricsPlatform, ok := platform.(*monitoring.Platform); ok {
+			return metricsPlatform.PrometheusAPI(), nil
+		}
+	}
+	return nil, fmt.Errorf("no Prometheus API available on any platform")
 }

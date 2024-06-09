@@ -8,10 +8,9 @@ package manager
 
 import (
 	"context"
-	"runtime/debug"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap/zapcore"
 )
 
@@ -21,12 +20,16 @@ type disposableContext interface {
 }
 
 type childContext struct {
-	ParentContext disposableContext
+	ParentContext localContext
 
 	session            view.Session
 	initiator          view.View
 	errorCallbackFuncs []func()
 }
+
+func (w *childContext) getTracer() trace.Tracer { return w.ParentContext.getTracer() }
+
+func (w *childContext) setContext(context context.Context) { w.ParentContext.setContext(context) }
 
 func (w *childContext) GetService(v interface{}) (interface{}, error) {
 	return w.ParentContext.GetService(v)
@@ -91,55 +94,7 @@ func (w *childContext) OnError(f func()) {
 }
 
 func (w *childContext) RunView(v view.View, opts ...view.RunViewOption) (res interface{}, err error) {
-	options, err := view.CompileRunViewOptions(opts...)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed compiling options")
-	}
-	var initiator view.View
-	if options.AsInitiator {
-		initiator = v
-	}
-
-	var cc *childContext
-	if options.SameContext {
-		cc = w
-	} else {
-		cc = &childContext{
-			ParentContext: w,
-			session:       options.Session,
-			initiator:     initiator,
-		}
-		defer func() {
-			if r := recover(); r != nil {
-				cc.cleanup()
-				res = nil
-
-				logger.Errorf("caught panic while running view with [%v][%s]", r, debug.Stack())
-
-				switch e := r.(type) {
-				case error:
-					err = errors.WithMessage(e, "caught panic")
-				case string:
-					err = errors.Errorf(e)
-				default:
-					err = errors.Errorf("caught panic [%v]", e)
-				}
-			}
-		}()
-	}
-	if v == nil && options.Call == nil {
-		return nil, errors.Errorf("no view passed")
-	}
-	if options.Call != nil {
-		res, err = options.Call(cc)
-	} else {
-		res, err = v.Call(cc)
-	}
-	if err != nil {
-		cc.cleanup()
-		return nil, err
-	}
-	return res, err
+	return runViewOn(v, opts, w)
 }
 
 func (w *childContext) Dispose() {

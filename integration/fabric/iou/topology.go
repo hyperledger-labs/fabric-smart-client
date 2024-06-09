@@ -29,10 +29,10 @@ func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType, replicationOpts *
 	// One for the approver, one for the borrower, and one for the lender.
 	fscTopology := fsc.NewTopology()
 	fscTopology.P2PCommunicationType = commType
-	//fscTopology.SetLogging("debug", "")
+	fscTopology.EnablePrometheusMetrics()
 
 	//fscTopology.SetLogging("debug", "")
-	fscTopology.EnableOPTLTracing()
+	fscTopology.EnableFileTracing()
 
 	// Add the approver FSC node.
 	fscTopology.AddNodeByName("approver1").
@@ -72,6 +72,7 @@ func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType, replicationOpts *
 
 	// Monitoring
 	monitoringTopology := monitoring.NewTopology()
+	monitoringTopology.EnablePrometheusGrafana()
 	monitoringTopology.EnableOPTL()
 
 	// Add Fabric SDK to FSC Nodes
