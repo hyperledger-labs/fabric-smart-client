@@ -141,6 +141,7 @@ func (t *Topology) EnableLogToFile() {
 
 func (t *Topology) EnablePrometheusMetrics() {
 	t.Monitoring.MetricsType = "prometheus"
+	t.WebEnabled = true
 }
 
 func (t *Topology) DisablePrometheusTLS() {
