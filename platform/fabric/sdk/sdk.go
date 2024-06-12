@@ -9,8 +9,11 @@ package fabric
 import (
 	"context"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/rwset"
+	finality2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/finality"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/finality"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
+	"github.com/hyperledger/fabric-protos-go/common"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core"
@@ -77,6 +80,14 @@ func (p *SDK) Install() error {
 		fns, err := fabric.GetFabricNetworkService(p.registry, name)
 		assert.NoError(err, "no fabric network service found for [%s]", name)
 		assert.NoError(fns.ProcessorManager().SetDefaultProcessor(state.NewRWSetProcessor(fns)), "failed setting state processor for fabric network [%s]", name)
+
+		fsn, err := fnsProvider.FabricNetworkService(name)
+		assert.NoError(err, "failed getting fabric network service for [%s]", name)
+		for _, channelName := range fsn.ConfigService().ChannelIDs() {
+			ch, err := fsn.Channel(channelName)
+			assert.NoError(err)
+			assert.NoError(ch.RWSetLoader().AddHandlerProvider(common.HeaderType_ENDORSER_TRANSACTION, rwset.NewEndorserTransactionHandler))
+		}
 	}
 	_, err = fabric.GetDefaultFNS(p.registry)
 	assert.NoError(err, "default fabric network service not found")
@@ -90,7 +101,7 @@ func (p *SDK) Install() error {
 	// Install finality handler
 	fns, err := fabric.GetNetworkServiceProvider(p.registry)
 	assert.NoError(err)
-	finality.GetManager(p.registry).AddHandler(NewFinalityHandler(fns))
+	finality.GetManager(p.registry).AddHandler(finality2.NewHandler(fns))
 
 	return nil
 }
@@ -122,28 +133,4 @@ func (p *SDK) PostStart(ctx context.Context) error {
 	}()
 
 	return nil
-}
-
-type FinalityHandler struct {
-	nsp *fabric.NetworkServiceProvider
-}
-
-func NewFinalityHandler(nsp *fabric.NetworkServiceProvider) *FinalityHandler {
-	return &FinalityHandler{nsp: nsp}
-}
-
-func (f *FinalityHandler) IsFinal(ctx context.Context, network, channel, txID string) error {
-	if f.nsp == nil {
-		return errors.Errorf("cannot find fabric network provider")
-	}
-	fns, err := f.nsp.FabricNetworkService(network)
-	if fns == nil || err != nil {
-		return errors.Wrapf(err, "cannot find fabric network [%s]", network)
-	}
-
-	ch, err := fns.Channel(channel)
-	if err != nil {
-		return errors.Wrapf(err, "failed to get channel [%s] on fabric network [%s]", channel, network)
-	}
-	return ch.Finality().IsFinal(ctx, txID)
 }
