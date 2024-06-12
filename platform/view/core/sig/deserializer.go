@@ -9,7 +9,11 @@ package sig
 import (
 	"sync"
 
+	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/driver"
+	sig2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/sig"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/id/x509"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
 )
@@ -118,4 +122,19 @@ func (d *deserializer) threadSafeCopyDeserializers() []Deserializer {
 	copy(res, d.deserializers)
 	d.deserializersMutex.RUnlock()
 	return res
+}
+
+func NewDeserializer() (Deserializer, error) {
+	des, err := NewMultiplexDeserializer()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed loading sig verifier deserializer service")
+	}
+	des.AddDeserializer(&x509.Deserializer{})
+	return des, nil
+}
+
+func NewDeserializerManager(kvss *kvs.KVS) (*sig2.Service, driver2.DeserializerManager) {
+	des := sig2.NewMultiplexDeserializer()
+	sigService := sig2.NewService(des, kvss)
+	return sigService, des
 }

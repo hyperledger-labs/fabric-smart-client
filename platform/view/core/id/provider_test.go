@@ -28,8 +28,8 @@ func TestLoad(t *testing.T) {
 
 	kmsDriver, err := kms.Get("file")
 	assert.NoError(t, err, "failed getting kms driver")
-	idProvider := id.NewProvider(cp, sigService, nil, kmsDriver)
-	assert.NoError(t, idProvider.Load(), "failed loading identities")
+	idProvider, err := id.NewProvider(cp, sigService, nil, kmsDriver)
+	assert.NoError(t, err, "failed loading identities")
 
 	raw, err := id.LoadIdentity("./testdata/default/signcerts/default.pem")
 	assert.NoError(t, err)

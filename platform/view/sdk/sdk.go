@@ -9,24 +9,19 @@ package view
 import (
 	"context"
 	"net/http"
-	"os"
-	"strings"
 
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/endpoint"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/id"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/id/x509"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/manager"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/sig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/finality"
+	metrics2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/metrics"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/web"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
 	comm2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/libp2p"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/rest"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/rest/routing"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/provider"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/crypto"
 	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger"
 	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
@@ -35,19 +30,13 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events/simple"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	grpc2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpclogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kms"
 	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kms/driver/file"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/operations"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view"
 	protos2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view/protos"
-	web2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/web"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing/disabled"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing/optl"
 	"github.com/pkg/errors"
 )
 
@@ -85,8 +74,7 @@ type SDK struct {
 	configService driver.ConfigService
 	registry      Registry
 
-	webServer  WebServer
-	webHandler *web2.HttpHandler
+	webServer WebServer
 
 	grpcServer  *grpc2.GRPCServer
 	viewService view2.Service
@@ -121,9 +109,8 @@ func (p *SDK) Install() error {
 	assert.NoError(p.registry.RegisterService(defaultKVS))
 
 	// Sig Service
-	des, err := sig.NewMultiplexDeserializer()
-	assert.NoError(err, "failed loading sig verifier deserializer service")
-	des.AddDeserializer(&x509.Deserializer{})
+	des, err := sig.NewDeserializer()
+	assert.NoError(err)
 	assert.NoError(p.registry.RegisterService(des))
 	signerService := sig.NewSignService(p.registry, des, defaultKVS)
 	assert.NoError(p.registry.RegisterService(signerService))
@@ -133,27 +120,22 @@ func (p *SDK) Install() error {
 	assert.NoError(err, "failed instantiating endpoint service")
 	assert.NoError(p.registry.RegisterService(endpointService), "failed registering endpoint service")
 
-	//Get Default KMS Driver
-	fscIdentityType := configProvider.GetString("fsc.identity.type")
-	if len(fscIdentityType) == 0 {
-		// revert to default
-		fscIdentityType = "file"
-	}
-	kmsDriver, err := kms.Get(fscIdentityType)
-	assert.NoError(err, "failed getting key management driver [%s]", fscIdentityType)
-
-	// Set Identity Provider
-	idProvider := id.NewProvider(configProvider, signerService, endpointService, kmsDriver)
-	assert.NoError(idProvider.Load(), "failed loading identities")
+	kmsDriver, err := id.NewKMSDriver(configProvider)
+	assert.NoError(err, "failed getting key management driver")
+	idProvider, err := id.NewProvider(configProvider, signerService, endpointService, kmsDriver)
+	assert.NoError(err)
 	assert.NoError(p.registry.RegisterService(idProvider))
+
+	operationsOptions, err := web.NewOperationsOptions(view.GetConfigService(p.registry))
+	assert.NoError(err)
+	logger := operations.NewOperationsLogger(operationsOptions.Logger)
+	metricsProvider := operations.NewMetricsProvider(operationsOptions.Metrics, logger)
+	assert.NoError(p.registry.RegisterService(metricsProvider))
 
 	// Resolver service
 	resolverService, err := endpoint.NewResolverService(configProvider, view.GetEndpointService(p.registry), idProvider)
 	assert.NoError(err, "failed instantiating endpoint resolver service")
 	assert.NoError(resolverService.LoadResolvers(), "failed loading resolvers")
-
-	assert.NoError(p.initWEBServer(), "failed initializing web server")
-	assert.NoError(p.initWebOperationEndpointsAndMetrics(), "failed initializing web server endpoints and metrics")
 
 	// View Service Server
 	marshaller, err := view2.NewResponseMarshaler(hash.GetHasher(p.registry), driver.GetIdentityProvider(p.registry), view.GetSigService(p.registry))
@@ -182,6 +164,11 @@ func (p *SDK) Install() error {
 		return err
 	}
 	p.viewManager = viewManager
+	p.webServer = web.NewServer(view.GetConfigService(p.registry), view.GetManager(p.registry))
+
+	p.operationsSystem = operations.NewOperationSystem(p.webServer, logger, metricsProvider, *operationsOptions)
+	assert.NoError(p.registry.RegisterService(p.operationsSystem), "failed initializing web server endpoints and metrics")
+
 	if err := p.installTracing(); err != nil {
 		return errors.WithMessage(err, "failed installing tracing")
 	}
@@ -194,51 +181,12 @@ func (p *SDK) Install() error {
 func (p *SDK) Start(ctx context.Context) error {
 	p.context = ctx
 
-	p.installViewHandler()
 	assert.NoError(p.initGRPCServer(), "failed initializing grpc server")
 	assert.NoError(p.startCommLayer(), "failed starting comm layer")
 	assert.NoError(p.registerViewServiceServer(), "failed registering view service server")
 	assert.NoError(p.startViewManager(), "failed starting view manager")
 
 	return p.serve()
-}
-
-func (p *SDK) initWEBServer() error {
-	configProvider := view.GetConfigService(p.registry)
-
-	listenAddr := configProvider.GetString("fsc.web.address")
-
-	var tlsConfig web2.TLS
-	var clientRootCAs []string
-	for _, path := range configProvider.GetStringSlice("fsc.web.tls.clientRootCAs.files") {
-		clientRootCAs = append(clientRootCAs, configProvider.TranslatePath(path))
-	}
-	tlsConfig = web2.TLS{
-		Enabled:           configProvider.GetBool("fsc.web.tls.enabled"),
-		CertFile:          configProvider.GetPath("fsc.web.tls.cert.file"),
-		KeyFile:           configProvider.GetPath("fsc.web.tls.key.file"),
-		ClientAuth:        configProvider.GetBool("fsc.web.tls.clientAuthRequired"),
-		ClientCACertFiles: clientRootCAs,
-	}
-	if !configProvider.GetBool("fsc.web.enabled") {
-		p.webServer = web2.NewDummyServer()
-		logger.Info("web server not enabled")
-	} else {
-		p.webServer = web2.NewServer(web2.Options{
-			ListenAddress: listenAddr,
-			Logger:        logger,
-			TLS:           tlsConfig,
-		})
-	}
-	h := web2.NewHttpHandler(logger)
-	p.webServer.RegisterHandler("/", h, true)
-	p.webHandler = h
-
-	return nil
-}
-
-func (p *SDK) installViewHandler() {
-	web2.InstallViewHandler(logger, view.GetManager(p.registry), p.webHandler)
 }
 
 func (p *SDK) registerViewServiceServer() error {
@@ -253,38 +201,19 @@ func (p *SDK) registerViewServiceServer() error {
 }
 
 func (p *SDK) initGRPCServer() error {
-	configProvider := view.GetConfigService(p.registry)
-
-	if !configProvider.GetBool("fsc.grpc.enabled") {
-		logger.Info("grpc server not enabled")
-		return nil
-	}
-
-	listenAddr := configProvider.GetString("fsc.grpc.address")
-	serverConfig, err := p.getServerConfig()
-	if err != nil {
-		logger.Fatalf("Error loading secure config for peer (%s)", err)
-	}
-
-	serverConfig.Logger = flogging.MustGetLogger("core.comm").With("server", "PeerServer")
-	serverConfig.UnaryInterceptors = append(
-		serverConfig.UnaryInterceptors,
-		grpclogging.UnaryServerInterceptor(flogging.MustGetLogger("view-sdk.comm.grpc.server").Zap()),
-	)
-	serverConfig.StreamInterceptors = append(
-		serverConfig.StreamInterceptors,
-		grpclogging.StreamServerInterceptor(flogging.MustGetLogger("view-sdk.comm.grpc.server").Zap()),
-	)
-
-	p.grpcServer, err = grpc2.NewGRPCServer(listenAddr, serverConfig)
+	grpcServer, err := web.NewGRPCServer(view.GetConfigService(p.registry))
 	assert.NoError(err, "failed creating grpc server")
-
+	p.grpcServer = grpcServer
 	return nil
 }
 
 func (p *SDK) initCommLayer() {
+	config := driver.GetConfigService(p.registry)
+	endpointService := driver.GetEndpointService(p.registry).(*endpoint.Service)
+	hostProvider, err := provider.NewHostProvider(config, endpointService, metrics.GetProvider(p.registry))
+	assert.NoError(err, "failed creating host provider")
 	commService, err := comm2.NewService(
-		p.newHostProvider(),
+		hostProvider,
 		view.GetEndpointService(p.registry),
 		view.GetConfigService(p.registry),
 		view.GetIdentityProvider(p.registry).DefaultIdentity(),
@@ -293,23 +222,6 @@ func (p *SDK) initCommLayer() {
 	assert.NoError(p.registry.RegisterService(commService), "failed registering communication service")
 
 	p.commService = commService
-}
-
-func (p *SDK) newHostProvider() host.GeneratorProvider {
-	config := driver.GetConfigService(p.registry)
-	endpointService := driver.GetEndpointService(p.registry).(*endpoint.Service)
-	assert.NoError(endpointService.AddPublicKeyExtractor(&comm2.PKExtractor{}), "failed addi,ng fabric pki resolver")
-
-	if p2pCommType := config.GetString("fsc.p2p.type"); strings.EqualFold(p2pCommType, fsc.WebSocket) {
-		routingConfigPath := config.GetPath("fsc.p2p.opts.routing.path")
-		r, err := routing.NewResolvedStaticIDRouter(routingConfigPath, endpointService)
-		assert.NoError(err)
-		discovery := routing.NewServiceDiscovery(r, routing.Random[host.PeerIPAddress]())
-		endpointService.SetPublicKeyIDSynthesizer(&rest.PKIDSynthesizer{})
-		return rest.NewEndpointBasedProvider(endpointService, discovery)
-	}
-	endpointService.SetPublicKeyIDSynthesizer(&libp2p.PKIDSynthesizer{})
-	return libp2p.NewHostGeneratorProvider(metrics.GetProvider(p.registry))
 }
 
 func (p *SDK) startCommLayer() error {
@@ -326,170 +238,14 @@ func (p *SDK) startViewManager() error {
 }
 
 func (p *SDK) serve() error {
-	// Start the grpc server. Done in a goroutine
-	go func() {
-		if p.grpcServer == nil {
-			return
-		}
-
-		logger.Info("Starting GRPC server...")
-		if err := p.grpcServer.Start(); err != nil {
-			logger.Fatalf("grpc server stopped with err [%s]", err)
-		}
-	}()
-	go func() {
-		logger.Info("Starting WEB server...")
-		if err := p.webServer.Start(); err != nil {
-			logger.Fatalf("Failed starting WEB server: %v", err)
-		}
-	}()
-	go func() {
-		if p.operationsSystem == nil {
-			return
-		}
-		logger.Info("Starting operations system...")
-		if err := p.operationsSystem.Start(); err != nil {
-			logger.Fatalf("Failed starting operations system: %v", err)
-		}
-	}()
-	go func() {
-		<-p.context.Done()
-		logger.Info("web server stopping...")
-		if err := p.webServer.Stop(); err != nil {
-			logger.Errorf("failed stopping web server [%s]", err)
-		}
-		logger.Info("web server stopping...done")
-
-		if p.grpcServer != nil {
-			logger.Info("grpc server stopping...")
-			p.grpcServer.Stop()
-			logger.Info("grpc server stopping...done")
-		}
-
-		logger.Info("kvs stopping...")
-		kvs.GetService(p.registry).Stop()
-		logger.Info("kvs stopping...done")
-
-		logger.Infof("operations system stopping...")
-		if p.operationsSystem != nil {
-			if err := p.operationsSystem.Stop(); err != nil {
-				logger.Errorf("failed stopping operations system [%s]", err)
-			}
-		}
-	}()
+	web.Serve(p.grpcServer, p.webServer, p.operationsSystem, kvs.GetService(p.registry), p.context)
 	return nil
-}
-
-func (p *SDK) getServerConfig() (grpc2.ServerConfig, error) {
-	configProvider := view.GetConfigService(p.registry)
-
-	serverConfig := grpc2.ServerConfig{
-		ConnectionTimeout: configProvider.GetDuration("fsc.grpc.connectionTimeout"),
-		SecOpts: grpc2.SecureOptions{
-			UseTLS: configProvider.GetBool("fsc.grpc.tls.enabled"),
-		},
-	}
-	if serverConfig.SecOpts.UseTLS {
-		// get the certs from the file system
-		serverKey, err := os.ReadFile(configProvider.GetPath("fsc.grpc.tls.key.file"))
-		if err != nil {
-			return serverConfig, errors.Errorf("error loading TLS key (%s)", err)
-		}
-		serverCert, err := os.ReadFile(configProvider.GetPath("fsc.grpc.tls.cert.file"))
-		if err != nil {
-			return serverConfig, errors.Errorf("error loading TLS certificate (%s)", err)
-		}
-		serverConfig.SecOpts.Certificate = serverCert
-		serverConfig.SecOpts.Key = serverKey
-		serverConfig.SecOpts.RequireClientCert = configProvider.GetBool("fsc.grpc.tls.clientAuthRequired")
-		if serverConfig.SecOpts.RequireClientCert {
-			var clientRoots [][]byte
-			for _, file := range configProvider.GetStringSlice("fsc.grpc.tls.clientRootCAs.files") {
-				clientRoot, err := os.ReadFile(configProvider.TranslatePath(file))
-				if err != nil {
-					return serverConfig, errors.Errorf("error loading client root CAs (%s)", err)
-				}
-				clientRoots = append(clientRoots, clientRoot)
-			}
-			serverConfig.SecOpts.ClientRootCAs = clientRoots
-		}
-	}
-	// get the default keepalive options
-	serverConfig.KaOpts = grpc2.DefaultKeepaliveOptions
-	// check to see if interval is set for the env
-	if configProvider.IsSet("fsc.grpc.keepalive.interval") {
-		serverConfig.KaOpts.ServerInterval = configProvider.GetDuration("fsc.grpc.keepalive.interval")
-	}
-	// check to see if timeout is set for the env
-	if configProvider.IsSet("fsc.grpc.keepalive.timeout") {
-		serverConfig.KaOpts.ServerTimeout = configProvider.GetDuration("fsc.grpc.keepalive.timeout")
-	}
-	// check to see if minInterval is set for the env
-	if configProvider.IsSet("fsc.grpc.keepalive.minInterval") {
-		serverConfig.KaOpts.ServerMinInterval = configProvider.GetDuration("fsc.grpc.keepalive.minInterval")
-	}
-	return serverConfig, nil
 }
 
 func (p *SDK) installTracing() error {
-	confService := view.GetConfigService(p.registry)
-
-	var tracingProvider *tracing.Provider
-	providerType := confService.GetString("fsc.tracing.provider")
-	switch providerType {
-	case "", "none":
-		logger.Infof("Tracing disabled")
-		tracingProvider = tracing.NewProvider(disabled.New())
-	case "optl":
-		logger.Infof("Tracing enabled: optl")
-		address := confService.GetString("fsc.tracing.optl.address")
-		if len(address) == 0 {
-			address = "localhost:4319"
-			logger.Infof("tracing server address not set, using default: [%s]", address)
-		}
-		tp := optl.LaunchOptl(address, context.Background())
-		tracingProvider = tracing.NewProvider(optl.NewLatencyTracer(tp, optl.LatencyTracerOpts{Name: "FSC-Tracing"}))
-	default:
-		return errors.Errorf("unknown tracing provider: %s", providerType)
-	}
-	if err := p.registry.RegisterService(tracingProvider); err != nil {
+	tracingProvider, err := metrics2.NewTracingProvider(view.GetConfigService(p.registry))
+	if err != nil {
 		return err
 	}
-	return nil
-}
-
-func (p *SDK) initWebOperationEndpointsAndMetrics() error {
-	configProvider := view.GetConfigService(p.registry)
-
-	tlsEnabled := false
-	if configProvider.IsSet("fsc.web.tls.enabled") {
-		tlsEnabled = configProvider.GetBool("fsc.web.tls.enabled")
-	}
-
-	provider := configProvider.GetString("fsc.metrics.provider")
-	statsdOperationsConfig := &operations.Statsd{}
-	if provider == "statsd" && configProvider.IsSet("fsc.metrics.statsd") {
-		if err := configProvider.UnmarshalKey("fsc.metrics.statsd", statsdOperationsConfig); err != nil {
-			return errors.Wrap(err, "error unmarshalling metrics.statsd config")
-		}
-	}
-
-	prometheusTls := true
-	if configProvider.IsSet("fsc.metrics.prometheus.tls") {
-		prometheusTls = configProvider.GetBool("fsc.metrics.prometheus.tls")
-	}
-	logger.Infof("Starting operations with TLS: %v", prometheusTls)
-
-	p.operationsSystem = operations.NewSystem(p.webServer, operations.Options{
-		Metrics: operations.MetricsOptions{
-			Provider: provider,
-			Statsd:   statsdOperationsConfig,
-			TLS:      prometheusTls,
-		},
-		TLS: operations.TLS{
-			Enabled: tlsEnabled,
-		},
-		Version: "1.0.0",
-	})
-	return p.registry.RegisterService(p.operationsSystem)
+	return p.registry.RegisterService(tracingProvider)
 }
