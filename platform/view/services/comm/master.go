@@ -8,6 +8,7 @@ package comm
 
 import (
 	"encoding/base64"
+	"runtime/debug"
 	"strings"
 
 	"go.uber.org/zap/zapcore"
@@ -25,7 +26,7 @@ func (p *P2PNode) getOrCreateSession(sessionID, endpointAddress, contextID, call
 	}
 	if session, in := p.sessions[internalSessionID]; in {
 		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("session [%s] exists, returning it", internalSessionID)
+			logger.Debugf("session [%s] exists, returning it with caller [%s]: [%s]", internalSessionID, callerViewID, string(debug.Stack()))
 		}
 		session.callerViewID = callerViewID
 		session.contextID = contextID
@@ -35,6 +36,9 @@ func (p *P2PNode) getOrCreateSession(sessionID, endpointAddress, contextID, call
 		return session, nil
 	}
 
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("new session [%s, returning it with caller [%s]: [%s]", sessionID, callerViewID, string(debug.Stack()))
+	}
 	s := &NetworkStreamSession{
 		endpointID:      endpointID,
 		endpointAddress: endpointAddress,
