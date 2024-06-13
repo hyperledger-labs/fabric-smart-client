@@ -4,7 +4,7 @@ on:
   push:
     branches: [ main ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, fsc_old ]
 
 env:
   FSC_PATH: "${{ github.workspace }}/fabric-smart-client"
