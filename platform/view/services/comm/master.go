@@ -37,7 +37,7 @@ func (p *P2PNode) getOrCreateSession(sessionID, endpointAddress, contextID, call
 	}
 
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("new session [%s, returning it with caller [%s]: [%s]", sessionID, callerViewID, string(debug.Stack()))
+		logger.Debugf("new session [%s], returning it with caller [%s]: [%s]", sessionID, callerViewID, string(debug.Stack()))
 	}
 	s := &NetworkStreamSession{
 		endpointID:      endpointID,

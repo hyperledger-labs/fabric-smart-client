@@ -105,11 +105,12 @@ func (n *NetworkStreamSession) sendWithStatus(payload []byte, status int32) erro
 	})
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf(
-			"sent message [len:%d] to [%s:%s][%s: with err [%s]",
+			"sent message [len:%d] to [%s:%s][%s] on session [%s] with err [%s]",
 			len(payload),
 			string(n.endpointID),
 			n.endpointAddress,
 			n.callerViewID,
+			n.sessionID,
 			err,
 		)
 	}
