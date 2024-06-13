@@ -13,7 +13,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/monitoring"
-	fabric2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk"
+	fabricsdk "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/samples/fabric/iou/views"
 )
 
@@ -68,7 +68,7 @@ func Topology() []api.Topology {
 	monitoringTopology.EnablePrometheusGrafana()
 
 	// Add Fabric SDK to FSC Nodes
-	fscTopology.AddSDK(&fabric2.SDK{})
+	fscTopology.AddSDK(&fabricsdk.SDK{})
 
 	return []api.Topology{
 		fabricTopology,

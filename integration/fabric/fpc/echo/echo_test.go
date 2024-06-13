@@ -9,7 +9,7 @@ package echo_test
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/fpc/echo"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
-	fabric "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk"
+	fabricsdk "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/dig"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -40,7 +40,7 @@ type TestSuite struct {
 
 func NewTestSuite(commType fsc.P2PCommunicationType, nodeOpts *integration.ReplicationOptions) *TestSuite {
 	return &TestSuite{integration.NewTestSuite(func() (*integration.Infrastructure, error) {
-		return integration.Generate(StartPort(), true, echo.Topology(&fabric.SDK{}, commType, nodeOpts)...)
+		return integration.Generate(StartPort(), true, echo.Topology(&fabricsdk.SDK{}, commType, nodeOpts)...)
 	})}
 }
 

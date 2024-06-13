@@ -7,14 +7,12 @@ SPDX-License-Identifier: Apache-2.0
 package twonets_test
 
 import (
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
-	fabric "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/twonets"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("EndToEnd", func() {
@@ -39,7 +37,7 @@ type TestSuite struct {
 
 func NewTestSuite(commType fsc.P2PCommunicationType, nodeOpts *integration.ReplicationOptions) *TestSuite {
 	return &TestSuite{integration.NewTestSuite(func() (*integration.Infrastructure, error) {
-		return integration.Generate(StartPort(), true, twonets.Topology(&fabric.SDK{}, commType, nodeOpts)...)
+		return integration.Generate(StartPort(), true, integration.ReplaceTemplate(twonets.Topology(&twonets.SDK{}, commType, nodeOpts))...)
 	})}
 }
 
