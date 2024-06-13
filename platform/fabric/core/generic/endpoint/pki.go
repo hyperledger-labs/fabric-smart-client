@@ -11,6 +11,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 
+	im "github.com/IBM/idemix/idemixmsp"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/hyperledger/fabric-protos-go/msp"
@@ -43,7 +44,7 @@ func (p PublicKeyExtractor) ExtractPublicKey(id view.Identity) (any, error) {
 		return pk, nil
 	default:
 		// This can only be an idemix identity then
-		serialized := &msp.SerializedIdemixIdentity{}
+		serialized := &im.SerializedIdemixIdentity{}
 		err := proto.Unmarshal(si.IdBytes, serialized)
 		if err != nil {
 			return nil, err
