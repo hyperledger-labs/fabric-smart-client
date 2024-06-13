@@ -8,9 +8,9 @@ package vault
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault/txidstore"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	odriver "github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/orion-server/pkg/types"
@@ -80,7 +80,7 @@ func (i *Interceptor) Equals(other interface{}, nss ...string) error {
 
 type populator struct{}
 
-func (p *populator) Populate(rws *vault.ReadWriteSet, rwsetBytes []byte, namespaces ...core.Namespace) error {
+func (p *populator) Populate(rws *vault.ReadWriteSet, rwsetBytes []byte, namespaces ...driver.Namespace) error {
 	txRWSet := &types.DataTx{}
 	err := proto.Unmarshal(rwsetBytes, txRWSet)
 	if err != nil {

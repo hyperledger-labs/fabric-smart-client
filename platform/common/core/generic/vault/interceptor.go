@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package vault
 
 import (
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/pkg/errors"
@@ -19,7 +18,7 @@ type VersionedQueryExecutor interface {
 	Done()
 }
 
-type Interceptor[V ValidationCode] struct {
+type Interceptor[V driver.ValidationCode] struct {
 	Logger     Logger
 	QE         VersionedQueryExecutor
 	TxIDStore  TXIDStoreReader[V]
@@ -27,7 +26,7 @@ type Interceptor[V ValidationCode] struct {
 	Marshaller Marshaller
 	Closed     bool
 	TxID       string
-	vcProvider ValidationCodeProvider[V] // TODO
+	vcProvider driver.ValidationCodeProvider[V] // TODO
 }
 
 func EmptyRWSet() ReadWriteSet {
@@ -46,12 +45,12 @@ func EmptyRWSet() ReadWriteSet {
 	}
 }
 
-func NewInterceptor[V ValidationCode](
+func NewInterceptor[V driver.ValidationCode](
 	logger Logger,
 	qe VersionedQueryExecutor,
 	txIDStore TXIDStoreReader[V],
-	txID core.TxID,
-	vcProvider ValidationCodeProvider[V],
+	txID driver.TxID,
+	vcProvider driver.ValidationCodeProvider[V],
 	marshaller Marshaller,
 ) *Interceptor[V] {
 	logger.Debugf("new interceptor [%s]", txID)

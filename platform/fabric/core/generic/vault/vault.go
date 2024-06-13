@@ -8,9 +8,9 @@ package vault
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault/txidstore"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
@@ -60,7 +60,7 @@ func newInterceptor(logger vault.Logger, qe vault.VersionedQueryExecutor, txIDSt
 
 type populator struct{}
 
-func (p *populator) Populate(rws *vault.ReadWriteSet, rwsetBytes []byte, namespaces ...core.Namespace) error {
+func (p *populator) Populate(rws *vault.ReadWriteSet, rwsetBytes []byte, namespaces ...driver.Namespace) error {
 	txRWSet := &rwset.TxReadWriteSet{}
 	err := proto.Unmarshal(rwsetBytes, txRWSet)
 	if err != nil {
@@ -82,8 +82,8 @@ func (p *populator) Populate(rws *vault.ReadWriteSet, rwsetBytes []byte, namespa
 		}
 
 		for _, read := range nsrws.KvRwSet.Reads {
-			bn := core.BlockNum(0)
-			txn := core.TxNum(0)
+			bn := driver.BlockNum(0)
+			txn := driver.TxNum(0)
 			if read.Version != nil {
 				bn = read.Version.BlockNum
 				txn = read.Version.TxNum

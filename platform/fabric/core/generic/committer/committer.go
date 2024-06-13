@@ -59,7 +59,7 @@ type FabricFinality interface {
 	IsFinal(txID string, address string) error
 }
 
-type TransactionHandler = func(block *common.Block, i int, event *FinalityEvent, envRaw []byte, env *common.Envelope, chHdr *common.ChannelHeader) error
+type TransactionHandler = func(block *common.Block, i uint64, event *FinalityEvent, envRaw []byte, env *common.Envelope, chHdr *common.ChannelHeader) error
 
 type OrderingService interface {
 	SetConfigOrderers(o channelconfig.Orderer, orderers []*grpc.ConnectionConfig) error
@@ -204,7 +204,7 @@ func (c *Committer) DiscardTx(txID string, message string) error {
 	return nil
 }
 
-func (c *Committer) CommitTX(txID string, block uint64, indexInBlock int, envelope *common.Envelope) (err error) {
+func (c *Committer) CommitTX(txID string, block driver.BlockNum, indexInBlock driver.TxNum, envelope *common.Envelope) (err error) {
 	c.logger.Debugf("Committing transaction [%s,%d,%d]", txID, block, indexInBlock)
 	defer c.logger.Debugf("Committing transaction [%s,%d,%d] done [%s]", txID, block, indexInBlock, err)
 
@@ -324,7 +324,7 @@ func (c *Committer) Commit(block *common.Block) error {
 		c.Tracer.AddEventAt("commit", "start", time.Now())
 		handler, ok := c.Handlers[common.HeaderType(chdr.Type)]
 		if ok {
-			if err := handler(block, i, &event, tx, env, chdr); err != nil {
+			if err := handler(block, uint64(i), &event, tx, env, chdr); err != nil {
 				return err
 			}
 		} else {
@@ -635,7 +635,7 @@ func (c *Committer) commitConfig(txID string, blockNumber uint64, seq uint64, en
 	return nil
 }
 
-func (c *Committer) commit(txID string, block uint64, indexInBlock int, envelope *common.Envelope) error {
+func (c *Committer) commit(txID string, block uint64, indexInBlock uint64, envelope *common.Envelope) error {
 	// This is a normal transaction, validated by Fabric.
 	// Commit it cause Fabric says it is valid.
 	c.logger.Debugf("[%s] committing", txID)
@@ -695,7 +695,7 @@ func (c *Committer) commit(txID string, block uint64, indexInBlock int, envelope
 	return nil
 }
 
-func (c *Committer) commitUnknown(txID string, block uint64, indexInBlock int, envelope *common.Envelope) error {
+func (c *Committer) commitUnknown(txID string, block uint64, indexInBlock uint64, envelope *common.Envelope) error {
 	// if an envelope exists for the passed txID, then commit it
 	if c.EnvelopeService.Exists(txID) {
 		return c.commitStoredEnvelope(txID, block, indexInBlock)
@@ -734,7 +734,7 @@ func (c *Committer) commitUnknown(txID string, block uint64, indexInBlock int, e
 	return c.commit(txID, block, indexInBlock, envelope)
 }
 
-func (c *Committer) commitStoredEnvelope(txID string, block uint64, indexInBlock int) error {
+func (c *Committer) commitStoredEnvelope(txID string, block uint64, indexInBlock uint64) error {
 	c.logger.Debugf("found envelope for transaction [%s], committing it...", txID)
 	if err := c.extractStoredEnvelopeToVault(txID); err != nil {
 		return err

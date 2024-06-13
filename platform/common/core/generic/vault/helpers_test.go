@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault/txidstore"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
@@ -52,7 +51,7 @@ func newInterceptor(
 	logger vault.Logger,
 	qe vault.VersionedQueryExecutor,
 	txidStore vault.TXIDStoreReader[vc],
-	txid core.TxID,
+	txid driver2.TxID,
 ) vault.TxInterceptor {
 	return vault.NewInterceptor[vc](
 		logger,
@@ -66,7 +65,7 @@ func newInterceptor(
 
 type populator struct{}
 
-func (p *populator) Populate(rws *vault.ReadWriteSet, rwsetBytes []byte, namespaces ...core.Namespace) error {
+func (p *populator) Populate(rws *vault.ReadWriteSet, rwsetBytes []byte, namespaces ...driver2.Namespace) error {
 	txRWSet := &rwset.TxReadWriteSet{}
 	err := proto.Unmarshal(rwsetBytes, txRWSet)
 	if err != nil {
@@ -88,8 +87,8 @@ func (p *populator) Populate(rws *vault.ReadWriteSet, rwsetBytes []byte, namespa
 		}
 
 		for _, read := range nsrws.KvRwSet.Reads {
-			bn := core.BlockNum(0)
-			txn := core.TxNum(0)
+			bn := driver2.BlockNum(0)
+			txn := driver2.TxNum(0)
 			if read.Version != nil {
 				bn = read.Version.BlockNum
 				txn = read.Version.TxNum
@@ -1293,19 +1292,19 @@ type deadlockErrorPersistence struct {
 	key      string
 }
 
-func (db *deadlockErrorPersistence) GetState(namespace core.Namespace, key string) (vault.VersionedValue, error) {
+func (db *deadlockErrorPersistence) GetState(namespace driver2.Namespace, key string) (vault.VersionedValue, error) {
 	return db.VersionedPersistence.GetState(namespace, key)
 }
 
-func (db *deadlockErrorPersistence) GetStateRangeScanIterator(namespace core.Namespace, startKey string, endKey string) (collections.Iterator[*vault.VersionedRead], error) {
+func (db *deadlockErrorPersistence) GetStateRangeScanIterator(namespace driver2.Namespace, startKey string, endKey string) (collections.Iterator[*vault.VersionedRead], error) {
 	return db.VersionedPersistence.GetStateRangeScanIterator(namespace, startKey, endKey)
 }
 
-func (db *deadlockErrorPersistence) GetStateSetIterator(ns core.Namespace, keys ...string) (collections.Iterator[*vault.VersionedRead], error) {
+func (db *deadlockErrorPersistence) GetStateSetIterator(ns driver2.Namespace, keys ...string) (collections.Iterator[*vault.VersionedRead], error) {
 	return db.VersionedPersistence.GetStateSetIterator(ns, keys...)
 }
 
-func (db *deadlockErrorPersistence) SetState(namespace core.Namespace, key string, value vault.VersionedValue) error {
+func (db *deadlockErrorPersistence) SetState(namespace driver2.Namespace, key string, value vault.VersionedValue) error {
 	if key == db.key && db.failures > 0 {
 		db.failures--
 		return vault.DeadlockDetected
@@ -1317,18 +1316,18 @@ type duplicateErrorPersistence struct {
 	vault.VersionedPersistence
 }
 
-func (db *duplicateErrorPersistence) SetState(core.Namespace, string, vault.VersionedValue) error {
+func (db *duplicateErrorPersistence) SetState(driver2.Namespace, string, vault.VersionedValue) error {
 	return vault.UniqueKeyViolation
 }
 
-func (db *duplicateErrorPersistence) GetState(namespace core.Namespace, key string) (vault.VersionedValue, error) {
+func (db *duplicateErrorPersistence) GetState(namespace driver2.Namespace, key string) (vault.VersionedValue, error) {
 	return db.VersionedPersistence.GetState(namespace, key)
 }
 
-func (db *duplicateErrorPersistence) GetStateRangeScanIterator(namespace core.Namespace, startKey string, endKey string) (collections.Iterator[*vault.VersionedRead], error) {
+func (db *duplicateErrorPersistence) GetStateRangeScanIterator(namespace driver2.Namespace, startKey string, endKey string) (collections.Iterator[*vault.VersionedRead], error) {
 	return db.VersionedPersistence.GetStateRangeScanIterator(namespace, startKey, endKey)
 }
 
-func (db *duplicateErrorPersistence) GetStateSetIterator(ns core.Namespace, keys ...string) (collections.Iterator[*vault.VersionedRead], error) {
+func (db *duplicateErrorPersistence) GetStateSetIterator(ns driver2.Namespace, keys ...string) (collections.Iterator[*vault.VersionedRead], error) {
 	return db.VersionedPersistence.GetStateSetIterator(ns, keys...)
 }

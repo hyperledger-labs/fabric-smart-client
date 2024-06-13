@@ -10,7 +10,11 @@ import (
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 )
 
-type TxValidationStatus = driver2.TxValidationStatus[ValidationCode]
+type (
+	TxValidationStatus = driver2.TxValidationStatus[ValidationCode]
+	BlockNum           = driver2.BlockNum
+	TxNum              = driver2.TxNum
+)
 
 type Vault interface {
 	driver2.Vault[ValidationCode]

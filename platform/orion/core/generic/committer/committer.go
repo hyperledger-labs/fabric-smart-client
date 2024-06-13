@@ -44,7 +44,7 @@ type Vault interface {
 	SetStatus(txID string, code driver.ValidationCode) error
 	Statuses(ids ...string) ([]driver.TxValidationStatus, error)
 	DiscardTx(txID string, message string) error
-	CommitTX(txid string, block uint64, indexInBloc int) error
+	CommitTX(txid string, block driver.BlockNum, indexInBloc driver.TxNum) error
 }
 
 type ProcessorManager interface {
@@ -121,14 +121,14 @@ func (c *committer) Commit(block *types.AugmentedBlockHeader) error {
 		var event TxEvent
 		event.TxID = txID
 		event.Block = bn
-		event.IndexInBlock = i
+		event.IndexInBlock = uint64(i)
 		event.ValidationCode = convertValidationCode(block.Header.ValidationInfo[i].Flag)
 		event.ValidationMessage = block.Header.ValidationInfo[i].ReasonIfInvalid
 
 		discard := false
 		switch block.Header.ValidationInfo[i].Flag {
 		case types.Flag_VALID:
-			if err := c.CommitTX(txID, bn, i, &event); err != nil {
+			if err := c.CommitTX(txID, bn, driver.TxNum(i), &event); err != nil {
 				if errors2.HasCause(err, ErrDiscardTX) {
 					// in this case, we will discard the transaction
 					event.ValidationCode = convertValidationCode(types.Flag_INVALID_INCORRECT_ENTRIES)
@@ -152,7 +152,7 @@ func (c *committer) Commit(block *types.AugmentedBlockHeader) error {
 	return nil
 }
 
-func (c *committer) CommitTX(txID string, bn uint64, index int, event *TxEvent) error {
+func (c *committer) CommitTX(txID string, bn driver.BlockNum, index driver.TxNum, event *TxEvent) error {
 	logger.Debugf("transaction [%s] in block [%d] is valid for orion", txID, bn)
 
 	// if is already committed, do nothing

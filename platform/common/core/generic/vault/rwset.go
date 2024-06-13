@@ -10,7 +10,8 @@ import (
 	"bytes"
 	"sort"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/keys"
 	"github.com/pkg/errors"
@@ -142,8 +143,8 @@ func (w *WriteSet) Clear(ns string) {
 }
 
 type txPosition struct {
-	Block core.BlockNum
-	TxNum core.TxNum
+	Block driver.BlockNum
+	TxNum driver.TxNum
 }
 
 type NamespaceReads map[string]txPosition
@@ -154,9 +155,9 @@ func (r NamespaceReads) Equals(o NamespaceReads) error {
 	})
 }
 
-type Reads map[core.Namespace]NamespaceReads
+type Reads map[driver.Namespace]NamespaceReads
 
-func (r Reads) Equals(o Reads, nss ...core.Namespace) error {
+func (r Reads) Equals(o Reads, nss ...driver.Namespace) error {
 	return entriesEqual(r, o, func(a, b NamespaceReads) bool { return a.Equals(b) == nil }, nss...)
 }
 
@@ -165,10 +166,10 @@ type ReadSet struct {
 	OrderedReads map[string][]string
 }
 
-func (r *ReadSet) Add(ns core.Namespace, key string, block core.BlockNum, txnum core.TxNum) {
+func (r *ReadSet) Add(ns driver.Namespace, key string, block driver.BlockNum, txnum driver.TxNum) {
 	nsMap, in := r.Reads[ns]
 	if !in {
-		nsMap = make(map[core.Namespace]txPosition)
+		nsMap = make(map[driver.Namespace]txPosition)
 
 		r.Reads[ns] = nsMap
 		r.OrderedReads[ns] = make([]string, 0, 8)
@@ -178,12 +179,12 @@ func (r *ReadSet) Add(ns core.Namespace, key string, block core.BlockNum, txnum 
 	r.OrderedReads[ns] = append(r.OrderedReads[ns], key)
 }
 
-func (r *ReadSet) Get(ns core.Namespace, key string) (core.BlockNum, core.TxNum, bool) {
+func (r *ReadSet) Get(ns driver.Namespace, key string) (driver.BlockNum, driver.TxNum, bool) {
 	entry, in := r.Reads[ns][key]
 	return entry.Block, entry.TxNum, in
 }
 
-func (r *ReadSet) GetAt(ns core.Namespace, i int) (string, bool) {
+func (r *ReadSet) GetAt(ns driver.Namespace, i int) (string, bool) {
 	slice := r.OrderedReads[ns]
 	if i < 0 || i > len(slice)-1 {
 		return "", false
@@ -192,12 +193,12 @@ func (r *ReadSet) GetAt(ns core.Namespace, i int) (string, bool) {
 	return slice[i], true
 }
 
-func (r *ReadSet) Clear(ns core.Namespace) {
+func (r *ReadSet) Clear(ns driver.Namespace) {
 	r.Reads[ns] = map[string]txPosition{}
 	r.OrderedReads[ns] = []string{}
 }
 
-func entriesEqual[T any](r, o map[string]T, compare func(T, T) bool, nss ...core.Namespace) error {
+func entriesEqual[T any](r, o map[string]T, compare func(T, T) bool, nss ...driver.Namespace) error {
 	rKeys := getKeys(r, nss...)
 	sort.Strings(rKeys)
 	oKeys := getKeys(o, nss...)
@@ -220,7 +221,7 @@ func entriesEqual[T any](r, o map[string]T, compare func(T, T) bool, nss ...core
 	return nil
 }
 
-func getKeys[V any](m map[core.Namespace]V, nss ...core.Namespace) []string {
+func getKeys[V any](m map[driver.Namespace]V, nss ...driver.Namespace) []string {
 	metaWriteNamespaces := collections.Keys(m)
 	if len(nss) == 0 {
 		return metaWriteNamespaces

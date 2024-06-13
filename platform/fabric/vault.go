@@ -10,6 +10,8 @@ import (
 	"encoding/json"
 	"strings"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
@@ -93,7 +95,7 @@ type (
 	Read            = vault.VersionedRead
 	ResultsIterator = vault.VersionedResultsIterator
 	ValidationCode  = fdriver.ValidationCode
-	TxIDEntry       = vault.ByNum[ValidationCode]
+	TxIDEntry       = driver.ByNum[ValidationCode]
 	TxIDIterator    = fdriver.TxIDIterator
 )
 
@@ -182,6 +184,6 @@ func (c *Vault) DiscardTx(txID string, message string) error {
 	return c.committer.DiscardTx(txID, message)
 }
 
-func (c *Vault) CommitTX(txID string, block uint64, indexInBlock int) error {
+func (c *Vault) CommitTX(txID string, block driver.BlockNum, indexInBlock driver.TxNum) error {
 	return c.committer.CommitTX(txID, block, indexInBlock, nil)
 }

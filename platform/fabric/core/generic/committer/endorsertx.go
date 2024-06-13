@@ -17,7 +17,7 @@ import (
 
 type ValidationFlags []uint8
 
-func (c *Committer) HandleEndorserTransaction(block *common.Block, i int, event *FinalityEvent, envRaw []byte, env *common.Envelope, chHdr *common.ChannelHeader) error {
+func (c *Committer) HandleEndorserTransaction(block *common.Block, i uint64, event *FinalityEvent, envRaw []byte, env *common.Envelope, chHdr *common.ChannelHeader) error {
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("[%s] Endorser transaction received: %s", c.ChannelConfig.ID(), chHdr.TxId)
 	}
@@ -75,7 +75,7 @@ func (c *Committer) GetChaincodeEvents(env *common.Envelope, block *common.Block
 
 // CommitEndorserTransaction commits the transaction to the vault.
 // It returns true, if the transaction was already processed, false otherwise.
-func (c *Committer) CommitEndorserTransaction(txID string, block *common.Block, indexInBlock int, env *common.Envelope, event *FinalityEvent) (bool, error) {
+func (c *Committer) CommitEndorserTransaction(txID string, block *common.Block, indexInBlock uint64, env *common.Envelope, event *FinalityEvent) (bool, error) {
 	blockNum := block.Header.Number
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("transaction [%s] in block [%d] is valid for fabric, commit!", txID, blockNum)

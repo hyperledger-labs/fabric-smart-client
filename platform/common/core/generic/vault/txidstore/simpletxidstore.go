@@ -12,10 +12,9 @@ import (
 	"strings"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
+	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"google.golang.org/protobuf/proto"
 )
@@ -31,22 +30,22 @@ const (
 )
 
 type (
-	UnversionedPersistence     = driver.UnversionedPersistence
-	UnversionedResultsIterator = driver.UnversionedResultsIterator
+	UnversionedPersistence     = dbdriver.UnversionedPersistence
+	UnversionedResultsIterator = dbdriver.UnversionedResultsIterator
 )
 
 var (
-	UniqueKeyViolation = driver.UniqueKeyViolation
+	UniqueKeyViolation = dbdriver.UniqueKeyViolation
 	logger             = flogging.MustGetLogger("simple-txid-store")
 )
 
-type SimpleTXIDStore[V vault.ValidationCode] struct {
+type SimpleTXIDStore[V driver.ValidationCode] struct {
 	Persistence UnversionedPersistence
 	ctr         uint64
-	vcProvider  vault.ValidationCodeProvider[V]
+	vcProvider  driver.ValidationCodeProvider[V]
 }
 
-func NewSimpleTXIDStore[V vault.ValidationCode](persistence UnversionedPersistence, vcProvider vault.ValidationCodeProvider[V]) (*SimpleTXIDStore[V], error) {
+func NewSimpleTXIDStore[V driver.ValidationCode](persistence UnversionedPersistence, vcProvider driver.ValidationCodeProvider[V]) (*SimpleTXIDStore[V], error) {
 	ctrBytes, err := persistence.GetState(txidNamespace, ctrKey)
 	if err != nil {
 		return nil, errors.Wrapf(err, "error retrieving txid counter")
@@ -77,7 +76,7 @@ func NewSimpleTXIDStore[V vault.ValidationCode](persistence UnversionedPersisten
 	}, nil
 }
 
-func (s *SimpleTXIDStore[V]) get(txID core.TxID) (*ByTxid, error) {
+func (s *SimpleTXIDStore[V]) get(txID driver.TxID) (*ByTxid, error) {
 	bytes, err := s.Persistence.GetState(txidNamespace, keyByTxID(txID))
 	if err != nil {
 		return nil, errors.Wrapf(err, "error retrieving txid %s", txID)
@@ -96,7 +95,7 @@ func (s *SimpleTXIDStore[V]) get(txID core.TxID) (*ByTxid, error) {
 	return bt, nil
 }
 
-func (s *SimpleTXIDStore[V]) Get(txID core.TxID) (V, string, error) {
+func (s *SimpleTXIDStore[V]) Get(txID driver.TxID) (V, string, error) {
 	bt, err := s.get(txID)
 	if err != nil {
 		return s.vcProvider.Unknown(), "", err
@@ -109,7 +108,7 @@ func (s *SimpleTXIDStore[V]) Get(txID core.TxID) (V, string, error) {
 	return s.vcProvider.FromInt32(bt.Code), bt.Message, nil
 }
 
-func (s *SimpleTXIDStore[V]) Set(txID core.TxID, code V, message string) error {
+func (s *SimpleTXIDStore[V]) Set(txID driver.TxID, code V, message string) error {
 	// NOTE: we assume that the commit is in progress so no need to update/commit
 	// err := s.UnversionedPersistence.BeginUpdate()
 	// if err != nil {
@@ -176,7 +175,7 @@ func (s *SimpleTXIDStore[V]) Set(txID core.TxID, code V, message string) error {
 	return nil
 }
 
-func (s *SimpleTXIDStore[V]) GetLastTxID() (core.TxID, error) {
+func (s *SimpleTXIDStore[V]) GetLastTxID() (driver.TxID, error) {
 	v, err := s.Persistence.GetState(txidNamespace, lastTX)
 	if err != nil {
 		return "", errors.Wrapf(err, "failed to get last TxID")
@@ -187,9 +186,9 @@ func (s *SimpleTXIDStore[V]) GetLastTxID() (core.TxID, error) {
 	return string(v), nil
 }
 
-func (s *SimpleTXIDStore[V]) Iterator(pos interface{}) (vault.TxIDIterator[V], error) {
+func (s *SimpleTXIDStore[V]) Iterator(pos interface{}) (driver.TxIDIterator[V], error) {
 	var iterator collections.Iterator[*ByNum]
-	if ppos, ok := pos.(*vault.SeekSet); ok {
+	if ppos, ok := pos.(*driver.SeekSet); ok {
 		keys := make([]string, len(ppos.TxIDs))
 		for i, txID := range ppos.TxIDs {
 			keys[i] = keyByTxID(txID)
@@ -218,15 +217,15 @@ func (s *SimpleTXIDStore[V]) Iterator(pos interface{}) (vault.TxIDIterator[V], e
 
 func (s *SimpleTXIDStore[V]) getStartKey(pos interface{}) (uint64, error) {
 	switch ppos := pos.(type) {
-	case *vault.SeekStart:
+	case *driver.SeekStart:
 		return 0, nil
-	case *vault.SeekEnd:
+	case *driver.SeekEnd:
 		ctr, err := getCtr(s.Persistence)
 		if err != nil {
 			return 0, err
 		}
 		return ctr - 1, nil
-	case *vault.SeekPos:
+	case *driver.SeekPos:
 		bt, err := s.get(ppos.Txid)
 		if err != nil {
 			return 0, err
@@ -239,11 +238,11 @@ func (s *SimpleTXIDStore[V]) getStartKey(pos interface{}) (uint64, error) {
 	return 0, errors.Errorf("invalid position %T", pos)
 }
 
-func (s *SimpleTXIDStore[V]) mapByNum(bn *ByNum) (*vault.ByNum[V], error) {
+func (s *SimpleTXIDStore[V]) mapByNum(bn *ByNum) (*driver.ByNum[V], error) {
 	if bn == nil {
 		return nil, nil
 	}
-	return &vault.ByNum[V]{
+	return &driver.ByNum[V]{
 		TxID:    bn.Txid,
 		Code:    s.vcProvider.FromInt32(bn.Code),
 		Message: bn.Message,
@@ -301,7 +300,7 @@ func keyByCtr(ctr uint64) string {
 	return byCtrPrefix + string(ctrBytes[:])
 }
 
-func keyByTxID(txID core.TxID) string {
+func keyByTxID(txID driver.TxID) string {
 	return byTxidPrefix + txID
 }
 

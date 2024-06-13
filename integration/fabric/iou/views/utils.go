@@ -10,7 +10,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 )
@@ -27,7 +28,7 @@ func NewFinalityListener(expectedTxID string, expectedVC fabric.ValidationCode, 
 	return &FinalityListener{ExpectedTxID: expectedTxID, ExpectedVC: expectedVC, WaitGroup: waitGroup}
 }
 
-func (t *FinalityListener) OnStatus(txID core.TxID, vc fabric.ValidationCode, _ string) {
+func (t *FinalityListener) OnStatus(txID driver.TxID, vc fabric.ValidationCode, _ string) {
 	logger.Infof("on status [%s][%d]", txID, vc)
 	if txID == t.ExpectedTxID && vc == t.ExpectedVC {
 		time.Sleep(5 * time.Second)
