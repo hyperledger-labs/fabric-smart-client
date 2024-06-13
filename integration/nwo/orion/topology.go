@@ -12,7 +12,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/orion/opts"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/api"
-	orion "github.com/hyperledger-labs/fabric-smart-client/platform/orion/sdk"
 )
 
 const (
@@ -60,18 +59,10 @@ func (t *Topology) Type() string {
 	return t.TopologyType
 }
 
-func (t *Topology) SetDefaultSDK(fscTopology *fsc.Topology) {
-	t.SetSDK(fscTopology, &orion.SDK{})
-}
-
 func (t *Topology) SetSDK(fscTopology *fsc.Topology, sdk api.SDK) {
 	for _, node := range fscTopology.Nodes {
 		node.AddSDK(sdk)
 	}
-}
-
-func (t *Topology) SetDefaultSDKOnNodes(nodes ...*node.Node) {
-	t.SetSDKOnNodes(&orion.SDK{}, nodes...)
 }
 
 func (t *Topology) SetSDKOnNodes(sdk api.SDK, nodes ...*node.Node) {

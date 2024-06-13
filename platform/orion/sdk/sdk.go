@@ -11,6 +11,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/finality"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
@@ -51,10 +52,10 @@ func (p *SDK) Install() error {
 	var err error
 	onspConfig, err := core.NewConfig(view.GetConfigService(p.registry))
 	assert.NoError(err, "failed parsing configuration")
-	p.onsProvider, err = core.NewOrionNetworkServiceProvider(p.registry, onspConfig)
+	p.onsProvider, err = core.NewOrionNetworkServiceProvider(p.registry, view.GetConfigService(p.registry), onspConfig)
 	assert.NoError(err, "failed instantiating orion network service provider")
 	assert.NoError(p.registry.RegisterService(p.onsProvider))
-	assert.NoError(p.registry.RegisterService(orion.NewNetworkServiceProvider(p.registry)))
+	assert.NoError(p.registry.RegisterService(orion.NewNetworkServiceProvider(p.registry, driver.GetOrionNetworkServiceProvider(p.registry))))
 
 	// Install finality handler
 	finality.GetManager(p.registry).AddHandler(&FinalityHandler{sp: p.registry})

@@ -11,9 +11,10 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/orion"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/orion/cars/views"
+	api2 "github.com/hyperledger-labs/fabric-smart-client/pkg/api"
 )
 
-func Topology() []api.Topology {
+func Topology(sdk api2.SDK) []api.Topology {
 	// Orion
 	orionTopology := orion.NewTopology()
 	orionTopology.AddDB("cars", "alice", "bob", "dmv", "dealer")
@@ -34,7 +35,7 @@ func Topology() []api.Topology {
 		orion.WithRole("dealer"),
 	).RegisterViewFactory("mintRequest", &views.MintRequestViewFactory{}).RegisterViewFactory("transfer", &views.TransferViewFactory{})
 
-	orionTopology.SetDefaultSDK(fscTopology)
+	orionTopology.SetSDK(fscTopology, sdk)
 
 	return []api.Topology{orionTopology, fscTopology}
 }
