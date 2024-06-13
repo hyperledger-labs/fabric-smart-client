@@ -11,6 +11,7 @@ import (
 	"time"
 
 	bccsp "github.com/IBM/idemix/bccsp/types"
+	im "github.com/IBM/idemix/idemixmsp"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	m "github.com/hyperledger/fabric-protos-go/msp"
@@ -106,7 +107,7 @@ func (id *MSPIdentity) SatisfiesPrincipal(principal *m.MSPPrincipal) error {
 }
 
 func (id *MSPIdentity) Serialize() ([]byte, error) {
-	serialized := &m.SerializedIdemixIdentity{}
+	serialized := &im.SerializedIdemixIdentity{}
 
 	raw, err := id.NymPublicKey.Bytes()
 	if err != nil {
