@@ -8,36 +8,37 @@ package core
 
 import (
 	"context"
-	"reflect"
 	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
+	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/pkg/errors"
 )
 
 var (
 	logger = flogging.MustGetLogger("orion-sdk.core")
-	key    = reflect.TypeOf((*driver.OrionNetworkServiceProvider)(nil))
 )
 
 type ONSProvider struct {
-	sp     view.ServiceProvider
-	config *Config
-	ctx    context.Context
+	sp            view.ServiceProvider
+	configService driver2.ConfigService
+	config        *Config
+	ctx           context.Context
 
 	networksMutex sync.Mutex
 	networks      map[string]driver.OrionNetworkService
 }
 
-func NewOrionNetworkServiceProvider(sp view.ServiceProvider, config *Config) (*ONSProvider, error) {
+func NewOrionNetworkServiceProvider(sp view.ServiceProvider, configService driver2.ConfigService, config *Config) (*ONSProvider, error) {
 	provider := &ONSProvider{
-		sp:       sp,
-		config:   config,
-		networks: map[string]driver.OrionNetworkService{},
+		sp:            sp,
+		configService: configService,
+		config:        config,
+		networks:      map[string]driver.OrionNetworkService{},
 	}
 	return provider, nil
 }
@@ -100,18 +101,10 @@ func (p *ONSProvider) OrionNetworkService(network string) (driver.OrionNetworkSe
 }
 
 func (p *ONSProvider) newONS(network string) (driver.OrionNetworkService, error) {
-	c, err := config.New(view.GetConfigService(p.sp), network, network == p.config.defaultName)
+	c, err := config.New(p.configService, network, network == p.config.defaultName)
 	if err != nil {
 		return nil, err
 	}
 
 	return generic.NewNetwork(p.ctx, p.sp, c, network)
-}
-
-func GetOrionNetworkServiceProvider(sp view.ServiceProvider) (driver.OrionNetworkServiceProvider, error) {
-	s, err := sp.GetService(key)
-	if err != nil {
-		return nil, err
-	}
-	return s.(driver.OrionNetworkServiceProvider), nil
 }
