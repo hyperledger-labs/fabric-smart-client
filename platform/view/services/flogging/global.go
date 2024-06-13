@@ -43,7 +43,9 @@ func Init(config Config) {
 //
 // Used in tests and in the package init
 func Reset() {
-	Global.Apply(Config{})
+	if err := Global.Apply(Config{}); err != nil {
+		panic(err)
+	}
 }
 
 // LoggerLevel gets the current logging level for the logger with the

@@ -21,7 +21,6 @@ func (s *SmartContract) InitLedger(ctx contractapi.TransactionContextInterface) 
 
 func (s *SmartContract) CreateAsset(ctx contractapi.TransactionContextInterface) {
 	ctx.GetStub().SetEvent("CreateAsset", []byte("Invoked Create Asset Successfully"))
-
 }
 
 func (s *SmartContract) UpdateAsset(ctx contractapi.TransactionContextInterface) {

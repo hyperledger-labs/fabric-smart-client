@@ -107,7 +107,7 @@ func (p *Platform) initUsers(session bcdb.DBSession) {
 					ReadUsers:      usersMap("admin"),
 				})
 			if err != nil {
-				usersTx.Abort()
+				Expect(usersTx.Abort()).ToNot(HaveOccurred())
 				Expect(err).ToNot(HaveOccurred())
 			}
 

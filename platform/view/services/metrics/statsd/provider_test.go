@@ -52,7 +52,8 @@ var _ = Describe("Provider", func() {
 			for _, alpha := range []string{"x", "y", "z"} {
 				counter.With("alpha", alpha, "beta", "b").Add(1)
 				buf := &bytes.Buffer{}
-				s.WriteTo(buf)
+				_, err := s.WriteTo(buf)
+				Expect(err).NotTo(HaveOccurred())
 				Expect(buf.String()).To(Equal(fmt.Sprintf("namespace.subsystem.name.%s.b:%f|c\n", alpha, float64(1))))
 			}
 		})
@@ -68,7 +69,8 @@ var _ = Describe("Provider", func() {
 				counter.Add(1)
 
 				buf := &bytes.Buffer{}
-				s.WriteTo(buf)
+				_, err := s.WriteTo(buf)
+				Expect(err).ToNot(HaveOccurred())
 				Expect(buf.String()).To(Equal("namespace.subsystem.name:1.000000|c\n"))
 			})
 		})
@@ -85,7 +87,8 @@ var _ = Describe("Provider", func() {
 					counter.Add(float64(i))
 
 					buf := &bytes.Buffer{}
-					s.WriteTo(buf)
+					_, err := s.WriteTo(buf)
+					Expect(err).ToNot(HaveOccurred())
 					Expect(buf.String()).To(Equal(fmt.Sprintf("namespace.subsystem.name:%f|c\n", float64(i))))
 				}
 			})
@@ -123,7 +126,8 @@ var _ = Describe("Provider", func() {
 				for _, alpha := range []string{"x", "y", "z"} {
 					gauge.With("alpha", alpha, "beta", "b").Set(float64(i))
 					buf := &bytes.Buffer{}
-					s.WriteTo(buf)
+					_, err := s.WriteTo(buf)
+					Expect(err).NotTo(HaveOccurred())
 					Expect(buf.String()).To(Equal(fmt.Sprintf("namespace.subsystem.name.%s.b:%f|g\n", alpha, float64(i))))
 				}
 			}

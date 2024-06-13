@@ -52,11 +52,12 @@ func TestCreds(t *testing.T) {
 	logger, recorder := floggingtest.NewTestLogger(t)
 
 	creds := grpc.NewServerTransportCredentials(config, logger)
-	_, _, err = creds.ClientHandshake(context.Background(), "", nil)
+	_, authInfo, err := creds.ClientHandshake(context.Background(), "", nil)
 	assert.EqualError(t, err, grpc.ErrClientHandshakeNotImplemented.Error())
 	err = creds.OverrideServerName("")
 	assert.EqualError(t, err, grpc.ErrOverrideHostnameNotSupported.Error())
 	assert.Equal(t, "1.2", creds.Info().SecurityVersion)
+	assert.Equal(t, "tls", authInfo.AuthType())
 	assert.Equal(t, "tls", creds.Info().SecurityProtocol)
 
 	lis, err := net.Listen("tcp", "localhost:0")

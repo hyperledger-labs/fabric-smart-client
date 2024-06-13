@@ -260,9 +260,9 @@ func TestProvider_DeserializeSigner(t *testing.T) {
 	assert.NoError(t, verifier.Verify(msg, sigma))
 
 	// Try to deserialize id2 with provider for id, must fail
-	signer, err = p.DeserializeSigner(id2)
+	_, err = p.DeserializeSigner(id2)
 	assert.Error(t, err)
-	verifier, err = p.DeserializeVerifier(id2)
+	verifierID2, err := p.DeserializeVerifier(id2)
 	assert.NoError(t, err)
 
 	// this must work
@@ -276,6 +276,7 @@ func TestProvider_DeserializeSigner(t *testing.T) {
 	sigma, err = signer.Sign(msg)
 	assert.NoError(t, err)
 	assert.NoError(t, verifier.Verify(msg, sigma))
+	assert.NoError(t, verifierID2.Verify(msg, sigma))
 }
 
 func TestIdentityFromFabricCA(t *testing.T) {

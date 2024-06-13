@@ -12,18 +12,17 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/unversioned/mocks"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger"
 	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/unversioned/mocks"
 	"github.com/stretchr/testify/assert"
 )
 
 //go:generate counterfeiter -o mocks/config.go -fake-name Config . config
 
-type config interface {
+type Config interface {
 	db.Config
 }
 
@@ -35,7 +34,7 @@ func TestRangeQueriesBadger(t *testing.T) {
 	c.IsSetReturns(false)
 	dbpath := filepath.Join(tempDir, "DB-TestRangeQueries")
 	db, err := db.Open("badger", dbpath, c)
-	defer db.Close()
+	defer closeDB(db)
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
 
@@ -46,7 +45,7 @@ func TestRangeQueriesMemory(t *testing.T) {
 	c := &mocks.Config{}
 	c.UnmarshalKeyReturns(nil)
 	db, err := db.Open("memory", "", c)
-	defer db.Close()
+	defer closeDB(db)
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
 
@@ -112,7 +111,7 @@ func TestSimpleReadWriteBadger(t *testing.T) {
 	c.UnmarshalKeyReturns(nil)
 	dbpath := filepath.Join(tempDir, "DB-TestRangeQueries")
 	db, err := db.Open("badger", dbpath, c)
-	defer db.Close()
+	defer closeDB(db)
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
 
@@ -123,7 +122,7 @@ func TestSimpleReadWriteMemory(t *testing.T) {
 	c := &mocks.Config{}
 	c.UnmarshalKeyReturns(nil)
 	db, err := db.Open("memory", "", c)
-	defer db.Close()
+	defer closeDB(db)
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
 
@@ -201,4 +200,10 @@ func TestMain(m *testing.M) {
 	defer os.RemoveAll(tempDir)
 
 	m.Run()
+}
+
+func closeDB(db driver.UnversionedPersistence) {
+	if err := db.Close(); err != nil {
+		panic(err)
+	}
 }

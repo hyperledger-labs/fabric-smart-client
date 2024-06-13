@@ -18,7 +18,7 @@ import (
 )
 
 func TestConfig(t *testing.T) {
-	rand.Seed(time.Now().UnixNano())
+	rand.New(rand.NewSource(time.Now().UnixNano()))
 	configFilePath := filepath.Join(os.TempDir(), fmt.Sprintf("config-%d.yaml", rand.Int()))
 	fmt.Println(configFilePath)
 	t.Run("save and load a config", func(t *testing.T) {

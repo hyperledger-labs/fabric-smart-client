@@ -21,6 +21,8 @@ import (
 	"testing"
 	"time"
 
+	"google.golang.org/grpc/credentials/insecure"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc/tlsgen"
 
 	"github.com/pkg/errors"
@@ -63,23 +65,6 @@ MDE4WjB+MQswCQYDVQQGEwJVUzETMBEGA1UECAwKQ2FsaWZvcm5pYTEWMBQGA1UE
 BwwNU2FuIEZyYW5jaXNjbzEYMBYGA1UECgwPTGludXhGb3VuZGF0aW9uMRQwEgYD
 VQQLDAtIeXBlcmxlZGdlcjESMBAGA1UEAwwJbG9jYWxob3N0MFkwEwYHKoZIzj0C
 -----END CERTIFICATE-----
-`
-
-var pemNoCertificateHeader = `-----BEGIN NOCERT-----
-MIICRDCCAemgAwIBAgIJALwW//dz2ZBvMAoGCCqGSM49BAMCMH4xCzAJBgNVBAYT
-AlVTMRMwEQYDVQQIDApDYWxpZm9ybmlhMRYwFAYDVQQHDA1TYW4gRnJhbmNpc2Nv
-MRgwFgYDVQQKDA9MaW51eEZvdW5kYXRpb24xFDASBgNVBAsMC0h5cGVybGVkZ2Vy
-MRIwEAYDVQQDDAlsb2NhbGhvc3QwHhcNMTYxMjA0MjIzMDE4WhcNMjYxMjAyMjIz
-MDE4WjB+MQswCQYDVQQGEwJVUzETMBEGA1UECAwKQ2FsaWZvcm5pYTEWMBQGA1UE
-BwwNU2FuIEZyYW5jaXNjbzEYMBYGA1UECgwPTGludXhGb3VuZGF0aW9uMRQwEgYD
-VQQLDAtIeXBlcmxlZGdlcjESMBAGA1UEAwwJbG9jYWxob3N0MFkwEwYHKoZIzj0C
-AQYIKoZIzj0DAQcDQgAEu2FEZVSr30Afey6dwcypeg5P+BuYx5JSYdG0/KJIBjWK
-nzYo7FEmgMir7GbNh4pqA8KFrJZkPuxMgnEJBZTv+6NQME4wHQYDVR0OBBYEFAWO
-4bfTEr2R6VYzQYrGk/2VWmtYMB8GA1UdIwQYMBaAFAWO4bfTEr2R6VYzQYrGk/2V
-WmtYMAwGA1UdEwQFMAMBAf8wCgYIKoZIzj0EAwIDSQAwRgIhAIelqGdxPMHmQqRF
-zA85vv7JhfMkvZYGPELC7I2K8V7ZAiEA9KcthV3HtDXKNDsA6ULT+qUkyoHRzCzr
-A4QaL2VU6i4=
------END NOCERT-----
 `
 
 var testOrgs = []testOrg{}
@@ -549,7 +534,7 @@ func TestNewGRPCServer(t *testing.T) {
 	time.Sleep(10 * time.Millisecond)
 
 	// invoke the EmptyCall service
-	_, err = invokeEmptyCall(testAddress, grpc.WithInsecure())
+	_, err = invokeEmptyCall(testAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	assert.NoError(t, err, "failed to invoke the EmptyCall service")
 }
 
@@ -583,7 +568,7 @@ func TestNewGRPCServerFromListener(t *testing.T) {
 	time.Sleep(10 * time.Millisecond)
 
 	// invoke the EmptyCall service
-	_, err = invokeEmptyCall(testAddress, grpc.WithInsecure())
+	_, err = invokeEmptyCall(testAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	assert.NoError(t, err, "client failed to invoke the EmptyCall service")
 }
 
@@ -638,9 +623,10 @@ func TestNewSecureGRPCServer(t *testing.T) {
 	assert.NoError(t, err, "client failed to invoke the EmptyCall service")
 
 	tlsVersions := map[string]uint16{
-		"SSL30": tls.VersionSSL30,
 		"TLS10": tls.VersionTLS10,
 		"TLS11": tls.VersionTLS11,
+		"TLS12": tls.VersionTLS12,
+		"TLS13": tls.VersionTLS13,
 	}
 	for name, version := range tlsVersions {
 		version := version
@@ -1251,7 +1237,7 @@ func TestServerInterceptors(t *testing.T) {
 	_, err = invokeEmptyCall(
 		lis.Addr().String(),
 		grpc.WithBlock(),
-		grpc.WithInsecure(),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
 	assert.Error(t, err)
 	assert.Equal(t, status.Convert(err).Message(), msg, "Expected error from second usi")
@@ -1260,7 +1246,7 @@ func TestServerInterceptors(t *testing.T) {
 	_, err = invokeEmptyStream(
 		lis.Addr().String(),
 		grpc.WithBlock(),
-		grpc.WithInsecure(),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
 	assert.Error(t, err)
 	assert.Equal(t, status.Convert(err).Message(), msg, "Expected error from second ssi")

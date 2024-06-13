@@ -186,7 +186,7 @@ func (p *SDK) Install() error {
 		return errors.WithMessage(err, "failed installing tracing")
 	}
 
-	finality.InstallHandler(p.registry, p.viewService)
+	assert.NoError(finality.InstallHandler(p.registry, p.viewService), "failed installing finality listeners")
 
 	return nil
 }

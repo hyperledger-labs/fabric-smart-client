@@ -12,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	"google.golang.org/grpc/credentials/insecure"
+
 	grpc3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc/metricsfakes"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc/testpb"
@@ -89,7 +91,7 @@ func TestConnMetricsGRPCServer(t *testing.T) {
 	//create GRPC client conn
 	var clientConns []*grpc.ClientConn
 	for i := 1; i <= 3; i++ {
-		clientConn, err := grpc.DialContext(ctx, listener.Addr().String(), grpc.WithInsecure())
+		clientConn, err := grpc.DialContext(ctx, listener.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 		gt.Expect(err).NotTo(HaveOccurred())
 		clientConns = append(clientConns, clientConn)
 

@@ -115,7 +115,7 @@ func TestReader(t *testing.T) {
 	}()
 
 	assert.Eventually(t, func() bool {
-		return len(output) == len(output)
+		return len(input) == len(output)
 	}, 5*time.Second, time.Second)
 }
 

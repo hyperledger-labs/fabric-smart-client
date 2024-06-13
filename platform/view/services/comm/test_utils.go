@@ -109,7 +109,7 @@ func SessionsTestRound(t *testing.T, bootstrapNode *HostNode, node *HostNode) {
 	assert.NoError(t, err)
 	assert.NotNil(t, session)
 
-	session.Send([]byte("ciaoback"))
+	assert.NoError(t, session.Send([]byte("ciaoback")))
 
 	sessionMsgs := session.Receive()
 	msg = <-sessionMsgs
@@ -156,7 +156,7 @@ func SessionsForMPCTestRound(t *testing.T, bootstrapNode *HostNode, node *HostNo
 	msg := <-sessionMsgs
 	assert.Equal(t, []byte("ciao"), msg.Payload)
 
-	session.Send([]byte("ciaoback"))
+	assert.NoError(t, session.Send([]byte("ciaoback")))
 
 	session.Close()
 

@@ -11,20 +11,10 @@ import (
 	"testing"
 	"unicode/utf8"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/pkg/errors"
 	"github.com/test-go/testify/assert"
-	"google.golang.org/protobuf/proto"
-
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 )
-
-func marshalOrPanic(o proto.Message) []byte {
-	data, err := proto.Marshal(o)
-	if err != nil {
-		panic(err)
-	}
-	return data
-}
 
 func TestRangeQueries1(t *testing.T) {
 	ns := "namespace"
