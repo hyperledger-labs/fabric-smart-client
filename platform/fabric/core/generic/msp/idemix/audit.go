@@ -20,8 +20,10 @@ type AuditInfo struct {
 	EidNymAuditData *csp.AttrNymAuditData
 	RhNymAuditData  *csp.AttrNymAuditData
 	Attributes      [][]byte
-	Csp             csp.BCCSP `json:"-"`
-	IssuerPublicKey csp.Key   `json:"-"`
+
+	Csp           csp.BCCSP     `json:"-"`
+	Ipk           []byte        `json:"-"`
+	SchemaManager SchemaManager `json:"-"`
 }
 
 func (a *AuditInfo) Bytes() ([]byte, error) {
@@ -53,9 +55,21 @@ func (a *AuditInfo) Match(id []byte) error {
 		return errors.Wrap(err, "could not deserialize a SerializedIdemixIdentity")
 	}
 
+	opts, err := a.SchemaManager.PublicKeyImportOpts(string(serialized.Schema))
+	if err != nil {
+		return errors.Wrapf(err, "could not obtain PublicKeyImportOpts for schema '%s'", string(serialized.Schema))
+	}
+
+	issuerPublicKey, err := a.Csp.KeyImport(
+		a.Ipk,
+		opts)
+	if err != nil {
+		return errors.Wrap(err, "could not obtain import public key")
+	}
+
 	// Audit EID
 	valid, err := a.Csp.Verify(
-		a.IssuerPublicKey,
+		issuerPublicKey,
 		serialized.Proof,
 		nil,
 		&csp.EidNymAuditOpts{
@@ -73,7 +87,7 @@ func (a *AuditInfo) Match(id []byte) error {
 
 	// Audit RH
 	valid, err = a.Csp.Verify(
-		a.IssuerPublicKey,
+		issuerPublicKey,
 		serialized.Proof,
 		nil,
 		&csp.RhNymAuditOpts{

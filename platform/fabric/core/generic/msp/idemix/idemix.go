@@ -14,6 +14,10 @@ import (
 	"github.com/pkg/errors"
 )
 
+type SchemaManager interface {
+	PublicKeyImportOpts(schema string) (*bccsp.IdemixIssuerPublicKeyImportOpts, error)
+}
+
 type Identity struct {
 	Identity           *MSPIdentity
 	NymPublicKey       bccsp.Key
@@ -32,6 +36,8 @@ type Idemix struct {
 	VerType         bccsp.VerificationType
 	NymEID          []byte
 	RhNym           []byte
+
+	SchemaManager SchemaManager
 }
 
 func (c *Idemix) Deserialize(raw []byte, checkValidity bool) (*Identity, error) {
@@ -80,6 +86,18 @@ func (c *Idemix) DeserializeAgainstNymEID(raw []byte, checkValidity bool, nymEID
 		return nil, errors.Wrap(err, "cannot deserialize the role of the identity")
 	}
 
+	if len(c.Ipk) != 0 {
+		opts, err := c.SchemaManager.PublicKeyImportOpts(string(serialized.Schema))
+		if err != nil {
+			return nil, errors.Wrapf(err, "could not obtain PublicKeyImportOpts for schema '%s'", string(serialized.Schema))
+		}
+
+		c.IssuerPublicKey, err = c.Csp.KeyImport(c.Ipk, opts)
+		if err != nil {
+			return nil, errors.Wrap(err, "could not obtain import public key")
+		}
+	}
+
 	idemix := c
 	if len(nymEID) != 0 {
 		idemix = &Idemix{
@@ -94,7 +112,7 @@ func (c *Idemix) DeserializeAgainstNymEID(raw []byte, checkValidity bool, nymEID
 		}
 	}
 
-	id, err := NewMSPIdentityWithVerType(
+	id, err := newMSPIdentityWithVerType(
 		idemix,
 		NymPublicKey,
 		role,
@@ -126,7 +144,8 @@ func (c *Idemix) DeserializeAuditInfo(raw []byte) (*AuditInfo, error) {
 		return nil, errors.Wrapf(err, "failed deserializing audit info [%s]", string(raw))
 	}
 	ai.Csp = c.Csp
-	ai.IssuerPublicKey = c.IssuerPublicKey
+	ai.Ipk = c.Ipk
+	ai.SchemaManager = c.SchemaManager
 	return ai, nil
 }
 

@@ -9,7 +9,6 @@ package idemix
 import (
 	"fmt"
 
-	msp "github.com/IBM/idemix"
 	csp "github.com/IBM/idemix/bccsp/types"
 	math "github.com/IBM/mathlib"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
@@ -32,35 +31,20 @@ func NewDeserializer(ipk []byte) (*Deserializer, error) {
 }
 
 func NewDeserializerWithBCCSP(ipk []byte, verType csp.VerificationType, nymEID []byte, cryptoProvider csp.BCCSP) (*Deserializer, error) {
-	logger.Debugf("Setting up Idemix-based MSP instance")
+	return NewDeserializerWithBCCSPSchema(ipk, verType, nymEID, cryptoProvider, &defaultSchemaManager{})
+}
 
-	// Import Issuer Public Key
-	var issuerPublicKey csp.Key
-	var err error
-	if len(ipk) != 0 {
-		issuerPublicKey, err = cryptoProvider.KeyImport(
-			ipk,
-			&csp.IdemixIssuerPublicKeyImportOpts{
-				Temporary: true,
-				AttributeNames: []string{
-					msp.AttributeNameOU,
-					msp.AttributeNameRole,
-					msp.AttributeNameEnrollmentId,
-					msp.AttributeNameRevocationHandle,
-				},
-			})
-		if err != nil {
-			return nil, err
-		}
-	}
+func NewDeserializerWithBCCSPSchema(ipk []byte, verType csp.VerificationType,
+	nymEID []byte, cryptoProvider csp.BCCSP, sm SchemaManager) (*Deserializer, error) {
+	logger.Debugf("Setting up Idemix-based MSP instance")
 
 	return &Deserializer{
 		Idemix: &Idemix{
-			Ipk:             ipk,
-			Csp:             cryptoProvider,
-			IssuerPublicKey: issuerPublicKey,
-			VerType:         verType,
-			NymEID:          nymEID,
+			Ipk:           ipk,
+			Csp:           cryptoProvider,
+			VerType:       verType,
+			NymEID:        nymEID,
+			SchemaManager: sm,
 		},
 	}, nil
 }
@@ -111,6 +95,9 @@ func (i *Deserializer) Info(raw []byte, auditInfo []byte) (string, error) {
 		if err != nil {
 			return "", err
 		}
+
+		ai.SchemaManager = i.SchemaManager
+
 		if err := ai.Match(raw); err != nil {
 			return "", err
 		}

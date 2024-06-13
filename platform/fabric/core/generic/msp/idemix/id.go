@@ -32,7 +32,7 @@ type MSPIdentity struct {
 	VerificationType bccsp.VerificationType
 }
 
-func NewMSPIdentityWithVerType(idemix *Idemix, NymPublicKey bccsp.Key, role *m.MSPRole, ou *m.OrganizationUnit, proof []byte, verificationType bccsp.VerificationType) (*MSPIdentity, error) {
+func newMSPIdentityWithVerType(idemix *Idemix, NymPublicKey bccsp.Key, role *m.MSPRole, ou *m.OrganizationUnit, proof []byte, verificationType bccsp.VerificationType) (*MSPIdentity, error) {
 	id := &MSPIdentity{}
 	id.Idemix = idemix
 	id.NymPublicKey = NymPublicKey
@@ -73,13 +73,8 @@ func (id *MSPIdentity) GetMSPIdentifier() string {
 
 func (id *MSPIdentity) GetOrganizationalUnits() []*msp.OUIdentifier {
 	// we use the (serialized) public key of this MSP as the CertifiersIdentifier
-	certifiersIdentifier, err := id.Idemix.IssuerPublicKey.Bytes()
-	if err != nil {
-		logger.Errorf("Failed to marshal ipk in GetOrganizationalUnits: %s", err)
-		return nil
-	}
 
-	return []*msp.OUIdentifier{{CertifiersIdentifier: certifiersIdentifier, OrganizationalUnitIdentifier: id.OU.OrganizationalUnitIdentifier}}
+	return []*msp.OUIdentifier{{CertifiersIdentifier: id.Idemix.Ipk, OrganizationalUnitIdentifier: id.OU.OrganizationalUnitIdentifier}}
 }
 
 func (id *MSPIdentity) Validate() error {
