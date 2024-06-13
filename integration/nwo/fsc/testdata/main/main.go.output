@@ -19,7 +19,7 @@ import (
 )
 
 func main() {
-	n := fscnode.New()
+	n := fscnode.NewEmpty("")
 	n.InstallSDK(fsc.NewDummySDK(n))
 	
 	n.InstallSDK(mocks.NewSDK(n))
