@@ -7,13 +7,16 @@ SPDX-License-Identifier: Apache-2.0
 package driver
 
 import (
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 )
 
-type TxValidationStatus = driver2.TxValidationStatus[ValidationCode]
+type (
+	TxValidationStatus = driver.TxValidationStatus[ValidationCode]
+	QueryExecutor      = driver.QueryExecutor
+)
 
 type Vault interface {
-	driver2.Vault[ValidationCode]
+	driver.Vault[ValidationCode]
 
 	// GetEphemeralRWSet returns an ephemeral RWSet for this ledger whose content is unmarshalled
 	// from the passed bytes.
