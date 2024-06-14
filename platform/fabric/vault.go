@@ -11,8 +11,7 @@ import (
 	"strings"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault"
-	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/pkg/errors"
 )
 
@@ -60,10 +59,10 @@ func (m TransientMap) GetState(key string, state interface{}) error {
 }
 
 type RWSet struct {
-	fdriver.RWSet
+	driver.RWSet
 }
 
-func NewRWSet(rws fdriver.RWSet) *RWSet {
+func NewRWSet(rws driver.RWSet) *RWSet {
 	return &RWSet{RWSet: rws}
 }
 
@@ -92,22 +91,22 @@ func (r *RWSet) Equals(rws interface{}, nss ...string) error {
 type (
 	Read            = vault.VersionedRead
 	ResultsIterator = vault.VersionedResultsIterator
-	ValidationCode  = fdriver.ValidationCode
+	ValidationCode  = driver.ValidationCode
 	TxIDEntry       = vault.ByNum[ValidationCode]
-	TxIDIterator    = fdriver.TxIDIterator
+	TxIDIterator    = driver.TxIDIterator
 )
 
 // Vault models a key-value store that can be updated by committing rwsets
 type Vault struct {
-	vault              fdriver.Vault
-	txIDStore          fdriver.TXIDStore
-	committer          fdriver.Committer
-	transactionService fdriver.EndorserTransactionService
-	envelopeService    fdriver.EnvelopeService
-	metadataService    fdriver.MetadataService
+	vault              driver.Vault
+	txIDStore          driver.TXIDStore
+	committer          driver.Committer
+	transactionService driver.EndorserTransactionService
+	envelopeService    driver.EnvelopeService
+	metadataService    driver.MetadataService
 }
 
-func newVault(ch fdriver.Channel) *Vault {
+func newVault(ch driver.Channel) *Vault {
 	return &Vault{
 		vault:              ch.Vault(),
 		txIDStore:          ch.TXIDStore(),
@@ -118,7 +117,7 @@ func newVault(ch fdriver.Channel) *Vault {
 	}
 }
 
-func (c *Vault) NewQueryExecutor() (driver2.QueryExecutor, error) {
+func (c *Vault) NewQueryExecutor() (driver.QueryExecutor, error) {
 	return c.vault.NewQueryExecutor()
 }
 
@@ -173,7 +172,7 @@ func (c *Vault) StoreTransaction(id string, raw []byte) error {
 }
 
 func (c *Vault) StoreTransient(id string, tm TransientMap) error {
-	return c.metadataService.StoreTransient(id, fdriver.TransientMap(tm))
+	return c.metadataService.StoreTransient(id, driver.TransientMap(tm))
 }
 
 // DiscardTx discards the transaction with the given transaction id.
