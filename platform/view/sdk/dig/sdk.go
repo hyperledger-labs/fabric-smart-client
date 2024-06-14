@@ -17,7 +17,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	digutils "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
-	config2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/core/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/endpoint"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/id"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/manager"
@@ -30,10 +29,14 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/provider"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/crypto"
+	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger"
+	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
+	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events/simple"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
+	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kms/driver/file"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	metrics2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/operations"
@@ -47,7 +50,7 @@ var logger = flogging.MustGetLogger("view-sdk")
 type SDK struct {
 	*dig2.BaseSDK
 	C      *dig.Container
-	Config driver.ConfigService
+	Config *view.ConfigService
 }
 
 func (p *SDK) Container() *dig.Container { return p.C }
@@ -55,17 +58,20 @@ func (p *SDK) Container() *dig.Container { return p.C }
 func (p *SDK) ConfigService() driver.ConfigService { return p.Config }
 
 func NewSDK(registry node.Registry) *SDK {
-	c := dig.New()
-	configService, err := config2.NewProvider("")
-	logger.Infof("Created config: %v", configService)
-	utils.Must(err)
-	utils.Must(c.Provide(func() (driver.ServiceProvider, node.Registry, view.ServiceProvider, finality.Registry) {
-		return registry, registry, registry, registry
-	}))
-	utils.Must(c.Provide(func() (driver.ConfigService, id.ConfigProvider, endpoint.ConfigService) {
-		return configService, configService, configService
-	}))
-	return &SDK{C: c, Config: configService}
+	sdk := &SDK{
+		C:      dig.New(),
+		Config: view.GetConfigService(registry),
+	}
+	err := errors.Join(
+		sdk.C.Provide(func() node.Registry { return registry }),
+		sdk.C.Provide(digutils.Identity[node.Registry](), dig.As(new(driver.ServiceProvider), new(node.Registry), new(view.ServiceProvider), new(finality.Registry))),
+		sdk.C.Provide(func() *view.ConfigService { return sdk.Config }),
+		sdk.C.Provide(digutils.Identity[*view.ConfigService](), dig.As(new(driver.ConfigService), new(id.ConfigProvider), new(endpoint.ConfigService))),
+	)
+	if err != nil {
+		panic(err)
+	}
+	return sdk
 }
 
 type ViewManager interface {
@@ -94,7 +100,9 @@ func (p *SDK) Install() error {
 		p.C.Provide(id.NewProvider, dig.As(new(endpoint.IdentityService), new(view3.IdentityProvider), new(driver.IdentityProvider))),
 		p.C.Provide(endpoint.NewResolverService),
 		p.C.Provide(web.NewServer),
-		p.C.Provide(web.NewOperationsLogger, dig.As(new(operations.Logger)), dig.As(new(log.Logger))),
+		p.C.Provide(digutils.Identity[web.Server](), dig.As(new(operations.Server))),
+		p.C.Provide(web.NewOperationsLogger),
+		p.C.Provide(digutils.Identity[operations.OperationsLogger](), dig.As(new(operations.Logger)), dig.As(new(log.Logger))),
 		p.C.Provide(web.NewOperationsOptions),
 		p.C.Provide(operations.NewOperationSystem),
 		p.C.Provide(view3.NewResponseMarshaler, dig.As(new(view3.Marshaller))),
@@ -151,7 +159,7 @@ func (p *SDK) Start(ctx context.Context) error {
 		ViewService  view3.Service
 		CommService  *comm.Service
 		WebServer    web.Server
-		System       *operations.System `optional:"true"`
+		System       *operations.System
 		KVS          *kvs.KVS
 	}) error {
 		grpcServer, err := web.NewGRPCServer(in.ConfigProvider)

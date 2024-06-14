@@ -13,16 +13,14 @@ import (
 	"reflect"
 	"runtime/debug"
 
-	config2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/core/config"
-	"github.com/pkg/errors"
-
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/api"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	view3 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
-	viewsdk "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk"
+	config2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/core/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	registry2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/registry"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"github.com/pkg/errors"
 )
 
 var logger = flogging.MustGetLogger("fsc")
@@ -61,39 +59,25 @@ type node struct {
 	running       bool
 }
 
-func New() *node {
-	return NewFromConfPath("")
-}
-
-func NewFromConfPath(confPath string) *node {
-	registry := registry2.New()
-	configService, err := config2.NewProvider(confPath)
-	if err != nil {
-		panic(err)
-	}
-	platforms := []api.SDK{
-		viewsdk.NewSDK(configService, registry),
-	}
-
-	node := &node{
-		sdks:          platforms,
-		registry:      registry,
-		configService: configService,
-	}
-
-	return node
-}
-
 func NewEmpty(confPath string) *node {
 	configService, err := config2.NewProvider(confPath)
 	if err != nil {
 		panic(err)
 	}
+	registry := registry2.New()
+	if err := registry.RegisterService(configService); err != nil {
+		panic(err)
+	}
+
 	return &node{
 		sdks:          []api.SDK{},
-		registry:      registry2.New(),
+		registry:      registry,
 		configService: configService,
 	}
+}
+
+func (n *node) AddSDK(sdk api.SDK) {
+	n.sdks = append(n.sdks, sdk)
 }
 
 func (n *node) ConfigService() ConfigService {

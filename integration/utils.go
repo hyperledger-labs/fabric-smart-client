@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package integration
 
 import (
-	"strings"
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
@@ -80,10 +79,5 @@ func (s *TestSuite) Setup() {
 }
 
 func ReplaceTemplate(topologies []api.Topology) []api.Topology {
-	for _, topology := range topologies {
-		if topology.Type() == fsc.TopologyName {
-			topology.(*fsc.Topology).Templates.Node = strings.Replace(node.DefaultTemplate, "fscnode.New()", "fscnode.NewEmpty(\"\")", 1)
-		}
-	}
 	return topologies
 }

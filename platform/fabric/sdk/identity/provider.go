@@ -9,11 +9,11 @@ package identity
 import (
 	"fmt"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/endpoint"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/id"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/config"
 )
 
 type EndpointService interface {
