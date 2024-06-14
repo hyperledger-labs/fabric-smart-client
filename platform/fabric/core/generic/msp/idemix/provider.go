@@ -98,10 +98,6 @@ func NewProviderWithSigTypeAncCurve(conf1 *m.MSPConfig, sp view2.ServiceProvider
 }
 
 func NewProvider(conf1 *m.MSPConfig, signerService SignerService, sigType bccsp.SignatureType, cryptoProvider bccsp.BCCSP) (*provider, error) {
-	return NewProviderWithSchema(conf1, signerService, sigType, cryptoProvider, "", &defaultSchemaManager{})
-}
-
-func NewProviderWithSchema(conf1 *m.MSPConfig, signerService SignerService, sigType bccsp.SignatureType, cryptoProvider bccsp.BCCSP, schema string, sm SchemaManager) (*provider, error) {
 	logger.Debugf("Setting up Idemix-based MSP instance")
 
 	if conf1 == nil {
@@ -113,6 +109,10 @@ func NewProviderWithSchema(conf1 *m.MSPConfig, signerService SignerService, sigT
 	if err != nil {
 		return nil, errors.Wrap(err, "failed unmarshalling idemix provider config")
 	}
+
+	// TODO: for now we set the default schema manager and expect to have the default schema
+	sm := &defaultSchemaManager{}
+	schema := conf.Schema
 
 	logger.Debugf("Setting up Idemix MSP instance %s", conf.Name)
 

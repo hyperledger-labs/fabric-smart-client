@@ -3,8 +3,8 @@ module github.com/hyperledger-labs/fabric-smart-client
 go 1.20
 
 require (
-	github.com/IBM/idemix v0.0.2-0.20240613141508-82a5e092849a
-	github.com/IBM/idemix/bccsp/types v0.0.0-20240613141508-82a5e092849a
+	github.com/IBM/idemix v0.0.2-0.20240614151806-1a543779efde
+	github.com/IBM/idemix/bccsp/types v0.0.0-20240614151806-1a543779efde
 	github.com/IBM/mathlib v0.0.3-0.20231011094432-44ee0eb539da
 	github.com/ReneKroon/ttlcache/v2 v2.11.0
 	github.com/dgraph-io/badger/v3 v3.2103.2
@@ -61,8 +61,8 @@ require (
 require github.com/hyperledger/aries-bbs-go v0.0.0-20240528084656-761671ea73bc // indirect
 
 require (
-	github.com/IBM/idemix/bccsp/schemes/aries v0.0.0-20240613141508-82a5e092849a // indirect
-	github.com/IBM/idemix/bccsp/schemes/weak-bb v0.0.0-20240613141508-82a5e092849a // indirect
+	github.com/IBM/idemix/bccsp/schemes/aries v0.0.0-20240614151806-1a543779efde // indirect
+	github.com/IBM/idemix/bccsp/schemes/weak-bb v0.0.0-20240614151806-1a543779efde // indirect
 	github.com/Knetic/govaluate v3.0.1-0.20171022003610-9aa49832a739+incompatible // indirect
 	github.com/SmartBFT-Go/consensus v0.0.0-20230212211744-e5a79afcea81 // indirect
 	github.com/ale-linux/aries-framework-go/component/kmscrypto v0.0.0-20231023164747-f3f972769504 // indirect
