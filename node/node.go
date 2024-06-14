@@ -13,6 +13,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/node/version"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/api"
 	node3 "github.com/hyperledger-labs/fabric-smart-client/pkg/node"
+	sdk "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/spf13/cobra"
@@ -49,7 +50,9 @@ func New() *node {
 }
 
 func NewFromConfPath(confPath string) *node {
-	return newFromFsc(node3.NewFromConfPath(confPath))
+	n := node3.NewEmpty(confPath)
+	n.AddSDK(sdk.NewSDK(n.Registry()))
+	return newFromFsc(n)
 }
 
 func newFromFsc(fscNode FabricSmartClient) *node {

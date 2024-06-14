@@ -20,6 +20,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/api"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/node"
+	viewsdk "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/web"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -45,11 +46,8 @@ var _ = Describe("EndToEnd", func() {
 
 		It("successful pingpong based on REST API", func() {
 			// Init and Start fsc nodes
-			initiator = node.NewFromConfPath("./testdata/fsc/nodes/initiator.0")
-			Expect(initiator).NotTo(BeNil())
-
-			responder = node.NewFromConfPath("./testdata/fsc/nodes/responder.0")
-			Expect(responder).NotTo(BeNil())
+			initiator = newNode("./testdata/fsc/nodes/initiator.0")
+			responder = newNode("./testdata/fsc/nodes/responder.0")
 
 			err := initiator.Start()
 			Expect(err).NotTo(HaveOccurred())
@@ -87,7 +85,7 @@ var _ = Describe("EndToEnd", func() {
 
 		It("successful pingpong based on WebSocket", func() {
 			// Init and Start fsc nodes
-			initiator = node.NewFromConfPath("./testdata/fsc/nodes/initiator.0")
+			initiator = newNode("./testdata/fsc/nodes/initiator.0")
 			Expect(initiator).NotTo(BeNil())
 
 			err := initiator.Start()
@@ -114,10 +112,10 @@ var _ = Describe("EndToEnd", func() {
 
 		It("successful pingpong", func() {
 			// Init and Start fsc nodes
-			initiator = node.NewFromConfPath("./testdata/fsc/nodes/initiator.0")
+			initiator = newNode("./testdata/fsc/nodes/initiator.0")
 			Expect(initiator).NotTo(BeNil())
 
-			responder = node.NewFromConfPath("./testdata/fsc/nodes/responder.0")
+			responder = newNode("./testdata/fsc/nodes/responder.0")
 			Expect(responder).NotTo(BeNil())
 
 			err := initiator.Start()
@@ -192,6 +190,13 @@ var _ = Describe("EndToEnd", func() {
 		It("generate artifacts & successful mock pingpong", s.TestGenerateAndMockPingPong)
 	})
 })
+
+func newNode(conf string) api.FabricSmartClientNode {
+	n := node.NewEmpty(conf)
+	Expect(n).NotTo(BeNil())
+	n.AddSDK(viewsdk.NewSDK(n.Registry()))
+	return n
+}
 
 const testdataDir = "./testdata"
 

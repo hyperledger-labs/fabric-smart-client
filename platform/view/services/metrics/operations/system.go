@@ -74,17 +74,11 @@ type System struct {
 	versionGauge    metrics.Gauge
 }
 
-func NewSystem(server Server, o Options) *System {
-	logger := NewOperationsLogger(o.Logger)
-	metricsProvider := NewMetricsProvider(o.Metrics, logger)
-	return NewOperationSystem(server, logger, metricsProvider, o)
-}
-
-func NewOperationSystem(server Server, l OperationsLogger, metricsProvider metrics.Provider, o Options) *System {
+func NewOperationSystem(server Server, l OperationsLogger, metricsProvider metrics.Provider, o *Options) *System {
 	system := &System{
 		Server:  server,
 		logger:  l,
-		options: o,
+		options: *o,
 	}
 
 	system.initializeHealthCheckHandler()

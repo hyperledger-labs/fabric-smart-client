@@ -8,15 +8,15 @@ package sdk
 
 import (
 	digutils "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/dig"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic"
 	driver3 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/rwset"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/sig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driverprovider"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/identity"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/config"
+	driver4 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/identity"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
@@ -77,7 +77,7 @@ func NewDriver(in struct {
 }) NamedDriver {
 	d := NamedDriver{
 		Name:   "generic",
-		Driver: driverprovider.NewProvider(in.ConfigProvider, in.ChannelProvider, in.IdentityProvider, in.MetricsProvider, in.EndpointService, in.SigService, in.DeserializerManager, in.IdProvider, in.KVS),
+		Driver: driver4.NewProvider(in.ConfigProvider, in.ChannelProvider, in.IdentityProvider, in.MetricsProvider, in.EndpointService, in.SigService, in.DeserializerManager, in.IdProvider, in.KVS),
 	}
 	core.Register(d.Name, d.Driver)
 	return d

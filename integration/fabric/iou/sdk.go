@@ -10,6 +10,7 @@ import (
 	"errors"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/node"
+	dig2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
 	digutils "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/dig"
 	sdk "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
@@ -17,7 +18,7 @@ import (
 )
 
 type SDK struct {
-	*sdk.SDK
+	dig2.SDK
 }
 
 func NewSDK(registry node.Registry) *SDK {

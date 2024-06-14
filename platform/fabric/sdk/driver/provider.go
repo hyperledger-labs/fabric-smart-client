@@ -4,19 +4,19 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package driverprovider
+package driver
 
 import (
 	"fmt"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic"
 	metrics2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/sig"
 	driver3 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/identity"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/config"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/identity"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
