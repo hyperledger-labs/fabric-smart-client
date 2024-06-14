@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package idemix
 
 import (
+	msp "github.com/IBM/idemix"
 	bccsp "github.com/IBM/idemix/bccsp/types"
 	im "github.com/IBM/idemix/idemixmsp"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
@@ -14,8 +15,67 @@ import (
 	"github.com/pkg/errors"
 )
 
+// SchemaManager handles the various credential schemas. A credential schema
+// contains information about the number of attributes, which attributes
+// must be disclosed when creating proofs, the format of the attributes etc.
 type SchemaManager interface {
+	// PublicKeyImportOpts returns the options that `schema` uses to import its public keys
 	PublicKeyImportOpts(schema string) (*bccsp.IdemixIssuerPublicKeyImportOpts, error)
+	// SignerOpts returns the options that `sid` must use to generate a signature (ZKP)
+	SignerOpts(sid *im.SerializedIdemixIdentity) (*bccsp.IdemixSignerOpts, error)
+}
+
+const (
+	eidIdx = 2
+	rhIdx  = 3
+)
+
+// defaultSchemaManager implements the default schema for fabric:
+// - 4 attributes (OU, Role, EID, RH)
+// - all in bytes format except for Role
+// - fixed positions
+// - no other attributes
+// - a "hidden" usk attribute at position 0
+type defaultSchemaManager struct {
+}
+
+func (*defaultSchemaManager) PublicKeyImportOpts(schema string) (*bccsp.IdemixIssuerPublicKeyImportOpts, error) {
+	return &bccsp.IdemixIssuerPublicKeyImportOpts{
+		Temporary: true,
+		AttributeNames: []string{
+			msp.AttributeNameOU,
+			msp.AttributeNameRole,
+			msp.AttributeNameEnrollmentId,
+			msp.AttributeNameRevocationHandle,
+		},
+	}, nil
+}
+
+func (*defaultSchemaManager) SignerOpts(sid *im.SerializedIdemixIdentity) (*bccsp.IdemixSignerOpts, error) {
+	// OU
+	ou := &m.OrganizationUnit{}
+	err := proto.Unmarshal(sid.Ou, ou)
+	if err != nil {
+		return nil, errors.Wrap(err, "cannot deserialize the OU of the identity")
+	}
+
+	// Role
+	role := &m.MSPRole{}
+	err = proto.Unmarshal(sid.Role, role)
+	if err != nil {
+		return nil, errors.Wrap(err, "cannot deserialize the role of the identity")
+	}
+
+	return &bccsp.IdemixSignerOpts{
+		Attributes: []bccsp.IdemixAttribute{
+			{Type: bccsp.IdemixBytesAttribute, Value: []byte(ou.OrganizationalUnitIdentifier)},
+			{Type: bccsp.IdemixIntAttribute, Value: GetIdemixRoleFromMSPRole(role)},
+			{Type: bccsp.IdemixHiddenAttribute},
+			{Type: bccsp.IdemixHiddenAttribute},
+		},
+		RhIndex:  rhIdx,
+		EidIndex: eidIdx,
+	}, nil
 }
 
 type Identity struct {
@@ -115,10 +175,12 @@ func (c *Idemix) DeserializeAgainstNymEID(raw []byte, checkValidity bool, nymEID
 	id, err := newMSPIdentityWithVerType(
 		idemix,
 		NymPublicKey,
+		serialized,
 		role,
 		ou,
 		serialized.Proof,
 		c.VerType,
+		c.SchemaManager,
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot deserialize")

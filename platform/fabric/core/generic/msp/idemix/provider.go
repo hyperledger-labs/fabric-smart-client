@@ -13,7 +13,6 @@ import (
 
 	"go.uber.org/zap/zapcore"
 
-	msp "github.com/IBM/idemix"
 	bccsp "github.com/IBM/idemix/bccsp/types"
 	"github.com/IBM/idemix/idemixmsp"
 	math "github.com/IBM/mathlib"
@@ -96,21 +95,6 @@ func NewProviderWithSigTypeAncCurve(conf1 *m.MSPConfig, sp view2.ServiceProvider
 		return nil, err
 	}
 	return NewProvider(conf1, GetSignerService(sp), sigType, cryptoProvider)
-}
-
-type defaultSchemaManager struct {
-}
-
-func (*defaultSchemaManager) PublicKeyImportOpts(schema string) (*bccsp.IdemixIssuerPublicKeyImportOpts, error) {
-	return &bccsp.IdemixIssuerPublicKeyImportOpts{
-		Temporary: true,
-		AttributeNames: []string{
-			msp.AttributeNameOU,
-			msp.AttributeNameRole,
-			msp.AttributeNameEnrollmentId,
-			msp.AttributeNameRevocationHandle,
-		},
-	}, nil
 }
 
 func NewProvider(conf1 *m.MSPConfig, signerService SignerService, sigType bccsp.SignatureType, cryptoProvider bccsp.BCCSP) (*provider, error) {
@@ -309,7 +293,7 @@ func (p *provider) Identity(opts *driver2.IdentityOptions) (view.Identity, []byt
 	}
 
 	// Set up default signer
-	id, err := newMSPIdentityWithVerType(p.Idemix, NymPublicKey, role, ou, proof, p.verType)
+	id, err := newMSPIdentityWithVerType(p.Idemix, NymPublicKey, nil, role, ou, proof, p.verType, p.SchemaManager)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -479,7 +463,7 @@ func (p *provider) DeserializeSigningIdentity(raw []byte) (driver.SigningIdentit
 		return nil, errors.Wrap(err, "cannot deserialize the role of the identity")
 	}
 
-	id, _ := newMSPIdentityWithVerType(p.Idemix, NymPublicKey, role, ou, serialized.Proof, p.verType)
+	id, _ := newMSPIdentityWithVerType(p.Idemix, NymPublicKey, serialized, role, ou, serialized.Proof, p.verType, p.SchemaManager)
 	if err := id.Validate(); err != nil {
 		return nil, errors.Wrap(err, "cannot deserialize, invalid identity")
 	}

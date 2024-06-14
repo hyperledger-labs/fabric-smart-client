@@ -25,21 +25,38 @@ type MSPIdentity struct {
 	ID           *msp.IdentityIdentifier
 	Role         *m.MSPRole
 	OU           *m.OrganizationUnit
+	Sid          *im.SerializedIdemixIdentity
 	// AssociationProof contains cryptographic proof that this identity
 	// belongs to the MSP id.provider, i.e., it proves that the pseudonym
 	// is constructed from a secret key on which the CA issued a credential.
 	AssociationProof []byte
 	VerificationType bccsp.VerificationType
+
+	// SchemaManager handles the various credential schemas (the original,
+	// 4-attribute one compatible with fabric, and others)
+	SchemaManager SchemaManager
 }
 
-func newMSPIdentityWithVerType(idemix *Idemix, NymPublicKey bccsp.Key, role *m.MSPRole, ou *m.OrganizationUnit, proof []byte, verificationType bccsp.VerificationType) (*MSPIdentity, error) {
-	id := &MSPIdentity{}
-	id.Idemix = idemix
-	id.NymPublicKey = NymPublicKey
-	id.Role = role
-	id.OU = ou
-	id.AssociationProof = proof
-	id.VerificationType = verificationType
+func newMSPIdentityWithVerType(
+	idemix *Idemix,
+	NymPublicKey bccsp.Key,
+	sid *im.SerializedIdemixIdentity,
+	role *m.MSPRole,
+	ou *m.OrganizationUnit,
+	proof []byte,
+	verificationType bccsp.VerificationType,
+	schemaManager SchemaManager,
+) (*MSPIdentity, error) {
+	id := &MSPIdentity{
+		Idemix:           idemix,
+		NymPublicKey:     NymPublicKey,
+		AssociationProof: proof,
+		VerificationType: verificationType,
+		SchemaManager:    schemaManager,
+		Role:             role,
+		OU:               ou,
+		Sid:              sid,
+	}
 
 	raw, err := NymPublicKey.Bytes()
 	if err != nil {
@@ -150,24 +167,21 @@ func (id *MSPIdentity) verifyProof() error {
 		}
 	}
 
+	opts, err := id.SchemaManager.SignerOpts(id.Sid)
+	if err != nil {
+		return errors.Wrapf(err, "could obtain signer opts for schema '%s'", id.Sid.Schema)
+	}
+
+	opts.Epoch = id.Idemix.Epoch
+	opts.VerificationType = id.VerificationType
+	opts.Metadata = metadata
+	opts.RevocationPublicKey = id.Idemix.RevocationPK
+
 	valid, err := id.Idemix.Csp.Verify(
 		id.Idemix.IssuerPublicKey,
 		id.AssociationProof,
 		nil,
-		&bccsp.IdemixSignerOpts{
-			RevocationPublicKey: id.Idemix.RevocationPK,
-			Attributes: []bccsp.IdemixAttribute{
-				{Type: bccsp.IdemixBytesAttribute, Value: []byte(id.OU.OrganizationalUnitIdentifier)},
-				{Type: bccsp.IdemixIntAttribute, Value: GetIdemixRoleFromMSPRole(id.Role)},
-				{Type: bccsp.IdemixHiddenAttribute},
-				{Type: bccsp.IdemixHiddenAttribute},
-			},
-			RhIndex:          RHIndex,
-			EidIndex:         EIDIndex,
-			Epoch:            id.Idemix.Epoch,
-			VerificationType: id.VerificationType,
-			Metadata:         metadata,
-		},
+		opts,
 	)
 	if err == nil && !valid {
 		return errors.Errorf("unexpected condition, an error should be returned for an invalid signature")
