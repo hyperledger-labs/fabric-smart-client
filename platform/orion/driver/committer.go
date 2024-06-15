@@ -10,8 +10,6 @@ import (
 	"context"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
-
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/committer"
 )
 
 type StatusReporter interface {
@@ -41,7 +39,7 @@ func (t *TransactionStatusChanged) Message() interface{} {
 type TransactionFilter = driver.TransactionFilter
 
 // FinalityListener is the interface that must be implemented to receive transaction status change notifications
-type FinalityListener = committer.FinalityListener[ValidationCode]
+type FinalityListener = driver.FinalityListener[ValidationCode]
 
 // Committer models the committer service
 type Committer interface {

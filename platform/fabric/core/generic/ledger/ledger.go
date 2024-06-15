@@ -4,77 +4,93 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package generic
+package ledger
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger/fabric-protos-go/common"
 	"github.com/hyperledger/fabric-protos-go/peer"
 	"github.com/pkg/errors"
 )
 
+const (
+	QuerySystemChaincode = "qscc"
+
+	GetBlockByNumber   string = "GetBlockByNumber"
+	GetTransactionByID string = "GetTransactionByID"
+	GetBlockByTxID     string = "GetBlockByTxID"
+)
+
 type Ledger struct {
-	ChannelName      string
-	ChaincodeManager driver.ChaincodeManager
-	LocalMembership  driver.LocalMembership
-	ConfigService    driver.ConfigService
+	ChannelName        string
+	ChaincodeManager   driver.ChaincodeManager
+	LocalMembership    driver.LocalMembership
+	ConfigService      driver.ConfigService
+	TransactionManager driver.TransactionManager
 }
 
-func NewLedger(
+func New(
 	channelName string,
 	chaincodeManager driver.ChaincodeManager,
 	localMembership driver.LocalMembership,
 	configService driver.ConfigService,
+	transactionManager driver.TransactionManager,
 ) *Ledger {
-	return &Ledger{ChannelName: channelName, ChaincodeManager: chaincodeManager, LocalMembership: localMembership, ConfigService: configService}
+	return &Ledger{
+		ChannelName:        channelName,
+		ChaincodeManager:   chaincodeManager,
+		LocalMembership:    localMembership,
+		ConfigService:      configService,
+		TransactionManager: transactionManager,
+	}
 }
 
 func (c *Ledger) GetTransactionByID(txID string) (driver.ProcessedTransaction, error) {
-	pt := &peer.ProcessedTransaction{}
-	if err := c.queryChaincode(GetTransactionByID, txID, pt); err != nil {
+	raw, err := c.queryChaincode(GetTransactionByID, txID)
+	if err != nil {
 		return nil, err
 	}
-	return transaction.NewProcessedTransaction(pt)
+	return c.TransactionManager.NewProcessedTransaction(raw)
 }
 
 func (c *Ledger) GetBlockNumberByTxID(txID string) (uint64, error) {
-	block := &common.Block{}
-	if err := c.queryChaincode(GetBlockByTxID, txID, block); err != nil {
+	raw, err := c.queryChaincode(GetBlockByTxID, txID)
+	if err != nil {
 		return 0, err
+	}
+	block := &common.Block{}
+	if err := proto.Unmarshal(raw, block); err != nil {
+		return 0, errors.Wrap(err, "unmarshal failed")
 	}
 	return block.Header.Number, nil
 }
 
 // GetBlockByNumber fetches a block by number
 func (c *Ledger) GetBlockByNumber(number uint64) (driver.Block, error) {
-	block := &common.Block{}
-	if err := c.queryChaincode(GetBlockByNumber, number, block); err != nil {
+	raw, err := c.queryChaincode(GetBlockByNumber, number)
+	if err != nil {
 		return nil, err
 	}
-	return &Block{Block: block}, nil
+	block := &common.Block{}
+	if err := proto.Unmarshal(raw, block); err != nil {
+		return nil, errors.Wrap(err, "unmarshal failed")
+	}
+	return &Block{Block: block, TransactionManager: c.TransactionManager}, nil
 }
 
-func (c *Ledger) queryChaincode(function string, param any, result proto.Message) error {
-	raw, err := c.ChaincodeManager.Chaincode("qscc").
+func (c *Ledger) queryChaincode(function string, param any) ([]byte, error) {
+	return c.ChaincodeManager.Chaincode(QuerySystemChaincode).
 		NewInvocation(function, c.ChannelName, param).
 		WithSignerIdentity(c.LocalMembership.DefaultIdentity()).
 		WithEndorsersByConnConfig(c.ConfigService.PickPeer(driver.PeerForQuery)).
 		Query()
-	if err != nil {
-		return errors.Wrap(err, "query chaincode failed")
-	}
-
-	if err := proto.Unmarshal(raw, result); err != nil {
-		return errors.Wrap(err, "unmashal failed")
-	}
-	return nil
 }
 
 // Block wraps a Fabric block
 type Block struct {
 	*common.Block
+	TransactionManager driver.TransactionManager
 }
 
 // DataAt returns the data stored at the passed index
@@ -88,8 +104,13 @@ func (b *Block) ProcessedTransaction(i int) (driver.ProcessedTransaction, error)
 	if err := proto.Unmarshal(b.Data.Data[i], env); err != nil {
 		return nil, err
 	}
-	return transaction.NewProcessedTransaction(&peer.ProcessedTransaction{
+	pt := &peer.ProcessedTransaction{
 		TransactionEnvelope: env,
 		ValidationCode:      int32(b.Metadata.Metadata[common.BlockMetadataIndex_TRANSACTIONS_FILTER][i]),
-	})
+	}
+	ptRaw, err := proto.Marshal(pt)
+	if err != nil {
+		return nil, errors.Wrap(err, "marshal failed")
+	}
+	return b.TransactionManager.NewProcessedTransaction(ptRaw)
 }

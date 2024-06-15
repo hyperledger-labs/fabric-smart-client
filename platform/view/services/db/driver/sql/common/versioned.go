@@ -13,7 +13,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core"
+	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	errors2 "github.com/pkg/errors"
 )
@@ -175,7 +176,7 @@ type WriteTransaction struct {
 	db  *VersionedPersistence
 }
 
-func (w *WriteTransaction) SetState(namespace core.Namespace, key string, value driver.VersionedValue) error {
+func (w *WriteTransaction) SetState(namespace driver2.Namespace, key string, value driver.VersionedValue) error {
 	return w.db.setState(w.txn, namespace, key, value)
 }
 

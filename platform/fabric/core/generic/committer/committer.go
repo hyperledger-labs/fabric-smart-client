@@ -22,7 +22,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/fabricutils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/membership"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/rwset"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
@@ -60,13 +59,13 @@ type FabricFinality interface {
 	IsFinal(txID string, address string) error
 }
 
-type TransactionHandler = func(block *common.Block, i int, event *FinalityEvent, envRaw []byte, env *common.Envelope, chHdr *common.ChannelHeader) error
+type TransactionHandler = func(block *common.Block, i uint64, event *FinalityEvent, envRaw []byte, env *common.Envelope, chHdr *common.ChannelHeader) error
 
 type OrderingService interface {
 	SetConfigOrderers(o channelconfig.Orderer, orderers []*grpc.ConnectionConfig) error
 }
 
-type Service struct {
+type Committer struct {
 	ConfigService driver.ConfigService
 	ChannelConfig driver.ChannelConfig
 
@@ -81,6 +80,7 @@ type Service struct {
 	OrderingService    OrderingService
 	FabricFinality     FabricFinality
 	Tracer             tracing.Tracer
+	TransactionManager driver.TransactionManager
 
 	logger committer.Logger
 
@@ -97,7 +97,7 @@ type Service struct {
 	pollingTimeout time.Duration
 }
 
-func NewService(
+func New(
 	configService driver.ConfigService,
 	channelConfig driver.ChannelConfig,
 	vault driver.Vault,
@@ -110,10 +110,11 @@ func NewService(
 	orderingService OrderingService,
 	fabricFinality FabricFinality,
 	waitForEventTimeout time.Duration,
+	transactionManager driver.TransactionManager,
 	quiet bool,
 	metrics tracing.Tracer,
-) *Service {
-	s := &Service{
+) *Committer {
+	s := &Committer{
 		ConfigService:       configService,
 		ChannelConfig:       channelConfig,
 		Vault:               vault,
@@ -128,6 +129,7 @@ func NewService(
 		EventManager:        committer.NewFinalityManager[driver.ValidationCode](logger, vault, driver.Valid, driver.Invalid),
 		EventsPublisher:     eventsPublisher,
 		FabricFinality:      fabricFinality,
+		TransactionManager:  transactionManager,
 		WaitForEventTimeout: waitForEventTimeout,
 		QuietNotifier:       quiet,
 		Tracer:              metrics,
@@ -141,12 +143,12 @@ func NewService(
 	return s
 }
 
-func (c *Service) Start(context context.Context) error {
+func (c *Committer) Start(context context.Context) error {
 	go c.EventManager.Run(context)
 	return nil
 }
 
-func (c *Service) Status(txID string) (driver.ValidationCode, string, error) {
+func (c *Committer) Status(txID string) (driver.ValidationCode, string, error) {
 	vc, message, err := c.Vault.Status(txID)
 	if err != nil {
 		c.logger.Errorf("failed to get status of [%s]: %s", txID, err)
@@ -164,17 +166,17 @@ func (c *Service) Status(txID string) (driver.ValidationCode, string, error) {
 	return vc, message, nil
 }
 
-func (c *Service) ProcessNamespace(nss ...string) error {
+func (c *Committer) ProcessNamespace(nss ...string) error {
 	c.ProcessNamespaces = append(c.ProcessNamespaces, nss...)
 	return nil
 }
 
-func (c *Service) AddTransactionFilter(sr driver.TransactionFilter) error {
+func (c *Committer) AddTransactionFilter(sr driver.TransactionFilter) error {
 	c.TransactionFilters.Add(sr)
 	return nil
 }
 
-func (c *Service) DiscardTx(txID string, message string) error {
+func (c *Committer) DiscardTx(txID string, message string) error {
 	c.logger.Debugf("discarding transaction [%s] with message [%s]", txID, message)
 
 	vc, _, err := c.Status(txID)
@@ -202,7 +204,7 @@ func (c *Service) DiscardTx(txID string, message string) error {
 	return nil
 }
 
-func (c *Service) CommitTX(txID string, block uint64, indexInBlock int, envelope *common.Envelope) (err error) {
+func (c *Committer) CommitTX(txID string, block driver.BlockNum, indexInBlock driver.TxNum, envelope *common.Envelope) (err error) {
 	c.logger.Debugf("Committing transaction [%s,%d,%d]", txID, block, indexInBlock)
 	defer c.logger.Debugf("Committing transaction [%s,%d,%d] done [%s]", txID, block, indexInBlock, err)
 
@@ -228,17 +230,17 @@ func (c *Service) CommitTX(txID string, block uint64, indexInBlock int, envelope
 	}
 }
 
-func (c *Service) AddFinalityListener(txID string, listener driver.FinalityListener) error {
+func (c *Committer) AddFinalityListener(txID string, listener driver.FinalityListener) error {
 	return c.EventManager.AddListener(txID, listener)
 }
 
-func (c *Service) RemoveFinalityListener(txID string, listener driver.FinalityListener) error {
+func (c *Committer) RemoveFinalityListener(txID string, listener driver.FinalityListener) error {
 	c.EventManager.RemoveListener(txID, listener)
 	return nil
 }
 
 // CommitConfig is used to validate and apply configuration transactions for a Channel.
-func (c *Service) CommitConfig(blockNumber uint64, raw []byte, env *common.Envelope) error {
+func (c *Committer) CommitConfig(blockNumber uint64, raw []byte, env *common.Envelope) error {
 	commitConfigMutex.Lock()
 	defer commitConfigMutex.Unlock()
 
@@ -308,7 +310,7 @@ func (c *Service) CommitConfig(blockNumber uint64, raw []byte, env *common.Envel
 }
 
 // Commit commits the transactions in the block passed as argument
-func (c *Service) Commit(block *common.Block) error {
+func (c *Committer) Commit(block *common.Block) error {
 	c.Tracer.StartAt("commit", time.Now())
 	for i, tx := range block.Data.Data {
 
@@ -322,7 +324,7 @@ func (c *Service) Commit(block *common.Block) error {
 		c.Tracer.AddEventAt("commit", "start", time.Now())
 		handler, ok := c.Handlers[common.HeaderType(chdr.Type)]
 		if ok {
-			if err := handler(block, i, &event, tx, env, chdr); err != nil {
+			if err := handler(block, uint64(i), &event, tx, env, chdr); err != nil {
 				return err
 			}
 		} else {
@@ -350,7 +352,7 @@ func (c *Service) Commit(block *common.Block) error {
 // IsFinal takes in input a transaction id and waits for its confirmation
 // with the respect to the passed context that can be used to set a deadline
 // for the waiting time.
-func (c *Service) IsFinal(ctx context.Context, txID string) error {
+func (c *Committer) IsFinal(ctx context.Context, txID string) error {
 	c.logger.Debugf("Is [%s] final?", txID)
 
 	for iter := 0; iter < c.ChannelConfig.CommitterFinalityNumRetries(); iter++ {
@@ -398,11 +400,11 @@ func (c *Service) IsFinal(ctx context.Context, txID string) error {
 	return c.listenTo(ctx, txID, c.WaitForEventTimeout)
 }
 
-func (c *Service) GetProcessNamespace() []string {
+func (c *Committer) GetProcessNamespace() []string {
 	return c.ProcessNamespaces
 }
 
-func (c *Service) ReloadConfigTransactions() error {
+func (c *Committer) ReloadConfigTransactions() error {
 	c.MembershipService.ResourcesApplyLock.Lock()
 	defer c.MembershipService.ResourcesApplyLock.Unlock()
 
@@ -505,7 +507,7 @@ func (c *Service) ReloadConfigTransactions() error {
 	return nil
 }
 
-func (c *Service) addListener(txID string, ch chan FinalityEvent) {
+func (c *Committer) addListener(txID string, ch chan FinalityEvent) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
@@ -518,7 +520,7 @@ func (c *Service) addListener(txID string, ch chan FinalityEvent) {
 	c.listeners[txID] = ls
 }
 
-func (c *Service) deleteListener(txID string, ch chan FinalityEvent) {
+func (c *Committer) deleteListener(txID string, ch chan FinalityEvent) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
@@ -535,7 +537,7 @@ func (c *Service) deleteListener(txID string, ch chan FinalityEvent) {
 	}
 }
 
-func (c *Service) notifyFinality(event FinalityEvent) {
+func (c *Committer) notifyFinality(event FinalityEvent) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
@@ -551,11 +553,11 @@ func (c *Service) notifyFinality(event FinalityEvent) {
 }
 
 // notifyChaincodeListeners notifies the chaincode event to the registered chaincode listeners.
-func (c *Service) notifyChaincodeListeners(event *ChaincodeEvent) {
+func (c *Committer) notifyChaincodeListeners(event *ChaincodeEvent) {
 	c.EventsPublisher.Publish(event)
 }
 
-func (c *Service) listenTo(ctx context.Context, txID string, timeout time.Duration) error {
+func (c *Committer) listenTo(ctx context.Context, txID string, timeout time.Duration) error {
 	c.Tracer.Start("committer-listenTo-start")
 
 	c.logger.Debugf("Listen to finality of [%s]", txID)
@@ -607,7 +609,7 @@ func (c *Service) listenTo(ctx context.Context, txID string, timeout time.Durati
 	return errors.Errorf("failed to listen to transaction [%s] for timeout", txID)
 }
 
-func (c *Service) commitConfig(txID string, blockNumber uint64, seq uint64, envelope []byte) error {
+func (c *Committer) commitConfig(txID string, blockNumber uint64, seq uint64, envelope []byte) error {
 	c.logger.Infof("[Channel: %s] commit config transaction number [bn:%d][seq:%d]", c.ChannelConfig.ID(), blockNumber, seq)
 
 	rws, err := c.Vault.NewRWSet(txID)
@@ -633,7 +635,7 @@ func (c *Service) commitConfig(txID string, blockNumber uint64, seq uint64, enve
 	return nil
 }
 
-func (c *Service) commit(txID string, block uint64, indexInBlock int, envelope *common.Envelope) error {
+func (c *Committer) commit(txID string, block uint64, indexInBlock uint64, envelope *common.Envelope) error {
 	// This is a normal transaction, validated by Fabric.
 	// Commit it cause Fabric says it is valid.
 	c.logger.Debugf("[%s] committing", txID)
@@ -642,7 +644,7 @@ func (c *Service) commit(txID string, block uint64, indexInBlock int, envelope *
 	if envelope != nil {
 		c.logger.Debugf("[%s] matching rwsets", txID)
 
-		pt, headerType, err := transaction.NewProcessedTransactionFromEnvelope(envelope)
+		pt, headerType, err := c.TransactionManager.NewProcessedTransactionFromEnvelopePayload(envelope.Payload)
 		if err != nil && headerType == -1 {
 			c.logger.Errorf("[%s] failed to unmarshal envelope [%s]", txID, err)
 			return err
@@ -693,7 +695,7 @@ func (c *Service) commit(txID string, block uint64, indexInBlock int, envelope *
 	return nil
 }
 
-func (c *Service) commitUnknown(txID string, block uint64, indexInBlock int, envelope *common.Envelope) error {
+func (c *Committer) commitUnknown(txID string, block uint64, indexInBlock uint64, envelope *common.Envelope) error {
 	// if an envelope exists for the passed txID, then commit it
 	if c.EnvelopeService.Exists(txID) {
 		return c.commitStoredEnvelope(txID, block, indexInBlock)
@@ -732,7 +734,7 @@ func (c *Service) commitUnknown(txID string, block uint64, indexInBlock int, env
 	return c.commit(txID, block, indexInBlock, envelope)
 }
 
-func (c *Service) commitStoredEnvelope(txID string, block uint64, indexInBlock int) error {
+func (c *Committer) commitStoredEnvelope(txID string, block uint64, indexInBlock uint64) error {
 	c.logger.Debugf("found envelope for transaction [%s], committing it...", txID)
 	if err := c.extractStoredEnvelopeToVault(txID); err != nil {
 		return err
@@ -741,7 +743,7 @@ func (c *Service) commitStoredEnvelope(txID string, block uint64, indexInBlock i
 	return c.commit(txID, block, indexInBlock, nil)
 }
 
-func (c *Service) applyBundle(bundle *channelconfig.Bundle) error {
+func (c *Committer) applyBundle(bundle *channelconfig.Bundle) error {
 	c.MembershipService.ResourcesLock.Lock()
 	defer c.MembershipService.ResourcesLock.Unlock()
 	c.MembershipService.ChannelResources = bundle
@@ -793,7 +795,7 @@ func (c *Service) applyBundle(bundle *channelconfig.Bundle) error {
 	return nil
 }
 
-func (c *Service) fetchEnvelope(txID string) ([]byte, error) {
+func (c *Committer) fetchEnvelope(txID string) ([]byte, error) {
 	pt, err := c.Ledger.GetTransactionByID(txID)
 	if err != nil {
 		return nil, errors.WithMessagef(err, "failed fetching tx [%s]", txID)
@@ -804,7 +806,7 @@ func (c *Service) fetchEnvelope(txID string) ([]byte, error) {
 	return pt.Envelope(), nil
 }
 
-func (c *Service) filterUnknownEnvelope(txID string, envelope []byte) (bool, error) {
+func (c *Committer) filterUnknownEnvelope(txID string, envelope []byte) (bool, error) {
 	rws, _, err := c.RWSetLoaderService.GetInspectingRWSetFromEvn(txID, envelope)
 	if err != nil {
 		return false, errors.WithMessagef(err, "failed to get rws from envelope [%s]", txID)
@@ -843,7 +845,7 @@ func (c *Service) filterUnknownEnvelope(txID string, envelope []byte) (bool, err
 	return status == driver.Busy, nil
 }
 
-func (c *Service) extractStoredEnvelopeToVault(txID string) error {
+func (c *Committer) extractStoredEnvelopeToVault(txID string) error {
 	rws, _, err := c.RWSetLoaderService.GetRWSetFromEvn(txID)
 	if err != nil {
 		// If another replica of the same node created the RWSet
@@ -856,7 +858,7 @@ func (c *Service) extractStoredEnvelopeToVault(txID string) error {
 	return nil
 }
 
-func (c *Service) postProcessTx(txID string) error {
+func (c *Committer) postProcessTx(txID string) error {
 	if err := c.ProcessorManager.ProcessByID(c.ChannelConfig.ID(), txID); err != nil {
 		// This should generate a panic
 		return err
@@ -864,7 +866,7 @@ func (c *Service) postProcessTx(txID string) error {
 	return nil
 }
 
-func (c *Service) notifyTxStatus(txID string, vc driver.ValidationCode, message string) {
+func (c *Committer) notifyTxStatus(txID string, vc driver.ValidationCode, message string) {
 	// We publish two events here:
 	// 1. The first will be caught by the listeners that are listening for any transaction id.
 	// 2. The second will be caught by the listeners that are listening for the specific transaction id.

@@ -10,6 +10,8 @@ import (
 	"encoding/json"
 	"strings"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
@@ -93,7 +95,7 @@ type (
 	Read            = vault.VersionedRead
 	ResultsIterator = vault.VersionedResultsIterator
 	ValidationCode  = fdriver.ValidationCode
-	TxIDEntry       = vault.ByNum[ValidationCode]
+	TxIDEntry       = driver.ByNum[ValidationCode]
 	TxIDIterator    = fdriver.TxIDIterator
 )
 
@@ -153,11 +155,11 @@ func (c *Vault) GetRWSet(txid string, rwset []byte) (*RWSet, error) {
 	return &RWSet{RWSet: rws}, nil
 }
 
-// GetEphemeralRWSet returns an ephemeral RWSet for this ledger whose content is unmarshalled
+// InspectRWSet returns an ephemeral RWSet for this ledger whose content is unmarshalled
 // from the passed bytes.
 // If namespaces is not empty, the returned RWSet will be filtered by the passed namespaces
-func (c *Vault) GetEphemeralRWSet(rwset []byte, namespaces ...string) (*RWSet, error) {
-	rws, err := c.vault.GetEphemeralRWSet(rwset, namespaces...)
+func (c *Vault) InspectRWSet(rwset []byte, namespaces ...string) (*RWSet, error) {
+	rws, err := c.vault.InspectRWSet(rwset, namespaces...)
 	if err != nil {
 		return nil, err
 	}
@@ -182,6 +184,6 @@ func (c *Vault) DiscardTx(txID string, message string) error {
 	return c.committer.DiscardTx(txID, message)
 }
 
-func (c *Vault) CommitTX(txID string, block uint64, indexInBlock int) error {
+func (c *Vault) CommitTX(txID string, block driver.BlockNum, indexInBlock driver.TxNum) error {
 	return c.committer.CommitTX(txID, block, indexInBlock, nil)
 }

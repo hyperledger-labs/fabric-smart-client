@@ -9,15 +9,15 @@ package identity
 import (
 	"fmt"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/endpoint"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/id"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/config"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 type EndpointService interface {
-	generic.EndpointService
+	GetIdentity(label string, pkiID []byte) (view.Identity, error)
 	endpoint.Service
 }
 
@@ -50,7 +50,7 @@ func (p *provider) New(network string) (driver.IdentityProvider, error) {
 	if err := resolverService.LoadResolvers(); err != nil {
 		return nil, fmt.Errorf("failed loading fabric endpoint resolvers: %w", err)
 	}
-	endpointService, err := generic.NewEndpointResolver(resolverService, p.endpointService)
+	endpointService, err := endpoint.NewResolver(resolverService, p.endpointService)
 	if err != nil {
 		return nil, fmt.Errorf("failed loading endpoint service: %w", err)
 	}

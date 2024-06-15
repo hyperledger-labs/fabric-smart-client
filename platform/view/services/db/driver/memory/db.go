@@ -11,7 +11,8 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core"
+	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/keys"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
@@ -210,7 +211,7 @@ func (db *database) GetCachedStateRangeScanIterator(namespace string, startKey s
 	return db.GetStateRangeScanIterator(namespace, startKey, endKey)
 }
 
-func (db *database) GetState(namespace core.Namespace, key string) (driver.VersionedValue, error) {
+func (db *database) GetState(namespace driver2.Namespace, key string) (driver.VersionedValue, error) {
 	vv, in := db.mapForNamespaceForReading(namespace, false)[key]
 	if !in {
 		return driver.VersionedValue{}, nil
@@ -232,7 +233,7 @@ func (db *database) GetStateMetadata(namespace, key string) (map[string][]byte, 
 	return metadata, vv.block, vv.txnum, nil
 }
 
-func (db *database) SetState(namespace core.Namespace, key string, value driver.VersionedValue) error {
+func (db *database) SetState(namespace driver2.Namespace, key string, value driver.VersionedValue) error {
 	if len(value.Raw) == 0 {
 		logger.Warnf("set key [%s:%d:%d] to nil value, will be deleted instead", key, value.Block, value.TxNum)
 		return db.DeleteState(namespace, key)

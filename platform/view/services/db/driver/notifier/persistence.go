@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package notifier
 
 import (
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core"
+	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 )
@@ -101,7 +101,7 @@ type VersionedPersistenceNotifier[P driver.VersionedPersistence] struct {
 	*notifier
 }
 
-func (db *VersionedPersistenceNotifier[P]) SetState(namespace core.Namespace, key string, value driver.VersionedValue) error {
+func (db *VersionedPersistenceNotifier[P]) SetState(namespace driver2.Namespace, key string, value driver.VersionedValue) error {
 	if err := db.Persistence.SetState(namespace, key, value); err != nil {
 		return err
 	}
@@ -135,7 +135,7 @@ func (db *VersionedPersistenceNotifier[P]) DeleteState(ns, key string) error {
 	return nil
 }
 
-func (db *VersionedPersistenceNotifier[P]) GetState(namespace core.Namespace, key string) (driver.VersionedValue, error) {
+func (db *VersionedPersistenceNotifier[P]) GetState(namespace driver2.Namespace, key string) (driver.VersionedValue, error) {
 	return db.Persistence.GetState(namespace, key)
 }
 

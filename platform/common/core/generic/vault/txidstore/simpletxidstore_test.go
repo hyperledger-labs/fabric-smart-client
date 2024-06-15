@@ -9,6 +9,8 @@ package txidstore
 import (
 	"testing"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault"
 	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger"
 	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
@@ -40,11 +42,11 @@ func (p *vcProvider) Invalid() vc  { return invalid }
 func (p *vcProvider) NotFound() vc { return 0 }
 
 // When we ask for a TX that does not exist in the DB, some DBs return the key with a nil value and others don't return it at all.
-var removeNils func(items []*vault.ByNum[vc]) []*vault.ByNum[vc]
+var removeNils func(items []*driver.ByNum[vc]) []*driver.ByNum[vc]
 
 func TestTXIDStoreMem(t *testing.T) {
-	removeNils = func(items []*vault.ByNum[vc]) []*vault.ByNum[vc] {
-		return slices.DeleteFunc(items, func(e *vault.ByNum[vc]) bool { return e.Code == 0 })
+	removeNils = func(items []*driver.ByNum[vc]) []*driver.ByNum[vc] {
+		return slices.DeleteFunc(items, func(e *driver.ByNum[vc]) bool { return e.Code == 0 })
 	}
 	db, err := vault.OpenMemory()
 	assert.NoError(t, err)
@@ -53,8 +55,8 @@ func TestTXIDStoreMem(t *testing.T) {
 }
 
 func TestTXIDStoreBadger(t *testing.T) {
-	removeNils = func(items []*vault.ByNum[vc]) []*vault.ByNum[vc] {
-		return slices.DeleteFunc(items, func(e *vault.ByNum[vc]) bool { return e.Code == 0 })
+	removeNils = func(items []*driver.ByNum[vc]) []*driver.ByNum[vc] {
+		return slices.DeleteFunc(items, func(e *driver.ByNum[vc]) bool { return e.Code == 0 })
 	}
 	db, err := vault.OpenBadger(t.TempDir(), "TestTXIDStoreBadger")
 	assert.NoError(t, err)
@@ -63,7 +65,7 @@ func TestTXIDStoreBadger(t *testing.T) {
 }
 
 func TestTXIDStoreSqlite(t *testing.T) {
-	removeNils = func(items []*vault.ByNum[vc]) []*vault.ByNum[vc] { return items }
+	removeNils = func(items []*driver.ByNum[vc]) []*driver.ByNum[vc] { return items }
 	db, err := vault.OpenSqlite("testdb", t.TempDir())
 	assert.NoError(t, err)
 	defer db.Close()
@@ -72,7 +74,7 @@ func TestTXIDStoreSqlite(t *testing.T) {
 }
 
 func TestTXIDStorePostgres(t *testing.T) {
-	removeNils = func(items []*vault.ByNum[vc]) []*vault.ByNum[vc] { return items }
+	removeNils = func(items []*driver.ByNum[vc]) []*driver.ByNum[vc] { return items }
 	db, terminate, err := vault.OpenPostgres("testdb")
 	assert.NoError(t, err)
 	defer db.Close()
@@ -108,7 +110,7 @@ func testOneMore(t *testing.T, store *SimpleTXIDStore[vc]) {
 	assert.NoError(t, err)
 	assert.Equal(t, valid, status)
 
-	it, err := store.Iterator(&vault.SeekStart{})
+	it, err := store.Iterator(&driver.SeekStart{})
 	assert.NoError(t, err)
 	txids := []string{}
 	for {
@@ -124,7 +126,7 @@ func testOneMore(t *testing.T, store *SimpleTXIDStore[vc]) {
 	}
 	assert.Equal(t, []string{"txid1", "txid2", "txid10", "txid12", "txid21", "txid100", "txid200", "txid1025", "txid3"}, txids)
 
-	it, err = store.Iterator(&vault.SeekEnd{})
+	it, err = store.Iterator(&driver.SeekEnd{})
 	assert.NoError(t, err)
 	txids = []string{}
 	for {
@@ -157,7 +159,7 @@ func testOneMore(t *testing.T, store *SimpleTXIDStore[vc]) {
 	assert.Equal(t, "txid3", last)
 
 	// iterate again
-	it, err = store.Iterator(&vault.SeekStart{})
+	it, err = store.Iterator(&driver.SeekStart{})
 	assert.NoError(t, err)
 	txids = []string{}
 	for {
@@ -186,7 +188,7 @@ func testOneMore(t *testing.T, store *SimpleTXIDStore[vc]) {
 	assert.Equal(t, "txid4", last)
 
 	// iterate again
-	it, err = store.Iterator(&vault.SeekStart{})
+	it, err = store.Iterator(&driver.SeekStart{})
 	assert.NoError(t, err)
 	txids = []string{}
 	for {
@@ -216,7 +218,7 @@ func testTXIDStore(t *testing.T, store *SimpleTXIDStore[vc]) {
 	}()
 	assert.EqualError(t, err, "programming error, writing without ongoing update")
 
-	it, err := store.Iterator(&vault.SeekEnd{})
+	it, err := store.Iterator(&driver.SeekEnd{})
 	assert.NoError(t, err)
 	next, err := it.Next()
 	assert.NoError(t, err)
@@ -253,7 +255,7 @@ func testTXIDStore(t *testing.T, store *SimpleTXIDStore[vc]) {
 	_, err = store.Iterator(&struct{}{})
 	assert.EqualError(t, err, "invalid position *struct {}")
 
-	it, err = store.Iterator(&vault.SeekEnd{})
+	it, err = store.Iterator(&driver.SeekEnd{})
 	assert.NoError(t, err)
 	txids := []string{}
 	for {
@@ -269,7 +271,7 @@ func testTXIDStore(t *testing.T, store *SimpleTXIDStore[vc]) {
 	}
 	assert.Equal(t, []string{"txid1025"}, txids)
 
-	it, err = store.Iterator(&vault.SeekStart{})
+	it, err = store.Iterator(&driver.SeekStart{})
 	assert.NoError(t, err)
 	txids = []string{}
 	for {
@@ -285,10 +287,10 @@ func testTXIDStore(t *testing.T, store *SimpleTXIDStore[vc]) {
 	}
 	assert.Equal(t, []string{"txid1", "txid2", "txid10", "txid12", "txid21", "txid100", "txid200", "txid1025"}, txids)
 
-	it, err = store.Iterator(&vault.SeekPos{Txid: "boh"})
+	it, err = store.Iterator(&driver.SeekPos{Txid: "boh"})
 	assert.EqualError(t, err, "txid boh was not found")
 
-	it, err = store.Iterator(&vault.SeekPos{Txid: "txid12"})
+	it, err = store.Iterator(&driver.SeekPos{Txid: "txid12"})
 	assert.NoError(t, err)
 	txids = []string{}
 	for {
@@ -304,10 +306,10 @@ func testTXIDStore(t *testing.T, store *SimpleTXIDStore[vc]) {
 	}
 	assert.Equal(t, []string{"txid12", "txid21", "txid100", "txid200", "txid1025"}, txids)
 
-	it, err = store.Iterator(&vault.SeekSet{TxIDs: []string{"txid1025", "txid999", "txid21"}})
+	it, err = store.Iterator(&driver.SeekSet{TxIDs: []string{"txid1025", "txid999", "txid21"}})
 
 	assert.NoError(t, err)
-	var results []*vault.ByNum[vc]
+	var results []*driver.ByNum[vc]
 	for {
 		tid, err := it.Next()
 		assert.NoError(t, err)

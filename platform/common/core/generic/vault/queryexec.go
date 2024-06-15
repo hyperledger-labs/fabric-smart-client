@@ -6,12 +6,14 @@ SPDX-License-Identifier: Apache-2.0
 
 package vault
 
+import "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+
 // this file contains all structs that perform DB access. They
 // differ in terms of the results that they return. They are both
 // created with the assumption that a read lock on the vault is held.
 // The lock is released when Done is called.
 
-type directQueryExecutor[V ValidationCode] struct {
+type directQueryExecutor[V driver.ValidationCode] struct {
 	vault *Vault[V]
 }
 
@@ -35,7 +37,7 @@ func (q *directQueryExecutor[V]) Done() {
 	q.vault.storeLock.RUnlock()
 }
 
-type interceptorQueryExecutor[V ValidationCode] struct {
+type interceptorQueryExecutor[V driver.ValidationCode] struct {
 	*Vault[V]
 }
 

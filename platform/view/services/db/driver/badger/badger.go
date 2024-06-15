@@ -11,9 +11,10 @@ import (
 	"runtime/debug"
 	"sync"
 
+	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+
 	"github.com/dgraph-io/badger/v3"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	keys2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/keys"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
@@ -131,7 +132,7 @@ func (db *DB) Discard() error {
 	return nil
 }
 
-func (db *DB) SetState(namespace core.Namespace, key string, value driver.VersionedValue) error {
+func (db *DB) SetState(namespace driver2.Namespace, key string, value driver.VersionedValue) error {
 	if len(value.Raw) == 0 {
 		logger.Warnf("set key [%s:%d:%d] to nil value, will be deleted instead", key, value.Block, value.TxNum)
 		return db.DeleteState(namespace, key)
@@ -209,7 +210,7 @@ func (db *DB) DeleteState(namespace, key string) error {
 	return nil
 }
 
-func (db *DB) GetState(namespace core.Namespace, key string) (driver.VersionedValue, error) {
+func (db *DB) GetState(namespace driver2.Namespace, key string) (driver.VersionedValue, error) {
 	dbKey := dbKey(namespace, key)
 
 	txn := db.db.NewTransaction(false)
@@ -267,7 +268,7 @@ type WriteTransaction struct {
 	txn *badger.Txn
 }
 
-func (w *WriteTransaction) SetState(namespace core.Namespace, key string, value driver.VersionedValue) error {
+func (w *WriteTransaction) SetState(namespace driver2.Namespace, key string, value driver.VersionedValue) error {
 	if w.txn == nil {
 		panic("programming error, writing without ongoing update")
 	}

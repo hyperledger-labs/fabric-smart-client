@@ -22,6 +22,8 @@ type RWSet interface {
 	// 2. All the read dependencies are satisfied by the vault
 	IsValid() error
 
+	IsClosed() bool
+
 	// Clear remove the passed namespace from this rwset
 	Clear(ns string) error
 
