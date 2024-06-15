@@ -4,9 +4,7 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package vault
-
-import "github.com/hyperledger-labs/fabric-smart-client/platform/common/core"
+package driver
 
 type ValidationCode interface {
 	comparable
@@ -27,15 +25,15 @@ type SeekStart struct{}
 type SeekEnd struct{}
 
 type SeekPos struct {
-	Txid core.TxID
+	Txid TxID
 }
 
 type SeekSet struct {
-	TxIDs []core.TxID
+	TxIDs []TxID
 }
 
 type ByNum[V comparable] struct {
-	TxID    core.TxID
+	TxID    TxID
 	Code    V
 	Message string
 }

@@ -13,8 +13,9 @@ import (
 	"strings"
 	"sync"
 
+	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+
 	errors2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
@@ -54,7 +55,7 @@ type basePersistence[V any, R any] struct {
 	errorWrapper driver.SQLErrorWrapper
 }
 
-func (db *basePersistence[V, R]) GetStateRangeScanIterator(ns core.Namespace, startKey, endKey string) (collections.Iterator[*R], error) {
+func (db *basePersistence[V, R]) GetStateRangeScanIterator(ns driver2.Namespace, startKey, endKey string) (collections.Iterator[*R], error) {
 	where, args := rangeWhere(ns, startKey, endKey)
 	query := fmt.Sprintf("SELECT %s FROM %s WHERE ns = $1 %s ORDER BY pkey;", strings.Join(db.readScanner.Columns(), ", "), db.table, where)
 	logger.Debug(query, ns, startKey, endKey)
@@ -85,7 +86,7 @@ func rangeWhere(ns, startKey, endKey string) (string, []interface{}) {
 	return where, args
 }
 
-func (db *basePersistence[V, R]) GetState(namespace core.Namespace, key string) (V, error) {
+func (db *basePersistence[V, R]) GetState(namespace driver2.Namespace, key string) (V, error) {
 	query := fmt.Sprintf("SELECT %s FROM %s WHERE ns = $1 AND pkey = $2", strings.Join(db.valueScanner.Columns(), ", "), db.table)
 	logger.Debug(query, namespace, key)
 
@@ -100,11 +101,11 @@ func (db *basePersistence[V, R]) GetState(namespace core.Namespace, key string) 
 	}
 }
 
-func (db *basePersistence[V, R]) SetState(ns core.Namespace, pkey string, value V) error {
+func (db *basePersistence[V, R]) SetState(ns driver2.Namespace, pkey string, value V) error {
 	return db.setState(db.txn, ns, pkey, value)
 }
 
-func (db *basePersistence[V, R]) setState(tx *sql.Tx, ns core.Namespace, pkey string, value V) error {
+func (db *basePersistence[V, R]) setState(tx *sql.Tx, ns driver2.Namespace, pkey string, value V) error {
 	keys := db.valueScanner.Columns()
 	values := db.valueScanner.WriteValue(value)
 	// Get rawVal
@@ -158,7 +159,7 @@ func (db *basePersistence[V, R]) setState(tx *sql.Tx, ns core.Namespace, pkey st
 	return nil
 }
 
-func (db *basePersistence[V, R]) GetStateSetIterator(ns core.Namespace, keys ...string) (collections.Iterator[*R], error) {
+func (db *basePersistence[V, R]) GetStateSetIterator(ns driver2.Namespace, keys ...string) (collections.Iterator[*R], error) {
 	if len(keys) == 0 {
 		return collections.NewEmptyIterator[*R](), nil
 	}

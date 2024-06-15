@@ -8,9 +8,9 @@ package vault
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault/txidstore"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	odriver "github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/orion-server/pkg/types"
@@ -30,15 +30,34 @@ func NewSimpleTXIDStore(persistence txidstore.UnversionedPersistence) (*SimpleTX
 
 // New returns a new instance of Vault
 func New(store vault.VersionedPersistence, txIDStore TXIDStore) *Vault {
-	return vault.New[odriver.ValidationCode](flogging.MustGetLogger("orion-sdk.generic.vault"), store, txIDStore, &odriver.ValidationCodeProvider{}, newInterceptor, &populator{})
+	return vault.New[odriver.ValidationCode](
+		flogging.MustGetLogger("orion-sdk.generic.vault"),
+		store,
+		txIDStore,
+		&odriver.ValidationCodeProvider{},
+		newInterceptor,
+		&populator{},
+	)
 }
 
 type Interceptor struct {
 	*vault.Interceptor[odriver.ValidationCode]
 }
 
-func newInterceptor(logger vault.Logger, qe vault.VersionedQueryExecutor, txidStore vault.TXIDStoreReader[odriver.ValidationCode], txid string) vault.TxInterceptor {
-	return &Interceptor{Interceptor: vault.NewInterceptor[odriver.ValidationCode](logger, qe, txidStore, txid, &odriver.ValidationCodeProvider{})}
+func newInterceptor(
+	logger vault.Logger,
+	qe vault.VersionedQueryExecutor,
+	txidStore vault.TXIDStoreReader[odriver.ValidationCode],
+	txid string,
+) vault.TxInterceptor {
+	return &Interceptor{Interceptor: vault.NewInterceptor[odriver.ValidationCode](
+		logger,
+		qe,
+		txidStore,
+		txid,
+		&odriver.ValidationCodeProvider{},
+		nil,
+	)}
 }
 
 func (i *Interceptor) AppendRWSet([]byte, ...string) error {
@@ -61,7 +80,7 @@ func (i *Interceptor) Equals(other interface{}, nss ...string) error {
 
 type populator struct{}
 
-func (p *populator) Populate(rws *vault.ReadWriteSet, rwsetBytes []byte, namespaces ...core.Namespace) error {
+func (p *populator) Populate(rws *vault.ReadWriteSet, rwsetBytes []byte, namespaces ...driver.Namespace) error {
 	txRWSet := &types.DataTx{}
 	err := proto.Unmarshal(rwsetBytes, txRWSet)
 	if err != nil {

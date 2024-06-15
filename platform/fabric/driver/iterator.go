@@ -6,7 +6,9 @@ SPDX-License-Identifier: Apache-2.0
 
 package driver
 
-import "github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault"
+import (
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+)
 
 type SeekStart struct{}
 
@@ -26,9 +28,11 @@ type ByNum struct {
 	Message string
 }
 
-type TxIDIterator = vault.TxIDIterator[ValidationCode]
+type TxIDIterator = driver.TxIDIterator[ValidationCode]
 
 type TXIDStore interface {
 	GetLastTxID() (string, error)
 	Iterator(pos interface{}) (TxIDIterator, error)
+	Get(txid string) (ValidationCode, string, error)
+	Set(txID string, code ValidationCode, message string) error
 }

@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
@@ -33,7 +32,7 @@ type MockFinalityListener struct {
 	mock.Mock
 }
 
-func (m *MockFinalityListener) OnStatus(txID core.TxID, status int, statusMessage string) {
+func (m *MockFinalityListener) OnStatus(txID driver.TxID, status int, statusMessage string) {
 	m.Called(txID, status, statusMessage)
 }
 
@@ -118,7 +117,7 @@ func TestFinalityManager_RunStatusListener(t *testing.T) {
 	listener = &MockFinalityListener{}
 	listener.On("OnStatus", event.TxID, event.ValidationCode, event.ValidationMessage)
 	assert.NoError(t, manager.AddListener("txID", listener))
-	manager.txIDListeners["txID"] = []FinalityListener[int]{listener}
+	manager.txIDListeners["txID"] = []driver.FinalityListener[int]{listener}
 
 	ctx, cancel = context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -143,7 +142,7 @@ func TestFinalityManager_TxIDs(t *testing.T) {
 	vault := &MockVault{}
 	manager := NewFinalityManager[int](flogging.MustGetLogger("committer"), vault)
 
-	manager.txIDListeners["txID"] = []FinalityListener[int]{}
+	manager.txIDListeners["txID"] = []driver.FinalityListener[int]{}
 
 	txIDs := manager.txIDs()
 	assert.Len(t, txIDs, 1)
