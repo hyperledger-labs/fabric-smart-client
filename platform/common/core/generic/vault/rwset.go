@@ -36,7 +36,7 @@ func (r KeyedMetaWrites) Equals(o KeyedMetaWrites) error {
 
 type NamespaceKeyedMetaWrites map[string]KeyedMetaWrites
 
-func (r NamespaceKeyedMetaWrites) equals(o NamespaceKeyedMetaWrites, nss ...string) error {
+func (r NamespaceKeyedMetaWrites) Equals(o NamespaceKeyedMetaWrites, nss ...string) error {
 	return entriesEqual(r, o, func(a, b KeyedMetaWrites) bool { return a.Equals(b) == nil }, nss...)
 }
 
@@ -65,16 +65,16 @@ func (w *MetaWriteSet) Add(ns, key string, meta map[string][]byte) error {
 	return nil
 }
 
-func (w *MetaWriteSet) get(ns, key string) map[string][]byte {
+func (w *MetaWriteSet) Get(ns, key string) map[string][]byte {
 	return w.MetaWrites[ns][key]
 }
 
-func (w *MetaWriteSet) in(ns, key string) bool {
+func (w *MetaWriteSet) In(ns, key string) bool {
 	_, in := w.MetaWrites[ns][key]
 	return in
 }
 
-func (w *MetaWriteSet) clear(ns string) {
+func (w *MetaWriteSet) Clear(ns string) {
 	w.MetaWrites[ns] = KeyedMetaWrites{}
 }
 
@@ -90,7 +90,7 @@ func (r NamespaceWrites) Equals(o NamespaceWrites) error {
 
 type Writes map[string]NamespaceWrites
 
-func (r Writes) equals(o Writes, nss ...string) error {
+func (r Writes) Equals(o Writes, nss ...string) error {
 	return entriesEqual(r, o, func(a, b NamespaceWrites) bool { return a.Equals(b) == nil }, nss...)
 }
 
@@ -118,11 +118,11 @@ func (w *WriteSet) Add(ns, key string, value []byte) error {
 	return nil
 }
 
-func (w *WriteSet) get(ns, key string) []byte {
+func (w *WriteSet) Get(ns, key string) []byte {
 	return w.Writes[ns][key]
 }
 
-func (w *WriteSet) getAt(ns string, i int) (key string, in bool) {
+func (w *WriteSet) GetAt(ns string, i int) (key string, in bool) {
 	slice := w.OrderedWrites[ns]
 	if i < 0 || i > len(slice)-1 {
 		return "", false
@@ -131,12 +131,12 @@ func (w *WriteSet) getAt(ns string, i int) (key string, in bool) {
 	return slice[i], true
 }
 
-func (w *WriteSet) in(ns, key string) bool {
+func (w *WriteSet) In(ns, key string) bool {
 	_, in := w.Writes[ns][key]
 	return in
 }
 
-func (w *WriteSet) clear(ns string) {
+func (w *WriteSet) Clear(ns string) {
 	w.Writes[ns] = map[string][]byte{}
 	w.OrderedWrites[ns] = []string{}
 }
@@ -156,7 +156,7 @@ func (r NamespaceReads) Equals(o NamespaceReads) error {
 
 type Reads map[core.Namespace]NamespaceReads
 
-func (r Reads) equals(o Reads, nss ...core.Namespace) error {
+func (r Reads) Equals(o Reads, nss ...core.Namespace) error {
 	return entriesEqual(r, o, func(a, b NamespaceReads) bool { return a.Equals(b) == nil }, nss...)
 }
 
@@ -178,12 +178,12 @@ func (r *ReadSet) Add(ns core.Namespace, key string, block core.BlockNum, txnum 
 	r.OrderedReads[ns] = append(r.OrderedReads[ns], key)
 }
 
-func (r *ReadSet) get(ns core.Namespace, key string) (core.BlockNum, core.TxNum, bool) {
+func (r *ReadSet) Get(ns core.Namespace, key string) (core.BlockNum, core.TxNum, bool) {
 	entry, in := r.Reads[ns][key]
 	return entry.Block, entry.TxNum, in
 }
 
-func (r *ReadSet) getAt(ns core.Namespace, i int) (string, bool) {
+func (r *ReadSet) GetAt(ns core.Namespace, i int) (string, bool) {
 	slice := r.OrderedReads[ns]
 	if i < 0 || i > len(slice)-1 {
 		return "", false
@@ -192,7 +192,7 @@ func (r *ReadSet) getAt(ns core.Namespace, i int) (string, bool) {
 	return slice[i], true
 }
 
-func (r *ReadSet) clear(ns core.Namespace) {
+func (r *ReadSet) Clear(ns core.Namespace) {
 	r.Reads[ns] = map[string]txPosition{}
 	r.OrderedReads[ns] = []string{}
 }

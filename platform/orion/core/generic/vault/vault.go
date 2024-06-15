@@ -30,15 +30,34 @@ func NewSimpleTXIDStore(persistence txidstore.UnversionedPersistence) (*SimpleTX
 
 // New returns a new instance of Vault
 func New(store vault.VersionedPersistence, txIDStore TXIDStore) *Vault {
-	return vault.New[odriver.ValidationCode](flogging.MustGetLogger("orion-sdk.generic.vault"), store, txIDStore, &odriver.ValidationCodeProvider{}, newInterceptor, &populator{})
+	return vault.New[odriver.ValidationCode](
+		flogging.MustGetLogger("orion-sdk.generic.vault"),
+		store,
+		txIDStore,
+		&odriver.ValidationCodeProvider{},
+		newInterceptor,
+		&populator{},
+	)
 }
 
 type Interceptor struct {
 	*vault.Interceptor[odriver.ValidationCode]
 }
 
-func newInterceptor(logger vault.Logger, qe vault.VersionedQueryExecutor, txidStore vault.TXIDStoreReader[odriver.ValidationCode], txid string) vault.TxInterceptor {
-	return &Interceptor{Interceptor: vault.NewInterceptor[odriver.ValidationCode](logger, qe, txidStore, txid, &odriver.ValidationCodeProvider{})}
+func newInterceptor(
+	logger vault.Logger,
+	qe vault.VersionedQueryExecutor,
+	txidStore vault.TXIDStoreReader[odriver.ValidationCode],
+	txid string,
+) vault.TxInterceptor {
+	return &Interceptor{Interceptor: vault.NewInterceptor[odriver.ValidationCode](
+		logger,
+		qe,
+		txidStore,
+		txid,
+		&odriver.ValidationCodeProvider{},
+		nil,
+	)}
 }
 
 func (i *Interceptor) AppendRWSet([]byte, ...string) error {

@@ -37,12 +37,16 @@ func (i *Inspector) IsValid() error {
 	return nil
 }
 
+func (i *Inspector) IsClosed() bool {
+	return false
+}
+
 func (i *Inspector) SetState(namespace string, key string, value []byte) error {
 	panic("programming error: the rwset inspector is read-only")
 }
 
 func (i *Inspector) GetState(namespace string, key string, opts ...driver.GetStateOpt) ([]byte, error) {
-	return i.Rws.WriteSet.get(namespace, key), nil
+	return i.Rws.WriteSet.Get(namespace, key), nil
 }
 
 func (i *Inspector) DeleteState(namespace string, key string) error {
@@ -50,7 +54,7 @@ func (i *Inspector) DeleteState(namespace string, key string) error {
 }
 
 func (i *Inspector) GetStateMetadata(namespace, key string, opts ...driver.GetStateOpt) (map[string][]byte, error) {
-	return i.Rws.MetaWriteSet.get(namespace, key), nil
+	return i.Rws.MetaWriteSet.Get(namespace, key), nil
 }
 
 func (i *Inspector) SetStateMetadata(namespace, key string, metadata map[string][]byte) error {
@@ -58,7 +62,7 @@ func (i *Inspector) SetStateMetadata(namespace, key string, metadata map[string]
 }
 
 func (i *Inspector) GetReadKeyAt(ns string, pos int) (string, error) {
-	key, in := i.Rws.ReadSet.getAt(ns, pos)
+	key, in := i.Rws.ReadSet.GetAt(ns, pos)
 	if !in {
 		return "", errors.Errorf("no read at position %d for namespace %s", pos, ns)
 	}
@@ -66,7 +70,7 @@ func (i *Inspector) GetReadKeyAt(ns string, pos int) (string, error) {
 }
 
 func (i *Inspector) GetReadAt(ns string, pos int) (string, []byte, error) {
-	key, in := i.Rws.ReadSet.getAt(ns, pos)
+	key, in := i.Rws.ReadSet.GetAt(ns, pos)
 	if !in {
 		return "", nil, errors.Errorf("no read at position %d for namespace %s", pos, ns)
 	}
@@ -81,12 +85,12 @@ func (i *Inspector) GetReadAt(ns string, pos int) (string, []byte, error) {
 
 func (i *Inspector) GetWriteAt(ns string, pos int) (string, []byte, error) {
 
-	key, in := i.Rws.WriteSet.getAt(ns, pos)
+	key, in := i.Rws.WriteSet.GetAt(ns, pos)
 	if !in {
 		return "", nil, errors.Errorf("no write at position %d for namespace %s", pos, ns)
 	}
 
-	return key, i.Rws.WriteSet.get(ns, key), nil
+	return key, i.Rws.WriteSet.Get(ns, key), nil
 }
 
 func (i *Inspector) NumReads(ns string) int {

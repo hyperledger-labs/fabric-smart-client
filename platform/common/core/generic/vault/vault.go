@@ -36,13 +36,17 @@ type TXIDStore[V ValidationCode] interface {
 
 type TxInterceptor interface {
 	driver.RWSet
-	IsClosed() bool
 	RWs() *ReadWriteSet
 	Reopen(qe VersionedQueryExecutor) error
 }
 
 type Populator interface {
 	Populate(rws *ReadWriteSet, rwsetBytes []byte, namespaces ...core.Namespace) error
+}
+
+type Marshaller interface {
+	Marshal(rws *ReadWriteSet) ([]byte, error)
+	Append(destination *ReadWriteSet, raw []byte, nss ...string) error
 }
 
 type NewInterceptorFunc[V ValidationCode] func(logger Logger, qe VersionedQueryExecutor, txidStore TXIDStoreReader[V], txid core.TxID) TxInterceptor
@@ -86,7 +90,14 @@ type Vault[V ValidationCode] struct {
 }
 
 // New returns a new instance of Vault
-func New[V ValidationCode](logger Logger, store VersionedPersistence, txIDStore TXIDStore[V], vcProvider ValidationCodeProvider[V], newInterceptor NewInterceptorFunc[V], populator Populator) *Vault[V] {
+func New[V ValidationCode](
+	logger Logger,
+	store VersionedPersistence,
+	txIDStore TXIDStore[V],
+	vcProvider ValidationCodeProvider[V],
+	newInterceptor NewInterceptorFunc[V],
+	populator Populator,
+) *Vault[V] {
 	return &Vault[V]{
 		logger:         logger,
 		Interceptors:   make(map[core.TxID]TxInterceptor),
@@ -322,6 +333,10 @@ func (db *Vault[V]) SetBusy(txID core.TxID) error {
 }
 
 func (db *Vault[V]) NewRWSet(txID core.TxID) (driver.RWSet, error) {
+	return db.NewInspector(txID)
+}
+
+func (db *Vault[V]) NewInspector(txID core.TxID) (TxInterceptor, error) {
 	db.logger.Debugf("NewRWSet[%s][%d]", txID, db.counter.Load())
 	i := db.newInterceptor(db.logger, &interceptorQueryExecutor[V]{db}, db.txIDStore, txID)
 
@@ -468,7 +483,7 @@ func (db *Vault[V]) setValidationCode(txID core.TxID, code V, message string) er
 	return nil
 }
 
-func (db *Vault[V]) GetExistingRWSet(txID core.TxID) (TxInterceptor, error) {
+func (db *Vault[V]) GetExistingRWSet(txID core.TxID) (driver.RWSet, error) {
 	db.logger.Debugf("GetExistingRWSet[%s][%d]", txID, db.counter.Load())
 
 	db.interceptorsLock.Lock()

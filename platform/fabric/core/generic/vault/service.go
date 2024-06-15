@@ -17,37 +17,7 @@ import (
 
 var logger = flogging.MustGetLogger("fabric-sdk.core.vault")
 
-type Service struct {
-	*Vault
-}
-
-func NewService(vault *Vault) *Service {
-	return &Service{Vault: vault}
-}
-
-// NewRWSet returns a RWSet for this ledger.
-// A client may obtain more than one such simulator; they are made unique
-// by way of the supplied txid
-func (c *Service) NewRWSet(txID string) (driver.RWSet, error) {
-	return c.Vault.NewRWSet(txID)
-}
-
-// GetRWSet returns a RWSet for this ledger whose content is unmarshalled
-// from the passed bytes.
-// A client may obtain more than one such simulator; they are made unique
-// by way of the supplied txid
-func (c *Service) GetRWSet(txID string, rwset []byte) (driver.RWSet, error) {
-	return c.Vault.GetRWSet(txID, rwset)
-}
-
-// GetEphemeralRWSet returns an ephemeral RWSet for this ledger whose content is unmarshalled
-// from the passed bytes.
-// If namespaces is not empty, the returned RWSet will be filtered by the passed namespaces
-func (c *Service) GetEphemeralRWSet(rwset []byte, namespaces ...string) (driver.RWSet, error) {
-	return c.Vault.InspectRWSet(rwset, namespaces...)
-}
-
-func NewVault(configService driver.ConfigService, channel string) (*Vault, driver.TXIDStore, error) {
+func New(configService driver.ConfigService, channel string) (*Vault, driver.TXIDStore, error) {
 	logger.Debugf("new fabric vault for channel [%s] with config [%v]", channel, configService)
 	pType := configService.VaultPersistenceType()
 	if pType == "file" {
@@ -73,10 +43,10 @@ func NewVault(configService driver.ConfigService, channel string) (*Vault, drive
 	if txIDStoreCacheSize > 0 {
 		logger.Debugf("creating txID store second cache with size [%d]", txIDStoreCacheSize)
 		c := txidstore.NewCache(txidStore, secondcache.NewTyped[*txidstore.Entry](txIDStoreCacheSize), logger)
-		return New(persistence, c), c, nil
+		return NewVault(persistence, c), c, nil
 	} else {
 		logger.Debugf("txID store without cache selected")
 		c := txidstore.NewNoCache(txidStore)
-		return New(persistence, c), c, nil
+		return NewVault(persistence, c), c, nil
 	}
 }

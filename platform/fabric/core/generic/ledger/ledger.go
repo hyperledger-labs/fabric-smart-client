@@ -30,7 +30,7 @@ type Ledger struct {
 	TransactionManager driver.TransactionManager
 }
 
-func NewLedger(
+func New(
 	channelName string,
 	chaincodeManager driver.ChaincodeManager,
 	localMembership driver.LocalMembership,

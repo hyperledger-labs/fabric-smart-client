@@ -153,11 +153,11 @@ func (c *Vault) GetRWSet(txid string, rwset []byte) (*RWSet, error) {
 	return &RWSet{RWSet: rws}, nil
 }
 
-// GetEphemeralRWSet returns an ephemeral RWSet for this ledger whose content is unmarshalled
+// InspectRWSet returns an ephemeral RWSet for this ledger whose content is unmarshalled
 // from the passed bytes.
 // If namespaces is not empty, the returned RWSet will be filtered by the passed namespaces
-func (c *Vault) GetEphemeralRWSet(rwset []byte, namespaces ...string) (*RWSet, error) {
-	rws, err := c.vault.GetEphemeralRWSet(rwset, namespaces...)
+func (c *Vault) InspectRWSet(rwset []byte, namespaces ...string) (*RWSet, error) {
+	rws, err := c.vault.InspectRWSet(rwset, namespaces...)
 	if err != nil {
 		return nil, err
 	}
