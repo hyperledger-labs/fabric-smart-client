@@ -45,13 +45,17 @@ type Provider struct {
 	kms             *kms.KMS
 }
 
-func NewProvider(configProvider ConfigProvider, sigService SigService, endpointService EndpointService, kms *kms.KMS) *Provider {
-	return &Provider{
+func NewProvider(configProvider ConfigProvider, sigService SigService, endpointService EndpointService, kms *kms.KMS) (*Provider, error) {
+	p := &Provider{
 		configProvider:  configProvider,
 		sigService:      sigService,
 		endpointService: endpointService,
 		kms:             kms,
 	}
+	if err := p.Load(); err != nil {
+		return nil, errors.Wrapf(err, "failed loading identities")
+	}
+	return p, nil
 }
 
 func (p *Provider) Load() error {

@@ -9,6 +9,7 @@ package integration
 import (
 	"time"
 
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
@@ -75,4 +76,8 @@ func (s *TestSuite) Setup() {
 	ii.Start()
 	// Sleep for a while to allow the networks to be ready
 	time.Sleep(20 * time.Second)
+}
+
+func ReplaceTemplate(topologies []api.Topology) []api.Topology {
+	return topologies
 }

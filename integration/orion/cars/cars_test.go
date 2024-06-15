@@ -9,6 +9,7 @@ package cars_test
 import (
 	"time"
 
+	orion "github.com/hyperledger-labs/fabric-smart-client/platform/orion/sdk/dig"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -28,7 +29,8 @@ var _ = Describe("EndToEnd", func() {
 		BeforeEach(func() {
 			var err error
 			// Create the integration ii
-			ii, err = integration.GenerateAt(StartPort(), "", false, cars.Topology()...)
+			ii, err = integration.GenerateAt(StartPort(), "./mytopos", false, integration.ReplaceTemplate(cars.Topology(&orion.SDK{}))...)
+			ii.DeleteOnStop = false
 			Expect(err).NotTo(HaveOccurred())
 			// Start the integration ii
 			ii.Start()

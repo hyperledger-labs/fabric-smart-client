@@ -13,7 +13,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/weaver/relay"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
-	fabric "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -42,7 +41,7 @@ type TestSuite struct {
 
 func NewTestSuite(commType fsc.P2PCommunicationType, nodeOpts *integration.ReplicationOptions) *TestSuite {
 	return &TestSuite{integration.NewTestSuite(func() (*integration.Infrastructure, error) {
-		return integration.GenerateAt(StartPort(), testdataPath, true, relay.Topology(&fabric.SDK{}, commType, nodeOpts)...)
+		return integration.GenerateAt(StartPort(), testdataPath, true, integration.ReplaceTemplate(relay.Topology(&relay.SDK{}, commType, nodeOpts))...)
 	})}
 }
 

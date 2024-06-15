@@ -10,7 +10,6 @@ import (
 	"reflect"
 	"sync"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/pkg/errors"
@@ -78,12 +77,17 @@ func (n *NetworkService) Finality() *Finality {
 
 type NetworkServiceProvider struct {
 	sp              view2.ServiceProvider
+	onsProvider     driver.OrionNetworkServiceProvider
 	mutex           sync.RWMutex
 	networkServices map[string]*NetworkService
 }
 
-func NewNetworkServiceProvider(sp view2.ServiceProvider) *NetworkServiceProvider {
-	return &NetworkServiceProvider{sp: sp, networkServices: make(map[string]*NetworkService)}
+func NewNetworkServiceProvider(sp view2.ServiceProvider, onsProvider driver.OrionNetworkServiceProvider) *NetworkServiceProvider {
+	return &NetworkServiceProvider{
+		sp:              sp,
+		onsProvider:     onsProvider,
+		networkServices: make(map[string]*NetworkService),
+	}
 }
 
 func (nsp *NetworkServiceProvider) NetworkService(id string) (*NetworkService, error) {
@@ -101,11 +105,7 @@ func (nsp *NetworkServiceProvider) NetworkService(id string) (*NetworkService, e
 		return ns, nil
 	}
 
-	provider, err := core.GetOrionNetworkServiceProvider(nsp.sp)
-	if err != nil {
-		return nil, errors.WithMessagef(err, "no orion Network Service Provider found")
-	}
-	internalOns, err := provider.OrionNetworkService(id)
+	internalOns, err := nsp.onsProvider.OrionNetworkService(id)
 	if err != nil {
 		return nil, errors.WithMessagef(err, "failed to get orion Network Service for id [%s]", id)
 	}

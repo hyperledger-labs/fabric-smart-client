@@ -11,7 +11,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iouhsm"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
-	fabric "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/postgres"
 	. "github.com/onsi/ginkgo/v2"
 )
@@ -54,7 +53,7 @@ type TestSuite struct {
 
 func NewTestSuite(commType fsc.P2PCommunicationType, nodeOpts *integration.ReplicationOptions) *TestSuite {
 	return &TestSuite{integration.NewTestSuiteWithSQL(nodeOpts.SQLConfigs, func() (*integration.Infrastructure, error) {
-		return integration.Generate(StartPort(), true, iouhsm.Topology(&fabric.SDK{}, commType, nodeOpts)...)
+		return integration.Generate(StartPort(), true, iouhsm.Topology(&iou.SDK{}, commType, nodeOpts)...)
 	})}
 }
 

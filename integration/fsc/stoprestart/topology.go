@@ -10,6 +10,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
+	viewsdk "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/dig"
 )
 
 func Topology(commType fsc.P2PCommunicationType, replicationOpts *integration.ReplicationOptions) []api.Topology {
@@ -25,5 +26,7 @@ func Topology(commType fsc.P2PCommunicationType, replicationOpts *integration.Re
 		RegisterResponder(&Responder{}, &Initiator{}).
 		AddOptions(fsc.WithAlias("bob_alias")).
 		AddOptions(replicationOpts.For("bob")...)
+
+	topology.AddSDK(&viewsdk.SDK{})
 	return []api.Topology{topology}
 }

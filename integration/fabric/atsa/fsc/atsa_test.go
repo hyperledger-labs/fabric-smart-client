@@ -7,16 +7,14 @@ SPDX-License-Identifier: Apache-2.0
 package fsc_test
 
 import (
+	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/fsc"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/fsc/client"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/fsc/states"
 	fsc2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
-	fabric "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/postgres"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
-	"github.com/hyperledger-labs/fabric-smart-client/integration"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/fsc/client"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/fsc/states"
 )
 
 type node = [2]string
@@ -69,7 +67,7 @@ type TestSuite struct {
 
 func NewTestSuite(commType fsc2.P2PCommunicationType, nodeOpts *integration.ReplicationOptions) *TestSuite {
 	return &TestSuite{integration.NewTestSuiteWithSQL(nodeOpts.SQLConfigs, func() (*integration.Infrastructure, error) {
-		return integration.Generate(StartPort(), true, fsc.Topology(&fabric.SDK{}, commType, nodeOpts)...)
+		return integration.Generate(StartPort(), true, integration.ReplaceTemplate(fsc.Topology(&fsc.SDK{}, commType, nodeOpts))...)
 	})}
 }
 

@@ -26,7 +26,7 @@ import (
 )
 
 func main() {
-	n := fscnode.New()
+	n := fscnode.NewEmpty("")
 	{{- range .SDKs }}
 	n.InstallSDK({{ .Type }})
 	{{ end }}

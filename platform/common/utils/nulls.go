@@ -10,3 +10,16 @@ func Zero[A any]() A {
 	var a A
 	return a
 }
+
+func Must(err error) {
+	if err != nil {
+		panic(err)
+	}
+}
+
+func DefaultString(a, b string) string {
+	if len(a) > 0 {
+		return a
+	}
+	return b
+}
