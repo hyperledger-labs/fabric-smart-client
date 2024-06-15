@@ -33,7 +33,7 @@ type Provider interface {
 }
 
 func NewProvider(kvss *kvs.KVS, publisher events.Publisher, hasher hash.Hasher, tracerProvider *tracing.Provider) Provider {
-	return NewProviderWithVault(kvss, publisher, hasher, tracerProvider, vault.NewVault)
+	return NewProviderWithVault(kvss, publisher, hasher, tracerProvider, vault.New)
 }
 
 func NewProviderWithVault(kvss *kvs.KVS, publisher events.Publisher, hasher hash.Hasher, tracerProvider *tracing.Provider, newVault VaultConstructor) *provider {
@@ -99,7 +99,7 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 		channelMembershipService,
 	)
 
-	ledgerService := ledger.NewLedger(
+	ledgerService := ledger.New(
 		channelName,
 		chaincodeManagerService,
 		nw.LocalMembership(),
