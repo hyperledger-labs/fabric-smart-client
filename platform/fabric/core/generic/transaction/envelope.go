@@ -127,7 +127,11 @@ func GetChannelHeaderType(raw []byte) (common.HeaderType, error) {
 }
 
 func UnpackEnvelope(env *common.Envelope) (*UnpackedEnvelope, int32, error) {
-	payl, err := protoutil.UnmarshalPayload(env.Payload)
+	return UnpackEnvelopePayload(env.Payload)
+}
+
+func UnpackEnvelopePayload(payloadRaw []byte) (*UnpackedEnvelope, int32, error) {
+	payl, err := protoutil.UnmarshalPayload(payloadRaw)
 	if err != nil {
 		return nil, -1, errors.Wrap(err, "failed to unmarshal payload")
 	}
@@ -181,7 +185,6 @@ func UnpackEnvelope(env *common.Envelope) (*UnpackedEnvelope, int32, error) {
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("envelope info: "+
 			"len(env.Payload) [%d] - "+
-			"len(env.Signature) [%d] - "+
 			"len(payl.Header.ChannelHeader) [%d] - "+
 			"len(payl.Header.SignatureHeader) [%d] - "+
 			"len(payl.Data) [%d] - "+
@@ -190,8 +193,7 @@ func UnpackEnvelope(env *common.Envelope) (*UnpackedEnvelope, int32, error) {
 			"len(cpp.Input) [%d] - "+
 			"len(cap.Action.ProposalResponsePayload) [%d] - "+
 			"len(pRespPayload.Extension) [%d]",
-			len(env.Payload),
-			len(env.Signature),
+			len(payloadRaw),
 			len(payl.Header.ChannelHeader),
 			len(payl.Header.SignatureHeader),
 			len(payl.Data),

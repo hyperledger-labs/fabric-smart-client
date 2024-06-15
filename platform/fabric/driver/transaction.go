@@ -74,6 +74,9 @@ type TransactionManager interface {
 	NewTransactionFromBytes(channel string, raw []byte) (Transaction, error)
 	NewTransactionFromEnvelopeBytes(channel string, raw []byte) (Transaction, error)
 	AddTransactionFactory(tt TransactionType, factory TransactionFactory)
+	NewProcessedTransactionFromEnvelopePayload(envelopePayload []byte) (ProcessedTransaction, int32, error)
+	NewProcessedTransactionFromEnvelopeRaw(envelope []byte) (ProcessedTransaction, error)
+	NewProcessedTransaction(pt []byte) (ProcessedTransaction, error)
 }
 
 type Transaction interface {

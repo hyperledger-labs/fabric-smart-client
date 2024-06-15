@@ -20,10 +20,10 @@ type (
 )
 
 type RWSetInspector interface {
-	GetRWSet(txid string, rwset []byte) (vault.TxInterceptor, error)
+	GetRWSet(txid string, rwset []byte) (RWSet, error)
 	InspectRWSet(rwsetBytes []byte, namespaces ...core.Namespace) (RWSet, error)
 	GetExistingRWSet(txID core.TxID) (vault.TxInterceptor, error)
-	NewRWSet(txid string) (vault.TxInterceptor, error)
+	NewRWSet(txid string) (RWSet, error)
 	RWSExists(txid string) bool
 }
 

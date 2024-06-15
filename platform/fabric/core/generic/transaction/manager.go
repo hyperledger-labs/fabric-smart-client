@@ -96,6 +96,18 @@ func (m *Manager) AddTransactionFactory(tt driver.TransactionType, factory drive
 	m.factories[tt] = factory
 }
 
+func (m *Manager) NewProcessedTransactionFromEnvelopePayload(envelopePayload []byte) (driver.ProcessedTransaction, int32, error) {
+	return NewProcessedTransactionFromEnvelopePayload(envelopePayload)
+}
+
+func (m *Manager) NewProcessedTransactionFromEnvelopeRaw(envelope []byte) (driver.ProcessedTransaction, error) {
+	return NewProcessedTransactionFromEnvelopeRaw(envelope)
+}
+
+func (m *Manager) NewProcessedTransaction(pt []byte) (driver.ProcessedTransaction, error) {
+	return NewProcessedTransaction(pt)
+}
+
 type EndorserTransactionFactory struct {
 	networkName     string
 	channelProvider ChannelProvider

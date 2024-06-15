@@ -321,7 +321,7 @@ func (db *Vault[V]) SetBusy(txID core.TxID) error {
 	return db.setValidationCode(txID, db.vcProvider.Busy(), "")
 }
 
-func (db *Vault[V]) NewRWSet(txID core.TxID) (TxInterceptor, error) {
+func (db *Vault[V]) NewRWSet(txID core.TxID) (driver.RWSet, error) {
 	db.logger.Debugf("NewRWSet[%s][%d]", txID, db.counter.Load())
 	i := db.newInterceptor(db.logger, &interceptorQueryExecutor[V]{db}, db.txIDStore, txID)
 
@@ -343,7 +343,7 @@ func (db *Vault[V]) NewRWSet(txID core.TxID) (TxInterceptor, error) {
 	return i, nil
 }
 
-func (db *Vault[V]) GetRWSet(txID core.TxID, rwsetBytes []byte) (TxInterceptor, error) {
+func (db *Vault[V]) GetRWSet(txID core.TxID, rwsetBytes []byte) (driver.RWSet, error) {
 	db.logger.Debugf("GetRWSet[%s][%d]", txID, db.counter.Load())
 	i := db.newInterceptor(db.logger, &interceptorQueryExecutor[V]{db}, db.txIDStore, txID)
 

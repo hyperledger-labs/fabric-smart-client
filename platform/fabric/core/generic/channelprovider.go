@@ -7,9 +7,14 @@ SPDX-License-Identifier: Apache-2.0
 package generic
 
 import (
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/chaincode"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/delivery"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/finality"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/ledger"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/membership"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/rwset"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
@@ -21,14 +26,14 @@ import (
 	"github.com/pkg/errors"
 )
 
-type VaultConstructor = func(configService driver.ConfigService, channel string) (*vault.Vault, TXIDStore, error)
+type VaultConstructor = func(configService driver.ConfigService, channel string) (*vault.Vault, driver.TXIDStore, error)
 
 type Provider interface {
 	NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver.Channel, error)
 }
 
 func NewProvider(kvss *kvs.KVS, publisher events.Publisher, hasher hash.Hasher, tracerProvider *tracing.Provider) Provider {
-	return NewProviderWithVault(kvss, publisher, hasher, tracerProvider, NewVault)
+	return NewProviderWithVault(kvss, publisher, hasher, tracerProvider, vault.NewVault)
 }
 
 func NewProviderWithVault(kvss *kvs.KVS, publisher events.Publisher, hasher hash.Hasher, tracerProvider *tracing.Provider, newVault VaultConstructor) *provider {
@@ -55,11 +60,11 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 	if err != nil {
 		return nil, err
 	}
-	vaultService := NewVaultService(vault)
+
 	envelopeService := transaction.NewEnvelopeService(p.kvss, nw.Name(), channelName)
 	transactionService := transaction.NewEndorseTransactionService(p.kvss, nw.Name(), channelName)
 	metadataService := transaction.NewMetadataService(p.kvss, nw.Name(), channelName)
-	peerManager := NewPeerManager(nw.ConfigService(), nw.LocalMembership().DefaultSigningIdentity())
+	peerManager := peer.NewPeerManager(nw.ConfigService(), nw.LocalMembership().DefaultSigningIdentity())
 
 	// Fabric finality
 	fabricFinality, err := finality.NewFabricFinality(
@@ -77,9 +82,9 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 	channelMembershipService := membership.NewService()
 
 	// Committers
-	rwSetLoaderService := NewRWSetLoader(nw.Name(), channelName, envelopeService, transactionService, nw.TransactionManager(), vault)
+	rwSetLoaderService := rwset.NewLoader(nw.Name(), channelName, envelopeService, transactionService, nw.TransactionManager(), vault)
 
-	chaincodeManagerService := NewChaincodeManager(
+	chaincodeManagerService := chaincode.NewManager(
 		nw.Name(),
 		channelName,
 		nw.ConfigService(),
@@ -94,17 +99,18 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 		channelMembershipService,
 	)
 
-	ledgerService := NewLedger(
+	ledgerService := ledger.NewLedger(
 		channelName,
 		chaincodeManagerService,
 		nw.LocalMembership(),
 		nw.ConfigService(),
+		nw.TransactionManager(),
 	)
 
-	committerService := committer.NewService(
+	committerService := committer.New(
 		nw.ConfigService(),
 		channelConfig,
-		vaultService,
+		vault,
 		envelopeService,
 		ledgerService,
 		rwSetLoaderService,
@@ -114,6 +120,7 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 		nw.(*Network),
 		fabricFinality,
 		channelConfig.CommitterWaitForEventTimeout(),
+		nw.TransactionManager(),
 		quiet,
 		p.tracerProvider.GetTracer(),
 	)
@@ -125,7 +132,7 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 	chaincodeManagerService.Finality = finalityService
 
 	// Delivery
-	deliveryService, err := NewDeliveryService(
+	deliveryService, err := delivery.NewService(
 		channelName,
 		channelConfig,
 		p.hasher,
@@ -136,6 +143,7 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 		ledgerService,
 		channelConfig.CommitterWaitForEventTimeout(),
 		txIDStore,
+		nw.TransactionManager(),
 		func(block *common.Block) (bool, error) {
 			// commit the block, if an error occurs then retry
 			return false, committerService.Commit(block)
@@ -150,7 +158,7 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 		ConfigService:            nw.ConfigService(),
 		ChannelName:              channelName,
 		FinalityService:          finalityService,
-		VaultService:             vaultService,
+		VaultService:             vault,
 		TXIDStoreService:         txIDStore,
 		ES:                       envelopeService,
 		TS:                       transactionService,

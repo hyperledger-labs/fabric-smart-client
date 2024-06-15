@@ -15,10 +15,10 @@ type TxValidationStatus = driver2.TxValidationStatus[ValidationCode]
 type Vault interface {
 	driver2.Vault[ValidationCode]
 
-	// GetEphemeralRWSet returns an ephemeral RWSet for this ledger whose content is unmarshalled
+	// InspectRWSet returns an ephemeral RWSet for this ledger whose content is unmarshalled
 	// from the passed bytes.
 	// If namespaces is not empty, the returned RWSet will be filtered by the passed namespaces
-	GetEphemeralRWSet(rwset []byte, namespaces ...string) (RWSet, error)
+	InspectRWSet(rwset []byte, namespaces ...string) (RWSet, error)
 	RWSExists(id string) bool
 	Match(id string, results []byte) error
 	Close() error

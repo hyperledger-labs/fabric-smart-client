@@ -4,18 +4,17 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package generic
+package rwset
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/rwset"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger/fabric-protos-go/common"
 	"github.com/hyperledger/fabric/protoutil"
 	"github.com/pkg/errors"
 )
 
-type RWSetLoader struct {
+type Loader struct {
 	Network            string
 	Channel            string
 	EnvelopeService    driver.EnvelopeService
@@ -26,8 +25,15 @@ type RWSetLoader struct {
 	handlers map[common.HeaderType]driver.RWSetPayloadHandler
 }
 
-func NewRWSetLoader(network string, channel string, envelopeService driver.EnvelopeService, transactionService driver.EndorserTransactionService, transactionManager driver.TransactionManager, vault driver.RWSetInspector) *RWSetLoader {
-	return &RWSetLoader{
+func NewLoader(
+	network string,
+	channel string,
+	envelopeService driver.EnvelopeService,
+	transactionService driver.EndorserTransactionService,
+	transactionManager driver.TransactionManager,
+	vault driver.RWSetInspector,
+) *Loader {
+	return &Loader{
 		Network:            network,
 		Channel:            channel,
 		EnvelopeService:    envelopeService,
@@ -38,7 +44,7 @@ func NewRWSetLoader(network string, channel string, envelopeService driver.Envel
 	}
 }
 
-func (c *RWSetLoader) AddHandlerProvider(headerType common.HeaderType, handlerProvider driver.RWSetPayloadHandlerProvider) error {
+func (c *Loader) AddHandlerProvider(headerType common.HeaderType, handlerProvider driver.RWSetPayloadHandlerProvider) error {
 	if handler, ok := c.handlers[headerType]; ok {
 		return errors.Errorf("handler %T already defined for header type %v", handler, headerType)
 	}
@@ -46,7 +52,7 @@ func (c *RWSetLoader) AddHandlerProvider(headerType common.HeaderType, handlerPr
 	return nil
 }
 
-func (c *RWSetLoader) GetRWSetFromEvn(txID string) (driver.RWSet, driver.ProcessTransaction, error) {
+func (c *Loader) GetRWSetFromEvn(txID string) (driver.RWSet, driver.ProcessTransaction, error) {
 	if !c.EnvelopeService.Exists(txID) {
 		return nil, nil, errors.Errorf("envelope does not exists for [%s]", txID)
 	}
@@ -79,7 +85,7 @@ func (c *RWSetLoader) GetRWSetFromEvn(txID string) (driver.RWSet, driver.Process
 	return nil, nil, errors.Errorf("header type not support, provided type %d", chdr.Type)
 }
 
-func (c *RWSetLoader) GetRWSetFromETx(txID string) (driver.RWSet, driver.ProcessTransaction, error) {
+func (c *Loader) GetRWSetFromETx(txID string) (driver.RWSet, driver.ProcessTransaction, error) {
 	if !c.TransactionService.Exists(txID) {
 		return nil, nil, errors.Errorf("transaction does not exists for [%s]", txID)
 	}
@@ -99,7 +105,7 @@ func (c *RWSetLoader) GetRWSetFromETx(txID string) (driver.RWSet, driver.Process
 	return rws, tx, nil
 }
 
-func (c *RWSetLoader) GetInspectingRWSetFromEvn(txID string, envelopeRaw []byte) (driver.RWSet, driver.ProcessTransaction, error) {
+func (c *Loader) GetInspectingRWSetFromEvn(txID string, envelopeRaw []byte) (driver.RWSet, driver.ProcessTransaction, error) {
 	logger.Debugf("unmarshal envelope [%s,%s]", c.Channel, txID)
 	env := &common.Envelope{}
 	err := proto.Unmarshal(envelopeRaw, env)
@@ -107,7 +113,7 @@ func (c *RWSetLoader) GetInspectingRWSetFromEvn(txID string, envelopeRaw []byte)
 		return nil, nil, errors.Wrapf(err, "failed unmarshalling envelope [%s]", txID)
 	}
 	logger.Debugf("unpack envelope [%s,%s]", c.Channel, txID)
-	upe, err := rwset.UnpackEnvelope(c.Network, env)
+	upe, err := UnpackEnvelope(c.Network, env)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "failed unpacking envelope [%s]", txID)
 	}

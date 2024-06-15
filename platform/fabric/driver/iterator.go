@@ -31,4 +31,6 @@ type TxIDIterator = vault.TxIDIterator[ValidationCode]
 type TXIDStore interface {
 	GetLastTxID() (string, error)
 	Iterator(pos interface{}) (TxIDIterator, error)
+	Get(txid string) (ValidationCode, string, error)
+	Set(txID string, code ValidationCode, message string) error
 }

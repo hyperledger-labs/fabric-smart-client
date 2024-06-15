@@ -4,35 +4,35 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package generic
+package endpoint
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
-type EndpointService interface {
+type endpointService interface {
 	GetIdentity(label string, pkiID []byte) (view.Identity, error)
 }
 
-type Resolver interface {
+type resolverService interface {
 	// GetIdentity returns the identity associated to the passed label
 	GetIdentity(label string) view.Identity
 }
 
-type endpointResolver struct {
-	resolver Resolver
-	es       EndpointService
+type resolver struct {
+	rs resolverService
+	es endpointService
 }
 
-func NewEndpointResolver(resolver Resolver, es EndpointService) (*endpointResolver, error) {
-	return &endpointResolver{
-		resolver: resolver,
-		es:       es,
+func NewResolver(rs resolverService, es endpointService) (*resolver, error) {
+	return &resolver{
+		rs: rs,
+		es: es,
 	}, nil
 }
 
-func (e *endpointResolver) GetIdentity(label string) (view.Identity, error) {
-	res := e.resolver.GetIdentity(label)
+func (e *resolver) GetIdentity(label string) (view.Identity, error) {
+	res := e.rs.GetIdentity(label)
 	if res.IsNone() {
 		// lookup for a level up
 		return e.es.GetIdentity(label, nil)
