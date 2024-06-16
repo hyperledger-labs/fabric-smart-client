@@ -62,7 +62,7 @@ func readLine(line string) (MetricName, MetricValue, error) {
 	typ := strings.TrimSpace(strings.Join(typeValue[:len(typeValue)-1], " "))
 	val, err := strconv.ParseFloat(strings.TrimSpace(typeValue[len(typeValue)-1]), 64)
 	if err != nil {
-		return "", MetricValue{}, errors.Wrapf(err, "invalid metric value: %s [%s]", val, line)
+		return "", MetricValue{}, errors.Wrapf(err, "invalid metric value: %f [%s]", val, line)
 	}
 	nameAttrs := strings.SplitN(strings.TrimRight(typ, "}"), "{", 2)
 	if len(nameAttrs) == 0 {
