@@ -19,7 +19,9 @@ import (
 	grpc2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	hash2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	protos2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view/protos"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -82,9 +84,10 @@ type client struct {
 	Time              TimeFunc
 	SigningIdentity   SigningIdentity
 	hasher            hash2.Hasher
+	tracer            trace.Tracer
 }
 
-func NewClient(config *Config, sID SigningIdentity, hasher hash2.Hasher) (*client, error) {
+func NewClient(config *Config, sID SigningIdentity, hasher hash2.Hasher, tracerProvider trace.TracerProvider) (*client, error) {
 	// create a grpc client for view peer
 	grpcClient, err := grpc2.CreateGRPCClient(config.ConnectionConfig)
 	if err != nil {
@@ -102,6 +105,9 @@ func NewClient(config *Config, sID SigningIdentity, hasher hash2.Hasher) (*clien
 		},
 		SigningIdentity: sID,
 		hasher:          hasher,
+		tracer: tracerProvider.Tracer("client", tracing.WithMetricsOpts(tracing.MetricsOpts{
+			Namespace: "viewsdk",
+		})),
 	}, nil
 }
 
@@ -116,7 +122,9 @@ func (s *client) CallView(fid string, input []byte) (interface{}, error) {
 		return nil, errors.Wrapf(err, "failed creating signed command for [%s,%s]", fid, string(input))
 	}
 
-	commandResp, err := s.processCommand(context.Background(), sc)
+	ctx, span := s.tracer.Start(context.Background(), "command", tracing.WithAttributes(tracing.String("fid", fid)), trace.WithSpanKind(trace.SpanKindInternal))
+	defer span.End()
+	commandResp, err := s.processCommand(ctx, sc)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed process command for [%s,%s]", fid, string(input))
 	}
@@ -203,6 +211,8 @@ func (s *client) StreamCallView(fid string, input []byte) (*Stream, error) {
 
 // processCommand calls view client to send grpc request and returns a CommandResponse
 func (s *client) processCommand(ctx context.Context, sc *protos2.SignedCommand) (*protos2.CommandResponse, error) {
+	newCtx, span := s.tracer.Start(ctx, "view_call", trace.WithSpanKind(trace.SpanKindClient))
+	defer span.End()
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("get view service client...")
 	}
@@ -224,7 +234,7 @@ func (s *client) processCommand(ctx context.Context, sc *protos2.SignedCommand) 
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("process command [%s]", sc.String())
 	}
-	scr, err := client.ProcessCommand(ctx, sc)
+	scr, err := client.ProcessCommand(newCtx, sc)
 	if err != nil {
 		logger.Errorf("failed view client process command [%s]", err)
 		return nil, errors.Wrap(err, "failed view client process command")

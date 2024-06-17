@@ -14,8 +14,12 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	protos2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view/protos"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel/trace"
 )
+
+const successLabel tracing.LabelName = "success"
 
 var logger = flogging.MustGetLogger("view-sdk.server")
 
@@ -36,19 +40,29 @@ type Server struct {
 	processors map[reflect.Type]Processor
 	streamers  map[reflect.Type]Streamer
 	metrics    *Metrics
+	tracer     trace.Tracer
 }
 
-func NewViewServiceServer(marshaller Marshaller, policyChecker PolicyChecker, metrics *Metrics) (*Server, error) {
+func NewViewServiceServer(marshaller Marshaller, policyChecker PolicyChecker, metrics *Metrics, tracerProvider trace.TracerProvider) (*Server, error) {
 	return &Server{
 		Marshaller:    marshaller,
 		PolicyChecker: policyChecker,
 		processors:    map[reflect.Type]Processor{},
 		streamers:     map[reflect.Type]Streamer{},
 		metrics:       metrics,
+		tracer: tracerProvider.Tracer("view_service", tracing.WithMetricsOpts(tracing.MetricsOpts{
+			Namespace:  "viewsdk",
+			LabelNames: []tracing.LabelName{successLabel},
+		})),
 	}, nil
 }
 
 func (s *Server) ProcessCommand(ctx context.Context, sc *protos2.SignedCommand) (cr *protos2.SignedCommandResponse, err error) {
+	newCtx, span := s.tracer.Start(ctx, "process_command", trace.WithSpanKind(trace.SpanKindServer))
+	defer func() {
+		span.SetAttributes(tracing.Bool(successLabel, err == nil))
+		span.End()
+	}()
 	defer func() {
 		if r := recover(); r != nil {
 			logger.Errorf("ProcessCommand triggered panic: %s\n%s\n", r, debug.Stack())
@@ -84,7 +98,7 @@ func (s *Server) ProcessCommand(ctx context.Context, sc *protos2.SignedCommand) 
 	var payload interface{}
 	switch ok {
 	case true:
-		payload, err = p(ctx, command)
+		payload, err = p(newCtx, command)
 	default:
 		err = errors.Errorf("command type not recognized: %T", reflect.TypeOf(command.GetPayload()))
 	}

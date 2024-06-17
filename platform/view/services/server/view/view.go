@@ -14,16 +14,27 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	protos2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view/protos"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel/trace"
 )
+
+const fidLabel tracing.LabelName = "fid"
 
 type viewHandler struct {
 	viewManager *view.Manager
+	tracer      trace.Tracer
 }
 
-func InstallViewHandler(viewManager *view.Manager, server Service) {
-	fh := &viewHandler{viewManager: viewManager}
+func InstallViewHandler(viewManager *view.Manager, server Service, tracerProvider trace.TracerProvider) {
+	fh := &viewHandler{
+		viewManager: viewManager,
+		tracer: tracerProvider.Tracer("view_handler", tracing.WithMetricsOpts(tracing.MetricsOpts{
+			Namespace:  "viewsdk",
+			LabelNames: []tracing.LabelName{fidLabel},
+		})),
+	}
 	server.RegisterProcessor(reflect.TypeOf(&protos2.Command_InitiateView{}), fh.initiateView)
 	server.RegisterProcessor(reflect.TypeOf(&protos2.Command_CallView{}), fh.callView)
 	server.RegisterStreamer(reflect.TypeOf(&protos2.Command_CallView{}), fh.streamCallView)
@@ -31,6 +42,8 @@ func InstallViewHandler(viewManager *view.Manager, server Service) {
 
 func (s *viewHandler) initiateView(ctx context.Context, command *protos2.Command) (interface{}, error) {
 	initiateView := command.Payload.(*protos2.Command_InitiateView).InitiateView
+	_, span := s.tracer.Start(ctx, "initiate_view", tracing.WithAttributes(tracing.String(fidLabel, initiateView.Fid)), trace.WithSpanKind(trace.SpanKindInternal))
+	defer span.End()
 
 	fid := initiateView.Fid
 	input := initiateView.Input
@@ -51,12 +64,16 @@ func (s *viewHandler) initiateView(ctx context.Context, command *protos2.Command
 
 func (s *viewHandler) callView(ctx context.Context, command *protos2.Command) (interface{}, error) {
 	callView := command.Payload.(*protos2.Command_CallView).CallView
+	_, span := s.tracer.Start(ctx, "call_view", tracing.WithAttributes(tracing.String(fidLabel, callView.Fid)), trace.WithSpanKind(trace.SpanKindInternal))
+	defer span.End()
 
 	fid := callView.Fid
 	input := callView.Input
 	logger.Debugf("Call view [%s] on input [%v]", fid, string(input))
 
+	span.AddEvent("start_new_view")
 	f, err := s.viewManager.NewView(fid, input)
+	span.AddEvent("end_new_view")
 	if err != nil {
 		return nil, errors.Errorf("failed instantiating view [%s], err [%s]", fid, err)
 	}

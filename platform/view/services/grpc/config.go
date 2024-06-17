@@ -13,6 +13,7 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/keepalive"
+	"google.golang.org/grpc/stats"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 )
@@ -75,7 +76,7 @@ type ServerConfig struct {
 	// HealthCheckEnabled enables the gRPC Health Checking Protocol for the server
 	HealthCheckEnabled bool
 	// ServerStatsHandler should be set if metrics on connections are to be reported.
-	ServerStatsHandler *ServerStatsHandler
+	ServerStatsHandler stats.Handler
 }
 
 // ClientConfig defines the parameters for configuring a Client instance

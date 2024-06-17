@@ -16,6 +16,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -95,11 +96,14 @@ func NewGRPCClient(config ClientConfig) (*Client, error) {
 		Timeout:             config.KaOpts.ClientTimeout,
 		PermitWithoutStream: true,
 	}
+	client.dialOpts = append(client.dialOpts, grpc.WithStatsHandler(otelgrpc.NewClientHandler()))
 	// set keepalive
 	client.dialOpts = append(client.dialOpts, grpc.WithKeepaliveParams(kap))
 	// Unless asynchronous connect is set, make connection establishment blocking.
 	if !config.AsyncConnect {
+		//lint:ignore SA1019 Refactor in next change
 		client.dialOpts = append(client.dialOpts, grpc.WithBlock())
+		//lint:ignore SA1019 Refactor in next change
 		client.dialOpts = append(client.dialOpts, grpc.FailOnNonTempDialError(true))
 	}
 	client.timeout = config.Timeout
@@ -319,6 +323,7 @@ func (client *Client) NewConnection(address string, tlsOptions ...TLSOption) (*g
 
 	ctx, cancel := context.WithTimeout(context.Background(), client.timeout)
 	defer cancel()
+	//lint:ignore SA1019 Refactor in next change
 	conn, err := grpc.DialContext(ctx, address, dialOpts...)
 	if err != nil {
 		commLogger.Debugf("failed to create new connection to [%s][%v]: [%s]", address, dialOpts, errors.WithStack(err))

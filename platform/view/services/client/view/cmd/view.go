@@ -16,6 +16,7 @@ import (
 	"path"
 	"time"
 
+	tracing2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/pkg/errors"
@@ -170,12 +171,17 @@ func invoke() error {
 		return err
 	}
 
+	tracerProvider, err := tracing2.NoopProvider()
+	if err != nil {
+		return err
+	}
 	c, err := view.NewClient(
 		&view.Config{
 			ConnectionConfig: cc,
 		},
 		signer,
 		&hasher{},
+		tracerProvider,
 	)
 	if err != nil {
 		return err
