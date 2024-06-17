@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 
 	csp "github.com/IBM/idemix/bccsp/types"
+	im "github.com/IBM/idemix/idemixmsp"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	m "github.com/hyperledger/fabric-protos-go/msp"
 	"github.com/pkg/errors"
@@ -19,8 +20,10 @@ type AuditInfo struct {
 	EidNymAuditData *csp.AttrNymAuditData
 	RhNymAuditData  *csp.AttrNymAuditData
 	Attributes      [][]byte
-	Csp             csp.BCCSP `json:"-"`
-	IssuerPublicKey csp.Key   `json:"-"`
+
+	Csp           csp.BCCSP     `json:"-"`
+	Ipk           []byte        `json:"-"`
+	SchemaManager SchemaManager `json:"-"`
 }
 
 func (a *AuditInfo) Bytes() ([]byte, error) {
@@ -46,22 +49,36 @@ func (a *AuditInfo) Match(id []byte) error {
 		return errors.Wrap(err, "failed to unmarshal to msp.SerializedIdentity{}")
 	}
 
-	serialized := new(m.SerializedIdemixIdentity)
+	serialized := new(im.SerializedIdemixIdentity)
 	err = proto.Unmarshal(si.IdBytes, serialized)
 	if err != nil {
 		return errors.Wrap(err, "could not deserialize a SerializedIdemixIdentity")
 	}
 
+	opts, err := a.SchemaManager.PublicKeyImportOpts(string(serialized.Schema))
+	if err != nil {
+		return errors.Wrapf(err, "could not obtain PublicKeyImportOpts for schema '%s'", string(serialized.Schema))
+	}
+
+	issuerPublicKey, err := a.Csp.KeyImport(
+		a.Ipk,
+		opts)
+	if err != nil {
+		return errors.Wrap(err, "could not obtain import public key")
+	}
+
+	eidOpts, err := a.SchemaManager.EidNymAuditOpts(serialized, a.Attributes)
+	if err != nil {
+		return errors.Wrapf(err, "could not obtain EidNymAuditOpts for schema '%s'", string(serialized.Schema))
+	}
+	eidOpts.RNymEid = a.EidNymAuditData.Rand
+
 	// Audit EID
 	valid, err := a.Csp.Verify(
-		a.IssuerPublicKey,
+		issuerPublicKey,
 		serialized.Proof,
 		nil,
-		&csp.EidNymAuditOpts{
-			EidIndex:     EIDIndex,
-			EnrollmentID: string(a.Attributes[EIDIndex]),
-			RNymEid:      a.EidNymAuditData.Rand,
-		},
+		eidOpts,
 	)
 	if err != nil {
 		return errors.Wrap(err, "error while verifying the nym eid")
@@ -70,16 +87,18 @@ func (a *AuditInfo) Match(id []byte) error {
 		return errors.New("invalid nym rh")
 	}
 
+	rhOpts, err := a.SchemaManager.RhNymAuditOpts(serialized, a.Attributes)
+	if err != nil {
+		return errors.Wrapf(err, "could not obtain EidNymAuditOpts for schema '%s'", string(serialized.Schema))
+	}
+	rhOpts.RNymRh = a.RhNymAuditData.Rand
+
 	// Audit RH
 	valid, err = a.Csp.Verify(
-		a.IssuerPublicKey,
+		issuerPublicKey,
 		serialized.Proof,
 		nil,
-		&csp.RhNymAuditOpts{
-			RhIndex:          RHIndex,
-			RevocationHandle: string(a.Attributes[RHIndex]),
-			RNymRh:           a.RhNymAuditData.Rand,
-		},
+		rhOpts,
 	)
 	if err != nil {
 		return errors.Wrap(err, "error while verifying the nym rh")
