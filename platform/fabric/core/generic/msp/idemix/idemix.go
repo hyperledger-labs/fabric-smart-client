@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package idemix
 
 import (
+	"fmt"
+
 	msp "github.com/IBM/idemix"
 	bccsp "github.com/IBM/idemix/bccsp/types"
 	im "github.com/IBM/idemix/idemixmsp"
@@ -23,6 +25,8 @@ type SchemaManager interface {
 	PublicKeyImportOpts(schema string) (*bccsp.IdemixIssuerPublicKeyImportOpts, error)
 	// SignerOpts returns the options that `sid` must use to generate a signature (ZKP)
 	SignerOpts(sid *im.SerializedIdemixIdentity) (*bccsp.IdemixSignerOpts, error)
+	// NymSignerOpts returns the options that `schema` uses to verify a nym signature
+	NymSignerOpts(schema string) (*bccsp.IdemixNymSignerOpts, error)
 }
 
 const (
@@ -39,16 +43,70 @@ const (
 type defaultSchemaManager struct {
 }
 
+// attributeNames are the attribute names for the `w3c` schema
+var attributeNames = []string{
+	"_:c14n0 <http://www.w3.",
+	"_:c14n0 <https://w3id.o",
+	"_:c14n0 <https://w3id.o",
+	"<did:key:z6MknntgQWCT8Z",
+	"<did:key:z6MknntgQWCT8Z",
+	"<did:key:z6MknntgQWCT8Z",
+	"<did:key:z6MknntgQWCT8Z",
+	"<did:key:z6MknntgQWCT8Z",
+	"<did:key:z6MknntgQWCT8Z",
+	"<did:key:z6MknntgQWCT8Z",
+	"<did:key:z6MknntgQWCT8Z",
+	"<did:key:z6MknntgQWCT8Z",
+	"<did:key:z6MknntgQWCT8Z",
+	"<did:key:z6MknntgQWCT8Z",
+	"<did:key:z6MknntgQWCT8Z",
+	"<did:key:z6MknntgQWCT8Z",
+	"<https://issuer.oidp.us",
+	"<https://issuer.oidp.us",
+	"<https://issuer.oidp.us",
+	"<https://issuer.oidp.us",
+	"<https://issuer.oidp.us",
+	"<https://issuer.oidp.us",
+	"<https://issuer.oidp.us",
+	"_:c14n0 <cbdccard:2_ou>",
+	"_:c14n0 <cbdccard:3_rol",
+	"_:c14n0 <cbdccard:4_eid",
+	"_:c14n0 <cbdccard:5_rh>",
+}
+
+func (*defaultSchemaManager) NymSignerOpts(schema string) (*bccsp.IdemixNymSignerOpts, error) {
+	switch schema {
+	case "":
+		return &bccsp.IdemixNymSignerOpts{}, nil
+	case "w3c-v0.0.1":
+		return &bccsp.IdemixNymSignerOpts{
+			SKIndex: 24,
+		}, nil
+	}
+
+	return nil, fmt.Errorf("unsupported schema '%s' for NymSignerOpts", schema)
+}
+
 func (*defaultSchemaManager) PublicKeyImportOpts(schema string) (*bccsp.IdemixIssuerPublicKeyImportOpts, error) {
-	return &bccsp.IdemixIssuerPublicKeyImportOpts{
-		Temporary: true,
-		AttributeNames: []string{
-			msp.AttributeNameOU,
-			msp.AttributeNameRole,
-			msp.AttributeNameEnrollmentId,
-			msp.AttributeNameRevocationHandle,
-		},
-	}, nil
+	switch schema {
+	case "":
+		return &bccsp.IdemixIssuerPublicKeyImportOpts{
+			Temporary: true,
+			AttributeNames: []string{
+				msp.AttributeNameOU,
+				msp.AttributeNameRole,
+				msp.AttributeNameEnrollmentId,
+				msp.AttributeNameRevocationHandle,
+			},
+		}, nil
+	case "w3c-v0.0.1":
+		return &bccsp.IdemixIssuerPublicKeyImportOpts{
+			Temporary:      true,
+			AttributeNames: append([]string{""}, attributeNames...),
+		}, nil
+	}
+
+	return nil, fmt.Errorf("unsupported schema '%s' for PublicKeyImportOpts", schema)
 }
 
 func (*defaultSchemaManager) SignerOpts(sid *im.SerializedIdemixIdentity) (*bccsp.IdemixSignerOpts, error) {
@@ -66,16 +124,50 @@ func (*defaultSchemaManager) SignerOpts(sid *im.SerializedIdemixIdentity) (*bccs
 		return nil, errors.Wrap(err, "cannot deserialize the role of the identity")
 	}
 
-	return &bccsp.IdemixSignerOpts{
-		Attributes: []bccsp.IdemixAttribute{
-			{Type: bccsp.IdemixBytesAttribute, Value: []byte(ou.OrganizationalUnitIdentifier)},
-			{Type: bccsp.IdemixIntAttribute, Value: GetIdemixRoleFromMSPRole(role)},
-			{Type: bccsp.IdemixHiddenAttribute},
-			{Type: bccsp.IdemixHiddenAttribute},
-		},
-		RhIndex:  rhIdx,
-		EidIndex: eidIdx,
-	}, nil
+	switch sid.Schema {
+	case "":
+		return &bccsp.IdemixSignerOpts{
+			Attributes: []bccsp.IdemixAttribute{
+				{Type: bccsp.IdemixBytesAttribute, Value: []byte(ou.OrganizationalUnitIdentifier)},
+				{Type: bccsp.IdemixIntAttribute, Value: GetIdemixRoleFromMSPRole(role)},
+				{Type: bccsp.IdemixHiddenAttribute},
+				{Type: bccsp.IdemixHiddenAttribute},
+			},
+			RhIndex:  rhIdx,
+			EidIndex: eidIdx,
+		}, nil
+	case "w3c-v0.0.1":
+		role_str := fmt.Sprintf("_:c14n0 \u003ccbdccard:3_role\u003e \"%d\"^^\u003chttp://www.w3.org/2001/XMLSchema#integer\u003e .", GetIdemixRoleFromMSPRole(role))
+
+		idemixAttrs := []bccsp.IdemixAttribute{}
+		for i := range attributeNames {
+			if i == 25 {
+				idemixAttrs = append(idemixAttrs, bccsp.IdemixAttribute{
+					Type:  bccsp.IdemixBytesAttribute,
+					Value: []byte(role_str),
+				})
+			} else if i == 24 {
+				idemixAttrs = append(idemixAttrs, bccsp.IdemixAttribute{
+					Type:  bccsp.IdemixBytesAttribute,
+					Value: []byte(ou.OrganizationalUnitIdentifier),
+				})
+			} else {
+				idemixAttrs = append(idemixAttrs, bccsp.IdemixAttribute{
+					Type: bccsp.IdemixHiddenAttribute,
+				})
+			}
+		}
+
+		return &bccsp.IdemixSignerOpts{
+			Attributes:       idemixAttrs,
+			RhIndex:          27,
+			EidIndex:         26,
+			SKIndex:          24,
+			VerificationType: bccsp.ExpectEidNymRhNym,
+		}, nil
+	}
+
+	return nil, fmt.Errorf("unsupported schema '%s' for NymSignerOpts", sid.Schema)
 }
 
 type Identity struct {
@@ -84,6 +176,7 @@ type Identity struct {
 	SerializedIdentity *m.SerializedIdentity
 	OU                 *m.OrganizationUnit
 	Role               *m.MSPRole
+	Schema             string
 }
 
 type Idemix struct {
@@ -197,6 +290,7 @@ func (c *Idemix) DeserializeAgainstNymEID(raw []byte, checkValidity bool, nymEID
 		SerializedIdentity: si,
 		OU:                 ou,
 		Role:               role,
+		Schema:             serialized.Schema,
 	}, nil
 }
 
@@ -215,16 +309,24 @@ type NymSignatureVerifier struct {
 	CSP   bccsp.BCCSP
 	IPK   bccsp.Key
 	NymPK bccsp.Key
+
+	SchemaManager SchemaManager
+	Schema        string
 }
 
 func (v *NymSignatureVerifier) Verify(message, sigma []byte) error {
-	_, err := v.CSP.Verify(
+	opts, err := v.SchemaManager.NymSignerOpts(v.Schema)
+	if err != nil {
+		return errors.Wrapf(err, "could not obtain NymSignerOpts for schema '%s'", v.Schema)
+	}
+
+	opts.IssuerPK = v.IPK
+
+	_, err = v.CSP.Verify(
 		v.NymPK,
 		sigma,
 		message,
-		&bccsp.IdemixNymSignerOpts{
-			IssuerPK: v.IPK,
-		},
+		opts,
 	)
 	return err
 }
