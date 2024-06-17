@@ -28,6 +28,7 @@ import (
 	runner2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/runner"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/commands"
 	node2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
+	tracing2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/view"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/view/cmd"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/web"
@@ -206,6 +207,10 @@ func (p *Platform) PostRun(bool) {
 		address := v.GetString("fsc.grpc.address")
 		p.setIdentities(address, peer)
 	}
+	tracerProvider, err := tracing2.FileProvider(&tracing2.FileConfig{Path: "./client-trace.out"})
+	if err != nil {
+		panic(err)
+	}
 
 	for _, node := range p.Peers {
 		v := p.viper(node)
@@ -220,6 +225,7 @@ func (p *Platform) PostRun(bool) {
 			},
 			p.Context.ClientSigningIdentity(node.Name),
 			crypto.NewProvider(),
+			tracerProvider,
 		)
 		Expect(err).NotTo(HaveOccurred())
 		p.Context.SetViewClient(node.Name, grpcClient)

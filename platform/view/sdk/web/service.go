@@ -20,6 +20,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/operations"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/web"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 )
 
@@ -122,6 +123,7 @@ func NewServerConfig(configProvider driver.ConfigService) (grpc2.ServerConfig, e
 		StreamInterceptors: []grpc.StreamServerInterceptor{
 			grpclogging.StreamServerInterceptor(flogging.MustGetLogger("comm.grpc.server").Zap()),
 		},
+		ServerStatsHandler: otelgrpc.NewServerHandler(),
 	}
 	if serverConfig.SecOpts.UseTLS {
 		// get the certs from the file system

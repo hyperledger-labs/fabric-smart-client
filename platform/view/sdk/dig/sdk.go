@@ -23,6 +23,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/sig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/finality"
+	tracing2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/web"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
@@ -42,7 +43,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/operations"
 	view3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view/protos"
-	tracing2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/dig"
 )
 
@@ -158,20 +159,21 @@ func (p *SDK) Start(ctx context.Context) error {
 		dig.In
 		ConfigProvider driver.ConfigService
 
-		GRPCServer   *grpc.GRPCServer
-		ViewManager  *view.Manager
-		ViewManager2 ViewManager
-		ViewService  view3.Service
-		CommService  *comm.Service
-		WebServer    web.Server
-		System       *operations.System
-		KVS          *kvs.KVS
+		GRPCServer     *grpc.GRPCServer
+		ViewManager    *view.Manager
+		ViewManager2   ViewManager
+		ViewService    view3.Service
+		CommService    *comm.Service
+		WebServer      web.Server
+		System         *operations.System
+		KVS            *kvs.KVS
+		TracerProvider trace.TracerProvider
 	}) error {
 		protos.RegisterViewServiceServer(in.GRPCServer.Server(), in.ViewService)
 
 		in.CommService.Start(ctx)
 
-		view3.InstallViewHandler(in.ViewManager, in.ViewService)
+		view3.InstallViewHandler(in.ViewManager, in.ViewService, in.TracerProvider)
 		go in.ViewManager2.Start(ctx)
 
 		web.Serve(in.GRPCServer, in.WebServer, in.System, in.KVS, ctx)

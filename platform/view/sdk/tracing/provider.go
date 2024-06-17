@@ -26,20 +26,47 @@ import (
 	"go.opentelemetry.io/otel/trace/noop"
 )
 
+type TracerType string
+
+const (
+	None    TracerType = "none"
+	Otpl    TracerType = "optl"
+	File    TracerType = "file"
+	Console TracerType = "console"
+)
+
+type Config struct {
+	Provider TracerType  `yaml:"provider"`
+	File     *FileConfig `yaml:"file"`
+	Otpl     *OtplConfig `yaml:"otpl"`
+}
+
+type FileConfig struct {
+	Path string `yaml:"path"`
+}
+
+type OtplConfig struct {
+	Address string `yaml:"address"`
+}
+
 var logger = flogging.MustGetLogger("view-sdk.tracing")
 
 func NewTracerProvider(confService driver.ConfigService) (trace.TracerProvider, error) {
-	switch confService.GetString("fsc.tracing.provider") {
-	case "none":
+	c := Config{}
+	if err := confService.UnmarshalKey("fsc.tracing", &c); err != nil {
+		return nil, err
+	}
+	switch c.Provider {
+	case None:
 		logger.Infof("No-op tracer provider selected")
 		return NoopProvider()
-	case "optl":
+	case Otpl:
 		logger.Infof("OPTL tracer provider selected")
-		return HttpProvider(confService.GetString("fsc.tracing.optl.address"))
-	case "file":
+		return HttpProvider(c.Otpl)
+	case File:
 		logger.Infof("File tracing provider selected")
-		return FileProvider(confService.GetPath("fsc.tracing.file.path"))
-	case "console":
+		return FileProvider(c.File)
+	case Console:
 		logger.Infof("Console tracing provider selected")
 		return ConsoleProvider()
 	default:
@@ -53,11 +80,11 @@ func NoopProvider() (noop.TracerProvider, error) {
 	return noop.NewTracerProvider(), nil
 }
 
-func FileProvider(filepath string) (*sdktrace.TracerProvider, error) {
-	if len(filepath) == 0 {
+func FileProvider(c *FileConfig) (*sdktrace.TracerProvider, error) {
+	if c == nil || len(c.Path) == 0 {
 		return nil, errors.New("filepath must not be empty")
 	}
-	f, err := os.Create(filepath)
+	f, err := os.Create(c.Path)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to open output file")
 	}
@@ -76,12 +103,12 @@ func ConsoleProvider() (*sdktrace.TracerProvider, error) {
 	return providerWithExporter(context.Background(), exporter)
 }
 
-func HttpProvider(url string) (*sdktrace.TracerProvider, error) {
-	if len(url) == 0 {
+func HttpProvider(c *OtplConfig) (*sdktrace.TracerProvider, error) {
+	if c == nil || len(c.Address) == 0 {
 		return nil, errors.New("empty url")
 	}
 	logger.Infof("Tracing enabled: optl")
-	exporter, err := otlptrace.New(context.Background(), otlptracehttp.NewClient(otlptracehttp.WithInsecure(), otlptracehttp.WithEndpoint(url)))
+	exporter, err := otlptrace.New(context.Background(), otlptracehttp.NewClient(otlptracehttp.WithInsecure(), otlptracehttp.WithEndpoint(c.Address)))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed creating trace exporter")
 	}
