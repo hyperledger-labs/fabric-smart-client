@@ -67,16 +67,18 @@ func (a *AuditInfo) Match(id []byte) error {
 		return errors.Wrap(err, "could not obtain import public key")
 	}
 
+	eidOpts, err := a.SchemaManager.EidNymAuditOpts(serialized, a.Attributes)
+	if err != nil {
+		return errors.Wrapf(err, "could not obtain EidNymAuditOpts for schema '%s'", string(serialized.Schema))
+	}
+	eidOpts.RNymEid = a.EidNymAuditData.Rand
+
 	// Audit EID
 	valid, err := a.Csp.Verify(
 		issuerPublicKey,
 		serialized.Proof,
 		nil,
-		&csp.EidNymAuditOpts{
-			EidIndex:     EIDIndex,
-			EnrollmentID: string(a.Attributes[EIDIndex]),
-			RNymEid:      a.EidNymAuditData.Rand,
-		},
+		eidOpts,
 	)
 	if err != nil {
 		return errors.Wrap(err, "error while verifying the nym eid")
@@ -85,16 +87,18 @@ func (a *AuditInfo) Match(id []byte) error {
 		return errors.New("invalid nym rh")
 	}
 
+	rhOpts, err := a.SchemaManager.RhNymAuditOpts(serialized, a.Attributes)
+	if err != nil {
+		return errors.Wrapf(err, "could not obtain EidNymAuditOpts for schema '%s'", string(serialized.Schema))
+	}
+	rhOpts.RNymRh = a.RhNymAuditData.Rand
+
 	// Audit RH
 	valid, err = a.Csp.Verify(
 		issuerPublicKey,
 		serialized.Proof,
 		nil,
-		&csp.RhNymAuditOpts{
-			RhIndex:          RHIndex,
-			RevocationHandle: string(a.Attributes[RHIndex]),
-			RNymRh:           a.RhNymAuditData.Rand,
-		},
+		rhOpts,
 	)
 	if err != nil {
 		return errors.Wrap(err, "error while verifying the nym rh")

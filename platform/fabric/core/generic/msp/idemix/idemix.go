@@ -27,11 +27,16 @@ type SchemaManager interface {
 	SignerOpts(sid *im.SerializedIdemixIdentity) (*bccsp.IdemixSignerOpts, error)
 	// NymSignerOpts returns the options that `schema` uses to verify a nym signature
 	NymSignerOpts(schema string) (*bccsp.IdemixNymSignerOpts, error)
+	// EidNymAuditOpts returns the options that `sid` must use to audit an EIDNym
+	EidNymAuditOpts(sid *im.SerializedIdemixIdentity, attrs [][]byte) (*bccsp.EidNymAuditOpts, error)
+	// RhNymAuditOpts returns the options that `sid` must use to audit an RhNym
+	RhNymAuditOpts(sid *im.SerializedIdemixIdentity, attrs [][]byte) (*bccsp.RhNymAuditOpts, error)
 }
 
 const (
 	eidIdx = 2
 	rhIdx  = 3
+	skIdx  = 0
 )
 
 // defaultSchemaManager implements the default schema for fabric:
@@ -107,6 +112,44 @@ func (*defaultSchemaManager) PublicKeyImportOpts(schema string) (*bccsp.IdemixIs
 	}
 
 	return nil, fmt.Errorf("unsupported schema '%s' for PublicKeyImportOpts", schema)
+}
+
+func (*defaultSchemaManager) RhNymAuditOpts(sid *im.SerializedIdemixIdentity, attrs [][]byte) (*bccsp.RhNymAuditOpts, error) {
+	switch sid.Schema {
+	case "":
+		return &bccsp.RhNymAuditOpts{
+			RhIndex:          rhIdx,
+			SKIndex:          skIdx,
+			RevocationHandle: string(attrs[rhIdx]),
+		}, nil
+	case "w3c-v0.0.1":
+		return &bccsp.RhNymAuditOpts{
+			RhIndex:          27,
+			SKIndex:          24,
+			RevocationHandle: string(attrs[27]),
+		}, nil
+	}
+
+	return nil, fmt.Errorf("unsupported schema '%s' for NymSignerOpts", sid.Schema)
+}
+
+func (*defaultSchemaManager) EidNymAuditOpts(sid *im.SerializedIdemixIdentity, attrs [][]byte) (*bccsp.EidNymAuditOpts, error) {
+	switch sid.Schema {
+	case "":
+		return &bccsp.EidNymAuditOpts{
+			EidIndex:     eidIdx,
+			SKIndex:      skIdx,
+			EnrollmentID: string(attrs[eidIdx]),
+		}, nil
+	case "w3c-v0.0.1":
+		return &bccsp.EidNymAuditOpts{
+			EidIndex:     26,
+			SKIndex:      24,
+			EnrollmentID: string(attrs[26]),
+		}, nil
+	}
+
+	return nil, fmt.Errorf("unsupported schema '%s' for NymSignerOpts", sid.Schema)
 }
 
 func (*defaultSchemaManager) SignerOpts(sid *im.SerializedIdemixIdentity) (*bccsp.IdemixSignerOpts, error) {
