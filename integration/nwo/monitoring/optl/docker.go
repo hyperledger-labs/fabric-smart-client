@@ -46,11 +46,11 @@ func (n *Extension) startContainer() {
 	n.startJaeger()
 	logger.Infof("Run jaeger-all-in-one...done!")
 
-	time.Sleep(10 * time.Second)
-
-	logger.Infof("Run otel-collector...")
-	n.startOPTLCollector()
-	logger.Infof("Run otel-collector...done!")
+	//time.Sleep(10 * time.Second)
+	//
+	//logger.Infof("Run otel-collector...")
+	//n.startOPTLCollector()
+	//logger.Infof("Run otel-collector...done!")
 }
 
 func (n *Extension) startJaeger() {
