@@ -111,7 +111,7 @@ func (p *SDK) Install() error {
 		p.C.Provide(operations.NewOperationSystem),
 		p.C.Provide(view3.NewResponseMarshaler, dig.As(new(view3.Marshaller))),
 		p.C.Provide(func(o *operations.Options, l operations.OperationsLogger) metrics2.Provider {
-			return operations.NewMetricsProvider(o.Metrics, l)
+			return operations.NewMetricsProvider(o.Metrics, l, false)
 		}),
 		p.C.Provide(func(metricsProvider metrics2.Provider, configService driver.ConfigService) (trace.TracerProvider, error) {
 			if tp, err := tracing2.NewTracerProvider(configService); err != nil {

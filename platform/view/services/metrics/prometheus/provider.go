@@ -13,48 +13,47 @@ import (
 	prom "github.com/prometheus/client_golang/prometheus"
 )
 
-type Provider struct{}
+type Provider struct {
+	SkipRegisterErr bool
+}
 
 func (p *Provider) NewCounter(o metrics.CounterOpts) metrics.Counter {
-	return &Counter{
-		Counter: prometheus.NewCounterFrom(
-			prom.CounterOpts{
-				Namespace: o.Namespace,
-				Subsystem: o.Subsystem,
-				Name:      o.Name,
-				Help:      o.Help,
-			},
-			o.LabelNames,
-		),
-	}
+	cv := prom.NewCounterVec(prom.CounterOpts{
+		Namespace: o.Namespace,
+		Subsystem: o.Subsystem,
+		Name:      o.Name,
+		Help:      o.Help,
+	}, o.LabelNames)
+	p.register(cv)
+	return &Counter{Counter: prometheus.NewCounter(cv)}
 }
 
 func (p *Provider) NewGauge(o metrics.GaugeOpts) metrics.Gauge {
-	return &Gauge{
-		Gauge: prometheus.NewGaugeFrom(
-			prom.GaugeOpts{
-				Namespace: o.Namespace,
-				Subsystem: o.Subsystem,
-				Name:      o.Name,
-				Help:      o.Help,
-			},
-			o.LabelNames,
-		),
-	}
+	gv := prom.NewGaugeVec(prom.GaugeOpts{
+		Namespace: o.Namespace,
+		Subsystem: o.Subsystem,
+		Name:      o.Name,
+		Help:      o.Help,
+	}, o.LabelNames)
+	p.register(gv)
+	return &Gauge{Gauge: prometheus.NewGauge(gv)}
 }
 
 func (p *Provider) NewHistogram(o metrics.HistogramOpts) metrics.Histogram {
-	return &Histogram{
-		Histogram: prometheus.NewHistogramFrom(
-			prom.HistogramOpts{
-				Namespace: o.Namespace,
-				Subsystem: o.Subsystem,
-				Name:      o.Name,
-				Help:      o.Help,
-				Buckets:   o.Buckets,
-			},
-			o.LabelNames,
-		),
+	hv := prom.NewHistogramVec(prom.HistogramOpts{
+		Namespace: o.Namespace,
+		Subsystem: o.Subsystem,
+		Name:      o.Name,
+		Help:      o.Help,
+		Buckets:   o.Buckets,
+	}, o.LabelNames)
+	p.register(hv)
+	return &Histogram{prometheus.NewHistogram(hv)}
+}
+
+func (p *Provider) register(c prom.Collector) {
+	if err := prom.Register(c); err != nil && !p.SkipRegisterErr {
+		panic(err)
 	}
 }
 
