@@ -43,6 +43,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/operations"
 	view3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view/protos"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/dig"
 )
@@ -112,7 +113,13 @@ func (p *SDK) Install() error {
 		p.C.Provide(func(o *operations.Options, l operations.OperationsLogger) metrics2.Provider {
 			return operations.NewMetricsProvider(o.Metrics, l)
 		}),
-		p.C.Provide(tracing2.NewTracerProvider),
+		p.C.Provide(func(metricsProvider metrics2.Provider, configService driver.ConfigService) (trace.TracerProvider, error) {
+			if tp, err := tracing2.NewTracerProvider(configService); err != nil {
+				return nil, err
+			} else {
+				return tracing2.NewWrappedTracerProvider(tracing.NewTracerProviderWithBackingProvider(tp, metricsProvider)), nil
+			}
+		}),
 		p.C.Provide(view3.NewMetrics),
 		p.C.Provide(view3.NewAccessControlChecker, dig.As(new(view3.PolicyChecker))),
 		p.C.Provide(view3.NewViewServiceServer, dig.As(new(view3.Service), new(finality.Server))),
@@ -125,7 +132,9 @@ func (p *SDK) Install() error {
 		p.C.Provide(digutils.Identity[*comm.Service](), dig.As(new(manager.CommLayer))),
 		p.C.Provide(provider.NewHostProvider),
 		p.C.Provide(view.NewSigService),
-		p.C.Provide(func() *finality.Manager { return &finality.Manager{} }),
+		p.C.Provide(func(tracerProvider trace.TracerProvider) *finality.Manager {
+			return finality.NewManager(tracerProvider)
+		}),
 	)
 	if err != nil {
 		return err
@@ -133,6 +142,7 @@ func (p *SDK) Install() error {
 
 	err = errors.Join(
 		digutils.Register[*kvs.KVS](p.C),
+		digutils.Register[trace.TracerProvider](p.C),
 		digutils.Register[driver.EndpointService](p.C),
 		digutils.Register[view3.IdentityProvider](p.C),
 		digutils.Register[node.ViewManager](p.C), // Need to add it as a field in the node

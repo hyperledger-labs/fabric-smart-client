@@ -17,8 +17,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	grpc2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
-	hash2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
-	protos2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view/protos"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view/protos"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
@@ -42,7 +42,7 @@ type SigningIdentity interface {
 // ViewServiceClient defines an interface that creates a client to communicate with the view service in a peer
 type ViewServiceClient interface {
 	// CreateViewClient creates a grpc connection and client to view peer
-	CreateViewClient() (*grpc.ClientConn, protos2.ViewServiceClient, error)
+	CreateViewClient() (*grpc.ClientConn, protos.ViewServiceClient, error)
 
 	// Certificate returns tls client certificate
 	Certificate() *tls.Certificate
@@ -55,7 +55,7 @@ type ViewServiceClientImpl struct {
 	GRPCClient         *grpc2.Client
 }
 
-func (pc *ViewServiceClientImpl) CreateViewClient() (*grpc.ClientConn, protos2.ViewServiceClient, error) {
+func (pc *ViewServiceClientImpl) CreateViewClient() (*grpc.ClientConn, protos.ViewServiceClient, error) {
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("opening connection to [%s]", pc.Address)
 	}
@@ -68,7 +68,7 @@ func (pc *ViewServiceClientImpl) CreateViewClient() (*grpc.ClientConn, protos2.V
 		logger.Debugf("opening connection to [%s], done.", pc.Address)
 	}
 
-	return conn, protos2.NewViewServiceClient(conn), nil
+	return conn, protos.NewViewServiceClient(conn), nil
 }
 
 func (pc *ViewServiceClientImpl) Certificate() *tls.Certificate {
@@ -83,11 +83,11 @@ type client struct {
 	RandomnessReader  io.Reader
 	Time              TimeFunc
 	SigningIdentity   SigningIdentity
-	hasher            hash2.Hasher
+	hasher            hash.Hasher
 	tracer            trace.Tracer
 }
 
-func NewClient(config *Config, sID SigningIdentity, hasher hash2.Hasher, tracerProvider trace.TracerProvider) (*client, error) {
+func NewClient(config *Config, sID SigningIdentity, hasher hash.Hasher, tracerProvider trace.TracerProvider) (*client, error) {
 	// create a grpc client for view peer
 	grpcClient, err := grpc2.CreateGRPCClient(config.ConnectionConfig)
 	if err != nil {
@@ -113,7 +113,7 @@ func NewClient(config *Config, sID SigningIdentity, hasher hash2.Hasher, tracerP
 
 func (s *client) CallView(fid string, input []byte) (interface{}, error) {
 	logger.Infof("Calling view [%s] on input [%s]", fid, string(input))
-	payload := &protos2.Command_CallView{CallView: &protos2.CallView{
+	payload := &protos.Command_CallView{CallView: &protos.CallView{
 		Fid:   fid,
 		Input: input,
 	}}
@@ -152,7 +152,7 @@ func (s *client) IsTxFinal(txid string, opts ...api.ServiceOption) error {
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("Calling IsTxFinal on txid [%s]", txid)
 	}
-	payload := &protos2.Command_IsTxFinal{IsTxFinal: &protos2.IsTxFinal{
+	payload := &protos.Command_IsTxFinal{IsTxFinal: &protos.IsTxFinal{
 		Network: options.Network,
 		Channel: options.Channel,
 		Txid:    txid,
@@ -192,7 +192,7 @@ func (s *client) IsTxFinal(txid string, opts ...api.ServiceOption) error {
 
 func (s *client) StreamCallView(fid string, input []byte) (*Stream, error) {
 	logger.Infof("Streaming view call [%s] on input [%s]", fid, string(input))
-	payload := &protos2.Command_CallView{CallView: &protos2.CallView{
+	payload := &protos.Command_CallView{CallView: &protos.CallView{
 		Fid:   fid,
 		Input: input,
 	}}
@@ -210,8 +210,8 @@ func (s *client) StreamCallView(fid string, input []byte) (*Stream, error) {
 }
 
 // processCommand calls view client to send grpc request and returns a CommandResponse
-func (s *client) processCommand(ctx context.Context, sc *protos2.SignedCommand) (*protos2.CommandResponse, error) {
-	newCtx, span := s.tracer.Start(ctx, "view_call", trace.WithSpanKind(trace.SpanKindClient))
+func (s *client) processCommand(ctx context.Context, sc *protos.SignedCommand) (*protos.CommandResponse, error) {
+	newCtx, span := s.tracer.Start(ctx, "process_command", trace.WithSpanKind(trace.SpanKindClient))
 	defer span.End()
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("get view service client...")
@@ -241,9 +241,9 @@ func (s *client) processCommand(ctx context.Context, sc *protos2.SignedCommand) 
 	}
 
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("parse answer [%s]", hash2.Hashable(scr.Response).String())
+		logger.Debugf("parse answer [%s]", hash.Hashable(scr.Response).String())
 	}
-	commandResp := &protos2.CommandResponse{}
+	commandResp := &protos.CommandResponse{}
 	err = proto.Unmarshal(scr.Response, commandResp)
 	if err != nil {
 		logger.Errorf("failed to unmarshal command response [%s]", err)
@@ -261,7 +261,7 @@ func (s *client) processCommand(ctx context.Context, sc *protos2.SignedCommand) 
 }
 
 // streamCommand calls view client to send grpc request and returns a CommandResponse
-func (s *client) streamCommand(ctx context.Context, sc *protos2.SignedCommand) (*grpc.ClientConn, protos2.ViewService_StreamCommandClient, error) {
+func (s *client) streamCommand(ctx context.Context, sc *protos.SignedCommand) (*grpc.ClientConn, protos.ViewService_StreamCommandClient, error) {
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("get view service client...")
 	}
@@ -294,7 +294,7 @@ func (s *client) streamCommand(ctx context.Context, sc *protos2.SignedCommand) (
 	return conn, streamCommandClient, nil
 }
 
-func (s *client) CreateSignedCommand(payload interface{}, signingIdentity SigningIdentity) (*protos2.SignedCommand, error) {
+func (s *client) CreateSignedCommand(payload interface{}, signingIdentity SigningIdentity) (*protos.SignedCommand, error) {
 	command, err := commandFromPayload(payload)
 	if err != nil {
 		return nil, err
@@ -321,7 +321,7 @@ func (s *client) CreateSignedCommand(payload interface{}, signingIdentity Signin
 	if err != nil {
 		return nil, err
 	}
-	command.Header = &protos2.Header{
+	command.Header = &protos.Header{
 		Timestamp:   ts,
 		Nonce:       nonce,
 		Creator:     creator,
@@ -338,23 +338,23 @@ func (s *client) CreateSignedCommand(payload interface{}, signingIdentity Signin
 		return nil, err
 	}
 
-	sc := &protos2.SignedCommand{
+	sc := &protos.SignedCommand{
 		Command:   raw,
 		Signature: signature,
 	}
 	return sc, nil
 }
 
-func commandFromPayload(payload interface{}) (*protos2.Command, error) {
+func commandFromPayload(payload interface{}) (*protos.Command, error) {
 	switch t := payload.(type) {
-	case *protos2.Command_InitiateView:
-		return &protos2.Command{Payload: t}, nil
-	case *protos2.Command_TrackView:
-		return &protos2.Command{Payload: t}, nil
-	case *protos2.Command_CallView:
-		return &protos2.Command{Payload: t}, nil
-	case *protos2.Command_IsTxFinal:
-		return &protos2.Command{Payload: t}, nil
+	case *protos.Command_InitiateView:
+		return &protos.Command{Payload: t}, nil
+	case *protos.Command_TrackView:
+		return &protos.Command{Payload: t}, nil
+	case *protos.Command_CallView:
+		return &protos.Command{Payload: t}, nil
+	case *protos.Command_IsTxFinal:
+		return &protos.Command{Payload: t}, nil
 	default:
 		return nil, errors.Errorf("command type not recognized: %T", t)
 	}

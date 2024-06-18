@@ -167,7 +167,7 @@ func (cm *manager) registerResponderWithIdentity(responder view.View, id view.Id
 	}
 }
 
-func (cm *manager) Initiate(id string) (interface{}, error) {
+func (cm *manager) Initiate(id string, ctx context.Context) (interface{}, error) {
 	// Lookup the initiator
 	cm.viewsSync.RLock()
 	responders := cm.views[id]
@@ -183,25 +183,22 @@ func (cm *manager) Initiate(id string) (interface{}, error) {
 		return nil, errors.Errorf("initiator not found for [%s]", id)
 	}
 
-	return cm.InitiateViewWithIdentity(res.View, cm.me())
+	return cm.InitiateViewWithIdentity(res.View, cm.me(), ctx)
 }
 
-func (cm *manager) InitiateView(view view.View) (interface{}, error) {
-	return cm.InitiateViewWithIdentity(view, cm.me())
+func (cm *manager) InitiateView(view view.View, ctx context.Context) (interface{}, error) {
+	return cm.InitiateViewWithIdentity(view, cm.me(), ctx)
 }
 
-func (cm *manager) InitiateViewWithIdentity(view view.View, id view.Identity) (interface{}, error) {
-	// Create the context
-	cm.contextsSync.Lock()
-	ctx := cm.ctx
-	cm.contextsSync.Unlock()
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	viewContext, err := NewContextForInitiator("", ctx, cm.sp, cm.commLayer, cm.endpointService, id, view, cm.viewTracer)
+func (cm *manager) InitiateViewWithIdentity(view view.View, id view.Identity, ctx context.Context) (interface{}, error) {
+	newCtx, span := cm.viewTracer.Start(ctx, "initiate_view_with_identity")
+	defer span.End()
+	span.AddEvent("start_new_context")
+	viewContext, err := NewContextForInitiator("", newCtx, cm.sp, cm.commLayer, cm.endpointService, id, view, cm.viewTracer)
 	if err != nil {
 		return nil, err
 	}
+	span.AddEvent("end_new_context")
 	childContext := &childContext{ParentContext: viewContext}
 	cm.contextsSync.Lock()
 	cm.contexts[childContext.ID()] = childContext
@@ -210,7 +207,9 @@ func (cm *manager) InitiateViewWithIdentity(view view.View, id view.Identity) (i
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("[%s] InitiateView [view:%s], [ContextID:%s]", id, getIdentifier(view), childContext.ID())
 	}
+	span.AddEvent("start_run_view")
 	res, err := childContext.RunView(view)
+	span.AddEvent("end_run_view", tracing.WithAttributes(tracing.Bool(SuccessLabel, err == nil)))
 	if err != nil {
 		if logger.IsEnabledFor(zapcore.DebugLevel) {
 			logger.Debugf("[%s] InitiateView [view:%s], [ContextID:%s] failed [%s]", id, getIdentifier(view), childContext.ID(), err)

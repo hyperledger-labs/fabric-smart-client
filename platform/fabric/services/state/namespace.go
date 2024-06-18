@@ -27,10 +27,6 @@ type MetaHandler interface {
 	StoreMeta(ns *Namespace, s interface{}, namespace string, key string, options *addOutputOptions) error
 }
 
-type ViewManager interface {
-	InitiateView(view view.View) (interface{}, error)
-}
-
 // Command models an operation that involve given business parties
 type Command struct {
 	// Name of the commands

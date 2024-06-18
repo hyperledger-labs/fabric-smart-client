@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package view
 
 import (
+	"context"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -37,8 +39,8 @@ func (m *Manager) Context(contextID string) (*Context, error) {
 }
 
 // InitiateView invokes the passed view and returns the result produced by that view
-func (m *Manager) InitiateView(view View) (interface{}, error) {
-	return m.m.InitiateView(view)
+func (m *Manager) InitiateView(view View, ctx context.Context) (interface{}, error) {
+	return m.m.InitiateView(view, ctx)
 }
 
 // InitiateContext initiates a new context for the passed view

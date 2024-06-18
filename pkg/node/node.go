@@ -15,12 +15,19 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/api"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
-	view3 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
-	config2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/core/config"
+	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/config"
+	tracing2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
-	registry2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/registry"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/registry"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel/trace"
+)
+
+const (
+	fidLabel tracing.LabelName = "fid"
 )
 
 var logger = flogging.MustGetLogger("fsc")
@@ -29,7 +36,7 @@ type ExecuteCallbackFunc = func() error
 
 type ViewManager interface {
 	NewView(id string, in []byte) (view.View, error)
-	InitiateView(view view.View) (interface{}, error)
+	InitiateView(view view.View, ctx context.Context) (interface{}, error)
 	InitiateContext(view view.View) (view.Context, error)
 	InitiateContextWithIdentity(view view.View, id view.Identity) (view.Context, error)
 	Context(contextID string) (view.Context, error)
@@ -57,14 +64,15 @@ type node struct {
 	context       context.Context
 	cancel        context.CancelFunc
 	running       bool
+	tracer        trace.Tracer
 }
 
 func NewEmpty(confPath string) *node {
-	configService, err := config2.NewProvider(confPath)
+	configService, err := config.NewProvider(confPath)
 	if err != nil {
 		panic(err)
 	}
-	registry := registry2.New()
+	registry := registry.New()
 	if err := registry.RegisterService(configService); err != nil {
 		panic(err)
 	}
@@ -149,15 +157,15 @@ func (n *node) InstallSDK(p api.SDK) error {
 }
 
 func (n *node) RegisterFactory(id string, factory api.Factory) error {
-	return view3.GetRegistry(n.registry).RegisterFactory(id, factory)
+	return view2.GetRegistry(n.registry).RegisterFactory(id, factory)
 }
 
 func (n *node) RegisterResponder(responder view.View, initiatedBy interface{}) error {
-	return view3.GetRegistry(n.registry).RegisterResponder(responder, initiatedBy)
+	return view2.GetRegistry(n.registry).RegisterResponder(responder, initiatedBy)
 }
 
 func (n *node) RegisterResponderWithIdentity(responder view.View, id view.Identity, initiatedBy view.View) error {
-	return view3.GetRegistry(n.registry).RegisterResponderWithIdentity(responder, id, initiatedBy)
+	return view2.GetRegistry(n.registry).RegisterResponderWithIdentity(responder, id, initiatedBy)
 }
 
 func (n *node) RegisterService(service interface{}) error {
@@ -173,7 +181,7 @@ func (n *node) Registry() Registry {
 }
 
 func (n *node) ResolveIdentities(endpoints ...string) ([]view.Identity, error) {
-	resolver := view3.GetEndpointService(n.registry)
+	resolver := view2.GetEndpointService(n.registry)
 
 	var ids []view.Identity
 	for _, e := range endpoints {
@@ -206,18 +214,34 @@ func (n *node) IsTxFinal(txID string, opts ...api.ServiceOption) error {
 	return ch.Finality().IsFinal(c, txID)
 }
 
+func (n *node) getTracer() trace.Tracer {
+	if n.tracer == nil {
+		n.tracer = tracing2.Get(n.registry).Tracer("node_view_client", tracing.WithMetricsOpts(tracing.MetricsOpts{
+			Namespace:  "viewsdk",
+			LabelNames: []tracing.LabelName{fidLabel},
+		}))
+	}
+	return n.tracer
+}
+
 func (n *node) CallView(fid string, in []byte) (interface{}, error) {
+	ctx, span := n.getTracer().Start(context.Background(), "call_view", trace.WithSpanKind(trace.SpanKindClient))
+	defer span.End()
 	s, err := n.GetService(reflect.TypeOf((*ViewManager)(nil)))
 	if err != nil {
 		return nil, err
 	}
 	manager := s.(ViewManager)
 
+	span.AddEvent("start_new_view", tracing.WithAttributes(tracing.String(fidLabel, fid)))
 	f, err := manager.NewView(fid, in)
+	span.AddEvent("end_new_view")
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed instantiating view [%s]", fid)
 	}
-	result, err := manager.InitiateView(f)
+	span.AddEvent("start_initiate_view")
+	result, err := manager.InitiateView(f, ctx)
+	span.AddEvent("end_initiate_view")
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed running view [%s]", fid)
 	}

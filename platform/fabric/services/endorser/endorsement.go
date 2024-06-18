@@ -15,6 +15,7 @@ import (
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type collectEndorsementsView struct {
@@ -25,6 +26,7 @@ type collectEndorsementsView struct {
 }
 
 func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error) {
+	span := trace.SpanFromContext(context.Context())
 	// Prepare verifiers
 	ch, err := c.tx.FabricNetworkService().Channel(c.tx.Channel())
 	if err != nil {
@@ -45,6 +47,7 @@ func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error
 
 	// Contact sequantially all parties.
 	for _, party := range c.parties {
+		span.AddEvent("start_collect_endorsement")
 		logger.Debugf("Collect Endorsements On Simulation from [%s]", party)
 
 		if context.IsMe(party) {
@@ -79,6 +82,7 @@ func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error
 		ch := session.Receive()
 
 		// Send transaction
+		span.AddEvent("send_tx")
 		err = session.Send(txRaw)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed sending transaction content")
@@ -95,6 +99,7 @@ func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error
 			timeout.Stop()
 			return nil, errors.Errorf("Timeout from party %s", party)
 		}
+		span.AddEvent("receive_tx")
 		if msg.Status == view.ERROR {
 			return nil, errors.New(string(msg.Payload))
 		}
@@ -127,6 +132,7 @@ func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error
 			// check the verifier providers, if any
 			verified := false
 			for _, provider := range vProviders {
+				span.AddEvent("verify_endorsement")
 				if v, err := provider.GetVerifier(endorser); err == nil {
 					if err := v.Verify(append(proposalResponse.Payload(), endorser...), proposalResponse.EndorserSignature()); err == nil {
 						verified = true
