@@ -14,6 +14,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/monitoring"
 	api2 "github.com/hyperledger-labs/fabric-smart-client/pkg/api"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/tracing"
 )
 
 func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType, replicationOpts *integration.ReplicationOptions) []api.Topology {
@@ -32,7 +33,7 @@ func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType, replicationOpts *
 	fscTopology.EnablePrometheusMetrics()
 
 	//fscTopology.SetLogging("debug", "")
-	fscTopology.EnableFileTracing()
+	fscTopology.EnableTracing(tracing.Otpl)
 
 	// Add the approver FSC node.
 	fscTopology.AddNodeByName("approver1").
