@@ -12,6 +12,10 @@ type ViewCaller interface {
 	CallView(context *ReqContext, vid string, input []byte) (interface{}, error)
 }
 
+func newDispatcher(h *HttpHandler) *Dispatcher {
+	return &Dispatcher{Logger: h.Logger, Handler: h}
+}
+
 type Dispatcher struct {
 	vc      ViewCaller
 	Logger  logger
