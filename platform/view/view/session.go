@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package view
 
 import (
+	"context"
 	"fmt"
 )
 
@@ -23,6 +24,7 @@ type Message struct {
 	FromPKID     []byte // PK identifier of the caller
 	Status       int32  // Message Status (OK, ERROR)
 	Payload      []byte // Payload
+	Ctx          context.Context
 }
 
 func (m *Message) String() string {
@@ -53,8 +55,14 @@ type Session interface {
 	// Send sends the payload to the endpoint
 	Send(payload []byte) error
 
+	// SendWithContext sends the payload to the endpoint with the passed context
+	SendWithContext(ctx context.Context, payload []byte) error
+
 	// SendError sends an error to the endpoint with the passed payload
 	SendError(payload []byte) error
+
+	// SendErrorWithContext sends an error to the endpoint with the passed payload and context
+	SendErrorWithContext(ctx context.Context, payload []byte) error
 
 	// Receive returns a channel of messages received from the endpoint
 	Receive() <-chan *Message

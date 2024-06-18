@@ -17,6 +17,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/stretchr/testify/assert"
+	"go.opentelemetry.io/otel/trace/noop"
 	"golang.org/x/exp/slices"
 )
 
@@ -71,7 +72,7 @@ func setupTwoNodes(t *testing.T, bootstrapNodeID, bootstrapNodeEndpoint, nodeID,
 	assert.NoError(t, err)
 	bootstrapHost, err := provider.NewBootstrapHost(bootstrapNodeEndpoint, bootstrapHostKey)
 	assert.NoError(t, err)
-	bootstrapNode, err := comm.NewNode(bootstrapHost)
+	bootstrapNode, err := comm.NewNode(bootstrapHost, noop.NewTracerProvider())
 	assert.NoError(t, err)
 	assert.NotNil(t, bootstrapNode)
 
@@ -81,7 +82,7 @@ func setupTwoNodes(t *testing.T, bootstrapNodeID, bootstrapNodeEndpoint, nodeID,
 	assert.NoError(t, err)
 	anotherHost, err := provider.NewHost(nodeEndpoint, bootstrapNodeEndpoint+"/p2p/"+bootstrapNodeID, anotherHostKey)
 	assert.NoError(t, err)
-	anotherNode, err := comm.NewNode(anotherHost)
+	anotherNode, err := comm.NewNode(anotherHost, noop.NewTracerProvider())
 	assert.NoError(t, err)
 	assert.NotNil(t, anotherNode)
 

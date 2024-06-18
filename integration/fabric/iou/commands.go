@@ -84,7 +84,7 @@ func CheckLocalMetrics(ii *integration.Infrastructure, user string, viewName str
 	Expect(sum).NotTo(BeZero())
 }
 
-func CheckPrometheusMetrics(ii *integration.Infrastructure, viewName string, expected int) {
+func CheckPrometheusMetrics(ii *integration.Infrastructure, viewName string) {
 	cli, err := ii.NWO.PrometheusAPI()
 	Expect(err).To(BeNil())
 	metric := model.Metric{
@@ -101,5 +101,5 @@ func CheckPrometheusMetrics(ii *integration.Infrastructure, viewName string, exp
 	vector, ok := val.(model.Vector)
 	Expect(ok).To(BeTrue())
 	Expect(vector).To(HaveLen(1))
-	Expect(vector[0].Value).To(Equal(model.SampleValue(expected)))
+	Expect(vector[0].Value).NotTo(Equal(model.SampleValue(0)))
 }

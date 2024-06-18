@@ -14,6 +14,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/session"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace/noop"
 )
 
 var logger = flogging.MustGetLogger("view-sdk.session.mock")
@@ -29,6 +31,14 @@ type Responders struct {
 type MockContext struct {
 	Ctx        view.Context
 	responders []*Responders
+}
+
+func (c *MockContext) StartSpanFrom(context.Context, string, ...trace.SpanStartOption) (context.Context, trace.Span) {
+	return c.Context(), noop.Span{}
+}
+
+func (c *MockContext) StartSpan(string, ...trace.SpanStartOption) trace.Span {
+	return noop.Span{}
 }
 
 func (c *MockContext) GetService(v interface{}) (interface{}, error) {

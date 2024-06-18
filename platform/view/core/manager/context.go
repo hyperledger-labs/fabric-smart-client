@@ -41,6 +41,16 @@ type ctx struct {
 	tracer trace.Tracer
 }
 
+func (ctx *ctx) StartSpan(name string, opts ...trace.SpanStartOption) trace.Span {
+	newCtx, span := ctx.StartSpanFrom(ctx.context, name, opts...)
+	ctx.context = newCtx
+	return span
+}
+
+func (ctx *ctx) StartSpanFrom(c context.Context, name string, opts ...trace.SpanStartOption) (context.Context, trace.Span) {
+	return ctx.tracer.Start(c, name, opts...)
+}
+
 func NewContextForInitiator(contextID string, context context.Context, sp driver.ServiceProvider, sessionFactory SessionFactory, resolver driver.EndpointService, party view.Identity, initiator view.View, tracer trace.Tracer) (*ctx, error) {
 	if len(contextID) == 0 {
 		contextID = GenerateUUID()
@@ -85,10 +95,6 @@ func (ctx *ctx) Initiator() view.View {
 	return ctx.initiator
 }
 
-func (ctx *ctx) getTracer() trace.Tracer { return ctx.tracer }
-
-func (ctx *ctx) setContext(context context.Context) { ctx.context = context }
-
 func (ctx *ctx) RunView(v view.View, opts ...view.RunViewOption) (res interface{}, err error) {
 	return runViewOn(v, opts, ctx)
 }
@@ -103,12 +109,12 @@ func runViewOn(v view.View, opts []view.RunViewOption, ctx localContext) (res in
 		initiator = v
 	}
 
-	newCtx, span := ctx.getTracer().Start(ctx.Context(), "run_view", tracing.WithAttributes(
+	span := ctx.StartSpan("run_view", tracing.WithAttributes(
 		tracing.String(ViewLabel, getIdentifier(v)),
 		tracing.String(InitiatorViewLabel, getIdentifier(initiator)),
 	), trace.WithSpanKind(trace.SpanKindInternal))
-	ctx.setContext(newCtx)
 	defer span.End()
+
 	var cc localContext
 	if options.SameContext {
 		cc = ctx
@@ -363,7 +369,5 @@ func (ctx *ctx) safeInvoke(f func()) {
 
 type localContext interface {
 	disposableContext
-	getTracer() trace.Tracer
-	setContext(context.Context)
 	cleanup()
 }

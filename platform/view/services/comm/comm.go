@@ -16,6 +16,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/utils"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type EndpointService interface {
@@ -34,16 +35,18 @@ type Service struct {
 	ConfigService   ConfigService
 	DefaultIdentity view2.Identity
 
-	Node     *P2PNode
-	NodeSync sync.RWMutex
+	Node           *P2PNode
+	NodeSync       sync.RWMutex
+	tracerProvider trace.TracerProvider
 }
 
-func NewService(hostProvider host.GeneratorProvider, endpointService EndpointService, configService ConfigService, defaultIdentity view2.Identity) (*Service, error) {
+func NewService(hostProvider host.GeneratorProvider, endpointService EndpointService, configService ConfigService, defaultIdentity view2.Identity, tracerProvider trace.TracerProvider) (*Service, error) {
 	s := &Service{
 		HostProvider:    hostProvider,
 		EndpointService: endpointService,
 		ConfigService:   configService,
 		DefaultIdentity: defaultIdentity,
+		tracerProvider:  tracerProvider,
 	}
 	return s, nil
 }
@@ -131,7 +134,7 @@ func (s *Service) init() error {
 		if err != nil {
 			return err
 		}
-		s.Node, err = NewNode(h)
+		s.Node, err = NewNode(h, s.tracerProvider)
 		if err != nil {
 			return errors.Wrapf(err, "failed to initialize bootstrap p2p node [%s]", p2pListenAddress)
 		}
@@ -155,7 +158,7 @@ func (s *Service) init() error {
 		if err != nil {
 			return err
 		}
-		s.Node, err = NewNode(h)
+		s.Node, err = NewNode(h, s.tracerProvider)
 		if err != nil {
 			return errors.Wrapf(err, "failed to initialize node p2p manager [%s,%s]", p2pListenAddress, addr)
 		}

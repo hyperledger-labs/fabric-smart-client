@@ -17,12 +17,15 @@ import (
 	web2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/web"
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/web"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel/trace"
 )
 
 var streamEOF = result{err: io.EOF}
 
 type stream struct {
+	ctx         context.Context
 	conn        connection
 	cancel      context.CancelFunc
 	accumulator *delimitedReader
@@ -38,9 +41,13 @@ type stream struct {
 
 // StreamMeta is the first message sent from the websocket client to transmit metadata information
 type StreamMeta struct {
-	SessionID string       `json:"session_id"`
-	ContextID string       `json:"context_id"`
-	PeerID    host2.PeerID `json:"peer_id"`
+	SessionID   string       `json:"session_id"`
+	ContextID   string       `json:"context_id"`
+	PeerID      host2.PeerID `json:"peer_id"`
+	SpanContext []byte       `json:"span_context"`
+}
+
+type SpanContext struct {
 }
 
 var schemes = map[bool]string{
@@ -55,28 +62,36 @@ type connection interface {
 }
 
 func newClientStream(info host2.StreamInfo, ctx context.Context, src host2.PeerID, config *tls.Config) (*stream, error) {
-	logger.Infof("Creating new stream from [%s] to [%s@%s]...", src, info.RemotePeerID, info.RemotePeerAddress)
+	logger.Debugf("Creating new stream from [%s] to [%s@%s]...", src, info.RemotePeerID, info.RemotePeerAddress)
 	tlsEnabled := config.InsecureSkipVerify || config.RootCAs != nil
 	url := url.URL{Scheme: schemes[tlsEnabled], Host: info.RemotePeerAddress, Path: "/p2p"}
 	// We use the background context instead of passing the existing context,
 	// because the net/http server doesn't monitor connections upgraded to WebSocket.
 	// Hence, when the connection is lost, the context will not be cancelled.
 	conn, err := web2.OpenWSClientConn(url.String(), config)
-	logger.Infof("Successfully connected to websocket")
+	logger.Debugf("Successfully connected to websocket")
 	if err != nil {
 		logger.Errorf("Dial failed: %s\n", err.Error())
 		return nil, err
 	}
+	spanContext := trace.SpanContextFromContext(ctx)
+	marshalledSpanContext, err := tracing.MarshalContext(spanContext)
+	if err != nil {
+		return nil, err
+	}
+
+	logger.Debugf("Open stream with context: [%v]: %v", spanContext, marshalledSpanContext)
 	meta := StreamMeta{
-		ContextID: info.ContextID,
-		SessionID: info.SessionID,
-		PeerID:    src,
+		ContextID:   info.ContextID,
+		SessionID:   info.SessionID,
+		PeerID:      src,
+		SpanContext: marshalledSpanContext,
 	}
 	err = conn.WriteJSON(&meta)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to send meta message")
 	}
-	logger.Infof("Stream opened to [%s@%s]", info.RemotePeerID, info.RemotePeerAddress)
+	logger.Debugf("Stream opened to [%s@%s]", info.RemotePeerID, info.RemotePeerAddress)
 	return NewWSStream(conn, ctx, info), nil
 }
 
@@ -85,15 +100,20 @@ func newServerStream(writer http.ResponseWriter, request *http.Request) (*stream
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to open websocket")
 	}
-	logger.Infof("Successfully opened server-side websocket")
+	logger.Debugf("Successfully opened server-side websocket")
 
 	var meta StreamMeta
 	if err := conn.ReadJSON(&meta); err != nil {
 		return nil, errors.Wrapf(err, "failed to read meta info")
 	}
-	logger.Infof("Read meta info: %v", meta)
+	logger.Infof("Read meta info: [%s,%s]: %s", meta.ContextID, meta.SessionID, string(meta.SpanContext))
 	// Propagating the request context will not make a difference (see comment in newClientStream)
-	return NewWSStream(conn, context.Background(), host2.StreamInfo{
+	spanContext, err := tracing.UnmarshalContext(meta.SpanContext)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to unmarshal span context")
+	}
+	logger.Infof("Received response with context: %v\n%v", meta.SpanContext, spanContext)
+	return NewWSStream(conn, trace.ContextWithRemoteSpanContext(context.Background(), spanContext), host2.StreamInfo{
 		RemotePeerID:      meta.PeerID,
 		RemotePeerAddress: request.RemoteAddr,
 		ContextID:         meta.ContextID,
@@ -104,6 +124,7 @@ func newServerStream(writer http.ResponseWriter, request *http.Request) (*stream
 func NewWSStream(conn connection, ctx context.Context, info host2.StreamInfo) *stream {
 	ctx, cancel := context.WithCancel(ctx)
 	s := &stream{
+		ctx:          ctx,
 		conn:         conn,
 		cancel:       cancel,
 		accumulator:  newDelimitedReader(),
@@ -196,4 +217,8 @@ func (s *stream) Write(p []byte) (int, error) {
 func (s *stream) Close() error {
 	s.cancel()
 	return s.conn.Close()
+}
+
+func (s *stream) Context() context.Context {
+	return s.ctx
 }

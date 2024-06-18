@@ -10,6 +10,7 @@ import (
 	"context"
 
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/docker"
@@ -65,6 +66,14 @@ func (n *Extension) startJaeger() {
 		},
 		&container.HostConfig{
 			PortBindings: docker.PortBindings([]int{JaegerCollectorPort, JaegerQueryPort, JaegerUIPort, JaegerAdminPort}...),
+			Mounts: []mount.Mount{
+				// To avoid error: "error reading server preface: EOF"
+				{
+					Type:   mount.TypeBind,
+					Source: n.jaegerHostsPath(),
+					Target: "/etc/hosts",
+				},
+			},
 		},
 		&network.NetworkingConfig{
 			EndpointsConfig: map[string]*network.EndpointSettings{
@@ -83,5 +92,6 @@ func (n *Extension) startJaeger() {
 
 	Expect(cli.ContainerStart(ctx, resp.ID, container.StartOptions{})).ToNot(HaveOccurred())
 
+	logger.Infof("Follow the traces on localhost:%d", JaegerUIPort)
 	Expect(docker.StartLogs(cli, resp.ID, "monitoring.optl.jaegertracing.container")).ToNot(HaveOccurred())
 }

@@ -13,6 +13,7 @@ import (
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	routing2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/rest/routing"
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type pkiExtractor interface {
@@ -20,14 +21,16 @@ type pkiExtractor interface {
 }
 
 type endpointServiceBasedProvider struct {
-	pkiExtractor pkiExtractor
-	routing      routing2.ServiceDiscovery
+	pkiExtractor   pkiExtractor
+	routing        routing2.ServiceDiscovery
+	tracerProvider trace.TracerProvider
 }
 
-func NewEndpointBasedProvider(extractor pkiExtractor, routing routing2.ServiceDiscovery) *endpointServiceBasedProvider {
+func NewEndpointBasedProvider(extractor pkiExtractor, routing routing2.ServiceDiscovery, tracerProvider trace.TracerProvider) *endpointServiceBasedProvider {
 	return &endpointServiceBasedProvider{
-		pkiExtractor: extractor,
-		routing:      routing,
+		pkiExtractor:   extractor,
+		routing:        routing,
+		tracerProvider: tracerProvider,
 	}
 }
 
@@ -37,7 +40,7 @@ func (p *endpointServiceBasedProvider) NewBootstrapHost(listenAddress host2.Peer
 		return nil, errors.Wrapf(err, "failed to load identity in [%s]", certPath)
 	}
 	nodeID := string(p.pkiExtractor.ExtractPKI(raw))
-	return NewHost(nodeID, convertAddress(listenAddress), p.routing, privateKeyPath, certPath, nil)
+	return NewHost(nodeID, convertAddress(listenAddress), p.routing, p.tracerProvider, privateKeyPath, certPath, nil)
 }
 
 func (p *endpointServiceBasedProvider) NewHost(listenAddress host2.PeerIPAddress, privateKeyPath, certPath string, _ host2.PeerIPAddress) (host2.P2PHost, error) {

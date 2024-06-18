@@ -16,6 +16,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/rest"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/rest/routing"
 	"github.com/stretchr/testify/assert"
+	"go.opentelemetry.io/otel/trace/noop"
 )
 
 func TestP2PLayerTestRound(t *testing.T) {
@@ -47,14 +48,14 @@ func setupTwoNodes(t *testing.T, port int) (*comm.HostNode, *comm.HostNode) {
 		"../libp2p/testdata/msp/user1/keystore/priv_sk",
 		"../libp2p/testdata/msp/user1/signcerts/User1@org1.example.com-cert.pem",
 		"")
-	bootstrapNode, err := comm.NewNode(bootstrap)
+	bootstrapNode, err := comm.NewNode(bootstrap, noop.NewTracerProvider())
 	assert.NoError(t, err)
 
 	other, _ := provider.NewHost(otherAddress,
 		"../libp2p/testdata/msp/user2/keystore/priv_sk",
 		"../libp2p/testdata/msp/user2/signcerts/User2@org1.example.com-cert.pem",
 		"")
-	otherNode, err := comm.NewNode(other)
+	otherNode, err := comm.NewNode(other, noop.NewTracerProvider())
 	assert.NoError(t, err)
 
 	return &comm.HostNode{P2PNode: bootstrapNode, ID: "bootstrap", Address: bootstrapAddress},
@@ -72,7 +73,7 @@ func newStaticRouteHostProvider(routes *routing.StaticIDRouter) *staticRoutHostP
 func (p *staticRoutHostProvider) NewBootstrapHost(listenAddress host2.PeerIPAddress, privateKeyPath, certPath string) (host2.P2PHost, error) {
 	nodeID, _ := p.routes.ReverseLookup(listenAddress)
 	discovery := routing.NewServiceDiscovery(p.routes, routing.RoundRobin[host2.PeerIPAddress]())
-	return rest.NewHost(nodeID, listenAddress, discovery, privateKeyPath, certPath, nil)
+	return rest.NewHost(nodeID, listenAddress, discovery, noop.NewTracerProvider(), privateKeyPath, certPath, nil)
 }
 
 func (p *staticRoutHostProvider) NewHost(listenAddress host2.PeerIPAddress, privateKeyPath, certPath string, _ host2.PeerIPAddress) (host2.P2PHost, error) {

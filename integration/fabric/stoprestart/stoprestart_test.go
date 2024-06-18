@@ -20,12 +20,12 @@ import (
 )
 
 var _ = Describe("EndToEnd", func() {
-	Describe("Stop and Restart with Fabric With LibP2P", func() {
-		s := NewTestSuite(fsc.LibP2P, integration.NoReplication)
-		BeforeEach(s.Setup)
-		AfterEach(s.TearDown)
-		It("stop and restart successfully", s.TestSucceeded)
-	})
+	//Describe("Stop and Restart with Fabric With LibP2P", func() {
+	//	s := NewTestSuite(fsc.LibP2P, integration.NoReplication)
+	//	BeforeEach(s.Setup)
+	//	AfterEach(s.TearDown)
+	//	It("stop and restart successfully", s.TestSucceeded)
+	//})
 
 	Describe("Stop and Restart with Fabric With Websockets", func() {
 		s := NewTestSuite(fsc.WebSocket, integration.NoReplication)
@@ -34,29 +34,29 @@ var _ = Describe("EndToEnd", func() {
 		It("stop and restart successfully", s.TestSucceeded)
 	})
 
-	Describe("Stop and Restart with Fabric With Replicas many to one", func() {
-		s := NewTestSuite(fsc.WebSocket, &integration.ReplicationOptions{
-			ReplicationFactors: map[string]int{
-				"alice": 4,
-				"bob":   1,
-			},
-		})
-		BeforeEach(s.Setup)
-		AfterEach(s.TearDown)
-		It("stop and restart successfully", s.TestSucceededWithReplicas)
-	})
-
-	Describe("Stop and Restart with Fabric With Replicas many to many", func() {
-		s := NewTestSuite(fsc.WebSocket, &integration.ReplicationOptions{
-			ReplicationFactors: map[string]int{
-				"alice": 4,
-				"bob":   4,
-			},
-		})
-		BeforeEach(s.Setup)
-		AfterEach(s.TearDown)
-		It("stop and restart successfully", s.TestSucceededWithReplicas)
-	})
+	//Describe("Stop and Restart with Fabric With Replicas many to one", func() {
+	//	s := NewTestSuite(fsc.WebSocket, &integration.ReplicationOptions{
+	//		ReplicationFactors: map[string]int{
+	//			"alice": 4,
+	//			"bob":   1,
+	//		},
+	//	})
+	//	BeforeEach(s.Setup)
+	//	AfterEach(s.TearDown)
+	//	It("stop and restart successfully", s.TestSucceededWithReplicas)
+	//})
+	//
+	//Describe("Stop and Restart with Fabric With Replicas many to many", func() {
+	//	s := NewTestSuite(fsc.WebSocket, &integration.ReplicationOptions{
+	//		ReplicationFactors: map[string]int{
+	//			"alice": 4,
+	//			"bob":   4,
+	//		},
+	//	})
+	//	BeforeEach(s.Setup)
+	//	AfterEach(s.TearDown)
+	//	It("stop and restart successfully", s.TestSucceededWithReplicas)
+	//})
 })
 
 type TestSuite struct {

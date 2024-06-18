@@ -18,6 +18,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
+	"go.opentelemetry.io/otel/trace/noop"
 	"golang.org/x/exp/slices"
 )
 
@@ -117,7 +118,7 @@ func newBootstrapNode(port int, provider *hostProvider) (*node, error) {
 	if err != nil {
 		return nil, err
 	}
-	p2pNode, err := comm.NewNode(h)
+	p2pNode, err := comm.NewNode(h, noop.NewTracerProvider())
 	if err != nil {
 		return nil, err
 	}
@@ -145,7 +146,7 @@ func newNode(port int, bootstrapNode *node, provider *hostProvider) (*node, erro
 	if err != nil {
 		return nil, err
 	}
-	p2pNode, err := comm.NewNode(h)
+	p2pNode, err := comm.NewNode(h, noop.NewTracerProvider())
 	if err != nil {
 		return nil, err
 	}
