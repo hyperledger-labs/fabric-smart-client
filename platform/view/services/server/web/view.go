@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package web
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view/protos"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type viewCallFunc func(context *ReqContext, vid string, input []byte) (interface{}, error)
@@ -29,7 +31,7 @@ type viewHandler struct {
 
 func (s *viewHandler) CallView(context *ReqContext, vid string, input []byte) (interface{}, error) {
 	s.c.viewManager = s.viewManager
-	result, err := s.c.CallView(vid, input)
+	result, err := s.c.CallView(vid, input, context.Req.Context())
 	if err != nil {
 		return nil, errors.Errorf("failed running view [%s], err %s", vid, err)
 	}
@@ -62,26 +64,29 @@ func InstallViewHandler(l logger, viewManager *view.Manager, h *HttpHandler) {
 
 type ViewClient interface {
 	StreamCallView(fid string, writer http.ResponseWriter, request *http.Request) error
-	CallView(fid string, in []byte) (interface{}, error)
+	CallView(fid string, in []byte, ctx context.Context) (interface{}, error)
 }
 
 type client struct {
 	logger
 	viewManager *view.Manager
+	tracer      trace.Tracer
 }
 
 func NewViewClient(logger logger, viewManager *view.Manager) ViewClient {
 	return &client{logger: logger, viewManager: viewManager}
 }
 
-func (s *client) CallView(vid string, input []byte) (interface{}, error) {
+func (s *client) CallView(vid string, input []byte, ctx context.Context) (interface{}, error) {
+	newCtx, span := s.tracer.Start(ctx, "call_view", trace.WithSpanKind(trace.SpanKindClient))
+	defer span.End()
 	s.logger.Debugf("Call view [%s] on input [%v]", vid, string(input))
 
 	f, err := s.viewManager.NewView(vid, input)
 	if err != nil {
 		return nil, errors.Errorf("failed instantiating view [%s], err [%s]", vid, err)
 	}
-	raw, err := s.viewManager.InitiateView(f)
+	raw, err := s.viewManager.InitiateView(f, newCtx)
 	if err == nil {
 		s.logger.Debugf("Finished call view [%s] on input [%v]", vid, string(input))
 	}

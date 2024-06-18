@@ -10,16 +10,17 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/postgres"
 	. "github.com/onsi/ginkgo/v2"
 )
 
 var _ = Describe("EndToEnd", func() {
-	//Describe("IOU Life Cycle With LibP2P", func() {
-	//	s := NewTestSuite(fsc.LibP2P, integration.NoReplication)
-	//	BeforeEach(s.Setup)
-	//	AfterEach(s.TearDown)
-	//	It("succeeded", s.TestSucceeded)
-	//})
+	Describe("IOU Life Cycle With LibP2P", func() {
+		s := NewTestSuite(fsc.LibP2P, integration.NoReplication)
+		BeforeEach(s.Setup)
+		AfterEach(s.TearDown)
+		It("succeeded", s.TestSucceeded)
+	})
 
 	Describe("IOU Life Cycle With Websockets", func() {
 		s := NewTestSuite(fsc.WebSocket, integration.NoReplication)
@@ -28,21 +29,21 @@ var _ = Describe("EndToEnd", func() {
 		It("succeeded", s.TestSucceeded)
 	})
 
-	//Describe("IOU Life Cycle With Websockets and replicas", func() {
-	//	s := NewTestSuite(fsc.WebSocket, &integration.ReplicationOptions{
-	//		ReplicationFactors: map[string]int{
-	//			"borrower": 3,
-	//			"lender":   2,
-	//		},
-	//		SQLConfigs: map[string]*postgres.PostgresConfig{
-	//			"borrower": postgres.DefaultConfig("borrower-db"),
-	//			"lender":   postgres.DefaultConfig("lender-db"),
-	//		},
-	//	})
-	//	BeforeEach(s.Setup)
-	//	AfterEach(s.TearDown)
-	//	It("succeeded", s.TestSucceededWithReplicas)
-	//})
+	Describe("IOU Life Cycle With Websockets and replicas", func() {
+		s := NewTestSuite(fsc.WebSocket, &integration.ReplicationOptions{
+			ReplicationFactors: map[string]int{
+				"borrower": 3,
+				"lender":   2,
+			},
+			SQLConfigs: map[string]*postgres.PostgresConfig{
+				"borrower": postgres.DefaultConfig("borrower-db"),
+				"lender":   postgres.DefaultConfig("lender-db"),
+			},
+		})
+		BeforeEach(s.Setup)
+		AfterEach(s.TearDown)
+		It("succeeded", s.TestSucceededWithReplicas)
+	})
 })
 
 type TestSuite struct {

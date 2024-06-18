@@ -13,8 +13,15 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view"
-	protos2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view/protos"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view/protos"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap/zapcore"
+)
+
+const (
+	handlerTypeLabel tracing.LabelName = "handler_type"
+	successLabel     tracing.LabelName = "success"
 )
 
 var (
@@ -34,35 +41,42 @@ type Handler interface {
 	IsFinal(ctx context.Context, network, channel, txID string) error
 }
 
+func NewManager(tracerProvider trace.TracerProvider) *Manager {
+	return &Manager{tracer: tracerProvider.Tracer("finality_manager", tracing.WithMetricsOpts(tracing.MetricsOpts{
+		Namespace:  "viewsdk",
+		LabelNames: []tracing.LabelName{handlerTypeLabel, successLabel},
+	}))}
+}
+
 type Manager struct {
 	Handlers []Handler
+	tracer   trace.Tracer
 }
 
-func InstallHandler(registry Registry, server Server) error {
-	fh := &Manager{}
-	server.RegisterProcessor(reflect.TypeOf(&protos2.Command_IsTxFinal{}), fh.IsTxFinal)
-	return registry.RegisterService(fh)
-}
-
-func (s *Manager) IsTxFinal(ctx context.Context, command *protos2.Command) (interface{}, error) {
-	c := command.Payload.(*protos2.Command_IsTxFinal).IsTxFinal
+func (s *Manager) IsTxFinal(ctx context.Context, command *protos.Command) (interface{}, error) {
+	newCtx, span := s.tracer.Start(ctx, "is_final")
+	defer span.End()
+	c := command.Payload.(*protos.Command_IsTxFinal).IsTxFinal
 
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("Answering: Is [%s] final on [%s:%s]?", c.Txid, c.Network, c.Channel)
 	}
 
 	for _, handler := range s.Handlers {
-		if err := handler.IsFinal(ctx, c.Network, c.Channel, c.Txid); err == nil {
+		span.AddEvent("start_handler", tracing.WithAttributes(tracing.String(handlerTypeLabel, reflect.TypeOf(handler).String())))
+		if err := handler.IsFinal(newCtx, c.Network, c.Channel, c.Txid); err == nil {
+			span.AddEvent("end_handler", tracing.WithAttributes(tracing.Bool(successLabel, true)))
 			if logger.IsEnabledFor(zapcore.DebugLevel) {
 				logger.Debugf("Answering: Is [%s] final on [%s:%s]? Yes", c.Txid, c.Network, c.Channel)
 			}
-			return &protos2.CommandResponse_IsTxFinalResponse{IsTxFinalResponse: &protos2.IsTxFinalResponse{}}, nil
+			return &protos.CommandResponse_IsTxFinalResponse{IsTxFinalResponse: &protos.IsTxFinalResponse{}}, nil
 		} else {
+			span.AddEvent("end_handler", tracing.WithAttributes(tracing.Bool(successLabel, false)))
 			logger.Debugf("Answering: Is [%s] final on [%s:%s]? err [%s]", c.Txid, c.Network, c.Channel, err)
 		}
 	}
 
-	return &protos2.CommandResponse_IsTxFinalResponse{IsTxFinalResponse: &protos2.IsTxFinalResponse{
+	return &protos.CommandResponse_IsTxFinalResponse{IsTxFinalResponse: &protos.IsTxFinalResponse{
 		Payload: []byte("no handler found for the request"),
 	}}, nil
 }

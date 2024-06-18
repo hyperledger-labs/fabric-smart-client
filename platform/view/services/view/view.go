@@ -23,7 +23,7 @@ func RunCall(context view.Context, v func(context view.Context) (interface{}, er
 // The execution happens in a freshly created context.
 // This is a shortcut for `view.GetManager(context).InitiateView(initiator)`.
 func Initiate(context view.Context, initiator view.View) (interface{}, error) {
-	return view2.GetManager(context).InitiateView(initiator)
+	return view2.GetManager(context).InitiateView(initiator, context.Context())
 }
 
 // AsResponder can be used by an initiator to behave temporarily as a responder.

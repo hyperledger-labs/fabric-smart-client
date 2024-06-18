@@ -16,7 +16,7 @@ import (
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
-	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/resource"
@@ -29,24 +29,25 @@ import (
 type TracerType string
 
 const (
-	None    TracerType = "none"
-	Otpl    TracerType = "optl"
-	File    TracerType = "file"
-	Console TracerType = "console"
+	None        TracerType = "none"
+	Otpl        TracerType = "otpl"
+	File        TracerType = "file"
+	Console     TracerType = "console"
+	ServiceName            = "FSC"
 )
 
 type Config struct {
-	Provider TracerType  `yaml:"provider"`
-	File     *FileConfig `yaml:"file"`
-	Otpl     *OtplConfig `yaml:"otpl"`
+	Provider TracerType `mapstructure:"provider"`
+	File     FileConfig `mapstructure:"file"`
+	Otpl     OtplConfig `mapstructure:"optl"`
 }
 
 type FileConfig struct {
-	Path string `yaml:"path"`
+	Path string `mapstructure:"path"`
 }
 
 type OtplConfig struct {
-	Address string `yaml:"address"`
+	Address string `mapstructure:"address"`
 }
 
 var logger = flogging.MustGetLogger("view-sdk.tracing")
@@ -56,16 +57,20 @@ func NewTracerProvider(confService driver.ConfigService) (trace.TracerProvider, 
 	if err := confService.UnmarshalKey("fsc.tracing", &c); err != nil {
 		return nil, err
 	}
+	return NewTracerProviderFromConfig(c)
+}
+
+func NewTracerProviderFromConfig(c Config) (trace.TracerProvider, error) {
 	switch c.Provider {
 	case None:
 		logger.Infof("No-op tracer provider selected")
 		return NoopProvider()
 	case Otpl:
 		logger.Infof("OPTL tracer provider selected")
-		return HttpProvider(c.Otpl)
+		return GrpcProvider(&c.Otpl)
 	case File:
 		logger.Infof("File tracing provider selected")
-		return FileProvider(c.File)
+		return FileProvider(&c.File)
 	case Console:
 		logger.Infof("Console tracing provider selected")
 		return ConsoleProvider()
@@ -103,12 +108,12 @@ func ConsoleProvider() (*sdktrace.TracerProvider, error) {
 	return providerWithExporter(context.Background(), exporter)
 }
 
-func HttpProvider(c *OtplConfig) (*sdktrace.TracerProvider, error) {
+func GrpcProvider(c *OtplConfig) (*sdktrace.TracerProvider, error) {
 	if c == nil || len(c.Address) == 0 {
 		return nil, errors.New("empty url")
 	}
 	logger.Infof("Tracing enabled: optl")
-	exporter, err := otlptrace.New(context.Background(), otlptracehttp.NewClient(otlptracehttp.WithInsecure(), otlptracehttp.WithEndpoint(c.Address)))
+	exporter, err := otlptrace.New(context.Background(), otlptracegrpc.NewClient(otlptracegrpc.WithInsecure(), otlptracegrpc.WithEndpoint(c.Address)))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed creating trace exporter")
 	}
@@ -119,7 +124,7 @@ func providerWithExporter(ctx context.Context, exporter sdktrace.SpanExporter) (
 	// Ensure default SDK resources and the required service name are set.
 	r, err := resource.New(ctx, resource.WithAttributes(
 		// the service name used to display traces in backends
-		semconv.ServiceNameKey.String("FSC"),
+		semconv.ServiceNameKey.String(ServiceName),
 	))
 	if err != nil {
 		return nil, errors.WithMessage(err, "failed creating resource")

@@ -32,7 +32,7 @@ func InstallViewHandler(viewManager *view.Manager, server Service, tracerProvide
 		viewManager: viewManager,
 		tracer: tracerProvider.Tracer("view_handler", tracing.WithMetricsOpts(tracing.MetricsOpts{
 			Namespace:  "viewsdk",
-			LabelNames: []tracing.LabelName{fidLabel},
+			LabelNames: []tracing.LabelName{fidLabel, successLabel},
 		})),
 	}
 	server.RegisterProcessor(reflect.TypeOf(&protos2.Command_InitiateView{}), fh.initiateView)
@@ -64,7 +64,7 @@ func (s *viewHandler) initiateView(ctx context.Context, command *protos2.Command
 
 func (s *viewHandler) callView(ctx context.Context, command *protos2.Command) (interface{}, error) {
 	callView := command.Payload.(*protos2.Command_CallView).CallView
-	_, span := s.tracer.Start(ctx, "call_view", tracing.WithAttributes(tracing.String(fidLabel, callView.Fid)), trace.WithSpanKind(trace.SpanKindInternal))
+	newCtx, span := s.tracer.Start(ctx, "call_view", tracing.WithAttributes(tracing.String(fidLabel, callView.Fid)), trace.WithSpanKind(trace.SpanKindInternal))
 	defer span.End()
 
 	fid := callView.Fid
@@ -77,7 +77,9 @@ func (s *viewHandler) callView(ctx context.Context, command *protos2.Command) (i
 	if err != nil {
 		return nil, errors.Errorf("failed instantiating view [%s], err [%s]", fid, err)
 	}
-	result, err := s.viewManager.InitiateView(f)
+	span.AddEvent("start_initiate_view")
+	result, err := s.viewManager.InitiateView(f, newCtx)
+	span.AddEvent("end_initiate_view", tracing.WithAttributes(tracing.Bool(successLabel, err == nil)))
 	if err != nil {
 		return nil, errors.Errorf("failed running view [%s], err %s", fid, err)
 	}
@@ -88,6 +90,7 @@ func (s *viewHandler) callView(ctx context.Context, command *protos2.Command) (i
 			return nil, errors.Errorf("failed marshalling result produced by view [%s], err [%s]", fid, err)
 		}
 	}
+
 	logger.Debugf("Finished call view [%s] on input [%v]", fid, string(input))
 	return &protos2.CommandResponse_CallViewResponse{CallViewResponse: &protos2.CallViewResponse{
 		Result: raw,

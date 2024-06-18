@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package manager_test
 
 import (
+	"context"
 	"sync"
 	"testing"
 	"time"
@@ -22,11 +23,11 @@ import (
 )
 
 type Manager interface {
-	InitiateView(f view.View) (interface{}, error)
+	InitiateView(f view.View, ctx context.Context) (interface{}, error)
 	Context(id string) (view.Context, error)
 	RegisterFactory(id string, factory driver.Factory) error
 	NewView(id string, in []byte) (f view.View, err error)
-	Initiate(id string) (interface{}, error)
+	Initiate(id string, ctx context.Context) (interface{}, error)
 	RegisterResponderWithIdentity(responder view.View, id view.Identity, initiatedBy interface{}) error
 }
 
@@ -135,7 +136,7 @@ func registerResponder(t *testing.T, wg *sync.WaitGroup, m Manager) {
 }
 
 func callView(t *testing.T, wg *sync.WaitGroup, m Manager) {
-	_, err := m.InitiateView(&DummyView{})
+	_, err := m.InitiateView(&DummyView{}, context.Background())
 	wg.Done()
 	assert.NoError(t, err)
 }
@@ -147,7 +148,7 @@ func newView(t *testing.T, wg *sync.WaitGroup, m Manager) {
 }
 
 func initiateView(t *testing.T, wg *sync.WaitGroup, m Manager) {
-	_, err := m.Initiate(manager.GenerateUUID())
+	_, err := m.Initiate(manager.GenerateUUID(), context.Background())
 	wg.Done()
 	assert.Error(t, err)
 }
