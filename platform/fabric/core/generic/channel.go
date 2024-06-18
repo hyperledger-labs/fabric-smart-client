@@ -9,7 +9,9 @@ package generic
 import (
 	"context"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/delivery"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/membership"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/pkg/errors"
 )
@@ -18,13 +20,6 @@ type committerService interface {
 	ReloadConfigTransactions() error
 	driver.Committer
 }
-
-// These are function names from Invoke first parameter
-const (
-	GetBlockByNumber   string = "GetBlockByNumber"
-	GetTransactionByID string = "GetTransactionByID"
-	GetBlockByTxID     string = "GetBlockByTxID"
-)
 
 type Delivery interface {
 	Start(ctx context.Context)
@@ -41,13 +36,13 @@ type Channel struct {
 	ES                       driver.EnvelopeService
 	TS                       driver.EndorserTransactionService
 	MS                       driver.MetadataService
-	DeliveryService          *DeliveryService
+	DeliveryService          *delivery.Service
 	RWSetLoaderService       driver.RWSetLoader
 	LedgerService            driver.Ledger
 	ChannelMembershipService *membership.Service
 	ChaincodeManagerService  driver.ChaincodeManager
 	CommitterService         committerService
-	PeerManager              *PeerManager
+	PeerManager              *peer.Manager
 }
 
 func (c *Channel) Name() string {
@@ -100,4 +95,16 @@ func (c *Channel) Init() error {
 		return errors.WithMessagef(err, "failed reloading config transactions")
 	}
 	return nil
+}
+
+func (c *Channel) EnvelopeService() driver.EnvelopeService {
+	return c.ES
+}
+
+func (c *Channel) TransactionService() driver.EndorserTransactionService {
+	return c.TS
+}
+
+func (c *Channel) MetadataService() driver.MetadataService {
+	return c.MS
 }

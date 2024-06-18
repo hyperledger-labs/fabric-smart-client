@@ -4,16 +4,13 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package generic
+package delivery
 
 import (
 	"context"
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/fabricutils"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
-
-	delivery2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/delivery"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger/fabric-protos-go/common"
@@ -22,34 +19,36 @@ import (
 
 type ValidationFlags []uint8
 
-type DeliveryService struct {
+type Service struct {
 	channel             string
 	channelConfig       driver.ChannelConfig
 	hasher              hash.Hasher
 	NetworkName         string
 	LocalMembership     driver.LocalMembership
 	ConfigService       driver.ConfigService
-	PeerManager         delivery2.PeerManager
+	PeerManager         PeerManager
 	Ledger              driver.Ledger
+	transactionManager  driver.TransactionManager
 	waitForEventTimeout time.Duration
 
-	deliveryService *delivery2.Delivery
+	deliveryService *Delivery
 }
 
-func NewDeliveryService(
+func NewService(
 	channel string,
 	channelConfig driver.ChannelConfig,
 	hasher hash.Hasher,
 	networkName string,
 	localMembership driver.LocalMembership,
 	configService driver.ConfigService,
-	peerManager delivery2.PeerManager,
+	peerManager PeerManager,
 	ledger driver.Ledger,
 	waitForEventTimeout time.Duration,
 	txIDStore driver.TXIDStore,
-	callback delivery2.Callback,
-) (*DeliveryService, error) {
-	deliveryService, err := delivery2.New(
+	transactionManager driver.TransactionManager,
+	callback Callback,
+) (*Service, error) {
+	deliveryService, err := New(
 		networkName,
 		channelConfig,
 		hasher,
@@ -65,7 +64,7 @@ func NewDeliveryService(
 		return nil, err
 	}
 
-	return &DeliveryService{
+	return &Service{
 		channel:             channel,
 		channelConfig:       channelConfig,
 		hasher:              hasher,
@@ -76,21 +75,22 @@ func NewDeliveryService(
 		Ledger:              ledger,
 		waitForEventTimeout: waitForEventTimeout,
 		deliveryService:     deliveryService,
+		transactionManager:  transactionManager,
 	}, nil
 }
 
-func (c *DeliveryService) Start(ctx context.Context) error {
+func (c *Service) Start(ctx context.Context) error {
 	c.deliveryService.Start(ctx)
 	return nil
 }
 
-func (c *DeliveryService) Stop() {
+func (c *Service) Stop() {
 	c.deliveryService.Stop()
 }
 
-func (c *DeliveryService) Scan(ctx context.Context, txID string, callback driver.DeliveryCallback) error {
+func (c *Service) Scan(ctx context.Context, txID string, callback driver.DeliveryCallback) error {
 	vault := &fakeVault{txID: txID}
-	deliveryService, err := delivery2.New(
+	deliveryService, err := New(
 		c.NetworkName,
 		c.channelConfig,
 		c.hasher,
@@ -115,7 +115,7 @@ func (c *DeliveryService) Scan(ctx context.Context, txID string, callback driver
 					continue
 				}
 
-				ptx, err := transaction.NewProcessedTransactionFromEnvelopeRaw(tx)
+				ptx, err := c.transactionManager.NewProcessedTransactionFromEnvelopeRaw(tx)
 				if err != nil {
 					return false, err
 				}

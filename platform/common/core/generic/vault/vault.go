@@ -11,8 +11,8 @@ import (
 	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"go.uber.org/atomic"
 )
@@ -23,49 +23,53 @@ type Logger interface {
 	Errorf(template string, args ...interface{})
 }
 
-type TXIDStoreReader[V ValidationCode] interface {
-	Iterator(pos interface{}) (TxIDIterator[V], error)
-	Get(txID core.TxID) (V, string, error)
+type TXIDStoreReader[V driver.ValidationCode] interface {
+	Iterator(pos interface{}) (driver.TxIDIterator[V], error)
+	Get(txID driver.TxID) (V, string, error)
 }
 
-type TXIDStore[V ValidationCode] interface {
+type TXIDStore[V driver.ValidationCode] interface {
 	TXIDStoreReader[V]
-	Set(txID core.TxID, code V, message string) error
-	Invalidate(txID core.TxID)
+	Set(txID driver.TxID, code V, message string) error
+	Invalidate(txID driver.TxID)
 }
 
 type TxInterceptor interface {
 	driver.RWSet
-	IsClosed() bool
 	RWs() *ReadWriteSet
 	Reopen(qe VersionedQueryExecutor) error
 }
 
 type Populator interface {
-	Populate(rws *ReadWriteSet, rwsetBytes []byte, namespaces ...core.Namespace) error
+	Populate(rws *ReadWriteSet, rwsetBytes []byte, namespaces ...driver.Namespace) error
 }
 
-type NewInterceptorFunc[V ValidationCode] func(logger Logger, qe VersionedQueryExecutor, txidStore TXIDStoreReader[V], txid core.TxID) TxInterceptor
+type Marshaller interface {
+	Marshal(rws *ReadWriteSet) ([]byte, error)
+	Append(destination *ReadWriteSet, raw []byte, nss ...string) error
+}
+
+type NewInterceptorFunc[V driver.ValidationCode] func(logger Logger, qe VersionedQueryExecutor, txidStore TXIDStoreReader[V], txid driver.TxID) TxInterceptor
 
 type (
-	VersionedPersistence     = driver.VersionedPersistence
-	VersionedValue           = driver.VersionedValue
-	VersionedRead            = driver.VersionedRead
-	VersionedResultsIterator = driver.VersionedResultsIterator
-	QueryExecutor            = driver.QueryExecutor
+	VersionedPersistence     = dbdriver.VersionedPersistence
+	VersionedValue           = dbdriver.VersionedValue
+	VersionedRead            = dbdriver.VersionedRead
+	VersionedResultsIterator = dbdriver.VersionedResultsIterator
+	QueryExecutor            = dbdriver.QueryExecutor
 )
 
 var (
-	DeadlockDetected   = driver.DeadlockDetected
-	UniqueKeyViolation = driver.UniqueKeyViolation
+	DeadlockDetected   = dbdriver.DeadlockDetected
+	UniqueKeyViolation = dbdriver.UniqueKeyViolation
 )
 
 // Vault models a key-value Store that can be modified by committing rwsets
-type Vault[V ValidationCode] struct {
+type Vault[V driver.ValidationCode] struct {
 	logger           Logger
 	txIDStore        TXIDStore[V]
 	interceptorsLock sync.RWMutex
-	Interceptors     map[core.TxID]TxInterceptor
+	Interceptors     map[driver.TxID]TxInterceptor
 	counter          atomic.Int32
 
 	// the vault handles access concurrency to the Store using StoreLock.
@@ -79,17 +83,24 @@ type Vault[V ValidationCode] struct {
 	// * an exclusive lock is held when Commit is called.
 	store      VersionedPersistence
 	storeLock  sync.RWMutex
-	vcProvider ValidationCodeProvider[V]
+	vcProvider driver.ValidationCodeProvider[V]
 
 	newInterceptor NewInterceptorFunc[V]
 	populator      Populator
 }
 
 // New returns a new instance of Vault
-func New[V ValidationCode](logger Logger, store VersionedPersistence, txIDStore TXIDStore[V], vcProvider ValidationCodeProvider[V], newInterceptor NewInterceptorFunc[V], populator Populator) *Vault[V] {
+func New[V driver.ValidationCode](
+	logger Logger,
+	store VersionedPersistence,
+	txIDStore TXIDStore[V],
+	vcProvider driver.ValidationCodeProvider[V],
+	newInterceptor NewInterceptorFunc[V],
+	populator Populator,
+) *Vault[V] {
 	return &Vault[V]{
 		logger:         logger,
-		Interceptors:   make(map[core.TxID]TxInterceptor),
+		Interceptors:   make(map[driver.TxID]TxInterceptor),
 		store:          store,
 		txIDStore:      txIDStore,
 		vcProvider:     vcProvider,
@@ -109,7 +120,7 @@ func (db *Vault[V]) NewQueryExecutor() (QueryExecutor, error) {
 	}, nil
 }
 
-func (db *Vault[V]) Status(txID core.TxID) (V, string, error) {
+func (db *Vault[V]) Status(txID driver.TxID) (V, string, error) {
 	code, message, err := db.txIDStore.Get(txID)
 	if err != nil {
 		return db.vcProvider.NotFound(), "", nil
@@ -129,7 +140,7 @@ func (db *Vault[V]) Status(txID core.TxID) (V, string, error) {
 	return db.vcProvider.Unknown(), message, nil
 }
 
-func (db *Vault[V]) DiscardTx(txID core.TxID, message string) error {
+func (db *Vault[V]) DiscardTx(txID driver.TxID, message string) error {
 	if _, err := db.UnmapInterceptor(txID); err != nil {
 		return err
 	}
@@ -140,7 +151,7 @@ func (db *Vault[V]) DiscardTx(txID core.TxID, message string) error {
 	return db.setValidationCode(txID, db.vcProvider.Invalid(), message)
 }
 
-func (db *Vault[V]) UnmapInterceptor(txID core.TxID) (TxInterceptor, error) {
+func (db *Vault[V]) UnmapInterceptor(txID driver.TxID) (TxInterceptor, error) {
 	db.interceptorsLock.Lock()
 	defer db.interceptorsLock.Unlock()
 
@@ -166,7 +177,7 @@ func (db *Vault[V]) UnmapInterceptor(txID core.TxID) (TxInterceptor, error) {
 	return i, nil
 }
 
-func (db *Vault[V]) CommitTX(txID core.TxID, block core.BlockNum, indexInBloc int) error {
+func (db *Vault[V]) CommitTX(txID driver.TxID, block driver.BlockNum, indexInBloc driver.TxNum) error {
 	db.logger.Debugf("UnmapInterceptor [%s]", txID)
 	i, err := db.UnmapInterceptor(txID)
 	if err != nil {
@@ -191,7 +202,7 @@ func (db *Vault[V]) CommitTX(txID core.TxID, block core.BlockNum, indexInBloc in
 	}
 }
 
-func (db *Vault[V]) commitRWs(txID core.TxID, block core.BlockNum, indexInBloc int, rws *ReadWriteSet) error {
+func (db *Vault[V]) commitRWs(txID driver.TxID, block driver.BlockNum, indexInBloc driver.TxNum, rws *ReadWriteSet) error {
 	db.logger.Debugf("get lock [%s][%d]", txID, db.counter.Load())
 	db.storeLock.Lock()
 	defer db.storeLock.Unlock()
@@ -239,7 +250,7 @@ func (db *Vault[V]) commitRWs(txID core.TxID, block core.BlockNum, indexInBloc i
 	return nil
 }
 
-func (db *Vault[V]) setTxValid(txID core.TxID) (bool, error) {
+func (db *Vault[V]) setTxValid(txID driver.TxID) (bool, error) {
 	err := db.txIDStore.Set(txID, db.vcProvider.Valid(), "")
 	if err == nil {
 		return false, nil
@@ -256,7 +267,7 @@ func (db *Vault[V]) setTxValid(txID core.TxID) (bool, error) {
 	return true, nil
 }
 
-func (db *Vault[V]) storeMetaWrites(writes NamespaceKeyedMetaWrites, block core.BlockNum, indexInBloc core.TxNum) (bool, error) {
+func (db *Vault[V]) storeMetaWrites(writes NamespaceKeyedMetaWrites, block driver.BlockNum, indexInBloc driver.TxNum) (bool, error) {
 	for ns, keyMap := range writes {
 		for key, v := range keyMap {
 			db.logger.Debugf("Store meta write [%s,%s]", ns, key)
@@ -277,7 +288,7 @@ func (db *Vault[V]) storeMetaWrites(writes NamespaceKeyedMetaWrites, block core.
 	return false, nil
 }
 
-func (db *Vault[V]) storeWrites(writes Writes, block core.BlockNum, indexInBloc core.TxNum) (bool, error) {
+func (db *Vault[V]) storeWrites(writes Writes, block driver.BlockNum, indexInBloc driver.TxNum) (bool, error) {
 	for ns, keyMap := range writes {
 		for key, v := range keyMap {
 			db.logger.Debugf("Store write [%s,%s,%v]", ns, key, hash.Hashable(v).String())
@@ -304,11 +315,11 @@ func (db *Vault[V]) storeWrites(writes Writes, block core.BlockNum, indexInBloc 
 	return false, nil
 }
 
-func (db *Vault[V]) SetDiscarded(txID core.TxID, message string) error {
+func (db *Vault[V]) SetDiscarded(txID driver.TxID, message string) error {
 	return db.setValidationCode(txID, db.vcProvider.Invalid(), message)
 }
 
-func (db *Vault[V]) SetBusy(txID core.TxID) error {
+func (db *Vault[V]) SetBusy(txID driver.TxID) error {
 	code, _, err := db.txIDStore.Get(txID)
 	if err != nil {
 		return err
@@ -321,7 +332,11 @@ func (db *Vault[V]) SetBusy(txID core.TxID) error {
 	return db.setValidationCode(txID, db.vcProvider.Busy(), "")
 }
 
-func (db *Vault[V]) NewRWSet(txID core.TxID) (TxInterceptor, error) {
+func (db *Vault[V]) NewRWSet(txID driver.TxID) (driver.RWSet, error) {
+	return db.NewInspector(txID)
+}
+
+func (db *Vault[V]) NewInspector(txID driver.TxID) (TxInterceptor, error) {
 	db.logger.Debugf("NewRWSet[%s][%d]", txID, db.counter.Load())
 	i := db.newInterceptor(db.logger, &interceptorQueryExecutor[V]{db}, db.txIDStore, txID)
 
@@ -343,7 +358,7 @@ func (db *Vault[V]) NewRWSet(txID core.TxID) (TxInterceptor, error) {
 	return i, nil
 }
 
-func (db *Vault[V]) GetRWSet(txID core.TxID, rwsetBytes []byte) (TxInterceptor, error) {
+func (db *Vault[V]) GetRWSet(txID driver.TxID, rwsetBytes []byte) (driver.RWSet, error) {
 	db.logger.Debugf("GetRWSet[%s][%d]", txID, db.counter.Load())
 	i := db.newInterceptor(db.logger, &interceptorQueryExecutor[V]{db}, db.txIDStore, txID)
 
@@ -371,7 +386,7 @@ func (db *Vault[V]) GetRWSet(txID core.TxID, rwsetBytes []byte) (TxInterceptor, 
 	return i, nil
 }
 
-func (db *Vault[V]) InspectRWSet(rwsetBytes []byte, namespaces ...core.Namespace) (driver.RWSet, error) {
+func (db *Vault[V]) InspectRWSet(rwsetBytes []byte, namespaces ...driver.Namespace) (driver.RWSet, error) {
 	i := NewInspector()
 
 	if err := db.populator.Populate(&i.Rws, rwsetBytes, namespaces...); err != nil {
@@ -381,7 +396,7 @@ func (db *Vault[V]) InspectRWSet(rwsetBytes []byte, namespaces ...core.Namespace
 	return i, nil
 }
 
-func (db *Vault[V]) Match(txID core.TxID, rwsRaw []byte) error {
+func (db *Vault[V]) Match(txID driver.TxID, rwsRaw []byte) error {
 	if len(rwsRaw) == 0 {
 		return errors.Errorf("passed empty rwset")
 	}
@@ -424,15 +439,15 @@ func (db *Vault[V]) Close() error {
 	return db.store.Close()
 }
 
-func (db *Vault[V]) RWSExists(txID core.TxID) bool {
+func (db *Vault[V]) RWSExists(txID driver.TxID) bool {
 	db.interceptorsLock.RLock()
 	defer db.interceptorsLock.RUnlock()
 	_, in := db.Interceptors[txID]
 	return in
 }
 
-func (db *Vault[V]) Statuses(txIDs ...core.TxID) ([]driver.TxValidationStatus[V], error) {
-	it, err := db.txIDStore.Iterator(&SeekSet{TxIDs: txIDs})
+func (db *Vault[V]) Statuses(txIDs ...driver.TxID) ([]driver.TxValidationStatus[V], error) {
+	it, err := db.txIDStore.Iterator(&driver.SeekSet{TxIDs: txIDs})
 	if err != nil {
 		return nil, err
 	}
@@ -450,7 +465,7 @@ func (db *Vault[V]) Statuses(txIDs ...core.TxID) ([]driver.TxValidationStatus[V]
 	return statuses, nil
 }
 
-func (db *Vault[V]) setValidationCode(txID core.TxID, code V, message string) error {
+func (db *Vault[V]) setValidationCode(txID driver.TxID, code V, message string) error {
 	if err := db.store.BeginUpdate(); err != nil {
 		return errors.Wrapf(err, "begin update for txid '%s' failed", txID)
 	}
@@ -468,7 +483,7 @@ func (db *Vault[V]) setValidationCode(txID core.TxID, code V, message string) er
 	return nil
 }
 
-func (db *Vault[V]) GetExistingRWSet(txID core.TxID) (TxInterceptor, error) {
+func (db *Vault[V]) GetExistingRWSet(txID driver.TxID) (driver.RWSet, error) {
 	db.logger.Debugf("GetExistingRWSet[%s][%d]", txID, db.counter.Load())
 
 	db.interceptorsLock.Lock()
@@ -498,7 +513,7 @@ func (db *Vault[V]) GetExistingRWSet(txID core.TxID) (TxInterceptor, error) {
 	return interceptor, nil
 }
 
-func (db *Vault[V]) SetStatus(txID core.TxID, code V) error {
+func (db *Vault[V]) SetStatus(txID driver.TxID, code V) error {
 	err := db.store.BeginUpdate()
 	if err != nil {
 		return errors.Wrapf(err, "begin update for txid '%s' failed", txID)

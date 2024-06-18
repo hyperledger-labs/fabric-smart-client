@@ -6,25 +6,28 @@ SPDX-License-Identifier: Apache-2.0
 
 package driver
 
-import "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
-
-var (
-	DeadlockDetected   = driver.DeadlockDetected
-	UniqueKeyViolation = driver.UniqueKeyViolation
+import (
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 )
 
-type (
-	QueryExecutor              = driver.QueryExecutor
-	VersionedPersistence       = driver.VersionedPersistence
-	VersionedValue             = driver.VersionedValue
-	VersionedRead              = driver.VersionedRead
-	VersionedResultsIterator   = driver.VersionedResultsIterator
-	UnversionedPersistence     = driver.UnversionedPersistence
-	UnversionedResultsIterator = driver.UnversionedResultsIterator
-)
+type VersionedRead struct {
+	Key   string
+	Raw   []byte
+	Block BlockNum
+	TxNum TxNum
+}
+
+type VersionedResultsIterator = collections.Iterator[*VersionedRead]
+
+type QueryExecutor interface {
+	GetState(namespace string, key string) ([]byte, error)
+	GetStateMetadata(namespace, key string) (map[string][]byte, BlockNum, TxNum, error)
+	GetStateRangeScanIterator(namespace string, startKey string, endKey string) (VersionedResultsIterator, error)
+	Done()
+}
 
 type TxValidationStatus[V comparable] struct {
-	TxID           string
+	TxID           TxID
 	ValidationCode V
 	Message        string
 }
@@ -39,23 +42,23 @@ type Vault[V comparable] interface {
 	// NewRWSet returns a RWSet for this ledger.
 	// A client may obtain more than one such simulator; they are made unique
 	// by way of the supplied txid
-	NewRWSet(txid string) (RWSet, error)
+	NewRWSet(txID TxID) (RWSet, error)
 
 	// GetRWSet returns a RWSet for this ledger whose content is unmarshalled
 	// from the passed bytes.
 	// A client may obtain more than one such simulator; they are made unique
 	// by way of the supplied txid
-	GetRWSet(txid string, rwset []byte) (RWSet, error)
+	GetRWSet(txID TxID, rwset []byte) (RWSet, error)
 
-	SetDiscarded(txID string, message string) error
+	SetDiscarded(txID TxID, message string) error
 
-	Status(id string) (V, string, error)
+	Status(txID TxID) (V, string, error)
 
-	Statuses(ids ...string) ([]TxValidationStatus[V], error)
+	Statuses(txIDs ...TxID) ([]TxValidationStatus[V], error)
 
 	// DiscardTx discards the transaction with the given transaction id.
 	// If no error occurs, invoking Status on the same transaction id will return the Invalid flag.
-	DiscardTx(id string, message string) error
+	DiscardTx(txID TxID, message string) error
 
-	CommitTX(id string, block uint64, index int) error
+	CommitTX(txID TxID, block BlockNum, index TxNum) error
 }

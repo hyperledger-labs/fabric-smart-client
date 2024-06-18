@@ -11,7 +11,8 @@ import (
 	"strings"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/pkg/errors"
 )
 
@@ -91,22 +92,22 @@ func (r *RWSet) Equals(rws interface{}, nss ...string) error {
 type (
 	Read            = vault.VersionedRead
 	ResultsIterator = vault.VersionedResultsIterator
-	ValidationCode  = driver.ValidationCode
-	TxIDEntry       = vault.ByNum[ValidationCode]
-	TxIDIterator    = driver.TxIDIterator
+	ValidationCode  = fdriver.ValidationCode
+	TxIDEntry       = driver.ByNum[ValidationCode]
+	TxIDIterator    = fdriver.TxIDIterator
 )
 
 // Vault models a key-value store that can be updated by committing rwsets
 type Vault struct {
-	vault              driver.Vault
-	txIDStore          driver.TXIDStore
-	committer          driver.Committer
-	transactionService driver.EndorserTransactionService
-	envelopeService    driver.EnvelopeService
-	metadataService    driver.MetadataService
+	vault              fdriver.Vault
+	txIDStore          fdriver.TXIDStore
+	committer          fdriver.Committer
+	transactionService fdriver.EndorserTransactionService
+	envelopeService    fdriver.EnvelopeService
+	metadataService    fdriver.MetadataService
 }
 
-func newVault(ch driver.Channel) *Vault {
+func newVault(ch fdriver.Channel) *Vault {
 	return &Vault{
 		vault:              ch.Vault(),
 		txIDStore:          ch.TXIDStore(),
@@ -152,11 +153,11 @@ func (c *Vault) GetRWSet(txid string, rwset []byte) (*RWSet, error) {
 	return &RWSet{RWSet: rws}, nil
 }
 
-// GetEphemeralRWSet returns an ephemeral RWSet for this ledger whose content is unmarshalled
+// InspectRWSet returns an ephemeral RWSet for this ledger whose content is unmarshalled
 // from the passed bytes.
 // If namespaces is not empty, the returned RWSet will be filtered by the passed namespaces
-func (c *Vault) GetEphemeralRWSet(rwset []byte, namespaces ...string) (*RWSet, error) {
-	rws, err := c.vault.GetEphemeralRWSet(rwset, namespaces...)
+func (c *Vault) InspectRWSet(rwset []byte, namespaces ...string) (*RWSet, error) {
+	rws, err := c.vault.InspectRWSet(rwset, namespaces...)
 	if err != nil {
 		return nil, err
 	}
@@ -172,7 +173,7 @@ func (c *Vault) StoreTransaction(id string, raw []byte) error {
 }
 
 func (c *Vault) StoreTransient(id string, tm TransientMap) error {
-	return c.metadataService.StoreTransient(id, driver.TransientMap(tm))
+	return c.metadataService.StoreTransient(id, fdriver.TransientMap(tm))
 }
 
 // DiscardTx discards the transaction with the given transaction id.
@@ -181,6 +182,6 @@ func (c *Vault) DiscardTx(txID string, message string) error {
 	return c.committer.DiscardTx(txID, message)
 }
 
-func (c *Vault) CommitTX(txID string, block uint64, indexInBlock int) error {
+func (c *Vault) CommitTX(txID string, block driver.BlockNum, indexInBlock driver.TxNum) error {
 	return c.committer.CommitTX(txID, block, indexInBlock, nil)
 }

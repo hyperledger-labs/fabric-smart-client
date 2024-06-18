@@ -36,7 +36,7 @@ type Vault interface {
 	GetLastTxID() (string, error)
 	NewRWSet(txid string) (*RWSet, error)
 	GetRWSet(id string, results []byte) (*RWSet, error)
-	CommitTX(txid string, block uint64, indexInBloc int) error
+	CommitTX(txid string, block driver.BlockNum, indexInBloc driver.TxNum) error
 }
 
 // vault models a key-value store that can be updated by committing rwsets

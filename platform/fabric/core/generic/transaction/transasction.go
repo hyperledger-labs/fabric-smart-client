@@ -729,8 +729,8 @@ type processedTransaction struct {
 	env []byte
 }
 
-func NewProcessedTransactionFromEnvelope(env *pcommon.Envelope) (*processedTransaction, int32, error) {
-	ue, headerType, err := UnpackEnvelope(env)
+func NewProcessedTransactionFromEnvelopePayload(payload []byte) (*processedTransaction, int32, error) {
+	ue, headerType, err := UnpackEnvelopePayload(payload)
 	if err != nil {
 		return nil, headerType, err
 	}
@@ -745,7 +745,11 @@ func NewProcessedTransactionFromEnvelopeRaw(env []byte) (*processedTransaction, 
 	return &processedTransaction{ue: ue, env: env}, nil
 }
 
-func NewProcessedTransaction(pt *pb.ProcessedTransaction) (*processedTransaction, error) {
+func NewProcessedTransaction(raw []byte) (*processedTransaction, error) {
+	pt := &pb.ProcessedTransaction{}
+	if err := proto.Unmarshal(raw, pt); err != nil {
+		return nil, errors.Wrap(err, "unmarshal failed")
+	}
 	ue, _, err := UnpackEnvelope(pt.TransactionEnvelope)
 	if err != nil {
 		return nil, err

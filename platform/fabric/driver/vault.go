@@ -13,15 +13,17 @@ import (
 type (
 	TxValidationStatus = driver.TxValidationStatus[ValidationCode]
 	QueryExecutor      = driver.QueryExecutor
+	BlockNum           = driver.BlockNum
+	TxNum              = driver.TxNum
 )
 
 type Vault interface {
 	driver.Vault[ValidationCode]
 
-	// GetEphemeralRWSet returns an ephemeral RWSet for this ledger whose content is unmarshalled
+	// InspectRWSet returns an ephemeral RWSet for this ledger whose content is unmarshalled
 	// from the passed bytes.
 	// If namespaces is not empty, the returned RWSet will be filtered by the passed namespaces
-	GetEphemeralRWSet(rwset []byte, namespaces ...string) (RWSet, error)
+	InspectRWSet(rwset []byte, namespaces ...string) (RWSet, error)
 	RWSExists(id string) bool
 	Match(id string, results []byte) error
 	Close() error

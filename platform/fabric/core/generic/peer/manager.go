@@ -4,23 +4,22 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package generic
+package peer
 
 import (
-	peer2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/pkg/errors"
 )
 
-type PeerManager struct {
-	ConnCache peer2.CachingEndorserPool
+type Manager struct {
+	ConnCache CachingEndorserPool
 }
 
-func NewPeerManager(configService driver.ConfigService, signer driver.Signer) *PeerManager {
-	return &PeerManager{
-		ConnCache: peer2.CachingEndorserPool{
-			Cache: map[string]peer2.Client{},
+func NewPeerManager(configService driver.ConfigService, signer driver.Signer) *Manager {
+	return &Manager{
+		ConnCache: CachingEndorserPool{
+			Cache: map[string]Client{},
 			ConnCreator: &connCreator{
 				ConfigService: configService,
 				Singer:        signer,
@@ -30,7 +29,7 @@ func NewPeerManager(configService driver.ConfigService, signer driver.Signer) *P
 	}
 }
 
-func (c *PeerManager) NewPeerClientForAddress(cc grpc.ConnectionConfig) (peer2.Client, error) {
+func (c *Manager) NewPeerClientForAddress(cc grpc.ConnectionConfig) (Client, error) {
 	logger.Debugf("NewPeerClientForAddress [%v]", cc)
 	return c.ConnCache.NewPeerClientForAddress(cc)
 }
@@ -40,7 +39,7 @@ type connCreator struct {
 	Singer        driver.Signer
 }
 
-func (c *connCreator) NewPeerClientForAddress(cc grpc.ConnectionConfig) (peer2.Client, error) {
+func (c *connCreator) NewPeerClientForAddress(cc grpc.ConnectionConfig) (Client, error) {
 	logger.Debugf("Creating new peer client for address [%s]", cc.Address)
 
 	secOpts, err := grpc.CreateSecOpts(cc, grpc.TLSClientConfig{
@@ -78,14 +77,14 @@ func (c *connCreator) NewPeerClientForAddress(cc grpc.ConnectionConfig) (peer2.C
 	)
 }
 
-func newPeerClientForClientConfig(signer driver.Signer, address, override string, clientConfig grpc.ClientConfig) (*peer2.PeerClient, error) {
+func newPeerClientForClientConfig(signer driver.Signer, address, override string, clientConfig grpc.ClientConfig) (*PeerClient, error) {
 	gClient, err := grpc.NewGRPCClient(clientConfig)
 	if err != nil {
 		return nil, errors.WithMessage(err, "failed to create Client from config")
 	}
-	pClient := &peer2.PeerClient{
+	pClient := &PeerClient{
 		Signer: signer.Sign,
-		GRPCClient: peer2.GRPCClient{
+		GRPCClient: GRPCClient{
 			Client:  gClient,
 			Address: address,
 			Sn:      override,

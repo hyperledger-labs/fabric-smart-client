@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package driver
 
 import (
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/pkg/errors"
 )
@@ -21,19 +21,10 @@ var (
 
 type SQLError = error
 
-type VersionedRead struct {
-	Key   string
-	Raw   []byte
-	Block core.BlockNum
-	TxNum core.TxNum
-}
-
-type VersionedResultsIterator = collections.Iterator[*VersionedRead]
-
 type VersionedValue struct {
 	Raw   []byte
-	Block core.BlockNum
-	TxNum core.TxNum
+	Block driver.BlockNum
+	TxNum driver.TxNum
 }
 
 type UnversionedRead struct {
@@ -45,12 +36,11 @@ type UnversionedResultsIterator = collections.Iterator[*UnversionedRead]
 
 type UnversionedValue = []byte
 
-type QueryExecutor interface {
-	GetState(namespace string, key string) ([]byte, error)
-	GetStateMetadata(namespace, key string) (map[string][]byte, uint64, uint64, error)
-	GetStateRangeScanIterator(namespace string, startKey string, endKey string) (VersionedResultsIterator, error)
-	Done()
-}
+type VersionedRead = driver.VersionedRead
+
+type VersionedResultsIterator = collections.Iterator[*VersionedRead]
+
+type QueryExecutor = driver.QueryExecutor
 
 // SQLErrorWrapper transforms the different errors returned by various SQL implementations into an SQLError that is common
 type SQLErrorWrapper interface {
@@ -59,20 +49,20 @@ type SQLErrorWrapper interface {
 
 type basePersistence[V any, R any] interface {
 	// SetState sets the given value for the given namespace, key, and version
-	SetState(namespace core.Namespace, key string, value V) error
+	SetState(namespace driver.Namespace, key string, value V) error
 	// GetState gets the value and version for given namespace and key
-	GetState(namespace core.Namespace, key string) (V, error)
+	GetState(namespace driver.Namespace, key string) (V, error)
 	// DeleteState deletes the given namespace and key
-	DeleteState(namespace core.Namespace, key string) error
+	DeleteState(namespace driver.Namespace, key string) error
 	// GetStateRangeScanIterator returns an iterator that contains all the key-values between given key ranges.
 	// startKey is included in the results and endKey is excluded. An empty startKey refers to the first available key
 	// and an empty endKey refers to the last available key. For scanning all the keys, both the startKey and the endKey
 	// can be supplied as empty strings. However, a full scan should be used judiciously for performance reasons.
 	// The returned VersionedResultsIterator contains results of type *VersionedRead.
-	GetStateRangeScanIterator(namespace core.Namespace, startKey string, endKey string) (collections.Iterator[*R], error)
+	GetStateRangeScanIterator(namespace driver.Namespace, startKey string, endKey string) (collections.Iterator[*R], error)
 	// GetStateSetIterator returns an iterator that contains all the values for the passed keys.
 	// The order is not respected.
-	GetStateSetIterator(ns core.Namespace, keys ...string) (collections.Iterator[*R], error)
+	GetStateSetIterator(ns driver.Namespace, keys ...string) (collections.Iterator[*R], error)
 	// Close closes this persistence instance
 	Close() error
 	// BeginUpdate starts the session
@@ -92,14 +82,14 @@ type UnversionedPersistence interface {
 type VersionedPersistence interface {
 	basePersistence[VersionedValue, VersionedRead]
 	// GetStateMetadata gets the metadata and version for given namespace and key
-	GetStateMetadata(namespace core.Namespace, key string) (map[string][]byte, uint64, uint64, error)
+	GetStateMetadata(namespace driver.Namespace, key string) (map[string][]byte, uint64, uint64, error)
 	// SetStateMetadata sets the given metadata for the given namespace, key, and version
-	SetStateMetadata(namespace core.Namespace, key string, metadata map[string][]byte, block, txnum uint64) error
+	SetStateMetadata(namespace driver.Namespace, key string, metadata map[string][]byte, block, txnum uint64) error
 }
 
 type WriteTransaction interface {
 	// SetState sets the given value for the given namespace, key, and version
-	SetState(namespace core.Namespace, key string, value VersionedValue) error
+	SetState(namespace driver.Namespace, key string, value VersionedValue) error
 	// Commit commits the changes since BeginUpdate
 	Commit() error
 	// Discard discards the changes since BeginUpdate

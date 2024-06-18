@@ -7,8 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package driver
 
 import (
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger/fabric-protos-go/common"
 )
@@ -20,10 +18,10 @@ type (
 )
 
 type RWSetInspector interface {
-	GetRWSet(txid string, rwset []byte) (vault.TxInterceptor, error)
-	InspectRWSet(rwsetBytes []byte, namespaces ...core.Namespace) (RWSet, error)
-	GetExistingRWSet(txID core.TxID) (vault.TxInterceptor, error)
-	NewRWSet(txid string) (vault.TxInterceptor, error)
+	GetRWSet(txid string, rwset []byte) (RWSet, error)
+	InspectRWSet(rwsetBytes []byte, namespaces ...driver.Namespace) (RWSet, error)
+	GetExistingRWSet(txID driver.TxID) (RWSet, error)
+	NewRWSet(txid string) (RWSet, error)
 	RWSExists(txid string) bool
 }
 

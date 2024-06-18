@@ -10,7 +10,7 @@ import (
 	"bytes"
 	"sort"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/keys"
 	"github.com/pkg/errors"
@@ -36,7 +36,7 @@ func (r KeyedMetaWrites) Equals(o KeyedMetaWrites) error {
 
 type NamespaceKeyedMetaWrites map[string]KeyedMetaWrites
 
-func (r NamespaceKeyedMetaWrites) equals(o NamespaceKeyedMetaWrites, nss ...string) error {
+func (r NamespaceKeyedMetaWrites) Equals(o NamespaceKeyedMetaWrites, nss ...string) error {
 	return entriesEqual(r, o, func(a, b KeyedMetaWrites) bool { return a.Equals(b) == nil }, nss...)
 }
 
@@ -65,16 +65,16 @@ func (w *MetaWriteSet) Add(ns, key string, meta map[string][]byte) error {
 	return nil
 }
 
-func (w *MetaWriteSet) get(ns, key string) map[string][]byte {
+func (w *MetaWriteSet) Get(ns, key string) map[string][]byte {
 	return w.MetaWrites[ns][key]
 }
 
-func (w *MetaWriteSet) in(ns, key string) bool {
+func (w *MetaWriteSet) In(ns, key string) bool {
 	_, in := w.MetaWrites[ns][key]
 	return in
 }
 
-func (w *MetaWriteSet) clear(ns string) {
+func (w *MetaWriteSet) Clear(ns string) {
 	w.MetaWrites[ns] = KeyedMetaWrites{}
 }
 
@@ -90,7 +90,7 @@ func (r NamespaceWrites) Equals(o NamespaceWrites) error {
 
 type Writes map[string]NamespaceWrites
 
-func (r Writes) equals(o Writes, nss ...string) error {
+func (r Writes) Equals(o Writes, nss ...string) error {
 	return entriesEqual(r, o, func(a, b NamespaceWrites) bool { return a.Equals(b) == nil }, nss...)
 }
 
@@ -112,17 +112,20 @@ func (w *WriteSet) Add(ns, key string, value []byte) error {
 		w.OrderedWrites[ns] = make([]string, 0, 8)
 	}
 
+	_, exists := nsMap[key]
 	nsMap[key] = append([]byte(nil), value...)
-	w.OrderedWrites[ns] = append(w.OrderedWrites[ns], key)
+	if !exists {
+		w.OrderedWrites[ns] = append(w.OrderedWrites[ns], key)
+	}
 
 	return nil
 }
 
-func (w *WriteSet) get(ns, key string) []byte {
+func (w *WriteSet) Get(ns, key string) []byte {
 	return w.Writes[ns][key]
 }
 
-func (w *WriteSet) getAt(ns string, i int) (key string, in bool) {
+func (w *WriteSet) GetAt(ns string, i int) (key string, in bool) {
 	slice := w.OrderedWrites[ns]
 	if i < 0 || i > len(slice)-1 {
 		return "", false
@@ -131,32 +134,32 @@ func (w *WriteSet) getAt(ns string, i int) (key string, in bool) {
 	return slice[i], true
 }
 
-func (w *WriteSet) in(ns, key string) bool {
+func (w *WriteSet) In(ns, key string) bool {
 	_, in := w.Writes[ns][key]
 	return in
 }
 
-func (w *WriteSet) clear(ns string) {
+func (w *WriteSet) Clear(ns string) {
 	w.Writes[ns] = map[string][]byte{}
 	w.OrderedWrites[ns] = []string{}
 }
 
-type txPosition struct {
-	Block core.BlockNum
-	TxNum core.TxNum
+type TxPosition struct {
+	Block driver.BlockNum
+	TxNum driver.TxNum
 }
 
-type NamespaceReads map[string]txPosition
+type NamespaceReads map[string]TxPosition
 
 func (r NamespaceReads) Equals(o NamespaceReads) error {
-	return entriesEqual(r, o, func(v, v2 txPosition) bool {
+	return entriesEqual(r, o, func(v, v2 TxPosition) bool {
 		return v.Block == v2.Block && v.TxNum == v2.TxNum
 	})
 }
 
-type Reads map[core.Namespace]NamespaceReads
+type Reads map[driver.Namespace]NamespaceReads
 
-func (r Reads) equals(o Reads, nss ...core.Namespace) error {
+func (r Reads) Equals(o Reads, nss ...driver.Namespace) error {
 	return entriesEqual(r, o, func(a, b NamespaceReads) bool { return a.Equals(b) == nil }, nss...)
 }
 
@@ -165,25 +168,25 @@ type ReadSet struct {
 	OrderedReads map[string][]string
 }
 
-func (r *ReadSet) Add(ns core.Namespace, key string, block core.BlockNum, txnum core.TxNum) {
+func (r *ReadSet) Add(ns driver.Namespace, key string, block driver.BlockNum, txnum driver.TxNum) {
 	nsMap, in := r.Reads[ns]
 	if !in {
-		nsMap = make(map[core.Namespace]txPosition)
+		nsMap = make(map[driver.Namespace]TxPosition)
 
 		r.Reads[ns] = nsMap
 		r.OrderedReads[ns] = make([]string, 0, 8)
 	}
 
-	nsMap[key] = txPosition{block, txnum}
+	nsMap[key] = TxPosition{block, txnum}
 	r.OrderedReads[ns] = append(r.OrderedReads[ns], key)
 }
 
-func (r *ReadSet) get(ns core.Namespace, key string) (core.BlockNum, core.TxNum, bool) {
+func (r *ReadSet) Get(ns driver.Namespace, key string) (driver.BlockNum, driver.TxNum, bool) {
 	entry, in := r.Reads[ns][key]
 	return entry.Block, entry.TxNum, in
 }
 
-func (r *ReadSet) getAt(ns core.Namespace, i int) (string, bool) {
+func (r *ReadSet) GetAt(ns driver.Namespace, i int) (string, bool) {
 	slice := r.OrderedReads[ns]
 	if i < 0 || i > len(slice)-1 {
 		return "", false
@@ -192,12 +195,12 @@ func (r *ReadSet) getAt(ns core.Namespace, i int) (string, bool) {
 	return slice[i], true
 }
 
-func (r *ReadSet) clear(ns core.Namespace) {
-	r.Reads[ns] = map[string]txPosition{}
+func (r *ReadSet) Clear(ns driver.Namespace) {
+	r.Reads[ns] = map[string]TxPosition{}
 	r.OrderedReads[ns] = []string{}
 }
 
-func entriesEqual[T any](r, o map[string]T, compare func(T, T) bool, nss ...core.Namespace) error {
+func entriesEqual[T any](r, o map[string]T, compare func(T, T) bool, nss ...driver.Namespace) error {
 	rKeys := getKeys(r, nss...)
 	sort.Strings(rKeys)
 	oKeys := getKeys(o, nss...)
@@ -220,7 +223,7 @@ func entriesEqual[T any](r, o map[string]T, compare func(T, T) bool, nss ...core
 	return nil
 }
 
-func getKeys[V any](m map[core.Namespace]V, nss ...core.Namespace) []string {
+func getKeys[V any](m map[driver.Namespace]V, nss ...driver.Namespace) []string {
 	metaWriteNamespaces := collections.Keys(m)
 	if len(nss) == 0 {
 		return metaWriteNamespaces

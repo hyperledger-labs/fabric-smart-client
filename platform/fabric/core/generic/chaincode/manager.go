@@ -4,26 +4,16 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package generic
+package chaincode
 
 import (
-	"context"
 	"sync"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/chaincode"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
 
-type Broadcaster interface {
-	Broadcast(context context.Context, blob interface{}) error
-}
-
-type MSPProvider interface {
-	MSPManager() driver.MSPManager
-}
-
-type ChaincodeManager struct {
+type Manager struct {
 	NetworkID       string
 	ChannelID       string
 	ConfigService   driver.ConfigService
@@ -31,7 +21,7 @@ type ChaincodeManager struct {
 	NumRetries      uint
 	RetrySleep      time.Duration
 	LocalMembership driver.LocalMembership
-	PeerManager     chaincode.PeerManager
+	PeerManager     PeerManager
 	SignerService   driver.SignerService
 	Broadcaster     Broadcaster
 	Finality        driver.Finality
@@ -42,7 +32,7 @@ type ChaincodeManager struct {
 	Chaincodes     map[string]driver.Chaincode
 }
 
-func NewChaincodeManager(
+func NewManager(
 	networkID string,
 	channelID string,
 	configService driver.ConfigService,
@@ -50,13 +40,13 @@ func NewChaincodeManager(
 	numRetries uint,
 	retrySleep time.Duration,
 	localMembership driver.LocalMembership,
-	peerManager chaincode.PeerManager,
+	peerManager PeerManager,
 	signerService driver.SignerService,
 	broadcaster Broadcaster,
 	finality driver.Finality,
 	MSPProvider MSPProvider,
-) *ChaincodeManager {
-	return &ChaincodeManager{
+) *Manager {
+	return &Manager{
 		NetworkID:       networkID,
 		ChannelID:       channelID,
 		ConfigService:   configService,
@@ -74,7 +64,7 @@ func NewChaincodeManager(
 }
 
 // Chaincode returns a chaincode handler for the passed chaincode name
-func (c *ChaincodeManager) Chaincode(name string) driver.Chaincode {
+func (c *Manager) Chaincode(name string) driver.Chaincode {
 	c.ChaincodesLock.RLock()
 	ch, ok := c.Chaincodes[name]
 	if ok {
@@ -89,7 +79,7 @@ func (c *ChaincodeManager) Chaincode(name string) driver.Chaincode {
 	if ok {
 		return ch
 	}
-	ch = chaincode.NewChaincode(
+	ch = NewChaincode(
 		name,
 		c.ConfigService,
 		c.ChannelConfig,
