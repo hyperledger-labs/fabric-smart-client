@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package comm
 
 import (
+	"context"
 	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
@@ -45,12 +46,20 @@ func (n *NetworkStreamSession) Info() view.SessionInfo {
 
 // Send sends the payload to the endpoint
 func (n *NetworkStreamSession) Send(payload []byte) error {
-	return n.sendWithStatus(payload, view.OK)
+	return n.SendWithContext(context.TODO(), payload)
+}
+
+func (n *NetworkStreamSession) SendWithContext(ctx context.Context, payload []byte) error {
+	return n.sendWithStatus(ctx, payload, view.OK)
 }
 
 // SendError sends an error to the endpoint with the passed payload
 func (n *NetworkStreamSession) SendError(payload []byte) error {
-	return n.sendWithStatus(payload, view.ERROR)
+	return n.SendErrorWithContext(context.TODO(), payload)
+}
+
+func (n *NetworkStreamSession) SendErrorWithContext(ctx context.Context, payload []byte) error {
+	return n.sendWithStatus(ctx, payload, view.ERROR)
 }
 
 // Receive returns a channel of messages received from the endpoint
@@ -89,14 +98,14 @@ func (n *NetworkStreamSession) Close() {
 	}
 }
 
-func (n *NetworkStreamSession) sendWithStatus(payload []byte, status int32) error {
+func (n *NetworkStreamSession) sendWithStatus(ctx context.Context, payload []byte, status int32) error {
 	info := host.StreamInfo{
 		RemotePeerID:      string(n.endpointID),
 		RemotePeerAddress: n.endpointAddress,
 		ContextID:         n.contextID,
 		SessionID:         n.sessionID,
 	}
-	err := n.node.sendTo(info, &ViewPacket{
+	err := n.node.sendTo(ctx, info, &ViewPacket{
 		ContextID: n.contextID,
 		SessionID: n.sessionID,
 		Caller:    n.callerViewID,

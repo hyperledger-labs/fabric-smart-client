@@ -81,6 +81,13 @@ func (s *TestSuite) TestSucceeded() {
 	res, err = s.II.Client("alice").CallView("init", nil)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
+
+	m, err := s.II.WebClient("alice").Metrics()
+	Expect(err).NotTo(HaveOccurred())
+	Expect(m).NotTo(BeNil())
+
+	// JaegerUI is running. Add a delay to check the traces generated during the test
+	//time.Sleep(100 * time.Minute)
 }
 
 func (s *TestSuite) TestSucceededWithReplicas() {

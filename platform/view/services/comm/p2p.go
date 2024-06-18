@@ -19,8 +19,10 @@ import (
 	proto2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap/zapcore"
 )
 
@@ -47,15 +49,20 @@ type P2PNode struct {
 	sessions         map[string]*NetworkStreamSession
 	finderWg         sync.WaitGroup
 	isStopping       bool
+	tracer           trace.Tracer
 }
 
-func NewNode(h host2.P2PHost) (*P2PNode, error) {
+func NewNode(h host2.P2PHost, tracerProvider trace.TracerProvider) (*P2PNode, error) {
 	p := &P2PNode{
 		host:             h,
 		incomingMessages: make(chan *messageWithStream),
 		streams:          make(map[host2.StreamHash][]*streamHandler),
 		sessions:         make(map[string]*NetworkStreamSession),
 		isStopping:       false,
+		tracer: tracerProvider.Tracer("comm_node", tracing.WithMetricsOpts(tracing.MetricsOpts{
+			Namespace:  "viewsdk",
+			LabelNames: []tracing.LabelName{},
+		})),
 	}
 	if err := h.Start(p.handleIncomingStream); err != nil {
 		return nil, err
@@ -180,13 +187,13 @@ func (p *P2PNode) sendWithCachedStreams(streamHash string, msg proto.Message) er
 // sendTo sends the passed messaged to the p2p peer with the passed ID.
 // If no address is specified, then p2p will use one of the IP addresses associated to the peer in its peer store.
 // If an address is specified, then the peer store will be updated with the passed address.
-func (p *P2PNode) sendTo(info host2.StreamInfo, msg proto.Message) error {
+func (p *P2PNode) sendTo(ctx context.Context, info host2.StreamInfo, msg proto.Message) error {
 	streamHash := p.host.StreamHash(info)
 	if err := p.sendWithCachedStreams(streamHash, msg); err != errStreamNotFound {
 		return err
 	}
 
-	nwStream, err := p.host.NewStream(context.Background(), info)
+	nwStream, err := p.host.NewStream(ctx, info)
 	if err != nil {
 		return errors.Wrapf(err, "failed to create new stream to [%s]", info.RemotePeerID)
 	}
@@ -204,7 +211,6 @@ func (p *P2PNode) handleIncomingStream(stream host2.P2PStream) {
 }
 
 func (p *P2PNode) handleStream(stream host2.P2PStream) {
-
 	sh := &streamHandler{
 		stream: stream,
 		reader: NewDelimitedReader(stream, 655360*2),
@@ -291,6 +297,7 @@ func (s *streamHandler) handleIncoming() {
 				Caller:       msg.Caller,
 				FromEndpoint: s.stream.RemotePeerAddress(),
 				FromPKID:     []byte(s.stream.RemotePeerID()),
+				Ctx:          s.stream.Context(),
 			},
 			stream: s,
 		}

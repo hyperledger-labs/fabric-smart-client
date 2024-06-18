@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package libp2p
 
 import (
+	"context"
+
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/libp2p/go-libp2p/core/network"
 )
@@ -25,6 +27,8 @@ func (s *stream) RemotePeerAddress() host2.PeerIPAddress {
 func (s *stream) Hash() host2.StreamHash {
 	return streamHash(s.RemotePeerID())
 }
+
+func (s *stream) Context() context.Context { return context.TODO() }
 
 func streamHash(peerID host2.PeerID) host2.StreamHash {
 	return peerID

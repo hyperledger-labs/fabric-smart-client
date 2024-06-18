@@ -12,7 +12,13 @@ import (
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	routing2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/rest/routing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel/trace"
+)
+
+const (
+	contextIDLabel tracing.LabelName = "context_id"
 )
 
 var logger = flogging.MustGetLogger("rest-p2p-host")
@@ -21,9 +27,10 @@ type host struct {
 	routing routing2.ServiceDiscovery
 	server  *server
 	client  *client
+	tracer  trace.Tracer
 }
 
-func NewHost(nodeID host2.PeerID, listenAddress host2.PeerIPAddress, routing routing2.ServiceDiscovery, keyFile, certFile string, rootCACertFiles []string) (*host, error) {
+func NewHost(nodeID host2.PeerID, listenAddress host2.PeerIPAddress, routing routing2.ServiceDiscovery, tracerProvider trace.TracerProvider, keyFile, certFile string, rootCACertFiles []string) (*host, error) {
 	logger.Infof("Creating new host for node [%s] on [%s] with key, cert at: [%s], [%s]", nodeID, listenAddress, keyFile, certFile)
 	p2pClient, err := newClient(nodeID, rootCACertFiles, len(keyFile) > 0 && len(certFile) > 0)
 	if err != nil {
@@ -34,6 +41,10 @@ func NewHost(nodeID host2.PeerID, listenAddress host2.PeerIPAddress, routing rou
 		server:  p2pServer,
 		client:  p2pClient,
 		routing: routing,
+		tracer: tracerProvider.Tracer("host", tracing.WithMetricsOpts(tracing.MetricsOpts{
+			Namespace:  "viewsdk",
+			LabelNames: []tracing.LabelName{contextIDLabel},
+		})),
 	}, nil
 }
 
@@ -47,6 +58,10 @@ func (h *host) Start(newStreamCallback func(stream host2.P2PStream)) error {
 }
 
 func (h *host) NewStream(ctx context.Context, info host2.StreamInfo) (host2.P2PStream, error) {
+	newCtx, span := h.tracer.Start(ctx, "stream_send",
+		tracing.WithAttributes(tracing.String(contextIDLabel, info.ContextID)),
+		trace.WithSpanKind(trace.SpanKindClient))
+	defer span.End()
 	//if len(address) == 0 { //TODO
 	logger.Debugf("No address passed for peer [%s]. Resolving...", info.RemotePeerID)
 	if info.RemotePeerAddress = h.routing.Lookup(info.RemotePeerID); len(info.RemotePeerAddress) == 0 {
@@ -54,7 +69,7 @@ func (h *host) NewStream(ctx context.Context, info host2.StreamInfo) (host2.P2PS
 	}
 	logger.Debugf("Resolved address of peer [%s]: %s", info.RemotePeerID, info.RemotePeerAddress)
 	//}
-	return h.client.OpenStream(info, ctx)
+	return h.client.OpenStream(info, newCtx)
 }
 
 func (h *host) Lookup(peerID host2.PeerID) ([]host2.PeerIPAddress, bool) {

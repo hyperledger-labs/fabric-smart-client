@@ -126,8 +126,8 @@ func (p *SDK) Install() error {
 		p.C.Provide(manager.New, dig.As(new(ViewManager), new(node.ViewManager), new(driver.ViewManager), new(driver.Registry))),
 		p.C.Provide(view.NewManager),
 
-		p.C.Provide(func(hostProvider host.GeneratorProvider, configProvider driver.ConfigService, endpointService *view.EndpointService, identityProvider view3.IdentityProvider) (*comm.Service, error) {
-			return comm.NewService(hostProvider, endpointService, configProvider, identityProvider.DefaultIdentity())
+		p.C.Provide(func(hostProvider host.GeneratorProvider, configProvider driver.ConfigService, endpointService *view.EndpointService, identityProvider view3.IdentityProvider, tracerProvider trace.TracerProvider) (*comm.Service, error) {
+			return comm.NewService(hostProvider, endpointService, configProvider, identityProvider.DefaultIdentity(), tracerProvider)
 		}),
 		p.C.Provide(digutils.Identity[*comm.Service](), dig.As(new(manager.CommLayer))),
 		p.C.Provide(provider.NewHostProvider),

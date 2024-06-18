@@ -27,9 +27,13 @@ type childContext struct {
 	errorCallbackFuncs []func()
 }
 
-func (w *childContext) getTracer() trace.Tracer { return w.ParentContext.getTracer() }
+func (w *childContext) StartSpanFrom(c context.Context, name string, opts ...trace.SpanStartOption) (context.Context, trace.Span) {
+	return w.ParentContext.StartSpanFrom(c, name, opts...)
+}
 
-func (w *childContext) setContext(context context.Context) { w.ParentContext.setContext(context) }
+func (w *childContext) StartSpan(name string, opts ...trace.SpanStartOption) trace.Span {
+	return w.ParentContext.StartSpan(name, opts...)
+}
 
 func (w *childContext) GetService(v interface{}) (interface{}, error) {
 	return w.ParentContext.GetService(v)

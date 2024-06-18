@@ -60,6 +60,8 @@ type P2PStream interface {
 	// Hash calculates the hash of the stream.
 	// When we attempt to open a new stream that hashes to the same value, the existing stream will be re-used.
 	Hash() StreamHash
+	// Context returns the context of the stream
+	Context() context.Context
 
 	io.Reader
 	io.Writer

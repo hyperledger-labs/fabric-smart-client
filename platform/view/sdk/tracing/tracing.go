@@ -18,10 +18,11 @@ var providerType = reflect.TypeOf((*tracerProvider)(nil))
 
 type tracerProvider struct {
 	trace.TracerProvider
+	viewTracer trace.Tracer
 }
 
 func NewWrappedTracerProvider(tp trace.TracerProvider) trace.TracerProvider {
-	return &tracerProvider{TracerProvider: tp}
+	return &tracerProvider{TracerProvider: tp, viewTracer: tp.Tracer("view_tracer")}
 }
 
 func Get(sp view.ServiceProvider) trace.TracerProvider {

@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package session
 
 import (
+	"context"
 	"encoding/base64"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -82,7 +83,9 @@ func (s *localSession) Info() view.SessionInfo {
 	return s.info
 }
 
-func (s *localSession) Send(payload []byte) error {
+func (s *localSession) Send(payload []byte) error { return s.SendWithContext(context.TODO(), payload) }
+
+func (s *localSession) SendWithContext(ctx context.Context, payload []byte) error {
 	if s.info.Closed {
 		return errors.New("session is closed")
 	}
@@ -95,11 +98,16 @@ func (s *localSession) Send(payload []byte) error {
 		FromPKID:     s.info.EndpointPKID,
 		Status:       view.OK,
 		Payload:      payload,
+		Ctx:          ctx,
 	}
 	return nil
 }
 
 func (s *localSession) SendError(payload []byte) error {
+	return s.SendErrorWithContext(context.TODO(), payload)
+}
+
+func (s *localSession) SendErrorWithContext(ctx context.Context, payload []byte) error {
 	if s.info.Closed {
 		return errors.New("session is closed")
 	}
@@ -112,6 +120,7 @@ func (s *localSession) SendError(payload []byte) error {
 		FromPKID:     s.info.EndpointPKID,
 		Status:       view.ERROR,
 		Payload:      payload,
+		Ctx:          ctx,
 	}
 	return nil
 }
