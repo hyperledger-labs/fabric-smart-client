@@ -45,7 +45,7 @@ func versionGauge(provider metrics.Provider) metrics.Gauge {
 	}
 }
 
-func NewMetricsProvider(m MetricsOptions, l log2.Logger) metrics.Provider {
+func NewMetricsProvider(m MetricsOptions, l log2.Logger, skipRegisterErr bool) metrics.Provider {
 	switch m.Provider {
 	case "statsd":
 		prefix := m.Statsd.Prefix
@@ -56,7 +56,7 @@ func NewMetricsProvider(m MetricsOptions, l log2.Logger) metrics.Provider {
 		ks := kitstatsd.New(prefix, l)
 		return &statsd.Provider{Statsd: ks}
 	case "prometheus":
-		return &prometheus.Provider{}
+		return &prometheus.Provider{SkipRegisterErr: skipRegisterErr}
 	default:
 		return &disabled.Provider{}
 	}
