@@ -130,7 +130,7 @@ fsc:
     # Tracer configuration when provider == 'optl'
     optl:
       # The address of collector where we should send the traces
-      address: {{ if Topology.Monitoring.TracingEndpoint }}{{ Topology.Monitoring.TracingEndpoint }}{{ else }}127.0.0.1:4319{{ end }}
+      address: {{ TracingEndpoint }}
   metrics:
     # metrics provider is one of statsd, prometheus, or disabled
     provider: {{ Topology.Monitoring.MetricsType }}

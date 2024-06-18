@@ -7,10 +7,17 @@ SPDX-License-Identifier: Apache-2.0
 package docker
 
 import (
+	"bufio"
+	"context"
+	"fmt"
 	"net"
+	"strconv"
 	"strings"
 	"sync"
 
+	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/client"
+	"github.com/docker/go-connections/nat"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/pkg/errors"
@@ -195,4 +202,46 @@ func (d *Docker) LocalIP(networkID string) (string, error) {
 	}
 
 	return "127.0.0.1", nil
+}
+
+func PortSet(ports ...int) nat.PortSet {
+	m := make(nat.PortSet, len(ports))
+	for _, port := range ports {
+		m[nat.Port(fmt.Sprintf("%d/tcp", port))] = struct{}{}
+	}
+	return m
+}
+
+func PortBindings(ports ...int) nat.PortMap {
+	m := make(nat.PortMap, len(ports))
+	for _, p := range ports {
+		port := strconv.Itoa(p)
+		m[nat.Port(port+"/tcp")] = []nat.PortBinding{{
+			HostIP:   "0.0.0.0",
+			HostPort: port,
+		}}
+	}
+	return m
+}
+
+func StartLogs(cli *client.Client, containerID string, loggerName string) error {
+	dockerLogger := flogging.MustGetLogger(loggerName)
+	reader, err := cli.ContainerLogs(context.Background(), containerID, container.LogsOptions{
+		ShowStdout: true,
+		ShowStderr: true,
+		Follow:     true,
+		Timestamps: false,
+	})
+	if err != nil {
+		return err
+	}
+
+	go func() {
+		defer reader.Close()
+		scanner := bufio.NewScanner(reader)
+		for scanner.Scan() {
+			dockerLogger.Debugf("%s", scanner.Text())
+		}
+	}()
+	return nil
 }

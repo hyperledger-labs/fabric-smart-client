@@ -9,6 +9,7 @@ package fsc
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/api"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/tracing"
 )
 
 const (
@@ -42,10 +43,9 @@ type Topology struct {
 }
 
 type Monitoring struct {
-	TracingType     string `yaml:"tracingType,omitempty"`
-	TracingEndpoint string `yaml:"tracingEndpoint,omitempty"`
-	MetricsType     string `yaml:"metricsType,omitempty"`
-	TLS             bool   `yaml:"tls,omitempty"`
+	TracingType tracing.TracerType `yaml:"tracingType,omitempty"`
+	MetricsType string             `yaml:"metricsType,omitempty"`
+	TLS         bool               `yaml:"tls,omitempty"`
 }
 
 // NewTopology returns an empty FSC network topology.
@@ -59,7 +59,6 @@ func NewTopology() *Topology {
 			Format: "'%{color}%{time:2006-01-02 15:04:05.000 MST} [%{module}] %{shortfunc} -> %{level:.4s} %{id:03x}%{color:reset} %{message}'",
 		},
 		Monitoring: Monitoring{
-			TracingType: "none",
 			MetricsType: "none",
 			TLS:         true,
 		},
@@ -131,12 +130,8 @@ func (t *Topology) ListNodes(ids ...string) []*node.Node {
 	return res
 }
 
-func (t *Topology) EnableOPTLTracing() {
-	t.Monitoring.TracingType = "optl"
-}
-
-func (t *Topology) EnableFileTracing() {
-	t.Monitoring.TracingType = "file"
+func (t *Topology) EnableTracing(typ tracing.TracerType) {
+	t.Monitoring.TracingType = typ
 }
 
 func (t *Topology) EnableLogToFile() {

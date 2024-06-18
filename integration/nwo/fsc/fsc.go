@@ -28,6 +28,7 @@ import (
 	runner2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/runner"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/commands"
 	node2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/monitoring/optl"
 	tracing2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/view"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/view/cmd"
@@ -207,7 +208,15 @@ func (p *Platform) PostRun(bool) {
 		address := v.GetString("fsc.grpc.address")
 		p.setIdentities(address, peer)
 	}
-	tracerProvider, err := tracing2.FileProvider(&tracing2.FileConfig{Path: "./client-trace.out"})
+	tracerProvider, err := tracing2.NewTracerProviderFromConfig(tracing2.Config{
+		Provider: p.Topology.Monitoring.TracingType,
+		File: tracing2.FileConfig{
+			Path: "./client-trace.out",
+		},
+		Otpl: tracing2.OtplConfig{
+			Address: fmt.Sprintf("0.0.0.0:%d", optl.JaegerCollectorPort),
+		},
+	})
 	if err != nil {
 		panic(err)
 	}
@@ -483,6 +492,7 @@ func (p *Platform) GenerateCoreConfig(peer *node2.Replica) {
 		"NodeKVSSQLDataSource":   func() string { return GetPersistenceDataSource(peer.Peer) },
 		"Resolvers":              func() []*Resolver { return resolvers },
 		"WebEnabled":             func() bool { return p.Topology.WebEnabled },
+		"TracingEndpoint":        func() string { return fmt.Sprintf("0.0.0.0:%d", optl.JaegerCollectorPort) },
 	}).Parse(p.Topology.Templates.CoreTemplate())
 	Expect(err).NotTo(HaveOccurred())
 	Expect(t.Execute(io.MultiWriter(core), p)).NotTo(HaveOccurred())

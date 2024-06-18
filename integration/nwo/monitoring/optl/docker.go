@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package optl
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"strconv"
@@ -19,13 +18,16 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/docker"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	. "github.com/onsi/gomega"
 )
 
 const (
-	JaegerTracing = "jaegertracing/all-in-one:latest"
-	Collector     = "otel/opentelemetry-collector:latest"
+	JaegerTracing       = "jaegertracing/all-in-one:latest"
+	Collector           = "otel/opentelemetry-collector:latest"
+	JaegerQueryPort     = 16685
+	JaegerCollectorPort = 4317
+	JaegerUIPort        = 16686
+	JaegerAdminPort     = 14269
 )
 
 var RequiredImages = []string{
@@ -66,31 +68,14 @@ func (n *Extension) startJaeger() {
 
 	resp, err := cli.ContainerCreate(ctx,
 		&container.Config{
-			Hostname: "jaegertracing.mynetwork.com",
-			Image:    JaegerTracing,
-			Tty:      false,
+			Env:          []string{"COLLECTOR_OTLP_ENABLED=true"},
+			Hostname:     "jaegertracing.mynetwork.com",
+			Image:        JaegerTracing,
+			Tty:          false,
+			ExposedPorts: docker.PortSet(JaegerCollectorPort, JaegerQueryPort, JaegerUIPort, JaegerAdminPort),
 		},
 		&container.HostConfig{
-			PortBindings: nat.PortMap{
-				nat.Port("16686" + "/tcp"): []nat.PortBinding{
-					{
-						HostIP:   "0.0.0.0",
-						HostPort: "16686",
-					},
-				},
-				nat.Port("14268" + "/tcp"): []nat.PortBinding{
-					{
-						HostIP:   "0.0.0.0",
-						HostPort: "14268",
-					},
-				},
-				nat.Port("14250" + "/tcp"): []nat.PortBinding{
-					{
-						HostIP:   "0.0.0.0",
-						HostPort: "14250",
-					},
-				},
-			},
+			PortBindings: docker.PortBindings([]int{JaegerCollectorPort, JaegerQueryPort, JaegerUIPort, JaegerAdminPort}...),
 		},
 		&network.NetworkingConfig{
 			EndpointsConfig: map[string]*network.EndpointSettings{
@@ -109,23 +94,7 @@ func (n *Extension) startJaeger() {
 
 	Expect(cli.ContainerStart(ctx, resp.ID, container.StartOptions{})).ToNot(HaveOccurred())
 
-	dockerLogger := flogging.MustGetLogger("monitoring.optl.jaegertracing.container")
-	go func() {
-		reader, err := cli.ContainerLogs(context.Background(), resp.ID, container.LogsOptions{
-			ShowStdout: true,
-			ShowStderr: true,
-			Follow:     true,
-			Timestamps: false,
-		})
-		Expect(err).ToNot(HaveOccurred())
-		defer reader.Close()
-
-		scanner := bufio.NewScanner(reader)
-		for scanner.Scan() {
-			dockerLogger.Debugf("%s", scanner.Text())
-		}
-	}()
-
+	Expect(docker.StartLogs(cli, resp.ID, "monitoring.optl.jaegertracing.container")).ToNot(HaveOccurred())
 }
 
 func (n *Extension) startOPTLCollector() {
@@ -167,32 +136,7 @@ func (n *Extension) startOPTLCollector() {
 					Target: "/etc/optl-collector-config.yaml",
 				},
 			},
-			PortBindings: nat.PortMap{
-				nat.Port("13133" + "/tcp"): []nat.PortBinding{
-					{
-						HostIP:   "0.0.0.0",
-						HostPort: "13133",
-					},
-				},
-				nat.Port("4317" + "/tcp"): []nat.PortBinding{
-					{
-						HostIP:   "0.0.0.0",
-						HostPort: "4317",
-					},
-				},
-				nat.Port("4319" + "/tcp"): []nat.PortBinding{
-					{
-						HostIP:   "0.0.0.0",
-						HostPort: "4319",
-					},
-				},
-				nat.Port("55679" + "/tcp"): []nat.PortBinding{
-					{
-						HostIP:   "0.0.0.0",
-						HostPort: "55679",
-					},
-				},
-			},
+			PortBindings: docker.PortBindings([]int{13133, 4317, 4319, 55679}...),
 		},
 		&network.NetworkingConfig{
 			EndpointsConfig: map[string]*network.EndpointSettings{
@@ -212,20 +156,6 @@ func (n *Extension) startOPTLCollector() {
 	Expect(cli.ContainerStart(ctx, resp.ID, container.StartOptions{})).ToNot(HaveOccurred())
 	time.Sleep(3 * time.Second)
 
-	dockerLogger := flogging.MustGetLogger("monitoring.optl.container")
-	go func() {
-		reader, err := cli.ContainerLogs(context.Background(), resp.ID, container.LogsOptions{
-			ShowStdout: true,
-			ShowStderr: true,
-			Follow:     true,
-			Timestamps: false,
-		})
-		Expect(err).ToNot(HaveOccurred())
-		defer reader.Close()
-
-		scanner := bufio.NewScanner(reader)
-		for scanner.Scan() {
-			dockerLogger.Debugf("%s", scanner.Text())
-		}
-	}()
+	err = docker.StartLogs(cli, resp.ID, "monitoring.optl.container")
+	Expect(err).ToNot(HaveOccurred())
 }
