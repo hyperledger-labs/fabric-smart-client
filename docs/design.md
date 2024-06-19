@@ -131,6 +131,8 @@ FSC comes equipped with two default SDKs :
     only what is relevant. This storage space allows the FSC nodes to keep temporary version of the transactions
     they are assembling before they get submitted for ordering.
 
+For the developers, more information about how SDKs are handles can be found [`here`](./sdk.md).
+
 ## Transaction Lifecycle or How to orchestrate a business process
 
 There are two ways to orchestrate transactions using the Fabric Smart Client:
