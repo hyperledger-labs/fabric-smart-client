@@ -190,7 +190,14 @@ func (cm *manager) InitiateView(view view.View, ctx context.Context) (interface{
 	return cm.InitiateViewWithIdentity(view, cm.me(), ctx)
 }
 
-func (cm *manager) InitiateViewWithIdentity(view view.View, id view.Identity, ctx context.Context) (interface{}, error) {
+func (cm *manager) InitiateViewWithIdentity(view view.View, id view.Identity, _ context.Context) (interface{}, error) {
+	// Create the context
+	cm.contextsSync.Lock()
+	ctx := cm.ctx
+	cm.contextsSync.Unlock()
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	newCtx, span := cm.viewTracer.Start(ctx, "initiate_view_with_identity")
 	defer span.End()
 	span.AddEvent("start_new_context")
