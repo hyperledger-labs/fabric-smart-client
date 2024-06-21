@@ -171,8 +171,8 @@ func (c *FinalityManager[V]) runStatusListener(context context.Context) {
 }
 
 func (c *FinalityManager[V]) cloneListeners(txID driver.TxID) []driver.FinalityListener[V] {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 
 	txListeners := c.txIDListeners[txID]
 	clone := make([]driver.FinalityListener[V], len(txListeners))
