@@ -30,8 +30,8 @@ func WithRole(role string) node.Option {
 }
 
 type DB struct {
-	Name  string
-	Roles []string
+	Name  string   `yaml:"name,omitempty"`
+	Roles []string `yaml:"roles,omitempty"`
 }
 
 type Topology struct {
