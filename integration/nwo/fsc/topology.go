@@ -43,9 +43,10 @@ type Topology struct {
 }
 
 type Monitoring struct {
-	TracingType tracing.TracerType `yaml:"tracingType,omitempty"`
-	MetricsType string             `yaml:"metricsType,omitempty"`
-	TLS         bool               `yaml:"tls,omitempty"`
+	TracingType     tracing.TracerType `yaml:"tracingType,omitempty"`
+	TracingEndpoint string             `yaml:"tracingEndpoint,omitempty"`
+	MetricsType     string             `yaml:"metricsType,omitempty"`
+	TLS             bool               `yaml:"tls,omitempty"`
 }
 
 // NewTopology returns an empty FSC network topology.

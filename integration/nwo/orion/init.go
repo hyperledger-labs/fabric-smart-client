@@ -15,32 +15,55 @@ import (
 	"github.com/hyperledger-labs/orion-sdk-go/pkg/config"
 	logger2 "github.com/hyperledger-labs/orion-server/pkg/logger"
 	"github.com/hyperledger-labs/orion-server/pkg/types"
-	. "github.com/onsi/gomega"
 )
 
-func (p *Platform) InitOrionServer() {
-	logger.Infof("initializing orion server")
-	bcDB := p.CreateDBInstance()
-	logger.Infof("create admin session")
-	session := p.CreateUserSession(bcDB, "admin")
-	p.initDBs(session)
-	p.initUsers(session)
+type HelperConfig struct {
+	*InitConfig `yaml:"init"`
 }
 
-func (p *Platform) CreateUserSession(bcdb bcdb.BCDB, user string) bcdb.DBSession {
-	session, err := bcdb.Session(&config.SessionConfig{
+type InitConfig struct {
+	ServerUrl           string            `yaml:"serverUrl"`
+	CACertPath          string            `yaml:"caCertPath"`
+	ServerID            string            `yaml:"serverID"`
+	AdminID             string            `yaml:"adminID"`
+	AdminCertPath       string            `yaml:"adminCertPath"`
+	AdminPrivateKeyPath string            `yaml:"adminPrivateKeyPath"`
+	CertPaths           map[string]string `yaml:"certPaths"`
+	DBs                 []DB              `yaml:"dbs"`
+}
+
+func (p *InitConfig) Init() error {
+	logger.Infof("initializing orion server")
+	bcDB, err := p.CreateDBInstance()
+	if err != nil {
+		return err
+	}
+	logger.Infof("create admin session")
+	session, err := p.CreateUserSession(bcDB)
+	if err != nil {
+		return err
+	}
+	if err := p.initDBs(session); err != nil {
+		return err
+	}
+	if err := p.initUsers(session); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (p *InitConfig) CreateUserSession(bcdb bcdb.BCDB) (bcdb.DBSession, error) {
+	return bcdb.Session(&config.SessionConfig{
 		UserConfig: &config.UserConfig{
-			UserID:         user,
-			CertPath:       p.pem(user),
-			PrivateKeyPath: p.key(user),
+			UserID:         p.AdminID,
+			CertPath:       p.AdminCertPath,
+			PrivateKeyPath: p.AdminPrivateKeyPath,
 		},
 		TxTimeout: time.Second * 5,
 	})
-	Expect(err).ToNot(HaveOccurred())
-	return session
 }
 
-func (p *Platform) CreateDBInstance() bcdb.BCDB {
+func (p *InitConfig) CreateDBInstance() (bcdb.BCDB, error) {
 	c := &logger2.Config{
 		Level:         "info",
 		OutputPath:    []string{"stdout"},
@@ -49,51 +72,60 @@ func (p *Platform) CreateDBInstance() bcdb.BCDB {
 		Name:          "bcdb-client",
 	}
 	clientLogger, err := logger2.New(c)
-	Expect(err).ToNot(HaveOccurred())
+	if err != nil {
+		return nil, err
+	}
 
-	bcDB, err := bcdb.Create(&config.ConnectionConfig{
+	return bcdb.Create(&config.ConnectionConfig{
 		RootCAs: []string{
-			p.caPem(),
+			p.CACertPath,
 		},
 		ReplicaSet: []*config.Replica{
 			{
-				ID:       p.localConfig.Server.Identity.ID,
-				Endpoint: p.serverUrl.String(),
+				ID:       p.ServerID,
+				Endpoint: p.ServerUrl,
 			},
 		},
 		Logger: clientLogger,
 	})
-	Expect(err).ToNot(HaveOccurred())
-
-	return bcDB
 }
 
-func (p *Platform) initDBs(session bcdb.DBSession) {
+func (p *InitConfig) initDBs(session bcdb.DBSession) error {
 	tx, err := session.DBsTx()
-	Expect(err).ToNot(HaveOccurred())
+	if err != nil {
+		return err
+	}
 
-	logger.Infof("creating databases [%v]", p.Topology.DBs)
-	for _, db := range p.Topology.DBs {
-		err = tx.CreateDB(db.Name, nil)
-		Expect(err).ToNot(HaveOccurred())
+	logger.Infof("creating databases [%v]", p.DBs)
+	for _, db := range p.DBs {
+		if err := tx.CreateDB(db.Name, nil); err != nil {
+			return err
+		}
 	}
 
 	txID, txReceipt, err := tx.Commit(true)
-	Expect(err).ToNot(HaveOccurred())
+	if err != nil {
+		return err
+	}
 
 	logger.Infof("transaction to create carDB has been submitted, txID = %s, txReceipt = %s", txID, txReceipt.String())
+	return nil
 }
 
-func (p *Platform) initUsers(session bcdb.DBSession) {
-	for _, db := range p.Topology.DBs {
+func (p *InitConfig) initUsers(session bcdb.DBSession) error {
+	for _, db := range p.DBs {
 
 		for _, role := range db.Roles {
 			usersTx, err := session.UsersTx()
-			Expect(err).ToNot(HaveOccurred())
+			if err != nil {
+				return err
+			}
 
-			certPath := p.pem(role)
+			certPath := p.CertPaths[role]
 			certFile, err := os.ReadFile(certPath)
-			Expect(err).ToNot(HaveOccurred())
+			if err != nil {
+				return err
+			}
 			certBlock, _ := pem.Decode(certFile)
 			err = usersTx.PutUser(
 				&types.User{
@@ -108,14 +140,17 @@ func (p *Platform) initUsers(session bcdb.DBSession) {
 				})
 			if err != nil {
 				usersTx.Abort()
-				Expect(err).ToNot(HaveOccurred())
+				return err
 			}
 
 			txID, receipt, err := usersTx.Commit(true)
-			Expect(err).ToNot(HaveOccurred())
+			if err != nil {
+				return err
+			}
 			logger.Infof("transaction to provision user record has been committed, user-ID: %s, txID = %s, block = %d, txIdx = %d", role, txID, receipt.GetResponse().GetReceipt().GetHeader().GetBaseHeader().GetNumber(), receipt.GetResponse().GetReceipt().GetTxIndex())
 		}
 	}
+	return nil
 }
 
 func usersMap(users ...string) map[string]bool {

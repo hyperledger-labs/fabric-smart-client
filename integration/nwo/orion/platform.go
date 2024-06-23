@@ -22,6 +22,7 @@ import (
 	api2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/docker"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/network"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/orion-server/config"
@@ -29,6 +30,12 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/tedsuo/ifrit/grouper"
 	"gopkg.in/yaml.v2"
+)
+
+const (
+	Port          = network.HostPort
+	PeerPortID    = "peer"
+	OrdererPortID = "orderer"
 )
 
 var logger = flogging.MustGetLogger("nwo.orion")
@@ -194,7 +201,8 @@ func (p *Platform) PostRun(load bool) {
 	Expect(err).NotTo(HaveOccurred())
 
 	p.StartOrionServer()
-	p.InitOrionServer()
+	err = p.InitOrionServer()
+	Expect(err).NotTo(HaveOccurred())
 }
 
 func (p *Platform) Cleanup() {
@@ -225,6 +233,26 @@ func (p *Platform) replaceForDocker(origin string) string {
 	return strings.Replace(origin, p.rootDir(), "/etc/orion-server", 1)
 }
 
+func ReadHelperConfig(configPath string) (*HelperConfig, error) {
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return nil, err
+	}
+	var c HelperConfig
+	if err := yaml.Unmarshal(data, &c); err != nil {
+		return nil, err
+	}
+	return &c, err
+}
+
+func (p *Platform) InitOrionServer() error {
+	c, err := ReadHelperConfig(p.HelperConfigPath())
+	if err != nil {
+		return err
+	}
+	return c.InitConfig.Init()
+}
+
 func (p *Platform) generateExtension() {
 	fscTopology := p.Context.TopologyByName("fsc").(*fsc.Topology)
 	for _, node := range fscTopology.Nodes {
@@ -245,8 +273,8 @@ func (p *Platform) generateExtension() {
 					return []Identity{
 						{
 							Name: role,
-							Cert: p.pem(role),
-							Key:  p.key(role),
+							Cert: p.PemPath(role),
+							Key:  p.KeyPath(role),
 						},
 					}
 				},
@@ -264,8 +292,11 @@ func (p *Platform) generateExtension() {
 }
 
 func (p *Platform) writeConfigFile() {
-	p.nodePort = p.Context.ReservePort()
-	p.peerPort = p.Context.ReservePort()
+	p.Context.SetPortsByPeerID("", PeerPortID, api2.Ports{Port: p.Context.ReservePort()})
+	p.Context.SetPortsByOrdererID("", OrdererPortID, api2.Ports{Port: p.Context.ReservePort()})
+
+	p.nodePort = p.Context.PortsByOrdererID("", OrdererPortID)[Port]
+	p.peerPort = p.Context.PortsByPeerID("", PeerPortID)[Port]
 
 	p.localConfig = &config.LocalConfiguration{
 		Server: config.ServerConf{
@@ -361,6 +392,37 @@ func (p *Platform) writeConfigFile() {
 
 	p.saveServerUrl(p.serverUrl)
 	Expect(err).ToNot(HaveOccurred())
+
+	certPaths := map[string]string{}
+	for _, db := range p.Topology.DBs {
+		for _, role := range db.Roles {
+			certPaths[role] = p.PemPath(role)
+		}
+	}
+	init := &InitConfig{
+		ServerUrl:           p.ServerUrl(),
+		CACertPath:          p.caPem(),
+		ServerID:            p.ServerID(),
+		AdminID:             "admin",
+		AdminCertPath:       p.PemPath("admin"),
+		AdminPrivateKeyPath: p.KeyPath("admin"),
+		DBs:                 p.Topology.DBs,
+		CertPaths:           certPaths,
+	}
+
+	i, err := yaml.Marshal(HelperConfig{InitConfig: init})
+	Expect(err).ToNot(HaveOccurred())
+
+	Expect(os.MkdirAll(p.configDir(), 0766)).To(Succeed())
+	Expect(os.WriteFile(p.HelperConfigPath(), i, 0766)).To(Succeed())
+}
+
+func (p *Platform) ServerUrl() string {
+	return p.serverUrl.String()
+}
+
+func (p *Platform) ServerID() string {
+	return p.localConfig.Server.Identity.ID
 }
 
 func (p *Platform) rootDir() string {
@@ -419,27 +481,19 @@ func (p *Platform) walDir() string {
 	)
 }
 
-func (p *Platform) serverPem() string {
-	return filepath.Join(p.roleCryptoDir("server"), "server.pem")
-}
+func (p *Platform) serverPem() string { return p.PemPath("server") }
 
-func (p *Platform) serverKey() string {
-	return filepath.Join(p.roleCryptoDir("server"), "server.key")
-}
+func (p *Platform) serverKey() string { return p.KeyPath("server") }
 
-func (p *Platform) caPem() string {
-	return filepath.Join(p.roleCryptoDir("CA"), "CA.pem")
-}
+func (p *Platform) caPem() string { return p.PemPath("CA") }
 
-func (p *Platform) adminPem() string {
-	return filepath.Join(p.roleCryptoDir("admin"), "admin.pem")
-}
+func (p *Platform) adminPem() string { return p.PemPath("admin") }
 
-func (p *Platform) pem(role string) string {
+func (p *Platform) PemPath(role string) string {
 	return filepath.Join(p.roleCryptoDir(role), role+".pem")
 }
 
-func (p *Platform) key(role string) string {
+func (p *Platform) KeyPath(role string) string {
 	return filepath.Join(p.roleCryptoDir(role), role+".key")
 }
 
@@ -454,6 +508,13 @@ func (p *Platform) boostrapSharedConfig() string {
 	return filepath.Join(
 		p.configDir(),
 		"bootstrap-shared-config.yaml",
+	)
+}
+
+func (p *Platform) HelperConfigPath() string {
+	return filepath.Join(
+		p.configDir(),
+		"helper-config.yaml",
 	)
 }
 

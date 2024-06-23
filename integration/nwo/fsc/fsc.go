@@ -29,6 +29,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/commands"
 	node2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/monitoring/optl"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	tracing2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/view"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/view/cmd"
@@ -492,8 +493,11 @@ func (p *Platform) GenerateCoreConfig(peer *node2.Replica) {
 		"NodeKVSSQLDataSource":   func() string { return GetPersistenceDataSource(peer.Peer) },
 		"Resolvers":              func() []*Resolver { return resolvers },
 		"WebEnabled":             func() bool { return p.Topology.WebEnabled },
-		"TracingEndpoint":        func() string { return fmt.Sprintf("0.0.0.0:%d", optl.JaegerCollectorPort) },
-	}).Parse(p.Topology.Templates.CoreTemplate())
+		"TracingEndpoint": func() string {
+			return utils.DefaultString(p.Topology.Monitoring.TracingEndpoint, fmt.Sprintf("0.0.0.0:%d", optl.JaegerCollectorPort))
+		},
+	}).
+		Parse(p.Topology.Templates.CoreTemplate())
 	Expect(err).NotTo(HaveOccurred())
 	Expect(t.Execute(io.MultiWriter(core), p)).NotTo(HaveOccurred())
 }
@@ -591,8 +595,8 @@ func (p *Platform) GenerateCmd(output io.Writer, node *node2.Replica) string {
 
 	Expect(t.Execute(io.MultiWriter(output), struct {
 		*Platform
-		*node2.Peer
-	}{p, node.Peer})).NotTo(HaveOccurred())
+		*node2.Replica
+	}{p, node})).NotTo(HaveOccurred())
 
 	return p.NodeCmdPackage(node)
 }
@@ -617,7 +621,7 @@ func (p *Platform) NodeCmdDir(peer *node2.Replica) string {
 	wd, err := os.Getwd()
 	Expect(err).ToNot(HaveOccurred())
 
-	return filepath.Join(wd, "cmd", peer.UniqueName)
+	return filepath.Join(wd, "cmd", peer.Name)
 }
 
 func (p *Platform) NodeCmdPackage(peer *node2.Replica) string {
@@ -630,11 +634,11 @@ func (p *Platform) NodeCmdPackage(peer *node2.Replica) string {
 	// both can be built from these paths
 	if withoutGoPath := strings.TrimPrefix(wd, filepath.Join(gopath, "src")); withoutGoPath != wd {
 		return strings.TrimPrefix(
-			filepath.Join(withoutGoPath, "cmd", peer.UniqueName),
+			filepath.Join(withoutGoPath, "cmd", peer.Name),
 			string(filepath.Separator),
 		)
 	}
-	return filepath.Join(wd, "cmd", peer.UniqueName)
+	return filepath.Join(wd, "cmd", peer.Name)
 }
 
 func (p *Platform) NodeCmdPath(peer *node2.Replica) string {
