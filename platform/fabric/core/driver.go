@@ -28,7 +28,7 @@ func Register(name string, driver driver.Driver) {
 		panic("Register driver is nil")
 	}
 	if _, dup := drivers[name]; dup {
-		panic("Register called twice for driver " + name)
+		logger.Warnf("programming error - register called twice for driver %s", name)
 	}
 	drivers[name] = driver
 }
