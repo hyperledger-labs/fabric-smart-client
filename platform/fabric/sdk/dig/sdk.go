@@ -87,7 +87,7 @@ func (p *SDK) Start(ctx context.Context) error {
 	if !p.FabricEnabled() {
 		return nil
 	}
-	logger.Infof("SDK installation complete:\n%s", digutils.Visualize(p.Container()))
+	logger.Debugf("SDK installation complete:\n%s", digutils.Visualize(p.Container()))
 
 	if err := p.Container().Invoke(registerFinalityHandlers); err != nil {
 		return err

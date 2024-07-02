@@ -160,7 +160,7 @@ func (p *SDK) Install() error {
 	}); err != nil {
 		return err
 	}
-	logger.Infof("Services installed:\n%s", digutils.Visualize(p.C))
+	logger.Debugf("Services installed:\n%s", digutils.Visualize(p.C))
 	return nil
 }
 
