@@ -21,6 +21,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/operations"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/web"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc"
 )
@@ -59,7 +60,7 @@ func NewServer(configProvider driver.ConfigService, viewManager *view.Manager, t
 		TLS:           tlsConfig,
 	})
 	h := web.NewHttpHandler(logger)
-	webServer.RegisterHandler("/", h, true)
+	webServer.RegisterHandler("/", otelhttp.NewHandler(h, "rest-view-call"), true)
 
 	web.InstallViewHandler(logger, viewManager, h, tracerProvider)
 
@@ -124,6 +125,7 @@ func NewServerConfig(configProvider driver.ConfigService) (grpc2.ServerConfig, e
 		StreamInterceptors: []grpc.StreamServerInterceptor{
 			grpclogging.StreamServerInterceptor(flogging.MustGetLogger("comm.grpc.server").Zap()),
 		},
+
 		ServerStatsHandler: otelgrpc.NewServerHandler(),
 	}
 	if serverConfig.SecOpts.UseTLS {

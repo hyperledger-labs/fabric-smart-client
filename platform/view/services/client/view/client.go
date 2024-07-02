@@ -112,6 +112,10 @@ func NewClient(config *Config, sID SigningIdentity, hasher hash.Hasher, tracerPr
 }
 
 func (s *client) CallView(fid string, input []byte) (interface{}, error) {
+	return s.CallViewWithContext(context.Background(), fid, input)
+}
+
+func (s *client) CallViewWithContext(ctx context.Context, fid string, input []byte) (interface{}, error) {
 	logger.Infof("Calling view [%s] on input [%s]", fid, string(input))
 	payload := &protos.Command_CallView{CallView: &protos.CallView{
 		Fid:   fid,
@@ -122,7 +126,7 @@ func (s *client) CallView(fid string, input []byte) (interface{}, error) {
 		return nil, errors.Wrapf(err, "failed creating signed command for [%s,%s]", fid, string(input))
 	}
 
-	ctx, span := s.tracer.Start(context.Background(), "command", tracing.WithAttributes(tracing.String("fid", fid)), trace.WithSpanKind(trace.SpanKindInternal))
+	ctx, span := s.tracer.Start(ctx, "command", tracing.WithAttributes(tracing.String("fid", fid)), trace.WithSpanKind(trace.SpanKindInternal))
 	defer span.End()
 	commandResp, err := s.processCommand(ctx, sc)
 	if err != nil {

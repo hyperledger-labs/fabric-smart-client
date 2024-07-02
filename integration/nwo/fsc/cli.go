@@ -7,13 +7,13 @@ SPDX-License-Identifier: Apache-2.0
 package fsc
 
 import (
+	"context"
 	"time"
-
-	"github.com/onsi/gomega"
-	"github.com/onsi/gomega/gexec"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/commands"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/api"
+	"github.com/onsi/gomega"
+	"github.com/onsi/gomega/gexec"
 )
 
 type fscCLIViewClient struct {
@@ -23,6 +23,10 @@ type fscCLIViewClient struct {
 }
 
 func (f *fscCLIViewClient) CallView(fid string, in []byte) (interface{}, error) {
+	return f.CallViewWithContext(context.Background(), fid, in)
+}
+
+func (f *fscCLIViewClient) CallViewWithContext(_ context.Context, fid string, in []byte) (interface{}, error) {
 	f.CMD.Input = string(in)
 	f.CMD.Function = fid
 
