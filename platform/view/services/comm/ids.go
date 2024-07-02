@@ -8,7 +8,6 @@ package comm
 
 import "encoding/base64"
 
-func computeInternalSessionID(topic, endpoint string, pkid []byte) string {
+func computeInternalSessionID(topic string, pkid []byte) string {
 	return topic + "." + base64.StdEncoding.EncodeToString(pkid)
-	//return topic + "." + endpoint
 }
