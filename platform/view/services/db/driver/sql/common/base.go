@@ -138,7 +138,7 @@ func (db *basePersistence[V, R]) setState(tx *sql.Tx, ns driver2.Namespace, pkey
 		}
 
 		query := fmt.Sprintf("UPDATE %s SET %s WHERE ns = $%d AND pkey = $%d", db.table, strings.Join(sets, ", "), len(keys)+1, len(keys)+2)
-		logger.Debug(query, ns, pkey, values)
+		logger.Debug(query, ns, pkey, len(values))
 
 		_, err := tx.Exec(query, append(values, ns, pkey)...)
 		if err != nil {
@@ -148,7 +148,7 @@ func (db *basePersistence[V, R]) setState(tx *sql.Tx, ns driver2.Namespace, pkey
 		keys = append(keys, "ns", "pkey")
 		values = append(values, ns, pkey)
 		query := fmt.Sprintf("INSERT INTO %s (%s) VALUES %s", db.table, strings.Join(keys, ", "), generateParamSet(1, len(keys)))
-		logger.Debug(query, ns, pkey, values)
+		logger.Debug(query, ns, pkey, len(values))
 
 		_, err := tx.Exec(query, values...)
 		if err != nil {
