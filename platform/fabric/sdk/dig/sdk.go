@@ -118,7 +118,7 @@ func registerProcessorsForDrivers(in struct {
 	dig.In
 	CoreConfig             *core.Config
 	NetworkServiceProvider *fabric.NetworkServiceProvider
-	Drivers                []NamedDriver `group:"drivers"`
+	Drivers                []core.NamedDriver `group:"drivers"`
 }) error {
 	if len(in.CoreConfig.Names()) == 0 {
 		return fmt.Errorf("no fabric network names found")
