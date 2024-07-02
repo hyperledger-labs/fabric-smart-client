@@ -23,7 +23,7 @@ import (
 var logger = flogging.MustGetLogger("fabric-sdk.core")
 
 type PeerManager interface {
-	NewPeerClientForAddress(cc grpc.ConnectionConfig) (peer.Client, error)
+	NewClient(cc grpc.ConnectionConfig) (peer.Client, error)
 }
 
 type Hasher interface {
@@ -71,7 +71,7 @@ func (d *FabricFinality) IsFinal(txID string, address string) error {
 	var ctx context.Context
 	var cancelFunc context.CancelFunc
 
-	client, err := d.PeerManager.NewPeerClientForAddress(*d.ConfigService.PickPeer(driver.PeerForFinality))
+	client, err := d.PeerManager.NewClient(*d.ConfigService.PickPeer(driver.PeerForFinality))
 	if err != nil {
 		return errors.WithMessagef(err, "failed creating peer client for address [%s]", address)
 	}
