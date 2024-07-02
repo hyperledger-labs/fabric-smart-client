@@ -179,8 +179,9 @@ func (p *SDK) Start(ctx context.Context) error {
 		KVS            *kvs.KVS
 		TracerProvider trace.TracerProvider
 	}) error {
-		protos.RegisterViewServiceServer(in.GRPCServer.Server(), in.ViewService)
-
+		if in.GRPCServer != nil {
+			protos.RegisterViewServiceServer(in.GRPCServer.Server(), in.ViewService)
+		}
 		in.CommService.Start(ctx)
 
 		view3.InstallViewHandler(in.ViewManager, in.ViewService, in.TracerProvider)
