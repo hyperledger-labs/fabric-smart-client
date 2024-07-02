@@ -190,17 +190,17 @@ func registerRWSetLoaderHandlerProviders(in struct {
 	for _, network := range in.CoreConfig.Names() {
 		fsn, err := in.FSNProvider.FabricNetworkService(network)
 		if err != nil {
-			return fmt.Errorf("could not find network service for %s", network)
+			return fmt.Errorf("could not find network service for %s: %w", network, err)
 		}
 		for _, channelName := range fsn.ConfigService().ChannelIDs() {
 			ch, err := fsn.Channel(channelName)
 			if err != nil {
-				return fmt.Errorf("could not find channel %s for network %s", channelName, network)
+				return fmt.Errorf("could not find channel %s for network %s: %w", channelName, network, err)
 			}
 			loader := ch.RWSetLoader()
 			for _, handlerProvider := range in.HandlerProviders {
 				if err := loader.AddHandlerProvider(handlerProvider.Type, handlerProvider.New); err != nil {
-					return fmt.Errorf("failed to add handler to channel %s", channelName)
+					return fmt.Errorf("failed to add handler to channel %s: %w", channelName, err)
 				}
 			}
 		}
