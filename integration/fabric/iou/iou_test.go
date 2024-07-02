@@ -66,8 +66,8 @@ func (s *TestSuite) TestSucceeded() {
 	iou.CheckState(s.II, "borrower", iouState, 5)
 	iou.CheckState(s.II, "lender", iouState, 5)
 
-	iou.CheckLocalMetrics(s.II, "borrower", "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/endorser/collectEndorsementsView")
-	iou.CheckPrometheusMetrics(s.II, "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/endorser/collectEndorsementsView", 2)
+	iou.CheckLocalMetrics(s.II, "borrower", "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/etx/collectEndorsementsView")
+	iou.CheckPrometheusMetrics(s.II, "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/etx/collectEndorsementsView", 2)
 }
 
 func (s *TestSuite) TestSucceededWithReplicas() {

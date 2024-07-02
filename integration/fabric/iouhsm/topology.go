@@ -32,7 +32,7 @@ func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType, replicationOpts *
 	// Add the approver FSC node.
 	fscTopology.AddNodeByName("approver").
 		// This option equips the approver's FSC node with an identity belonging to Org1.
-		// Therefore, the approver is an endorser of the Fabric namespace we defined above.
+		// Therefore, the approver is an etx of the Fabric namespace we defined above.
 		AddOptions(fabric.WithOrganization("Org1"), fabric.WithDefaultIdentityByHSM()).
 		AddOptions(replicationOpts.For("approver")...).
 		RegisterResponder(&views.ApproverView{}, &views.CreateIOUView{}).

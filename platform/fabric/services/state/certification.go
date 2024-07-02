@@ -12,7 +12,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/endorser"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/etx"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/rwset"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -125,7 +125,7 @@ func (n *Namespace) VerifyInputCertificationAt(index int, key string) error {
 		if err != nil {
 			return errors.Wrapf(err, "failed asking endorsers for to [%s,%s,%s] for [%s]", n.tx.Channel(), cn, cv, id)
 		}
-		_, certTx, err := endorser.NewTransactionFromEnvelopeBytes(n.tx.ServiceProvider, raw)
+		_, certTx, err := etx.NewTransactionFromEnvelopeBytes(n.tx.ServiceProvider, raw)
 		if err != nil {
 			return errors.Wrapf(err, "failed parsing certification [%s,%s,%s] for [%s]", n.tx.Channel(), cn, cv, id)
 		}

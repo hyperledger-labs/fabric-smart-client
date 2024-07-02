@@ -28,7 +28,7 @@ client:
   connection:
     timeout:
       peer:
-        endorser: '300'
+        etx: '300'
 
 organizations:
   {{ .Name }}:

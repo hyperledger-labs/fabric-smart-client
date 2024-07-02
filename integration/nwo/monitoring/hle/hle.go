@@ -87,7 +87,7 @@ func (n *Extension) GenerateArtifacts() {
 			Connection: nnetwork.Connection{
 				Timeout: nnetwork.Timeout{
 					Peer: map[string]string{
-						"endorser": "600",
+						"etx": "600",
 					},
 				},
 			},

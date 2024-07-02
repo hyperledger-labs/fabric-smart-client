@@ -9,7 +9,7 @@ package state
 import (
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/endorser"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/etx"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -17,9 +17,9 @@ import (
 // 1. Sends the passed transaction to the ordering service.
 // 2. Waits for the finality of the transaction.
 func NewOrderingAndFinalityView(tx *Transaction) view.View {
-	return endorser.NewOrderingAndFinalityView(tx.tx)
+	return etx.NewOrderingAndFinalityView(tx.tx)
 }
 
 func NewOrderingAndFinalityWithTimeoutView(tx *Transaction, timeout time.Duration) view.View {
-	return endorser.NewOrderingAndFinalityWithTimeoutView(tx.tx, timeout)
+	return etx.NewOrderingAndFinalityWithTimeoutView(tx.tx, timeout)
 }

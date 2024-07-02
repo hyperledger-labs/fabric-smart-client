@@ -15,16 +15,16 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/endorser"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/etx"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 type Transaction struct {
-	*endorser.Transaction
+	*etx.Transaction
 	*Namespace
 }
 
-func Wrap(tx *endorser.Transaction) (*Transaction, error) {
+func Wrap(tx *etx.Transaction) (*Transaction, error) {
 	if err := SetCertificationType(tx, ChaincodeCertification, nil); err != nil {
 		return nil, errors.Wrap(err, "failed appending certification")
 	}
@@ -37,7 +37,7 @@ func Wrap(tx *endorser.Transaction) (*Transaction, error) {
 
 // NewTransaction returns a new instance of a state-based transaction that embeds a single namespace.
 func NewTransaction(context view.Context) (*Transaction, error) {
-	_, tx, err := endorser.NewTransaction(context)
+	_, tx, err := etx.NewTransaction(context)
 	if err != nil {
 		return nil, err
 	}
@@ -59,7 +59,7 @@ func NewAnonymousTransaction(context view.Context) (*Transaction, error) {
 	if err != nil {
 		return nil, err
 	}
-	_, tx, err := endorser.NewTransactionWithSigner(
+	_, tx, err := etx.NewTransactionWithSigner(
 		context,
 		fns.Name(),
 		fns.ConfigService().DefaultChannel(),
@@ -80,7 +80,7 @@ func NewAnonymousTransaction(context view.Context) (*Transaction, error) {
 }
 
 func NewTransactionFromBytes(context view.Context, raw []byte) (*Transaction, error) {
-	_, tx, err := endorser.NewTransactionFromBytes(context, raw)
+	_, tx, err := etx.NewTransactionFromBytes(context, raw)
 	if err != nil {
 		return nil, err
 	}

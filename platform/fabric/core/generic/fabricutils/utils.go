@@ -57,7 +57,7 @@ func CreateEndorserSignedTX(signer SerializableSigner, proposal driver.Proposal,
 	return CreateEnvelope(signer, hdr, data)
 }
 
-// CreateEndorserTX creates header and payload for an endorser transaction
+// CreateEndorserTX creates header and payload for an etx transaction
 func CreateEndorserTX(signer SerializableSigner, proposal driver.Proposal, resps ...driver.ProposalResponse) (*common.Header, []byte, error) {
 	if len(resps) == 0 {
 		return nil, nil, errors.New("at least one proposal response is required")

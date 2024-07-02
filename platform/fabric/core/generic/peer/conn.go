@@ -132,7 +132,7 @@ func (pc *peerClient) Connection() (*grpc2.ClientConn, error) {
 func (pc *peerClient) Endorser() (pb.EndorserClient, error) {
 	conn, err := pc.getOrConn()
 	if err != nil {
-		return nil, errors.Wrap(err, "error getting connection to endorser")
+		return nil, errors.Wrap(err, "error getting connection to etx")
 	}
 	return &statefulClient{
 		EndorserClient: pb.NewEndorserClient(conn),
@@ -143,7 +143,7 @@ func (pc *peerClient) Endorser() (pb.EndorserClient, error) {
 func (pc *peerClient) DeliverClient() (pb.DeliverClient, error) {
 	conn, err := pc.getOrConn()
 	if err != nil {
-		return nil, errors.Wrap(err, "error getting connection to endorser")
+		return nil, errors.Wrap(err, "error getting connection to etx")
 	}
 	return &statefulClient{
 		DeliverClient: pb.NewDeliverClient(conn),
@@ -156,7 +156,7 @@ func (pc *peerClient) DiscoveryClient() (DiscoveryClient, error) {
 		func() (*grpc2.ClientConn, error) {
 			conn, err := pc.getOrConn()
 			if err != nil {
-				return nil, errors.Wrap(err, "error getting connection to endorser")
+				return nil, errors.Wrap(err, "error getting connection to etx")
 			}
 			return conn, nil
 		},

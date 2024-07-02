@@ -12,7 +12,7 @@ import (
 	"encoding/json"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/endorser"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/etx"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
@@ -40,14 +40,14 @@ type Header struct {
 }
 
 type Namespace struct {
-	tx              *endorser.Transaction
+	tx              *etx.Transaction
 	ns              string
 	codec           Codec
 	metaHandlers    []MetaHandler
 	certifiedInputs map[string][]byte
 }
 
-func NewNamespace(tx *endorser.Transaction, forceSBE bool) *Namespace {
+func NewNamespace(tx *etx.Transaction, forceSBE bool) *Namespace {
 	return &Namespace{
 		tx:    tx,
 		codec: &JSONCodec{},
@@ -59,7 +59,7 @@ func NewNamespace(tx *endorser.Transaction, forceSBE bool) *Namespace {
 	}
 }
 
-func NewNamespaceForName(tx *endorser.Transaction, ns string, forceSBE bool) *Namespace {
+func NewNamespaceForName(tx *etx.Transaction, ns string, forceSBE bool) *Namespace {
 	return &Namespace{
 		tx:    tx,
 		ns:    ns,

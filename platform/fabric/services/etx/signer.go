@@ -4,7 +4,7 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package endorser
+package etx
 
 type SerializableSigner interface {
 	Sign(message []byte) ([]byte, error)

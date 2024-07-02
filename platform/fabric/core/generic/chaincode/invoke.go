@@ -272,7 +272,7 @@ func (i *Invoke) prepare(query bool) (string, *pb.Proposal, []*pb.ProposalRespon
 		return "", nil, nil, nil, errors.Errorf("no chaincode specified")
 	}
 
-	// load endorser clients
+	// load etx clients
 	var endorserClients []pb.EndorserClient
 	var discoveredPeers []driver.DiscoveredPeer
 	switch {
@@ -335,21 +335,21 @@ func (i *Invoke) prepare(query bool) (string, *pb.Proposal, []*pb.ProposalRespon
 			TLSRootCertBytes: peer.TLSRootCerts,
 		})
 		if err != nil {
-			return "", nil, nil, nil, errors.WithMessagef(err, "error getting endorser client for %s", peer.Endpoint)
+			return "", nil, nil, nil, errors.WithMessagef(err, "error getting etx client for %s", peer.Endpoint)
 		}
 		peerClients = append(peerClients, peerClient)
 	}
 
-	// get endorser clients
+	// get etx clients
 	for _, client := range peerClients {
 		endorserClient, err := client.Endorser()
 		if err != nil {
-			return "", nil, nil, nil, errors.WithMessagef(err, "error getting endorser client for %s", client.Address())
+			return "", nil, nil, nil, errors.WithMessagef(err, "error getting etx client for %s", client.Address())
 		}
 		endorserClients = append(endorserClients, endorserClient)
 	}
 	if len(endorserClients) == 0 {
-		return "", nil, nil, nil, errors.New("no endorser clients retrieved with the current filters")
+		return "", nil, nil, nil, errors.New("no etx clients retrieved with the current filters")
 	}
 
 	// load signer

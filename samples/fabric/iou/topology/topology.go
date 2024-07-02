@@ -43,7 +43,7 @@ func Topology() []api.Topology {
 	// Add the approver FSC node.
 	approver := fscTopology.AddNodeByName("approver")
 	// This option equips the approver's FSC node with an identity belonging to Org1.
-	// Therefore, the approver is an endorser of the Fabric namespace we defined above.
+	// Therefore, the approver is an etx of the Fabric namespace we defined above.
 	approver.AddOptions(fabric.WithOrganization("Org1"))
 	approver.RegisterResponder(&views.ApproverView{}, &views.CreateIOUView{})
 	approver.RegisterResponder(&views.ApproverView{}, &views.UpdateIOUView{})

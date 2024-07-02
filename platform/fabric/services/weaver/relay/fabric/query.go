@@ -29,7 +29,7 @@ import (
 var logger = flogging.MustGetLogger("weaver-relay-fabric")
 
 const (
-	// OK constant - status code less than 400, endorser will endorse it.
+	// OK constant - status code less than 400, etx will endorse it.
 	// OK means init or invoke successfully.
 	OK = 200
 )

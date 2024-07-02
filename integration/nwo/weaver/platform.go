@@ -355,7 +355,7 @@ func (p *Platform) generateFabricDriverCPFile(relay *RelayServer) {
 		Connection: network.Connection{
 			Timeout: network.Timeout{
 				Peer: map[string]string{
-					"endorser": "300",
+					"etx": "300",
 				},
 			},
 		},

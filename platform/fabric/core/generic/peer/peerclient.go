@@ -31,7 +31,7 @@ func (pc *PeerClient) Close() {
 func (pc *PeerClient) Connection() (*grpc2.ClientConn, error) {
 	conn, err := pc.GRPCClient.NewConnection(pc.Address(), grpc.ServerNameOverride(pc.Sn))
 	if err != nil {
-		return nil, errors.WithMessagef(err, "endorser client failed to connect to %s", pc.Address())
+		return nil, errors.WithMessagef(err, "etx client failed to connect to %s", pc.Address())
 	}
 	return conn, nil
 }
@@ -40,7 +40,7 @@ func (pc *PeerClient) Connection() (*grpc2.ClientConn, error) {
 func (pc *PeerClient) Endorser() (pb.EndorserClient, error) {
 	conn, err := pc.GRPCClient.NewConnection(pc.Address(), grpc.ServerNameOverride(pc.Sn))
 	if err != nil {
-		return nil, errors.WithMessagef(err, "endorser client failed to connect to %s", pc.Address())
+		return nil, errors.WithMessagef(err, "etx client failed to connect to %s", pc.Address())
 	}
 	return pb.NewEndorserClient(conn), nil
 }
@@ -69,7 +69,7 @@ func (pc *PeerClient) DiscoveryClient() (DiscoveryClient, error) {
 func (pc *PeerClient) DeliverClient() (pb.DeliverClient, error) {
 	conn, err := pc.GRPCClient.NewConnection(pc.Address(), grpc.ServerNameOverride(pc.Sn))
 	if err != nil {
-		return nil, errors.WithMessagef(err, "endorser client failed to connect to %s", pc.Address())
+		return nil, errors.WithMessagef(err, "etx client failed to connect to %s", pc.Address())
 	}
 	return pb.NewDeliverClient(conn), nil
 }

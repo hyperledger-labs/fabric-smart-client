@@ -11,7 +11,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/endorser"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/etx"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/pkg/errors"
@@ -106,7 +106,7 @@ func (f *vault) GetStateCertification(namespace string, key string) ([]byte, err
 	if err != nil {
 		return nil, err
 	}
-	_, tx, err := endorser.NewTransactionWith(
+	_, tx, err := etx.NewTransactionWith(
 		f.sp,
 		f.network,
 		f.channel,

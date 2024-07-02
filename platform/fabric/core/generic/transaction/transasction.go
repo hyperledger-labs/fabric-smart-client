@@ -661,7 +661,7 @@ func (t *Transaction) getProposalResponse(signer SerializableSigner) (*pb.Propos
 
 	// Note, mPrpBytes is the same as prpBytes by default endorsement plugin, but others could change it.
 	// serialize the signing identity
-	// sign the concatenation of the proposal response and the serialized endorser identity with this endorser's key
+	// sign the concatenation of the proposal response and the serialized etx identity with this etx's key
 	creator, err := signer.Serialize()
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not get the signer's identity")
