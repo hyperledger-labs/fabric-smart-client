@@ -96,10 +96,9 @@ func (s *Server) ProcessCommand(ctx context.Context, sc *protos2.SignedCommand) 
 
 	p, ok := s.processors[reflect.TypeOf(command.GetPayload())]
 	var payload interface{}
-	switch ok {
-	case true:
+	if ok {
 		payload, err = p(newCtx, command)
-	default:
+	} else {
 		err = errors.Errorf("command type not recognized: %T", reflect.TypeOf(command.GetPayload()))
 	}
 	if err != nil {

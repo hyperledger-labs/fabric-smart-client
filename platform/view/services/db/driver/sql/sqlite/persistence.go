@@ -25,7 +25,7 @@ const sqlitePragmas = `
 
 const driverName = "sqlite"
 
-var logger = flogging.MustGetLogger("postgres-db")
+var logger = flogging.MustGetLogger("sqlite-db")
 
 func NewUnversionedPersistence(opts common.Opts, table string) (*common.UnversionedPersistence, error) {
 	readDB, writeDB, err := openDB(opts.DataSource, opts.MaxOpenConns, opts.SkipPragmas)
@@ -56,20 +56,19 @@ func NewVersionedPersistenceNotifier(opts common.Opts, table string) (*notifier.
 	if err != nil {
 		return nil, fmt.Errorf("error opening db: %w", err)
 	}
-	return notifier.NewVersioned[*common.VersionedPersistence](common.NewVersionedPersistence(readDB, writeDB, table, &errorMapper{})), nil
+	return notifier.NewVersioned(common.NewVersionedPersistence(readDB, writeDB, table, &errorMapper{})), nil
 }
 
 func openDB(dataSourceName string, maxOpenConns int, skipPragmas bool) (readDB *sql.DB, writeDB *sql.DB, err error) {
 	readDB, err = sql.Open(driverName, dataSourceName)
 	if err != nil {
-		logger.Error(err)
-		if strings.Contains(err.Error(), "out of memory (14)") {
-			return nil, nil, fmt.Errorf("can't open %s database, does the folder exist?: %w", driverName, err)
-		}
 		return nil, nil, fmt.Errorf("can't open %s database: %w", driverName, err)
 	}
 	readDB.SetMaxOpenConns(maxOpenConns)
 	if err = readDB.Ping(); err != nil {
+		if strings.Contains(err.Error(), "out of memory (14)") {
+			return nil, nil, fmt.Errorf("can't open %s database, does the folder exist?", driverName)
+		}
 		return nil, nil, err
 	}
 	logger.Infof("connected to [%s] for reads, max open connections: %d", driverName, maxOpenConns)
