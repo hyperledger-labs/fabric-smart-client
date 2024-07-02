@@ -8,6 +8,7 @@ package web
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
@@ -22,6 +23,7 @@ import (
 	"github.com/pkg/errors"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 var logger = flogging.MustGetLogger("view-sdk.web.client")
@@ -103,9 +105,9 @@ func NewClient(config *Config) (*Client, error) {
 
 	return &Client{
 		c: &http.Client{
-			Transport: &http.Transport{
+			Transport: otelhttp.NewTransport(&http.Transport{
 				TLSClientConfig: tlsClientConfig,
-			},
+			}),
 		},
 		url:       config.WebURL(),
 		wsUrl:     config.WsURL(),
@@ -114,7 +116,7 @@ func NewClient(config *Config) (*Client, error) {
 }
 
 func (c *Client) Metrics() (map[string]*dto.MetricFamily, error) {
-	body, err := c.req(http.MethodGet, fmt.Sprintf("%s/metrics", c.url), nil)
+	body, err := c.req(context.Background(), http.MethodGet, fmt.Sprintf("%s/metrics", c.url), nil)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed calling metrics")
 	}
@@ -134,8 +136,8 @@ func (c *Client) StreamCallView(fid string, in []byte) (*WSStream, error) {
 	return stream, nil
 }
 
-func (c *Client) req(method string, url string, in []byte) (io.ReadCloser, error) {
-	req, err := http.NewRequest(method, url, bytes.NewBuffer(in))
+func (c *Client) req(ctx context.Context, method string, url string, in []byte) (io.ReadCloser, error) {
+	req, err := http.NewRequestWithContext(ctx, method, url, bytes.NewBuffer(in))
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create http request to [%s], input length [%d]", url, len(in))
 	}
@@ -159,8 +161,12 @@ func (c *Client) req(method string, url string, in []byte) (io.ReadCloser, error
 // a freshly created context. This call is blocking until the result is produced or
 // an error is returned.
 func (c *Client) CallView(fid string, in []byte) (interface{}, error) {
+	return c.CallViewWithContext(context.Background(), fid, in)
+}
+
+func (c *Client) CallViewWithContext(ctx context.Context, fid string, in []byte) (interface{}, error) {
 	url := fmt.Sprintf("%s/v1/Views/%s", c.url, fid)
-	body, err := c.req(http.MethodPut, url, in)
+	body, err := c.req(ctx, http.MethodPut, url, in)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to call [%s]", fid)
 	}

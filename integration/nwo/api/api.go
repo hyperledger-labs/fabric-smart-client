@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package api
 
 import (
+	"context"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/api"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/web"
@@ -84,6 +86,7 @@ type Builder interface {
 }
 
 type ViewClient interface {
+	CallViewWithContext(ctx context.Context, fid string, in []byte) (interface{}, error)
 	CallView(fid string, in []byte) (interface{}, error)
 	IsTxFinal(txid string, opts ...api.ServiceOption) error
 }
