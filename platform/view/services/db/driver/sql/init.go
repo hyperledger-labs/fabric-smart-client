@@ -58,11 +58,11 @@ func (d *Driver) NewVersioned(dataSourceName string, config driver.Config) (driv
 
 // NewTransactionalVersionedPersistence returns a new TransactionalVersionedPersistence for the passed data source and config
 func (d *Driver) NewTransactionalVersioned(dataSourceName string, config driver.Config) (driver.TransactionalVersionedPersistence, error) {
-	return newPersistence[*common.VersionedPersistence](dataSourceName, config, versionedConstructors)
+	return newPersistence(dataSourceName, config, versionedConstructors)
 }
 
 func (d *Driver) NewUnversioned(dataSourceName string, config driver.Config) (driver.UnversionedPersistence, error) {
-	return newPersistence[*common.UnversionedPersistence](dataSourceName, config, unversionedConstructors)
+	return newPersistence(dataSourceName, config, unversionedConstructors)
 }
 
 func newPersistence[V dbObject](dataSourceName string, config driver.Config, constructors map[string]persistenceConstructor[V]) (V, error) {
@@ -98,7 +98,7 @@ func getOps(config driver.Config) (common.Opts, error) {
 		return opts, fmt.Errorf("failed getting opts: %w", err)
 	}
 	if opts.Driver == "" {
-		return opts, errors.New("sql driver not set in core.yaml. See ")
+		return opts, errors.New("sql driver not set in core.yaml")
 	}
 	dataSourceOverride := os.Getenv(EnvVarKey)
 	if dataSourceOverride != "" {
