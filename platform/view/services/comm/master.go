@@ -19,7 +19,7 @@ func (p *P2PNode) getOrCreateSession(sessionID, endpointAddress, contextID, call
 	p.sessionsMutex.Lock()
 	defer p.sessionsMutex.Unlock()
 
-	internalSessionID := computeInternalSessionID(sessionID, endpointAddress, endpointID)
+	internalSessionID := computeInternalSessionID(sessionID, endpointID)
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("looking up session [%s]", internalSessionID)
 	}

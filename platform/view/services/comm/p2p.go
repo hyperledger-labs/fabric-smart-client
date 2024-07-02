@@ -113,7 +113,7 @@ func (p *P2PNode) dispatchMessages(ctx context.Context) {
 			p.dispatchMutex.Lock()
 
 			p.sessionsMutex.Lock()
-			internalSessionID := computeInternalSessionID(msg.message.SessionID, msg.message.FromEndpoint, msg.message.FromPKID)
+			internalSessionID := computeInternalSessionID(msg.message.SessionID, msg.message.FromPKID)
 			if logger.IsEnabledFor(zapcore.DebugLevel) {
 				logger.Debugf("dispatch message on internal session [%s]", internalSessionID)
 			}
