@@ -25,6 +25,11 @@ var (
 	logger                   = flogging.MustGetLogger("fabric-sdk.core")
 )
 
+type NamedDriver struct {
+	Name string
+	driver.Driver
+}
+
 type FSNProvider struct {
 	sp     view.ServiceProvider
 	config *Config
@@ -32,18 +37,24 @@ type FSNProvider struct {
 	networksMutex sync.Mutex
 	configService driver2.ConfigService
 	networks      map[string]driver.FabricNetworkService
+	drivers       map[string]driver.Driver
 }
 
-func NewFabricNetworkServiceProvider(sp view.ServiceProvider, configService driver2.ConfigService) (*FSNProvider, error) {
+func NewFabricNetworkServiceProvider(sp view.ServiceProvider, configService driver2.ConfigService, namedDrivers []NamedDriver) (*FSNProvider, error) {
 	fnsConfig, err := NewConfig(configService)
 	if err != nil {
 		return nil, err
+	}
+	drivers := map[string]driver.Driver{}
+	for _, d := range namedDrivers {
+		drivers[d.Name] = d
 	}
 	provider := &FSNProvider{
 		sp:            sp,
 		config:        fnsConfig,
 		configService: configService,
 		networks:      map[string]driver.FabricNetworkService{},
+		drivers:       drivers,
 	}
 	provider.InitFabricLogging()
 	return provider, nil
@@ -151,7 +162,7 @@ func (p *FSNProvider) newFNS(network string) (driver.FabricNetworkService, error
 	if len(netConfig.Driver) != 0 {
 		logger.Debugf("instantiate Fabric Network Service [%s] with driver [%s]", network, netConfig.Driver)
 		// use the suggested driver
-		driver, ok := drivers[netConfig.Driver]
+		driver, ok := p.drivers[netConfig.Driver]
 		if !ok {
 			return nil, errors.Errorf("driver [%s] is not registered", netConfig.Driver)
 		}
@@ -165,7 +176,7 @@ func (p *FSNProvider) newFNS(network string) (driver.FabricNetworkService, error
 	logger.Debugf("no driver specified for network [%s], try all", network)
 
 	// try all available drivers
-	for _, d := range drivers {
+	for _, d := range p.drivers {
 		nw, err := d.New(p.sp, network, network == p.config.defaultName)
 		if err != nil {
 			logger.Warningf("failed to create network [%s]: %s", network, err)

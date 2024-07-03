@@ -53,14 +53,9 @@ type RWSetPayloadHandlerProvider = digutils.HandlerProvider[common.HeaderType, f
 func NewFSNProvider(in struct {
 	dig.In
 	ConfigService driver2.ConfigService
-	Drivers       []NamedDriver `group:"drivers"`
+	Drivers       []core.NamedDriver `group:"drivers"`
 }) (*core.FSNProvider, error) {
-	return core.NewFabricNetworkServiceProvider(nil, in.ConfigService)
-}
-
-type NamedDriver struct {
-	Name string
-	driver.Driver
+	return core.NewFabricNetworkServiceProvider(nil, in.ConfigService, in.Drivers)
 }
 
 func NewDriver(in struct {
@@ -74,11 +69,10 @@ func NewDriver(in struct {
 	DeserializerManager driver3.DeserializerManager
 	IdProvider          driver2.IdentityProvider
 	KVS                 *kvs.KVS
-}) NamedDriver {
-	d := NamedDriver{
+}) core.NamedDriver {
+	d := core.NamedDriver{
 		Name:   "generic",
 		Driver: driver4.NewProvider(in.ConfigProvider, in.ChannelProvider, in.IdentityProvider, in.MetricsProvider, in.EndpointService, in.SigService, in.DeserializerManager, in.IdProvider, in.KVS),
 	}
-	core.Register(d.Name, d.Driver)
 	return d
 }
