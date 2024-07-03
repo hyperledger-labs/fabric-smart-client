@@ -769,7 +769,20 @@ func (p *Platform) PeersInOrg(orgName string) []*node2.Peer {
 }
 
 func (p *Platform) PeerAddress(peer *node2.Replica, portName api.PortName) string {
-	return fmt.Sprintf("%s:%d", p.Context.HostByPeerID("fsc", peer.ID()), p.PeerPort(peer, portName))
+	return fmt.Sprintf("%s:%d", p.PeerHost(peer), p.PeerPort(peer, portName))
+}
+
+func (p *Platform) PeerHost(peer *node2.Replica) string {
+	return p.Context.HostByPeerID("fsc", peer.ID())
+}
+
+func (p *Platform) GetReplicas(peer *node2.Peer) []*node2.Replica {
+	uniqueNames := peer.ReplicaUniqueNames()
+	replicas := make([]*node2.Replica, len(uniqueNames))
+	for i, uniqueName := range uniqueNames {
+		replicas[i] = &node2.Replica{Peer: peer, UniqueName: uniqueName}
+	}
+	return replicas
 }
 
 func (p *Platform) PeerPort(peer *node2.Replica, portName api.PortName) uint16 {

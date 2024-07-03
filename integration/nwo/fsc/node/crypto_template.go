@@ -33,6 +33,9 @@ PeerOrgs:{{ range .PeerOrgs }}
   Specs:{{ range $w.PeersInOrg .Name }}
   - Hostname: {{ .Name }}
     SANS:
+{{- range $w.GetReplicas . }}
+    - {{ $w.PeerHost . }}
+{{- end }}
     - 0.0.0.0
     - localhost
     - 127.0.0.1
