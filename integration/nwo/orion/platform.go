@@ -24,6 +24,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/docker"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/network"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/orion-server/config"
 	"github.com/hyperledger-labs/orion-server/pkg/server/testutils"
@@ -298,6 +299,9 @@ func (p *Platform) writeConfigFile() {
 	p.nodePort = p.Context.PortsByOrdererID("", OrdererPortID)[Port]
 	p.peerPort = p.Context.PortsByPeerID("", PeerPortID)[Port]
 
+	nodeHost := utils.DefaultString(p.Context.HostByOrdererID("", OrdererPortID), "0.0.0.0")
+	peerHost := utils.DefaultString(p.Context.HostByPeerID("", PeerPortID), "0.0.0.0")
+
 	p.localConfig = &config.LocalConfiguration{
 		Server: config.ServerConf{
 			Identity: config.IdentityConf{
@@ -343,7 +347,7 @@ func (p *Platform) writeConfigFile() {
 		Nodes: []*config.NodeConf{
 			{
 				NodeID:          "bdb-node-1",
-				Host:            "0.0.0.0",
+				Host:            nodeHost,
 				Port:            uint32(p.nodePort),
 				CertificatePath: p.replaceForDocker(p.serverPem()),
 			},
@@ -354,7 +358,7 @@ func (p *Platform) writeConfigFile() {
 				{
 					NodeId:   "bdb-node-1",
 					RaftId:   1,
-					PeerHost: "0.0.0.0",
+					PeerHost: peerHost,
 					PeerPort: uint32(p.peerPort),
 				},
 			},
@@ -387,7 +391,7 @@ func (p *Platform) writeConfigFile() {
 	err = os.WriteFile(p.boostrapSharedConfig(), b, 0644)
 	Expect(err).ToNot(HaveOccurred())
 
-	p.serverUrl, err = url.Parse(fmt.Sprintf("http://%s:%d", "127.0.0.1", p.localConfig.Server.Network.Port))
+	p.serverUrl, err = url.Parse(fmt.Sprintf("http://%s:%d", nodeHost, p.nodePort))
 	Expect(err).ToNot(HaveOccurred())
 
 	p.saveServerUrl(p.serverUrl)
