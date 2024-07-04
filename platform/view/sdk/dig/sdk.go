@@ -38,7 +38,9 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
-	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kms/driver/file"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kms"
+	driver3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kms/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kms/driver/file"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	metrics2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/operations"
@@ -92,6 +94,7 @@ func (p *SDK) Install() error {
 		p.C.Provide(badger.NewFileDriver, dig.Group("db-drivers")),
 		p.C.Provide(sql.NewDriver, dig.Group("db-drivers")),
 		p.C.Provide(mem.NewDriver, dig.Group("db-drivers")),
+		p.C.Provide(file.NewDriver, dig.Group("kms-drivers")),
 		p.C.Provide(newKVS),
 		p.C.Provide(sig.NewDeserializer),
 		p.C.Provide(sig.NewDeserializerManager),
@@ -102,7 +105,7 @@ func (p *SDK) Install() error {
 		p.C.Provide(digutils.Identity[*endpoint.Service](), dig.As(new(driver.EndpointService))),
 		p.C.Provide(view.NewEndpointService),
 		p.C.Provide(digutils.Identity[*view.EndpointService](), dig.As(new(comm.EndpointService), new(id.EndpointService), new(endpoint.Backend))),
-		p.C.Provide(id.NewKMSDriver),
+		p.C.Provide(newKMSDriver),
 		p.C.Provide(id.NewProvider, dig.As(new(endpoint.IdentityService), new(view3.IdentityProvider), new(driver.IdentityProvider))),
 		p.C.Provide(endpoint.NewResolverService),
 		p.C.Provide(web.NewServer),
@@ -205,6 +208,20 @@ func newKVS(in struct {
 	for _, driver := range in.Drivers {
 		if string(driver.Name) == driverName {
 			return kvs.NewWithConfig(driver.Driver, "_default", in.Config)
+		}
+	}
+	return nil, errors.New("driver not found")
+}
+
+func newKMSDriver(in struct {
+	dig.In
+	Config  driver.ConfigService
+	Drivers []driver3.NamedDriver `group:"kms-drivers"`
+}) (*kms.KMS, error) {
+	driverName := utils.DefaultString(in.Config.GetString("fsc.identity.type"), "file")
+	for _, driver := range in.Drivers {
+		if string(driver.Name) == driverName {
+			return &kms.KMS{Driver: driver.Driver}, nil
 		}
 	}
 	return nil, errors.New("driver not found")

@@ -12,7 +12,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/id"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/id/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kms"
-	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kms/driver/file"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kms/driver/file"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -26,9 +26,7 @@ func TestLoad(t *testing.T) {
 	cp.TranslatePathReturnsOnCall(0, "./testdata/client/client.pem")
 	sigService := &mock.SigService{}
 
-	kmsDriver, err := kms.Get("file")
-	assert.NoError(t, err, "failed getting kms driver")
-	idProvider, err := id.NewProvider(cp, sigService, nil, kmsDriver)
+	idProvider, err := id.NewProvider(cp, sigService, nil, &kms.KMS{Driver: &file.Driver{}})
 	assert.NoError(t, err, "failed loading identities")
 
 	raw, err := id.LoadIdentity("./testdata/default/signcerts/default.pem")
