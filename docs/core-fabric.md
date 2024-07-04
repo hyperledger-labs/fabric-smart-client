@@ -145,6 +145,9 @@ fsc:
     optl:
       # The address of collector where we should send the traces
       address: 127.0.0.1:8125
+    sampling:
+      # The ratio of the traces to be sampled
+      ratio: 0.8
 
   # ------------------- Metrics Configuration -------------------------
   metrics:
