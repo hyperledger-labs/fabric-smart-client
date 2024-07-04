@@ -10,11 +10,17 @@ import (
 	"os"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id/ecdsa"
-	kms "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kms"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kms/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
 )
+
+func NewDriver() driver.NamedDriver {
+	return driver.NamedDriver{
+		Name:   "file",
+		Driver: &Driver{},
+	}
+}
 
 type Driver struct{}
 
@@ -36,8 +42,4 @@ func (d *Driver) Load(configProvider driver.ConfigProvider) (view.Identity, driv
 		return id, nil, verifier, errors.Wrapf(err, "failed loading default signer")
 	}
 	return id, signer, verifier, nil
-}
-
-func init() {
-	kms.Register("file", &Driver{})
 }

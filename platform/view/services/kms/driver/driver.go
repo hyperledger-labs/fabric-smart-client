@@ -28,6 +28,13 @@ type Verifier interface {
 	Verify(message, sigma []byte) error
 }
 
+type KMSDriverName string
+
+type NamedDriver struct {
+	Name   KMSDriverName
+	Driver Driver
+}
+
 // Driver models the key management interface
 type Driver interface {
 	// Load returns the signer, verifier and signing identity bound to the byte representation of passed pem encoded public key.
