@@ -25,7 +25,7 @@ const sqlitePragmas = `
 
 const driverName = "sqlite"
 
-var logger = flogging.MustGetLogger("sqlite-db")
+var logger = flogging.MustGetLogger("view-sdk.db.sqlite")
 
 func NewUnversionedPersistence(opts common.Opts, table string) (*common.UnversionedPersistence, error) {
 	readDB, writeDB, err := openDB(opts.DataSource, opts.MaxOpenConns, opts.SkipPragmas)

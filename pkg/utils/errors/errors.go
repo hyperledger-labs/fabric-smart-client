@@ -23,6 +23,11 @@ func Wrapf(err error, format string, args ...any) error {
 	return errors.Wrapf(err, format, args...)
 }
 
+// Wrap wraps an error in a way compatible with HasCause
+func Wrap(err error, message string) error {
+	return errors.Wrap(err, message)
+}
+
 func Errorf(format string, args ...any) error {
 	return errors.Errorf(format, args...)
 }
