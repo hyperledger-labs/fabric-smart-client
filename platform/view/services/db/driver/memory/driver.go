@@ -7,9 +7,15 @@ SPDX-License-Identifier: Apache-2.0
 package mem
 
 import (
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 )
+
+func NewDriver() driver.NamedDriver {
+	return driver.NamedDriver{
+		Name:   "memory",
+		Driver: &Driver{},
+	}
+}
 
 type Driver struct{}
 
@@ -24,8 +30,4 @@ func (v *Driver) NewVersioned(string, driver.Config) (driver.VersionedPersistenc
 
 func (v *Driver) NewUnversioned(string, driver.Config) (driver.UnversionedPersistence, error) {
 	return NewUnversionedPersistence(), nil
-}
-
-func init() {
-	db.Register("memory", &Driver{})
 }

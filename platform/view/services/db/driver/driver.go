@@ -110,6 +110,13 @@ type Config interface {
 	UnmarshalKey(key string, rawVal interface{}) error
 }
 
+type DBDriverName string
+
+type NamedDriver struct {
+	Name   DBDriverName
+	Driver Driver
+}
+
 type Driver interface {
 	// NewTransactionalVersioned returns a new TransactionalVersionedPersistence for the passed data source and config
 	NewTransactionalVersioned(dataSourceName string, config Config) (TransactionalVersionedPersistence, error)

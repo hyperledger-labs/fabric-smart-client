@@ -64,16 +64,17 @@ type KVS struct {
 }
 
 // New returns a new KVS instance for the passed namespace using the passed driver
-func New(sp view.ServiceProvider, driverName, namespace string) (*KVS, error) {
-	return NewWithConfig(driverName, namespace, view.GetConfigService(sp))
+func New(sp view.ServiceProvider, dbDriver driver.Driver, namespace string) (*KVS, error) {
+	return NewWithConfig(dbDriver, namespace, view.GetConfigService(sp))
 }
 
 // NewWithConfig returns a new KVS instance for the passed namespace using the passed driver and config provider
-func NewWithConfig(driverName, namespace string, cp ConfigProvider) (*KVS, error) {
-	persistence, err := db.Open(driverName, namespace, db.NewPrefixConfig(cp, persistenceOptsConfigKey))
+func NewWithConfig(dbDriver driver.Driver, namespace string, cp ConfigProvider) (*KVS, error) {
+	d, err := dbDriver.NewUnversioned(namespace, db.NewPrefixConfig(cp, persistenceOptsConfigKey))
 	if err != nil {
-		return nil, errors.Wrapf(err, "no driver found for [%s]", driverName)
+		return nil, errors.Wrapf(err, "failed opening datasource [%s]", namespace)
 	}
+	persistence := &db.UnversionedPersistence{UnversionedPersistence: d}
 
 	cacheSize, err := cacheSizeFromConfig(cp)
 	if err != nil {

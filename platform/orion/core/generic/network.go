@@ -18,6 +18,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic/transaction"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db"
+	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/orion-server/pkg/types"
@@ -86,7 +88,7 @@ func NewDB(ctx context.Context, sp view2.ServiceProvider, config *config2.Config
 	return n, nil
 }
 
-func NewNetwork(ctx context.Context, sp view2.ServiceProvider, config *config2.Config, name string) (*network, error) {
+func NewNetwork(ctx context.Context, sp view2.ServiceProvider, config *config2.Config, name string, drivers []driver2.NamedDriver) (*network, error) {
 	// Load configuration
 	n := &network{
 		ctx:    ctx,
@@ -118,7 +120,24 @@ func NewNetwork(ctx context.Context, sp view2.ServiceProvider, config *config2.C
 	n.envelopeService = transaction.NewEnvelopeService(sp, name)
 	n.transactionManager = transaction.NewManager(sp, n.sessionManager)
 	n.transactionService = transaction.NewEndorseTransactionService(sp, name)
-	n.vault, err = NewVault(n.config, n, name)
+
+	var d driver2.Driver
+	for _, driver := range drivers {
+		if string(driver.Name) == n.config.VaultPersistenceType() {
+			d = driver.Driver
+			break
+		}
+	}
+	if d == nil {
+		return nil, errors.Errorf("driver %s not found in config", n.config.VaultPersistenceType())
+	}
+
+	persistence, err := db.OpenVersioned(d, name, db.NewPrefixConfig(n.config, n.config.VaultPersistencePrefix()))
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed creating vault")
+	}
+
+	n.vault, err = NewVault(n, persistence)
 	if err != nil {
 		return nil, errors.WithMessage(err, "failed to create vault")
 	}

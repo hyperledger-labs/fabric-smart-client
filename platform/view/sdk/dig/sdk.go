@@ -29,9 +29,10 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/provider"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/crypto"
-	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger"
-	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
-	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql"
+	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger"
+	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events/simple"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
@@ -87,9 +88,11 @@ func (p *SDK) Install() error {
 		p.C.Provide(crypto.NewProvider, dig.As(new(hash.Hasher))),
 		p.C.Provide(simple.NewEventBus, dig.As(new(events.EventSystem), new(events.Publisher), new(events.Subscriber))),
 		p.C.Provide(func(system events.EventSystem) *events.Service { return &events.Service{EventSystem: system} }),
-		p.C.Provide(func(config driver.ConfigService) (*kvs.KVS, error) {
-			return kvs.NewWithConfig(utils.DefaultString(config.GetString("fsc.kvs.persistence.type"), "memory"), "_default", config)
-		}),
+		p.C.Provide(badger.NewDriver, dig.Group("db-drivers")),
+		p.C.Provide(badger.NewFileDriver, dig.Group("db-drivers")),
+		p.C.Provide(sql.NewDriver, dig.Group("db-drivers")),
+		p.C.Provide(mem.NewDriver, dig.Group("db-drivers")),
+		p.C.Provide(newKVS),
 		p.C.Provide(sig.NewDeserializer),
 		p.C.Provide(sig.NewDeserializerManager),
 		p.C.Provide(sig.NewSignService, dig.As(new(id.SigService), new(driver.SigService), new(driver.SigRegistry), new(driver.AuditRegistry))),
@@ -191,4 +194,18 @@ func (p *SDK) Start(ctx context.Context) error {
 
 		return nil
 	})
+}
+
+func newKVS(in struct {
+	dig.In
+	Config  driver.ConfigService
+	Drivers []driver2.NamedDriver `group:"db-drivers"`
+}) (*kvs.KVS, error) {
+	driverName := utils.DefaultString(in.Config.GetString("fsc.kvs.persistence.type"), "memory")
+	for _, driver := range in.Drivers {
+		if string(driver.Name) == driverName {
+			return kvs.NewWithConfig(driver.Driver, "_default", in.Config)
+		}
+	}
+	return nil, errors.New("driver not found")
 }

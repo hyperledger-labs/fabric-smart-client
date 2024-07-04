@@ -18,6 +18,7 @@ import (
 	driver4 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/identity"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
+	driver5 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
@@ -32,8 +33,15 @@ type channelProviderResult struct {
 	generic.Provider `name:"generic"`
 }
 
-func NewChannelProvider(kvss *kvs.KVS, publisher events.Publisher, hasher hash.Hasher, tracerProvider trace.TracerProvider) channelProviderResult {
-	return channelProviderResult{Provider: generic.NewProvider(kvss, publisher, hasher, tracerProvider)}
+func NewChannelProvider(in struct {
+	dig.In
+	KVS            *kvs.KVS
+	Publisher      events.Publisher
+	Hasher         hash.Hasher
+	TracerProvider trace.TracerProvider
+	Drivers        []driver5.NamedDriver `group:"db-drivers"`
+}) channelProviderResult {
+	return channelProviderResult{Provider: generic.NewProvider(in.KVS, in.Publisher, in.Hasher, in.TracerProvider, in.Drivers)}
 }
 
 type ChannelHandlerProviderResult struct {

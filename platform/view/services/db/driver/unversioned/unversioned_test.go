@@ -12,12 +12,12 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger"
+	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/unversioned/mocks"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
-	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger"
-	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -34,7 +34,7 @@ func TestRangeQueriesBadger(t *testing.T) {
 	c.UnmarshalKeyReturns(nil)
 	c.IsSetReturns(false)
 	dbpath := filepath.Join(tempDir, "DB-TestRangeQueries")
-	db, err := db.Open("badger", dbpath, c)
+	db, err := db.Open(&badger.Driver{}, dbpath, c)
 	defer db.Close()
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
@@ -45,7 +45,7 @@ func TestRangeQueriesBadger(t *testing.T) {
 func TestRangeQueriesMemory(t *testing.T) {
 	c := &mocks.Config{}
 	c.UnmarshalKeyReturns(nil)
-	db, err := db.Open("memory", "", c)
+	db, err := db.Open(&mem.Driver{}, "", c)
 	defer db.Close()
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
@@ -111,7 +111,7 @@ func TestSimpleReadWriteBadger(t *testing.T) {
 	c := &mocks.Config{}
 	c.UnmarshalKeyReturns(nil)
 	dbpath := filepath.Join(tempDir, "DB-TestRangeQueries")
-	db, err := db.Open("badger", dbpath, c)
+	db, err := db.Open(&badger.Driver{}, dbpath, c)
 	defer db.Close()
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
@@ -122,7 +122,7 @@ func TestSimpleReadWriteBadger(t *testing.T) {
 func TestSimpleReadWriteMemory(t *testing.T) {
 	c := &mocks.Config{}
 	c.UnmarshalKeyReturns(nil)
-	db, err := db.Open("memory", "", c)
+	db, err := db.Open(&mem.Driver{}, "", c)
 	defer db.Close()
 	assert.NoError(t, err)
 	assert.NotNil(t, db)

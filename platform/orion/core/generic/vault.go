@@ -8,7 +8,6 @@ package generic
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault/txidstore"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db"
@@ -26,17 +25,7 @@ type Vault struct {
 	network Network
 }
 
-func NewVault(config *config.Config, network Network, channel string) (*Vault, error) {
-	pType := config.VaultPersistenceType()
-	if pType == "file" {
-		// for retro compatibility
-		pType = "badger"
-	}
-	persistence, err := db.OpenVersioned(pType, channel, db.NewPrefixConfig(config, config.VaultPersistencePrefix()))
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed creating vault")
-	}
-
+func NewVault(network Network, persistence *db.VersionedPersistence) (*Vault, error) {
 	txIDStore, err := vault.NewSimpleTXIDStore(db.Unversioned(persistence))
 	if err != nil {
 		return nil, err

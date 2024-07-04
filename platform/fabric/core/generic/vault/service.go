@@ -11,20 +11,26 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/cache/secondcache"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db"
+	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/pkg/errors"
 )
 
 var logger = flogging.MustGetLogger("fabric-sdk.core.vault")
 
-func New(configService driver.ConfigService, channel string) (*Vault, driver.TXIDStore, error) {
-	logger.Debugf("new fabric vault for channel [%s] with config [%v]", channel, configService)
-	pType := configService.VaultPersistenceType()
-	if pType == "file" {
-		// for retro compatibility
-		pType = "badger"
+func New(configService driver.ConfigService, channel string, drivers []driver2.NamedDriver) (*Vault, driver.TXIDStore, error) {
+	var d driver2.Driver
+	for _, driver := range drivers {
+		if string(driver.Name) == configService.VaultPersistenceType() {
+			d = driver.Driver
+			break
+		}
 	}
-	persistence, err := db.OpenVersioned(pType, db.EscapeForTableName(configService.NetworkName(), channel), db.NewPrefixConfig(configService, configService.VaultPersistencePrefix()))
+	if d == nil {
+		return nil, nil, errors.Errorf("failed getting driver [%s]", configService.VaultPersistenceType())
+	}
+	logger.Debugf("new fabric vault for channel [%s] with config [%v]", channel, configService)
+	persistence, err := db.OpenVersioned(d, db.EscapeForTableName(configService.NetworkName(), channel), db.NewPrefixConfig(configService, configService.VaultPersistencePrefix()))
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "failed creating vault")
 	}

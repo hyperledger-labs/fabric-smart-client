@@ -10,9 +10,9 @@ import (
 	"os"
 	"testing"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger"
-	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger"
-	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
+	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs/mock"
@@ -24,7 +24,7 @@ type stuff struct {
 	I int    `json:"i"`
 }
 
-func testRound(t *testing.T, driver string, cp kvs.ConfigProvider) {
+func testRound(t *testing.T, driver driver.Driver, cp kvs.ConfigProvider) {
 	kvstore, err := kvs.NewWithConfig(driver, "_default", cp)
 	assert.NoError(t, err)
 
@@ -116,10 +116,10 @@ func TestBadgerKVS(t *testing.T) {
 		return nil
 	}
 	cp.IsSetReturns(false)
-	testRound(t, "badger", cp)
+	testRound(t, &badger.Driver{}, cp)
 }
 
 func TestMemoryKVS(t *testing.T) {
 	cp := &mock.ConfigProvider{}
-	testRound(t, "memory", cp)
+	testRound(t, &mem.Driver{}, cp)
 }

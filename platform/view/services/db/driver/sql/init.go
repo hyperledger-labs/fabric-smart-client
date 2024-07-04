@@ -13,7 +13,6 @@ import (
 	"regexp"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/postgres"
@@ -26,6 +25,13 @@ var logger = flogging.MustGetLogger("db.driver.sql")
 const (
 	EnvVarKey = "FSC_DB_DATASOURCE"
 )
+
+func NewDriver() driver.NamedDriver {
+	return driver.NamedDriver{
+		Name:   "sql",
+		Driver: &Driver{},
+	}
+}
 
 type Driver struct {
 }
@@ -112,8 +118,4 @@ func getTableName(prefix, name string) (table string, valid bool) {
 	table = fmt.Sprintf("%s_%s", prefix, name)
 	r := regexp.MustCompile("^[a-zA-Z_]+$")
 	return table, r.MatchString(name)
-}
-
-func init() {
-	db.Register("sql", &Driver{})
 }
