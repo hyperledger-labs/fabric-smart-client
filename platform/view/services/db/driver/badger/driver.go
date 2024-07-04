@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 
 	"github.com/dgraph-io/badger/v3"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/pkg/errors"
 )
@@ -19,6 +18,14 @@ import (
 type Opts struct {
 	badger.Options
 	Path string
+}
+
+func NewDriver() driver.NamedDriver {
+	return driver.NamedDriver{Name: "badger", Driver: &Driver{}}
+}
+
+func NewFileDriver() driver.NamedDriver {
+	return driver.NamedDriver{Name: "file", Driver: &Driver{}}
 }
 
 type Driver struct{}
@@ -47,8 +54,4 @@ func (v *Driver) NewVersioned(dataSourceName string, config driver.Config) (driv
 
 func (v *Driver) NewUnversioned(dataSourceName string, config driver.Config) (driver.UnversionedPersistence, error) {
 	return NewUnversionedPersistence(dataSourceName, config)
-}
-
-func init() {
-	db.Register("badger", &Driver{})
 }

@@ -11,10 +11,10 @@ import (
 	"testing"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/sig"
+	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
 
 	idemix2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/idemix"
 	x5092 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/x509"
-	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs/mock"
 	registry2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/registry"
@@ -25,7 +25,7 @@ import (
 func TestInfoIdemix(t *testing.T) {
 	registry := registry2.New()
 
-	kvss, err := kvs.NewWithConfig("memory", "", &mock.ConfigProvider{})
+	kvss, err := kvs.NewWithConfig(&mem.Driver{}, "", &mock.ConfigProvider{})
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
 	sigService := sig.NewService(sig.NewMultiplexDeserializer(), kvss)

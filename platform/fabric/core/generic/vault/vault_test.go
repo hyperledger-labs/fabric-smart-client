@@ -15,8 +15,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/cache/secondcache"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db"
 	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
-	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger"
-	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/exp/slices"
 )

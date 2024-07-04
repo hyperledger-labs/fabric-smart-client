@@ -18,9 +18,11 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	finality2 "github.com/hyperledger-labs/fabric-smart-client/platform/orion/sdk/finality"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	viewsdk "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/finality"
+	driver3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"go.uber.org/dig"
@@ -66,7 +68,7 @@ func (p *SDK) Install() error {
 	err := errors.Join(
 		p.Container().Provide(digutils.Identity[driver.ConfigService](), dig.As(new(core.ConfigProvider))),
 		p.Container().Provide(core.NewConfig),
-		p.Container().Provide(core.NewOrionNetworkServiceProvider),
+		p.Container().Provide(newOrionNetworkServiceProvider),
 		p.Container().Provide(orion.NewNetworkServiceProvider),
 		p.Container().Provide(digutils.Identity[*core.ONSProvider](), dig.As(new(driver2.OrionNetworkServiceProvider))),
 		p.Container().Provide(finality2.NewHandler, dig.Group("finality-handlers")),
@@ -139,4 +141,14 @@ func (p *SDK) PostStart(ctx context.Context) error {
 		}
 	}()
 	return nil
+}
+
+func newOrionNetworkServiceProvider(in struct {
+	dig.In
+	SP            view.ServiceProvider
+	ConfigService driver.ConfigService
+	Config        *core.Config
+	Drivers       []driver3.NamedDriver `group:"db-drivers"`
+}) (*core.ONSProvider, error) {
+	return core.NewOrionNetworkServiceProvider(in.SP, in.ConfigService, in.Config, in.Drivers)
 }

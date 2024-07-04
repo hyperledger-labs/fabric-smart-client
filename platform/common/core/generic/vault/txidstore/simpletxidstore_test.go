@@ -11,8 +11,6 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault/db"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
-	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger"
-	_ "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
 	"github.com/pkg/errors"
 	"github.com/test-go/testify/assert"
 	"golang.org/x/exp/slices"

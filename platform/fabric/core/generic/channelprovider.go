@@ -18,6 +18,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
@@ -26,18 +27,18 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-type VaultConstructor = func(configService driver.ConfigService, channel string) (*vault.Vault, driver.TXIDStore, error)
+type VaultConstructor = func(configService driver.ConfigService, channel string, drivers []driver2.NamedDriver) (*vault.Vault, driver.TXIDStore, error)
 
 type Provider interface {
 	NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver.Channel, error)
 }
 
-func NewProvider(kvss *kvs.KVS, publisher events.Publisher, hasher hash.Hasher, tracerProvider trace.TracerProvider) Provider {
-	return NewProviderWithVault(kvss, publisher, hasher, tracerProvider, vault.New)
+func NewProvider(kvss *kvs.KVS, publisher events.Publisher, hasher hash.Hasher, tracerProvider trace.TracerProvider, drivers []driver2.NamedDriver) Provider {
+	return NewProviderWithVault(kvss, publisher, hasher, tracerProvider, drivers, vault.New)
 }
 
-func NewProviderWithVault(kvss *kvs.KVS, publisher events.Publisher, hasher hash.Hasher, tracerProvider trace.TracerProvider, newVault VaultConstructor) *provider {
-	return &provider{kvss: kvss, publisher: publisher, hasher: hasher, newVault: newVault, tracerProvider: tracerProvider}
+func NewProviderWithVault(kvss *kvs.KVS, publisher events.Publisher, hasher hash.Hasher, tracerProvider trace.TracerProvider, drivers []driver2.NamedDriver, newVault VaultConstructor) *provider {
+	return &provider{kvss: kvss, publisher: publisher, hasher: hasher, newVault: newVault, tracerProvider: tracerProvider, drivers: drivers}
 }
 
 type provider struct {
@@ -46,6 +47,7 @@ type provider struct {
 	hasher         hash.Hasher
 	newVault       VaultConstructor
 	tracerProvider trace.TracerProvider
+	drivers        []driver2.NamedDriver
 }
 
 func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string, quiet bool) (driver.Channel, error) {
@@ -56,7 +58,7 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 	}
 
 	// Vault
-	vault, txIDStore, err := p.newVault(nw.ConfigService(), channelName)
+	vault, txIDStore, err := p.newVault(nw.ConfigService(), channelName, p.drivers)
 	if err != nil {
 		return nil, err
 	}
