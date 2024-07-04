@@ -131,6 +131,8 @@ fsc:
     optl:
       # The address of collector where we should send the traces
       address: {{ TracingEndpoint }}
+    sampling:
+      ratio: {{ SamplingRatio }}
   metrics:
     # metrics provider is one of statsd, prometheus, or disabled
     provider: {{ Topology.Monitoring.MetricsType }}

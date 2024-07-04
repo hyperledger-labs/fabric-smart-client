@@ -43,10 +43,11 @@ type Topology struct {
 }
 
 type Monitoring struct {
-	TracingType     tracing.TracerType `yaml:"tracingType,omitempty"`
-	TracingEndpoint string             `yaml:"tracingEndpoint,omitempty"`
-	MetricsType     string             `yaml:"metricsType,omitempty"`
-	TLS             bool               `yaml:"tls,omitempty"`
+	TracingType          tracing.TracerType `yaml:"tracingType,omitempty"`
+	TracingEndpoint      string             `yaml:"tracingEndpoint,omitempty"`
+	TracingSamplingRatio float64            `yaml:"tracingSamplingRatio,omitempty"`
+	MetricsType          string             `yaml:"metricsType,omitempty"`
+	TLS                  bool               `yaml:"tls,omitempty"`
 }
 
 // NewTopology returns an empty FSC network topology.
@@ -132,7 +133,12 @@ func (t *Topology) ListNodes(ids ...string) []*node.Node {
 }
 
 func (t *Topology) EnableTracing(typ tracing.TracerType) {
+	t.EnableTracingWithRatio(typ, 1)
+}
+
+func (t *Topology) EnableTracingWithRatio(typ tracing.TracerType, ratio float64) {
 	t.Monitoring.TracingType = typ
+	t.Monitoring.TracingSamplingRatio = ratio
 }
 
 func (t *Topology) EnableLogToFile() {

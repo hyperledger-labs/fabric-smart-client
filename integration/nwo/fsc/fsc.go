@@ -496,6 +496,7 @@ func (p *Platform) GenerateCoreConfig(peer *node2.Replica) {
 		"TracingEndpoint": func() string {
 			return utils.DefaultString(p.Topology.Monitoring.TracingEndpoint, fmt.Sprintf("0.0.0.0:%d", optl.JaegerCollectorPort))
 		},
+		"SamplingRatio": func() float64 { return p.Topology.Monitoring.TracingSamplingRatio },
 	}).
 		Parse(p.Topology.Templates.CoreTemplate())
 	Expect(err).NotTo(HaveOccurred())

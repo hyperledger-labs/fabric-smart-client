@@ -171,7 +171,7 @@ func invoke() error {
 		return err
 	}
 
-	tracerProvider, err := tracing2.NoopProvider()
+	tracerProvider, err := tracing2.NewTracerProviderFromConfig(tracing2.NoOp)
 	if err != nil {
 		return err
 	}

@@ -36,10 +36,17 @@ const (
 	ServiceName            = "FSC"
 )
 
+var NoOp = Config{Provider: None}
+
 type Config struct {
-	Provider TracerType `mapstructure:"provider"`
-	File     FileConfig `mapstructure:"file"`
-	Otpl     OtplConfig `mapstructure:"optl"`
+	Provider TracerType     `mapstructure:"provider"`
+	File     FileConfig     `mapstructure:"file"`
+	Otpl     OtplConfig     `mapstructure:"optl"`
+	Sampling SamplingConfig `mapstructure:"sampling"`
+}
+
+type SamplingConfig struct {
+	Ratio float64 `mapstructure:"ratio"`
 }
 
 type FileConfig struct {
@@ -61,31 +68,32 @@ func NewTracerProvider(confService driver.ConfigService) (trace.TracerProvider, 
 }
 
 func NewTracerProviderFromConfig(c Config) (trace.TracerProvider, error) {
+	var exporter sdktrace.SpanExporter
+	var err error
 	switch c.Provider {
-	case None:
-		logger.Infof("No-op tracer provider selected")
-		return NoopProvider()
 	case Otpl:
 		logger.Infof("OPTL tracer provider selected")
-		return GrpcProvider(&c.Otpl)
+		exporter, err = grpcExporter(&c.Otpl)
 	case File:
 		logger.Infof("File tracing provider selected")
-		return FileProvider(&c.File)
+		exporter, err = fileExporter(&c.File)
 	case Console:
 		logger.Infof("Console tracing provider selected")
-		return ConsoleProvider()
+		exporter, err = stdouttrace.New(stdouttrace.WithPrettyPrint())
+	case None:
 	default:
-		logger.Infof("No provider type passed. Default to no-op")
-		return NoopProvider()
+		logger.Infof("No provider or no-op provider type passed. Tracing disabled.")
+		return noop.NewTracerProvider(), nil
 	}
+
+	if err != nil {
+		return nil, errors.WithMessagef(err, "failed to initialize span exporter")
+	}
+	logger.Infof("Initializing tracing provider with sampling: %v", c.Sampling)
+	return providerWithExporter(context.Background(), exporter, c.Sampling)
 }
 
-func NoopProvider() (noop.TracerProvider, error) {
-	logger.Infof("Tracing disabled")
-	return noop.NewTracerProvider(), nil
-}
-
-func FileProvider(c *FileConfig) (*sdktrace.TracerProvider, error) {
+func fileExporter(c *FileConfig) (sdktrace.SpanExporter, error) {
 	if c == nil || len(c.Path) == 0 {
 		return nil, errors.New("filepath must not be empty")
 	}
@@ -93,34 +101,18 @@ func FileProvider(c *FileConfig) (*sdktrace.TracerProvider, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to open output file")
 	}
-	exporter, err := stdouttrace.New(stdouttrace.WithPrettyPrint(), stdouttrace.WithWriter(f))
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to initialize stdouttrace")
-	}
-	return providerWithExporter(context.Background(), exporter)
+	return stdouttrace.New(stdouttrace.WithPrettyPrint(), stdouttrace.WithWriter(f))
 }
 
-func ConsoleProvider() (*sdktrace.TracerProvider, error) {
-	exporter, err := stdouttrace.New(stdouttrace.WithPrettyPrint())
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to initialize stdouttrace")
-	}
-	return providerWithExporter(context.Background(), exporter)
-}
-
-func GrpcProvider(c *OtplConfig) (*sdktrace.TracerProvider, error) {
+func grpcExporter(c *OtplConfig) (sdktrace.SpanExporter, error) {
 	if c == nil || len(c.Address) == 0 {
 		return nil, errors.New("empty url")
 	}
 	logger.Infof("Tracing enabled: optl")
-	exporter, err := otlptrace.New(context.Background(), otlptracegrpc.NewClient(otlptracegrpc.WithInsecure(), otlptracegrpc.WithEndpoint(c.Address)))
-	if err != nil {
-		return nil, errors.Wrap(err, "failed creating trace exporter")
-	}
-	return providerWithExporter(context.Background(), exporter)
+	return otlptrace.New(context.Background(), otlptracegrpc.NewClient(otlptracegrpc.WithInsecure(), otlptracegrpc.WithEndpoint(c.Address)))
 }
 
-func providerWithExporter(ctx context.Context, exporter sdktrace.SpanExporter) (*sdktrace.TracerProvider, error) {
+func providerWithExporter(ctx context.Context, exporter sdktrace.SpanExporter, sampling SamplingConfig) (*sdktrace.TracerProvider, error) {
 	// Ensure default SDK resources and the required service name are set.
 	r, err := resource.New(ctx, resource.WithAttributes(
 		// the service name used to display traces in backends
@@ -132,7 +124,7 @@ func providerWithExporter(ctx context.Context, exporter sdktrace.SpanExporter) (
 	tracerProvider := sdktrace.NewTracerProvider(
 		sdktrace.WithBatcher(exporter, sdktrace.WithExportTimeout(1*time.Second)),
 		sdktrace.WithResource(r),
-		sdktrace.WithSampler(sdktrace.TraceIDRatioBased(1.0)),
+		sdktrace.WithSampler(sdktrace.ParentBased(sdktrace.TraceIDRatioBased(sampling.Ratio))),
 	)
 	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}))
 	otel.SetTracerProvider(tracerProvider)
