@@ -16,7 +16,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 )
 
-var logger = flogging.MustGetLogger("postgres-db")
+var logger = flogging.MustGetLogger("view-sdk.db.postgres")
 var notifyOperations = []driver.Operation{driver.Insert, driver.Update, driver.Delete}
 
 const driverName = "postgres"
