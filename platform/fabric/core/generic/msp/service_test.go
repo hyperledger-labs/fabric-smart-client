@@ -14,7 +14,9 @@ import (
 	msp2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/driver/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/sig"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/config"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	registry2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/registry"
@@ -28,7 +30,9 @@ func TestRegisterIdemixLocalMSP(t *testing.T) {
 	cp := &mock.ConfigProvider{}
 	cp.IsSetReturns(false)
 	assert.NoError(t, registry.RegisterService(cp))
-	kvss, err := kvs.New(registry, &mem.Driver{}, "")
+	var sp view.ServiceProvider = registry
+	var dbDriver driver.Driver = &mem.Driver{}
+	kvss, err := kvs.NewWithConfig(dbDriver, "", view.GetConfigService(sp))
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
 	des := sig.NewMultiplexDeserializer()
@@ -58,7 +62,9 @@ func TestIdemixTypeFolder(t *testing.T) {
 	cp, err := config.NewProvider("./testdata/idemixtypefolder")
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(cp))
-	kvss, err := kvs.New(registry, &mem.Driver{}, "")
+	var sp view.ServiceProvider = registry
+	var dbDriver driver.Driver = &mem.Driver{}
+	kvss, err := kvs.NewWithConfig(dbDriver, "", view.GetConfigService(sp))
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
 	des := sig.NewMultiplexDeserializer()
@@ -84,7 +90,9 @@ func TestRegisterX509LocalMSP(t *testing.T) {
 	cp := &mock.ConfigProvider{}
 	cp.IsSetReturns(false)
 	assert.NoError(t, registry.RegisterService(cp))
-	kvss, err := kvs.New(registry, &mem.Driver{}, "")
+	var sp view.ServiceProvider = registry
+	var dbDriver driver.Driver = &mem.Driver{}
+	kvss, err := kvs.NewWithConfig(dbDriver, "", view.GetConfigService(sp))
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
 	des := sig.NewMultiplexDeserializer()
@@ -113,7 +121,9 @@ func TestX509TypeFolder(t *testing.T) {
 	cp, err := config.NewProvider("./testdata/x509typefolder")
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(cp))
-	kvss, err := kvs.New(registry, &mem.Driver{}, "")
+	var sp view.ServiceProvider = registry
+	var dbDriver driver.Driver = &mem.Driver{}
+	kvss, err := kvs.NewWithConfig(dbDriver, "", view.GetConfigService(sp))
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
 	des := sig.NewMultiplexDeserializer()
@@ -139,7 +149,9 @@ func TestRefresh(t *testing.T) {
 	cp, err := config.NewProvider("./testdata/x509typefolder")
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(cp))
-	kvss, err := kvs.New(registry, &mem.Driver{}, "")
+	var sp view.ServiceProvider = registry
+	var dbDriver driver.Driver = &mem.Driver{}
+	kvss, err := kvs.NewWithConfig(dbDriver, "", view.GetConfigService(sp))
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
 	des := sig.NewMultiplexDeserializer()

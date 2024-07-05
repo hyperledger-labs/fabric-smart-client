@@ -54,20 +54,5 @@ var _ = Describe("Event system", func() {
 			err := r.RegisterService(notifier)
 			Expect(err).NotTo(HaveOccurred())
 		})
-
-		It("should succeed", func() {
-			sub, err := events.GetSubscriber(r)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(sub).ShouldNot(BeNil())
-			Expect(sub).Should(Equal(notifier.GetSubscriber()))
-
-		})
-
-		It("should succeed", func() {
-			pub, err := events.GetPublisher(r)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(pub).ShouldNot(BeNil())
-			Expect(pub).Should(Equal(notifier.GetPublisher()))
-		})
 	})
 })

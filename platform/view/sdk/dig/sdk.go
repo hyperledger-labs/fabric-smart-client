@@ -151,7 +151,6 @@ func (p *SDK) Install() error {
 	}
 
 	err = errors.Join(
-		digutils.Register[*kvs.KVS](p.C),
 		digutils.Register[trace.TracerProvider](p.C),
 		digutils.Register[driver.EndpointService](p.C),
 		digutils.Register[view3.IdentityProvider](p.C),

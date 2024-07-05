@@ -8,7 +8,6 @@ package rwset
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/pkg/errors"
 )
@@ -32,15 +31,13 @@ func (r *request) ID() string {
 }
 
 type processorManager struct {
-	sp               view2.ServiceProvider
 	network          Network
 	defaultProcessor driver.Processor
 	processors       map[string]driver.Processor
 }
 
-func NewProcessorManager(sp view2.ServiceProvider, network Network, defaultProcessor driver.Processor) *processorManager {
+func NewProcessorManager(network Network, defaultProcessor driver.Processor) *processorManager {
 	return &processorManager{
-		sp:               sp,
 		network:          network,
 		defaultProcessor: defaultProcessor,
 		processors:       map[string]driver.Processor{},

@@ -10,7 +10,6 @@ import (
 	"context"
 	"reflect"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view/protos"
@@ -25,8 +24,7 @@ const (
 )
 
 var (
-	managerType = reflect.TypeOf((*Manager)(nil))
-	logger      = flogging.MustGetLogger("view-sdk.finality")
+	logger = flogging.MustGetLogger("view-sdk.finality")
 )
 
 type Registry interface {
@@ -83,13 +81,4 @@ func (s *Manager) IsTxFinal(ctx context.Context, command *protos.Command) (inter
 
 func (s *Manager) AddHandler(handler Handler) {
 	s.Handlers = append(s.Handlers, handler)
-}
-
-func GetManager(sp view.ServiceProvider) *Manager {
-	s, err := sp.GetService(managerType)
-	if err != nil {
-		logger.Warnf("failed getting finality manager: %s", err)
-		return nil
-	}
-	return s.(*Manager)
 }

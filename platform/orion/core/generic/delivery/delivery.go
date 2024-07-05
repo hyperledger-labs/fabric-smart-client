@@ -12,7 +12,6 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic/ledger"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/orion-sdk-go/pkg/bcdb"
 	"github.com/hyperledger-labs/orion-server/pkg/types"
@@ -53,7 +52,6 @@ type DeliverStream interface {
 }
 
 type delivery struct {
-	sp                  view2.ServiceProvider
 	network             Network
 	waitForEventTimeout time.Duration
 	callback            Callback
@@ -63,15 +61,8 @@ type delivery struct {
 	stop                chan bool
 }
 
-func New(
-	sp view2.ServiceProvider,
-	network Network,
-	callback Callback,
-	vault Vault,
-	waitForEventTimeout time.Duration,
-) (*delivery, error) {
+func New(network Network, callback Callback, vault Vault, waitForEventTimeout time.Duration) (*delivery, error) {
 	d := &delivery{
-		sp:                  sp,
 		network:             network,
 		waitForEventTimeout: waitForEventTimeout,
 		callback:            callback,

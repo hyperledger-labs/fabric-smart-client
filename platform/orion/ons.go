@@ -21,14 +21,13 @@ var (
 
 // NetworkService models an Orion network
 type NetworkService struct {
-	SP        view2.ServiceProvider
 	ons       driver.OrionNetworkService
 	name      string
 	committer *Committer
 }
 
-func NewNetworkService(SP view2.ServiceProvider, ons driver.OrionNetworkService, name string) *NetworkService {
-	return &NetworkService{SP: SP, ons: ons, name: name, committer: NewCommitter(ons.Committer())}
+func NewNetworkService(ons driver.OrionNetworkService, name string) *NetworkService {
+	return &NetworkService{ons: ons, name: name, committer: NewCommitter(ons.Committer())}
 }
 
 // Name of this network
@@ -76,15 +75,13 @@ func (n *NetworkService) Finality() *Finality {
 }
 
 type NetworkServiceProvider struct {
-	sp              view2.ServiceProvider
 	onsProvider     driver.OrionNetworkServiceProvider
 	mutex           sync.RWMutex
 	networkServices map[string]*NetworkService
 }
 
-func NewNetworkServiceProvider(sp view2.ServiceProvider, onsProvider driver.OrionNetworkServiceProvider) *NetworkServiceProvider {
+func NewNetworkServiceProvider(onsProvider driver.OrionNetworkServiceProvider) *NetworkServiceProvider {
 	return &NetworkServiceProvider{
-		sp:              sp,
 		onsProvider:     onsProvider,
 		networkServices: make(map[string]*NetworkService),
 	}
@@ -113,7 +110,7 @@ func (nsp *NetworkServiceProvider) NetworkService(id string) (*NetworkService, e
 	if ok {
 		return ns, nil
 	}
-	ns = NewNetworkService(nsp.sp, internalOns, internalOns.Name())
+	ns = NewNetworkService(internalOns, internalOns.Name())
 	nsp.networkServices[id] = ns
 	nsp.networkServices[internalOns.Name()] = ns
 

@@ -31,7 +31,6 @@ type NamedDriver struct {
 }
 
 type FSNProvider struct {
-	sp     view.ServiceProvider
 	config *Config
 
 	networksMutex sync.Mutex
@@ -40,7 +39,7 @@ type FSNProvider struct {
 	drivers       map[string]driver.Driver
 }
 
-func NewFabricNetworkServiceProvider(sp view.ServiceProvider, configService driver2.ConfigService, namedDrivers []NamedDriver) (*FSNProvider, error) {
+func NewFabricNetworkServiceProvider(configService driver2.ConfigService, namedDrivers []NamedDriver) (*FSNProvider, error) {
 	fnsConfig, err := NewConfig(configService)
 	if err != nil {
 		return nil, err
@@ -50,7 +49,6 @@ func NewFabricNetworkServiceProvider(sp view.ServiceProvider, configService driv
 		drivers[d.Name] = d
 	}
 	provider := &FSNProvider{
-		sp:            sp,
 		config:        fnsConfig,
 		configService: configService,
 		networks:      map[string]driver.FabricNetworkService{},
@@ -166,7 +164,7 @@ func (p *FSNProvider) newFNS(network string) (driver.FabricNetworkService, error
 		if !ok {
 			return nil, errors.Errorf("driver [%s] is not registered", netConfig.Driver)
 		}
-		nw, err := driver.New(p.sp, network, network == p.config.defaultName)
+		nw, err := driver.New(network, network == p.config.defaultName)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to create network [%s]", network)
 		}
@@ -177,7 +175,7 @@ func (p *FSNProvider) newFNS(network string) (driver.FabricNetworkService, error
 
 	// try all available drivers
 	for _, d := range p.drivers {
-		nw, err := d.New(p.sp, network, network == p.config.defaultName)
+		nw, err := d.New(network, network == p.config.defaultName)
 		if err != nil {
 			logger.Warningf("failed to create network [%s]: %s", network, err)
 			continue

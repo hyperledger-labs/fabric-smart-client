@@ -13,10 +13,11 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	driver3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	"github.com/pkg/errors"
 )
 
@@ -25,21 +26,25 @@ var (
 )
 
 type ONSProvider struct {
-	sp            view.ServiceProvider
 	configService driver2.ConfigService
 	config        *Config
 	ctx           context.Context
+	kvss          *kvs.KVS
+	publisher     events.Publisher
+	subscriber    events.Subscriber
 
 	networksMutex sync.Mutex
 	networks      map[string]driver.OrionNetworkService
 	drivers       []driver3.NamedDriver
 }
 
-func NewOrionNetworkServiceProvider(sp view.ServiceProvider, configService driver2.ConfigService, config *Config, drivers []driver3.NamedDriver) (*ONSProvider, error) {
+func NewOrionNetworkServiceProvider(configService driver2.ConfigService, config *Config, kvss *kvs.KVS, publisher events.Publisher, subscriber events.Subscriber, drivers []driver3.NamedDriver) (*ONSProvider, error) {
 	provider := &ONSProvider{
-		sp:            sp,
 		configService: configService,
 		config:        config,
+		kvss:          kvss,
+		publisher:     publisher,
+		subscriber:    subscriber,
 		networks:      map[string]driver.OrionNetworkService{},
 		drivers:       drivers,
 	}
@@ -109,5 +114,5 @@ func (p *ONSProvider) newONS(network string) (driver.OrionNetworkService, error)
 		return nil, err
 	}
 
-	return generic.NewNetwork(p.ctx, p.sp, c, network, p.drivers)
+	return generic.NewNetwork(p.ctx, p.kvss, p.publisher, p.subscriber, c, network, p.drivers)
 }
