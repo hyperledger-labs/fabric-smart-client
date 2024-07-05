@@ -64,8 +64,12 @@ func (p *SDK) Container() *dig.Container { return p.C }
 func (p *SDK) ConfigService() driver.ConfigService { return p.Config }
 
 func NewSDK(registry node.Registry) *SDK {
+	return NewSDKWithContainer(dig.New(), registry)
+}
+
+func NewSDKWithContainer(c *dig.Container, registry node.Registry) *SDK {
 	sdk := &SDK{
-		C:      dig.New(),
+		C:      c,
 		Config: view.GetConfigService(registry),
 	}
 	err := errors.Join(
