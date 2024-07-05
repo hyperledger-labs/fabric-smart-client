@@ -17,7 +17,6 @@ import (
 	driver3 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/identity"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
@@ -58,7 +57,7 @@ func (d *Provider) RegisterIdentityLoader(typ string, loader driver.IdentityLoad
 	d.identityLoaders[typ] = loader
 }
 
-func (d *Provider) New(_ view.ServiceProvider, network string, _ bool) (driver3.FabricNetworkService, error) {
+func (d *Provider) New(network string, _ bool) (driver3.FabricNetworkService, error) {
 	logger.Debugf("creating new fabric network service for network [%s]", network)
 
 	idProvider, err := d.identityProvider.New(network)

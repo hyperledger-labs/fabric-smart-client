@@ -18,13 +18,13 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	finality2 "github.com/hyperledger-labs/fabric-smart-client/platform/orion/sdk/finality"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	viewsdk "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/finality"
 	driver3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	"go.uber.org/dig"
 )
 
@@ -85,26 +85,25 @@ func (p *SDK) Install() error {
 	return errors.Join(
 		digutils.Register[*orion.NetworkServiceProvider](p.Container()),
 		digutils.Register[*core.ONSProvider](p.Container()),
-		digutils.Register[*events.Service](p.Container()),
 	)
 }
 
 func (p *SDK) Start(ctx context.Context) error {
+	defer logger.Infof("SDK installation complete:\n%s", digutils.Visualize(p.Container()))
 	if err := p.SDK.Start(ctx); err != nil {
 		return err
 	}
 
 	if !p.OrionEnabled() {
+		logger.Infof("Orion platform not enabled, skipping start")
 		return nil
 	}
-	logger.Debugf("SDK installation complete:\n%s", digutils.Visualize(p.Container()))
-	if err := p.Container().Invoke(registerFinalityHandlers); err != nil {
-		return err
-	}
-	if err := p.Container().Invoke(func(onsProvider *core.ONSProvider) { p.onsProvider = onsProvider }); err != nil {
-		return err
-	}
-	return nil
+	logger.Infof("Orion platform enabled, starting...")
+
+	return errors.Join(
+		p.Container().Invoke(registerFinalityHandlers),
+		p.Container().Invoke(func(onsProvider *core.ONSProvider) { p.onsProvider = onsProvider }),
+	)
 }
 
 func registerFinalityHandlers(in struct {
@@ -145,10 +144,12 @@ func (p *SDK) PostStart(ctx context.Context) error {
 
 func newOrionNetworkServiceProvider(in struct {
 	dig.In
-	SP            view.ServiceProvider
+	KVSS          *kvs.KVS
+	Publisher     events.Publisher
+	Subscriber    events.Subscriber
 	ConfigService driver.ConfigService
 	Config        *core.Config
 	Drivers       []driver3.NamedDriver `group:"db-drivers"`
 }) (*core.ONSProvider, error) {
-	return core.NewOrionNetworkServiceProvider(in.SP, in.ConfigService, in.Config, in.Drivers)
+	return core.NewOrionNetworkServiceProvider(in.ConfigService, in.Config, in.KVSS, in.Publisher, in.Subscriber, in.Drivers)
 }

@@ -11,7 +11,6 @@ import (
 	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/cache/secondcache"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
@@ -21,7 +20,6 @@ import (
 
 var (
 	logger = flogging.MustGetLogger("view-sdk.kvs")
-	kvs    = &KVS{}
 )
 
 const (
@@ -61,11 +59,6 @@ type KVS struct {
 
 	putMutex sync.RWMutex
 	cache    cache
-}
-
-// New returns a new KVS instance for the passed namespace using the passed driver
-func New(sp view.ServiceProvider, dbDriver driver.Driver, namespace string) (*KVS, error) {
-	return NewWithConfig(dbDriver, namespace, view.GetConfigService(sp))
 }
 
 // NewWithConfig returns a new KVS instance for the passed namespace using the passed driver and config provider
@@ -274,25 +267,6 @@ func (i *it) Close() error {
 // It also returns the key of the current state.
 func (i *it) Next(state interface{}) (string, error) {
 	return i.next.Key, json.Unmarshal(i.next.Raw, state)
-}
-
-// GetService returns the KVS instance registered in the passed context.
-// If no KVS instance is registered, it panics.
-func GetService(ctx view.ServiceProvider) *KVS {
-	s, err := ctx.GetService(kvs)
-	if err != nil {
-		panic(err)
-	}
-	return s.(*KVS)
-}
-
-// GetDriverNameFromConf returns the driver name from the node's configuration
-func GetDriverNameFromConf(sp view.ServiceProvider) string {
-	driverName := view.GetConfigService(sp).GetString(persistenceType)
-	if len(driverName) == 0 {
-		driverName = "memory"
-	}
-	return driverName
 }
 
 // cacheSizeFromConfig returns the KVS cache size from current configuration.

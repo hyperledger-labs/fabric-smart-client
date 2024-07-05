@@ -39,7 +39,7 @@ type SignerEntry struct {
 }
 
 type Service struct {
-	sp           driver.ServiceProvider
+	kvss         *kvs.KVS
 	signers      map[string]SignerEntry
 	verifiers    map[string]VerifierEntry
 	deserializer Deserializer
@@ -47,9 +47,9 @@ type Service struct {
 	kvs          KVS
 }
 
-func NewSignService(sp driver.ServiceProvider, deserializer Deserializer, kvs KVS) *Service {
+func NewSignService(kvss *kvs.KVS, deserializer Deserializer, kvs KVS) *Service {
 	return &Service{
-		sp:           sp,
+		kvss:         kvss,
 		signers:      map[string]SignerEntry{},
 		verifiers:    map[string]VerifierEntry{},
 		deserializer: deserializer,
@@ -133,8 +133,7 @@ func (o *Service) RegisterAuditInfo(identity view.Identity, info []byte) error {
 			identity.String(),
 		},
 	)
-	kvss := kvs.GetService(o.sp)
-	if err := kvss.Put(k, info); err != nil {
+	if err := o.kvss.Put(k, info); err != nil {
 		return err
 	}
 	return nil
@@ -147,12 +146,12 @@ func (o *Service) GetAuditInfo(identity view.Identity) ([]byte, error) {
 			identity.String(),
 		},
 	)
-	kvss := kvs.GetService(o.sp)
-	if !kvss.Exists(k) {
+
+	if !o.kvss.Exists(k) {
 		return nil, nil
 	}
 	var res []byte
-	if err := kvss.Get(k, &res); err != nil {
+	if err := o.kvss.Get(k, &res); err != nil {
 		return nil, err
 	}
 	return res, nil

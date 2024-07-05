@@ -63,7 +63,7 @@ func NewFSNProvider(in struct {
 	ConfigService driver2.ConfigService
 	Drivers       []core.NamedDriver `group:"drivers"`
 }) (*core.FSNProvider, error) {
-	return core.NewFabricNetworkServiceProvider(nil, in.ConfigService, in.Drivers)
+	return core.NewFabricNetworkServiceProvider(in.ConfigService, in.Drivers)
 }
 
 func NewDriver(in struct {
