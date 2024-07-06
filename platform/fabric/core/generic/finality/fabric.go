@@ -22,7 +22,7 @@ import (
 
 var logger = flogging.MustGetLogger("fabric-sdk.core")
 
-type PeerManager interface {
+type PeerService interface {
 	NewClient(cc grpc.ConnectionConfig) (peer.Client, error)
 }
 
@@ -31,19 +31,19 @@ type Hasher interface {
 }
 
 type FabricFinality struct {
-	channel                string
+	Channel                string
 	ConfigService          driver.ConfigService
-	PeerManager            PeerManager
+	PeerService            PeerService
 	DefaultSigningIdentity driver.SigningIdentity
-	hasher                 Hasher
-	waitForEventTimeout    time.Duration
+	Hasher                 Hasher
+	WaitForEventTimeout    time.Duration
 }
 
 func NewFabricFinality(
 	channel string,
 	ConfigService driver.ConfigService,
-	PeerManager PeerManager,
-	DefaultSigningIdentity driver.SigningIdentity,
+	peerService PeerService,
+	defaultSigningIdentity driver.SigningIdentity,
 	hasher Hasher,
 	waitForEventTimeout time.Duration,
 ) (*FabricFinality, error) {
@@ -52,12 +52,12 @@ func NewFabricFinality(
 	}
 
 	d := &FabricFinality{
-		channel:                channel,
+		Channel:                channel,
 		ConfigService:          ConfigService,
-		PeerManager:            PeerManager,
-		DefaultSigningIdentity: DefaultSigningIdentity,
-		hasher:                 hasher,
-		waitForEventTimeout:    waitForEventTimeout,
+		PeerService:            peerService,
+		DefaultSigningIdentity: defaultSigningIdentity,
+		Hasher:                 hasher,
+		WaitForEventTimeout:    waitForEventTimeout,
 	}
 
 	return d, nil
@@ -65,13 +65,13 @@ func NewFabricFinality(
 
 func (d *FabricFinality) IsFinal(txID string, address string) error {
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("remote checking if transaction [%s] is final in channel [%s]", txID, d.channel)
+		logger.Debugf("remote checking if transaction [%s] is final in channel [%s]", txID, d.Channel)
 	}
 	var eventCh chan delivery.TxEvent
 	var ctx context.Context
 	var cancelFunc context.CancelFunc
 
-	client, err := d.PeerManager.NewClient(*d.ConfigService.PickPeer(driver.PeerForFinality))
+	client, err := d.PeerService.NewClient(*d.ConfigService.PickPeer(driver.PeerForFinality))
 	if err != nil {
 		return errors.WithMessagef(err, "failed creating peer client for address [%s]", address)
 	}
@@ -82,7 +82,7 @@ func (d *FabricFinality) IsFinal(txID string, address string) error {
 		return errors.WithMessagef(err, "failed creating deliver client for address [%s]", address)
 	}
 
-	ctx, cancelFunc = context.WithTimeout(context.Background(), d.waitForEventTimeout)
+	ctx, cancelFunc = context.WithTimeout(context.Background(), d.WaitForEventTimeout)
 	defer cancelFunc()
 	deliverStream, err := deliverClient.NewDeliverFiltered(ctx)
 	if err != nil {
@@ -90,10 +90,10 @@ func (d *FabricFinality) IsFinal(txID string, address string) error {
 	}
 
 	blockEnvelope, err := delivery.CreateDeliverEnvelope(
-		d.channel,
+		d.Channel,
 		d.DefaultSigningIdentity,
 		deliverClient.Certificate(),
-		d.hasher,
+		d.Hasher,
 		&ab.SeekPosition{
 			Type: &ab.SeekPosition_Newest{
 				Newest: &ab.SeekNewest{},

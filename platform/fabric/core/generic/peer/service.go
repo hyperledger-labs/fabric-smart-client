@@ -14,12 +14,12 @@ import (
 
 var logger = flogging.MustGetLogger("fabric-sdk.core.generic.peer")
 
-type Manager struct {
+type Service struct {
 	ConnCache ClientFactory
 }
 
-func NewPeerManager(configService driver.ConfigService, signer driver.Signer) *Manager {
-	return &Manager{
+func NewService(configService driver.ConfigService, signer driver.Signer) *Service {
+	return &Service{
 		ConnCache: &CachingClientFactory{
 			Cache: map[string]Client{},
 			ClientFactory: &GRPCClientFactory{
@@ -31,6 +31,6 @@ func NewPeerManager(configService driver.ConfigService, signer driver.Signer) *M
 	}
 }
 
-func (c *Manager) NewClient(cc grpc.ConnectionConfig) (Client, error) {
+func (c *Service) NewClient(cc grpc.ConnectionConfig) (Client, error) {
 	return c.ConnCache.NewClient(cc)
 }
