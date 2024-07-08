@@ -27,7 +27,7 @@ func (m mockExtractor) ExtractPublicKey(id view.Identity) (any, error) {
 }
 
 func TestPKIResolveConcurrency(t *testing.T) {
-	svc, err := NewService(nil, nil, mockKVS{})
+	svc, err := NewService(mockKVS{})
 	assert.NoError(err)
 
 	ext := mockExtractor{}
@@ -48,7 +48,7 @@ func TestPKIResolveConcurrency(t *testing.T) {
 }
 
 func TestGetIdentity(t *testing.T) {
-	svc, err := NewService(nil, nil, mockKVS{})
+	svc, err := NewService(mockKVS{})
 	assert.NoError(err)
 
 	ext := mockExtractor{}

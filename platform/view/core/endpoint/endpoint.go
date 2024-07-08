@@ -15,7 +15,6 @@ import (
 
 	"golang.org/x/exp/slices"
 
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
@@ -64,10 +63,8 @@ type KVS interface {
 }
 
 type Service struct {
-	sp             view2.ServiceProvider
 	resolvers      []*Resolver
 	resolversMutex sync.RWMutex
-	discovery      Discovery
 	kvs            KVS
 
 	pkiExtractorsLock      sync.RWMutex
@@ -76,10 +73,8 @@ type Service struct {
 }
 
 // NewService returns a new instance of the view-sdk endpoint service
-func NewService(sp view2.ServiceProvider, discovery Discovery, kvs KVS) (*Service, error) {
+func NewService(kvs KVS) (*Service, error) {
 	er := &Service{
-		sp:                     sp,
-		discovery:              discovery,
 		kvs:                    kvs,
 		publicKeyExtractors:    []driver.PublicKeyExtractor{},
 		publicKeyIDSynthesizer: DefaultPublicKeyIDSynthesizer{},
