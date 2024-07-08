@@ -348,7 +348,7 @@ func (i *Interceptor[V]) Equals(other interface{}, nss ...string) error {
 
 func (i *Interceptor[V]) Done() {
 	i.Logger.Debugf("Done with [%s], closed [%v]", i.TxID, i.Closed)
-	if i.IsClosed() {
+	if !i.IsClosed() {
 		i.Closed = true
 		if i.QE != nil {
 			i.QE.Done()
