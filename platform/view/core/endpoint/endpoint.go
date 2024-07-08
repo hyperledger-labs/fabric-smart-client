@@ -32,6 +32,7 @@ type Resolver struct {
 	Addresses      map[driver.PortName]string
 	Aliases        []string
 	PKI            []byte
+	PKILock        sync.RWMutex
 	Id             []byte
 	IdentityGetter func() (view.Identity, []byte, error)
 }
@@ -241,20 +242,20 @@ func (r *Service) SetPublicKeyIDSynthesizer(publicKeyIDSynthesizer driver.Public
 }
 
 func (r *Service) pkiResolve(resolver *Resolver) []byte {
-	r.pkiExtractorsLock.RLock()
+	resolver.PKILock.Lock()
+	defer resolver.PKILock.Unlock()
 	if len(resolver.PKI) != 0 {
-		r.pkiExtractorsLock.RUnlock()
 		return resolver.PKI
 	}
-	r.pkiExtractorsLock.RUnlock()
 
 	resolver.PKI = r.ExtractPKI(resolver.Id)
 	return resolver.PKI
 }
 
 func (r *Service) ExtractPKI(id []byte) []byte {
-	r.pkiExtractorsLock.Lock()
-	defer r.pkiExtractorsLock.Unlock()
+	r.pkiExtractorsLock.RLock()
+	defer r.pkiExtractorsLock.RUnlock()
+
 	for _, extractor := range r.publicKeyExtractors {
 		if pk, err := extractor.ExtractPublicKey(id); pk != nil {
 			if logger.IsEnabledFor(zapcore.DebugLevel) {
