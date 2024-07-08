@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package views
 
 import (
+	"context"
 	"sync"
 	"time"
 
@@ -27,7 +28,7 @@ func NewFinalityListener(expectedTxID string, expectedVC fabric.ValidationCode, 
 	return &FinalityListener{ExpectedTxID: expectedTxID, ExpectedVC: expectedVC, WaitGroup: waitGroup}
 }
 
-func (t *FinalityListener) OnStatus(txID driver.TxID, vc fabric.ValidationCode, _ string) {
+func (t *FinalityListener) OnStatus(_ context.Context, txID driver.TxID, vc fabric.ValidationCode, _ string) {
 	logger.Infof("on status [%s][%d]", txID, vc)
 	if txID == t.ExpectedTxID && vc == t.ExpectedVC {
 		time.Sleep(5 * time.Second)
