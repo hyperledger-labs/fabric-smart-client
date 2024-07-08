@@ -25,6 +25,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/dig"
 )
 
@@ -144,12 +145,13 @@ func (p *SDK) PostStart(ctx context.Context) error {
 
 func newOrionNetworkServiceProvider(in struct {
 	dig.In
-	KVSS          *kvs.KVS
-	Publisher     events.Publisher
-	Subscriber    events.Subscriber
-	ConfigService driver.ConfigService
-	Config        *core.Config
-	Drivers       []driver3.NamedDriver `group:"db-drivers"`
+	KVSS           *kvs.KVS
+	Publisher      events.Publisher
+	Subscriber     events.Subscriber
+	ConfigService  driver.ConfigService
+	Config         *core.Config
+	TracerProvider trace.TracerProvider
+	Drivers        []driver3.NamedDriver `group:"db-drivers"`
 }) (*core.ONSProvider, error) {
-	return core.NewOrionNetworkServiceProvider(in.ConfigService, in.Config, in.KVSS, in.Publisher, in.Subscriber, in.Drivers)
+	return core.NewOrionNetworkServiceProvider(in.ConfigService, in.Config, in.KVSS, in.Publisher, in.Subscriber, in.TracerProvider, in.Drivers)
 }

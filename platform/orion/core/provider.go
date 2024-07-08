@@ -19,6 +19,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel/trace"
 )
 
 var (
@@ -33,20 +34,22 @@ type ONSProvider struct {
 	publisher     events.Publisher
 	subscriber    events.Subscriber
 
-	networksMutex sync.Mutex
-	networks      map[string]driver.OrionNetworkService
-	drivers       []driver3.NamedDriver
+	networksMutex  sync.Mutex
+	networks       map[string]driver.OrionNetworkService
+	drivers        []driver3.NamedDriver
+	tracerProvider trace.TracerProvider
 }
 
-func NewOrionNetworkServiceProvider(configService driver2.ConfigService, config *Config, kvss *kvs.KVS, publisher events.Publisher, subscriber events.Subscriber, drivers []driver3.NamedDriver) (*ONSProvider, error) {
+func NewOrionNetworkServiceProvider(configService driver2.ConfigService, config *Config, kvss *kvs.KVS, publisher events.Publisher, subscriber events.Subscriber, tracerProvider trace.TracerProvider, drivers []driver3.NamedDriver) (*ONSProvider, error) {
 	provider := &ONSProvider{
-		configService: configService,
-		config:        config,
-		kvss:          kvss,
-		publisher:     publisher,
-		subscriber:    subscriber,
-		networks:      map[string]driver.OrionNetworkService{},
-		drivers:       drivers,
+		configService:  configService,
+		config:         config,
+		kvss:           kvss,
+		publisher:      publisher,
+		subscriber:     subscriber,
+		networks:       map[string]driver.OrionNetworkService{},
+		drivers:        drivers,
+		tracerProvider: tracerProvider,
 	}
 	return provider, nil
 }
@@ -114,5 +117,5 @@ func (p *ONSProvider) newONS(network string) (driver.OrionNetworkService, error)
 		return nil, err
 	}
 
-	return generic.NewNetwork(p.ctx, p.kvss, p.publisher, p.subscriber, c, network, p.drivers)
+	return generic.NewNetwork(p.ctx, p.kvss, p.publisher, p.subscriber, p.tracerProvider, c, network, p.drivers)
 }

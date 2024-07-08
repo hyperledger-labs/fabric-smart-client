@@ -17,9 +17,15 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger-labs/orion-server/pkg/types"
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap/zapcore"
+)
+
+const (
+	txIdLabel tracing.LabelName = "tx_id"
 )
 
 var (
@@ -74,6 +80,8 @@ type committer struct {
 	// finality
 	finalityNumRetries int
 	finalitySleepTime  time.Duration
+	blockTracer        trace.Tracer
+	txTracer           trace.Tracer
 }
 
 func New(
@@ -86,6 +94,7 @@ func New(
 	quiet bool,
 	eventsPublisher events.Publisher,
 	eventsSubscriber events.Subscriber,
+	tracerProvider trace.TracerProvider,
 ) (*committer, error) {
 	d := &committer{
 		networkName:         networkName,
@@ -98,13 +107,21 @@ func New(
 		pm:                  pm,
 		em:                  em,
 		pollingTimeout:      100 * time.Millisecond,
-		EventManager:        committer2.NewFinalityManager[driver.ValidationCode](logger, vault, driver.Valid, driver.Invalid),
+		EventManager:        committer2.NewFinalityManager[driver.ValidationCode](logger, vault, tracerProvider, driver.Valid, driver.Invalid),
 		eventsSubscriber:    eventsSubscriber,
 		eventsPublisher:     eventsPublisher,
 		subscribers:         events.NewSubscribers(),
 		finalityNumRetries:  3,
 		finalitySleepTime:   100 * time.Millisecond,
 		TransactionFilters:  committer2.NewAggregatedTransactionFilter(),
+		blockTracer: tracerProvider.Tracer("committer_tx", tracing.WithMetricsOpts(tracing.MetricsOpts{
+			Namespace:  "orionsdk",
+			LabelNames: []tracing.LabelName{},
+		})),
+		txTracer: tracerProvider.Tracer("committer_tx", tracing.WithMetricsOpts(tracing.MetricsOpts{
+			Namespace:  "orionsdk",
+			LabelNames: []tracing.LabelName{txIdLabel},
+		})),
 	}
 	return d, nil
 }
@@ -116,8 +133,11 @@ func (c *committer) Start(context context.Context) error {
 
 // Commit commits the transactions in the block passed as argument
 func (c *committer) Commit(block *types.AugmentedBlockHeader) error {
+	ctx, span := c.blockTracer.Start(context.Background(), "blk_commit")
+	defer span.End()
 	bn := block.Header.BaseHeader.Number
 	for i, txID := range block.TxIds {
+		span.AddEvent("process_tx")
 		var event TxEvent
 		event.TxID = txID
 		event.Block = bn
@@ -128,7 +148,8 @@ func (c *committer) Commit(block *types.AugmentedBlockHeader) error {
 		discard := false
 		switch block.Header.ValidationInfo[i].Flag {
 		case types.Flag_VALID:
-			if err := c.CommitTX(txID, bn, driver.TxNum(i), &event); err != nil {
+			span.AddEvent("commit_valid_tx")
+			if err := c.CommitTX(ctx, txID, bn, driver.TxNum(i), &event); err != nil {
 				if errors2.HasCause(err, ErrDiscardTX) {
 					// in this case, we will discard the transaction
 					event.ValidationCode = convertValidationCode(types.Flag_INVALID_INCORRECT_ENTRIES)
@@ -139,20 +160,25 @@ func (c *committer) Commit(block *types.AugmentedBlockHeader) error {
 				}
 			}
 		default:
+			span.AddEvent("discard_invalid_tx")
 			discard = true
 		}
 
 		if discard {
-			if err := c.DiscardTX(txID, bn, &event); err != nil {
+			if err := c.DiscardTX(ctx, txID, bn, &event); err != nil {
 				return errors.Wrapf(err, "failed to discard tx %s", txID)
 			}
 		}
-		c.notifyFinality(event)
+		span.AddEvent("notify_tx_finality")
+		c.notifyFinality(ctx, event)
 	}
 	return nil
 }
 
-func (c *committer) CommitTX(txID string, bn driver.BlockNum, index driver.TxNum, event *TxEvent) error {
+func (c *committer) CommitTX(ctx context.Context, txID string, bn driver.BlockNum, index driver.TxNum, event *TxEvent) error {
+	_, span := c.txTracer.Start(ctx, "tx_commit",
+		tracing.WithAttributes(tracing.String(txIdLabel, txID)))
+	defer span.End()
 	logger.Debugf("transaction [%s] in block [%d] is valid for orion", txID, bn)
 
 	// if is already committed, do nothing
@@ -176,11 +202,13 @@ func (c *committer) CommitTX(txID string, bn driver.BlockNum, index driver.TxNum
 	}
 
 	// post process
+	span.AddEvent("process_by_id")
 	if err := c.pm.ProcessByID(txID); err != nil {
 		return errors.Wrapf(err, "failed to process tx %s", txID)
 	}
 
 	// commit
+	span.AddEvent("commit_to_vault")
 	if err := c.vault.CommitTX(txID, bn, index); err != nil {
 		return errors.WithMessagef(err, "failed to commit tx %s", txID)
 	}
@@ -188,7 +216,9 @@ func (c *committer) CommitTX(txID string, bn driver.BlockNum, index driver.TxNum
 	return nil
 }
 
-func (c *committer) DiscardTX(txID string, blockNum uint64, event *TxEvent) error {
+func (c *committer) DiscardTX(ctx context.Context, txID string, blockNum uint64, event *TxEvent) error {
+	_, span := c.txTracer.Start(ctx, "tx_discard", tracing.WithAttributes(tracing.String(txIdLabel, txID)))
+	defer span.End()
 	logger.Debugf("transaction [%s] in block [%d] is not valid for orion [%s], discard!", txID, blockNum, event.ValidationCode)
 
 	vc, _, err := c.vault.Status(txID)
@@ -215,12 +245,15 @@ func (c *committer) DiscardTX(txID string, blockNum uint64, event *TxEvent) erro
 // with the respect to the passed context that can be used to set a deadline
 // for the waiting time.
 func (c *committer) IsFinal(ctx context.Context, txID string) error {
+	newCtx, span := c.txTracer.Start(ctx, "finality_check", tracing.WithAttributes(tracing.String(txIdLabel, txID)))
+	defer span.End()
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("Is [%s] final?", txID)
 	}
 
 	skipLoop := false
 	for iter := 0; iter < c.finalityNumRetries; iter++ {
+		span.AddEvent("retry")
 		vd, _, err := c.vault.Status(txID)
 		if err == nil {
 			switch vd {
@@ -268,7 +301,7 @@ func (c *committer) IsFinal(ctx context.Context, txID string) error {
 	}
 
 	// Listen to the event
-	return c.listenToFinality(ctx, txID, c.waitForEventTimeout)
+	return c.listenToFinality(newCtx, txID, c.waitForEventTimeout)
 }
 
 func (c *committer) AddFinalityListener(txID string, listener driver.FinalityListener) error {
@@ -296,8 +329,9 @@ func (c *committer) commitWithFilter(txID string) error {
 	return nil
 }
 
-func (c *committer) postFinality(txID string, vc driver.ValidationCode, message string) {
+func (c *committer) postFinality(ctx context.Context, txID string, vc driver.ValidationCode, message string) {
 	c.EventManager.Post(TxEvent{
+		Ctx:               ctx,
 		TxID:              txID,
 		ValidationCode:    vc,
 		ValidationMessage: message,
@@ -334,11 +368,14 @@ func (c *committer) deleteFinalityListener(txid string, ch chan TxEvent) {
 	}
 }
 
-func (c *committer) notifyFinality(event TxEvent) {
+func (c *committer) notifyFinality(ctx context.Context, event TxEvent) {
+	newCtx, span := c.txTracer.Start(ctx, "tx_finality", tracing.WithAttributes(tracing.String(txIdLabel, event.TxID)))
+	defer span.End()
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	c.postFinality(event.TxID, event.ValidationCode, event.ValidationMessage)
+	span.AddEvent("post_finality")
+	c.postFinality(newCtx, event.TxID, event.ValidationCode, event.ValidationMessage)
 
 	if event.Err != nil && !c.quietNotifier {
 		logger.Warningf("An error occurred for tx [%s], event: [%v]", event.TxID, event)
@@ -348,12 +385,15 @@ func (c *committer) notifyFinality(event TxEvent) {
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("Notify the finality of [%s] to [%d] listeners, event: [%v]", event.TxID, len(listeners), event)
 	}
+
 	for _, listener := range listeners {
+		span.AddEvent("notify_listener")
 		listener <- event
 	}
 }
 
 func (c *committer) listenToFinality(ctx context.Context, txID string, timeout time.Duration) error {
+	_, span := c.txTracer.Start(ctx, "finality_listen", tracing.WithAttributes(tracing.String(txIdLabel, txID)))
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("Listen to finality of [%s]", txID)
 	}
@@ -369,20 +409,24 @@ func (c *committer) listenToFinality(ctx context.Context, txID string, timeout t
 		iterations = 1
 	}
 	for i := 0; i < iterations; i++ {
+		span.AddEvent("start_iteration")
 		timeout := time.NewTimer(c.pollingTimeout)
 
 		stop := false
 		select {
 		case <-ctx.Done():
+			span.AddEvent("cancel_context")
 			timeout.Stop()
 			stop = true
 		case event := <-ch:
+			span.AddEvent("receive_listener_event")
 			if logger.IsEnabledFor(zapcore.DebugLevel) {
 				logger.Debugf("Got an answer to finality of [%s]: [%s]", txID, event.Err)
 			}
 			timeout.Stop()
 			return event.Err
 		case <-timeout.C:
+			span.AddEvent("check_vault")
 			timeout.Stop()
 			if logger.IsEnabledFor(zapcore.DebugLevel) {
 				logger.Debugf("Got a timeout for finality of [%s], check the status", txID)

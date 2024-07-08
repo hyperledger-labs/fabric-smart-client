@@ -24,6 +24,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	"github.com/hyperledger-labs/orion-server/pkg/types"
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel/trace"
 )
 
 var (
@@ -86,7 +87,7 @@ func NewDB(ctx context.Context, kvss *kvs.KVS, config *config2.Config, name stri
 	return n, nil
 }
 
-func NewNetwork(ctx context.Context, kvss *kvs.KVS, eventsPublisher events.Publisher, eventsSubscriber events.Subscriber, config *config2.Config, name string, drivers []driver2.NamedDriver) (*network, error) {
+func NewNetwork(ctx context.Context, kvss *kvs.KVS, eventsPublisher events.Publisher, eventsSubscriber events.Subscriber, tracerProvider trace.TracerProvider, config *config2.Config, name string, drivers []driver2.NamedDriver) (*network, error) {
 	// Load configuration
 	n := &network{
 		ctx:    ctx,
@@ -150,13 +151,14 @@ func NewNetwork(ctx context.Context, kvss *kvs.KVS, eventsPublisher events.Publi
 		false,
 		eventsPublisher,
 		eventsSubscriber,
+		tracerProvider,
 	)
 	if err != nil {
 		return nil, errors.WithMessagef(err, "failed to create committer")
 	}
 	n.committer = committer
 
-	finality, err := finality.NewService(committer, n)
+	finality, err := finality.NewService(committer, n, tracerProvider)
 	if err != nil {
 		return nil, errors.WithMessagef(err, "failed to create finality service")
 	}

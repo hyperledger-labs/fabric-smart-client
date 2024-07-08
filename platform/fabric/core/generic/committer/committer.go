@@ -127,7 +127,7 @@ func New(
 		ProcessorManager:    processorManager,
 		MembershipService:   channelMembershipService,
 		OrderingService:     orderingService,
-		EventManager:        committer.NewFinalityManager[driver.ValidationCode](logger, vault, driver.Valid, driver.Invalid),
+		EventManager:        committer.NewFinalityManager[driver.ValidationCode](logger, vault, tracerProvider, driver.Valid, driver.Invalid),
 		EventsPublisher:     eventsPublisher,
 		FabricFinality:      fabricFinality,
 		TransactionManager:  transactionManager,
@@ -312,7 +312,7 @@ func (c *Committer) CommitConfig(blockNumber uint64, raw []byte, env *common.Env
 
 // Commit commits the transactions in the block passed as argument
 func (c *Committer) Commit(block *common.Block) error {
-	_, span := c.metrics.Commits.Start(context.Background(), "commit")
+	ctx, span := c.metrics.Commits.Start(context.Background(), "commit")
 	defer span.End()
 	for i, tx := range block.Data.Data {
 
@@ -323,6 +323,7 @@ func (c *Committer) Commit(block *common.Block) error {
 		}
 
 		var event FinalityEvent
+		event.Ctx = ctx
 		span.AddEvent("start_tx_handler", trace.WithAttributes(tracing.Int(HeaderTypeLabel, int(chdr.Type))))
 		handler, ok := c.Handlers[common.HeaderType(chdr.Type)]
 		if ok {
@@ -547,6 +548,7 @@ func (c *Committer) notifyFinality(event FinalityEvent) {
 		c.logger.Warnf("An error occurred for tx [%s], event: [%v]", event.TxID, event)
 	}
 
+	trace.SpanFromContext(event.Ctx).AddEvent("notify_listeners")
 	listeners := c.listeners[event.TxID]
 	c.logger.Debugf("Notify the finality of [%s] to [%d] listeners, event: [%v]", event.TxID, len(listeners), event)
 	for _, listener := range listeners {
@@ -584,10 +586,14 @@ func (c *Committer) listenTo(ctx context.Context, txID string, timeout time.Dura
 			timeout.Stop()
 			stop = true
 		case event := <-ch:
+			span.AddEvent("receive_channel_result")
+			span.AddLink(trace.LinkFromContext(event.Ctx))
+			trace.SpanFromContext(event.Ctx).AddEvent("return_channel_result")
 			c.logger.Debugf("Got an answer to finality of [%s]: [%s]", txID, event.Err)
 			timeout.Stop()
 			return event.Err
 		case <-timeout.C:
+			span.AddEvent("check_vault_status")
 			timeout.Stop()
 			c.logger.Debugf("Got a timeout for finality of [%s], check the status", txID)
 			vd, _, err := c.Status(txID)
