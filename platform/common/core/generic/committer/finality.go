@@ -72,7 +72,7 @@ func NewFinalityManager[V comparable](logger Logger, vault Vault[V], tracerProvi
 		tracer: tracerProvider.Tracer("finality_manager", tracing.WithMetricsOpts(tracing.MetricsOpts{
 			Namespace: "core",
 		})),
-		eventQueueWorkers: 30,
+		eventQueueWorkers: 300,
 	}
 }
 
