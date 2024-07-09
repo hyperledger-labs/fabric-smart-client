@@ -7,9 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package provider
 
 import (
-	"strings"
-
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/endpoint"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm"
@@ -21,15 +19,27 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
+type P2PCommunicationType = string
+
+const (
+	LibP2P    P2PCommunicationType = "libp2p"
+	WebSocket P2PCommunicationType = "websocket"
+)
+
 func NewHostProvider(config driver.ConfigService, endpointService *endpoint.Service, metricsProvider metrics.Provider, tracerProvider trace.TracerProvider) (host.GeneratorProvider, error) {
 	if err := endpointService.AddPublicKeyExtractor(&comm.PKExtractor{}); err != nil {
 		return nil, err
 	}
 
-	if p2pCommType := config.GetString("fsc.p2p.type"); strings.EqualFold(p2pCommType, fsc.WebSocket) {
+	switch p2pCommType := config.GetString("fsc.p2p.type"); p2pCommType {
+	case WebSocket:
 		return newWebSocketHostProvider(config, endpointService, tracerProvider)
-	} else {
+	case "":
+		fallthrough
+	case LibP2P:
 		return newLibP2PHostProvider(endpointService, metricsProvider), nil
+	default:
+		return nil, errors.Errorf("fsc.p2p.type not supported: %s", p2pCommType)
 	}
 }
 
