@@ -76,7 +76,7 @@ func New(startPort int, path string, topologies ...api.Topology) (*Infrastructur
 		}
 	}
 
-	buildServer := common.NewBuildServer()
+	buildServer := common.NewBuildServer("-tags", "pkcs11")
 	buildServer.Serve()
 	builder := buildServer.Client()
 
