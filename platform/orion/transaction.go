@@ -212,6 +212,14 @@ func (t *TransactionManager) NewTransaction(txID string, creator string) (*Trans
 	return &Transaction{dataTx: dataTx}, nil
 }
 
+func (t *TransactionManager) NewTransactionFromSession(session *Session, txID string) (*Transaction, error) {
+	dataTx, err := session.s.DataTx(txID)
+	if err != nil {
+		return nil, err
+	}
+	return &Transaction{dataTx: dataTx}, nil
+}
+
 func (t *TransactionManager) NewLoadedTransaction(env []byte, creator string) (*LoadedTransaction, error) {
 	session, err := t.ons.ons.SessionManager().NewSession(creator)
 	if err != nil {
