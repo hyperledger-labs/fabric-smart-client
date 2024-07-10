@@ -155,11 +155,3 @@ func (p *InitConfig) initUsers(session bcdb.DBSession) error {
 	}
 	return nil
 }
-
-func usersMap(users ...string) map[string]bool {
-	m := make(map[string]bool)
-	for _, u := range users {
-		m[u] = true
-	}
-	return m
-}
