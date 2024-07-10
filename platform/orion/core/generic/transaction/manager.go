@@ -8,6 +8,7 @@ package transaction
 
 import (
 	"encoding/json"
+	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
@@ -83,20 +84,27 @@ func (m *Manager) NewEnvelope() driver.Envelope {
 }
 
 func (m *Manager) CommitEnvelope(session driver.Session, envelope driver.Envelope) error {
+	logger.Infof("tx [%s] commit envelope start [%d]", envelope.TxID(), time.Now().UnixNano())
+
 	logger.Debugf("CommitEnvelope [%s]", envelope.TxID())
 	env, ok := envelope.(*Envelope)
 	if !ok {
 		return errors.New("invalid envelope type")
 	}
+	logger.Infof("tx [%s] commit load data start [%d]", envelope.TxID(), time.Now().UnixNano())
 	ldtx, err := session.LoadDataTx(env.env)
 	if err != nil {
 		logger.Errorf("failed to load data tx [%s]", err)
 		return errors.Wrapf(err, "failed to load data tx [%s]", envelope.TxID())
 	}
+	logger.Infof("tx [%s] commit load data done [%d]", envelope.TxID(), time.Now().UnixNano())
+	logger.Infof("tx [%s] commit ldtx start [%d]", envelope.TxID(), time.Now().UnixNano())
 	if err := ldtx.Commit(); err != nil {
 		logger.Errorf("failed to commit data tx [%s]", envelope.TxID())
 		return errors.Wrapf(err, "failed to commit data tx [%s]", envelope.TxID())
 	}
+	logger.Infof("tx [%s] commit ldtx  done [%d]", envelope.TxID(), time.Now().UnixNano())
+	logger.Infof("tx [%s] commit envelope done [%d]", envelope.TxID(), time.Now().UnixNano())
 	logger.Debugf("CommitEnvelope [%s:%s] done", envelope.TxID(), ldtx.ID())
 	return nil
 }

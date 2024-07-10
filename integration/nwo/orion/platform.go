@@ -326,8 +326,8 @@ func (p *Platform) writeConfigFile() {
 		},
 		BlockCreation: config.BlockCreationConf{
 			MaxBlockSize:                1000000,
-			MaxTransactionCountPerBlock: 1,
-			BlockTimeout:                500 * time.Millisecond,
+			MaxTransactionCountPerBlock: 100,
+			BlockTimeout:                100 * time.Millisecond,
 		},
 		Replication: config.ReplicationConf{
 			SnapDir: p.replaceForDocker(p.snapDir()),

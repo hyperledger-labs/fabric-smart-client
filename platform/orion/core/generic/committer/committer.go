@@ -170,6 +170,7 @@ func (c *committer) Commit(block *types.AugmentedBlockHeader) error {
 			}
 		}
 		span.AddEvent("notify_tx_finality")
+		logger.Infof("committed tx [%s][%d] at [%d]", txID, block.Header.BaseHeader.Number, time.Now().UnixNano())
 		c.notifyFinality(ctx, event)
 	}
 	return nil
@@ -329,10 +330,19 @@ func (c *committer) commitWithFilter(txID string) error {
 	return nil
 }
 
-func (c *committer) postFinality(ctx context.Context, txID string, vc driver.ValidationCode, message string) {
+func (c *committer) postFinality(
+	ctx context.Context,
+	txID string,
+	Block driver.BlockNum,
+	IndexInBlock driver.TxNum,
+	vc driver.ValidationCode,
+	message string,
+) {
 	c.EventManager.Post(TxEvent{
 		Ctx:               ctx,
 		TxID:              txID,
+		Block:             Block,
+		IndexInBlock:      IndexInBlock,
 		ValidationCode:    vc,
 		ValidationMessage: message,
 	})
@@ -375,7 +385,14 @@ func (c *committer) notifyFinality(ctx context.Context, event TxEvent) {
 	defer c.mutex.Unlock()
 
 	span.AddEvent("post_finality")
-	c.postFinality(newCtx, event.TxID, event.ValidationCode, event.ValidationMessage)
+	c.postFinality(
+		newCtx,
+		event.TxID,
+		event.Block,
+		event.IndexInBlock,
+		event.ValidationCode,
+		event.ValidationMessage,
+	)
 
 	if event.Err != nil && !c.quietNotifier {
 		logger.Warningf("An error occurred for tx [%s], event: [%v]", event.TxID, event)

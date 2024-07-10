@@ -8,6 +8,7 @@ package committer
 
 import (
 	"context"
+	"runtime"
 	"runtime/debug"
 	"sync"
 	"time"
@@ -72,7 +73,7 @@ func NewFinalityManager[V comparable](logger Logger, vault Vault[V], tracerProvi
 		tracer: tracerProvider.Tracer("finality_manager", tracing.WithMetricsOpts(tracing.MetricsOpts{
 			Namespace: "core",
 		})),
-		eventQueueWorkers: 300,
+		eventQueueWorkers: runtime.NumCPU() * 2,
 	}
 }
 
@@ -110,6 +111,7 @@ func (c *FinalityManager[V]) Post(event FinalityEvent[V]) {
 }
 
 func (c *FinalityManager[V]) Dispatch(event FinalityEvent[V]) {
+	start := time.Now()
 	newCtx, span := c.tracer.Start(event.Ctx, "dispatch")
 	defer span.End()
 	listeners := c.cloneListeners(event.TxID)
@@ -119,6 +121,9 @@ func (c *FinalityManager[V]) Dispatch(event FinalityEvent[V]) {
 		span.AddEvent("invoke_listener")
 		c.invokeListener(newCtx, listener, event.TxID, event.ValidationCode, event.ValidationMessage)
 	}
+	end := time.Since(start)
+	finished := time.Now()
+	c.logger.Infof("dispatch event [%s][%d][%d] to [%d], finished at [%d], elapsed [%d]", event.TxID, event.Block, event.ValidationCode, len(listeners), finished.UnixNano(), end)
 }
 
 func (c *FinalityManager[V]) Run(context context.Context) {
