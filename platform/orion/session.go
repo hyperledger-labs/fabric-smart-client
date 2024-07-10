@@ -67,6 +67,14 @@ func (s *Session) Ledger() (*Ledger, error) {
 	return &Ledger{l: ledger}, nil
 }
 
+func (s *Session) DataTx(id string) (*DataTx, error) {
+	dataTx, err := s.s.DataTx(id)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed creating data tx")
+	}
+	return &DataTx{dataTx: dataTx}, nil
+}
+
 // SessionManager is a session manager that allows the developer to access orion directly
 type SessionManager struct {
 	sm driver.SessionManager

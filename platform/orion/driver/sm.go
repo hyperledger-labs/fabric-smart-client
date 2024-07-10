@@ -48,6 +48,7 @@ type Ledger interface {
 }
 
 // Session let the developer access orion
+// Any implementation must be thread-safe
 type Session interface {
 	// DataTx returns a data transaction for the passed id
 	DataTx(txID string) (DataTx, error)
