@@ -155,6 +155,7 @@ func TestFinalityManager_Dispatch_PanicRecovery(t *testing.T) {
 	manager := NewFinalityManager[int](flogging.MustGetLogger("committer"), vault, noop.NewTracerProvider())
 	listener := &MockFinalityListener{}
 	event := FinalityEvent[int]{
+		Ctx:            context.TODO(),
 		TxID:           "txID",
 		ValidationCode: 1,
 	}

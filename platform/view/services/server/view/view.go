@@ -79,7 +79,8 @@ func (s *viewHandler) callView(ctx context.Context, command *protos2.Command) (i
 	}
 	span.AddEvent("start_initiate_view")
 	result, err := s.viewManager.InitiateView(f, newCtx)
-	span.AddEvent("end_initiate_view", tracing.WithAttributes(tracing.Bool(successLabel, err == nil)))
+	span.AddEvent("end_initiate_view")
+	span.SetAttributes(tracing.Bool(successLabel, err == nil))
 	if err != nil {
 		return nil, errors.Errorf("failed running view [%s], err %s", fid, err)
 	}

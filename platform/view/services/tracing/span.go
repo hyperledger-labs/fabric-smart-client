@@ -77,9 +77,6 @@ func (s *span) End(options ...SpanEndOption) {
 
 func (s *span) AddEvent(name string, options ...EventOption) {
 	s.Span.AddEvent(name, options...)
-
-	c := trace.NewEventConfig(options...)
-	s.labels.Append(c.Attributes()...)
 }
 
 func (s *span) SetAttributes(kv ...KeyValue) {
