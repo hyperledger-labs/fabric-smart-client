@@ -132,12 +132,15 @@ func (p *InitConfig) initUsers(session bcdb.DBSession) error {
 					Id:          role,
 					Certificate: certBlock.Bytes,
 					Privilege: &types.Privilege{
-						DbPermission: map[string]types.Privilege_Access{db.Name: 1},
+						DbPermission: map[string]types.Privilege_Access{db.Name: types.Privilege_ReadWrite},
 					},
-				}, &types.AccessControl{
-					ReadWriteUsers: usersMap("admin"),
-					ReadUsers:      usersMap("admin"),
-				})
+				},
+				nil,
+				//&types.AccessControl{
+				//	ReadWriteUsers: usersMap("admin"),
+				//	ReadUsers:      usersMap("admin"),
+				//},
+			)
 			if err != nil {
 				usersTx.Abort()
 				return err
@@ -151,12 +154,4 @@ func (p *InitConfig) initUsers(session bcdb.DBSession) error {
 		}
 	}
 	return nil
-}
-
-func usersMap(users ...string) map[string]bool {
-	m := make(map[string]bool)
-	for _, u := range users {
-		m[u] = true
-	}
-	return m
 }

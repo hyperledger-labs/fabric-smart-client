@@ -10,6 +10,7 @@ import (
 	"encoding/base64"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
@@ -68,7 +69,7 @@ func (d *DataTx) SignAndClose() ([]byte, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed signing and closing data tx")
 	}
-	return proto.Marshal(env)
+	return proto.Marshal(env.(*types.DataTxEnvelope))
 }
 
 func (d *DataTx) AddMustSignUser(userID string) {
@@ -94,7 +95,7 @@ func (l *LoadedDataTx) CoSignAndClose() ([]byte, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed co-signing and closing envelope")
 	}
-	return proto.Marshal(env)
+	return proto.Marshal(env.(*types.DataTxEnvelope))
 }
 
 func (l *LoadedDataTx) Reads() map[string][]*driver.DataRead {
@@ -137,11 +138,18 @@ func (l *LoadedDataTx) SignedUsers() []string {
 	return l.loadedDataTx.SignedUsers()
 }
 
+// Session implements a thread-safe session to orion
 type Session struct {
+	// DBSession is not thread-sage
 	s bcdb.DBSession
+
+	mutex sync.Mutex
 }
 
 func (s *Session) DataTx(txID string) (driver.DataTx, error) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
 	var dataTx bcdb.DataTxContext
 	var err error
 	if len(txID) != 0 {
@@ -172,6 +180,9 @@ func (s *Session) LoadDataTx(envBoxed interface{}) (driver.LoadedDataTx, error) 
 
 	var dataTx bcdb.LoadedDataTxContext
 	var err error
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
 	dataTx, err = s.s.LoadDataTx(env)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed getting data tc")
@@ -183,6 +194,9 @@ func (s *Session) LoadDataTx(envBoxed interface{}) (driver.LoadedDataTx, error) 
 }
 
 func (s *Session) Ledger() (driver.Ledger, error) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
 	l, err := s.s.Ledger()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed getting ledger")
@@ -191,6 +205,9 @@ func (s *Session) Ledger() (driver.Ledger, error) {
 }
 
 func (s *Session) Query() (driver.Query, error) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
 	q, err := s.s.Query()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed getting query")

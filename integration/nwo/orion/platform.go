@@ -318,16 +318,16 @@ func (p *Platform) writeConfigFile() {
 				LedgerDirectory: p.replaceForDocker(p.databaseDir()),
 			},
 			QueueLength: config.QueueLengthConf{
-				Transaction:               10,
-				ReorderedTransactionBatch: 10,
-				Block:                     10,
+				Transaction:               1000,
+				ReorderedTransactionBatch: 1000,
+				Block:                     1000,
 			},
 			LogLevel: "debug",
 		},
 		BlockCreation: config.BlockCreationConf{
 			MaxBlockSize:                1000000,
-			MaxTransactionCountPerBlock: 1,
-			BlockTimeout:                500 * time.Millisecond,
+			MaxTransactionCountPerBlock: 100,
+			BlockTimeout:                100 * time.Millisecond,
 		},
 		Replication: config.ReplicationConf{
 			SnapDir: p.replaceForDocker(p.snapDir()),

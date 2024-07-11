@@ -154,6 +154,34 @@ func (t *LoadedTransaction) SignedUsers() []string {
 	return t.loadedDataTx.SignedUsers()
 }
 
+type DataTx struct {
+	dataTx driver.DataTx
+}
+
+func (d *DataTx) Put(db string, key string, bytes []byte, a driver.AccessControl) error {
+	return d.dataTx.Put(db, key, bytes, a)
+}
+
+func (d *DataTx) Get(db string, key string) ([]byte, error) {
+	return d.dataTx.Get(db, key)
+}
+
+func (d *DataTx) Commit(sync bool) (string, error) {
+	return d.dataTx.Commit(sync)
+}
+
+func (d *DataTx) Delete(db string, key string) error {
+	return d.dataTx.Delete(db, key)
+}
+
+func (d *DataTx) SignAndClose() ([]byte, error) {
+	return d.dataTx.SignAndClose()
+}
+
+func (d *DataTx) AddMustSignUser(userID string) {
+	d.dataTx.AddMustSignUser(userID)
+}
+
 type Transaction struct {
 	dataTx driver.DataTx
 }
@@ -205,6 +233,14 @@ func (t *TransactionManager) NewTransaction(txID string, creator string) (*Trans
 	if err != nil {
 		return nil, errors.WithMessagef(err, "failed to create session for txID [%s]", txID)
 	}
+	dataTx, err := session.DataTx(txID)
+	if err != nil {
+		return nil, err
+	}
+	return &Transaction{dataTx: dataTx}, nil
+}
+
+func (t *TransactionManager) NewTransactionFromSession(session *Session, txID string) (*Transaction, error) {
 	dataTx, err := session.DataTx(txID)
 	if err != nil {
 		return nil, err

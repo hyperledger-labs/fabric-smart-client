@@ -1,7 +1,7 @@
 # pinned versions
 FABRIC_VERSION ?= 2.5.0
 FABRIC_TWO_DIGIT_VERSION = $(shell echo $(FABRIC_VERSION) | cut -d '.' -f 1,2)
-ORION_VERSION=v0.2.5
+ORION_VERSION=v0.2.10
 
 # need to install fabric binaries outside of fsc tree for now (due to chaincode packaging issues)
 FABRIC_BINARY_BASE=$(PWD)/../fabric
