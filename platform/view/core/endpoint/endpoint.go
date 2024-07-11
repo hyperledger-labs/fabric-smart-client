@@ -13,14 +13,13 @@ import (
 	"strings"
 	"sync"
 
-	"golang.org/x/exp/slices"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
+	"golang.org/x/exp/slices"
 )
 
 var logger = flogging.MustGetLogger("view-sdk.endpoint")
@@ -237,12 +236,14 @@ func (r *Service) SetPublicKeyIDSynthesizer(publicKeyIDSynthesizer driver.Public
 }
 
 func (r *Service) pkiResolve(resolver *Resolver) []byte {
-	resolver.PKILock.Lock()
-	defer resolver.PKILock.Unlock()
+	resolver.PKILock.RLock()
 	if len(resolver.PKI) != 0 {
 		return resolver.PKI
 	}
+	resolver.PKILock.RUnlock()
 
+	resolver.PKILock.Lock()
+	defer resolver.PKILock.Unlock()
 	resolver.PKI = r.ExtractPKI(resolver.Id)
 	return resolver.PKI
 }
