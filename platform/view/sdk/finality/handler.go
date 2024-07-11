@@ -42,7 +42,7 @@ type Handler interface {
 func NewManager(tracerProvider trace.TracerProvider) *Manager {
 	return &Manager{tracer: tracerProvider.Tracer("finality_manager", tracing.WithMetricsOpts(tracing.MetricsOpts{
 		Namespace:  "viewsdk",
-		LabelNames: []tracing.LabelName{handlerTypeLabel, successLabel},
+		LabelNames: []tracing.LabelName{},
 	}))}
 }
 

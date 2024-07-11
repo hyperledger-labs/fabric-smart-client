@@ -321,10 +321,11 @@ func (c *Committer) Commit(block *common.Block) error {
 			c.logger.Errorf("[%s] unmarshal tx failed: %s", c.ChannelConfig.ID(), err)
 			return err
 		}
+		span.SetAttributes(tracing.Int(HeaderTypeLabel, int(chdr.Type)))
 
 		var event FinalityEvent
 		event.Ctx = ctx
-		span.AddEvent("start_tx_handler", trace.WithAttributes(tracing.Int(HeaderTypeLabel, int(chdr.Type))))
+		span.AddEvent("start_tx_handler")
 		handler, ok := c.Handlers[common.HeaderType(chdr.Type)]
 		if ok {
 			if err := handler(block, uint64(i), &event, tx, env, chdr); err != nil {
