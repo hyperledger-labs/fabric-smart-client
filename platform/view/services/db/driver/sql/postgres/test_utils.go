@@ -116,11 +116,11 @@ func startPostgresWithLogger(c PostgresConfig, t Logger, printLogs bool) (func()
 	}
 	ctx := context.Background()
 	resp, err := cli.ContainerCreate(ctx, &container.Config{
+		Cmd: []string{"postgres", "-c", "max_connections=2000"},
 		Env: []string{
 			"POSTGRES_DB=" + c.DBName,
 			"POSTGRES_USER=" + c.User,
 			"POSTGRES_PASSWORD=" + c.Pass,
-			"POSTGRES_MAX_CONNECTIONS=2000",
 		},
 		Hostname: c.Container,
 		Image:    c.Image,
