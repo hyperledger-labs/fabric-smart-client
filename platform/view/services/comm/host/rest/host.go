@@ -8,6 +8,8 @@ package rest
 
 import (
 	"context"
+	"crypto/tls"
+	"net/http"
 
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	routing2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/rest/routing"
@@ -30,13 +32,18 @@ type host struct {
 	tracer  trace.Tracer
 }
 
-func NewHost(nodeID host2.PeerID, listenAddress host2.PeerIPAddress, routing routing2.ServiceDiscovery, tracerProvider trace.TracerProvider, keyFile, certFile string, rootCACertFiles []string) (*host, error) {
+type StreamProvider interface {
+	NewClientStream(info host2.StreamInfo, ctx context.Context, src host2.PeerID, config *tls.Config) (host2.P2PStream, error)
+	NewServerStream(writer http.ResponseWriter, request *http.Request, newStreamCallback func(host2.P2PStream)) error
+}
+
+func NewHost(nodeID host2.PeerID, listenAddress host2.PeerIPAddress, routing routing2.ServiceDiscovery, tracerProvider trace.TracerProvider, streamProvider StreamProvider, keyFile, certFile string, rootCACertFiles []string) (*host, error) {
 	logger.Infof("Creating new host for node [%s] on [%s] with key, cert at: [%s], [%s]", nodeID, listenAddress, keyFile, certFile)
-	p2pClient, err := newClient(nodeID, rootCACertFiles, len(keyFile) > 0 && len(certFile) > 0)
+	p2pClient, err := newClient(streamProvider, nodeID, rootCACertFiles, len(keyFile) > 0 && len(certFile) > 0)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create client")
 	}
-	p2pServer := newServer(listenAddress, keyFile, certFile)
+	p2pServer := newServer(streamProvider, listenAddress, keyFile, certFile)
 	return &host{
 		server:  p2pServer,
 		client:  p2pClient,
@@ -77,7 +84,7 @@ func (h *host) Lookup(peerID host2.PeerID) ([]host2.PeerIPAddress, bool) {
 }
 
 func (h *host) StreamHash(info host2.StreamInfo) string {
-	return streamHash(info)
+	return StreamHash(info)
 }
 
 func (h *host) Close() error {
@@ -85,3 +92,7 @@ func (h *host) Close() error {
 }
 
 func (h *host) Wait() {}
+
+func StreamHash(info host2.StreamInfo) host2.StreamHash {
+	return info.RemotePeerAddress
+}

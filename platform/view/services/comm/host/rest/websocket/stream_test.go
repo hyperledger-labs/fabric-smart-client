@@ -4,7 +4,7 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package rest_test
+package websocket_test
 
 import (
 	"bytes"
@@ -17,12 +17,12 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/rest"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/rest/websocket"
 	"github.com/stretchr/testify/assert"
 )
 
 func newMockStream(conn *mockConn) host.P2PStream {
-	return rest.NewWSStream(conn, context.Background(), host.StreamInfo{})
+	return websocket.NewWSStream(conn, context.Background(), host.StreamInfo{})
 }
 
 type mockConn struct {
