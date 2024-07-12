@@ -28,17 +28,25 @@ type Logger interface {
 	Errorf(string, ...any)
 }
 
-type PostgresConfig struct {
-	Image     string
-	Container string
-	DBName    string
-	User      string
-	Pass      string
-	Host      string
-	Port      int
+type DataSourceProvider interface {
+	DataSource() string
 }
 
-func (c *PostgresConfig) DataSource() string {
+type ContainerConfig struct {
+	Image     string
+	Container string
+	*Config
+}
+
+type Config struct {
+	DBName string
+	User   string
+	Pass   string
+	Host   string
+	Port   int
+}
+
+func (c *Config) DataSource() string {
 	return fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", c.Host, c.Port, c.User, c.Pass, c.DBName)
 }
 
@@ -51,7 +59,7 @@ func (l *fmtLogger) Errorf(format string, args ...any) {
 	_ = fmt.Errorf(format, args...)
 }
 
-func DefaultConfig(node string) *PostgresConfig {
+func DefaultConfig(node string) *ContainerConfig {
 	ports, err := freeport.Take(1)
 	if err != nil {
 		panic("could not take free port: " + err.Error())
@@ -59,21 +67,23 @@ func DefaultConfig(node string) *PostgresConfig {
 	return defaultConfigWithPort(node, ports[0])
 }
 
-func defaultConfigWithPort(node string, port int) *PostgresConfig {
-	return &PostgresConfig{
+func defaultConfigWithPort(node string, port int) *ContainerConfig {
+	return &ContainerConfig{
 		Image:     "postgres:latest",
 		Container: fmt.Sprintf("fsc-postgres-%s", node),
-		DBName:    "tokendb",
-		User:      "postgres",
-		Pass:      "example",
-		Host:      "localhost",
-		Port:      port,
+		Config: &Config{
+			DBName: "tokendb",
+			User:   "postgres",
+			Pass:   "example",
+			Host:   "localhost",
+			Port:   port,
+		},
 	}
 }
 
-func StartPostgresWithFmt(configs map[string]*PostgresConfig) (func(), error) {
+func StartPostgresWithFmt(configs map[string]*ContainerConfig) (func(), error) {
 	if len(configs) == 0 {
-		configs = map[string]*PostgresConfig{}
+		configs = map[string]*ContainerConfig{}
 	}
 	closeFuncs := make([]func(), 0, len(configs))
 	errs := make([]error, 0, len(configs))
@@ -98,7 +108,7 @@ func StartPostgresWithFmt(configs map[string]*PostgresConfig) (func(), error) {
 	return closeFunc, nil
 }
 
-func startPostgresWithLogger(c PostgresConfig, t Logger, printLogs bool) (func(), error) {
+func startPostgresWithLogger(c ContainerConfig, t Logger, printLogs bool) (func(), error) {
 	// images
 	d, err := docker.GetInstance()
 	if err != nil {

@@ -69,14 +69,16 @@ func startPostgres(t Logger, printLogs bool) (func(), string, error) {
 		return nil, "", fmt.Errorf("port must be a number: %s", port)
 	}
 
-	c := PostgresConfig{
+	c := ContainerConfig{
 		Image:     getEnv("POSTGRES_IMAGE", "postgres:latest"),
 		Container: getEnv("POSTGRES_CONTAINER", "fsc-postgres"),
-		DBName:    getEnv("POSTGRES_DB", "testdb"),
-		User:      getEnv("POSTGRES_USER", "postgres"),
-		Pass:      getEnv("POSTGRES_PASSWORD", "example"),
-		Host:      getEnv("POSTGRES_HOST", "localhost"),
-		Port:      p,
+		Config: &Config{
+			DBName: getEnv("POSTGRES_DB", "testdb"),
+			User:   getEnv("POSTGRES_USER", "postgres"),
+			Pass:   getEnv("POSTGRES_PASSWORD", "example"),
+			Host:   getEnv("POSTGRES_HOST", "localhost"),
+			Port:   p,
+		},
 	}
 	closeFunc, err := startPostgresWithLogger(c, t, printLogs)
 	if err != nil {
