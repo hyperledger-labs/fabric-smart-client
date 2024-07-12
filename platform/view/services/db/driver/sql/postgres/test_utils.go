@@ -120,6 +120,7 @@ func startPostgresWithLogger(c PostgresConfig, t Logger, printLogs bool) (func()
 			"POSTGRES_DB=" + c.DBName,
 			"POSTGRES_USER=" + c.User,
 			"POSTGRES_PASSWORD=" + c.Pass,
+			"POSTGRES_MAX_CONNECTIONS=2000",
 		},
 		Hostname: c.Container,
 		Image:    c.Image,
