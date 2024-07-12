@@ -44,7 +44,7 @@ var _ = Describe("EndToEnd", func() {
 					"bob":       2,
 					"approvers": 2,
 				},
-				SQLConfigs: map[string]*postgres.PostgresConfig{
+				SQLConfigs: map[string]*postgres.ContainerConfig{
 					"alice": postgres.DefaultConfig("alice-db"),
 					"bob":   postgres.DefaultConfig("bob-db"),
 				},

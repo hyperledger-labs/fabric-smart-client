@@ -192,7 +192,7 @@ func WithOrionVaultPersistence(network, db, creator string) node.Option {
 }
 
 // WithPostgresVaultPersistence is a configuration with SQL vault persistence
-func WithPostgresVaultPersistence(config *postgres.PostgresConfig) node.Option {
+func WithPostgresVaultPersistence(config postgres.DataSourceProvider) node.Option {
 	return func(o *node.Options) error {
 		if config != nil {
 			o.Put("fabric.vault.persistence.sql", config.DataSource())

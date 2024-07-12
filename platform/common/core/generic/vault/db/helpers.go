@@ -96,7 +96,7 @@ func openPostgres[V any](name string, open opener[V]) (V, func(), error) {
 		MaxOpenConns: 50,
 		SkipPragmas:  false,
 	}
-	terminate, err := postgres.StartPostgresWithFmt(map[string]*postgres.PostgresConfig{name: postgresConfig})
+	terminate, err := postgres.StartPostgresWithFmt(map[string]*postgres.ContainerConfig{name: postgresConfig})
 	if err != nil {
 		return utils.Zero[V](), func() {}, err
 	}
