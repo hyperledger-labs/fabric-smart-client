@@ -18,21 +18,26 @@ import (
 	"github.com/pkg/errors"
 )
 
+type serverStreamProvider interface {
+	NewServerStream(writer http.ResponseWriter, request *http.Request, newStreamCallback func(host2.P2PStream)) error
+}
+
 type server struct {
 	srv               *http.Server
 	keyFile, certFile string
+	streamProvider    serverStreamProvider
 }
 
-func newServer(listenAddress host2.PeerIPAddress, keyFile, certFile string) *server {
-
+func newServer(streamProvider serverStreamProvider, listenAddress host2.PeerIPAddress, keyFile, certFile string) *server {
 	return &server{
-		srv:      &http.Server{Addr: listenAddress},
-		certFile: certFile,
-		keyFile:  keyFile,
+		srv:            &http.Server{Addr: listenAddress},
+		certFile:       certFile,
+		keyFile:        keyFile,
+		streamProvider: streamProvider,
 	}
 }
 
-func newHandler(newStreamCallback func(stream host2.P2PStream)) *gin.Engine {
+func newHandler(streamProvider serverStreamProvider, newStreamCallback func(stream host2.P2PStream)) *gin.Engine {
 	logger.Infof("Creating GIN engine for p2p REST endpoint.")
 	r := gin.New()
 	r.Use(gin.LoggerWithFormatter(func(param gin.LogFormatterParams) string {
@@ -56,17 +61,15 @@ func newHandler(newStreamCallback func(stream host2.P2PStream)) *gin.Engine {
 
 	r.GET("/p2p", func(c *gin.Context) {
 		logger.Debugf("New incoming stream from [%s]", c.Request.RemoteAddr)
-		stream, err := newServerStream(c.Writer, c.Request)
-		if err != nil {
+		if err := streamProvider.NewServerStream(c.Writer, c.Request, newStreamCallback); err != nil {
 			logger.Errorf("error receiving websocket: %v", err)
 		}
-		newStreamCallback(stream)
 	})
 	return r
 }
 
 func (s *server) Start(newStreamCallback func(stream host2.P2PStream)) error {
-	s.srv.Handler = newHandler(newStreamCallback)
+	s.srv.Handler = newHandler(s.streamProvider, newStreamCallback)
 
 	var err error
 	if len(s.certFile) == 0 || len(s.keyFile) == 0 {

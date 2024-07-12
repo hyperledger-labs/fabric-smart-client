@@ -17,6 +17,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/libp2p"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/rest"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/rest/routing"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/rest/websocket"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -46,5 +47,5 @@ func newWebSocketHostProvider(config driver.ConfigService, endpointService *endp
 	}
 	discovery := routing.NewServiceDiscovery(r, routing.Random[host.PeerIPAddress]())
 	endpointService.SetPublicKeyIDSynthesizer(&rest.PKIDSynthesizer{})
-	return rest.NewEndpointBasedProvider(endpointService, discovery, tracerProvider), nil
+	return rest.NewEndpointBasedProvider(endpointService, discovery, tracerProvider, websocket.NewSimpleProvider()), nil
 }

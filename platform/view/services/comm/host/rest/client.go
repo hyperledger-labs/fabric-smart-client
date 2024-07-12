@@ -16,12 +16,17 @@ import (
 	"github.com/pkg/errors"
 )
 
-type client struct {
-	tlsConfig *tls.Config
-	nodeID    host2.PeerID
+type clientStreamProvider interface {
+	NewClientStream(info host2.StreamInfo, ctx context.Context, src host2.PeerID, config *tls.Config) (host2.P2PStream, error)
 }
 
-func newClient(nodeID host2.PeerID, rootCAs []string, tlsEnabled bool) (*client, error) {
+type client struct {
+	tlsConfig      *tls.Config
+	nodeID         host2.PeerID
+	streamProvider clientStreamProvider
+}
+
+func newClient(streamProvider clientStreamProvider, nodeID host2.PeerID, rootCAs []string, tlsEnabled bool) (*client, error) {
 	logger.Infof("Creating p2p client for node ID [%s] with tlsEnabled = %v", nodeID, tlsEnabled)
 	caCertPool, err := newRootCACertPool(rootCAs)
 	if err != nil {
@@ -32,7 +37,8 @@ func newClient(nodeID host2.PeerID, rootCAs []string, tlsEnabled bool) (*client,
 			InsecureSkipVerify: tlsEnabled && caCertPool == nil,
 			RootCAs:            caCertPool,
 		},
-		nodeID: nodeID,
+		nodeID:         nodeID,
+		streamProvider: streamProvider,
 	}
 	logger.Infof("Created p2p client for node ID [%s] with %d root CAs and InsecureSkipVerify = %v", nodeID, len(rootCAs), c.tlsConfig.InsecureSkipVerify)
 	return c, nil
@@ -56,5 +62,5 @@ func newRootCACertPool(rootCAs []string) (*x509.CertPool, error) {
 }
 
 func (c *client) OpenStream(info host2.StreamInfo, ctx context.Context) (host2.P2PStream, error) {
-	return newClientStream(info, ctx, c.nodeID, c.tlsConfig)
+	return c.streamProvider.NewClientStream(info, ctx, c.nodeID, c.tlsConfig)
 }

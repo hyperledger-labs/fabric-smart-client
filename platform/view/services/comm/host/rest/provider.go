@@ -24,13 +24,15 @@ type endpointServiceBasedProvider struct {
 	pkiExtractor   pkiExtractor
 	routing        routing2.ServiceDiscovery
 	tracerProvider trace.TracerProvider
+	streamProvider StreamProvider
 }
 
-func NewEndpointBasedProvider(extractor pkiExtractor, routing routing2.ServiceDiscovery, tracerProvider trace.TracerProvider) *endpointServiceBasedProvider {
+func NewEndpointBasedProvider(extractor pkiExtractor, routing routing2.ServiceDiscovery, tracerProvider trace.TracerProvider, streamProvider StreamProvider) *endpointServiceBasedProvider {
 	return &endpointServiceBasedProvider{
 		pkiExtractor:   extractor,
 		routing:        routing,
 		tracerProvider: tracerProvider,
+		streamProvider: streamProvider,
 	}
 }
 
@@ -40,7 +42,7 @@ func (p *endpointServiceBasedProvider) NewBootstrapHost(listenAddress host2.Peer
 		return nil, errors.Wrapf(err, "failed to load identity in [%s]", certPath)
 	}
 	nodeID := string(p.pkiExtractor.ExtractPKI(raw))
-	return NewHost(nodeID, convertAddress(listenAddress), p.routing, p.tracerProvider, privateKeyPath, certPath, nil)
+	return NewHost(nodeID, convertAddress(listenAddress), p.routing, p.tracerProvider, p.streamProvider, privateKeyPath, certPath, nil)
 }
 
 func (p *endpointServiceBasedProvider) NewHost(listenAddress host2.PeerIPAddress, privateKeyPath, certPath string, _ host2.PeerIPAddress) (host2.P2PHost, error) {
