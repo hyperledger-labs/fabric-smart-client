@@ -211,6 +211,7 @@ func (cm *manager) InitiateViewWithIdentity(view view.View, id view.Identity, c 
 	cm.contextsSync.Lock()
 	cm.contexts[childContext.ID()] = childContext
 	cm.contextsSync.Unlock()
+	defer cm.deleteContext(id, childContext.ID())
 
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("[%s] InitiateView [view:%s], [ContextID:%s]", id, getIdentifier(view), childContext.ID())
