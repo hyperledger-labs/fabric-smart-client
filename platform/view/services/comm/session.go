@@ -8,6 +8,7 @@ package comm
 
 import (
 	"context"
+	"runtime/debug"
 	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
@@ -69,32 +70,58 @@ func (n *NetworkStreamSession) Receive() <-chan *view.Message {
 
 // Close releases all the resources allocated by this session
 func (n *NetworkStreamSession) Close() {
-	defer logger.Debugf("Closing session [%s]", n.sessionID)
 	n.node.sessionsMutex.Lock()
+	defer n.node.sessionsMutex.Unlock()
+	n.close(context.Background())
+}
+
+func (n *NetworkStreamSession) close(ctx context.Context) {
+	if n.closed {
+		logger.Debugf("session [%s] already closed", n.sessionID)
+		return
+	}
+	defer logger.Debugf("closing session [%s] done", n.sessionID)
+
 	toClose := make([]*streamHandler, 0, len(n.streams))
 	for stream := range n.streams {
-		stream.refCtr--
-		if stream.refCtr == 0 {
+		stream.sessionReferenceCount--
+		if stream.sessionReferenceCount == 0 {
 			toClose = append(toClose, stream)
 		}
 	}
-	n.node.sessionsMutex.Unlock()
 
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("Closing session stream [%s]", n.sessionID)
+		logger.Debugf("closing session [%d of %d] streams [%s], from [%s]", len(toClose), len(n.streams), n.sessionID, string(debug.Stack()))
 	}
 	for _, stream := range toClose {
 		stream.close()
 	}
 
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("Closing session incoming [%s]", n.sessionID)
+		logger.Debugf("closing session incoming [%s]", n.sessionID)
 	}
-	close(n.incoming)
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				logger.Debugf("closing incoming channel for session [%s] failed with error [%s]", n.sessionID, r)
+			}
+		}()
+		close(n.incoming)
+	}()
+
+	info := host.StreamInfo{
+		RemotePeerID:      string(n.endpointID),
+		RemotePeerAddress: n.endpointAddress,
+		ContextID:         n.contextID,
+		SessionID:         n.sessionID,
+	}
+	n.node.closeStream(info, toClose)
+
 	n.closed = true
+	n.streams = make(map[*streamHandler]struct{})
 
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("Closing session [%s] done", n.sessionID)
+		logger.Debugf("closing session [%s] done", n.sessionID)
 	}
 }
 

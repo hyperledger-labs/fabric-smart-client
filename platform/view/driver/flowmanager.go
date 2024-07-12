@@ -25,6 +25,8 @@ type ViewManager interface {
 	InitiateContext(view view.View) (view.Context, error)
 	// InitiateContextWithIdentityAndID initiates a new context
 	InitiateContextWithIdentityAndID(view view.View, id view.Identity, contextID string) (view.Context, error)
+	// DisposeContext releases all resources allocated by the context with the passed id, if that exists.s
+	DisposeContext(contextID string) error
 }
 
 // GetViewManager returns an instance of the view manager.

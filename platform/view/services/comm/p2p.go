@@ -84,13 +84,11 @@ func (p *P2PNode) Stop() {
 	p.streamsMutex.Unlock()
 
 	p.host.Close()
-
 	for _, streams := range p.streams {
 		for _, stream := range streams {
 			stream.close()
 		}
 	}
-
 	close(p.incomingMessages)
 	p.finderWg.Wait()
 }
@@ -105,53 +103,14 @@ func (p *P2PNode) dispatchMessages(ctx context.Context) {
 				}
 				return
 			}
-
 			if logger.IsEnabledFor(zapcore.DebugLevel) {
 				logger.Debugf("dispatch message from [%s,%s] on session [%s]", msg.message.FromEndpoint, view.Identity(msg.message.FromPKID).String(), msg.message.SessionID)
 			}
 
+			// dispatch one message at the time
+			// TODO: can we do better?
 			p.dispatchMutex.Lock()
-
-			p.sessionsMutex.Lock()
-			internalSessionID := computeInternalSessionID(msg.message.SessionID, msg.message.FromPKID)
-			if logger.IsEnabledFor(zapcore.DebugLevel) {
-				logger.Debugf("dispatch message on internal session [%s]", internalSessionID)
-			}
-			session, in := p.sessions[internalSessionID]
-			if in {
-				if logger.IsEnabledFor(zapcore.DebugLevel) {
-					logger.Debugf("internal session exists [%s]", internalSessionID)
-				}
-				session.mutex.Lock()
-				session.callerViewID = msg.message.Caller
-				session.contextID = msg.message.ContextID
-				session.endpointAddress = msg.message.FromEndpoint
-				// here we know that msg.stream is used for session:
-				// 1) increment the used counter for msg.stream
-				msg.stream.refCtr++
-				// 2) add msg.stream to the list of streams used by session
-				session.streams[msg.stream] = struct{}{}
-				session.mutex.Unlock()
-			}
-			p.sessionsMutex.Unlock()
-
-			if !in {
-				// create session but redirect this first message to master
-				// _, _ = p.getOrCreateSession(
-				//	msg.message.SessionID,
-				//	msg.message.FromEndpoint,
-				//	msg.message.ContextID,
-				//	"",
-				//	nil,
-				//	msg.message.FromPKID,
-				//	nil,
-				// )
-
-				if logger.IsEnabledFor(zapcore.DebugLevel) {
-					logger.Debugf("internal session does not exists [%s], dispatching to master session", internalSessionID)
-				}
-				session, _ = p.getOrCreateSession(masterSession, "", "", "", nil, []byte{}, nil)
-			}
+			internalSessionID, session := p.getSession(msg)
 			p.dispatchMutex.Unlock()
 
 			if logger.IsEnabledFor(zapcore.DebugLevel) {
@@ -163,6 +122,44 @@ func (p *P2PNode) dispatchMessages(ctx context.Context) {
 			return
 		}
 	}
+}
+
+func (p *P2PNode) getSession(msg *messageWithStream) (string, *NetworkStreamSession) {
+	p.sessionsMutex.Lock()
+	internalSessionID := computeInternalSessionID(msg.message.SessionID, msg.message.FromPKID)
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("dispatch message on internal session [%s]", internalSessionID)
+	}
+	session, in := p.sessions[internalSessionID]
+	if in {
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			logger.Debugf("internal session exists [%s]", internalSessionID)
+		}
+		session.mutex.Lock()
+		session.callerViewID = msg.message.Caller
+		session.contextID = msg.message.ContextID
+		session.endpointAddress = msg.message.FromEndpoint
+		// here we know that msg.stream is used for session:
+		// 1) increment the used counter for msg.stream, if not used already by this session
+		_, streamRegisteredAlready := session.streams[msg.stream]
+		if !streamRegisteredAlready {
+			msg.stream.sessionReferenceCount++
+			// 2) add msg.stream to the list of streams used by session
+			session.streams[msg.stream] = struct{}{}
+		}
+		session.mutex.Unlock()
+	}
+	p.sessionsMutex.Unlock()
+
+	if !in {
+		// create session but redirect this first message to master
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			logger.Debugf("internal session does not exists [%s], dispatching to master session", internalSessionID)
+		}
+		session, _ = p.getOrCreateSession(masterSession, "", "", "", nil, []byte{}, nil)
+	}
+
+	return internalSessionID, session
 }
 
 func (p *P2PNode) sendWithCachedStreams(streamHash string, msg proto.Message) error {
@@ -231,14 +228,39 @@ func (p *P2PNode) Lookup(peerID string) ([]string, bool) {
 	return p.host.Lookup(peerID)
 }
 
+func (p *P2PNode) closeStream(info host2.StreamInfo, toClose []*streamHandler) {
+	p.streamsMutex.Lock()
+	defer p.streamsMutex.Unlock()
+
+	streamHash := p.host.StreamHash(info)
+	streams, ok := p.streams[streamHash]
+	if !ok {
+		logger.Warnf("cannot find streams for hash [%s]", streamHash)
+	}
+	logger.Debugf("found [%d] streams for hash [%s], remove [%d]", len(streams), streamHash, len(toClose))
+	for _, handler := range toClose {
+		for i, stream := range streams {
+			if handler == stream {
+				// remove it from streams
+				streams = append(streams[:i], streams[i+1:]...)
+			}
+		}
+	}
+	p.streams[streamHash] = streams
+	if len(streams) == 0 {
+		delete(p.streams, streamHash)
+	}
+	logger.Debugf("streams for hash [%s] left with [%d] streams", streamHash, len(p.streams))
+}
+
 type streamHandler struct {
-	lock   sync.Mutex
-	stream host2.P2PStream
-	reader io.ReadCloser
-	writer io.WriteCloser
-	node   *P2PNode
-	wg     sync.WaitGroup
-	refCtr int
+	lock                  sync.Mutex
+	stream                host2.P2PStream
+	reader                io.ReadCloser
+	writer                io.WriteCloser
+	node                  *P2PNode
+	wg                    sync.WaitGroup
+	sessionReferenceCount int
 }
 
 func (s *streamHandler) send(msg proto.Message) error {
@@ -249,30 +271,35 @@ func (s *streamHandler) send(msg proto.Message) error {
 
 func (s *streamHandler) handleIncoming() {
 	s.wg.Add(1)
+	streamHash := s.stream.Hash()
 	for {
 		msg := &ViewPacket{}
 		err := s.reader.ReadMsg(msg)
 		if err != nil {
-			if s.node.isStopping {
+			s.node.streamsMutex.RLock()
+			stopped := s.node.isStopping
+			s.node.streamsMutex.RUnlock()
+			if stopped {
 				if logger.IsEnabledFor(zapcore.DebugLevel) {
-					logger.Debugf("error reading message while closing. ignoring.", err.Error())
+					logger.Errorf("error [%s] reading message while closing, ignoring.", err)
 				}
 				break
 			}
 
-			logger.Debugf("error reading message: [%s][%s]", err.Error(), debug.Stack())
+			if logger.IsEnabledFor(zapcore.DebugLevel) {
+				logger.Debugf("error reading message [%s]: [%s][%s]", streamHash, err, debug.Stack())
+			}
 
 			// remove stream handler
-			streamHash := s.node.host.StreamHash(host2.StreamInfo{
-				RemotePeerID:      s.stream.RemotePeerID(),
-				RemotePeerAddress: s.stream.RemotePeerAddress(),
-				ContextID:         msg.ContextID,
-				SessionID:         msg.SessionID,
-			})
 			s.node.streamsMutex.Lock()
-			logger.Debugf("Removing stream [%s]. Total streams found: %d", streamHash, len(s.node.streams[streamHash]))
+			if logger.IsEnabledFor(zapcore.DebugLevel) {
+				logger.Debugf("removing stream [%s], total streams found: %d", streamHash, len(s.node.streams[streamHash]))
+			}
 			for i, thisSH := range s.node.streams[streamHash] {
 				if thisSH == s {
+					if logger.IsEnabledFor(zapcore.DebugLevel) {
+						logger.Debugf("stream [%s] found, remove it", streamHash)
+					}
 					s.node.streams[streamHash] = append(s.node.streams[streamHash][:i], s.node.streams[streamHash][i+1:]...)
 					s.wg.Done()
 					s.node.streamsMutex.Unlock()
@@ -281,11 +308,21 @@ func (s *streamHandler) handleIncoming() {
 			}
 			s.node.streamsMutex.Unlock()
 
-			// this should never happen!
-			panic("couldn't find stream handler to remove")
+			// check if the node is stopped
+			s.node.streamsMutex.RLock()
+			stopped = s.node.isStopping
+			s.node.streamsMutex.RUnlock()
+			if stopped {
+				// terminate
+				return
+			}
+
+			logger.Errorf("removing stream [%s], not found and node is not stopped", streamHash)
+			return
+			//panic("couldn't find stream handler to remove")
 		}
 		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("incoming message from [%s] on session [%s]", msg.Caller, msg.SessionID)
+			logger.Debugf("[%s] incoming message from [%s] on session [%s]", streamHash, msg.Caller, msg.SessionID)
 		}
 
 		s.node.incomingMessages <- &messageWithStream{

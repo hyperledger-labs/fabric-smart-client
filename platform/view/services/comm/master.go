@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package comm
 
 import (
+	"context"
 	"encoding/base64"
 	"strings"
 
@@ -90,12 +91,13 @@ func (p *P2PNode) DeleteSessions(sessionID string) {
 	p.sessionsMutex.Lock()
 	defer p.sessionsMutex.Unlock()
 
-	for key := range p.sessions {
+	for key, session := range p.sessions {
 		// if key starts with sessionID, delete it
 		if strings.HasPrefix(key, sessionID) {
 			if logger.IsEnabledFor(zapcore.DebugLevel) {
 				logger.Debugf("deleting session [%s]", key)
 			}
+			session.close(context.Background())
 			delete(p.sessions, key)
 		}
 	}

@@ -137,7 +137,7 @@ func newLibP2PHost(listenAddress host2.PeerIPAddress, priv crypto.PrivKey, metri
 }
 
 func (h *host) StreamHash(input host2.StreamInfo) host2.StreamHash {
-	return streamHash(input.RemotePeerID)
+	return streamHash(input)
 }
 
 func (h *host) Close() error {
@@ -153,7 +153,7 @@ func (h *host) NewStream(ctx context.Context, info host2.StreamInfo) (host2.P2PS
 		return nil, err
 	}
 
-	if len(info.RemotePeerAddress) != 0 && strings.HasPrefix(info.RemotePeerAddress, "/ip4/") {
+	if len(info.RemotePeerAddress) != 0 && !strings.HasPrefix(info.RemotePeerAddress, "/ip4/") {
 		// reprogram the addresses of the peer before opening a new stream, if it is not in the right form yet
 		ps := h.Host.Peerstore()
 		current := ps.Addrs(ID)
@@ -182,7 +182,7 @@ func (h *host) NewStream(ctx context.Context, info host2.StreamInfo) (host2.P2PS
 		return nil, errors.Wrapf(err, "failed to create new stream to [%s]", ID)
 	}
 
-	return &stream{Stream: nwStream}, nil
+	return &stream{Stream: nwStream, Info: info}, nil
 }
 
 func (h *host) startFinder() {
@@ -227,7 +227,12 @@ func (h *host) start(failAdv bool, newStreamCallback func(stream host2.P2PStream
 	}
 
 	h.Host.SetStreamHandler(viewProtocol, func(s network.Stream) {
-		newStreamCallback(&stream{Stream: s})
+		newStreamCallback(&stream{Stream: s, Info: host2.StreamInfo{
+			RemotePeerID:      s.Conn().RemotePeer().String(),
+			RemotePeerAddress: s.Conn().RemoteMultiaddr().String(),
+			ContextID:         "",
+			SessionID:         "",
+		}})
 	})
 
 	h.finderWg.Add(1)

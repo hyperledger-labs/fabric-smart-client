@@ -204,6 +204,7 @@ func (c *multiplexedServerConn) readIncoming(newStreamCallback func(pStream host
 		c.mu.RLock()
 		sc, ok := c.subConns[mm.ID]
 		c.mu.RUnlock()
+		logger.Debugf("subconn for [%s] exists [%v]", mm.ID, ok)
 		if ok {
 			sc.reads <- result{value: mm.Msg}
 		} else {
@@ -220,7 +221,7 @@ func (c *multiplexedServerConn) newServerSubConn(newStreamCallback func(pStream 
 	}
 	var meta StreamMeta
 	if err := json.Unmarshal(mm.Msg, &meta); err != nil {
-		logger.Errorf("failed to read meta info: %v", err)
+		logger.Errorf("failed to read meta info from [%s]: %v", string(mm.Msg), err)
 	}
 	logger.Debugf("Read meta info: [%s,%s]: %s", meta.ContextID, meta.SessionID, meta.SpanContext)
 	// Propagating the request context will not make a difference (see comment in newClientStream)
@@ -324,10 +325,15 @@ type subConn struct {
 	writeErrs chan error
 }
 
+func (c *subConn) ID() SubConnId {
+	return c.id
+}
+
 func (c *subConn) ReadMessage() (messageType int, p []byte, err error) {
 	r := <-c.reads
 	return websocket.TextMessage, r.value, r.err
 }
+
 func (c *subConn) WriteMessage(_ int, data []byte) error {
 	c.writes <- MultiplexedMessage{c.id, data}
 	return <-c.writeErrs
