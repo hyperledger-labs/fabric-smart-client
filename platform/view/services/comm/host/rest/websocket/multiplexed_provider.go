@@ -94,17 +94,22 @@ func (c *MultiplexedProvider) NewServerStream(writer http.ResponseWriter, reques
 
 type multiplexedClientConn struct {
 	*multiplexedBaseConn
-	mu sync.RWMutex
 }
 
 func newClientConn(conn *websocket.Conn, onClose func()) *multiplexedClientConn {
 	c := &multiplexedClientConn{multiplexedBaseConn: newBaseConn(conn)}
-	go c.readIncoming(onClose)
+	go func() {
+		c.readIncoming()
+		onClose()
+	}()
 	return c
 }
 
 func (c *multiplexedClientConn) newClientSubConn(ctx context.Context, src host2.PeerID, info host2.StreamInfo) (host2.P2PStream, error) {
+	c.mu.Lock()
 	sc := c.newSubConn(NewSubConnId())
+	c.subConns[sc.id] = sc
+	c.mu.Unlock()
 	logger.Infof("Created client subconn with id [%s]", sc.id)
 	spanContext := trace.SpanContextFromContext(ctx)
 	marshalledSpanContext, err := tracing.MarshalContext(spanContext)
@@ -131,22 +136,36 @@ func (c *multiplexedClientConn) newClientSubConn(ctx context.Context, src host2.
 	return NewWSStream(sc, ctx, info), nil
 }
 
-func (c *multiplexedClientConn) readIncoming(closeCallback func()) {
-	var mm MultiplexedMessage
-	var err error
-	for err = c.ReadJSON(&mm); err == nil; err = c.ReadJSON(&mm) {
+func (c *multiplexedClientConn) readIncoming() {
+	defer func() {
 		c.mu.RLock()
-		sc := c.subConns[mm.ID]
+		subConns := collections.Values(c.subConns)
 		c.mu.RUnlock()
-		sc.reads <- result{value: mm.Msg, err: err}
+		for _, sc := range subConns {
+			sc.reads <- streamEOF
+		}
+		err := c.Conn.Close()
+		logger.Infof("Client connection closed: %v", err)
+	}()
+	var mm MultiplexedMessage
+	for {
+		//c.writeMu.Lock()
+		err := c.ReadJSON(&mm)
+		//c.writeMu.Unlock()
+		if err != nil {
+			logger.Warnf("Client connection errored: %v", err)
+			return
+		}
+
+		c.mu.RLock()
+		sc, ok := c.subConns[mm.ID]
+		c.mu.RUnlock()
+		if ok {
+			sc.reads <- result{value: mm.Msg}
+		} else {
+			panic("subconn not found")
+		}
 	}
-	for _, sc := range c.subConns {
-		sc.reads <- streamEOF
-	}
-	logger.Warnf("Client connection errored: %v", err)
-	err = c.Conn.Close()
-	logger.Infof("Client connection closed: %v", err)
-	closeCallback()
 }
 
 type multiplexedServerConn struct {
@@ -162,23 +181,43 @@ func newServerConn(conn *websocket.Conn, newStreamCallback func(pStream host2.P2
 }
 
 func (c *multiplexedServerConn) readIncoming(newStreamCallback func(pStream host2.P2PStream)) {
+	defer func() {
+		c.mu.RLock()
+		subConns := collections.Values(c.subConns)
+		c.mu.RUnlock()
+		for _, sc := range subConns {
+			sc.reads <- streamEOF
+		}
+		err := c.Conn.Close()
+		logger.Infof("Connection closed: %v", err)
+	}()
 	var mm MultiplexedMessage
-	var err error
-	for err = c.ReadJSON(&mm); err == nil; err = c.ReadJSON(&mm) {
+	for {
+		//c.writeMu.Lock()
+		err := c.ReadJSON(&mm)
+		//c.writeMu.Unlock()
+		if err != nil {
+			logger.Warnf("Connection errored: %v", err)
+			return
+		}
+
 		c.mu.RLock()
 		sc, ok := c.subConns[mm.ID]
 		c.mu.RUnlock()
 		if ok {
-			sc.reads <- result{value: mm.Msg, err: err}
+			sc.reads <- result{value: mm.Msg}
 		} else {
 			c.newServerSubConn(newStreamCallback, mm)
 		}
 	}
-	c.Conn.Close()
-	logger.Infof("Server connection closed: %v", err)
 }
 
 func (c *multiplexedServerConn) newServerSubConn(newStreamCallback func(pStream host2.P2PStream), mm MultiplexedMessage) {
+	c.mu.Lock()
+	if _, ok := c.subConns[mm.ID]; ok {
+		c.mu.Unlock()
+		return
+	}
 	var meta StreamMeta
 	if err := json.Unmarshal(mm.Msg, &meta); err != nil {
 		logger.Errorf("failed to read meta info: %v", err)
@@ -190,6 +229,8 @@ func (c *multiplexedServerConn) newServerSubConn(newStreamCallback func(pStream 
 		logger.Errorf("failed to unmarshal span context: %v", err)
 	}
 	sc := c.newSubConn(mm.ID)
+	c.subConns[mm.ID] = sc
+	c.mu.Unlock()
 	logger.Debugf("Created server subconn with id [%s]", sc.id)
 
 	logger.Debugf("Received response with context: %v", spanContext)
@@ -227,17 +268,13 @@ func newBaseConn(conn *websocket.Conn) *multiplexedBaseConn {
 }
 
 func (c *multiplexedBaseConn) newSubConn(id SubConnId) *subConn {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	sc := &subConn{
+	return &subConn{
 		id:        id,
 		reads:     make(chan result),
 		writes:    c.writes,
 		closes:    c.closes,
 		writeErrs: make(chan error),
 	}
-	c.subConns[sc.id] = sc
-	return sc
 }
 
 func (c *multiplexedBaseConn) readCloses(ctx context.Context) {
@@ -245,16 +282,16 @@ func (c *multiplexedBaseConn) readCloses(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			logger.Infof("Stop waiting for closes")
+			c.mu.Lock()
 			c.subConns = make(map[SubConnId]*subConn)
+			c.mu.Unlock()
 			return
 		case id := <-c.closes:
 			logger.Infof("Closing sub conn [%v]", id)
 			c.mu.Lock()
 			delete(c.subConns, id)
-			if len(c.subConns) == 0 {
-				logger.Infof("No sub conns left")
-			}
 			c.mu.Unlock()
+			// TODO: Clean the connection if none left
 		}
 	}
 }
@@ -263,13 +300,16 @@ func (c *multiplexedBaseConn) readOutgoing(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			logger.Infof("Closing outgoing connections: [%v]", collections.Keys(c.subConns))
+			logger.Infof("Closing all outgoing connections")
 			return
 		case msg := <-c.writes:
 			c.writeMu.Lock()
 			err := c.WriteJSON(msg)
 			c.writeMu.Unlock()
-			c.subConns[msg.ID].writeErrs <- err
+			c.mu.RLock()
+			sc := c.subConns[msg.ID]
+			c.mu.RUnlock()
+			sc.writeErrs <- err
 		}
 	}
 }
