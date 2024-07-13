@@ -40,6 +40,8 @@ type ViewManager interface {
 	InitiateContext(view view.View) (view.Context, error)
 	InitiateContextWithIdentity(view view.View, id view.Identity) (view.Context, error)
 	Context(contextID string) (view.Context, error)
+	// DisposeContext releases all resources allocated by the context with the passed id, if that exists.s
+	DisposeContext(contextID string) error
 }
 
 type Registry interface {
@@ -263,6 +265,16 @@ func (n *node) InitiateContext(view view.View) (view.Context, error) {
 	manager := s.(ViewManager)
 
 	return manager.InitiateContext(view)
+}
+
+func (n *node) DisposeContext(contextID string) error {
+	s, err := n.GetService(reflect.TypeOf((*ViewManager)(nil)))
+	if err != nil {
+		return err
+	}
+	manager := s.(ViewManager)
+
+	return manager.DisposeContext(contextID)
 }
 
 func (n *node) InitiateContextWithIdentity(view view.View, id view.Identity) (view.Context, error) {
