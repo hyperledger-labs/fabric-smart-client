@@ -96,7 +96,7 @@ func (p *P2PNode) DeleteSessions(sessionID string) {
 			if logger.IsEnabledFor(zapcore.DebugLevel) {
 				logger.Debugf("deleting session [%s]", key)
 			}
-			session.Close()
+			session.close()
 			delete(p.sessions, key)
 		}
 	}

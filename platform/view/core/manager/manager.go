@@ -299,6 +299,15 @@ func (cm *manager) Context(contextID string) (view.Context, error) {
 	return context, nil
 }
 
+func (cm *manager) DisposeContext(contextID string) error {
+	_, err := cm.Context(contextID)
+	if err != nil {
+		return err
+	}
+	cm.deleteContext(nil, contextID)
+	return nil
+}
+
 func (cm *manager) ResolveIdentities(endpoints ...string) ([]view.Identity, error) {
 	var ids []view.Identity
 	for _, endpoint := range endpoints {

@@ -14,4 +14,6 @@ type ContextProvider interface {
 	InitiateContext(view view.View) (view.Context, error)
 	InitiateContextWithIdentity(view view.View, id view.Identity) (view.Context, error)
 	Context(contextID string) (view.Context, error)
+	// DisposeContext releases all resources allocated by the context with the passed id, if that exists.s
+	DisposeContext(contextID string) error
 }
