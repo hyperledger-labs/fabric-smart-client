@@ -9,7 +9,6 @@ package websocket
 import (
 	"context"
 	"crypto/tls"
-	"encoding/binary"
 	"encoding/json"
 	"math/rand"
 	"net/http"
@@ -63,18 +62,6 @@ func NewMultiplexedProvider(tracerProvider trace.TracerProvider, metricsProvider
 }
 
 func (c *MultiplexedProvider) NewClientStream(info host2.StreamInfo, ctx context.Context, src host2.PeerID, config *tls.Config) (s host2.P2PStream, err error) {
-	defer func() {
-		c.mu.RLock()
-		totalSubConns := 0
-		for _, clientConn := range c.clients {
-			clientConn.mu.RLock()
-			totalSubConns += len(clientConn.subConns)
-			clientConn.mu.RUnlock()
-		}
-		c.mu.RUnlock()
-		c.m.TotalSubConns.Set(float64(totalSubConns))
-		c.m.TotalSize.Set(float64(binary.Size(c)))
-	}()
 	newCtx, span := c.tracer.Start(ctx, "client_stream",
 		tracing.WithAttributes(tracing.String(contextIDLabel, info.ContextID)),
 		tracing.WithAttributes(tracing.String(subconnIDLabel, "")))
