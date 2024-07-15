@@ -9,6 +9,7 @@ package rest
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"net/http"
 
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
@@ -94,5 +95,5 @@ func (h *host) Close() error {
 func (h *host) Wait() {}
 
 func StreamHash(info host2.StreamInfo) host2.StreamHash {
-	return info.RemotePeerAddress
+	return fmt.Sprintf("[%s:%s:%s:%s]", info.RemotePeerID, info.RemotePeerAddress, info.SessionID, info.ContextID)
 }

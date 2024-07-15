@@ -109,6 +109,14 @@ func (n *NetworkStreamSession) close() {
 		close(n.incoming)
 	}()
 
+	info := host.StreamInfo{
+		RemotePeerID:      string(n.endpointID),
+		RemotePeerAddress: n.endpointAddress,
+		ContextID:         n.contextID,
+		SessionID:         n.sessionID,
+	}
+	n.node.closeStream(info)
+
 	n.closed = true
 
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
