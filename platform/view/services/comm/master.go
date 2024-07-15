@@ -61,6 +61,7 @@ func (p *P2PNode) getOrCreateSession(sessionID, endpointAddress, contextID, call
 	}
 
 	p.sessions[internalSessionID] = s
+	p.m.Sessions.Set(float64(len(p.sessions)))
 
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("session [%s] as internal session [%s] ready", sessionID, internalSessionID)
@@ -105,4 +106,5 @@ func (p *P2PNode) DeleteSessions(ctx context.Context, sessionID string) {
 			delete(p.sessions, key)
 		}
 	}
+	p.m.Sessions.Set(float64(len(p.sessions)))
 }

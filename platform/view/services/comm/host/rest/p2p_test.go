@@ -50,14 +50,14 @@ func setupTwoNodes(t *testing.T, port int) (*comm.HostNode, *comm.HostNode) {
 		"../libp2p/testdata/msp/user1/keystore/priv_sk",
 		"../libp2p/testdata/msp/user1/signcerts/User1@org1.example.com-cert.pem",
 		"")
-	bootstrapNode, err := comm.NewNode(bootstrap, noop.NewTracerProvider())
+	bootstrapNode, err := comm.NewNode(bootstrap, noop.NewTracerProvider(), &disabled.Provider{})
 	assert.NoError(t, err)
 
 	other, _ := provider.NewHost(otherAddress,
 		"../libp2p/testdata/msp/user2/keystore/priv_sk",
 		"../libp2p/testdata/msp/user2/signcerts/User2@org1.example.com-cert.pem",
 		"")
-	otherNode, err := comm.NewNode(other, noop.NewTracerProvider())
+	otherNode, err := comm.NewNode(other, noop.NewTracerProvider(), &disabled.Provider{})
 	assert.NoError(t, err)
 
 	return &comm.HostNode{P2PNode: bootstrapNode, ID: "bootstrap", Address: bootstrapAddress},

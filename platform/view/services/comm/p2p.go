@@ -19,6 +19,7 @@ import (
 	proto2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
@@ -53,9 +54,10 @@ type P2PNode struct {
 	isStopping       bool
 	messageTracer    trace.Tracer
 	closeTracer      trace.Tracer
+	m                *Metrics
 }
 
-func NewNode(h host2.P2PHost, tracerProvider trace.TracerProvider) (*P2PNode, error) {
+func NewNode(h host2.P2PHost, tracerProvider trace.TracerProvider, metricsProvider metrics.Provider) (*P2PNode, error) {
 	p := &P2PNode{
 		host:             h,
 		incomingMessages: make(chan *messageWithStream),
@@ -70,6 +72,7 @@ func NewNode(h host2.P2PHost, tracerProvider trace.TracerProvider) (*P2PNode, er
 			Namespace:  "viewsdk",
 			LabelNames: []tracing.LabelName{sessionIDLabel},
 		})),
+		m: newMetrics(metricsProvider),
 	}
 	if err := h.Start(p.handleIncomingStream); err != nil {
 		return nil, err

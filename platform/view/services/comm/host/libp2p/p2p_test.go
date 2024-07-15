@@ -72,7 +72,7 @@ func setupTwoNodes(t *testing.T, bootstrapNodeID, bootstrapNodeEndpoint, nodeID,
 	assert.NoError(t, err)
 	bootstrapHost, err := provider.NewBootstrapHost(bootstrapNodeEndpoint, bootstrapHostKey)
 	assert.NoError(t, err)
-	bootstrapNode, err := comm.NewNode(bootstrapHost, noop.NewTracerProvider())
+	bootstrapNode, err := comm.NewNode(bootstrapHost, noop.NewTracerProvider(), &disabled.Provider{})
 	assert.NoError(t, err)
 	assert.NotNil(t, bootstrapNode)
 
@@ -82,7 +82,7 @@ func setupTwoNodes(t *testing.T, bootstrapNodeID, bootstrapNodeEndpoint, nodeID,
 	assert.NoError(t, err)
 	anotherHost, err := provider.NewHost(nodeEndpoint, bootstrapNodeEndpoint+"/p2p/"+bootstrapNodeID, anotherHostKey)
 	assert.NoError(t, err)
-	anotherNode, err := comm.NewNode(anotherHost, noop.NewTracerProvider())
+	anotherNode, err := comm.NewNode(anotherHost, noop.NewTracerProvider(), &disabled.Provider{})
 	assert.NoError(t, err)
 	assert.NotNil(t, anotherNode)
 
