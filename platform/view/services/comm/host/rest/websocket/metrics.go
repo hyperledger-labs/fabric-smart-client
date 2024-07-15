@@ -21,6 +21,8 @@ type Metrics struct {
 	OpenedSubConns   metrics.Counter
 	ClosedSubConns   metrics.Counter
 	OpenedWebsockets metrics.Counter
+	TotalSize        metrics.Gauge
+	TotalSubConns    metrics.Gauge
 }
 
 func newMetrics(p metrics.Provider) *Metrics {
@@ -43,8 +45,19 @@ func newMetrics(p metrics.Provider) *Metrics {
 			Namespace:    "host",
 			Name:         "opened_websockets",
 			Help:         "The number of open websockets",
-			LabelNames:   []string{sideLabel},
-			StatsdFormat: "%{#fqname}.%{" + sideLabel + "}",
+			StatsdFormat: "%{#fqname}",
+		}),
+		TotalSize: p.NewGauge(metrics.GaugeOpts{
+			Namespace:    "host",
+			Name:         "total_size",
+			Help:         "The total size",
+			StatsdFormat: "%{#fqname}",
+		}),
+		TotalSubConns: p.NewGauge(metrics.GaugeOpts{
+			Namespace:    "host",
+			Name:         "total_subconns",
+			Help:         "The total number of subconns",
+			StatsdFormat: "%{#fqname}",
 		}),
 	}
 }
