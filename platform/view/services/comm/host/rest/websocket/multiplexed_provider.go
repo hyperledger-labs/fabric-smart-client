@@ -366,6 +366,7 @@ type subConn struct {
 	writes    chan<- MultiplexedMessage
 	closes    chan<- SubConnId
 	writeErrs chan error
+	once      sync.Once
 }
 
 func (c *subConn) ID() SubConnId {
@@ -383,6 +384,8 @@ func (c *subConn) WriteMessage(_ int, data []byte) error {
 }
 
 func (c *subConn) Close() error {
-	c.closes <- c.id
+	c.once.Do(func() {
+		c.closes <- c.id
+	})
 	return nil
 }
