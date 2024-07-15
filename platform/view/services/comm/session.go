@@ -115,7 +115,7 @@ func (n *NetworkStreamSession) close(ctx context.Context) {
 		ContextID:         n.contextID,
 		SessionID:         n.sessionID,
 	}
-	n.node.closeStream(ctx, info, toClose)
+	n.node.closeStream(info, toClose)
 
 	n.closed = true
 	n.streams = make(map[*streamHandler]struct{})

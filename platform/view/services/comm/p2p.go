@@ -19,6 +19,7 @@ import (
 	proto2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
@@ -53,9 +54,10 @@ type P2PNode struct {
 	isStopping       bool
 	messageTracer    trace.Tracer
 	closeTracer      trace.Tracer
+	m                *Metrics
 }
 
-func NewNode(h host2.P2PHost, tracerProvider trace.TracerProvider) (*P2PNode, error) {
+func NewNode(h host2.P2PHost, tracerProvider trace.TracerProvider, metricsProvider metrics.Provider) (*P2PNode, error) {
 	p := &P2PNode{
 		host:             h,
 		incomingMessages: make(chan *messageWithStream),
@@ -70,6 +72,7 @@ func NewNode(h host2.P2PHost, tracerProvider trace.TracerProvider) (*P2PNode, er
 			Namespace:  "viewsdk",
 			LabelNames: []tracing.LabelName{sessionIDLabel},
 		})),
+		m: newMetrics(metricsProvider),
 	}
 	if err := h.Start(p.handleIncomingStream); err != nil {
 		return nil, err
@@ -203,6 +206,7 @@ func (p *P2PNode) sendTo(ctx context.Context, info host2.StreamInfo, msg proto.M
 	}
 
 	nwStream, err := p.host.NewStream(ctx, info)
+	p.m.OpenedStreams.Add(1)
 	if err != nil {
 		return errors.Wrapf(err, "failed to create new stream to [%s]", info.RemotePeerID)
 	}
@@ -231,6 +235,8 @@ func (p *P2PNode) handleStream(stream host2.P2PStream) {
 	streamHash := stream.Hash()
 	p.streamsMutex.Lock()
 	p.streams[streamHash] = append(p.streams[streamHash], sh)
+	p.m.StreamHashes.Set(float64(len(p.streams)))
+	p.m.ActiveStreams.Add(1)
 	p.streamsMutex.Unlock()
 
 	go sh.handleIncoming()
@@ -246,6 +252,7 @@ func (p *P2PNode) closeStream(info host2.StreamInfo, toClose []*streamHandler) {
 
 	streamHash := p.host.StreamHash(info)
 	streams, ok := p.streams[streamHash]
+	streamsBefore := len(streams)
 	if !ok {
 		logger.Warnf("cannot find streams for hash [%s]", streamHash)
 	}
@@ -262,6 +269,8 @@ func (p *P2PNode) closeStream(info host2.StreamInfo, toClose []*streamHandler) {
 	if len(streams) == 0 {
 		delete(p.streams, streamHash)
 	}
+	p.m.StreamHashes.Set(float64(len(p.streams)))
+	p.m.ActiveStreams.Add(float64(len(streams) - streamsBefore))
 	logger.Debugf("streams for hash [%s] left with [%d] streams", streamHash, len(p.streams))
 }
 
@@ -321,6 +330,8 @@ func (s *streamHandler) handleIncoming() {
 						logger.Debugf("stream [%s] found, remove it", streamHash)
 					}
 					s.node.streams[streamHash] = append(s.node.streams[streamHash][:i], s.node.streams[streamHash][i+1:]...)
+					s.node.m.StreamHashes.Set(float64(len(s.node.streams)))
+					s.node.m.ActiveStreams.Add(-1)
 					s.wg.Done()
 					s.node.streamsMutex.Unlock()
 					span.End()
@@ -372,6 +383,7 @@ func (s *streamHandler) close(ctx context.Context) {
 	s.reader.Close()
 	s.writer.Close()
 	s.stream.Close()
+	s.node.m.ClosedStreams.Add(1)
 	// s.wg.Wait()
 }
 
