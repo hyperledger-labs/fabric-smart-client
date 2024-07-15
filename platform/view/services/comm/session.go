@@ -76,7 +76,12 @@ func (n *NetworkStreamSession) Close() {
 }
 
 func (n *NetworkStreamSession) close() {
-	defer logger.Debugf("Closing session [%s], fmor [%s]", n.sessionID)
+	if n.closed {
+		logger.Debugf("session [%s] already closed", n.sessionID)
+		return
+	}
+
+	defer logger.Debugf("closing session [%s], fmor [%s]", n.sessionID)
 	toClose := make([]*streamHandler, 0, len(n.streams))
 	for stream := range n.streams {
 		stream.refCtr--
@@ -86,19 +91,19 @@ func (n *NetworkStreamSession) close() {
 	}
 
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("Closing session [%d of %d] streams [%s], from [%s]", len(toClose), len(n.streams), n.sessionID, string(debug.Stack()))
+		logger.Debugf("closing session [%d of %d] streams [%s], from [%s]", len(toClose), len(n.streams), n.sessionID, string(debug.Stack()))
 	}
 	for _, stream := range toClose {
 		stream.close()
 	}
 
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("Closing session incoming [%s]", n.sessionID)
+		logger.Debugf("closing session incoming [%s]", n.sessionID)
 	}
 	func() {
 		defer func() {
 			if r := recover(); r != nil {
-				logger.Debugf("Closing incoming channel for session [%s] failed with error [%s]", n.sessionID, r)
+				logger.Debugf("closing incoming channel for session [%s] failed with error [%s]", n.sessionID, r)
 			}
 		}()
 		close(n.incoming)
@@ -107,7 +112,7 @@ func (n *NetworkStreamSession) close() {
 	n.closed = true
 
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("Closing session [%s] done", n.sessionID)
+		logger.Debugf("closing session [%s] done", n.sessionID)
 	}
 }
 
