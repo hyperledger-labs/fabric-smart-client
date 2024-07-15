@@ -85,13 +85,11 @@ func (p *P2PNode) Stop() {
 	p.streamsMutex.Unlock()
 
 	p.host.Close()
-
 	for _, streams := range p.streams {
 		for _, stream := range streams {
 			stream.close()
 		}
 	}
-
 	close(p.incomingMessages)
 	p.finderWg.Wait()
 }
@@ -283,9 +281,12 @@ func (s *streamHandler) handleIncoming() {
 		err := s.reader.ReadMsg(msg)
 		ctx, span := s.node.tracer.Start(s.stream.Context(), "message_receive", tracing.WithAttributes(tracing.String(contextIDLabel, msg.ContextID)))
 		if err != nil {
-			if s.node.isStopping {
+			s.node.streamsMutex.RLock()
+			stopped := s.node.isStopping
+			s.node.streamsMutex.RUnlock()
+			if stopped {
 				if logger.IsEnabledFor(zapcore.DebugLevel) {
-					logger.Debugf("error reading message while closing. ignoring.", err.Error())
+					logger.Errorf("error [%s] reading message while closing, ignoring.", err)
 				}
 				span.End()
 				break
@@ -301,9 +302,10 @@ func (s *streamHandler) handleIncoming() {
 				SessionID:         msg.SessionID,
 			})
 			s.node.streamsMutex.Lock()
-			logger.Debugf("Removing stream [%s]. Total streams found: %d", streamHash, len(s.node.streams[streamHash]))
+			logger.Debugf("removing stream [%s], total streams found: %d", streamHash, len(s.node.streams[streamHash]))
 			for i, thisSH := range s.node.streams[streamHash] {
 				if thisSH == s {
+					logger.Debugf("stream [%s] found, remove it", streamHash)
 					s.node.streams[streamHash] = append(s.node.streams[streamHash][:i], s.node.streams[streamHash][i+1:]...)
 					s.wg.Done()
 					s.node.streamsMutex.Unlock()
@@ -313,9 +315,20 @@ func (s *streamHandler) handleIncoming() {
 			}
 			s.node.streamsMutex.Unlock()
 
+			// check if the node is stopped
+			s.node.streamsMutex.RLock()
+			stopped = s.node.isStopping
+			s.node.streamsMutex.RUnlock()
+			if stopped {
+				// terminate
+				span.End()
+				return
+			}
+
+			logger.Errorf("removing stream [%s], not found and node is not stopped", streamHash)
 			span.End()
-			// this should never happen!
-			panic("couldn't find stream handler to remove")
+			return
+			//panic("couldn't find stream handler to remove")
 		}
 		if logger.IsEnabledFor(zapcore.DebugLevel) {
 			logger.Debugf("incoming message from [%s] on session [%s]", msg.Caller, msg.SessionID)
