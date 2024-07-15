@@ -324,11 +324,11 @@ func (ctx *ctx) Dispose() {
 	defer ctx.sessionsLock.Unlock()
 
 	if ctx.session != nil {
-		ctx.sessionFactory.DeleteSessions(ctx.session.Info().ID)
+		ctx.sessionFactory.DeleteSessions(ctx.Context(), ctx.session.Info().ID)
 	}
 
 	for _, s := range ctx.sessions {
-		ctx.sessionFactory.DeleteSessions(s.Info().ID)
+		ctx.sessionFactory.DeleteSessions(ctx.Context(), s.Info().ID)
 	}
 	ctx.sessions = map[string]view.Session{}
 }

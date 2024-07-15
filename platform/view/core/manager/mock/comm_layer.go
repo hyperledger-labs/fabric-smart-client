@@ -2,6 +2,7 @@
 package mock
 
 import (
+	"context"
 	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/manager"
@@ -226,7 +227,7 @@ func (fake *CommLayer) MasterSessionReturnsOnCall(i int, result1 view.Session, r
 	}{result1, result2}
 }
 
-func (fake *CommLayer) DeleteSessions(sessionID string) {
+func (fake *CommLayer) DeleteSessions(ctx context.Context, sessionID string) {
 	fake.deleteSessionsMutex.Lock()
 	fake.deleteSessionsArgsForCall = append(fake.deleteSessionsArgsForCall, struct {
 		sessionID string

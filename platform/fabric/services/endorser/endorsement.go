@@ -83,7 +83,7 @@ func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error
 
 		// Send transaction
 		span.AddEvent("send_tx")
-		err = session.Send(txRaw)
+		err = session.SendWithContext(context.Context(), txRaw)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed sending transaction content")
 		}
@@ -226,7 +226,7 @@ func (s *endorseView) Call(context view.Context) (interface{}, error) {
 		return nil, err
 	}
 
-	err = context.Session().Send(raw)
+	err = context.Session().SendWithContext(context.Context(), raw)
 	if err != nil {
 		return nil, err
 	}
