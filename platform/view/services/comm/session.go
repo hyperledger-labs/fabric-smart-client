@@ -8,6 +8,7 @@ package comm
 
 import (
 	"context"
+	"runtime/debug"
 	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
@@ -75,7 +76,7 @@ func (n *NetworkStreamSession) Close() {
 }
 
 func (n *NetworkStreamSession) close() {
-	defer logger.Debugf("Closing session [%s]", n.sessionID)
+	defer logger.Debugf("Closing session [%s], fmor [%s]", n.sessionID)
 	toClose := make([]*streamHandler, 0, len(n.streams))
 	for stream := range n.streams {
 		stream.refCtr--
@@ -85,7 +86,7 @@ func (n *NetworkStreamSession) close() {
 	}
 
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("Closing session [%d of %d] streams [%s]", len(toClose), len(n.streams), n.sessionID)
+		logger.Debugf("Closing session [%d of %d] streams [%s], from [%s]", len(toClose), len(n.streams), n.sessionID, string(debug.Stack()))
 	}
 	for _, stream := range toClose {
 		stream.close()
