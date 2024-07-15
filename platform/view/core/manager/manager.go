@@ -14,6 +14,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
@@ -54,9 +55,10 @@ type manager struct {
 	factories  map[string]driver.Factory
 
 	viewTracer trace.Tracer
+	m          *Metrics
 }
 
-func New(serviceProvider driver.ServiceProvider, commLayer CommLayer, endpointService driver.EndpointService, identityProvider driver.IdentityProvider, provider trace.TracerProvider) *manager {
+func New(serviceProvider driver.ServiceProvider, commLayer CommLayer, endpointService driver.EndpointService, identityProvider driver.IdentityProvider, provider trace.TracerProvider, metricsProvider metrics.Provider) *manager {
 	return &manager{
 		sp:               serviceProvider,
 		commLayer:        commLayer,
@@ -72,6 +74,7 @@ func New(serviceProvider driver.ServiceProvider, commLayer CommLayer, endpointSe
 			Namespace:  "fsc",
 			LabelNames: []string{SuccessLabel, ViewLabel, InitiatorViewLabel},
 		})),
+		m: newMetrics(metricsProvider),
 	}
 }
 
@@ -210,6 +213,7 @@ func (cm *manager) InitiateViewWithIdentity(view view.View, id view.Identity, c 
 	childContext := &childContext{ParentContext: viewContext}
 	cm.contextsSync.Lock()
 	cm.contexts[childContext.ID()] = childContext
+	cm.m.Contexts.Set(float64(len(cm.contexts)))
 	cm.contextsSync.Unlock()
 	defer cm.deleteContext(id, childContext.ID())
 
@@ -258,6 +262,7 @@ func (cm *manager) InitiateContextWithIdentityAndID(view view.View, id view.Iden
 	childContext := &childContext{ParentContext: viewContext}
 	cm.contextsSync.Lock()
 	cm.contexts[childContext.ID()] = childContext
+	cm.m.Contexts.Set(float64(len(cm.contexts)))
 	cm.contextsSync.Unlock()
 
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
@@ -421,6 +426,7 @@ func (cm *manager) newContext(id view.Identity, msg *view.Message) (view.Context
 		}
 		viewContext.Dispose()
 		delete(cm.contexts, contextID)
+		cm.m.Contexts.Set(float64(len(cm.contexts)))
 		ok = false
 	}
 	if !ok {
@@ -441,6 +447,7 @@ func (cm *manager) newContext(id view.Identity, msg *view.Message) (view.Context
 		}
 		childContext := &childContext{ParentContext: newCtx}
 		cm.contexts[contextID] = childContext
+		cm.m.Contexts.Set(float64(len(cm.contexts)))
 		viewContext = childContext
 		isNew = true
 	} else {
@@ -463,6 +470,7 @@ func (cm *manager) deleteContext(id view.Identity, contextID string) {
 	if context, ok := cm.contexts[contextID]; ok {
 		context.Dispose()
 		delete(cm.contexts, contextID)
+		cm.m.Contexts.Set(float64(len(cm.contexts)))
 	}
 }
 
