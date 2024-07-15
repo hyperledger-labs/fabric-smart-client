@@ -22,7 +22,7 @@ import (
 )
 
 func newMockStream(conn *mockConn) host.P2PStream {
-	return websocket.NewWSStream(conn, context.Background(), host.StreamInfo{})
+	return websocket.NewWSStream(&websocket.IdentifiableConn{LowLevelConnection: conn}, context.Background(), host.StreamInfo{})
 }
 
 type mockConn struct {
