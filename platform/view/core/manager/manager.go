@@ -356,16 +356,24 @@ func (cm *manager) respond(responder view.View, id view.Identity, msg *view.Mess
 		}
 	}()
 
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("[%s] Respond [from:%s], [sessionID:%s], [contextID:%s], [view:%s]", id, msg.FromEndpoint, msg.SessionID, msg.ContextID, getIdentifier(responder))
-	}
-
 	// get context
 	var isNew bool
 	ctx, isNew, err = cm.newContext(id, msg)
 	if err != nil {
 		return nil, nil, errors.WithMessagef(err, "failed getting context for [%s,%s,%v]", msg.ContextID, id, msg)
 	}
+
+	//if logger.IsEnabledFor(zapcore.DebugLevel) {
+	logger.Infof(
+		"[%s](%v) Respond [from:%s], [sessionID:%s], [contextID:%s], [view:%s]",
+		id,
+		isNew,
+		msg.FromEndpoint,
+		msg.SessionID,
+		msg.ContextID,
+		getIdentifier(responder),
+	)
+	//}
 
 	// todo: if a new contxt has been created to run the responder,
 	// then dispose the context when the responder terminates
@@ -403,7 +411,7 @@ func (cm *manager) newContext(id view.Identity, msg *view.Message) (view.Context
 	viewContext, ok := cm.contexts[contextID]
 	if ok && viewContext.Session() != nil && viewContext.Session().Info().ID != msg.SessionID {
 		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf(
+			logger.Warnf(
 				"[%s] Found context with different session id, recreate [contextID:%s, sessionIds:%s,%s]\n",
 				id,
 				msg.ContextID,
@@ -411,6 +419,7 @@ func (cm *manager) newContext(id view.Identity, msg *view.Message) (view.Context
 				viewContext.Session().Info().ID,
 			)
 		}
+		viewContext.Dispose()
 		delete(cm.contexts, contextID)
 		ok = false
 	}
