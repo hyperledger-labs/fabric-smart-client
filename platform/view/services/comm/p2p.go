@@ -279,7 +279,6 @@ func (s *streamHandler) send(msg proto.Message) error {
 
 func (s *streamHandler) handleIncoming() {
 	s.wg.Add(1)
-	streamHash := s.stream.Hash()
 	for {
 		msg := &ViewPacket{}
 		err := s.reader.ReadMsg(msg)
@@ -294,6 +293,7 @@ func (s *streamHandler) handleIncoming() {
 				break
 			}
 
+			streamHash := s.stream.Hash()
 			if logger.IsEnabledFor(zapcore.DebugLevel) {
 				logger.Debugf("error reading message [%s]: [%s][%s]", streamHash, err, debug.Stack())
 			}
@@ -329,8 +329,9 @@ func (s *streamHandler) handleIncoming() {
 			return
 			//panic("couldn't find stream handler to remove")
 		}
+
 		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("[%s] incoming message from [%s] on session [%s]", streamHash, msg.Caller, msg.SessionID)
+			logger.Debugf("[%s] incoming message from [%s] on session [%s]", s.stream.Hash(), msg.Caller, msg.SessionID)
 		}
 
 		s.node.incomingMessages <- &messageWithStream{
