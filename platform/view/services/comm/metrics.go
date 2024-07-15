@@ -9,9 +9,11 @@ package comm
 import "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 
 type Metrics struct {
-	Sessions     metrics.Gauge
-	StreamHashes metrics.Gauge
-	Streams      metrics.Gauge
+	Sessions      metrics.Gauge
+	StreamHashes  metrics.Gauge
+	ActiveStreams metrics.Gauge
+	OpenedStreams metrics.Counter
+	ClosedStreams metrics.Counter
 }
 
 func newMetrics(p metrics.Provider) *Metrics {
@@ -28,10 +30,22 @@ func newMetrics(p metrics.Provider) *Metrics {
 			Help:         "The number of hashes in the stream",
 			StatsdFormat: "%{#fqname}",
 		}),
-		Streams: p.NewGauge(metrics.GaugeOpts{
+		ActiveStreams: p.NewGauge(metrics.GaugeOpts{
 			Namespace:    "host",
-			Name:         "streams",
+			Name:         "active_streams",
 			Help:         "The number of streams on the client side",
+			StatsdFormat: "%{#fqname}",
+		}),
+		OpenedStreams: p.NewCounter(metrics.CounterOpts{
+			Namespace:    "host",
+			Name:         "opened_streams",
+			Help:         "The number of streams opened on the client side",
+			StatsdFormat: "%{#fqname}",
+		}),
+		ClosedStreams: p.NewCounter(metrics.CounterOpts{
+			Namespace:    "host",
+			Name:         "closed_streams",
+			Help:         "The number of streams closed on the client side",
 			StatsdFormat: "%{#fqname}",
 		}),
 	}
