@@ -72,10 +72,10 @@ func (n *NetworkStreamSession) Receive() <-chan *view.Message {
 func (n *NetworkStreamSession) Close() {
 	n.node.sessionsMutex.Lock()
 	defer n.node.sessionsMutex.Unlock()
-	n.close()
+	n.close(context.Background())
 }
 
-func (n *NetworkStreamSession) close() {
+func (n *NetworkStreamSession) close(ctx context.Context) {
 	if n.closed {
 		logger.Debugf("session [%s] already closed", n.sessionID)
 		return
@@ -94,7 +94,7 @@ func (n *NetworkStreamSession) close() {
 		logger.Debugf("closing session [%d of %d] streams [%s], from [%s]", len(toClose), len(n.streams), n.sessionID, string(debug.Stack()))
 	}
 	for _, stream := range toClose {
-		stream.close()
+		stream.close(ctx)
 	}
 
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
@@ -115,7 +115,7 @@ func (n *NetworkStreamSession) close() {
 		ContextID:         n.contextID,
 		SessionID:         n.sessionID,
 	}
-	n.node.closeStream(info)
+	n.node.closeStream(ctx, info)
 
 	n.closed = true
 

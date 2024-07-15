@@ -29,6 +29,7 @@ import (
 const (
 	masterSession                    = "master of puppets I'm pulling your strings"
 	contextIDLabel tracing.LabelName = "context_id"
+	sessionIDLabel tracing.LabelName = "session_id"
 )
 
 var errStreamNotFound = errors.New("stream not found")
@@ -50,7 +51,8 @@ type P2PNode struct {
 	sessions         map[string]*NetworkStreamSession
 	finderWg         sync.WaitGroup
 	isStopping       bool
-	tracer           trace.Tracer
+	messageTracer    trace.Tracer
+	closeTracer      trace.Tracer
 }
 
 func NewNode(h host2.P2PHost, tracerProvider trace.TracerProvider) (*P2PNode, error) {
@@ -60,9 +62,13 @@ func NewNode(h host2.P2PHost, tracerProvider trace.TracerProvider) (*P2PNode, er
 		streams:          make(map[host2.StreamHash][]*streamHandler),
 		sessions:         make(map[string]*NetworkStreamSession),
 		isStopping:       false,
-		tracer: tracerProvider.Tracer("comm_node", tracing.WithMetricsOpts(tracing.MetricsOpts{
+		messageTracer: tracerProvider.Tracer("comm_node_msg", tracing.WithMetricsOpts(tracing.MetricsOpts{
 			Namespace:  "viewsdk",
 			LabelNames: []tracing.LabelName{contextIDLabel},
+		})),
+		closeTracer: tracerProvider.Tracer("comm_node_close", tracing.WithMetricsOpts(tracing.MetricsOpts{
+			Namespace:  "viewsdk",
+			LabelNames: []tracing.LabelName{sessionIDLabel},
 		})),
 	}
 	if err := h.Start(p.handleIncomingStream); err != nil {
@@ -87,7 +93,7 @@ func (p *P2PNode) Stop() {
 	p.host.Close()
 	for _, streams := range p.streams {
 		for _, stream := range streams {
-			stream.close()
+			stream.close(context.Background())
 		}
 	}
 	close(p.incomingMessages)
@@ -98,7 +104,7 @@ func (p *P2PNode) dispatchMessages(ctx context.Context) {
 	for {
 		select {
 		case msg, ok := <-p.incomingMessages:
-			newCtx, span := p.tracer.Start(msg.message.Ctx, "message_dispatch", tracing.WithAttributes(
+			newCtx, span := p.messageTracer.Start(msg.message.Ctx, "message_dispatch", tracing.WithAttributes(
 				tracing.String(contextIDLabel, msg.message.ContextID)))
 			msg.message.Ctx = newCtx
 			if !ok {
@@ -237,7 +243,7 @@ func (p *P2PNode) Lookup(peerID string) ([]string, bool) {
 	return p.host.Lookup(peerID)
 }
 
-func (p *P2PNode) closeStream(info host2.StreamInfo) {
+func (p *P2PNode) closeStream(ctx context.Context, info host2.StreamInfo) {
 	p.streamsMutex.Lock()
 	defer p.streamsMutex.Unlock()
 
@@ -248,7 +254,7 @@ func (p *P2PNode) closeStream(info host2.StreamInfo) {
 	}
 	logger.Debugf("found [%d] streams for hash [%s]", len(streams), streamHash)
 	for _, stream := range streams {
-		stream.close()
+		stream.close(ctx)
 	}
 }
 
@@ -263,7 +269,7 @@ type streamHandler struct {
 }
 
 func (s *streamHandler) send(msg proto.Message) error {
-	_, span := s.node.tracer.Start(s.stream.Context(), "message_send", tracing.WithAttributes(tracing.String(contextIDLabel, s.stream.ContextID())))
+	_, span := s.node.messageTracer.Start(s.stream.Context(), "message_send", tracing.WithAttributes(tracing.String(contextIDLabel, s.stream.ContextID())))
 	defer span.End()
 	s.lock.Lock()
 	defer s.lock.Unlock()
@@ -280,7 +286,7 @@ func (s *streamHandler) handleIncoming() {
 	for {
 		msg := &ViewPacket{}
 		err := s.reader.ReadMsg(msg)
-		ctx, span := s.node.tracer.Start(s.stream.Context(), "message_receive", tracing.WithAttributes(tracing.String(contextIDLabel, msg.ContextID)))
+		ctx, span := s.node.messageTracer.Start(s.stream.Context(), "message_receive", tracing.WithAttributes(tracing.String(contextIDLabel, msg.ContextID)))
 		if err != nil {
 			s.node.streamsMutex.RLock()
 			stopped := s.node.isStopping
@@ -352,8 +358,9 @@ func (s *streamHandler) handleIncoming() {
 	}
 }
 
-func (s *streamHandler) close() {
-	_, span := s.node.tracer.Start(s.stream.Context(), "stream_close", tracing.WithAttributes(tracing.String(contextIDLabel, s.stream.ContextID())))
+func (s *streamHandler) close(ctx context.Context) {
+	_, span := s.node.messageTracer.Start(ctx, "stream_close", tracing.WithAttributes(tracing.String(contextIDLabel, s.stream.ContextID())))
+	span.AddLink(trace.LinkFromContext(s.stream.Context()))
 	defer span.End()
 	s.reader.Close()
 	s.writer.Close()

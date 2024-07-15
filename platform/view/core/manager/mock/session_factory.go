@@ -2,6 +2,7 @@
 package mock
 
 import (
+	"context"
 	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/manager"
@@ -172,7 +173,7 @@ func (fake *SessionFactory) NewSessionReturnsOnCall(i int, result1 view.Session,
 	}{result1, result2}
 }
 
-func (fake *SessionFactory) DeleteSessions(sessionID string) {
+func (fake *SessionFactory) DeleteSessions(ctx context.Context, sessionID string) {
 	fake.deleteSessionsMutex.Lock()
 	fake.deleteSessionsArgsForCall = append(fake.deleteSessionsArgsForCall, struct {
 		sessionID string

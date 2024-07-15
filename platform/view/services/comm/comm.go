@@ -96,12 +96,12 @@ func (s *Service) MasterSession() (view2.Session, error) {
 	return s.Node.MasterSession()
 }
 
-func (s *Service) DeleteSessions(sessionID string) {
+func (s *Service) DeleteSessions(ctx context.Context, sessionID string) {
 	if err := s.init(); err != nil {
 		logger.Warnf("communication service not ready [%s], cannot delete any session", err)
 		return
 	}
-	s.Node.DeleteSessions(sessionID)
+	s.Node.DeleteSessions(ctx, sessionID)
 }
 
 func (s *Service) Addresses(id view2.Identity) ([]string, error) {
