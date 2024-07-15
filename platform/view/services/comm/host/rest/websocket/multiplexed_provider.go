@@ -20,6 +20,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	web2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/web"
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/web"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/pkg/errors"
@@ -45,20 +46,23 @@ type MultiplexedMessage struct {
 type MultiplexedProvider struct {
 	clients map[string]*multiplexedClientConn
 	tracer  trace.Tracer
+	m       *Metrics
 	mu      sync.RWMutex
 }
 
-func NewMultiplexedProvider(tracerProvider trace.TracerProvider) *MultiplexedProvider {
+func NewMultiplexedProvider(tracerProvider trace.TracerProvider, metricsProvider metrics.Provider) *MultiplexedProvider {
 	return &MultiplexedProvider{
 		clients: make(map[string]*multiplexedClientConn),
 		tracer: tracerProvider.Tracer("multiplexed-ws", tracing.WithMetricsOpts(tracing.MetricsOpts{
 			Namespace:  "core",
 			LabelNames: []tracing.LabelName{contextIDLabel, subconnIDLabel},
 		})),
+		m: newMetrics(metricsProvider),
 	}
 }
 
 func (c *MultiplexedProvider) NewClientStream(info host2.StreamInfo, ctx context.Context, src host2.PeerID, config *tls.Config) (s host2.P2PStream, err error) {
+	defer c.m.ClientWebsockets.Add(1)
 	newCtx, span := c.tracer.Start(ctx, "client_stream",
 		tracing.WithAttributes(tracing.String(contextIDLabel, info.ContextID)),
 		tracing.WithAttributes(tracing.String(subconnIDLabel, "")))
@@ -93,7 +97,7 @@ func (c *MultiplexedProvider) NewClientStream(info host2.StreamInfo, ctx context
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to open websocket")
 	}
-	conn = newClientConn(wsConn, c.tracer, func() {
+	conn = newClientConn(wsConn, c.tracer, c.m, func() {
 		logger.Infof("Closing websocket client for [%s@%s]...", src, info.RemotePeerAddress)
 		c.mu.Lock()
 		defer c.mu.Unlock()
@@ -109,7 +113,7 @@ func (c *MultiplexedProvider) NewServerStream(writer http.ResponseWriter, reques
 	if err != nil {
 		return errors.Wrapf(err, "failed to open websocket")
 	}
-	newServerConn(conn, c.tracer, newStreamCallback)
+	newServerConn(conn, c.tracer, c.m, newStreamCallback)
 	return nil
 }
 
@@ -119,8 +123,8 @@ type multiplexedClientConn struct {
 	*multiplexedBaseConn
 }
 
-func newClientConn(conn *websocket.Conn, tracer trace.Tracer, onClose func()) *multiplexedClientConn {
-	c := &multiplexedClientConn{multiplexedBaseConn: newBaseConn(conn, tracer)}
+func newClientConn(conn *websocket.Conn, tracer trace.Tracer, m *Metrics, onClose func()) *multiplexedClientConn {
+	c := &multiplexedClientConn{multiplexedBaseConn: newBaseConn(conn, tracer, m.ClientWebsockets)}
 	go func() {
 		c.readIncoming()
 		onClose()
@@ -197,8 +201,8 @@ type multiplexedServerConn struct {
 
 // Server
 
-func newServerConn(conn *websocket.Conn, tracer trace.Tracer, newStreamCallback func(pStream host2.P2PStream)) *multiplexedServerConn {
-	c := &multiplexedServerConn{newBaseConn(conn, tracer)}
+func newServerConn(conn *websocket.Conn, tracer trace.Tracer, m *Metrics, newStreamCallback func(pStream host2.P2PStream)) *multiplexedServerConn {
+	c := &multiplexedServerConn{newBaseConn(conn, tracer, m.ServerWebsockets)}
 	go c.readIncoming(newStreamCallback)
 	return c
 }
@@ -280,17 +284,20 @@ type multiplexedBaseConn struct {
 	mu       sync.RWMutex
 	writeMu  sync.Mutex
 	cancel   context.CancelFunc
+
+	streamGauge metrics.Gauge
 }
 
-func newBaseConn(conn *websocket.Conn, tracer trace.Tracer) *multiplexedBaseConn {
+func newBaseConn(conn *websocket.Conn, tracer trace.Tracer, streamGauge metrics.Gauge) *multiplexedBaseConn {
 	ctx, cancel := context.WithCancel(context.Background())
 	c := &multiplexedBaseConn{
-		Conn:     conn,
-		tracer:   tracer,
-		subConns: make(map[SubConnId]*subConn),
-		closes:   make(chan SubConnId, 1000),
-		writes:   make(chan MultiplexedMessage, 1000),
-		cancel:   cancel,
+		Conn:        conn,
+		tracer:      tracer,
+		subConns:    make(map[SubConnId]*subConn),
+		closes:      make(chan SubConnId, 1000),
+		writes:      make(chan MultiplexedMessage, 1000),
+		cancel:      cancel,
+		streamGauge: streamGauge,
 	}
 	go c.readOutgoing(ctx)
 	go c.readCloses(ctx)
@@ -298,6 +305,7 @@ func newBaseConn(conn *websocket.Conn, tracer trace.Tracer) *multiplexedBaseConn
 }
 
 func (c *multiplexedBaseConn) newSubConn(id SubConnId) *subConn {
+	c.streamGauge.Add(1)
 	return &subConn{
 		id:        id,
 		reads:     make(chan result),
@@ -313,6 +321,7 @@ func (c *multiplexedBaseConn) readCloses(ctx context.Context) {
 		case <-ctx.Done():
 			logger.Infof("Stop waiting for closes")
 			c.mu.Lock()
+			c.streamGauge.Add(-float64(len(c.subConns)))
 			c.subConns = make(map[SubConnId]*subConn)
 			c.mu.Unlock()
 			return
@@ -321,6 +330,7 @@ func (c *multiplexedBaseConn) readCloses(ctx context.Context) {
 			c.mu.Lock()
 			delete(c.subConns, id)
 			c.mu.Unlock()
+			c.streamGauge.Add(-1)
 			// TODO: Clean the connection if none left
 		}
 	}

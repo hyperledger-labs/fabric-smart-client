@@ -28,7 +28,7 @@ func NewHostProvider(config driver.ConfigService, endpointService *endpoint.Serv
 	}
 
 	if p2pCommType := config.GetString("fsc.p2p.type"); strings.EqualFold(p2pCommType, fsc.WebSocket) {
-		return newWebSocketHostProvider(config, endpointService, tracerProvider)
+		return newWebSocketHostProvider(config, endpointService, tracerProvider, metricsProvider)
 	} else {
 		return newLibP2PHostProvider(endpointService, metricsProvider), nil
 	}
@@ -39,7 +39,7 @@ func newLibP2PHostProvider(endpointService *endpoint.Service, metricsProvider me
 	return libp2p.NewHostGeneratorProvider(metricsProvider)
 }
 
-func newWebSocketHostProvider(config driver.ConfigService, endpointService *endpoint.Service, tracerProvider trace.TracerProvider) (host.GeneratorProvider, error) {
+func newWebSocketHostProvider(config driver.ConfigService, endpointService *endpoint.Service, tracerProvider trace.TracerProvider, metricsProvider metrics.Provider) (host.GeneratorProvider, error) {
 	routingConfigPath := config.GetPath("fsc.p2p.opts.routing.path")
 	r, err := routing.NewResolvedStaticIDRouter(routingConfigPath, endpointService)
 	if err != nil {
@@ -47,5 +47,5 @@ func newWebSocketHostProvider(config driver.ConfigService, endpointService *endp
 	}
 	discovery := routing.NewServiceDiscovery(r, routing.Random[host.PeerIPAddress]())
 	endpointService.SetPublicKeyIDSynthesizer(&rest.PKIDSynthesizer{})
-	return rest.NewEndpointBasedProvider(endpointService, discovery, tracerProvider, websocket.NewMultiplexedProvider(tracerProvider)), nil
+	return rest.NewEndpointBasedProvider(endpointService, discovery, tracerProvider, websocket.NewMultiplexedProvider(tracerProvider, metricsProvider)), nil
 }
