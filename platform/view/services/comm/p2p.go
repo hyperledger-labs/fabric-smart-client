@@ -251,6 +251,7 @@ func (p *P2PNode) closeStream(info host2.StreamInfo, toClose []*streamHandler) {
 
 	streamHash := p.host.StreamHash(info)
 	streams, ok := p.streams[streamHash]
+	streamsBefore := len(streams)
 	if !ok {
 		logger.Warnf("cannot find streams for hash [%s]", streamHash)
 	}
@@ -268,7 +269,7 @@ func (p *P2PNode) closeStream(info host2.StreamInfo, toClose []*streamHandler) {
 		delete(p.streams, streamHash)
 	}
 	p.m.StreamHashes.Set(float64(len(p.streams)))
-	p.m.Streams.Add(-float64(len(streams)))
+	p.m.Streams.Add(float64(len(streams) - streamsBefore))
 	logger.Debugf("streams for hash [%s] left with [%d] streams", streamHash, len(p.streams))
 }
 
