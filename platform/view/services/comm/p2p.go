@@ -268,8 +268,8 @@ func (s *streamHandler) send(msg proto.Message) error {
 }
 
 func (s *streamHandler) isStopping() bool {
-	s.node.streamsMutex.Lock()
-	defer s.node.streamsMutex.Unlock()
+	s.node.streamsMutex.RLock()
+	defer s.node.streamsMutex.RUnlock()
 	return s.node.isStopping
 }
 

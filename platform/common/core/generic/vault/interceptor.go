@@ -195,7 +195,7 @@ func (i *Interceptor[V]) SetState(namespace string, key string, value []byte) er
 }
 
 func (i *Interceptor[V]) SetStateMetadata(namespace string, key string, value map[string][]byte) error {
-	if i.Closed {
+	if i.IsClosed() {
 		return errors.New("this instance was closed")
 	}
 
@@ -347,9 +347,11 @@ func (i *Interceptor[V]) Equals(other interface{}, nss ...string) error {
 }
 
 func (i *Interceptor[V]) Done() {
-	i.Logger.Debugf("Done with [%s], closed [%v]", i.TxID, i.Closed)
+	i.Logger.Debugf("Done with [%s], closed [%v]", i.TxID, i.IsClosed())
 	if !i.IsClosed() {
+		i.Mutex.Lock()
 		i.Closed = true
+		i.Mutex.Unlock()
 		if i.QE != nil {
 			i.QE.Done()
 		}
@@ -357,19 +359,20 @@ func (i *Interceptor[V]) Done() {
 }
 
 func (i *Interceptor[V]) Reopen(qe VersionedQueryExecutor) error {
-	i.Logger.Debugf("Reopen with [%s], closed [%v]", i.TxID, i.Closed)
-	if !i.Closed {
+	i.Logger.Debugf("Reopen with [%s], closed [%v]", i.TxID, i.IsClosed())
+	if !i.IsClosed() {
 		return errors.Errorf("already open")
 	}
 	i.QE = qe
+	i.Mutex.Lock()
 	i.Closed = false
-
+	i.Mutex.Unlock()
 	return nil
 }
 
 func (i *Interceptor[V]) IsClosed() bool {
-	i.Mutex.Lock()
-	defer i.Mutex.Unlock()
+	i.Mutex.RLock()
+	defer i.Mutex.RUnlock()
 	return i.Closed
 }
 
