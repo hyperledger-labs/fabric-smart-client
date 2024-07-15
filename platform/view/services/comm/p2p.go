@@ -234,6 +234,7 @@ func (p *P2PNode) handleStream(stream host2.P2PStream) {
 	streamHash := stream.Hash()
 	p.streamsMutex.Lock()
 	p.streams[streamHash] = append(p.streams[streamHash], sh)
+	p.m.StreamHashes.Set(float64(len(p.streams)))
 	p.streamsMutex.Unlock()
 
 	go sh.handleIncoming()
@@ -265,6 +266,7 @@ func (p *P2PNode) closeStream(info host2.StreamInfo, toClose []*streamHandler) {
 	if len(streams) == 0 {
 		delete(p.streams, streamHash)
 	}
+	p.m.StreamHashes.Set(float64(len(p.streams)))
 	logger.Debugf("streams for hash [%s] left with [%d] streams", streamHash, len(p.streams))
 }
 
@@ -324,6 +326,7 @@ func (s *streamHandler) handleIncoming() {
 						logger.Debugf("stream [%s] found, remove it", streamHash)
 					}
 					s.node.streams[streamHash] = append(s.node.streams[streamHash][:i], s.node.streams[streamHash][i+1:]...)
+					s.node.m.StreamHashes.Set(float64(len(s.node.streams)))
 					s.wg.Done()
 					s.node.streamsMutex.Unlock()
 					span.End()
