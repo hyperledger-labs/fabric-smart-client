@@ -21,7 +21,8 @@ type Iterator[V any] interface {
 	Close()
 }
 
-func CopyIterator[T any](it baseIterator[*T]) (*sliceIterator[*T], error) {
+func CopyIterator[T any](it Iterator[*T]) (*sliceIterator[*T], error) {
+	defer it.Close()
 	items := make([]*T, 0)
 	for item, err := it.Next(); item != nil && err == nil; item, err = it.Next() {
 		if err != nil {
