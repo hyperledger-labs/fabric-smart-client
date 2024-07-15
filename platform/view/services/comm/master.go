@@ -7,9 +7,11 @@ SPDX-License-Identifier: Apache-2.0
 package comm
 
 import (
+	"context"
 	"encoding/base64"
 	"strings"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"go.uber.org/zap/zapcore"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -86,17 +88,20 @@ func (p *P2PNode) MasterSession() (view.Session, error) {
 	return p.getOrCreateSession(masterSession, "", "", "", nil, []byte{}, nil)
 }
 
-func (p *P2PNode) DeleteSessions(sessionID string) {
+func (p *P2PNode) DeleteSessions(ctx context.Context, sessionID string) {
+	newCtx, span := p.closeTracer.Start(ctx, "delete_session", tracing.WithAttributes(tracing.String(sessionIDLabel, sessionIDLabel)))
+	defer span.End()
 	p.sessionsMutex.Lock()
 	defer p.sessionsMutex.Unlock()
 
 	for key, session := range p.sessions {
 		// if key starts with sessionID, delete it
 		if strings.HasPrefix(key, sessionID) {
+			span.AddEvent("delete_session", tracing.WithAttributes(tracing.String("session_key", sessionIDLabel)))
 			if logger.IsEnabledFor(zapcore.DebugLevel) {
 				logger.Debugf("deleting session [%s]", key)
 			}
-			session.close()
+			session.close(newCtx)
 			delete(p.sessions, key)
 		}
 	}
