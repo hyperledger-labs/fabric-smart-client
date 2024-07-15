@@ -57,7 +57,7 @@ func (p *SimpleProvider) NewClientStream(info host2.StreamInfo, ctx context.Cont
 		return nil, errors.Wrapf(err, "failed to send meta message")
 	}
 	logger.Debugf("Stream opened to [%s@%s]", info.RemotePeerID, info.RemotePeerAddress)
-	return NewWSStream(conn, ctx, info), nil
+	return NewWSStream(&IdentifiableConn{LowLevelConnection: conn}, ctx, info), nil
 }
 
 func (p *SimpleProvider) NewServerStream(writer http.ResponseWriter, request *http.Request, newStreamCallback func(host2.P2PStream)) error {
@@ -78,7 +78,7 @@ func (p *SimpleProvider) NewServerStream(writer http.ResponseWriter, request *ht
 		return errors.Wrapf(err, "failed to unmarshal span context")
 	}
 	logger.Debugf("Received response with context: %v", spanContext)
-	newStreamCallback(NewWSStream(conn, trace.ContextWithRemoteSpanContext(context.Background(), spanContext), host2.StreamInfo{
+	newStreamCallback(NewWSStream(&IdentifiableConn{LowLevelConnection: conn}, trace.ContextWithRemoteSpanContext(context.Background(), spanContext), host2.StreamInfo{
 		RemotePeerID:      meta.PeerID,
 		RemotePeerAddress: request.RemoteAddr,
 		ContextID:         meta.ContextID,

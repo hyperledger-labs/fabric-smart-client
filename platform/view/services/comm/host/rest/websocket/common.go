@@ -25,3 +25,17 @@ var schemes = map[bool]string{
 	true:  "wss",
 	false: "ws",
 }
+
+type LowLevelConnection interface {
+	ReadMessage() (messageType int, p []byte, err error)
+	WriteMessage(messageType int, data []byte) error
+	Close() error
+}
+
+type IdentifiableConn struct {
+	LowLevelConnection
+}
+
+func (c *IdentifiableConn) ID() string {
+	return "<root>"
+}
