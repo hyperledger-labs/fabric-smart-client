@@ -285,10 +285,15 @@ type subConn struct {
 	writeErrs chan error
 }
 
+func (c *subConn) ID() SubConnId {
+	return c.id
+}
+
 func (c *subConn) ReadMessage() (messageType int, p []byte, err error) {
 	r := <-c.reads
 	return websocket.TextMessage, r.value, r.err
 }
+
 func (c *subConn) WriteMessage(_ int, data []byte) error {
 	c.writes <- MultiplexedMessage{c.id, data}
 	return <-c.writeErrs

@@ -16,9 +16,15 @@ import (
 )
 
 type connection interface {
+	ID() SubConnId
 	ReadMessage() (messageType int, p []byte, err error)
 	WriteMessage(messageType int, data []byte) error
 	Close() error
+}
+
+type result struct {
+	value []byte
+	err   error
 }
 
 var streamEOF = result{err: io.EOF}
@@ -57,7 +63,7 @@ func (s *stream) readMessages(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			logger.Warnf("Context for stream [%s] closed by us. Error: %w", s.Hash(), ctx.Err())
+			logger.Warnf("Context for stream [%s][%s] closed by us. Error: %w", s.conn.ID(), s.Hash(), ctx.Err())
 			s.reads <- streamEOF
 			return
 		default:
@@ -68,7 +74,7 @@ func (s *stream) readMessages(ctx context.Context) {
 				s.Close()
 				return
 			}
-			logger.Debugf("Read message on [%s]: [%s]. Error encountered: %w", s.Hash(), string(msg), err)
+			logger.Debugf("Read message on [%s][%s]: [%s]. Error encountered: %w", s.conn.ID(), s.Hash(), string(msg), err)
 			s.reads <- result{value: msg, err: err}
 		}
 	}
@@ -86,15 +92,10 @@ func (s *stream) Hash() host2.StreamHash {
 	return rest.StreamHash(s.info)
 }
 
-type result struct {
-	value []byte
-	err   error
-}
-
 func (s *stream) Read(p []byte) (int, error) {
 	if len(s.readLeftover) == 0 {
 		// The previous value from the channel has been read completely
-		logger.Debugf("[%s@%s] waits to read from channel...", s.info.RemotePeerID, s.info.RemotePeerAddress)
+		logger.Debugf("[%s][%s@%s] waits to read from channel...", s.conn.ID(), s.info.RemotePeerID, s.info.RemotePeerAddress)
 		r := <-s.reads
 		if r.err != nil {
 			logger.Errorf("error occurred while [%s] was reading: %v", s.info.RemotePeerID, r.err)
@@ -106,7 +107,7 @@ func (s *stream) Read(p []byte) (int, error) {
 	}
 	n := copy(p, s.readLeftover)
 	s.readLeftover = s.readLeftover[n:]
-	logger.Debugf("[%s@%s] copied %d bytes, remaining %d bytes", s.info.RemotePeerID, s.info.RemotePeerAddress, n, len(s.readLeftover))
+	logger.Debugf("[%s][%s@%s] copied %d bytes, remaining %d bytes", s.conn.ID(), s.info.RemotePeerID, s.info.RemotePeerAddress, n, len(s.readLeftover))
 	return n, nil
 }
 
@@ -117,10 +118,10 @@ func (s *stream) Write(p []byte) (int, error) {
 	}
 	content := s.accumulator.Flush()
 	if content == nil {
-		logger.Debugf("Wrote to [%s@%s], but message not ready yet.", s.info.RemotePeerID, s.info.RemotePeerAddress)
+		logger.Debugf("Wrote to [%s][%s@%s], but message not ready yet.", s.conn.ID(), s.info.RemotePeerID, s.info.RemotePeerAddress)
 		return n, nil
 	}
-	logger.Debugf("Ready to send to [%s@%s]: [%s]", s.info.RemotePeerID, s.info.RemotePeerAddress, content)
+	logger.Debugf("Ready to send to [%s][%s@%s]: [%s]", s.conn.ID(), s.info.RemotePeerID, s.info.RemotePeerAddress, content)
 	if err := s.conn.WriteMessage(websocket.TextMessage, content); err != nil {
 		return 0, err
 	}
