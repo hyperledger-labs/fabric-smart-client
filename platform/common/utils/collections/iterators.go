@@ -45,6 +45,7 @@ func (it *sliceIterator[T]) Next() (T, error) {
 		return utils.Zero[T](), nil
 	}
 	item := it.items[it.i]
+	it.items[it.i] = utils.Zero[T]()
 	it.i++
 	return item, nil
 }
