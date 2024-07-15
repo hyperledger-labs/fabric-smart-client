@@ -231,6 +231,21 @@ func (p *P2PNode) Lookup(peerID string) ([]string, bool) {
 	return p.host.Lookup(peerID)
 }
 
+func (p *P2PNode) closeStream(info host2.StreamInfo) {
+	p.streamsMutex.Lock()
+	defer p.streamsMutex.Unlock()
+
+	streamHash := p.host.StreamHash(info)
+	streams, ok := p.streams[streamHash]
+	if !ok {
+		logger.Warnf("cannot find streams for hash [%s]", streamHash)
+	}
+	logger.Debugf("found [%d] streams for hash [%s]", len(streams), streamHash)
+	for _, stream := range streams {
+		stream.close()
+	}
+}
+
 type streamHandler struct {
 	lock   sync.Mutex
 	stream host2.P2PStream
