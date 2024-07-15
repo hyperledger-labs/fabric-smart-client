@@ -276,6 +276,7 @@ func (s *streamHandler) send(msg proto.Message) error {
 
 func (s *streamHandler) handleIncoming() {
 	s.wg.Add(1)
+	streamHash := s.stream.Hash()
 	for {
 		msg := &ViewPacket{}
 		err := s.reader.ReadMsg(msg)
@@ -293,24 +294,18 @@ func (s *streamHandler) handleIncoming() {
 			}
 
 			if logger.IsEnabledFor(zapcore.DebugLevel) {
-				logger.Debugf("error reading message [%s]: [%s][%s]", s.stream.Hash(), err, debug.Stack())
+				logger.Debugf("error reading message [%s]: [%s][%s]", streamHash, err, debug.Stack())
 			}
 
 			// remove stream handler
-			streamHash := s.node.host.StreamHash(host2.StreamInfo{
-				RemotePeerID:      s.stream.RemotePeerID(),
-				RemotePeerAddress: s.stream.RemotePeerAddress(),
-				ContextID:         msg.ContextID,
-				SessionID:         msg.SessionID,
-			})
 			s.node.streamsMutex.Lock()
 			if logger.IsEnabledFor(zapcore.DebugLevel) {
-				logger.Debugf("[%s] removing stream [%s], total streams found: %d", s.stream.Hash(), streamHash, len(s.node.streams[streamHash]))
+				logger.Debugf("emoving stream [%s], total streams found: %d", streamHash, len(s.node.streams[streamHash]))
 			}
 			for i, thisSH := range s.node.streams[streamHash] {
 				if thisSH == s {
 					if logger.IsEnabledFor(zapcore.DebugLevel) {
-						logger.Debugf("[%s] stream [%s] found, remove it", s.stream.Hash(), streamHash)
+						logger.Debugf("stream [%s] found, remove it", streamHash)
 					}
 					s.node.streams[streamHash] = append(s.node.streams[streamHash][:i], s.node.streams[streamHash][i+1:]...)
 					s.wg.Done()
@@ -331,13 +326,13 @@ func (s *streamHandler) handleIncoming() {
 				return
 			}
 
-			logger.Errorf("[%s] removing stream [%s], not found and node is not stopped", s.stream.Hash(), streamHash)
+			logger.Errorf("removing stream [%s], not found and node is not stopped", streamHash)
 			span.End()
 			return
 			//panic("couldn't find stream handler to remove")
 		}
 		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("incoming message from [%s] on session [%s]", msg.Caller, msg.SessionID)
+			logger.Debugf("[%s] incoming message from [%s] on session [%s]", streamHash, msg.Caller, msg.SessionID)
 		}
 
 		s.node.incomingMessages <- &messageWithStream{
