@@ -242,7 +242,7 @@ func (p *P2PNode) removeStreamsFrom(streamHash string, toClose []*streamHandler)
 	if !ok {
 		logger.Warnf("cannot find streams for hash [%s]", streamHash)
 	}
-	logger.Debugf("streams for hash [%s], found [%d], remove [%d]", streamHash, len(streams), len(toClose))
+	logger.Debugf("streams for hash [%s], length [%s],  remove [%d]", streamHash, len(streams), len(toClose))
 
 	foundCounter := 0
 	for _, handler := range toClose {
@@ -258,7 +258,7 @@ func (p *P2PNode) removeStreamsFrom(streamHash string, toClose []*streamHandler)
 	if len(streams) == 0 {
 		delete(p.streams, streamHash)
 	}
-	logger.Debugf("streams for hash [%s], left with [%d] streams, found [%d]", streamHash, len(p.streams), foundCounter)
+	logger.Debugf("streams for hash [%s], left with [%d] streams, found [%d]", streamHash, len(streams), foundCounter)
 }
 
 type streamHandler struct {
