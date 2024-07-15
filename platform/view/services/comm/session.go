@@ -81,13 +81,13 @@ func (n *NetworkStreamSession) close() {
 		return
 	}
 
-	defer logger.Debugf("closing session [%s], fmor [%s]", n.sessionID)
+	defer logger.Debugf("closing session [%s] done", n.sessionID)
 	toClose := make([]*streamHandler, 0, len(n.streams))
 	for stream := range n.streams {
-		stream.refCtr--
-		if stream.refCtr == 0 {
-			toClose = append(toClose, stream)
-		}
+		//stream.refCtr--
+		//if stream.refCtr == 0 {
+		toClose = append(toClose, stream)
+		//}
 	}
 
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
