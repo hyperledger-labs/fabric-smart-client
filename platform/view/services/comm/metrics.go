@@ -11,6 +11,7 @@ import "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/m
 type Metrics struct {
 	Sessions     metrics.Gauge
 	StreamHashes metrics.Gauge
+	Streams      metrics.Gauge
 }
 
 func newMetrics(p metrics.Provider) *Metrics {
@@ -25,6 +26,12 @@ func newMetrics(p metrics.Provider) *Metrics {
 			Namespace:    "host",
 			Name:         "stream_hashes",
 			Help:         "The number of hashes in the stream",
+			StatsdFormat: "%{#fqname}",
+		}),
+		Streams: p.NewGauge(metrics.GaugeOpts{
+			Namespace:    "host",
+			Name:         "streams",
+			Help:         "The number of streams on the client side",
 			StatsdFormat: "%{#fqname}",
 		}),
 	}
