@@ -34,7 +34,7 @@ func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType, replicationOpts *
 
 	//fscTopology.SetLogging("debug", "")
 	fscTopology.EnableTracing(tracing.Otpl)
-	fscTopology.SetLogging("debug", "")
+	//fscTopology.SetLogging("debug", "")
 
 	// Add the approver FSC node.
 	fscTopology.AddNodeByName("approver1").
