@@ -292,7 +292,9 @@ func (s *streamHandler) handleIncoming() {
 				break
 			}
 
-			logger.Debugf("error reading message [%s]: [%s][%s]", s.stream.Hash(), s.err, debug.Stack())
+			if logger.IsEnabledFor(zapcore.DebugLevel) {
+				logger.Debugf("error reading message [%s]: [%s][%s]", s.stream.Hash(), err, debug.Stack())
+			}
 
 			// remove stream handler
 			streamHash := s.node.host.StreamHash(host2.StreamInfo{
@@ -302,10 +304,14 @@ func (s *streamHandler) handleIncoming() {
 				SessionID:         msg.SessionID,
 			})
 			s.node.streamsMutex.Lock()
-			logger.Debugf("removing stream [%s], total streams found: %d", streamHash, len(s.node.streams[streamHash]))
+			if logger.IsEnabledFor(zapcore.DebugLevel) {
+				logger.Debugf("[%s] removing stream [%s], total streams found: %d", s.stream.Hash(), streamHash, len(s.node.streams[streamHash]))
+			}
 			for i, thisSH := range s.node.streams[streamHash] {
 				if thisSH == s {
-					logger.Debugf("stream [%s] found, remove it", streamHash)
+					if logger.IsEnabledFor(zapcore.DebugLevel) {
+						logger.Debugf("[%s] stream [%s] found, remove it", s.stream.Hash(), streamHash)
+					}
 					s.node.streams[streamHash] = append(s.node.streams[streamHash][:i], s.node.streams[streamHash][i+1:]...)
 					s.wg.Done()
 					s.node.streamsMutex.Unlock()
@@ -325,7 +331,7 @@ func (s *streamHandler) handleIncoming() {
 				return
 			}
 
-			logger.Errorf("removing stream [%s], not found and node is not stopped", streamHash)
+			logger.Errorf("[%s] removing stream [%s], not found and node is not stopped", s.stream.Hash(), streamHash)
 			span.End()
 			return
 			//panic("couldn't find stream handler to remove")
