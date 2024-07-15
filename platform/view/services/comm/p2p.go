@@ -27,7 +27,8 @@ import (
 )
 
 const (
-	masterSession = "master of puppets I'm pulling your strings"
+	masterSession                    = "master of puppets I'm pulling your strings"
+	contextIDLabel tracing.LabelName = "context_id"
 )
 
 var errStreamNotFound = errors.New("stream not found")
@@ -61,7 +62,7 @@ func NewNode(h host2.P2PHost, tracerProvider trace.TracerProvider) (*P2PNode, er
 		isStopping:       false,
 		tracer: tracerProvider.Tracer("comm_node", tracing.WithMetricsOpts(tracing.MetricsOpts{
 			Namespace:  "viewsdk",
-			LabelNames: []tracing.LabelName{},
+			LabelNames: []tracing.LabelName{contextIDLabel},
 		})),
 	}
 	if err := h.Start(p.handleIncomingStream); err != nil {
@@ -99,10 +100,14 @@ func (p *P2PNode) dispatchMessages(ctx context.Context) {
 	for {
 		select {
 		case msg, ok := <-p.incomingMessages:
+			newCtx, span := p.tracer.Start(msg.message.Ctx, "message_dispatch", tracing.WithAttributes(
+				tracing.String(contextIDLabel, msg.message.ContextID)))
+			msg.message.Ctx = newCtx
 			if !ok {
 				if logger.IsEnabledFor(zapcore.DebugLevel) {
 					logger.Debugf("channel closed, returning")
 				}
+				span.End()
 				return
 			}
 
@@ -119,6 +124,7 @@ func (p *P2PNode) dispatchMessages(ctx context.Context) {
 			}
 			session, in := p.sessions[internalSessionID]
 			if in {
+				span.AddEvent("reuse_session")
 				if logger.IsEnabledFor(zapcore.DebugLevel) {
 					logger.Debugf("internal session exists [%s]", internalSessionID)
 				}
@@ -136,6 +142,7 @@ func (p *P2PNode) dispatchMessages(ctx context.Context) {
 			p.sessionsMutex.Unlock()
 
 			if !in {
+				span.AddEvent("create_session")
 				// create session but redirect this first message to master
 				// _, _ = p.getOrCreateSession(
 				//	msg.message.SessionID,
@@ -158,6 +165,7 @@ func (p *P2PNode) dispatchMessages(ctx context.Context) {
 				logger.Debugf("pushing message to [%s], [%s]", internalSessionID, msg.message)
 			}
 			session.incoming <- msg.message
+			span.End()
 		case <-ctx.Done():
 			logger.Info("closing p2p comm...")
 			return
@@ -242,9 +250,15 @@ type streamHandler struct {
 }
 
 func (s *streamHandler) send(msg proto.Message) error {
+	_, span := s.node.tracer.Start(s.stream.Context(), "message_send", tracing.WithAttributes(tracing.String(contextIDLabel, s.stream.ContextID())))
+	defer span.End()
 	s.lock.Lock()
 	defer s.lock.Unlock()
-	return s.writer.WriteMsg(msg)
+	if err := s.writer.WriteMsg(msg); err != nil {
+		span.RecordError(err)
+		return err
+	}
+	return nil
 }
 
 func (s *streamHandler) handleIncoming() {
@@ -252,11 +266,13 @@ func (s *streamHandler) handleIncoming() {
 	for {
 		msg := &ViewPacket{}
 		err := s.reader.ReadMsg(msg)
+		ctx, span := s.node.tracer.Start(s.stream.Context(), "message_receive", tracing.WithAttributes(tracing.String(contextIDLabel, msg.ContextID)))
 		if err != nil {
 			if s.node.isStopping {
 				if logger.IsEnabledFor(zapcore.DebugLevel) {
 					logger.Debugf("error reading message while closing. ignoring.", err.Error())
 				}
+				span.End()
 				break
 			}
 
@@ -276,11 +292,13 @@ func (s *streamHandler) handleIncoming() {
 					s.node.streams[streamHash] = append(s.node.streams[streamHash][:i], s.node.streams[streamHash][i+1:]...)
 					s.wg.Done()
 					s.node.streamsMutex.Unlock()
+					span.End()
 					return
 				}
 			}
 			s.node.streamsMutex.Unlock()
 
+			span.End()
 			// this should never happen!
 			panic("couldn't find stream handler to remove")
 		}
@@ -297,14 +315,17 @@ func (s *streamHandler) handleIncoming() {
 				Caller:       msg.Caller,
 				FromEndpoint: s.stream.RemotePeerAddress(),
 				FromPKID:     []byte(s.stream.RemotePeerID()),
-				Ctx:          s.stream.Context(),
+				Ctx:          ctx,
 			},
 			stream: s,
 		}
+		span.End()
 	}
 }
 
 func (s *streamHandler) close() {
+	_, span := s.node.tracer.Start(s.stream.Context(), "stream_close", tracing.WithAttributes(tracing.String(contextIDLabel, s.stream.ContextID())))
+	defer span.End()
 	s.reader.Close()
 	s.writer.Close()
 	s.stream.Close()

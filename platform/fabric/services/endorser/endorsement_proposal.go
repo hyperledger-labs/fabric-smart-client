@@ -96,7 +96,7 @@ func (c *parallelCollectEndorsementsOnProposalView) collectEndorsement(
 	}
 
 	// Wait to receive a Transaction back
-	err = s.SendRaw(raw)
+	err = s.SendRaw(context.Context(), raw)
 	if err != nil {
 		answerChan <- &answer{err: err}
 		return
@@ -147,7 +147,7 @@ func (s *endorsementsOnProposalResponderView) Call(context view.Context) (interf
 	}
 
 	// Send the proposal responses back
-	err = session.Send(&Response{ProposalResponses: prs})
+	err = session.SendWithContext(context.Context(), &Response{ProposalResponses: prs})
 	if err != nil {
 		return nil, err
 	}

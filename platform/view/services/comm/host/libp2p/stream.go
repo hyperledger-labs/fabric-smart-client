@@ -28,6 +28,10 @@ func (s *stream) Hash() host2.StreamHash {
 	return streamHash(s.RemotePeerID())
 }
 
+func (s *stream) ContextID() string {
+	return s.Info.ContextID
+}
+
 func (s *stream) Context() context.Context { return context.TODO() }
 
 func streamHash(peerID host2.PeerID) host2.StreamHash {

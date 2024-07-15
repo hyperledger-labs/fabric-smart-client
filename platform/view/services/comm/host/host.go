@@ -62,6 +62,8 @@ type P2PStream interface {
 	Hash() StreamHash
 	// Context returns the context of the stream
 	Context() context.Context
+	// ContextID returns the context id of the stream
+	ContextID() string
 
 	io.Reader
 	io.Writer
