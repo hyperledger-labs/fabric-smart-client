@@ -26,6 +26,11 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
+const (
+	contextIDLabel tracing.LabelName = "context_id"
+	subconnIDLabel tracing.LabelName = "subconn_id"
+)
+
 type SubConnId = string
 
 func NewSubConnId() SubConnId {
@@ -39,14 +44,32 @@ type MultiplexedMessage struct {
 
 type MultiplexedProvider struct {
 	clients map[string]*multiplexedClientConn
+	tracer  trace.Tracer
 	mu      sync.RWMutex
 }
 
-func NewMultiplexedProvider() *MultiplexedProvider {
-	return &MultiplexedProvider{clients: make(map[string]*multiplexedClientConn)}
+func NewMultiplexedProvider(tracerProvider trace.TracerProvider) *MultiplexedProvider {
+	return &MultiplexedProvider{
+		clients: make(map[string]*multiplexedClientConn),
+		tracer: tracerProvider.Tracer("multiplexed-ws", tracing.WithMetricsOpts(tracing.MetricsOpts{
+			Namespace:  "core",
+			LabelNames: []tracing.LabelName{contextIDLabel, subconnIDLabel},
+		})),
+	}
 }
 
-func (c *MultiplexedProvider) NewClientStream(info host2.StreamInfo, ctx context.Context, src host2.PeerID, config *tls.Config) (host2.P2PStream, error) {
+func (c *MultiplexedProvider) NewClientStream(info host2.StreamInfo, ctx context.Context, src host2.PeerID, config *tls.Config) (s host2.P2PStream, err error) {
+	newCtx, span := c.tracer.Start(ctx, "client_stream",
+		tracing.WithAttributes(tracing.String(contextIDLabel, info.ContextID)),
+		tracing.WithAttributes(tracing.String(subconnIDLabel, "")))
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+		} else {
+			span.SetAttributes(tracing.String(subconnIDLabel, s.(*stream).conn.ID()))
+		}
+		span.End()
+	}()
 	logger.Debugf("Creating new stream from [%s] to [%s@%s]...", src, info.RemotePeerID, info.RemotePeerAddress)
 	tlsEnabled := config.InsecureSkipVerify || config.RootCAs != nil
 	url := url.URL{Scheme: schemes[tlsEnabled], Host: info.RemotePeerAddress, Path: "/p2p"}
@@ -57,20 +80,20 @@ func (c *MultiplexedProvider) NewClientStream(info host2.StreamInfo, ctx context
 	conn, ok := c.clients[url.String()]
 	c.mu.RUnlock()
 	if ok {
-		return conn.newClientSubConn(ctx, src, info)
+		return conn.newClientSubConn(newCtx, src, info)
 	}
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if conn, ok = c.clients[url.String()]; ok {
-		return conn.newClientSubConn(ctx, src, info)
+		return conn.newClientSubConn(newCtx, src, info)
 	}
 
 	wsConn, err := web2.OpenWSClientConn(url.String(), config)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to open websocket")
 	}
-	conn = newClientConn(wsConn, func() {
+	conn = newClientConn(wsConn, c.tracer, func() {
 		logger.Infof("Closing websocket client for [%s@%s]...", src, info.RemotePeerAddress)
 		c.mu.Lock()
 		defer c.mu.Unlock()
@@ -78,7 +101,7 @@ func (c *MultiplexedProvider) NewClientStream(info host2.StreamInfo, ctx context
 	})
 	c.clients[url.String()] = conn
 
-	return conn.newClientSubConn(ctx, src, info)
+	return conn.newClientSubConn(newCtx, src, info)
 }
 
 func (c *MultiplexedProvider) NewServerStream(writer http.ResponseWriter, request *http.Request, newStreamCallback func(host2.P2PStream)) error {
@@ -86,7 +109,7 @@ func (c *MultiplexedProvider) NewServerStream(writer http.ResponseWriter, reques
 	if err != nil {
 		return errors.Wrapf(err, "failed to open websocket")
 	}
-	newServerConn(conn, newStreamCallback)
+	newServerConn(conn, c.tracer, newStreamCallback)
 	return nil
 }
 
@@ -96,8 +119,8 @@ type multiplexedClientConn struct {
 	*multiplexedBaseConn
 }
 
-func newClientConn(conn *websocket.Conn, onClose func()) *multiplexedClientConn {
-	c := &multiplexedClientConn{multiplexedBaseConn: newBaseConn(conn)}
+func newClientConn(conn *websocket.Conn, tracer trace.Tracer, onClose func()) *multiplexedClientConn {
+	c := &multiplexedClientConn{multiplexedBaseConn: newBaseConn(conn, tracer)}
 	go func() {
 		c.readIncoming()
 		onClose()
@@ -105,7 +128,7 @@ func newClientConn(conn *websocket.Conn, onClose func()) *multiplexedClientConn 
 	return c
 }
 
-func (c *multiplexedClientConn) newClientSubConn(ctx context.Context, src host2.PeerID, info host2.StreamInfo) (host2.P2PStream, error) {
+func (c *multiplexedClientConn) newClientSubConn(ctx context.Context, src host2.PeerID, info host2.StreamInfo) (*stream, error) {
 	c.mu.Lock()
 	sc := c.newSubConn(NewSubConnId())
 	c.subConns[sc.id] = sc
@@ -174,8 +197,8 @@ type multiplexedServerConn struct {
 
 // Server
 
-func newServerConn(conn *websocket.Conn, newStreamCallback func(pStream host2.P2PStream)) *multiplexedServerConn {
-	c := &multiplexedServerConn{newBaseConn(conn)}
+func newServerConn(conn *websocket.Conn, tracer trace.Tracer, newStreamCallback func(pStream host2.P2PStream)) *multiplexedServerConn {
+	c := &multiplexedServerConn{newBaseConn(conn, tracer)}
 	go c.readIncoming(newStreamCallback)
 	return c
 }
@@ -228,13 +251,17 @@ func (c *multiplexedServerConn) newServerSubConn(newStreamCallback func(pStream 
 	if err != nil {
 		logger.Errorf("failed to unmarshal span context: %v", err)
 	}
+	ctx, span := c.tracer.Start(trace.ContextWithRemoteSpanContext(context.Background(), spanContext), "server_stream", tracing.WithAttributes(
+		tracing.String(contextIDLabel, meta.ContextID),
+		tracing.String(subconnIDLabel, mm.ID)))
+	defer span.End()
 	sc := c.newSubConn(mm.ID)
 	c.subConns[mm.ID] = sc
 	c.mu.Unlock()
 	logger.Debugf("Created server subconn with id [%s]", sc.id)
 
 	logger.Debugf("Received response with context: %v", spanContext)
-	newStreamCallback(NewWSStream(sc, trace.ContextWithRemoteSpanContext(context.Background(), spanContext), host2.StreamInfo{
+	newStreamCallback(NewWSStream(sc, ctx, host2.StreamInfo{
 		RemotePeerID:      meta.PeerID,
 		RemotePeerAddress: c.Conn.RemoteAddr().String(),
 		ContextID:         meta.ContextID,
@@ -244,6 +271,7 @@ func (c *multiplexedServerConn) newServerSubConn(newStreamCallback func(pStream 
 
 type multiplexedBaseConn struct {
 	*websocket.Conn
+	tracer trace.Tracer
 
 	subConns map[SubConnId]*subConn
 	writes   chan MultiplexedMessage
@@ -253,10 +281,11 @@ type multiplexedBaseConn struct {
 	cancel   context.CancelFunc
 }
 
-func newBaseConn(conn *websocket.Conn) *multiplexedBaseConn {
+func newBaseConn(conn *websocket.Conn, tracer trace.Tracer) *multiplexedBaseConn {
 	ctx, cancel := context.WithCancel(context.Background())
 	c := &multiplexedBaseConn{
 		Conn:     conn,
+		tracer:   tracer,
 		subConns: make(map[SubConnId]*subConn),
 		closes:   make(chan SubConnId, 1000),
 		writes:   make(chan MultiplexedMessage, 1000),

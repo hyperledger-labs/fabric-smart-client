@@ -74,7 +74,7 @@ func newStaticRouteHostProvider(routes *routing.StaticIDRouter) *staticRoutHostP
 func (p *staticRoutHostProvider) NewBootstrapHost(listenAddress host2.PeerIPAddress, privateKeyPath, certPath string) (host2.P2PHost, error) {
 	nodeID, _ := p.routes.ReverseLookup(listenAddress)
 	discovery := routing.NewServiceDiscovery(p.routes, routing.RoundRobin[host2.PeerIPAddress]())
-	return rest.NewHost(nodeID, listenAddress, discovery, noop.NewTracerProvider(), websocket.NewMultiplexedProvider(), privateKeyPath, certPath, nil)
+	return rest.NewHost(nodeID, listenAddress, discovery, noop.NewTracerProvider(), websocket.NewMultiplexedProvider(noop.NewTracerProvider()), privateKeyPath, certPath, nil)
 }
 
 func (p *staticRoutHostProvider) NewHost(listenAddress host2.PeerIPAddress, privateKeyPath, certPath string, _ host2.PeerIPAddress) (host2.P2PHost, error) {
