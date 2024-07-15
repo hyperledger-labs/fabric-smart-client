@@ -337,9 +337,13 @@ func (c *multiplexedBaseConn) readOutgoing(ctx context.Context) {
 			err := c.WriteJSON(msg)
 			c.writeMu.Unlock()
 			c.mu.RLock()
-			sc := c.subConns[msg.ID]
+			sc, ok := c.subConns[msg.ID]
 			c.mu.RUnlock()
-			sc.writeErrs <- err
+			if ok {
+				sc.writeErrs <- err
+			} else {
+				panic("could not find sc with id " + msg.ID)
+			}
 		}
 	}
 }
