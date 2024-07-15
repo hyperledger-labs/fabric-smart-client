@@ -63,17 +63,7 @@ func NewMultiplexedProvider(tracerProvider trace.TracerProvider, metricsProvider
 }
 
 func (c *MultiplexedProvider) NewClientStream(info host2.StreamInfo, ctx context.Context, src host2.PeerID, config *tls.Config) (s host2.P2PStream, err error) {
-	newCtx, span := c.tracer.Start(ctx, "client_stream",
-		tracing.WithAttributes(tracing.String(contextIDLabel, info.ContextID)),
-		tracing.WithAttributes(tracing.String(subconnIDLabel, "")))
 	defer func() {
-		if err != nil {
-			span.RecordError(err)
-		} else {
-			span.SetAttributes(tracing.String(subconnIDLabel, s.(*stream).conn.ID()))
-		}
-		span.End()
-
 		c.mu.RLock()
 		totalSubConns := 0
 		for _, clientConn := range c.clients {
@@ -84,6 +74,17 @@ func (c *MultiplexedProvider) NewClientStream(info host2.StreamInfo, ctx context
 		c.mu.RUnlock()
 		c.m.TotalSubConns.Set(float64(totalSubConns))
 		c.m.TotalSize.Set(float64(binary.Size(c)))
+	}()
+	newCtx, span := c.tracer.Start(ctx, "client_stream",
+		tracing.WithAttributes(tracing.String(contextIDLabel, info.ContextID)),
+		tracing.WithAttributes(tracing.String(subconnIDLabel, "")))
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+		} else {
+			span.SetAttributes(tracing.String(subconnIDLabel, s.(*stream).conn.ID()))
+		}
+		span.End()
 	}()
 	logger.Debugf("Creating new stream from [%s] to [%s@%s]...", src, info.RemotePeerID, info.RemotePeerAddress)
 	tlsEnabled := config.InsecureSkipVerify || config.RootCAs != nil
