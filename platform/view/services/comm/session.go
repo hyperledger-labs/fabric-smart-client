@@ -80,14 +80,14 @@ func (n *NetworkStreamSession) close(ctx context.Context) {
 		logger.Debugf("session [%s] already closed", n.sessionID)
 		return
 	}
-
 	defer logger.Debugf("closing session [%s] done", n.sessionID)
+
 	toClose := make([]*streamHandler, 0, len(n.streams))
 	for stream := range n.streams {
-		//stream.refCtr--
-		//if stream.refCtr == 0 {
-		toClose = append(toClose, stream)
-		//}
+		stream.sessionReferenceCount--
+		if stream.sessionReferenceCount == 0 {
+			toClose = append(toClose, stream)
+		}
 	}
 
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
@@ -115,9 +115,10 @@ func (n *NetworkStreamSession) close(ctx context.Context) {
 		ContextID:         n.contextID,
 		SessionID:         n.sessionID,
 	}
-	n.node.closeStream(ctx, info)
+	n.node.closeStream(ctx, info, toClose)
 
 	n.closed = true
+	n.streams = make(map[*streamHandler]struct{})
 
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("closing session [%s] done", n.sessionID)
