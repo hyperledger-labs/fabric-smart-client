@@ -292,7 +292,7 @@ func (s *streamHandler) handleIncoming() {
 				break
 			}
 
-			logger.Debugf("error reading message: [%s][%s]", err.Error(), debug.Stack())
+			logger.Debugf("error reading message [%s]: [%s][%s]", s.stream.Hash(), s.err, debug.Stack())
 
 			// remove stream handler
 			streamHash := s.node.host.StreamHash(host2.StreamInfo{
