@@ -9,6 +9,7 @@ package websocket
 import (
 	"context"
 	"crypto/tls"
+	"encoding/binary"
 	"encoding/json"
 	"math/rand"
 	"net/http"
@@ -82,7 +83,7 @@ func (c *MultiplexedProvider) NewClientStream(info host2.StreamInfo, ctx context
 		}
 		c.mu.RUnlock()
 		c.m.TotalSubConns.Set(float64(totalSubConns))
-		//c.m.TotalSize.Set(float64(binary.Size(c)))
+		c.m.TotalSize.Set(float64(binary.Size(c)))
 	}()
 	logger.Debugf("Creating new stream from [%s] to [%s@%s]...", src, info.RemotePeerID, info.RemotePeerAddress)
 	tlsEnabled := config.InsecureSkipVerify || config.RootCAs != nil
