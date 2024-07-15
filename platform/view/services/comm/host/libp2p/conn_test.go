@@ -118,7 +118,7 @@ func newBootstrapNode(port int, provider *hostProvider) (*node, error) {
 	if err != nil {
 		return nil, err
 	}
-	p2pNode, err := comm.NewNode(h, noop.NewTracerProvider())
+	p2pNode, err := comm.NewNode(h, noop.NewTracerProvider(), &disabled.Provider{})
 	if err != nil {
 		return nil, err
 	}
@@ -146,7 +146,7 @@ func newNode(port int, bootstrapNode *node, provider *hostProvider) (*node, erro
 	if err != nil {
 		return nil, err
 	}
-	p2pNode, err := comm.NewNode(h, noop.NewTracerProvider())
+	p2pNode, err := comm.NewNode(h, noop.NewTracerProvider(), &disabled.Provider{})
 	if err != nil {
 		return nil, err
 	}

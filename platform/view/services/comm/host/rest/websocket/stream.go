@@ -82,6 +82,10 @@ func (s *stream) RemotePeerAddress() host2.PeerIPAddress {
 	return s.info.RemotePeerAddress
 }
 
+func (s *stream) ContextID() string {
+	return s.info.ContextID
+}
+
 func (s *stream) Hash() host2.StreamHash {
 	return rest.StreamHash(s.info)
 }

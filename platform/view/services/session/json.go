@@ -84,17 +84,21 @@ func (j *jsonSession) ReceiveWithTimeout(state interface{}, d time.Duration) err
 }
 
 func (j *jsonSession) Send(state interface{}) error {
+	return j.SendWithContext(context.TODO(), state)
+}
+
+func (j *jsonSession) SendWithContext(ctx context.Context, state interface{}) error {
 	v, err := json.Marshal(state)
 	if err != nil {
 		return err
 	}
 	logger.Debugf("json session, send message [%s]", hash.Hashable(v).String())
-	return j.s.Send(v)
+	return j.s.SendWithContext(ctx, v)
 }
 
-func (j *jsonSession) SendRaw(raw []byte) error {
+func (j *jsonSession) SendRaw(ctx context.Context, raw []byte) error {
 	logger.Debugf("json session, send raw message [%s]", hash.Hashable(raw).String())
-	return j.s.Send(raw)
+	return j.s.SendWithContext(ctx, raw)
 }
 
 func (j *jsonSession) SendError(err string) error {

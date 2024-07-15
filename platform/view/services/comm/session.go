@@ -84,7 +84,7 @@ func (n *NetworkStreamSession) Close() {
 		logger.Debugf("Closing session stream [%s]", n.sessionID)
 	}
 	for _, stream := range toClose {
-		stream.close()
+		stream.close(context.TODO())
 	}
 
 	if logger.IsEnabledFor(zapcore.DebugLevel) {

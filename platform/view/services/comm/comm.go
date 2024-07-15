@@ -14,6 +14,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/utils"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
@@ -35,18 +36,20 @@ type Service struct {
 	ConfigService   ConfigService
 	DefaultIdentity view2.Identity
 
-	Node           *P2PNode
-	NodeSync       sync.RWMutex
-	tracerProvider trace.TracerProvider
+	Node            *P2PNode
+	NodeSync        sync.RWMutex
+	tracerProvider  trace.TracerProvider
+	metricsProvider metrics.Provider
 }
 
-func NewService(hostProvider host.GeneratorProvider, endpointService EndpointService, configService ConfigService, defaultIdentity view2.Identity, tracerProvider trace.TracerProvider) (*Service, error) {
+func NewService(hostProvider host.GeneratorProvider, endpointService EndpointService, configService ConfigService, defaultIdentity view2.Identity, tracerProvider trace.TracerProvider, metricsProvider metrics.Provider) (*Service, error) {
 	s := &Service{
 		HostProvider:    hostProvider,
 		EndpointService: endpointService,
 		ConfigService:   configService,
 		DefaultIdentity: defaultIdentity,
 		tracerProvider:  tracerProvider,
+		metricsProvider: metricsProvider,
 	}
 	return s, nil
 }
@@ -96,12 +99,12 @@ func (s *Service) MasterSession() (view2.Session, error) {
 	return s.Node.MasterSession()
 }
 
-func (s *Service) DeleteSessions(sessionID string) {
+func (s *Service) DeleteSessions(ctx context.Context, sessionID string) {
 	if err := s.init(); err != nil {
 		logger.Warnf("communication service not ready [%s], cannot delete any session", err)
 		return
 	}
-	s.Node.DeleteSessions(sessionID)
+	s.Node.DeleteSessions(ctx, sessionID)
 }
 
 func (s *Service) Addresses(id view2.Identity) ([]string, error) {
@@ -134,7 +137,7 @@ func (s *Service) init() error {
 		if err != nil {
 			return err
 		}
-		s.Node, err = NewNode(h, s.tracerProvider)
+		s.Node, err = NewNode(h, s.tracerProvider, s.metricsProvider)
 		if err != nil {
 			return errors.Wrapf(err, "failed to initialize bootstrap p2p node [%s]", p2pListenAddress)
 		}
@@ -158,7 +161,7 @@ func (s *Service) init() error {
 		if err != nil {
 			return err
 		}
-		s.Node, err = NewNode(h, s.tracerProvider)
+		s.Node, err = NewNode(h, s.tracerProvider, s.metricsProvider)
 		if err != nil {
 			return errors.Wrapf(err, "failed to initialize node p2p manager [%s,%s]", p2pListenAddress, addr)
 		}

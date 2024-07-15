@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package manager
 
 import (
+	"context"
 	"reflect"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
@@ -22,7 +23,7 @@ type CommLayer interface {
 
 	MasterSession() (view.Session, error)
 
-	DeleteSessions(sessionID string)
+	DeleteSessions(ctx context.Context, sessionID string)
 }
 
 func GetCommLayer(sp driver.ServiceProvider) CommLayer {
@@ -41,5 +42,5 @@ type SessionFactory interface {
 
 	NewSession(caller string, contextID string, endpoint string, pkid []byte) (view.Session, error)
 
-	DeleteSessions(sessionID string)
+	DeleteSessions(ctx context.Context, sessionID string)
 }
