@@ -73,15 +73,15 @@ func (c *MultiplexedProvider) NewClientStream(info host2.StreamInfo, ctx context
 		}
 		span.End()
 
-		c.mu.RLock()
-		totalSubConns := 0
-		for _, clientConn := range c.clients {
-			clientConn.mu.RLock()
-			totalSubConns += len(clientConn.subConns)
-			clientConn.mu.RUnlock()
-		}
-		c.mu.RUnlock()
-		c.m.TotalSubConns.Set(float64(totalSubConns))
+		//c.mu.RLock()
+		//totalSubConns := 0
+		//for _, clientConn := range c.clients {
+		//	clientConn.mu.RLock()
+		//	totalSubConns += len(clientConn.subConns)
+		//	clientConn.mu.RUnlock()
+		//}
+		//c.mu.RUnlock()
+		//c.m.TotalSubConns.Set(float64(totalSubConns))
 		//c.m.TotalSize.Set(float64(binary.Size(c)))
 	}()
 	logger.Debugf("Creating new stream from [%s] to [%s@%s]...", src, info.RemotePeerID, info.RemotePeerAddress)
