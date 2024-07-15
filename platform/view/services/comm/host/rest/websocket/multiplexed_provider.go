@@ -328,7 +328,11 @@ func (c *multiplexedBaseConn) readCloses(ctx context.Context) {
 		case id := <-c.closes:
 			logger.Infof("Closing sub conn [%v]", id)
 			c.mu.Lock()
+			logger.Infof("Size before: %d", len(c.subConns))
+			_, ok := c.subConns[id]
+			logger.Infof("Exists? %v", ok)
 			delete(c.subConns, id)
+			logger.Infof("Size after: %d", len(c.subConns))
 			c.mu.Unlock()
 			c.streamGauge.Add(-1)
 			// TODO: Clean the connection if none left
