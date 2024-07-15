@@ -168,6 +168,7 @@ func (c *multiplexedServerConn) readIncoming(newStreamCallback func(pStream host
 		c.mu.RLock()
 		sc, ok := c.subConns[mm.ID]
 		c.mu.RUnlock()
+		logger.Debugf("subconn for [%s] exists [%v]", mm.ID, ok)
 		if ok {
 			sc.reads <- result{value: mm.Msg, err: err}
 		} else {
