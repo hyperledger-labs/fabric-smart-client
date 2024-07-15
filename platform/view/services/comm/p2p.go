@@ -19,6 +19,7 @@ import (
 	proto2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
@@ -27,7 +28,9 @@ import (
 )
 
 const (
-	masterSession = "master of puppets I'm pulling your strings"
+	masterSession                    = "master of puppets I'm pulling your strings"
+	contextIDLabel tracing.LabelName = "context_id"
+	sessionIDLabel tracing.LabelName = "session_id"
 )
 
 var errStreamNotFound = errors.New("stream not found")
@@ -49,20 +52,27 @@ type P2PNode struct {
 	sessions         map[string]*NetworkStreamSession
 	finderWg         sync.WaitGroup
 	isStopping       bool
-	tracer           trace.Tracer
+	messageTracer    trace.Tracer
+	closeTracer      trace.Tracer
+	m                *Metrics
 }
 
-func NewNode(h host2.P2PHost, tracerProvider trace.TracerProvider) (*P2PNode, error) {
+func NewNode(h host2.P2PHost, tracerProvider trace.TracerProvider, metricsProvider metrics.Provider) (*P2PNode, error) {
 	p := &P2PNode{
 		host:             h,
 		incomingMessages: make(chan *messageWithStream),
 		streams:          make(map[host2.StreamHash][]*streamHandler),
 		sessions:         make(map[string]*NetworkStreamSession),
 		isStopping:       false,
-		tracer: tracerProvider.Tracer("comm_node", tracing.WithMetricsOpts(tracing.MetricsOpts{
+		messageTracer: tracerProvider.Tracer("comm_node_msg", tracing.WithMetricsOpts(tracing.MetricsOpts{
 			Namespace:  "viewsdk",
 			LabelNames: []tracing.LabelName{},
 		})),
+		closeTracer: tracerProvider.Tracer("comm_node_close", tracing.WithMetricsOpts(tracing.MetricsOpts{
+			Namespace:  "viewsdk",
+			LabelNames: []tracing.LabelName{sessionIDLabel},
+		})),
+		m: newMetrics(metricsProvider),
 	}
 	if err := h.Start(p.handleIncomingStream); err != nil {
 		return nil, err
@@ -87,7 +97,7 @@ func (p *P2PNode) Stop() {
 
 	for _, streams := range p.streams {
 		for _, stream := range streams {
-			stream.close()
+			stream.close(context.Background())
 		}
 	}
 
@@ -99,10 +109,13 @@ func (p *P2PNode) dispatchMessages(ctx context.Context) {
 	for {
 		select {
 		case msg, ok := <-p.incomingMessages:
+			newCtx, span := p.messageTracer.Start(msg.message.Ctx, "message_dispatch")
+			msg.message.Ctx = newCtx
 			if !ok {
 				if logger.IsEnabledFor(zapcore.DebugLevel) {
 					logger.Debugf("channel closed, returning")
 				}
+				span.End()
 				return
 			}
 
@@ -194,6 +207,7 @@ func (p *P2PNode) sendTo(ctx context.Context, info host2.StreamInfo, msg proto.M
 	}
 
 	nwStream, err := p.host.NewStream(ctx, info)
+	p.m.OpenedStreams.Add(1)
 	if err != nil {
 		return errors.Wrapf(err, "failed to create new stream to [%s]", info.RemotePeerID)
 	}
@@ -222,6 +236,8 @@ func (p *P2PNode) handleStream(stream host2.P2PStream) {
 	streamHash := stream.Hash()
 	p.streamsMutex.Lock()
 	p.streams[streamHash] = append(p.streams[streamHash], sh)
+	p.m.StreamHashes.Set(float64(len(p.streams)))
+	p.m.ActiveStreams.Add(1)
 	p.streamsMutex.Unlock()
 
 	go sh.handleIncoming()
@@ -242,9 +258,15 @@ type streamHandler struct {
 }
 
 func (s *streamHandler) send(msg proto.Message) error {
+	_, span := s.node.messageTracer.Start(s.stream.Context(), "message_send")
+	defer span.End()
 	s.lock.Lock()
 	defer s.lock.Unlock()
-	return s.writer.WriteMsg(msg)
+	if err := s.writer.WriteMsg(msg); err != nil {
+		span.RecordError(err)
+		return err
+	}
+	return nil
 }
 
 func (s *streamHandler) handleIncoming() {
@@ -252,11 +274,13 @@ func (s *streamHandler) handleIncoming() {
 	for {
 		msg := &ViewPacket{}
 		err := s.reader.ReadMsg(msg)
+		ctx, span := s.node.messageTracer.Start(s.stream.Context(), "message_receive")
 		if err != nil {
 			if s.node.isStopping {
 				if logger.IsEnabledFor(zapcore.DebugLevel) {
 					logger.Debugf("error reading message while closing. ignoring.", err.Error())
 				}
+				span.End()
 				break
 			}
 
@@ -274,8 +298,11 @@ func (s *streamHandler) handleIncoming() {
 			for i, thisSH := range s.node.streams[streamHash] {
 				if thisSH == s {
 					s.node.streams[streamHash] = append(s.node.streams[streamHash][:i], s.node.streams[streamHash][i+1:]...)
+					s.node.m.StreamHashes.Set(float64(len(s.node.streams)))
+					s.node.m.ActiveStreams.Add(-1)
 					s.wg.Done()
 					s.node.streamsMutex.Unlock()
+					span.End()
 					return
 				}
 			}
@@ -297,17 +324,22 @@ func (s *streamHandler) handleIncoming() {
 				Caller:       msg.Caller,
 				FromEndpoint: s.stream.RemotePeerAddress(),
 				FromPKID:     []byte(s.stream.RemotePeerID()),
-				Ctx:          s.stream.Context(),
+				Ctx:          ctx,
 			},
 			stream: s,
 		}
+		span.End()
 	}
 }
 
-func (s *streamHandler) close() {
+func (s *streamHandler) close(ctx context.Context) {
+	_, span := s.node.messageTracer.Start(ctx, "stream_close")
+	span.AddLink(trace.LinkFromContext(s.stream.Context()))
+	defer span.End()
 	s.reader.Close()
 	s.writer.Close()
 	s.stream.Close()
+	s.node.m.ClosedStreams.Add(1)
 	// s.wg.Wait()
 }
 
