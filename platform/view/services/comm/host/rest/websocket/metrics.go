@@ -6,33 +6,45 @@ SPDX-License-Identifier: Apache-2.0
 
 package websocket
 
-import "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
+import (
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
+)
+
+const (
+	sideLabel  tracing.LabelName = "side"
+	serverSide                   = "server"
+	clientSide                   = "client"
+)
 
 type Metrics struct {
-	ClientWebsockets      metrics.Gauge
-	ServerWebsockets      metrics.Gauge
-	InstantiationDuration metrics.Histogram
+	OpenedSubConns   metrics.Counter
+	ClosedSubConns   metrics.Counter
+	OpenedWebsockets metrics.Counter
 }
 
 func newMetrics(p metrics.Provider) *Metrics {
 	return &Metrics{
-		ClientWebsockets: p.NewGauge(metrics.GaugeOpts{
+		OpenedSubConns: p.NewCounter(metrics.CounterOpts{
 			Namespace:    "host",
-			Name:         "client_websockets",
-			Help:         "The number of open websockets on the client side",
-			StatsdFormat: "%{#fqname}",
+			Name:         "opened_subconns",
+			Help:         "The number of open subconns",
+			LabelNames:   []string{sideLabel},
+			StatsdFormat: "%{#fqname}.%{" + sideLabel + "}",
 		}),
-		ServerWebsockets: p.NewGauge(metrics.GaugeOpts{
+		ClosedSubConns: p.NewCounter(metrics.CounterOpts{
 			Namespace:    "host",
-			Name:         "server_websockets",
-			Help:         "The number of open websockets on the server side",
-			StatsdFormat: "%{#fqname}",
+			Name:         "closed_subconns",
+			Help:         "The number of closed subconns",
+			LabelNames:   []string{sideLabel},
+			StatsdFormat: "%{#fqname}.%{" + sideLabel + "}",
 		}),
-		InstantiationDuration: p.NewHistogram(metrics.HistogramOpts{
+		OpenedWebsockets: p.NewCounter(metrics.CounterOpts{
 			Namespace:    "host",
-			Name:         "instantiation_duration",
-			Help:         "The time it took to establish a connection to the server side",
-			StatsdFormat: "%{#fqname}",
+			Name:         "opened_websockets",
+			Help:         "The number of open websockets",
+			LabelNames:   []string{sideLabel},
+			StatsdFormat: "%{#fqname}.%{" + sideLabel + "}",
 		}),
 	}
 }

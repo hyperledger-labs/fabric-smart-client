@@ -62,7 +62,6 @@ func NewMultiplexedProvider(tracerProvider trace.TracerProvider, metricsProvider
 }
 
 func (c *MultiplexedProvider) NewClientStream(info host2.StreamInfo, ctx context.Context, src host2.PeerID, config *tls.Config) (s host2.P2PStream, err error) {
-	defer c.m.ClientWebsockets.Add(1)
 	newCtx, span := c.tracer.Start(ctx, "client_stream",
 		tracing.WithAttributes(tracing.String(contextIDLabel, info.ContextID)),
 		tracing.WithAttributes(tracing.String(subconnIDLabel, "")))
@@ -104,6 +103,7 @@ func (c *MultiplexedProvider) NewClientStream(info host2.StreamInfo, ctx context
 		delete(c.clients, url.String())
 	})
 	c.clients[url.String()] = conn
+	c.m.OpenedWebsockets.With(sideLabel, clientSide).Add(1)
 
 	return conn.newClientSubConn(newCtx, src, info)
 }
@@ -113,6 +113,7 @@ func (c *MultiplexedProvider) NewServerStream(writer http.ResponseWriter, reques
 	if err != nil {
 		return errors.Wrapf(err, "failed to open websocket")
 	}
+	c.m.OpenedWebsockets.With(sideLabel, serverSide).Add(1)
 	newServerConn(conn, c.tracer, c.m, newStreamCallback)
 	return nil
 }
@@ -124,7 +125,7 @@ type multiplexedClientConn struct {
 }
 
 func newClientConn(conn *websocket.Conn, tracer trace.Tracer, m *Metrics, onClose func()) *multiplexedClientConn {
-	c := &multiplexedClientConn{multiplexedBaseConn: newBaseConn(conn, tracer, m.ClientWebsockets)}
+	c := &multiplexedClientConn{multiplexedBaseConn: newBaseConn(conn, tracer, m, clientSide)}
 	go func() {
 		c.readIncoming()
 		onClose()
@@ -202,7 +203,7 @@ type multiplexedServerConn struct {
 // Server
 
 func newServerConn(conn *websocket.Conn, tracer trace.Tracer, m *Metrics, newStreamCallback func(pStream host2.P2PStream)) *multiplexedServerConn {
-	c := &multiplexedServerConn{newBaseConn(conn, tracer, m.ServerWebsockets)}
+	c := &multiplexedServerConn{newBaseConn(conn, tracer, m, serverSide)}
 	go c.readIncoming(newStreamCallback)
 	return c
 }
@@ -285,19 +286,21 @@ type multiplexedBaseConn struct {
 	writeMu  sync.Mutex
 	cancel   context.CancelFunc
 
-	streamGauge metrics.Gauge
+	m    *Metrics
+	side string
 }
 
-func newBaseConn(conn *websocket.Conn, tracer trace.Tracer, streamGauge metrics.Gauge) *multiplexedBaseConn {
+func newBaseConn(conn *websocket.Conn, tracer trace.Tracer, metrics *Metrics, side string) *multiplexedBaseConn {
 	ctx, cancel := context.WithCancel(context.Background())
 	c := &multiplexedBaseConn{
-		Conn:        conn,
-		tracer:      tracer,
-		subConns:    make(map[SubConnId]*subConn),
-		closes:      make(chan SubConnId, 1000),
-		writes:      make(chan MultiplexedMessage, 1000),
-		cancel:      cancel,
-		streamGauge: streamGauge,
+		Conn:     conn,
+		tracer:   tracer,
+		subConns: make(map[SubConnId]*subConn),
+		closes:   make(chan SubConnId, 1000),
+		writes:   make(chan MultiplexedMessage, 1000),
+		cancel:   cancel,
+		m:        metrics,
+		side:     side,
 	}
 	go c.readOutgoing(ctx)
 	go c.readCloses(ctx)
@@ -305,7 +308,7 @@ func newBaseConn(conn *websocket.Conn, tracer trace.Tracer, streamGauge metrics.
 }
 
 func (c *multiplexedBaseConn) newSubConn(id SubConnId) *subConn {
-	c.streamGauge.Add(1)
+	c.m.OpenedSubConns.With(sideLabel, c.side).Add(1)
 	return &subConn{
 		id:        id,
 		reads:     make(chan result),
@@ -321,20 +324,16 @@ func (c *multiplexedBaseConn) readCloses(ctx context.Context) {
 		case <-ctx.Done():
 			logger.Infof("Stop waiting for closes")
 			c.mu.Lock()
-			c.streamGauge.Add(-float64(len(c.subConns)))
+			c.m.ClosedSubConns.With(sideLabel, c.side).Add(float64(len(c.subConns)))
 			c.subConns = make(map[SubConnId]*subConn)
 			c.mu.Unlock()
 			return
 		case id := <-c.closes:
 			logger.Infof("Closing sub conn [%v]", id)
 			c.mu.Lock()
-			logger.Infof("Size before: %d", len(c.subConns))
-			_, ok := c.subConns[id]
-			logger.Infof("Exists? %v", ok)
 			delete(c.subConns, id)
-			logger.Infof("Size after: %d", len(c.subConns))
 			c.mu.Unlock()
-			c.streamGauge.Add(-1)
+			c.m.ClosedSubConns.With(sideLabel, c.side).Add(1)
 			// TODO: Clean the connection if none left
 		}
 	}
