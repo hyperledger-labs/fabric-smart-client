@@ -12,6 +12,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -28,8 +29,20 @@ func TestSecondChanceCache(t *testing.T) {
 	require.True(t, ok)
 	require.Equal(t, "123", obj.(string))
 
-	// Add c. victim scan: delete a and set b as the next candidate of a victim
-	cache.Add("c", "777")
+	obj, ok, err := cache.GetOrLoad("b", func() (interface{}, error) { return "111", nil })
+	require.True(t, ok)
+	require.NoError(t, err)
+	require.Equal(t, "123", obj.(string))
+
+	obj, ok, err = cache.GetOrLoad("c", func() (interface{}, error) { return "111", errors.New("some err") })
+	require.False(t, ok)
+	require.Error(t, err)
+	require.Equal(t, nil, obj)
+
+	obj, ok, err = cache.GetOrLoad("c", func() (interface{}, error) { return "111", nil })
+	require.False(t, ok)
+	require.NoError(t, err)
+	require.Equal(t, "111", obj.(string))
 
 	// check a is deleted
 	_, ok = cache.Get("a")

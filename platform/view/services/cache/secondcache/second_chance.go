@@ -57,6 +57,10 @@ func (cache *typedSecondChanceCache[T]) Get(key string) (T, bool) {
 	cache.rwlock.RLock()
 	defer cache.rwlock.RUnlock()
 
+	return cache.get(key)
+}
+
+func (cache *typedSecondChanceCache[T]) get(key string) (T, bool) {
 	item, ok := cache.table[key]
 	if !ok {
 		return zero[T](), false
@@ -68,10 +72,40 @@ func (cache *typedSecondChanceCache[T]) Get(key string) (T, bool) {
 	return item.value, true
 }
 
+func (cache *typedSecondChanceCache[T]) GetOrLoad(key string, loader func() (T, error)) (T, bool, error) {
+	cache.rwlock.RLock()
+
+	if value, ok := cache.get(key); ok {
+		cache.rwlock.RUnlock()
+		return value, true, nil
+	}
+	cache.rwlock.RUnlock()
+
+	cache.rwlock.Lock()
+	defer cache.rwlock.Unlock()
+
+	if value, ok := cache.get(key); ok {
+		return value, true, nil
+	}
+
+	value, err := loader()
+	if err != nil {
+		return zero[T](), false, err
+	}
+
+	cache.add(key, value)
+
+	return value, false, nil
+}
+
 func (cache *typedSecondChanceCache[T]) Add(key string, value T) {
 	cache.rwlock.Lock()
 	defer cache.rwlock.Unlock()
 
+	cache.add(key, value)
+}
+
+func (cache *typedSecondChanceCache[T]) add(key string, value T) {
 	if old, ok := cache.table[key]; ok {
 		old.value = value
 		atomic.StoreInt32(&old.referenced, 1)
