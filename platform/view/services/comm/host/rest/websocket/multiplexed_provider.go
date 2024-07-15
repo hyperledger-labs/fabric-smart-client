@@ -243,7 +243,7 @@ func (c *multiplexedServerConn) newServerSubConn(newStreamCallback func(pStream 
 	}
 	var meta StreamMeta
 	if err := json.Unmarshal(mm.Msg, &meta); err != nil {
-		logger.Errorf("failed to read meta info: %v", err)
+		logger.Errorf("failed to read meta info from [%s]: %v", string(mm.Msg), err)
 	}
 	logger.Debugf("Read meta info: [%s,%s]: %s", meta.ContextID, meta.SessionID, meta.SpanContext)
 	// Propagating the request context will not make a difference (see comment in newClientStream)
