@@ -6,7 +6,11 @@ SPDX-License-Identifier: Apache-2.0
 
 package collections
 
-import "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
+import (
+	"math/rand"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
+)
 
 type baseIterator[k any] interface {
 	// Next returns the next item in the result set. The `QueryResult` is expected to be nil when
@@ -21,16 +25,23 @@ type Iterator[V any] interface {
 	Close()
 }
 
+func NewPermutatedIterator[T any](it Iterator[*T]) (*sliceIterator[*T], error) {
+	items := readAll(it)
+	rand.Shuffle(len(items), func(i, j int) { items[i], items[j] = items[j], items[i] })
+	return NewSliceIterator(items), nil
+}
+
 func CopyIterator[T any](it Iterator[*T]) (*sliceIterator[*T], error) {
+	return NewSliceIterator(readAll(it)), nil
+}
+
+func readAll[T any](it Iterator[*T]) []*T {
 	defer it.Close()
 	items := make([]*T, 0)
 	for item, err := it.Next(); item != nil && err == nil; item, err = it.Next() {
-		if err != nil {
-			return nil, err
-		}
 		items = append(items, item)
 	}
-	return NewSliceIterator(items), nil
+	return items
 }
 
 type sliceIterator[T any] struct {
