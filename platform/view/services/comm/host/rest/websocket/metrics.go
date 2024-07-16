@@ -13,8 +13,8 @@ import (
 
 const (
 	sideLabel  tracing.LabelName = "side"
-	serverSide                   = "server"
-	clientSide                   = "client"
+	serverSide tracing.LabelName = "server"
+	clientSide tracing.LabelName = "client"
 )
 
 type Metrics struct {
