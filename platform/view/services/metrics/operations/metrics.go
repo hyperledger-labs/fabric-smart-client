@@ -61,3 +61,19 @@ func NewMetricsProvider(m MetricsOptions, l log2.Logger, skipRegisterErr bool) m
 		return &disabled.Provider{}
 	}
 }
+
+type disabledHistogramsProvider struct {
+	metrics.Provider
+	disabledProvider *disabled.Provider
+}
+
+func NewDisabledHistogram(provider metrics.Provider) *disabledHistogramsProvider {
+	return &disabledHistogramsProvider{
+		Provider:         provider,
+		disabledProvider: &disabled.Provider{},
+	}
+}
+
+func (p *disabledHistogramsProvider) NewHistogram(metrics.HistogramOpts) metrics.Histogram {
+	return p.disabledProvider.NewHistogram(metrics.HistogramOpts{})
+}
