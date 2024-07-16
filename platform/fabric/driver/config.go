@@ -33,10 +33,15 @@ type ChaincodeConfig interface {
 	IsPrivate() bool
 }
 
+type ChannelConfigProvider interface {
+	GetChannelConfig(network, channel string) (ChannelConfig, error)
+}
+
 type ChannelConfig interface {
 	ID() string
 	FinalityWaitTimeout() time.Duration
 	FinalityForPartiesWaitTimeout() time.Duration
+	FinalityEventQueueWorkers() int
 	CommitterPollingTimeout() time.Duration
 	CommitterFinalityNumRetries() int
 	CommitterFinalityUnknownTXTimeout() time.Duration

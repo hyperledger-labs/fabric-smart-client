@@ -101,6 +101,7 @@ func (c Chaincode) IsPrivate() bool {
 type Finality struct {
 	WaitForEventTimeout   time.Duration `yaml:"WaitForEventTimeout,omitempty"`
 	ForPartiesWaitTimeout time.Duration `yaml:"ForPartiesWaitTimeout,omitempty"`
+	EventQueueWorkers     int           `yaml:"EventQueueWorkers,omitempty"`
 }
 
 type Delivery struct {
@@ -182,6 +183,13 @@ func (c *Channel) FinalityWaitTimeout() time.Duration {
 		return 20 * time.Second
 	}
 	return c.Finality.WaitForEventTimeout
+}
+
+func (c *Channel) FinalityEventQueueWorkers() int {
+	if c.Finality.EventQueueWorkers == 0 {
+		return 50
+	}
+	return c.Finality.EventQueueWorkers
 }
 
 func (c *Channel) CommitterWaitForEventTimeout() time.Duration {

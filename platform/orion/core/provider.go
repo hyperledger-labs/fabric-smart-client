@@ -34,22 +34,24 @@ type ONSProvider struct {
 	publisher     events.Publisher
 	subscriber    events.Subscriber
 
-	networksMutex  sync.Mutex
-	networks       map[string]driver.OrionNetworkService
-	drivers        []driver3.NamedDriver
-	tracerProvider trace.TracerProvider
+	networksMutex         sync.Mutex
+	networks              map[string]driver.OrionNetworkService
+	drivers               []driver3.NamedDriver
+	tracerProvider        trace.TracerProvider
+	networkConfigProvider driver.NetworkConfigProvider
 }
 
-func NewOrionNetworkServiceProvider(configService driver2.ConfigService, config *Config, kvss *kvs.KVS, publisher events.Publisher, subscriber events.Subscriber, tracerProvider trace.TracerProvider, drivers []driver3.NamedDriver) (*ONSProvider, error) {
+func NewOrionNetworkServiceProvider(configService driver2.ConfigService, config *Config, kvss *kvs.KVS, publisher events.Publisher, subscriber events.Subscriber, tracerProvider trace.TracerProvider, drivers []driver3.NamedDriver, networkConfigProvider driver.NetworkConfigProvider) (*ONSProvider, error) {
 	provider := &ONSProvider{
-		configService:  configService,
-		config:         config,
-		kvss:           kvss,
-		publisher:      publisher,
-		subscriber:     subscriber,
-		networks:       map[string]driver.OrionNetworkService{},
-		drivers:        drivers,
-		tracerProvider: tracerProvider,
+		configService:         configService,
+		config:                config,
+		kvss:                  kvss,
+		publisher:             publisher,
+		subscriber:            subscriber,
+		networks:              map[string]driver.OrionNetworkService{},
+		drivers:               drivers,
+		tracerProvider:        tracerProvider,
+		networkConfigProvider: networkConfigProvider,
 	}
 	return provider, nil
 }
@@ -117,5 +119,10 @@ func (p *ONSProvider) newONS(network string) (driver.OrionNetworkService, error)
 		return nil, err
 	}
 
-	return generic.NewNetwork(p.ctx, p.kvss, p.publisher, p.subscriber, p.tracerProvider, c, network, p.drivers)
+	networkConfig, err := p.networkConfigProvider.GetNetworkConfig(network)
+	if err != nil {
+		return nil, err
+	}
+
+	return generic.NewNetwork(p.ctx, p.kvss, p.publisher, p.subscriber, p.tracerProvider, c, network, p.drivers, networkConfig)
 }

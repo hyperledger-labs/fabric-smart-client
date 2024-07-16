@@ -87,7 +87,7 @@ func NewDB(ctx context.Context, kvss *kvs.KVS, config *config2.Config, name stri
 	return n, nil
 }
 
-func NewNetwork(ctx context.Context, kvss *kvs.KVS, eventsPublisher events.Publisher, eventsSubscriber events.Subscriber, tracerProvider trace.TracerProvider, config *config2.Config, name string, drivers []driver2.NamedDriver) (*network, error) {
+func NewNetwork(ctx context.Context, kvss *kvs.KVS, eventsPublisher events.Publisher, eventsSubscriber events.Subscriber, tracerProvider trace.TracerProvider, config *config2.Config, name string, drivers []driver2.NamedDriver, networkConfig driver.NetworkConfig) (*network, error) {
 	// Load configuration
 	n := &network{
 		ctx:    ctx,
@@ -152,6 +152,7 @@ func NewNetwork(ctx context.Context, kvss *kvs.KVS, eventsPublisher events.Publi
 		eventsPublisher,
 		eventsSubscriber,
 		tracerProvider,
+		networkConfig,
 	)
 	if err != nil {
 		return nil, errors.WithMessagef(err, "failed to create committer")
