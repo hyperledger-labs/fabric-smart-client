@@ -64,7 +64,7 @@ func (it *sliceIterator[K]) HasNext() bool { return it.i < len(it.items) }
 
 func (it *sliceIterator[T]) Close() {}
 
-func (it *sliceIterator[T]) NewPermutation() *permutationIterator[T] {
+func (it *sliceIterator[T]) NewPermutation() Iterator[T] {
 	return &permutationIterator[T]{
 		items: it.items,
 		perm:  rand.Perm(len(it.items)),
