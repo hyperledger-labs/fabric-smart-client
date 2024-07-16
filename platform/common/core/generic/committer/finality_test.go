@@ -17,6 +17,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"go.opentelemetry.io/otel/trace/noop"
 )
 
 type MockVault struct {
@@ -32,13 +33,13 @@ type MockFinalityListener struct {
 	mock.Mock
 }
 
-func (m *MockFinalityListener) OnStatus(txID driver.TxID, status int, statusMessage string) {
+func (m *MockFinalityListener) OnStatus(_ context.Context, txID driver.TxID, status int, statusMessage string) {
 	m.Called(txID, status, statusMessage)
 }
 
 func TestFinalityManager_AddListener(t *testing.T) {
 	vault := &MockVault{}
-	manager := NewFinalityManager[int](flogging.MustGetLogger("committer"), vault)
+	manager := NewFinalityManager[int](flogging.MustGetLogger("committer"), vault, noop.NewTracerProvider())
 	listener := &MockFinalityListener{}
 
 	err := manager.AddListener("txID", listener)
@@ -55,7 +56,7 @@ func TestFinalityManager_AddListener(t *testing.T) {
 
 func TestFinalityManager_RemoveListener(t *testing.T) {
 	vault := &MockVault{}
-	manager := NewFinalityManager[int](flogging.MustGetLogger("committer"), vault)
+	manager := NewFinalityManager[int](flogging.MustGetLogger("committer"), vault, noop.NewTracerProvider())
 	listener := &MockFinalityListener{}
 
 	assert.NoError(t, manager.AddListener("txID", listener))
@@ -70,7 +71,7 @@ func TestFinalityManager_RemoveListener(t *testing.T) {
 
 func TestFinalityManager_Run(t *testing.T) {
 	vault := &MockVault{}
-	manager := NewFinalityManager[int](flogging.MustGetLogger("committer"), vault)
+	manager := NewFinalityManager[int](flogging.MustGetLogger("committer"), vault, noop.NewTracerProvider())
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -88,7 +89,7 @@ func TestFinalityManager_RunStatusListener(t *testing.T) {
 	}
 
 	vault := &MockVault{}
-	manager := NewFinalityManager[int](flogging.MustGetLogger("committer"), vault)
+	manager := NewFinalityManager[int](flogging.MustGetLogger("committer"), vault, noop.NewTracerProvider())
 	manager.postStatuses = collections.NewSet(1)
 
 	// no listeners
@@ -129,7 +130,7 @@ func TestFinalityManager_RunStatusListener(t *testing.T) {
 
 func TestFinalityManager_CloneListeners(t *testing.T) {
 	vault := &MockVault{}
-	manager := NewFinalityManager[int](flogging.MustGetLogger("committer"), vault)
+	manager := NewFinalityManager[int](flogging.MustGetLogger("committer"), vault, noop.NewTracerProvider())
 	listener := &MockFinalityListener{}
 	assert.NoError(t, manager.AddListener("txID", listener))
 
@@ -140,7 +141,7 @@ func TestFinalityManager_CloneListeners(t *testing.T) {
 
 func TestFinalityManager_TxIDs(t *testing.T) {
 	vault := &MockVault{}
-	manager := NewFinalityManager[int](flogging.MustGetLogger("committer"), vault)
+	manager := NewFinalityManager[int](flogging.MustGetLogger("committer"), vault, noop.NewTracerProvider())
 
 	manager.txIDListeners["txID"] = []driver.FinalityListener[int]{}
 
@@ -151,9 +152,10 @@ func TestFinalityManager_TxIDs(t *testing.T) {
 
 func TestFinalityManager_Dispatch_PanicRecovery(t *testing.T) {
 	vault := &MockVault{}
-	manager := NewFinalityManager[int](flogging.MustGetLogger("committer"), vault)
+	manager := NewFinalityManager[int](flogging.MustGetLogger("committer"), vault, noop.NewTracerProvider())
 	listener := &MockFinalityListener{}
 	event := FinalityEvent[int]{
+		Ctx:            context.TODO(),
 		TxID:           "txID",
 		ValidationCode: 1,
 	}

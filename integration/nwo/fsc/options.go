@@ -12,7 +12,7 @@ import (
 )
 
 // WithPostgresPersistence is a configuration with SQL vault persistence
-func WithPostgresPersistence(config *postgres.PostgresConfig) node.Option {
+func WithPostgresPersistence(config postgres.DataSourceProvider) node.Option {
 	return func(o *node.Options) error {
 		if config != nil {
 			o.Put("fsc.persistence.sql", config.DataSource())

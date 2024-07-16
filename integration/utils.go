@@ -21,7 +21,7 @@ var NoReplication = &ReplicationOptions{}
 
 type ReplicationOptions struct {
 	ReplicationFactors map[string]int
-	SQLConfigs         map[string]*postgres.PostgresConfig
+	SQLConfigs         map[string]*postgres.ContainerConfig
 }
 
 func (o *ReplicationOptions) For(name string) []node.Option {
@@ -39,7 +39,7 @@ func NewTestSuite(generator func() (*Infrastructure, error)) *TestSuite {
 	return NewTestSuiteWithSQL(nil, generator)
 }
 
-func NewTestSuiteWithSQL(sqlConfigs map[string]*postgres.PostgresConfig, generator func() (*Infrastructure, error)) *TestSuite {
+func NewTestSuiteWithSQL(sqlConfigs map[string]*postgres.ContainerConfig, generator func() (*Infrastructure, error)) *TestSuite {
 	return &TestSuite{
 		sqlConfigs: sqlConfigs,
 		generator:  generator,
@@ -48,7 +48,7 @@ func NewTestSuiteWithSQL(sqlConfigs map[string]*postgres.PostgresConfig, generat
 }
 
 type TestSuite struct {
-	sqlConfigs map[string]*postgres.PostgresConfig
+	sqlConfigs map[string]*postgres.ContainerConfig
 	generator  func() (*Infrastructure, error)
 
 	closeFunc func()

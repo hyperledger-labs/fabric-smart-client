@@ -225,7 +225,9 @@ func (n *node) getTracer() trace.Tracer {
 }
 
 func (n *node) CallView(fid string, in []byte) (interface{}, error) {
-	ctx, span := n.getTracer().Start(context.Background(), "call_view", trace.WithSpanKind(trace.SpanKindClient))
+	ctx, span := n.getTracer().Start(context.Background(), "call_view",
+		trace.WithSpanKind(trace.SpanKindClient),
+		tracing.WithAttributes(tracing.String(fidLabel, fid)))
 	defer span.End()
 	s, err := n.GetService(reflect.TypeOf((*ViewManager)(nil)))
 	if err != nil {
@@ -233,7 +235,7 @@ func (n *node) CallView(fid string, in []byte) (interface{}, error) {
 	}
 	manager := s.(ViewManager)
 
-	span.AddEvent("start_new_view", tracing.WithAttributes(tracing.String(fidLabel, fid)))
+	span.AddEvent("start_new_view")
 	f, err := manager.NewView(fid, in)
 	span.AddEvent("end_new_view")
 	if err != nil {

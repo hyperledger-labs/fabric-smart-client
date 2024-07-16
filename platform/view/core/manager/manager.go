@@ -217,7 +217,8 @@ func (cm *manager) InitiateViewWithIdentity(view view.View, id view.Identity, c 
 	}
 	span.AddEvent("start_run_view")
 	res, err := childContext.RunView(view)
-	span.AddEvent("end_run_view", tracing.WithAttributes(tracing.Bool(SuccessLabel, err == nil)))
+	span.AddEvent("end_run_view")
+	span.SetAttributes(tracing.Bool(SuccessLabel, err == nil))
 	if err != nil {
 		if logger.IsEnabledFor(zapcore.DebugLevel) {
 			logger.Debugf("[%s] InitiateView [view:%s], [ContextID:%s] failed [%s]", id, getIdentifier(view), childContext.ID(), err)

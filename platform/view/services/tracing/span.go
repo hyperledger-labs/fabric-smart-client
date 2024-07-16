@@ -72,14 +72,11 @@ func (s *span) End(options ...SpanEndOption) {
 
 	ls := s.labels.ToLabels()
 	s.operations.With(ls...).Add(1)
-	s.duration.With(ls...).Observe(c.Timestamp().Sub(s.start).Seconds())
+	s.duration.With(ls...).Observe(defaultNow(c.Timestamp()).Sub(s.start).Seconds())
 }
 
 func (s *span) AddEvent(name string, options ...EventOption) {
 	s.Span.AddEvent(name, options...)
-
-	c := trace.NewEventConfig(options...)
-	s.labels.Append(c.Attributes()...)
 }
 
 func (s *span) SetAttributes(kv ...KeyValue) {
@@ -102,8 +99,8 @@ func newSpan(backingSpan trace.Span, labelNames []LabelName, operations metrics.
 }
 
 func defaultNow(t time.Time) time.Time {
-	if t.IsZero() {
-		return time.Now()
-	}
-	return t
+	//if t.IsZero() {
+	//	return time.Now()
+	//}
+	return time.Now()
 }
