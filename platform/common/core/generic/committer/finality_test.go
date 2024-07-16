@@ -39,7 +39,7 @@ func (m *MockFinalityListener) OnStatus(_ context.Context, txID driver.TxID, sta
 
 func TestFinalityManager_AddListener(t *testing.T) {
 	vault := &MockVault{}
-	manager := NewFinalityManager[int](flogging.MustGetLogger("committer"), vault, noop.NewTracerProvider())
+	manager := NewFinalityManager[int](flogging.MustGetLogger("committer"), vault, noop.NewTracerProvider(), 10)
 	listener := &MockFinalityListener{}
 
 	err := manager.AddListener("txID", listener)
@@ -56,7 +56,7 @@ func TestFinalityManager_AddListener(t *testing.T) {
 
 func TestFinalityManager_RemoveListener(t *testing.T) {
 	vault := &MockVault{}
-	manager := NewFinalityManager[int](flogging.MustGetLogger("committer"), vault, noop.NewTracerProvider())
+	manager := NewFinalityManager[int](flogging.MustGetLogger("committer"), vault, noop.NewTracerProvider(), 10)
 	listener := &MockFinalityListener{}
 
 	assert.NoError(t, manager.AddListener("txID", listener))
@@ -71,7 +71,7 @@ func TestFinalityManager_RemoveListener(t *testing.T) {
 
 func TestFinalityManager_Run(t *testing.T) {
 	vault := &MockVault{}
-	manager := NewFinalityManager[int](flogging.MustGetLogger("committer"), vault, noop.NewTracerProvider())
+	manager := NewFinalityManager[int](flogging.MustGetLogger("committer"), vault, noop.NewTracerProvider(), 10)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -89,7 +89,7 @@ func TestFinalityManager_RunStatusListener(t *testing.T) {
 	}
 
 	vault := &MockVault{}
-	manager := NewFinalityManager[int](flogging.MustGetLogger("committer"), vault, noop.NewTracerProvider())
+	manager := NewFinalityManager[int](flogging.MustGetLogger("committer"), vault, noop.NewTracerProvider(), 10)
 	manager.postStatuses = collections.NewSet(1)
 
 	// no listeners
@@ -130,7 +130,7 @@ func TestFinalityManager_RunStatusListener(t *testing.T) {
 
 func TestFinalityManager_CloneListeners(t *testing.T) {
 	vault := &MockVault{}
-	manager := NewFinalityManager[int](flogging.MustGetLogger("committer"), vault, noop.NewTracerProvider())
+	manager := NewFinalityManager[int](flogging.MustGetLogger("committer"), vault, noop.NewTracerProvider(), 10)
 	listener := &MockFinalityListener{}
 	assert.NoError(t, manager.AddListener("txID", listener))
 
@@ -141,7 +141,7 @@ func TestFinalityManager_CloneListeners(t *testing.T) {
 
 func TestFinalityManager_TxIDs(t *testing.T) {
 	vault := &MockVault{}
-	manager := NewFinalityManager[int](flogging.MustGetLogger("committer"), vault, noop.NewTracerProvider())
+	manager := NewFinalityManager[int](flogging.MustGetLogger("committer"), vault, noop.NewTracerProvider(), 10)
 
 	manager.txIDListeners["txID"] = []driver.FinalityListener[int]{}
 
@@ -152,7 +152,7 @@ func TestFinalityManager_TxIDs(t *testing.T) {
 
 func TestFinalityManager_Dispatch_PanicRecovery(t *testing.T) {
 	vault := &MockVault{}
-	manager := NewFinalityManager[int](flogging.MustGetLogger("committer"), vault, noop.NewTracerProvider())
+	manager := NewFinalityManager[int](flogging.MustGetLogger("committer"), vault, noop.NewTracerProvider(), 10)
 	listener := &MockFinalityListener{}
 	event := FinalityEvent[int]{
 		Ctx:            context.TODO(),

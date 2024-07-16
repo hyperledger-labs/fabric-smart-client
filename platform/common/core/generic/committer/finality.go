@@ -62,7 +62,7 @@ type FinalityManager[V comparable] struct {
 	eventQueueWorkers int
 }
 
-func NewFinalityManager[V comparable](logger Logger, vault Vault[V], tracerProvider trace.TracerProvider, statuses ...V) *FinalityManager[V] {
+func NewFinalityManager[V comparable](logger Logger, vault Vault[V], tracerProvider trace.TracerProvider, eventQueueWorkers int, statuses ...V) *FinalityManager[V] {
 	return &FinalityManager[V]{
 		logger:        logger,
 		eventQueue:    make(chan FinalityEvent[V], defaultEventQueueSize),
@@ -72,7 +72,7 @@ func NewFinalityManager[V comparable](logger Logger, vault Vault[V], tracerProvi
 		tracer: tracerProvider.Tracer("finality_manager", tracing.WithMetricsOpts(tracing.MetricsOpts{
 			Namespace: "core",
 		})),
-		eventQueueWorkers: 300,
+		eventQueueWorkers: eventQueueWorkers,
 	}
 }
 

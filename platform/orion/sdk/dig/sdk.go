@@ -16,6 +16,7 @@ import (
 	digutils "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	finality2 "github.com/hyperledger-labs/fabric-smart-client/platform/orion/sdk/finality"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
@@ -70,6 +71,7 @@ func (p *SDK) Install() error {
 		p.Container().Provide(digutils.Identity[driver.ConfigService](), dig.As(new(core.ConfigProvider))),
 		p.Container().Provide(core.NewConfig),
 		p.Container().Provide(newOrionNetworkServiceProvider),
+		p.Container().Provide(newNetworkConfigProvider, dig.As(new(driver2.NetworkConfigProvider))),
 		p.Container().Provide(orion.NewNetworkServiceProvider),
 		p.Container().Provide(digutils.Identity[*core.ONSProvider](), dig.As(new(driver2.OrionNetworkServiceProvider))),
 		p.Container().Provide(finality2.NewHandler, dig.Group("finality-handlers")),
@@ -143,15 +145,20 @@ func (p *SDK) PostStart(ctx context.Context) error {
 	return nil
 }
 
+func newNetworkConfigProvider() driver2.NetworkConfigProvider {
+	return generic.NewStaticNetworkConfigProvider(generic.NewNetworkConfig())
+}
+
 func newOrionNetworkServiceProvider(in struct {
 	dig.In
-	KVSS           *kvs.KVS
-	Publisher      events.Publisher
-	Subscriber     events.Subscriber
-	ConfigService  driver.ConfigService
-	Config         *core.Config
-	TracerProvider trace.TracerProvider
-	Drivers        []driver3.NamedDriver `group:"db-drivers"`
+	KVSS                  *kvs.KVS
+	Publisher             events.Publisher
+	Subscriber            events.Subscriber
+	ConfigService         driver.ConfigService
+	Config                *core.Config
+	TracerProvider        trace.TracerProvider
+	Drivers               []driver3.NamedDriver `group:"db-drivers"`
+	NetworkConfigProvider driver2.NetworkConfigProvider
 }) (*core.ONSProvider, error) {
-	return core.NewOrionNetworkServiceProvider(in.ConfigService, in.Config, in.KVSS, in.Publisher, in.Subscriber, in.TracerProvider, in.Drivers)
+	return core.NewOrionNetworkServiceProvider(in.ConfigService, in.Config, in.KVSS, in.Publisher, in.Subscriber, in.TracerProvider, in.Drivers, in.NetworkConfigProvider)
 }

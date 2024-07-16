@@ -95,6 +95,7 @@ func New(
 	eventsPublisher events.Publisher,
 	eventsSubscriber events.Subscriber,
 	tracerProvider trace.TracerProvider,
+	networkConfig driver.NetworkConfig,
 ) (*committer, error) {
 	d := &committer{
 		networkName:         networkName,
@@ -106,13 +107,13 @@ func New(
 		finality:            finality,
 		pm:                  pm,
 		em:                  em,
-		pollingTimeout:      100 * time.Millisecond,
-		EventManager:        committer2.NewFinalityManager[driver.ValidationCode](logger, vault, tracerProvider, driver.Valid, driver.Invalid),
+		pollingTimeout:      networkConfig.PollingTimeout(),
+		EventManager:        committer2.NewFinalityManager[driver.ValidationCode](logger, vault, tracerProvider, networkConfig.FinalityEventQueueWorkers(), driver.Valid, driver.Invalid),
 		eventsSubscriber:    eventsSubscriber,
 		eventsPublisher:     eventsPublisher,
 		subscribers:         events.NewSubscribers(),
-		finalityNumRetries:  3,
-		finalitySleepTime:   100 * time.Millisecond,
+		finalityNumRetries:  networkConfig.FinalityNumRetries(),
+		finalitySleepTime:   networkConfig.FinalitySleepTime(),
 		TransactionFilters:  committer2.NewAggregatedTransactionFilter(),
 		blockTracer: tracerProvider.Tracer("committer_tx", tracing.WithMetricsOpts(tracing.MetricsOpts{
 			Namespace:  "orionsdk",

@@ -127,7 +127,7 @@ func New(
 		ProcessorManager:    processorManager,
 		MembershipService:   channelMembershipService,
 		OrderingService:     orderingService,
-		EventManager:        committer.NewFinalityManager[driver.ValidationCode](logger, vault, tracerProvider, driver.Valid, driver.Invalid),
+		EventManager:        committer.NewFinalityManager[driver.ValidationCode](logger, vault, tracerProvider, channelConfig.FinalityEventQueueWorkers(), driver.Valid, driver.Invalid),
 		EventsPublisher:     eventsPublisher,
 		FabricFinality:      fabricFinality,
 		TransactionManager:  transactionManager,

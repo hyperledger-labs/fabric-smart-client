@@ -33,28 +33,29 @@ type Provider interface {
 	NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver.Channel, error)
 }
 
-func NewProvider(kvss *kvs.KVS, publisher events.Publisher, hasher hash.Hasher, tracerProvider trace.TracerProvider, drivers []driver2.NamedDriver) Provider {
-	return NewProviderWithVault(kvss, publisher, hasher, tracerProvider, drivers, vault.New)
+func NewProvider(kvss *kvs.KVS, publisher events.Publisher, hasher hash.Hasher, tracerProvider trace.TracerProvider, drivers []driver2.NamedDriver, channelConfigProvider driver.ChannelConfigProvider) Provider {
+	return NewProviderWithVault(kvss, publisher, hasher, tracerProvider, drivers, vault.New, channelConfigProvider)
 }
 
-func NewProviderWithVault(kvss *kvs.KVS, publisher events.Publisher, hasher hash.Hasher, tracerProvider trace.TracerProvider, drivers []driver2.NamedDriver, newVault VaultConstructor) *provider {
-	return &provider{kvss: kvss, publisher: publisher, hasher: hasher, newVault: newVault, tracerProvider: tracerProvider, drivers: drivers}
+func NewProviderWithVault(kvss *kvs.KVS, publisher events.Publisher, hasher hash.Hasher, tracerProvider trace.TracerProvider, drivers []driver2.NamedDriver, newVault VaultConstructor, channelConfigProvider driver.ChannelConfigProvider) *provider {
+	return &provider{kvss: kvss, publisher: publisher, hasher: hasher, newVault: newVault, tracerProvider: tracerProvider, drivers: drivers, channelConfigProvider: channelConfigProvider}
 }
 
 type provider struct {
-	kvss           *kvs.KVS
-	publisher      events.Publisher
-	hasher         hash.Hasher
-	newVault       VaultConstructor
-	tracerProvider trace.TracerProvider
-	drivers        []driver2.NamedDriver
+	kvss                  *kvs.KVS
+	publisher             events.Publisher
+	hasher                hash.Hasher
+	newVault              VaultConstructor
+	tracerProvider        trace.TracerProvider
+	drivers               []driver2.NamedDriver
+	channelConfigProvider driver.ChannelConfigProvider
 }
 
 func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string, quiet bool) (driver.Channel, error) {
 	// Channel configuration
-	channelConfig := nw.ConfigService().Channel(channelName)
-	if channelConfig == nil {
-		channelConfig = nw.ConfigService().NewDefaultChannelConfig(channelName)
+	channelConfig, err := p.channelConfigProvider.GetChannelConfig(nw.Name(), channelName)
+	if err != nil {
+		return nil, err
 	}
 
 	// Vault
