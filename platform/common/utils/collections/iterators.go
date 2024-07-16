@@ -56,7 +56,6 @@ func (it *sliceIterator[T]) Next() (T, error) {
 		return utils.Zero[T](), nil
 	}
 	item := it.items[it.i]
-	it.items[it.i] = utils.Zero[T]()
 	it.i++
 	return item, nil
 }
@@ -64,6 +63,32 @@ func (it *sliceIterator[T]) Next() (T, error) {
 func (it *sliceIterator[K]) HasNext() bool { return it.i < len(it.items) }
 
 func (it *sliceIterator[T]) Close() {}
+
+func (it *sliceIterator[T]) NewPermutation() Iterator[T] {
+	return &permutationIterator[T]{
+		items: it.items,
+		perm:  rand.Perm(len(it.items)),
+	}
+}
+
+type permutationIterator[T any] struct {
+	i     int
+	items []T
+	perm  []int
+}
+
+func (it *permutationIterator[T]) Next() (T, error) {
+	if !it.HasNext() {
+		return utils.Zero[T](), nil
+	}
+	item := it.items[it.perm[it.i]]
+	it.i++
+	return item, nil
+}
+
+func (it *permutationIterator[T]) HasNext() bool { return it.i < len(it.items) }
+
+func (it *permutationIterator[T]) Close() {}
 
 func Map[A any, B any](iterator Iterator[A], transformer func(A) (B, error)) Iterator[B] {
 	return &mappedIterator[A, B]{Iterator: iterator, transformer: transformer}
