@@ -394,6 +394,7 @@ func (c *subConn) WriteMessage(_ int, data []byte) error {
 func (c *subConn) Close() error {
 	c.once.Do(func() {
 		c.closes <- c.id
+		c.reads <- streamEOF
 	})
 	return nil
 }
