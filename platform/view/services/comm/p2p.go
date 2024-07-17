@@ -229,15 +229,18 @@ func (p *P2PNode) Lookup(peerID string) ([]string, bool) {
 }
 
 func (p *P2PNode) closeStream(info host2.StreamInfo, toClose []*streamHandler) {
+	// this function must be called under sessionsMutex.Lock()
 	p.streamsMutex.Lock()
 	defer p.streamsMutex.Unlock()
 
-	streamHash := p.host.StreamHash(info)
-	streams, ok := p.streams[streamHash]
-	if !ok {
-		logger.Warnf("cannot find streams for hash [%s]", streamHash)
+	for hash := range p.streams {
+		p.removeStream(hash, toClose)
 	}
-	logger.Debugf("found [%d] streams for hash [%s], remove [%d]", len(streams), streamHash, len(toClose))
+}
+
+func (p *P2PNode) removeStream(streamHash host2.StreamHash, toClose []*streamHandler) {
+	streams := p.streams[streamHash]
+	logger.Debugf("before found [%d] streams for hash [%s], remove [%d]", len(streams), streamHash, len(toClose))
 	for _, handler := range toClose {
 		for i, stream := range streams {
 			if handler == stream {
@@ -250,7 +253,7 @@ func (p *P2PNode) closeStream(info host2.StreamInfo, toClose []*streamHandler) {
 	if len(streams) == 0 {
 		delete(p.streams, streamHash)
 	}
-	logger.Debugf("streams for hash [%s] left with [%d] streams", streamHash, len(p.streams))
+	logger.Debugf("after found [%d] streams for hash [%s]", len(streams), streamHash)
 }
 
 type streamHandler struct {
@@ -292,6 +295,16 @@ func (s *streamHandler) handleIncoming() {
 
 			// remove stream handler
 			s.node.streamsMutex.Lock()
+
+			// check again if the node is stopped
+			stopped = s.node.isStopping
+			if stopped {
+				if logger.IsEnabledFor(zapcore.DebugLevel) {
+					logger.Errorf("error [%s] reading message while closing, ignoring.", err)
+				}
+				break
+			}
+
 			if logger.IsEnabledFor(zapcore.DebugLevel) {
 				logger.Debugf("removing stream [%s], total streams found: %d", streamHash, len(s.node.streams[streamHash]))
 			}
