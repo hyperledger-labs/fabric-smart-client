@@ -363,17 +363,17 @@ func (cm *manager) respond(responder view.View, id view.Identity, msg *view.Mess
 		return nil, nil, errors.WithMessagef(err, "failed getting context for [%s,%s,%v]", msg.ContextID, id, msg)
 	}
 
-	//if logger.IsEnabledFor(zapcore.DebugLevel) {
-	logger.Infof(
-		"[%s](%v) Respond [from:%s], [sessionID:%s], [contextID:%s], [view:%s]",
-		id,
-		isNew,
-		msg.FromEndpoint,
-		msg.SessionID,
-		msg.ContextID,
-		getIdentifier(responder),
-	)
-	//}
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf(
+			"[%s](%v) Respond [from:%s], [sessionID:%s], [contextID:%s], [view:%s]",
+			id,
+			isNew,
+			msg.FromEndpoint,
+			msg.SessionID,
+			msg.ContextID,
+			getIdentifier(responder),
+		)
+	}
 
 	// todo: if a new contxt has been created to run the responder,
 	// then dispose the context when the responder terminates

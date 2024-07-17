@@ -92,7 +92,7 @@ func (p *SDK) Install() error {
 }
 
 func (p *SDK) Start(ctx context.Context) error {
-	defer logger.Infof("SDK installation complete:\n%s", digutils.Visualize(p.Container()))
+	defer logger.Debugf("SDK installation complete:\n%s", digutils.Visualize(p.Container()))
 	if err := p.SDK.Start(ctx); err != nil {
 		return err
 	}

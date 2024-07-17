@@ -71,7 +71,7 @@ func (c *MultiplexedProvider) NewClientStream(info host2.StreamInfo, ctx context
 		return nil, errors.Wrapf(err, "failed to open websocket")
 	}
 	conn = newClientConn(wsConn, func() {
-		logger.Infof("Closing websocket client for [%s@%s]...", src, info.RemotePeerAddress)
+		logger.Debugf("Closing websocket client for [%s@%s]...", src, info.RemotePeerAddress)
 		c.mu.Lock()
 		defer c.mu.Unlock()
 		delete(c.clients, url.String())
@@ -110,7 +110,7 @@ func (c *multiplexedClientConn) newClientSubConn(ctx context.Context, src host2.
 	sc := c.newSubConn(NewSubConnId())
 	c.subConns[sc.id] = sc
 	c.mu.Unlock()
-	logger.Infof("Created client subconn with id [%s]", sc.id)
+	logger.Debugf("Created client subconn with id [%s]", sc.id)
 	spanContext := trace.SpanContextFromContext(ctx)
 	marshalledSpanContext, err := tracing.MarshalContext(spanContext)
 	if err != nil {
@@ -288,7 +288,7 @@ func (c *multiplexedBaseConn) readCloses(ctx context.Context) {
 			c.mu.Unlock()
 			return
 		case id := <-c.closes:
-			logger.Infof("Closing sub conn [%v]", id)
+			logger.Debugf("Closing sub conn [%v]", id)
 			c.mu.Lock()
 			delete(c.subConns, id)
 			c.mu.Unlock()
