@@ -284,6 +284,8 @@ func (s *streamHandler) send(msg proto.Message) error {
 }
 
 func (s *streamHandler) handleIncoming() {
+	s.node.m.StreamHandlers.Add(1)
+	defer s.node.m.StreamHandlers.Add(-1)
 	s.wg.Add(1)
 	for {
 		msg := &ViewPacket{}

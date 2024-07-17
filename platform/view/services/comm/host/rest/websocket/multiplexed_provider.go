@@ -15,6 +15,7 @@ import (
 	"net/url"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
@@ -50,7 +51,7 @@ type MultiplexedProvider struct {
 }
 
 func NewMultiplexedProvider(tracerProvider trace.TracerProvider, metricsProvider metrics.Provider) *MultiplexedProvider {
-	return &MultiplexedProvider{
+	p := &MultiplexedProvider{
 		clients: make(map[string]*multiplexedClientConn),
 		tracer: tracerProvider.Tracer("multiplexed-ws", tracing.WithMetricsOpts(tracing.MetricsOpts{
 			Namespace:  "core",
@@ -58,6 +59,21 @@ func NewMultiplexedProvider(tracerProvider trace.TracerProvider, metricsProvider
 		})),
 		m: newMetrics(metricsProvider),
 	}
+	go func() {
+		t := time.NewTicker(5 * time.Second)
+		for range t.C {
+			sum := 0
+			p.mu.RLock()
+			for _, c := range p.clients {
+				c.mu.RLock()
+				sum += len(c.subConns)
+				c.mu.RUnlock()
+			}
+			p.mu.RUnlock()
+			p.m.ActiveSubConns.Set(float64(sum))
+		}
+	}()
+	return p
 }
 
 func (c *MultiplexedProvider) NewClientStream(info host2.StreamInfo, ctx context.Context, src host2.PeerID, config *tls.Config) (s host2.P2PStream, err error) {
