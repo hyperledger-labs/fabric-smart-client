@@ -13,8 +13,6 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/prometheus"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/statsd"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/statsd/goruntime"
 
@@ -123,20 +121,18 @@ func (s *System) Log(keyvals ...interface{}) error {
 func (s *System) initializeMetricsProvider(provider metrics.Provider, m MetricsOptions) error {
 	s.logger.Debugf("Initializing metrics provider: [%s]", m.Provider)
 	s.Provider = provider
-	switch p := s.Provider.(type) {
-	case *statsd.Provider:
-		s.statsd = p.Statsd
-	case *prometheus.Provider:
+	switch m.Provider {
+	case "statsd":
+		s.statsd = provider.(*statsd.Provider).Statsd
+	case "prometheus":
 		// swagger:operation GET /metrics operations metrics
 		// ---
 		// responses:
 		//     '200':
 		//        description: Ok.
 		s.Server.RegisterHandler("/metrics", promhttp.Handler(), m.TLS)
-	case *disabled.Provider:
-		if m.Provider != "disabled" && m.Provider != "none" {
-			s.logger.Warnf("Unknown provider type: %s; metrics disabled", m.Provider)
-		}
+	default:
+		s.logger.Warnf("Unknown provider type: %s; metrics disabled", m.Provider)
 	}
 	s.versionGauge = versionGauge(s.Provider)
 	return nil
