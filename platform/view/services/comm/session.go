@@ -80,9 +80,10 @@ func (n *NetworkStreamSession) closeInternal() {
 		return
 	}
 
-	logger.Debugf("closing session [%s]", n.sessionID)
+	logger.Debugf("closing session [%s] with [%d] streams", n.sessionID, len(n.streams))
 	toClose := make([]*streamHandler, 0, len(n.streams))
 	for stream := range n.streams {
+		logger.Debugf("session [%s], stream [%s], refCtr [%d]", n.sessionID, stream.stream.Hash(), stream.refCtr)
 		stream.refCtr--
 		if stream.refCtr == 0 {
 			toClose = append(toClose, stream)
