@@ -296,7 +296,7 @@ func (s *streamHandler) handleIncoming() {
 			// remove stream handler
 			streamHash := s.stream.Hash()
 			s.node.streamsMutex.Lock()
-			logger.Debugf("Removing stream [%s]. Total streams found: %d", streamHash, len(s.node.streams[streamHash]))
+			logger.Debugf("removing stream [%s], total streams found: %d", streamHash, len(s.node.streams[streamHash]))
 			for i, thisSH := range s.node.streams[streamHash] {
 				if thisSH == s {
 					s.node.streams[streamHash] = append(s.node.streams[streamHash][:i], s.node.streams[streamHash][i+1:]...)

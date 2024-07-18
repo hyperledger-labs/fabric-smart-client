@@ -8,10 +8,13 @@ package libp2p
 
 import (
 	"context"
+	"encoding/base64"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	utils2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils"
 
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/utils"
@@ -226,12 +229,15 @@ func (h *host) start(failAdv bool, newStreamCallback func(stream host2.P2PStream
 	}
 
 	h.Host.SetStreamHandler(viewProtocol, func(s network.Stream) {
+		uuid := utils2.GenerateUUID()
 		newStreamCallback(
 			&stream{
 				Stream: s,
 				info: host2.StreamInfo{
-					RemotePeerID:      string(s.Conn().RemotePeer()),
+					RemotePeerID:      base64.StdEncoding.EncodeToString([]byte(s.Conn().RemotePeer())),
 					RemotePeerAddress: s.Conn().RemoteMultiaddr().String(),
+					ContextID:         uuid,
+					SessionID:         uuid,
 				},
 			},
 		)
