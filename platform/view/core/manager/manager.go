@@ -406,6 +406,7 @@ func (cm *manager) newContext(id view.Identity, msg *view.Message) (view.Context
 				viewContext.Session().Info().ID,
 			)
 		}
+		viewContext.Dispose()
 		delete(cm.contexts, contextID)
 		cm.m.Contexts.Set(float64(len(cm.contexts)))
 		ok = false
