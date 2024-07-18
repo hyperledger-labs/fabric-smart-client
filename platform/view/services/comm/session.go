@@ -97,6 +97,7 @@ func (n *NetworkStreamSession) closeInternal() {
 	}
 	close(n.incoming)
 	n.closed = true
+	n.streams = make(map[*streamHandler]struct{})
 
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("Closing session [%s] done", n.sessionID)
