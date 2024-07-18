@@ -291,10 +291,10 @@ func (s *streamHandler) handleIncoming() {
 				break
 			}
 
-			logger.Debugf("error reading message: [%s][%s]", err.Error(), debug.Stack())
+			streamHash := s.stream.Hash()
+			logger.Debugf("error reading message from stream [%s]: [%s][%s]", streamHash, err, debug.Stack())
 
 			// remove stream handler
-			streamHash := s.stream.Hash()
 			s.node.streamsMutex.Lock()
 			logger.Debugf("removing stream [%s], total streams found: %d", streamHash, len(s.node.streams[streamHash]))
 			for i, thisSH := range s.node.streams[streamHash] {
