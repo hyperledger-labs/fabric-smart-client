@@ -11,6 +11,7 @@ import (
 	"reflect"
 	"runtime/debug"
 	"sync"
+	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
@@ -369,6 +370,9 @@ func (cm *manager) respond(responder view.View, id view.Identity, msg *view.Mess
 		// delete context at the end of the execution
 		res, err = func(ctx view.Context, responder view.View) (interface{}, error) {
 			defer func() {
+				// TODO: this is a workaround
+				// give some time to flush anything can be in queues
+				time.Sleep(5 * time.Second)
 				cm.deleteContext(id, ctx.ID())
 			}()
 			return ctx.RunView(responder)
