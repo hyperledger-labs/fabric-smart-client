@@ -316,6 +316,7 @@ func (s *streamHandler) handleIncoming() {
 					s.node.m.ActiveStreams.Add(-1)
 					s.wg.Done()
 					s.node.streamsMutex.Unlock()
+					s.close(context.Background())
 					span.End()
 					return
 				}

@@ -203,6 +203,8 @@ func (c *multiplexedClientConn) readIncoming() {
 		c.mu.RUnlock()
 		if !ok && mm.Err == "" {
 			panic("subconn not found")
+		} else if !ok && mm.Err != "" {
+			logger.Warnf("Client subconnection errored: %v", mm.Err)
 		} else if mm.Err != "" {
 			logger.Warnf("Client subconn errored: %v", mm.Err)
 		} else {
@@ -251,8 +253,14 @@ func (c *multiplexedServerConn) readIncoming(newStreamCallback func(pStream host
 		logger.Debugf("subconn for [%s] exists [%v]", mm.ID, ok)
 		if !ok && mm.Err == "" {
 			c.newServerSubConn(newStreamCallback, mm)
+		} else if !ok && mm.Err != "" {
+			logger.Warnf("server subconn errored: %v", mm.Err)
 		} else if mm.Err != "" {
-			logger.Warnf("Server subconn errored: %v", mm.Err)
+			logger.Warnf("Server subconn [%s] errored: %v", mm.ID, mm.Err)
+			go func() {
+				time.Sleep(1 * time.Second) // TODO: Find the point when the connection must close
+				sc.close(false)
+			}()
 		} else {
 			sc.reads <- result{value: mm.Msg}
 		}
@@ -404,11 +412,17 @@ func (c *subConn) WriteMessage(_ int, data []byte) error {
 }
 
 func (c *subConn) Close() error {
+	c.close(true)
+	return nil
+}
+
+func (c *subConn) close(client bool) {
 	c.once.Do(func() {
-		c.writes <- MultiplexedMessage{ID: c.id, Err: "EOF"}
-		<-c.writeErrs
+		if client {
+			c.writes <- MultiplexedMessage{ID: c.id, Err: "EOF"}
+			<-c.writeErrs
+		}
 		c.reads <- streamEOF
 		c.closes <- c.id
 	})
-	return nil
 }
