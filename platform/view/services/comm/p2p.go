@@ -16,13 +16,13 @@ import (
 
 	"github.com/gogo/protobuf/io"
 	"github.com/gogo/protobuf/proto"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	proto2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap/zapcore"
 )
@@ -183,8 +183,8 @@ func (p *P2PNode) dispatchMessages(ctx context.Context) {
 
 func (p *P2PNode) sendWithCachedStreams(streamHash string, msg proto.Message) error {
 	if len(streamHash) == 0 {
-		logger.Debugf("Empty stream hash probably because of uninitialized data. New stream must be created.")
-		return errStreamNotFound
+		logger.Debugf("empty stream hash probably because of uninitialized data. New stream must be created.")
+		return errors.Wrapf(errStreamNotFound, "stream hash is empty")
 	}
 	p.streamsMutex.RLock()
 	defer p.streamsMutex.RUnlock()
@@ -197,7 +197,7 @@ func (p *P2PNode) sendWithCachedStreams(streamHash string, msg proto.Message) er
 		logger.Errorf("error while sending message [%s] to stream with hash [%s]: %s", msg, streamHash, err)
 	}
 
-	return errStreamNotFound
+	return errors.Wrapf(errStreamNotFound, "all [%d] streams for hash [%s] failed to send", len(p.streams), streamHash)
 }
 
 // sendTo sends the passed messaged to the p2p peer with the passed ID.
@@ -205,8 +205,8 @@ func (p *P2PNode) sendWithCachedStreams(streamHash string, msg proto.Message) er
 // If an address is specified, then the peer store will be updated with the passed address.
 func (p *P2PNode) sendTo(ctx context.Context, info host2.StreamInfo, msg proto.Message) error {
 	streamHash := p.host.StreamHash(info)
-	if err := p.sendWithCachedStreams(streamHash, msg); err != errStreamNotFound {
-		return err
+	if err := p.sendWithCachedStreams(streamHash, msg); !errors.Is(err, errStreamNotFound) {
+		return errors.Wrap(err, "error while sending message to cached stream")
 	}
 
 	nwStream, err := p.host.NewStream(ctx, info)
@@ -216,7 +216,11 @@ func (p *P2PNode) sendTo(ctx context.Context, info host2.StreamInfo, msg proto.M
 	}
 	p.handleOutgoingStream(nwStream)
 
-	return p.sendWithCachedStreams(nwStream.Hash(), msg)
+	err = p.sendWithCachedStreams(nwStream.Hash(), msg)
+	if err != nil {
+		return errors.Wrap(err, "error while sending message to freshly created stream")
+	}
+	return nil
 }
 
 func (p *P2PNode) handleOutgoingStream(stream host2.P2PStream) {
@@ -281,7 +285,7 @@ func (s *streamHandler) handleIncoming() {
 		if err != nil {
 			if s.node.isStopping {
 				if logger.IsEnabledFor(zapcore.DebugLevel) {
-					logger.Debugf("error reading message while closing. ignoring.", err.Error())
+					logger.Debugf("error reading message while closing, ignoring [%s]", err)
 				}
 				span.End()
 				break
