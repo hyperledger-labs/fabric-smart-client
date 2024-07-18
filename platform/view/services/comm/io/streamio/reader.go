@@ -13,7 +13,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 )
 
-var logger = flogging.MustGetLogger("view-sdk.apps.ipo")
+var logger = flogging.MustGetLogger("view-sdk.services.comm.io")
 
 // MsgReader wraps a message-based Read function
 type MsgReader interface {

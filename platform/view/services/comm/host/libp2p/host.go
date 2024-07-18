@@ -29,7 +29,7 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-var logger = flogging.MustGetLogger("libp2p-host")
+var logger = flogging.MustGetLogger("view-sdk.services.comm.libp2p-host")
 
 const (
 	viewProtocol     = "/fsc/view/1.0.0"
@@ -137,7 +137,7 @@ func newLibP2PHost(listenAddress host2.PeerIPAddress, priv crypto.PrivKey, metri
 }
 
 func (h *host) StreamHash(input host2.StreamInfo) host2.StreamHash {
-	return streamHash(input.RemotePeerID)
+	return streamHash(input)
 }
 
 func (h *host) Close() error {
@@ -153,7 +153,7 @@ func (h *host) NewStream(ctx context.Context, info host2.StreamInfo) (host2.P2PS
 		return nil, err
 	}
 
-	if len(info.RemotePeerAddress) != 0 && strings.HasPrefix(info.RemotePeerAddress, "/ip4/") {
+	if len(info.RemotePeerAddress) != 0 && !strings.HasPrefix(info.RemotePeerAddress, "/ip4/") {
 		// reprogram the addresses of the peer before opening a new stream, if it is not in the right form yet
 		ps := h.Host.Peerstore()
 		current := ps.Addrs(ID)
@@ -181,8 +181,7 @@ func (h *host) NewStream(ctx context.Context, info host2.StreamInfo) (host2.P2PS
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create new stream to [%s]", ID)
 	}
-
-	return &stream{Stream: nwStream}, nil
+	return &stream{Stream: nwStream, info: info}, nil
 }
 
 func (h *host) startFinder() {
