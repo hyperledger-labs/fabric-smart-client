@@ -188,7 +188,7 @@ func (c *Context) AddIdentityAlias(id string, alias string) {
 func (c *Context) PlatformByName(name string) api.Platform {
 	p, ok := c.PlatformsByName[name]
 	if !ok {
-		logger.Errorf("cannot find platform with name [%s], platforms available [%v]", c.PlatformsByName)
+		logger.Errorf("cannot find platform with name [%s], platforms available [%v]", name, c.PlatformsByName)
 	}
 	return p
 }

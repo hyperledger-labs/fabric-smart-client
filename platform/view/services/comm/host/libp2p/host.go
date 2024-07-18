@@ -226,7 +226,15 @@ func (h *host) start(failAdv bool, newStreamCallback func(stream host2.P2PStream
 	}
 
 	h.Host.SetStreamHandler(viewProtocol, func(s network.Stream) {
-		newStreamCallback(&stream{Stream: s})
+		newStreamCallback(
+			&stream{
+				Stream: s,
+				info: host2.StreamInfo{
+					RemotePeerID:      string(s.Conn().RemotePeer()),
+					RemotePeerAddress: s.Conn().RemoteMultiaddr().String(),
+				},
+			},
+		)
 	})
 
 	h.finderWg.Add(1)
