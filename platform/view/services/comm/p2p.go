@@ -188,9 +188,11 @@ func (p *P2PNode) sendWithCachedStreams(streamHash string, msg proto.Message) er
 	}
 	p.streamsMutex.RLock()
 	defer p.streamsMutex.RUnlock()
+	logger.Debugf("send msg to stream hash [%s] with #strams [%d]", streamHash, len(p.streams))
 	for _, stream := range p.streams[streamHash] {
 		err := stream.send(msg)
 		if err == nil {
+			logger.Debugf("send msg [%v] with stream [%s]", msg, stream.stream.Hash())
 			return nil
 		}
 		// TODO: handle the case in which there's an error
