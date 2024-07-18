@@ -188,7 +188,7 @@ func (p *P2PNode) sendWithCachedStreams(streamHash string, msg proto.Message) er
 	}
 	p.streamsMutex.RLock()
 	defer p.streamsMutex.RUnlock()
-	logger.Debugf("send msg to stream hash [%s] with #strams [%d]", streamHash, len(p.streams))
+	logger.Debugf("send msg to stream hash [%s] of [%d] with #stream [%d]", streamHash, len(p.streams), len(p.streams[streamHash]))
 	for _, stream := range p.streams[streamHash] {
 		err := stream.send(msg)
 		if err == nil {
@@ -302,6 +302,9 @@ func (s *streamHandler) handleIncoming() {
 			for i, thisSH := range s.node.streams[streamHash] {
 				if thisSH == s {
 					s.node.streams[streamHash] = append(s.node.streams[streamHash][:i], s.node.streams[streamHash][i+1:]...)
+					if len(s.node.streams[streamHash]) == 0 {
+						delete(s.node.streams, streamHash)
+					}
 					s.node.m.StreamHashes.Set(float64(len(s.node.streams)))
 					s.node.m.ActiveStreams.Add(-1)
 					s.wg.Done()
