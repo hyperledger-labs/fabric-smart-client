@@ -9,7 +9,6 @@ package libp2p
 import (
 	"context"
 	"encoding/base64"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -17,7 +16,6 @@ import (
 	utils2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils"
 
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/libp2p/go-libp2p"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
@@ -25,11 +23,9 @@ import (
 	host3 "github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
-	"github.com/libp2p/go-libp2p/core/peerstore"
 	"github.com/libp2p/go-libp2p/p2p/discovery/routing"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
-	"go.uber.org/zap/zapcore"
 )
 
 var logger = flogging.MustGetLogger("view-sdk.services.comm.libp2p-host")
@@ -156,29 +152,29 @@ func (h *host) NewStream(ctx context.Context, info host2.StreamInfo) (host2.P2PS
 		return nil, err
 	}
 
-	if len(info.RemotePeerAddress) != 0 && !strings.HasPrefix(info.RemotePeerAddress, "/ip4/") {
-		// reprogram the addresses of the peer before opening a new stream, if it is not in the right form yet
-		ps := h.Host.Peerstore()
-		current := ps.Addrs(ID)
-
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("sendTo, reprogram address [%s:%s]", info.RemotePeerID, info.RemotePeerAddress)
-			for _, m := range current {
-				logger.Debugf("sendTo, current address [%s:%s]", info.RemotePeerID, m)
-			}
-		}
-
-		ps.ClearAddrs(ID)
-		addr, err := utils.AddressToEndpoint(info.RemotePeerAddress)
-		if err != nil {
-			return nil, errors.WithMessagef(err, "failed to parse endpoint's address [%s]", info.RemotePeerAddress)
-		}
-		s, err := multiaddr.NewMultiaddr(addr)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to get mutliaddr for [%s]", info.RemotePeerAddress)
-		}
-		ps.AddAddr(ID, s, peerstore.OwnObservedAddrTTL)
-	}
+	//if len(info.RemotePeerAddress) != 0 && !strings.HasPrefix(info.RemotePeerAddress, "/ip4/") {
+	//	// reprogram the addresses of the peer before opening a new stream, if it is not in the right form yet
+	//	ps := h.Host.Peerstore()
+	//	current := ps.Addrs(ID)
+	//
+	//	if logger.IsEnabledFor(zapcore.DebugLevel) {
+	//		logger.Debugf("sendTo, reprogram address [%s:%s]", info.RemotePeerID, info.RemotePeerAddress)
+	//		for _, m := range current {
+	//			logger.Debugf("sendTo, current address [%s:%s]", info.RemotePeerID, m)
+	//		}
+	//	}
+	//
+	//	ps.ClearAddrs(ID)
+	//	addr, err := utils.AddressToEndpoint(info.RemotePeerAddress)
+	//	if err != nil {
+	//		return nil, errors.WithMessagef(err, "failed to parse endpoint's address [%s]", info.RemotePeerAddress)
+	//	}
+	//	s, err := multiaddr.NewMultiaddr(addr)
+	//	if err != nil {
+	//		return nil, errors.Wrapf(err, "failed to get mutliaddr for [%s]", info.RemotePeerAddress)
+	//	}
+	//	ps.AddAddr(ID, s, peerstore.OwnObservedAddrTTL)
+	//}
 
 	nwStream, err := h.Host.NewStream(ctx, ID, viewProtocol)
 	if err != nil {
