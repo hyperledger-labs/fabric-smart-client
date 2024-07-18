@@ -76,6 +76,10 @@ func (n *NetworkStreamSession) Close() {
 }
 
 func (n *NetworkStreamSession) closeInternal() {
+	if n.closed {
+		return
+	}
+
 	defer logger.Debugf("Closing session [%s]", n.sessionID)
 	toClose := make([]*streamHandler, 0, len(n.streams))
 	for stream := range n.streams {
