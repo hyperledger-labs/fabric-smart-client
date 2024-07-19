@@ -29,7 +29,7 @@ func newStaticLabelRouter(configPath string) (*staticLabelRouter, error) {
 		return nil, errors.Wrapf(err, "failed to unmarshal config")
 	}
 
-	logger.Infof("Found routes: %v", wrapper.Routes)
+	logger.Debugf("Found routes: %v", wrapper.Routes)
 	return &wrapper.Routes, nil
 }
 
