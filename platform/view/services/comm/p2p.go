@@ -242,13 +242,13 @@ func (p *P2PNode) handleStream(stream host2.P2PStream) {
 	}
 
 	streamHash := stream.Hash()
+	p.streamsMutex.Lock()
 	logger.Debugf(
 		"adding new stream handler to hash [%s](of [%d]) with #handlers [%d]",
 		streamHash,
 		len(p.streams),
 		len(p.streams[streamHash]),
 	)
-	p.streamsMutex.Lock()
 	p.streams[streamHash] = append(p.streams[streamHash], sh)
 	p.m.StreamHashes.Set(float64(len(p.streams)))
 	p.m.ActiveStreams.Add(1)
