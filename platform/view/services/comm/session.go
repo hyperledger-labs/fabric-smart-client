@@ -8,6 +8,7 @@ package comm
 
 import (
 	"context"
+	"runtime/debug"
 	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
@@ -124,7 +125,25 @@ func (n *NetworkStreamSession) sendWithStatus(ctx context.Context, payload []byt
 		Payload:   payload,
 	})
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("sent message [len:%d] to [%s:%s] with err [%s]", len(payload), string(n.endpointID), n.endpointAddress, err)
+		logger.Debugf(
+			"sent message [len:%d] to [%s:%s] from [%s] with err [%s]",
+			len(payload),
+			string(n.endpointID),
+			n.endpointAddress,
+			n.callerViewID,
+			err,
+		)
+		if len(n.callerViewID) == 0 {
+			logger.Debugf(
+				"sent message [len:%d] to [%s:%s] from [%s] with err [%s][%s]",
+				len(payload),
+				string(n.endpointID),
+				n.endpointAddress,
+				n.callerViewID,
+				err,
+				debug.Stack(),
+			)
+		}
 	}
 	return err
 }

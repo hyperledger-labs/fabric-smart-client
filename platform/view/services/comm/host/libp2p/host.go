@@ -14,7 +14,6 @@ import (
 	"time"
 
 	utils2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils"
-
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/libp2p/go-libp2p"
