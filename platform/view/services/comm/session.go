@@ -69,8 +69,18 @@ func (n *NetworkStreamSession) Receive() <-chan *view.Message {
 
 // Close releases all the resources allocated by this session
 func (n *NetworkStreamSession) Close() {
-	defer logger.Debugf("Closing session [%s]", n.sessionID)
 	n.node.sessionsMutex.Lock()
+	defer n.node.sessionsMutex.Unlock()
+
+	n.closeInternal()
+}
+
+func (n *NetworkStreamSession) closeInternal() {
+	if n.closed {
+		return
+	}
+
+	defer logger.Debugf("Closing session [%s]", n.sessionID)
 	toClose := make([]*streamHandler, 0, len(n.streams))
 	for stream := range n.streams {
 		stream.refCtr--
@@ -78,7 +88,6 @@ func (n *NetworkStreamSession) Close() {
 			toClose = append(toClose, stream)
 		}
 	}
-	n.node.sessionsMutex.Unlock()
 
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("Closing session stream [%s]", n.sessionID)
@@ -92,6 +101,7 @@ func (n *NetworkStreamSession) Close() {
 	}
 	close(n.incoming)
 	n.closed = true
+	n.streams = make(map[*streamHandler]struct{})
 
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("Closing session [%s] done", n.sessionID)

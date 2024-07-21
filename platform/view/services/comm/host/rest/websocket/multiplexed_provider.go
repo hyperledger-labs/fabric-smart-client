@@ -68,7 +68,7 @@ func (c *MultiplexedProvider) NewClientStream(info host2.StreamInfo, ctx context
 		}
 		span.End()
 	}()
-	logger.Debugf("Creating new stream from [%s] to [%s@%s]...", src, info.RemotePeerID, info.RemotePeerAddress)
+	logger.Infof("Creating new stream from [%s] to [%s@%s]...", src, info.RemotePeerID, info.RemotePeerAddress)
 	tlsEnabled := config.InsecureSkipVerify || config.RootCAs != nil
 	url := url.URL{Scheme: schemes[tlsEnabled], Host: info.RemotePeerAddress, Path: "/p2p"}
 	// We use the background context instead of passing the existing context,
@@ -155,7 +155,7 @@ func (c *multiplexedClientConn) newClientSubConn(ctx context.Context, src host2.
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to send meta message")
 	}
-	logger.Debugf("Stream opened to [%s@%s]", info.RemotePeerID, info.RemotePeerAddress)
+	logger.Infof("Stream opened to [%s@%s]", info.RemotePeerID, info.RemotePeerAddress)
 	return NewWSStream(sc, ctx, info), nil
 }
 
@@ -245,7 +245,7 @@ func (c *multiplexedServerConn) newServerSubConn(newStreamCallback func(pStream 
 	if err := json.Unmarshal(mm.Msg, &meta); err != nil {
 		logger.Errorf("failed to read meta info: %v", err)
 	}
-	logger.Debugf("Read meta info: [%s,%s]: %s", meta.ContextID, meta.SessionID, meta.SpanContext)
+	logger.Infof("Read meta info: [%s] [%s,%s]: %s", mm.ID, meta.ContextID, meta.SessionID, meta.SpanContext)
 	// Propagating the request context will not make a difference (see comment in newClientStream)
 	spanContext, err := tracing.UnmarshalContext(meta.SpanContext)
 	if err != nil {
@@ -257,9 +257,9 @@ func (c *multiplexedServerConn) newServerSubConn(newStreamCallback func(pStream 
 	sc := c.newSubConn(mm.ID)
 	c.subConns[mm.ID] = sc
 	c.mu.Unlock()
-	logger.Debugf("Created server subconn with id [%s]", sc.id)
+	logger.Infof("Created server subconn with id [%s]", sc.id)
 
-	logger.Debugf("Received response with context: %v", spanContext)
+	logger.Infof("Received response with context: %v", spanContext)
 	newStreamCallback(NewWSStream(sc, ctx, host2.StreamInfo{
 		RemotePeerID:      meta.PeerID,
 		RemotePeerAddress: c.Conn.RemoteAddr().String(),
@@ -369,6 +369,7 @@ func (c *subConn) ReadMessage() (messageType int, p []byte, err error) {
 	r := <-c.reads
 	return websocket.TextMessage, r.value, r.err
 }
+
 func (c *subConn) WriteMessage(_ int, data []byte) error {
 	c.writes <- MultiplexedMessage{c.id, data}
 	return <-c.writeErrs

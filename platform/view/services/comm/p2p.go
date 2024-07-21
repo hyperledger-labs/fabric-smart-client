@@ -35,7 +35,7 @@ const (
 
 var errStreamNotFound = errors.New("stream not found")
 
-var logger = flogging.MustGetLogger("view-sdk")
+var logger = flogging.MustGetLogger("view-sdk.services.comm")
 
 type messageWithStream struct {
 	message *view.Message
@@ -290,12 +290,7 @@ func (s *streamHandler) handleIncoming() {
 			logger.Debugf("error reading message: [%s][%s]", err.Error(), debug.Stack())
 
 			// remove stream handler
-			streamHash := s.node.host.StreamHash(host2.StreamInfo{
-				RemotePeerID:      s.stream.RemotePeerID(),
-				RemotePeerAddress: s.stream.RemotePeerAddress(),
-				ContextID:         msg.ContextID,
-				SessionID:         msg.SessionID,
-			})
+			streamHash := s.stream.Hash()
 			s.node.streamsMutex.Lock()
 			logger.Debugf("Removing stream [%s]. Total streams found: %d", streamHash, len(s.node.streams[streamHash]))
 			for i, thisSH := range s.node.streams[streamHash] {
