@@ -23,6 +23,9 @@ import (
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/p2p/discovery/routing"
+	"github.com/libp2p/go-libp2p/p2p/net/connmgr"
+	"github.com/libp2p/go-libp2p/p2p/security/noise"
+	libp2ptls "github.com/libp2p/go-libp2p/p2p/security/tls"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
 )
@@ -91,7 +94,6 @@ func (h *host) Start(newStreamCallback func(stream host2.P2PStream)) error {
 	if err := h.start(false, newStreamCallback); err != nil {
 		return err
 	}
-
 	return nil
 }
 
@@ -101,10 +103,23 @@ func newLibP2PHost(listenAddress host2.PeerIPAddress, priv crypto.PrivKey, metri
 		return nil, err
 	}
 
+	connmgr, err := connmgr.NewConnManager(
+		100, // Lowwater
+		400, // HighWater,
+		connmgr.WithGracePeriod(time.Minute),
+	)
 	opts := []libp2p.Option{
 		libp2p.ListenAddrs(addr),
 		libp2p.Identity(priv),
-		libp2p.ForceReachabilityPublic(),
+		// support TLS connections
+		libp2p.Security(libp2ptls.ID, libp2ptls.New),
+		// support noise connections
+		libp2p.Security(noise.ID, noise.New),
+		// support any other default transports (TCP)
+		libp2p.DefaultTransports,
+		// Let's prevent our peer from having too many
+		// connections by attaching a connection manager.
+		libp2p.ConnectionManager(connmgr), libp2p.ForceReachabilityPublic(),
 		libp2p.BandwidthReporter(newReporter(metrics)),
 	}
 
@@ -139,7 +154,6 @@ func (h *host) StreamHash(input host2.StreamInfo) host2.StreamHash {
 }
 
 func (h *host) Close() error {
-
 	err := h.Host.Close()
 	atomic.StoreInt32(&h.stopFinder, 1)
 	return err
