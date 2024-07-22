@@ -141,9 +141,12 @@ func (p *P2PNode) dispatchMessages(ctx context.Context) {
 				session.endpointAddress = msg.message.FromEndpoint
 				// here we know that msg.stream is used for session:
 				// 1) increment the used counter for msg.stream
-				msg.stream.refCtr++
-				// 2) add msg.stream to the list of streams used by session
-				session.streams[msg.stream] = struct{}{}
+
+				if _, streamRegisteredAlready := session.streams[msg.stream]; !streamRegisteredAlready {
+					msg.stream.refCtr++
+					// 2) add msg.stream to the list of streams used by session
+					session.streams[msg.stream] = struct{}{}
+				}
 				session.mutex.Unlock()
 			}
 			p.sessionsMutex.Unlock()
