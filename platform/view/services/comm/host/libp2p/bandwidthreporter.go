@@ -17,7 +17,7 @@ type metricsReporter struct {
 }
 
 func newReporter(m *metrics) *metricsReporter {
-	logger.Infof("Initialized bandwidth reporter.\n")
+	logger.Debugf("Initialized bandwidth reporter.\n")
 	return &metricsReporter{m}
 }
 

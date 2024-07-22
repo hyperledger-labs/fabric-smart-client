@@ -11,6 +11,7 @@ import (
 	"reflect"
 	"runtime/debug"
 	"sync"
+	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
@@ -215,6 +216,7 @@ func (cm *manager) InitiateViewWithIdentity(view view.View, id view.Identity, c 
 	cm.contexts[childContext.ID()] = childContext
 	cm.m.Contexts.Set(float64(len(cm.contexts)))
 	cm.contextsSync.Unlock()
+	defer cm.deleteContext(id, childContext.ID())
 
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("[%s] InitiateView [view:%s], [ContextID:%s]", id, getIdentifier(view), childContext.ID())
@@ -351,10 +353,6 @@ func (cm *manager) respond(responder view.View, id view.Identity, msg *view.Mess
 		}
 	}()
 
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("[%s] Respond [from:%s], [sessionID:%s], [contextID:%s], [view:%s]", id, msg.FromEndpoint, msg.SessionID, msg.ContextID, getIdentifier(responder))
-	}
-
 	// get context
 	var isNew bool
 	ctx, isNew, err = cm.newContext(id, msg)
@@ -362,13 +360,28 @@ func (cm *manager) respond(responder view.View, id view.Identity, msg *view.Mess
 		return nil, nil, errors.WithMessagef(err, "failed getting context for [%s,%s,%v]", msg.ContextID, id, msg)
 	}
 
-	// todo: if a new contxt has been created to run the responder,
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf(
+			"[%s] Respond [from:%s], [sessionID:%s], [contextID:%s](%v), [view:%s]",
+			id,
+			msg.FromEndpoint,
+			msg.SessionID,
+			msg.ContextID,
+			isNew,
+			getIdentifier(responder),
+		)
+	}
+
+	// todo: if a new context has been created to run the responder,
 	// then dispose the context when the responder terminates
 	// run view
 	if isNew {
 		// delete context at the end of the execution
 		res, err = func(ctx view.Context, responder view.View) (interface{}, error) {
 			defer func() {
+				// TODO: this is a workaround
+				// give some time to flush anything can be in queues
+				time.Sleep(5 * time.Second)
 				cm.deleteContext(id, ctx.ID())
 			}()
 			return ctx.RunView(responder)
@@ -406,6 +419,7 @@ func (cm *manager) newContext(id view.Identity, msg *view.Message) (view.Context
 				viewContext.Session().Info().ID,
 			)
 		}
+		viewContext.Dispose()
 		delete(cm.contexts, contextID)
 		cm.m.Contexts.Set(float64(len(cm.contexts)))
 		ok = false

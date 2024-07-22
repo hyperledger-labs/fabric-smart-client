@@ -9,6 +9,7 @@ package rest
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"net/http"
 
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
@@ -23,7 +24,7 @@ const (
 	contextIDLabel tracing.LabelName = "context_id"
 )
 
-var logger = flogging.MustGetLogger("rest-p2p-host")
+var logger = flogging.MustGetLogger("view-sdk.services.comm.rest-p2p-host")
 
 type host struct {
 	routing routing2.ServiceDiscovery
@@ -38,7 +39,7 @@ type StreamProvider interface {
 }
 
 func NewHost(nodeID host2.PeerID, listenAddress host2.PeerIPAddress, routing routing2.ServiceDiscovery, tracerProvider trace.TracerProvider, streamProvider StreamProvider, keyFile, certFile string, rootCACertFiles []string) (*host, error) {
-	logger.Infof("Creating new host for node [%s] on [%s] with key, cert at: [%s], [%s]", nodeID, listenAddress, keyFile, certFile)
+	logger.Debugf("Creating new host for node [%s] on [%s] with key, cert at: [%s], [%s]", nodeID, listenAddress, keyFile, certFile)
 	p2pClient, err := newClient(streamProvider, nodeID, rootCACertFiles, len(keyFile) > 0 && len(certFile) > 0)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create client")
@@ -94,5 +95,5 @@ func (h *host) Close() error {
 func (h *host) Wait() {}
 
 func StreamHash(info host2.StreamInfo) host2.StreamHash {
-	return info.RemotePeerAddress
+	return fmt.Sprintf("%s.%s.%s.%s", info.RemotePeerID, info.RemotePeerAddress, info.SessionID, info.ContextID)
 }

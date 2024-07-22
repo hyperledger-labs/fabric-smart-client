@@ -8,6 +8,7 @@ package comm
 
 import (
 	"context"
+	"runtime/debug"
 	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
@@ -69,32 +70,43 @@ func (n *NetworkStreamSession) Receive() <-chan *view.Message {
 
 // Close releases all the resources allocated by this session
 func (n *NetworkStreamSession) Close() {
-	defer logger.Debugf("Closing session [%s]", n.sessionID)
 	n.node.sessionsMutex.Lock()
+	defer n.node.sessionsMutex.Unlock()
+
+	n.closeInternal()
+}
+
+func (n *NetworkStreamSession) closeInternal() {
+	if n.closed {
+		return
+	}
+
+	logger.Debugf("closing session [%s] with [%d] streams", n.sessionID, len(n.streams))
 	toClose := make([]*streamHandler, 0, len(n.streams))
 	for stream := range n.streams {
+		logger.Debugf("session [%s], stream [%s], refCtr [%d]", n.sessionID, stream.stream.Hash(), stream.refCtr)
 		stream.refCtr--
 		if stream.refCtr == 0 {
 			toClose = append(toClose, stream)
 		}
 	}
-	n.node.sessionsMutex.Unlock()
 
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("Closing session stream [%s]", n.sessionID)
+		logger.Debugf("closing session [%s]'s streams [%d]", n.sessionID, len(toClose))
 	}
 	for _, stream := range toClose {
 		stream.close(context.TODO())
 	}
 
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("Closing session incoming [%s]", n.sessionID)
+		logger.Debugf("closing session [%s]'s streams [%d] done", n.sessionID, len(toClose))
 	}
 	close(n.incoming)
 	n.closed = true
+	n.streams = make(map[*streamHandler]struct{})
 
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("Closing session [%s] done", n.sessionID)
+		logger.Debugf("closing session [%s] done", n.sessionID)
 	}
 }
 
@@ -113,7 +125,25 @@ func (n *NetworkStreamSession) sendWithStatus(ctx context.Context, payload []byt
 		Payload:   payload,
 	})
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("sent message [len:%d] to [%s:%s] with err [%s]", len(payload), string(n.endpointID), n.endpointAddress, err)
+		logger.Debugf(
+			"sent message [len:%d] to [%s:%s] from [%s] with err [%s]",
+			len(payload),
+			string(n.endpointID),
+			n.endpointAddress,
+			n.callerViewID,
+			err,
+		)
+		if len(n.callerViewID) == 0 {
+			logger.Debugf(
+				"sent message [len:%d] to [%s:%s] from [%s] with err [%s][%s]",
+				len(payload),
+				string(n.endpointID),
+				n.endpointAddress,
+				n.callerViewID,
+				err,
+				debug.Stack(),
+			)
+		}
 	}
 	return err
 }

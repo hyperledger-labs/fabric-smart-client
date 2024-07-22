@@ -31,7 +31,7 @@ func NewEndpointServiceIDRouter(es endpointService) *endpointServiceIDRouter {
 }
 
 func (r *endpointServiceIDRouter) Lookup(id host2.PeerID) ([]host2.PeerIPAddress, bool) {
-	logger.Infof("Looking up endpoint of peer [%s]", id)
+	logger.Debugf("Looking up endpoint of peer [%s]", id)
 	identity, err := r.es.GetIdentity("", []byte(id))
 	if err != nil {
 		logger.Errorf("failed getting identity for peer [%s]", id)
@@ -43,10 +43,10 @@ func (r *endpointServiceIDRouter) Lookup(id host2.PeerID) ([]host2.PeerIPAddress
 		return []host2.PeerIPAddress{}, false
 	}
 	if address, ok := addresses[driver.P2PPort]; ok {
-		logger.Infof("Found endpoint of peer [%s]: [%s]", id, address)
+		logger.Debugf("Found endpoint of peer [%s]: [%s]", id, address)
 		return []host2.PeerIPAddress{address}, true
 	}
-	logger.Infof("Did not find endpoint of peer [%s]", id)
+	logger.Debugf("Did not find endpoint of peer [%s]", id)
 	return []host2.PeerIPAddress{}, false
 }
 

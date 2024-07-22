@@ -94,13 +94,14 @@ func (p *P2PNode) DeleteSessions(ctx context.Context, sessionID string) {
 	p.sessionsMutex.Lock()
 	defer p.sessionsMutex.Unlock()
 
-	for key := range p.sessions {
+	for key, session := range p.sessions {
 		// if key starts with sessionID, delete it
 		if strings.HasPrefix(key, sessionID) {
 			span.AddEvent("delete_session", tracing.WithAttributes(tracing.String("session_key", sessionIDLabel)))
 			if logger.IsEnabledFor(zapcore.DebugLevel) {
 				logger.Debugf("deleting session [%s]", key)
 			}
+			session.closeInternal()
 			delete(p.sessions, key)
 		}
 	}

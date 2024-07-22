@@ -11,6 +11,8 @@ import (
 	"encoding/base64"
 	"encoding/json"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/endorser"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
@@ -472,14 +474,14 @@ func (n *Namespace) getStateID(s interface{}) (string, error) {
 		}
 	case LinearState:
 		logger.Debugf("LinearState...")
-		key = GenerateUUID()
+		key = utils.GenerateUUID()
 		key = d.SetLinearID(key)
 	case EmbeddingState:
 		logger.Debugf("EmbeddingState...")
 		return n.getStateID(d.GetState())
 	default:
 		logger.Debugf("default...")
-		key = base64.StdEncoding.EncodeToString(GenerateBytesUUID())
+		key = base64.StdEncoding.EncodeToString(utils.GenerateBytesUUID())
 	}
 	return key, nil
 }

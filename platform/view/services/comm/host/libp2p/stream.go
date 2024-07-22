@@ -15,21 +15,29 @@ import (
 
 type stream struct {
 	network.Stream
+	info host2.StreamInfo
 }
 
 func (s *stream) RemotePeerID() host2.PeerID {
 	return s.Conn().RemotePeer().String()
 }
+
 func (s *stream) RemotePeerAddress() host2.PeerIPAddress {
 	return s.Conn().RemoteMultiaddr().String()
 }
 
 func (s *stream) Hash() host2.StreamHash {
-	return streamHash(s.RemotePeerID())
+	return streamHash(s.info)
 }
 
 func (s *stream) Context() context.Context { return context.TODO() }
 
-func streamHash(peerID host2.PeerID) host2.StreamHash {
-	return peerID
+func (s *stream) Close() error {
+	// We don't close the stream here to recycle it later
+	return nil
+}
+
+func streamHash(info host2.StreamInfo) host2.StreamHash {
+	// This allows us to recycle the streams towards the same peer
+	return info.RemotePeerID
 }

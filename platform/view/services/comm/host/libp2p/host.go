@@ -13,8 +13,12 @@ import (
 	"sync/atomic"
 	"time"
 
-	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/utils"
+	"github.com/libp2p/go-libp2p/core/peerstore"
+	"go.uber.org/zap/zapcore"
+
+	utils2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils"
+	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/libp2p/go-libp2p"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
@@ -22,14 +26,15 @@ import (
 	host3 "github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
-	"github.com/libp2p/go-libp2p/core/peerstore"
 	"github.com/libp2p/go-libp2p/p2p/discovery/routing"
+	"github.com/libp2p/go-libp2p/p2p/net/connmgr"
+	"github.com/libp2p/go-libp2p/p2p/security/noise"
+	libp2ptls "github.com/libp2p/go-libp2p/p2p/security/tls"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
-	"go.uber.org/zap/zapcore"
 )
 
-var logger = flogging.MustGetLogger("libp2p-host")
+var logger = flogging.MustGetLogger("view-sdk.services.comm.libp2p-host")
 
 const (
 	viewProtocol     = "/fsc/view/1.0.0"
@@ -93,7 +98,6 @@ func (h *host) Start(newStreamCallback func(stream host2.P2PStream)) error {
 	if err := h.start(false, newStreamCallback); err != nil {
 		return err
 	}
-
 	return nil
 }
 
@@ -103,10 +107,22 @@ func newLibP2PHost(listenAddress host2.PeerIPAddress, priv crypto.PrivKey, metri
 		return nil, err
 	}
 
+	connManager, err := connmgr.NewConnManager(100, 400, connmgr.WithGracePeriod(time.Minute))
+	if err != nil {
+		return nil, errors.Wrap(err, "failed creating conn manager for libp2p host")
+	}
 	opts := []libp2p.Option{
 		libp2p.ListenAddrs(addr),
 		libp2p.Identity(priv),
-		libp2p.ForceReachabilityPublic(),
+		// support TLS connections
+		libp2p.Security(libp2ptls.ID, libp2ptls.New),
+		// support noise connections
+		libp2p.Security(noise.ID, noise.New),
+		// support any other default transports (TCP)
+		libp2p.DefaultTransports,
+		// Let's prevent our peer from having too many
+		// connections by attaching a connection manager.
+		libp2p.ConnectionManager(connManager), libp2p.ForceReachabilityPublic(),
 		libp2p.BandwidthReporter(newReporter(metrics)),
 	}
 
@@ -137,11 +153,10 @@ func newLibP2PHost(listenAddress host2.PeerIPAddress, priv crypto.PrivKey, metri
 }
 
 func (h *host) StreamHash(input host2.StreamInfo) host2.StreamHash {
-	return streamHash(input.RemotePeerID)
+	return streamHash(input)
 }
 
 func (h *host) Close() error {
-
 	err := h.Host.Close()
 	atomic.StoreInt32(&h.stopFinder, 1)
 	return err
@@ -153,7 +168,7 @@ func (h *host) NewStream(ctx context.Context, info host2.StreamInfo) (host2.P2PS
 		return nil, err
 	}
 
-	if len(info.RemotePeerAddress) != 0 && strings.HasPrefix(info.RemotePeerAddress, "/ip4/") {
+	if len(info.RemotePeerAddress) != 0 && !strings.HasPrefix(info.RemotePeerAddress, "/ip4/") {
 		// reprogram the addresses of the peer before opening a new stream, if it is not in the right form yet
 		ps := h.Host.Peerstore()
 		current := ps.Addrs(ID)
@@ -181,8 +196,11 @@ func (h *host) NewStream(ctx context.Context, info host2.StreamInfo) (host2.P2PS
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create new stream to [%s]", ID)
 	}
-
-	return &stream{Stream: nwStream}, nil
+	info.RemotePeerID = nwStream.Conn().RemotePeer().String()
+	return &stream{
+		Stream: nwStream,
+		info:   info,
+	}, nil
 }
 
 func (h *host) startFinder() {
@@ -227,7 +245,18 @@ func (h *host) start(failAdv bool, newStreamCallback func(stream host2.P2PStream
 	}
 
 	h.Host.SetStreamHandler(viewProtocol, func(s network.Stream) {
-		newStreamCallback(&stream{Stream: s})
+		uuid := utils2.GenerateUUID()
+		newStreamCallback(
+			&stream{
+				Stream: s,
+				info: host2.StreamInfo{
+					RemotePeerID:      s.Conn().RemotePeer().String(),
+					RemotePeerAddress: s.Conn().RemoteMultiaddr().String(),
+					ContextID:         uuid,
+					SessionID:         uuid,
+				},
+			},
+		)
 	})
 
 	h.finderWg.Add(1)

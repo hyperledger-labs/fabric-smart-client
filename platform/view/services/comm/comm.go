@@ -57,7 +57,7 @@ func NewService(hostProvider host.GeneratorProvider, endpointService EndpointSer
 func (s *Service) Start(ctx context.Context) {
 	go func() {
 		for {
-			logger.Infof("start communication service...")
+			logger.Debugf("start communication service...")
 			if err := s.init(); err != nil {
 				logger.Errorf("failed to initialize communication service [%s], wait a bit and try again", err)
 				time.Sleep(10 * time.Second)
@@ -131,7 +131,7 @@ func (s *Service) init() error {
 	certFile := s.ConfigService.GetPath("fsc.identity.cert.file")
 	if len(p2pBootstrapNode) == 0 {
 		// this is a bootstrap node
-		logger.Infof("new p2p bootstrap node [%s]", p2pListenAddress)
+		logger.Debugf("new p2p bootstrap node [%s]", p2pListenAddress)
 
 		h, err := s.HostProvider.NewBootstrapHost(p2pListenAddress, keyFile, certFile)
 		if err != nil {
@@ -156,7 +156,7 @@ func (s *Service) init() error {
 			return errors.WithMessagef(err, "failed to get the endpoint of the bootstrap node from [%s:%s], [%s]", p2pBootstrapNode, bootstrapNodeID, endpoints[view.P2PPort])
 		}
 		addr = addr + "/p2p/" + string(pkID)
-		logger.Infof("new p2p node [%s,%s]", p2pListenAddress, addr)
+		logger.Debugf("new p2p node [%s,%s]", p2pListenAddress, addr)
 		h, err := s.HostProvider.NewHost(p2pListenAddress, keyFile, certFile, addr)
 		if err != nil {
 			return err

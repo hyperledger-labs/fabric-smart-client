@@ -38,7 +38,7 @@ func newServer(streamProvider serverStreamProvider, listenAddress host2.PeerIPAd
 }
 
 func newHandler(streamProvider serverStreamProvider, newStreamCallback func(stream host2.P2PStream)) *gin.Engine {
-	logger.Infof("Creating GIN engine for p2p REST endpoint.")
+	logger.Debugf("Creating GIN engine for p2p REST endpoint.")
 	r := gin.New()
 	r.Use(gin.LoggerWithFormatter(func(param gin.LogFormatterParams) string {
 		// your custom format
@@ -73,10 +73,10 @@ func (s *server) Start(newStreamCallback func(stream host2.P2PStream)) error {
 
 	var err error
 	if len(s.certFile) == 0 || len(s.keyFile) == 0 {
-		logger.Infof("Starting up REST server without TLS on [%s]...", s.srv.Addr)
+		logger.Debugf("Starting up REST server without TLS on [%s]...", s.srv.Addr)
 		err = s.srv.ListenAndServe()
 	} else {
-		logger.Infof("Starting up REST server with TLS on [%s]...", s.srv.Addr)
+		logger.Debugf("Starting up REST server with TLS on [%s]...", s.srv.Addr)
 		err = s.srv.ListenAndServeTLS(s.certFile, s.keyFile)
 	}
 	if !errors.Is(err, http.ErrServerClosed) {
@@ -86,7 +86,7 @@ func (s *server) Start(newStreamCallback func(stream host2.P2PStream)) error {
 }
 
 func (s *server) Close() error {
-	logger.Infof("Shutting down server on [%s]", s.srv.Addr)
+	logger.Debugf("Shutting down server on [%s]", s.srv.Addr)
 	shutdownCtx, shutdownRelease := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutdownRelease()
 	return s.srv.Shutdown(shutdownCtx)
