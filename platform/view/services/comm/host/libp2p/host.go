@@ -8,10 +8,14 @@ package libp2p
 
 import (
 	"context"
-	"encoding/base64"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/utils"
+	"github.com/libp2p/go-libp2p/core/peerstore"
+	"go.uber.org/zap/zapcore"
 
 	utils2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils"
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
@@ -103,11 +107,14 @@ func newLibP2PHost(listenAddress host2.PeerIPAddress, priv crypto.PrivKey, metri
 		return nil, err
 	}
 
-	connmgr, err := connmgr.NewConnManager(
+	connManager, err := connmgr.NewConnManager(
 		100, // Lowwater
 		400, // HighWater,
 		connmgr.WithGracePeriod(time.Minute),
 	)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed creating conn manager for libp2p host")
+	}
 	opts := []libp2p.Option{
 		libp2p.ListenAddrs(addr),
 		libp2p.Identity(priv),
@@ -119,7 +126,7 @@ func newLibP2PHost(listenAddress host2.PeerIPAddress, priv crypto.PrivKey, metri
 		libp2p.DefaultTransports,
 		// Let's prevent our peer from having too many
 		// connections by attaching a connection manager.
-		libp2p.ConnectionManager(connmgr), libp2p.ForceReachabilityPublic(),
+		libp2p.ConnectionManager(connManager), libp2p.ForceReachabilityPublic(),
 		libp2p.BandwidthReporter(newReporter(metrics)),
 	}
 
@@ -165,35 +172,39 @@ func (h *host) NewStream(ctx context.Context, info host2.StreamInfo) (host2.P2PS
 		return nil, err
 	}
 
-	//if len(info.RemotePeerAddress) != 0 && !strings.HasPrefix(info.RemotePeerAddress, "/ip4/") {
-	//	// reprogram the addresses of the peer before opening a new stream, if it is not in the right form yet
-	//	ps := h.Host.Peerstore()
-	//	current := ps.Addrs(ID)
-	//
-	//	if logger.IsEnabledFor(zapcore.DebugLevel) {
-	//		logger.Debugf("sendTo, reprogram address [%s:%s]", info.RemotePeerID, info.RemotePeerAddress)
-	//		for _, m := range current {
-	//			logger.Debugf("sendTo, current address [%s:%s]", info.RemotePeerID, m)
-	//		}
-	//	}
-	//
-	//	ps.ClearAddrs(ID)
-	//	addr, err := utils.AddressToEndpoint(info.RemotePeerAddress)
-	//	if err != nil {
-	//		return nil, errors.WithMessagef(err, "failed to parse endpoint's address [%s]", info.RemotePeerAddress)
-	//	}
-	//	s, err := multiaddr.NewMultiaddr(addr)
-	//	if err != nil {
-	//		return nil, errors.Wrapf(err, "failed to get mutliaddr for [%s]", info.RemotePeerAddress)
-	//	}
-	//	ps.AddAddr(ID, s, peerstore.OwnObservedAddrTTL)
-	//}
+	if len(info.RemotePeerAddress) != 0 && !strings.HasPrefix(info.RemotePeerAddress, "/ip4/") {
+		// reprogram the addresses of the peer before opening a new stream, if it is not in the right form yet
+		ps := h.Host.Peerstore()
+		current := ps.Addrs(ID)
+
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			logger.Debugf("sendTo, reprogram address [%s:%s]", info.RemotePeerID, info.RemotePeerAddress)
+			for _, m := range current {
+				logger.Debugf("sendTo, current address [%s:%s]", info.RemotePeerID, m)
+			}
+		}
+
+		ps.ClearAddrs(ID)
+		addr, err := utils.AddressToEndpoint(info.RemotePeerAddress)
+		if err != nil {
+			return nil, errors.WithMessagef(err, "failed to parse endpoint's address [%s]", info.RemotePeerAddress)
+		}
+		s, err := multiaddr.NewMultiaddr(addr)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to get mutliaddr for [%s]", info.RemotePeerAddress)
+		}
+		ps.AddAddr(ID, s, peerstore.OwnObservedAddrTTL)
+	}
 
 	nwStream, err := h.Host.NewStream(ctx, ID, viewProtocol)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create new stream to [%s]", ID)
 	}
-	return &stream{Stream: nwStream, info: info}, nil
+	info.RemotePeerID = nwStream.Conn().RemotePeer().String()
+	return &stream{
+		Stream: nwStream,
+		info:   info,
+	}, nil
 }
 
 func (h *host) startFinder() {
@@ -243,7 +254,7 @@ func (h *host) start(failAdv bool, newStreamCallback func(stream host2.P2PStream
 			&stream{
 				Stream: s,
 				info: host2.StreamInfo{
-					RemotePeerID:      base64.StdEncoding.EncodeToString([]byte(s.Conn().RemotePeer())),
+					RemotePeerID:      s.Conn().RemotePeer().String(),
 					RemotePeerAddress: s.Conn().RemoteMultiaddr().String(),
 					ContextID:         uuid,
 					SessionID:         uuid,

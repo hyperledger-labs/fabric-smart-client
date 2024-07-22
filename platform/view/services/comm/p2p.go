@@ -348,9 +348,11 @@ func (s *streamHandler) close(ctx context.Context) {
 	_, span := s.node.messageTracer.Start(ctx, "stream_close")
 	span.AddLink(trace.LinkFromContext(s.stream.Context()))
 	defer span.End()
-	s.reader.Close()
-	s.writer.Close()
-	s.stream.Close()
+	//s.reader.Close()
+	//s.writer.Close()
+	if err := s.stream.Close(); err != nil {
+		logger.Errorf("error closing stream [%s]: [%s]", s.stream.Hash(), err)
+	}
 	s.node.m.ClosedStreams.Add(1)
 	// s.wg.Wait()
 }
