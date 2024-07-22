@@ -33,11 +33,11 @@ func (s *stream) Hash() host2.StreamHash {
 func (s *stream) Context() context.Context { return context.TODO() }
 
 func (s *stream) Close() error {
-	//s.Stream.Close()
+	// We don't close the stream here to recycle it later
 	return nil
 }
 
 func streamHash(info host2.StreamInfo) host2.StreamHash {
-	//return fmt.Sprintf("%s.%s.%s.%s", info.RemotePeerID, info.RemotePeerAddress, info.SessionID, info.ContextID)
+	// This allows us to recycle the streams towards the same peer
 	return info.RemotePeerID
 }

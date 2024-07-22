@@ -107,11 +107,7 @@ func newLibP2PHost(listenAddress host2.PeerIPAddress, priv crypto.PrivKey, metri
 		return nil, err
 	}
 
-	connManager, err := connmgr.NewConnManager(
-		100, // Lowwater
-		400, // HighWater,
-		connmgr.WithGracePeriod(time.Minute),
-	)
+	connManager, err := connmgr.NewConnManager(100, 400, connmgr.WithGracePeriod(time.Minute))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed creating conn manager for libp2p host")
 	}
