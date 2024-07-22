@@ -13,6 +13,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	utils2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils"
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
@@ -181,7 +182,11 @@ func (h *host) NewStream(ctx context.Context, info host2.StreamInfo) (host2.P2PS
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create new stream to [%s]", ID)
 	}
-	return &stream{Stream: nwStream, info: info}, nil
+	info.RemotePeerID = nwStream.Conn().RemotePeer().String()
+	return &stream{
+		Stream: nwStream,
+		info:   info,
+	}, nil
 }
 
 func (h *host) startFinder() {
@@ -226,7 +231,18 @@ func (h *host) start(failAdv bool, newStreamCallback func(stream host2.P2PStream
 	}
 
 	h.Host.SetStreamHandler(viewProtocol, func(s network.Stream) {
-		newStreamCallback(&stream{Stream: s})
+		uuid := utils2.GenerateUUID()
+		newStreamCallback(
+			&stream{
+				Stream: s,
+				info: host2.StreamInfo{
+					RemotePeerID:      s.Conn().RemotePeer().String(),
+					RemotePeerAddress: s.Conn().RemoteMultiaddr().String(),
+					ContextID:         uuid,
+					SessionID:         uuid,
+				},
+			},
+		)
 	})
 
 	h.finderWg.Add(1)

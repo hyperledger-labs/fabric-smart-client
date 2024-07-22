@@ -28,8 +28,8 @@ func (s *stream) RemotePeerAddress() host2.PeerIPAddress {
 }
 
 func (s *stream) Hash() host2.StreamHash {
-	//return streamHash(s.info)
-	return s.RemotePeerID()
+	return streamHash(s.info)
+	//return s.RemotePeerID()
 }
 
 func (s *stream) Context() context.Context { return context.TODO() }
