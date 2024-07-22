@@ -35,5 +35,5 @@ func (s *stream) Hash() host2.StreamHash {
 func (s *stream) Context() context.Context { return context.TODO() }
 
 func streamHash(info host2.StreamInfo) host2.StreamHash {
-	return fmt.Sprintf("%s.%s.%s.%s", info.RemotePeerID, info.RemotePeerAddress, info.SessionID, info.ContextID)
+	return fmt.Sprintf("%s", info.RemotePeerID)
 }
