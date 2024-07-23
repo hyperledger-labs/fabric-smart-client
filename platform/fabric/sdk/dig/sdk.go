@@ -13,6 +13,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/node"
 	e "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/committer"
 	dig2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
 	digutils "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
@@ -58,6 +59,7 @@ func (p *SDK) Install() error {
 		p.Container().Provide(config.NewCore),
 		p.Container().Provide(config.NewProvider),
 		p.Container().Provide(NewChannelProvider),
+		p.Container().Provide(committer.NewFinalityListenerManagerProvider[driver.ValidationCode], dig.As(new(driver.ListenerManagerProvider))),
 		p.Container().Provide(generic.NewChannelConfigProvider, dig.As(new(driver.ChannelConfigProvider))),
 		p.Container().Provide(NewDriver, dig.Group("drivers")),
 		p.Container().Provide(finality2.NewHandler, dig.Group("finality-handlers")),

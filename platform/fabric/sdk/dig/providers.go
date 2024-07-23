@@ -35,14 +35,15 @@ type channelProviderResult struct {
 
 func NewChannelProvider(in struct {
 	dig.In
-	KVS                   *kvs.KVS
-	Publisher             events.Publisher
-	Hasher                hash.Hasher
-	TracerProvider        trace.TracerProvider
-	Drivers               []driver5.NamedDriver `group:"db-drivers"`
-	ChannelConfigProvider driver.ChannelConfigProvider
+	KVS                     *kvs.KVS
+	Publisher               events.Publisher
+	Hasher                  hash.Hasher
+	TracerProvider          trace.TracerProvider
+	Drivers                 []driver5.NamedDriver `group:"db-drivers"`
+	ChannelConfigProvider   driver.ChannelConfigProvider
+	ListenerManagerProvider driver.ListenerManagerProvider
 }) channelProviderResult {
-	return channelProviderResult{Provider: generic.NewProvider(in.KVS, in.Publisher, in.Hasher, in.TracerProvider, in.Drivers, in.ChannelConfigProvider)}
+	return channelProviderResult{Provider: generic.NewProvider(in.KVS, in.Publisher, in.Hasher, in.TracerProvider, in.Drivers, in.ChannelConfigProvider, in.ListenerManagerProvider)}
 }
 
 type ChannelHandlerProviderResult struct {

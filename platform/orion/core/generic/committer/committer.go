@@ -14,6 +14,7 @@ import (
 
 	errors2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	committer2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/committer"
+	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
@@ -37,8 +38,8 @@ var (
 )
 
 type (
-	EventManager = committer2.FinalityManager[driver.ValidationCode]
-	TxEvent      = committer2.FinalityEvent[driver.ValidationCode]
+	FinalityManager = committer2.FinalityManager[driver.ValidationCode]
+	TxEvent         = driver2.FinalityEvent[driver.ValidationCode]
 )
 
 type Finality interface {
@@ -66,8 +67,8 @@ type committer struct {
 	waitForEventTimeout time.Duration
 	TransactionFilters  *committer2.AggregatedTransactionFilter
 
-	EventManager  *EventManager
-	quietNotifier bool
+	FinalityManager *FinalityManager
+	quietNotifier   bool
 
 	listeners      map[string][]chan TxEvent
 	mutex          sync.Mutex
@@ -96,6 +97,7 @@ func New(
 	eventsSubscriber events.Subscriber,
 	tracerProvider trace.TracerProvider,
 	networkConfig driver.NetworkConfig,
+	listenerManager driver.ListenerManager,
 ) (*committer, error) {
 	d := &committer{
 		networkName:         networkName,
@@ -108,7 +110,7 @@ func New(
 		pm:                  pm,
 		em:                  em,
 		pollingTimeout:      networkConfig.PollingTimeout(),
-		EventManager:        committer2.NewFinalityManager[driver.ValidationCode](logger, vault, tracerProvider, networkConfig.FinalityEventQueueWorkers(), driver.Valid, driver.Invalid),
+		FinalityManager:     committer2.NewFinalityManager[driver.ValidationCode](listenerManager, logger, vault, tracerProvider, networkConfig.FinalityEventQueueWorkers(), driver.Valid, driver.Invalid),
 		eventsSubscriber:    eventsSubscriber,
 		eventsPublisher:     eventsPublisher,
 		subscribers:         events.NewSubscribers(),
@@ -128,7 +130,7 @@ func New(
 }
 
 func (c *committer) Start(context context.Context) error {
-	go c.EventManager.Run(context)
+	go c.FinalityManager.Run(context)
 	return nil
 }
 
@@ -306,11 +308,11 @@ func (c *committer) IsFinal(ctx context.Context, txID string) error {
 }
 
 func (c *committer) AddFinalityListener(txID string, listener driver.FinalityListener) error {
-	return c.EventManager.AddListener(txID, listener)
+	return c.FinalityManager.AddListener(txID, listener)
 }
 
 func (c *committer) RemoveFinalityListener(txID string, listener driver.FinalityListener) error {
-	c.EventManager.RemoveListener(txID, listener)
+	c.FinalityManager.RemoveListener(txID, listener)
 	return nil
 }
 
@@ -331,7 +333,7 @@ func (c *committer) commitWithFilter(txID string) error {
 }
 
 func (c *committer) postFinality(ctx context.Context, txID string, vc driver.ValidationCode, message string) {
-	c.EventManager.Post(TxEvent{
+	c.FinalityManager.Post(TxEvent{
 		Ctx:               ctx,
 		TxID:              txID,
 		ValidationCode:    vc,

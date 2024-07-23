@@ -187,7 +187,7 @@ func (c *Channel) FinalityWaitTimeout() time.Duration {
 
 func (c *Channel) FinalityEventQueueWorkers() int {
 	if c.Finality.EventQueueWorkers == 0 {
-		return 50
+		return 1
 	}
 	return c.Finality.EventQueueWorkers
 }
