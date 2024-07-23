@@ -33,22 +33,23 @@ type Provider interface {
 	NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver.Channel, error)
 }
 
-func NewProvider(kvss *kvs.KVS, publisher events.Publisher, hasher hash.Hasher, tracerProvider trace.TracerProvider, drivers []driver2.NamedDriver, channelConfigProvider driver.ChannelConfigProvider) Provider {
-	return NewProviderWithVault(kvss, publisher, hasher, tracerProvider, drivers, vault.New, channelConfigProvider)
+func NewProvider(kvss *kvs.KVS, publisher events.Publisher, hasher hash.Hasher, tracerProvider trace.TracerProvider, drivers []driver2.NamedDriver, channelConfigProvider driver.ChannelConfigProvider, listenerManagerProvider driver.ListenerManagerProvider) Provider {
+	return NewProviderWithVault(kvss, publisher, hasher, tracerProvider, drivers, vault.New, channelConfigProvider, listenerManagerProvider)
 }
 
-func NewProviderWithVault(kvss *kvs.KVS, publisher events.Publisher, hasher hash.Hasher, tracerProvider trace.TracerProvider, drivers []driver2.NamedDriver, newVault VaultConstructor, channelConfigProvider driver.ChannelConfigProvider) *provider {
-	return &provider{kvss: kvss, publisher: publisher, hasher: hasher, newVault: newVault, tracerProvider: tracerProvider, drivers: drivers, channelConfigProvider: channelConfigProvider}
+func NewProviderWithVault(kvss *kvs.KVS, publisher events.Publisher, hasher hash.Hasher, tracerProvider trace.TracerProvider, drivers []driver2.NamedDriver, newVault VaultConstructor, channelConfigProvider driver.ChannelConfigProvider, listenerManagerProvider driver.ListenerManagerProvider) *provider {
+	return &provider{kvss: kvss, publisher: publisher, hasher: hasher, newVault: newVault, tracerProvider: tracerProvider, drivers: drivers, channelConfigProvider: channelConfigProvider, listenerManagerProvider: listenerManagerProvider}
 }
 
 type provider struct {
-	kvss                  *kvs.KVS
-	publisher             events.Publisher
-	hasher                hash.Hasher
-	newVault              VaultConstructor
-	tracerProvider        trace.TracerProvider
-	drivers               []driver2.NamedDriver
-	channelConfigProvider driver.ChannelConfigProvider
+	kvss                    *kvs.KVS
+	publisher               events.Publisher
+	hasher                  hash.Hasher
+	newVault                VaultConstructor
+	tracerProvider          trace.TracerProvider
+	drivers                 []driver2.NamedDriver
+	channelConfigProvider   driver.ChannelConfigProvider
+	listenerManagerProvider driver.ListenerManagerProvider
 }
 
 func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string, quiet bool) (driver.Channel, error) {
@@ -125,6 +126,7 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 		channelConfig.CommitterWaitForEventTimeout(),
 		nw.TransactionManager(),
 		quiet,
+		p.listenerManagerProvider.NewManager(),
 		p.tracerProvider,
 	)
 	if err != nil {

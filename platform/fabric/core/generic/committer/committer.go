@@ -19,6 +19,7 @@ import (
 	errors2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/committer"
+	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/fabricutils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/membership"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/rwset"
@@ -52,7 +53,7 @@ var (
 )
 
 type (
-	FinalityEvent   = committer.FinalityEvent[driver.ValidationCode]
+	FinalityEvent   = driver2.FinalityEvent[driver.ValidationCode]
 	FinalityManager = committer.FinalityManager[driver.ValidationCode]
 )
 
@@ -86,7 +87,7 @@ type Committer struct {
 	logger committer.Logger
 
 	// events
-	EventManager    *FinalityManager
+	FinalityManager *FinalityManager
 	EventsPublisher events.Publisher
 
 	WaitForEventTimeout time.Duration
@@ -113,6 +114,7 @@ func New(
 	waitForEventTimeout time.Duration,
 	transactionManager driver.TransactionManager,
 	quiet bool,
+	listenerManager driver.ListenerManager,
 	tracerProvider trace.TracerProvider,
 ) *Committer {
 	s := &Committer{
@@ -127,7 +129,7 @@ func New(
 		ProcessorManager:    processorManager,
 		MembershipService:   channelMembershipService,
 		OrderingService:     orderingService,
-		EventManager:        committer.NewFinalityManager[driver.ValidationCode](logger, vault, tracerProvider, channelConfig.FinalityEventQueueWorkers(), driver.Valid, driver.Invalid),
+		FinalityManager:     committer.NewFinalityManager[driver.ValidationCode](listenerManager, logger, vault, tracerProvider, channelConfig.FinalityEventQueueWorkers(), driver.Valid, driver.Invalid),
 		EventsPublisher:     eventsPublisher,
 		FabricFinality:      fabricFinality,
 		TransactionManager:  transactionManager,
@@ -145,7 +147,7 @@ func New(
 }
 
 func (c *Committer) Start(context context.Context) error {
-	go c.EventManager.Run(context)
+	go c.FinalityManager.Run(context)
 	return nil
 }
 
@@ -232,11 +234,11 @@ func (c *Committer) CommitTX(txID string, block driver.BlockNum, indexInBlock dr
 }
 
 func (c *Committer) AddFinalityListener(txID string, listener driver.FinalityListener) error {
-	return c.EventManager.AddListener(txID, listener)
+	return c.FinalityManager.AddListener(txID, listener)
 }
 
 func (c *Committer) RemoveFinalityListener(txID string, listener driver.FinalityListener) error {
-	c.EventManager.RemoveListener(txID, listener)
+	c.FinalityManager.RemoveListener(txID, listener)
 	return nil
 }
 
@@ -337,7 +339,7 @@ func (c *Committer) Commit(block *common.Block) error {
 		span.AddEvent("end_tx_handler")
 
 		c.notifyFinality(event)
-		c.EventManager.Post(event)
+		c.FinalityManager.Post(event)
 
 		var driverVC driver.ValidationCode
 		if peer.TxValidationCode(event.ValidationCode) == peer.TxValidationCode_VALID {

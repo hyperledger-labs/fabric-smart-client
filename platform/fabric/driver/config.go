@@ -9,6 +9,7 @@ package driver
 import (
 	"time"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 )
 
@@ -32,6 +33,10 @@ type ChaincodeConfig interface {
 	ID() string
 	IsPrivate() bool
 }
+
+type ListenerManagerProvider driver.ListenerManagerProvider[ValidationCode]
+
+type ListenerManager driver.ListenerManager[ValidationCode]
 
 type ChannelConfigProvider interface {
 	GetChannelConfig(network, channel string) (ChannelConfig, error)

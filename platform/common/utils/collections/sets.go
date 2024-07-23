@@ -22,6 +22,12 @@ func (s *set[V]) Add(vs ...V) {
 	}
 }
 
+func (s *set[V]) Remove(vs ...V) {
+	for _, v := range vs {
+		delete(*s, v)
+	}
+}
+
 func (s *set[V]) Contains(v V) bool {
 	_, ok := (*s)[v]
 	return ok
@@ -50,6 +56,7 @@ func (s *set[V]) Empty() bool {
 
 type Set[V comparable] interface {
 	Add(...V)
+	Remove(...V)
 	Minus(Set[V]) Set[V]
 	Contains(V) bool
 	ToSlice() []V

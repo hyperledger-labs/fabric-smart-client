@@ -12,6 +12,10 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 )
 
+type ListenerManagerProvider driver.ListenerManagerProvider[ValidationCode]
+
+type ListenerManager driver.ListenerManager[ValidationCode]
+
 type StatusReporter interface {
 	Status(txID string) (ValidationCode, string, []string, error)
 }
