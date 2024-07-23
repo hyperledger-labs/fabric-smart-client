@@ -11,8 +11,9 @@ import (
 	"strings"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
-	tracing2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/tracing"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 	"go.opentelemetry.io/otel/trace/embedded"
 )
@@ -22,8 +23,27 @@ type metricsProvider interface {
 	NewHistogram(opts metrics.HistogramOpts) metrics.Histogram
 }
 
+type providerWithNodeName struct {
+	trace.TracerProvider
+	nodeName string
+}
+
+func NewProviderWithNodeName(p trace.TracerProvider, nodeName string) trace.TracerProvider {
+	return &providerWithNodeName{
+		TracerProvider: p,
+		nodeName:       nodeName,
+	}
+}
+
+func (p *providerWithNodeName) Tracer(name string, options ...trace.TracerOption) trace.Tracer {
+	c := trace.NewTracerConfig(options...)
+
+	attrs := c.InstrumentationAttributes()
+	return p.TracerProvider.Tracer(name, append(options, trace.WithInstrumentationAttributes(append(attrs.ToSlice(), attribute.String(nodeNameKey, p.nodeName))...))...)
+}
+
 func NewTracerProvider(confService driver.ConfigService, metricsProvider metrics.Provider) (trace.TracerProvider, error) {
-	backingProvider, err := tracing2.NewTracerProvider(confService)
+	backingProvider, err := tracing.NewTracerProvider(confService)
 	if err != nil {
 		return nil, err
 	}
@@ -47,6 +67,7 @@ func (p *tracerProvider) Tracer(name string, options ...trace.TracerOption) trac
 	opts := extractMetricsOpts(c.InstrumentationAttributes())
 	return &tracer{
 		backingTracer: p.backingProvider.Tracer(name, options...),
+		namespace:     opts.Namespace,
 		labelNames:    opts.LabelNames,
 		operations: p.metricsProvider.NewCounter(metrics.CounterOpts{
 			Namespace:    opts.Namespace,

@@ -14,6 +14,7 @@ import (
 const (
 	namespaceKey  = "namespace"
 	labelNamesKey = "label_names"
+	nodeNameKey   = "node_name"
 )
 
 type LabelName = string
@@ -35,6 +36,9 @@ func extractMetricsOpts(attrs attribute.Set) MetricsOpts {
 	o := MetricsOpts{}
 	if val, ok := attrs.Value(namespaceKey); ok {
 		o.Namespace = val.AsString()
+	}
+	if val, ok := attrs.Value(nodeNameKey); ok {
+		o.Namespace = val.AsString() + "_" + o.Namespace
 	}
 	if val, ok := attrs.Value(labelNamesKey); ok {
 		o.LabelNames = val.AsStringSlice()
