@@ -84,11 +84,11 @@ func CheckLocalMetrics(ii *integration.Infrastructure, user string, viewName str
 	Expect(sum).NotTo(BeZero())
 }
 
-func CheckPrometheusMetrics(ii *integration.Infrastructure, viewName string) {
+func CheckPrometheusMetrics(ii *integration.Infrastructure, user, viewName string) {
 	cli, err := ii.NWO.PrometheusAPI()
 	Expect(err).To(BeNil())
 	metric := model.Metric{
-		"__name__": "fsc_view_operations",
+		"__name__": model.LabelValue(user + "_fsc_view_operations"),
 		"view":     model.LabelValue(viewName),
 	}
 	val, warnings, err := cli.Query(context.Background(), metric.String(), time.Now())
