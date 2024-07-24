@@ -80,7 +80,6 @@ func CheckLocalMetrics(ii *integration.Infrastructure, user string, viewName str
 		}
 	}
 
-	logger.Infof("metrics: %v", metrics)
 	logger.Infof("Received in total %f view operations for [%s] for user %s: %v", sum, viewName, user, metrics["fsc_view_operations"].GetMetric())
 	Expect(sum).NotTo(BeZero())
 }
