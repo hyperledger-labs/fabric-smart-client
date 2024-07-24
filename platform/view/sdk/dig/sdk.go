@@ -124,11 +124,14 @@ func (p *SDK) Install() error {
 			return operations.NewMetricsProvider(o.Metrics, l, true)
 		}),
 		p.C.Provide(func(metricsProvider metrics2.Provider, configService driver.ConfigService) (trace.TracerProvider, error) {
-			if tp, err := tracing2.NewTracerProvider(configService); err != nil {
+			base, err := tracing2.NewTracerProvider(configService)
+			if err != nil {
 				return nil, err
-			} else {
-				return tracing2.NewWrappedTracerProvider(tracing.NewTracerProviderWithBackingProvider(tp, metricsProvider)), nil
 			}
+			enhanced := tracing.NewTracerProviderWithBackingProvider(base, metricsProvider)
+			nodeName := configService.GetString("fsc.id")
+			named := tracing.NewProviderWithNodeName(enhanced, nodeName)
+			return tracing2.NewWrappedTracerProvider(named), nil
 		}),
 		p.C.Provide(view3.NewMetrics),
 		p.C.Provide(view3.NewAccessControlChecker, dig.As(new(view3.PolicyChecker))),

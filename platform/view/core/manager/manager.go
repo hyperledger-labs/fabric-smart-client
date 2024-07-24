@@ -55,8 +55,9 @@ type manager struct {
 	initiators map[string]string
 	factories  map[string]driver.Factory
 
-	viewTracer trace.Tracer
-	m          *Metrics
+	viewTracer    trace.Tracer
+	respondTracer trace.Tracer
+	m             *Metrics
 }
 
 func New(serviceProvider driver.ServiceProvider, commLayer CommLayer, endpointService driver.EndpointService, identityProvider driver.IdentityProvider, provider trace.TracerProvider, metricsProvider metrics.Provider) *manager {
@@ -74,6 +75,9 @@ func New(serviceProvider driver.ServiceProvider, commLayer CommLayer, endpointSe
 		viewTracer: provider.Tracer("view", tracing.WithMetricsOpts(tracing.MetricsOpts{
 			Namespace:  "fsc",
 			LabelNames: []string{SuccessLabel, ViewLabel, InitiatorViewLabel},
+		})),
+		respondTracer: provider.Tracer("respond", tracing.WithMetricsOpts(tracing.MetricsOpts{
+			Namespace: "fsc",
 		})),
 		m: newMetrics(metricsProvider),
 	}
@@ -436,6 +440,7 @@ func (cm *manager) newContext(id view.Identity, msg *view.Message) (view.Context
 		if ctx == nil {
 			ctx = context.Background()
 		}
+		ctx = trace.ContextWithSpanContext(ctx, trace.SpanContextFromContext(msg.Ctx))
 		newCtx, err := NewContext(ctx, cm.sp, contextID, cm.commLayer, cm.endpointService, id, backend, caller, cm.viewTracer)
 		if err != nil {
 			return nil, false, err
@@ -474,6 +479,9 @@ func (cm *manager) existResponder(msg *view.Message) (view.View, view.Identity, 
 }
 
 func (cm *manager) callView(msg *view.Message) {
+	newCtx, span := cm.respondTracer.Start(msg.Ctx, "view_responder")
+	msg.Ctx = newCtx
+	defer span.End()
 	responder, id, err := cm.existResponder(msg)
 	if err != nil {
 		// TODO: No responder exists for this message
@@ -485,6 +493,7 @@ func (cm *manager) callView(msg *view.Message) {
 		id = cm.me()
 	}
 
+	span.AddEvent("respond_view")
 	ctx, _, err := cm.respond(responder, id, msg)
 	if err != nil {
 		logger.Errorf("failed responding [%v, %v], err: [%s]", getIdentifier(responder), msg.String(), err)

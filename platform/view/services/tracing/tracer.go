@@ -14,17 +14,20 @@ import (
 	"go.opentelemetry.io/otel/trace/embedded"
 )
 
+const namespaceLabel LabelName = "namespace"
+
 type tracer struct {
 	embedded.Tracer
 	backingTracer trace.Tracer
 
+	namespace  string
 	labelNames []LabelName
 	operations metrics.Counter
 	duration   metrics.Histogram
 }
 
 func (t *tracer) Start(ctx context.Context, spanName string, opts ...trace.SpanStartOption) (context.Context, trace.Span) {
-	newCtx, backingSpan := t.backingTracer.Start(ctx, spanName, opts...)
+	newCtx, backingSpan := t.backingTracer.Start(ctx, spanName, append(opts, WithAttributes(String(namespaceLabel, t.namespace)))...)
 
 	return newCtx, newSpan(backingSpan, t.labelNames, t.operations, t.duration, opts...)
 }
