@@ -52,27 +52,17 @@ type P2PNode struct {
 	sessions         map[string]*NetworkStreamSession
 	finderWg         sync.WaitGroup
 	isStopping       bool
-	messageTracer    trace.Tracer
-	closeTracer      trace.Tracer
 	m                *Metrics
 }
 
-func NewNode(h host2.P2PHost, tracerProvider trace.TracerProvider, metricsProvider metrics.Provider) (*P2PNode, error) {
+func NewNode(h host2.P2PHost, _ trace.TracerProvider, metricsProvider metrics.Provider) (*P2PNode, error) {
 	p := &P2PNode{
 		host:             h,
 		incomingMessages: make(chan *messageWithStream),
 		streams:          make(map[host2.StreamHash][]*streamHandler),
 		sessions:         make(map[string]*NetworkStreamSession),
 		isStopping:       false,
-		messageTracer: tracerProvider.Tracer("comm_node_msg", tracing.WithMetricsOpts(tracing.MetricsOpts{
-			Namespace:  "viewsdk",
-			LabelNames: []tracing.LabelName{},
-		})),
-		closeTracer: tracerProvider.Tracer("comm_node_close", tracing.WithMetricsOpts(tracing.MetricsOpts{
-			Namespace:  "viewsdk",
-			LabelNames: []tracing.LabelName{sessionIDLabel},
-		})),
-		m: newMetrics(metricsProvider),
+		m:                newMetrics(metricsProvider),
 	}
 	if err := h.Start(p.handleIncomingStream); err != nil {
 		return nil, err
@@ -115,8 +105,6 @@ func (p *P2PNode) dispatchMessages(ctx context.Context) {
 				}
 				return
 			}
-			newCtx, span := p.messageTracer.Start(msg.message.Ctx, "message_dispatch")
-			msg.message.Ctx = newCtx
 
 			if logger.IsEnabledFor(zapcore.DebugLevel) {
 				logger.Debugf("dispatch message from [%s,%s] on session [%s]", msg.message.FromEndpoint, view.Identity(msg.message.FromPKID).String(), msg.message.SessionID)
@@ -131,7 +119,6 @@ func (p *P2PNode) dispatchMessages(ctx context.Context) {
 			}
 			session, in := p.sessions[internalSessionID]
 			if in {
-				span.AddEvent("reuse_session")
 				if logger.IsEnabledFor(zapcore.DebugLevel) {
 					logger.Debugf("internal session exists [%s]", internalSessionID)
 				}
@@ -152,7 +139,6 @@ func (p *P2PNode) dispatchMessages(ctx context.Context) {
 			p.sessionsMutex.Unlock()
 
 			if !in {
-				span.AddEvent("create_session")
 				// create session but redirect this first message to master
 				// _, _ = p.getOrCreateSession(
 				//	msg.message.SessionID,
@@ -174,9 +160,7 @@ func (p *P2PNode) dispatchMessages(ctx context.Context) {
 			if logger.IsEnabledFor(zapcore.DebugLevel) {
 				logger.Debugf("pushing message to [%s], [%s]", internalSessionID, msg.message)
 			}
-			span.AddEvent("queue_incoming")
 			session.incoming <- msg.message
-			span.End()
 		case <-ctx.Done():
 			logger.Info("closing p2p comm...")
 			return
@@ -275,12 +259,9 @@ type streamHandler struct {
 }
 
 func (s *streamHandler) send(msg proto.Message) error {
-	_, span := s.node.messageTracer.Start(s.stream.Context(), "message_send")
-	defer span.End()
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	if err := s.writer.WriteMsg(msg); err != nil {
-		span.RecordError(err)
 		return err
 	}
 	return nil
@@ -293,13 +274,11 @@ func (s *streamHandler) handleIncoming() {
 	for {
 		msg := &ViewPacket{}
 		err := s.reader.ReadMsg(msg)
-		ctx, span := s.node.messageTracer.Start(s.stream.Context(), "message_receive")
 		if err != nil {
 			if s.node.isStopping {
 				if logger.IsEnabledFor(zapcore.DebugLevel) {
 					logger.Debugf("error reading message while closing, ignoring [%s]", err)
 				}
-				span.End()
 				break
 			}
 
@@ -320,7 +299,6 @@ func (s *streamHandler) handleIncoming() {
 					s.wg.Done()
 					s.node.streamsMutex.Unlock()
 					s.close(context.Background())
-					span.End()
 					return
 				}
 			}
@@ -342,18 +320,14 @@ func (s *streamHandler) handleIncoming() {
 				Caller:       msg.Caller,
 				FromEndpoint: s.stream.RemotePeerAddress(),
 				FromPKID:     []byte(s.stream.RemotePeerID()),
-				Ctx:          ctx,
+				Ctx:          s.stream.Context(),
 			},
 			stream: s,
 		}
-		span.End()
 	}
 }
 
-func (s *streamHandler) close(ctx context.Context) {
-	_, span := s.node.messageTracer.Start(ctx, "stream_close")
-	span.AddLink(trace.LinkFromContext(s.stream.Context()))
-	defer span.End()
+func (s *streamHandler) close(context.Context) {
 	// no need to close reader and writer when closing the stream
 	//s.reader.Close()
 	//s.writer.Close()
