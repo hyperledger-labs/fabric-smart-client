@@ -46,7 +46,8 @@ func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType, replicationOpts *
 		AddOptions(replicationOpts.For("alice")...).
 		// Register the factories of the initiator views for each business process
 		RegisterViewFactory("EventsView", &views.EventsViewFactory{}).
-		RegisterViewFactory("MultipleEventsView", &views.MultipleEventsViewFactory{})
+		RegisterViewFactory("MultipleEventsView", &views.MultipleEventsViewFactory{}).
+		RegisterViewFactory("MultipleListenersView", &views.MultipleListenersViewFactory{})
 
 	// Define Bob's FSC node
 	fscTopology.AddNodeByName("bob").

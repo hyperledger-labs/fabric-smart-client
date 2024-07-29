@@ -25,7 +25,8 @@ var _ = Describe("EndToEnd", func() {
 		BeforeEach(s.Setup)
 		AfterEach(s.TearDown)
 		It("clients listening to single chaincode events", s.TestSingleChaincodeEvents)
-		It("client listening to multiple chaincode events ", s.TestMultipleChaincodeEvents)
+		It("client listening to multiple chaincode events", s.TestMultipleChaincodeEvents)
+		It("multiple clients unsubscribing", s.TestMultipleListenersAndUnsubscribe)
 		It("Upgrade Chaincode", s.TestUpgradeChaincode)
 	})
 
@@ -34,7 +35,8 @@ var _ = Describe("EndToEnd", func() {
 		BeforeEach(s.Setup)
 		AfterEach(s.TearDown)
 		It("clients listening to single chaincode events", s.TestSingleChaincodeEvents)
-		It("client listening to multiple chaincode events ", s.TestMultipleChaincodeEvents)
+		It("client listening to multiple chaincode events", s.TestMultipleChaincodeEvents)
+		It("multiple clients unsubscribing", s.TestMultipleListenersAndUnsubscribe)
 		It("Upgrade Chaincode", s.TestUpgradeChaincode)
 	})
 })
@@ -87,6 +89,25 @@ func (s *TestSuite) TestMultipleChaincodeEvents() {
 	}
 	Expect(len(eventsReceived.Events)).To(Equal(2))
 	Expect(payloadsReceived).To(Equal(expectedEventPayloads))
+}
+
+func (s *TestSuite) TestMultipleListenersAndUnsubscribe() {
+	n := uint8(20)
+	alice := chaincode.NewClient(s.II.Client("alice"), s.II.Identity("alice"))
+
+	// - Operate from Alice (Org1)
+	events, err := alice.MultipleListenersView("CreateAsset", "CreateAsset", n)
+	Expect(err).ToNot(HaveOccurred())
+
+	eventsReceived := &views.MultipleEventsReceived{}
+	err = json.Unmarshal(events.([]byte), eventsReceived)
+	Expect(err).ToNot(HaveOccurred())
+
+	Expect(len(eventsReceived.Events)).To(Equal(int(n)))
+	for _, event := range eventsReceived.Events {
+		Expect(event).To(Not(BeNil()))
+		Expect(string(event.Payload)).To(Equal("Invoked Create Asset Successfully"))
+	}
 }
 
 func (s *TestSuite) TestUpgradeChaincode() {

@@ -7,15 +7,19 @@ SPDX-License-Identifier: Apache-2.0
 package fabric
 
 import (
+	"sync"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 )
 
 // EventListener models the parameters to use for chaincode listening.
 type EventListener struct {
+	sync.RWMutex
 	chaincodeListener chan *committer.ChaincodeEvent
 	subscriber        events.Subscriber
 	chaincodeName     string
+	closing           bool
 }
 
 func newEventListener(subscriber events.Subscriber, chaincodeName string) *EventListener {
@@ -26,21 +30,27 @@ func newEventListener(subscriber events.Subscriber, chaincodeName string) *Event
 }
 
 // ChaincodeEvents returns a channel from which chaincode events emitted by transaction functions in the specified chaincode can be read.
-func (e *EventListener) ChaincodeEvents() (chan *committer.ChaincodeEvent, error) {
+func (e *EventListener) ChaincodeEvents() chan *committer.ChaincodeEvent {
 	e.chaincodeListener = make(chan *committer.ChaincodeEvent, 1)
 	e.subscriber.Subscribe(e.chaincodeName, e)
-	return e.chaincodeListener, nil
+	return e.chaincodeListener
 }
 
 // CloseChaincodeEvents closes the channel from which chaincode events are read.
-func (e *EventListener) CloseChaincodeEvents() error {
-	close(e.chaincodeListener)
-	e.subscriber.Unsubscribe(e.chaincodeName, e)
+func (e *EventListener) CloseChaincodeEvents() {
+	e.Lock()
+	e.closing = true
+	e.Unlock()
 
-	return nil
+	e.subscriber.Unsubscribe(e.chaincodeName, e)
+	close(e.chaincodeListener)
 }
 
+// OnReceive pushes events to the listener
 func (e *EventListener) OnReceive(event events.Event) {
-	//todo filter events based on options passed - start block, last transactionid
-	e.chaincodeListener <- event.Message().(*committer.ChaincodeEvent)
+	e.RLock()
+	defer e.RUnlock()
+	if !e.closing {
+		e.chaincodeListener <- event.Message().(*committer.ChaincodeEvent)
+	}
 }

@@ -51,18 +51,12 @@ func (c *MultipleEventsView) Call(context view.Context) (interface{}, error) {
 	assert.NoError(err, "failed to listen to events")
 
 	for _, function := range c.Functions {
-
 		// Invoke the chaincode
-		_, err = context.RunView(
-			chaincode.NewInvokeView(
-				"events",
-				function,
-			),
-		)
-		assert.NoError(err, "Failed Running Invoke View ")
+		_, err = context.RunView(chaincode.NewInvokeView("events", function))
+		assert.NoError(err, "Failed Running Invoke View")
 	}
 
-	// wait for the event to arriver
+	// wait for the event to arrive
 	wg.Wait()
 
 	return &MultipleEventsReceived{

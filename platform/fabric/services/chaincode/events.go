@@ -86,17 +86,10 @@ func (r *ListenToEventsView) RegisterChaincodeEvents(viewContext view.Context) e
 		return errors.Wrapf(err, "failed to get chaincode [%s:%s:%s]", r.Network, r.Channel, r.ChaincodeName)
 	}
 	logger.Debugf("getting chaincode events stream for [%s:%s:%s]", r.Network, r.Channel, r.ChaincodeName)
-	events, err := chaincode.EventListener.ChaincodeEvents()
-	if err != nil {
-		return errors.Wrapf(err, "failed to get chaincode event channel [%s:%s:%s]", r.Network, r.Channel, r.ChaincodeName)
-	}
+	events := chaincode.EventListener.ChaincodeEvents()
 
 	go func() {
-		defer func() {
-			if err := chaincode.EventListener.CloseChaincodeEvents(); err != nil {
-				logger.Errorf("Failed to close event channel [%s:%s:%s]: [%s]", r.Network, r.Channel, r.ChaincodeName, err)
-			}
-		}()
+		defer chaincode.EventListener.CloseChaincodeEvents()
 
 		ctx := r.Context
 		if ctx == nil {
