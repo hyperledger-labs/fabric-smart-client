@@ -43,8 +43,8 @@ func TestPKIResolveConcurrency(t *testing.T) {
 	assert.NoError(err)
 
 	var wg sync.WaitGroup
-	wg.Add(10)
-	for i := 0; i < 10; i++ {
+	wg.Add(100)
+	for i := 0; i < 100; i++ {
 		go func() {
 			defer wg.Done()
 			svc.pkiResolve(resolver)

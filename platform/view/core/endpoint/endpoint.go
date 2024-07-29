@@ -238,13 +238,16 @@ func (r *Service) SetPublicKeyIDSynthesizer(publicKeyIDSynthesizer driver.Public
 func (r *Service) pkiResolve(resolver *Resolver) []byte {
 	resolver.PKILock.RLock()
 	if len(resolver.PKI) != 0 {
+		resolver.PKILock.RUnlock()
 		return resolver.PKI
 	}
 	resolver.PKILock.RUnlock()
 
 	resolver.PKILock.Lock()
 	defer resolver.PKILock.Unlock()
-	resolver.PKI = r.ExtractPKI(resolver.Id)
+	if len(resolver.PKI) == 0 {
+		resolver.PKI = r.ExtractPKI(resolver.Id)
+	}
 	return resolver.PKI
 }
 
