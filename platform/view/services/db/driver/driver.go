@@ -110,12 +110,7 @@ type Config interface {
 	UnmarshalKey(key string, rawVal interface{}) error
 }
 
-type PersistenceType string
-
-type NamedDriver struct {
-	Name   PersistenceType
-	Driver Driver
-}
+type NamedDriver = driver.NamedDriver[Driver]
 
 type Driver interface {
 	// NewTransactionalVersioned returns a new TransactionalVersionedPersistence for the passed data source and config

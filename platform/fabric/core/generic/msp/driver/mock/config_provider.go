@@ -5,9 +5,9 @@ import (
 	"sync"
 	"time"
 
+	driverb "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/driver"
 	drivera "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	driverb "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 )
 

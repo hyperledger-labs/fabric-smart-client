@@ -7,11 +7,12 @@ SPDX-License-Identifier: Apache-2.0
 package mem
 
 import (
+	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 )
 
 const (
-	MemoryPersistence driver.PersistenceType = "memory"
+	MemoryPersistence driver2.PersistenceType = "memory"
 )
 
 func NewDriver() driver.NamedDriver {

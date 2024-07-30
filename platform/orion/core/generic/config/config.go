@@ -9,7 +9,7 @@ package config
 import (
 	"time"
 
-	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/pkg/errors"
 )
 
@@ -108,8 +108,8 @@ func (c *Config) Identities() ([]Identity, error) {
 	return identities, nil
 }
 
-func (c *Config) VaultPersistenceType() dbdriver.PersistenceType {
-	return dbdriver.PersistenceType(c.configService.GetString("orion." + c.prefix + "vault.persistence.type"))
+func (c *Config) VaultPersistenceType() driver.PersistenceType {
+	return driver.PersistenceType(c.configService.GetString("orion." + c.prefix + "vault.persistence.type"))
 }
 
 func (c *Config) VaultPersistencePrefix() string {

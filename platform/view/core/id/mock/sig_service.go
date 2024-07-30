@@ -10,12 +10,12 @@ import (
 )
 
 type SigService struct {
-	RegisterSignerStub        func(identity view.Identity, signer driver.Signer, verifier driver.Verifier) error
+	RegisterSignerStub        func(view.Identity, driver.Signer, driver.Verifier) error
 	registerSignerMutex       sync.RWMutex
 	registerSignerArgsForCall []struct {
-		identity view.Identity
-		signer   driver.Signer
-		verifier driver.Verifier
+		arg1 view.Identity
+		arg2 driver.Signer
+		arg3 driver.Verifier
 	}
 	registerSignerReturns struct {
 		result1 error
@@ -27,23 +27,25 @@ type SigService struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *SigService) RegisterSigner(identity view.Identity, signer driver.Signer, verifier driver.Verifier) error {
+func (fake *SigService) RegisterSigner(arg1 view.Identity, arg2 driver.Signer, arg3 driver.Verifier) error {
 	fake.registerSignerMutex.Lock()
 	ret, specificReturn := fake.registerSignerReturnsOnCall[len(fake.registerSignerArgsForCall)]
 	fake.registerSignerArgsForCall = append(fake.registerSignerArgsForCall, struct {
-		identity view.Identity
-		signer   driver.Signer
-		verifier driver.Verifier
-	}{identity, signer, verifier})
-	fake.recordInvocation("RegisterSigner", []interface{}{identity, signer, verifier})
+		arg1 view.Identity
+		arg2 driver.Signer
+		arg3 driver.Verifier
+	}{arg1, arg2, arg3})
+	stub := fake.RegisterSignerStub
+	fakeReturns := fake.registerSignerReturns
+	fake.recordInvocation("RegisterSigner", []interface{}{arg1, arg2, arg3})
 	fake.registerSignerMutex.Unlock()
-	if fake.RegisterSignerStub != nil {
-		return fake.RegisterSignerStub(identity, signer, verifier)
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
 	}
 	if specificReturn {
 		return ret.result1
 	}
-	return fake.registerSignerReturns.result1
+	return fakeReturns.result1
 }
 
 func (fake *SigService) RegisterSignerCallCount() int {
@@ -52,13 +54,22 @@ func (fake *SigService) RegisterSignerCallCount() int {
 	return len(fake.registerSignerArgsForCall)
 }
 
+func (fake *SigService) RegisterSignerCalls(stub func(view.Identity, driver.Signer, driver.Verifier) error) {
+	fake.registerSignerMutex.Lock()
+	defer fake.registerSignerMutex.Unlock()
+	fake.RegisterSignerStub = stub
+}
+
 func (fake *SigService) RegisterSignerArgsForCall(i int) (view.Identity, driver.Signer, driver.Verifier) {
 	fake.registerSignerMutex.RLock()
 	defer fake.registerSignerMutex.RUnlock()
-	return fake.registerSignerArgsForCall[i].identity, fake.registerSignerArgsForCall[i].signer, fake.registerSignerArgsForCall[i].verifier
+	argsForCall := fake.registerSignerArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
 func (fake *SigService) RegisterSignerReturns(result1 error) {
+	fake.registerSignerMutex.Lock()
+	defer fake.registerSignerMutex.Unlock()
 	fake.RegisterSignerStub = nil
 	fake.registerSignerReturns = struct {
 		result1 error
@@ -66,6 +77,8 @@ func (fake *SigService) RegisterSignerReturns(result1 error) {
 }
 
 func (fake *SigService) RegisterSignerReturnsOnCall(i int, result1 error) {
+	fake.registerSignerMutex.Lock()
+	defer fake.registerSignerMutex.Unlock()
 	fake.RegisterSignerStub = nil
 	if fake.registerSignerReturnsOnCall == nil {
 		fake.registerSignerReturnsOnCall = make(map[int]struct {

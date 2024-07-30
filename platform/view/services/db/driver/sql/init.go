@@ -12,6 +12,7 @@ import (
 	"os"
 	"regexp"
 
+	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
@@ -24,7 +25,7 @@ const (
 	Postgres common.SQLDriverType = "postgres"
 	SQLite   common.SQLDriverType = "sqlite"
 
-	SQLPersistence driver.PersistenceType = "sql"
+	SQLPersistence driver2.PersistenceType = "sql"
 )
 
 var logger = flogging.MustGetLogger("db.driver.sql")

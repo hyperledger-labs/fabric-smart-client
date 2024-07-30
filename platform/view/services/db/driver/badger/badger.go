@@ -22,8 +22,8 @@ import (
 )
 
 const (
-	BadgerPersistence driver.PersistenceType = "badger"
-	FilePersistence   driver.PersistenceType = "file"
+	BadgerPersistence driver2.PersistenceType = "badger"
+	FilePersistence   driver2.PersistenceType = "file"
 )
 
 var logger = flogging.MustGetLogger("db.driver.badger")
