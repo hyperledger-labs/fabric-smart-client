@@ -29,7 +29,7 @@ type Interceptor[V driver.ValidationCode] struct {
 	Closed     bool
 	TxID       string
 	vcProvider driver.ValidationCodeProvider[V] // TODO
-	Mutex      sync.RWMutex
+	sync.RWMutex
 }
 
 func EmptyRWSet() ReadWriteSet {
@@ -77,18 +77,21 @@ func (i *Interceptor[V]) IsValid() error {
 	if code == i.vcProvider.Valid() {
 		return errors.Errorf("duplicate txid %s", i.TxID)
 	}
-	if i.QE != nil {
 
-		for ns, nsMap := range i.Rws.Reads {
-			for k, v := range nsMap {
-				vv, err := i.QE.GetState(ns, k)
-				if err != nil {
-					return err
-				}
+	i.RLock()
+	defer i.RUnlock()
+	if i.QE == nil {
+		return nil
+	}
+	for ns, nsMap := range i.Rws.Reads {
+		for k, v := range nsMap {
+			vv, err := i.QE.GetState(ns, k)
+			if err != nil {
+				return err
+			}
 
-				if vv.Block != v.Block || vv.TxNum != v.TxNum {
-					return errors.Errorf("invalid read: vault at version %s:%s %d:%d, read-write set at version %d:%d", ns, k, vv.Block, vv.TxNum, v.Block, v.TxNum)
-				}
+			if vv.Block != v.Block || vv.TxNum != v.TxNum {
+				return errors.Errorf("invalid read: vault at version %s:%s %d:%d, read-write set at version %d:%d", ns, k, vv.Block, vv.TxNum, v.Block, v.TxNum)
 			}
 		}
 	}
@@ -207,10 +210,6 @@ func (i *Interceptor[V]) GetStateMetadata(namespace, key string, opts ...driver.
 		return nil, errors.New("this instance was closed")
 	}
 
-	if i.QE == nil {
-		return nil, errors.New("this instance is write only")
-	}
-
 	if len(opts) > 1 {
 		return nil, errors.Errorf("a single getoption is supported, %d provided", len(opts))
 	}
@@ -222,10 +221,17 @@ func (i *Interceptor[V]) GetStateMetadata(namespace, key string, opts ...driver.
 
 	switch opt {
 	case driver.FromStorage:
+		i.RLock()
+		if i.QE == nil {
+			i.RUnlock()
+			return nil, errors.New("this instance is write only")
+		}
 		val, block, txnum, err := i.QE.GetStateMetadata(namespace, key)
 		if err != nil {
+			i.RUnlock()
 			return nil, err
 		}
+		i.RUnlock()
 
 		b, t, in := i.Rws.ReadSet.Get(namespace, key)
 		if in {
@@ -259,10 +265,6 @@ func (i *Interceptor[V]) GetState(namespace string, key string, opts ...driver.G
 		return nil, errors.New("this instance was closed")
 	}
 
-	if i.QE == nil {
-		return nil, errors.New("this instance is write only")
-	}
-
 	if len(opts) > 1 {
 		return nil, errors.Errorf("a single getoption is supported, %d provided", len(opts))
 	}
@@ -274,10 +276,17 @@ func (i *Interceptor[V]) GetState(namespace string, key string, opts ...driver.G
 
 	switch opt {
 	case driver.FromStorage:
+		i.RLock()
+		if i.QE == nil {
+			i.RUnlock()
+			return nil, errors.New("this instance is write only")
+		}
 		vv, err := i.QE.GetState(namespace, key)
 		if err != nil {
+			i.RUnlock()
 			return nil, err
 		}
+		i.RUnlock()
 
 		b, t, in := i.Rws.ReadSet.Get(namespace, key)
 		if in {
@@ -348,10 +357,10 @@ func (i *Interceptor[V]) Equals(other interface{}, nss ...string) error {
 
 func (i *Interceptor[V]) Done() {
 	i.Logger.Debugf("Done with [%s], closed [%v]", i.TxID, i.IsClosed())
-	if !i.IsClosed() {
-		i.Mutex.Lock()
+	i.Lock()
+	defer i.Unlock()
+	if !i.Closed {
 		i.Closed = true
-		i.Mutex.Unlock()
 		if i.QE != nil {
 			i.QE.Done()
 		}
@@ -363,16 +372,16 @@ func (i *Interceptor[V]) Reopen(qe VersionedQueryExecutor) error {
 	if !i.IsClosed() {
 		return errors.Errorf("already open")
 	}
+	i.Lock()
+	defer i.Unlock()
 	i.QE = qe
-	i.Mutex.Lock()
 	i.Closed = false
-	i.Mutex.Unlock()
 	return nil
 }
 
 func (i *Interceptor[V]) IsClosed() bool {
-	i.Mutex.RLock()
-	defer i.Mutex.RUnlock()
+	i.RLock()
+	defer i.RUnlock()
 	return i.Closed
 }
 
