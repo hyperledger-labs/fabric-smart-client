@@ -254,9 +254,9 @@ func (c *multiplexedServerConn) readIncoming(newStreamCallback func(pStream host
 		if !ok && mm.Err == "" {
 			c.newServerSubConn(newStreamCallback, mm)
 		} else if !ok && mm.Err != "" {
-			logger.Warnf("server subconn errored: %v", mm.Err)
+			logger.Debugf("server subconn errored: %v", mm.Err)
 		} else if mm.Err != "" {
-			logger.Warnf("Server subconn [%s] errored: %v", mm.ID, mm.Err)
+			logger.Debugf("server subconn [%s] errored: %v", mm.ID, mm.Err)
 			go func() {
 				time.Sleep(1 * time.Second) // TODO: Find the point when the connection must close
 				sc.close(false)
