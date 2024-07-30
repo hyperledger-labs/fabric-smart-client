@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/pkg/errors"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
@@ -184,8 +185,8 @@ func (s *Service) Orderers() []*grpc.ConnectionConfig {
 	return s.orderers
 }
 
-func (s *Service) VaultPersistenceType() string {
-	return s.GetString("vault.persistence.type")
+func (s *Service) VaultPersistenceType() dbdriver.PersistenceType {
+	return dbdriver.PersistenceType(s.GetString("vault.persistence.type"))
 }
 
 func (s *Service) VaultPersistencePrefix() string {

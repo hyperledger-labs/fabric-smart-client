@@ -9,6 +9,8 @@ package sqlite
 import (
 	"database/sql"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/notifier"
@@ -21,7 +23,8 @@ const sqlitePragmas = `
 	PRAGMA busy_timeout = 5000;
 	PRAGMA synchronous = NORMAL;
 	PRAGMA cache_size = 1000000000;
-	PRAGMA temp_store = memory;`
+	PRAGMA temp_store = memory;
+	PRAGMA foreign_keys = ON;`
 
 const driverName = "sqlite"
 
@@ -59,44 +62,52 @@ func NewVersionedPersistenceNotifier(opts common.Opts, table string) (*notifier.
 	return notifier.NewVersioned(common.NewVersionedPersistence(readDB, writeDB, table, &errorMapper{})), nil
 }
 
-func openDB(dataSourceName string, maxOpenConns int, skipPragmas bool) (readDB *sql.DB, writeDB *sql.DB, err error) {
-	readDB, err = sql.Open(driverName, dataSourceName)
+func openDB(dataSourceName string, maxOpenConns int, skipPragmas bool) (*sql.DB, *sql.DB, error) {
+	logger.Infof("Opening read db [%v]", dataSourceName)
+	readDB, err := OpenDB(dataSourceName, maxOpenConns, skipPragmas)
 	if err != nil {
-		return nil, nil, fmt.Errorf("can't open %s database: %w", driverName, err)
+		return nil, nil, fmt.Errorf("can't open read %s database: %w", driverName, err)
 	}
-	readDB.SetMaxOpenConns(maxOpenConns)
-	if err = readDB.Ping(); err != nil {
-		if strings.Contains(err.Error(), "out of memory (14)") {
-			return nil, nil, fmt.Errorf("can't open %s database, does the folder exist?", driverName)
+	logger.Infof("Opening write db [%v]", dataSourceName)
+	writeDB, err := OpenDB(dataSourceName, 1, skipPragmas)
+	if err != nil {
+		return nil, nil, fmt.Errorf("can't open write %s database: %w", driverName, err)
+	}
+	return readDB, writeDB, nil
+}
+
+func OpenDB(dataSourceName string, maxOpenConns int, skipPragmas bool) (*sql.DB, error) {
+	// Create directories if they do not exist to avoid error "out of memory (14)", see below
+	if strings.HasPrefix(dataSourceName, "file:") {
+		path := strings.TrimLeft(dataSourceName[:strings.IndexRune(dataSourceName, '?')], "file:")
+		if err := os.MkdirAll(filepath.Dir(path), 0777); err != nil {
+			logger.Warnf("failed creating dir [%s]: %s", path, err)
 		}
-		return nil, nil, err
 	}
-	logger.Infof("connected to [%s] for reads, max open connections: %d", driverName, maxOpenConns)
+
+	db, err := sql.Open(driverName, dataSourceName)
+	if err != nil {
+		return nil, fmt.Errorf("can't open %s database: %w", driverName, err)
+	}
+	db.SetMaxOpenConns(maxOpenConns)
+	if err = db.Ping(); err != nil && strings.Contains(err.Error(), "out of memory (14)") {
+		return nil, fmt.Errorf("can't open %s database, does the folder exist?", driverName)
+	} else if err != nil {
+		return nil, err
+	}
+	logger.Infof("connected to [%s], max open connections: %d", driverName, maxOpenConns)
 
 	// sqlite can handle concurrent reads in WAL mode if the writes are throttled in 1 connection
-	writeDB, err = sql.Open(driverName, dataSourceName)
-	if err != nil {
-		logger.Error(err)
-		return nil, nil, fmt.Errorf("can't open sql database: %w", err)
-	}
-	writeDB.SetMaxOpenConns(1)
-	if err = writeDB.Ping(); err != nil {
-		return nil, nil, err
-	}
 	if skipPragmas {
 		if !strings.Contains(dataSourceName, "WAL") {
 			logger.Warn("skipping default pragmas. Set at least ?_pragma=journal_mode(WAL) or similar in the dataSource to prevent SQLITE_BUSY errors")
 		}
-	} else {
-		logger.Debug(sqlitePragmas)
-		if _, err = readDB.Exec(sqlitePragmas); err != nil {
-			return nil, nil, fmt.Errorf("error setting pragmas: %w", err)
-		}
-		if _, err = writeDB.Exec(sqlitePragmas); err != nil {
-			return nil, nil, fmt.Errorf("error setting pragmas: %w", err)
-		}
+		return db, nil
 	}
-	logger.Infof("connected to [%s] for writes, max open connections: 1", driverName)
+	logger.Debug(sqlitePragmas)
+	if _, err = db.Exec(sqlitePragmas); err != nil {
+		return nil, fmt.Errorf("error setting pragmas: %w", err)
+	}
 
-	return readDB, writeDB, nil
+	return db, nil
 }

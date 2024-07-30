@@ -13,9 +13,8 @@ import (
 	"strings"
 	"sync"
 
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
-
 	errors2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
@@ -321,8 +320,10 @@ func (t *readIterator[V]) Next() (*V, error) {
 	return &r, err
 }
 
+type SQLDriverType string
+
 type Opts struct {
-	Driver          string
+	Driver          SQLDriverType
 	DataSource      string
 	TablePrefix     string
 	SkipCreateTable bool

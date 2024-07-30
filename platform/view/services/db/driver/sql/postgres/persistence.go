@@ -9,7 +9,6 @@ package postgres
 import (
 	"database/sql"
 	"fmt"
-	"strings"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
@@ -17,12 +16,12 @@ import (
 )
 
 var logger = flogging.MustGetLogger("view-sdk.db.postgres")
-var notifyOperations = []driver.Operation{driver.Insert, driver.Update, driver.Delete}
+var AllOperations = []driver.Operation{driver.Insert, driver.Update, driver.Delete}
 
-const driverName = "postgres"
+const driverName = "pgx"
 
 func NewUnversioned(opts common.Opts, table string) (*common.UnversionedPersistence, error) {
-	readWriteDB, err := openDB(opts.DataSource, opts.MaxOpenConns)
+	readWriteDB, err := OpenDB(opts.DataSource, opts.MaxOpenConns)
 	if err != nil {
 		return nil, fmt.Errorf("error opening db: %w", err)
 	}
@@ -30,18 +29,18 @@ func NewUnversioned(opts common.Opts, table string) (*common.UnversionedPersiste
 }
 
 func NewUnversionedNotifier(opts common.Opts, table string) (*unversionedPersistenceNotifier, error) {
-	readWriteDB, err := openDB(opts.DataSource, opts.MaxOpenConns)
+	readWriteDB, err := OpenDB(opts.DataSource, opts.MaxOpenConns)
 	if err != nil {
 		return nil, fmt.Errorf("error opening db: %w", err)
 	}
 	return &unversionedPersistenceNotifier{
 		UnversionedPersistence: common.NewUnversioned(readWriteDB, readWriteDB, table, &errorMapper{}),
-		notifier:               newNotifier(readWriteDB, table, opts.DataSource, notifyOperations, "ns", "pkey"),
+		Notifier:               NewNotifier(readWriteDB, table, opts.DataSource, AllOperations, "ns", "pkey"),
 	}, nil
 }
 
 func NewPersistence(opts common.Opts, table string) (*common.VersionedPersistence, error) {
-	readWriteDB, err := openDB(opts.DataSource, opts.MaxOpenConns)
+	readWriteDB, err := OpenDB(opts.DataSource, opts.MaxOpenConns)
 	if err != nil {
 		return nil, fmt.Errorf("error opening db: %w", err)
 	}
@@ -49,32 +48,29 @@ func NewPersistence(opts common.Opts, table string) (*common.VersionedPersistenc
 }
 
 func NewPersistenceNotifier(opts common.Opts, table string) (*versionedPersistenceNotifier, error) {
-	readWriteDB, err := openDB(opts.DataSource, opts.MaxOpenConns)
+	readWriteDB, err := OpenDB(opts.DataSource, opts.MaxOpenConns)
 	if err != nil {
 		return nil, fmt.Errorf("error opening db: %w", err)
 	}
 	return &versionedPersistenceNotifier{
 		VersionedPersistence: common.NewVersionedPersistence(readWriteDB, readWriteDB, table, &errorMapper{}),
-		notifier:             newNotifier(readWriteDB, table, opts.DataSource, notifyOperations, "ns", "pkey"),
+		Notifier:             NewNotifier(readWriteDB, table, opts.DataSource, AllOperations, "ns", "pkey"),
 	}, nil
 }
 
-func openDB(dataSourceName string, maxOpenConns int) (*sql.DB, error) {
-	readDB, err := sql.Open(driverName, dataSourceName)
+func OpenDB(dataSourceName string, maxOpenConns int) (*sql.DB, error) {
+	db, err := sql.Open(driverName, dataSourceName)
 	if err != nil {
 		logger.Error(err)
-		if strings.Contains(err.Error(), "out of memory (14)") {
-			return nil, fmt.Errorf("can't open %s database, does the folder exist?: %w", driverName, err)
-		}
 		return nil, fmt.Errorf("can't open %s database: %w", driverName, err)
 	}
-	readDB.SetMaxOpenConns(maxOpenConns)
-	if err = readDB.Ping(); err != nil {
+	db.SetMaxOpenConns(maxOpenConns)
+	if err = db.Ping(); err != nil {
 		return nil, err
 	}
 	logger.Infof("connected to [%s] for reads, max open connections: %d", driverName, maxOpenConns)
 
 	logger.Info("using same db for writes")
 
-	return readDB, nil
+	return db, nil
 }

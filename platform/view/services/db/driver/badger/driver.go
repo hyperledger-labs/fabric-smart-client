@@ -21,11 +21,11 @@ type Opts struct {
 }
 
 func NewDriver() driver.NamedDriver {
-	return driver.NamedDriver{Name: "badger", Driver: &Driver{}}
+	return driver.NamedDriver{Name: BadgerPersistence, Driver: &Driver{}}
 }
 
 func NewFileDriver() driver.NamedDriver {
-	return driver.NamedDriver{Name: "file", Driver: &Driver{}}
+	return driver.NamedDriver{Name: FilePersistence, Driver: &Driver{}}
 }
 
 type Driver struct{}

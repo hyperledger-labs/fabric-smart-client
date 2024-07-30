@@ -210,7 +210,7 @@ func newKVS(in struct {
 	Config  driver.ConfigService
 	Drivers []driver2.NamedDriver `group:"db-drivers"`
 }) (*kvs.KVS, error) {
-	driverName := utils.DefaultString(in.Config.GetString("fsc.kvs.persistence.type"), "memory")
+	driverName := utils.DefaultString(in.Config.GetString("fsc.kvs.persistence.type"), string(mem.MemoryPersistence))
 	for _, driver := range in.Drivers {
 		if string(driver.Name) == driverName {
 			return kvs.NewWithConfig(driver.Driver, "_default", in.Config)

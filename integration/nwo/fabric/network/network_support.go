@@ -26,6 +26,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/commands"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/fabricconfig"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql"
 	"github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
@@ -1711,9 +1713,9 @@ func GetPersistenceType(peer *topology.Peer) string {
 		return "orion"
 	}
 	if v := peer.FSCNode.Options.Get("fabric.vault.persistence.sql"); v != nil {
-		return "sql"
+		return string(sql.SQLPersistence)
 	}
-	return "badger"
+	return string(badger.BadgerPersistence)
 }
 
 func GetPersistenceDataSource(peer *topology.Peer) string {

@@ -22,7 +22,7 @@ type pendingOperation struct {
 
 // TODO: More handling is required for cases where we modify twice the same key
 
-type notifier struct {
+type Notifier struct {
 	listeners []driver.TriggerCallback
 	lMutex    sync.RWMutex
 
@@ -30,18 +30,18 @@ type notifier struct {
 	pMutex  sync.RWMutex
 }
 
-func newNotifier() *notifier {
-	return &notifier{listeners: []driver.TriggerCallback{}}
+func NewNotifier() *Notifier {
+	return &Notifier{listeners: []driver.TriggerCallback{}}
 }
 
-func (db *notifier) enqueueEvent(operation driver.Operation, payload map[driver.ColumnKey]string) {
+func (db *Notifier) EnqueueEvent(operation driver.Operation, payload map[driver.ColumnKey]string) {
 	logger.Warnf("pkey found: %v, operation: %d", payload["pkey"], operation)
 	db.pMutex.Lock()
 	defer db.pMutex.Unlock()
 	db.pending = append(db.pending, pendingOperation{operation: operation, payload: payload})
 }
 
-func (db *notifier) commit() {
+func (db *Notifier) Commit() {
 	db.pMutex.Lock()
 	defer db.pMutex.Unlock()
 	db.lMutex.RLock()
@@ -54,20 +54,20 @@ func (db *notifier) commit() {
 	db.pending = []pendingOperation{}
 }
 
-func (db *notifier) discard() {
+func (db *Notifier) Discard() {
 	db.pMutex.Lock()
 	defer db.pMutex.Unlock()
 	db.pending = []pendingOperation{}
 }
 
-func (db *notifier) subscribe(callback driver.TriggerCallback) error {
+func (db *Notifier) Subscribe(callback driver.TriggerCallback) error {
 	db.lMutex.Lock()
 	defer db.lMutex.Unlock()
 	db.listeners = append(db.listeners, callback)
 	return nil
 }
 
-func (db *notifier) unsubscribeAll() error {
+func (db *Notifier) UnsubscribeAll() error {
 	db.lMutex.Lock()
 	defer db.lMutex.Unlock()
 	db.listeners = []driver.TriggerCallback{}

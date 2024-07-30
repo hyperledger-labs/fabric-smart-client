@@ -110,10 +110,10 @@ type Config interface {
 	UnmarshalKey(key string, rawVal interface{}) error
 }
 
-type DBDriverName string
+type PersistenceType string
 
 type NamedDriver struct {
-	Name   DBDriverName
+	Name   PersistenceType
 	Driver Driver
 }
 
@@ -139,7 +139,7 @@ const (
 	Update
 )
 
-type notifier interface {
+type Notifier interface {
 	// Subscribe registers a listener for when a value is inserted/updated/deleted in the given table
 	Subscribe(callback TriggerCallback) error
 	// UnsubscribeAll removes all registered listeners for the given table
@@ -148,9 +148,9 @@ type notifier interface {
 
 type UnversionedNotifier interface {
 	UnversionedPersistence
-	notifier
+	Notifier
 }
 type VersionedNotifier interface {
 	VersionedPersistence
-	notifier
+	Notifier
 }

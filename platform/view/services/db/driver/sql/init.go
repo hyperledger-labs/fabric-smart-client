@@ -20,6 +20,13 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 )
 
+const (
+	Postgres common.SQLDriverType = "postgres"
+	SQLite   common.SQLDriverType = "sqlite"
+
+	SQLPersistence driver.PersistenceType = "sql"
+)
+
 var logger = flogging.MustGetLogger("db.driver.sql")
 
 const (
@@ -28,7 +35,7 @@ const (
 
 func NewDriver() driver.NamedDriver {
 	return driver.NamedDriver{
-		Name:   "sql",
+		Name:   SQLPersistence,
 		Driver: &Driver{},
 	}
 }
@@ -42,21 +49,21 @@ type dbObject interface {
 
 type persistenceConstructor[V dbObject] func(common.Opts, string) (V, error)
 
-var versionedConstructors = map[string]persistenceConstructor[*common.VersionedPersistence]{
-	"postgres": postgres.NewPersistence,
-	"sqlite":   sqlite.NewVersionedPersistence,
+var versionedConstructors = map[common.SQLDriverType]persistenceConstructor[*common.VersionedPersistence]{
+	Postgres: postgres.NewPersistence,
+	SQLite:   sqlite.NewVersionedPersistence,
 }
 
-var unversionedConstructors = map[string]persistenceConstructor[*common.UnversionedPersistence]{
-	"postgres": postgres.NewUnversioned,
-	"sqlite":   sqlite.NewUnversionedPersistence,
+var unversionedConstructors = map[common.SQLDriverType]persistenceConstructor[*common.UnversionedPersistence]{
+	Postgres: postgres.NewUnversioned,
+	SQLite:   sqlite.NewUnversionedPersistence,
 }
 
 func (d *Driver) NewVersioned(dataSourceName string, config driver.Config) (driver.VersionedPersistence, error) {
 	return d.NewTransactionalVersioned(dataSourceName, config)
 }
 
-// NewTransactionalVersionedPersistence returns a new TransactionalVersionedPersistence for the passed data source and config
+// NewTransactionalVersioned returns a new TransactionalVersionedPersistence for the passed data source and config
 func (d *Driver) NewTransactionalVersioned(dataSourceName string, config driver.Config) (driver.TransactionalVersionedPersistence, error) {
 	return newPersistence(dataSourceName, config, versionedConstructors)
 }
@@ -65,7 +72,7 @@ func (d *Driver) NewUnversioned(dataSourceName string, config driver.Config) (dr
 	return newPersistence(dataSourceName, config, unversionedConstructors)
 }
 
-func newPersistence[V dbObject](dataSourceName string, config driver.Config, constructors map[string]persistenceConstructor[V]) (V, error) {
+func newPersistence[V dbObject](dataSourceName string, config driver.Config, constructors map[common.SQLDriverType]persistenceConstructor[V]) (V, error) {
 	logger.Infof("opening new transactional database %s", dataSourceName)
 	opts, err := getOps(config)
 	if err != nil {

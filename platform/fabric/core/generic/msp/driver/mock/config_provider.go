@@ -7,6 +7,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/driver"
 	drivera "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	driverb "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 )
 
@@ -346,15 +347,15 @@ type ConfigProvider struct {
 	vaultPersistencePrefixReturnsOnCall map[int]struct {
 		result1 string
 	}
-	VaultPersistenceTypeStub        func() string
+	VaultPersistenceTypeStub        func() driverb.PersistenceType
 	vaultPersistenceTypeMutex       sync.RWMutex
 	vaultPersistenceTypeArgsForCall []struct {
 	}
 	vaultPersistenceTypeReturns struct {
-		result1 string
+		result1 driverb.PersistenceType
 	}
 	vaultPersistenceTypeReturnsOnCall map[int]struct {
-		result1 string
+		result1 driverb.PersistenceType
 	}
 	VaultTXStoreCacheSizeStub        func() int
 	vaultTXStoreCacheSizeMutex       sync.RWMutex
@@ -2184,7 +2185,7 @@ func (fake *ConfigProvider) VaultPersistencePrefixReturnsOnCall(i int, result1 s
 	}{result1}
 }
 
-func (fake *ConfigProvider) VaultPersistenceType() string {
+func (fake *ConfigProvider) VaultPersistenceType() driverb.PersistenceType {
 	fake.vaultPersistenceTypeMutex.Lock()
 	ret, specificReturn := fake.vaultPersistenceTypeReturnsOnCall[len(fake.vaultPersistenceTypeArgsForCall)]
 	fake.vaultPersistenceTypeArgsForCall = append(fake.vaultPersistenceTypeArgsForCall, struct {
@@ -2208,32 +2209,32 @@ func (fake *ConfigProvider) VaultPersistenceTypeCallCount() int {
 	return len(fake.vaultPersistenceTypeArgsForCall)
 }
 
-func (fake *ConfigProvider) VaultPersistenceTypeCalls(stub func() string) {
+func (fake *ConfigProvider) VaultPersistenceTypeCalls(stub func() driverb.PersistenceType) {
 	fake.vaultPersistenceTypeMutex.Lock()
 	defer fake.vaultPersistenceTypeMutex.Unlock()
 	fake.VaultPersistenceTypeStub = stub
 }
 
-func (fake *ConfigProvider) VaultPersistenceTypeReturns(result1 string) {
+func (fake *ConfigProvider) VaultPersistenceTypeReturns(result1 driverb.PersistenceType) {
 	fake.vaultPersistenceTypeMutex.Lock()
 	defer fake.vaultPersistenceTypeMutex.Unlock()
 	fake.VaultPersistenceTypeStub = nil
 	fake.vaultPersistenceTypeReturns = struct {
-		result1 string
+		result1 driverb.PersistenceType
 	}{result1}
 }
 
-func (fake *ConfigProvider) VaultPersistenceTypeReturnsOnCall(i int, result1 string) {
+func (fake *ConfigProvider) VaultPersistenceTypeReturnsOnCall(i int, result1 driverb.PersistenceType) {
 	fake.vaultPersistenceTypeMutex.Lock()
 	defer fake.vaultPersistenceTypeMutex.Unlock()
 	fake.VaultPersistenceTypeStub = nil
 	if fake.vaultPersistenceTypeReturnsOnCall == nil {
 		fake.vaultPersistenceTypeReturnsOnCall = make(map[int]struct {
-			result1 string
+			result1 driverb.PersistenceType
 		})
 	}
 	fake.vaultPersistenceTypeReturnsOnCall[i] = struct {
-		result1 string
+		result1 driverb.PersistenceType
 	}{result1}
 }
 

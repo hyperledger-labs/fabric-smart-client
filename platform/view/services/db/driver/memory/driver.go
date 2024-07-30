@@ -10,9 +10,13 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 )
 
+const (
+	MemoryPersistence driver.PersistenceType = "memory"
+)
+
 func NewDriver() driver.NamedDriver {
 	return driver.NamedDriver{
-		Name:   "memory",
+		Name:   MemoryPersistence,
 		Driver: &Driver{},
 	}
 }
