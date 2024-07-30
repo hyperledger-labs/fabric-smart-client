@@ -137,7 +137,7 @@ func (o *KVS) Put(id string, state interface{}) error {
 	}
 
 	logger.Debugf("store [%d] bytes into key [%s:%s]", len(raw), o.namespace, id)
-	if err := o.store.SetState(o.namespace, id, raw); err != nil {
+	if err := tx.SetState(o.namespace, id, raw); err != nil {
 		if err1 := tx.Discard(); err1 != nil {
 			logger.Debugf("got error %v; discarding caused %v", err, err1)
 		}
