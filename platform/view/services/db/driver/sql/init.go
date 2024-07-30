@@ -15,6 +15,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/postgres"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/sqlite"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/unversioned"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 )
 
@@ -68,6 +69,14 @@ func (d *Driver) NewTransactionalVersioned(dataSourceName string, config driver.
 
 func (d *Driver) NewUnversioned(dataSourceName string, config driver.Config) (driver.UnversionedPersistence, error) {
 	return newPersistence(dataSourceName, config, unversionedConstructors)
+}
+
+func (d *Driver) NewTransactionalUnversioned(dataSourceName string, config driver.Config) (driver.TransactionalUnversionedPersistence, error) {
+	backend, err := d.NewTransactionalVersioned(dataSourceName, config)
+	if err != nil {
+		return nil, err
+	}
+	return &unversioned.Transactional{TransactionalVersioned: backend}, nil
 }
 
 func newPersistence[V dbObject](dataSourceName string, config driver.Config, constructors map[common.SQLDriverType]persistenceConstructor[V]) (V, error) {

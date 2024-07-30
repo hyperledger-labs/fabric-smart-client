@@ -64,6 +64,10 @@ type TransactionalVersionedPersistence struct {
 	driver.TransactionalVersionedPersistence
 }
 
+type TransactionalUnversionedPersistence struct {
+	driver.TransactionalUnversionedPersistence
+}
+
 var validName = regexp.MustCompile(`^[a-zA-Z_]+$`) // Thread safe
 var replacers = []*replacer{
 	newReplacer("_", "__"),

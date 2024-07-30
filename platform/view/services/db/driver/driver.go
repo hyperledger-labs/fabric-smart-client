@@ -96,10 +96,25 @@ type WriteTransaction interface {
 	Discard() error
 }
 
+type UnversionedWriteTransaction interface {
+	// SetState sets the given value for the given namespace, key
+	SetState(namespace driver.Namespace, key string, value UnversionedValue) error
+	// Commit commits the changes since BeginUpdate
+	Commit() error
+	// Discard discards the changes since BeginUpdate
+	Discard() error
+}
+
 type TransactionalVersionedPersistence interface {
 	VersionedPersistence
 
 	NewWriteTransaction() (WriteTransaction, error)
+}
+
+type TransactionalUnversionedPersistence interface {
+	UnversionedPersistence
+
+	NewWriteTransaction() (UnversionedWriteTransaction, error)
 }
 
 // Config provides access to the underlying configuration
@@ -119,6 +134,8 @@ type Driver interface {
 	NewVersioned(dataSourceName string, config Config) (VersionedPersistence, error)
 	// NewUnversioned returns a new UnversionedPersistence for the passed data source and config
 	NewUnversioned(dataSourceName string, config Config) (UnversionedPersistence, error)
+	// NewTransactionalUnversioned returns a new TransactionalUnversionedPersistence for the passed data source and config
+	NewTransactionalUnversioned(dataSourceName string, config Config) (TransactionalUnversionedPersistence, error)
 }
 
 type (

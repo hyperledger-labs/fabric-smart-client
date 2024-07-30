@@ -110,7 +110,7 @@ func (c *MultiplexedProvider) NewClientStream(info host2.StreamInfo, ctx context
 		return nil, errors.Wrapf(err, "failed to open websocket")
 	}
 	conn = newClientConn(wsConn, c.tracer, c.m, func() {
-		logger.Infof("Closing websocket client for [%s@%s]...", src, info.RemotePeerAddress)
+		logger.Debugf("closing websocket client for [%s@%s]...", src, info.RemotePeerAddress)
 		c.mu.Lock()
 		defer c.mu.Unlock()
 		delete(c.clients, url.String())
@@ -151,7 +151,7 @@ func (c *multiplexedClientConn) newClientSubConn(ctx context.Context, src host2.
 	sc := c.newSubConn(NewSubConnId())
 	c.subConns[sc.id] = sc
 	c.mu.Unlock()
-	logger.Infof("Created client subconn with id [%s]", sc.id)
+	logger.Debugf("created client subconn with id [%s]", sc.id)
 	spanContext := trace.SpanContextFromContext(ctx)
 	marshalledSpanContext, err := tracing.MarshalContext(spanContext)
 	if err != nil {
@@ -186,7 +186,7 @@ func (c *multiplexedClientConn) readIncoming() {
 			sc.reads <- streamEOF
 		}
 		err := c.Conn.Close()
-		logger.Infof("Client connection closed: %v", err)
+		logger.Debugf("client connection closed: %v", err)
 	}()
 	var mm MultiplexedMessage
 	for {
@@ -234,7 +234,7 @@ func (c *multiplexedServerConn) readIncoming(newStreamCallback func(pStream host
 			sc.reads <- streamEOF
 		}
 		err := c.Conn.Close()
-		logger.Infof("Connection closed: %v", err)
+		logger.Debugf("connection closed: %v", err)
 	}()
 	var mm MultiplexedMessage
 	for {
@@ -347,14 +347,14 @@ func (c *multiplexedBaseConn) readCloses(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			logger.Infof("Stop waiting for closes")
+			logger.Debugf("stop waiting for closes")
 			c.mu.Lock()
 			c.m.ClosedSubConns.With(sideLabel, c.side).Add(float64(len(c.subConns)))
 			c.subConns = make(map[SubConnId]*subConn)
 			c.mu.Unlock()
 			return
 		case id := <-c.closes:
-			logger.Infof("Closing sub conn [%v]", id)
+			logger.Debugf("closing sub conn [%v]", id)
 			c.mu.Lock()
 			delete(c.subConns, id)
 			c.mu.Unlock()
@@ -368,7 +368,7 @@ func (c *multiplexedBaseConn) readOutgoing(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			logger.Infof("Closing all outgoing connections")
+			logger.Debugf("closing all outgoing connections")
 			return
 		case msg := <-c.writes:
 			c.writeMu.Lock()
