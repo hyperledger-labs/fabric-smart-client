@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"sync"
 	"testing"
 	"time"
 
@@ -104,19 +105,24 @@ func TestReader(t *testing.T) {
 	for _, message := range input {
 		assert.NoError(t, conn.ReadValue(message))
 	}
+	wg := sync.WaitGroup{}
+	wg.Add(len(input))
 
 	output := make([]*comm.ViewPacket, 0, len(input))
+	m := sync.RWMutex{}
 	go func() {
 		for {
 			read := &comm.ViewPacket{}
 			assert.NoError(t, r.ReadMsg(read))
+			m.Lock()
 			output = append(output, read)
+			m.Unlock()
+			wg.Done()
 		}
 	}()
+	wg.Wait()
 
-	assert.Eventually(t, func() bool {
-		return len(output) == len(output)
-	}, 5*time.Second, time.Second)
+	assert.Equal(t, len(input), len(output))
 }
 
 func messageOfSize(size int) proto.Message {

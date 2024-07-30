@@ -13,15 +13,13 @@ import (
 	"strings"
 	"sync"
 
-	"golang.org/x/exp/slices"
-
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
+	"golang.org/x/exp/slices"
 )
 
 var logger = flogging.MustGetLogger("view-sdk.endpoint")
@@ -32,6 +30,7 @@ type Resolver struct {
 	Addresses      map[driver.PortName]string
 	Aliases        []string
 	PKI            []byte
+	PKILock        sync.RWMutex
 	Id             []byte
 	IdentityGetter func() (view.Identity, []byte, error)
 }
@@ -63,10 +62,8 @@ type KVS interface {
 }
 
 type Service struct {
-	sp             view2.ServiceProvider
 	resolvers      []*Resolver
 	resolversMutex sync.RWMutex
-	discovery      Discovery
 	kvs            KVS
 
 	pkiExtractorsLock      sync.RWMutex
@@ -75,10 +72,8 @@ type Service struct {
 }
 
 // NewService returns a new instance of the view-sdk endpoint service
-func NewService(sp view2.ServiceProvider, discovery Discovery, kvs KVS) (*Service, error) {
+func NewService(kvs KVS) (*Service, error) {
 	er := &Service{
-		sp:                     sp,
-		discovery:              discovery,
 		kvs:                    kvs,
 		publicKeyExtractors:    []driver.PublicKeyExtractor{},
 		publicKeyIDSynthesizer: DefaultPublicKeyIDSynthesizer{},
@@ -241,20 +236,25 @@ func (r *Service) SetPublicKeyIDSynthesizer(publicKeyIDSynthesizer driver.Public
 }
 
 func (r *Service) pkiResolve(resolver *Resolver) []byte {
-	r.pkiExtractorsLock.RLock()
+	resolver.PKILock.RLock()
 	if len(resolver.PKI) != 0 {
-		r.pkiExtractorsLock.RUnlock()
+		resolver.PKILock.RUnlock()
 		return resolver.PKI
 	}
-	r.pkiExtractorsLock.RUnlock()
+	resolver.PKILock.RUnlock()
 
-	resolver.PKI = r.ExtractPKI(resolver.Id)
+	resolver.PKILock.Lock()
+	defer resolver.PKILock.Unlock()
+	if len(resolver.PKI) == 0 {
+		resolver.PKI = r.ExtractPKI(resolver.Id)
+	}
 	return resolver.PKI
 }
 
 func (r *Service) ExtractPKI(id []byte) []byte {
-	r.pkiExtractorsLock.Lock()
-	defer r.pkiExtractorsLock.Unlock()
+	r.pkiExtractorsLock.RLock()
+	defer r.pkiExtractorsLock.RUnlock()
+
 	for _, extractor := range r.publicKeyExtractors {
 		if pk, err := extractor.ExtractPublicKey(id); pk != nil {
 			if logger.IsEnabledFor(zapcore.DebugLevel) {
