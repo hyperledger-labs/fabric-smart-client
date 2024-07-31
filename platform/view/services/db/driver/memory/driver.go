@@ -7,6 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 package mem
 
 import (
+	"strings"
+
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
@@ -46,9 +49,9 @@ func (d *Driver) NewTransactionalUnversioned(dataSourceName string, config drive
 }
 
 func (d *Driver) NewTransactionalVersioned(dataSourceName string, config driver.Config) (driver.TransactionalVersionedPersistence, error) {
-	return sql.NewPersistence("memory", opts, sql.VersionedConstructors)
+	return sql.NewPersistence(strings.ReplaceAll(utils.GenerateUUID(), "-", "_"), opts, sql.VersionedConstructors)
 }
 
 func (d *Driver) NewUnversioned(dataSourceName string, config driver.Config) (driver.UnversionedPersistence, error) {
-	return sql.NewPersistence("memory", opts, sql.UnversionedConstructors)
+	return sql.NewPersistence(strings.ReplaceAll(utils.GenerateUUID(), "-", "_"), opts, sql.UnversionedConstructors)
 }
