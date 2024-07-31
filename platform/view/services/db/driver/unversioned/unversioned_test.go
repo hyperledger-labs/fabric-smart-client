@@ -46,8 +46,8 @@ func TestRangeQueriesMemory(t *testing.T) {
 	c := &mocks.Config{}
 	c.UnmarshalKeyReturns(nil)
 	db, err := db.Open(&mem.Driver{}, "", c)
-	defer db.Close()
 	assert.NoError(t, err)
+	defer db.Close()
 	assert.NotNil(t, db)
 
 	testRangeQueries(t, db)
