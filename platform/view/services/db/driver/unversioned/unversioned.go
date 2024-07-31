@@ -154,6 +154,10 @@ func (w *WriteTransaction) SetState(namespace driver2.Namespace, key string, val
 	return w.WriteTransaction.SetState(namespace, key, driver.VersionedValue{Raw: value})
 }
 
+func (w *WriteTransaction) DeleteState(namespace driver2.Namespace, key string) error {
+	return w.WriteTransaction.DeleteState(namespace, key)
+}
+
 func (w *WriteTransaction) Commit() error {
 	return w.WriteTransaction.Commit()
 }

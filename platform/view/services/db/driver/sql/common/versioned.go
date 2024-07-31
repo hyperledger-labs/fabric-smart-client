@@ -19,6 +19,30 @@ import (
 	errors2 "github.com/pkg/errors"
 )
 
+type versionedReadScanner struct{}
+
+func (s *versionedReadScanner) Columns() []string { return []string{"pkey", "block", "txnum", "val"} }
+
+func (s *versionedReadScanner) ReadValue(txs scannable) (driver.VersionedRead, error) {
+	var r driver.VersionedRead
+	err := txs.Scan(&r.Key, &r.Block, &r.TxNum, &r.Raw)
+	return r, err
+}
+
+type versionedValueScanner struct{}
+
+func (s *versionedValueScanner) Columns() []string { return []string{"val", "block", "txnum"} }
+
+func (s *versionedValueScanner) ReadValue(txs scannable) (driver.VersionedValue, error) {
+	var r driver.VersionedValue
+	err := txs.Scan(&r.Raw, &r.Block, &r.TxNum)
+	return r, err
+}
+
+func (s *versionedValueScanner) WriteValue(value driver.VersionedValue) []any {
+	return []any{value.Raw, value.Block, value.TxNum}
+}
+
 type VersionedPersistence struct {
 	basePersistence[driver.VersionedValue, driver.VersionedRead]
 	errorWrapper driver.SQLErrorWrapper
@@ -102,49 +126,6 @@ func (db *VersionedPersistence) GetStateMetadata(ns, key string) (map[string][]b
 	return meta, block, txnum, err
 }
 
-func marshallMetadata(metadata map[string][]byte) (m []byte, err error) {
-	var buf bytes.Buffer
-	err = gob.NewEncoder(&buf).Encode(metadata)
-	if err != nil {
-		return
-	}
-	return buf.Bytes(), nil
-}
-
-func unmarshalMetadata(input []byte) (m map[string][]byte, err error) {
-	if len(input) == 0 {
-		return
-	}
-
-	buf := bytes.NewBuffer(input)
-	decoder := gob.NewDecoder(buf)
-	err = decoder.Decode(&m)
-	return
-}
-
-type versionedReadScanner struct{}
-
-func (s *versionedReadScanner) Columns() []string { return []string{"pkey", "block", "txnum", "val"} }
-
-func (s *versionedReadScanner) ReadValue(txs scannable) (driver.VersionedRead, error) {
-	var r driver.VersionedRead
-	err := txs.Scan(&r.Key, &r.Block, &r.TxNum, &r.Raw)
-	return r, err
-}
-
-type versionedValueScanner struct{}
-
-func (s *versionedValueScanner) Columns() []string { return []string{"val", "block", "txnum"} }
-
-func (s *versionedValueScanner) ReadValue(txs scannable) (driver.VersionedValue, error) {
-	var r driver.VersionedValue
-	err := txs.Scan(&r.Raw, &r.Block, &r.TxNum)
-	return r, err
-}
-func (s *versionedValueScanner) WriteValue(value driver.VersionedValue) []any {
-	return []any{value.Raw, value.Block, value.TxNum}
-}
-
 func (db *VersionedPersistence) CreateSchema() error {
 	return db.createSchema(fmt.Sprintf(`
 	CREATE TABLE IF NOT EXISTS %s (
@@ -180,6 +161,10 @@ func (w *WriteTransaction) SetState(namespace driver2.Namespace, key string, val
 	return w.db.setState(w.txn, namespace, key, value)
 }
 
+func (w *WriteTransaction) DeleteState(namespace driver2.Namespace, key string) error {
+	panic("not supported")
+}
+
 func (w *WriteTransaction) Commit() error {
 	if err := w.txn.Commit(); err != nil {
 		return fmt.Errorf("could not commit transaction: %w", err)
@@ -195,4 +180,24 @@ func (w *WriteTransaction) Discard() error {
 	}
 	w.txn = nil
 	return nil
+}
+
+func marshallMetadata(metadata map[string][]byte) (m []byte, err error) {
+	var buf bytes.Buffer
+	err = gob.NewEncoder(&buf).Encode(metadata)
+	if err != nil {
+		return
+	}
+	return buf.Bytes(), nil
+}
+
+func unmarshalMetadata(input []byte) (m map[string][]byte, err error) {
+	if len(input) == 0 {
+		return
+	}
+
+	buf := bytes.NewBuffer(input)
+	decoder := gob.NewDecoder(buf)
+	err = decoder.Decode(&m)
+	return
 }

@@ -90,6 +90,8 @@ type VersionedPersistence interface {
 type WriteTransaction interface {
 	// SetState sets the given value for the given namespace, key, and version
 	SetState(namespace driver.Namespace, key string, value VersionedValue) error
+	// DeleteState deletes the given namespace and key
+	DeleteState(namespace driver.Namespace, key string) error
 	// Commit commits the changes since BeginUpdate
 	Commit() error
 	// Discard discards the changes since BeginUpdate
@@ -99,6 +101,8 @@ type WriteTransaction interface {
 type UnversionedWriteTransaction interface {
 	// SetState sets the given value for the given namespace, key
 	SetState(namespace driver.Namespace, key string, value UnversionedValue) error
+	// DeleteState deletes the given namespace and key
+	DeleteState(namespace driver.Namespace, key string) error
 	// Commit commits the changes since BeginUpdate
 	Commit() error
 	// Discard discards the changes since BeginUpdate

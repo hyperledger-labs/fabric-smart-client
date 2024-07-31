@@ -302,6 +302,10 @@ func (w *WriteTransaction) SetState(namespace driver2.Namespace, key string, val
 	return nil
 }
 
+func (w *WriteTransaction) DeleteState(namespace driver2.Namespace, key string) error {
+	panic("not supported")
+}
+
 func (w *WriteTransaction) Commit() error {
 	err := w.txn.Commit()
 	if err != nil {

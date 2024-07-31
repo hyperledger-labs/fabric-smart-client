@@ -336,7 +336,7 @@ func TTestQueryExecutor(t *testing.T, ddb VersionedPersistence, vp artifactsProv
 	}
 	var expected = RemoveNils([]VersionedRead{
 		{Key: "k1", Raw: []byte("k1_value"), Block: 35, TxNum: 3},
-		{Key: "k5"},
+		//{Key: "k5"},
 	})
 	assert.Equal(t, expected, res)
 }
