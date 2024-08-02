@@ -10,11 +10,10 @@ import (
 	"bytes"
 	"database/sql"
 	"encoding/gob"
-	"errors"
 	"fmt"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	errors2 "github.com/pkg/errors"
 )
@@ -143,7 +142,7 @@ func (db *VersionedPersistence) CreateSchema() error {
 func (db *VersionedPersistence) NewWriteTransaction() (driver.WriteTransaction, error) {
 	txn, err := db.writeDB.Begin()
 	if err != nil {
-		return nil, err
+		return nil, errors.WithMessagef(err, "failed to begin transaction")
 	}
 
 	return &WriteTransaction{
