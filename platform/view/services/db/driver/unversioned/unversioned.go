@@ -9,6 +9,7 @@ package unversioned
 import (
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	"github.com/pkg/errors"
 )
 
 type iterator struct {
@@ -141,7 +142,7 @@ func (t *Transactional) Discard() error {
 func (t *Transactional) NewWriteTransaction() (driver.UnversionedWriteTransaction, error) {
 	tx, err := t.TransactionalVersioned.NewWriteTransaction()
 	if err != nil {
-		return nil, err
+		return nil, errors.WithMessage(err, "failed to create new transaction")
 	}
 	return &WriteTransaction{WriteTransaction: tx}, nil
 }

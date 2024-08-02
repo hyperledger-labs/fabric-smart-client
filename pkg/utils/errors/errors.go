@@ -33,6 +33,11 @@ func Wrapf(err error, format string, args ...any) error {
 	return errors.Wrapf(err, format, args...)
 }
 
+// WithMessagef annotates err with the format specifier.
+func WithMessagef(err error, format string, args ...any) error {
+	return errors.WithMessagef(err, format, args...)
+}
+
 // Wrap wraps an error in a way compatible with HasCause
 func Wrap(err error, message string) error {
 	return errors.Wrap(err, message)
