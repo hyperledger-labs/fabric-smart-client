@@ -303,7 +303,14 @@ func (w *WriteTransaction) SetState(namespace driver2.Namespace, key string, val
 }
 
 func (w *WriteTransaction) DeleteState(namespace driver2.Namespace, key string) error {
-	panic("not supported")
+	dbKey := dbKey(namespace, key)
+
+	err := w.txn.Delete([]byte(dbKey))
+	if err != nil {
+		return errors.Wrapf(err, "could not delete value for key %s", dbKey)
+	}
+
+	return nil
 }
 
 func (w *WriteTransaction) Commit() error {
