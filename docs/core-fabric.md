@@ -245,7 +245,8 @@ fabric:
               Hash: SHA2
               Security: 256
             # Definition of PKCS11 configuration parameters when using a Hardware HSM
-            # Only needs to be defined if the BCCSP Default is set to PKCS11
+            # Only needs to be defined if the BCCSP Default is set to PKCS11.
+            # NOTE: in order to use pkcs11, you have to build the application with "go build -tags pkcs11"
             PKCS11:
               # PKCS11 library
               Library: /path/to/pkcs11_library.so
@@ -391,6 +392,11 @@ fabric:
           path: /path/to/fscnodeB/msp
           addresses:
 ```
+
+## HSM Support
+
+In order to use a hardware HSM for x.509 identities, you have to build the application with
+`CGO_ENABLED=1 go build -tags pkcs11` and configure the PKCS11 settings as describe above.
 
 ## Persistence: sql
 
