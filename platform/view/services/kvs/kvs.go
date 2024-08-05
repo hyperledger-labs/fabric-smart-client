@@ -202,12 +202,12 @@ func (o *KVS) Delete(id string) error {
 	o.putMutex.Lock()
 	defer o.putMutex.Unlock()
 
-	if err := o.store.BeginUpdate(); err != nil {
+	tx, err := o.store.NewWriteTransaction()
+	if err != nil {
 		return errors.Wrapf(err, "begin update for id [%s] failed", id)
 	}
-
-	if err := o.store.DeleteState(o.namespace, id); err != nil {
-		if err1 := o.store.Discard(); err1 != nil {
+	if err := tx.DeleteState(o.namespace, id); err != nil {
+		if err1 := tx.Discard(); err1 != nil {
 			logger.Debugf("got error %v; discarding caused %v", err, err1)
 		}
 
@@ -215,13 +215,12 @@ func (o *KVS) Delete(id string) error {
 			return errors.Wrapf(err, "failed to commit value for id [%s]", id)
 		}
 	} else {
-		if err := o.store.Commit(); err != nil {
+		if err := tx.Commit(); err != nil {
 			return errors.Wrapf(err, "committing value for id [%s] failed", id)
 		}
 	}
 
 	o.cache.Delete(id)
-
 	return nil
 }
 

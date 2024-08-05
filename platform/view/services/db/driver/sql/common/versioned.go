@@ -160,8 +160,19 @@ func (w *WriteTransaction) SetState(namespace driver2.Namespace, key string, val
 	return w.db.setState(w.txn, namespace, key, value)
 }
 
-func (w *WriteTransaction) DeleteState(namespace driver2.Namespace, key string) error {
-	panic("not supported")
+func (w *WriteTransaction) DeleteState(ns driver2.Namespace, key string) error {
+	if ns == "" || key == "" {
+		return errors.New("ns or key is empty")
+	}
+
+	query := fmt.Sprintf("DELETE FROM %s WHERE ns = $1 AND pkey = $2", w.db.table)
+	logger.Debug(query, ns, key)
+	_, err := w.txn.Exec(query, ns, key)
+	if err != nil {
+		return errors2.Wrapf(w.db.errorWrapper.WrapError(err), "could not delete val for key [%s]", key)
+	}
+
+	return nil
 }
 
 func (w *WriteTransaction) Commit() error {
