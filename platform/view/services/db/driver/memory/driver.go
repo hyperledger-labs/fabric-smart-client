@@ -31,7 +31,7 @@ type Driver struct{}
 
 func NewDriver() driver.NamedDriver {
 	return driver.NamedDriver{
-		Name:   "sql",
+		Name:   "memory",
 		Driver: &Driver{},
 	}
 }
