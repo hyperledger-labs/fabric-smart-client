@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package vault
 
 import (
+	"sync"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/pkg/errors"
@@ -27,6 +29,7 @@ type Interceptor[V driver.ValidationCode] struct {
 	Closed     bool
 	TxID       string
 	vcProvider driver.ValidationCodeProvider[V] // TODO
+	sync.RWMutex
 }
 
 func EmptyRWSet() ReadWriteSet {
@@ -74,18 +77,21 @@ func (i *Interceptor[V]) IsValid() error {
 	if code == i.vcProvider.Valid() {
 		return errors.Errorf("duplicate txid %s", i.TxID)
 	}
-	if i.QE != nil {
 
-		for ns, nsMap := range i.Rws.Reads {
-			for k, v := range nsMap {
-				vv, err := i.QE.GetState(ns, k)
-				if err != nil {
-					return err
-				}
+	i.RLock()
+	defer i.RUnlock()
+	if i.QE == nil {
+		return nil
+	}
+	for ns, nsMap := range i.Rws.Reads {
+		for k, v := range nsMap {
+			vv, err := i.QE.GetState(ns, k)
+			if err != nil {
+				return err
+			}
 
-				if vv.Block != v.Block || vv.TxNum != v.TxNum {
-					return errors.Errorf("invalid read: vault at version %s:%s %d:%d, read-write set at version %d:%d", ns, k, vv.Block, vv.TxNum, v.Block, v.TxNum)
-				}
+			if vv.Block != v.Block || vv.TxNum != v.TxNum {
+				return errors.Errorf("invalid read: vault at version %s:%s %d:%d, read-write set at version %d:%d", ns, k, vv.Block, vv.TxNum, v.Block, v.TxNum)
 			}
 		}
 	}
@@ -93,7 +99,7 @@ func (i *Interceptor[V]) IsValid() error {
 }
 
 func (i *Interceptor[V]) Clear(ns string) error {
-	if i.Closed {
+	if i.IsClosed() {
 		return errors.New("this instance was closed")
 	}
 
@@ -105,7 +111,7 @@ func (i *Interceptor[V]) Clear(ns string) error {
 }
 
 func (i *Interceptor[V]) GetReadKeyAt(ns string, pos int) (string, error) {
-	if i.Closed {
+	if i.IsClosed() {
 		return "", errors.New("this instance was closed")
 	}
 
@@ -118,7 +124,7 @@ func (i *Interceptor[V]) GetReadKeyAt(ns string, pos int) (string, error) {
 }
 
 func (i *Interceptor[V]) GetReadAt(ns string, pos int) (string, []byte, error) {
-	if i.Closed {
+	if i.IsClosed() {
 		return "", nil, errors.New("this instance was closed")
 	}
 
@@ -136,7 +142,7 @@ func (i *Interceptor[V]) GetReadAt(ns string, pos int) (string, []byte, error) {
 }
 
 func (i *Interceptor[V]) GetWriteAt(ns string, pos int) (string, []byte, error) {
-	if i.Closed {
+	if i.IsClosed() {
 		return "", nil, errors.New("this instance was closed")
 	}
 
@@ -175,7 +181,7 @@ func (i *Interceptor[V]) Namespaces() []string {
 }
 
 func (i *Interceptor[V]) DeleteState(namespace string, key string) error {
-	if i.Closed {
+	if i.IsClosed() {
 		return errors.New("this instance was closed")
 	}
 
@@ -183,7 +189,7 @@ func (i *Interceptor[V]) DeleteState(namespace string, key string) error {
 }
 
 func (i *Interceptor[V]) SetState(namespace string, key string, value []byte) error {
-	if i.Closed {
+	if i.IsClosed() {
 		return errors.New("this instance was closed")
 	}
 	i.Logger.Debugf("SetState [%s,%s,%s]", namespace, key, hash.Hashable(value).String())
@@ -192,7 +198,7 @@ func (i *Interceptor[V]) SetState(namespace string, key string, value []byte) er
 }
 
 func (i *Interceptor[V]) SetStateMetadata(namespace string, key string, value map[string][]byte) error {
-	if i.Closed {
+	if i.IsClosed() {
 		return errors.New("this instance was closed")
 	}
 
@@ -200,12 +206,8 @@ func (i *Interceptor[V]) SetStateMetadata(namespace string, key string, value ma
 }
 
 func (i *Interceptor[V]) GetStateMetadata(namespace, key string, opts ...driver.GetStateOpt) (map[string][]byte, error) {
-	if i.Closed {
+	if i.IsClosed() {
 		return nil, errors.New("this instance was closed")
-	}
-
-	if i.QE == nil {
-		return nil, errors.New("this instance is write only")
 	}
 
 	if len(opts) > 1 {
@@ -219,10 +221,17 @@ func (i *Interceptor[V]) GetStateMetadata(namespace, key string, opts ...driver.
 
 	switch opt {
 	case driver.FromStorage:
+		i.RLock()
+		if i.QE == nil {
+			i.RUnlock()
+			return nil, errors.New("this instance is write only")
+		}
 		val, block, txnum, err := i.QE.GetStateMetadata(namespace, key)
 		if err != nil {
+			i.RUnlock()
 			return nil, err
 		}
+		i.RUnlock()
 
 		b, t, in := i.Rws.ReadSet.Get(namespace, key)
 		if in {
@@ -252,12 +261,8 @@ func (i *Interceptor[V]) GetStateMetadata(namespace, key string, opts ...driver.
 }
 
 func (i *Interceptor[V]) GetState(namespace string, key string, opts ...driver.GetStateOpt) ([]byte, error) {
-	if i.Closed {
+	if i.IsClosed() {
 		return nil, errors.New("this instance was closed")
-	}
-
-	if i.QE == nil {
-		return nil, errors.New("this instance is write only")
 	}
 
 	if len(opts) > 1 {
@@ -271,10 +276,17 @@ func (i *Interceptor[V]) GetState(namespace string, key string, opts ...driver.G
 
 	switch opt {
 	case driver.FromStorage:
+		i.RLock()
+		if i.QE == nil {
+			i.RUnlock()
+			return nil, errors.New("this instance is write only")
+		}
 		vv, err := i.QE.GetState(namespace, key)
 		if err != nil {
+			i.RUnlock()
 			return nil, err
 		}
+		i.RUnlock()
 
 		b, t, in := i.Rws.ReadSet.Get(namespace, key)
 		if in {
@@ -304,7 +316,7 @@ func (i *Interceptor[V]) GetState(namespace string, key string, opts ...driver.G
 }
 
 func (i *Interceptor[V]) AppendRWSet(raw []byte, nss ...string) error {
-	if i.Closed {
+	if i.IsClosed() {
 		return errors.New("this instance was closed")
 	}
 
@@ -344,7 +356,9 @@ func (i *Interceptor[V]) Equals(other interface{}, nss ...string) error {
 }
 
 func (i *Interceptor[V]) Done() {
-	i.Logger.Debugf("Done with [%s], closed [%v]", i.TxID, i.Closed)
+	i.Logger.Debugf("Done with [%s], closed [%v]", i.TxID, i.IsClosed())
+	i.Lock()
+	defer i.Unlock()
 	if !i.Closed {
 		i.Closed = true
 		if i.QE != nil {
@@ -354,17 +368,20 @@ func (i *Interceptor[V]) Done() {
 }
 
 func (i *Interceptor[V]) Reopen(qe VersionedQueryExecutor) error {
-	i.Logger.Debugf("Reopen with [%s], closed [%v]", i.TxID, i.Closed)
-	if !i.Closed {
+	i.Logger.Debugf("Reopen with [%s], closed [%v]", i.TxID, i.IsClosed())
+	if !i.IsClosed() {
 		return errors.Errorf("already open")
 	}
+	i.Lock()
+	defer i.Unlock()
 	i.QE = qe
 	i.Closed = false
-
 	return nil
 }
 
 func (i *Interceptor[V]) IsClosed() bool {
+	i.RLock()
+	defer i.RUnlock()
 	return i.Closed
 }
 
