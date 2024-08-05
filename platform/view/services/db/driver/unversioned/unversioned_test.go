@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger"
@@ -34,7 +35,7 @@ func TestRangeQueriesBadger(t *testing.T) {
 	c.UnmarshalKeyReturns(nil)
 	c.IsSetReturns(false)
 	dbpath := filepath.Join(tempDir, "DB-TestRangeQueries")
-	db, err := db.Open(&badger.Driver{}, dbpath, c)
+	db, err := db.OpenTransactional(&badger.Driver{}, dbpath, c)
 	defer db.Close()
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
@@ -45,7 +46,7 @@ func TestRangeQueriesBadger(t *testing.T) {
 func TestRangeQueriesMemory(t *testing.T) {
 	c := &mocks.Config{}
 	c.UnmarshalKeyReturns(nil)
-	db, err := db.Open(&mem.Driver{}, "", c)
+	db, err := db.OpenTransactional(&mem.Driver{}, "", c)
 	assert.NoError(t, err)
 	defer db.Close()
 	assert.NotNil(t, db)
@@ -53,14 +54,13 @@ func TestRangeQueriesMemory(t *testing.T) {
 	testRangeQueries(t, db)
 }
 
-func testRangeQueries(t *testing.T, db driver.UnversionedPersistence) {
+func testRangeQueries(t *testing.T, db driver.TransactionalUnversionedPersistence) {
 	var err error
 
 	ns := "namespace"
 
 	err = db.BeginUpdate()
 	assert.NoError(t, err)
-
 	err = db.SetState(ns, "k2", []byte("k2_value"))
 	assert.NoError(t, err)
 	err = db.SetState(ns, "k3", []byte("k3_value"))
@@ -69,9 +69,28 @@ func testRangeQueries(t *testing.T, db driver.UnversionedPersistence) {
 	assert.NoError(t, err)
 	err = db.SetState(ns, "k111", []byte("k111_value"))
 	assert.NoError(t, err)
-
 	err = db.Commit()
 	assert.NoError(t, err)
+
+	var wg sync.WaitGroup
+	wg.Add(4)
+	go func() {
+		write(t, db, ns, "k2", []byte("k2_value"))
+		wg.Done()
+	}()
+	go func() {
+		write(t, db, ns, "k3", []byte("k3_value"))
+		wg.Done()
+	}()
+	go func() {
+		write(t, db, ns, "k1", []byte("k1_value"))
+		wg.Done()
+	}()
+	go func() {
+		write(t, db, ns, "k111", []byte("k111_value"))
+		wg.Done()
+	}()
+	wg.Wait()
 
 	itr, err := db.GetStateRangeScanIterator(ns, "", "")
 	defer itr.Close()
@@ -105,6 +124,15 @@ func testRangeQueries(t *testing.T, db driver.UnversionedPersistence) {
 		{Key: "k111", Raw: []byte("k111_value")},
 		{Key: "k2", Raw: []byte("k2_value")},
 	}, res)
+}
+
+func write(t *testing.T, db driver.TransactionalUnversionedPersistence, ns, key string, value []byte) {
+	tx, err := db.NewWriteTransaction()
+	assert.NoError(t, err)
+	err = tx.SetState(ns, key, value)
+	assert.NoError(t, err)
+	err = tx.Commit()
+	assert.NoError(t, err)
 }
 
 func TestSimpleReadWriteBadger(t *testing.T) {

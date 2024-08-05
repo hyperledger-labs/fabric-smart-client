@@ -11,6 +11,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"strconv"
 	"time"
 
@@ -209,4 +210,36 @@ func startPostgresWithLogger(c ContainerConfig, t Logger, printLogs bool) (func(
 			time.Sleep(500 * time.Millisecond)
 		}
 	}
+}
+
+func StartPostgres(t Logger, printLogs bool) (func(), string, error) {
+	port := getEnv("POSTGRES_PORT", "5432")
+	p, err := strconv.Atoi(port)
+	if err != nil {
+		return nil, "", fmt.Errorf("port must be a number: %s", port)
+	}
+
+	c := ContainerConfig{
+		Image:     getEnv("POSTGRES_IMAGE", "postgres:latest"),
+		Container: getEnv("POSTGRES_CONTAINER", "fsc-postgres"),
+		Config: &Config{
+			DBName: getEnv("POSTGRES_DB", "testdb"),
+			User:   getEnv("POSTGRES_USER", "postgres"),
+			Pass:   getEnv("POSTGRES_PASSWORD", "example"),
+			Host:   getEnv("POSTGRES_HOST", "localhost"),
+			Port:   p,
+		},
+	}
+	closeFunc, err := startPostgresWithLogger(c, t, printLogs)
+	if err != nil {
+		return nil, "", err
+	}
+	return closeFunc, c.DataSource(), err
+}
+
+func getEnv(key, fallback string) string {
+	if value, ok := os.LookupEnv(key); ok {
+		return value
+	}
+	return fallback
 }

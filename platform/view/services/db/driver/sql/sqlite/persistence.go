@@ -18,10 +18,11 @@ import (
 
 const sqlitePragmas = `
 	PRAGMA journal_mode = WAL;
-	PRAGMA busy_timeout = 5000;
+	PRAGMA busy_timeout = 20000;
 	PRAGMA synchronous = NORMAL;
 	PRAGMA cache_size = 1000000000;
-	PRAGMA temp_store = memory;`
+	PRAGMA temp_store = memory;
+	PRAGMA foreign_keys = ON;`
 
 const driverName = "sqlite"
 
@@ -96,7 +97,7 @@ func openDB(dataSourceName string, maxOpenConns int, skipPragmas bool) (readDB *
 			return nil, nil, fmt.Errorf("error setting pragmas: %w", err)
 		}
 	}
-	logger.Infof("connected to [%s] for writes, max open connections: 1", driverName)
+	logger.Infof("connected to [%s] for writes, max open connections: %d", driverName, 1)
 
 	return readDB, writeDB, nil
 }

@@ -19,7 +19,7 @@ import (
 var (
 	opts = common.Opts{
 		Driver:          "sqlite",
-		DataSource:      "file:memory?mode=memory&cache=shared",
+		DataSource:      "file::memory:?cache=shared",
 		TablePrefix:     "memory",
 		SkipCreateTable: false,
 		SkipPragmas:     false,

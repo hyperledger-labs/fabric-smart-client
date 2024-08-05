@@ -22,7 +22,7 @@ import (
 	"golang.org/x/exp/slices"
 )
 
-var logger = flogging.MustGetLogger("db.driver.sql")
+var logger = flogging.MustGetLogger("view-sdk.db.driver.sql")
 
 type scannable interface {
 	Scan(dest ...any) error
@@ -238,6 +238,7 @@ func (db *basePersistence[V, R]) setState(tx *sql.Tx, ns driver2.Namespace, pkey
 			return errors2.Wrapf(db.errorWrapper.WrapError(err), "could not insert [%s]", pkey)
 		}
 	}
+	logger.Debugf("set state [%s,%s], done", ns, pkey)
 
 	return nil
 }
