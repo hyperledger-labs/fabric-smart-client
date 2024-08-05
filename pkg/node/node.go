@@ -39,6 +39,7 @@ type ViewManager interface {
 	InitiateView(view view.View, ctx context.Context) (interface{}, error)
 	InitiateContext(view view.View) (view.Context, error)
 	InitiateContextWithIdentity(view view.View, id view.Identity) (view.Context, error)
+	InitiateContextFrom(ctx context.Context, view view.View, id view.Identity, contextID string) (view.Context, error)
 	Context(contextID string) (view.Context, error)
 }
 
@@ -265,6 +266,17 @@ func (n *node) InitiateContext(view view.View) (view.Context, error) {
 	manager := s.(ViewManager)
 
 	return manager.InitiateContext(view)
+}
+
+// InitiateContextFrom creates a new view context, derived from the passed context.Context
+func (n *node) InitiateContextFrom(ctx context.Context, view view.View) (view.Context, error) {
+	s, err := n.GetService(reflect.TypeOf((*ViewManager)(nil)))
+	if err != nil {
+		return nil, err
+	}
+	manager := s.(ViewManager)
+
+	return manager.InitiateContextFrom(ctx, view, nil, "")
 }
 
 func (n *node) InitiateContextWithIdentity(view view.View, id view.Identity) (view.Context, error) {
