@@ -61,6 +61,15 @@ func (m *Manager) InitiateContextWithIdentityAndID(view View, id view.Identity, 
 	return context, nil
 }
 
+// InitiateContextFrom initiates a new context for the passed view, derived from the passed context
+func (m *Manager) InitiateContextFrom(ctx context.Context, view View, id view.Identity, contextID string) (*Context, error) {
+	context, err := m.m.InitiateContextFrom(ctx, view, nil, "")
+	if err != nil {
+		return nil, err
+	}
+	return &Context{Context: context}, nil
+}
+
 // GetManager returns an instance of the view manager.
 // It panics, if no instance is found.
 func GetManager(sp ServiceProvider) *Manager {

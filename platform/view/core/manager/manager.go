@@ -242,18 +242,35 @@ func (cm *manager) InitiateViewWithIdentity(view view.View, id view.Identity, c 
 }
 
 func (cm *manager) InitiateContext(view view.View) (view.Context, error) {
-	return cm.InitiateContextWithIdentity(view, cm.me())
-}
-
-func (cm *manager) InitiateContextWithIdentity(view view.View, id view.Identity) (view.Context, error) {
-	return cm.InitiateContextWithIdentityAndID(view, id, "")
-}
-
-func (cm *manager) InitiateContextWithIdentityAndID(view view.View, id view.Identity, contextID string) (view.Context, error) {
-	// Create the context
 	cm.contextsSync.Lock()
 	ctx := cm.ctx
 	cm.contextsSync.Unlock()
+
+	return cm.InitiateContextFrom(ctx, view, cm.me(), "")
+}
+
+func (cm *manager) InitiateContextWithIdentity(view view.View, id view.Identity) (view.Context, error) {
+	cm.contextsSync.Lock()
+	ctx := cm.ctx
+	cm.contextsSync.Unlock()
+
+	return cm.InitiateContextFrom(ctx, view, id, "")
+}
+
+func (cm *manager) InitiateContextWithIdentityAndID(view view.View, id view.Identity, contextID string) (view.Context, error) {
+	cm.contextsSync.Lock()
+	ctx := cm.ctx
+	cm.contextsSync.Unlock()
+
+	return cm.InitiateContextFrom(ctx, view, id, contextID)
+}
+
+func (cm *manager) InitiateContextFrom(ctx context.Context, view view.View, id view.Identity, contextID string) (view.Context, error) {
+	if ctx == nil {
+		cm.contextsSync.Lock()
+		ctx = cm.ctx
+		cm.contextsSync.Unlock()
+	}
 	if ctx == nil {
 		ctx = context.Background()
 	}
