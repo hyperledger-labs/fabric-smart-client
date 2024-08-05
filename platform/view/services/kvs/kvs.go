@@ -123,9 +123,6 @@ func (o *KVS) Exists(id string) bool {
 }
 
 func (o *KVS) Put(id string, state interface{}) error {
-	o.putMutex.Lock()
-	defer o.putMutex.Unlock()
-
 	raw, err := json.Marshal(state)
 	if err != nil {
 		return errors.Wrapf(err, "cannot marshal state with id [%s]", id)
@@ -154,6 +151,8 @@ func (o *KVS) Put(id string, state interface{}) error {
 		}
 	}
 
+	o.putMutex.Lock()
+	defer o.putMutex.Unlock()
 	o.cache.Add(id, raw)
 
 	return nil
@@ -199,9 +198,6 @@ func (o *KVS) Delete(id string) error {
 		logger.Debugf("delete state [%s,%s]", o.namespace, id)
 	}
 
-	o.putMutex.Lock()
-	defer o.putMutex.Unlock()
-
 	tx, err := o.store.NewWriteTransaction()
 	if err != nil {
 		return errors.Wrapf(err, "begin update for id [%s] failed", id)
@@ -220,6 +216,8 @@ func (o *KVS) Delete(id string) error {
 		}
 	}
 
+	o.putMutex.Lock()
+	defer o.putMutex.Unlock()
 	o.cache.Delete(id)
 	return nil
 }

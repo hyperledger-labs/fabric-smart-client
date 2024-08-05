@@ -37,6 +37,7 @@ var Cases = []struct {
 	{"DB2", TTestDB2},
 	{"RangeQueries1", TTestRangeQueries1},
 	{"MultiWritesAndRangeQueries", TTestMultiWritesAndRangeQueries},
+	{"TTestMultiWrites", TTestMultiWrites},
 	{"CompositeKeys", TTestCompositeKeys},
 }
 
@@ -593,6 +594,28 @@ func TTestMultiWritesAndRangeQueries(t *testing.T, db driver.TransactionalVersio
 	}
 	assert.Len(t, res, 3)
 	assert.Equal(t, expected, res)
+}
+
+func TTestMultiWrites(t *testing.T, db driver.TransactionalVersionedPersistence) {
+	ns := "namespace"
+	var wg sync.WaitGroup
+	n := 20
+	wg.Add(n)
+	for i := 0; i < n; i++ {
+		go func(i int) {
+			write(
+				t,
+				db,
+				ns,
+				fmt.Sprintf("TTestMultiWrites_key_%d", i),
+				[]byte(fmt.Sprintf("TTestMultiWrites_vallue_%d", i)),
+				35,
+				1,
+			)
+			wg.Done()
+		}(i)
+	}
+	wg.Wait()
 }
 
 func write(t *testing.T, db driver.TransactionalVersionedPersistence, ns, key string, value []byte, block, txnum uint64) {
