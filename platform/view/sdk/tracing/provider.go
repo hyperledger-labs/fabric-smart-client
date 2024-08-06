@@ -64,10 +64,14 @@ func NewTracerProvider(confService driver.ConfigService) (trace.TracerProvider, 
 	if err := confService.UnmarshalKey("fsc.tracing", &c); err != nil {
 		return nil, err
 	}
-	return NewTracerProviderFromConfig(c)
+	return newTracerProviderFromConfig(c, confService.GetString("fsc.id"))
 }
 
 func NewTracerProviderFromConfig(c Config) (trace.TracerProvider, error) {
+	return newTracerProviderFromConfig(c, ServiceName)
+}
+
+func newTracerProviderFromConfig(c Config, serviceName string) (trace.TracerProvider, error) {
 	var exporter sdktrace.SpanExporter
 	var err error
 	switch c.Provider {
@@ -90,7 +94,7 @@ func NewTracerProviderFromConfig(c Config) (trace.TracerProvider, error) {
 		return nil, errors.WithMessagef(err, "failed to initialize span exporter")
 	}
 	logger.Infof("Initializing tracing provider with sampling: %v", c.Sampling)
-	return providerWithExporter(context.Background(), exporter, c.Sampling)
+	return providerWithExporter(context.Background(), exporter, c.Sampling, serviceName)
 }
 
 func fileExporter(c *FileConfig) (sdktrace.SpanExporter, error) {
@@ -112,11 +116,11 @@ func grpcExporter(c *OtplConfig) (sdktrace.SpanExporter, error) {
 	return otlptrace.New(context.Background(), otlptracegrpc.NewClient(otlptracegrpc.WithInsecure(), otlptracegrpc.WithEndpoint(c.Address)))
 }
 
-func providerWithExporter(ctx context.Context, exporter sdktrace.SpanExporter, sampling SamplingConfig) (*sdktrace.TracerProvider, error) {
+func providerWithExporter(ctx context.Context, exporter sdktrace.SpanExporter, sampling SamplingConfig, serviceName string) (*sdktrace.TracerProvider, error) {
 	// Ensure default SDK resources and the required service name are set.
 	r, err := resource.New(ctx, resource.WithAttributes(
 		// the service name used to display traces in backends
-		semconv.ServiceNameKey.String(ServiceName),
+		semconv.ServiceNameKey.String(serviceName),
 	))
 	if err != nil {
 		return nil, errors.WithMessage(err, "failed creating resource")

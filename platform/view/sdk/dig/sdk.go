@@ -128,10 +128,7 @@ func (p *SDK) Install() error {
 			if err != nil {
 				return nil, err
 			}
-			enhanced := tracing.NewTracerProviderWithBackingProvider(base, metricsProvider)
-			nodeName := configService.GetString("fsc.id")
-			named := tracing.NewProviderWithNodeName(enhanced, nodeName)
-			return tracing2.NewWrappedTracerProvider(named), nil
+			return tracing2.NewWrappedTracerProvider(tracing.NewTracerProviderWithBackingProvider(base, metricsProvider)), nil
 		}),
 		p.C.Provide(view3.NewMetrics),
 		p.C.Provide(view3.NewAccessControlChecker, dig.As(new(view3.PolicyChecker))),
