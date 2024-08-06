@@ -26,8 +26,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/commands"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/fabricconfig"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
 	"github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
@@ -1600,26 +1599,22 @@ func (n *Network) GenerateCoreConfig(p *topology.Peer) {
 
 		for _, uniqueName := range p.FSCNode.ReplicaUniqueNames() {
 			t, err := template.New("peer").Funcs(template.FuncMap{
-				"Peer":                        func() *topology.Peer { return p },
-				"Orderers":                    func() []*topology.Orderer { return n.Orderers },
-				"PeerLocalExtraIdentityDir":   func(p *topology.Peer, id string) string { return n.PeerLocalExtraIdentityDir(p, id) },
-				"ToLower":                     func(s string) string { return strings.ToLower(s) },
-				"ReplaceAll":                  func(s, old, new string) string { return strings.Replace(s, old, new, -1) },
-				"Peers":                       func() []*topology.Peer { return refPeers },
-				"OrdererAddress":              func(o *topology.Orderer, portName api.PortName) string { return n.OrdererAddress(o, portName) },
-				"PeerAddress":                 func(o *topology.Peer, portName api.PortName) string { return n.PeerAddress(o, portName) },
-				"CACertsBundlePath":           func() string { return n.CACertsBundlePath() },
-				"FSCNodeVaultPersistenceType": func() string { return GetPersistenceType(p) },
-				"FSCNodeVaultSQLDataSource":   func() string { return GetPersistenceDataSource(p) },
-				"FSCNodeVaultOrionNetwork":    func() string { return GetVaultPersistenceOrionNetwork(p) },
-				"FSCNodeVaultOrionDatabase":   func() string { return GetVaultPersistenceOrionDatabase(p) },
-				"FSCNodeVaultOrionCreator":    func() string { return GetVaultPersistenceOrionCreator(p) },
-				"FSCNodeVaultPath":            func() string { return n.FSCNodeVaultDir(uniqueName) },
-				"FabricName":                  func() string { return n.topology.Name() },
-				"DefaultNetwork":              func() bool { return defaultNetwork },
-				"Driver":                      func() string { return driver },
-				"Chaincodes":                  func(channel string) []*topology.ChannelChaincode { return n.Chaincodes(channel) },
-				"TLSEnabled":                  func() bool { return tlsEnabled },
+				"Peer":                      func() *topology.Peer { return p },
+				"Orderers":                  func() []*topology.Orderer { return n.Orderers },
+				"PeerLocalExtraIdentityDir": func(p *topology.Peer, id string) string { return n.PeerLocalExtraIdentityDir(p, id) },
+				"ToLower":                   func(s string) string { return strings.ToLower(s) },
+				"ReplaceAll":                func(s, old, new string) string { return strings.Replace(s, old, new, -1) },
+				"Peers":                     func() []*topology.Peer { return refPeers },
+				"OrdererAddress":            func(o *topology.Orderer, portName api.PortName) string { return n.OrdererAddress(o, portName) },
+				"PeerAddress":               func(o *topology.Peer, portName api.PortName) string { return n.PeerAddress(o, portName) },
+				"CACertsBundlePath":         func() string { return n.CACertsBundlePath() },
+				"FSCNodeVaultPath":          func() string { return n.FSCNodeVaultDir(uniqueName) },
+				"FSCNodeVaultPersistence":   func() node.PersistenceOpts { return p.FSCNode.Options.GetPersistence("fabric.vault") },
+				"FabricName":                func() string { return n.topology.Name() },
+				"DefaultNetwork":            func() bool { return defaultNetwork },
+				"Driver":                    func() string { return driver },
+				"Chaincodes":                func(channel string) []*topology.ChannelChaincode { return n.Chaincodes(channel) },
+				"TLSEnabled":                func() bool { return tlsEnabled },
 			}).Parse(coreTemplate)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -1706,41 +1701,6 @@ func GetLinkedIdentities(peer *topology.Peer) []string {
 		return res
 	}
 	return v.([]string)
-}
-
-func GetPersistenceType(peer *topology.Peer) string {
-	if v := peer.FSCNode.Options.Get("fabric.vault.persistence.orion"); v != nil {
-		return "orion"
-	}
-	if v := peer.FSCNode.Options.Get("fabric.vault.persistence.sql"); v != nil {
-		return string(sql.SQLPersistence)
-	}
-	return string(badger.BadgerPersistence)
-}
-
-func GetPersistenceDataSource(peer *topology.Peer) string {
-	if v := peer.FSCNode.Options.Get("fabric.vault.persistence.sql"); v != nil {
-		return v.(string)
-	}
-	return ""
-}
-
-func GetVaultPersistenceOrionNetwork(peer *topology.Peer) string {
-	v := peer.FSCNode.Options.Get("fabric.vault.persistence.orion")
-	Expect(v).NotTo(BeNil())
-	return v.(string)
-}
-
-func GetVaultPersistenceOrionDatabase(peer *topology.Peer) string {
-	v := peer.FSCNode.Options.Get("fabric.vault.persistence.orion.database")
-	Expect(v).NotTo(BeNil())
-	return v.(string)
-}
-
-func GetVaultPersistenceOrionCreator(peer *topology.Peer) string {
-	v := peer.FSCNode.Options.Get("fabric.vault.persistence.orion.creator")
-	Expect(v).NotTo(BeNil())
-	return v.(string)
 }
 
 // BCCSPOpts returns a `topology.BCCSP` instance. `defaultProvider` sets the `Default` value of the BCCSP,

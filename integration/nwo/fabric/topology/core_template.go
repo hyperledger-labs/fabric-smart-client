@@ -311,15 +311,15 @@ fabric:
     vault:
       persistence:
         # Persistence type can be \'badger\' (on disk) or \'memory\'
-        type: {{ FSCNodeVaultPersistenceType }}
+        type: {{ FSCNodeVaultPersistence.Type }}
         opts:
-          {{- if eq FSCNodeVaultPersistenceType "orion" }}
-          network: {{ FSCNodeVaultOrionNetwork }}
-          database: {{ FSCNodeVaultOrionDatabase }}
-          creator: {{ FSCNodeVaultOrionCreator }}
-          {{- else if eq FSCNodeVaultPersistenceType "sql" }}
-          driver: postgres
-          dataSource: {{ FSCNodeVaultSQLDataSource }}
+          {{- if eq FSCNodeVaultPersistence.Type "sql" }}
+          driver: {{ FSCNodeVaultPersistence.SQL.DriverType }}
+          dataSource: {{ FSCNodeVaultPersistence.SQL.DataSource }}
+          # {{- else if eq FSCNodeVaultPersistence.Type "orion" }}
+          # network: {{ FSCNodeVaultPersistence.Orion.Network }}
+          # database: {{ FSCNodeVaultPersistence.Orion.Database }}
+          # creator: {{ FSCNodeVaultPersistence.Orion.Creator }}
           {{- else }}
           path: {{ FSCNodeVaultPath }}
           {{- end }}
