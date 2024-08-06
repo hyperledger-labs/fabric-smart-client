@@ -13,12 +13,14 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	_ "github.com/jackc/pgx/v5/stdlib"
+	_ "github.com/lib/pq"
 )
 
 var logger = flogging.MustGetLogger("view-sdk.db.postgres")
 var AllOperations = []driver.Operation{driver.Insert, driver.Update, driver.Delete}
 
-const driverName = "pgx"
+const driverName = "postgres"
 
 func NewUnversioned(opts common.Opts, table string) (*common.UnversionedPersistence, error) {
 	readWriteDB, err := OpenDB(opts.DataSource, opts.MaxOpenConns)
