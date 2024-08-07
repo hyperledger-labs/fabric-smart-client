@@ -194,7 +194,7 @@ func (c *multiplexedClientConn) readIncoming() {
 		err := c.ReadJSON(&mm)
 		//c.writeMu.Unlock()
 		if err != nil {
-			logger.Debugf("Client connection errored: %v", err)
+			logger.Debugf("client connection errored: %v", err)
 			return
 		}
 
@@ -204,9 +204,9 @@ func (c *multiplexedClientConn) readIncoming() {
 		if !ok && mm.Err == "" {
 			panic("subconn not found")
 		} else if !ok && mm.Err != "" {
-			logger.Debugf("Client subconnection errored: %v", mm.Err)
+			logger.Debugf("client subconnection errored: %v", mm.Err)
 		} else if mm.Err != "" {
-			logger.Debugf("Client subconn errored: %v", mm.Err)
+			logger.Debugf("client subconn errored: %v", mm.Err)
 		} else {
 			sc.reads <- result{value: mm.Msg}
 		}

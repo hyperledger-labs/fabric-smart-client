@@ -49,9 +49,9 @@ func (d *Driver) NewTransactionalUnversioned(dataSourceName string, config drive
 }
 
 func (d *Driver) NewTransactionalVersioned(dataSourceName string, config driver.Config) (driver.TransactionalVersionedPersistence, error) {
-	return sql.NewPersistence(strings.ReplaceAll(utils.GenerateUUID(), "-", "_"), opts, sql.VersionedConstructors)
+	return sql.NewPersistence(strings.ReplaceAll(utils.GenerateUUIDOnlyLetters(), "-", "_"), opts, sql.VersionedConstructors)
 }
 
 func (d *Driver) NewUnversioned(dataSourceName string, config driver.Config) (driver.UnversionedPersistence, error) {
-	return sql.NewPersistence(strings.ReplaceAll(utils.GenerateUUID(), "-", "_"), opts, sql.UnversionedConstructors)
+	return sql.NewPersistence(strings.ReplaceAll(utils.GenerateUUIDOnlyLetters(), "-", "_"), opts, sql.UnversionedConstructors)
 }

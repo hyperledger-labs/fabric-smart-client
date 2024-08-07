@@ -127,6 +127,6 @@ func getOps(config driver.Config) (common.Opts, error) {
 
 func getTableName(prefix, name string) (table string, valid bool) {
 	table = fmt.Sprintf("%s_%s", prefix, name)
-	r := regexp.MustCompile("^[a-zA-Z_0-9]+$")
+	r := regexp.MustCompile("^[a-zA-Z_]+$")
 	return table, r.MatchString(name)
 }
