@@ -17,6 +17,7 @@ import (
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	sql2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/pkg/errors"
 	"golang.org/x/exp/slices"
@@ -294,11 +295,7 @@ func (db *basePersistence[V, R]) DeleteState(ns, key string) error {
 }
 
 func (db *basePersistence[V, R]) createSchema(query string) error {
-	logger.Debug(query)
-	if _, err := db.writeDB.Exec(query); err != nil {
-		return errors2.Wrapf(err, "can't create table")
-	}
-	return nil
+	return sql2.InitSchema(db.writeDB, query)
 }
 
 type readIterator[V any] struct {

@@ -16,6 +16,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	sql2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
@@ -185,13 +186,7 @@ func (db *Notifier) GetSchema() string {
 }
 
 func (db *Notifier) CreateSchema() error {
-	query := db.GetSchema()
-
-	logger.Debug(query)
-	if _, err := db.writeDB.Exec(query); err != nil {
-		return fmt.Errorf("can't create trigger: %w", err)
-	}
-	return nil
+	return sql2.InitSchema(db.writeDB, db.GetSchema())
 }
 
 func convertOperations(ops []driver.Operation) string {
