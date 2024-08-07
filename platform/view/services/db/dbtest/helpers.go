@@ -608,7 +608,7 @@ func TTestMultiWrites(t *testing.T, db driver.TransactionalVersionedPersistence)
 				db,
 				ns,
 				fmt.Sprintf("TTestMultiWrites_key_%d", i),
-				[]byte(fmt.Sprintf("TTestMultiWrites_vallue_%d", i)),
+				[]byte(fmt.Sprintf("TTestMultiWrites_value_%d", i)),
 				35,
 				1,
 			)
