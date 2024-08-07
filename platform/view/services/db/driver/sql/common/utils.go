@@ -29,6 +29,10 @@ func NewTableNameCreator(prefix string) (*TableNameCreator, error) {
 		return nil, errors.New("table prefix must be shorter than 100 characters")
 	}
 	r := regexp.MustCompile("^[a-zA-Z_]+$")
+	if len(prefix) == 0 {
+		return &TableNameCreator{r: r}, nil
+	}
+
 	if !r.MatchString(prefix) {
 		return nil, errors.New("illegal character in table prefix, only letters and underscores allowed")
 	}
