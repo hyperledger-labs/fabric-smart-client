@@ -242,38 +242,18 @@ func (cm *manager) InitiateViewWithIdentity(view view.View, id view.Identity, c 
 }
 
 func (cm *manager) InitiateContext(view view.View) (view.Context, error) {
-	cm.contextsSync.Lock()
-	ctx := cm.ctx
-	cm.contextsSync.Unlock()
-
-	return cm.InitiateContextFrom(ctx, view, cm.me(), "")
+	return cm.InitiateContextFrom(cm.ctx, view, cm.me(), "")
 }
 
 func (cm *manager) InitiateContextWithIdentity(view view.View, id view.Identity) (view.Context, error) {
-	cm.contextsSync.Lock()
-	ctx := cm.ctx
-	cm.contextsSync.Unlock()
-
-	return cm.InitiateContextFrom(ctx, view, id, "")
+	return cm.InitiateContextFrom(cm.ctx, view, id, "")
 }
 
 func (cm *manager) InitiateContextWithIdentityAndID(view view.View, id view.Identity, contextID string) (view.Context, error) {
-	cm.contextsSync.Lock()
-	ctx := cm.ctx
-	cm.contextsSync.Unlock()
-
-	return cm.InitiateContextFrom(ctx, view, id, contextID)
+	return cm.InitiateContextFrom(cm.ctx, view, id, contextID)
 }
 
 func (cm *manager) InitiateContextFrom(ctx context.Context, view view.View, id view.Identity, contextID string) (view.Context, error) {
-	if ctx == nil {
-		cm.contextsSync.Lock()
-		ctx = cm.ctx
-		cm.contextsSync.Unlock()
-	}
-	if ctx == nil {
-		ctx = context.Background()
-	}
 	if id.IsNone() {
 		id = cm.me()
 	}
@@ -295,9 +275,7 @@ func (cm *manager) InitiateContextFrom(ctx context.Context, view view.View, id v
 }
 
 func (cm *manager) Start(ctx context.Context) {
-	cm.contextsSync.Lock()
 	cm.ctx = ctx
-	cm.contextsSync.Unlock()
 	session, err := cm.commLayer.MasterSession()
 	if err != nil {
 		return
@@ -422,7 +400,6 @@ func (cm *manager) newContext(id view.Identity, msg *view.Message) (view.Context
 	cm.contextsSync.Lock()
 	defer cm.contextsSync.Unlock()
 
-	isNew := false
 	caller, err := cm.endpointService.GetIdentity(msg.FromEndpoint, msg.FromPKID)
 	if err != nil {
 		return nil, false, err
@@ -445,35 +422,27 @@ func (cm *manager) newContext(id view.Identity, msg *view.Message) (view.Context
 		cm.m.Contexts.Set(float64(len(cm.contexts)))
 		ok = false
 	}
-	if !ok {
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("[%s] Create new context to respond [contextID:%s]\n", id, msg.ContextID)
-		}
-		backend, err := cm.commLayer.NewSessionWithID(msg.SessionID, contextID, msg.FromEndpoint, msg.FromPKID, caller, msg)
-		if err != nil {
-			return nil, false, err
-		}
-		ctx := cm.ctx
-		if ctx == nil {
-			ctx = context.Background()
-		}
-		ctx = trace.ContextWithSpanContext(ctx, trace.SpanContextFromContext(msg.Ctx))
-		newCtx, err := NewContext(ctx, cm.sp, contextID, cm.commLayer, cm.endpointService, id, backend, caller, cm.viewTracer)
-		if err != nil {
-			return nil, false, err
-		}
-		childContext := &childContext{ParentContext: newCtx}
-		cm.contexts[contextID] = childContext
-		cm.m.Contexts.Set(float64(len(cm.contexts)))
-		viewContext = childContext
-		isNew = true
-	} else {
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("[%s] No new context to respond, reuse [contextID:%s]\n", id, msg.ContextID)
-		}
+	if ok {
+		logger.Debugf("[%s] No new context to respond, reuse [contextID:%s]\n", id, msg.ContextID)
+		return viewContext, false, nil
 	}
 
-	return viewContext, isNew, nil
+	logger.Debugf("[%s] Create new context to respond [contextID:%s]\n", id, msg.ContextID)
+	backend, err := cm.commLayer.NewSessionWithID(msg.SessionID, contextID, msg.FromEndpoint, msg.FromPKID, caller, msg)
+	if err != nil {
+		return nil, false, err
+	}
+	ctx := trace.ContextWithSpanContext(cm.ctx, trace.SpanContextFromContext(msg.Ctx))
+	newCtx, err := NewContext(ctx, cm.sp, contextID, cm.commLayer, cm.endpointService, id, backend, caller, cm.viewTracer)
+	if err != nil {
+		return nil, false, err
+	}
+	childContext := &childContext{ParentContext: newCtx}
+	cm.contexts[contextID] = childContext
+	cm.m.Contexts.Set(float64(len(cm.contexts)))
+	viewContext = childContext
+
+	return viewContext, true, nil
 }
 
 func (cm *manager) deleteContext(id view.Identity, contextID string) {
