@@ -7,13 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package sql
 
 import (
-	"database/sql"
-	"errors"
 	"fmt"
-	"os"
-	"regexp"
-	"runtime/debug"
-	"strings"
 
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
@@ -22,7 +16,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/postgres"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/sqlite"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
-	errors2 "github.com/pkg/errors"
 )
 
 const (
@@ -84,9 +77,9 @@ func newPersistence[V dbObject](dataSourceName string, config driver.Config, con
 		return utils.Zero[V](), fmt.Errorf("failed getting options for datasource: %w", err)
 	}
 
-	nc, err := NewTableNameCreator(opts.TablePrefix)
+	nc, err := common.NewTableNameCreator(opts.TablePrefix)
 	if err != nil {
-		return nil, err
+		return utils.Zero[V](), err
 	}
 
 	table, valid := nc.GetTableName(dataSourceName)
@@ -110,81 +103,12 @@ func newPersistence[V dbObject](dataSourceName string, config driver.Config, con
 }
 
 func getOps(config driver.Config) (common.Opts, error) {
-	opts := common.Opts{}
-	if err := config.UnmarshalKey("", &opts); err != nil {
-		return opts, fmt.Errorf("failed getting opts: %w", err)
-	}
-	if opts.Driver == "" {
-		return opts, errors.New("sql driver not set in core.yaml")
-	}
-	dataSourceOverride := os.Getenv(EnvVarKey)
-	if dataSourceOverride != "" {
-		logger.Infof("overriding datasource with from env var [%s] ([%d] characters)", len(dataSourceOverride), EnvVarKey)
-		opts.DataSource = dataSourceOverride
-	}
-	if opts.DataSource == "" {
-		return opts, fmt.Errorf("either the dataSource in core.yaml or %s environment variable must be set to a dataSource that can be used with the %s golang driver", EnvVarKey, opts.Driver)
+	opts, err := common.GetOpts(config, "", EnvVarKey)
+	if err != nil {
+		return common.Opts{}, err
 	}
 	if opts.TablePrefix == "" {
 		opts.TablePrefix = "fsc"
 	}
-	return opts, nil
-}
-
-type TableNameCreator struct {
-	prefix string
-	r      *regexp.Regexp
-}
-
-func NewTableNameCreator(prefix string) (*TableNameCreator, error) {
-	if len(prefix) > 100 {
-		return nil, errors.New("table prefix must be shorter than 100 characters")
-	}
-	r := regexp.MustCompile("^[a-zA-Z_]+$")
-	if !r.MatchString(prefix) {
-		return nil, errors.New("illegal character in table prefix, only letters and underscores allowed")
-	}
-	return &TableNameCreator{
-		prefix: strings.ToLower(prefix) + "_",
-		r:      r,
-	}, nil
-}
-
-func (c *TableNameCreator) GetTableName(name string) (string, bool) {
-	if !c.r.MatchString(name) {
-		return "", false
-	}
-	return fmt.Sprintf("%s%s", c.prefix, name), true
-}
-
-func (c *TableNameCreator) MustGetTableName(name string) string {
-	if !c.r.MatchString(name) {
-		panic("invalid name: " + name)
-	}
-	return fmt.Sprintf("%s%s", c.prefix, name)
-}
-
-func InitSchema(db *sql.DB, schemas ...string) (err error) {
-	logger.Info("creating tables")
-	tx, err := db.Begin()
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err != nil && tx != nil {
-			if err := tx.Rollback(); err != nil {
-				logger.Errorf("failed to rollback [%s][%s]", err, debug.Stack())
-			}
-		}
-	}()
-	for _, schema := range schemas {
-		logger.Info(schema)
-		if _, err = tx.Exec(schema); err != nil {
-			return errors2.Wrapf(err, "error creating schema: %s", schema)
-		}
-	}
-	if err = tx.Commit(); err != nil {
-		return err
-	}
-	return
+	return *opts, nil
 }

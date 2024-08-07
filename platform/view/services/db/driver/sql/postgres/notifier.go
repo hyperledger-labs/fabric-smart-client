@@ -16,7 +16,6 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
-	sql2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
@@ -186,7 +185,7 @@ func (db *Notifier) GetSchema() string {
 }
 
 func (db *Notifier) CreateSchema() error {
-	return sql2.InitSchema(db.writeDB, db.GetSchema())
+	return common.InitSchema(db.writeDB, db.GetSchema())
 }
 
 func convertOperations(ops []driver.Operation) string {
