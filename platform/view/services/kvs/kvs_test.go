@@ -169,12 +169,12 @@ func TestMemoryKVS(t *testing.T) {
 }
 
 func TestPostgresKVS(t *testing.T) {
-	//if os.Getenv("TEST_POSTGRES") != "true" {
-	//	t.Skip("set environment variable TEST_POSTGRES to true to include postgres test")
-	//}
-	//if testing.Short() {
-	//	t.Skip("skipping postgres test in short mode")
-	//}
+	if os.Getenv("TEST_POSTGRES") != "true" {
+		t.Skip("set environment variable TEST_POSTGRES to true to include postgres test")
+	}
+	if testing.Short() {
+		t.Skip("skipping postgres test in short mode")
+	}
 	t.Log("starting postgres")
 	terminate, pgConnStr, err := postgres.StartPostgres(t, false)
 	if err != nil {
