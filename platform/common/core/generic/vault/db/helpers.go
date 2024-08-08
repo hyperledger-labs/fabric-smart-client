@@ -73,7 +73,7 @@ func OpenSqlite(key, tempDir string) (*db.UnversionedPersistence, error) {
 
 func openSqlite[V any](key, tempDir string, open opener[V]) (V, error) {
 	conf := &dbConfig{
-		Driver:       "sqlite",
+		Driver:       sql.SQLite,
 		DataSource:   fmt.Sprintf("%s.sqlite", path.Join(tempDir, key)),
 		MaxOpenConns: 0,
 		SkipPragmas:  false,
@@ -91,7 +91,7 @@ func OpenPostgres(name string) (*db.UnversionedPersistence, func(), error) {
 func openPostgres[V any](name string, open opener[V]) (V, func(), error) {
 	postgresConfig := postgres.DefaultConfig(fmt.Sprintf("%s-db", name))
 	conf := &dbConfig{
-		Driver:       "postgres",
+		Driver:       sql.Postgres,
 		DataSource:   postgresConfig.DataSource(),
 		MaxOpenConns: 50,
 		SkipPragmas:  false,

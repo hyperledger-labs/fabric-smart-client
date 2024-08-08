@@ -96,7 +96,7 @@ type ConfigService interface {
 	OrdererConnectionPoolSize() int
 	PickPeer(funcType PeerFunctionType) *grpc.ConnectionConfig
 	IsChannelQuiet(name string) bool
-	VaultPersistenceType() string
+	VaultPersistenceType() driver.PersistenceType
 	VaultPersistencePrefix() string
 	VaultTXStoreCacheSize() int
 	TLSServerHostOverride() string

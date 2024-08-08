@@ -88,11 +88,14 @@ fsc:
   kvs:
     persistence:
       # Persistence type can be \'badger\' (on disk) or \'memory\'
-      type: {{ NodeKVSPersistenceType }}
+      type: {{ NodeKVSPersistence.Type }}
       opts:
-        {{- if eq NodeKVSPersistenceType "sql" }}
-        driver: postgres
-        dataSource: {{ NodeKVSSQLDataSource }}
+        {{- if eq NodeKVSPersistence.Type "sql" }}
+        driver: {{ NodeKVSPersistence.SQL.DriverType }}
+        dataSource: {{ NodeKVSPersistence.SQL.DataSource }}
+        createSchema: {{ NodeKVSPersistence.SQL.CreateSchema }}
+        tablePrefix: {{ NodeKVSPersistence.SQL.TablePrefix }}    
+        maxOpenConns: {{ NodeKVSPersistence.SQL.MaxOpenConns }}
         {{- else }}
         path: {{ NodeKVSPath }}
         SyncWrites: false

@@ -29,12 +29,14 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/commands"
 	node2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/monitoring/optl"
+	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	tracing2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/view"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/view/cmd"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/web"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/crypto"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/miracl/conflate"
 	"github.com/onsi/ginkgo/v2"
@@ -481,18 +483,17 @@ func (p *Platform) GenerateCoreConfig(peer *node2.Replica) {
 	}
 
 	t, err := template.New("peer").Funcs(template.FuncMap{
-		"Replica":                func() *node2.Replica { return peer },
-		"Peer":                   func() *node2.Peer { return peer.Peer },
-		"NetworkID":              func() string { return p.NetworkID },
-		"Topology":               func() *Topology { return p.Topology },
-		"Extensions":             func() []string { return extensions },
-		"ToLower":                func(s string) string { return strings.ToLower(s) },
-		"ReplaceAll":             func(s, old, new string) string { return strings.Replace(s, old, new, -1) },
-		"NodeKVSPath":            func() string { return p.NodeKVSDir(peer) },
-		"NodeKVSPersistenceType": func() string { return GetPersistenceType(peer.Peer) },
-		"NodeKVSSQLDataSource":   func() string { return GetPersistenceDataSource(peer.Peer) },
-		"Resolvers":              func() []*Resolver { return resolvers },
-		"WebEnabled":             func() bool { return p.Topology.WebEnabled },
+		"Replica":            func() *node2.Replica { return peer },
+		"Peer":               func() *node2.Peer { return peer.Peer },
+		"NetworkID":          func() string { return p.NetworkID },
+		"Topology":           func() *Topology { return p.Topology },
+		"Extensions":         func() []string { return extensions },
+		"ToLower":            func(s string) string { return strings.ToLower(s) },
+		"ReplaceAll":         func(s, old, new string) string { return strings.Replace(s, old, new, -1) },
+		"NodeKVSPath":        func() string { return p.NodeKVSDir(peer) },
+		"NodeKVSPersistence": func() node2.PersistenceOpts { return peer.Options.GetPersistence("fsc") },
+		"Resolvers":          func() []*Resolver { return resolvers },
+		"WebEnabled":         func() bool { return p.Topology.WebEnabled },
 		"TracingEndpoint": func() string {
 			return utils.DefaultString(p.Topology.Monitoring.TracingEndpoint, fmt.Sprintf("0.0.0.0:%d", optl.JaegerCollectorPort))
 		},
@@ -590,7 +591,7 @@ func (p *Platform) GenerateCmd(output io.Writer, node *node2.Replica) string {
 	t, err := template.New("node").Funcs(template.FuncMap{
 		"Alias":           func(s string) string { return node.Node.Alias(s) },
 		"InstallView":     func() bool { return len(node.Node.Responders) != 0 || len(node.Node.Factories) != 0 },
-		"InstallPostgres": func() bool { return GetPersistenceType(node.Peer) == "sql" },
+		"InstallPostgres": func() bool { return GetPersistenceType(node.Peer) == sql.SQLPersistence },
 	}).Parse(p.Topology.Templates.NodeTemplate())
 	Expect(err).NotTo(HaveOccurred())
 
@@ -872,18 +873,12 @@ func (p *Platform) nextColor() string {
 	return fmt.Sprintf("%dm", color)
 }
 
-func GetPersistenceType(peer *node2.Peer) string {
-	if v := peer.Options.Get("fsc.persistence.sql"); v != nil {
-		return "sql"
-	}
-	return "badger"
+func GetPersistenceType(peer *node2.Peer) driver2.PersistenceType {
+	return peer.Options.GetPersistence("fsc").Type
 }
 
 func GetPersistenceDataSource(peer *node2.Peer) string {
-	if v := peer.Options.Get("fsc.persistence.sql"); v != nil {
-		return v.(string)
-	}
-	return ""
+	return peer.Options.GetPersistence("fsc").SQL.DataSource
 }
 
 // PeerPortNames returns the list of ports that need to be reserved for a Peer.

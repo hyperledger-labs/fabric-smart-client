@@ -23,29 +23,29 @@ import (
 
 type unversionedPersistenceNotifier struct {
 	*common.UnversionedPersistence
-	*notifier
+	*Notifier
 }
 
 func (db *unversionedPersistenceNotifier) CreateSchema() error {
 	if err := db.UnversionedPersistence.CreateSchema(); err != nil {
 		return err
 	}
-	return db.notifier.CreateSchema()
+	return db.Notifier.CreateSchema()
 }
 
 type versionedPersistenceNotifier struct {
 	*common.VersionedPersistence
-	*notifier
+	*Notifier
 }
 
 func (db *versionedPersistenceNotifier) CreateSchema() error {
 	if err := db.VersionedPersistence.CreateSchema(); err != nil {
 		return err
 	}
-	return db.notifier.CreateSchema()
+	return db.Notifier.CreateSchema()
 }
 
-type notifier struct {
+type Notifier struct {
 	table            string
 	notifyOperations []driver.Operation
 	writeDB          *sql.DB
@@ -68,8 +68,8 @@ const (
 	maxReconnectInterval = 1 * time.Minute
 )
 
-func newNotifier(writeDB *sql.DB, table, dataSource string, notifyOperations []driver.Operation, primaryKeys ...driver.ColumnKey) *notifier {
-	d := &notifier{
+func NewNotifier(writeDB *sql.DB, table, dataSource string, notifyOperations []driver.Operation, primaryKeys ...driver.ColumnKey) *Notifier {
+	d := &Notifier{
 		writeDB:          writeDB,
 		table:            table,
 		notifyOperations: notifyOperations,
@@ -90,7 +90,7 @@ func newNotifier(writeDB *sql.DB, table, dataSource string, notifyOperations []d
 	return d
 }
 
-func (db *notifier) listenForEvents() {
+func (db *Notifier) listenForEvents() {
 	for event := range db.listener.Notify {
 		logger.Debugf("New event received on table [%s]: %s", event.Channel, event.Extra)
 		db.mutex.RLock()
@@ -105,7 +105,7 @@ func (db *notifier) listenForEvents() {
 	}
 }
 
-func (db *notifier) parsePayload(s string) (driver.Operation, map[driver.ColumnKey]string, error) {
+func (db *Notifier) parsePayload(s string) (driver.Operation, map[driver.ColumnKey]string, error) {
 	items := strings.Split(s, payloadConcatenator)
 	if len(items) != 2 {
 		return driver.Unknown, nil, errors.Errorf("malformed payload: length %d instead of 2: %s", len(items), s)
@@ -125,7 +125,7 @@ func (db *notifier) parsePayload(s string) (driver.Operation, map[driver.ColumnK
 	return operation, payload, nil
 }
 
-func (db *notifier) Subscribe(callback driver.TriggerCallback) error {
+func (db *Notifier) Subscribe(callback driver.TriggerCallback) error {
 	db.mutex.Lock()
 	defer db.mutex.Unlock()
 	if len(db.listeners) == 0 {
@@ -137,15 +137,15 @@ func (db *notifier) Subscribe(callback driver.TriggerCallback) error {
 	return nil
 }
 
-func (db *notifier) UnsubscribeAll() error {
+func (db *Notifier) UnsubscribeAll() error {
 	db.mutex.Lock()
 	defer db.mutex.Unlock()
 	db.listeners = []driver.TriggerCallback{}
 	return db.listener.Unlisten(db.table)
 }
 
-func (db *notifier) CreateSchema() error {
-	query := fmt.Sprintf(`
+func (db *Notifier) GetSchema() string {
+	return fmt.Sprintf(`
 	CREATE OR REPLACE FUNCTION %s() RETURNS TRIGGER AS $$
 			DECLARE
 			row RECORD;
@@ -182,12 +182,10 @@ func (db *notifier) CreateSchema() error {
 		convertOperations(db.notifyOperations), db.table,
 		triggerFuncName(db.primaryKeys),
 	)
+}
 
-	logger.Debug(query)
-	if _, err := db.writeDB.Exec(query); err != nil {
-		return fmt.Errorf("can't create trigger: %w", err)
-	}
-	return nil
+func (db *Notifier) CreateSchema() error {
+	return common.InitSchema(db.writeDB, db.GetSchema())
 }
 
 func convertOperations(ops []driver.Operation) string {

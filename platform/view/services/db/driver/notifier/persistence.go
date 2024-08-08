@@ -18,13 +18,13 @@ import (
 func NewUnversioned[P driver.UnversionedPersistence](persistence P) *UnversionedPersistenceNotifier[P] {
 	return &UnversionedPersistenceNotifier[P]{
 		Persistence: persistence,
-		notifier:    newNotifier(),
+		Notifier:    NewNotifier(),
 	}
 }
 
 type UnversionedPersistenceNotifier[P driver.UnversionedPersistence] struct {
 	Persistence P
-	*notifier
+	*Notifier
 }
 
 func (db *UnversionedPersistenceNotifier[P]) SetState(ns, key string, val []byte) error {
@@ -35,7 +35,7 @@ func (db *UnversionedPersistenceNotifier[P]) SetState(ns, key string, val []byte
 	if len(val) == 0 {
 		op = driver.Delete
 	}
-	db.notifier.enqueueEvent(op, map[driver.ColumnKey]string{"ns": ns, "pkey": utils.EncodeByteA(key)})
+	db.Notifier.EnqueueEvent(op, map[driver.ColumnKey]string{"ns": ns, "pkey": utils.EncodeByteA(key)})
 	return nil
 }
 
@@ -44,7 +44,7 @@ func (db *UnversionedPersistenceNotifier[P]) Commit() error {
 	if err != nil {
 		return err
 	}
-	db.notifier.commit()
+	db.Notifier.Commit()
 	return nil
 }
 
@@ -53,7 +53,7 @@ func (db *UnversionedPersistenceNotifier[P]) Discard() error {
 	if err != nil {
 		return err
 	}
-	db.notifier.discard()
+	db.Notifier.Discard()
 	return nil
 }
 
@@ -61,7 +61,7 @@ func (db *UnversionedPersistenceNotifier[P]) DeleteState(ns, key string) error {
 	if err := db.Persistence.DeleteState(ns, key); err != nil {
 		return err
 	}
-	db.notifier.enqueueEvent(driver.Delete, map[driver.ColumnKey]string{"ns": ns, "pkey": utils.EncodeByteA(key)})
+	db.Notifier.EnqueueEvent(driver.Delete, map[driver.ColumnKey]string{"ns": ns, "pkey": utils.EncodeByteA(key)})
 	return nil
 }
 
@@ -82,30 +82,30 @@ func (db *UnversionedPersistenceNotifier[P]) Close() error { return db.Persisten
 func (db *UnversionedPersistenceNotifier[P]) BeginUpdate() error { return db.Persistence.BeginUpdate() }
 
 func (db *UnversionedPersistenceNotifier[P]) Subscribe(callback driver.TriggerCallback) error {
-	return db.notifier.subscribe(callback)
+	return db.Notifier.Subscribe(callback)
 }
 
 func (db *UnversionedPersistenceNotifier[P]) UnsubscribeAll() error {
-	return db.notifier.unsubscribeAll()
+	return db.Notifier.UnsubscribeAll()
 }
 
 func NewVersioned[P driver.VersionedPersistence](persistence P) *VersionedPersistenceNotifier[P] {
 	return &VersionedPersistenceNotifier[P]{
 		Persistence: persistence,
-		notifier:    newNotifier(),
+		Notifier:    NewNotifier(),
 	}
 }
 
 type VersionedPersistenceNotifier[P driver.VersionedPersistence] struct {
 	Persistence P
-	*notifier
+	*Notifier
 }
 
 func (db *VersionedPersistenceNotifier[P]) SetState(namespace driver2.Namespace, key string, value driver.VersionedValue) error {
 	if err := db.Persistence.SetState(namespace, key, value); err != nil {
 		return err
 	}
-	db.notifier.enqueueEvent(driver.Update, map[driver.ColumnKey]string{"ns": namespace, "pkey": utils.EncodeByteA(key)})
+	db.Notifier.EnqueueEvent(driver.Update, map[driver.ColumnKey]string{"ns": namespace, "pkey": utils.EncodeByteA(key)})
 	return nil
 }
 
@@ -114,7 +114,7 @@ func (db *VersionedPersistenceNotifier[P]) Commit() error {
 	if err != nil {
 		return err
 	}
-	db.notifier.commit()
+	db.Notifier.Commit()
 	return nil
 }
 
@@ -123,7 +123,7 @@ func (db *VersionedPersistenceNotifier[P]) Discard() error {
 	if err != nil {
 		return err
 	}
-	db.notifier.discard()
+	db.Notifier.Discard()
 	return nil
 }
 
@@ -131,7 +131,7 @@ func (db *VersionedPersistenceNotifier[P]) DeleteState(ns, key string) error {
 	if err := db.Persistence.DeleteState(ns, key); err != nil {
 		return err
 	}
-	db.notifier.enqueueEvent(driver.Delete, map[driver.ColumnKey]string{"ns": ns, "pkey": utils.EncodeByteA(key)})
+	db.Notifier.EnqueueEvent(driver.Delete, map[driver.ColumnKey]string{"ns": ns, "pkey": utils.EncodeByteA(key)})
 	return nil
 }
 
@@ -160,9 +160,9 @@ func (db *VersionedPersistenceNotifier[P]) Close() error { return db.Persistence
 func (db *VersionedPersistenceNotifier[P]) BeginUpdate() error { return db.Persistence.BeginUpdate() }
 
 func (db *VersionedPersistenceNotifier[P]) Subscribe(callback driver.TriggerCallback) error {
-	return db.notifier.subscribe(callback)
+	return db.Notifier.Subscribe(callback)
 }
 
 func (db *VersionedPersistenceNotifier[P]) UnsubscribeAll() error {
-	return db.notifier.unsubscribeAll()
+	return db.Notifier.UnsubscribeAll()
 }

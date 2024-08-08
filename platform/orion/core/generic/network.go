@@ -121,7 +121,7 @@ func NewNetwork(ctx context.Context, kvss *kvs.KVS, eventsPublisher events.Publi
 
 	var d driver2.Driver
 	for _, driver := range drivers {
-		if string(driver.Name) == n.config.VaultPersistenceType() {
+		if driver.Name == n.config.VaultPersistenceType() {
 			d = driver.Driver
 			break
 		}

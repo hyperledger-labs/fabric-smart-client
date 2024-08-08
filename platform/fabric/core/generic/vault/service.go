@@ -21,7 +21,7 @@ var logger = flogging.MustGetLogger("fabric-sdk.core.vault")
 func New(configService driver.ConfigService, channel string, drivers []driver2.NamedDriver) (*Vault, driver.TXIDStore, error) {
 	var d driver2.Driver
 	for _, driver := range drivers {
-		if string(driver.Name) == configService.VaultPersistenceType() {
+		if driver.Name == configService.VaultPersistenceType() {
 			d = driver.Driver
 			break
 		}

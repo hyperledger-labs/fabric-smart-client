@@ -13,9 +13,8 @@ import (
 	"strings"
 	"sync"
 
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
-
 	errors2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
@@ -295,11 +294,7 @@ func (db *basePersistence[V, R]) DeleteState(ns, key string) error {
 }
 
 func (db *basePersistence[V, R]) createSchema(query string) error {
-	logger.Debug(query)
-	if _, err := db.writeDB.Exec(query); err != nil {
-		return errors2.Wrapf(err, "can't create table")
-	}
-	return nil
+	return InitSchema(db.writeDB, query)
 }
 
 type readIterator[V any] struct {
@@ -321,8 +316,10 @@ func (t *readIterator[V]) Next() (*V, error) {
 	return &r, err
 }
 
+type SQLDriverType string
+
 type Opts struct {
-	Driver          string
+	Driver          SQLDriverType
 	DataSource      string
 	TablePrefix     string
 	SkipCreateTable bool

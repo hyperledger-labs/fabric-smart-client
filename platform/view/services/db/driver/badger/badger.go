@@ -21,6 +21,11 @@ import (
 	"github.com/pkg/errors"
 )
 
+const (
+	BadgerPersistence driver2.PersistenceType = "badger"
+	FilePersistence   driver2.PersistenceType = "file"
+)
+
 var logger = flogging.MustGetLogger("db.driver.badger")
 
 type DB struct {

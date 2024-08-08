@@ -14,6 +14,11 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
 	. "github.com/onsi/gomega"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/api"
@@ -53,6 +58,66 @@ func (o *Options) Get(k string) interface{} {
 		return nil
 	}
 	return o.Mapping[k]
+}
+
+type SQLOpts struct {
+	DataSource   string
+	DriverType   common.SQLDriverType
+	CreateSchema bool
+	TablePrefix  string
+	MaxOpenConns int
+}
+
+//type OrionOpts struct {
+//	Network  string
+//	Database string
+//	Creator  string
+//}
+
+type PersistenceOpts struct {
+	Type driver.PersistenceType
+	SQL  SQLOpts
+	//Orion OrionOpts
+}
+
+func (o *Options) PutPersistence(k string, p PersistenceOpts) {
+	if p.Type == sql.SQLPersistence {
+		o.Put(k+".persistence.sql", p.SQL.DataSource)
+		o.Put(k+".persistence.driver", p.SQL.DriverType)
+		o.Put(k+"persistence.createSchema", p.SQL.CreateSchema)
+		o.Put(k+"persistence.tablePrefix", p.SQL.TablePrefix)
+		o.Put(k+"persistence.maxOpenConns", p.SQL.MaxOpenConns)
+		//} else if p.Type == "orion" {
+		//	o.Put(k+".persistence.orion", p.Orion.Network)
+		//	o.Put(k+".persistence.orion.database", p.Orion.Database)
+		//	o.Put(k+".persistence.orion.creator", p.Orion.Creator)
+	}
+}
+
+func (o *Options) GetPersistence(k string) PersistenceOpts {
+	//if v := o.Get(k + ".persistence.orion"); v != nil {
+	//	return PersistenceOpts{
+	//		Type: "orion",
+	//		Orion: OrionOpts{
+	//			Network:  v.(string),
+	//			Database: o.Get(k + ".persistence.orion.database").(string),
+	//			Creator:  o.Get(k + ".persistence.orion.creator").(string),
+	//		},
+	//	}
+	//}
+	if v := o.Get(k + ".persistence.sql"); v != nil {
+		return PersistenceOpts{
+			Type: sql.SQLPersistence,
+			SQL: SQLOpts{
+				DataSource:   v.(string),
+				DriverType:   common.SQLDriverType(utils.DefaultString(o.Get(k+".persistence.driver"), string(sql.Postgres))),
+				CreateSchema: utils.DefaultZero[bool](o.Get(k + ".persistence.createSchema")),
+				TablePrefix:  utils.DefaultZero[string](o.Get(k + ".persistence.tablePrefix")),
+				MaxOpenConns: utils.DefaultInt(o.Get(k+".persistence.maxOpenConns"), 200),
+			},
+		}
+	}
+	return PersistenceOpts{Type: badger.BadgerPersistence}
 }
 
 func (o *Options) ReplicationFactor() int {
