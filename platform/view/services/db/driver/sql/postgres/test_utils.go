@@ -15,6 +15,13 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/unversioned"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
+	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
@@ -242,4 +249,46 @@ func getEnv(key, fallback string) string {
 		return value
 	}
 	return fallback
+}
+
+type dbObject interface {
+	CreateSchema() error
+}
+
+type persistenceConstructor[V dbObject] func(common2.Opts, string) (V, error)
+
+func initPersistence[V dbObject](constructor persistenceConstructor[V], pgConnStr, name string, maxOpenConns int) (V, error) {
+	p, err := constructor(common2.Opts{DataSource: pgConnStr, MaxOpenConns: maxOpenConns}, name)
+	if err != nil {
+		return utils.Zero[V](), err
+	}
+	if err := p.CreateSchema(); err != nil {
+		return utils.Zero[V](), err
+	}
+	return p, nil
+}
+
+type TestDriver struct {
+	Name    string
+	ConnStr string
+}
+
+func (t *TestDriver) NewTransactionalVersioned(dataSourceName string, config driver.Config) (driver.TransactionalVersionedPersistence, error) {
+	return initPersistence(NewPersistence, t.ConnStr, t.Name, 50)
+}
+
+func (t *TestDriver) NewVersioned(dataSourceName string, config driver.Config) (driver.VersionedPersistence, error) {
+	return initPersistence(NewPersistence, t.ConnStr, t.Name, 50)
+}
+
+func (t *TestDriver) NewUnversioned(dataSourceName string, config driver.Config) (driver.UnversionedPersistence, error) {
+	return initPersistence(NewUnversioned, t.ConnStr, t.Name, 50)
+}
+
+func (t *TestDriver) NewTransactionalUnversioned(dataSourceName string, config driver.Config) (driver.TransactionalUnversionedPersistence, error) {
+	p, err := initPersistence(NewPersistence, t.ConnStr, t.Name, 50)
+	if err != nil {
+		return nil, err
+	}
+	return &unversioned.Transactional{TransactionalVersioned: p}, nil
 }

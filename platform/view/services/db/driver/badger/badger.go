@@ -10,15 +10,18 @@ import (
 	"context"
 	"runtime/debug"
 	"sync"
+	"time"
 
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils"
+
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 
 	"github.com/dgraph-io/badger/v3"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
+	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	keys2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/keys"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
-	"github.com/pkg/errors"
 )
 
 var logger = flogging.MustGetLogger("db.driver.badger")
@@ -257,15 +260,18 @@ func (db *DB) GetStateMetadata(namespace, key string) (map[string][]byte, uint64
 
 func (db *DB) NewWriteTransaction() (driver.WriteTransaction, error) {
 	txn := db.db.NewTransaction(true)
+	retryRunner := utils.NewRetryRunner(3, 100*time.Millisecond, true)
 	return &WriteTransaction{
-		db:  db.db,
-		txn: txn,
+		db:          db.db,
+		txn:         txn,
+		retryRunner: retryRunner,
 	}, nil
 }
 
 type WriteTransaction struct {
-	db  *badger.DB
-	txn *badger.Txn
+	db          *badger.DB
+	txn         *badger.Txn
+	retryRunner utils.RetryRunner
 }
 
 func (w *WriteTransaction) SetState(namespace driver2.Namespace, key string, value driver.VersionedValue) error {
@@ -309,9 +315,22 @@ func (w *WriteTransaction) DeleteState(namespace driver2.Namespace, key string) 
 }
 
 func (w *WriteTransaction) Commit() error {
+	//if err := w.retryRunner.RunWithErrors(func() (bool, error) {
+	//	err := w.txn.Commit()
+	//	if err == nil {
+	//		return true, nil
+	//	}
+	//	if errors.HasCause(err, badger.ErrConflict) {
+	//		return false, err
+	//	}
+	//	return true, err
+	//}); err != nil {
+	//	return errors.Wrap(err, "failed to commit")
+	//}
+
 	err := w.txn.Commit()
-	if err != nil {
-		return errors.Wrap(err, "could not commit transaction")
+	if err == nil {
+		return err
 	}
 	w.txn = nil
 	return nil

@@ -149,6 +149,22 @@ func (o *KVS) Put(id string, state interface{}) error {
 			}
 			return errors.Wrapf(err, "committing value for id [%s] failed", id)
 		}
+		//done := false
+		//for i := 0; i < 3; i++ {
+		//	if err := tx.Commit(); err != nil {
+		//		logger.Warnf("failed to commit, retry")
+		//		time.Sleep(1 * time.Second)
+		//		continue
+		//	}
+		//	done = true
+		//	break
+		//}
+		//if !done {
+		//	if err1 := tx.Discard(); err1 != nil {
+		//		logger.Debugf("got error %v; discarding caused %v", err, err1)
+		//	}
+		//	return errors.Wrapf(err, "committing value for id [%s] failed", id)
+		//}
 	}
 
 	o.putMutex.Lock()
