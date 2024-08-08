@@ -35,6 +35,14 @@ func Open(driver driver.Driver, dataSourceName string, config Config) (*Unversio
 	return &UnversionedPersistence{UnversionedPersistence: d}, nil
 }
 
+func OpenTransactional(driver driver.Driver, dataSourceName string, config Config) (*TransactionalUnversionedPersistence, error) {
+	d, err := driver.NewTransactionalUnversioned(dataSourceName, config)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed opening datasource [%s]", dataSourceName)
+	}
+	return &TransactionalUnversionedPersistence{TransactionalUnversionedPersistence: d}, nil
+}
+
 // OpenVersioned returns a new *versioned* persistence handle. Similarly to database/sql:
 // driverName is a string that describes the driver
 // dataSourceName describes the data source in a driver-specific format.
@@ -62,6 +70,10 @@ type VersionedPersistence struct {
 
 type TransactionalVersionedPersistence struct {
 	driver.TransactionalVersionedPersistence
+}
+
+type TransactionalUnversionedPersistence struct {
+	driver.TransactionalUnversionedPersistence
 }
 
 var validName = regexp.MustCompile(`^[a-zA-Z_]+$`) // Thread safe

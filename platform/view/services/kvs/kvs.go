@@ -55,7 +55,7 @@ type Iterator interface {
 
 type KVS struct {
 	namespace string
-	store     driver.UnversionedPersistence
+	store     driver.TransactionalUnversionedPersistence
 
 	putMutex sync.RWMutex
 	cache    cache
@@ -63,11 +63,11 @@ type KVS struct {
 
 // NewWithConfig returns a new KVS instance for the passed namespace using the passed driver and config provider
 func NewWithConfig(dbDriver driver.Driver, namespace string, cp ConfigProvider) (*KVS, error) {
-	d, err := dbDriver.NewUnversioned(namespace, db.NewPrefixConfig(cp, persistenceOptsConfigKey))
+	d, err := dbDriver.NewTransactionalUnversioned(namespace, db.NewPrefixConfig(cp, persistenceOptsConfigKey))
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed opening datasource [%s]", namespace)
 	}
-	persistence := &db.UnversionedPersistence{UnversionedPersistence: d}
+	persistence := &db.TransactionalUnversionedPersistence{TransactionalUnversionedPersistence: d}
 
 	cacheSize, err := cacheSizeFromConfig(cp)
 	if err != nil {
@@ -123,21 +123,19 @@ func (o *KVS) Exists(id string) bool {
 }
 
 func (o *KVS) Put(id string, state interface{}) error {
-	o.putMutex.Lock()
-	defer o.putMutex.Unlock()
-
 	raw, err := json.Marshal(state)
 	if err != nil {
 		return errors.Wrapf(err, "cannot marshal state with id [%s]", id)
 	}
 
-	if err := o.store.BeginUpdate(); err != nil {
+	tx, err := o.store.NewWriteTransaction()
+	if err != nil {
 		return errors.Wrapf(err, "begin update for id [%s] failed", id)
 	}
 
 	logger.Debugf("store [%d] bytes into key [%s:%s]", len(raw), o.namespace, id)
-	if err := o.store.SetState(o.namespace, id, raw); err != nil {
-		if err1 := o.store.Discard(); err1 != nil {
+	if err := tx.SetState(o.namespace, id, raw); err != nil {
+		if err1 := tx.Discard(); err1 != nil {
 			logger.Debugf("got error %v; discarding caused %v", err, err1)
 		}
 
@@ -145,11 +143,32 @@ func (o *KVS) Put(id string, state interface{}) error {
 			return errors.Wrapf(err, "failed to commit value for id [%s]", id)
 		}
 	} else {
-		if err := o.store.Commit(); err != nil {
+		if err := tx.Commit(); err != nil {
+			if err1 := tx.Discard(); err1 != nil {
+				logger.Debugf("got error %v; discarding caused %v", err, err1)
+			}
 			return errors.Wrapf(err, "committing value for id [%s] failed", id)
 		}
+		//done := false
+		//for i := 0; i < 3; i++ {
+		//	if err := tx.Commit(); err != nil {
+		//		logger.Warnf("failed to commit, retry")
+		//		time.Sleep(1 * time.Second)
+		//		continue
+		//	}
+		//	done = true
+		//	break
+		//}
+		//if !done {
+		//	if err1 := tx.Discard(); err1 != nil {
+		//		logger.Debugf("got error %v; discarding caused %v", err, err1)
+		//	}
+		//	return errors.Wrapf(err, "committing value for id [%s] failed", id)
+		//}
 	}
 
+	o.putMutex.Lock()
+	defer o.putMutex.Unlock()
 	o.cache.Add(id, raw)
 
 	return nil
@@ -195,15 +214,12 @@ func (o *KVS) Delete(id string) error {
 		logger.Debugf("delete state [%s,%s]", o.namespace, id)
 	}
 
-	o.putMutex.Lock()
-	defer o.putMutex.Unlock()
-
-	if err := o.store.BeginUpdate(); err != nil {
+	tx, err := o.store.NewWriteTransaction()
+	if err != nil {
 		return errors.Wrapf(err, "begin update for id [%s] failed", id)
 	}
-
-	if err := o.store.DeleteState(o.namespace, id); err != nil {
-		if err1 := o.store.Discard(); err1 != nil {
+	if err := tx.DeleteState(o.namespace, id); err != nil {
+		if err1 := tx.Discard(); err1 != nil {
 			logger.Debugf("got error %v; discarding caused %v", err, err1)
 		}
 
@@ -211,13 +227,14 @@ func (o *KVS) Delete(id string) error {
 			return errors.Wrapf(err, "failed to commit value for id [%s]", id)
 		}
 	} else {
-		if err := o.store.Commit(); err != nil {
+		if err := tx.Commit(); err != nil {
 			return errors.Wrapf(err, "committing value for id [%s] failed", id)
 		}
 	}
 
+	o.putMutex.Lock()
+	defer o.putMutex.Unlock()
 	o.cache.Delete(id)
-
 	return nil
 }
 

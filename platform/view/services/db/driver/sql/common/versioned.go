@@ -10,14 +10,37 @@ import (
 	"bytes"
 	"database/sql"
 	"encoding/gob"
-	"errors"
 	"fmt"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	errors2 "github.com/pkg/errors"
 )
+
+type versionedReadScanner struct{}
+
+func (s *versionedReadScanner) Columns() []string { return []string{"pkey", "block", "txnum", "val"} }
+
+func (s *versionedReadScanner) ReadValue(txs scannable) (driver.VersionedRead, error) {
+	var r driver.VersionedRead
+	err := txs.Scan(&r.Key, &r.Block, &r.TxNum, &r.Raw)
+	return r, err
+}
+
+type versionedValueScanner struct{}
+
+func (s *versionedValueScanner) Columns() []string { return []string{"val", "block", "txnum"} }
+
+func (s *versionedValueScanner) ReadValue(txs scannable) (driver.VersionedValue, error) {
+	var r driver.VersionedValue
+	err := txs.Scan(&r.Raw, &r.Block, &r.TxNum)
+	return r, err
+}
+
+func (s *versionedValueScanner) WriteValue(value driver.VersionedValue) []any {
+	return []any{value.Raw, value.Block, value.TxNum}
+}
 
 type VersionedPersistence struct {
 	basePersistence[driver.VersionedValue, driver.VersionedRead]
@@ -102,6 +125,73 @@ func (db *VersionedPersistence) GetStateMetadata(ns, key string) (map[string][]b
 	return meta, block, txnum, err
 }
 
+func (db *VersionedPersistence) CreateSchema() error {
+	return db.createSchema(fmt.Sprintf(`
+	CREATE TABLE IF NOT EXISTS %s (
+		ns TEXT NOT NULL,
+		pkey BYTEA NOT NULL,
+		block BIGINT NOT NULL DEFAULT 0,
+		txnum BIGINT NOT NULL DEFAULT 0,
+		val BYTEA NOT NULL DEFAULT '',
+		metadata BYTEA NOT NULL DEFAULT '',
+		version INT NOT NULL DEFAULT 0,
+		PRIMARY KEY (pkey, ns)
+	);`, db.table))
+}
+
+func (db *VersionedPersistence) NewWriteTransaction() (driver.WriteTransaction, error) {
+	txn, err := db.writeDB.Begin()
+	if err != nil {
+		return nil, errors.WithMessagef(err, "failed to begin transaction")
+	}
+
+	return &WriteTransaction{
+		txn: txn,
+		db:  db,
+	}, nil
+}
+
+type WriteTransaction struct {
+	txn *sql.Tx
+	db  *VersionedPersistence
+}
+
+func (w *WriteTransaction) SetState(namespace driver2.Namespace, key string, value driver.VersionedValue) error {
+	return w.db.setState(w.txn, namespace, key, value)
+}
+
+func (w *WriteTransaction) DeleteState(ns driver2.Namespace, key string) error {
+	if ns == "" || key == "" {
+		return errors.New("ns or key is empty")
+	}
+
+	query := fmt.Sprintf("DELETE FROM %s WHERE ns = $1 AND pkey = $2", w.db.table)
+	logger.Debug(query, ns, key)
+	_, err := w.txn.Exec(query, ns, key)
+	if err != nil {
+		return errors2.Wrapf(w.db.errorWrapper.WrapError(err), "could not delete val for key [%s]", key)
+	}
+
+	return nil
+}
+
+func (w *WriteTransaction) Commit() error {
+	if err := w.txn.Commit(); err != nil {
+		return fmt.Errorf("could not commit transaction: %w", err)
+	}
+	w.txn = nil
+	return nil
+}
+
+func (w *WriteTransaction) Discard() error {
+	if err := w.txn.Rollback(); err != nil {
+		logger.Infof("error rolling back (ignoring): %s", err.Error())
+		return nil
+	}
+	w.txn = nil
+	return nil
+}
+
 func marshallMetadata(metadata map[string][]byte) (m []byte, err error) {
 	var buf bytes.Buffer
 	err = gob.NewEncoder(&buf).Encode(metadata)
@@ -120,79 +210,4 @@ func unmarshalMetadata(input []byte) (m map[string][]byte, err error) {
 	decoder := gob.NewDecoder(buf)
 	err = decoder.Decode(&m)
 	return
-}
-
-type versionedReadScanner struct{}
-
-func (s *versionedReadScanner) Columns() []string { return []string{"pkey", "block", "txnum", "val"} }
-
-func (s *versionedReadScanner) ReadValue(txs scannable) (driver.VersionedRead, error) {
-	var r driver.VersionedRead
-	err := txs.Scan(&r.Key, &r.Block, &r.TxNum, &r.Raw)
-	return r, err
-}
-
-type versionedValueScanner struct{}
-
-func (s *versionedValueScanner) Columns() []string { return []string{"val", "block", "txnum"} }
-
-func (s *versionedValueScanner) ReadValue(txs scannable) (driver.VersionedValue, error) {
-	var r driver.VersionedValue
-	err := txs.Scan(&r.Raw, &r.Block, &r.TxNum)
-	return r, err
-}
-func (s *versionedValueScanner) WriteValue(value driver.VersionedValue) []any {
-	return []any{value.Raw, value.Block, value.TxNum}
-}
-
-func (db *VersionedPersistence) CreateSchema() error {
-	return db.createSchema(fmt.Sprintf(`
-	CREATE TABLE IF NOT EXISTS %s (
-		ns TEXT NOT NULL,
-		pkey BYTEA NOT NULL,
-		block BIGINT NOT NULL DEFAULT 0,
-		txnum BIGINT NOT NULL DEFAULT 0,
-		val BYTEA NOT NULL DEFAULT '',
-		metadata BYTEA NOT NULL DEFAULT '',
-		version INT NOT NULL DEFAULT 0,
-		PRIMARY KEY (pkey, ns)
-	);`, db.table))
-}
-
-func (db *VersionedPersistence) NewWriteTransaction() (driver.WriteTransaction, error) {
-	txn, err := db.writeDB.Begin()
-	if err != nil {
-		return nil, err
-	}
-
-	return &WriteTransaction{
-		txn: txn,
-		db:  db,
-	}, nil
-}
-
-type WriteTransaction struct {
-	txn *sql.Tx
-	db  *VersionedPersistence
-}
-
-func (w *WriteTransaction) SetState(namespace driver2.Namespace, key string, value driver.VersionedValue) error {
-	return w.db.setState(w.txn, namespace, key, value)
-}
-
-func (w *WriteTransaction) Commit() error {
-	if err := w.txn.Commit(); err != nil {
-		return fmt.Errorf("could not commit transaction: %w", err)
-	}
-	w.txn = nil
-	return nil
-}
-
-func (w *WriteTransaction) Discard() error {
-	if err := w.txn.Rollback(); err != nil {
-		logger.Infof("error rolling back (ignoring): %s", err.Error())
-		return nil
-	}
-	w.txn = nil
-	return nil
 }
