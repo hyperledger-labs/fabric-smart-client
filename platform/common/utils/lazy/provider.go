@@ -4,7 +4,7 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package utils
+package lazy
 
 import (
 	"sync"
@@ -12,7 +12,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 )
 
-type LazyProvider[I any, V any] interface {
+type Provider[I any, V any] interface {
 	Get(I) (V, error)
 	Peek(input I) (V, bool)
 	Update(I) (V, V, error)
@@ -20,11 +20,11 @@ type LazyProvider[I any, V any] interface {
 	Length() int
 }
 
-func NewLazyProvider[K comparable, V any](provider func(K) (V, error)) *lazyProvider[K, K, V] {
-	return NewLazyProviderWithKeyMapper[K, K, V](func(k K) K { return k }, provider)
+func NewProvider[K comparable, V any](provider func(K) (V, error)) *lazyProvider[K, K, V] {
+	return NewProviderWithKeyMapper[K, K, V](func(k K) K { return k }, provider)
 }
 
-func NewLazyProviderWithKeyMapper[I any, K comparable, V any](keyMapper func(I) K, provider func(I) (V, error)) *lazyProvider[I, K, V] {
+func NewProviderWithKeyMapper[I any, K comparable, V any](keyMapper func(I) K, provider func(I) (V, error)) *lazyProvider[I, K, V] {
 	return &lazyProvider[I, K, V]{
 		cache:     make(map[K]V),
 		provider:  provider,

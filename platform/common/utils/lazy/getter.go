@@ -4,11 +4,11 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package utils
+package lazy
 
 import "sync"
 
-type LazyGetter[V any] interface {
+type Getter[V any] interface {
 	Get() (V, error)
 }
 
@@ -19,7 +19,7 @@ type lazyGetter[V any] struct {
 	once     sync.Once
 }
 
-func NewLazyGetter[V any](provider func() (V, error)) *lazyGetter[V] {
+func NewGetter[V any](provider func() (V, error)) *lazyGetter[V] {
 	return &lazyGetter[V]{provider: provider}
 }
 

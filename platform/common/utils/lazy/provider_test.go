@@ -4,7 +4,7 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package utils
+package lazy
 
 import (
 	"fmt"
@@ -114,8 +114,8 @@ func TestParallel(t *testing.T) {
 	assert.Equal(1, len(values), "we always got one value back (the one we first set)")
 }
 
-func newTestCache() LazyProvider[entry, string] {
-	return NewLazyProviderWithKeyMapper(func(in entry) string {
+func newTestCache() Provider[entry, string] {
+	return NewProviderWithKeyMapper(func(in entry) string {
 		return in.key
 	}, func(in entry) (string, error) {
 		if in.key == "error" {
