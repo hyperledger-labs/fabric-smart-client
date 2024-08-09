@@ -10,6 +10,7 @@ import (
 	"context"
 	"sync"
 
+	utils "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/lazy"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger/fabric-protos-go/discovery"
@@ -166,69 +167,51 @@ func (c *ClientWrapper) Close() {
 	// Don't do anything
 }
 
+func NewCachingClientFactory(configService driver.ConfigService, signer driver.Signer) *CachingClientFactory {
+	f := newFactory(configService, signer)
+	return &CachingClientFactory{cache: utils.NewLazyProviderWithKeyMapper(
+		func(cc grpc.ConnectionConfig) string { return cc.Address },
+		f.newWrappedClient,
+	),
+	}
+}
+
 type CachingClientFactory struct {
-	ClientFactory
-	lock   sync.RWMutex
-	Cache  map[string]Client
-	Signer driver.Signer
+	cache utils.LazyProvider[grpc.ConnectionConfig, Client]
 }
 
 func (cep *CachingClientFactory) NewClient(cc grpc.ConnectionConfig) (Client, error) {
-	return cep.getOrCreateClient(cc.Address, func() (Client, error) {
-		return cep.ClientFactory.NewClient(cc)
-	})
+	return cep.cache.Get(cc)
 }
 
-func (cep *CachingClientFactory) getOrCreateClient(key string, newClient func() (Client, error)) (Client, error) {
-	if cl, found := cep.lookup(key); found {
-		return cl, nil
+type GRPCClientFactory struct {
+	ConfigService driver.ConfigService
+	Singer        driver.Signer
+}
+
+func newFactory(configService driver.ConfigService, signer driver.Signer) *GRPCClientFactory {
+	return &GRPCClientFactory{
+		ConfigService: configService,
+		Singer:        signer,
 	}
+}
 
-	cep.lock.Lock()
-	defer cep.lock.Unlock()
-
-	if cl, found := cep.lookupNoLock(key); found {
-		return cl, nil
-	}
-
-	cl, err := newClient()
+func (c *GRPCClientFactory) newWrappedClient(cc grpc.ConnectionConfig) (Client, error) {
+	cl, err := c.NewClient(cc)
 	if err != nil {
 		return nil, err
 	}
 
 	pc := cl.(*GRPCClient)
 
-	cl = &ClientWrapper{
+	return &ClientWrapper{
 		connect: func() (*ggrpc.ClientConn, error) {
 			return pc.NewConnection(pc.Address(), grpc.ServerNameOverride(pc.Sn))
 		},
 		address: pc.Address(),
 		Client:  cl,
-		signer:  cep.Signer.Sign,
-	}
-
-	logger.Debugf("Created new GRPCClient for [%s]", key)
-	cep.Cache[key] = cl
-
-	return cl, nil
-}
-
-func (cep *CachingClientFactory) lookupNoLock(key string) (Client, bool) {
-	cl, ok := cep.Cache[key]
-	return cl, ok
-}
-
-func (cep *CachingClientFactory) lookup(key string) (Client, bool) {
-	cep.lock.RLock()
-	defer cep.lock.RUnlock()
-
-	cl, ok := cep.Cache[key]
-	return cl, ok
-}
-
-type GRPCClientFactory struct {
-	ConfigService driver.ConfigService
-	Singer        driver.Signer
+		signer:  c.Singer.Sign,
+	}, nil
 }
 
 func (c *GRPCClientFactory) NewClient(cc grpc.ConnectionConfig) (Client, error) {

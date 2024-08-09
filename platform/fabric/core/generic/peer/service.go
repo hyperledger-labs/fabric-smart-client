@@ -19,16 +19,7 @@ type Service struct {
 }
 
 func NewService(configService driver.ConfigService, signer driver.Signer) *Service {
-	return &Service{
-		ConnCache: &CachingClientFactory{
-			Cache: map[string]Client{},
-			ClientFactory: &GRPCClientFactory{
-				ConfigService: configService,
-				Singer:        signer,
-			},
-			Signer: signer,
-		},
-	}
+	return &Service{ConnCache: NewCachingClientFactory(configService, signer)}
 }
 
 func (c *Service) NewClient(cc grpc.ConnectionConfig) (Client, error) {
