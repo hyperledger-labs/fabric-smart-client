@@ -68,13 +68,13 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 	envelopeService := transaction.NewEnvelopeService(p.kvss, nw.Name(), channelName)
 	transactionService := transaction.NewEndorseTransactionService(p.kvss, nw.Name(), channelName)
 	metadataService := transaction.NewMetadataService(p.kvss, nw.Name(), channelName)
-	peerManager := peer.NewPeerManager(nw.ConfigService(), nw.LocalMembership().DefaultSigningIdentity())
+	peerService := peer.NewService(nw.ConfigService(), nw.LocalMembership().DefaultSigningIdentity())
 
 	// Fabric finality
 	fabricFinality, err := finality.NewFabricFinality(
 		channelName,
 		nw.ConfigService(),
-		peerManager,
+		peerService,
 		nw.LocalMembership().DefaultSigningIdentity(),
 		p.hasher,
 		channelConfig.FinalityWaitTimeout(),
@@ -96,7 +96,7 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 		channelConfig.GetNumRetries(),
 		channelConfig.GetRetrySleep(),
 		nw.LocalMembership(),
-		peerManager,
+		peerService,
 		nw.SignerService(),
 		nw.OrderingService(),
 		nil,
@@ -144,7 +144,7 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 		nw.Name(),
 		nw.LocalMembership(),
 		nw.ConfigService(),
-		peerManager,
+		peerService,
 		ledgerService,
 		channelConfig.CommitterWaitForEventTimeout(),
 		txIDStore,
@@ -174,7 +174,7 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 		ChannelMembershipService: channelMembershipService,
 		ChaincodeManagerService:  chaincodeManagerService,
 		CommitterService:         committerService,
-		PeerManager:              peerManager,
+		PeerManager:              peerService,
 	}
 	if err := c.Init(); err != nil {
 		return nil, errors.WithMessagef(err, "failed initializing Channel [%s]", channelName)

@@ -42,7 +42,7 @@ type Channel struct {
 	ChannelMembershipService *membership.Service
 	ChaincodeManagerService  driver.ChaincodeManager
 	CommitterService         committerService
-	PeerManager              *peer.Manager
+	PeerManager              *peer.Service
 }
 
 func (c *Channel) Name() string {

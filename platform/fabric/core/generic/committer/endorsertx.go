@@ -19,7 +19,7 @@ type ValidationFlags []uint8
 
 func (c *Committer) HandleEndorserTransaction(block *common.Block, i uint64, event *FinalityEvent, envRaw []byte, env *common.Envelope, chHdr *common.ChannelHeader) error {
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("[%s] Endorser transaction received: %s", c.ChannelConfig.ID(), chHdr.TxId)
+		logger.Debugf("[%s] EndorserClient transaction received: %s", c.ChannelConfig.ID(), chHdr.TxId)
 	}
 	if len(block.Metadata.Metadata) < int(common.BlockMetadataIndex_TRANSACTIONS_FILTER) {
 		return errors.Errorf("block metadata lacks transaction filter")

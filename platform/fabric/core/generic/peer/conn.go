@@ -8,239 +8,182 @@ package peer
 
 import (
 	"context"
-	"sync"
+	"crypto/tls"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/lazy"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger/fabric-protos-go/discovery"
-	pb "github.com/hyperledger/fabric-protos-go/peer"
-	discovery2 "github.com/hyperledger/fabric/discovery/client"
+	"github.com/hyperledger/fabric-protos-go/peer"
+	dclient "github.com/hyperledger/fabric/discovery/client"
 	"github.com/pkg/errors"
-	grpc2 "google.golang.org/grpc"
+	ggrpc "google.golang.org/grpc"
 )
 
-var logger = flogging.MustGetLogger("fabric-sdk.core.generic.peer.conn")
-
-type ConnCreator interface {
-	NewPeerClientForAddress(cc grpc.ConnectionConfig) (Client, error)
-}
-
-type statefulClient struct {
-	pb.EndorserClient
+type StatefulClient struct {
+	peer.EndorserClient
 	discovery.DiscoveryClient
 	DC            DiscoveryClient
-	onErr         func()
-	DeliverClient pb.DeliverClient
+	onErr         func() error
+	DeliverClient peer.DeliverClient
 }
 
-func (sc *statefulClient) Deliver(ctx context.Context, opts ...grpc2.CallOption) (pb.Deliver_DeliverClient, error) {
-	return sc.DeliverClient.Deliver(ctx, opts...)
+func (c *StatefulClient) Deliver(ctx context.Context, opts ...ggrpc.CallOption) (peer.Deliver_DeliverClient, error) {
+	return c.DeliverClient.Deliver(ctx, opts...)
 }
 
-func (sc *statefulClient) DeliverFiltered(ctx context.Context, opts ...grpc2.CallOption) (pb.Deliver_DeliverFilteredClient, error) {
-	return sc.DeliverClient.DeliverFiltered(ctx, opts...)
+func (c *StatefulClient) DeliverFiltered(ctx context.Context, opts ...ggrpc.CallOption) (peer.Deliver_DeliverFilteredClient, error) {
+	return c.DeliverClient.DeliverFiltered(ctx, opts...)
 }
 
-func (sc *statefulClient) DeliverWithPrivateData(ctx context.Context, opts ...grpc2.CallOption) (pb.Deliver_DeliverWithPrivateDataClient, error) {
-	return sc.DeliverClient.DeliverWithPrivateData(ctx, opts...)
+func (c *StatefulClient) DeliverWithPrivateData(ctx context.Context, opts ...ggrpc.CallOption) (peer.Deliver_DeliverWithPrivateDataClient, error) {
+	return c.DeliverClient.DeliverWithPrivateData(ctx, opts...)
 }
 
-func (sc *statefulClient) ProcessProposal(ctx context.Context, in *pb.SignedProposal, opts ...grpc2.CallOption) (*pb.ProposalResponse, error) {
-	res, err := sc.EndorserClient.ProcessProposal(ctx, in, opts...)
+func (c *StatefulClient) ProcessProposal(ctx context.Context, in *peer.SignedProposal, opts ...ggrpc.CallOption) (*peer.ProposalResponse, error) {
+	res, err := c.EndorserClient.ProcessProposal(ctx, in, opts...)
 	if err != nil {
-		sc.onErr()
+		c.onErr()
 	}
 	return res, err
 }
 
-func (sc *statefulClient) Discover(ctx context.Context, in *discovery.SignedRequest, opts ...grpc2.CallOption) (*discovery.Response, error) {
-	res, err := sc.DiscoveryClient.Discover(ctx, in, opts...)
+func (c *StatefulClient) Discover(ctx context.Context, in *discovery.SignedRequest, opts ...ggrpc.CallOption) (*discovery.Response, error) {
+	res, err := c.DiscoveryClient.Discover(ctx, in, opts...)
 	if err != nil {
-		sc.onErr()
+		c.onErr()
 	}
 	return res, err
 }
 
-func (sc *statefulClient) Send(ctx context.Context, req *discovery2.Request, auth *discovery.AuthInfo) (discovery2.Response, error) {
-	res, err := sc.DC.Send(ctx, req, auth)
+func (c *StatefulClient) Send(ctx context.Context, req *dclient.Request, auth *discovery.AuthInfo) (dclient.Response, error) {
+	res, err := c.DC.Send(ctx, req, auth)
 	if err != nil {
-		sc.onErr()
+		c.onErr()
 	}
 	return res, err
 }
 
-type peerClient struct {
-	lock sync.RWMutex
+type resettableClient interface {
 	Client
-	connect func() (*grpc2.ClientConn, error)
-	conn    *grpc2.ClientConn
-	signer  discovery2.Signer
-	address string
+	Reset() error
 }
 
-func (pc *peerClient) getOrConn() (*grpc2.ClientConn, error) {
-	pc.lock.RLock()
-	existingConn := pc.conn
-	pc.lock.RUnlock()
+type ClientWrapper struct {
+	client resettableClient
+}
 
-	if existingConn != nil {
-		return existingConn, nil
-	}
+func NewClientWrapper(pc *GRPCClient) *ClientWrapper {
+	return &ClientWrapper{client: NewLazyGRPCClient(pc)}
+}
 
-	pc.lock.Lock()
-	defer pc.lock.Unlock()
-
-	if pc.conn != nil {
-		return pc.conn, nil
-	}
-
-	conn, err := pc.connect()
+func (c *ClientWrapper) EndorserClient() (peer.EndorserClient, error) {
+	cl, err := c.client.EndorserClient()
 	if err != nil {
 		return nil, err
 	}
-
-	pc.conn = conn
-
-	return conn, nil
+	return &StatefulClient{EndorserClient: cl, onErr: c.client.Reset}, nil
 }
 
-func (pc *peerClient) resetConn() {
-	pc.lock.Lock()
-	defer pc.lock.Unlock()
-
-	if pc.conn != nil {
-		pc.conn.Close()
-	}
-	pc.conn = nil
-}
-
-func (pc *peerClient) Address() string {
-	return pc.address
-}
-
-func (pc *peerClient) Connection() (*grpc2.ClientConn, error) {
-	conn, err := pc.getOrConn()
+func (c *ClientWrapper) DeliverClient() (peer.DeliverClient, error) {
+	cl, err := c.client.DeliverClient()
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to get connection to peer")
+		return nil, err
 	}
-
-	return conn, nil
+	return &StatefulClient{DeliverClient: cl, onErr: c.client.Reset}, nil
 }
 
-func (pc *peerClient) Endorser() (pb.EndorserClient, error) {
-	conn, err := pc.getOrConn()
+func (c *ClientWrapper) DiscoveryClient() (DiscoveryClient, error) {
+	dc, err := c.client.DiscoveryClient()
 	if err != nil {
-		return nil, errors.Wrap(err, "error getting connection to endorser")
+		return nil, err
 	}
-	return &statefulClient{
-		EndorserClient: pb.NewEndorserClient(conn),
-		onErr:          pc.resetConn,
-	}, nil
+	return &StatefulClient{DC: dc, onErr: c.client.Reset}, nil
 }
 
-func (pc *peerClient) DeliverClient() (pb.DeliverClient, error) {
-	conn, err := pc.getOrConn()
-	if err != nil {
-		return nil, errors.Wrap(err, "error getting connection to endorser")
-	}
-	return &statefulClient{
-		DeliverClient: pb.NewDeliverClient(conn),
-		onErr:         pc.resetConn,
-	}, nil
+func (c *ClientWrapper) Certificate() tls.Certificate {
+	return c.client.Certificate()
 }
 
-func (pc *peerClient) DiscoveryClient() (DiscoveryClient, error) {
-	dc := discovery2.NewClient(
-		func() (*grpc2.ClientConn, error) {
-			conn, err := pc.getOrConn()
-			if err != nil {
-				return nil, errors.Wrap(err, "error getting connection to endorser")
-			}
-			return conn, nil
-		},
-		pc.signer,
-		1,
-	)
-
-	return &statefulClient{
-		DC:    dc,
-		onErr: pc.resetConn,
-	}, nil
+func (c *ClientWrapper) Address() string {
+	return c.client.Address()
 }
 
-func (pc *peerClient) Discovery() (discovery.DiscoveryClient, error) {
-	conn, err := pc.getOrConn()
-	if err != nil {
-		return nil, errors.Wrap(err, "error getting connection to peer")
-	}
-	return &statefulClient{
-		DiscoveryClient: discovery.NewDiscoveryClient(conn),
-		onErr:           pc.resetConn,
-	}, nil
-}
-
-func (pc *peerClient) Close() {
+func (c *ClientWrapper) Close() {
 	// Don't do anything
 }
 
-type CachingEndorserPool struct {
-	ConnCreator
-	lock   sync.RWMutex
-	Cache  map[string]Client
-	Signer driver.Signer
+func NewCachingClientFactory(configService driver.ConfigService, signer driver.Signer) *CachingClientFactory {
+	f := newFactory(configService, signer)
+	return &CachingClientFactory{cache: lazy.NewProviderWithKeyMapper(
+		func(cc grpc.ConnectionConfig) string { return cc.Address },
+		f.newWrappedClient,
+	),
+	}
 }
 
-func (cep *CachingEndorserPool) NewPeerClientForAddress(cc grpc.ConnectionConfig) (Client, error) {
-	return cep.getOrCreateClient(cc.Address, func() (Client, error) {
-		return cep.ConnCreator.NewPeerClientForAddress(cc)
-	})
+type CachingClientFactory struct {
+	cache lazy.Provider[grpc.ConnectionConfig, Client]
 }
 
-func (cep *CachingEndorserPool) getOrCreateClient(key string, newClient func() (Client, error)) (Client, error) {
-	if cl, found := cep.lookup(key); found {
-		return cl, nil
+func (cep *CachingClientFactory) NewClient(cc grpc.ConnectionConfig) (Client, error) {
+	return cep.cache.Get(cc)
+}
+
+type GRPCClientFactory struct {
+	ConfigService driver.ConfigService
+	Singer        driver.Signer
+}
+
+func newFactory(configService driver.ConfigService, signer driver.Signer) *GRPCClientFactory {
+	return &GRPCClientFactory{
+		ConfigService: configService,
+		Singer:        signer,
 	}
+}
 
-	cep.lock.Lock()
-	defer cep.lock.Unlock()
-
-	if cl, found := cep.lookupNoLock(key); found {
-		return cl, nil
-	}
-
-	cl, err := newClient()
+func (c *GRPCClientFactory) newWrappedClient(cc grpc.ConnectionConfig) (Client, error) {
+	cl, err := c.NewClient(cc)
 	if err != nil {
 		return nil, err
 	}
 
-	pc := cl.(*PeerClient)
+	return NewClientWrapper(cl.(*GRPCClient)), nil
+}
 
-	cl = &peerClient{
-		connect: func() (*grpc2.ClientConn, error) {
-			return pc.NewConnection(pc.Address(), grpc.ServerNameOverride(pc.Sn))
-		},
-		address: pc.Address(),
-		Client:  cl,
-		signer:  cep.Signer.Sign,
+func (c *GRPCClientFactory) NewClient(cc grpc.ConnectionConfig) (Client, error) {
+	logger.Debugf("Creating new peer GRPCClient for address [%s]", cc.Address)
+
+	secOpts, err := grpc.CreateSecOpts(cc, grpc.TLSClientConfig{
+		TLSClientAuthRequired: c.ConfigService.TLSClientAuthRequired(),
+		TLSClientKeyFile:      c.ConfigService.TLSClientKeyFile(),
+		TLSClientCertFile:     c.ConfigService.TLSClientCertFile(),
+	})
+	if err != nil {
+		return nil, err
 	}
 
-	logger.Debugf("Created new client for [%s]", key)
-	cep.Cache[key] = cl
+	timeout := c.ConfigService.ClientConnTimeout()
+	if timeout <= 0 {
+		timeout = grpc.DefaultConnectionTimeout
+	}
+	clientConfig := grpc.ClientConfig{
+		SecOpts: *secOpts,
+		KaOpts: grpc.KeepaliveOptions{
+			ClientInterval: c.ConfigService.KeepAliveClientInterval(),
+			ClientTimeout:  c.ConfigService.KeepAliveClientTimeout(),
+		},
+		Timeout: timeout,
+	}
 
-	return cl, nil
-}
+	override := cc.ServerNameOverride
+	if len(override) == 0 {
+		override = c.ConfigService.TLSServerHostOverride()
+	}
 
-func (cep *CachingEndorserPool) lookupNoLock(key string) (Client, bool) {
-	cl, ok := cep.Cache[key]
-	return cl, ok
-}
-
-func (cep *CachingEndorserPool) lookup(key string) (Client, bool) {
-	cep.lock.RLock()
-	defer cep.lock.RUnlock()
-
-	cl, ok := cep.Cache[key]
-	return cl, ok
+	gClient, err := grpc.NewGRPCClient(clientConfig)
+	if err != nil {
+		return nil, errors.WithMessage(err, "failed to create Client from config")
+	}
+	return NewGRPCClient(gClient, cc.Address, override, c.Singer.Sign), nil
 }

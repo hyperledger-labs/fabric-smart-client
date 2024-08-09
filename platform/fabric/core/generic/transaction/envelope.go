@@ -143,7 +143,7 @@ func UnpackEnvelopePayload(payloadRaw []byte) (*UnpackedEnvelope, int32, error) 
 
 	// validate the payload type
 	if common.HeaderType(chdr.Type) != common.HeaderType_ENDORSER_TRANSACTION {
-		return nil, chdr.Type, errors.Errorf("only Endorser Transactions are supported, provided type %d", chdr.Type)
+		return nil, chdr.Type, errors.Errorf("only EndorserClient Transactions are supported, provided type %d", chdr.Type)
 	}
 
 	sdr, err := protoutil.UnmarshalSignatureHeader(payl.Header.SignatureHeader)

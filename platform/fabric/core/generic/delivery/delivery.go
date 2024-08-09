@@ -47,7 +47,7 @@ type Vault interface {
 }
 
 type PeerManager interface {
-	NewPeerClientForAddress(cc grpc.ConnectionConfig) (peer.Client, error)
+	NewClient(cc grpc.ConnectionConfig) (peer.Client, error)
 }
 
 type Delivery struct {
@@ -200,7 +200,7 @@ func (d *Delivery) connect(ctx context.Context) (DeliverStream, error) {
 		logger.Debugf("connecting to deliver service at [%s] for [%s:%s]", address, d.NetworkName, d.channel)
 	}
 	var err error
-	d.client, err = d.PeerManager.NewPeerClientForAddress(*peerConnConf)
+	d.client, err = d.PeerManager.NewClient(*peerConnConf)
 	if err != nil {
 		return nil, errors.WithMessagef(err, "failed creating peer client for address [%s][%s:%s]", address, d.NetworkName, d.channel)
 	}

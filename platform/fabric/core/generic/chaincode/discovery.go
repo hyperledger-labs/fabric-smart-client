@@ -212,7 +212,7 @@ func (d *Discovery) query(req *discovery.Request) (discovery.Response, error) {
 			pCli.Close()
 		}
 	}()
-	pc, err := d.chaincode.PeerManager.NewPeerClientForAddress(*d.chaincode.ConfigService.PickPeer(driver.PeerForDiscovery))
+	pc, err := d.chaincode.PeerManager.NewClient(*d.chaincode.ConfigService.PickPeer(driver.PeerForDiscovery))
 	if err != nil {
 		return nil, err
 	}

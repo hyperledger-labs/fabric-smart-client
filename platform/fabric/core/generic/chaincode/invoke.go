@@ -279,7 +279,7 @@ func (i *Invoke) prepare(query bool) (string, *pb.Proposal, []*pb.ProposalRespon
 	case len(i.EndorsersByConnConfig) != 0:
 		// get a peer client for each connection config
 		for _, config := range i.EndorsersByConnConfig {
-			peerClient, err := i.Chaincode.PeerManager.NewPeerClientForAddress(*config)
+			peerClient, err := i.Chaincode.PeerManager.NewClient(*config)
 			if err != nil {
 				return "", nil, nil, nil, err
 			}
@@ -329,7 +329,7 @@ func (i *Invoke) prepare(query bool) (string, *pb.Proposal, []*pb.ProposalRespon
 
 	// get a peer client for all discovered peers
 	for _, peer := range discoveredPeers {
-		peerClient, err := i.Chaincode.PeerManager.NewPeerClientForAddress(grpc.ConnectionConfig{
+		peerClient, err := i.Chaincode.PeerManager.NewClient(grpc.ConnectionConfig{
 			Address:          peer.Endpoint,
 			TLSEnabled:       i.Chaincode.ConfigService.TLSEnabled(),
 			TLSRootCertBytes: peer.TLSRootCerts,
@@ -342,7 +342,7 @@ func (i *Invoke) prepare(query bool) (string, *pb.Proposal, []*pb.ProposalRespon
 
 	// get endorser clients
 	for _, client := range peerClients {
-		endorserClient, err := client.Endorser()
+		endorserClient, err := client.EndorserClient()
 		if err != nil {
 			return "", nil, nil, nil, errors.WithMessagef(err, "error getting endorser client for %s", client.Address())
 		}
