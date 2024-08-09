@@ -14,7 +14,6 @@ import (
 	"github.com/hyperledger/fabric-protos-go/discovery"
 	"github.com/hyperledger/fabric-protos-go/peer"
 	dclient "github.com/hyperledger/fabric/discovery/client"
-	"google.golang.org/grpc"
 )
 
 type ClientFactory interface {
@@ -35,9 +34,6 @@ type Client interface {
 	// Certificate returns the tls.Certificate used to make TLS connections
 	// when client certificates are required by the server
 	Certificate() tls.Certificate
-
-	// Connection creates a new gRPC connection to the peer
-	Connection() (*grpc.ClientConn, error)
 
 	// EndorserClient returns an endorser client for the peer
 	EndorserClient() (peer.EndorserClient, error)

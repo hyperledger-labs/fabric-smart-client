@@ -8,9 +8,9 @@ package peer
 
 import (
 	"context"
-	"sync"
+	"crypto/tls"
 
-	utils "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/lazy"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/lazy"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger/fabric-protos-go/discovery"
@@ -24,7 +24,7 @@ type StatefulClient struct {
 	peer.EndorserClient
 	discovery.DiscoveryClient
 	DC            DiscoveryClient
-	onErr         func()
+	onErr         func() error
 	DeliverClient peer.DeliverClient
 }
 
@@ -64,103 +64,49 @@ func (c *StatefulClient) Send(ctx context.Context, req *dclient.Request, auth *d
 	return res, err
 }
 
-type ClientWrapper struct {
-	lock sync.RWMutex
+type resettableClient interface {
 	Client
-	connect func() (*ggrpc.ClientConn, error)
-	conn    *ggrpc.ClientConn
-	signer  dclient.Signer
-	address string
+	Reset() error
 }
 
-func (c *ClientWrapper) getOrConn() (*ggrpc.ClientConn, error) {
-	c.lock.RLock()
-	existingConn := c.conn
-	c.lock.RUnlock()
-
-	if existingConn != nil {
-		return existingConn, nil
-	}
-
-	c.lock.Lock()
-	defer c.lock.Unlock()
-
-	if c.conn != nil {
-		return c.conn, nil
-	}
-
-	conn, err := c.connect()
-	if err != nil {
-		return nil, err
-	}
-
-	c.conn = conn
-
-	return conn, nil
+type ClientWrapper struct {
+	client resettableClient
 }
 
-func (c *ClientWrapper) resetConn() {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-
-	if c.conn != nil {
-		c.conn.Close()
-	}
-	c.conn = nil
-}
-
-func (c *ClientWrapper) Address() string {
-	return c.address
-}
-
-func (c *ClientWrapper) Connection() (*ggrpc.ClientConn, error) {
-	conn, err := c.getOrConn()
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get connection to peer")
-	}
-
-	return conn, nil
+func NewClientWrapper(pc *GRPCClient) *ClientWrapper {
+	return &ClientWrapper{client: NewLazyGRPCClient(pc)}
 }
 
 func (c *ClientWrapper) EndorserClient() (peer.EndorserClient, error) {
-	conn, err := c.getOrConn()
+	cl, err := c.client.EndorserClient()
 	if err != nil {
-		return nil, errors.Wrap(err, "error getting connection to endorser")
+		return nil, err
 	}
-	return &StatefulClient{
-		EndorserClient: peer.NewEndorserClient(conn),
-		onErr:          c.resetConn,
-	}, nil
+	return &StatefulClient{EndorserClient: cl, onErr: c.client.Reset}, nil
 }
 
 func (c *ClientWrapper) DeliverClient() (peer.DeliverClient, error) {
-	conn, err := c.getOrConn()
+	cl, err := c.client.DeliverClient()
 	if err != nil {
-		return nil, errors.Wrap(err, "error getting connection to endorser")
+		return nil, err
 	}
-	return &StatefulClient{
-		DeliverClient: peer.NewDeliverClient(conn),
-		onErr:         c.resetConn,
-	}, nil
+	return &StatefulClient{DeliverClient: cl, onErr: c.client.Reset}, nil
 }
 
 func (c *ClientWrapper) DiscoveryClient() (DiscoveryClient, error) {
-	dc := dclient.NewClient(
-		func() (*ggrpc.ClientConn, error) {
-			conn, err := c.getOrConn()
-			if err != nil {
-				return nil, errors.Wrap(err, "error getting connection to endorser")
-			}
-			return conn, nil
-		},
-		c.signer,
-		1,
-	)
+	dc, err := c.client.DiscoveryClient()
+	if err != nil {
+		return nil, err
+	}
+	return &StatefulClient{DC: dc, onErr: c.client.Reset}, nil
+}
 
-	return &StatefulClient{
-		DC:    dc,
-		onErr: c.resetConn,
-	}, nil
+func (c *ClientWrapper) Certificate() tls.Certificate {
+	return c.client.Certificate()
+}
+
+func (c *ClientWrapper) Address() string {
+	return c.client.Address()
 }
 
 func (c *ClientWrapper) Close() {
@@ -169,7 +115,7 @@ func (c *ClientWrapper) Close() {
 
 func NewCachingClientFactory(configService driver.ConfigService, signer driver.Signer) *CachingClientFactory {
 	f := newFactory(configService, signer)
-	return &CachingClientFactory{cache: utils.NewLazyProviderWithKeyMapper(
+	return &CachingClientFactory{cache: lazy.NewProviderWithKeyMapper(
 		func(cc grpc.ConnectionConfig) string { return cc.Address },
 		f.newWrappedClient,
 	),
@@ -177,7 +123,7 @@ func NewCachingClientFactory(configService driver.ConfigService, signer driver.S
 }
 
 type CachingClientFactory struct {
-	cache utils.LazyProvider[grpc.ConnectionConfig, Client]
+	cache lazy.Provider[grpc.ConnectionConfig, Client]
 }
 
 func (cep *CachingClientFactory) NewClient(cc grpc.ConnectionConfig) (Client, error) {
@@ -202,16 +148,7 @@ func (c *GRPCClientFactory) newWrappedClient(cc grpc.ConnectionConfig) (Client, 
 		return nil, err
 	}
 
-	pc := cl.(*GRPCClient)
-
-	return &ClientWrapper{
-		connect: func() (*ggrpc.ClientConn, error) {
-			return pc.NewConnection(pc.Address(), grpc.ServerNameOverride(pc.Sn))
-		},
-		address: pc.Address(),
-		Client:  cl,
-		signer:  c.Singer.Sign,
-	}, nil
+	return NewClientWrapper(cl.(*GRPCClient)), nil
 }
 
 func (c *GRPCClientFactory) NewClient(cc grpc.ConnectionConfig) (Client, error) {
@@ -248,11 +185,5 @@ func (c *GRPCClientFactory) NewClient(cc grpc.ConnectionConfig) (Client, error) 
 	if err != nil {
 		return nil, errors.WithMessage(err, "failed to create Client from config")
 	}
-	pClient := &GRPCClient{
-		Signer:      c.Singer.Sign,
-		Client:      gClient,
-		PeerAddress: cc.Address,
-		Sn:          override,
-	}
-	return pClient, nil
+	return NewGRPCClient(gClient, cc.Address, override, c.Singer.Sign), nil
 }
