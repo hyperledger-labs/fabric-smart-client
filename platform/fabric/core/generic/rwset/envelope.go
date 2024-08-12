@@ -58,8 +58,8 @@ func UnpackEnvelope(networkID string, env *common.Envelope) (*UnpackedEnvelope, 
 func UnpackEnvelopeFromPayloadAndCHHeader(networkID string, payl *common.Payload, chdr *common.ChannelHeader) (*UnpackedEnvelope, error) {
 	// validate the payload type
 	if common.HeaderType(chdr.Type) != common.HeaderType_ENDORSER_TRANSACTION {
-		logger.Errorf("Only Endorser Transactions are supported, provided type %d", chdr.Type)
-		return nil, errors.Errorf("only Endorser Transactions are supported, provided type %d", chdr.Type)
+		logger.Errorf("Only EndorserClient Transactions are supported, provided type %d", chdr.Type)
+		return nil, errors.Errorf("only EndorserClient Transactions are supported, provided type %d", chdr.Type)
 	}
 
 	sdr, err := protoutil.UnmarshalSignatureHeader(payl.Header.SignatureHeader)

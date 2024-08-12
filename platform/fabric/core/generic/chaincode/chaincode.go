@@ -21,7 +21,7 @@ import (
 var logger = flogging.MustGetLogger("fabric-sdk.core.generic.chaincode")
 
 type PeerManager interface {
-	NewPeerClientForAddress(cc grpc.ConnectionConfig) (peer.Client, error)
+	NewClient(cc grpc.ConnectionConfig) (peer.Client, error)
 }
 
 type Broadcaster interface {
