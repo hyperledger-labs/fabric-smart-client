@@ -61,11 +61,11 @@ func (d *Driver) NewVersioned(dataSourceName string, config driver.Config) (driv
 }
 
 func (d *Driver) NewTransactionalVersioned(dataSourceName string, config driver.Config) (driver.TransactionalVersionedPersistence, error) {
-	return NewPersistence(dataSourceName, config, VersionedConstructors)
+	return newPersistence(dataSourceName, config, VersionedConstructors)
 }
 
 func (d *Driver) NewUnversioned(dataSourceName string, config driver.Config) (driver.UnversionedPersistence, error) {
-	return NewPersistence(dataSourceName, config, UnversionedConstructors)
+	return newPersistence(dataSourceName, config, UnversionedConstructors)
 }
 
 func (d *Driver) NewTransactionalUnversioned(dataSourceName string, config driver.Config) (driver.TransactionalUnversionedPersistence, error) {
@@ -76,13 +76,17 @@ func (d *Driver) NewTransactionalUnversioned(dataSourceName string, config drive
 	return &unversioned.Transactional{TransactionalVersioned: backend}, nil
 }
 
-func NewPersistence[V dbObject](dataSourceName string, config driver.Config, constructors map[common.SQLDriverType]persistenceConstructor[V]) (V, error) {
+func newPersistence[V dbObject](dataSourceName string, config driver.Config, constructors map[common.SQLDriverType]persistenceConstructor[V]) (V, error) {
 	logger.Infof("opening new transactional database %s", dataSourceName)
 	opts, err := getOps(config)
 	if err != nil {
 		return utils.Zero[V](), fmt.Errorf("failed getting options for datasource: %w", err)
 	}
 
+	return NewPersistenceWithOpts(dataSourceName, opts, constructors)
+}
+
+func NewPersistenceWithOpts[V dbObject](dataSourceName string, opts common.Opts, constructors map[common.SQLDriverType]persistenceConstructor[V]) (V, error) {
 	nc, err := common.NewTableNameCreator(opts.TablePrefix)
 	if err != nil {
 		return utils.Zero[V](), err

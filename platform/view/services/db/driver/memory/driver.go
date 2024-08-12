@@ -51,10 +51,10 @@ func (d *Driver) NewTransactionalUnversioned(dataSourceName string, config drive
 	return &unversioned.Transactional{TransactionalVersioned: backend}, nil
 }
 
-func (d *Driver) NewTransactionalVersioned(_ string, config driver.Config) (driver.TransactionalVersionedPersistence, error) {
-	return sql.NewPersistence(utils.GenerateUUIDOnlyLetters(), config, sql.VersionedConstructors)
+func (d *Driver) NewTransactionalVersioned(string, driver.Config) (driver.TransactionalVersionedPersistence, error) {
+	return sql.NewPersistenceWithOpts(utils.GenerateUUIDOnlyLetters(), opts, sql.VersionedConstructors)
 }
 
-func (d *Driver) NewUnversioned(_ string, config driver.Config) (driver.UnversionedPersistence, error) {
-	return sql.NewPersistence(utils.GenerateUUID(), config, sql.UnversionedConstructors)
+func (d *Driver) NewUnversioned(string, driver.Config) (driver.UnversionedPersistence, error) {
+	return sql.NewPersistenceWithOpts(utils.GenerateUUID(), opts, sql.UnversionedConstructors)
 }
