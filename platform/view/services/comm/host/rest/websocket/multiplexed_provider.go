@@ -281,7 +281,7 @@ func (c *multiplexedServerConn) newServerSubConn(newStreamCallback func(pStream 
 	// Propagating the request context will not make a difference (see comment in newClientStream)
 	spanContext, err := tracing.UnmarshalContext(meta.SpanContext)
 	if err != nil {
-		logger.Errorf("failed to unmarshal span context: %v", err)
+		logger.Debugf("failed to unmarshal span context: %v", err)
 	}
 	ctx, span := c.tracer.Start(trace.ContextWithRemoteSpanContext(context.Background(), spanContext), "server_stream", tracing.WithAttributes(
 		tracing.String(contextIDLabel, meta.ContextID)))
