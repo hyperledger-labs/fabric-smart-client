@@ -8,8 +8,9 @@ package view
 
 import (
 	"bytes"
-	"crypto/sha256"
 	"encoding/base64"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 )
 
 // Identity wraps the byte representation of a lower level identity.
@@ -25,16 +26,7 @@ func (id Identity) UniqueID() string {
 	if len(id) == 0 {
 		return "<empty>"
 	}
-	hash := sha256.New()
-	n, err := hash.Write(id)
-	if n != len(id) {
-		panic("hash failure")
-	}
-	if err != nil {
-		panic(err)
-	}
-	digest := hash.Sum(nil)
-	return base64.StdEncoding.EncodeToString(digest)
+	return base64.StdEncoding.EncodeToString(utils.MustGet(utils.SHA256(id)))
 }
 
 // Hash returns the hash of this identity
@@ -42,16 +34,7 @@ func (id Identity) Hash() string {
 	if len(id) == 0 {
 		return "<empty>"
 	}
-	hash := sha256.New()
-	n, err := hash.Write(id)
-	if n != len(id) {
-		panic("hash failure")
-	}
-	if err != nil {
-		panic(err)
-	}
-	digest := hash.Sum(nil)
-	return string(digest)
+	return string(utils.MustGet(utils.SHA256(id)))
 }
 
 // String returns a string representation of this identity
