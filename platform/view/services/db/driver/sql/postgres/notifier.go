@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
@@ -145,7 +146,10 @@ func (db *Notifier) UnsubscribeAll() error {
 }
 
 func (db *Notifier) GetSchema() string {
+	funcName := triggerFuncName(db.primaryKeys)
+	lock := utils.MustGet(utils.HashInt64([]byte(funcName)))
 	return fmt.Sprintf(`
+	SELECT pg_advisory_lock(%d);
 	CREATE OR REPLACE FUNCTION %s() RETURNS TRIGGER AS $$
 			DECLARE
 			row RECORD;
@@ -174,13 +178,16 @@ func (db *Notifier) GetSchema() string {
 	CREATE OR REPLACE TRIGGER trigger_%s
 	AFTER %s ON %s
 	FOR EACH ROW EXECUTE PROCEDURE %s();
+	SELECT pg_advisory_unlock(%d);
 	`,
-		triggerFuncName(db.primaryKeys),
+		lock,
+		funcName,
 		payloadConcatenator, concatenateIDs(db.primaryKeys),
 		db.table,
 		db.table,
 		convertOperations(db.notifyOperations), db.table,
-		triggerFuncName(db.primaryKeys),
+		funcName,
+		lock,
 	)
 }
 

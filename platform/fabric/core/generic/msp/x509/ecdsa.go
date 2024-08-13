@@ -18,6 +18,7 @@ import (
 	"math/big"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
+	utils2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/hyperledger/fabric-protos-go/msp"
@@ -73,15 +74,10 @@ func (d *edsaVerifier) Verify(message, sigma []byte) error {
 		return err
 	}
 
-	hash := sha256.New()
-	n, err := hash.Write(message)
-	if n != len(message) {
-		return errors.Errorf("hash failure")
-	}
+	digest, err := utils2.SHA256(message)
 	if err != nil {
 		return err
 	}
-	digest := hash.Sum(nil)
 
 	lowS, err := IsLowS(d.pk, signature.S)
 	if err != nil {

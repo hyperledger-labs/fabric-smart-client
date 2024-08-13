@@ -9,12 +9,12 @@ package x509
 import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
-	"crypto/sha256"
 	"crypto/x509"
 	"encoding/asn1"
 	"encoding/pem"
 	"math/big"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/pkg/errors"
 )
 
@@ -50,15 +50,10 @@ func (d *EdsaVerifier) Verify(message, sigma []byte) error {
 		return err
 	}
 
-	hash := sha256.New()
-	n, err := hash.Write(message)
-	if n != len(message) {
-		return errors.Errorf("hash failure")
-	}
+	digest, err := utils.SHA256(message)
 	if err != nil {
 		return err
 	}
-	digest := hash.Sum(nil)
 
 	lowS, err := IsLowS(d.pk, signature.S)
 	if err != nil {
