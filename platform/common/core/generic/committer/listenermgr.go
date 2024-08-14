@@ -82,7 +82,7 @@ func (c *finalityListenerManager[V]) InvokeListeners(event driver.FinalityEvent[
 	newCtx, span := c.tracer.Start(event.Ctx, "dispatch")
 	defer span.End()
 	listeners := c.cloneListeners(event.TxID)
-	c.logger.Debugf("dispatch event [%s][%d][%d]", event.TxID, event.ValidationCode, len(listeners))
+	//c.logger.Debugf("dispatch event [%s][%d][%d]", event.TxID, event.ValidationCode, len(listeners))
 	span.AddEvent("dispatch_to_listeners")
 	for _, listener := range listeners {
 		span.AddEvent("invoke_listener")

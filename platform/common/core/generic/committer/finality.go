@@ -83,7 +83,6 @@ func (c *FinalityManager[V]) RemoveListener(txID driver.TxID, toRemove driver.Fi
 }
 
 func (c *FinalityManager[V]) Post(event driver.FinalityEvent[V]) {
-	c.logger.Debugf("post event [%s][%d]", event.TxID, event.ValidationCode)
 	c.eventQueue <- event
 }
 
@@ -122,7 +121,7 @@ func (c *FinalityManager[V]) runStatusListener(ctx context.Context) {
 			}
 
 			newCtx, span := c.tracer.Start(context.Background(), "vault_status_check")
-			c.logger.Debugf("check vault status for [%d] transactions [%v]", len(txIDs), txIDs)
+			c.logger.Debugf("check vault status for [%d] transactions", len(txIDs))
 			statuses, err := c.vault.Statuses(txIDs...)
 			if err != nil {
 				c.logger.Errorf("error fetching statuses: %w", err)
@@ -130,11 +129,10 @@ func (c *FinalityManager[V]) runStatusListener(ctx context.Context) {
 				span.End()
 				continue
 			}
-			c.logger.Debugf("got vault status for [%d] transactions [%v], post event...", len(txIDs), txIDs)
+			c.logger.Debugf("got vault status for [%d] transactions, post event...", len(txIDs))
 			span.AddEvent("post_events")
 			for _, status := range statuses {
 				// check txID status, if it is valid or invalid, post an event
-				c.logger.Debugf("check tx [%s]'s status [%v]", status.TxID, status.ValidationCode)
 				if c.postStatuses.Contains(status.ValidationCode) {
 					// post the event
 					c.Post(driver.FinalityEvent[V]{
@@ -149,10 +147,3 @@ func (c *FinalityManager[V]) runStatusListener(ctx context.Context) {
 		}
 	}
 }
-
-//func (c *FinalityManager[V]) txIDs() []driver.TxID {
-//	c.mutex.RLock()
-//	defer c.mutex.RUnlock()
-//
-//	return collections.Keys(c.txIDListeners)
-//}

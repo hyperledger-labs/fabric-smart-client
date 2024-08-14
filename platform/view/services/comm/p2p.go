@@ -107,7 +107,7 @@ func (p *P2PNode) dispatchMessages(ctx context.Context) {
 			}
 
 			if logger.IsEnabledFor(zapcore.DebugLevel) {
-				logger.Debugf("dispatch message from [%s,%s] on session [%s]", msg.message.FromEndpoint, view.Identity(msg.message.FromPKID).String(), msg.message.SessionID)
+				logger.Debugf("dispatch message for context [%s] from [%s,%s] on session [%s]", msg.message.ContextID, msg.message.FromEndpoint, view.Identity(msg.message.FromPKID).String(), msg.message.SessionID)
 			}
 
 			p.dispatchMutex.Lock()
@@ -160,6 +160,7 @@ func (p *P2PNode) dispatchMessages(ctx context.Context) {
 			if logger.IsEnabledFor(zapcore.DebugLevel) {
 				logger.Debugf("pushing message to [%s], [%s]", internalSessionID, msg.message)
 			}
+			logger.Infof("Pushing method to Receive() for context [%s]", msg.message.ContextID)
 			session.incoming <- msg.message
 		case <-ctx.Done():
 			logger.Info("closing p2p comm...")
@@ -314,7 +315,7 @@ func (s *streamHandler) handleIncoming() {
 			panic("couldn't find stream handler to remove")
 		}
 		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("incoming message from [%s] on session [%s]", msg.Caller, msg.SessionID)
+			logger.Debugf("incoming message for context [%s] from [%s] on session [%s]", msg.ContextID, msg.Caller, msg.SessionID)
 		}
 
 		s.node.incomingMessages <- &messageWithStream{
