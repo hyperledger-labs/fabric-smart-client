@@ -487,19 +487,19 @@ fsc:
         id: initiator
         path: ./../../crypto/peerOrganizations/fsc.example.com/peers/initiator.fsc.example.com/msp/signcerts/initiator.fsc.example.com-cert.pem
       addresses:
-         Listen: 127.0.0.1:20000
-         P2P: 127.0.0.1:20001
-         View: 127.0.0.1:20000
+        Listen: 127.0.0.1:20000
+        P2P: 127.0.0.1:20001
+        View: 127.0.0.1:20000
     - name: responder
       domain: fsc.example.com
       identity:
         id: responder
         path: ./../../crypto/peerOrganizations/fsc.example.com/peers/responder.fsc.example.com/msp/signcerts/responder.fsc.example.com-cert.pem
       addresses:
-         # GRPC Server listening address
-         Listen: 127.0.0.1:20002
-         # P2P listening address
-         P2P: 127.0.0.1:20003
-         # View Service listening address (usually the same as Listen)
-         View: 127.0.0.1:20002
+        # GRPC Server listening address
+        Listen: 127.0.0.1:20002
+        # P2P listening address
+        P2P: 127.0.0.1:20003
+        # View Service listening address (usually the same as Listen)
+        View: 127.0.0.1:20002
 ````

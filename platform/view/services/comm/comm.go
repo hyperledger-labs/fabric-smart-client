@@ -129,6 +129,7 @@ func (s *Service) init() error {
 	p2pBootstrapNode := s.ConfigService.GetString("fsc.p2p.opts.bootstrapNode")
 	keyFile := s.ConfigService.GetPath("fsc.identity.key.file")
 	certFile := s.ConfigService.GetPath("fsc.identity.cert.file")
+
 	if len(p2pBootstrapNode) == 0 {
 		// this is a bootstrap node
 		logger.Debugf("new p2p bootstrap node [%s]", p2pListenAddress)
@@ -141,30 +142,31 @@ func (s *Service) init() error {
 		if err != nil {
 			return errors.Wrapf(err, "failed to initialize bootstrap p2p node [%s]", p2pListenAddress)
 		}
-	} else {
-		bootstrapNodeID, err := s.EndpointService.GetIdentity(p2pBootstrapNode, nil)
-		if err != nil {
-			return errors.WithMessagef(err, "failed to get p2p bootstrap node's resolver entry [%s]", p2pBootstrapNode)
-		}
-		_, endpoints, pkID, err := s.EndpointService.Resolve(bootstrapNodeID)
-		if err != nil {
-			return errors.WithMessagef(err, "failed to resolve bootstrap node id [%s:%s]", p2pBootstrapNode, bootstrapNodeID)
-		}
+		return nil
+	}
 
-		addr, err := utils.AddressToEndpoint(endpoints[view.P2PPort])
-		if err != nil {
-			return errors.WithMessagef(err, "failed to get the endpoint of the bootstrap node from [%s:%s], [%s]", p2pBootstrapNode, bootstrapNodeID, endpoints[view.P2PPort])
-		}
-		addr = addr + "/p2p/" + string(pkID)
-		logger.Debugf("new p2p node [%s,%s]", p2pListenAddress, addr)
-		h, err := s.HostProvider.NewHost(p2pListenAddress, keyFile, certFile, addr)
-		if err != nil {
-			return err
-		}
-		s.Node, err = NewNode(h, s.tracerProvider, s.metricsProvider)
-		if err != nil {
-			return errors.Wrapf(err, "failed to initialize node p2p manager [%s,%s]", p2pListenAddress, addr)
-		}
+	bootstrapNodeID, err := s.EndpointService.GetIdentity(p2pBootstrapNode, nil)
+	if err != nil {
+		return errors.WithMessagef(err, "failed to get p2p bootstrap node's resolver entry [%s]", p2pBootstrapNode)
+	}
+	_, endpoints, pkID, err := s.EndpointService.Resolve(bootstrapNodeID)
+	if err != nil {
+		return errors.WithMessagef(err, "failed to resolve bootstrap node id [%s:%s]", p2pBootstrapNode, bootstrapNodeID)
+	}
+
+	bootstrap, err := utils.AddressToEndpoint(endpoints[view.P2PPort])
+	if err != nil {
+		return errors.WithMessagef(err, "failed to get the endpoint of the bootstrap node from [%s:%s], [%s]", p2pBootstrapNode, bootstrapNodeID, endpoints[view.P2PPort])
+	}
+	bootstrap = bootstrap + "/p2p/" + string(pkID)
+	logger.Debugf("new p2p node [%s,%s]", p2pListenAddress, bootstrap)
+	h, err := s.HostProvider.NewHost(p2pListenAddress, keyFile, certFile, bootstrap)
+	if err != nil {
+		return err
+	}
+	s.Node, err = NewNode(h, s.tracerProvider, s.metricsProvider)
+	if err != nil {
+		return errors.Wrapf(err, "failed to initialize node p2p manager [%s,%s]", p2pListenAddress, bootstrap)
 	}
 	return nil
 }

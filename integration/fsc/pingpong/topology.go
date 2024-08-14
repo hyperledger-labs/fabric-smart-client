@@ -17,6 +17,7 @@ func Topology(commType fsc.P2PCommunicationType, replicationOpts *integration.Re
 	topology := fsc.NewTopology()
 	topology.WebEnabled = true
 	topology.P2PCommunicationType = commType
+	topology.Logging.Spec = "view-sdk.services.comm,view-sdk=debug:info"
 
 	// Add the initiator fsc node
 	topology.AddNodeByName("initiator").

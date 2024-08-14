@@ -60,7 +60,7 @@ func (n *Network) AddOrg(o *topology.Organization, peers ...*topology.Peer) {
 			ports[portName] = n.Context.ReservePort()
 		}
 		n.Context.SetPortsByPeerID(n.Prefix, p.ID(), ports)
-		n.Context.SetHostByPeerID(n.Prefix, p.ID(), "0.0.0.0")
+		n.Context.SetHostByPeerID(n.Prefix, p.ID(), "127.0.0.1")
 		n.Peers = append(n.Peers, p)
 	}
 

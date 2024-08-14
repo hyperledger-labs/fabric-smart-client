@@ -299,8 +299,8 @@ func (p *Platform) writeConfigFile() {
 	p.nodePort = p.Context.PortsByOrdererID("", OrdererPortID)[Port]
 	p.peerPort = p.Context.PortsByPeerID("", PeerPortID)[Port]
 
-	nodeHost := utils.DefaultString(p.Context.HostByOrdererID("", OrdererPortID), "0.0.0.0")
-	peerHost := utils.DefaultString(p.Context.HostByPeerID("", PeerPortID), "0.0.0.0")
+	nodeHost := utils.DefaultString(p.Context.HostByOrdererID("", OrdererPortID), "127.0.0.1")
+	peerHost := utils.DefaultString(p.Context.HostByPeerID("", PeerPortID), "127.0.0.1")
 
 	p.localConfig = &config.LocalConfiguration{
 		Server: config.ServerConf{
