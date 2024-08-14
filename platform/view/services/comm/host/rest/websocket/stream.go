@@ -13,6 +13,7 @@ import (
 	"github.com/gorilla/websocket"
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/rest"
+	"go.uber.org/zap/zapcore"
 )
 
 type connection interface {
@@ -57,18 +58,18 @@ func (s *stream) readMessages(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			logger.Debugf("context for stream [%s] closed by us. Error: %w", s.Hash(), ctx.Err())
+			logger.Warnf("Context for stream [%s] closed by us. Error: %w", s.Hash(), ctx.Err())
 			s.reads <- streamEOF
 			return
 		default:
 			_, msg, err := s.conn.ReadMessage()
-			if err != nil && websocket.IsCloseError(err, websocket.CloseAbnormalClosure) {
-				logger.Warnf("Websocket connection closed unexpectedly")
+			if err != nil && (websocket.IsCloseError(err, websocket.CloseAbnormalClosure)) {
+				logger.Debugf("Websocket connection closed unexpectedly")
 				s.reads <- streamEOF
 				s.Close()
 				return
 			}
-			logger.Debugf("Read message on [%s]: [%s]. Error encountered: %w", s.Hash(), string(msg), err)
+			logger.Debugf("Read message of length [%d] on [%s]. Error encountered: %w", len(msg), s.Hash(), err)
 			s.reads <- result{value: msg, err: err}
 		}
 	}
@@ -132,6 +133,9 @@ func (s *stream) Write(p []byte) (int, error) {
 }
 
 func (s *stream) Close() error {
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Warnf("Close connection for context [%s]: %s", s.ContextID())
+	}
 	s.cancel()
 	return s.conn.Close()
 }

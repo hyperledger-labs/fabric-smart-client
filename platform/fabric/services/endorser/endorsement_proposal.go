@@ -43,6 +43,7 @@ func (c *parallelCollectEndorsementsOnProposalView) Call(context view.Context) (
 		return nil, err
 	}
 	answerChannel := make(chan *answer, len(c.parties))
+	logger.Debugf("Collect endorsements from %d parties for TX [%s]", len(c.parties), c.tx.ID())
 	for _, party := range c.parties {
 		go c.collectEndorsement(context, party, stateRaw, answerChannel)
 	}
@@ -88,22 +89,24 @@ func (c *parallelCollectEndorsementsOnProposalView) collectEndorsement(
 	party view.Identity,
 	raw []byte,
 	answerChan chan *answer) {
-
+	defer logger.Debugf("Received answer for endorsement of TX [%s] from [%v]", c.tx.ID(), party)
 	s, err := session.NewJSON(context, context.Initiator(), party)
 	if err != nil {
-		answerChan <- &answer{err: err}
+		answerChan <- &answer{err: err, party: party}
 		return
 	}
 
 	// Wait to receive a Transaction back
+	logger.Debugf("Send transaction for TX [%s] signing to [%v]", c.tx.ID(), party)
 	err = s.SendRaw(context.Context(), raw)
+	logger.Debugf("Successfully sent transaction for TX [%s] signing to [%v]", c.tx.ID(), party)
 	if err != nil {
-		answerChan <- &answer{err: err}
+		answerChan <- &answer{err: err, party: party}
 		return
 	}
 	r := &Response{}
 	if err := s.ReceiveWithTimeout(r, c.timeout); err != nil {
-		answerChan <- &answer{err: err}
+		answerChan <- &answer{err: err, party: party}
 		return
 	}
 	answerChan <- &answer{prs: r.ProposalResponses, party: party}

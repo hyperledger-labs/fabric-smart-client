@@ -91,7 +91,7 @@ func (db *basePersistence[V, R]) GetStateSetIterator(ns driver2.Namespace, keys 
 		return collections.NewEmptyIterator[*R](), nil
 	}
 	query := fmt.Sprintf("SELECT %s FROM %s WHERE ns = $1 AND pkey IN %s", strings.Join(db.readScanner.Columns(), ", "), db.table, generateParamSet(2, len(keys)))
-	logger.Debug(query, ns, keys)
+	logger.Debug(query[:30] + "...")
 
 	rows, err := db.readDB.Query(query, append([]any{ns}, castAny(keys)...)...)
 	if err != nil {

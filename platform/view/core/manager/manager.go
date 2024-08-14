@@ -479,6 +479,7 @@ func (cm *manager) existResponder(msg *view.Message) (view.View, view.Identity, 
 }
 
 func (cm *manager) callView(msg *view.Message) {
+	logger.Debugf("Will call responder view for context [%s]", msg.ContextID)
 	responder, id, err := cm.existResponder(msg)
 	if err != nil {
 		// TODO: No responder exists for this message
