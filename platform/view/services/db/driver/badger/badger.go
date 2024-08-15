@@ -12,11 +12,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils"
-
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-
 	"github.com/dgraph-io/badger/v3"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
@@ -320,21 +318,8 @@ func (w *WriteTransaction) DeleteState(namespace driver2.Namespace, key string) 
 }
 
 func (w *WriteTransaction) Commit() error {
-	//if err := w.retryRunner.RunWithErrors(func() (bool, error) {
-	//	err := w.txn.Commit()
-	//	if err == nil {
-	//		return true, nil
-	//	}
-	//	if errors.HasCause(err, badger.ErrConflict) {
-	//		return false, err
-	//	}
-	//	return true, err
-	//}); err != nil {
-	//	return errors.Wrap(err, "failed to commit")
-	//}
-
 	err := w.txn.Commit()
-	if err == nil {
+	if err != nil {
 		return err
 	}
 	w.txn = nil
