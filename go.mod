@@ -9,7 +9,7 @@ require (
 	github.com/dgraph-io/badger/v3 v3.2103.5
 	github.com/docker/docker v27.1.2+incompatible
 	github.com/docker/go-connections v0.5.0
-	github.com/fsouza/go-dockerclient v1.11.2
+	github.com/fsouza/go-dockerclient v1.12.0
 	github.com/gin-contrib/cors v1.7.2
 	github.com/gin-gonic/gin v1.10.0
 	github.com/go-kit/kit v0.13.0
@@ -45,9 +45,9 @@ require (
 	github.com/onsi/gomega v1.34.1
 	github.com/otiai10/copy v1.14.0
 	github.com/pkg/errors v0.9.1
-	github.com/prometheus/client_golang v1.19.1
+	github.com/prometheus/client_golang v1.20.0
 	github.com/spf13/cobra v1.8.1
-	github.com/spf13/viper v1.19.0
+	github.com/spf13/viper v1.12.0
 	github.com/stretchr/testify v1.9.0
 	github.com/sykesm/zap-logfmt v0.0.4
 	github.com/tedsuo/ifrit v0.0.0-20230516164442-7862c310ad26
@@ -72,6 +72,7 @@ require (
 
 require (
 	github.com/libp2p/go-libp2p-routing-helpers v0.7.2 // indirect
+	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/pion/datachannel v1.5.8 // indirect
 	github.com/pion/dtls/v2 v2.2.12 // indirect
 	github.com/pion/ice/v2 v2.3.32 // indirect
@@ -88,6 +89,7 @@ require (
 	github.com/pion/transport/v2 v2.2.9 // indirect
 	github.com/pion/turn/v2 v2.1.6 // indirect
 	github.com/pion/webrtc/v3 v3.2.50 // indirect
+	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/wlynxg/anet v0.0.3 // indirect
 )
 
@@ -258,10 +260,7 @@ require (
 	github.com/raulk/go-watchdog v1.3.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/rogpeppe/go-internal v1.12.0 // indirect
-	github.com/sagikazarmark/locafero v0.4.0 // indirect
-	github.com/sagikazarmark/slog-shim v0.1.0 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
-	github.com/sourcegraph/conc v0.3.0 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/spf13/afero v1.11.0 // indirect
 	github.com/spf13/cast v1.6.0 // indirect
