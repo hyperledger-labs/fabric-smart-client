@@ -10,10 +10,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/unversioned"
-
 	"github.com/dgraph-io/badger/v3"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/unversioned"
 	"github.com/pkg/errors"
 )
 
