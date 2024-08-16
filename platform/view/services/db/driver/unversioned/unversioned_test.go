@@ -150,7 +150,7 @@ func TestSimpleReadWriteBadger(t *testing.T) {
 func TestSimpleReadWriteMemory(t *testing.T) {
 	c := &mocks.Config{}
 	c.UnmarshalKeyReturns(nil)
-	db, err := db.Open(&mem.Driver{}, "memory", c)
+	db, err := db.Open(&mem.Driver{}, string(mem.MemoryPersistence), c)
 	assert.NoError(t, err)
 	defer db.Close()
 	assert.NotNil(t, db)

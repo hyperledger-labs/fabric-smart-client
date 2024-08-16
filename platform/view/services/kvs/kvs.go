@@ -135,6 +135,7 @@ func (o *KVS) Put(id string, state interface{}) error {
 			return true, errors.Wrapf(err, "begin update for id [%s] failed", id)
 		}
 		logger.Debugf("store [%d] bytes into key [%s:%s]", len(raw), o.namespace, id)
+
 		if err := tx.SetState(o.namespace, id, raw); err != nil {
 			if err1 := tx.Discard(); err1 != nil {
 				logger.Debugf("got error %v; discarding caused %v", err, err1)
@@ -143,13 +144,14 @@ func (o *KVS) Put(id string, state interface{}) error {
 			if !errors.HasCause(err, driver.UniqueKeyViolation) {
 				return false, errors.Wrapf(err, "failed to commit value for id [%s]", id)
 			}
-		} else {
-			if err := tx.Commit(); err != nil {
-				if err1 := tx.Discard(); err1 != nil {
-					logger.Debugf("got error %v; discarding caused %v", err, err1)
-				}
-				return false, errors.Wrapf(err, "committing value for id [%s] failed", id)
+			return true, nil
+		}
+
+		if err := tx.Commit(); err != nil {
+			if err1 := tx.Discard(); err1 != nil {
+				logger.Debugf("got error %v; discarding caused %v", err, err1)
 			}
+			return false, errors.Wrapf(err, "committing value for id [%s] failed", id)
 		}
 		return true, nil
 	}); err != nil {
