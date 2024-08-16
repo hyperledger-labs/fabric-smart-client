@@ -318,8 +318,7 @@ func (w *WriteTransaction) DeleteState(namespace driver2.Namespace, key string) 
 }
 
 func (w *WriteTransaction) Commit() error {
-	err := w.txn.Commit()
-	if err != nil {
+	if err := w.txn.Commit(); err != nil {
 		return err
 	}
 	w.txn = nil

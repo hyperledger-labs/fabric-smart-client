@@ -8,6 +8,7 @@ package utils
 
 import (
 	"errors"
+	"math/rand"
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
@@ -27,7 +28,10 @@ type retryRunner struct {
 	delay      time.Duration
 	expBackoff bool
 	maxTimes   int
-	logger     *flogging.FabricLogger
+
+	probabilistic bool
+	interval      int64
+	logger        *flogging.FabricLogger
 }
 
 func NewRetryRunner(maxTimes int, delay time.Duration, expBackoff bool) *retryRunner {
@@ -39,7 +43,22 @@ func NewRetryRunner(maxTimes int, delay time.Duration, expBackoff bool) *retryRu
 	}
 }
 
+// NewProbabilisticRetryRunner returns a new runner that sets delay to time.Duration(rand.Int63n(f.interval)+1) * time.Millisecond
+func NewProbabilisticRetryRunner(maxTimes int, interval int64, expBackoff bool) *retryRunner {
+	return &retryRunner{
+		delay:         0,
+		expBackoff:    expBackoff,
+		maxTimes:      maxTimes,
+		probabilistic: true,
+		interval:      interval,
+		logger:        flogging.MustGetLogger("retry-runner"),
+	}
+}
+
 func (f *retryRunner) nextDelay() time.Duration {
+	if f.probabilistic && f.delay == 0 {
+		f.delay = time.Duration(rand.Int63n(f.interval)+1) * time.Millisecond
+	}
 	if f.expBackoff {
 		f.delay = 2 * f.delay
 	}

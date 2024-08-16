@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"sync"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/cache/secondcache"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db"
@@ -128,43 +129,31 @@ func (o *KVS) Put(id string, state interface{}) error {
 		return errors.Wrapf(err, "cannot marshal state with id [%s]", id)
 	}
 
-	tx, err := o.store.NewWriteTransaction()
-	if err != nil {
-		return errors.Wrapf(err, "begin update for id [%s] failed", id)
-	}
-
-	logger.Debugf("store [%d] bytes into key [%s:%s]", len(raw), o.namespace, id)
-	if err := tx.SetState(o.namespace, id, raw); err != nil {
-		if err1 := tx.Discard(); err1 != nil {
-			logger.Debugf("got error %v; discarding caused %v", err, err1)
+	if err := utils.NewProbabilisticRetryRunner(3, 200, true).RunWithErrors(func() (bool, error) {
+		tx, err := o.store.NewWriteTransaction()
+		if err != nil {
+			return true, errors.Wrapf(err, "begin update for id [%s] failed", id)
 		}
-
-		if !errors.HasCause(err, driver.UniqueKeyViolation) {
-			return errors.Wrapf(err, "failed to commit value for id [%s]", id)
-		}
-	} else {
-		if err := tx.Commit(); err != nil {
+		logger.Debugf("store [%d] bytes into key [%s:%s]", len(raw), o.namespace, id)
+		if err := tx.SetState(o.namespace, id, raw); err != nil {
 			if err1 := tx.Discard(); err1 != nil {
 				logger.Debugf("got error %v; discarding caused %v", err, err1)
 			}
-			return errors.Wrapf(err, "committing value for id [%s] failed", id)
+
+			if !errors.HasCause(err, driver.UniqueKeyViolation) {
+				return false, errors.Wrapf(err, "failed to commit value for id [%s]", id)
+			}
+		} else {
+			if err := tx.Commit(); err != nil {
+				if err1 := tx.Discard(); err1 != nil {
+					logger.Debugf("got error %v; discarding caused %v", err, err1)
+				}
+				return false, errors.Wrapf(err, "committing value for id [%s] failed", id)
+			}
 		}
-		//done := false
-		//for i := 0; i < 3; i++ {
-		//	if err := tx.Commit(); err != nil {
-		//		logger.Warnf("failed to commit, retry")
-		//		time.Sleep(1 * time.Second)
-		//		continue
-		//	}
-		//	done = true
-		//	break
-		//}
-		//if !done {
-		//	if err1 := tx.Discard(); err1 != nil {
-		//		logger.Debugf("got error %v; discarding caused %v", err, err1)
-		//	}
-		//	return errors.Wrapf(err, "committing value for id [%s] failed", id)
-		//}
+		return true, nil
+	}); err != nil {
+		return err
 	}
 
 	o.putMutex.Lock()
