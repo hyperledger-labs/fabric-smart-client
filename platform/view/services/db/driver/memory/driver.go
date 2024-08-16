@@ -56,5 +56,5 @@ func (d *Driver) NewTransactionalVersioned(string, driver.Config) (driver.Transa
 }
 
 func (d *Driver) NewUnversioned(string, driver.Config) (driver.UnversionedPersistence, error) {
-	return sql.NewPersistenceWithOpts(utils.GenerateUUID(), opts, sql.UnversionedConstructors)
+	return sql.NewPersistenceWithOpts(utils.GenerateUUIDOnlyLetters(), opts, sql.UnversionedConstructors)
 }

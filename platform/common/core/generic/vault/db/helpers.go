@@ -33,7 +33,7 @@ func OpenMemory() (*db.UnversionedPersistence, error) {
 }
 
 func openMemory[V any](open opener[V]) (V, error) {
-	return open(&mem.Driver{}, "", nil)
+	return open(&mem.Driver{}, "memory", nil)
 }
 
 func OpenBadgerVersioned(tempDir, dir string) (*db.VersionedPersistence, error) {
