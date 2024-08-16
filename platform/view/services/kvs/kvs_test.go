@@ -12,6 +12,8 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/sqlite"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/postgres"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
@@ -164,6 +166,16 @@ func TestBadgerKVS(t *testing.T) {
 func TestMemoryKVS(t *testing.T) {
 	cp := &mock.ConfigProvider{}
 	d := &mem.Driver{}
+	testRound(t, d, cp)
+	testParallelWrites(t, d, cp)
+}
+
+func TestSQLiteKVS(t *testing.T) {
+	cp := &mock.ConfigProvider{}
+	d := &sqlite.TestDriver{
+		Name:    "sqlite_test",
+		TempDir: t.TempDir(),
+	}
 	testRound(t, d, cp)
 	testParallelWrites(t, d, cp)
 }

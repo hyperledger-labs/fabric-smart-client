@@ -7,8 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package sqlite
 
 import (
-	"fmt"
-	"path"
 	"testing"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
@@ -46,12 +44,4 @@ func TestSqlite(t *testing.T) {
 func TestFolderDoesNotExistError(t *testing.T) {
 	_, err := NewUnversionedPersistence(unversionedOpts("folder-does-not-exist", "/this/folder/does/not/exist"), "test")
 	assert.Error(t, err, "error opening db: can't open sqlite database, does the folder exist?")
-}
-
-func unversionedOpts(name string, tempDir string) common2.Opts {
-	return common2.Opts{DataSource: fmt.Sprintf("file:%s.sqlite?_pragma=busy_timeout(1000)", path.Join(tempDir, name))}
-}
-
-func versionedOpts(name string, tempDir string) common2.Opts {
-	return common2.Opts{DataSource: fmt.Sprintf("%s.sqlite", path.Join(tempDir, name))}
 }
