@@ -71,6 +71,7 @@ require (
 )
 
 require (
+	github.com/alecthomas/kingpin/v2 v2.4.0 // indirect
 	github.com/libp2p/go-libp2p-routing-helpers v0.7.2 // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/pion/datachannel v1.5.8 // indirect
@@ -91,6 +92,7 @@ require (
 	github.com/pion/webrtc/v3 v3.2.50 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/wlynxg/anet v0.0.3 // indirect
+	github.com/xhit/go-str2duration/v2 v2.1.0 // indirect
 )
 
 require (
