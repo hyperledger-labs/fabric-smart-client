@@ -25,44 +25,37 @@ var ErrMaxRetriesExceeded = errors.New("maximum number of retries exceeded")
 const Infinitely = -1
 
 type retryRunner struct {
-	delay      time.Duration
-	expBackoff bool
-	maxTimes   int
+	delay        time.Duration
+	interval     int64
+	expBackoff   bool
+	maxTimes     int
+	getNextDelay func() time.Duration
 
-	probabilistic bool
-	interval      int64
-	logger        *flogging.FabricLogger
+	logger *flogging.FabricLogger
 }
 
 func NewRetryRunner(maxTimes int, delay time.Duration, expBackoff bool) *retryRunner {
-	return &retryRunner{
+	rr := &retryRunner{
 		delay:      delay,
 		expBackoff: expBackoff,
 		maxTimes:   maxTimes,
 		logger:     flogging.MustGetLogger("retry-runner"),
 	}
+	rr.getNextDelay = rr.deterministicDelay
+	return rr
 }
 
 // NewProbabilisticRetryRunner returns a new runner that sets delay to time.Duration(rand.Int63n(f.interval)+1) * time.Millisecond
 func NewProbabilisticRetryRunner(maxTimes int, interval int64, expBackoff bool) *retryRunner {
-	return &retryRunner{
-		delay:         0,
-		expBackoff:    expBackoff,
-		maxTimes:      maxTimes,
-		probabilistic: true,
-		interval:      interval,
-		logger:        flogging.MustGetLogger("retry-runner"),
+	rr := &retryRunner{
+		delay:      0,
+		expBackoff: expBackoff,
+		maxTimes:   maxTimes,
+		interval:   interval,
+		logger:     flogging.MustGetLogger("retry-runner"),
 	}
-}
-
-func (f *retryRunner) nextDelay() time.Duration {
-	if f.probabilistic && f.delay == 0 {
-		f.delay = time.Duration(rand.Int63n(f.interval)+1) * time.Millisecond
-	}
-	if f.expBackoff {
-		f.delay = 2 * f.delay
-	}
-	return f.delay
+	rr.getNextDelay = rr.probabilisticDelay
+	return rr
 }
 
 func (f *retryRunner) Run(runner func() error) error {
@@ -86,10 +79,25 @@ func (f *retryRunner) RunWithErrors(runner func() (bool, error)) error {
 			errs = append(errs, err)
 		}
 		f.logger.Debugf("Will retry iteration [%d] after delay. %d errors returned so far", i+1, len(errs))
-		time.Sleep(f.nextDelay())
+		time.Sleep(f.getNextDelay())
 	}
 	if len(errs) == 0 {
 		return ErrMaxRetriesExceeded
 	}
 	return errors.Join(errs...)
+}
+
+func (f *retryRunner) deterministicDelay() time.Duration {
+	delay := f.delay
+	if f.expBackoff {
+		f.delay = 2 * f.delay
+	}
+	return delay
+}
+
+func (f *retryRunner) probabilisticDelay() time.Duration {
+	if f.delay == 0 {
+		f.delay = time.Duration(rand.Int63n(f.interval)+1) * time.Millisecond
+	}
+	return f.deterministicDelay()
 }
