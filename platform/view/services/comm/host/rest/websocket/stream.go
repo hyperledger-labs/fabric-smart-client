@@ -57,7 +57,7 @@ func (s *stream) readMessages(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			logger.Warnf("Context for stream [%s] closed by us. Error: %w", s.Hash(), ctx.Err())
+			logger.Debugf("context for stream [%s] closed by us. Error: %w", s.Hash(), ctx.Err())
 			s.reads <- streamEOF
 			return
 		default:
@@ -101,7 +101,7 @@ func (s *stream) Read(p []byte) (int, error) {
 		logger.Debugf("[%s@%s] waits to read from channel...", s.info.RemotePeerID, s.info.RemotePeerAddress)
 		r := <-s.reads
 		if r.err != nil {
-			logger.Errorf("error occurred while [%s] was reading: %v", s.info.RemotePeerID, r.err)
+			logger.Debugf("error occurred while [%s] was reading: %v", s.info.RemotePeerID, r.err)
 			return 0, r.err
 		}
 		s.readLeftover = r.value

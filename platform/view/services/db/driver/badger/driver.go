@@ -12,6 +12,7 @@ import (
 
 	"github.com/dgraph-io/badger/v3"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/unversioned"
 	"github.com/pkg/errors"
 )
 
@@ -30,8 +31,8 @@ func NewFileDriver() driver.NamedDriver {
 
 type Driver struct{}
 
-// NewTransactionalVersionedPersistence returns a new TransactionalVersionedPersistence for the passed data source and config
-func (o *Driver) NewTransactionalVersioned(dataSourceName string, config driver.Config) (driver.TransactionalVersionedPersistence, error) {
+// NewTransactionalVersioned returns a new TransactionalVersionedPersistence for the passed data source and config
+func (d *Driver) NewTransactionalVersioned(dataSourceName string, config driver.Config) (driver.TransactionalVersionedPersistence, error) {
 	opts := &Opts{}
 	if err := config.UnmarshalKey("", opts); err != nil {
 		return nil, errors.Wrapf(err, "failed getting opts")
@@ -48,10 +49,18 @@ func (o *Driver) NewTransactionalVersioned(dataSourceName string, config driver.
 	return OpenDB(*opts, config)
 }
 
-func (v *Driver) NewVersioned(dataSourceName string, config driver.Config) (driver.VersionedPersistence, error) {
+func (d *Driver) NewVersioned(dataSourceName string, config driver.Config) (driver.VersionedPersistence, error) {
 	return NewVersionedPersistence(dataSourceName, config)
 }
 
-func (v *Driver) NewUnversioned(dataSourceName string, config driver.Config) (driver.UnversionedPersistence, error) {
+func (d *Driver) NewUnversioned(dataSourceName string, config driver.Config) (driver.UnversionedPersistence, error) {
 	return NewUnversionedPersistence(dataSourceName, config)
+}
+
+func (d *Driver) NewTransactionalUnversioned(dataSourceName string, config driver.Config) (driver.TransactionalUnversionedPersistence, error) {
+	backend, err := d.NewTransactionalVersioned(dataSourceName, config)
+	if err != nil {
+		return nil, err
+	}
+	return &unversioned.Transactional{TransactionalVersioned: backend}, nil
 }

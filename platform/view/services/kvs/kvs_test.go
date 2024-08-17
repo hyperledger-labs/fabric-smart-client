@@ -7,8 +7,14 @@ SPDX-License-Identifier: Apache-2.0
 package kvs_test
 
 import (
+	"fmt"
 	"os"
+	"sync"
 	"testing"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/sqlite"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/postgres"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger"
@@ -27,6 +33,7 @@ type stuff struct {
 func testRound(t *testing.T, driver driver.Driver, cp kvs.ConfigProvider) {
 	kvstore, err := kvs.NewWithConfig(driver, "_default", cp)
 	assert.NoError(t, err)
+	defer kvstore.Stop()
 
 	k1, err := kvs.CreateCompositeKey("k", []string{"1"})
 	assert.NoError(t, err)
@@ -100,6 +107,41 @@ func testRound(t *testing.T, driver driver.Driver, cp kvs.ConfigProvider) {
 	assert.False(t, kvstore.Exists(k))
 }
 
+func testParallelWrites(t *testing.T, driver driver.Driver, cp kvs.ConfigProvider) {
+	kvstore, err := kvs.NewWithConfig(driver, "_default", cp)
+	assert.NoError(t, err)
+	defer kvstore.Stop()
+
+	// different keys
+	wg := sync.WaitGroup{}
+	n := 100
+	wg.Add(n)
+	for i := 0; i < n; i++ {
+		go func(i int) {
+			k1, err := kvs.CreateCompositeKey("parallel_key_1_", []string{fmt.Sprintf("%d", i)})
+			assert.NoError(t, err)
+			err = kvstore.Put(k1, &stuff{"santa", i})
+			assert.NoError(t, err)
+			defer wg.Done()
+		}(i)
+	}
+	wg.Wait()
+
+	// same key
+	wg = sync.WaitGroup{}
+	wg.Add(n)
+	k1, err := kvs.CreateCompositeKey("parallel_key_2_", []string{"1"})
+	assert.NoError(t, err)
+	for i := 0; i < n; i++ {
+		go func(i int) {
+			err = kvstore.Put(k1, &stuff{"santa", 1})
+			assert.NoError(t, err)
+			defer wg.Done()
+		}(i)
+	}
+	wg.Wait()
+}
+
 func TestBadgerKVS(t *testing.T) {
 	path, err := os.MkdirTemp(os.TempDir(), "kvstest-*")
 	assert.NoError(t, err)
@@ -116,10 +158,48 @@ func TestBadgerKVS(t *testing.T) {
 		return nil
 	}
 	cp.IsSetReturns(false)
-	testRound(t, &badger.Driver{}, cp)
+	d := &badger.Driver{}
+	testRound(t, d, cp)
+	testParallelWrites(t, d, cp)
 }
 
 func TestMemoryKVS(t *testing.T) {
 	cp := &mock.ConfigProvider{}
-	testRound(t, &mem.Driver{}, cp)
+	d := &mem.Driver{}
+	testRound(t, d, cp)
+	testParallelWrites(t, d, cp)
+}
+
+func TestSQLiteKVS(t *testing.T) {
+	cp := &mock.ConfigProvider{}
+	d := &sqlite.TestDriver{
+		Name:    "sqlite_test",
+		TempDir: t.TempDir(),
+	}
+	testRound(t, d, cp)
+	testParallelWrites(t, d, cp)
+}
+
+func TestPostgresKVS(t *testing.T) {
+	if os.Getenv("TEST_POSTGRES") != "true" {
+		t.Skip("set environment variable TEST_POSTGRES to true to include postgres test")
+	}
+	if testing.Short() {
+		t.Skip("skipping postgres test in short mode")
+	}
+	t.Log("starting postgres")
+	terminate, pgConnStr, err := postgres.StartPostgres(t, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer terminate()
+	t.Log("postgres ready")
+
+	cp := &mock.ConfigProvider{}
+	d := &postgres.TestDriver{
+		Name:    "hw",
+		ConnStr: pgConnStr,
+	}
+	testRound(t, d, cp)
+	testParallelWrites(t, d, cp)
 }

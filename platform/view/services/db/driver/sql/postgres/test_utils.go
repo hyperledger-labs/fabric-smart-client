@@ -11,8 +11,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"strconv"
 	"time"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/unversioned"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
+	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
@@ -209,4 +217,78 @@ func startPostgresWithLogger(c ContainerConfig, t Logger, printLogs bool) (func(
 			time.Sleep(500 * time.Millisecond)
 		}
 	}
+}
+
+func StartPostgres(t Logger, printLogs bool) (func(), string, error) {
+	port := getEnv("POSTGRES_PORT", "5432")
+	p, err := strconv.Atoi(port)
+	if err != nil {
+		return nil, "", fmt.Errorf("port must be a number: %s", port)
+	}
+
+	c := ContainerConfig{
+		Image:     getEnv("POSTGRES_IMAGE", "postgres:latest"),
+		Container: getEnv("POSTGRES_CONTAINER", "fsc-postgres"),
+		Config: &Config{
+			DBName: getEnv("POSTGRES_DB", "testdb"),
+			User:   getEnv("POSTGRES_USER", "postgres"),
+			Pass:   getEnv("POSTGRES_PASSWORD", "example"),
+			Host:   getEnv("POSTGRES_HOST", "localhost"),
+			Port:   p,
+		},
+	}
+	closeFunc, err := startPostgresWithLogger(c, t, printLogs)
+	if err != nil {
+		return nil, "", err
+	}
+	return closeFunc, c.DataSource(), err
+}
+
+func getEnv(key, fallback string) string {
+	if value, ok := os.LookupEnv(key); ok {
+		return value
+	}
+	return fallback
+}
+
+type dbObject interface {
+	CreateSchema() error
+}
+
+type persistenceConstructor[V dbObject] func(common2.Opts, string) (V, error)
+
+func initPersistence[V dbObject](constructor persistenceConstructor[V], pgConnStr, name string, maxOpenConns int) (V, error) {
+	p, err := constructor(common2.Opts{DataSource: pgConnStr, MaxOpenConns: maxOpenConns}, name)
+	if err != nil {
+		return utils.Zero[V](), err
+	}
+	if err := p.CreateSchema(); err != nil {
+		return utils.Zero[V](), err
+	}
+	return p, nil
+}
+
+type TestDriver struct {
+	Name    string
+	ConnStr string
+}
+
+func (t *TestDriver) NewTransactionalVersioned(dataSourceName string, config driver.Config) (driver.TransactionalVersionedPersistence, error) {
+	return initPersistence(NewPersistence, t.ConnStr, t.Name, 50)
+}
+
+func (t *TestDriver) NewVersioned(dataSourceName string, config driver.Config) (driver.VersionedPersistence, error) {
+	return initPersistence(NewPersistence, t.ConnStr, t.Name, 50)
+}
+
+func (t *TestDriver) NewUnversioned(dataSourceName string, config driver.Config) (driver.UnversionedPersistence, error) {
+	return initPersistence(NewUnversioned, t.ConnStr, t.Name, 50)
+}
+
+func (t *TestDriver) NewTransactionalUnversioned(dataSourceName string, config driver.Config) (driver.TransactionalUnversionedPersistence, error) {
+	p, err := initPersistence(NewPersistence, t.ConnStr, t.Name, 50)
+	if err != nil {
+		return nil, err
+	}
+	return &unversioned.Transactional{TransactionalVersioned: p}, nil
 }

@@ -10,15 +10,16 @@ import (
 	"context"
 	"runtime/debug"
 	"sync"
-
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	"time"
 
 	"github.com/dgraph-io/badger/v3"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
+	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	keys2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/keys"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
-	"github.com/pkg/errors"
 )
 
 const (
@@ -262,15 +263,18 @@ func (db *DB) GetStateMetadata(namespace, key string) (map[string][]byte, uint64
 
 func (db *DB) NewWriteTransaction() (driver.WriteTransaction, error) {
 	txn := db.db.NewTransaction(true)
+	retryRunner := utils.NewRetryRunner(3, 100*time.Millisecond, true)
 	return &WriteTransaction{
-		db:  db.db,
-		txn: txn,
+		db:          db.db,
+		txn:         txn,
+		retryRunner: retryRunner,
 	}, nil
 }
 
 type WriteTransaction struct {
-	db  *badger.DB
-	txn *badger.Txn
+	db          *badger.DB
+	txn         *badger.Txn
+	retryRunner utils.RetryRunner
 }
 
 func (w *WriteTransaction) SetState(namespace driver2.Namespace, key string, value driver.VersionedValue) error {
@@ -302,10 +306,20 @@ func (w *WriteTransaction) SetState(namespace driver2.Namespace, key string, val
 	return nil
 }
 
-func (w *WriteTransaction) Commit() error {
-	err := w.txn.Commit()
+func (w *WriteTransaction) DeleteState(namespace driver2.Namespace, key string) error {
+	dbKey := dbKey(namespace, key)
+
+	err := w.txn.Delete([]byte(dbKey))
 	if err != nil {
-		return errors.Wrap(err, "could not commit transaction")
+		return errors.Wrapf(err, "could not delete value for key %s", dbKey)
+	}
+
+	return nil
+}
+
+func (w *WriteTransaction) Commit() error {
+	if err := w.txn.Commit(); err != nil {
+		return err
 	}
 	w.txn = nil
 	return nil

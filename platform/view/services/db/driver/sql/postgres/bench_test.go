@@ -13,7 +13,7 @@ import (
 )
 
 func BenchmarkReadExistingPostgres(b *testing.B) {
-	terminate, pgConnStr, err := startPostgres(b, false)
+	terminate, pgConnStr, err := StartPostgres(b, false)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -28,7 +28,7 @@ func BenchmarkReadExistingPostgres(b *testing.B) {
 }
 
 func BenchmarkReadNonExistingPostgres(b *testing.B) {
-	terminate, pgConnStr, err := startPostgres(b, false)
+	terminate, pgConnStr, err := StartPostgres(b, false)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -43,7 +43,7 @@ func BenchmarkReadNonExistingPostgres(b *testing.B) {
 }
 
 func BenchmarkWriteOnePostgres(b *testing.B) {
-	terminate, pgConnStr, err := startPostgres(b, false)
+	terminate, pgConnStr, err := StartPostgres(b, false)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -58,7 +58,7 @@ func BenchmarkWriteOnePostgres(b *testing.B) {
 }
 
 func BenchmarkWriteManyPostgres(b *testing.B) {
-	terminate, pgConnStr, err := startPostgres(b, false)
+	terminate, pgConnStr, err := StartPostgres(b, false)
 	if err != nil {
 		b.Fatal(err)
 	}

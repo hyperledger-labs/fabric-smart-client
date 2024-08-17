@@ -15,6 +15,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/postgres"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/sqlite"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/unversioned"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 )
 
@@ -23,13 +24,11 @@ const (
 	SQLite   common.SQLDriverType = "sqlite"
 
 	SQLPersistence driver2.PersistenceType = "sql"
-)
 
-var logger = flogging.MustGetLogger("db.driver.sql")
-
-const (
 	EnvVarKey = "FSC_DB_DATASOURCE"
 )
+
+var logger = flogging.MustGetLogger("view-sdk.services.db.driver.sql")
 
 func NewDriver() driver.NamedDriver {
 	return driver.NamedDriver{
@@ -47,12 +46,12 @@ type dbObject interface {
 
 type persistenceConstructor[V dbObject] func(common.Opts, string) (V, error)
 
-var versionedConstructors = map[common.SQLDriverType]persistenceConstructor[*common.VersionedPersistence]{
+var VersionedConstructors = map[common.SQLDriverType]persistenceConstructor[*common.VersionedPersistence]{
 	Postgres: postgres.NewPersistence,
 	SQLite:   sqlite.NewVersionedPersistence,
 }
 
-var unversionedConstructors = map[common.SQLDriverType]persistenceConstructor[*common.UnversionedPersistence]{
+var UnversionedConstructors = map[common.SQLDriverType]persistenceConstructor[*common.UnversionedPersistence]{
 	Postgres: postgres.NewUnversioned,
 	SQLite:   sqlite.NewUnversionedPersistence,
 }
@@ -61,13 +60,20 @@ func (d *Driver) NewVersioned(dataSourceName string, config driver.Config) (driv
 	return d.NewTransactionalVersioned(dataSourceName, config)
 }
 
-// NewTransactionalVersioned returns a new TransactionalVersionedPersistence for the passed data source and config
 func (d *Driver) NewTransactionalVersioned(dataSourceName string, config driver.Config) (driver.TransactionalVersionedPersistence, error) {
-	return newPersistence(dataSourceName, config, versionedConstructors)
+	return newPersistence(dataSourceName, config, VersionedConstructors)
 }
 
 func (d *Driver) NewUnversioned(dataSourceName string, config driver.Config) (driver.UnversionedPersistence, error) {
-	return newPersistence(dataSourceName, config, unversionedConstructors)
+	return newPersistence(dataSourceName, config, UnversionedConstructors)
+}
+
+func (d *Driver) NewTransactionalUnversioned(dataSourceName string, config driver.Config) (driver.TransactionalUnversionedPersistence, error) {
+	backend, err := d.NewTransactionalVersioned(dataSourceName, config)
+	if err != nil {
+		return nil, err
+	}
+	return &unversioned.Transactional{TransactionalVersioned: backend}, nil
 }
 
 func newPersistence[V dbObject](dataSourceName string, config driver.Config, constructors map[common.SQLDriverType]persistenceConstructor[V]) (V, error) {
@@ -77,6 +83,10 @@ func newPersistence[V dbObject](dataSourceName string, config driver.Config, con
 		return utils.Zero[V](), fmt.Errorf("failed getting options for datasource: %w", err)
 	}
 
+	return NewPersistenceWithOpts(dataSourceName, opts, constructors)
+}
+
+func NewPersistenceWithOpts[V dbObject](dataSourceName string, opts common.Opts, constructors map[common.SQLDriverType]persistenceConstructor[V]) (V, error) {
 	nc, err := common.NewTableNameCreator(opts.TablePrefix)
 	if err != nil {
 		return utils.Zero[V](), err

@@ -22,7 +22,7 @@ import (
 	"golang.org/x/exp/slices"
 )
 
-var logger = flogging.MustGetLogger("db.driver.sql")
+var logger = flogging.MustGetLogger("view-sdk.db.driver.sql")
 
 type scannable interface {
 	Scan(dest ...any) error
@@ -67,24 +67,6 @@ func (db *basePersistence[V, R]) GetStateRangeScanIterator(ns driver2.Namespace,
 	return &readIterator[R]{txs: rows, scanner: db.readScanner}, nil
 }
 
-func rangeWhere(ns, startKey, endKey string) (string, []interface{}) {
-	where := ""
-	args := []interface{}{ns}
-
-	// To match badger behavior, we don't include the endKey
-	if startKey != "" && endKey != "" {
-		where = "AND pkey >= $2 AND pkey < $3"
-		args = []interface{}{ns, startKey, endKey}
-	} else if startKey != "" {
-		where = "AND pkey >= $2"
-		args = []interface{}{ns, startKey}
-	} else if endKey != "" {
-		where = "AND pkey < $2"
-		args = []interface{}{ns, endKey}
-	}
-	return where, args
-}
-
 func (db *basePersistence[V, R]) GetState(namespace driver2.Namespace, key string) (V, error) {
 	query := fmt.Sprintf("SELECT %s FROM %s WHERE ns = $1 AND pkey = $2", strings.Join(db.valueScanner.Columns(), ", "), db.table)
 	logger.Debug(query, namespace, key)
@@ -104,60 +86,6 @@ func (db *basePersistence[V, R]) SetState(ns driver2.Namespace, pkey string, val
 	return db.setState(db.txn, ns, pkey, value)
 }
 
-func (db *basePersistence[V, R]) setState(tx *sql.Tx, ns driver2.Namespace, pkey string, value V) error {
-	keys := db.valueScanner.Columns()
-	values := db.valueScanner.WriteValue(value)
-	// Get rawVal
-	valIndex := slices.Index(keys, "val")
-	val := values[valIndex].([]byte)
-
-	if len(val) == 0 {
-		logger.Warnf("set key [%s:%s] to nil value, will be deleted instead", ns, pkey)
-		return db.DeleteState(ns, pkey)
-	}
-	if tx == nil {
-		panic("programming error, writing without ongoing update")
-	}
-	logger.Debugf("set state [%s,%s]", ns, pkey)
-
-	// Overwrite rawVal
-	val = append([]byte(nil), val...)
-	values[valIndex] = val
-
-	// Portable upsert
-	exists, err := db.exists(tx, ns, pkey)
-	if err != nil {
-		return err
-	}
-
-	if exists {
-		sets := make([]string, len(keys))
-		for i, key := range keys {
-			sets[i] = fmt.Sprintf("%s = $%d", key, i+1)
-		}
-
-		query := fmt.Sprintf("UPDATE %s SET %s WHERE ns = $%d AND pkey = $%d", db.table, strings.Join(sets, ", "), len(keys)+1, len(keys)+2)
-		logger.Debug(query, ns, pkey, len(values))
-
-		_, err := tx.Exec(query, append(values, ns, pkey)...)
-		if err != nil {
-			return errors2.Wrapf(db.errorWrapper.WrapError(err), "could not set val for key [%s]", pkey)
-		}
-	} else {
-		keys = append(keys, "ns", "pkey")
-		values = append(values, ns, pkey)
-		query := fmt.Sprintf("INSERT INTO %s (%s) VALUES %s", db.table, strings.Join(keys, ", "), generateParamSet(1, len(keys)))
-		logger.Debug(query, ns, pkey, len(values))
-
-		_, err := tx.Exec(query, values...)
-		if err != nil {
-			return errors2.Wrapf(db.errorWrapper.WrapError(err), "could not insert [%s]", pkey)
-		}
-	}
-
-	return nil
-}
-
 func (db *basePersistence[V, R]) GetStateSetIterator(ns driver2.Namespace, keys ...string) (collections.Iterator[*R], error) {
 	if len(keys) == 0 {
 		return collections.NewEmptyIterator[*R](), nil
@@ -171,25 +99,6 @@ func (db *basePersistence[V, R]) GetStateSetIterator(ns driver2.Namespace, keys 
 	}
 
 	return &readIterator[R]{txs: rows, scanner: db.readScanner}, nil
-}
-
-func generateParamSet(offset, count int) string {
-	params := make([]string, count)
-	for i := 0; i < count; i++ {
-		params[i] = fmt.Sprintf("$%d", i+offset)
-	}
-	return fmt.Sprintf("(%s)", strings.Join(params, ", "))
-}
-
-func castAny[A any](as []A) []any {
-	if as == nil {
-		return nil
-	}
-	bs := make([]any, len(as))
-	for i, a := range as {
-		bs[i] = a
-	}
-	return bs
 }
 
 func (db *basePersistence[V, R]) Close() error {
@@ -261,20 +170,6 @@ func (db *basePersistence[V, R]) Discard() error {
 	return nil
 }
 
-func (db *basePersistence[V, R]) exists(tx *sql.Tx, ns, key string) (bool, error) {
-	var pkey string
-	query := fmt.Sprintf("SELECT pkey FROM %s WHERE ns = $1 AND pkey = $2", db.table)
-	logger.Debug(query, ns, key)
-	err := tx.QueryRow(query, ns, key).Scan(&pkey)
-	if err == sql.ErrNoRows {
-		return false, nil
-	}
-	if err != nil {
-		return false, errors2.Wrapf(err, "cannot check if key exists: %s", key)
-	}
-	return true, nil
-}
-
 func (db *basePersistence[V, R]) DeleteState(ns, key string) error {
 	if db.txn == nil {
 		panic("programming error, writing without ongoing update")
@@ -291,6 +186,75 @@ func (db *basePersistence[V, R]) DeleteState(ns, key string) error {
 	}
 
 	return nil
+}
+
+func (db *basePersistence[V, R]) setState(tx *sql.Tx, ns driver2.Namespace, pkey string, value V) error {
+	keys := db.valueScanner.Columns()
+	values := db.valueScanner.WriteValue(value)
+	// Get rawVal
+	valIndex := slices.Index(keys, "val")
+	val := values[valIndex].([]byte)
+
+	if len(val) == 0 {
+		logger.Warnf("set key [%s:%s] to nil value, will be deleted instead", ns, pkey)
+		return db.DeleteState(ns, pkey)
+	}
+	if tx == nil {
+		panic("programming error, writing without ongoing update")
+	}
+	logger.Debugf("set state [%s,%s]", ns, pkey)
+
+	// Overwrite rawVal
+	val = append([]byte(nil), val...)
+	values[valIndex] = val
+
+	// Portable upsert
+	exists, err := db.exists(tx, ns, pkey)
+	if err != nil {
+		return err
+	}
+
+	if exists {
+		sets := make([]string, len(keys))
+		for i, key := range keys {
+			sets[i] = fmt.Sprintf("%s = $%d", key, i+1)
+		}
+
+		query := fmt.Sprintf("UPDATE %s SET %s WHERE ns = $%d AND pkey = $%d", db.table, strings.Join(sets, ", "), len(keys)+1, len(keys)+2)
+		logger.Debug(query, ns, pkey, len(values))
+
+		_, err := tx.Exec(query, append(values, ns, pkey)...)
+		if err != nil {
+			return errors2.Wrapf(db.errorWrapper.WrapError(err), "could not set val for key [%s]", pkey)
+		}
+	} else {
+		keys = append(keys, "ns", "pkey")
+		values = append(values, ns, pkey)
+		query := fmt.Sprintf("INSERT INTO %s (%s) VALUES %s", db.table, strings.Join(keys, ", "), generateParamSet(1, len(keys)))
+		logger.Debug(query, ns, pkey, len(values))
+
+		_, err := tx.Exec(query, values...)
+		if err != nil {
+			return errors2.Wrapf(db.errorWrapper.WrapError(err), "could not insert [%s]", pkey)
+		}
+	}
+	logger.Debugf("set state [%s,%s], done", ns, pkey)
+
+	return nil
+}
+
+func (db *basePersistence[V, R]) exists(tx *sql.Tx, ns, key string) (bool, error) {
+	var pkey string
+	query := fmt.Sprintf("SELECT pkey FROM %s WHERE ns = $1 AND pkey = $2", db.table)
+	logger.Debug(query, ns, key)
+	err := tx.QueryRow(query, ns, key).Scan(&pkey)
+	if err == sql.ErrNoRows {
+		return false, nil
+	}
+	if err != nil {
+		return false, errors2.Wrapf(err, "cannot check if key exists: %s", key)
+	}
+	return true, nil
 }
 
 func (db *basePersistence[V, R]) createSchema(query string) error {
@@ -325,4 +289,41 @@ type Opts struct {
 	SkipCreateTable bool
 	SkipPragmas     bool
 	MaxOpenConns    int
+}
+
+func rangeWhere(ns, startKey, endKey string) (string, []interface{}) {
+	where := ""
+	args := []interface{}{ns}
+
+	// To match badger behavior, we don't include the endKey
+	if startKey != "" && endKey != "" {
+		where = "AND pkey >= $2 AND pkey < $3"
+		args = []interface{}{ns, startKey, endKey}
+	} else if startKey != "" {
+		where = "AND pkey >= $2"
+		args = []interface{}{ns, startKey}
+	} else if endKey != "" {
+		where = "AND pkey < $2"
+		args = []interface{}{ns, endKey}
+	}
+	return where, args
+}
+
+func generateParamSet(offset, count int) string {
+	params := make([]string, count)
+	for i := 0; i < count; i++ {
+		params[i] = fmt.Sprintf("$%d", i+offset)
+	}
+	return fmt.Sprintf("(%s)", strings.Join(params, ", "))
+}
+
+func castAny[A any](as []A) []any {
+	if as == nil {
+		return nil
+	}
+	bs := make([]any, len(as))
+	for i, a := range as {
+		bs[i] = a
+	}
+	return bs
 }
