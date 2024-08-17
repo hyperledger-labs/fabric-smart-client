@@ -171,7 +171,7 @@ func (n *Network) CheckTopologyFabricPeers() {
 			ports[portName] = n.Context.ReservePort()
 		}
 		n.Context.SetPortsByPeerID(n.Prefix, p.ID(), ports)
-		n.Context.SetHostByPeerID(n.Prefix, p.ID(), "0.0.0.0")
+		n.Context.SetHostByPeerID(n.Prefix, p.ID(), "127.0.0.1")
 	}
 }
 

@@ -125,8 +125,6 @@ fsc:
       identity:
         path: ./../../crypto/peerOrganizations/fsc.example.com/peers/initiator.fsc.example.com/msp/signcerts/initiator.fsc.example.com-cert.pem
       addresses: 
-         P2P: 127.0.0.1:21001
+        P2P: 127.0.0.1:21001
       aliases: 
         - alice
-
-

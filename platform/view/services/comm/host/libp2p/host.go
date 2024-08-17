@@ -241,7 +241,7 @@ func (h *host) start(failAdv bool, newStreamCallback func(stream host2.P2PStream
 		if failAdv {
 			return errors.Wrap(err, "error while announcing")
 		}
-		logger.Errorf("error while announcing [%s]", err)
+		logger.Warnf("error while announcing [%s]", err)
 	}
 
 	h.Host.SetStreamHandler(viewProtocol, func(s network.Stream) {
