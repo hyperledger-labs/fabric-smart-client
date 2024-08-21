@@ -46,6 +46,7 @@ type basePersistence[V any, R any] struct {
 	readDB     *sql.DB
 	txn        *sql.Tx
 	txnLock    sync.Mutex
+	txLock     sync.Mutex
 	debugStack []byte
 	table      string
 
@@ -116,16 +117,19 @@ func (db *basePersistence[V, R]) Close() error {
 
 func (db *basePersistence[V, R]) BeginUpdate() error {
 	logger.Debugf("begin db transaction [%s]", db.table)
+	db.txLock.Lock()
 	db.txnLock.Lock()
 	defer db.txnLock.Unlock()
 
 	if db.txn != nil {
+		db.txLock.Unlock()
 		logger.Errorf("previous commit in progress, locked by [%s]", db.debugStack)
 		return errors.New("previous commit in progress")
 	}
 
 	tx, err := db.writeDB.Begin()
 	if err != nil {
+		db.txLock.Unlock()
 		return errors2.Wrapf(err, "error starting db transaction")
 	}
 	db.txn = tx
@@ -136,6 +140,7 @@ func (db *basePersistence[V, R]) BeginUpdate() error {
 
 func (db *basePersistence[V, R]) Commit() error {
 	logger.Debugf("commit db transaction [%s]", db.table)
+	defer db.txLock.Unlock()
 	db.txnLock.Lock()
 	defer db.txnLock.Unlock()
 
@@ -160,6 +165,7 @@ func (db *basePersistence[V, R]) Discard() error {
 	if db.txn == nil {
 		return errors.New("no commit in progress")
 	}
+	defer db.txLock.Unlock()
 	err := db.txn.Rollback()
 	db.txn = nil
 	if err != nil {
