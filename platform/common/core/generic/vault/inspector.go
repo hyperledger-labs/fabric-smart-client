@@ -49,6 +49,10 @@ func (i *Inspector) GetState(namespace string, key string, opts ...driver.GetSta
 	return i.Rws.WriteSet.Get(namespace, key), nil
 }
 
+func (i *Inspector) GetDirectState(namespace string, key string) ([]byte, error) {
+	panic("programming error: no access to query executor")
+}
+
 func (i *Inspector) DeleteState(namespace string, key string) error {
 	panic("programming error: the rwset inspector is read-only")
 }

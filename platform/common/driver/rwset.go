@@ -32,6 +32,10 @@ type RWSet interface {
 
 	GetState(namespace string, key string, opts ...GetStateOpt) ([]byte, error)
 
+	// GetDirectState accesses the state using the query executor without looking into the RWSet.
+	// This way we can access the query executor while we have a RWSet already open avoiding nested RLocks.
+	GetDirectState(namespace Namespace, key string) ([]byte, error)
+
 	// DeleteState deletes the given namespace and key
 	DeleteState(namespace string, key string) error
 
