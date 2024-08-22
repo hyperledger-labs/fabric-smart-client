@@ -315,6 +315,14 @@ func (i *Interceptor[V]) GetState(namespace string, key string, opts ...driver.G
 	}
 }
 
+func (i *Interceptor[V]) GetDirectState(namespace driver.Namespace, key string) ([]byte, error) {
+	vv, err := i.QE.GetState(namespace, key)
+	if err != nil {
+		return nil, err
+	}
+	return vv.Raw, nil
+}
+
 func (i *Interceptor[V]) AppendRWSet(raw []byte, nss ...string) error {
 	if i.IsClosed() {
 		return errors.New("this instance was closed")
