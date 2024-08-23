@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package fabric
 
 import (
+	"context"
 	"encoding/json"
 	"strings"
 
@@ -183,5 +184,5 @@ func (c *Vault) DiscardTx(txID string, message string) error {
 }
 
 func (c *Vault) CommitTX(txID string, block driver.BlockNum, indexInBlock driver.TxNum) error {
-	return c.committer.CommitTX(txID, block, indexInBlock, nil)
+	return c.committer.CommitTX(context.Background(), txID, block, indexInBlock, nil)
 }

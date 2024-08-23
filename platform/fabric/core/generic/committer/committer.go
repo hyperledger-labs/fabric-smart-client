@@ -61,7 +61,7 @@ type FabricFinality interface {
 	IsFinal(txID string, address string) error
 }
 
-type TransactionHandler = func(block *common.Block, i uint64, event *FinalityEvent, envRaw []byte, env *common.Envelope, chHdr *common.ChannelHeader) error
+type TransactionHandler = func(ctx context.Context, block *common.Block, i uint64, event *FinalityEvent, envRaw []byte, env *common.Envelope, chHdr *common.ChannelHeader) error
 
 type OrderingService interface {
 	SetConfigOrderers(o channelconfig.Orderer, orderers []*grpc.ConnectionConfig) error
@@ -239,7 +239,7 @@ func (c *Committer) DiscardTx(txID string, message string) error {
 	return nil
 }
 
-func (c *Committer) CommitTX(txID string, block driver.BlockNum, indexInBlock driver.TxNum, envelope *common.Envelope) (err error) {
+func (c *Committer) CommitTX(ctx context.Context, txID string, block driver.BlockNum, indexInBlock driver.TxNum, envelope *common.Envelope) (err error) {
 	c.logger.Debugf("Committing transaction [%s,%d,%d]", txID, block, indexInBlock)
 	defer c.logger.Debugf("Committing transaction [%s,%d,%d] done [%s]", txID, block, indexInBlock, err)
 
@@ -257,9 +257,9 @@ func (c *Committer) CommitTX(txID string, block driver.BlockNum, indexInBlock dr
 		c.logger.Debugf("[%s] is invalid", txID)
 		return errors.Errorf("[%s] is invalid", txID)
 	case driver.Unknown:
-		return c.commitUnknown(txID, block, indexInBlock, envelope)
+		return c.commitUnknown(ctx, txID, block, indexInBlock, envelope)
 	case driver.Busy:
-		return c.commit(txID, block, indexInBlock, envelope)
+		return c.commit(ctx, txID, block, indexInBlock, envelope)
 	default:
 		return errors.Errorf("invalid status code [%d] for [%s]", vc, txID)
 	}
@@ -346,13 +346,15 @@ func (c *Committer) CommitConfig(blockNumber uint64, raw []byte, env *common.Env
 
 // Commit commits the transactions in the block passed as argument
 func (c *Committer) Commit(ctx context.Context, block *common.Block) error {
-	newCtx, span := c.metrics.Commits.Start(ctx, "commit")
+	newCtx, span := c.metrics.Commits.Start(ctx, "commit_block")
 	defer span.End()
 
 	for i, tx := range block.Data.Data {
+		newCtx, span := c.metrics.Commits.Start(newCtx, "commit_tx")
 		span.AddEvent("create_finality_event")
 		env, _, chdr, err := fabricutils.UnmarshalTx(tx)
 		if err != nil {
+			span.End()
 			return errors.Wrapf(err, "[%s] unmarshal tx failed", c.ChannelConfig.ID())
 		}
 
@@ -360,8 +362,10 @@ func (c *Committer) Commit(ctx context.Context, block *common.Block) error {
 		start := time.Now()
 		if handler, ok := c.Handlers[common.HeaderType(chdr.Type)]; !ok {
 			c.logger.Debugf("[%s] Received unhandled transaction type: %s", c.ChannelConfig.ID(), chdr.Type)
+			span.End()
 			continue
-		} else if err := handler(block, uint64(i), &event, tx, env, chdr); err != nil {
+		} else if err := handler(newCtx, block, uint64(i), &event, tx, env, chdr); err != nil {
+			span.End()
 			return errors.Wrapf(err, "failed calling handler for tx [%s]", chdr.TxId)
 		}
 		c.metrics.HandlerDuration.Observe(time.Since(start).Seconds())
@@ -370,6 +374,7 @@ func (c *Committer) Commit(ctx context.Context, block *common.Block) error {
 
 		c.events <- event
 		c.logger.Debugf("commit transaction [%s] in filteredBlock [%d]", event.TxID, block.Header.Number)
+		span.End()
 	}
 
 	return nil
@@ -657,7 +662,7 @@ func (c *Committer) commitConfig(txID string, blockNumber uint64, seq uint64, en
 		return errors.Wrapf(err, "failed setting configtx state in rws")
 	}
 	rws.Done()
-	if err := c.CommitTX(txID, blockNumber, 0, nil); err != nil {
+	if err := c.CommitTX(context.Background(), txID, blockNumber, 0, nil); err != nil {
 		if err2 := c.DiscardTx(txID, err.Error()); err2 != nil {
 			c.logger.Errorf("failed committing configtx rws [%s]", err2)
 		}
@@ -666,7 +671,8 @@ func (c *Committer) commitConfig(txID string, blockNumber uint64, seq uint64, en
 	return nil
 }
 
-func (c *Committer) commit(txID string, block uint64, indexInBlock uint64, envelope *common.Envelope) error {
+func (c *Committer) commit(ctx context.Context, txID string, block uint64, indexInBlock uint64, envelope *common.Envelope) error {
+	span := trace.SpanFromContext(ctx)
 	// This is a normal transaction, validated by Fabric.
 	// Commit it cause Fabric says it is valid.
 	c.logger.Debugf("[%s] committing", txID)
@@ -675,6 +681,7 @@ func (c *Committer) commit(txID string, block uint64, indexInBlock uint64, envel
 	if envelope != nil {
 		c.logger.Debugf("[%s] matching rwsets", txID)
 
+		span.AddEvent("new_tx_from_payload")
 		pt, headerType, err := c.TransactionManager.NewProcessedTransactionFromEnvelopePayload(envelope.Payload)
 		if err != nil && headerType == -1 {
 			c.logger.Errorf("[%s] failed to unmarshal envelope [%s]", txID, err)
@@ -683,9 +690,11 @@ func (c *Committer) commit(txID string, block uint64, indexInBlock uint64, envel
 		if headerType == int32(common.HeaderType_ENDORSER_TRANSACTION) {
 			if !c.Vault.RWSExists(txID) && c.EnvelopeService.Exists(txID) {
 				// Then match rwsets
+				span.AddEvent("extract_stored_env_to_vault")
 				if err := c.extractStoredEnvelopeToVault(txID); err != nil {
 					return errors.WithMessagef(err, "failed to load stored enveloper into the vault")
 				}
+				span.AddEvent("match_rwset")
 				if err := c.Vault.Match(txID, pt.Results()); err != nil {
 					c.logger.Errorf("[%s] rwsets do not match [%s]", txID, err)
 					return errors2.Wrapf(ErrDiscardTX, "[%s] rwsets do not match [%s]", txID, err)
@@ -696,9 +705,11 @@ func (c *Committer) commit(txID string, block uint64, indexInBlock uint64, envel
 				if err != nil {
 					return errors.WithMessagef(err, "failed to store unknown envelope for [%s]", txID)
 				}
+				span.AddEvent("store_env")
 				if err := c.EnvelopeService.StoreEnvelope(txID, envelopeRaw); err != nil {
 					return errors.WithMessagef(err, "failed to store unknown envelope for [%s]", txID)
 				}
+				span.AddEvent("get_rwset_from_evn")
 				rws, _, err := c.RWSetLoaderService.GetRWSetFromEvn(txID)
 				if err != nil {
 					return errors.WithMessagef(err, "failed to get rws from envelope [%s]", txID)
@@ -711,6 +722,7 @@ func (c *Committer) commit(txID string, block uint64, indexInBlock uint64, envel
 	// Post-Processes
 	c.logger.Debugf("[%s] post process rwset", txID)
 
+	span.AddEvent("post_process_tx")
 	if err := c.postProcessTx(txID); err != nil {
 		// This should generate a panic
 		return err
@@ -718,6 +730,7 @@ func (c *Committer) commit(txID string, block uint64, indexInBlock uint64, envel
 
 	// Commit
 	c.logger.Debugf("[%s] commit in vault", txID)
+	span.AddEvent("commit_to_vault")
 	if err := c.Vault.CommitTX(txID, block, indexInBlock); err != nil {
 		// This should generate a panic
 		return err
@@ -726,10 +739,10 @@ func (c *Committer) commit(txID string, block uint64, indexInBlock uint64, envel
 	return nil
 }
 
-func (c *Committer) commitUnknown(txID string, block uint64, indexInBlock uint64, envelope *common.Envelope) error {
+func (c *Committer) commitUnknown(ctx context.Context, txID string, block uint64, indexInBlock uint64, envelope *common.Envelope) error {
 	// if an envelope exists for the passed txID, then commit it
 	if c.EnvelopeService.Exists(txID) {
-		return c.commitStoredEnvelope(txID, block, indexInBlock)
+		return c.commitStoredEnvelope(ctx, txID, block, indexInBlock)
 	}
 
 	var envelopeRaw []byte
@@ -762,16 +775,16 @@ func (c *Committer) commitUnknown(txID string, block uint64, indexInBlock uint64
 		return errors.WithMessagef(err, "failed to get rws from envelope [%s]", txID)
 	}
 	rws.Done()
-	return c.commit(txID, block, indexInBlock, envelope)
+	return c.commit(ctx, txID, block, indexInBlock, envelope)
 }
 
-func (c *Committer) commitStoredEnvelope(txID string, block uint64, indexInBlock uint64) error {
+func (c *Committer) commitStoredEnvelope(ctx context.Context, txID string, block uint64, indexInBlock uint64) error {
 	c.logger.Debugf("found envelope for transaction [%s], committing it...", txID)
 	if err := c.extractStoredEnvelopeToVault(txID); err != nil {
 		return err
 	}
 	// commit
-	return c.commit(txID, block, indexInBlock, nil)
+	return c.commit(ctx, txID, block, indexInBlock, nil)
 }
 
 func (c *Committer) applyBundle(bundle *channelconfig.Bundle) error {

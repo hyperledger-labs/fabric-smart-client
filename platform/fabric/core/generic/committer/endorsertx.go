@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package committer
 
 import (
+	"context"
+
 	errors2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger/fabric-protos-go/common"
@@ -17,7 +19,7 @@ import (
 
 type ValidationFlags []uint8
 
-func (c *Committer) HandleEndorserTransaction(block *common.Block, i uint64, event *FinalityEvent, envRaw []byte, env *common.Envelope, chHdr *common.ChannelHeader) error {
+func (c *Committer) HandleEndorserTransaction(ctx context.Context, block *common.Block, i uint64, event *FinalityEvent, envRaw []byte, env *common.Envelope, chHdr *common.ChannelHeader) error {
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("[%s] EndorserClient transaction received: %s", c.ChannelConfig.ID(), chHdr.TxId)
 	}
@@ -34,7 +36,7 @@ func (c *Committer) HandleEndorserTransaction(block *common.Block, i uint64, eve
 
 	switch pb.TxValidationCode(fabricValidationCode) {
 	case pb.TxValidationCode_VALID:
-		processed, err := c.CommitEndorserTransaction(txID, block, i, env, event)
+		processed, err := c.CommitEndorserTransaction(ctx, txID, block, i, env, event)
 		if err != nil {
 			if errors2.HasCause(err, ErrDiscardTX) {
 				// in this case, we will discard the transaction
@@ -75,7 +77,9 @@ func (c *Committer) GetChaincodeEvents(env *common.Envelope, block *common.Block
 
 // CommitEndorserTransaction commits the transaction to the vault.
 // It returns true, if the transaction was already processed, false otherwise.
-func (c *Committer) CommitEndorserTransaction(txID string, block *common.Block, indexInBlock uint64, env *common.Envelope, event *FinalityEvent) (bool, error) {
+func (c *Committer) CommitEndorserTransaction(ctx context.Context, txID string, block *common.Block, indexInBlock uint64, env *common.Envelope, event *FinalityEvent) (bool, error) {
+	newCtx, span := c.metrics.Commits.Start(ctx, "endorser_tx")
+	defer span.End()
 	blockNum := block.Header.Number
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("transaction [%s] in block [%d] is valid for fabric, commit!", txID, blockNum)
@@ -84,6 +88,7 @@ func (c *Committer) CommitEndorserTransaction(txID string, block *common.Block, 
 	event.Block = blockNum
 	event.IndexInBlock = indexInBlock
 
+	span.AddEvent("fetch_tx_status")
 	vc, _, err := c.Status(txID)
 	if err != nil {
 		return false, errors.Wrapf(err, "failed getting tx's status [%s]", txID)
@@ -104,13 +109,11 @@ func (c *Committer) CommitEndorserTransaction(txID string, block *common.Block, 
 		return true, nil
 	}
 
-	if block != nil {
-		if err := c.CommitTX(event.TxID, event.Block, event.IndexInBlock, env); err != nil {
-			return false, errors.Wrapf(err, "failed committing transaction [%s]", txID)
-		}
-		return false, nil
+	if block == nil {
+		env = nil
 	}
-	if err := c.CommitTX(event.TxID, event.Block, event.IndexInBlock, nil); err != nil {
+	span.AddEvent("commit_tx")
+	if err := c.CommitTX(newCtx, event.TxID, event.Block, event.IndexInBlock, env); err != nil {
 		return false, errors.Wrapf(err, "failed committing transaction [%s]", txID)
 	}
 	return false, nil

@@ -7,12 +7,14 @@ SPDX-License-Identifier: Apache-2.0
 package committer
 
 import (
+	"context"
+
 	"github.com/hyperledger/fabric-protos-go/common"
 	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
 )
 
-func (c *Committer) HandleConfig(block *common.Block, i uint64, event *FinalityEvent, envRaw []byte, env *common.Envelope, chHdr *common.ChannelHeader) error {
+func (c *Committer) HandleConfig(_ context.Context, block *common.Block, i uint64, _ *FinalityEvent, _ []byte, env *common.Envelope, chHdr *common.ChannelHeader) error {
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("[%s] Config transaction received: %s", c.ChannelConfig.ID(), chHdr.TxId)
 	}
