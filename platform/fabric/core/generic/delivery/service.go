@@ -15,6 +15,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger/fabric-protos-go/common"
 	pb "github.com/hyperledger/fabric-protos-go/peer"
+	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace/noop"
 )
 
 type ValidationFlags []uint8
@@ -47,6 +49,7 @@ func NewService(
 	txIDStore driver.TXIDStore,
 	transactionManager driver.TransactionManager,
 	callback Callback,
+	tracerProvider trace.TracerProvider,
 ) (*Service, error) {
 	deliveryService, err := New(
 		networkName,
@@ -59,6 +62,7 @@ func NewService(
 		callback,
 		txIDStore,
 		channelConfig.CommitterWaitForEventTimeout(),
+		tracerProvider,
 	)
 	if err != nil {
 		return nil, err
@@ -98,7 +102,7 @@ func (c *Service) Scan(ctx context.Context, txID string, callback driver.Deliver
 		c.ConfigService,
 		c.PeerManager,
 		c.Ledger,
-		func(block *common.Block) (bool, error) {
+		func(_ context.Context, block *common.Block) (bool, error) {
 			for i, tx := range block.Data.Data {
 				validationCode := ValidationFlags(block.Metadata.Metadata[common.BlockMetadataIndex_TRANSACTIONS_FILTER])[i]
 
@@ -135,6 +139,7 @@ func (c *Service) Scan(ctx context.Context, txID string, callback driver.Deliver
 		},
 		vault,
 		c.channelConfig.CommitterWaitForEventTimeout(),
+		&noop.TracerProvider{},
 	)
 	if err != nil {
 		return err

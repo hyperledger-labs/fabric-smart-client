@@ -313,8 +313,8 @@ func (c *Committer) CommitConfig(blockNumber uint64, raw []byte, env *common.Env
 }
 
 // Commit commits the transactions in the block passed as argument
-func (c *Committer) Commit(block *common.Block) error {
-	ctx, span := c.metrics.Commits.Start(context.Background(), "commit")
+func (c *Committer) Commit(ctx context.Context, block *common.Block) error {
+	newCtx, span := c.metrics.Commits.Start(ctx, "commit")
 	defer span.End()
 	for i, tx := range block.Data.Data {
 
@@ -326,7 +326,7 @@ func (c *Committer) Commit(block *common.Block) error {
 		span.SetAttributes(tracing.Int(HeaderTypeLabel, int(chdr.Type)))
 
 		var event FinalityEvent
-		event.Ctx = ctx
+		event.Ctx = newCtx
 		span.AddEvent("start_tx_handler")
 		handler, ok := c.Handlers[common.HeaderType(chdr.Type)]
 		if ok {
