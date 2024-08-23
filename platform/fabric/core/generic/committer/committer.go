@@ -27,7 +27,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger/fabric-protos-go/common"
 	"github.com/hyperledger/fabric-protos-go/peer"
 	"github.com/hyperledger/fabric/bccsp/factory"
@@ -84,6 +84,8 @@ type Committer struct {
 	metrics            *Metrics
 	TransactionManager driver.TransactionManager
 
+	events chan FinalityEvent
+
 	logger committer.Logger
 
 	// events
@@ -116,6 +118,7 @@ func New(
 	quiet bool,
 	listenerManager driver.ListenerManager,
 	tracerProvider trace.TracerProvider,
+	metricsProvider metrics.Provider,
 ) *Committer {
 	s := &Committer{
 		ConfigService:       configService,
@@ -135,11 +138,12 @@ func New(
 		TransactionManager:  transactionManager,
 		WaitForEventTimeout: waitForEventTimeout,
 		QuietNotifier:       quiet,
-		metrics:             NewMetrics(tracerProvider),
+		metrics:             NewMetrics(tracerProvider, metricsProvider),
 		logger:              logger.Named(fmt.Sprintf("[%s:%s]", configService.NetworkName(), channelConfig.ID())),
 		listeners:           map[string][]chan FinalityEvent{},
 		Handlers:            map[common.HeaderType]TransactionHandler{},
 		pollingTimeout:      1 * time.Second,
+		events:              make(chan FinalityEvent, 2000),
 	}
 	s.Handlers[common.HeaderType_CONFIG] = s.HandleConfig
 	s.Handlers[common.HeaderType_ENDORSER_TRANSACTION] = s.HandleEndorserTransaction
@@ -148,7 +152,35 @@ func New(
 
 func (c *Committer) Start(context context.Context) error {
 	go c.FinalityManager.Run(context)
+	go c.runEventNotifiers(context)
 	return nil
+}
+
+func (c *Committer) runEventNotifiers(context context.Context) {
+	for {
+		select {
+		case <-context.Done():
+			return
+		case event := <-c.events:
+			start := time.Now()
+			c.notifyFinality(event)
+			c.metrics.NotifyFinalityDuration.Observe(time.Since(start).Seconds())
+
+			start = time.Now()
+			c.FinalityManager.Post(event)
+			c.metrics.PostFinalityDuration.Observe(time.Since(start).Seconds())
+
+			start = time.Now()
+			var driverVC driver.ValidationCode
+			if peer.TxValidationCode(event.ValidationCode) == peer.TxValidationCode_VALID {
+				driverVC = driver.Valid
+			} else {
+				driverVC = driver.Invalid
+			}
+			c.notifyTxStatus(event.TxID, driverVC, event.ValidationMessage)
+			c.metrics.NotifyStatusDuration.Observe(time.Since(start).Seconds())
+		}
+	}
 }
 
 func (c *Committer) Status(txID string) (driver.ValidationCode, string, error) {
@@ -316,40 +348,28 @@ func (c *Committer) CommitConfig(blockNumber uint64, raw []byte, env *common.Env
 func (c *Committer) Commit(ctx context.Context, block *common.Block) error {
 	newCtx, span := c.metrics.Commits.Start(ctx, "commit")
 	defer span.End()
-	for i, tx := range block.Data.Data {
 
+	for i, tx := range block.Data.Data {
+		span.AddEvent("create_finality_event")
 		env, _, chdr, err := fabricutils.UnmarshalTx(tx)
 		if err != nil {
-			c.logger.Errorf("[%s] unmarshal tx failed: %s", c.ChannelConfig.ID(), err)
-			return err
+			return errors.Wrapf(err, "[%s] unmarshal tx failed", c.ChannelConfig.ID())
 		}
-		span.SetAttributes(tracing.Int(HeaderTypeLabel, int(chdr.Type)))
 
-		var event FinalityEvent
-		event.Ctx = newCtx
-		span.AddEvent("start_tx_handler")
-		handler, ok := c.Handlers[common.HeaderType(chdr.Type)]
-		if ok {
-			if err := handler(block, uint64(i), &event, tx, env, chdr); err != nil {
-				return err
-			}
-		} else {
+		event := FinalityEvent{Ctx: newCtx}
+		start := time.Now()
+		if handler, ok := c.Handlers[common.HeaderType(chdr.Type)]; !ok {
 			c.logger.Debugf("[%s] Received unhandled transaction type: %s", c.ChannelConfig.ID(), chdr.Type)
+			continue
+		} else if err := handler(block, uint64(i), &event, tx, env, chdr); err != nil {
+			return errors.Wrapf(err, "failed calling handler for tx [%s]", chdr.TxId)
 		}
-		span.AddEvent("end_tx_handler")
+		c.metrics.HandlerDuration.Observe(time.Since(start).Seconds())
 
-		c.notifyFinality(event)
-		c.FinalityManager.Post(event)
+		span.AddEvent("call_finality_notifiers")
 
-		var driverVC driver.ValidationCode
-		if peer.TxValidationCode(event.ValidationCode) == peer.TxValidationCode_VALID {
-			driverVC = driver.Valid
-		} else {
-			driverVC = driver.Invalid
-		}
-		c.notifyTxStatus(event.TxID, driverVC, event.ValidationMessage)
-
-		c.logger.Debugf("commit transaction [%s] in filteredBlock [%d]", chdr.TxId, block.Header.Number)
+		c.events <- event
+		c.logger.Debugf("commit transaction [%s] in filteredBlock [%d]", event.TxID, block.Header.Number)
 	}
 
 	return nil
