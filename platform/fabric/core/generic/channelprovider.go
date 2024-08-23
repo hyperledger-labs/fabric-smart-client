@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package generic
 
 import (
+	"context"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/chaincode"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/delivery"
@@ -149,10 +151,11 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 		channelConfig.CommitterWaitForEventTimeout(),
 		txIDStore,
 		nw.TransactionManager(),
-		func(block *common.Block) (bool, error) {
+		func(ctx context.Context, block *common.Block) (bool, error) {
 			// commit the block, if an error occurs then retry
-			return false, committerService.Commit(block)
+			return false, committerService.Commit(ctx, block)
 		},
+		p.tracerProvider,
 	)
 	if err != nil {
 		return nil, err
