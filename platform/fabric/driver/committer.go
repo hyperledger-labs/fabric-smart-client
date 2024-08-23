@@ -97,5 +97,5 @@ type Committer interface {
 
 	DiscardTx(txID string, message string) error
 
-	CommitTX(txID driver.TxID, block driver.BlockNum, indexInBlock driver.TxNum, envelope *common.Envelope) error
+	CommitTX(ctx context.Context, txID driver.TxID, block driver.BlockNum, indexInBlock driver.TxNum, envelope *common.Envelope) error
 }
