@@ -340,6 +340,7 @@ fabric:
           finality:
             numRetries: 3
             unknownTxTimeout: 100ms
+          parallelism: 3 # maximum go routines to commit at the same time transactions of the same block
         # section about the delivery service
         delivery:
           waitForEventTimeout: 300s

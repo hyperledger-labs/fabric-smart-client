@@ -303,6 +303,10 @@ fabric:
         default: {{ .Default }}
         numRetries: 3
         retrySleep: 1s
+        committer:
+          waitForEventTimeout: 300s
+          pollingTimeout: 100ms
+          parallelism: 5
         chaincodes: {{range Chaincodes .Name }}
           - name: {{ .Chaincode.Name }}
             private: {{ .Private }}

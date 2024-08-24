@@ -10,6 +10,7 @@ import (
 	digutils "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
 	driver3 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/rwset"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/sig"
@@ -43,8 +44,9 @@ func NewChannelProvider(in struct {
 	Drivers                 []driver5.NamedDriver `group:"db-drivers"`
 	ChannelConfigProvider   driver.ChannelConfigProvider
 	ListenerManagerProvider driver.ListenerManagerProvider
+	DependencyResolver      committer.DependencyResolver
 }) channelProviderResult {
-	return channelProviderResult{Provider: generic.NewProvider(in.KVS, in.Publisher, in.Hasher, in.TracerProvider, in.MetricsProvider, in.Drivers, in.ChannelConfigProvider, in.ListenerManagerProvider)}
+	return channelProviderResult{Provider: generic.NewProvider(in.KVS, in.Publisher, in.Hasher, in.TracerProvider, in.MetricsProvider, in.Drivers, in.ChannelConfigProvider, in.ListenerManagerProvider, in.DependencyResolver)}
 }
 
 type ChannelHandlerProviderResult struct {

@@ -36,6 +36,7 @@ import (
 	"github.com/hyperledger/fabric/protoutil"
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
+	"golang.org/x/sync/errgroup"
 )
 
 const (
@@ -61,7 +62,17 @@ type FabricFinality interface {
 	IsFinal(txID string, address string) error
 }
 
-type TransactionHandler = func(ctx context.Context, block *common.Block, i uint64, event *FinalityEvent, envRaw []byte, env *common.Envelope, chHdr *common.ChannelHeader) error
+type CommitTx struct {
+	BlkNum driver2.BlockNum
+	TxNum  driver2.TxNum
+	TxID   driver2.TxID
+	Type   common.HeaderType
+
+	Raw      []byte
+	Envelope *common.Envelope
+}
+
+type TransactionHandler = func(ctx context.Context, block *common.BlockMetadata, tx CommitTx) (*FinalityEvent, error)
 
 type OrderingService interface {
 	SetConfigOrderers(o channelconfig.Orderer, orderers []*grpc.ConnectionConfig) error
@@ -83,6 +94,7 @@ type Committer struct {
 	FabricFinality     FabricFinality
 	metrics            *Metrics
 	TransactionManager driver.TransactionManager
+	DependencyResolver DependencyResolver
 
 	events chan FinalityEvent
 
@@ -92,9 +104,8 @@ type Committer struct {
 	FinalityManager *FinalityManager
 	EventsPublisher events.Publisher
 
-	WaitForEventTimeout time.Duration
-	Handlers            map[common.HeaderType]TransactionHandler
-	QuietNotifier       bool
+	Handlers      map[common.HeaderType]TransactionHandler
+	QuietNotifier bool
 
 	listeners      map[string][]chan FinalityEvent
 	mutex          sync.Mutex
@@ -113,37 +124,37 @@ func New(
 	channelMembershipService *membership.Service,
 	orderingService OrderingService,
 	fabricFinality FabricFinality,
-	waitForEventTimeout time.Duration,
 	transactionManager driver.TransactionManager,
+	dependencyResolver DependencyResolver,
 	quiet bool,
 	listenerManager driver.ListenerManager,
 	tracerProvider trace.TracerProvider,
 	metricsProvider metrics.Provider,
 ) *Committer {
 	s := &Committer{
-		ConfigService:       configService,
-		ChannelConfig:       channelConfig,
-		Vault:               vault,
-		EnvelopeService:     envelopeService,
-		TransactionFilters:  committer.NewAggregatedTransactionFilter(),
-		ProcessNamespaces:   []string{},
-		Ledger:              ledger,
-		RWSetLoaderService:  rwsetLoaderService,
-		ProcessorManager:    processorManager,
-		MembershipService:   channelMembershipService,
-		OrderingService:     orderingService,
-		FinalityManager:     committer.NewFinalityManager[driver.ValidationCode](listenerManager, logger, vault, tracerProvider, channelConfig.FinalityEventQueueWorkers(), driver.Valid, driver.Invalid),
-		EventsPublisher:     eventsPublisher,
-		FabricFinality:      fabricFinality,
-		TransactionManager:  transactionManager,
-		WaitForEventTimeout: waitForEventTimeout,
-		QuietNotifier:       quiet,
-		metrics:             NewMetrics(tracerProvider, metricsProvider),
-		logger:              logger.Named(fmt.Sprintf("[%s:%s]", configService.NetworkName(), channelConfig.ID())),
-		listeners:           map[string][]chan FinalityEvent{},
-		Handlers:            map[common.HeaderType]TransactionHandler{},
-		pollingTimeout:      1 * time.Second,
-		events:              make(chan FinalityEvent, 2000),
+		ConfigService:      configService,
+		ChannelConfig:      channelConfig,
+		Vault:              vault,
+		EnvelopeService:    envelopeService,
+		TransactionFilters: committer.NewAggregatedTransactionFilter(),
+		ProcessNamespaces:  []string{},
+		Ledger:             ledger,
+		RWSetLoaderService: rwsetLoaderService,
+		ProcessorManager:   processorManager,
+		MembershipService:  channelMembershipService,
+		OrderingService:    orderingService,
+		FinalityManager:    committer.NewFinalityManager[driver.ValidationCode](listenerManager, logger, vault, tracerProvider, channelConfig.FinalityEventQueueWorkers(), driver.Valid, driver.Invalid),
+		EventsPublisher:    eventsPublisher,
+		FabricFinality:     fabricFinality,
+		TransactionManager: transactionManager,
+		DependencyResolver: dependencyResolver,
+		QuietNotifier:      quiet,
+		metrics:            NewMetrics(tracerProvider, metricsProvider),
+		logger:             logger.Named(fmt.Sprintf("[%s:%s]", configService.NetworkName(), channelConfig.ID())),
+		listeners:          map[string][]chan FinalityEvent{},
+		Handlers:           map[common.HeaderType]TransactionHandler{},
+		pollingTimeout:     1 * time.Second,
+		events:             make(chan FinalityEvent, 2000),
 	}
 	s.Handlers[common.HeaderType_CONFIG] = s.HandleConfig
 	s.Handlers[common.HeaderType_ENDORSER_TRANSACTION] = s.HandleEndorserTransaction
@@ -349,35 +360,64 @@ func (c *Committer) Commit(ctx context.Context, block *common.Block) error {
 	newCtx, span := c.metrics.Commits.Start(ctx, "commit_block")
 	defer span.End()
 
-	for i, tx := range block.Data.Data {
-		newCtx, span := c.metrics.Commits.Start(newCtx, "commit_tx")
-		span.AddEvent("create_finality_event")
-		env, _, chdr, err := fabricutils.UnmarshalTx(tx)
-		if err != nil {
-			span.End()
-			return errors.Wrapf(err, "[%s] unmarshal tx failed", c.ChannelConfig.ID())
-		}
-
-		event := FinalityEvent{Ctx: newCtx}
-		start := time.Now()
-		if handler, ok := c.Handlers[common.HeaderType(chdr.Type)]; !ok {
-			c.logger.Debugf("[%s] Received unhandled transaction type: %s", c.ChannelConfig.ID(), chdr.Type)
-			span.End()
-			continue
-		} else if err := handler(newCtx, block, uint64(i), &event, tx, env, chdr); err != nil {
-			span.End()
-			return errors.Wrapf(err, "failed calling handler for tx [%s]", chdr.TxId)
-		}
-		c.metrics.HandlerDuration.Observe(time.Since(start).Seconds())
-
-		span.AddEvent("call_finality_notifiers")
-
-		c.events <- event
-		c.logger.Debugf("commit transaction [%s] in filteredBlock [%d]", event.TxID, block.Header.Number)
-		span.End()
+	txs, err := unmarshalTxs(block)
+	if err != nil {
+		return errors.Wrapf(err, "[%s] unmarshal tx failed", c.ChannelConfig.ID())
 	}
 
-	return nil
+	resolvedTxs := c.DependencyResolver.Resolve(txs)
+
+	return c.commitTxs(newCtx, resolvedTxs, block.Metadata)
+}
+
+func (c *Committer) commitTxs(ctx context.Context, parallelizableTxGroups ParallelExecutable[SerialExecutable[CommitTx]], blockMetadata *common.BlockMetadata) error {
+	var eg errgroup.Group
+	eg.SetLimit(c.ChannelConfig.CommitParallelism())
+	for _, txGroup := range parallelizableTxGroups {
+		txs := txGroup
+		eg.Go(func() error {
+			for _, tx := range txs {
+				newCtx, span := c.metrics.Commits.Start(ctx, "commit_tx")
+				span.AddEvent("create_finality_event")
+
+				start := time.Now()
+				if handler, ok := c.Handlers[tx.Type]; !ok {
+					c.logger.Debugf("[%s] Received unhandled transaction type: %s", c.ChannelConfig.ID(), tx.Type)
+					span.End()
+				} else if event, err := handler(newCtx, blockMetadata, tx); err != nil {
+					span.End()
+					return errors.Wrapf(err, "failed calling handler for tx [%s]", tx.TxID)
+				} else {
+					c.logger.Debugf("commit transaction [%s] in filteredBlock [%d]", event.TxID, tx.BlkNum)
+					c.metrics.HandlerDuration.Observe(time.Since(start).Seconds())
+					span.AddEvent("call_finality_notifiers")
+					c.events <- *event
+					span.End()
+				}
+			}
+			return nil
+		})
+	}
+	return eg.Wait()
+}
+
+func unmarshalTxs(block *common.Block) ([]CommitTx, error) {
+	txs := make([]CommitTx, len(block.Data.Data))
+	for i, tx := range block.Data.Data {
+		env, _, chdr, err := fabricutils.UnmarshalTx(tx)
+		if err != nil {
+			return nil, errors.Wrapf(err, "unmarshal tx failed")
+		}
+		txs[i] = CommitTx{
+			BlkNum:   block.Header.Number,
+			TxNum:    uint64(i),
+			TxID:     chdr.TxId,
+			Type:     common.HeaderType(chdr.Type),
+			Raw:      tx,
+			Envelope: env,
+		}
+	}
+	return txs, nil
 }
 
 // IsFinal takes in input a transaction id and waits for its confirmation
@@ -428,7 +468,7 @@ func (c *Committer) IsFinal(ctx context.Context, txID string) error {
 
 	c.logger.Debugf("Tx [%s] start listening...", txID)
 	// Listen to the event
-	return c.listenTo(ctx, txID, c.WaitForEventTimeout)
+	return c.listenTo(ctx, txID, c.ChannelConfig.CommitterWaitForEventTimeout())
 }
 
 func (c *Committer) GetProcessNamespace() []string {

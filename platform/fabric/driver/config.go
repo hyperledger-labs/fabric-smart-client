@@ -52,6 +52,7 @@ type ChannelConfig interface {
 	CommitterFinalityUnknownTXTimeout() time.Duration
 	CommitterWaitForEventTimeout() time.Duration
 	DeliverySleepAfterFailure() time.Duration
+	CommitParallelism() int
 	ChaincodeConfigs() []ChaincodeConfig
 	GetNumRetries() uint
 	GetRetrySleep() time.Duration

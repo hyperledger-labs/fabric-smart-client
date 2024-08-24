@@ -36,12 +36,12 @@ type Provider interface {
 	NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver.Channel, error)
 }
 
-func NewProvider(kvss *kvs.KVS, publisher events.Publisher, hasher hash.Hasher, tracerProvider trace.TracerProvider, metricsProvider metrics.Provider, drivers []driver2.NamedDriver, channelConfigProvider driver.ChannelConfigProvider, listenerManagerProvider driver.ListenerManagerProvider) Provider {
-	return NewProviderWithVault(kvss, publisher, hasher, tracerProvider, metricsProvider, drivers, vault.New, channelConfigProvider, listenerManagerProvider)
+func NewProvider(kvss *kvs.KVS, publisher events.Publisher, hasher hash.Hasher, tracerProvider trace.TracerProvider, metricsProvider metrics.Provider, drivers []driver2.NamedDriver, channelConfigProvider driver.ChannelConfigProvider, listenerManagerProvider driver.ListenerManagerProvider, dependencyResolver committer.DependencyResolver) Provider {
+	return NewProviderWithVault(kvss, publisher, hasher, tracerProvider, metricsProvider, drivers, vault.New, channelConfigProvider, listenerManagerProvider, dependencyResolver)
 }
 
-func NewProviderWithVault(kvss *kvs.KVS, publisher events.Publisher, hasher hash.Hasher, tracerProvider trace.TracerProvider, metricsProvider metrics.Provider, drivers []driver2.NamedDriver, newVault VaultConstructor, channelConfigProvider driver.ChannelConfigProvider, listenerManagerProvider driver.ListenerManagerProvider) *provider {
-	return &provider{kvss: kvss, publisher: publisher, hasher: hasher, newVault: newVault, tracerProvider: tracerProvider, metricsProvider: metricsProvider, drivers: drivers, channelConfigProvider: channelConfigProvider, listenerManagerProvider: listenerManagerProvider}
+func NewProviderWithVault(kvss *kvs.KVS, publisher events.Publisher, hasher hash.Hasher, tracerProvider trace.TracerProvider, metricsProvider metrics.Provider, drivers []driver2.NamedDriver, newVault VaultConstructor, channelConfigProvider driver.ChannelConfigProvider, listenerManagerProvider driver.ListenerManagerProvider, dependencyResolver committer.DependencyResolver) *provider {
+	return &provider{kvss: kvss, publisher: publisher, hasher: hasher, newVault: newVault, tracerProvider: tracerProvider, metricsProvider: metricsProvider, drivers: drivers, channelConfigProvider: channelConfigProvider, listenerManagerProvider: listenerManagerProvider, dependencyResolver: dependencyResolver}
 }
 
 type provider struct {
@@ -51,6 +51,7 @@ type provider struct {
 	newVault                VaultConstructor
 	tracerProvider          trace.TracerProvider
 	metricsProvider         metrics.Provider
+	dependencyResolver      committer.DependencyResolver
 	drivers                 []driver2.NamedDriver
 	channelConfigProvider   driver.ChannelConfigProvider
 	listenerManagerProvider driver.ListenerManagerProvider
@@ -127,8 +128,8 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 		channelMembershipService,
 		nw.(*Network),
 		fabricFinality,
-		channelConfig.CommitterWaitForEventTimeout(),
 		nw.TransactionManager(),
+		p.dependencyResolver,
 		quiet,
 		p.listenerManagerProvider.NewManager(),
 		p.tracerProvider,
