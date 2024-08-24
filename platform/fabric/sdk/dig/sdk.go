@@ -19,6 +19,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic"
+	committer2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/config"
 	finality2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/finality"
@@ -70,6 +71,7 @@ func (p *SDK) Install() error {
 		p.Container().Provide(fabric.NewNetworkServiceProvider),
 		p.Container().Provide(vault.NewService, dig.As(new(state.VaultService))),
 		p.Container().Provide(NewEndorserTransactionHandlerProvider),
+		p.Container().Provide(committer2.NewSerialDependencyResolver, dig.As(new(committer2.DependencyResolver))),
 	)
 	if err != nil {
 		return err

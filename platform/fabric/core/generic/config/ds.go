@@ -122,6 +122,7 @@ type Committer struct {
 	WaitForEventTimeout time.Duration     `yaml:"WaitForEventTimeout,omitempty"`
 	PollingTimeout      time.Duration     `yaml:"PollingTimeout,omitempty"`
 	Finality            CommitterFinality `yaml:"Finality,omitempty"`
+	Parallelism         int               `yaml:"Parallelism,omitempty"`
 }
 
 type Channel struct {
@@ -154,6 +155,10 @@ func (c *Channel) DiscoveryDefaultTTLS() time.Duration {
 		return 5 * time.Minute
 	}
 	return c.Discovery.Timeout
+}
+
+func (c *Channel) CommitParallelism() int {
+	return max(c.Committer.Parallelism, 1)
 }
 
 func (c *Channel) CommitterPollingTimeout() time.Duration {
