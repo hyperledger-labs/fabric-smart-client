@@ -155,6 +155,7 @@ integration-tests-orioncars:
 .PHONY: tidy
 tidy:
 	@go mod tidy
+	cd tools; go mod tidy
 
 .PHONY: clean
 clean:
