@@ -173,6 +173,7 @@ func (c *Committer) runEventNotifiers(context context.Context) {
 		case <-context.Done():
 			return
 		case event := <-c.events:
+			c.metrics.EventQueueLength.Add(-1)
 			start := time.Now()
 			c.notifyFinality(event)
 			c.metrics.NotifyFinalityDuration.Observe(time.Since(start).Seconds())
@@ -371,6 +372,7 @@ func (c *Committer) Commit(ctx context.Context, block *common.Block) error {
 }
 
 func (c *Committer) commitTxs(ctx context.Context, parallelizableTxGroups ParallelExecutable[SerialExecutable[CommitTx]], blockMetadata *common.BlockMetadata) error {
+	start := time.Now()
 	var eg errgroup.Group
 	eg.SetLimit(c.ChannelConfig.CommitParallelism())
 	for _, txGroup := range parallelizableTxGroups {
@@ -383,22 +385,29 @@ func (c *Committer) commitTxs(ctx context.Context, parallelizableTxGroups Parall
 				start := time.Now()
 				if handler, ok := c.Handlers[tx.Type]; !ok {
 					c.logger.Debugf("[%s] Received unhandled transaction type: %s", c.ChannelConfig.ID(), tx.Type)
+					c.metrics.HandlerDuration.With("status", "not_found").Observe(time.Since(start).Seconds())
 					span.End()
 				} else if event, err := handler(newCtx, blockMetadata, tx); err != nil {
 					span.End()
+					c.metrics.HandlerDuration.With("status", "failure").Observe(time.Since(start).Seconds())
 					return errors.Wrapf(err, "failed calling handler for tx [%s]", tx.TxID)
 				} else {
 					c.logger.Debugf("commit transaction [%s] in filteredBlock [%d]", event.TxID, tx.BlkNum)
-					c.metrics.HandlerDuration.Observe(time.Since(start).Seconds())
 					span.AddEvent("call_finality_notifiers")
+					c.metrics.HandlerDuration.With("status", "successful").Observe(time.Since(start).Seconds())
+					start := time.Now()
 					c.events <- *event
+					c.metrics.EventQueueDuration.Observe(time.Since(start).Seconds())
+					c.metrics.EventQueueLength.Add(1)
 					span.End()
 				}
 			}
 			return nil
 		})
 	}
-	return eg.Wait()
+	err := eg.Wait()
+	c.metrics.BlockCommitDuration.Observe(time.Since(start).Seconds())
+	return err
 }
 
 func unmarshalTxs(block *common.Block) ([]CommitTx, error) {

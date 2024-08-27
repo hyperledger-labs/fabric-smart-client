@@ -160,6 +160,7 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 			return false, committerService.Commit(ctx, block)
 		},
 		p.tracerProvider,
+		p.metricsProvider,
 	)
 	if err != nil {
 		return nil, err

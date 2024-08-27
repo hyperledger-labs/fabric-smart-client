@@ -13,6 +13,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/fabricutils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 	"github.com/hyperledger/fabric-protos-go/common"
 	pb "github.com/hyperledger/fabric-protos-go/peer"
 	"go.opentelemetry.io/otel/trace"
@@ -50,6 +52,7 @@ func NewService(
 	transactionManager driver.TransactionManager,
 	callback Callback,
 	tracerProvider trace.TracerProvider,
+	metricsProvider metrics.Provider,
 ) (*Service, error) {
 	deliveryService, err := New(
 		networkName,
@@ -63,6 +66,7 @@ func NewService(
 		txIDStore,
 		channelConfig.CommitterWaitForEventTimeout(),
 		tracerProvider,
+		metricsProvider,
 	)
 	if err != nil {
 		return nil, err
@@ -140,6 +144,7 @@ func (c *Service) Scan(ctx context.Context, txID string, callback driver.Deliver
 		vault,
 		c.channelConfig.CommitterWaitForEventTimeout(),
 		&noop.TracerProvider{},
+		&disabled.Provider{},
 	)
 	if err != nil {
 		return err
