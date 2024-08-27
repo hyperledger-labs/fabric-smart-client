@@ -24,6 +24,27 @@ var ErrMaxRetriesExceeded = errors.New("maximum number of retries exceeded")
 
 const Infinitely = -1
 
+type typedRetryRunner[V any] struct {
+	*retryRunner
+}
+
+func NewTypedRetryRunner[V any](maxTimes int, delay time.Duration, expBackoff bool) *typedRetryRunner[V] {
+	return &typedRetryRunner[V]{retryRunner: NewRetryRunner(maxTimes, delay, expBackoff)}
+}
+
+func (r *typedRetryRunner[V]) Run(runner func() (V, error)) (V, error) {
+	var result V
+	var err = r.retryRunner.Run(func() error {
+		if v, e := runner(); e != nil {
+			return e
+		} else {
+			result = v
+			return nil
+		}
+	})
+	return result, err
+}
+
 type retryRunner struct {
 	delay        time.Duration
 	interval     int64
