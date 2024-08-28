@@ -156,6 +156,8 @@ integration-tests-orioncars:
 tidy:
 	@go mod tidy
 	cd tools; go mod tidy
+	cd integration/fabric/weaver/relay/chaincode; go mod tidy
+	cd platform/fabric/services/state/cc/query; go mod tidy
 
 .PHONY: clean
 clean:
