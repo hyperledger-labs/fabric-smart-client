@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package orion
 
 import (
+	"context"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	"github.com/pkg/errors"
 )
@@ -36,7 +38,7 @@ type Vault interface {
 	GetLastTxID() (string, error)
 	NewRWSet(txid string) (*RWSet, error)
 	GetRWSet(id string, results []byte) (*RWSet, error)
-	CommitTX(txid string, block driver.BlockNum, indexInBloc driver.TxNum) error
+	CommitTX(ctx context.Context, txid string, block driver.BlockNum, indexInBloc driver.TxNum) error
 }
 
 // vault models a key-value store that can be updated by committing rwsets

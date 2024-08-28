@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package driver
 
 import (
+	"context"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 )
 
@@ -60,5 +62,5 @@ type Vault[V comparable] interface {
 	// If no error occurs, invoking Status on the same transaction id will return the Invalid flag.
 	DiscardTx(txID TxID, message string) error
 
-	CommitTX(txID TxID, block BlockNum, index TxNum) error
+	CommitTX(ctx context.Context, txID TxID, block BlockNum, index TxNum) error
 }

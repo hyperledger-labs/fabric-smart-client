@@ -183,6 +183,6 @@ func (c *Vault) DiscardTx(txID string, message string) error {
 	return c.committer.DiscardTx(txID, message)
 }
 
-func (c *Vault) CommitTX(txID string, block driver.BlockNum, indexInBlock driver.TxNum) error {
-	return c.committer.CommitTX(context.Background(), txID, block, indexInBlock, nil)
+func (c *Vault) CommitTX(ctx context.Context, txID string, block driver.BlockNum, indexInBlock driver.TxNum) error {
+	return c.committer.CommitTX(ctx, txID, block, indexInBlock, nil)
 }

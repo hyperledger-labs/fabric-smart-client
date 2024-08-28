@@ -780,7 +780,7 @@ func (c *Committer) commit(ctx context.Context, txID string, block uint64, index
 	// Commit
 	c.logger.Debugf("[%s] commit in vault", txID)
 	span.AddEvent("commit_to_vault")
-	if err := c.Vault.CommitTX(txID, block, indexInBlock); err != nil {
+	if err := c.Vault.CommitTX(ctx, txID, block, indexInBlock); err != nil {
 		// This should generate a panic
 		return err
 	}

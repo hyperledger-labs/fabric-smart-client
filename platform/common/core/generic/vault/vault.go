@@ -8,12 +8,14 @@ package vault
 
 import (
 	"bytes"
+	"context"
 	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/atomic"
 )
 
@@ -87,6 +89,7 @@ type Vault[V driver.ValidationCode] struct {
 
 	newInterceptor NewInterceptorFunc[V]
 	populator      Populator
+	metrics        *Metrics
 }
 
 // New returns a new instance of Vault
@@ -97,6 +100,7 @@ func New[V driver.ValidationCode](
 	vcProvider driver.ValidationCodeProvider[V],
 	newInterceptor NewInterceptorFunc[V],
 	populator Populator,
+	tracerProvider trace.TracerProvider,
 ) *Vault[V] {
 	return &Vault[V]{
 		logger:         logger,
@@ -106,6 +110,7 @@ func New[V driver.ValidationCode](
 		vcProvider:     vcProvider,
 		newInterceptor: newInterceptor,
 		populator:      populator,
+		metrics:        NewMetrics(tracerProvider),
 	}
 }
 
@@ -177,8 +182,11 @@ func (db *Vault[V]) UnmapInterceptor(txID driver.TxID) (TxInterceptor, error) {
 	return i, nil
 }
 
-func (db *Vault[V]) CommitTX(txID driver.TxID, block driver.BlockNum, indexInBloc driver.TxNum) error {
+func (db *Vault[V]) CommitTX(ctx context.Context, txID driver.TxID, block driver.BlockNum, indexInBloc driver.TxNum) error {
+	newCtx, span := db.metrics.Vault.Start(ctx, "commit")
+	defer span.End()
 	db.logger.Debugf("UnmapInterceptor [%s]", txID)
+	span.AddEvent("unmap_interceptor")
 	i, err := db.UnmapInterceptor(txID)
 	if err != nil {
 		return errors.Wrapf(err, "failed to unmap interceptor for [%s]", txID)
@@ -190,11 +198,12 @@ func (db *Vault[V]) CommitTX(txID driver.TxID, block driver.BlockNum, indexInBlo
 
 	db.logger.Debugf("[%s] commit in vault", txID)
 	for {
-		err := db.commitRWs(txID, block, indexInBloc, rws)
+		err := db.commitRWs(newCtx, txID, block, indexInBloc, rws)
 		if err == nil {
 			return nil
 		}
 		if !errors.HasCause(err, DeadlockDetected) {
+			span.RecordError(err)
 			// This should generate a panic
 			return err
 		}
@@ -202,15 +211,19 @@ func (db *Vault[V]) CommitTX(txID driver.TxID, block driver.BlockNum, indexInBlo
 	}
 }
 
-func (db *Vault[V]) commitRWs(txID driver.TxID, block driver.BlockNum, indexInBloc driver.TxNum, rws *ReadWriteSet) error {
+func (db *Vault[V]) commitRWs(ctx context.Context, txID driver.TxID, block driver.BlockNum, indexInBloc driver.TxNum, rws *ReadWriteSet) error {
+	span := trace.SpanFromContext(ctx)
+	span.AddEvent("commit_rws")
 	db.logger.Debugf("get lock [%s][%d]", txID, db.counter.Load())
 	db.storeLock.Lock()
 	defer db.storeLock.Unlock()
 
+	span.AddEvent("begin_update")
 	if err := db.store.BeginUpdate(); err != nil {
 		return errors.Wrapf(err, "begin update in store for txid '%s' failed", txID)
 	}
 
+	span.AddEvent("set_tx_busy")
 	if err := db.txIDStore.Set(txID, db.vcProvider.Busy(), ""); err != nil {
 		if !errors.HasCause(err, UniqueKeyViolation) {
 			return err
@@ -218,7 +231,8 @@ func (db *Vault[V]) commitRWs(txID driver.TxID, block driver.BlockNum, indexInBl
 	}
 
 	db.logger.Debugf("parse writes [%s]", txID)
-	if discarded, err := db.storeWrites(rws.Writes, block, uint64(indexInBloc)); err != nil {
+	span.AddEvent("store_writes")
+	if discarded, err := db.storeWrites(ctx, rws.Writes, block, indexInBloc); err != nil {
 		return errors.Wrapf(err, "failed storing writes")
 	} else if discarded {
 		db.logger.Infof("Discarded changes while storing writes as duplicates. Skipping...")
@@ -227,7 +241,8 @@ func (db *Vault[V]) commitRWs(txID driver.TxID, block driver.BlockNum, indexInBl
 	}
 
 	db.logger.Debugf("parse meta writes [%s]", txID)
-	if discarded, err := db.storeMetaWrites(rws.MetaWrites, block, uint64(indexInBloc)); err != nil {
+	span.AddEvent("store_meta_writes")
+	if discarded, err := db.storeMetaWrites(ctx, rws.MetaWrites, block, indexInBloc); err != nil {
 		return errors.Wrapf(err, "failed storing meta writes")
 	} else if discarded {
 		db.logger.Infof("Discarded changes while storing meta writes as duplicates. Skipping...")
@@ -236,6 +251,7 @@ func (db *Vault[V]) commitRWs(txID driver.TxID, block driver.BlockNum, indexInBl
 	}
 
 	db.logger.Debugf("set state to valid [%s]", txID)
+	span.AddEvent("set_tx_valid")
 	if discarded, err := db.setTxValid(txID); err != nil {
 		return errors.Wrapf(err, "failed setting tx state to valid")
 	} else if discarded {
@@ -243,6 +259,7 @@ func (db *Vault[V]) commitRWs(txID driver.TxID, block driver.BlockNum, indexInBl
 		return nil
 	}
 
+	span.AddEvent("commit_update")
 	if err := db.store.Commit(); err != nil {
 		return errors.Wrapf(err, "committing tx for txid in store '%s' failed", txID)
 	}
@@ -267,12 +284,14 @@ func (db *Vault[V]) setTxValid(txID driver.TxID) (bool, error) {
 	return true, nil
 }
 
-func (db *Vault[V]) storeMetaWrites(writes NamespaceKeyedMetaWrites, block driver.BlockNum, indexInBloc driver.TxNum) (bool, error) {
+func (db *Vault[V]) storeMetaWrites(ctx context.Context, writes NamespaceKeyedMetaWrites, block driver.BlockNum, indexInBloc driver.TxNum) (bool, error) {
+	span := trace.SpanFromContext(ctx)
 	for ns, keyMap := range writes {
 		for key, v := range keyMap {
 			db.logger.Debugf("Store meta write [%s,%s]", ns, key)
 
-			if err := db.store.SetStateMetadata(ns, key, v, block, uint64(indexInBloc)); err != nil {
+			span.AddEvent("set_tx_metadata_state")
+			if err := db.store.SetStateMetadata(ns, key, v, block, indexInBloc); err != nil {
 				if err1 := db.store.Discard(); err1 != nil {
 					db.logger.Errorf("got error %s; discarding caused %s", err.Error(), err1.Error())
 				}
@@ -288,14 +307,17 @@ func (db *Vault[V]) storeMetaWrites(writes NamespaceKeyedMetaWrites, block drive
 	return false, nil
 }
 
-func (db *Vault[V]) storeWrites(writes Writes, block driver.BlockNum, indexInBloc driver.TxNum) (bool, error) {
+func (db *Vault[V]) storeWrites(ctx context.Context, writes Writes, block driver.BlockNum, indexInBloc driver.TxNum) (bool, error) {
+	span := trace.SpanFromContext(ctx)
 	for ns, keyMap := range writes {
 		for key, v := range keyMap {
 			db.logger.Debugf("Store write [%s,%s,%v]", ns, key, hash.Hashable(v).String())
 			var err error
 			if len(v) != 0 {
+				span.AddEvent("set_tx_state")
 				err = db.store.SetState(ns, key, VersionedValue{Raw: v, Block: block, TxNum: indexInBloc})
 			} else {
+				span.AddEvent("delete_tx_state")
 				err = db.store.DeleteState(ns, key)
 			}
 

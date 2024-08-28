@@ -16,6 +16,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db"
 	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/stretchr/testify/assert"
+	"go.opentelemetry.io/otel/trace/noop"
 	"golang.org/x/exp/slices"
 )
 
@@ -30,7 +31,7 @@ func (p *artifactsProvider) NewCachedVault(ddb VersionedPersistence) (*Vault, er
 	if err != nil {
 		return nil, err
 	}
-	return NewVault(ddb, txidstore.NewCache(txidStore, secondcache.NewTyped[*txidstore.Entry](100), logger)), nil
+	return NewVault(ddb, txidstore.NewCache(txidStore, secondcache.NewTyped[*txidstore.Entry](100), logger), &noop.TracerProvider{}), nil
 }
 
 func (p *artifactsProvider) NewNonCachedVault(ddb VersionedPersistence) (*Vault, error) {
@@ -38,7 +39,7 @@ func (p *artifactsProvider) NewNonCachedVault(ddb VersionedPersistence) (*Vault,
 	if err != nil {
 		return nil, err
 	}
-	return NewVault(ddb, txidstore.NewNoCache(txidStore)), nil
+	return NewVault(ddb, txidstore.NewNoCache(txidStore), &noop.TracerProvider{}), nil
 }
 
 func (p *artifactsProvider) NewMarshaller() vault.Marshaller {

@@ -19,6 +19,7 @@ import (
 	db2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/stretchr/testify/assert"
+	"go.opentelemetry.io/otel/trace/noop"
 	"golang.org/x/exp/slices"
 )
 
@@ -39,6 +40,7 @@ func (p *testArtifactProvider) NewCachedVault(ddb VersionedPersistence) (*Vault[
 		&VCProvider{},
 		newInterceptor,
 		&populator{},
+		&noop.TracerProvider{},
 	), nil
 }
 
@@ -54,6 +56,7 @@ func (p *testArtifactProvider) NewNonCachedVault(ddb VersionedPersistence) (*Vau
 		&VCProvider{},
 		newInterceptor,
 		&populator{},
+		&noop.TracerProvider{},
 	), nil
 }
 

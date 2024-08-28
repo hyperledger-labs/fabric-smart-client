@@ -135,7 +135,7 @@ func NewNetwork(ctx context.Context, kvss *kvs.KVS, eventsPublisher events.Publi
 		return nil, errors.Wrapf(err, "failed creating vault")
 	}
 
-	n.vault, err = NewVault(n, persistence)
+	n.vault, err = NewVault(n, persistence, tracerProvider)
 	if err != nil {
 		return nil, errors.WithMessage(err, "failed to create vault")
 	}
