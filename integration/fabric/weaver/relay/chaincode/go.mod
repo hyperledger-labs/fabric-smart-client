@@ -1,6 +1,6 @@
 module github.com/hyperledger-labs/fabric-smart-client/integration/fabric/weaver/relay/chaincode
 
-go 1.22.3
+go 1.22.6
 
 require (
 	github.com/hyperledger/fabric-contract-api-go v1.2.2
