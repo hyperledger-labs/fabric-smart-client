@@ -18,6 +18,7 @@ import (
 	"github.com/hyperledger/fabric-protos-go/ledger/rwset/kvrwset"
 	"github.com/hyperledger/fabric/core/ledger/kvledger/txmgmt/rwsetutil"
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type (
@@ -36,7 +37,7 @@ func NewTXIDStore(persistence txidstore.UnversionedPersistence) (*SimpleTXIDStor
 }
 
 // NewVault returns a new instance of Vault
-func NewVault(store vault.VersionedPersistence, txIDStore TXIDStore) *Vault {
+func NewVault(store vault.VersionedPersistence, txIDStore TXIDStore, tracerProvider trace.TracerProvider) *Vault {
 	return vault.New[fdriver.ValidationCode](
 		flogging.MustGetLogger("fabric-sdk.generic.vault"),
 		store,
@@ -44,6 +45,7 @@ func NewVault(store vault.VersionedPersistence, txIDStore TXIDStore) *Vault {
 		&fdriver.ValidationCodeProvider{},
 		newInterceptor,
 		&populator{},
+		tracerProvider,
 	)
 }
 

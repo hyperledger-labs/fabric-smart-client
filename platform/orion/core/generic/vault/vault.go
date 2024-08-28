@@ -15,6 +15,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/orion-server/pkg/types"
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type (
@@ -29,7 +30,7 @@ func NewSimpleTXIDStore(persistence txidstore.UnversionedPersistence) (*SimpleTX
 }
 
 // New returns a new instance of Vault
-func New(store vault.VersionedPersistence, txIDStore TXIDStore) *Vault {
+func New(store vault.VersionedPersistence, txIDStore TXIDStore, tracerProvider trace.TracerProvider) *Vault {
 	return vault.New[odriver.ValidationCode](
 		flogging.MustGetLogger("orion-sdk.generic.vault"),
 		store,
@@ -37,6 +38,7 @@ func New(store vault.VersionedPersistence, txIDStore TXIDStore) *Vault {
 		&odriver.ValidationCodeProvider{},
 		newInterceptor,
 		&populator{},
+		tracerProvider,
 	)
 }
 

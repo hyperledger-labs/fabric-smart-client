@@ -14,11 +14,12 @@ import (
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel/trace"
 )
 
 var logger = flogging.MustGetLogger("fabric-sdk.core.vault")
 
-func New(configService driver.ConfigService, channel string, drivers []driver2.NamedDriver) (*Vault, driver.TXIDStore, error) {
+func New(configService driver.ConfigService, channel string, drivers []driver2.NamedDriver, tracerProvider trace.TracerProvider) (*Vault, driver.TXIDStore, error) {
 	var d driver2.Driver
 	for _, driver := range drivers {
 		if driver.Name == configService.VaultPersistenceType() {
@@ -49,10 +50,10 @@ func New(configService driver.ConfigService, channel string, drivers []driver2.N
 	if txIDStoreCacheSize > 0 {
 		logger.Debugf("creating txID store second cache with size [%d]", txIDStoreCacheSize)
 		c := txidstore.NewCache(txidStore, secondcache.NewTyped[*txidstore.Entry](txIDStoreCacheSize), logger)
-		return NewVault(persistence, c), c, nil
+		return NewVault(persistence, c, tracerProvider), c, nil
 	} else {
 		logger.Debugf("txID store without cache selected")
 		c := txidstore.NewNoCache(txidStore)
-		return NewVault(persistence, c), c, nil
+		return NewVault(persistence, c, tracerProvider), c, nil
 	}
 }

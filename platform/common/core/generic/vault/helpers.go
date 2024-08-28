@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package vault
 
 import (
+	"context"
 	"testing"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
@@ -106,7 +107,7 @@ func TTestInterceptorErr(t *testing.T, ddb VersionedPersistence, vp artifactsPro
 	rws, err = vault1.NewRWSet("validtxid")
 	assert.NoError(t, err)
 	rws.Done()
-	err = vault1.CommitTX("validtxid", 2, 3)
+	err = vault1.CommitTX(context.TODO(), "validtxid", 2, 3)
 	assert.NoError(t, err)
 	rws, err = vault1.NewRWSet("validtxid")
 	assert.NoError(t, err)
@@ -194,8 +195,8 @@ func TTestParallelVaults(t *testing.T, ddb VersionedPersistence, vp artifactsPro
 	assert.Zero(t, txNum)
 	assert.Zero(t, blkNum)
 
-	assert.NoError(t, vault1.CommitTX(txID, 1, 2))
-	assert.NoError(t, vault2.CommitTX(txID, 1, 2))
+	assert.NoError(t, vault1.CommitTX(context.TODO(), txID, 1, 2))
+	assert.NoError(t, vault2.CommitTX(context.TODO(), txID, 1, 2))
 
 	val, mval, txNum, blkNum, err = queryVault(vault1, ns, k, mk)
 	assert.NoError(t, err)
@@ -235,7 +236,7 @@ func TTestDeadlock(t *testing.T, ddb VersionedPersistence, vp artifactsProvider)
 	assert.Zero(t, txNum)
 	assert.Zero(t, blkNum)
 
-	assert.NoError(t, vault1.CommitTX(txID, 1, 2))
+	assert.NoError(t, vault1.CommitTX(context.TODO(), txID, 1, 2))
 	assert.Zero(t, deadlockDB.failures, "failed 3 times because of deadlock")
 
 	val, mval, txNum, blkNum, err = queryVault(vault1, ns, k, mk)
@@ -443,7 +444,7 @@ func TTestShardLikeCommit(t *testing.T, ddb VersionedPersistence, vp artifactsPr
 	assert.Equal(t, busy, code)
 
 	// we're now asked to really commit
-	err = aVault.CommitTX("txid-valid", 38, 10)
+	err = aVault.CommitTX(context.TODO(), "txid-valid", 38, 10)
 	assert.NoError(t, err)
 
 	// check the status, it should be valid
@@ -467,7 +468,7 @@ func TTestShardLikeCommit(t *testing.T, ddb VersionedPersistence, vp artifactsPr
 func TTestVaultErr(t *testing.T, ddb VersionedPersistence, vp artifactsProvider) {
 	vault1, err := vp.NewNonCachedVault(ddb)
 	assert.NoError(t, err)
-	err = vault1.CommitTX("non-existent", 0, 0)
+	err = vault1.CommitTX(context.TODO(), "non-existent", 0, 0)
 	assert.ErrorContains(t, err, "read-write set for txid non-existent could not be found")
 	err = vault1.DiscardTx("non-existent", "")
 	assert.EqualError(t, err, "read-write set for txid non-existent could not be found")
@@ -489,7 +490,7 @@ func TTestVaultErr(t *testing.T, ddb VersionedPersistence, vp artifactsProvider)
 	assert.EqualError(t, err, "duplicate read-write set for txid not-closed")
 	_, err = vault1.GetRWSet("not-closed", rwsBytes)
 	assert.EqualError(t, err, "programming error: previous read-write set for not-closed has not been closed")
-	err = vault1.CommitTX("not-closed", 0, 0)
+	err = vault1.CommitTX(context.TODO(), "not-closed", 0, 0)
 	assert.ErrorContains(t, err, "attempted to retrieve read-write set for not-closed when done has not been called")
 	err = vault1.DiscardTx("not-closed", "")
 	assert.EqualError(t, err, "attempted to retrieve read-write set for not-closed when done has not been called")
@@ -1041,9 +1042,9 @@ func TTestRun(t *testing.T, db1, db2 VersionedPersistence, vp artifactsProvider)
 	compare(t, ns, db1, db2)
 
 	// we commit it in both
-	err = vault1.CommitTX(txid, 35, 2)
+	err = vault1.CommitTX(context.TODO(), txid, 35, 2)
 	assert.NoError(t, err)
-	err = vault2.CommitTX(txid, 35, 2)
+	err = vault2.CommitTX(context.TODO(), txid, 35, 2)
 	assert.NoError(t, err)
 
 	// all Interceptors should be gone

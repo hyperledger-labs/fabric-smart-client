@@ -51,7 +51,7 @@ type Vault interface {
 	SetStatus(txID string, code driver.ValidationCode) error
 	Statuses(ids ...string) ([]driver.TxValidationStatus, error)
 	DiscardTx(txID string, message string) error
-	CommitTX(txid string, block driver.BlockNum, indexInBloc driver.TxNum) error
+	CommitTX(ctx context.Context, txid string, block driver.BlockNum, indexInBloc driver.TxNum) error
 }
 
 type ProcessorManager interface {
@@ -179,7 +179,7 @@ func (c *committer) Commit(block *types.AugmentedBlockHeader) error {
 }
 
 func (c *committer) CommitTX(ctx context.Context, txID string, bn driver.BlockNum, index driver.TxNum, event *TxEvent) error {
-	_, span := c.txTracer.Start(ctx, "tx_commit",
+	newCtx, span := c.txTracer.Start(ctx, "tx_commit",
 		tracing.WithAttributes(tracing.String(txIdLabel, txID)))
 	defer span.End()
 	logger.Debugf("transaction [%s] in block [%d] is valid for orion", txID, bn)
@@ -212,7 +212,7 @@ func (c *committer) CommitTX(ctx context.Context, txID string, bn driver.BlockNu
 
 	// commit
 	span.AddEvent("commit_to_vault")
-	if err := c.vault.CommitTX(txID, bn, index); err != nil {
+	if err := c.vault.CommitTX(newCtx, txID, bn, index); err != nil {
 		return errors.WithMessagef(err, "failed to commit tx %s", txID)
 	}
 
