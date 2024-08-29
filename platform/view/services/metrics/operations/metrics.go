@@ -10,8 +10,8 @@ import (
 	"strings"
 	"sync"
 
-	log2 "github.com/go-kit/kit/log"
 	kitstatsd "github.com/go-kit/kit/metrics/statsd"
+	log2 "github.com/go-kit/log"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/prometheus"
