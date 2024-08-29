@@ -10,7 +10,6 @@ import (
 	"fmt"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/config"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/endpoint"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/id"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"

@@ -22,8 +22,9 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/identity"
 	committer2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/dig/fns"
+	generic2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/dig/generic"
 	finality2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/finality"
-	generic2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/generic"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/endpoint"
@@ -62,7 +63,7 @@ func (p *SDK) Install() error {
 		p.Container().Provide(committer.NewFinalityListenerManagerProvider[driver.ValidationCode], dig.As(new(driver.ListenerManagerProvider))),
 		p.Container().Provide(generic2.NewDriver, dig.Group("drivers")),
 		p.Container().Provide(finality2.NewHandler, dig.Group("finality-handlers")),
-		p.Container().Provide(generic2.NewFSNProvider),
+		p.Container().Provide(fns.NewProvider),
 		p.Container().Provide(digutils.Identity[*core.FSNProvider](), dig.As(new(driver.FabricNetworkServiceProvider))),
 		p.Container().Provide(digutils.Identity[*endpoint.Service](), dig.As(new(identity.EndpointService))),
 		p.Container().Provide(fabric.NewNetworkServiceProvider),

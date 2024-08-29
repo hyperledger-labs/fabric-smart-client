@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package driver
 
 import (
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -51,5 +50,5 @@ type ChannelMembership interface {
 	GetMSPIDs() []string
 	MSPManager() MSPManager
 	IsValid(identity view.Identity) error
-	GetVerifier(identity view.Identity) (driver.Verifier, error)
+	GetVerifier(identity view.Identity) (Verifier, error)
 }

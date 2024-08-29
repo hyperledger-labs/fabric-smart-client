@@ -4,46 +4,35 @@ Copyright IBM Corp All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package generic
+package fabricdev
 
 import (
-	"context"
-
+	"github.com/hyperledger-labs/fabric-smart-client/docs/fabric/fabricdev/core/fabricdev/ledger"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/chaincode"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/delivery"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/finality"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/ledger"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/membership"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/rwset"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger/fabric-protos-go/common"
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
 )
 
-type VaultConstructor = func(configService driver.ConfigService, channel string, drivers []driver2.NamedDriver, tracerProvider trace.TracerProvider) (*vault.Vault, driver.TXIDStore, error)
-
-type ChannelProvider interface {
-	NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver.Channel, error)
-}
-
 type provider struct {
 	kvss                    *kvs.KVS
 	publisher               events.Publisher
 	hasher                  hash.Hasher
-	newVault                VaultConstructor
+	newVault                generic.VaultConstructor
 	tracerProvider          trace.TracerProvider
-	metricsProvider         metrics.Provider
-	dependencyResolver      committer.DependencyResolver
 	drivers                 []driver2.NamedDriver
 	channelConfigProvider   driver.ChannelConfigProvider
 	listenerManagerProvider driver.ListenerManagerProvider
@@ -55,7 +44,7 @@ func NewChannelProvider(
 	hasher hash.Hasher,
 	tracerProvider trace.TracerProvider,
 	drivers []driver2.NamedDriver,
-	newVault VaultConstructor,
+	newVault generic.VaultConstructor,
 	channelConfigProvider driver.ChannelConfigProvider,
 	listenerManagerProvider driver.ListenerManagerProvider,
 ) *provider {
@@ -84,7 +73,7 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 	}
 
 	// Vault
-	vault, txIDStore, err := p.newVault(nw.ConfigService(), channelName, p.drivers, p.tracerProvider)
+	vault, txIDStore, err := p.newVault(nw.ConfigService(), channelName, p.drivers)
 	if err != nil {
 		return nil, err
 	}
@@ -127,13 +116,7 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 		channelMembershipService,
 	)
 
-	ledgerService := ledger.New(
-		channelName,
-		chaincodeManagerService,
-		nw.LocalMembership(),
-		nw.ConfigService(),
-		nw.TransactionManager(),
-	)
+	ledgerService := ledger.New()
 
 	committerService := committer.New(
 		nw.ConfigService(),
@@ -147,12 +130,11 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 		channelMembershipService,
 		networkOrderingService,
 		fabricFinality,
+		channelConfig.CommitterWaitForEventTimeout(),
 		nw.TransactionManager(),
-		p.dependencyResolver,
 		quiet,
 		p.listenerManagerProvider.NewManager(),
 		p.tracerProvider,
-		p.metricsProvider,
 	)
 	if err != nil {
 		return nil, err
@@ -174,18 +156,16 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 		channelConfig.CommitterWaitForEventTimeout(),
 		txIDStore,
 		nw.TransactionManager(),
-		func(ctx context.Context, block *common.Block) (bool, error) {
+		func(block *common.Block) (bool, error) {
 			// commit the block, if an error occurs then retry
-			return false, committerService.Commit(ctx, block)
+			return false, committerService.Commit(block)
 		},
-		p.tracerProvider,
-		p.metricsProvider,
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	c := &Channel{
+	c := &generic.Channel{
 		ChannelConfig:            channelConfig,
 		ConfigService:            nw.ConfigService(),
 		ChannelName:              channelName,
