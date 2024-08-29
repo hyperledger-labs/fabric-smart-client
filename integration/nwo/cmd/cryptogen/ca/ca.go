@@ -9,7 +9,6 @@ package ca
 import (
 	"crypto"
 	"crypto/ecdsa"
-	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/x509"
@@ -103,7 +102,11 @@ func NewCA(
 	subject.CommonName = name
 
 	template.Subject = subject
-	template.SubjectKeyId = computeSKI(priv)
+	ski, err := computeSKI(priv)
+	if err != nil {
+		return nil, err
+	}
+	template.SubjectKeyId = ski
 
 	x509Cert, err := genCertificateECDSA(
 		baseDir,
@@ -261,13 +264,17 @@ func (ca *CA) SignCertificate(baseDir, name string, orgUnits, alternateNames []s
 }
 
 // compute Subject Key Identifier
-func computeSKI(privKey *ecdsa.PrivateKey) []byte {
+func computeSKI(privKey *ecdsa.PrivateKey) ([]byte, error) {
 	// Marshall the public key
-	raw := elliptic.Marshal(privKey.Curve, privKey.PublicKey.X, privKey.PublicKey.Y)
+	pk, err := privKey.PublicKey.ECDH()
+	if err != nil {
+		return nil, err
+	}
+	raw := pk.Bytes()
 
 	// Hash it
 	hash := sha256.Sum256(raw)
-	return hash[:]
+	return hash[:], nil
 }
 
 // default template for X509 subject
