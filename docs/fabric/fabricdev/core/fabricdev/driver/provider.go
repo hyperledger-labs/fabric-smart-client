@@ -9,19 +9,25 @@ package driver
 import (
 	"fmt"
 
+	"github.com/hyperledger-labs/fabric-smart-client/docs/fabric/fabricdev/core/fabricdev"
 	"github.com/hyperledger-labs/fabric-smart-client/docs/fabric/fabricdev/core/fabricdev/transaction"
+	"github.com/hyperledger-labs/fabric-smart-client/docs/fabric/fabricdev/core/fabricdev/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/identity"
-	metrics2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/metrics"
+	gmetrics "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/sig"
-	driver3 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
+	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	vdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
+	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
+	"go.opentelemetry.io/otel/trace"
 )
 
 var logger = flogging.MustGetLogger("fabric-sdk.core.generic.driver")
@@ -35,25 +41,37 @@ type Provider struct {
 	sigService          *sig.Service
 	identityLoaders     map[string]driver.IdentityLoader
 	deserializerManager driver.DeserializerManager
-	idProvider          driver2.IdentityProvider
+	idProvider          vdriver.IdentityProvider
 	kvss                *kvs.KVS
 }
 
 func NewProvider(
 	configProvider config.Provider,
-	channelProvider generic.ChannelProvider,
-	identityProvider identity.Provider,
 	metricsProvider metrics.Provider,
-	endpointService driver.BinderService,
+	endpointService identity.EndpointService,
 	sigService *sig.Service,
 	deserializerManager driver.DeserializerManager,
-	idProvider driver2.IdentityProvider,
+	idProvider vdriver.IdentityProvider,
 	kvss *kvs.KVS,
+	publisher events.Publisher,
+	hasher hash.Hasher,
+	TracerProvider trace.TracerProvider,
+	Drivers []dbdriver.NamedDriver,
+	ListenerManagerProvider fdriver.ListenerManagerProvider,
 ) *Provider {
 	return &Provider{
-		configProvider:      configProvider,
-		channelProvider:     channelProvider,
-		identityProvider:    identityProvider,
+		configProvider: configProvider,
+		channelProvider: fabricdev.NewChannelProvider(
+			kvss,
+			publisher,
+			hasher,
+			TracerProvider,
+			Drivers,
+			vault.New,
+			generic.NewChannelConfigProvider(configProvider),
+			ListenerManagerProvider,
+		),
+		identityProvider:    identity.NewProvider(configProvider, endpointService),
 		metricsProvider:     metricsProvider,
 		endpointService:     endpointService,
 		sigService:          sigService,
@@ -68,7 +86,7 @@ func (d *Provider) RegisterIdentityLoader(typ string, loader driver.IdentityLoad
 	d.identityLoaders[typ] = loader
 }
 
-func (d *Provider) New(network string, _ bool) (driver3.FabricNetworkService, error) {
+func (d *Provider) New(network string, _ bool) (fdriver.FabricNetworkService, error) {
 	logger.Debugf("creating new fabric network service for network [%s]", network)
 
 	idProvider, err := d.identityProvider.New(network)
@@ -106,7 +124,7 @@ func (d *Provider) New(network string, _ bool) (driver3.FabricNetworkService, er
 		idProvider,
 		mspService,
 		d.sigService,
-		metrics2.NewMetrics(d.metricsProvider),
+		gmetrics.NewMetrics(d.metricsProvider),
 		d.channelProvider.NewChannel,
 	)
 	if err != nil {
