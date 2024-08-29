@@ -10,7 +10,6 @@ import (
 	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	api2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/hyperledger/fabric/common/channelconfig"
 	"github.com/hyperledger/fabric/msp"
@@ -47,7 +46,7 @@ func (c *Service) IsValid(identity view.Identity) error {
 	return id.Validate()
 }
 
-func (c *Service) GetVerifier(identity view.Identity) (api2.Verifier, error) {
+func (c *Service) GetVerifier(identity view.Identity) (driver.Verifier, error) {
 	id, err := c.Resources().MSPManager().DeserializeIdentity(identity)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed deserializing identity [%s]", identity.String())

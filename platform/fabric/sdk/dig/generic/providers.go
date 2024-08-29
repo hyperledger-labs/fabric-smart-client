@@ -10,13 +10,14 @@ import (
 	digutils "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic"
+	driver4 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/config"
-	driver4 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/identity"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
 	driver3 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/rwset"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/sig"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	driver5 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
@@ -43,14 +44,6 @@ func NewEndorserTransactionHandlerProvider() ChannelHandlerProviderResult {
 
 type RWSetPayloadHandlerProvider = digutils.HandlerProvider[common.HeaderType, func(network, channel string, v driver.RWSetInspector) driver.RWSetPayloadHandler]
 
-func NewFSNProvider(in struct {
-	dig.In
-	ConfigService driver2.ConfigService
-	Drivers       []core.NamedDriver `group:"drivers"`
-}) (*core.FSNProvider, error) {
-	return core.NewFabricNetworkServiceProvider(in.ConfigService, in.Drivers)
-}
-
 func NewDriver(in struct {
 	dig.In
 	ConfigProvider          config.Provider
@@ -76,6 +69,7 @@ func NewDriver(in struct {
 				in.Hasher,
 				in.TracerProvider,
 				in.Drivers,
+				vault.New,
 				generic.NewChannelConfigProvider(in.ConfigProvider),
 				in.ListenerManagerProvider,
 			),
