@@ -18,12 +18,12 @@ import (
 	digutils "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/config"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/identity"
 	committer2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/config"
 	finality2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/finality"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/identity"
+	generic2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/generic"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/endpoint"
@@ -59,18 +59,15 @@ func (p *SDK) Install() error {
 	err := errors.Join(
 		p.Container().Provide(config.NewCore),
 		p.Container().Provide(config.NewProvider),
-		p.Container().Provide(NewChannelProvider),
 		p.Container().Provide(committer.NewFinalityListenerManagerProvider[driver.ValidationCode], dig.As(new(driver.ListenerManagerProvider))),
-		p.Container().Provide(generic.NewChannelConfigProvider, dig.As(new(driver.ChannelConfigProvider))),
-		p.Container().Provide(NewDriver, dig.Group("drivers")),
+		p.Container().Provide(generic2.NewDriver, dig.Group("drivers")),
 		p.Container().Provide(finality2.NewHandler, dig.Group("finality-handlers")),
-		p.Container().Provide(identity.NewProvider),
-		p.Container().Provide(NewFSNProvider),
+		p.Container().Provide(generic2.NewFSNProvider),
 		p.Container().Provide(digutils.Identity[*core.FSNProvider](), dig.As(new(driver.FabricNetworkServiceProvider))),
 		p.Container().Provide(digutils.Identity[*endpoint.Service](), dig.As(new(identity.EndpointService))),
 		p.Container().Provide(fabric.NewNetworkServiceProvider),
 		p.Container().Provide(vault.NewService, dig.As(new(state.VaultService))),
-		p.Container().Provide(NewEndorserTransactionHandlerProvider),
+		p.Container().Provide(generic2.NewEndorserTransactionHandlerProvider),
 		p.Container().Provide(committer2.NewSerialDependencyResolver, dig.As(new(committer2.DependencyResolver))),
 	)
 	if err != nil {
@@ -108,6 +105,33 @@ func (p *SDK) Start(ctx context.Context) error {
 	if err := p.Container().Invoke(func(fnsProvider *core.FSNProvider) { p.fnsProvider = fnsProvider }); err != nil {
 		return err
 	}
+	return nil
+}
+
+func (p *SDK) PostStart(ctx context.Context) error {
+	if err := p.SDK.PostStart(ctx); err != nil {
+		return err
+	}
+
+	if !p.FabricEnabled() {
+		logger.Infof("Fabric platform not enabled, skipping start")
+		return p.SDK.PostStart(ctx)
+	}
+	if p.fnsProvider == nil {
+		return errors.New("no fabric network provider found")
+	}
+
+	if err := p.fnsProvider.Start(ctx); err != nil {
+		return e.Wrapf(err, "failed starting fabric network service provider")
+	}
+
+	go func() {
+		<-ctx.Done()
+		if err := p.fnsProvider.Stop(); err != nil {
+			logger.Errorf("failed stopping fabric network service provider [%s]", err)
+		}
+	}()
+
 	return nil
 }
 
@@ -161,38 +185,11 @@ func registerProcessorsForDrivers(in struct {
 	return nil
 }
 
-func (p *SDK) PostStart(ctx context.Context) error {
-	if err := p.SDK.PostStart(ctx); err != nil {
-		return err
-	}
-
-	if !p.FabricEnabled() {
-		logger.Infof("Fabric platform not enabled, skipping start")
-		return p.SDK.PostStart(ctx)
-	}
-	if p.fnsProvider == nil {
-		return errors.New("no fabric network provider found")
-	}
-
-	if err := p.fnsProvider.Start(ctx); err != nil {
-		return e.Wrapf(err, "failed starting fabric network service provider")
-	}
-
-	go func() {
-		<-ctx.Done()
-		if err := p.fnsProvider.Stop(); err != nil {
-			logger.Errorf("failed stopping fabric network service provider [%s]", err)
-		}
-	}()
-
-	return nil
-}
-
 func registerRWSetLoaderHandlerProviders(in struct {
 	dig.In
 	FSNProvider      *core.FSNProvider
 	CoreConfig       *core.Config
-	HandlerProviders []RWSetPayloadHandlerProvider `group:"handler-providers"`
+	HandlerProviders []generic2.RWSetPayloadHandlerProvider `group:"handler-providers"`
 }) error {
 	for _, network := range in.CoreConfig.Names() {
 		fsn, err := in.FSNProvider.FabricNetworkService(network)

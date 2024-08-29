@@ -9,14 +9,15 @@ package driver
 import (
 	"fmt"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/config"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/identity"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic"
 	metrics2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/sig"
 	driver3 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/config"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/identity"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
@@ -30,7 +31,7 @@ type Provider struct {
 	identityProvider    identity.Provider
 	metricsProvider     metrics.Provider
 	endpointService     driver.BinderService
-	channelProvider     generic.Provider
+	channelProvider     generic.ChannelProvider
 	sigService          *sig.Service
 	identityLoaders     map[string]driver.IdentityLoader
 	deserializerManager driver.DeserializerManager
@@ -38,7 +39,17 @@ type Provider struct {
 	kvss                *kvs.KVS
 }
 
-func NewProvider(configProvider config.Provider, channelProvider generic.Provider, identityProvider identity.Provider, metricsProvider metrics.Provider, endpointService driver.BinderService, sigService *sig.Service, deserializerManager driver.DeserializerManager, idProvider driver2.IdentityProvider, kvss *kvs.KVS) *Provider {
+func NewProvider(
+	configProvider config.Provider,
+	channelProvider generic.ChannelProvider,
+	identityProvider identity.Provider,
+	metricsProvider metrics.Provider,
+	endpointService driver.BinderService,
+	sigService *sig.Service,
+	deserializerManager driver.DeserializerManager,
+	idProvider driver2.IdentityProvider,
+	kvss *kvs.KVS,
+) *Provider {
 	return &Provider{
 		configProvider:      configProvider,
 		channelProvider:     channelProvider,

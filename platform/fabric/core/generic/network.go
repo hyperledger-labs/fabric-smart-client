@@ -44,7 +44,15 @@ type Network struct {
 	ChannelMutex sync.RWMutex
 }
 
-func NewNetwork(name string, config driver.ConfigService, idProvider driver.IdentityProvider, localMembership driver.LocalMembership, sigService driver.SignerService, metrics *metrics.Metrics, newChannel NewChannelFunc) (*Network, error) {
+func NewNetwork(
+	name string,
+	config driver.ConfigService,
+	idProvider driver.IdentityProvider,
+	localMembership driver.LocalMembership,
+	sigService driver.SignerService,
+	metrics *metrics.Metrics,
+	newChannel NewChannelFunc,
+) (*Network, error) {
 	return &Network{
 		name:            name,
 		configService:   config,
