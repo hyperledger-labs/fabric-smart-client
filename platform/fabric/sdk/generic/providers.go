@@ -4,20 +4,20 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package sdk
+package generic
 
 import (
 	digutils "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/config"
+	driver4 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/identity"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
 	driver3 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/rwset"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/sig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/config"
-	driver4 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/identity"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	driver5 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
@@ -28,26 +28,6 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/dig"
 )
-
-type channelProviderResult struct {
-	dig.Out
-	generic.Provider `name:"generic"`
-}
-
-func NewChannelProvider(in struct {
-	dig.In
-	KVS                     *kvs.KVS
-	Publisher               events.Publisher
-	Hasher                  hash.Hasher
-	TracerProvider          trace.TracerProvider
-	MetricsProvider         metrics.Provider
-	Drivers                 []driver5.NamedDriver `group:"db-drivers"`
-	ChannelConfigProvider   driver.ChannelConfigProvider
-	ListenerManagerProvider driver.ListenerManagerProvider
-	DependencyResolver      committer.DependencyResolver
-}) channelProviderResult {
-	return channelProviderResult{Provider: generic.NewProvider(in.KVS, in.Publisher, in.Hasher, in.TracerProvider, in.MetricsProvider, in.Drivers, in.ChannelConfigProvider, in.ListenerManagerProvider, in.DependencyResolver)}
-}
 
 type ChannelHandlerProviderResult struct {
 	dig.Out
@@ -73,19 +53,40 @@ func NewFSNProvider(in struct {
 
 func NewDriver(in struct {
 	dig.In
-	ChannelProvider     generic.Provider `name:"generic"`
-	ConfigProvider      config.Provider
-	IdentityProvider    identity.Provider
-	MetricsProvider     metrics.Provider
-	EndpointService     driver2.EndpointService
-	SigService          *sig.Service
-	DeserializerManager driver3.DeserializerManager
-	IdProvider          driver2.IdentityProvider
-	KVS                 *kvs.KVS
+	ConfigProvider          config.Provider
+	MetricsProvider         metrics.Provider
+	EndpointService         driver2.EndpointService
+	SigService              *sig.Service
+	DeserializerManager     driver3.DeserializerManager
+	IdProvider              driver2.IdentityProvider
+	KVS                     *kvs.KVS
+	Publisher               events.Publisher
+	Hasher                  hash.Hasher
+	TracerProvider          trace.TracerProvider
+	Drivers                 []driver5.NamedDriver `group:"db-drivers"`
+	ListenerManagerProvider driver.ListenerManagerProvider
 }) core.NamedDriver {
 	d := core.NamedDriver{
-		Name:   "generic",
-		Driver: driver4.NewProvider(in.ConfigProvider, in.ChannelProvider, in.IdentityProvider, in.MetricsProvider, in.EndpointService, in.SigService, in.DeserializerManager, in.IdProvider, in.KVS),
+		Name: "generic",
+		Driver: driver4.NewProvider(
+			in.ConfigProvider,
+			generic.NewChannelProvider(
+				in.KVS,
+				in.Publisher,
+				in.Hasher,
+				in.TracerProvider,
+				in.Drivers,
+				generic.NewChannelConfigProvider(in.ConfigProvider),
+				in.ListenerManagerProvider,
+			),
+			identity.NewProvider(in.ConfigProvider, in.EndpointService),
+			in.MetricsProvider,
+			in.EndpointService,
+			in.SigService,
+			in.DeserializerManager,
+			in.IdProvider,
+			in.KVS,
+		),
 	}
 	return d
 }

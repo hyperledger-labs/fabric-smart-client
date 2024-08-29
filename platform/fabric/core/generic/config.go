@@ -7,8 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package generic
 
 import (
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/config"
 )
 
 type channelConfigProvider struct {
