@@ -9,18 +9,17 @@ package generic
 import (
 	digutils "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic"
-	driver4 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver"
+	gdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/config"
+	mspdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/identity"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
 	driver3 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/rwset"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/sig"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
-	driver5 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	vdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
+	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
@@ -48,38 +47,32 @@ func NewDriver(in struct {
 	dig.In
 	ConfigProvider          config.Provider
 	MetricsProvider         metrics.Provider
-	EndpointService         driver2.EndpointService
+	EndpointService         vdriver.EndpointService
 	SigService              *sig.Service
-	DeserializerManager     driver3.DeserializerManager
-	IdProvider              driver2.IdentityProvider
+	DeserializerManager     mspdriver.DeserializerManager
+	IdProvider              vdriver.IdentityProvider
 	KVS                     *kvs.KVS
 	Publisher               events.Publisher
 	Hasher                  hash.Hasher
 	TracerProvider          trace.TracerProvider
-	Drivers                 []driver5.NamedDriver `group:"db-drivers"`
+	Drivers                 []dbdriver.NamedDriver `group:"db-drivers"`
 	ListenerManagerProvider driver.ListenerManagerProvider
 }) core.NamedDriver {
 	d := core.NamedDriver{
 		Name: "generic",
-		Driver: driver4.NewProvider(
+		Driver: gdriver.NewProvider(
 			in.ConfigProvider,
-			generic.NewChannelProvider(
-				in.KVS,
-				in.Publisher,
-				in.Hasher,
-				in.TracerProvider,
-				in.Drivers,
-				vault.New,
-				generic.NewChannelConfigProvider(in.ConfigProvider),
-				in.ListenerManagerProvider,
-			),
-			identity.NewProvider(in.ConfigProvider, in.EndpointService),
 			in.MetricsProvider,
 			in.EndpointService,
 			in.SigService,
 			in.DeserializerManager,
 			in.IdProvider,
 			in.KVS,
+			in.Publisher,
+			in.Hasher,
+			in.TracerProvider,
+			in.Drivers,
+			in.ListenerManagerProvider,
 		),
 	}
 	return d
