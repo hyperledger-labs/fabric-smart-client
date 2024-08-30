@@ -55,7 +55,7 @@ func NewProvider(
 	kvss *kvs.KVS,
 	publisher events.Publisher,
 	hasher hash.Hasher,
-	TracerProvider trace.TracerProvider,
+	tracerProvider trace.TracerProvider,
 	Drivers []dbdriver.NamedDriver,
 	ListenerManagerProvider fdriver.ListenerManagerProvider,
 ) *Provider {
@@ -65,7 +65,8 @@ func NewProvider(
 			kvss,
 			publisher,
 			hasher,
-			TracerProvider,
+			tracerProvider,
+			metricsProvider,
 			Drivers,
 			vault.New,
 			generic.NewChannelConfigProvider(configProvider),
