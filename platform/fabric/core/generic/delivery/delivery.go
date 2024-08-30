@@ -78,7 +78,7 @@ type Delivery struct {
 	callback            Callback
 	vault               Vault
 	client              peer.Client
-	tracer              trace.Tracer
+	metrics             *Metrics
 	lastBlockReceived   uint64
 	stop                chan struct{}
 }
@@ -95,7 +95,7 @@ func New(
 	vault Vault,
 	waitForEventTimeout time.Duration,
 	tracerProvider trace.TracerProvider,
-	_ metrics.Provider,
+	metricsProvider metrics.Provider,
 ) (*Delivery, error) {
 	if channelConfig == nil {
 		return nil, errors.Errorf("expected channel config, got nil")
@@ -111,13 +111,10 @@ func New(
 		PeerManager:         PeerManager,
 		Ledger:              Ledger,
 		waitForEventTimeout: waitForEventTimeout,
-		tracer: tracerProvider.Tracer("delivery", tracing.WithMetricsOpts(tracing.MetricsOpts{
-			Namespace:  "fabricsdk",
-			LabelNames: []tracing.LabelName{messageTypeLabel},
-		})),
-		callback: callback,
-		vault:    vault,
-		stop:     make(chan struct{}),
+		metrics:             NewMetrics(tracerProvider, metricsProvider),
+		callback:            callback,
+		vault:               vault,
+		stop:                make(chan struct{}),
 	}
 	return d, nil
 }
@@ -159,13 +156,16 @@ func (d *Delivery) Run(ctx context.Context) error {
 			if df == nil {
 				logger.Debugf("deliver service [%s], connecting...", d.NetworkName, d.channel)
 				var err error
+				start := time.Now()
 				df, err = d.connect(ctx)
 				if err != nil {
 					errs <- errors.Wrapf(err, "failed connecting to delivery service [%s:%s] [%s]. Wait 10 sec before reconnecting", d.NetworkName, d.channel, err)
 					continue
 				}
+				d.metrics.ConnectDuration.Observe(time.Since(start).Seconds())
 			}
 
+			start := time.Now()
 			if blk, err := d.receive(df); err != nil {
 				errs <- err
 			} else if blk == nil {
@@ -174,13 +174,15 @@ func (d *Delivery) Run(ctx context.Context) error {
 				d.Stop()
 			} else if err != nil {
 				errs <- errors.Wrapf(err, "failed to process block [%d]", blk.blk.Header.Number)
+			} else {
+				d.metrics.ProcessDuration.Observe(time.Since(start).Seconds())
 			}
 		}
 	}
 }
 
 func (d *Delivery) receive(df DeliverStream) (*blockInput, error) {
-	deliveryCtx, span := d.tracer.Start(context.Background(), "block_delivery",
+	deliveryCtx, span := d.metrics.Delivery.Start(context.Background(), "block_delivery",
 		tracing.WithAttributes(tracing.String(messageTypeLabel, unknown)))
 	defer span.End()
 
@@ -197,8 +199,11 @@ func (d *Delivery) receive(df DeliverStream) (*blockInput, error) {
 		if r.Block == nil || r.Block.Data == nil || r.Block.Header == nil || r.Block.Metadata == nil {
 			return nil, errors.Errorf("deliver service [%s:%s:%s], received nil block", d.client.Address(), d.NetworkName, d.channel)
 		}
+		d.metrics.BlockSize.Observe(float64(len(r.Block.Data.Data)))
+		d.metrics.BlockHeight.Set(float64(r.Block.Header.Number))
 		logger.Debugf("delivery service [%s:%s:%s], commit block [%d]", d.client.Address(), d.NetworkName, d.channel, r.Block.Header.Number)
 		d.lastBlockReceived = r.Block.Header.Number
+
 		return &blockInput{ctx: deliveryCtx, blk: r.Block}, nil
 
 	case *pb.DeliverResponse_Status:
