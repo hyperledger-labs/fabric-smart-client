@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package fabricdev
 
 import (
+	"context"
+
 	"github.com/hyperledger-labs/fabric-smart-client/docs/fabric/fabricdev/core/fabricdev/ledger"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/chaincode"
@@ -22,6 +24,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger/fabric-protos-go/common"
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
@@ -33,6 +36,7 @@ type provider struct {
 	hasher                  hash.Hasher
 	newVault                generic.VaultConstructor
 	tracerProvider          trace.TracerProvider
+	metricsProvider         metrics.Provider
 	drivers                 []driver2.NamedDriver
 	channelConfigProvider   driver.ChannelConfigProvider
 	listenerManagerProvider driver.ListenerManagerProvider
@@ -43,6 +47,7 @@ func NewChannelProvider(
 	publisher events.Publisher,
 	hasher hash.Hasher,
 	tracerProvider trace.TracerProvider,
+	metricsProvider metrics.Provider,
 	drivers []driver2.NamedDriver,
 	newVault generic.VaultConstructor,
 	channelConfigProvider driver.ChannelConfigProvider,
@@ -54,6 +59,7 @@ func NewChannelProvider(
 		hasher:                  hasher,
 		newVault:                newVault,
 		tracerProvider:          tracerProvider,
+		metricsProvider:         metricsProvider,
 		drivers:                 drivers,
 		channelConfigProvider:   channelConfigProvider,
 		listenerManagerProvider: listenerManagerProvider,
@@ -135,6 +141,7 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 		quiet,
 		p.listenerManagerProvider.NewManager(),
 		p.tracerProvider,
+		p.metricsProvider,
 	)
 	if err != nil {
 		return nil, err
@@ -156,10 +163,11 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 		channelConfig.CommitterWaitForEventTimeout(),
 		txIDStore,
 		nw.TransactionManager(),
-		func(block *common.Block) (bool, error) {
+		func(ctx context.Context, block *common.Block) (bool, error) {
 			// commit the block, if an error occurs then retry
-			return false, committerService.Commit(block)
+			return false, committerService.Commit(ctx, block)
 		},
+		p.tracerProvider,
 	)
 	if err != nil {
 		return nil, err
