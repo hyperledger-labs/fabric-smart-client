@@ -416,7 +416,7 @@ reasons to choose sql may include:
 The driver has been tested with the following sql drivers:
 
 - SQLite: (pure go): modernc.org/sqlite
-- Postgres (pure Go): github.com/lib/pq
+- Postgres (pure Go): github.com/jackc/pgx/v5/stdlib
 
 In theory you can use any [sql driver](https://github.com/golang/go/wiki/SQLDrivers) if you import it in your application.
 To try a new sql driver, add a test here: `token/services/db/driver/sql/sql_test.go`.
@@ -433,15 +433,7 @@ persistence:
     dataSource: /some/path/fsc.sqlite
 ```
 
-Make sure that in your main.go, you `import _ "modernc.org/sqlite"`. This uses the following settings:
 
-```sql
-  PRAGMA journal_mode = WAL;
-  PRAGMA busy_timeout = 5000;
-  PRAGMA synchronous = NORMAL;
-  PRAGMA cache_size = 1000000000;
-  PRAGMA temp_store = memory;
-```
 We use one connection for writes, and an unlimited number for concurrent read connections 
 (see the excellent https://kerkour.com/sqlite-for-servers for more information).
 
@@ -452,23 +444,32 @@ persistence:
   type: sql
   opts:
     driver: sqlite
-    dataSource: file:/some/path/fsc.sqlite?_pragma=journal_mode(WAL)&_pragma=busy_timeout(1000)
+    dataSource: file:/some/path/fsc.sqlite&_txlock=immediate
     tablePrefix: fsc  # optional
     skipCreateTable: true # tells FSC _not_ to create a table when starting up (because it already exists).
     skipPragmas: true # if this is false, the pragmas we set in the datasource will be overridden with the defaults.
     maxOpenConns: 50  # optional: max open read connections to the database. Defaults to unlimited.
 ```
 
-Set any [pragmas](https://www.sqlite.org/pragma.html) as per the example above. Make sure that journal mode is always WAL.
+By default we set the following pragmas (unless you do `skipPragmas: true`. Make sure you always have `_pragma=journal_mode(WAL`):
+
+```sql
+  PRAGMA journal_mode = WAL;
+  PRAGMA busy_timeout = 5000;
+  PRAGMA synchronous = NORMAL;
+  PRAGMA cache_size = 1000000000;
+  PRAGMA temp_store = memory;
+```
 
 ### Config example for postgres
 
-`import _ "github.com/lib/pq"` in main.go. The same configuration flags as above apply,
-but for Postgres we always use one connection pool for reads and writes, and the sqlite pragmas don't apply.
+The same configuration flags as above apply, but for Postgres we always use one connection pool for reads and writes,
+and the sqlite pragmas don't apply.
 
-> [!WARNING]  
-> The 'dataSource' field is sensitive because it contains a password. Instead of in this file, set it in an
-> `FSC_DB_DATASOURCE` environment variable.
+> [!WARNING]
+> The 'dataSource' field is sensitive because it contains a password. Instead of in this file, set it in the
+> `CORE_FSC_KVS_PERSISTENCE_OPTS_DATASOURCE` and `CORE_FABRIC_MYNETWORK_VAULT_PERSISTENCE_OPTS_DATASOURCE` environment
+> variables (where mynetwork is the name of your network in core.yaml).
 
 ```yaml
 persistence:
@@ -477,6 +478,3 @@ persistence:
     driver: postgres
     dataSource: host=localhost port=5432 user=postgres password=example dbname=tokendb sslmode=disable
 ```
-
-See [pq docs](https://pkg.go.dev/github.com/lib/pq#hdr-Connection_String_Parameters) for more information about the
-postgres connection string.

@@ -24,8 +24,6 @@ const (
 	SQLite   common.SQLDriverType = "sqlite"
 
 	SQLPersistence driver2.PersistenceType = "sql"
-
-	EnvVarKey = "FSC_DB_DATASOURCE"
 )
 
 var logger = flogging.MustGetLogger("view-sdk.services.db.driver.sql")
@@ -127,7 +125,7 @@ func NewPersistenceWithOpts[V dbObject](dataSourceName string, opts common.Opts,
 }
 
 func getOps(config driver.Config) (common.Opts, error) {
-	opts, err := common.GetOpts(config, "", EnvVarKey)
+	opts, err := common.GetOpts(config, "")
 	if err != nil {
 		return common.Opts{}, err
 	}

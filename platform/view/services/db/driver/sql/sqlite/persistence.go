@@ -9,6 +9,7 @@ package sqlite
 import (
 	"database/sql"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -44,11 +45,9 @@ func openDB(dataSourceName string, maxOpenConns int, skipPragmas bool) (*sql.DB,
 
 func OpenDB(dataSourceName string, maxOpenConns int, skipPragmas bool) (*sql.DB, error) {
 	// Create directories if they do not exist to avoid error "out of memory (14)", see below
-	if strings.HasPrefix(dataSourceName, "file:") {
-		path := strings.TrimLeft(dataSourceName[:strings.IndexRune(dataSourceName, '?')], "file:")
-		if err := os.MkdirAll(filepath.Dir(path), 0777); err != nil {
-			logger.Warnf("failed creating dir [%s]: %s", path, err)
-		}
+	path := getDir(dataSourceName)
+	if err := os.MkdirAll(path, 0777); err != nil {
+		logger.Warnf("failed creating dir [%s]: %s", path, err)
 	}
 
 	db, err := sql.Open(driverName, dataSourceName)
@@ -76,4 +75,15 @@ func OpenDB(dataSourceName string, maxOpenConns int, skipPragmas bool) (*sql.DB,
 	}
 
 	return db, nil
+}
+
+func getDir(dataSourceName string) string {
+	if strings.HasPrefix(dataSourceName, "file:") {
+		u, err := url.Parse(dataSourceName)
+		if err != nil {
+			return ""
+		}
+		return filepath.Dir(u.Path)
+	}
+	return filepath.Dir(dataSourceName)
 }

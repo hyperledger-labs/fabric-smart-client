@@ -32,17 +32,17 @@ func TestNew(t *testing.T) {
 }
 
 func TestNewWithEnvironment(t *testing.T) {
-	oldSpec, set := os.LookupEnv("FSCNODE_LOGGING_SPEC")
+	oldSpec, set := os.LookupEnv("CORE_LOGGING_SPEC")
 	if set {
-		defer os.Setenv("FSCNODE_LOGGING_SPEC", oldSpec)
+		defer os.Setenv("CORE_LOGGING_SPEC", oldSpec)
 	}
 
-	os.Setenv("FSCNODE_LOGGING_SPEC", "fatal")
+	os.Setenv("CORE_LOGGING_SPEC", "fatal")
 	logging, err := flogging.New(flogging.Config{})
 	assert.NoError(t, err)
 	assert.Equal(t, zapcore.FatalLevel, logging.DefaultLevel())
 
-	os.Unsetenv("FSCNODE_LOGGING_SPEC")
+	os.Unsetenv("CORE_LOGGING_SPEC")
 	logging, err = flogging.New(flogging.Config{})
 	assert.NoError(t, err)
 	assert.Equal(t, zapcore.InfoLevel, logging.DefaultLevel())

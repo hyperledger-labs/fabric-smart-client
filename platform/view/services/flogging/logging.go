@@ -85,7 +85,7 @@ func (l *Logging) Apply(c Config) error {
 	}
 
 	if c.LogSpec == "" {
-		c.LogSpec = os.Getenv("FSCNODE_LOGGING_SPEC")
+		c.LogSpec = os.Getenv("CORE_LOGGING_SPEC")
 	}
 	if c.LogSpec == "" {
 		c.LogSpec = defaultLevel.String()

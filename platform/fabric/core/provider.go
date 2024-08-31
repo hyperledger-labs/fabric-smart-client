@@ -135,15 +135,10 @@ func (p *FSNProvider) FabricNetworkService(network string) (driver.FabricNetwork
 // InitFabricLogging initializes the fabric logging system
 // using the FSC configuration.
 func (p *FSNProvider) InitFabricLogging() {
-	loggingSpec := os.Getenv("FSCNODE_LOGGING_SPEC")
-	loggingFormat := os.Getenv("FSCNODE_LOGGING_FORMAT")
-	if len(loggingSpec) == 0 {
-		loggingSpec = p.configService.GetString("logging.spec")
-	}
 	fabricLogging.Init(fabricLogging.Config{
-		Format:  loggingFormat,
+		Format:  p.configService.GetString("logging.format"),
 		Writer:  os.Stderr,
-		LogSpec: loggingSpec,
+		LogSpec: p.configService.GetString("logging.spec"),
 	})
 }
 

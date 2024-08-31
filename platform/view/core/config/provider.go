@@ -116,21 +116,84 @@ func (p *provider) load() error {
 		}
 	}
 
-	loggingSpec := os.Getenv("FSCNODE_LOGGING_SPEC")
-	loggingFormat := os.Getenv("FSCNODE_LOGGING_FORMAT")
-
-	if len(loggingSpec) == 0 {
-		loggingSpec = p.v.GetString("logging.spec")
-	}
-	if len(loggingFormat) == 0 {
-		loggingFormat = p.v.GetString("logging.format")
-	}
+	p.substituteEnv()
 
 	flogging.Init(flogging.Config{
-		Format:  loggingFormat,
+		Format:  p.v.GetString("logging.format"),
 		Writer:  logOutput,
-		LogSpec: loggingSpec,
+		LogSpec: p.v.GetString("logging.spec"),
 	})
+
+	return nil
+}
+
+// Manually override keys if the respective environment variable is set, because viper doesn't do
+// that for UnmarshalKey values (see https://github.com/spf13/viper/pull/1699).
+// Example: CORE_LOGGING_FORMAT sets logging.format.
+func (p *provider) substituteEnv() {
+	for _, e := range os.Environ() {
+		if !strings.HasPrefix(e, strings.ToUpper(CmdRoot)+"_") {
+			continue
+		}
+
+		env := strings.Split(e, "=")
+		val := env[1]
+		if len(env) > 2 {
+			val = strings.Join(env[1:], "=")
+		}
+		if len(val) == 0 {
+			continue
+		}
+		noprefix := strings.TrimLeft(env[0], strings.ToUpper(CmdRoot)+"_")
+		key := strings.ToLower(strings.ReplaceAll(noprefix, "_", "."))
+
+		// nested key
+		keys := strings.Split(key, ".")
+		if len(keys) == 1 {
+			fmt.Println("applying " + env[0])
+			p.v.Set(key, val)
+			continue
+		}
+
+		parent := strings.Join(keys[:len(keys)-1], ".")
+		if !p.v.IsSet(parent) {
+			fmt.Println("applying " + env[0] + " - parent not found in core.yaml: " + parent)
+			p.v.Set(key, val)
+			continue
+		}
+
+		k := p.v.GetStringMap(key)
+		if len(k) > 0 {
+			fmt.Println("-- skipping " + env[0] + ": cannot override maps")
+			continue
+		}
+
+		root := p.v.GetStringMap(keys[0])
+		setDeepValue(root, keys, val)
+		p.v.Set(keys[0], root)
+		fmt.Println("applying " + env[0])
+	}
+}
+
+// Function to set the value at the deepest level
+func setDeepValue(m map[string]any, keys []string, value any) error {
+	// key = root but we don't have the map by reference
+	if len(keys) < 2 {
+		return errors.New("can't set root key")
+	}
+
+	current := m
+	// traverse to the last map
+	for i := 1; i < len(keys)-1; i++ {
+		key := keys[i]
+		nextMap, ok := current[key].(map[string]any)
+		if !ok {
+			return errors.New("expected map at key " + key)
+		}
+		current = nextMap
+	}
+	lastKey := keys[len(keys)-1]
+	current[lastKey] = value
 
 	return nil
 }
@@ -144,11 +207,6 @@ func (p *provider) load() error {
 // Viper instance
 // ----------------------------------------------------------------------------------
 func (p *provider) initViper(v *viper.Viper, configName string) error {
-	v.SetEnvPrefix(CmdRoot)
-	v.AutomaticEnv()
-	replacer := strings.NewReplacer(".", "_")
-	v.SetEnvKeyReplacer(replacer)
-
 	if len(p.confPath) != 0 {
 		AddConfigPath(v, p.confPath)
 	}
