@@ -174,10 +174,6 @@ func EnhancedExactUnmarshal(v *viper.Viper, key string, output interface{}) erro
 	if oType.Kind() != reflect.Ptr {
 		return errors.Errorf("supplied output argument must be a pointer to a struct but is not pointer")
 	}
-	//eType := oType.Elem()
-	//if eType.Kind() != reflect.Struct {
-	//	return errors.Errorf("supplied output argument must be a pointer to a struct, but it is pointer to something else")
-	//}
 
 	config := &mapstructure.DecoderConfig{
 		ErrorUnused:      false,

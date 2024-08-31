@@ -43,6 +43,14 @@ func TestSqlite(t *testing.T) {
 	})
 }
 
+func TestGetSqliteDir(t *testing.T) {
+	assert.Equal(t, "/test/dir", getDir("file:/test/dir/db.sqlite"))
+	assert.Equal(t, "/test/dir", getDir("file:/test/dir/db.sqlite?_txlock=immediate"))
+	assert.Equal(t, "/test/dir", getDir("file:/test/dir/db.sqlite?_txlock=immediate&key=val"))
+	assert.Equal(t, "/test", getDir("/test/db.sqlite"))
+	assert.Equal(t, "relative/path", getDir("relative/path/filename.db"))
+}
+
 func TestFolderDoesNotExistError(t *testing.T) {
 	_, err := NewUnversioned(unversionedOpts("folder-does-not-exist", "/this/folder/does/not/exist"), "test")
 	assert.Error(t, err, "error opening db: can't open sqlite database, does the folder exist?")

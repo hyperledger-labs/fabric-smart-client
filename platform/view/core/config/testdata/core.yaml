@@ -1,0 +1,24 @@
+
+number: 5
+duration: 5s
+str: a string         # with trailing spaces
+path:
+  relative: file.name
+  absolute: /absolute/path/file.name
+  dir: /absolute/path/dir
+  trailing: /absolute/path/dir/
+fsc:
+  kvs:
+    keyexists: true
+    persistence:
+      type: sql
+      opts:
+        driver: sqlite
+        skipPragmas: true
+        dataSource: ds
+emptyKey:
+nested:
+  keys:
+    one: 1
+    two: 2
+CAPITALS: true

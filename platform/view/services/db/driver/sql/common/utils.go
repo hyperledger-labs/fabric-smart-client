@@ -9,7 +9,6 @@ package common
 import (
 	"database/sql"
 	"fmt"
-	"os"
 	"regexp"
 	"runtime/debug"
 	"strings"
@@ -81,23 +80,23 @@ func InitSchema(db *sql.DB, schemas ...string) (err error) {
 	return
 }
 
-func GetOpts(config driver.Config, optsKey, envVarKey string) (*Opts, error) {
+func GetOpts(config driver.Config, optsKey string) (*Opts, error) {
 	opts := Opts{}
 	if err := config.UnmarshalKey(optsKey, &opts); err != nil {
 		return nil, fmt.Errorf("failed getting opts: %w", err)
 	}
 	if opts.Driver == "" {
-		return nil, fmt.Errorf("sql driver not set in '%s' (core.yaml if empty)", optsKey)
-	}
-	dataSourceOverride := os.Getenv(envVarKey)
-	if dataSourceOverride != "" {
-		logger.Infof("overriding datasource with from env var [%s] ([%d] characters)", len(dataSourceOverride), envVarKey)
-		opts.DataSource = dataSourceOverride
+		return nil, notSetError(optsKey + ".driver")
 	}
 	if opts.DataSource == "" {
-		return nil, fmt.Errorf("either %s.dataSource in core.yaml or %s"+
-			"environment variable must be set to a dataSourceName that can be used with the %s golang driver",
-			optsKey, envVarKey, opts.Driver)
+		return nil, notSetError(optsKey + ".dataSource")
 	}
 	return &opts, nil
+}
+
+func notSetError(key string) error {
+	return fmt.Errorf(
+		"either %s in core.yaml or the %s environment variable must be specified", key,
+		strings.ToUpper("CORE_"+strings.ReplaceAll(key, ".", "_")),
+	)
 }
