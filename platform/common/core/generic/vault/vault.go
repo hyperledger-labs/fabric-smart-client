@@ -141,7 +141,7 @@ func New[V driver.ValidationCode](
 		metrics:        NewMetrics(metricsProvider, tracerProvider),
 		versionBuilder: versionBuilder,
 	}
-	v.commitBatcher = runner.NewSerialRunner(v.commitTXs)
+	v.commitBatcher = runner.NewBatchRunner[txCommitIndex](v.commitTXs, 100, 500*time.Millisecond)
 	return v
 }
 
@@ -206,7 +206,6 @@ func (db *Vault[V]) unmapInterceptors(txIDs ...driver.TxID) (map[driver.TxID]TxI
 		return nil, errors.Wrapf(err, "read-write set for txids [%v] could not be found", txIDs)
 	}
 
-	foundInStore := collections.NewSet[driver.TxID]()
 	for vc, err := vcs.Next(); vc != nil; vc, err = vcs.Next() {
 		if err != nil {
 			return nil, errors.Wrapf(err, "read-write set for txid %s could not be found", vc.TxID)
@@ -214,11 +213,6 @@ func (db *Vault[V]) unmapInterceptors(txIDs ...driver.TxID) (map[driver.TxID]TxI
 		if vc.Code == db.vcProvider.Unknown() {
 			return nil, errors.Errorf("read-write set for txid %s could not be found", vc.TxID)
 		}
-		foundInStore.Add(vc.TxID)
-	}
-
-	if unknownTxIDs := collections.NewSet(notFound...).Minus(foundInStore); !unknownTxIDs.Empty() {
-		return nil, errors.Errorf("read-write set for txid %s could not be found", unknownTxIDs.ToSlice()[0])
 	}
 
 	for txID, i := range result {
@@ -229,6 +223,18 @@ func (db *Vault[V]) unmapInterceptors(txIDs ...driver.TxID) (map[driver.TxID]TxI
 	}
 
 	return result, nil
+}
+
+type txCommitIndex struct {
+	ctx         context.Context
+	txID        driver.TxID
+	block       driver.BlockNum
+	indexInBloc driver.TxNum
+}
+
+type commitInput struct {
+	txCommitIndex
+	rws *ReadWriteSet
 }
 
 func (db *Vault[V]) CommitTX(ctx context.Context, txID driver.TxID, block driver.BlockNum, indexInBloc driver.TxNum) error {
@@ -299,6 +305,15 @@ func (db *Vault[V]) commitRWs(inputs ...commitInput) error {
 		return errors.Wrapf(err, "begin update in store for txid %v failed", inputs)
 	}
 
+	for _, input := range inputs {
+		span := trace.SpanFromContext(input.ctx)
+
+		span.AddEvent("set_tx_busy")
+		if err := db.txIDStore.Set(input.txID, db.vcProvider.Busy(), ""); err != nil {
+			if !errors.HasCause(err, UniqueKeyViolation) {
+				return err
+			}
+		}
 	if _, err := db.setStatuses(inputs, db.vcProvider.Busy()); err != nil {
 		return err
 	}
@@ -319,6 +334,15 @@ func (db *Vault[V]) commitRWs(inputs ...commitInput) error {
 		}
 	}
 
+		db.logger.Debugf("parse writes [%s]", input.txID)
+		span.AddEvent("store_writes")
+		if discarded, err := db.storeWrites(input.ctx, input.rws.Writes, input.block, input.indexInBloc); err != nil {
+			return errors.Wrapf(err, "failed storing writes")
+		} else if discarded {
+			db.logger.Infof("Discarded changes while storing writes as duplicates. Skipping...")
+			db.txIDStore.Invalidate(input.txID)
+			return nil
+		}
 	if errs := db.storeAllWrites(writes); len(errs) == 0 {
 		db.logger.Debugf("Successfully stored writes for %d namespaces", len(writes))
 	} else if discarded, err := db.discard("", 0, 0, errs); err != nil {
@@ -331,6 +355,15 @@ func (db *Vault[V]) commitRWs(inputs ...commitInput) error {
 		return nil
 	}
 
+		db.logger.Debugf("parse meta writes [%s]", input.txID)
+		span.AddEvent("store_meta_writes")
+		if discarded, err := db.storeMetaWrites(input.ctx, input.rws.MetaWrites, input.block, input.indexInBloc); err != nil {
+			return errors.Wrapf(err, "failed storing meta writes")
+		} else if discarded {
+			db.logger.Infof("Discarded changes while storing meta writes as duplicates. Skipping...")
+			db.txIDStore.Invalidate(input.txID)
+			return nil
+		}
 	db.logger.Debugf("parse meta writes")
 	metaWrites := make(map[driver.Namespace]map[driver.PKey]driver.VersionedMetadataValue)
 	for _, input := range inputs {
@@ -374,6 +407,10 @@ func (db *Vault[V]) commitRWs(inputs ...commitInput) error {
 		return nil
 	}
 
+		for _, input := range inputs {
+			trace.SpanFromContext(input.ctx).AddEvent("commit_update")
+		}
+	span.AddEvent("commit_update")
 	if err := db.store.Commit(); err != nil {
 		return errors.Wrapf(err, "committing tx for txid in store [%v] failed", inputs)
 	}
