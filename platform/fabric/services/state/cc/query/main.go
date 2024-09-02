@@ -12,8 +12,10 @@ import (
 
 	"github.com/hyperledger/fabric-chaincode-go/shim"
 	pb "github.com/hyperledger/fabric-protos-go/peer"
+)
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
+const (
+	CertificationFnc string = "state_certification"
 )
 
 type CC struct {
@@ -30,7 +32,7 @@ func (cc *CC) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
 
 	fmt.Printf("Invoke function [%s]...\n", fn)
 	switch fn {
-	case state.CertificationFnc:
+	case CertificationFnc:
 		args := stub.GetStringArgs()
 		fmt.Printf("Invoke function [%s] with args [%v]\n", fn, args)
 		if len(args) != 3 {
