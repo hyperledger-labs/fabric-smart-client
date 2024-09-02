@@ -1,6 +1,6 @@
 # Fabric Platform Driver Architecture
 
-The Fabric platform consists of a [`Fabric API`](https://github.com/hyperledger-labs/tree/main/fabric-smart-client/platform/fabric) 
+The Fabric platform consists of a [`Fabric API`](https://github.com/hyperledger-labs/fabric-smart-client/tree/main/platform/fabric) 
 and a [`Driver API`](https://github.com/hyperledger-labs/fabric-smart-client/tree/main/platform/fabric/driver).
 The Fabric API provides a higher level API to deal with a Fabric network. 
 It is built on top of the Driver API and its goal is to provider a programming environment that is independent 
@@ -17,7 +17,7 @@ of the `ChaincodeManager` interface.
 ### Create a new Driver from `Generic`
 
 Imagine you want to create a new driver for a new version of Fabric under development, let's call it `FabricDEV`.
-Here are the keys differences between Fabric 2.0+ and FabricDEV:
+Here are the key differences between Fabric 2.0+ and FabricDEV:
 1. A new endorser transaction format with a new RW set format, and
 2. No chaincode support.
 
@@ -29,7 +29,7 @@ Look [`here`](fabricdev/core/fabricdev/vault/vault.go) for example of a vault in
 Look [`here`](fabricdev/core/fabricdev/transaction/manager.go).
 3. A customized implementation of the `Ledger` to get access to remote ledger without the use of chaincodes.
 Look [`here`](fabricdev/core/fabricdev/ledger/ledger.go) for an example.
-To use it, we need to a new channel provider that uses the new ledger implementation.
+To use it, we need a new channel provider that uses the new ledger implementation.
 Look [`here`](fabricdev/core/fabricdev/channelprovider.go) for an example.
 
 
