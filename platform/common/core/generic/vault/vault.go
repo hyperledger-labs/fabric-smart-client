@@ -18,6 +18,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/atomic"
 )
@@ -105,6 +106,7 @@ func New[V driver.ValidationCode](
 	vcProvider driver.ValidationCodeProvider[V],
 	newInterceptor NewInterceptorFunc[V],
 	populator Populator,
+	metricsProvider metrics.Provider,
 	tracerProvider trace.TracerProvider,
 ) *Vault[V] {
 	v := &Vault[V]{
@@ -115,7 +117,7 @@ func New[V driver.ValidationCode](
 		vcProvider:     vcProvider,
 		newInterceptor: newInterceptor,
 		populator:      populator,
-		metrics:        NewMetrics(tracerProvider),
+		metrics:        NewMetrics(metricsProvider, tracerProvider),
 	}
 	v.commitBatcher = runner.NewSerialRunner(v.commitTXs)
 	return v
@@ -220,17 +222,22 @@ type commitInput struct {
 }
 
 func (db *Vault[V]) CommitTX(ctx context.Context, txID driver.TxID, block driver.BlockNum, indexInBloc driver.TxNum) error {
+	start := time.Now()
 	newCtx, span := db.metrics.Vault.Start(ctx, "commit")
 	defer span.End()
-	return db.commitBatcher.Run(txCommitIndex{
+	err := db.commitBatcher.Run(txCommitIndex{
 		ctx:         newCtx,
 		txID:        txID,
 		block:       block,
 		indexInBloc: indexInBloc,
 	})
+	db.metrics.BatchedCommitDuration.Observe(time.Since(start).Seconds())
+	return err
 }
 
 func (db *Vault[V]) commitTXs(txs []txCommitIndex) []error {
+	db.logger.Debugf("Commit %d transactions", len(txs))
+	start := time.Now()
 	txIDs := make([]driver.TxID, len(txs))
 	for i, tx := range txs {
 		txIDs[i] = tx.txID
@@ -257,6 +264,7 @@ func (db *Vault[V]) commitTXs(txs []txCommitIndex) []error {
 	for {
 		err := db.commitRWs(inputs...)
 		if err == nil {
+			db.metrics.CommitDuration.Observe(time.Since(start).Seconds() / float64(len(txs)))
 			return collections.Repeat[error](nil, len(txs))
 		}
 		if !errors.HasCause(err, DeadlockDetected) {
