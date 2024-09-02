@@ -13,7 +13,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/docs/fabric/fabricdev/sdk/fabricdev"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/node"
 	dig2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core"
 	fabricsdk "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/dig"
 	"go.uber.org/dig"
 )
@@ -21,7 +20,6 @@ import (
 // SDK installs a new fabric driver
 type SDK struct {
 	dig2.SDK
-	fnsProvider *core.FSNProvider
 }
 
 func NewSDK(registry node.Registry) *SDK {
