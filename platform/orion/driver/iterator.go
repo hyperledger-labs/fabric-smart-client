@@ -6,6 +6,8 @@ SPDX-License-Identifier: Apache-2.0
 
 package driver
 
+import "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
+
 type SeekStart struct{}
 type SeekEnd struct{}
 type SeekPos struct {
@@ -17,10 +19,7 @@ type ByNum struct {
 	Code ValidationCode
 }
 
-type TxidIterator interface {
-	Next() (*ByNum, error)
-	Close()
-}
+type TxidIterator = collections.Iterator[*ByNum]
 
 type TXIDStore interface {
 	GetLastTxID() (string, error)

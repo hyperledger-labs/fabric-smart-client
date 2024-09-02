@@ -8,6 +8,7 @@ package txidstore
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 )
 
 type Logger interface {
@@ -30,7 +31,7 @@ type cache[V driver.ValidationCode] interface {
 type txidStore[V driver.ValidationCode] interface {
 	Get(txID driver.TxID) (V, string, error)
 	Set(txID driver.TxID, code V, message string) error
-	Iterator(pos interface{}) (driver.TxIDIterator[V], error)
+	Iterator(pos interface{}) (collections.Iterator[*driver.ByNum[V]], error)
 }
 
 type CachedStore[V driver.ValidationCode] struct {
@@ -87,6 +88,6 @@ func (s *CachedStore[V]) Set(txID string, code V, message string) error {
 	return nil
 }
 
-func (s *CachedStore[V]) Iterator(pos interface{}) (driver.TxIDIterator[V], error) {
+func (s *CachedStore[V]) Iterator(pos interface{}) (collections.Iterator[*driver.ByNum[V]], error) {
 	return s.backed.Iterator(pos)
 }

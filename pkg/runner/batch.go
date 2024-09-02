@@ -133,6 +133,10 @@ type batchRunner[V any] struct {
 	*batcher[V, error]
 }
 
+func NewSerialRunner[V any](runner func([]V) []error) BatchRunner[V] {
+	return NewBatchRunner(runner, 1, 1*time.Hour)
+}
+
 func NewBatchRunner[V any](runner func([]V) []error, capacity int, timeout time.Duration) BatchRunner[V] {
 	return &batchRunner[V]{batcher: newBatcher(runner, capacity, timeout)}
 }

@@ -8,6 +8,7 @@ package driver
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 )
 
 type SeekStart struct{}
@@ -28,7 +29,7 @@ type ByNum struct {
 	Message string
 }
 
-type TxIDIterator = driver.TxIDIterator[ValidationCode]
+type TxIDIterator = collections.Iterator[*driver.ByNum[ValidationCode]]
 
 type TXIDStore interface {
 	GetLastTxID() (string, error)
