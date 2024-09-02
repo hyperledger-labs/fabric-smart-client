@@ -201,9 +201,12 @@ func (s *SimpleTXIDStore[V]) GetLastTxID() (driver.TxID, error) {
 	return string(v), nil
 }
 
-func (s *SimpleTXIDStore[V]) Iterator(pos interface{}) (driver.TxIDIterator[V], error) {
+func (s *SimpleTXIDStore[V]) Iterator(pos interface{}) (collections.Iterator[*driver.ByNum[V]], error) {
 	var iterator collections.Iterator[*ByNum]
 	if ppos, ok := pos.(*driver.SeekSet); ok {
+		if len(ppos.TxIDs) == 0 {
+			return collections.NewEmptyIterator[*driver.ByNum[V]](), nil
+		}
 		keys := make([]string, len(ppos.TxIDs))
 		for i, txID := range ppos.TxIDs {
 			keys[i] = keyByTxID(txID)
