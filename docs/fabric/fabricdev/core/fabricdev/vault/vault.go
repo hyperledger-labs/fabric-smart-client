@@ -12,6 +12,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -23,7 +24,7 @@ type (
 )
 
 // NewVault returns a new instance of Vault
-func NewVault(store vault.VersionedPersistence, txIDStore TXIDStore, tracerProvider trace.TracerProvider) *Vault {
+func NewVault(store vault.VersionedPersistence, txIDStore TXIDStore, metricsProvider metrics.Provider, tracerProvider trace.TracerProvider) *Vault {
 	return vault.New[fdriver.ValidationCode](
 		flogging.MustGetLogger("fabric-sdk.generic.vault"),
 		store,
@@ -31,6 +32,7 @@ func NewVault(store vault.VersionedPersistence, txIDStore TXIDStore, tracerProvi
 		&fdriver.ValidationCodeProvider{},
 		newInterceptor,
 		&populator{},
+		metricsProvider,
 		tracerProvider,
 	)
 }
