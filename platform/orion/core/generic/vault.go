@@ -11,6 +11,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -26,14 +27,14 @@ type Vault struct {
 	network Network
 }
 
-func NewVault(network Network, persistence *db.VersionedPersistence, tracerProvider trace.TracerProvider) (*Vault, error) {
+func NewVault(network Network, persistence *db.VersionedPersistence, metricsProvider metrics.Provider, tracerProvider trace.TracerProvider) (*Vault, error) {
 	txIDStore, err := vault.NewSimpleTXIDStore(db.Unversioned(persistence))
 	if err != nil {
 		return nil, err
 	}
 
 	return &Vault{
-		Vault:           vault.New(persistence, txidstore.NewNoCache[driver.ValidationCode](txIDStore), tracerProvider),
+		Vault:           vault.New(persistence, txidstore.NewNoCache[driver.ValidationCode](txIDStore), metricsProvider, tracerProvider),
 		SimpleTXIDStore: txIDStore,
 		network:         network,
 	}, nil

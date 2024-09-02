@@ -22,6 +22,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/orion-server/pkg/types"
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
@@ -87,7 +88,7 @@ func NewDB(ctx context.Context, kvss *kvs.KVS, config *config2.Config, name stri
 	return n, nil
 }
 
-func NewNetwork(ctx context.Context, kvss *kvs.KVS, eventsPublisher events.Publisher, eventsSubscriber events.Subscriber, tracerProvider trace.TracerProvider, config *config2.Config, name string, drivers []driver2.NamedDriver, networkConfig driver.NetworkConfig, listenerManager driver.ListenerManager) (*network, error) {
+func NewNetwork(ctx context.Context, kvss *kvs.KVS, eventsPublisher events.Publisher, eventsSubscriber events.Subscriber, metricsProvider metrics.Provider, tracerProvider trace.TracerProvider, config *config2.Config, name string, drivers []driver2.NamedDriver, networkConfig driver.NetworkConfig, listenerManager driver.ListenerManager) (*network, error) {
 	// Load configuration
 	n := &network{
 		ctx:    ctx,
@@ -135,7 +136,7 @@ func NewNetwork(ctx context.Context, kvss *kvs.KVS, eventsPublisher events.Publi
 		return nil, errors.Wrapf(err, "failed creating vault")
 	}
 
-	n.vault, err = NewVault(n, persistence, tracerProvider)
+	n.vault, err = NewVault(n, persistence, metricsProvider, tracerProvider)
 	if err != nil {
 		return nil, errors.WithMessage(err, "failed to create vault")
 	}
