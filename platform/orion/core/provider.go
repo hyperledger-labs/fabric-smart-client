@@ -18,6 +18,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -37,12 +38,13 @@ type ONSProvider struct {
 	networksMutex           sync.Mutex
 	networks                map[string]driver.OrionNetworkService
 	drivers                 []driver3.NamedDriver
+	metricsProvider         metrics.Provider
 	tracerProvider          trace.TracerProvider
 	networkConfigProvider   driver.NetworkConfigProvider
 	listenerManagerProvider driver.ListenerManagerProvider
 }
 
-func NewOrionNetworkServiceProvider(configService driver2.ConfigService, config *Config, kvss *kvs.KVS, publisher events.Publisher, subscriber events.Subscriber, tracerProvider trace.TracerProvider, drivers []driver3.NamedDriver, networkConfigProvider driver.NetworkConfigProvider, listenerManagerProvider driver.ListenerManagerProvider) (*ONSProvider, error) {
+func NewOrionNetworkServiceProvider(configService driver2.ConfigService, config *Config, kvss *kvs.KVS, publisher events.Publisher, subscriber events.Subscriber, metricsProvider metrics.Provider, tracerProvider trace.TracerProvider, drivers []driver3.NamedDriver, networkConfigProvider driver.NetworkConfigProvider, listenerManagerProvider driver.ListenerManagerProvider) (*ONSProvider, error) {
 	provider := &ONSProvider{
 		configService:           configService,
 		config:                  config,
@@ -51,6 +53,7 @@ func NewOrionNetworkServiceProvider(configService driver2.ConfigService, config 
 		subscriber:              subscriber,
 		networks:                map[string]driver.OrionNetworkService{},
 		drivers:                 drivers,
+		metricsProvider:         metricsProvider,
 		tracerProvider:          tracerProvider,
 		networkConfigProvider:   networkConfigProvider,
 		listenerManagerProvider: listenerManagerProvider,
@@ -126,5 +129,5 @@ func (p *ONSProvider) newONS(network string) (driver.OrionNetworkService, error)
 		return nil, err
 	}
 
-	return generic.NewNetwork(p.ctx, p.kvss, p.publisher, p.subscriber, p.tracerProvider, c, network, p.drivers, networkConfig, p.listenerManagerProvider.NewManager())
+	return generic.NewNetwork(p.ctx, p.kvss, p.publisher, p.subscriber, p.metricsProvider, p.tracerProvider, c, network, p.drivers, networkConfig, p.listenerManagerProvider.NewManager())
 }
