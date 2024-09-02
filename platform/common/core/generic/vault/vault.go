@@ -119,7 +119,7 @@ func New[V driver.ValidationCode](
 		populator:      populator,
 		metrics:        NewMetrics(metricsProvider, tracerProvider),
 	}
-	v.commitBatcher = runner.NewBatchRunner[txCommitIndex](v.commitTXs, 100, 500*time.Millisecond)
+	v.commitBatcher = runner.NewBatchRunner[txCommitIndex](v.commitTXs, 1, 500*time.Millisecond)
 	return v
 }
 
