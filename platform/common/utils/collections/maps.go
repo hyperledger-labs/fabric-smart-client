@@ -45,6 +45,19 @@ func Keys[K comparable, V any](m map[K]V) []K {
 	return res
 }
 
+func SubMap[K comparable, V any](m map[K]V, ks ...K) (map[K]V, []K) {
+	found := make(map[K]V, len(ks))
+	notFound := make([]K, 0, len(ks))
+	for _, k := range ks {
+		if v, ok := m[k]; ok {
+			found[k] = v
+		} else {
+			notFound = append(notFound, k)
+		}
+	}
+	return found, notFound
+}
+
 func RepeatValue[K comparable, V any](keys []K, val V) map[K]V {
 	res := make(map[K]V, len(keys))
 	for _, k := range keys {

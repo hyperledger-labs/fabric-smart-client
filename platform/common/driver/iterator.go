@@ -37,8 +37,3 @@ type ByNum[V comparable] struct {
 	Code    V
 	Message string
 }
-
-type TxIDIterator[V comparable] interface {
-	Next() (*ByNum[V], error)
-	Close()
-}
