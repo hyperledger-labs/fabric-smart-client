@@ -33,6 +33,7 @@ func TestBatchRunnerFewRequests(t *testing.T) {
 	atomic.StoreUint32(&counter, 0)
 	runner, m, locksObtained := newBatchRunner()
 
+	time.Sleep(100 * time.Millisecond)
 	run(t, runner, 1)
 
 	assert.Len(t, m, 1)
