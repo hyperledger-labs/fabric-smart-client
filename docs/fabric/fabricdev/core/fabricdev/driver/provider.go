@@ -13,6 +13,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/docs/fabric/fabricdev/core/fabricdev/transaction"
 	"github.com/hyperledger-labs/fabric-smart-client/docs/fabric/fabricdev/core/fabricdev/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/identity"
 	gmetrics "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/metrics"
@@ -71,6 +72,7 @@ func NewProvider(
 			vault.New,
 			generic.NewChannelConfigProvider(configProvider),
 			ListenerManagerProvider,
+			committer.NewSerialDependencyResolver(),
 		),
 		identityProvider:    identity.NewProvider(configProvider, endpointService),
 		metricsProvider:     metricsProvider,
