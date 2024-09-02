@@ -37,6 +37,7 @@ type provider struct {
 	newVault                generic.VaultConstructor
 	tracerProvider          trace.TracerProvider
 	metricsProvider         metrics.Provider
+	dependencyResolver      committer.DependencyResolver
 	drivers                 []driver2.NamedDriver
 	channelConfigProvider   driver.ChannelConfigProvider
 	listenerManagerProvider driver.ListenerManagerProvider
@@ -79,7 +80,7 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 	}
 
 	// Vault
-	vault, txIDStore, err := p.newVault(nw.ConfigService(), channelName, p.drivers)
+	vault, txIDStore, err := p.newVault(nw.ConfigService(), channelName, p.drivers, p.tracerProvider)
 	if err != nil {
 		return nil, err
 	}
@@ -136,8 +137,8 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 		channelMembershipService,
 		networkOrderingService,
 		fabricFinality,
-		channelConfig.CommitterWaitForEventTimeout(),
 		nw.TransactionManager(),
+		p.dependencyResolver,
 		quiet,
 		p.listenerManagerProvider.NewManager(),
 		p.tracerProvider,
@@ -168,6 +169,7 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 			return false, committerService.Commit(ctx, block)
 		},
 		p.tracerProvider,
+		p.metricsProvider,
 	)
 	if err != nil {
 		return nil, err
