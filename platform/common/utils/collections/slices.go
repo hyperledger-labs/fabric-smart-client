@@ -18,6 +18,10 @@ func Remove[T comparable](items []T, toRemove T) ([]T, bool) {
 	return items, false
 }
 
+func Difference[V comparable](a, b []V) []V {
+	return NewSet(a...).Minus(NewSet(b...)).ToSlice()
+}
+
 func Intersection[V comparable](a, b []V) []V {
 	//if len(a) > len(b) {
 	//	a, b = b, a
