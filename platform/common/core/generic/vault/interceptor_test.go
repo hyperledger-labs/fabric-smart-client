@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 )
@@ -45,7 +46,7 @@ func (qe mockQE) Done() {
 type mockTXIDStoreReader struct {
 }
 
-func (m mockTXIDStoreReader) Iterator(pos interface{}) (driver.TxIDIterator[int], error) {
+func (m mockTXIDStoreReader) Iterator(interface{}) (collections.Iterator[*driver.ByNum[int]], error) {
 	panic("not implemented")
 }
 func (m mockTXIDStoreReader) Get(txID driver.TxID) (int, string, error) {

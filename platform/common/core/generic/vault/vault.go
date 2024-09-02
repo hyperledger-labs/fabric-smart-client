@@ -10,9 +10,12 @@ import (
 	"bytes"
 	"context"
 	"sync"
+	"time"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/runner"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"go.opentelemetry.io/otel/trace"
@@ -26,7 +29,7 @@ type Logger interface {
 }
 
 type TXIDStoreReader[V driver.ValidationCode] interface {
-	Iterator(pos interface{}) (driver.TxIDIterator[V], error)
+	Iterator(pos interface{}) (collections.Iterator[*driver.ByNum[V]], error)
 	Get(txID driver.TxID) (V, string, error)
 }
 
@@ -90,6 +93,8 @@ type Vault[V driver.ValidationCode] struct {
 	newInterceptor NewInterceptorFunc[V]
 	populator      Populator
 	metrics        *Metrics
+
+	commitBatcher runner.BatchRunner[txCommitIndex]
 }
 
 // New returns a new instance of Vault
@@ -102,7 +107,7 @@ func New[V driver.ValidationCode](
 	populator Populator,
 	tracerProvider trace.TracerProvider,
 ) *Vault[V] {
-	return &Vault[V]{
+	v := &Vault[V]{
 		logger:         logger,
 		Interceptors:   make(map[driver.TxID]TxInterceptor),
 		store:          store,
@@ -112,6 +117,8 @@ func New[V driver.ValidationCode](
 		populator:      populator,
 		metrics:        NewMetrics(tracerProvider),
 	}
+	v.commitBatcher = runner.NewBatchRunner[txCommitIndex](v.commitTXs, 100, 500*time.Millisecond)
+	return v
 }
 
 func (db *Vault[V]) NewQueryExecutor() (QueryExecutor, error) {
@@ -157,111 +164,158 @@ func (db *Vault[V]) DiscardTx(txID driver.TxID, message string) error {
 }
 
 func (db *Vault[V]) UnmapInterceptor(txID driver.TxID) (TxInterceptor, error) {
+	m, err := db.unmapInterceptors(txID)
+	if err != nil {
+		return nil, err
+	}
+	return m[txID], nil
+}
+
+func (db *Vault[V]) unmapInterceptors(txIDs ...driver.TxID) (map[driver.TxID]TxInterceptor, error) {
 	db.interceptorsLock.Lock()
 	defer db.interceptorsLock.Unlock()
 
-	i, in := db.Interceptors[txID]
+	result, notFound := collections.SubMap(db.Interceptors, txIDs...)
 
-	if !in {
-		vc, _, err := db.txIDStore.Get(txID)
+	vcs, err := db.txIDStore.Iterator(&driver.SeekSet{TxIDs: notFound})
+	if err != nil {
+		return nil, errors.Wrapf(err, "read-write set for txids [%v] could not be found", txIDs)
+	}
+
+	for vc, err := vcs.Next(); vc != nil; vc, err = vcs.Next() {
 		if err != nil {
-			return nil, errors.Wrapf(err, "read-write set for txid %s could not be found", txID)
+			return nil, errors.Wrapf(err, "read-write set for txid %s could not be found", vc.TxID)
 		}
-		if vc == db.vcProvider.Unknown() {
-			return nil, errors.Errorf("read-write set for txid %s could not be found", txID)
+		if vc.Code == db.vcProvider.Unknown() {
+			return nil, errors.Errorf("read-write set for txid %s could not be found", vc.TxID)
 		}
-		return nil, nil
 	}
 
-	if !i.IsClosed() {
-		return nil, errors.Errorf("attempted to retrieve read-write set for %s when done has not been called", txID)
+	for txID, i := range result {
+		if !i.IsClosed() {
+			return nil, errors.Errorf("attempted to retrieve read-write set for %s when done has not been called", txID)
+		}
+		delete(db.Interceptors, txID)
 	}
 
-	delete(db.Interceptors, txID)
+	return result, nil
+}
 
-	return i, nil
+type txCommitIndex struct {
+	ctx         context.Context
+	txID        driver.TxID
+	block       driver.BlockNum
+	indexInBloc driver.TxNum
+}
+
+type commitInput struct {
+	txCommitIndex
+	rws *ReadWriteSet
 }
 
 func (db *Vault[V]) CommitTX(ctx context.Context, txID driver.TxID, block driver.BlockNum, indexInBloc driver.TxNum) error {
 	newCtx, span := db.metrics.Vault.Start(ctx, "commit")
 	defer span.End()
-	db.logger.Debugf("UnmapInterceptor [%s]", txID)
-	span.AddEvent("unmap_interceptor")
-	i, err := db.UnmapInterceptor(txID)
-	if err != nil {
-		return errors.Wrapf(err, "failed to unmap interceptor for [%s]", txID)
-	}
-	if i == nil {
-		return errors.Errorf("cannot find rwset for [%s]", txID)
-	}
-	rws := i.RWs()
+	return db.commitBatcher.Run(txCommitIndex{
+		ctx:         newCtx,
+		txID:        txID,
+		block:       block,
+		indexInBloc: indexInBloc,
+	})
+}
 
-	db.logger.Debugf("[%s] commit in vault", txID)
+func (db *Vault[V]) commitTXs(txs []txCommitIndex) []error {
+	txIDs := make([]driver.TxID, len(txs))
+	for i, tx := range txs {
+		txIDs[i] = tx.txID
+	}
+	db.logger.Debugf("UnmapInterceptors [%v]", txIDs)
+	interceptors, err := db.unmapInterceptors(txIDs...)
+	if err != nil {
+		return collections.Repeat(errors.Wrapf(err, "failed to unmap interceptor for [%v]", txIDs), len(txs))
+	}
+	if len(interceptors) != len(txs) {
+		return collections.Repeat(errors.Errorf("cannot find rwset for [%s]", collections.Difference(collections.Keys(interceptors), txIDs)), len(txs))
+	}
+
+	inputs := make([]commitInput, len(txs))
+	for i, tx := range txs {
+		inputs[i] = commitInput{txCommitIndex: tx, rws: interceptors[tx.txID].RWs()}
+	}
+
 	for {
-		err := db.commitRWs(newCtx, txID, block, indexInBloc, rws)
+		err := db.commitRWs(inputs...)
 		if err == nil {
-			return nil
+			return collections.Repeat[error](nil, len(txs))
 		}
 		if !errors.HasCause(err, DeadlockDetected) {
-			span.RecordError(err)
 			// This should generate a panic
-			return err
+			return collections.Repeat(err, len(txs))
 		}
 		db.logger.Debugf("Deadlock detected. Retrying... [%v]", err)
 	}
 }
 
-func (db *Vault[V]) commitRWs(ctx context.Context, txID driver.TxID, block driver.BlockNum, indexInBloc driver.TxNum, rws *ReadWriteSet) error {
-	span := trace.SpanFromContext(ctx)
-	span.AddEvent("commit_rws")
-	db.logger.Debugf("get lock [%s][%d]", txID, db.counter.Load())
+func (db *Vault[V]) commitRWs(inputs ...commitInput) error {
+	for _, input := range inputs {
+		trace.SpanFromContext(input.ctx).AddEvent("wait_store_lock")
+	}
 	db.storeLock.Lock()
 	defer db.storeLock.Unlock()
 
-	span.AddEvent("begin_update")
+	for _, input := range inputs {
+		trace.SpanFromContext(input.ctx).AddEvent("begin_update")
+	}
 	if err := db.store.BeginUpdate(); err != nil {
-		return errors.Wrapf(err, "begin update in store for txid '%s' failed", txID)
+		return errors.Wrapf(err, "begin update in store for txid %v failed", inputs)
 	}
 
-	span.AddEvent("set_tx_busy")
-	if err := db.txIDStore.Set(txID, db.vcProvider.Busy(), ""); err != nil {
-		if !errors.HasCause(err, UniqueKeyViolation) {
-			return err
+	for _, input := range inputs {
+		span := trace.SpanFromContext(input.ctx)
+
+		span.AddEvent("set_tx_busy")
+		if err := db.txIDStore.Set(input.txID, db.vcProvider.Busy(), ""); err != nil {
+			if !errors.HasCause(err, UniqueKeyViolation) {
+				return err
+			}
 		}
+
+		db.logger.Debugf("parse writes [%s]", input.txID)
+		span.AddEvent("store_writes")
+		if discarded, err := db.storeWrites(input.ctx, input.rws.Writes, input.block, input.indexInBloc); err != nil {
+			return errors.Wrapf(err, "failed storing writes")
+		} else if discarded {
+			db.logger.Infof("Discarded changes while storing writes as duplicates. Skipping...")
+			db.txIDStore.Invalidate(input.txID)
+			return nil
+		}
+
+		db.logger.Debugf("parse meta writes [%s]", input.txID)
+		span.AddEvent("store_meta_writes")
+		if discarded, err := db.storeMetaWrites(input.ctx, input.rws.MetaWrites, input.block, input.indexInBloc); err != nil {
+			return errors.Wrapf(err, "failed storing meta writes")
+		} else if discarded {
+			db.logger.Infof("Discarded changes while storing meta writes as duplicates. Skipping...")
+			db.txIDStore.Invalidate(input.txID)
+			return nil
+		}
+
+		db.logger.Debugf("set state to valid [%s]", input.txID)
+		span.AddEvent("set_tx_valid")
+		if discarded, err := db.setTxValid(input.txID); err != nil {
+			return errors.Wrapf(err, "failed setting tx state to valid")
+		} else if discarded {
+			db.logger.Infof("Discarded changes while setting tx state to valid as duplicates. Skipping...")
+			return nil
+		}
+
 	}
 
-	db.logger.Debugf("parse writes [%s]", txID)
-	span.AddEvent("store_writes")
-	if discarded, err := db.storeWrites(ctx, rws.Writes, block, indexInBloc); err != nil {
-		return errors.Wrapf(err, "failed storing writes")
-	} else if discarded {
-		db.logger.Infof("Discarded changes while storing writes as duplicates. Skipping...")
-		db.txIDStore.Invalidate(txID)
-		return nil
+	for _, input := range inputs {
+		trace.SpanFromContext(input.ctx).AddEvent("commit_update")
 	}
-
-	db.logger.Debugf("parse meta writes [%s]", txID)
-	span.AddEvent("store_meta_writes")
-	if discarded, err := db.storeMetaWrites(ctx, rws.MetaWrites, block, indexInBloc); err != nil {
-		return errors.Wrapf(err, "failed storing meta writes")
-	} else if discarded {
-		db.logger.Infof("Discarded changes while storing meta writes as duplicates. Skipping...")
-		db.txIDStore.Invalidate(txID)
-		return nil
-	}
-
-	db.logger.Debugf("set state to valid [%s]", txID)
-	span.AddEvent("set_tx_valid")
-	if discarded, err := db.setTxValid(txID); err != nil {
-		return errors.Wrapf(err, "failed setting tx state to valid")
-	} else if discarded {
-		db.logger.Infof("Discarded changes while setting tx state to valid as duplicates. Skipping...")
-		return nil
-	}
-
-	span.AddEvent("commit_update")
 	if err := db.store.Commit(); err != nil {
-		return errors.Wrapf(err, "committing tx for txid in store '%s' failed", txID)
+		return errors.Wrapf(err, "committing tx for txid in store [%v] failed", inputs)
 	}
 
 	return nil
