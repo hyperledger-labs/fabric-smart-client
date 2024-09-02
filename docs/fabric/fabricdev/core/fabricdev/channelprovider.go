@@ -53,6 +53,7 @@ func NewChannelProvider(
 	newVault generic.VaultConstructor,
 	channelConfigProvider driver.ChannelConfigProvider,
 	listenerManagerProvider driver.ListenerManagerProvider,
+	dependencyResolver committer.DependencyResolver,
 ) *provider {
 	return &provider{
 		kvss:                    kvss,
@@ -64,6 +65,7 @@ func NewChannelProvider(
 		drivers:                 drivers,
 		channelConfigProvider:   channelConfigProvider,
 		listenerManagerProvider: listenerManagerProvider,
+		dependencyResolver:      dependencyResolver,
 	}
 }
 
