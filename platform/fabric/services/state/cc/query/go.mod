@@ -57,7 +57,7 @@ require (
 	github.com/minio/sha256-simd v0.1.1 // indirect
 	github.com/mitchellh/mapstructure v1.3.2 // indirect
 	github.com/moby/sys/mount v0.2.0 // indirect
-	github.com/moby/sys/mountinfo v0.4.1 // indirect
+	github.com/moby/sys/mountinfo v0.5.0 // indirect
 	github.com/moby/term v0.0.0-20200312100748-672ec06f55cd // indirect
 	github.com/morikuni/aec v1.0.0 // indirect
 	github.com/mr-tron/base58 v1.1.3 // indirect
@@ -71,7 +71,7 @@ require (
 	github.com/onsi/gomega v1.10.3 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.0.1 // indirect
-	github.com/opencontainers/runc v1.0.0-rc93 // indirect
+	github.com/opencontainers/runc v1.1.14 // indirect
 	github.com/pelletier/go-toml v1.8.1 // indirect
 	github.com/pierrec/lz4 v2.5.2+incompatible // indirect
 	github.com/pkg/errors v0.9.1 // indirect
@@ -97,14 +97,14 @@ require (
 	go.uber.org/atomic v1.7.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
 	go.uber.org/zap v1.16.0 // indirect
-	golang.org/x/crypto v0.0.0-20210322153248-0c34fe9e7dc2 // indirect
-	golang.org/x/net v0.0.0-20210405180319-a5a99cb37ef4 // indirect
-	golang.org/x/sys v0.0.0-20210910150752-751e447fb3d0 // indirect
-	golang.org/x/text v0.3.5 // indirect
+	golang.org/x/crypto v0.22.0 // indirect
+	golang.org/x/net v0.24.0 // indirect
+	golang.org/x/sys v0.19.0 // indirect
+	golang.org/x/text v0.14.0 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	google.golang.org/genproto v0.0.0-20210201184850-646a494a81ea // indirect
 	google.golang.org/grpc v1.39.1 // indirect
-	google.golang.org/protobuf v1.27.1 // indirect
+	google.golang.org/protobuf v1.33.0 // indirect
 	gopkg.in/ini.v1 v1.51.0 // indirect
 	gopkg.in/jcmturner/aescts.v1 v1.0.1 // indirect
 	gopkg.in/jcmturner/dnsutils.v1 v1.0.1 // indirect
