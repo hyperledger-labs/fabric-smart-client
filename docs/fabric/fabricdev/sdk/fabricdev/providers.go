@@ -12,7 +12,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/config"
 	mspdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/sig"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	vdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
@@ -25,18 +24,17 @@ import (
 
 func NewDriver(in struct {
 	dig.In
-	ConfigProvider          config.Provider
-	MetricsProvider         metrics.Provider
-	EndpointService         vdriver.EndpointService
-	SigService              *sig.Service
-	DeserializerManager     mspdriver.DeserializerManager
-	IdProvider              vdriver.IdentityProvider
-	KVS                     *kvs.KVS
-	Publisher               events.Publisher
-	Hasher                  hash.Hasher
-	TracerProvider          trace.TracerProvider
-	Drivers                 []dbdriver.NamedDriver `group:"db-drivers"`
-	ListenerManagerProvider driver.ListenerManagerProvider
+	ConfigProvider      config.Provider
+	MetricsProvider     metrics.Provider
+	EndpointService     vdriver.EndpointService
+	SigService          *sig.Service
+	DeserializerManager mspdriver.DeserializerManager
+	IdProvider          vdriver.IdentityProvider
+	KVS                 *kvs.KVS
+	Publisher           events.Publisher
+	Hasher              hash.Hasher
+	TracerProvider      trace.TracerProvider
+	Drivers             []dbdriver.NamedDriver `group:"db-drivers"`
 }) core.NamedDriver {
 	d := core.NamedDriver{
 		Name: "fabricdev",
@@ -52,7 +50,6 @@ func NewDriver(in struct {
 			in.Hasher,
 			in.TracerProvider,
 			in.Drivers,
-			in.ListenerManagerProvider,
 		),
 	}
 	return d

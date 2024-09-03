@@ -32,4 +32,4 @@ Look [`here`](fabricdev/core/fabricdev/ledger/ledger.go) for an example.
 To use it, we need a new channel provider that uses the new ledger implementation.
 Look [`here`](fabricdev/core/fabricdev/channelprovider.go) for an example.
 
-
+Once your driver is ready, you can create a new SDK to register your driver as shown here [`sdk.go`](./fabricdev/sdk/dig/sdk.go).
