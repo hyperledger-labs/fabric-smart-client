@@ -61,7 +61,7 @@ func (p *SDK) Install() error {
 		p.Container().Provide(config.NewCore),
 		p.Container().Provide(config.NewProvider),
 		p.Container().Provide(committer.NewFinalityListenerManagerProvider[driver.ValidationCode], dig.As(new(driver.ListenerManagerProvider))),
-		p.Container().Provide(generic2.NewDriver, dig.Group("drivers")),
+		p.Container().Provide(generic2.NewDriver, dig.Group("fabric-platform-drivers")),
 		p.Container().Provide(finality2.NewHandler, dig.Group("finality-handlers")),
 		p.Container().Provide(fns.NewProvider),
 		p.Container().Provide(digutils.Identity[*core.FSNProvider](), dig.As(new(driver.FabricNetworkServiceProvider))),
@@ -150,7 +150,7 @@ func registerProcessorsForDrivers(in struct {
 	dig.In
 	CoreConfig             *core.Config
 	NetworkServiceProvider *fabric.NetworkServiceProvider
-	Drivers                []core.NamedDriver `group:"drivers"`
+	Drivers                []core.NamedDriver `group:"fabric-platform-drivers"`
 }) error {
 	if len(in.CoreConfig.Names()) == 0 {
 		return errors.New("no fabric network names found")

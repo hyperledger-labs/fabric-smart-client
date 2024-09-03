@@ -42,18 +42,17 @@ type RWSetPayloadHandlerProvider = digutils.HandlerProvider[common.HeaderType, f
 
 func NewDriver(in struct {
 	dig.In
-	ConfigProvider          config.Provider
-	MetricsProvider         metrics.Provider
-	EndpointService         vdriver.EndpointService
-	SigService              *sig.Service
-	DeserializerManager     mspdriver.DeserializerManager
-	IdProvider              vdriver.IdentityProvider
-	KVS                     *kvs.KVS
-	Publisher               events.Publisher
-	Hasher                  hash.Hasher
-	TracerProvider          trace.TracerProvider
-	Drivers                 []dbdriver.NamedDriver `group:"db-drivers"`
-	ListenerManagerProvider driver.ListenerManagerProvider
+	ConfigProvider      config.Provider
+	MetricsProvider     metrics.Provider
+	EndpointService     vdriver.EndpointService
+	SigService          *sig.Service
+	DeserializerManager mspdriver.DeserializerManager
+	IdProvider          vdriver.IdentityProvider
+	KVS                 *kvs.KVS
+	Publisher           events.Publisher
+	Hasher              hash.Hasher
+	TracerProvider      trace.TracerProvider
+	Drivers             []dbdriver.NamedDriver `group:"db-drivers"`
 }) core.NamedDriver {
 	d := core.NamedDriver{
 		Name: "generic",
@@ -69,7 +68,6 @@ func NewDriver(in struct {
 			in.Hasher,
 			in.TracerProvider,
 			in.Drivers,
-			in.ListenerManagerProvider,
 		),
 	}
 	return d

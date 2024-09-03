@@ -214,6 +214,9 @@ fabric:
   # Is the fabric-sdk enabled
   enabled: true
   mynetwork: # unique name of the fabric network configuration
+    # it is the driver to use to provide the implementations of the Fabric API (client-side)
+    # `generic` supports Fabric 2.x
+    driver: generic
     # defines whether this is the default fabric network
     default: true
     # Cache size to use when handling idemix pseudonyms. If the value is larger than 0, the cache is enabled and

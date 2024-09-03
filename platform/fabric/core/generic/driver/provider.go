@@ -9,6 +9,8 @@ package driver
 import (
 	"fmt"
 
+	committer2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/committer"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic"
@@ -57,7 +59,6 @@ func NewProvider(
 	hasher hash.Hasher,
 	tracerProvider trace.TracerProvider,
 	Drivers []dbdriver.NamedDriver,
-	ListenerManagerProvider fdriver.ListenerManagerProvider,
 ) *Provider {
 	return &Provider{
 		configProvider: configProvider,
@@ -70,7 +71,7 @@ func NewProvider(
 			Drivers,
 			vault.New,
 			generic.NewChannelConfigProvider(configProvider),
-			ListenerManagerProvider,
+			committer2.NewFinalityListenerManagerProvider[fdriver.ValidationCode](tracerProvider),
 			committer.NewSerialDependencyResolver(),
 		),
 		identityProvider:    identity.NewProvider(configProvider, endpointService),

@@ -39,7 +39,8 @@ func (p *SDK) Install() error {
 		return p.SDK.Install()
 	}
 	err := errors.Join(
-		p.Container().Provide(fabricdev.NewDriver, dig.Group("drivers")),
+		// Register the new fabric platform driver
+		p.Container().Provide(fabricdev.NewDriver, dig.Group("fabric-platform-drivers")),
 	)
 	if err != nil {
 		return err
