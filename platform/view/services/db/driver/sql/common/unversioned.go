@@ -11,15 +11,17 @@ import (
 	"fmt"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/common"
 )
 
 type UnversionedPersistence struct {
-	basePersistence[driver.UnversionedValue, driver.UnversionedRead]
+	*basePersistence[driver.UnversionedValue, driver.UnversionedRead]
 }
 
 func NewUnversioned(readDB *sql.DB, writeDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, ci Interpreter) *UnversionedPersistence {
 	return &UnversionedPersistence{
-		basePersistence: basePersistence[driver.UnversionedValue, driver.UnversionedRead]{
+		basePersistence: &basePersistence[driver.UnversionedValue, driver.UnversionedRead]{
+			BaseDB:       common.NewBaseDB[*sql.Tx](func() (*sql.Tx, error) { return writeDB.Begin() }),
 			writeDB:      writeDB,
 			readDB:       readDB,
 			table:        table,
