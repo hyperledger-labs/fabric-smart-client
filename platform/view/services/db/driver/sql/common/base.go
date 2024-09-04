@@ -9,14 +9,13 @@ package common
 import (
 	"database/sql"
 	"fmt"
-	"runtime/debug"
 	"strings"
-	"sync"
 
 	errors2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/pkg/errors"
 	"golang.org/x/exp/slices"
@@ -42,13 +41,10 @@ type valueScanner[V any] interface {
 }
 
 type basePersistence[V any, R any] struct {
-	writeDB    *sql.DB
-	readDB     *sql.DB
-	txn        *sql.Tx
-	txnLock    sync.Mutex
-	txLock     sync.Mutex
-	debugStack []byte
-	table      string
+	*common.BaseDB[*sql.Tx]
+	writeDB *sql.DB
+	readDB  *sql.DB
+	table   string
 
 	readScanner  readScanner[R]
 	valueScanner valueScanner[V]
@@ -89,7 +85,7 @@ func (db *basePersistence[V, R]) GetState(namespace driver2.Namespace, key strin
 }
 
 func (db *basePersistence[V, R]) SetState(ns driver2.Namespace, pkey string, value V) error {
-	return db.setState(db.txn, ns, pkey, value)
+	return db.setState(db.Txn, ns, pkey, value)
 }
 
 func (db *basePersistence[V, R]) GetStateSetIterator(ns driver2.Namespace, keys ...string) (collections.Iterator[*R], error) {
@@ -114,7 +110,7 @@ func (db *basePersistence[V, R]) GetStateSetIterator(ns driver2.Namespace, keys 
 func (db *basePersistence[V, R]) Close() error {
 	logger.Info("closing database")
 
-	// TODO: what to do with db.txn if it's not nil?
+	// TODO: what to do with db.Txn if it's not nil?
 
 	err := db.writeDB.Close()
 	if err != nil {
@@ -124,69 +120,8 @@ func (db *basePersistence[V, R]) Close() error {
 	return nil
 }
 
-func (db *basePersistence[V, R]) BeginUpdate() error {
-	logger.Debugf("begin db transaction [%s]", db.table)
-	db.txLock.Lock()
-	db.txnLock.Lock()
-	defer db.txnLock.Unlock()
-
-	if db.txn != nil {
-		db.txLock.Unlock()
-		logger.Errorf("previous commit in progress, locked by [%s]", db.debugStack)
-		return errors.New("previous commit in progress")
-	}
-
-	tx, err := db.writeDB.Begin()
-	if err != nil {
-		db.txLock.Unlock()
-		return errors2.Wrapf(err, "error starting db transaction")
-	}
-	db.txn = tx
-	db.debugStack = debug.Stack()
-
-	return nil
-}
-
-func (db *basePersistence[V, R]) Commit() error {
-	logger.Debugf("commit db transaction [%s]", db.table)
-	defer db.txLock.Unlock()
-	db.txnLock.Lock()
-	defer db.txnLock.Unlock()
-
-	if db.txn == nil {
-		return errors.New("no commit in progress")
-	}
-
-	err := db.txn.Commit()
-	db.txn = nil
-	if err != nil {
-		return errors2.Wrapf(err, "could not commit transaction")
-	}
-
-	return nil
-}
-
-func (db *basePersistence[V, R]) Discard() error {
-	logger.Debug(fmt.Sprintf("rollback db transaction on table %s", db.table))
-	db.txnLock.Lock()
-	defer db.txnLock.Unlock()
-
-	if db.txn == nil {
-		return errors.New("no commit in progress")
-	}
-	defer db.txLock.Unlock()
-	err := db.txn.Rollback()
-	db.txn = nil
-	if err != nil {
-		logger.Infof("error rolling back (ignoring): %s", err.Error())
-		return nil
-	}
-
-	return nil
-}
-
 func (db *basePersistence[V, R]) DeleteState(ns driver2.Namespace, key string) error {
-	if db.txn == nil {
+	if db.Txn == nil {
 		panic("programming error, writing without ongoing update")
 	}
 	if ns == "" || key == "" {
@@ -195,7 +130,7 @@ func (db *basePersistence[V, R]) DeleteState(ns driver2.Namespace, key string) e
 	where, args := Where(db.hasKey(ns, key))
 	query := fmt.Sprintf("DELETE FROM %s %s", db.table, where)
 	logger.Debug(query, args)
-	_, err := db.txn.Exec(query, args...)
+	_, err := db.Txn.Exec(query, args...)
 	if err != nil {
 		return errors2.Wrapf(db.errorWrapper.WrapError(err), "could not delete val for key [%s]", key)
 	}

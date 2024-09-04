@@ -73,7 +73,7 @@ func dbKey(namespace, key string) string {
 	return namespace + keys.NamespaceSeparator + key
 }
 
-func txVersionedValue(txn *badger.Txn, dbKey string) (*dbproto.VersionedValue, error) {
+func txVersionedValue(txn *Txn, dbKey string) (*dbproto.VersionedValue, error) {
 	it, err := txn.Get([]byte(dbKey))
 	if err == badger.ErrKeyNotFound {
 		return &dbproto.VersionedValue{

@@ -8,8 +8,6 @@ package badger
 
 import (
 	"context"
-	"runtime/debug"
-	"sync"
 	"time"
 
 	"github.com/dgraph-io/badger/v3"
@@ -18,6 +16,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/common"
 	keys2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/keys"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 )
@@ -29,13 +28,19 @@ const (
 
 var logger = flogging.MustGetLogger("db.driver.badger")
 
-type DB struct {
-	db            *badger.DB
-	txn           *badger.Txn
-	txnLock       sync.RWMutex
-	cancelCleaner context.CancelFunc
+type Txn struct {
+	*badger.Txn
+}
 
-	debugStack []byte
+func (t *Txn) Rollback() error {
+	t.Txn.Discard()
+	return nil
+}
+
+type DB struct {
+	*common.BaseDB[*Txn]
+	db            *badger.DB
+	cancelCleaner context.CancelFunc
 }
 
 func OpenDB(opts Opts, config driver.Config) (*DB, error) {
@@ -73,12 +78,14 @@ func OpenDB(opts Opts, config driver.Config) (*DB, error) {
 	// start our auto cleaner
 	cancel := autoCleaner(db, defaultGCInterval, defaultGCDiscardRatio)
 
-	return &DB{db: db, cancelCleaner: cancel}, nil
+	return &DB{db: db, cancelCleaner: cancel, BaseDB: common.NewBaseDB[*Txn](func() (*Txn, error) {
+		return &Txn{db.NewTransaction(true)}, nil
+	})}, nil
 }
 
 func (db *DB) Close() error {
 
-	// TODO: what to do with db.txn if it's not nil?
+	// TODO: what to do with db.Txn if it's not nil?
 
 	err := db.db.Close()
 	if err != nil {
@@ -93,64 +100,19 @@ func (db *DB) Close() error {
 	return nil
 }
 
-func (db *DB) BeginUpdate() error {
-	db.txnLock.Lock()
-	defer db.txnLock.Unlock()
-
-	if db.txn != nil {
-		logger.Errorf("previous commit in progress, locked by [%s]", db.debugStack)
-		return errors.New("previous commit in progress")
-	}
-	db.txn = db.db.NewTransaction(true)
-	db.debugStack = debug.Stack()
-
-	return nil
-}
-
-func (db *DB) Commit() error {
-	db.txnLock.Lock()
-	defer db.txnLock.Unlock()
-
-	if db.txn == nil {
-		return errors.New("no commit in progress")
-	}
-
-	err := db.txn.Commit()
-	if err != nil {
-		return errors.Wrap(err, "could not commit transaction")
-	}
-	db.txn = nil
-
-	return nil
-}
-
-func (db *DB) Discard() error {
-	db.txnLock.Lock()
-	defer db.txnLock.Unlock()
-
-	if db.txn == nil {
-		return errors.New("no commit in progress")
-	}
-
-	db.txn.Discard()
-	db.txn = nil
-
-	return nil
-}
-
 func (db *DB) SetState(namespace driver2.Namespace, key string, value driver.VersionedValue) error {
 	if len(value.Raw) == 0 {
 		logger.Warnf("set key [%s:%d:%d] to nil value, will be deleted instead", key, value.Block, value.TxNum)
 		return db.DeleteState(namespace, key)
 	}
 
-	if db.txn == nil {
+	if db.Txn == nil {
 		panic("programming error, writing without ongoing update")
 	}
 
 	dbKey := dbKey(namespace, key)
 
-	v, err := txVersionedValue(db.txn, dbKey)
+	v, err := txVersionedValue(db.Txn, dbKey)
 	if err != nil {
 		return err
 	}
@@ -164,7 +126,7 @@ func (db *DB) SetState(namespace driver2.Namespace, key string, value driver.Ver
 		return errors.Wrapf(err, "could not marshal VersionedValue for key %s", dbKey)
 	}
 
-	err = db.txn.Set([]byte(dbKey), bytes)
+	err = db.Txn.Set([]byte(dbKey), bytes)
 	if err != nil {
 		return errors.Wrapf(err, "could not set value for key %s", dbKey)
 	}
@@ -173,13 +135,13 @@ func (db *DB) SetState(namespace driver2.Namespace, key string, value driver.Ver
 }
 
 func (db *DB) SetStateMetadata(namespace, key string, metadata map[string][]byte, block, txnum uint64) error {
-	if db.txn == nil {
+	if db.Txn == nil {
 		panic("programming error, writing without ongoing update")
 	}
 
 	dbKey := dbKey(namespace, key)
 
-	v, err := txVersionedValue(db.txn, dbKey)
+	v, err := txVersionedValue(db.Txn, dbKey)
 	if err != nil {
 		return err
 	}
@@ -193,7 +155,7 @@ func (db *DB) SetStateMetadata(namespace, key string, metadata map[string][]byte
 		return errors.Wrapf(err, "could not marshal VersionedValue for key %s", dbKey)
 	}
 
-	err = db.txn.Set([]byte(dbKey), bytes)
+	err = db.Txn.Set([]byte(dbKey), bytes)
 	if err != nil {
 		return errors.Wrapf(err, "could not set value for key %s", dbKey)
 	}
@@ -202,13 +164,13 @@ func (db *DB) SetStateMetadata(namespace, key string, metadata map[string][]byte
 }
 
 func (db *DB) DeleteState(namespace, key string) error {
-	if db.txn == nil {
+	if db.Txn == nil {
 		panic("programming error, writing without ongoing update")
 	}
 
 	dbKey := dbKey(namespace, key)
 
-	err := db.txn.Delete([]byte(dbKey))
+	err := db.Txn.Delete([]byte(dbKey))
 	if err != nil {
 		return errors.Wrapf(err, "could not delete value for key %s", dbKey)
 	}
@@ -219,7 +181,7 @@ func (db *DB) DeleteState(namespace, key string) error {
 func (db *DB) GetState(namespace driver2.Namespace, key string) (driver.VersionedValue, error) {
 	dbKey := dbKey(namespace, key)
 
-	txn := db.db.NewTransaction(false)
+	txn := &Txn{db.db.NewTransaction(false)}
 	defer txn.Discard()
 
 	v, err := txVersionedValue(txn, dbKey)
@@ -250,7 +212,7 @@ func (db *DB) GetStateSetIterator(ns string, keys ...string) (driver.VersionedRe
 func (db *DB) GetStateMetadata(namespace, key string) (map[string][]byte, uint64, uint64, error) {
 	dbKey := dbKey(namespace, key)
 
-	txn := db.db.NewTransaction(false)
+	txn := &Txn{db.db.NewTransaction(false)}
 	defer txn.Discard()
 
 	v, err := txVersionedValue(txn, dbKey)
@@ -262,7 +224,7 @@ func (db *DB) GetStateMetadata(namespace, key string) (map[string][]byte, uint64
 }
 
 func (db *DB) NewWriteTransaction() (driver.WriteTransaction, error) {
-	txn := db.db.NewTransaction(true)
+	txn := &Txn{db.db.NewTransaction(true)}
 	retryRunner := utils.NewRetryRunner(3, 100*time.Millisecond, true)
 	return &WriteTransaction{
 		db:          db.db,
@@ -273,7 +235,7 @@ func (db *DB) NewWriteTransaction() (driver.WriteTransaction, error) {
 
 type WriteTransaction struct {
 	db          *badger.DB
-	txn         *badger.Txn
+	txn         *Txn
 	retryRunner utils.RetryRunner
 }
 
