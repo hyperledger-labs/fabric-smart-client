@@ -16,6 +16,8 @@ type (
 	BlockNum  = uint64
 	TxNum     = uint64
 	Namespace = string
+	Network   = string
+	Channel   = string
 )
 
 type PersistenceType string
