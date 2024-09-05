@@ -17,7 +17,7 @@ type UnversionedPersistence struct {
 	basePersistence[driver.UnversionedValue, driver.UnversionedRead]
 }
 
-func NewUnversioned(readDB *sql.DB, writeDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper) *UnversionedPersistence {
+func NewUnversioned(readDB *sql.DB, writeDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, ci Interpreter) *UnversionedPersistence {
 	return &UnversionedPersistence{
 		basePersistence: basePersistence[driver.UnversionedValue, driver.UnversionedRead]{
 			writeDB:      writeDB,
@@ -26,6 +26,7 @@ func NewUnversioned(readDB *sql.DB, writeDB *sql.DB, table string, errorWrapper 
 			readScanner:  &unversionedReadScanner{},
 			valueScanner: &unversionedValueScanner{},
 			errorWrapper: errorWrapper,
+			ci:           ci,
 		},
 	}
 }

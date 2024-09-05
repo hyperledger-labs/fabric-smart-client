@@ -53,11 +53,15 @@ type basePersistence[V any, R any] struct {
 	readScanner  readScanner[R]
 	valueScanner valueScanner[V]
 	errorWrapper driver.SQLErrorWrapper
+	ci           Interpreter
 }
 
 func (db *basePersistence[V, R]) GetStateRangeScanIterator(ns driver2.Namespace, startKey, endKey string) (collections.Iterator[*R], error) {
-	where, args := rangeWhere(ns, startKey, endKey)
-	query := fmt.Sprintf("SELECT %s FROM %s WHERE ns = $1 %s ORDER BY pkey;", strings.Join(db.readScanner.Columns(), ", "), db.table, where)
+	where, args := Where(db.ci.And(
+		db.ci.Cmp("ns", "=", ns),
+		db.ci.BetweenStrings("pkey", startKey, endKey),
+	))
+	query := fmt.Sprintf("SELECT %s FROM %s %s ORDER BY pkey;", strings.Join(db.readScanner.Columns(), ", "), db.table, where)
 	logger.Debug(query, ns, startKey, endKey)
 
 	rows, err := db.readDB.Query(query, args...)
@@ -69,10 +73,11 @@ func (db *basePersistence[V, R]) GetStateRangeScanIterator(ns driver2.Namespace,
 }
 
 func (db *basePersistence[V, R]) GetState(namespace driver2.Namespace, key string) (V, error) {
-	query := fmt.Sprintf("SELECT %s FROM %s WHERE ns = $1 AND pkey = $2", strings.Join(db.valueScanner.Columns(), ", "), db.table)
-	logger.Debug(query, namespace, key)
+	where, args := Where(db.hasKey(namespace, key))
+	query := fmt.Sprintf("SELECT %s FROM %s %s", strings.Join(db.valueScanner.Columns(), ", "), db.table, where)
+	logger.Debug(query, args)
 
-	row := db.readDB.QueryRow(query, namespace, key)
+	row := db.readDB.QueryRow(query, args...)
 	if value, err := db.valueScanner.ReadValue(row); err == nil {
 		return value, nil
 	} else if err == sql.ErrNoRows {
@@ -91,10 +96,14 @@ func (db *basePersistence[V, R]) GetStateSetIterator(ns driver2.Namespace, keys 
 	if len(keys) == 0 {
 		return collections.NewEmptyIterator[*R](), nil
 	}
-	query := fmt.Sprintf("SELECT %s FROM %s WHERE ns = $1 AND pkey IN %s", strings.Join(db.readScanner.Columns(), ", "), db.table, generateParamSet(2, len(keys)))
+	where, args := Where(db.ci.And(
+		db.ci.Cmp("ns", "=", ns),
+		db.ci.InStrings("pkey", keys),
+	))
+	query := fmt.Sprintf("SELECT %s FROM %s %s", strings.Join(db.readScanner.Columns(), ", "), db.table, where)
 	logger.Debug(query[:30] + "...")
 
-	rows, err := db.readDB.Query(query, append([]any{ns}, castAny(keys)...)...)
+	rows, err := db.readDB.Query(query, args...)
 	if err != nil {
 		return nil, errors2.Wrapf(err, "query error: %s", query)
 	}
@@ -176,17 +185,17 @@ func (db *basePersistence[V, R]) Discard() error {
 	return nil
 }
 
-func (db *basePersistence[V, R]) DeleteState(ns, key string) error {
+func (db *basePersistence[V, R]) DeleteState(ns driver2.Namespace, key string) error {
 	if db.txn == nil {
 		panic("programming error, writing without ongoing update")
 	}
 	if ns == "" || key == "" {
 		return errors.New("ns or key is empty")
 	}
-
-	query := fmt.Sprintf("DELETE FROM %s WHERE ns = $1 AND pkey = $2", db.table)
-	logger.Debug(query, ns, key)
-	_, err := db.txn.Exec(query, ns, key)
+	where, args := Where(db.hasKey(ns, key))
+	query := fmt.Sprintf("DELETE FROM %s %s", db.table, where)
+	logger.Debug(query, args)
+	_, err := db.txn.Exec(query, args...)
 	if err != nil {
 		return errors2.Wrapf(db.errorWrapper.WrapError(err), "could not delete val for key [%s]", key)
 	}
@@ -226,10 +235,13 @@ func (db *basePersistence[V, R]) setState(tx *sql.Tx, ns driver2.Namespace, pkey
 			sets[i] = fmt.Sprintf("%s = $%d", key, i+1)
 		}
 
-		query := fmt.Sprintf("UPDATE %s SET %s WHERE ns = $%d AND pkey = $%d", db.table, strings.Join(sets, ", "), len(keys)+1, len(keys)+2)
-		logger.Debug(query, ns, pkey, len(values))
+		cond := db.hasKey(ns, pkey)
+		offset := len(keys) + 1
+		where, args := cond.ToString(&offset), cond.Params()
+		query := fmt.Sprintf("UPDATE %s SET %s WHERE %s", db.table, strings.Join(sets, ", "), where)
+		logger.Infof(query, args, len(values))
 
-		_, err := tx.Exec(query, append(values, ns, pkey)...)
+		_, err := tx.Exec(query, append(values, args...)...)
 		if err != nil {
 			return errors2.Wrapf(db.errorWrapper.WrapError(err), "could not set val for key [%s]", pkey)
 		}
@@ -251,9 +263,10 @@ func (db *basePersistence[V, R]) setState(tx *sql.Tx, ns driver2.Namespace, pkey
 
 func (db *basePersistence[V, R]) exists(tx *sql.Tx, ns, key string) (bool, error) {
 	var pkey string
-	query := fmt.Sprintf("SELECT pkey FROM %s WHERE ns = $1 AND pkey = $2", db.table)
-	logger.Debug(query, ns, key)
-	err := tx.QueryRow(query, ns, key).Scan(&pkey)
+	where, args := Where(db.hasKey(ns, key))
+	query := fmt.Sprintf("SELECT pkey FROM %s %s", db.table, where)
+	logger.Debug(query, args)
+	err := tx.QueryRow(query, args...).Scan(&pkey)
 	if err == sql.ErrNoRows {
 		return false, nil
 	}
@@ -261,6 +274,13 @@ func (db *basePersistence[V, R]) exists(tx *sql.Tx, ns, key string) (bool, error
 		return false, errors2.Wrapf(err, "cannot check if key exists: %s", key)
 	}
 	return true, nil
+}
+
+func (db *basePersistence[V, R]) hasKey(ns driver2.Namespace, pkey string) Condition {
+	return db.ci.And(
+		db.ci.Cmp("ns", "=", ns),
+		db.ci.Cmp("pkey", "=", pkey),
+	)
 }
 
 func (db *basePersistence[V, R]) createSchema(query string) error {
@@ -297,39 +317,10 @@ type Opts struct {
 	MaxOpenConns    int
 }
 
-func rangeWhere(ns, startKey, endKey string) (string, []interface{}) {
-	where := ""
-	args := []interface{}{ns}
-
-	// To match badger behavior, we don't include the endKey
-	if startKey != "" && endKey != "" {
-		where = "AND pkey >= $2 AND pkey < $3"
-		args = []interface{}{ns, startKey, endKey}
-	} else if startKey != "" {
-		where = "AND pkey >= $2"
-		args = []interface{}{ns, startKey}
-	} else if endKey != "" {
-		where = "AND pkey < $2"
-		args = []interface{}{ns, endKey}
-	}
-	return where, args
-}
-
 func generateParamSet(offset, count int) string {
 	params := make([]string, count)
 	for i := 0; i < count; i++ {
 		params[i] = fmt.Sprintf("$%d", i+offset)
 	}
 	return fmt.Sprintf("(%s)", strings.Join(params, ", "))
-}
-
-func castAny[A any](as []A) []any {
-	if as == nil {
-		return nil
-	}
-	bs := make([]any, len(as))
-	for i, a := range as {
-		bs[i] = a
-	}
-	return bs
 }

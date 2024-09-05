@@ -47,7 +47,7 @@ type VersionedPersistence struct {
 	errorWrapper driver.SQLErrorWrapper
 }
 
-func NewVersionedPersistence(readDB *sql.DB, writeDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper) *VersionedPersistence {
+func NewVersionedPersistence(readDB *sql.DB, writeDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, ci Interpreter) *VersionedPersistence {
 	return &VersionedPersistence{
 		basePersistence: basePersistence[driver.VersionedValue, driver.VersionedRead]{
 			readDB:       readDB,
@@ -56,6 +56,7 @@ func NewVersionedPersistence(readDB *sql.DB, writeDB *sql.DB, table string, erro
 			readScanner:  &versionedReadScanner{},
 			valueScanner: &versionedValueScanner{},
 			errorWrapper: errorWrapper,
+			ci:           ci,
 		},
 		errorWrapper: errorWrapper,
 	}
