@@ -27,7 +27,7 @@ func NewUnversioned(opts common.Opts, table string) (*common.UnversionedPersiste
 	if err != nil {
 		return nil, fmt.Errorf("error opening db: %w", err)
 	}
-	return common.NewUnversioned(readWriteDB, readWriteDB, table, &errorMapper{}), nil
+	return common.NewUnversioned(readWriteDB, readWriteDB, table, &errorMapper{}, NewInterpreter()), nil
 }
 
 func NewUnversionedNotifier(opts common.Opts, table string) (*unversionedPersistenceNotifier, error) {
@@ -36,7 +36,7 @@ func NewUnversionedNotifier(opts common.Opts, table string) (*unversionedPersist
 		return nil, fmt.Errorf("error opening db: %w", err)
 	}
 	return &unversionedPersistenceNotifier{
-		UnversionedPersistence: common.NewUnversioned(readWriteDB, readWriteDB, table, &errorMapper{}),
+		UnversionedPersistence: common.NewUnversioned(readWriteDB, readWriteDB, table, &errorMapper{}, NewInterpreter()),
 		Notifier:               NewNotifier(readWriteDB, table, opts.DataSource, AllOperations, "ns", "pkey"),
 	}, nil
 }
@@ -46,7 +46,7 @@ func NewPersistence(opts common.Opts, table string) (*common.VersionedPersistenc
 	if err != nil {
 		return nil, fmt.Errorf("error opening db: %w", err)
 	}
-	return common.NewVersionedPersistence(readWriteDB, readWriteDB, table, &errorMapper{}), nil
+	return common.NewVersionedPersistence(readWriteDB, readWriteDB, table, &errorMapper{}, NewInterpreter()), nil
 }
 
 func NewPersistenceNotifier(opts common.Opts, table string) (*versionedPersistenceNotifier, error) {
@@ -55,7 +55,7 @@ func NewPersistenceNotifier(opts common.Opts, table string) (*versionedPersisten
 		return nil, fmt.Errorf("error opening db: %w", err)
 	}
 	return &versionedPersistenceNotifier{
-		VersionedPersistence: common.NewVersionedPersistence(readWriteDB, readWriteDB, table, &errorMapper{}),
+		VersionedPersistence: common.NewVersionedPersistence(readWriteDB, readWriteDB, table, &errorMapper{}, NewInterpreter()),
 		Notifier:             NewNotifier(readWriteDB, table, opts.DataSource, AllOperations, "ns", "pkey"),
 	}, nil
 }
