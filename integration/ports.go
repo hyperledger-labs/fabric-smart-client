@@ -17,13 +17,13 @@ import (
 type TestPortRange int
 
 const (
-	basePort      = 20000
-	portsPerNode  = 50
-	portsPerSuite = 10 * portsPerNode
+	basePort      = 5000
+	portsPerNode  = 10
+	PortsPerSuite = 10 * portsPerNode
 )
 
 const (
-	BasePort TestPortRange = basePort + portsPerSuite*iota
+	BasePort TestPortRange = basePort + PortsPerSuite*iota
 	PingPongPort
 	PingPong2Port
 	PingPongWithAdminPort
@@ -49,7 +49,7 @@ func (t TestPortRange) StartPortForNode() int {
 
 	port := int(t) + portsPerNode*(ginkgo.GinkgoParallelProcess()-1)
 	if port >= startEphemeral-portsPerNode && port <= endEphemeral-portsPerNode {
-		fmt.Fprintf(os.Stderr, "WARNING: port %d is part of the default ephemeral port range on linux", port)
+		fmt.Fprintf(os.Stderr, "WARNING: port %d is part of the default ephemeral port range on linux. Errors 'address already in use' might occur.", port)
 	}
 	return port
 }
