@@ -10,11 +10,11 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
-	"math/rand"
 	"net/http"
 	"net/url"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -34,8 +34,11 @@ const (
 
 type SubConnId = string
 
+var subConnId atomic.Uint64
+
 func NewSubConnId() SubConnId {
-	return strconv.FormatInt(rand.Int63(), 10) // TODO: AF
+	// Must be thread safe
+	return strconv.FormatUint(subConnId.Add(1), 10)
 }
 
 type MultiplexedMessage struct {
