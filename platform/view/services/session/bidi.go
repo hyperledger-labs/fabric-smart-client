@@ -9,6 +9,7 @@ package session
 import (
 	"context"
 	"encoding/base64"
+	"runtime/debug"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
@@ -134,4 +135,5 @@ func (s *localSession) Receive() <-chan *view.Message {
 
 func (s *localSession) Close() {
 	s.info.Closed = true
+	s.info.WhoClosed = string(debug.Stack())
 }

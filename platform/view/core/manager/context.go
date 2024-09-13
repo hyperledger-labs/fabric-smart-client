@@ -242,10 +242,11 @@ func (ctx *ctx) GetSession(f view.View, party view.Identity) (view.Session, erro
 		if err != nil {
 			return nil, err
 		}
-		ctx.sessions[id.UniqueID()] = &disposableSession{
+		key := id.UniqueID()
+		ctx.sessions[key] = &disposableSession{
 			Session: s,
 			ctx:     ctx,
-			key:     id.UniqueID(),
+			key:     key,
 		}
 	} else {
 		if logger.IsEnabledFor(zapcore.DebugLevel) {

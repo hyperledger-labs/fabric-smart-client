@@ -42,6 +42,7 @@ type SessionInfo struct {
 	Endpoint     string
 	EndpointPKID []byte
 	Closed       bool
+	WhoClosed    string
 }
 
 func (i *SessionInfo) String() string {

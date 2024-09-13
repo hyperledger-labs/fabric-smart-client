@@ -28,6 +28,7 @@ type NetworkStreamSession struct {
 	incoming        chan *view.Message
 	streams         map[*streamHandler]struct{}
 	closed          bool
+	whoClosed       string
 	mutex           sync.Mutex
 }
 
@@ -40,6 +41,7 @@ func (n *NetworkStreamSession) Info() view.SessionInfo {
 		Endpoint:     n.endpointAddress,
 		EndpointPKID: n.endpointID,
 		Closed:       n.closed,
+		WhoClosed:    n.whoClosed,
 	}
 	n.mutex.Unlock()
 	return ret
@@ -103,6 +105,7 @@ func (n *NetworkStreamSession) closeInternal() {
 	}
 	close(n.incoming)
 	n.closed = true
+	n.whoClosed = string(debug.Stack())
 	n.streams = make(map[*streamHandler]struct{})
 
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
