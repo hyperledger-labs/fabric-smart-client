@@ -25,6 +25,7 @@ func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType, replicationOpts *
 	fabricTopology.AddOrganizationsByName("Org1", "Org2", "Org3")
 	fabricTopology.SetNamespaceApproverOrgs("Org1")
 	fabricTopology.AddNamespaceWithUnanimity("iou", "Org1")
+	fabricTopology.Driver = "fabricx"
 
 	// Define an FSC topology with 3 FCS nodes.
 	// One for the approver, one for the borrower, and one for the lender.

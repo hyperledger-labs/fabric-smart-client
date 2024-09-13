@@ -242,7 +242,11 @@ func (ctx *ctx) GetSession(f view.View, party view.Identity) (view.Session, erro
 		if err != nil {
 			return nil, err
 		}
-		ctx.sessions[id.UniqueID()] = s
+		ctx.sessions[id.UniqueID()] = &disposableSession{
+			Session: s,
+			ctx:     ctx,
+			key:     id.UniqueID(),
+		}
 	} else {
 		if logger.IsEnabledFor(zapcore.DebugLevel) {
 			logger.Debugf("[%s] Reusing session [to:%s]", ctx.me, id)
@@ -267,7 +271,11 @@ func (ctx *ctx) GetSessionByID(id string, party view.Identity) (view.Session, er
 		if err != nil {
 			return nil, err
 		}
-		ctx.sessions[key] = s
+		ctx.sessions[key] = &disposableSession{
+			Session: s,
+			ctx:     ctx,
+			key:     key,
+		}
 	} else {
 		if logger.IsEnabledFor(zapcore.DebugLevel) {
 			logger.Debugf("[%s] Reusing session with given id [id:%s][to:%s]", id, ctx.me, party)
@@ -367,7 +375,27 @@ func (ctx *ctx) safeInvoke(f func()) {
 	f()
 }
 
+func (ctx *ctx) disposeSession(key string) {
+	ctx.sessionsLock.Lock()
+	defer ctx.sessionsLock.Unlock()
+
+	delete(ctx.sessions, key)
+}
+
 type localContext interface {
 	disposableContext
 	cleanup()
+}
+
+type disposableSession struct {
+	view.Session
+	ctx *ctx
+	key string
+}
+
+// Close releases all the resources allocated by this session
+func (s *disposableSession) Close() {
+	// remove from context
+	s.ctx.disposeSession(s.key)
+	s.Session.Close()
 }
