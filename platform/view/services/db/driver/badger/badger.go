@@ -224,16 +224,26 @@ func (db *DB) GetStateMetadata(namespace, key string) (map[string][]byte, uint64
 }
 
 func (db *DB) NewWriteTransaction() (driver.WriteTransaction, error) {
+	if err := db.BeginUpdate(); err != nil {
+		return nil, err
+	}
 	txn := &Txn{db.db.NewTransaction(true)}
 	retryRunner := utils.NewRetryRunner(3, 100*time.Millisecond, true)
 	return &WriteTransaction{
 		db:          db.db,
 		txn:         txn,
 		retryRunner: retryRunner,
+		txMgr:       db,
 	}, nil
 }
 
+type txMgr interface {
+	Commit() error
+	Discard() error
+}
+
 type WriteTransaction struct {
+	txMgr
 	db          *badger.DB
 	txn         *Txn
 	retryRunner utils.RetryRunner
@@ -284,11 +294,11 @@ func (w *WriteTransaction) Commit() error {
 		return err
 	}
 	w.txn = nil
-	return nil
+	return w.txMgr.Commit()
 }
 
 func (w *WriteTransaction) Discard() error {
 	w.txn.Discard()
 	w.txn = nil
-	return nil
+	return w.txMgr.Discard()
 }
