@@ -149,7 +149,7 @@ func (db *Notifier) GetSchema() string {
 	funcName := triggerFuncName(db.primaryKeys)
 	lock := utils.MustGet(utils.HashInt64([]byte(funcName)))
 	return fmt.Sprintf(`
-	SELECT pg_advisory_lock(%d);
+	SELECT pg_advisory_xact_lock(%d);
 	CREATE OR REPLACE FUNCTION %s() RETURNS TRIGGER AS $$
 			DECLARE
 			row RECORD;
@@ -178,7 +178,6 @@ func (db *Notifier) GetSchema() string {
 	CREATE OR REPLACE TRIGGER trigger_%s
 	AFTER %s ON %s
 	FOR EACH ROW EXECUTE PROCEDURE %s();
-	SELECT pg_advisory_unlock(%d);
 	`,
 		lock,
 		funcName,
@@ -187,7 +186,6 @@ func (db *Notifier) GetSchema() string {
 		db.table,
 		convertOperations(db.notifyOperations), db.table,
 		funcName,
-		lock,
 	)
 }
 
