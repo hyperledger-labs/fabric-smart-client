@@ -27,7 +27,7 @@ type UnversionedPersistenceNotifier[P driver.UnversionedPersistence] struct {
 	*Notifier
 }
 
-func (db *UnversionedPersistenceNotifier[P]) SetState(ns, key string, val []byte) error {
+func (db *UnversionedPersistenceNotifier[P]) SetState(ns driver2.Namespace, key driver2.PKey, val driver2.RawValue) error {
 	if err := db.Persistence.SetState(ns, key, val); err != nil {
 		return err
 	}
@@ -37,6 +37,22 @@ func (db *UnversionedPersistenceNotifier[P]) SetState(ns, key string, val []byte
 	}
 	db.Notifier.EnqueueEvent(op, map[driver.ColumnKey]string{"ns": ns, "pkey": utils.EncodeByteA(key)})
 	return nil
+}
+
+func (db *UnversionedPersistenceNotifier[P]) SetStates(ns driver2.Namespace, kvs map[driver2.PKey]driver2.RawValue) map[driver2.PKey]error {
+	errs := db.Persistence.SetStates(ns, kvs)
+
+	for key, val := range kvs {
+		if _, ok := errs[key]; !ok {
+			op := driver.Update
+			if len(val) == 0 {
+				op = driver.Delete
+			}
+			db.Notifier.EnqueueEvent(op, map[driver.ColumnKey]string{"ns": ns, "pkey": utils.EncodeByteA(key)})
+		}
+	}
+
+	return errs
 }
 
 func (db *UnversionedPersistenceNotifier[P]) Commit() error {
@@ -57,7 +73,7 @@ func (db *UnversionedPersistenceNotifier[P]) Discard() error {
 	return nil
 }
 
-func (db *UnversionedPersistenceNotifier[P]) DeleteState(ns, key string) error {
+func (db *UnversionedPersistenceNotifier[P]) DeleteState(ns driver2.Namespace, key driver2.PKey) error {
 	if err := db.Persistence.DeleteState(ns, key); err != nil {
 		return err
 	}
@@ -65,15 +81,27 @@ func (db *UnversionedPersistenceNotifier[P]) DeleteState(ns, key string) error {
 	return nil
 }
 
-func (db *UnversionedPersistenceNotifier[P]) GetState(namespace, key string) ([]byte, error) {
+func (db *UnversionedPersistenceNotifier[P]) DeleteStates(namespace driver2.Namespace, keys ...driver2.PKey) map[driver2.PKey]error {
+	errs := db.Persistence.DeleteStates(namespace, keys...)
+
+	for _, key := range keys {
+		if _, ok := errs[key]; !ok {
+			db.Notifier.EnqueueEvent(driver.Delete, map[driver.ColumnKey]string{"ns": namespace, "pkey": utils.EncodeByteA(key)})
+		}
+	}
+
+	return errs
+}
+
+func (db *UnversionedPersistenceNotifier[P]) GetState(namespace driver2.Namespace, key driver2.PKey) (driver2.RawValue, error) {
 	return db.Persistence.GetState(namespace, key)
 }
 
-func (db *UnversionedPersistenceNotifier[P]) GetStateRangeScanIterator(namespace string, startKey string, endKey string) (driver.UnversionedResultsIterator, error) {
+func (db *UnversionedPersistenceNotifier[P]) GetStateRangeScanIterator(namespace driver2.Namespace, startKey, endKey driver2.PKey) (driver.UnversionedResultsIterator, error) {
 	return db.Persistence.GetStateRangeScanIterator(namespace, startKey, endKey)
 }
 
-func (db *UnversionedPersistenceNotifier[P]) GetStateSetIterator(ns string, keys ...string) (driver.UnversionedResultsIterator, error) {
+func (db *UnversionedPersistenceNotifier[P]) GetStateSetIterator(ns driver2.Namespace, keys ...driver2.PKey) (driver.UnversionedResultsIterator, error) {
 	return db.Persistence.GetStateSetIterator(ns, keys...)
 }
 
@@ -101,12 +129,36 @@ type VersionedPersistenceNotifier[P driver.VersionedPersistence] struct {
 	*Notifier
 }
 
-func (db *VersionedPersistenceNotifier[P]) SetState(namespace driver2.Namespace, key string, value driver.VersionedValue) error {
+func (db *VersionedPersistenceNotifier[P]) SetState(namespace driver2.Namespace, key driver2.PKey, value driver.VersionedValue) error {
 	if err := db.Persistence.SetState(namespace, key, value); err != nil {
 		return err
 	}
 	db.Notifier.EnqueueEvent(driver.Update, map[driver.ColumnKey]string{"ns": namespace, "pkey": utils.EncodeByteA(key)})
 	return nil
+}
+
+func (db *VersionedPersistenceNotifier[P]) SetStates(ns driver2.Namespace, kvs map[driver2.PKey]driver.VersionedValue) map[driver2.PKey]error {
+	errs := db.Persistence.SetStates(ns, kvs)
+
+	for key := range kvs {
+		if _, ok := errs[key]; !ok {
+			db.Notifier.EnqueueEvent(driver.Update, map[driver.ColumnKey]string{"ns": ns, "pkey": utils.EncodeByteA(key)})
+		}
+	}
+
+	return errs
+}
+
+func (db *VersionedPersistenceNotifier[P]) DeleteStates(namespace driver2.Namespace, keys ...driver2.PKey) map[driver2.PKey]error {
+	errs := db.Persistence.DeleteStates(namespace, keys...)
+
+	for _, key := range keys {
+		if _, ok := errs[key]; !ok {
+			db.Notifier.EnqueueEvent(driver.Delete, map[driver.ColumnKey]string{"ns": namespace, "pkey": utils.EncodeByteA(key)})
+		}
+	}
+
+	return errs
 }
 
 func (db *VersionedPersistenceNotifier[P]) Commit() error {
@@ -127,7 +179,7 @@ func (db *VersionedPersistenceNotifier[P]) Discard() error {
 	return nil
 }
 
-func (db *VersionedPersistenceNotifier[P]) DeleteState(ns, key string) error {
+func (db *VersionedPersistenceNotifier[P]) DeleteState(ns driver2.Namespace, key driver2.PKey) error {
 	if err := db.Persistence.DeleteState(ns, key); err != nil {
 		return err
 	}
@@ -135,23 +187,27 @@ func (db *VersionedPersistenceNotifier[P]) DeleteState(ns, key string) error {
 	return nil
 }
 
-func (db *VersionedPersistenceNotifier[P]) GetState(namespace driver2.Namespace, key string) (driver.VersionedValue, error) {
+func (db *VersionedPersistenceNotifier[P]) GetState(namespace driver2.Namespace, key driver2.PKey) (driver.VersionedValue, error) {
 	return db.Persistence.GetState(namespace, key)
 }
 
-func (db *VersionedPersistenceNotifier[P]) GetStateMetadata(namespace, key string) (map[string][]byte, uint64, uint64, error) {
+func (db *VersionedPersistenceNotifier[P]) GetStateMetadata(namespace driver2.Namespace, key driver2.PKey) (driver2.Metadata, driver2.BlockNum, driver2.TxNum, error) {
 	return db.Persistence.GetStateMetadata(namespace, key)
 }
 
-func (db *VersionedPersistenceNotifier[P]) SetStateMetadata(namespace, key string, metadata map[string][]byte, block, txnum uint64) error {
+func (db *VersionedPersistenceNotifier[P]) SetStateMetadata(namespace driver2.Namespace, key driver2.PKey, metadata driver2.Metadata, block driver2.BlockNum, txnum driver2.TxNum) error {
 	return db.Persistence.SetStateMetadata(namespace, key, metadata, block, txnum)
 }
 
-func (db *VersionedPersistenceNotifier[P]) GetStateRangeScanIterator(namespace string, startKey string, endKey string) (driver.VersionedResultsIterator, error) {
+func (db *VersionedPersistenceNotifier[P]) SetStateMetadatas(ns driver2.Namespace, kvs map[driver2.PKey]driver2.Metadata, block driver2.BlockNum, txnum driver2.TxNum) map[driver2.PKey]error {
+	return db.Persistence.SetStateMetadatas(ns, kvs, block, txnum)
+}
+
+func (db *VersionedPersistenceNotifier[P]) GetStateRangeScanIterator(namespace driver2.Namespace, startKey, endKey driver2.PKey) (driver.VersionedResultsIterator, error) {
 	return db.Persistence.GetStateRangeScanIterator(namespace, startKey, endKey)
 }
 
-func (db *VersionedPersistenceNotifier[P]) GetStateSetIterator(ns string, keys ...string) (driver.VersionedResultsIterator, error) {
+func (db *VersionedPersistenceNotifier[P]) GetStateSetIterator(ns driver2.Namespace, keys ...driver2.PKey) (driver.VersionedResultsIterator, error) {
 	return db.Persistence.GetStateSetIterator(ns, keys...)
 }
 

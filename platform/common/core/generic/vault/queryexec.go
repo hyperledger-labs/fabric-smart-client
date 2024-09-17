@@ -17,18 +17,18 @@ type directQueryExecutor[V driver.ValidationCode] struct {
 	vault *Vault[V]
 }
 
-func (q *directQueryExecutor[V]) GetState(namespace string, key string) ([]byte, error) {
+func (q *directQueryExecutor[V]) GetState(namespace driver.Namespace, key driver.PKey) (driver.RawValue, error) {
 	//logger.Debugf("Get State [%s,%s]", namespace, key)
 	vv, err := q.vault.store.GetState(namespace, key)
 	//logger.Debugf("Got State [%s,%s] -> [%v]", namespace, key, hash.Hashable(v).String())
 	return vv.Raw, err
 }
 
-func (q *directQueryExecutor[V]) GetStateRangeScanIterator(namespace string, startKey string, endKey string) (VersionedResultsIterator, error) {
+func (q *directQueryExecutor[V]) GetStateRangeScanIterator(namespace driver.Namespace, startKey, endKey driver.PKey) (VersionedResultsIterator, error) {
 	return q.vault.store.GetStateRangeScanIterator(namespace, startKey, endKey)
 }
 
-func (q *directQueryExecutor[V]) GetStateMetadata(namespace, key string) (map[string][]byte, uint64, uint64, error) {
+func (q *directQueryExecutor[V]) GetStateMetadata(namespace driver.Namespace, key driver.PKey) (driver.Metadata, driver.BlockNum, driver.TxNum, error) {
 	return q.vault.store.GetStateMetadata(namespace, key)
 }
 
@@ -46,10 +46,10 @@ func (i *interceptorQueryExecutor[V]) Done() {
 	i.storeLock.RUnlock()
 }
 
-func (i *interceptorQueryExecutor[V]) GetStateMetadata(namespace, key string) (map[string][]byte, uint64, uint64, error) {
+func (i *interceptorQueryExecutor[V]) GetStateMetadata(namespace driver.Namespace, key driver.PKey) (driver.Metadata, driver.BlockNum, driver.TxNum, error) {
 	return i.store.GetStateMetadata(namespace, key)
 }
 
-func (i *interceptorQueryExecutor[V]) GetState(namespace, key string) (VersionedValue, error) {
+func (i *interceptorQueryExecutor[V]) GetState(namespace driver.Namespace, key driver.PKey) (VersionedValue, error) {
 	return i.store.GetState(namespace, key)
 }

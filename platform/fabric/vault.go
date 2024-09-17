@@ -48,7 +48,7 @@ func (m TransientMap) SetState(key string, state interface{}) error {
 	return nil
 }
 
-func (m TransientMap) GetState(key string, state interface{}) error {
+func (m TransientMap) GetState(key driver.PKey, state interface{}) error {
 	value, ok := m[key]
 	if !ok {
 		return errors.Errorf("transient map key [%s] does not exists", key)

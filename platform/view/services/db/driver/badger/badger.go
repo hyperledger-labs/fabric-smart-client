@@ -134,7 +134,17 @@ func (db *DB) SetState(namespace driver2.Namespace, key string, value driver.Ver
 	return nil
 }
 
-func (db *DB) SetStateMetadata(namespace, key string, metadata map[string][]byte, block, txnum uint64) error {
+func (db *DB) SetStates(namespace driver2.Namespace, kvs map[driver2.PKey]driver.VersionedValue) map[driver2.PKey]error {
+	errs := make(map[driver2.PKey]error)
+	for key, val := range kvs {
+		if err := db.SetState(namespace, key, val); err != nil {
+			errs[key] = err
+		}
+	}
+	return errs
+}
+
+func (db *DB) SetStateMetadata(namespace driver2.Namespace, key driver2.PKey, metadata driver2.Metadata, block driver2.BlockNum, txnum driver2.TxNum) error {
 	if db.Txn == nil {
 		panic("programming error, writing without ongoing update")
 	}
@@ -163,7 +173,17 @@ func (db *DB) SetStateMetadata(namespace, key string, metadata map[string][]byte
 	return nil
 }
 
-func (db *DB) DeleteState(namespace, key string) error {
+func (db *DB) SetStateMetadatas(ns driver2.Namespace, kvs map[driver2.PKey]driver2.Metadata, block driver2.BlockNum, txnum driver2.TxNum) map[driver2.PKey]error {
+	errs := make(map[driver2.PKey]error)
+	for pkey, value := range kvs {
+		if err := db.SetStateMetadata(ns, pkey, value, block, txnum); err != nil {
+			errs[pkey] = err
+		}
+	}
+	return errs
+}
+
+func (db *DB) DeleteState(namespace driver2.Namespace, key driver2.PKey) error {
 	if db.Txn == nil {
 		panic("programming error, writing without ongoing update")
 	}
@@ -178,7 +198,17 @@ func (db *DB) DeleteState(namespace, key string) error {
 	return nil
 }
 
-func (db *DB) GetState(namespace driver2.Namespace, key string) (driver.VersionedValue, error) {
+func (db *DB) DeleteStates(namespace driver2.Namespace, keys ...driver2.PKey) map[driver2.PKey]error {
+	errs := make(map[driver2.PKey]error)
+	for _, key := range keys {
+		if err := db.DeleteState(namespace, key); err != nil {
+			errs[key] = err
+		}
+	}
+	return errs
+}
+
+func (db *DB) GetState(namespace driver2.Namespace, key driver2.PKey) (driver.VersionedValue, error) {
 	dbKey := dbKey(namespace, key)
 
 	txn := &Txn{db.db.NewTransaction(false)}
@@ -192,7 +222,7 @@ func (db *DB) GetState(namespace driver2.Namespace, key string) (driver.Versione
 	return driver.VersionedValue{Raw: v.Value, Block: v.Block, TxNum: v.Txnum}, err
 }
 
-func (db *DB) GetStateSetIterator(ns string, keys ...string) (driver.VersionedResultsIterator, error) {
+func (db *DB) GetStateSetIterator(ns driver2.Namespace, keys ...driver2.PKey) (driver.VersionedResultsIterator, error) {
 	reads := make([]*driver.VersionedRead, len(keys))
 	for i, key := range keys {
 		vv, err := db.GetState(ns, key)
@@ -209,7 +239,7 @@ func (db *DB) GetStateSetIterator(ns string, keys ...string) (driver.VersionedRe
 	return &keys2.DummyVersionedIterator{Items: reads}, nil
 }
 
-func (db *DB) GetStateMetadata(namespace, key string) (map[string][]byte, uint64, uint64, error) {
+func (db *DB) GetStateMetadata(namespace driver2.Namespace, key driver2.PKey) (driver2.Metadata, driver2.BlockNum, driver2.TxNum, error) {
 	dbKey := dbKey(namespace, key)
 
 	txn := &Txn{db.db.NewTransaction(false)}
@@ -249,7 +279,7 @@ type WriteTransaction struct {
 	retryRunner utils.RetryRunner
 }
 
-func (w *WriteTransaction) SetState(namespace driver2.Namespace, key string, value driver.VersionedValue) error {
+func (w *WriteTransaction) SetState(namespace driver2.Namespace, key driver2.PKey, value driver.VersionedValue) error {
 	if w.txn == nil {
 		panic("programming error, writing without ongoing update")
 	}
@@ -278,7 +308,7 @@ func (w *WriteTransaction) SetState(namespace driver2.Namespace, key string, val
 	return nil
 }
 
-func (w *WriteTransaction) DeleteState(namespace driver2.Namespace, key string) error {
+func (w *WriteTransaction) DeleteState(namespace driver2.Namespace, key driver2.PKey) error {
 	dbKey := dbKey(namespace, key)
 
 	err := w.txn.Delete([]byte(dbKey))

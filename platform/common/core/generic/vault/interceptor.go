@@ -205,6 +205,16 @@ func (i *Interceptor[V]) SetStateMetadata(namespace string, key string, value ma
 	return i.Rws.MetaWriteSet.Add(namespace, key, value)
 }
 
+func (i *Interceptor[V]) SetStateMetadatas(ns driver.Namespace, kvs map[driver.PKey]driver.Metadata) map[driver.PKey]error {
+	errs := make(map[driver.PKey]error)
+	for pkey, value := range kvs {
+		if err := i.SetStateMetadata(ns, pkey, value); err != nil {
+			errs[pkey] = err
+		}
+	}
+	return errs
+}
+
 func (i *Interceptor[V]) GetStateMetadata(namespace, key string, opts ...driver.GetStateOpt) (map[string][]byte, error) {
 	if i.IsClosed() {
 		return nil, errors.New("this instance was closed")
@@ -260,7 +270,7 @@ func (i *Interceptor[V]) GetStateMetadata(namespace, key string, opts ...driver.
 	}
 }
 
-func (i *Interceptor[V]) GetState(namespace string, key string, opts ...driver.GetStateOpt) ([]byte, error) {
+func (i *Interceptor[V]) GetState(namespace driver.Namespace, key driver.PKey, opts ...driver.GetStateOpt) ([]byte, error) {
 	if i.IsClosed() {
 		return nil, errors.New("this instance was closed")
 	}
