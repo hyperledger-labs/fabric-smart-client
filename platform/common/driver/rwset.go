@@ -25,49 +25,49 @@ type RWSet interface {
 	IsClosed() bool
 
 	// Clear remove the passed namespace from this rwset
-	Clear(ns string) error
+	Clear(ns Namespace) error
 
 	// SetState sets the given value for the given namespace and key.
-	SetState(namespace string, key string, value []byte) error
+	SetState(namespace Namespace, key PKey, value RawValue) error
 
-	GetState(namespace string, key string, opts ...GetStateOpt) ([]byte, error)
+	GetState(namespace Namespace, key PKey, opts ...GetStateOpt) (RawValue, error)
 
 	// GetDirectState accesses the state using the query executor without looking into the RWSet.
 	// This way we can access the query executor while we have a RWSet already open avoiding nested RLocks.
-	GetDirectState(namespace Namespace, key string) ([]byte, error)
+	GetDirectState(namespace Namespace, key PKey) (RawValue, error)
 
 	// DeleteState deletes the given namespace and key
-	DeleteState(namespace string, key string) error
+	DeleteState(namespace Namespace, key PKey) error
 
-	GetStateMetadata(namespace, key string, opts ...GetStateOpt) (map[string][]byte, error)
+	GetStateMetadata(namespace Namespace, key PKey, opts ...GetStateOpt) (Metadata, error)
 
 	// SetStateMetadata sets the metadata associated with an existing key-tuple <namespace, key>
-	SetStateMetadata(namespace, key string, metadata map[string][]byte) error
+	SetStateMetadata(namespace Namespace, key PKey, metadata Metadata) error
 
-	GetReadKeyAt(ns string, i int) (string, error)
+	GetReadKeyAt(ns Namespace, i int) (PKey, error)
 
 	// GetReadAt returns the i-th read (key, value) in the namespace ns  of this rwset.
 	// The value is loaded from the ledger, if present. If the key's version in the ledger
 	// does not match the key's version in the read, then it returns an error.
-	GetReadAt(ns string, i int) (string, []byte, error)
+	GetReadAt(ns Namespace, i int) (PKey, RawValue, error)
 
 	// GetWriteAt returns the i-th write (key, value) in the namespace ns of this rwset.
-	GetWriteAt(ns string, i int) (string, []byte, error)
+	GetWriteAt(ns Namespace, i int) (PKey, RawValue, error)
 
 	// NumReads returns the number of reads in the namespace ns  of this rwset.
-	NumReads(ns string) int
+	NumReads(ns Namespace) int
 
 	// NumWrites returns the number of writes in the namespace ns of this rwset.
-	NumWrites(ns string) int
+	NumWrites(ns Namespace) int
 
 	// Namespaces returns the namespace labels in this rwset.
-	Namespaces() []string
+	Namespaces() []Namespace
 
-	AppendRWSet(raw []byte, nss ...string) error
+	AppendRWSet(raw []byte, nss ...Namespace) error
 
 	Bytes() ([]byte, error)
 
 	Done()
 
-	Equals(rws interface{}, nss ...string) error
+	Equals(rws interface{}, nss ...Namespace) error
 }

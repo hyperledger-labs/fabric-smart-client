@@ -202,15 +202,15 @@ func TTestParallelVaults(t *testing.T, ddb VersionedPersistence, vp artifactsPro
 	assert.NoError(t, err)
 	assert.Equal(t, []byte("val_v1"), val)
 	assert.Equal(t, map[string][]byte{"k1": []byte("mval1_v1")}, mval)
-	assert.Equal(t, 1, txNum)
-	assert.Equal(t, 2, blkNum)
+	assert.Equal(t, uint64(1), txNum)
+	assert.Equal(t, uint64(2), blkNum)
 
 	val, mval, txNum, blkNum, err = queryVault(vault2, ns, k, mk)
 	assert.NoError(t, err)
 	assert.Equal(t, []byte("val_v1"), val)
 	assert.Equal(t, map[string][]byte{"k1": []byte("mval1_v1")}, mval)
-	assert.Equal(t, 1, txNum)
-	assert.Equal(t, 2, blkNum)
+	assert.Equal(t, uint64(1), txNum)
+	assert.Equal(t, uint64(2), blkNum)
 }
 
 func TTestDeadlock(t *testing.T, ddb VersionedPersistence, vp artifactsProvider) {
@@ -243,8 +243,8 @@ func TTestDeadlock(t *testing.T, ddb VersionedPersistence, vp artifactsProvider)
 	assert.NoError(t, err)
 	assert.Equal(t, []byte("val_v1"), val)
 	assert.Equal(t, map[string][]byte{"k1": []byte("mval1_v1")}, mval)
-	assert.Equal(t, 1, txNum)
-	assert.Equal(t, 2, blkNum)
+	assert.Equal(t, uint64(1), txNum)
+	assert.Equal(t, uint64(2), blkNum)
 }
 
 func TTestQueryExecutor(t *testing.T, ddb VersionedPersistence, vp artifactsProvider) {
@@ -1115,7 +1115,7 @@ func compare(t *testing.T, ns string, db1, db2 VersionedPersistence) {
 	assert.Equal(t, res1, res2)
 }
 
-func queryVault(v *Vault[ValidationCode], ns, key, mkey string) ([]byte, map[string][]byte, int, int, error) {
+func queryVault(v *Vault[ValidationCode], ns driver2.Namespace, key driver2.PKey, mkey driver2.MKey) (driver2.RawValue, driver2.Metadata, driver2.BlockNum, driver2.TxNum, error) {
 	qe, err := v.NewQueryExecutor()
 	defer qe.Done()
 	if err != nil {
@@ -1129,7 +1129,7 @@ func queryVault(v *Vault[ValidationCode], ns, key, mkey string) ([]byte, map[str
 	if err != nil {
 		return nil, nil, 0, 0, err
 	}
-	return val, mval, int(txNum), int(blkNum), nil
+	return val, mval, txNum, blkNum, nil
 }
 
 type deadlockErrorPersistence struct {
@@ -1138,19 +1138,19 @@ type deadlockErrorPersistence struct {
 	key      string
 }
 
-func (db *deadlockErrorPersistence) GetState(namespace driver2.Namespace, key string) (VersionedValue, error) {
+func (db *deadlockErrorPersistence) GetState(namespace driver2.Namespace, key driver2.PKey) (VersionedValue, error) {
 	return db.VersionedPersistence.GetState(namespace, key)
 }
 
-func (db *deadlockErrorPersistence) GetStateRangeScanIterator(namespace driver2.Namespace, startKey string, endKey string) (collections.Iterator[*VersionedRead], error) {
+func (db *deadlockErrorPersistence) GetStateRangeScanIterator(namespace driver2.Namespace, startKey, endKey driver2.PKey) (collections.Iterator[*VersionedRead], error) {
 	return db.VersionedPersistence.GetStateRangeScanIterator(namespace, startKey, endKey)
 }
 
-func (db *deadlockErrorPersistence) GetStateSetIterator(ns driver2.Namespace, keys ...string) (collections.Iterator[*VersionedRead], error) {
+func (db *deadlockErrorPersistence) GetStateSetIterator(ns driver2.Namespace, keys ...driver2.PKey) (collections.Iterator[*VersionedRead], error) {
 	return db.VersionedPersistence.GetStateSetIterator(ns, keys...)
 }
 
-func (db *deadlockErrorPersistence) SetState(namespace driver2.Namespace, key string, value VersionedValue) error {
+func (db *deadlockErrorPersistence) SetState(namespace driver2.Namespace, key driver2.PKey, value VersionedValue) error {
 	if key == db.key && db.failures > 0 {
 		db.failures--
 		return DeadlockDetected
@@ -1158,22 +1158,60 @@ func (db *deadlockErrorPersistence) SetState(namespace driver2.Namespace, key st
 	return db.VersionedPersistence.SetState(namespace, key, value)
 }
 
+func (db *deadlockErrorPersistence) SetStates(namespace driver2.Namespace, kvs map[driver2.PKey]VersionedValue) map[driver2.PKey]error {
+	errs := make(map[driver2.PKey]error)
+	for k, v := range kvs {
+		if err := db.SetState(namespace, k, v); err != nil {
+			errs[k] = err
+		}
+	}
+	return errs
+}
+
+func (db *deadlockErrorPersistence) DeleteStates(namespace driver2.Namespace, keys ...driver2.PKey) map[driver2.PKey]error {
+	errs := make(map[driver2.PKey]error)
+	for _, key := range keys {
+		if err := db.DeleteState(namespace, key); err != nil {
+			errs[key] = err
+		}
+	}
+	return errs
+}
+
 type duplicateErrorPersistence struct {
 	VersionedPersistence
 }
 
-func (db *duplicateErrorPersistence) SetState(driver2.Namespace, string, VersionedValue) error {
+func (db *duplicateErrorPersistence) SetState(driver2.Namespace, driver2.PKey, VersionedValue) error {
 	return UniqueKeyViolation
 }
 
-func (db *duplicateErrorPersistence) GetState(namespace driver2.Namespace, key string) (VersionedValue, error) {
+func (db *duplicateErrorPersistence) SetStates(_ driver2.Namespace, kvs map[driver2.PKey]VersionedValue) map[driver2.PKey]error {
+	errs := make(map[driver2.PKey]error, len(kvs))
+	for k := range kvs {
+		errs[k] = UniqueKeyViolation
+	}
+	return errs
+}
+
+func (db *duplicateErrorPersistence) DeleteStates(namespace driver2.Namespace, keys ...driver2.PKey) map[driver2.PKey]error {
+	errs := make(map[driver2.PKey]error)
+	for _, key := range keys {
+		if err := db.DeleteState(namespace, key); err != nil {
+			errs[key] = err
+		}
+	}
+	return errs
+}
+
+func (db *duplicateErrorPersistence) GetState(namespace driver2.Namespace, key driver2.PKey) (VersionedValue, error) {
 	return db.VersionedPersistence.GetState(namespace, key)
 }
 
-func (db *duplicateErrorPersistence) GetStateRangeScanIterator(namespace driver2.Namespace, startKey string, endKey string) (collections.Iterator[*VersionedRead], error) {
+func (db *duplicateErrorPersistence) GetStateRangeScanIterator(namespace driver2.Namespace, startKey, endKey driver2.PKey) (collections.Iterator[*VersionedRead], error) {
 	return db.VersionedPersistence.GetStateRangeScanIterator(namespace, startKey, endKey)
 }
 
-func (db *duplicateErrorPersistence) GetStateSetIterator(ns driver2.Namespace, keys ...string) (collections.Iterator[*VersionedRead], error) {
+func (db *duplicateErrorPersistence) GetStateSetIterator(ns driver2.Namespace, keys ...driver2.PKey) (collections.Iterator[*VersionedRead], error) {
 	return db.VersionedPersistence.GetStateSetIterator(ns, keys...)
 }

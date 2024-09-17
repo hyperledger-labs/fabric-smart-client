@@ -12,9 +12,16 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 )
 
+type (
+	PKey     = string
+	MKey     = string
+	RawValue = []byte
+	Metadata = map[MKey][]byte
+)
+
 type VersionedRead struct {
-	Key   string
-	Raw   []byte
+	Key   PKey
+	Raw   RawValue
 	Block BlockNum
 	TxNum TxNum
 }
@@ -22,9 +29,9 @@ type VersionedRead struct {
 type VersionedResultsIterator = collections.Iterator[*VersionedRead]
 
 type QueryExecutor interface {
-	GetState(namespace string, key string) ([]byte, error)
-	GetStateMetadata(namespace, key string) (map[string][]byte, BlockNum, TxNum, error)
-	GetStateRangeScanIterator(namespace string, startKey string, endKey string) (VersionedResultsIterator, error)
+	GetState(namespace Namespace, key PKey) (RawValue, error)
+	GetStateMetadata(namespace Namespace, key PKey) (Metadata, BlockNum, TxNum, error)
+	GetStateRangeScanIterator(namespace Namespace, startKey PKey, endKey PKey) (VersionedResultsIterator, error)
 	Done()
 }
 

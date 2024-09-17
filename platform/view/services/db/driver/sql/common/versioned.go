@@ -64,7 +64,7 @@ func NewVersionedPersistence(readDB *sql.DB, writeDB *sql.DB, table string, erro
 	}
 }
 
-func (db *VersionedPersistence) SetStateMetadata(ns, key string, metadata map[string][]byte, block, txnum uint64) error {
+func (db *VersionedPersistence) SetStateMetadata(ns driver2.Namespace, key driver2.PKey, metadata driver2.Metadata, block driver2.BlockNum, txnum driver2.TxNum) error {
 	if db.Txn == nil {
 		panic("programming error, writing without ongoing update")
 	}
@@ -104,7 +104,17 @@ func (db *VersionedPersistence) SetStateMetadata(ns, key string, metadata map[st
 	return nil
 }
 
-func (db *VersionedPersistence) GetStateMetadata(ns, key string) (map[string][]byte, uint64, uint64, error) {
+func (db *VersionedPersistence) SetStateMetadatas(ns driver2.Namespace, kvs map[driver2.PKey]driver2.Metadata, block driver2.BlockNum, txnum driver2.TxNum) map[driver2.PKey]error {
+	errs := make(map[driver2.PKey]error)
+	for pkey, value := range kvs {
+		if err := db.SetStateMetadata(ns, pkey, value, block, txnum); err != nil {
+			errs[pkey] = err
+		}
+	}
+	return errs
+}
+
+func (db *VersionedPersistence) GetStateMetadata(ns driver2.Namespace, key driver2.PKey) (driver2.Metadata, driver2.BlockNum, driver2.TxNum, error) {
 	var m []byte
 	var meta map[string][]byte
 	var block, txnum uint64

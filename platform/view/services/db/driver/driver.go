@@ -22,19 +22,19 @@ var (
 type SQLError = error
 
 type VersionedValue struct {
-	Raw   []byte
+	Raw   driver.RawValue
 	Block driver.BlockNum
 	TxNum driver.TxNum
 }
 
 type UnversionedRead struct {
-	Key string
-	Raw []byte
+	Key driver.PKey
+	Raw driver.RawValue
 }
 
 type UnversionedResultsIterator = collections.Iterator[*UnversionedRead]
 
-type UnversionedValue = []byte
+type UnversionedValue = driver.RawValue
 
 type VersionedRead = driver.VersionedRead
 
@@ -49,20 +49,24 @@ type SQLErrorWrapper interface {
 
 type basePersistence[V any, R any] interface {
 	// SetState sets the given value for the given namespace, key, and version
-	SetState(namespace driver.Namespace, key string, value V) error
+	SetState(namespace driver.Namespace, key driver.PKey, value V) error
+	// SetStates sets the given values for the given namespace, key, and version
+	SetStates(namespace driver.Namespace, kvs map[driver.PKey]V) map[driver.PKey]error
 	// GetState gets the value and version for given namespace and key
-	GetState(namespace driver.Namespace, key string) (V, error)
+	GetState(namespace driver.Namespace, key driver.PKey) (V, error)
 	// DeleteState deletes the given namespace and key
-	DeleteState(namespace driver.Namespace, key string) error
+	DeleteState(namespace driver.Namespace, key driver.PKey) error
+	// DeleteStates deletes the given namespace and keys
+	DeleteStates(namespace driver.Namespace, keys ...driver.PKey) map[driver.PKey]error
 	// GetStateRangeScanIterator returns an iterator that contains all the key-values between given key ranges.
 	// startKey is included in the results and endKey is excluded. An empty startKey refers to the first available key
 	// and an empty endKey refers to the last available key. For scanning all the keys, both the startKey and the endKey
 	// can be supplied as empty strings. However, a full scan should be used judiciously for performance reasons.
 	// The returned VersionedResultsIterator contains results of type *VersionedRead.
-	GetStateRangeScanIterator(namespace driver.Namespace, startKey string, endKey string) (collections.Iterator[*R], error)
+	GetStateRangeScanIterator(namespace driver.Namespace, startKey, endKey driver.PKey) (collections.Iterator[*R], error)
 	// GetStateSetIterator returns an iterator that contains all the values for the passed keys.
 	// The order is not respected.
-	GetStateSetIterator(ns driver.Namespace, keys ...string) (collections.Iterator[*R], error)
+	GetStateSetIterator(ns driver.Namespace, keys ...driver.PKey) (collections.Iterator[*R], error)
 	// Close closes this persistence instance
 	Close() error
 	// BeginUpdate starts the session
@@ -82,16 +86,18 @@ type UnversionedPersistence interface {
 type VersionedPersistence interface {
 	basePersistence[VersionedValue, VersionedRead]
 	// GetStateMetadata gets the metadata and version for given namespace and key
-	GetStateMetadata(namespace driver.Namespace, key string) (map[string][]byte, uint64, uint64, error)
+	GetStateMetadata(namespace driver.Namespace, key driver.PKey) (driver.Metadata, driver.BlockNum, driver.TxNum, error)
 	// SetStateMetadata sets the given metadata for the given namespace, key, and version
-	SetStateMetadata(namespace driver.Namespace, key string, metadata map[string][]byte, block, txnum uint64) error
+	SetStateMetadata(namespace driver.Namespace, key driver.PKey, metadata driver.Metadata, block driver.BlockNum, txnum driver.TxNum) error
+	// SetStateMetadatas sets the given metadata for the given namespace, keys, and version
+	SetStateMetadatas(ns driver.Namespace, kvs map[driver.PKey]driver.Metadata, block driver.BlockNum, txnum driver.TxNum) map[driver.PKey]error
 }
 
 type WriteTransaction interface {
 	// SetState sets the given value for the given namespace, key, and version
-	SetState(namespace driver.Namespace, key string, value VersionedValue) error
+	SetState(namespace driver.Namespace, key driver.PKey, value VersionedValue) error
 	// DeleteState deletes the given namespace and key
-	DeleteState(namespace driver.Namespace, key string) error
+	DeleteState(namespace driver.Namespace, key driver.PKey) error
 	// Commit commits the changes since BeginUpdate
 	Commit() error
 	// Discard discards the changes since BeginUpdate
@@ -100,9 +106,9 @@ type WriteTransaction interface {
 
 type UnversionedWriteTransaction interface {
 	// SetState sets the given value for the given namespace, key
-	SetState(namespace driver.Namespace, key string, value UnversionedValue) error
+	SetState(namespace driver.Namespace, key driver.PKey, value UnversionedValue) error
 	// DeleteState deletes the given namespace and key
-	DeleteState(namespace driver.Namespace, key string) error
+	DeleteState(namespace driver.Namespace, key driver.PKey) error
 	// Commit commits the changes since BeginUpdate
 	Commit() error
 	// Discard discards the changes since BeginUpdate

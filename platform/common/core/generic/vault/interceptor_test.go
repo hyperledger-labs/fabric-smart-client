@@ -33,10 +33,10 @@ type mockQE struct {
 	Metadata map[string][]byte
 }
 
-func (qe mockQE) GetStateMetadata(namespace, key string) (map[string][]byte, uint64, uint64, error) {
+func (qe mockQE) GetStateMetadata(driver.Namespace, driver.PKey) (driver.Metadata, driver.BlockNum, driver.TxNum, error) {
 	return qe.Metadata, 1, 1, nil
 }
-func (qe mockQE) GetState(namespace, key string) (VersionedValue, error) {
+func (qe mockQE) GetState(driver.Namespace, driver.PKey) (VersionedValue, error) {
 	return qe.State, nil
 }
 func (qe mockQE) Done() {

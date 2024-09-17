@@ -40,20 +40,32 @@ type Unversioned struct {
 	Versioned driver.VersionedPersistence
 }
 
-func (db *Unversioned) SetState(namespace, key string, value []byte) error {
+func (db *Unversioned) SetState(namespace driver2.Namespace, key driver2.PKey, value driver2.RawValue) error {
 	return db.Versioned.SetState(namespace, key, driver.VersionedValue{Raw: value})
 }
 
-func (db *Unversioned) GetState(namespace, key string) ([]byte, error) {
+func (db *Unversioned) SetStates(namespace driver2.Namespace, kvs map[driver2.PKey]driver2.RawValue) map[driver2.PKey]error {
+	versioned := make(map[driver2.PKey]driver.VersionedValue, len(kvs))
+	for k, v := range kvs {
+		versioned[k] = driver.VersionedValue{Raw: v}
+	}
+	return db.Versioned.SetStates(namespace, versioned)
+}
+
+func (db *Unversioned) GetState(namespace driver2.Namespace, key driver2.PKey) (driver2.RawValue, error) {
 	vv, err := db.Versioned.GetState(namespace, key)
 	return vv.Raw, err
 }
 
-func (db *Unversioned) DeleteState(namespace, key string) error {
+func (db *Unversioned) DeleteState(namespace driver2.Namespace, key driver2.PKey) error {
 	return db.Versioned.DeleteState(namespace, key)
 }
 
-func (db *Unversioned) GetStateRangeScanIterator(namespace string, startKey string, endKey string) (driver.UnversionedResultsIterator, error) {
+func (db *Unversioned) DeleteStates(namespace driver2.Namespace, keys ...driver2.PKey) map[driver2.PKey]error {
+	return db.Versioned.DeleteStates(namespace, keys...)
+}
+
+func (db *Unversioned) GetStateRangeScanIterator(namespace driver2.Namespace, startKey, endKey driver2.PKey) (driver.UnversionedResultsIterator, error) {
 	vitr, err := db.Versioned.GetStateRangeScanIterator(namespace, startKey, endKey)
 	if err != nil {
 		return nil, err
@@ -62,7 +74,7 @@ func (db *Unversioned) GetStateRangeScanIterator(namespace string, startKey stri
 	return &iterator{vitr}, nil
 }
 
-func (db *Unversioned) GetStateSetIterator(ns string, keys ...string) (driver.UnversionedResultsIterator, error) {
+func (db *Unversioned) GetStateSetIterator(ns driver2.Namespace, keys ...driver2.PKey) (driver.UnversionedResultsIterator, error) {
 	vitr, err := db.Versioned.GetStateSetIterator(ns, keys...)
 	if err != nil {
 		return nil, err
@@ -91,11 +103,19 @@ type Transactional struct {
 	TransactionalVersioned driver.TransactionalVersionedPersistence
 }
 
-func (t *Transactional) SetState(namespace driver2.Namespace, key string, value []byte) error {
+func (t *Transactional) SetState(namespace driver2.Namespace, key driver2.PKey, value driver2.RawValue) error {
 	return t.TransactionalVersioned.SetState(namespace, key, driver.VersionedValue{Raw: value})
 }
 
-func (t *Transactional) GetState(namespace driver2.Namespace, key string) ([]byte, error) {
+func (t *Transactional) SetStates(namespace driver2.Namespace, kvs map[driver2.PKey]driver2.RawValue) map[driver2.PKey]error {
+	versioned := make(map[driver2.PKey]driver.VersionedValue, len(kvs))
+	for k, v := range kvs {
+		versioned[k] = driver.VersionedValue{Raw: v}
+	}
+	return t.TransactionalVersioned.SetStates(namespace, versioned)
+}
+
+func (t *Transactional) GetState(namespace driver2.Namespace, key driver2.PKey) (driver2.RawValue, error) {
 	read, err := t.TransactionalVersioned.GetState(namespace, key)
 	if err != nil {
 		return nil, err
@@ -103,11 +123,15 @@ func (t *Transactional) GetState(namespace driver2.Namespace, key string) ([]byt
 	return read.Raw, nil
 }
 
-func (t *Transactional) DeleteState(namespace driver2.Namespace, key string) error {
+func (t *Transactional) DeleteState(namespace driver2.Namespace, key driver2.PKey) error {
 	return t.TransactionalVersioned.DeleteState(namespace, key)
 }
 
-func (t *Transactional) GetStateRangeScanIterator(namespace driver2.Namespace, startKey string, endKey string) (driver.UnversionedResultsIterator, error) {
+func (t *Transactional) DeleteStates(namespace driver2.Namespace, keys ...driver2.PKey) map[driver2.PKey]error {
+	return t.TransactionalVersioned.DeleteStates(namespace, keys...)
+}
+
+func (t *Transactional) GetStateRangeScanIterator(namespace driver2.Namespace, startKey driver2.PKey, endKey driver2.PKey) (driver.UnversionedResultsIterator, error) {
 	it, err := t.TransactionalVersioned.GetStateRangeScanIterator(namespace, startKey, endKey)
 	if err != nil {
 		return nil, err
@@ -115,7 +139,7 @@ func (t *Transactional) GetStateRangeScanIterator(namespace driver2.Namespace, s
 	return &iterator{itr: it}, nil
 }
 
-func (t *Transactional) GetStateSetIterator(ns driver2.Namespace, keys ...string) (driver.UnversionedResultsIterator, error) {
+func (t *Transactional) GetStateSetIterator(ns driver2.Namespace, keys ...driver2.PKey) (driver.UnversionedResultsIterator, error) {
 	it, err := t.TransactionalVersioned.GetStateSetIterator(ns, keys...)
 	if err != nil {
 		return nil, err

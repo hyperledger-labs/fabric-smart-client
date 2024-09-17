@@ -41,31 +41,35 @@ func (i *Inspector) IsClosed() bool {
 	return false
 }
 
-func (i *Inspector) SetState(namespace string, key string, value []byte) error {
+func (i *Inspector) SetState(driver.Namespace, driver.PKey, driver.RawValue) error {
 	panic("programming error: the rwset inspector is read-only")
 }
 
-func (i *Inspector) GetState(namespace string, key string, opts ...driver.GetStateOpt) ([]byte, error) {
+func (i *Inspector) GetState(namespace driver.Namespace, key driver.PKey, _ ...driver.GetStateOpt) (driver.RawValue, error) {
 	return i.Rws.WriteSet.Get(namespace, key), nil
 }
 
-func (i *Inspector) GetDirectState(namespace string, key string) ([]byte, error) {
+func (i *Inspector) GetDirectState(driver.Namespace, driver.PKey) ([]byte, error) {
 	panic("programming error: no access to query executor")
 }
 
-func (i *Inspector) DeleteState(namespace string, key string) error {
+func (i *Inspector) DeleteState(driver.Namespace, driver.PKey) error {
 	panic("programming error: the rwset inspector is read-only")
 }
 
-func (i *Inspector) GetStateMetadata(namespace, key string, opts ...driver.GetStateOpt) (map[string][]byte, error) {
+func (i *Inspector) GetStateMetadata(namespace driver.Namespace, key driver.PKey, _ ...driver.GetStateOpt) (driver.Metadata, error) {
 	return i.Rws.MetaWriteSet.Get(namespace, key), nil
 }
 
-func (i *Inspector) SetStateMetadata(namespace, key string, metadata map[string][]byte) error {
+func (i *Inspector) SetStateMetadata(driver.Namespace, driver.PKey, driver.Metadata) error {
 	panic("programming error: the rwset inspector is read-only")
 }
 
-func (i *Inspector) GetReadKeyAt(ns string, pos int) (string, error) {
+func (i *Inspector) SetStateMetadatas(ns driver.Namespace, kvs map[driver.PKey]driver.Metadata, block driver.BlockNum, txnum driver.TxNum) map[driver.PKey]error {
+	panic("programming error: the rwset inspector is read-only")
+}
+
+func (i *Inspector) GetReadKeyAt(ns driver.Namespace, pos int) (driver.PKey, error) {
 	key, in := i.Rws.ReadSet.GetAt(ns, pos)
 	if !in {
 		return "", errors.Errorf("no read at position %d for namespace %s", pos, ns)
@@ -73,7 +77,7 @@ func (i *Inspector) GetReadKeyAt(ns string, pos int) (string, error) {
 	return key, nil
 }
 
-func (i *Inspector) GetReadAt(ns string, pos int) (string, []byte, error) {
+func (i *Inspector) GetReadAt(ns driver.Namespace, pos int) (driver.PKey, driver.RawValue, error) {
 	key, in := i.Rws.ReadSet.GetAt(ns, pos)
 	if !in {
 		return "", nil, errors.Errorf("no read at position %d for namespace %s", pos, ns)
@@ -87,7 +91,7 @@ func (i *Inspector) GetReadAt(ns string, pos int) (string, []byte, error) {
 	return key, val, nil
 }
 
-func (i *Inspector) GetWriteAt(ns string, pos int) (string, []byte, error) {
+func (i *Inspector) GetWriteAt(ns driver.Namespace, pos int) (driver.PKey, driver.RawValue, error) {
 
 	key, in := i.Rws.WriteSet.GetAt(ns, pos)
 	if !in {
@@ -97,16 +101,16 @@ func (i *Inspector) GetWriteAt(ns string, pos int) (string, []byte, error) {
 	return key, i.Rws.WriteSet.Get(ns, key), nil
 }
 
-func (i *Inspector) NumReads(ns string) int {
+func (i *Inspector) NumReads(ns driver.Namespace) int {
 	return len(i.Rws.Reads[ns])
 }
 
-func (i *Inspector) NumWrites(ns string) int {
+func (i *Inspector) NumWrites(ns driver.Namespace) int {
 	return len(i.Rws.Writes[ns])
 }
 
-func (i *Inspector) Namespaces() []string {
-	mergedMaps := map[string]struct{}{}
+func (i *Inspector) Namespaces() []driver.Namespace {
+	mergedMaps := map[driver.Namespace]struct{}{}
 
 	for ns := range i.Rws.Reads {
 		mergedMaps[ns] = struct{}{}
@@ -115,7 +119,7 @@ func (i *Inspector) Namespaces() []string {
 		mergedMaps[ns] = struct{}{}
 	}
 
-	namespaces := make([]string, 0, len(mergedMaps))
+	namespaces := make([]driver.Namespace, 0, len(mergedMaps))
 	for ns := range mergedMaps {
 		namespaces = append(namespaces, ns)
 	}
@@ -123,7 +127,7 @@ func (i *Inspector) Namespaces() []string {
 	return namespaces
 }
 
-func (i *Inspector) AppendRWSet(raw []byte, nss ...string) error {
+func (i *Inspector) AppendRWSet(driver.RawValue, ...driver.Namespace) error {
 	panic("programming error: the rwset inspector is read-only")
 }
 
@@ -131,7 +135,7 @@ func (i *Inspector) Bytes() ([]byte, error) {
 	panic("programming error: unexpected call")
 }
 
-func (i *Inspector) Equals(other interface{}, nss ...string) error {
+func (i *Inspector) Equals(other interface{}, nss ...driver.Namespace) error {
 	panic("programming error: unexpected call")
 }
 
@@ -139,6 +143,6 @@ func (i *Inspector) Done() {
 
 }
 
-func (i *Inspector) Clear(ns string) error {
+func (i *Inspector) Clear(driver.Namespace) error {
 	panic("programming error: unexpected call")
 }

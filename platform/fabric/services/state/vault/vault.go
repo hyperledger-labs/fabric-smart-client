@@ -59,7 +59,7 @@ func New(sp view.ServiceProvider, network, channel string, NewQueryExecutor func
 	}
 }
 
-func (f *vault) GetState(namespace string, id string, state interface{}) error {
+func (f *vault) GetState(namespace driver.Namespace, id driver.PKey, state interface{}) error {
 	q, err := f.NewQueryExecutor()
 	if err != nil {
 		return errors.Wrap(err, "failed getting query executor")

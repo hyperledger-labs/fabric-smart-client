@@ -9,6 +9,7 @@ package fabric
 import (
 	"strings"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/pkg/errors"
 )
 
@@ -43,15 +44,15 @@ func (i *Inspector) IsValid() error {
 	return nil
 }
 
-func (i *Inspector) GetState(namespace string, key string) ([]byte, error) {
+func (i *Inspector) GetState(namespace driver.Namespace, key driver.PKey) (driver.RawValue, error) {
 	return i.rws.writeSet.get(namespace, key), nil
 }
 
-func (i *Inspector) GetStateMetadata(namespace, key string) (map[string][]byte, error) {
+func (i *Inspector) GetStateMetadata(namespace driver.Namespace, key driver.PKey) (driver.Metadata, error) {
 	return i.rws.metaWriteSet.get(namespace, key), nil
 }
 
-func (i *Inspector) GetReadKeyAt(ns string, pos int) (string, error) {
+func (i *Inspector) GetReadKeyAt(ns driver.Namespace, pos int) (string, error) {
 	key, in := i.rws.readSet.getAt(ns, pos)
 	if !in {
 		return "", errors.Errorf("no read at position %d for namespace %s", pos, ns)
@@ -59,7 +60,7 @@ func (i *Inspector) GetReadKeyAt(ns string, pos int) (string, error) {
 	return key, nil
 }
 
-func (i *Inspector) GetReadAt(ns string, pos int) (string, []byte, error) {
+func (i *Inspector) GetReadAt(ns driver.Namespace, pos int) (driver.PKey, driver.RawValue, error) {
 	key, in := i.rws.readSet.getAt(ns, pos)
 	if !in {
 		return "", nil, errors.Errorf("no read at position %d for namespace %s", pos, ns)
@@ -73,7 +74,7 @@ func (i *Inspector) GetReadAt(ns string, pos int) (string, []byte, error) {
 	return key, val, nil
 }
 
-func (i *Inspector) GetWriteAt(ns string, pos int) (string, []byte, error) {
+func (i *Inspector) GetWriteAt(ns driver.Namespace, pos int) (driver.PKey, driver.RawValue, error) {
 
 	key, in := i.rws.writeSet.getAt(ns, pos)
 	if !in {
@@ -83,15 +84,15 @@ func (i *Inspector) GetWriteAt(ns string, pos int) (string, []byte, error) {
 	return key, i.rws.writeSet.get(ns, key), nil
 }
 
-func (i *Inspector) NumReads(ns string) int {
+func (i *Inspector) NumReads(ns driver.Namespace) int {
 	return len(i.rws.reads[ns])
 }
 
-func (i *Inspector) NumWrites(ns string) int {
+func (i *Inspector) NumWrites(ns driver.Namespace) int {
 	return len(i.rws.writes[ns])
 }
 
-func (i *Inspector) KeyExist(ns string, key string) (bool, error) {
+func (i *Inspector) KeyExist(ns driver.Namespace, key driver.PKey) (bool, error) {
 	for pos := 0; pos < i.NumReads(ns); pos++ {
 		k, err := i.GetReadKeyAt(ns, pos)
 		if err != nil {
@@ -104,8 +105,8 @@ func (i *Inspector) KeyExist(ns string, key string) (bool, error) {
 	return false, nil
 }
 
-func (i *Inspector) Namespaces() []string {
-	mergedMaps := map[string]struct{}{}
+func (i *Inspector) Namespaces() []driver.Namespace {
+	mergedMaps := map[driver.Namespace]struct{}{}
 
 	for ns := range i.rws.reads {
 		mergedMaps[ns] = struct{}{}
@@ -114,7 +115,7 @@ func (i *Inspector) Namespaces() []string {
 		mergedMaps[ns] = struct{}{}
 	}
 
-	namespaces := make([]string, 0, len(mergedMaps))
+	namespaces := make([]driver.Namespace, 0, len(mergedMaps))
 	for ns := range mergedMaps {
 		namespaces = append(namespaces, ns)
 	}

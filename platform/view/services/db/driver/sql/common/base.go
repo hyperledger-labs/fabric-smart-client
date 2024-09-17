@@ -84,8 +84,18 @@ func (db *basePersistence[V, R]) GetState(namespace driver2.Namespace, key strin
 	}
 }
 
-func (db *basePersistence[V, R]) SetState(ns driver2.Namespace, pkey string, value V) error {
+func (db *basePersistence[V, R]) SetState(ns driver2.Namespace, pkey driver2.PKey, value V) error {
 	return db.setState(db.Txn, ns, pkey, value)
+}
+
+func (db *basePersistence[V, R]) SetStates(ns driver2.Namespace, kvs map[driver2.PKey]V) map[driver2.PKey]error {
+	errs := make(map[driver2.PKey]error)
+	for pkey, value := range kvs {
+		if err := db.setState(db.Txn, ns, pkey, value); err != nil {
+			errs[pkey] = err
+		}
+	}
+	return errs
 }
 
 func (db *basePersistence[V, R]) GetStateSetIterator(ns driver2.Namespace, keys ...string) (collections.Iterator[*R], error) {
@@ -136,6 +146,16 @@ func (db *basePersistence[V, R]) DeleteState(ns driver2.Namespace, key string) e
 	}
 
 	return nil
+}
+
+func (db *basePersistence[V, R]) DeleteStates(namespace driver2.Namespace, keys ...driver2.PKey) map[driver2.PKey]error {
+	errs := make(map[driver2.PKey]error)
+	for _, key := range keys {
+		if err := db.DeleteState(namespace, key); err != nil {
+			errs[key] = err
+		}
+	}
+	return errs
 }
 
 func (db *basePersistence[V, R]) setState(tx *sql.Tx, ns driver2.Namespace, pkey string, value V) error {
