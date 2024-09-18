@@ -50,10 +50,15 @@ func NewVersionedNotifier(opts common.Opts, table string) (*versionedPersistence
 }
 
 func newVersioned(readWriteDB *sql.DB, table string) *VersionedPersistence {
+	em := &errorMapper{}
+	ci := NewInterpreter()
 	base := &BasePersistence[driver.VersionedValue, driver.VersionedRead]{
-		BasePersistence: common.NewBasePersistence[driver.VersionedValue, driver.VersionedRead](readWriteDB, readWriteDB, table, common.NewVersionedReadScanner(), common.NewVersionedValueScanner(), &errorMapper{}, NewInterpreter(), readWriteDB.Begin),
+		BasePersistence: common.NewBasePersistence[driver.VersionedValue, driver.VersionedRead](readWriteDB, readWriteDB, table, common.NewVersionedReadScanner(), common.NewVersionedValueScanner(), em, ci, readWriteDB.Begin),
+		table:           table,
+		ci:              ci,
+		errorWrapper:    em,
 	}
 	return &VersionedPersistence{
-		VersionedPersistence: common.NewVersionedPersistence(base, table, &errorMapper{}, readWriteDB, readWriteDB),
+		VersionedPersistence: common.NewVersionedPersistence(base, table, em, readWriteDB, readWriteDB),
 	}
 }

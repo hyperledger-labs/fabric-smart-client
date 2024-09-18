@@ -50,8 +50,13 @@ func NewUnversionedNotifier(opts common.Opts, table string) (*unversionedPersist
 }
 
 func newUnversioned(readWriteDB *sql.DB, table string) *UnversionedPersistence {
+	ci := NewInterpreter()
+	em := &errorMapper{}
 	base := &BasePersistence[driver.UnversionedValue, driver.UnversionedRead]{
-		BasePersistence: common.NewBasePersistence[driver.UnversionedValue, driver.UnversionedRead](readWriteDB, readWriteDB, table, common.NewUnversionedReadScanner(), common.NewUnversionedValueScanner(), &errorMapper{}, NewInterpreter(), readWriteDB.Begin),
+		BasePersistence: common.NewBasePersistence[driver.UnversionedValue, driver.UnversionedRead](readWriteDB, readWriteDB, table, common.NewUnversionedReadScanner(), common.NewUnversionedValueScanner(), em, ci, readWriteDB.Begin),
+		table:           table,
+		ci:              ci,
+		errorWrapper:    em,
 	}
 	return &UnversionedPersistence{
 		UnversionedPersistence: common.NewUnversionedPersistence(base, readWriteDB, table),
