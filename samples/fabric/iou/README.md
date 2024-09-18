@@ -167,7 +167,7 @@ func (i *CreateIOUResponderView) Call(context view.Context) (interface{}, error)
     case "create":
         // If the create command is attached to the transaction then...
         assert.Equal(0, tx.NumInputs(), "invalid number of inputs, expected 0, was [%d]", tx.NumInputs())
-        assert.Equal(1, tx.NumOutputs(), "invalid number of outputs, expected 1, was [%d]", tx.NumInputs())
+        assert.Equal(1, tx.NumOutputs(), "invalid number of outputs, expected 1, was [%d]", tx.NumOutputs())
 
         iouState := &states.IOU{}
         assert.NoError(tx.GetOutputAt(0, iouState))
@@ -217,7 +217,7 @@ func (i *ApproverView) Call(context view.Context) (interface{}, error) {
 
         // No inputs expected. The single output at index 0 should be an IOU state
         assert.Equal(0, tx.NumInputs(), "invalid number of inputs, expected 0, was [%d]", tx.NumInputs())
-        assert.Equal(1, tx.NumOutputs(), "invalid number of outputs, expected 1, was [%d]", tx.NumInputs())
+        assert.Equal(1, tx.NumOutputs(), "invalid number of outputs, expected 1, was [%d]", tx.NumOutputs())
         iouState := &states.IOU{}
         assert.NoError(tx.GetOutputAt(0, iouState))
 
@@ -231,7 +231,7 @@ func (i *ApproverView) Call(context view.Context) (interface{}, error) {
 
         // The single input and output should be an IOU state
         assert.Equal(1, tx.NumInputs(), "invalid number of inputs, expected 1, was [%d]", tx.NumInputs())
-        assert.Equal(1, tx.NumOutputs(), "invalid number of outputs,  expected 1, was [%d]", tx.NumInputs())
+        assert.Equal(1, tx.NumOutputs(), "invalid number of outputs,  expected 1, was [%d]", tx.NumOutputs())
 
         inState := &states.IOU{}
         assert.NoError(tx.GetInputAt(0, inState))
