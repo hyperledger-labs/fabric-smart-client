@@ -13,8 +13,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/notifier"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 )
 
@@ -29,38 +27,6 @@ const sqlitePragmas = `
 const driverName = "sqlite"
 
 var logger = flogging.MustGetLogger("view-sdk.db.sqlite")
-
-func NewUnversionedPersistence(opts common.Opts, table string) (*common.UnversionedPersistence, error) {
-	readDB, writeDB, err := openDB(opts.DataSource, opts.MaxOpenConns, opts.SkipPragmas)
-	if err != nil {
-		return nil, fmt.Errorf("error opening db: %w", err)
-	}
-	return common.NewUnversioned(readDB, writeDB, table, &errorMapper{}, NewInterpreter()), nil
-}
-
-func NewUnversionedPersistenceNotifier(opts common.Opts, table string) (*notifier.UnversionedPersistenceNotifier[*common.UnversionedPersistence], error) {
-	readDB, writeDB, err := openDB(opts.DataSource, opts.MaxOpenConns, opts.SkipPragmas)
-	if err != nil {
-		return nil, fmt.Errorf("error opening db: %w", err)
-	}
-	return notifier.NewUnversioned(common.NewUnversioned(readDB, writeDB, table, &errorMapper{}, NewInterpreter())), nil
-}
-
-func NewVersionedPersistence(opts common.Opts, table string) (*common.VersionedPersistence, error) {
-	readDB, writeDB, err := openDB(opts.DataSource, opts.MaxOpenConns, opts.SkipPragmas)
-	if err != nil {
-		return nil, fmt.Errorf("error opening db: %w", err)
-	}
-	return common.NewVersionedPersistence(readDB, writeDB, table, &errorMapper{}, NewInterpreter()), nil
-}
-
-func NewVersionedPersistenceNotifier(opts common.Opts, table string) (*notifier.VersionedPersistenceNotifier[*common.VersionedPersistence], error) {
-	readDB, writeDB, err := openDB(opts.DataSource, opts.MaxOpenConns, opts.SkipPragmas)
-	if err != nil {
-		return nil, fmt.Errorf("error opening db: %w", err)
-	}
-	return notifier.NewVersioned(common.NewVersionedPersistence(readDB, writeDB, table, &errorMapper{}, NewInterpreter())), nil
-}
 
 func openDB(dataSourceName string, maxOpenConns int, skipPragmas bool) (*sql.DB, *sql.DB, error) {
 	logger.Infof("Opening read db [%v]", dataSourceName)

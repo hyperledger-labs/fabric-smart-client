@@ -15,9 +15,12 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/common"
 	errors2 "github.com/pkg/errors"
 )
+
+func NewVersionedReadScanner() *versionedReadScanner { return &versionedReadScanner{} }
+
+func NewVersionedValueScanner() *versionedValueScanner { return &versionedValueScanner{} }
 
 type versionedReadScanner struct{}
 
@@ -43,31 +46,31 @@ func (s *versionedValueScanner) WriteValue(value driver.VersionedValue) []any {
 	return []any{value.Raw, value.Block, value.TxNum}
 }
 
-type VersionedPersistence struct {
-	*basePersistence[driver.VersionedValue, driver.VersionedRead]
-	errorWrapper driver.SQLErrorWrapper
+type basePersistence[V any, R any] interface {
+	driver.BasePersistence[driver.VersionedValue, driver.VersionedRead]
+	Exists(namespace driver2.Namespace, key driver2.PKey) (bool, error)
+	Exec(query string, args ...any) (sql.Result, error)
+	SetStateWithTx(tx *sql.Tx, namespace driver2.Namespace, key string, value driver.VersionedValue) error
 }
 
-func NewVersionedPersistence(readDB *sql.DB, writeDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, ci Interpreter) *VersionedPersistence {
-	return &VersionedPersistence{
-		basePersistence: &basePersistence[driver.VersionedValue, driver.VersionedRead]{
-			BaseDB:       common.NewBaseDB[*sql.Tx](func() (*sql.Tx, error) { return writeDB.Begin() }),
-			readDB:       readDB,
-			writeDB:      writeDB,
-			table:        table,
-			readScanner:  &versionedReadScanner{},
-			valueScanner: &versionedValueScanner{},
-			errorWrapper: errorWrapper,
-			ci:           ci,
-		},
-		errorWrapper: errorWrapper,
-	}
+type VersionedPersistence struct {
+	basePersistence[driver.VersionedValue, driver.VersionedRead]
+	table        string
+	errorWrapper driver.SQLErrorWrapper
+	readDB       *sql.DB
+	writeDB      *sql.DB
+}
+
+func NewVersionedPersistence(base basePersistence[driver.VersionedValue, driver.VersionedRead], table string, errorWrapper driver.SQLErrorWrapper, readDB *sql.DB, writeDB *sql.DB) *VersionedPersistence {
+	return &VersionedPersistence{basePersistence: base, table: table, errorWrapper: errorWrapper, readDB: readDB, writeDB: writeDB}
+}
+
+func NewVersioned(readDB *sql.DB, writeDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, ci Interpreter) *VersionedPersistence {
+	base := NewBasePersistence[driver.VersionedValue, driver.VersionedRead](writeDB, readDB, table, &versionedReadScanner{}, &versionedValueScanner{}, errorWrapper, ci, writeDB.Begin)
+	return NewVersionedPersistence(base, base.table, base.errorWrapper, base.readDB, base.writeDB)
 }
 
 func (db *VersionedPersistence) SetStateMetadata(ns driver2.Namespace, key driver2.PKey, metadata driver2.Metadata, block driver2.BlockNum, txnum driver2.TxNum) error {
-	if db.Txn == nil {
-		panic("programming error, writing without ongoing update")
-	}
 	if ns == "" || key == "" {
 		return errors.New("ns or key is empty")
 	}
@@ -79,7 +82,7 @@ func (db *VersionedPersistence) SetStateMetadata(ns driver2.Namespace, key drive
 		return fmt.Errorf("error encoding metadata: %w", err)
 	}
 
-	exists, err := db.exists(db.Txn, ns, key)
+	exists, err := db.Exists(ns, key)
 	if err != nil {
 		return err
 	}
@@ -87,7 +90,7 @@ func (db *VersionedPersistence) SetStateMetadata(ns driver2.Namespace, key drive
 		// Note: for consistency with badger we also update the block and txnum
 		query := fmt.Sprintf("UPDATE %s SET metadata = $1, block = $2, txnum = $3 WHERE ns = $4 AND pkey = $5", db.table)
 		logger.Debug(query, len(m), block, txnum, ns, key)
-		_, err = db.Txn.Exec(query, m, block, txnum, ns, key)
+		_, err = db.Exec(query, m, block, txnum, ns, key)
 		if err != nil {
 			return errors2.Wrapf(db.errorWrapper.WrapError(err), "could not set metadata for key [%s]", key)
 		}
@@ -95,7 +98,7 @@ func (db *VersionedPersistence) SetStateMetadata(ns driver2.Namespace, key drive
 		logger.Warnf("storing metadata without existing value at [%s]", key)
 		query := fmt.Sprintf("INSERT INTO %s (ns, pkey, metadata, block, txnum) VALUES ($1, $2, $3, $4, $5)", db.table)
 		logger.Debug(query, ns, key, len(m), block, txnum)
-		_, err = db.Txn.Exec(query, ns, key, m, block, txnum)
+		_, err = db.Exec(query, ns, key, m, block, txnum)
 		if err != nil {
 			return errors2.Wrapf(db.errorWrapper.WrapError(err), "could not set metadata for key [%s]", key)
 		}
@@ -139,7 +142,7 @@ func (db *VersionedPersistence) GetStateMetadata(ns driver2.Namespace, key drive
 }
 
 func (db *VersionedPersistence) CreateSchema() error {
-	return db.createSchema(fmt.Sprintf(`
+	return InitSchema(db.writeDB, fmt.Sprintf(`
 	CREATE TABLE IF NOT EXISTS %s (
 		ns TEXT NOT NULL,
 		pkey BYTEA NOT NULL,
@@ -170,7 +173,7 @@ type WriteTransaction struct {
 }
 
 func (w *WriteTransaction) SetState(namespace driver2.Namespace, key string, value driver.VersionedValue) error {
-	return w.db.setState(w.txn, namespace, key, value)
+	return w.db.SetStateWithTx(w.txn, namespace, key, value)
 }
 
 func (w *WriteTransaction) DeleteState(ns driver2.Namespace, key string) error {

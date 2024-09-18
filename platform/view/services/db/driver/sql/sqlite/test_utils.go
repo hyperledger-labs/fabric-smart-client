@@ -21,7 +21,7 @@ type TestDriver struct {
 }
 
 func (t *TestDriver) NewTransactionalVersioned(dataSourceName string, config driver.Config) (driver.TransactionalVersionedPersistence, error) {
-	p, err := NewVersionedPersistence(unversionedOpts(t.Name, t.TempDir), "test")
+	p, err := NewVersioned(unversionedOpts(t.Name, t.TempDir), "test")
 	if err != nil {
 		return nil, err
 	}
@@ -32,7 +32,7 @@ func (t *TestDriver) NewTransactionalVersioned(dataSourceName string, config dri
 }
 
 func (t *TestDriver) NewVersioned(dataSourceName string, config driver.Config) (driver.VersionedPersistence, error) {
-	p, err := NewVersionedPersistence(versionedOpts(t.Name, t.TempDir), "test")
+	p, err := NewVersioned(versionedOpts(t.Name, t.TempDir), "test")
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +43,7 @@ func (t *TestDriver) NewVersioned(dataSourceName string, config driver.Config) (
 }
 
 func (t *TestDriver) NewUnversioned(dataSourceName string, config driver.Config) (driver.UnversionedPersistence, error) {
-	p, err := NewUnversionedPersistence(unversionedOpts(t.Name, t.TempDir), "test")
+	p, err := NewUnversioned(unversionedOpts(t.Name, t.TempDir), "test")
 	if err != nil {
 		return nil, err
 	}
@@ -54,7 +54,7 @@ func (t *TestDriver) NewUnversioned(dataSourceName string, config driver.Config)
 }
 
 func (t *TestDriver) NewTransactionalUnversioned(dataSourceName string, config driver.Config) (driver.TransactionalUnversionedPersistence, error) {
-	p, err := NewVersionedPersistence(unversionedOpts(t.Name, t.TempDir), "test")
+	p, err := NewVersioned(unversionedOpts(t.Name, t.TempDir), "test")
 	if err != nil {
 		return nil, err
 	}

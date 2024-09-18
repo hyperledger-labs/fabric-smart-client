@@ -274,11 +274,11 @@ type TestDriver struct {
 }
 
 func (t *TestDriver) NewTransactionalVersioned(dataSourceName string, config driver.Config) (driver.TransactionalVersionedPersistence, error) {
-	return initPersistence(NewPersistence, t.ConnStr, t.Name, 50)
+	return initPersistence(NewVersioned, t.ConnStr, t.Name, 50)
 }
 
 func (t *TestDriver) NewVersioned(dataSourceName string, config driver.Config) (driver.VersionedPersistence, error) {
-	return initPersistence(NewPersistence, t.ConnStr, t.Name, 50)
+	return initPersistence(NewVersioned, t.ConnStr, t.Name, 50)
 }
 
 func (t *TestDriver) NewUnversioned(dataSourceName string, config driver.Config) (driver.UnversionedPersistence, error) {
@@ -286,7 +286,7 @@ func (t *TestDriver) NewUnversioned(dataSourceName string, config driver.Config)
 }
 
 func (t *TestDriver) NewTransactionalUnversioned(dataSourceName string, config driver.Config) (driver.TransactionalUnversionedPersistence, error) {
-	p, err := initPersistence(NewPersistence, t.ConnStr, t.Name, 50)
+	p, err := initPersistence(NewVersioned, t.ConnStr, t.Name, 50)
 	if err != nil {
 		return nil, err
 	}

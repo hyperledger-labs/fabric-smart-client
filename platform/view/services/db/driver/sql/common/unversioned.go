@@ -11,26 +11,25 @@ import (
 	"fmt"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/common"
 )
 
 type UnversionedPersistence struct {
-	*basePersistence[driver.UnversionedValue, driver.UnversionedRead]
+	driver.BasePersistence[driver.UnversionedValue, driver.UnversionedRead]
+	writeDB *sql.DB
+	table   string
 }
 
+func NewUnversionedPersistence(base driver.BasePersistence[driver.UnversionedValue, driver.UnversionedRead], writeDB *sql.DB, table string) *UnversionedPersistence {
+	return &UnversionedPersistence{BasePersistence: base, writeDB: writeDB, table: table}
+}
+
+func NewUnversionedReadScanner() *unversionedReadScanner { return &unversionedReadScanner{} }
+
+func NewUnversionedValueScanner() *unversionedValueScanner { return &unversionedValueScanner{} }
+
 func NewUnversioned(readDB *sql.DB, writeDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, ci Interpreter) *UnversionedPersistence {
-	return &UnversionedPersistence{
-		basePersistence: &basePersistence[driver.UnversionedValue, driver.UnversionedRead]{
-			BaseDB:       common.NewBaseDB[*sql.Tx](func() (*sql.Tx, error) { return writeDB.Begin() }),
-			writeDB:      writeDB,
-			readDB:       readDB,
-			table:        table,
-			readScanner:  &unversionedReadScanner{},
-			valueScanner: &unversionedValueScanner{},
-			errorWrapper: errorWrapper,
-			ci:           ci,
-		},
-	}
+	base := NewBasePersistence[driver.UnversionedValue, driver.UnversionedRead](writeDB, readDB, table, &unversionedReadScanner{}, &unversionedValueScanner{}, errorWrapper, ci, writeDB.Begin)
+	return NewUnversionedPersistence(base, base.writeDB, base.table)
 }
 
 type unversionedReadScanner struct{}
@@ -60,7 +59,7 @@ func (s *unversionedValueScanner) WriteValue(value driver.UnversionedValue) []an
 }
 
 func (db *UnversionedPersistence) CreateSchema() error {
-	return db.createSchema(fmt.Sprintf(`
+	return InitSchema(db.writeDB, fmt.Sprintf(`
 	CREATE TABLE IF NOT EXISTS %s (
 		ns TEXT NOT NULL,
 		pkey BYTEA NOT NULL,

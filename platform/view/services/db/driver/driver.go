@@ -47,7 +47,7 @@ type SQLErrorWrapper interface {
 	WrapError(error) error
 }
 
-type basePersistence[V any, R any] interface {
+type BasePersistence[V any, R any] interface {
 	// SetState sets the given value for the given namespace, key, and version
 	SetState(namespace driver.Namespace, key driver.PKey, value V) error
 	// SetStates sets the given values for the given namespace, key, and version
@@ -79,12 +79,12 @@ type basePersistence[V any, R any] interface {
 
 // UnversionedPersistence models a key-value storage place
 type UnversionedPersistence interface {
-	basePersistence[UnversionedValue, UnversionedRead]
+	BasePersistence[UnversionedValue, UnversionedRead]
 }
 
 // VersionedPersistence models a versioned key-value storage place
 type VersionedPersistence interface {
-	basePersistence[VersionedValue, VersionedRead]
+	BasePersistence[VersionedValue, VersionedRead]
 	// GetStateMetadata gets the metadata and version for given namespace and key
 	GetStateMetadata(namespace driver.Namespace, key driver.PKey) (driver.Metadata, driver.BlockNum, driver.TxNum, error)
 	// SetStateMetadata sets the given metadata for the given namespace, key, and version

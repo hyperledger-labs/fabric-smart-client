@@ -18,7 +18,7 @@ func BenchmarkReadExistingPostgres(b *testing.B) {
 		b.Fatal(err)
 	}
 	defer terminate()
-	db, err := initPersistence(NewPersistence, pgConnStr, "benchmark", 50)
+	db, err := initPersistence(NewVersioned, pgConnStr, "benchmark", 50)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -33,7 +33,7 @@ func BenchmarkReadNonExistingPostgres(b *testing.B) {
 		b.Fatal(err)
 	}
 	defer terminate()
-	db, err := initPersistence(NewPersistence, pgConnStr, "benchmark", 50)
+	db, err := initPersistence(NewVersioned, pgConnStr, "benchmark", 50)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -48,7 +48,7 @@ func BenchmarkWriteOnePostgres(b *testing.B) {
 		b.Fatal(err)
 	}
 	defer terminate()
-	db, err := initPersistence(NewPersistence, pgConnStr, "benchmark", 50)
+	db, err := initPersistence(NewVersioned, pgConnStr, "benchmark", 50)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -63,7 +63,7 @@ func BenchmarkWriteManyPostgres(b *testing.B) {
 		b.Fatal(err)
 	}
 	defer terminate()
-	db, err := initPersistence(NewPersistence, pgConnStr, "benchmark", 50)
+	db, err := initPersistence(NewVersioned, pgConnStr, "benchmark", 50)
 	if err != nil {
 		b.Fatal(err)
 	}
