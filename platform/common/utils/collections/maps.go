@@ -35,3 +35,11 @@ func Keys[K comparable, V any](m map[K]V) []K {
 
 	return res
 }
+
+func RepeatValue[K comparable, V any](keys []K, val V) map[K]V {
+	res := make(map[K]V, len(keys))
+	for _, k := range keys {
+		res[k] = val
+	}
+	return res
+}
