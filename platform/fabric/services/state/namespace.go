@@ -10,6 +10,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils"
 
@@ -306,15 +307,16 @@ func (n *Namespace) GetInputAt(index int, state interface{}) error {
 	k, raw, err := rwSet.GetReadAt(n.namespace(), index)
 	if err != nil {
 		// check if the state is certified
-		k, err = rwSet.GetReadKeyAt(n.namespace(), index)
-		if err != nil {
-			return errors.Wrapf(err, "failed getting state [%s, %d]", n.namespace(), index)
+		k2, err2 := rwSet.GetReadKeyAt(n.namespace(), index)
+		if err2 != nil {
+			return fmt.Errorf("failed getting state [%s, %d]: %w: %w", n.namespace(), index, err, err2)
 		}
 
-		v, ok := n.certifiedInputs[k]
+		v, ok := n.certifiedInputs[k2]
 		if !ok {
 			return errors.Wrapf(err, "failed getting state [%s, %d]", n.namespace(), index)
 		}
+		k = k2
 		raw = v
 		flag = false
 	}
