@@ -22,29 +22,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-type unversionedPersistenceNotifier struct {
-	*common.UnversionedPersistence
-	*Notifier
-}
-
-func (db *unversionedPersistenceNotifier) CreateSchema() error {
-	if err := db.UnversionedPersistence.CreateSchema(); err != nil {
-		return err
-	}
-	return db.Notifier.CreateSchema()
-}
-
-type versionedPersistenceNotifier struct {
-	*common.VersionedPersistence
-	*Notifier
-}
-
-func (db *versionedPersistenceNotifier) CreateSchema() error {
-	if err := db.VersionedPersistence.CreateSchema(); err != nil {
-		return err
-	}
-	return db.Notifier.CreateSchema()
-}
+var AllOperations = []driver.Operation{driver.Insert, driver.Update, driver.Delete}
 
 type Notifier struct {
 	table            string

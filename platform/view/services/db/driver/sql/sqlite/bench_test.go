@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/dbtest"
-	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -46,8 +45,8 @@ func BenchmarkWriteManySqlite(b *testing.B) {
 	dbtest.WriteMany(b, db)
 }
 
-func newVersionedPersistence(dir string) (*common2.VersionedPersistence, error) {
-	p, err := NewVersionedPersistence(versionedOpts("benchmark", dir), "test")
+func newVersionedPersistence(dir string) (*VersionedPersistence, error) {
+	p, err := NewVersioned(versionedOpts("benchmark", dir), "test")
 	if err != nil {
 		return nil, err
 	}

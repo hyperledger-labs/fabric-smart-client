@@ -46,14 +46,28 @@ type dbObject interface {
 
 type persistenceConstructor[V dbObject] func(common.Opts, string) (V, error)
 
-var VersionedConstructors = map[common.SQLDriverType]persistenceConstructor[*common.VersionedPersistence]{
-	Postgres: postgres.NewPersistence,
-	SQLite:   sqlite.NewVersionedPersistence,
+type transactionalVersionedPersistence interface {
+	driver.TransactionalVersionedPersistence
+	dbObject
 }
 
-var UnversionedConstructors = map[common.SQLDriverType]persistenceConstructor[*common.UnversionedPersistence]{
-	Postgres: postgres.NewUnversioned,
-	SQLite:   sqlite.NewUnversionedPersistence,
+var VersionedConstructors = map[common.SQLDriverType]persistenceConstructor[transactionalVersionedPersistence]{
+	Postgres: func(o common.Opts, t string) (transactionalVersionedPersistence, error) {
+		return postgres.NewVersioned(o, t)
+	},
+	SQLite: func(o common.Opts, t string) (transactionalVersionedPersistence, error) {
+		return sqlite.NewVersioned(o, t)
+	},
+}
+
+type unversionedPersistence interface {
+	driver.UnversionedPersistence
+	dbObject
+}
+
+var UnversionedConstructors = map[common.SQLDriverType]persistenceConstructor[unversionedPersistence]{
+	Postgres: func(o common.Opts, t string) (unversionedPersistence, error) { return postgres.NewUnversioned(o, t) },
+	SQLite:   func(o common.Opts, t string) (unversionedPersistence, error) { return sqlite.NewUnversioned(o, t) },
 }
 
 func (d *Driver) NewVersioned(dataSourceName string, config driver.Config) (driver.VersionedPersistence, error) {

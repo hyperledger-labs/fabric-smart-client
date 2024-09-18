@@ -40,19 +40,32 @@ type valueScanner[V any] interface {
 	WriteValue(V) []any
 }
 
-type basePersistence[V any, R any] struct {
+type BasePersistence[V any, R any] struct {
 	*common.BaseDB[*sql.Tx]
 	writeDB *sql.DB
 	readDB  *sql.DB
 	table   string
 
 	readScanner  readScanner[R]
-	valueScanner valueScanner[V]
+	ValueScanner valueScanner[V]
 	errorWrapper driver.SQLErrorWrapper
 	ci           Interpreter
 }
 
-func (db *basePersistence[V, R]) GetStateRangeScanIterator(ns driver2.Namespace, startKey, endKey string) (collections.Iterator[*R], error) {
+func NewBasePersistence[V any, R any](writeDB *sql.DB, readDB *sql.DB, table string, readScanner readScanner[R], valueScanner valueScanner[V], errorWrapper driver.SQLErrorWrapper, ci Interpreter, newTransaction func() (*sql.Tx, error)) *BasePersistence[V, R] {
+	return &BasePersistence[V, R]{
+		BaseDB:       common.NewBaseDB[*sql.Tx](func() (*sql.Tx, error) { return newTransaction() }),
+		readDB:       readDB,
+		writeDB:      writeDB,
+		table:        table,
+		readScanner:  readScanner,
+		ValueScanner: valueScanner,
+		errorWrapper: errorWrapper,
+		ci:           ci,
+	}
+}
+
+func (db *BasePersistence[V, R]) GetStateRangeScanIterator(ns driver2.Namespace, startKey, endKey string) (collections.Iterator[*R], error) {
 	where, args := Where(db.ci.And(
 		db.ci.Cmp("ns", "=", ns),
 		db.ci.BetweenStrings("pkey", startKey, endKey),
@@ -68,13 +81,13 @@ func (db *basePersistence[V, R]) GetStateRangeScanIterator(ns driver2.Namespace,
 	return &readIterator[R]{txs: rows, scanner: db.readScanner}, nil
 }
 
-func (db *basePersistence[V, R]) GetState(namespace driver2.Namespace, key string) (V, error) {
+func (db *BasePersistence[V, R]) GetState(namespace driver2.Namespace, key string) (V, error) {
 	where, args := Where(db.hasKey(namespace, key))
-	query := fmt.Sprintf("SELECT %s FROM %s %s", strings.Join(db.valueScanner.Columns(), ", "), db.table, where)
+	query := fmt.Sprintf("SELECT %s FROM %s %s", strings.Join(db.ValueScanner.Columns(), ", "), db.table, where)
 	logger.Debug(query, args)
 
 	row := db.readDB.QueryRow(query, args...)
-	if value, err := db.valueScanner.ReadValue(row); err == nil {
+	if value, err := db.ValueScanner.ReadValue(row); err == nil {
 		return value, nil
 	} else if err == sql.ErrNoRows {
 		logger.Debugf("not found: [%s:%s]", namespace, key)
@@ -84,21 +97,21 @@ func (db *basePersistence[V, R]) GetState(namespace driver2.Namespace, key strin
 	}
 }
 
-func (db *basePersistence[V, R]) SetState(ns driver2.Namespace, pkey driver2.PKey, value V) error {
-	return db.setState(db.Txn, ns, pkey, value)
+func (db *BasePersistence[V, R]) SetState(ns driver2.Namespace, pkey driver2.PKey, value V) error {
+	return db.SetStateWithTx(db.Txn, ns, pkey, value)
 }
 
-func (db *basePersistence[V, R]) SetStates(ns driver2.Namespace, kvs map[driver2.PKey]V) map[driver2.PKey]error {
+func (db *BasePersistence[V, R]) SetStates(ns driver2.Namespace, kvs map[driver2.PKey]V) map[driver2.PKey]error {
 	errs := make(map[driver2.PKey]error)
 	for pkey, value := range kvs {
-		if err := db.setState(db.Txn, ns, pkey, value); err != nil {
+		if err := db.SetState(ns, pkey, value); err != nil {
 			errs[pkey] = err
 		}
 	}
 	return errs
 }
 
-func (db *basePersistence[V, R]) GetStateSetIterator(ns driver2.Namespace, keys ...string) (collections.Iterator[*R], error) {
+func (db *BasePersistence[V, R]) GetStateSetIterator(ns driver2.Namespace, keys ...driver2.PKey) (collections.Iterator[*R], error) {
 	if len(keys) == 0 {
 		return collections.NewEmptyIterator[*R](), nil
 	}
@@ -117,7 +130,7 @@ func (db *basePersistence[V, R]) GetStateSetIterator(ns driver2.Namespace, keys 
 	return &readIterator[R]{txs: rows, scanner: db.readScanner}, nil
 }
 
-func (db *basePersistence[V, R]) Close() error {
+func (db *BasePersistence[V, R]) Close() error {
 	logger.Info("closing database")
 
 	// TODO: what to do with db.Txn if it's not nil?
@@ -130,7 +143,7 @@ func (db *basePersistence[V, R]) Close() error {
 	return nil
 }
 
-func (db *basePersistence[V, R]) DeleteState(ns driver2.Namespace, key string) error {
+func (db *BasePersistence[V, R]) DeleteState(ns driver2.Namespace, key string) error {
 	if db.Txn == nil {
 		panic("programming error, writing without ongoing update")
 	}
@@ -148,7 +161,7 @@ func (db *basePersistence[V, R]) DeleteState(ns driver2.Namespace, key string) e
 	return nil
 }
 
-func (db *basePersistence[V, R]) DeleteStates(namespace driver2.Namespace, keys ...driver2.PKey) map[driver2.PKey]error {
+func (db *BasePersistence[V, R]) DeleteStates(namespace driver2.Namespace, keys ...driver2.PKey) map[driver2.PKey]error {
 	errs := make(map[driver2.PKey]error)
 	for _, key := range keys {
 		if err := db.DeleteState(namespace, key); err != nil {
@@ -158,9 +171,9 @@ func (db *basePersistence[V, R]) DeleteStates(namespace driver2.Namespace, keys 
 	return errs
 }
 
-func (db *basePersistence[V, R]) setState(tx *sql.Tx, ns driver2.Namespace, pkey string, value V) error {
-	keys := db.valueScanner.Columns()
-	values := db.valueScanner.WriteValue(value)
+func (db *BasePersistence[V, R]) SetStateWithTx(tx *sql.Tx, ns driver2.Namespace, pkey string, value V) error {
+	keys := db.ValueScanner.Columns()
+	values := db.ValueScanner.WriteValue(value)
 	// Get rawVal
 	valIndex := slices.Index(keys, "val")
 	val := values[valIndex].([]byte)
@@ -216,7 +229,18 @@ func (db *basePersistence[V, R]) setState(tx *sql.Tx, ns driver2.Namespace, pkey
 	return nil
 }
 
-func (db *basePersistence[V, R]) exists(tx *sql.Tx, ns, key string) (bool, error) {
+func (db *BasePersistence[V, R]) Exec(query string, args ...any) (sql.Result, error) {
+	return db.Txn.Exec(query, args...)
+}
+
+func (db *BasePersistence[V, R]) Exists(ns driver2.Namespace, key driver2.PKey) (bool, error) {
+	if db.Txn == nil {
+		panic("programming error, writing without ongoing update")
+	}
+	return db.exists(db.Txn, ns, key)
+}
+
+func (db *BasePersistence[V, R]) exists(tx *sql.Tx, ns driver2.Namespace, key driver2.PKey) (bool, error) {
 	var pkey string
 	where, args := Where(db.hasKey(ns, key))
 	query := fmt.Sprintf("SELECT pkey FROM %s %s", db.table, where)
@@ -231,15 +255,19 @@ func (db *basePersistence[V, R]) exists(tx *sql.Tx, ns, key string) (bool, error
 	return true, nil
 }
 
-func (db *basePersistence[V, R]) hasKey(ns driver2.Namespace, pkey string) Condition {
+func (db *BasePersistence[V, R]) hasKey(ns driver2.Namespace, pkey string) Condition {
 	return db.ci.And(
 		db.ci.Cmp("ns", "=", ns),
 		db.ci.Cmp("pkey", "=", pkey),
 	)
 }
 
-func (db *basePersistence[V, R]) createSchema(query string) error {
+func (db *BasePersistence[V, R]) InitSchema(query string) error {
 	return InitSchema(db.writeDB, query)
+}
+
+func (db *BasePersistence[V, R]) TableName() string {
+	return db.table
 }
 
 type readIterator[V any] struct {

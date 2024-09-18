@@ -31,13 +31,15 @@ func TestPostgres(t *testing.T) {
 	defer terminate()
 	t.Log("postgres ready")
 
-	common2.TestCases(t, func(name string) (*common2.VersionedPersistence, error) {
-		return initPersistence(NewPersistence, pgConnStr, name, 50)
-	}, func(name string) (*common2.UnversionedPersistence, error) {
+	common2.TestCases(t, func(name string) (driver.TransactionalVersionedPersistence, error) {
+		return initPersistence(NewVersioned, pgConnStr, name, 50)
+	}, func(name string) (driver.UnversionedPersistence, error) {
 		return initPersistence(NewUnversioned, pgConnStr, name, 0)
 	}, func(name string) (driver.UnversionedNotifier, error) {
 		return initPersistence(NewUnversionedNotifier, pgConnStr, name, 0)
 	}, func(name string) (driver.VersionedNotifier, error) {
-		return initPersistence(NewPersistenceNotifier, pgConnStr, name, 50)
+		return initPersistence(NewVersionedNotifier, pgConnStr, name, 50)
+	}, func(p driver.UnversionedPersistence) *common2.BasePersistence[driver.UnversionedValue, driver.UnversionedRead] {
+		return p.(*UnversionedPersistence).BasePersistence.(*BasePersistence[driver.UnversionedValue, driver.UnversionedRead]).BasePersistence
 	})
 }
