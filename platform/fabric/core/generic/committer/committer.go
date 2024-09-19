@@ -9,7 +9,6 @@ package committer
 import (
 	"context"
 	"fmt"
-	"runtime/debug"
 	"strconv"
 	"strings"
 	"sync"
@@ -171,6 +170,7 @@ func (c *Committer) runEventNotifiers(context context.Context) {
 	for {
 		select {
 		case <-context.Done():
+			c.logger.Debugf("context done: closing event notifiers")
 			return
 		case event := <-c.events:
 			c.metrics.EventQueueLength.Add(-1)
@@ -458,7 +458,7 @@ func (c *Committer) IsFinal(ctx context.Context, txID string) error {
 				time.Sleep(c.ChannelConfig.CommitterFinalityUnknownTXTimeout())
 			}
 
-			c.logger.Debugf("Tx [%s] is unknown with no deps, remote check [%d][%s]", txID, iter, debug.Stack())
+			c.logger.Debugf("Tx [%s] is unknown with no deps, remote check [%d]", txID, iter)
 			peerForFinality := c.ConfigService.PickPeer(driver.PeerForFinality).Address
 			err := c.FabricFinality.IsFinal(txID, peerForFinality)
 			if err == nil {

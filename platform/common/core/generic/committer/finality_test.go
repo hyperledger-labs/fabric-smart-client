@@ -115,6 +115,7 @@ func TestFinalityManager_RunStatusListener(t *testing.T) {
 	go manager.runEventQueue(ctx)
 	manager.runStatusListener(ctx)
 	listener.AssertExpectations(t)
+	assert.Equal(t, manager.txIDs.Length(), 0)
 
 	// Error case: Vault returns an error
 	vault.On("Statuses", []string{"txID"}).Return(nil, errors.New("some error"))
@@ -127,6 +128,7 @@ func TestFinalityManager_RunStatusListener(t *testing.T) {
 	defer cancel()
 	manager.runStatusListener(ctx)
 	listener.AssertNotCalled(t, "OnStatus", event.TxID, event.ValidationCode, event.ValidationMessage)
+	assert.Equal(t, manager.txIDs.Length(), 1)
 
 	vault.AssertExpectations(t)
 }

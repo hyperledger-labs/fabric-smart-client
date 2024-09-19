@@ -72,6 +72,7 @@ func (c *FinalityManager[V]) AddListener(txID driver.TxID, toAdd driver.Finality
 		return err
 	}
 	c.txIDs.Add(txID)
+	// c.logger.Debugf("added listener for [%s]: now listening to %d transactions...", txID, c.txIDs.Length())
 	return nil
 }
 
@@ -80,6 +81,7 @@ func (c *FinalityManager[V]) RemoveListener(txID driver.TxID, toRemove driver.Fi
 	defer c.mutex.Unlock()
 	c.txIDs.Remove(txID)
 	c.listenerManager.RemoveListener(txID, toRemove)
+	// c.logger.Debugf("removed listener for [%s]: now listening to %d transactions...", txID, c.txIDs.Length())
 }
 
 func (c *FinalityManager[V]) Post(event driver.FinalityEvent[V]) {
@@ -97,9 +99,13 @@ func (c *FinalityManager[V]) runEventQueue(context context.Context) {
 	for {
 		select {
 		case <-context.Done():
+			c.logger.Debugf("closing event queue")
 			return
 		case event := <-c.eventQueue:
 			c.listenerManager.InvokeListeners(event)
+			c.mutex.Lock()
+			c.txIDs.Remove(event.TxID)
+			c.mutex.Unlock()
 		}
 	}
 }
@@ -110,21 +116,25 @@ func (c *FinalityManager[V]) runStatusListener(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
+			c.logger.Debugf("closing status listener")
 			return
 		case <-ticker.C:
 			c.mutex.RLock()
 			txIDs := c.txIDs.ToSlice()
 			c.mutex.RUnlock()
 			if len(txIDs) == 0 {
-				c.logger.Debugf("no transactions to check vault status")
+				// c.logger.Debugf("no transactions to check vault status")
 				break
 			}
 
 			newCtx, span := c.tracer.Start(context.Background(), "vault_status_check")
 			c.logger.Debugf("check vault status for [%d] transactions", len(txIDs))
+			if len(txIDs) > 500 {
+				c.logger.Warnf("check vault status for %d transactions", len(txIDs))
+			}
 			statuses, err := c.vault.Statuses(txIDs...)
 			if err != nil {
-				c.logger.Errorf("error fetching statuses: %w", err)
+				c.logger.Errorf("error fetching statuses: %s", err.Error())
 				span.RecordError(err)
 				span.End()
 				continue
