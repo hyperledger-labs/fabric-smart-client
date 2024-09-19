@@ -207,32 +207,46 @@ type inCondition struct {
 }
 
 func (c *inCondition) ToString(ctr *int) string {
-	sb := strings.Builder{}
+	sb := &strings.Builder{}
 	sb.WriteString("(")
 	sb.WriteString(strings.Join(c.fields, ", "))
-	sb.WriteString(") IN (($")
-	sb.WriteString(strconv.Itoa(*ctr))
-	*ctr++
-	for j := 1; j < len(c.fields); j++ {
+	sb.WriteString(") IN (")
+	appendParamsMatrix(sb, len(c.fields), len(c.vals), *ctr)
+	sb.WriteString(")")
+	*ctr += len(c.fields) * len(c.vals)
+
+	return sb.String()
+}
+
+func CreateParamsMatrix(fields, rows int, offset int) string {
+	sb := &strings.Builder{}
+	appendParamsMatrix(sb, fields, rows, offset)
+	return sb.String()
+}
+
+func appendParamsMatrix(sb *strings.Builder, fields, rows int, offset int) {
+	sb.WriteString("($")
+	sb.WriteString(strconv.Itoa(offset))
+	offset++
+	for j := 1; j < fields; j++ {
 		sb.WriteString(", $")
-		sb.WriteString(strconv.Itoa(*ctr))
-		*ctr++
+		sb.WriteString(strconv.Itoa(offset))
+		offset++
 	}
 	sb.WriteString(")")
-	for i := 1; i < len(c.vals); i++ {
+	for i := 1; i < rows; i++ {
 		sb.WriteString(", ($")
-		sb.WriteString(strconv.Itoa(*ctr))
-		*ctr++
-		for j := 1; j < len(c.fields); j++ {
+		sb.WriteString(strconv.Itoa(offset))
+		offset++
+		for j := 1; j < fields; j++ {
 			sb.WriteString(", $")
-			sb.WriteString(strconv.Itoa(*ctr))
-			*ctr++
+			sb.WriteString(strconv.Itoa(offset))
+			offset++
 		}
 		sb.WriteString(")")
 	}
-	sb.WriteString(")")
-	return sb.String()
 }
+
 func (c *inCondition) Params() []any {
 	params := make([]any, len(c.fields)*len(c.vals))
 	for i, t := range c.vals {

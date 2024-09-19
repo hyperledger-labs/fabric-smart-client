@@ -7,13 +7,16 @@ SPDX-License-Identifier: Apache-2.0
 package postgres
 
 import (
+	"database/sql"
 	"fmt"
+	"slices"
+	"strings"
 
+	errors2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
-	"github.com/pkg/errors"
 )
 
 type BasePersistence[V any, R any] struct {
@@ -24,42 +27,88 @@ type BasePersistence[V any, R any] struct {
 	errorWrapper driver2.SQLErrorWrapper
 }
 
-func (db *BasePersistence[V, R]) SetStates(ns driver.Namespace, kvs map[driver.PKey]V) map[driver.PKey]error {
-	return db.BasePersistence.SetStates(ns, kvs)
+func (db *BasePersistence[V, R]) SetState(ns driver.Namespace, pkey driver.PKey, value V) error {
+	return db.SetStateWithTx(db.Txn, ns, pkey, value)
 }
 
-func (db *BasePersistence[V, R]) DeleteState(ns driver.Namespace, key driver.PKey) error {
-	if errs := db.DeleteStates(ns, key); errs != nil {
-		return errs[key]
+func (db *BasePersistence[V, R]) SetStates(ns driver.Namespace, kvs map[driver.PKey]V) map[driver.PKey]error {
+	return db.setStatesWithTx(db.Txn, ns, kvs)
+}
+
+func (db *BasePersistence[V, R]) SetStateWithTx(tx *sql.Tx, ns driver.Namespace, pkey driver.PKey, value V) error {
+	if errs := db.setStatesWithTx(tx, ns, map[driver.PKey]V{pkey: value}); errs != nil {
+		return errs[pkey]
 	}
 	return nil
 }
 
-func (db *BasePersistence[V, R]) DeleteStates(namespace driver.Namespace, keys ...driver.PKey) map[driver.PKey]error {
-	if db.Txn == nil {
+func (db *BasePersistence[V, R]) setStatesWithTx(tx *sql.Tx, ns driver.Namespace, kvs map[driver.PKey]V) map[driver.PKey]error {
+	if tx == nil {
 		panic("programming error, writing without ongoing update")
 	}
-	if namespace == "" {
-		return collections.RepeatValue(keys, errors.New("ns or key is empty"))
-	}
-	where, args := common.Where(db.hasKeys(namespace, keys))
-	query := fmt.Sprintf("DELETE FROM %s %s", db.table, where)
-	logger.Debug(query, args)
-	_, err := db.Txn.Exec(query, args...)
-	if err != nil {
-		errs := make(map[driver.PKey]error)
-		for _, key := range keys {
-			errs[key] = errors.Wrapf(db.errorWrapper.WrapError(err), "could not delete val for key [%s]", key)
+	keys := db.valueKeys()
+	valIndex := slices.Index(keys, "val")
+	upserted := make(map[driver.PKey][]any, len(kvs))
+	deleted := make([]driver.PKey, 0, len(kvs))
+	for pkey, value := range kvs {
+
+		values := db.ValueScanner.WriteValue(value)
+		// Get rawVal
+		if val := values[valIndex].([]byte); len(val) == 0 {
+			logger.Warnf("set key [%s:%s] to nil value, will be deleted instead", ns, pkey)
+			deleted = append(deleted, pkey)
+		} else {
+			logger.Debugf("set state [%s,%s]", ns, pkey)
+			// Overwrite rawVal
+			val = append([]byte(nil), val...)
+			values[valIndex] = val
+			upserted[pkey] = values
 		}
-		return errs
 	}
 
+	var errs map[driver.PKey]error
+	if len(deleted) > 0 {
+		collections.CopyMap(errs, db.DeleteStatesWithTx(tx, ns, deleted...))
+	}
+	if len(upserted) > 0 {
+		collections.CopyMap(errs, db.upsertStatesWithTx(tx, ns, upserted))
+	}
+	return errs
+}
+
+func (db *BasePersistence[V, R]) upsertStatesWithTx(tx *sql.Tx, ns driver.Namespace, upserted map[driver.PKey][]any) map[driver.PKey]error {
+	keys := append([]string{"ns", "pkey"}, db.valueKeys()...)
+	query := fmt.Sprintf("INSERT INTO %s (%s) "+
+		"VALUES %s "+
+		"ON CONFLICT (ns, pkey) DO UPDATE "+
+		"SET %s",
+		db.table,
+		strings.Join(keys, ", "),
+		common.CreateParamsMatrix(len(keys), len(upserted), 1),
+		strings.Join(db.substitutions(), ", "))
+
+	args := make([]any, 0, len(keys)*len(upserted))
+	for pkey, vals := range upserted {
+		args = append(append(args, ns, pkey), vals...)
+	}
+	logger.Debug(query, args)
+	if _, err := tx.Exec(query, args...); err != nil {
+		return collections.RepeatValue(collections.Keys(upserted), errors2.Wrapf(db.errorWrapper.WrapError(err), "could not upsert"))
+	}
 	return nil
 }
 
-func (db *BasePersistence[V, R]) hasKeys(ns driver.Namespace, pkeys []driver.PKey) common.Condition {
-	return db.ci.And(
-		db.ci.Cmp("ns", "=", ns),
-		db.ci.InStrings("pkey", pkeys),
-	)
+// TODO: AF Needs to be calculated only once
+func (db *BasePersistence[V, R]) valueKeys() []string {
+	return db.ValueScanner.Columns()
+}
+
+// TODO: AF Needs to be calculated only once
+func (db *BasePersistence[V, R]) substitutions() []string {
+	keys := db.valueKeys()
+	subs := make([]string, len(keys))
+	for i, key := range keys {
+		subs[i] = fmt.Sprintf("%s = excluded.%s", key, key)
+	}
+	return subs
 }

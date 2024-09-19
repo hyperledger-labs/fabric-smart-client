@@ -9,12 +9,13 @@ package vault
 import (
 	"bytes"
 	"context"
+	errors2 "errors"
 	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/atomic"
 )
@@ -287,21 +288,9 @@ func (db *Vault[V]) setTxValid(txID driver.TxID) (bool, error) {
 func (db *Vault[V]) storeMetaWrites(ctx context.Context, writes NamespaceKeyedMetaWrites, block driver.BlockNum, indexInBloc driver.TxNum) (bool, error) {
 	span := trace.SpanFromContext(ctx)
 	for ns, keyMap := range writes {
-		for key, v := range keyMap {
-			db.logger.Debugf("Store meta write [%s,%s]", ns, key)
-
-			span.AddEvent("set_tx_metadata_state")
-			if err := db.store.SetStateMetadata(ns, key, v, block, indexInBloc); err != nil {
-				if err1 := db.store.Discard(); err1 != nil {
-					db.logger.Errorf("got error %s; discarding caused %s", err.Error(), err1.Error())
-				}
-
-				if !errors.HasCause(err, UniqueKeyViolation) {
-					return true, errors.Wrapf(err, "failed to commit metadata operation on %s:%s at height %d:%d", ns, key, block, indexInBloc)
-				} else {
-					return true, nil
-				}
-			}
+		span.AddEvent("set_tx_metadata_state")
+		if errs := db.store.SetStateMetadatas(ns, keyMap, block, indexInBloc); len(errs) > 0 {
+			return db.discard(ns, block, indexInBloc, errs)
 		}
 	}
 	return false, nil
@@ -310,31 +299,32 @@ func (db *Vault[V]) storeMetaWrites(ctx context.Context, writes NamespaceKeyedMe
 func (db *Vault[V]) storeWrites(ctx context.Context, writes Writes, block driver.BlockNum, indexInBloc driver.TxNum) (bool, error) {
 	span := trace.SpanFromContext(ctx)
 	for ns, keyMap := range writes {
-		for key, v := range keyMap {
-			db.logger.Debugf("Store write [%s,%s,%v]", ns, key, hash.Hashable(v).String())
-			var err error
-			if len(v) != 0 {
-				span.AddEvent("set_tx_state")
-				err = db.store.SetState(ns, key, VersionedValue{Raw: v, Block: block, TxNum: indexInBloc})
-			} else {
-				span.AddEvent("delete_tx_state")
-				err = db.store.DeleteState(ns, key)
-			}
-
-			if err != nil {
-				if err1 := db.store.Discard(); err1 != nil {
-					db.logger.Errorf("got error %s; discarding caused %s", err.Error(), err1.Error())
-				}
-
-				if !errors.HasCause(err, UniqueKeyViolation) {
-					return true, errors.Wrapf(err, "failed to commit operation on [%s:%s] at height [%d:%d]", ns, key, block, indexInBloc)
-				} else {
-					return true, nil
-				}
-			}
+		span.AddEvent("set_tx_states")
+		if errs := db.store.SetStates(ns, versionedValues(keyMap, block, indexInBloc)); len(errs) > 0 {
+			return db.discard(ns, block, indexInBloc, errs)
 		}
 	}
 	return false, nil
+}
+
+func versionedValues(keyMap NamespaceWrites, block driver.BlockNum, indexInBloc driver.TxNum) map[driver.PKey]VersionedValue {
+	vals := make(map[driver.PKey]VersionedValue, len(keyMap))
+	for pkey, val := range keyMap {
+		vals[pkey] = VersionedValue{Raw: val, Block: block, TxNum: indexInBloc}
+	}
+	return vals
+}
+
+func (db *Vault[V]) discard(ns driver.Namespace, block driver.BlockNum, indexInBloc driver.TxNum, errs map[driver.PKey]error) (bool, error) {
+	if err1 := db.store.Discard(); err1 != nil {
+		db.logger.Errorf("got error %v; discarding caused %s", errors2.Join(collections.Values(errs)...), err1.Error())
+	}
+	for key, err := range errs {
+		if !errors.HasCause(err, UniqueKeyViolation) {
+			return true, errors.Wrapf(err, "failed to commit operation on [%s:%s] at height [%d:%d]", ns, key, block, indexInBloc)
+		}
+	}
+	return true, nil
 }
 
 func (db *Vault[V]) SetDiscarded(txID driver.TxID, message string) error {

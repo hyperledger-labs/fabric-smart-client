@@ -6,6 +6,15 @@ SPDX-License-Identifier: Apache-2.0
 
 package collections
 
+func CopyMap[K comparable, V any](to map[K]V, from map[K]V) {
+	if from == nil {
+		return
+	}
+	for k, v := range from {
+		to[k] = v
+	}
+}
+
 func InverseMap[K comparable, V comparable](in map[K]V) map[V]K {
 	out := make(map[V]K, len(in))
 	for k, v := range in {
