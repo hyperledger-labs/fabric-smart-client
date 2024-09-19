@@ -51,6 +51,7 @@ type basePersistence[V any, R any] interface {
 	Exists(namespace driver2.Namespace, key driver2.PKey) (bool, error)
 	Exec(query string, args ...any) (sql.Result, error)
 	SetStateWithTx(tx *sql.Tx, namespace driver2.Namespace, key string, value driver.VersionedValue) error
+	DeleteStateWithTx(tx *sql.Tx, ns driver2.Namespace, key driver2.PKey) error
 }
 
 type VersionedPersistence struct {
@@ -161,34 +162,29 @@ func (db *VersionedPersistence) NewWriteTransaction() (driver.WriteTransaction, 
 		return nil, errors.WithMessagef(err, "failed to begin transaction")
 	}
 
-	return &WriteTransaction{
-		txn: txn,
-		db:  db,
-	}, nil
+	return NewWriteTransaction(txn, db), nil
+}
+
+type versionedPersistence interface {
+	SetStateWithTx(tx *sql.Tx, ns driver2.Namespace, pkey string, value driver.VersionedValue) error
+	DeleteStateWithTx(tx *sql.Tx, ns driver2.Namespace, key driver2.PKey) error
+}
+
+func NewWriteTransaction(txn *sql.Tx, db versionedPersistence) *WriteTransaction {
+	return &WriteTransaction{txn: txn, db: db}
 }
 
 type WriteTransaction struct {
 	txn *sql.Tx
-	db  *VersionedPersistence
+	db  versionedPersistence
 }
 
-func (w *WriteTransaction) SetState(namespace driver2.Namespace, key string, value driver.VersionedValue) error {
+func (w *WriteTransaction) SetState(namespace driver2.Namespace, key driver2.PKey, value driver.VersionedValue) error {
 	return w.db.SetStateWithTx(w.txn, namespace, key, value)
 }
 
-func (w *WriteTransaction) DeleteState(ns driver2.Namespace, key string) error {
-	if ns == "" || key == "" {
-		return errors.New("ns or key is empty")
-	}
-
-	query := fmt.Sprintf("DELETE FROM %s WHERE ns = $1 AND pkey = $2", w.db.table)
-	logger.Debug(query, ns, key)
-	_, err := w.txn.Exec(query, ns, key)
-	if err != nil {
-		return errors2.Wrapf(w.db.errorWrapper.WrapError(err), "could not delete val for key [%s]", key)
-	}
-
-	return nil
+func (w *WriteTransaction) DeleteState(ns driver2.Namespace, key driver2.PKey) error {
+	return w.db.DeleteStateWithTx(w.txn, ns, key)
 }
 
 func (w *WriteTransaction) Commit() error {

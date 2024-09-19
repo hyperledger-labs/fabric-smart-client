@@ -143,32 +143,48 @@ func (db *BasePersistence[V, R]) Close() error {
 	return nil
 }
 
-func (db *BasePersistence[V, R]) DeleteState(ns driver2.Namespace, key string) error {
-	if db.Txn == nil {
+func (db *BasePersistence[V, R]) DeleteState(ns driver2.Namespace, key driver2.PKey) error {
+	return db.DeleteStateWithTx(db.Txn, ns, key)
+}
+
+func (db *BasePersistence[V, R]) DeleteStateWithTx(tx *sql.Tx, ns driver2.Namespace, key driver2.PKey) error {
+	if errs := db.DeleteStatesWithTx(tx, ns, key); errs != nil {
+		return errs[key]
+	}
+	return nil
+}
+
+func (db *BasePersistence[V, R]) DeleteStates(namespace driver2.Namespace, keys ...driver2.PKey) map[driver2.PKey]error {
+	return db.DeleteStatesWithTx(db.Txn, namespace, keys...)
+}
+
+func (db *BasePersistence[V, R]) DeleteStatesWithTx(tx *sql.Tx, namespace driver2.Namespace, keys ...driver2.PKey) map[driver2.PKey]error {
+	if tx == nil {
 		panic("programming error, writing without ongoing update")
 	}
-	if ns == "" || key == "" {
-		return errors.New("ns or key is empty")
+	if namespace == "" {
+		return collections.RepeatValue(keys, errors.New("ns or key is empty"))
 	}
-	where, args := Where(db.hasKey(ns, key))
+	where, args := Where(db.hasKeys(namespace, keys))
 	query := fmt.Sprintf("DELETE FROM %s %s", db.table, where)
 	logger.Debug(query, args)
-	_, err := db.Txn.Exec(query, args...)
+	_, err := tx.Exec(query, args...)
 	if err != nil {
-		return errors2.Wrapf(db.errorWrapper.WrapError(err), "could not delete val for key [%s]", key)
+		errs := make(map[driver2.PKey]error)
+		for _, key := range keys {
+			errs[key] = errors.Wrapf(db.errorWrapper.WrapError(err), "could not delete val for key [%s]", key)
+		}
+		return errs
 	}
 
 	return nil
 }
 
-func (db *BasePersistence[V, R]) DeleteStates(namespace driver2.Namespace, keys ...driver2.PKey) map[driver2.PKey]error {
-	errs := make(map[driver2.PKey]error)
-	for _, key := range keys {
-		if err := db.DeleteState(namespace, key); err != nil {
-			errs[key] = err
-		}
-	}
-	return errs
+func (db *BasePersistence[V, R]) hasKeys(ns driver2.Namespace, pkeys []driver2.PKey) Condition {
+	return db.ci.And(
+		db.ci.Cmp("ns", "=", ns),
+		db.ci.InStrings("pkey", pkeys),
+	)
 }
 
 func (db *BasePersistence[V, R]) SetStateWithTx(tx *sql.Tx, ns driver2.Namespace, pkey string, value V) error {

@@ -22,19 +22,15 @@ type ReadWriteSet struct {
 	MetaWriteSet
 }
 
-type MetaWrites map[string][]byte
-
-func (r MetaWrites) Equals(o MetaWrites) error {
-	return entriesEqual(r, o, bytes.Equal)
-}
+type MetaWrites = driver.Metadata
 
 type KeyedMetaWrites map[string]MetaWrites
 
 func (r KeyedMetaWrites) Equals(o KeyedMetaWrites) error {
-	return entriesEqual(r, o, func(a, b MetaWrites) bool { return a.Equals(b) == nil })
+	return entriesEqual(r, o, func(a, b MetaWrites) bool { return entriesEqual(a, b, bytes.Equal) == nil })
 }
 
-type NamespaceKeyedMetaWrites map[string]KeyedMetaWrites
+type NamespaceKeyedMetaWrites map[driver.Namespace]KeyedMetaWrites
 
 func (r NamespaceKeyedMetaWrites) Equals(o NamespaceKeyedMetaWrites, nss ...string) error {
 	return entriesEqual(r, o, func(a, b KeyedMetaWrites) bool { return a.Equals(b) == nil }, nss...)
@@ -78,7 +74,7 @@ func (w *MetaWriteSet) Clear(ns string) {
 	w.MetaWrites[ns] = KeyedMetaWrites{}
 }
 
-type NamespaceWrites map[string][]byte
+type NamespaceWrites map[driver.PKey]driver.RawValue
 
 func (r NamespaceWrites) Keys() []string {
 	return collections.Keys(r)
@@ -88,7 +84,7 @@ func (r NamespaceWrites) Equals(o NamespaceWrites) error {
 	return entriesEqual(r, o, bytes.Equal)
 }
 
-type Writes map[string]NamespaceWrites
+type Writes map[driver.Namespace]NamespaceWrites
 
 func (r Writes) Equals(o Writes, nss ...string) error {
 	return entriesEqual(r, o, func(a, b NamespaceWrites) bool { return a.Equals(b) == nil }, nss...)
