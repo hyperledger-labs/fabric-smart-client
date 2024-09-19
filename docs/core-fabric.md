@@ -6,9 +6,9 @@ The following example provides descriptions for the various keys required for a 
 ---
 # ------------------- Logging section ---------------------------
 logging:
- # format is same as fabric [<logger>[,<logger>...]=]<level>[:[<logger>[,<logger>...]=]<level>...]
- # available loggers: TBD
- spec: debug
+  # format is same as fabric [<logger>[,<logger>...]=]<level>[:[<logger>[,<logger>...]=]<level>...]
+  format: '%{color}%{time:15:04:05.000} [%{module}] %{shortfunc} %{level:.4s}%{color:reset} %{message}'
+  spec: debug
 
 # ------------------- FSC Node Configuration -------------------------
 fsc:
@@ -396,6 +396,22 @@ fabric:
           path: /path/to/fscnodeB/msp
           addresses:
 ```
+
+## Overriding configuration keys
+
+Any value that is not a (grand-)child of a list can be overridden with an environment variable that is all uppercase, prefixed with `CORE_`,
+and traversing the path in the yaml with underscores. This means that a key like fsc.endpoint.resolvers[0].name cannot be changed via environment variables. Examples:
+
+```sh
+CORE_LOGGING_LEVEL=debug
+CORE_FSC_P2P_LISTENADDRESS=/ip4/0.0.0.0/tcp/9001
+CORE_FSC_IDENTITY_KEY_FILE=/my/private.key
+CORE_FSC_KVS_PERSISTENCE_OPTS_DATASOURCE=/mydb.sqlite
+CORE_FSC_TRACING_OPTL_ADDRESS=jaeger.example.com:4318
+CORE_FABRIC_MYNETWORK_KEEPALIVE_TIMEOUT=120s
+```
+
+And so on.
 
 ## HSM Support
 
