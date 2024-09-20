@@ -302,7 +302,3 @@ func (n *node) Context(contextID string) (view.Context, error) {
 func (n *node) Initiate(fid string, in []byte) (string, error) {
 	panic("implement me")
 }
-
-func (n *node) Track(cid string) string {
-	panic("implement me")
-}

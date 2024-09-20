@@ -143,10 +143,6 @@ func (s *client) Initiate(fid string, in []byte) (string, error) {
 	panic("implement me")
 }
 
-func (s *client) Track(cid string) string {
-	panic("implement me")
-}
-
 func (s *client) IsTxFinal(txid string, opts ...api.ServiceOption) error {
 	options, err := api.CompileServiceOptions(opts...)
 	if err != nil {
