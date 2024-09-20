@@ -27,6 +27,8 @@ type VersionedValue struct {
 	TxNum driver.TxNum
 }
 
+type VersionedMetadataValue = driver.VersionedMetadataValue
+
 type UnversionedRead struct {
 	Key driver.PKey
 	Raw driver.RawValue
@@ -90,7 +92,7 @@ type VersionedPersistence interface {
 	// SetStateMetadata sets the given metadata for the given namespace, key, and version
 	SetStateMetadata(namespace driver.Namespace, key driver.PKey, metadata driver.Metadata, block driver.BlockNum, txnum driver.TxNum) error
 	// SetStateMetadatas sets the given metadata for the given namespace, keys, and version
-	SetStateMetadatas(ns driver.Namespace, kvs map[driver.PKey]driver.Metadata, block driver.BlockNum, txnum driver.TxNum) map[driver.PKey]error
+	SetStateMetadatas(ns driver.Namespace, kvs map[driver.PKey]driver.VersionedMetadataValue) map[driver.PKey]error
 }
 
 type WriteTransaction interface {

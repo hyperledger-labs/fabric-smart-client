@@ -37,6 +37,7 @@ type TXIDStoreReader[V driver.ValidationCode] interface {
 type TXIDStore[V driver.ValidationCode] interface {
 	TXIDStoreReader[V]
 	Set(txID driver.TxID, code V, message string) error
+	SetMultiple(txs []driver.ByNum[V]) error
 	Invalidate(txID driver.TxID)
 }
 
@@ -289,100 +290,124 @@ func (db *Vault[V]) commitRWs(inputs ...commitInput) error {
 		return errors.Wrapf(err, "begin update in store for txid %v failed", inputs)
 	}
 
-	for _, input := range inputs {
-		span := trace.SpanFromContext(input.ctx)
+	if _, err := db.setStatuses(inputs, db.vcProvider.Busy()); err != nil {
+		return err
+	}
 
-		span.AddEvent("set_tx_busy")
-		if err := db.txIDStore.Set(input.txID, db.vcProvider.Busy(), ""); err != nil {
-			if !errors.HasCause(err, UniqueKeyViolation) {
-				return err
+	db.logger.Debugf("parse writes")
+	writes := make(map[driver.Namespace]map[driver.PKey]VersionedValue)
+	for _, input := range inputs {
+		for ns, ws := range input.rws.Writes {
+			vals := versionedValues(ws, input.block, input.indexInBloc)
+			if nsWrites, ok := writes[ns]; !ok {
+				writes[ns] = vals
+			} else {
+				collections.CopyMap(nsWrites, vals)
 			}
 		}
-
-		db.logger.Debugf("parse writes [%s]", input.txID)
-		span.AddEvent("store_writes")
-		if discarded, err := db.storeWrites(input.ctx, input.rws.Writes, input.block, input.indexInBloc); err != nil {
-			return errors.Wrapf(err, "failed storing writes")
-		} else if discarded {
-			db.logger.Infof("Discarded changes while storing writes as duplicates. Skipping...")
-			db.txIDStore.Invalidate(input.txID)
-			return nil
-		}
-
-		db.logger.Debugf("parse meta writes [%s]", input.txID)
-		span.AddEvent("store_meta_writes")
-		if discarded, err := db.storeMetaWrites(input.ctx, input.rws.MetaWrites, input.block, input.indexInBloc); err != nil {
-			return errors.Wrapf(err, "failed storing meta writes")
-		} else if discarded {
-			db.logger.Infof("Discarded changes while storing meta writes as duplicates. Skipping...")
-			db.txIDStore.Invalidate(input.txID)
-			return nil
-		}
-
-		db.logger.Debugf("set state to valid [%s]", input.txID)
-		span.AddEvent("set_tx_valid")
-		if discarded, err := db.setTxValid(input.txID); err != nil {
-			return errors.Wrapf(err, "failed setting tx state to valid")
-		} else if discarded {
-			db.logger.Infof("Discarded changes while setting tx state to valid as duplicates. Skipping...")
-			return nil
-		}
-
 	}
 
+	if errs := db.storeAllWrites(writes); len(errs) == 0 {
+		db.logger.Debugf("Successfully stored writes for %d namespaces", len(writes))
+	} else if discarded, err := db.discard("", 0, 0, errs); err != nil {
+		return errors.Wrapf(err, "failed storing writes")
+	} else if discarded {
+		db.logger.Infof("Discarded changes while storing writes as duplicates. Skipping...")
+		for _, input := range inputs {
+			db.txIDStore.Invalidate(input.txID)
+		}
+		return nil
+	}
+
+	db.logger.Debugf("parse meta writes")
+	metaWrites := make(map[driver.Namespace]map[driver.PKey]driver.VersionedMetadataValue)
 	for _, input := range inputs {
-		trace.SpanFromContext(input.ctx).AddEvent("commit_update")
+		for ns, ws := range input.rws.MetaWrites {
+			vals := versionedMetaValues(ws, input.block, input.indexInBloc)
+			if nsWrites, ok := metaWrites[ns]; !ok {
+				metaWrites[ns] = vals
+			} else {
+				collections.CopyMap(nsWrites, vals)
+			}
+		}
 	}
+	if errs := db.storeAllMetaWrites(metaWrites); len(errs) == 0 {
+		db.logger.Debugf("Successfully stored meta writes for %d namespaces", len(metaWrites))
+	} else if discarded, err := db.discard("", 0, 0, errs); err != nil {
+		return errors.Wrapf(err, "failed storing meta writes")
+	} else if discarded {
+		db.logger.Infof("Discarded changes while storing meta writes as duplicates. Skipping...")
+		for _, input := range inputs {
+			db.txIDStore.Invalidate(input.txID)
+		}
+		return nil
+	}
+
+	if discarded, err := db.setStatuses(inputs, db.vcProvider.Valid()); err != nil {
+		if err1 := db.store.Discard(); err1 != nil {
+			db.logger.Errorf("got error %s; discarding caused %s", err.Error(), err1.Error())
+		}
+		for _, input := range inputs {
+			db.txIDStore.Invalidate(input.txID)
+		}
+		return errors.Wrapf(err, "failed setting tx state to valid")
+	} else if discarded {
+		if err1 := db.store.Discard(); err1 != nil {
+			db.logger.Errorf("got unique key violation; discarding caused %s", err1.Error())
+		}
+		db.logger.Infof("Discarded changes while setting tx state to valid as duplicates. Skipping...")
+		return nil
+	}
+
 	if err := db.store.Commit(); err != nil {
 		return errors.Wrapf(err, "committing tx for txid in store [%v] failed", inputs)
 	}
-
 	return nil
 }
 
-func (db *Vault[V]) setTxValid(txID driver.TxID) (bool, error) {
-	err := db.txIDStore.Set(txID, db.vcProvider.Valid(), "")
-	if err == nil {
+func (db *Vault[V]) setStatuses(inputs []commitInput, v V) (bool, error) {
+	txs := make([]driver.ByNum[V], len(inputs))
+	for i, input := range inputs {
+		txs[i] = driver.ByNum[V]{TxID: input.txID, Code: v}
+	}
+
+	if err := db.txIDStore.SetMultiple(txs); err == nil {
 		return false, nil
+	} else if !errors.HasCause(err, UniqueKeyViolation) {
+		return true, err
+	} else {
+		return true, nil
 	}
-
-	if err1 := db.store.Discard(); err1 != nil {
-		db.logger.Errorf("got error %s; discarding caused %s", err.Error(), err1.Error())
-	}
-
-	if !errors.HasCause(err, UniqueKeyViolation) {
-		db.txIDStore.Invalidate(txID)
-		return true, errors.Wrapf(err, "error setting tx valid")
-	}
-	return true, nil
 }
 
-func (db *Vault[V]) storeMetaWrites(ctx context.Context, writes NamespaceKeyedMetaWrites, block driver.BlockNum, indexInBloc driver.TxNum) (bool, error) {
-	span := trace.SpanFromContext(ctx)
-	for ns, keyMap := range writes {
-		span.AddEvent("set_tx_metadata_state")
-		if errs := db.store.SetStateMetadatas(ns, keyMap, block, indexInBloc); len(errs) > 0 {
-			return db.discard(ns, block, indexInBloc, errs)
-		}
+func (db *Vault[V]) storeAllWrites(writes map[driver.Namespace]map[driver.PKey]VersionedValue) map[driver.PKey]error {
+	errs := make(map[driver.PKey]error)
+	for ns, vals := range writes {
+		collections.CopyMap(errs, db.store.SetStates(ns, vals))
 	}
-	return false, nil
+	return errs
 }
 
-func (db *Vault[V]) storeWrites(ctx context.Context, writes Writes, block driver.BlockNum, indexInBloc driver.TxNum) (bool, error) {
-	span := trace.SpanFromContext(ctx)
-	for ns, keyMap := range writes {
-		span.AddEvent("set_tx_states")
-		if errs := db.store.SetStates(ns, versionedValues(keyMap, block, indexInBloc)); len(errs) > 0 {
-			return db.discard(ns, block, indexInBloc, errs)
-		}
+func (db *Vault[V]) storeAllMetaWrites(metaWrites map[driver.Namespace]map[driver.PKey]driver.VersionedMetadataValue) map[driver.PKey]error {
+	errs := make(map[driver.PKey]error)
+	for ns, vals := range metaWrites {
+		collections.CopyMap(errs, db.store.SetStateMetadatas(ns, vals))
 	}
-	return false, nil
+	return errs
 }
 
 func versionedValues(keyMap NamespaceWrites, block driver.BlockNum, indexInBloc driver.TxNum) map[driver.PKey]VersionedValue {
 	vals := make(map[driver.PKey]VersionedValue, len(keyMap))
 	for pkey, val := range keyMap {
 		vals[pkey] = VersionedValue{Raw: val, Block: block, TxNum: indexInBloc}
+	}
+	return vals
+}
+
+func versionedMetaValues(keyMap KeyedMetaWrites, block driver.BlockNum, indexInBloc driver.TxNum) map[driver.PKey]driver.VersionedMetadataValue {
+	vals := make(map[driver.PKey]driver.VersionedMetadataValue, len(keyMap))
+	for pkey, val := range keyMap {
+		vals[pkey] = driver.VersionedMetadataValue{Metadata: val, Block: block, TxNum: indexInBloc}
 	}
 	return vals
 }

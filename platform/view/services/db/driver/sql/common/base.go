@@ -34,7 +34,7 @@ type readScanner[V any] interface {
 	ReadValue(scannable) (V, error)
 }
 
-type valueScanner[V any] interface {
+type ValueScanner[V any] interface {
 	readScanner[V]
 	// WriteValue writes the values of the V struct in the order given by the Columns method
 	WriteValue(V) []any
@@ -47,12 +47,12 @@ type BasePersistence[V any, R any] struct {
 	table   string
 
 	readScanner  readScanner[R]
-	ValueScanner valueScanner[V]
+	ValueScanner ValueScanner[V]
 	errorWrapper driver.SQLErrorWrapper
 	ci           Interpreter
 }
 
-func NewBasePersistence[V any, R any](writeDB *sql.DB, readDB *sql.DB, table string, readScanner readScanner[R], valueScanner valueScanner[V], errorWrapper driver.SQLErrorWrapper, ci Interpreter, newTransaction func() (*sql.Tx, error)) *BasePersistence[V, R] {
+func NewBasePersistence[V any, R any](writeDB *sql.DB, readDB *sql.DB, table string, readScanner readScanner[R], valueScanner ValueScanner[V], errorWrapper driver.SQLErrorWrapper, ci Interpreter, newTransaction func() (*sql.Tx, error)) *BasePersistence[V, R] {
 	return &BasePersistence[V, R]{
 		BaseDB:       common.NewBaseDB[*sql.Tx](func() (*sql.Tx, error) { return newTransaction() }),
 		readDB:       readDB,
@@ -207,6 +207,20 @@ func (db *BasePersistence[V, R]) SetStateWithTx(tx *sql.Tx, ns driver2.Namespace
 	val = append([]byte(nil), val...)
 	values[valIndex] = val
 
+	return db.UpsertStateWithTx(tx, ns, pkey, keys, values)
+}
+
+func (db *BasePersistence[V, R]) UpsertStates(ns driver2.Namespace, valueKeys []string, vals map[driver2.PKey][]any) map[driver2.PKey]error {
+	errs := make(map[driver2.PKey]error)
+	for pkey, val := range vals {
+		if err := db.UpsertStateWithTx(db.Txn, ns, pkey, valueKeys, val); err != nil {
+			errs[pkey] = err
+		}
+	}
+	return errs
+}
+
+func (db *BasePersistence[V, R]) UpsertStateWithTx(tx *sql.Tx, ns driver2.Namespace, pkey driver2.PKey, keys []string, values []any) error {
 	// Portable upsert
 	exists, err := db.exists(tx, ns, pkey)
 	if err != nil {

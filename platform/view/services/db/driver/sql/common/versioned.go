@@ -11,6 +11,7 @@ import (
 	"database/sql"
 	"encoding/gob"
 	"fmt"
+	"strings"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
@@ -21,6 +22,10 @@ import (
 func NewVersionedReadScanner() *versionedReadScanner { return &versionedReadScanner{} }
 
 func NewVersionedValueScanner() *versionedValueScanner { return &versionedValueScanner{} }
+
+func NewVersionedMetadataValueScanner() *versionedMetadataValueScanner {
+	return &versionedMetadataValueScanner{}
+}
 
 type versionedReadScanner struct{}
 
@@ -46,24 +51,54 @@ func (s *versionedValueScanner) WriteValue(value driver.VersionedValue) []any {
 	return []any{value.Raw, value.Block, value.TxNum}
 }
 
+type versionedMetadataValueScanner struct{}
+
+func (s *versionedMetadataValueScanner) Columns() []string {
+	return []string{"metadata", "block", "txnum"}
+}
+
+func (s *versionedMetadataValueScanner) ReadValue(txs scannable) (driver2.VersionedMetadataValue, error) {
+	var r driver2.VersionedMetadataValue
+	var metadata []byte
+	if err := txs.Scan(&metadata, &r.Block, &r.TxNum); err != nil {
+		return r, err
+	} else if meta, err := unmarshalMetadata(metadata); err != nil {
+		return r, fmt.Errorf("error decoding metadata: %w", err)
+	} else {
+		r.Metadata = meta
+	}
+	return r, nil
+}
+
+func (s *versionedMetadataValueScanner) WriteValue(value driver2.VersionedMetadataValue) ([]any, error) {
+	metadata, err := marshallMetadata(value.Metadata)
+	if err != nil {
+		return nil, err
+	}
+	return []any{metadata, value.Block, value.TxNum}, nil
+}
+
 type basePersistence[V any, R any] interface {
 	driver.BasePersistence[driver.VersionedValue, driver.VersionedRead]
+	hasKey(ns driver2.Namespace, pkey string) Condition
 	Exists(namespace driver2.Namespace, key driver2.PKey) (bool, error)
 	Exec(query string, args ...any) (sql.Result, error)
 	SetStateWithTx(tx *sql.Tx, namespace driver2.Namespace, key string, value driver.VersionedValue) error
 	DeleteStateWithTx(tx *sql.Tx, ns driver2.Namespace, key driver2.PKey) error
+	UpsertStates(ns driver2.Namespace, valueKeys []string, vals map[driver2.PKey][]any) map[driver2.PKey]error
 }
 
 type VersionedPersistence struct {
 	basePersistence[driver.VersionedValue, driver.VersionedRead]
-	table        string
-	errorWrapper driver.SQLErrorWrapper
-	readDB       *sql.DB
-	writeDB      *sql.DB
+	table           string
+	errorWrapper    driver.SQLErrorWrapper
+	readDB          *sql.DB
+	writeDB         *sql.DB
+	metadataScanner *versionedMetadataValueScanner
 }
 
 func NewVersionedPersistence(base basePersistence[driver.VersionedValue, driver.VersionedRead], table string, errorWrapper driver.SQLErrorWrapper, readDB *sql.DB, writeDB *sql.DB) *VersionedPersistence {
-	return &VersionedPersistence{basePersistence: base, table: table, errorWrapper: errorWrapper, readDB: readDB, writeDB: writeDB}
+	return &VersionedPersistence{basePersistence: base, table: table, errorWrapper: errorWrapper, readDB: readDB, writeDB: writeDB, metadataScanner: NewVersionedMetadataValueScanner()}
 }
 
 func NewVersioned(readDB *sql.DB, writeDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, ci Interpreter) *VersionedPersistence {
@@ -72,74 +107,43 @@ func NewVersioned(readDB *sql.DB, writeDB *sql.DB, table string, errorWrapper dr
 }
 
 func (db *VersionedPersistence) SetStateMetadata(ns driver2.Namespace, key driver2.PKey, metadata driver2.Metadata, block driver2.BlockNum, txnum driver2.TxNum) error {
-	if ns == "" || key == "" {
-		return errors.New("ns or key is empty")
-	}
 	if len(metadata) == 0 {
 		return nil
 	}
-	m, err := marshallMetadata(metadata)
-	if err != nil {
-		return fmt.Errorf("error encoding metadata: %w", err)
-	}
-
-	exists, err := db.Exists(ns, key)
-	if err != nil {
-		return err
-	}
-	if exists {
-		// Note: for consistency with badger we also update the block and txnum
-		query := fmt.Sprintf("UPDATE %s SET metadata = $1, block = $2, txnum = $3 WHERE ns = $4 AND pkey = $5", db.table)
-		logger.Debug(query, len(m), block, txnum, ns, key)
-		_, err = db.Exec(query, m, block, txnum, ns, key)
-		if err != nil {
-			return errors2.Wrapf(db.errorWrapper.WrapError(err), "could not set metadata for key [%s]", key)
-		}
-	} else {
-		logger.Warnf("storing metadata without existing value at [%s]", key)
-		query := fmt.Sprintf("INSERT INTO %s (ns, pkey, metadata, block, txnum) VALUES ($1, $2, $3, $4, $5)", db.table)
-		logger.Debug(query, ns, key, len(m), block, txnum)
-		_, err = db.Exec(query, ns, key, m, block, txnum)
-		if err != nil {
-			return errors2.Wrapf(db.errorWrapper.WrapError(err), "could not set metadata for key [%s]", key)
-		}
-	}
-
-	return nil
+	return db.SetStateMetadatas(ns, map[driver2.PKey]driver2.VersionedMetadataValue{key: {Block: block, TxNum: txnum, Metadata: metadata}})[key]
 }
 
-func (db *VersionedPersistence) SetStateMetadatas(ns driver2.Namespace, kvs map[driver2.PKey]driver2.Metadata, block driver2.BlockNum, txnum driver2.TxNum) map[driver2.PKey]error {
+func (db *VersionedPersistence) SetStateMetadatas(ns driver2.Namespace, kvs map[driver2.PKey]driver2.VersionedMetadataValue) map[driver2.PKey]error {
 	errs := make(map[driver2.PKey]error)
-	for pkey, value := range kvs {
-		if err := db.SetStateMetadata(ns, pkey, value, block, txnum); err != nil {
+	vals := make(map[driver2.PKey][]any, len(kvs))
+	for pkey, meta := range kvs {
+		if val, err := db.metadataScanner.WriteValue(meta); err != nil {
 			errs[pkey] = err
+		} else {
+			vals[pkey] = val
 		}
 	}
-	return errs
+	if len(errs) > 0 {
+		return errs
+	}
+	return db.UpsertStates(ns, db.metadataScanner.Columns(), vals)
 }
 
-func (db *VersionedPersistence) GetStateMetadata(ns driver2.Namespace, key driver2.PKey) (driver2.Metadata, driver2.BlockNum, driver2.TxNum, error) {
-	var m []byte
-	var meta map[string][]byte
-	var block, txnum uint64
+// TODO: AF Reuse code from basePersistence
+func (db *VersionedPersistence) GetStateMetadata(namespace driver2.Namespace, key driver2.PKey) (driver2.Metadata, driver2.BlockNum, driver2.TxNum, error) {
+	where, args := Where(db.hasKey(namespace, key))
+	query := fmt.Sprintf("SELECT %s FROM %s %s", strings.Join(db.metadataScanner.Columns(), ", "), db.table, where)
+	logger.Debug(query, args)
 
-	query := fmt.Sprintf("SELECT metadata, block, txnum FROM %s WHERE ns = $1 AND pkey = $2", db.table)
-	logger.Debug(query, ns, key)
-
-	row := db.readDB.QueryRow(query, ns, key)
-	if err := row.Scan(&m, &block, &txnum); err != nil {
-		if err == sql.ErrNoRows {
-			logger.Debugf("not found: [%s:%s]", ns, key)
-			return meta, block, txnum, nil
-		}
-		return meta, block, txnum, fmt.Errorf("error querying db: %w", err)
+	row := db.readDB.QueryRow(query, args...)
+	if value, err := db.metadataScanner.ReadValue(row); err == nil {
+		return value.Metadata, value.Block, value.TxNum, nil
+	} else if err == sql.ErrNoRows {
+		logger.Debugf("not found: [%s:%s]", namespace, key)
+		return nil, 0, 0, nil
+	} else {
+		return nil, 0, 0, errors2.Wrapf(err, "error querying db: %s", query)
 	}
-	meta, err := unmarshalMetadata(m)
-	if err != nil {
-		return meta, block, txnum, fmt.Errorf("error decoding metadata: %w", err)
-	}
-
-	return meta, block, txnum, err
 }
 
 func (db *VersionedPersistence) CreateSchema() error {

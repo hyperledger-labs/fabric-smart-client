@@ -65,7 +65,7 @@ func (i *Inspector) SetStateMetadata(driver.Namespace, driver.PKey, driver.Metad
 	panic("programming error: the rwset inspector is read-only")
 }
 
-func (i *Inspector) SetStateMetadatas(ns driver.Namespace, kvs map[driver.PKey]driver.Metadata, block driver.BlockNum, txnum driver.TxNum) map[driver.PKey]error {
+func (i *Inspector) SetStateMetadatas(ns driver.Namespace, kvs map[driver.PKey]driver.VersionedMetadataValue) map[driver.PKey]error {
 	panic("programming error: the rwset inspector is read-only")
 }
 

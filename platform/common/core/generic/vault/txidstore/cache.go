@@ -31,6 +31,7 @@ type cache[V driver.ValidationCode] interface {
 type txidStore[V driver.ValidationCode] interface {
 	Get(txID driver.TxID) (V, string, error)
 	Set(txID driver.TxID, code V, message string) error
+	SetMultiple(txs []driver.ByNum[V]) error
 	Iterator(pos interface{}) (collections.Iterator[*driver.ByNum[V]], error)
 }
 
@@ -85,6 +86,17 @@ func (s *CachedStore[V]) Set(txID string, code V, message string) error {
 		return err
 	}
 	s.cache.Add(txID, &Entry[V]{ValidationCode: code, ValidationMessage: message})
+	return nil
+}
+
+func (s *CachedStore[V]) SetMultiple(txs []driver.ByNum[V]) error {
+	s.logger.Debugf("Set values for %d txs into backed and cache", len(txs))
+	if err := s.backed.SetMultiple(txs); err != nil {
+		return err
+	}
+	for _, tx := range txs {
+		s.cache.Add(tx.TxID, &Entry[V]{ValidationCode: tx.Code, ValidationMessage: tx.Message})
+	}
 	return nil
 }
 
