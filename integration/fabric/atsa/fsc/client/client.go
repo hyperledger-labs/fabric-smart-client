@@ -10,13 +10,11 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/fsc/states"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/fsc/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/api"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 type ViewClient interface {
 	CallView(fid string, in []byte) (interface{}, error)
-	IsTxFinal(txid string, opts ...api.ServiceOption) error
 }
 
 type Client struct {
@@ -80,6 +78,10 @@ func (c *Client) Transfer(assetID string, agreementID string, recipient view.Ide
 	return nil
 }
 
-func (c *Client) IsTxFinal(id string, opts ...api.ServiceOption) error {
-	return c.c.IsTxFinal(id, opts...)
+func (c *Client) IsTxFinal(id string) error {
+	_, err := c.c.CallView("finality", common.JSONMarshall(views.Finality{TxID: id}))
+	if err != nil {
+		return err
+	}
+	return nil
 }

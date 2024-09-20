@@ -43,7 +43,8 @@ func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType, replicationOpts *
 		AddOptions(replicationOpts.For("approver1")...).
 		RegisterResponder(&views.ApproverView{}, &views.CreateIOUView{}).
 		RegisterResponder(&views.ApproverView{}, &views.UpdateIOUView{}).
-		RegisterViewFactory("init", &views.ApproverInitViewFactory{})
+		RegisterViewFactory("init", &views.ApproverInitViewFactory{}).
+		RegisterViewFactory("finality", &views.FinalityViewFactory{})
 
 	// Add another approver as well
 	fscTopology.AddNodeByName("approver2").
@@ -53,7 +54,8 @@ func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType, replicationOpts *
 		AddOptions(replicationOpts.For("approver2")...).
 		RegisterResponder(&views.ApproverView{}, &views.CreateIOUView{}).
 		RegisterResponder(&views.ApproverView{}, &views.UpdateIOUView{}).
-		RegisterViewFactory("init", &views.ApproverInitViewFactory{})
+		RegisterViewFactory("init", &views.ApproverInitViewFactory{}).
+		RegisterViewFactory("finality", &views.FinalityViewFactory{})
 
 	// Add the borrower's FSC node
 	fscTopology.AddNodeByName("borrower").
@@ -61,7 +63,8 @@ func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType, replicationOpts *
 		AddOptions(replicationOpts.For("borrower")...).
 		RegisterViewFactory("create", &views.CreateIOUViewFactory{}).
 		RegisterViewFactory("update", &views.UpdateIOUViewFactory{}).
-		RegisterViewFactory("query", &views.QueryViewFactory{})
+		RegisterViewFactory("query", &views.QueryViewFactory{}).
+		RegisterViewFactory("finality", &views.FinalityViewFactory{})
 
 	// Add the lender's FSC node
 	fscTopology.AddNodeByName("lender").
@@ -69,7 +72,8 @@ func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType, replicationOpts *
 		AddOptions(replicationOpts.For("lender")...).
 		RegisterResponder(&views.CreateIOUResponderView{}, &views.CreateIOUView{}).
 		RegisterResponder(&views.UpdateIOUResponderView{}, &views.UpdateIOUView{}).
-		RegisterViewFactory("query", &views.QueryViewFactory{})
+		RegisterViewFactory("query", &views.QueryViewFactory{}).
+		RegisterViewFactory("finality", &views.FinalityViewFactory{})
 
 	// Monitoring
 	monitoringTopology := monitoring.NewTopology()
