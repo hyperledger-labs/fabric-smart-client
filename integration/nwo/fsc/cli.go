@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/commands"
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/api"
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
 )
@@ -37,8 +36,4 @@ func (f *fscCLIViewClient) CallViewWithContext(_ context.Context, fid string, in
 	gomega.Eventually(sess, f.timeout).Should(gexec.Exit(0))
 
 	return string(sess.Out.Contents()), nil
-}
-
-func (f *fscCLIViewClient) IsTxFinal(txid string, opts ...api.ServiceOption) error {
-	panic("not implemented yet")
 }

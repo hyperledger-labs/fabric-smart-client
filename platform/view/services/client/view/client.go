@@ -13,7 +13,6 @@ import (
 	"io"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/api"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	grpc2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
@@ -141,53 +140,6 @@ func (s *client) CallViewWithContext(ctx context.Context, fid string, input []by
 
 func (s *client) Initiate(fid string, in []byte) (string, error) {
 	panic("implement me")
-}
-
-func (s *client) IsTxFinal(txid string, opts ...api.ServiceOption) error {
-	options, err := api.CompileServiceOptions(opts...)
-	if err != nil {
-		return err
-	}
-
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("Calling IsTxFinal on txid [%s]", txid)
-	}
-	payload := &protos.Command_IsTxFinal{IsTxFinal: &protos.IsTxFinal{
-		Network: options.Network,
-		Channel: options.Channel,
-		Txid:    txid,
-	}}
-	sc, err := s.CreateSignedCommand(payload, s.SigningIdentity)
-	if err != nil {
-		logger.Errorf("failed creating signed command to ask for finality of tx [%s] at [%s]", txid, s.Address)
-		return errors.Wrapf(err, "failed creating signed command to ask for finality of tx [%s] at [%s]", txid, s.Address)
-	}
-
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("Contact the server to ask if tx [%s] final at [%s]", txid, s.Address)
-	}
-	commandResp, err := s.processCommand(context.Background(), sc)
-	if err != nil {
-		logger.Errorf("failed process command to ask for finality of tx [%s] at [%s]", txid, s.Address)
-		return errors.Wrapf(err, "failed process command to ask for finality of tx [%s] at [%s]", txid, s.Address)
-	}
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("Contact the server to ask if tx [%s] final at [%s]. Done", txid, s.Address)
-	}
-
-	if commandResp.GetIsTxFinalResponse() == nil {
-		logger.Errorf("expected response, got nothing while asking for finality of tx [%s] at [%s]", txid, s.Address)
-		return errors.Errorf("expected response, got nothing while asking for finality of tx [%s] at [%s]", txid, s.Address)
-	}
-
-	respPayload := commandResp.GetIsTxFinalResponse().GetPayload()
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("Is tx [%s] final at [%s]? [%s]", txid, s.Address, string(respPayload))
-	}
-	if len(respPayload) == 0 {
-		return nil
-	}
-	return errors.New(string(respPayload))
 }
 
 func (s *client) StreamCallView(fid string, input []byte) (*Stream, error) {
@@ -349,11 +301,7 @@ func commandFromPayload(payload interface{}) (*protos.Command, error) {
 	switch t := payload.(type) {
 	case *protos.Command_InitiateView:
 		return &protos.Command{Payload: t}, nil
-	case *protos.Command_TrackView:
-		return &protos.Command{Payload: t}, nil
 	case *protos.Command_CallView:
-		return &protos.Command{Payload: t}, nil
-	case *protos.Command_IsTxFinal:
 		return &protos.Command{Payload: t}, nil
 	default:
 		return nil, errors.Errorf("command type not recognized: %T", t)

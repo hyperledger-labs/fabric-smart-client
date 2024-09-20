@@ -109,11 +109,7 @@ func commandResponseFromPayload(payload interface{}) (*protos.CommandResponse, e
 		return &protos.CommandResponse{Payload: t}, nil
 	case *protos.CommandResponse_InitiateViewResponse:
 		return &protos.CommandResponse{Payload: t}, nil
-	case *protos.CommandResponse_TrackViewResponse:
-		return &protos.CommandResponse{Payload: t}, nil
 	case *protos.CommandResponse_CallViewResponse:
-		return &protos.CommandResponse{Payload: t}, nil
-	case *protos.CommandResponse_IsTxFinalResponse:
 		return &protos.CommandResponse{Payload: t}, nil
 	default:
 		return nil, errors.Errorf("command type not recognized: %T", t)

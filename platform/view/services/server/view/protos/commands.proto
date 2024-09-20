@@ -12,7 +12,6 @@ option cc_generic_services = true;
 package protos;
 
 import "google/protobuf/timestamp.proto";
-import "finality.proto";
 
 // InitiateView is used to initiate a view
 message InitiateView {
@@ -35,15 +34,6 @@ message CallView {
 message CallViewResponse {
     bytes result = 1;
 }
-
-message TrackView {
-    string cid = 1;
-}
-
-message TrackViewResponse {
-    bytes payload = 1;
-}
-
 
 // Header is a generic replay prevention and identity message to include in a signed command
 message Header {
@@ -71,9 +61,7 @@ message Command {
     // Payload is the payload of this command. It can assume one of the following value
     oneof payload {
         InitiateView initiateView = 2;
-        TrackView trackView = 3;
-        CallView callView = 4;
-        IsTxFinal isTxFinal = 5;
+        CallView callView = 3;
     }
 }
 
@@ -119,9 +107,7 @@ message CommandResponse {
     oneof payload {
         Error err = 2;
         InitiateViewResponse initiateViewResponse = 3;
-        TrackViewResponse trackViewResponse = 4;
-        CallViewResponse callViewResponse = 5;
-        IsTxFinalResponse isTxFinalResponse = 6;
+        CallViewResponse callViewResponse = 4;
     }
 }
 
