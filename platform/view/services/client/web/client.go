@@ -191,10 +191,6 @@ func (c *Client) Initiate(fid string, in []byte) (string, error) {
 	panic("implement me")
 }
 
-func (c *Client) Track(cid string) string {
-	panic("implement me")
-}
-
 func (c *Client) IsTxFinal(txid string, opts ...api.ServiceOption) error {
 	panic("implement me")
 }

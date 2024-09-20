@@ -60,10 +60,6 @@ type ViewClient interface {
 	// This call is non-blocking.
 	Initiate(fid string, in []byte) (string, error)
 
-	// Track takes in input a context identifier, cid, and returns the latest
-	// status of the context as set by the views using it.
-	Track(cid string) string
-
 	// IsTxFinal takes in input a transaction id and return nil if the transaction has been committed,
 	// an error otherwise.
 	IsTxFinal(txid string, opts ...ServiceOption) error
