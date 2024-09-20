@@ -173,10 +173,10 @@ func (db *DB) SetStateMetadata(namespace driver2.Namespace, key driver2.PKey, me
 	return nil
 }
 
-func (db *DB) SetStateMetadatas(ns driver2.Namespace, kvs map[driver2.PKey]driver2.Metadata, block driver2.BlockNum, txnum driver2.TxNum) map[driver2.PKey]error {
+func (db *DB) SetStateMetadatas(ns driver2.Namespace, kvs map[driver2.PKey]driver2.VersionedMetadataValue) map[driver2.PKey]error {
 	errs := make(map[driver2.PKey]error)
 	for pkey, value := range kvs {
-		if err := db.SetStateMetadata(ns, pkey, value, block, txnum); err != nil {
+		if err := db.SetStateMetadata(ns, pkey, value.Metadata, value.Block, value.TxNum); err != nil {
 			errs[pkey] = err
 		}
 	}

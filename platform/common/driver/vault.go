@@ -26,6 +26,12 @@ type VersionedRead struct {
 	TxNum TxNum
 }
 
+type VersionedMetadataValue struct {
+	Block    BlockNum
+	TxNum    TxNum
+	Metadata Metadata
+}
+
 type VersionedResultsIterator = collections.Iterator[*VersionedRead]
 
 type QueryExecutor interface {

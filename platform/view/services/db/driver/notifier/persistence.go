@@ -199,8 +199,8 @@ func (db *VersionedPersistenceNotifier[P]) SetStateMetadata(namespace driver2.Na
 	return db.Persistence.SetStateMetadata(namespace, key, metadata, block, txnum)
 }
 
-func (db *VersionedPersistenceNotifier[P]) SetStateMetadatas(ns driver2.Namespace, kvs map[driver2.PKey]driver2.Metadata, block driver2.BlockNum, txnum driver2.TxNum) map[driver2.PKey]error {
-	return db.Persistence.SetStateMetadatas(ns, kvs, block, txnum)
+func (db *VersionedPersistenceNotifier[P]) SetStateMetadatas(ns driver2.Namespace, kvs map[driver2.PKey]driver2.VersionedMetadataValue) map[driver2.PKey]error {
+	return db.Persistence.SetStateMetadatas(ns, kvs)
 }
 
 func (db *VersionedPersistenceNotifier[P]) GetStateRangeScanIterator(namespace driver2.Namespace, startKey, endKey driver2.PKey) (driver.VersionedResultsIterator, error) {

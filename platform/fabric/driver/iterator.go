@@ -36,4 +36,5 @@ type TXIDStore interface {
 	Iterator(pos interface{}) (TxIDIterator, error)
 	Get(txid string) (ValidationCode, string, error)
 	Set(txID string, code ValidationCode, message string) error
+	SetMultiple(txs []driver.ByNum[ValidationCode]) error
 }
