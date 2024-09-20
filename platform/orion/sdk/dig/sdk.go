@@ -27,6 +27,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/dig"
 )
@@ -158,10 +159,11 @@ func newOrionNetworkServiceProvider(in struct {
 	Subscriber              events.Subscriber
 	ConfigService           driver.ConfigService
 	Config                  *core.Config
+	MetricsProvider         metrics.Provider
 	TracerProvider          trace.TracerProvider
 	Drivers                 []driver3.NamedDriver `group:"db-drivers"`
 	NetworkConfigProvider   driver2.NetworkConfigProvider
 	ListenerManagerProvider driver2.ListenerManagerProvider
 }) (*core.ONSProvider, error) {
-	return core.NewOrionNetworkServiceProvider(in.ConfigService, in.Config, in.KVSS, in.Publisher, in.Subscriber, in.TracerProvider, in.Drivers, in.NetworkConfigProvider, in.ListenerManagerProvider)
+	return core.NewOrionNetworkServiceProvider(in.ConfigService, in.Config, in.KVSS, in.Publisher, in.Subscriber, in.MetricsProvider, in.TracerProvider, in.Drivers, in.NetworkConfigProvider, in.ListenerManagerProvider)
 }
