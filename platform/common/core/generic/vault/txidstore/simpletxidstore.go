@@ -109,70 +109,85 @@ func (s *SimpleTXIDStore[V]) Get(txID driver.TxID) (V, string, error) {
 }
 
 func (s *SimpleTXIDStore[V]) Set(txID driver.TxID, code V, message string) error {
+	return s.SetMultiple([]driver.ByNum[V]{{TxID: txID, Code: code, Message: message}})
+}
+
+func (s *SimpleTXIDStore[V]) SetMultiple(txs []driver.ByNum[V]) error {
 	// NOTE: we assume that the commit is in progress so no need to update/commit
 	// err := s.UnversionedPersistence.BeginUpdate()
 	// if err != nil {
 	// 	return errors.Errorf("error starting update to set txid %s [%s]", txid, err.Error())
 	// }
 
-	// 1: increment ctr in UnversionedPersistence
-	logger.Debugf("Incrementing ctr value in Unversioned persistence: %d", s.ctr)
-	err := setCtr(s.Persistence, s.ctr+1)
-	if err != nil { // TODO: && !errors2.HasCause(err, UniqueKeyViolation)
-		s.Persistence.Discard()
-		return errors.Wrapf(err, "error storing updated counter for txid %s", txID)
-	}
-
-	// 2: store by counter
-	logger.Debugf("Store TX [%s] with status [%v] by counter: %d", txID, code, s.ctr)
-	byCtrBytes, err := proto.Marshal(&ByNum{
-		Txid:    txID,
-		Code:    s.vcProvider.ToInt32(code),
-		Message: message,
-	})
+	states, err := s.newStoreStates(txs)
 	if err != nil {
-		s.Persistence.Discard()
-		return errors.Wrapf(err, "error marshalling ByNum for txID %s", txID)
+		return errors.Wrapf(err, "failed to calculate states")
 	}
-	err = s.Persistence.SetState(txidNamespace, keyByCtr(s.ctr), byCtrBytes)
-	if err != nil { // TODO: && !errors2.HasCause(err, UniqueKeyViolation)
-		s.Persistence.Discard()
-		return errors.Wrapf(err, "error storing ByNum for txid %s", txID)
-	}
-
-	// 3: store by txid
-	logger.Debugf("Store TX [%s] with status [%v] by txid", txID, code)
-	byTxidBytes, err := proto.Marshal(&ByTxid{
-		Pos:     s.ctr,
-		Code:    s.vcProvider.ToInt32(code),
-		Message: message,
-	})
-	if err != nil {
-		s.Persistence.Discard()
-		return errors.Wrapf(err, "error marshalling ByTxid for txid %s", txID)
-	}
-	err = s.Persistence.SetState(txidNamespace, keyByTxID(txID), byTxidBytes)
-	if err != nil {
-		s.Persistence.Discard()
-		return errors.Wrapf(err, "error storing ByTxid for txid %s", txID)
-	}
-
-	if code == s.vcProvider.Valid() {
-		err = s.Persistence.SetState(txidNamespace, lastTX, []byte(txID))
-		if err != nil { // TODO: && !errors2.HasCause(err, UniqueKeyViolation)
+	errs := s.Persistence.SetStates(txidNamespace, states)
+	for _, err := range errs {
+		if err != nil && !errors.HasCause(err, UniqueKeyViolation) {
 			s.Persistence.Discard()
-			return errors.Wrapf(err, "error storing ByTxid for txid %s", txID)
+			return errors.Wrapf(err, "error updating states")
 		}
 	}
+
 	// NOTE: we assume that the commit is in progress so no need to update/commit
 	// err = s.UnversionedPersistence.Commit()
 	// if err != nil {
 	// 	return errors.Errorf("error committing update to set txid %s [%s]", txid, err.Error())
 	// }
 
-	s.ctr++
+	s.ctr += uint64(len(txs))
 
 	return nil
+}
+
+func (s *SimpleTXIDStore[V]) newStoreStates(txs []driver.ByNum[V]) (map[driver.PKey]driver.RawValue, error) {
+	states := make(map[driver.PKey]driver.RawValue, 2+2*len(txs))
+
+	logger.Debugf("Incrementing ctr value in Unversioned persistence: %d by %d", s.ctr, len(txs))
+
+	// 1: increment ctr in UnversionedPersistence
+	ctrBytes := convCtrKey(s.ctr + uint64(len(txs)))
+	states[ctrKey] = ctrBytes[:]
+
+	// 2: store by counter
+	for i, tx := range txs {
+		logger.Debugf("Store TX [%s] with status [%v] by counter: %d", tx.TxID, tx.Code, s.ctr)
+		byCtrBytes, err := proto.Marshal(&ByNum{
+			Txid:    tx.TxID,
+			Code:    s.vcProvider.ToInt32(tx.Code),
+			Message: tx.Message,
+		})
+		if err != nil {
+			return nil, err
+		}
+		states[keyByCtr(s.ctr+uint64(i))] = byCtrBytes
+	}
+
+	// 3: store by txid
+	var lastValidTxID driver.TxID
+	for i, tx := range txs {
+		logger.Debugf("Store TX [%s] with status [%v] by txid", tx.TxID, tx.Code)
+		byTxidBytes, err := proto.Marshal(&ByTxid{
+			Pos:     s.ctr + uint64(i),
+			Code:    s.vcProvider.ToInt32(tx.Code),
+			Message: tx.Message,
+		})
+		if err != nil {
+			return nil, err
+		}
+		states[keyByTxID(tx.TxID)] = byTxidBytes
+
+		if tx.Code == s.vcProvider.Valid() {
+			lastValidTxID = tx.TxID
+		}
+	}
+
+	if len(lastValidTxID) > 0 {
+		states[lastTX] = []byte(lastValidTxID)
+	}
+	return states, nil
 }
 
 func (s *SimpleTXIDStore[V]) GetLastTxID() (driver.TxID, error) {
@@ -294,9 +309,7 @@ func (i *SimpleTxIDIteratorByTxID) Next() (*ByNum, error) {
 }
 
 func keyByCtr(ctr uint64) string {
-	ctrBytes := new([binary.MaxVarintLen64]byte)
-	binary.BigEndian.PutUint64(ctrBytes[:], ctr)
-
+	ctrBytes := convCtrKey(ctr)
 	return byCtrPrefix + string(ctrBytes[:])
 }
 
@@ -305,15 +318,19 @@ func keyByTxID(txID driver.TxID) string {
 }
 
 func setCtr(persistence UnversionedPersistence, ctr uint64) error {
-	ctrBytes := make([]byte, binary.MaxVarintLen64)
-	binary.BigEndian.PutUint64(ctrBytes, ctr)
-
-	err := persistence.SetState(txidNamespace, ctrKey, ctrBytes)
+	ctrBytes := convCtrKey(ctr)
+	err := persistence.SetState(txidNamespace, ctrKey, ctrBytes[:])
 	if err != nil && !errors.HasCause(err, UniqueKeyViolation) {
 		return errors.Wrapf(err, "error storing the counter")
 	}
 
 	return nil
+}
+
+func convCtrKey(ctr uint64) [binary.MaxVarintLen64]byte {
+	ctrBytes := new([binary.MaxVarintLen64]byte)
+	binary.BigEndian.PutUint64(ctrBytes[:], ctr)
+	return *ctrBytes
 }
 
 func getCtr(persistence UnversionedPersistence) (uint64, error) {
