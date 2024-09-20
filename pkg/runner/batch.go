@@ -11,24 +11,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/pkg/errors"
 )
-
-var logger = flogging.MustGetLogger("batch-executor")
-
-type BatchExecutor[I any, O any] interface {
-	Execute(input I) (O, error)
-}
-
-type BatchRunner[V any] interface {
-	Run(v V) error
-}
-
-type Output[O any] struct {
-	Val O
-	Err error
-}
 
 type batcher[I any, O any] struct {
 	idx      uint32
@@ -36,7 +20,7 @@ type batcher[I any, O any] struct {
 	outputs  []chan O
 	locks    []sync.Mutex
 	len      uint32
-	executor func([]I) []O
+	executor ExecuteFunc[I, O]
 	timeout  time.Duration
 }
 
@@ -120,7 +104,7 @@ type batchExecutor[I any, O any] struct {
 	*batcher[I, Output[O]]
 }
 
-func NewBatchExecutor[I any, O any](executor func([]I) []Output[O], capacity int, timeout time.Duration) BatchExecutor[I, O] {
+func NewBatchExecutor[I any, O any](executor ExecuteFunc[I, Output[O]], capacity int, timeout time.Duration) BatchExecutor[I, O] {
 	return &batchExecutor[I, O]{batcher: newBatcher(executor, capacity, timeout)}
 }
 
@@ -131,10 +115,6 @@ func (r *batchExecutor[I, O]) Execute(input I) (O, error) {
 
 type batchRunner[V any] struct {
 	*batcher[V, error]
-}
-
-func NewSerialRunner[V any](runner func([]V) []error) BatchRunner[V] {
-	return NewBatchRunner(runner, 1, 1*time.Hour)
 }
 
 func NewBatchRunner[V any](runner func([]V) []error, capacity int, timeout time.Duration) BatchRunner[V] {
