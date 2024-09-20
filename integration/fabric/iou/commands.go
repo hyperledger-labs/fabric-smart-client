@@ -58,7 +58,8 @@ func UpdateIOUWithBorrower(ii *integration.Infrastructure, borrower, iouStateID 
 	)
 	Expect(err).NotTo(HaveOccurred())
 	txID := common.JSONUnmarshalString(txIDBoxed)
-	Expect(ii.Client("lender").IsTxFinal(txID)).NotTo(HaveOccurred())
+	_, err = ii.Client("lender").CallView("finality", common.JSONMarshall(views.Finality{TxID: txID}))
+	Expect(err).NotTo(HaveOccurred())
 }
 
 func InitApprover(ii *integration.Infrastructure, approver string) {

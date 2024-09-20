@@ -9,7 +9,6 @@ package sdk
 import (
 	"context"
 	"errors"
-	"reflect"
 
 	"github.com/go-kit/log"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/node"
@@ -162,11 +161,6 @@ func (p *SDK) Install() error {
 	}
 
 	if err := p.C.Invoke(func(resolverService *endpoint.ResolverService) error { return resolverService.LoadResolvers() }); err != nil {
-		return err
-	}
-	if err := p.C.Invoke(func(server finality.Server, manager *finality.Manager) {
-		server.RegisterProcessor(reflect.TypeOf(&protos.Command_IsTxFinal{}), manager.IsTxFinal)
-	}); err != nil {
 		return err
 	}
 	logger.Debugf("Services installed:\n%s", digutils.Visualize(p.C))

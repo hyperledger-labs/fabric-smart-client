@@ -17,7 +17,6 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/api"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view/protos"
 	"github.com/pkg/errors"
@@ -188,10 +187,6 @@ func (c *Client) CallViewWithContext(ctx context.Context, fid string, in []byte)
 }
 
 func (c *Client) Initiate(fid string, in []byte) (string, error) {
-	panic("implement me")
-}
-
-func (c *Client) IsTxFinal(txid string, opts ...api.ServiceOption) error {
 	panic("implement me")
 }
 
