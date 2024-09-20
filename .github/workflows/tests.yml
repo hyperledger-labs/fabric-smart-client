@@ -7,9 +7,6 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
-env:
-  FSC_PATH: "${{ github.workspace }}/fabric-smart-client"
-
 jobs:
 
   checks:
@@ -18,20 +15,17 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          path: ${{ env.FSC_PATH }}
 
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: "${{ env.FSC_PATH }}/go.mod"
+          go-version-file: "go.mod"
+          cache-dependency-path: "**/*.sum"
 
       - name: Set up tools
-        working-directory: ${{ env.FSC_PATH }}
         run: make install-tools
 
       - name: Run checks
-        working-directory: ${{ env.FSC_PATH }}
         run: make checks
 
   utest:
@@ -44,24 +38,20 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          path: ${{ env.FSC_PATH }}
 
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: "${{ env.FSC_PATH }}/go.mod"
+          go-version-file: "go.mod"
+          cache-dependency-path: "**/*.sum"
 
       - name: Set up tools
-        working-directory: ${{ env.FSC_PATH }}
         run: make install-tools
 
       - name: Download fabric binaries
-        working-directory: ${{ env.FSC_PATH }}
         run: make download-fabric
 
       - name: Run ${{ matrix.tests }}
-        working-directory: ${{ env.FSC_PATH }}
         run: make ${{ matrix.tests }}
 
   itest:
@@ -88,30 +78,24 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          path: ${{ env.FSC_PATH }}
 
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: "${{ env.FSC_PATH }}/go.mod"
+          go-version-file: "go.mod"
+          cache-dependency-path: "**/*.sum"
 
       - name: Set up tools
-        working-directory: ${{ env.FSC_PATH }}
         run: make install-tools
 
       - name: Download fabric binaries
-        working-directory: ${{ env.FSC_PATH }}
         run: make download-fabric
 
       - name: Docker
-        working-directory: ${{ env.FSC_PATH }}
         run: make docker-images
 
       - name: Set up softhsm
-        working-directory: ${{ env.FSC_PATH }}
         run: make install-softhsm
 
       - name: Run ${{ matrix.tests }}
-        working-directory: ${{ env.FSC_PATH }}
         run: make integration-tests-${{ matrix.tests }}
