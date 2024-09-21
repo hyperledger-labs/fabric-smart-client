@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package views
 
 import (
+	"encoding/json"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -32,6 +34,8 @@ func (a *FinalityView) Call(context view.Context) (interface{}, error) {
 type FinalityViewFactory struct{}
 
 func (c *FinalityViewFactory) NewView(in []byte) (view.View, error) {
-	f := &FinalityView{}
+	f := &FinalityView{Finality: &Finality{}}
+	err := json.Unmarshal(in, f.Finality)
+	assert.NoError(err, "failed unmarshalling input")
 	return f, nil
 }
