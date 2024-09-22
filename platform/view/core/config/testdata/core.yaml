@@ -22,3 +22,17 @@ nested:
     one: 1
     two: 2
 CAPITALS: true
+msps:
+  - id: mymsp
+    opts:
+      BCCSP:
+        Default: SW
+        SW:
+          Hash: SHA2
+          Security: 256
+        PKCS11:
+          Library: /path/to/pkcs11_library.so
+          Label: someLabel
+          Pin: 98765432
+          Hash: SHA2
+          Security: 256

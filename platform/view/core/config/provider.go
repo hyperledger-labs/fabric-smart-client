@@ -138,23 +138,16 @@ func (p *provider) substituteEnv() {
 
 		env := strings.Split(e, "=")
 		val := env[1]
-		if len(env) > 2 {
-			val = strings.Join(env[1:], "=")
-		}
 		if len(val) == 0 {
 			continue
 		}
-		noprefix := strings.TrimLeft(env[0], strings.ToUpper(CmdRoot)+"_")
-		key := strings.ToLower(strings.ReplaceAll(noprefix, "_", "."))
+		key, val := env[0], strings.Join(env[1:], "=")
+
+		noprefix := strings.TrimLeft(key, strings.ToUpper(CmdRoot)+"_")
+		key = strings.ToLower(strings.ReplaceAll(noprefix, "_", "."))
 
 		// nested key
 		keys := strings.Split(key, ".")
-		if len(keys) == 1 {
-			fmt.Println("applying " + env[0])
-			p.v.Set(key, val)
-			continue
-		}
-
 		parent := strings.Join(keys[:len(keys)-1], ".")
 		if !p.v.IsSet(parent) {
 			fmt.Println("applying " + env[0] + " - parent not found in core.yaml: " + parent)
