@@ -10,17 +10,16 @@ import (
 	"os"
 	"path/filepath"
 
-	"gopkg.in/yaml.v2"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 )
 
 const (
 	MSPType       = "bccsp"
-	BCCSPOptField = "BCCSP"
+	BCCSPOptField = "bccsp" // viper converts map keys to lowercase
 )
 
 var logger = flogging.MustGetLogger("fabric-sdk.msp.x509")
@@ -104,13 +103,17 @@ func (f *FolderIdentityLoader) Load(manager driver.Manager, c config.MSP) error 
 }
 
 func ToBCCSPOpts(boxed interface{}) (*config.BCCSP, error) {
-	raw, err := yaml.Marshal(boxed)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to marshal")
-	}
 	opts := &config.BCCSP{}
-	if err := yaml.Unmarshal(raw, opts); err != nil {
-		return nil, errors.Wrap(err, "failed to unmarshal")
+	config := &mapstructure.DecoderConfig{
+		WeaklyTypedInput: true, // allow pin to be a string
+		Result:           &opts,
 	}
-	return opts, nil
+
+	decoder, err := mapstructure.NewDecoder(config)
+	if err != nil {
+		return opts, err
+	}
+
+	err = decoder.Decode(boxed)
+	return opts, err
 }

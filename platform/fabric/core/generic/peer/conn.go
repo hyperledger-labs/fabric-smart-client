@@ -132,13 +132,13 @@ func (cep *CachingClientFactory) NewClient(cc grpc.ConnectionConfig) (Client, er
 
 type GRPCClientFactory struct {
 	ConfigService driver.ConfigService
-	Singer        driver.Signer
+	Signer        driver.Signer
 }
 
 func newFactory(configService driver.ConfigService, signer driver.Signer) *GRPCClientFactory {
 	return &GRPCClientFactory{
 		ConfigService: configService,
-		Singer:        signer,
+		Signer:        signer,
 	}
 }
 
@@ -185,5 +185,5 @@ func (c *GRPCClientFactory) NewClient(cc grpc.ConnectionConfig) (Client, error) 
 	if err != nil {
 		return nil, errors.WithMessage(err, "failed to create Client from config")
 	}
-	return NewGRPCClient(gClient, cc.Address, override, c.Singer.Sign), nil
+	return NewGRPCClient(gClient, cc.Address, override, c.Signer.Sign), nil
 }

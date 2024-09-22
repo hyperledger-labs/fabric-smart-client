@@ -7,11 +7,14 @@ SPDX-License-Identifier: Apache-2.0
 package config
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
+	mspdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/x509"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
 )
 
@@ -50,6 +53,24 @@ func TestReadFile(t *testing.T) {
 	assert.Equal("ds", db.DataSource)
 	assert.Equal(true, db.SkipPragmas)
 	assert.Equal(0, db.MaxOpenConns)
+}
+
+func TestMSPs(t *testing.T) {
+	var confs []mspdriver.MSP
+	p, _ := NewProvider("./testdata")
+	err := p.UnmarshalKey("msps", &confs)
+	assert.NoError(err)
+	fmt.Println(confs)
+
+	b, err := x509.ToBCCSPOpts(confs[0].Opts[x509.BCCSPOptField])
+	assert.NoError(err)
+	assert.NotNil(b.SW)
+	assert.Equal("SHA2", b.SW.Hash)
+	assert.NotNil(b.PKCS11)
+	assert.Equal(256, b.PKCS11.Security)
+	assert.Equal("someLabel", b.PKCS11.Label)
+	assert.Equal("98765432", b.PKCS11.Pin)
+
 }
 
 func TestEnvSubstitution(t *testing.T) {
