@@ -9,13 +9,14 @@ package vault
 import (
 	"sync"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault/fver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/pkg/errors"
 )
 
 type VersionedQueryExecutor interface {
-	GetStateMetadata(namespace, key string) (map[string][]byte, uint64, uint64, error)
+	GetStateMetadata(namespace, key string) (driver.Metadata, driver.RawVersion, error)
 	GetState(namespace, key string) (VersionedValue, error)
 	Done()
 }
@@ -89,9 +90,8 @@ func (i *Interceptor[V]) IsValid() error {
 			if err != nil {
 				return err
 			}
-
-			if vv.Block != v.Block || vv.TxNum != v.TxNum {
-				return errors.Errorf("invalid read: vault at version %s:%s %d:%d, read-write set at version %d:%d", ns, k, vv.Block, vv.TxNum, v.Block, v.TxNum)
+			if !fver.IsEqual(v, vv.Version) {
+				return errors.Errorf("invalid read: vault at fver %s:%s [%v], read-write set at fver [%v]", ns, k, vv, v)
 			}
 		}
 	}
@@ -236,20 +236,20 @@ func (i *Interceptor[V]) GetStateMetadata(namespace, key string, opts ...driver.
 			i.RUnlock()
 			return nil, errors.New("this instance is write only")
 		}
-		val, block, txnum, err := i.QE.GetStateMetadata(namespace, key)
+		val, vaultVersion, err := i.QE.GetStateMetadata(namespace, key)
 		if err != nil {
 			i.RUnlock()
 			return nil, err
 		}
 		i.RUnlock()
 
-		b, t, in := i.Rws.ReadSet.Get(namespace, key)
+		version, in := i.Rws.ReadSet.Get(namespace, key)
 		if in {
-			if b != block || t != txnum {
-				return nil, errors.Errorf("invalid metadata read: previous value returned at version %d:%d, current value at version %d:%d", b, t, block, txnum)
+			if !fver.IsEqual(version, vaultVersion) {
+				return nil, errors.Errorf("invalid metadata read: previous value returned at fver [%v], current value at fver [%v]", version, vaultVersion)
 			}
 		} else {
-			i.Rws.ReadSet.Add(namespace, key, block, txnum)
+			i.Rws.ReadSet.Add(namespace, key, vaultVersion)
 		}
 
 		return val, nil
@@ -297,14 +297,15 @@ func (i *Interceptor[V]) GetState(namespace driver.Namespace, key driver.PKey, o
 			return nil, err
 		}
 		i.RUnlock()
+		vaultVersion := vv.Version
 
-		b, t, in := i.Rws.ReadSet.Get(namespace, key)
+		version, in := i.Rws.ReadSet.Get(namespace, key)
 		if in {
-			if b != vv.Block || t != vv.TxNum {
-				return nil, errors.Errorf("invalid read [%s:%s]: previous value returned at version %d:%d, current value at version %d:%d", namespace, key, b, t, vv.Block, vv.TxNum)
+			if !fver.IsEqual(version, vaultVersion) {
+				return nil, errors.Errorf("invalid read [%s:%s]: previous value returned at fver [%v], current value at fver [%v]", namespace, key, version, vaultVersion)
 			}
 		} else {
-			i.Rws.ReadSet.Add(namespace, key, vv.Block, vv.TxNum)
+			i.Rws.ReadSet.Add(namespace, key, vaultVersion)
 		}
 
 		return vv.Raw, nil

@@ -6,7 +6,9 @@ SPDX-License-Identifier: Apache-2.0
 
 package vault
 
-import "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+import (
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+)
 
 // this file contains all structs that perform DB access. They
 // differ in terms of the results that they return. They are both
@@ -28,8 +30,12 @@ func (q *directQueryExecutor[V]) GetStateRangeScanIterator(namespace driver.Name
 	return q.vault.store.GetStateRangeScanIterator(namespace, startKey, endKey)
 }
 
-func (q *directQueryExecutor[V]) GetStateMetadata(namespace driver.Namespace, key driver.PKey) (driver.Metadata, driver.BlockNum, driver.TxNum, error) {
-	return q.vault.store.GetStateMetadata(namespace, key)
+func (q *directQueryExecutor[V]) GetStateMetadata(namespace driver.Namespace, key driver.PKey) (driver.Metadata, driver.RawVersion, error) {
+	m, version, err := q.vault.store.GetStateMetadata(namespace, key)
+	if err != nil {
+		return nil, nil, err
+	}
+	return m, version, nil
 }
 
 func (q *directQueryExecutor[V]) Done() {
@@ -46,8 +52,12 @@ func (i *interceptorQueryExecutor[V]) Done() {
 	i.storeLock.RUnlock()
 }
 
-func (i *interceptorQueryExecutor[V]) GetStateMetadata(namespace driver.Namespace, key driver.PKey) (driver.Metadata, driver.BlockNum, driver.TxNum, error) {
-	return i.store.GetStateMetadata(namespace, key)
+func (i *interceptorQueryExecutor[V]) GetStateMetadata(namespace driver.Namespace, key driver.PKey) (driver.Metadata, driver.RawVersion, error) {
+	m, version, err := i.store.GetStateMetadata(namespace, key)
+	if err != nil {
+		return nil, nil, err
+	}
+	return m, version, nil
 }
 
 func (i *interceptorQueryExecutor[V]) GetState(namespace driver.Namespace, key driver.PKey) (VersionedValue, error) {

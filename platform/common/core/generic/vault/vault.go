@@ -15,6 +15,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/runner"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault/fver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
@@ -61,6 +62,7 @@ type NewInterceptorFunc[V driver.ValidationCode] func(logger Logger, qe Versione
 type (
 	VersionedPersistence     = dbdriver.VersionedPersistence
 	VersionedValue           = dbdriver.VersionedValue
+	VersionedMetaData        = dbdriver.VersionedMetaData
 	VersionedRead            = dbdriver.VersionedRead
 	VersionedResultsIterator = dbdriver.VersionedResultsIterator
 	QueryExecutor            = dbdriver.QueryExecutor
@@ -399,7 +401,7 @@ func (db *Vault[V]) storeAllMetaWrites(metaWrites map[driver.Namespace]map[drive
 func versionedValues(keyMap NamespaceWrites, block driver.BlockNum, indexInBloc driver.TxNum) map[driver.PKey]VersionedValue {
 	vals := make(map[driver.PKey]VersionedValue, len(keyMap))
 	for pkey, val := range keyMap {
-		vals[pkey] = VersionedValue{Raw: val, Block: block, TxNum: indexInBloc}
+		vals[pkey] = VersionedValue{Raw: val, Version: fver.ToBytes(block, indexInBloc)}
 	}
 	return vals
 }

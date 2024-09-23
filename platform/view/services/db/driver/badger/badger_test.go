@@ -15,6 +15,8 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault/fver"
+
 	"github.com/dgraph-io/badger/v3"
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/dbtest"
@@ -102,9 +104,11 @@ func TestMarshallingErrors(t *testing.T) {
 	assert.Contains(t, err.Error(), "could not unmarshal VersionedValue for key ")
 	assert.Equal(t, driver.VersionedValue{}, vv)
 
-	m, bn, tn, err := db.GetStateMetadata(ns, key)
+	m, ver, err := db.GetStateMetadata(ns, key)
 	assert.Contains(t, err.Error(), "could not unmarshal VersionedValue for key")
 	assert.Len(t, m, 0)
+	bn, tn, err := fver.FromBytes(ver)
+	assert.NoError(t, err)
 	assert.Equal(t, uint64(0), bn)
 	assert.Equal(t, uint64(0), tn)
 
@@ -119,11 +123,13 @@ func TestMarshallingErrors(t *testing.T) {
 	assert.NoError(t, err)
 
 	vv, err = db.GetState(ns, key)
-	assert.EqualError(t, err, "could not get value for key ns\x00key: invalid version, expected 1, got 34")
+	assert.EqualError(t, err, "could not get value for key ns\x00key: invalid fver, expected 1, got 34")
 	assert.Equal(t, driver.VersionedValue{}, vv)
 
-	m, bn, tn, err = db.GetStateMetadata(ns, key)
-	assert.EqualError(t, err, "could not get value for key ns\x00key: invalid version, expected 1, got 34")
+	m, ver, err = db.GetStateMetadata(ns, key)
+	assert.EqualError(t, err, "could not get value for key ns\x00key: invalid fver, expected 1, got 34")
+	bn, tn, err = fver.FromBytes(ver)
+	assert.NoError(t, err)
 	assert.Len(t, m, 0)
 	assert.Equal(t, uint64(0), bn)
 	assert.Equal(t, uint64(0), tn)
