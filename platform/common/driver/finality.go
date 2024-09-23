@@ -18,6 +18,7 @@ type ListenerManager[V comparable] interface {
 	AddListener(txID TxID, toAdd FinalityListener[V]) error
 	RemoveListener(txID TxID, toRemove FinalityListener[V])
 	InvokeListeners(event FinalityEvent[V])
+	TxIDs() []TxID
 }
 
 // FinalityEvent contains information about the finality of a given transaction

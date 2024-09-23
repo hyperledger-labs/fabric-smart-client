@@ -110,3 +110,9 @@ func (c *finalityListenerManager[V]) cloneListeners(txID driver.TxID) []driver.F
 
 	return clone
 }
+
+func (c *finalityListenerManager[V]) TxIDs() []driver.TxID {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+	return collections.Keys(c.txIDListeners)
+}
