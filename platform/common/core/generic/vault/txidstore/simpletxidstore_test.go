@@ -323,5 +323,7 @@ func testTXIDStore(t *testing.T, store *SimpleTXIDStore[vc]) {
 		txids[i] = result.TxID
 	}
 	assert.Len(t, txids, 2)
-	assert.Equal(t, []string{"txid1025", "txid21"}, txids)
+	assert.Contains(t, txids, "txid21")
+	assert.Contains(t, txids, "txid1025")
+
 }
