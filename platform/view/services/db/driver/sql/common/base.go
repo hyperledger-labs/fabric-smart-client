@@ -188,19 +188,20 @@ func (db *BasePersistence[V, R]) hasKeys(ns driver2.Namespace, pkeys []driver2.P
 }
 
 func (db *BasePersistence[V, R]) SetStateWithTx(tx *sql.Tx, ns driver2.Namespace, pkey string, value V) error {
+	if tx == nil {
+		panic("programming error, writing without ongoing update")
+	}
+
 	keys := db.ValueScanner.Columns()
 	values := db.ValueScanner.WriteValue(value)
 	// Get rawVal
 	valIndex := slices.Index(keys, "val")
 	val := values[valIndex].([]byte)
-
 	if len(val) == 0 {
 		logger.Warnf("set key [%s:%s] to nil value, will be deleted instead", ns, pkey)
 		return db.DeleteState(ns, pkey)
 	}
-	if tx == nil {
-		panic("programming error, writing without ongoing update")
-	}
+
 	logger.Debugf("set state [%s,%s]", ns, pkey)
 
 	// Overwrite rawVal

@@ -11,7 +11,8 @@ import (
 	"testing"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault/fver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger/fabric-protos-go/ledger/rwset"
 	"github.com/stretchr/testify/assert"
@@ -131,16 +132,16 @@ func TTestInterceptorConcurrency(t *testing.T, ddb VersionedPersistence, vp arti
 
 	err = ddb.BeginUpdate()
 	assert.NoError(t, err)
-	err = ddb.SetState(ns, k, VersionedValue{Raw: []byte("val"), Block: 35, TxNum: 1})
+	err = ddb.SetState(ns, k, VersionedValue{Raw: []byte("val"), Version: fver.ToBytes(35, 1)})
 	assert.NoError(t, err)
 	err = ddb.Commit()
 	assert.NoError(t, err)
 
 	_, _, err = rws.GetReadAt(ns, 0)
-	assert.EqualError(t, err, "invalid read [namespace:key1]: previous value returned at version 0:0, current value at version 35:1")
+	assert.EqualError(t, err, "invalid read [namespace:key1]: previous value returned at fver [[]], current value at fver [[0 0 0 35 0 0 0 1]]")
 
 	_, err = rws.GetState(ns, k)
-	assert.EqualError(t, err, "invalid read [namespace:key1]: previous value returned at version 0:0, current value at version 35:1")
+	assert.EqualError(t, err, "invalid read [namespace:key1]: previous value returned at fver [[]], current value at fver [[0 0 0 35 0 0 0 1]]")
 
 	mv, err := rws.GetStateMetadata(ns, mk)
 	assert.NoError(t, err)
@@ -148,13 +149,13 @@ func TTestInterceptorConcurrency(t *testing.T, ddb VersionedPersistence, vp arti
 
 	err = ddb.BeginUpdate()
 	assert.NoError(t, err)
-	err = ddb.SetStateMetadata(ns, mk, map[string][]byte{"k": []byte("v")}, 36, 2)
+	err = ddb.SetStateMetadata(ns, mk, map[string][]byte{"k": []byte("v")}, nil)
 	assert.NoError(t, err)
 	err = ddb.Commit()
 	assert.NoError(t, err)
 
 	_, err = rws.GetStateMetadata(ns, mk)
-	assert.EqualError(t, err, "invalid metadata read: previous value returned at version 0:0, current value at version 36:2")
+	assert.EqualError(t, err, "invalid metadata read: previous value returned at fver [[0 0 0 0 0 0 0 0]], current value at fver [[0 0 0 36 0 0 0 2]]")
 }
 
 func TTestParallelVaults(t *testing.T, ddb VersionedPersistence, vp artifactsProvider) {
@@ -202,15 +203,15 @@ func TTestParallelVaults(t *testing.T, ddb VersionedPersistence, vp artifactsPro
 	assert.NoError(t, err)
 	assert.Equal(t, []byte("val_v1"), val)
 	assert.Equal(t, map[string][]byte{"k1": []byte("mval1_v1")}, mval)
-	assert.Equal(t, uint64(1), txNum)
-	assert.Equal(t, uint64(2), blkNum)
+	assert.Equal(t, uint64(2), txNum)
+	assert.Equal(t, uint64(1), blkNum)
 
 	val, mval, txNum, blkNum, err = queryVault(vault2, ns, k, mk)
 	assert.NoError(t, err)
 	assert.Equal(t, []byte("val_v1"), val)
 	assert.Equal(t, map[string][]byte{"k1": []byte("mval1_v1")}, mval)
-	assert.Equal(t, uint64(1), txNum)
-	assert.Equal(t, uint64(2), blkNum)
+	assert.Equal(t, uint64(2), txNum)
+	assert.Equal(t, uint64(1), blkNum)
 }
 
 func TTestDeadlock(t *testing.T, ddb VersionedPersistence, vp artifactsProvider) {
@@ -243,8 +244,8 @@ func TTestDeadlock(t *testing.T, ddb VersionedPersistence, vp artifactsProvider)
 	assert.NoError(t, err)
 	assert.Equal(t, []byte("val_v1"), val)
 	assert.Equal(t, map[string][]byte{"k1": []byte("mval1_v1")}, mval)
-	assert.Equal(t, uint64(1), txNum)
-	assert.Equal(t, uint64(2), blkNum)
+	assert.Equal(t, uint64(2), txNum)
+	assert.Equal(t, uint64(1), blkNum)
 }
 
 func TTestQueryExecutor(t *testing.T, ddb VersionedPersistence, vp artifactsProvider) {
@@ -255,13 +256,13 @@ func TTestQueryExecutor(t *testing.T, ddb VersionedPersistence, vp artifactsProv
 
 	err = ddb.BeginUpdate()
 	assert.NoError(t, err)
-	err = ddb.SetState(ns, "k2", VersionedValue{Raw: []byte("k2_value"), Block: 35, TxNum: 1})
+	err = ddb.SetState(ns, "k2", VersionedValue{Raw: []byte("k2_value"), Version: fver.ToBytes(35, 1)})
 	assert.NoError(t, err)
-	err = ddb.SetState(ns, "k3", VersionedValue{Raw: []byte("k3_value"), Block: 35, TxNum: 2})
+	err = ddb.SetState(ns, "k3", VersionedValue{Raw: []byte("k3_value"), Version: fver.ToBytes(35, 2)})
 	assert.NoError(t, err)
-	err = ddb.SetState(ns, "k1", VersionedValue{Raw: []byte("k1_value"), Block: 35, TxNum: 3})
+	err = ddb.SetState(ns, "k1", VersionedValue{Raw: []byte("k1_value"), Version: fver.ToBytes(35, 3)})
 	assert.NoError(t, err)
-	err = ddb.SetState(ns, "k111", VersionedValue{Raw: []byte("k111_value"), Block: 35, TxNum: 4})
+	err = ddb.SetState(ns, "k111", VersionedValue{Raw: []byte("k111_value"), Version: fver.ToBytes(35, 4)})
 	assert.NoError(t, err)
 	err = ddb.Commit()
 	assert.NoError(t, err)
@@ -288,10 +289,10 @@ func TTestQueryExecutor(t *testing.T, ddb VersionedPersistence, vp artifactsProv
 	}
 	assert.Len(t, res, 4)
 	assert.ElementsMatch(t, []VersionedRead{
-		{Key: "k1", Raw: []byte("k1_value"), Block: 35, TxNum: 3},
-		{Key: "k111", Raw: []byte("k111_value"), Block: 35, TxNum: 4},
-		{Key: "k2", Raw: []byte("k2_value"), Block: 35, TxNum: 1},
-		{Key: "k3", Raw: []byte("k3_value"), Block: 35, TxNum: 2},
+		{Key: "k1", Raw: []byte("k1_value"), Version: fver.ToBytes(35, 3)},
+		{Key: "k111", Raw: []byte("k111_value"), Version: fver.ToBytes(35, 4)},
+		{Key: "k2", Raw: []byte("k2_value"), Version: fver.ToBytes(35, 1)},
+		{Key: "k3", Raw: []byte("k3_value"), Version: fver.ToBytes(35, 2)},
 	}, res)
 
 	itr, err = ddb.GetStateRangeScanIterator(ns, "k1", "k3")
@@ -305,9 +306,9 @@ func TTestQueryExecutor(t *testing.T, ddb VersionedPersistence, vp artifactsProv
 	}
 	assert.Len(t, res, 3)
 	assert.Equal(t, []VersionedRead{
-		{Key: "k1", Raw: []byte("k1_value"), Block: 35, TxNum: 3},
-		{Key: "k111", Raw: []byte("k111_value"), Block: 35, TxNum: 4},
-		{Key: "k2", Raw: []byte("k2_value"), Block: 35, TxNum: 1},
+		{Key: "k1", Raw: []byte("k1_value"), Version: fver.ToBytes(35, 3)},
+		{Key: "k111", Raw: []byte("k111_value"), Version: fver.ToBytes(35, 4)},
+		{Key: "k2", Raw: []byte("k2_value"), Version: fver.ToBytes(35, 1)},
 	}, res)
 
 	itr, err = ddb.GetStateSetIterator(ns, "k1", "k2", "k111")
@@ -321,9 +322,9 @@ func TTestQueryExecutor(t *testing.T, ddb VersionedPersistence, vp artifactsProv
 	}
 	assert.Len(t, res, 3)
 	assert.ElementsMatch(t, []VersionedRead{
-		{Key: "k1", Raw: []byte("k1_value"), Block: 35, TxNum: 3},
-		{Key: "k2", Raw: []byte("k2_value"), Block: 35, TxNum: 1},
-		{Key: "k111", Raw: []byte("k111_value"), Block: 35, TxNum: 4},
+		{Key: "k1", Raw: []byte("k1_value"), Version: fver.ToBytes(35, 3)},
+		{Key: "k2", Raw: []byte("k2_value"), Version: fver.ToBytes(35, 1)},
+		{Key: "k111", Raw: []byte("k111_value"), Version: fver.ToBytes(35, 4)},
 	}, res)
 
 	itr, err = ddb.GetStateSetIterator(ns, "k1", "k5")
@@ -336,7 +337,7 @@ func TTestQueryExecutor(t *testing.T, ddb VersionedPersistence, vp artifactsProv
 		res = append(res, *n)
 	}
 	var expected = RemoveNils([]VersionedRead{
-		{Key: "k1", Raw: []byte("k1_value"), Block: 35, TxNum: 3},
+		{Key: "k1", Raw: []byte("k1_value"), Version: fver.ToBytes(35, 3)},
 	})
 	assert.Equal(t, expected, res)
 }
@@ -349,9 +350,9 @@ func TTestShardLikeCommit(t *testing.T, ddb VersionedPersistence, vp artifactsPr
 	// Populate the DB with some data at some height
 	err := ddb.BeginUpdate()
 	assert.NoError(t, err)
-	err = ddb.SetState(ns, k1, VersionedValue{Raw: []byte("k1val"), Block: 35, TxNum: 1})
+	err = ddb.SetState(ns, k1, VersionedValue{Raw: []byte("k1val"), Version: fver.ToBytes(35, 1)})
 	assert.NoError(t, err)
-	err = ddb.SetState(ns, k2, VersionedValue{Raw: []byte("k2val"), Block: 37, TxNum: 3})
+	err = ddb.SetState(ns, k2, VersionedValue{Raw: []byte("k2val"), Version: fver.ToBytes(37, 3)})
 	assert.NoError(t, err)
 	err = ddb.Commit()
 	assert.NoError(t, err)
@@ -363,7 +364,7 @@ func TTestShardLikeCommit(t *testing.T, ddb VersionedPersistence, vp artifactsPr
 	// create the read-write set
 	rwsb := &ReadWriteSet{
 		ReadSet: ReadSet{
-			Reads:        map[driver2.Namespace]NamespaceReads{},
+			Reads:        map[driver.Namespace]NamespaceReads{},
 			OrderedReads: map[string][]string{},
 		},
 		WriteSet: WriteSet{
@@ -374,8 +375,8 @@ func TTestShardLikeCommit(t *testing.T, ddb VersionedPersistence, vp artifactsPr
 			MetaWrites: map[string]KeyedMetaWrites{},
 		},
 	}
-	rwsb.ReadSet.Add(ns, k1, 35, 1)
-	rwsb.ReadSet.Add(ns, k2, 37, 2)
+	rwsb.ReadSet.Add(ns, k1, fver.ToBytes(35, 1))
+	rwsb.ReadSet.Add(ns, k2, fver.ToBytes(37, 2))
 	rwsb.WriteSet.Add(ns, k1, []byte("k1FromTxidInvalid"))
 	rwsb.WriteSet.Add(ns, k2, []byte("k2FromTxidInvalid"))
 	marshaller := vp.NewMarshaller()
@@ -386,7 +387,7 @@ func TTestShardLikeCommit(t *testing.T, ddb VersionedPersistence, vp artifactsPr
 	rwset, err := aVault.GetRWSet("txid-invalid", rwsBytes)
 	assert.NoError(t, err)
 	err = rwset.IsValid()
-	assert.EqualError(t, err, "invalid read: vault at version namespace:key2 37:3, read-write set at version 37:2")
+	assert.EqualError(t, err, "invalid read: vault at fver namespace:key2 [{[107 50 118 97 108] [0 0 0 37 0 0 0 3]}], read-write set at fver [[0 0 0 37 0 0 0 2]]")
 
 	// close the read-write set, even in case of error
 	rwset.Done()
@@ -409,7 +410,7 @@ func TTestShardLikeCommit(t *testing.T, ddb VersionedPersistence, vp artifactsPr
 	// create the read-write set
 	rwsb = &ReadWriteSet{
 		ReadSet: ReadSet{
-			Reads:        map[driver2.Namespace]NamespaceReads{},
+			Reads:        map[driver.Namespace]NamespaceReads{},
 			OrderedReads: map[string][]string{},
 		},
 		WriteSet: WriteSet{
@@ -420,8 +421,8 @@ func TTestShardLikeCommit(t *testing.T, ddb VersionedPersistence, vp artifactsPr
 			MetaWrites: map[string]KeyedMetaWrites{},
 		},
 	}
-	rwsb.ReadSet.Add(ns, k1, 35, 1)
-	rwsb.ReadSet.Add(ns, k2, 37, 3)
+	rwsb.ReadSet.Add(ns, k1, fver.ToBytes(35, 1))
+	rwsb.ReadSet.Add(ns, k2, fver.ToBytes(37, 3))
 	rwsb.WriteSet.Add(ns, k1, []byte("k1FromTxidValid"))
 	rwsb.WriteSet.Add(ns, k2, []byte("k2FromTxidValid"))
 	rwsBytes, err = marshaller.Marshal(rwsb)
@@ -455,11 +456,11 @@ func TTestShardLikeCommit(t *testing.T, ddb VersionedPersistence, vp artifactsPr
 	// check the content of the kvs after that
 	vv, err := ddb.GetState(ns, k1)
 	assert.NoError(t, err)
-	assert.Equal(t, VersionedValue{Raw: []byte("k1FromTxidValid"), Block: 38, TxNum: 10}, vv)
+	assert.Equal(t, VersionedValue{Raw: []byte("k1FromTxidValid"), Version: fver.ToBytes(38, 10)}, vv)
 
 	vv, err = ddb.GetState(ns, k2)
 	assert.NoError(t, err)
-	assert.Equal(t, VersionedValue{Raw: []byte("k2FromTxidValid"), Block: 38, TxNum: 10}, vv)
+	assert.Equal(t, VersionedValue{Raw: []byte("k2FromTxidValid"), Version: fver.ToBytes(38, 10)}, vv)
 
 	// all Interceptors should be gone
 	assert.Len(t, aVault.Interceptors, 0)
@@ -475,11 +476,11 @@ func TTestVaultErr(t *testing.T, ddb VersionedPersistence, vp artifactsProvider)
 
 	rws := &ReadWriteSet{
 		ReadSet: ReadSet{
-			Reads:        map[driver2.Namespace]NamespaceReads{},
+			Reads:        map[driver.Namespace]NamespaceReads{},
 			OrderedReads: map[string][]string{},
 		},
 	}
-	rws.ReadSet.Add("pineapple", "key", 35, 1)
+	rws.ReadSet.Add("pineapple", "key", fver.ToBytes(35, 1))
 	m := vp.NewMarshaller()
 	rwsBytes, err := m.Marshal(rws)
 	assert.NoError(t, err)
@@ -526,7 +527,7 @@ func TTestMerge(t *testing.T, ddb VersionedPersistence, vp artifactsProvider) {
 	assert.NoError(t, err)
 	err = ddb.BeginUpdate()
 	assert.NoError(t, err)
-	err = ddb.SetState(ns, k1, VersionedValue{Raw: []byte("v1"), Block: 35, TxNum: 1})
+	err = ddb.SetState(ns, k1, VersionedValue{Raw: []byte("v1"), Version: fver.ToBytes(35, 1)})
 	assert.NoError(t, err)
 	err = ddb.Commit()
 	assert.NoError(t, err)
@@ -546,7 +547,7 @@ func TTestMerge(t *testing.T, ddb VersionedPersistence, vp artifactsProvider) {
 
 	rwsb := &ReadWriteSet{
 		ReadSet: ReadSet{
-			Reads:        map[driver2.Namespace]NamespaceReads{},
+			Reads:        map[driver.Namespace]NamespaceReads{},
 			OrderedReads: map[string][]string{},
 		},
 		WriteSet: WriteSet{
@@ -557,8 +558,8 @@ func TTestMerge(t *testing.T, ddb VersionedPersistence, vp artifactsProvider) {
 			MetaWrites: map[string]KeyedMetaWrites{},
 		},
 	}
-	rwsb.ReadSet.Add(ns, k1, 35, 1)
-	rwsb.ReadSet.Add(ns, ne2Key, 0, 0)
+	rwsb.ReadSet.Add(ns, k1, fver.ToBytes(35, 1))
+	rwsb.ReadSet.Add(ns, ne2Key, fver.ToBytes(0, 0))
 	rwsb.WriteSet.Add(ns, k1, []byte("newv1"))
 	rwsb.MetaWriteSet.Add(ns, k1, map[string][]byte{"k1": []byte("v1")})
 	m := vp.NewMarshaller()
@@ -579,24 +580,24 @@ func TTestMerge(t *testing.T, ddb VersionedPersistence, vp artifactsProvider) {
 	}}, rws.RWs().Writes)
 	assert.Equal(t, Reads{
 		"namespace": {
-			"key1":      {Block: 35, TxNum: 1},
-			"notexist1": {Block: 0, TxNum: 0},
-			"notexist2": {Block: 0, TxNum: 0},
+			"key1":      fver.ToBytes(35, 1),
+			"notexist1": nil,
+			"notexist2": fver.ToBytes(0, 0),
 		},
 	}, rws.RWs().Reads)
 
 	rwsb = &ReadWriteSet{
 		ReadSet: ReadSet{
-			Reads:        map[driver2.Namespace]NamespaceReads{},
+			Reads:        map[driver.Namespace]NamespaceReads{},
 			OrderedReads: map[string][]string{},
 		},
 	}
-	rwsb.ReadSet.Add(ns, k1, 36, 1)
+	rwsb.ReadSet.Add(ns, k1, fver.ToBytes(36, 1))
 	rwsBytes, err = m.Marshal(rwsb)
 	assert.NoError(t, err)
 
 	err = rws.AppendRWSet(rwsBytes)
-	assert.EqualError(t, err, "invalid read [namespace:key1]: previous value returned at version 35:1, current value at version 35:1")
+	assert.EqualError(t, err, "invalid read [namespace:key1]: previous value returned at fver [[0 0 0 36 0 0 0 1]], current value at fver [[0 0 0 35 0 0 0 1]]")
 
 	rwsb = &ReadWriteSet{
 		WriteSet: WriteSet{
@@ -649,7 +650,7 @@ func TTestInspector(t *testing.T, ddb VersionedPersistence, vp artifactsProvider
 	assert.NoError(t, err)
 	err = ddb.BeginUpdate()
 	assert.NoError(t, err)
-	err = ddb.SetState(ns, k1, VersionedValue{Raw: []byte("v1"), Block: 35, TxNum: 1})
+	err = ddb.SetState(ns, k1, VersionedValue{Raw: []byte("v1"), Version: fver.ToBytes(35, 1)})
 	assert.NoError(t, err)
 	err = ddb.Commit()
 	assert.NoError(t, err)
@@ -715,18 +716,18 @@ func TTestRun(t *testing.T, db1, db2 VersionedPersistence, vp artifactsProvider)
 	// create and populate 2 DBs
 	err := db1.BeginUpdate()
 	assert.NoError(t, err)
-	err = db1.SetState(ns, k1, VersionedValue{Raw: []byte("v1"), Block: 35, TxNum: 1})
+	err = db1.SetState(ns, k1, VersionedValue{Raw: []byte("v1"), Version: fver.ToBytes(35, 1)})
 	assert.NoError(t, err)
-	err = db1.SetStateMetadata(ns, k1Meta, map[string][]byte{"metakey": []byte("metavalue")}, 35, 1)
+	err = db1.SetStateMetadata(ns, k1Meta, map[string][]byte{"metakey": []byte("metavalue")}, nil)
 	assert.NoError(t, err)
 	err = db1.Commit()
 	assert.NoError(t, err)
 
 	err = db2.BeginUpdate()
 	assert.NoError(t, err)
-	err = db2.SetState(ns, k1, VersionedValue{Raw: []byte("v1"), Block: 35, TxNum: 1})
+	err = db2.SetState(ns, k1, VersionedValue{Raw: []byte("v1"), Version: fver.ToBytes(35, 1)})
 	assert.NoError(t, err)
-	err = db2.SetStateMetadata(ns, k1Meta, map[string][]byte{"metakey": []byte("metavalue")}, 35, 1)
+	err = db2.SetStateMetadata(ns, k1Meta, map[string][]byte{"metakey": []byte("metavalue")}, nil)
 	assert.NoError(t, err)
 	err = db2.Commit()
 	assert.NoError(t, err)
@@ -747,7 +748,7 @@ func TTestRun(t *testing.T, db1, db2 VersionedPersistence, vp artifactsProvider)
 	rws2.Done()
 
 	// GET K1
-	v, err := rws.GetState(ns, k1, driver2.FromIntermediate)
+	v, err := rws.GetState(ns, k1, driver.FromIntermediate)
 	assert.NoError(t, err)
 	assert.Nil(t, v)
 
@@ -755,12 +756,12 @@ func TTestRun(t *testing.T, db1, db2 VersionedPersistence, vp artifactsProvider)
 	assert.NoError(t, err)
 	assert.Equal(t, []byte("v1"), v)
 
-	v, err = rws.GetState(ns, k1, driver2.FromBoth)
+	v, err = rws.GetState(ns, k1, driver.FromBoth)
 	assert.NoError(t, err)
 	assert.Equal(t, []byte("v1"), v)
 
 	// GET K1Meta
-	vMap, err := rws.GetStateMetadata(ns, k1Meta, driver2.FromIntermediate)
+	vMap, err := rws.GetStateMetadata(ns, k1Meta, driver.FromIntermediate)
 	assert.NoError(t, err)
 	assert.Nil(t, vMap)
 
@@ -768,7 +769,7 @@ func TTestRun(t *testing.T, db1, db2 VersionedPersistence, vp artifactsProvider)
 	assert.NoError(t, err)
 	assert.Equal(t, map[string][]byte{"metakey": []byte("metavalue")}, vMap)
 
-	vMap, err = rws.GetStateMetadata(ns, k1Meta, driver2.FromBoth)
+	vMap, err = rws.GetStateMetadata(ns, k1Meta, driver.FromBoth)
 	assert.NoError(t, err)
 	assert.Equal(t, map[string][]byte{"metakey": []byte("metavalue")}, vMap)
 
@@ -777,15 +778,15 @@ func TTestRun(t *testing.T, db1, db2 VersionedPersistence, vp artifactsProvider)
 	assert.NoError(t, err)
 
 	// GET K1 after setting it
-	v, err = rws.GetState(ns, k1, driver2.FromIntermediate)
+	v, err = rws.GetState(ns, k1, driver.FromIntermediate)
 	assert.NoError(t, err)
 	assert.Equal(t, []byte("v1_updated"), v)
 
-	v, err = rws.GetState(ns, k1, driver2.FromStorage)
+	v, err = rws.GetState(ns, k1, driver.FromStorage)
 	assert.NoError(t, err)
 	assert.Equal(t, []byte("v1"), v)
 
-	v, err = rws.GetState(ns, k1, driver2.FromBoth)
+	v, err = rws.GetState(ns, k1, driver.FromBoth)
 	assert.NoError(t, err)
 	assert.Equal(t, []byte("v1_updated"), v)
 
@@ -794,7 +795,7 @@ func TTestRun(t *testing.T, db1, db2 VersionedPersistence, vp artifactsProvider)
 	assert.NoError(t, err)
 
 	// GET K1Meta after setting it
-	vMap, err = rws.GetStateMetadata(ns, k1Meta, driver2.FromIntermediate)
+	vMap, err = rws.GetStateMetadata(ns, k1Meta, driver.FromIntermediate)
 	assert.NoError(t, err)
 	assert.Equal(t, map[string][]byte{"newmetakey": []byte("newmetavalue")}, vMap)
 
@@ -802,20 +803,20 @@ func TTestRun(t *testing.T, db1, db2 VersionedPersistence, vp artifactsProvider)
 	assert.NoError(t, err)
 	assert.Equal(t, map[string][]byte{"metakey": []byte("metavalue")}, vMap)
 
-	vMap, err = rws.GetStateMetadata(ns, k1Meta, driver2.FromBoth)
+	vMap, err = rws.GetStateMetadata(ns, k1Meta, driver.FromBoth)
 	assert.NoError(t, err)
 	assert.Equal(t, map[string][]byte{"newmetakey": []byte("newmetavalue")}, vMap)
 
 	// GET K2
-	v, err = rws.GetState(ns, k2, driver2.FromIntermediate)
+	v, err = rws.GetState(ns, k2, driver.FromIntermediate)
 	assert.NoError(t, err)
 	assert.Nil(t, v)
 
-	v, err = rws.GetState(ns, k2, driver2.FromStorage)
+	v, err = rws.GetState(ns, k2, driver.FromStorage)
 	assert.NoError(t, err)
 	assert.Nil(t, v)
 
-	v, err = rws.GetState(ns, k2, driver2.FromBoth)
+	v, err = rws.GetState(ns, k2, driver.FromBoth)
 	assert.NoError(t, err)
 	assert.Nil(t, v)
 
@@ -824,15 +825,15 @@ func TTestRun(t *testing.T, db1, db2 VersionedPersistence, vp artifactsProvider)
 	assert.NoError(t, err)
 
 	// GET K2 after setting it
-	v, err = rws.GetState(ns, k2, driver2.FromIntermediate)
+	v, err = rws.GetState(ns, k2, driver.FromIntermediate)
 	assert.NoError(t, err)
 	assert.Equal(t, []byte("v2_updated"), v)
 
-	v, err = rws.GetState(ns, k2, driver2.FromStorage)
+	v, err = rws.GetState(ns, k2, driver.FromStorage)
 	assert.NoError(t, err)
 	assert.Nil(t, v)
 
-	v, err = rws.GetState(ns, k2, driver2.FromBoth)
+	v, err = rws.GetState(ns, k2, driver.FromBoth)
 	assert.NoError(t, err)
 	assert.Equal(t, []byte("v2_updated"), v)
 
@@ -886,33 +887,33 @@ func TTestRun(t *testing.T, db1, db2 VersionedPersistence, vp artifactsProvider)
 	assert.EqualError(t, err, "no write at position 2 for namespace namespace")
 
 	// GET K1
-	v, err = rws.GetState(ns, k1, driver2.FromIntermediate)
+	v, err = rws.GetState(ns, k1, driver.FromIntermediate)
 	assert.NoError(t, err)
 	assert.Equal(t, []byte("v1_updated"), v)
 
-	v, err = rws.GetState(ns, k1, driver2.FromStorage)
+	v, err = rws.GetState(ns, k1, driver.FromStorage)
 	assert.NoError(t, err)
 	assert.Equal(t, []byte("v1"), v)
 
-	v, err = rws.GetState(ns, k1, driver2.FromBoth)
+	v, err = rws.GetState(ns, k1, driver.FromBoth)
 	assert.NoError(t, err)
 	assert.Equal(t, []byte("v1_updated"), v)
 
 	// GET K2
-	v, err = rws.GetState(ns, k2, driver2.FromIntermediate)
+	v, err = rws.GetState(ns, k2, driver.FromIntermediate)
 	assert.NoError(t, err)
 	assert.Equal(t, []byte("v2_updated"), v)
 
-	v, err = rws.GetState(ns, k2, driver2.FromStorage)
+	v, err = rws.GetState(ns, k2, driver.FromStorage)
 	assert.NoError(t, err)
 	assert.Nil(t, v)
 
-	v, err = rws.GetState(ns, k2, driver2.FromBoth)
+	v, err = rws.GetState(ns, k2, driver.FromBoth)
 	assert.NoError(t, err)
 	assert.Equal(t, []byte("v2_updated"), v)
 
 	// GET K1Meta
-	vMap, err = rws.GetStateMetadata(ns, k1Meta, driver2.FromIntermediate)
+	vMap, err = rws.GetStateMetadata(ns, k1Meta, driver.FromIntermediate)
 	assert.NoError(t, err)
 	assert.Equal(t, map[string][]byte{"newmetakey": []byte("newmetavalue")}, vMap)
 
@@ -920,7 +921,7 @@ func TTestRun(t *testing.T, db1, db2 VersionedPersistence, vp artifactsProvider)
 	assert.NoError(t, err)
 	assert.Equal(t, map[string][]byte{"metakey": []byte("metavalue")}, vMap)
 
-	vMap, err = rws.GetStateMetadata(ns, k1Meta, driver2.FromBoth)
+	vMap, err = rws.GetStateMetadata(ns, k1Meta, driver.FromBoth)
 	assert.NoError(t, err)
 	assert.Equal(t, map[string][]byte{"newmetakey": []byte("newmetavalue")}, vMap)
 
@@ -929,15 +930,15 @@ func TTestRun(t *testing.T, db1, db2 VersionedPersistence, vp artifactsProvider)
 	assert.NoError(t, err)
 
 	// GET K1
-	v, err = rws.GetState(ns, k1, driver2.FromIntermediate)
+	v, err = rws.GetState(ns, k1, driver.FromIntermediate)
 	assert.NoError(t, err)
 	assert.Nil(t, v)
 
-	v, err = rws.GetState(ns, k1, driver2.FromStorage)
+	v, err = rws.GetState(ns, k1, driver.FromStorage)
 	assert.NoError(t, err)
 	assert.Equal(t, []byte("v1"), v)
 
-	v, err = rws.GetState(ns, k1, driver2.FromBoth)
+	v, err = rws.GetState(ns, k1, driver.FromBoth)
 	assert.NoError(t, err)
 	assert.Nil(t, v)
 
@@ -988,33 +989,33 @@ func TTestRun(t *testing.T, db1, db2 VersionedPersistence, vp artifactsProvider)
 	assert.EqualError(t, err, "no write at position 2 for namespace namespace")
 
 	// GET K2
-	v, err = rws.GetState(ns, k2, driver2.FromIntermediate)
+	v, err = rws.GetState(ns, k2, driver.FromIntermediate)
 	assert.NoError(t, err)
 	assert.Equal(t, []byte("v2_updated"), v)
 
-	v, err = rws.GetState(ns, k2, driver2.FromStorage)
+	v, err = rws.GetState(ns, k2, driver.FromStorage)
 	assert.NoError(t, err)
 	assert.Nil(t, v)
 
-	v, err = rws.GetState(ns, k2, driver2.FromBoth)
+	v, err = rws.GetState(ns, k2, driver.FromBoth)
 	assert.NoError(t, err)
 	assert.Equal(t, []byte("v2_updated"), v)
 
 	// GET K1
-	v, err = rws.GetState(ns, k1, driver2.FromIntermediate)
+	v, err = rws.GetState(ns, k1, driver.FromIntermediate)
 	assert.NoError(t, err)
 	assert.Nil(t, v)
 
-	v, err = rws.GetState(ns, k1, driver2.FromStorage)
+	v, err = rws.GetState(ns, k1, driver.FromStorage)
 	assert.NoError(t, err)
 	assert.Equal(t, []byte("v1"), v)
 
-	v, err = rws.GetState(ns, k1, driver2.FromBoth)
+	v, err = rws.GetState(ns, k1, driver.FromBoth)
 	assert.NoError(t, err)
 	assert.Nil(t, v)
 
 	// GET K1Meta
-	vMap, err = rws.GetStateMetadata(ns, k1Meta, driver2.FromIntermediate)
+	vMap, err = rws.GetStateMetadata(ns, k1Meta, driver.FromIntermediate)
 	assert.NoError(t, err)
 	assert.Equal(t, map[string][]byte{"newmetakey": []byte("newmetavalue")}, vMap)
 
@@ -1022,7 +1023,7 @@ func TTestRun(t *testing.T, db1, db2 VersionedPersistence, vp artifactsProvider)
 	assert.NoError(t, err)
 	assert.Equal(t, map[string][]byte{"metakey": []byte("metavalue")}, vMap)
 
-	vMap, err = rws.GetStateMetadata(ns, k1Meta, driver2.FromBoth)
+	vMap, err = rws.GetStateMetadata(ns, k1Meta, driver.FromBoth)
 	assert.NoError(t, err)
 	assert.Equal(t, map[string][]byte{"newmetakey": []byte("newmetavalue")}, vMap)
 
@@ -1068,20 +1069,23 @@ func TTestRun(t *testing.T, db1, db2 VersionedPersistence, vp artifactsProvider)
 	vv2, err := db2.GetState(ns, k1)
 	assert.NoError(t, err)
 	assert.Nil(t, vv1.Raw)
-	assert.Zero(t, vv1.Block)
-	assert.Zero(t, vv1.TxNum)
+	assert.Zero(t, vv1.Version)
 	assert.Equal(t, vv1, vv2)
 
 	vv1, err = db1.GetState(ns, k2)
 	assert.NoError(t, err)
 	vv2, err = db2.GetState(ns, k2)
 	assert.NoError(t, err)
-	assert.Equal(t, VersionedValue{Raw: []byte("v2_updated"), Block: 35, TxNum: 2}, vv1)
+	assert.Equal(t, VersionedValue{Raw: []byte("v2_updated"), Version: fver.ToBytes(35, 2)}, vv1)
 	assert.Equal(t, vv1, vv2)
 
-	meta1, b1, t1, err := db1.GetStateMetadata(ns, k1Meta)
+	meta1, ver1, err := db1.GetStateMetadata(ns, k1Meta)
 	assert.NoError(t, err)
-	meta2, b2, t2, err := db2.GetStateMetadata(ns, k1Meta)
+	b1, t1, err := fver.FromBytes(ver1)
+	assert.NoError(t, err)
+	meta2, ver2, err := db2.GetStateMetadata(ns, k1Meta)
+	assert.NoError(t, err)
+	b2, t2, err := fver.FromBytes(ver2)
 	assert.NoError(t, err)
 	assert.Equal(t, map[string][]byte{"newmetakey": []byte("newmetavalue")}, meta1)
 	assert.Equal(t, uint64(35), b1)
@@ -1115,7 +1119,7 @@ func compare(t *testing.T, ns string, db1, db2 VersionedPersistence) {
 	assert.Equal(t, res1, res2)
 }
 
-func queryVault(v *Vault[ValidationCode], ns driver2.Namespace, key driver2.PKey, mkey driver2.MKey) (driver2.RawValue, driver2.Metadata, driver2.BlockNum, driver2.TxNum, error) {
+func queryVault(v *Vault[ValidationCode], ns driver.Namespace, key driver.PKey, mkey driver.MKey) (driver.RawValue, driver.Metadata, driver.TxNum, driver.BlockNum, error) {
 	qe, err := v.NewQueryExecutor()
 	defer qe.Done()
 	if err != nil {
@@ -1125,7 +1129,11 @@ func queryVault(v *Vault[ValidationCode], ns driver2.Namespace, key driver2.PKey
 	if err != nil {
 		return nil, nil, 0, 0, err
 	}
-	mval, txNum, blkNum, err := qe.GetStateMetadata(ns, mkey)
+	mval, kVersion, err := qe.GetStateMetadata(ns, mkey)
+	if err != nil {
+		return nil, nil, 0, 0, err
+	}
+	blkNum, txNum, err := fver.FromBytes(kVersion)
 	if err != nil {
 		return nil, nil, 0, 0, err
 	}
@@ -1138,19 +1146,19 @@ type deadlockErrorPersistence struct {
 	key      string
 }
 
-func (db *deadlockErrorPersistence) GetState(namespace driver2.Namespace, key driver2.PKey) (VersionedValue, error) {
+func (db *deadlockErrorPersistence) GetState(namespace driver.Namespace, key driver.PKey) (VersionedValue, error) {
 	return db.VersionedPersistence.GetState(namespace, key)
 }
 
-func (db *deadlockErrorPersistence) GetStateRangeScanIterator(namespace driver2.Namespace, startKey, endKey driver2.PKey) (collections.Iterator[*VersionedRead], error) {
+func (db *deadlockErrorPersistence) GetStateRangeScanIterator(namespace driver.Namespace, startKey, endKey driver.PKey) (collections.Iterator[*VersionedRead], error) {
 	return db.VersionedPersistence.GetStateRangeScanIterator(namespace, startKey, endKey)
 }
 
-func (db *deadlockErrorPersistence) GetStateSetIterator(ns driver2.Namespace, keys ...driver2.PKey) (collections.Iterator[*VersionedRead], error) {
+func (db *deadlockErrorPersistence) GetStateSetIterator(ns driver.Namespace, keys ...driver.PKey) (collections.Iterator[*VersionedRead], error) {
 	return db.VersionedPersistence.GetStateSetIterator(ns, keys...)
 }
 
-func (db *deadlockErrorPersistence) SetState(namespace driver2.Namespace, key driver2.PKey, value VersionedValue) error {
+func (db *deadlockErrorPersistence) SetState(namespace driver.Namespace, key driver.PKey, value VersionedValue) error {
 	if key == db.key && db.failures > 0 {
 		db.failures--
 		return DeadlockDetected
@@ -1158,8 +1166,8 @@ func (db *deadlockErrorPersistence) SetState(namespace driver2.Namespace, key dr
 	return db.VersionedPersistence.SetState(namespace, key, value)
 }
 
-func (db *deadlockErrorPersistence) SetStates(namespace driver2.Namespace, kvs map[driver2.PKey]VersionedValue) map[driver2.PKey]error {
-	errs := make(map[driver2.PKey]error)
+func (db *deadlockErrorPersistence) SetStates(namespace driver.Namespace, kvs map[driver.PKey]VersionedValue) map[driver.PKey]error {
+	errs := make(map[driver.PKey]error)
 	for k, v := range kvs {
 		if err := db.SetState(namespace, k, v); err != nil {
 			errs[k] = err
@@ -1168,8 +1176,8 @@ func (db *deadlockErrorPersistence) SetStates(namespace driver2.Namespace, kvs m
 	return errs
 }
 
-func (db *deadlockErrorPersistence) DeleteStates(namespace driver2.Namespace, keys ...driver2.PKey) map[driver2.PKey]error {
-	errs := make(map[driver2.PKey]error)
+func (db *deadlockErrorPersistence) DeleteStates(namespace driver.Namespace, keys ...driver.PKey) map[driver.PKey]error {
+	errs := make(map[driver.PKey]error)
 	for _, key := range keys {
 		if err := db.DeleteState(namespace, key); err != nil {
 			errs[key] = err
@@ -1182,20 +1190,20 @@ type duplicateErrorPersistence struct {
 	VersionedPersistence
 }
 
-func (db *duplicateErrorPersistence) SetState(driver2.Namespace, driver2.PKey, VersionedValue) error {
+func (db *duplicateErrorPersistence) SetState(driver.Namespace, driver.PKey, VersionedValue) error {
 	return UniqueKeyViolation
 }
 
-func (db *duplicateErrorPersistence) SetStates(_ driver2.Namespace, kvs map[driver2.PKey]VersionedValue) map[driver2.PKey]error {
-	errs := make(map[driver2.PKey]error, len(kvs))
+func (db *duplicateErrorPersistence) SetStates(_ driver.Namespace, kvs map[driver.PKey]VersionedValue) map[driver.PKey]error {
+	errs := make(map[driver.PKey]error, len(kvs))
 	for k := range kvs {
 		errs[k] = UniqueKeyViolation
 	}
 	return errs
 }
 
-func (db *duplicateErrorPersistence) DeleteStates(namespace driver2.Namespace, keys ...driver2.PKey) map[driver2.PKey]error {
-	errs := make(map[driver2.PKey]error)
+func (db *duplicateErrorPersistence) DeleteStates(namespace driver.Namespace, keys ...driver.PKey) map[driver.PKey]error {
+	errs := make(map[driver.PKey]error)
 	for _, key := range keys {
 		if err := db.DeleteState(namespace, key); err != nil {
 			errs[key] = err
@@ -1204,14 +1212,14 @@ func (db *duplicateErrorPersistence) DeleteStates(namespace driver2.Namespace, k
 	return errs
 }
 
-func (db *duplicateErrorPersistence) GetState(namespace driver2.Namespace, key driver2.PKey) (VersionedValue, error) {
+func (db *duplicateErrorPersistence) GetState(namespace driver.Namespace, key driver.PKey) (VersionedValue, error) {
 	return db.VersionedPersistence.GetState(namespace, key)
 }
 
-func (db *duplicateErrorPersistence) GetStateRangeScanIterator(namespace driver2.Namespace, startKey, endKey driver2.PKey) (collections.Iterator[*VersionedRead], error) {
+func (db *duplicateErrorPersistence) GetStateRangeScanIterator(namespace driver.Namespace, startKey, endKey driver.PKey) (collections.Iterator[*VersionedRead], error) {
 	return db.VersionedPersistence.GetStateRangeScanIterator(namespace, startKey, endKey)
 }
 
-func (db *duplicateErrorPersistence) GetStateSetIterator(ns driver2.Namespace, keys ...driver2.PKey) (collections.Iterator[*VersionedRead], error) {
+func (db *duplicateErrorPersistence) GetStateSetIterator(ns driver.Namespace, keys ...driver.PKey) (collections.Iterator[*VersionedRead], error) {
 	return db.VersionedPersistence.GetStateSetIterator(ns, keys...)
 }

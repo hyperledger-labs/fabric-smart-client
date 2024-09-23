@@ -13,17 +13,22 @@ import (
 )
 
 type (
-	PKey     = string
-	MKey     = string
-	RawValue = []byte
-	Metadata = map[MKey][]byte
+	PKey       = string
+	MKey       = string
+	RawValue   = []byte
+	Metadata   = map[MKey][]byte
+	RawVersion = []byte
 )
 
 type VersionedRead struct {
-	Key   PKey
-	Raw   RawValue
-	Block BlockNum
-	TxNum TxNum
+	Key     PKey
+	Raw     RawValue
+	Version RawVersion
+}
+
+type VersionedMetadata struct {
+	Metadata Metadata
+	Version  RawVersion
 }
 
 type VersionedMetadataValue struct {
@@ -36,7 +41,7 @@ type VersionedResultsIterator = collections.Iterator[*VersionedRead]
 
 type QueryExecutor interface {
 	GetState(namespace Namespace, key PKey) (RawValue, error)
-	GetStateMetadata(namespace Namespace, key PKey) (Metadata, BlockNum, TxNum, error)
+	GetStateMetadata(namespace Namespace, key PKey) (Metadata, RawVersion, error)
 	GetStateRangeScanIterator(namespace Namespace, startKey PKey, endKey PKey) (VersionedResultsIterator, error)
 	Done()
 }

@@ -29,26 +29,26 @@ func NewVersionedMetadataValueScanner() *versionedMetadataValueScanner {
 
 type versionedReadScanner struct{}
 
-func (s *versionedReadScanner) Columns() []string { return []string{"pkey", "block", "txnum", "val"} }
+func (s *versionedReadScanner) Columns() []string { return []string{"pkey", "kversion", "val"} }
 
 func (s *versionedReadScanner) ReadValue(txs scannable) (driver.VersionedRead, error) {
 	var r driver.VersionedRead
-	err := txs.Scan(&r.Key, &r.Block, &r.TxNum, &r.Raw)
+	err := txs.Scan(&r.Key, &r.Version, &r.Raw)
 	return r, err
 }
 
 type versionedValueScanner struct{}
 
-func (s *versionedValueScanner) Columns() []string { return []string{"val", "block", "txnum"} }
+func (s *versionedValueScanner) Columns() []string { return []string{"val", "kversion"} }
 
 func (s *versionedValueScanner) ReadValue(txs scannable) (driver.VersionedValue, error) {
 	var r driver.VersionedValue
-	err := txs.Scan(&r.Raw, &r.Block, &r.TxNum)
+	err := txs.Scan(&r.Raw, &r.Version)
 	return r, err
 }
 
 func (s *versionedValueScanner) WriteValue(value driver.VersionedValue) []any {
-	return []any{value.Raw, value.Block, value.TxNum}
+	return []any{value.Raw, value.Version}
 }
 
 type versionedMetadataValueScanner struct{}
@@ -129,21 +129,28 @@ func (db *VersionedPersistence) SetStateMetadatas(ns driver2.Namespace, kvs map[
 	return db.UpsertStates(ns, db.metadataScanner.Columns(), vals)
 }
 
-// TODO: AF Reuse code from basePersistence
-func (db *VersionedPersistence) GetStateMetadata(namespace driver2.Namespace, key driver2.PKey) (driver2.Metadata, driver2.BlockNum, driver2.TxNum, error) {
-	where, args := Where(db.hasKey(namespace, key))
-	query := fmt.Sprintf("SELECT %s FROM %s %s", strings.Join(db.metadataScanner.Columns(), ", "), db.table, where)
-	logger.Debug(query, args)
+func (db *VersionedPersistence) GetStateMetadata(namespace driver2.Namespace, key driver2.PKey) (driver2.Metadata, driver2.RawVersion, error) {
+	var m []byte
+	var meta map[string][]byte
+	var kversion []byte
 
-	row := db.readDB.QueryRow(query, args...)
-	if value, err := db.metadataScanner.ReadValue(row); err == nil {
-		return value.Metadata, value.Block, value.TxNum, nil
-	} else if err == sql.ErrNoRows {
-		logger.Debugf("not found: [%s:%s]", namespace, key)
-		return nil, 0, 0, nil
-	} else {
-		return nil, 0, 0, errors2.Wrapf(err, "error querying db: %s", query)
+	query := fmt.Sprintf("SELECT metadata, kversion FROM %s WHERE ns = $1 AND pkey = $2", db.table)
+	logger.Debug(query, namespace, key)
+
+	row := db.readDB.QueryRow(query, namespace, key)
+	if err := row.Scan(&m, &kversion); err != nil {
+		if err == sql.ErrNoRows {
+			logger.Debugf("not found: [%s:%s]", namespace, key)
+			return meta, nil, nil
+		}
+		return meta, nil, fmt.Errorf("error querying db: %w", err)
 	}
+	meta, err := unmarshalMetadata(m)
+	if err != nil {
+		return meta, nil, fmt.Errorf("error decoding metadata: %w", err)
+	}
+
+	return meta, kversion, err
 }
 
 func (db *VersionedPersistence) CreateSchema() error {
@@ -151,11 +158,10 @@ func (db *VersionedPersistence) CreateSchema() error {
 	CREATE TABLE IF NOT EXISTS %s (
 		ns TEXT NOT NULL,
 		pkey BYTEA NOT NULL,
-		block BIGINT NOT NULL DEFAULT 0,
-		txnum BIGINT NOT NULL DEFAULT 0,
 		val BYTEA NOT NULL DEFAULT '',
+		kversion BYTEA DEFAULT '',
 		metadata BYTEA NOT NULL DEFAULT '',
-		version INT NOT NULL DEFAULT 0,
+		fver INT NOT NULL DEFAULT 0,
 		PRIMARY KEY (pkey, ns)
 	);`, db.table))
 }

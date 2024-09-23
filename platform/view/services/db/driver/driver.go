@@ -22,9 +22,13 @@ var (
 type SQLError = error
 
 type VersionedValue struct {
-	Raw   driver.RawValue
-	Block driver.BlockNum
-	TxNum driver.TxNum
+	Raw     driver.RawValue
+	Version driver.RawVersion
+}
+
+type VersionedMetaData struct {
+	Metadata driver.Metadata
+	Version  driver.RawVersion
 }
 
 type VersionedMetadataValue = driver.VersionedMetadataValue
@@ -88,11 +92,11 @@ type UnversionedPersistence interface {
 type VersionedPersistence interface {
 	BasePersistence[VersionedValue, VersionedRead]
 	// GetStateMetadata gets the metadata and version for given namespace and key
-	GetStateMetadata(namespace driver.Namespace, key driver.PKey) (driver.Metadata, driver.BlockNum, driver.TxNum, error)
+	GetStateMetadata(namespace driver.Namespace, key driver.PKey) (driver.Metadata, driver.RawVersion, error)
 	// SetStateMetadata sets the given metadata for the given namespace, key, and version
-	SetStateMetadata(namespace driver.Namespace, key driver.PKey, metadata driver.Metadata, block driver.BlockNum, txnum driver.TxNum) error
+	SetStateMetadata(namespace driver.Namespace, key driver.PKey, metadata driver.Metadata, version driver.RawVersion) error
 	// SetStateMetadatas sets the given metadata for the given namespace, keys, and version
-	SetStateMetadatas(ns driver.Namespace, kvs map[driver.PKey]driver.VersionedMetadataValue) map[driver.PKey]error
+	SetStateMetadatas(ns driver.Namespace, kvs map[driver.PKey]driver.Metadata, version driver.RawVersion) map[driver.PKey]error
 }
 
 type WriteTransaction interface {

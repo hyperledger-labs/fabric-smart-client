@@ -9,6 +9,7 @@ package vault
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault/fver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault/txidstore"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	odriver "github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
@@ -103,8 +104,10 @@ func (p *populator) Populate(rws *vault.ReadWriteSet, rwsetBytes []byte, namespa
 			rws.ReadSet.Add(
 				operation.DbName,
 				read.Key,
-				bn,
-				txn,
+				fver.ToBytes(
+					bn,
+					txn,
+				),
 			)
 		}
 

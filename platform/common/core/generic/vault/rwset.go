@@ -140,16 +140,13 @@ func (w *WriteSet) Clear(ns string) {
 	w.OrderedWrites[ns] = []string{}
 }
 
-type TxPosition struct {
-	Block driver.BlockNum
-	TxNum driver.TxNum
-}
+type Version = []byte
 
-type NamespaceReads map[string]TxPosition
+type NamespaceReads map[string]Version
 
 func (r NamespaceReads) Equals(o NamespaceReads) error {
-	return entriesEqual(r, o, func(v, v2 TxPosition) bool {
-		return v.Block == v2.Block && v.TxNum == v2.TxNum
+	return entriesEqual(r, o, func(v, v2 Version) bool {
+		return bytes.Equal(v, v2)
 	})
 }
 
@@ -164,22 +161,22 @@ type ReadSet struct {
 	OrderedReads map[string][]string
 }
 
-func (r *ReadSet) Add(ns driver.Namespace, key string, block driver.BlockNum, txnum driver.TxNum) {
+func (r *ReadSet) Add(ns driver.Namespace, key string, version Version) {
 	nsMap, in := r.Reads[ns]
 	if !in {
-		nsMap = make(map[driver.Namespace]TxPosition)
+		nsMap = make(map[driver.Namespace]Version)
 
 		r.Reads[ns] = nsMap
 		r.OrderedReads[ns] = make([]string, 0, 8)
 	}
 
-	nsMap[key] = TxPosition{block, txnum}
+	nsMap[key] = version
 	r.OrderedReads[ns] = append(r.OrderedReads[ns], key)
 }
 
-func (r *ReadSet) Get(ns driver.Namespace, key string) (driver.BlockNum, driver.TxNum, bool) {
+func (r *ReadSet) Get(ns driver.Namespace, key string) (Version, bool) {
 	entry, in := r.Reads[ns][key]
-	return entry.Block, entry.TxNum, in
+	return entry, in
 }
 
 func (r *ReadSet) GetAt(ns driver.Namespace, i int) (string, bool) {
@@ -192,7 +189,7 @@ func (r *ReadSet) GetAt(ns driver.Namespace, i int) (string, bool) {
 }
 
 func (r *ReadSet) Clear(ns driver.Namespace) {
-	r.Reads[ns] = map[string]TxPosition{}
+	r.Reads[ns] = map[string]Version{}
 	r.OrderedReads[ns] = []string{}
 }
 
