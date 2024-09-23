@@ -45,13 +45,13 @@ func TestFinalityManager_AddListener(t *testing.T) {
 
 	err := manager.AddListener("txID", listener)
 	assert.NoError(t, err)
-	assert.Equal(t, manager.txIDs.Length(), 1)
-	assert.True(t, manager.txIDs.Contains("txID"))
+	assert.Equal(t, 1, len(manager.listenerManager.TxIDs()))
+	assert.Contains(t, manager.listenerManager.TxIDs(), "txID")
 
 	// Adding listener with empty txID should return an error
 	err = manager.AddListener("", listener)
 	assert.Error(t, err)
-	assert.Equal(t, manager.txIDs.Length(), 1)
+	assert.Equal(t, 1, len(manager.listenerManager.TxIDs()))
 }
 
 func TestFinalityManager_RemoveListener(t *testing.T) {
@@ -63,11 +63,11 @@ func TestFinalityManager_RemoveListener(t *testing.T) {
 	assert.NoError(t, manager.AddListener("txID", listener))
 
 	manager.RemoveListener("txID", listener)
-	assert.True(t, manager.txIDs.Empty())
+	assert.Empty(t, manager.listenerManager.TxIDs())
 
 	// Removing non-existing listener should do nothing
 	manager.RemoveListener("non-existing", listener)
-	assert.True(t, manager.txIDs.Empty())
+	assert.Empty(t, manager.listenerManager.TxIDs())
 }
 
 func TestFinalityManager_Run(t *testing.T) {

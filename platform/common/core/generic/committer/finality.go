@@ -8,7 +8,6 @@ package committer
 
 import (
 	"context"
-	"sync"
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
@@ -44,9 +43,7 @@ type FinalityManager[V comparable] struct {
 	eventQueue        chan driver.FinalityEvent[V]
 	vault             Vault[V]
 	postStatuses      collections.Set[V]
-	txIDs             collections.Set[string]
 	tracer            trace.Tracer
-	mutex             sync.RWMutex
 	eventQueueWorkers int
 }
 
@@ -57,7 +54,6 @@ func NewFinalityManager[V comparable](listenerManager driver.ListenerManager[V],
 		eventQueue:      make(chan driver.FinalityEvent[V], defaultEventQueueSize),
 		vault:           vault,
 		postStatuses:    collections.NewSet(statuses...),
-		txIDs:           collections.NewSet[string](),
 		tracer: tracerProvider.Tracer("finality_manager", tracing.WithMetricsOpts(tracing.MetricsOpts{
 			Namespace: "core",
 		})),
@@ -66,19 +62,10 @@ func NewFinalityManager[V comparable](listenerManager driver.ListenerManager[V],
 }
 
 func (c *FinalityManager[V]) AddListener(txID driver.TxID, toAdd driver.FinalityListener[V]) error {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-	if err := c.listenerManager.AddListener(txID, toAdd); err != nil {
-		return err
-	}
-	c.txIDs.Add(txID)
-	return nil
+	return c.listenerManager.AddListener(txID, toAdd)
 }
 
 func (c *FinalityManager[V]) RemoveListener(txID driver.TxID, toRemove driver.FinalityListener[V]) {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-	c.txIDs.Remove(txID)
 	c.listenerManager.RemoveListener(txID, toRemove)
 }
 
@@ -112,9 +99,7 @@ func (c *FinalityManager[V]) runStatusListener(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			c.mutex.RLock()
-			txIDs := c.txIDs.ToSlice()
-			c.mutex.RUnlock()
+			txIDs := c.listenerManager.TxIDs()
 			if len(txIDs) == 0 {
 				c.logger.Debugf("no transactions to check vault status")
 				break
