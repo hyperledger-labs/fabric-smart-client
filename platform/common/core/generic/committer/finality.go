@@ -128,8 +128,9 @@ func (c *FinalityManager[V]) runStatusListener(ctx context.Context) {
 			}
 
 			newCtx, span := c.tracer.Start(context.Background(), "vault_status_check")
-			c.logger.Debugf("check vault status for [%d] transactions", len(txIDs))
-			if len(txIDs) > 500 {
+			if len(txIDs) < 500 {
+				c.logger.Debugf("check vault status for [%d] transactions", len(txIDs))
+			} else {
 				c.logger.Warnf("check vault status for %d transactions", len(txIDs))
 			}
 			statuses, err := c.vault.Statuses(txIDs...)
