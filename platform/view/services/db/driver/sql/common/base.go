@@ -237,7 +237,7 @@ func (db *BasePersistence[V, R]) UpsertStateWithTx(tx *sql.Tx, ns driver2.Namesp
 		offset := len(keys) + 1
 		where, args := cond.ToString(&offset), cond.Params()
 		query := fmt.Sprintf("UPDATE %s SET %s WHERE %s", db.table, strings.Join(sets, ", "), where)
-		logger.Infof(query, args, len(values))
+		logger.Debug(query, args, len(values))
 
 		_, err := tx.Exec(query, append(values, args...)...)
 		if err != nil {

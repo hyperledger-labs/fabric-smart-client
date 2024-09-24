@@ -27,6 +27,7 @@ import (
 
 type Logger interface {
 	Debugf(template string, args ...interface{})
+	Info(...interface{})
 	Warn(args ...interface{})
 	Warnf(template string, args ...interface{})
 }
@@ -131,6 +132,8 @@ func (s *System) initializeMetricsProvider(provider metrics.Provider, m MetricsO
 		//     '200':
 		//        description: Ok.
 		s.Server.RegisterHandler("/metrics", promhttp.Handler(), m.TLS)
+	case "":
+		s.logger.Info("metrics disabled")
 	default:
 		s.logger.Warnf("Unknown provider type: %s; metrics disabled", m.Provider)
 	}

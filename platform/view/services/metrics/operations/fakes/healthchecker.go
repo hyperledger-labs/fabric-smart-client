@@ -28,15 +28,16 @@ func (fake *HealthChecker) HealthCheck(arg1 context.Context) error {
 	fake.healthCheckArgsForCall = append(fake.healthCheckArgsForCall, struct {
 		arg1 context.Context
 	}{arg1})
+	stub := fake.HealthCheckStub
+	fakeReturns := fake.healthCheckReturns
 	fake.recordInvocation("HealthCheck", []interface{}{arg1})
 	fake.healthCheckMutex.Unlock()
-	if fake.HealthCheckStub != nil {
-		return fake.HealthCheckStub(arg1)
+	if stub != nil {
+		return stub(arg1)
 	}
 	if specificReturn {
 		return ret.result1
 	}
-	fakeReturns := fake.healthCheckReturns
 	return fakeReturns.result1
 }
 

@@ -160,7 +160,6 @@ func (p *P2PNode) dispatchMessages(ctx context.Context) {
 			if logger.IsEnabledFor(zapcore.DebugLevel) {
 				logger.Debugf("pushing message to [%s], [%s]", internalSessionID, msg.message)
 			}
-			logger.Infof("Pushing method to Receive() for context [%s]", msg.message.ContextID)
 			session.incoming <- msg.message
 		case <-ctx.Done():
 			logger.Info("closing p2p comm...")
