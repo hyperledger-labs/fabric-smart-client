@@ -12,7 +12,6 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault/db"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault/fver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault/txidstore"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
@@ -83,6 +82,7 @@ func newInterceptor(
 		txid,
 		&VCProvider{},
 		&marshaller{},
+		&BlockTxIndexVersionComparator{},
 	)
 }
 
@@ -116,7 +116,7 @@ func (m *marshaller) Append(destination *ReadWriteSet, raw []byte, nss ...string
 		}
 		for s, position := range reads {
 			v, in := destination.ReadSet.Get(ns, s)
-			if in && !fver.IsEqual(position, v) {
+			if in && !Equal(position, v) {
 				return errors.Errorf("invalid read [%s:%s]: previous value returned at fver [%v], current value at fver [%v]", ns, s, position, v)
 			}
 			destination.ReadSet.Add(ns, s, position)

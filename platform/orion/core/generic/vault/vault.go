@@ -62,6 +62,7 @@ func newInterceptor(
 		txid,
 		&odriver.ValidationCodeProvider{},
 		nil,
+		&vault.BlockTxIndexVersionComparator{},
 	)}
 }
 
