@@ -44,6 +44,7 @@ func (p *testArtifactProvider) NewCachedVault(ddb VersionedPersistence) (*Vault[
 		&populator{},
 		&disabled.Provider{},
 		&noop.TracerProvider{},
+		&BlockTxIndexVersionBuilder{},
 	), nil
 }
 
@@ -61,6 +62,7 @@ func (p *testArtifactProvider) NewNonCachedVault(ddb VersionedPersistence) (*Vau
 		&populator{},
 		&disabled.Provider{},
 		&noop.TracerProvider{},
+		&BlockTxIndexVersionBuilder{},
 	), nil
 }
 

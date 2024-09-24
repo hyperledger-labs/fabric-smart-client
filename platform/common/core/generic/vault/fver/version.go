@@ -8,9 +8,7 @@ package fver
 
 import (
 	"bytes"
-	"encoding/binary"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 )
 
@@ -27,23 +25,4 @@ func IsEqual(a, b driver.RawVersion) bool {
 		return true
 	}
 	return false
-}
-
-func ToBytes(Block driver.BlockNum, TxNum driver.TxNum) []byte {
-	buf := make([]byte, 8)
-	binary.BigEndian.PutUint32(buf[:4], uint32(Block))
-	binary.BigEndian.PutUint32(buf[4:], uint32(TxNum))
-	return buf
-}
-
-func FromBytes(data []byte) (driver.BlockNum, driver.TxNum, error) {
-	if len(data) == 0 {
-		return 0, 0, nil
-	}
-	if len(data) != 8 {
-		return 0, 0, errors.Errorf("block number must be 8 bytes, but got %d", len(data))
-	}
-	Block := driver.BlockNum(binary.BigEndian.Uint32(data[:4]))
-	TxNum := driver.TxNum(binary.BigEndian.Uint32(data[4:]))
-	return Block, TxNum, nil
 }

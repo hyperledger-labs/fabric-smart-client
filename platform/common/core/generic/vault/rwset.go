@@ -140,7 +140,7 @@ func (w *WriteSet) Clear(ns string) {
 	w.OrderedWrites[ns] = []string{}
 }
 
-type Version = []byte
+type Version = driver.RawVersion
 
 type NamespaceReads map[string]Version
 

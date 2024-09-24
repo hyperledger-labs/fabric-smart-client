@@ -9,7 +9,6 @@ package vault
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault/fver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault/txidstore"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
@@ -49,6 +48,7 @@ func NewVault(store vault.VersionedPersistence, txIDStore TXIDStore, metricsProv
 		&populator{},
 		metricsProvider,
 		tracerProvider,
+		&vault.BlockTxIndexVersionBuilder{},
 	)
 }
 
@@ -63,7 +63,9 @@ func newInterceptor(logger vault.Logger, qe vault.VersionedQueryExecutor, txIDSt
 	)
 }
 
-type populator struct{}
+type populator struct {
+	versionMarshaller vault.BlockTxIndexVersionMarshaller
+}
 
 func (p *populator) Populate(rws *vault.ReadWriteSet, rwsetBytes []byte, namespaces ...driver.Namespace) error {
 	txRWSet := &rwset.TxReadWriteSet{}
@@ -93,7 +95,7 @@ func (p *populator) Populate(rws *vault.ReadWriteSet, rwsetBytes []byte, namespa
 				bn = read.Version.BlockNum
 				txn = read.Version.TxNum
 			}
-			rws.ReadSet.Add(ns, read.Key, fver.ToBytes(bn, txn))
+			rws.ReadSet.Add(ns, read.Key, p.versionMarshaller.ToBytes(bn, txn))
 		}
 
 		for _, write := range nsrws.KvRwSet.Writes {
@@ -117,14 +119,16 @@ func (p *populator) Populate(rws *vault.ReadWriteSet, rwsetBytes []byte, namespa
 	return nil
 }
 
-type marshaller struct{}
+type marshaller struct {
+	versionMarshaller vault.BlockTxIndexVersionMarshaller
+}
 
 func (m *marshaller) Marshal(rws *vault.ReadWriteSet) ([]byte, error) {
 	rwsb := rwsetutil.NewRWSetBuilder()
 
 	for ns, keyMap := range rws.Reads {
 		for key, v := range keyMap {
-			block, txNum, err := fver.FromBytes(v)
+			block, txNum, err := m.versionMarshaller.FromBytes(v)
 			if err != nil {
 				return nil, errors.Wrapf(err, "failed to extract block fver from bytes [%v]", v)
 			}
@@ -181,7 +185,7 @@ func (m *marshaller) Append(destination *vault.ReadWriteSet, raw []byte, nss ...
 				txnum = read.Version.TxNum
 			}
 			dVersion, in := destination.ReadSet.Get(ns, read.Key)
-			b, t, err := fver.FromBytes(dVersion)
+			b, t, err := m.versionMarshaller.FromBytes(dVersion)
 			if err != nil {
 				return errors.Wrapf(err, "failed to extract block fver from bytes [%v]", dVersion)
 			}
