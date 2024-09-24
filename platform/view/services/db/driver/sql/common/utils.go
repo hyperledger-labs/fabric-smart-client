@@ -70,7 +70,7 @@ func InitSchema(db *sql.DB, schemas ...string) (err error) {
 		}
 	}()
 	for _, schema := range schemas {
-		logger.Info(schema)
+		logger.Debug(schema)
 		if _, err = tx.Exec(schema); err != nil {
 			return errors2.Wrapf(err, "error creating schema: %s", schema)
 		}

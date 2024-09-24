@@ -65,7 +65,7 @@ func (o *Service) RegisterSigner(identity view.Identity, signer driver.Signer, v
 	s, ok := o.signers[idHash]
 	o.viewsSync.Unlock()
 	if ok {
-		logger.Warnf("another signer bound to [%s]:[%s][%s] from [%s]", identity, GetIdentifier(s), GetIdentifier(signer), string(s.DebugStack))
+		logger.Infof("another signer bound to [%s]:[%s][%s] from [%s]", identity, GetIdentifier(s), GetIdentifier(signer), string(s.DebugStack))
 		return nil
 	}
 	o.viewsSync.Lock()
