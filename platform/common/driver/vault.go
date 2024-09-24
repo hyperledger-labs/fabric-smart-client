@@ -26,14 +26,8 @@ type VersionedRead struct {
 	Version RawVersion
 }
 
-type VersionedMetadata struct {
-	Metadata Metadata
-	Version  RawVersion
-}
-
 type VersionedMetadataValue struct {
-	Block    BlockNum
-	TxNum    TxNum
+	Version  RawVersion
 	Metadata Metadata
 }
 

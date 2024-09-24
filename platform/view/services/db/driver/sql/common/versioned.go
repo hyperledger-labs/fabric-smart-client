@@ -11,12 +11,10 @@ import (
 	"database/sql"
 	"encoding/gob"
 	"fmt"
-	"strings"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
-	errors2 "github.com/pkg/errors"
 )
 
 func NewVersionedReadScanner() *versionedReadScanner { return &versionedReadScanner{} }
@@ -60,7 +58,7 @@ func (s *versionedMetadataValueScanner) Columns() []string {
 func (s *versionedMetadataValueScanner) ReadValue(txs scannable) (driver2.VersionedMetadataValue, error) {
 	var r driver2.VersionedMetadataValue
 	var metadata []byte
-	if err := txs.Scan(&metadata, &r.Block, &r.TxNum); err != nil {
+	if err := txs.Scan(&metadata, &r.Version); err != nil {
 		return r, err
 	} else if meta, err := unmarshalMetadata(metadata); err != nil {
 		return r, fmt.Errorf("error decoding metadata: %w", err)
@@ -75,7 +73,7 @@ func (s *versionedMetadataValueScanner) WriteValue(value driver2.VersionedMetada
 	if err != nil {
 		return nil, err
 	}
-	return []any{metadata, value.Block, value.TxNum}, nil
+	return []any{metadata, value.Version}, nil
 }
 
 type basePersistence[V any, R any] interface {
@@ -106,11 +104,14 @@ func NewVersioned(readDB *sql.DB, writeDB *sql.DB, table string, errorWrapper dr
 	return NewVersionedPersistence(base, base.table, base.errorWrapper, base.readDB, base.writeDB)
 }
 
-func (db *VersionedPersistence) SetStateMetadata(ns driver2.Namespace, key driver2.PKey, metadata driver2.Metadata, block driver2.BlockNum, txnum driver2.TxNum) error {
+func (db *VersionedPersistence) SetStateMetadata(ns driver2.Namespace, key driver2.PKey, metadata driver2.Metadata, version driver2.RawVersion) error {
 	if len(metadata) == 0 {
 		return nil
 	}
-	return db.SetStateMetadatas(ns, map[driver2.PKey]driver2.VersionedMetadataValue{key: {Block: block, TxNum: txnum, Metadata: metadata}})[key]
+	return db.SetStateMetadatas(
+		ns,
+		map[driver2.PKey]driver2.VersionedMetadataValue{key: {Version: version, Metadata: metadata}},
+	)[key]
 }
 
 func (db *VersionedPersistence) SetStateMetadatas(ns driver2.Namespace, kvs map[driver2.PKey]driver2.VersionedMetadataValue) map[driver2.PKey]error {

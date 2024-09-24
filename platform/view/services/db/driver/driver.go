@@ -96,7 +96,7 @@ type VersionedPersistence interface {
 	// SetStateMetadata sets the given metadata for the given namespace, key, and version
 	SetStateMetadata(namespace driver.Namespace, key driver.PKey, metadata driver.Metadata, version driver.RawVersion) error
 	// SetStateMetadatas sets the given metadata for the given namespace, keys, and version
-	SetStateMetadatas(ns driver.Namespace, kvs map[driver.PKey]driver.Metadata, version driver.RawVersion) map[driver.PKey]error
+	SetStateMetadatas(ns driver.Namespace, kvs map[driver.PKey]driver.VersionedMetadataValue) map[driver.PKey]error
 }
 
 type WriteTransaction interface {
