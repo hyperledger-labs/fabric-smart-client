@@ -60,6 +60,7 @@ func newInterceptor(logger vault.Logger, qe vault.VersionedQueryExecutor, txIDSt
 		txID,
 		&fdriver.ValidationCodeProvider{},
 		&marshaller{},
+		&vault.BlockTxIndexVersionComparator{},
 	)
 }
 

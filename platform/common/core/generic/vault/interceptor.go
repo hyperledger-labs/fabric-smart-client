@@ -9,8 +9,6 @@ package vault
 import (
 	"sync"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault/fver"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/pkg/errors"
@@ -22,15 +20,20 @@ type VersionedQueryExecutor interface {
 	Done()
 }
 
+type VersionComparator interface {
+	Equal(v1, v2 driver.RawVersion) bool
+}
+
 type Interceptor[V driver.ValidationCode] struct {
-	Logger     Logger
-	QE         VersionedQueryExecutor
-	TxIDStore  TXIDStoreReader[V]
-	Rws        ReadWriteSet
-	Marshaller Marshaller
-	Closed     bool
-	TxID       string
-	vcProvider driver.ValidationCodeProvider[V] // TODO
+	Logger            Logger
+	QE                VersionedQueryExecutor
+	TxIDStore         TXIDStoreReader[V]
+	Rws               ReadWriteSet
+	Marshaller        Marshaller
+	VersionComparator VersionComparator
+	Closed            bool
+	TxID              string
+	vcProvider        driver.ValidationCodeProvider[V] // TODO
 	sync.RWMutex
 }
 
@@ -57,17 +60,19 @@ func NewInterceptor[V driver.ValidationCode](
 	txID driver.TxID,
 	vcProvider driver.ValidationCodeProvider[V],
 	marshaller Marshaller,
+	versionComparator VersionComparator,
 ) *Interceptor[V] {
 	logger.Debugf("new interceptor [%s]", txID)
 
 	return &Interceptor[V]{
-		Logger:     logger,
-		TxID:       txID,
-		QE:         qe,
-		TxIDStore:  txIDStore,
-		Rws:        EmptyRWSet(),
-		vcProvider: vcProvider,
-		Marshaller: marshaller,
+		Logger:            logger,
+		TxID:              txID,
+		QE:                qe,
+		TxIDStore:         txIDStore,
+		Rws:               EmptyRWSet(),
+		vcProvider:        vcProvider,
+		Marshaller:        marshaller,
+		VersionComparator: versionComparator,
 	}
 }
 
@@ -91,7 +96,7 @@ func (i *Interceptor[V]) IsValid() error {
 			if err != nil {
 				return err
 			}
-			if !fver.IsEqual(v, vv.Version) {
+			if !i.VersionComparator.Equal(v, vv.Version) {
 				return errors.Errorf("invalid read: vault at fver %s:%s [%v], read-write set at fver [%v]", ns, k, vv, v)
 			}
 		}
@@ -246,7 +251,7 @@ func (i *Interceptor[V]) GetStateMetadata(namespace, key string, opts ...driver.
 
 		version, in := i.Rws.ReadSet.Get(namespace, key)
 		if in {
-			if !fver.IsEqual(version, vaultVersion) {
+			if !i.VersionComparator.Equal(version, vaultVersion) {
 				return nil, errors.Errorf("invalid metadata read: previous value returned at fver [%v], current value at fver [%v]", version, vaultVersion)
 			}
 		} else {
@@ -302,7 +307,7 @@ func (i *Interceptor[V]) GetState(namespace driver.Namespace, key driver.PKey, o
 
 		version, in := i.Rws.ReadSet.Get(namespace, key)
 		if in {
-			if !fver.IsEqual(version, vaultVersion) {
+			if !i.VersionComparator.Equal(version, vaultVersion) {
 				return nil, errors.Errorf("invalid read [%s:%s]: previous value returned at fver [%v], current value at fver [%v]", namespace, key, version, vaultVersion)
 			}
 		} else {
