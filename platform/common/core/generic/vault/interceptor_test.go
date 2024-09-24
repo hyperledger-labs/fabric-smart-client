@@ -10,7 +10,6 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault/fver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
@@ -21,7 +20,7 @@ func newMockQE() mockQE {
 	return mockQE{
 		State: VersionedValue{
 			Raw:     []byte("raw"),
-			Version: fver.ToBytes(1, 1),
+			Version: blockTxIndexToBytes(1, 1),
 		},
 		Metadata: map[string][]byte{
 			"md": []byte("meta"),
@@ -35,7 +34,7 @@ type mockQE struct {
 }
 
 func (qe mockQE) GetStateMetadata(driver.Namespace, driver.PKey) (driver.Metadata, driver.RawVersion, error) {
-	return qe.Metadata, fver.ToBytes(1, 1), nil
+	return qe.Metadata, blockTxIndexToBytes(1, 1), nil
 }
 func (qe mockQE) GetState(driver.Namespace, driver.PKey) (VersionedValue, error) {
 	return qe.State, nil

@@ -34,6 +34,7 @@ func NewVault(store vault.VersionedPersistence, txIDStore TXIDStore, metricsProv
 		&populator{},
 		metricsProvider,
 		tracerProvider,
+		&vault.BlockTxIndexVersionBuilder{},
 	)
 }
 

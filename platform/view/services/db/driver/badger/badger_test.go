@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package badger
 
 import (
+	"encoding/binary"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -15,10 +16,9 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault/fver"
-
 	"github.com/dgraph-io/badger/v3"
 	"github.com/golang/protobuf/proto"
+	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/dbtest"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger/mock"
@@ -107,7 +107,8 @@ func TestMarshallingErrors(t *testing.T) {
 	m, ver, err := db.GetStateMetadata(ns, key)
 	assert.Contains(t, err.Error(), "could not unmarshal VersionedValue for key")
 	assert.Len(t, m, 0)
-	bn, tn, err := fver.FromBytes(ver)
+	versionMarshaller := BlockTxIndexVersionMarshaller{}
+	bn, tn, err := versionMarshaller.FromBytes(ver)
 	assert.NoError(t, err)
 	assert.Equal(t, uint64(0), bn)
 	assert.Equal(t, uint64(0), tn)
@@ -128,7 +129,7 @@ func TestMarshallingErrors(t *testing.T) {
 
 	m, ver, err = db.GetStateMetadata(ns, key)
 	assert.EqualError(t, err, "could not get value for key ns\x00key: invalid fver, expected 1, got 34")
-	bn, tn, err = fver.FromBytes(ver)
+	bn, tn, err = versionMarshaller.FromBytes(ver)
 	assert.NoError(t, err)
 	assert.Len(t, m, 0)
 	assert.Equal(t, uint64(0), bn)
@@ -285,4 +286,30 @@ func BenchmarkBuilder(b *testing.B) {
 		s = sb.String()
 	}
 	result = s
+}
+
+type BlockTxIndexVersionMarshaller struct{}
+
+func (m BlockTxIndexVersionMarshaller) FromBytes(data driver2.RawVersion) (driver2.BlockNum, driver2.TxNum, error) {
+	if len(data) == 0 {
+		return 0, 0, nil
+	}
+	if len(data) != 8 {
+		return 0, 0, errors.Errorf("block number must be 8 bytes, but got %d", len(data))
+	}
+	Block := driver2.BlockNum(binary.BigEndian.Uint32(data[:4]))
+	TxNum := driver2.TxNum(binary.BigEndian.Uint32(data[4:]))
+	return Block, TxNum, nil
+
+}
+
+func (m BlockTxIndexVersionMarshaller) ToBytes(bn driver2.BlockNum, txn driver2.TxNum) driver2.RawVersion {
+	return blockTxIndexToBytes(bn, txn)
+}
+
+func blockTxIndexToBytes(Block driver2.BlockNum, TxNum driver2.TxNum) []byte {
+	buf := make([]byte, 8)
+	binary.BigEndian.PutUint32(buf[:4], uint32(Block))
+	binary.BigEndian.PutUint32(buf[4:], uint32(TxNum))
+	return buf
 }
