@@ -83,8 +83,8 @@ func (db *VersionedPersistence) SetStateMetadata(namespace driver2.Namespace, ke
 	return db.p.SetStateMetadata(namespace, key, metadata, nil)
 }
 
-func (db *VersionedPersistence) SetStateMetadatas(ns driver2.Namespace, kvs map[driver2.PKey]driver2.Metadata, version driver2.RawVersion) map[driver2.PKey]error {
-	return db.p.SetStateMetadatas(ns, kvs, nil)
+func (db *VersionedPersistence) SetStateMetadatas(ns driver2.Namespace, kvs map[driver2.PKey]driver2.VersionedMetadataValue) map[driver2.PKey]error {
+	return db.p.SetStateMetadatas(ns, kvs)
 }
 
 func (db *VersionedPersistence) CreateSchema() error {

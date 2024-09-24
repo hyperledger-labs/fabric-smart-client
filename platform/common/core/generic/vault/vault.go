@@ -409,7 +409,7 @@ func versionedValues(keyMap NamespaceWrites, block driver.BlockNum, indexInBloc 
 func versionedMetaValues(keyMap KeyedMetaWrites, block driver.BlockNum, indexInBloc driver.TxNum) map[driver.PKey]driver.VersionedMetadataValue {
 	vals := make(map[driver.PKey]driver.VersionedMetadataValue, len(keyMap))
 	for pkey, val := range keyMap {
-		vals[pkey] = driver.VersionedMetadataValue{Metadata: val, Block: block, TxNum: indexInBloc}
+		vals[pkey] = driver.VersionedMetadataValue{Metadata: val, Version: fver.ToBytes(block, indexInBloc)}
 	}
 	return vals
 }
