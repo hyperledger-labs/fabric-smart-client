@@ -52,7 +52,7 @@ func (s *versionedValueScanner) WriteValue(value driver.VersionedValue) []any {
 type versionedMetadataValueScanner struct{}
 
 func (s *versionedMetadataValueScanner) Columns() []string {
-	return []string{"metadata", "block", "txnum"}
+	return []string{"metadata", "kversion"}
 }
 
 func (s *versionedMetadataValueScanner) ReadValue(txs scannable) (driver2.VersionedMetadataValue, error) {
@@ -162,7 +162,7 @@ func (db *VersionedPersistence) CreateSchema() error {
 		val BYTEA NOT NULL DEFAULT '',
 		kversion BYTEA DEFAULT '',
 		metadata BYTEA NOT NULL DEFAULT '',
-		fver INT NOT NULL DEFAULT 0,
+		version INT NOT NULL DEFAULT 0,
 		PRIMARY KEY (pkey, ns)
 	);`, db.table))
 }

@@ -97,7 +97,7 @@ func (i *Interceptor[V]) IsValid() error {
 				return err
 			}
 			if !i.VersionComparator.Equal(v, vv.Version) {
-				return errors.Errorf("invalid read: vault at fver %s:%s [%v], read-write set at fver [%v]", ns, k, vv, v)
+				return errors.Errorf("invalid read: vault at version %s:%s [%v], read-write set at version [%v]", ns, k, vv, v)
 			}
 		}
 	}
@@ -252,7 +252,7 @@ func (i *Interceptor[V]) GetStateMetadata(namespace, key string, opts ...driver.
 		version, in := i.Rws.ReadSet.Get(namespace, key)
 		if in {
 			if !i.VersionComparator.Equal(version, vaultVersion) {
-				return nil, errors.Errorf("invalid metadata read: previous value returned at fver [%v], current value at fver [%v]", version, vaultVersion)
+				return nil, errors.Errorf("invalid metadata read: previous value returned at version [%v], current value at version [%v]", version, vaultVersion)
 			}
 		} else {
 			i.Rws.ReadSet.Add(namespace, key, vaultVersion)
@@ -308,7 +308,7 @@ func (i *Interceptor[V]) GetState(namespace driver.Namespace, key driver.PKey, o
 		version, in := i.Rws.ReadSet.Get(namespace, key)
 		if in {
 			if !i.VersionComparator.Equal(version, vaultVersion) {
-				return nil, errors.Errorf("invalid read [%s:%s]: previous value returned at fver [%v], current value at fver [%v]", namespace, key, version, vaultVersion)
+				return nil, errors.Errorf("invalid read [%s:%s]: previous value returned at version [%v], current value at version [%v]", namespace, key, version, vaultVersion)
 			}
 		} else {
 			i.Rws.ReadSet.Add(namespace, key, vaultVersion)

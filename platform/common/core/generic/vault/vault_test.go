@@ -117,7 +117,7 @@ func (m *marshaller) Append(destination *ReadWriteSet, raw []byte, nss ...string
 		for s, position := range reads {
 			v, in := destination.ReadSet.Get(ns, s)
 			if in && !Equal(position, v) {
-				return errors.Errorf("invalid read [%s:%s]: previous value returned at fver [%v], current value at fver [%v]", ns, s, position, v)
+				return errors.Errorf("invalid read [%s:%s]: previous value returned at version [%v], current value at version [%v]", ns, s, position, v)
 			}
 			destination.ReadSet.Add(ns, s, position)
 		}
