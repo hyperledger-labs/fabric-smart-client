@@ -80,8 +80,8 @@ type commitInput struct {
 }
 
 type VersionBuilder interface {
-	VersionedValues(keyMap NamespaceWrites, block driver.BlockNum, indexInBloc driver.TxNum) map[driver.PKey]VersionedValue
-	VersionedMetaValues(keyMap KeyedMetaWrites, block driver.BlockNum, indexInBloc driver.TxNum) map[driver.PKey]driver.VersionedMetadataValue
+	VersionedValues(rws *ReadWriteSet, keyMap NamespaceWrites, block driver.BlockNum, indexInBloc driver.TxNum) map[driver.PKey]VersionedValue
+	VersionedMetaValues(rws *ReadWriteSet, keyMap KeyedMetaWrites, block driver.BlockNum, indexInBloc driver.TxNum) map[driver.PKey]driver.VersionedMetadataValue
 }
 
 var (
@@ -307,7 +307,7 @@ func (db *Vault[V]) commitRWs(inputs ...commitInput) error {
 	writes := make(map[driver.Namespace]map[driver.PKey]VersionedValue)
 	for _, input := range inputs {
 		for ns, ws := range input.rws.Writes {
-			vals := db.versionBuilder.VersionedValues(ws, input.block, input.indexInBloc)
+			vals := db.versionBuilder.VersionedValues(nil, ws, input.block, input.indexInBloc)
 			if nsWrites, ok := writes[ns]; !ok {
 				writes[ns] = vals
 			} else {
@@ -332,7 +332,7 @@ func (db *Vault[V]) commitRWs(inputs ...commitInput) error {
 	metaWrites := make(map[driver.Namespace]map[driver.PKey]driver.VersionedMetadataValue)
 	for _, input := range inputs {
 		for ns, ws := range input.rws.MetaWrites {
-			vals := db.versionBuilder.VersionedMetaValues(ws, input.block, input.indexInBloc)
+			vals := db.versionBuilder.VersionedMetaValues(nil, ws, input.block, input.indexInBloc)
 			if nsWrites, ok := metaWrites[ns]; !ok {
 				metaWrites[ns] = vals
 			} else {

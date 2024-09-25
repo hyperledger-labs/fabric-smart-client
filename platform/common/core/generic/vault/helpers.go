@@ -132,7 +132,7 @@ func TTestInterceptorConcurrency(t *testing.T, ddb VersionedPersistence, vp arti
 
 	err = ddb.BeginUpdate()
 	assert.NoError(t, err)
-	err = ddb.SetState(ns, k, VersionedValue{Raw: []byte("val"), Version: toBytes(35, 1)})
+	err = ddb.SetState(ns, k, VersionedValue{Raw: []byte("val"), Version: versionBlockTxNumToBytes(35, 1)})
 	assert.NoError(t, err)
 	err = ddb.Commit()
 	assert.NoError(t, err)
@@ -149,13 +149,13 @@ func TTestInterceptorConcurrency(t *testing.T, ddb VersionedPersistence, vp arti
 
 	err = ddb.BeginUpdate()
 	assert.NoError(t, err)
-	err = ddb.SetStateMetadata(ns, mk, map[string][]byte{"k": []byte("v")}, nil)
+	err = ddb.SetStateMetadata(ns, mk, map[string][]byte{"k": []byte("v")}, versionBlockTxNumToBytes(36, 1))
 	assert.NoError(t, err)
 	err = ddb.Commit()
 	assert.NoError(t, err)
 
 	_, err = rws.GetStateMetadata(ns, mk)
-	assert.EqualError(t, err, "invalid metadata read: previous value returned at version [[0 0 0 0 0 0 0 0]], current value at version [[0 0 0 36 0 0 0 2]]")
+	assert.EqualError(t, err, "invalid metadata read: previous value returned at version [[]], current value at version [[0 0 0 36 0 0 0 1]]")
 }
 
 func TTestParallelVaults(t *testing.T, ddb VersionedPersistence, vp artifactsProvider) {
@@ -256,13 +256,13 @@ func TTestQueryExecutor(t *testing.T, ddb VersionedPersistence, vp artifactsProv
 
 	err = ddb.BeginUpdate()
 	assert.NoError(t, err)
-	err = ddb.SetState(ns, "k2", VersionedValue{Raw: []byte("k2_value"), Version: toBytes(35, 1)})
+	err = ddb.SetState(ns, "k2", VersionedValue{Raw: []byte("k2_value"), Version: versionBlockTxNumToBytes(35, 1)})
 	assert.NoError(t, err)
-	err = ddb.SetState(ns, "k3", VersionedValue{Raw: []byte("k3_value"), Version: toBytes(35, 2)})
+	err = ddb.SetState(ns, "k3", VersionedValue{Raw: []byte("k3_value"), Version: versionBlockTxNumToBytes(35, 2)})
 	assert.NoError(t, err)
-	err = ddb.SetState(ns, "k1", VersionedValue{Raw: []byte("k1_value"), Version: toBytes(35, 3)})
+	err = ddb.SetState(ns, "k1", VersionedValue{Raw: []byte("k1_value"), Version: versionBlockTxNumToBytes(35, 3)})
 	assert.NoError(t, err)
-	err = ddb.SetState(ns, "k111", VersionedValue{Raw: []byte("k111_value"), Version: toBytes(35, 4)})
+	err = ddb.SetState(ns, "k111", VersionedValue{Raw: []byte("k111_value"), Version: versionBlockTxNumToBytes(35, 4)})
 	assert.NoError(t, err)
 	err = ddb.Commit()
 	assert.NoError(t, err)
@@ -289,10 +289,10 @@ func TTestQueryExecutor(t *testing.T, ddb VersionedPersistence, vp artifactsProv
 	}
 	assert.Len(t, res, 4)
 	assert.ElementsMatch(t, []VersionedRead{
-		{Key: "k1", Raw: []byte("k1_value"), Version: toBytes(35, 3)},
-		{Key: "k111", Raw: []byte("k111_value"), Version: toBytes(35, 4)},
-		{Key: "k2", Raw: []byte("k2_value"), Version: toBytes(35, 1)},
-		{Key: "k3", Raw: []byte("k3_value"), Version: toBytes(35, 2)},
+		{Key: "k1", Raw: []byte("k1_value"), Version: versionBlockTxNumToBytes(35, 3)},
+		{Key: "k111", Raw: []byte("k111_value"), Version: versionBlockTxNumToBytes(35, 4)},
+		{Key: "k2", Raw: []byte("k2_value"), Version: versionBlockTxNumToBytes(35, 1)},
+		{Key: "k3", Raw: []byte("k3_value"), Version: versionBlockTxNumToBytes(35, 2)},
 	}, res)
 
 	itr, err = ddb.GetStateRangeScanIterator(ns, "k1", "k3")
@@ -306,9 +306,9 @@ func TTestQueryExecutor(t *testing.T, ddb VersionedPersistence, vp artifactsProv
 	}
 	assert.Len(t, res, 3)
 	assert.Equal(t, []VersionedRead{
-		{Key: "k1", Raw: []byte("k1_value"), Version: toBytes(35, 3)},
-		{Key: "k111", Raw: []byte("k111_value"), Version: toBytes(35, 4)},
-		{Key: "k2", Raw: []byte("k2_value"), Version: toBytes(35, 1)},
+		{Key: "k1", Raw: []byte("k1_value"), Version: versionBlockTxNumToBytes(35, 3)},
+		{Key: "k111", Raw: []byte("k111_value"), Version: versionBlockTxNumToBytes(35, 4)},
+		{Key: "k2", Raw: []byte("k2_value"), Version: versionBlockTxNumToBytes(35, 1)},
 	}, res)
 
 	itr, err = ddb.GetStateSetIterator(ns, "k1", "k2", "k111")
@@ -322,9 +322,9 @@ func TTestQueryExecutor(t *testing.T, ddb VersionedPersistence, vp artifactsProv
 	}
 	assert.Len(t, res, 3)
 	assert.ElementsMatch(t, []VersionedRead{
-		{Key: "k1", Raw: []byte("k1_value"), Version: toBytes(35, 3)},
-		{Key: "k2", Raw: []byte("k2_value"), Version: toBytes(35, 1)},
-		{Key: "k111", Raw: []byte("k111_value"), Version: toBytes(35, 4)},
+		{Key: "k1", Raw: []byte("k1_value"), Version: versionBlockTxNumToBytes(35, 3)},
+		{Key: "k2", Raw: []byte("k2_value"), Version: versionBlockTxNumToBytes(35, 1)},
+		{Key: "k111", Raw: []byte("k111_value"), Version: versionBlockTxNumToBytes(35, 4)},
 	}, res)
 
 	itr, err = ddb.GetStateSetIterator(ns, "k1", "k5")
@@ -337,7 +337,7 @@ func TTestQueryExecutor(t *testing.T, ddb VersionedPersistence, vp artifactsProv
 		res = append(res, *n)
 	}
 	var expected = RemoveNils([]VersionedRead{
-		{Key: "k1", Raw: []byte("k1_value"), Version: toBytes(35, 3)},
+		{Key: "k1", Raw: []byte("k1_value"), Version: versionBlockTxNumToBytes(35, 3)},
 	})
 	assert.Equal(t, expected, res)
 }
@@ -350,9 +350,9 @@ func TTestShardLikeCommit(t *testing.T, ddb VersionedPersistence, vp artifactsPr
 	// Populate the DB with some data at some height
 	err := ddb.BeginUpdate()
 	assert.NoError(t, err)
-	err = ddb.SetState(ns, k1, VersionedValue{Raw: []byte("k1val"), Version: toBytes(35, 1)})
+	err = ddb.SetState(ns, k1, VersionedValue{Raw: []byte("k1val"), Version: versionBlockTxNumToBytes(35, 1)})
 	assert.NoError(t, err)
-	err = ddb.SetState(ns, k2, VersionedValue{Raw: []byte("k2val"), Version: toBytes(37, 3)})
+	err = ddb.SetState(ns, k2, VersionedValue{Raw: []byte("k2val"), Version: versionBlockTxNumToBytes(37, 3)})
 	assert.NoError(t, err)
 	err = ddb.Commit()
 	assert.NoError(t, err)
@@ -375,8 +375,8 @@ func TTestShardLikeCommit(t *testing.T, ddb VersionedPersistence, vp artifactsPr
 			MetaWrites: map[string]KeyedMetaWrites{},
 		},
 	}
-	rwsb.ReadSet.Add(ns, k1, toBytes(35, 1))
-	rwsb.ReadSet.Add(ns, k2, toBytes(37, 2))
+	rwsb.ReadSet.Add(ns, k1, versionBlockTxNumToBytes(35, 1))
+	rwsb.ReadSet.Add(ns, k2, versionBlockTxNumToBytes(37, 2))
 	rwsb.WriteSet.Add(ns, k1, []byte("k1FromTxidInvalid"))
 	rwsb.WriteSet.Add(ns, k2, []byte("k2FromTxidInvalid"))
 	marshaller := vp.NewMarshaller()
@@ -421,8 +421,8 @@ func TTestShardLikeCommit(t *testing.T, ddb VersionedPersistence, vp artifactsPr
 			MetaWrites: map[string]KeyedMetaWrites{},
 		},
 	}
-	rwsb.ReadSet.Add(ns, k1, toBytes(35, 1))
-	rwsb.ReadSet.Add(ns, k2, toBytes(37, 3))
+	rwsb.ReadSet.Add(ns, k1, versionBlockTxNumToBytes(35, 1))
+	rwsb.ReadSet.Add(ns, k2, versionBlockTxNumToBytes(37, 3))
 	rwsb.WriteSet.Add(ns, k1, []byte("k1FromTxidValid"))
 	rwsb.WriteSet.Add(ns, k2, []byte("k2FromTxidValid"))
 	rwsBytes, err = marshaller.Marshal(rwsb)
@@ -456,11 +456,11 @@ func TTestShardLikeCommit(t *testing.T, ddb VersionedPersistence, vp artifactsPr
 	// check the content of the kvs after that
 	vv, err := ddb.GetState(ns, k1)
 	assert.NoError(t, err)
-	assert.Equal(t, VersionedValue{Raw: []byte("k1FromTxidValid"), Version: toBytes(38, 10)}, vv)
+	assert.Equal(t, VersionedValue{Raw: []byte("k1FromTxidValid"), Version: versionBlockTxNumToBytes(38, 10)}, vv)
 
 	vv, err = ddb.GetState(ns, k2)
 	assert.NoError(t, err)
-	assert.Equal(t, VersionedValue{Raw: []byte("k2FromTxidValid"), Version: toBytes(38, 10)}, vv)
+	assert.Equal(t, VersionedValue{Raw: []byte("k2FromTxidValid"), Version: versionBlockTxNumToBytes(38, 10)}, vv)
 
 	// all Interceptors should be gone
 	assert.Len(t, aVault.Interceptors, 0)
@@ -480,7 +480,7 @@ func TTestVaultErr(t *testing.T, ddb VersionedPersistence, vp artifactsProvider)
 			OrderedReads: map[string][]string{},
 		},
 	}
-	rws.ReadSet.Add("pineapple", "key", toBytes(35, 1))
+	rws.ReadSet.Add("pineapple", "key", versionBlockTxNumToBytes(35, 1))
 	m := vp.NewMarshaller()
 	rwsBytes, err := m.Marshal(rws)
 	assert.NoError(t, err)
@@ -527,7 +527,7 @@ func TTestMerge(t *testing.T, ddb VersionedPersistence, vp artifactsProvider) {
 	assert.NoError(t, err)
 	err = ddb.BeginUpdate()
 	assert.NoError(t, err)
-	err = ddb.SetState(ns, k1, VersionedValue{Raw: []byte("v1"), Version: toBytes(35, 1)})
+	err = ddb.SetState(ns, k1, VersionedValue{Raw: []byte("v1"), Version: versionBlockTxNumToBytes(35, 1)})
 	assert.NoError(t, err)
 	err = ddb.Commit()
 	assert.NoError(t, err)
@@ -558,8 +558,8 @@ func TTestMerge(t *testing.T, ddb VersionedPersistence, vp artifactsProvider) {
 			MetaWrites: map[string]KeyedMetaWrites{},
 		},
 	}
-	rwsb.ReadSet.Add(ns, k1, toBytes(35, 1))
-	rwsb.ReadSet.Add(ns, ne2Key, toBytes(0, 0))
+	rwsb.ReadSet.Add(ns, k1, versionBlockTxNumToBytes(35, 1))
+	rwsb.ReadSet.Add(ns, ne2Key, versionBlockTxNumToBytes(0, 0))
 	rwsb.WriteSet.Add(ns, k1, []byte("newv1"))
 	rwsb.MetaWriteSet.Add(ns, k1, map[string][]byte{"k1": []byte("v1")})
 	m := vp.NewMarshaller()
@@ -580,9 +580,9 @@ func TTestMerge(t *testing.T, ddb VersionedPersistence, vp artifactsProvider) {
 	}}, rws.RWs().Writes)
 	assert.Equal(t, Reads{
 		"namespace": {
-			"key1":      toBytes(35, 1),
+			"key1":      versionBlockTxNumToBytes(35, 1),
 			"notexist1": nil,
-			"notexist2": toBytes(0, 0),
+			"notexist2": nil,
 		},
 	}, rws.RWs().Reads)
 
@@ -592,7 +592,7 @@ func TTestMerge(t *testing.T, ddb VersionedPersistence, vp artifactsProvider) {
 			OrderedReads: map[string][]string{},
 		},
 	}
-	rwsb.ReadSet.Add(ns, k1, toBytes(36, 1))
+	rwsb.ReadSet.Add(ns, k1, versionBlockTxNumToBytes(36, 1))
 	rwsBytes, err = m.Marshal(rwsb)
 	assert.NoError(t, err)
 
@@ -650,7 +650,7 @@ func TTestInspector(t *testing.T, ddb VersionedPersistence, vp artifactsProvider
 	assert.NoError(t, err)
 	err = ddb.BeginUpdate()
 	assert.NoError(t, err)
-	err = ddb.SetState(ns, k1, VersionedValue{Raw: []byte("v1"), Version: toBytes(35, 1)})
+	err = ddb.SetState(ns, k1, VersionedValue{Raw: []byte("v1"), Version: versionBlockTxNumToBytes(35, 1)})
 	assert.NoError(t, err)
 	err = ddb.Commit()
 	assert.NoError(t, err)
@@ -716,7 +716,7 @@ func TTestRun(t *testing.T, db1, db2 VersionedPersistence, vp artifactsProvider)
 	// create and populate 2 DBs
 	err := db1.BeginUpdate()
 	assert.NoError(t, err)
-	err = db1.SetState(ns, k1, VersionedValue{Raw: []byte("v1"), Version: toBytes(35, 1)})
+	err = db1.SetState(ns, k1, VersionedValue{Raw: []byte("v1"), Version: versionBlockTxNumToBytes(35, 1)})
 	assert.NoError(t, err)
 	err = db1.SetStateMetadata(ns, k1Meta, map[string][]byte{"metakey": []byte("metavalue")}, nil)
 	assert.NoError(t, err)
@@ -725,7 +725,7 @@ func TTestRun(t *testing.T, db1, db2 VersionedPersistence, vp artifactsProvider)
 
 	err = db2.BeginUpdate()
 	assert.NoError(t, err)
-	err = db2.SetState(ns, k1, VersionedValue{Raw: []byte("v1"), Version: toBytes(35, 1)})
+	err = db2.SetState(ns, k1, VersionedValue{Raw: []byte("v1"), Version: versionBlockTxNumToBytes(35, 1)})
 	assert.NoError(t, err)
 	err = db2.SetStateMetadata(ns, k1Meta, map[string][]byte{"metakey": []byte("metavalue")}, nil)
 	assert.NoError(t, err)
@@ -1076,7 +1076,7 @@ func TTestRun(t *testing.T, db1, db2 VersionedPersistence, vp artifactsProvider)
 	assert.NoError(t, err)
 	vv2, err = db2.GetState(ns, k2)
 	assert.NoError(t, err)
-	assert.Equal(t, VersionedValue{Raw: []byte("v2_updated"), Version: toBytes(35, 2)}, vv1)
+	assert.Equal(t, VersionedValue{Raw: []byte("v2_updated"), Version: versionBlockTxNumToBytes(35, 2)}, vv1)
 	assert.Equal(t, vv1, vv2)
 
 	meta1, ver1, err := db1.GetStateMetadata(ns, k1Meta)
@@ -1225,7 +1225,7 @@ func (db *duplicateErrorPersistence) GetStateSetIterator(ns driver.Namespace, ke
 	return db.VersionedPersistence.GetStateSetIterator(ns, keys...)
 }
 
-func toBytes(Block driver.BlockNum, TxNum driver.TxNum) []byte {
+func versionBlockTxNumToBytes(Block driver.BlockNum, TxNum driver.TxNum) []byte {
 	buf := make([]byte, 8)
 	binary.BigEndian.PutUint32(buf[:4], uint32(Block))
 	binary.BigEndian.PutUint32(buf[4:], uint32(TxNum))

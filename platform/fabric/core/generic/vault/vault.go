@@ -191,7 +191,7 @@ func (m *marshaller) Append(destination *vault.ReadWriteSet, raw []byte, nss ...
 				return errors.Wrapf(err, "failed to extract block version from bytes [%v]", dVersion)
 			}
 			if in && (b != bnum || t != txnum) {
-				return errors.Errorf("invalid read [%s:%s]: previous value returned at version %d:%d, current value at version %d:%d", ns, read.Key, b, t, b, txnum)
+				return errors.Errorf("invalid read [%s:%s]: previous value returned at version [%v], current value at version [%v]", ns, read.Key, m.versionMarshaller.ToBytes(bnum, txnum), dVersion)
 			}
 			destination.ReadSet.Add(ns, read.Key, dVersion)
 		}

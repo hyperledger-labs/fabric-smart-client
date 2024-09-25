@@ -80,7 +80,7 @@ func (db *VersionedPersistence) GetStateMetadata(namespace driver2.Namespace, ke
 }
 
 func (db *VersionedPersistence) SetStateMetadata(namespace driver2.Namespace, key driver2.PKey, metadata driver2.Metadata, version driver2.RawVersion) error {
-	return db.p.SetStateMetadata(namespace, key, metadata, nil)
+	return db.p.SetStateMetadata(namespace, key, metadata, version)
 }
 
 func (db *VersionedPersistence) SetStateMetadatas(ns driver2.Namespace, kvs map[driver2.PKey]driver2.VersionedMetadataValue) map[driver2.PKey]error {
