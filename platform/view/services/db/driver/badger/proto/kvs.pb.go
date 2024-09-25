@@ -26,7 +26,7 @@ type VersionedValue struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Version    uint32            `protobuf:"varint,1,opt,name=fver,proto3" json:"fver,omitempty"`
+	Version    uint32            `protobuf:"varint,1,opt,name=version,proto3" json:"version,omitempty"`
 	Value      []byte            `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
 	KeyVersion []byte            `protobuf:"bytes,3,opt,name=key_version,json=keyVersion,proto3" json:"key_version,omitempty"`
 	Meta       map[string][]byte `protobuf:"bytes,4,rep,name=meta,proto3" json:"meta,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`

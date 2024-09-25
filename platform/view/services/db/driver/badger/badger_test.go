@@ -124,11 +124,11 @@ func TestMarshallingErrors(t *testing.T) {
 	assert.NoError(t, err)
 
 	vv, err = db.GetState(ns, key)
-	assert.EqualError(t, err, "could not get value for key ns\x00key: invalid fver, expected 1, got 34")
+	assert.EqualError(t, err, "could not get value for key ns\x00key: invalid version, expected 1, got 34")
 	assert.Equal(t, driver.VersionedValue{}, vv)
 
 	m, ver, err = db.GetStateMetadata(ns, key)
-	assert.EqualError(t, err, "could not get value for key ns\x00key: invalid fver, expected 1, got 34")
+	assert.EqualError(t, err, "could not get value for key ns\x00key: invalid version, expected 1, got 34")
 	bn, tn, err = versionMarshaller.FromBytes(ver)
 	assert.NoError(t, err)
 	assert.Len(t, m, 0)

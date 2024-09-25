@@ -138,10 +138,10 @@ func TTestInterceptorConcurrency(t *testing.T, ddb VersionedPersistence, vp arti
 	assert.NoError(t, err)
 
 	_, _, err = rws.GetReadAt(ns, 0)
-	assert.EqualError(t, err, "invalid read [namespace:key1]: previous value returned at fver [[]], current value at fver [[0 0 0 35 0 0 0 1]]")
+	assert.EqualError(t, err, "invalid read [namespace:key1]: previous value returned at version [[]], current value at version [[0 0 0 35 0 0 0 1]]")
 
 	_, err = rws.GetState(ns, k)
-	assert.EqualError(t, err, "invalid read [namespace:key1]: previous value returned at fver [[]], current value at fver [[0 0 0 35 0 0 0 1]]")
+	assert.EqualError(t, err, "invalid read [namespace:key1]: previous value returned at version [[]], current value at version [[0 0 0 35 0 0 0 1]]")
 
 	mv, err := rws.GetStateMetadata(ns, mk)
 	assert.NoError(t, err)
@@ -155,7 +155,7 @@ func TTestInterceptorConcurrency(t *testing.T, ddb VersionedPersistence, vp arti
 	assert.NoError(t, err)
 
 	_, err = rws.GetStateMetadata(ns, mk)
-	assert.EqualError(t, err, "invalid metadata read: previous value returned at fver [[0 0 0 0 0 0 0 0]], current value at fver [[0 0 0 36 0 0 0 2]]")
+	assert.EqualError(t, err, "invalid metadata read: previous value returned at version [[0 0 0 0 0 0 0 0]], current value at version [[0 0 0 36 0 0 0 2]]")
 }
 
 func TTestParallelVaults(t *testing.T, ddb VersionedPersistence, vp artifactsProvider) {
@@ -387,7 +387,7 @@ func TTestShardLikeCommit(t *testing.T, ddb VersionedPersistence, vp artifactsPr
 	rwset, err := aVault.GetRWSet("txid-invalid", rwsBytes)
 	assert.NoError(t, err)
 	err = rwset.IsValid()
-	assert.EqualError(t, err, "invalid read: vault at fver namespace:key2 [{[107 50 118 97 108] [0 0 0 37 0 0 0 3]}], read-write set at fver [[0 0 0 37 0 0 0 2]]")
+	assert.EqualError(t, err, "invalid read: vault at version namespace:key2 [{[107 50 118 97 108] [0 0 0 37 0 0 0 3]}], read-write set at version [[0 0 0 37 0 0 0 2]]")
 
 	// close the read-write set, even in case of error
 	rwset.Done()
@@ -597,7 +597,7 @@ func TTestMerge(t *testing.T, ddb VersionedPersistence, vp artifactsProvider) {
 	assert.NoError(t, err)
 
 	err = rws.AppendRWSet(rwsBytes)
-	assert.EqualError(t, err, "invalid read [namespace:key1]: previous value returned at fver [[0 0 0 36 0 0 0 1]], current value at fver [[0 0 0 35 0 0 0 1]]")
+	assert.EqualError(t, err, "invalid read [namespace:key1]: previous value returned at version [[0 0 0 36 0 0 0 1]], current value at version [[0 0 0 35 0 0 0 1]]")
 
 	rwsb = &ReadWriteSet{
 		WriteSet: WriteSet{

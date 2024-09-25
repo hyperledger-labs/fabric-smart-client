@@ -131,7 +131,7 @@ func (m *marshaller) Marshal(rws *vault.ReadWriteSet) ([]byte, error) {
 		for key, v := range keyMap {
 			block, txNum, err := m.versionMarshaller.FromBytes(v)
 			if err != nil {
-				return nil, errors.Wrapf(err, "failed to extract block fver from bytes [%v]", v)
+				return nil, errors.Wrapf(err, "failed to extract block version from bytes [%v]", v)
 			}
 			if block != 0 || txNum != 0 {
 				rwsb.AddToReadSet(ns, key, rwsetutil.NewVersion(&kvrwset.Version{BlockNum: block, TxNum: txNum}))
@@ -188,10 +188,10 @@ func (m *marshaller) Append(destination *vault.ReadWriteSet, raw []byte, nss ...
 			dVersion, in := destination.ReadSet.Get(ns, read.Key)
 			b, t, err := m.versionMarshaller.FromBytes(dVersion)
 			if err != nil {
-				return errors.Wrapf(err, "failed to extract block fver from bytes [%v]", dVersion)
+				return errors.Wrapf(err, "failed to extract block version from bytes [%v]", dVersion)
 			}
 			if in && (b != bnum || t != txnum) {
-				return errors.Errorf("invalid read [%s:%s]: previous value returned at fver %d:%d, current value at fver %d:%d", ns, read.Key, b, t, b, txnum)
+				return errors.Errorf("invalid read [%s:%s]: previous value returned at version %d:%d, current value at version %d:%d", ns, read.Key, b, t, b, txnum)
 			}
 			destination.ReadSet.Add(ns, read.Key, dVersion)
 		}
