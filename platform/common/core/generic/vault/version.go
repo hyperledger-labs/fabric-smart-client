@@ -25,7 +25,7 @@ func (b *BlockTxIndexVersionComparator) Equal(a, c driver2.RawVersion) bool {
 
 type BlockTxIndexVersionBuilder struct{}
 
-func (b *BlockTxIndexVersionBuilder) VersionedValues(keyMap NamespaceWrites, block driver2.BlockNum, indexInBloc driver2.TxNum) map[driver2.PKey]driver.VersionedValue {
+func (b *BlockTxIndexVersionBuilder) VersionedValues(rws *ReadWriteSet, keyMap NamespaceWrites, block driver2.BlockNum, indexInBloc driver2.TxNum) map[driver2.PKey]VersionedValue {
 	vals := make(map[driver2.PKey]driver.VersionedValue, len(keyMap))
 	for pkey, val := range keyMap {
 		vals[pkey] = driver.VersionedValue{Raw: val, Version: blockTxIndexToBytes(block, indexInBloc)}
@@ -33,7 +33,7 @@ func (b *BlockTxIndexVersionBuilder) VersionedValues(keyMap NamespaceWrites, blo
 	return vals
 }
 
-func (b *BlockTxIndexVersionBuilder) VersionedMetaValues(keyMap KeyedMetaWrites, block driver2.BlockNum, indexInBloc driver2.TxNum) map[driver2.PKey]driver2.VersionedMetadataValue {
+func (b *BlockTxIndexVersionBuilder) VersionedMetaValues(rws *ReadWriteSet, keyMap KeyedMetaWrites, block driver2.BlockNum, indexInBloc driver2.TxNum) map[driver2.PKey]driver2.VersionedMetadataValue {
 	vals := make(map[driver2.PKey]driver2.VersionedMetadataValue, len(keyMap))
 	for pkey, val := range keyMap {
 		vals[pkey] = driver2.VersionedMetadataValue{Metadata: val, Version: blockTxIndexToBytes(block, indexInBloc)}
