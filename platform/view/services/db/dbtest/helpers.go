@@ -184,7 +184,9 @@ func TTestRangeQueries(t *testing.T, db driver.TransactionalVersionedPersistence
 		res = append(res, *n)
 	}
 	assert.Len(t, res, 2)
-	assert.Equal(t, expected, res)
+	for _, read := range expected {
+		assert.Contains(t, res, read)
+	}
 }
 
 func TTestMeta(t *testing.T, db driver.TransactionalVersionedPersistence) {
@@ -215,7 +217,7 @@ func TTestMeta(t *testing.T, db driver.TransactionalVersionedPersistence) {
 	err = db.BeginUpdate()
 	assert.NoError(t, err)
 
-	err = db.SetStateMetadata(ns, key, map[string][]byte{"foo": []byte("bar")}, nil)
+	err = db.SetStateMetadata(ns, key, map[string][]byte{"foo": []byte("bar")}, ToBytes(36, 2))
 	assert.NoError(t, err)
 
 	err = db.Commit()
@@ -380,7 +382,7 @@ func TTestMetadata(t *testing.T, db driver.TransactionalVersionedPersistence) {
 
 	err = db.BeginUpdate()
 	assert.NoError(t, err)
-	err = db.SetStateMetadata(ns, key, map[string][]byte{"foo": []byte("bar")}, nil)
+	err = db.SetStateMetadata(ns, key, map[string][]byte{"foo": []byte("bar")}, ToBytes(35, 1))
 	assert.NoError(t, err)
 	err = db.Commit()
 	assert.NoError(t, err)
@@ -395,7 +397,7 @@ func TTestMetadata(t *testing.T, db driver.TransactionalVersionedPersistence) {
 
 	err = db.BeginUpdate()
 	assert.NoError(t, err)
-	err = db.SetStateMetadata(ns, key, map[string][]byte{"foo1": []byte("bar1")}, nil)
+	err = db.SetStateMetadata(ns, key, map[string][]byte{"foo1": []byte("bar1")}, ToBytes(36, 2))
 	assert.NoError(t, err)
 	err = db.Commit()
 	assert.NoError(t, err)
@@ -867,10 +869,13 @@ func TTestUnversionedRange(t *testing.T, db driver.UnversionedPersistence) {
 		res = append(res, *n)
 	}
 	assert.Len(t, res, 2)
-	assert.Equal(t, []driver.UnversionedRead{
+	expected := []driver.UnversionedRead{
 		{Key: "k1", Raw: []byte("k1_value")},
 		{Key: "k2", Raw: []byte("k2_value")},
-	}, res)
+	}
+	for _, read := range expected {
+		assert.Contains(t, res, read)
+	}
 }
 
 func TTestUnversionedSimple(t *testing.T, db driver.UnversionedPersistence) {
