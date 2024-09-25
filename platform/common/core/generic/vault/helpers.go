@@ -559,7 +559,7 @@ func TTestMerge(t *testing.T, ddb VersionedPersistence, vp artifactsProvider) {
 		},
 	}
 	rwsb.ReadSet.Add(ns, k1, versionBlockTxNumToBytes(35, 1))
-	rwsb.ReadSet.Add(ns, ne2Key, versionBlockTxNumToBytes(0, 0))
+	rwsb.ReadSet.Add(ns, ne2Key, nil)
 	rwsb.WriteSet.Add(ns, k1, []byte("newv1"))
 	rwsb.MetaWriteSet.Add(ns, k1, map[string][]byte{"k1": []byte("v1")})
 	m := vp.NewMarshaller()
