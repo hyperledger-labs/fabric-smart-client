@@ -47,7 +47,11 @@ func (n *Network) CheckTopologyOrderers() {
 // CheckTopologyFSCNodes checks that the FSC nodes' are well configured.
 // It returns the parameters to be used for cryptogen.
 func (n *Network) CheckTopologyFSCNodes() (users map[string]int, userSpecs map[string][]topology.UserSpec) {
-	fscTopology := n.Context.TopologyByName("fsc").(*fsc.Topology)
+	t := n.Context.TopologyByName("fsc")
+	if t == nil {
+		return
+	}
+	fscTopology := t.(*fsc.Topology)
 
 	users = make(map[string]int)
 	userSpecs = make(map[string][]topology.UserSpec)
