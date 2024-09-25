@@ -80,8 +80,8 @@ type commitInput struct {
 }
 
 type VersionBuilder interface {
-	VersionedValues(rws *ReadWriteSet, keyMap NamespaceWrites, block driver.BlockNum, indexInBloc driver.TxNum) map[driver.PKey]VersionedValue
-	VersionedMetaValues(rws *ReadWriteSet, keyMap KeyedMetaWrites, block driver.BlockNum, indexInBloc driver.TxNum) map[driver.PKey]driver.VersionedMetadataValue
+	VersionedValues(rws *ReadWriteSet, ns driver.Namespace, writes NamespaceWrites, block driver.BlockNum, indexInBloc driver.TxNum) (map[driver.PKey]VersionedValue, error)
+	VersionedMetaValues(rws *ReadWriteSet, ns driver.Namespace, writes KeyedMetaWrites, block driver.BlockNum, indexInBloc driver.TxNum) (map[driver.PKey]driver.VersionedMetadataValue, error)
 }
 
 var (
@@ -307,7 +307,10 @@ func (db *Vault[V]) commitRWs(inputs ...commitInput) error {
 	writes := make(map[driver.Namespace]map[driver.PKey]VersionedValue)
 	for _, input := range inputs {
 		for ns, ws := range input.rws.Writes {
-			vals := db.versionBuilder.VersionedValues(nil, ws, input.block, input.indexInBloc)
+			vals, err := db.versionBuilder.VersionedValues(input.rws, ns, ws, input.block, input.indexInBloc)
+			if err != nil {
+				return errors.Wrapf(err, "failed to parse writes for txid %s", input.txID)
+			}
 			if nsWrites, ok := writes[ns]; !ok {
 				writes[ns] = vals
 			} else {
@@ -332,7 +335,10 @@ func (db *Vault[V]) commitRWs(inputs ...commitInput) error {
 	metaWrites := make(map[driver.Namespace]map[driver.PKey]driver.VersionedMetadataValue)
 	for _, input := range inputs {
 		for ns, ws := range input.rws.MetaWrites {
-			vals := db.versionBuilder.VersionedMetaValues(nil, ws, input.block, input.indexInBloc)
+			vals, err := db.versionBuilder.VersionedMetaValues(input.rws, ns, ws, input.block, input.indexInBloc)
+			if err != nil {
+				return errors.Wrapf(err, "failed to parse metadata writes for txid %s", input.txID)
+			}
 			if nsWrites, ok := metaWrites[ns]; !ok {
 				metaWrites[ns] = vals
 			} else {
