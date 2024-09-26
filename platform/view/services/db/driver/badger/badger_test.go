@@ -18,7 +18,7 @@ import (
 
 	"github.com/dgraph-io/badger/v3"
 	"github.com/golang/protobuf/proto"
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/dbtest"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger/mock"
@@ -290,26 +290,26 @@ func BenchmarkBuilder(b *testing.B) {
 
 type BlockTxIndexVersionMarshaller struct{}
 
-func (m BlockTxIndexVersionMarshaller) FromBytes(data driver2.RawVersion) (driver2.BlockNum, driver2.TxNum, error) {
+func (m BlockTxIndexVersionMarshaller) FromBytes(data cdriver.RawVersion) (cdriver.BlockNum, cdriver.TxNum, error) {
 	if len(data) == 0 {
 		return 0, 0, nil
 	}
 	if len(data) != 8 {
 		return 0, 0, errors.Errorf("block number must be 8 bytes, but got %d", len(data))
 	}
-	Block := driver2.BlockNum(binary.BigEndian.Uint32(data[:4]))
-	TxNum := driver2.TxNum(binary.BigEndian.Uint32(data[4:]))
+	Block := cdriver.BlockNum(binary.BigEndian.Uint32(data[:4]))
+	TxNum := cdriver.TxNum(binary.BigEndian.Uint32(data[4:]))
 	return Block, TxNum, nil
 
 }
 
-func (m BlockTxIndexVersionMarshaller) ToBytes(bn driver2.BlockNum, txn driver2.TxNum) driver2.RawVersion {
+func (m BlockTxIndexVersionMarshaller) ToBytes(bn cdriver.BlockNum, txn cdriver.TxNum) cdriver.RawVersion {
 	return blockTxIndexToBytes(bn, txn)
 }
 
-func blockTxIndexToBytes(Block driver2.BlockNum, TxNum driver2.TxNum) []byte {
-	buf := make([]byte, 8)
-	binary.BigEndian.PutUint32(buf[:4], uint32(Block))
-	binary.BigEndian.PutUint32(buf[4:], uint32(TxNum))
+func blockTxIndexToBytes(block cdriver.BlockNum, txNum cdriver.TxNum) []byte {
+	buf := make([]byte, 16)
+	binary.BigEndian.PutUint64(buf[:8], block)
+	binary.BigEndian.PutUint64(buf[8:], txNum)
 	return buf
 }

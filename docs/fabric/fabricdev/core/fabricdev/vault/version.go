@@ -15,8 +15,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-var zeroVersion = []byte{0, 0, 0, 0}
-
 type CounterBasedVersionBuilder struct{}
 
 func (c *CounterBasedVersionBuilder) VersionedValues(rws *vault.ReadWriteSet, ns driver.Namespace, writes vault.NamespaceWrites, block driver.BlockNum, indexInBloc driver.TxNum) (map[driver.PKey]vault.VersionedValue, error) {
@@ -72,16 +70,7 @@ func (c *CounterBasedVersionBuilder) VersionedMetaValues(rws *vault.ReadWriteSet
 type CounterBasedVersionComparator struct{}
 
 func (c *CounterBasedVersionComparator) Equal(v1, v2 driver.RawVersion) bool {
-	if bytes.Equal(v1, v2) {
-		return true
-	}
-	if len(v1) == 0 && bytes.Equal(zeroVersion, v2) {
-		return true
-	}
-	if len(v2) == 0 && bytes.Equal(zeroVersion, v1) {
-		return true
-	}
-	return false
+	return bytes.Equal(v1, v2)
 }
 
 func Marshal(v uint32) []byte {

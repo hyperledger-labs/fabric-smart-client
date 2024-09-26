@@ -132,8 +132,8 @@ func (db *VersionedPersistence) SetStateMetadatas(ns driver2.Namespace, kvs map[
 
 func (db *VersionedPersistence) GetStateMetadata(namespace driver2.Namespace, key driver2.PKey) (driver2.Metadata, driver2.RawVersion, error) {
 	var m []byte
-	var meta map[string][]byte
-	var kversion []byte
+	var meta driver2.Metadata
+	var kversion driver2.RawVersion
 
 	query := fmt.Sprintf("SELECT metadata, kversion FROM %s WHERE ns = $1 AND pkey = $2", db.table)
 	logger.Debug(query, namespace, key)
