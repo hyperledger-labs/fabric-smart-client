@@ -26,6 +26,11 @@ type VersionedRead struct {
 	Version RawVersion
 }
 
+type VersionedValue struct {
+	Raw     RawValue
+	Version RawVersion
+}
+
 type VersionedMetadataValue struct {
 	Version  RawVersion
 	Metadata Metadata

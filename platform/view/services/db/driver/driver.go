@@ -21,15 +21,7 @@ var (
 
 type SQLError = error
 
-type VersionedValue struct {
-	Raw     driver.RawValue
-	Version driver.RawVersion
-}
-
-type VersionedMetaData struct {
-	Metadata driver.Metadata
-	Version  driver.RawVersion
-}
+type VersionedValue = driver.VersionedValue
 
 type VersionedMetadataValue = driver.VersionedMetadataValue
 

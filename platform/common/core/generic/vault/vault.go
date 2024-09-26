@@ -61,7 +61,7 @@ type NewInterceptorFunc[V driver.ValidationCode] func(logger Logger, qe Versione
 type (
 	VersionedPersistence     = dbdriver.VersionedPersistence
 	VersionedValue           = dbdriver.VersionedValue
-	VersionedMetaData        = dbdriver.VersionedMetaData
+	VersionedMetadataValue   = dbdriver.VersionedMetadataValue
 	VersionedRead            = dbdriver.VersionedRead
 	VersionedResultsIterator = dbdriver.VersionedResultsIterator
 	QueryExecutor            = dbdriver.QueryExecutor
