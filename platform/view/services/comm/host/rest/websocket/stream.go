@@ -63,7 +63,7 @@ func (s *stream) readMessages(ctx context.Context) {
 			return
 		default:
 			_, msg, err := s.conn.ReadMessage()
-			if err != nil && (websocket.IsCloseError(err, websocket.CloseAbnormalClosure) || err == io.EOF) {
+			if err != nil && (websocket.IsCloseError(err, websocket.CloseAbnormalClosure)) {
 				logger.Debugf("Websocket connection closed unexpectedly")
 				s.reads <- streamEOF
 				s.Close()
