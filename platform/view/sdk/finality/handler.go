@@ -10,21 +10,9 @@ import (
 	"context"
 	"reflect"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view/protos"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"go.opentelemetry.io/otel/trace"
-	"go.uber.org/zap/zapcore"
-)
-
-const (
-	handlerTypeLabel tracing.LabelName = "handler_type"
-	successLabel     tracing.LabelName = "success"
-)
-
-var (
-	logger = flogging.MustGetLogger("view-sdk.finality")
 )
 
 type Registry interface {
@@ -49,34 +37,6 @@ func NewManager(tracerProvider trace.TracerProvider) *Manager {
 type Manager struct {
 	Handlers []Handler
 	tracer   trace.Tracer
-}
-
-func (s *Manager) IsTxFinal(ctx context.Context, command *protos.Command) (interface{}, error) {
-	newCtx, span := s.tracer.Start(ctx, "is_final")
-	defer span.End()
-	c := command.Payload.(*protos.Command_IsTxFinal).IsTxFinal
-
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("Answering: Is [%s] final on [%s:%s]?", c.Txid, c.Network, c.Channel)
-	}
-
-	for _, handler := range s.Handlers {
-		span.AddEvent("start_handler", tracing.WithAttributes(tracing.String(handlerTypeLabel, reflect.TypeOf(handler).String())))
-		if err := handler.IsFinal(newCtx, c.Network, c.Channel, c.Txid); err == nil {
-			span.AddEvent("end_handler", tracing.WithAttributes(tracing.Bool(successLabel, true)))
-			if logger.IsEnabledFor(zapcore.DebugLevel) {
-				logger.Debugf("Answering: Is [%s] final on [%s:%s]? Yes", c.Txid, c.Network, c.Channel)
-			}
-			return &protos.CommandResponse_IsTxFinalResponse{IsTxFinalResponse: &protos.IsTxFinalResponse{}}, nil
-		} else {
-			span.AddEvent("end_handler", tracing.WithAttributes(tracing.Bool(successLabel, false)))
-			logger.Debugf("Answering: Is [%s] final on [%s:%s]? err [%s]", c.Txid, c.Network, c.Channel, err)
-		}
-	}
-
-	return &protos.CommandResponse_IsTxFinalResponse{IsTxFinalResponse: &protos.IsTxFinalResponse{
-		Payload: []byte("no handler found for the request"),
-	}}, nil
 }
 
 func (s *Manager) AddHandler(handler Handler) {

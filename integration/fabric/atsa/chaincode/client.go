@@ -9,13 +9,11 @@ package chaincode
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/chaincode/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/api"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 type ViewClient interface {
 	CallView(fid string, in []byte) (interface{}, error)
-	IsTxFinal(txid string, opts ...api.ServiceOption) error
 }
 
 type Client struct {

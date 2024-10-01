@@ -37,13 +37,15 @@ func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType, replicationOpts *
 		RegisterResponder(&views.ApproverView{}, &views.IssueView{}).
 		RegisterResponder(&views.ApproverView{}, &views.AgreeToSellView{}).
 		RegisterResponder(&views.ApproverView{}, &views.AgreeToBuyView{}).
-		RegisterResponder(&views.ApproverView{}, &views.TransferView{})
+		RegisterResponder(&views.ApproverView{}, &views.TransferView{}).
+		RegisterViewFactory("finality", &views.FinalityViewFactory{})
 
 	// Issuer
 	fscTopology.AddNodeByName("issuer").
 		AddOptions(fabric.WithOrganization("Org3")).
 		AddOptions(replicationOpts.For("issuer")...).
-		RegisterViewFactory("issue", &views.IssueViewFactory{})
+		RegisterViewFactory("issue", &views.IssueViewFactory{}).
+		RegisterViewFactory("finality", &views.FinalityViewFactory{})
 
 	// Alice
 	fscTopology.AddNodeByName("alice").
@@ -53,7 +55,8 @@ func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType, replicationOpts *
 		RegisterViewFactory("agreeToSell", &views.AgreeToSellViewFactory{}).
 		RegisterViewFactory("agreeToBuy", &views.AgreeToBuyViewFactory{}).
 		RegisterResponder(&views.AcceptAssetView{}, &views.IssueView{}).
-		RegisterResponder(&views.TransferResponderView{}, &views.TransferView{})
+		RegisterResponder(&views.TransferResponderView{}, &views.TransferView{}).
+		RegisterViewFactory("finality", &views.FinalityViewFactory{})
 
 	// Bob
 	fscTopology.AddNodeByName("bob").
@@ -63,7 +66,8 @@ func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType, replicationOpts *
 		RegisterViewFactory("agreeToSell", &views.AgreeToSellViewFactory{}).
 		RegisterViewFactory("agreeToBuy", &views.AgreeToBuyViewFactory{}).
 		RegisterResponder(&views.AcceptAssetView{}, &views.IssueView{}).
-		RegisterResponder(&views.TransferResponderView{}, &views.TransferView{})
+		RegisterResponder(&views.TransferResponderView{}, &views.TransferView{}).
+		RegisterViewFactory("finality", &views.FinalityViewFactory{})
 
 	// Add Fabric SDK to FSC Nodes
 	fscTopology.AddSDK(sdk)
