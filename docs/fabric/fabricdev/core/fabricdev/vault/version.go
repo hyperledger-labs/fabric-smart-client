@@ -22,24 +22,30 @@ func (c *CounterBasedVersionBuilder) VersionedValues(rws *vault.ReadWriteSet, ns
 	reads := rws.Reads[ns]
 
 	for pkey, val := range writes {
-		// Search the corresponding read.
-		version, ok := reads[pkey]
-		if ok {
-			// parse the version as an integer, then increment it
-			counter, err := Unmarshal(version)
-			if err != nil {
-				return nil, errors.Wrapf(err, "failed unmarshalling version for %s:%v", pkey, version)
-			}
-			version = Marshal(counter + 1)
-		} else {
-			// this is a blind write, we should check the vault.
-			// Let's assume here that a blind write always starts from version 0
-			version = Marshal(0)
+		v, err := version(reads, pkey)
+		if err != nil {
+			return nil, err
 		}
-
-		vals[pkey] = vault.VersionedValue{Raw: val, Version: version}
+		vals[pkey] = vault.VersionedValue{Raw: val, Version: v}
 	}
 	return vals, nil
+}
+
+func version(reads vault.NamespaceReads, pkey driver.PKey) (vault.Version, error) {
+	// Search the corresponding read.
+	v, ok := reads[pkey]
+	if !ok {
+		// this is a blind write, we should check the vault.
+		// Let's assume here that a blind write always starts from version 0
+		return Marshal(0), nil
+	}
+
+	// parse the version as an integer, then increment it
+	counter, err := Unmarshal(v)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed unmarshalling version for %s:%v", pkey, v)
+	}
+	return Marshal(counter + 1), nil
 }
 
 func (c *CounterBasedVersionBuilder) VersionedMetaValues(rws *vault.ReadWriteSet, ns driver.Namespace, writes vault.KeyedMetaWrites, block driver.BlockNum, indexInBloc driver.TxNum) (map[driver.PKey]driver.VersionedMetadataValue, error) {
@@ -47,22 +53,12 @@ func (c *CounterBasedVersionBuilder) VersionedMetaValues(rws *vault.ReadWriteSet
 	reads := rws.Reads[ns]
 
 	for pkey, val := range writes {
-		// Search the corresponding read.
-		version, ok := reads[pkey]
-		if ok {
-			// parse the version as an integer, then increment it
-			counter, err := Unmarshal(version)
-			if err != nil {
-				return nil, errors.Wrapf(err, "failed unmarshalling version for %s:%v", pkey, version)
-			}
-			version = Marshal(counter + 1)
-		} else {
-			// this is a blind write, we should check the vault.
-			// Let's assume here that a blind write always starts from version 0
-			version = Marshal(0)
+		v, err := version(reads, pkey)
+		if err != nil {
+			return nil, err
 		}
 
-		vals[pkey] = driver.VersionedMetadataValue{Metadata: val, Version: version}
+		vals[pkey] = driver.VersionedMetadataValue{Metadata: val, Version: v}
 	}
 	return vals, nil
 }
