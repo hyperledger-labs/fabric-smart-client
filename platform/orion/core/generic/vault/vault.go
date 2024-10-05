@@ -41,6 +41,7 @@ func New(store vault.VersionedPersistence, txIDStore TXIDStore, metricsProvider 
 		&populator{},
 		metricsProvider,
 		tracerProvider,
+		&vault.BlockTxIndexVersionBuilder{},
 	)
 }
 
@@ -61,6 +62,7 @@ func newInterceptor(
 		txid,
 		&odriver.ValidationCodeProvider{},
 		nil,
+		&vault.BlockTxIndexVersionComparator{},
 	)}
 }
 
@@ -82,7 +84,9 @@ func (i *Interceptor) Equals(other interface{}, nss ...string) error {
 	return errors.Errorf("cannot compare to the passed value [%v]", other)
 }
 
-type populator struct{}
+type populator struct {
+	versionMarshaller vault.BlockTxIndexVersionMarshaller
+}
 
 func (p *populator) Populate(rws *vault.ReadWriteSet, rwsetBytes []byte, namespaces ...driver.Namespace) error {
 	txRWSet := &types.DataTx{}
@@ -103,8 +107,10 @@ func (p *populator) Populate(rws *vault.ReadWriteSet, rwsetBytes []byte, namespa
 			rws.ReadSet.Add(
 				operation.DbName,
 				read.Key,
-				bn,
-				txn,
+				p.versionMarshaller.ToBytes(
+					bn,
+					txn,
+				),
 			)
 		}
 

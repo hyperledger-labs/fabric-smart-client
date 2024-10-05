@@ -61,10 +61,28 @@ type NewInterceptorFunc[V driver.ValidationCode] func(logger Logger, qe Versione
 type (
 	VersionedPersistence     = dbdriver.VersionedPersistence
 	VersionedValue           = dbdriver.VersionedValue
+	VersionedMetadataValue   = dbdriver.VersionedMetadataValue
 	VersionedRead            = dbdriver.VersionedRead
 	VersionedResultsIterator = dbdriver.VersionedResultsIterator
 	QueryExecutor            = dbdriver.QueryExecutor
 )
+
+type txCommitIndex struct {
+	ctx         context.Context
+	txID        driver.TxID
+	block       driver.BlockNum
+	indexInBloc driver.TxNum
+}
+
+type commitInput struct {
+	txCommitIndex
+	rws *ReadWriteSet
+}
+
+type VersionBuilder interface {
+	VersionedValues(rws *ReadWriteSet, ns driver.Namespace, writes NamespaceWrites, block driver.BlockNum, indexInBloc driver.TxNum) (map[driver.PKey]VersionedValue, error)
+	VersionedMetaValues(rws *ReadWriteSet, ns driver.Namespace, writes KeyedMetaWrites, block driver.BlockNum, indexInBloc driver.TxNum) (map[driver.PKey]driver.VersionedMetadataValue, error)
+}
 
 var (
 	DeadlockDetected   = dbdriver.DeadlockDetected
@@ -96,7 +114,8 @@ type Vault[V driver.ValidationCode] struct {
 	populator      Populator
 	metrics        *Metrics
 
-	commitBatcher runner.BatchRunner[txCommitIndex]
+	commitBatcher  runner.BatchRunner[txCommitIndex]
+	versionBuilder VersionBuilder
 }
 
 // New returns a new instance of Vault
@@ -109,6 +128,7 @@ func New[V driver.ValidationCode](
 	populator Populator,
 	metricsProvider metrics.Provider,
 	tracerProvider trace.TracerProvider,
+	versionBuilder VersionBuilder,
 ) *Vault[V] {
 	v := &Vault[V]{
 		logger:         logger,
@@ -119,6 +139,7 @@ func New[V driver.ValidationCode](
 		newInterceptor: newInterceptor,
 		populator:      populator,
 		metrics:        NewMetrics(metricsProvider, tracerProvider),
+		versionBuilder: versionBuilder,
 	}
 	v.commitBatcher = runner.NewSerialRunner(v.commitTXs)
 	return v
@@ -210,18 +231,6 @@ func (db *Vault[V]) unmapInterceptors(txIDs ...driver.TxID) (map[driver.TxID]TxI
 	return result, nil
 }
 
-type txCommitIndex struct {
-	ctx         context.Context
-	txID        driver.TxID
-	block       driver.BlockNum
-	indexInBloc driver.TxNum
-}
-
-type commitInput struct {
-	txCommitIndex
-	rws *ReadWriteSet
-}
-
 func (db *Vault[V]) CommitTX(ctx context.Context, txID driver.TxID, block driver.BlockNum, indexInBloc driver.TxNum) error {
 	start := time.Now()
 	newCtx, span := db.metrics.Vault.Start(ctx, "commit")
@@ -298,7 +307,10 @@ func (db *Vault[V]) commitRWs(inputs ...commitInput) error {
 	writes := make(map[driver.Namespace]map[driver.PKey]VersionedValue)
 	for _, input := range inputs {
 		for ns, ws := range input.rws.Writes {
-			vals := versionedValues(ws, input.block, input.indexInBloc)
+			vals, err := db.versionBuilder.VersionedValues(input.rws, ns, ws, input.block, input.indexInBloc)
+			if err != nil {
+				return errors.Wrapf(err, "failed to parse writes for txid %s", input.txID)
+			}
 			if nsWrites, ok := writes[ns]; !ok {
 				writes[ns] = vals
 			} else {
@@ -323,7 +335,10 @@ func (db *Vault[V]) commitRWs(inputs ...commitInput) error {
 	metaWrites := make(map[driver.Namespace]map[driver.PKey]driver.VersionedMetadataValue)
 	for _, input := range inputs {
 		for ns, ws := range input.rws.MetaWrites {
-			vals := versionedMetaValues(ws, input.block, input.indexInBloc)
+			vals, err := db.versionBuilder.VersionedMetaValues(input.rws, ns, ws, input.block, input.indexInBloc)
+			if err != nil {
+				return errors.Wrapf(err, "failed to parse metadata writes for txid %s", input.txID)
+			}
 			if nsWrites, ok := metaWrites[ns]; !ok {
 				metaWrites[ns] = vals
 			} else {
@@ -394,22 +409,6 @@ func (db *Vault[V]) storeAllMetaWrites(metaWrites map[driver.Namespace]map[drive
 		collections.CopyMap(errs, db.store.SetStateMetadatas(ns, vals))
 	}
 	return errs
-}
-
-func versionedValues(keyMap NamespaceWrites, block driver.BlockNum, indexInBloc driver.TxNum) map[driver.PKey]VersionedValue {
-	vals := make(map[driver.PKey]VersionedValue, len(keyMap))
-	for pkey, val := range keyMap {
-		vals[pkey] = VersionedValue{Raw: val, Block: block, TxNum: indexInBloc}
-	}
-	return vals
-}
-
-func versionedMetaValues(keyMap KeyedMetaWrites, block driver.BlockNum, indexInBloc driver.TxNum) map[driver.PKey]driver.VersionedMetadataValue {
-	vals := make(map[driver.PKey]driver.VersionedMetadataValue, len(keyMap))
-	for pkey, val := range keyMap {
-		vals[pkey] = driver.VersionedMetadataValue{Metadata: val, Block: block, TxNum: indexInBloc}
-	}
-	return vals
 }
 
 func (db *Vault[V]) discard(ns driver.Namespace, block driver.BlockNum, indexInBloc driver.TxNum, errs map[driver.PKey]error) (bool, error) {

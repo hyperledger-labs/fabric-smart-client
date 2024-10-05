@@ -15,20 +15,25 @@ import (
 )
 
 type VersionedQueryExecutor interface {
-	GetStateMetadata(namespace, key string) (map[string][]byte, uint64, uint64, error)
+	GetStateMetadata(namespace, key string) (driver.Metadata, driver.RawVersion, error)
 	GetState(namespace, key string) (VersionedValue, error)
 	Done()
 }
 
+type VersionComparator interface {
+	Equal(v1, v2 driver.RawVersion) bool
+}
+
 type Interceptor[V driver.ValidationCode] struct {
-	Logger     Logger
-	QE         VersionedQueryExecutor
-	TxIDStore  TXIDStoreReader[V]
-	Rws        ReadWriteSet
-	Marshaller Marshaller
-	Closed     bool
-	TxID       string
-	vcProvider driver.ValidationCodeProvider[V] // TODO
+	Logger            Logger
+	QE                VersionedQueryExecutor
+	TxIDStore         TXIDStoreReader[V]
+	Rws               ReadWriteSet
+	Marshaller        Marshaller
+	VersionComparator VersionComparator
+	Closed            bool
+	TxID              string
+	vcProvider        driver.ValidationCodeProvider[V] // TODO
 	sync.RWMutex
 }
 
@@ -55,17 +60,19 @@ func NewInterceptor[V driver.ValidationCode](
 	txID driver.TxID,
 	vcProvider driver.ValidationCodeProvider[V],
 	marshaller Marshaller,
+	versionComparator VersionComparator,
 ) *Interceptor[V] {
 	logger.Debugf("new interceptor [%s]", txID)
 
 	return &Interceptor[V]{
-		Logger:     logger,
-		TxID:       txID,
-		QE:         qe,
-		TxIDStore:  txIDStore,
-		Rws:        EmptyRWSet(),
-		vcProvider: vcProvider,
-		Marshaller: marshaller,
+		Logger:            logger,
+		TxID:              txID,
+		QE:                qe,
+		TxIDStore:         txIDStore,
+		Rws:               EmptyRWSet(),
+		vcProvider:        vcProvider,
+		Marshaller:        marshaller,
+		VersionComparator: versionComparator,
 	}
 }
 
@@ -89,9 +96,8 @@ func (i *Interceptor[V]) IsValid() error {
 			if err != nil {
 				return err
 			}
-
-			if vv.Block != v.Block || vv.TxNum != v.TxNum {
-				return errors.Errorf("invalid read: vault at version %s:%s %d:%d, read-write set at version %d:%d", ns, k, vv.Block, vv.TxNum, v.Block, v.TxNum)
+			if !i.VersionComparator.Equal(v, vv.Version) {
+				return errors.Errorf("invalid read: vault at version %s:%s [%v], read-write set at version [%v]", ns, k, vv, v)
 			}
 		}
 	}
@@ -236,20 +242,20 @@ func (i *Interceptor[V]) GetStateMetadata(namespace, key string, opts ...driver.
 			i.RUnlock()
 			return nil, errors.New("this instance is write only")
 		}
-		val, block, txnum, err := i.QE.GetStateMetadata(namespace, key)
+		val, vaultVersion, err := i.QE.GetStateMetadata(namespace, key)
 		if err != nil {
 			i.RUnlock()
 			return nil, err
 		}
 		i.RUnlock()
 
-		b, t, in := i.Rws.ReadSet.Get(namespace, key)
+		version, in := i.Rws.ReadSet.Get(namespace, key)
 		if in {
-			if b != block || t != txnum {
-				return nil, errors.Errorf("invalid metadata read: previous value returned at version %d:%d, current value at version %d:%d", b, t, block, txnum)
+			if !i.VersionComparator.Equal(version, vaultVersion) {
+				return nil, errors.Errorf("invalid metadata read: previous value returned at version [%v], current value at version [%v]", version, vaultVersion)
 			}
 		} else {
-			i.Rws.ReadSet.Add(namespace, key, block, txnum)
+			i.Rws.ReadSet.Add(namespace, key, vaultVersion)
 		}
 
 		return val, nil
@@ -297,14 +303,15 @@ func (i *Interceptor[V]) GetState(namespace driver.Namespace, key driver.PKey, o
 			return nil, err
 		}
 		i.RUnlock()
+		vaultVersion := vv.Version
 
-		b, t, in := i.Rws.ReadSet.Get(namespace, key)
+		version, in := i.Rws.ReadSet.Get(namespace, key)
 		if in {
-			if b != vv.Block || t != vv.TxNum {
-				return nil, errors.Errorf("invalid read [%s:%s]: previous value returned at version %d:%d, current value at version %d:%d", namespace, key, b, t, vv.Block, vv.TxNum)
+			if !i.VersionComparator.Equal(version, vaultVersion) {
+				return nil, errors.Errorf("invalid read [%s:%s]: previous value returned at version [%v], current value at version [%v]", namespace, key, version, vaultVersion)
 			}
 		} else {
-			i.Rws.ReadSet.Add(namespace, key, vv.Block, vv.TxNum)
+			i.Rws.ReadSet.Add(namespace, key, vaultVersion)
 		}
 
 		return vv.Raw, nil

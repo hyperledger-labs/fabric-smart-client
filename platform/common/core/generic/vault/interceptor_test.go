@@ -19,9 +19,8 @@ import (
 func newMockQE() mockQE {
 	return mockQE{
 		State: VersionedValue{
-			Raw:   []byte("raw"),
-			Block: 1,
-			TxNum: 1,
+			Raw:     []byte("raw"),
+			Version: blockTxIndexToBytes(1, 1),
 		},
 		Metadata: map[string][]byte{
 			"md": []byte("meta"),
@@ -34,8 +33,8 @@ type mockQE struct {
 	Metadata map[string][]byte
 }
 
-func (qe mockQE) GetStateMetadata(driver.Namespace, driver.PKey) (driver.Metadata, driver.BlockNum, driver.TxNum, error) {
-	return qe.Metadata, 1, 1, nil
+func (qe mockQE) GetStateMetadata(driver.Namespace, driver.PKey) (driver.Metadata, driver.RawVersion, error) {
+	return qe.Metadata, blockTxIndexToBytes(1, 1), nil
 }
 func (qe mockQE) GetState(driver.Namespace, driver.PKey) (VersionedValue, error) {
 	return qe.State, nil

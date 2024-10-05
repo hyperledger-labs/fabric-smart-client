@@ -43,6 +43,7 @@ func (p *testArtifactProvider) NewCachedVault(ddb VersionedPersistence) (*Vault[
 		&populator{},
 		&disabled.Provider{},
 		&noop.TracerProvider{},
+		&BlockTxIndexVersionBuilder{},
 	), nil
 }
 
@@ -60,6 +61,7 @@ func (p *testArtifactProvider) NewNonCachedVault(ddb VersionedPersistence) (*Vau
 		&populator{},
 		&disabled.Provider{},
 		&noop.TracerProvider{},
+		&BlockTxIndexVersionBuilder{},
 	), nil
 }
 
@@ -80,6 +82,7 @@ func newInterceptor(
 		txid,
 		&VCProvider{},
 		&marshaller{},
+		&BlockTxIndexVersionComparator{},
 	)
 }
 
@@ -112,11 +115,11 @@ func (m *marshaller) Append(destination *ReadWriteSet, raw []byte, nss ...string
 			continue
 		}
 		for s, position := range reads {
-			b, t, in := destination.ReadSet.Get(ns, s)
-			if in && (b != position.Block || t != position.TxNum) {
-				return errors.Errorf("invalid read [%s:%s]: previous value returned at version %d:%d, current value at version %d:%d", ns, s, b, t, b, t)
+			v, in := destination.ReadSet.Get(ns, s)
+			if in && !Equal(position, v) {
+				return errors.Errorf("invalid read [%s:%s]: previous value returned at version [%v], current value at version [%v]", ns, s, position, v)
 			}
-			destination.ReadSet.Add(ns, s, position.Block, position.TxNum)
+			destination.ReadSet.Add(ns, s, position)
 		}
 	}
 	destination.OrderedReads = source.OrderedReads

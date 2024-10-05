@@ -48,6 +48,7 @@ func NewVault(store vault.VersionedPersistence, txIDStore TXIDStore, metricsProv
 		&populator{},
 		metricsProvider,
 		tracerProvider,
+		&vault.BlockTxIndexVersionBuilder{},
 	)
 }
 
@@ -59,10 +60,13 @@ func newInterceptor(logger vault.Logger, qe vault.VersionedQueryExecutor, txIDSt
 		txID,
 		&fdriver.ValidationCodeProvider{},
 		&marshaller{},
+		&vault.BlockTxIndexVersionComparator{},
 	)
 }
 
-type populator struct{}
+type populator struct {
+	versionMarshaller vault.BlockTxIndexVersionMarshaller
+}
 
 func (p *populator) Populate(rws *vault.ReadWriteSet, rwsetBytes []byte, namespaces ...driver.Namespace) error {
 	txRWSet := &rwset.TxReadWriteSet{}
@@ -92,7 +96,7 @@ func (p *populator) Populate(rws *vault.ReadWriteSet, rwsetBytes []byte, namespa
 				bn = read.Version.BlockNum
 				txn = read.Version.TxNum
 			}
-			rws.ReadSet.Add(ns, read.Key, bn, txn)
+			rws.ReadSet.Add(ns, read.Key, p.versionMarshaller.ToBytes(bn, txn))
 		}
 
 		for _, write := range nsrws.KvRwSet.Writes {
@@ -116,15 +120,21 @@ func (p *populator) Populate(rws *vault.ReadWriteSet, rwsetBytes []byte, namespa
 	return nil
 }
 
-type marshaller struct{}
+type marshaller struct {
+	versionMarshaller vault.BlockTxIndexVersionMarshaller
+}
 
 func (m *marshaller) Marshal(rws *vault.ReadWriteSet) ([]byte, error) {
 	rwsb := rwsetutil.NewRWSetBuilder()
 
 	for ns, keyMap := range rws.Reads {
 		for key, v := range keyMap {
-			if v.Block != 0 || v.TxNum != 0 {
-				rwsb.AddToReadSet(ns, key, rwsetutil.NewVersion(&kvrwset.Version{BlockNum: v.Block, TxNum: v.TxNum}))
+			block, txNum, err := m.versionMarshaller.FromBytes(v)
+			if err != nil {
+				return nil, errors.Wrapf(err, "failed to extract block version from bytes [%v]", v)
+			}
+			if block != 0 || txNum != 0 {
+				rwsb.AddToReadSet(ns, key, rwsetutil.NewVersion(&kvrwset.Version{BlockNum: block, TxNum: txNum}))
 			} else {
 				rwsb.AddToReadSet(ns, key, nil)
 			}
@@ -175,13 +185,15 @@ func (m *marshaller) Append(destination *vault.ReadWriteSet, raw []byte, nss ...
 				bnum = read.Version.BlockNum
 				txnum = read.Version.TxNum
 			}
-
-			b, t, in := destination.ReadSet.Get(ns, read.Key)
-			if in && (b != bnum || t != txnum) {
-				return errors.Errorf("invalid read [%s:%s]: previous value returned at version %d:%d, current value at version %d:%d", ns, read.Key, b, t, b, txnum)
+			dVersion, in := destination.ReadSet.Get(ns, read.Key)
+			b, t, err := m.versionMarshaller.FromBytes(dVersion)
+			if err != nil {
+				return errors.Wrapf(err, "failed to extract block version from bytes [%v]", dVersion)
 			}
-
-			destination.ReadSet.Add(ns, read.Key, bnum, txnum)
+			if in && (b != bnum || t != txnum) {
+				return errors.Errorf("invalid read [%s:%s]: previous value returned at version [%v], current value at version [%v]", ns, read.Key, m.versionMarshaller.ToBytes(bnum, txnum), dVersion)
+			}
+			destination.ReadSet.Add(ns, read.Key, dVersion)
 		}
 
 		for _, write := range nsrws.KvRwSet.Writes {

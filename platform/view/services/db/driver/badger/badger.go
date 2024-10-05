@@ -102,33 +102,44 @@ func (db *DB) Close() error {
 
 func (db *DB) SetState(namespace driver2.Namespace, key string, value driver.VersionedValue) error {
 	if len(value.Raw) == 0 {
-		logger.Warnf("set key [%s:%d:%d] to nil value, will be deleted instead", key, value.Block, value.TxNum)
+		logger.Warnf("set key [%s:%v] to nil value, will be deleted instead", key, value.Version)
 		return db.DeleteState(namespace, key)
 	}
+	return db.setValues(namespace, key, value.Raw, nil, value.Version)
+}
 
+func (db *DB) SetStateMetadata(namespace driver2.Namespace, key driver2.PKey, metadata driver2.Metadata, version driver2.RawVersion) error {
+	return db.setValues(namespace, key, nil, metadata, version)
+}
+
+func (db *DB) setValues(namespace driver2.Namespace, key driver2.PKey, value driver2.RawValue, metadata driver2.Metadata, version driver2.RawVersion) error {
 	if db.Txn == nil {
 		panic("programming error, writing without ongoing update")
 	}
 
-	dbKey := dbKey(namespace, key)
+	k := dbKey(namespace, key)
 
-	v, err := txVersionedValue(db.Txn, dbKey)
+	v, err := txVersionedValue(db.Txn, k)
 	if err != nil {
 		return err
 	}
 
-	v.Value = value.Raw
-	v.Block = value.Block
-	v.Txnum = value.TxNum
+	if value != nil {
+		v.Value = value
+	}
+	if metadata != nil {
+		v.Meta = metadata
+	}
+	v.KeyVersion = version
 
 	bytes, err := proto.Marshal(v)
 	if err != nil {
-		return errors.Wrapf(err, "could not marshal VersionedValue for key %s", dbKey)
+		return errors.Wrapf(err, "could not marshal VersionedValue for key %s", k)
 	}
 
-	err = db.Txn.Set([]byte(dbKey), bytes)
+	err = db.Txn.Set([]byte(k), bytes)
 	if err != nil {
-		return errors.Wrapf(err, "could not set value for key %s", dbKey)
+		return errors.Wrapf(err, "could not set value for key %s", k)
 	}
 
 	return nil
@@ -144,39 +155,10 @@ func (db *DB) SetStates(namespace driver2.Namespace, kvs map[driver2.PKey]driver
 	return errs
 }
 
-func (db *DB) SetStateMetadata(namespace driver2.Namespace, key driver2.PKey, metadata driver2.Metadata, block driver2.BlockNum, txnum driver2.TxNum) error {
-	if db.Txn == nil {
-		panic("programming error, writing without ongoing update")
-	}
-
-	dbKey := dbKey(namespace, key)
-
-	v, err := txVersionedValue(db.Txn, dbKey)
-	if err != nil {
-		return err
-	}
-
-	v.Meta = metadata
-	v.Block = block
-	v.Txnum = txnum
-
-	bytes, err := proto.Marshal(v)
-	if err != nil {
-		return errors.Wrapf(err, "could not marshal VersionedValue for key %s", dbKey)
-	}
-
-	err = db.Txn.Set([]byte(dbKey), bytes)
-	if err != nil {
-		return errors.Wrapf(err, "could not set value for key %s", dbKey)
-	}
-
-	return nil
-}
-
-func (db *DB) SetStateMetadatas(ns driver2.Namespace, kvs map[driver2.PKey]driver2.VersionedMetadataValue) map[driver2.PKey]error {
+func (db *DB) SetStateMetadatas(ns driver2.Namespace, kvs map[driver2.PKey]driver.VersionedMetadataValue) map[driver2.PKey]error {
 	errs := make(map[driver2.PKey]error)
 	for pkey, value := range kvs {
-		if err := db.SetStateMetadata(ns, pkey, value.Metadata, value.Block, value.TxNum); err != nil {
+		if err := db.SetStateMetadata(ns, pkey, value.Metadata, value.Version); err != nil {
 			errs[pkey] = err
 		}
 	}
@@ -219,7 +201,7 @@ func (db *DB) GetState(namespace driver2.Namespace, key driver2.PKey) (driver.Ve
 		return driver.VersionedValue{}, err
 	}
 
-	return driver.VersionedValue{Raw: v.Value, Block: v.Block, TxNum: v.Txnum}, err
+	return driver.VersionedValue{Raw: v.Value, Version: v.KeyVersion}, err
 }
 
 func (db *DB) GetStateSetIterator(ns driver2.Namespace, keys ...driver2.PKey) (driver.VersionedResultsIterator, error) {
@@ -230,16 +212,15 @@ func (db *DB) GetStateSetIterator(ns driver2.Namespace, keys ...driver2.PKey) (d
 			return nil, err
 		}
 		reads[i] = &driver.VersionedRead{
-			Key:   key,
-			Raw:   vv.Raw,
-			Block: vv.Block,
-			TxNum: vv.TxNum,
+			Key:     key,
+			Raw:     vv.Raw,
+			Version: vv.Version,
 		}
 	}
 	return &keys2.DummyVersionedIterator{Items: reads}, nil
 }
 
-func (db *DB) GetStateMetadata(namespace driver2.Namespace, key driver2.PKey) (driver2.Metadata, driver2.BlockNum, driver2.TxNum, error) {
+func (db *DB) GetStateMetadata(namespace driver2.Namespace, key driver2.PKey) (driver2.Metadata, driver2.RawVersion, error) {
 	dbKey := dbKey(namespace, key)
 
 	txn := &Txn{db.db.NewTransaction(false)}
@@ -247,10 +228,10 @@ func (db *DB) GetStateMetadata(namespace driver2.Namespace, key driver2.PKey) (d
 
 	v, err := txVersionedValue(txn, dbKey)
 	if err != nil {
-		return nil, 0, 0, err
+		return nil, nil, err
 	}
 
-	return v.Meta, v.Block, v.Txnum, nil
+	return v.Meta, v.KeyVersion, nil
 }
 
 func (db *DB) NewWriteTransaction() (driver.WriteTransaction, error) {
@@ -292,8 +273,7 @@ func (w *WriteTransaction) SetState(namespace driver2.Namespace, key driver2.PKe
 	}
 
 	v.Value = value.Raw
-	v.Block = value.Block
-	v.Txnum = value.TxNum
+	v.KeyVersion = value.Version
 
 	bytes, err := proto.Marshal(v)
 	if err != nil {

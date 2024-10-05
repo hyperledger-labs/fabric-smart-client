@@ -34,6 +34,7 @@ func NewVault(store vault.VersionedPersistence, txIDStore TXIDStore, metricsProv
 		&populator{},
 		metricsProvider,
 		tracerProvider,
+		&CounterBasedVersionBuilder{},
 	)
 }
 
@@ -45,6 +46,7 @@ func newInterceptor(logger vault.Logger, qe vault.VersionedQueryExecutor, txIDSt
 		txID,
 		&fdriver.ValidationCodeProvider{},
 		&marshaller{},
+		&CounterBasedVersionComparator{},
 	)
 }
 

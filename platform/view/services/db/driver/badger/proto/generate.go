@@ -6,4 +6,4 @@ SPDX-License-Identifier: Apache-2.0
 
 package proto
 
-//go:generate protoc kvs.proto --go_out=plugins=grpc:.
+//go:generate protoc kvs.proto --go_out=.

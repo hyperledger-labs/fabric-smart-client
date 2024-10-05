@@ -1,11 +1,13 @@
 syntax = "proto3";
 
+option go_package = "./proto";
+option cc_generic_services = true;
+
 package proto;
 
 message VersionedValue {
     uint32 version = 1;
-    uint64 block = 2;
-    uint64 txnum = 3;
-    bytes value = 4;
-    map<string, bytes> meta = 5;
+    bytes value = 2;
+    bytes key_version = 3;
+    map<string, bytes> meta = 4;
 }
