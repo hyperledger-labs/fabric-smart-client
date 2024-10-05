@@ -105,29 +105,41 @@ func (db *DB) SetState(namespace driver2.Namespace, key string, value driver.Ver
 		logger.Warnf("set key [%s:%v] to nil value, will be deleted instead", key, value.Version)
 		return db.DeleteState(namespace, key)
 	}
+	return db.setValues(namespace, key, value.Raw, nil, value.Version)
+}
 
+func (db *DB) SetStateMetadata(namespace driver2.Namespace, key driver2.PKey, metadata driver2.Metadata, version driver2.RawVersion) error {
+	return db.setValues(namespace, key, nil, metadata, version)
+}
+
+func (db *DB) setValues(namespace driver2.Namespace, key driver2.PKey, value driver2.RawValue, metadata driver2.Metadata, version driver2.RawVersion) error {
 	if db.Txn == nil {
 		panic("programming error, writing without ongoing update")
 	}
 
-	dbKey := dbKey(namespace, key)
+	k := dbKey(namespace, key)
 
-	v, err := txVersionedValue(db.Txn, dbKey)
+	v, err := txVersionedValue(db.Txn, k)
 	if err != nil {
 		return err
 	}
 
-	v.Value = value.Raw
-	v.KeyVersion = value.Version
+	if value != nil {
+		v.Value = value
+	}
+	if metadata != nil {
+		v.Meta = metadata
+	}
+	v.KeyVersion = version
 
 	bytes, err := proto.Marshal(v)
 	if err != nil {
-		return errors.Wrapf(err, "could not marshal VersionedValue for key %s", dbKey)
+		return errors.Wrapf(err, "could not marshal VersionedValue for key %s", k)
 	}
 
-	err = db.Txn.Set([]byte(dbKey), bytes)
+	err = db.Txn.Set([]byte(k), bytes)
 	if err != nil {
-		return errors.Wrapf(err, "could not set value for key %s", dbKey)
+		return errors.Wrapf(err, "could not set value for key %s", k)
 	}
 
 	return nil
@@ -141,34 +153,6 @@ func (db *DB) SetStates(namespace driver2.Namespace, kvs map[driver2.PKey]driver
 		}
 	}
 	return errs
-}
-
-func (db *DB) SetStateMetadata(namespace driver2.Namespace, key driver2.PKey, metadata driver2.Metadata, version driver2.RawVersion) error {
-	if db.Txn == nil {
-		panic("programming error, writing without ongoing update")
-	}
-
-	dbKey := dbKey(namespace, key)
-
-	v, err := txVersionedValue(db.Txn, dbKey)
-	if err != nil {
-		return err
-	}
-
-	v.Meta = metadata
-	v.KeyVersion = version
-
-	bytes, err := proto.Marshal(v)
-	if err != nil {
-		return errors.Wrapf(err, "could not marshal VersionedValue for key %s", dbKey)
-	}
-
-	err = db.Txn.Set([]byte(dbKey), bytes)
-	if err != nil {
-		return errors.Wrapf(err, "could not set value for key %s", dbKey)
-	}
-
-	return nil
 }
 
 func (db *DB) SetStateMetadatas(ns driver2.Namespace, kvs map[driver2.PKey]driver.VersionedMetadataValue) map[driver2.PKey]error {

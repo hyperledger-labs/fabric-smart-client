@@ -145,9 +145,7 @@ type Version = driver.RawVersion
 type NamespaceReads map[string]Version
 
 func (r NamespaceReads) Equals(o NamespaceReads) error {
-	return entriesEqual(r, o, func(v, v2 Version) bool {
-		return bytes.Equal(v, v2)
-	})
+	return entriesEqual(r, o, bytes.Equal)
 }
 
 type Reads map[driver.Namespace]NamespaceReads
