@@ -380,7 +380,7 @@ func TTestShardLikeCommit(t *testing.T, ddb VersionedPersistence, vp artifactsPr
 	rwsb.WriteSet.Add(ns, k1, []byte("k1FromTxidInvalid"))
 	rwsb.WriteSet.Add(ns, k2, []byte("k2FromTxidInvalid"))
 	marshaller := vp.NewMarshaller()
-	rwsBytes, err := marshaller.Marshal(rwsb)
+	rwsBytes, err := marshaller.Marshal("pineapple", rwsb)
 	assert.NoError(t, err)
 
 	// give it to the kvs and check whether it's valid - it won't be
@@ -425,7 +425,7 @@ func TTestShardLikeCommit(t *testing.T, ddb VersionedPersistence, vp artifactsPr
 	rwsb.ReadSet.Add(ns, k2, versionBlockTxNumToBytes(37, 3))
 	rwsb.WriteSet.Add(ns, k1, []byte("k1FromTxidValid"))
 	rwsb.WriteSet.Add(ns, k2, []byte("k2FromTxidValid"))
-	rwsBytes, err = marshaller.Marshal(rwsb)
+	rwsBytes, err = marshaller.Marshal("pineapple", rwsb)
 	assert.NoError(t, err)
 
 	// give it to the kvs and check whether it's valid - it will be
@@ -482,7 +482,7 @@ func TTestVaultErr(t *testing.T, ddb VersionedPersistence, vp artifactsProvider)
 	}
 	rws.ReadSet.Add("pineapple", "key", versionBlockTxNumToBytes(35, 1))
 	m := vp.NewMarshaller()
-	rwsBytes, err := m.Marshal(rws)
+	rwsBytes, err := m.Marshal("pineapple", rws)
 	assert.NoError(t, err)
 
 	ncrwset, err := vault1.NewRWSet("not-closed")
@@ -563,7 +563,7 @@ func TTestMerge(t *testing.T, ddb VersionedPersistence, vp artifactsProvider) {
 	rwsb.WriteSet.Add(ns, k1, []byte("newv1"))
 	rwsb.MetaWriteSet.Add(ns, k1, map[string][]byte{"k1": []byte("v1")})
 	m := vp.NewMarshaller()
-	rwsBytes, err := m.Marshal(rwsb)
+	rwsBytes, err := m.Marshal("pineapple", rwsb)
 	assert.NoError(t, err)
 
 	err = rws.AppendRWSet(rwsBytes)
@@ -593,7 +593,7 @@ func TTestMerge(t *testing.T, ddb VersionedPersistence, vp artifactsProvider) {
 		},
 	}
 	rwsb.ReadSet.Add(ns, k1, versionBlockTxNumToBytes(36, 1))
-	rwsBytes, err = m.Marshal(rwsb)
+	rwsBytes, err = m.Marshal("pineapple", rwsb)
 	assert.NoError(t, err)
 
 	err = rws.AppendRWSet(rwsBytes)
@@ -606,7 +606,7 @@ func TTestMerge(t *testing.T, ddb VersionedPersistence, vp artifactsProvider) {
 		},
 	}
 	rwsb.WriteSet.Add(ns, k2, []byte("v2"))
-	rwsBytes, err = m.Marshal(rwsb)
+	rwsBytes, err = m.Marshal("pineapple", rwsb)
 	assert.NoError(t, err)
 
 	err = rws.AppendRWSet(rwsBytes)
@@ -632,7 +632,7 @@ func TTestMerge(t *testing.T, ddb VersionedPersistence, vp artifactsProvider) {
 		},
 	}
 	rwsb.MetaWriteSet.Add(ns, k3, map[string][]byte{"k": []byte("v")})
-	rwsBytes, err = m.Marshal(rwsb)
+	rwsBytes, err = m.Marshal("pineapple", rwsb)
 	assert.NoError(t, err)
 
 	err = rws.AppendRWSet(rwsBytes)
