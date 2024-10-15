@@ -10,7 +10,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/fabricutils"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
@@ -38,6 +38,7 @@ type Transaction interface {
 	Proposal() driver.Proposal
 	ProposalResponses() []driver.ProposalResponse
 	Bytes() ([]byte, error)
+	Envelope() (driver.Envelope, error)
 }
 
 type TransactionWithEnvelope interface {
@@ -127,43 +128,17 @@ func (o *Service) SetConsensusType(consensusType ConsensusType) error {
 }
 
 func (o *Service) createFabricEndorseTransactionEnvelope(tx Transaction) (*common2.Envelope, error) {
-	ets, err := o.GetEndorserTransactionService(tx.Channel())
+	env, err := tx.Envelope()
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed getting channel [%s]", tx.Channel())
+		return nil, errors.Wrapf(err, "failed creating envelope for transaction [%s]", tx.ID())
 	}
-	txRaw, err := tx.Bytes()
+	raw, err := env.Bytes()
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed marshalling tx [%s]", tx.ID())
+		return nil, errors.Wrapf(err, "failed marshalling envelope for transaction [%s]", tx.ID())
 	}
-	err = ets.StoreTransaction(tx.ID(), txRaw)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed storing tx")
+	commonEnv := &common2.Envelope{}
+	if err := proto.Unmarshal(raw, commonEnv); err != nil {
+		return nil, errors.Wrapf(err, "failed unmarshalling envelope for transaction [%s]", tx.ID())
 	}
-
-	// tx contains the proposal and the endorsements, assemble them in a fabric transaction
-	signerID := tx.Creator()
-	signer, err := o.SigService.GetSigner(signerID)
-	if err != nil {
-		logger.Errorf("signer not found for %s while creating tx envelope for ordering [%s]", signerID.UniqueID(), err)
-		return nil, errors.Wrapf(err, "signer not found for %s while creating tx envelope for ordering", signerID.UniqueID())
-	}
-	env, err := fabricutils.CreateEndorserSignedTX(&signerWrapper{signerID, signer}, tx.Proposal(), tx.ProposalResponses()...)
-	if err != nil {
-		return nil, errors.WithMessage(err, "could not assemble transaction")
-	}
-
-	return env, nil
-}
-
-type signerWrapper struct {
-	creator view.Identity
-	signer  driver.Signer
-}
-
-func (s *signerWrapper) Sign(message []byte) ([]byte, error) {
-	return s.signer.Sign(message)
-}
-
-func (s *signerWrapper) Serialize() ([]byte, error) {
-	return s.creator, nil
+	return commonEnv, nil
 }

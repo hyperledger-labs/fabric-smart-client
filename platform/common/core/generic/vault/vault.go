@@ -52,7 +52,7 @@ type Populator interface {
 }
 
 type Marshaller interface {
-	Marshal(rws *ReadWriteSet) ([]byte, error)
+	Marshal(txID string, rws *ReadWriteSet) ([]byte, error)
 	Append(destination *ReadWriteSet, raw []byte, nss ...string) error
 }
 
