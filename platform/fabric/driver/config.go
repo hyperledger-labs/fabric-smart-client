@@ -86,6 +86,7 @@ type Configuration interface {
 type ConfigService interface {
 	Configuration
 	NetworkName() string
+	DriverName() string
 	DefaultChannel() string
 	Channel(name string) ChannelConfig
 	ChannelIDs() []string
