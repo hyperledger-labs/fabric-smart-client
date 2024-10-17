@@ -83,6 +83,16 @@ type ConfigProvider struct {
 	defaultChannelReturnsOnCall map[int]struct {
 		result1 string
 	}
+	DriverNameStub        func() string
+	driverNameMutex       sync.RWMutex
+	driverNameArgsForCall []struct {
+	}
+	driverNameReturns struct {
+		result1 string
+	}
+	driverNameReturnsOnCall map[int]struct {
+		result1 string
+	}
 	GetBoolStub        func(string) bool
 	getBoolMutex       sync.RWMutex
 	getBoolArgsForCall []struct {
@@ -746,6 +756,59 @@ func (fake *ConfigProvider) DefaultChannelReturnsOnCall(i int, result1 string) {
 		})
 	}
 	fake.defaultChannelReturnsOnCall[i] = struct {
+		result1 string
+	}{result1}
+}
+
+func (fake *ConfigProvider) DriverName() string {
+	fake.driverNameMutex.Lock()
+	ret, specificReturn := fake.driverNameReturnsOnCall[len(fake.driverNameArgsForCall)]
+	fake.driverNameArgsForCall = append(fake.driverNameArgsForCall, struct {
+	}{})
+	stub := fake.DriverNameStub
+	fakeReturns := fake.driverNameReturns
+	fake.recordInvocation("DriverName", []interface{}{})
+	fake.driverNameMutex.Unlock()
+	if stub != nil {
+		return stub()
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *ConfigProvider) DriverNameCallCount() int {
+	fake.driverNameMutex.RLock()
+	defer fake.driverNameMutex.RUnlock()
+	return len(fake.driverNameArgsForCall)
+}
+
+func (fake *ConfigProvider) DriverNameCalls(stub func() string) {
+	fake.driverNameMutex.Lock()
+	defer fake.driverNameMutex.Unlock()
+	fake.DriverNameStub = stub
+}
+
+func (fake *ConfigProvider) DriverNameReturns(result1 string) {
+	fake.driverNameMutex.Lock()
+	defer fake.driverNameMutex.Unlock()
+	fake.DriverNameStub = nil
+	fake.driverNameReturns = struct {
+		result1 string
+	}{result1}
+}
+
+func (fake *ConfigProvider) DriverNameReturnsOnCall(i int, result1 string) {
+	fake.driverNameMutex.Lock()
+	defer fake.driverNameMutex.Unlock()
+	fake.DriverNameStub = nil
+	if fake.driverNameReturnsOnCall == nil {
+		fake.driverNameReturnsOnCall = make(map[int]struct {
+			result1 string
+		})
+	}
+	fake.driverNameReturnsOnCall[i] = struct {
 		result1 string
 	}{result1}
 }
@@ -2308,6 +2371,8 @@ func (fake *ConfigProvider) Invocations() map[string][][]interface{} {
 	defer fake.configFileUsedMutex.RUnlock()
 	fake.defaultChannelMutex.RLock()
 	defer fake.defaultChannelMutex.RUnlock()
+	fake.driverNameMutex.RLock()
+	defer fake.driverNameMutex.RUnlock()
 	fake.getBoolMutex.RLock()
 	defer fake.getBoolMutex.RUnlock()
 	fake.getDurationMutex.RLock()

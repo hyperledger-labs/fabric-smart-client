@@ -14,11 +14,10 @@ import (
 	"time"
 
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
-	"github.com/pkg/errors"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -29,6 +28,8 @@ const (
 	defaultNumRetries                 = 3
 	defaultRetrySleep                 = 1 * time.Second
 	defaultCacheSize                  = 100
+
+	GenericDriver = "generic"
 )
 
 var logger = flogging.MustGetLogger("fabric-sdk.core.generic.config")
@@ -44,6 +45,7 @@ var funcTypeMap = map[string]driver.PeerFunctionType{
 type Service struct {
 	driver.Configuration
 	name   string
+	driver string
 	prefix string
 
 	configuredOrderers int
@@ -60,6 +62,10 @@ func NewService(configService driver.Configuration, name string, defaultConfig b
 	}
 	if len(prefix) == 0 && !defaultConfig {
 		return nil, errors.Errorf("configuration for [%s] not found", name)
+	}
+	driver := configService.GetString(fmt.Sprintf("fabric.%sdriver", prefix))
+	if len(driver) == 0 {
+		driver = GenericDriver
 	}
 
 	tlsEnabled := configService.GetBool(fmt.Sprintf("fabric.%stls.enabled", prefix))
@@ -88,6 +94,7 @@ func NewService(configService driver.Configuration, name string, defaultConfig b
 	return &Service{
 		Configuration:      configService,
 		name:               name,
+		driver:             driver,
 		prefix:             prefix,
 		configuredOrderers: len(orderers),
 		orderers:           orderers,
@@ -136,6 +143,10 @@ func readItems[T any](configService driver.Configuration, prefix, key string) ([
 
 func (s *Service) NetworkName() string {
 	return s.name
+}
+
+func (s *Service) DriverName() string {
+	return s.driver
 }
 
 func (s *Service) TLSEnabled() bool {
