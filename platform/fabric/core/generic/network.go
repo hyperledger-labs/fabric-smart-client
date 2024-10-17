@@ -25,7 +25,8 @@ var logger = flogging.MustGetLogger("fabric-sdk.core")
 type NewChannelFunc = func(network driver.FabricNetworkService, name string, quiet bool) (driver.Channel, error)
 
 type Network struct {
-	name string
+	name   string
+	driver string
 
 	configService      driver.ConfigService
 	localMembership    driver.LocalMembership
@@ -55,6 +56,7 @@ func NewNetwork(
 ) (*Network, error) {
 	return &Network{
 		name:            name,
+		driver:          config.DriverName(),
 		configService:   config,
 		ChannelMap:      map[string]driver.Channel{},
 		localMembership: localMembership,
@@ -67,6 +69,10 @@ func NewNetwork(
 
 func (f *Network) Name() string {
 	return f.name
+}
+
+func (f *Network) Driver() string {
+	return f.driver
 }
 
 func (f *Network) Channel(name string) (driver.Channel, error) {

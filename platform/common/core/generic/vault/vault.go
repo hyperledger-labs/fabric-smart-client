@@ -52,7 +52,7 @@ type Populator interface {
 }
 
 type Marshaller interface {
-	Marshal(rws *ReadWriteSet) ([]byte, error)
+	Marshal(txID string, rws *ReadWriteSet) ([]byte, error)
 	Append(destination *ReadWriteSet, raw []byte, nss ...string) error
 }
 
@@ -294,9 +294,10 @@ func (db *Vault[V]) commitRWs(inputs ...commitInput) error {
 		return err
 	}
 
-	db.logger.Debugf("parse writes")
+	db.logger.Debugf("parse writes from [%d] inputs", len(inputs))
 	writes := make(map[driver.Namespace]map[driver.PKey]VersionedValue)
-	for _, input := range inputs {
+	for i, input := range inputs {
+		db.logger.Debugf("input [%d] has [%d] writes", i, len(input.rws.Writes))
 		for ns, ws := range input.rws.Writes {
 			vals := versionedValues(ws, input.block, input.indexInBloc)
 			if nsWrites, ok := writes[ns]; !ok {
@@ -308,7 +309,7 @@ func (db *Vault[V]) commitRWs(inputs ...commitInput) error {
 	}
 
 	if errs := db.storeAllWrites(writes); len(errs) == 0 {
-		db.logger.Debugf("Successfully stored writes for %d namespaces", len(writes))
+		db.logger.Debugf("Successfully stored writes [%v] for [%d] namespaces", writes, len(writes))
 	} else if discarded, err := db.discard("", 0, 0, errs); err != nil {
 		return errors.Wrapf(err, "failed storing writes")
 	} else if discarded {
