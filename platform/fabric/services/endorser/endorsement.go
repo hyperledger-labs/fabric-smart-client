@@ -144,7 +144,7 @@ func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error
 				}
 			}
 			if !verified {
-				return nil, errors.Wrapf(err, "failed to verify signature for party [%s][%s]", endorser.String(), string(endorser))
+				return nil, errors.Errorf("failed to verify signature for party [%s][%s]", endorser.String(), string(endorser))
 			}
 			// Check the content of the response
 			// Now results can be equal to what this node has proposed or different
