@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package endorser
 
 import (
-	"bytes"
 	"encoding/json"
 	"time"
 
@@ -40,10 +39,10 @@ func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error
 	vProviders = append(vProviders, &verifierProviderWrapper{m: mspManager})
 
 	// Get results to send
-	res, err := c.tx.Results()
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed getting tx results")
-	}
+	//res, err := c.tx.Results()
+	//if err != nil {
+	//	return nil, errors.Wrapf(err, "failed getting tx results")
+	//}
 
 	// Contact sequantially all parties.
 	logger.Debugf("Collect Endorsements from [%d] parties [%v]", len(c.parties), c.parties)
@@ -125,32 +124,34 @@ func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error
 				return nil, errors.Wrap(err, "failed unmarshalling received proposal response")
 			}
 
-			endorser := view.Identity(proposalResponse.Endorser())
+			// the signature check should be done by the proposal response to make sure that
+			// platform dependant operation can be performed.
+			//endorser := view.Identity(proposalResponse.Endorser())
 
-			// Check the validity of the response
-			if view2.GetEndpointService(context).IsBoundTo(endorser, party) {
-				found = true
-			}
-
-			// check the verifier providers, if any
-			verified := false
-			for _, provider := range vProviders {
-				span.AddEvent("verify_endorsement")
-				if v, err := provider.GetVerifier(endorser); err == nil {
-					if err := v.Verify(append(proposalResponse.Payload(), endorser...), proposalResponse.EndorserSignature()); err == nil {
-						verified = true
-						break
-					}
-				}
-			}
-			if !verified {
-				return nil, errors.Errorf("failed to verify signature for party [%s][%s]", endorser.String(), string(endorser))
-			}
-			// Check the content of the response
-			// Now results can be equal to what this node has proposed or different
-			if !bytes.Equal(res, proposalResponse.Results()) {
-				return nil, errors.Errorf("received different results")
-			}
+			//// Check the validity of the response
+			//if view2.GetEndpointService(context).IsBoundTo(endorser, party) {
+			//	found = true
+			//}
+			//
+			//// check the verifier providers, if any
+			//verified := false
+			//for _, provider := range vProviders {
+			//	span.AddEvent("verify_endorsement")
+			//	if v, err := provider.GetVerifier(endorser); err == nil {
+			//		if err := v.Verify(append(proposalResponse.Payload(), endorser...), proposalResponse.EndorserSignature()); err == nil {
+			//			verified = true
+			//			break
+			//		}
+			//	}
+			//}
+			//if !verified {
+			//	return nil, errors.Errorf("failed to verify signature for party [%s][%s]", endorser.String(), string(endorser))
+			//}
+			//// Check the content of the response
+			//// Now results can be equal to what this node has proposed or different
+			//if !bytes.Equal(res, proposalResponse.Results()) {
+			//	return nil, errors.Errorf("received different results")
+			//}
 
 			logger.Debugf("append response from party [%s]", party)
 			err = c.tx.AppendProposalResponse(proposalResponse)
