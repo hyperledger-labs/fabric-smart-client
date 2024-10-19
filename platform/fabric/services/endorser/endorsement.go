@@ -112,7 +112,7 @@ func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error
 			return nil, errors.Wrapf(err, "failed unmarshalling response")
 		}
 
-		found := false
+		found := true
 		fns, err := fabric.GetFabricNetworkService(context, c.tx.Network())
 		if err != nil {
 			return nil, errors.WithMessagef(err, "fabric network service [%s] not found", c.tx.Network())
@@ -126,12 +126,12 @@ func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error
 
 			// the signature check should be done by the proposal response to make sure that
 			// platform dependant operation can be performed.
-			//endorser := view.Identity(proposalResponse.Endorser())
+			endorser := view.Identity(proposalResponse.Endorser())
 
 			//// Check the validity of the response
-			//if view2.GetEndpointService(context).IsBoundTo(endorser, party) {
-			//	found = true
-			//}
+			if view2.GetEndpointService(context).IsBoundTo(endorser, party) {
+				found = true
+			}
 			//
 			//// check the verifier providers, if any
 			//verified := false
