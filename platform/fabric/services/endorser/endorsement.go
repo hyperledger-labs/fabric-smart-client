@@ -46,6 +46,7 @@ func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error
 	}
 
 	// Contact sequantially all parties.
+	logger.Debugf("Collect Endorsements from [%d] parties [%v]", len(c.parties), c.parties)
 	for _, party := range c.parties {
 		span.AddEvent("start_collect_endorsement")
 		logger.Debugf("Collect Endorsements On Simulation from [%s]", party)
@@ -104,6 +105,8 @@ func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error
 			return nil, errors.New(string(msg.Payload))
 		}
 
+		logger.Debugf("got response from party [%s]", party)
+
 		// The response contains an array of marshalled ProposalResponse message
 		var responses [][]byte
 		if err := json.Unmarshal(msg.Payload, &responses); err != nil {
@@ -149,6 +152,7 @@ func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error
 				return nil, errors.Errorf("received different results")
 			}
 
+			logger.Debugf("append response from party [%s]", party)
 			err = c.tx.AppendProposalResponse(proposalResponse)
 			if err != nil {
 				return nil, errors.Wrap(err, "failed appending received proposal response")
