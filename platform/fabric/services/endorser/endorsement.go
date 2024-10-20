@@ -27,16 +27,16 @@ type collectEndorsementsView struct {
 func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error) {
 	span := trace.SpanFromContext(context.Context())
 	// Prepare verifiers
-	ch, err := c.tx.FabricNetworkService().Channel(c.tx.Channel())
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed getting channel [%s:%s]", c.tx.Network(), c.tx.Channel())
-	}
-	mspManager := ch.MSPManager()
+	//ch, err := c.tx.FabricNetworkService().Channel(c.tx.Channel())
+	//if err != nil {
+	//	return nil, errors.Wrapf(err, "failed getting channel [%s:%s]", c.tx.Network(), c.tx.Channel())
+	//}
+	////mspManager := ch.MSPManager()
 
-	var vProviders []VerifierProvider
-	vProviders = append(vProviders, c.verifierProviders...)
-	vProviders = append(vProviders, c.tx.verifierProviders...)
-	vProviders = append(vProviders, &verifierProviderWrapper{m: mspManager})
+	//var vProviders []VerifierProvider
+	//vProviders = append(vProviders, c.verifierProviders...)
+	//vProviders = append(vProviders, c.tx.verifierProviders...)
+	//vProviders = append(vProviders, &verifierProviderWrapper{m: mspManager})
 
 	// Get results to send
 	//res, err := c.tx.Results()
@@ -50,6 +50,7 @@ func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error
 		span.AddEvent("start_collect_endorsement")
 		logger.Debugf("Collect Endorsements On Simulation from [%s]", party)
 
+		var err error
 		if context.IsMe(party) {
 			logger.Debugf("This is me %s, endorse locally.", party)
 			// Endorse it
@@ -133,7 +134,7 @@ func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error
 				found = true
 			}
 			//
-			//// check the verifier providers, if any
+			//// TODO: check the verifier providers, if any
 			//verified := false
 			//for _, provider := range vProviders {
 			//	span.AddEvent("verify_endorsement")
@@ -247,10 +248,10 @@ func NewAcceptView(tx *Transaction, ids ...view.Identity) *endorseView {
 	return &endorseView{tx: tx, identities: ids}
 }
 
-type verifierProviderWrapper struct {
-	m *fabric.MSPManager
-}
-
-func (v *verifierProviderWrapper) GetVerifier(identity view.Identity) (view2.Verifier, error) {
-	return v.m.GetVerifier(identity)
-}
+//type verifierProviderWrapper struct {
+//	m *fabric.MSPManager
+//}
+//
+//func (v *verifierProviderWrapper) GetVerifier(identity view.Identity) (view2.Verifier, error) {
+//	return v.m.GetVerifier(identity)
+//}
