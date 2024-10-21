@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package endorser
 
 import (
+	"bytes"
 	"encoding/json"
 	"time"
 
@@ -21,28 +22,28 @@ type collectEndorsementsView struct {
 	tx                *Transaction
 	parties           []view.Identity
 	deleteTransient   bool
-	verifierProviders []VerifierProvider
+	verifierProviders []fabric.VerifierProvider
 }
 
 func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error) {
 	span := trace.SpanFromContext(context.Context())
 	// Prepare verifiers
-	//ch, err := c.tx.FabricNetworkService().Channel(c.tx.Channel())
-	//if err != nil {
-	//	return nil, errors.Wrapf(err, "failed getting channel [%s:%s]", c.tx.Network(), c.tx.Channel())
-	//}
-	////mspManager := ch.MSPManager()
+	ch, err := c.tx.FabricNetworkService().Channel(c.tx.Channel())
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed getting channel [%s:%s]", c.tx.Network(), c.tx.Channel())
+	}
+	mspManager := ch.MSPManager()
 
-	//var vProviders []VerifierProvider
-	//vProviders = append(vProviders, c.verifierProviders...)
-	//vProviders = append(vProviders, c.tx.verifierProviders...)
-	//vProviders = append(vProviders, &verifierProviderWrapper{m: mspManager})
+	var vProviders []fabric.VerifierProvider
+	vProviders = append(vProviders, c.verifierProviders...)
+	vProviders = append(vProviders, c.tx.verifierProviders...)
+	vProviders = append(vProviders, &verifierProviderWrapper{m: mspManager})
 
 	// Get results to send
-	//res, err := c.tx.Results()
-	//if err != nil {
-	//	return nil, errors.Wrapf(err, "failed getting tx results")
-	//}
+	res, err := c.tx.Results()
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed getting tx results")
+	}
 
 	// Contact sequantially all parties.
 	logger.Debugf("Collect Endorsements from [%d] parties [%v]", len(c.parties), c.parties)
@@ -125,34 +126,33 @@ func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error
 				return nil, errors.Wrap(err, "failed unmarshalling received proposal response")
 			}
 
-			// the signature check should be done by the proposal response to make sure that
-			// platform dependant operation can be performed.
 			endorser := view.Identity(proposalResponse.Endorser())
 
-			//// Check the validity of the response
+			// Check the validity of the response
 			if view2.GetEndpointService(context).IsBoundTo(endorser, party) {
 				found = true
 			}
-			//
-			//// TODO: check the verifier providers, if any
-			//verified := false
-			//for _, provider := range vProviders {
-			//	span.AddEvent("verify_endorsement")
-			//	if v, err := provider.GetVerifier(endorser); err == nil {
-			//		if err := v.Verify(append(proposalResponse.Payload(), endorser...), proposalResponse.EndorserSignature()); err == nil {
-			//			verified = true
-			//			break
-			//		}
-			//	}
-			//}
-			//if !verified {
-			//	return nil, errors.Errorf("failed to verify signature for party [%s][%s]", endorser.String(), string(endorser))
-			//}
-			//// Check the content of the response
-			//// Now results can be equal to what this node has proposed or different
-			//if !bytes.Equal(res, proposalResponse.Results()) {
-			//	return nil, errors.Errorf("received different results")
-			//}
+
+			// TODO: check the verifier providers, if any
+			verified := false
+			for _, provider := range vProviders {
+				span.AddEvent("verify_endorsement")
+				err := proposalResponse.VerifyEndorsement(provider)
+				if err == nil {
+					logger.Debugf("endorsement [%s] is valid", endorser)
+					verified = true
+					break
+				}
+				logger.Debugf("endorsement [%s] is invalid, reason [%s]", endorser, err)
+			}
+			if !verified {
+				return nil, errors.Errorf("failed to verify signature for party [%s][%s]", endorser.String(), string(endorser))
+			}
+			// Check the content of the response
+			// Now results can be equal to what this node has proposed or different
+			if !bytes.Equal(res, proposalResponse.Results()) {
+				return nil, errors.Errorf("received different results")
+			}
 
 			logger.Debugf("append response from party [%s]", party)
 			err = c.tx.AppendProposalResponse(proposalResponse)
@@ -168,7 +168,7 @@ func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error
 	return c.tx, nil
 }
 
-func (c *collectEndorsementsView) SetVerifierProviders(p []VerifierProvider) *collectEndorsementsView {
+func (c *collectEndorsementsView) SetVerifierProviders(p []fabric.VerifierProvider) *collectEndorsementsView {
 	c.verifierProviders = p
 	return c
 }
@@ -248,10 +248,10 @@ func NewAcceptView(tx *Transaction, ids ...view.Identity) *endorseView {
 	return &endorseView{tx: tx, identities: ids}
 }
 
-//type verifierProviderWrapper struct {
-//	m *fabric.MSPManager
-//}
-//
-//func (v *verifierProviderWrapper) GetVerifier(identity view.Identity) (view2.Verifier, error) {
-//	return v.m.GetVerifier(identity)
-//}
+type verifierProviderWrapper struct {
+	m *fabric.MSPManager
+}
+
+func (v *verifierProviderWrapper) GetVerifier(identity view.Identity) (fabric.Verifier, error) {
+	return v.m.GetVerifier(identity)
+}

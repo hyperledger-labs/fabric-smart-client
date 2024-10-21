@@ -8,6 +8,8 @@ package transaction
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/hyperledger/fabric-protos-go/peer"
 	"github.com/hyperledger/fabric/protoutil"
 	"github.com/pkg/errors"
@@ -82,4 +84,13 @@ func (p *ProposalResponse) Bytes() ([]byte, error) {
 		return nil, err
 	}
 	return raw, nil
+}
+
+func (p *ProposalResponse) VerifyEndorsement(provider driver.VerifierProvider) error {
+	endorser := view.Identity(p.pr.Endorsement.Endorser)
+	v, err := provider.GetVerifier(endorser)
+	if err != nil {
+		return errors.Wrapf(err, "failed getting verifier for [%s]", endorser)
+	}
+	return v.Verify(append(p.Payload(), endorser...), p.EndorserSignature())
 }
