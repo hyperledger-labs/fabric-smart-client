@@ -60,7 +60,7 @@ func (p *populator) Populate(rws *vault.ReadWriteSet, rwsetBytes []byte, namespa
 // marshaller is the custom marshaller for FabricDEV
 type marshaller struct{}
 
-func (m *marshaller) Marshal(rws *vault.ReadWriteSet) ([]byte, error) {
+func (m *marshaller) Marshal(txID string, rws *vault.ReadWriteSet) ([]byte, error) {
 	panic("implement me")
 }
 

@@ -135,10 +135,7 @@ func (s *LocalMembership) Refresh() error {
 }
 
 // Verifier is an interface which wraps the Verify method.
-type Verifier interface {
-	// Verify verifies the signature over the passed message.
-	Verify(message, sigma []byte) error
-}
+type Verifier = driver.Verifier
 
 type MSPManager struct {
 	ch driver.ChannelMembership

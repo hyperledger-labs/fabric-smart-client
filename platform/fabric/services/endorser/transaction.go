@@ -16,15 +16,11 @@ import (
 	"github.com/pkg/errors"
 )
 
-type VerifierProvider interface {
-	GetVerifier(identity view.Identity) (view2.Verifier, error)
-}
-
 type Transaction struct {
 	view2.ServiceProvider
 
 	Transaction       *fabric.Transaction
-	verifierProviders []VerifierProvider
+	verifierProviders []fabric.VerifierProvider
 }
 
 func (t *Transaction) ID() string {
@@ -218,7 +214,7 @@ func (t *Transaction) FabricNetworkService() *fabric.NetworkService {
 	return t.Transaction.FabricNetworkService()
 }
 
-func (t *Transaction) AppendVerifierProvider(vp VerifierProvider) {
+func (t *Transaction) AppendVerifierProvider(vp fabric.VerifierProvider) {
 	t.verifierProviders = append(t.verifierProviders, vp)
 }
 

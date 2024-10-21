@@ -14,6 +14,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
+type VerifierProvider = driver.VerifierProvider
+
 type TransactionType = driver.TransactionType
 
 const (
@@ -124,6 +126,10 @@ func (r *ProposalResponse) Results() []byte {
 
 func (r *ProposalResponse) Bytes() ([]byte, error) {
 	return r.pr.Bytes()
+}
+
+func (r *ProposalResponse) VerifyEndorsement(provider VerifierProvider) error {
+	return r.pr.VerifyEndorsement(provider)
 }
 
 type Proposal struct {

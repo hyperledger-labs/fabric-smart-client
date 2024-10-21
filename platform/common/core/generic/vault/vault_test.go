@@ -96,7 +96,7 @@ func (p *populator) Populate(rws *ReadWriteSet, rwsetBytes []byte, namespaces ..
 
 type marshaller struct{}
 
-func (m *marshaller) Marshal(rws *ReadWriteSet) ([]byte, error) {
+func (m *marshaller) Marshal(txID string, rws *ReadWriteSet) ([]byte, error) {
 	return json.Marshal(rws)
 }
 

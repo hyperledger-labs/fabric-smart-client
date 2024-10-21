@@ -349,7 +349,7 @@ func (i *Interceptor[V]) AppendRWSet(raw []byte, nss ...string) error {
 }
 
 func (i *Interceptor[V]) Bytes() ([]byte, error) {
-	return i.Marshaller.Marshal(&i.Rws)
+	return i.Marshaller.Marshal(i.TxID, &i.Rws)
 }
 
 func (i *Interceptor[V]) Equals(other interface{}, nss ...string) error {

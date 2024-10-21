@@ -10,6 +10,12 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
+// VerifierProvider returns a Verifier for the passed identity
+type VerifierProvider interface {
+	// GetVerifier returns a Verifier for the passed identity
+	GetVerifier(identity view.Identity) (Verifier, error)
+}
+
 type SigningIdentity interface {
 	Serialize() ([]byte, error)
 	Sign(msg []byte) ([]byte, error)

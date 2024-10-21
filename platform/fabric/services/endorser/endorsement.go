@@ -22,7 +22,7 @@ type collectEndorsementsView struct {
 	tx                *Transaction
 	parties           []view.Identity
 	deleteTransient   bool
-	verifierProviders []VerifierProvider
+	verifierProviders []fabric.VerifierProvider
 }
 
 func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error) {
@@ -34,7 +34,7 @@ func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error
 	}
 	mspManager := ch.MSPManager()
 
-	var vProviders []VerifierProvider
+	var vProviders []fabric.VerifierProvider
 	vProviders = append(vProviders, c.verifierProviders...)
 	vProviders = append(vProviders, c.tx.verifierProviders...)
 	vProviders = append(vProviders, &verifierProviderWrapper{m: mspManager})
@@ -46,10 +46,12 @@ func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error
 	}
 
 	// Contact sequantially all parties.
+	logger.Debugf("Collect Endorsements from [%d] parties [%v]", len(c.parties), c.parties)
 	for _, party := range c.parties {
 		span.AddEvent("start_collect_endorsement")
 		logger.Debugf("Collect Endorsements On Simulation from [%s]", party)
 
+		var err error
 		if context.IsMe(party) {
 			logger.Debugf("This is me %s, endorse locally.", party)
 			// Endorse it
@@ -104,13 +106,15 @@ func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error
 			return nil, errors.New(string(msg.Payload))
 		}
 
+		logger.Debugf("got response from party [%s]", party)
+
 		// The response contains an array of marshalled ProposalResponse message
 		var responses [][]byte
 		if err := json.Unmarshal(msg.Payload, &responses); err != nil {
 			return nil, errors.Wrapf(err, "failed unmarshalling response")
 		}
 
-		found := false
+		found := true
 		fns, err := fabric.GetFabricNetworkService(context, c.tx.Network())
 		if err != nil {
 			return nil, errors.WithMessagef(err, "fabric network service [%s] not found", c.tx.Network())
@@ -129,19 +133,20 @@ func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error
 				found = true
 			}
 
-			// check the verifier providers, if any
+			// TODO: check the verifier providers, if any
 			verified := false
 			for _, provider := range vProviders {
 				span.AddEvent("verify_endorsement")
-				if v, err := provider.GetVerifier(endorser); err == nil {
-					if err := v.Verify(append(proposalResponse.Payload(), endorser...), proposalResponse.EndorserSignature()); err == nil {
-						verified = true
-						break
-					}
+				err := proposalResponse.VerifyEndorsement(provider)
+				if err == nil {
+					logger.Debugf("endorsement [%s] is valid", endorser)
+					verified = true
+					break
 				}
+				logger.Debugf("endorsement [%s] is invalid, reason [%s]", endorser, err)
 			}
 			if !verified {
-				return nil, errors.Wrapf(err, "failed to verify signature for party [%s][%s]", endorser.String(), string(endorser))
+				return nil, errors.Errorf("failed to verify signature for party [%s][%s]", endorser.String(), string(endorser))
 			}
 			// Check the content of the response
 			// Now results can be equal to what this node has proposed or different
@@ -149,6 +154,7 @@ func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error
 				return nil, errors.Errorf("received different results")
 			}
 
+			logger.Debugf("append response from party [%s]", party)
 			err = c.tx.AppendProposalResponse(proposalResponse)
 			if err != nil {
 				return nil, errors.Wrap(err, "failed appending received proposal response")
@@ -162,7 +168,7 @@ func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error
 	return c.tx, nil
 }
 
-func (c *collectEndorsementsView) SetVerifierProviders(p []VerifierProvider) *collectEndorsementsView {
+func (c *collectEndorsementsView) SetVerifierProviders(p []fabric.VerifierProvider) *collectEndorsementsView {
 	c.verifierProviders = p
 	return c
 }
@@ -246,6 +252,6 @@ type verifierProviderWrapper struct {
 	m *fabric.MSPManager
 }
 
-func (v *verifierProviderWrapper) GetVerifier(identity view.Identity) (view2.Verifier, error) {
+func (v *verifierProviderWrapper) GetVerifier(identity view.Identity) (fabric.Verifier, error) {
 	return v.m.GetVerifier(identity)
 }
