@@ -10,6 +10,8 @@ import (
 	"context"
 	"time"
 
+	cviews "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/views"
+
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
@@ -58,7 +60,7 @@ func UpdateIOUWithBorrower(ii *integration.Infrastructure, borrower, iouStateID 
 	)
 	Expect(err).NotTo(HaveOccurred())
 	txID := common.JSONUnmarshalString(txIDBoxed)
-	_, err = ii.Client("lender").CallView("finality", common.JSONMarshall(views.Finality{TxID: txID}))
+	_, err = ii.Client("lender").CallView("finality", common.JSONMarshall(cviews.Finality{TxID: txID}))
 	Expect(err).NotTo(HaveOccurred())
 }
 

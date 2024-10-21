@@ -9,6 +9,7 @@ package fsc
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/fsc/views"
+	cviews "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
@@ -38,14 +39,14 @@ func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType, replicationOpts *
 		RegisterResponder(&views.ApproverView{}, &views.AgreeToSellView{}).
 		RegisterResponder(&views.ApproverView{}, &views.AgreeToBuyView{}).
 		RegisterResponder(&views.ApproverView{}, &views.TransferView{}).
-		RegisterViewFactory("finality", &views.FinalityViewFactory{})
+		RegisterViewFactory("finality", &cviews.FinalityViewFactory{})
 
 	// Issuer
 	fscTopology.AddNodeByName("issuer").
 		AddOptions(fabric.WithOrganization("Org3")).
 		AddOptions(replicationOpts.For("issuer")...).
 		RegisterViewFactory("issue", &views.IssueViewFactory{}).
-		RegisterViewFactory("finality", &views.FinalityViewFactory{})
+		RegisterViewFactory("finality", &cviews.FinalityViewFactory{})
 
 	// Alice
 	fscTopology.AddNodeByName("alice").
@@ -56,7 +57,7 @@ func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType, replicationOpts *
 		RegisterViewFactory("agreeToBuy", &views.AgreeToBuyViewFactory{}).
 		RegisterResponder(&views.AcceptAssetView{}, &views.IssueView{}).
 		RegisterResponder(&views.TransferResponderView{}, &views.TransferView{}).
-		RegisterViewFactory("finality", &views.FinalityViewFactory{})
+		RegisterViewFactory("finality", &cviews.FinalityViewFactory{})
 
 	// Bob
 	fscTopology.AddNodeByName("bob").
@@ -67,7 +68,7 @@ func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType, replicationOpts *
 		RegisterViewFactory("agreeToBuy", &views.AgreeToBuyViewFactory{}).
 		RegisterResponder(&views.AcceptAssetView{}, &views.IssueView{}).
 		RegisterResponder(&views.TransferResponderView{}, &views.TransferView{}).
-		RegisterViewFactory("finality", &views.FinalityViewFactory{})
+		RegisterViewFactory("finality", &cviews.FinalityViewFactory{})
 
 	// Add Fabric SDK to FSC Nodes
 	fscTopology.AddSDK(sdk)
