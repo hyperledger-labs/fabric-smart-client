@@ -35,6 +35,7 @@ type ProposalResponse interface {
 	ResponseStatus() int32
 	ResponseMessage() string
 	Bytes() ([]byte, error)
+	VerifyEndorsement(provider VerifierProvider) error
 }
 
 type Proposal interface {

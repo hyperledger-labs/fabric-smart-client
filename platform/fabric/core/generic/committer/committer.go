@@ -736,36 +736,36 @@ func (c *Committer) commit(ctx context.Context, txID string, block uint64, index
 			c.logger.Errorf("[%s] failed to unmarshal envelope [%s]", txID, err)
 			return err
 		}
-		//if headerType == int32(common.HeaderType_ENDORSER_TRANSACTION) {
-		if !c.Vault.RWSExists(txID) && c.EnvelopeService.Exists(txID) {
-			// Then match rwsets
-			span.AddEvent("extract_stored_env_to_vault")
-			if err := c.extractStoredEnvelopeToVault(txID); err != nil {
-				return errors.WithMessagef(err, "failed to load stored enveloper into the vault")
+		if headerType == int32(common.HeaderType_ENDORSER_TRANSACTION) {
+			if !c.Vault.RWSExists(txID) && c.EnvelopeService.Exists(txID) {
+				// Then match rwsets
+				span.AddEvent("extract_stored_env_to_vault")
+				if err := c.extractStoredEnvelopeToVault(txID); err != nil {
+					return errors.WithMessagef(err, "failed to load stored enveloper into the vault")
+				}
+				span.AddEvent("match_rwset")
+				if err := c.Vault.Match(txID, pt.Results()); err != nil {
+					c.logger.Errorf("[%s] rwsets do not match [%s]", txID, err)
+					return errors2.Wrapf(ErrDiscardTX, "[%s] rwsets do not match [%s]", txID, err)
+				}
+			} else {
+				// Store it
+				envelopeRaw, err := proto.Marshal(envelope)
+				if err != nil {
+					return errors.WithMessagef(err, "failed to store unknown envelope for [%s]", txID)
+				}
+				span.AddEvent("store_env")
+				if err := c.EnvelopeService.StoreEnvelope(txID, envelopeRaw); err != nil {
+					return errors.WithMessagef(err, "failed to store unknown envelope for [%s]", txID)
+				}
+				span.AddEvent("get_rwset_from_evn")
+				rws, _, err := c.RWSetLoaderService.GetRWSetFromEvn(txID)
+				if err != nil {
+					return errors.WithMessagef(err, "failed to get rws from envelope [%s]", txID)
+				}
+				rws.Done()
 			}
-			span.AddEvent("match_rwset")
-			if err := c.Vault.Match(txID, pt.Results()); err != nil {
-				c.logger.Errorf("[%s] rwsets do not match [%s]", txID, err)
-				return errors2.Wrapf(ErrDiscardTX, "[%s] rwsets do not match [%s]", txID, err)
-			}
-		} else {
-			// Store it
-			envelopeRaw, err := proto.Marshal(envelope)
-			if err != nil {
-				return errors.WithMessagef(err, "failed to store unknown envelope for [%s]", txID)
-			}
-			span.AddEvent("store_env")
-			if err := c.EnvelopeService.StoreEnvelope(txID, envelopeRaw); err != nil {
-				return errors.WithMessagef(err, "failed to store unknown envelope for [%s]", txID)
-			}
-			span.AddEvent("get_rwset_from_evn")
-			rws, _, err := c.RWSetLoaderService.GetRWSetFromEvn(txID)
-			if err != nil {
-				return errors.WithMessagef(err, "failed to get rws from envelope [%s]", txID)
-			}
-			rws.Done()
 		}
-		//}
 	}
 
 	// Post-Processes
