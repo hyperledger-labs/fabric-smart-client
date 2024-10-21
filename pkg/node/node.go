@@ -14,7 +14,6 @@ import (
 	"runtime/debug"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/api"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/config"
 	tracing2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/tracing"
@@ -196,25 +195,6 @@ func (n *node) ResolveIdentities(endpoints ...string) ([]view.Identity, error) {
 	return ids, nil
 }
 
-func (n *node) IsTxFinal(txID string, opts ...api.ServiceOption) error {
-	options, err := api.CompileServiceOptions(opts...)
-	if err != nil {
-		return errors.Wrapf(err, "failed to compile service options")
-	}
-	c := context.Background()
-	if options.Timeout != 0 {
-		var cancel context.CancelFunc
-		c, cancel = context.WithTimeout(c, options.Timeout)
-		defer cancel()
-	}
-	// TODO: network might refer to orion
-	_, ch, err := fabric.GetChannel(n.registry, options.Network, options.Channel)
-	if err != nil {
-		return err
-	}
-	return ch.Finality().IsFinal(c, txID)
-}
-
 func (n *node) getTracer() trace.Tracer {
 	if n.tracer == nil {
 		n.tracer = tracing2.Get(n.registry).Tracer("node_view_client", tracing.WithMetricsOpts(tracing.MetricsOpts{
@@ -300,9 +280,5 @@ func (n *node) Context(contextID string) (view.Context, error) {
 }
 
 func (n *node) Initiate(fid string, in []byte) (string, error) {
-	panic("implement me")
-}
-
-func (n *node) Track(cid string) string {
 	panic("implement me")
 }

@@ -8,6 +8,7 @@ package iou
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
+	cviews "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
@@ -43,7 +44,8 @@ func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType, replicationOpts *
 		AddOptions(replicationOpts.For("approver1")...).
 		RegisterResponder(&views.ApproverView{}, &views.CreateIOUView{}).
 		RegisterResponder(&views.ApproverView{}, &views.UpdateIOUView{}).
-		RegisterViewFactory("init", &views.ApproverInitViewFactory{})
+		RegisterViewFactory("init", &views.ApproverInitViewFactory{}).
+		RegisterViewFactory("finality", &cviews.FinalityViewFactory{})
 
 	// Add another approver as well
 	fscTopology.AddNodeByName("approver2").
@@ -53,7 +55,8 @@ func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType, replicationOpts *
 		AddOptions(replicationOpts.For("approver2")...).
 		RegisterResponder(&views.ApproverView{}, &views.CreateIOUView{}).
 		RegisterResponder(&views.ApproverView{}, &views.UpdateIOUView{}).
-		RegisterViewFactory("init", &views.ApproverInitViewFactory{})
+		RegisterViewFactory("init", &views.ApproverInitViewFactory{}).
+		RegisterViewFactory("finality", &cviews.FinalityViewFactory{})
 
 	// Add the borrower's FSC node
 	fscTopology.AddNodeByName("borrower").
@@ -61,7 +64,8 @@ func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType, replicationOpts *
 		AddOptions(replicationOpts.For("borrower")...).
 		RegisterViewFactory("create", &views.CreateIOUViewFactory{}).
 		RegisterViewFactory("update", &views.UpdateIOUViewFactory{}).
-		RegisterViewFactory("query", &views.QueryViewFactory{})
+		RegisterViewFactory("query", &views.QueryViewFactory{}).
+		RegisterViewFactory("finality", &cviews.FinalityViewFactory{})
 
 	// Add the lender's FSC node
 	fscTopology.AddNodeByName("lender").
@@ -69,7 +73,8 @@ func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType, replicationOpts *
 		AddOptions(replicationOpts.For("lender")...).
 		RegisterResponder(&views.CreateIOUResponderView{}, &views.CreateIOUView{}).
 		RegisterResponder(&views.UpdateIOUResponderView{}, &views.UpdateIOUView{}).
-		RegisterViewFactory("query", &views.QueryViewFactory{})
+		RegisterViewFactory("query", &views.QueryViewFactory{}).
+		RegisterViewFactory("finality", &cviews.FinalityViewFactory{})
 
 	// Monitoring
 	monitoringTopology := monitoring.NewTopology()
