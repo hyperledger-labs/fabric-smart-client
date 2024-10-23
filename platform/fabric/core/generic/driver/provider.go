@@ -9,12 +9,6 @@ package driver
 import (
 	"fmt"
 
-	committer2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/committer"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/ledger"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/rwset"
-
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/identity"
@@ -22,16 +16,11 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/sig"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/vault"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	vdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
-	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
-	"go.opentelemetry.io/otel/trace"
 )
 
 var logger = flogging.MustGetLogger("fabric-sdk.core.generic.driver")
@@ -57,28 +46,11 @@ func NewProvider(
 	deserializerManager driver.DeserializerManager,
 	idProvider vdriver.IdentityProvider,
 	kvss *kvs.KVS,
-	publisher events.Publisher,
-	hasher hash.Hasher,
-	tracerProvider trace.TracerProvider,
-	Drivers []dbdriver.NamedDriver,
+	channelProvider generic.ChannelProvider,
 ) *Provider {
 	return &Provider{
-		configProvider: configProvider,
-		channelProvider: generic.NewChannelProvider(
-			kvss,
-			publisher,
-			hasher,
-			tracerProvider,
-			metricsProvider,
-			Drivers,
-			vault.New,
-			generic.NewChannelConfigProvider(configProvider),
-			committer2.NewFinalityListenerManagerProvider[fdriver.ValidationCode](tracerProvider),
-			committer.NewSerialDependencyResolver(),
-			ledger.New,
-			rwset.NewLoader,
-			committer.New,
-		),
+		configProvider:      configProvider,
+		channelProvider:     channelProvider,
 		identityProvider:    identity.NewProvider(configProvider, endpointService),
 		metricsProvider:     metricsProvider,
 		endpointService:     endpointService,
