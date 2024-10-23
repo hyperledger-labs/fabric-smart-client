@@ -62,6 +62,7 @@ func (p *SDK) Install() error {
 		p.Container().Provide(config.NewProvider),
 		p.Container().Provide(committer.NewFinalityListenerManagerProvider[driver.ValidationCode], dig.As(new(driver.ListenerManagerProvider))),
 		p.Container().Provide(generic2.NewDriver, dig.Group("fabric-platform-drivers")),
+		p.Container().Provide(generic2.NewMSPManagerProvider),
 		p.Container().Provide(generic2.NewChannelProvider, dig.Name("generic-channel-provider")),
 		p.Container().Provide(finality2.NewHandler, dig.Group("finality-handlers")),
 		p.Container().Provide(fns.NewProvider),

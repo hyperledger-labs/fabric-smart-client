@@ -55,6 +55,7 @@ func NewDriver(in struct {
 	IdProvider          vdriver.IdentityProvider
 	KVS                 *kvs.KVS
 	ChannelProvider     generic.ChannelProvider `name:"generic-channel-provider"`
+	MSPManagerProvider  gdriver.MSPManagerProvider
 }) core.NamedDriver {
 	d := core.NamedDriver{
 		Name: "generic",
@@ -63,13 +64,24 @@ func NewDriver(in struct {
 			in.MetricsProvider,
 			in.EndpointService,
 			in.SigService,
-			in.DeserializerManager,
-			in.IdProvider,
-			in.KVS,
 			in.ChannelProvider,
+			in.MSPManagerProvider,
 		),
 	}
 	return d
+}
+
+func NewMSPManagerProvider(in struct {
+	dig.In
+	ConfigProvider      config.Provider
+	EndpointService     vdriver.EndpointService
+	SigService          *sig.Service
+	IdentityLoaders     []gdriver.NamedIdentityLoader `group:"identity-loaders"`
+	DeserializerManager mspdriver.DeserializerManager
+	IdProvider          vdriver.IdentityProvider
+	KVS                 *kvs.KVS
+}) gdriver.MSPManagerProvider {
+	return gdriver.NewLocalMSPManagerProvider(in.ConfigProvider, in.EndpointService, in.SigService, in.IdentityLoaders, in.DeserializerManager, in.IdProvider, in.KVS)
 }
 
 func NewChannelProvider(in struct {
