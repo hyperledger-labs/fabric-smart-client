@@ -32,7 +32,7 @@ func NewLoader(
 	transactionService driver.EndorserTransactionService,
 	transactionManager driver.TransactionManager,
 	vault driver.RWSetInspector,
-) *Loader {
+) driver.RWSetLoader {
 	return &Loader{
 		Network:            network,
 		Channel:            channel,

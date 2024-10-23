@@ -36,7 +36,7 @@ func New(
 	localMembership driver.LocalMembership,
 	configService driver.ConfigService,
 	transactionManager driver.TransactionManager,
-) *Ledger {
+) driver.Ledger {
 	return &Ledger{
 		ChannelName:        channelName,
 		ChaincodeManager:   chaincodeManager,
