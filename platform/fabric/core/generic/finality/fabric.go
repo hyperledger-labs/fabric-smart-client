@@ -37,6 +37,7 @@ type FabricFinality struct {
 	DefaultSigningIdentity driver.SigningIdentity
 	Hasher                 Hasher
 	WaitForEventTimeout    time.Duration
+	useFiltered            bool
 }
 
 func NewFabricFinality(
@@ -46,6 +47,7 @@ func NewFabricFinality(
 	defaultSigningIdentity driver.SigningIdentity,
 	hasher Hasher,
 	waitForEventTimeout time.Duration,
+	useFiltered bool,
 ) (*FabricFinality, error) {
 	if len(channel) == 0 {
 		return nil, errors.Errorf("expected a channel, got empty string")
@@ -58,6 +60,7 @@ func NewFabricFinality(
 		DefaultSigningIdentity: defaultSigningIdentity,
 		Hasher:                 hasher,
 		WaitForEventTimeout:    waitForEventTimeout,
+		useFiltered:            useFiltered,
 	}
 
 	return d, nil
@@ -84,7 +87,12 @@ func (d *FabricFinality) IsFinal(txID string, address string) error {
 
 	ctx, cancelFunc = context.WithTimeout(context.Background(), d.WaitForEventTimeout)
 	defer cancelFunc()
-	deliverStream, err := deliverClient.NewDeliverFiltered(ctx)
+	var deliverStream delivery.DeliverFiltered
+	if d.useFiltered {
+		deliverStream, err = deliverClient.NewDeliverFiltered(ctx)
+	} else {
+		deliverStream, err = deliverClient.NewDeliver(ctx)
+	}
 	if err != nil {
 		return err
 	}

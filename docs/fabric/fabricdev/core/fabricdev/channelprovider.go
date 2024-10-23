@@ -100,6 +100,7 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 		nw.LocalMembership().DefaultSigningIdentity(),
 		p.hasher,
 		channelConfig.FinalityWaitTimeout(),
+		true,
 	)
 	if err != nil {
 		return nil, err

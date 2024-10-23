@@ -7,13 +7,18 @@ SPDX-License-Identifier: Apache-2.0
 package generic
 
 import (
+	committer2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/committer"
 	digutils "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
 	gdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/config"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/ledger"
 	mspdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/rwset"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/sig"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	vdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
@@ -49,10 +54,8 @@ func NewDriver(in struct {
 	DeserializerManager mspdriver.DeserializerManager
 	IdProvider          vdriver.IdentityProvider
 	KVS                 *kvs.KVS
-	Publisher           events.Publisher
-	Hasher              hash.Hasher
-	TracerProvider      trace.TracerProvider
-	Drivers             []dbdriver.NamedDriver `group:"db-drivers"`
+	ChannelProvider     generic.ChannelProvider       `name:"generic-channel-provider"`
+	IdentityLoaders     []gdriver.NamedIdentityLoader `group:"identity-loaders"`
 }) core.NamedDriver {
 	d := core.NamedDriver{
 		Name: "generic",
@@ -61,14 +64,44 @@ func NewDriver(in struct {
 			in.MetricsProvider,
 			in.EndpointService,
 			in.SigService,
+			in.ChannelProvider,
 			in.DeserializerManager,
 			in.IdProvider,
+			in.IdentityLoaders,
 			in.KVS,
-			in.Publisher,
-			in.Hasher,
-			in.TracerProvider,
-			in.Drivers,
 		),
 	}
 	return d
+}
+
+func NewChannelProvider(in struct {
+	dig.In
+	ConfigProvider  config.Provider
+	KVS             *kvs.KVS
+	Publisher       events.Publisher
+	Hasher          hash.Hasher
+	TracerProvider  trace.TracerProvider
+	Drivers         []dbdriver.NamedDriver `group:"db-drivers"`
+	MetricsProvider metrics.Provider
+}) generic.ChannelProvider {
+	return generic.NewChannelProvider(
+		in.KVS,
+		in.Publisher,
+		in.Hasher,
+		in.TracerProvider,
+		in.MetricsProvider,
+		in.Drivers,
+		vault.New,
+		generic.NewChannelConfigProvider(in.ConfigProvider),
+		committer2.NewFinalityListenerManagerProvider[driver.ValidationCode](in.TracerProvider),
+		committer.NewSerialDependencyResolver(),
+		func(channelName string, chaincodeManager driver.ChaincodeManager, localMembership driver.LocalMembership, configService driver.ConfigService, transactionManager driver.TransactionManager) driver.Ledger {
+			return ledger.New(channelName, chaincodeManager, localMembership, configService, transactionManager)
+		},
+		func(network string, channel string, envelopeService driver.EnvelopeService, transactionService driver.EndorserTransactionService, transactionManager driver.TransactionManager, vault driver.RWSetInspector) driver.RWSetLoader {
+			return rwset.NewLoader(network, channel, envelopeService, transactionService, transactionManager, vault)
+		},
+		committer.New,
+		true,
+	)
 }
