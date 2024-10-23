@@ -9,10 +9,6 @@ package driver
 import (
 	"fmt"
 
-	committer2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/committer"
-
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/identity"
@@ -20,31 +16,22 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/sig"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/vault"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	vdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
-	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
-	"go.opentelemetry.io/otel/trace"
 )
 
 var logger = flogging.MustGetLogger("fabric-sdk.core.generic.driver")
 
 type Provider struct {
-	configProvider      config.Provider
-	identityProvider    identity.Provider
-	metricsProvider     metrics.Provider
-	endpointService     driver.BinderService
-	channelProvider     generic.ChannelProvider
-	sigService          *sig.Service
-	identityLoaders     map[string]driver.IdentityLoader
-	deserializerManager driver.DeserializerManager
-	idProvider          vdriver.IdentityProvider
-	kvss                *kvs.KVS
+	configProvider     config.Provider
+	identityProvider   identity.Provider
+	metricsProvider    metrics.Provider
+	channelProvider    generic.ChannelProvider
+	sigService         *sig.Service
+	mspManagerProvider MSPManagerProvider
 }
 
 func NewProvider(
@@ -52,41 +39,76 @@ func NewProvider(
 	metricsProvider metrics.Provider,
 	endpointService identity.EndpointService,
 	sigService *sig.Service,
+	channelProvider generic.ChannelProvider,
 	deserializerManager driver.DeserializerManager,
 	idProvider vdriver.IdentityProvider,
+	identityLoaders []NamedIdentityLoader,
 	kvss *kvs.KVS,
-	publisher events.Publisher,
-	hasher hash.Hasher,
-	tracerProvider trace.TracerProvider,
-	Drivers []dbdriver.NamedDriver,
 ) *Provider {
 	return &Provider{
-		configProvider: configProvider,
-		channelProvider: generic.NewChannelProvider(
-			kvss,
-			publisher,
-			hasher,
-			tracerProvider,
-			metricsProvider,
-			Drivers,
-			vault.New,
-			generic.NewChannelConfigProvider(configProvider),
-			committer2.NewFinalityListenerManagerProvider[fdriver.ValidationCode](tracerProvider),
-			committer.NewSerialDependencyResolver(),
-		),
-		identityProvider:    identity.NewProvider(configProvider, endpointService),
-		metricsProvider:     metricsProvider,
+		configProvider:     configProvider,
+		channelProvider:    channelProvider,
+		identityProvider:   identity.NewProvider(configProvider, endpointService),
+		metricsProvider:    metricsProvider,
+		sigService:         sigService,
+		mspManagerProvider: NewMSPManagerProvider(configProvider, endpointService, sigService, identityLoaders, deserializerManager, idProvider, kvss),
+	}
+}
+
+func NewMSPManagerProvider(configProvider config.Provider, endpointService identity.EndpointService, sigService *sig.Service, identityLoaders []NamedIdentityLoader, deserializerManager driver.DeserializerManager, idProvider vdriver.IdentityProvider, kvss *kvs.KVS) *localMSPManagerProvider {
+	return &localMSPManagerProvider{
+		configProvider:      configProvider,
 		endpointService:     endpointService,
 		sigService:          sigService,
-		identityLoaders:     map[string]driver.IdentityLoader{},
+		identityLoaders:     identityLoaders,
 		deserializerManager: deserializerManager,
 		idProvider:          idProvider,
 		kvss:                kvss,
 	}
 }
 
-func (d *Provider) RegisterIdentityLoader(typ string, loader driver.IdentityLoader) {
-	d.identityLoaders[typ] = loader
+type NamedIdentityLoader struct {
+	Name string
+	driver.IdentityLoader
+}
+
+type MSPManagerProvider interface {
+	New(network string) (fdriver.LocalMembership, error)
+}
+
+type localMSPManagerProvider struct {
+	configProvider      config.Provider
+	endpointService     driver.BinderService
+	sigService          *sig.Service
+	identityLoaders     []NamedIdentityLoader
+	deserializerManager driver.DeserializerManager
+	idProvider          vdriver.IdentityProvider
+	kvss                *kvs.KVS
+}
+
+func (p *localMSPManagerProvider) New(network string) (fdriver.LocalMembership, error) {
+	genericConfig, err := p.configProvider.GetConfig(network)
+	if err != nil {
+		return nil, err
+	}
+
+	// Local MSP Manager
+	mspService := msp.NewLocalMSPManager(
+		genericConfig,
+		p.kvss,
+		p.sigService,
+		p.endpointService,
+		p.idProvider.DefaultIdentity(),
+		p.deserializerManager,
+		genericConfig.MSPCacheSize(),
+	)
+	for _, loader := range p.identityLoaders {
+		mspService.PutIdentityLoader(loader.Name, loader.IdentityLoader)
+	}
+	if err := mspService.Load(); err != nil {
+		return nil, fmt.Errorf("failed loading local msp service: %w", err)
+	}
+	return mspService, nil
 }
 
 func (d *Provider) New(network string, _ bool) (fdriver.FabricNetworkService, error) {
@@ -103,21 +125,9 @@ func (d *Provider) New(network string, _ bool) (fdriver.FabricNetworkService, er
 		return nil, err
 	}
 
-	// Local MSP Manager
-	mspService := msp.NewLocalMSPManager(
-		genericConfig,
-		d.kvss,
-		d.sigService,
-		d.endpointService,
-		d.idProvider.DefaultIdentity(),
-		d.deserializerManager,
-		genericConfig.MSPCacheSize(),
-	)
-	for idType, loader := range d.identityLoaders {
-		mspService.PutIdentityLoader(idType, loader)
-	}
-	if err := mspService.Load(); err != nil {
-		return nil, fmt.Errorf("failed loading local msp service: %w", err)
+	mspService, err := d.mspManagerProvider.New(network)
+	if err != nil {
+		return nil, err
 	}
 
 	// New Network

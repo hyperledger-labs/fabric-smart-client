@@ -30,6 +30,8 @@ import (
 	"github.com/tedsuo/ifrit/grouper"
 )
 
+const CCEnvDefaultImage = "hyperledger/fabric-ccenv:latest"
+
 var logger = flogging.MustGetLogger("nwo.fabric")
 
 type Orderer struct {
@@ -98,6 +100,7 @@ func (f platformFactory) New(registry api.Context, t api.Topology, builder api.B
 
 type Platform struct {
 	Network *network.Network
+	Docker  *Docker
 }
 
 func NewPlatform(context api.Context, t api.Topology, components BuilderClient) *Platform {
@@ -114,6 +117,7 @@ func NewPlatform(context api.Context, t api.Topology, components BuilderClient) 
 	)
 	p := &Platform{
 		Network: n,
+		Docker:  &Docker{NetworkID: networkID, RequiredImages: []string{CCEnvDefaultImage}},
 	}
 
 	n.AddExtension(fpc.NewExtension(n))
@@ -147,7 +151,7 @@ func (p *Platform) Members() []grouper.Member {
 
 func (p *Platform) PostRun(load bool) {
 	// set up our docker environment for chaincode containers
-	err := p.setupDocker()
+	err := p.Docker.Setup()
 	Expect(err).NotTo(HaveOccurred())
 	p.Network.PostRun(load)
 	if load {
@@ -176,7 +180,7 @@ func (p *Platform) Cleanup() {
 	p.Network.Cleanup()
 
 	// cleanup docker environment
-	err := p.cleanupDocker()
+	err := p.Docker.Cleanup()
 	Expect(err).NotTo(HaveOccurred())
 }
 

@@ -12,6 +12,7 @@ import (
 	"math"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/fabricutils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	grpc2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
@@ -206,6 +207,19 @@ read:
 						}
 						event.Err = errors.Errorf("transaction [%s] status is not valid: %s", tx.Txid, tx.TxValidationCode)
 					}
+					break read
+				}
+			}
+		case *pb.DeliverResponse_Block:
+			for i, tx := range r.Block.Data.Data {
+				_, _, chdr, err := fabricutils.UnmarshalTx(tx)
+				if err != nil {
+					event.Err = errors.Wrapf(err, "error parsing transaction [%d,%d]", r.Block.Header.Number, i)
+					break read
+				} else if chdr.TxId == txid {
+					event.Committed = true
+					event.Block = r.Block.Header.Number
+					event.IndexInBlock = i
 					break read
 				}
 			}
