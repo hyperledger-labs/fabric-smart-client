@@ -13,8 +13,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/delivery"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/finality"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/ledger"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/membership"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/rwset"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
@@ -31,6 +31,40 @@ import (
 )
 
 type VaultConstructor = func(configService driver.ConfigService, channel string, drivers []driver2.NamedDriver, metricsProvider metrics.Provider, tracerProvider trace.TracerProvider) (*vault.Vault, driver.TXIDStore, error)
+type LedgerConstructor func(
+	channelName string,
+	chaincodeManager driver.ChaincodeManager,
+	localMembership driver.LocalMembership,
+	configService driver.ConfigService,
+	transactionManager driver.TransactionManager,
+) driver.Ledger
+type RWSetLoaderConstructor func(
+	network string,
+	channel string,
+	envelopeService driver.EnvelopeService,
+	transactionService driver.EndorserTransactionService,
+	transactionManager driver.TransactionManager,
+	vault driver.RWSetInspector,
+) driver.RWSetLoader
+type CommitterConstructor func(
+	configService driver.ConfigService,
+	channelConfig driver.ChannelConfig,
+	vault driver.Vault,
+	envelopeService driver.EnvelopeService,
+	ledger driver.Ledger,
+	rwsetLoaderService driver.RWSetLoader,
+	processorManager driver.ProcessorManager,
+	eventsPublisher events.Publisher,
+	channelMembershipService *membership.Service,
+	orderingService committer.OrderingService,
+	fabricFinality committer.FabricFinality,
+	transactionManager driver.TransactionManager,
+	dependencyResolver committer.DependencyResolver,
+	quiet bool,
+	listenerManager driver.ListenerManager,
+	tracerProvider trace.TracerProvider,
+	metricsProvider metrics.Provider,
+) *committer.Committer
 
 type ChannelProvider interface {
 	NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver.Channel, error)
@@ -47,6 +81,9 @@ type provider struct {
 	drivers                 []driver2.NamedDriver
 	channelConfigProvider   driver.ChannelConfigProvider
 	listenerManagerProvider driver.ListenerManagerProvider
+	newLedger               LedgerConstructor
+	newRWSetLoader          RWSetLoaderConstructor
+	newCommitter            CommitterConstructor
 }
 
 func NewChannelProvider(
@@ -60,6 +97,9 @@ func NewChannelProvider(
 	channelConfigProvider driver.ChannelConfigProvider,
 	listenerManagerProvider driver.ListenerManagerProvider,
 	dependencyResolver committer.DependencyResolver,
+	newLedger LedgerConstructor,
+	newRWSetLoader RWSetLoaderConstructor,
+	newCommitter CommitterConstructor,
 ) *provider {
 	return &provider{
 		kvss:                    kvss,
@@ -72,6 +112,9 @@ func NewChannelProvider(
 		channelConfigProvider:   channelConfigProvider,
 		listenerManagerProvider: listenerManagerProvider,
 		dependencyResolver:      dependencyResolver,
+		newLedger:               newLedger,
+		newRWSetLoader:          newRWSetLoader,
+		newCommitter:            newCommitter,
 	}
 }
 
@@ -114,7 +157,7 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 	channelMembershipService := membership.NewService()
 
 	// Committers
-	rwSetLoaderService := rwset.NewLoader(nw.Name(), channelName, envelopeService, transactionService, nw.TransactionManager(), vault)
+	rwSetLoaderService := p.newRWSetLoader(nw.Name(), channelName, envelopeService, transactionService, nw.TransactionManager(), vault)
 
 	chaincodeManagerService := chaincode.NewManager(
 		nw.Name(),
@@ -131,7 +174,7 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 		channelMembershipService,
 	)
 
-	ledgerService := ledger.New(
+	ledgerService := p.newLedger(
 		channelName,
 		chaincodeManagerService,
 		nw.LocalMembership(),
@@ -139,7 +182,7 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 		nw.TransactionManager(),
 	)
 
-	committerService := committer.New(
+	committerService := p.newCommitter(
 		nw.ConfigService(),
 		channelConfig,
 		vault,

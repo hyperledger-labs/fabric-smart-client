@@ -10,6 +10,8 @@ import (
 	"fmt"
 
 	committer2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/committer"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/ledger"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/rwset"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
 
@@ -73,6 +75,9 @@ func NewProvider(
 			generic.NewChannelConfigProvider(configProvider),
 			committer2.NewFinalityListenerManagerProvider[fdriver.ValidationCode](tracerProvider),
 			committer.NewSerialDependencyResolver(),
+			ledger.New,
+			rwset.NewLoader,
+			committer.New,
 		),
 		identityProvider:    identity.NewProvider(configProvider, endpointService),
 		metricsProvider:     metricsProvider,
