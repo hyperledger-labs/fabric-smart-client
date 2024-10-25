@@ -201,6 +201,16 @@ type ConfigProvider struct {
 	keepAliveClientTimeoutReturnsOnCall map[int]struct {
 		result1 time.Duration
 	}
+	MSPCacheSizeStub        func() int
+	mSPCacheSizeMutex       sync.RWMutex
+	mSPCacheSizeArgsForCall []struct {
+	}
+	mSPCacheSizeReturns struct {
+		result1 int
+	}
+	mSPCacheSizeReturnsOnCall map[int]struct {
+		result1 int
+	}
 	NetworkNameStub        func() string
 	networkNameMutex       sync.RWMutex
 	networkNameArgsForCall []struct {
@@ -1431,6 +1441,59 @@ func (fake *ConfigProvider) KeepAliveClientTimeoutReturnsOnCall(i int, result1 t
 	}{result1}
 }
 
+func (fake *ConfigProvider) MSPCacheSize() int {
+	fake.mSPCacheSizeMutex.Lock()
+	ret, specificReturn := fake.mSPCacheSizeReturnsOnCall[len(fake.mSPCacheSizeArgsForCall)]
+	fake.mSPCacheSizeArgsForCall = append(fake.mSPCacheSizeArgsForCall, struct {
+	}{})
+	stub := fake.MSPCacheSizeStub
+	fakeReturns := fake.mSPCacheSizeReturns
+	fake.recordInvocation("MSPCacheSize", []interface{}{})
+	fake.mSPCacheSizeMutex.Unlock()
+	if stub != nil {
+		return stub()
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *ConfigProvider) MSPCacheSizeCallCount() int {
+	fake.mSPCacheSizeMutex.RLock()
+	defer fake.mSPCacheSizeMutex.RUnlock()
+	return len(fake.mSPCacheSizeArgsForCall)
+}
+
+func (fake *ConfigProvider) MSPCacheSizeCalls(stub func() int) {
+	fake.mSPCacheSizeMutex.Lock()
+	defer fake.mSPCacheSizeMutex.Unlock()
+	fake.MSPCacheSizeStub = stub
+}
+
+func (fake *ConfigProvider) MSPCacheSizeReturns(result1 int) {
+	fake.mSPCacheSizeMutex.Lock()
+	defer fake.mSPCacheSizeMutex.Unlock()
+	fake.MSPCacheSizeStub = nil
+	fake.mSPCacheSizeReturns = struct {
+		result1 int
+	}{result1}
+}
+
+func (fake *ConfigProvider) MSPCacheSizeReturnsOnCall(i int, result1 int) {
+	fake.mSPCacheSizeMutex.Lock()
+	defer fake.mSPCacheSizeMutex.Unlock()
+	fake.MSPCacheSizeStub = nil
+	if fake.mSPCacheSizeReturnsOnCall == nil {
+		fake.mSPCacheSizeReturnsOnCall = make(map[int]struct {
+			result1 int
+		})
+	}
+	fake.mSPCacheSizeReturnsOnCall[i] = struct {
+		result1 int
+	}{result1}
+}
+
 func (fake *ConfigProvider) NetworkName() string {
 	fake.networkNameMutex.Lock()
 	ret, specificReturn := fake.networkNameReturnsOnCall[len(fake.networkNameArgsForCall)]
@@ -2529,6 +2592,8 @@ func (fake *ConfigProvider) Invocations() map[string][][]interface{} {
 	defer fake.keepAliveClientIntervalMutex.RUnlock()
 	fake.keepAliveClientTimeoutMutex.RLock()
 	defer fake.keepAliveClientTimeoutMutex.RUnlock()
+	fake.mSPCacheSizeMutex.RLock()
+	defer fake.mSPCacheSizeMutex.RUnlock()
 	fake.networkNameMutex.RLock()
 	defer fake.networkNameMutex.RUnlock()
 	fake.newDefaultChannelConfigMutex.RLock()

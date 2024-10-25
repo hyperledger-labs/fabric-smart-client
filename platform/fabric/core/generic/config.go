@@ -25,7 +25,6 @@ func (c *channelConfigProvider) GetChannelConfig(network, channel string) (drive
 		return nil, err
 	}
 
-	//lint:ignore SA4023 Config can be missing
 	if channelConfig := conf.Channel(channel); channelConfig != nil {
 		return channelConfig, nil
 	}
