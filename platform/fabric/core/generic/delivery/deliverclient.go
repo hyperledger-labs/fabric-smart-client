@@ -214,7 +214,8 @@ read:
 			for i, tx := range r.Block.Data.Data {
 				_, _, chdr, err := fabricutils.UnmarshalTx(tx)
 				if err != nil {
-					logger.Warnf("error parsing transaction [%d,%d]: %v", r.Block.Header.Number, i, err)
+					event.Err = errors.Wrapf(err, "error parsing transaction [%d,%d]", r.Block.Header.Number, i)
+					break read
 				} else if chdr.TxId == txid {
 					event.Committed = true
 					event.Block = r.Block.Header.Number
