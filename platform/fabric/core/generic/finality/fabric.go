@@ -84,7 +84,7 @@ func (d *FabricFinality) IsFinal(txID string, address string) error {
 
 	ctx, cancelFunc = context.WithTimeout(context.Background(), d.WaitForEventTimeout)
 	defer cancelFunc()
-	deliverStream, err := deliverClient.NewDeliverFiltered(ctx)
+	deliverStream, err := deliverClient.NewDeliver(ctx)
 	if err != nil {
 		return err
 	}
