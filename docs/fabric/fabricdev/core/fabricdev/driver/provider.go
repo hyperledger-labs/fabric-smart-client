@@ -106,7 +106,7 @@ func (d *Provider) New(network string, _ bool) (fdriver.FabricNetworkService, er
 
 	// Local MSP Manager
 	mspService := msp.NewLocalMSPManager(
-		genericConfig,
+		genericConfig.(driver.Config),
 		d.kvss,
 		d.sigService,
 		d.endpointService,

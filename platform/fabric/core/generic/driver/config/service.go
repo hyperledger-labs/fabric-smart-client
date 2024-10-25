@@ -11,6 +11,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
+	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 )
 
@@ -20,7 +21,7 @@ type provider struct {
 }
 
 type Provider interface {
-	GetConfig(network string) (*config.Service, error)
+	GetConfig(network string) (driver2.ConfigService, error)
 }
 
 func NewCore(config driver.ConfigService) (*core.Config, error) {
@@ -38,6 +39,6 @@ func NewProvider(config driver.ConfigService) (Provider, error) {
 	}, nil
 }
 
-func (p *provider) GetConfig(network string) (*config.Service, error) {
+func (p *provider) GetConfig(network string) (driver2.ConfigService, error) {
 	return config.NewService(p.configService, network, p.defaultName == network)
 }

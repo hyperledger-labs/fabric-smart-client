@@ -116,4 +116,5 @@ type ConfigService interface {
 	KeepAliveClientTimeout() time.Duration
 	NewDefaultChannelConfig(name string) ChannelConfig
 	TLSEnabled() bool
+	MSPCacheSize() int
 }

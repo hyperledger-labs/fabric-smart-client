@@ -91,7 +91,7 @@ func (p *localMSPManagerProvider) New(network string) (fdriver.LocalMembership, 
 
 	// Local MSP Manager
 	mspService := msp.NewLocalMSPManager(
-		genericConfig,
+		genericConfig.(driver.Config),
 		p.kvss,
 		p.sigService,
 		p.endpointService,
