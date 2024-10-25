@@ -20,8 +20,16 @@ type provider struct {
 	defaultName   string
 }
 
+type ConfigService interface {
+	driver2.ConfigService
+	Resolvers() ([]config.Resolver, error)
+	MSPCacheSize() int
+	DefaultMSP() string
+	MSPs() ([]config.MSP, error)
+}
+
 type Provider interface {
-	GetConfig(network string) (driver2.ConfigService, error)
+	GetConfig(network string) (ConfigService, error)
 }
 
 func NewCore(config driver.ConfigService) (*core.Config, error) {
@@ -39,6 +47,6 @@ func NewProvider(config driver.ConfigService) (Provider, error) {
 	}, nil
 }
 
-func (p *provider) GetConfig(network string) (driver2.ConfigService, error) {
+func (p *provider) GetConfig(network string) (ConfigService, error) {
 	return config.NewService(p.configService, network, p.defaultName == network)
 }

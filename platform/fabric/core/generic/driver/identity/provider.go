@@ -43,7 +43,7 @@ func (p *provider) New(network string) (driver.IdentityProvider, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to get config: %w", err)
 	}
-	resolverService, err := endpoint.NewResolverService(c.(endpoint.Config), p.endpointService)
+	resolverService, err := endpoint.NewResolverService(c, p.endpointService)
 	if err != nil {
 		return nil, fmt.Errorf("failed instantiating fabric endpoint resolver: %w", err)
 	}
