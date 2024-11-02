@@ -242,6 +242,16 @@ type ConfigProvider struct {
 	orderersReturnsOnCall map[int]struct {
 		result1 []*grpc.ConnectionConfig
 	}
+	OrderingTLSEnabledStub        func() bool
+	orderingTLSEnabledMutex       sync.RWMutex
+	orderingTLSEnabledArgsForCall []struct {
+	}
+	orderingTLSEnabledReturns struct {
+		result1 bool
+	}
+	orderingTLSEnabledReturnsOnCall map[int]struct {
+		result1 bool
+	}
 	PickOrdererStub        func() *grpc.ConnectionConfig
 	pickOrdererMutex       sync.RWMutex
 	pickOrdererArgsForCall []struct {
@@ -1627,6 +1637,59 @@ func (fake *ConfigProvider) OrderersReturnsOnCall(i int, result1 []*grpc.Connect
 	}{result1}
 }
 
+func (fake *ConfigProvider) OrderingTLSEnabled() bool {
+	fake.orderingTLSEnabledMutex.Lock()
+	ret, specificReturn := fake.orderingTLSEnabledReturnsOnCall[len(fake.orderingTLSEnabledArgsForCall)]
+	fake.orderingTLSEnabledArgsForCall = append(fake.orderingTLSEnabledArgsForCall, struct {
+	}{})
+	stub := fake.OrderingTLSEnabledStub
+	fakeReturns := fake.orderingTLSEnabledReturns
+	fake.recordInvocation("OrderingTLSEnabled", []interface{}{})
+	fake.orderingTLSEnabledMutex.Unlock()
+	if stub != nil {
+		return stub()
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *ConfigProvider) OrderingTLSEnabledCallCount() int {
+	fake.orderingTLSEnabledMutex.RLock()
+	defer fake.orderingTLSEnabledMutex.RUnlock()
+	return len(fake.orderingTLSEnabledArgsForCall)
+}
+
+func (fake *ConfigProvider) OrderingTLSEnabledCalls(stub func() bool) {
+	fake.orderingTLSEnabledMutex.Lock()
+	defer fake.orderingTLSEnabledMutex.Unlock()
+	fake.OrderingTLSEnabledStub = stub
+}
+
+func (fake *ConfigProvider) OrderingTLSEnabledReturns(result1 bool) {
+	fake.orderingTLSEnabledMutex.Lock()
+	defer fake.orderingTLSEnabledMutex.Unlock()
+	fake.OrderingTLSEnabledStub = nil
+	fake.orderingTLSEnabledReturns = struct {
+		result1 bool
+	}{result1}
+}
+
+func (fake *ConfigProvider) OrderingTLSEnabledReturnsOnCall(i int, result1 bool) {
+	fake.orderingTLSEnabledMutex.Lock()
+	defer fake.orderingTLSEnabledMutex.Unlock()
+	fake.OrderingTLSEnabledStub = nil
+	if fake.orderingTLSEnabledReturnsOnCall == nil {
+		fake.orderingTLSEnabledReturnsOnCall = make(map[int]struct {
+			result1 bool
+		})
+	}
+	fake.orderingTLSEnabledReturnsOnCall[i] = struct {
+		result1 bool
+	}{result1}
+}
+
 func (fake *ConfigProvider) PickOrderer() *grpc.ConnectionConfig {
 	fake.pickOrdererMutex.Lock()
 	ret, specificReturn := fake.pickOrdererReturnsOnCall[len(fake.pickOrdererArgsForCall)]
@@ -2401,6 +2464,8 @@ func (fake *ConfigProvider) Invocations() map[string][][]interface{} {
 	defer fake.ordererConnectionPoolSizeMutex.RUnlock()
 	fake.orderersMutex.RLock()
 	defer fake.orderersMutex.RUnlock()
+	fake.orderingTLSEnabledMutex.RLock()
+	defer fake.orderingTLSEnabledMutex.RUnlock()
 	fake.pickOrdererMutex.RLock()
 	defer fake.pickOrdererMutex.RUnlock()
 	fake.pickPeerMutex.RLock()
