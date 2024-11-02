@@ -287,9 +287,11 @@ fabric:
     keepalive:
       interval: 60s
       timeout: 600s
+      connectionTimeout: 10s
     ordering:
       numRetries: 3
       retryInterval: 3s
+      tlsEnabled: true
     peers: {{ range Peers }}
       - address: {{ PeerAddress . "Listen" }}
         connectionTimeout: 10s        

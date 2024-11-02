@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
@@ -30,6 +30,8 @@ const (
 	defaultCacheSize                  = 100
 
 	GenericDriver = "generic"
+
+	DefaultConnectionTimeout = 10 * time.Second
 )
 
 var logger = flogging.MustGetLogger("fabric-sdk.core.generic.config")
@@ -149,6 +151,13 @@ func (s *Service) DriverName() string {
 	return s.driver
 }
 
+func (s *Service) OrderingTLSEnabled() bool {
+	if !s.Configuration.IsSet("ordering.tlsEnabled") {
+		return true
+	}
+	return s.GetBool("ordering.tlsEnabled")
+}
+
 func (s *Service) TLSEnabled() bool {
 	return s.GetBool("tls.enabled")
 }
@@ -162,7 +171,10 @@ func (s *Service) TLSServerHostOverride() string {
 }
 
 func (s *Service) ClientConnTimeout() time.Duration {
-	return s.GetDuration("client.connTimeout")
+	if !s.Configuration.IsSet("keepalive.connectionTimeout") {
+		return DefaultConnectionTimeout
+	}
+	return s.GetDuration("keepalive.connectionTimeout")
 }
 
 func (s *Service) TLSClientKeyFile() string {
@@ -196,8 +208,8 @@ func (s *Service) Orderers() []*grpc.ConnectionConfig {
 	return s.orderers
 }
 
-func (s *Service) VaultPersistenceType() driver2.PersistenceType {
-	return driver2.PersistenceType(s.GetString("vault.persistence.type"))
+func (s *Service) VaultPersistenceType() cdriver.PersistenceType {
+	return cdriver.PersistenceType(s.GetString("vault.persistence.type"))
 }
 
 func (s *Service) VaultPersistencePrefix() string {
