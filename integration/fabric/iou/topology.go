@@ -17,7 +17,14 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/tracing"
 )
 
-func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType, replicationOpts *integration.ReplicationOptions) []api.Topology {
+type Opts struct {
+	SDK                api2.SDK
+	CommType           fsc.P2PCommunicationType
+	ReplicationOpts    *integration.ReplicationOptions
+	OrderingTLSEnabled bool
+}
+
+func Topology(opts *Opts) []api.Topology {
 	// Define a Fabric topology with:
 	// 1. Three organization: Org1, Org2, and Org3
 	// 2. A namespace whose changes can be endorsed by Org1.
@@ -25,14 +32,15 @@ func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType, replicationOpts *
 	fabricTopology.AddOrganizationsByName("Org1", "Org2", "Org3")
 	fabricTopology.SetNamespaceApproverOrgs("Org1")
 	fabricTopology.AddNamespaceWithUnanimity("iou", "Org1")
+	fabricTopology.OrderingTLSEnabled = opts.OrderingTLSEnabled
 
 	// Define an FSC topology with 3 FCS nodes.
 	// One for the approver, one for the borrower, and one for the lender.
 	fscTopology := fsc.NewTopology()
-	fscTopology.P2PCommunicationType = commType
+	fscTopology.P2PCommunicationType = opts.CommType
 	fscTopology.EnablePrometheusMetrics()
 
-	//fscTopology.SetLogging("debug", "")
+	// fscTopology.SetLogging("debug", "")
 	fscTopology.EnableTracing(tracing.Otpl)
 
 	// Add the approver FSC node.
@@ -40,7 +48,7 @@ func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType, replicationOpts *
 		// This option equips the approver's FSC node with an identity belonging to Org1.
 		// Therefore, the approver is an endorser of the Fabric namespace we defined above.
 		AddOptions(fabric.WithOrganization("Org1")).
-		AddOptions(replicationOpts.For("approver1")...).
+		AddOptions(opts.ReplicationOpts.For("approver1")...).
 		RegisterResponder(&views.ApproverView{}, &views.CreateIOUView{}).
 		RegisterResponder(&views.ApproverView{}, &views.UpdateIOUView{}).
 		RegisterViewFactory("init", &views.ApproverInitViewFactory{})
@@ -50,7 +58,7 @@ func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType, replicationOpts *
 		// This option equips the approver's FSC node with an identity belonging to Org1.
 		// Therefore, the approver is an endorser of the Fabric namespace we defined above.
 		AddOptions(fabric.WithOrganization("Org1")).
-		AddOptions(replicationOpts.For("approver2")...).
+		AddOptions(opts.ReplicationOpts.For("approver2")...).
 		RegisterResponder(&views.ApproverView{}, &views.CreateIOUView{}).
 		RegisterResponder(&views.ApproverView{}, &views.UpdateIOUView{}).
 		RegisterViewFactory("init", &views.ApproverInitViewFactory{})
@@ -58,7 +66,7 @@ func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType, replicationOpts *
 	// Add the borrower's FSC node
 	fscTopology.AddNodeByName("borrower").
 		AddOptions(fabric.WithOrganization("Org2")).
-		AddOptions(replicationOpts.For("borrower")...).
+		AddOptions(opts.ReplicationOpts.For("borrower")...).
 		RegisterViewFactory("create", &views.CreateIOUViewFactory{}).
 		RegisterViewFactory("update", &views.UpdateIOUViewFactory{}).
 		RegisterViewFactory("query", &views.QueryViewFactory{})
@@ -66,7 +74,7 @@ func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType, replicationOpts *
 	// Add the lender's FSC node
 	fscTopology.AddNodeByName("lender").
 		AddOptions(fabric.WithOrganization("Org3")).
-		AddOptions(replicationOpts.For("lender")...).
+		AddOptions(opts.ReplicationOpts.For("lender")...).
 		RegisterResponder(&views.CreateIOUResponderView{}, &views.CreateIOUView{}).
 		RegisterResponder(&views.UpdateIOUResponderView{}, &views.UpdateIOUView{}).
 		RegisterViewFactory("query", &views.QueryViewFactory{})
@@ -77,7 +85,7 @@ func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType, replicationOpts *
 	monitoringTopology.EnableOPTL()
 
 	// Add Fabric SDK to FSC Nodes
-	fscTopology.AddSDK(sdk)
+	fscTopology.AddSDK(opts.SDK)
 
 	return []api.Topology{
 		fabricTopology,

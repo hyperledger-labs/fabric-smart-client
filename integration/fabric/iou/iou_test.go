@@ -16,14 +16,21 @@ import (
 
 var _ = Describe("EndToEnd", func() {
 	Describe("IOU Life Cycle With LibP2P", func() {
-		s := NewTestSuite(fsc.LibP2P, integration.NoReplication)
+		s := NewTestSuite(fsc.LibP2P, integration.NoReplication, true)
 		BeforeEach(s.Setup)
 		AfterEach(s.TearDown)
 		It("succeeded", s.TestSucceeded)
 	})
 
 	Describe("IOU Life Cycle With Websockets", func() {
-		s := NewTestSuite(fsc.WebSocket, integration.NoReplication)
+		s := NewTestSuite(fsc.WebSocket, integration.NoReplication, true)
+		BeforeEach(s.Setup)
+		AfterEach(s.TearDown)
+		It("succeeded", s.TestSucceeded)
+	})
+
+	Describe("IOU Life Cycle With Websockets and no Ordering TLS", func() {
+		s := NewTestSuite(fsc.WebSocket, integration.NoReplication, false)
 		BeforeEach(s.Setup)
 		AfterEach(s.TearDown)
 		It("succeeded", s.TestSucceeded)
@@ -39,7 +46,7 @@ var _ = Describe("EndToEnd", func() {
 				"borrower": postgres.DefaultConfig("borrower-db"),
 				"lender":   postgres.DefaultConfig("lender-db"),
 			},
-		})
+		}, true)
 		BeforeEach(s.Setup)
 		AfterEach(s.TearDown)
 		It("succeeded", s.TestSucceededWithReplicas)
@@ -50,9 +57,14 @@ type TestSuite struct {
 	*integration.TestSuite
 }
 
-func NewTestSuite(commType fsc.P2PCommunicationType, nodeOpts *integration.ReplicationOptions) *TestSuite {
-	return &TestSuite{integration.NewTestSuiteWithSQL(nodeOpts.SQLConfigs, func() (*integration.Infrastructure, error) {
-		return integration.Generate(StartPort(), true, integration.ReplaceTemplate(iou.Topology(&iou.SDK{}, commType, nodeOpts))...)
+func NewTestSuite(commType fsc.P2PCommunicationType, nodeOpts *integration.ReplicationOptions, orderingTLSEnabled bool) *TestSuite {
+	return &TestSuite{TestSuite: integration.NewTestSuiteWithSQL(nodeOpts.SQLConfigs, func() (*integration.Infrastructure, error) {
+		return integration.Generate(StartPort(), true, integration.ReplaceTemplate(iou.Topology(&iou.Opts{
+			SDK:                &iou.SDK{},
+			CommType:           commType,
+			ReplicationOpts:    nodeOpts,
+			OrderingTLSEnabled: orderingTLSEnabled,
+		}))...)
 	})}
 }
 
