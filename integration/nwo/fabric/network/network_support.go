@@ -958,7 +958,7 @@ func (n *Network) PeerRunner(p *topology.Peer, env ...string) *runner2.Runner {
 	}, "", fmt.Sprintf("FABRIC_CFG_PATH=%s", n.PeerDir(p)), fmt.Sprintf("CORE_PEER_ID=%s", fmt.Sprintf("%s.%s", p.Name, n.Organization(p.Organization).Domain)))
 
 	cmd.Env = append(cmd.Env, env...)
-	//cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	// cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
 	config := runner2.Config{
 		AnsiColorCode:     n.nextColor(),
@@ -1539,6 +1539,7 @@ func (n *Network) GenerateOrdererConfig(o *topology.Orderer) {
 		"Orderer":    func() *topology.Orderer { return o },
 		"ToLower":    func(s string) string { return strings.ToLower(s) },
 		"ReplaceAll": func(s, old, new string) string { return strings.Replace(s, old, new, -1) },
+		"TLSEnabled": func() bool { return n.topology.OrderingTLSEnabled },
 	}).Parse(n.Templates.OrdererTemplate())
 	Expect(err).NotTo(HaveOccurred())
 
