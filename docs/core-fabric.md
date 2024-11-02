@@ -291,8 +291,8 @@ fabric:
       interval: 60s
       # If not provided, the default is 20 seconds
       timeout: 600s
+      # If not provided, the default is 10 seconds
       connectionTimeout: 10s
-      tlsEnabled: true
 
     ordering:
       # number of retries to attempt to send a transaction to an orderer
@@ -300,6 +300,8 @@ fabric:
       numRetries: 3
       # retryInternal specifies the amount of time to wait before retrying a connection to the ordering service, it has no default and must be specified
       retryInterval: 3s
+      # here is possible to disable tls just for the ordering service
+      tlsEnabled: true
 
     # List of orderers on top of those discovered in the channel
     # This is optional and as such it should be left to those orderers discovered on the channel

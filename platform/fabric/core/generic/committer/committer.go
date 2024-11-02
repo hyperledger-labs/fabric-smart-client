@@ -849,6 +849,9 @@ func (c *Committer) applyBundle(bundle *channelconfig.Bundle) error {
 	}
 	c.logger.Debugf("[Channel: %s] Orderer config has changed, updating the list of orderers", c.ChannelConfig.ID())
 
+	tlsEnabled := c.ConfigService.OrderingTLSEnabled()
+	connectionTimeout := c.ConfigService.ClientConnTimeout()
+
 	var newOrderers []*grpc.ConnectionConfig
 	orgs := ordererConfig.Organizations()
 	for _, org := range orgs {
@@ -861,8 +864,8 @@ func (c *Committer) applyBundle(bundle *channelconfig.Bundle) error {
 			// TODO: load from configuration
 			newOrderers = append(newOrderers, &grpc.ConnectionConfig{
 				Address:           endpoint,
-				ConnectionTimeout: 10 * time.Second,
-				TLSEnabled:        true,
+				ConnectionTimeout: connectionTimeout,
+				TLSEnabled:        tlsEnabled,
 				TLSRootCertBytes:  tlsRootCerts,
 			})
 		}
@@ -872,8 +875,8 @@ func (c *Committer) applyBundle(bundle *channelconfig.Bundle) error {
 				c.logger.Debugf("[Channel: %s] Adding orderer address [%s:%s:%s]", c.ChannelConfig.ID(), org.Name(), org.MSPID(), endpoint)
 				newOrderers = append(newOrderers, &grpc.ConnectionConfig{
 					Address:           endpoint,
-					ConnectionTimeout: 10 * time.Second,
-					TLSEnabled:        true,
+					ConnectionTimeout: connectionTimeout,
+					TLSEnabled:        tlsEnabled,
 					TLSRootCertBytes:  tlsRootCerts,
 				})
 			}

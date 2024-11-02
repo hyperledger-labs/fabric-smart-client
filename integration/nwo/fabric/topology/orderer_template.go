@@ -12,7 +12,7 @@ General:
   ListenAddress: 0.0.0.0
   ListenPort: {{ .OrdererPort Orderer "Listen" }}
   TLS:
-    Enabled: true
+    Enabled: {{ TLSEnabled }}
     PrivateKey: {{ $w.OrdererLocalTLSDir Orderer }}/server.key
     Certificate: {{ $w.OrdererLocalTLSDir Orderer }}/server.crt
     RootCAs:
