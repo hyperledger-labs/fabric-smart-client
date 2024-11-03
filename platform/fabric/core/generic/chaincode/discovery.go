@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	peer2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
+	peer2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	discovery2 "github.com/hyperledger/fabric-protos-go/discovery"
@@ -212,7 +212,7 @@ func (d *Discovery) query(req *discovery.Request) (discovery.Response, error) {
 			pCli.Close()
 		}
 	}()
-	pc, err := d.chaincode.PeerManager.NewClient(*d.chaincode.ConfigService.PickPeer(driver.PeerForDiscovery))
+	pc, err := d.chaincode.Services.NewPeerClient(*d.chaincode.ConfigService.PickPeer(driver.PeerForDiscovery))
 	if err != nil {
 		return nil, err
 	}

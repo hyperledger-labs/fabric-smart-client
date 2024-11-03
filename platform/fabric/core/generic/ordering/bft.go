@@ -18,10 +18,12 @@ import (
 	common2 "github.com/hyperledger/fabric-protos-go/common"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/semaphore"
+	"google.golang.org/grpc/status"
 )
 
 type BFTBroadcaster struct {
 	ConfigService driver.ConfigService
+	ClientFactory Services
 
 	connSem  *semaphore.Weighted
 	metrics  *metrics.Metrics
@@ -31,9 +33,10 @@ type BFTBroadcaster struct {
 	connections     map[string]chan *Connection
 }
 
-func NewBFTBroadcaster(configService driver.ConfigService, metrics *metrics.Metrics) *BFTBroadcaster {
+func NewBFTBroadcaster(configService driver.ConfigService, cf Services, metrics *metrics.Metrics) *BFTBroadcaster {
 	return &BFTBroadcaster{
 		ConfigService: configService,
+		ClientFactory: cf,
 		connections:   map[string]chan *Connection{},
 		connSem:       semaphore.NewWeighted(int64(configService.OrdererConnectionPoolSize())),
 		metrics:       metrics,
@@ -160,20 +163,26 @@ func (o *BFTBroadcaster) getConnection(ctx context.Context, to *grpc.ConnectionC
 			cancel()
 
 			// create connection
-			oClient, err := NewClient(to)
+			client, err := o.ClientFactory.NewOrdererClient(*to)
 			if err != nil {
 				return nil, errors.Wrapf(err, "failed creating orderer client for %s", to.Address)
 			}
 
-			stream, err := oClient.NewBroadcast(ctx)
+			oClient, err := client.OrdererClient()
 			if err != nil {
-				oClient.Close()
+				rpcStatus, _ := status.FromError(err)
+				return nil, errors.Wrapf(err, "failed to new a broadcast, rpcStatus=%+v", rpcStatus)
+			}
+
+			stream, err := oClient.Broadcast(ctx)
+			if err != nil {
+				client.Close()
 				return nil, errors.Wrapf(err, "failed creating orderer stream for %s", to.Address)
 			}
 
 			return &Connection{
 				Stream: stream,
-				Client: oClient,
+				Client: client,
 			}, nil
 		}
 	}

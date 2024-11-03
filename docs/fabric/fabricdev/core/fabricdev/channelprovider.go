@@ -16,8 +16,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/delivery"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/finality"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/membership"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/rwset"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
@@ -90,7 +90,7 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 	envelopeService := transaction.NewEnvelopeService(p.kvss, nw.Name(), channelName)
 	transactionService := transaction.NewEndorseTransactionService(p.kvss, nw.Name(), channelName)
 	metadataService := transaction.NewMetadataService(p.kvss, nw.Name(), channelName)
-	peerService := peer.NewService(nw.ConfigService(), nw.LocalMembership().DefaultSigningIdentity())
+	peerService := services.NewClientFactory(nw.ConfigService(), nw.LocalMembership().DefaultSigningIdentity())
 
 	// Fabric finality
 	fabricFinality, err := finality.NewFabricFinality(
@@ -193,7 +193,7 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 		ChannelMembershipService: channelMembershipService,
 		ChaincodeManagerService:  chaincodeManagerService,
 		CommitterService:         committerService,
-		PeerManager:              peerService,
+		PeerService:              peerService,
 	}
 	if err := c.Init(); err != nil {
 		return nil, errors.WithMessagef(err, "failed initializing Channel [%s]", channelName)

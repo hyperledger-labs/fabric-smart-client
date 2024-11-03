@@ -4,21 +4,17 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package peer
+package services
 
 import (
 	"context"
 	"crypto/tls"
 
-	grpc2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger/fabric-protos-go/discovery"
+	ab "github.com/hyperledger/fabric-protos-go/orderer"
 	"github.com/hyperledger/fabric-protos-go/peer"
 	dclient "github.com/hyperledger/fabric/discovery/client"
 )
-
-type ClientFactory interface {
-	NewClient(cc grpc2.ConnectionConfig) (Client, error)
-}
 
 // DiscoveryClient represents an interface for discovery service
 type DiscoveryClient interface {
@@ -35,6 +31,12 @@ type Client interface {
 	// when client certificates are required by the server
 	Certificate() tls.Certificate
 
+	// Close closes this client
+	Close()
+}
+
+type PeerClient interface {
+	Client
 	// EndorserClient returns an endorser client for the peer
 	EndorserClient() (peer.EndorserClient, error)
 
@@ -43,7 +45,11 @@ type Client interface {
 
 	// DeliverClient returns a deliver client for the peer
 	DeliverClient() (peer.DeliverClient, error)
+}
 
-	// Close closes this client
-	Close()
+type OrdererClient interface {
+	Client
+
+	// OrdererClient returns an orderer client
+	OrdererClient() (ab.AtomicBroadcastClient, error)
 }

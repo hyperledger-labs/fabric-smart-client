@@ -12,7 +12,7 @@ import (
 	"math"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	grpc2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger/fabric-protos-go/common"
@@ -73,10 +73,10 @@ type DeliverClient interface {
 
 // deliverClient implements DeliverClient interface
 type deliverClient struct {
-	client peer.Client
+	client services.PeerClient
 }
 
-func NewDeliverClient(client peer.Client) (DeliverClient, error) {
+func NewDeliverClient(client services.PeerClient) (DeliverClient, error) {
 	return &deliverClient{
 		client: client,
 	}, nil
