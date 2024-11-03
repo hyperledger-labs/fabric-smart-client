@@ -37,16 +37,20 @@ var _ = Describe("EndToEnd", func() {
 	})
 
 	Describe("IOU Life Cycle With Websockets and replicas", func() {
-		s := NewTestSuite(fsc.WebSocket, &integration.ReplicationOptions{
-			ReplicationFactors: map[string]int{
-				"borrower": 3,
-				"lender":   2,
+		s := NewTestSuite(
+			fsc.WebSocket,
+			&integration.ReplicationOptions{
+				ReplicationFactors: map[string]int{
+					"borrower": 3,
+					"lender":   2,
+				},
+				SQLConfigs: map[string]*postgres.ContainerConfig{
+					"borrower": postgres.DefaultConfig("borrower-db"),
+					"lender":   postgres.DefaultConfig("lender-db"),
+				},
 			},
-			SQLConfigs: map[string]*postgres.ContainerConfig{
-				"borrower": postgres.DefaultConfig("borrower-db"),
-				"lender":   postgres.DefaultConfig("lender-db"),
-			},
-		}, true)
+			true,
+		)
 		BeforeEach(s.Setup)
 		AfterEach(s.TearDown)
 		It("succeeded", s.TestSucceededWithReplicas)

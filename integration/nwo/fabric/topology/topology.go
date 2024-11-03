@@ -44,6 +44,7 @@ type Topology struct {
 	LogPeersToFile     bool                   `yaml:"logPeersToFile,omitempty"`
 	LogOrderersToFile  bool                   `yaml:"logOrderersToFile,omitempty"`
 	TLSEnabled         bool                   `yaml:"tlsEnabled,omitempty"`
+	ClientAuthRequired bool                   `yaml:"clientAuthRequired,omitempty"`
 	ExtraParams        map[string]interface{} `yaml:"-"`
 }
 
