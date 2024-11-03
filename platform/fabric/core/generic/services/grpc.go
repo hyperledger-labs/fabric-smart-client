@@ -4,13 +4,14 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package peer
+package services
 
 import (
 	"crypto/tls"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/lazy"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
+	ab "github.com/hyperledger/fabric-protos-go/orderer"
 	pb "github.com/hyperledger/fabric-protos-go/peer"
 	discovery2 "github.com/hyperledger/fabric/discovery/client"
 	grpc2 "google.golang.org/grpc"
@@ -61,6 +62,15 @@ func (c *GRPCClient) DeliverClient() (pb.DeliverClient, error) {
 	return pb.NewDeliverClient(conn), nil
 }
 
+func (c *GRPCClient) OrdererClient() (ab.AtomicBroadcastClient, error) {
+	conn, err := c.connect()
+	if err != nil {
+		return nil, err
+	}
+
+	return ab.NewAtomicBroadcastClient(conn), nil
+}
+
 func (c *GRPCClient) Certificate() tls.Certificate {
 	return c.Client.Certificate()
 }
@@ -79,14 +89,14 @@ type lazyGRPCClient struct {
 	reset func() error
 }
 
-func (c *lazyGRPCClient) Reset() error {
-	return c.reset()
-}
-
 func NewLazyGRPCClient(pc *GRPCClient) *lazyGRPCClient {
 	holder := lazy.NewCloserHolder(pc.connect)
 	return &lazyGRPCClient{
 		GRPCClient: newClient(pc.Client, pc.address, pc.signer, holder.Get),
 		reset:      holder.Reset,
 	}
+}
+
+func (c *lazyGRPCClient) Reset() error {
+	return c.reset()
 }

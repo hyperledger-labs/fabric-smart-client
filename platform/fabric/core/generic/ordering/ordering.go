@@ -59,7 +59,13 @@ type Service struct {
 	Broadcaster    BroadcastFnc
 }
 
-func NewService(getEndorserTransactionService GetEndorserTransactionServiceFunc, sigService driver.SignerService, configService driver.ConfigService, metrics *metrics.Metrics) *Service {
+func NewService(
+	getEndorserTransactionService GetEndorserTransactionServiceFunc,
+	sigService driver.SignerService,
+	configService driver.ConfigService,
+	metrics *metrics.Metrics,
+	services Services,
+) *Service {
 	s := &Service{
 		GetEndorserTransactionService: getEndorserTransactionService,
 		SigService:                    sigService,
@@ -68,8 +74,8 @@ func NewService(getEndorserTransactionService GetEndorserTransactionServiceFunc,
 		BroadcastMutex:                sync.RWMutex{},
 		Broadcaster:                   nil,
 	}
-	s.Broadcasters[BFT] = NewBFTBroadcaster(configService, metrics).Broadcast
-	cft := NewCFTBroadcaster(configService, metrics)
+	s.Broadcasters[BFT] = NewBFTBroadcaster(configService, services, metrics).Broadcast
+	cft := NewCFTBroadcaster(configService, services, metrics)
 	s.Broadcasters[Raft] = cft.Broadcast
 	s.Broadcasters[Solo] = cft.Broadcast
 

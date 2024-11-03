@@ -123,13 +123,13 @@ func createChannelMap(channels []*Channel) (map[string]*Channel, string, error) 
 
 func createPeerMap(peers []*grpc.ConnectionConfig, tlsEnabled bool) map[driver.PeerFunctionType][]*grpc.ConnectionConfig {
 	peerMapping := map[driver.PeerFunctionType][]*grpc.ConnectionConfig{}
-	for _, v := range peers {
-		v.TLSEnabled = tlsEnabled && !v.TLSDisabled
+	for _, peerCC := range peers {
+		peerCC.TLSEnabled = tlsEnabled && !peerCC.TLSDisabled
 
-		if funcType, ok := funcTypeMap[strings.ToLower(v.Usage)]; ok {
-			peerMapping[funcType] = append(peerMapping[funcType], v)
+		if funcType, ok := funcTypeMap[strings.ToLower(peerCC.Usage)]; ok {
+			peerMapping[funcType] = append(peerMapping[funcType], peerCC)
 		} else {
-			logger.Warn("connection usage [%s] not recognized [%v]", v.Usage, v)
+			logger.Warn("connection usage [%s] not recognized [%v]", peerCC.Usage, peerCC)
 		}
 	}
 	return peerMapping
@@ -156,6 +156,13 @@ func (s *Service) OrderingTLSEnabled() (bool, bool) {
 		return true, false
 	}
 	return s.GetBool("ordering.tlsEnabled"), true
+}
+
+func (s *Service) OrderingTLSClientAuthRequired() (bool, bool) {
+	if !s.Configuration.IsSet("ordering.tlsClientAuthRequired") {
+		return false, false
+	}
+	return s.GetBool("ordering.tlsClientAuthRequired"), true
 }
 
 func (s *Service) TLSEnabled() bool {

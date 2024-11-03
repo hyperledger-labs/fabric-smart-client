@@ -242,6 +242,18 @@ type ConfigProvider struct {
 	orderersReturnsOnCall map[int]struct {
 		result1 []*grpc.ConnectionConfig
 	}
+	OrderingTLSClientAuthRequiredStub        func() (bool, bool)
+	orderingTLSClientAuthRequiredMutex       sync.RWMutex
+	orderingTLSClientAuthRequiredArgsForCall []struct {
+	}
+	orderingTLSClientAuthRequiredReturns struct {
+		result1 bool
+		result2 bool
+	}
+	orderingTLSClientAuthRequiredReturnsOnCall map[int]struct {
+		result1 bool
+		result2 bool
+	}
 	OrderingTLSEnabledStub        func() (bool, bool)
 	orderingTLSEnabledMutex       sync.RWMutex
 	orderingTLSEnabledArgsForCall []struct {
@@ -1639,6 +1651,62 @@ func (fake *ConfigProvider) OrderersReturnsOnCall(i int, result1 []*grpc.Connect
 	}{result1}
 }
 
+func (fake *ConfigProvider) OrderingTLSClientAuthRequired() (bool, bool) {
+	fake.orderingTLSClientAuthRequiredMutex.Lock()
+	ret, specificReturn := fake.orderingTLSClientAuthRequiredReturnsOnCall[len(fake.orderingTLSClientAuthRequiredArgsForCall)]
+	fake.orderingTLSClientAuthRequiredArgsForCall = append(fake.orderingTLSClientAuthRequiredArgsForCall, struct {
+	}{})
+	stub := fake.OrderingTLSClientAuthRequiredStub
+	fakeReturns := fake.orderingTLSClientAuthRequiredReturns
+	fake.recordInvocation("OrderingTLSClientAuthRequired", []interface{}{})
+	fake.orderingTLSClientAuthRequiredMutex.Unlock()
+	if stub != nil {
+		return stub()
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *ConfigProvider) OrderingTLSClientAuthRequiredCallCount() int {
+	fake.orderingTLSClientAuthRequiredMutex.RLock()
+	defer fake.orderingTLSClientAuthRequiredMutex.RUnlock()
+	return len(fake.orderingTLSClientAuthRequiredArgsForCall)
+}
+
+func (fake *ConfigProvider) OrderingTLSClientAuthRequiredCalls(stub func() (bool, bool)) {
+	fake.orderingTLSClientAuthRequiredMutex.Lock()
+	defer fake.orderingTLSClientAuthRequiredMutex.Unlock()
+	fake.OrderingTLSClientAuthRequiredStub = stub
+}
+
+func (fake *ConfigProvider) OrderingTLSClientAuthRequiredReturns(result1 bool, result2 bool) {
+	fake.orderingTLSClientAuthRequiredMutex.Lock()
+	defer fake.orderingTLSClientAuthRequiredMutex.Unlock()
+	fake.OrderingTLSClientAuthRequiredStub = nil
+	fake.orderingTLSClientAuthRequiredReturns = struct {
+		result1 bool
+		result2 bool
+	}{result1, result2}
+}
+
+func (fake *ConfigProvider) OrderingTLSClientAuthRequiredReturnsOnCall(i int, result1 bool, result2 bool) {
+	fake.orderingTLSClientAuthRequiredMutex.Lock()
+	defer fake.orderingTLSClientAuthRequiredMutex.Unlock()
+	fake.OrderingTLSClientAuthRequiredStub = nil
+	if fake.orderingTLSClientAuthRequiredReturnsOnCall == nil {
+		fake.orderingTLSClientAuthRequiredReturnsOnCall = make(map[int]struct {
+			result1 bool
+			result2 bool
+		})
+	}
+	fake.orderingTLSClientAuthRequiredReturnsOnCall[i] = struct {
+		result1 bool
+		result2 bool
+	}{result1, result2}
+}
+
 func (fake *ConfigProvider) OrderingTLSEnabled() (bool, bool) {
 	fake.orderingTLSEnabledMutex.Lock()
 	ret, specificReturn := fake.orderingTLSEnabledReturnsOnCall[len(fake.orderingTLSEnabledArgsForCall)]
@@ -2469,6 +2537,8 @@ func (fake *ConfigProvider) Invocations() map[string][][]interface{} {
 	defer fake.ordererConnectionPoolSizeMutex.RUnlock()
 	fake.orderersMutex.RLock()
 	defer fake.orderersMutex.RUnlock()
+	fake.orderingTLSClientAuthRequiredMutex.RLock()
+	defer fake.orderingTLSClientAuthRequiredMutex.RUnlock()
 	fake.orderingTLSEnabledMutex.RLock()
 	defer fake.orderingTLSEnabledMutex.RUnlock()
 	fake.pickOrdererMutex.RLock()

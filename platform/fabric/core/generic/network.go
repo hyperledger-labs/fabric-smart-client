@@ -12,6 +12,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/ordering"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/rwset"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
@@ -176,6 +177,7 @@ func (f *Network) Init() error {
 		f.sigService,
 		f.configService,
 		f.Metrics,
+		services.NewClientFactory(f.configService, f.LocalMembership().DefaultSigningIdentity()),
 	)
 	return nil
 }
@@ -196,4 +198,12 @@ func (f *Network) SetTransactionManager(tm driver.TransactionManager) {
 
 func (f *Network) SetProcessorManager(pm driver.ProcessorManager) {
 	f.processorManager = pm
+}
+
+type OrdererClientFactory struct {
+	*services.ClientFactory
+}
+
+func (o *OrdererClientFactory) NewOrdererClient(cc grpc.ConnectionConfig) (ordering.Client, error) {
+	return o.ClientFactory.NewOrdererClient(cc)
 }

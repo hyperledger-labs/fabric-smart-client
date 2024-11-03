@@ -853,6 +853,10 @@ func (c *Committer) applyBundle(bundle *channelconfig.Bundle) error {
 	if !isSet {
 		tlsEnabled = c.ConfigService.TLSEnabled()
 	}
+	tlsClientSideAuth, isSet := c.ConfigService.OrderingTLSClientAuthRequired()
+	if !isSet {
+		tlsEnabled = c.ConfigService.TLSClientAuthRequired()
+	}
 	connectionTimeout := c.ConfigService.ClientConnTimeout()
 
 	var newOrderers []*grpc.ConnectionConfig
@@ -864,11 +868,11 @@ func (c *Committer) applyBundle(bundle *channelconfig.Bundle) error {
 		tlsRootCerts = append(tlsRootCerts, msp.GetTLSIntermediateCerts()...)
 		for _, endpoint := range org.Endpoints() {
 			c.logger.Debugf("[Channel: %s] Adding orderer endpoint: [%s:%s:%s]", c.ChannelConfig.ID(), org.Name(), org.MSPID(), endpoint)
-			// TODO: load from configuration
 			newOrderers = append(newOrderers, &grpc.ConnectionConfig{
 				Address:           endpoint,
 				ConnectionTimeout: connectionTimeout,
 				TLSEnabled:        tlsEnabled,
+				TLSClientSideAuth: tlsClientSideAuth,
 				TLSRootCertBytes:  tlsRootCerts,
 			})
 		}
@@ -880,6 +884,7 @@ func (c *Committer) applyBundle(bundle *channelconfig.Bundle) error {
 					Address:           endpoint,
 					ConnectionTimeout: connectionTimeout,
 					TLSEnabled:        tlsEnabled,
+					TLSClientSideAuth: tlsClientSideAuth,
 					TLSRootCertBytes:  tlsRootCerts,
 				})
 			}

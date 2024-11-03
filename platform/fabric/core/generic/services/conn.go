@@ -4,7 +4,7 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package peer
+package services
 
 import (
 	"context"
@@ -14,6 +14,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger/fabric-protos-go/discovery"
+	ab "github.com/hyperledger/fabric-protos-go/orderer"
 	"github.com/hyperledger/fabric-protos-go/peer"
 	dclient "github.com/hyperledger/fabric/discovery/client"
 	"github.com/pkg/errors"
@@ -65,7 +66,8 @@ func (c *StatefulClient) Send(ctx context.Context, req *dclient.Request, auth *d
 }
 
 type resettableClient interface {
-	Client
+	PeerClient
+	OrdererClient
 	Reset() error
 }
 
@@ -101,6 +103,10 @@ func (c *ClientWrapper) DiscoveryClient() (DiscoveryClient, error) {
 	return &StatefulClient{DC: dc, onErr: c.client.Reset}, nil
 }
 
+func (c *ClientWrapper) OrdererClient() (ab.AtomicBroadcastClient, error) {
+	return c.client.OrdererClient()
+}
+
 func (c *ClientWrapper) Certificate() tls.Certificate {
 	return c.client.Certificate()
 }
@@ -115,19 +121,30 @@ func (c *ClientWrapper) Close() {
 
 func NewCachingClientFactory(configService driver.ConfigService, signer driver.Signer) *CachingClientFactory {
 	f := newFactory(configService, signer)
-	return &CachingClientFactory{cache: lazy.NewProviderWithKeyMapper(
-		func(cc grpc.ConnectionConfig) string { return cc.Address },
-		f.newWrappedClient,
-	),
+
+	return &CachingClientFactory{
+		cachePeer: lazy.NewProviderWithKeyMapper(
+			func(cc grpc.ConnectionConfig) string { return cc.Address },
+			f.NewPeerClient,
+		),
+		cacheOrderer: lazy.NewProviderWithKeyMapper(
+			func(cc grpc.ConnectionConfig) string { return cc.Address },
+			f.NewOrdererClient,
+		),
 	}
 }
 
 type CachingClientFactory struct {
-	cache lazy.Provider[grpc.ConnectionConfig, Client]
+	cachePeer    lazy.Provider[grpc.ConnectionConfig, PeerClient]
+	cacheOrderer lazy.Provider[grpc.ConnectionConfig, OrdererClient]
 }
 
-func (cep *CachingClientFactory) NewClient(cc grpc.ConnectionConfig) (Client, error) {
-	return cep.cache.Get(cc)
+func (cep *CachingClientFactory) NewPeerClient(cc grpc.ConnectionConfig) (PeerClient, error) {
+	return cep.cachePeer.Get(cc)
+}
+
+func (cep *CachingClientFactory) NewOrdererClient(cc grpc.ConnectionConfig) (OrdererClient, error) {
+	return cep.cacheOrderer.Get(cc)
 }
 
 type GRPCClientFactory struct {
@@ -142,20 +159,29 @@ func newFactory(configService driver.ConfigService, signer driver.Signer) *GRPCC
 	}
 }
 
-func (c *GRPCClientFactory) newWrappedClient(cc grpc.ConnectionConfig) (Client, error) {
-	cl, err := c.NewClient(cc)
+func (c *GRPCClientFactory) NewPeerClient(cc grpc.ConnectionConfig) (PeerClient, error) {
+	cl, err := c.newClient(cc)
 	if err != nil {
 		return nil, err
 	}
 
-	return NewClientWrapper(cl.(*GRPCClient)), nil
+	return NewClientWrapper(cl), nil
 }
 
-func (c *GRPCClientFactory) NewClient(cc grpc.ConnectionConfig) (Client, error) {
+func (c *GRPCClientFactory) NewOrdererClient(cc grpc.ConnectionConfig) (OrdererClient, error) {
+	cl, err := c.newClient(cc)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewClientWrapper(cl), nil
+}
+
+func (c *GRPCClientFactory) newClient(cc grpc.ConnectionConfig) (*GRPCClient, error) {
 	logger.Debugf("Creating new peer GRPCClient for address [%s]", cc.Address)
 
 	secOpts, err := grpc.CreateSecOpts(cc, grpc.TLSClientConfig{
-		TLSClientAuthRequired: c.ConfigService.TLSClientAuthRequired(),
+		TLSClientAuthRequired: cc.TLSClientSideAuth,
 		TLSClientKeyFile:      c.ConfigService.TLSClientKeyFile(),
 		TLSClientCertFile:     c.ConfigService.TLSClientCertFile(),
 	})
