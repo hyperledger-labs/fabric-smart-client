@@ -1545,8 +1545,8 @@ func (n *Network) GenerateOrdererConfig(o *topology.Orderer) {
 	}).Parse(n.Templates.OrdererTemplate())
 	Expect(err).NotTo(HaveOccurred())
 
-	// pw := gexec.NewPrefixedWriter(fmt.Sprintf("[%s#orderer.yaml] ", o.ID()), ginkgo.GinkgoWriter)
-	err = t.Execute(io.MultiWriter(orderer), n)
+	pw := gexec.NewPrefixedWriter(fmt.Sprintf("[%s#orderer.yaml] ", o.ID()), ginkgo.GinkgoWriter)
+	err = t.Execute(io.MultiWriter(orderer, pw), n)
 	Expect(err).NotTo(HaveOccurred())
 }
 

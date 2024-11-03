@@ -291,7 +291,7 @@ fabric:
     ordering:
       numRetries: 3
       retryInterval: 3s
-      tlsEnabled: true
+      tlsEnabled: {{ TLSEnabled }}
     peers: {{ range Peers }}
       - address: {{ PeerAddress . "Listen" }}
         connectionTimeout: 10s        
