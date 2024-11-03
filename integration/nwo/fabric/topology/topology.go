@@ -26,7 +26,6 @@ type Topology struct {
 	SystemChannel      *SystemChannel         `yaml:"system_channel,omitempty"`
 	Channels           []*Channel             `yaml:"channels,omitempty"`
 	Consensus          *Consensus             `yaml:"consensus,omitempty"`
-	OrderingTLSEnabled bool                   `yaml:"orderingTLSEnabled,omitempty"`
 	Orderers           []*Orderer             `yaml:"orderers,omitempty"`
 	Profiles           []*Profile             `yaml:"profiles,omitempty"`
 	Templates          *Templates             `yaml:"templates,omitempty"`
