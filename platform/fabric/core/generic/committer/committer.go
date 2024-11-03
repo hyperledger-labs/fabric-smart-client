@@ -855,7 +855,7 @@ func (c *Committer) applyBundle(bundle *channelconfig.Bundle) error {
 	}
 	tlsClientSideAuth, isSet := c.ConfigService.OrderingTLSClientAuthRequired()
 	if !isSet {
-		tlsEnabled = c.ConfigService.TLSClientAuthRequired()
+		tlsClientSideAuth = c.ConfigService.TLSClientAuthRequired()
 	}
 	connectionTimeout := c.ConfigService.ClientConnTimeout()
 
