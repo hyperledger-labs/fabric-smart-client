@@ -242,15 +242,17 @@ type ConfigProvider struct {
 	orderersReturnsOnCall map[int]struct {
 		result1 []*grpc.ConnectionConfig
 	}
-	OrderingTLSEnabledStub        func() bool
+	OrderingTLSEnabledStub        func() (bool, bool)
 	orderingTLSEnabledMutex       sync.RWMutex
 	orderingTLSEnabledArgsForCall []struct {
 	}
 	orderingTLSEnabledReturns struct {
 		result1 bool
+		result2 bool
 	}
 	orderingTLSEnabledReturnsOnCall map[int]struct {
 		result1 bool
+		result2 bool
 	}
 	PickOrdererStub        func() *grpc.ConnectionConfig
 	pickOrdererMutex       sync.RWMutex
@@ -1637,7 +1639,7 @@ func (fake *ConfigProvider) OrderersReturnsOnCall(i int, result1 []*grpc.Connect
 	}{result1}
 }
 
-func (fake *ConfigProvider) OrderingTLSEnabled() bool {
+func (fake *ConfigProvider) OrderingTLSEnabled() (bool, bool) {
 	fake.orderingTLSEnabledMutex.Lock()
 	ret, specificReturn := fake.orderingTLSEnabledReturnsOnCall[len(fake.orderingTLSEnabledArgsForCall)]
 	fake.orderingTLSEnabledArgsForCall = append(fake.orderingTLSEnabledArgsForCall, struct {
@@ -1650,9 +1652,9 @@ func (fake *ConfigProvider) OrderingTLSEnabled() bool {
 		return stub()
 	}
 	if specificReturn {
-		return ret.result1
+		return ret.result1, ret.result2
 	}
-	return fakeReturns.result1
+	return fakeReturns.result1, fakeReturns.result2
 }
 
 func (fake *ConfigProvider) OrderingTLSEnabledCallCount() int {
@@ -1661,33 +1663,36 @@ func (fake *ConfigProvider) OrderingTLSEnabledCallCount() int {
 	return len(fake.orderingTLSEnabledArgsForCall)
 }
 
-func (fake *ConfigProvider) OrderingTLSEnabledCalls(stub func() bool) {
+func (fake *ConfigProvider) OrderingTLSEnabledCalls(stub func() (bool, bool)) {
 	fake.orderingTLSEnabledMutex.Lock()
 	defer fake.orderingTLSEnabledMutex.Unlock()
 	fake.OrderingTLSEnabledStub = stub
 }
 
-func (fake *ConfigProvider) OrderingTLSEnabledReturns(result1 bool) {
+func (fake *ConfigProvider) OrderingTLSEnabledReturns(result1 bool, result2 bool) {
 	fake.orderingTLSEnabledMutex.Lock()
 	defer fake.orderingTLSEnabledMutex.Unlock()
 	fake.OrderingTLSEnabledStub = nil
 	fake.orderingTLSEnabledReturns = struct {
 		result1 bool
-	}{result1}
+		result2 bool
+	}{result1, result2}
 }
 
-func (fake *ConfigProvider) OrderingTLSEnabledReturnsOnCall(i int, result1 bool) {
+func (fake *ConfigProvider) OrderingTLSEnabledReturnsOnCall(i int, result1 bool, result2 bool) {
 	fake.orderingTLSEnabledMutex.Lock()
 	defer fake.orderingTLSEnabledMutex.Unlock()
 	fake.OrderingTLSEnabledStub = nil
 	if fake.orderingTLSEnabledReturnsOnCall == nil {
 		fake.orderingTLSEnabledReturnsOnCall = make(map[int]struct {
 			result1 bool
+			result2 bool
 		})
 	}
 	fake.orderingTLSEnabledReturnsOnCall[i] = struct {
 		result1 bool
-	}{result1}
+		result2 bool
+	}{result1, result2}
 }
 
 func (fake *ConfigProvider) PickOrderer() *grpc.ConnectionConfig {

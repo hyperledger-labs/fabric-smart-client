@@ -91,7 +91,8 @@ type ConfigService interface {
 	Channel(name string) ChannelConfig
 	ChannelIDs() []string
 	Orderers() []*grpc.ConnectionConfig
-	OrderingTLSEnabled() bool
+	// OrderingTLSEnabled returns true, true if TLS is enabled because the key was set.
+	OrderingTLSEnabled() (bool, bool)
 	SetConfigOrderers([]*grpc.ConnectionConfig) error
 	PickOrderer() *grpc.ConnectionConfig
 	BroadcastNumRetries() int

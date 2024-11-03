@@ -180,6 +180,10 @@ clean:
 	rm -rf ./cmd/fsccli/cmd
 	rm -rf ./samples/fabric/iou/cmd
 
+.PHONY: clean-fabric-peer-images
+clean-fabric-peer-images:
+	docker images -a | grep "_peer_" | awk '{print $3}' | xargs docker rmi
+
 .PHONY: fsccli
 fsccli:
 	@go install ./cmd/fsccli
