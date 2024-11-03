@@ -147,11 +147,11 @@ func (s *Service) NetworkName() string {
 	return s.name
 }
 
-func (s *Service) OrderingTLSEnabled() bool {
+func (s *Service) OrderingTLSEnabled() (bool, bool) {
 	if !s.Configuration.IsSet("ordering.tlsEnabled") {
-		return true
+		return true, false
 	}
-	return s.GetBool("ordering.tlsEnabled")
+	return s.GetBool("ordering.tlsEnabled"), true
 }
 
 func (s *Service) DriverName() string {

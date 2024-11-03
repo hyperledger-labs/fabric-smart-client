@@ -849,7 +849,10 @@ func (c *Committer) applyBundle(bundle *channelconfig.Bundle) error {
 	}
 	c.logger.Debugf("[Channel: %s] Orderer config has changed, updating the list of orderers", c.ChannelConfig.ID())
 
-	tlsEnabled := c.ConfigService.OrderingTLSEnabled()
+	tlsEnabled, isSet := c.ConfigService.OrderingTLSEnabled()
+	if !isSet {
+		tlsEnabled = c.ConfigService.TLSEnabled()
+	}
 	connectionTimeout := c.ConfigService.ClientConnTimeout()
 
 	var newOrderers []*grpc.ConnectionConfig

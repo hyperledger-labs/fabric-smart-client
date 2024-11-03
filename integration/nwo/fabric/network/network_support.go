@@ -1035,17 +1035,19 @@ func (n *Network) peerCommand(command common.Command, tlsDir string, env ...stri
 		cmd.Env = append(cmd.Env, "GRPC_GO_LOG_SEVERITY_LEVEL=debug")
 	}
 
-	if common.ConnectsToOrderer(command) {
-		cmd.Args = append(cmd.Args, "--tls")
-		cmd.Args = append(cmd.Args, "--cafile", n.CACertsBundlePath())
-	}
+	if n.topology.OrderingTLSEnabled {
+		if common.ConnectsToOrderer(command) {
+			cmd.Args = append(cmd.Args, "--tls")
+			cmd.Args = append(cmd.Args, "--cafile", n.CACertsBundlePath())
+		}
 
-	if common.ClientAuthEnabled(command) {
-		certfilePath := filepath.Join(tlsDir, "client.crt")
-		keyfilePath := filepath.Join(tlsDir, "client.key")
+		if common.ClientAuthEnabled(command) {
+			certfilePath := filepath.Join(tlsDir, "client.crt")
+			keyfilePath := filepath.Join(tlsDir, "client.key")
 
-		cmd.Args = append(cmd.Args, "--certfile", certfilePath)
-		cmd.Args = append(cmd.Args, "--keyfile", keyfilePath)
+			cmd.Args = append(cmd.Args, "--certfile", certfilePath)
+			cmd.Args = append(cmd.Args, "--keyfile", keyfilePath)
+		}
 	}
 
 	cmd.Env = append(cmd.Env, fmt.Sprintf("FABRIC_LOGGING_SPEC=%s", n.Logging.Spec))

@@ -97,25 +97,26 @@ func New(reg api.Context, topology *topology.Topology, builderClient BuilderClie
 		EventuallyTimeout: 20 * time.Minute,
 		MetricsProvider:   "prometheus",
 
-		Organizations:     topology.Organizations,
-		Consensus:         topology.Consensus,
-		Orderers:          topology.Orderers,
-		Peers:             topology.Peers,
-		SystemChannel:     topology.SystemChannel,
-		Channels:          topology.Channels,
-		Profiles:          topology.Profiles,
-		Consortiums:       topology.Consortiums,
-		Templates:         topology.Templates,
-		Logging:           topology.Logging,
-		MSPvtTxSupport:    topology.MSPvtTxSupport,
-		MSPvtCCSupport:    topology.MSPvtCCSupport,
-		FabTokenSupport:   topology.FabTokenSupport,
-		FabTokenCCSupport: topology.FabTokenCCSupport,
-		GRPCLogging:       topology.GRPCLogging,
-		PvtTxSupport:      topology.PvtTxSupport,
-		PvtTxCCSupport:    topology.PvtTxCCSupport,
-		ccps:              ccps,
-		Extensions:        []Extension{},
+		Organizations:      topology.Organizations,
+		Consensus:          topology.Consensus,
+		Orderers:           topology.Orderers,
+		Peers:              topology.Peers,
+		SystemChannel:      topology.SystemChannel,
+		Channels:           topology.Channels,
+		Profiles:           topology.Profiles,
+		Consortiums:        topology.Consortiums,
+		Templates:          topology.Templates,
+		Logging:            topology.Logging,
+		MSPvtTxSupport:     topology.MSPvtTxSupport,
+		MSPvtCCSupport:     topology.MSPvtCCSupport,
+		FabTokenSupport:    topology.FabTokenSupport,
+		FabTokenCCSupport:  topology.FabTokenCCSupport,
+		GRPCLogging:        topology.GRPCLogging,
+		PvtTxSupport:       topology.PvtTxSupport,
+		PvtTxCCSupport:     topology.PvtTxCCSupport,
+		ClientAuthRequired: topology.ClientAuthRequired,
+		ccps:               ccps,
+		Extensions:         []Extension{},
 		PackagerFactory: func() Packager {
 			return packager.New()
 		},
@@ -282,7 +283,7 @@ func (n *Network) DeployChaincode(chaincode *topology.ChannelChaincode) {
 	if chaincode.Chaincode.InitRequired {
 		InitChaincode(n, chaincode.Channel, orderer, &chaincode.Chaincode, peers...)
 	}
-	//add new chaincode to the topology
+	// add new chaincode to the topology
 	n.topology.AddChaincode(chaincode)
 }
 

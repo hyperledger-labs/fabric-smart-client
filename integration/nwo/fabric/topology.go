@@ -162,6 +162,7 @@ func NewTopologyWithName(name string) *topology.Topology {
 		Orderers: []*topology.Orderer{
 			{Name: "orderer", Organization: "OrdererOrg"},
 		},
+		OrderingTLSEnabled: true,
 		Channels: []*topology.Channel{
 			{Name: "testchannel", Profile: "OrgsChannel", Default: true},
 		},
