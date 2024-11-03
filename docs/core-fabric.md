@@ -320,6 +320,10 @@ fabric:
         tlsRootCertFile: /path/to/ordererorg/ca.crt
         # server name override if tls cert SANS doesn't match address
         serverNameOverride:
+        # it is possible to customize per orderer the TLS behaviour, by using the following attributes
+        tlsClientSideAuth: true
+        tlsDisabled: true
+        tlsEnabled: false
 
     # List of trusted peers this node can connect to.
     # usually this will be the fabric peers in the same organisation as the FSC node.
@@ -332,8 +336,12 @@ fabric:
         # path to peer org's ca cert if tls is enabled
         tlsRootCertFile: /path/to/peerorg/ca.crt
         serverNameOverride:
+        # it is possible to customize per peer the TLS behaviour, by using the following attributes
+        tlsClientSideAuth: true
+        tlsDisabled: true
+        tlsEnabled: false
 
-    # List of channels and deployed chaincode
+  # List of channels and deployed chaincode
     channels:
       - name: mychannel
         # whether this is the default channel or not

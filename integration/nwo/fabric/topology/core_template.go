@@ -85,7 +85,7 @@ peer:
     keepalive:
       minInterval: 60s
   tls:
-    enabled:  true
+    enabled:  {{ .TLSEnabled }}
     clientAuthRequired: {{ .ClientAuthRequired }}
     cert:
       file: {{ .PeerLocalTLSDir Peer }}/server.crt

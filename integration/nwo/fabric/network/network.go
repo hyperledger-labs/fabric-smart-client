@@ -53,6 +53,7 @@ type Network struct {
 	EventuallyTimeout  time.Duration
 	MetricsProvider    string
 	StatsdEndpoint     string
+	TLSEnabled         bool
 	ClientAuthRequired bool
 
 	Logging           *topology.Logging
@@ -115,6 +116,7 @@ func New(reg api.Context, topology *topology.Topology, builderClient BuilderClie
 		PvtTxSupport:       topology.PvtTxSupport,
 		PvtTxCCSupport:     topology.PvtTxCCSupport,
 		ClientAuthRequired: topology.ClientAuthRequired,
+		TLSEnabled:         topology.TLSEnabled,
 		ccps:               ccps,
 		Extensions:         []Extension{},
 		PackagerFactory: func() Packager {

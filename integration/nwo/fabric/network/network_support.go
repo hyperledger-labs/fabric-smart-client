@@ -1035,7 +1035,7 @@ func (n *Network) peerCommand(command common.Command, tlsDir string, env ...stri
 		cmd.Env = append(cmd.Env, "GRPC_GO_LOG_SEVERITY_LEVEL=debug")
 	}
 
-	if n.topology.OrderingTLSEnabled {
+	if n.topology.TLSEnabled {
 		if common.ConnectsToOrderer(command) {
 			cmd.Args = append(cmd.Args, "--tls")
 			cmd.Args = append(cmd.Args, "--cafile", n.CACertsBundlePath())
@@ -1536,12 +1536,12 @@ func (n *Network) GenerateOrdererConfig(o *topology.Orderer) {
 	orderer, err := os.Create(n.OrdererConfigPath(o))
 	Expect(err).NotTo(HaveOccurred())
 	defer orderer.Close()
-
+	tlsEnabled := n.topology.TLSEnabled
 	t, err := template.New("orderer").Funcs(template.FuncMap{
 		"Orderer":    func() *topology.Orderer { return o },
 		"ToLower":    func(s string) string { return strings.ToLower(s) },
 		"ReplaceAll": func(s, old, new string) string { return strings.Replace(s, old, new, -1) },
-		"TLSEnabled": func() bool { return n.topology.OrderingTLSEnabled },
+		"TLSEnabled": func() bool { return tlsEnabled },
 	}).Parse(n.Templates.OrdererTemplate())
 	Expect(err).NotTo(HaveOccurred())
 
