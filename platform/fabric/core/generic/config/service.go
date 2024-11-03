@@ -349,7 +349,3 @@ func (s *Service) IsChannelQuiet(name string) bool {
 	channel, ok := s.channels[name]
 	return ok && channel.Quiet
 }
-
-type resolver struct {
-	r Resolver
-}
