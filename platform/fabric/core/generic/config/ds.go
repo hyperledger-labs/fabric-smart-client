@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 )
 
 type BCCSP struct {
@@ -241,13 +242,13 @@ func (c *Channel) GetRetrySleep() time.Duration {
 }
 
 type Network struct {
-	Default    bool                `yaml:"default,omitempty"`
-	DefaultMSP string              `yaml:"defaultMSP"`
-	MSPs       []*MSP              `yaml:"msps"`
-	TLS        TLS                 `yaml:"tls"`
-	Orderers   []*ConnectionConfig `yaml:"orderers"`
-	Peers      []*ConnectionConfig `yaml:"peers"`
-	Channels   []*Channel          `yaml:"channels"`
-	Vault      Vault               `yaml:"vault"`
-	Endpoint   *Endpoint           `yaml:"endpoint,omitempty"`
+	Default    bool                     `yaml:"default,omitempty"`
+	DefaultMSP string                   `yaml:"defaultMSP"`
+	MSPs       []*MSP                   `yaml:"msps"`
+	TLS        TLS                      `yaml:"tls"`
+	Orderers   []*grpc.ConnectionConfig `yaml:"orderers"`
+	Peers      []*grpc.ConnectionConfig `yaml:"peers"`
+	Channels   []*Channel               `yaml:"channels"`
+	Vault      Vault                    `yaml:"vault"`
+	Endpoint   *Endpoint                `yaml:"endpoint,omitempty"`
 }
