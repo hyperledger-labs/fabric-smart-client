@@ -49,6 +49,7 @@ type ConnectionConfig struct {
 	Address            string        `yaml:"address,omitempty"`
 	ConnectionTimeout  time.Duration `yaml:"connectionTimeout,omitempty"`
 	TLSEnabled         bool          `yaml:"tlsEnabled,omitempty"`
+	TLSClientSideAuth  bool          `yaml:"tlsClientSideAuth,omitempty"`
 	TLSDisabled        bool          `yaml:"tlsDisabled,omitempty"`
 	TLSRootCertFile    string        `yaml:"tlsRootCertFile,omitempty"`
 	TLSRootCertBytes   [][]byte      `yaml:"tlsRootCertBytes,omitempty"`

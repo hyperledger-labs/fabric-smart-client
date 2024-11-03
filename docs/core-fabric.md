@@ -273,6 +273,7 @@ fabric:
 
       # TBD: idemix-folder, bccsp-folder
 
+    # define the default values for the tls connections
     tls:
       # Species the fabric network requires TLS or not
       enabled:  true
@@ -300,11 +301,16 @@ fabric:
       numRetries: 3
       # retryInternal specifies the amount of time to wait before retrying a connection to the ordering service, it has no default and must be specified
       retryInterval: 3s
-      # here is possible to disable tls just for the ordering service
+      # here is possible to disable tls just for the ordering service.
+      # if this key is not specified, then the `tls` section is used.
       tlsEnabled: true
+      # here is possible to enable tls client-side authentication just for the ordering service
+      # if this key is not specified, then the `tls` section is used.
+      tlsClientAuthRequired: false
 
     # List of orderers on top of those discovered in the channel
     # This is optional and as such it should be left to those orderers discovered on the channel
+    # tls configuration is governed by the `tls` section, if not otherwise specified in the `ordering` section
     orderers:
         # address of orderer
       - address: 'orderer0:7050'
@@ -316,7 +322,8 @@ fabric:
         serverNameOverride:
 
     # List of trusted peers this node can connect to.
-    # usually this will be the fabric peers in the same organisation as the FSC node
+    # usually this will be the fabric peers in the same organisation as the FSC node.
+    # tls configuration is governed by the `tls` section.
     peers:
         # address of orderer
       - address: 'peer2:7051'

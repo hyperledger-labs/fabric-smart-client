@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/delivery"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
@@ -22,8 +22,8 @@ import (
 
 var logger = flogging.MustGetLogger("fabric-sdk.core")
 
-type PeerService interface {
-	NewClient(cc grpc.ConnectionConfig) (peer.Client, error)
+type Services interface {
+	NewPeerClient(cc grpc.ConnectionConfig) (services.PeerClient, error)
 }
 
 type Hasher interface {
@@ -33,7 +33,7 @@ type Hasher interface {
 type FabricFinality struct {
 	Channel                string
 	ConfigService          driver.ConfigService
-	PeerService            PeerService
+	Services               Services
 	DefaultSigningIdentity driver.SigningIdentity
 	Hasher                 Hasher
 	WaitForEventTimeout    time.Duration
@@ -42,7 +42,7 @@ type FabricFinality struct {
 func NewFabricFinality(
 	channel string,
 	ConfigService driver.ConfigService,
-	peerService PeerService,
+	peerService Services,
 	defaultSigningIdentity driver.SigningIdentity,
 	hasher Hasher,
 	waitForEventTimeout time.Duration,
@@ -54,7 +54,7 @@ func NewFabricFinality(
 	d := &FabricFinality{
 		Channel:                channel,
 		ConfigService:          ConfigService,
-		PeerService:            peerService,
+		Services:               peerService,
 		DefaultSigningIdentity: defaultSigningIdentity,
 		Hasher:                 hasher,
 		WaitForEventTimeout:    waitForEventTimeout,
@@ -71,7 +71,7 @@ func (d *FabricFinality) IsFinal(txID string, address string) error {
 	var ctx context.Context
 	var cancelFunc context.CancelFunc
 
-	client, err := d.PeerService.NewClient(*d.ConfigService.PickPeer(driver.PeerForFinality))
+	client, err := d.Services.NewPeerClient(*d.ConfigService.PickPeer(driver.PeerForFinality))
 	if err != nil {
 		return errors.WithMessagef(err, "failed creating peer client for address [%s]", address)
 	}
