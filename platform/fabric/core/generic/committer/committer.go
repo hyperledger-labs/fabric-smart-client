@@ -936,7 +936,7 @@ func (c *Committer) filterUnknownEnvelope(txID string, envelope []byte) (bool, e
 		for _, namespace := range c.DiscardNamespaces {
 			if namespace == ns {
 				c.logger.Debugf("[%s] contains namespaces [%v], discaurd it", txID, rws.Namespaces())
-				return true, nil
+				return false, nil
 			}
 		}
 
