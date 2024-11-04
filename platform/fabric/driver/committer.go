@@ -98,4 +98,6 @@ type Committer interface {
 	DiscardTx(txID string, message string) error
 
 	CommitTX(ctx context.Context, txID driver.TxID, block driver.BlockNum, indexInBlock driver.TxNum, envelope *common.Envelope) error
+
+	DiscardNamespace(nss ...string) error
 }

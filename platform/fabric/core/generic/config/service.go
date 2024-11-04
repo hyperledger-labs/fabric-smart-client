@@ -71,19 +71,20 @@ func NewService(configService driver.Configuration, name string, defaultConfig b
 	}
 
 	tlsEnabled := configService.GetBool(fmt.Sprintf("fabric.%stls.enabled", prefix))
+
+	// orderers
 	orderers, err := readItems[*grpc.ConnectionConfig](configService, prefix, "orderers")
 	if err != nil {
 		return nil, err
 	}
-	for _, v := range orderers {
-		v.TLSEnabled = tlsEnabled
-	}
+	orderers = createOrdererList(orderers, tlsEnabled)
+	// peers
 	peers, err := readItems[*grpc.ConnectionConfig](configService, prefix, "peers")
 	if err != nil {
 		return nil, err
 	}
 	peerMapping := createPeerMap(peers, tlsEnabled)
-
+	// channels
 	channels, err := readItems[*Channel](configService, prefix, "channels")
 	if err != nil {
 		return nil, err
@@ -133,6 +134,13 @@ func createPeerMap(peers []*grpc.ConnectionConfig, tlsEnabled bool) map[driver.P
 		}
 	}
 	return peerMapping
+}
+
+func createOrdererList(orderers []*grpc.ConnectionConfig, tlsEnabled bool) []*grpc.ConnectionConfig {
+	for _, cc := range orderers {
+		cc.TLSEnabled = tlsEnabled && !cc.TLSDisabled
+	}
+	return orderers
 }
 
 func readItems[T any](configService driver.Configuration, prefix, key string) ([]T, error) {

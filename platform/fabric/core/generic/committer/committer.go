@@ -86,6 +86,7 @@ type Committer struct {
 	EnvelopeService    driver.EnvelopeService
 	TransactionFilters *committer.AggregatedTransactionFilter
 	ProcessNamespaces  []string
+	DiscardNamespaces  []string
 	Ledger             driver.Ledger
 	RWSetLoaderService driver.RWSetLoader
 	ProcessorManager   driver.ProcessorManager
@@ -215,6 +216,11 @@ func (c *Committer) Status(txID string) (driver.ValidationCode, string, error) {
 
 func (c *Committer) ProcessNamespace(nss ...string) error {
 	c.ProcessNamespaces = append(c.ProcessNamespaces, nss...)
+	return nil
+}
+
+func (c *Committer) DiscardNamespace(nss ...string) error {
+	c.DiscardNamespaces = append(c.DiscardNamespaces, nss...)
 	return nil
 }
 
@@ -923,6 +929,13 @@ func (c *Committer) filterUnknownEnvelope(txID string, envelope []byte) (bool, e
 		for _, namespace := range c.ProcessNamespaces {
 			if namespace == ns {
 				c.logger.Debugf("[%s] contains namespaces [%v], select it", txID, rws.Namespaces())
+				return true, nil
+			}
+		}
+
+		for _, namespace := range c.DiscardNamespaces {
+			if namespace == ns {
+				c.logger.Debugf("[%s] contains namespaces [%v], discaurd it", txID, rws.Namespaces())
 				return true, nil
 			}
 		}
