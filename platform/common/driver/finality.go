@@ -30,4 +30,5 @@ type FinalityEvent[V comparable] struct {
 	Block             BlockNum
 	IndexInBlock      TxNum
 	Err               error
+	Unknown           bool
 }

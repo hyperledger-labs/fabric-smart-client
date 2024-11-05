@@ -258,29 +258,29 @@ func (c *Committer) DiscardTx(txID string, message string) error {
 	return nil
 }
 
-func (c *Committer) CommitTX(ctx context.Context, txID string, block driver.BlockNum, indexInBlock driver.TxNum, envelope *common.Envelope) (err error) {
+func (c *Committer) CommitTX(ctx context.Context, txID driver2.TxID, block driver2.BlockNum, indexInBlock driver2.TxNum, envelope *common.Envelope) (b bool, err error) {
 	c.logger.Debugf("Committing transaction [%s,%d,%d]", txID, block, indexInBlock)
 	defer c.logger.Debugf("Committing transaction [%s,%d,%d] done [%s]", txID, block, indexInBlock, err)
 
 	vc, _, err := c.Status(txID)
 	if err != nil {
-		return errors.WithMessagef(err, "failed getting tx's status in state db [%s]", txID)
+		return false, errors.WithMessagef(err, "failed getting tx's status in state db [%s]", txID)
 	}
 	switch vc {
 	case driver.Valid:
 		// This should generate a panic
 		c.logger.Debugf("[%s] is already valid", txID)
-		return errors.Errorf("[%s] is already valid", txID)
+		return false, errors.Errorf("[%s] is already valid", txID)
 	case driver.Invalid:
 		// This should generate a panic
 		c.logger.Debugf("[%s] is invalid", txID)
-		return errors.Errorf("[%s] is invalid", txID)
+		return false, errors.Errorf("[%s] is invalid", txID)
 	case driver.Unknown:
 		return c.commitUnknown(ctx, txID, block, indexInBlock, envelope)
 	case driver.Busy:
-		return c.commit(ctx, txID, block, indexInBlock, envelope)
+		return true, c.commit(ctx, txID, block, indexInBlock, envelope)
 	default:
-		return errors.Errorf("invalid status code [%d] for [%s]", vc, txID)
+		return false, errors.Errorf("invalid status code [%d] for [%s]", vc, txID)
 	}
 }
 
@@ -399,6 +399,9 @@ func (c *Committer) commitTxs(ctx context.Context, parallelizableTxGroups Parall
 					c.metrics.HandlerDuration.With("status", "failure").Observe(time.Since(start).Seconds())
 					return errors.Wrapf(err, "failed calling handler for tx [%s]", tx.TxID)
 				} else {
+					if event.Unknown {
+						continue
+					}
 					c.logger.Debugf("commit transaction [%s] in filteredBlock [%d]", event.TxID, tx.BlkNum)
 					span.AddEvent("call_finality_notifiers")
 					c.metrics.HandlerDuration.With("status", "successful").Observe(time.Since(start).Seconds())
@@ -718,7 +721,7 @@ func (c *Committer) commitConfig(txID string, blockNumber uint64, seq uint64, en
 		return errors.Wrapf(err, "failed setting configtx state in rws")
 	}
 	rws.Done()
-	if err := c.CommitTX(context.Background(), txID, blockNumber, 0, nil); err != nil {
+	if _, err := c.CommitTX(context.Background(), txID, blockNumber, 0, nil); err != nil {
 		if err2 := c.DiscardTx(txID, err.Error()); err2 != nil {
 			c.logger.Errorf("failed committing configtx rws [%s]", err2)
 		}
@@ -795,10 +798,10 @@ func (c *Committer) commit(ctx context.Context, txID string, block uint64, index
 	return nil
 }
 
-func (c *Committer) commitUnknown(ctx context.Context, txID string, block uint64, indexInBlock uint64, envelope *common.Envelope) error {
+func (c *Committer) commitUnknown(ctx context.Context, txID string, block uint64, indexInBlock uint64, envelope *common.Envelope) (bool, error) {
 	// if an envelope exists for the passed txID, then commit it
 	if c.EnvelopeService.Exists(txID) {
-		return c.commitStoredEnvelope(ctx, txID, block, indexInBlock)
+		return true, c.commitStoredEnvelope(ctx, txID, block, indexInBlock)
 	}
 
 	var envelopeRaw []byte
@@ -807,31 +810,31 @@ func (c *Committer) commitUnknown(ctx context.Context, txID string, block uint64
 		// Store it
 		envelopeRaw, err = proto.Marshal(envelope)
 		if err != nil {
-			return errors.WithMessagef(err, "failed to store unknown envelope for [%s]", txID)
+			return false, errors.WithMessagef(err, "failed to store unknown envelope for [%s]", txID)
 		}
 	} else {
 		// fetch envelope and store it
 		envelopeRaw, err = c.fetchEnvelope(txID)
 		if err != nil {
-			return errors.WithMessagef(err, "failed getting rwset for tx [%s]", txID)
+			return false, errors.WithMessagef(err, "failed getting rwset for tx [%s]", txID)
 		}
 	}
 
 	// shall we commit this unknown envelope
 	if ok, err := c.filterUnknownEnvelope(txID, envelopeRaw); err != nil || !ok {
 		c.logger.Debugf("[%s] unknown envelope will not be processed [%b,%s]", txID, ok, err)
-		return nil
+		return false, nil
 	}
 
 	if err := c.EnvelopeService.StoreEnvelope(txID, envelopeRaw); err != nil {
-		return errors.WithMessagef(err, "failed to store unknown envelope for [%s]", txID)
+		return false, errors.WithMessagef(err, "failed to store unknown envelope for [%s]", txID)
 	}
 	rws, _, err := c.RWSetLoaderService.GetRWSetFromEvn(txID)
 	if err != nil {
-		return errors.WithMessagef(err, "failed to get rws from envelope [%s]", txID)
+		return false, errors.WithMessagef(err, "failed to get rws from envelope [%s]", txID)
 	}
 	rws.Done()
-	return c.commit(ctx, txID, block, indexInBlock, envelope)
+	return true, c.commit(ctx, txID, block, indexInBlock, envelope)
 }
 
 func (c *Committer) commitStoredEnvelope(ctx context.Context, txID string, block uint64, indexInBlock uint64) error {
