@@ -36,7 +36,6 @@ import (
 	"github.com/hyperledger/fabric/protoutil"
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
-	"golang.org/x/sync/errgroup"
 )
 
 const (
@@ -379,45 +378,45 @@ func (c *Committer) Commit(ctx context.Context, block *common.Block) error {
 }
 
 func (c *Committer) commitTxs(ctx context.Context, parallelizableTxGroups ParallelExecutable[SerialExecutable[CommitTx]], blockMetadata *common.BlockMetadata) error {
-	start := time.Now()
-	var eg errgroup.Group
-	eg.SetLimit(c.ChannelConfig.CommitParallelism())
+	// start := time.Now()
+	// var eg errgroup.Group
+	// eg.SetLimit(c.ChannelConfig.CommitParallelism())
 	for _, txGroup := range parallelizableTxGroups {
 		txs := txGroup
-		eg.Go(func() error {
-			for _, tx := range txs {
-				newCtx, span := c.metrics.Commits.Start(ctx, "commit_tx")
-				span.AddEvent("create_finality_event")
-
-				start := time.Now()
-				if handler, ok := c.Handlers[tx.Type]; !ok {
-					c.logger.Debugf("[%s] Received unhandled transaction type: %s", c.ChannelConfig.ID(), tx.Type)
-					c.metrics.HandlerDuration.With("status", "not_found").Observe(time.Since(start).Seconds())
-					span.End()
-				} else if event, err := handler(newCtx, blockMetadata, tx); err != nil {
-					span.End()
-					c.metrics.HandlerDuration.With("status", "failure").Observe(time.Since(start).Seconds())
-					return errors.Wrapf(err, "failed calling handler for tx [%s]", tx.TxID)
-				} else {
-					if event.Unknown {
-						continue
-					}
-					c.logger.Debugf("commit transaction [%s] in filteredBlock [%d]", event.TxID, tx.BlkNum)
-					span.AddEvent("call_finality_notifiers")
-					c.metrics.HandlerDuration.With("status", "successful").Observe(time.Since(start).Seconds())
-					start := time.Now()
-					c.events <- *event
-					c.metrics.EventQueueDuration.Observe(time.Since(start).Seconds())
-					c.metrics.EventQueueLength.Add(1)
-					span.End()
+		// 	eg.Go(func() error {
+		for _, tx := range txs {
+			// newCtx, span := c.metrics.Commits.Start(ctx, "commit_tx")
+			// span.AddEvent("create_finality_event")
+			//
+			// start := time.Now()
+			if handler, ok := c.Handlers[tx.Type]; !ok {
+				c.logger.Debugf("[%s] Received unhandled transaction type: %s", c.ChannelConfig.ID(), tx.Type)
+				// c.metrics.HandlerDuration.With("status", "not_found").Observe(time.Since(start).Seconds())
+				// span.End()
+			} else if event, err := handler(ctx, blockMetadata, tx); err != nil {
+				// span.End()
+				// c.metrics.HandlerDuration.With("status", "failure").Observe(time.Since(start).Seconds())
+				return errors.Wrapf(err, "failed calling handler for tx [%s]", tx.TxID)
+			} else {
+				if event.Unknown {
+					continue
 				}
+				c.logger.Debugf("commit transaction [%s] in filteredBlock [%d]", event.TxID, tx.BlkNum)
+				// span.AddEvent("call_finality_notifiers")
+				// c.metrics.HandlerDuration.With("status", "successful").Observe(time.Since(start).Seconds())
+				// start := time.Now()
+				c.events <- *event
+				// c.metrics.EventQueueDuration.Observe(time.Since(start).Seconds())
+				// c.metrics.EventQueueLength.Add(1)
+				// span.End()
 			}
-			return nil
-		})
+		}
+		// })
 	}
-	err := eg.Wait()
-	c.metrics.BlockCommitDuration.Observe(time.Since(start).Seconds())
-	return err
+	return nil
+	// err := eg.Wait()
+	// c.metrics.BlockCommitDuration.Observe(time.Since(start).Seconds())
+	// return err
 }
 
 func unmarshalTxs(block *common.Block) ([]CommitTx, error) {
