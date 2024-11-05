@@ -19,7 +19,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/atomic"
 )
@@ -67,18 +66,6 @@ type (
 	VersionedResultsIterator = dbdriver.VersionedResultsIterator
 	QueryExecutor            = dbdriver.QueryExecutor
 )
-
-type txCommitIndex struct {
-	ctx         context.Context
-	txID        driver.TxID
-	block       driver.BlockNum
-	indexInBloc driver.TxNum
-}
-
-type commitInput struct {
-	txCommitIndex
-	rws *ReadWriteSet
-}
 
 type VersionBuilder interface {
 	VersionedValues(rws *ReadWriteSet, ns driver.Namespace, writes NamespaceWrites, block driver.BlockNum, indexInBloc driver.TxNum) (map[driver.PKey]VersionedValue, error)
@@ -306,15 +293,6 @@ func (db *Vault[V]) commitRWs(inputs ...commitInput) error {
 		return errors.Wrapf(err, "begin update in store for txid %v failed", inputs)
 	}
 
-	for _, input := range inputs {
-		span := trace.SpanFromContext(input.ctx)
-
-		span.AddEvent("set_tx_busy")
-		if err := db.txIDStore.Set(input.txID, db.vcProvider.Busy(), ""); err != nil {
-			if !errors.HasCause(err, UniqueKeyViolation) {
-				return err
-			}
-		}
 	if _, err := db.setStatuses(inputs, db.vcProvider.Busy()); err != nil {
 		return err
 	}
@@ -335,15 +313,6 @@ func (db *Vault[V]) commitRWs(inputs ...commitInput) error {
 		}
 	}
 
-		db.logger.Debugf("parse writes [%s]", input.txID)
-		span.AddEvent("store_writes")
-		if discarded, err := db.storeWrites(input.ctx, input.rws.Writes, input.block, input.indexInBloc); err != nil {
-			return errors.Wrapf(err, "failed storing writes")
-		} else if discarded {
-			db.logger.Infof("Discarded changes while storing writes as duplicates. Skipping...")
-			db.txIDStore.Invalidate(input.txID)
-			return nil
-		}
 	if errs := db.storeAllWrites(writes); len(errs) == 0 {
 		db.logger.Debugf("Successfully stored writes for %d namespaces", len(writes))
 	} else if discarded, err := db.discard("", 0, 0, errs); err != nil {
@@ -356,15 +325,6 @@ func (db *Vault[V]) commitRWs(inputs ...commitInput) error {
 		return nil
 	}
 
-		db.logger.Debugf("parse meta writes [%s]", input.txID)
-		span.AddEvent("store_meta_writes")
-		if discarded, err := db.storeMetaWrites(input.ctx, input.rws.MetaWrites, input.block, input.indexInBloc); err != nil {
-			return errors.Wrapf(err, "failed storing meta writes")
-		} else if discarded {
-			db.logger.Infof("Discarded changes while storing meta writes as duplicates. Skipping...")
-			db.txIDStore.Invalidate(input.txID)
-			return nil
-		}
 	db.logger.Debugf("parse meta writes")
 	metaWrites := make(map[driver.Namespace]map[driver.PKey]driver.VersionedMetadataValue)
 	for _, input := range inputs {
@@ -408,10 +368,9 @@ func (db *Vault[V]) commitRWs(inputs ...commitInput) error {
 		return nil
 	}
 
-		for _, input := range inputs {
-			trace.SpanFromContext(input.ctx).AddEvent("commit_update")
-		}
-	span.AddEvent("commit_update")
+	for _, input := range inputs {
+		trace.SpanFromContext(input.ctx).AddEvent("commit_update")
+	}
 	if err := db.store.Commit(); err != nil {
 		return errors.Wrapf(err, "committing tx for txid in store [%v] failed", inputs)
 	}

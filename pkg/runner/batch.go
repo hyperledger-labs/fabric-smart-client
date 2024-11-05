@@ -11,24 +11,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/pkg/errors"
 )
-
-var logger = flogging.MustGetLogger("batch-executor")
-
-type BatchExecutor[I any, O any] interface {
-	Execute(input I) (O, error)
-}
-
-type BatchRunner[V any] interface {
-	Run(v V) error
-}
-
-type Output[O any] struct {
-	Val O
-	Err error
-}
 
 type batcher[I any, O any] struct {
 	idx      uint32
