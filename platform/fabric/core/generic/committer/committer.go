@@ -155,7 +155,7 @@ func New(
 		listeners:          map[string][]chan FinalityEvent{},
 		Handlers:           map[common.HeaderType]TransactionHandler{},
 		pollingTimeout:     1 * time.Second,
-		events:             make(chan FinalityEvent, 2000),
+		events:             make(chan FinalityEvent, 20000),
 	}
 	s.Handlers[common.HeaderType_CONFIG] = s.HandleConfig
 	s.Handlers[common.HeaderType_ENDORSER_TRANSACTION] = s.HandleEndorserTransaction
