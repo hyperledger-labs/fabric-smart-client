@@ -157,6 +157,7 @@ func New(
 		pollingTimeout:     1 * time.Second,
 		events:             make(chan FinalityEvent, 20000),
 	}
+	s.logger.Debugf("Created committer instance with event queue of [%d] elements", 20000)
 	s.Handlers[common.HeaderType_CONFIG] = s.HandleConfig
 	s.Handlers[common.HeaderType_ENDORSER_TRANSACTION] = s.HandleEndorserTransaction
 	return s
