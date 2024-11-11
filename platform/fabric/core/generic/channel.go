@@ -11,7 +11,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/delivery"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/membership"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/pkg/errors"
 )
@@ -42,7 +42,7 @@ type Channel struct {
 	ChannelMembershipService *membership.Service
 	ChaincodeManagerService  driver.ChaincodeManager
 	CommitterService         committerService
-	PeerManager              *peer.Service
+	PeerService              *services.ClientFactory
 }
 
 func (c *Channel) Name() string {

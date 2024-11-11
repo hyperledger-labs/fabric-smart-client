@@ -21,7 +21,7 @@ type Manager struct {
 	NumRetries      uint
 	RetrySleep      time.Duration
 	LocalMembership driver.LocalMembership
-	PeerManager     PeerManager
+	PeerManager     Services
 	SignerService   driver.SignerService
 	Broadcaster     Broadcaster
 	Finality        driver.Finality
@@ -40,7 +40,7 @@ func NewManager(
 	numRetries uint,
 	retrySleep time.Duration,
 	localMembership driver.LocalMembership,
-	peerManager PeerManager,
+	peerManager Services,
 	signerService driver.SignerService,
 	broadcaster Broadcaster,
 	finality driver.Finality,

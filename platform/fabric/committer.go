@@ -30,6 +30,10 @@ func (c *Committer) ProcessNamespace(nss ...string) error {
 	return c.committer.ProcessNamespace(nss...)
 }
 
+func (c *Committer) DiscardNamespace(nss ...string) error {
+	return c.committer.DiscardNamespace(nss...)
+}
+
 // Status returns a validation code this committer bind to the passed transaction id, plus
 // a list of dependant transaction ids if they exist.
 func (c *Committer) Status(txID string) (ValidationCode, string, error) {

@@ -111,9 +111,11 @@ func (c *Committer) CommitEndorserTransaction(ctx context.Context, txID string, 
 	}
 
 	span.AddEvent("commit_tx")
-	if err := c.CommitTX(newCtx, event.TxID, event.Block, event.IndexInBlock, env); err != nil {
+	committed, err := c.CommitTX(newCtx, event.TxID, event.Block, event.IndexInBlock, env)
+	if err != nil {
 		return false, errors.Wrapf(err, "failed committing transaction [%s]", txID)
 	}
+	event.Unknown = !committed
 	return false, nil
 }
 

@@ -958,7 +958,7 @@ func (n *Network) PeerRunner(p *topology.Peer, env ...string) *runner2.Runner {
 	}, "", fmt.Sprintf("FABRIC_CFG_PATH=%s", n.PeerDir(p)), fmt.Sprintf("CORE_PEER_ID=%s", fmt.Sprintf("%s.%s", p.Name, n.Organization(p.Organization).Domain)))
 
 	cmd.Env = append(cmd.Env, env...)
-	//cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	// cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
 	config := runner2.Config{
 		AnsiColorCode:     n.nextColor(),
@@ -1035,17 +1035,19 @@ func (n *Network) peerCommand(command common.Command, tlsDir string, env ...stri
 		cmd.Env = append(cmd.Env, "GRPC_GO_LOG_SEVERITY_LEVEL=debug")
 	}
 
-	if common.ConnectsToOrderer(command) {
-		cmd.Args = append(cmd.Args, "--tls")
-		cmd.Args = append(cmd.Args, "--cafile", n.CACertsBundlePath())
-	}
+	if n.topology.TLSEnabled {
+		if common.ConnectsToOrderer(command) {
+			cmd.Args = append(cmd.Args, "--tls")
+			cmd.Args = append(cmd.Args, "--cafile", n.CACertsBundlePath())
+		}
 
-	if common.ClientAuthEnabled(command) {
-		certfilePath := filepath.Join(tlsDir, "client.crt")
-		keyfilePath := filepath.Join(tlsDir, "client.key")
+		if common.ClientAuthEnabled(command) {
+			certfilePath := filepath.Join(tlsDir, "client.crt")
+			keyfilePath := filepath.Join(tlsDir, "client.key")
 
-		cmd.Args = append(cmd.Args, "--certfile", certfilePath)
-		cmd.Args = append(cmd.Args, "--keyfile", keyfilePath)
+			cmd.Args = append(cmd.Args, "--certfile", certfilePath)
+			cmd.Args = append(cmd.Args, "--keyfile", keyfilePath)
+		}
 	}
 
 	cmd.Env = append(cmd.Env, fmt.Sprintf("FABRIC_LOGGING_SPEC=%s", n.Logging.Spec))
@@ -1534,16 +1536,17 @@ func (n *Network) GenerateOrdererConfig(o *topology.Orderer) {
 	orderer, err := os.Create(n.OrdererConfigPath(o))
 	Expect(err).NotTo(HaveOccurred())
 	defer orderer.Close()
-
+	tlsEnabled := n.topology.TLSEnabled
 	t, err := template.New("orderer").Funcs(template.FuncMap{
 		"Orderer":    func() *topology.Orderer { return o },
 		"ToLower":    func(s string) string { return strings.ToLower(s) },
 		"ReplaceAll": func(s, old, new string) string { return strings.Replace(s, old, new, -1) },
+		"TLSEnabled": func() bool { return tlsEnabled },
 	}).Parse(n.Templates.OrdererTemplate())
 	Expect(err).NotTo(HaveOccurred())
 
-	// pw := gexec.NewPrefixedWriter(fmt.Sprintf("[%s#orderer.yaml] ", o.ID()), ginkgo.GinkgoWriter)
-	err = t.Execute(io.MultiWriter(orderer), n)
+	pw := gexec.NewPrefixedWriter(fmt.Sprintf("[%s#orderer.yaml] ", o.ID()), ginkgo.GinkgoWriter)
+	err = t.Execute(io.MultiWriter(orderer, pw), n)
 	Expect(err).NotTo(HaveOccurred())
 }
 

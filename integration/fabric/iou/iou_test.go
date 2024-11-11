@@ -16,30 +16,41 @@ import (
 
 var _ = Describe("EndToEnd", func() {
 	Describe("IOU Life Cycle With LibP2P", func() {
-		s := NewTestSuite(fsc.LibP2P, integration.NoReplication)
+		s := NewTestSuite(fsc.LibP2P, integration.NoReplication, true)
 		BeforeEach(s.Setup)
 		AfterEach(s.TearDown)
 		It("succeeded", s.TestSucceeded)
 	})
 
 	Describe("IOU Life Cycle With Websockets", func() {
-		s := NewTestSuite(fsc.WebSocket, integration.NoReplication)
+		s := NewTestSuite(fsc.WebSocket, integration.NoReplication, true)
+		BeforeEach(s.Setup)
+		AfterEach(s.TearDown)
+		It("succeeded", s.TestSucceeded)
+	})
+
+	Describe("IOU Life Cycle With Websockets and no TLS", func() {
+		s := NewTestSuite(fsc.WebSocket, integration.NoReplication, false)
 		BeforeEach(s.Setup)
 		AfterEach(s.TearDown)
 		It("succeeded", s.TestSucceeded)
 	})
 
 	Describe("IOU Life Cycle With Websockets and replicas", func() {
-		s := NewTestSuite(fsc.WebSocket, &integration.ReplicationOptions{
-			ReplicationFactors: map[string]int{
-				"borrower": 3,
-				"lender":   2,
+		s := NewTestSuite(
+			fsc.WebSocket,
+			&integration.ReplicationOptions{
+				ReplicationFactors: map[string]int{
+					"borrower": 3,
+					"lender":   2,
+				},
+				SQLConfigs: map[string]*postgres.ContainerConfig{
+					"borrower": postgres.DefaultConfig("borrower-db"),
+					"lender":   postgres.DefaultConfig("lender-db"),
+				},
 			},
-			SQLConfigs: map[string]*postgres.ContainerConfig{
-				"borrower": postgres.DefaultConfig("borrower-db"),
-				"lender":   postgres.DefaultConfig("lender-db"),
-			},
-		})
+			true,
+		)
 		BeforeEach(s.Setup)
 		AfterEach(s.TearDown)
 		It("succeeded", s.TestSucceededWithReplicas)
@@ -50,9 +61,14 @@ type TestSuite struct {
 	*integration.TestSuite
 }
 
-func NewTestSuite(commType fsc.P2PCommunicationType, nodeOpts *integration.ReplicationOptions) *TestSuite {
-	return &TestSuite{integration.NewTestSuiteWithSQL(nodeOpts.SQLConfigs, func() (*integration.Infrastructure, error) {
-		return integration.Generate(StartPort(), true, integration.ReplaceTemplate(iou.Topology(&iou.SDK{}, commType, nodeOpts))...)
+func NewTestSuite(commType fsc.P2PCommunicationType, nodeOpts *integration.ReplicationOptions, tlsEnabled bool) *TestSuite {
+	return &TestSuite{TestSuite: integration.NewTestSuiteWithSQL(nodeOpts.SQLConfigs, func() (*integration.Infrastructure, error) {
+		return integration.Generate(StartPort(), true, integration.ReplaceTemplate(iou.Topology(&iou.Opts{
+			SDK:             &iou.SDK{},
+			CommType:        commType,
+			ReplicationOpts: nodeOpts,
+			TLSEnabled:      tlsEnabled,
+		}))...)
 	})}
 }
 

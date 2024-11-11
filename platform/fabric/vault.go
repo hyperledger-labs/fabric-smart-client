@@ -184,5 +184,6 @@ func (c *Vault) DiscardTx(txID string, message string) error {
 }
 
 func (c *Vault) CommitTX(ctx context.Context, txID string, block driver.BlockNum, indexInBlock driver.TxNum) error {
-	return c.committer.CommitTX(ctx, txID, block, indexInBlock, nil)
+	_, err := c.committer.CommitTX(ctx, txID, block, indexInBlock, nil)
+	return err
 }

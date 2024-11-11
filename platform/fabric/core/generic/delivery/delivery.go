@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
@@ -59,8 +59,8 @@ type Vault interface {
 	GetLastTxID() (string, error)
 }
 
-type PeerManager interface {
-	NewClient(cc grpc.ConnectionConfig) (peer.Client, error)
+type Services interface {
+	NewPeerClient(cc grpc.ConnectionConfig) (services.PeerClient, error)
 }
 
 type Delivery struct {
@@ -70,12 +70,12 @@ type Delivery struct {
 	NetworkName         string
 	LocalMembership     driver.LocalMembership
 	ConfigService       driver.ConfigService
-	PeerManager         PeerManager
+	Services            Services
 	Ledger              driver.Ledger
 	waitForEventTimeout time.Duration
 	callback            Callback
 	vault               Vault
-	client              peer.Client
+	client              services.PeerClient
 	tracer              trace.Tracer
 	lastBlockReceived   uint64
 	stop                chan bool
@@ -87,7 +87,7 @@ func New(
 	hasher Hasher,
 	LocalMembership driver.LocalMembership,
 	ConfigService driver.ConfigService,
-	PeerManager PeerManager,
+	PeerManager Services,
 	Ledger driver.Ledger,
 	callback Callback,
 	vault Vault,
@@ -106,7 +106,7 @@ func New(
 		hasher:              hasher,
 		LocalMembership:     LocalMembership,
 		ConfigService:       ConfigService,
-		PeerManager:         PeerManager,
+		Services:            PeerManager,
 		Ledger:              Ledger,
 		waitForEventTimeout: waitForEventTimeout,
 		tracer: tracerProvider.Tracer("delivery", tracing.WithMetricsOpts(tracing.MetricsOpts{
@@ -239,7 +239,7 @@ func (d *Delivery) connect(ctx context.Context) (DeliverStream, error) {
 		logger.Debugf("connecting to deliver service at [%s] for [%s:%s]", address, d.NetworkName, d.channel)
 	}
 	var err error
-	d.client, err = d.PeerManager.NewClient(*peerConnConf)
+	d.client, err = d.Services.NewPeerClient(*peerConnConf)
 	if err != nil {
 		return nil, errors.WithMessagef(err, "failed creating peer client for address [%s][%s:%s]", address, d.NetworkName, d.channel)
 	}

@@ -36,7 +36,6 @@ import (
 	"github.com/hyperledger/fabric/protoutil"
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
-	"golang.org/x/sync/errgroup"
 )
 
 const (
@@ -86,6 +85,7 @@ type Committer struct {
 	EnvelopeService    driver.EnvelopeService
 	TransactionFilters *committer.AggregatedTransactionFilter
 	ProcessNamespaces  []string
+	DiscardNamespaces  []string
 	Ledger             driver.Ledger
 	RWSetLoaderService driver.RWSetLoader
 	ProcessorManager   driver.ProcessorManager
@@ -154,8 +154,9 @@ func New(
 		listeners:          map[string][]chan FinalityEvent{},
 		Handlers:           map[common.HeaderType]TransactionHandler{},
 		pollingTimeout:     1 * time.Second,
-		events:             make(chan FinalityEvent, 2000),
+		events:             make(chan FinalityEvent, 20000),
 	}
+	s.logger.Debugf("Created committer instance with event queue of [%d] elements", 20000)
 	s.Handlers[common.HeaderType_CONFIG] = s.HandleConfig
 	s.Handlers[common.HeaderType_ENDORSER_TRANSACTION] = s.HandleEndorserTransaction
 	return s
@@ -218,6 +219,11 @@ func (c *Committer) ProcessNamespace(nss ...string) error {
 	return nil
 }
 
+func (c *Committer) DiscardNamespace(nss ...string) error {
+	c.DiscardNamespaces = append(c.DiscardNamespaces, nss...)
+	return nil
+}
+
 func (c *Committer) AddTransactionFilter(sr driver.TransactionFilter) error {
 	c.TransactionFilters.Add(sr)
 	return nil
@@ -251,29 +257,29 @@ func (c *Committer) DiscardTx(txID string, message string) error {
 	return nil
 }
 
-func (c *Committer) CommitTX(ctx context.Context, txID string, block driver.BlockNum, indexInBlock driver.TxNum, envelope *common.Envelope) (err error) {
+func (c *Committer) CommitTX(ctx context.Context, txID driver2.TxID, block driver2.BlockNum, indexInBlock driver2.TxNum, envelope *common.Envelope) (b bool, err error) {
 	c.logger.Debugf("Committing transaction [%s,%d,%d]", txID, block, indexInBlock)
 	defer c.logger.Debugf("Committing transaction [%s,%d,%d] done [%s]", txID, block, indexInBlock, err)
 
 	vc, _, err := c.Status(txID)
 	if err != nil {
-		return errors.WithMessagef(err, "failed getting tx's status in state db [%s]", txID)
+		return false, errors.WithMessagef(err, "failed getting tx's status in state db [%s]", txID)
 	}
 	switch vc {
 	case driver.Valid:
 		// This should generate a panic
 		c.logger.Debugf("[%s] is already valid", txID)
-		return errors.Errorf("[%s] is already valid", txID)
+		return false, errors.Errorf("[%s] is already valid", txID)
 	case driver.Invalid:
 		// This should generate a panic
 		c.logger.Debugf("[%s] is invalid", txID)
-		return errors.Errorf("[%s] is invalid", txID)
+		return false, errors.Errorf("[%s] is invalid", txID)
 	case driver.Unknown:
 		return c.commitUnknown(ctx, txID, block, indexInBlock, envelope)
 	case driver.Busy:
-		return c.commit(ctx, txID, block, indexInBlock, envelope)
+		return true, c.commit(ctx, txID, block, indexInBlock, envelope)
 	default:
-		return errors.Errorf("invalid status code [%d] for [%s]", vc, txID)
+		return false, errors.Errorf("invalid status code [%d] for [%s]", vc, txID)
 	}
 }
 
@@ -372,42 +378,45 @@ func (c *Committer) Commit(ctx context.Context, block *common.Block) error {
 }
 
 func (c *Committer) commitTxs(ctx context.Context, parallelizableTxGroups ParallelExecutable[SerialExecutable[CommitTx]], blockMetadata *common.BlockMetadata) error {
-	start := time.Now()
-	var eg errgroup.Group
-	eg.SetLimit(c.ChannelConfig.CommitParallelism())
+	// start := time.Now()
+	// var eg errgroup.Group
+	// eg.SetLimit(c.ChannelConfig.CommitParallelism())
 	for _, txGroup := range parallelizableTxGroups {
 		txs := txGroup
-		eg.Go(func() error {
-			for _, tx := range txs {
-				newCtx, span := c.metrics.Commits.Start(ctx, "commit_tx")
-				span.AddEvent("create_finality_event")
-
-				start := time.Now()
-				if handler, ok := c.Handlers[tx.Type]; !ok {
-					c.logger.Debugf("[%s] Received unhandled transaction type: %s", c.ChannelConfig.ID(), tx.Type)
-					c.metrics.HandlerDuration.With("status", "not_found").Observe(time.Since(start).Seconds())
-					span.End()
-				} else if event, err := handler(newCtx, blockMetadata, tx); err != nil {
-					span.End()
-					c.metrics.HandlerDuration.With("status", "failure").Observe(time.Since(start).Seconds())
-					return errors.Wrapf(err, "failed calling handler for tx [%s]", tx.TxID)
-				} else {
-					c.logger.Debugf("commit transaction [%s] in filteredBlock [%d]", event.TxID, tx.BlkNum)
-					span.AddEvent("call_finality_notifiers")
-					c.metrics.HandlerDuration.With("status", "successful").Observe(time.Since(start).Seconds())
-					start := time.Now()
-					c.events <- *event
-					c.metrics.EventQueueDuration.Observe(time.Since(start).Seconds())
-					c.metrics.EventQueueLength.Add(1)
-					span.End()
+		// 	eg.Go(func() error {
+		for _, tx := range txs {
+			// newCtx, span := c.metrics.Commits.Start(ctx, "commit_tx")
+			// span.AddEvent("create_finality_event")
+			//
+			// start := time.Now()
+			if handler, ok := c.Handlers[tx.Type]; !ok {
+				c.logger.Debugf("[%s] Received unhandled transaction type: %s", c.ChannelConfig.ID(), tx.Type)
+				// c.metrics.HandlerDuration.With("status", "not_found").Observe(time.Since(start).Seconds())
+				// span.End()
+			} else if event, err := handler(ctx, blockMetadata, tx); err != nil {
+				// span.End()
+				// c.metrics.HandlerDuration.With("status", "failure").Observe(time.Since(start).Seconds())
+				return errors.Wrapf(err, "failed calling handler for tx [%s]", tx.TxID)
+			} else {
+				if event.Unknown {
+					continue
 				}
+				c.logger.Debugf("commit transaction [%s] in filteredBlock [%d]", event.TxID, tx.BlkNum)
+				// span.AddEvent("call_finality_notifiers")
+				// c.metrics.HandlerDuration.With("status", "successful").Observe(time.Since(start).Seconds())
+				// start := time.Now()
+				c.events <- *event
+				// c.metrics.EventQueueDuration.Observe(time.Since(start).Seconds())
+				// c.metrics.EventQueueLength.Add(1)
+				// span.End()
 			}
-			return nil
-		})
+		}
+		// })
 	}
-	err := eg.Wait()
-	c.metrics.BlockCommitDuration.Observe(time.Since(start).Seconds())
-	return err
+	return nil
+	// err := eg.Wait()
+	// c.metrics.BlockCommitDuration.Observe(time.Since(start).Seconds())
+	// return err
 }
 
 func unmarshalTxs(block *common.Block) ([]CommitTx, error) {
@@ -711,7 +720,7 @@ func (c *Committer) commitConfig(txID string, blockNumber uint64, seq uint64, en
 		return errors.Wrapf(err, "failed setting configtx state in rws")
 	}
 	rws.Done()
-	if err := c.CommitTX(context.Background(), txID, blockNumber, 0, nil); err != nil {
+	if _, err := c.CommitTX(context.Background(), txID, blockNumber, 0, nil); err != nil {
 		if err2 := c.DiscardTx(txID, err.Error()); err2 != nil {
 			c.logger.Errorf("failed committing configtx rws [%s]", err2)
 		}
@@ -788,10 +797,10 @@ func (c *Committer) commit(ctx context.Context, txID string, block uint64, index
 	return nil
 }
 
-func (c *Committer) commitUnknown(ctx context.Context, txID string, block uint64, indexInBlock uint64, envelope *common.Envelope) error {
+func (c *Committer) commitUnknown(ctx context.Context, txID string, block uint64, indexInBlock uint64, envelope *common.Envelope) (bool, error) {
 	// if an envelope exists for the passed txID, then commit it
 	if c.EnvelopeService.Exists(txID) {
-		return c.commitStoredEnvelope(ctx, txID, block, indexInBlock)
+		return true, c.commitStoredEnvelope(ctx, txID, block, indexInBlock)
 	}
 
 	var envelopeRaw []byte
@@ -800,31 +809,31 @@ func (c *Committer) commitUnknown(ctx context.Context, txID string, block uint64
 		// Store it
 		envelopeRaw, err = proto.Marshal(envelope)
 		if err != nil {
-			return errors.WithMessagef(err, "failed to store unknown envelope for [%s]", txID)
+			return false, errors.WithMessagef(err, "failed to store unknown envelope for [%s]", txID)
 		}
 	} else {
 		// fetch envelope and store it
 		envelopeRaw, err = c.fetchEnvelope(txID)
 		if err != nil {
-			return errors.WithMessagef(err, "failed getting rwset for tx [%s]", txID)
+			return false, errors.WithMessagef(err, "failed getting rwset for tx [%s]", txID)
 		}
 	}
 
 	// shall we commit this unknown envelope
 	if ok, err := c.filterUnknownEnvelope(txID, envelopeRaw); err != nil || !ok {
 		c.logger.Debugf("[%s] unknown envelope will not be processed [%b,%s]", txID, ok, err)
-		return nil
+		return false, nil
 	}
 
 	if err := c.EnvelopeService.StoreEnvelope(txID, envelopeRaw); err != nil {
-		return errors.WithMessagef(err, "failed to store unknown envelope for [%s]", txID)
+		return false, errors.WithMessagef(err, "failed to store unknown envelope for [%s]", txID)
 	}
 	rws, _, err := c.RWSetLoaderService.GetRWSetFromEvn(txID)
 	if err != nil {
-		return errors.WithMessagef(err, "failed to get rws from envelope [%s]", txID)
+		return false, errors.WithMessagef(err, "failed to get rws from envelope [%s]", txID)
 	}
 	rws.Done()
-	return c.commit(ctx, txID, block, indexInBlock, envelope)
+	return true, c.commit(ctx, txID, block, indexInBlock, envelope)
 }
 
 func (c *Committer) commitStoredEnvelope(ctx context.Context, txID string, block uint64, indexInBlock uint64) error {
@@ -849,6 +858,16 @@ func (c *Committer) applyBundle(bundle *channelconfig.Bundle) error {
 	}
 	c.logger.Debugf("[Channel: %s] Orderer config has changed, updating the list of orderers", c.ChannelConfig.ID())
 
+	tlsEnabled, isSet := c.ConfigService.OrderingTLSEnabled()
+	if !isSet {
+		tlsEnabled = c.ConfigService.TLSEnabled()
+	}
+	tlsClientSideAuth, isSet := c.ConfigService.OrderingTLSClientAuthRequired()
+	if !isSet {
+		tlsClientSideAuth = c.ConfigService.TLSClientAuthRequired()
+	}
+	connectionTimeout := c.ConfigService.ClientConnTimeout()
+
 	var newOrderers []*grpc.ConnectionConfig
 	orgs := ordererConfig.Organizations()
 	for _, org := range orgs {
@@ -858,11 +877,11 @@ func (c *Committer) applyBundle(bundle *channelconfig.Bundle) error {
 		tlsRootCerts = append(tlsRootCerts, msp.GetTLSIntermediateCerts()...)
 		for _, endpoint := range org.Endpoints() {
 			c.logger.Debugf("[Channel: %s] Adding orderer endpoint: [%s:%s:%s]", c.ChannelConfig.ID(), org.Name(), org.MSPID(), endpoint)
-			// TODO: load from configuration
 			newOrderers = append(newOrderers, &grpc.ConnectionConfig{
 				Address:           endpoint,
-				ConnectionTimeout: 10 * time.Second,
-				TLSEnabled:        true,
+				ConnectionTimeout: connectionTimeout,
+				TLSEnabled:        tlsEnabled,
+				TLSClientSideAuth: tlsClientSideAuth,
 				TLSRootCertBytes:  tlsRootCerts,
 			})
 		}
@@ -872,8 +891,9 @@ func (c *Committer) applyBundle(bundle *channelconfig.Bundle) error {
 				c.logger.Debugf("[Channel: %s] Adding orderer address [%s:%s:%s]", c.ChannelConfig.ID(), org.Name(), org.MSPID(), endpoint)
 				newOrderers = append(newOrderers, &grpc.ConnectionConfig{
 					Address:           endpoint,
-					ConnectionTimeout: 10 * time.Second,
-					TLSEnabled:        true,
+					ConnectionTimeout: connectionTimeout,
+					TLSEnabled:        tlsEnabled,
+					TLSClientSideAuth: tlsClientSideAuth,
 					TLSRootCertBytes:  tlsRootCerts,
 				})
 			}
@@ -913,6 +933,13 @@ func (c *Committer) filterUnknownEnvelope(txID string, envelope []byte) (bool, e
 			if namespace == ns {
 				c.logger.Debugf("[%s] contains namespaces [%v], select it", txID, rws.Namespaces())
 				return true, nil
+			}
+		}
+
+		for _, namespace := range c.DiscardNamespaces {
+			if namespace == ns {
+				c.logger.Debugf("[%s] contains namespaces [%v], discaurd it", txID, rws.Namespaces())
+				return false, nil
 			}
 		}
 

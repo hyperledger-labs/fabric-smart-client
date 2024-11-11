@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
@@ -30,6 +30,8 @@ const (
 	defaultCacheSize                  = 100
 
 	GenericDriver = "generic"
+
+	DefaultConnectionTimeout = 10 * time.Second
 )
 
 var logger = flogging.MustGetLogger("fabric-sdk.core.generic.config")
@@ -69,19 +71,20 @@ func NewService(configService driver.Configuration, name string, defaultConfig b
 	}
 
 	tlsEnabled := configService.GetBool(fmt.Sprintf("fabric.%stls.enabled", prefix))
+
+	// orderers
 	orderers, err := readItems[*grpc.ConnectionConfig](configService, prefix, "orderers")
 	if err != nil {
 		return nil, err
 	}
-	for _, v := range orderers {
-		v.TLSEnabled = tlsEnabled
-	}
+	orderers = createOrdererList(orderers, tlsEnabled)
+	// peers
 	peers, err := readItems[*grpc.ConnectionConfig](configService, prefix, "peers")
 	if err != nil {
 		return nil, err
 	}
 	peerMapping := createPeerMap(peers, tlsEnabled)
-
+	// channels
 	channels, err := readItems[*Channel](configService, prefix, "channels")
 	if err != nil {
 		return nil, err
@@ -121,16 +124,23 @@ func createChannelMap(channels []*Channel) (map[string]*Channel, string, error) 
 
 func createPeerMap(peers []*grpc.ConnectionConfig, tlsEnabled bool) map[driver.PeerFunctionType][]*grpc.ConnectionConfig {
 	peerMapping := map[driver.PeerFunctionType][]*grpc.ConnectionConfig{}
-	for _, v := range peers {
-		v.TLSEnabled = tlsEnabled && !v.TLSDisabled
+	for _, peerCC := range peers {
+		peerCC.TLSEnabled = tlsEnabled && !peerCC.TLSDisabled
 
-		if funcType, ok := funcTypeMap[strings.ToLower(v.Usage)]; ok {
-			peerMapping[funcType] = append(peerMapping[funcType], v)
+		if funcType, ok := funcTypeMap[strings.ToLower(peerCC.Usage)]; ok {
+			peerMapping[funcType] = append(peerMapping[funcType], peerCC)
 		} else {
-			logger.Warn("connection usage [%s] not recognized [%v]", v.Usage, v)
+			logger.Warn("connection usage [%s] not recognized [%v]", peerCC.Usage, peerCC)
 		}
 	}
 	return peerMapping
+}
+
+func createOrdererList(orderers []*grpc.ConnectionConfig, tlsEnabled bool) []*grpc.ConnectionConfig {
+	for _, cc := range orderers {
+		cc.TLSEnabled = tlsEnabled && !cc.TLSDisabled
+	}
+	return orderers
 }
 
 func readItems[T any](configService driver.Configuration, prefix, key string) ([]T, error) {
@@ -149,6 +159,20 @@ func (s *Service) DriverName() string {
 	return s.driver
 }
 
+func (s *Service) OrderingTLSEnabled() (bool, bool) {
+	if !s.Configuration.IsSet("ordering.tlsEnabled") {
+		return true, false
+	}
+	return s.GetBool("ordering.tlsEnabled"), true
+}
+
+func (s *Service) OrderingTLSClientAuthRequired() (bool, bool) {
+	if !s.Configuration.IsSet("ordering.tlsClientAuthRequired") {
+		return false, false
+	}
+	return s.GetBool("ordering.tlsClientAuthRequired"), true
+}
+
 func (s *Service) TLSEnabled() bool {
 	return s.GetBool("tls.enabled")
 }
@@ -162,7 +186,10 @@ func (s *Service) TLSServerHostOverride() string {
 }
 
 func (s *Service) ClientConnTimeout() time.Duration {
-	return s.GetDuration("client.connTimeout")
+	if !s.Configuration.IsSet("keepalive.connectionTimeout") {
+		return DefaultConnectionTimeout
+	}
+	return s.GetDuration("keepalive.connectionTimeout")
 }
 
 func (s *Service) TLSClientKeyFile() string {
@@ -196,8 +223,8 @@ func (s *Service) Orderers() []*grpc.ConnectionConfig {
 	return s.orderers
 }
 
-func (s *Service) VaultPersistenceType() driver2.PersistenceType {
-	return driver2.PersistenceType(s.GetString("vault.persistence.type"))
+func (s *Service) VaultPersistenceType() cdriver.PersistenceType {
+	return cdriver.PersistenceType(s.GetString("vault.persistence.type"))
 }
 
 func (s *Service) VaultPersistencePrefix() string {

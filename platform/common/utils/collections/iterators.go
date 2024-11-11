@@ -112,6 +112,21 @@ func (it *mappedIterator[A, B]) Next() (B, error) {
 	}
 }
 
+//func ToSlice[T any](it Iterator[T]) ([]T, error) {
+//	defer it.Close()
+//	var items []T
+//	for {
+//		if tx, err := it.Next(); err != nil {
+//			return nil, errors.Wrapf(err, "failed iterating over transactions")
+//		} else if tx == nil {
+//			break
+//		} else {
+//			items = append(items, tx)
+//		}
+//	}
+//	return items, nil
+//}
+
 func NewEmptyIterator[K any]() *emptyIterator[K] { return &emptyIterator[K]{zero: utils.Zero[K]()} }
 
 type emptyIterator[K any] struct{ zero K }

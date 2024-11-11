@@ -85,7 +85,7 @@ peer:
     keepalive:
       minInterval: 60s
   tls:
-    enabled:  true
+    enabled:  {{ .TLSEnabled }}
     clientAuthRequired: {{ .ClientAuthRequired }}
     cert:
       file: {{ .PeerLocalTLSDir Peer }}/server.crt
@@ -287,9 +287,11 @@ fabric:
     keepalive:
       interval: 60s
       timeout: 600s
+      connectionTimeout: 10s
     ordering:
       numRetries: 3
       retryInterval: 3s
+      tlsEnabled: {{ TLSEnabled }}
     peers: {{ range Peers }}
       - address: {{ PeerAddress . "Listen" }}
         connectionTimeout: 10s        

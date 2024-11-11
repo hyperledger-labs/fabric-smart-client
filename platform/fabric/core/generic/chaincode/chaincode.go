@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
@@ -20,8 +20,8 @@ import (
 
 var logger = flogging.MustGetLogger("fabric-sdk.core.generic.chaincode")
 
-type PeerManager interface {
-	NewClient(cc grpc.ConnectionConfig) (peer.Client, error)
+type Services interface {
+	NewPeerClient(cc grpc.ConnectionConfig) (services.PeerClient, error)
 }
 
 type Broadcaster interface {
@@ -47,7 +47,7 @@ type Chaincode struct {
 	NumRetries      uint
 	RetrySleep      time.Duration
 	LocalMembership driver.LocalMembership
-	PeerManager     PeerManager
+	Services        Services
 	SignerService   driver.SignerService
 	Broadcaster     Broadcaster
 	Finality        driver.Finality
@@ -62,7 +62,7 @@ func NewChaincode(
 	networkConfig driver.ConfigService,
 	channelConfig driver.ChannelConfig,
 	localMembership driver.LocalMembership,
-	peerManager PeerManager,
+	peerManager Services,
 	signerService driver.SignerService,
 	broadcaster Broadcaster,
 	finality driver.Finality,
@@ -77,7 +77,7 @@ func NewChaincode(
 		NumRetries:                channelConfig.GetNumRetries(),
 		RetrySleep:                channelConfig.GetRetrySleep(),
 		LocalMembership:           localMembership,
-		PeerManager:               peerManager,
+		Services:                  peerManager,
 		SignerService:             signerService,
 		Broadcaster:               broadcaster,
 		Finality:                  finality,

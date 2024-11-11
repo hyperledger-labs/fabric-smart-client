@@ -30,7 +30,7 @@ type Service struct {
 	NetworkName         string
 	LocalMembership     driver.LocalMembership
 	ConfigService       driver.ConfigService
-	PeerManager         PeerManager
+	PeerManager         Services
 	Ledger              driver.Ledger
 	transactionManager  driver.TransactionManager
 	waitForEventTimeout time.Duration
@@ -45,7 +45,7 @@ func NewService(
 	networkName string,
 	localMembership driver.LocalMembership,
 	configService driver.ConfigService,
-	peerManager PeerManager,
+	peerManager Services,
 	ledger driver.Ledger,
 	waitForEventTimeout time.Duration,
 	txIDStore driver.TXIDStore,

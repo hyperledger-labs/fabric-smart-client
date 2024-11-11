@@ -16,22 +16,25 @@ import (
 	ab "github.com/hyperledger/fabric-protos-go/orderer"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/semaphore"
+	"google.golang.org/grpc/status"
 )
 
 type CFTBroadcaster struct {
 	NetworkID     string
 	ConfigService driver.ConfigService
+	ClientFactory Services
 
 	connSem     *semaphore.Weighted
 	connections chan *Connection
 	metrics     *metrics.Metrics
 }
 
-func NewCFTBroadcaster(configService driver.ConfigService, metrics *metrics.Metrics) *CFTBroadcaster {
+func NewCFTBroadcaster(configService driver.ConfigService, clientFactory Services, metrics *metrics.Metrics) *CFTBroadcaster {
 	poolSize := configService.OrdererConnectionPoolSize()
 	return &CFTBroadcaster{
 		NetworkID:     configService.NetworkName(),
 		ConfigService: configService,
+		ClientFactory: clientFactory,
 		connections:   make(chan *Connection, poolSize),
 		connSem:       semaphore.NewWeighted(int64(poolSize)),
 		metrics:       metrics,
@@ -107,25 +110,31 @@ func (o *CFTBroadcaster) getConnection(ctx context.Context) (*Connection, error)
 			cancel()
 
 			// create connection
-			ordererConfig := o.ConfigService.PickOrderer()
-			if ordererConfig == nil {
+			to := o.ConfigService.PickOrderer()
+			if to == nil {
 				return nil, errors.New("no orderer configured")
 			}
 
-			oClient, err := NewClient(ordererConfig)
+			client, err := o.ClientFactory.NewOrdererClient(*to)
 			if err != nil {
-				return nil, errors.Wrapf(err, "failed creating orderer client for %s", ordererConfig.Address)
+				return nil, errors.Wrapf(err, "failed creating orderer client for %s", to.Address)
 			}
 
-			stream, err := oClient.NewBroadcast(ctx)
+			oClient, err := client.OrdererClient()
 			if err != nil {
-				oClient.Close()
-				return nil, errors.Wrapf(err, "failed creating orderer stream for %s", ordererConfig.Address)
+				rpcStatus, _ := status.FromError(err)
+				return nil, errors.Wrapf(err, "failed to new a broadcast, rpcStatus=%+v", rpcStatus)
+			}
+
+			stream, err := oClient.Broadcast(ctx)
+			if err != nil {
+				client.Close()
+				return nil, errors.Wrapf(err, "failed creating orderer stream for %s", to.Address)
 			}
 
 			return &Connection{
 				Stream: stream,
-				Client: oClient,
+				Client: client,
 			}, nil
 		}
 	}

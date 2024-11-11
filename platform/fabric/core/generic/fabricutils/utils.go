@@ -195,8 +195,12 @@ func CreateEndorserTX(signer SerializableSigner, proposal driver.Proposal, resps
 	return hdr, txBytes, nil
 }
 
+type signer interface {
+	Sign(message []byte) ([]byte, error)
+}
+
 // CreateEnvelope creates a signed envelope from the passed header and data
-func CreateEnvelope(signer SerializableSigner, hdr *common.Header, data []byte) (*common.Envelope, error) {
+func CreateEnvelope(signer signer, hdr *common.Header, data []byte) (*common.Envelope, error) {
 	// create the payload
 	payl := &common.Payload{Header: hdr, Data: data}
 	paylBytes, err := protoutil.GetBytesPayload(payl)

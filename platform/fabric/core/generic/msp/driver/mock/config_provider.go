@@ -201,6 +201,16 @@ type ConfigProvider struct {
 	keepAliveClientTimeoutReturnsOnCall map[int]struct {
 		result1 time.Duration
 	}
+	MSPCacheSizeStub        func() int
+	mSPCacheSizeMutex       sync.RWMutex
+	mSPCacheSizeArgsForCall []struct {
+	}
+	mSPCacheSizeReturns struct {
+		result1 int
+	}
+	mSPCacheSizeReturnsOnCall map[int]struct {
+		result1 int
+	}
 	NetworkNameStub        func() string
 	networkNameMutex       sync.RWMutex
 	networkNameArgsForCall []struct {
@@ -241,6 +251,30 @@ type ConfigProvider struct {
 	}
 	orderersReturnsOnCall map[int]struct {
 		result1 []*grpc.ConnectionConfig
+	}
+	OrderingTLSClientAuthRequiredStub        func() (bool, bool)
+	orderingTLSClientAuthRequiredMutex       sync.RWMutex
+	orderingTLSClientAuthRequiredArgsForCall []struct {
+	}
+	orderingTLSClientAuthRequiredReturns struct {
+		result1 bool
+		result2 bool
+	}
+	orderingTLSClientAuthRequiredReturnsOnCall map[int]struct {
+		result1 bool
+		result2 bool
+	}
+	OrderingTLSEnabledStub        func() (bool, bool)
+	orderingTLSEnabledMutex       sync.RWMutex
+	orderingTLSEnabledArgsForCall []struct {
+	}
+	orderingTLSEnabledReturns struct {
+		result1 bool
+		result2 bool
+	}
+	orderingTLSEnabledReturnsOnCall map[int]struct {
+		result1 bool
+		result2 bool
 	}
 	PickOrdererStub        func() *grpc.ConnectionConfig
 	pickOrdererMutex       sync.RWMutex
@@ -1407,6 +1441,59 @@ func (fake *ConfigProvider) KeepAliveClientTimeoutReturnsOnCall(i int, result1 t
 	}{result1}
 }
 
+func (fake *ConfigProvider) MSPCacheSize() int {
+	fake.mSPCacheSizeMutex.Lock()
+	ret, specificReturn := fake.mSPCacheSizeReturnsOnCall[len(fake.mSPCacheSizeArgsForCall)]
+	fake.mSPCacheSizeArgsForCall = append(fake.mSPCacheSizeArgsForCall, struct {
+	}{})
+	stub := fake.MSPCacheSizeStub
+	fakeReturns := fake.mSPCacheSizeReturns
+	fake.recordInvocation("MSPCacheSize", []interface{}{})
+	fake.mSPCacheSizeMutex.Unlock()
+	if stub != nil {
+		return stub()
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *ConfigProvider) MSPCacheSizeCallCount() int {
+	fake.mSPCacheSizeMutex.RLock()
+	defer fake.mSPCacheSizeMutex.RUnlock()
+	return len(fake.mSPCacheSizeArgsForCall)
+}
+
+func (fake *ConfigProvider) MSPCacheSizeCalls(stub func() int) {
+	fake.mSPCacheSizeMutex.Lock()
+	defer fake.mSPCacheSizeMutex.Unlock()
+	fake.MSPCacheSizeStub = stub
+}
+
+func (fake *ConfigProvider) MSPCacheSizeReturns(result1 int) {
+	fake.mSPCacheSizeMutex.Lock()
+	defer fake.mSPCacheSizeMutex.Unlock()
+	fake.MSPCacheSizeStub = nil
+	fake.mSPCacheSizeReturns = struct {
+		result1 int
+	}{result1}
+}
+
+func (fake *ConfigProvider) MSPCacheSizeReturnsOnCall(i int, result1 int) {
+	fake.mSPCacheSizeMutex.Lock()
+	defer fake.mSPCacheSizeMutex.Unlock()
+	fake.MSPCacheSizeStub = nil
+	if fake.mSPCacheSizeReturnsOnCall == nil {
+		fake.mSPCacheSizeReturnsOnCall = make(map[int]struct {
+			result1 int
+		})
+	}
+	fake.mSPCacheSizeReturnsOnCall[i] = struct {
+		result1 int
+	}{result1}
+}
+
 func (fake *ConfigProvider) NetworkName() string {
 	fake.networkNameMutex.Lock()
 	ret, specificReturn := fake.networkNameReturnsOnCall[len(fake.networkNameArgsForCall)]
@@ -1625,6 +1712,118 @@ func (fake *ConfigProvider) OrderersReturnsOnCall(i int, result1 []*grpc.Connect
 	fake.orderersReturnsOnCall[i] = struct {
 		result1 []*grpc.ConnectionConfig
 	}{result1}
+}
+
+func (fake *ConfigProvider) OrderingTLSClientAuthRequired() (bool, bool) {
+	fake.orderingTLSClientAuthRequiredMutex.Lock()
+	ret, specificReturn := fake.orderingTLSClientAuthRequiredReturnsOnCall[len(fake.orderingTLSClientAuthRequiredArgsForCall)]
+	fake.orderingTLSClientAuthRequiredArgsForCall = append(fake.orderingTLSClientAuthRequiredArgsForCall, struct {
+	}{})
+	stub := fake.OrderingTLSClientAuthRequiredStub
+	fakeReturns := fake.orderingTLSClientAuthRequiredReturns
+	fake.recordInvocation("OrderingTLSClientAuthRequired", []interface{}{})
+	fake.orderingTLSClientAuthRequiredMutex.Unlock()
+	if stub != nil {
+		return stub()
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *ConfigProvider) OrderingTLSClientAuthRequiredCallCount() int {
+	fake.orderingTLSClientAuthRequiredMutex.RLock()
+	defer fake.orderingTLSClientAuthRequiredMutex.RUnlock()
+	return len(fake.orderingTLSClientAuthRequiredArgsForCall)
+}
+
+func (fake *ConfigProvider) OrderingTLSClientAuthRequiredCalls(stub func() (bool, bool)) {
+	fake.orderingTLSClientAuthRequiredMutex.Lock()
+	defer fake.orderingTLSClientAuthRequiredMutex.Unlock()
+	fake.OrderingTLSClientAuthRequiredStub = stub
+}
+
+func (fake *ConfigProvider) OrderingTLSClientAuthRequiredReturns(result1 bool, result2 bool) {
+	fake.orderingTLSClientAuthRequiredMutex.Lock()
+	defer fake.orderingTLSClientAuthRequiredMutex.Unlock()
+	fake.OrderingTLSClientAuthRequiredStub = nil
+	fake.orderingTLSClientAuthRequiredReturns = struct {
+		result1 bool
+		result2 bool
+	}{result1, result2}
+}
+
+func (fake *ConfigProvider) OrderingTLSClientAuthRequiredReturnsOnCall(i int, result1 bool, result2 bool) {
+	fake.orderingTLSClientAuthRequiredMutex.Lock()
+	defer fake.orderingTLSClientAuthRequiredMutex.Unlock()
+	fake.OrderingTLSClientAuthRequiredStub = nil
+	if fake.orderingTLSClientAuthRequiredReturnsOnCall == nil {
+		fake.orderingTLSClientAuthRequiredReturnsOnCall = make(map[int]struct {
+			result1 bool
+			result2 bool
+		})
+	}
+	fake.orderingTLSClientAuthRequiredReturnsOnCall[i] = struct {
+		result1 bool
+		result2 bool
+	}{result1, result2}
+}
+
+func (fake *ConfigProvider) OrderingTLSEnabled() (bool, bool) {
+	fake.orderingTLSEnabledMutex.Lock()
+	ret, specificReturn := fake.orderingTLSEnabledReturnsOnCall[len(fake.orderingTLSEnabledArgsForCall)]
+	fake.orderingTLSEnabledArgsForCall = append(fake.orderingTLSEnabledArgsForCall, struct {
+	}{})
+	stub := fake.OrderingTLSEnabledStub
+	fakeReturns := fake.orderingTLSEnabledReturns
+	fake.recordInvocation("OrderingTLSEnabled", []interface{}{})
+	fake.orderingTLSEnabledMutex.Unlock()
+	if stub != nil {
+		return stub()
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *ConfigProvider) OrderingTLSEnabledCallCount() int {
+	fake.orderingTLSEnabledMutex.RLock()
+	defer fake.orderingTLSEnabledMutex.RUnlock()
+	return len(fake.orderingTLSEnabledArgsForCall)
+}
+
+func (fake *ConfigProvider) OrderingTLSEnabledCalls(stub func() (bool, bool)) {
+	fake.orderingTLSEnabledMutex.Lock()
+	defer fake.orderingTLSEnabledMutex.Unlock()
+	fake.OrderingTLSEnabledStub = stub
+}
+
+func (fake *ConfigProvider) OrderingTLSEnabledReturns(result1 bool, result2 bool) {
+	fake.orderingTLSEnabledMutex.Lock()
+	defer fake.orderingTLSEnabledMutex.Unlock()
+	fake.OrderingTLSEnabledStub = nil
+	fake.orderingTLSEnabledReturns = struct {
+		result1 bool
+		result2 bool
+	}{result1, result2}
+}
+
+func (fake *ConfigProvider) OrderingTLSEnabledReturnsOnCall(i int, result1 bool, result2 bool) {
+	fake.orderingTLSEnabledMutex.Lock()
+	defer fake.orderingTLSEnabledMutex.Unlock()
+	fake.OrderingTLSEnabledStub = nil
+	if fake.orderingTLSEnabledReturnsOnCall == nil {
+		fake.orderingTLSEnabledReturnsOnCall = make(map[int]struct {
+			result1 bool
+			result2 bool
+		})
+	}
+	fake.orderingTLSEnabledReturnsOnCall[i] = struct {
+		result1 bool
+		result2 bool
+	}{result1, result2}
 }
 
 func (fake *ConfigProvider) PickOrderer() *grpc.ConnectionConfig {
@@ -2393,6 +2592,8 @@ func (fake *ConfigProvider) Invocations() map[string][][]interface{} {
 	defer fake.keepAliveClientIntervalMutex.RUnlock()
 	fake.keepAliveClientTimeoutMutex.RLock()
 	defer fake.keepAliveClientTimeoutMutex.RUnlock()
+	fake.mSPCacheSizeMutex.RLock()
+	defer fake.mSPCacheSizeMutex.RUnlock()
 	fake.networkNameMutex.RLock()
 	defer fake.networkNameMutex.RUnlock()
 	fake.newDefaultChannelConfigMutex.RLock()
@@ -2401,6 +2602,10 @@ func (fake *ConfigProvider) Invocations() map[string][][]interface{} {
 	defer fake.ordererConnectionPoolSizeMutex.RUnlock()
 	fake.orderersMutex.RLock()
 	defer fake.orderersMutex.RUnlock()
+	fake.orderingTLSClientAuthRequiredMutex.RLock()
+	defer fake.orderingTLSClientAuthRequiredMutex.RUnlock()
+	fake.orderingTLSEnabledMutex.RLock()
+	defer fake.orderingTLSEnabledMutex.RUnlock()
 	fake.pickOrdererMutex.RLock()
 	defer fake.pickOrdererMutex.RUnlock()
 	fake.pickPeerMutex.RLock()

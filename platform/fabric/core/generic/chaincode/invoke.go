@@ -15,7 +15,7 @@ import (
 	"sync"
 	"time"
 
-	peer2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/peer"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
@@ -258,7 +258,7 @@ func (i *Invoke) WithRetrySleep(duration time.Duration) driver.ChaincodeInvocati
 }
 
 func (i *Invoke) prepare(query bool) (string, *pb.Proposal, []*pb.ProposalResponse, driver.SigningIdentity, error) {
-	var peerClients []peer2.Client
+	var peerClients []services.PeerClient
 	defer func() {
 		for _, pCli := range peerClients {
 			pCli.Close()
@@ -279,7 +279,7 @@ func (i *Invoke) prepare(query bool) (string, *pb.Proposal, []*pb.ProposalRespon
 	case len(i.EndorsersByConnConfig) != 0:
 		// get a peer client for each connection config
 		for _, config := range i.EndorsersByConnConfig {
-			peerClient, err := i.Chaincode.PeerManager.NewClient(*config)
+			peerClient, err := i.Chaincode.Services.NewPeerClient(*config)
 			if err != nil {
 				return "", nil, nil, nil, err
 			}
@@ -329,10 +329,11 @@ func (i *Invoke) prepare(query bool) (string, *pb.Proposal, []*pb.ProposalRespon
 
 	// get a peer client for all discovered peers
 	for _, peer := range discoveredPeers {
-		peerClient, err := i.Chaincode.PeerManager.NewClient(grpc.ConnectionConfig{
-			Address:          peer.Endpoint,
-			TLSEnabled:       i.Chaincode.ConfigService.TLSEnabled(),
-			TLSRootCertBytes: peer.TLSRootCerts,
+		peerClient, err := i.Chaincode.Services.NewPeerClient(grpc.ConnectionConfig{
+			Address:           peer.Endpoint,
+			TLSEnabled:        i.Chaincode.ConfigService.TLSEnabled(),
+			TLSClientSideAuth: i.Chaincode.ConfigService.TLSClientAuthRequired(),
+			TLSRootCertBytes:  peer.TLSRootCerts,
 		})
 		if err != nil {
 			return "", nil, nil, nil, errors.WithMessagef(err, "error getting endorser client for %s", peer.Endpoint)

@@ -273,6 +273,7 @@ fabric:
 
       # TBD: idemix-folder, bccsp-folder
 
+    # define the default values for the tls connections
     tls:
       # Species the fabric network requires TLS or not
       enabled:  true
@@ -291,8 +292,8 @@ fabric:
       interval: 60s
       # If not provided, the default is 20 seconds
       timeout: 600s
+      # If not provided, the default is 10 seconds
       connectionTimeout: 10s
-      tlsEnabled: true
 
     ordering:
       # number of retries to attempt to send a transaction to an orderer
@@ -300,9 +301,16 @@ fabric:
       numRetries: 3
       # retryInternal specifies the amount of time to wait before retrying a connection to the ordering service, it has no default and must be specified
       retryInterval: 3s
+      # here is possible to disable tls just for the ordering service.
+      # if this key is not specified, then the `tls` section is used.
+      tlsEnabled: true
+      # here is possible to enable tls client-side authentication just for the ordering service
+      # if this key is not specified, then the `tls` section is used.
+      tlsClientAuthRequired: false
 
     # List of orderers on top of those discovered in the channel
     # This is optional and as such it should be left to those orderers discovered on the channel
+    # tls configuration is governed by the `tls` section, if not otherwise specified in the `ordering` section
     orderers:
         # address of orderer
       - address: 'orderer0:7050'
@@ -312,9 +320,14 @@ fabric:
         tlsRootCertFile: /path/to/ordererorg/ca.crt
         # server name override if tls cert SANS doesn't match address
         serverNameOverride:
+        # it is possible to customize per orderer the TLS behaviour, by using the following attributes
+        tlsClientSideAuth: true
+        tlsDisabled: true
+        tlsEnabled: false
 
     # List of trusted peers this node can connect to.
-    # usually this will be the fabric peers in the same organisation as the FSC node
+    # usually this will be the fabric peers in the same organisation as the FSC node.
+    # tls configuration is governed by the `tls` section.
     peers:
         # address of orderer
       - address: 'peer2:7051'
@@ -323,8 +336,12 @@ fabric:
         # path to peer org's ca cert if tls is enabled
         tlsRootCertFile: /path/to/peerorg/ca.crt
         serverNameOverride:
+        # it is possible to customize per peer the TLS behaviour, by using the following attributes
+        tlsClientSideAuth: true
+        tlsDisabled: true
+        tlsEnabled: false
 
-    # List of channels and deployed chaincode
+  # List of channels and deployed chaincode
     channels:
       - name: mychannel
         # whether this is the default channel or not
