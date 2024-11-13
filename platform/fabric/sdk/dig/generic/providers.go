@@ -12,6 +12,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
+	config2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	gdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/ledger"
@@ -58,7 +59,7 @@ func NewDriver(in struct {
 	IdentityLoaders     []gdriver.NamedIdentityLoader `group:"identity-loaders"`
 }) core.NamedDriver {
 	d := core.NamedDriver{
-		Name: "generic",
+		Name: config2.GenericDriver,
 		Driver: gdriver.NewProvider(
 			in.ConfigProvider,
 			in.MetricsProvider,
