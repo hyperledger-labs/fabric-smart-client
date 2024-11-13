@@ -9,6 +9,7 @@ package generic
 import (
 	digutils "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core"
+	config2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	gdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/config"
 	mspdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/driver"
@@ -55,7 +56,7 @@ func NewDriver(in struct {
 	Drivers             []dbdriver.NamedDriver `group:"db-drivers"`
 }) core.NamedDriver {
 	d := core.NamedDriver{
-		Name: "generic",
+		Name: config2.GenericDriver,
 		Driver: gdriver.NewProvider(
 			in.ConfigProvider,
 			in.MetricsProvider,

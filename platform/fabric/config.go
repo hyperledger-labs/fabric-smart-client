@@ -12,6 +12,10 @@ type ConfigService struct {
 	confService driver.ConfigService
 }
 
+func (s *ConfigService) DriverName() string {
+	return s.confService.DriverName()
+}
+
 func (s *ConfigService) GetString(key string) string {
 	return s.confService.GetString(key)
 }
