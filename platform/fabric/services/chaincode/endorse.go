@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/fpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
 )
@@ -52,18 +51,8 @@ func (i *endorseChaincodeView) Endorse(context view.Context) (*fabric.Envelope, 
 
 	var chaincode Chaincode
 	stdChannelChaincode := channel.Chaincode(i.ChaincodeName)
-	if stdChannelChaincode.IsPrivate() {
-		// This is a Fabric Private Chaincode, use the corresponding service
-		fpcChannel, err := fpc.GetChannel(context, i.Network, i.Channel)
-		if err != nil {
-			return nil, err
-		}
-		chaincode = &fpcChaincode{fpcChannel.Chaincode(i.ChaincodeName)}
-		logger.Debugf("chaincode [%s:%s:%s] is a FPC", i.Network, i.Channel, i.ChaincodeName)
-	} else {
-		chaincode = &stdChaincode{ch: stdChannelChaincode}
-		logger.Debugf("chaincode [%s:%s:%s] is a standard chaincode", i.Network, i.Channel, i.ChaincodeName)
-	}
+	chaincode = &stdChaincode{ch: stdChannelChaincode}
+	logger.Debugf("chaincode [%s:%s:%s] is a standard chaincode", i.Network, i.Channel, i.ChaincodeName)
 
 	invocation := chaincode.Endorse(
 		i.Function,

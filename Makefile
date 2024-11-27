@@ -48,7 +48,7 @@ unit-tests-race:
 	cd integration/nwo/; export FAB_BINS=$(FAB_BINS); go test -cover ./...
 
 .PHONY: docker-images
-docker-images: fabric-docker-images weaver-docker-images fpc-docker-images orion-server-images monitoring-docker-images testing-docker-images
+docker-images: fabric-docker-images weaver-docker-images orion-server-images monitoring-docker-images testing-docker-images
 
 .PHONY: fabric-docker-images
 fabric-docker-images:
@@ -63,13 +63,6 @@ weaver-docker-images:
 	docker image tag ghcr.io/hyperledger-labs/weaver-fabric-driver:1.2.1 hyperledger-labs/weaver-fabric-driver:latest
 	docker pull ghcr.io/hyperledger-labs/weaver-relay-server:1.2.1
 	docker image tag ghcr.io/hyperledger-labs/weaver-relay-server:1.2.1 hyperledger-labs/weaver-relay-server:latest
-
-.PHONY: fpc-docker-images
-fpc-docker-images:
-	docker pull ghcr.io/mbrandenburger/fpc/ercc:main
-	docker image tag ghcr.io/mbrandenburger/fpc/ercc:main fpc/ercc:latest
-	docker pull ghcr.io/mbrandenburger/fpc/fpc-echo:main
-	docker image tag ghcr.io/mbrandenburger/fpc/fpc-echo:main fpc/fpc-echo:latest
 
 .PHONY: monitoring-docker-images
 monitoring-docker-images:
@@ -128,10 +121,6 @@ integration-tests-atsafsc:
 integration-tests-twonets:
 	cd ./integration/fabric/twonets; export FAB_BINS=$(FAB_BINS); ginkgo $(GINKGO_TEST_OPTS) .
 
-.PHONY: integration-tests-fpc-echo
-integration-tests-fpc-echo:
-	cd ./integration/fabric/fpc/echo; export FAB_BINS=$(FAB_BINS); ginkgo $(GINKGO_TEST_OPTS) .
-
 .PHONY: integration-tests-weaver-relay
 integration-tests-weaver-relay:
 	cd ./integration/fabric/weaver/relay; export FAB_BINS=$(FAB_BINS); ginkgo $(GINKGO_TEST_OPTS) .
@@ -172,7 +161,6 @@ clean:
 	rm -rf ./integration/fabric/iou/testdata/
 	rm -rf ./integration/fabric/twonets/cmd
 	rm -rf ./integration/fabric/weaver/relay/cmd
-	rm -rf ./integration/fabric/fpc/echo/cmd
 	rm -rf ./integration/fabric/stoprestart/cmd
 	rm -rf ./integration/fsc/stoprestart/cmd
 	rm -rf ./integration/orion/cars/cmd

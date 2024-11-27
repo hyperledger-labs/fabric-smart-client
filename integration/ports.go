@@ -34,7 +34,6 @@ const (
 	AssetTransferSecuredAgreementWithApprovers
 	AssetTransferEventsAgreementWithChaincode
 	TwoFabricNetworksPort
-	FPCEchoPort
 	TwoFabricNetworksWithWeaverRelayPort
 	FabricStopRestart
 	PingPongOrion
