@@ -18,12 +18,10 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/commands"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/fpc"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/network"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
-	"github.com/hyperledger/fabric-private-chaincode/client_sdk/go/pkg/core/contract"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
 	"github.com/onsi/gomega/gexec"
@@ -119,8 +117,6 @@ func NewPlatform(context api.Context, t api.Topology, components BuilderClient) 
 		Network: n,
 		Docker:  &Docker{NetworkID: networkID, RequiredImages: []string{CCEnvDefaultImage}},
 	}
-
-	n.AddExtension(fpc.NewExtension(n))
 
 	return p
 }
@@ -397,16 +393,6 @@ func (p *Platform) Channels() []*fabric.Channel {
 }
 
 func (p *Platform) InvokeChaincode(cc *topology.ChannelChaincode, method string, args ...[]byte) []byte {
-	if cc.Private {
-		c := contract.GetContract(
-			&fpc.ChannelProvider{Network: p.Network, CC: cc},
-			cc.Chaincode.Name,
-		)
-		output, err := c.SubmitTransaction(method, fpc.ArgsToStrings(args)...)
-		Expect(err).NotTo(HaveOccurred())
-		return output
-	}
-
 	orderer := p.Network.Orderer("orderer")
 	org := p.PeerOrgs()[0]
 	peer := p.Network.Peer(org.Name, p.PeersByOrg("", org.Name, false)[0].Name)

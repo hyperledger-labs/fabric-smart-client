@@ -29,7 +29,6 @@ require (
 	github.com/hyperledger/fabric-chaincode-go v0.0.0-20240704073638-9fb89180dc17
 	github.com/hyperledger/fabric-contract-api-go v1.2.2
 	github.com/hyperledger/fabric-lib-go v1.1.2
-	github.com/hyperledger/fabric-private-chaincode v1.0.0-rc3.0.20231026135044-67a19b0fcda0
 	github.com/hyperledger/fabric-protos-go v0.3.3
 	github.com/jackc/pgx/v5 v5.6.0
 	github.com/jellydator/ttlcache/v2 v2.11.1

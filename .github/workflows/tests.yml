@@ -64,7 +64,6 @@ jobs:
           atsacc,
           fabric-stoprestart,
           atsafsc,
-          fpc-echo,
           iou,
           iou-hsm,
           orioncars,

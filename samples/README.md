@@ -39,8 +39,6 @@ Here is a list of available integration tests:
       chaincodes-based solutions. Already a huge improvement for the developers.
     - Second, to highlights the limitations of the current sample and show how these limitations can be overcome
       using the `Fabric Smart Client`'s advanced capabilities.
-- [`Fabric Private Chaincode: Echo`](../integration/fabric/fpc/echo/README.md): In this example, we show how to invoke a Fabric
-  Private Chaincode called [`Echo`](https://github.com/hyperledger/fabric-private-chaincode/tree/main/samples/chaincode/echo).
 - [`Orion: Cars`](../integration/orion/cars/README.md): In this example, we show how to orchestrate transactions for [`Orion`](https://github.com/hyperledger-labs/orion-server).
 
 ## Logging configuration

@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/fpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -71,19 +70,7 @@ func (i *invokeChaincodeView) Invoke(context view.Context) (string, []byte, erro
 	}
 	i.InvokerIdentity = info.identitiy
 
-	if chaincode.IsPrivate() {
-		logger.Debugf("chaincode [%s:%s:%s] is a FPC", i.Network, i.Channel, i.ChaincodeName)
-		// This is a Fabric Private Chaincode, use the corresponding service
-		fpcChannel, err := fpc.GetChannel(context, i.Network, i.Channel)
-		if err != nil {
-			return "", nil, err
-		}
-		res, err := fpcChannel.Chaincode(i.ChaincodeName).Invoke(i.Function, i.Args...).Call()
-		return "", res, err
-	} else {
-		logger.Debugf("chaincode [%s:%s:%s] is a standard chaincode", i.Network, i.Channel, i.ChaincodeName)
-	}
-
+	logger.Debugf("chaincode [%s:%s:%s] is a standard chaincode", i.Network, i.Channel, i.ChaincodeName)
 	invocation := chaincode.Invoke(i.Function, i.Args...).WithInvokerIdentity(i.InvokerIdentity)
 	for k, v := range i.TransientMap {
 		invocation.WithTransientEntry(k, v)

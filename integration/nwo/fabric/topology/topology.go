@@ -38,7 +38,6 @@ type Topology struct {
 	FabTokenCCSupport  bool                   `yaml:"fabtokenccsupport,omitempty"`
 	GRPCLogging        bool                   `yaml:"grpcLogging,omitempty"`
 	NodeOUs            bool                   `yaml:"nodeous,omitempty"`
-	FPC                bool                   `yaml:"fpc,omitempty"`
 	Weaver             bool                   `yaml:"weaver,omitempty"`
 	LogPeersToFile     bool                   `yaml:"logPeersToFile,omitempty"`
 	LogOrderersToFile  bool                   `yaml:"logOrderersToFile,omitempty"`
