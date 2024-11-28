@@ -102,7 +102,7 @@ func (db *DB) Close() error {
 
 func (db *DB) SetState(namespace driver2.Namespace, key string, value driver.VersionedValue) error {
 	if len(value.Raw) == 0 {
-		logger.Warnf("set key [%s:%v] to nil value, will be deleted instead", key, value.Version)
+		logger.Debugf("set key [%s:%v] to nil value, will be deleted instead", key, value.Version)
 		return db.DeleteState(namespace, key)
 	}
 	return db.setValues(namespace, key, value.Raw, nil, value.Version)
