@@ -17,7 +17,7 @@ import (
 )
 
 func TestConcurrency(t *testing.T) {
-	qe := mocks.MockQE{}
+	qe := mocks.NewMockQE()
 	idsr := mocks.MockTXIDStoreReader{}
 
 	i := newInterceptor(flogging.MustGetLogger("interceptor_test"), qe, idsr, "1")
