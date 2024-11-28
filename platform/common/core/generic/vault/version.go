@@ -28,7 +28,7 @@ type BlockTxIndexVersionBuilder struct{}
 func (b *BlockTxIndexVersionBuilder) VersionedValues(rws *ReadWriteSet, ns driver2.Namespace, writes NamespaceWrites, block driver2.BlockNum, indexInBloc driver2.TxNum) (map[driver2.PKey]VersionedValue, error) {
 	vals := make(map[driver2.PKey]driver.VersionedValue, len(writes))
 	for pkey, val := range writes {
-		vals[pkey] = driver.VersionedValue{Raw: val, Version: blockTxIndexToBytes(block, indexInBloc)}
+		vals[pkey] = driver.VersionedValue{Raw: val, Version: BlockTxIndexToBytes(block, indexInBloc)}
 	}
 	return vals, nil
 }
@@ -36,7 +36,7 @@ func (b *BlockTxIndexVersionBuilder) VersionedValues(rws *ReadWriteSet, ns drive
 func (b *BlockTxIndexVersionBuilder) VersionedMetaValues(rws *ReadWriteSet, ns driver2.Namespace, writes KeyedMetaWrites, block driver2.BlockNum, indexInBloc driver2.TxNum) (map[driver2.PKey]driver2.VersionedMetadataValue, error) {
 	vals := make(map[driver2.PKey]driver2.VersionedMetadataValue, len(writes))
 	for pkey, val := range writes {
-		vals[pkey] = driver2.VersionedMetadataValue{Metadata: val, Version: blockTxIndexToBytes(block, indexInBloc)}
+		vals[pkey] = driver2.VersionedMetadataValue{Metadata: val, Version: BlockTxIndexToBytes(block, indexInBloc)}
 	}
 	return vals, nil
 }
@@ -57,10 +57,10 @@ func (m BlockTxIndexVersionMarshaller) FromBytes(data Version) (driver2.BlockNum
 }
 
 func (m BlockTxIndexVersionMarshaller) ToBytes(bn driver2.BlockNum, txn driver2.TxNum) Version {
-	return blockTxIndexToBytes(bn, txn)
+	return BlockTxIndexToBytes(bn, txn)
 }
 
-func blockTxIndexToBytes(Block driver2.BlockNum, TxNum driver2.TxNum) []byte {
+func BlockTxIndexToBytes(Block driver2.BlockNum, TxNum driver2.TxNum) []byte {
 	buf := make([]byte, 8)
 	binary.BigEndian.PutUint32(buf[:4], uint32(Block))
 	binary.BigEndian.PutUint32(buf[4:], uint32(TxNum))

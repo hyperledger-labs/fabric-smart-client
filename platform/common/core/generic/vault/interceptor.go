@@ -116,6 +116,11 @@ func (i *Interceptor[V]) Clear(ns string) error {
 	return nil
 }
 
+func (i *Interceptor[V]) AddReadAt(ns driver.Namespace, key string, version Version) error {
+	i.Rws.ReadSet.Add(ns, key, version)
+	return nil
+}
+
 func (i *Interceptor[V]) GetReadKeyAt(ns string, pos int) (string, error) {
 	if i.IsClosed() {
 		return "", errors.New("this instance was closed")

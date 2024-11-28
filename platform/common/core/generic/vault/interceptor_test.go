@@ -10,76 +10,40 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault/mocks"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	"github.com/stretchr/testify/assert"
 )
 
-func newMockQE() mockQE {
-	return mockQE{
-		State: VersionedValue{
-			Raw:     []byte("raw"),
-			Version: blockTxIndexToBytes(1, 1),
-		},
-		Metadata: map[string][]byte{
-			"md": []byte("meta"),
-		},
-	}
-}
-
-type mockQE struct {
-	State    VersionedValue
-	Metadata map[string][]byte
-}
-
-func (qe mockQE) GetStateMetadata(driver.Namespace, driver.PKey) (driver.Metadata, driver.RawVersion, error) {
-	return qe.Metadata, blockTxIndexToBytes(1, 1), nil
-}
-func (qe mockQE) GetState(driver.Namespace, driver.PKey) (VersionedValue, error) {
-	return qe.State, nil
-}
-func (qe mockQE) Done() {
-}
-
-type mockTXIDStoreReader struct {
-}
-
-func (m mockTXIDStoreReader) Iterator(interface{}) (collections.Iterator[*driver.ByNum[int]], error) {
-	panic("not implemented")
-}
-func (m mockTXIDStoreReader) Get(txID driver.TxID) (int, string, error) {
-	return 1, txID, nil
-}
-
 func TestConcurrency(t *testing.T) {
-	qe := newMockQE()
-	idsr := mockTXIDStoreReader{}
+	qe := mocks.MockQE{}
+	idsr := mocks.MockTXIDStoreReader{}
 
 	i := newInterceptor(flogging.MustGetLogger("interceptor_test"), qe, idsr, "1")
 	s, err := i.GetState("ns", "key")
-	assert.NoError(err)
-	assert.Equal(qe.State.Raw, s, "with no opts, getstate should return the FromStorage value (query executor)")
+	assert.NoError(t, err)
+	assert.Equal(t, qe.State.Raw, s, "with no opts, getstate should return the FromStorage value (query executor)")
 
 	md, err := i.GetStateMetadata("ns", "key")
-	assert.NoError(err)
-	assert.Equal(qe.Metadata, md, "with no opts, GetStateMetadata should return the FromStorage value (query executor)")
+	assert.NoError(t, err)
+	assert.Equal(t, qe.Metadata, md, "with no opts, GetStateMetadata should return the FromStorage value (query executor)")
 
 	s, err = i.GetState("ns", "key", driver.FromBoth)
-	assert.NoError(err)
-	assert.Equal(qe.State.Raw, s, "FromBoth should fallback to FromStorage with empty rwset")
+	assert.NoError(t, err)
+	assert.Equal(t, qe.State.Raw, s, "FromBoth should fallback to FromStorage with empty rwset")
 
 	md, err = i.GetStateMetadata("ns", "key", driver.FromBoth)
-	assert.NoError(err)
-	assert.Equal(qe.Metadata, md, "FromBoth should fallback to FromStorage with empty rwset")
+	assert.NoError(t, err)
+	assert.Equal(t, qe.Metadata, md, "FromBoth should fallback to FromStorage with empty rwset")
 
 	s, err = i.GetState("ns", "key", driver.FromIntermediate)
-	assert.NoError(err)
-	assert.Equal([]byte(nil), s, "FromIntermediate should return empty result from empty rwset")
+	assert.NoError(t, err)
+	assert.Equal(t, []byte(nil), s, "FromIntermediate should return empty result from empty rwset")
 
 	md, err = i.GetStateMetadata("ns", "key", driver.FromIntermediate)
-	assert.NoError(err)
-	assert.True(md == nil, "FromIntermediate should return empty result from empty rwset")
+	assert.NoError(t, err)
+	assert.True(t, md == nil, "FromIntermediate should return empty result from empty rwset")
 
 	// Done in parallel
 	wg := sync.WaitGroup{}
@@ -94,5 +58,15 @@ func TestConcurrency(t *testing.T) {
 	wg.Wait()
 
 	_, err = i.GetState("ns", "key")
-	assert.Error(err, "this instance was closed")
+	assert.Error(t, err, "this instance was closed")
+}
+
+func TestAddReadAt(t *testing.T) {
+	qe := mocks.MockQE{}
+	idsr := mocks.MockTXIDStoreReader{}
+	i := newInterceptor(flogging.MustGetLogger("interceptor_test"), qe, idsr, "1")
+
+	assert.NoError(t, i.AddReadAt("ns", "key", []byte("version")))
+	assert.Len(t, i.RWs().Reads, 1)
+	assert.Equal(t, []byte("version"), i.RWs().Reads["ns"]["key"])
 }
