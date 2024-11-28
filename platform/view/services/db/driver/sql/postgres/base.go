@@ -54,7 +54,7 @@ func (db *BasePersistence[V, R]) setStatesWithTx(tx *sql.Tx, ns driver.Namespace
 		values := db.ValueScanner.WriteValue(value)
 		// Get rawVal
 		if val := values[valIndex].([]byte); len(val) == 0 {
-			logger.Warnf("set key [%s:%s] to nil value, will be deleted instead", ns, pkey)
+			logger.Debugf("set key [%s:%s] to nil value, will be deleted instead", ns, pkey)
 			deleted = append(deleted, pkey)
 		} else {
 			logger.Debugf("set state [%s,%s]", ns, pkey)

@@ -198,7 +198,7 @@ func (db *BasePersistence[V, R]) SetStateWithTx(tx *sql.Tx, ns driver2.Namespace
 	valIndex := slices.Index(keys, "val")
 	val := values[valIndex].([]byte)
 	if len(val) == 0 {
-		logger.Warnf("set key [%s:%s] to nil value, will be deleted instead", ns, pkey)
+		logger.Debugf("set key [%s:%s] to nil value, will be deleted instead", ns, pkey)
 		return db.DeleteState(ns, pkey)
 	}
 
