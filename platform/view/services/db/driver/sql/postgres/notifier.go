@@ -71,7 +71,11 @@ func NewNotifier(writeDB *sql.DB, table, dataSource string, notifyOperations []d
 
 func (db *Notifier) listenForEvents() {
 	for event := range db.listener.Notify {
-		logger.Debugf("New event received on table [%s]: %s", event.Channel, event.Extra)
+		if event == nil {
+			logger.Warnf("nil event received on table [%s], investigate the possible cause", db.table)
+			continue
+		}
+		logger.Debugf("new event received on table [%s]: %s", event.Channel, event.Extra)
 		db.mutex.RLock()
 		for _, cb := range db.listeners {
 			if operation, payload, err := db.parsePayload(event.Extra); err != nil {
