@@ -18,6 +18,18 @@ type MockQE struct {
 	Metadata map[string][]byte
 }
 
+func NewMockQE() MockQE {
+	return MockQE{
+		State: driver.VersionedValue{
+			Raw:     []byte("raw"),
+			Version: blockTxIndexToBytes(1, 1),
+		},
+		Metadata: map[string][]byte{
+			"md": []byte("meta"),
+		},
+	}
+}
+
 func (qe MockQE) GetStateMetadata(driver.Namespace, driver.PKey) (driver.Metadata, driver.RawVersion, error) {
 	return qe.Metadata, blockTxIndexToBytes(1, 1), nil
 }
