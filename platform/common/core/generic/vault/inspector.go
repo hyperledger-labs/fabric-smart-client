@@ -45,6 +45,10 @@ func (i *Inspector) SetState(driver.Namespace, driver.PKey, driver.RawValue) err
 	panic("programming error: the rwset inspector is read-only")
 }
 
+func (i *Inspector) AddReadAt(ns driver.Namespace, key string, version Version) error {
+	panic("programming error: the rwset inspector is read-only")
+}
+
 func (i *Inspector) GetState(namespace driver.Namespace, key driver.PKey, _ ...driver.GetStateOpt) (driver.RawValue, error) {
 	return i.Rws.WriteSet.Get(namespace, key), nil
 }

@@ -27,6 +27,9 @@ type RWSet interface {
 	// Clear remove the passed namespace from this rwset
 	Clear(ns Namespace) error
 
+	// AddReadAt adds a read dependency for the given namespace and key at the given version
+	AddReadAt(ns Namespace, key string, version RawVersion) error
+
 	// SetState sets the given value for the given namespace and key.
 	SetState(namespace Namespace, key PKey, value RawValue) error
 
