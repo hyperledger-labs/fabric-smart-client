@@ -198,7 +198,9 @@ func (d *Delivery) Run(ctx context.Context) error {
 				span.AddEvent("invoke_callback")
 				stop, err := d.callback(deliveryCtx, r.Block)
 				span.AddEvent("invoked_callback")
-				if err != nil {
+				if err != nil && r.Block.Header.Number == 0 {
+					logger.Warnf("error occurred when processing filtered block [%s], ignoring...", err)
+				} else if err != nil {
 					span.RecordError(err)
 					logger.Errorf("error occurred when processing filtered block [%s], retry...", err)
 					time.Sleep(waitTime)
