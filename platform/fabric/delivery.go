@@ -10,13 +10,22 @@ import (
 	"context"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger/fabric-protos-go/common"
 )
 
 type DeliveryCallback func(tx *ProcessedTransaction) (bool, error)
 
+type BlockCallback func(context.Context, *common.Block) (bool, error)
+
 // Delivery models the Fabric's delivery service
 type Delivery struct {
 	delivery driver.Delivery
+}
+
+func (d *Delivery) ScanBlock(ctx context.Context, callback BlockCallback) error {
+	return d.delivery.ScanBlock(ctx, func(ctx context.Context, block *common.Block) (bool, error) {
+		return callback(ctx, block)
+	})
 }
 
 // Scan iterates over all transactions in block starting from the block containing the passed transaction id.
