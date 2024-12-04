@@ -47,12 +47,6 @@ const (
 	other            messageType       = "other"
 )
 
-// Callback is the callback function prototype to alert the rest of the stack about the availability of a new block.
-// The function returns two argument a boolean to signal if delivery should be stopped, and an error
-// to signal an issue during the processing of the block.
-// In case of an error, the same block is re-processed after a delay.
-type Callback func(context.Context, *common.Block) (bool, error)
-
 // Vault models a key-value store that can be updated by committing rwsets
 type Vault interface {
 	// GetLastTxID returns the last transaction id committed
@@ -73,7 +67,7 @@ type Delivery struct {
 	Services            Services
 	Ledger              driver.Ledger
 	waitForEventTimeout time.Duration
-	callback            Callback
+	callback            driver.BlockCallback
 	vault               Vault
 	client              services.PeerClient
 	tracer              trace.Tracer
@@ -89,7 +83,7 @@ func New(
 	ConfigService driver.ConfigService,
 	PeerManager Services,
 	Ledger driver.Ledger,
-	callback Callback,
+	callback driver.BlockCallback,
 	vault Vault,
 	waitForEventTimeout time.Duration,
 	tracerProvider trace.TracerProvider,

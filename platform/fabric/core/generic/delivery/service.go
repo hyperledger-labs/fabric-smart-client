@@ -50,7 +50,7 @@ func NewService(
 	waitForEventTimeout time.Duration,
 	txIDStore driver.TXIDStore,
 	transactionManager driver.TransactionManager,
-	callback Callback,
+	callback driver.BlockCallback,
 	tracerProvider trace.TracerProvider,
 	metricsProvider metrics.Provider,
 ) (*Service, error) {
@@ -96,8 +96,7 @@ func (c *Service) Stop() {
 	c.deliveryService.Stop()
 }
 
-func (c *Service) Scan(ctx context.Context, txID string, callback driver.DeliveryCallback) error {
-	vault := &fakeVault{txID: txID}
+func (c *Service) scanBlock(ctx context.Context, vault Vault, callback driver.BlockCallback) error {
 	deliveryService, err := New(
 		c.NetworkName,
 		c.channelConfig,
@@ -106,6 +105,26 @@ func (c *Service) Scan(ctx context.Context, txID string, callback driver.Deliver
 		c.ConfigService,
 		c.PeerManager,
 		c.Ledger,
+		callback,
+		vault,
+		c.channelConfig.CommitterWaitForEventTimeout(),
+		&noop.TracerProvider{},
+		&disabled.Provider{},
+	)
+	if err != nil {
+		return err
+	}
+
+	return deliveryService.Run(ctx)
+}
+
+func (c *Service) ScanBlock(ctx context.Context, callback driver.BlockCallback) error {
+	return c.scanBlock(ctx, &fakeVault{}, callback)
+}
+
+func (c *Service) Scan(ctx context.Context, txID string, callback driver.DeliveryCallback) error {
+	vault := &fakeVault{txID: txID}
+	return c.scanBlock(ctx, vault,
 		func(_ context.Context, block *common.Block) (bool, error) {
 			for i, tx := range block.Data.Data {
 				validationCode := ValidationFlags(block.Metadata.Metadata[common.BlockMetadataIndex_TRANSACTIONS_FILTER])[i]
@@ -140,17 +159,7 @@ func (c *Service) Scan(ctx context.Context, txID string, callback driver.Deliver
 				logger.Debugf("commit transaction [%s] in block [%d]", channelHeader.TxId, block.Header.Number)
 			}
 			return false, nil
-		},
-		vault,
-		c.channelConfig.CommitterWaitForEventTimeout(),
-		&noop.TracerProvider{},
-		&disabled.Provider{},
-	)
-	if err != nil {
-		return err
-	}
-
-	return deliveryService.Run(ctx)
+		})
 }
 
 type fakeVault struct {
