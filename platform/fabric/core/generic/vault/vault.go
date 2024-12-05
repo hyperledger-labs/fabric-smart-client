@@ -45,16 +45,17 @@ func NewVault(store vault.VersionedPersistence, txIDStore TXIDStore, metricsProv
 		txIDStore,
 		&fdriver.ValidationCodeProvider{},
 		newInterceptor,
-		&populator{},
+		NewPopulator(),
 		metricsProvider,
 		tracerProvider,
 		&vault.BlockTxIndexVersionBuilder{},
 	)
 }
 
-func newInterceptor(logger vault.Logger, qe vault.VersionedQueryExecutor, txIDStore TXIDStoreReader, txID string) vault.TxInterceptor {
+func newInterceptor(logger vault.Logger, rwSet vault.ReadWriteSet, qe vault.VersionedQueryExecutor, txIDStore TXIDStoreReader, txID string) vault.TxInterceptor {
 	return vault.NewInterceptor[fdriver.ValidationCode](
 		logger,
+		rwSet,
 		qe,
 		txIDStore,
 		txID,
@@ -68,18 +69,23 @@ type populator struct {
 	versionMarshaller vault.BlockTxIndexVersionMarshaller
 }
 
-func (p *populator) Populate(rws *vault.ReadWriteSet, rwsetBytes []byte, namespaces ...driver.Namespace) error {
+func NewPopulator() *populator {
+	return &populator{}
+}
+
+func (p *populator) Populate(rwsetBytes []byte, namespaces ...driver.Namespace) (vault.ReadWriteSet, error) {
 	txRWSet := &rwset.TxReadWriteSet{}
 	err := proto.Unmarshal(rwsetBytes, txRWSet)
 	if err != nil {
-		return errors.Wrapf(err, "provided invalid read-write set bytes, unmarshal failed")
+		return vault.ReadWriteSet{}, errors.Wrapf(err, "provided invalid read-write set bytes, unmarshal failed")
 	}
 
 	rwsIn, err := rwsetutil.TxRwSetFromProtoMsg(txRWSet)
 	if err != nil {
-		return errors.Wrapf(err, "provided invalid read-write set bytes, TxRwSetFromProtoMsg failed")
+		return vault.ReadWriteSet{}, errors.Wrapf(err, "provided invalid read-write set bytes, TxRwSetFromProtoMsg failed")
 	}
 
+	rws := vault.EmptyRWSet()
 	namespaceSet := collections.NewSet(namespaces...)
 	for _, nsrws := range rwsIn.NsRwSets {
 		ns := nsrws.NameSpace
@@ -101,7 +107,7 @@ func (p *populator) Populate(rws *vault.ReadWriteSet, rwsetBytes []byte, namespa
 
 		for _, write := range nsrws.KvRwSet.Writes {
 			if err := rws.WriteSet.Add(ns, write.Key, write.Value); err != nil {
-				return err
+				return vault.ReadWriteSet{}, err
 			}
 		}
 
@@ -112,12 +118,12 @@ func (p *populator) Populate(rws *vault.ReadWriteSet, rwsetBytes []byte, namespa
 			}
 
 			if err := rws.MetaWriteSet.Add(ns, metaWrite.Key, metadata); err != nil {
-				return err
+				return vault.ReadWriteSet{}, err
 			}
 		}
 	}
 
-	return nil
+	return rws, nil
 }
 
 type marshaller struct {

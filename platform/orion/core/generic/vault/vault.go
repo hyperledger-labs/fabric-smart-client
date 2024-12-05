@@ -51,12 +51,14 @@ type Interceptor struct {
 
 func newInterceptor(
 	logger vault.Logger,
+	rwSet vault.ReadWriteSet,
 	qe vault.VersionedQueryExecutor,
 	txidStore vault.TXIDStoreReader[odriver.ValidationCode],
 	txid string,
 ) vault.TxInterceptor {
 	return &Interceptor{Interceptor: vault.NewInterceptor[odriver.ValidationCode](
 		logger,
+		rwSet,
 		qe,
 		txidStore,
 		txid,
@@ -88,11 +90,12 @@ type populator struct {
 	versionMarshaller vault.BlockTxIndexVersionMarshaller
 }
 
-func (p *populator) Populate(rws *vault.ReadWriteSet, rwsetBytes []byte, namespaces ...driver.Namespace) error {
+func (p *populator) Populate(rwsetBytes []byte, namespaces ...driver.Namespace) (vault.ReadWriteSet, error) {
+	rws := vault.EmptyRWSet()
 	txRWSet := &types.DataTx{}
 	err := proto.Unmarshal(rwsetBytes, txRWSet)
 	if err != nil {
-		return errors.Wrapf(err, "provided invalid read-write set bytes, unmarshal failed")
+		return vault.ReadWriteSet{}, errors.Wrapf(err, "provided invalid read-write set bytes, unmarshal failed")
 	}
 
 	for _, operation := range txRWSet.DbOperations {
@@ -120,7 +123,7 @@ func (p *populator) Populate(rws *vault.ReadWriteSet, rwsetBytes []byte, namespa
 				write.Key,
 				write.Value,
 			); err != nil {
-				return errors.Wrapf(err, "failed to add write to read-write set")
+				return vault.ReadWriteSet{}, errors.Wrapf(err, "failed to add write to read-write set")
 			}
 			// TODO: What about write.ACL? Shall we store it as metadata?
 		}
@@ -131,10 +134,10 @@ func (p *populator) Populate(rws *vault.ReadWriteSet, rwsetBytes []byte, namespa
 				del.Key,
 				nil,
 			); err != nil {
-				return errors.Wrapf(err, "failed to add delete to read-write set")
+				return vault.ReadWriteSet{}, errors.Wrapf(err, "failed to add delete to read-write set")
 			}
 		}
 	}
 
-	return nil
+	return rws, nil
 }

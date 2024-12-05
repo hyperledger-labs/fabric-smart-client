@@ -55,6 +55,7 @@ func EmptyRWSet() ReadWriteSet {
 
 func NewInterceptor[V driver.ValidationCode](
 	logger Logger,
+	rwSet ReadWriteSet,
 	qe VersionedQueryExecutor,
 	txIDStore TXIDStoreReader[V],
 	txID driver.TxID,
@@ -69,7 +70,7 @@ func NewInterceptor[V driver.ValidationCode](
 		TxID:              txID,
 		QE:                qe,
 		TxIDStore:         txIDStore,
-		Rws:               EmptyRWSet(),
+		Rws:               rwSet,
 		vcProvider:        vcProvider,
 		Marshaller:        marshaller,
 		VersionComparator: versionComparator,

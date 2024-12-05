@@ -38,9 +38,10 @@ func NewVault(store vault.VersionedPersistence, txIDStore TXIDStore, metricsProv
 	)
 }
 
-func newInterceptor(logger vault.Logger, qe vault.VersionedQueryExecutor, txIDStore TXIDStoreReader, txID string) vault.TxInterceptor {
+func newInterceptor(logger vault.Logger, rwSet vault.ReadWriteSet, qe vault.VersionedQueryExecutor, txIDStore TXIDStoreReader, txID string) vault.TxInterceptor {
 	return vault.NewInterceptor[fdriver.ValidationCode](
 		logger,
+		rwSet,
 		qe,
 		txIDStore,
 		txID,
@@ -53,7 +54,7 @@ func newInterceptor(logger vault.Logger, qe vault.VersionedQueryExecutor, txIDSt
 // populator is the custom populator for FabricDEV
 type populator struct{}
 
-func (p *populator) Populate(rws *vault.ReadWriteSet, rwsetBytes []byte, namespaces ...driver.Namespace) error {
+func (p *populator) Populate([]byte, ...driver.Namespace) (vault.ReadWriteSet, error) {
 	panic("implement me")
 }
 
