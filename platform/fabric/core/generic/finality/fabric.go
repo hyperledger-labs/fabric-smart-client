@@ -116,7 +116,7 @@ func (d *FabricFinality) IsFinal(txID string, address string) error {
 		return err
 	}
 	eventCh = make(chan delivery.TxEvent, 1)
-	go delivery.DeliverReceive(deliverStream, address, txID, eventCh)
+	go delivery.DeliverReceive(deliverStream, txID, eventCh)
 	committed, _, _, err := delivery.DeliverWaitForResponse(ctx, eventCh, txID)
 	if err != nil {
 		return err

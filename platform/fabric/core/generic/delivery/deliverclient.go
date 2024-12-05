@@ -22,6 +22,7 @@ import (
 	"github.com/hyperledger/fabric/protoutil"
 	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -172,65 +173,8 @@ func DeliverSend(df DeliverStream, envelope *common.Envelope) error {
 	return err
 }
 
-func DeliverReceive(df DeliverFiltered, address string, txid string, eventCh chan<- TxEvent) error {
-	event := TxEvent{
-		TxID:       txid,
-		Committed:  false,
-		CommitPeer: address,
-	}
-
-read:
-	for {
-		resp, err := df.Recv()
-		if err != nil {
-			event.Err = errors.WithMessagef(err, "error receiving deliver response from peer %s", address)
-			break read
-		}
-		switch r := resp.Type.(type) {
-		case *pb.DeliverResponse_FilteredBlock:
-			filteredTransactions := r.FilteredBlock.FilteredTransactions
-			for i, tx := range filteredTransactions {
-				if logger.IsEnabledFor(zapcore.DebugLevel) {
-					logger.Debugf("transaction [%s] in block [%d]", tx.Txid, r.FilteredBlock.Number)
-				}
-				if tx.Txid == txid {
-					if tx.TxValidationCode == pb.TxValidationCode_VALID {
-						if logger.IsEnabledFor(zapcore.DebugLevel) {
-							logger.Debugf("transaction [%s] in block [%d] is valid", tx.Txid, r.FilteredBlock.Number)
-						}
-						event.Committed = true
-						event.Block = r.FilteredBlock.Number
-						event.IndexInBlock = i
-					} else {
-						if logger.IsEnabledFor(zapcore.DebugLevel) {
-							logger.Debugf("transaction [%s] in block [%d] is not valid [%s]", tx.Txid, r.FilteredBlock.Number, tx.TxValidationCode)
-						}
-						event.Err = errors.Errorf("transaction [%s] status is not valid: %s", tx.Txid, tx.TxValidationCode)
-					}
-					break read
-				}
-			}
-		case *pb.DeliverResponse_Block:
-			for i, tx := range r.Block.Data.Data {
-				_, _, chdr, err := fabricutils.UnmarshalTx(tx)
-				if err != nil {
-					event.Err = errors.Wrapf(err, "error parsing transaction [%d,%d]", r.Block.Header.Number, i)
-					break read
-				} else if chdr.TxId == txid {
-					event.Committed = true
-					event.Block = r.Block.Header.Number
-					event.IndexInBlock = i
-					break read
-				}
-			}
-		case *pb.DeliverResponse_Status:
-			event.Err = errors.Errorf("deliver completed with status (%s) before txid %s received from peer %s", r.Status, txid, address)
-			break read
-		default:
-			event.Err = errors.Errorf("received unexpected response type (%T) from peer %s", r, address)
-			break read
-		}
-	}
+func DeliverReceive(df DeliverFiltered, txid string, eventCh chan<- TxEvent) error {
+	event := readEvent(df, txid)
 
 	select {
 	case eventCh <- event:
@@ -238,6 +182,111 @@ read:
 	}
 
 	return event.Err
+}
+
+func readEvent(df DeliverFiltered, txid string) TxEvent {
+	mapper := NewTxEventMapper(1)
+	for {
+		resp, err := df.Recv()
+		if err != nil {
+			return TxEvent{
+				TxID:      txid,
+				Committed: false,
+				Err:       errors.WithMessagef(err, "error receiving deliver response"),
+			}
+		}
+
+		events, err := mapper.Map(resp)
+		if err != nil {
+			return TxEvent{
+				TxID:      txid,
+				Committed: false,
+				Err:       err,
+			}
+		}
+		for _, ev := range events {
+			if ev.TxID == txid {
+				return ev
+			}
+		}
+	}
+
+}
+
+type TxEventMapper struct {
+	cap int
+}
+
+func NewTxEventMapper(cap int) *TxEventMapper {
+	return &TxEventMapper{
+		cap: cap,
+	}
+}
+
+func (m *TxEventMapper) Map(response any) ([]TxEvent, error) {
+	switch r := response.(type) {
+	case *pb.DeliverResponse_FilteredBlock:
+		eg := errgroup.Group{}
+		eg.SetLimit(m.cap)
+		results := make([]TxEvent, len(r.FilteredBlock.FilteredTransactions))
+		for i, tx := range r.FilteredBlock.FilteredTransactions {
+			eg.Go(func() error {
+				logger.Debugf("transaction [%s] in block [%d]", tx.Txid, r.FilteredBlock.Number)
+				if tx.TxValidationCode == pb.TxValidationCode_VALID {
+					logger.Debugf("transaction [%s] in block [%d] is valid", tx.Txid, r.FilteredBlock.Number)
+					results[i] = TxEvent{
+						TxID:         tx.Txid,
+						Committed:    true,
+						Block:        r.FilteredBlock.Number,
+						IndexInBlock: i,
+						Err:          nil,
+					}
+				} else {
+					logger.Debugf("transaction [%s] in block [%d] is not valid [%s]", tx.Txid, r.FilteredBlock.Number, tx.TxValidationCode)
+					results[i] = TxEvent{
+						TxID:         tx.Txid,
+						Committed:    false,
+						Block:        r.FilteredBlock.Number,
+						IndexInBlock: i,
+						Err:          errors.Errorf("transaction [%s] status is not valid: %s", tx.Txid, tx.TxValidationCode),
+					}
+				}
+				return nil
+			})
+		}
+		if err := eg.Wait(); err != nil {
+			return nil, err
+		}
+		return results, nil
+	case *pb.DeliverResponse_Block:
+		eg := errgroup.Group{}
+		eg.SetLimit(m.cap)
+		results := make([]TxEvent, len(r.Block.Data.Data))
+		for i, tx := range r.Block.Data.Data {
+			eg.Go(func() error {
+				_, _, chdr, err := fabricutils.UnmarshalTx(tx)
+				if err != nil {
+					return errors.Wrapf(err, "error parsing transaction [%d,%d]", r.Block.Header.Number, i)
+				}
+				results[i] = TxEvent{
+					TxID:         chdr.TxId,
+					Committed:    true,
+					Block:        r.Block.Header.Number,
+					IndexInBlock: i,
+					Err:          nil,
+				}
+				return nil
+			})
+		}
+		if err := eg.Wait(); err != nil {
+			return nil, err
+		}
+		return results, nil
+	case *pb.DeliverResponse_Status:
+		return nil, errors.Errorf("deliver completed with status (%s)", r.Status)
+	default:
+		return nil, errors.Errorf("received unexpected response type (%T)", r)
+	}
 }
 
 // DeliverWaitForResponse waits for either eventChan has value (i.e., response has been received) or ctx is timed out
