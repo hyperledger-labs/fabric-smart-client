@@ -15,24 +15,6 @@ type Inspector struct {
 	Rws ReadWriteSet
 }
 
-func NewInspector() *Inspector {
-	return &Inspector{
-		Rws: ReadWriteSet{
-			ReadSet: ReadSet{
-				OrderedReads: map[string][]string{},
-				Reads:        Reads{},
-			},
-			WriteSet: WriteSet{
-				OrderedWrites: map[string][]string{},
-				Writes:        Writes{},
-			},
-			MetaWriteSet: MetaWriteSet{
-				MetaWrites: NamespaceKeyedMetaWrites{},
-			},
-		},
-	}
-}
-
 func (i *Inspector) IsValid() error {
 	return nil
 }

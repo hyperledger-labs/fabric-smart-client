@@ -48,7 +48,7 @@ type TxInterceptor interface {
 }
 
 type Populator interface {
-	Populate(rws *ReadWriteSet, rwsetBytes []byte, namespaces ...driver.Namespace) error
+	Populate(rwsetBytes []byte, namespaces ...driver.Namespace) (ReadWriteSet, error)
 }
 
 type Marshaller interface {
@@ -56,7 +56,7 @@ type Marshaller interface {
 	Append(destination *ReadWriteSet, raw []byte, nss ...string) error
 }
 
-type NewInterceptorFunc[V driver.ValidationCode] func(logger Logger, qe VersionedQueryExecutor, txidStore TXIDStoreReader[V], txid driver.TxID) TxInterceptor
+type NewInterceptorFunc[V driver.ValidationCode] func(logger Logger, rwSet ReadWriteSet, qe VersionedQueryExecutor, txidStore TXIDStoreReader[V], txid driver.TxID) TxInterceptor
 
 type (
 	VersionedPersistence     = dbdriver.VersionedPersistence
@@ -447,7 +447,7 @@ func (db *Vault[V]) NewRWSet(txID driver.TxID) (driver.RWSet, error) {
 
 func (db *Vault[V]) NewInspector(txID driver.TxID) (TxInterceptor, error) {
 	db.logger.Debugf("NewRWSet[%s][%d]", txID, db.counter.Load())
-	i := db.newInterceptor(db.logger, &interceptorQueryExecutor[V]{db}, db.txIDStore, txID)
+	i := db.newInterceptor(db.logger, EmptyRWSet(), &interceptorQueryExecutor[V]{db}, db.txIDStore, txID)
 
 	db.interceptorsLock.Lock()
 	if _, in := db.Interceptors[txID]; in {
@@ -469,11 +469,12 @@ func (db *Vault[V]) NewInspector(txID driver.TxID) (TxInterceptor, error) {
 
 func (db *Vault[V]) GetRWSet(txID driver.TxID, rwsetBytes []byte) (driver.RWSet, error) {
 	db.logger.Debugf("GetRWSet[%s][%d]", txID, db.counter.Load())
-	i := db.newInterceptor(db.logger, &interceptorQueryExecutor[V]{db}, db.txIDStore, txID)
-
-	if err := db.populator.Populate(i.RWs(), rwsetBytes); err != nil {
+	rwSet, err := db.populator.Populate(rwsetBytes)
+	if err != nil {
 		return nil, errors.Wrapf(err, "failed populating tx [%s]", txID)
 	}
+
+	i := db.newInterceptor(db.logger, rwSet, &interceptorQueryExecutor[V]{db}, db.txIDStore, txID)
 
 	db.interceptorsLock.Lock()
 	if i, in := db.Interceptors[txID]; in {
@@ -496,13 +497,11 @@ func (db *Vault[V]) GetRWSet(txID driver.TxID, rwsetBytes []byte) (driver.RWSet,
 }
 
 func (db *Vault[V]) InspectRWSet(rwsetBytes []byte, namespaces ...driver.Namespace) (driver.RWSet, error) {
-	i := NewInspector()
-
-	if err := db.populator.Populate(&i.Rws, rwsetBytes, namespaces...); err != nil {
+	rwSet, err := db.populator.Populate(rwsetBytes, namespaces...)
+	if err != nil {
 		return nil, errors.Wrapf(err, "failed populating ephemeral txID")
 	}
-
-	return i, nil
+	return &Inspector{Rws: rwSet}, nil
 }
 
 func (db *Vault[V]) Match(txID driver.TxID, rwsRaw []byte) error {

@@ -71,12 +71,14 @@ func (p *testArtifactProvider) NewMarshaller() Marshaller {
 
 func newInterceptor(
 	logger Logger,
+	rwSet ReadWriteSet,
 	qe VersionedQueryExecutor,
 	txidStore TXIDStoreReader[ValidationCode],
 	txid driver2.TxID,
 ) TxInterceptor {
 	return NewInterceptor[ValidationCode](
 		logger,
+		rwSet,
 		qe,
 		txidStore,
 		txid,
@@ -90,8 +92,12 @@ type populator struct {
 	marshaller marshaller
 }
 
-func (p *populator) Populate(rws *ReadWriteSet, rwsetBytes []byte, namespaces ...driver2.Namespace) error {
-	return p.marshaller.Append(rws, rwsetBytes, namespaces...)
+func (p *populator) Populate(rwsetBytes []byte, namespaces ...driver2.Namespace) (ReadWriteSet, error) {
+	rwSet := EmptyRWSet()
+	if err := p.marshaller.Append(&rwSet, rwsetBytes, namespaces...); err != nil {
+		return ReadWriteSet{}, err
+	}
+	return rwSet, nil
 }
 
 type marshaller struct{}
