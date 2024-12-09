@@ -24,16 +24,9 @@ func (c *Committer) HandleEndorserTransaction(ctx context.Context, block *common
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("[%s] EndorserClient transaction received: %s", c.ChannelConfig.ID(), tx.TxID)
 	}
-	if len(block.Metadata) < int(common.BlockMetadataIndex_TRANSACTIONS_FILTER) {
-		return nil, errors.Errorf("block metadata lacks transaction filter")
-	}
-
-	fabricValidationCode := ValidationFlags(block.Metadata[common.BlockMetadataIndex_TRANSACTIONS_FILTER])[tx.TxNum]
-	event := &FinalityEvent{
-		Ctx:               ctx,
-		TxID:              tx.TxID,
-		ValidationCode:    convertValidationCode(int32(fabricValidationCode)),
-		ValidationMessage: pb.TxValidationCode_name[int32(fabricValidationCode)],
+	fabricValidationCode, event, err := MapFinalityEvent(ctx, block, tx.TxNum, tx.TxID)
+	if err != nil {
+		return nil, err
 	}
 
 	switch pb.TxValidationCode(fabricValidationCode) {
@@ -60,6 +53,21 @@ func (c *Committer) HandleEndorserTransaction(ctx context.Context, block *common
 		return nil, errors.Wrapf(err, "failed discarding transaction [%s]", event.TxID)
 	}
 	return event, nil
+}
+
+func MapFinalityEvent(ctx context.Context, block *common.BlockMetadata, txNum driver.TxNum, txID string) (uint8, *FinalityEvent, error) {
+	if len(block.Metadata) < int(common.BlockMetadataIndex_TRANSACTIONS_FILTER) {
+		return 0, nil, errors.Errorf("block metadata lacks transaction filter")
+	}
+
+	fabricValidationCode := ValidationFlags(block.Metadata[common.BlockMetadataIndex_TRANSACTIONS_FILTER])[txNum]
+	event := &FinalityEvent{
+		Ctx:               ctx,
+		TxID:              txID,
+		ValidationCode:    convertValidationCode(int32(fabricValidationCode)),
+		ValidationMessage: pb.TxValidationCode_name[int32(fabricValidationCode)],
+	}
+	return fabricValidationCode, event, nil
 }
 
 // GetChaincodeEvents reads the chaincode events and notifies the listeners registered to the specific chaincode.
