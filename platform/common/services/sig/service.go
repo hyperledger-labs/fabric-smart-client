@@ -39,11 +39,12 @@ type SignerEntry struct {
 }
 
 type Service struct {
-	signers      map[string]SignerEntry
-	verifiers    map[string]VerifierEntry
 	deserializer Deserializer
-	viewsSync    sync.RWMutex
 	kvs          KVS
+
+	mutex     sync.RWMutex
+	signers   map[string]SignerEntry
+	verifiers map[string]VerifierEntry
 }
 
 func NewService(deserializer Deserializer, kvs KVS) *Service {
@@ -60,36 +61,46 @@ func (o *Service) RegisterSigner(identity view.Identity, signer driver.Signer, v
 		return errors.New("invalid signer, expected a valid instance")
 	}
 
+	// check existence with a read lock
 	idHash := identity.UniqueID()
-	o.viewsSync.Lock()
+	o.mutex.RLock()
 	s, ok := o.signers[idHash]
-	o.viewsSync.Unlock()
+	o.mutex.RUnlock()
 	if ok {
 		logger.Infof("another signer bound to [%s]:[%s][%s] from [%s]", identity, GetIdentifier(s), GetIdentifier(signer), string(s.DebugStack))
 		return nil
 	}
-	o.viewsSync.Lock()
+
+	// write lock
+	o.mutex.Lock()
+
+	// check again
+	s, ok = o.signers[idHash]
+	if ok {
+		o.mutex.Unlock()
+		logger.Infof("another signer bound to [%s]:[%s][%s] from [%s]", identity, GetIdentifier(s), GetIdentifier(signer), string(s.DebugStack))
+		return nil
+	}
 
 	entry := SignerEntry{Signer: signer}
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		entry.DebugStack = debug.Stack()
 	}
-
 	o.signers[idHash] = entry
+	o.mutex.Unlock()
+
 	if o.kvs != nil {
-		k, err := kvs.CreateCompositeKey("sigService", []string{"signer", idHash})
-		if err != nil {
-			return errors.Wrap(err, "failed to create composite key to store entry in kvs")
-		}
-		err = o.kvs.Put(k, signer)
-		if err != nil {
+		if err := o.registerSigner(idHash, &entry); err != nil {
+			o.deleteSigner(idHash)
 			return errors.Wrap(err, "failed to store entry in kvs for the passed signer")
 		}
 	}
-	o.viewsSync.Unlock()
 
 	if verifier != nil {
-		return o.RegisterVerifier(identity, verifier)
+		if err := o.RegisterVerifier(identity, verifier); err != nil {
+			o.deleteSigner(idHash)
+			return err
+		}
 	}
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("signer for [%s][%s] registered, no verifier passed", idHash, GetIdentifier(signer))
@@ -102,21 +113,34 @@ func (o *Service) RegisterVerifier(identity view.Identity, verifier driver.Verif
 		return errors.New("invalid verifier, expected a valid instance")
 	}
 
+	// check existence with a read lock
 	idHash := identity.UniqueID()
-	o.viewsSync.Lock()
+	o.mutex.RLock()
 	v, ok := o.verifiers[idHash]
-	o.viewsSync.Unlock()
+	o.mutex.RUnlock()
 	if ok {
 		logger.Warnf("another verifier bound to [%s]:[%s][%s] from [%s]", idHash, GetIdentifier(v), GetIdentifier(verifier), string(v.DebugStack))
 		return nil
 	}
+
+	// write lock
+	o.mutex.Lock()
+
+	// check again
+	v, ok = o.verifiers[idHash]
+	if ok {
+		o.mutex.Unlock()
+		logger.Warnf("another verifier bound to [%s]:[%s][%s] from [%s]", idHash, GetIdentifier(v), GetIdentifier(verifier), string(v.DebugStack))
+		return nil
+	}
+
 	entry := VerifierEntry{Verifier: verifier}
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		entry.DebugStack = debug.Stack()
 	}
-	o.viewsSync.Lock()
 	o.verifiers[idHash] = entry
-	o.viewsSync.Unlock()
+	o.mutex.Unlock()
+
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("register verifier to [%s]:[%s]", idHash, GetIdentifier(verifier))
 	}
@@ -158,9 +182,9 @@ func (o *Service) GetAuditInfo(identity view.Identity) ([]byte, error) {
 func (o *Service) IsMe(identity view.Identity) bool {
 	idHash := identity.UniqueID()
 	// check local cache
-	o.viewsSync.Lock()
+	o.mutex.RLock()
 	_, ok := o.signers[idHash]
-	o.viewsSync.Unlock()
+	o.mutex.RUnlock()
 	if ok {
 		return true
 	}
@@ -174,12 +198,6 @@ func (o *Service) IsMe(identity view.Identity) bool {
 			return true
 		}
 	}
-	// last chance, deserialize
-	// signer, err := o.GetSigner(identity)
-	// if err != nil {
-	//	return false
-	// }
-	// return signer != nil
 	return false
 }
 
@@ -206,9 +224,9 @@ func (o *Service) GetSigner(identity view.Identity) (driver.Signer, error) {
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("get signer for [%s]", idHash)
 	}
-	o.viewsSync.Lock()
+	o.mutex.RLock()
 	entry, ok := o.signers[idHash]
-	o.viewsSync.Unlock()
+	o.mutex.RUnlock()
 	if !ok {
 		if logger.IsEnabledFor(zapcore.DebugLevel) {
 			logger.Debugf("signer for [%s] not found, try to deserialize", idHash)
@@ -227,9 +245,19 @@ func (o *Service) GetSigner(identity view.Identity) (driver.Signer, error) {
 			entry.DebugStack = debug.Stack()
 		}
 
-		o.viewsSync.Lock()
-		o.signers[idHash] = entry
-		o.viewsSync.Unlock()
+		// write lock
+		o.mutex.Lock()
+
+		// check again
+		entry, ok = o.signers[idHash]
+		if ok {
+			// found
+			o.mutex.Unlock()
+		} else {
+			// not found
+			o.signers[idHash] = entry
+			o.mutex.Unlock()
+		}
 	} else {
 		if logger.IsEnabledFor(zapcore.DebugLevel) {
 			logger.Debugf("signer for [%s] found", idHash)
@@ -240,9 +268,10 @@ func (o *Service) GetSigner(identity view.Identity) (driver.Signer, error) {
 
 func (o *Service) GetVerifier(identity view.Identity) (driver.Verifier, error) {
 	idHash := identity.UniqueID()
-	o.viewsSync.Lock()
+
+	o.mutex.RLock()
 	entry, ok := o.verifiers[idHash]
-	o.viewsSync.Unlock()
+	o.mutex.RUnlock()
 	if !ok {
 		// ask the deserializer
 		if o.deserializer == nil {
@@ -259,9 +288,19 @@ func (o *Service) GetVerifier(identity view.Identity) (driver.Verifier, error) {
 			entry.DebugStack = debug.Stack()
 			logger.Debugf("add deserialized verifier for [%s]:[%s]", idHash, GetIdentifier(verifier))
 		}
-		o.viewsSync.Lock()
-		o.verifiers[idHash] = entry
-		o.viewsSync.Unlock()
+		// write lock
+		o.mutex.Lock()
+
+		// check again
+		entry, ok = o.verifiers[idHash]
+		if ok {
+			// found
+			o.mutex.Unlock()
+		} else {
+			// not found
+			o.verifiers[idHash] = entry
+			o.mutex.Unlock()
+		}
 	}
 	return entry.Verifier, nil
 }
@@ -280,6 +319,24 @@ func (o *Service) GetSigningIdentity(identity view.Identity) (driver.SigningIden
 		id:     identity,
 		signer: signer,
 	}, nil
+}
+
+func (o *Service) registerSigner(id string, signer *SignerEntry) error {
+	k, err := kvs.CreateCompositeKey("sigService", []string{"signer", id})
+	if err != nil {
+		return errors.Wrap(err, "failed to create composite key to store entry in kvs")
+	}
+	err = o.kvs.Put(k, signer)
+	if err != nil {
+		return errors.Wrap(err, "failed to store entry in kvs for the passed signer")
+	}
+	return nil
+}
+
+func (o *Service) deleteSigner(id string) {
+	o.mutex.Lock()
+	defer o.mutex.Unlock()
+	delete(o.signers, id)
 }
 
 type si struct {
