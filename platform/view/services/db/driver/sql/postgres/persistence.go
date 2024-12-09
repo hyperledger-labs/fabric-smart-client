@@ -17,7 +17,7 @@ import (
 
 var logger = flogging.MustGetLogger("view-sdk.db.postgres")
 
-const driverName = "pgx"
+const driverName = "postgres"
 
 func OpenDB(dataSourceName string, maxOpenConns int) (*sql.DB, error) {
 	db, err := sql.Open(driverName, dataSourceName)
