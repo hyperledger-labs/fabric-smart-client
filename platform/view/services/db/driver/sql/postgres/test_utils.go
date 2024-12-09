@@ -81,7 +81,7 @@ func defaultConfigWithPort(node string, port int) *ContainerConfig {
 		Container: fmt.Sprintf("fsc-postgres-%s", node),
 		Config: &Config{
 			DBName: "tokendb",
-			User:   "postgres",
+			User:   "pgx_md5",
 			Pass:   "example",
 			Host:   "localhost",
 			Port:   port,
@@ -138,7 +138,6 @@ func startPostgresWithLogger(c ContainerConfig, t Logger, printLogs bool) (func(
 			"POSTGRES_DB=" + c.DBName,
 			"POSTGRES_USER=" + c.User,
 			"POSTGRES_PASSWORD=" + c.Pass,
-			"POSTGRES_INITDB_ARGS=\"--auth-host=scram-sha-256 --auth-local=scram-sha-256\"",
 		},
 		Hostname: c.Container,
 		Image:    c.Image,
@@ -232,7 +231,7 @@ func StartPostgres(t Logger, printLogs bool) (func(), string, error) {
 		Container: getEnv("POSTGRES_CONTAINER", "fsc-postgres"),
 		Config: &Config{
 			DBName: getEnv("POSTGRES_DB", "testdb"),
-			User:   getEnv("POSTGRES_USER", "postgres"),
+			User:   getEnv("POSTGRES_USER", "pgx_md5"),
 			Pass:   getEnv("POSTGRES_PASSWORD", "example"),
 			Host:   getEnv("POSTGRES_HOST", "localhost"),
 			Port:   p,
