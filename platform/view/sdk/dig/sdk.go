@@ -100,7 +100,6 @@ func (p *SDK) Install() error {
 		p.C.Provide(file.NewDriver, dig.Group("kms-drivers")),
 		p.C.Provide(newKVS),
 		p.C.Provide(sig.NewDeserializer),
-		p.C.Provide(sig.NewDeserializerManager),
 		p.C.Provide(sig.NewSignService, dig.As(new(id.SigService), new(driver.SigService), new(driver.SigRegistry), new(driver.AuditRegistry))),
 		p.C.Provide(view.NewSigService, dig.As(new(view3.VerifierProvider), new(view3.SignerProvider))),
 		p.C.Provide(digutils.Identity[*kvs.KVS](), dig.As(new(sig.KVS))),
