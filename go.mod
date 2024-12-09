@@ -30,9 +30,9 @@ require (
 	github.com/hyperledger/fabric-contract-api-go v1.2.2
 	github.com/hyperledger/fabric-lib-go v1.1.2
 	github.com/hyperledger/fabric-protos-go v0.3.3
-	github.com/jackc/pgx/v5 v5.6.0
+	github.com/jackc/pgx/v5 v5.7.1
+	github.com/jackc/pgxlisten v0.0.0-20241106001234-1d6f6656415c
 	github.com/jellydator/ttlcache/v2 v2.11.1
-	github.com/lib/pq v1.10.9
 	github.com/libp2p/go-libp2p v0.36.1
 	github.com/libp2p/go-libp2p-kad-dht v0.25.2
 	github.com/miekg/pkcs11 v1.1.1
@@ -190,8 +190,8 @@ require (
 	github.com/ipfs/go-log/v2 v2.5.1 // indirect
 	github.com/ipld/go-ipld-prime v0.21.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
-	github.com/jackc/pgservicefile v0.0.0-20221227161230-091c0ba34f0a // indirect
-	github.com/jackc/puddle/v2 v2.2.1 // indirect
+	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
+	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	github.com/jackpal/go-nat-pmp v1.0.2 // indirect
 	github.com/jbenet/go-temp-err-catcher v0.1.0 // indirect
 	github.com/jbenet/goprocess v0.1.4 // indirect
@@ -289,11 +289,11 @@ require (
 	go.uber.org/mock v0.4.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/arch v0.8.0 // indirect
-	golang.org/x/crypto v0.26.0 // indirect
+	golang.org/x/crypto v0.28.0 // indirect
 	golang.org/x/mod v0.20.0 // indirect
 	golang.org/x/oauth2 v0.22.0 // indirect
-	golang.org/x/sys v0.24.0 // indirect
-	golang.org/x/text v0.17.0 // indirect
+	golang.org/x/sys v0.26.0 // indirect
+	golang.org/x/text v0.19.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
 	golang.org/x/tools v0.24.0 // indirect
 	gonum.org/v1/gonum v0.15.0 // indirect

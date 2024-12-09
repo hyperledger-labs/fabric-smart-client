@@ -11,8 +11,6 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/dbtest"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
-	_ "github.com/lib/pq"
-	_ "modernc.org/sqlite"
 )
 
 type provider[V any] func(name string) (V, error)

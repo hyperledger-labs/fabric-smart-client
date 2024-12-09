@@ -12,7 +12,6 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	_ "github.com/jackc/pgx/v5/stdlib"
-	_ "github.com/lib/pq"
 )
 
 var logger = flogging.MustGetLogger("view-sdk.db.postgres")
