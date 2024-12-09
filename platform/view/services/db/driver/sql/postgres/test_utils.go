@@ -138,6 +138,7 @@ func startPostgresWithLogger(c ContainerConfig, t Logger, printLogs bool) (func(
 			"POSTGRES_DB=" + c.DBName,
 			"POSTGRES_USER=" + c.User,
 			"POSTGRES_PASSWORD=" + c.Pass,
+			"POSTGRES_INITDB_ARGS=\"--auth-host=scram-sha-256 --auth-local=scram-sha-256\"",
 		},
 		Hostname: c.Container,
 		Image:    c.Image,
