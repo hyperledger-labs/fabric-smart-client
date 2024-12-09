@@ -37,6 +37,6 @@ func TestLoad(t *testing.T) {
 	assert.Equal(t, "SHA2", b.SW.Hash)
 	assert.NotNil(t, b.PKCS11)
 	assert.Equal(t, 256, b.PKCS11.Security)
-	assert.Equal(t, "someLabel", b.PKCS11.Label)
+	assert.Equal(t, "ForFSC", b.PKCS11.Label)
 	assert.Equal(t, "98765432", b.PKCS11.Pin)
 }
