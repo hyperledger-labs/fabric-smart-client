@@ -33,6 +33,7 @@ require (
 	github.com/jackc/pgx/v5 v5.7.1
 	github.com/jackc/pgxlisten v0.0.0-20241106001234-1d6f6656415c
 	github.com/jellydator/ttlcache/v2 v2.11.1
+	github.com/lib/pq v0.0.0-20180201184707-88edab080323
 	github.com/libp2p/go-libp2p v0.36.1
 	github.com/libp2p/go-libp2p-kad-dht v0.25.2
 	github.com/miekg/pkcs11 v1.1.1
