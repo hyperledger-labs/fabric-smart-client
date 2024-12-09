@@ -12,7 +12,7 @@ import (
 	"runtime/debug"
 	"sync"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -20,7 +20,7 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-var logger = flogging.MustGetLogger("fabric-sdk.core.generic.sig")
+var logger = flogging.MustGetLogger("common-sdk.sig")
 
 type KVS interface {
 	Exists(id string) bool
@@ -144,6 +144,7 @@ func (o *Service) GetAuditInfo(identity view.Identity) ([]byte, error) {
 			identity.String(),
 		},
 	)
+
 	if !o.kvs.Exists(k) {
 		return nil, nil
 	}
@@ -174,11 +175,11 @@ func (o *Service) IsMe(identity view.Identity) bool {
 		}
 	}
 	// last chance, deserialize
-	//signer, err := o.GetSigner(identity)
-	//if err != nil {
+	// signer, err := o.GetSigner(identity)
+	// if err != nil {
 	//	return false
-	//}
-	//return signer != nil
+	// }
+	// return signer != nil
 	return false
 }
 
@@ -288,6 +289,10 @@ type si struct {
 
 func (s *si) Verify(message []byte, signature []byte) error {
 	panic("implement me")
+}
+
+func (s *si) GetPublicVersion() driver.Identity {
+	return s
 }
 
 func (s *si) Sign(bytes []byte) ([]byte, error) {

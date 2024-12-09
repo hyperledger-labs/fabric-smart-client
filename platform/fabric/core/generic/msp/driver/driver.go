@@ -7,8 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package driver
 
 import (
+	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/sig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -19,6 +19,8 @@ type MSP struct {
 	EnrollmentID string
 	GetIdentity  driver.GetIdentityFunc
 }
+
+type Deserializer = driver2.SigDeserializer
 
 type Config interface {
 	NetworkName() string
@@ -44,11 +46,11 @@ type ConfigProvider interface {
 }
 
 type DeserializerManager interface {
-	AddDeserializer(deserializer sig.Deserializer)
+	AddDeserializer(deserializer Deserializer)
 }
 
 type Manager interface {
-	AddDeserializer(deserializer sig.Deserializer)
+	AddDeserializer(deserializer Deserializer)
 	AddMSP(name string, mspType string, enrollmentID string, idGetter driver.GetIdentityFunc)
 	Config() Config
 	DefaultMSP() string
@@ -72,7 +74,7 @@ type Identity interface {
 // array of bytes; it is needed to sign the commands transmitted to
 // the prover peer service.
 type SigningIdentity interface {
-	Identity //extends Identity
+	Identity // extends Identity
 
 	Sign(msg []byte) ([]byte, error)
 }

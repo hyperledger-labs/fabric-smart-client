@@ -9,10 +9,10 @@ package identity
 import (
 	"fmt"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/sig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/sig"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	vdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
@@ -37,7 +37,15 @@ type localMSPManagerProvider struct {
 	kvss                *kvs.KVS
 }
 
-func NewMSPManagerProvider(configProvider config.Provider, endpointService EndpointService, sigService *sig.Service, identityLoaders []NamedIdentityLoader, deserializerManager driver.DeserializerManager, idProvider vdriver.IdentityProvider, kvss *kvs.KVS) *localMSPManagerProvider {
+func NewMSPManagerProvider(
+	configProvider config.Provider,
+	endpointService EndpointService,
+	sigService *sig.Service,
+	identityLoaders []NamedIdentityLoader,
+	deserializerManager driver.DeserializerManager,
+	idProvider vdriver.IdentityProvider,
+	kvss *kvs.KVS,
+) *localMSPManagerProvider {
 	return &localMSPManagerProvider{
 		configProvider:      configProvider,
 		endpointService:     endpointService,
