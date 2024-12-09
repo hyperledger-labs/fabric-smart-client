@@ -37,9 +37,33 @@ func (db *BasePersistence[V, R]) SetStates(ns driver.Namespace, kvs map[driver.P
 
 func (db *BasePersistence[V, R]) SetStateWithTx(tx *sql.Tx, ns driver.Namespace, pkey driver.PKey, value V) error {
 	if errs := db.setStatesWithTx(tx, ns, map[driver.PKey]V{pkey: value}); errs != nil {
-		return errs[pkey]
+		return errs[encode(pkey)]
 	}
 	return nil
+}
+
+func (db *BasePersistence[V, R]) DeleteState(namespace driver.Namespace, key driver.PKey) error {
+	return db.BasePersistence.DeleteState(namespace, encode(key))
+}
+
+func (db *BasePersistence[V, R]) DeleteStates(namespace driver.Namespace, keys ...driver.PKey) map[driver.PKey]error {
+	return db.BasePersistence.DeleteStates(namespace, encodeSlice(keys)...)
+}
+
+func (db *BasePersistence[V, R]) Exists(ns driver.Namespace, key driver.PKey) (bool, error) {
+	return db.BasePersistence.Exists(ns, encode(key))
+}
+
+func (db *BasePersistence[V, R]) GetState(namespace driver.Namespace, key driver.PKey) (V, error) {
+	return db.BasePersistence.GetState(namespace, encode(key))
+}
+
+func (db *BasePersistence[V, R]) GetStateRangeScanIterator(ns driver.Namespace, startKey, endKey string) (collections.Iterator[*R], error) {
+	return db.BasePersistence.GetStateRangeScanIterator(ns, encode(startKey), encode(endKey))
+}
+
+func (db *BasePersistence[V, R]) GetStateSetIterator(ns driver.Namespace, keys ...driver.PKey) (collections.Iterator[*R], error) {
+	return db.BasePersistence.GetStateSetIterator(ns, encodeSlice(keys)...)
 }
 
 func (db *BasePersistence[V, R]) setStatesWithTx(tx *sql.Tx, ns driver.Namespace, kvs map[driver.PKey]V) map[driver.PKey]error {
@@ -67,7 +91,7 @@ func (db *BasePersistence[V, R]) setStatesWithTx(tx *sql.Tx, ns driver.Namespace
 
 	errs := make(map[driver.PKey]error)
 	if len(deleted) > 0 {
-		collections.CopyMap(errs, db.DeleteStatesWithTx(tx, ns, deleted...))
+		collections.CopyMap(errs, db.DeleteStatesWithTx(tx, ns, encodeSlice(deleted)...))
 	}
 	if len(upserted) > 0 {
 		collections.CopyMap(errs, db.upsertStatesWithTx(tx, ns, keys, upserted))
@@ -80,6 +104,7 @@ func (db *BasePersistence[V, R]) UpsertStates(ns driver.Namespace, valueKeys []s
 }
 
 func (db *BasePersistence[V, R]) upsertStatesWithTx(tx *sql.Tx, ns driver.Namespace, valueKeys []string, vals map[driver.PKey][]any) map[driver.PKey]error {
+	vals = encodeMap(vals)
 	keys := append([]string{"ns", "pkey"}, valueKeys...)
 	query := fmt.Sprintf("INSERT INTO %s (%s) "+
 		"VALUES %s "+

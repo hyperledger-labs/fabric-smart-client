@@ -18,7 +18,7 @@ import (
 
 	errors2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	driver3 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/keys"
@@ -98,16 +98,9 @@ func TTestRangeQueries(t *testing.T, db driver.TransactionalVersionedPersistence
 	populateForRangeQueries(t, db, ns)
 
 	itr, err := db.GetStateRangeScanIterator(ns, "", "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer itr.Close()
-
-	res := make([]driver.VersionedRead, 0, 4)
-	for n, err := itr.Next(); n != nil; n, err = itr.Next() {
-		assert.NoError(t, err)
-		res = append(res, *n)
-	}
+	assert.NoError(t, err)
+	res, err := collections.ReadAll(itr)
+	assert.NoError(t, err)
 	assert.Len(t, res, 4)
 	assert.Equal(t, []driver.VersionedRead{
 		{Key: "k1", Raw: []byte("k1_value"), Version: ToBytes(35, 3)},
@@ -117,16 +110,9 @@ func TTestRangeQueries(t *testing.T, db driver.TransactionalVersionedPersistence
 	}, res)
 
 	itr, err = db.GetStateRangeScanIterator(ns, "k1", "k3")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer itr.Close()
-
-	res = make([]driver.VersionedRead, 0, 3)
-	for n, err := itr.Next(); n != nil; n, err = itr.Next() {
-		assert.NoError(t, err)
-		res = append(res, *n)
-	}
+	assert.NoError(t, err)
+	res, err = collections.ReadAll(itr)
+	assert.NoError(t, err)
 	expected := []driver.VersionedRead{
 		{Key: "k1", Raw: []byte("k1_value"), Version: ToBytes(35, 3)},
 		{Key: "k111", Raw: []byte("k111_value"), Version: ToBytes(35, 4)},
@@ -137,15 +123,8 @@ func TTestRangeQueries(t *testing.T, db driver.TransactionalVersionedPersistence
 
 	itr, err = db.GetStateRangeScanIterator(ns, "k1", "k3")
 	assert.NoError(t, err)
-	defer itr.Close()
-
-	res = make([]driver.VersionedRead, 0, 2)
-	for i := 0; i < 2; i++ {
-		n, err := itr.Next()
-		assert.NoError(t, err)
-		res = append(res, *n)
-	}
-	itr.Close()
+	res, err = collections.ReadFirst(itr, 2)
+	assert.NoError(t, err)
 	expected = []driver.VersionedRead{
 		{Key: "k1", Raw: []byte("k1_value"), Version: ToBytes(35, 3)},
 		{Key: "k111", Raw: []byte("k111_value"), Version: ToBytes(35, 4)},
@@ -160,13 +139,8 @@ func TTestRangeQueries(t *testing.T, db driver.TransactionalVersionedPersistence
 	}
 	itr, err = db.GetStateRangeScanIterator(ns, "k1", "k3")
 	assert.NoError(t, err)
-	defer itr.Close()
-
-	res = make([]driver.VersionedRead, 0, 3)
-	for n, err := itr.Next(); n != nil; n, err = itr.Next() {
-		assert.NoError(t, err)
-		res = append(res, *n)
-	}
+	res, err = collections.ReadAll(itr)
+	assert.NoError(t, err)
 	assert.Len(t, res, 3)
 	assert.Equal(t, expected, res)
 
@@ -176,13 +150,8 @@ func TTestRangeQueries(t *testing.T, db driver.TransactionalVersionedPersistence
 	}
 	itr, err = db.GetStateSetIterator(ns, "k1", "k3")
 	assert.NoError(t, err)
-	defer itr.Close()
-
-	res = make([]driver.VersionedRead, 0, 2)
-	for n, err := itr.Next(); n != nil; n, err = itr.Next() {
-		assert.NoError(t, err)
-		res = append(res, *n)
-	}
+	res, err = collections.ReadAll(itr)
+	assert.NoError(t, err)
 	assert.Len(t, res, 2)
 	for _, read := range expected {
 		assert.Contains(t, res, read)
@@ -471,13 +440,8 @@ func TTestRangeQueries1(t *testing.T, db driver.TransactionalVersionedPersistenc
 
 	itr, err := db.GetStateRangeScanIterator(ns, "", "")
 	assert.NoError(t, err)
-	defer itr.Close()
-
-	res := make([]driver.VersionedRead, 0, 4)
-	for n, err := itr.Next(); n != nil; n, err = itr.Next() {
-		assert.NoError(t, err)
-		res = append(res, *n)
-	}
+	res, err := collections.ReadAll(itr)
+	assert.NoError(t, err)
 	assert.Len(t, res, 4)
 	assert.Equal(t, []driver.VersionedRead{
 		{Key: "k1", Raw: []byte("k1_value"), Version: ToBytes(35, 3)},
@@ -488,13 +452,8 @@ func TTestRangeQueries1(t *testing.T, db driver.TransactionalVersionedPersistenc
 
 	itr, err = db.GetStateRangeScanIterator(ns, "k1", "k3")
 	assert.NoError(t, err)
-	defer itr.Close()
-
-	res = make([]driver.VersionedRead, 0, 3)
-	for n, err := itr.Next(); n != nil; n, err = itr.Next() {
-		assert.NoError(t, err)
-		res = append(res, *n)
-	}
+	res, err = collections.ReadAll(itr)
+	assert.NoError(t, err)
 	assert.Len(t, res, 3)
 	assert.Equal(t, []driver.VersionedRead{
 		{Key: "k1", Raw: []byte("k1_value"), Version: ToBytes(35, 3)},
@@ -505,24 +464,14 @@ func TTestRangeQueries1(t *testing.T, db driver.TransactionalVersionedPersistenc
 
 func TTestMultiWritesAndRangeQueries(t *testing.T, db driver.TransactionalVersionedPersistence) {
 	ns := "namespace"
-	err := db.BeginUpdate()
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, db.BeginUpdate())
 
-	err = db.SetState(ns, "k2", driver.VersionedValue{Raw: []byte("k2_value"), Version: ToBytes(35, 1)})
-	assert.NoError(t, err)
-	err = db.SetState(ns, "k3", driver.VersionedValue{Raw: []byte("k3_value"), Version: ToBytes(35, 2)})
-	assert.NoError(t, err)
-	err = db.SetState(ns, "k1", driver.VersionedValue{Raw: []byte("k1_value"), Version: ToBytes(35, 3)})
-	assert.NoError(t, err)
-	err = db.SetState(ns, "k111", driver.VersionedValue{Raw: []byte("k111_value"), Version: ToBytes(35, 4)})
-	assert.NoError(t, err)
+	assert.NoError(t, db.SetState(ns, "k2", driver.VersionedValue{Raw: []byte("k2_value"), Version: ToBytes(35, 1)}))
+	assert.NoError(t, db.SetState(ns, "k3", driver.VersionedValue{Raw: []byte("k3_value"), Version: ToBytes(35, 2)}))
+	assert.NoError(t, db.SetState(ns, "k1", driver.VersionedValue{Raw: []byte("k1_value"), Version: ToBytes(35, 3)}))
+	assert.NoError(t, db.SetState(ns, "k111", driver.VersionedValue{Raw: []byte("k111_value"), Version: ToBytes(35, 4)}))
 
-	err = db.Commit()
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, db.Commit())
 
 	var wg sync.WaitGroup
 	wg.Add(4)
@@ -546,13 +495,8 @@ func TTestMultiWritesAndRangeQueries(t *testing.T, db driver.TransactionalVersio
 
 	itr, err := db.GetStateRangeScanIterator(ns, "", "")
 	assert.NoError(t, err)
-	defer itr.Close()
-
-	res := make([]driver.VersionedRead, 0, 4)
-	for n, err := itr.Next(); n != nil; n, err = itr.Next() {
-		assert.NoError(t, err)
-		res = append(res, *n)
-	}
+	res, err := collections.ReadAll(itr)
+	assert.NoError(t, err)
 	assert.Len(t, res, 4)
 	assert.Equal(t, []driver.VersionedRead{
 		{Key: "k1", Raw: []byte("k1_value"), Version: ToBytes(35, 3)},
@@ -563,13 +507,8 @@ func TTestMultiWritesAndRangeQueries(t *testing.T, db driver.TransactionalVersio
 
 	itr, err = db.GetStateRangeScanIterator(ns, "k1", "k3")
 	assert.NoError(t, err)
-	defer itr.Close()
-
-	res = make([]driver.VersionedRead, 0, 3)
-	for n, err := itr.Next(); n != nil; n, err = itr.Next() {
-		assert.NoError(t, err)
-		res = append(res, *n)
-	}
+	res, err = collections.ReadAll(itr)
+	assert.NoError(t, err)
 	expected := []driver.VersionedRead{
 		{Key: "k1", Raw: []byte("k1_value"), Version: ToBytes(35, 3)},
 		{Key: "k111", Raw: []byte("k111_value"), Version: ToBytes(35, 4)},
@@ -580,14 +519,8 @@ func TTestMultiWritesAndRangeQueries(t *testing.T, db driver.TransactionalVersio
 
 	itr, err = db.GetStateRangeScanIterator(ns, "k1", "k3")
 	assert.NoError(t, err)
-	defer itr.Close()
-
-	res = make([]driver.VersionedRead, 0, 2)
-	for i := 0; i < 2; i++ {
-		n, err := itr.Next()
-		assert.NoError(t, err)
-		res = append(res, *n)
-	}
+	res, err = collections.ReadFirst(itr, 2)
+	assert.NoError(t, err)
 	expected = []driver.VersionedRead{
 		{Key: "k1", Raw: []byte("k1_value"), Version: ToBytes(35, 3)},
 		{Key: "k111", Raw: []byte("k111_value"), Version: ToBytes(35, 4)},
@@ -602,13 +535,8 @@ func TTestMultiWritesAndRangeQueries(t *testing.T, db driver.TransactionalVersio
 	}
 	itr, err = db.GetStateRangeScanIterator(ns, "k1", "k3")
 	assert.NoError(t, err)
-	defer itr.Close()
-
-	res = make([]driver.VersionedRead, 0, 3)
-	for n, err := itr.Next(); n != nil; n, err = itr.Next() {
-		assert.NoError(t, err)
-		res = append(res, *n)
-	}
+	res, err = collections.ReadAll(itr)
+	assert.NoError(t, err)
 	assert.Len(t, res, 3)
 	assert.Equal(t, expected, res)
 }
@@ -1141,12 +1069,12 @@ type notifier interface {
 func subscribe(db notifier) (chan notifyEvent, error) {
 	ch := make(chan notifyEvent, 100) //TODO: AF Why deadlock
 	err := db.Subscribe(func(operation driver.Operation, m map[driver.ColumnKey]string) {
-		key, _ := utils.DecodeByteA(m["pkey"])
-		ch <- notifyEvent{Op: opTypeMap[operation], NS: m["ns"], Key: string(key)}
+		ch <- notifyEvent{Op: opTypeMap[operation], NS: m["ns"], Key: m["pkey"]}
 	})
 	if err != nil {
 		return nil, err
 	}
+	time.Sleep(1 * time.Second) // Wait until subscription is complete before inserting values
 	return ch, nil
 }
 
