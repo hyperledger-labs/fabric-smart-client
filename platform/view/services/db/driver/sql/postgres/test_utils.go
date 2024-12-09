@@ -27,6 +27,8 @@ import (
 	"github.com/docker/go-connections/nat"
 	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/docker"
+	_ "github.com/lib/pq"
+	_ "modernc.org/sqlite"
 )
 
 type Logger interface {
