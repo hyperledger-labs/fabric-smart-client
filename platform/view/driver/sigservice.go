@@ -25,7 +25,7 @@ type Verifier = driver.Verifier
 //go:generate counterfeiter -o mock/sig_service.go -fake-name SigService . SigService
 
 // SigService models a repository of sign and verify keys.
-type SigService driver.SigService
+type SigService = driver.SigService
 
 func GetSigService(sp ServiceProvider) SigService {
 	s, err := sp.GetService(reflect.TypeOf((*SigService)(nil)))
