@@ -80,8 +80,8 @@ orion-server-images:
 
 .PHONY: testing-docker-images
 testing-docker-images:
-	docker pull postgres:16.2-alpine
-	docker tag postgres:16.2-alpine postgres:latest
+	docker pull postgres:17.2-alpine
+	docker tag postgres:17.2-alpine postgres:latest
 
 INTEGRATION_TARGETS = integration-tests-iou
 INTEGRATION_TARGETS += integration-tests-atsacc
