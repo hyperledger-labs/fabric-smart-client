@@ -283,7 +283,7 @@ func (o *Service) GetVerifier(identity view.Identity) (driver.Verifier, error) {
 			return nil, errors.Wrapf(err, "failed deserializing identity for verifier %v", identity)
 		}
 
-		entry = VerifierEntry{Verifier: verifier}
+		newEntry := VerifierEntry{Verifier: verifier}
 		if logger.IsEnabledFor(zapcore.DebugLevel) {
 			entry.DebugStack = debug.Stack()
 			logger.Debugf("add deserialized verifier for [%s]:[%s]", idHash, GetIdentifier(verifier))
@@ -298,7 +298,8 @@ func (o *Service) GetVerifier(identity view.Identity) (driver.Verifier, error) {
 			o.mutex.Unlock()
 		} else {
 			// not found
-			o.verifiers[idHash] = entry
+			o.verifiers[idHash] = newEntry
+			entry = newEntry
 			o.mutex.Unlock()
 		}
 	}
