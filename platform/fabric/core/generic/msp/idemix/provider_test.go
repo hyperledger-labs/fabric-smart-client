@@ -12,8 +12,8 @@ import (
 
 	bccsp "github.com/IBM/idemix/bccsp/types"
 	math "github.com/IBM/mathlib"
+	sig2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/services/sig"
 	idemix2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/idemix"
-	sig2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/sig"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"

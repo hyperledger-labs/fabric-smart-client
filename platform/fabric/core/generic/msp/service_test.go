@@ -10,10 +10,10 @@ import (
 	"os"
 	"testing"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/sig"
 	config2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	msp2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/driver/mock"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/sig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"

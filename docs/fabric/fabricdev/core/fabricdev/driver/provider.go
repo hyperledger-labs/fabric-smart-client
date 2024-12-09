@@ -10,6 +10,7 @@ import (
 	"fmt"
 
 	committer2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/committer"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/sig"
 
 	"github.com/hyperledger-labs/fabric-smart-client/docs/fabric/fabricdev/core/fabricdev"
 	"github.com/hyperledger-labs/fabric-smart-client/docs/fabric/fabricdev/core/fabricdev/transaction"
@@ -21,7 +22,6 @@ import (
 	gmetrics "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/sig"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	vdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
