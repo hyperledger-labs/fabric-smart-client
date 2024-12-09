@@ -19,7 +19,6 @@ import (
 	errors2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	driver3 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/keys"
 	"github.com/pkg/errors"
@@ -1067,7 +1066,7 @@ type notifier interface {
 }
 
 func subscribe(db notifier) (chan notifyEvent, error) {
-	ch := make(chan notifyEvent, 100) //TODO: AF Why deadlock
+	ch := make(chan notifyEvent, 100) // TODO: AF Why deadlock
 	err := db.Subscribe(func(operation driver.Operation, m map[driver.ColumnKey]string) {
 		ch <- notifyEvent{Op: opTypeMap[operation], NS: m["ns"], Key: m["pkey"]}
 	})
@@ -1078,21 +1077,21 @@ func subscribe(db notifier) (chan notifyEvent, error) {
 	return ch, nil
 }
 
-func ToBytes(Block driver2.BlockNum, TxNum driver2.TxNum) []byte {
+func ToBytes(Block driver3.BlockNum, TxNum driver3.TxNum) []byte {
 	buf := make([]byte, 8)
 	binary.BigEndian.PutUint32(buf[:4], uint32(Block))
 	binary.BigEndian.PutUint32(buf[4:], uint32(TxNum))
 	return buf
 }
 
-func FromBytes(data driver3.RawVersion) (driver2.BlockNum, driver2.TxNum, error) {
+func FromBytes(data driver3.RawVersion) (driver3.BlockNum, driver3.TxNum, error) {
 	if len(data) == 0 {
 		return 0, 0, nil
 	}
 	if len(data) != 8 {
 		return 0, 0, errors.Errorf("block number must be 8 bytes, but got %d", len(data))
 	}
-	Block := driver2.BlockNum(binary.BigEndian.Uint32(data[:4]))
-	TxNum := driver2.TxNum(binary.BigEndian.Uint32(data[4:]))
+	Block := driver3.BlockNum(binary.BigEndian.Uint32(data[:4]))
+	TxNum := driver3.TxNum(binary.BigEndian.Uint32(data[4:]))
 	return Block, TxNum, nil
 }

@@ -15,10 +15,9 @@ import (
 	config2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	gdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/config"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/identity"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/ledger"
-	mspdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/rwset"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/sig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	vdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
@@ -48,15 +47,13 @@ type RWSetPayloadHandlerProvider = digutils.HandlerProvider[common.HeaderType, f
 
 func NewDriver(in struct {
 	dig.In
-	ConfigProvider      config.Provider
-	MetricsProvider     metrics.Provider
-	EndpointService     vdriver.EndpointService
-	SigService          *sig.Service
-	DeserializerManager mspdriver.DeserializerManager
-	IdProvider          vdriver.IdentityProvider
-	KVS                 *kvs.KVS
-	ChannelProvider     generic.ChannelProvider       `name:"generic-channel-provider"`
-	IdentityLoaders     []gdriver.NamedIdentityLoader `group:"identity-loaders"`
+	ConfigProvider  config.Provider
+	MetricsProvider metrics.Provider
+	EndpointService vdriver.EndpointService
+	IdProvider      vdriver.IdentityProvider
+	KVS             *kvs.KVS
+	ChannelProvider generic.ChannelProvider        `name:"generic-channel-provider"`
+	IdentityLoaders []identity.NamedIdentityLoader `group:"identity-loaders"`
 }) core.NamedDriver {
 	d := core.NamedDriver{
 		Name: config2.GenericDriver,
@@ -64,9 +61,7 @@ func NewDriver(in struct {
 			in.ConfigProvider,
 			in.MetricsProvider,
 			in.EndpointService,
-			in.SigService,
 			in.ChannelProvider,
-			in.DeserializerManager,
 			in.IdProvider,
 			in.IdentityLoaders,
 			in.KVS,
