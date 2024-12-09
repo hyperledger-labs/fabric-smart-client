@@ -13,13 +13,13 @@ import (
 	"github.com/go-kit/log"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/node"
 	dig2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
+	sig2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/services/sig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	digutils "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/endpoint"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/id"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/manager"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/sig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/finality"
 	tracing2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/tracing"
@@ -99,10 +99,10 @@ func (p *SDK) Install() error {
 		p.C.Provide(mem.NewDriver, dig.Group("db-drivers")),
 		p.C.Provide(file.NewDriver, dig.Group("kms-drivers")),
 		p.C.Provide(newKVS),
-		p.C.Provide(sig.NewDeserializer),
-		p.C.Provide(sig.NewSignService, dig.As(new(id.SigService), new(driver.SigService), new(driver.SigRegistry), new(driver.AuditRegistry))),
+		p.C.Provide(sig2.NewDeserializer),
+		p.C.Provide(sig2.NewService, dig.As(new(id.SigService), new(driver.SigService), new(driver.SigRegistry), new(driver.AuditRegistry))),
 		p.C.Provide(view.NewSigService, dig.As(new(view3.VerifierProvider), new(view3.SignerProvider))),
-		p.C.Provide(digutils.Identity[*kvs.KVS](), dig.As(new(sig.KVS))),
+		p.C.Provide(digutils.Identity[*kvs.KVS](), dig.As(new(sig2.KVS))),
 		p.C.Provide(func(defaultKVS *kvs.KVS) (*endpoint.Service, error) { return endpoint.NewService(defaultKVS) }),
 		p.C.Provide(digutils.Identity[*endpoint.Service](), dig.As(new(driver.EndpointService))),
 		p.C.Provide(view.NewEndpointService),

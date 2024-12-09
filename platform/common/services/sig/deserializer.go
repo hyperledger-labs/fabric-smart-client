@@ -9,36 +9,33 @@ package sig
 import (
 	"sync"
 
+	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/id/x509"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
 )
 
-type Deserializer interface {
-	DeserializeVerifier(raw []byte) (driver.Verifier, error)
-	DeserializeSigner(raw []byte) (driver.Signer, error)
-	Info(raw []byte, auditInfo []byte) (string, error)
-}
+type Deserializer = driver2.SigDeserializer
 
-type deserializer struct {
+type MultiplexDeserializer struct {
 	deserializersMutex sync.RWMutex
 	deserializers      []Deserializer
 }
 
-func NewMultiplexDeserializer() (*deserializer, error) {
-	return &deserializer{
+func NewMultiplexDeserializer() *MultiplexDeserializer {
+	return &MultiplexDeserializer{
 		deserializers: []Deserializer{},
-	}, nil
+	}
 }
 
-func (d *deserializer) AddDeserializer(newD Deserializer) {
+func (d *MultiplexDeserializer) AddDeserializer(newD Deserializer) {
 	d.deserializersMutex.Lock()
 	d.deserializers = append(d.deserializers, newD)
 	d.deserializersMutex.Unlock()
 }
 
-func (d *deserializer) DeserializeVerifier(raw []byte) (driver.Verifier, error) {
+func (d *MultiplexDeserializer) DeserializeVerifier(raw []byte) (driver.Verifier, error) {
 	var errs []error
 
 	copyDeserial := d.threadSafeCopyDeserializers()
@@ -63,7 +60,7 @@ func (d *deserializer) DeserializeVerifier(raw []byte) (driver.Verifier, error) 
 	return nil, errors.Errorf("failed deserialization [%v]", errs)
 }
 
-func (d *deserializer) DeserializeSigner(raw []byte) (driver.Signer, error) {
+func (d *MultiplexDeserializer) DeserializeSigner(raw []byte) (driver.Signer, error) {
 	var errs []error
 
 	copyDeserial := d.threadSafeCopyDeserializers()
@@ -88,7 +85,7 @@ func (d *deserializer) DeserializeSigner(raw []byte) (driver.Signer, error) {
 	return nil, errors.Errorf("failed signer deserialization [%v]", errs)
 }
 
-func (d *deserializer) Info(raw []byte, auditInfo []byte) (string, error) {
+func (d *MultiplexDeserializer) Info(raw []byte, auditInfo []byte) (string, error) {
 	var errs []error
 
 	copyDeserial := d.threadSafeCopyDeserializers()
@@ -113,7 +110,7 @@ func (d *deserializer) Info(raw []byte, auditInfo []byte) (string, error) {
 	return "", errors.Errorf("failed info deserialization [%v]", errs)
 }
 
-func (d *deserializer) threadSafeCopyDeserializers() []Deserializer {
+func (d *MultiplexDeserializer) threadSafeCopyDeserializers() []Deserializer {
 	d.deserializersMutex.RLock()
 	res := make([]Deserializer, len(d.deserializers))
 	copy(res, d.deserializers)
@@ -122,10 +119,7 @@ func (d *deserializer) threadSafeCopyDeserializers() []Deserializer {
 }
 
 func NewDeserializer() (Deserializer, error) {
-	des, err := NewMultiplexDeserializer()
-	if err != nil {
-		return nil, errors.Wrap(err, "failed loading sig verifier deserializer service")
-	}
+	des := NewMultiplexDeserializer()
 	des.AddDeserializer(&x509.Deserializer{})
 	return des, nil
 }

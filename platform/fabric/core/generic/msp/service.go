@@ -13,7 +13,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/idemix"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/x509"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/sig"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -95,7 +94,7 @@ func NewLocalMSPManager(
 	return s
 }
 
-func (s *service) AddDeserializer(deserializer sig.Deserializer) {
+func (s *service) AddDeserializer(deserializer driver.Deserializer) {
 	s.deserializerManager.AddDeserializer(deserializer)
 }
 
@@ -104,7 +103,7 @@ func (s *service) Config() driver.Config {
 }
 
 func (s *service) DefaultMSP() string {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 

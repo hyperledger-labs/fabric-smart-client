@@ -4,54 +4,55 @@ package mock
 import (
 	"sync"
 
+	drivera "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 type SigService struct {
-	GetSignerStub        func(identity view.Identity) (driver.Signer, error)
+	GetSignerStub        func(view.Identity) (drivera.Signer, error)
 	getSignerMutex       sync.RWMutex
 	getSignerArgsForCall []struct {
-		identity view.Identity
+		arg1 view.Identity
 	}
 	getSignerReturns struct {
-		result1 driver.Signer
+		result1 drivera.Signer
 		result2 error
 	}
 	getSignerReturnsOnCall map[int]struct {
-		result1 driver.Signer
+		result1 drivera.Signer
 		result2 error
 	}
-	GetVerifierStub        func(identity view.Identity) (driver.Verifier, error)
-	getVerifierMutex       sync.RWMutex
-	getVerifierArgsForCall []struct {
-		identity view.Identity
-	}
-	getVerifierReturns struct {
-		result1 driver.Verifier
-		result2 error
-	}
-	getVerifierReturnsOnCall map[int]struct {
-		result1 driver.Verifier
-		result2 error
-	}
-	GetSigningIdentityStub        func(identity view.Identity) (driver.SigningIdentity, error)
+	GetSigningIdentityStub        func(view.Identity) (drivera.SigningIdentity, error)
 	getSigningIdentityMutex       sync.RWMutex
 	getSigningIdentityArgsForCall []struct {
-		identity view.Identity
+		arg1 view.Identity
 	}
 	getSigningIdentityReturns struct {
-		result1 driver.SigningIdentity
+		result1 drivera.SigningIdentity
 		result2 error
 	}
 	getSigningIdentityReturnsOnCall map[int]struct {
-		result1 driver.SigningIdentity
+		result1 drivera.SigningIdentity
 		result2 error
 	}
-	IsMeStub        func(identity view.Identity) bool
+	GetVerifierStub        func(view.Identity) (drivera.Verifier, error)
+	getVerifierMutex       sync.RWMutex
+	getVerifierArgsForCall []struct {
+		arg1 view.Identity
+	}
+	getVerifierReturns struct {
+		result1 drivera.Verifier
+		result2 error
+	}
+	getVerifierReturnsOnCall map[int]struct {
+		result1 drivera.Verifier
+		result2 error
+	}
+	IsMeStub        func(view.Identity) bool
 	isMeMutex       sync.RWMutex
 	isMeArgsForCall []struct {
-		identity view.Identity
+		arg1 view.Identity
 	}
 	isMeReturns struct {
 		result1 bool
@@ -63,21 +64,23 @@ type SigService struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *SigService) GetSigner(identity view.Identity) (driver.Signer, error) {
+func (fake *SigService) GetSigner(arg1 view.Identity) (drivera.Signer, error) {
 	fake.getSignerMutex.Lock()
 	ret, specificReturn := fake.getSignerReturnsOnCall[len(fake.getSignerArgsForCall)]
 	fake.getSignerArgsForCall = append(fake.getSignerArgsForCall, struct {
-		identity view.Identity
-	}{identity})
-	fake.recordInvocation("GetSigner", []interface{}{identity})
+		arg1 view.Identity
+	}{arg1})
+	stub := fake.GetSignerStub
+	fakeReturns := fake.getSignerReturns
+	fake.recordInvocation("GetSigner", []interface{}{arg1})
 	fake.getSignerMutex.Unlock()
-	if fake.GetSignerStub != nil {
-		return fake.GetSignerStub(identity)
+	if stub != nil {
+		return stub(arg1)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
 	}
-	return fake.getSignerReturns.result1, fake.getSignerReturns.result2
+	return fakeReturns.result1, fakeReturns.result2
 }
 
 func (fake *SigService) GetSignerCallCount() int {
@@ -86,100 +89,62 @@ func (fake *SigService) GetSignerCallCount() int {
 	return len(fake.getSignerArgsForCall)
 }
 
+func (fake *SigService) GetSignerCalls(stub func(view.Identity) (drivera.Signer, error)) {
+	fake.getSignerMutex.Lock()
+	defer fake.getSignerMutex.Unlock()
+	fake.GetSignerStub = stub
+}
+
 func (fake *SigService) GetSignerArgsForCall(i int) view.Identity {
 	fake.getSignerMutex.RLock()
 	defer fake.getSignerMutex.RUnlock()
-	return fake.getSignerArgsForCall[i].identity
+	argsForCall := fake.getSignerArgsForCall[i]
+	return argsForCall.arg1
 }
 
-func (fake *SigService) GetSignerReturns(result1 driver.Signer, result2 error) {
+func (fake *SigService) GetSignerReturns(result1 drivera.Signer, result2 error) {
+	fake.getSignerMutex.Lock()
+	defer fake.getSignerMutex.Unlock()
 	fake.GetSignerStub = nil
 	fake.getSignerReturns = struct {
-		result1 driver.Signer
+		result1 drivera.Signer
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *SigService) GetSignerReturnsOnCall(i int, result1 driver.Signer, result2 error) {
+func (fake *SigService) GetSignerReturnsOnCall(i int, result1 drivera.Signer, result2 error) {
+	fake.getSignerMutex.Lock()
+	defer fake.getSignerMutex.Unlock()
 	fake.GetSignerStub = nil
 	if fake.getSignerReturnsOnCall == nil {
 		fake.getSignerReturnsOnCall = make(map[int]struct {
-			result1 driver.Signer
+			result1 drivera.Signer
 			result2 error
 		})
 	}
 	fake.getSignerReturnsOnCall[i] = struct {
-		result1 driver.Signer
+		result1 drivera.Signer
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *SigService) GetVerifier(identity view.Identity) (driver.Verifier, error) {
-	fake.getVerifierMutex.Lock()
-	ret, specificReturn := fake.getVerifierReturnsOnCall[len(fake.getVerifierArgsForCall)]
-	fake.getVerifierArgsForCall = append(fake.getVerifierArgsForCall, struct {
-		identity view.Identity
-	}{identity})
-	fake.recordInvocation("GetVerifier", []interface{}{identity})
-	fake.getVerifierMutex.Unlock()
-	if fake.GetVerifierStub != nil {
-		return fake.GetVerifierStub(identity)
-	}
-	if specificReturn {
-		return ret.result1, ret.result2
-	}
-	return fake.getVerifierReturns.result1, fake.getVerifierReturns.result2
-}
-
-func (fake *SigService) GetVerifierCallCount() int {
-	fake.getVerifierMutex.RLock()
-	defer fake.getVerifierMutex.RUnlock()
-	return len(fake.getVerifierArgsForCall)
-}
-
-func (fake *SigService) GetVerifierArgsForCall(i int) view.Identity {
-	fake.getVerifierMutex.RLock()
-	defer fake.getVerifierMutex.RUnlock()
-	return fake.getVerifierArgsForCall[i].identity
-}
-
-func (fake *SigService) GetVerifierReturns(result1 driver.Verifier, result2 error) {
-	fake.GetVerifierStub = nil
-	fake.getVerifierReturns = struct {
-		result1 driver.Verifier
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *SigService) GetVerifierReturnsOnCall(i int, result1 driver.Verifier, result2 error) {
-	fake.GetVerifierStub = nil
-	if fake.getVerifierReturnsOnCall == nil {
-		fake.getVerifierReturnsOnCall = make(map[int]struct {
-			result1 driver.Verifier
-			result2 error
-		})
-	}
-	fake.getVerifierReturnsOnCall[i] = struct {
-		result1 driver.Verifier
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *SigService) GetSigningIdentity(identity view.Identity) (driver.SigningIdentity, error) {
+func (fake *SigService) GetSigningIdentity(arg1 view.Identity) (drivera.SigningIdentity, error) {
 	fake.getSigningIdentityMutex.Lock()
 	ret, specificReturn := fake.getSigningIdentityReturnsOnCall[len(fake.getSigningIdentityArgsForCall)]
 	fake.getSigningIdentityArgsForCall = append(fake.getSigningIdentityArgsForCall, struct {
-		identity view.Identity
-	}{identity})
-	fake.recordInvocation("GetSigningIdentity", []interface{}{identity})
+		arg1 view.Identity
+	}{arg1})
+	stub := fake.GetSigningIdentityStub
+	fakeReturns := fake.getSigningIdentityReturns
+	fake.recordInvocation("GetSigningIdentity", []interface{}{arg1})
 	fake.getSigningIdentityMutex.Unlock()
-	if fake.GetSigningIdentityStub != nil {
-		return fake.GetSigningIdentityStub(identity)
+	if stub != nil {
+		return stub(arg1)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
 	}
-	return fake.getSigningIdentityReturns.result1, fake.getSigningIdentityReturns.result2
+	return fakeReturns.result1, fakeReturns.result2
 }
 
 func (fake *SigService) GetSigningIdentityCallCount() int {
@@ -188,49 +153,126 @@ func (fake *SigService) GetSigningIdentityCallCount() int {
 	return len(fake.getSigningIdentityArgsForCall)
 }
 
+func (fake *SigService) GetSigningIdentityCalls(stub func(view.Identity) (drivera.SigningIdentity, error)) {
+	fake.getSigningIdentityMutex.Lock()
+	defer fake.getSigningIdentityMutex.Unlock()
+	fake.GetSigningIdentityStub = stub
+}
+
 func (fake *SigService) GetSigningIdentityArgsForCall(i int) view.Identity {
 	fake.getSigningIdentityMutex.RLock()
 	defer fake.getSigningIdentityMutex.RUnlock()
-	return fake.getSigningIdentityArgsForCall[i].identity
+	argsForCall := fake.getSigningIdentityArgsForCall[i]
+	return argsForCall.arg1
 }
 
-func (fake *SigService) GetSigningIdentityReturns(result1 driver.SigningIdentity, result2 error) {
+func (fake *SigService) GetSigningIdentityReturns(result1 drivera.SigningIdentity, result2 error) {
+	fake.getSigningIdentityMutex.Lock()
+	defer fake.getSigningIdentityMutex.Unlock()
 	fake.GetSigningIdentityStub = nil
 	fake.getSigningIdentityReturns = struct {
-		result1 driver.SigningIdentity
+		result1 drivera.SigningIdentity
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *SigService) GetSigningIdentityReturnsOnCall(i int, result1 driver.SigningIdentity, result2 error) {
+func (fake *SigService) GetSigningIdentityReturnsOnCall(i int, result1 drivera.SigningIdentity, result2 error) {
+	fake.getSigningIdentityMutex.Lock()
+	defer fake.getSigningIdentityMutex.Unlock()
 	fake.GetSigningIdentityStub = nil
 	if fake.getSigningIdentityReturnsOnCall == nil {
 		fake.getSigningIdentityReturnsOnCall = make(map[int]struct {
-			result1 driver.SigningIdentity
+			result1 drivera.SigningIdentity
 			result2 error
 		})
 	}
 	fake.getSigningIdentityReturnsOnCall[i] = struct {
-		result1 driver.SigningIdentity
+		result1 drivera.SigningIdentity
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *SigService) IsMe(identity view.Identity) bool {
+func (fake *SigService) GetVerifier(arg1 view.Identity) (drivera.Verifier, error) {
+	fake.getVerifierMutex.Lock()
+	ret, specificReturn := fake.getVerifierReturnsOnCall[len(fake.getVerifierArgsForCall)]
+	fake.getVerifierArgsForCall = append(fake.getVerifierArgsForCall, struct {
+		arg1 view.Identity
+	}{arg1})
+	stub := fake.GetVerifierStub
+	fakeReturns := fake.getVerifierReturns
+	fake.recordInvocation("GetVerifier", []interface{}{arg1})
+	fake.getVerifierMutex.Unlock()
+	if stub != nil {
+		return stub(arg1)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *SigService) GetVerifierCallCount() int {
+	fake.getVerifierMutex.RLock()
+	defer fake.getVerifierMutex.RUnlock()
+	return len(fake.getVerifierArgsForCall)
+}
+
+func (fake *SigService) GetVerifierCalls(stub func(view.Identity) (drivera.Verifier, error)) {
+	fake.getVerifierMutex.Lock()
+	defer fake.getVerifierMutex.Unlock()
+	fake.GetVerifierStub = stub
+}
+
+func (fake *SigService) GetVerifierArgsForCall(i int) view.Identity {
+	fake.getVerifierMutex.RLock()
+	defer fake.getVerifierMutex.RUnlock()
+	argsForCall := fake.getVerifierArgsForCall[i]
+	return argsForCall.arg1
+}
+
+func (fake *SigService) GetVerifierReturns(result1 drivera.Verifier, result2 error) {
+	fake.getVerifierMutex.Lock()
+	defer fake.getVerifierMutex.Unlock()
+	fake.GetVerifierStub = nil
+	fake.getVerifierReturns = struct {
+		result1 drivera.Verifier
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *SigService) GetVerifierReturnsOnCall(i int, result1 drivera.Verifier, result2 error) {
+	fake.getVerifierMutex.Lock()
+	defer fake.getVerifierMutex.Unlock()
+	fake.GetVerifierStub = nil
+	if fake.getVerifierReturnsOnCall == nil {
+		fake.getVerifierReturnsOnCall = make(map[int]struct {
+			result1 drivera.Verifier
+			result2 error
+		})
+	}
+	fake.getVerifierReturnsOnCall[i] = struct {
+		result1 drivera.Verifier
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *SigService) IsMe(arg1 view.Identity) bool {
 	fake.isMeMutex.Lock()
 	ret, specificReturn := fake.isMeReturnsOnCall[len(fake.isMeArgsForCall)]
 	fake.isMeArgsForCall = append(fake.isMeArgsForCall, struct {
-		identity view.Identity
-	}{identity})
-	fake.recordInvocation("IsMe", []interface{}{identity})
+		arg1 view.Identity
+	}{arg1})
+	stub := fake.IsMeStub
+	fakeReturns := fake.isMeReturns
+	fake.recordInvocation("IsMe", []interface{}{arg1})
 	fake.isMeMutex.Unlock()
-	if fake.IsMeStub != nil {
-		return fake.IsMeStub(identity)
+	if stub != nil {
+		return stub(arg1)
 	}
 	if specificReturn {
 		return ret.result1
 	}
-	return fake.isMeReturns.result1
+	return fakeReturns.result1
 }
 
 func (fake *SigService) IsMeCallCount() int {
@@ -239,13 +281,22 @@ func (fake *SigService) IsMeCallCount() int {
 	return len(fake.isMeArgsForCall)
 }
 
+func (fake *SigService) IsMeCalls(stub func(view.Identity) bool) {
+	fake.isMeMutex.Lock()
+	defer fake.isMeMutex.Unlock()
+	fake.IsMeStub = stub
+}
+
 func (fake *SigService) IsMeArgsForCall(i int) view.Identity {
 	fake.isMeMutex.RLock()
 	defer fake.isMeMutex.RUnlock()
-	return fake.isMeArgsForCall[i].identity
+	argsForCall := fake.isMeArgsForCall[i]
+	return argsForCall.arg1
 }
 
 func (fake *SigService) IsMeReturns(result1 bool) {
+	fake.isMeMutex.Lock()
+	defer fake.isMeMutex.Unlock()
 	fake.IsMeStub = nil
 	fake.isMeReturns = struct {
 		result1 bool
@@ -253,6 +304,8 @@ func (fake *SigService) IsMeReturns(result1 bool) {
 }
 
 func (fake *SigService) IsMeReturnsOnCall(i int, result1 bool) {
+	fake.isMeMutex.Lock()
+	defer fake.isMeMutex.Unlock()
 	fake.IsMeStub = nil
 	if fake.isMeReturnsOnCall == nil {
 		fake.isMeReturnsOnCall = make(map[int]struct {
@@ -269,10 +322,10 @@ func (fake *SigService) Invocations() map[string][][]interface{} {
 	defer fake.invocationsMutex.RUnlock()
 	fake.getSignerMutex.RLock()
 	defer fake.getSignerMutex.RUnlock()
-	fake.getVerifierMutex.RLock()
-	defer fake.getVerifierMutex.RUnlock()
 	fake.getSigningIdentityMutex.RLock()
 	defer fake.getSigningIdentityMutex.RUnlock()
+	fake.getVerifierMutex.RLock()
+	defer fake.getVerifierMutex.RUnlock()
 	fake.isMeMutex.RLock()
 	defer fake.isMeMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}

@@ -9,11 +9,11 @@ package driver
 import (
 	"fmt"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/sig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/identity"
 	gmetrics "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/metrics"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/sig"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	vdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
@@ -44,12 +44,20 @@ func NewProvider(
 	deserializerManager := sig.NewMultiplexDeserializer()
 	sigService := sig.NewService(deserializerManager, kvss)
 	return &Provider{
-		configProvider:     configProvider,
-		channelProvider:    channelProvider,
-		identityProvider:   identity.NewProvider(configProvider, endpointService),
-		metricsProvider:    metricsProvider,
-		sigService:         sigService,
-		mspManagerProvider: identity.NewMSPManagerProvider(configProvider, endpointService, sigService, identityLoaders, deserializerManager, idProvider, kvss),
+		configProvider:   configProvider,
+		channelProvider:  channelProvider,
+		identityProvider: identity.NewProvider(configProvider, endpointService),
+		metricsProvider:  metricsProvider,
+		sigService:       sigService,
+		mspManagerProvider: identity.NewMSPManagerProvider(
+			configProvider,
+			endpointService,
+			sigService,
+			identityLoaders,
+			deserializerManager,
+			idProvider,
+			kvss,
+		),
 	}
 }
 
