@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package postgres
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"strconv"
@@ -18,7 +19,9 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
-	"github.com/lib/pq"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgxlisten"
 	"github.com/pkg/errors"
 )
 
@@ -28,10 +31,9 @@ type Notifier struct {
 	table            string
 	notifyOperations []driver.Operation
 	writeDB          *sql.DB
-	listener         *pq.Listener
-	primaryKeys      []driver.ColumnKey
-	listeners        []driver.TriggerCallback
-	mutex            sync.RWMutex
+	listener         *pgxlisten.Listener
+	primaryKeys      []primaryKey
+	once             sync.Once
 }
 
 var operationMap = map[string]driver.Operation{
@@ -40,55 +42,58 @@ var operationMap = map[string]driver.Operation{
 	"UPDATE": driver.Update,
 }
 
+type primaryKey struct {
+	name         driver.ColumnKey
+	valueDecoder func(string) (string, error)
+}
+
+func NewSimplePrimaryKey(name driver.ColumnKey) *primaryKey {
+	return &primaryKey{name: name, valueDecoder: identity}
+}
+
 const (
-	payloadConcatenator  = "&"
-	keySeparator         = "_"
-	minReconnectInterval = 10 * time.Second
-	maxReconnectInterval = 1 * time.Minute
+	payloadConcatenator = "&"
+	keySeparator        = "_"
+	reconnectInterval   = 10 * time.Second
 )
 
-func NewNotifier(writeDB *sql.DB, table, dataSource string, notifyOperations []driver.Operation, primaryKeys ...driver.ColumnKey) *Notifier {
-	d := &Notifier{
+func NewNotifier(writeDB *sql.DB, table, dataSource string, notifyOperations []driver.Operation, primaryKeys ...primaryKey) *Notifier {
+	return &Notifier{
 		writeDB:          writeDB,
 		table:            table,
 		notifyOperations: notifyOperations,
-		listener: pq.NewListener(dataSource, minReconnectInterval, maxReconnectInterval, func(event pq.ListenerEventType, err error) {
-			switch event {
-			case pq.ListenerEventConnected:
-				logger.Infof("Listener connected")
-			case pq.ListenerEventDisconnected:
-				logger.Infof("Listener disconnected")
-			default:
-				logger.Warnf("Unexpected event: [%v]: %v", event, err)
-			}
-		}),
-		listeners:   []driver.TriggerCallback{},
+		listener: &pgxlisten.Listener{
+			Connect: func(ctx context.Context) (*pgx.Conn, error) { return pgx.Connect(ctx, dataSource) },
+			LogError: func(ctx context.Context, err error) {
+				logger.Errorf("error encountered in [%s]: %v", dataSource, err)
+			},
+			ReconnectDelay: reconnectInterval,
+		},
 		primaryKeys: primaryKeys,
 	}
-	go d.listenForEvents()
-	return d
 }
 
-func (db *Notifier) listenForEvents() {
-	for event := range db.listener.Notify {
-		if event == nil {
-			logger.Warnf("nil event received on table [%s], investigate the possible cause", db.table)
-			continue
-		}
-		logger.Debugf("new event received on table [%s]: %s", event.Channel, event.Extra)
-		db.mutex.RLock()
-		for _, cb := range db.listeners {
-			if operation, payload, err := db.parsePayload(event.Extra); err != nil {
-				logger.Warnf("Unexpected parsing error: %v", err)
-			} else {
-				cb(operation, payload)
+func (db *Notifier) Subscribe(callback driver.TriggerCallback) error {
+	db.once.Do(func() {
+		logger.Infof("First subscription for notifier of [%s]. Notifier starts listening...", db.table)
+		go func() {
+			if err := db.listener.Listen(context.TODO()); err != nil {
+				logger.Errorf("Notifier listen for [%s] failed: %v", db.table, err)
 			}
-		}
-		db.mutex.RUnlock()
-	}
+		}()
+	})
+
+	db.listener.Handle(db.table, &notificationHandler{table: db.table, primaryKeys: db.primaryKeys, callback: callback})
+	return nil
 }
 
-func (db *Notifier) parsePayload(s string) (driver.Operation, map[driver.ColumnKey]string, error) {
+type notificationHandler struct {
+	table       string
+	primaryKeys []primaryKey
+	callback    driver.TriggerCallback
+}
+
+func (h *notificationHandler) parsePayload(s string) (driver.Operation, map[driver.ColumnKey]string, error) {
 	items := strings.Split(s, payloadConcatenator)
 	if len(items) != 2 {
 		return driver.Unknown, nil, errors.Errorf("malformed payload: length %d instead of 2: %s", len(items), s)
@@ -97,38 +102,46 @@ func (db *Notifier) parsePayload(s string) (driver.Operation, map[driver.ColumnK
 	if operation == driver.Unknown {
 		return driver.Unknown, nil, errors.Errorf("malformed operation [%v]: %s", operation, s)
 	}
-	if len(values) != len(db.primaryKeys) {
-		return driver.Unknown, nil, errors.Errorf("expected %d keys, but got %d: %s", len(db.primaryKeys), len(values), s)
+	if len(values) != len(h.primaryKeys) {
+		return driver.Unknown, nil, errors.Errorf("expected %d keys, but got %d: %s", len(h.primaryKeys), len(values), s)
 	}
 	payload := make(map[driver.ColumnKey]string)
-	for i, key := range db.primaryKeys {
-		value := values[i]
-		payload[key] = value
+	for i, key := range h.primaryKeys {
+		value, err := key.valueDecoder(values[i])
+		if err != nil {
+			return driver.Unknown, nil, errors.Wrapf(err, "failed to decode value [%s] for key [%s]", values[i], key.name)
+		}
+		payload[key.name] = value
 	}
 	return operation, payload, nil
 }
 
-func (db *Notifier) Subscribe(callback driver.TriggerCallback) error {
-	db.mutex.Lock()
-	defer db.mutex.Unlock()
-	if len(db.listeners) == 0 {
-		if err := db.listener.Listen(db.table); err != nil {
-			return errors.Wrapf(err, "failed to listen for table %s", db.table)
-		}
+func (h *notificationHandler) HandleNotification(_ context.Context, notification *pgconn.Notification, _ *pgx.Conn) error {
+	if notification == nil || len(notification.Payload) == 0 {
+		logger.Warnf("nil event received on table [%s], investigate the possible cause", h.table)
+		return nil
 	}
-	db.listeners = append(db.listeners, callback)
+	logger.Debugf("new event received on table [%s]: %s", notification.Channel, notification.Payload)
+	op, vals, err := h.parsePayload(notification.Payload)
+	if err != nil {
+		logger.Errorf("Failed parsing payload [%s]: %v", notification.Payload, err)
+		return errors.Wrapf(err, "failed parsing payload [%s]", notification.Payload)
+	}
+	h.callback(op, vals)
 	return nil
 }
 
 func (db *Notifier) UnsubscribeAll() error {
-	db.mutex.Lock()
-	defer db.mutex.Unlock()
-	db.listeners = []driver.TriggerCallback{}
-	return db.listener.Unlisten(db.table)
+	logger.Infof("Unsubscribe called")
+	return nil
 }
 
 func (db *Notifier) GetSchema() string {
-	funcName := triggerFuncName(db.primaryKeys)
+	primaryKeys := make([]driver.ColumnKey, len(db.primaryKeys))
+	for i, key := range db.primaryKeys {
+		primaryKeys[i] = key.name
+	}
+	funcName := triggerFuncName(primaryKeys)
 	lock := utils.MustGet(utils.HashInt64([]byte(funcName)))
 	return fmt.Sprintf(`
 	SELECT pg_advisory_xact_lock(%d);
@@ -163,7 +176,7 @@ func (db *Notifier) GetSchema() string {
 	`,
 		lock,
 		funcName,
-		payloadConcatenator, concatenateIDs(db.primaryKeys),
+		payloadConcatenator, concatenateIDs(primaryKeys),
 		db.table,
 		db.table,
 		convertOperations(db.notifyOperations), db.table,

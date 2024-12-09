@@ -48,15 +48,15 @@ func (db *VersionedPersistence) DeleteState(namespace driver2.Namespace, key dri
 }
 
 func (db *VersionedPersistence) DeleteStates(namespace driver2.Namespace, keys ...driver2.PKey) map[driver2.PKey]error {
-	return db.p.DeleteStates(namespace, keys...)
+	return db.p.DeleteStates(namespace, encodeSlice(keys)...)
 }
 
 func (db *VersionedPersistence) GetStateRangeScanIterator(namespace driver2.Namespace, startKey, endKey driver2.PKey) (collections.Iterator[*driver.VersionedRead], error) {
-	return db.p.GetStateRangeScanIterator(namespace, startKey, endKey)
+	return decodeVersionedReadIterator(db.p.GetStateRangeScanIterator(namespace, startKey, endKey))
 }
 
 func (db *VersionedPersistence) GetStateSetIterator(ns driver2.Namespace, keys ...driver2.PKey) (collections.Iterator[*driver.VersionedRead], error) {
-	return db.p.GetStateSetIterator(ns, keys...)
+	return decodeVersionedReadIterator(db.p.GetStateSetIterator(ns, keys...))
 }
 
 func (db *VersionedPersistence) Close() error {
@@ -76,7 +76,7 @@ func (db *VersionedPersistence) Discard() error {
 }
 
 func (db *VersionedPersistence) GetStateMetadata(namespace driver2.Namespace, key driver2.PKey) (driver2.Metadata, driver2.RawVersion, error) {
-	return db.p.GetStateMetadata(namespace, key)
+	return db.p.GetStateMetadata(namespace, encode(key))
 }
 
 func (db *VersionedPersistence) SetStateMetadata(namespace driver2.Namespace, key driver2.PKey, metadata driver2.Metadata, version driver2.RawVersion) error {
@@ -127,7 +127,7 @@ func NewVersionedNotifier(opts common.Opts, table string) (*versionedPersistence
 	}
 	return &versionedPersistenceNotifier{
 		VersionedPersistence: newVersioned(readWriteDB, table),
-		Notifier:             NewNotifier(readWriteDB, table, opts.DataSource, AllOperations, "ns", "pkey"),
+		Notifier:             NewNotifier(readWriteDB, table, opts.DataSource, AllOperations, primaryKey{"ns", identity}, primaryKey{"pkey", decode}),
 	}, nil
 }
 

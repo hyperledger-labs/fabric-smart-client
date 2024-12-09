@@ -8,7 +8,6 @@ package notifier
 
 import (
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 )
 
@@ -35,7 +34,7 @@ func (db *UnversionedPersistenceNotifier[P]) SetState(ns driver2.Namespace, key 
 	if len(val) == 0 {
 		op = driver.Delete
 	}
-	db.Notifier.EnqueueEvent(op, map[driver.ColumnKey]string{"ns": ns, "pkey": utils.EncodeByteA(key)})
+	db.Notifier.EnqueueEvent(op, map[driver.ColumnKey]string{"ns": ns, "pkey": key})
 	return nil
 }
 
@@ -48,7 +47,7 @@ func (db *UnversionedPersistenceNotifier[P]) SetStates(ns driver2.Namespace, kvs
 			if len(val) == 0 {
 				op = driver.Delete
 			}
-			db.Notifier.EnqueueEvent(op, map[driver.ColumnKey]string{"ns": ns, "pkey": utils.EncodeByteA(key)})
+			db.Notifier.EnqueueEvent(op, map[driver.ColumnKey]string{"ns": ns, "pkey": key})
 		}
 	}
 
@@ -77,7 +76,7 @@ func (db *UnversionedPersistenceNotifier[P]) DeleteState(ns driver2.Namespace, k
 	if err := db.Persistence.DeleteState(ns, key); err != nil {
 		return err
 	}
-	db.Notifier.EnqueueEvent(driver.Delete, map[driver.ColumnKey]string{"ns": ns, "pkey": utils.EncodeByteA(key)})
+	db.Notifier.EnqueueEvent(driver.Delete, map[driver.ColumnKey]string{"ns": ns, "pkey": key})
 	return nil
 }
 
@@ -86,7 +85,7 @@ func (db *UnversionedPersistenceNotifier[P]) DeleteStates(namespace driver2.Name
 
 	for _, key := range keys {
 		if _, ok := errs[key]; !ok {
-			db.Notifier.EnqueueEvent(driver.Delete, map[driver.ColumnKey]string{"ns": namespace, "pkey": utils.EncodeByteA(key)})
+			db.Notifier.EnqueueEvent(driver.Delete, map[driver.ColumnKey]string{"ns": namespace, "pkey": key})
 		}
 	}
 
@@ -133,7 +132,7 @@ func (db *VersionedPersistenceNotifier[P]) SetState(namespace driver2.Namespace,
 	if err := db.Persistence.SetState(namespace, key, value); err != nil {
 		return err
 	}
-	db.Notifier.EnqueueEvent(driver.Update, map[driver.ColumnKey]string{"ns": namespace, "pkey": utils.EncodeByteA(key)})
+	db.Notifier.EnqueueEvent(driver.Update, map[driver.ColumnKey]string{"ns": namespace, "pkey": key})
 	return nil
 }
 
@@ -142,7 +141,7 @@ func (db *VersionedPersistenceNotifier[P]) SetStates(ns driver2.Namespace, kvs m
 
 	for key := range kvs {
 		if _, ok := errs[key]; !ok {
-			db.Notifier.EnqueueEvent(driver.Update, map[driver.ColumnKey]string{"ns": ns, "pkey": utils.EncodeByteA(key)})
+			db.Notifier.EnqueueEvent(driver.Update, map[driver.ColumnKey]string{"ns": ns, "pkey": key})
 		}
 	}
 
@@ -154,7 +153,7 @@ func (db *VersionedPersistenceNotifier[P]) DeleteStates(namespace driver2.Namesp
 
 	for _, key := range keys {
 		if _, ok := errs[key]; !ok {
-			db.Notifier.EnqueueEvent(driver.Delete, map[driver.ColumnKey]string{"ns": namespace, "pkey": utils.EncodeByteA(key)})
+			db.Notifier.EnqueueEvent(driver.Delete, map[driver.ColumnKey]string{"ns": namespace, "pkey": key})
 		}
 	}
 
@@ -183,7 +182,7 @@ func (db *VersionedPersistenceNotifier[P]) DeleteState(ns driver2.Namespace, key
 	if err := db.Persistence.DeleteState(ns, key); err != nil {
 		return err
 	}
-	db.Notifier.EnqueueEvent(driver.Delete, map[driver.ColumnKey]string{"ns": ns, "pkey": utils.EncodeByteA(key)})
+	db.Notifier.EnqueueEvent(driver.Delete, map[driver.ColumnKey]string{"ns": ns, "pkey": key})
 	return nil
 }
 

@@ -158,7 +158,7 @@ func (db *VersionedPersistence) CreateSchema() error {
 	return InitSchema(db.writeDB, fmt.Sprintf(`
 	CREATE TABLE IF NOT EXISTS %s (
 		ns TEXT NOT NULL,
-		pkey BYTEA NOT NULL,
+		pkey TEXT NOT NULL,
 		val BYTEA NOT NULL DEFAULT '',
 		kversion BYTEA DEFAULT '',
 		metadata BYTEA NOT NULL DEFAULT '',
