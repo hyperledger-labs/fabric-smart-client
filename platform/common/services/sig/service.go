@@ -67,7 +67,7 @@ func (o *Service) RegisterSigner(identity view.Identity, signer driver.Signer, v
 	s, ok := o.signers[idHash]
 	o.mutex.RUnlock()
 	if ok {
-		logger.Infof("another signer bound to [%s]:[%s][%s] from [%s]", identity, GetIdentifier(s), GetIdentifier(signer), string(s.DebugStack))
+		logger.Debugf("another signer bound to [%s]:[%s][%s] from [%s]", identity, GetIdentifier(s), GetIdentifier(signer), string(s.DebugStack))
 		return nil
 	}
 
@@ -78,7 +78,7 @@ func (o *Service) RegisterSigner(identity view.Identity, signer driver.Signer, v
 	s, ok = o.signers[idHash]
 	if ok {
 		o.mutex.Unlock()
-		logger.Infof("another signer bound to [%s]:[%s][%s] from [%s]", identity, GetIdentifier(s), GetIdentifier(signer), string(s.DebugStack))
+		logger.Debugf("another signer bound to [%s]:[%s][%s] from [%s]", identity, GetIdentifier(s), GetIdentifier(signer), string(s.DebugStack))
 		return nil
 	}
 
