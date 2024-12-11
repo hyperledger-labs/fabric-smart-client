@@ -28,11 +28,12 @@ type NetworkStreamSession struct {
 	incoming        chan *view.Message
 	streams         map[*streamHandler]struct{}
 	closed          bool
-	mutex           sync.Mutex
+	mutex           sync.RWMutex
 }
 
 func (n *NetworkStreamSession) Info() view.SessionInfo {
-	n.mutex.Lock()
+	n.mutex.RLock()
+	defer n.mutex.RUnlock()
 	ret := view.SessionInfo{
 		ID:           n.sessionID,
 		Caller:       n.caller,
@@ -41,7 +42,6 @@ func (n *NetworkStreamSession) Info() view.SessionInfo {
 		EndpointPKID: n.endpointID,
 		Closed:       n.closed,
 	}
-	n.mutex.Unlock()
 	return ret
 }
 
@@ -111,20 +111,25 @@ func (n *NetworkStreamSession) closeInternal() {
 }
 
 func (n *NetworkStreamSession) sendWithStatus(ctx context.Context, payload []byte, status int32) error {
+	n.mutex.RLock()
 	info := host.StreamInfo{
 		RemotePeerID:      string(n.endpointID),
 		RemotePeerAddress: n.endpointAddress,
 		ContextID:         n.contextID,
 		SessionID:         n.sessionID,
 	}
-	err := n.node.sendTo(ctx, info, &ViewPacket{
+	packet := &ViewPacket{
 		ContextID: n.contextID,
 		SessionID: n.sessionID,
 		Caller:    n.callerViewID,
 		Status:    status,
 		Payload:   payload,
-	})
+	}
+	n.mutex.RUnlock()
+
+	err := n.node.sendTo(ctx, info, packet)
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		n.mutex.RLock()
 		logger.Debugf(
 			"sent message [len:%d] to [%s:%s] from [%s] with err [%s]",
 			len(payload),
@@ -144,6 +149,7 @@ func (n *NetworkStreamSession) sendWithStatus(ctx context.Context, payload []byt
 				debug.Stack(),
 			)
 		}
+		n.mutex.RUnlock()
 	}
 	return err
 }
