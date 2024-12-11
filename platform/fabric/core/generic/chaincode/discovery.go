@@ -132,11 +132,10 @@ func (d *Discovery) Response() (discovery.Response, error) {
 	// Do we have a response already?
 	d.chaincode.discoveryResultsCacheLock.RLock()
 	responseBoxed, err := d.chaincode.discoveryResultsCache.Get(key)
+	d.chaincode.discoveryResultsCacheLock.RUnlock()
 	if responseBoxed != nil && err == nil {
-		d.chaincode.discoveryResultsCacheLock.RUnlock()
 		return responseBoxed.(discovery.Response), nil
 	}
-	d.chaincode.discoveryResultsCacheLock.RUnlock()
 
 	d.chaincode.discoveryResultsCacheLock.Lock()
 	defer d.chaincode.discoveryResultsCacheLock.Unlock()

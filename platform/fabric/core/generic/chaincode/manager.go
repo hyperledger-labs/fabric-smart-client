@@ -67,11 +67,10 @@ func NewManager(
 func (c *Manager) Chaincode(name string) driver.Chaincode {
 	c.ChaincodesLock.RLock()
 	ch, ok := c.Chaincodes[name]
+	c.ChaincodesLock.RUnlock()
 	if ok {
-		c.ChaincodesLock.RUnlock()
 		return ch
 	}
-	c.ChaincodesLock.RUnlock()
 
 	c.ChaincodesLock.Lock()
 	defer c.ChaincodesLock.Unlock()
