@@ -189,7 +189,7 @@ func (h *host) NewStream(ctx context.Context, info host2.StreamInfo) (host2.P2PS
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to get mutliaddr for [%s]", info.RemotePeerAddress)
 		}
-		ps.AddAddr(ID, s, peerstore.OwnObservedAddrTTL)
+		ps.AddAddr(ID, s, peerstore.RecentlyConnectedAddrTTL)
 	}
 
 	nwStream, err := h.Host.NewStream(ctx, ID, viewProtocol)
