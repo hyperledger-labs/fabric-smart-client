@@ -37,7 +37,7 @@ type lazyHolder[V any] struct {
 func (h *lazyHolder[V]) Get() (V, error) {
 	h.mu.RLock()
 	if h.set {
-		h.mu.RUnlock()
+		defer h.mu.RUnlock()
 		return h.v, nil
 	}
 	h.mu.RUnlock()

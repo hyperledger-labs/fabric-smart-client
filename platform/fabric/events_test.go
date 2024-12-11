@@ -20,18 +20,24 @@ import (
 
 type mockSubscriber struct {
 	listener events.Listener
-	sync.RWMutex
+	m        sync.RWMutex
 }
 
 func (m *mockSubscriber) Subscribe(chaincodeName string, listener events.Listener) {
+	m.m.Lock()
+	defer m.m.Unlock()
 	m.listener = listener
 }
 
 func (m *mockSubscriber) Unsubscribe(chaincodeName string, listener events.Listener) {
+	m.m.Lock()
+	defer m.m.Unlock()
 	m.listener = nil
 }
 
 func (m *mockSubscriber) Publish(chaincodeName string, event *committer.ChaincodeEvent) {
+	m.m.RLock()
+	defer m.m.RUnlock()
 	if m.listener != nil {
 		m.listener.OnReceive(event)
 	}

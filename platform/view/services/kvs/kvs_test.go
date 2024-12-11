@@ -134,7 +134,7 @@ func testParallelWrites(t *testing.T, driver driver.Driver, cp kvs.ConfigProvide
 	assert.NoError(t, err)
 	for i := 0; i < n; i++ {
 		go func(i int) {
-			err = kvstore.Put(k1, &stuff{"santa", 1})
+			err := kvstore.Put(k1, &stuff{"santa", 1})
 			assert.NoError(t, err)
 			defer wg.Done()
 		}(i)

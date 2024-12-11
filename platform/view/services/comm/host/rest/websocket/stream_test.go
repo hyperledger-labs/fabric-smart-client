@@ -77,13 +77,18 @@ func TestWriter(t *testing.T) {
 	assert.NoError(t, stream.Close())
 
 	output := make([][]byte, 0, len(input))
+	m := sync.RWMutex{}
 	go func() {
 		for written := range conn.WrittenValues() {
+			m.Lock()
 			output = append(output, written)
+			m.Unlock()
 		}
 	}()
 
 	assert.Eventually(t, func() bool {
+		m.RLock()
+		defer m.RUnlock()
 		return len(input) == len(output)
 	}, 5*time.Second, time.Second)
 }
