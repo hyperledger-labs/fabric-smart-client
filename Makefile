@@ -49,9 +49,9 @@ run-optl:
 	
  	
 .PHONY: unit-tests-race
-unit-tests-race:
+unit-tests-race: testing-docker-images
 	@export GORACE=history_size=7; export FAB_BINS=$(FAB_BINS); go test -race -cover $(shell go list ./... | grep -v '/integration/')
-	cd integration/nwo/; export FAB_BINS=$(FAB_BINS); go test -cover ./...
+	cd integration/nwo/; export FAB_BINS=$(FAB_BINS); go test -race -cover ./...
 
 .PHONY: docker-images
 docker-images: fabric-docker-images weaver-docker-images orion-server-images monitoring-docker-images testing-docker-images
