@@ -248,6 +248,10 @@ func (db *DB) NewWriteTransaction() (driver.WriteTransaction, error) {
 	}, nil
 }
 
+func (db *DB) Stats() any {
+	return db.db.BlockCacheMetrics()
+}
+
 type txMgr interface {
 	Commit() error
 	Discard() error

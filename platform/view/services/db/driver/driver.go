@@ -73,6 +73,8 @@ type BasePersistence[V any, R any] interface {
 	Commit() error
 	// Discard discards the changes since BeginUpdate
 	Discard() error
+	// Stats returns driver specific statistics of the datastore
+	Stats() any
 }
 
 // UnversionedPersistence models a key-value storage place

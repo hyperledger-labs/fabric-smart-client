@@ -99,6 +99,10 @@ func (db *Unversioned) Discard() error {
 	return db.Versioned.Discard()
 }
 
+func (db *Unversioned) Stats() any {
+	return db.Versioned.Stats()
+}
+
 type Transactional struct {
 	TransactionalVersioned driver.TransactionalVersionedPersistence
 }
@@ -169,6 +173,10 @@ func (t *Transactional) NewWriteTransaction() (driver.UnversionedWriteTransactio
 		return nil, errors.WithMessage(err, "failed to create new transaction")
 	}
 	return &WriteTransaction{WriteTransaction: tx}, nil
+}
+
+func (t *Transactional) Stats() any {
+	return t.TransactionalVersioned.Stats()
 }
 
 type WriteTransaction struct {

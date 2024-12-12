@@ -108,6 +108,10 @@ func (db *UnversionedPersistenceNotifier[P]) Close() error { return db.Persisten
 
 func (db *UnversionedPersistenceNotifier[P]) BeginUpdate() error { return db.Persistence.BeginUpdate() }
 
+func (db *UnversionedPersistenceNotifier[P]) Stats() any {
+	return db.Persistence.Stats()
+}
+
 func (db *UnversionedPersistenceNotifier[P]) Subscribe(callback driver.TriggerCallback) error {
 	return db.Notifier.Subscribe(callback)
 }
@@ -208,6 +212,10 @@ func (db *VersionedPersistenceNotifier[P]) GetStateRangeScanIterator(namespace d
 
 func (db *VersionedPersistenceNotifier[P]) GetStateSetIterator(ns driver2.Namespace, keys ...driver2.PKey) (driver.VersionedResultsIterator, error) {
 	return db.Persistence.GetStateSetIterator(ns, keys...)
+}
+
+func (db *VersionedPersistenceNotifier[P]) Stats() any {
+	return db.Persistence.Stats()
 }
 
 func (db *VersionedPersistenceNotifier[P]) Close() error { return db.Persistence.Close() }

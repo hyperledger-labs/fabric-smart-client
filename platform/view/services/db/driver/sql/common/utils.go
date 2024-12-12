@@ -12,6 +12,7 @@ import (
 	"regexp"
 	"runtime/debug"
 	"strings"
+	"time"
 
 	errors2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
@@ -91,6 +92,13 @@ func GetOpts(config driver.Config, optsKey string) (*Opts, error) {
 	if opts.DataSource == "" {
 		return nil, notSetError(optsKey + ".dataSource")
 	}
+	if !config.IsSet(optsKey + ".maxIdleConns") {
+		opts.MaxIdleConns = 2 // go default
+	}
+	if !config.IsSet(optsKey + ".maxIdleTime") {
+		opts.MaxIdleTime = time.Minute
+	}
+
 	return &opts, nil
 }
 

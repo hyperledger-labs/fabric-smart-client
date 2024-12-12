@@ -480,8 +480,10 @@ persistence:
     dataSource: file:/some/path/fsc.sqlite&_txlock=immediate
     tablePrefix: fsc  # optional
     skipCreateTable: true # tells FSC _not_ to create a table when starting up (because it already exists).
-    skipPragmas: true # if this is false, the pragmas we set in the datasource will be overridden with the defaults.
-    maxOpenConns: 50  # optional: max open read connections to the database. Defaults to unlimited.
+    skipPragmas: true # if this is false, the pragmas we set in the datasource will be overridden with the defaults (sqlite specific).
+    maxOpenConns: 20  # optional: max open read connections to the database. Defaults to unlimited. See https://go.dev/doc/database/manage-connections.
+    maxIdleConns: 20  # optional: max idle read connections to the database. Defaults to 2.
+    maxIdleTime: 30s  # optional: max duration a connection can be idle before it is closed. Defaults to 1 minute.
 ```
 
 By default we set the following pragmas (unless you do `skipPragmas: true`. Make sure you always have `_pragma=journal_mode(WAL`):
@@ -510,4 +512,11 @@ persistence:
   opts:
     driver: postgres
     dataSource: host=localhost port=5432 user=postgres password=example dbname=tokendb sslmode=disable
+    maxOpenConns: 25  # optional: max open read connections to the database. Defaults to unlimited. 
+    maxIdleConns: 25  # optional: max idle read connections to the database. Defaults to 2.
+    maxIdleTime: 30s  # optional: max duration a connection can be idle before it is closed. Defaults to 1 minute.
 ```
+
+For more info about managing connections, see https://go.dev/doc/database/manage-connections. Keep in mind that Fabric Smart Client
+maintains two independent database instances: one for KVS and one for the Vault. The combined maxOpenConns should not exceed the
+configured max_connections in the postgres server (100 by default).

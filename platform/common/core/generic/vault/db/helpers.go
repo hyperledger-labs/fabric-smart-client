@@ -52,7 +52,7 @@ func openBadger[V any](tempDir, dir string, open opener[V]) (V, error) {
 
 type dbConfig common.Opts
 
-func (c *dbConfig) IsSet(string) bool { panic("not supported") }
+func (c *dbConfig) IsSet(string) bool { return false }
 func (c *dbConfig) UnmarshalKey(key string, rawVal interface{}) error {
 	if len(key) > 0 {
 		return errors.New("invalid key")

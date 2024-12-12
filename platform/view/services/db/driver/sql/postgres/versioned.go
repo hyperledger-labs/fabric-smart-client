@@ -24,7 +24,7 @@ type VersionedPersistence struct {
 }
 
 func NewVersioned(opts common.Opts, table string) (*VersionedPersistence, error) {
-	readWriteDB, err := OpenDB(opts.DataSource, opts.MaxOpenConns)
+	readWriteDB, err := OpenDB(opts.DataSource, opts.MaxOpenConns, opts.MaxIdleConns, opts.MaxIdleTime)
 	if err != nil {
 		return nil, fmt.Errorf("error opening db: %w", err)
 	}
@@ -108,6 +108,10 @@ func (db *VersionedPersistence) NewWriteTransaction() (driver.WriteTransaction, 
 	return common.NewWriteTransaction(txn, db), nil
 }
 
+func (db *VersionedPersistence) Stats() any {
+	return db.p.Stats()
+}
+
 type versionedPersistenceNotifier struct {
 	driver.VersionedPersistence
 	driver.Notifier
@@ -121,7 +125,7 @@ func (db *versionedPersistenceNotifier) CreateSchema() error {
 }
 
 func NewVersionedNotifier(opts common.Opts, table string) (*versionedPersistenceNotifier, error) {
-	readWriteDB, err := OpenDB(opts.DataSource, opts.MaxOpenConns)
+	readWriteDB, err := OpenDB(opts.DataSource, opts.MaxOpenConns, opts.MaxIdleConns, opts.MaxIdleTime)
 	if err != nil {
 		return nil, fmt.Errorf("error opening db: %w", err)
 	}
@@ -135,7 +139,7 @@ func newVersioned(readWriteDB *sql.DB, table string) *VersionedPersistence {
 	em := &errorMapper{}
 	ci := NewInterpreter()
 	base := &BasePersistence[driver.VersionedValue, driver.VersionedRead]{
-		BasePersistence: common.NewBasePersistence[driver.VersionedValue, driver.VersionedRead](readWriteDB, readWriteDB, table, common.NewVersionedReadScanner(), common.NewVersionedValueScanner(), em, ci, readWriteDB.Begin),
+		BasePersistence: common.NewBasePersistence(readWriteDB, readWriteDB, table, common.NewVersionedReadScanner(), common.NewVersionedValueScanner(), em, ci, readWriteDB.Begin),
 		table:           table,
 		ci:              ci,
 		errorWrapper:    em,

@@ -20,7 +20,7 @@ type VersionedPersistence struct {
 }
 
 func NewVersioned(opts common.Opts, table string) (*VersionedPersistence, error) {
-	readDB, writeDB, err := openDB(opts.DataSource, opts.MaxOpenConns, opts.SkipPragmas)
+	readDB, writeDB, err := openDB(opts.DataSource, opts.MaxOpenConns, opts.MaxIdleConns, opts.MaxIdleTime, opts.SkipPragmas)
 	if err != nil {
 		return nil, fmt.Errorf("error opening db: %w", err)
 	}
@@ -28,7 +28,7 @@ func NewVersioned(opts common.Opts, table string) (*VersionedPersistence, error)
 }
 
 func NewVersionedNotifier(opts common.Opts, table string) (*notifier.VersionedPersistenceNotifier[*VersionedPersistence], error) {
-	readDB, writeDB, err := openDB(opts.DataSource, opts.MaxOpenConns, opts.SkipPragmas)
+	readDB, writeDB, err := openDB(opts.DataSource, opts.MaxOpenConns, opts.MaxIdleConns, opts.MaxIdleTime, opts.SkipPragmas)
 	if err != nil {
 		return nil, fmt.Errorf("error opening db: %w", err)
 	}

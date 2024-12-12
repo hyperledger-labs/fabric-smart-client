@@ -49,7 +49,7 @@ func (p *UnversionedPersistence) GetStateSetIterator(ns driver2.Namespace, keys 
 }
 
 func NewUnversioned(opts common.Opts, table string) (*UnversionedPersistence, error) {
-	readWriteDB, err := OpenDB(opts.DataSource, opts.MaxOpenConns)
+	readWriteDB, err := OpenDB(opts.DataSource, opts.MaxOpenConns, opts.MaxIdleConns, opts.MaxIdleTime)
 	if err != nil {
 		return nil, fmt.Errorf("error opening db: %w", err)
 	}
@@ -69,7 +69,7 @@ func (db *unversionedPersistenceNotifier) CreateSchema() error {
 }
 
 func NewUnversionedNotifier(opts common.Opts, table string) (*unversionedPersistenceNotifier, error) {
-	readWriteDB, err := OpenDB(opts.DataSource, opts.MaxOpenConns)
+	readWriteDB, err := OpenDB(opts.DataSource, opts.MaxOpenConns, opts.MaxIdleConns, opts.MaxIdleTime)
 	if err != nil {
 		return nil, fmt.Errorf("error opening db: %w", err)
 	}
