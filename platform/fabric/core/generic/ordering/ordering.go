@@ -36,7 +36,7 @@ type Transaction interface {
 	ID() string
 	Creator() view.Identity
 	Proposal() driver.Proposal
-	ProposalResponses() []driver.ProposalResponse
+	ProposalResponses() ([]driver.ProposalResponse, error)
 	Bytes() ([]byte, error)
 	Envelope() (driver.Envelope, error)
 }
