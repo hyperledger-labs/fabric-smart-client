@@ -256,8 +256,8 @@ type dbObject interface {
 
 type persistenceConstructor[V dbObject] func(common2.Opts, string) (V, error)
 
-func initPersistence[V dbObject](constructor persistenceConstructor[V], pgConnStr, name string, maxOpenConns int) (V, error) {
-	p, err := constructor(common2.Opts{DataSource: pgConnStr, MaxOpenConns: maxOpenConns}, name)
+func initPersistence[V dbObject](constructor persistenceConstructor[V], pgConnStr, name string, maxOpenConns, maxIdleConns int, maxIdleTime time.Duration) (V, error) {
+	p, err := constructor(common2.Opts{DataSource: pgConnStr, MaxOpenConns: maxOpenConns, MaxIdleConns: maxIdleConns, MaxIdleTime: maxIdleTime}, name)
 	if err != nil {
 		return utils.Zero[V](), err
 	}
@@ -273,19 +273,19 @@ type TestDriver struct {
 }
 
 func (t *TestDriver) NewTransactionalVersioned(dataSourceName string, config driver.Config) (driver.TransactionalVersionedPersistence, error) {
-	return initPersistence(NewVersioned, t.ConnStr, t.Name, 50)
+	return initPersistence(NewVersioned, t.ConnStr, t.Name, 50, 10, time.Minute)
 }
 
 func (t *TestDriver) NewVersioned(dataSourceName string, config driver.Config) (driver.VersionedPersistence, error) {
-	return initPersistence(NewVersioned, t.ConnStr, t.Name, 50)
+	return initPersistence(NewVersioned, t.ConnStr, t.Name, 50, 10, time.Minute)
 }
 
 func (t *TestDriver) NewUnversioned(dataSourceName string, config driver.Config) (driver.UnversionedPersistence, error) {
-	return initPersistence(NewUnversioned, t.ConnStr, t.Name, 50)
+	return initPersistence(NewUnversioned, t.ConnStr, t.Name, 50, 10, time.Minute)
 }
 
 func (t *TestDriver) NewTransactionalUnversioned(dataSourceName string, config driver.Config) (driver.TransactionalUnversionedPersistence, error) {
-	p, err := initPersistence(NewVersioned, t.ConnStr, t.Name, 50)
+	p, err := initPersistence(NewVersioned, t.ConnStr, t.Name, 50, 10, time.Minute)
 	if err != nil {
 		return nil, err
 	}

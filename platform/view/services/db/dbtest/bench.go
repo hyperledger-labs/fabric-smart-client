@@ -8,6 +8,7 @@ package dbtest
 
 import (
 	"fmt"
+	"math"
 	"testing"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
@@ -69,6 +70,8 @@ func WriteOne(b *testing.B, db driver.TransactionalVersionedPersistence) {
 func WriteMany(b *testing.B, db driver.TransactionalVersionedPersistence) {
 	var err error
 	var k string
+	b.Logf("before: %+v", db.Stats())
+	mid := math.Round(float64(b.N) / 2)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		k = fmt.Sprintf("key_%d", i)
@@ -78,9 +81,50 @@ func WriteMany(b *testing.B, db driver.TransactionalVersionedPersistence) {
 		err = db.SetState(namespace, k, driver.VersionedValue{Raw: payload})
 		_ = err
 		err = db.Commit()
+
+		if i == int(mid) {
+			b.Logf("mid: %+v", db.Stats())
+		}
 	}
 	b.StopTimer()
 	returnErr = err
 	assert.NoError(b, returnErr)
+	b.Logf("%.0f writes per second to different keys", float64(b.N)/b.Elapsed().Seconds())
+	b.Logf("after: %+v", db.Stats())
+}
+
+func WriteParallel(b *testing.B, db driver.TransactionalUnversionedPersistence) {
+	var err error
+	var k string
+	var i int
+	b.Logf("    before: %+v", db.Stats())
+	mid := math.Round(float64(b.N) / 2)
+	b.ResetTimer()
+
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			i++                          // i is not unique because of paralellism but that's ok
+			k = fmt.Sprintf("key_%d", i) // this could be optimized by moving the key creation out of the benchmark
+			if i == int(mid) {
+				b.Logf("    mid (%d): %+v", int(mid), db.Stats())
+			}
+
+			tx, err := db.NewWriteTransaction()
+			if err != nil {
+				b.Error(err)
+			}
+			if err := tx.SetState(namespace, k, payload); err != nil {
+				b.Error(err)
+			}
+			if err := tx.Commit(); err != nil {
+				b.Error(err)
+			}
+		}
+	})
+
+	b.StopTimer()
+	returnErr = err
+	assert.NoError(b, returnErr)
+	b.Logf("    after: %+v", db.Stats())
 	b.Logf("%.0f writes per second to different keys", float64(b.N)/b.Elapsed().Seconds())
 }

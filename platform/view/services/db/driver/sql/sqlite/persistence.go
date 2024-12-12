@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 )
@@ -29,21 +30,21 @@ const driverName = "sqlite"
 
 var logger = flogging.MustGetLogger("view-sdk.db.sqlite")
 
-func openDB(dataSourceName string, maxOpenConns int, skipPragmas bool) (*sql.DB, *sql.DB, error) {
+func openDB(dataSourceName string, maxOpenConns, maxIdleConns int, maxIdleTime time.Duration, skipPragmas bool) (*sql.DB, *sql.DB, error) {
 	logger.Infof("Opening read db [%v]", dataSourceName)
-	readDB, err := OpenDB(dataSourceName, maxOpenConns, skipPragmas)
+	readDB, err := OpenDB(dataSourceName, maxOpenConns, maxIdleConns, maxIdleTime, skipPragmas)
 	if err != nil {
 		return nil, nil, fmt.Errorf("can't open read %s database: %w", driverName, err)
 	}
 	logger.Infof("Opening write db [%v]", dataSourceName)
-	writeDB, err := OpenDB(dataSourceName, 1, skipPragmas)
+	writeDB, err := OpenDB(dataSourceName, 1, 1, 0, skipPragmas)
 	if err != nil {
 		return nil, nil, fmt.Errorf("can't open write %s database: %w", driverName, err)
 	}
 	return readDB, writeDB, nil
 }
 
-func OpenDB(dataSourceName string, maxOpenConns int, skipPragmas bool) (*sql.DB, error) {
+func OpenDB(dataSourceName string, maxOpenConns, maxIdleConns int, maxIdleTime time.Duration, skipPragmas bool) (*sql.DB, error) {
 	// Create directories if they do not exist to avoid error "out of memory (14)", see below
 	path := getDir(dataSourceName)
 	if err := os.MkdirAll(path, 0777); err != nil {
@@ -55,6 +56,9 @@ func OpenDB(dataSourceName string, maxOpenConns int, skipPragmas bool) (*sql.DB,
 		return nil, fmt.Errorf("can't open %s database: %w", driverName, err)
 	}
 	db.SetMaxOpenConns(maxOpenConns)
+	db.SetMaxIdleConns(maxIdleConns)
+	db.SetConnMaxIdleTime(maxIdleTime)
+
 	if err = db.Ping(); err != nil && strings.Contains(err.Error(), "out of memory (14)") {
 		return nil, fmt.Errorf("can't open %s database, does the folder exist?", driverName)
 	} else if err != nil {

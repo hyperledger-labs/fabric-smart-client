@@ -10,6 +10,7 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+	"time"
 
 	errors2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
@@ -54,7 +55,7 @@ type BasePersistence[V any, R any] struct {
 
 func NewBasePersistence[V any, R any](writeDB *sql.DB, readDB *sql.DB, table string, readScanner readScanner[R], valueScanner ValueScanner[V], errorWrapper driver.SQLErrorWrapper, ci Interpreter, newTransaction func() (*sql.Tx, error)) *BasePersistence[V, R] {
 	return &BasePersistence[V, R]{
-		BaseDB:       common.NewBaseDB[*sql.Tx](func() (*sql.Tx, error) { return newTransaction() }),
+		BaseDB:       common.NewBaseDB(func() (*sql.Tx, error) { return newTransaction() }),
 		readDB:       readDB,
 		writeDB:      writeDB,
 		table:        table,
@@ -301,6 +302,13 @@ func (db *BasePersistence[V, R]) TableName() string {
 	return db.table
 }
 
+func (db *BasePersistence[V, R]) Stats() any {
+	if db.readDB != nil {
+		return db.readDB.Stats()
+	}
+	return nil
+}
+
 type readIterator[V any] struct {
 	txs     *sql.Rows
 	scanner readScanner[V]
@@ -329,6 +337,8 @@ type Opts struct {
 	SkipCreateTable bool
 	SkipPragmas     bool
 	MaxOpenConns    int
+	MaxIdleConns    int
+	MaxIdleTime     time.Duration
 }
 
 func generateParamSet(offset, count int) string {

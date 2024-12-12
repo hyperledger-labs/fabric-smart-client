@@ -100,7 +100,7 @@ func NewVersionedPersistence(base basePersistence[driver.VersionedValue, driver.
 }
 
 func NewVersioned(readDB *sql.DB, writeDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, ci Interpreter) *VersionedPersistence {
-	base := NewBasePersistence[driver.VersionedValue, driver.VersionedRead](writeDB, readDB, table, &versionedReadScanner{}, &versionedValueScanner{}, errorWrapper, ci, writeDB.Begin)
+	base := NewBasePersistence(writeDB, readDB, table, &versionedReadScanner{}, &versionedValueScanner{}, errorWrapper, ci, writeDB.Begin)
 	return NewVersionedPersistence(base, base.table, base.errorWrapper, base.readDB, base.writeDB)
 }
 
@@ -174,6 +174,10 @@ func (db *VersionedPersistence) NewWriteTransaction() (driver.WriteTransaction, 
 	}
 
 	return NewWriteTransaction(txn, db), nil
+}
+
+func (db *VersionedPersistence) Stats() any {
+	return db.basePersistence.Stats()
 }
 
 type versionedPersistence interface {
