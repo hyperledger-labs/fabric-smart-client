@@ -81,7 +81,7 @@ func (s *LocalMembership) IsMe(id view.Identity) bool {
 	return s.network.LocalMembership().IsMe(id)
 }
 
-func (s *LocalMembership) AnonymousIdentity() view.Identity {
+func (s *LocalMembership) AnonymousIdentity() (view.Identity, error) {
 	return s.network.LocalMembership().AnonymousIdentity()
 }
 

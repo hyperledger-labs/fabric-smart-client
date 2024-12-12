@@ -11,12 +11,10 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
-
-	"github.com/pkg/errors"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/endorser"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"github.com/pkg/errors"
 )
 
 type Transaction struct {
@@ -59,11 +57,15 @@ func NewAnonymousTransaction(context view.Context) (*Transaction, error) {
 	if err != nil {
 		return nil, err
 	}
+	anonIdentity, err := fns.LocalMembership().AnonymousIdentity()
+	if err != nil {
+		return nil, errors.WithMessagef(err, "failed getting anonymous identity")
+	}
 	_, tx, err := endorser.NewTransactionWithSigner(
 		context,
 		fns.Name(),
 		fns.ConfigService().DefaultChannel(),
-		fns.LocalMembership().AnonymousIdentity(),
+		anonIdentity,
 	)
 	if err != nil {
 		return nil, err

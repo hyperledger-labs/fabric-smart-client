@@ -66,7 +66,7 @@ func (a *TransferView) Call(ctx view.Context) (interface{}, error) {
 	)
 	assert.NoError(err, "failed getting sender MSP-ID")
 	recipientMSPID, err := ch.MSPManager().GetMSPIdentifier(
-		fns.IdentityProvider().Identity(a.Recipient.UniqueID()),
+		assert.ValidIdentity(fns.IdentityProvider().Identity(a.Recipient.UniqueID())),
 	)
 	assert.NoError(err, "failed getting recipient MSP-ID")
 

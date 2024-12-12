@@ -9,6 +9,7 @@ package assert
 import (
 	"fmt"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/test-go/testify/assert"
 )
 
@@ -28,6 +29,15 @@ func (p *panickier) Errorf(format string, args ...interface{}) {
 func NotNil(object interface{}, msgAndArgs ...interface{}) {
 	ma, releasers := extractReleasers(msgAndArgs...)
 	assert.NotNil(&panickier{releasers: releasers}, object, ma...)
+}
+
+// ValidIdentity checks that the passed error is nil and id is not empty
+func ValidIdentity(id view.Identity, err error, msgAndArgs ...interface{}) view.Identity {
+	ma, releasers := extractReleasers(msgAndArgs...)
+	p := &panickier{releasers: releasers}
+	assert.NoError(p, err, ma...)
+	assert.False(p, id.IsNone(), ma...)
+	return id
 }
 
 // NoError checks that the passed error is nil, it panics otherwise

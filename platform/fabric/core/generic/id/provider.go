@@ -8,6 +8,7 @@ package id
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"github.com/pkg/errors"
 )
 
 type EndpointService interface {
@@ -22,10 +23,10 @@ func NewProvider(endpointService EndpointService) (*provider, error) {
 	return &provider{endpointService: endpointService}, nil
 }
 
-func (p *provider) Identity(label string) view.Identity {
+func (p *provider) Identity(label string) (view.Identity, error) {
 	id, err := p.endpointService.GetIdentity(label)
 	if err != nil {
-		panic(err)
+		return nil, errors.WithMessagef(err, "failed getting identity [%s]", label)
 	}
-	return id
+	return id, nil
 }

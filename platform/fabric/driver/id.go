@@ -14,5 +14,5 @@ import (
 type IdentityProvider interface {
 	// Identity returns the Fabric identity bound to the passed label.
 	// If not Fabric identity is associated to the label, it returns the the SFC identity bound to that label.
-	Identity(label string) view.Identity
+	Identity(label string) (view.Identity, error)
 }

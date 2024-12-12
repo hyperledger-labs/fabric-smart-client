@@ -27,7 +27,7 @@ type ChaincodeInvocation interface {
 
 	Submit() (string, []byte, error)
 
-	WithTransientEntry(k string, v interface{}) ChaincodeInvocation
+	WithTransientEntry(k string, v interface{}) (ChaincodeInvocation, error)
 
 	WithEndorsersByMSPIDs(mspIDs ...string) ChaincodeInvocation
 

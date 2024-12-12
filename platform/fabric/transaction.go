@@ -12,6 +12,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"github.com/pkg/errors"
 )
 
 type VerifierProvider = driver.VerifierProvider
@@ -329,12 +330,16 @@ func (t *Transaction) StoreTransient() error {
 	return t.tx.StoreTransient()
 }
 
-func (t *Transaction) ProposalResponses() []*ProposalResponse {
+func (t *Transaction) ProposalResponses() ([]*ProposalResponse, error) {
 	var res []*ProposalResponse
-	for _, resp := range t.tx.ProposalResponses() {
+	responses, err := t.tx.ProposalResponses()
+	if err != nil {
+		return nil, errors.WithMessage(err, "failed to fetch proposal responses")
+	}
+	for _, resp := range responses {
 		res = append(res, &ProposalResponse{pr: resp})
 	}
-	return res
+	return res, nil
 }
 
 func (t *Transaction) ProposalResponse() ([]byte, error) {
