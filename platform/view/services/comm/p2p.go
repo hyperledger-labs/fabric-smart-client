@@ -336,14 +336,10 @@ func (s *streamHandler) handleIncoming() {
 }
 
 func (s *streamHandler) close(context.Context) {
-	// no need to close reader and writer when closing the stream
-	// s.reader.Close()
-	// s.writer.Close()
 	if err := s.stream.Close(); err != nil {
 		logger.Errorf("error closing stream [%s]: [%s]", s.stream.Hash(), err)
 	}
 	s.node.m.ClosedStreams.Add(1)
-	// s.wg.Wait()
 }
 
 func NewDelimitedReader(r io2.Reader, maxSize int) io.ReadCloser {
