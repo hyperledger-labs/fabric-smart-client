@@ -146,6 +146,11 @@ func (i *ChaincodeDiscover) WithFilterByMSPIDs(mspIDs ...string) *ChaincodeDisco
 	return i
 }
 
+func (i *ChaincodeDiscover) WithContext(context context.Context) *ChaincodeDiscover {
+	i.ChaincodeDiscover.WithContext(context)
+	return i
+}
+
 type ChaincodeInvocation struct {
 	driver.ChaincodeInvocation
 }

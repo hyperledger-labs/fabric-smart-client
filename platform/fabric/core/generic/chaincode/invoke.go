@@ -63,6 +63,7 @@ func NewInvoke(chaincode *Chaincode, newChaincodeDiscover NewChaincodeDiscoverFu
 		NumRetries:           int(chaincode.NumRetries),
 		RetrySleep:           chaincode.RetrySleep,
 		NewChaincodeDiscover: newChaincodeDiscover,
+		Context:              context.Background(),
 	}
 }
 
@@ -316,6 +317,8 @@ func (i *Invoke) prepare(query bool) (string, *pb.Proposal, []*pb.ProposalRespon
 			i.EndorsersMSPIDs...,
 		).WithImplicitCollections(
 			i.ImplicitCollectionMSPIDs...,
+		).WithContext(
+			i.Context,
 		)
 		if query {
 			discovery.WithForQuery()
@@ -473,7 +476,8 @@ func (i *Invoke) collectResponses(endorserClients []pb.EndorserClient, signedPro
 	for _, endorser := range endorserClients {
 		go func(endorser pb.EndorserClient) {
 			defer wg.Done()
-			proposalResp, err := endorser.ProcessProposal(context.Background(), signedProposal)
+			// TODO: we could evaluate the policy already here after we get a result to see if still need more answers
+			proposalResp, err := endorser.ProcessProposal(i.Context, signedProposal)
 			if err != nil {
 				errorCh <- err
 				return
@@ -553,7 +557,7 @@ func (i *Invoke) broadcast(txID string, env *common.Envelope) error {
 	if err := i.Chaincode.Broadcaster.Broadcast(i.Context, env); err != nil {
 		return err
 	}
-	return i.Chaincode.Finality.IsFinal(context.Background(), txID)
+	return i.Chaincode.Finality.IsFinal(i.Context, txID)
 }
 
 func (i *Invoke) checkQueryPolicy(errs []error, successes int, n int) error {

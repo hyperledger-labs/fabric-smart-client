@@ -29,6 +29,7 @@ type Discovery struct {
 	QueryForPeers       bool
 
 	DefaultTTL time.Duration
+	Context    context.Context
 }
 
 func NewDiscovery(chaincode *Chaincode) *Discovery {
@@ -36,6 +37,7 @@ func NewDiscovery(chaincode *Chaincode) *Discovery {
 	return &Discovery{
 		chaincode:  chaincode,
 		DefaultTTL: chaincode.ChannelConfig.DiscoveryDefaultTTLS(),
+		Context:    context.Background(),
 	}
 }
 
@@ -230,7 +232,7 @@ func (d *Discovery) query(req *discovery.Request) (discovery.Response, error) {
 		ClientIdentity:    signerRaw,
 		ClientTlsCertHash: ClientTLSCertHash,
 	}
-	timeout, cancel := context.WithTimeout(context.Background(), d.chaincode.ChannelConfig.DiscoveryTimeout())
+	timeout, cancel := context.WithTimeout(d.Context, d.chaincode.ChannelConfig.DiscoveryTimeout())
 	defer cancel()
 	cl, err := pc.DiscoveryClient()
 	if err != nil {
@@ -316,6 +318,10 @@ func (d *Discovery) ChaincodeVersion() (string, error) {
 		}
 	}
 	return "", errors.Errorf("chaincode [%s] not found", d.chaincode.name)
+}
+
+func (d *Discovery) WithContext(context context.Context) {
+	d.Context = context
 }
 
 func ccCall(ccNames ...string) []*peer.ChaincodeCall {

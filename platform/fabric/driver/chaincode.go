@@ -92,6 +92,7 @@ type ChaincodeDiscover interface {
 	WithImplicitCollections(mspIDs ...string) ChaincodeDiscover
 	WithForQuery() ChaincodeDiscover
 	ChaincodeVersion() (string, error)
+	WithContext(ctx context.Context)
 }
 
 // Chaincode exposes chaincode-related functions
