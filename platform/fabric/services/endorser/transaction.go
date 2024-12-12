@@ -147,9 +147,14 @@ func (t *Transaction) AppendProposalResponse(response *fabric.ProposalResponse) 
 
 // HasBeenEndorsedBy returns nil if each passed party has signed this transaction
 func (t *Transaction) HasBeenEndorsedBy(parties ...view.Identity) error {
+	responses, err := t.Transaction.ProposalResponses()
+	if err != nil {
+		return err
+	}
+
 	for _, party := range parties {
 		found := false
-		for _, response := range t.Transaction.ProposalResponses() {
+		for _, response := range responses {
 			if bytes.Equal(response.Endorser(), party) {
 				found = true
 				break
@@ -162,13 +167,17 @@ func (t *Transaction) HasBeenEndorsedBy(parties ...view.Identity) error {
 	return nil
 }
 
-func (t *Transaction) GetSignatureOf(party view.Identity) []byte {
-	for _, response := range t.Transaction.ProposalResponses() {
+func (t *Transaction) GetSignatureOf(party view.Identity) ([]byte, error) {
+	responses, err := t.Transaction.ProposalResponses()
+	if err != nil {
+		return nil, err
+	}
+	for _, response := range responses {
 		if bytes.Equal(response.Endorser(), party) {
-			return response.EndorserSignature()
+			return response.EndorserSignature(), nil
 		}
 	}
-	return nil
+	return nil, nil
 }
 
 // Namespaces returns the list of namespaces this transaction contains.
@@ -223,7 +232,10 @@ func (t *Transaction) Envelope() (*fabric.Envelope, error) {
 }
 
 func (t *Transaction) ProposalResponses() ([][]byte, error) {
-	prs := t.Transaction.ProposalResponses()
+	prs, err := t.Transaction.ProposalResponses()
+	if err != nil {
+		return nil, err
+	}
 	res := [][]byte{}
 	for _, pr := range prs {
 		prRaw, err := pr.Bytes()

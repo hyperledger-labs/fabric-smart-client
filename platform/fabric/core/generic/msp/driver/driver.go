@@ -51,7 +51,7 @@ type DeserializerManager interface {
 
 type Manager interface {
 	AddDeserializer(deserializer Deserializer)
-	AddMSP(name string, mspType string, enrollmentID string, idGetter driver.GetIdentityFunc)
+	AddMSP(name string, mspType string, enrollmentID string, idGetter driver.GetIdentityFunc) error
 	Config() Config
 	DefaultMSP() string
 	SignerService() SignerService

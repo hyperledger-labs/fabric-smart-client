@@ -182,7 +182,7 @@ func NewProvider(conf1 *m.MSPConfig, signerService mspdriver.SignerService, sigT
 	case Any:
 		verType = bccsp.BestEffort
 	default:
-		panic("invalid sig type")
+		return nil, errors.Errorf("unknown verification type [%d]", sigType)
 	}
 	if verType == bccsp.BestEffort {
 		sigType = bccsp.Standard
@@ -331,7 +331,7 @@ func (p *Provider) Identity(opts *driver.IdentityOptions) (view.Identity, []byte
 			return nil, nil, err
 		}
 	default:
-		panic("invalid sig type")
+		return nil, nil, errors.Errorf("unsupported signing type [%d]", sigType)
 	}
 	return raw, infoRaw, nil
 }

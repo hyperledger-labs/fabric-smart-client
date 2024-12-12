@@ -119,7 +119,7 @@ type Transaction interface {
 	AppendProposalResponse(response ProposalResponse) error
 	ProposalHasBeenEndorsedBy(party view.Identity) error
 	StoreTransient() error
-	ProposalResponses() []ProposalResponse
+	ProposalResponses() ([]ProposalResponse, error)
 	ProposalResponse() ([]byte, error)
 	BytesNoTransient() ([]byte, error)
 	Envelope() (Envelope, error)

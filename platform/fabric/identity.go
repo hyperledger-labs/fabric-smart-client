@@ -20,6 +20,6 @@ func (i *IdentityProvider) DefaultIdentity() view.Identity {
 	return i.localMembership.DefaultIdentity()
 }
 
-func (i *IdentityProvider) Identity(label string) view.Identity {
+func (i *IdentityProvider) Identity(label string) (view.Identity, error) {
 	return i.ip.Identity(label)
 }

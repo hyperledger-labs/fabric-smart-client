@@ -193,16 +193,16 @@ func (i *Invoke) WithContext(context context.Context) driver.ChaincodeInvocation
 	return i
 }
 
-func (i *Invoke) WithTransientEntry(k string, v interface{}) driver.ChaincodeInvocation {
+func (i *Invoke) WithTransientEntry(k string, v interface{}) (driver.ChaincodeInvocation, error) {
 	if i.TransientMap == nil {
 		i.TransientMap = map[string][]byte{}
 	}
 	b, err := i.toBytes(v)
 	if err != nil {
-		panic(err)
+		return nil, errors.WithMessagef(err, "error converting transient entry to bytes")
 	}
 	i.TransientMap[k] = b
-	return i
+	return i, nil
 }
 
 func (i *Invoke) WithEndorsersByMSPIDs(mspIDs ...string) driver.ChaincodeInvocation {

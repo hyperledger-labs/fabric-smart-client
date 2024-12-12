@@ -547,16 +547,16 @@ func (t *Transaction) StoreTransient() error {
 	return t.channel.MetadataService().StoreTransient(t.ID(), t.TTransient)
 }
 
-func (t *Transaction) ProposalResponses() []driver.ProposalResponse {
+func (t *Transaction) ProposalResponses() ([]driver.ProposalResponse, error) {
 	var res []driver.ProposalResponse
 	for _, resp := range t.TProposalResponses {
 		r, err := NewProposalResponseFromResponse(resp)
 		if err != nil {
-			panic(err)
+			return nil, errors.Wrapf(err, "failed creating proposal response")
 		}
 		res = append(res, r)
 	}
-	return res
+	return res, nil
 }
 
 func (t *Transaction) ProposalResponse() ([]byte, error) {
@@ -574,7 +574,11 @@ func (t *Transaction) Envelope() (driver.Envelope, error) {
 		logger.Errorf("signer not found for %s while creating tx envelope for ordering [%s]", signerID.UniqueID(), err)
 		return nil, errors.Wrapf(err, "signer not found for %s while creating tx envelope for ordering", signerID.UniqueID())
 	}
-	env, err := fabricutils.CreateEndorserSignedTX(&signerWrapper{signerID, signer}, t.Proposal(), t.ProposalResponses()...)
+	proposalResponses, err := t.ProposalResponses()
+	if err != nil {
+		return nil, errors.WithMessagef(err, "failed getting proposalResponses")
+	}
+	env, err := fabricutils.CreateEndorserSignedTX(&signerWrapper{signerID, signer}, t.Proposal(), proposalResponses...)
 	if err != nil {
 		return nil, errors.WithMessage(err, "could not assemble transaction")
 	}
@@ -645,7 +649,7 @@ func (t *Transaction) getProposalResponse(signer SerializableSigner) (*pb.Propos
 
 	signedProposal := t.SignedProposal()
 	if signedProposal == nil {
-		panic("signed proposal must not be nil")
+		return nil, errors.Errorf("signed proposal is nil")
 	}
 	response := &pb.Response{
 		Status:  200,

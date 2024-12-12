@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package msp
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/driver"
@@ -103,8 +102,7 @@ func (s *service) Config() driver.Config {
 }
 
 func (s *service) DefaultMSP() string {
-	// TODO implement me
-	panic("implement me")
+	return s.config.DefaultMSP()
 }
 
 func (s *service) SignerService() driver.SignerService {
@@ -131,20 +129,23 @@ func (s *service) DefaultIdentity() view.Identity {
 	return s.defaultIdentity
 }
 
-func (s *service) AnonymousIdentity() view.Identity {
-	id := s.Identity("idemix")
-	if err := s.binderService.Bind(s.defaultViewIdentity, id); err != nil {
-		panic(err)
+func (s *service) AnonymousIdentity() (view.Identity, error) {
+	id, err := s.Identity("idemix")
+	if err != nil {
+		return nil, errors.WithMessagef(err, "failed to get default anonymous identity labelled `idemix`")
 	}
-	return id
+	if err := s.binderService.Bind(s.defaultViewIdentity, id); err != nil {
+		return nil, errors.WithMessagef(err, "failed to bind identity [%s] to default [%s]", id, s.defaultViewIdentity)
+	}
+	return id, nil
 }
 
-func (s *service) Identity(label string) view.Identity {
+func (s *service) Identity(label string) (view.Identity, error) {
 	id, err := s.GetIdentityByID(label)
 	if err != nil {
-		panic(err)
+		return nil, errors.WithMessagef(err, "failed to get identity [%s]", label)
 	}
-	return id
+	return id, nil
 }
 
 func (s *service) IsMe(id view.Identity) bool {
@@ -253,7 +254,9 @@ func (s *service) RegisterIdemixMSP(id string, path string, mspID string) error 
 	}
 
 	s.deserializerManager.AddDeserializer(provider)
-	s.AddMSP(id, IdemixMSP, provider.EnrollmentID(), idemix.NewIdentityCache(provider.Identity, s.cacheSize, nil).Identity)
+	if err := s.AddMSP(id, IdemixMSP, provider.EnrollmentID(), idemix.NewIdentityCache(provider.Identity, s.cacheSize, nil).Identity); err != nil {
+		return errors.Wrapf(err, "failed adding idemix msp [%s] to [%s]", id, path)
+	}
 	logger.Debugf("added IdemixMSP msp for id %s with cache of size %d", id+"@"+provider.EnrollmentID(), s.cacheSize)
 	return nil
 }
@@ -268,7 +271,9 @@ func (s *service) RegisterX509MSP(id string, path string, mspID string) error {
 	}
 
 	s.deserializerManager.AddDeserializer(provider)
-	s.AddMSP(id, BccspMSP, provider.EnrollmentID(), provider.Identity)
+	if err := s.AddMSP(id, BccspMSP, provider.EnrollmentID(), provider.Identity); err != nil {
+		return errors.Wrapf(err, "failed adding bccsp msp [%s] to [%s]", id, path)
+	}
 
 	return nil
 }
@@ -292,14 +297,14 @@ func (s *service) Refresh() error {
 	return nil
 }
 
-func (s *service) AddMSP(name string, mspType string, enrollmentID string, IdentityGetter fdriver.GetIdentityFunc) {
+func (s *service) AddMSP(name string, mspType string, enrollmentID string, IdentityGetter fdriver.GetIdentityFunc) error {
 	if mspType == BccspMSP && s.binderService != nil {
 		id, _, err := IdentityGetter(nil)
 		if err != nil {
-			panic(fmt.Sprintf("cannot get identity for [%s,%s,%s][%s]", name, mspType, enrollmentID, err))
+			return errors.Wrapf(err, "cannot get identity for [%s,%s,%s][%s]", name, mspType, enrollmentID, err)
 		}
 		if err := s.binderService.Bind(s.defaultViewIdentity, id); err != nil {
-			panic(fmt.Sprintf("cannot bind identity for [%s,%s,%s][%s]", name, mspType, enrollmentID, err))
+			return errors.Wrapf(err, "cannot bind identity for [%s,%s,%s][%s]", name, mspType, enrollmentID, err)
 		}
 	}
 
@@ -312,7 +317,7 @@ func (s *service) AddMSP(name string, mspType string, enrollmentID string, Ident
 	if mspType == BccspMSP {
 		id, _, err := IdentityGetter(nil)
 		if err != nil {
-			panic(fmt.Sprintf("cannot get identity for [%s,%s,%s][%s]", name, mspType, enrollmentID, err))
+			return errors.Wrapf(err, "cannot get identity for [%s,%s,%s][%s]", name, mspType, enrollmentID, err)
 		}
 		s.bccspMspsByIdentity[id.String()] = msp
 		logger.Debugf("add bccsp msp for id %s, identity [%s]", name+"@"+enrollmentID, id.String())
@@ -325,6 +330,7 @@ func (s *service) AddMSP(name string, mspType string, enrollmentID string, Ident
 		s.mspsByEnrollmentID[enrollmentID] = msp
 	}
 	s.msps = append(s.msps, msp)
+	return nil
 }
 
 func (s *service) PutIdentityLoader(idType string, loader driver.IdentityLoader) {

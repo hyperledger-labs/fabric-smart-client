@@ -25,7 +25,7 @@ type IdentityInfo struct {
 
 type LocalMembership interface {
 	DefaultIdentity() view.Identity
-	AnonymousIdentity() view.Identity
+	AnonymousIdentity() (view.Identity, error)
 	IsMe(id view.Identity) bool
 	DefaultSigningIdentity() SigningIdentity
 	RegisterX509MSP(id string, path string, mspID string) error
