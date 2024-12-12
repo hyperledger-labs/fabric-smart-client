@@ -85,11 +85,13 @@ func (p *P2PNode) Stop() {
 
 	p.host.Close()
 
+	p.streamsMutex.Lock()
 	for _, streams := range p.streams {
 		for _, stream := range streams {
 			stream.close(context.Background())
 		}
 	}
+	p.streamsMutex.Unlock()
 
 	close(p.incomingMessages)
 	p.finderWg.Wait()
@@ -335,8 +337,8 @@ func (s *streamHandler) handleIncoming() {
 
 func (s *streamHandler) close(context.Context) {
 	// no need to close reader and writer when closing the stream
-	//s.reader.Close()
-	//s.writer.Close()
+	// s.reader.Close()
+	// s.writer.Close()
 	if err := s.stream.Close(); err != nil {
 		logger.Errorf("error closing stream [%s]: [%s]", s.stream.Hash(), err)
 	}
