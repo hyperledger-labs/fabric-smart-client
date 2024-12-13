@@ -17,6 +17,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/identity"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/ledger"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/membership"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/rwset"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
@@ -91,13 +92,46 @@ func NewChannelProvider(in struct {
 		generic.NewChannelConfigProvider(in.ConfigProvider),
 		committer2.NewFinalityListenerManagerProvider[driver.ValidationCode](in.TracerProvider),
 		committer.NewSerialDependencyResolver(),
-		func(channelName string, chaincodeManager driver.ChaincodeManager, localMembership driver.LocalMembership, configService driver.ConfigService, transactionManager driver.TransactionManager) driver.Ledger {
-			return ledger.New(channelName, chaincodeManager, localMembership, configService, transactionManager)
+		func(channelName string, nw driver.FabricNetworkService, chaincodeManager driver.ChaincodeManager) driver.Ledger {
+			return ledger.New(
+				channelName,
+				chaincodeManager,
+				nw.LocalMembership(),
+				nw.ConfigService(),
+				nw.TransactionManager(),
+			)
 		},
-		func(network string, channel string, envelopeService driver.EnvelopeService, transactionService driver.EndorserTransactionService, transactionManager driver.TransactionManager, vault driver.RWSetInspector) driver.RWSetLoader {
-			return rwset.NewLoader(network, channel, envelopeService, transactionService, transactionManager, vault)
+		func(channel string, nw driver.FabricNetworkService, envelopeService driver.EnvelopeService, transactionService driver.EndorserTransactionService, vault driver.RWSetInspector) driver.RWSetLoader {
+			return rwset.NewLoader(
+				nw.Name(),
+				channel,
+				envelopeService,
+				transactionService,
+				nw.TransactionManager(),
+				vault,
+			)
 		},
-		committer.New,
+		func(nw driver.FabricNetworkService, channelConfig driver.ChannelConfig, vault driver.Vault, envelopeService driver.EnvelopeService, ledger driver.Ledger, rwsetLoaderService driver.RWSetLoader, eventsPublisher events.Publisher, channelMembershipService *membership.Service, orderingService committer.OrderingService, fabricFinality committer.FabricFinality, dependencyResolver committer.DependencyResolver, quiet bool, listenerManager driver.ListenerManager, tracerProvider trace.TracerProvider, metricsProvider metrics.Provider) *committer.Committer {
+			return committer.New(
+				nw.ConfigService(),
+				channelConfig,
+				vault,
+				envelopeService,
+				ledger,
+				rwsetLoaderService,
+				nw.ProcessorManager(),
+				eventsPublisher,
+				channelMembershipService,
+				nw.OrderingService().(committer.OrderingService),
+				fabricFinality,
+				nw.TransactionManager(),
+				dependencyResolver,
+				quiet,
+				listenerManager,
+				tracerProvider,
+				metricsProvider,
+			)
+		},
 		true,
 	)
 }

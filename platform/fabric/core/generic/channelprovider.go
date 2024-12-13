@@ -31,32 +31,27 @@ import (
 type VaultConstructor = func(configService driver.ConfigService, channel string, drivers []driver2.NamedDriver, metricsProvider metrics.Provider, tracerProvider trace.TracerProvider) (*vault.Vault, driver.TXIDStore, error)
 type LedgerConstructor func(
 	channelName string,
+	nw driver.FabricNetworkService,
 	chaincodeManager driver.ChaincodeManager,
-	localMembership driver.LocalMembership,
-	configService driver.ConfigService,
-	transactionManager driver.TransactionManager,
 ) driver.Ledger
 type RWSetLoaderConstructor func(
-	network string,
 	channel string,
+	nw driver.FabricNetworkService,
 	envelopeService driver.EnvelopeService,
 	transactionService driver.EndorserTransactionService,
-	transactionManager driver.TransactionManager,
 	vault driver.RWSetInspector,
 ) driver.RWSetLoader
 type CommitterConstructor func(
-	configService driver.ConfigService,
+	nw driver.FabricNetworkService,
 	channelConfig driver.ChannelConfig,
 	vault driver.Vault,
 	envelopeService driver.EnvelopeService,
 	ledger driver.Ledger,
 	rwsetLoaderService driver.RWSetLoader,
-	processorManager driver.ProcessorManager,
 	eventsPublisher events.Publisher,
 	channelMembershipService *membership.Service,
 	orderingService committer.OrderingService,
 	fabricFinality committer.FabricFinality,
-	transactionManager driver.TransactionManager,
 	dependencyResolver committer.DependencyResolver,
 	quiet bool,
 	listenerManager driver.ListenerManager,
@@ -132,7 +127,13 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 	}
 
 	// Vault
-	vault, txIDStore, err := p.newVault(nw.ConfigService(), channelName, p.drivers, p.metricsProvider, p.tracerProvider)
+	vault, txIDStore, err := p.newVault(
+		nw.ConfigService(),
+		channelName,
+		p.drivers,
+		p.metricsProvider,
+		p.tracerProvider,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -159,7 +160,13 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 	channelMembershipService := membership.NewService()
 
 	// Committers
-	rwSetLoaderService := p.newRWSetLoader(nw.Name(), channelName, envelopeService, transactionService, nw.TransactionManager(), vault)
+	rwSetLoaderService := p.newRWSetLoader(
+		channelName,
+		nw,
+		envelopeService,
+		transactionService,
+		vault,
+	)
 
 	chaincodeManagerService := chaincode.NewManager(
 		nw.Name(),
@@ -178,25 +185,21 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 
 	ledgerService := p.newLedger(
 		channelName,
+		nw,
 		chaincodeManagerService,
-		nw.LocalMembership(),
-		nw.ConfigService(),
-		nw.TransactionManager(),
 	)
 
 	committerService := p.newCommitter(
-		nw.ConfigService(),
+		nw,
 		channelConfig,
 		vault,
 		envelopeService,
 		ledgerService,
 		rwSetLoaderService,
-		nw.ProcessorManager(),
 		p.publisher,
 		channelMembershipService,
 		networkOrderingService,
 		fabricFinality,
-		nw.TransactionManager(),
 		p.dependencyResolver,
 		quiet,
 		p.listenerManagerProvider.NewManager(),
