@@ -13,12 +13,15 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/membership"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger/fabric-protos-go/common"
 	"github.com/pkg/errors"
 )
 
-type committerService interface {
-	ReloadConfigTransactions() error
+type CommitterService interface {
+	driver.Finality
 	driver.Committer
+	ReloadConfigTransactions() error
+	Commit(ctx context.Context, block *common.Block) error
 }
 
 type Delivery interface {
@@ -41,8 +44,15 @@ type Channel struct {
 	LedgerService            driver.Ledger
 	ChannelMembershipService *membership.Service
 	ChaincodeManagerService  driver.ChaincodeManager
-	CommitterService         committerService
+	CommitterService         CommitterService
 	PeerService              *services.ClientFactory
+}
+
+func (c *Channel) Init() error {
+	if err := c.CommitterService.ReloadConfigTransactions(); err != nil {
+		return errors.WithMessagef(err, "failed reloading config transactions")
+	}
+	return nil
 }
 
 func (c *Channel) Name() string {
@@ -88,13 +98,6 @@ func (c *Channel) RWSetLoader() driver.RWSetLoader {
 
 func (c *Channel) Committer() driver.Committer {
 	return c.CommitterService
-}
-
-func (c *Channel) Init() error {
-	if err := c.CommitterService.ReloadConfigTransactions(); err != nil {
-		return errors.WithMessagef(err, "failed reloading config transactions")
-	}
-	return nil
 }
 
 func (c *Channel) EnvelopeService() driver.EnvelopeService {
