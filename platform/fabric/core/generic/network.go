@@ -17,8 +17,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
-	"github.com/hyperledger/fabric/common/channelconfig"
-	"github.com/pkg/errors"
 )
 
 var logger = logging.MustGetLogger("fabric-sdk.core")
@@ -179,16 +177,6 @@ func (f *Network) Init() error {
 		f.Metrics,
 		services.NewClientFactory(f.configService, f.LocalMembership().DefaultSigningIdentity()),
 	)
-	return nil
-}
-
-func (f *Network) SetConfigOrderers(o channelconfig.Orderer, orderers []*grpc.ConnectionConfig) error {
-	if err := f.Ordering.SetConsensusType(o.ConsensusType()); err != nil {
-		return errors.WithMessagef(err, "failed to set consensus type from channel config")
-	}
-	if err := f.ConfigService().SetConfigOrderers(orderers); err != nil {
-		return errors.WithMessagef(err, "failed to set ordererss")
-	}
 	return nil
 }
 
