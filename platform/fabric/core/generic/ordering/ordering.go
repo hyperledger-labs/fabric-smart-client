@@ -14,8 +14,11 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	common2 "github.com/hyperledger/fabric-protos-go/common"
+	"github.com/hyperledger/fabric/common/channelconfig"
 	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
 	context2 "golang.org/x/net/context"
@@ -52,6 +55,7 @@ type GetEndorserTransactionServiceFunc = func(channelID string) (driver.Endorser
 type Service struct {
 	GetEndorserTransactionService GetEndorserTransactionServiceFunc
 	SigService                    driver.SignerService
+	ConfigService                 driver.ConfigService
 	Metrics                       *metrics.Metrics
 
 	Broadcasters   map[ConsensusType]BroadcastFnc
@@ -73,6 +77,7 @@ func NewService(
 		Broadcasters:                  map[ConsensusType]BroadcastFnc{},
 		BroadcastMutex:                sync.RWMutex{},
 		Broadcaster:                   nil,
+		ConfigService:                 configService,
 	}
 	s.Broadcasters[BFT] = NewBFTBroadcaster(configService, services, metrics).Broadcast
 	cft := NewCFTBroadcaster(configService, services, metrics)
@@ -130,6 +135,16 @@ func (o *Service) SetConsensusType(consensusType ConsensusType) error {
 	o.BroadcastMutex.Lock()
 	defer o.BroadcastMutex.Unlock()
 	o.Broadcaster = broadcaster
+	return nil
+}
+
+func (f *Service) SetConfigOrderers(o channelconfig.Orderer, orderers []*grpc.ConnectionConfig) error {
+	if err := f.SetConsensusType(o.ConsensusType()); err != nil {
+		return errors.WithMessagef(err, "failed to set consensus type from channel config")
+	}
+	if err := f.ConfigService.SetConfigOrderers(orderers); err != nil {
+		return errors.WithMessagef(err, "failed to set ordererss")
+	}
 	return nil
 }
 

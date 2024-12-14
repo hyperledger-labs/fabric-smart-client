@@ -28,6 +28,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger/fabric-protos-go/common"
+	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/dig"
 )
@@ -92,16 +93,16 @@ func NewChannelProvider(in struct {
 		generic.NewChannelConfigProvider(in.ConfigProvider),
 		committer2.NewFinalityListenerManagerProvider[driver.ValidationCode](in.TracerProvider),
 		committer.NewSerialDependencyResolver(),
-		func(channelName string, nw driver.FabricNetworkService, chaincodeManager driver.ChaincodeManager) driver.Ledger {
+		func(channelName string, nw driver.FabricNetworkService, chaincodeManager driver.ChaincodeManager) (driver.Ledger, error) {
 			return ledger.New(
 				channelName,
 				chaincodeManager,
 				nw.LocalMembership(),
 				nw.ConfigService(),
 				nw.TransactionManager(),
-			)
+			), nil
 		},
-		func(channel string, nw driver.FabricNetworkService, envelopeService driver.EnvelopeService, transactionService driver.EndorserTransactionService, vault driver.RWSetInspector) driver.RWSetLoader {
+		func(channel string, nw driver.FabricNetworkService, envelopeService driver.EnvelopeService, transactionService driver.EndorserTransactionService, vault driver.RWSetInspector) (driver.RWSetLoader, error) {
 			return rwset.NewLoader(
 				nw.Name(),
 				channel,
@@ -109,9 +110,14 @@ func NewChannelProvider(in struct {
 				transactionService,
 				nw.TransactionManager(),
 				vault,
-			)
+			), nil
 		},
-		func(nw driver.FabricNetworkService, channelConfig driver.ChannelConfig, vault driver.Vault, envelopeService driver.EnvelopeService, ledger driver.Ledger, rwsetLoaderService driver.RWSetLoader, eventsPublisher events.Publisher, channelMembershipService *membership.Service, orderingService committer.OrderingService, fabricFinality committer.FabricFinality, dependencyResolver committer.DependencyResolver, quiet bool, listenerManager driver.ListenerManager, tracerProvider trace.TracerProvider, metricsProvider metrics.Provider) *committer.Committer {
+		func(nw driver.FabricNetworkService, channelConfig driver.ChannelConfig, vault driver.Vault, envelopeService driver.EnvelopeService, ledger driver.Ledger, rwsetLoaderService driver.RWSetLoader, eventsPublisher events.Publisher, channelMembershipService *membership.Service, orderingService committer.OrderingService, fabricFinality committer.FabricFinality, dependencyResolver committer.DependencyResolver, quiet bool, listenerManager driver.ListenerManager, tracerProvider trace.TracerProvider, metricsProvider metrics.Provider) (generic.CommitterService, error) {
+			os, ok := nw.OrderingService().(committer.OrderingService)
+			if !ok {
+				return nil, errors.New("ordering service is not a committer.OrderingService")
+			}
+
 			return committer.New(
 				nw.ConfigService(),
 				channelConfig,
@@ -122,7 +128,7 @@ func NewChannelProvider(in struct {
 				nw.ProcessorManager(),
 				eventsPublisher,
 				channelMembershipService,
-				nw.OrderingService().(committer.OrderingService),
+				os,
 				fabricFinality,
 				nw.TransactionManager(),
 				dependencyResolver,
@@ -130,7 +136,7 @@ func NewChannelProvider(in struct {
 				listenerManager,
 				tracerProvider,
 				metricsProvider,
-			)
+			), nil
 		},
 		true,
 	)

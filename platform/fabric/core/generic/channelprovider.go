@@ -28,19 +28,25 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-type VaultConstructor = func(configService driver.ConfigService, channel string, drivers []driver2.NamedDriver, metricsProvider metrics.Provider, tracerProvider trace.TracerProvider) (*vault.Vault, driver.TXIDStore, error)
+type VaultConstructor = func(
+	configService driver.ConfigService,
+	channel string,
+	drivers []driver2.NamedDriver,
+	metricsProvider metrics.Provider,
+	tracerProvider trace.TracerProvider,
+) (*vault.Vault, driver.TXIDStore, error)
 type LedgerConstructor func(
 	channelName string,
 	nw driver.FabricNetworkService,
 	chaincodeManager driver.ChaincodeManager,
-) driver.Ledger
+) (driver.Ledger, error)
 type RWSetLoaderConstructor func(
 	channel string,
 	nw driver.FabricNetworkService,
 	envelopeService driver.EnvelopeService,
 	transactionService driver.EndorserTransactionService,
 	vault driver.RWSetInspector,
-) driver.RWSetLoader
+) (driver.RWSetLoader, error)
 type CommitterConstructor func(
 	nw driver.FabricNetworkService,
 	channelConfig driver.ChannelConfig,
@@ -57,7 +63,7 @@ type CommitterConstructor func(
 	listenerManager driver.ListenerManager,
 	tracerProvider trace.TracerProvider,
 	metricsProvider metrics.Provider,
-) *committer.Committer
+) (CommitterService, error)
 
 type ChannelProvider interface {
 	NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver.Channel, error)
@@ -160,13 +166,16 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 	channelMembershipService := membership.NewService()
 
 	// Committers
-	rwSetLoaderService := p.newRWSetLoader(
+	rwSetLoaderService, err := p.newRWSetLoader(
 		channelName,
 		nw,
 		envelopeService,
 		transactionService,
 		vault,
 	)
+	if err != nil {
+		return nil, errors.WithMessagef(err, "failed creating RWSetLoader for channel [%s]", channelName)
+	}
 
 	chaincodeManagerService := chaincode.NewManager(
 		nw.Name(),
@@ -183,13 +192,16 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 		channelMembershipService,
 	)
 
-	ledgerService := p.newLedger(
+	ledgerService, err := p.newLedger(
 		channelName,
 		nw,
 		chaincodeManagerService,
 	)
+	if err != nil {
+		return nil, errors.WithMessagef(err, "failed creating ledger for channel [%s]", channelName)
+	}
 
-	committerService := p.newCommitter(
+	committerService, err := p.newCommitter(
 		nw,
 		channelConfig,
 		vault,
@@ -207,8 +219,9 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 		p.metricsProvider,
 	)
 	if err != nil {
-		return nil, err
+		return nil, errors.WithMessagef(err, "failed creating committer for channel [%s]", channelName)
 	}
+
 	// Finality
 	finalityService := committerService
 	chaincodeManagerService.Finality = finalityService
