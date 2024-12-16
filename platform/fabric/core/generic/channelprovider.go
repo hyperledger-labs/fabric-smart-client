@@ -56,7 +56,6 @@ type CommitterConstructor func(
 	rwsetLoaderService driver.RWSetLoader,
 	eventsPublisher events.Publisher,
 	channelMembershipService *membership.Service,
-	orderingService committer.OrderingService,
 	fabricFinality committer.FabricFinality,
 	dependencyResolver committer.DependencyResolver,
 	quiet bool,
@@ -121,11 +120,6 @@ func NewChannelProvider(
 }
 
 func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string, quiet bool) (driver.Channel, error) {
-	networkOrderingService, ok := nw.(committer.OrderingService)
-	if !ok {
-		return nil, errors.Errorf("fabric network service does not implement committer.OrderingService")
-	}
-
 	// Channel configuration
 	channelConfig, err := p.channelConfigProvider.GetChannelConfig(nw.Name(), channelName)
 	if err != nil {
@@ -210,7 +204,6 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 		rwSetLoaderService,
 		p.publisher,
 		channelMembershipService,
-		networkOrderingService,
 		fabricFinality,
 		p.dependencyResolver,
 		quiet,

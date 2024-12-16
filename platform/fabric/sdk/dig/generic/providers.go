@@ -93,7 +93,11 @@ func NewChannelProvider(in struct {
 		generic.NewChannelConfigProvider(in.ConfigProvider),
 		committer2.NewFinalityListenerManagerProvider[driver.ValidationCode](in.TracerProvider),
 		committer.NewSerialDependencyResolver(),
-		func(channelName string, nw driver.FabricNetworkService, chaincodeManager driver.ChaincodeManager) (driver.Ledger, error) {
+		func(
+			channelName string,
+			nw driver.FabricNetworkService,
+			chaincodeManager driver.ChaincodeManager,
+		) (driver.Ledger, error) {
 			return ledger.New(
 				channelName,
 				chaincodeManager,
@@ -102,7 +106,13 @@ func NewChannelProvider(in struct {
 				nw.TransactionManager(),
 			), nil
 		},
-		func(channel string, nw driver.FabricNetworkService, envelopeService driver.EnvelopeService, transactionService driver.EndorserTransactionService, vault driver.RWSetInspector) (driver.RWSetLoader, error) {
+		func(
+			channel string,
+			nw driver.FabricNetworkService,
+			envelopeService driver.EnvelopeService,
+			transactionService driver.EndorserTransactionService,
+			vault driver.RWSetInspector,
+		) (driver.RWSetLoader, error) {
 			return rwset.NewLoader(
 				nw.Name(),
 				channel,
@@ -112,7 +122,22 @@ func NewChannelProvider(in struct {
 				vault,
 			), nil
 		},
-		func(nw driver.FabricNetworkService, channelConfig driver.ChannelConfig, vault driver.Vault, envelopeService driver.EnvelopeService, ledger driver.Ledger, rwsetLoaderService driver.RWSetLoader, eventsPublisher events.Publisher, channelMembershipService *membership.Service, orderingService committer.OrderingService, fabricFinality committer.FabricFinality, dependencyResolver committer.DependencyResolver, quiet bool, listenerManager driver.ListenerManager, tracerProvider trace.TracerProvider, metricsProvider metrics.Provider) (generic.CommitterService, error) {
+		func(
+			nw driver.FabricNetworkService,
+			channelConfig driver.ChannelConfig,
+			vault driver.Vault,
+			envelopeService driver.EnvelopeService,
+			ledger driver.Ledger,
+			rwsetLoaderService driver.RWSetLoader,
+			eventsPublisher events.Publisher,
+			channelMembershipService *membership.Service,
+			fabricFinality committer.FabricFinality,
+			dependencyResolver committer.DependencyResolver,
+			quiet bool,
+			listenerManager driver.ListenerManager,
+			tracerProvider trace.TracerProvider,
+			metricsProvider metrics.Provider,
+		) (generic.CommitterService, error) {
 			os, ok := nw.OrderingService().(committer.OrderingService)
 			if !ok {
 				return nil, errors.New("ordering service is not a committer.OrderingService")
