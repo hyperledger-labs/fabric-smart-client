@@ -123,7 +123,7 @@ func (o *CFTBroadcaster) getConnection(ctx context.Context) (*Connection, error)
 			oClient, err := client.OrdererClient()
 			if err != nil {
 				rpcStatus, _ := status.FromError(err)
-				return nil, errors.Wrapf(err, "failed to new a broadcast, rpcStatus=%+v", rpcStatus)
+				return nil, errors.Wrapf(err, "failed to new a broadcast for %s, rpcStatus=%+v", to.Address, rpcStatus)
 			}
 
 			stream, err := oClient.Broadcast(ctx)

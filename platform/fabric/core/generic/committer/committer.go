@@ -867,6 +867,10 @@ func (c *Committer) applyBundle(bundle *channelconfig.Bundle) error {
 		tlsRootCerts = append(tlsRootCerts, msp.GetTLSRootCerts()...)
 		tlsRootCerts = append(tlsRootCerts, msp.GetTLSIntermediateCerts()...)
 		for _, endpoint := range org.Endpoints() {
+			if len(endpoint) == 0 {
+				c.logger.Debugf("[Channel: %s] empty endpoint for %s, skipping", c.ChannelConfig.ID(), org.MSPID())
+				continue
+			}
 			c.logger.Debugf("[Channel: %s] Adding orderer endpoint: [%s:%s:%s]", c.ChannelConfig.ID(), org.Name(), org.MSPID(), endpoint)
 			newOrderers = append(newOrderers, &grpc.ConnectionConfig{
 				Address:           endpoint,
@@ -877,8 +881,16 @@ func (c *Committer) applyBundle(bundle *channelconfig.Bundle) error {
 			})
 		}
 		// If the Orderer MSP config omits the Endpoints and there is only one orderer org, we try to get the addresses from another key in the channel config.
-		if len(newOrderers) == 0 && len(orgs) == 1 {
-			for _, endpoint := range bundle.ChannelConfig().OrdererAddresses() {
+		// This is only here for backwards compatibility and is deprecated in Fabric 3.
+		// https://hyperledger-fabric.readthedocs.io/en/latest/upgrade_to_newest_version.html#define-ordering-node-endpoint-per-org
+		addr := bundle.ChannelConfig().OrdererAddresses()
+		if len(newOrderers) == 0 && len(orgs) == 1 && len(addr) > 0 {
+			c.logger.Infof("falling back to OrdererAddresses field in channel config (deprecated, please refer to Fabric docs)")
+			for _, endpoint := range addr {
+				if len(endpoint) == 0 {
+					c.logger.Debugf("[Channel: %s] empty orderer address, skipping", c.ChannelConfig.ID())
+					continue
+				}
 				c.logger.Debugf("[Channel: %s] Adding orderer address [%s:%s:%s]", c.ChannelConfig.ID(), org.Name(), org.MSPID(), endpoint)
 				newOrderers = append(newOrderers, &grpc.ConnectionConfig{
 					Address:           endpoint,

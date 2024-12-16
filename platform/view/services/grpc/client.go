@@ -297,6 +297,9 @@ func (client *Client) SetServerRootCAs(serverRoots [][]byte) error {
 // overrides the server name used to verify the hostname on the
 // certificate returned by a server when using TLS
 func (client *Client) NewConnection(address string, tlsOptions ...TLSOption) (*grpc.ClientConn, error) {
+	if len(address) == 0 {
+		return nil, errors.New("address is empty")
+	}
 
 	var dialOpts []grpc.DialOption
 	dialOpts = append(dialOpts, client.dialOpts...)

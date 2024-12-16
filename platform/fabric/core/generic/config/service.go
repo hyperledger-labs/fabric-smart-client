@@ -23,6 +23,7 @@ import (
 const (
 	defaultMSPCacheSize               = 3
 	defaultBroadcastNumRetries        = 3
+	defaultBroadcastRetryInterval     = 500 * time.Millisecond
 	vaultPersistenceOptsKey           = "vault.persistence.opts"
 	defaultOrderingConnectionPoolSize = 10
 	defaultNumRetries                 = 3
@@ -313,7 +314,10 @@ func (s *Service) BroadcastNumRetries() int {
 }
 
 func (s *Service) BroadcastRetryInterval() time.Duration {
-	return s.GetDuration("ordering.retryInterval")
+	if s.IsSet("ordering.retryInterval") {
+		return s.GetDuration("ordering.retryInterval")
+	}
+	return defaultBroadcastRetryInterval
 }
 
 func (s *Service) OrdererConnectionPoolSize() int {
