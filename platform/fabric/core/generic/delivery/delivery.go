@@ -148,7 +148,7 @@ func (d *Delivery) Run(ctx context.Context) error {
 				span.AddEvent("connect")
 				df, err = d.connect(ctx)
 				if err != nil {
-					logger.Errorf("failed connecting to delivery service [%s:%s] [%s]. Wait 10 sec before reconnecting", d.NetworkName, d.channel, err)
+					logger.Errorf("failed connecting to delivery service [%s:%s] [%s]. Wait %.1fs before reconnecting", d.NetworkName, d.channel, err, waitTime.Seconds())
 					time.Sleep(waitTime)
 					if logger.IsEnabledFor(zapcore.DebugLevel) {
 						logger.Debugf("reconnecting to delivery service [%s:%s]", d.NetworkName, d.channel)

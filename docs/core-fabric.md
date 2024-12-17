@@ -297,10 +297,10 @@ fabric:
 
     ordering:
       # number of retries to attempt to send a transaction to an orderer
-      # If not specified or set to 0, it will default to 3 retries
+      # If not specified or set to 0, it will default to 3 retries. The orderer is picked randomly for every attempt.
       numRetries: 3
-      # retryInternal specifies the amount of time to wait before retrying a connection to the ordering service, it has no default and must be specified
-      retryInterval: 3s
+      # retryInternal specifies the amount of time to wait before retrying a connection to the ordering service, it defaults to 500ms
+      retryInterval: 500ms
       # here is possible to disable tls just for the ordering service.
       # if this key is not specified, then the `tls` section is used.
       tlsEnabled: true
