@@ -82,9 +82,9 @@ func (p *Platform) RunRelayServer(name string, serverConfigPath, port string) {
 	}, nil, hostname)
 	Expect(err).ToNot(HaveOccurred())
 
-	cli.NetworkConnect(context.Background(), p.NetworkID, resp.ID, &network.EndpointSettings{
+	Expect(cli.NetworkConnect(context.Background(), p.NetworkID, resp.ID, &network.EndpointSettings{
 		NetworkID: p.NetworkID,
-	})
+	})).ToNot(HaveOccurred())
 
 	err = cli.ContainerStart(ctx, resp.ID, container.StartOptions{})
 	Expect(err).ToNot(HaveOccurred())
@@ -193,9 +193,9 @@ func (p *Platform) RunRelayFabricDriver(
 	}, nil, hostname)
 	Expect(err).ToNot(HaveOccurred())
 
-	cli.NetworkConnect(context.Background(), p.NetworkID, resp.ID, &network.EndpointSettings{
+	Expect(cli.NetworkConnect(context.Background(), p.NetworkID, resp.ID, &network.EndpointSettings{
 		NetworkID: p.NetworkID,
-	})
+	})).ToNot(HaveOccurred())
 
 	err = cli.ContainerStart(ctx, resp.ID, container.StartOptions{})
 	Expect(err).ToNot(HaveOccurred())

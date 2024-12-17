@@ -653,7 +653,7 @@ func (n *Network) ConcatenateTLSCACertificates() {
 // network, across all organizations.
 func (n *Network) ListTLSCACertificates() []string {
 	fileName2Path := make(map[string]string)
-	filepath.Walk(filepath.Join(n.Context.RootDir(), n.Prefix, "crypto"), func(path string, info os.FileInfo, err error) error {
+	Expect(filepath.Walk(filepath.Join(n.Context.RootDir(), n.Prefix, "crypto"), func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -663,7 +663,7 @@ func (n *Network) ListTLSCACertificates() []string {
 			fileName2Path[info.Name()] = path
 		}
 		return nil
-	})
+	})).ToNot(HaveOccurred())
 
 	var tlsCACertificates []string
 	for _, path := range fileName2Path {

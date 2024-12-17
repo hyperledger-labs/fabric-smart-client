@@ -81,16 +81,13 @@ func TestConnMetricsGRPCServer(t *testing.T) {
 	defer srv.Stop()
 
 	// test grpc connection counts
-	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
-	defer cancel()
-
 	gt.Expect(openConn.AddCallCount()).To(Equal(0))
 	gt.Expect(closedConn.AddCallCount()).To(Equal(0))
 
 	// create GRPC client conn
 	var clientConns []*grpc.ClientConn
 	for i := 1; i <= 3; i++ {
-		clientConn, err := grpc.DialContext(ctx, listener.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
+		clientConn, err := grpc.NewClient(listener.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 		gt.Expect(err).NotTo(HaveOccurred())
 		clientConns = append(clientConns, clientConn)
 
