@@ -36,16 +36,16 @@ var _ = Describe("Chain", func() {
 		}
 		two = func(next http.Handler) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				w.Write([]byte("2:before,"))
+				Expect(w.Write([]byte("2:before,"))).To(Succeed())
 				next.ServeHTTP(w, r)
-				w.Write([]byte("2:after,"))
+				Expect(w.Write([]byte("2:after,"))).To(Succeed())
 			})
 		}
 		three = func(next http.Handler) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				w.Write([]byte("3:before,"))
+				Expect(w.Write([]byte("3:before,"))).To(Succeed())
 				next.ServeHTTP(w, r)
-				w.Write([]byte("3:after,"))
+				Expect(w.Write([]byte("3:after,"))).To(Succeed())
 			})
 		}
 		chain = middleware.NewChain(one, two, three)

@@ -100,9 +100,9 @@ func (p *Platform) StartOrionServer() {
 		panic(err)
 	}
 
-	cli.NetworkConnect(context.Background(), p.NetworkID, resp.ID, &network.EndpointSettings{
+	Expect(cli.NetworkConnect(context.Background(), p.NetworkID, resp.ID, &network.EndpointSettings{
 		NetworkID: p.NetworkID,
-	})
+	})).ToNot(HaveOccurred())
 
 	if err := cli.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
 		panic(err)

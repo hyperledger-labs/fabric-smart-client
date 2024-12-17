@@ -126,7 +126,9 @@ func (s *SimpleTXIDStore[V]) SetMultiple(txs []driver.ByNum[V]) error {
 	errs := s.Persistence.SetStates(txidNamespace, states)
 	for _, err := range errs {
 		if err != nil && !errors.HasCause(err, UniqueKeyViolation) {
-			s.Persistence.Discard()
+			if err2 := s.Persistence.Discard(); err2 != nil {
+				logger.Errorf("failed to discard txid counter [%s]", err2)
+			}
 			return errors.Wrapf(err, "error updating states")
 		}
 	}
