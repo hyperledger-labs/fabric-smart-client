@@ -57,7 +57,9 @@ func (i *IdentityLoader) Load(manager driver.Manager, c config.MSP) error {
 	}
 
 	manager.AddDeserializer(provider)
-	manager.AddMSP(c.ID, c.MSPType, provider.EnrollmentID(), provider.Identity)
+	if err := manager.AddMSP(c.ID, c.MSPType, provider.EnrollmentID(), provider.Identity); err != nil {
+		return errors.WithMessagef(err, "failed adding MSP [%s]", c.ID)
+	}
 
 	// set default
 	defaultIdentity, _, err := provider.Identity(nil)

@@ -60,14 +60,14 @@ func (s *TestSuite) TestSingleChaincodeEvents() {
 
 	Expect(err).ToNot(HaveOccurred())
 	eventReceived := &views.EventReceived{}
-	json.Unmarshal(event.([]byte), eventReceived)
+	Expect(json.Unmarshal(event.([]byte), eventReceived)).ToNot(HaveOccurred())
 	Expect(string(eventReceived.Event.Payload)).To(Equal("Invoked Create Asset Successfully"))
 
 	// - Operate from Bob (Org2)
 	event, err = bob.EventsView("UpdateAsset", "UpdateAsset")
 	Expect(err).ToNot(HaveOccurred())
 	eventReceived = &views.EventReceived{}
-	json.Unmarshal(event.([]byte), eventReceived)
+	Expect(json.Unmarshal(event.([]byte), eventReceived)).ToNot(HaveOccurred())
 	Expect(string(eventReceived.Event.Payload)).To(Equal("Invoked Update Asset Successfully"))
 }
 
@@ -116,7 +116,7 @@ func (s *TestSuite) TestUpgradeChaincode() {
 	event, err := alice.EventsView("CreateAsset", "CreateAsset")
 	Expect(err).ToNot(HaveOccurred())
 	eventReceived := &views.EventReceived{}
-	json.Unmarshal(event.([]byte), eventReceived)
+	Expect(json.Unmarshal(event.([]byte), eventReceived)).ToNot(HaveOccurred())
 	Expect(string(eventReceived.Event.Payload)).To(Equal("Invoked Create Asset Successfully"))
 
 	// Update
@@ -128,6 +128,6 @@ func (s *TestSuite) TestUpgradeChaincode() {
 	event, err = alice.EventsView("CreateAsset", "CreateAsset")
 	Expect(err).ToNot(HaveOccurred())
 	eventReceived = &views.EventReceived{}
-	json.Unmarshal(event.([]byte), eventReceived)
+	Expect(json.Unmarshal(event.([]byte), eventReceived)).ToNot(HaveOccurred())
 	Expect(string(eventReceived.Event.Payload)).To(Equal("Invoked Create Asset Successfully From Upgraded Chaincode"))
 }

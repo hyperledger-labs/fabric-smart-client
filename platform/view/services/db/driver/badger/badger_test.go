@@ -14,10 +14,9 @@ import (
 	"strings"
 	"testing"
 	"time"
-	"unicode/utf8"
 
 	"github.com/dgraph-io/badger/v3"
-	"github.com/golang/protobuf/proto"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/dbtest"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
@@ -135,12 +134,6 @@ func TestMarshallingErrors(t *testing.T) {
 	assert.Equal(t, uint64(0), bn)
 	assert.Equal(t, uint64(0), tn)
 }
-
-const (
-	minUnicodeRuneValue   = 0            // U+0000
-	maxUnicodeRuneValue   = utf8.MaxRune // U+10FFFF - maximum (and unallocated) code point
-	compositeKeyNamespace = "\x00"
-)
 
 func TestAutoCleaner(t *testing.T) {
 	dbpath := filepath.Join(tempDir, "DB-autocleaner")

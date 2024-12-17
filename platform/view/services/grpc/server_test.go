@@ -104,10 +104,10 @@ func (esss *emptyServiceServer) EmptyStream(stream testpb.EmptyService_EmptyStre
 
 // invoke the EmptyCall RPC
 func invokeEmptyCall(address string, dialOptions ...grpc.DialOption) (*testpb.Empty, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
-	defer cancel()
+	// ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	// defer cancel()
 	// create GRPC client conn
-	clientConn, err := grpc.DialContext(ctx, address, dialOptions...)
+	clientConn, err := grpc.NewClient(address, dialOptions...)
 	if err != nil {
 		return nil, err
 	}
@@ -130,7 +130,7 @@ func invokeEmptyStream(address string, dialOptions ...grpc.DialOption) (*testpb.
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	defer cancel()
 	// create GRPC client conn
-	clientConn, err := grpc.DialContext(ctx, address, dialOptions...)
+	clientConn, err := grpc.NewClient(address, dialOptions...)
 	if err != nil {
 		return nil, err
 	}
@@ -622,7 +622,6 @@ func TestNewSecureGRPCServer(t *testing.T) {
 	assert.NoError(t, err, "client failed to invoke the EmptyCall service")
 
 	tlsVersions := map[string]uint16{
-		"SSL30": tls.VersionSSL30,
 		"TLS10": tls.VersionTLS10,
 		"TLS11": tls.VersionTLS11,
 	}
@@ -632,9 +631,9 @@ func TestNewSecureGRPCServer(t *testing.T) {
 			t.Parallel()
 
 			creds := credentials.NewTLS(&tls.Config{RootCAs: certPool, MinVersion: version, MaxVersion: version})
-			_, err := invokeEmptyCall(testAddress, grpc.WithTransportCredentials(creds), grpc.WithBlock())
+			_, err := invokeEmptyCall(testAddress, grpc.WithTransportCredentials(creds))
 			assert.Error(t, err, "should not have been able to connect with TLS version < 1.2")
-			assert.Contains(t, err.Error(), "context deadline exceeded")
+			assert.Contains(t, err.Error(), "connection refused")
 		})
 	}
 }
@@ -1068,7 +1067,6 @@ func TestUpdateTLSCert(t *testing.T) {
 		_, err = invokeEmptyCall(
 			testAddress,
 			grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{RootCAs: certPool})),
-			grpc.WithBlock(),
 		)
 		return err
 	}
@@ -1076,7 +1074,7 @@ func TestUpdateTLSCert(t *testing.T) {
 	// bootstrap TLS certificate has a SAN of "notlocalhost" so it should fail
 	err = probeServer()
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "context deadline exceeded")
+	assert.Contains(t, err.Error(), "transport: authentication handshake failed: tls: failed to verify certificate: x509: cannot validate certificate for 127.0.0.1 because it doesn't contain any IP SANs")
 
 	// new TLS certificate has a SAN of "127.0.0.1" so it should succeed
 	certPath := filepath.Join("testdata", "dynamic_cert_update", "localhost", "server.crt")
@@ -1096,7 +1094,7 @@ func TestUpdateTLSCert(t *testing.T) {
 
 	err = probeServer()
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "context deadline exceeded")
+	assert.Contains(t, err.Error(), "transport: authentication handshake failed: tls: failed to verify certificate: x509: cannot validate certificate for 127.0.0.1 because it doesn't contain any IP SANs")
 }
 
 func TestCipherSuites(t *testing.T) {
@@ -1234,7 +1232,6 @@ func TestServerInterceptors(t *testing.T) {
 
 	_, err = invokeEmptyCall(
 		lis.Addr().String(),
-		grpc.WithBlock(),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
 	assert.Error(t, err)
@@ -1243,7 +1240,6 @@ func TestServerInterceptors(t *testing.T) {
 
 	_, err = invokeEmptyStream(
 		lis.Addr().String(),
-		grpc.WithBlock(),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
 	assert.Error(t, err)

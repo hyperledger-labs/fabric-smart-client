@@ -117,7 +117,9 @@ func packageChaincode() (tmpDir string, cleanup func(), err error) {
 
 	packageTarGz := filepath.Join(tmpDir, "interop.tar.gz")
 
-	createCodePackage(packageTarGz, codeTarGz, metadataPath)
+	if err := createCodePackage(packageTarGz, codeTarGz, metadataPath); err != nil {
+		return tmpDir, func() {}, err
+	}
 
 	return packageTarGz, func() {
 		os.RemoveAll(tmpDir)

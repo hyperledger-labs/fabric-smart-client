@@ -25,7 +25,7 @@ func (m *MockMsgReader) Read() ([]byte, error) {
 	var retBuf []byte
 
 	if len(m.messages) > 0 {
-		//remove message from buffer
+		// remove message from buffer
 		retBuf = m.messages[0]
 		m.messages = m.messages[1:]
 		return retBuf, nil
@@ -36,10 +36,7 @@ func (m *MockMsgReader) Read() ([]byte, error) {
 }
 
 func TestRead(t *testing.T) {
-	var buf []byte
-
-	buf = make([]byte, 7)
-
+	buf := make([]byte, 7)
 	mrr := newMockMessageReader([][]byte{
 		[]byte("hello"),
 		[]byte("world"),

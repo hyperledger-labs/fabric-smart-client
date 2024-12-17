@@ -57,8 +57,7 @@ func TestClientConfigClone(t *testing.T) {
 		SecOpts: SecureOptions{
 			Key: []byte{1, 2, 3},
 		},
-		Timeout:      time.Second,
-		AsyncConnect: true,
+		Timeout: time.Second,
 	}
 
 	clone := origin.Clone()
@@ -68,7 +67,6 @@ func TestClientConfigClone(t *testing.T) {
 
 	// We change the contents of the fields and ensure it doesn't
 	// propagate across instances.
-	origin.AsyncConnect = false
 	origin.KaOpts.ServerInterval = time.Second
 	origin.KaOpts.ClientInterval = time.Hour
 	origin.SecOpts.Certificate = []byte{1, 2, 3}
@@ -99,8 +97,7 @@ func TestClientConfigClone(t *testing.T) {
 			Key:    []byte{1, 2, 3},
 			UseTLS: true,
 		},
-		Timeout:      time.Second,
-		AsyncConnect: true,
+		Timeout: time.Second,
 	}
 
 	assert.Equal(t, expectedOriginState, origin)
