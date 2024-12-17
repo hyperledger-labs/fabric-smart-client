@@ -558,7 +558,7 @@ func (p *Platform) fscNodeCommand(node *node2.Replica, command common.Command, t
 	if p.Context.IgnoreSigHUP() {
 		cmd.Env = append(cmd.Env, "FSCNODE_SIGHUP_IGNORE=true")
 	}
-	//cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	// cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
 	if p.Topology.GRPCLogging {
 		cmd.Env = append(cmd.Env, "GRPC_GO_LOG_VERBOSITY_LEVEL=2")
@@ -812,7 +812,7 @@ func (p *Platform) GetAdminSigningIdentity(peer *node2.Peer) (view.SigningIdenti
 
 func (p *Platform) listTLSCACertificates() []string {
 	fileName2Path := make(map[string]string)
-	filepath.Walk(filepath.Join(p.Context.RootDir(), "fsc", "crypto"), func(path string, info os.FileInfo, err error) error {
+	Expect(filepath.Walk(filepath.Join(p.Context.RootDir(), "fsc", "crypto"), func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -822,7 +822,7 @@ func (p *Platform) listTLSCACertificates() []string {
 			fileName2Path[info.Name()] = path
 		}
 		return nil
-	})
+	})).ToNot(HaveOccurred())
 
 	var tlsCACertificates []string
 	for _, path := range fileName2Path {

@@ -61,7 +61,7 @@ var _ = Describe("EndToEnd", func() {
 
 			ExpectedMainOne, err := os.ReadFile("./testdata/main/main.go.output")
 			Expect(err).ToNot(HaveOccurred())
-			Expect(string(buf.Bytes())).To(BeEquivalentTo(string(ExpectedMainOne)))
+			Expect(buf.String()).To(BeEquivalentTo(string(ExpectedMainOne)))
 			// Expect(os.WriteFile("./testdata/main/main.go.output", buf.Bytes(), 0777)).ToNot(HaveOccurred())
 		})
 
@@ -89,8 +89,8 @@ var _ = Describe("EndToEnd", func() {
 
 			ExpectedMainOne, err := os.ReadFile("./testdata/main/main.go.output")
 			Expect(err).ToNot(HaveOccurred())
-			Expect(string(buf.Bytes())).To(BeEquivalentTo(string(ExpectedMainOne)))
-			//Expect(os.WriteFile("./testdata/main/main.go.output", buf.Bytes(), 0777)).ToNot(HaveOccurred())
+			Expect(buf.String()).To(BeEquivalentTo(string(ExpectedMainOne)))
+			// Expect(os.WriteFile("./testdata/main/main.go.output", buf.Bytes(), 0777)).ToNot(HaveOccurred())
 		})
 
 	})
