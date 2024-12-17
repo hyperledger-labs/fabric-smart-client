@@ -14,11 +14,9 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	common2 "github.com/hyperledger/fabric-protos-go/common"
-	"github.com/hyperledger/fabric/common/channelconfig"
 	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
 	context2 "golang.org/x/net/context"
@@ -138,8 +136,8 @@ func (o *Service) SetConsensusType(consensusType ConsensusType) error {
 	return nil
 }
 
-func (f *Service) SetConfigOrderers(o channelconfig.Orderer, orderers []*grpc.ConnectionConfig) error {
-	if err := f.SetConsensusType(o.ConsensusType()); err != nil {
+func (f *Service) Configure(consensusType string, orderers []*grpc.ConnectionConfig) error {
+	if err := f.SetConsensusType(consensusType); err != nil {
 		return errors.WithMessagef(err, "failed to set consensus type from channel config")
 	}
 	if err := f.ConfigService.SetConfigOrderers(orderers); err != nil {
