@@ -10,6 +10,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic/committer"
 	config2 "github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic/config"
 	delivery2 "github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic/delivery"
@@ -20,7 +21,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/orion-server/pkg/types"
@@ -29,7 +29,7 @@ import (
 )
 
 var (
-	logger              = flogging.MustGetLogger("orion-sdk.core")
+	logger              = logging.MustGetLogger("orion-sdk.core")
 	waitForEventTimeout = 300 * time.Second
 )
 

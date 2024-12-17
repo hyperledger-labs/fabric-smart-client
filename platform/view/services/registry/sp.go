@@ -13,12 +13,12 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 )
 
 var (
 	ServiceNotFound = errors.New("service not found")
-	logger          = flogging.MustGetLogger("view-sdk.eregistry")
+	logger          = logging.MustGetLogger("view-sdk.eregistry")
 )
 
 type ServiceProvider struct {

@@ -11,11 +11,11 @@ import (
 	"sync"
 
 	errors2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/pkg/errors"
 )
 
-var logger = flogging.MustGetLogger("view-sdk.db.driver.common")
+var logger = logging.MustGetLogger("view-sdk.db.driver.common")
 
 type DBTransaction interface {
 	Commit() error

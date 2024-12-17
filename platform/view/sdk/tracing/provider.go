@@ -11,8 +11,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
@@ -57,7 +57,7 @@ type OtplConfig struct {
 	Address string `mapstructure:"address"`
 }
 
-var logger = flogging.MustGetLogger("view-sdk.tracing")
+var logger = logging.MustGetLogger("view-sdk.tracing")
 
 func NewTracerProvider(confService driver.ConfigService) (trace.TracerProvider, error) {
 	c := Config{}

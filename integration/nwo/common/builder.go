@@ -16,12 +16,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
 )
 
-var logger = flogging.MustGetLogger("nwo.builder")
+var logger = logging.MustGetLogger("nwo.builder")
 
 type BuilderClient struct {
 	ServerAddress string `json:"server_address"`

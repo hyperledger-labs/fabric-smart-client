@@ -15,6 +15,7 @@ import (
 	e "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/committer"
 	dig2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	digutils "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core"
@@ -30,11 +31,10 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/endpoint"
 	viewsdk "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/finality"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"go.uber.org/dig"
 )
 
-var logger = flogging.MustGetLogger("fabric-sdk")
+var logger = logging.MustGetLogger("fabric-sdk")
 
 type SDK struct {
 	dig2.SDK

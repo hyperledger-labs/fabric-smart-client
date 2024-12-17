@@ -10,9 +10,9 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 )
@@ -22,7 +22,7 @@ const (
 	BCCSPOptField = "bccsp" // viper converts map keys to lowercase
 )
 
-var logger = flogging.MustGetLogger("fabric-sdk.msp.x509")
+var logger = logging.MustGetLogger("fabric-sdk.msp.x509")
 
 type IdentityLoader struct{}
 

@@ -29,7 +29,7 @@ import (
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc/testpb"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc/tlsgen"
 )
@@ -507,7 +507,7 @@ func TestSetMessageSize(t *testing.T) {
 			callCtx := context.Background()
 			callCtx, cancel := context.WithTimeout(callCtx, testTimeout)
 			defer cancel()
-			//invoke service
+			// invoke service
 			echo := &testpb.Echo{
 				Payload: []byte{0, 0, 0, 0, 0},
 			}
@@ -614,7 +614,7 @@ func TestDynamicClientTLSLoading(t *testing.T) {
 	assert.NoError(t, err)
 
 	server, err := grpc3.NewGRPCServer("127.0.0.1:0", grpc3.ServerConfig{
-		Logger: flogging.MustGetLogger("test"),
+		Logger: logging.MustGetLogger("test"),
 		SecOpts: grpc3.SecureOptions{
 			UseTLS:      true,
 			Key:         serverKP.Key,

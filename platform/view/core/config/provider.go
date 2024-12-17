@@ -13,12 +13,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pkg/errors"
-	"github.com/spf13/viper"
-
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	viperutil "github.com/hyperledger-labs/fabric-smart-client/platform/view/core/config/viper"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	"github.com/pkg/errors"
+	"github.com/spf13/viper"
 )
 
 const (
@@ -118,7 +117,7 @@ func (p *provider) load() error {
 
 	p.substituteEnv()
 
-	flogging.Init(flogging.Config{
+	logging.Init(logging.Config{
 		Format:  p.v.GetString("logging.format"),
 		Writer:  logOutput,
 		LogSpec: p.v.GetString("logging.spec"),

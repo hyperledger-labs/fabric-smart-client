@@ -7,11 +7,11 @@ SPDX-License-Identifier: Apache-2.0
 package routing
 
 import (
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 )
 
-var logger = flogging.MustGetLogger("view-sdk.services.comm.rest-p2p-routing")
+var logger = logging.MustGetLogger("view-sdk.services.comm.rest-p2p-routing")
 
 // ServiceDiscovery is the interface that resolves the IP addresses given the ID of a peer
 type ServiceDiscovery interface {

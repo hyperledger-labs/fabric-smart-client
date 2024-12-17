@@ -18,14 +18,14 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/monitoring/hle"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/monitoring/monitoring"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/monitoring/optl"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	. "github.com/onsi/gomega"
 	prom_api "github.com/prometheus/client_golang/api"
 	prom_v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/tedsuo/ifrit/grouper"
 )
 
-var logger = flogging.MustGetLogger("fsc.integration.monitoring")
+var logger = logging.MustGetLogger("fsc.integration.monitoring")
 
 const (
 	TopologyName = "monitoring"

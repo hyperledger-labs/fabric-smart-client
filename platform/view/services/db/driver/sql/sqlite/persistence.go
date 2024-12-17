@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 )
 
 const sqlitePragmas = `
@@ -28,7 +28,7 @@ const sqlitePragmas = `
 
 const driverName = "sqlite"
 
-var logger = flogging.MustGetLogger("view-sdk.db.sqlite")
+var logger = logging.MustGetLogger("view-sdk.db.sqlite")
 
 func openDB(dataSourceName string, maxOpenConns, maxIdleConns int, maxIdleTime time.Duration, skipPragmas bool) (*sql.DB, *sql.DB, error) {
 	logger.Infof("Opening read db [%v]", dataSourceName)

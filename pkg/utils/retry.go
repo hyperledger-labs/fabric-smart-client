@@ -11,7 +11,7 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 )
 
 // RetryRunner receives a function that potentially fails and retries according to the specified strategy
@@ -52,7 +52,7 @@ type retryRunner struct {
 	maxTimes     int
 	getNextDelay func() time.Duration
 
-	logger *flogging.FabricLogger
+	logger logging.Logger
 }
 
 func NewRetryRunner(maxTimes int, delay time.Duration, expBackoff bool) *retryRunner {
@@ -60,7 +60,7 @@ func NewRetryRunner(maxTimes int, delay time.Duration, expBackoff bool) *retryRu
 		delay:      delay,
 		expBackoff: expBackoff,
 		maxTimes:   maxTimes,
-		logger:     flogging.MustGetLogger("retry-runner"),
+		logger:     logging.MustGetLogger("retry-runner"),
 	}
 	rr.getNextDelay = rr.deterministicDelay
 	return rr
@@ -73,7 +73,7 @@ func NewProbabilisticRetryRunner(maxTimes int, interval int64, expBackoff bool) 
 		expBackoff: expBackoff,
 		maxTimes:   maxTimes,
 		interval:   interval,
-		logger:     flogging.MustGetLogger("retry-runner"),
+		logger:     logging.MustGetLogger("retry-runner"),
 	}
 	rr.getNextDelay = rr.probabilisticDelay
 	return rr

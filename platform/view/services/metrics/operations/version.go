@@ -10,7 +10,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/pkg/errors"
 )
 
@@ -39,7 +39,7 @@ func (m *VersionInfoHandler) sendResponse(resp http.ResponseWriter, code int, pa
 	}
 	js, err := json.Marshal(payload)
 	if err != nil {
-		logger := flogging.MustGetLogger("operations.runner")
+		logger := logging.MustGetLogger("operations.runner")
 		logger.Errorw("failed to encode payload", "error", err)
 		resp.WriteHeader(http.StatusInternalServerError)
 		return

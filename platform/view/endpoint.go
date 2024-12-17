@@ -10,12 +10,12 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
-var logger = flogging.MustGetLogger("view-sdk")
+var logger = logging.MustGetLogger("view-sdk")
 
 // PortName is the type variable for the socket ports
 type PortName string

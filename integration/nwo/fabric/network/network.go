@@ -18,13 +18,13 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/packager"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/packager/replacer"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
 	"github.com/tedsuo/ifrit/grouper"
 )
 
-var logger = flogging.MustGetLogger("fsc.integration.fabric")
+var logger = logging.MustGetLogger("fsc.integration.fabric")
 
 type ChaincodeProcessor interface {
 	Process(network *Network, cc *topology.ChannelChaincode) *topology.ChannelChaincode

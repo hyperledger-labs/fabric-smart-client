@@ -14,10 +14,10 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault/db"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault/txidstore"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/cache/secondcache"
 	db2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 	"github.com/stretchr/testify/assert"
 	"go.opentelemetry.io/otel/trace/noop"
@@ -33,7 +33,7 @@ func (p *testArtifactProvider) NewCachedVault(ddb VersionedPersistence) (*Vault[
 	if err != nil {
 		return nil, err
 	}
-	vaultLogger := flogging.MustGetLogger("vault-logger")
+	vaultLogger := logging.MustGetLogger("vault-logger")
 	return New[ValidationCode](
 		vaultLogger,
 		ddb,
@@ -53,7 +53,7 @@ func (p *testArtifactProvider) NewNonCachedVault(ddb VersionedPersistence) (*Vau
 		return nil, err
 	}
 	return New[ValidationCode](
-		flogging.MustGetLogger("vault"),
+		logging.MustGetLogger("vault"),
 		ddb,
 		txidstore.NewNoCache[ValidationCode](txidStore),
 		&VCProvider{},
@@ -181,14 +181,14 @@ func TestMemory(t *testing.T) {
 
 func TestBadger(t *testing.T) {
 	RemoveNils = func(items []VersionedRead) []VersionedRead { return items }
-	//for _, c := range SingleDBCases {
+	// for _, c := range SingleDBCases {
 	//	ddb, terminate, err := OpenBadgerVersioned(t.TempDir(), "DB-TestVaultBadgerDB1")
 	//	assert.NoError(t, err)
 	//	t.Run(c.Name, func(xt *testing.T) {
 	//		defer ddb.Close()
 	//		c.Fn(xt, ddb)
 	//	})
-	//}
+	// }
 	artifactProvider := &testArtifactProvider{}
 	for _, c := range DoubleDBCases {
 		db1, err := db.OpenBadgerVersioned(t.TempDir(), "DB-TestVaultBadgerDB1")

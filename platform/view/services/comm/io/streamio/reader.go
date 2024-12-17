@@ -10,10 +10,10 @@ import (
 	"crypto/md5"
 	"encoding/base64"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 )
 
-var logger = flogging.MustGetLogger("view-sdk.services.comm.io")
+var logger = logging.MustGetLogger("view-sdk.services.comm.io")
 
 // MsgReader wraps a message-based Read function
 type MsgReader interface {

@@ -15,9 +15,9 @@ import (
 	errors2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	committer2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/committer"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger-labs/orion-server/pkg/types"
 	"github.com/pkg/errors"
@@ -30,7 +30,7 @@ const (
 )
 
 var (
-	logger = flogging.MustGetLogger("orion-sdk.committer")
+	logger = logging.MustGetLogger("orion-sdk.committer")
 	// ErrDiscardTX this error can be used to signal that a valid transaction should be discarded anyway
 	ErrDiscardTX = errors.New("discard tx")
 	// ErrUnknownTX this erro can be used to signal that a transaction is unknown

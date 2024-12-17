@@ -14,10 +14,10 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 )
 
-var logger = flogging.MustGetLogger("chaincode.platform.metadata")
+var logger = logging.MustGetLogger("chaincode.platform.metadata")
 
 // fileValidators are used as handlers to validate specific metadata directories
 type fileValidator func(fileName string, fileBytes []byte) error
@@ -164,13 +164,13 @@ func isJSON(s []byte) (bool, map[string]interface{}) {
 
 func validateIndexJSON(indexDefinition map[string]interface{}) error {
 
-	//flag to track if the "index" key is included
+	// flag to track if the "index" key is included
 	indexIncluded := false
 
-	//iterate through the JSON index definition
+	// iterate through the JSON index definition
 	for jsonKey, jsonValue := range indexDefinition {
 
-		//create a case for the top level entries
+		// create a case for the top level entries
 		switch jsonKey {
 
 		case "index":
@@ -188,7 +188,7 @@ func validateIndexJSON(indexDefinition map[string]interface{}) error {
 
 		case "ddoc":
 
-			//Verify the design doc is a string
+			// Verify the design doc is a string
 			if reflect.TypeOf(jsonValue).Kind() != reflect.String {
 				return fmt.Errorf("invalid entry, \"ddoc\" must be a string")
 			}
@@ -197,7 +197,7 @@ func validateIndexJSON(indexDefinition map[string]interface{}) error {
 
 		case "name":
 
-			//Verify the name is a string
+			// Verify the name is a string
 			if reflect.TypeOf(jsonValue).Kind() != reflect.String {
 				return fmt.Errorf("invalid entry, \"name\" must be a string")
 			}
@@ -232,7 +232,7 @@ func validateIndexJSON(indexDefinition map[string]interface{}) error {
 // the next level of the json query
 func processIndexMap(jsonFragment map[string]interface{}) error {
 
-	//iterate the item in the map
+	// iterate the item in the map
 	for jsonKey, jsonValue := range jsonFragment {
 
 		switch jsonKey {
@@ -243,17 +243,17 @@ func processIndexMap(jsonFragment map[string]interface{}) error {
 
 			case []interface{}:
 
-				//iterate the index field objects
+				// iterate the index field objects
 				for _, itemValue := range jsonValueType {
 
 					switch reflect.TypeOf(itemValue).Kind() {
 
 					case reflect.String:
-						//String is a valid field descriptor  ex: "color", "size"
+						// String is a valid field descriptor  ex: "color", "size"
 						logger.Debugf("Found index field name: \"%s\"", itemValue)
 
 					case reflect.Map:
-						//Handle the case where a sort is included  ex: {"size":"asc"}, {"color":"desc"}
+						// Handle the case where a sort is included  ex: {"size":"asc"}, {"color":"desc"}
 						err := validateFieldMap(itemValue.(map[string]interface{}))
 						if err != nil {
 							return err
@@ -268,13 +268,13 @@ func processIndexMap(jsonFragment map[string]interface{}) error {
 
 		case "partial_filter_selector":
 
-			//TODO - add support for partial filter selector, for now return nil
-			//Take no other action, will be considered valid for now
+			// TODO - add support for partial filter selector, for now return nil
+			// Take no other action, will be considered valid for now
 
 		default:
 
-			//if anything other than "fields" or "partial_filter_selector" was found,
-			//return an error
+			// if anything other than "fields" or "partial_filter_selector" was found,
+			// return an error
 			return fmt.Errorf("invalid Entry.  Entry %s", jsonKey)
 
 		}
@@ -288,13 +288,13 @@ func processIndexMap(jsonFragment map[string]interface{}) error {
 // validateFieldMap validates the list of field objects
 func validateFieldMap(jsonFragment map[string]interface{}) error {
 
-	//iterate the fields to validate the sort criteria
+	// iterate the fields to validate the sort criteria
 	for jsonKey, jsonValue := range jsonFragment {
 
 		switch jsonValue := jsonValue.(type) {
 
 		case string:
-			//Ensure the sort is either "asc" or "desc"
+			// Ensure the sort is either "asc" or "desc"
 			jv := strings.ToLower(jsonValue)
 			if jv != "asc" && jv != "desc" {
 				return fmt.Errorf("sort must be either \"asc\" or \"desc\".  \"%s\" was found", jsonValue)

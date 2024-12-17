@@ -7,12 +7,12 @@ SPDX-License-Identifier: Apache-2.0
 package services
 
 import (
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 )
 
-var logger = flogging.MustGetLogger("fabric-sdk.core.generic.services")
+var logger = logging.MustGetLogger("fabric-sdk.core.generic.services")
 
 type clientFactory interface {
 	NewPeerClient(cc grpc.ConnectionConfig) (PeerClient, error)

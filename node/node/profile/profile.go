@@ -13,12 +13,11 @@ import (
 	"runtime"
 	"runtime/pprof"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/pkg/errors"
-
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 )
 
-var logger = flogging.MustGetLogger("fsc.node.start")
+var logger = logging.MustGetLogger("fsc.node.start")
 
 const DefaultMemProfileRate = 409
 

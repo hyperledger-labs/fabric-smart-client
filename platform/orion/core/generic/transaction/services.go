@@ -7,13 +7,13 @@ SPDX-License-Identifier: Apache-2.0
 package transaction
 
 import (
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	"github.com/pkg/errors"
 )
 
-var logger = flogging.MustGetLogger("orion-sdk.core")
+var logger = logging.MustGetLogger("orion-sdk.core")
 
 type mds struct {
 	kvss    *kvs.KVS

@@ -11,14 +11,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/jellydator/ttlcache/v2"
 )
 
-var logger = flogging.MustGetLogger("fabric-sdk.core.generic.chaincode")
+var logger = logging.MustGetLogger("fabric-sdk.core.generic.chaincode")
 
 type Services interface {
 	NewPeerClient(cc grpc.ConnectionConfig) (services.PeerClient, error)

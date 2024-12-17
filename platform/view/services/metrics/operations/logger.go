@@ -8,7 +8,7 @@ package operations
 
 import (
 	log2 "github.com/go-kit/log"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 )
 
 type OperationsLogger interface {
@@ -27,7 +27,7 @@ func (l *operationsLogger) Log(keyvals ...interface{}) error {
 
 func NewOperationsLogger(l Logger) *operationsLogger {
 	if l == nil {
-		l = flogging.MustGetLogger("operations.runner")
+		l = logging.MustGetLogger("operations.runner")
 	}
 	return &operationsLogger{Logger: l}
 }

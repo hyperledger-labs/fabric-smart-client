@@ -6,6 +6,6 @@ SPDX-License-Identifier: Apache-2.0
 
 package chaincode
 
-import "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+import "github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 
-var logger = flogging.MustGetLogger("fabric-sdk.services.chaincode")
+var logger = logging.MustGetLogger("fabric-sdk.services.chaincode")

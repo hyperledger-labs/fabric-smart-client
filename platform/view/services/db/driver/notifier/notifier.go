@@ -9,11 +9,11 @@ package notifier
 import (
 	"sync"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 )
 
-var logger = flogging.MustGetLogger("postgres-db")
+var logger = logging.MustGetLogger("postgres-db")
 
 type pendingOperation struct {
 	operation driver.Operation

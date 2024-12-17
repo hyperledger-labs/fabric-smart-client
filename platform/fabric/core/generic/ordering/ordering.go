@@ -11,9 +11,9 @@ import (
 	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	common2 "github.com/hyperledger/fabric-protos-go/common"
 	"github.com/pkg/errors"
@@ -29,7 +29,7 @@ const (
 	Solo ConsensusType = "solo"
 )
 
-var logger = flogging.MustGetLogger("fabric-sdk.ordering")
+var logger = logging.MustGetLogger("fabric-sdk.ordering")
 
 type Transaction interface {
 	Channel() string

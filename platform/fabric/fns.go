@@ -10,17 +10,17 @@ import (
 	"reflect"
 	"sync"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/pkg/errors"
 )
 
 var (
 	networkServiceProviderType = reflect.TypeOf((*NetworkServiceProvider)(nil))
-	logger                     = flogging.MustGetLogger("fabric-sdk")
+	logger                     = logging.MustGetLogger("fabric-sdk")
 )
 
 // NetworkService models a Fabric Network
