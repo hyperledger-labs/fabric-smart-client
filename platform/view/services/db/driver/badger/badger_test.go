@@ -142,33 +142,6 @@ const (
 	compositeKeyNamespace = "\x00"
 )
 
-func validateCompositeKeyAttribute(str string) error {
-	if !utf8.ValidString(str) {
-		return errors.Errorf("not a valid utf8 string: [%x]", str)
-	}
-	for index, runeValue := range str {
-		if runeValue == minUnicodeRuneValue || runeValue == maxUnicodeRuneValue {
-			return errors.Errorf(`input contain unicode %#U starting at position [%d]. %#U and %#U are not allowed in the input attribute of a composite key`,
-				runeValue, index, minUnicodeRuneValue, maxUnicodeRuneValue)
-		}
-	}
-	return nil
-}
-
-func createCompositeKey(objectType string, attributes []string) (string, error) {
-	if err := validateCompositeKeyAttribute(objectType); err != nil {
-		return "", err
-	}
-	ck := compositeKeyNamespace + objectType + fmt.Sprint(minUnicodeRuneValue)
-	for _, att := range attributes {
-		if err := validateCompositeKeyAttribute(att); err != nil {
-			return "", err
-		}
-		ck += att + fmt.Sprint(minUnicodeRuneValue)
-	}
-	return ck, nil
-}
-
 func TestAutoCleaner(t *testing.T) {
 	dbpath := filepath.Join(tempDir, "DB-autocleaner")
 

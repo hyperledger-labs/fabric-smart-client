@@ -22,12 +22,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-//go:generate counterfeiter -o mocks/config.go -fake-name Config . config
-
-type config interface {
-	db.Config
-}
-
 var tempDir string
 
 func TestRangeQueriesBadger(t *testing.T) {

@@ -22,9 +22,9 @@ var (
 )
 
 func ReadExisting(b *testing.B, db driver.TransactionalVersionedPersistence) {
-	db.BeginUpdate()
-	db.SetState(namespace, key, driver.VersionedValue{Raw: payload})
-	db.Commit()
+	assert.NoError(b, db.BeginUpdate())
+	assert.NoError(b, db.SetState(namespace, key, driver.VersionedValue{Raw: payload}))
+	assert.NoError(b, db.Commit())
 
 	var v []byte
 	b.ResetTimer()

@@ -18,6 +18,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	. "github.com/onsi/gomega"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/stats"
 )
 
@@ -86,14 +87,14 @@ func TestConnMetricsGRPCServer(t *testing.T) {
 	gt.Expect(openConn.AddCallCount()).To(Equal(0))
 	gt.Expect(closedConn.AddCallCount()).To(Equal(0))
 
-	//create GRPC client conn
+	// create GRPC client conn
 	var clientConns []*grpc.ClientConn
 	for i := 1; i <= 3; i++ {
-		clientConn, err := grpc.DialContext(ctx, listener.Addr().String(), grpc.WithInsecure())
+		clientConn, err := grpc.DialContext(ctx, listener.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 		gt.Expect(err).NotTo(HaveOccurred())
 		clientConns = append(clientConns, clientConn)
 
-		//invoke service
+		// invoke service
 		client := testpb.NewEmptyServiceClient(clientConn)
 		_, err = client.EmptyCall(context.Background(), &testpb.Empty{})
 		gt.Expect(err).NotTo(HaveOccurred())

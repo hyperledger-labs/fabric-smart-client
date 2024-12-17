@@ -29,9 +29,9 @@ var _ = Describe("Chain", func() {
 	BeforeEach(func() {
 		one = func(next http.Handler) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				w.Write([]byte("1:before,"))
+				Expect(w.Write([]byte("1:before,"))).To(Succeed())
 				next.ServeHTTP(w, r)
-				w.Write([]byte("1:after"))
+				Expect(w.Write([]byte("1:after"))).To(Succeed())
 			})
 		}
 		two = func(next http.Handler) http.Handler {

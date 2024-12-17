@@ -377,8 +377,8 @@ func TTestShardLikeCommit(t *testing.T, ddb VersionedPersistence, vp artifactsPr
 	}
 	rwsb.ReadSet.Add(ns, k1, versionBlockTxNumToBytes(35, 1))
 	rwsb.ReadSet.Add(ns, k2, versionBlockTxNumToBytes(37, 2))
-	rwsb.WriteSet.Add(ns, k1, []byte("k1FromTxidInvalid"))
-	rwsb.WriteSet.Add(ns, k2, []byte("k2FromTxidInvalid"))
+	assert.NoError(t, rwsb.WriteSet.Add(ns, k1, []byte("k1FromTxidInvalid")))
+	assert.NoError(t, rwsb.WriteSet.Add(ns, k2, []byte("k2FromTxidInvalid")))
 	marshaller := vp.NewMarshaller()
 	rwsBytes, err := marshaller.Marshal("pineapple", rwsb)
 	assert.NoError(t, err)
@@ -423,8 +423,8 @@ func TTestShardLikeCommit(t *testing.T, ddb VersionedPersistence, vp artifactsPr
 	}
 	rwsb.ReadSet.Add(ns, k1, versionBlockTxNumToBytes(35, 1))
 	rwsb.ReadSet.Add(ns, k2, versionBlockTxNumToBytes(37, 3))
-	rwsb.WriteSet.Add(ns, k1, []byte("k1FromTxidValid"))
-	rwsb.WriteSet.Add(ns, k2, []byte("k2FromTxidValid"))
+	assert.NoError(t, rwsb.WriteSet.Add(ns, k1, []byte("k1FromTxidValid")))
+	assert.NoError(t, rwsb.WriteSet.Add(ns, k2, []byte("k2FromTxidValid")))
 	rwsBytes, err = marshaller.Marshal("pineapple", rwsb)
 	assert.NoError(t, err)
 
@@ -561,7 +561,7 @@ func TTestMerge(t *testing.T, ddb VersionedPersistence, vp artifactsProvider) {
 	rwsb.ReadSet.Add(ns, k1, versionBlockTxNumToBytes(35, 1))
 	rwsb.ReadSet.Add(ns, ne2Key, nil)
 	rwsb.WriteSet.Add(ns, k1, []byte("newv1"))
-	rwsb.MetaWriteSet.Add(ns, k1, map[string][]byte{"k1": []byte("v1")})
+	assert.NoError(t, rwsb.MetaWriteSet.Add(ns, k1, map[string][]byte{"k1": []byte("v1")}))
 	m := vp.NewMarshaller()
 	rwsBytes, err := m.Marshal("pineapple", rwsb)
 	assert.NoError(t, err)
@@ -631,7 +631,7 @@ func TTestMerge(t *testing.T, ddb VersionedPersistence, vp artifactsProvider) {
 			MetaWrites: map[string]KeyedMetaWrites{},
 		},
 	}
-	rwsb.MetaWriteSet.Add(ns, k3, map[string][]byte{"k": []byte("v")})
+	assert.NoError(t, rwsb.MetaWriteSet.Add(ns, k3, map[string][]byte{"k": []byte("v")}))
 	rwsBytes, err = m.Marshal("pineapple", rwsb)
 	assert.NoError(t, err)
 
