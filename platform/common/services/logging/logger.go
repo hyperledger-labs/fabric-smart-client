@@ -36,7 +36,7 @@ type Logger interface {
 	Warnw(format string, args ...interface{})
 	Warningf(format string, args ...interface{})
 	Errorw(format string, args ...interface{})
-	With(args ...string) Logger
+	With(args ...interface{}) Logger
 	Zap() *zap.Logger
 }
 
@@ -77,6 +77,6 @@ func (l *logger) Named(name string) Logger {
 	return &logger{FabricLogger: l.FabricLogger.Named(name)}
 }
 
-func (l *logger) With(args ...string) Logger {
-	return &logger{FabricLogger: l.FabricLogger.With(args)}
+func (l *logger) With(args ...interface{}) Logger {
+	return &logger{FabricLogger: l.FabricLogger.With(args...)}
 }
