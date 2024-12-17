@@ -13,11 +13,11 @@ import (
 	"time"
 
 	kitstatsd "github.com/go-kit/kit/metrics/statsd"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/metadata"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/statsd"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/statsd/goruntime"
-	"github.com/hyperledger/fabric-lib-go/common/flogging/httpadmin"
 	"github.com/hyperledger/fabric-lib-go/healthz"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
@@ -165,7 +165,7 @@ func (s *System) initializeLoggingHandler(tlsEnabled bool) {
 	//        description: Bad request.
 	// consumes:
 	//   - multipart/form-data
-	s.Server.RegisterHandler("/logspec", httpadmin.NewSpecHandler(), tlsEnabled)
+	s.Server.RegisterHandler("/logspec", logging.NewSpecHandler(), tlsEnabled)
 }
 
 func (s *System) initializeHealthCheckHandler() {

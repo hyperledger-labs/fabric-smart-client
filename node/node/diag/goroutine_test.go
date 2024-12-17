@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/hyperledger-labs/fabric-smart-client/node/node/diag"
-	"github.com/hyperledger/fabric-lib-go/common/flogging/floggingtest"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
 )
@@ -26,7 +26,7 @@ func TestCaptureGoRoutines(t *testing.T) {
 
 func TestLogGoRoutines(t *testing.T) {
 	gt := NewGomegaWithT(t)
-	logger, recorder := floggingtest.NewTestLogger(t, floggingtest.Named("goroutine"))
+	logger, recorder := logging.NewTestLogger(t, logging.Named("goroutine"))
 	diag.LogGoRoutines(logger)
 
 	gt.Expect(recorder).To(gbytes.Say(`goroutine \d+ \[running\]:`))

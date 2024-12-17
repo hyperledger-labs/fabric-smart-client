@@ -7,10 +7,12 @@ SPDX-License-Identifier: Apache-2.0
 package logging
 
 import (
+	"net/http"
 	"testing"
 
 	"github.com/hyperledger/fabric-lib-go/common/flogging"
 	"github.com/hyperledger/fabric-lib-go/common/flogging/floggingtest"
+	"github.com/hyperledger/fabric-lib-go/common/flogging/httpadmin"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -42,6 +44,12 @@ type Recorder = floggingtest.Recorder
 
 type Option = floggingtest.Option
 
+func Named(loggerName string) Option {
+	return func(r *floggingtest.RecordingCore, l *zap.Logger) *zap.Logger {
+		return l.Named(loggerName)
+	}
+}
+
 func MustGetLogger(loggerName string) Logger {
 	return &logger{FabricLogger: flogging.MustGetLogger(loggerName)}
 }
@@ -49,6 +57,10 @@ func MustGetLogger(loggerName string) Logger {
 func NewTestLogger(tb testing.TB, options ...Option) (Logger, *Recorder) {
 	l, r := floggingtest.NewTestLogger(tb, options...)
 	return &logger{FabricLogger: l}, r
+}
+
+func NewSpecHandler() http.Handler {
+	return httpadmin.NewSpecHandler()
 }
 
 type Config = flogging.Config
