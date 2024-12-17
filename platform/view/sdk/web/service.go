@@ -12,11 +12,11 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	grpc2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpclogging"
+	glogging "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/operations"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/web"
@@ -32,7 +32,7 @@ type Server interface {
 	Stop() error
 }
 
-var logger = flogging.MustGetLogger("view-sdk")
+var logger = logging.MustGetLogger("view-sdk")
 
 func NewServer(configProvider driver.ConfigService, viewManager *view.Manager, tracerProvider trace.TracerProvider) Server {
 	if !configProvider.GetBool("fsc.web.enabled") {
@@ -118,12 +118,12 @@ func NewServerConfig(configProvider driver.ConfigService) (grpc2.ServerConfig, e
 		SecOpts: grpc2.SecureOptions{
 			UseTLS: configProvider.GetBool("fsc.grpc.tls.enabled"),
 		},
-		Logger: flogging.MustGetLogger("core.comm").With("server", "PeerServer"),
+		Logger: logging.MustGetLogger("core.comm").With("server", "PeerServer"),
 		UnaryInterceptors: []grpc.UnaryServerInterceptor{
-			grpclogging.UnaryServerInterceptor(flogging.MustGetLogger("comm.grpc.server").Zap()),
+			glogging.UnaryServerInterceptor(logging.MustGetLogger("comm.grpc.server").Zap()),
 		},
 		StreamInterceptors: []grpc.StreamServerInterceptor{
-			grpclogging.StreamServerInterceptor(flogging.MustGetLogger("comm.grpc.server").Zap()),
+			glogging.StreamServerInterceptor(logging.MustGetLogger("comm.grpc.server").Zap()),
 		},
 
 		ServerStatsHandler: otelgrpc.NewServerHandler(),

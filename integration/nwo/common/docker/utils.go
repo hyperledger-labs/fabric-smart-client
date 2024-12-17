@@ -19,11 +19,11 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
 	docker "github.com/fsouza/go-dockerclient"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/pkg/errors"
 )
 
-var logger = flogging.MustGetLogger("fsc.integration.fabric")
+var logger = logging.MustGetLogger("fsc.integration.fabric")
 
 // Docker is a helper to manage container related actions within nwo.
 type Docker struct {
@@ -225,7 +225,7 @@ func PortBindings(ports ...int) nat.PortMap {
 }
 
 func StartLogs(cli *client.Client, containerID string, loggerName string) error {
-	dockerLogger := flogging.MustGetLogger(loggerName)
+	dockerLogger := logging.MustGetLogger(loggerName)
 	reader, err := cli.ContainerLogs(context.Background(), containerID, container.LogsOptions{
 		ShowStdout: true,
 		ShowStderr: true,

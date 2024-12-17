@@ -10,13 +10,13 @@ import (
 	"fmt"
 
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/postgres"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/sqlite"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/unversioned"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 )
 
 const (
@@ -26,7 +26,7 @@ const (
 	SQLPersistence driver2.PersistenceType = "sql"
 )
 
-var logger = flogging.MustGetLogger("view-sdk.services.db.driver.sql")
+var logger = logging.MustGetLogger("view-sdk.services.db.driver.sql")
 
 func NewDriver() driver.NamedDriver {
 	return driver.NamedDriver{

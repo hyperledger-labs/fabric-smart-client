@@ -24,8 +24,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/docker"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/network"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/orion-server/config"
 	"github.com/hyperledger-labs/orion-server/pkg/server/testutils"
 	. "github.com/onsi/gomega"
@@ -39,7 +39,7 @@ const (
 	OrdererPortID = "orderer"
 )
 
-var logger = flogging.MustGetLogger("nwo.orion")
+var logger = logging.MustGetLogger("nwo.orion")
 
 type Identity struct {
 	Name string

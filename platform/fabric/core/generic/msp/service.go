@@ -9,11 +9,11 @@ package msp
 import (
 	"sync"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/idemix"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/x509"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/hyperledger/fabric/msp"
 	"github.com/pkg/errors"
@@ -26,7 +26,7 @@ const (
 	BccspMSPFolder  = "bccsp-folder"
 )
 
-var logger = flogging.MustGetLogger("fabric-sdk.msp")
+var logger = logging.MustGetLogger("fabric-sdk.msp")
 
 type KVS interface {
 	Exists(id string) bool

@@ -7,12 +7,12 @@ SPDX-License-Identifier: Apache-2.0
 package weaver
 
 import (
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	fabric2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/weaver/relay/fabric"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 )
 
-var logger = flogging.MustGetLogger("weaver.relay")
+var logger = logging.MustGetLogger("weaver.relay")
 
 // Relay gives access to the services offered by the Relay server
 type Relay struct {

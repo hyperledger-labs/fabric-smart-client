@@ -9,10 +9,10 @@ package middleware
 import (
 	"net/http"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 )
 
-var logger = flogging.MustGetLogger("middleware")
+var logger = logging.MustGetLogger("middleware")
 
 type Middleware func(http.Handler) http.Handler
 

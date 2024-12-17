@@ -15,12 +15,12 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	. "github.com/onsi/gomega"
 	"gopkg.in/yaml.v2"
 )
 
-var logger = flogging.MustGetLogger("integration.nwo.fabric.monitoring")
+var logger = logging.MustGetLogger("integration.nwo.fabric.monitoring")
 
 type Platform interface {
 	HyperledgerExplorer() bool

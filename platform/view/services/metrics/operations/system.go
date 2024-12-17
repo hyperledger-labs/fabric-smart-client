@@ -12,13 +12,12 @@ import (
 	"net/http"
 	"time"
 
+	kitstatsd "github.com/go-kit/kit/metrics/statsd"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/metadata"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/statsd"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/statsd/goruntime"
-
-	kitstatsd "github.com/go-kit/kit/metrics/statsd"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/metadata"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging/httpadmin"
+	"github.com/hyperledger/fabric-lib-go/common/flogging/httpadmin"
 	"github.com/hyperledger/fabric-lib-go/healthz"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )

@@ -11,7 +11,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
@@ -24,7 +24,7 @@ type (
 )
 
 var (
-	logger = flogging.MustGetLogger("nwo.network")
+	logger = logging.MustGetLogger("nwo.network")
 
 	path     string
 	topology string

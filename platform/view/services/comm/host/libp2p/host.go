@@ -18,8 +18,8 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	utils2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/libp2p/go-libp2p"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/libp2p/go-libp2p/core/crypto"
@@ -34,7 +34,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-var logger = flogging.MustGetLogger("view-sdk.services.comm.libp2p-host")
+var logger = logging.MustGetLogger("view-sdk.services.comm.libp2p-host")
 
 const (
 	viewProtocol     = "/fsc/view/1.0.0"

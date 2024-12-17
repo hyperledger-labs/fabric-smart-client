@@ -7,18 +7,18 @@ SPDX-License-Identifier: Apache-2.0
 package vault
 
 import (
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/vault/txidstore"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/cache/secondcache"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
 )
 
-var logger = flogging.MustGetLogger("fabric-sdk.core.vault")
+var logger = logging.MustGetLogger("fabric-sdk.core.vault")
 
 func New(configService driver.ConfigService, channel string, drivers []driver2.NamedDriver, metricsProvider metrics.Provider, tracerProvider trace.TracerProvider) (*Vault, driver.TXIDStore, error) {
 	var d driver2.Driver

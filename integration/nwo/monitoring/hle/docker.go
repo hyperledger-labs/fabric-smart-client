@@ -20,7 +20,7 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/docker"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	. "github.com/onsi/gomega"
 )
 
@@ -105,7 +105,7 @@ func (n *Extension) startExplorerDB() {
 
 	Expect(cli.ContainerStart(ctx, resp.ID, container.StartOptions{})).ToNot(HaveOccurred())
 
-	dockerLogger := flogging.MustGetLogger("monitoring.hle.db.container")
+	dockerLogger := logging.MustGetLogger("monitoring.hle.db.container")
 	go func() {
 		reader, err := cli.ContainerLogs(context.Background(), resp.ID, container.LogsOptions{
 			ShowStdout: true,
@@ -223,7 +223,7 @@ func (n *Extension) startExplorer() {
 	Expect(cli.ContainerStart(ctx, resp.ID, container.StartOptions{})).ToNot(HaveOccurred())
 	time.Sleep(3 * time.Second)
 
-	dockerLogger := flogging.MustGetLogger("monitoring.hle.container")
+	dockerLogger := logging.MustGetLogger("monitoring.hle.container")
 	go func() {
 		reader, err := cli.ContainerLogs(context.Background(), resp.ID, container.LogsOptions{
 			ShowStdout: true,

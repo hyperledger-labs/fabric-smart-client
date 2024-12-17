@@ -15,7 +15,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/node/node/profile"
 	node3 "github.com/hyperledger-labs/fabric-smart-client/pkg/node"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
@@ -33,7 +33,7 @@ type Node interface {
 }
 
 var (
-	logger = flogging.MustGetLogger("fsc.node.start")
+	logger = logging.MustGetLogger("fsc.node.start")
 	node   Node
 )
 

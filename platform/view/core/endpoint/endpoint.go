@@ -13,8 +13,8 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
@@ -22,7 +22,7 @@ import (
 	"golang.org/x/exp/slices"
 )
 
-var logger = flogging.MustGetLogger("view-sdk.endpoint")
+var logger = logging.MustGetLogger("view-sdk.endpoint")
 
 type Resolver struct {
 	Name           string

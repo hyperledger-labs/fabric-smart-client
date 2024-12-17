@@ -17,7 +17,7 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/docker"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	. "github.com/onsi/gomega"
 )
 
@@ -89,7 +89,7 @@ func (p *Platform) RunRelayServer(name string, serverConfigPath, port string) {
 	err = cli.ContainerStart(ctx, resp.ID, container.StartOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
-	dockerLogger := flogging.MustGetLogger("weaver.container." + hostname)
+	dockerLogger := logging.MustGetLogger("weaver.container." + hostname)
 	go func() {
 		reader, err := cli.ContainerLogs(context.Background(), resp.ID, container.LogsOptions{
 			ShowStdout: true,
@@ -141,11 +141,11 @@ func (p *Platform) RunRelayFabricDriver(
 			"CONNECTION_PROFILE=/ccp.json",
 			"INTEROP_CHAINCODE=" + interopChaincode,
 			"local=false",
-			//"GRPC_TRACE=all",
-			//"GRPC_VERBOSITY=DEBUG",
-			//"GRPC_NODE_VERBOSITY=DEBUG",
-			//"GRPC_NODE_TRACE=connectivity_state,server,server_call,subchannel",
-			//"NODE_OPTIONS=--tls-max-v1.2",
+			// "GRPC_TRACE=all",
+			// "GRPC_VERBOSITY=DEBUG",
+			// "GRPC_NODE_VERBOSITY=DEBUG",
+			// "GRPC_NODE_TRACE=connectivity_state,server,server_call,subchannel",
+			// "NODE_OPTIONS=--tls-max-v1.2",
 			// "HFC_LOGGING={\"debug\":\"console\",\"info\":\"console\"}",
 		},
 		Cmd: []string{
@@ -200,7 +200,7 @@ func (p *Platform) RunRelayFabricDriver(
 	err = cli.ContainerStart(ctx, resp.ID, container.StartOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
-	dockerLogger := flogging.MustGetLogger("weaver.fabric.driver.container." + hostname)
+	dockerLogger := logging.MustGetLogger("weaver.fabric.driver.container." + hostname)
 	go func() {
 		reader, err := cli.ContainerLogs(context.Background(), resp.ID, container.LogsOptions{
 			ShowStdout: true,

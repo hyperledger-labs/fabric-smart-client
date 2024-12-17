@@ -10,7 +10,7 @@ import (
 	"crypto/sha256"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	cb "github.com/hyperledger/fabric-protos-go/common"
 	pb "github.com/hyperledger/fabric-protos-go/peer"
 	"github.com/hyperledger/fabric/core/common/ccprovider"
@@ -219,7 +219,7 @@ func (up *UnpackedProposal) Validate(idDeserializer msp.IdentityDeserializer) er
 	return nil
 }
 
-func decorateLogger(logger *flogging.FabricLogger, txParams *ccprovider.TransactionParams) *flogging.FabricLogger {
+func decorateLogger(logger logging.Logger, txParams *ccprovider.TransactionParams) logging.Logger {
 	return logger.With("channel", txParams.ChannelID, "txID", shorttxid(txParams.TxID))
 }
 

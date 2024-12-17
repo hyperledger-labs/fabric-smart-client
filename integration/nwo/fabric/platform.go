@@ -21,7 +21,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/network"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology/fabric"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
 	"github.com/onsi/gomega/gexec"
@@ -30,7 +30,7 @@ import (
 
 const CCEnvDefaultImage = "hyperledger/fabric-ccenv:latest"
 
-var logger = flogging.MustGetLogger("nwo.fabric")
+var logger = logging.MustGetLogger("nwo.fabric")
 
 type Orderer struct {
 	Name             string

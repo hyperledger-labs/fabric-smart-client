@@ -13,13 +13,13 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/node/version"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/api"
 	node3 "github.com/hyperledger-labs/fabric-smart-client/pkg/node"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	sdk "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/dig"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/spf13/cobra"
 )
 
-var logger = flogging.MustGetLogger("fsc")
+var logger = logging.MustGetLogger("fsc")
 
 type ExecuteCallbackFunc = func() error
 

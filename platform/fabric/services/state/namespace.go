@@ -14,14 +14,14 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/endorser"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
 )
 
-var logger = flogging.MustGetLogger("fabric-sdk.state")
+var logger = logging.MustGetLogger("fabric-sdk.state")
 
 type EndorseTransaction interface {
 }

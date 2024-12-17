@@ -15,10 +15,10 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/common"
 	keys2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/keys"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 )
 
 const (
@@ -26,7 +26,7 @@ const (
 	FilePersistence   driver2.PersistenceType = "file"
 )
 
-var logger = flogging.MustGetLogger("db.driver.badger")
+var logger = logging.MustGetLogger("db.driver.badger")
 
 type Txn struct {
 	*badger.Txn

@@ -8,13 +8,13 @@ package context
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/view"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
-var logger = flogging.MustGetLogger("fsc.integration")
+var logger = logging.MustGetLogger("fsc.integration")
 
 type Builder interface {
 	Build(path string) string

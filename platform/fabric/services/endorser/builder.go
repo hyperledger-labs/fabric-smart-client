@@ -9,15 +9,15 @@ package endorser
 import (
 	"github.com/pkg/errors"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/session"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
-var logger = flogging.MustGetLogger("fabric-sdk.services.endorser")
+var logger = logging.MustGetLogger("fabric-sdk.services.endorser")
 
 type Builder struct {
 	sp view2.ServiceProvider

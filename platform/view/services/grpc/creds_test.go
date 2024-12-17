@@ -17,9 +17,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging/floggingtest"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
-
 	"github.com/stretchr/testify/assert"
 )
 
@@ -49,7 +48,7 @@ func TestCreds(t *testing.T) {
 
 	config := grpc.NewTLSConfig(tlsConfig)
 
-	logger, recorder := floggingtest.NewTestLogger(t)
+	logger, recorder := logging.NewTestLogger(t)
 
 	creds := grpc.NewServerTransportCredentials(config, logger)
 	_, _, err = creds.ClientHandshake(context.Background(), "", nil)

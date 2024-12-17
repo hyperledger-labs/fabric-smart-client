@@ -15,12 +15,12 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	. "github.com/onsi/gomega"
 	"github.com/prometheus/common/model"
 )
 
-var logger = flogging.MustGetLogger("iou-test")
+var logger = logging.MustGetLogger("iou-test")
 
 func CreateIOU(ii *integration.Infrastructure, identityLabel string, amount uint, approver string) string {
 	return CreateIOUWithBorrower(ii, "borrower", identityLabel, amount, approver)

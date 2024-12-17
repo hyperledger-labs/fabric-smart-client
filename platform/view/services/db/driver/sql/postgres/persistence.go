@@ -11,11 +11,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
-var logger = flogging.MustGetLogger("view-sdk.db.postgres")
+var logger = logging.MustGetLogger("view-sdk.db.postgres")
 
 const driverName = "pgx"
 

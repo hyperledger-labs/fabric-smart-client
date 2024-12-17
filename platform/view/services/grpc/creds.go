@@ -14,9 +14,8 @@ import (
 	"net"
 	"sync"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"google.golang.org/grpc/credentials"
-
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 )
 
 var (
@@ -32,7 +31,7 @@ var (
 // grpc/credentials.TransportCredentials
 func NewServerTransportCredentials(
 	serverConfig *TLSConfig,
-	logger *flogging.FabricLogger) credentials.TransportCredentials {
+	logger logging.Logger) credentials.TransportCredentials {
 	// NOTE: unlike the default grpc/credentials implementation, we do not
 	// clone the tls.Config which allows us to update it dynamically
 	serverConfig.config.NextProtos = alpnProtoStr
@@ -41,13 +40,14 @@ func NewServerTransportCredentials(
 	serverConfig.config.MaxVersion = tls.VersionTLS12
 	return &serverCreds{
 		serverConfig: serverConfig,
-		logger:       logger}
+		logger:       logger,
+	}
 }
 
 // serverCreds is an implementation of grpc/credentials.TransportCredentials.
 type serverCreds struct {
 	serverConfig *TLSConfig
-	logger       *flogging.FabricLogger
+	logger       logging.Logger
 }
 
 type TLSConfig struct {

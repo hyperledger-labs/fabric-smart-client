@@ -12,15 +12,15 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	routing2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/rest/routing"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
 )
 
-var logger = flogging.MustGetLogger("view-sdk.services.comm.rest-p2p-host")
+var logger = logging.MustGetLogger("view-sdk.services.comm.rest-p2p-host")
 
 type host struct {
 	routing routing2.ServiceDiscovery
@@ -64,13 +64,13 @@ func (h *host) Start(newStreamCallback func(stream host2.P2PStream)) error {
 func (h *host) NewStream(ctx context.Context, info host2.StreamInfo) (host2.P2PStream, error) {
 	newCtx, span := h.tracer.Start(ctx, "stream_send", trace.WithSpanKind(trace.SpanKindClient))
 	defer span.End()
-	//if len(address) == 0 { //TODO
+	// if len(address) == 0 { //TODO
 	logger.Debugf("No address passed for peer [%s]. Resolving...", info.RemotePeerID)
 	if info.RemotePeerAddress = h.routing.Lookup(info.RemotePeerID); len(info.RemotePeerAddress) == 0 {
 		return nil, errors.Errorf("no address found for peer [%s]", info.RemotePeerID)
 	}
 	logger.Debugf("Resolved address of peer [%s]: %s", info.RemotePeerID, info.RemotePeerAddress)
-	//}
+	// }
 	return h.client.OpenStream(info, newCtx)
 }
 

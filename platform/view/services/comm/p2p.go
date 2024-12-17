@@ -18,8 +18,8 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	proto2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -35,7 +35,7 @@ const (
 
 var errStreamNotFound = errors.New("stream not found")
 
-var logger = flogging.MustGetLogger("view-sdk.services.comm")
+var logger = logging.MustGetLogger("view-sdk.services.comm")
 
 type messageWithStream struct {
 	message *view.Message

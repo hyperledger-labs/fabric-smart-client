@@ -10,7 +10,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/packager/external"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/packager/golang"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/packager/replacer"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/pkg/errors"
 )
 
@@ -39,7 +39,7 @@ type Registry struct {
 	Platforms map[string]Platform
 }
 
-var logger = flogging.MustGetLogger("chaincode.platform")
+var logger = logging.MustGetLogger("chaincode.platform")
 
 func NewRegistry(platformTypes ...Platform) *Registry {
 	platforms := make(map[string]Platform)

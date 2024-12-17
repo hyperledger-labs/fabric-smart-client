@@ -19,7 +19,7 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/docker"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	. "github.com/onsi/gomega"
 )
 
@@ -108,7 +108,7 @@ func (p *Platform) StartOrionServer() {
 		panic(err)
 	}
 
-	dockerLogger := flogging.MustGetLogger("orion.container." + containerName)
+	dockerLogger := logging.MustGetLogger("orion.container." + containerName)
 	go func() {
 		reader, err := cli.ContainerLogs(context.Background(), resp.ID, container.LogsOptions{
 			ShowStdout: true,

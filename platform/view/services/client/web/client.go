@@ -17,7 +17,7 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view/protos"
 	"github.com/pkg/errors"
 	dto "github.com/prometheus/client_model/go"
@@ -25,7 +25,7 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
-var logger = flogging.MustGetLogger("view-sdk.web.client")
+var logger = logging.MustGetLogger("view-sdk.web.client")
 
 // Config models the configuration for the web client
 type Config struct {

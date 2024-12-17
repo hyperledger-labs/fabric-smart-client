@@ -9,11 +9,10 @@ package diag_test
 import (
 	"testing"
 
+	"github.com/hyperledger-labs/fabric-smart-client/node/node/diag"
+	"github.com/hyperledger/fabric-lib-go/common/flogging/floggingtest"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
-
-	"github.com/hyperledger-labs/fabric-smart-client/node/node/diag"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging/floggingtest"
 )
 
 func TestCaptureGoRoutines(t *testing.T) {

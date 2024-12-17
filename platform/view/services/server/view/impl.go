@@ -12,7 +12,7 @@ import (
 	"runtime/debug"
 	"strconv"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	protos2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view/protos"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/pkg/errors"
@@ -21,7 +21,7 @@ import (
 
 const successLabel tracing.LabelName = "success"
 
-var logger = flogging.MustGetLogger("view-sdk.server")
+var logger = logging.MustGetLogger("view-sdk.server")
 
 //go:generate counterfeiter -o mock/marshaler.go -fake-name Marshaler . Marshaler
 

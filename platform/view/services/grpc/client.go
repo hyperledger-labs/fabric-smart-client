@@ -14,7 +14,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.uber.org/zap/zapcore"
@@ -23,7 +23,7 @@ import (
 	"google.golang.org/grpc/keepalive"
 )
 
-var commLogger = flogging.MustGetLogger("view-sdk.comm")
+var commLogger = logging.MustGetLogger("view-sdk.comm")
 
 type TLSOption func(tlsConfig *tls.Config)
 

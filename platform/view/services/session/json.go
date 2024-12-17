@@ -11,7 +11,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
@@ -20,7 +20,7 @@ import (
 
 const defaultReceiveTimeout = 10 * time.Second
 
-var logger = flogging.MustGetLogger("view-sdk.session.json")
+var logger = logging.MustGetLogger("view-sdk.session.json")
 
 type Session interface {
 	view.Session

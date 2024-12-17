@@ -13,8 +13,8 @@ import (
 	"os"
 	"strings"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/flogging"
 	"github.com/hyperledger/fabric/bccsp"
 	"github.com/hyperledger/fabric/bccsp/pkcs11"
 	"github.com/hyperledger/fabric/bccsp/sw"
@@ -31,7 +31,7 @@ const (
 	Provider = "PKCS11"
 )
 
-var logger = flogging.MustGetLogger("nwo.common.pkcs11")
+var logger = logging.MustGetLogger("nwo.common.pkcs11")
 
 // GeneratePrivateKey creates a private key in the HSM and returns its corresponding public key
 func GeneratePrivateKey() (*ecdsa.PublicKey, error) {
