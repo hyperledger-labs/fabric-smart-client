@@ -211,7 +211,7 @@ func testTXIDStore(t *testing.T, store *SimpleTXIDStore[vc]) {
 			}
 		}()
 
-		store.Set("txid1", valid, "")
+		assert.NoError(t, store.Set("txid1", valid, ""))
 	}()
 	assert.EqualError(t, err, "programming error, writing without ongoing update")
 

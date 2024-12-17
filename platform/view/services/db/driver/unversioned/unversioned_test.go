@@ -13,6 +13,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger"
 	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/unversioned/mocks"
@@ -30,9 +31,9 @@ func TestRangeQueriesBadger(t *testing.T) {
 	c.IsSetReturns(false)
 	dbpath := filepath.Join(tempDir, "DB-TestRangeQueries")
 	db, err := db.OpenTransactional(&badger.Driver{}, dbpath, c)
-	defer db.Close()
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
+	defer utils.CloseMute(db)
 
 	testRangeQueries(t, db)
 }
@@ -42,7 +43,7 @@ func TestRangeQueriesMemory(t *testing.T) {
 	c.UnmarshalKeyReturns(nil)
 	db, err := db.OpenTransactional(&mem.Driver{}, "", c)
 	assert.NoError(t, err)
-	defer db.Close()
+	defer utils.CloseMute(db)
 	assert.NotNil(t, db)
 
 	testRangeQueries(t, db)
@@ -87,8 +88,8 @@ func testRangeQueries(t *testing.T, db driver.TransactionalUnversionedPersistenc
 	wg.Wait()
 
 	itr, err := db.GetStateRangeScanIterator(ns, "", "")
-	defer itr.Close()
 	assert.NoError(t, err)
+	defer itr.Close()
 
 	res := make([]driver.UnversionedRead, 0, 4)
 	for n, err := itr.Next(); n != nil; n, err = itr.Next() {
@@ -104,8 +105,8 @@ func testRangeQueries(t *testing.T, db driver.TransactionalUnversionedPersistenc
 	}, res)
 
 	itr, err = db.GetStateRangeScanIterator(ns, "k1", "k3")
-	defer itr.Close()
 	assert.NoError(t, err)
+	defer itr.Close()
 
 	res = make([]driver.UnversionedRead, 0, 3)
 	for n, err := itr.Next(); n != nil; n, err = itr.Next() {
@@ -134,9 +135,9 @@ func TestSimpleReadWriteBadger(t *testing.T) {
 	c.UnmarshalKeyReturns(nil)
 	dbpath := filepath.Join(tempDir, "DB-TestRangeQueries")
 	db, err := db.Open(&badger.Driver{}, dbpath, c)
-	defer db.Close()
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
+	defer utils.CloseMute(db)
 
 	testSimpleReadWrite(t, db)
 }
@@ -146,7 +147,7 @@ func TestSimpleReadWriteMemory(t *testing.T) {
 	c.UnmarshalKeyReturns(nil)
 	db, err := db.Open(&mem.Driver{}, string(mem.MemoryPersistence), c)
 	assert.NoError(t, err)
-	defer db.Close()
+	defer utils.CloseMute(db)
 	assert.NotNil(t, db)
 
 	testSimpleReadWrite(t, db)

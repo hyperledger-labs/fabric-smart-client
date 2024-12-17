@@ -85,7 +85,7 @@ var _ = Describe("Provider", func() {
 					counter.Add(float64(i))
 
 					buf := &bytes.Buffer{}
-					s.WriteTo(buf)
+					Expect(s.WriteTo(buf)).To(Succeed())
 					Expect(buf.String()).To(Equal(fmt.Sprintf("namespace.subsystem.name:%f|c\n", float64(i))))
 				}
 			})

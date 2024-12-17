@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
@@ -131,13 +132,13 @@ func (r *Runner) Run(sigChan <-chan os.Signal, ready chan<- struct{}) error {
 			startCheckTimeout = nil
 			detectStartCheck = nil
 			// close our buffer that is used to detect ready state
-			allOutput.Close()
-			allOutput.Clear()
+			utils.IgnoreError(allOutput.Close())
+			utils.IgnoreError(allOutput.Clear())
 			close(ready)
 
 		case <-startCheckTimeout:
 			// clean up hanging process
-			r.Command.Process.Signal(syscall.SIGKILL)
+			Expect(r.Command.Process.Signal(syscall.SIGKILL)).ToNot(HaveOccurred())
 			EventuallyWithOffset(1, r).Should(gexec.Exit())
 
 			// fail to start
@@ -149,7 +150,9 @@ func (r *Runner) Run(sigChan <-chan os.Signal, ready chan<- struct{}) error {
 			)
 
 		case signal := <-sigChan:
-			r.Command.Process.Signal(signal)
+			if err := r.Command.Process.Signal(signal); err != nil {
+				logger.Errorf("failed to send signal to process: %s", err)
+			}
 
 		case <-exited:
 			if r.Cleanup != nil {

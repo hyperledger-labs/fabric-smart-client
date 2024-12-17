@@ -165,7 +165,7 @@ func startPostgresWithLogger(c ContainerConfig, t Logger, printLogs bool) (func(
 	}
 	closeFunc := func() {
 		t.Log("removing postgres container")
-		cli.ContainerRemove(ctx, resp.ID, container.RemoveOptions{Force: true})
+		utils.IgnoreError(cli.ContainerRemove(ctx, resp.ID, container.RemoveOptions{Force: true}))
 	}
 	if err := cli.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
 		closeFunc()
@@ -184,7 +184,7 @@ func startPostgresWithLogger(c ContainerConfig, t Logger, printLogs bool) (func(
 			if err != nil {
 				t.Errorf("can't show logs: %s", err)
 			}
-			defer reader.Close()
+			defer utils.CloseMute(reader)
 
 			scanner := bufio.NewScanner(reader)
 			for scanner.Scan() {

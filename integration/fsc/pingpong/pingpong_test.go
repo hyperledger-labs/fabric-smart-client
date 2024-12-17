@@ -57,7 +57,7 @@ var _ = Describe("EndToEnd", func() {
 			// Register views and view factories
 			err = initiator.RegisterFactory("init", &pingpong.InitiatorViewFactory{})
 			Expect(err).NotTo(HaveOccurred())
-			responder.RegisterResponder(&pingpong.Responder{}, &pingpong.Initiator{})
+			Expect(responder.RegisterResponder(&pingpong.Responder{}, &pingpong.Initiator{})).NotTo(HaveOccurred())
 
 			time.Sleep(3 * time.Second)
 
@@ -126,7 +126,7 @@ var _ = Describe("EndToEnd", func() {
 			// Register views and view factories
 			err = initiator.RegisterFactory("init", &pingpong.InitiatorViewFactory{})
 			Expect(err).NotTo(HaveOccurred())
-			responder.RegisterResponder(&pingpong.Responder{}, &pingpong.Initiator{})
+			Expect(responder.RegisterResponder(&pingpong.Responder{}, &pingpong.Initiator{})).NotTo(HaveOccurred())
 
 			time.Sleep(3 * time.Second)
 			// Initiate a view and check the output
