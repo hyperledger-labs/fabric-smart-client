@@ -45,9 +45,11 @@ func TestTLSCA(t *testing.T) {
 	srv := createTLSService(t, ca, "127.0.0.1")
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	assert.NoError(t, err)
-	go utils.IgnoreError(srv.Serve(listener))
+	go utils.IgnoreErrorFunc(func() error {
+		return srv.Serve(listener)
+	})
 	defer srv.Stop()
-	defer utils.IgnoreError(listener.Close())
+	defer utils.IgnoreErrorFunc(listener.Close)
 
 	probeTLS := func(kp *CertKeyPair) error {
 		cert, err := tls.X509KeyPair(kp.Cert, kp.Key)

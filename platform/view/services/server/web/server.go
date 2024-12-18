@@ -129,7 +129,9 @@ func (s *Server) Start() error {
 	}
 	s.addr = listener.Addr().String()
 
-	go utils.IgnoreError(s.httpServer.Serve(listener))
+	go utils.IgnoreErrorFunc(func() error {
+		return s.httpServer.Serve(listener)
+	})
 
 	return nil
 }

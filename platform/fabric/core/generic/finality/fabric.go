@@ -117,7 +117,9 @@ func (d *FabricFinality) IsFinal(txID string, address string) error {
 		return err
 	}
 	eventCh = make(chan delivery.TxEvent, 1)
-	go utils.IgnoreError(delivery.DeliverReceive(deliverStream, address, txID, eventCh))
+	go utils.IgnoreErrorFunc(func() error {
+		return delivery.DeliverReceive(deliverStream, address, txID, eventCh)
+	})
 	committed, _, _, err := delivery.DeliverWaitForResponse(ctx, eventCh, txID)
 	if err != nil {
 		return err

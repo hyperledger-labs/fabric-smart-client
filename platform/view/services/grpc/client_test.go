@@ -343,7 +343,9 @@ func TestNewConnection(t *testing.T) {
 			}
 			srv := grpc.NewServer(serverOpts...)
 			defer srv.Stop()
-			go utils.IgnoreError(srv.Serve(lis))
+			go utils.IgnoreErrorFunc(func() error {
+				return srv.Serve(lis)
+			})
 			client, err := grpc3.NewGRPCClient(test.config)
 			if err != nil {
 				t.Fatalf("error creating client for test: %v", err)
@@ -393,7 +395,9 @@ func TestSetServerRootCAs(t *testing.T) {
 		Certificates: []tls.Certificate{testCerts.serverCert},
 	})))
 	defer srv.Stop()
-	go utils.IgnoreError(srv.Serve(lis))
+	go utils.IgnoreErrorFunc(func() error {
+		return srv.Serve(lis)
+	})
 
 	// initial config should work
 	t.Log("running initial good config")
@@ -444,7 +448,7 @@ func TestSetMessageSize(t *testing.T) {
 	}
 	testpb.RegisterEchoServiceServer(srv.Server(), &echoServer{})
 	defer srv.Stop()
-	go utils.IgnoreError(srv.Start())
+	go utils.IgnoreErrorFunc(srv.Start)
 
 	var tests = []struct {
 		name        string
@@ -627,7 +631,7 @@ func TestDynamicClientTLSLoading(t *testing.T) {
 
 	go func() {
 		defer wg.Done()
-		utils.IgnoreError(server.Start())
+		_ = server.Start()
 	}()
 
 	var dynamicRootCerts atomic.Value

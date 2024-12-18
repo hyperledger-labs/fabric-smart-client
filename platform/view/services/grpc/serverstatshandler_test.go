@@ -78,7 +78,7 @@ func TestConnMetricsGRPCServer(t *testing.T) {
 	testpb.RegisterEmptyServiceServer(srv.Server(), &emptyServiceServer{})
 
 	// start the server
-	go utils.IgnoreError(srv.Start())
+	go utils.IgnoreErrorFunc(srv.Start)
 	defer srv.Stop()
 
 	// test grpc connection counts

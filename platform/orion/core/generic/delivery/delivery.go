@@ -77,7 +77,9 @@ func New(network Network, callback Callback, vault Vault, waitForEventTimeout ti
 
 // StartDelivery runs the delivery service in a goroutine
 func (d *delivery) StartDelivery(ctx context.Context) error {
-	go utils.IgnoreError(d.Run(ctx))
+	go utils.IgnoreErrorFunc(func() error {
+		return d.Run(ctx)
+	})
 	return nil
 }
 

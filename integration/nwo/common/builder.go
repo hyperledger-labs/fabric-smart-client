@@ -65,7 +65,9 @@ func (s *BuildServer) Serve() {
 	Expect(err).NotTo(HaveOccurred())
 
 	s.lis = lis
-	go utils.IgnoreError(s.server.Serve(lis))
+	go utils.IgnoreErrorFunc(func() error {
+		return s.server.Serve(lis)
+	})
 }
 
 func (s *BuildServer) Shutdown(deleteOnStop bool) {
