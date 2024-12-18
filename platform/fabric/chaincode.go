@@ -150,9 +150,12 @@ func (i *ChaincodeInvocation) WithContext(context context.Context) *ChaincodeInv
 	return i
 }
 
-func (i *ChaincodeInvocation) WithTransientEntry(k string, v interface{}) *ChaincodeInvocation {
-	i.ChaincodeInvocation.WithTransientEntry(k, v)
-	return i
+func (i *ChaincodeInvocation) WithTransientEntry(k string, v interface{}) (*ChaincodeInvocation, error) {
+	_, err := i.ChaincodeInvocation.WithTransientEntry(k, v)
+	if err != nil {
+		return nil, err
+	}
+	return i, nil
 }
 
 func (i *ChaincodeInvocation) WithEndorsersByMSPIDs(mspIDs ...string) *ChaincodeInvocation {
@@ -195,9 +198,12 @@ func (i *ChaincodeQuery) WithContext(context context.Context) *ChaincodeQuery {
 	return i
 }
 
-func (i *ChaincodeQuery) WithTransientEntry(k string, v interface{}) *ChaincodeQuery {
-	i.ChaincodeInvocation.WithTransientEntry(k, v)
-	return i
+func (i *ChaincodeQuery) WithTransientEntry(k string, v interface{}) (*ChaincodeQuery, error) {
+	_, err := i.ChaincodeInvocation.WithTransientEntry(k, v)
+	if err != nil {
+		return nil, err
+	}
+	return i, nil
 }
 
 // WithDiscoveredEndorsersByEndpoints sets the endpoints to be used to filter the result of
@@ -266,9 +272,22 @@ func (i *ChaincodeEndorse) WithContext(context context.Context) *ChaincodeEndors
 	return i
 }
 
-func (i *ChaincodeEndorse) WithTransientEntry(k string, v interface{}) *ChaincodeEndorse {
-	i.ChaincodeInvocation.WithTransientEntry(k, v)
-	return i
+func (i *ChaincodeEndorse) WithTransientEntry(k string, v interface{}) (*ChaincodeEndorse, error) {
+	_, err := i.ChaincodeInvocation.WithTransientEntry(k, v)
+	if err != nil {
+		return nil, err
+	}
+	return i, nil
+}
+
+func (i *ChaincodeEndorse) WithTransientEntries(entries map[string]interface{}) (*ChaincodeEndorse, error) {
+	for k, v := range entries {
+		_, err := i.ChaincodeInvocation.WithTransientEntry(k, v)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return i, nil
 }
 
 func (i *ChaincodeEndorse) WithEndorsersByMSPIDs(mspIDs ...string) *ChaincodeEndorse {

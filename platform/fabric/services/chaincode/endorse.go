@@ -63,7 +63,9 @@ func (i *endorseChaincodeView) Endorse(context view.Context) (*fabric.Envelope, 
 		i.TxID,
 	)
 	for k, v := range i.TransientMap {
-		invocation.WithTransientEntry(k, v)
+		if err := invocation.WithTransientEntry(k, v); err != nil {
+			return nil, err
+		}
 	}
 	if len(i.EndorsersMSPIDs) != 0 {
 		invocation.WithEndorsersByMSPIDs(i.EndorsersMSPIDs...)

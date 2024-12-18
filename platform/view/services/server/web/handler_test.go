@@ -65,6 +65,6 @@ func TestHttpHandler(t *testing.T) {
 
 	expectedPineappleResponse := FruitBasket{Fruits: []string{"pineapple", "pineapple", "pineapple"}}
 	var actualResponse FruitBasket
-	json.Unmarshal(resp.Body.Bytes(), &actualResponse)
+	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &actualResponse))
 	require.Equal(t, expectedPineappleResponse, actualResponse)
 }

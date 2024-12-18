@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
@@ -116,7 +117,7 @@ func New(
 
 // Start runs the delivery service in a goroutine
 func (d *Delivery) Start(ctx context.Context) {
-	go d.Run(ctx)
+	go utils.IgnoreError(d.Run(ctx))
 }
 
 func (d *Delivery) Stop() {

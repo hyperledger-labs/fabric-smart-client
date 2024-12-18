@@ -58,7 +58,9 @@ func NewSimpleTXIDStore[V driver.ValidationCode](persistence UnversionedPersiste
 
 		err = setCtr(persistence, 0)
 		if err != nil {
-			persistence.Discard()
+			if err := persistence.Discard(); err != nil {
+				logger.Errorf("error discarding update to store counter [%s]", err)
+			}
 			return nil, err
 		}
 

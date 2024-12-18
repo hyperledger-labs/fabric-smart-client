@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic/ledger"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	"github.com/hyperledger-labs/orion-sdk-go/pkg/bcdb"
@@ -76,7 +77,7 @@ func New(network Network, callback Callback, vault Vault, waitForEventTimeout ti
 
 // StartDelivery runs the delivery service in a goroutine
 func (d *delivery) StartDelivery(ctx context.Context) error {
-	go d.Run(ctx)
+	go utils.IgnoreError(d.Run(ctx))
 	return nil
 }
 

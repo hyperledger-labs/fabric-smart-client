@@ -115,7 +115,9 @@ func (p *provider) load() error {
 		}
 	}
 
-	p.substituteEnv()
+	if err := p.substituteEnv(); err != nil {
+		return err
+	}
 
 	logging.Init(logging.Config{
 		Format:  p.v.GetString("logging.format"),
@@ -129,7 +131,7 @@ func (p *provider) load() error {
 // Manually override keys if the respective environment variable is set, because viper doesn't do
 // that for UnmarshalKey values (see https://github.com/spf13/viper/pull/1699).
 // Example: CORE_LOGGING_FORMAT sets logging.format.
-func (p *provider) substituteEnv() {
+func (p *provider) substituteEnv() error {
 	for _, e := range os.Environ() {
 		if !strings.HasPrefix(e, strings.ToUpper(CmdRoot)+"_") {
 			continue
@@ -161,10 +163,13 @@ func (p *provider) substituteEnv() {
 		}
 
 		root := p.v.GetStringMap(keys[0])
-		setDeepValue(root, keys, val)
+		if err := setDeepValue(root, keys, val); err != nil {
+			return errors.Wrap(err, "error when substituting")
+		}
 		p.v.Set(keys[0], root)
 		fmt.Println("applying " + env[0])
 	}
+	return nil
 }
 
 // Function to set the value at the deepest level

@@ -56,7 +56,9 @@ func (i *queryChaincodeView) Query(context view.Context) ([]byte, error) {
 
 	invocation := chaincode.Query(i.Function, i.Args...).WithInvokerIdentity(i.InvokerIdentity)
 	for k, v := range i.TransientMap {
-		invocation.WithTransientEntry(k, v)
+		if err := invocation.WithTransientEntry(k, v); err != nil {
+			return nil, err
+		}
 	}
 	if len(i.EndorsersMSPIDs) != 0 {
 		invocation.WithEndorsersByMSPIDs(i.EndorsersMSPIDs...)

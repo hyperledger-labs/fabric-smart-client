@@ -73,7 +73,9 @@ func (i *invokeChaincodeView) Invoke(context view.Context) (string, []byte, erro
 	logger.Debugf("chaincode [%s:%s:%s] is a standard chaincode", i.Network, i.Channel, i.ChaincodeName)
 	invocation := chaincode.Invoke(i.Function, i.Args...).WithInvokerIdentity(i.InvokerIdentity)
 	for k, v := range i.TransientMap {
-		invocation.WithTransientEntry(k, v)
+		if _, err := invocation.WithTransientEntry(k, v); err != nil {
+			return "", nil, err
+		}
 	}
 	if len(i.EndorsersMSPIDs) != 0 {
 		invocation.WithEndorsersByMSPIDs(i.EndorsersMSPIDs...)

@@ -119,7 +119,7 @@ func (h *HttpHandler) handle(backToClient http.ResponseWriter, req *http.Request
 	if !isWebSocket(req.Header) {
 		backToClient.Header().Set("Content-Type", "application/json")
 		backToClient.WriteHeader(http.StatusOK)
-		backToClient.Write(response.Bytes())
+		_, _ = backToClient.Write(response.Bytes())
 	}
 }
 

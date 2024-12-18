@@ -136,13 +136,15 @@ func (p *InitConfig) initUsers(session bcdb.DBSession) error {
 					},
 				},
 				nil,
-				//&types.AccessControl{
+				// &types.AccessControl{
 				//	ReadWriteUsers: usersMap("admin"),
 				//	ReadUsers:      usersMap("admin"),
-				//},
+				// },
 			)
 			if err != nil {
-				usersTx.Abort()
+				if err := usersTx.Abort(); err != nil {
+					logger.Errorf("error aborting database users: %s", err)
+				}
 				return err
 			}
 
