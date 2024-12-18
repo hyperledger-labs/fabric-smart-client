@@ -53,7 +53,7 @@ var _ = Describe("Provider", func() {
 				counter.With("alpha", alpha, "beta", "b").Add(1)
 				buf := &bytes.Buffer{}
 				_, err := s.WriteTo(buf)
-				Expect(err).To(Succeed())
+				Expect(err).ToNot(HaveOccurred())
 				Expect(buf.String()).To(Equal(fmt.Sprintf("namespace.subsystem.name.%s.b:%f|c\n", alpha, float64(1))))
 			}
 		})
@@ -70,7 +70,7 @@ var _ = Describe("Provider", func() {
 
 				buf := &bytes.Buffer{}
 				_, err := s.WriteTo(buf)
-				Expect(err).To(Succeed())
+				Expect(err).ToNot(HaveOccurred())
 				Expect(buf.String()).To(Equal("namespace.subsystem.name:1.000000|c\n"))
 			})
 		})
@@ -88,7 +88,7 @@ var _ = Describe("Provider", func() {
 
 					buf := &bytes.Buffer{}
 					_, err := s.WriteTo(buf)
-					Expect(err).To(Succeed())
+					Expect(err).ToNot(HaveOccurred())
 					Expect(buf.String()).To(Equal(fmt.Sprintf("namespace.subsystem.name:%f|c\n", float64(i))))
 				}
 			})
@@ -127,7 +127,7 @@ var _ = Describe("Provider", func() {
 					gauge.With("alpha", alpha, "beta", "b").Set(float64(i))
 					buf := &bytes.Buffer{}
 					_, err := s.WriteTo(buf)
-					Expect(err).To(Succeed())
+					Expect(err).ToNot(HaveOccurred())
 					Expect(buf.String()).To(Equal(fmt.Sprintf("namespace.subsystem.name.%s.b:%f|g\n", alpha, float64(i))))
 				}
 			}
@@ -146,7 +146,7 @@ var _ = Describe("Provider", func() {
 			}
 			buf := &bytes.Buffer{}
 			_, err := s.WriteTo(buf)
-			Expect(err).To(Succeed())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(strings.SplitN(buf.String(), "\n", -1)).To(ConsistOf(
 				Equal("namespace.subsystem.name.x.b:6.000000|g"),
 				Equal("namespace.subsystem.name.y.b:6.000000|g"),
@@ -167,7 +167,7 @@ var _ = Describe("Provider", func() {
 
 				buf := &bytes.Buffer{}
 				_, err := s.WriteTo(buf)
-				Expect(err).To(Succeed())
+				Expect(err).ToNot(HaveOccurred())
 				Expect(buf.String()).To(Equal("namespace.subsystem.name:1.000000|g\n"))
 			})
 		})
@@ -185,7 +185,7 @@ var _ = Describe("Provider", func() {
 
 					buf := &bytes.Buffer{}
 					_, err := s.WriteTo(buf)
-					Expect(err).To(Succeed())
+					Expect(err).ToNot(HaveOccurred())
 					Expect(buf.String()).To(Equal(fmt.Sprintf("namespace.subsystem.name:%f|g\n", float64(i))))
 				}
 			})
@@ -234,7 +234,7 @@ var _ = Describe("Provider", func() {
 					histogram.With("alpha", alpha, "beta", "b").Observe(float64(i))
 					buf := &bytes.Buffer{}
 					_, err := s.WriteTo(buf)
-					Expect(err).To(Succeed())
+					Expect(err).ToNot(HaveOccurred())
 					Expect(buf.String()).To(Equal(fmt.Sprintf("namespace.subsystem.name.%s.b:%f|ms\n", alpha, float64(i))))
 				}
 			}
@@ -252,7 +252,7 @@ var _ = Describe("Provider", func() {
 
 				buf := &bytes.Buffer{}
 				_, err := s.WriteTo(buf)
-				Expect(err).To(Succeed())
+				Expect(err).ToNot(HaveOccurred())
 				Expect(buf.String()).To(Equal("namespace.subsystem.name:1.000000|ms\n"))
 			})
 		})
@@ -270,7 +270,7 @@ var _ = Describe("Provider", func() {
 
 					buf := &bytes.Buffer{}
 					_, err := s.WriteTo(buf)
-					Expect(err).To(Succeed())
+					Expect(err).ToNot(HaveOccurred())
 					Expect(buf.String()).To(Equal(fmt.Sprintf("namespace.subsystem.name:%f|ms\n", float64(i))))
 				}
 			})
