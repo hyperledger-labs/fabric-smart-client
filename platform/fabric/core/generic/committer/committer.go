@@ -75,7 +75,7 @@ type CommitTx struct {
 type TransactionHandler = func(ctx context.Context, block *common.BlockMetadata, tx CommitTx) (*FinalityEvent, error)
 
 type OrderingService interface {
-	SetConfigOrderers(o channelconfig.Orderer, orderers []*grpc.ConnectionConfig) error
+	Configure(consensusType string, orderers []*grpc.ConnectionConfig) error
 }
 
 type Committer struct {
@@ -904,7 +904,7 @@ func (c *Committer) applyBundle(bundle *channelconfig.Bundle) error {
 	}
 	if len(newOrderers) != 0 {
 		c.logger.Debugf("[Channel: %s] Updating the list of orderers: (%d) found", c.ChannelConfig.ID(), len(newOrderers))
-		return c.OrderingService.SetConfigOrderers(ordererConfig, newOrderers)
+		return c.OrderingService.Configure(ordererConfig.ConsensusType(), newOrderers)
 	}
 	c.logger.Infof("[Channel: %s] No orderers found in Channel config", c.ChannelConfig.ID())
 
