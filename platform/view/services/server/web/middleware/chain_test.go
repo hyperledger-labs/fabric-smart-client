@@ -30,28 +30,28 @@ var _ = Describe("Chain", func() {
 		one = func(next http.Handler) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				_, err := w.Write([]byte("1:before,"))
-				Expect(err).To(Succeed())
+				Expect(err).ToNot(HaveOccurred())
 				next.ServeHTTP(w, r)
 				_, err = w.Write([]byte("1:after"))
-				Expect(err).To(Succeed())
+				Expect(err).ToNot(HaveOccurred())
 			})
 		}
 		two = func(next http.Handler) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				_, err := w.Write([]byte("2:before,"))
-				Expect(err).To(Succeed())
+				Expect(err).ToNot(HaveOccurred())
 				next.ServeHTTP(w, r)
 				_, err = w.Write([]byte("2:after,"))
-				Expect(err).To(Succeed())
+				Expect(err).ToNot(HaveOccurred())
 			})
 		}
 		three = func(next http.Handler) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				_, err := w.Write([]byte("3:before,"))
-				Expect(err).To(Succeed())
+				Expect(err).ToNot(HaveOccurred())
 				next.ServeHTTP(w, r)
 				_, err = w.Write([]byte("3:after,"))
-				Expect(err).To(Succeed())
+				Expect(err).ToNot(HaveOccurred())
 			})
 		}
 		chain = middleware.NewChain(one, two, three)
@@ -59,7 +59,7 @@ var _ = Describe("Chain", func() {
 		hello = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
 			_, err := w.Write([]byte("Hello!,"))
-			Expect(err).To(Succeed())
+			Expect(err).ToNot(HaveOccurred())
 		})
 
 		req = httptest.NewRequest("GET", "/", nil)
