@@ -54,10 +54,10 @@ func TestCreds(t *testing.T) {
 	_, _, err = creds.ClientHandshake(context.Background(), "", nil)
 	assert.EqualError(t, err, grpc.ErrClientHandshakeNotImplemented.Error())
 	//lint:ignore SA1019: creds.OverrideServerName is deprecated: use grpc.WithAuthority instead. Will be supported throughout 1.x.
-	err = creds.OverrideServerName("")
+	err = creds.OverrideServerName("") //nolint:all
 	assert.EqualError(t, err, grpc.ErrOverrideHostnameNotSupported.Error())
 	//lint:ignore SA1019: creds.Info().SecurityVersion is deprecated: please use Peer.AuthInfo.
-	assert.Equal(t, "1.2", creds.Info().SecurityVersion)
+	assert.Equal(t, "1.2", creds.Info().SecurityVersion) //nolint:all
 	assert.Equal(t, "tls", creds.Info().SecurityProtocol)
 
 	lis, err := net.Listen("tcp", "localhost:0")
@@ -163,7 +163,7 @@ func TestAddRootCA(t *testing.T) {
 	config.AddClientRootCA(cert)
 
 	//lint:ignore SA1019: config.Config().ClientCAs.Subjects has been deprecated since Go 1.18: if s was returned by [SystemCertPool], Subjects will not include the system roots.
-	assert.Equal(t, config.Config().ClientCAs.Subjects(), expectedCertPool.Subjects(), "The CertPools should be equal")
+	assert.Equal(t, config.Config().ClientCAs.Subjects(), expectedCertPool.Subjects(), "The CertPools should be equal") //nolint:all
 }
 
 func TestSetClientCAs(t *testing.T) {
