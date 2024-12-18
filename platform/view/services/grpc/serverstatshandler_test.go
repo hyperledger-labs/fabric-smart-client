@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	grpc3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc/metricsfakes"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc/testpb"
@@ -77,7 +78,7 @@ func TestConnMetricsGRPCServer(t *testing.T) {
 	testpb.RegisterEmptyServiceServer(srv.Server(), &emptyServiceServer{})
 
 	// start the server
-	go srv.Start()
+	go utils.IgnoreError(srv.Start())
 	defer srv.Stop()
 
 	// test grpc connection counts

@@ -21,6 +21,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc/tlsgen"
 	"google.golang.org/grpc/credentials/insecure"
 
@@ -170,7 +171,7 @@ func invokeEmptyStream(address string, dialOptions ...grpc.DialOption) (*testpb.
 		return nil, errors.Errorf("stream send failed: %s", err)
 	}
 
-	stream.CloseSend()
+	utils.IgnoreError(stream.CloseSend())
 	<-waitc
 	return msg, streamErr
 }
@@ -526,7 +527,7 @@ func TestNewGRPCServer(t *testing.T) {
 	testpb.RegisterEmptyServiceServer(srv.Server(), &emptyServiceServer{})
 
 	// start the server
-	go srv.Start()
+	go utils.IgnoreError(srv.Start())
 	defer srv.Stop()
 
 	// should not be needed
@@ -560,7 +561,7 @@ func TestNewGRPCServerFromListener(t *testing.T) {
 	testpb.RegisterEmptyServiceServer(srv.Server(), &emptyServiceServer{})
 
 	// start the server
-	go srv.Start()
+	go utils.IgnoreError(srv.Start())
 	defer srv.Stop()
 
 	// should not be needed
@@ -604,7 +605,7 @@ func TestNewSecureGRPCServer(t *testing.T) {
 	testpb.RegisterEmptyServiceServer(srv.Server(), &emptyServiceServer{})
 
 	// start the server
-	go srv.Start()
+	go utils.IgnoreError(srv.Start())
 	defer srv.Stop()
 
 	// should not be needed
@@ -688,7 +689,7 @@ func TestVerifyCertificateCallback(t *testing.T) {
 			VerifyCertificate: verifyFunc,
 		},
 	})
-	go gRPCServer.Start()
+	go utils.IgnoreError(gRPCServer.Start())
 	defer gRPCServer.Stop()
 
 	t.Run("Success path", func(t *testing.T) {
@@ -735,7 +736,7 @@ func TestWithSignedRootCertificates(t *testing.T) {
 	testpb.RegisterEmptyServiceServer(srv.Server(), &emptyServiceServer{})
 
 	// start the server
-	go srv.Start()
+	go utils.IgnoreError(srv.Start())
 	defer srv.Stop()
 
 	// should not be needed
@@ -800,7 +801,7 @@ func TestWithSignedIntermediateCertificates(t *testing.T) {
 	testpb.RegisterEmptyServiceServer(srv.Server(), &emptyServiceServer{})
 
 	// start the server
-	go srv.Start()
+	go utils.IgnoreError(srv.Start())
 	defer srv.Stop()
 
 	// should not be needed
@@ -854,7 +855,7 @@ func runMutualAuth(t *testing.T, servers []testServer, trustedClients, unTrusted
 
 		// register the GRPC test server and start the GRPCServer
 		testpb.RegisterEmptyServiceServer(srv.Server(), &emptyServiceServer{})
-		go srv.Start()
+		go utils.IgnoreError(srv.Start())
 		defer srv.Stop()
 
 		// should not be needed but just in case
@@ -964,7 +965,7 @@ func TestSetClientRootCAs(t *testing.T) {
 
 	// register the GRPC test server and start the GRPCServer
 	testpb.RegisterEmptyServiceServer(srv.Server(), &emptyServiceServer{})
-	go srv.Start()
+	go utils.IgnoreError(srv.Start())
 	defer srv.Stop()
 
 	// should not be needed but just in case
@@ -1057,7 +1058,7 @@ func TestUpdateTLSCert(t *testing.T) {
 	assert.NoError(t, err)
 	testpb.RegisterEmptyServiceServer(srv.Server(), &emptyServiceServer{})
 
-	go srv.Start()
+	go utils.IgnoreError(srv.Start())
 	defer srv.Stop()
 
 	certPool := x509.NewCertPool()
@@ -1171,7 +1172,7 @@ func TestCipherSuites(t *testing.T) {
 	testAddress := lis.Addr().String()
 	srv, err := grpc3.NewGRPCServerFromListener(lis, serverConfig)
 	assert.NoError(t, err)
-	go srv.Start()
+	go utils.IgnoreError(srv.Start())
 
 	for _, test := range tests {
 		test := test
@@ -1228,7 +1229,7 @@ func TestServerInterceptors(t *testing.T) {
 	assert.NoError(t, err, "failed to create gRPC server")
 	testpb.RegisterEmptyServiceServer(srv.Server(), &emptyServiceServer{})
 	defer srv.Stop()
-	go srv.Start()
+	go utils.IgnoreError(srv.Start())
 
 	_, err = invokeEmptyCall(
 		lis.Addr().String(),

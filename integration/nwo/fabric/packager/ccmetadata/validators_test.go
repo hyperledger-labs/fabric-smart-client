@@ -7,11 +7,13 @@ SPDX-License-Identifier: Apache-2.0
 package ccmetadata
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -19,8 +21,8 @@ var packageTestDir = filepath.Join(os.TempDir(), "ccmetadata-validator-test")
 
 func TestGoodIndexJSON(t *testing.T) {
 	testDir := filepath.Join(packageTestDir, "GoodIndexJSON")
-	cleanupDir(testDir)
-	defer cleanupDir(testDir)
+	assert.NoError(t, cleanupDir(testDir))
+	defer utils.IgnoreError(cleanupDir(testDir))
 
 	fileName := "META-INF/statedb/couchdb/indexes/myIndex.json"
 	fileBytes := []byte(`{"index":{"fields":["data.docType","data.owner"]},"name":"indexOwner","type":"json"}`)
@@ -31,8 +33,8 @@ func TestGoodIndexJSON(t *testing.T) {
 
 func TestBadIndexJSON(t *testing.T) {
 	testDir := filepath.Join(packageTestDir, "BadIndexJSON")
-	cleanupDir(testDir)
-	defer cleanupDir(testDir)
+	assert.NoError(t, cleanupDir(testDir))
+	defer utils.IgnoreError(cleanupDir(testDir))
 
 	fileName := "META-INF/statedb/couchdb/indexes/myIndex.json"
 	fileBytes := []byte("invalid json")
@@ -42,7 +44,8 @@ func TestBadIndexJSON(t *testing.T) {
 	assert.Error(t, err, "Should have received an InvalidIndexContentError")
 
 	// Type assertion on InvalidIndexContentError
-	_, ok := err.(*InvalidIndexContentError)
+	var invalidIndexContentError *InvalidIndexContentError
+	ok := errors.As(err, &invalidIndexContentError)
 	assert.True(t, ok, "Should have received an InvalidIndexContentError")
 
 	t.Log("SAMPLE ERROR STRING:", err.Error())
@@ -50,8 +53,8 @@ func TestBadIndexJSON(t *testing.T) {
 
 func TestIndexWrongLocation(t *testing.T) {
 	testDir := filepath.Join(packageTestDir, "IndexWrongLocation")
-	cleanupDir(testDir)
-	defer cleanupDir(testDir)
+	assert.NoError(t, cleanupDir(testDir))
+	defer utils.IgnoreError(cleanupDir(testDir))
 
 	fileName := "META-INF/statedb/couchdb/myIndex.json"
 	fileBytes := []byte(`{"index":{"fields":["data.docType","data.owner"]},"name":"indexOwner","type":"json"}`)
@@ -60,7 +63,8 @@ func TestIndexWrongLocation(t *testing.T) {
 	assert.Error(t, err, "Should have received an UnhandledDirectoryError")
 
 	// Type assertion on UnhandledDirectoryError
-	_, ok := err.(*UnhandledDirectoryError)
+	var unhandledDirectoryError *UnhandledDirectoryError
+	ok := errors.As(err, &unhandledDirectoryError)
 	assert.True(t, ok, "Should have received an UnhandledDirectoryError")
 
 	t.Log("SAMPLE ERROR STRING:", err.Error())
@@ -68,8 +72,8 @@ func TestIndexWrongLocation(t *testing.T) {
 
 func TestInvalidMetadataType(t *testing.T) {
 	testDir := filepath.Join(packageTestDir, "InvalidMetadataType")
-	cleanupDir(testDir)
-	defer cleanupDir(testDir)
+	assert.NoError(t, cleanupDir(testDir))
+	defer utils.IgnoreError(cleanupDir(testDir))
 
 	fileName := "myIndex.json"
 	fileBytes := []byte(`{"index":{"fields":["data.docType","data.owner"]},"name":"indexOwner","type":"json"}`)
@@ -78,14 +82,15 @@ func TestInvalidMetadataType(t *testing.T) {
 	assert.Error(t, err, "Should have received an UnhandledDirectoryError")
 
 	// Type assertion on UnhandledDirectoryError
-	_, ok := err.(*UnhandledDirectoryError)
+	var unhandledDirectoryError *UnhandledDirectoryError
+	ok := errors.As(err, &unhandledDirectoryError)
 	assert.True(t, ok, "Should have received an UnhandledDirectoryError")
 }
 
 func TestBadMetadataExtension(t *testing.T) {
 	testDir := filepath.Join(packageTestDir, "BadMetadataExtension")
-	cleanupDir(testDir)
-	defer cleanupDir(testDir)
+	assert.NoError(t, cleanupDir(testDir))
+	defer utils.IgnoreError(cleanupDir(testDir))
 
 	fileName := "myIndex.go"
 	fileBytes := []byte(`{"index":{"fields":["data.docType","data.owner"]},"name":"indexOwner","type":"json"}`)
@@ -97,8 +102,8 @@ func TestBadMetadataExtension(t *testing.T) {
 
 func TestBadFilePaths(t *testing.T) {
 	testDir := filepath.Join(packageTestDir, "BadMetadataExtension")
-	cleanupDir(testDir)
-	defer cleanupDir(testDir)
+	assert.NoError(t, cleanupDir(testDir))
+	defer utils.IgnoreError(cleanupDir(testDir))
 
 	// Test bad META-INF
 	fileName := "META-INF1/statedb/couchdb/indexes/test1.json"
@@ -295,7 +300,7 @@ func cleanupDir(dir string) error {
 	// clean up any previous files
 	err := os.RemoveAll(dir)
 	if err != nil {
-		return nil
+		return err
 	}
 	return os.Mkdir(dir, os.ModePerm)
 }

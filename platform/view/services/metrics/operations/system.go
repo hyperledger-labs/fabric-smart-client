@@ -13,6 +13,7 @@ import (
 	"time"
 
 	kitstatsd "github.com/go-kit/kit/metrics/statsd"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/metadata"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
@@ -72,7 +73,7 @@ type System struct {
 	versionGauge    metrics.Gauge
 }
 
-func NewOperationSystem(server Server, l OperationsLogger, metricsProvider metrics.Provider, o *Options) *System {
+func NewOperationSystem(server Server, l OperationsLogger, metricsProvider metrics.Provider, o *Options) (*System, error) {
 	system := &System{
 		Server:  server,
 		logger:  l,
@@ -82,10 +83,12 @@ func NewOperationSystem(server Server, l OperationsLogger, metricsProvider metri
 	system.initializeHealthCheckHandler()
 	system.initializeLoggingHandler(o.TLS.Enabled)
 
-	system.initializeMetricsProvider(metricsProvider, o.Metrics)
+	if err := system.initializeMetricsProvider(metricsProvider, o.Metrics); err != nil {
+		return nil, errors.Wrap(err, "failed to initialize metrics provider")
+	}
 	system.initializeVersionInfoHandler()
 
-	return system
+	return system, nil
 }
 
 func (s *System) Start() error {

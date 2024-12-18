@@ -19,7 +19,6 @@ func (s *SmartContract) InitLedger(ctx contractapi.TransactionContextInterface) 
 	fmt.Println("Init Function Invoked")
 }
 
-func (s *SmartContract) CreateAsset(ctx contractapi.TransactionContextInterface) {
-	ctx.GetStub().SetEvent("CreateAsset", []byte("Invoked Create Asset Successfully From Upgraded Chaincode"))
-
+func (s *SmartContract) CreateAsset(ctx contractapi.TransactionContextInterface) error {
+	return ctx.GetStub().SetEvent("CreateAsset", []byte("Invoked Create Asset Successfully From Upgraded Chaincode"))
 }

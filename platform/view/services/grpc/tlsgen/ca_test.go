@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -44,9 +45,9 @@ func TestTLSCA(t *testing.T) {
 	srv := createTLSService(t, ca, "127.0.0.1")
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	assert.NoError(t, err)
-	go srv.Serve(listener)
+	go utils.IgnoreError(srv.Serve(listener))
 	defer srv.Stop()
-	defer listener.Close()
+	defer utils.IgnoreError(listener.Close())
 
 	probeTLS := func(kp *CertKeyPair) error {
 		cert, err := tls.X509KeyPair(kp.Cert, kp.Key)
@@ -59,6 +60,7 @@ func TestTLSCA(t *testing.T) {
 		tlsOpts := grpc.WithTransportCredentials(credentials.NewTLS(tlsCfg))
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
+		//lint:ignore SA1019: grpc.DialContext is deprecated: use NewClient instead.  Will be supported throughout 1.x.
 		conn, err := grpc.DialContext(ctx, listener.Addr().String(), tlsOpts, grpc.WithBlock())
 		if err != nil {
 			return err

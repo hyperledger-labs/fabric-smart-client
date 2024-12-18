@@ -15,5 +15,5 @@ type Handler struct {
 
 func (h *Handler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	resp.WriteHeader(h.Code)
-	resp.Write([]byte(h.Text))
+	_, _ = resp.Write([]byte(h.Text))
 }

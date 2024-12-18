@@ -560,7 +560,7 @@ func TTestMerge(t *testing.T, ddb VersionedPersistence, vp artifactsProvider) {
 	}
 	rwsb.ReadSet.Add(ns, k1, versionBlockTxNumToBytes(35, 1))
 	rwsb.ReadSet.Add(ns, ne2Key, nil)
-	rwsb.WriteSet.Add(ns, k1, []byte("newv1"))
+	assert.NoError(t, rwsb.WriteSet.Add(ns, k1, []byte("newv1")))
 	assert.NoError(t, rwsb.MetaWriteSet.Add(ns, k1, map[string][]byte{"k1": []byte("v1")}))
 	m := vp.NewMarshaller()
 	rwsBytes, err := m.Marshal("pineapple", rwsb)
@@ -605,7 +605,7 @@ func TTestMerge(t *testing.T, ddb VersionedPersistence, vp artifactsProvider) {
 			OrderedWrites: map[string][]string{},
 		},
 	}
-	rwsb.WriteSet.Add(ns, k2, []byte("v2"))
+	assert.NoError(t, rwsb.WriteSet.Add(ns, k2, []byte("v2")))
 	rwsBytes, err = m.Marshal("pineapple", rwsb)
 	assert.NoError(t, err)
 

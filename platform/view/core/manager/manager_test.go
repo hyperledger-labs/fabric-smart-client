@@ -131,9 +131,8 @@ func registerFactory(t *testing.T, wg *sync.WaitGroup, m Manager) {
 }
 
 func registerResponder(t *testing.T, wg *sync.WaitGroup, m Manager) {
-	m.RegisterResponderWithIdentity(&DummyView{}, []byte("alice"), &DummyView{})
+	assert.NoError(t, m.RegisterResponderWithIdentity(&DummyView{}, []byte("alice"), &DummyView{}))
 	wg.Done()
-	//assert.NoError(t, err)
 }
 
 func callView(t *testing.T, wg *sync.WaitGroup, m Manager) {

@@ -119,7 +119,9 @@ func GenerateLocalMSP(baseDir, name string, sans []string, signCA, tlsCA *ca2.CA
 
 	// generate config.yaml if required
 	if nodeOUs {
-		exportConfig(mspDir, filepath.Join("cacerts", x509Filename(signCA.Name)), true)
+		if err := exportConfig(mspDir, filepath.Join("cacerts", x509Filename(signCA.Name)), true); err != nil {
+			return errors.WithMessagef(err, "failed to export cacerts config")
+		}
 	}
 
 	// the signing identity goes into admincerts.
@@ -207,7 +209,9 @@ func GenerateVerifyingMSP(
 
 	// generate config.yaml if required
 	if nodeOUs {
-		exportConfig(baseDir, "cacerts/"+x509Filename(signCA.Name), true)
+		if err := exportConfig(baseDir, "cacerts/"+x509Filename(signCA.Name), true); err != nil {
+			return errors.WithMessagef(err, "failed to export cacerts config")
+		}
 	}
 
 	// create a throwaway cert to act as an admin cert
@@ -274,7 +278,7 @@ func keyExport(keystore, output string) error {
 }
 
 func pemExport(path, pemType string, bytes []byte) error {
-	//write pem out to file
+	// write pem out to file
 	file, err := os.Create(path)
 	if err != nil {
 		return err

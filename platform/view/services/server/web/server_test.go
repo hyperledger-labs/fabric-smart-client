@@ -19,6 +19,7 @@ import (
 	"syscall"
 	"testing"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc/tlsgen"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/operations/fakes"
 	web2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/web"
@@ -126,7 +127,7 @@ var _ = Describe("Server", func() {
 	AfterEach(func() {
 		os.RemoveAll(tempDir)
 		if server != nil {
-			server.Stop()
+			utils.IgnoreError(server.Stop())
 		}
 	})
 

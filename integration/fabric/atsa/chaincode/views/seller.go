@@ -76,15 +76,18 @@ func (a *TransferView) Call(ctx view.Context) (interface{}, error) {
 	assetProperties, err := a.AssetProperties.Bytes()
 	assert.NoError(err, "failed marshalling assetProperties")
 
-	envelope, err := ch.Chaincode("asset_transfer").Endorse(
+	endorse, err := ch.Chaincode("asset_transfer").Endorse(
 		"TransferAsset",
 		a.AssetProperties.ID,
 		recipientMSPID,
-	).WithTransientEntry(
-		"asset_price", assetPrice,
-	).WithTransientEntry(
-		"asset_properties", assetProperties,
-	).WithImplicitCollections(senderMSPID, recipientMSPID).Call()
+	).WithImplicitCollections(
+		senderMSPID, recipientMSPID,
+	).WithTransientEntries(map[string]interface{}{
+		"asset_price":      assetPrice,
+		"asset_properties": assetProperties,
+	})
+	assert.NoError(err, "failed agreeing to sell")
+	envelope, err := endorse.Call()
 	assert.NoError(err, "failed asking endorsement")
 
 	c, cancel := context.WithTimeout(context.Background(), 5*time.Second)

@@ -46,5 +46,5 @@ func (m *VersionInfoHandler) sendResponse(resp http.ResponseWriter, code int, pa
 	}
 	resp.Header().Set("Content-Type", "application/json")
 	resp.WriteHeader(code)
-	resp.Write(js)
+	_, _ = resp.Write(js)
 }

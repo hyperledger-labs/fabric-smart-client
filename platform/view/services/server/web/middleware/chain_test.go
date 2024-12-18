@@ -52,7 +52,7 @@ var _ = Describe("Chain", func() {
 
 		hello = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte("Hello!,"))
+			Expect(w.Write([]byte("Hello!,"))).To(Succeed())
 		})
 
 		req = httptest.NewRequest("GET", "/", nil)

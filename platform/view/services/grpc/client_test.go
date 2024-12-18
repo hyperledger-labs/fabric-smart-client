@@ -21,6 +21,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	grpc3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc/testpb"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc/tlsgen"
@@ -342,7 +343,7 @@ func TestNewConnection(t *testing.T) {
 			}
 			srv := grpc.NewServer(serverOpts...)
 			defer srv.Stop()
-			go srv.Serve(lis)
+			go utils.IgnoreError(srv.Serve(lis))
 			client, err := grpc3.NewGRPCClient(test.config)
 			if err != nil {
 				t.Fatalf("error creating client for test: %v", err)
@@ -392,7 +393,7 @@ func TestSetServerRootCAs(t *testing.T) {
 		Certificates: []tls.Certificate{testCerts.serverCert},
 	})))
 	defer srv.Stop()
-	go srv.Serve(lis)
+	go utils.IgnoreError(srv.Serve(lis))
 
 	// initial config should work
 	t.Log("running initial good config")
@@ -443,7 +444,7 @@ func TestSetMessageSize(t *testing.T) {
 	}
 	testpb.RegisterEchoServiceServer(srv.Server(), &echoServer{})
 	defer srv.Stop()
-	go srv.Start()
+	go utils.IgnoreError(srv.Start())
 
 	var tests = []struct {
 		name        string
@@ -626,7 +627,7 @@ func TestDynamicClientTLSLoading(t *testing.T) {
 
 	go func() {
 		defer wg.Done()
-		server.Start()
+		utils.IgnoreError(server.Start())
 	}()
 
 	var dynamicRootCerts atomic.Value

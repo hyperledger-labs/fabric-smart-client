@@ -94,6 +94,7 @@ func TestCredentialSupport(t *testing.T) {
 	cs.serverRootCAs = [][]byte{rootCAs[5]}
 
 	creds := cs.GetPeerCredentials()
+	//lint:ignore SA1019: creds.Info().SecurityVersion is deprecated: please use Peer.AuthInfo.
 	assert.Equal(t, "1.2", creds.Info().SecurityVersion,
 		"Expected Security version to be 1.2")
 
@@ -101,6 +102,7 @@ func TestCredentialSupport(t *testing.T) {
 	cs.serverRootCAs = append(cs.serverRootCAs, []byte("badcert"))
 	cs.serverRootCAs = append(cs.serverRootCAs, []byte(badPEM))
 	creds = cs.GetPeerCredentials()
+	//lint:ignore SA1019: creds.Info().SecurityVersion is deprecated: please use Peer.AuthInfo.
 	assert.Equal(t, "1.2", creds.Info().SecurityVersion,
 		"Expected Security version to be 1.2")
 }

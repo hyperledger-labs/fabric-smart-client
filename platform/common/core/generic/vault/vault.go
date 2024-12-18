@@ -629,12 +629,16 @@ func (db *Vault[V]) SetStatus(txID driver.TxID, code V) error {
 	}
 	err = db.txIDStore.Set(txID, code, "")
 	if err != nil {
-		db.store.Discard()
+		if err := db.store.Discard(); err != nil {
+			db.logger.Errorf("failed to discard txid '%s': %v", txID, err)
+		}
 		return err
 	}
 	err = db.store.Commit()
 	if err != nil {
-		db.store.Discard()
+		if err := db.store.Discard(); err != nil {
+			db.logger.Errorf("failed to discard txid '%s': %v", txID, err)
+		}
 		return errors.Wrapf(err, "committing tx for txid '%s' failed", txID)
 	}
 	return nil

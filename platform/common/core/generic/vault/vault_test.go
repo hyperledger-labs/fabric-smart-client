@@ -133,7 +133,9 @@ func (m *marshaller) Append(destination *ReadWriteSet, raw []byte, nss ...string
 			if destination.WriteSet.In(ns, s) {
 				return errors.Errorf("duplicate write entry for key %s:%s", ns, s)
 			}
-			destination.WriteSet.Add(ns, s, position)
+			if err := destination.WriteSet.Add(ns, s, position); err != nil {
+				return err
+			}
 		}
 	}
 	destination.OrderedWrites = source.OrderedWrites
@@ -147,7 +149,9 @@ func (m *marshaller) Append(destination *ReadWriteSet, raw []byte, nss ...string
 			if destination.MetaWriteSet.In(ns, s) {
 				return errors.Errorf("duplicate metadata write entry for key %s:%s", ns, s)
 			}
-			destination.MetaWriteSet.Add(ns, s, position)
+			if err := destination.MetaWriteSet.Add(ns, s, position); err != nil {
+				return errors.Wrapf(err, "duplicate metadata write entry for key %s:%s", ns, s)
+			}
 		}
 	}
 

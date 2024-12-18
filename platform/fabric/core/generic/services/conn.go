@@ -44,7 +44,7 @@ func (c *StatefulClient) DeliverWithPrivateData(ctx context.Context, opts ...ggr
 func (c *StatefulClient) ProcessProposal(ctx context.Context, in *peer.SignedProposal, opts ...ggrpc.CallOption) (*peer.ProposalResponse, error) {
 	res, err := c.EndorserClient.ProcessProposal(ctx, in, opts...)
 	if err != nil {
-		c.onErr()
+		_ = c.onErr()
 	}
 	return res, err
 }
@@ -52,7 +52,7 @@ func (c *StatefulClient) ProcessProposal(ctx context.Context, in *peer.SignedPro
 func (c *StatefulClient) Discover(ctx context.Context, in *discovery.SignedRequest, opts ...ggrpc.CallOption) (*discovery.Response, error) {
 	res, err := c.DiscoveryClient.Discover(ctx, in, opts...)
 	if err != nil {
-		c.onErr()
+		_ = c.onErr()
 	}
 	return res, err
 }
@@ -60,7 +60,7 @@ func (c *StatefulClient) Discover(ctx context.Context, in *discovery.SignedReque
 func (c *StatefulClient) Send(ctx context.Context, req *dclient.Request, auth *discovery.AuthInfo) (dclient.Response, error) {
 	res, err := c.DC.Send(ctx, req, auth)
 	if err != nil {
-		c.onErr()
+		_ = c.onErr()
 	}
 	return res, err
 }
