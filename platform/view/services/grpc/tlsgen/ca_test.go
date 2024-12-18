@@ -61,7 +61,7 @@ func TestTLSCA(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
 		//lint:ignore SA1019: grpc.DialContext is deprecated: use NewClient instead.  Will be supported throughout 1.x.
-		conn, err := grpc.DialContext(ctx, listener.Addr().String(), tlsOpts, grpc.WithBlock())
+		conn, err := grpc.DialContext(ctx, listener.Addr().String(), tlsOpts, grpc.WithBlock()) //nolint:all
 		if err != nil {
 			return err
 		}
