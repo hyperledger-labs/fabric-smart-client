@@ -18,7 +18,7 @@ func (m *errorMapper) WrapError(err error) error {
 	if err, ok := err.(*sqlite.Error); ok {
 		switch err.Code() {
 		case 1555:
-			return errors.Wrapf(driver.UniqueKeyViolation, err.Error())
+			return errors.Wrapf(driver.UniqueKeyViolation, "%s", err)
 		default:
 			logger.Warnf("Unmapped sqlite error with code [%d]", err.Code())
 		}

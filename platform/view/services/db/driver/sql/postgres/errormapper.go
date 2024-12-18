@@ -25,9 +25,9 @@ func (m *errorMapper) WrapError(err error) error {
 
 	switch pgErr.Code {
 	case "23505":
-		return errors.Wrapf(driver.UniqueKeyViolation, err.Error())
+		return errors.Wrapf(driver.UniqueKeyViolation, "%s", err)
 	case "40P01":
-		return errors.Wrapf(driver.DeadlockDetected, err.Error())
+		return errors.Wrapf(driver.DeadlockDetected, "%s", err)
 	default:
 		logger.Warnf("Unmapped postgres error with code [%s]", pgErr)
 		return pgErr

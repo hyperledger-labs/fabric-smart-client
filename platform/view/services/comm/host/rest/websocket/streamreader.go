@@ -52,7 +52,7 @@ func (r *delimitedReader) Read(p []byte) (int, error) {
 func readExpectedLength(p []byte) (int, error) {
 	length, n := binary.Uvarint(p)
 	if n <= 0 {
-		return 0, errors.Errorf("failed reading expected length [" + string(p) + "]")
+		return 0, errors.Errorf("failed reading expected length [%s]", string(p))
 	}
 	logger.Debugf("Reading only size: %d + %d", length, len(p))
 	return int(length) + len(p), nil
