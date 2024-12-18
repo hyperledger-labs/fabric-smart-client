@@ -117,7 +117,9 @@ func New(
 
 // Start runs the delivery service in a goroutine
 func (d *Delivery) Start(ctx context.Context) {
-	go utils.IgnoreError(d.Run(ctx))
+	go utils.IgnoreErrorFunc(func() error {
+		return d.Run(ctx)
+	})
 }
 
 func (d *Delivery) Stop() {
