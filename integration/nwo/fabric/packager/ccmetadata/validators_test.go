@@ -21,7 +21,6 @@ var packageTestDir = filepath.Join(os.TempDir(), "ccmetadata-validator-test")
 
 func TestGoodIndexJSON(t *testing.T) {
 	testDir := filepath.Join(packageTestDir, "GoodIndexJSON")
-	assert.NoError(t, cleanupDir(testDir))
 	defer utils.IgnoreError(cleanupDir(testDir))
 
 	fileName := "META-INF/statedb/couchdb/indexes/myIndex.json"
@@ -33,7 +32,6 @@ func TestGoodIndexJSON(t *testing.T) {
 
 func TestBadIndexJSON(t *testing.T) {
 	testDir := filepath.Join(packageTestDir, "BadIndexJSON")
-	assert.NoError(t, cleanupDir(testDir))
 	defer utils.IgnoreError(cleanupDir(testDir))
 
 	fileName := "META-INF/statedb/couchdb/indexes/myIndex.json"
@@ -53,7 +51,6 @@ func TestBadIndexJSON(t *testing.T) {
 
 func TestIndexWrongLocation(t *testing.T) {
 	testDir := filepath.Join(packageTestDir, "IndexWrongLocation")
-	assert.NoError(t, cleanupDir(testDir))
 	defer utils.IgnoreError(cleanupDir(testDir))
 
 	fileName := "META-INF/statedb/couchdb/myIndex.json"
@@ -72,7 +69,6 @@ func TestIndexWrongLocation(t *testing.T) {
 
 func TestInvalidMetadataType(t *testing.T) {
 	testDir := filepath.Join(packageTestDir, "InvalidMetadataType")
-	assert.NoError(t, cleanupDir(testDir))
 	defer utils.IgnoreError(cleanupDir(testDir))
 
 	fileName := "myIndex.json"
@@ -89,7 +85,6 @@ func TestInvalidMetadataType(t *testing.T) {
 
 func TestBadMetadataExtension(t *testing.T) {
 	testDir := filepath.Join(packageTestDir, "BadMetadataExtension")
-	assert.NoError(t, cleanupDir(testDir))
 	defer utils.IgnoreError(cleanupDir(testDir))
 
 	fileName := "myIndex.go"
@@ -102,7 +97,6 @@ func TestBadMetadataExtension(t *testing.T) {
 
 func TestBadFilePaths(t *testing.T) {
 	testDir := filepath.Join(packageTestDir, "BadMetadataExtension")
-	assert.NoError(t, cleanupDir(testDir))
 	defer utils.IgnoreError(cleanupDir(testDir))
 
 	// Test bad META-INF
@@ -299,7 +293,7 @@ func TestIndexValidationInvalidFields(t *testing.T) {
 func cleanupDir(dir string) error {
 	// clean up any previous files
 	err := os.RemoveAll(dir)
-	if err != nil {
+	if err != nil && !os.IsNotExist(err) {
 		return err
 	}
 	return os.Mkdir(dir, os.ModePerm)

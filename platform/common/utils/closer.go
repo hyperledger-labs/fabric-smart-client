@@ -6,6 +6,8 @@ SPDX-License-Identifier: Apache-2.0
 
 package utils
 
+import "fmt"
+
 type Closer interface {
 	Close() error
 }
@@ -18,4 +20,11 @@ func CloseMute(closer Closer) {
 	_ = closer.Close()
 }
 
-func IgnoreError(_ error) {}
+func IgnoreError(err error) {
+	// ignore the error
+	fmt.Printf("IgnoreError: %v\n", err)
+}
+
+func IgnoreErrorFunc(f func() error) {
+	_ = f()
+}
