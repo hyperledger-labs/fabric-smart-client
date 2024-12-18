@@ -123,7 +123,7 @@ func (r *Runner) Run(sigChan <-chan os.Signal, ready chan<- struct{}) error {
 		startCheckTimeout = time.After(startCheckDuration)
 	}
 
-	detectStartCheck = allOutput.Detect(r.StartCheck)
+	detectStartCheck = allOutput.Detect("%s", r.StartCheck)
 
 	for {
 		select {

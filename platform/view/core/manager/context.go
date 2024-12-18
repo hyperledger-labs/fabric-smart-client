@@ -137,7 +137,7 @@ func runViewOn(v view.View, opts []view.RunViewOption, ctx localContext) (res in
 			case error:
 				err = errors.WithMessage(e, "caught panic")
 			case string:
-				err = errors.Errorf(e)
+				err = errors.New(e)
 			default:
 				err = errors.Errorf("caught panic [%v]", e)
 			}
