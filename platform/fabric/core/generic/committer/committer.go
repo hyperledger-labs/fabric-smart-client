@@ -358,6 +358,7 @@ func (c *Committer) CommitConfig(blockNumber uint64, raw []byte, env *common.Env
 
 // Commit commits the transactions in the block passed as argument
 func (c *Committer) Commit(ctx context.Context, block *common.Block) error {
+	logger.Infof("Received block [%d] in committer", block.Header.Number)
 	newCtx, span := c.metrics.Commits.Start(ctx, "commit_block")
 	defer span.End()
 
