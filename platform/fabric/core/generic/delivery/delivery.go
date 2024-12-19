@@ -134,11 +134,14 @@ func (d *Delivery) Run(ctx context.Context) error {
 	var err error
 	waitTime := d.channelConfig.DeliverySleepAfterFailure()
 	for {
+		logger.Infof("Delivery service new iteration")
 		select {
 		case <-d.stop:
+			logger.Infof("Stop delivery run")
 			// Time to stop
 			return nil
 		case <-ctx.Done():
+			logger.Infof("Context of delivery canceled")
 			// Time to cancel
 			return errors.New("context done")
 		default:
@@ -164,6 +167,11 @@ func (d *Delivery) Run(ctx context.Context) error {
 
 			span.AddEvent("wait_message")
 			resp, err := df.Recv()
+			if resp != nil {
+				logger.Infof("Delivery service received response of type [%T]", resp.Type)
+			} else {
+				logger.Infof("Delivery service received nil response: %v", err)
+			}
 			span.AddEvent("received_message")
 			if err != nil {
 				df = nil
@@ -179,17 +187,14 @@ func (d *Delivery) Run(ctx context.Context) error {
 			case *pb.DeliverResponse_Block:
 				span.SetAttributes(tracing.String(messageTypeLabel, block))
 				if r.Block == nil || r.Block.Data == nil || r.Block.Header == nil || r.Block.Metadata == nil {
-					if logger.IsEnabledFor(zapcore.DebugLevel) {
-						logger.Debugf("deliver service [%s:%s:%s], received nil block", d.client.Address(), d.NetworkName, d.channel)
-					}
+					logger.Infof("deliver service [%s:%s:%s], received nil block", d.client.Address(), d.NetworkName, d.channel)
 					span.RecordError(errors.New("nil block"))
 					time.Sleep(waitTime)
 					df = nil
 				}
 
-				if logger.IsEnabledFor(zapcore.DebugLevel) {
-					logger.Debugf("delivery service [%s:%s:%s], commit block [%d]", d.client.Address(), d.NetworkName, d.channel, r.Block.Header.Number)
-				}
+				logger.Infof("delivery service [%s:%s:%s], commit block [%d]", d.client.Address(), d.NetworkName, d.channel, r.Block.Header.Number)
+
 				d.lastBlockReceived = r.Block.Header.Number
 
 				span.AddEvent("invoke_callback")
