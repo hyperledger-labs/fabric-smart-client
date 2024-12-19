@@ -164,7 +164,11 @@ func (d *Delivery) Run(ctx context.Context) error {
 
 			span.AddEvent("wait_message")
 			resp, err := df.Recv()
-			logger.Infof("Delivery service received response of type [%v]", resp.Type)
+			if resp != nil {
+				logger.Infof("Delivery service received response of type [%v]", resp.Type)
+			} else {
+				logger.Infof("Delivery service received nil response: %v", err)
+			}
 			span.AddEvent("received_message")
 			if err != nil {
 				df = nil
