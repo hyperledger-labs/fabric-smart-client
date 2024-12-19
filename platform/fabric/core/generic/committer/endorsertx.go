@@ -21,9 +21,9 @@ import (
 type ValidationFlags []uint8
 
 func (c *Committer) HandleEndorserTransaction(ctx context.Context, block *common.BlockMetadata, tx CommitTx) (*FinalityEvent, error) {
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("[%s] EndorserClient transaction received: %s", c.ChannelConfig.ID(), tx.TxID)
-	}
+
+	logger.Infof("[%s] EndorserClient transaction received: %s", c.ChannelConfig.ID(), tx.TxID)
+
 	fabricValidationCode, event, err := MapFinalityEvent(ctx, block, tx.TxNum, tx.TxID)
 	if err != nil {
 		return nil, err
@@ -90,9 +90,8 @@ func (c *Committer) GetChaincodeEvents(env *common.Envelope, blockNum driver2.Bl
 func (c *Committer) CommitEndorserTransaction(ctx context.Context, txID string, blockNum driver2.BlockNum, indexInBlock uint64, env *common.Envelope, event *FinalityEvent) (bool, error) {
 	newCtx, span := c.metrics.Commits.Start(ctx, "endorser_tx")
 	defer span.End()
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("transaction [%s] in block [%d] is valid for fabric, commit!", txID, blockNum)
-	}
+
+	logger.Infof("transaction [%s] in block [%d] is valid for fabric, commit!", txID, blockNum)
 
 	event.Block = blockNum
 	event.IndexInBlock = indexInBlock
