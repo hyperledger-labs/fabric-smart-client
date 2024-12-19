@@ -21,19 +21,12 @@ import (
 type ValidationFlags []uint8
 
 func (c *Committer) HandleEndorserTransaction(ctx context.Context, block *common.BlockMetadata, tx CommitTx) (*FinalityEvent, error) {
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("[%s] EndorserClient transaction received: %s", c.ChannelConfig.ID(), tx.TxID)
-	}
-	if len(block.Metadata) < int(common.BlockMetadataIndex_TRANSACTIONS_FILTER) {
-		return nil, errors.Errorf("block metadata lacks transaction filter")
-	}
 
-	fabricValidationCode := ValidationFlags(block.Metadata[common.BlockMetadataIndex_TRANSACTIONS_FILTER])[tx.TxNum]
-	event := &FinalityEvent{
-		Ctx:               ctx,
-		TxID:              tx.TxID,
-		ValidationCode:    convertValidationCode(int32(fabricValidationCode)),
-		ValidationMessage: pb.TxValidationCode_name[int32(fabricValidationCode)],
+	logger.Infof("[%s] EndorserClient transaction received: %s", c.ChannelConfig.ID(), tx.TxID)
+
+	fabricValidationCode, event, err := MapFinalityEvent(ctx, block, tx.TxNum, tx.TxID)
+	if err != nil {
+		return nil, err
 	}
 
 	switch pb.TxValidationCode(fabricValidationCode) {
@@ -62,6 +55,21 @@ func (c *Committer) HandleEndorserTransaction(ctx context.Context, block *common
 	return event, nil
 }
 
+func MapFinalityEvent(ctx context.Context, block *common.BlockMetadata, txNum driver.TxNum, txID string) (uint8, *FinalityEvent, error) {
+	if len(block.Metadata) < int(common.BlockMetadataIndex_TRANSACTIONS_FILTER) {
+		return 0, nil, errors.Errorf("block metadata lacks transaction filter")
+	}
+
+	fabricValidationCode := ValidationFlags(block.Metadata[common.BlockMetadataIndex_TRANSACTIONS_FILTER])[txNum]
+	event := &FinalityEvent{
+		Ctx:               ctx,
+		TxID:              txID,
+		ValidationCode:    convertValidationCode(int32(fabricValidationCode)),
+		ValidationMessage: pb.TxValidationCode_name[int32(fabricValidationCode)],
+	}
+	return fabricValidationCode, event, nil
+}
+
 // GetChaincodeEvents reads the chaincode events and notifies the listeners registered to the specific chaincode.
 func (c *Committer) GetChaincodeEvents(env *common.Envelope, blockNum driver2.BlockNum) error {
 	chaincodeEvent, err := readChaincodeEvent(env, blockNum)
@@ -82,9 +90,8 @@ func (c *Committer) GetChaincodeEvents(env *common.Envelope, blockNum driver2.Bl
 func (c *Committer) CommitEndorserTransaction(ctx context.Context, txID string, blockNum driver2.BlockNum, indexInBlock uint64, env *common.Envelope, event *FinalityEvent) (bool, error) {
 	newCtx, span := c.metrics.Commits.Start(ctx, "endorser_tx")
 	defer span.End()
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("transaction [%s] in block [%d] is valid for fabric, commit!", txID, blockNum)
-	}
+
+	logger.Infof("transaction [%s] in block [%d] is valid for fabric, commit!", txID, blockNum)
 
 	event.Block = blockNum
 	event.IndexInBlock = indexInBlock
