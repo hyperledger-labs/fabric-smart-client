@@ -28,6 +28,7 @@ func (c *Committer) HandleEndorserTransaction(ctx context.Context, block *common
 	if err != nil {
 		return nil, err
 	}
+	logger.Infof("Endorser client transaction [%s] has code [%v]", event.TxID, fabricValidationCode)
 
 	switch pb.TxValidationCode(fabricValidationCode) {
 	case pb.TxValidationCode_VALID:
