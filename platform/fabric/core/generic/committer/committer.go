@@ -252,8 +252,8 @@ func (c *Committer) DiscardTx(txID string, message string) error {
 }
 
 func (c *Committer) CommitTX(ctx context.Context, txID string, block driver.BlockNum, indexInBlock driver.TxNum, envelope *common.Envelope) (err error) {
-	c.logger.Debugf("Committing transaction [%s,%d,%d]", txID, block, indexInBlock)
-	defer c.logger.Debugf("Committing transaction [%s,%d,%d] done [%s]", txID, block, indexInBlock, err)
+	c.logger.Infof("Committing transaction [%s,%d,%d]", txID, block, indexInBlock)
+	defer c.logger.Infof("Committing transaction [%s,%d,%d] done [%s]", txID, block, indexInBlock, err)
 
 	vc, _, err := c.Status(txID)
 	if err != nil {
