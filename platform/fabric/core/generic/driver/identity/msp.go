@@ -9,7 +9,6 @@ package identity
 import (
 	"fmt"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/sig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/driver"
@@ -30,7 +29,7 @@ type MSPManagerProvider interface {
 type localMSPManagerProvider struct {
 	configProvider      config.Provider
 	endpointService     driver.BinderService
-	sigService          *sig.Service
+	sigService          driver.SignerService
 	identityLoaders     []NamedIdentityLoader
 	deserializerManager driver.DeserializerManager
 	idProvider          vdriver.IdentityProvider
@@ -40,7 +39,7 @@ type localMSPManagerProvider struct {
 func NewMSPManagerProvider(
 	configProvider config.Provider,
 	endpointService EndpointService,
-	sigService *sig.Service,
+	sigService driver.SignerService,
 	identityLoaders []NamedIdentityLoader,
 	deserializerManager driver.DeserializerManager,
 	idProvider vdriver.IdentityProvider,
