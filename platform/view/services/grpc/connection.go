@@ -38,7 +38,7 @@ func (cs *CredentialSupport) SetClientCertificate(cert tls.Certificate) {
 	cs.mutex.Unlock()
 }
 
-// getClientCertificate returns the client certificate of the CredentialSupport
+// GetClientCertificate returns the client certificate of the CredentialSupport
 func (cs *CredentialSupport) GetClientCertificate() tls.Certificate {
 	cs.mutex.RLock()
 	defer cs.mutex.RUnlock()
