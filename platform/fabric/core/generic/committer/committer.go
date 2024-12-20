@@ -252,8 +252,8 @@ func (c *Committer) DiscardTx(txID string, message string) error {
 }
 
 func (c *Committer) CommitTX(ctx context.Context, txID string, block driver.BlockNum, indexInBlock driver.TxNum, envelope *common.Envelope) (err error) {
-	c.logger.Debugf("Committing transaction [%s,%d,%d]", txID, block, indexInBlock)
-	defer c.logger.Debugf("Committing transaction [%s,%d,%d] done [%s]", txID, block, indexInBlock, err)
+	c.logger.Infof("Committing transaction [%s,%d,%d]", txID, block, indexInBlock)
+	defer c.logger.Infof("Committing transaction [%s,%d,%d] done [%s]", txID, block, indexInBlock, err)
 
 	vc, _, err := c.Status(txID)
 	if err != nil {
@@ -358,6 +358,7 @@ func (c *Committer) CommitConfig(blockNumber uint64, raw []byte, env *common.Env
 
 // Commit commits the transactions in the block passed as argument
 func (c *Committer) Commit(ctx context.Context, block *common.Block) error {
+	logger.Infof("Received block [%d] in committer", block.Header.Number)
 	newCtx, span := c.metrics.Commits.Start(ctx, "commit_block")
 	defer span.End()
 
@@ -383,16 +384,18 @@ func (c *Committer) commitTxs(ctx context.Context, parallelizableTxGroups Parall
 				span.AddEvent("create_finality_event")
 
 				start := time.Now()
+				logger.Infof("Received tx [%s, %d:%d] of type [%v]", tx.TxID, tx.BlkNum, tx.TxNum, tx.Type)
 				if handler, ok := c.Handlers[tx.Type]; !ok {
 					c.logger.Debugf("[%s] Received unhandled transaction type: %s", c.ChannelConfig.ID(), tx.Type)
 					c.metrics.HandlerDuration.With("status", "not_found").Observe(time.Since(start).Seconds())
 					span.End()
 				} else if event, err := handler(newCtx, blockMetadata, tx); err != nil {
 					span.End()
+					logger.Errorf("failed calling handler for [%s]: %v", tx.TxID, err)
 					c.metrics.HandlerDuration.With("status", "failure").Observe(time.Since(start).Seconds())
 					return errors.Wrapf(err, "failed calling handler for tx [%s]", tx.TxID)
 				} else {
-					c.logger.Debugf("commit transaction [%s] in filteredBlock [%d]", event.TxID, tx.BlkNum)
+					c.logger.Infof("commit transaction [%s] in filteredBlock [%d]", event.TxID, tx.BlkNum)
 					span.AddEvent("call_finality_notifiers")
 					c.metrics.HandlerDuration.With("status", "successful").Observe(time.Since(start).Seconds())
 					start := time.Now()
