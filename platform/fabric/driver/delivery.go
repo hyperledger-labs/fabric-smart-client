@@ -31,7 +31,7 @@ type Delivery interface {
 	// On each block, the callback function is invoked.
 	ScanBlock(ctx context.Context, callback BlockCallback) error
 
-	// ScanTx iterates over all transactions in block starting from the block containing the passed transaction id.
+	// Scan iterates over all transactions in block starting from the block containing the passed transaction id.
 	// If txID is empty, the iterations starts from the first block.
 	// On each transaction, the callback function is invoked.
 	Scan(ctx context.Context, txID string, callback DeliveryCallback) error
