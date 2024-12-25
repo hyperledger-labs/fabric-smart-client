@@ -127,8 +127,6 @@ func (d *Delivery) Stop() {
 }
 
 func (d *Delivery) Run(ctx context.Context) error {
-	defer d.cleanup()
-
 	if ctx == nil {
 		ctx = context.Background()
 	}
