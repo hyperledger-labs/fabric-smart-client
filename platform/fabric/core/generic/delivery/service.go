@@ -10,6 +10,7 @@ import (
 	"context"
 	"time"
 
+	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/fabricutils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
@@ -129,9 +130,9 @@ func (c *Service) Scan(ctx context.Context, txID string, callback driver.Deliver
 			for i, tx := range block.Data.Data {
 				validationCode := ValidationFlags(block.Metadata.Metadata[common.BlockMetadataIndex_TRANSACTIONS_FILTER])[i]
 
-				if pb.TxValidationCode(validationCode) != pb.TxValidationCode_VALID {
-					continue
-				}
+				//if pb.TxValidationCode(validationCode) != pb.TxValidationCode_VALID {
+				//	continue
+				//}
 				_, _, channelHeader, err := fabricutils.UnmarshalTx(tx)
 				if err != nil {
 					logger.Errorf("[%s] unmarshal tx failed: %s", c.channel, err)
@@ -147,7 +148,12 @@ func (c *Service) Scan(ctx context.Context, txID string, callback driver.Deliver
 					return false, err
 				}
 
-				stop, err := callback(ptx)
+				stop, err := callback(&processedTransaction{
+					txID:    ptx.TxID(),
+					results: ptx.Results(),
+					vc:      int32(validationCode),
+					env:     ptx.Envelope(),
+				})
 				if err != nil {
 					// if an error occurred, stop processing
 					return false, err
@@ -160,6 +166,33 @@ func (c *Service) Scan(ctx context.Context, txID string, callback driver.Deliver
 			}
 			return false, nil
 		})
+}
+
+type processedTransaction struct {
+	txID    driver2.TxID
+	results []byte
+	vc      int32
+	env     []byte
+}
+
+func (p *processedTransaction) TxID() string {
+	return p.txID
+}
+
+func (p *processedTransaction) Results() []byte {
+	return p.results
+}
+
+func (p *processedTransaction) IsValid() bool {
+	return p.vc == int32(pb.TxValidationCode_VALID)
+}
+
+func (p *processedTransaction) Envelope() []byte {
+	return p.env
+}
+
+func (p *processedTransaction) ValidationCode() int32 {
+	return p.vc
 }
 
 type fakeVault struct {
