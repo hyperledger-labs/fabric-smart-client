@@ -61,13 +61,18 @@ func MapFinalityEvent(ctx context.Context, block *common.BlockMetadata, txNum dr
 	}
 
 	fabricValidationCode := ValidationFlags(block.Metadata[common.BlockMetadataIndex_TRANSACTIONS_FILTER])[txNum]
+	validationCode, validationMessage := MapValidationCode(int32(fabricValidationCode))
 	event := &FinalityEvent{
 		Ctx:               ctx,
 		TxID:              txID,
-		ValidationCode:    convertValidationCode(int32(fabricValidationCode)),
-		ValidationMessage: pb.TxValidationCode_name[int32(fabricValidationCode)],
+		ValidationCode:    validationCode,
+		ValidationMessage: validationMessage,
 	}
 	return fabricValidationCode, event, nil
+}
+
+func MapValidationCode(code int32) (int, string) {
+	return convertValidationCode(code), pb.TxValidationCode_name[code]
 }
 
 // GetChaincodeEvents reads the chaincode events and notifies the listeners registered to the specific chaincode.

@@ -6,7 +6,8 @@ SPDX-License-Identifier: Apache-2.0
 
 package cache
 
-// NewMapCache creates a cache with unlimited size
+// NewMapCache creates a dummy implementation of the Cache interface.
+// It is backed by a map with unlimited capacity.
 func NewMapCache[K comparable, V any]() *mapCache[K, V] {
 	return &mapCache[K, V]{
 		m: map[K]V{},

@@ -6,6 +6,8 @@ SPDX-License-Identifier: Apache-2.0
 
 package cache
 
+import "fmt"
+
 func evict[K comparable, V any](keys []K, m map[K]V, onEvict func(map[K]V)) {
 	evicted := make(map[K]V, len(keys))
 	for _, k := range keys {
@@ -23,6 +25,10 @@ type evictionCache[K comparable, V any] struct {
 	m              map[K]V
 	l              rwLock
 	evictionPolicy EvictionPolicy[K]
+}
+
+func (c *evictionCache[K, V]) String() string {
+	return fmt.Sprintf("Content: [%v], Eviction policy: [%v]", c.m, c.evictionPolicy)
 }
 
 type EvictionPolicy[K comparable] interface {

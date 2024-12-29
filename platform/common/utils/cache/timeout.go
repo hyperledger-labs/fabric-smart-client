@@ -11,6 +11,8 @@ import (
 	"time"
 )
 
+// NewTimeoutCache creates a cache that keeps elements for evictionTimeout time.
+// An element might return even if it is marked stale.
 func NewTimeoutCache[K comparable, V any](evictionTimeout time.Duration, onEvict func(map[K]V)) *evictionCache[K, V] {
 	m := map[K]V{}
 	l := &sync.RWMutex{}
@@ -18,6 +20,7 @@ func NewTimeoutCache[K comparable, V any](evictionTimeout time.Duration, onEvict
 		m: m,
 		l: l,
 		evictionPolicy: NewTimeoutEviction(evictionTimeout, func(keys []K) {
+			logger.Debugf("Evicting stale keys: [%v]", keys)
 			l.Lock()
 			defer l.Unlock()
 			evict(keys, m, onEvict)
@@ -48,11 +51,12 @@ func NewTimeoutEviction[K comparable](timeout time.Duration, evict func([]K)) *t
 func (e *timeoutEviction[K]) cleanup(timeout time.Duration) {
 	logger.Infof("Launch cleanup function with eviction timeout [%v]", timeout)
 	for range time.Tick(1 * time.Second) {
-		expiry := time.Now().Add(timeout)
+		expiry := time.Now().Add(-timeout)
+		logger.Debugf("Cleanup invoked: evicting everything created after [%v]", expiry)
 		e.mu.RLock()
 		evicted := make([]K, 0)
 		for _, entry := range e.keys {
-			if entry.created.Before(expiry) {
+			if entry.created.After(expiry) {
 				break
 			}
 			evicted = append(evicted, entry.key)
