@@ -54,7 +54,7 @@ type DeliveryListenerManagerConfig struct {
 func NewListenerManager[T TxInfo](config DeliveryListenerManagerConfig, delivery *fabric.Delivery, tracer trace.Tracer, mapper TxInfoMapper[T]) (*listenerManager[T], error) {
 	var listeners cache.Map[driver2.TxID, []ListenerEntry[T]]
 	if config.ListenerTimeout > 0 {
-		listeners = cache.NewTimeoutCache[driver2.TxID, []ListenerEntry[T]](5*time.Second, func(evicted map[driver2.TxID][]ListenerEntry[T]) {
+		listeners = cache.NewTimeoutCache[driver2.TxID, []ListenerEntry[T]](config.ListenerTimeout, func(evicted map[driver2.TxID][]ListenerEntry[T]) {
 			logger.Infof("Listeners for TXs [%v] timed out. Either the TX finality is too slow or it reached finality too long ago and were evicted from the txInfos cache. The IDs will be queried directly from ledger...", collections.Keys(evicted))
 			fetchTxs(evicted, mapper, delivery)
 		})
