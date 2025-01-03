@@ -98,6 +98,7 @@ func (m *txInfoMapper) MapTxData(ctx context.Context, tx []byte, block *common.B
 
 func (m *txInfoMapper) MapProcessedTx(tx *fabric.ProcessedTransaction) ([]txInfo, error) {
 	status, message := committer.MapValidationCode(tx.ValidationCode())
+	logger.Infof("Mapping processed tx [%s]: %v", tx.TxID(), status)
 	return []txInfo{{
 		txID:    tx.TxID(),
 		status:  status,
