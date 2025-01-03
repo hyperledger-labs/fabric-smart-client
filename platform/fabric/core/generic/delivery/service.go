@@ -123,10 +123,12 @@ func (c *Service) ScanBlock(ctx context.Context, callback driver.BlockCallback) 
 }
 
 func (c *Service) Scan(ctx context.Context, txID string, callback driver.DeliveryCallback) error {
+	logger.Infof("Start looking for [%s]", txID)
 	vault := &fakeVault{txID: txID}
 	return c.scanBlock(ctx, vault,
 		func(_ context.Context, block *common.Block) (bool, error) {
 			for i, tx := range block.Data.Data {
+				logger.Infof("Checking tx [%d:%d] while looking for [%s]", block.Header.Number, i, txID)
 				validationCode := ValidationFlags(block.Metadata.Metadata[common.BlockMetadataIndex_TRANSACTIONS_FILTER])[i]
 
 				if pb.TxValidationCode(validationCode) != pb.TxValidationCode_VALID {
@@ -137,6 +139,7 @@ func (c *Service) Scan(ctx context.Context, txID string, callback driver.Deliver
 					logger.Errorf("[%s] unmarshal tx failed: %s", c.channel, err)
 					return false, err
 				}
+				logger.Infof("Checking tx [%d:%d, %s]", block.Header.Number, i, channelHeader.TxId)
 
 				if common.HeaderType(channelHeader.Type) != common.HeaderType_ENDORSER_TRANSACTION {
 					continue
