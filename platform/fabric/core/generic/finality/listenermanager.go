@@ -87,7 +87,11 @@ func NewListenerManager[T TxInfo](config DeliveryListenerManagerConfig, delivery
 func fetchTxs[T TxInfo](evicted map[driver2.TxID][]ListenerEntry[T], mapper TxInfoMapper[T], delivery *fabric.Delivery) {
 	for txID, listeners := range evicted {
 		err := delivery.Scan(context.TODO(), txID, func(tx *fabric.ProcessedTransaction) (bool, error) {
-			logger.Infof("Received result for tx [%s, %v, %d]", tx.TxID(), tx.ValidationCode(), len(tx.Results()))
+			if tx.TxID() != txID {
+				logger.Infof("Received result for tx [%s, %v, %d]. discarding...", tx.TxID(), tx.ValidationCode(), len(tx.Results()))
+				return false, nil
+			}
+			logger.Infof("Received result for tx [%s, %v, %d]. keeping...", tx.TxID(), tx.ValidationCode(), len(tx.Results()))
 			infos, err := mapper.MapProcessedTx(tx)
 			if err != nil {
 				logger.Errorf("failed mapping tx [%s]: %v", tx.TxID(), err)
