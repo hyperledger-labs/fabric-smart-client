@@ -13,6 +13,7 @@ import (
 
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/cache"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger/fabric-protos-go/common"
 	"github.com/pkg/errors"
@@ -54,7 +55,7 @@ func NewListenerManager[T TxInfo](config DeliveryListenerManagerConfig, delivery
 	var listeners cache.Map[driver2.TxID, []ListenerEntry[T]]
 	if config.ListenerTimeout > 0 {
 		listeners = cache.NewTimeoutCache[driver2.TxID, []ListenerEntry[T]](5*time.Second, func(evicted map[driver2.TxID][]ListenerEntry[T]) {
-			logger.Infof("Listeners for TXs [%v] timed out. Either the TX finality is too slow or it reached finality too long ago and were evicted from the txInfos cache. The IDs will be queried directly from ledger...")
+			logger.Infof("Listeners for TXs [%v] timed out. Either the TX finality is too slow or it reached finality too long ago and were evicted from the txInfos cache. The IDs will be queried directly from ledger...", collections.Keys(evicted))
 			fetchTxs(evicted, mapper, delivery)
 		})
 	} else {
@@ -64,7 +65,7 @@ func NewListenerManager[T TxInfo](config DeliveryListenerManagerConfig, delivery
 	var txInfos cache.Map[driver2.TxID, T]
 	if config.LRUSize > 0 && config.LRUBuffer > 0 {
 		txInfos = cache.NewLRUCache[driver2.TxID, T](10, 2, func(evicted map[driver2.TxID]T) {
-			logger.Infof("Evicted keys [%v]. If they are looked up, they will be fetched directly from the ledger from now on...")
+			logger.Infof("Evicted keys [%v]. If they are looked up, they will be fetched directly from the ledger from now on...", collections.Keys(evicted))
 		})
 	} else {
 		txInfos = cache.NewMapCache[driver2.TxID, T]()
