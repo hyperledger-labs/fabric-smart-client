@@ -195,6 +195,7 @@ func (m *listenerManager[T]) AddFinalityListener(txID string, e ListenerEntry[T]
 		go e.OnStatus(context.TODO(), txInfo)
 		return nil
 	}
+	logger.Infof("Value not found. Appending listener for [%s]", txID)
 	m.listeners.Update(txID, func(_ bool, listeners []ListenerEntry[T]) (bool, []ListenerEntry[T]) {
 		return true, append(listeners, e)
 	})
