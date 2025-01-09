@@ -47,7 +47,9 @@ func (p *Responder) Call(context view.Context) (interface{}, error) {
 		case "pongWithPanic":
 			panic(fmt.Sprintf("expected ping, got %s", m))
 		default:
-			panic(fmt.Sprintf("unexpected message: %s", m))
+			err := session.SendError([]byte(fmt.Sprintf("expected ping, got %s", m)))
+			assert.NoError(err)
+			return nil, errors.Errorf("expected ping, got %s", m)
 		}
 	default:
 		// reply with pong
