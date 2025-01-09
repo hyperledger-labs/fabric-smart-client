@@ -48,7 +48,6 @@ require (
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/viper v1.19.0
 	github.com/stretchr/testify v1.9.0
-	github.com/sykesm/zap-logfmt v0.0.4
 	github.com/tedsuo/ifrit v0.0.0-20230516164442-7862c310ad26
 	github.com/test-go/testify v1.1.4
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.53.0
@@ -61,7 +60,7 @@ require (
 	go.uber.org/dig v1.18.0
 	go.uber.org/zap v1.27.0
 	golang.org/x/exp v0.0.0-20241009180824-f66d83c29e7c
-	golang.org/x/net v0.30.0
+	golang.org/x/net v0.33.0
 	golang.org/x/sync v0.10.0
 	google.golang.org/grpc v1.65.0
 	google.golang.org/protobuf v1.35.1
@@ -91,6 +90,7 @@ require (
 	github.com/sagikazarmark/locafero v0.6.0 // indirect
 	github.com/sagikazarmark/slog-shim v0.1.0 // indirect
 	github.com/sourcegraph/conc v0.3.0 // indirect
+	github.com/sykesm/zap-logfmt v0.0.4 // indirect
 	github.com/wlynxg/anet v0.0.5 // indirect
 	github.com/xhit/go-str2duration/v2 v2.1.0 // indirect
 )
