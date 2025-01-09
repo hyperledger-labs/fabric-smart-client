@@ -11,6 +11,7 @@ import (
 	"time"
 
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/fabricutils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
@@ -35,6 +36,7 @@ type Service struct {
 	Ledger              driver.Ledger
 	transactionManager  driver.TransactionManager
 	waitForEventTimeout time.Duration
+	acceptedHeaderTypes collections.Set[common.HeaderType]
 
 	deliveryService *Delivery
 }
@@ -54,6 +56,7 @@ func NewService(
 	callback driver.BlockCallback,
 	tracerProvider trace.TracerProvider,
 	metricsProvider metrics.Provider,
+	acceptedHeaderTypes []common.HeaderType,
 ) (*Service, error) {
 	deliveryService, err := New(
 		networkName,
@@ -85,6 +88,7 @@ func NewService(
 		waitForEventTimeout: waitForEventTimeout,
 		deliveryService:     deliveryService,
 		transactionManager:  transactionManager,
+		acceptedHeaderTypes: collections.NewSet(acceptedHeaderTypes...),
 	}, nil
 }
 
@@ -139,10 +143,9 @@ func (c *Service) Scan(ctx context.Context, txID string, callback driver.Deliver
 					return false, err
 				}
 
-				if common.HeaderType(channelHeader.Type) != common.HeaderType_ENDORSER_TRANSACTION {
+				if !c.acceptedHeaderTypes.Contains(common.HeaderType(channelHeader.Type)) {
 					continue
 				}
-
 				ptx, err := c.transactionManager.NewProcessedTransactionFromEnvelopeRaw(tx)
 				if err != nil {
 					return false, err

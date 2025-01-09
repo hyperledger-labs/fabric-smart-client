@@ -41,6 +41,7 @@ type provider struct {
 	drivers                 []driver2.NamedDriver
 	channelConfigProvider   driver.ChannelConfigProvider
 	listenerManagerProvider driver.ListenerManagerProvider
+	acceptedHeaderTypes     []common.HeaderType
 }
 
 func NewChannelProvider(
@@ -54,6 +55,7 @@ func NewChannelProvider(
 	channelConfigProvider driver.ChannelConfigProvider,
 	listenerManagerProvider driver.ListenerManagerProvider,
 	dependencyResolver committer.DependencyResolver,
+	acceptedHeaderTypes []common.HeaderType,
 ) *provider {
 	return &provider{
 		kvss:                    kvss,
@@ -66,6 +68,7 @@ func NewChannelProvider(
 		channelConfigProvider:   channelConfigProvider,
 		listenerManagerProvider: listenerManagerProvider,
 		dependencyResolver:      dependencyResolver,
+		acceptedHeaderTypes:     acceptedHeaderTypes,
 	}
 }
 
@@ -173,6 +176,7 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 		},
 		p.tracerProvider,
 		p.metricsProvider,
+		p.acceptedHeaderTypes,
 	)
 	if err != nil {
 		return nil, err

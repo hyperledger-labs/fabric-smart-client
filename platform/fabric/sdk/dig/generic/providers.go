@@ -164,5 +164,6 @@ func NewChannelProvider(in struct {
 			), nil
 		},
 		true,
+		[]common.HeaderType{common.HeaderType_ENDORSER_TRANSACTION},
 	)
 }

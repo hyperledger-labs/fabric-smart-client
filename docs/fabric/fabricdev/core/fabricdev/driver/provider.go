@@ -11,6 +11,7 @@ import (
 
 	committer2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/committer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/sig"
+	"github.com/hyperledger/fabric-protos-go/common"
 
 	"github.com/hyperledger-labs/fabric-smart-client/docs/fabric/fabricdev/core/fabricdev"
 	"github.com/hyperledger-labs/fabric-smart-client/docs/fabric/fabricdev/core/fabricdev/transaction"
@@ -74,6 +75,7 @@ func NewProvider(
 			generic.NewChannelConfigProvider(configProvider),
 			committer2.NewFinalityListenerManagerProvider[fdriver.ValidationCode](tracerProvider),
 			committer.NewSerialDependencyResolver(),
+			[]common.HeaderType{common.HeaderType_ENDORSER_TRANSACTION},
 		),
 		identityProvider:    identity.NewProvider(configProvider, endpointService),
 		metricsProvider:     metricsProvider,

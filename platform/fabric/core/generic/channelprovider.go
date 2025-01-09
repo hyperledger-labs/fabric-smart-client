@@ -83,6 +83,7 @@ type provider struct {
 	newRWSetLoader          RWSetLoaderConstructor
 	newCommitter            CommitterConstructor
 	useFilteredDelivery     bool
+	acceptedHeaderTypes     []common.HeaderType
 }
 
 func NewChannelProvider(
@@ -100,6 +101,7 @@ func NewChannelProvider(
 	newRWSetLoader RWSetLoaderConstructor,
 	newCommitter CommitterConstructor,
 	useFilteredDelivery bool,
+	acceptedHeaderTypes []common.HeaderType,
 ) *provider {
 	return &provider{
 		kvss:                    kvss,
@@ -116,6 +118,7 @@ func NewChannelProvider(
 		newRWSetLoader:          newRWSetLoader,
 		newCommitter:            newCommitter,
 		useFilteredDelivery:     useFilteredDelivery,
+		acceptedHeaderTypes:     acceptedHeaderTypes,
 	}
 }
 
@@ -238,6 +241,7 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 		},
 		p.tracerProvider,
 		p.metricsProvider,
+		p.acceptedHeaderTypes,
 	)
 	if err != nil {
 		return nil, err
