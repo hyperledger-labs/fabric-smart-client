@@ -89,7 +89,8 @@ func NewListenerManager[T TxInfo](config DeliveryListenerManagerConfig, delivery
 func fetchTxs[T TxInfo](evicted map[driver2.TxID][]ListenerEntry[T], mapper TxInfoMapper[T], delivery *fabric.Delivery) {
 	for txID, listeners := range evicted {
 		go func(txID driver2.TxID, listeners []ListenerEntry[T]) {
-			_ = delivery.Scan(context.TODO(), txID, func(tx *fabric.ProcessedTransaction) (bool, error) {
+			logger.Debugf("Launching routine to scan for tx [%s]", txID)
+			err := delivery.Scan(context.TODO(), txID, func(tx *fabric.ProcessedTransaction) (bool, error) {
 				if tx.TxID() != txID {
 					return false, nil
 				}
@@ -106,6 +107,9 @@ func fetchTxs[T TxInfo](evicted map[driver2.TxID][]ListenerEntry[T], mapper TxIn
 				}
 				return true, nil
 			})
+			if err != nil {
+				logger.Errorf("Failed scanning for tx [%s]: %v", txID, err)
+			}
 		}(txID, listeners)
 	}
 }
