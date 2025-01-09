@@ -34,10 +34,21 @@ func (p *Responder) Call(context view.Context) (interface{}, error) {
 	m := string(payload)
 	switch {
 	case m != "ping":
-		// reply with an error
-		err := session.SendError([]byte(fmt.Sprintf("expected ping, got %s", m)))
-		assert.NoError(err)
-		return nil, errors.Errorf("expected ping, got %s", m)
+		// reply with an error,
+		// alternatively, you can just return with an error or panic.
+		// The executor of the view will take care of sending the error back
+		switch m {
+		case "pongWithSendError":
+			err := session.SendError([]byte(fmt.Sprintf("expected ping, got %s", m)))
+			assert.NoError(err)
+			return nil, nil
+		case "pongWithError":
+			return nil, errors.Errorf("expected ping, got %s", m)
+		case "pongWithPanic":
+			panic(fmt.Sprintf("expected ping, got %s", m))
+		default:
+			panic(fmt.Sprintf("unexpected message: %s", m))
+		}
 	default:
 		// reply with pong
 		err := session.Send([]byte("pong"))

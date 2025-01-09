@@ -189,6 +189,17 @@ var _ = Describe("EndToEnd", func() {
 		AfterEach(s.TearDown)
 		It("generate artifacts & successful mock pingpong", s.TestGenerateAndMockPingPong)
 	})
+
+	Describe("Network-based PongWithErr With Websockets", func() {
+		s := NewTestSuite(fsc.WebSocket, true, integration.NoReplication)
+		BeforeEach(s.Setup)
+		AfterEach(s.TearDown)
+		It("successed", func() {
+			s.TestGenerateAndPongErr("pongWithSendError", "initiator")
+			s.TestGenerateAndPongErr("pongWithError", "initiator")
+			s.TestGenerateAndPongErr("pongWithPanic", "initiator")
+		})
+	})
 })
 
 func newNode(conf string) api.FabricSmartClientNode {
@@ -311,6 +322,15 @@ func (s *TestSuite) TestGenerateAndMockPingPong() {
 	res, err := s.II.Client("initiator").CallView("mockInit", common.JSONMarshall(&mock.Params{Mock: true}))
 	Expect(err).NotTo(HaveOccurred())
 	Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
+}
+
+func (s *TestSuite) TestGenerateAndPongErr(payload string, clients ...string) {
+	// Initiate a view and check the output
+	for _, clientName := range clients {
+		_, err := s.II.Client(clientName).CallView("init", common.JSONMarshall(&pingpong.Message{Payload: []byte(payload)}))
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("expected ping, got %s", payload)))
+	}
 }
 
 func newWebClient(confDir string) *web.Client {
