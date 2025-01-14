@@ -24,6 +24,8 @@ type typedSecondChanceCache[T any] struct {
 	// holds a list of cached items.
 	items []*cacheItem[T]
 
+	buffer int
+
 	// indicates the next candidate of a victim in the items list
 	position int
 
@@ -47,8 +49,9 @@ func New(cacheSize int) *secondChanceCache {
 func NewTyped[T any](cacheSize int) *typedSecondChanceCache[T] {
 	var cache typedSecondChanceCache[T]
 	cache.position = 0
+	cache.buffer = max(cacheSize/3, 1) // One third of the entries will be evicted when the cache is full
 	cache.items = make([]*cacheItem[T], cacheSize)
-	cache.table = make(map[string]*cacheItem[T])
+	cache.table = make(map[string]*cacheItem[T], cacheSize)
 
 	return &cache
 }
@@ -126,7 +129,7 @@ func (cache *typedSecondChanceCache[T]) add(key string, value T) {
 	}
 
 	// starts victim scan since cache is full
-	for {
+	for evicted := 0; evicted < cache.buffer; {
 		// checks whether this item is recently accessed or not
 		victim := cache.items[cache.position]
 		if atomic.LoadInt32(&victim.referenced) == 0 {
@@ -135,7 +138,8 @@ func (cache *typedSecondChanceCache[T]) add(key string, value T) {
 			cache.table[key] = &item
 			cache.items[cache.position] = &item
 			cache.position = (cache.position + 1) % size
-			return
+			evicted++
+			continue
 		}
 
 		// referenced bit is set to false so that this item will be Get purged
