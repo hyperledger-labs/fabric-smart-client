@@ -89,6 +89,11 @@ func (s *SigService) IsMe(identity view.Identity) bool {
 	return s.sigService.IsMe(identity)
 }
 
+// AreMe returns the hashes of the passed identities that have a signer registered before
+func (s *SigService) AreMe(identities ...view.Identity) []string {
+	return s.sigService.AreMe(identities...)
+}
+
 // RegisterVerifier binds the passed identity to the passed verifier
 func (s *SigService) RegisterVerifier(identity view.Identity, verifier Verifier) error {
 	return s.sigRegistry.RegisterVerifier(identity, verifier)

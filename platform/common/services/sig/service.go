@@ -13,6 +13,7 @@ import (
 	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -24,6 +25,7 @@ var logger = logging.MustGetLogger("common-sdk.sig")
 
 type KVS interface {
 	Exists(id string) bool
+	GetExisting(ids ...string) []string
 	Put(id string, state interface{}) error
 	Get(id string, state interface{}) error
 }
@@ -180,25 +182,42 @@ func (o *Service) GetAuditInfo(identity view.Identity) ([]byte, error) {
 }
 
 func (o *Service) IsMe(identity view.Identity) bool {
-	idHash := identity.UniqueID()
+	return len(o.AreMe(identity)) > 0
+}
+
+func (o *Service) AreMe(identities ...view.Identity) []string {
+	idHashes := make([]string, len(identities))
+	for i, id := range identities {
+		idHashes[i] = id.UniqueID()
+	}
+	result := collections.NewSet[string]()
+	notFound := make([]string, 0)
 	// check local cache
 	o.mutex.RLock()
-	_, ok := o.signers[idHash]
+	for _, idHash := range idHashes {
+		if _, ok := o.signers[idHash]; ok {
+			result.Add(idHash)
+		} else {
+			notFound = append(notFound, idHash)
+		}
+	}
 	o.mutex.RUnlock()
-	if ok {
-		return true
+	if len(notFound) == 0 || o.kvs == nil {
+		return result.ToSlice()
 	}
 	// check kvs
-	if o.kvs != nil {
-		k, err := kvs.CreateCompositeKey("sigService", []string{"signer", idHash})
+	keys := make([]string, len(notFound))
+	for i, idHash := range notFound {
+		key, err := kvs.CreateCompositeKey("sigService", []string{"signer", idHash})
 		if err != nil {
-			return false
+			logger.Errorf("failed creating composite key: %v", err)
 		}
-		if o.kvs.Exists(k) {
-			return true
-		}
+		keys[i] = key
 	}
-	return false
+
+	result.Add(o.kvs.GetExisting(keys...)...)
+
+	return result.ToSlice()
 }
 
 func (o *Service) Info(id view.Identity) string {
