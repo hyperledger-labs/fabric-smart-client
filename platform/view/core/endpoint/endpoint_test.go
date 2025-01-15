@@ -16,15 +16,8 @@ import (
 
 type mockKVS struct{}
 
-func (k mockKVS) Exists(id string) bool {
-	return true
-}
-func (k mockKVS) Put(id string, state interface{}) error {
-	return nil
-}
-func (k mockKVS) Get(id string, state interface{}) error {
-	return nil
-}
+func (k mockKVS) GetBinding(ephemeral view.Identity) (view.Identity, error) { return nil, nil }
+func (k mockKVS) PutBinding(ephemeral, longTerm view.Identity) error        { return nil }
 
 type mockExtractor struct{}
 

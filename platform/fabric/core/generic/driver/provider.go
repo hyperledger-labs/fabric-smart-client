@@ -9,6 +9,7 @@ package driver
 import (
 	"fmt"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/sig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic"
@@ -39,10 +40,12 @@ func NewProvider(
 	channelProvider generic.ChannelProvider,
 	idProvider vdriver.IdentityProvider,
 	identityLoaders []identity.NamedIdentityLoader,
+	signerKVS driver.SignerKVS,
+	auditInfoKVS driver.AuditInfoKVS,
 	kvss *kvs.KVS,
 ) *Provider {
 	deserializerManager := sig.NewMultiplexDeserializer()
-	sigService := sig.NewService(deserializerManager, kvss)
+	sigService := sig.NewService(deserializerManager, auditInfoKVS, signerKVS)
 	return &Provider{
 		configProvider:   configProvider,
 		channelProvider:  channelProvider,

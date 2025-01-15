@@ -17,7 +17,6 @@ import (
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	driver3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
@@ -31,7 +30,9 @@ type ONSProvider struct {
 	configService driver2.ConfigService
 	config        *Config
 	ctx           context.Context
-	kvss          *kvs.KVS
+	endorseTxKVS  driver.EndorseTxKVS
+	metadataKVS   driver.MetadataKVS
+	envelopeKVS   driver.EnvelopeKVS
 	publisher     events.Publisher
 	subscriber    events.Subscriber
 
@@ -44,11 +45,26 @@ type ONSProvider struct {
 	listenerManagerProvider driver.ListenerManagerProvider
 }
 
-func NewOrionNetworkServiceProvider(configService driver2.ConfigService, config *Config, kvss *kvs.KVS, publisher events.Publisher, subscriber events.Subscriber, metricsProvider metrics.Provider, tracerProvider trace.TracerProvider, drivers []driver3.NamedDriver, networkConfigProvider driver.NetworkConfigProvider, listenerManagerProvider driver.ListenerManagerProvider) (*ONSProvider, error) {
+func NewOrionNetworkServiceProvider(
+	configService driver2.ConfigService,
+	config *Config,
+	endorseTxKVS driver.EndorseTxKVS,
+	metadataKVS driver.MetadataKVS,
+	envelopeKVS driver.EnvelopeKVS,
+	publisher events.Publisher,
+	subscriber events.Subscriber,
+	metricsProvider metrics.Provider,
+	tracerProvider trace.TracerProvider,
+	drivers []driver3.NamedDriver,
+	networkConfigProvider driver.NetworkConfigProvider,
+	listenerManagerProvider driver.ListenerManagerProvider,
+) (*ONSProvider, error) {
 	provider := &ONSProvider{
 		configService:           configService,
 		config:                  config,
-		kvss:                    kvss,
+		endorseTxKVS:            endorseTxKVS,
+		metadataKVS:             metadataKVS,
+		envelopeKVS:             envelopeKVS,
 		publisher:               publisher,
 		subscriber:              subscriber,
 		networks:                map[string]driver.OrionNetworkService{},
@@ -129,5 +145,5 @@ func (p *ONSProvider) newONS(network string) (driver.OrionNetworkService, error)
 		return nil, err
 	}
 
-	return generic.NewNetwork(p.ctx, p.kvss, p.publisher, p.subscriber, p.metricsProvider, p.tracerProvider, c, network, p.drivers, networkConfig, p.listenerManagerProvider.NewManager())
+	return generic.NewNetwork(p.ctx, p.endorseTxKVS, p.metadataKVS, p.envelopeKVS, p.publisher, p.subscriber, p.metricsProvider, p.tracerProvider, c, network, p.drivers, networkConfig, p.listenerManagerProvider.NewManager())
 }

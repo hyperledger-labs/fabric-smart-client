@@ -41,7 +41,7 @@ func TestRegisterIdemixLocalMSP(t *testing.T) {
 	assert.NoError(t, err)
 	mspService := msp2.NewLocalMSPManager(config, kvss, nil, nil, nil, des, 100)
 	assert.NoError(t, registry.RegisterService(mspService))
-	sigService := sig.NewService(des, kvss)
+	sigService := sig.NewService(des, kvs.NewAuditInfoKVS(kvss), kvs.NewSignerKVS(kvss))
 	assert.NoError(t, registry.RegisterService(sigService))
 
 	assert.NoError(t, mspService.RegisterIdemixMSP("apple", "./idemix/testdata/idemix", "idemix"))
@@ -73,7 +73,7 @@ func TestIdemixTypeFolder(t *testing.T) {
 	assert.NoError(t, err)
 	mspService := msp2.NewLocalMSPManager(config, kvss, nil, nil, nil, des, 100)
 	assert.NoError(t, registry.RegisterService(mspService))
-	sigService := sig.NewService(des, kvss)
+	sigService := sig.NewService(des, kvs.NewAuditInfoKVS(kvss), kvs.NewSignerKVS(kvss))
 	assert.NoError(t, registry.RegisterService(sigService))
 
 	assert.NoError(t, mspService.Load())
@@ -101,7 +101,7 @@ func TestRegisterX509LocalMSP(t *testing.T) {
 	assert.NoError(t, err)
 	mspService := msp2.NewLocalMSPManager(config, kvss, nil, nil, nil, des, 100)
 	assert.NoError(t, registry.RegisterService(mspService))
-	sigService := sig.NewService(des, kvss)
+	sigService := sig.NewService(des, kvs.NewAuditInfoKVS(kvss), kvs.NewSignerKVS(kvss))
 	assert.NoError(t, registry.RegisterService(sigService))
 
 	assert.NoError(t, mspService.RegisterX509MSP("apple", "./x509/testdata/msp", "x509"))
@@ -132,7 +132,7 @@ func TestX509TypeFolder(t *testing.T) {
 	assert.NoError(t, err)
 	mspService := msp2.NewLocalMSPManager(config, kvss, nil, nil, nil, des, 100)
 	assert.NoError(t, registry.RegisterService(mspService))
-	sigService := sig.NewService(des, kvss)
+	sigService := sig.NewService(des, kvs.NewAuditInfoKVS(kvss), kvs.NewSignerKVS(kvss))
 	assert.NoError(t, registry.RegisterService(sigService))
 
 	assert.NoError(t, mspService.Load())
@@ -160,7 +160,7 @@ func TestRefresh(t *testing.T) {
 	assert.NoError(t, err)
 	mspService := msp2.NewLocalMSPManager(config, kvss, nil, nil, nil, des, 100)
 	assert.NoError(t, registry.RegisterService(mspService))
-	sigService := sig.NewService(des, kvss)
+	sigService := sig.NewService(des, kvs.NewAuditInfoKVS(kvss), kvs.NewSignerKVS(kvss))
 	assert.NoError(t, registry.RegisterService(sigService))
 
 	assert.NoError(t, mspService.Load())

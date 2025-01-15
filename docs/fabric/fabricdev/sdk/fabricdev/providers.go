@@ -12,6 +12,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/config"
 	mspdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	vdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
@@ -24,6 +25,10 @@ import (
 
 func NewDriver(in struct {
 	dig.In
+
+	EnvelopeKVS         driver.EnvelopeKVS
+	MetadataKVS         driver.MetadataKVS
+	EndorseTxKVS        driver.EndorseTxKVS
 	ConfigProvider      config.Provider
 	MetricsProvider     metrics.Provider
 	EndpointService     vdriver.EndpointService
@@ -39,6 +44,9 @@ func NewDriver(in struct {
 	d := core.NamedDriver{
 		Name: "fabricdev",
 		Driver: fdevdriver.NewProvider(
+			in.EnvelopeKVS,
+			in.MetadataKVS,
+			in.EndorseTxKVS,
 			in.ConfigProvider,
 			in.MetricsProvider,
 			in.EndpointService,
