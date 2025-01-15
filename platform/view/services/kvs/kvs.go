@@ -84,13 +84,21 @@ func NewWithConfig(dbDriver driver.Driver, namespace string, cp ConfigProvider) 
 	}, nil
 }
 
-func (o *KVS) Exists(id string) bool {
+func (o *KVS) GetExisting(ids ...string) []string {
+	result := make([]string, 0)
+	notFound := make([]string, 0)
 	// is in cache?
 	o.putMutex.RLock()
-	v, ok := o.cache.Get(id)
-	if ok {
-		o.putMutex.RUnlock()
-		return v != nil && len(v.([]byte)) != 0
+	for _, id := range ids {
+		if v, ok := o.cache.Get(id); !ok {
+			notFound = append(notFound, id)
+		} else if v != nil && len(v.([]byte)) > 0 {
+			result = append(result, id)
+		}
+	}
+	if len(notFound) == 0 {
+		defer o.putMutex.RUnlock()
+		return result
 	}
 	o.putMutex.RUnlock()
 
@@ -99,28 +107,41 @@ func (o *KVS) Exists(id string) bool {
 	defer o.putMutex.Unlock()
 
 	// is in cache, first?
-	v, ok = o.cache.Get(id)
-	if ok {
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("hit the cache, len state [%d]", len(v.([]byte)))
+	ids = notFound
+	notFound = make([]string, 0)
+	for _, id := range ids {
+		if v, ok := o.cache.Get(id); !ok {
+			notFound = append(notFound, id)
+		} else if v != nil && len(v.([]byte)) > 0 {
+			result = append(result, id)
 		}
-		return v != nil && len(v.([]byte)) != 0
 	}
-	// get from store and store in cache
-	raw, err := o.store.GetState(o.namespace, id)
-	if err != nil {
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("failed getting state [%s,%s]", o.namespace, id)
-		}
-		o.cache.Delete(id)
-		return false
-	}
-	o.cache.Add(id, raw)
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("state [%s,%s] exists [%v]", o.namespace, id, len(raw) != 0)
+	if len(notFound) == 0 {
+		return result
 	}
 
-	return len(raw) != 0
+	ids = notFound
+	// get from store and store in cache
+	it, err := o.store.GetStateSetIterator(o.namespace, ids...)
+	if err != nil {
+		return result
+	}
+	for v, err := it.Next(); v != nil || err != nil; v, err = it.Next() {
+		if err != nil {
+			o.cache.Delete(v.Key)
+		} else if len(v.Raw) > 0 {
+			o.cache.Add(v.Key, v.Raw)
+			result = append(result, v.Key)
+		} else {
+			o.cache.Add(v.Key, v.Raw)
+		}
+	}
+
+	return result
+}
+
+func (o *KVS) Exists(id string) bool {
+	return len(o.GetExisting(id)) > 0
 }
 
 func (o *KVS) Put(id string, state interface{}) error {

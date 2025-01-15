@@ -54,6 +54,9 @@ type SigService interface {
 
 	// IsMe returns true if a signer was ever registered for the passed identity
 	IsMe(identity view.Identity) bool
+
+	// AreMe returns the hashes of the passed identities that have a signer registered before
+	AreMe(identities ...view.Identity) []string
 }
 
 // AuditRegistry models a repository of identities' audit information
