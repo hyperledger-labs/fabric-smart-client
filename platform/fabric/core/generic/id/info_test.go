@@ -27,7 +27,7 @@ func TestInfoIdemix(t *testing.T) {
 	kvss, err := kvs.NewWithConfig(&mem.Driver{}, "", &mock.ConfigProvider{})
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
-	sigService := sig.NewService(sig.NewMultiplexDeserializer(), kvss)
+	sigService := sig.NewService(sig.NewMultiplexDeserializer(), kvs.NewAuditInfoKVS(kvss), kvs.NewSignerKVS(kvss))
 	assert.NoError(t, registry.RegisterService(sigService))
 
 	config, err := msp2.GetLocalMspConfigWithType("./testdata/idemix", nil, "idemix", "idemix")

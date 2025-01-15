@@ -12,6 +12,7 @@ import (
 
 	"github.com/go-kit/log"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/node"
+	driver4 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	dig2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	sig2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/services/sig"
@@ -102,8 +103,10 @@ func (p *SDK) Install() error {
 		p.C.Provide(sig2.NewDeserializer),
 		p.C.Provide(sig2.NewService, dig.As(new(id.SigService), new(driver.SigService), new(driver.SigRegistry), new(driver.AuditRegistry))),
 		p.C.Provide(view.NewSigService, dig.As(new(view3.VerifierProvider), new(view3.SignerProvider))),
-		p.C.Provide(digutils.Identity[*kvs.KVS](), dig.As(new(sig2.KVS))),
-		p.C.Provide(func(defaultKVS *kvs.KVS) (*endpoint.Service, error) { return endpoint.NewService(defaultKVS) }),
+		p.C.Provide(kvs.NewBindingKVS, dig.As(new(driver4.BindingKVS))),
+		p.C.Provide(kvs.NewSignerKVS, dig.As(new(driver4.SignerKVS))),
+		p.C.Provide(kvs.NewAuditInfoKVS, dig.As(new(driver4.AuditInfoKVS))),
+		p.C.Provide(endpoint.NewService),
 		p.C.Provide(digutils.Identity[*endpoint.Service](), dig.As(new(driver.EndpointService))),
 		p.C.Provide(view.NewEndpointService),
 		p.C.Provide(digutils.Identity[*view.EndpointService](), dig.As(new(comm.EndpointService), new(id.EndpointService), new(endpoint.Backend))),

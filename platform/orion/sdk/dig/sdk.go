@@ -21,12 +21,12 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	finality2 "github.com/hyperledger-labs/fabric-smart-client/platform/orion/sdk/finality"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/services/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	viewsdk "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/finality"
 	driver3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/dig"
@@ -78,6 +78,9 @@ func (p *SDK) Install() error {
 		p.Container().Provide(orion.NewNetworkServiceProvider),
 		p.Container().Provide(digutils.Identity[*core.ONSProvider](), dig.As(new(driver2.OrionNetworkServiceProvider))),
 		p.Container().Provide(finality2.NewHandler, dig.Group("finality-handlers")),
+		p.Container().Provide(kvs.NewMetadataKVS, dig.As(new(driver2.MetadataKVS))),
+		p.Container().Provide(kvs.NewEndorseTxKVS, dig.As(new(driver2.EndorseTxKVS))),
+		p.Container().Provide(kvs.NewEnvelopeKVS, dig.As(new(driver2.EnvelopeKVS))),
 	)
 	if err != nil {
 		return err
@@ -154,7 +157,9 @@ func newNetworkConfigProvider() driver2.NetworkConfigProvider {
 
 func newOrionNetworkServiceProvider(in struct {
 	dig.In
-	KVSS                    *kvs.KVS
+	EndorseTxKVS            driver2.EndorseTxKVS
+	MetadataKVS             driver2.MetadataKVS
+	EnvelopeKVS             driver2.EnvelopeKVS
 	Publisher               events.Publisher
 	Subscriber              events.Subscriber
 	ConfigService           driver.ConfigService
@@ -165,5 +170,5 @@ func newOrionNetworkServiceProvider(in struct {
 	NetworkConfigProvider   driver2.NetworkConfigProvider
 	ListenerManagerProvider driver2.ListenerManagerProvider
 }) (*core.ONSProvider, error) {
-	return core.NewOrionNetworkServiceProvider(in.ConfigService, in.Config, in.KVSS, in.Publisher, in.Subscriber, in.MetricsProvider, in.TracerProvider, in.Drivers, in.NetworkConfigProvider, in.ListenerManagerProvider)
+	return core.NewOrionNetworkServiceProvider(in.ConfigService, in.Config, in.EndorseTxKVS, in.MetadataKVS, in.EnvelopeKVS, in.Publisher, in.Subscriber, in.MetricsProvider, in.TracerProvider, in.Drivers, in.NetworkConfigProvider, in.ListenerManagerProvider)
 }

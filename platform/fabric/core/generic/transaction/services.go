@@ -8,172 +8,94 @@ package transaction
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
+	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	"github.com/hyperledger/fabric-protos-go/common"
 	"github.com/pkg/errors"
-	"go.uber.org/zap/zapcore"
 )
 
 var logger = logging.MustGetLogger("fabric-sdk.core")
 
-type KVS interface {
-	Exists(id string) bool
-	Put(id string, state interface{}) error
-	Get(id string, state interface{}) error
-}
-
 type mds struct {
-	KVS     KVS
-	network string
-	channel string
+	metadataKVS driver.MetadataKVS
+	key         func(driver2.TxID) driver.Key
 }
 
-func NewMetadataService(KVS KVS, network string, channel string) *mds {
-	return &mds{
-		KVS:     KVS,
-		network: network,
-		channel: channel,
-	}
+func NewMetadataService(metadataKVS driver.MetadataKVS, network string, channel string) *mds {
+	return &mds{metadataKVS: metadataKVS, key: keyMapper(network, channel)}
 }
 
 func (s *mds) Exists(txid string) bool {
-	key, err := kvs.CreateCompositeKey("metadata", []string{s.channel, s.network, txid})
-	if err != nil {
-		return false
-	}
-	return s.KVS.Exists(key)
+	ok, _ := s.metadataKVS.ExistMetadata(s.key(txid))
+	return ok
 }
 
 func (s *mds) StoreTransient(txid string, transientMap driver.TransientMap) error {
-	key, err := kvs.CreateCompositeKey("metadata", []string{s.channel, s.network, txid})
-	if err != nil {
-		return err
-	}
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("store transient for [%s][%v]", txid, transientMap)
-	}
-	return s.KVS.Put(key, transientMap)
+	return s.metadataKVS.PutMetadata(s.key(txid), transientMap)
 }
 
 func (s *mds) LoadTransient(txid string) (driver.TransientMap, error) {
-	logger.Debugf("load transient for [%s]", txid)
-
-	key, err := kvs.CreateCompositeKey("metadata", []string{s.channel, s.network, txid})
-	if err != nil {
-		return nil, err
-	}
-	transientMap := driver.TransientMap{}
-	err = s.KVS.Get(key, &transientMap)
-	if err != nil {
-		return nil, err
-	}
-	return transientMap, nil
+	return s.metadataKVS.GetMetadata(s.key(txid))
 }
 
 type envs struct {
-	KVS     KVS
-	network string
-	channel string
+	envelopeKVS driver.EnvelopeKVS
+	key         func(driver2.TxID) driver.Key
 }
 
-func NewEnvelopeService(KVS KVS, network string, channel string) *envs {
-	return &envs{
-		KVS:     KVS,
-		network: network,
-		channel: channel,
-	}
+func NewEnvelopeService(envelopeKVS driver.EnvelopeKVS, network string, channel string) *envs {
+	return &envs{envelopeKVS: envelopeKVS, key: keyMapper(network, channel)}
 }
 
 func (s *envs) Exists(txid string) bool {
-	key, err := kvs.CreateCompositeKey("envelope", []string{s.channel, s.network, txid})
-	if err != nil {
-		return false
-	}
-
-	return s.KVS.Exists(key)
+	ok, _ := s.envelopeKVS.ExistsEnvelope(s.key(txid))
+	return ok
 }
 
 func (s *envs) StoreEnvelope(txID string, env interface{}) error {
-	key, err := kvs.CreateCompositeKey("envelope", []string{s.channel, s.network, txID})
-	if err != nil {
-		return err
-	}
-	logger.Debugf("store env for [%s]", txID)
-
 	switch e := env.(type) {
 	case []byte:
-		return s.KVS.Put(key, e)
+		return s.envelopeKVS.PutEnvelope(s.key(txID), e)
 	case *common.Envelope:
 		envBytes, err := proto.Marshal(e)
 		if err != nil {
 			return errors.WithMessagef(err, "failed marshalling envelop for tx [%s]", txID)
 		}
-		return s.KVS.Put(key, envBytes)
+		return s.envelopeKVS.PutEnvelope(s.key(txID), envBytes)
 	default:
 		return errors.Errorf("invalid env, expected []byte or *common.Envelope, got [%T]", env)
 	}
 }
 
 func (s *envs) LoadEnvelope(txid string) ([]byte, error) {
-	logger.Debugf("load env for [%s]", txid)
-
-	key, err := kvs.CreateCompositeKey("envelope", []string{s.channel, s.network, txid})
-	if err != nil {
-		return nil, err
-	}
-	env := []byte{}
-	err = s.KVS.Get(key, &env)
-	if err != nil {
-		return nil, err
-	}
-	return env, nil
+	return s.envelopeKVS.GetEnvelope(s.key(txid))
 }
 
 type ets struct {
-	KVS     KVS
-	network string
-	channel string
+	endorseTxKVS driver.EndorseTxKVS
+	key          func(driver2.TxID) driver.Key
 }
 
-func NewEndorseTransactionService(KVS KVS, network string, channel string) *ets {
-	return &ets{
-		KVS:     KVS,
-		network: network,
-		channel: channel,
-	}
+func NewEndorseTransactionService(endorseTxKVS driver.EndorseTxKVS, network string, channel string) *ets {
+	return &ets{endorseTxKVS: endorseTxKVS, key: keyMapper(network, channel)}
 }
 
 func (s *ets) Exists(txid string) bool {
-	key, err := kvs.CreateCompositeKey("etx", []string{s.channel, s.network, txid})
-	if err != nil {
-		return false
-	}
-	return s.KVS.Exists(key)
+	ok, _ := s.endorseTxKVS.ExistsEndorseTx(s.key(txid))
+	return ok
 }
 
 func (s *ets) StoreTransaction(txid string, env []byte) error {
-	key, err := kvs.CreateCompositeKey("etx", []string{s.channel, s.network, txid})
-	if err != nil {
-		return err
-	}
-	logger.Debugf("store etx for [%s]", txid)
-
-	return s.KVS.Put(key, env)
+	return s.endorseTxKVS.PutEndorseTx(s.key(txid), env)
 }
 
 func (s *ets) LoadTransaction(txid string) ([]byte, error) {
-	logger.Debugf("load etx for [%s]", txid)
+	return s.endorseTxKVS.GetEndorseTx(s.key(txid))
+}
 
-	key, err := kvs.CreateCompositeKey("etx", []string{s.channel, s.network, txid})
-	if err != nil {
-		return nil, err
+func keyMapper(network, channel string) func(txID driver2.TxID) driver.Key {
+	return func(txID driver2.TxID) driver.Key {
+		return driver.Key{Network: network, Channel: channel, TxID: txID}
 	}
-	env := []byte{}
-	err = s.KVS.Get(key, &env)
-	if err != nil {
-		return nil, err
-	}
-	return env, nil
 }

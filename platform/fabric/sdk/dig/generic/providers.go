@@ -9,6 +9,7 @@ package generic
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	committer2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/committer"
+	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	digutils "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic"
@@ -54,6 +55,8 @@ func NewDriver(in struct {
 	EndpointService vdriver.EndpointService
 	IdProvider      vdriver.IdentityProvider
 	KVS             *kvs.KVS
+	AuditInfoKVS    driver2.AuditInfoKVS
+	SignerKVS       driver2.SignerKVS
 	ChannelProvider generic.ChannelProvider        `name:"generic-channel-provider"`
 	IdentityLoaders []identity.NamedIdentityLoader `group:"identity-loaders"`
 }) core.NamedDriver {
@@ -66,6 +69,8 @@ func NewDriver(in struct {
 			in.ChannelProvider,
 			in.IdProvider,
 			in.IdentityLoaders,
+			in.SignerKVS,
+			in.AuditInfoKVS,
 			in.KVS,
 		),
 	}
@@ -75,7 +80,9 @@ func NewDriver(in struct {
 func NewChannelProvider(in struct {
 	dig.In
 	ConfigProvider  config.Provider
-	KVS             *kvs.KVS
+	EnvelopeKVS     driver.EnvelopeKVS
+	MetadataKVS     driver.MetadataKVS
+	EndorseTxKVS    driver.EndorseTxKVS
 	Publisher       events.Publisher
 	Hasher          hash.Hasher
 	TracerProvider  trace.TracerProvider
@@ -83,7 +90,9 @@ func NewChannelProvider(in struct {
 	MetricsProvider metrics.Provider
 }) generic.ChannelProvider {
 	return generic.NewChannelProvider(
-		in.KVS,
+		in.EnvelopeKVS,
+		in.MetadataKVS,
+		in.EndorseTxKVS,
 		in.Publisher,
 		in.Hasher,
 		in.TracerProvider,

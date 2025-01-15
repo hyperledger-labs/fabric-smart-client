@@ -21,7 +21,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/orion-server/pkg/types"
 	"github.com/pkg/errors"
@@ -52,7 +51,14 @@ type network struct {
 	deliveryService    driver.DeliveryService
 }
 
-func NewDB(ctx context.Context, kvss *kvs.KVS, config *config2.Config, name string) (*network, error) {
+func NewDB(
+	ctx context.Context,
+	endorseTxKVS driver.EndorseTxKVS,
+	metadataKVS driver.MetadataKVS,
+	envelopeKVS driver.EnvelopeKVS,
+	config *config2.Config,
+	name string,
+) (*network, error) {
 	// Load configuration
 	n := &network{
 		ctx:    ctx,
@@ -79,16 +85,29 @@ func NewDB(ctx context.Context, kvss *kvs.KVS, config *config2.Config, name stri
 		config:          config,
 		identityManager: n.identityManager,
 	}
-	n.metadataService = transaction.NewMetadataService(kvss, name)
-	n.envelopeService = transaction.NewEnvelopeService(kvss, name)
+	n.metadataService = transaction.NewMetadataService(metadataKVS, name)
+	n.envelopeService = transaction.NewEnvelopeService(envelopeKVS, name)
 	n.transactionManager = transaction.NewManager(n.sessionManager)
-	n.transactionService = transaction.NewEndorseTransactionService(kvss, name)
+	n.transactionService = transaction.NewEndorseTransactionService(endorseTxKVS, name)
 	n.processorManager = rwset.NewProcessorManager(n, nil)
 
 	return n, nil
 }
 
-func NewNetwork(ctx context.Context, kvss *kvs.KVS, eventsPublisher events.Publisher, eventsSubscriber events.Subscriber, metricsProvider metrics.Provider, tracerProvider trace.TracerProvider, config *config2.Config, name string, drivers []driver2.NamedDriver, networkConfig driver.NetworkConfig, listenerManager driver.ListenerManager) (*network, error) {
+func NewNetwork(
+	ctx context.Context,
+	endorseTxKVS driver.EndorseTxKVS,
+	metadataKVS driver.MetadataKVS,
+	envelopeKVS driver.EnvelopeKVS,
+	eventsPublisher events.Publisher,
+	eventsSubscriber events.Subscriber,
+	metricsProvider metrics.Provider,
+	tracerProvider trace.TracerProvider,
+	config *config2.Config,
+	name string, drivers []driver2.NamedDriver,
+	networkConfig driver.NetworkConfig,
+	listenerManager driver.ListenerManager,
+) (*network, error) {
 	// Load configuration
 	n := &network{
 		ctx:    ctx,
@@ -115,10 +134,10 @@ func NewNetwork(ctx context.Context, kvss *kvs.KVS, eventsPublisher events.Publi
 		config:          config,
 		identityManager: n.identityManager,
 	}
-	n.metadataService = transaction.NewMetadataService(kvss, name)
-	n.envelopeService = transaction.NewEnvelopeService(kvss, name)
+	n.metadataService = transaction.NewMetadataService(metadataKVS, name)
+	n.envelopeService = transaction.NewEnvelopeService(envelopeKVS, name)
 	n.transactionManager = transaction.NewManager(n.sessionManager)
-	n.transactionService = transaction.NewEndorseTransactionService(kvss, name)
+	n.transactionService = transaction.NewEndorseTransactionService(endorseTxKVS, name)
 
 	var d driver2.Driver
 	for _, driver := range drivers {

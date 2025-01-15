@@ -12,10 +12,10 @@ import (
 	"runtime/debug"
 	"sync"
 
+	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
@@ -23,38 +23,30 @@ import (
 
 var logger = logging.MustGetLogger("common-sdk.sig")
 
-type KVS interface {
-	Exists(id string) bool
-	GetExisting(ids ...string) []string
-	Put(id string, state interface{}) error
-	Get(id string, state interface{}) error
-}
-
 type VerifierEntry struct {
 	Verifier   driver.Verifier
 	DebugStack []byte
 }
 
-type SignerEntry struct {
-	Signer     driver.Signer
-	DebugStack []byte
-}
+type SignerEntry = driver2.SignerEntry
 
 type Service struct {
 	deserializer Deserializer
-	kvs          KVS
+	signerKVS    driver2.SignerKVS
+	auditInfoKVS driver2.AuditInfoKVS
 
 	mutex     sync.RWMutex
 	signers   map[string]SignerEntry
 	verifiers map[string]VerifierEntry
 }
 
-func NewService(deserializer Deserializer, kvs KVS) *Service {
+func NewService(deserializer Deserializer, auditInfoKVS driver2.AuditInfoKVS, signerKVS driver2.SignerKVS) *Service {
 	return &Service{
+		signerKVS:    signerKVS,
+		auditInfoKVS: auditInfoKVS,
 		signers:      map[string]SignerEntry{},
 		verifiers:    map[string]VerifierEntry{},
 		deserializer: deserializer,
-		kvs:          kvs,
 	}
 }
 
@@ -91,8 +83,8 @@ func (o *Service) RegisterSigner(identity view.Identity, signer driver.Signer, v
 	o.signers[idHash] = entry
 	o.mutex.Unlock()
 
-	if o.kvs != nil {
-		if err := o.registerSigner(idHash, &entry); err != nil {
+	if o.signerKVS != nil {
+		if err := o.signerKVS.PutSigner(identity, &entry); err != nil {
 			o.deleteSigner(idHash)
 			return errors.Wrap(err, "failed to store entry in kvs for the passed signer")
 		}
@@ -151,34 +143,11 @@ func (o *Service) RegisterVerifier(identity view.Identity, verifier driver.Verif
 }
 
 func (o *Service) RegisterAuditInfo(identity view.Identity, info []byte) error {
-	k := kvs.CreateCompositeKeyOrPanic(
-		"fsc.platform.view.sig",
-		[]string{
-			identity.String(),
-		},
-	)
-	if err := o.kvs.Put(k, info); err != nil {
-		return err
-	}
-	return nil
+	return o.auditInfoKVS.PutAuditInfo(identity, info)
 }
 
 func (o *Service) GetAuditInfo(identity view.Identity) ([]byte, error) {
-	k := kvs.CreateCompositeKeyOrPanic(
-		"fsc.platform.view.sig",
-		[]string{
-			identity.String(),
-		},
-	)
-
-	if !o.kvs.Exists(k) {
-		return nil, nil
-	}
-	var res []byte
-	if err := o.kvs.Get(k, &res); err != nil {
-		return nil, err
-	}
-	return res, nil
+	return o.auditInfoKVS.GetAuditInfo(identity)
 }
 
 func (o *Service) IsMe(identity view.Identity) bool {
@@ -186,36 +155,30 @@ func (o *Service) IsMe(identity view.Identity) bool {
 }
 
 func (o *Service) AreMe(identities ...view.Identity) []string {
-	idHashes := make([]string, len(identities))
-	for i, id := range identities {
-		idHashes[i] = id.UniqueID()
-	}
 	result := collections.NewSet[string]()
-	notFound := make([]string, 0)
+	notFound := make([]view.Identity, 0)
 	// check local cache
 	o.mutex.RLock()
-	for _, idHash := range idHashes {
-		if _, ok := o.signers[idHash]; ok {
-			result.Add(idHash)
+	for _, id := range identities {
+		if _, ok := o.signers[id.UniqueID()]; ok {
+			result.Add(id.UniqueID())
 		} else {
-			notFound = append(notFound, idHash)
+			notFound = append(notFound, id)
 		}
 	}
 	o.mutex.RUnlock()
-	if len(notFound) == 0 || o.kvs == nil {
+	if len(notFound) == 0 || o.signerKVS == nil {
 		return result.ToSlice()
 	}
 	// check kvs
-	keys := make([]string, len(notFound))
-	for i, idHash := range notFound {
-		key, err := kvs.CreateCompositeKey("sigService", []string{"signer", idHash})
-		if err != nil {
-			logger.Errorf("failed creating composite key: %v", err)
-		}
-		keys[i] = key
-	}
 
-	result.Add(o.kvs.GetExisting(keys...)...)
+	if existing, err := o.signerKVS.FilterExistingSigners(notFound...); err != nil {
+		logger.Errorf("failed getting existing signers: %v", err)
+	} else {
+		for _, id := range existing {
+			result.Add(id.UniqueID())
+		}
+	}
 
 	return result.ToSlice()
 }
@@ -339,18 +302,6 @@ func (o *Service) GetSigningIdentity(identity view.Identity) (driver.SigningIden
 		id:     identity,
 		signer: signer,
 	}, nil
-}
-
-func (o *Service) registerSigner(id string, signer *SignerEntry) error {
-	k, err := kvs.CreateCompositeKey("sigService", []string{"signer", id})
-	if err != nil {
-		return errors.Wrap(err, "failed to create composite key to store entry in kvs")
-	}
-	err = o.kvs.Put(k, signer)
-	if err != nil {
-		return errors.Wrap(err, "failed to store entry in kvs for the passed signer")
-	}
-	return nil
 }
 
 func (o *Service) deleteSigner(id string) {

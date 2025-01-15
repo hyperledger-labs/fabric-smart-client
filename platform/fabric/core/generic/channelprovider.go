@@ -21,7 +21,6 @@ import (
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger/fabric-protos-go/common"
 	"github.com/pkg/errors"
@@ -69,7 +68,9 @@ type ChannelProvider interface {
 }
 
 type provider struct {
-	kvss                    *kvs.KVS
+	envelopeKVS             driver.EnvelopeKVS
+	metadataKVS             driver.MetadataKVS
+	endorserTxKVS           driver.EndorseTxKVS
 	publisher               events.Publisher
 	hasher                  hash.Hasher
 	newVault                VaultConstructor
@@ -87,7 +88,9 @@ type provider struct {
 }
 
 func NewChannelProvider(
-	kvss *kvs.KVS,
+	envelopeKVS driver.EnvelopeKVS,
+	metadataKVS driver.MetadataKVS,
+	endorserTxKVS driver.EndorseTxKVS,
 	publisher events.Publisher,
 	hasher hash.Hasher,
 	tracerProvider trace.TracerProvider,
@@ -104,7 +107,9 @@ func NewChannelProvider(
 	acceptedHeaderTypes []common.HeaderType,
 ) *provider {
 	return &provider{
-		kvss:                    kvss,
+		envelopeKVS:             envelopeKVS,
+		metadataKVS:             metadataKVS,
+		endorserTxKVS:           endorserTxKVS,
 		publisher:               publisher,
 		hasher:                  hasher,
 		newVault:                newVault,
@@ -141,9 +146,9 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 		return nil, err
 	}
 
-	envelopeService := transaction.NewEnvelopeService(p.kvss, nw.Name(), channelName)
-	transactionService := transaction.NewEndorseTransactionService(p.kvss, nw.Name(), channelName)
-	metadataService := transaction.NewMetadataService(p.kvss, nw.Name(), channelName)
+	envelopeService := transaction.NewEnvelopeService(p.envelopeKVS, nw.Name(), channelName)
+	transactionService := transaction.NewEndorseTransactionService(p.endorserTxKVS, nw.Name(), channelName)
+	metadataService := transaction.NewMetadataService(p.metadataKVS, nw.Name(), channelName)
 	peerService := services.NewClientFactory(nw.ConfigService(), nw.LocalMembership().DefaultSigningIdentity())
 
 	// Fabric finality

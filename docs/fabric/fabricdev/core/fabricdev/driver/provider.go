@@ -50,6 +50,9 @@ type Provider struct {
 }
 
 func NewProvider(
+	envelopeKVS fdriver.EnvelopeKVS,
+	metadataKVS fdriver.MetadataKVS,
+	endorseTxKVS fdriver.EndorseTxKVS,
 	configProvider config.Provider,
 	metricsProvider metrics.Provider,
 	endpointService identity.EndpointService,
@@ -65,7 +68,9 @@ func NewProvider(
 	return &Provider{
 		configProvider: configProvider,
 		channelProvider: fabricdev.NewChannelProvider(
-			kvss,
+			envelopeKVS,
+			metadataKVS,
+			endorseTxKVS,
 			publisher,
 			hasher,
 			tracerProvider,

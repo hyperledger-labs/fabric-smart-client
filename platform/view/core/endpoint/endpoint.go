@@ -13,9 +13,9 @@ import (
 	"strings"
 	"sync"
 
+	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
@@ -55,16 +55,10 @@ type Discovery interface {
 	Peers() []NetworkMember
 }
 
-type KVS interface {
-	Exists(id string) bool
-	Put(id string, state interface{}) error
-	Get(id string, state interface{}) error
-}
-
 type Service struct {
 	resolvers      []*Resolver
 	resolversMutex sync.RWMutex
-	kvs            KVS
+	bindingKVS     driver2.BindingKVS
 
 	pkiExtractorsLock      sync.RWMutex
 	publicKeyExtractors    []driver.PublicKeyExtractor
@@ -72,9 +66,9 @@ type Service struct {
 }
 
 // NewService returns a new instance of the view-sdk endpoint service
-func NewService(kvs KVS) (*Service, error) {
+func NewService(bindingKVS driver2.BindingKVS) (*Service, error) {
 	er := &Service{
-		kvs:                    kvs,
+		bindingKVS:             bindingKVS,
 		publicKeyExtractors:    []driver.PublicKeyExtractor{},
 		publicKeyIDSynthesizer: DefaultPublicKeyIDSynthesizer{},
 	}
@@ -104,7 +98,7 @@ func (r *Service) resolve(party view.Identity) (view.Identity, map[driver.PortNa
 			return cursor, e, resolver, nil
 		}
 		logger.Debugf("resolving via binding for %s", cursor)
-		cursor, err = r.getBinding(cursor)
+		cursor, err = r.bindingKVS.GetBinding(cursor)
 		if err != nil {
 			return nil, nil, nil, err
 		}
@@ -120,7 +114,7 @@ func (r *Service) Bind(longTerm view.Identity, ephemeral view.Identity) error {
 
 	logger.Debugf("bind [%s] to [%s]", ephemeral, longTerm)
 
-	if err := r.putBinding(ephemeral, longTerm); err != nil {
+	if err := r.bindingKVS.PutBinding(ephemeral, longTerm); err != nil {
 		return errors.WithMessagef(err, "failed storing binding of [%s]  to [%s]", ephemeral.UniqueID(), longTerm.UniqueID())
 	}
 
@@ -132,7 +126,7 @@ func (r *Service) IsBoundTo(a view.Identity, b view.Identity) bool {
 		if a.Equal(b) {
 			return true
 		}
-		next, err := r.getBinding(a)
+		next, err := r.bindingKVS.GetBinding(a)
 		if err != nil {
 			return false
 		}
@@ -282,32 +276,6 @@ func (r *Service) rootEndpoint(party view.Identity) (*Resolver, map[driver.PortN
 	}
 
 	return nil, nil, errors.Errorf("endpoint not found for identity %s", party.UniqueID())
-}
-
-func (r *Service) putBinding(ephemeral, longTerm view.Identity) error {
-	k := kvs.CreateCompositeKeyOrPanic(
-		"platform.fsc.endpoint.binding",
-		[]string{ephemeral.UniqueID()},
-	)
-	if err := r.kvs.Put(k, longTerm); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (r *Service) getBinding(ephemeral view.Identity) (view.Identity, error) {
-	k := kvs.CreateCompositeKeyOrPanic(
-		"platform.fsc.endpoint.binding",
-		[]string{ephemeral.UniqueID()},
-	)
-	if !r.kvs.Exists(k) {
-		return nil, errors.Errorf("binding not found for [%s]", ephemeral.UniqueID())
-	}
-	longTerm := view.Identity{}
-	if err := r.kvs.Get(k, &longTerm); err != nil {
-		return nil, err
-	}
-	return longTerm, nil
 }
 
 var portNameMap = map[string]driver.PortName{
