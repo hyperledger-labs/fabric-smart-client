@@ -27,6 +27,8 @@ var (
 		SkipCreateTable: false,
 		SkipPragmas:     false,
 		MaxOpenConns:    10,
+		MaxIdleConns:    common.CopyPtr(common.DefaultMaxIdleConns),
+		MaxIdleTime:     common.CopyPtr(common.DefaultMaxIdleTime),
 	}
 )
 

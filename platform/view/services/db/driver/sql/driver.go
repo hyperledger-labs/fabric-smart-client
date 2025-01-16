@@ -146,5 +146,11 @@ func getOps(config driver.Config) (common.Opts, error) {
 	if opts.TablePrefix == "" {
 		opts.TablePrefix = "fsc"
 	}
+	if opts.MaxIdleTime == nil {
+		opts.MaxIdleTime = common.CopyPtr(common.DefaultMaxIdleTime)
+	}
+	if opts.MaxIdleConns == nil {
+		opts.MaxIdleConns = common.CopyPtr(common.DefaultMaxIdleConns)
+	}
 	return *opts, nil
 }

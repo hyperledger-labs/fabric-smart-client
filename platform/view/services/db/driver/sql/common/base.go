@@ -337,8 +337,8 @@ type Opts struct {
 	SkipCreateTable bool
 	SkipPragmas     bool
 	MaxOpenConns    int
-	MaxIdleConns    int
-	MaxIdleTime     time.Duration
+	MaxIdleConns    *int
+	MaxIdleTime     *time.Duration
 }
 
 func generateParamSet(offset, count int) string {
