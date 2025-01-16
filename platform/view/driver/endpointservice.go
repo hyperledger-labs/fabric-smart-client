@@ -36,12 +36,20 @@ type PublicKeyIDSynthesizer interface {
 
 //go:generate counterfeiter -o mock/resolver.go -fake-name EndpointService . EndpointService
 
+type Resolver interface {
+	GetName() string
+	GetId() view.Identity
+	GetAddress(port PortName) string
+	GetAddresses() map[PortName]string
+}
+
 // EndpointService models the endpoint service
 type EndpointService interface {
 	// Resolve returns the identity the passed identity is bound to.
 	// It returns also: the endpoints and the pkiID
-	Resolve(party view.Identity) (string, view.Identity, map[PortName]string, []byte, error)
-
+	Resolve(party view.Identity) (Resolver, []byte, error)
+	// GetResolver returns the identity the passed identity is bound to
+	GetResolver(party view.Identity) (Resolver, error)
 	// GetIdentity returns an identity bound to either the passed label or public-key identifier.
 	GetIdentity(label string, pkiID []byte) (view.Identity, error)
 

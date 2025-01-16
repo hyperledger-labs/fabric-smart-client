@@ -47,18 +47,21 @@ func NewEndpointService(es driver.EndpointService) *EndpointService {
 // If the passed identity does not have any endpoint set, the service checks
 // if the passed identity is bound to another identity that is returned together with its endpoints and public-key identifier.
 func (e *EndpointService) Resolve(party view.Identity) (view.Identity, map[PortName]string, []byte, error) {
-	_, id, ports, raw, err := e.es.Resolve(party)
+	resolver, raw, err := e.es.Resolve(party)
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	if resolver == nil {
+		return nil, nil, raw, nil
+	}
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("resolved [%s] to [%s] with ports [%v]", party, id, ports)
+		logger.Debugf("resolved [%s] to [%s] with ports [%v]", party, resolver.GetId(), resolver.GetAddresses())
 	}
 	out := map[PortName]string{}
-	for name, s := range ports {
+	for name, s := range resolver.GetAddresses() {
 		out[PortName(name)] = s
 	}
-	return id, out, raw, nil
+	return resolver.GetId(), out, raw, nil
 }
 
 func (e *EndpointService) ResolveIdentities(endpoints ...string) ([]view.Identity, error) {

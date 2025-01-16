@@ -17,6 +17,7 @@ import (
 type mockKVS struct{}
 
 func (k mockKVS) GetBinding(ephemeral view.Identity) (view.Identity, error) { return nil, nil }
+func (k mockKVS) HaveSameBinding(this, that view.Identity) (bool, error)    { return false, nil }
 func (k mockKVS) PutBinding(ephemeral, longTerm view.Identity) error        { return nil }
 
 type mockExtractor struct{}
@@ -26,7 +27,7 @@ func (m mockExtractor) ExtractPublicKey(id view.Identity) (any, error) {
 }
 
 func TestPKIResolveConcurrency(t *testing.T) {
-	svc, err := NewService(mockKVS{})
+	svc, err := NewService(NewBinder(mockKVS{}))
 	assert.NoError(err)
 
 	ext := mockExtractor{}
@@ -47,7 +48,7 @@ func TestPKIResolveConcurrency(t *testing.T) {
 }
 
 func TestGetIdentity(t *testing.T) {
-	svc, err := NewService(mockKVS{})
+	svc, err := NewService(NewBinder(mockKVS{}))
 	assert.NoError(err)
 
 	ext := mockExtractor{}

@@ -18,7 +18,8 @@ import (
 
 type endpointService interface {
 	GetIdentity(endpoint string, pkID []byte) (view2.Identity, error)
-	Resolve(party view2.Identity) (string, view2.Identity, map[driver.PortName]string, []byte, error)
+	Resolve(party view2.Identity) (driver.Resolver, []byte, error)
+	GetResolver(party view2.Identity) (driver.Resolver, error)
 }
 
 // endpointServiceIDRouter resolves the IP addresses using the resolvers of the endpoint service.
@@ -37,12 +38,12 @@ func (r *endpointServiceIDRouter) Lookup(id host2.PeerID) ([]host2.PeerIPAddress
 		logger.Errorf("failed getting identity for peer [%s]", id)
 		return []host2.PeerIPAddress{}, false
 	}
-	_, _, addresses, _, err := r.es.Resolve(identity)
+	resolver, err := r.es.GetResolver(identity)
 	if err != nil {
 		logger.Errorf("failed resolving [%s]: %v", id, err)
 		return []host2.PeerIPAddress{}, false
 	}
-	if address, ok := addresses[driver.P2PPort]; ok {
+	if address := resolver.GetAddress(driver.P2PPort); len(address) > 0 {
 		logger.Debugf("Found endpoint of peer [%s]: [%s]", id, address)
 		return []host2.PeerIPAddress{address}, true
 	}
@@ -130,11 +131,11 @@ func (r *labelResolver) getLabel(peerID host2.PeerID) (string, error) {
 		return "", errors.Wrapf(err, "failed to find identity for peer [%s]", peerID)
 	}
 
-	label, _, _, pkid, err := r.es.Resolve(identity)
+	resolver, pkid, err := r.es.Resolve(identity)
 	if pkid == nil && err != nil {
-		return "", errors.Wrapf(err, "failed to resolve identity [%s] for label [%s]", identity, label)
+		return "", errors.Wrapf(err, "failed to resolve identity [%s] for label [%s]", identity, resolver.GetName())
 	}
-	label = strings.TrimPrefix(label, "fsc.")
+	label := strings.TrimPrefix(resolver.GetName(), "fsc.")
 	r.cache[peerID] = label
 	return label, nil
 }
