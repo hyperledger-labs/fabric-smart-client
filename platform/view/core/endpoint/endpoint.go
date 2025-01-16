@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync"
 
+	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
@@ -66,7 +67,7 @@ type Discovery interface {
 type Service struct {
 	resolvers      []*Resolver
 	resolversMutex sync.RWMutex
-	binder         Binder
+	bindingKVS     driver2.BindingStore
 
 	pkiExtractorsLock      sync.RWMutex
 	publicKeyExtractors    []driver.PublicKeyExtractor
@@ -74,9 +75,9 @@ type Service struct {
 }
 
 // NewService returns a new instance of the view-sdk endpoint service
-func NewService(binder Binder) (*Service, error) {
+func NewService(bindingKVS driver2.BindingStore) (*Service, error) {
 	er := &Service{
-		binder:                 binder,
+		bindingKVS:             bindingKVS,
 		publicKeyExtractors:    []driver.PublicKeyExtractor{},
 		publicKeyIDSynthesizer: DefaultPublicKeyIDSynthesizer{},
 	}
@@ -102,7 +103,7 @@ func (r *Service) resolver(party view.Identity) (*Resolver, error) {
 		return resolver, nil
 	}
 	logger.Debugf("resolving via binding for %s", party)
-	party, err = r.binder.GetLongTerm(party)
+	party, err = r.bindingKVS.GetLongTerm(party)
 	if err != nil {
 		return nil, err
 	}
@@ -123,7 +124,7 @@ func (r *Service) Bind(longTerm view.Identity, ephemeral view.Identity) error {
 
 	logger.Debugf("bind [%s] to [%s]", ephemeral, longTerm)
 
-	if err := r.binder.Bind(ephemeral, longTerm); err != nil {
+	if err := r.bindingKVS.PutBinding(ephemeral, longTerm); err != nil {
 		return errors.WithMessagef(err, "failed storing binding of [%s]  to [%s]", ephemeral.UniqueID(), longTerm.UniqueID())
 	}
 
@@ -131,7 +132,7 @@ func (r *Service) Bind(longTerm view.Identity, ephemeral view.Identity) error {
 }
 
 func (r *Service) IsBoundTo(a view.Identity, b view.Identity) bool {
-	ok, err := r.binder.IsBoundTo(a, b)
+	ok, err := r.bindingKVS.HaveSameBinding(a, b)
 	if err != nil {
 		logger.Errorf("error fetching entries [%s] and [%s]: %v", a, b, err)
 	}

@@ -55,8 +55,8 @@ func NewDriver(in struct {
 	EndpointService vdriver.EndpointService
 	IdProvider      vdriver.IdentityProvider
 	KVS             *kvs.KVS
-	AuditInfoKVS    driver2.AuditInfoKVS
-	SignerKVS       driver2.SignerKVS
+	AuditInfoKVS    driver2.AuditInfoStore
+	SignerKVS       driver2.SignerStore
 	ChannelProvider generic.ChannelProvider        `name:"generic-channel-provider"`
 	IdentityLoaders []identity.NamedIdentityLoader `group:"identity-loaders"`
 }) core.NamedDriver {
@@ -80,9 +80,9 @@ func NewDriver(in struct {
 func NewChannelProvider(in struct {
 	dig.In
 	ConfigProvider  config.Provider
-	EnvelopeKVS     driver.EnvelopeKVS
-	MetadataKVS     driver.MetadataKVS
-	EndorseTxKVS    driver.EndorseTxKVS
+	EnvelopeKVS     driver.EnvelopeStore
+	MetadataKVS     driver.MetadataStore
+	EndorseTxKVS    driver.EndorseTxStore
 	Publisher       events.Publisher
 	Hasher          hash.Hasher
 	TracerProvider  trace.TracerProvider

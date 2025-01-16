@@ -40,8 +40,8 @@ func NewProvider(
 	channelProvider generic.ChannelProvider,
 	idProvider vdriver.IdentityProvider,
 	identityLoaders []identity.NamedIdentityLoader,
-	signerKVS driver.SignerKVS,
-	auditInfoKVS driver.AuditInfoKVS,
+	signerKVS driver.SignerStore,
+	auditInfoKVS driver.AuditInfoStore,
 	kvss *kvs.KVS,
 ) *Provider {
 	deserializerManager := sig.NewMultiplexDeserializer()

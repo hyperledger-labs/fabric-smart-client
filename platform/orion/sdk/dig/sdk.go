@@ -21,7 +21,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	finality2 "github.com/hyperledger-labs/fabric-smart-client/platform/orion/sdk/finality"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/services/kvs"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	viewsdk "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/finality"
@@ -78,9 +78,9 @@ func (p *SDK) Install() error {
 		p.Container().Provide(orion.NewNetworkServiceProvider),
 		p.Container().Provide(digutils.Identity[*core.ONSProvider](), dig.As(new(driver2.OrionNetworkServiceProvider))),
 		p.Container().Provide(finality2.NewHandler, dig.Group("finality-handlers")),
-		p.Container().Provide(kvs.NewMetadataKVS, dig.As(new(driver2.MetadataKVS))),
-		p.Container().Provide(kvs.NewEndorseTxKVS, dig.As(new(driver2.EndorseTxKVS))),
-		p.Container().Provide(kvs.NewEnvelopeKVS, dig.As(new(driver2.EnvelopeKVS))),
+		p.Container().Provide(services.NewKVSBasedMetadataStore, dig.As(new(driver2.MetadataStore))),
+		p.Container().Provide(services.NewKVSBasedEndorseTxStore, dig.As(new(driver2.EndorseTxStore))),
+		p.Container().Provide(services.NewKVSBasedEnvelopeStore, dig.As(new(driver2.EnvelopeStore))),
 	)
 	if err != nil {
 		return err
@@ -157,9 +157,9 @@ func newNetworkConfigProvider() driver2.NetworkConfigProvider {
 
 func newOrionNetworkServiceProvider(in struct {
 	dig.In
-	EndorseTxKVS            driver2.EndorseTxKVS
-	MetadataKVS             driver2.MetadataKVS
-	EnvelopeKVS             driver2.EnvelopeKVS
+	EndorseTxKVS            driver2.EndorseTxStore
+	MetadataKVS             driver2.MetadataStore
+	EnvelopeKVS             driver2.EnvelopeStore
 	Publisher               events.Publisher
 	Subscriber              events.Subscriber
 	ConfigService           driver.ConfigService

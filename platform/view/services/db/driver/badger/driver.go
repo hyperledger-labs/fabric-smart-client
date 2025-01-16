@@ -64,3 +64,7 @@ func (d *Driver) NewTransactionalUnversioned(dataSourceName string, config drive
 	}
 	return &unversioned.Transactional{TransactionalVersioned: backend}, nil
 }
+
+func (d *Driver) NewBinding(string, driver.Config) (driver.BindingPersistence, error) {
+	panic("not implemented")
+}

@@ -64,6 +64,10 @@ func (t *TestDriver) NewTransactionalUnversioned(dataSourceName string, config d
 	return &unversioned.Transactional{TransactionalVersioned: p}, nil
 }
 
+func (t *TestDriver) NewBinding(dataSourceName string, config driver.Config) (driver.BindingPersistence, error) {
+	return NewBindingPersistence(unversionedOpts(t.Name, t.TempDir), "test")
+}
+
 func unversionedOpts(name string, tempDir string) common2.Opts {
 	return common2.Opts{DataSource: fmt.Sprintf("file:%s.sqlite?_pragma=busy_timeout(1000)", path.Join(tempDir, name))}
 }

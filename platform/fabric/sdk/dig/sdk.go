@@ -26,7 +26,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/dig/fns"
 	generic2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/dig/generic"
 	finality2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/finality"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/kvs"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/endpoint"
@@ -72,9 +72,9 @@ func (p *SDK) Install() error {
 		p.Container().Provide(vault.NewService, dig.As(new(state.VaultService))),
 		p.Container().Provide(generic2.NewEndorserTransactionHandlerProvider),
 		p.Container().Provide(committer2.NewSerialDependencyResolver, dig.As(new(committer2.DependencyResolver))),
-		p.Container().Provide(kvs.NewMetadataKVS, dig.As(new(driver.MetadataKVS))),
-		p.Container().Provide(kvs.NewEnvelopeKVS, dig.As(new(driver.EnvelopeKVS))),
-		p.Container().Provide(kvs.NewEndorseTxKVS, dig.As(new(driver.EndorseTxKVS))),
+		p.Container().Provide(services.NewKVSBasedMetadataStore, dig.As(new(driver.MetadataStore))),
+		p.Container().Provide(services.NewKVSBasedEnvelopeStore, dig.As(new(driver.EnvelopeStore))),
+		p.Container().Provide(services.NewKVSBasedEndorseTxStore, dig.As(new(driver.EndorseTxStore))),
 	)
 	if err != nil {
 		return err

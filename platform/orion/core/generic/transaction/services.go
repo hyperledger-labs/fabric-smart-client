@@ -16,11 +16,11 @@ import (
 var logger = logging.MustGetLogger("orion-sdk.core")
 
 type mds struct {
-	metadataKVS driver.MetadataKVS
+	metadataKVS driver.MetadataStore
 	key         func(id driver2.TxID) driver.Key
 }
 
-func NewMetadataService(metadataKVS driver.MetadataKVS, network string) *mds {
+func NewMetadataService(metadataKVS driver.MetadataStore, network string) *mds {
 	return &mds{metadataKVS: metadataKVS, key: keyMapper(network)}
 }
 
@@ -38,11 +38,11 @@ func (s *mds) LoadTransient(txid string) (driver.TransientMap, error) {
 }
 
 type envs struct {
-	envelopeKVS driver.EnvelopeKVS
+	envelopeKVS driver.EnvelopeStore
 	key         func(id driver2.TxID) driver.Key
 }
 
-func NewEnvelopeService(envelopeKVS driver.EnvelopeKVS, network string) *envs {
+func NewEnvelopeService(envelopeKVS driver.EnvelopeStore, network string) *envs {
 	return &envs{envelopeKVS: envelopeKVS, key: keyMapper(network)}
 }
 
@@ -65,11 +65,11 @@ func (s *envs) LoadEnvelope(txid string) ([]byte, error) {
 }
 
 type ets struct {
-	endorseTxKVS driver.EndorseTxKVS
+	endorseTxKVS driver.EndorseTxStore
 	key          func(id driver2.TxID) driver.Key
 }
 
-func NewEndorseTransactionService(endorseTxKVS driver.EndorseTxKVS, network string) *ets {
+func NewEndorseTransactionService(endorseTxKVS driver.EndorseTxStore, network string) *ets {
 	return &ets{endorseTxKVS: endorseTxKVS, key: keyMapper(network)}
 }
 

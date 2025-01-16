@@ -26,9 +26,9 @@ import (
 func NewDriver(in struct {
 	dig.In
 
-	EnvelopeKVS         driver.EnvelopeKVS
-	MetadataKVS         driver.MetadataKVS
-	EndorseTxKVS        driver.EndorseTxKVS
+	EnvelopeKVS         driver.EnvelopeStore
+	MetadataKVS         driver.MetadataStore
+	EndorseTxKVS        driver.EndorseTxStore
 	ConfigProvider      config.Provider
 	MetricsProvider     metrics.Provider
 	EndpointService     vdriver.EndpointService

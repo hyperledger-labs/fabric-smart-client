@@ -30,9 +30,9 @@ type ONSProvider struct {
 	configService driver2.ConfigService
 	config        *Config
 	ctx           context.Context
-	endorseTxKVS  driver.EndorseTxKVS
-	metadataKVS   driver.MetadataKVS
-	envelopeKVS   driver.EnvelopeKVS
+	endorseTxKVS  driver.EndorseTxStore
+	metadataKVS   driver.MetadataStore
+	envelopeKVS   driver.EnvelopeStore
 	publisher     events.Publisher
 	subscriber    events.Subscriber
 
@@ -48,9 +48,9 @@ type ONSProvider struct {
 func NewOrionNetworkServiceProvider(
 	configService driver2.ConfigService,
 	config *Config,
-	endorseTxKVS driver.EndorseTxKVS,
-	metadataKVS driver.MetadataKVS,
-	envelopeKVS driver.EnvelopeKVS,
+	endorseTxKVS driver.EndorseTxStore,
+	metadataKVS driver.MetadataStore,
+	envelopeKVS driver.EnvelopeStore,
 	publisher events.Publisher,
 	subscriber events.Subscriber,
 	metricsProvider metrics.Provider,

@@ -58,3 +58,7 @@ func (d *Driver) NewTransactionalVersioned(string, driver.Config) (driver.Transa
 func (d *Driver) NewUnversioned(string, driver.Config) (driver.UnversionedPersistence, error) {
 	return sql.NewPersistenceWithOpts(utils.GenerateUUIDOnlyLetters(), opts, sql.UnversionedConstructors)
 }
+
+func (d *Driver) NewBinding(string, driver.Config) (driver.BindingPersistence, error) {
+	return sql.NewPersistenceWithOpts(utils.GenerateUUIDOnlyLetters(), opts, sql.BindingConstructors)
+}
