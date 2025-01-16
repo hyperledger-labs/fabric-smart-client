@@ -96,6 +96,8 @@ fsc:
         createSchema: {{ NodeKVSPersistence.SQL.CreateSchema }}
         tablePrefix: {{ NodeKVSPersistence.SQL.TablePrefix }}    
         maxOpenConns: {{ NodeKVSPersistence.SQL.MaxOpenConns }}
+        maxIdleConns: 3
+        maxIdleTime: 45s
         {{- else }}
         path: {{ NodeKVSPath }}
         SyncWrites: false

@@ -19,6 +19,11 @@ import (
 	"github.com/pkg/errors"
 )
 
+const (
+	DefaultMaxIdleConns = 2
+	DefaultMaxIdleTime  = time.Minute
+)
+
 type TableNameCreator struct {
 	prefix string
 	r      *regexp.Regexp
@@ -92,14 +97,19 @@ func GetOpts(config driver.Config, optsKey string) (*Opts, error) {
 	if opts.DataSource == "" {
 		return nil, notSetError(optsKey + ".dataSource")
 	}
-	if !config.IsSet(optsKey + ".maxIdleConns") {
-		opts.MaxIdleConns = 2 // go default
+	if opts.MaxIdleConns == nil {
+		opts.MaxIdleConns = CopyPtr(DefaultMaxIdleConns) // go default
 	}
-	if !config.IsSet(optsKey + ".maxIdleTime") {
-		opts.MaxIdleTime = time.Minute
+	if opts.MaxIdleTime == nil {
+		opts.MaxIdleTime = CopyPtr(DefaultMaxIdleTime)
 	}
 
 	return &opts, nil
+}
+
+func CopyPtr[T any](t T) *T {
+	v := t
+	return &v
 }
 
 func notSetError(key string) error {
