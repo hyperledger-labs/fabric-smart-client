@@ -257,7 +257,7 @@ type dbObject interface {
 type persistenceConstructor[V dbObject] func(common2.Opts, string) (V, error)
 
 func initPersistence[V dbObject](constructor persistenceConstructor[V], pgConnStr, name string, maxOpenConns, maxIdleConns int, maxIdleTime time.Duration) (V, error) {
-	p, err := constructor(common2.Opts{DataSource: pgConnStr, MaxOpenConns: maxOpenConns, MaxIdleConns: maxIdleConns, MaxIdleTime: maxIdleTime}, name)
+	p, err := constructor(common2.Opts{DataSource: pgConnStr, MaxOpenConns: maxOpenConns, MaxIdleConns: &maxIdleConns, MaxIdleTime: &maxIdleTime}, name)
 	if err != nil {
 		return utils.Zero[V](), err
 	}

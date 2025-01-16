@@ -9,6 +9,7 @@ package sqlite
 import (
 	"fmt"
 	"path"
+	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
@@ -69,9 +70,11 @@ func (t *TestDriver) NewBinding(dataSourceName string, config driver.Config) (dr
 }
 
 func unversionedOpts(name string, tempDir string) common2.Opts {
-	return common2.Opts{DataSource: fmt.Sprintf("file:%s.sqlite?_pragma=busy_timeout(1000)", path.Join(tempDir, name))}
+	maxIdleConns, maxIdleTime := 2, 1*time.Minute
+	return common2.Opts{DataSource: fmt.Sprintf("file:%s.sqlite?_pragma=busy_timeout(1000)", path.Join(tempDir, name)), MaxIdleConns: &maxIdleConns, MaxIdleTime: &maxIdleTime}
 }
 
 func versionedOpts(name string, tempDir string) common2.Opts {
-	return common2.Opts{DataSource: fmt.Sprintf("%s.sqlite", path.Join(tempDir, name))}
+	maxIdleConns, maxIdleTime := 2, 1*time.Minute
+	return common2.Opts{DataSource: fmt.Sprintf("%s.sqlite", path.Join(tempDir, name)), MaxIdleConns: &maxIdleConns, MaxIdleTime: &maxIdleTime}
 }
