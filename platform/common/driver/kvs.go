@@ -28,6 +28,7 @@ type AuditInfoKVS interface {
 
 type BindingKVS interface {
 	GetBinding(ephemeral view.Identity) (view.Identity, error)
+	HaveSameBinding(this, that view.Identity) (bool, error)
 	PutBinding(ephemeral, longTerm view.Identity) error
 }
 

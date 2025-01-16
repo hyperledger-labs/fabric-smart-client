@@ -34,6 +34,15 @@ func Values[K comparable, V any](m map[K]V) []V {
 	return res
 }
 
+func ContainsValue[K, V comparable](haystack map[K]V, needle V) bool {
+	for _, v := range haystack {
+		if v == needle {
+			return true
+		}
+	}
+	return false
+}
+
 func Keys[K comparable, V any](m map[K]V) []K {
 	res := make([]K, len(m))
 	i := 0

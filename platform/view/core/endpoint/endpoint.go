@@ -13,8 +13,8 @@ import (
 	"strings"
 	"sync"
 
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
@@ -34,6 +34,14 @@ type Resolver struct {
 	Id             []byte
 	IdentityGetter func() (view.Identity, []byte, error)
 }
+
+func (r *Resolver) GetName() string { return r.Name }
+
+func (r *Resolver) GetId() view.Identity { return r.Id }
+
+func (r *Resolver) GetAddress(port driver.PortName) string { return r.Addresses[port] }
+
+func (r *Resolver) GetAddresses() map[driver.PortName]string { return r.Addresses }
 
 func (r *Resolver) GetIdentity() (view.Identity, error) {
 	if r.IdentityGetter != nil {
@@ -58,7 +66,7 @@ type Discovery interface {
 type Service struct {
 	resolvers      []*Resolver
 	resolversMutex sync.RWMutex
-	bindingKVS     driver2.BindingKVS
+	binder         Binder
 
 	pkiExtractorsLock      sync.RWMutex
 	publicKeyExtractors    []driver.PublicKeyExtractor
@@ -66,44 +74,45 @@ type Service struct {
 }
 
 // NewService returns a new instance of the view-sdk endpoint service
-func NewService(bindingKVS driver2.BindingKVS) (*Service, error) {
+func NewService(binder Binder) (*Service, error) {
 	er := &Service{
-		bindingKVS:             bindingKVS,
+		binder:                 binder,
 		publicKeyExtractors:    []driver.PublicKeyExtractor{},
 		publicKeyIDSynthesizer: DefaultPublicKeyIDSynthesizer{},
 	}
 	return er, nil
 }
 
-func (r *Service) Endpoint(party view.Identity) (map[driver.PortName]string, error) {
-	_, e, _, err := r.resolve(party)
-	return e, err
-}
-
-func (r *Service) Resolve(party view.Identity) (string, view.Identity, map[driver.PortName]string, []byte, error) {
-	cursor, e, resolver, err := r.resolve(party)
+func (r *Service) Resolve(party view.Identity) (driver.Resolver, []byte, error) {
+	resolver, err := r.resolver(party)
 	if err != nil {
-		return "", nil, nil, nil, err
+		return nil, nil, err
 	}
-	return resolver.Name, cursor, e, r.pkiResolve(resolver), nil
+	return resolver, r.pkiResolve(resolver), nil
 }
 
-func (r *Service) resolve(party view.Identity) (view.Identity, map[driver.PortName]string, *Resolver, error) {
-	cursor := party
-	for {
-		// root endpoints have addresses
-		// is this a root endpoint
-		resolver, e, err := r.rootEndpoint(cursor)
-		if err == nil {
-			return cursor, e, resolver, nil
-		}
-		logger.Debugf("resolving via binding for %s", cursor)
-		cursor, err = r.bindingKVS.GetBinding(cursor)
-		if err != nil {
-			return nil, nil, nil, err
-		}
-		logger.Debugf("continue to [%s]", cursor)
+func (r *Service) GetResolver(party view.Identity) (driver.Resolver, error) {
+	return r.resolver(party)
+}
+
+func (r *Service) resolver(party view.Identity) (*Resolver, error) {
+	// We can skip this check, but in case the long term was passed directly, this is going to spare us a DB lookup
+	resolver, err := r.rootEndpoint(party)
+	if err == nil {
+		return resolver, nil
 	}
+	logger.Debugf("resolving via binding for %s", party)
+	party, err = r.binder.GetLongTerm(party)
+	if err != nil {
+		return nil, err
+	}
+	logger.Debugf("continue to [%s]", party)
+	resolver, err = r.rootEndpoint(party)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed getting identity for [%s]", party)
+	}
+
+	return resolver, nil
 }
 
 func (r *Service) Bind(longTerm view.Identity, ephemeral view.Identity) error {
@@ -114,7 +123,7 @@ func (r *Service) Bind(longTerm view.Identity, ephemeral view.Identity) error {
 
 	logger.Debugf("bind [%s] to [%s]", ephemeral, longTerm)
 
-	if err := r.bindingKVS.PutBinding(ephemeral, longTerm); err != nil {
+	if err := r.binder.Bind(ephemeral, longTerm); err != nil {
 		return errors.WithMessagef(err, "failed storing binding of [%s]  to [%s]", ephemeral.UniqueID(), longTerm.UniqueID())
 	}
 
@@ -122,19 +131,11 @@ func (r *Service) Bind(longTerm view.Identity, ephemeral view.Identity) error {
 }
 
 func (r *Service) IsBoundTo(a view.Identity, b view.Identity) bool {
-	for {
-		if a.Equal(b) {
-			return true
-		}
-		next, err := r.bindingKVS.GetBinding(a)
-		if err != nil {
-			return false
-		}
-		if next.Equal(b) {
-			return true
-		}
-		a = next
+	ok, err := r.binder.IsBoundTo(a, b)
+	if err != nil {
+		logger.Errorf("error fetching entries [%s] and [%s]: %v", a, b, err)
 	}
+	return ok
 }
 
 func (r *Service) GetIdentity(endpoint string, pkID []byte) (view.Identity, error) {
@@ -143,35 +144,23 @@ func (r *Service) GetIdentity(endpoint string, pkID []byte) (view.Identity, erro
 
 	// search in the resolver list
 	for _, resolver := range r.resolvers {
-		resolverPKID := r.pkiResolve(resolver)
-		found := false
-		for _, addr := range resolver.Addresses {
-			if endpoint == addr {
-				found = true
-				break
-			}
-		}
-		if !found {
-			// check aliases
-			found = slices.Contains(resolver.Aliases, endpoint)
-		}
-		if endpoint == resolver.Name ||
-			found ||
-			endpoint == resolver.Name+"."+resolver.Domain ||
-			bytes.Equal(pkID, resolver.Id) ||
-			bytes.Equal(pkID, resolverPKID) {
-
-			id, err := resolver.GetIdentity()
-			if err != nil {
-				return nil, err
-			}
-			if logger.IsEnabledFor(zapcore.DebugLevel) {
-				logger.Debugf("resolving [%s,%s] to %s", endpoint, view.Identity(pkID), id)
-			}
-			return id, nil
+		if r.matchesResolver(endpoint, pkID, resolver) {
+			return resolver.GetIdentity()
 		}
 	}
 	return nil, errors.Errorf("identity not found at [%s,%s]", endpoint, view.Identity(pkID))
+}
+
+func (r *Service) matchesResolver(endpoint string, pkID []byte, resolver *Resolver) bool {
+	if len(endpoint) > 0 && (endpoint == resolver.Name ||
+		endpoint == resolver.Name+"."+resolver.Domain ||
+		collections.ContainsValue(resolver.Addresses, endpoint) ||
+		slices.Contains(resolver.Aliases, endpoint)) {
+		return true
+	}
+
+	return len(pkID) > 0 && (bytes.Equal(pkID, resolver.Id) ||
+		bytes.Equal(pkID, r.pkiResolve(resolver)))
 }
 
 func (r *Service) AddResolver(name string, domain string, addresses map[string]string, aliases []string, id []byte) (view.Identity, error) {
@@ -265,17 +254,17 @@ func (r *Service) ExtractPKI(id []byte) []byte {
 	return nil
 }
 
-func (r *Service) rootEndpoint(party view.Identity) (*Resolver, map[driver.PortName]string, error) {
+func (r *Service) rootEndpoint(party view.Identity) (*Resolver, error) {
 	r.resolversMutex.RLock()
 	defer r.resolversMutex.RUnlock()
 
 	for _, resolver := range r.resolvers {
 		if bytes.Equal(resolver.Id, party) {
-			return resolver, resolver.Addresses, nil
+			return resolver, nil
 		}
 	}
 
-	return nil, nil, errors.Errorf("endpoint not found for identity %s", party.UniqueID())
+	return nil, errors.Errorf("endpoint not found for identity %s", party.UniqueID())
 }
 
 var portNameMap = map[string]driver.PortName{

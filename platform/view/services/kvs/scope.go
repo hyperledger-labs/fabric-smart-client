@@ -62,6 +62,17 @@ type bindingKVS struct {
 	e *enhancedKVS[view.Identity, view.Identity]
 }
 
+func (kvs *bindingKVS) HaveSameBinding(this, that view.Identity) (bool, error) {
+	thisBinding, err := kvs.e.Get(this)
+	if err != nil {
+		return false, err
+	}
+	thatBinding, err := kvs.e.Get(that)
+	if err != nil {
+		return false, err
+	}
+	return thisBinding.Equal(thatBinding), nil
+}
 func (kvs *bindingKVS) GetBinding(ephemeral view.Identity) (view.Identity, error) {
 	return kvs.e.Get(ephemeral)
 }

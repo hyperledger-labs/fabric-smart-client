@@ -107,6 +107,7 @@ func (p *SDK) Install() error {
 		p.C.Provide(kvs.NewSignerKVS, dig.As(new(driver4.SignerKVS))),
 		p.C.Provide(kvs.NewAuditInfoKVS, dig.As(new(driver4.AuditInfoKVS))),
 		p.C.Provide(endpoint.NewService),
+		p.C.Provide(endpoint.NewBinder, dig.As(new(endpoint.Binder))),
 		p.C.Provide(digutils.Identity[*endpoint.Service](), dig.As(new(driver.EndpointService))),
 		p.C.Provide(view.NewEndpointService),
 		p.C.Provide(digutils.Identity[*view.EndpointService](), dig.As(new(comm.EndpointService), new(id.EndpointService), new(endpoint.Backend))),

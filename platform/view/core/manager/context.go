@@ -334,19 +334,23 @@ func (ctx *ctx) Dispose() {
 }
 
 func (ctx *ctx) newSession(view view.View, contextID string, party view.Identity) (view.Session, error) {
-	_, _, endpoints, pkid, err := ctx.resolver.Resolve(party)
+	resolver, pkid, err := ctx.resolver.Resolve(party)
 	if err != nil {
 		return nil, err
 	}
-	return ctx.sessionFactory.NewSession(getIdentifier(view), contextID, endpoints[driver.P2PPort], pkid)
+	return ctx.sessionFactory.NewSession(getIdentifier(view), contextID, resolver.GetAddress(driver.P2PPort), pkid)
 }
 
 func (ctx *ctx) newSessionByID(sessionID, contextID string, party view.Identity) (view.Session, error) {
-	_, _, endpoints, pkid, err := ctx.resolver.Resolve(party)
+	resolver, pkid, err := ctx.resolver.Resolve(party)
 	if err != nil {
 		return nil, err
 	}
-	return ctx.sessionFactory.NewSessionWithID(sessionID, contextID, endpoints[driver.P2PPort], pkid, nil, nil)
+	var endpoint string
+	if resolver != nil {
+		endpoint = resolver.GetAddress(driver.P2PPort)
+	}
+	return ctx.sessionFactory.NewSessionWithID(sessionID, contextID, endpoint, pkid, nil, nil)
 }
 
 func (ctx *ctx) cleanup() {
