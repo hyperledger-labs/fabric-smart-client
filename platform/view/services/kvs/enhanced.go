@@ -10,19 +10,19 @@ import "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 
 type KeyMapper[K any] func(K) (string, error)
 
-func newEnhancedKVS[K any, V any](kvs *KVS, keyMapper KeyMapper[K]) *enhancedKVS[K, V] {
-	return &enhancedKVS[K, V]{
+func NewEnhancedKVS[K any, V any](kvs *KVS, keyMapper KeyMapper[K]) *EnhancedKVS[K, V] {
+	return &EnhancedKVS[K, V]{
 		kvs:       kvs,
 		keyMapper: keyMapper,
 	}
 }
 
-type enhancedKVS[K any, V any] struct {
+type EnhancedKVS[K any, V any] struct {
 	kvs       *KVS
 	keyMapper KeyMapper[K]
 }
 
-func (kvs *enhancedKVS[K, V]) Get(id K) (V, error) {
+func (kvs *EnhancedKVS[K, V]) Get(id K) (V, error) {
 	k, err := kvs.keyMapper(id)
 	if err != nil {
 		return utils.Zero[V](), err
@@ -38,7 +38,7 @@ func (kvs *enhancedKVS[K, V]) Get(id K) (V, error) {
 	return res, nil
 }
 
-func (kvs *enhancedKVS[K, V]) FilterExisting(inputKeys ...K) ([]K, error) {
+func (kvs *EnhancedKVS[K, V]) FilterExisting(inputKeys ...K) ([]K, error) {
 	stringKeyMap := make(map[string]K, len(inputKeys))
 	inputStrings := make([]string, len(inputKeys))
 	for i, key := range inputKeys {
@@ -57,7 +57,7 @@ func (kvs *enhancedKVS[K, V]) FilterExisting(inputKeys ...K) ([]K, error) {
 	return existingKeys, nil
 }
 
-func (kvs *enhancedKVS[K, V]) Exists(id K) (bool, error) {
+func (kvs *EnhancedKVS[K, V]) Exists(id K) (bool, error) {
 	k, err := kvs.keyMapper(id)
 	if err != nil {
 		return false, err
@@ -66,7 +66,7 @@ func (kvs *enhancedKVS[K, V]) Exists(id K) (bool, error) {
 	return kvs.kvs.Exists(k), nil
 }
 
-func (kvs *enhancedKVS[K, V]) Put(id K, info V) error {
+func (kvs *EnhancedKVS[K, V]) Put(id K, info V) error {
 	k, err := kvs.keyMapper(id)
 	if err != nil {
 		return err

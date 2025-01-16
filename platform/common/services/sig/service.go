@@ -32,15 +32,15 @@ type SignerEntry = driver2.SignerEntry
 
 type Service struct {
 	deserializer Deserializer
-	signerKVS    driver2.SignerKVS
-	auditInfoKVS driver2.AuditInfoKVS
+	signerKVS    driver2.SignerStore
+	auditInfoKVS driver2.AuditInfoStore
 
 	mutex     sync.RWMutex
 	signers   map[string]SignerEntry
 	verifiers map[string]VerifierEntry
 }
 
-func NewService(deserializer Deserializer, auditInfoKVS driver2.AuditInfoKVS, signerKVS driver2.SignerKVS) *Service {
+func NewService(deserializer Deserializer, auditInfoKVS driver2.AuditInfoStore, signerKVS driver2.SignerStore) *Service {
 	return &Service{
 		signerKVS:    signerKVS,
 		auditInfoKVS: auditInfoKVS,

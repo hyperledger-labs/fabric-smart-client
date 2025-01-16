@@ -15,36 +15,36 @@ type SignerEntry struct {
 	DebugStack []byte
 }
 
-type SignerKVS interface {
+type SignerStore interface {
 	GetSigner(id view.Identity) (*SignerEntry, error)
 	FilterExistingSigners(ids ...view.Identity) ([]view.Identity, error)
 	PutSigner(id view.Identity, entry *SignerEntry) error
 }
 
-type AuditInfoKVS interface {
+type AuditInfoStore interface {
 	GetAuditInfo(id view.Identity) ([]byte, error)
 	PutAuditInfo(id view.Identity, info []byte) error
 }
 
-type BindingKVS interface {
-	GetBinding(ephemeral view.Identity) (view.Identity, error)
+type BindingStore interface {
+	GetLongTerm(ephemeral view.Identity) (view.Identity, error)
 	HaveSameBinding(this, that view.Identity) (bool, error)
 	PutBinding(ephemeral, longTerm view.Identity) error
 }
 
-type MetadataKVS[K any, M any] interface {
+type MetadataStore[K any, M any] interface {
 	GetMetadata(key K) (M, error)
 	ExistMetadata(key K) (bool, error)
 	PutMetadata(key K, transientMap M) error
 }
 
-type EnvelopeKVS[K any] interface {
+type EnvelopeStore[K any] interface {
 	GetEnvelope(key K) ([]byte, error)
 	ExistsEnvelope(key K) (bool, error)
 	PutEnvelope(key K, env []byte) error
 }
 
-type EndorseTxKVS[K any] interface {
+type EndorseTxStore[K any] interface {
 	GetEndorseTx(key K) ([]byte, error)
 	ExistsEndorseTx(key K) (bool, error)
 	PutEndorseTx(key K, etx []byte) error

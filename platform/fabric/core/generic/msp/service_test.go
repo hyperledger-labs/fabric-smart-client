@@ -20,6 +20,8 @@ import (
 	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	registry2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/registry"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/auditinfo"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/signerinfo"
 	"github.com/otiai10/copy"
 	"github.com/stretchr/testify/assert"
 )
@@ -41,7 +43,7 @@ func TestRegisterIdemixLocalMSP(t *testing.T) {
 	assert.NoError(t, err)
 	mspService := msp2.NewLocalMSPManager(config, kvss, nil, nil, nil, des, 100)
 	assert.NoError(t, registry.RegisterService(mspService))
-	sigService := sig.NewService(des, kvs.NewAuditInfoKVS(kvss), kvs.NewSignerKVS(kvss))
+	sigService := sig.NewService(des, auditinfo.NewKVSBased(kvss), signerinfo.NewKVSBased(kvss))
 	assert.NoError(t, registry.RegisterService(sigService))
 
 	assert.NoError(t, mspService.RegisterIdemixMSP("apple", "./idemix/testdata/idemix", "idemix"))
@@ -73,7 +75,7 @@ func TestIdemixTypeFolder(t *testing.T) {
 	assert.NoError(t, err)
 	mspService := msp2.NewLocalMSPManager(config, kvss, nil, nil, nil, des, 100)
 	assert.NoError(t, registry.RegisterService(mspService))
-	sigService := sig.NewService(des, kvs.NewAuditInfoKVS(kvss), kvs.NewSignerKVS(kvss))
+	sigService := sig.NewService(des, auditinfo.NewKVSBased(kvss), signerinfo.NewKVSBased(kvss))
 	assert.NoError(t, registry.RegisterService(sigService))
 
 	assert.NoError(t, mspService.Load())
@@ -101,7 +103,7 @@ func TestRegisterX509LocalMSP(t *testing.T) {
 	assert.NoError(t, err)
 	mspService := msp2.NewLocalMSPManager(config, kvss, nil, nil, nil, des, 100)
 	assert.NoError(t, registry.RegisterService(mspService))
-	sigService := sig.NewService(des, kvs.NewAuditInfoKVS(kvss), kvs.NewSignerKVS(kvss))
+	sigService := sig.NewService(des, auditinfo.NewKVSBased(kvss), signerinfo.NewKVSBased(kvss))
 	assert.NoError(t, registry.RegisterService(sigService))
 
 	assert.NoError(t, mspService.RegisterX509MSP("apple", "./x509/testdata/msp", "x509"))
@@ -132,7 +134,7 @@ func TestX509TypeFolder(t *testing.T) {
 	assert.NoError(t, err)
 	mspService := msp2.NewLocalMSPManager(config, kvss, nil, nil, nil, des, 100)
 	assert.NoError(t, registry.RegisterService(mspService))
-	sigService := sig.NewService(des, kvs.NewAuditInfoKVS(kvss), kvs.NewSignerKVS(kvss))
+	sigService := sig.NewService(des, auditinfo.NewKVSBased(kvss), signerinfo.NewKVSBased(kvss))
 	assert.NoError(t, registry.RegisterService(sigService))
 
 	assert.NoError(t, mspService.Load())
@@ -160,7 +162,7 @@ func TestRefresh(t *testing.T) {
 	assert.NoError(t, err)
 	mspService := msp2.NewLocalMSPManager(config, kvss, nil, nil, nil, des, 100)
 	assert.NoError(t, registry.RegisterService(mspService))
-	sigService := sig.NewService(des, kvs.NewAuditInfoKVS(kvss), kvs.NewSignerKVS(kvss))
+	sigService := sig.NewService(des, auditinfo.NewKVSBased(kvss), signerinfo.NewKVSBased(kvss))
 	assert.NoError(t, registry.RegisterService(sigService))
 
 	assert.NoError(t, mspService.Load())

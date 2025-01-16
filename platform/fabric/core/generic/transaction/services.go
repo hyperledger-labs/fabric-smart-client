@@ -18,11 +18,11 @@ import (
 var logger = logging.MustGetLogger("fabric-sdk.core")
 
 type mds struct {
-	metadataKVS driver.MetadataKVS
+	metadataKVS driver.MetadataStore
 	key         func(driver2.TxID) driver.Key
 }
 
-func NewMetadataService(metadataKVS driver.MetadataKVS, network string, channel string) *mds {
+func NewMetadataService(metadataKVS driver.MetadataStore, network string, channel string) *mds {
 	return &mds{metadataKVS: metadataKVS, key: keyMapper(network, channel)}
 }
 
@@ -40,11 +40,11 @@ func (s *mds) LoadTransient(txid string) (driver.TransientMap, error) {
 }
 
 type envs struct {
-	envelopeKVS driver.EnvelopeKVS
+	envelopeKVS driver.EnvelopeStore
 	key         func(driver2.TxID) driver.Key
 }
 
-func NewEnvelopeService(envelopeKVS driver.EnvelopeKVS, network string, channel string) *envs {
+func NewEnvelopeService(envelopeKVS driver.EnvelopeStore, network string, channel string) *envs {
 	return &envs{envelopeKVS: envelopeKVS, key: keyMapper(network, channel)}
 }
 
@@ -73,11 +73,11 @@ func (s *envs) LoadEnvelope(txid string) ([]byte, error) {
 }
 
 type ets struct {
-	endorseTxKVS driver.EndorseTxKVS
+	endorseTxKVS driver.EndorseTxStore
 	key          func(driver2.TxID) driver.Key
 }
 
-func NewEndorseTransactionService(endorseTxKVS driver.EndorseTxKVS, network string, channel string) *ets {
+func NewEndorseTransactionService(endorseTxKVS driver.EndorseTxStore, network string, channel string) *ets {
 	return &ets{endorseTxKVS: endorseTxKVS, key: keyMapper(network, channel)}
 }
 

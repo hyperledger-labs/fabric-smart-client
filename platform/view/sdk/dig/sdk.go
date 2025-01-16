@@ -46,6 +46,9 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/operations"
 	view3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view/protos"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/auditinfo"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/binding"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/signerinfo"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/dig"
@@ -103,11 +106,10 @@ func (p *SDK) Install() error {
 		p.C.Provide(sig2.NewDeserializer),
 		p.C.Provide(sig2.NewService, dig.As(new(id.SigService), new(driver.SigService), new(driver.SigRegistry), new(driver.AuditRegistry))),
 		p.C.Provide(view.NewSigService, dig.As(new(view3.VerifierProvider), new(view3.SignerProvider))),
-		p.C.Provide(kvs.NewBindingKVS, dig.As(new(driver4.BindingKVS))),
-		p.C.Provide(kvs.NewSignerKVS, dig.As(new(driver4.SignerKVS))),
-		p.C.Provide(kvs.NewAuditInfoKVS, dig.As(new(driver4.AuditInfoKVS))),
+		p.C.Provide(newBindingStore, dig.As(new(driver4.BindingStore))),
+		p.C.Provide(signerinfo.NewKVSBased, dig.As(new(driver4.SignerStore))),
+		p.C.Provide(auditinfo.NewKVSBased, dig.As(new(driver4.AuditInfoStore))),
 		p.C.Provide(endpoint.NewService),
-		p.C.Provide(endpoint.NewBinder, dig.As(new(endpoint.Binder))),
 		p.C.Provide(digutils.Identity[*endpoint.Service](), dig.As(new(driver.EndpointService))),
 		p.C.Provide(view.NewEndpointService),
 		p.C.Provide(digutils.Identity[*view.EndpointService](), dig.As(new(comm.EndpointService), new(id.EndpointService), new(endpoint.Backend))),
@@ -208,6 +210,20 @@ func newKVS(in struct {
 	for _, driver := range in.Drivers {
 		if string(driver.Name) == driverName {
 			return kvs.NewWithConfig(driver.Driver, "_default", in.Config)
+		}
+	}
+	return nil, errors.New("driver not found")
+}
+
+func newBindingStore(in struct {
+	dig.In
+	Config  driver.ConfigService
+	Drivers []driver2.NamedDriver `group:"db-drivers"`
+}) (driver4.BindingStore, error) {
+	driverName := utils.DefaultString(in.Config.GetString("fsc.binding.persistence.type"), string(mem.MemoryPersistence))
+	for _, driver := range in.Drivers {
+		if string(driver.Name) == driverName {
+			return binding.NewWithConfig(driver.Driver, "_default", in.Config)
 		}
 	}
 	return nil, errors.New("driver not found")

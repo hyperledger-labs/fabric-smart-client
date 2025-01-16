@@ -50,9 +50,9 @@ type Provider struct {
 }
 
 func NewProvider(
-	envelopeKVS fdriver.EnvelopeKVS,
-	metadataKVS fdriver.MetadataKVS,
-	endorseTxKVS fdriver.EndorseTxKVS,
+	envelopeKVS fdriver.EnvelopeStore,
+	metadataKVS fdriver.MetadataStore,
+	endorseTxKVS fdriver.EndorseTxStore,
 	configProvider config.Provider,
 	metricsProvider metrics.Provider,
 	endpointService identity.EndpointService,

@@ -53,9 +53,9 @@ type network struct {
 
 func NewDB(
 	ctx context.Context,
-	endorseTxKVS driver.EndorseTxKVS,
-	metadataKVS driver.MetadataKVS,
-	envelopeKVS driver.EnvelopeKVS,
+	endorseTxKVS driver.EndorseTxStore,
+	metadataKVS driver.MetadataStore,
+	envelopeKVS driver.EnvelopeStore,
 	config *config2.Config,
 	name string,
 ) (*network, error) {
@@ -96,9 +96,9 @@ func NewDB(
 
 func NewNetwork(
 	ctx context.Context,
-	endorseTxKVS driver.EndorseTxKVS,
-	metadataKVS driver.MetadataKVS,
-	envelopeKVS driver.EnvelopeKVS,
+	endorseTxKVS driver.EndorseTxStore,
+	metadataKVS driver.MetadataStore,
+	envelopeKVS driver.EnvelopeStore,
 	eventsPublisher events.Publisher,
 	eventsSubscriber events.Subscriber,
 	metricsProvider metrics.Provider,

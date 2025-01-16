@@ -63,9 +63,19 @@ type unversionedPersistence interface {
 	dbObject
 }
 
+type bindingPersistence interface {
+	driver.BindingPersistence
+	dbObject
+}
+
 var UnversionedConstructors = map[common.SQLDriverType]persistenceConstructor[unversionedPersistence]{
 	Postgres: func(o common.Opts, t string) (unversionedPersistence, error) { return postgres.NewUnversioned(o, t) },
 	SQLite:   func(o common.Opts, t string) (unversionedPersistence, error) { return sqlite.NewUnversioned(o, t) },
+}
+
+var BindingConstructors = map[common.SQLDriverType]persistenceConstructor[bindingPersistence]{
+	Postgres: func(o common.Opts, t string) (bindingPersistence, error) { return postgres.NewBindingPersistence(o, t) },
+	SQLite:   func(o common.Opts, t string) (bindingPersistence, error) { return sqlite.NewBindingPersistence(o, t) },
 }
 
 func (d *Driver) NewVersioned(dataSourceName string, config driver.Config) (driver.VersionedPersistence, error) {
@@ -86,6 +96,10 @@ func (d *Driver) NewTransactionalUnversioned(dataSourceName string, config drive
 		return nil, err
 	}
 	return &unversioned.Transactional{TransactionalVersioned: backend}, nil
+}
+
+func (d *Driver) NewBinding(dataSourceName string, config driver.Config) (driver.BindingPersistence, error) {
+	return newPersistence(dataSourceName, config, BindingConstructors)
 }
 
 func newPersistence[V dbObject](dataSourceName string, config driver.Config, constructors map[common.SQLDriverType]persistenceConstructor[V]) (V, error) {

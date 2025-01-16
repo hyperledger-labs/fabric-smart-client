@@ -13,14 +13,14 @@ type Key struct {
 	TxID    driver.TxID
 }
 
-type MetadataKVS interface {
-	driver.MetadataKVS[Key, TransientMap]
+type MetadataStore interface {
+	driver.MetadataStore[Key, TransientMap]
 }
 
-type EnvelopeKVS interface {
-	driver.EnvelopeKVS[Key]
+type EnvelopeStore interface {
+	driver.EnvelopeStore[Key]
 }
 
-type EndorseTxKVS interface {
-	driver.EndorseTxKVS[Key]
+type EndorseTxStore interface {
+	driver.EndorseTxStore[Key]
 }

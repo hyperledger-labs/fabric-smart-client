@@ -17,6 +17,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs/mock"
 	registry2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/registry"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/auditinfo"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/signerinfo"
 	msp2 "github.com/hyperledger/fabric/msp"
 	"github.com/stretchr/testify/assert"
 )
@@ -27,7 +29,7 @@ func TestInfoIdemix(t *testing.T) {
 	kvss, err := kvs.NewWithConfig(&mem.Driver{}, "", &mock.ConfigProvider{})
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
-	sigService := sig.NewService(sig.NewMultiplexDeserializer(), kvs.NewAuditInfoKVS(kvss), kvs.NewSignerKVS(kvss))
+	sigService := sig.NewService(sig.NewMultiplexDeserializer(), auditinfo.NewKVSBased(kvss), signerinfo.NewKVSBased(kvss))
 	assert.NoError(t, registry.RegisterService(sigService))
 
 	config, err := msp2.GetLocalMspConfigWithType("./testdata/idemix", nil, "idemix", "idemix")

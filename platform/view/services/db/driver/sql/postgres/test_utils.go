@@ -291,3 +291,7 @@ func (t *TestDriver) NewTransactionalUnversioned(dataSourceName string, config d
 	}
 	return &unversioned.Transactional{TransactionalVersioned: p}, nil
 }
+
+func (t *TestDriver) NewBinding(dataSourceName string, config driver.Config) (driver.BindingPersistence, error) {
+	return initPersistence(NewBindingPersistence, t.ConnStr, t.Name, 50, 10, time.Minute)
+}

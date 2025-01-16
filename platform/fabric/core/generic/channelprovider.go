@@ -68,9 +68,9 @@ type ChannelProvider interface {
 }
 
 type provider struct {
-	envelopeKVS             driver.EnvelopeKVS
-	metadataKVS             driver.MetadataKVS
-	endorserTxKVS           driver.EndorseTxKVS
+	envelopeKVS             driver.EnvelopeStore
+	metadataKVS             driver.MetadataStore
+	endorserTxKVS           driver.EndorseTxStore
 	publisher               events.Publisher
 	hasher                  hash.Hasher
 	newVault                VaultConstructor
@@ -88,9 +88,9 @@ type provider struct {
 }
 
 func NewChannelProvider(
-	envelopeKVS driver.EnvelopeKVS,
-	metadataKVS driver.MetadataKVS,
-	endorserTxKVS driver.EndorseTxKVS,
+	envelopeKVS driver.EnvelopeStore,
+	metadataKVS driver.MetadataStore,
+	endorserTxKVS driver.EndorseTxStore,
 	publisher events.Publisher,
 	hasher hash.Hasher,
 	tracerProvider trace.TracerProvider,
