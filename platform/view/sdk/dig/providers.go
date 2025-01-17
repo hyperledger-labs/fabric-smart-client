@@ -64,7 +64,7 @@ func newSignerInfoStore(in struct {
 	Config  driver.ConfigService
 	Drivers []driver2.NamedDriver `group:"db-drivers"`
 }) (driver4.SignerInfoStore, error) {
-	driverName := driver4.PersistenceType(utils.DefaultString(in.Config.GetString("fsc.binding.persistence.type"), string(sql.SQLPersistence)))
+	driverName := driver4.PersistenceType(utils.DefaultString(in.Config.GetString("fsc.signerinfo.persistence.type"), string(sql.SQLPersistence)))
 	if unsupportedStores.Contains(driverName) {
 		return signerinfo.NewKVSBased(in.KVS), nil
 	}
