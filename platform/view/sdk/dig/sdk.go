@@ -16,7 +16,6 @@ import (
 	dig2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	sig2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/services/sig"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	digutils "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/endpoint"
@@ -30,7 +29,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/provider"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/crypto"
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger"
 	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql"
@@ -38,8 +36,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events/simple"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kms"
-	driver3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kms/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kms/driver/file"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	metrics2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
@@ -47,8 +43,6 @@ import (
 	view3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view/protos"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/auditinfo"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/binding"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/signerinfo"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/dig"
@@ -107,7 +101,7 @@ func (p *SDK) Install() error {
 		p.C.Provide(sig2.NewService, dig.As(new(id.SigService), new(driver.SigService), new(driver.SigRegistry), new(driver.AuditRegistry))),
 		p.C.Provide(view.NewSigService, dig.As(new(view3.VerifierProvider), new(view3.SignerProvider))),
 		p.C.Provide(newBindingStore, dig.As(new(driver4.BindingStore))),
-		p.C.Provide(signerinfo.NewKVSBased, dig.As(new(driver4.SignerStore))),
+		p.C.Provide(newSignerInfoStore, dig.As(new(driver4.SignerInfoStore))),
 		p.C.Provide(auditinfo.NewKVSBased, dig.As(new(driver4.AuditInfoStore))),
 		p.C.Provide(endpoint.NewService),
 		p.C.Provide(digutils.Identity[*endpoint.Service](), dig.As(new(driver.EndpointService))),
@@ -199,46 +193,4 @@ func (p *SDK) Start(ctx context.Context) error {
 
 		return nil
 	})
-}
-
-func newKVS(in struct {
-	dig.In
-	Config  driver.ConfigService
-	Drivers []driver2.NamedDriver `group:"db-drivers"`
-}) (*kvs.KVS, error) {
-	driverName := utils.DefaultString(in.Config.GetString("fsc.kvs.persistence.type"), string(mem.MemoryPersistence))
-	for _, driver := range in.Drivers {
-		if string(driver.Name) == driverName {
-			return kvs.NewWithConfig(driver.Driver, "_default", in.Config)
-		}
-	}
-	return nil, errors.New("driver not found")
-}
-
-func newBindingStore(in struct {
-	dig.In
-	Config  driver.ConfigService
-	Drivers []driver2.NamedDriver `group:"db-drivers"`
-}) (driver4.BindingStore, error) {
-	driverName := utils.DefaultString(in.Config.GetString("fsc.binding.persistence.type"), string(mem.MemoryPersistence))
-	for _, driver := range in.Drivers {
-		if string(driver.Name) == driverName {
-			return binding.NewWithConfig(driver.Driver, "_default", in.Config)
-		}
-	}
-	return nil, errors.New("driver not found")
-}
-
-func newKMSDriver(in struct {
-	dig.In
-	Config  driver.ConfigService
-	Drivers []driver3.NamedDriver `group:"kms-drivers"`
-}) (*kms.KMS, error) {
-	driverName := utils.DefaultString(in.Config.GetString("fsc.identity.type"), "file")
-	for _, driver := range in.Drivers {
-		if string(driver.Name) == driverName {
-			return &kms.KMS{Driver: driver.Driver}, nil
-		}
-	}
-	return nil, errors.New("driver not found")
 }

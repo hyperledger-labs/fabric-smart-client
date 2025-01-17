@@ -68,3 +68,7 @@ func (d *Driver) NewTransactionalUnversioned(dataSourceName string, config drive
 func (d *Driver) NewBinding(string, driver.Config) (driver.BindingPersistence, error) {
 	panic("not implemented")
 }
+
+func (d *Driver) NewSignerInfo(string, driver.Config) (driver.SignerInfoPersistence, error) {
+	panic("not implemented")
+}

@@ -47,6 +47,8 @@ type SQLErrorWrapper interface {
 
 type BindingPersistence = driver.BindingStore
 
+type SignerInfoPersistence = driver.SignerInfoStore
+
 type BasePersistence[V any, R any] interface {
 	// SetState sets the given value for the given namespace, key, and version
 	SetState(namespace driver.Namespace, key driver.PKey, value V) error
@@ -150,6 +152,8 @@ type Driver interface {
 	NewTransactionalUnversioned(dataSourceName string, config Config) (TransactionalUnversionedPersistence, error)
 	// NewBinding returns a new BindingPersistence for the passed data source and config
 	NewBinding(dataSourceName string, config Config) (BindingPersistence, error)
+	// NewSignerInfo returns a new SignerInfoPersistence for the passed data source and config
+	NewSignerInfo(string, Config) (SignerInfoPersistence, error)
 }
 
 type (

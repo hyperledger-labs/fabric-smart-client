@@ -15,10 +15,9 @@ type SignerEntry struct {
 	DebugStack []byte
 }
 
-type SignerStore interface {
-	GetSigner(id view.Identity) (*SignerEntry, error)
+type SignerInfoStore interface {
 	FilterExistingSigners(ids ...view.Identity) ([]view.Identity, error)
-	PutSigner(id view.Identity, entry *SignerEntry) error
+	PutSigner(id view.Identity) error
 }
 
 type AuditInfoStore interface {

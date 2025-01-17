@@ -32,7 +32,7 @@ type SignerEntry = driver2.SignerEntry
 
 type Service struct {
 	deserializer Deserializer
-	signerKVS    driver2.SignerStore
+	signerKVS    driver2.SignerInfoStore
 	auditInfoKVS driver2.AuditInfoStore
 
 	mutex     sync.RWMutex
@@ -40,7 +40,7 @@ type Service struct {
 	verifiers map[string]VerifierEntry
 }
 
-func NewService(deserializer Deserializer, auditInfoKVS driver2.AuditInfoStore, signerKVS driver2.SignerStore) *Service {
+func NewService(deserializer Deserializer, auditInfoKVS driver2.AuditInfoStore, signerKVS driver2.SignerInfoStore) *Service {
 	return &Service{
 		signerKVS:    signerKVS,
 		auditInfoKVS: auditInfoKVS,
@@ -84,7 +84,7 @@ func (o *Service) RegisterSigner(identity view.Identity, signer driver.Signer, v
 	o.mutex.Unlock()
 
 	if o.signerKVS != nil {
-		if err := o.signerKVS.PutSigner(identity, &entry); err != nil {
+		if err := o.signerKVS.PutSigner(identity); err != nil {
 			o.deleteSigner(idHash)
 			return errors.Wrap(err, "failed to store entry in kvs for the passed signer")
 		}
