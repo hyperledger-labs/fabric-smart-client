@@ -49,6 +49,8 @@ type BindingPersistence = driver.BindingStore
 
 type SignerInfoPersistence = driver.SignerInfoStore
 
+type AuditInfoPersistence = driver.AuditInfoStore
+
 type BasePersistence[V any, R any] interface {
 	// SetState sets the given value for the given namespace, key, and version
 	SetState(namespace driver.Namespace, key driver.PKey, value V) error
@@ -154,6 +156,8 @@ type Driver interface {
 	NewBinding(dataSourceName string, config Config) (BindingPersistence, error)
 	// NewSignerInfo returns a new SignerInfoPersistence for the passed data source and config
 	NewSignerInfo(string, Config) (SignerInfoPersistence, error)
+	// NewAuditInfo returns a new AuditInfoPersistence for the passed data source and config
+	NewAuditInfo(string, Config) (AuditInfoPersistence, error)
 }
 
 type (

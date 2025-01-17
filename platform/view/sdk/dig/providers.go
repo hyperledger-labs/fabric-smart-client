@@ -10,13 +10,14 @@ import (
 	driver4 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger"
 	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kms"
 	driver3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kms/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/auditinfo"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/binding"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/signerinfo"
 	"github.com/pkg/errors"
@@ -70,6 +71,24 @@ func newSignerInfoStore(in struct {
 	for _, d := range in.Drivers {
 		if d.Name == driverName {
 			return signerinfo.NewWithConfig(d.Driver, "_default", in.Config)
+		}
+	}
+	return nil, errors.New("driver not found")
+}
+
+func newAuditInfoStore(in struct {
+	dig.In
+	KVS     *kvs.KVS
+	Config  driver.ConfigService
+	Drivers []driver2.NamedDriver `group:"db-drivers"`
+}) (driver4.AuditInfoStore, error) {
+	driverName := driver4.PersistenceType(utils.DefaultString(in.Config.GetString("fsc.auditinfo.persistence.type"), string(mem.MemoryPersistence)))
+	if unsupportedStores.Contains(driverName) {
+		return auditinfo.NewKVSBased(in.KVS), nil
+	}
+	for _, d := range in.Drivers {
+		if d.Name == driverName {
+			return auditinfo.NewWithConfig(d.Driver, "_default", in.Config)
 		}
 	}
 	return nil, errors.New("driver not found")

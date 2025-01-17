@@ -42,7 +42,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/operations"
 	view3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view/protos"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/auditinfo"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/dig"
@@ -102,7 +101,7 @@ func (p *SDK) Install() error {
 		p.C.Provide(view.NewSigService, dig.As(new(view3.VerifierProvider), new(view3.SignerProvider))),
 		p.C.Provide(newBindingStore, dig.As(new(driver4.BindingStore))),
 		p.C.Provide(newSignerInfoStore, dig.As(new(driver4.SignerInfoStore))),
-		p.C.Provide(auditinfo.NewKVSBased, dig.As(new(driver4.AuditInfoStore))),
+		p.C.Provide(newAuditInfoStore, dig.As(new(driver4.AuditInfoStore))),
 		p.C.Provide(endpoint.NewService),
 		p.C.Provide(digutils.Identity[*endpoint.Service](), dig.As(new(driver.EndpointService))),
 		p.C.Provide(view.NewEndpointService),
