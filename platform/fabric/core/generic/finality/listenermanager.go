@@ -153,9 +153,12 @@ type listenerManager[T TxInfo] struct {
 }
 
 func (m *listenerManager[T]) onBlock(ctx context.Context, block *common.Block) error {
+	newCtx, span := m.tracer.Start(ctx, "on_block")
+	defer span.End()
 	logger.Debugf("New block with %d txs detected [%d]", len(block.Data.Data), block.Header.Number)
 
-	txs, err := m.mapper.Map(ctx, block)
+	span.AddEvent("map_block")
+	txs, err := m.mapper.Map(newCtx, block)
 	if err != nil {
 		logger.Errorf("failed to process block [%d]: %v", block.Header.Number, err)
 		return errors.Wrapf(err, "failed to process block [%d]", block.Header.Number)
@@ -166,6 +169,7 @@ func (m *listenerManager[T]) onBlock(ctx context.Context, block *common.Block) e
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
+	span.AddEvent("invoke_listeners")
 	for _, txInfos := range txs {
 		for ns, info := range txInfos {
 			logger.Debugf("Look for listeners of [%s:%s]", ns, info.TxID())
@@ -178,12 +182,13 @@ func (m *listenerManager[T]) onBlock(ctx context.Context, block *common.Block) e
 			}
 			logger.Debugf("Invoking %d listeners for [%s]", len(listeners), info.TxID())
 			for _, entry := range listeners {
-				go entry.OnStatus(ctx, info)
+				go entry.OnStatus(newCtx, info)
 			}
 		}
 	}
 	logger.Debugf("Invoked listeners for %d TxIDs: [%v]. Removing listeners...", len(invokedTxIDs), invokedTxIDs)
 
+	span.AddEvent("populate_cache")
 	for _, txInfos := range txs {
 		for ns, info := range txInfos {
 			logger.Debugf("Mapping for ns [%s]", ns)
@@ -192,6 +197,7 @@ func (m *listenerManager[T]) onBlock(ctx context.Context, block *common.Block) e
 	}
 	logger.Debugf("Current size of cache: %d", m.txInfos.Len())
 
+	span.AddEvent("remove_listeners")
 	m.listeners.Delete(invokedTxIDs...)
 	logger.Debugf("Removed listeners for %d invoked TxIDs: %v", len(invokedTxIDs), invokedTxIDs)
 
