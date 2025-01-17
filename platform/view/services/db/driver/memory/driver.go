@@ -68,3 +68,7 @@ func (d *Driver) NewBinding(string, driver.Config) (driver.BindingPersistence, e
 func (d *Driver) NewSignerInfo(string, driver.Config) (driver.SignerInfoPersistence, error) {
 	return sql.NewPersistenceWithOpts(utils.GenerateUUIDOnlyLetters(), opts, sql.SignerInfoConstructors)
 }
+
+func (d *Driver) NewAuditInfo(string, driver.Config) (driver.AuditInfoPersistence, error) {
+	panic("not implemented")
+}
