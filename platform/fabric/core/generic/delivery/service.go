@@ -16,11 +16,9 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 	"github.com/hyperledger/fabric-protos-go/common"
 	pb "github.com/hyperledger/fabric-protos-go/peer"
 	"go.opentelemetry.io/otel/trace"
-	"go.opentelemetry.io/otel/trace/noop"
 )
 
 type ValidationFlags []uint8
@@ -37,8 +35,9 @@ type Service struct {
 	transactionManager  driver.TransactionManager
 	waitForEventTimeout time.Duration
 	acceptedHeaderTypes collections.Set[common.HeaderType]
-
-	deliveryService *Delivery
+	tracerProvider      trace.TracerProvider
+	metricsProvider     metrics.Provider
+	deliveryService     *Delivery
 }
 
 func NewService(
@@ -88,6 +87,8 @@ func NewService(
 		waitForEventTimeout: waitForEventTimeout,
 		deliveryService:     deliveryService,
 		transactionManager:  transactionManager,
+		tracerProvider:      tracerProvider,
+		metricsProvider:     metricsProvider,
 		acceptedHeaderTypes: collections.NewSet(acceptedHeaderTypes...),
 	}, nil
 }
@@ -113,8 +114,8 @@ func (c *Service) scanBlock(ctx context.Context, vault Vault, callback driver.Bl
 		callback,
 		vault,
 		c.channelConfig.CommitterWaitForEventTimeout(),
-		&noop.TracerProvider{},
-		&disabled.Provider{},
+		c.tracerProvider,
+		c.metricsProvider,
 	)
 	if err != nil {
 		return err
