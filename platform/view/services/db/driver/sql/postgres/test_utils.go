@@ -295,3 +295,7 @@ func (t *TestDriver) NewTransactionalUnversioned(dataSourceName string, config d
 func (t *TestDriver) NewBinding(dataSourceName string, config driver.Config) (driver.BindingPersistence, error) {
 	return initPersistence(NewBindingPersistence, t.ConnStr, t.Name, 50, 10, time.Minute)
 }
+
+func (t *TestDriver) NewSignerInfo(string, driver.Config) (driver.SignerInfoPersistence, error) {
+	return initPersistence(NewSignerInfoPersistence, t.ConnStr, t.Name, 50, 10, time.Minute)
+}

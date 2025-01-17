@@ -64,3 +64,7 @@ func (d *Driver) NewUnversioned(string, driver.Config) (driver.UnversionedPersis
 func (d *Driver) NewBinding(string, driver.Config) (driver.BindingPersistence, error) {
 	return sql.NewPersistenceWithOpts(utils.GenerateUUIDOnlyLetters(), opts, sql.BindingConstructors)
 }
+
+func (d *Driver) NewSignerInfo(string, driver.Config) (driver.SignerInfoPersistence, error) {
+	return sql.NewPersistenceWithOpts(utils.GenerateUUIDOnlyLetters(), opts, sql.SignerInfoConstructors)
+}

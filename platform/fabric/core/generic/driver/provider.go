@@ -40,7 +40,7 @@ func NewProvider(
 	channelProvider generic.ChannelProvider,
 	idProvider vdriver.IdentityProvider,
 	identityLoaders []identity.NamedIdentityLoader,
-	signerKVS driver.SignerStore,
+	signerKVS driver.SignerInfoStore,
 	auditInfoKVS driver.AuditInfoStore,
 	kvss *kvs.KVS,
 ) *Provider {
