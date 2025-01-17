@@ -299,3 +299,7 @@ func (t *TestDriver) NewBinding(dataSourceName string, config driver.Config) (dr
 func (t *TestDriver) NewSignerInfo(string, driver.Config) (driver.SignerInfoPersistence, error) {
 	return initPersistence(NewSignerInfoPersistence, t.ConnStr, t.Name, 50, 10, time.Minute)
 }
+
+func (t *TestDriver) NewAuditInfo(string, driver.Config) (driver.AuditInfoPersistence, error) {
+	return initPersistence(NewAuditInfoPersistence, t.ConnStr, t.Name, 50, 10, time.Minute)
+}

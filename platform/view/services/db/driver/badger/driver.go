@@ -72,3 +72,7 @@ func (d *Driver) NewBinding(string, driver.Config) (driver.BindingPersistence, e
 func (d *Driver) NewSignerInfo(string, driver.Config) (driver.SignerInfoPersistence, error) {
 	panic("not implemented")
 }
+
+func (d *Driver) NewAuditInfo(string, driver.Config) (driver.AuditInfoPersistence, error) {
+	panic("not implemented")
+}
