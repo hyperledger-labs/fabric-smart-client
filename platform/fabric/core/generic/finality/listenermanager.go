@@ -18,6 +18,7 @@ import (
 	"github.com/hyperledger/fabric-protos-go/common"
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
+	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -56,7 +57,7 @@ func NewListenerManager[T TxInfo](config DeliveryListenerManagerConfig, delivery
 	var listeners cache.Map[driver2.TxID, []ListenerEntry[T]]
 	if config.ListenerTimeout > 0 {
 		listeners = cache.NewTimeoutCache[driver2.TxID, []ListenerEntry[T]](config.ListenerTimeout, func(evicted map[driver2.TxID][]ListenerEntry[T]) {
-			logger.Debugf("Listeners for TXs [%v] timed out. Either the TX finality is too slow or it reached finality too long ago and were evicted from the txInfos cache. The IDs will be queried directly from ledger...", collections.Keys(evicted))
+			logger.Debugf("Listeners for TXs [%v] timed out. Either the TX finality is too slow or it reached finality too long ago and were evicted from the txInfos cache. The IDs will be queried directly from ledger (when the batch is cut)...", collections.Keys(evicted))
 			fetchTxs(evicted, mapper, delivery)
 		})
 	} else {
@@ -87,31 +88,33 @@ func NewListenerManager[T TxInfo](config DeliveryListenerManagerConfig, delivery
 }
 
 func fetchTxs[T TxInfo](evicted map[driver2.TxID][]ListenerEntry[T], mapper TxInfoMapper[T], delivery *fabric.Delivery) {
-	for txID, listeners := range evicted {
-		go func(txID driver2.TxID, listeners []ListenerEntry[T]) {
-			logger.Debugf("Launching routine to scan for tx [%s]", txID)
-			err := delivery.Scan(context.TODO(), txID, func(tx *fabric.ProcessedTransaction) (bool, error) {
-				if tx.TxID() != txID {
-					return false, nil
-				}
-				logger.Debugf("Received result for tx [%s, %v, %d]...", tx.TxID(), tx.ValidationCode(), len(tx.Results()))
-				infos, err := mapper.MapProcessedTx(tx)
-				if err != nil {
-					logger.Errorf("failed mapping tx [%s]: %v", tx.TxID(), err)
-					return true, err
-				}
-				for _, info := range infos {
-					for _, listener := range listeners {
-						go listener.OnStatus(context.TODO(), info)
-					}
-				}
-				return true, nil
-			})
-			if err != nil {
-				logger.Errorf("Failed scanning for tx [%s]: %v", txID, err)
+	go func() {
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			logger.Debugf("Launching routine to scan for txs [%v]", collections.Keys(evicted))
+		}
+		err := delivery.Scan(context.TODO(), "", func(tx *fabric.ProcessedTransaction) (bool, error) {
+			listeners, ok := evicted[tx.TxID()]
+			if !ok {
+				return false, nil
 			}
-		}(txID, listeners)
-	}
+			logger.Debugf("Received result for tx [%s, %v, %d]...", tx.TxID(), tx.ValidationCode(), len(tx.Results()))
+			infos, err := mapper.MapProcessedTx(tx)
+			if err != nil {
+				logger.Errorf("failed mapping tx [%s]: %v", tx.TxID(), err)
+				return true, err
+			}
+			for _, info := range infos {
+				for _, listener := range listeners {
+					go listener.OnStatus(context.TODO(), info)
+				}
+			}
+			delete(evicted, tx.TxID())
+			return len(evicted) == 0, nil
+		})
+		if err != nil {
+			logger.Errorf("Failed scanning: %v", err)
+		}
+	}()
 }
 
 func (m *listenerManager[T]) start() {
