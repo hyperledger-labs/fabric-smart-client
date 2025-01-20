@@ -106,6 +106,7 @@ type Finality struct {
 }
 
 type Delivery struct {
+	BufferSize          int           `yaml:"BufferSize,omitempty"`
 	WaitForEventTimeout time.Duration `yaml:"WaitForEventTimeout,omitempty"`
 	SleepAfterFailure   time.Duration `yaml:"SleepAfterFailure,omitempty"`
 }
@@ -203,6 +204,13 @@ func (c *Channel) CommitterWaitForEventTimeout() time.Duration {
 		return 300 * time.Second
 	}
 	return c.Committer.WaitForEventTimeout
+}
+
+func (c *Channel) DeliveryBufferSize() int {
+	if c.Delivery.BufferSize <= 0 {
+		return 1
+	}
+	return c.Delivery.BufferSize
 }
 
 func (c *Channel) DiscoveryTimeout() time.Duration {

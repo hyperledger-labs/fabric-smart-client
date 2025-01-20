@@ -8,7 +8,9 @@ package delivery
 
 import (
 	"context"
+	"fmt"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
@@ -37,6 +39,11 @@ var (
 		},
 	}
 )
+
+type blockResponse struct {
+	ctx   context.Context
+	block *common.Block
+}
 
 type messageType = string
 
@@ -73,7 +80,8 @@ type Delivery struct {
 	client              services.PeerClient
 	tracer              trace.Tracer
 	lastBlockReceived   uint64
-	stop                chan bool
+	bufferSize          int
+	stop                chan struct{}
 }
 
 func New(
@@ -87,6 +95,7 @@ func New(
 	callback driver.BlockCallback,
 	vault Vault,
 	waitForEventTimeout time.Duration,
+	bufferSize int,
 	tracerProvider trace.TracerProvider,
 	_ metrics.Provider,
 ) (*Delivery, error) {
@@ -108,9 +117,10 @@ func New(
 			Namespace:  "fabricsdk",
 			LabelNames: []tracing.LabelName{messageTypeLabel},
 		})),
-		callback: callback,
-		vault:    vault,
-		stop:     make(chan bool),
+		callback:   callback,
+		vault:      vault,
+		bufferSize: max(bufferSize, 1),
+		stop:       make(chan struct{}),
 	}
 	return d, nil
 }
@@ -123,12 +133,45 @@ func (d *Delivery) Start(ctx context.Context) {
 }
 
 func (d *Delivery) Stop() {
-	d.stop <- true
+	close(d.stop)
 }
 
+var ctr = atomic.Uint32{}
+
 func (d *Delivery) Run(ctx context.Context) error {
+	logger.Infof("Running delivery service [%d]", ctr.Add(1))
 	if ctx == nil {
 		ctx = context.Background()
+	}
+	ch := make(chan blockResponse, d.bufferSize)
+	go d.readBlocks(ch)
+	return d.runReceiver(ctx, ch)
+}
+
+func (d *Delivery) readBlocks(ch <-chan blockResponse) {
+	for {
+		select {
+		case b := <-ch:
+			logger.Debugf("Invoking callback for block [%d]", b.block.Header)
+			stop, err := d.callback(b.ctx, b.block)
+			if err != nil {
+				logger.Errorf("callback errored for block %d: %v", b.block.Header.Number, err)
+			}
+			if stop {
+				logger.Infof("Stopping delivery at block [%d]", b.block.Header.Number)
+				close(d.stop)
+				return
+			}
+		case <-d.stop:
+			logger.Infof("Stopping delivery service")
+			return
+		}
+	}
+}
+
+func (d *Delivery) runReceiver(ctx context.Context, ch chan<- blockResponse) error {
+	if ctx == nil || ch == nil {
+		return errors.New("ctx and channel must be provided")
 	}
 	var df DeliverStream
 	var err error
@@ -136,91 +179,93 @@ func (d *Delivery) Run(ctx context.Context) error {
 	for {
 		select {
 		case <-d.stop:
-			// Time to stop
+			logger.Infof("Stopped receiver")
 			return nil
-		case <-ctx.Done():
-			// Time to cancel
-			return errors.New("context done")
 		default:
-			deliveryCtx, span := d.tracer.Start(context.Background(), "block_delivery",
-				tracing.WithAttributes(tracing.String(messageTypeLabel, unknown)))
-			if df == nil {
-				if logger.IsEnabledFor(zapcore.DebugLevel) {
-					logger.Debugf("deliver service [%s], connecting...", d.NetworkName, d.channel)
-				}
-				span.AddEvent("connect")
-				df, err = d.connect(ctx)
-				if err != nil {
-					logger.Errorf("failed connecting to delivery service [%s:%s] [%s]. Wait %.1fs before reconnecting", d.NetworkName, d.channel, err, waitTime.Seconds())
-					time.Sleep(waitTime)
+			select {
+			case <-d.stop:
+				logger.Infof("Stopped receiver")
+				return nil
+			case <-ctx.Done():
+				logger.Infof("Context done")
+				// Time to cancel
+				return errors.New("context done")
+			default:
+				deliveryCtx, span := d.tracer.Start(context.Background(), "block_delivery",
+					tracing.WithAttributes(tracing.String(messageTypeLabel, unknown)))
+				if df == nil {
 					if logger.IsEnabledFor(zapcore.DebugLevel) {
-						logger.Debugf("reconnecting to delivery service [%s:%s]", d.NetworkName, d.channel)
+						logger.Debugf("deliver service [%s], connecting...", d.NetworkName, d.channel)
 					}
+					span.AddEvent("connect")
+					df, err = d.connect(ctx)
+					if err != nil {
+						logger.Errorf("failed connecting to delivery service [%s:%s] [%s]. Wait %.1fs before reconnecting", d.NetworkName, d.channel, err, waitTime.Seconds())
+						time.Sleep(waitTime)
+						if logger.IsEnabledFor(zapcore.DebugLevel) {
+							logger.Debugf("reconnecting to delivery service [%s:%s]", d.NetworkName, d.channel)
+						}
+						span.RecordError(err)
+						span.End()
+						continue
+					}
+				}
+
+				span.AddEvent("wait_message")
+				resp, err := df.Recv()
+				span.AddEvent("received_message")
+				if err != nil {
+					df = nil
+					logger.Errorf("delivery service [%s:%s:%s], failed receiving response [%s]",
+						d.client.Address(), d.NetworkName, d.channel,
+						errors.WithMessagef(err, "error receiving deliver response from peer %s", d.client.Address()))
 					span.RecordError(err)
 					span.End()
 					continue
 				}
-			}
 
-			span.AddEvent("wait_message")
-			resp, err := df.Recv()
-			span.AddEvent("received_message")
-			if err != nil {
-				df = nil
-				logger.Errorf("delivery service [%s:%s:%s], failed receiving response [%s]",
-					d.client.Address(), d.NetworkName, d.channel,
-					errors.WithMessagef(err, "error receiving deliver response from peer %s", d.client.Address()))
-				span.RecordError(err)
-				span.End()
-				continue
-			}
-
-			switch r := resp.Type.(type) {
-			case *pb.DeliverResponse_Block:
-				span.SetAttributes(tracing.String(messageTypeLabel, block))
-				if r.Block == nil || r.Block.Data == nil || r.Block.Header == nil || r.Block.Metadata == nil {
-					if logger.IsEnabledFor(zapcore.DebugLevel) {
-						logger.Debugf("deliver service [%s:%s:%s], received nil block", d.client.Address(), d.NetworkName, d.channel)
+				switch r := resp.Type.(type) {
+				case *pb.DeliverResponse_Block:
+					span.SetAttributes(tracing.String(messageTypeLabel, block))
+					if r.Block == nil || r.Block.Data == nil || r.Block.Header == nil || r.Block.Metadata == nil {
+						if logger.IsEnabledFor(zapcore.DebugLevel) {
+							logger.Debugf("deliver service [%s:%s:%s], received nil block", d.client.Address(), d.NetworkName, d.channel)
+						}
+						span.RecordError(errors.New("nil block"))
+						time.Sleep(waitTime)
+						df = nil
 					}
-					span.RecordError(errors.New("nil block"))
-					time.Sleep(waitTime)
-					df = nil
-				}
 
-				if logger.IsEnabledFor(zapcore.DebugLevel) {
-					logger.Debugf("delivery service [%s:%s:%s], commit block [%d]", d.client.Address(), d.NetworkName, d.channel, r.Block.Header.Number)
-				}
-				d.lastBlockReceived = r.Block.Header.Number
+					if logger.IsEnabledFor(zapcore.DebugLevel) {
+						logger.Debugf("delivery service [%s:%s:%s], commit block [%d]", d.client.Address(), d.NetworkName, d.channel, r.Block.Header.Number)
+					}
+					d.lastBlockReceived = r.Block.Header.Number
 
-				span.AddEvent("invoke_callback")
-				stop, err := d.callback(deliveryCtx, r.Block)
-				span.AddEvent("invoked_callback")
-				if err != nil {
-					span.RecordError(err)
-					logger.Errorf("error occurred when processing filtered block [%s], retry...", err)
-					time.Sleep(waitTime)
+					span.AddEvent(fmt.Sprintf("push_%d_to_channel", r.Block.Header.Number))
+					logger.Debugf("Pushing block [%d] to channel with current length %d", r.Block.Header.Number, len(ch))
+					ch <- blockResponse{
+						ctx:   deliveryCtx,
+						block: r.Block,
+					}
+					logger.Debugf("Pushed block [%d] to channel", r.Block.Header.Number)
+					span.AddEvent("pushed_to_channel")
+				case *pb.DeliverResponse_Status:
+					span.SetAttributes(tracing.String(messageTypeLabel, responseStatus))
+					if r.Status == common.Status_NOT_FOUND {
+						span.RecordError(errors.New("not found"))
+						df = nil
+						logger.Warnf("delivery service [%s:%s:%s] status [%s], wait a few seconds before retrying", d.client.Address(), d.NetworkName, d.channel, r.Status)
+						time.Sleep(waitTime)
+					} else {
+						logger.Warnf("delivery service [%s:%s:%s] status [%s]", d.client.Address(), d.NetworkName, d.channel, r.Status)
+					}
+				default:
+					span.SetAttributes(tracing.String(messageTypeLabel, other))
 					df = nil
+					logger.Errorf("delivery service [%s:%s:%s], got [%s]", d.client.Address(), d.NetworkName, d.channel, r)
 				}
-				if stop {
-					span.End()
-					return nil
-				}
-			case *pb.DeliverResponse_Status:
-				span.SetAttributes(tracing.String(messageTypeLabel, responseStatus))
-				if r.Status == common.Status_NOT_FOUND {
-					span.RecordError(errors.New("not found"))
-					df = nil
-					logger.Warnf("delivery service [%s:%s:%s] status [%s], wait a few seconds before retrying", d.client.Address(), d.NetworkName, d.channel, r.Status)
-					time.Sleep(waitTime)
-				} else {
-					logger.Warnf("delivery service [%s:%s:%s] status [%s]", d.client.Address(), d.NetworkName, d.channel, r.Status)
-				}
-			default:
-				span.SetAttributes(tracing.String(messageTypeLabel, other))
-				df = nil
-				logger.Errorf("delivery service [%s:%s:%s], got [%s]", d.client.Address(), d.NetworkName, d.channel, r)
+				span.End()
 			}
-			span.End()
 		}
 	}
 }

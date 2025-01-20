@@ -51,6 +51,7 @@ type ChannelConfig interface {
 	CommitterFinalityNumRetries() int
 	CommitterFinalityUnknownTXTimeout() time.Duration
 	CommitterWaitForEventTimeout() time.Duration
+	DeliveryBufferSize() int
 	DeliverySleepAfterFailure() time.Duration
 	CommitParallelism() int
 	ChaincodeConfigs() []ChaincodeConfig

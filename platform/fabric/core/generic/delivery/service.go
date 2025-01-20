@@ -68,6 +68,7 @@ func NewService(
 		callback,
 		txIDStore,
 		channelConfig.CommitterWaitForEventTimeout(),
+		channelConfig.DeliveryBufferSize(),
 		tracerProvider,
 		metricsProvider,
 	)
@@ -114,6 +115,7 @@ func (c *Service) scanBlock(ctx context.Context, vault Vault, callback driver.Bl
 		callback,
 		vault,
 		c.channelConfig.CommitterWaitForEventTimeout(),
+		c.channelConfig.DeliveryBufferSize(),
 		c.tracerProvider,
 		c.metricsProvider,
 	)
