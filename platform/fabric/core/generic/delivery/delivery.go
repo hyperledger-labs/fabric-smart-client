@@ -8,6 +8,7 @@ package delivery
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -37,6 +38,11 @@ var (
 		},
 	}
 )
+
+type blockResponse struct {
+	ctx   context.Context
+	block *common.Block
+}
 
 type messageType = string
 
@@ -130,6 +136,28 @@ func (d *Delivery) Run(ctx context.Context) error {
 	if ctx == nil {
 		ctx = context.Background()
 	}
+	ctx, cancel := context.WithCancel(ctx)
+	ch := make(chan blockResponse, 300)
+	go d.readBlocks(ch, cancel)
+	return d.runReceiver(ctx, ch)
+}
+
+func (d *Delivery) readBlocks(ch <-chan blockResponse, cancel func()) {
+	for b := range ch {
+		logger.Debugf("Invoking callback for block [%d]", b.block.Header)
+		if stop, err := d.callback(b.ctx, b.block); err != nil {
+			logger.Errorf("callback errored for block %d: %v", b.block.Header.Number, err)
+		} else if stop {
+			logger.Infof("Stopping delivery at block [%d]", b.block.Header.Number)
+			cancel()
+		}
+	}
+}
+
+func (d *Delivery) runReceiver(ctx context.Context, ch chan<- blockResponse) error {
+	if ctx == nil || ch == nil {
+		return errors.New("ctx and channel must be provided")
+	}
 	var df DeliverStream
 	var err error
 	waitTime := d.channelConfig.DeliverySleepAfterFailure()
@@ -192,19 +220,12 @@ func (d *Delivery) Run(ctx context.Context) error {
 				}
 				d.lastBlockReceived = r.Block.Header.Number
 
-				span.AddEvent("invoke_callback")
-				stop, err := d.callback(deliveryCtx, r.Block)
-				span.AddEvent("invoked_callback")
-				if err != nil {
-					span.RecordError(err)
-					logger.Errorf("error occurred when processing filtered block [%s], retry...", err)
-					time.Sleep(waitTime)
-					df = nil
+				span.AddEvent(fmt.Sprintf("push_%d_to_channel", r.Block.Header.Number))
+				ch <- blockResponse{
+					ctx:   deliveryCtx,
+					block: r.Block,
 				}
-				if stop {
-					span.End()
-					return nil
-				}
+				span.AddEvent("pushed_to_channel")
 			case *pb.DeliverResponse_Status:
 				span.SetAttributes(tracing.String(messageTypeLabel, responseStatus))
 				if r.Status == common.Status_NOT_FOUND {
