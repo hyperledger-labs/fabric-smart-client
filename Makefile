@@ -54,7 +54,7 @@ unit-tests-race: testing-docker-images
 	cd integration/nwo/; export FAB_BINS=$(FAB_BINS); go test -race -cover ./...
 
 .PHONY: docker-images
-docker-images: fabric-docker-images weaver-docker-images orion-server-images monitoring-docker-images testing-docker-images
+docker-images: fabric-docker-images orion-server-images monitoring-docker-images testing-docker-images
 
 .PHONY: fabric-docker-images
 fabric-docker-images:
@@ -62,13 +62,6 @@ fabric-docker-images:
 	docker image tag hyperledger/fabric-baseos:$(FABRIC_TWO_DIGIT_VERSION) hyperledger/fabric-baseos:latest
 	docker pull hyperledger/fabric-ccenv:$(FABRIC_TWO_DIGIT_VERSION)
 	docker image tag hyperledger/fabric-ccenv:$(FABRIC_TWO_DIGIT_VERSION) hyperledger/fabric-ccenv:latest
-
-.PHONY: weaver-docker-images
-weaver-docker-images:
-	docker pull ghcr.io/hyperledger-labs/weaver-fabric-driver:1.2.1
-	docker image tag ghcr.io/hyperledger-labs/weaver-fabric-driver:1.2.1 hyperledger-labs/weaver-fabric-driver:latest
-	docker pull ghcr.io/hyperledger-labs/weaver-relay-server:1.2.1
-	docker image tag ghcr.io/hyperledger-labs/weaver-relay-server:1.2.1 hyperledger-labs/weaver-relay-server:latest
 
 .PHONY: monitoring-docker-images
 monitoring-docker-images:
@@ -127,10 +120,6 @@ integration-tests-atsafsc:
 integration-tests-twonets:
 	cd ./integration/fabric/twonets; export FAB_BINS=$(FAB_BINS); ginkgo $(GINKGO_TEST_OPTS) .
 
-.PHONY: integration-tests-weaver-relay
-integration-tests-weaver-relay:
-	cd ./integration/fabric/weaver/relay; export FAB_BINS=$(FAB_BINS); ginkgo $(GINKGO_TEST_OPTS) .
-
 .PHONY: integration-tests-fabric-stoprestart
 integration-tests-fabric-stoprestart:
 	cd ./integration/fabric/stoprestart; export FAB_BINS=$(FAB_BINS); ginkgo $(GINKGO_TEST_OPTS) .
@@ -151,7 +140,6 @@ integration-tests-orioncars:
 tidy:
 	@go mod tidy
 	cd tools; go mod tidy
-	cd integration/fabric/weaver/relay/chaincode; go mod tidy
 	cd platform/fabric/services/state/cc/query; go mod tidy
 
 .PHONY: clean
@@ -166,7 +154,6 @@ clean:
 	rm -rf ./integration/fabric/iou/cmd/
 	rm -rf ./integration/fabric/iou/testdata/
 	rm -rf ./integration/fabric/twonets/cmd
-	rm -rf ./integration/fabric/weaver/relay/cmd
 	rm -rf ./integration/fabric/stoprestart/cmd
 	rm -rf ./integration/fsc/stoprestart/cmd
 	rm -rf ./integration/orion/cars/cmd
