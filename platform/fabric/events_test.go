@@ -66,21 +66,18 @@ func TestEventListener(t *testing.T) {
 	defer cancel()
 	go func() {
 		defer wg.Done()
-		stop := false
 		for {
 			select {
 			case event := <-eventChannel:
 				assert.NotNil(t, event)
 			case <-ctx.Done():
-				stop = true
-			}
-			if stop {
 				listener.CloseChaincodeEvents()
-				break
+				return
 			}
 		}
 	}()
 	wg.Wait()
+	time.Sleep(100 * time.Millisecond)
 
 	// Ensure the channel is closed
 	select {
