@@ -78,6 +78,11 @@ type auditInfoPersistence interface {
 	dbObject
 }
 
+type endorseTxPersistence interface {
+	driver.EndorseTxPersistence
+	dbObject
+}
+
 var UnversionedConstructors = map[common.SQLDriverType]persistenceConstructor[unversionedPersistence]{
 	Postgres: func(o common.Opts, t string) (unversionedPersistence, error) { return postgres.NewUnversioned(o, t) },
 	SQLite:   func(o common.Opts, t string) (unversionedPersistence, error) { return sqlite.NewUnversioned(o, t) },
@@ -103,6 +108,15 @@ var AuditInfoConstructors = map[common.SQLDriverType]persistenceConstructor[audi
 	},
 	SQLite: func(o common.Opts, t string) (auditInfoPersistence, error) {
 		return sqlite.NewAuditInfoPersistence(o, t)
+	},
+}
+
+var EndorseTxConstructors = map[common.SQLDriverType]persistenceConstructor[endorseTxPersistence]{
+	Postgres: func(o common.Opts, t string) (endorseTxPersistence, error) {
+		return postgres.NewEndorseTxPersistence(o, t)
+	},
+	SQLite: func(o common.Opts, t string) (endorseTxPersistence, error) {
+		return sqlite.NewEndorseTxPersistence(o, t)
 	},
 }
 
@@ -136,6 +150,10 @@ func (d *Driver) NewSignerInfo(dataSourceName string, config driver.Config) (dri
 
 func (d *Driver) NewAuditInfo(dataSourceName string, config driver.Config) (driver.AuditInfoPersistence, error) {
 	return newPersistence(dataSourceName, config, AuditInfoConstructors)
+}
+
+func (d *Driver) NewEndorseTx(dataSourceName string, config driver.Config) (driver.EndorseTxPersistence, error) {
+	return newPersistence(dataSourceName, config, EndorseTxConstructors)
 }
 
 func newPersistence[V dbObject](dataSourceName string, config driver.Config, constructors map[common.SQLDriverType]persistenceConstructor[V]) (V, error) {

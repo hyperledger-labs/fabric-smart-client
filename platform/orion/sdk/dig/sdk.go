@@ -79,7 +79,7 @@ func (p *SDK) Install() error {
 		p.Container().Provide(digutils.Identity[*core.ONSProvider](), dig.As(new(driver2.OrionNetworkServiceProvider))),
 		p.Container().Provide(finality2.NewHandler, dig.Group("finality-handlers")),
 		p.Container().Provide(services.NewKVSBasedMetadataStore, dig.As(new(driver2.MetadataStore))),
-		p.Container().Provide(services.NewKVSBasedEndorseTxStore, dig.As(new(driver2.EndorseTxStore))),
+		p.Container().Provide(NewEndorseTxStore, dig.As(new(driver2.EndorseTxStore))),
 		p.Container().Provide(services.NewKVSBasedEnvelopeStore, dig.As(new(driver2.EnvelopeStore))),
 	)
 	if err != nil {

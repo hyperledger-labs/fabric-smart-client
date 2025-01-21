@@ -10,6 +10,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	committer2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/committer"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	digutils "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic"
@@ -23,8 +24,11 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/rwset"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services"
 	vdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
+	sdk "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/dig"
 	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
@@ -175,4 +179,22 @@ func NewChannelProvider(in struct {
 		true,
 		[]common.HeaderType{common.HeaderType_ENDORSER_TRANSACTION},
 	)
+}
+
+func NewEndorseTxStore(in struct {
+	dig.In
+	KVS     *kvs.KVS
+	Config  vdriver.ConfigService
+	Drivers []dbdriver.NamedDriver `group:"db-drivers"`
+}) (driver.EndorseTxStore, error) {
+	driverName := driver2.PersistenceType(utils.DefaultString(in.Config.GetString("fsc.endorsetx.persistence.type"), string(mem.MemoryPersistence)))
+	if sdk.UnsupportedStores.Contains(driverName) {
+		return services.NewKVSBasedEndorseTxStore(in.KVS), nil
+	}
+	for _, d := range in.Drivers {
+		if d.Name == driverName {
+			return services.NewDBBasedEndorseTxStore(d.Driver, "_default", in.Config)
+		}
+	}
+	return nil, errors.New("driver not found")
 }

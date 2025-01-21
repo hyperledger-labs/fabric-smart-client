@@ -51,6 +51,8 @@ type SignerInfoPersistence = driver.SignerInfoStore
 
 type AuditInfoPersistence = driver.AuditInfoStore
 
+type EndorseTxPersistence = driver.EndorseTxStore[string]
+
 type BasePersistence[V any, R any] interface {
 	// SetState sets the given value for the given namespace, key, and version
 	SetState(namespace driver.Namespace, key driver.PKey, value V) error
@@ -158,6 +160,8 @@ type Driver interface {
 	NewSignerInfo(string, Config) (SignerInfoPersistence, error)
 	// NewAuditInfo returns a new AuditInfoPersistence for the passed data source and config
 	NewAuditInfo(string, Config) (AuditInfoPersistence, error)
+	// NewEndorseTx returns a new EndorseTxPersistence for the passed data source and config
+	NewEndorseTx(string, Config) (EndorseTxPersistence, error)
 }
 
 type (
