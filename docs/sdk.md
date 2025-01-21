@@ -76,7 +76,6 @@ import (
 	digutils "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	fabricsdk "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/dig"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/weaver"
 )
 
 type SDK struct {
