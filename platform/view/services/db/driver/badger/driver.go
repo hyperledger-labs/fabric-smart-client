@@ -76,3 +76,7 @@ func (d *Driver) NewSignerInfo(string, driver.Config) (driver.SignerInfoPersiste
 func (d *Driver) NewAuditInfo(string, driver.Config) (driver.AuditInfoPersistence, error) {
 	panic("not implemented")
 }
+
+func (d *Driver) NewEndorseTx(string, driver.Config) (driver.EndorseTxPersistence, error) {
+	panic("not implemented")
+}

@@ -303,3 +303,7 @@ func (t *TestDriver) NewSignerInfo(string, driver.Config) (driver.SignerInfoPers
 func (t *TestDriver) NewAuditInfo(string, driver.Config) (driver.AuditInfoPersistence, error) {
 	return initPersistence(NewAuditInfoPersistence, t.ConnStr, t.Name, 50, 10, time.Minute)
 }
+
+func (t *TestDriver) NewEndorseTx(string, driver.Config) (driver.EndorseTxPersistence, error) {
+	return initPersistence(NewEndorseTxPersistence, t.ConnStr, t.Name, 50, 10, time.Minute)
+}

@@ -72,3 +72,7 @@ func (d *Driver) NewSignerInfo(string, driver.Config) (driver.SignerInfoPersiste
 func (d *Driver) NewAuditInfo(string, driver.Config) (driver.AuditInfoPersistence, error) {
 	return sql.NewPersistenceWithOpts(utils.GenerateUUIDOnlyLetters(), opts, sql.AuditInfoConstructors)
 }
+
+func (d *Driver) NewEndorseTx(string, driver.Config) (driver.EndorseTxPersistence, error) {
+	return sql.NewPersistenceWithOpts(utils.GenerateUUIDOnlyLetters(), opts, sql.EndorseTxConstructors)
+}
