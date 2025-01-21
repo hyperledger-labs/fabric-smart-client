@@ -17,29 +17,27 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var counter uint32
-
 func TestBatchRunner(t *testing.T) {
-	atomic.StoreUint32(&counter, 0)
+	ctr := &atomic.Uint32{}
 	runner, m, locksObtained := newBatchRunner()
 
-	run(t, runner, 1000)
+	run(t, ctr, runner, 1000)
 	assert.Len(t, m, 1000)
 	assert.Equal(t, "val_10", m["key_10"])
 	assert.Equal(t, 10, int(atomic.LoadUint32(locksObtained)))
 }
 
 func TestBatchRunnerFewRequests(t *testing.T) {
-	atomic.StoreUint32(&counter, 0)
+	ctr := &atomic.Uint32{}
 	runner, m, locksObtained := newBatchRunner()
 
-	run(t, runner, 1)
+	run(t, ctr, runner, 1)
 
 	assert.Len(t, m, 1)
 	assert.Equal(t, "val_1", m["key_1"])
 	assert.Equal(t, 1, int(atomic.LoadUint32(locksObtained)))
 
-	run(t, runner, 3)
+	run(t, ctr, runner, 3)
 	assert.Len(t, m, 4)
 	assert.Equal(t, 2, int(atomic.LoadUint32(locksObtained)))
 }
@@ -64,18 +62,18 @@ func newBatchRunner() (BatchRunner[int], map[string]string, *uint32) {
 	return runner, m, &locksObtained
 }
 
-func run(t *testing.T, runner BatchRunner[int], times int) {
+func run(t *testing.T, ctr *atomic.Uint32, runner BatchRunner[int], times int) {
 	var wg sync.WaitGroup
 	wg.Add(times)
 	for i := 0; i < times; i++ {
-		v := int(atomic.AddUint32(&counter, 1))
+		v := int(ctr.Add(1))
 		go func() {
 			defer wg.Done()
 			err := runner.Run(v)
 			if v%10 == 0 {
-				assert.Error(t, err)
+				assert.Error(t, err, "expected error for %d", v)
 			} else {
-				assert.NoError(t, err)
+				assert.NoError(t, err, "expected no error for %d", v)
 			}
 		}()
 	}
