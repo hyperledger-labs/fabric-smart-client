@@ -84,3 +84,7 @@ func (d *Driver) NewEndorseTx(string, driver.Config) (driver.EndorseTxPersistenc
 func (d *Driver) NewMetadata(string, driver.Config) (driver.MetadataPersistence, error) {
 	panic("not implemented")
 }
+
+func (d *Driver) NewEnvelope(string, driver.Config) (driver.EnvelopePersistence, error) {
+	panic("not implemented")
+}

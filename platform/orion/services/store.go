@@ -39,3 +39,7 @@ func NewDBBasedEndorseTxStore(dbDriver driver2.Driver, namespace string, cp db.C
 func NewDBBasedMetadataStore(dbDriver driver2.Driver, namespace string, cp db.Config) (driver.MetadataStore, error) {
 	return metadata.NewWithConfig[driver.Key, driver.TransientMap](dbDriver, namespace, cp)
 }
+
+func NewDBBasedEnvelopeStore(dbDriver driver2.Driver, namespace string, cp db.Config) (driver.EnvelopeStore, error) {
+	return envelope.NewWithConfig[driver.Key](dbDriver, namespace, cp)
+}

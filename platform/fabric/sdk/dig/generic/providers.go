@@ -216,3 +216,21 @@ func NewMetadataStore(in struct {
 	}
 	return nil, errors.New("driver not found")
 }
+
+func NewEnvelopeStore(in struct {
+	dig.In
+	KVS     *kvs.KVS
+	Config  vdriver.ConfigService
+	Drivers []dbdriver.NamedDriver `group:"db-drivers"`
+}) (driver.EnvelopeStore, error) {
+	driverName := driver2.PersistenceType(utils.DefaultString(in.Config.GetString("fsc.envelope.persistence.type"), string(mem.MemoryPersistence)))
+	if sdk.UnsupportedStores.Contains(driverName) {
+		return services.NewKVSBasedEnvelopeStore(in.KVS), nil
+	}
+	for _, d := range in.Drivers {
+		if d.Name == driverName {
+			return services.NewDBBasedEnvelopeStore(d.Driver, "_default", in.Config)
+		}
+	}
+	return nil, errors.New("driver not found")
+}
