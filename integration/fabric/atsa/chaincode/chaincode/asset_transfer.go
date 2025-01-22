@@ -17,11 +17,10 @@ import (
 	"log"
 	"time"
 
-	"github.com/pkg/errors"
-
-	"github.com/hyperledger/fabric-chaincode-go/v2/pkg/statebased"
-	"github.com/hyperledger/fabric-chaincode-go/v2/shim"
+	"github.com/hyperledger/fabric-chaincode-go/pkg/statebased"
+	"github.com/hyperledger/fabric-chaincode-go/shim"
 	"github.com/hyperledger/fabric-contract-api-go/contractapi"
+	"github.com/pkg/errors"
 )
 
 const (
