@@ -316,18 +316,18 @@ fabric:
     {{- end }}
     vault:
       persistence:
-        # Persistence type can be \'badger\' (on disk) or \'memory\'
-        type: {{ FSCNodeVaultPersistence.Type }}
+        # Persistence type can be \'badger\' (on disk), \'memory\' or \'sql\'
+        type: {{ VaultOpts.Type }}
         opts:
-          {{- if eq FSCNodeVaultPersistence.Type "sql" }}
-          driver: {{ FSCNodeVaultPersistence.SQL.DriverType }}
-          dataSource: {{ FSCNodeVaultPersistence.SQL.DataSource }}
-          # {{- else if eq FSCNodeVaultPersistence.Type "orion" }}
-          # network: {{ FSCNodeVaultPersistence.Orion.Network }}
-          # database: {{ FSCNodeVaultPersistence.Orion.Database }}
-          # creator: {{ FSCNodeVaultPersistence.Orion.Creator }}
+          {{- if eq VaultOpts.Type "sql" }}
+          driver: {{ VaultOpts.SQL.DriverType }}
+          dataSource: {{ VaultOpts.SQL.DataSource }}
+          {{- else if eq VaultOpts.Type "badger" }}
+          path: {{ VaultOpts.Badger.Path }}
+          {{- else if eq VaultOpts.Type "memory" }}
+          # Memory has hard-coded opts
           {{- else }}
-          path: {{ FSCNodeVaultPath }}
+          # Unknown type {{ VaultOpts.Type }}
           {{- end }}
       txidstore:
         cache:

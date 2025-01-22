@@ -8,6 +8,7 @@ package fabric
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/context"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/network"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/opts"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
@@ -182,17 +183,18 @@ func NewTopologyWithName(name string) *topology.Topology {
 	}
 }
 
-// WithPostgresVaultPersistence is a configuration with SQL vault persistence
-func WithPostgresVaultPersistence(config postgres.DataSourceProvider) node.Option {
+const VaultPersistencePrefix = network.VaultPersistencePrefix
+
+// WithPostgresPersistence is a configuration with SQL persistence
+func WithPostgresPersistence(config postgres.DataSourceProvider, prefixes ...string) node.Option {
 	return func(o *node.Options) error {
 		if config != nil {
-			o.PutPersistence("fabric.vault", node.PersistenceOpts{
-				Type: sql.SQLPersistence,
-				SQL: node.SQLOpts{
+			for _, prefix := range prefixes {
+				o.PutSQLPersistence(prefix, node.SQLOpts{
 					DataSource: config.DataSource(),
 					DriverType: sql.Postgres,
-				},
-			})
+				})
+			}
 		}
 		return nil
 	}

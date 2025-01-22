@@ -12,8 +12,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger"
 	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kms"
 	driver3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kms/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
@@ -38,7 +38,7 @@ func newKVS(in struct {
 	return nil, errors.New("driver not found")
 }
 
-var UnsupportedStores = collections.NewSet(badger.FilePersistence, badger.BadgerPersistence)
+var SupportedStores = collections.NewSet(mem.MemoryPersistence, sql.SQLPersistence)
 
 func newBindingStore(in struct {
 	dig.In
@@ -46,8 +46,8 @@ func newBindingStore(in struct {
 	Config  driver.ConfigService
 	Drivers []driver2.NamedDriver `group:"db-drivers"`
 }) (driver4.BindingStore, error) {
-	driverName := driver4.PersistenceType(utils.DefaultString(in.Config.GetString("fsc.binding.persistence.type"), string(mem.MemoryPersistence)))
-	if UnsupportedStores.Contains(driverName) {
+	driverName := driver4.PersistenceType(in.Config.GetString("fsc.binding.persistence.type"))
+	if !SupportedStores.Contains(driverName) {
 		return binding.NewKVSBased(in.KVS), nil
 	}
 	for _, d := range in.Drivers {
@@ -64,8 +64,8 @@ func newSignerInfoStore(in struct {
 	Config  driver.ConfigService
 	Drivers []driver2.NamedDriver `group:"db-drivers"`
 }) (driver4.SignerInfoStore, error) {
-	driverName := driver4.PersistenceType(utils.DefaultString(in.Config.GetString("fsc.signerinfo.persistence.type"), string(mem.MemoryPersistence)))
-	if UnsupportedStores.Contains(driverName) {
+	driverName := driver4.PersistenceType(in.Config.GetString("fsc.signerinfo.persistence.type"))
+	if !SupportedStores.Contains(driverName) {
 		return signerinfo.NewKVSBased(in.KVS), nil
 	}
 	for _, d := range in.Drivers {
@@ -82,8 +82,8 @@ func newAuditInfoStore(in struct {
 	Config  driver.ConfigService
 	Drivers []driver2.NamedDriver `group:"db-drivers"`
 }) (driver4.AuditInfoStore, error) {
-	driverName := driver4.PersistenceType(utils.DefaultString(in.Config.GetString("fsc.auditinfo.persistence.type"), string(mem.MemoryPersistence)))
-	if UnsupportedStores.Contains(driverName) {
+	driverName := driver4.PersistenceType(in.Config.GetString("fsc.auditinfo.persistence.type"))
+	if !SupportedStores.Contains(driverName) {
 		return auditinfo.NewKVSBased(in.KVS), nil
 	}
 	for _, d := range in.Drivers {

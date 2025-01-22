@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package endorsetx
 
 import (
+	"fmt"
+
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
@@ -21,7 +23,7 @@ type identifier interface {
 }
 
 func NewWithConfig[K identifier](dbDriver driver.Driver, namespace string, cp db.Config) (driver2.EndorseTxStore[K], error) {
-	e, err := dbDriver.NewEndorseTx(namespace, db.NewPrefixConfig(cp, persistenceOptsConfigKey))
+	e, err := dbDriver.NewEndorseTx(fmt.Sprintf("%s_etx", namespace), db.NewPrefixConfig(cp, persistenceOptsConfigKey))
 	if err != nil {
 		return nil, err
 	}

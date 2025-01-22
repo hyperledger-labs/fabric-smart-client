@@ -30,7 +30,16 @@ func (o *ReplicationOptions) For(name string) []node.Option {
 		opts = append(opts, fsc.WithReplicationFactor(f))
 	}
 	if sqlConfig, ok := o.SQLConfigs[name]; ok {
-		opts = append(opts, fsc.WithPostgresPersistence(sqlConfig), fabric.WithPostgresVaultPersistence(sqlConfig))
+		opts = append(opts, fabric.WithPostgresPersistence(sqlConfig,
+			fsc.KvsPersistencePrefix,
+			fsc.BindingPersistencePrefix,
+			fsc.AuditInfoPersistencePrefix,
+			fsc.SignerInfoPersistencePrefix,
+			fsc.EndorseTxPersistencePrefix,
+			fsc.EnvelopePersistencePrefix,
+			fsc.MetadataPersistencePrefix,
+			fabric.VaultPersistencePrefix,
+		))
 	}
 	return opts
 }

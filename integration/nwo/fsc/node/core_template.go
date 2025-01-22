@@ -87,24 +87,154 @@ fsc:
   # The Key-Value Store is used to store various information related to the FSC node
   kvs:
     persistence:
-      # Persistence type can be \'badger\' (on disk) or \'memory\'
-      type: {{ NodeKVSPersistence.Type }}
+      # Persistence type can be \'badger\' (on disk), \'memory\' or \'sql\'
+      type: {{ KVSOpts.Type }}
       opts:
-        {{- if eq NodeKVSPersistence.Type "sql" }}
-        driver: {{ NodeKVSPersistence.SQL.DriverType }}
-        dataSource: {{ NodeKVSPersistence.SQL.DataSource }}
-        createSchema: {{ NodeKVSPersistence.SQL.CreateSchema }}
-        tablePrefix: {{ NodeKVSPersistence.SQL.TablePrefix }}    
-        maxOpenConns: {{ NodeKVSPersistence.SQL.MaxOpenConns }}
+        {{- if eq KVSOpts.Type "sql" }}
+        driver: {{ KVSOpts.SQL.DriverType }}
+        dataSource: {{ KVSOpts.SQL.DataSource }}
+        createSchema: {{ KVSOpts.SQL.CreateSchema }}
+        tablePrefix: {{ KVSOpts.SQL.TablePrefix }}    
+        maxOpenConns: {{ KVSOpts.SQL.MaxOpenConns }}
         maxIdleConns: 3
         maxIdleTime: 45s
-        {{- else }}
-        path: {{ NodeKVSPath }}
+        {{- else if eq KVSOpts.Type "badger" }}
+        path: {{ KVSOpts.Badger.Path }}
         SyncWrites: false
+        {{- else if eq KVSOpts.Type "memory" }}
+        # Memory has hard-coded opts
+        {{- else }}
+        # Unknown type {{ KVSOpts.Type }}
         {{- end }}
     cache:
         # Sets the maximum number of cached items 
         size: 200
+  binding:
+    persistence:
+      # Persistence type can be \'badger\' (on disk), \'memory\' or \'sql\'
+      type: {{ BindingOpts.Type }}
+      opts:
+        {{- if eq BindingOpts.Type "sql" }}
+        driver: {{ BindingOpts.SQL.DriverType }}
+        dataSource: {{ BindingOpts.SQL.DataSource }}
+        createSchema: {{ BindingOpts.SQL.CreateSchema }}
+        tablePrefix: {{ BindingOpts.SQL.TablePrefix }}    
+        maxOpenConns: {{ BindingOpts.SQL.MaxOpenConns }}
+        maxIdleConns: 3
+        maxIdleTime: 45s
+        {{- else if eq BindingOpts.Type "badger" }}
+        path: {{ BindingOpts.Badger.Path }}
+        SyncWrites: false
+        {{- else if eq BindingOpts.Type "memory" }}
+        # Memory has hard-coded opts
+        {{- else }}
+        # Unknown type {{ BindingOpts.Type }}
+        {{- end }}
+  signerinfo:
+    persistence:
+      # Persistence type can be \'badger\' (on disk), \'memory\' or \'sql\'
+      type: {{ SignerInfoOpts.Type }}
+      opts:
+        {{- if eq SignerInfoOpts.Type "sql" }}
+        driver: {{ SignerInfoOpts.SQL.DriverType }}
+        dataSource: {{ SignerInfoOpts.SQL.DataSource }}
+        createSchema: {{ SignerInfoOpts.SQL.CreateSchema }}
+        tablePrefix: {{ SignerInfoOpts.SQL.TablePrefix }}    
+        maxOpenConns: {{ SignerInfoOpts.SQL.MaxOpenConns }}
+        maxIdleConns: 3
+        maxIdleTime: 45s
+        {{- else if eq SignerInfoOpts.Type "badger" }}
+        path: {{ SignerInfoOpts.Badger.Path }}
+        SyncWrites: false
+        {{- else if eq SignerInfoOpts.Type "memory" }}
+        # Memory has hard-coded opts
+        {{- else }}
+        # Unknown type {{ SignerInfoOpts.Type }}
+        {{- end }}
+  auditinfo:
+    persistence:
+      # Persistence type can be \'badger\' (on disk), \'memory\' or \'sql\'
+      type: {{ AuditInfoOpts.Type }}
+      opts:
+        {{- if eq AuditInfoOpts.Type "sql" }}
+        driver: {{ AuditInfoOpts.SQL.DriverType }}
+        dataSource: {{ AuditInfoOpts.SQL.DataSource }}
+        createSchema: {{ AuditInfoOpts.SQL.CreateSchema }}
+        tablePrefix: {{ AuditInfoOpts.SQL.TablePrefix }}    
+        maxOpenConns: {{ AuditInfoOpts.SQL.MaxOpenConns }}
+        maxIdleConns: 3
+        maxIdleTime: 45s
+        {{- else if eq AuditInfoOpts.Type "badger" }}
+        path: {{ AuditInfoOpts.Badger.Path }}
+        SyncWrites: false
+        {{- else if eq AuditInfoOpts.Type "memory" }}
+        # Memory has hard-coded opts
+        {{- else }}
+        # Unknown type {{ AuditInfoOpts.Type }}
+        {{- end }}
+  endorsetx:
+    persistence:
+      # Persistence type can be \'badger\' (on disk), \'memory\' or \'sql\'
+      type: {{ EndorseTxOpts.Type }}
+      opts:
+        {{- if eq EndorseTxOpts.Type "sql" }}
+        driver: {{ EndorseTxOpts.SQL.DriverType }}
+        dataSource: {{ EndorseTxOpts.SQL.DataSource }}
+        createSchema: {{ EndorseTxOpts.SQL.CreateSchema }}
+        tablePrefix: {{ EndorseTxOpts.SQL.TablePrefix }}    
+        maxOpenConns: {{ EndorseTxOpts.SQL.MaxOpenConns }}
+        maxIdleConns: 3
+        maxIdleTime: 45s
+        {{- else if eq EndorseTxOpts.Type "badger" }}
+        path: {{ EndorseTxOpts.Badger.Path }}
+        SyncWrites: false
+        {{- else if eq EndorseTxOpts.Type "memory" }}
+        # Memory has hard-coded opts
+        {{- else }}
+        # Unknown type {{ EndorseTxOpts.Type }}
+        {{- end }}
+  envelope:
+    persistence:
+      # Persistence type can be \'badger\' (on disk), \'memory\' or \'sql\'
+      type: {{ EnvelopeOpts.Type }}
+      opts:
+        {{- if eq EnvelopeOpts.Type "sql" }}
+        driver: {{ EnvelopeOpts.SQL.DriverType }}
+        dataSource: {{ EnvelopeOpts.SQL.DataSource }}
+        createSchema: {{ EnvelopeOpts.SQL.CreateSchema }}
+        tablePrefix: {{ EnvelopeOpts.SQL.TablePrefix }}    
+        maxOpenConns: {{ EnvelopeOpts.SQL.MaxOpenConns }}
+        maxIdleConns: 3
+        maxIdleTime: 45s
+        {{- else if eq EnvelopeOpts.Type "badger" }}
+        path: {{ EnvelopeOpts.Badger.Path }}
+        SyncWrites: false
+        {{- else if eq EnvelopeOpts.Type "memory" }}
+        # Memory has hard-coded opts
+        {{- else }}
+        # Unknown type {{ EnvelopeOpts.Type }}
+        {{- end }}
+  metadata:
+    persistence:
+      # Persistence type can be \'badger\' (on disk), \'memory\' or \'sql\'
+      type: {{ MetadataOpts.Type }}
+      opts:
+        {{- if eq MetadataOpts.Type "sql" }}
+        driver: {{ MetadataOpts.SQL.DriverType }}
+        dataSource: {{ MetadataOpts.SQL.DataSource }}
+        createSchema: {{ MetadataOpts.SQL.CreateSchema }}
+        tablePrefix: {{ MetadataOpts.SQL.TablePrefix }}    
+        maxOpenConns: {{ MetadataOpts.SQL.MaxOpenConns }}
+        maxIdleConns: 3
+        maxIdleTime: 45s
+        {{- else if eq MetadataOpts.Type "badger" }}
+        path: {{ MetadataOpts.Badger.Path }}
+        SyncWrites: false
+        {{- else if eq MetadataOpts.Type "memory" }}
+        # Memory has hard-coded opts
+        {{- else }}
+        # Unknown type {{ MetadataOpts.Type }}
+        {{- end }}
   # HTML Server configuration for REST calls
   web:
     enabled: {{ WebEnabled }}

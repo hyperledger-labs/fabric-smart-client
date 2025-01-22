@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package auditinfo
 
 import (
+	"fmt"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 )
@@ -16,5 +18,5 @@ const (
 )
 
 func NewWithConfig(dbDriver driver.Driver, namespace string, cp db.Config) (driver.AuditInfoPersistence, error) {
-	return dbDriver.NewAuditInfo(namespace, db.NewPrefixConfig(cp, persistenceOptsConfigKey))
+	return dbDriver.NewAuditInfo(fmt.Sprintf("%s_audit", namespace), db.NewPrefixConfig(cp, persistenceOptsConfigKey))
 }
