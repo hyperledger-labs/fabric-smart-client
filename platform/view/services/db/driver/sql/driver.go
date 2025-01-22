@@ -88,6 +88,11 @@ type metadataPersistence interface {
 	dbObject
 }
 
+type envelopePersistence interface {
+	driver.EnvelopePersistence
+	dbObject
+}
+
 var UnversionedConstructors = map[common.SQLDriverType]persistenceConstructor[unversionedPersistence]{
 	Postgres: func(o common.Opts, t string) (unversionedPersistence, error) { return postgres.NewUnversioned(o, t) },
 	SQLite:   func(o common.Opts, t string) (unversionedPersistence, error) { return sqlite.NewUnversioned(o, t) },
@@ -134,6 +139,15 @@ var MetadataConstructors = map[common.SQLDriverType]persistenceConstructor[metad
 	},
 }
 
+var EnvelopeConstructors = map[common.SQLDriverType]persistenceConstructor[envelopePersistence]{
+	Postgres: func(o common.Opts, t string) (envelopePersistence, error) {
+		return postgres.NewEnvelopePersistence(o, t)
+	},
+	SQLite: func(o common.Opts, t string) (envelopePersistence, error) {
+		return sqlite.NewEnvelopePersistence(o, t)
+	},
+}
+
 func (d *Driver) NewVersioned(dataSourceName string, config driver.Config) (driver.VersionedPersistence, error) {
 	return d.NewTransactionalVersioned(dataSourceName, config)
 }
@@ -172,6 +186,10 @@ func (d *Driver) NewEndorseTx(dataSourceName string, config driver.Config) (driv
 
 func (d *Driver) NewMetadata(dataSourceName string, config driver.Config) (driver.MetadataPersistence, error) {
 	return newPersistence(dataSourceName, config, MetadataConstructors)
+}
+
+func (d *Driver) NewEnvelope(dataSourceName string, config driver.Config) (driver.EnvelopePersistence, error) {
+	return newPersistence(dataSourceName, config, EnvelopeConstructors)
 }
 
 func newPersistence[V dbObject](dataSourceName string, config driver.Config, constructors map[common.SQLDriverType]persistenceConstructor[V]) (V, error) {

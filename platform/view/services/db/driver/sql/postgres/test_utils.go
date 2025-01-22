@@ -311,3 +311,7 @@ func (t *TestDriver) NewEndorseTx(string, driver.Config) (driver.EndorseTxPersis
 func (t *TestDriver) NewMetadata(string, driver.Config) (driver.MetadataPersistence, error) {
 	return initPersistence(NewMetadataPersistence, t.ConnStr, t.Name, 50, 10, time.Minute)
 }
+
+func (t *TestDriver) NewEnvelope(string, driver.Config) (driver.EnvelopePersistence, error) {
+	return initPersistence(NewEnvelopePersistence, t.ConnStr, t.Name, 50, 10, time.Minute)
+}

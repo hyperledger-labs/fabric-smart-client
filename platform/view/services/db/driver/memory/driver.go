@@ -80,3 +80,7 @@ func (d *Driver) NewEndorseTx(string, driver.Config) (driver.EndorseTxPersistenc
 func (d *Driver) NewMetadata(string, driver.Config) (driver.MetadataPersistence, error) {
 	return sql.NewPersistenceWithOpts(utils.GenerateUUIDOnlyLetters(), opts, sql.MetadataConstructors)
 }
+
+func (d *Driver) NewEnvelope(string, driver.Config) (driver.EnvelopePersistence, error) {
+	return sql.NewPersistenceWithOpts(utils.GenerateUUIDOnlyLetters(), opts, sql.EnvelopeConstructors)
+}

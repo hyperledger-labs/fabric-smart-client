@@ -55,6 +55,8 @@ type EndorseTxPersistence = driver.EndorseTxStore[string]
 
 type MetadataPersistence = driver.MetadataStore[string, []byte]
 
+type EnvelopePersistence = driver.EnvelopeStore[string]
+
 type BasePersistence[V any, R any] interface {
 	// SetState sets the given value for the given namespace, key, and version
 	SetState(namespace driver.Namespace, key driver.PKey, value V) error
@@ -166,6 +168,8 @@ type Driver interface {
 	NewEndorseTx(string, Config) (EndorseTxPersistence, error)
 	// NewMetadata returns a new MetadataPersistence for the passed data source and config
 	NewMetadata(string, Config) (MetadataPersistence, error)
+	// NewEnvelope returns a new EnvelopePersistence for the passed data source and config
+	NewEnvelope(string, Config) (EnvelopePersistence, error)
 }
 
 type (
