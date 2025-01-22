@@ -10,7 +10,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	committer2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/committer"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	digutils "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic"
@@ -28,7 +27,6 @@ import (
 	vdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	sdk "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/dig"
 	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
-	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
@@ -187,8 +185,8 @@ func NewEndorseTxStore(in struct {
 	Config  vdriver.ConfigService
 	Drivers []dbdriver.NamedDriver `group:"db-drivers"`
 }) (driver.EndorseTxStore, error) {
-	driverName := driver2.PersistenceType(utils.DefaultString(in.Config.GetString("fsc.endorsetx.persistence.type"), string(mem.MemoryPersistence)))
-	if sdk.UnsupportedStores.Contains(driverName) {
+	driverName := driver2.PersistenceType(in.Config.GetString("fsc.endorsetx.persistence.type"))
+	if !sdk.SupportedStores.Contains(driverName) {
 		return services.NewKVSBasedEndorseTxStore(in.KVS), nil
 	}
 	for _, d := range in.Drivers {
@@ -205,8 +203,8 @@ func NewMetadataStore(in struct {
 	Config  vdriver.ConfigService
 	Drivers []dbdriver.NamedDriver `group:"db-drivers"`
 }) (driver.MetadataStore, error) {
-	driverName := driver2.PersistenceType(utils.DefaultString(in.Config.GetString("fsc.metadata.persistence.type"), string(mem.MemoryPersistence)))
-	if sdk.UnsupportedStores.Contains(driverName) {
+	driverName := driver2.PersistenceType(in.Config.GetString("fsc.metadata.persistence.type"))
+	if !sdk.SupportedStores.Contains(driverName) {
 		return services.NewKVSBasedMetadataStore(in.KVS), nil
 	}
 	for _, d := range in.Drivers {
@@ -223,8 +221,8 @@ func NewEnvelopeStore(in struct {
 	Config  vdriver.ConfigService
 	Drivers []dbdriver.NamedDriver `group:"db-drivers"`
 }) (driver.EnvelopeStore, error) {
-	driverName := driver2.PersistenceType(utils.DefaultString(in.Config.GetString("fsc.envelope.persistence.type"), string(mem.MemoryPersistence)))
-	if sdk.UnsupportedStores.Contains(driverName) {
+	driverName := driver2.PersistenceType(in.Config.GetString("fsc.envelope.persistence.type"))
+	if !sdk.SupportedStores.Contains(driverName) {
 		return services.NewKVSBasedEnvelopeStore(in.KVS), nil
 	}
 	for _, d := range in.Drivers {

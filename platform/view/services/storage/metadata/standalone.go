@@ -8,6 +8,7 @@ package metadata
 
 import (
 	"encoding/json"
+	"fmt"
 
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db"
@@ -23,7 +24,7 @@ type identifier interface {
 }
 
 func NewWithConfig[K identifier, M any](dbDriver driver.Driver, namespace string, cp db.Config) (driver2.MetadataStore[K, M], error) {
-	m, err := dbDriver.NewMetadata(namespace, db.NewPrefixConfig(cp, persistenceOptsConfigKey))
+	m, err := dbDriver.NewMetadata(fmt.Sprintf("%s_meta", namespace), db.NewPrefixConfig(cp, persistenceOptsConfigKey))
 	if err != nil {
 		return nil, err
 	}

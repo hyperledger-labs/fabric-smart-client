@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package signerinfo
 
 import (
+	"fmt"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 )
@@ -16,5 +18,5 @@ const (
 )
 
 func NewWithConfig(dbDriver driver.Driver, namespace string, cp db.Config) (driver.SignerInfoPersistence, error) {
-	return dbDriver.NewSignerInfo(namespace, db.NewPrefixConfig(cp, persistenceOptsConfigKey))
+	return dbDriver.NewSignerInfo(fmt.Sprintf("%s_signer", namespace), db.NewPrefixConfig(cp, persistenceOptsConfigKey))
 }
