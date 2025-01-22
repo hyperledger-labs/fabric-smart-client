@@ -15,8 +15,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger/fabric-protos-go-apiv2/common"
-	"github.com/hyperledger/fabric-protos-go-apiv2/msp"
-	protosorderer "github.com/hyperledger/fabric-protos-go-apiv2/orderer"
 	"github.com/hyperledger/fabric/protoutil"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
@@ -299,51 +297,3 @@ func UnmarshalBlockFromFile(blockFile string) *common.Block {
 
 // ConsensusMetadataMutator receives ConsensusType.Metadata and mutates it.
 type ConsensusMetadataMutator func([]byte) []byte
-
-// MSPMutator receives FabricMSPConfig and mutates it.
-type MSPMutator func(config msp.FabricMSPConfig) msp.FabricMSPConfig
-
-// UpdateConsensusMetadata executes a config update that updates the consensus
-// metadata according to the given ConsensusMetadataMutator.
-func UpdateConsensusMetadata(network *Network, peer *topology.Peer, orderer *topology.Orderer, channel string, mutateMetadata ConsensusMetadataMutator) {
-	config := GetConfig(network, peer, orderer, channel)
-	updatedConfig := proto.Clone(config).(*common.Config)
-
-	consensusTypeConfigValue := updatedConfig.ChannelGroup.Groups["Orderer"].Values["ConsensusType"]
-	consensusTypeValue := &protosorderer.ConsensusType{}
-	err := proto.Unmarshal(consensusTypeConfigValue.Value, consensusTypeValue)
-	Expect(err).NotTo(HaveOccurred())
-
-	consensusTypeValue.Metadata = mutateMetadata(consensusTypeValue.Metadata)
-
-	updatedConfig.ChannelGroup.Groups["Orderer"].Values["ConsensusType"] = &common.ConfigValue{
-		ModPolicy: "Admins",
-		Value:     protoutil.MarshalOrPanic(consensusTypeValue),
-	}
-
-	UpdateOrdererConfig(network, orderer, channel, config, updatedConfig, peer, orderer)
-}
-
-func UpdateOrdererMSP(network *Network, peer *topology.Peer, orderer *topology.Orderer, channel, orgID string, mutateMSP MSPMutator) {
-	config := GetConfig(network, peer, orderer, channel)
-	updatedConfig := proto.Clone(config).(*common.Config)
-
-	// Unpack the MSP config
-	rawMSPConfig := updatedConfig.ChannelGroup.Groups["Orderer"].Groups[orgID].Values["MSP"]
-	mspConfig := &msp.MSPConfig{}
-	err := proto.Unmarshal(rawMSPConfig.Value, mspConfig)
-	Expect(err).NotTo(HaveOccurred())
-
-	fabricConfig := &msp.FabricMSPConfig{}
-	err = proto.Unmarshal(mspConfig.Config, fabricConfig)
-	Expect(err).NotTo(HaveOccurred())
-
-	// Mutate it as we are asked
-	*fabricConfig = mutateMSP(*fabricConfig)
-
-	// Wrap it back into the config
-	mspConfig.Config = protoutil.MarshalOrPanic(fabricConfig)
-	rawMSPConfig.Value = protoutil.MarshalOrPanic(mspConfig)
-
-	UpdateOrdererConfig(network, orderer, channel, config, updatedConfig, peer, orderer)
-}

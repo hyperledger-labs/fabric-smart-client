@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/hyperledger/fabric-chaincode-go/shim"
+	"github.com/hyperledger/fabric-chaincode-go/v2/shim"
 	pb "github.com/hyperledger/fabric-protos-go-apiv2/peer"
 )
 
