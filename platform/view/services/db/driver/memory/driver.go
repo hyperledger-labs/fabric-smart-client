@@ -76,3 +76,7 @@ func (d *Driver) NewAuditInfo(string, driver.Config) (driver.AuditInfoPersistenc
 func (d *Driver) NewEndorseTx(string, driver.Config) (driver.EndorseTxPersistence, error) {
 	return sql.NewPersistenceWithOpts(utils.GenerateUUIDOnlyLetters(), opts, sql.EndorseTxConstructors)
 }
+
+func (d *Driver) NewMetadata(string, driver.Config) (driver.MetadataPersistence, error) {
+	return sql.NewPersistenceWithOpts(utils.GenerateUUIDOnlyLetters(), opts, sql.MetadataConstructors)
+}

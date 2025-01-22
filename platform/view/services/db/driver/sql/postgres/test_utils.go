@@ -307,3 +307,7 @@ func (t *TestDriver) NewAuditInfo(string, driver.Config) (driver.AuditInfoPersis
 func (t *TestDriver) NewEndorseTx(string, driver.Config) (driver.EndorseTxPersistence, error) {
 	return initPersistence(NewEndorseTxPersistence, t.ConnStr, t.Name, 50, 10, time.Minute)
 }
+
+func (t *TestDriver) NewMetadata(string, driver.Config) (driver.MetadataPersistence, error) {
+	return initPersistence(NewMetadataPersistence, t.ConnStr, t.Name, 50, 10, time.Minute)
+}

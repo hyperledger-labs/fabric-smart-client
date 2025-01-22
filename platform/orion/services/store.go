@@ -35,3 +35,7 @@ func keyMapper(prefix string) kvs.KeyMapper[driver.Key] {
 func NewDBBasedEndorseTxStore(dbDriver driver2.Driver, namespace string, cp db.Config) (driver.EndorseTxStore, error) {
 	return endorsetx.NewWithConfig[driver.Key](dbDriver, namespace, cp)
 }
+
+func NewDBBasedMetadataStore(dbDriver driver2.Driver, namespace string, cp db.Config) (driver.MetadataStore, error) {
+	return metadata.NewWithConfig[driver.Key, driver.TransientMap](dbDriver, namespace, cp)
+}
