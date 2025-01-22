@@ -78,7 +78,7 @@ func (p *SDK) Install() error {
 		p.Container().Provide(orion.NewNetworkServiceProvider),
 		p.Container().Provide(digutils.Identity[*core.ONSProvider](), dig.As(new(driver2.OrionNetworkServiceProvider))),
 		p.Container().Provide(finality2.NewHandler, dig.Group("finality-handlers")),
-		p.Container().Provide(services.NewKVSBasedMetadataStore, dig.As(new(driver2.MetadataStore))),
+		p.Container().Provide(NewMetadataStore, dig.As(new(driver2.MetadataStore))),
 		p.Container().Provide(NewEndorseTxStore, dig.As(new(driver2.EndorseTxStore))),
 		p.Container().Provide(services.NewKVSBasedEnvelopeStore, dig.As(new(driver2.EnvelopeStore))),
 	)

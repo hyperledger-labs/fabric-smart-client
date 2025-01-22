@@ -81,6 +81,10 @@ func (t *TestDriver) NewEndorseTx(string, driver.Config) (driver.EndorseTxPersis
 	return NewEndorseTxPersistence(unversionedOpts(t.Name, t.TempDir), "test")
 }
 
+func (t *TestDriver) NewMetadata(string, driver.Config) (driver.MetadataPersistence, error) {
+	return NewMetadataPersistence(unversionedOpts(t.Name, t.TempDir), "test")
+}
+
 func unversionedOpts(name string, tempDir string) common2.Opts {
 	maxIdleConns, maxIdleTime := 2, 1*time.Minute
 	return common2.Opts{DataSource: fmt.Sprintf("file:%s.sqlite?_pragma=busy_timeout(1000)", path.Join(tempDir, name)), MaxIdleConns: &maxIdleConns, MaxIdleTime: &maxIdleTime}

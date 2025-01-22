@@ -80,3 +80,7 @@ func (d *Driver) NewAuditInfo(string, driver.Config) (driver.AuditInfoPersistenc
 func (d *Driver) NewEndorseTx(string, driver.Config) (driver.EndorseTxPersistence, error) {
 	panic("not implemented")
 }
+
+func (d *Driver) NewMetadata(string, driver.Config) (driver.MetadataPersistence, error) {
+	panic("not implemented")
+}
