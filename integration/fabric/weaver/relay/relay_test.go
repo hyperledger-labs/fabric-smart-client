@@ -41,7 +41,7 @@ type TestSuite struct {
 
 func NewTestSuite(commType fsc.P2PCommunicationType, nodeOpts *integration.ReplicationOptions) *TestSuite {
 	return &TestSuite{integration.NewTestSuite(func() (*integration.Infrastructure, error) {
-		return integration.GenerateAt(StartPort(), testdataPath, true, integration.ReplaceTemplate(relay.Topology(&relay.SDK{}, commType, nodeOpts))...)
+		return integration.GenerateAt(StartPort(), testdataPath, true, relay.Topology(&relay.SDK{}, commType, nodeOpts)...)
 	})}
 }
 

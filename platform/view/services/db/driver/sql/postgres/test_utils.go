@@ -13,20 +13,18 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
-
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/unversioned"
-
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
-	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
-
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
 	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/docker"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/unversioned"
 	_ "modernc.org/sqlite"
 )
 
@@ -57,6 +55,34 @@ func (c *Config) DataSource() string {
 	return fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", c.Host, c.Port, c.User, c.Pass, c.DBName)
 }
 
+func ReadDataSource(s string) (*ContainerConfig, error) {
+	config := make(map[string]string, 6)
+	for _, prop := range strings.Split(s, " ") {
+		pair := strings.Split(prop, "=")
+		key, val := pair[0], pair[1]
+		config[key] = val
+	}
+	port, err := strconv.Atoi(config["port"])
+	if err != nil {
+		return nil, err
+	}
+	c := &Config{
+		DBName: config["dbname"],
+		User:   config["user"],
+		Pass:   config["password"],
+		Host:   config["host"],
+		Port:   port,
+	}
+	if len(c.DBName) == 0 || c.Port == 0 || len(c.Pass) == 0 || len(c.User) == 0 {
+		return nil, fmt.Errorf("incomplete datasource: %s", s)
+	}
+	return &ContainerConfig{
+		Image:     "postgres:latest",
+		Container: fmt.Sprintf("fsc-postgres-%s", c.DBName),
+		Config:    c,
+	}, nil
+}
+
 type fmtLogger struct{}
 
 func (l *fmtLogger) Log(args ...any) {
@@ -79,7 +105,7 @@ func defaultConfigWithPort(node string, port int) *ContainerConfig {
 		Image:     "postgres:latest",
 		Container: fmt.Sprintf("fsc-postgres-%s", node),
 		Config: &Config{
-			DBName: "tokendb",
+			DBName: node,
 			User:   "pgx_md5",
 			Pass:   "example",
 			Host:   "localhost",
@@ -88,15 +114,15 @@ func defaultConfigWithPort(node string, port int) *ContainerConfig {
 	}
 }
 
-func StartPostgresWithFmt(configs map[string]*ContainerConfig) (func(), error) {
+func StartPostgresWithFmt(configs []*ContainerConfig) (func(), error) {
 	if len(configs) == 0 {
-		configs = map[string]*ContainerConfig{}
+		return func() {}, nil
 	}
 	closeFuncs := make([]func(), 0, len(configs))
 	errs := make([]error, 0, len(configs))
 	logger := &fmtLogger{}
-	for node, c := range configs {
-		logger.Log("Starting DB for node ", node)
+	for _, c := range configs {
+		logger.Log("Starting DB  ", c.DBName)
 		if closeFunc, err := startPostgresWithLogger(*c, logger, true); err != nil {
 			errs = append(errs, err)
 		} else {

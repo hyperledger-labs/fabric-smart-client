@@ -88,6 +88,10 @@ func (n *NWO) Load() {
 	logger.Infof("Load Configuration...done")
 }
 
+type preRun interface {
+	PreRun()
+}
+
 func (n *NWO) Start() {
 	logger.Infof("Starting...")
 
@@ -126,6 +130,12 @@ func (n *NWO) Start() {
 
 	logger.Infof("Run platform nodes...")
 
+	for _, platform := range n.Platforms {
+		if p, ok := platform.(preRun); ok && platform.Type() != "fsc" {
+			p.PreRun()
+		}
+	}
+
 	// Execute members on their own stuff...
 	Runner := grouper.NewOrdered(n.TerminationSignal, members)
 	process := ifrit.Invoke(Runner)
@@ -144,6 +154,12 @@ func (n *NWO) Start() {
 	if len(fscMembers) == 0 {
 		logger.Infof("Skipping starting FSC nodes and post execution as no FSC members are defined")
 		return
+	}
+
+	for _, platform := range n.Platforms {
+		if p, ok := platform.(preRun); ok && platform.Type() == "fsc" {
+			p.PreRun()
+		}
 	}
 
 	// Execute the fsc members in isolation so can be stopped and restarted as needed

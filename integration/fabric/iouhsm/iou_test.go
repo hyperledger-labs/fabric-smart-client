@@ -52,7 +52,7 @@ type TestSuite struct {
 }
 
 func NewTestSuite(commType fsc.P2PCommunicationType, nodeOpts *integration.ReplicationOptions) *TestSuite {
-	return &TestSuite{integration.NewTestSuiteWithSQL(nodeOpts.SQLConfigs, func() (*integration.Infrastructure, error) {
+	return &TestSuite{integration.NewTestSuite(func() (*integration.Infrastructure, error) {
 		return integration.Generate(StartPort(), true, iouhsm.Topology(&iou.SDK{}, commType, nodeOpts)...)
 	})}
 }

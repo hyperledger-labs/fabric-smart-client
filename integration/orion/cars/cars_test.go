@@ -29,7 +29,7 @@ var _ = Describe("EndToEnd", func() {
 		BeforeEach(func() {
 			var err error
 			// Create the integration ii
-			ii, err = integration.GenerateAt(StartPort(), "./mytopos", false, integration.ReplaceTemplate(cars.Topology(&orion.SDK{}))...)
+			ii, err = integration.GenerateAt(StartPort(), "./mytopos", false, cars.Topology(&orion.SDK{})...)
 			ii.DeleteOnStop = false
 			Expect(err).NotTo(HaveOccurred())
 			// Start the integration ii

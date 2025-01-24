@@ -37,7 +37,7 @@ type TestSuite struct {
 
 func NewTestSuite(commType fsc.P2PCommunicationType, nodeOpts *integration.ReplicationOptions) *TestSuite {
 	return &TestSuite{integration.NewTestSuite(func() (*integration.Infrastructure, error) {
-		return integration.Generate(StartPort(), true, integration.ReplaceTemplate(twonets.Topology(&twonets.SDK{}, commType, nodeOpts))...)
+		return integration.Generate(StartPort(), true, twonets.Topology(&twonets.SDK{}, commType, nodeOpts)...)
 	})}
 }
 

@@ -9,7 +9,6 @@ package integration
 import (
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
@@ -45,38 +44,22 @@ func (o *ReplicationOptions) For(name string) []node.Option {
 }
 
 func NewTestSuite(generator func() (*Infrastructure, error)) *TestSuite {
-	return NewTestSuiteWithSQL(nil, generator)
-}
-
-func NewTestSuiteWithSQL(sqlConfigs map[string]*postgres.ContainerConfig, generator func() (*Infrastructure, error)) *TestSuite {
 	return &TestSuite{
-		sqlConfigs: sqlConfigs,
-		generator:  generator,
-		closeFunc:  func() {},
+		generator: generator,
 	}
 }
 
 type TestSuite struct {
-	sqlConfigs map[string]*postgres.ContainerConfig
-	generator  func() (*Infrastructure, error)
+	generator func() (*Infrastructure, error)
 
-	closeFunc func()
-	II        *Infrastructure
+	II *Infrastructure
 }
 
 func (s *TestSuite) TearDown() {
 	s.II.Stop()
-	s.closeFunc()
 }
 
 func (s *TestSuite) Setup() {
-	logger.Warnf("setting up for: %v", s.sqlConfigs)
-	if len(s.sqlConfigs) > 0 {
-		closeFunc, err := postgres.StartPostgresWithFmt(s.sqlConfigs)
-		Expect(err).NotTo(HaveOccurred())
-		s.closeFunc = closeFunc
-	}
-
 	// Create the integration ii
 	ii, err := s.generator()
 	Expect(err).NotTo(HaveOccurred())
@@ -85,8 +68,4 @@ func (s *TestSuite) Setup() {
 	ii.Start()
 	// Sleep for a while to allow the networks to be ready
 	time.Sleep(20 * time.Second)
-}
-
-func ReplaceTemplate(topologies []api.Topology) []api.Topology {
-	return topologies
 }
