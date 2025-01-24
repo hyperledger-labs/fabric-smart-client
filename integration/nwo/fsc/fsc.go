@@ -29,7 +29,9 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/commands"
 	node2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/monitoring/optl"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	tracing2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/view"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/view/cmd"
@@ -37,6 +39,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/crypto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/postgres"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/miracl/conflate"
 	"github.com/onsi/ginkgo/v2"
@@ -46,6 +49,8 @@ import (
 	"github.com/tedsuo/ifrit"
 	"github.com/tedsuo/ifrit/grouper"
 )
+
+var logger = logging.MustGetLogger("fsc.nwo")
 
 func init() {
 	// define the unmarshallers for the given file extensions, blank extension is the global unmarshaller
@@ -93,6 +98,7 @@ type Platform struct {
 	Routing                  map[string][]string
 	colorIndex               int
 	metricsAggregatorProcess ifrit.Process
+	cleanDB                  func()
 }
 
 func NewPlatform(Registry api.Context, t api.Topology, builderClient BuilderClient) *Platform {
@@ -204,6 +210,26 @@ func (p *Platform) Members() []grouper.Member {
 	return append(p.members(true), p.members(false)...)
 }
 
+func (p *Platform) PreRun() {
+	// Start DBs
+	configs := map[string]*postgres.ContainerConfig{}
+	for _, node := range p.Peers {
+		for _, sqlOpts := range node.Options.GetPersistences() {
+			if sqlOpts.DriverType == sql.Postgres {
+				if _, ok := configs[sqlOpts.DataSource]; !ok {
+					c, err := postgres.ReadDataSource(sqlOpts.DataSource)
+					Expect(err).ToNot(HaveOccurred())
+					configs[sqlOpts.DataSource] = c
+				}
+			}
+		}
+	}
+	logger.Infof("Starting DBs for following data sources: [%v]...", collections.Keys(configs))
+	close, err := postgres.StartPostgresWithFmt(collections.Values(configs))
+	Expect(err).ToNot(HaveOccurred(), "failed to start dbs")
+	p.cleanDB = close
+}
+
 func (p *Platform) PostRun(bool) {
 	for _, peer := range p.Peers {
 		v := p.viper(peer)
@@ -225,6 +251,7 @@ func (p *Platform) PostRun(bool) {
 	}
 
 	for _, node := range p.Peers {
+
 		v := p.viper(node)
 
 		// Prepare GRPC Client, Web Client, and CLI
@@ -298,6 +325,7 @@ func (p *Platform) Cleanup() {
 	if p.metricsAggregatorProcess != nil {
 		p.metricsAggregatorProcess.Signal(os.Kill)
 	}
+	p.cleanDB()
 }
 
 func (p *Platform) CheckTopology() {

@@ -78,11 +78,29 @@ type PersistenceOpts struct {
 }
 
 func (o *Options) PutSQLPersistence(k string, p SQLOpts) {
+	if persistences := o.Get("persistences"); persistences != nil {
+		o.Put("persistences", append(persistences.([]string), k))
+	} else {
+		o.Put("persistences", []string{k})
+	}
+
 	o.Put(k+".persistence.sql", p.DataSource)
 	o.Put(k+".persistence.driver", p.DriverType)
 	o.Put(k+"persistence.createSchema", p.CreateSchema)
 	o.Put(k+"persistence.tablePrefix", p.TablePrefix)
 	o.Put(k+"persistence.maxOpenConns", p.MaxOpenConns)
+}
+
+func (o *Options) GetPersistences() map[string]*SQLOpts {
+	persistences := o.Get("persistences")
+	if persistences == nil {
+		return nil
+	}
+	r := make(map[string]*SQLOpts)
+	for _, prefix := range persistences.([]string) {
+		r[prefix] = o.GetPersistence(prefix)
+	}
+	return r
 }
 
 func (o *Options) GetPersistence(k string) *SQLOpts {

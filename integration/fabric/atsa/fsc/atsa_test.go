@@ -66,8 +66,8 @@ type TestSuite struct {
 }
 
 func NewTestSuite(commType fsc2.P2PCommunicationType, nodeOpts *integration.ReplicationOptions) *TestSuite {
-	return &TestSuite{integration.NewTestSuiteWithSQL(nodeOpts.SQLConfigs, func() (*integration.Infrastructure, error) {
-		return integration.Generate(StartPort(), true, integration.ReplaceTemplate(fsc.Topology(&fsc.SDK{}, commType, nodeOpts))...)
+	return &TestSuite{integration.NewTestSuite(func() (*integration.Infrastructure, error) {
+		return integration.Generate(StartPort(), true, fsc.Topology(&fsc.SDK{}, commType, nodeOpts)...)
 	})}
 }
 
