@@ -133,6 +133,7 @@ func (d *Delivery) Start(ctx context.Context) {
 }
 
 func (d *Delivery) Stop() {
+	d.stop <- struct{}{}
 	close(d.stop)
 }
 
@@ -159,7 +160,7 @@ func (d *Delivery) readBlocks(ch <-chan blockResponse) {
 			}
 			if stop {
 				logger.Infof("Stopping delivery at block [%d]", b.block.Header.Number)
-				close(d.stop)
+				d.Stop()
 				return
 			}
 		case <-d.stop:
