@@ -81,7 +81,7 @@ type Delivery struct {
 	tracer              trace.Tracer
 	lastBlockReceived   uint64
 	bufferSize          int
-	stop                chan struct{}
+	stop                chan error
 }
 
 func New(
@@ -120,7 +120,7 @@ func New(
 		callback:   callback,
 		vault:      vault,
 		bufferSize: max(bufferSize, 1),
-		stop:       make(chan struct{}, 1),
+		stop:       make(chan error),
 	}
 	return d, nil
 }
@@ -132,12 +132,22 @@ func (d *Delivery) Start(ctx context.Context) {
 	})
 }
 
-func (d *Delivery) Stop() {
-	d.stop <- struct{}{}
+func (d *Delivery) Stop(err error) {
+	d.stop <- err
 	close(d.stop)
 }
 
 var ctr = atomic.Uint32{}
+
+func (d *Delivery) untilStop() error {
+	for {
+		select {
+		case err := <-d.stop:
+			logger.Infof("Stopping delivery service")
+			return err
+		}
+	}
+}
 
 func (d *Delivery) Run(ctx context.Context) error {
 	logger.Debugf("Running delivery service [%d]", ctr.Add(1))
@@ -146,7 +156,8 @@ func (d *Delivery) Run(ctx context.Context) error {
 	}
 	ch := make(chan blockResponse, d.bufferSize)
 	go d.readBlocks(ch)
-	return d.runReceiver(ctx, ch)
+	go d.runReceiver(ctx, ch)
+	return d.untilStop()
 }
 
 func (d *Delivery) readBlocks(ch <-chan blockResponse) {
@@ -160,7 +171,7 @@ func (d *Delivery) readBlocks(ch <-chan blockResponse) {
 			}
 			if stop {
 				logger.Infof("Stopping delivery at block [%d]", b.block.Header.Number)
-				d.Stop()
+				d.Stop(nil)
 				return
 			}
 		case <-d.stop:
@@ -170,9 +181,9 @@ func (d *Delivery) readBlocks(ch <-chan blockResponse) {
 	}
 }
 
-func (d *Delivery) runReceiver(ctx context.Context, ch chan<- blockResponse) error {
+func (d *Delivery) runReceiver(ctx context.Context, ch chan<- blockResponse) {
 	if ctx == nil || ch == nil {
-		return errors.New("ctx and channel must be provided")
+		return
 	}
 	var df DeliverStream
 	var err error
@@ -182,16 +193,16 @@ func (d *Delivery) runReceiver(ctx context.Context, ch chan<- blockResponse) err
 		select {
 		case <-d.stop:
 			logger.Infof("Stopped receiver")
-			return nil
+			return
 		default:
 			select {
 			case <-d.stop:
 				logger.Infof("Stopped receiver")
-				return nil
+				return
 			case <-ctx.Done():
 				logger.Infof("Context done")
 				// Time to cancel
-				return errors.New("context done")
+				d.Stop(errors.New("context done"))
 			default:
 				deliveryCtx, span := d.tracer.Start(context.Background(), "block_delivery", tracing.WithAttributes(tracing.String(messageTypeLabel, unknown)))
 				if df == nil {
