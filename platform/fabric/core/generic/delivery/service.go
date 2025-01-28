@@ -100,7 +100,7 @@ func (c *Service) Start(ctx context.Context) error {
 }
 
 func (c *Service) Stop() {
-	c.deliveryService.Stop()
+	c.deliveryService.Stop(nil)
 }
 
 func (c *Service) scanBlock(ctx context.Context, vault Vault, callback driver.BlockCallback) error {
@@ -137,9 +137,9 @@ func (c *Service) Scan(ctx context.Context, txID string, callback driver.Deliver
 			for i, tx := range block.Data.Data {
 				validationCode := ValidationFlags(block.Metadata.Metadata[common.BlockMetadataIndex_TRANSACTIONS_FILTER])[i]
 
-				//if pb.TxValidationCode(validationCode) != pb.TxValidationCode_VALID {
+				// if pb.TxValidationCode(validationCode) != pb.TxValidationCode_VALID {
 				//	continue
-				//}
+				// }
 				_, _, channelHeader, err := fabricutils.UnmarshalTx(tx)
 				if err != nil {
 					logger.Errorf("[%s] unmarshal tx failed: %s", c.channel, err)

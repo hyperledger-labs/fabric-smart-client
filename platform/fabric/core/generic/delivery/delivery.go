@@ -140,13 +140,11 @@ func (d *Delivery) Stop(err error) {
 var ctr = atomic.Uint32{}
 
 func (d *Delivery) untilStop() error {
-	for {
-		select {
-		case err := <-d.stop:
-			logger.Infof("Stopping delivery service")
-			return err
-		}
+	for err := range d.stop {
+		logger.Infof("Stopping delivery service")
+		return err
 	}
+	return nil
 }
 
 func (d *Delivery) Run(ctx context.Context) error {
