@@ -177,6 +177,7 @@ func (d *Delivery) runReceiver(ctx context.Context, ch chan<- blockResponse) err
 	var df DeliverStream
 	var err error
 	waitTime := d.channelConfig.DeliverySleepAfterFailure()
+	counter := 0
 	for {
 		select {
 		case <-d.stop:
@@ -192,26 +193,23 @@ func (d *Delivery) runReceiver(ctx context.Context, ch chan<- blockResponse) err
 				// Time to cancel
 				return errors.New("context done")
 			default:
-				deliveryCtx, span := d.tracer.Start(context.Background(), "block_delivery",
-					tracing.WithAttributes(tracing.String(messageTypeLabel, unknown)))
+				deliveryCtx, span := d.tracer.Start(context.Background(), "block_delivery", tracing.WithAttributes(tracing.String(messageTypeLabel, unknown)))
 				if df == nil {
-					if logger.IsEnabledFor(zapcore.DebugLevel) {
-						logger.Debugf("deliver service [%s], connecting...", d.NetworkName, d.channel)
-					}
+					logger.Debugf("deliver service [%s:%s], connecting...", d.NetworkName, d.channel)
 					span.AddEvent("connect")
 					df, err = d.connect(ctx)
 					if err != nil {
 						logger.Errorf("failed connecting to delivery service [%s:%s] [%s]. Wait %.1fs before reconnecting", d.NetworkName, d.channel, err, waitTime.Seconds())
 						time.Sleep(waitTime)
-						if logger.IsEnabledFor(zapcore.DebugLevel) {
-							logger.Debugf("reconnecting to delivery service [%s:%s]", d.NetworkName, d.channel)
-						}
+						logger.Debugf("reconnecting to delivery service [%s:%s]", d.NetworkName, d.channel)
 						span.RecordError(err)
 						span.End()
 						continue
 					}
 				}
 
+				logger.Debugf("call receive, it is the [%d]-th time", counter)
+				counter++
 				span.AddEvent("wait_message")
 				resp, err := df.Recv()
 				span.AddEvent("received_message")
