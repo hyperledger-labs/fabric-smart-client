@@ -120,7 +120,7 @@ func New(
 		callback:   callback,
 		vault:      vault,
 		bufferSize: max(bufferSize, 1),
-		stop:       make(chan struct{}),
+		stop:       make(chan struct{}, 1),
 	}
 	return d, nil
 }
