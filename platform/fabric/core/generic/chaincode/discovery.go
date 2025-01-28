@@ -48,6 +48,9 @@ func (d *Discovery) Call() ([]driver.DiscoveredPeer, error) {
 
 func (d *Discovery) GetEndorsers() ([]driver.DiscoveredPeer, error) {
 	response, err := d.Response()
+	if err != nil {
+		return nil, errors.WithMessagef(err, "failed to get discovery response")
+	}
 
 	// extract endorsers
 	cr := response.ForChannel(d.chaincode.ChannelID)
