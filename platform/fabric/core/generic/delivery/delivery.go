@@ -32,7 +32,6 @@ import (
 var logger = logging.MustGetLogger("fabric-sdk.delivery")
 
 var (
-	ErrComm      = errors.New("communication issue")
 	StartGenesis = &ab.SeekPosition{
 		Type: &ab.SeekPosition_Oldest{
 			Oldest: &ab.SeekOldest{},
@@ -83,6 +82,10 @@ type Delivery struct {
 	bufferSize          int
 	stop                chan error
 }
+
+var (
+	ctr = atomic.Uint32{}
+)
 
 func New(
 	networkName string,
@@ -135,16 +138,6 @@ func (d *Delivery) Start(ctx context.Context) {
 func (d *Delivery) Stop(err error) {
 	d.stop <- err
 	close(d.stop)
-}
-
-var ctr = atomic.Uint32{}
-
-func (d *Delivery) untilStop() error {
-	for err := range d.stop {
-		logger.Infof("Stopping delivery service")
-		return err
-	}
-	return nil
 }
 
 func (d *Delivery) Run(ctx context.Context) error {
@@ -276,6 +269,14 @@ func (d *Delivery) runReceiver(ctx context.Context, ch chan<- blockResponse) {
 			}
 		}
 	}
+}
+
+func (d *Delivery) untilStop() error {
+	for err := range d.stop {
+		logger.Infof("Stopping delivery service")
+		return err
+	}
+	return nil
 }
 
 func (d *Delivery) connect(ctx context.Context) (DeliverStream, error) {
