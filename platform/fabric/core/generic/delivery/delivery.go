@@ -139,7 +139,7 @@ func (d *Delivery) Stop() {
 var ctr = atomic.Uint32{}
 
 func (d *Delivery) Run(ctx context.Context) error {
-	logger.Infof("Running delivery service [%d]", ctr.Add(1))
+	logger.Debugf("Running delivery service [%d]", ctr.Add(1))
 	if ctx == nil {
 		ctx = context.Background()
 	}

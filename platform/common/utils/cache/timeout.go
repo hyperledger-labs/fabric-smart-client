@@ -66,7 +66,7 @@ func (e *timeoutEviction[K]) cleanup(timeout time.Duration) {
 			e.mu.Lock()
 			e.keys = e.keys[len(evicted):]
 			e.mu.Unlock()
-			logger.Infof("Evicting %d entries", len(evicted))
+			logger.Debugf("Evicting %d entries", len(evicted))
 			e.evict(evicted)
 		}
 	}
