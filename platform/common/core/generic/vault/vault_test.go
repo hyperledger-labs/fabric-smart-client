@@ -11,14 +11,13 @@ import (
 	"testing"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault/db"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault/txidstore"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/cache/secondcache"
-	db2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/vault"
 	"github.com/stretchr/testify/assert"
 	"go.opentelemetry.io/otel/trace/noop"
 	"golang.org/x/exp/slices"
@@ -28,17 +27,12 @@ import (
 
 type testArtifactProvider struct{}
 
-func (p *testArtifactProvider) NewCachedVault(ddb VersionedPersistence) (*Vault[ValidationCode], error) {
-	txidStore, err := txidstore.NewSimpleTXIDStore[ValidationCode](db2.Unversioned(ddb), &VCProvider{})
-	if err != nil {
-		return nil, err
-	}
+func (p *testArtifactProvider) NewCachedVault(ddb driver.VaultPersistence) (*Vault[ValidationCode], error) {
 	vaultLogger := logging.MustGetLogger("vault-logger")
 	return New[ValidationCode](
 		vaultLogger,
-		ddb,
-		txidstore.NewCache[ValidationCode](txidStore, secondcache.NewTyped[*txidstore.Entry[ValidationCode]](100), vaultLogger),
-		&VCProvider{},
+		vault.NewCache[ValidationCode](ddb, secondcache.NewTyped[*vault.Entry[ValidationCode]](100), vaultLogger),
+		VCProvider,
 		newInterceptor,
 		&populator{},
 		&disabled.Provider{},
@@ -47,16 +41,11 @@ func (p *testArtifactProvider) NewCachedVault(ddb VersionedPersistence) (*Vault[
 	), nil
 }
 
-func (p *testArtifactProvider) NewNonCachedVault(ddb VersionedPersistence) (*Vault[ValidationCode], error) {
-	txidStore, err := txidstore.NewSimpleTXIDStore[ValidationCode](db2.Unversioned(ddb), &VCProvider{})
-	if err != nil {
-		return nil, err
-	}
+func (p *testArtifactProvider) NewNonCachedVault(ddb driver.VaultPersistence) (*Vault[ValidationCode], error) {
 	return New[ValidationCode](
 		logging.MustGetLogger("vault"),
-		ddb,
-		txidstore.NewNoCache[ValidationCode](txidStore),
-		&VCProvider{},
+		vault.NewNoCache(ddb),
+		VCProvider,
 		newInterceptor,
 		&populator{},
 		&disabled.Provider{},
@@ -73,7 +62,7 @@ func newInterceptor(
 	logger Logger,
 	rwSet ReadWriteSet,
 	qe VersionedQueryExecutor,
-	txidStore TXIDStoreReader[ValidationCode],
+	txidStore TxStatusStore,
 	txid driver2.TxID,
 ) TxInterceptor {
 	return NewInterceptor[ValidationCode](
@@ -82,7 +71,7 @@ func newInterceptor(
 		qe,
 		txidStore,
 		txid,
-		&VCProvider{},
+		VCProvider,
 		&marshaller{},
 		&BlockTxIndexVersionComparator{},
 	)
@@ -168,8 +157,9 @@ func TestMemory(t *testing.T) {
 	RemoveNils = func(items []VersionedRead) []VersionedRead { return items }
 	artifactProvider := &testArtifactProvider{}
 	for _, c := range SingleDBCases {
-		ddb, err := db.OpenMemoryVersioned()
+		ddb, err := vault.OpenMemoryVault()
 		assert.NoError(t, err)
+		assert.NotNil(t, ddb)
 		t.Run(c.Name, func(xt *testing.T) {
 			defer ddb.Close()
 			c.Fn(xt, ddb, artifactProvider)
@@ -177,33 +167,9 @@ func TestMemory(t *testing.T) {
 	}
 
 	for _, c := range DoubleDBCases {
-		db1, err := db.OpenMemoryVersioned()
+		db1, err := vault.OpenMemoryVault()
 		assert.NoError(t, err)
-		db2, err := db.OpenMemoryVersioned()
-		assert.NoError(t, err)
-		t.Run(c.Name, func(xt *testing.T) {
-			defer db1.Close()
-			defer db2.Close()
-			c.Fn(xt, db1, db2, artifactProvider)
-		})
-	}
-}
-
-func TestBadger(t *testing.T) {
-	RemoveNils = func(items []VersionedRead) []VersionedRead { return items }
-	// for _, c := range SingleDBCases {
-	//	ddb, terminate, err := OpenBadgerVersioned(t.TempDir(), "DB-TestVaultBadgerDB1")
-	//	assert.NoError(t, err)
-	//	t.Run(c.Name, func(xt *testing.T) {
-	//		defer ddb.Close()
-	//		c.Fn(xt, ddb)
-	//	})
-	// }
-	artifactProvider := &testArtifactProvider{}
-	for _, c := range DoubleDBCases {
-		db1, err := db.OpenBadgerVersioned(t.TempDir(), "DB-TestVaultBadgerDB1")
-		assert.NoError(t, err)
-		db2, err := db.OpenBadgerVersioned(t.TempDir(), "DB-TestVaultBadgerDB2")
+		db2, err := vault.OpenMemoryVault()
 		assert.NoError(t, err)
 		t.Run(c.Name, func(xt *testing.T) {
 			defer db1.Close()
@@ -220,7 +186,7 @@ func TestSqlite(t *testing.T) {
 	artifactProvider := &testArtifactProvider{}
 
 	for _, c := range SingleDBCases {
-		ddb, err := db.OpenSqliteVersioned("node1", t.TempDir())
+		ddb, err := vault.OpenSqliteVault("node1", t.TempDir())
 		assert.NoError(t, err)
 		t.Run(c.Name, func(xt *testing.T) {
 			defer ddb.Close()
@@ -229,9 +195,9 @@ func TestSqlite(t *testing.T) {
 	}
 
 	for _, c := range DoubleDBCases {
-		db1, err := db.OpenSqliteVersioned("node1", t.TempDir())
+		db1, err := vault.OpenSqliteVault("node1", t.TempDir())
 		assert.NoError(t, err)
-		db2, err := db.OpenSqliteVersioned("node2", t.TempDir())
+		db2, err := vault.OpenSqliteVault("node2", t.TempDir())
 		assert.NoError(t, err)
 		t.Run(c.Name, func(xt *testing.T) {
 			defer db1.Close()
@@ -248,7 +214,7 @@ func TestPostgres(t *testing.T) {
 	artifactProvider := &testArtifactProvider{}
 
 	for _, c := range SingleDBCases {
-		ddb, terminate, err := db.OpenPostgresVersioned("common-sdk-node1")
+		ddb, terminate, err := vault.OpenPostgresVault("common-sdk-node1")
 		assert.NoError(t, err)
 		t.Run(c.Name, func(xt *testing.T) {
 			defer ddb.Close()
@@ -258,9 +224,9 @@ func TestPostgres(t *testing.T) {
 	}
 
 	for _, c := range DoubleDBCases {
-		db1, terminate1, err := db.OpenPostgresVersioned("common-sdk-node1")
+		db1, terminate1, err := vault.OpenPostgresVault("common-sdk-node1")
 		assert.NoError(t, err)
-		db2, terminate2, err := db.OpenPostgresVersioned("common-sdk-node2")
+		db2, terminate2, err := vault.OpenPostgresVault("common-sdk-node2")
 		assert.NoError(t, err)
 		t.Run(c.Name, func(xt *testing.T) {
 			defer db1.Close()

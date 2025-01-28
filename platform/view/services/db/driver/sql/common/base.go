@@ -248,7 +248,7 @@ func (db *BasePersistence[V, R]) UpsertStateWithTx(tx *sql.Tx, ns driver2.Namesp
 	} else {
 		keys = append(keys, "ns", "pkey")
 		values = append(values, ns, pkey)
-		query := fmt.Sprintf("INSERT INTO %s (%s) VALUES %s", db.table, strings.Join(keys, ", "), generateParamSet(1, len(keys)))
+		query := fmt.Sprintf("INSERT INTO %s (%s) VALUES %s", db.table, strings.Join(keys, ", "), GenerateParamSet(1, 1, len(keys)))
 		logger.Debug(query, ns, pkey, len(values))
 
 		_, err := tx.Exec(query, values...)
@@ -339,12 +339,4 @@ type Opts struct {
 	MaxOpenConns    int
 	MaxIdleConns    *int
 	MaxIdleTime     *time.Duration
-}
-
-func generateParamSet(offset, count int) string {
-	params := make([]string, count)
-	for i := 0; i < count; i++ {
-		params[i] = fmt.Sprintf("$%d", i+offset)
-	}
-	return fmt.Sprintf("(%s)", strings.Join(params, ", "))
 }

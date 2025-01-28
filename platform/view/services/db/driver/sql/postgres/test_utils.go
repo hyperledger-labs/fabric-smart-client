@@ -298,19 +298,7 @@ type TestDriver struct {
 	ConnStr string
 }
 
-func (t *TestDriver) NewTransactionalVersioned(dataSourceName string, config driver.Config) (driver.TransactionalVersionedPersistence, error) {
-	return initPersistence(NewVersioned, t.ConnStr, t.Name, 50, 10, time.Minute)
-}
-
-func (t *TestDriver) NewVersioned(dataSourceName string, config driver.Config) (driver.VersionedPersistence, error) {
-	return initPersistence(NewVersioned, t.ConnStr, t.Name, 50, 10, time.Minute)
-}
-
-func (t *TestDriver) NewUnversioned(dataSourceName string, config driver.Config) (driver.UnversionedPersistence, error) {
-	return initPersistence(NewUnversioned, t.ConnStr, t.Name, 50, 10, time.Minute)
-}
-
-func (t *TestDriver) NewTransactionalUnversioned(dataSourceName string, config driver.Config) (driver.TransactionalUnversionedPersistence, error) {
+func (t *TestDriver) NewKVS(dataSourceName string, config driver.Config) (driver.TransactionalUnversionedPersistence, error) {
 	p, err := initPersistence(NewVersioned, t.ConnStr, t.Name, 50, 10, time.Minute)
 	if err != nil {
 		return nil, err
@@ -340,4 +328,8 @@ func (t *TestDriver) NewMetadata(string, driver.Config) (driver.MetadataPersiste
 
 func (t *TestDriver) NewEnvelope(string, driver.Config) (driver.EnvelopePersistence, error) {
 	return initPersistence(NewEnvelopePersistence, t.ConnStr, t.Name, 50, 10, time.Minute)
+}
+
+func (t *TestDriver) NewVault(string, driver.Config) (driver.VaultPersistence, error) {
+	return initPersistence(NewVaultPersistence, t.ConnStr, t.Name, 50, 10, time.Minute)
 }

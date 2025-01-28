@@ -10,7 +10,6 @@ import (
 	"encoding/binary"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 )
 
 type MockQE struct {
@@ -34,21 +33,22 @@ func (qe MockQE) GetStateMetadata(driver.Namespace, driver.PKey) (driver.Metadat
 	return qe.Metadata, blockTxIndexToBytes(1, 1), nil
 }
 
-func (qe MockQE) GetState(driver.Namespace, driver.PKey) (driver.VersionedValue, error) {
-	return qe.State, nil
+func (qe MockQE) GetState(_ driver.Namespace, pkey driver.PKey) (*driver.VersionedRead, error) {
+	return &driver.VersionedRead{
+		Key:     pkey,
+		Raw:     qe.State.Raw,
+		Version: qe.State.Version,
+	}, nil
 }
 
 func (qe MockQE) Done() {
 }
 
-type MockTXIDStoreReader struct {
+type MockTxStatusStore struct {
 }
 
-func (m MockTXIDStoreReader) Iterator(interface{}) (collections.Iterator[*driver.ByNum[int]], error) {
-	panic("not implemented")
-}
-func (m MockTXIDStoreReader) Get(txID driver.TxID) (int, string, error) {
-	return 1, txID, nil
+func (m MockTxStatusStore) GetTxStatus(txID driver.TxID) (*driver.TxStatus, error) {
+	return &driver.TxStatus{TxID: txID, Code: 1}, nil
 }
 
 func blockTxIndexToBytes(Block driver.BlockNum, TxNum driver.TxNum) []byte {

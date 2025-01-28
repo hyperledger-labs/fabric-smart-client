@@ -11,9 +11,11 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
+	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/endorser"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
+	driver3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
+	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
 )
 
@@ -41,41 +43,32 @@ func (l *ListStateQueryIteratorInterface) Next(state interface{}) (string, error
 	return "", json.Unmarshal(l.next.Raw, state)
 }
 
-type NewQueryExecutorFunc func() (driver.QueryExecutor, error)
-
-type vault struct {
-	sp               view.ServiceProvider
-	network          string
-	channel          string
-	NewQueryExecutor NewQueryExecutorFunc
+type vaultStore interface {
+	GetState(namespace driver.Namespace, key driver.PKey) (*driver.VersionedRead, error)
+	GetStateRange(namespace driver.Namespace, startKey, endKey driver.PKey) (driver.TxStateIterator, error)
+}
+type localMembership interface {
+	DefaultIdentity() view2.Identity
 }
 
-func New(sp view.ServiceProvider, network, channel string, NewQueryExecutor func() (driver.QueryExecutor, error)) *vault {
-	return &vault{
-		sp:               sp,
-		network:          network,
-		channel:          channel,
-		NewQueryExecutor: NewQueryExecutor,
-	}
+type vault struct {
+	sp              driver3.ServiceProvider
+	network         string
+	channel         string
+	vaultStore      vaultStore
+	localMembership localMembership
 }
 
 func (f *vault) GetState(namespace driver.Namespace, id driver.PKey, state interface{}) error {
-	q, err := f.NewQueryExecutor()
-	if err != nil {
-		return errors.Wrap(err, "failed getting query executor")
-	}
-	defer q.Done()
-
-	raw, err := q.GetState(namespace, id)
+	value, err := f.vaultStore.GetState(namespace, id)
 	if err != nil {
 		return err
 	}
-	if len(raw) == 0 {
+	if value == nil || len(value.Raw) == 0 {
 		return errors.Errorf("id [%s] not found", id)
 	}
 
-	err = json.Unmarshal(raw, state)
-	if err != nil {
+	if err := json.Unmarshal(value.Raw, state); err != nil {
 		return err
 	}
 	return nil
@@ -88,13 +81,7 @@ func (f *vault) GetStateByPartialCompositeID(ns string, prefix string, attrs []s
 	}
 	endKey := startKey + string(state.MaxUnicodeRuneValue)
 
-	q, err := f.NewQueryExecutor()
-	if err != nil {
-		return nil, errors.Wrap(err, "failed getting query executor")
-	}
-	defer q.Done()
-
-	it, err := q.GetStateRangeScanIterator(ns, startKey, endKey)
+	it, err := f.vaultStore.GetStateRange(ns, startKey, endKey)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed getting state iterator")
 	}
@@ -102,15 +89,11 @@ func (f *vault) GetStateByPartialCompositeID(ns string, prefix string, attrs []s
 }
 
 func (f *vault) GetStateCertification(namespace string, key string) ([]byte, error) {
-	fns, err := fabric.GetFabricNetworkService(f.sp, f.network)
-	if err != nil {
-		return nil, err
-	}
 	_, tx, err := endorser.NewTransactionWith(
 		f.sp,
 		f.network,
 		f.channel,
-		fns.LocalMembership().DefaultIdentity(),
+		f.localMembership.DefaultIdentity(),
 	)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed creating transaction [%s:%s]", namespace, key)
@@ -139,18 +122,17 @@ func (f *vault) GetStateCertification(namespace string, key string) ([]byte, err
 	return raw, nil
 }
 
-type VaultFunc func(ctx view.ServiceProvider, id string) *fabric.Vault
-
 type service struct {
-	sp view.ServiceProvider
+	sp   driver3.ServiceProvider
+	fnsp driver2.FabricNetworkServiceProvider
 }
 
-func NewService(sp view.ServiceProvider) *service {
-	return &service{sp: sp}
+func NewService(sp driver3.ServiceProvider, fnsp driver2.FabricNetworkServiceProvider) *service {
+	return &service{sp: sp, fnsp: fnsp}
 }
 
 func (w *service) Vault(network string, channel string) (state.Vault, error) {
-	fns, err := fabric.GetFabricNetworkService(w.sp, network)
+	fns, err := w.fnsp.FabricNetworkService(network)
 	if err != nil {
 		return nil, err
 	}
@@ -158,11 +140,11 @@ func (w *service) Vault(network string, channel string) (state.Vault, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	return New(
-		w.sp,
-		network,
-		channel,
-		ch.Vault().NewQueryExecutor,
-	), nil
+	return &vault{
+		sp:              w.sp,
+		network:         fns.Name(),
+		channel:         ch.Name(),
+		vaultStore:      ch.VaultStore(),
+		localMembership: fns.LocalMembership(),
+	}, nil
 }

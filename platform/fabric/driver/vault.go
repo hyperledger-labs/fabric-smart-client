@@ -28,3 +28,9 @@ type Vault interface {
 	Match(id string, results []byte) error
 	Close() error
 }
+
+type VaultStore interface {
+	GetState(namespace driver.Namespace, key driver.PKey) (*driver.VersionedRead, error)
+	GetStateRange(namespace driver.Namespace, startKey, endKey driver.PKey) (driver.TxStateIterator, error)
+	GetLast() (*driver.TxStatus, error)
+}

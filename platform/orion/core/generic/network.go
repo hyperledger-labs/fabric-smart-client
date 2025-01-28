@@ -18,10 +18,11 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic/rwset"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic/transaction"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/vault"
 	"github.com/hyperledger-labs/orion-server/pkg/types"
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
@@ -150,12 +151,12 @@ func NewNetwork(
 		return nil, errors.Errorf("driver %s not found in config", n.config.VaultPersistenceType())
 	}
 
-	persistence, err := db.OpenVersioned(d, name, db.NewPrefixConfig(n.config, n.config.VaultPersistencePrefix()))
+	vaultStore, err := vault.NewWithConfig(drivers, storage.NewPrefixConfig(n.config, n.config.VaultPersistencePrefix()), name)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed creating vault")
 	}
 
-	n.vault, err = NewVault(n, persistence, metricsProvider, tracerProvider)
+	n.vault, err = NewVault(n, vaultStore, metricsProvider, tracerProvider)
 	if err != nil {
 		return nil, errors.WithMessage(err, "failed to create vault")
 	}

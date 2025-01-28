@@ -7,14 +7,11 @@ SPDX-License-Identifier: Apache-2.0
 package orion
 
 import (
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	driver3 "github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
-	sdk "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/dig"
 	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
-	"github.com/pkg/errors"
 	"go.uber.org/dig"
 )
 
@@ -24,16 +21,12 @@ func NewEndorseTxStore(in struct {
 	Config  driver.ConfigService
 	Drivers []dbdriver.NamedDriver `group:"db-drivers"`
 }) (driver3.EndorseTxStore, error) {
-	driverName := driver2.PersistenceType(in.Config.GetString("fsc.endorsetx.persistence.type"))
-	if !sdk.SupportedStores.Contains(driverName) {
+	if store, err := services.NewDBBasedEndorseTxStore(in.Drivers, in.Config, "default"); err != nil {
+		logger.Errorf("failed creating store for etx: %v. Default to KVS", err)
 		return services.NewKVSBasedEndorseTxStore(in.KVS), nil
+	} else {
+		return store, nil
 	}
-	for _, d := range in.Drivers {
-		if d.Name == driverName {
-			return services.NewDBBasedEndorseTxStore(d.Driver, "_default", in.Config)
-		}
-	}
-	return nil, errors.New("driver not found")
 }
 
 func NewMetadataStore(in struct {
@@ -42,16 +35,12 @@ func NewMetadataStore(in struct {
 	Config  driver.ConfigService
 	Drivers []dbdriver.NamedDriver `group:"db-drivers"`
 }) (driver3.MetadataStore, error) {
-	driverName := driver2.PersistenceType(in.Config.GetString("fsc.metadata.persistence.type"))
-	if !sdk.SupportedStores.Contains(driverName) {
+	if store, err := services.NewDBBasedMetadataStore(in.Drivers, in.Config, "default"); err != nil {
+		logger.Errorf("failed creating store for meta: %v. Default to KVS", err)
 		return services.NewKVSBasedMetadataStore(in.KVS), nil
+	} else {
+		return store, nil
 	}
-	for _, d := range in.Drivers {
-		if d.Name == driverName {
-			return services.NewDBBasedMetadataStore(d.Driver, "_default", in.Config)
-		}
-	}
-	return nil, errors.New("driver not found")
 }
 
 func NewEnvelopeStore(in struct {
@@ -60,14 +49,10 @@ func NewEnvelopeStore(in struct {
 	Config  driver.ConfigService
 	Drivers []dbdriver.NamedDriver `group:"db-drivers"`
 }) (driver3.EnvelopeStore, error) {
-	driverName := driver2.PersistenceType(in.Config.GetString("fsc.envelope.persistence.type"))
-	if !sdk.SupportedStores.Contains(driverName) {
+	if store, err := services.NewDBBasedEnvelopeStore(in.Drivers, in.Config, "default"); err != nil {
+		logger.Errorf("failed creating store for env: %v. Default to KVS", err)
 		return services.NewKVSBasedEnvelopeStore(in.KVS), nil
+	} else {
+		return store, nil
 	}
-	for _, d := range in.Drivers {
-		if d.Name == driverName {
-			return services.NewDBBasedEnvelopeStore(d.Driver, "_default", in.Config)
-		}
-	}
-	return nil, errors.New("driver not found")
 }

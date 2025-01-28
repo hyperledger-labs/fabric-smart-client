@@ -14,6 +14,11 @@ import (
 	"golang.org/x/exp/constraints"
 )
 
+const (
+	NoStringLimit = ""
+	NoIntLimit    = -1
+)
+
 type Interpreter interface {
 	Cmp(field FieldName, symbol string, value any) Condition
 	And(conditions ...Condition) Condition
@@ -110,20 +115,19 @@ func (i *interpreter) InTuple(fields []FieldName, vals []Tuple) Condition {
 }
 
 func (i *interpreter) BetweenStrings(field FieldName, startKey, endKey string) Condition {
-	return between(i, field, startKey, endKey)
+	return between(i, field, startKey, endKey, NoStringLimit)
 }
 
 func (i *interpreter) BetweenInts(field FieldName, startKey, endKey int) Condition {
-	return between(i, field, startKey, endKey)
+	return between(i, field, startKey, endKey, NoIntLimit)
 }
 
-func between[T comparable](i *interpreter, field FieldName, startKey, endKey T) Condition {
-	var zero T
+func between[T comparable](i *interpreter, field FieldName, startKey, endKey, nilVal T) Condition {
 	var conds []Condition
-	if startKey != zero {
+	if startKey != nilVal {
 		conds = append(conds, i.Cmp(field, ">=", startKey))
 	}
-	if endKey != zero {
+	if endKey != nilVal {
 		conds = append(conds, i.Cmp(field, "<", endKey))
 	}
 	return i.And(conds...)
@@ -263,6 +267,14 @@ func ToInts[T constraints.Integer](in []T) []int {
 	r := make([]int, len(in))
 	for i, v := range in {
 		r[i] = int(v)
+	}
+	return r
+}
+
+func ToAnys[T any](in []T) []any {
+	r := make([]any, len(in))
+	for i, v := range in {
+		r[i] = v
 	}
 	return r
 }

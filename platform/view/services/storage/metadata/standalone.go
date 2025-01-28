@@ -11,24 +11,52 @@ import (
 	"fmt"
 
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/db"
+	"github.com/pkg/errors"
 )
 
 const (
 	persistenceOptsConfigKey = "fsc.metadata.persistence.opts"
+	persistenceTypeConfigKey = "fsc.metadata.persistence.type"
 )
 
 type identifier interface {
 	UniqueKey() string
 }
 
-func NewWithConfig[K identifier, M any](dbDriver driver.Driver, namespace string, cp db.Config) (driver2.MetadataStore[K, M], error) {
-	m, err := dbDriver.NewMetadata(fmt.Sprintf("%s_meta", namespace), db.NewPrefixConfig(cp, persistenceOptsConfigKey))
+func NewWithConfig[K identifier, M any](dbDrivers []driver.NamedDriver, cp db.Config, params ...string) (driver2.MetadataStore[K, M], error) {
+	d, err := getDriver(dbDrivers, cp)
+	if err != nil {
+		return nil, err
+	}
+	m, err := d.NewMetadata(fmt.Sprintf("%s_meta", db.EscapeForTableName(params...)), storage.NewPrefixConfig(cp, persistenceOptsConfigKey))
 	if err != nil {
 		return nil, err
 	}
 	return &metadataStore[K, M]{m: m}, nil
+}
+
+var supportedStores = collections.NewSet(mem.MemoryPersistence, sql.SQLPersistence)
+
+func getDriver(dbDrivers []driver.NamedDriver, cp db.Config) (driver.Driver, error) {
+	var driverName driver2.PersistenceType
+	if err := cp.UnmarshalKey(persistenceTypeConfigKey, &driverName); err != nil {
+		return nil, err
+	}
+	if !supportedStores.Contains(driverName) {
+		return nil, errors.New("unsupported store")
+	}
+	for _, d := range dbDrivers {
+		if d.Name == driverName {
+			return d.Driver, nil
+		}
+	}
+	return nil, errors.New("driver not found")
 }
 
 type metadataStore[K identifier, M any] struct {
