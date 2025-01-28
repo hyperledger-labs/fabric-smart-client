@@ -24,6 +24,43 @@ const (
 	DefaultMaxIdleTime  = time.Minute
 )
 
+type Sanitizer interface {
+	Encode(string) (string, error)
+	Decode(string) (string, error)
+}
+
+type decoder interface {
+	Decode(string) (string, error)
+}
+
+func newSanitizer(s Sanitizer) *sanitizer {
+	return &sanitizer{Sanitizer: s}
+}
+
+type sanitizer struct {
+	Sanitizer
+}
+
+func (s *sanitizer) EncodeAll(params []any) ([]any, error) {
+	encoded := make([]any, len(params))
+	for i, param := range params {
+		encoded[i] = param
+		if param == nil {
+			continue
+		}
+		p, ok := param.(string)
+		if !ok {
+			continue
+		}
+		p, err := s.Encode(p)
+		if err != nil {
+			return nil, err
+		}
+		encoded[i] = p
+	}
+	return encoded, nil
+}
+
 type TableNameCreator struct {
 	prefix string
 	r      *regexp.Regexp
@@ -128,4 +165,25 @@ func notSetError(key string) error {
 		"either %s in core.yaml or the %s environment variable must be specified", key,
 		strings.ToUpper("CORE_"+strings.ReplaceAll(key, ".", "_")),
 	)
+}
+
+func GenerateParamSet(offset int, rows, cols int) string {
+	sb := strings.Builder{}
+
+	for i := 0; i < rows; i++ {
+		if i > 0 {
+			sb.WriteRune(',')
+		}
+		sb.WriteRune('(')
+		for j := 0; j < cols; j++ {
+			if j > 0 {
+				sb.WriteRune(',')
+			}
+			sb.WriteString(fmt.Sprintf("$%d", offset))
+			offset++
+		}
+		sb.WriteString(")")
+	}
+
+	return sb.String()
 }

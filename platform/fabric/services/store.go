@@ -8,9 +8,9 @@ package services
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/db"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/endorsetx"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/envelope"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/metadata"
@@ -34,14 +34,14 @@ func keyMapper(prefix string) kvs.KeyMapper[driver.Key] {
 	}
 }
 
-func NewDBBasedEndorseTxStore(dbDriver driver2.Driver, namespace string, cp db.Config) (driver.EndorseTxStore, error) {
-	return endorsetx.NewWithConfig[driver.Key](dbDriver, namespace, cp)
+func NewDBBasedEndorseTxStore(dbDrivers []driver2.NamedDriver, cp db.Config, namespace string) (driver.EndorseTxStore, error) {
+	return endorsetx.NewWithConfig[driver.Key](dbDrivers, cp, namespace)
 }
 
-func NewDBBasedMetadataStore(dbDriver driver2.Driver, namespace string, cp db.Config) (driver.MetadataStore, error) {
-	return metadata.NewWithConfig[driver.Key, driver.TransientMap](dbDriver, namespace, cp)
+func NewDBBasedMetadataStore(dbDrivers []driver2.NamedDriver, cp db.Config, namespace string) (driver.MetadataStore, error) {
+	return metadata.NewWithConfig[driver.Key, driver.TransientMap](dbDrivers, cp, namespace)
 }
 
-func NewDBBasedEnvelopeStore(dbDriver driver2.Driver, namespace string, cp db.Config) (driver.EnvelopeStore, error) {
-	return envelope.NewWithConfig[driver.Key](dbDriver, namespace, cp)
+func NewDBBasedEnvelopeStore(dbDrivers []driver2.NamedDriver, cp db.Config, namespace string) (driver.EnvelopeStore, error) {
+	return envelope.NewWithConfig[driver.Key](dbDrivers, cp, namespace)
 }

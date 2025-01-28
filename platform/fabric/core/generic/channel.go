@@ -35,7 +35,7 @@ type Channel struct {
 	ChannelName              string
 	FinalityService          driver.Finality
 	VaultService             driver.Vault
-	TXIDStoreService         driver.TXIDStore
+	VaultStoreService        driver.VaultStore
 	ES                       driver.EnvelopeService
 	TS                       driver.EndorserTransactionService
 	MS                       driver.MetadataService
@@ -68,6 +68,10 @@ func (c *Channel) Vault() driver.Vault {
 	return c.VaultService
 }
 
+func (c *Channel) VaultStore() driver.VaultStore {
+	return c.VaultStoreService
+}
+
 func (c *Channel) Finality() driver.Finality {
 	return c.FinalityService
 }
@@ -86,10 +90,6 @@ func (c *Channel) ChaincodeManager() driver.ChaincodeManager {
 
 func (c *Channel) ChannelMembership() driver.ChannelMembership {
 	return c.ChannelMembershipService
-}
-
-func (c *Channel) TXIDStore() driver.TXIDStore {
-	return c.TXIDStoreService
 }
 
 func (c *Channel) RWSetLoader() driver.RWSetLoader {

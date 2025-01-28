@@ -43,3 +43,8 @@ func Repeat[T any](item T, times int) []T {
 	}
 	return items
 }
+
+func GetUnique[T any](vs Iterator[T]) (T, error) {
+	defer vs.Close()
+	return vs.Next()
+}

@@ -75,7 +75,7 @@ type Delivery struct {
 	Ledger              driver.Ledger
 	waitForEventTimeout time.Duration
 	callback            driver.BlockCallback
-	vault               Vault
+	vault               lastTxGetter
 	client              services.PeerClient
 	tracer              trace.Tracer
 	lastBlockReceived   uint64
@@ -96,7 +96,7 @@ func New(
 	PeerManager Services,
 	Ledger driver.Ledger,
 	callback driver.BlockCallback,
-	vault Vault,
+	vault lastTxGetter,
 	waitForEventTimeout time.Duration,
 	bufferSize int,
 	tracerProvider trace.TracerProvider,
@@ -343,21 +343,21 @@ func (d *Delivery) GetStartPosition() *ab.SeekPosition {
 		logger.Debugf("no last block received set [%d], check last TxID in the vault", d.lastBlockReceived)
 	}
 
-	lastTxID, err := d.vault.GetLastTxID()
+	lastTx, err := d.vault.GetLast()
 	if err != nil {
 		logger.Errorf("failed getting last transaction committed/discarded from the vault [%s], restarting from genesis", err)
 		return StartGenesis
 	}
 
-	if len(lastTxID) != 0 && !strings.HasPrefix(lastTxID, committer.ConfigTXPrefix) {
+	if lastTx != nil && len(lastTx.TxID) != 0 && !strings.HasPrefix(lastTx.TxID, committer.ConfigTXPrefix) {
 		// Retrieve block from Fabric
-		blockNumber, err := d.Ledger.GetBlockNumberByTxID(lastTxID)
+		blockNumber, err := d.Ledger.GetBlockNumberByTxID(lastTx.TxID)
 		if err != nil {
-			logger.Errorf("failed getting block number for transaction [%s], restart from genesis [%s]", lastTxID, err)
+			logger.Errorf("failed getting block number for transaction [%s], restart from genesis [%s]", lastTx, err)
 			return StartGenesis
 		}
 		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("restarting from block [%d], tx [%s]", blockNumber, lastTxID)
+			logger.Debugf("restarting from block [%d], tx [%s]", blockNumber, lastTx)
 		}
 
 		return &ab.SeekPosition{

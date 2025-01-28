@@ -31,8 +31,7 @@ func NewFileDriver() driver.NamedDriver {
 
 type Driver struct{}
 
-// NewTransactionalVersioned returns a new TransactionalVersionedPersistence for the passed data source and config
-func (d *Driver) NewTransactionalVersioned(dataSourceName string, config driver.Config) (driver.TransactionalVersionedPersistence, error) {
+func (d *Driver) NewKVS(dataSourceName string, config driver.Config) (driver.TransactionalUnversionedPersistence, error) {
 	opts := &Opts{}
 	if err := config.UnmarshalKey("", opts); err != nil {
 		return nil, errors.Wrapf(err, "failed getting opts")
@@ -46,19 +45,7 @@ func (d *Driver) NewTransactionalVersioned(dataSourceName string, config driver.
 	if err := os.MkdirAll(path, 0755); err != nil {
 		return nil, errors.Wrapf(err, "failed creating directory [%s]", path)
 	}
-	return OpenDB(*opts, config)
-}
-
-func (d *Driver) NewVersioned(dataSourceName string, config driver.Config) (driver.VersionedPersistence, error) {
-	return NewVersionedPersistence(dataSourceName, config)
-}
-
-func (d *Driver) NewUnversioned(dataSourceName string, config driver.Config) (driver.UnversionedPersistence, error) {
-	return NewUnversionedPersistence(dataSourceName, config)
-}
-
-func (d *Driver) NewTransactionalUnversioned(dataSourceName string, config driver.Config) (driver.TransactionalUnversionedPersistence, error) {
-	backend, err := d.NewTransactionalVersioned(dataSourceName, config)
+	backend, err := OpenDB(*opts, config)
 	if err != nil {
 		return nil, err
 	}
@@ -86,5 +73,9 @@ func (d *Driver) NewMetadata(string, driver.Config) (driver.MetadataPersistence,
 }
 
 func (d *Driver) NewEnvelope(string, driver.Config) (driver.EnvelopePersistence, error) {
+	panic("not implemented")
+}
+
+func (d *Driver) NewVault(string, driver.Config) (driver.VaultPersistence, error) {
 	panic("not implemented")
 }

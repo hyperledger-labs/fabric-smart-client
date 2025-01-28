@@ -7,11 +7,12 @@ SPDX-License-Identifier: Apache-2.0
 package generic
 
 import (
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault/txidstore"
+	driver3 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db"
+	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
+	vault2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/vault"
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -23,21 +24,28 @@ type Network interface {
 
 type Vault struct {
 	*vault.Vault
-	*vault.SimpleTXIDStore
-	network Network
+	network    Network
+	vaultStore lastTxGetter
 }
 
-func NewVault(network Network, persistence *db.VersionedPersistence, metricsProvider metrics.Provider, tracerProvider trace.TracerProvider) (*Vault, error) {
-	txIDStore, err := vault.NewSimpleTXIDStore(db.Unversioned(persistence))
-	if err != nil {
-		return nil, err
-	}
+type lastTxGetter interface {
+	GetLast() (*driver3.TxStatus, error)
+}
 
+func NewVault(network Network, vaultStore driver2.VaultPersistence, metricsProvider metrics.Provider, tracerProvider trace.TracerProvider) (*Vault, error) {
 	return &Vault{
-		Vault:           vault.New(persistence, txidstore.NewNoCache[driver.ValidationCode](txIDStore), metricsProvider, tracerProvider),
-		SimpleTXIDStore: txIDStore,
-		network:         network,
+		Vault:      vault.New(vault2.NewNoCache(vaultStore), metricsProvider, tracerProvider),
+		network:    network,
+		vaultStore: vaultStore,
 	}, nil
+}
+
+func (v *Vault) GetLastTxID() (driver3.TxID, error) {
+	tx, err := v.vaultStore.GetLast()
+	if err != nil {
+		return "", err
+	}
+	return tx.TxID, nil
 }
 
 func (v *Vault) NewRWSet(txID string) (driver.RWSet, error) {

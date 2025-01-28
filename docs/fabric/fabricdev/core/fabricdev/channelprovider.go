@@ -24,6 +24,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/vault"
 	"github.com/hyperledger/fabric-protos-go/common"
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
@@ -90,11 +91,12 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 	}
 
 	// Vault
-	vault, txIDStore, err := p.newVault(nw.ConfigService(), channelName, p.drivers, p.metricsProvider, p.tracerProvider)
+	vaultStore, err := vault.NewWithConfig(p.drivers, nw.ConfigService(), nw.Name(), channelName)
 	if err != nil {
 		return nil, err
 	}
 
+	vault := p.newVault(nw.ConfigService(), vaultStore, p.metricsProvider, p.tracerProvider)
 	envelopeService := transaction.NewEnvelopeService(p.envelopeKVS, nw.Name(), channelName)
 	transactionService := transaction.NewEndorseTransactionService(p.endorseTxKVS, nw.Name(), channelName)
 	metadataService := transaction.NewMetadataService(p.metadataKVS, nw.Name(), channelName)
@@ -173,7 +175,7 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 		peerService,
 		ledgerService,
 		channelConfig.CommitterWaitForEventTimeout(),
-		txIDStore,
+		vaultStore,
 		nw.TransactionManager(),
 		func(ctx context.Context, block *common.Block) (bool, error) {
 			// commit the block, if an error occurs then retry
@@ -193,7 +195,7 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 		ChannelName:              channelName,
 		FinalityService:          finalityService,
 		VaultService:             vault,
-		TXIDStoreService:         txIDStore,
+		VaultStoreService:        vaultStore,
 		ES:                       envelopeService,
 		TS:                       transactionService,
 		MS:                       metadataService,

@@ -516,7 +516,7 @@ func (c *Committer) ReloadConfigTransactions() error {
 			if err != nil {
 				return errors.Wrapf(err, "failed setting configtx state in rws")
 			}
-			env, err := protoutil.UnmarshalEnvelope(envelope)
+			env, err := protoutil.UnmarshalEnvelope(envelope.Raw)
 			if err != nil {
 				return errors.Wrapf(err, "cannot get payload from config transaction [%s]", txID)
 			}
@@ -569,6 +569,10 @@ func (c *Committer) ReloadConfigTransactions() error {
 
 			c.logger.Infof("config block at txID [%s] unavailable, stop loading", txID)
 			done = true
+		case driver.Busy:
+			c.logger.Infof("someone else is modifying it. retry...")
+			time.Sleep(1 * time.Second)
+			continue
 		default:
 			return errors.Errorf("invalid configtx's [%s] status [%d]", txID, vc)
 		}

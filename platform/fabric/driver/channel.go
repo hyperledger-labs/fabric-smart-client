@@ -15,6 +15,8 @@ type Channel interface {
 
 	Vault() Vault
 
+	VaultStore() VaultStore
+
 	Delivery() Delivery
 
 	Ledger() Ledger
@@ -22,8 +24,6 @@ type Channel interface {
 	Finality() Finality
 
 	ChannelMembership() ChannelMembership
-
-	TXIDStore() TXIDStore
 
 	ChaincodeManager() ChaincodeManager
 

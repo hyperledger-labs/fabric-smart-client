@@ -9,34 +9,24 @@ package vault
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault/txidstore"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	odriver "github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
+	vault2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/vault"
 	"github.com/hyperledger-labs/orion-server/pkg/types"
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
 )
 
-type (
-	TXIDStoreReader = vault.TXIDStoreReader[odriver.ValidationCode]
-	Vault           = vault.Vault[odriver.ValidationCode]
-	TXIDStore       = vault.TXIDStore[odriver.ValidationCode]
-	SimpleTXIDStore = txidstore.SimpleTXIDStore[odriver.ValidationCode]
-)
-
-func NewSimpleTXIDStore(persistence txidstore.UnversionedPersistence) (*SimpleTXIDStore, error) {
-	return txidstore.NewSimpleTXIDStore[odriver.ValidationCode](persistence, &odriver.ValidationCodeProvider{})
-}
+type Vault = vault.Vault[odriver.ValidationCode]
 
 // New returns a new instance of Vault
-func New(store vault.VersionedPersistence, txIDStore TXIDStore, metricsProvider metrics.Provider, tracerProvider trace.TracerProvider) *Vault {
+func New(vaultStore driver.VaultStore, metricsProvider metrics.Provider, tracerProvider trace.TracerProvider) *Vault {
 	return vault.New[odriver.ValidationCode](
 		logging.MustGetLogger("orion-sdk.generic.vault"),
-		store,
-		txIDStore,
-		&odriver.ValidationCodeProvider{},
+		vault2.NewNoCache(vaultStore),
+		odriver.ValidationCodeProvider,
 		newInterceptor,
 		&populator{},
 		metricsProvider,
@@ -53,16 +43,16 @@ func newInterceptor(
 	logger vault.Logger,
 	rwSet vault.ReadWriteSet,
 	qe vault.VersionedQueryExecutor,
-	txidStore vault.TXIDStoreReader[odriver.ValidationCode],
+	vaultStore vault.TxStatusStore,
 	txid string,
 ) vault.TxInterceptor {
 	return &Interceptor{Interceptor: vault.NewInterceptor[odriver.ValidationCode](
 		logger,
 		rwSet,
 		qe,
-		txidStore,
+		vaultStore,
 		txid,
-		&odriver.ValidationCodeProvider{},
+		odriver.ValidationCodeProvider,
 		nil,
 		&vault.BlockTxIndexVersionComparator{},
 	)}

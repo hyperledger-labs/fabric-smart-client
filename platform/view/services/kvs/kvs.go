@@ -14,8 +14,9 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/cache/secondcache"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/db"
 	"go.uber.org/zap/zapcore"
 )
 
@@ -64,7 +65,7 @@ type KVS struct {
 
 // NewWithConfig returns a new KVS instance for the passed namespace using the passed driver and config provider
 func NewWithConfig(dbDriver driver.Driver, namespace string, cp ConfigProvider) (*KVS, error) {
-	d, err := dbDriver.NewTransactionalUnversioned(namespace, db.NewPrefixConfig(cp, persistenceOptsConfigKey))
+	d, err := dbDriver.NewKVS(namespace, storage.NewPrefixConfig(cp, persistenceOptsConfigKey))
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed opening datasource [%s]", namespace)
 	}

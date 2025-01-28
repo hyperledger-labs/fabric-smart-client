@@ -18,7 +18,7 @@ import (
 
 func TestConcurrency(t *testing.T) {
 	qe := mocks.NewMockQE()
-	idsr := mocks.MockTXIDStoreReader{}
+	idsr := mocks.MockTxStatusStore{}
 
 	i := newInterceptor(logging.MustGetLogger("interceptor_test"), EmptyRWSet(), qe, idsr, "1")
 	s, err := i.GetState("ns", "key")
@@ -63,7 +63,7 @@ func TestConcurrency(t *testing.T) {
 
 func TestAddReadAt(t *testing.T) {
 	qe := mocks.MockQE{}
-	idsr := mocks.MockTXIDStoreReader{}
+	idsr := mocks.MockTxStatusStore{}
 	i := newInterceptor(logging.MustGetLogger("interceptor_test"), EmptyRWSet(), qe, idsr, "1")
 
 	assert.NoError(t, i.AddReadAt("ns", "key", []byte("version")))

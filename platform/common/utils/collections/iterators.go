@@ -68,6 +68,10 @@ func ReadAll[T any](it Iterator[*T]) ([]T, error) {
 	return items, nil
 }
 
+func NewSingleIterator[T any](item T) *sliceIterator[T] {
+	return NewSliceIterator[T]([]T{item})
+}
+
 type sliceIterator[T any] struct {
 	i     int
 	items []T

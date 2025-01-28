@@ -25,7 +25,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services"
 	vdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
-	sdk "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/dig"
 	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
@@ -185,16 +184,11 @@ func NewEndorseTxStore(in struct {
 	Config  vdriver.ConfigService
 	Drivers []dbdriver.NamedDriver `group:"db-drivers"`
 }) (driver.EndorseTxStore, error) {
-	driverName := driver2.PersistenceType(in.Config.GetString("fsc.endorsetx.persistence.type"))
-	if !sdk.SupportedStores.Contains(driverName) {
+	if store, err := services.NewDBBasedEndorseTxStore(in.Drivers, in.Config, "default"); err != nil {
 		return services.NewKVSBasedEndorseTxStore(in.KVS), nil
+	} else {
+		return store, nil
 	}
-	for _, d := range in.Drivers {
-		if d.Name == driverName {
-			return services.NewDBBasedEndorseTxStore(d.Driver, "_default", in.Config)
-		}
-	}
-	return nil, errors.New("driver not found")
 }
 
 func NewMetadataStore(in struct {
@@ -203,16 +197,11 @@ func NewMetadataStore(in struct {
 	Config  vdriver.ConfigService
 	Drivers []dbdriver.NamedDriver `group:"db-drivers"`
 }) (driver.MetadataStore, error) {
-	driverName := driver2.PersistenceType(in.Config.GetString("fsc.metadata.persistence.type"))
-	if !sdk.SupportedStores.Contains(driverName) {
+	if store, err := services.NewDBBasedMetadataStore(in.Drivers, in.Config, "default"); err != nil {
 		return services.NewKVSBasedMetadataStore(in.KVS), nil
+	} else {
+		return store, nil
 	}
-	for _, d := range in.Drivers {
-		if d.Name == driverName {
-			return services.NewDBBasedMetadataStore(d.Driver, "_default", in.Config)
-		}
-	}
-	return nil, errors.New("driver not found")
 }
 
 func NewEnvelopeStore(in struct {
@@ -221,14 +210,9 @@ func NewEnvelopeStore(in struct {
 	Config  vdriver.ConfigService
 	Drivers []dbdriver.NamedDriver `group:"db-drivers"`
 }) (driver.EnvelopeStore, error) {
-	driverName := driver2.PersistenceType(in.Config.GetString("fsc.envelope.persistence.type"))
-	if !sdk.SupportedStores.Contains(driverName) {
+	if store, err := services.NewDBBasedEnvelopeStore(in.Drivers, in.Config, "default"); err != nil {
 		return services.NewKVSBasedEnvelopeStore(in.KVS), nil
+	} else {
+		return store, nil
 	}
-	for _, d := range in.Drivers {
-		if d.Name == driverName {
-			return services.NewDBBasedEnvelopeStore(d.Driver, "_default", in.Config)
-		}
-	}
-	return nil, errors.New("driver not found")
 }

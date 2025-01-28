@@ -20,7 +20,6 @@ type (
 type RWSetInspector interface {
 	GetRWSet(txid string, rwset []byte) (RWSet, error)
 	InspectRWSet(rwsetBytes []byte, namespaces ...driver.Namespace) (RWSet, error)
-	GetExistingRWSet(txID driver.TxID) (RWSet, error)
 	NewRWSet(txid string) (RWSet, error)
 	RWSExists(txid string) bool
 }

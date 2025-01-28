@@ -41,24 +41,12 @@ func NewDriver() driver.NamedDriver {
 	}
 }
 
-func (d *Driver) NewVersioned(dataSourceName string, config driver.Config) (driver.VersionedPersistence, error) {
-	return d.NewTransactionalVersioned(dataSourceName, config)
-}
-
-func (d *Driver) NewTransactionalUnversioned(dataSourceName string, config driver.Config) (driver.TransactionalUnversionedPersistence, error) {
-	backend, err := d.NewTransactionalVersioned(dataSourceName, config)
+func (d *Driver) NewKVS(string, driver.Config) (driver.TransactionalUnversionedPersistence, error) {
+	backend, err := sql.NewPersistenceWithOpts(utils.GenerateUUIDOnlyLetters(), opts, sql.VersionedConstructors)
 	if err != nil {
 		return nil, err
 	}
 	return &unversioned.Transactional{TransactionalVersioned: backend}, nil
-}
-
-func (d *Driver) NewTransactionalVersioned(string, driver.Config) (driver.TransactionalVersionedPersistence, error) {
-	return sql.NewPersistenceWithOpts(utils.GenerateUUIDOnlyLetters(), opts, sql.VersionedConstructors)
-}
-
-func (d *Driver) NewUnversioned(string, driver.Config) (driver.UnversionedPersistence, error) {
-	return sql.NewPersistenceWithOpts(utils.GenerateUUIDOnlyLetters(), opts, sql.UnversionedConstructors)
 }
 
 func (d *Driver) NewBinding(string, driver.Config) (driver.BindingPersistence, error) {
@@ -83,4 +71,8 @@ func (d *Driver) NewMetadata(string, driver.Config) (driver.MetadataPersistence,
 
 func (d *Driver) NewEnvelope(string, driver.Config) (driver.EnvelopePersistence, error) {
 	return sql.NewPersistenceWithOpts(utils.GenerateUUIDOnlyLetters(), opts, sql.EnvelopeConstructors)
+}
+
+func (d *Driver) NewVault(string, driver.Config) (driver.VaultPersistence, error) {
+	return sql.NewPersistenceWithOpts(utils.GenerateUUIDOnlyLetters(), opts, sql.VaultConstructors)
 }

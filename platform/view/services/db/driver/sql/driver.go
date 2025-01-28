@@ -58,11 +58,6 @@ var VersionedConstructors = map[common.SQLDriverType]persistenceConstructor[tran
 	},
 }
 
-type unversionedPersistence interface {
-	driver.UnversionedPersistence
-	dbObject
-}
-
 type bindingPersistence interface {
 	driver.BindingPersistence
 	dbObject
@@ -93,9 +88,9 @@ type envelopePersistence interface {
 	dbObject
 }
 
-var UnversionedConstructors = map[common.SQLDriverType]persistenceConstructor[unversionedPersistence]{
-	Postgres: func(o common.Opts, t string) (unversionedPersistence, error) { return postgres.NewUnversioned(o, t) },
-	SQLite:   func(o common.Opts, t string) (unversionedPersistence, error) { return sqlite.NewUnversioned(o, t) },
+type vaultPersistence interface {
+	driver.VaultPersistence
+	dbObject
 }
 
 var BindingConstructors = map[common.SQLDriverType]persistenceConstructor[bindingPersistence]{
@@ -148,20 +143,17 @@ var EnvelopeConstructors = map[common.SQLDriverType]persistenceConstructor[envel
 	},
 }
 
-func (d *Driver) NewVersioned(dataSourceName string, config driver.Config) (driver.VersionedPersistence, error) {
-	return d.NewTransactionalVersioned(dataSourceName, config)
+var VaultConstructors = map[common.SQLDriverType]persistenceConstructor[vaultPersistence]{
+	Postgres: func(o common.Opts, t string) (vaultPersistence, error) {
+		return postgres.NewVaultPersistence(o, t)
+	},
+	SQLite: func(o common.Opts, t string) (vaultPersistence, error) {
+		return sqlite.NewVaultPersistence(o, t)
+	},
 }
 
-func (d *Driver) NewTransactionalVersioned(dataSourceName string, config driver.Config) (driver.TransactionalVersionedPersistence, error) {
-	return newPersistence(dataSourceName, config, VersionedConstructors)
-}
-
-func (d *Driver) NewUnversioned(dataSourceName string, config driver.Config) (driver.UnversionedPersistence, error) {
-	return newPersistence(dataSourceName, config, UnversionedConstructors)
-}
-
-func (d *Driver) NewTransactionalUnversioned(dataSourceName string, config driver.Config) (driver.TransactionalUnversionedPersistence, error) {
-	backend, err := d.NewTransactionalVersioned(dataSourceName, config)
+func (d *Driver) NewKVS(dataSourceName string, config driver.Config) (driver.TransactionalUnversionedPersistence, error) {
+	backend, err := newPersistence(dataSourceName, config, VersionedConstructors)
 	if err != nil {
 		return nil, err
 	}
@@ -190,6 +182,10 @@ func (d *Driver) NewMetadata(dataSourceName string, config driver.Config) (drive
 
 func (d *Driver) NewEnvelope(dataSourceName string, config driver.Config) (driver.EnvelopePersistence, error) {
 	return newPersistence(dataSourceName, config, EnvelopeConstructors)
+}
+
+func (d *Driver) NewVault(dataSourceName string, config driver.Config) (driver.VaultPersistence, error) {
+	return newPersistence(dataSourceName, config, VaultConstructors)
 }
 
 func newPersistence[V dbObject](dataSourceName string, config driver.Config, constructors map[common.SQLDriverType]persistenceConstructor[V]) (V, error) {

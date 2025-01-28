@@ -46,7 +46,7 @@ func BenchmarkWriteManySqlite(b *testing.B) {
 }
 
 func newVersionedPersistence(dir string) (*VersionedPersistence, error) {
-	p, err := NewVersioned(versionedOpts("benchmark", dir), "test")
+	p, err := NewVersioned(dbOpts("benchmark", dir), "test")
 	if err != nil {
 		return nil, err
 	}

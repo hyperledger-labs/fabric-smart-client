@@ -23,6 +23,10 @@ import (
 
 type ValidationFlags []uint8
 
+type lastTxGetter interface {
+	GetLast() (*driver2.TxStatus, error)
+}
+
 type Service struct {
 	channel             string
 	channelConfig       driver.ChannelConfig
@@ -50,7 +54,7 @@ func NewService(
 	peerManager Services,
 	ledger driver.Ledger,
 	waitForEventTimeout time.Duration,
-	txIDStore driver.TXIDStore,
+	vault lastTxGetter,
 	transactionManager driver.TransactionManager,
 	callback driver.BlockCallback,
 	tracerProvider trace.TracerProvider,
@@ -66,7 +70,7 @@ func NewService(
 		peerManager,
 		ledger,
 		callback,
-		txIDStore,
+		vault,
 		channelConfig.CommitterWaitForEventTimeout(),
 		channelConfig.DeliveryBufferSize(),
 		tracerProvider,
@@ -103,7 +107,7 @@ func (c *Service) Stop() {
 	c.deliveryService.Stop(nil)
 }
 
-func (c *Service) scanBlock(ctx context.Context, vault Vault, callback driver.BlockCallback) error {
+func (c *Service) scanBlock(ctx context.Context, vault lastTxGetter, callback driver.BlockCallback) error {
 	deliveryService, err := New(
 		c.NetworkName,
 		c.channelConfig,
@@ -205,6 +209,6 @@ type fakeVault struct {
 	txID string
 }
 
-func (f *fakeVault) GetLastTxID() (string, error) {
-	return f.txID, nil
+func (f *fakeVault) GetLast() (*driver2.TxStatus, error) {
+	return &driver2.TxStatus{TxID: f.txID}, nil
 }

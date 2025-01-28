@@ -16,7 +16,7 @@ import (
 
 type VersionedQueryExecutor interface {
 	GetStateMetadata(namespace, key string) (driver.Metadata, driver.RawVersion, error)
-	GetState(namespace, key string) (VersionedValue, error)
+	GetState(namespace, key string) (*VersionedRead, error)
 	Done()
 }
 
@@ -27,7 +27,7 @@ type VersionComparator interface {
 type Interceptor[V driver.ValidationCode] struct {
 	Logger            Logger
 	QE                VersionedQueryExecutor
-	TxIDStore         TXIDStoreReader[V]
+	VaultStore        TxStatusStore
 	Rws               ReadWriteSet
 	Marshaller        Marshaller
 	VersionComparator VersionComparator
@@ -57,7 +57,7 @@ func NewInterceptor[V driver.ValidationCode](
 	logger Logger,
 	rwSet ReadWriteSet,
 	qe VersionedQueryExecutor,
-	txIDStore TXIDStoreReader[V],
+	vaultStore TxStatusStore,
 	txID driver.TxID,
 	vcProvider driver.ValidationCodeProvider[V],
 	marshaller Marshaller,
@@ -69,7 +69,7 @@ func NewInterceptor[V driver.ValidationCode](
 		Logger:            logger,
 		TxID:              txID,
 		QE:                qe,
-		TxIDStore:         txIDStore,
+		VaultStore:        vaultStore,
 		Rws:               rwSet,
 		vcProvider:        vcProvider,
 		Marshaller:        marshaller,
@@ -78,11 +78,12 @@ func NewInterceptor[V driver.ValidationCode](
 }
 
 func (i *Interceptor[V]) IsValid() error {
-	code, _, err := i.TxIDStore.Get(i.TxID)
+	tx, err := i.VaultStore.GetTxStatus(i.TxID)
 	if err != nil {
 		return err
 	}
-	if code == i.vcProvider.Valid() {
+	i.Logger.Infof("found it at version [%v]", tx.Code)
+	if tx.Code == driver.Valid {
 		return errors.Errorf("duplicate txid %s", i.TxID)
 	}
 
@@ -256,6 +257,7 @@ func (i *Interceptor[V]) GetStateMetadata(namespace, key string, opts ...driver.
 		i.RUnlock()
 
 		version, in := i.Rws.ReadSet.Get(namespace, key)
+		i.Logger.Infof("got states: [%v] - [%v]", version, vaultVersion)
 		if in {
 			if !i.VersionComparator.Equal(version, vaultVersion) {
 				return nil, errors.Errorf("invalid metadata read: previous value returned at version [%v], current value at version [%v]", version, vaultVersion)
@@ -309,8 +311,10 @@ func (i *Interceptor[V]) GetState(namespace driver.Namespace, key driver.PKey, o
 			return nil, err
 		}
 		i.RUnlock()
-		vaultVersion := vv.Version
-
+		var vaultVersion Version
+		if vv != nil {
+			vaultVersion = vv.Version
+		}
 		version, in := i.Rws.ReadSet.Get(namespace, key)
 		if in {
 			if !i.VersionComparator.Equal(version, vaultVersion) {
@@ -319,7 +323,9 @@ func (i *Interceptor[V]) GetState(namespace driver.Namespace, key driver.PKey, o
 		} else {
 			i.Rws.ReadSet.Add(namespace, key, vaultVersion)
 		}
-
+		if vv == nil {
+			return []byte(nil), nil
+		}
 		return vv.Raw, nil
 
 	case driver.FromIntermediate:
@@ -387,7 +393,7 @@ func (i *Interceptor[V]) Equals(other interface{}, nss ...string) error {
 }
 
 func (i *Interceptor[V]) Done() {
-	i.Logger.Debugf("Done with [%s], closed [%v]", i.TxID, i.IsClosed())
+	i.Logger.Infof("Done with [%s], closed [%v]", i.TxID, i.IsClosed())
 	i.Lock()
 	defer i.Unlock()
 	if !i.Closed {

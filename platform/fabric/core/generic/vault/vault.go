@@ -9,10 +9,10 @@ package vault
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault/txidstore"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/vault/cache"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger/fabric-protos-go/ledger/rwset"
@@ -22,28 +22,14 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-type (
-	TXIDStore       = vault.TXIDStore[fdriver.ValidationCode]
-	Vault           = vault.Vault[fdriver.ValidationCode]
-	TXIDStoreReader = vault.TXIDStoreReader[fdriver.ValidationCode]
-	SimpleTXIDStore = txidstore.SimpleTXIDStore[fdriver.ValidationCode]
-)
-
-// NewTXIDStore returns a new instance of SimpleTXIDStore
-func NewTXIDStore(persistence txidstore.UnversionedPersistence) (*SimpleTXIDStore, error) {
-	return txidstore.NewSimpleTXIDStore[fdriver.ValidationCode](
-		persistence,
-		&fdriver.ValidationCodeProvider{},
-	)
-}
+type Vault = vault.Vault[fdriver.ValidationCode]
 
 // NewVault returns a new instance of Vault
-func NewVault(store vault.VersionedPersistence, txIDStore TXIDStore, metricsProvider metrics.Provider, tracerProvider trace.TracerProvider) *Vault {
+func NewVault(vaultStore cache.CachedVaultStore, metricsProvider metrics.Provider, tracerProvider trace.TracerProvider) *Vault {
 	return vault.New[fdriver.ValidationCode](
 		logging.MustGetLogger("fabric-sdk.generic.vault"),
-		store,
-		txIDStore,
-		&fdriver.ValidationCodeProvider{},
+		vaultStore,
+		fdriver.ValidationCodeProvider,
 		newInterceptor,
 		NewPopulator(),
 		metricsProvider,
@@ -52,14 +38,14 @@ func NewVault(store vault.VersionedPersistence, txIDStore TXIDStore, metricsProv
 	)
 }
 
-func newInterceptor(logger vault.Logger, rwSet vault.ReadWriteSet, qe vault.VersionedQueryExecutor, txIDStore TXIDStoreReader, txID string) vault.TxInterceptor {
+func newInterceptor(logger vault.Logger, rwSet vault.ReadWriteSet, qe vault.VersionedQueryExecutor, vaultStore vault.TxStatusStore, txID string) vault.TxInterceptor {
 	return vault.NewInterceptor[fdriver.ValidationCode](
 		logger,
 		rwSet,
 		qe,
-		txIDStore,
+		vaultStore,
 		txID,
-		&fdriver.ValidationCodeProvider{},
+		fdriver.ValidationCodeProvider,
 		&marshaller{},
 		&vault.BlockTxIndexVersionComparator{},
 	)

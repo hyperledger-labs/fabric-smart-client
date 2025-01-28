@@ -46,16 +46,12 @@ func newBindingStore(in struct {
 	Config  driver.ConfigService
 	Drivers []driver2.NamedDriver `group:"db-drivers"`
 }) (driver4.BindingStore, error) {
-	driverName := driver4.PersistenceType(in.Config.GetString("fsc.binding.persistence.type"))
-	if !SupportedStores.Contains(driverName) {
+	if store, err := binding.NewWithConfig(in.Drivers, in.Config, "default"); err != nil {
+		logger.Errorf("failed creating store for binding: %v. Default to KVS", err)
 		return binding.NewKVSBased(in.KVS), nil
+	} else {
+		return store, nil
 	}
-	for _, d := range in.Drivers {
-		if d.Name == driverName {
-			return binding.NewWithConfig(d.Driver, "_default", in.Config)
-		}
-	}
-	return nil, errors.New("driver not found")
 }
 
 func newSignerInfoStore(in struct {
@@ -64,16 +60,12 @@ func newSignerInfoStore(in struct {
 	Config  driver.ConfigService
 	Drivers []driver2.NamedDriver `group:"db-drivers"`
 }) (driver4.SignerInfoStore, error) {
-	driverName := driver4.PersistenceType(in.Config.GetString("fsc.signerinfo.persistence.type"))
-	if !SupportedStores.Contains(driverName) {
+	if store, err := signerinfo.NewWithConfig(in.Drivers, in.Config, "default"); err != nil {
+		logger.Errorf("failed creating store for signerinfo: %v. Default to KVS", err)
 		return signerinfo.NewKVSBased(in.KVS), nil
+	} else {
+		return store, nil
 	}
-	for _, d := range in.Drivers {
-		if d.Name == driverName {
-			return signerinfo.NewWithConfig(d.Driver, "_default", in.Config)
-		}
-	}
-	return nil, errors.New("driver not found")
 }
 
 func newAuditInfoStore(in struct {
@@ -82,16 +74,12 @@ func newAuditInfoStore(in struct {
 	Config  driver.ConfigService
 	Drivers []driver2.NamedDriver `group:"db-drivers"`
 }) (driver4.AuditInfoStore, error) {
-	driverName := driver4.PersistenceType(in.Config.GetString("fsc.auditinfo.persistence.type"))
-	if !SupportedStores.Contains(driverName) {
+	if store, err := auditinfo.NewWithConfig(in.Drivers, in.Config, "default"); err != nil {
+		logger.Errorf("failed creating store for auditinfo: %v. Default to KVS", err)
 		return auditinfo.NewKVSBased(in.KVS), nil
+	} else {
+		return store, nil
 	}
-	for _, d := range in.Drivers {
-		if d.Name == driverName {
-			return auditinfo.NewWithConfig(d.Driver, "_default", in.Config)
-		}
-	}
-	return nil, errors.New("driver not found")
 }
 
 func newKMSDriver(in struct {

@@ -18,22 +18,22 @@ import (
 func TestSqlite(t *testing.T) {
 	tempDir := t.TempDir()
 	common2.TestCases(t, func(name string) (driver.TransactionalVersionedPersistence, error) {
-		p, err := NewVersioned(versionedOpts(name, tempDir), "test")
+		p, err := NewVersioned(dbOpts(name, tempDir), "test")
 		assert.NoError(t, err)
 		assert.NoError(t, p.CreateSchema())
 		return p, nil
 	}, func(name string) (driver.UnversionedPersistence, error) {
-		p, err := NewUnversioned(unversionedOpts(name, tempDir), "test")
+		p, err := NewUnversioned(dbOpts(name, tempDir), "test")
 		assert.NoError(t, err)
 		assert.NoError(t, p.CreateSchema())
 		return p, nil
 	}, func(name string) (driver.UnversionedNotifier, error) {
-		p, err := NewUnversionedNotifier(unversionedOpts(name, tempDir), "test")
+		p, err := NewUnversionedNotifier(dbOpts(name, tempDir), "test")
 		assert.NoError(t, err)
 		assert.NoError(t, p.Persistence.CreateSchema())
 		return p, nil
 	}, func(name string) (driver.VersionedNotifier, error) {
-		p, err := NewVersionedNotifier(versionedOpts(name, tempDir), "test")
+		p, err := NewVersionedNotifier(dbOpts(name, tempDir), "test")
 		assert.NoError(t, err)
 		assert.NoError(t, p.Persistence.CreateSchema())
 		return p, nil
@@ -51,6 +51,6 @@ func TestGetSqliteDir(t *testing.T) {
 }
 
 func TestFolderDoesNotExistError(t *testing.T) {
-	_, err := NewUnversioned(unversionedOpts("folder-does-not-exist", "/this/folder/does/not/exist"), "test")
+	_, err := NewUnversioned(dbOpts("folder-does-not-exist", "/this/folder/does/not/exist"), "test")
 	assert.Error(t, err, "error opening db: can't open sqlite database, does the folder exist?")
 }

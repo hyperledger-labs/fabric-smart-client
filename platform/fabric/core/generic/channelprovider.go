@@ -9,6 +9,7 @@ package generic
 import (
 	"context"
 
+	driver3 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/chaincode"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/delivery"
@@ -22,6 +23,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
+	vault2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/vault"
 	"github.com/hyperledger/fabric-protos-go/common"
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
@@ -29,11 +31,10 @@ import (
 
 type VaultConstructor = func(
 	configService driver.ConfigService,
-	channel string,
-	drivers []driver2.NamedDriver,
+	vaultStore driver3.VaultStore,
 	metricsProvider metrics.Provider,
 	tracerProvider trace.TracerProvider,
-) (*vault.Vault, driver.TXIDStore, error)
+) *vault.Vault
 type LedgerConstructor func(
 	channelName string,
 	nw driver.FabricNetworkService,
@@ -134,18 +135,12 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 		return nil, err
 	}
 
-	// Vault
-	vault, txIDStore, err := p.newVault(
-		nw.ConfigService(),
-		channelName,
-		p.drivers,
-		p.metricsProvider,
-		p.tracerProvider,
-	)
+	vaultStore, err := vault2.NewWithConfig(p.drivers, nw.ConfigService(), nw.Name(), channelName)
 	if err != nil {
 		return nil, err
 	}
 
+	vault := p.newVault(nw.ConfigService(), vaultStore, p.metricsProvider, p.tracerProvider)
 	envelopeService := transaction.NewEnvelopeService(p.envelopeKVS, nw.Name(), channelName)
 	transactionService := transaction.NewEndorseTransactionService(p.endorserTxKVS, nw.Name(), channelName)
 	metadataService := transaction.NewMetadataService(p.metadataKVS, nw.Name(), channelName)
@@ -238,7 +233,7 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 		peerService,
 		ledgerService,
 		channelConfig.CommitterWaitForEventTimeout(),
-		txIDStore,
+		vaultStore,
 		nw.TransactionManager(),
 		func(ctx context.Context, block *common.Block) (bool, error) {
 			// commit the block, if an error occurs then retry
@@ -258,7 +253,7 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 		ChannelName:              channelName,
 		FinalityService:          finalityService,
 		VaultService:             vault,
-		TXIDStoreService:         txIDStore,
+		VaultStoreService:        vaultStore,
 		ES:                       envelopeService,
 		TS:                       transactionService,
 		MS:                       metadataService,

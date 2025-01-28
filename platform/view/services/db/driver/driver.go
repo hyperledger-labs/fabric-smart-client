@@ -57,6 +57,8 @@ type MetadataPersistence = driver.MetadataStore[string, []byte]
 
 type EnvelopePersistence = driver.EnvelopeStore[string]
 
+type VaultPersistence = driver.VaultStore
+
 type BasePersistence[V any, R any] interface {
 	// SetState sets the given value for the given namespace, key, and version
 	SetState(namespace driver.Namespace, key driver.PKey, value V) error
@@ -150,14 +152,8 @@ type Config interface {
 type NamedDriver = driver.NamedDriver[Driver]
 
 type Driver interface {
-	// NewTransactionalVersioned returns a new TransactionalVersionedPersistence for the passed data source and config
-	NewTransactionalVersioned(dataSourceName string, config Config) (TransactionalVersionedPersistence, error)
-	// NewVersioned returns a new VersionedPersistence for the passed data source and config
-	NewVersioned(dataSourceName string, config Config) (VersionedPersistence, error)
-	// NewUnversioned returns a new UnversionedPersistence for the passed data source and config
-	NewUnversioned(dataSourceName string, config Config) (UnversionedPersistence, error)
 	// NewTransactionalUnversioned returns a new TransactionalUnversionedPersistence for the passed data source and config
-	NewTransactionalUnversioned(dataSourceName string, config Config) (TransactionalUnversionedPersistence, error)
+	NewKVS(dataSourceName string, config Config) (TransactionalUnversionedPersistence, error)
 	// NewBinding returns a new BindingPersistence for the passed data source and config
 	NewBinding(dataSourceName string, config Config) (BindingPersistence, error)
 	// NewSignerInfo returns a new SignerInfoPersistence for the passed data source and config
@@ -170,6 +166,8 @@ type Driver interface {
 	NewMetadata(string, Config) (MetadataPersistence, error)
 	// NewEnvelope returns a new EnvelopePersistence for the passed data source and config
 	NewEnvelope(string, Config) (EnvelopePersistence, error)
+	// NewTxCode returns a new VaultPersistence for the passed data source and config
+	NewVault(dataSourceName string, config Config) (driver.VaultStore, error)
 }
 
 type (
