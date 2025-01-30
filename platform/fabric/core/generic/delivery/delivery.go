@@ -167,8 +167,8 @@ func (d *Delivery) readBlocks(ch <-chan blockResponse) {
 				d.Stop(nil)
 				return
 			}
-		case <-d.stop:
-			logger.Debugf("stopping delivery service")
+		case err := <-d.stop:
+			logger.Debugf("stopping delivery service with err [%s]", err)
 			return
 		}
 	}
@@ -275,7 +275,7 @@ func (d *Delivery) runReceiver(ctx context.Context, ch chan<- blockResponse) {
 
 func (d *Delivery) untilStop() error {
 	for err := range d.stop {
-		logger.Debugf("stopping delivery service")
+		logger.Debugf("stopping delivery service with error [%s]", err)
 		return err
 	}
 	return nil
