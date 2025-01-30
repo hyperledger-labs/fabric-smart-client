@@ -84,9 +84,9 @@ func (m *txInfoMapper) MapTxData(ctx context.Context, tx []byte, block *common.B
 	}
 
 	txInfos := make(map[driver2.Namespace]txInfo, len(rwSet.WriteSet.Writes))
-	logger.Infof("TX [%s] has %d namespaces", chdr.TxId, len(rwSet.WriteSet.Writes))
+	logger.Debugf("TX [%s] has %d namespaces", chdr.TxId, len(rwSet.WriteSet.Writes))
 	for ns, write := range rwSet.WriteSet.Writes {
-		logger.Infof("TX [%s:%s] has %d writes", chdr.TxId, ns, len(write))
+		logger.Debugf("TX [%s:%s] has %d writes", chdr.TxId, ns, len(write))
 		txInfos[ns] = txInfo{
 			txID:    chdr.TxId,
 			status:  finalityEvent.ValidationCode,

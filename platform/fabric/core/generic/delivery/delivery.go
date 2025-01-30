@@ -161,12 +161,12 @@ func (d *Delivery) readBlocks(ch <-chan blockResponse) {
 				logger.Errorf("callback errored for block %d: %v", b.block.Header.Number, err)
 			}
 			if stop {
-				logger.Infof("Stopping delivery at block [%d]", b.block.Header.Number)
+				logger.Debugf("Stopping delivery at block [%d]", b.block.Header.Number)
 				d.Stop(nil)
 				return
 			}
 		case <-d.stop:
-			logger.Infof("Stopping delivery service")
+			logger.Debugf("Stopping delivery service")
 			return
 		}
 	}
@@ -183,15 +183,15 @@ func (d *Delivery) runReceiver(ctx context.Context, ch chan<- blockResponse) {
 	for {
 		select {
 		case <-d.stop:
-			logger.Infof("Stopped receiver")
+			logger.Debugf("Stopped receiver")
 			return
 		default:
 			select {
 			case <-d.stop:
-				logger.Infof("Stopped receiver")
+				logger.Debugf("Stopped receiver")
 				return
 			case <-ctx.Done():
-				logger.Infof("Context done")
+				logger.Debugf("Context done")
 				// Time to cancel
 				d.Stop(errors.New("context done"))
 			default:
@@ -273,7 +273,7 @@ func (d *Delivery) runReceiver(ctx context.Context, ch chan<- blockResponse) {
 
 func (d *Delivery) untilStop() error {
 	for err := range d.stop {
-		logger.Infof("Stopping delivery service")
+		logger.Debugf("Stopping delivery service")
 		return err
 	}
 	return nil
