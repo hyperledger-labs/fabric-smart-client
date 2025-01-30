@@ -315,10 +315,10 @@ func (c *Committer) CommitConfig(blockNumber uint64, raw []byte, env *common.Env
 	}
 	switch vc {
 	case driver.Valid:
-		c.logger.Infof("config block [%s] already committed, skip it.", txID)
+		c.logger.Debugf("config block [%s] already committed, skip it.", txID)
 		return nil
 	case driver.Unknown:
-		c.logger.Infof("config block [%s] not committed, commit it.", txID)
+		c.logger.Debugf("config block [%s] not committed, commit it.", txID)
 		// this is okay
 	default:
 		return errors.Errorf("invalid configtx's [%s] status [%d]", txID, vc)
@@ -494,7 +494,7 @@ func (c *Committer) ReloadConfigTransactions() error {
 	}
 	defer qe.Done()
 
-	c.logger.Infof("looking up the latest config block available")
+	c.logger.Debugf("looking up the latest config block available")
 	var sequence uint64 = 0
 	for {
 		txID := ConfigTXPrefix + strconv.FormatUint(sequence, 10)
@@ -502,11 +502,11 @@ func (c *Committer) ReloadConfigTransactions() error {
 		if err != nil {
 			return errors.WithMessagef(err, "failed getting tx's status [%s]", txID)
 		}
-		c.logger.Infof("check config block at txID [%s], status [%v]...", txID, vc)
+		c.logger.Debugf("check config block at txID [%s], status [%v]...", txID, vc)
 		done := false
 		switch vc {
 		case driver.Valid:
-			c.logger.Infof("config block available, txID [%s], loading...", txID)
+			c.logger.Debugf("config block available, txID [%s], loading...", txID)
 
 			key, err := rwset.CreateCompositeKey(channelConfigKey, []string{strconv.FormatUint(sequence, 10)})
 			if err != nil {
@@ -567,22 +567,22 @@ func (c *Committer) ReloadConfigTransactions() error {
 				continue
 			}
 
-			c.logger.Infof("config block at txID [%s] unavailable, stop loading", txID)
+			c.logger.Debugf("config block at txID [%s] unavailable, stop loading", txID)
 			done = true
 		default:
 			return errors.Errorf("invalid configtx's [%s] status [%d]", txID, vc)
 		}
 		if done {
-			c.logger.Infof("loading config block done")
+			c.logger.Debugf("loading config block done")
 			break
 		}
 	}
 	if sequence == 1 {
-		c.logger.Infof("no config block available, must start from genesis")
+		c.logger.Debugf("no config block available, must start from genesis")
 		// no configuration block found
 		return nil
 	}
-	c.logger.Infof("latest config block available at sequence [%d]", sequence-1)
+	c.logger.Debugf("latest config block available at sequence [%d]", sequence-1)
 
 	return nil
 }
@@ -695,7 +695,7 @@ func (c *Committer) listenTo(ctx context.Context, txID string, timeout time.Dura
 }
 
 func (c *Committer) commitConfig(txID string, blockNumber uint64, seq uint64, envelope []byte) error {
-	c.logger.Infof("[Channel: %s] commit config transaction number [bn:%d][seq:%d]", c.ChannelConfig.ID(), blockNumber, seq)
+	c.logger.Debugf("[Channel: %s] commit config transaction number [bn:%d][seq:%d]", c.ChannelConfig.ID(), blockNumber, seq)
 
 	rws, err := c.Vault.NewRWSet(txID)
 	if err != nil {
@@ -844,7 +844,7 @@ func (c *Committer) applyBundle(bundle *channelconfig.Bundle) error {
 	// update the list of orderers
 	ordererConfig, exists := c.MembershipService.ChannelResources.OrdererConfig()
 	if !exists {
-		c.logger.Infof("no orderer configuration found in Channel config")
+		c.logger.Debugf("no orderer configuration found in Channel config")
 		return nil
 	}
 	c.logger.Debugf("[Channel: %s] Orderer config has changed, updating the list of orderers", c.ChannelConfig.ID())
@@ -885,7 +885,7 @@ func (c *Committer) applyBundle(bundle *channelconfig.Bundle) error {
 		// https://hyperledger-fabric.readthedocs.io/en/latest/upgrade_to_newest_version.html#define-ordering-node-endpoint-per-org
 		addr := bundle.ChannelConfig().OrdererAddresses()
 		if len(newOrderers) == 0 && len(orgs) == 1 && len(addr) > 0 {
-			c.logger.Infof("falling back to OrdererAddresses field in channel config (deprecated, please refer to Fabric docs)")
+			c.logger.Debugf("falling back to OrdererAddresses field in channel config (deprecated, please refer to Fabric docs)")
 			for _, endpoint := range addr {
 				if len(endpoint) == 0 {
 					c.logger.Debugf("[Channel: %s] empty orderer address, skipping", c.ChannelConfig.ID())
@@ -906,7 +906,7 @@ func (c *Committer) applyBundle(bundle *channelconfig.Bundle) error {
 		c.logger.Debugf("[Channel: %s] Updating the list of orderers: (%d) found", c.ChannelConfig.ID(), len(newOrderers))
 		return c.OrderingService.Configure(ordererConfig.ConsensusType(), newOrderers)
 	}
-	c.logger.Infof("[Channel: %s] No orderers found in Channel config", c.ChannelConfig.ID())
+	c.logger.Debugf("[Channel: %s] No orderers found in Channel config", c.ChannelConfig.ID())
 
 	return nil
 }
