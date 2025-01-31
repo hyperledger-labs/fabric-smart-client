@@ -13,6 +13,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/session"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type Response struct {
@@ -37,12 +38,15 @@ func NewParallelCollectEndorsementsOnProposalView(tx *Transaction, parties ...vi
 }
 
 func (c *parallelCollectEndorsementsOnProposalView) Call(context view.Context) (interface{}, error) {
+	span := trace.SpanFromContext(context.Context())
+
 	// send Transaction to each party and wait for their responses
 	stateRaw, err := c.tx.Bytes()
 	if err != nil {
 		return nil, err
 	}
 	answerChannel := make(chan *answer, len(c.parties))
+	span.AddEvent("collect_endorsements")
 	logger.Debugf("Collect endorsements from %d parties for TX [%s]", len(c.parties), c.tx.ID())
 	for _, party := range c.parties {
 		go c.collectEndorsement(context, party, stateRaw, answerChannel)
@@ -54,8 +58,10 @@ func (c *parallelCollectEndorsementsOnProposalView) Call(context view.Context) (
 	}
 	tm := fns.TransactionManager()
 	for i := 0; i < len(c.parties); i++ {
+		span.AddEvent("wait_for_endorsement")
 		// TODO: put a timeout
 		a := <-answerChannel
+		span.AddEvent("received_endorsement")
 		if a.err != nil {
 			return nil, errors.Wrapf(a.err, "got failure [%s] from [%s]", a.party.String(), a.err)
 		}
@@ -63,6 +69,7 @@ func (c *parallelCollectEndorsementsOnProposalView) Call(context view.Context) (
 		logger.Debugf("answer from [%s] contains [%d] responses, adding them", a.party, len(a.prs))
 
 		for _, pr := range a.prs {
+			span.AddEvent("new_proposal_from_bytes")
 			proposalResponse, err := tm.NewProposalResponseFromBytes(pr)
 			if err != nil {
 				return nil, errors.Wrap(err, "failed unmarshalling received proposal response")
@@ -70,6 +77,7 @@ func (c *parallelCollectEndorsementsOnProposalView) Call(context view.Context) (
 
 			// TODO: check the validity of the response
 
+			span.AddEvent("append_proposal")
 			err = c.tx.AppendProposalResponse(proposalResponse)
 			if err != nil {
 				return nil, errors.Wrapf(a.err, "failed appending response from [%s]", a.party.String())

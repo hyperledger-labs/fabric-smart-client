@@ -8,6 +8,7 @@ package common
 
 import (
 	"bytes"
+	"context"
 	"database/sql"
 	errors2 "errors"
 	"fmt"
@@ -16,6 +17,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type VaultTables struct {
@@ -59,7 +61,7 @@ func (db *VaultPersistence) ReleaseRLocks(txIDs ...driver.TxID) {
 	db.lockManager.ReleaseRLocks(txIDs...)
 }
 
-func (db *VaultPersistence) AcquireTxIDRLock(txID driver.TxID) (driver.VaultLock, error) {
+func (db *VaultPersistence) AcquireTxIDRLock(ctx context.Context, txID driver.TxID) (driver.VaultLock, error) {
 	logger.Debugf("Attempt to acquire lock for [%s]", txID)
 	lock, err := db.lockManager.AcquireTxIDRLock(txID)
 	if err != nil {
@@ -82,11 +84,17 @@ func (db *VaultPersistence) AcquireTxIDRLock(txID driver.TxID) (driver.VaultLock
 	return lock, nil
 }
 
-func (db *VaultPersistence) AcquireGlobalLock() (driver.VaultLock, error) {
+func (db *VaultPersistence) AcquireGlobalLock(ctx context.Context) (driver.VaultLock, error) {
+	span := trace.SpanFromContext(ctx)
+	span.AddEvent("start_acquire_global_lock")
+	defer span.AddEvent("end_acquire_global_lock")
 	return db.lockManager.AcquireGlobalRLock()
 }
 
-func (db *VaultPersistence) GetStateMetadata(namespace driver.Namespace, key driver.PKey) (driver.Metadata, driver.RawVersion, error) {
+func (db *VaultPersistence) GetStateMetadata(ctx context.Context, namespace driver.Namespace, key driver.PKey) (driver.Metadata, driver.RawVersion, error) {
+	span := trace.SpanFromContext(ctx)
+	span.AddEvent("start_get_state_metadata")
+	defer span.AddEvent("end_get_state_metadata")
 	namespace, err := db.sanitizer.Encode(namespace)
 	if err != nil {
 		return nil, nil, err
@@ -116,20 +124,26 @@ func (db *VaultPersistence) GetStateMetadata(namespace driver.Namespace, key dri
 
 	return meta, kversion, err
 }
-func (db *VaultPersistence) GetState(namespace driver.Namespace, key driver.PKey) (*driver.VersionedRead, error) {
-	it, err := db.GetStates(namespace, key)
+func (db *VaultPersistence) GetState(ctx context.Context, namespace driver.Namespace, key driver.PKey) (*driver.VersionedRead, error) {
+	it, err := db.GetStates(ctx, namespace, key)
 	if err != nil {
 		return nil, err
 	}
 	return collections.GetUnique(it)
 }
-func (db *VaultPersistence) GetStates(namespace driver.Namespace, keys ...driver.PKey) (driver.TxStateIterator, error) {
+func (db *VaultPersistence) GetStates(ctx context.Context, namespace driver.Namespace, keys ...driver.PKey) (driver.TxStateIterator, error) {
+	span := trace.SpanFromContext(ctx)
+	span.AddEvent("start_get_states")
+	defer span.AddEvent("end_get_states")
 	return db.queryState(Where(db.ci.And(db.ci.Cmp("ns", "=", namespace), db.ci.InStrings("pkey", keys))))
 }
-func (db *VaultPersistence) GetStateRange(namespace driver.Namespace, startKey, endKey driver.PKey) (driver.TxStateIterator, error) {
+func (db *VaultPersistence) GetStateRange(ctx context.Context, namespace driver.Namespace, startKey, endKey driver.PKey) (driver.TxStateIterator, error) {
+	span := trace.SpanFromContext(ctx)
+	span.AddEvent("start_get_state_range")
+	defer span.AddEvent("end_get_state_range")
 	return db.queryState(Where(db.ci.And(db.ci.Cmp("ns", "=", namespace), db.ci.BetweenStrings("pkey", startKey, endKey))))
 }
-func (db *VaultPersistence) GetAllStates(namespace driver.Namespace) (driver.TxStateIterator, error) {
+func (db *VaultPersistence) GetAllStates(_ context.Context, namespace driver.Namespace) (driver.TxStateIterator, error) {
 	return db.queryState(Where(db.ci.Cmp("ns", "=", namespace)))
 }
 
@@ -147,7 +161,10 @@ func (db *VaultPersistence) queryState(where string, params []any) (driver.TxSta
 	return &TxStateIterator{rows: rows, decoder: db.sanitizer}, nil
 }
 
-func (db *VaultPersistence) SetStatuses(code driver.TxStatusCode, message string, txIDs ...driver.TxID) error {
+func (db *VaultPersistence) SetStatuses(ctx context.Context, code driver.TxStatusCode, message string, txIDs ...driver.TxID) error {
+	span := trace.SpanFromContext(ctx)
+	span.AddEvent("start_set_statuses")
+	defer span.AddEvent("end_set_statuses")
 	if err := db.AcquireWLocks(txIDs...); err != nil {
 		return err
 	}
@@ -212,7 +229,7 @@ func (db *VaultPersistence) UpsertStates(writes driver.Writes, metaWrites driver
 	return query, params, nil
 }
 
-func (db *VaultPersistence) UpdateStatusesValid(txIDs []driver.TxID, offset int) (string, []any) {
+func (db *VaultPersistence) SetStatusesValid(txIDs []driver.TxID, offset int) (string, []any) {
 	params := append([]any{driver.Valid}, ToAnys(txIDs)...)
 	query := fmt.Sprintf(`
 		UPDATE %s
@@ -290,27 +307,36 @@ func (db *VaultPersistence) convertStateRows(writes driver.Writes, metaWrites dr
 	return states, nil
 }
 
-func (db *VaultPersistence) GetLast() (*driver.TxStatus, error) {
+func (db *VaultPersistence) GetLast(ctx context.Context) (*driver.TxStatus, error) {
+	span := trace.SpanFromContext(ctx)
+	span.AddEvent("start_get_last")
+	defer span.AddEvent("end_get_last")
 	it, err := db.queryStatus(fmt.Sprintf("WHERE pos=(SELECT max(pos) FROM %s WHERE code!=$1)", db.tables.StatusTable), []any{driver.Busy})
 	if err != nil {
 		return nil, err
 	}
 	return collections.GetUnique(it)
 }
-func (db *VaultPersistence) GetTxStatus(txID driver.TxID) (*driver.TxStatus, error) {
+func (db *VaultPersistence) GetTxStatus(ctx context.Context, txID driver.TxID) (*driver.TxStatus, error) {
+	span := trace.SpanFromContext(ctx)
+	span.AddEvent("start_get_tx_status")
+	defer span.AddEvent("end_get_tx_status")
 	it, err := db.queryStatus(Where(db.ci.Cmp("tx_id", "=", txID)))
 	if err != nil {
 		return nil, err
 	}
 	return collections.GetUnique(it)
 }
-func (db *VaultPersistence) GetTxStatuses(txIDs ...driver.TxID) (driver.TxStatusIterator, error) {
+func (db *VaultPersistence) GetTxStatuses(ctx context.Context, txIDs ...driver.TxID) (driver.TxStatusIterator, error) {
+	span := trace.SpanFromContext(ctx)
+	span.AddEvent("start_get_tx_statuses")
+	defer span.AddEvent("end_get_tx_statuses")
 	if len(txIDs) == 0 {
 		return collections.NewEmptyIterator[*driver.TxStatus](), nil
 	}
 	return db.queryStatus(Where(db.ci.InStrings("tx_id", txIDs)))
 }
-func (db *VaultPersistence) GetAllTxStatuses() (driver.TxStatusIterator, error) {
+func (db *VaultPersistence) GetAllTxStatuses(context.Context) (driver.TxStatusIterator, error) {
 	return db.queryStatus("", []any{})
 }
 

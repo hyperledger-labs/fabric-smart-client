@@ -47,7 +47,7 @@ func (a *AgreeToSellView) Call(context view.Context) (interface{}, error) {
 	vault, err := state.GetVault(context)
 	assert.NoError(err)
 	assert.NoError(
-		vault.GetState("asset_transfer", assetID, asset),
+		vault.GetState(context.Context(), "asset_transfer", assetID, asset),
 		"failed loading asset [%s]", assetID,
 	)
 

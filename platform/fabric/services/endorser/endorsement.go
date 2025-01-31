@@ -92,6 +92,7 @@ func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error
 
 		timeout := time.NewTimer(time.Minute)
 
+		span.AddEvent("wait_tx")
 		// Wait for the answer
 		var msg *view.Message
 		select {
@@ -221,7 +222,7 @@ func (s *endorseView) Call(context view.Context) (interface{}, error) {
 	if err != nil {
 		return nil, errors.WithMessagef(err, "failed getting channel [%s]", s.tx.Channel())
 	}
-	err = ch.Vault().StoreTransaction(s.tx.ID(), txRaw)
+	err = ch.Vault().StoreTransaction(context.Context(), s.tx.ID(), txRaw)
 	if err != nil {
 		return nil, errors.WithMessagef(err, "failed storing tx env [%s]", s.tx.ID())
 	}

@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package driver
 
 import (
+	"context"
+
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 )
 
@@ -19,5 +21,5 @@ type (
 // Vault models a key value store that can be updated by committing rwsets
 type Vault interface {
 	driver2.Vault[ValidationCode]
-	GetLastTxID() (string, error)
+	GetLastTxID(context.Context) (string, error)
 }

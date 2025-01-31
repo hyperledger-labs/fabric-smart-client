@@ -6,6 +6,12 @@ SPDX-License-Identifier: Apache-2.0
 
 package state
 
+import (
+	"context"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+)
+
 type CommonIteratorInterface interface {
 	// HasNext returns true if the range query iterator contains additional keys
 	// and values.
@@ -26,11 +32,11 @@ type QueryIteratorInterface interface {
 // Vault models a container of states
 type Vault interface {
 	// GetState loads the state identified by the tuple [namespace, id] into the passed state reference.
-	GetState(namespace string, id string, state interface{}) error
+	GetState(ctx context.Context, namespace driver.Namespace, id driver.PKey, state interface{}) error
 
-	GetStateCertification(namespace string, key string) ([]byte, error)
+	GetStateCertification(ctx context.Context, namespace driver.Namespace, key driver.PKey) ([]byte, error)
 
-	GetStateByPartialCompositeID(ns string, prefix string, attrs []string) (QueryIteratorInterface, error)
+	GetStateByPartialCompositeID(ctx context.Context, ns driver.Namespace, prefix string, attrs []string) (QueryIteratorInterface, error)
 }
 
 // VaultService models a vault instance provider

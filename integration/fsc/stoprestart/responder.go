@@ -20,8 +20,7 @@ import (
 type Responder struct{}
 
 func (p *Responder) Call(context view.Context) (interface{}, error) {
-	span := context.StartSpan("call_responder_view", trace.WithSpanKind(trace.SpanKindInternal))
-	defer span.End()
+	span := trace.SpanFromContext(context.Context())
 
 	// Retrieve the session opened by the initiator
 	session := context.Session()

@@ -7,7 +7,10 @@ SPDX-License-Identifier: Apache-2.0
 package generic
 
 import (
+	"context"
+
 	driver3 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	api2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
@@ -28,7 +31,7 @@ type Vault struct {
 }
 
 type lastTxGetter interface {
-	GetLast() (*driver3.TxStatus, error)
+	GetLast(ctx context.Context) (*driver3.TxStatus, error)
 }
 
 func NewVault(network Network, vaultStore driver2.VaultPersistence, metricsProvider metrics.Provider, tracerProvider trace.TracerProvider) (*Vault, error) {
@@ -39,24 +42,27 @@ func NewVault(network Network, vaultStore driver2.VaultPersistence, metricsProvi
 	}, nil
 }
 
-func (v *Vault) GetLastTxID() (driver3.TxID, error) {
-	tx, err := v.vaultStore.GetLast()
+func (v *Vault) GetLastTxID(ctx context.Context) (string, error) {
+	tx, err := v.vaultStore.GetLast(ctx)
 	if err != nil {
 		return "", err
 	}
 	return tx.TxID, nil
 }
 
-func (v *Vault) NewRWSet(txID string) (driver.RWSet, error) {
-	return v.Vault.NewRWSet(txID)
+func (v *Vault) NewRWSet(ctx context.Context, txID driver3.TxID) (api2.RWSet, error) {
+	return v.Vault.NewRWSet(ctx, txID)
 }
 
-func (v *Vault) GetRWSet(id string, results []byte) (driver.RWSet, error) {
-	return v.Vault.GetRWSet(id, results)
+func (v *Vault) GetRWSet(ctx context.Context, id string, results []byte) (driver.RWSet, error) {
+	return v.Vault.GetRWSet(ctx, id, results)
 }
 
-func (v *Vault) Status(txID string) (driver.ValidationCode, string, error) {
-	vc, message, err := v.Vault.Status(txID)
+func (v *Vault) Status(ctx context.Context, txID driver3.TxID) (driver.ValidationCode, string, error) {
+	span := trace.SpanFromContext(ctx)
+	span.AddEvent("start_status")
+	defer span.AddEvent("end_status")
+	vc, message, err := v.Vault.Status(ctx, txID)
 	if err != nil {
 		return driver.Unknown, "", err
 	}
@@ -78,10 +84,10 @@ func (v *Vault) Status(txID string) (driver.ValidationCode, string, error) {
 	return driver.Unknown, message, nil
 }
 
-func (v *Vault) Statuses(ids ...string) ([]driver.TxValidationStatus, error) {
+func (v *Vault) Statuses(ctx context.Context, ids ...driver3.TxID) ([]driver.TxValidationStatus, error) {
 	statuses := make([]driver.TxValidationStatus, len(ids))
 	for i, id := range ids {
-		vc, message, err := v.Status(id)
+		vc, message, err := v.Status(ctx, id)
 		if err != nil {
 			return nil, err
 		}
@@ -94,17 +100,21 @@ func (v *Vault) Statuses(ids ...string) ([]driver.TxValidationStatus, error) {
 	return statuses, nil
 }
 
-func (v *Vault) DiscardTx(txID string, message string) error {
-	vc, _, err := v.Vault.Status(txID)
+func (v *Vault) DiscardTx(ctx context.Context, txID driver3.TxID, message string) error {
+	span := trace.SpanFromContext(ctx)
+	span.AddEvent("start_discard_tx")
+	defer span.AddEvent("end_discard_tx")
+
+	vc, _, err := v.Vault.Status(ctx, txID)
 	if err != nil {
 		return errors.Wrapf(err, "failed getting tx's status in state db [%s]", txID)
 	}
 	if vc != driver.Unknown {
 		logger.Debugf("discarding transaction [%s], tx is known", txID)
-		return v.Vault.DiscardTx(txID, message)
+		return v.Vault.DiscardTx(ctx, txID, message)
 	}
 	logger.Debugf("discarding transaction [%s], tx is unknown, set status to invalid", txID)
-	if err := v.Vault.SetDiscarded(txID, message); err != nil {
+	if err := v.Vault.SetDiscarded(ctx, txID, message); err != nil {
 		logger.Errorf("failed setting tx discarded [%s] in vault: %s", txID, err)
 	}
 	return nil
@@ -121,7 +131,7 @@ func (v *Vault) extractStoredEnvelopeToVault(txID string) error {
 	if err := env.FromBytes(envRaw); err != nil {
 		return errors.Wrapf(err, "cannot unmarshal envelope [%s]", txID)
 	}
-	rws, err := v.GetRWSet(txID, env.Results())
+	rws, err := v.GetRWSet(context.Background(), txID, env.Results())
 	if err != nil {
 		return errors.Wrapf(err, "cannot unmarshal envelope [%s]", txID)
 	}

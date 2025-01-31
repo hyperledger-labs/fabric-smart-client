@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package vault
 
 import (
+	"context"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/pkg/errors"
 )
@@ -20,8 +22,8 @@ type queryExecutor struct {
 	lock       driver.VaultLock
 }
 
-func newGlobalLockQueryExecutor(vaultStore driver.VaultStore) (*queryExecutor, error) {
-	lock, err := vaultStore.AcquireGlobalLock()
+func newGlobalLockQueryExecutor(ctx context.Context, vaultStore driver.VaultStore) (*queryExecutor, error) {
+	lock, err := vaultStore.AcquireGlobalLock(ctx)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to acquire global lock")
 	}
@@ -31,8 +33,8 @@ func newGlobalLockQueryExecutor(vaultStore driver.VaultStore) (*queryExecutor, e
 	}, nil
 }
 
-func newTxLockQueryExecutor(vaultStore driver.VaultStore, txID driver.TxID) (*queryExecutor, error) {
-	lock, err := vaultStore.AcquireTxIDRLock(txID)
+func newTxLockQueryExecutor(ctx context.Context, vaultStore driver.VaultStore, txID driver.TxID) (*queryExecutor, error) {
+	lock, err := vaultStore.AcquireTxIDRLock(ctx, txID)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to acquire lock for tx [%s]", txID)
 	}
@@ -46,14 +48,14 @@ func (i *queryExecutor) Done() {
 	_ = i.lock.Release()
 }
 
-func (i *queryExecutor) GetStateMetadata(namespace driver.Namespace, key driver.PKey) (driver.Metadata, driver.RawVersion, error) {
-	return i.vaultStore.GetStateMetadata(namespace, key)
+func (i *queryExecutor) GetStateMetadata(ctx context.Context, namespace driver.Namespace, key driver.PKey) (driver.Metadata, driver.RawVersion, error) {
+	return i.vaultStore.GetStateMetadata(ctx, namespace, key)
 }
 
-func (i *queryExecutor) GetState(namespace driver.Namespace, key driver.PKey) (*VersionedRead, error) {
-	return i.vaultStore.GetState(namespace, key)
+func (i *queryExecutor) GetState(ctx context.Context, namespace driver.Namespace, key driver.PKey) (*VersionedRead, error) {
+	return i.vaultStore.GetState(ctx, namespace, key)
 }
 
-func (i *queryExecutor) GetStateRangeScanIterator(namespace driver.Namespace, startKey, endKey driver.PKey) (VersionedResultsIterator, error) {
-	return i.vaultStore.GetStateRange(namespace, startKey, endKey)
+func (i *queryExecutor) GetStateRangeScanIterator(ctx context.Context, namespace driver.Namespace, startKey, endKey driver.PKey) (VersionedResultsIterator, error) {
+	return i.vaultStore.GetStateRange(ctx, namespace, startKey, endKey)
 }

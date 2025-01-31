@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package vault
 
 import (
+	"context"
 	"testing"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
@@ -55,10 +56,10 @@ func TestVaultStorePostgres(t *testing.T) {
 }
 
 func testOneMore(t *testing.T, store driver.VaultStore) {
-	err := store.SetStatuses(driver.TxStatusCode(valid), "", "txid3")
+	err := store.SetStatuses(context.Background(), driver.TxStatusCode(valid), "", "txid3")
 	assert.NoError(t, err)
 
-	tx, err := store.GetTxStatus("txid3")
+	tx, err := store.GetTxStatus(context.Background(), "txid3")
 	assert.NoError(t, err)
 	assert.Equal(t, driver.TxStatusCode(valid), tx.Code)
 
@@ -66,15 +67,15 @@ func testOneMore(t *testing.T, store driver.VaultStore) {
 	assert.NoError(t, err)
 	assert.Equal(t, []string{"txid1", "txid2", "txid10", "txid12", "txid21", "txid100", "txid200", "txid1025", "txid3"}, txids)
 
-	last, err := store.GetLast()
+	last, err := store.GetLast(context.Background())
 	assert.NoError(t, err)
 	assert.Equal(t, "txid3", last.TxID)
 
 	// add a busy tx
-	err = store.SetStatuses(driver.TxStatusCode(busy), "", "txid4")
+	err = store.SetStatuses(context.Background(), driver.TxStatusCode(busy), "", "txid4")
 	assert.NoError(t, err)
 
-	last, err = store.GetLast()
+	last, err = store.GetLast(context.Background())
 	assert.NoError(t, err)
 	assert.Equal(t, "txid3", last.TxID)
 
@@ -84,10 +85,10 @@ func testOneMore(t *testing.T, store driver.VaultStore) {
 	assert.Equal(t, []string{"txid1", "txid2", "txid10", "txid12", "txid21", "txid100", "txid200", "txid1025", "txid3", "txid4"}, txids)
 
 	// update the busy tx
-	err = store.SetStatuses(driver.TxStatusCode(valid), "", "txid4")
+	err = store.SetStatuses(context.Background(), driver.TxStatusCode(valid), "", "txid4")
 	assert.NoError(t, err)
 
-	last, err = store.GetLast()
+	last, err = store.GetLast(context.Background())
 	assert.NoError(t, err)
 	assert.Equal(t, "txid4", last.TxID)
 
@@ -98,7 +99,7 @@ func testOneMore(t *testing.T, store driver.VaultStore) {
 }
 
 func fetchAll(store driver.VaultStore) ([]driver.TxID, error) {
-	it, err := store.GetAllTxStatuses()
+	it, err := store.GetAllTxStatuses(context.Background())
 	if err != nil {
 		return nil, err
 	}
@@ -118,11 +119,11 @@ func testVaultStore(t *testing.T, store driver.VaultStore) {
 	assert.NoError(t, err)
 	assert.Empty(t, txids)
 
-	err = store.SetStatuses(driver.TxStatusCode(valid), "",
+	err = store.SetStatuses(context.Background(), driver.TxStatusCode(valid), "",
 		"txid1", "txid2", "txid10", "txid12", "txid21", "txid100", "txid200", "txid1025")
 	assert.NoError(t, err)
 
-	itr, err := store.GetTxStatuses("txid3", "txid10")
+	itr, err := store.GetTxStatuses(context.Background(), "txid3", "txid10")
 	assert.NoError(t, err)
 	txStatuses, err := collections.ReadAll(itr)
 	assert.NoError(t, err)
@@ -130,7 +131,7 @@ func testVaultStore(t *testing.T, store driver.VaultStore) {
 	slices.ContainsFunc(txStatuses, func(s driver.TxStatus) bool { return s.TxID == "txid3" && s.Code == driver.TxStatusCode(unknown) })
 	slices.ContainsFunc(txStatuses, func(s driver.TxStatus) bool { return s.TxID == "txid10" && s.Code == driver.TxStatusCode(valid) })
 
-	last, err := store.GetLast()
+	last, err := store.GetLast(context.Background())
 	assert.NoError(t, err)
 	assert.Equal(t, "txid1025", last.TxID)
 
@@ -138,13 +139,13 @@ func testVaultStore(t *testing.T, store driver.VaultStore) {
 	assert.NoError(t, err)
 	assert.Equal(t, []string{"txid1", "txid2", "txid10", "txid12", "txid21", "txid100", "txid200", "txid1025"}, txids)
 
-	itr, err = store.GetTxStatuses("boh")
+	itr, err = store.GetTxStatuses(context.Background(), "boh")
 	assert.NoError(t, err)
 	txStatuses, err = collections.ReadAll(itr)
 	assert.NoError(t, err)
 	assert.Empty(t, txStatuses)
 
-	itr, err = store.GetTxStatuses("txid1025", "txid999", "txid21")
+	itr, err = store.GetTxStatuses(context.Background(), "txid1025", "txid999", "txid21")
 	assert.NoError(t, err)
 	txStatuses, err = collections.ReadAll(itr)
 	assert.NoError(t, err)

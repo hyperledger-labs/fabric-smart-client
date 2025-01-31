@@ -134,7 +134,7 @@ func (s *stream) Write(p []byte) (int, error) {
 
 func (s *stream) Close() error {
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Warnf("Close connection for context [%s]: %s", s.ContextID())
+		logger.Debugf("Close connection for context [%s]: %s", s.ContextID())
 	}
 	s.cancel()
 	return s.conn.Close()

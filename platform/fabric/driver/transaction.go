@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package driver
 
 import (
+	"context"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/hyperledger/fabric-protos-go/common"
 )
@@ -64,16 +66,16 @@ type EndorserTransactionService interface {
 }
 
 type TransactionFactory interface {
-	NewTransaction(channel string, nonce []byte, creator []byte, txid string, rawRequest []byte) (Transaction, error)
+	NewTransaction(ctx context.Context, channel string, nonce []byte, creator []byte, txid string, rawRequest []byte) (Transaction, error)
 }
 
 type TransactionManager interface {
 	ComputeTxID(id *TxID) string
 	NewEnvelope() Envelope
 	NewProposalResponseFromBytes(raw []byte) (ProposalResponse, error)
-	NewTransaction(transactionType TransactionType, creator view.Identity, nonce []byte, txid string, channel string, rawRequest []byte) (Transaction, error)
-	NewTransactionFromBytes(channel string, raw []byte) (Transaction, error)
-	NewTransactionFromEnvelopeBytes(channel string, raw []byte) (Transaction, error)
+	NewTransaction(ctx context.Context, transactionType TransactionType, creator view.Identity, nonce []byte, txid string, channel string, rawRequest []byte) (Transaction, error)
+	NewTransactionFromBytes(ctx context.Context, channel string, raw []byte) (Transaction, error)
+	NewTransactionFromEnvelopeBytes(ctx context.Context, channel string, raw []byte) (Transaction, error)
 	AddTransactionFactory(tt TransactionType, factory TransactionFactory)
 	NewProcessedTransactionFromEnvelopePayload(envelopePayload []byte) (ProcessedTransaction, int32, error)
 	NewProcessedTransactionFromEnvelopeRaw(envelope []byte) (ProcessedTransaction, error)

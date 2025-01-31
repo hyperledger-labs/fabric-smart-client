@@ -7,11 +7,15 @@ SPDX-License-Identifier: Apache-2.0
 package rwset
 
 import (
+	"context"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
+	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger/fabric-protos-go/common"
 	"github.com/hyperledger/fabric/protoutil"
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type Loader struct {
@@ -52,7 +56,11 @@ func (c *Loader) AddHandlerProvider(headerType common.HeaderType, handlerProvide
 	return nil
 }
 
-func (c *Loader) GetRWSetFromEvn(txID string) (driver.RWSet, driver.ProcessTransaction, error) {
+func (c *Loader) GetRWSetFromEvn(ctx context.Context, txID driver2.TxID) (driver.RWSet, driver.ProcessTransaction, error) {
+	span := trace.SpanFromContext(ctx)
+	span.AddEvent("start_get_rwset_from_evn")
+	defer span.AddEvent("end_get_rwset_from_evn")
+
 	if !c.EnvelopeService.Exists(txID) {
 		return nil, nil, errors.Errorf("envelope does not exists for [%s]", txID)
 	}
@@ -85,7 +93,11 @@ func (c *Loader) GetRWSetFromEvn(txID string) (driver.RWSet, driver.ProcessTrans
 	return nil, nil, errors.Errorf("header type not support, provided type %d", chdr.Type)
 }
 
-func (c *Loader) GetRWSetFromETx(txID string) (driver.RWSet, driver.ProcessTransaction, error) {
+func (c *Loader) GetRWSetFromETx(ctx context.Context, txID driver2.TxID) (driver.RWSet, driver.ProcessTransaction, error) {
+	span := trace.SpanFromContext(ctx)
+	span.AddEvent("start_get_rwset_from_etx")
+	defer span.AddEvent("end_get_rwset_from_etx")
+
 	if !c.TransactionService.Exists(txID) {
 		return nil, nil, errors.Errorf("transaction does not exists for [%s]", txID)
 	}
@@ -94,7 +106,7 @@ func (c *Loader) GetRWSetFromETx(txID string) (driver.RWSet, driver.ProcessTrans
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "cannot load etx [%s]", txID)
 	}
-	tx, err := c.TransactionManager.NewTransactionFromBytes(c.Channel, raw)
+	tx, err := c.TransactionManager.NewTransactionFromBytes(context.TODO(), c.Channel, raw)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -105,7 +117,7 @@ func (c *Loader) GetRWSetFromETx(txID string) (driver.RWSet, driver.ProcessTrans
 	return rws, tx, nil
 }
 
-func (c *Loader) GetInspectingRWSetFromEvn(txID string, envelopeRaw []byte) (driver.RWSet, driver.ProcessTransaction, error) {
+func (c *Loader) GetInspectingRWSetFromEvn(ctx context.Context, txID driver2.TxID, envelopeRaw []byte) (driver.RWSet, driver.ProcessTransaction, error) {
 	logger.Debugf("unmarshal envelope [%s,%s]", c.Channel, txID)
 	env := &common.Envelope{}
 	err := proto.Unmarshal(envelopeRaw, env)
@@ -119,7 +131,7 @@ func (c *Loader) GetInspectingRWSetFromEvn(txID string, envelopeRaw []byte) (dri
 	}
 	logger.Debugf("retrieve rws [%s,%s]", c.Channel, txID)
 
-	rws, err := c.Vault.InspectRWSet(upe.Results)
+	rws, err := c.Vault.InspectRWSet(ctx, upe.Results)
 	if err != nil {
 		return nil, nil, err
 	}

@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package vault
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 
@@ -59,6 +60,7 @@ func (p *testArtifactProvider) NewMarshaller() Marshaller {
 
 func newInterceptor(
 	logger Logger,
+	ctx context.Context,
 	rwSet ReadWriteSet,
 	qe VersionedQueryExecutor,
 	txidStore TxStatusStore,
@@ -66,6 +68,7 @@ func newInterceptor(
 ) TxInterceptor {
 	return NewInterceptor[ValidationCode](
 		logger,
+		ctx,
 		rwSet,
 		qe,
 		txidStore,

@@ -24,7 +24,7 @@ import (
 type ValidationFlags []uint8
 
 type lastTxGetter interface {
-	GetLast() (*driver2.TxStatus, error)
+	GetLast(ctx context.Context) (*driver2.TxStatus, error)
 }
 
 type Service struct {
@@ -209,6 +209,6 @@ type fakeVault struct {
 	txID string
 }
 
-func (f *fakeVault) GetLast() (*driver2.TxStatus, error) {
+func (f *fakeVault) GetLast(context.Context) (*driver2.TxStatus, error) {
 	return &driver2.TxStatus{TxID: f.txID}, nil
 }

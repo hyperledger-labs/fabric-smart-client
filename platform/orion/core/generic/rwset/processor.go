@@ -7,9 +7,13 @@ SPDX-License-Identifier: Apache-2.0
 package rwset
 
 import (
+	"context"
+
+	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel/trace"
 )
 
 var logger = logging.MustGetLogger("orion-sdk.rwset")
@@ -44,50 +48,54 @@ func NewProcessorManager(network Network, defaultProcessor driver.Processor) *pr
 	}
 }
 
-func (r *processorManager) ProcessByID(txid string) error {
-	logger.Debugf("process transaction [%s]", txid)
+func (r *processorManager) ProcessByID(ctx context.Context, txID driver2.TxID) error {
+	span := trace.SpanFromContext(ctx)
+	span.AddEvent("start_process_by_id")
+	defer span.AddEvent("end_process_by_id")
 
-	req := &request{id: txid}
-	logger.Debugf("load transaction content [%s]", txid)
+	logger.Debugf("process transaction [%s]", txID)
+
+	req := &request{id: txID}
+	logger.Debugf("load transaction content [%s]", txID)
 
 	var rws driver.RWSet
 	var tx driver.ProcessTransaction
 	var err error
 	switch {
-	case r.network.EnvelopeService().Exists(txid):
-		rws, tx, err = r.getTxFromEvn(txid)
+	case r.network.EnvelopeService().Exists(txID):
+		rws, tx, err = r.getTxFromEvn(txID)
 		if err != nil {
-			return errors.Wrapf(err, "failed extraction from envelope [%s]", txid)
+			return errors.Wrapf(err, "failed extraction from envelope [%s]", txID)
 		}
-	case r.network.TransactionService().Exists(txid):
-		rws, tx, err = r.getTxFromETx(txid)
+	case r.network.TransactionService().Exists(txID):
+		rws, tx, err = r.getTxFromETx(txID)
 		if err != nil {
-			return errors.Wrapf(err, "failed extraction from transaction [%s]", txid)
+			return errors.Wrapf(err, "failed extraction from transaction [%s]", txID)
 		}
 	default:
-		logger.Debugf("no entry found for [%s]", txid)
+		logger.Debugf("no entry found for [%s]", txID)
 		return nil
 	}
 	defer rws.Done()
 
-	logger.Debugf("process transaction namespaces [%s,%d]", txid, len(rws.Namespaces()))
+	logger.Debugf("process transaction namespaces [%s,%d]", txID, len(rws.Namespaces()))
 	for _, ns := range rws.Namespaces() {
-		logger.Debugf("process transaction namespace [%s,%s]", txid, ns)
+		logger.Debugf("process transaction namespace [%s,%s]", txID, ns)
 
 		p, ok := r.processors[ns]
 		if ok {
-			logger.Debugf("process transaction namespace, using custom processor [%s,%s]", txid, ns)
+			logger.Debugf("process transaction namespace, using custom processor [%s,%s]", txID, ns)
 			if err := p.Process(req, tx, rws, ns); err != nil {
 				return err
 			}
 		} else {
-			logger.Debugf("process transaction namespace, resorting to default processor [%s,%s]", txid, ns)
+			logger.Debugf("process transaction namespace, resorting to default processor [%s,%s]", txID, ns)
 			if r.defaultProcessor != nil {
 				if err := r.defaultProcessor.Process(req, tx, rws, ns); err != nil {
 					return err
 				}
 			}
-			logger.Debugf("no processors found for namespace [%s,%s]", txid, ns)
+			logger.Debugf("no processors found for namespace [%s,%s]", txID, ns)
 		}
 	}
 	return nil
@@ -113,7 +121,7 @@ func (r *processorManager) getTxFromEvn(txid string) (driver.RWSet, driver.Proce
 	if err := env.FromBytes(rawEnv); err != nil {
 		return nil, nil, errors.Wrapf(err, "cannot unmarshal envelope [%s]", txid)
 	}
-	rws, err := r.network.Vault().GetRWSet(txid, env.Results())
+	rws, err := r.network.Vault().GetRWSet(context.Background(), txid, env.Results())
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "cannot unmarshal envelope [%s]", txid)
 	}

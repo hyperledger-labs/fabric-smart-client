@@ -71,7 +71,7 @@ var DoubleDBCases = []struct {
 func TTestInterceptorErr(t *testing.T, ddb driver2.VaultPersistence, vp artifactsProvider) {
 	vault1, err := vp.NewNonCachedVault(ddb)
 	assert.NoError(t, err)
-	rws, err := vault1.NewRWSet("txid")
+	rws, err := vault1.NewRWSet(context.Background(), "txid")
 	assert.NoError(t, err)
 
 	_, err = rws.GetState("foo", "bar", 15)
@@ -103,12 +103,12 @@ func TTestInterceptorErr(t *testing.T, ddb driver2.VaultPersistence, vp artifact
 	err = rws.AppendRWSet([]byte("foo"))
 	assert.EqualError(t, err, "this instance was closed")
 
-	rws, err = vault1.NewRWSet("validtxid")
+	rws, err = vault1.NewRWSet(context.Background(), "validtxid")
 	assert.NoError(t, err)
 	rws.Done()
 	err = vault1.CommitTX(context.TODO(), "validtxid", 2, 3)
 	assert.NoError(t, err)
-	rws, err = vault1.NewRWSet("validtxid")
+	rws, err = vault1.NewRWSet(context.Background(), "validtxid")
 	assert.NoError(t, err)
 	err = rws.IsValid()
 	assert.EqualError(t, err, "duplicate txid validtxid")
@@ -121,14 +121,14 @@ func TTestInterceptorConcurrency(t *testing.T, ddb driver2.VaultPersistence, vp 
 
 	vault1, err := vp.NewNonCachedVault(ddb)
 	assert.NoError(t, err)
-	rws, err := vault1.NewRWSet("txid")
+	rws, err := vault1.NewRWSet(context.Background(), "txid")
 	assert.NoError(t, err)
 
 	v, err := rws.GetState(ns, k)
 	assert.NoError(t, err)
 	assert.Nil(t, v)
 
-	err = ddb.Store(nil, driver.Writes{
+	err = ddb.Store(context.Background(), nil, driver.Writes{
 		ns: map[driver.PKey]driver.VersionedValue{
 			k: {Raw: []byte("val"), Version: versionBlockTxNumToBytes(35, 1)},
 		},
@@ -145,7 +145,7 @@ func TTestInterceptorConcurrency(t *testing.T, ddb driver2.VaultPersistence, vp 
 	assert.NoError(t, err)
 	assert.Nil(t, mv)
 
-	err = ddb.Store(nil, nil, driver.MetaWrites{
+	err = ddb.Store(context.Background(), nil, nil, driver.MetaWrites{
 		ns: map[driver.PKey]driver.VersionedMetadataValue{
 			mk: {
 				Version:  versionBlockTxNumToBytes(36, 1),
@@ -255,7 +255,7 @@ func TTestQueryExecutor(t *testing.T, ddb driver2.VaultPersistence, vp artifacts
 	aVault, err := vp.NewNonCachedVault(ddb)
 	assert.NoError(t, err)
 
-	err = ddb.Store(nil, driver.Writes{
+	err = ddb.Store(context.Background(), nil, driver.Writes{
 		ns: map[driver.PKey]driver.VersionedValue{
 			"k2":   {Raw: []byte("k2_value"), Version: versionBlockTxNumToBytes(35, 1)},
 			"k3":   {Raw: []byte("k3_value"), Version: versionBlockTxNumToBytes(35, 2)},
@@ -265,18 +265,18 @@ func TTestQueryExecutor(t *testing.T, ddb driver2.VaultPersistence, vp artifacts
 	}, nil)
 	assert.NoError(t, err)
 
-	qe, err := aVault.NewQueryExecutor()
+	qe, err := aVault.NewQueryExecutor(context.Background())
 	assert.NoError(t, err)
 	defer qe.Done()
 
-	v, err := qe.GetState(ns, "k1")
+	v, err := qe.GetState(context.Background(), ns, "k1")
 	assert.NoError(t, err)
 	assert.Equal(t, []byte("k1_value"), v.Raw)
-	v, err = qe.GetState(ns, "barfobarfs")
+	v, err = qe.GetState(context.Background(), ns, "barfobarfs")
 	assert.NoError(t, err)
 	assert.Nil(t, v)
 
-	itr, err := qe.GetStateRangeScanIterator(ns, "", "")
+	itr, err := qe.GetStateRangeScanIterator(context.Background(), ns, "", "")
 	assert.NoError(t, err)
 	res, err := collections.ReadAll(itr)
 	assert.NoError(t, err)
@@ -288,7 +288,7 @@ func TTestQueryExecutor(t *testing.T, ddb driver2.VaultPersistence, vp artifacts
 		{Key: "k3", Raw: []byte("k3_value"), Version: versionBlockTxNumToBytes(35, 2)},
 	}, res)
 
-	itr, err = ddb.GetStateRange(ns, "k1", "k3")
+	itr, err = ddb.GetStateRange(context.Background(), ns, "k1", "k3")
 	assert.NoError(t, err)
 	res, err = collections.ReadAll(itr)
 	assert.NoError(t, err)
@@ -299,7 +299,7 @@ func TTestQueryExecutor(t *testing.T, ddb driver2.VaultPersistence, vp artifacts
 		{Key: "k2", Raw: []byte("k2_value"), Version: versionBlockTxNumToBytes(35, 1)},
 	}, res)
 
-	itr, err = ddb.GetStates(ns, "k1", "k2", "k111")
+	itr, err = ddb.GetStates(context.Background(), ns, "k1", "k2", "k111")
 	assert.NoError(t, err)
 	res, err = collections.ReadAll(itr)
 	assert.NoError(t, err)
@@ -310,7 +310,7 @@ func TTestQueryExecutor(t *testing.T, ddb driver2.VaultPersistence, vp artifacts
 		{Key: "k111", Raw: []byte("k111_value"), Version: versionBlockTxNumToBytes(35, 4)},
 	}, res)
 
-	itr, err = ddb.GetStates(ns, "k1", "k5")
+	itr, err = ddb.GetStates(context.Background(), ns, "k1", "k5")
 	assert.NoError(t, err)
 	res, err = collections.ReadAll(itr)
 	assert.NoError(t, err)
@@ -326,7 +326,7 @@ func TTestShardLikeCommit(t *testing.T, ddb driver2.VaultPersistence, vp artifac
 	k2 := "key2"
 
 	// Populate the DB with some data at some height
-	err := ddb.Store(nil, driver.Writes{
+	err := ddb.Store(context.Background(), nil, driver.Writes{
 		ns: map[driver.PKey]driver.VersionedValue{
 			k1: {Raw: []byte("k1val"), Version: versionBlockTxNumToBytes(35, 1)},
 			k2: {Raw: []byte("k2val"), Version: versionBlockTxNumToBytes(37, 3)},
@@ -361,7 +361,7 @@ func TTestShardLikeCommit(t *testing.T, ddb driver2.VaultPersistence, vp artifac
 	assert.NoError(t, err)
 
 	// give it to the kvs and check whether it's valid - it won't be
-	rwset, err := aVault.GetRWSet("txid-invalid", rwsBytes)
+	rwset, err := aVault.GetRWSet(context.Background(), "txid-invalid", rwsBytes)
 	assert.NoError(t, err)
 	err = rwset.IsValid()
 	assert.EqualError(t, err, "invalid read: vault at version namespace:key2 [&{key2 [107 50 118 97 108] [0 0 0 37 0 0 0 3]}], read-write set at version [[0 0 0 37 0 0 0 2]]")
@@ -370,16 +370,16 @@ func TTestShardLikeCommit(t *testing.T, ddb driver2.VaultPersistence, vp artifac
 	rwset.Done()
 
 	// check the status, it should be busy
-	code, _, err := aVault.Status("txid-invalid")
+	code, _, err := aVault.Status(context.Background(), "txid-invalid")
 	assert.NoError(t, err)
 	assert.Equal(t, busy, code)
 
 	// now in case of error we won't commit the read-write set, so we should discard it
-	err = aVault.DiscardTx("txid-invalid", "")
+	err = aVault.DiscardTx(context.Background(), "txid-invalid", "")
 	assert.NoError(t, err)
 
 	// check the status, it should be invalid
-	code, _, err = aVault.Status("txid-invalid")
+	code, _, err = aVault.Status(context.Background(), "txid-invalid")
 	assert.NoError(t, err)
 	assert.Equal(t, invalid, code)
 
@@ -406,7 +406,7 @@ func TTestShardLikeCommit(t *testing.T, ddb driver2.VaultPersistence, vp artifac
 	assert.NoError(t, err)
 
 	// give it to the kvs and check whether it's valid - it will be
-	rwset, err = aVault.GetRWSet("txid-valid", rwsBytes)
+	rwset, err = aVault.GetRWSet(context.Background(), "txid-valid", rwsBytes)
 	assert.NoError(t, err)
 	err = rwset.IsValid()
 	assert.NoError(t, err)
@@ -417,7 +417,7 @@ func TTestShardLikeCommit(t *testing.T, ddb driver2.VaultPersistence, vp artifac
 	// presumably the cross-shard protocol continues...
 
 	// check the status, it should be busy
-	code, _, err = aVault.Status("txid-valid")
+	code, _, err = aVault.Status(context.Background(), "txid-valid")
 	assert.NoError(t, err)
 	assert.Equal(t, busy, code)
 
@@ -426,16 +426,16 @@ func TTestShardLikeCommit(t *testing.T, ddb driver2.VaultPersistence, vp artifac
 	assert.NoError(t, err)
 
 	// check the status, it should be valid
-	code, _, err = aVault.Status("txid-valid")
+	code, _, err = aVault.Status(context.Background(), "txid-valid")
 	assert.NoError(t, err)
 	assert.Equal(t, valid, code)
 
 	// check the content of the kvs after that
-	vv, err := ddb.GetState(ns, k1)
+	vv, err := ddb.GetState(context.Background(), ns, k1)
 	assert.NoError(t, err)
 	assert.Equal(t, &VersionedRead{Key: "key1", Raw: []byte("k1FromTxidValid"), Version: versionBlockTxNumToBytes(38, 10)}, vv)
 
-	vv, err = ddb.GetState(ns, k2)
+	vv, err = ddb.GetState(context.Background(), ns, k2)
 	assert.NoError(t, err)
 	assert.Equal(t, &VersionedRead{Key: "key2", Raw: []byte("k2FromTxidValid"), Version: versionBlockTxNumToBytes(38, 10)}, vv)
 
@@ -448,7 +448,7 @@ func TTestVaultErr(t *testing.T, ddb driver2.VaultPersistence, vp artifactsProvi
 	assert.NoError(t, err)
 	err = vault1.CommitTX(context.TODO(), "non-existent", 0, 0)
 	assert.ErrorContains(t, err, "read-write set for txids [[non-existent]] could not be found")
-	err = vault1.DiscardTx("non-existent", "")
+	err = vault1.DiscardTx(context.Background(), "non-existent", "")
 	assert.EqualError(t, err, "read-write set for txids [[non-existent]] could not be found")
 
 	rws := &ReadWriteSet{
@@ -462,30 +462,30 @@ func TTestVaultErr(t *testing.T, ddb driver2.VaultPersistence, vp artifactsProvi
 	rwsBytes, err := m.Marshal("pineapple", rws)
 	assert.NoError(t, err)
 
-	ncrwset, err := vault1.NewRWSet("not-closed")
+	ncrwset, err := vault1.NewRWSet(context.Background(), "not-closed")
 	assert.NoError(t, err)
-	_, err = vault1.NewRWSet("not-closed")
+	_, err = vault1.NewRWSet(context.Background(), "not-closed")
 	assert.EqualError(t, err, "duplicate read-write set for txid not-closed")
-	_, err = vault1.GetRWSet("not-closed", rwsBytes)
+	_, err = vault1.GetRWSet(context.Background(), "not-closed", rwsBytes)
 	assert.EqualError(t, err, "programming error: previous read-write set for not-closed has not been closed")
 	err = vault1.CommitTX(context.TODO(), "not-closed", 0, 0)
 	assert.ErrorContains(t, err, "attempted to retrieve read-write set for not-closed when done has not been called")
-	err = vault1.DiscardTx("not-closed", "")
+	err = vault1.DiscardTx(context.Background(), "not-closed", "")
 	assert.EqualError(t, err, "attempted to retrieve read-write set for not-closed when done has not been called")
 
 	// as a sanity-check we close it now and will be able to discard it
 	ncrwset.Done()
-	err = vault1.DiscardTx("not-closed", "pineapple")
+	err = vault1.DiscardTx(context.Background(), "not-closed", "pineapple")
 	assert.NoError(t, err)
-	vc, message, err := vault1.Status("not-closed")
+	vc, message, err := vault1.Status(context.Background(), "not-closed")
 	assert.NoError(t, err)
 	assert.Equal(t, "pineapple", message)
 	assert.Equal(t, invalid, vc)
 
-	_, err = vault1.GetRWSet("bogus", []byte("barf"))
+	_, err = vault1.GetRWSet(context.Background(), "bogus", []byte("barf"))
 	assert.Contains(t, err.Error(), "provided invalid read-write set bytes")
 
-	code, _, err := vault1.Status("unknown-txid")
+	code, _, err := vault1.Status(context.Background(), "unknown-txid")
 	assert.NoError(t, err)
 	assert.Equal(t, unknown, code)
 }
@@ -502,14 +502,14 @@ func TTestMerge(t *testing.T, ddb driver2.VaultPersistence, vp artifactsProvider
 	// create DB and kvs
 	vault2, err := vp.NewNonCachedVault(ddb)
 	assert.NoError(t, err)
-	err = ddb.Store(nil, driver.Writes{
+	err = ddb.Store(context.Background(), nil, driver.Writes{
 		ns: map[driver.PKey]driver.VersionedValue{
 			k1: {Raw: []byte("v1"), Version: versionBlockTxNumToBytes(35, 1)},
 		},
 	}, nil)
 	assert.NoError(t, err)
 
-	rws, err := vault2.NewInspector(txid)
+	rws, err := vault2.NewInspector(context.Background(), txid)
 	assert.NoError(t, err)
 	v, err := rws.GetState(ns, k1)
 	assert.NoError(t, err)
@@ -625,14 +625,14 @@ func TTestInspector(t *testing.T, ddb driver2.VaultPersistence, vp artifactsProv
 	// create DB and kvs
 	aVault, err := vp.NewNonCachedVault(ddb)
 	assert.NoError(t, err)
-	err = ddb.Store(nil, driver.Writes{
+	err = ddb.Store(context.Background(), nil, driver.Writes{
 		ns: map[driver.PKey]driver.VersionedValue{
 			k1: {Raw: []byte("v1"), Version: versionBlockTxNumToBytes(35, 1)},
 		},
 	}, nil)
 	assert.NoError(t, err)
 
-	rws, err := aVault.NewRWSet(txid)
+	rws, err := aVault.NewRWSet(context.Background(), txid)
 	assert.NoError(t, err)
 	v, err := rws.GetState(ns, k1)
 	assert.NoError(t, err)
@@ -644,7 +644,7 @@ func TTestInspector(t *testing.T, ddb driver2.VaultPersistence, vp artifactsProv
 	b, err := rws.Bytes()
 	assert.NoError(t, err)
 
-	i, err := aVault.InspectRWSet(b)
+	i, err := aVault.InspectRWSet(context.Background(), b)
 	assert.NoError(t, err)
 	assert.NoError(t, i.IsValid())
 
@@ -670,13 +670,13 @@ func TTestInspector(t *testing.T, ddb driver2.VaultPersistence, vp artifactsProv
 	i.Done()
 
 	// check filtering
-	i, err = aVault.InspectRWSet(b, "pineapple")
+	i, err = aVault.InspectRWSet(context.Background(), b, "pineapple")
 	assert.NoError(t, err)
 	assert.NoError(t, i.IsValid())
 	assert.Empty(t, i.Namespaces())
 	i.Done()
 
-	i, err = aVault.InspectRWSet(b, ns)
+	i, err = aVault.InspectRWSet(context.Background(), b, ns)
 	assert.NoError(t, err)
 	assert.NoError(t, i.IsValid())
 	assert.Equal(t, []string{ns}, i.Namespaces())
@@ -691,7 +691,7 @@ func TTestRun(t *testing.T, db1, db2 driver2.VaultPersistence, vp artifactsProvi
 	txid := "txid1"
 
 	// create and populate 2 DBs
-	err := db1.Store(nil,
+	err := db1.Store(context.Background(), nil,
 		driver.Writes{
 			ns: map[driver.PKey]driver.VersionedValue{
 				k1: {Raw: []byte("v1"), Version: versionBlockTxNumToBytes(35, 1)},
@@ -704,7 +704,7 @@ func TTestRun(t *testing.T, db1, db2 driver2.VaultPersistence, vp artifactsProvi
 		})
 	assert.NoError(t, err)
 
-	err = db2.Store(nil,
+	err = db2.Store(context.Background(), nil,
 		driver.Writes{
 			ns: map[driver.PKey]driver.VersionedValue{
 				k1: {Raw: []byte("v1"), Version: versionBlockTxNumToBytes(35, 1)},
@@ -725,10 +725,10 @@ func TTestRun(t *testing.T, db1, db2 driver2.VaultPersistence, vp artifactsProvi
 	vault2, err := vp.NewNonCachedVault(db2)
 	assert.NoError(t, err)
 
-	rws, err := vault1.NewRWSet(txid)
+	rws, err := vault1.NewRWSet(context.Background(), txid)
 	assert.NoError(t, err)
 
-	rws2, err := vault2.NewRWSet(txid)
+	rws2, err := vault2.NewRWSet(context.Background(), txid)
 	assert.NoError(t, err)
 	rws2.Done()
 
@@ -828,11 +828,11 @@ func TTestRun(t *testing.T, db1, db2 driver2.VaultPersistence, vp artifactsProvi
 	assert.NoError(t, err)
 	assert.NotNil(t, rwsBytes)
 
-	assert.NoError(t, vault1.Match(txid, rwsBytes))
-	assert.Error(t, vault1.Match(txid, []byte("pineapple")))
+	assert.NoError(t, vault1.Match(context.Background(), txid, rwsBytes))
+	assert.Error(t, vault1.Match(context.Background(), txid, []byte("pineapple")))
 
 	// we open the read-write set fabric.From the other kvs
-	rws, err = vault2.GetRWSet(txid, rwsBytes)
+	rws, err = vault2.GetRWSet(context.Background(), txid, rwsBytes)
 	assert.NoError(t, err)
 
 	assert.Equal(t, []string{ns}, rws.Namespaces())
@@ -934,7 +934,7 @@ func TTestRun(t *testing.T, db1, db2 driver2.VaultPersistence, vp artifactsProvi
 	assert.NotNil(t, rwsBytes)
 
 	// we open the read-write set fabric.From the first kvs again
-	rws, err = vault1.GetRWSet(txid, rwsBytes)
+	rws, err = vault1.GetRWSet(context.Background(), txid, rwsBytes)
 	assert.NoError(t, err)
 
 	assert.Equal(t, []string{ns}, rws.Namespaces())
@@ -1018,10 +1018,10 @@ func TTestRun(t *testing.T, db1, db2 driver2.VaultPersistence, vp artifactsProvi
 	compare(t, ns, db1, db2)
 
 	// we expect a busy txid in the Store
-	code, _, err := vault1.Status(txid)
+	code, _, err := vault1.Status(context.Background(), txid)
 	assert.NoError(t, err)
 	assert.Equal(t, busy, code)
-	code, _, err = vault2.Status(txid)
+	code, _, err = vault2.Status(context.Background(), txid)
 	assert.NoError(t, err)
 	assert.Equal(t, busy, code)
 
@@ -1039,37 +1039,37 @@ func TTestRun(t *testing.T, db1, db2 driver2.VaultPersistence, vp artifactsProvi
 
 	compare(t, ns, db1, db2)
 	// we expect a valid txid in the Store
-	code, _, err = vault1.Status(txid)
+	code, _, err = vault1.Status(context.Background(), txid)
 	assert.NoError(t, err)
 	assert.Equal(t, valid, code)
-	code, _, err = vault2.Status(txid)
+	code, _, err = vault2.Status(context.Background(), txid)
 	assert.NoError(t, err)
 	assert.Equal(t, valid, code)
 
 	compare(t, ns, db1, db2)
 
-	vv1, err := db1.GetState(ns, k1)
+	vv1, err := db1.GetState(context.Background(), ns, k1)
 	assert.NoError(t, err)
 	assert.Nil(t, vv1.Raw)
 	assert.Zero(t, vv1.Version)
 
-	vv2, err := db2.GetState(ns, k1)
+	vv2, err := db2.GetState(context.Background(), ns, k1)
 	assert.NoError(t, err)
 	assert.Equal(t, vv1, vv2)
 
-	vv1, err = db1.GetState(ns, k2)
+	vv1, err = db1.GetState(context.Background(), ns, k2)
 	assert.NoError(t, err)
-	vv2, err = db2.GetState(ns, k2)
+	vv2, err = db2.GetState(context.Background(), ns, k2)
 	assert.NoError(t, err)
 	assert.Equal(t, &VersionedRead{Key: "key2", Raw: []byte("v2_updated"), Version: versionBlockTxNumToBytes(35, 2)}, vv1)
 	assert.Equal(t, vv1, vv2)
 
-	meta1, ver1, err := db1.GetStateMetadata(ns, k1Meta)
+	meta1, ver1, err := db1.GetStateMetadata(context.Background(), ns, k1Meta)
 	assert.NoError(t, err)
 	versionMarshaller := BlockTxIndexVersionMarshaller{}
 	b1, t1, err := versionMarshaller.FromBytes(ver1)
 	assert.NoError(t, err)
-	meta2, ver2, err := db2.GetStateMetadata(ns, k1Meta)
+	meta2, ver2, err := db2.GetStateMetadata(context.Background(), ns, k1Meta)
 	assert.NoError(t, err)
 	b2, t2, err := versionMarshaller.FromBytes(ver2)
 	assert.NoError(t, err)
@@ -1083,13 +1083,13 @@ func TTestRun(t *testing.T, db1, db2 driver2.VaultPersistence, vp artifactsProvi
 
 func compare(t *testing.T, ns string, db1, db2 driver2.VaultPersistence) {
 	// we expect the underlying databases to be identical
-	itr, err := db1.GetAllStates(ns)
+	itr, err := db1.GetAllStates(context.Background(), ns)
 	assert.NoError(t, err)
 	res1, err := collections.ReadAll(itr)
 	assert.NoError(t, err)
 	slices.SortFunc(res1, byKey)
 
-	itr, err = db2.GetAllStates(ns)
+	itr, err = db2.GetAllStates(context.Background(), ns)
 	assert.NoError(t, err)
 	res2, err := collections.ReadAll(itr)
 	assert.NoError(t, err)

@@ -7,9 +7,13 @@ SPDX-License-Identifier: Apache-2.0
 package rwset
 
 import (
+	"context"
+
+	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel/trace"
 )
 
 var logger = logging.MustGetLogger("fabric-sdk.rwset")
@@ -49,7 +53,10 @@ func NewProcessorManager(
 	}
 }
 
-func (r *processorManager) ProcessByID(channel, txID string) error {
+func (r *processorManager) ProcessByID(ctx context.Context, channel string, txID driver2.TxID) error {
+	span := trace.SpanFromContext(ctx)
+	span.AddEvent("start_process_by_id")
+	defer span.AddEvent("end_process_by_id")
 	logger.Debugf("process transaction [%s,%s]", channel, txID)
 
 	ch, err := r.channelProvider.Channel(channel)
@@ -64,9 +71,9 @@ func (r *processorManager) ProcessByID(channel, txID string) error {
 	var tx driver.ProcessTransaction
 	switch {
 	case ch.EnvelopeService().Exists(txID):
-		rws, tx, err = ch.RWSetLoader().GetRWSetFromEvn(txID)
+		rws, tx, err = ch.RWSetLoader().GetRWSetFromEvn(ctx, txID)
 	case ch.TransactionService().Exists(txID):
-		rws, tx, err = ch.RWSetLoader().GetRWSetFromETx(txID)
+		rws, tx, err = ch.RWSetLoader().GetRWSetFromETx(ctx, txID)
 	default:
 		logger.Debugf("no entry found for [%s,%s]", channel, txID)
 		return nil

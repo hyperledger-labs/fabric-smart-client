@@ -59,6 +59,7 @@ func NewDriver(in struct {
 	KVS             *kvs.KVS
 	AuditInfoKVS    driver2.AuditInfoStore
 	SignerKVS       driver2.SignerInfoStore
+	TracerProvider  trace.TracerProvider
 	ChannelProvider generic.ChannelProvider        `name:"generic-channel-provider"`
 	IdentityLoaders []identity.NamedIdentityLoader `group:"identity-loaders"`
 }) core.NamedDriver {
@@ -74,6 +75,7 @@ func NewDriver(in struct {
 			in.SignerKVS,
 			in.AuditInfoKVS,
 			in.KVS,
+			in.TracerProvider,
 		),
 	}
 	return d

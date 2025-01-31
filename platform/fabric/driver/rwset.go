@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package driver
 
 import (
+	"context"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger/fabric-protos-go/common"
 )
@@ -18,11 +20,11 @@ type (
 )
 
 type RWSetInspector interface {
-	GetRWSet(txid string, rwset []byte) (RWSet, error)
-	InspectRWSet(rwsetBytes []byte, namespaces ...driver.Namespace) (RWSet, error)
-	NewRWSet(txid string) (RWSet, error)
-	RWSExists(txid string) bool
-	GetExistingRWSet(txID driver.TxID) (driver.RWSet, error)
+	GetRWSet(ctx context.Context, txID driver.TxID, rwset []byte) (RWSet, error)
+	InspectRWSet(ctx context.Context, rwsetBytes []byte, namespaces ...driver.Namespace) (RWSet, error)
+	NewRWSet(ctx context.Context, txID driver.TxID) (RWSet, error)
+	RWSExists(ctx context.Context, txID driver.TxID) bool
+	GetExistingRWSet(ctx context.Context, txID driver.TxID) (driver.RWSet, error)
 }
 
 type RWSetPayloadHandler interface {
@@ -31,7 +33,7 @@ type RWSetPayloadHandler interface {
 
 type RWSetLoader interface {
 	AddHandlerProvider(headerType common.HeaderType, handlerProvider RWSetPayloadHandlerProvider) error
-	GetRWSetFromEvn(txID string) (RWSet, ProcessTransaction, error)
-	GetRWSetFromETx(txID string) (RWSet, ProcessTransaction, error)
-	GetInspectingRWSetFromEvn(id string, envelopeRaw []byte) (RWSet, ProcessTransaction, error)
+	GetRWSetFromEvn(ctx context.Context, txID driver.TxID) (RWSet, ProcessTransaction, error)
+	GetRWSetFromETx(ctx context.Context, txID driver.TxID) (RWSet, ProcessTransaction, error)
+	GetInspectingRWSetFromEvn(ctx context.Context, id driver.TxID, envelopeRaw []byte) (RWSet, ProcessTransaction, error)
 }

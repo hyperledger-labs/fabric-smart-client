@@ -8,6 +8,7 @@ package transaction
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 
@@ -20,6 +21,7 @@ import (
 	pb "github.com/hyperledger/fabric-protos-go/peer"
 	"github.com/hyperledger/fabric/protoutil"
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap/zapcore"
 )
 
@@ -74,6 +76,7 @@ func (p *SignedProposal) ChaincodeVersion() string {
 }
 
 type Transaction struct {
+	ctx              context.Context
 	channelProvider  ChannelProvider
 	sigService       driver.SignerService
 	rwset            driver.RWSet
@@ -303,28 +306,34 @@ func (t *Transaction) ResetTransient() {
 }
 
 func (t *Transaction) SetRWSet() error {
+	span := trace.SpanFromContext(t.ctx)
+	span.AddEvent("set_rwset")
+	defer span.AddEvent("done_rwset")
 	switch {
 	case len(t.TProposalResponses) != 0:
+		span.AddEvent("from_proposal")
 		logger.Debugf("populate rws from proposal response")
 		results, err := t.Results()
 		if err != nil {
 			return errors.WithMessagef(err, "failed to get rws from proposal response")
 		}
-		t.rwset, err = t.channel.Vault().GetRWSet(t.ID(), results)
+		t.rwset, err = t.channel.Vault().GetRWSet(t.ctx, t.ID(), results)
 		if err != nil {
 			return errors.WithMessagef(err, "failed to populate rws from proposal response")
 		}
 	case len(t.RWSet) != 0:
+		span.AddEvent("from_rwset")
 		logger.Debugf("populate rws from rwset")
 		var err error
-		t.rwset, err = t.channel.Vault().GetRWSet(t.ID(), t.RWSet)
+		t.rwset, err = t.channel.Vault().GetRWSet(t.ctx, t.ID(), t.RWSet)
 		if err != nil {
 			return errors.WithMessagef(err, "failed to populate rws from existing rws")
 		}
 	default:
+		span.AddEvent("from_scratch")
 		logger.Debugf("populate rws from scratch")
 		var err error
-		t.rwset, err = t.channel.Vault().NewRWSet(t.ID())
+		t.rwset, err = t.channel.Vault().NewRWSet(t.ctx, t.ID())
 		if err != nil {
 			return errors.WithMessagef(err, "failed to create fresh rws")
 		}

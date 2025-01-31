@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package transaction
 
 import (
+	"context"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -32,17 +34,17 @@ func (m *Manager) NewProposalResponseFromBytes(raw []byte) (driver.ProposalRespo
 	panic("implement me")
 }
 
-func (m *Manager) NewTransaction(transactionType driver.TransactionType, creator view.Identity, nonce []byte, txid string, channel string, rawRequest []byte) (driver.Transaction, error) {
+func (m *Manager) NewTransaction(ctx context.Context, transactionType driver.TransactionType, creator view.Identity, nonce []byte, txid string, channel string, rawRequest []byte) (driver.Transaction, error) {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (m *Manager) NewTransactionFromBytes(channel string, raw []byte) (driver.Transaction, error) {
+func (m *Manager) NewTransactionFromBytes(ctx context.Context, channel string, raw []byte) (driver.Transaction, error) {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (m *Manager) NewTransactionFromEnvelopeBytes(channel string, raw []byte) (driver.Transaction, error) {
+func (m *Manager) NewTransactionFromEnvelopeBytes(ctx context.Context, channel string, raw []byte) (driver.Transaction, error) {
 	//TODO implement me
 	panic("implement me")
 }

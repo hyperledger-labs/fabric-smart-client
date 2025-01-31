@@ -109,7 +109,7 @@ func runViewOn(v view.View, opts []view.RunViewOption, ctx localContext) (res in
 		initiator = v
 	}
 
-	span := ctx.StartSpan("run_view", tracing.WithAttributes(
+	span := ctx.StartSpan(getName(v), tracing.WithAttributes(
 		tracing.String(ViewLabel, getIdentifier(v)),
 		tracing.String(InitiatorViewLabel, getIdentifier(initiator)),
 	), trace.WithSpanKind(trace.SpanKindInternal))

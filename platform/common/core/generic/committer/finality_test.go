@@ -24,7 +24,7 @@ type MockVault struct {
 	mock.Mock
 }
 
-func (m *MockVault) Statuses(ids ...string) ([]driver.TxValidationStatus[int], error) {
+func (m *MockVault) Statuses(_ context.Context, ids ...driver.TxID) ([]driver.TxValidationStatus[int], error) {
 	args := m.Called(ids)
 	return args.Get(0).([]driver.TxValidationStatus[int]), args.Error(1)
 }

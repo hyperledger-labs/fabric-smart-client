@@ -97,7 +97,7 @@ type (
 )
 
 type lastTxGetter interface {
-	GetLast() (*driver.TxStatus, error)
+	GetLast(ctx context.Context) (*driver.TxStatus, error)
 }
 
 // Vault models a key-value store that can be updated by committing rwsets
@@ -121,16 +121,16 @@ func newVault(ch fdriver.Channel) *Vault {
 	}
 }
 
-func (c *Vault) NewQueryExecutor() (driver.QueryExecutor, error) {
-	return c.vault.NewQueryExecutor()
+func (c *Vault) NewQueryExecutor(ctx context.Context) (driver.QueryExecutor, error) {
+	return c.vault.NewQueryExecutor(ctx)
 }
 
-func (c *Vault) Status(id string) (ValidationCode, string, error) {
-	return c.vault.Status(id)
+func (c *Vault) Status(ctx context.Context, id driver.TxID) (ValidationCode, string, error) {
+	return c.vault.Status(ctx, id)
 }
 
-func (c *Vault) GetLastTxID() (string, error) {
-	last, err := c.vaultStore.GetLast()
+func (c *Vault) GetLastTxID(ctx context.Context) (string, error) {
+	last, err := c.vaultStore.GetLast(ctx)
 	if err != nil {
 		return "", err
 	}
@@ -140,8 +140,8 @@ func (c *Vault) GetLastTxID() (string, error) {
 // NewRWSet returns a RWSet for this ledger.
 // A client may obtain more than one such simulator; they are made unique
 // by way of the supplied txid
-func (c *Vault) NewRWSet(txid string) (*RWSet, error) {
-	rws, err := c.vault.NewRWSet(txid)
+func (c *Vault) NewRWSet(ctx context.Context, txID driver.TxID) (*RWSet, error) {
+	rws, err := c.vault.NewRWSet(ctx, txID)
 	if err != nil {
 		return nil, err
 	}
@@ -152,8 +152,8 @@ func (c *Vault) NewRWSet(txid string) (*RWSet, error) {
 // from the passed bytes.
 // A client may obtain more than one such simulator; they are made unique
 // by way of the supplied txid
-func (c *Vault) GetRWSet(txid string, rwset []byte) (*RWSet, error) {
-	rws, err := c.vault.GetRWSet(txid, rwset)
+func (c *Vault) GetRWSet(ctx context.Context, txid driver.TxID, rwset []byte) (*RWSet, error) {
+	rws, err := c.vault.GetRWSet(ctx, txid, rwset)
 	if err != nil {
 		return nil, err
 	}
@@ -163,32 +163,32 @@ func (c *Vault) GetRWSet(txid string, rwset []byte) (*RWSet, error) {
 // InspectRWSet returns an ephemeral RWSet for this ledger whose content is unmarshalled
 // from the passed bytes.
 // If namespaces is not empty, the returned RWSet will be filtered by the passed namespaces
-func (c *Vault) InspectRWSet(rwset []byte, namespaces ...string) (*RWSet, error) {
-	rws, err := c.vault.InspectRWSet(rwset, namespaces...)
+func (c *Vault) InspectRWSet(ctx context.Context, rwset []byte, namespaces ...driver.Namespace) (*RWSet, error) {
+	rws, err := c.vault.InspectRWSet(ctx, rwset, namespaces...)
 	if err != nil {
 		return nil, err
 	}
 	return &RWSet{RWSet: rws}, nil
 }
 
-func (c *Vault) StoreEnvelope(id string, env []byte) error {
+func (c *Vault) StoreEnvelope(ctx context.Context, id driver.TxID, env []byte) error {
 	return c.envelopeService.StoreEnvelope(id, env)
 }
 
-func (c *Vault) StoreTransaction(id string, raw []byte) error {
+func (c *Vault) StoreTransaction(ctx context.Context, id driver.TxID, raw []byte) error {
 	return c.transactionService.StoreTransaction(id, raw)
 }
 
-func (c *Vault) StoreTransient(id string, tm TransientMap) error {
+func (c *Vault) StoreTransient(ctx context.Context, id driver.TxID, tm TransientMap) error {
 	return c.metadataService.StoreTransient(id, fdriver.TransientMap(tm))
 }
 
 // DiscardTx discards the transaction with the given transaction id.
 // If no error occurs, invoking Status on the same transaction id will return the Invalid flag.
-func (c *Vault) DiscardTx(txID string, message string) error {
-	return c.committer.DiscardTx(txID, message)
+func (c *Vault) DiscardTx(ctx context.Context, txID driver.TxID, message string) error {
+	return c.committer.DiscardTx(ctx, txID, message)
 }
 
-func (c *Vault) CommitTX(ctx context.Context, txID string, block driver.BlockNum, indexInBlock driver.TxNum) error {
+func (c *Vault) CommitTX(ctx context.Context, txID driver.TxID, block driver.BlockNum, indexInBlock driver.TxNum) error {
 	return c.committer.CommitTX(ctx, txID, block, indexInBlock, nil)
 }

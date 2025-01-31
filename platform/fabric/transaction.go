@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package fabric
 
 import (
+	"context"
 	"encoding/base64"
 	"fmt"
 
@@ -30,6 +31,7 @@ type TransactionOptions struct {
 	Channel         string
 	RawRequest      []byte
 	TransactionType TransactionType
+	Context         context.Context
 }
 
 type TransactionOption func(*TransactionOptions) error
@@ -49,6 +51,13 @@ func CompileTransactionOptions(opts ...TransactionOption) (*TransactionOptions, 
 func WithCreator(creator view.Identity) TransactionOption {
 	return func(o *TransactionOptions) error {
 		o.Creator = creator
+		return nil
+	}
+}
+
+func WithContext(ctx context.Context) TransactionOption {
+	return func(o *TransactionOptions) error {
+		o.Context = ctx
 		return nil
 	}
 }
@@ -388,7 +397,7 @@ func (t *TransactionManager) NewTransaction(opts ...TransactionOption) (*Transac
 		return nil, err
 	}
 
-	tx, err := t.fns.fns.TransactionManager().NewTransaction(driver.TransactionType(options.TransactionType), options.Creator, options.Nonce, options.TxID, ch.Name(), options.RawRequest)
+	tx, err := t.fns.fns.TransactionManager().NewTransaction(options.Context, driver.TransactionType(options.TransactionType), options.Creator, options.Nonce, options.TxID, ch.Name(), options.RawRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -409,7 +418,7 @@ func (t *TransactionManager) NewTransactionFromBytes(raw []byte, opts ...Transac
 		return nil, err
 	}
 
-	tx, err := t.fns.fns.TransactionManager().NewTransactionFromBytes(ch.Name(), raw)
+	tx, err := t.fns.fns.TransactionManager().NewTransactionFromBytes(options.Context, ch.Name(), raw)
 	if err != nil {
 		return nil, err
 	}
@@ -430,7 +439,7 @@ func (t *TransactionManager) NewTransactionFromEnvelopeBytes(raw []byte, opts ..
 		return nil, err
 	}
 
-	tx, err := t.fns.fns.TransactionManager().NewTransactionFromEnvelopeBytes(ch.Name(), raw)
+	tx, err := t.fns.fns.TransactionManager().NewTransactionFromEnvelopeBytes(options.Context, ch.Name(), raw)
 	if err != nil {
 		return nil, err
 	}

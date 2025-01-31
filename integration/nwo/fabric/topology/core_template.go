@@ -305,6 +305,8 @@ fabric:
         default: {{ .Default }}
         numRetries: 3
         retrySleep: 1s
+        delivery:
+          bufferSize: 300
         committer:
           waitForEventTimeout: 300s
           pollingTimeout: 100ms

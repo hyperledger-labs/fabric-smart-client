@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package endorser
 
 import (
+	"context"
+
 	"github.com/pkg/errors"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
@@ -37,12 +39,13 @@ func NewBuilderWithServiceProvider(sp view2.ServiceProvider) *Builder {
 	return &Builder{sp: sp}
 }
 
-func (t *Builder) NewTransaction(opts ...fabric.TransactionOption) (*Transaction, error) {
+func (t *Builder) NewTransaction(ctx context.Context, opts ...fabric.TransactionOption) (*Transaction, error) {
 	fabricOptions, err := fabric.CompileTransactionOptions(opts...)
 	if err != nil {
 		return nil, errors.WithMessage(err, "failed to compile options")
 	}
 	return t.newTransactionWithType(
+		ctx,
 		fabricOptions.Creator,
 		"",
 		fabricOptions.Channel,
@@ -55,7 +58,7 @@ func (t *Builder) NewTransaction(opts ...fabric.TransactionOption) (*Transaction
 }
 
 func (t *Builder) NewTransactionFromBytes(bytes []byte) (*Transaction, error) {
-	tx, err := t.newTransaction(nil, "", "", nil, bytes, false)
+	tx, err := t.newTransaction(context.Background(), nil, "", "", nil, bytes, false)
 	if err != nil {
 		return nil, err
 	}
@@ -63,8 +66,8 @@ func (t *Builder) NewTransactionFromBytes(bytes []byte) (*Transaction, error) {
 	return tx, nil
 }
 
-func (t *Builder) NewTransactionFromEnvelopeBytes(bytes []byte) (*Transaction, error) {
-	tx, err := t.newTransaction(nil, "", "", nil, bytes, true)
+func (t *Builder) NewTransactionFromEnvelopeBytes(ctx context.Context, bytes []byte) (*Transaction, error) {
+	tx, err := t.newTransaction(ctx, nil, "", "", nil, bytes, true)
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +78,7 @@ func (t *Builder) NewTransactionFromEnvelopeBytes(bytes []byte) (*Transaction, e
 func (t *Builder) NewTransactionWithIdentity(id view.Identity) (*Transaction, error) {
 	logger.Debugf("NewTransactionWithIdentity with identity %s\n", id.UniqueID())
 
-	tx, err := t.newTransaction(id, "", "", nil, nil, false)
+	tx, err := t.newTransaction(context.Background(), id, "", "", nil, nil, false)
 	if err != nil {
 		return nil, err
 	}
@@ -83,11 +86,11 @@ func (t *Builder) NewTransactionWithIdentity(id view.Identity) (*Transaction, er
 	return tx, nil
 }
 
-func (t *Builder) newTransaction(creator []byte, network, channel string, nonce, raw []byte, envelope bool) (*Transaction, error) {
-	return t.newTransactionWithType(creator, network, channel, nonce, raw, envelope, nil, nil)
+func (t *Builder) newTransaction(ctx context.Context, creator []byte, network, channel string, nonce, raw []byte, envelope bool) (*Transaction, error) {
+	return t.newTransactionWithType(ctx, creator, network, channel, nonce, raw, envelope, nil, nil)
 }
 
-func (t *Builder) newTransactionWithType(creator []byte, network, channel string, nonce, raw []byte, envelope bool, rawRequest []byte, tType *fabric.TransactionType) (*Transaction, error) {
+func (t *Builder) newTransactionWithType(ctx context.Context, creator []byte, network, channel string, nonce, raw []byte, envelope bool, rawRequest []byte, tType *fabric.TransactionType) (*Transaction, error) {
 	logger.Debugf("NewTransaction [%s,%s,%s]", view.Identity(creator).UniqueID(), channel, hash.Hashable(raw).String())
 	defer logger.Debugf("NewTransaction...done.")
 
@@ -103,6 +106,7 @@ func (t *Builder) newTransactionWithType(creator []byte, network, channel string
 		fabric.WithCreator(creator),
 		fabric.WithNonce(nonce),
 		fabric.WithChannel(channel),
+		fabric.WithContext(ctx),
 	}
 	if tType != nil {
 		options = append(options, fabric.WithTransactionType(*tType))
@@ -131,7 +135,7 @@ func (t *Builder) newTransactionWithType(creator []byte, network, channel string
 
 func NewTransaction(context view.Context, opts ...fabric.TransactionOption) (*Builder, *Transaction, error) {
 	txBuilder := NewBuilder(context)
-	tx, err := txBuilder.NewTransaction(opts...)
+	tx, err := txBuilder.NewTransaction(context.Context(), opts...)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -151,7 +155,7 @@ func NewTransactionFromBytes(context view.Context, bytes []byte) (*Builder, *Tra
 
 func NewTransactionWithSigner(context view.Context, network, channel string, id view.Identity) (*Builder, *Transaction, error) {
 	txBuilder := NewBuilderWithServiceProvider(context)
-	tx, err := txBuilder.newTransaction(id, network, channel, nil, nil, false)
+	tx, err := txBuilder.newTransaction(context.Context(), id, network, channel, nil, nil, false)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -159,18 +163,18 @@ func NewTransactionWithSigner(context view.Context, network, channel string, id 
 	return txBuilder, tx, nil
 }
 
-func NewTransactionWith(sp view2.ServiceProvider, network, channel string, id view.Identity) (*Builder, *Transaction, error) {
+func NewTransactionWith(ctx context.Context, sp view2.ServiceProvider, network, channel string, id view.Identity) (*Builder, *Transaction, error) {
 	txBuilder := NewBuilderWithServiceProvider(sp)
-	tx, err := txBuilder.newTransaction(id, network, channel, nil, nil, false)
+	tx, err := txBuilder.newTransaction(ctx, id, network, channel, nil, nil, false)
 	if err != nil {
 		return nil, nil, err
 	}
 	return txBuilder, tx, nil
 }
 
-func NewTransactionFromEnvelopeBytes(sp view2.ServiceProvider, bytes []byte) (*Builder, *Transaction, error) {
+func NewTransactionFromEnvelopeBytes(ctx context.Context, sp view2.ServiceProvider, bytes []byte) (*Builder, *Transaction, error) {
 	txBuilder := NewBuilderWithServiceProvider(sp)
-	tx, err := txBuilder.NewTransactionFromEnvelopeBytes(bytes)
+	tx, err := txBuilder.NewTransactionFromEnvelopeBytes(ctx, bytes)
 	if err != nil {
 		return nil, nil, err
 	}

@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package postgres
 
 import (
+	"context"
 	"database/sql"
 	errors2 "errors"
 	"fmt"
@@ -14,6 +15,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type VaultPersistence struct {
@@ -45,7 +47,10 @@ func newVaultPersistence(readWriteDB *sql.DB, tables common.VaultTables) *VaultP
 	}
 }
 
-func (db *VaultPersistence) Store(txIDs []driver.TxID, writes driver.Writes, metaWrites driver.MetaWrites) error {
+func (db *VaultPersistence) Store(ctx context.Context, txIDs []driver.TxID, writes driver.Writes, metaWrites driver.MetaWrites) error {
+	span := trace.SpanFromContext(ctx)
+	span.AddEvent("start_store")
+	defer span.AddEvent("end_store")
 	if err := db.AcquireWLocks(txIDs...); err != nil {
 		return err
 	}
@@ -72,7 +77,7 @@ func (db *VaultPersistence) Store(txIDs []driver.TxID, writes driver.Writes, met
 		}
 	}
 	if len(txIDs) > 0 {
-		query, params := db.VaultPersistence.UpdateStatusesValid(txIDs, 1)
+		query, params := db.VaultPersistence.SetStatusesValid(txIDs, 1)
 		if err := execOrRollback(tx, query, params); err != nil {
 			return errors.Wrapf(err, "failed setting tx to valid")
 		}

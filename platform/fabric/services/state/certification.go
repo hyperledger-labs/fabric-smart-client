@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package state
 
 import (
+	"context"
 	"encoding/json"
 
 	"github.com/pkg/errors"
@@ -125,7 +126,7 @@ func (n *Namespace) VerifyInputCertificationAt(index int, key string) error {
 		if err != nil {
 			return errors.Wrapf(err, "failed asking endorsers for to [%s,%s,%s] for [%s]", n.tx.Channel(), cn, cv, id)
 		}
-		_, certTx, err := endorser.NewTransactionFromEnvelopeBytes(n.tx.ServiceProvider, raw)
+		_, certTx, err := endorser.NewTransactionFromEnvelopeBytes(context.Background(), n.tx.ServiceProvider, raw)
 		if err != nil {
 			return errors.Wrapf(err, "failed parsing certification [%s,%s,%s] for [%s]", n.tx.Channel(), cn, cv, id)
 		}
@@ -210,7 +211,7 @@ type CertificationView struct {
 func (c *CertificationView) Call(context view.Context) (interface{}, error) {
 	vault, err := GetVaultForChannel(context, c.Channel)
 	assert.NoError(err)
-	cert, err := vault.GetStateCertification(c.Namespace, c.Key)
+	cert, err := vault.GetStateCertification(context.Context(), c.Namespace, c.Key)
 	assert.NoError(err, "failed getting certification")
 
 	return cert, nil

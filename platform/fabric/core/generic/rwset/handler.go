@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package rwset
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault"
@@ -32,7 +33,7 @@ func (h *endorserTransactionHandler) Load(payl *common.Payload, chdr *common.Cha
 
 	logger.Debugf("retrieve rws [%s,%s]", h.channel, chdr.TxId)
 
-	rws, err := h.v.GetRWSet(chdr.TxId, upe.Results)
+	rws, err := h.v.GetRWSet(context.Background(), chdr.TxId, upe.Results)
 	if err != nil {
 		return nil, nil, err
 	}

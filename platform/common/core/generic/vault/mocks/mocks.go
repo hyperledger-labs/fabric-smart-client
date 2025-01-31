@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package mocks
 
 import (
+	"context"
 	"encoding/binary"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
@@ -29,11 +30,11 @@ func NewMockQE() MockQE {
 	}
 }
 
-func (qe MockQE) GetStateMetadata(driver.Namespace, driver.PKey) (driver.Metadata, driver.RawVersion, error) {
+func (qe MockQE) GetStateMetadata(context.Context, driver.Namespace, driver.PKey) (driver.Metadata, driver.RawVersion, error) {
 	return qe.Metadata, blockTxIndexToBytes(1, 1), nil
 }
 
-func (qe MockQE) GetState(_ driver.Namespace, pkey driver.PKey) (*driver.VersionedRead, error) {
+func (qe MockQE) GetState(_ context.Context, _ driver.Namespace, pkey driver.PKey) (*driver.VersionedRead, error) {
 	return &driver.VersionedRead{
 		Key:     pkey,
 		Raw:     qe.State.Raw,
@@ -47,7 +48,7 @@ func (qe MockQE) Done() {
 type MockTxStatusStore struct {
 }
 
-func (m MockTxStatusStore) GetTxStatus(txID driver.TxID) (*driver.TxStatus, error) {
+func (m MockTxStatusStore) GetTxStatus(_ context.Context, txID driver.TxID) (*driver.TxStatus, error) {
 	return &driver.TxStatus{TxID: txID, Code: 1}, nil
 }
 

@@ -57,7 +57,7 @@ const (
 // Vault models a key-value store that can be updated by committing rwsets
 type Vault interface {
 	// GetLastTxID returns the last transaction id committed
-	GetLastTxID() (string, error)
+	GetLastTxID(ctx context.Context) (string, error)
 }
 
 type Services interface {
@@ -311,7 +311,7 @@ func (d *Delivery) connect(ctx context.Context) (DeliverStream, error) {
 		d.LocalMembership.DefaultSigningIdentity(),
 		deliverClient.Certificate(),
 		d.hasher,
-		d.GetStartPosition(),
+		d.GetStartPosition(ctx),
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create deliver envelope")
@@ -327,7 +327,7 @@ func (d *Delivery) connect(ctx context.Context) (DeliverStream, error) {
 	return stream, nil
 }
 
-func (d *Delivery) GetStartPosition() *ab.SeekPosition {
+func (d *Delivery) GetStartPosition(ctx context.Context) *ab.SeekPosition {
 	if d.lastBlockReceived != 0 {
 		if logger.IsEnabledFor(zapcore.DebugLevel) {
 			logger.Debugf("restarting from the last block received [%d]", d.lastBlockReceived)
@@ -346,7 +346,7 @@ func (d *Delivery) GetStartPosition() *ab.SeekPosition {
 		logger.Debugf("no last block received set [%d], check last TxID in the vault", d.lastBlockReceived)
 	}
 
-	lastTx, err := d.vault.GetLast()
+	lastTx, err := d.vault.GetLast(ctx)
 	if err != nil {
 		logger.Errorf("failed getting last transaction committed/discarded from the vault [%s], restarting from genesis", err)
 		return StartGenesis
