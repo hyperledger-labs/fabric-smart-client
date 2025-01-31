@@ -10,9 +10,7 @@ import (
 	"testing"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/vault/cache"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/cache/secondcache"
 	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 	dbhelper "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/vault"
@@ -26,11 +24,11 @@ import (
 type artifactsProvider struct{}
 
 func (p *artifactsProvider) NewCachedVault(ddb dbdriver.VaultPersistence) (*vault.Vault[fdriver.ValidationCode], error) {
-	return NewVault(cache.NewCache(ddb, secondcache.NewTyped[*cache.Entry](100), logger), &disabled.Provider{}, &noop.TracerProvider{}), nil
+	return NewVault(dbhelper.NewCachedVault(ddb, 100), &disabled.Provider{}, &noop.TracerProvider{}), nil
 }
 
 func (p *artifactsProvider) NewNonCachedVault(ddb dbdriver.VaultPersistence) (*vault.Vault[fdriver.ValidationCode], error) {
-	return NewVault(cache.NewNoCache(ddb), &disabled.Provider{}, &noop.TracerProvider{}), nil
+	return NewVault(dbhelper.NewCachedVault(ddb, 0), &disabled.Provider{}, &noop.TracerProvider{}), nil
 }
 
 func (p *artifactsProvider) NewMarshaller() vault.Marshaller {

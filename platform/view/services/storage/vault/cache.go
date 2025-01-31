@@ -8,95 +8,105 @@ package vault
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/cache/secondcache"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 )
 
-type Logger interface {
-	Debugf(template string, args ...interface{})
-	Infof(template string, args ...interface{})
-	Errorf(template string, args ...interface{})
+var logger = logging.MustGetLogger("viewsdk.cached-vault")
+
+type CachedVaultStore interface {
+	driver.VaultStore
+	Invalidate(txIDs ...driver.TxID)
 }
 
-type Entry[V driver.ValidationCode] struct {
-	ValidationCode    V
-	ValidationMessage string
+type entry struct {
+	Code    driver.TxStatusCode
+	Message string
 }
 
-type cache[V driver.ValidationCode] interface {
-	Get(key string) (*Entry[V], bool)
-	Add(key string, value *Entry[V])
+type cache interface {
+	Get(key string) (*entry, bool)
+	Add(key string, value *entry)
 	Delete(key string)
 }
 
-type CachedStore[V driver.ValidationCode] struct {
-	//backed driver2.VaultPersistence
-	//cache  cache[V]
-	//logger Logger
+type cachedStore struct {
+	driver.VaultStore
+	cache cache
 }
 
-type NotCachedStore struct {
-	driver2.VaultPersistence
+type notCachedStore struct {
+	driver.VaultStore
 }
 
-func (s *NotCachedStore) Invalidate(...driver.TxID) {}
+func (s *notCachedStore) Invalidate(...driver.TxID) {}
 
-func NewNoCache(backed driver2.VaultPersistence) *NotCachedStore {
-	return &NotCachedStore{VaultPersistence: backed}
+func NewCachedVault(backed driver2.VaultPersistence, cacheSize int) CachedVaultStore {
+	if cacheSize <= 0 {
+		logger.Debugf("txID store without cache selected")
+		return &notCachedStore{VaultStore: backed}
+	}
+	logger.Debugf("creating txID store second cache with size [%d]", cacheSize)
+	return &cachedStore{
+		VaultStore: backed,
+		cache:      secondcache.NewTyped[*entry](cacheSize),
+	}
 }
 
-func NewCache[V driver.ValidationCode](backed driver2.VaultPersistence, cache cache[V], logger Logger) *NotCachedStore {
-	return NewNoCache(backed)
+func (s *cachedStore) Invalidate(txIDs ...driver.TxID) {
+	logger.Debugf("Invalidating cache entry for [%v]", txIDs)
+
+	for _, txID := range txIDs {
+		s.cache.Delete(txID)
+	}
 }
 
-//func NewCache[V driver.ValidationCode](backed driver2.VaultPersistence, cache cache[V], logger Logger) *CachedStore[V] {
-//	return &CachedStore[V]{backed: backed, cache: cache, logger: logger}
-//}
-//
-//func (s *CachedStore[V]) Invalidate(txID driver.TxID) {
-//	s.logger.Debugf("Invalidating cache entry for [%s]", txID)
-//	s.cache.Delete(txID)
-//}
-//
-//func (s *CachedStore[V]) Get(txID driver.TxID) (V, string, error) {
-//	// first cache
-//	if entry, ok := s.cache.Get(txID); ok && entry != nil { // Deleted entries return ok
-//		s.logger.Debugf("Found value for [%s] in cache: %v", txID, entry.ValidationCode)
-//		return entry.ValidationCode, entry.ValidationMessage, nil
-//	}
-//	// then backed
-//	return s.forceGet(txID)
-//}
-//
-//func (s *CachedStore[V]) forceGet(txID driver.TxID) (V, string, error) {
-//	vc, msg, err := s.backed.GetTxStatus(txID)
-//	s.logger.Debugf("Got value [%v] from backed: %v", vc, err)
-//	if err != nil {
-//		return vc, "", err
-//	}
-//	s.cache.Add(txID, &Entry[V]{ValidationCode: vc, ValidationMessage: msg})
-//	return vc, msg, nil
-//}
-//
-//func (s *CachedStore[V]) Set(txID string, code V, message string) error {
-//	s.logger.Debugf("Set value [%v] for [%s] into backed and cache", code, txID)
-//	if err := s.backed.Set(txID, code, message); err != nil {
-//		return err
-//	}
-//	s.cache.Add(txID, &Entry[V]{ValidationCode: code, ValidationMessage: message})
-//	return nil
-//}
-//
-//func (s *CachedStore[V]) SetMultiple(txs []driver.ByNum[V]) error {
-//	s.logger.Debugf("Set values for %d txs into backed and cache", len(txs))
-//	if err := s.backed.SetMultiple(txs); err != nil {
-//		return err
-//	}
-//	for _, tx := range txs {
-//		s.cache.Add(tx.TxID, &Entry[V]{ValidationCode: tx.Code, ValidationMessage: tx.Message})
-//	}
-//	return nil
-//}
-//
-//func (s *CachedStore[V]) Iterator(pos interface{}) (collections.Iterator[*driver.ByNum[V]], error) {
-//	return s.backed.Iterator(pos)
-//}
+func (s *cachedStore) GetTxStatus(txID driver.TxID) (*driver.TxStatus, error) {
+	if e, ok := s.cache.Get(txID); ok && e != nil { // Deleted entries return ok
+		logger.Debugf("Found value for [%s] in cache: %v", txID, e.Code)
+		return &driver.TxStatus{
+			TxID:    txID,
+			Code:    e.Code,
+			Message: e.Message,
+		}, nil
+	}
+
+	return s.forceGet(txID)
+}
+
+func (s *cachedStore) forceGet(txID driver.TxID) (*driver.TxStatus, error) {
+	txStatus, err := s.VaultStore.GetTxStatus(txID)
+	if err != nil || txStatus == nil {
+		logger.Debugf("Force get returned no value from backed for [%s]", txID)
+		return nil, err
+	}
+
+	logger.Debugf("Force get returned value [%v] from backed: %v", *txStatus, err)
+	s.cache.Add(txID, &entry{Code: txStatus.Code, Message: txStatus.Message})
+	return txStatus, nil
+}
+
+func (s *cachedStore) Store(txIDs []driver.TxID, writes driver.Writes, metaWrites driver.MetaWrites) error {
+	logger.Debugf("Store writes and meta-writes for [%v] into backed and cache", txIDs)
+	if err := s.VaultStore.Store(txIDs, writes, metaWrites); err != nil {
+		return err
+	}
+
+	for _, txID := range txIDs {
+		s.cache.Add(txID, &entry{Code: driver.Valid})
+	}
+	return nil
+}
+
+func (s *cachedStore) SetStatuses(code driver.TxStatusCode, message string, txIDs ...driver.TxID) error {
+	logger.Debugf("Set value [%v] for [%v] into backed and cache", code, txIDs)
+	if err := s.VaultStore.SetStatuses(code, message, txIDs...); err != nil {
+		return err
+	}
+
+	for _, txID := range txIDs {
+		s.cache.Add(txID, &entry{Code: code, Message: message})
+	}
+	return nil
+}

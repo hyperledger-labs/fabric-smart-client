@@ -9,13 +9,16 @@ package driver
 import (
 	"fmt"
 
+	vault3 "github.com/hyperledger-labs/fabric-smart-client/docs/fabric/fabricdev/core/fabricdev/vault"
 	committer2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/committer"
+	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/sig"
+	vault2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/vault"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/vault"
 	"github.com/hyperledger/fabric-protos-go/common"
 
 	"github.com/hyperledger-labs/fabric-smart-client/docs/fabric/fabricdev/core/fabricdev"
 	"github.com/hyperledger-labs/fabric-smart-client/docs/fabric/fabricdev/core/fabricdev/transaction"
-	"github.com/hyperledger-labs/fabric-smart-client/docs/fabric/fabricdev/core/fabricdev/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
@@ -76,7 +79,10 @@ func NewProvider(
 			tracerProvider,
 			metricsProvider,
 			Drivers,
-			vault.New,
+			func(_ string, configService fdriver.ConfigService, vaultStore cdriver.VaultStore, metricsProvider metrics.Provider, tracerProvider trace.TracerProvider) (*vault2.Vault, error) {
+				cachedVault := vault.NewCachedVault(vaultStore, configService.VaultTXStoreCacheSize())
+				return vault3.NewVault(cachedVault, metricsProvider, tracerProvider), nil
+			},
 			generic.NewChannelConfigProvider(configProvider),
 			committer2.NewFinalityListenerManagerProvider[fdriver.ValidationCode](tracerProvider),
 			committer.NewSerialDependencyResolver(),

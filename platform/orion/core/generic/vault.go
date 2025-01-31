@@ -12,7 +12,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
-	vault2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/vault"
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -34,7 +33,7 @@ type lastTxGetter interface {
 
 func NewVault(network Network, vaultStore driver2.VaultPersistence, metricsProvider metrics.Provider, tracerProvider trace.TracerProvider) (*Vault, error) {
 	return &Vault{
-		Vault:      vault.New(vault2.NewNoCache(vaultStore), metricsProvider, tracerProvider),
+		Vault:      vault.New(vaultStore, metricsProvider, tracerProvider),
 		network:    network,
 		vaultStore: vaultStore,
 	}, nil

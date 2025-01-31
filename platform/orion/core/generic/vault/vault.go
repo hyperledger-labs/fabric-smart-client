@@ -25,7 +25,7 @@ type Vault = vault.Vault[odriver.ValidationCode]
 func New(vaultStore driver.VaultStore, metricsProvider metrics.Provider, tracerProvider trace.TracerProvider) *Vault {
 	return vault.New[odriver.ValidationCode](
 		logging.MustGetLogger("orion-sdk.generic.vault"),
-		vault2.NewNoCache(vaultStore),
+		vault2.NewCachedVault(vaultStore, 0),
 		odriver.ValidationCodeProvider,
 		newInterceptor,
 		&populator{},

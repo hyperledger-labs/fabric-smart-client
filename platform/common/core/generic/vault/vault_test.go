@@ -14,7 +14,6 @@ import (
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/cache/secondcache"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/vault"
@@ -31,7 +30,7 @@ func (p *testArtifactProvider) NewCachedVault(ddb driver.VaultPersistence) (*Vau
 	vaultLogger := logging.MustGetLogger("vault-logger")
 	return New[ValidationCode](
 		vaultLogger,
-		vault.NewCache[ValidationCode](ddb, secondcache.NewTyped[*vault.Entry[ValidationCode]](100), vaultLogger),
+		vault.NewCachedVault(ddb, 100),
 		VCProvider,
 		newInterceptor,
 		&populator{},
@@ -44,7 +43,7 @@ func (p *testArtifactProvider) NewCachedVault(ddb driver.VaultPersistence) (*Vau
 func (p *testArtifactProvider) NewNonCachedVault(ddb driver.VaultPersistence) (*Vault[ValidationCode], error) {
 	return New[ValidationCode](
 		logging.MustGetLogger("vault"),
-		vault.NewNoCache(ddb),
+		vault.NewCachedVault(ddb, 0),
 		VCProvider,
 		newInterceptor,
 		&populator{},
