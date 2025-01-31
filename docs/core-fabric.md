@@ -103,11 +103,8 @@ fsc:
       # If not specified, default is 100 (TBD: What is the scale here ?, what does 0 mean)
       size:
     persistence:
-      # type can be badger (disk) or memory
-      type: badger
-      opts:
-        # persistence location
-        path: /some/path
+      # type can be memory or sql
+      type: memory
 
   # ------------------- Web Server Configuration -------------------------
   # Web server must be enabled to support healthz, version and prometheus /metrics
@@ -379,11 +376,8 @@ fabric:
     # Internal vault used to keep track of the RW sets assembed by this node during in progress transactions
     vault:
       persistence:
-        # type can be badger (disk) sql or memory. See below for sql configuration options.
-        type: badger
-        opts:
-          # persistence location
-          path: /some/path
+        # type can be sql or memory. See below for sql configuration options.
+        type: memory
       txidstore:
         cache:
           # TBD: What does this cache, what does 0 mean and what is the scale
@@ -437,8 +431,7 @@ In order to use a hardware HSM for x.509 identities, you have to build the appli
 
 ## Persistence: sql
 
-Badger is the default key/valuestore for Fabric Smart Client and is the most performant. Alternatively, you can
-select a golang/sql compatible driver. Although the data in Fabric Smart Client is key/value and not relational,
+You can select a golang/sql compatible driver. Although the data in Fabric Smart Client is key/value and not relational,
 reasons to choose sql may include:
 
 - Using a managed database for high availability, failover and backups

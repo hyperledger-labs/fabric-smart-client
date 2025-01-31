@@ -12,13 +12,10 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/sqlite"
-
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/postgres"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger"
 	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/postgres"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/sqlite"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs/mock"
@@ -140,27 +137,6 @@ func testParallelWrites(t *testing.T, driver driver.Driver, cp kvs.ConfigProvide
 		}(i)
 	}
 	wg.Wait()
-}
-
-func TestBadgerKVS(t *testing.T) {
-	path, err := os.MkdirTemp(os.TempDir(), "kvstest-*")
-	assert.NoError(t, err)
-	defer os.RemoveAll(path)
-
-	cp := &mock.ConfigProvider{}
-	cp.UnmarshalKeyStub = func(s string, i interface{}) error {
-		_, ok := i.(*badger.Opts)
-		if ok {
-			*(i.(*badger.Opts)) = badger.Opts{
-				Path: path,
-			}
-		}
-		return nil
-	}
-	cp.IsSetReturns(false)
-	d := &badger.Driver{}
-	testRound(t, d, cp)
-	testParallelWrites(t, d, cp)
 }
 
 func TestMemoryKVS(t *testing.T) {

@@ -318,14 +318,11 @@ fabric:
     {{- end }}
     vault:
       persistence:
-        # Persistence type can be \'badger\' (on disk), \'memory\' or \'sql\'
         type: {{ VaultOpts.Type }}
         opts:
           {{- if eq VaultOpts.Type "sql" }}
           driver: {{ VaultOpts.SQL.DriverType }}
           dataSource: {{ VaultOpts.SQL.DataSource }}
-          {{- else if eq VaultOpts.Type "badger" }}
-          path: {{ VaultOpts.Badger.Path }}
           {{- else if eq VaultOpts.Type "memory" }}
           # Memory has hard-coded opts
           {{- else }}

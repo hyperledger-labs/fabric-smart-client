@@ -473,10 +473,7 @@ fsc:
   # The Key-Value Store is used to store various information related to the FSC node
   kvs:
     persistence:
-      # Persistence type can be `badger` (on disk) or `memory`
-      type: badger
-      opts:
-        path: ./../../nodes/initiator/kvs
+      type: memory
   # The endpoint section tells how to reach other FSC node in the network.
   # For each node, the name, the domain, the identity of the node, and its addresses must be specified.
   endpoint:
