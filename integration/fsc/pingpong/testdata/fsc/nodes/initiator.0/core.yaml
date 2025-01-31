@@ -70,10 +70,7 @@ fsc:
   # The Key-Value Store is used to store various information related to the FSC node
   kvs:
     persistence:
-      # Persistence type can be \'badger\' (on disk) or \'memory\'
       type: memory
-      opts:
-        path: ./../../nodes/initiator/kvs
     cache:
         # Sets the maximum number of cached items 
         size: 200
