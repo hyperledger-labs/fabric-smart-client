@@ -30,11 +30,12 @@ import (
 )
 
 type VaultConstructor = func(
+	channelName string,
 	configService driver.ConfigService,
 	vaultStore driver3.VaultStore,
 	metricsProvider metrics.Provider,
 	tracerProvider trace.TracerProvider,
-) *vault.Vault
+) (*vault.Vault, error)
 type LedgerConstructor func(
 	channelName string,
 	nw driver.FabricNetworkService,
@@ -140,7 +141,10 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 		return nil, err
 	}
 
-	vault := p.newVault(nw.ConfigService(), vaultStore, p.metricsProvider, p.tracerProvider)
+	vault, err := p.newVault(channelName, nw.ConfigService(), vaultStore, p.metricsProvider, p.tracerProvider)
+	if err != nil {
+		return nil, err
+	}
 	envelopeService := transaction.NewEnvelopeService(p.envelopeKVS, nw.Name(), channelName)
 	transactionService := transaction.NewEndorseTransactionService(p.endorserTxKVS, nw.Name(), channelName)
 	metadataService := transaction.NewMetadataService(p.metadataKVS, nw.Name(), channelName)

@@ -18,16 +18,16 @@ import (
 
 var logger = logging.MustGetLogger("fabric-sdk.core.vault")
 
-func New(configService driver.ConfigService, vaultStore driver3.VaultStore, metricsProvider metrics.Provider, tracerProvider trace.TracerProvider) *Vault {
+func New(_ string, configService driver.ConfigService, vaultStore driver3.VaultStore, metricsProvider metrics.Provider, tracerProvider trace.TracerProvider) (*Vault, error) {
 	txIDStoreCacheSize := configService.VaultTXStoreCacheSize()
 
 	if txIDStoreCacheSize > 0 {
 		logger.Debugf("creating txID store second cache with size [%d]", txIDStoreCacheSize)
 		c := cache.NewCache(vaultStore, secondcache.NewTyped[*cache.Entry](txIDStoreCacheSize), logger)
-		return NewVault(c, metricsProvider, tracerProvider)
+		return NewVault(c, metricsProvider, tracerProvider), nil
 	} else {
 		logger.Debugf("txID store without cache selected")
 		c := cache.NewNoCache(vaultStore)
-		return NewVault(c, metricsProvider, tracerProvider)
+		return NewVault(c, metricsProvider, tracerProvider), nil
 	}
 }
