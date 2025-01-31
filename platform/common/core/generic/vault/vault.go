@@ -17,9 +17,9 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/vault/cache"
 	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/vault"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -86,13 +86,13 @@ type Vault[V driver.ValidationCode] struct {
 
 	commitBatcher runner.BatchRunner[txCommitIndex]
 	rwMapper      *rwSetMapper
-	vaultStore    cache.CachedVaultStore
+	vaultStore    vault.CachedVaultStore
 }
 
 // New returns a new instance of Vault
 func New[V driver.ValidationCode](
 	logger Logger,
-	vaultStore cache.CachedVaultStore,
+	vaultStore vault.CachedVaultStore,
 	vcProvider driver.ValidationCodeProvider[V],
 	newInterceptor NewInterceptorFunc[V],
 	populator Populator,

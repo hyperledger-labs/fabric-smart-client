@@ -30,6 +30,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
+	vault2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/vault"
 	"github.com/hyperledger/fabric-protos-go/common"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/dig"
@@ -99,7 +100,10 @@ func NewChannelProvider(in struct {
 		in.TracerProvider,
 		in.MetricsProvider,
 		in.Drivers,
-		vault.New,
+		func(_ string, configService driver.ConfigService, vaultStore driver2.VaultStore, metricsProvider metrics.Provider, tracerProvider trace.TracerProvider) (*vault.Vault, error) {
+			cachedVault := vault2.NewCachedVault(vaultStore, configService.VaultTXStoreCacheSize())
+			return vault.NewVault(cachedVault, metricsProvider, tracerProvider), nil
+		},
 		generic.NewChannelConfigProvider(in.ConfigProvider),
 		committer2.NewFinalityListenerManagerProvider[driver.ValidationCode](in.TracerProvider),
 		committer.NewSerialDependencyResolver(),

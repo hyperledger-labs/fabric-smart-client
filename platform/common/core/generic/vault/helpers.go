@@ -1101,7 +1101,7 @@ func compare(t *testing.T, ns string, db1, db2 driver2.VaultPersistence) {
 func byKey(a, b VersionedRead) int { return strings.Compare(a.Key, b.Key) }
 
 //
-//func queryVault(v *Vault[ValidationCode], ns driver.Namespace, key driver.PKey, mkey driver.MKey) (driver.RawValue, driver.Metadata, driver.TxNum, driver.BlockNum, error) {
+//func queryVault(v *Vault[Code], ns driver.Namespace, key driver.PKey, mkey driver.MKey) (driver.RawValue, driver.Metadata, driver.TxNum, driver.BlockNum, error) {
 //	qe, err := v.NewQueryExecutor()
 //	defer qe.Done()
 //	if err != nil {

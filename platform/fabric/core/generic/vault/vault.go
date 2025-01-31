@@ -12,9 +12,9 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/vault/cache"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
+	vault2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/vault"
 	"github.com/hyperledger/fabric-protos-go/ledger/rwset"
 	"github.com/hyperledger/fabric-protos-go/ledger/rwset/kvrwset"
 	"github.com/hyperledger/fabric/core/ledger/kvledger/txmgmt/rwsetutil"
@@ -25,7 +25,7 @@ import (
 type Vault = vault.Vault[fdriver.ValidationCode]
 
 // NewVault returns a new instance of Vault
-func NewVault(vaultStore cache.CachedVaultStore, metricsProvider metrics.Provider, tracerProvider trace.TracerProvider) *Vault {
+func NewVault(vaultStore vault2.CachedVaultStore, metricsProvider metrics.Provider, tracerProvider trace.TracerProvider) *Vault {
 	return vault.New[fdriver.ValidationCode](
 		logging.MustGetLogger("fabric-sdk.generic.vault"),
 		vaultStore,
