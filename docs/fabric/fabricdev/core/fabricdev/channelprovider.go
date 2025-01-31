@@ -96,7 +96,10 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 		return nil, err
 	}
 
-	vault := p.newVault(nw.ConfigService(), vaultStore, p.metricsProvider, p.tracerProvider)
+	vault, err := p.newVault(channelName, nw.ConfigService(), vaultStore, p.metricsProvider, p.tracerProvider)
+	if err != nil {
+		return nil, err
+	}
 	envelopeService := transaction.NewEnvelopeService(p.envelopeKVS, nw.Name(), channelName)
 	transactionService := transaction.NewEndorseTransactionService(p.endorseTxKVS, nw.Name(), channelName)
 	metadataService := transaction.NewMetadataService(p.metadataKVS, nw.Name(), channelName)
