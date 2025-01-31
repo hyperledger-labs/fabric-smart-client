@@ -20,6 +20,7 @@ import (
 	vdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
+	"go.opentelemetry.io/otel/trace"
 )
 
 var logger = logging.MustGetLogger("fabric-sdk.core.generic.driver")
@@ -43,6 +44,7 @@ func NewProvider(
 	signerKVS driver.SignerInfoStore,
 	auditInfoKVS driver.AuditInfoStore,
 	kvss *kvs.KVS,
+	tracerProvider trace.TracerProvider,
 ) *Provider {
 	deserializerManager := sig.NewMultiplexDeserializer()
 	sigService := sig.NewService(deserializerManager, auditInfoKVS, signerKVS)

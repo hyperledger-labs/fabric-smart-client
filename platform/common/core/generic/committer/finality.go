@@ -30,7 +30,7 @@ type Logger interface {
 }
 
 type Vault[V comparable] interface {
-	Statuses(ids ...string) ([]driver.TxValidationStatus[V], error)
+	Statuses(ctx context.Context, ids ...driver.TxID) ([]driver.TxValidationStatus[V], error)
 }
 
 // FinalityManager manages events for the commit pipeline.
@@ -105,9 +105,9 @@ func (c *FinalityManager[V]) runStatusListener(ctx context.Context) {
 				break
 			}
 
-			newCtx, span := c.tracer.Start(context.Background(), "vault_status_check")
+			newCtx, span := c.tracer.Start(context.Background(), "committer_status_listener")
 			c.logger.Debugf("check vault status for [%d] transactions", len(txIDs))
-			statuses, err := c.vault.Statuses(txIDs...)
+			statuses, err := c.vault.Statuses(newCtx, txIDs...)
 			if err != nil {
 				c.logger.Errorf("error fetching statuses: %w", err)
 				span.RecordError(err)

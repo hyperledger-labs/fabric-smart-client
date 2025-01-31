@@ -57,6 +57,9 @@ func NewListenerManager[T TxInfo](config DeliveryListenerManagerConfig, delivery
 	var listeners cache.Map[driver2.TxID, []ListenerEntry[T]]
 	if config.ListenerTimeout > 0 {
 		listeners = cache.NewTimeoutCache[driver2.TxID, []ListenerEntry[T]](config.ListenerTimeout, func(evicted map[driver2.TxID][]ListenerEntry[T]) {
+			if len(evicted) == 0 {
+				return
+			}
 			logger.Debugf("Listeners for TXs [%v] timed out. Either the TX finality is too slow or it reached finality too long ago and were evicted from the txInfos cache. The IDs will be queried directly from ledger (when the batch is cut)...", collections.Keys(evicted))
 			fetchTxs(evicted, mapper, delivery)
 		})

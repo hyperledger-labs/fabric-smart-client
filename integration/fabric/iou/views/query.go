@@ -27,7 +27,7 @@ func (q *QueryView) Call(context view.Context) (interface{}, error) {
 	iouState := &states.IOU{}
 	vault, err := state.GetVault(context)
 	assert.NoError(err)
-	assert.NoError(vault.GetState("iou", q.LinearID, iouState))
+	assert.NoError(vault.GetState(context.Context(), "iou", q.LinearID, iouState))
 	return iouState.Amount, nil
 }
 

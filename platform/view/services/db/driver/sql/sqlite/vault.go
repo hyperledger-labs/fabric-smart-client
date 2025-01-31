@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package sqlite
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"strings"
@@ -14,6 +15,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type VaultPersistence struct {
@@ -46,7 +48,10 @@ func newTxCodePersistence(readDB, writeDB *sql.DB, tables common.VaultTables) *V
 	}
 }
 
-func (db *VaultPersistence) Store(txIDs []driver.TxID, writes driver.Writes, metaWrites driver.MetaWrites) error {
+func (db *VaultPersistence) Store(ctx context.Context, txIDs []driver.TxID, writes driver.Writes, metaWrites driver.MetaWrites) error {
+	span := trace.SpanFromContext(ctx)
+	span.AddEvent("start_store")
+	defer span.AddEvent("end_store")
 	if len(txIDs) == 0 && len(writes) == 0 && len(metaWrites) == 0 {
 		logger.Debugf("Nothing to write")
 		return nil
@@ -79,7 +84,7 @@ func (db *VaultPersistence) Store(txIDs []driver.TxID, writes driver.Writes, met
 	}
 
 	if len(txIDs) > 0 {
-		q, ps := db.UpdateStatusesValid(txIDs, len(params)+1)
+		q, ps := db.SetStatusesValid(txIDs, len(params)+1)
 		params = append(params, ps...)
 		queryBuilder.WriteString(q)
 	}

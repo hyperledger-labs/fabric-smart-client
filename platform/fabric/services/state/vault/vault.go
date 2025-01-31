@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package vault
 
 import (
+	"context"
 	"encoding/json"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
@@ -44,8 +45,8 @@ func (l *ListStateQueryIteratorInterface) Next(state interface{}) (string, error
 }
 
 type vaultStore interface {
-	GetState(namespace driver.Namespace, key driver.PKey) (*driver.VersionedRead, error)
-	GetStateRange(namespace driver.Namespace, startKey, endKey driver.PKey) (driver.TxStateIterator, error)
+	GetState(ctx context.Context, namespace driver.Namespace, key driver.PKey) (*driver.VersionedRead, error)
+	GetStateRange(ctx context.Context, namespace driver.Namespace, startKey, endKey driver.PKey) (driver.TxStateIterator, error)
 }
 type localMembership interface {
 	DefaultIdentity() view2.Identity
@@ -59,8 +60,8 @@ type vault struct {
 	localMembership localMembership
 }
 
-func (f *vault) GetState(namespace driver.Namespace, id driver.PKey, state interface{}) error {
-	value, err := f.vaultStore.GetState(namespace, id)
+func (f *vault) GetState(ctx context.Context, namespace driver.Namespace, id driver.PKey, state interface{}) error {
+	value, err := f.vaultStore.GetState(ctx, namespace, id)
 	if err != nil {
 		return err
 	}
@@ -74,27 +75,22 @@ func (f *vault) GetState(namespace driver.Namespace, id driver.PKey, state inter
 	return nil
 }
 
-func (f *vault) GetStateByPartialCompositeID(ns string, prefix string, attrs []string) (state.QueryIteratorInterface, error) {
+func (f *vault) GetStateByPartialCompositeID(ctx context.Context, ns driver.Namespace, prefix string, attrs []string) (state.QueryIteratorInterface, error) {
 	startKey, err := state.CreateCompositeKey(prefix, attrs)
 	if err != nil {
 		return nil, err
 	}
 	endKey := startKey + string(state.MaxUnicodeRuneValue)
 
-	it, err := f.vaultStore.GetStateRange(ns, startKey, endKey)
+	it, err := f.vaultStore.GetStateRange(ctx, ns, startKey, endKey)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed getting state iterator")
 	}
 	return &ListStateQueryIteratorInterface{it: it}, nil
 }
 
-func (f *vault) GetStateCertification(namespace string, key string) ([]byte, error) {
-	_, tx, err := endorser.NewTransactionWith(
-		f.sp,
-		f.network,
-		f.channel,
-		f.localMembership.DefaultIdentity(),
-	)
+func (f *vault) GetStateCertification(ctx context.Context, namespace driver.Namespace, key driver.PKey) ([]byte, error) {
+	_, tx, err := endorser.NewTransactionWith(ctx, f.sp, f.network, f.channel, f.localMembership.DefaultIdentity())
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed creating transaction [%s:%s]", namespace, key)
 	}

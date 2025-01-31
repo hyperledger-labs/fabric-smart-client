@@ -28,6 +28,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger/fabric-protos-go/common"
 	"github.com/hyperledger/fabric-protos-go/peer"
 	"github.com/hyperledger/fabric/bccsp/factory"
@@ -93,6 +94,7 @@ type Committer struct {
 	OrderingService    OrderingService
 	FabricFinality     FabricFinality
 	metrics            *Metrics
+	tracer             trace.Tracer
 	TransactionManager driver.TransactionManager
 	DependencyResolver DependencyResolver
 
@@ -150,6 +152,7 @@ func New(
 		DependencyResolver: dependencyResolver,
 		QuietNotifier:      quiet,
 		metrics:            NewMetrics(tracerProvider, metricsProvider),
+		tracer:             tracerProvider.Tracer("committer", tracing.WithMetricsOpts(tracing.MetricsOpts{Namespace: "core"})),
 		logger:             logger.Named(fmt.Sprintf("[%s:%s]", configService.NetworkName(), channelConfig.ID())),
 		listeners:          map[string][]chan FinalityEvent{},
 		Handlers:           map[common.HeaderType]TransactionHandler{},
@@ -195,8 +198,8 @@ func (c *Committer) runEventNotifiers(context context.Context) {
 	}
 }
 
-func (c *Committer) Status(txID string) (driver.ValidationCode, string, error) {
-	vc, message, err := c.Vault.Status(txID)
+func (c *Committer) Status(ctx context.Context, txID driver2.TxID) (driver.ValidationCode, string, error) {
+	vc, message, err := c.Vault.Status(ctx, txID)
 	if err != nil {
 		c.logger.Errorf("failed to get status of [%s]: %s", txID, err)
 		return driver.Unknown, "", err
@@ -204,7 +207,7 @@ func (c *Committer) Status(txID string) (driver.ValidationCode, string, error) {
 	if vc == driver.Unknown {
 		// give it a second chance
 		if c.EnvelopeService.Exists(txID) {
-			if err := c.extractStoredEnvelopeToVault(txID); err != nil {
+			if err := c.extractStoredEnvelopeToVault(ctx, txID); err != nil {
 				return driver.Unknown, "", errors.WithMessagef(err, "failed to extract stored enveloper for [%s]", txID)
 			}
 			vc = driver.Busy
@@ -223,29 +226,30 @@ func (c *Committer) AddTransactionFilter(sr driver.TransactionFilter) error {
 	return nil
 }
 
-func (c *Committer) DiscardTx(txID string, message string) error {
+func (c *Committer) DiscardTx(ctx context.Context, txID string, message string) error {
+
 	c.logger.Debugf("discarding transaction [%s] with message [%s]", txID, message)
 
-	vc, _, err := c.Status(txID)
+	vc, _, err := c.Status(ctx, txID)
 	if err != nil {
 		return errors.WithMessagef(err, "failed getting tx's status in state db [%s]", txID)
 	}
 	if vc == driver.Unknown {
 		// give it a second chance
 		if c.EnvelopeService.Exists(txID) {
-			if err := c.extractStoredEnvelopeToVault(txID); err != nil {
+			if err := c.extractStoredEnvelopeToVault(ctx, txID); err != nil {
 				return errors.WithMessagef(err, "failed to extract stored enveloper for [%s]", txID)
 			}
 		} else {
 			c.logger.Debugf("Discarding transaction [%s] skipped, tx is unknown", txID)
-			if err := c.Vault.SetDiscarded(txID, message); err != nil {
+			if err := c.Vault.SetDiscarded(ctx, txID, message); err != nil {
 				c.logger.Errorf("failed setting tx discarded [%s] in vault: %s", txID, err)
 			}
 			return nil
 		}
 	}
 
-	if err := c.Vault.DiscardTx(txID, message); err != nil {
+	if err := c.Vault.DiscardTx(ctx, txID, message); err != nil {
 		c.logger.Errorf("failed discarding tx [%s] in vault: %s", txID, err)
 	}
 	return nil
@@ -255,7 +259,7 @@ func (c *Committer) CommitTX(ctx context.Context, txID string, block driver.Bloc
 	c.logger.Debugf("Committing transaction [%s,%d,%d]", txID, block, indexInBlock)
 	defer c.logger.Debugf("Committing transaction [%s,%d,%d] done [%s]", txID, block, indexInBlock, err)
 
-	vc, _, err := c.Status(txID)
+	vc, _, err := c.Status(ctx, txID)
 	if err != nil {
 		return errors.WithMessagef(err, "failed getting tx's status in state db [%s]", txID)
 	}
@@ -287,7 +291,10 @@ func (c *Committer) RemoveFinalityListener(txID string, listener driver.Finality
 }
 
 // CommitConfig is used to validate and apply configuration transactions for a Channel.
-func (c *Committer) CommitConfig(blockNumber uint64, raw []byte, env *common.Envelope) error {
+func (c *Committer) CommitConfig(ctx context.Context, blockNumber driver2.BlockNum, raw []byte, env *common.Envelope) error {
+	span := trace.SpanFromContext(ctx)
+	span.AddEvent("start_commit_config")
+	defer span.AddEvent("end_commit_config")
 	commitConfigMutex.Lock()
 	defer commitConfigMutex.Unlock()
 
@@ -303,13 +310,13 @@ func (c *Committer) CommitConfig(blockNumber uint64, raw []byte, env *common.Env
 		return errors.Wrapf(err, "cannot get payload from config transaction, block number [%d]", blockNumber)
 	}
 
-	ctx, err := configtx.UnmarshalConfigEnvelope(payload.Data)
+	cenv, err := configtx.UnmarshalConfigEnvelope(payload.Data)
 	if err != nil {
 		return errors.Wrapf(err, "error unmarshalling config which passed initial validity checks")
 	}
 
-	txID := ConfigTXPrefix + strconv.FormatUint(ctx.Config.Sequence, 10)
-	vc, _, err := c.Vault.Status(txID)
+	txID := ConfigTXPrefix + strconv.FormatUint(cenv.Config.Sequence, 10)
+	vc, _, err := c.Vault.Status(ctx, txID)
 	if err != nil {
 		return errors.Wrapf(err, "failed getting tx's status [%s]", txID)
 	}
@@ -327,18 +334,18 @@ func (c *Committer) CommitConfig(blockNumber uint64, raw []byte, env *common.Env
 	var bundle *channelconfig.Bundle
 	if c.MembershipService.Resources() == nil {
 		// set up the genesis block
-		bundle, err = channelconfig.NewBundle(c.ChannelConfig.ID(), ctx.Config, factory.GetDefault())
+		bundle, err = channelconfig.NewBundle(c.ChannelConfig.ID(), cenv.Config, factory.GetDefault())
 		if err != nil {
 			return errors.Wrapf(err, "failed to build a new bundle")
 		}
 	} else {
 		configTxValidator := c.MembershipService.Resources().ConfigtxValidator()
-		err := configTxValidator.Validate(ctx)
+		err := configTxValidator.Validate(cenv)
 		if err != nil {
 			return errors.Wrapf(err, "failed to validate config transaction, block number [%d]", blockNumber)
 		}
 
-		bundle, err = channelconfig.NewBundle(configTxValidator.ChannelID(), ctx.Config, factory.GetDefault())
+		bundle, err = channelconfig.NewBundle(configTxValidator.ChannelID(), cenv.Config, factory.GetDefault())
 		if err != nil {
 			return errors.Wrapf(err, "failed to create next bundle")
 		}
@@ -349,7 +356,7 @@ func (c *Committer) CommitConfig(blockNumber uint64, raw []byte, env *common.Env
 		}
 	}
 
-	if err := c.commitConfig(txID, blockNumber, ctx.Config.Sequence, raw); err != nil {
+	if err := c.commitConfig(ctx, txID, blockNumber, cenv.Config.Sequence, raw); err != nil {
 		return errors.Wrapf(err, "failed committing configtx to the vault")
 	}
 
@@ -436,7 +443,7 @@ func (c *Committer) IsFinal(ctx context.Context, txID string) error {
 	c.logger.Debugf("Is [%s] final?", txID)
 
 	for iter := 0; iter < c.ChannelConfig.CommitterFinalityNumRetries(); iter++ {
-		vd, _, err := c.Status(txID)
+		vd, _, err := c.Status(ctx, txID)
 		if err != nil {
 			c.logger.Errorf("Is [%s] final? Failed getting transaction status from vault", txID)
 			return errors.WithMessagef(err, "failed getting transaction status from vault [%s]", txID)
@@ -466,7 +473,7 @@ func (c *Committer) IsFinal(ctx context.Context, txID string) error {
 				return nil
 			}
 
-			if vd, _, err2 := c.Status(txID); err2 == nil && vd == driver.Unknown {
+			if vd, _, err2 := c.Status(ctx, txID); err2 == nil && vd == driver.Unknown {
 				c.logger.Debugf("Tx [%s] is not final for remote [%s], return [%s], [%d][%s]", txID, peerForFinality, err, vd, err2)
 				return err
 			}
@@ -485,10 +492,12 @@ func (c *Committer) GetProcessNamespace() []string {
 }
 
 func (c *Committer) ReloadConfigTransactions() error {
+	ctx, span := c.tracer.Start(context.Background(), "reload_config_transactions")
+	defer span.End()
 	c.MembershipService.ResourcesApplyLock.Lock()
 	defer c.MembershipService.ResourcesApplyLock.Unlock()
 
-	qe, err := c.Vault.NewQueryExecutor()
+	qe, err := c.Vault.NewQueryExecutor(ctx)
 	if err != nil {
 		return errors.WithMessagef(err, "failed getting query executor")
 	}
@@ -498,7 +507,7 @@ func (c *Committer) ReloadConfigTransactions() error {
 	var sequence uint64 = 0
 	for {
 		txID := ConfigTXPrefix + strconv.FormatUint(sequence, 10)
-		vc, _, err := c.Vault.Status(txID)
+		vc, _, err := c.Vault.Status(ctx, txID)
 		if err != nil {
 			return errors.WithMessagef(err, "failed getting tx's status [%s]", txID)
 		}
@@ -512,7 +521,7 @@ func (c *Committer) ReloadConfigTransactions() error {
 			if err != nil {
 				return errors.Wrapf(err, "cannot create configtx rws key")
 			}
-			envelope, err := qe.GetState(peerNamespace, key)
+			envelope, err := qe.GetState(ctx, peerNamespace, key)
 			if err != nil {
 				return errors.Wrapf(err, "failed setting configtx state in rws")
 			}
@@ -643,7 +652,7 @@ func (c *Committer) notifyChaincodeListeners(event *ChaincodeEvent) {
 }
 
 func (c *Committer) listenTo(ctx context.Context, txID string, timeout time.Duration) error {
-	_, span := c.metrics.Listens.Start(ctx, "committer-listenTo-start")
+	_, span := c.tracer.Start(ctx, "listen_for_transaction")
 	defer span.End()
 
 	c.logger.Debugf("Listen to finality of [%s]", txID)
@@ -677,7 +686,7 @@ func (c *Committer) listenTo(ctx context.Context, txID string, timeout time.Dura
 			span.AddEvent("check_vault_status")
 			timeout.Stop()
 			c.logger.Debugf("Got a timeout for finality of [%s], check the status", txID)
-			vd, _, err := c.Status(txID)
+			vd, _, err := c.Status(ctx, txID)
 			if err == nil {
 				switch vd {
 				case driver.Valid:
@@ -698,10 +707,10 @@ func (c *Committer) listenTo(ctx context.Context, txID string, timeout time.Dura
 	return errors.Errorf("failed to listen to transaction [%s] for timeout", txID)
 }
 
-func (c *Committer) commitConfig(txID string, blockNumber uint64, seq uint64, envelope []byte) error {
+func (c *Committer) commitConfig(ctx context.Context, txID driver2.TxID, blockNumber driver2.BlockNum, seq driver2.TxNum, envelope []byte) error {
 	c.logger.Debugf("[Channel: %s] commit config transaction number [bn:%d][seq:%d]", c.ChannelConfig.ID(), blockNumber, seq)
 
-	rws, err := c.Vault.NewRWSet(txID)
+	rws, err := c.Vault.NewRWSet(ctx, txID)
 	if err != nil {
 		return errors.Wrapf(err, "cannot create rws for configtx")
 	}
@@ -715,8 +724,8 @@ func (c *Committer) commitConfig(txID string, blockNumber uint64, seq uint64, en
 		return errors.Wrapf(err, "failed setting configtx state in rws")
 	}
 	rws.Done()
-	if err := c.CommitTX(context.Background(), txID, blockNumber, 0, nil); err != nil {
-		if err2 := c.DiscardTx(txID, err.Error()); err2 != nil {
+	if err := c.CommitTX(ctx, txID, blockNumber, 0, nil); err != nil {
+		if err2 := c.DiscardTx(ctx, txID, err.Error()); err2 != nil {
 			c.logger.Errorf("failed committing configtx rws [%s]", err2)
 		}
 		return errors.Wrapf(err, "failed committing configtx rws")
@@ -726,6 +735,8 @@ func (c *Committer) commitConfig(txID string, blockNumber uint64, seq uint64, en
 
 func (c *Committer) commit(ctx context.Context, txID string, block uint64, indexInBlock uint64, envelope *common.Envelope) error {
 	span := trace.SpanFromContext(ctx)
+	span.AddEvent("start_commit")
+	defer span.AddEvent("end_commit")
 	// This is a normal transaction, validated by Fabric.
 	// Commit it cause Fabric says it is valid.
 	c.logger.Debugf("[%s] committing", txID)
@@ -741,14 +752,14 @@ func (c *Committer) commit(ctx context.Context, txID string, block uint64, index
 			return err
 		}
 		if headerType == int32(common.HeaderType_ENDORSER_TRANSACTION) {
-			if !c.Vault.RWSExists(txID) && c.EnvelopeService.Exists(txID) {
+			if !c.Vault.RWSExists(ctx, txID) && c.EnvelopeService.Exists(txID) {
 				// Then match rwsets
 				span.AddEvent("extract_stored_env_to_vault")
-				if err := c.extractStoredEnvelopeToVault(txID); err != nil {
+				if err := c.extractStoredEnvelopeToVault(ctx, txID); err != nil {
 					return errors.WithMessagef(err, "failed to load stored enveloper into the vault")
 				}
 				span.AddEvent("match_rwset")
-				if err := c.Vault.Match(txID, pt.Results()); err != nil {
+				if err := c.Vault.Match(ctx, txID, pt.Results()); err != nil {
 					c.logger.Errorf("[%s] rwsets do not match [%s]", txID, err)
 					return errors2.Wrapf(ErrDiscardTX, "[%s] rwsets do not match [%s]", txID, err)
 				}
@@ -763,7 +774,7 @@ func (c *Committer) commit(ctx context.Context, txID string, block uint64, index
 					return errors.WithMessagef(err, "failed to store unknown envelope for [%s]", txID)
 				}
 				span.AddEvent("get_rwset_from_evn")
-				rws, _, err := c.RWSetLoaderService.GetRWSetFromEvn(txID)
+				rws, _, err := c.RWSetLoaderService.GetRWSetFromEvn(ctx, txID)
 				if err != nil {
 					return errors.WithMessagef(err, "failed to get rws from envelope [%s]", txID)
 				}
@@ -776,7 +787,7 @@ func (c *Committer) commit(ctx context.Context, txID string, block uint64, index
 	c.logger.Debugf("[%s] post process rwset", txID)
 
 	span.AddEvent("post_process_tx")
-	if err := c.postProcessTx(txID); err != nil {
+	if err := c.postProcessTx(ctx, txID); err != nil {
 		// This should generate a panic
 		return err
 	}
@@ -815,7 +826,7 @@ func (c *Committer) commitUnknown(ctx context.Context, txID string, block uint64
 	}
 
 	// shall we commit this unknown envelope
-	if ok, err := c.filterUnknownEnvelope(txID, envelopeRaw); err != nil || !ok {
+	if ok, err := c.filterUnknownEnvelope(ctx, txID, envelopeRaw); err != nil || !ok {
 		c.logger.Debugf("[%s] unknown envelope will not be processed [%b,%s]", txID, ok, err)
 		return nil
 	}
@@ -823,7 +834,7 @@ func (c *Committer) commitUnknown(ctx context.Context, txID string, block uint64
 	if err := c.EnvelopeService.StoreEnvelope(txID, envelopeRaw); err != nil {
 		return errors.WithMessagef(err, "failed to store unknown envelope for [%s]", txID)
 	}
-	rws, _, err := c.RWSetLoaderService.GetRWSetFromEvn(txID)
+	rws, _, err := c.RWSetLoaderService.GetRWSetFromEvn(ctx, txID)
 	if err != nil {
 		return errors.WithMessagef(err, "failed to get rws from envelope [%s]", txID)
 	}
@@ -833,7 +844,7 @@ func (c *Committer) commitUnknown(ctx context.Context, txID string, block uint64
 
 func (c *Committer) commitStoredEnvelope(ctx context.Context, txID string, block uint64, indexInBlock uint64) error {
 	c.logger.Debugf("found envelope for transaction [%s], committing it...", txID)
-	if err := c.extractStoredEnvelopeToVault(txID); err != nil {
+	if err := c.extractStoredEnvelopeToVault(ctx, txID); err != nil {
 		return err
 	}
 	// commit
@@ -926,8 +937,11 @@ func (c *Committer) fetchEnvelope(txID string) ([]byte, error) {
 	return pt.Envelope(), nil
 }
 
-func (c *Committer) filterUnknownEnvelope(txID string, envelope []byte) (bool, error) {
-	rws, _, err := c.RWSetLoaderService.GetInspectingRWSetFromEvn(txID, envelope)
+func (c *Committer) filterUnknownEnvelope(ctx context.Context, txID string, envelope []byte) (bool, error) {
+	span := trace.SpanFromContext(ctx)
+	span.AddEvent("start_filter_unknown_envelope")
+	defer span.AddEvent("end_filter_unknown_envelope")
+	rws, _, err := c.RWSetLoaderService.GetInspectingRWSetFromEvn(ctx, txID, envelope)
 	if err != nil {
 		return false, errors.WithMessagef(err, "failed to get rws from envelope [%s]", txID)
 	}
@@ -961,15 +975,15 @@ func (c *Committer) filterUnknownEnvelope(txID string, envelope []byte) (bool, e
 		return ok, err
 	}
 
-	status, _, _ := c.Status(txID)
+	status, _, _ := c.Status(ctx, txID)
 	return status == driver.Busy, nil
 }
 
-func (c *Committer) extractStoredEnvelopeToVault(txID string) error {
-	rws, _, err := c.RWSetLoaderService.GetRWSetFromEvn(txID)
+func (c *Committer) extractStoredEnvelopeToVault(ctx context.Context, txID driver2.TxID) error {
+	rws, _, err := c.RWSetLoaderService.GetRWSetFromEvn(ctx, txID)
 	if err != nil {
 		// If another replica of the same node created the RWSet
-		rws, _, err = c.RWSetLoaderService.GetRWSetFromETx(txID)
+		rws, _, err = c.RWSetLoaderService.GetRWSetFromETx(ctx, txID)
 		if err != nil {
 			return errors.WithMessagef(err, "failed to extract rws from envelope and etx [%s]", txID)
 		}
@@ -978,8 +992,8 @@ func (c *Committer) extractStoredEnvelopeToVault(txID string) error {
 	return nil
 }
 
-func (c *Committer) postProcessTx(txID string) error {
-	if err := c.ProcessorManager.ProcessByID(c.ChannelConfig.ID(), txID); err != nil {
+func (c *Committer) postProcessTx(ctx context.Context, txID driver2.TxID) error {
+	if err := c.ProcessorManager.ProcessByID(ctx, c.ChannelConfig.ID(), txID); err != nil {
 		// This should generate a panic
 		return err
 	}

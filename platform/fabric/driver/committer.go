@@ -61,7 +61,7 @@ type Committer interface {
 	Start(context context.Context) error
 
 	// ProcessNamespace registers namespaces that will be committed even if the rwset is not known
-	ProcessNamespace(nss ...string) error
+	ProcessNamespace(nss ...driver.Namespace) error
 
 	// AddTransactionFilter adds a new transaction filter to this commit pipeline.
 	// The transaction filter is used to check if an unknown transaction needs to be processed anyway
@@ -69,7 +69,7 @@ type Committer interface {
 
 	// Status returns a validation code this committer bind to the passed transaction id, plus
 	// a list of dependant transaction ids if they exist.
-	Status(txID string) (ValidationCode, string, error)
+	Status(context context.Context, txID driver.TxID) (ValidationCode, string, error)
 
 	// AddFinalityListener registers a listener for transaction status for the passed transaction id.
 	// If the status is already valid or invalid, the listener is called immediately.
@@ -80,7 +80,7 @@ type Committer interface {
 	// RemoveFinalityListener unregisters the passed listener.
 	RemoveFinalityListener(txID string, listener FinalityListener) error
 
-	DiscardTx(txID string, message string) error
+	DiscardTx(context context.Context, txID driver.TxID, message string) error
 
 	CommitTX(ctx context.Context, txID driver.TxID, block driver.BlockNum, indexInBlock driver.TxNum, envelope *common.Envelope) error
 }

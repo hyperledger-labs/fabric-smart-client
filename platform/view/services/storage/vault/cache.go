@@ -7,10 +7,13 @@ SPDX-License-Identifier: Apache-2.0
 package vault
 
 import (
+	"context"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/cache/secondcache"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	"go.opentelemetry.io/otel/trace"
 )
 
 var logger = logging.MustGetLogger("viewsdk.cached-vault")
@@ -62,7 +65,10 @@ func (s *cachedStore) Invalidate(txIDs ...driver.TxID) {
 	}
 }
 
-func (s *cachedStore) GetTxStatus(txID driver.TxID) (*driver.TxStatus, error) {
+func (s *cachedStore) GetTxStatus(ctx context.Context, txID driver.TxID) (*driver.TxStatus, error) {
+	span := trace.SpanFromContext(ctx)
+	span.AddEvent("start_get_tx_status")
+	defer span.AddEvent("end_get_tx_status")
 	if e, ok := s.cache.Get(txID); ok && e != nil { // Deleted entries return ok
 		logger.Debugf("Found value for [%s] in cache: %v", txID, e.Code)
 		return &driver.TxStatus{
@@ -72,11 +78,11 @@ func (s *cachedStore) GetTxStatus(txID driver.TxID) (*driver.TxStatus, error) {
 		}, nil
 	}
 
-	return s.forceGet(txID)
+	return s.forceGet(ctx, txID)
 }
 
-func (s *cachedStore) forceGet(txID driver.TxID) (*driver.TxStatus, error) {
-	txStatus, err := s.VaultStore.GetTxStatus(txID)
+func (s *cachedStore) forceGet(ctx context.Context, txID driver.TxID) (*driver.TxStatus, error) {
+	txStatus, err := s.VaultStore.GetTxStatus(ctx, txID)
 	if err != nil || txStatus == nil {
 		logger.Debugf("Force get returned no value from backed for [%s]", txID)
 		return nil, err
@@ -87,9 +93,9 @@ func (s *cachedStore) forceGet(txID driver.TxID) (*driver.TxStatus, error) {
 	return txStatus, nil
 }
 
-func (s *cachedStore) Store(txIDs []driver.TxID, writes driver.Writes, metaWrites driver.MetaWrites) error {
+func (s *cachedStore) Store(ctx context.Context, txIDs []driver.TxID, writes driver.Writes, metaWrites driver.MetaWrites) error {
 	logger.Debugf("Store writes and meta-writes for [%v] into backed and cache", txIDs)
-	if err := s.VaultStore.Store(txIDs, writes, metaWrites); err != nil {
+	if err := s.VaultStore.Store(ctx, txIDs, writes, metaWrites); err != nil {
 		return err
 	}
 
@@ -99,9 +105,9 @@ func (s *cachedStore) Store(txIDs []driver.TxID, writes driver.Writes, metaWrite
 	return nil
 }
 
-func (s *cachedStore) SetStatuses(code driver.TxStatusCode, message string, txIDs ...driver.TxID) error {
+func (s *cachedStore) SetStatuses(ctx context.Context, code driver.TxStatusCode, message string, txIDs ...driver.TxID) error {
 	logger.Debugf("Set value [%v] for [%v] into backed and cache", code, txIDs)
-	if err := s.VaultStore.SetStatuses(code, message, txIDs...); err != nil {
+	if err := s.VaultStore.SetStatuses(ctx, code, message, txIDs...); err != nil {
 		return err
 	}
 

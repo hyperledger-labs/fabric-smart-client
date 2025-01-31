@@ -19,8 +19,8 @@ import (
 type Initiator struct{}
 
 func (p *Initiator) Call(context view.Context) (interface{}, error) {
-	span := context.StartSpan("call_initiator_view")
-	defer span.End()
+	span := trace.SpanFromContext(context.Context())
+
 	// Retrieve responder identity
 	responder := view2.GetIdentityProvider(context).Identity("bob")
 	responder2 := view2.GetIdentityProvider(context).Identity("bob_alias")

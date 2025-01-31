@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package vault
 
 import (
+	"context"
 	"sync"
 	"testing"
 
@@ -20,7 +21,7 @@ func TestConcurrency(t *testing.T) {
 	qe := mocks.NewMockQE()
 	idsr := mocks.MockTxStatusStore{}
 
-	i := newInterceptor(logging.MustGetLogger("interceptor_test"), EmptyRWSet(), qe, idsr, "1")
+	i := newInterceptor(logging.MustGetLogger("interceptor_test"), context.Background(), EmptyRWSet(), qe, idsr, "1")
 	s, err := i.GetState("ns", "key")
 	assert.NoError(t, err)
 	assert.Equal(t, qe.State.Raw, s, "with no opts, getstate should return the FromStorage value (query executor)")
@@ -64,7 +65,7 @@ func TestConcurrency(t *testing.T) {
 func TestAddReadAt(t *testing.T) {
 	qe := mocks.MockQE{}
 	idsr := mocks.MockTxStatusStore{}
-	i := newInterceptor(logging.MustGetLogger("interceptor_test"), EmptyRWSet(), qe, idsr, "1")
+	i := newInterceptor(logging.MustGetLogger("interceptor_test"), context.Background(), EmptyRWSet(), qe, idsr, "1")
 
 	assert.NoError(t, i.AddReadAt("ns", "key", []byte("version")))
 	assert.Len(t, i.RWs().Reads, 1)

@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package transaction
 
 import (
+	"context"
 	"encoding/json"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
@@ -39,19 +40,19 @@ func (m *Manager) NewProposalResponseFromBytes(raw []byte) (driver.ProposalRespo
 	return NewProposalResponseFromBytes(raw)
 }
 
-func (m *Manager) NewTransaction(transactionType driver.TransactionType, creator view2.Identity, nonce []byte, txid string, channel string, rawRequest []byte) (driver.Transaction, error) {
+func (m *Manager) NewTransaction(ctx context.Context, transactionType driver.TransactionType, creator view2.Identity, nonce []byte, txid string, channel string, rawRequest []byte) (driver.Transaction, error) {
 	factory, ok := m.factories[transactionType]
 	if !ok {
 		return nil, errors.Errorf("transaction tyep [%d] not recognized", transactionType)
 	}
-	tx, err := factory.NewTransaction(channel, nonce, creator, txid, rawRequest)
+	tx, err := factory.NewTransaction(ctx, channel, nonce, creator, txid, rawRequest)
 	if err != nil {
 		return nil, err
 	}
 	return &WrappedTransaction{Transaction: tx, TransactionType: transactionType}, nil
 }
 
-func (m *Manager) NewTransactionFromBytes(channel string, raw []byte) (driver.Transaction, error) {
+func (m *Manager) NewTransactionFromBytes(ctx context.Context, channel string, raw []byte) (driver.Transaction, error) {
 	//logger.Infof("new transaction from bytes [%s]", hash.Hashable(raw))
 	txRaw := &SerializedTransaction{}
 	if err := json.Unmarshal(raw, txRaw); err != nil {
@@ -61,7 +62,7 @@ func (m *Manager) NewTransactionFromBytes(channel string, raw []byte) (driver.Tr
 	if !ok {
 		return nil, errors.Errorf("transaction tyep [%d] not recognized", txRaw.Type)
 	}
-	tx, err := factory.NewTransaction(channel, nil, nil, "", nil)
+	tx, err := factory.NewTransaction(ctx, channel, nil, nil, "", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -71,7 +72,7 @@ func (m *Manager) NewTransactionFromBytes(channel string, raw []byte) (driver.Tr
 	return &WrappedTransaction{Transaction: tx, TransactionType: txRaw.Type}, nil
 }
 
-func (m *Manager) NewTransactionFromEnvelopeBytes(channel string, raw []byte) (driver.Transaction, error) {
+func (m *Manager) NewTransactionFromEnvelopeBytes(ctx context.Context, channel string, raw []byte) (driver.Transaction, error) {
 	cht, err := GetChannelHeaderType(raw)
 	if err != nil {
 		return nil, errors.WithMessagef(err, "failed to extract channel header type")
@@ -81,7 +82,7 @@ func (m *Manager) NewTransactionFromEnvelopeBytes(channel string, raw []byte) (d
 	if !ok {
 		return nil, errors.Errorf("transaction tyep [%d] not recognized", cht)
 	}
-	tx, err := factory.NewTransaction(channel, nil, nil, "", nil)
+	tx, err := factory.NewTransaction(ctx, channel, nil, nil, "", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +119,7 @@ func NewEndorserTransactionFactory(networkName string, channelProvider ChannelPr
 	return &EndorserTransactionFactory{networkName: networkName, channelProvider: channelProvider, sigService: sigService}
 }
 
-func (e *EndorserTransactionFactory) NewTransaction(channel string, nonce []byte, creator []byte, txid string, rawRequest []byte) (driver.Transaction, error) {
+func (e *EndorserTransactionFactory) NewTransaction(ctx context.Context, channel string, nonce []byte, creator []byte, txid string, rawRequest []byte) (driver.Transaction, error) {
 	ch, err := e.channelProvider.Channel(channel)
 	if err != nil {
 		return nil, err
@@ -135,6 +136,7 @@ func (e *EndorserTransactionFactory) NewTransaction(channel string, nonce []byte
 	}
 
 	return &Transaction{
+		ctx:             ctx,
 		channelProvider: e.channelProvider,
 		sigService:      e.sigService,
 		channel:         ch,

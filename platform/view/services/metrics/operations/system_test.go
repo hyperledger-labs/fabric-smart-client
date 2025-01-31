@@ -14,7 +14,7 @@ var _ = Describe("System", func() {
 	//const AdditionalTestApiPath = "/some-additional-test-api"
 	//
 	//var (
-	//	fakeLogger *fakes.Logger
+	//	fakeLogger *fakes.logger
 	//	tempDir    string
 	//
 	//	client       *http.Client
@@ -32,10 +32,10 @@ var _ = Describe("System", func() {
 	//	client = newHTTPClient(tempDir, true)
 	//	unauthClient = newHTTPClient(tempDir, false)
 	//
-	//	fakeLogger = &fakes.Logger{}
+	//	fakeLogger = &fakes.logger{}
 	//	options = operations.Options{
 	//		Options: fabhttp.Options{
-	//			Logger:        fakeLogger,
+	//			logger:        fakeLogger,
 	//			ListenAddress: "127.0.0.1:0",
 	//			TLS: fabhttp.TLS{
 	//				Enabled:            true,
@@ -225,7 +225,7 @@ var _ = Describe("System", func() {
 	//
 	//Context("when a logger is not provided", func() {
 	//	BeforeEach(func() {
-	//		options.Logger = nil
+	//		options.logger = nil
 	//		system = operations.NewSystem(options)
 	//	})
 	//

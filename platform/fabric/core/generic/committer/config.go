@@ -18,7 +18,7 @@ func (c *Committer) HandleConfig(ctx context.Context, block *common.BlockMetadat
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("[%s] Config transaction received: %s", c.ChannelConfig.ID(), tx.TxID)
 	}
-	if err := c.CommitConfig(tx.BlkNum, tx.Raw, tx.Envelope); err != nil {
+	if err := c.CommitConfig(ctx, tx.BlkNum, tx.Raw, tx.Envelope); err != nil {
 		return nil, errors.Wrapf(err, "cannot commit config envelope for channel [%s]", c.ChannelConfig.ID())
 	}
 	return &FinalityEvent{Ctx: ctx}, nil

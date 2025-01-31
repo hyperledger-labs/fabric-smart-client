@@ -15,12 +15,16 @@ import (
 	"github.com/hyperledger/fabric-protos-go/common"
 	pb "github.com/hyperledger/fabric-protos-go/peer"
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap/zapcore"
 )
 
 type ValidationFlags []uint8
 
 func (c *Committer) HandleEndorserTransaction(ctx context.Context, block *common.BlockMetadata, tx CommitTx) (*FinalityEvent, error) {
+	span := trace.SpanFromContext(ctx)
+	span.AddEvent("start_handle_endorser_transaction")
+	defer span.AddEvent("end_handle_endorser_transaction")
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("[%s] EndorserClient transaction received: %s", c.ChannelConfig.ID(), tx.TxID)
 	}
@@ -49,7 +53,7 @@ func (c *Committer) HandleEndorserTransaction(ctx context.Context, block *common
 		return event, nil
 	}
 
-	if err := c.DiscardEndorserTransaction(event.TxID, tx.BlkNum, tx.Raw, event); err != nil {
+	if err := c.DiscardEndorserTransaction(ctx, event.TxID, tx.BlkNum, tx.Raw, event); err != nil {
 		return nil, errors.Wrapf(err, "failed discarding transaction [%s]", event.TxID)
 	}
 	return event, nil
@@ -93,8 +97,10 @@ func (c *Committer) GetChaincodeEvents(env *common.Envelope, blockNum driver2.Bl
 // CommitEndorserTransaction commits the transaction to the vault.
 // It returns true, if the transaction was already processed, false otherwise.
 func (c *Committer) CommitEndorserTransaction(ctx context.Context, txID string, blockNum driver2.BlockNum, indexInBlock uint64, env *common.Envelope, event *FinalityEvent) (bool, error) {
-	newCtx, span := c.metrics.Commits.Start(ctx, "endorser_tx")
-	defer span.End()
+	span := trace.SpanFromContext(ctx)
+	span.AddEvent("start_commit_endorser_transaction")
+	defer span.AddEvent("end_commit_endorser_transaction")
+
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("transaction [%s] in block [%d] is valid for fabric, commit!", txID, blockNum)
 	}
@@ -103,7 +109,7 @@ func (c *Committer) CommitEndorserTransaction(ctx context.Context, txID string, 
 	event.IndexInBlock = indexInBlock
 
 	span.AddEvent("fetch_tx_status")
-	vc, _, err := c.Status(txID)
+	vc, _, err := c.Status(ctx, txID)
 	if err != nil {
 		return false, errors.Wrapf(err, "failed getting tx's status [%s]", txID)
 	}
@@ -124,19 +130,22 @@ func (c *Committer) CommitEndorserTransaction(ctx context.Context, txID string, 
 	}
 
 	span.AddEvent("commit_tx")
-	if err := c.CommitTX(newCtx, event.TxID, event.Block, event.IndexInBlock, env); err != nil {
+	if err := c.CommitTX(ctx, event.TxID, event.Block, event.IndexInBlock, env); err != nil {
 		return false, errors.Wrapf(err, "failed committing transaction [%s]", txID)
 	}
 	return false, nil
 }
 
 // DiscardEndorserTransaction discards the transaction from the vault
-func (c *Committer) DiscardEndorserTransaction(txID string, blockNum driver2.BlockNum, envRaw []byte, event *FinalityEvent) error {
+func (c *Committer) DiscardEndorserTransaction(ctx context.Context, txID string, blockNum driver2.BlockNum, envRaw []byte, event *FinalityEvent) error {
+	span := trace.SpanFromContext(ctx)
+	span.AddEvent("start_discard_endorser_transaction")
+	defer span.AddEvent("end_discard_endorser_transaction")
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("transaction [%s] in block [%d] is not valid for fabric [%s], discard!", txID, blockNum, event.ValidationCode)
 	}
 
-	vc, _, err := c.Status(txID)
+	vc, _, err := c.Status(ctx, txID)
 	if err != nil {
 		return errors.Wrapf(err, "failed getting tx's status [%s]", txID)
 	}
@@ -152,7 +161,7 @@ func (c *Committer) DiscardEndorserTransaction(txID string, blockNum driver2.Blo
 		// Nothing to commit
 		return nil
 	case driver.Unknown:
-		ok, err := c.filterUnknownEnvelope(txID, envRaw)
+		ok, err := c.filterUnknownEnvelope(ctx, txID, envRaw)
 		if err != nil {
 			return err
 		}
@@ -161,7 +170,7 @@ func (c *Committer) DiscardEndorserTransaction(txID string, blockNum driver2.Blo
 			if err := c.EnvelopeService.StoreEnvelope(txID, envRaw); err != nil {
 				return errors.WithMessagef(err, "failed to store unknown envelope for [%s]", txID)
 			}
-			rws, _, err := c.RWSetLoaderService.GetRWSetFromEvn(txID)
+			rws, _, err := c.RWSetLoaderService.GetRWSetFromEvn(ctx, txID)
 			if err != nil {
 				return errors.WithMessagef(err, "failed to get rws from envelope [%s]", txID)
 			}
@@ -170,7 +179,7 @@ func (c *Committer) DiscardEndorserTransaction(txID string, blockNum driver2.Blo
 	}
 
 	event.Err = errors.Errorf("transaction [%s] status is not valid [%d], message [%s]", txID, event.ValidationCode, event.ValidationMessage)
-	err = c.DiscardTx(event.TxID, event.ValidationMessage)
+	err = c.DiscardTx(ctx, event.TxID, event.ValidationMessage)
 	if err != nil {
 		logger.Errorf("failed discarding tx in state db with err [%s]", err)
 	}

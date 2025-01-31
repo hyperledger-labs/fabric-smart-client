@@ -9,6 +9,7 @@ package orion
 import (
 	"context"
 
+	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	"github.com/pkg/errors"
 )
@@ -30,15 +31,15 @@ func (r *RWSet) Equals(rws interface{}, nss ...string) error {
 }
 
 type Vault interface {
-	StoreEnvelope(id string, env interface{}) error
-	StoreTransaction(id string, raw []byte) error
-	StoreTransient(id string, tm driver.TransientMap) error
-	Status(txID string) (driver.ValidationCode, string, error)
-	DiscardTx(txID string, message string) error
-	GetLastTxID() (string, error)
-	NewRWSet(txid string) (*RWSet, error)
-	GetRWSet(id string, results []byte) (*RWSet, error)
-	CommitTX(ctx context.Context, txid string, block driver.BlockNum, indexInBloc driver.TxNum) error
+	StoreEnvelope(txID driver2.TxID, env interface{}) error
+	StoreTransaction(txID driver2.TxID, raw []byte) error
+	StoreTransient(txID driver2.TxID, tm driver.TransientMap) error
+	Status(ctx context.Context, txID driver2.TxID) (driver.ValidationCode, string, error)
+	DiscardTx(ctx context.Context, txID driver2.TxID, message string) error
+	GetLastTxID(context.Context) (driver2.TxID, error)
+	NewRWSet(ctx context.Context, txID driver2.TxID) (*RWSet, error)
+	GetRWSet(ctx context.Context, txID driver2.TxID, results []byte) (*RWSet, error)
+	CommitTX(ctx context.Context, txID driver2.TxID, block driver.BlockNum, indexInBloc driver.TxNum) error
 }
 
 // vault models a key-value store that can be updated by committing rwsets
@@ -58,12 +59,12 @@ func newVault(ons driver.OrionNetworkService) Vault {
 	}
 }
 
-func (v *vault) Status(txID string) (driver.ValidationCode, string, error) {
-	return v.Vault.Status(txID)
+func (v *vault) Status(ctx context.Context, txID driver2.TxID) (driver.ValidationCode, string, error) {
+	return v.Vault.Status(ctx, txID)
 }
 
-func (v *vault) NewRWSet(txid string) (*RWSet, error) {
-	rws, err := v.Vault.NewRWSet(txid)
+func (v *vault) NewRWSet(ctx context.Context, txid driver2.TxID) (*RWSet, error) {
+	rws, err := v.Vault.NewRWSet(ctx, txid)
 	if err != nil {
 		return nil, err
 	}
@@ -72,8 +73,8 @@ func (v *vault) NewRWSet(txid string) (*RWSet, error) {
 
 }
 
-func (v *vault) GetRWSet(id string, results []byte) (*RWSet, error) {
-	rws, err := v.Vault.GetRWSet(id, results)
+func (v *vault) GetRWSet(ctx context.Context, id driver2.TxID, results []byte) (*RWSet, error) {
+	rws, err := v.Vault.GetRWSet(ctx, id, results)
 	if err != nil {
 		return nil, err
 	}

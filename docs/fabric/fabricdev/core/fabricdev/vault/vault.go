@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package vault
 
 import (
+	"context"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
@@ -31,9 +33,10 @@ func NewVault(vaultStore vault2.CachedVaultStore, metricsProvider metrics.Provid
 	)
 }
 
-func newInterceptor(logger vault.Logger, rwSet vault.ReadWriteSet, qe vault.VersionedQueryExecutor, vaultStore vault.TxStatusStore, txID string) vault.TxInterceptor {
+func newInterceptor(logger vault.Logger, ctx context.Context, rwSet vault.ReadWriteSet, qe vault.VersionedQueryExecutor, vaultStore vault.TxStatusStore, txID string) vault.TxInterceptor {
 	return vault.NewInterceptor[fdriver.ValidationCode](
 		logger,
+		ctx,
 		rwSet,
 		qe,
 		vaultStore,

@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package vault
 
 import (
+	"context"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
@@ -41,6 +43,7 @@ type Interceptor struct {
 
 func newInterceptor(
 	logger vault.Logger,
+	ctx context.Context,
 	rwSet vault.ReadWriteSet,
 	qe vault.VersionedQueryExecutor,
 	vaultStore vault.TxStatusStore,
@@ -48,6 +51,7 @@ func newInterceptor(
 ) vault.TxInterceptor {
 	return &Interceptor{Interceptor: vault.NewInterceptor[odriver.ValidationCode](
 		logger,
+		ctx,
 		rwSet,
 		qe,
 		vaultStore,
@@ -59,7 +63,7 @@ func newInterceptor(
 }
 
 func (i *Interceptor) AppendRWSet([]byte, ...string) error {
-	if i.Interceptor.Closed {
+	if i.Interceptor.IsClosed() {
 		return errors.New("this instance was closed")
 	}
 	return nil

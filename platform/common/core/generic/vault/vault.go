@@ -17,9 +17,11 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
+	api2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/vault"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -41,10 +43,10 @@ type Marshaller interface {
 }
 
 type TxStatusStore interface {
-	GetTxStatus(txID driver.TxID) (*driver.TxStatus, error)
+	GetTxStatus(ctx context.Context, txID driver.TxID) (*driver.TxStatus, error)
 }
 
-type NewInterceptorFunc[V driver.ValidationCode] func(logger Logger, rwSet ReadWriteSet, qe VersionedQueryExecutor, vaultStore TxStatusStore, txid driver.TxID) TxInterceptor
+type NewInterceptorFunc[V driver.ValidationCode] func(logger Logger, ctx context.Context, rwSet ReadWriteSet, qe VersionedQueryExecutor, vaultStore TxStatusStore, txid driver.TxID) TxInterceptor
 
 type (
 	VersionedPersistence     = dbdriver.VersionedPersistence
@@ -87,6 +89,7 @@ type Vault[V driver.ValidationCode] struct {
 	commitBatcher runner.BatchRunner[txCommitIndex]
 	rwMapper      *rwSetMapper
 	vaultStore    vault.CachedVaultStore
+	tracer        trace.Tracer
 }
 
 // New returns a new instance of Vault
@@ -106,34 +109,41 @@ func New[V driver.ValidationCode](
 		vcProvider:     vcProvider,
 		newInterceptor: newInterceptor,
 		populator:      populator,
-		metrics:        NewMetrics(metricsProvider, tracerProvider),
+		metrics:        NewMetrics(metricsProvider),
 		rwMapper:       &rwSetMapper{vb: versionBuilder, logger: logger},
 		vaultStore:     vaultStore,
+		tracer:         tracerProvider.Tracer("vault", tracing.WithMetricsOpts(tracing.MetricsOpts{Namespace: "core"})),
 	}
 	v.commitBatcher = runner.NewSerialRunner(v.commitTXs)
 	return v
 }
 
-func (db *Vault[V]) NewQueryExecutor() (QueryExecutor, error) {
-	return newGlobalLockQueryExecutor(db.vaultStore)
+func (db *Vault[V]) NewQueryExecutor(ctx context.Context) (QueryExecutor, error) {
+	return newGlobalLockQueryExecutor(ctx, db.vaultStore)
 }
 
-func (db *Vault[V]) Status(txID driver.TxID) (V, string, error) {
-	tx, err := db.vaultStore.GetTxStatus(txID)
+func (db *Vault[V]) Status(ctx context.Context, txID driver.TxID) (V, string, error) {
+	span := trace.SpanFromContext(ctx)
+	span.AddEvent("start_status")
+	defer span.AddEvent("end_status")
+	tx, err := db.vaultStore.GetTxStatus(ctx, txID)
 	if err != nil || tx == nil {
 		return db.vcProvider.FromInt32(driver.Unknown), "", err
 	}
 	return db.vcProvider.FromInt32(tx.Code), tx.Message, nil
 }
 
-func (db *Vault[V]) DiscardTx(txID driver.TxID, message string) error {
+func (db *Vault[V]) DiscardTx(ctx context.Context, txID driver.TxID, message string) error {
+	span := trace.SpanFromContext(ctx)
+	span.AddEvent("start_discard_tx")
+	defer span.AddEvent("end_discard_tx")
 	db.interceptorsLock.Lock()
 	defer db.interceptorsLock.Unlock()
 
 	if _, err := db.UnmapInterceptor(txID); err != nil {
 		return err
 	}
-	return db.vaultStore.SetStatuses(driver.Invalid, message, txID)
+	return db.vaultStore.SetStatuses(ctx, driver.Invalid, message, txID)
 }
 
 func (db *Vault[V]) UnmapInterceptor(txID driver.TxID) (TxInterceptor, error) {
@@ -163,10 +173,8 @@ func (db *Vault[V]) unmapInterceptors(txIDs ...driver.TxID) (map[driver.TxID]TxI
 
 func (db *Vault[V]) CommitTX(ctx context.Context, txID driver.TxID, block driver.BlockNum, indexInBloc driver.TxNum) error {
 	start := time.Now()
-	newCtx, span := db.metrics.Vault.Start(ctx, "commit")
-	defer span.End()
 	err := db.commitBatcher.Run(txCommitIndex{
-		ctx:         newCtx,
+		ctx:         ctx,
 		txID:        txID,
 		block:       block,
 		indexInBloc: indexInBloc,
@@ -176,6 +184,8 @@ func (db *Vault[V]) CommitTX(ctx context.Context, txID driver.TxID, block driver
 }
 
 func (db *Vault[V]) commitTXs(txs []txCommitIndex) []error {
+	ctx, span := db.tracer.Start(context.Background(), "batch_commit_txs")
+	defer span.End()
 	db.logger.Infof("Commit %d transactions", len(txs))
 	start := time.Now()
 	txIDs := make([]driver.TxID, len(txs))
@@ -193,10 +203,11 @@ func (db *Vault[V]) commitTXs(txs []txCommitIndex) []error {
 	inputs := make([]commitInput, len(txs))
 	for i, tx := range txs {
 		inputs[i] = commitInput{txCommitIndex: tx, rws: interceptors[tx.txID].RWs()}
+		span.AddLink(trace.LinkFromContext(tx.ctx))
 	}
 
 	for {
-		err := db.commitRWs(inputs...)
+		err := db.commitRWs(ctx, inputs...)
 		if err == nil {
 			db.metrics.CommitDuration.Observe(time.Since(start).Seconds() / float64(len(txs)))
 			return collections.Repeat[error](nil, len(txs))
@@ -209,11 +220,7 @@ func (db *Vault[V]) commitTXs(txs []txCommitIndex) []error {
 	}
 }
 
-func (db *Vault[V]) commitRWs(inputs ...commitInput) error {
-	for _, input := range inputs {
-		trace.SpanFromContext(input.ctx).AddEvent("wait_store_lock")
-	}
-
+func (db *Vault[V]) commitRWs(ctx context.Context, inputs ...commitInput) error {
 	for _, input := range inputs {
 		trace.SpanFromContext(input.ctx).AddEvent("begin_update")
 	}
@@ -233,28 +240,29 @@ func (db *Vault[V]) commitRWs(inputs ...commitInput) error {
 		return err
 	}
 
-	if err := db.vaultStore.Store(txIDs, writes, metaWrites); err != nil {
+	if err := db.vaultStore.Store(ctx, txIDs, writes, metaWrites); err != nil {
 		db.vaultStore.Invalidate(txIDs...)
 		return errors.Wrapf(err, "failed writing txids")
 	}
 	return nil
 }
 
-func (db *Vault[V]) SetDiscarded(txID driver.TxID, message string) error {
-	return db.vaultStore.SetStatuses(driver.Invalid, message, txID)
+func (db *Vault[V]) SetDiscarded(ctx context.Context, txID driver.TxID, message string) error {
+	return db.vaultStore.SetStatuses(ctx, driver.Invalid, message, txID)
 }
 
-func (db *Vault[V]) NewRWSet(txID driver.TxID) (driver.RWSet, error) {
-	return db.NewInspector(txID)
+func (db *Vault[V]) NewRWSet(ctx context.Context, txID driver.TxID) (api2.RWSet, error) {
+	return db.NewInspector(ctx, txID)
 }
 
-func (db *Vault[V]) NewInspector(txID driver.TxID) (TxInterceptor, error) {
+func (db *Vault[V]) NewInspector(ctx context.Context, txID driver.TxID) (TxInterceptor, error) {
+	newCtx, _ := db.tracer.Start(ctx, "inspector")
 	db.logger.Debugf("NewRWSet[%s]", txID)
-	qe, err := newTxLockQueryExecutor(db.vaultStore, txID)
+	qe, err := newTxLockQueryExecutor(ctx, db.vaultStore, txID)
 	if err != nil {
 		return nil, err
 	}
-	i := db.newInterceptor(db.logger, EmptyRWSet(), qe, db.vaultStore, txID)
+	i := db.newInterceptor(db.logger, newCtx, EmptyRWSet(), qe, db.vaultStore, txID)
 
 	db.interceptorsLock.Lock()
 	defer db.interceptorsLock.Unlock()
@@ -266,18 +274,21 @@ func (db *Vault[V]) NewInspector(txID driver.TxID) (TxInterceptor, error) {
 	return i, nil
 }
 
-func (db *Vault[V]) GetRWSet(txID driver.TxID, rwsetBytes []byte) (driver.RWSet, error) {
+func (db *Vault[V]) GetRWSet(ctx context.Context, txID driver.TxID, rwsetBytes []byte) (driver.RWSet, error) {
+	span := trace.SpanFromContext(ctx)
+	span.AddEvent("start_get_rw_set")
+	defer span.AddEvent("end_get_rw_set")
 	db.logger.Debugf("GetRWSet[%s]", txID)
 	rwSet, err := db.populator.Populate(rwsetBytes)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed populating tx [%s]", txID)
 	}
 
-	qe, err := newTxLockQueryExecutor(db.vaultStore, txID)
+	qe, err := newTxLockQueryExecutor(ctx, db.vaultStore, txID)
 	if err != nil {
 		return nil, err
 	}
-	i := db.newInterceptor(db.logger, rwSet, qe, db.vaultStore, txID)
+	i := db.newInterceptor(db.logger, ctx, rwSet, qe, db.vaultStore, txID)
 
 	db.interceptorsLock.Lock()
 	defer db.interceptorsLock.Unlock()
@@ -289,7 +300,7 @@ func (db *Vault[V]) GetRWSet(txID driver.TxID, rwsetBytes []byte) (driver.RWSet,
 	return i, nil
 }
 
-func (db *Vault[V]) InspectRWSet(rwsetBytes []byte, namespaces ...driver.Namespace) (driver.RWSet, error) {
+func (db *Vault[V]) InspectRWSet(_ context.Context, rwsetBytes []byte, namespaces ...driver.Namespace) (driver.RWSet, error) {
 	rwSet, err := db.populator.Populate(rwsetBytes, namespaces...)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed populating ephemeral txID")
@@ -297,7 +308,7 @@ func (db *Vault[V]) InspectRWSet(rwsetBytes []byte, namespaces ...driver.Namespa
 	return &Inspector{Rws: rwSet}, nil
 }
 
-func (db *Vault[V]) Match(txID driver.TxID, rwsRaw []byte) error {
+func (db *Vault[V]) Match(ctx context.Context, txID driver.TxID, rwsRaw []byte) error {
 	if len(rwsRaw) == 0 {
 		return errors.Errorf("passed empty rwset")
 	}
@@ -321,7 +332,7 @@ func (db *Vault[V]) Match(txID driver.TxID, rwsRaw []byte) error {
 	}
 
 	if !bytes.Equal(rwsRaw, rwsRaw2) {
-		target, err := db.InspectRWSet(rwsRaw)
+		target, err := db.InspectRWSet(ctx, rwsRaw)
 		if err != nil {
 			return errors.Wrapf(err, "rwsets do not match")
 		}
@@ -338,15 +349,15 @@ func (db *Vault[V]) Close() error {
 	return db.vaultStore.Close()
 }
 
-func (db *Vault[V]) RWSExists(txID driver.TxID) bool {
+func (db *Vault[V]) RWSExists(_ context.Context, txID driver.TxID) bool {
 	db.interceptorsLock.RLock()
 	defer db.interceptorsLock.RUnlock()
 	_, in := db.interceptors[txID]
 	return in
 }
 
-func (db *Vault[V]) Statuses(txIDs ...driver.TxID) ([]driver.TxValidationStatus[V], error) {
-	it, err := db.vaultStore.GetTxStatuses(txIDs...)
+func (db *Vault[V]) Statuses(ctx context.Context, txIDs ...driver.TxID) ([]driver.TxValidationStatus[V], error) {
+	it, err := db.vaultStore.GetTxStatuses(ctx, txIDs...)
 	if err != nil {
 		return nil, err
 	}
@@ -364,7 +375,10 @@ func (db *Vault[V]) Statuses(txIDs ...driver.TxID) ([]driver.TxValidationStatus[
 	return statuses, nil
 }
 
-func (db *Vault[V]) GetExistingRWSet(txID driver.TxID) (driver.RWSet, error) {
+func (db *Vault[V]) GetExistingRWSet(ctx context.Context, txID driver.TxID) (driver.RWSet, error) {
+	span := trace.SpanFromContext(ctx)
+	span.AddEvent("start_get_existing_rwset")
+	defer span.AddEvent("end_get_existing_rwset")
 	db.logger.Debugf("GetExistingRWSet[%s]", txID)
 
 	db.interceptorsLock.Lock()
@@ -376,7 +390,7 @@ func (db *Vault[V]) GetExistingRWSet(txID driver.TxID) (driver.RWSet, error) {
 	if !interceptor.IsClosed() {
 		return nil, errors.Errorf("programming error: previous read-write set for %s has not been closed", txID)
 	}
-	qe, err := newTxLockQueryExecutor(db.vaultStore, txID)
+	qe, err := newTxLockQueryExecutor(ctx, db.vaultStore, txID)
 	if err != nil {
 		return nil, err
 	}
@@ -387,6 +401,6 @@ func (db *Vault[V]) GetExistingRWSet(txID driver.TxID) (driver.RWSet, error) {
 	return interceptor, nil
 }
 
-func (db *Vault[V]) SetStatus(txID driver.TxID, code V) error {
-	return db.vaultStore.SetStatuses(db.vcProvider.ToInt32(code), "", txID)
+func (db *Vault[V]) SetStatus(ctx context.Context, txID driver.TxID, code V) error {
+	return db.vaultStore.SetStatuses(ctx, db.vcProvider.ToInt32(code), "", txID)
 }

@@ -31,7 +31,7 @@ type Callback func(block *types.AugmentedBlockHeader) (bool, error)
 // Vault models a key-value store that can be updated by committing rwsets
 type Vault interface {
 	// GetLastTxID returns the last transaction id committed
-	GetLastTxID() (string, error)
+	GetLastTxID(context.Context) (string, error)
 }
 
 type Network interface {

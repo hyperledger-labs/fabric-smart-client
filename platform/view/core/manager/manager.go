@@ -55,9 +55,8 @@ type manager struct {
 	initiators map[string]string
 	factories  map[string]driver.Factory
 
-	viewTracer    trace.Tracer
-	respondTracer trace.Tracer
-	m             *Metrics
+	viewTracer trace.Tracer
+	m          *Metrics
 }
 
 func New(serviceProvider driver.ServiceProvider, commLayer CommLayer, endpointService driver.EndpointService, identityProvider driver.IdentityProvider, provider trace.TracerProvider, metricsProvider metrics.Provider) *manager {
@@ -75,9 +74,6 @@ func New(serviceProvider driver.ServiceProvider, commLayer CommLayer, endpointSe
 		viewTracer: provider.Tracer("view", tracing.WithMetricsOpts(tracing.MetricsOpts{
 			Namespace:  "fsc",
 			LabelNames: []string{SuccessLabel, ViewLabel, InitiatorViewLabel},
-		})),
-		respondTracer: provider.Tracer("respond", tracing.WithMetricsOpts(tracing.MetricsOpts{
-			Namespace: "fsc",
 		})),
 		m: newMetrics(metricsProvider),
 	}
@@ -207,14 +203,11 @@ func (cm *manager) InitiateViewWithIdentity(view view.View, id view.Identity, c 
 		ctx = context.Background()
 	}
 	ctx = trace.ContextWithSpanContext(ctx, trace.SpanContextFromContext(c))
-	newCtx, span := cm.viewTracer.Start(ctx, "initiate_view_with_identity")
-	defer span.End()
-	span.AddEvent("start_new_context")
-	viewContext, err := NewContextForInitiator("", newCtx, cm.sp, cm.commLayer, cm.endpointService, id, view, cm.viewTracer)
+
+	viewContext, err := NewContextForInitiator("", ctx, cm.sp, cm.commLayer, cm.endpointService, id, view, cm.viewTracer)
 	if err != nil {
 		return nil, err
 	}
-	span.AddEvent("end_new_context")
 	childContext := &childContext{ParentContext: viewContext}
 	cm.contextsSync.Lock()
 	cm.contexts[childContext.ID()] = childContext
@@ -225,10 +218,7 @@ func (cm *manager) InitiateViewWithIdentity(view view.View, id view.Identity, c 
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("[%s] InitiateView [view:%s], [ContextID:%s]", id, getIdentifier(view), childContext.ID())
 	}
-	span.AddEvent("start_run_view")
 	res, err := childContext.RunView(view)
-	span.AddEvent("end_run_view")
-	span.SetAttributes(tracing.Bool(SuccessLabel, err == nil))
 	if err != nil {
 		if logger.IsEnabledFor(zapcore.DebugLevel) {
 			logger.Debugf("[%s] InitiateView [view:%s], [ContextID:%s] failed [%s]", id, getIdentifier(view), childContext.ID(), err)
@@ -511,4 +501,15 @@ func getIdentifier(f view.View) string {
 		t = t.Elem()
 	}
 	return t.PkgPath() + "/" + t.Name()
+}
+
+func getName(f view.View) string {
+	if f == nil {
+		return "<nil view>"
+	}
+	t := reflect.TypeOf(f)
+	for t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+	return t.Name()
 }

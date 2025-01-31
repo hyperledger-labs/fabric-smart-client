@@ -57,9 +57,9 @@ type TxStateIterator = collections.Iterator[*VersionedRead]
 type VersionedResultsIterator = collections.Iterator[*VersionedRead]
 
 type QueryExecutor interface {
-	GetState(namespace Namespace, key PKey) (*VersionedRead, error)
-	GetStateMetadata(namespace Namespace, key PKey) (Metadata, RawVersion, error)
-	GetStateRangeScanIterator(namespace Namespace, startKey PKey, endKey PKey) (VersionedResultsIterator, error)
+	GetState(ctx context.Context, namespace Namespace, key PKey) (*VersionedRead, error)
+	GetStateMetadata(ctx context.Context, namespace Namespace, key PKey) (Metadata, RawVersion, error)
+	GetStateRangeScanIterator(ctx context.Context, namespace Namespace, startKey PKey, endKey PKey) (VersionedResultsIterator, error)
 	Done()
 }
 
@@ -74,28 +74,28 @@ type Vault[V comparable] interface {
 	// NewQueryExecutor gives handle to a query executor.
 	// A client can obtain more than one 'QueryExecutor's for parallel execution.
 	// Any synchronization should be performed at the implementation level if required
-	NewQueryExecutor() (QueryExecutor, error)
+	NewQueryExecutor(ctx context.Context) (QueryExecutor, error)
 
 	// NewRWSet returns a RWSet for this ledger.
 	// A client may obtain more than one such simulator; they are made unique
 	// by way of the supplied txid
-	NewRWSet(txID TxID) (RWSet, error)
+	NewRWSet(ctx context.Context, txID TxID) (RWSet, error)
 
 	// GetRWSet returns a RWSet for this ledger whose content is unmarshalled
 	// from the passed bytes.
 	// A client may obtain more than one such simulator; they are made unique
 	// by way of the supplied txid
-	GetRWSet(txID TxID, rwset []byte) (RWSet, error)
+	GetRWSet(ctx context.Context, txID TxID, rwset []byte) (RWSet, error)
 
-	SetDiscarded(txID TxID, message string) error
+	SetDiscarded(ctx context.Context, txID TxID, message string) error
 
-	Status(txID TxID) (V, string, error)
+	Status(ctx context.Context, txID TxID) (V, string, error)
 
-	Statuses(txIDs ...TxID) ([]TxValidationStatus[V], error)
+	Statuses(ctx context.Context, txIDs ...TxID) ([]TxValidationStatus[V], error)
 
 	// DiscardTx discards the transaction with the given transaction id.
 	// If no error occurs, invoking Status on the same transaction id will return the Invalid flag.
-	DiscardTx(txID TxID, message string) error
+	DiscardTx(ctx context.Context, txID TxID, message string) error
 
 	CommitTX(ctx context.Context, txID TxID, block BlockNum, index TxNum) error
 }
@@ -115,47 +115,47 @@ type VaultStore interface {
 	// While holding this lock, other routines:
 	// - cannot update the transaction states or statuses of the locked transactions
 	// - can read the locked transactions
-	AcquireTxIDRLock(txID TxID) (VaultLock, error)
+	AcquireTxIDRLock(ctx context.Context, txID TxID) (VaultLock, error)
 
 	// AcquireGlobalLock acquires a global exclusive read lock on the vault.
 	// While holding this lock, other routines:
 	// - cannot acquire this read lock (exclusive)
 	// - cannot update any transaction states or statuses
 	// - can read any transaction
-	AcquireGlobalLock() (VaultLock, error)
+	AcquireGlobalLock(ctx context.Context) (VaultLock, error)
 
 	// GetStateMetadata returns the metadata for the given specific namespace - key pair
-	GetStateMetadata(namespace Namespace, key PKey) (Metadata, RawVersion, error)
+	GetStateMetadata(ctx context.Context, namespace Namespace, key PKey) (Metadata, RawVersion, error)
 
 	// GetState returns the state for the given specific namespace - key pair
-	GetState(namespace Namespace, key PKey) (*VersionedRead, error)
+	GetState(ctx context.Context, namespace Namespace, key PKey) (*VersionedRead, error)
 
 	// GetStates returns the states for the given specific namespace - key pairs
-	GetStates(namespace Namespace, keys ...PKey) (TxStateIterator, error)
+	GetStates(ctx context.Context, namespace Namespace, keys ...PKey) (TxStateIterator, error)
 
 	// GetStateRange returns the states for the given specific namespace - key range
-	GetStateRange(namespace Namespace, startKey, endKey PKey) (TxStateIterator, error)
+	GetStateRange(ctx context.Context, namespace Namespace, startKey, endKey PKey) (TxStateIterator, error)
 
 	// GetAllStates returns all states for a given namespace. Only used for testing purposes.
-	GetAllStates(namespace Namespace) (TxStateIterator, error)
+	GetAllStates(ctx context.Context, namespace Namespace) (TxStateIterator, error)
 
 	// Store stores atomically the transaction statuses, writes and metadata writes
-	Store(txIDs []TxID, writes Writes, metaWrites MetaWrites) error
+	Store(ctx context.Context, txIDs []TxID, writes Writes, metaWrites MetaWrites) error
 
 	// GetLast returns the status of the latest non-pending transaction
-	GetLast() (*TxStatus, error)
+	GetLast(ctx context.Context) (*TxStatus, error)
 
 	// GetTxStatus returns the status of the given transaction
-	GetTxStatus(txID TxID) (*TxStatus, error)
+	GetTxStatus(ctx context.Context, txID TxID) (*TxStatus, error)
 
 	// GetTxStatuses returns the statuses of the given transactions
-	GetTxStatuses(txIDs ...TxID) (TxStatusIterator, error)
+	GetTxStatuses(ctx context.Context, txIDs ...TxID) (TxStatusIterator, error)
 
 	// GetAllTxStatuses returns the statuses of the all transactions in the vault
-	GetAllTxStatuses() (TxStatusIterator, error)
+	GetAllTxStatuses(ctx context.Context) (TxStatusIterator, error)
 
 	// SetStatuses sets the status and message for the given transactions
-	SetStatuses(code TxStatusCode, message string, txIDs ...TxID) error
+	SetStatuses(ctx context.Context, code TxStatusCode, message string, txIDs ...TxID) error
 
 	// Close closes the vault store
 	Close() error
