@@ -363,6 +363,9 @@ func (db *Vault[V]) Statuses(ctx context.Context, txIDs ...driver.TxID) ([]drive
 	}
 
 	return collections.ReadAll(collections.Map(it, func(status *driver.TxStatus) (*driver.TxValidationStatus[V], error) {
+		if status == nil {
+			return nil, nil
+		}
 		return &driver.TxValidationStatus[V]{
 			TxID:           status.TxID,
 			ValidationCode: db.vcProvider.FromInt32(status.Code),
