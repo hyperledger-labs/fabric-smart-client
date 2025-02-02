@@ -186,39 +186,24 @@ func NewChannelProvider(in struct {
 
 func NewEndorseTxStore(in struct {
 	dig.In
-	KVS     *kvs.KVS
 	Config  vdriver.ConfigService
 	Drivers []dbdriver.NamedDriver `group:"db-drivers"`
 }) (driver.EndorseTxStore, error) {
-	if store, err := services.NewDBBasedEndorseTxStore(in.Drivers, in.Config, "default"); err != nil {
-		return services.NewKVSBasedEndorseTxStore(in.KVS), nil
-	} else {
-		return store, nil
-	}
+	return services.NewDBBasedEndorseTxStore(in.Drivers, in.Config, "default")
 }
 
 func NewMetadataStore(in struct {
 	dig.In
-	KVS     *kvs.KVS
 	Config  vdriver.ConfigService
 	Drivers []dbdriver.NamedDriver `group:"db-drivers"`
 }) (driver.MetadataStore, error) {
-	if store, err := services.NewDBBasedMetadataStore(in.Drivers, in.Config, "default"); err != nil {
-		return services.NewKVSBasedMetadataStore(in.KVS), nil
-	} else {
-		return store, nil
-	}
+	return services.NewDBBasedMetadataStore(in.Drivers, in.Config, "default")
 }
 
 func NewEnvelopeStore(in struct {
 	dig.In
-	KVS     *kvs.KVS
 	Config  vdriver.ConfigService
 	Drivers []dbdriver.NamedDriver `group:"db-drivers"`
 }) (driver.EnvelopeStore, error) {
-	if store, err := services.NewDBBasedEnvelopeStore(in.Drivers, in.Config, "default"); err != nil {
-		return services.NewKVSBasedEnvelopeStore(in.KVS), nil
-	} else {
-		return store, nil
-	}
+	return services.NewDBBasedEnvelopeStore(in.Drivers, in.Config, "default")
 }

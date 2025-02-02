@@ -10,7 +10,10 @@ import (
 	"fmt"
 
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/db"
 	"github.com/pkg/errors"
@@ -37,10 +40,15 @@ func NewWithConfig[K identifier](dbDrivers []driver.NamedDriver, cp db.Config, p
 	return &endorseTxStore[K]{e: e}, nil
 }
 
+var supportedStores = collections.NewSet(mem.MemoryPersistence, sql.SQLPersistence)
+
 func getDriver(dbDrivers []driver.NamedDriver, cp db.Config) (driver.Driver, error) {
 	var driverName driver2.PersistenceType
 	if err := cp.UnmarshalKey(persistenceTypeConfigKey, &driverName); err != nil {
 		return nil, err
+	}
+	if !supportedStores.Contains(driverName) {
+		driverName = mem.MemoryPersistence
 	}
 	for _, d := range dbDrivers {
 		if d.Name == driverName {
