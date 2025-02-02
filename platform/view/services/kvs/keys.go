@@ -50,3 +50,35 @@ func validateCompositeKeyAttribute(str string) error {
 	}
 	return nil
 }
+
+func CreateCompositeKeyOrPanic(objectType string, attributes []string) string {
+	k, err := CreateCompositeKey(objectType, attributes)
+	if err != nil {
+		panic(err)
+	}
+	return k
+}
+
+func CreateRangeKeysForPartialCompositeKey(objectType string, attributes []string) (string, string, error) {
+	partialCompositeKey, err := CreateCompositeKey(objectType, attributes)
+	if err != nil {
+		return "", "", err
+	}
+	startKey := partialCompositeKey
+	endKey := partialCompositeKey + string(maxUnicodeRuneValue)
+
+	return startKey, endKey, nil
+}
+
+// SplitCompositeKey splits the passed composite key into objectType and attributes
+func SplitCompositeKey(compositeKey string) (string, []string, error) {
+	componentIndex := 1
+	var components []string
+	for i := 1; i < len(compositeKey); i++ {
+		if rune(compositeKey[i]) == minUnicodeRuneValue {
+			components = append(components, compositeKey[componentIndex:i])
+			componentIndex = i + 1
+		}
+	}
+	return components[0], components[1:], nil
+}
