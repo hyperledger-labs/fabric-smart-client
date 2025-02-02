@@ -149,7 +149,7 @@ type RowScanner interface {
 	Scan(dest ...any) error
 }
 
-type iteratorMapper[T any] func(RowScanner, T) error
+type iteratorMapper[T any] func(RowScanner, *T) error
 
 type queryIterator[T any] struct {
 	mapper iteratorMapper[T]
@@ -165,7 +165,7 @@ func (it *queryIterator[T]) Next() (*T, error) {
 		return nil, nil
 	}
 	var v T
-	if err := it.mapper(it.rows, v); err != nil {
+	if err := it.mapper(it.rows, &v); err != nil {
 		return nil, err
 	}
 	return &v, nil

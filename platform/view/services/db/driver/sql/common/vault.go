@@ -158,7 +158,7 @@ func (db *VaultPersistence) queryState(where string, params []any) (driver.TxSta
 	if err != nil {
 		return nil, err
 	}
-	it := QueryIterator(rows, func(r RowScanner, v driver.VersionedRead) error { return r.Scan(&v.Key, &v.Version, &v.Raw) })
+	it := QueryIterator(rows, func(r RowScanner, v *driver.VersionedRead) error { return r.Scan(&v.Key, &v.Version, &v.Raw) })
 	return collections.Map(it, db.encodeVersionedRead), nil
 }
 
@@ -353,7 +353,7 @@ func (db *VaultPersistence) queryStatus(where string, params []any) (collections
 	if err != nil {
 		return nil, err
 	}
-	return QueryIterator(rows, func(r RowScanner, s driver.TxStatus) error { return r.Scan(&s.TxID, &s.Code, &s.Message) }), nil
+	return QueryIterator(rows, func(r RowScanner, s *driver.TxStatus) error { return r.Scan(&s.TxID, &s.Code, &s.Message) }), nil
 }
 
 func (db *VaultPersistence) encodeVersionedRead(r *driver.VersionedRead) (*driver.VersionedRead, error) {

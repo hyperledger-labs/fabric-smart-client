@@ -51,7 +51,7 @@ func (db *SignerInfoPersistence) FilterExistingSigners(ids ...view.Identity) ([]
 		return nil, errors.Wrapf(err, "error querying db")
 	}
 
-	result, err := collections.ReadAll(QueryIterator(rows, func(r RowScanner, h string) error { return r.Scan(&h) }))
+	result, err := collections.ReadAll(QueryIterator(rows, func(r RowScanner, h *string) error { return r.Scan(h) }))
 	if err != nil {
 		return nil, err
 	}

@@ -54,7 +54,7 @@ func (db *BindingPersistence) HaveSameBinding(this, that view.Identity) (bool, e
 		return false, errors.Wrapf(err, "error querying db")
 	}
 
-	it := QueryIterator(rows, func(r RowScanner, id view.Identity) error { return r.Scan(&id) })
+	it := QueryIterator(rows, func(r RowScanner, id *view.Identity) error { return r.Scan(id) })
 	longTermIds, err := collections.ReadAll(it)
 	if err != nil {
 		return false, err
