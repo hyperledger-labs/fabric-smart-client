@@ -165,7 +165,10 @@ func (it *queryIterator[T]) Next() (*T, error) {
 		return nil, nil
 	}
 	var v T
-	return &v, it.mapper(it.rows, v)
+	if err := it.mapper(it.rows, v); err != nil {
+		return nil, err
+	}
+	return &v, nil
 }
 
 func QueryUnique[T any](db *sql.DB, query string, args ...any) (T, error) {
