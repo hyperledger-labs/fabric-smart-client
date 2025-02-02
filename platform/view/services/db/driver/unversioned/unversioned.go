@@ -52,6 +52,9 @@ func (db *Unversioned) GetStateRangeScanIterator(namespace driver2.Namespace, st
 }
 
 func mapVersioned(v *driver.VersionedRead) (*driver.UnversionedRead, error) {
+	if v == nil {
+		return nil, nil
+	}
 	return &driver.UnversionedRead{Key: v.Key, Raw: v.Raw}, nil
 }
 
