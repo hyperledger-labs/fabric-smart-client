@@ -39,5 +39,5 @@ func getDriver(dbDrivers []driver.NamedDriver, cp db.Config) (driver.Driver, err
 			return d.Driver, nil
 		}
 	}
-	return nil, errors.New("driver not found")
+	return &mem.Driver{}, nil
 }
