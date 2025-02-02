@@ -75,7 +75,7 @@ func NewNotifier(writeDB *sql.DB, table, dataSource string, notifyOperations []d
 
 func (db *Notifier) Subscribe(callback driver.TriggerCallback) error {
 	db.once.Do(func() {
-		logger.Infof("First subscription for notifier of [%s]. Notifier starts listening...", db.table)
+		logger.Debugf("First subscription for notifier of [%s]. Notifier starts listening...", db.table)
 		go func() {
 			if err := db.listener.Listen(context.TODO()); err != nil {
 				logger.Errorf("Notifier listen for [%s] failed: %v", db.table, err)
@@ -132,7 +132,7 @@ func (h *notificationHandler) HandleNotification(_ context.Context, notification
 }
 
 func (db *Notifier) UnsubscribeAll() error {
-	logger.Infof("Unsubscribe called")
+	logger.Debugf("Unsubscribe called")
 	return nil
 }
 

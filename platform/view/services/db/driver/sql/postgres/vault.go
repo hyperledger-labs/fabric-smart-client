@@ -94,7 +94,7 @@ func (db *VaultPersistence) Store(ctx context.Context, txIDs []driver.TxID, writ
 }
 
 func execOrRollback(tx *sql.Tx, query string, params []any) error {
-	logger.Info(query, len(params), params)
+	logger.Debug(query, len(params), params)
 
 	if _, err := tx.Exec(query, params...); err != nil {
 		if err2 := tx.Rollback(); err2 != nil {

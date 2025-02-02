@@ -95,7 +95,7 @@ func (db *VaultPersistence) Store(ctx context.Context, txIDs []driver.TxID, writ
 
 	query := queryBuilder.String()
 
-	logger.Info(query, params)
+	logger.Debug(query, params)
 	if _, err := db.writeDB.Exec(query, params...); err != nil {
 		return errors.Wrapf(err, "failed to store writes and metawrites for %d txs", len(txIDs))
 	}

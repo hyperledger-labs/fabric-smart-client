@@ -88,10 +88,10 @@ func (db *BindingPersistence) PutBinding(ephemeral, longTerm view.Identity) erro
 	}
 
 	logger.Debugf("Long term ID not seen before. Registering it as long term...")
-	//query = fmt.Sprintf("INSERT INTO %s (ephemeral_hash, long_term_id) VALUES ($1, $2), ($3, $4)", db.table)
-	//if _, err = db.writeDB.Exec(query, longTerm.UniqueID(), longTerm, ephemeral.UniqueID(), longTerm); err != nil {
+	// query = fmt.Sprintf("INSERT INTO %s (ephemeral_hash, long_term_id) VALUES ($1, $2), ($3, $4)", db.table)
+	// if _, err = db.writeDB.Exec(query, longTerm.UniqueID(), longTerm, ephemeral.UniqueID(), longTerm); err != nil {
 	//	return errors.Wrapf(err, "failed inserting long-term id and ephemeral id")
-	//}
+	// }
 	query = fmt.Sprintf("INSERT INTO %s (ephemeral_hash, long_term_id) VALUES ($1, $2)", db.table)
 	if _, err := db.writeDB.Exec(query, longTerm.UniqueID(), longTerm); err != nil {
 		return errors.Wrapf(err, "failed inserting long-term id and ephemeral id")
@@ -100,7 +100,7 @@ func (db *BindingPersistence) PutBinding(ephemeral, longTerm view.Identity) erro
 	if _, err := db.writeDB.Exec(query, ephemeral.UniqueID(), longTerm); err != nil {
 		return errors.Wrapf(err, "failed inserting long-term id and ephemeral id")
 	}
-	logger.Infof("Long-term and ephemeral ids registered [%s,%s]", longTerm, ephemeral)
+	logger.Debugf("Long-term and ephemeral ids registered [%s,%s]", longTerm, ephemeral)
 	return nil
 
 }

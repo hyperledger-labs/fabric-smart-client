@@ -212,7 +212,7 @@ func (w *WriteTransaction) Commit() error {
 
 func (w *WriteTransaction) Discard() error {
 	if err := w.txn.Rollback(); err != nil {
-		logger.Infof("error rolling back (ignoring): %s", err.Error())
+		logger.Debugf("error rolling back (ignoring): %s", err.Error())
 		return nil
 	}
 	w.txn = nil

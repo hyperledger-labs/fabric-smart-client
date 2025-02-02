@@ -95,7 +95,7 @@ func (db *BaseDB[T]) Discard() error {
 	db.Txn = db.zero
 	db.debugStack = nil
 	if err != nil {
-		logger.Infof("error rolling back (ignoring): %s", err.Error())
+		logger.Debugf("error rolling back (ignoring): %s", err.Error())
 		return nil
 	}
 
