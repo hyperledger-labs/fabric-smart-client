@@ -8,33 +8,10 @@ package unversioned
 
 import (
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/pkg/errors"
 )
-
-type iterator struct {
-	itr driver.VersionedResultsIterator
-}
-
-func (i *iterator) Next() (*driver.UnversionedRead, error) {
-	r, err := i.itr.Next()
-	if err != nil {
-		return nil, err
-	}
-
-	if r == nil {
-		return nil, nil
-	}
-
-	return &driver.UnversionedRead{
-		Key: r.Key,
-		Raw: r.Raw,
-	}, nil
-}
-
-func (i *iterator) Close() {
-	i.itr.Close()
-}
 
 type Unversioned struct {
 	Versioned driver.VersionedPersistence
@@ -71,7 +48,11 @@ func (db *Unversioned) GetStateRangeScanIterator(namespace driver2.Namespace, st
 		return nil, err
 	}
 
-	return &iterator{vitr}, nil
+	return collections.Map(vitr, mapVersioned), nil
+}
+
+func mapVersioned(v *driver.VersionedRead) (*driver.UnversionedRead, error) {
+	return &driver.UnversionedRead{Key: v.Key, Raw: v.Raw}, nil
 }
 
 func (db *Unversioned) GetStateSetIterator(ns driver2.Namespace, keys ...driver2.PKey) (driver.UnversionedResultsIterator, error) {
@@ -80,7 +61,7 @@ func (db *Unversioned) GetStateSetIterator(ns driver2.Namespace, keys ...driver2
 		return nil, err
 	}
 
-	return &iterator{vitr}, nil
+	return collections.Map(vitr, mapVersioned), nil
 }
 
 func (db *Unversioned) Close() error {
@@ -140,7 +121,7 @@ func (t *Transactional) GetStateRangeScanIterator(namespace driver2.Namespace, s
 	if err != nil {
 		return nil, err
 	}
-	return &iterator{itr: it}, nil
+	return collections.Map(it, mapVersioned), nil
 }
 
 func (t *Transactional) GetStateSetIterator(ns driver2.Namespace, keys ...driver2.PKey) (driver.UnversionedResultsIterator, error) {
@@ -148,7 +129,7 @@ func (t *Transactional) GetStateSetIterator(ns driver2.Namespace, keys ...driver
 	if err != nil {
 		return nil, err
 	}
-	return &iterator{itr: it}, nil
+	return collections.Map(it, mapVersioned), nil
 }
 
 func (t *Transactional) Close() error {

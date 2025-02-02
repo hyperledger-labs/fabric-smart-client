@@ -158,7 +158,8 @@ func (db *VaultPersistence) queryState(where string, params []any) (driver.TxSta
 	if err != nil {
 		return nil, err
 	}
-	return &TxStateIterator{rows: rows, decoder: db.sanitizer}, nil
+	it := QueryIterator(rows, func(r RowScanner, v driver.VersionedRead) error { return r.Scan(&v.Key, &v.Version, &v.Raw) })
+	return collections.Map(it, db.encodeVersionedRead), nil
 }
 
 func (db *VaultPersistence) SetStatuses(ctx context.Context, code driver.TxStatusCode, message string, txIDs ...driver.TxID) error {
@@ -344,7 +345,7 @@ func (db *VaultPersistence) Close() error {
 	return errors2.Join(db.writeDB.Close(), db.readDB.Close())
 }
 
-func (db *VaultPersistence) queryStatus(where string, params []any) (driver.TxStatusIterator, error) {
+func (db *VaultPersistence) queryStatus(where string, params []any) (collections.Iterator[*driver.TxStatus], error) {
 	query := fmt.Sprintf("SELECT tx_id, code, message FROM %s %s", db.tables.StatusTable, where)
 	logger.Debug(query, params)
 
@@ -352,47 +353,15 @@ func (db *VaultPersistence) queryStatus(where string, params []any) (driver.TxSt
 	if err != nil {
 		return nil, err
 	}
-	return &TxCodeIterator{rows: rows}, nil
+	return QueryIterator(rows, func(r RowScanner, s driver.TxStatus) error { return r.Scan(&s.TxID, &s.Code, &s.Message) }), nil
 }
 
-type TxCodeIterator struct {
-	rows *sql.Rows
-}
-
-func (it *TxCodeIterator) Close() {
-	_ = it.rows.Close()
-}
-
-func (it *TxCodeIterator) Next() (*driver.TxStatus, error) {
-	var r driver.TxStatus
-	if !it.rows.Next() {
-		return nil, nil
-	}
-	err := it.rows.Scan(&r.TxID, &r.Code, &r.Message)
-	return &r, err
-}
-
-type TxStateIterator struct {
-	decoder decoder
-	rows    *sql.Rows
-}
-
-func (it *TxStateIterator) Close() {
-	_ = it.rows.Close()
-}
-
-func (it *TxStateIterator) Next() (*driver.VersionedRead, error) {
-	var r driver.VersionedRead
-	if !it.rows.Next() {
-		return nil, nil
-	}
-	err := it.rows.Scan(&r.Key, &r.Version, &r.Raw)
+func (db *VaultPersistence) encodeVersionedRead(r *driver.VersionedRead) (*driver.VersionedRead, error) {
+	k, err := db.sanitizer.Decode(r.Key)
 	if err != nil {
 		return nil, err
 	}
-	r.Key, err = it.decoder.Decode(r.Key)
-	if err != nil {
-		return nil, err
-	}
-	return &r, nil
+	r.Key = k
+	return r, nil
+
 }

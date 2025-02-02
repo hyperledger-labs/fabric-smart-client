@@ -11,7 +11,6 @@ import (
 	"encoding/json"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/endorser"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
@@ -19,30 +18,6 @@ import (
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
 )
-
-type ListStateQueryIteratorInterface struct {
-	it   fabric.ResultsIterator
-	next *fabric.Read
-}
-
-func (l *ListStateQueryIteratorInterface) HasNext() bool {
-	var err error
-	l.next, err = l.it.Next()
-	if err != nil || l.next == nil {
-		return false
-	}
-	return true
-}
-
-func (l *ListStateQueryIteratorInterface) Close() error {
-	l.it.Close()
-	return nil
-}
-
-func (l *ListStateQueryIteratorInterface) Next(state interface{}) (string, error) {
-	//log.Printf("It at %s\n", string(l.List[l.Index].Raw))
-	return "", json.Unmarshal(l.next.Raw, state)
-}
 
 type vaultStore interface {
 	GetState(ctx context.Context, namespace driver.Namespace, key driver.PKey) (*driver.VersionedRead, error)
@@ -75,18 +50,14 @@ func (f *vault) GetState(ctx context.Context, namespace driver.Namespace, id dri
 	return nil
 }
 
-func (f *vault) GetStateByPartialCompositeID(ctx context.Context, ns driver.Namespace, prefix string, attrs []string) (state.QueryIteratorInterface, error) {
+func (f *vault) GetStateByPartialCompositeID(ctx context.Context, ns driver.Namespace, prefix string, attrs []string) (driver.TxStateIterator, error) {
 	startKey, err := state.CreateCompositeKey(prefix, attrs)
 	if err != nil {
 		return nil, err
 	}
 	endKey := startKey + string(state.MaxUnicodeRuneValue)
 
-	it, err := f.vaultStore.GetStateRange(ctx, ns, startKey, endKey)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed getting state iterator")
-	}
-	return &ListStateQueryIteratorInterface{it: it}, nil
+	return f.vaultStore.GetStateRange(ctx, ns, startKey, endKey)
 }
 
 func (f *vault) GetStateCertification(ctx context.Context, namespace driver.Namespace, key driver.PKey) ([]byte, error) {
