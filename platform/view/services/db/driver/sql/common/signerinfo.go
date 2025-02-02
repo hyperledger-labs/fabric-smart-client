@@ -43,7 +43,7 @@ func (db *SignerInfoPersistence) FilterExistingSigners(ids ...view.Identity) ([]
 	}
 	where, params := Where(db.ci.InStrings("id", idHashes))
 	query := fmt.Sprintf("SELECT id FROM %s %s", db.table, where)
-	logger.Info(query, params)
+	logger.Debug(query, params)
 
 	rows, err := db.readDB.Query(query, params...)
 	if err != nil {
@@ -58,13 +58,13 @@ func (db *SignerInfoPersistence) FilterExistingSigners(ids ...view.Identity) ([]
 		}
 		existingSigners = append(existingSigners, inverseMap[idHash])
 	}
-	logger.Infof("Found %d out of %d signers", len(existingSigners), len(ids))
+	logger.Debugf("Found %d out of %d signers", len(existingSigners), len(ids))
 	return existingSigners, nil
 }
 
 func (db *SignerInfoPersistence) PutSigner(id view.Identity) error {
 	query := fmt.Sprintf("INSERT INTO %s (id) VALUES ($1)", db.table)
-	logger.Info(query, id)
+	logger.Debug(query, id)
 	_, err := db.writeDB.Exec(query, id.UniqueID())
 	if err != nil && errors.Is(db.errorWrapper.WrapError(err), driver.UniqueKeyViolation) {
 		logger.Warnf("Signer [%s] already in db. Skipping...", id)
@@ -73,7 +73,7 @@ func (db *SignerInfoPersistence) PutSigner(id view.Identity) error {
 	if err != nil {
 		return errors.Wrapf(err, "failed executing query [%s]", query)
 	}
-	logger.Infof("Signer [%s] registered", id)
+	logger.Debugf("Signer [%s] registered", id)
 	return nil
 }
 

@@ -60,7 +60,7 @@ func (db *vaultLockManager) AcquireWLocks(txIDs ...driver.TxID) error {
 				logger.Warnf("Lock entry for [%s] existed. RLocked successfully", txID)
 				acquired = append(acquired, txID)
 			} else {
-				logger.Infof("Failed locking [%s]. Back off, wait and retry...", txID)
+				logger.Debugf("Failed locking [%s]. Back off, wait and retry...", txID)
 				for _, lockedTxID := range acquired {
 					db.txLocks[lockedTxID].Unlock()
 				}
@@ -117,7 +117,7 @@ func (db *vaultLockManager) AcquireTxIDRLock(txID driver.TxID) (driver.VaultLock
 			db.txLocksMu.Unlock()
 			return newLock(func() { db.ReleaseRLocks(txID) }), nil
 		} else {
-			logger.Infof("Failed rlocking [%s]. Back off, wait and retry...", txID)
+			logger.Debugf("Failed rlocking [%s]. Back off, wait and retry...", txID)
 			db.txLocksMu.Unlock()
 			db.backoffDelay()
 		}
