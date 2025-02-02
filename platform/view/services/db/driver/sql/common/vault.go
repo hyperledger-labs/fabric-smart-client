@@ -357,6 +357,9 @@ func (db *VaultPersistence) queryStatus(where string, params []any) (collections
 }
 
 func (db *VaultPersistence) encodeVersionedRead(r *driver.VersionedRead) (*driver.VersionedRead, error) {
+	if r == nil {
+		return nil, nil
+	}
 	k, err := db.sanitizer.Decode(r.Key)
 	if err != nil {
 		return nil, err
