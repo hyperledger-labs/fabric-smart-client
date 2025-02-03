@@ -29,7 +29,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/provider"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/crypto"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger"
 	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
@@ -90,8 +89,6 @@ func (p *SDK) Install() error {
 		p.C.Provide(crypto.NewProvider, dig.As(new(hash.Hasher))),
 		p.C.Provide(simple.NewEventBus, dig.As(new(events.EventSystem), new(events.Publisher), new(events.Subscriber))),
 		p.C.Provide(func(system events.EventSystem) *events.Service { return &events.Service{EventSystem: system} }),
-		p.C.Provide(badger.NewDriver, dig.Group("db-drivers")),
-		p.C.Provide(badger.NewFileDriver, dig.Group("db-drivers")),
 		p.C.Provide(sql.NewDriver, dig.Group("db-drivers")),
 		p.C.Provide(mem.NewDriver, dig.Group("db-drivers")),
 		p.C.Provide(file.NewDriver, dig.Group("kms-drivers")),

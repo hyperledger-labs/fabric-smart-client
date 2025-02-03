@@ -87,7 +87,6 @@ fsc:
   # The Key-Value Store is used to store various information related to the FSC node
   kvs:
     persistence:
-      # Persistence type can be \'badger\' (on disk), \'memory\' or \'sql\'
       type: {{ KVSOpts.Type }}
       opts:
         {{- if eq KVSOpts.Type "sql" }}
@@ -98,9 +97,6 @@ fsc:
         maxOpenConns: {{ KVSOpts.SQL.MaxOpenConns }}
         maxIdleConns: 3
         maxIdleTime: 45s
-        {{- else if eq KVSOpts.Type "badger" }}
-        path: {{ KVSOpts.Badger.Path }}
-        SyncWrites: false
         {{- else if eq KVSOpts.Type "memory" }}
         # Memory has hard-coded opts
         {{- else }}
@@ -111,7 +107,6 @@ fsc:
         size: 200
   binding:
     persistence:
-      # Persistence type can be \'badger\' (on disk), \'memory\' or \'sql\'
       type: {{ BindingOpts.Type }}
       opts:
         {{- if eq BindingOpts.Type "sql" }}
@@ -122,9 +117,6 @@ fsc:
         maxOpenConns: {{ BindingOpts.SQL.MaxOpenConns }}
         maxIdleConns: 3
         maxIdleTime: 45s
-        {{- else if eq BindingOpts.Type "badger" }}
-        path: {{ BindingOpts.Badger.Path }}
-        SyncWrites: false
         {{- else if eq BindingOpts.Type "memory" }}
         # Memory has hard-coded opts
         {{- else }}
@@ -132,7 +124,6 @@ fsc:
         {{- end }}
   signerinfo:
     persistence:
-      # Persistence type can be \'badger\' (on disk), \'memory\' or \'sql\'
       type: {{ SignerInfoOpts.Type }}
       opts:
         {{- if eq SignerInfoOpts.Type "sql" }}
@@ -143,9 +134,6 @@ fsc:
         maxOpenConns: {{ SignerInfoOpts.SQL.MaxOpenConns }}
         maxIdleConns: 3
         maxIdleTime: 45s
-        {{- else if eq SignerInfoOpts.Type "badger" }}
-        path: {{ SignerInfoOpts.Badger.Path }}
-        SyncWrites: false
         {{- else if eq SignerInfoOpts.Type "memory" }}
         # Memory has hard-coded opts
         {{- else }}
@@ -153,7 +141,6 @@ fsc:
         {{- end }}
   auditinfo:
     persistence:
-      # Persistence type can be \'badger\' (on disk), \'memory\' or \'sql\'
       type: {{ AuditInfoOpts.Type }}
       opts:
         {{- if eq AuditInfoOpts.Type "sql" }}
@@ -164,9 +151,6 @@ fsc:
         maxOpenConns: {{ AuditInfoOpts.SQL.MaxOpenConns }}
         maxIdleConns: 3
         maxIdleTime: 45s
-        {{- else if eq AuditInfoOpts.Type "badger" }}
-        path: {{ AuditInfoOpts.Badger.Path }}
-        SyncWrites: false
         {{- else if eq AuditInfoOpts.Type "memory" }}
         # Memory has hard-coded opts
         {{- else }}
@@ -174,7 +158,6 @@ fsc:
         {{- end }}
   endorsetx:
     persistence:
-      # Persistence type can be \'badger\' (on disk), \'memory\' or \'sql\'
       type: {{ EndorseTxOpts.Type }}
       opts:
         {{- if eq EndorseTxOpts.Type "sql" }}
@@ -185,9 +168,6 @@ fsc:
         maxOpenConns: {{ EndorseTxOpts.SQL.MaxOpenConns }}
         maxIdleConns: 3
         maxIdleTime: 45s
-        {{- else if eq EndorseTxOpts.Type "badger" }}
-        path: {{ EndorseTxOpts.Badger.Path }}
-        SyncWrites: false
         {{- else if eq EndorseTxOpts.Type "memory" }}
         # Memory has hard-coded opts
         {{- else }}
@@ -195,7 +175,6 @@ fsc:
         {{- end }}
   envelope:
     persistence:
-      # Persistence type can be \'badger\' (on disk), \'memory\' or \'sql\'
       type: {{ EnvelopeOpts.Type }}
       opts:
         {{- if eq EnvelopeOpts.Type "sql" }}
@@ -206,9 +185,6 @@ fsc:
         maxOpenConns: {{ EnvelopeOpts.SQL.MaxOpenConns }}
         maxIdleConns: 3
         maxIdleTime: 45s
-        {{- else if eq EnvelopeOpts.Type "badger" }}
-        path: {{ EnvelopeOpts.Badger.Path }}
-        SyncWrites: false
         {{- else if eq EnvelopeOpts.Type "memory" }}
         # Memory has hard-coded opts
         {{- else }}
@@ -216,7 +192,6 @@ fsc:
         {{- end }}
   metadata:
     persistence:
-      # Persistence type can be \'badger\' (on disk), \'memory\' or \'sql\'
       type: {{ MetadataOpts.Type }}
       opts:
         {{- if eq MetadataOpts.Type "sql" }}
@@ -227,9 +202,6 @@ fsc:
         maxOpenConns: {{ MetadataOpts.SQL.MaxOpenConns }}
         maxIdleConns: 3
         maxIdleTime: 45s
-        {{- else if eq MetadataOpts.Type "badger" }}
-        path: {{ MetadataOpts.Badger.Path }}
-        SyncWrites: false
         {{- else if eq MetadataOpts.Type "memory" }}
         # Memory has hard-coded opts
         {{- else }}

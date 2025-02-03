@@ -67,14 +67,9 @@ type SQLOpts struct {
 	MaxOpenConns int
 }
 
-type BadgerOpts struct {
-	Path string
-}
-
 type PersistenceOpts struct {
-	Type   driver.PersistenceType
-	SQL    *SQLOpts
-	Badger *BadgerOpts
+	Type driver.PersistenceType
+	SQL  *SQLOpts
 }
 
 func (o *Options) PutSQLPersistence(k string, p SQLOpts) {

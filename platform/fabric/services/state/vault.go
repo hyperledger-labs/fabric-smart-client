@@ -36,7 +36,7 @@ type Vault interface {
 
 	GetStateCertification(ctx context.Context, namespace driver.Namespace, key driver.PKey) ([]byte, error)
 
-	GetStateByPartialCompositeID(ctx context.Context, ns driver.Namespace, prefix string, attrs []string) (QueryIteratorInterface, error)
+	GetStateByPartialCompositeID(ctx context.Context, ns driver.Namespace, prefix string, attrs []string) (driver.TxStateIterator, error)
 }
 
 // VaultService models a vault instance provider

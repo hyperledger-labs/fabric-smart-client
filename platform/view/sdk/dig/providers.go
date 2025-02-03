@@ -9,11 +9,9 @@ package sdk
 import (
 	driver4 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kms"
 	driver3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kms/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
@@ -38,20 +36,13 @@ func newKVS(in struct {
 	return nil, errors.New("driver not found")
 }
 
-var SupportedStores = collections.NewSet(mem.MemoryPersistence, sql.SQLPersistence)
-
 func newBindingStore(in struct {
 	dig.In
 	KVS     *kvs.KVS
 	Config  driver.ConfigService
 	Drivers []driver2.NamedDriver `group:"db-drivers"`
 }) (driver4.BindingStore, error) {
-	if store, err := binding.NewWithConfig(in.Drivers, in.Config, "default"); err != nil {
-		logger.Errorf("failed creating store for binding: %v. Default to KVS", err)
-		return binding.NewKVSBased(in.KVS), nil
-	} else {
-		return store, nil
-	}
+	return binding.NewWithConfig(in.Drivers, in.Config, "default")
 }
 
 func newSignerInfoStore(in struct {
@@ -60,12 +51,7 @@ func newSignerInfoStore(in struct {
 	Config  driver.ConfigService
 	Drivers []driver2.NamedDriver `group:"db-drivers"`
 }) (driver4.SignerInfoStore, error) {
-	if store, err := signerinfo.NewWithConfig(in.Drivers, in.Config, "default"); err != nil {
-		logger.Errorf("failed creating store for signerinfo: %v. Default to KVS", err)
-		return signerinfo.NewKVSBased(in.KVS), nil
-	} else {
-		return store, nil
-	}
+	return signerinfo.NewWithConfig(in.Drivers, in.Config, "default")
 }
 
 func newAuditInfoStore(in struct {
@@ -74,12 +60,7 @@ func newAuditInfoStore(in struct {
 	Config  driver.ConfigService
 	Drivers []driver2.NamedDriver `group:"db-drivers"`
 }) (driver4.AuditInfoStore, error) {
-	if store, err := auditinfo.NewWithConfig(in.Drivers, in.Config, "default"); err != nil {
-		logger.Errorf("failed creating store for auditinfo: %v. Default to KVS", err)
-		return auditinfo.NewKVSBased(in.KVS), nil
-	} else {
-		return store, nil
-	}
+	return auditinfo.NewWithConfig(in.Drivers, in.Config, "default")
 }
 
 func newKMSDriver(in struct {

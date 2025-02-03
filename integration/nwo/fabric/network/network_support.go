@@ -26,9 +26,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/commands"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/fabricconfig"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/badger"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql"
 	"github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
@@ -1616,7 +1615,7 @@ func (n *Network) GenerateCoreConfig(p *topology.Peer) {
 				"PeerAddress":               func(o *topology.Peer, portName api.PortName) string { return n.PeerAddress(o, portName) },
 				"CACertsBundlePath":         func() string { return n.CACertsBundlePath() },
 				"VaultOpts": func() node.PersistenceOpts {
-					return n.PersistenceOpts(VaultPersistencePrefix, uniqueName, p.FSCNode.Options)
+					return fsc.PersistenceOpts(VaultPersistencePrefix, p.FSCNode.Options)
 				},
 				"FabricName":     func() string { return n.topology.Name() },
 				"DefaultNetwork": func() bool { return defaultNetwork },
@@ -1630,20 +1629,6 @@ func (n *Network) GenerateCoreConfig(p *topology.Peer) {
 			err = t.Execute(io.MultiWriter(extension), n)
 			Expect(err).NotTo(HaveOccurred())
 			n.Context.AddExtension(uniqueName, api.FabricExtension, extension.String())
-		}
-	}
-}
-
-func (n *Network) PersistenceOpts(prefix string, uniqueName string, o *node.Options) node.PersistenceOpts {
-	if sqlOpts := o.GetPersistence(prefix); sqlOpts != nil {
-		return node.PersistenceOpts{
-			Type: sql.SQLPersistence,
-			SQL:  sqlOpts,
-		}
-	} else {
-		return node.PersistenceOpts{
-			Type:   badger.BadgerPersistence,
-			Badger: &node.BadgerOpts{Path: n.FSCNodeVaultDir(uniqueName)},
 		}
 	}
 }

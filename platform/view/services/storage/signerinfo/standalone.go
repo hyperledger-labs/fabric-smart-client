@@ -40,7 +40,7 @@ func getDriver(dbDrivers []driver.NamedDriver, cp db.Config) (driver.Driver, err
 		return nil, err
 	}
 	if !supportedStores.Contains(driverName) {
-		return nil, errors.New("unsupported store")
+		driverName = mem.MemoryPersistence
 	}
 	for _, d := range dbDrivers {
 		if d.Name == driverName {

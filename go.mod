@@ -6,7 +6,6 @@ require (
 	github.com/IBM/idemix v0.0.2-0.20240816143710-3dce4618d760
 	github.com/IBM/idemix/bccsp/types v0.0.0-20240816143710-3dce4618d760
 	github.com/IBM/mathlib v0.0.3-0.20231011094432-44ee0eb539da
-	github.com/dgraph-io/badger/v3 v3.2103.5
 	github.com/docker/docker v27.2.0+incompatible
 	github.com/docker/go-connections v0.5.0
 	github.com/fsouza/go-dockerclient v1.12.0
@@ -110,7 +109,6 @@ require (
 	github.com/IBM/idemix/bccsp/schemes/weak-bb v0.0.0-20240612072411-114d281b442d // indirect
 	github.com/Knetic/govaluate v3.0.1-0.20171022003610-9aa49832a739+incompatible // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
-	github.com/OneOfOne/xxhash v1.2.8 // indirect
 	github.com/SmartBFT-Go/consensus v0.0.0-20230212211744-e5a79afcea81 // indirect
 	github.com/VictoriaMetrics/fastcache v1.12.0 // indirect
 	github.com/ale-linux/aries-framework-go/component/kmscrypto v0.0.0-20231023164747-f3f972769504 // indirect
@@ -122,7 +120,6 @@ require (
 	github.com/bytedance/sonic v1.11.6 // indirect
 	github.com/bytedance/sonic/loader v0.1.1 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
-	github.com/cespare/xxhash v1.1.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/cloudwego/base64x v0.1.4 // indirect
 	github.com/cloudwego/iasm v0.2.0 // indirect
@@ -134,7 +131,6 @@ require (
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/davidlazar/go-crypto v0.0.0-20200604182044-b73af7476f6c // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.3.0 // indirect
-	github.com/dgraph-io/ristretto v0.1.1 // indirect
 	github.com/distribution/reference v0.5.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
@@ -163,10 +159,8 @@ require (
 	github.com/gobuffalo/packr v1.30.1 // indirect
 	github.com/goccy/go-json v0.10.2 // indirect
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
-	github.com/golang/glog v1.2.4 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/snappy v0.0.4 // indirect
-	github.com/google/flatbuffers v2.0.8+incompatible // indirect
 	github.com/google/gopacket v1.1.19 // indirect
 	github.com/google/pprof v0.0.0-20241017200806-017d972448fc // indirect
 	github.com/google/s2a-go v0.1.7 // indirect
@@ -293,7 +287,7 @@ require (
 	golang.org/x/mod v0.21.0 // indirect
 	golang.org/x/oauth2 v0.23.0 // indirect
 	golang.org/x/sys v0.28.0 // indirect
-	golang.org/x/text v0.21.0 // indirect
+	golang.org/x/text v0.21.0
 	golang.org/x/time v0.5.0 // indirect
 	golang.org/x/tools v0.26.0 // indirect
 	gonum.org/v1/gonum v0.15.0 // indirect

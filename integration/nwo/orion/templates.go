@@ -21,7 +21,7 @@ orion:
 	{{- end }}
     vault:
       persistence:
-        type: file
+        type: memory
         opts:
           path: {{ FSCNodeVaultPath }}
 `
