@@ -180,6 +180,7 @@ func (d *Delivery) runReceiver(ctx context.Context, ch chan<- blockResponse) {
 		return
 	}
 	var df DeliverStream
+	var dfCancel context.CancelFunc
 	var err error
 	waitTime := d.channelConfig.DeliverySleepAfterFailure()
 	counter := 0
@@ -192,17 +193,23 @@ func (d *Delivery) runReceiver(ctx context.Context, ch chan<- blockResponse) {
 			select {
 			case <-d.stop:
 				logger.Debugf("Stopped receiver")
+				if dfCancel != nil {
+					dfCancel()
+				}
 				return
 			case <-ctx.Done():
 				logger.Debugf("Context done")
 				// Time to cancel
+				if dfCancel != nil {
+					dfCancel()
+				}
 				d.Stop(errors.New("context done"))
 			default:
 				deliveryCtx, span := d.tracer.Start(context.Background(), "block_delivery", tracing.WithAttributes(tracing.String(messageTypeLabel, unknown)))
 				if df == nil {
 					logger.Debugf("deliver service [%s:%s], connecting...", d.NetworkName, d.channel)
 					span.AddEvent("connect")
-					df, err = d.connect(ctx)
+					df, dfCancel, err = d.connect(ctx)
 					if err != nil {
 						logger.Errorf("failed connecting to delivery service [%s:%s] [%s]. Wait %.1fs before reconnecting", d.NetworkName, d.channel, err, waitTime.Seconds())
 						time.Sleep(waitTime)
@@ -219,6 +226,9 @@ func (d *Delivery) runReceiver(ctx context.Context, ch chan<- blockResponse) {
 				resp, err := df.Recv()
 				span.AddEvent("received_message")
 				if err != nil {
+					if dfCancel != nil {
+						dfCancel()
+					}
 					df = nil
 					logger.Errorf("delivery service [%s:%s:%s], failed receiving response [%s]",
 						d.client.Address(), d.NetworkName, d.channel,
@@ -237,6 +247,9 @@ func (d *Delivery) runReceiver(ctx context.Context, ch chan<- blockResponse) {
 						}
 						span.RecordError(errors.New("nil block"))
 						time.Sleep(waitTime)
+						if dfCancel != nil {
+							dfCancel()
+						}
 						df = nil
 					}
 
@@ -258,6 +271,9 @@ func (d *Delivery) runReceiver(ctx context.Context, ch chan<- blockResponse) {
 					if r.Status == common.Status_NOT_FOUND {
 						span.RecordError(errors.New("not found"))
 						df = nil
+						if dfCancel != nil {
+							dfCancel()
+						}
 						logger.Warnf("delivery service [%s:%s:%s] status [%s], wait a few seconds before retrying", d.client.Address(), d.NetworkName, d.channel, r.Status)
 						time.Sleep(waitTime)
 					} else {
@@ -266,6 +282,9 @@ func (d *Delivery) runReceiver(ctx context.Context, ch chan<- blockResponse) {
 				default:
 					span.SetAttributes(tracing.String(messageTypeLabel, other))
 					df = nil
+					if dfCancel != nil {
+						dfCancel()
+					}
 					logger.Errorf("delivery service [%s:%s:%s], got [%s]", d.client.Address(), d.NetworkName, d.channel, r)
 				}
 				span.End()
@@ -282,7 +301,7 @@ func (d *Delivery) untilStop() error {
 	return nil
 }
 
-func (d *Delivery) connect(ctx context.Context) (DeliverStream, error) {
+func (d *Delivery) connect(ctx context.Context) (DeliverStream, context.CancelFunc, error) {
 	// first cleanup everything
 	d.cleanup()
 
@@ -295,15 +314,16 @@ func (d *Delivery) connect(ctx context.Context) (DeliverStream, error) {
 	var err error
 	d.client, err = d.Services.NewPeerClient(*peerConnConf)
 	if err != nil {
-		return nil, errors.WithMessagef(err, "failed creating peer client for address [%s][%s:%s]", address, d.NetworkName, d.channel)
+		return nil, nil, errors.WithMessagef(err, "failed creating peer client for address [%s][%s:%s]", address, d.NetworkName, d.channel)
 	}
 	deliverClient, err := NewDeliverClient(d.client)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get deliver client")
+		return nil, nil, errors.Wrapf(err, "failed to get deliver client")
 	}
-	stream, err := deliverClient.NewDeliver(ctx)
+	newCtx, cancel := context.WithCancel(ctx)
+	stream, err := deliverClient.NewDeliver(newCtx)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get delivery stream")
+		return nil, nil, errors.Wrapf(err, "failed to get delivery stream")
 	}
 
 	blockEnvelope, err := CreateDeliverEnvelope(
@@ -311,20 +331,20 @@ func (d *Delivery) connect(ctx context.Context) (DeliverStream, error) {
 		d.LocalMembership.DefaultSigningIdentity(),
 		deliverClient.Certificate(),
 		d.hasher,
-		d.GetStartPosition(ctx),
+		d.GetStartPosition(newCtx),
 	)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to create deliver envelope")
+		return nil, nil, errors.Wrap(err, "failed to create deliver envelope")
 	}
 	err = DeliverSend(stream, blockEnvelope)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed sending seek envelope to [%s]", address)
+		return nil, nil, errors.Wrapf(err, "failed sending seek envelope to [%s]", address)
 	}
 
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("connected to deliver service at [%s]", address)
 	}
-	return stream, nil
+	return stream, cancel, nil
 }
 
 func (d *Delivery) GetStartPosition(ctx context.Context) *ab.SeekPosition {
