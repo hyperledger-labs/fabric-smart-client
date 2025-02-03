@@ -323,6 +323,7 @@ func (d *Delivery) connect(ctx context.Context) (DeliverStream, context.CancelFu
 	newCtx, cancel := context.WithCancel(ctx)
 	stream, err := deliverClient.NewDeliver(newCtx)
 	if err != nil {
+		cancel()
 		return nil, nil, errors.Wrapf(err, "failed to get delivery stream")
 	}
 
@@ -334,10 +335,12 @@ func (d *Delivery) connect(ctx context.Context) (DeliverStream, context.CancelFu
 		d.GetStartPosition(newCtx),
 	)
 	if err != nil {
+		cancel()
 		return nil, nil, errors.Wrap(err, "failed to create deliver envelope")
 	}
 	err = DeliverSend(stream, blockEnvelope)
 	if err != nil {
+		cancel()
 		return nil, nil, errors.Wrapf(err, "failed sending seek envelope to [%s]", address)
 	}
 
