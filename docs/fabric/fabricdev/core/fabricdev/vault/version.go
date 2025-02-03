@@ -17,8 +17,8 @@ import (
 
 type CounterBasedVersionBuilder struct{}
 
-func (c *CounterBasedVersionBuilder) VersionedValues(rws *vault.ReadWriteSet, ns driver.Namespace, writes vault.NamespaceWrites, block driver.BlockNum, indexInBloc driver.TxNum) (map[driver.PKey]vault.VersionedValue, error) {
-	vals := make(map[driver.PKey]vault.VersionedValue, len(writes))
+func (c *CounterBasedVersionBuilder) VersionedValues(rws *vault.ReadWriteSet, ns driver.Namespace, writes vault.NamespaceWrites, block driver.BlockNum, indexInBloc driver.TxNum) (map[driver.PKey]driver.VaultValue, error) {
+	vals := make(map[driver.PKey]driver.VaultValue, len(writes))
 	reads := rws.Reads[ns]
 
 	for pkey, val := range writes {
@@ -26,7 +26,7 @@ func (c *CounterBasedVersionBuilder) VersionedValues(rws *vault.ReadWriteSet, ns
 		if err != nil {
 			return nil, err
 		}
-		vals[pkey] = vault.VersionedValue{Raw: val, Version: v}
+		vals[pkey] = driver.VaultValue{Raw: val, Version: v}
 	}
 	return vals, nil
 }
@@ -48,8 +48,8 @@ func version(reads vault.NamespaceReads, pkey driver.PKey) (vault.Version, error
 	return Marshal(counter + 1), nil
 }
 
-func (c *CounterBasedVersionBuilder) VersionedMetaValues(rws *vault.ReadWriteSet, ns driver.Namespace, writes vault.KeyedMetaWrites, block driver.BlockNum, indexInBloc driver.TxNum) (map[driver.PKey]driver.VersionedMetadataValue, error) {
-	vals := make(map[driver.PKey]driver.VersionedMetadataValue, len(writes))
+func (c *CounterBasedVersionBuilder) VersionedMetaValues(rws *vault.ReadWriteSet, ns driver.Namespace, writes vault.KeyedMetaWrites, block driver.BlockNum, indexInBloc driver.TxNum) (map[driver.PKey]driver.VaultMetadataValue, error) {
+	vals := make(map[driver.PKey]driver.VaultMetadataValue, len(writes))
 	reads := rws.Reads[ns]
 
 	for pkey, val := range writes {
@@ -58,7 +58,7 @@ func (c *CounterBasedVersionBuilder) VersionedMetaValues(rws *vault.ReadWriteSet
 			return nil, err
 		}
 
-		vals[pkey] = driver.VersionedMetadataValue{Metadata: val, Version: v}
+		vals[pkey] = driver.VaultMetadataValue{Metadata: val, Version: v}
 	}
 	return vals, nil
 }

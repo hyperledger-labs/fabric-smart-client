@@ -14,13 +14,13 @@ import (
 )
 
 type MockQE struct {
-	State    driver.VersionedValue
+	State    driver.VaultValue
 	Metadata map[string][]byte
 }
 
 func NewMockQE() MockQE {
 	return MockQE{
-		State: driver.VersionedValue{
+		State: driver.VaultValue{
 			Raw:     []byte("raw"),
 			Version: blockTxIndexToBytes(1, 1),
 		},
@@ -34,8 +34,8 @@ func (qe MockQE) GetStateMetadata(context.Context, driver.Namespace, driver.PKey
 	return qe.Metadata, blockTxIndexToBytes(1, 1), nil
 }
 
-func (qe MockQE) GetState(_ context.Context, _ driver.Namespace, pkey driver.PKey) (*driver.VersionedRead, error) {
-	return &driver.VersionedRead{
+func (qe MockQE) GetState(_ context.Context, _ driver.Namespace, pkey driver.PKey) (*driver.VaultRead, error) {
+	return &driver.VaultRead{
 		Key:     pkey,
 		Raw:     qe.State.Raw,
 		Version: qe.State.Version,

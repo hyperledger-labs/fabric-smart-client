@@ -15,6 +15,7 @@ import (
 	"time"
 
 	errors2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/pkg/errors"
 )
@@ -112,7 +113,7 @@ func InitSchema(db *sql.DB, schemas ...string) (err error) {
 		}
 	}()
 	for _, schema := range schemas {
-		logger.Debug(schema)
+		logger.Info(schema)
 		if _, err = tx.Exec(schema); err != nil {
 			return errors2.Wrapf(err, "error creating schema: %s", schema)
 		}
@@ -186,4 +187,32 @@ func GenerateParamSet(offset int, rows, cols int) string {
 	}
 
 	return sb.String()
+}
+
+type dbObject interface {
+	CreateSchema() error
+}
+
+type PersistenceConstructor[V dbObject] func(Opts, string) (V, error)
+
+func NewPersistenceWithOpts[V dbObject](dataSourceName string, opts Opts, constructor PersistenceConstructor[V]) (V, error) {
+	nc, err := NewTableNameCreator(opts.TablePrefix)
+	if err != nil {
+		return utils.Zero[V](), err
+	}
+
+	table, valid := nc.GetTableName(dataSourceName)
+	if !valid {
+		return utils.Zero[V](), fmt.Errorf("invalid table name [%s]: only letters and underscores allowed: %w", table, err)
+	}
+	p, err := constructor(opts, table)
+	if err != nil {
+		return utils.Zero[V](), err
+	}
+	if !opts.SkipCreateTable {
+		if err := p.CreateSchema(); err != nil {
+			return utils.Zero[V](), err
+		}
+	}
+	return p, nil
 }

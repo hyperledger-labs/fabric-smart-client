@@ -10,9 +10,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/unversioned"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/sqlite"
 )
 
 const (
@@ -41,38 +40,34 @@ func NewDriver() driver.NamedDriver {
 	}
 }
 
-func (d *Driver) NewKVS(string, driver.Config) (driver.TransactionalUnversionedPersistence, error) {
-	backend, err := sql.NewPersistenceWithOpts(utils.GenerateUUIDOnlyLetters(), opts, sql.VersionedConstructors)
-	if err != nil {
-		return nil, err
-	}
-	return &unversioned.Transactional{TransactionalVersioned: backend}, nil
+func (d *Driver) NewKVS(string, driver.Config) (driver.UnversionedPersistence, error) {
+	return common.NewPersistenceWithOpts(utils.GenerateUUIDOnlyLetters(), opts, sqlite.NewUnversionedPersistence)
 }
 
 func (d *Driver) NewBinding(string, driver.Config) (driver.BindingPersistence, error) {
-	return sql.NewPersistenceWithOpts(utils.GenerateUUIDOnlyLetters(), opts, sql.BindingConstructors)
+	return common.NewPersistenceWithOpts(utils.GenerateUUIDOnlyLetters(), opts, sqlite.NewBindingPersistence)
 }
 
 func (d *Driver) NewSignerInfo(string, driver.Config) (driver.SignerInfoPersistence, error) {
-	return sql.NewPersistenceWithOpts(utils.GenerateUUIDOnlyLetters(), opts, sql.SignerInfoConstructors)
+	return common.NewPersistenceWithOpts(utils.GenerateUUIDOnlyLetters(), opts, sqlite.NewSignerInfoPersistence)
 }
 
 func (d *Driver) NewAuditInfo(string, driver.Config) (driver.AuditInfoPersistence, error) {
-	return sql.NewPersistenceWithOpts(utils.GenerateUUIDOnlyLetters(), opts, sql.AuditInfoConstructors)
+	return common.NewPersistenceWithOpts(utils.GenerateUUIDOnlyLetters(), opts, sqlite.NewAuditInfoPersistence)
 }
 
 func (d *Driver) NewEndorseTx(string, driver.Config) (driver.EndorseTxPersistence, error) {
-	return sql.NewPersistenceWithOpts(utils.GenerateUUIDOnlyLetters(), opts, sql.EndorseTxConstructors)
+	return common.NewPersistenceWithOpts(utils.GenerateUUIDOnlyLetters(), opts, sqlite.NewEndorseTxPersistence)
 }
 
 func (d *Driver) NewMetadata(string, driver.Config) (driver.MetadataPersistence, error) {
-	return sql.NewPersistenceWithOpts(utils.GenerateUUIDOnlyLetters(), opts, sql.MetadataConstructors)
+	return common.NewPersistenceWithOpts(utils.GenerateUUIDOnlyLetters(), opts, sqlite.NewMetadataPersistence)
 }
 
 func (d *Driver) NewEnvelope(string, driver.Config) (driver.EnvelopePersistence, error) {
-	return sql.NewPersistenceWithOpts(utils.GenerateUUIDOnlyLetters(), opts, sql.EnvelopeConstructors)
+	return common.NewPersistenceWithOpts(utils.GenerateUUIDOnlyLetters(), opts, sqlite.NewEnvelopePersistence)
 }
 
 func (d *Driver) NewVault(string, driver.Config) (driver.VaultPersistence, error) {
-	return sql.NewPersistenceWithOpts(utils.GenerateUUIDOnlyLetters(), opts, sql.VaultConstructors)
+	return common.NewPersistenceWithOpts(utils.GenerateUUIDOnlyLetters(), opts, sqlite.NewVaultPersistence)
 }

@@ -21,22 +21,8 @@ var (
 
 type SQLError = error
 
-type VersionedValue = driver.VersionedValue
-
-type VersionedMetadataValue = driver.VersionedMetadataValue
-
-type UnversionedRead struct {
-	Key driver.PKey
-	Raw driver.RawValue
-}
-
-type UnversionedResultsIterator = collections.Iterator[*UnversionedRead]
-
-type UnversionedValue = driver.RawValue
-
-type VersionedRead = driver.VersionedRead
-
-type VersionedResultsIterator = collections.Iterator[*VersionedRead]
+type UnversionedRead = driver.UnversionedRead
+type UnversionedValue = driver.UnversionedValue
 
 type QueryExecutor = driver.QueryExecutor
 
@@ -59,13 +45,14 @@ type EnvelopePersistence = driver.EnvelopeStore[string]
 
 type VaultPersistence = driver.VaultStore
 
-type BasePersistence[V any, R any] interface {
+// UnversionedPersistence models a key-value storage place
+type UnversionedPersistence interface {
 	// SetState sets the given value for the given namespace, key, and version
-	SetState(namespace driver.Namespace, key driver.PKey, value V) error
+	SetState(namespace driver.Namespace, key driver.PKey, value driver.UnversionedValue) error
 	// SetStates sets the given values for the given namespace, key, and version
-	SetStates(namespace driver.Namespace, kvs map[driver.PKey]V) map[driver.PKey]error
+	SetStates(namespace driver.Namespace, kvs map[driver.PKey]driver.UnversionedValue) map[driver.PKey]error
 	// GetState gets the value and version for given namespace and key
-	GetState(namespace driver.Namespace, key driver.PKey) (V, error)
+	GetState(namespace driver.Namespace, key driver.PKey) (driver.UnversionedValue, error)
 	// DeleteState deletes the given namespace and key
 	DeleteState(namespace driver.Namespace, key driver.PKey) error
 	// DeleteStates deletes the given namespace and keys
@@ -74,11 +61,10 @@ type BasePersistence[V any, R any] interface {
 	// startKey is included in the results and endKey is excluded. An empty startKey refers to the first available key
 	// and an empty endKey refers to the last available key. For scanning all the keys, both the startKey and the endKey
 	// can be supplied as empty strings. However, a full scan should be used judiciously for performance reasons.
-	// The returned VersionedResultsIterator contains results of type *VersionedRead.
-	GetStateRangeScanIterator(namespace driver.Namespace, startKey, endKey driver.PKey) (collections.Iterator[*R], error)
+	GetStateRangeScanIterator(namespace driver.Namespace, startKey, endKey driver.PKey) (collections.Iterator[*driver.UnversionedRead], error)
 	// GetStateSetIterator returns an iterator that contains all the values for the passed keys.
 	// The order is not respected.
-	GetStateSetIterator(ns driver.Namespace, keys ...driver.PKey) (collections.Iterator[*R], error)
+	GetStateSetIterator(ns driver.Namespace, keys ...driver.PKey) (collections.Iterator[*driver.UnversionedRead], error)
 	// Close closes this persistence instance
 	Close() error
 	// BeginUpdate starts the session
@@ -89,34 +75,12 @@ type BasePersistence[V any, R any] interface {
 	Discard() error
 	// Stats returns driver specific statistics of the datastore
 	Stats() any
-}
 
-// UnversionedPersistence models a key-value storage place
-type UnversionedPersistence interface {
-	BasePersistence[UnversionedValue, UnversionedRead]
+	NewWriteTransaction() (UnversionedWriteTransaction, error)
 }
 
 // VersionedPersistence models a versioned key-value storage place
-type VersionedPersistence interface {
-	BasePersistence[VersionedValue, VersionedRead]
-	// GetStateMetadata gets the metadata and version for given namespace and key
-	GetStateMetadata(namespace driver.Namespace, key driver.PKey) (driver.Metadata, driver.RawVersion, error)
-	// SetStateMetadata sets the given metadata for the given namespace, key, and version
-	SetStateMetadata(namespace driver.Namespace, key driver.PKey, metadata driver.Metadata, version driver.RawVersion) error
-	// SetStateMetadatas sets the given metadata for the given namespace, keys, and version
-	SetStateMetadatas(ns driver.Namespace, kvs map[driver.PKey]driver.VersionedMetadataValue) map[driver.PKey]error
-}
-
-type WriteTransaction interface {
-	// SetState sets the given value for the given namespace, key, and version
-	SetState(namespace driver.Namespace, key driver.PKey, value VersionedValue) error
-	// DeleteState deletes the given namespace and key
-	DeleteState(namespace driver.Namespace, key driver.PKey) error
-	// Commit commits the changes since BeginUpdate
-	Commit() error
-	// Discard discards the changes since BeginUpdate
-	Discard() error
-}
+type VersionedPersistence = UnversionedPersistence
 
 type UnversionedWriteTransaction interface {
 	// SetState sets the given value for the given namespace, key
@@ -127,18 +91,6 @@ type UnversionedWriteTransaction interface {
 	Commit() error
 	// Discard discards the changes since BeginUpdate
 	Discard() error
-}
-
-type TransactionalVersionedPersistence interface {
-	VersionedPersistence
-
-	NewWriteTransaction() (WriteTransaction, error)
-}
-
-type TransactionalUnversionedPersistence interface {
-	UnversionedPersistence
-
-	NewWriteTransaction() (UnversionedWriteTransaction, error)
 }
 
 // Config provides access to the underlying configuration
@@ -152,8 +104,8 @@ type Config interface {
 type NamedDriver = driver.NamedDriver[Driver]
 
 type Driver interface {
-	// NewTransactionalUnversioned returns a new TransactionalUnversionedPersistence for the passed data source and config
-	NewKVS(dataSourceName string, config Config) (TransactionalUnversionedPersistence, error)
+	// NewKVS returns a new UnversionedPersistence for the passed data source and config
+	NewKVS(dataSourceName string, config Config) (UnversionedPersistence, error)
 	// NewBinding returns a new BindingPersistence for the passed data source and config
 	NewBinding(dataSourceName string, config Config) (BindingPersistence, error)
 	// NewSignerInfo returns a new SignerInfoPersistence for the passed data source and config
@@ -192,9 +144,5 @@ type Notifier interface {
 
 type UnversionedNotifier interface {
 	UnversionedPersistence
-	Notifier
-}
-type VersionedNotifier interface {
-	VersionedPersistence
 	Notifier
 }

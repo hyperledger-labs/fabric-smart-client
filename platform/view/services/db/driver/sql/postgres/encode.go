@@ -16,10 +16,6 @@ import (
 
 func identity(a string) (string, error) { return a, nil }
 
-func decodeVersionedReadIterator(it collections.Iterator[*driver.VersionedRead], err error) (collections.Iterator[*driver.VersionedRead], error) {
-	return decodeIterator(it, err, decodeVersionedRead)
-}
-
 func decodeUnversionedReadIterator(it collections.Iterator[*driver2.UnversionedRead], err error) (collections.Iterator[*driver2.UnversionedRead], error) {
 	return decodeIterator(it, err, decodeUnversionedRead)
 }
@@ -37,21 +33,6 @@ func decode(s string) (string, error) {
 		return "", err
 	}
 	return string(b), err
-}
-
-func decodeVersionedRead(v *driver.VersionedRead) (*driver.VersionedRead, error) {
-	if v == nil {
-		return nil, nil
-	}
-	key, err := decode(v.Key)
-	if err != nil {
-		return nil, err
-	}
-	return &driver.VersionedRead{
-		Key:     key,
-		Raw:     v.Raw,
-		Version: v.Version,
-	}, nil
 }
 
 func decodeUnversionedRead(v *driver2.UnversionedRead) (*driver2.UnversionedRead, error) {

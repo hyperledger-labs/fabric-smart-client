@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"encoding/gob"
 	errors2 "errors"
 	"fmt"
 
@@ -124,7 +125,7 @@ func (db *VaultPersistence) GetStateMetadata(ctx context.Context, namespace driv
 
 	return meta, kversion, err
 }
-func (db *VaultPersistence) GetState(ctx context.Context, namespace driver.Namespace, key driver.PKey) (*driver.VersionedRead, error) {
+func (db *VaultPersistence) GetState(ctx context.Context, namespace driver.Namespace, key driver.PKey) (*driver.VaultRead, error) {
 	it, err := db.GetStates(ctx, namespace, key)
 	if err != nil {
 		return nil, err
@@ -245,7 +246,7 @@ func (db *VaultPersistence) convertStateRows(writes driver.Writes, metaWrites dr
 	for ns, write := range writes {
 		metaWrite, ok := metaWrites[ns]
 		if !ok {
-			metaWrite = map[driver.PKey]driver2.VersionedMetadataValue{}
+			metaWrite = map[driver.PKey]driver.VaultMetadataValue{}
 		}
 		for pkey, val := range write {
 			var metadata = make([]byte, 0)
@@ -281,7 +282,7 @@ func (db *VaultPersistence) convertStateRows(writes driver.Writes, metaWrites dr
 	for ns, metaWrite := range metaWrites {
 		write, ok := writes[ns]
 		if !ok {
-			write = map[driver.PKey]driver2.VersionedValue{}
+			write = map[driver.PKey]driver.VaultValue{}
 		}
 		for pkey, metaVal := range metaWrite {
 			if _, ok = write[pkey]; ok {
@@ -381,8 +382,8 @@ func (it *TxStateIterator) Close() {
 	_ = it.rows.Close()
 }
 
-func (it *TxStateIterator) Next() (*driver.VersionedRead, error) {
-	var r driver.VersionedRead
+func (it *TxStateIterator) Next() (*driver.VaultRead, error) {
+	var r driver.VaultRead
 	if !it.rows.Next() {
 		return nil, nil
 	}
@@ -395,4 +396,24 @@ func (it *TxStateIterator) Next() (*driver.VersionedRead, error) {
 		return nil, err
 	}
 	return &r, nil
+}
+
+func marshallMetadata(metadata map[string][]byte) (m []byte, err error) {
+	var buf bytes.Buffer
+	err = gob.NewEncoder(&buf).Encode(metadata)
+	if err != nil {
+		return
+	}
+	return buf.Bytes(), nil
+}
+
+func unmarshalMetadata(input []byte) (m map[string][]byte, err error) {
+	if len(input) == 0 {
+		return
+	}
+
+	buf := bytes.NewBuffer(input)
+	decoder := gob.NewDecoder(buf)
+	err = decoder.Decode(&m)
+	return
 }

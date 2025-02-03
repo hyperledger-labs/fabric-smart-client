@@ -32,7 +32,7 @@ type Vault interface {
 }
 
 type VaultStore interface {
-	GetState(ctx context.Context, namespace driver.Namespace, key driver.PKey) (*driver.VersionedRead, error)
+	GetState(ctx context.Context, namespace driver.Namespace, key driver.PKey) (*driver.VaultRead, error)
 	GetStateRange(ctx context.Context, namespace driver.Namespace, startKey, endKey driver.PKey) (driver.TxStateIterator, error)
 	GetLast(ctx context.Context) (*driver.TxStatus, error)
 }

@@ -11,9 +11,9 @@ import (
 	"path"
 	"time"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/unversioned"
 )
 
 type TestDriver struct {
@@ -21,18 +21,11 @@ type TestDriver struct {
 	TempDir string
 }
 
-func (t *TestDriver) NewKVS(dataSourceName string, config driver.Config) (driver.TransactionalUnversionedPersistence, error) {
-	p, err := NewVersioned(dbOpts(t.Name, t.TempDir), "test")
-	if err != nil {
-		return nil, err
-	}
-	if err := p.CreateSchema(); err != nil {
-		return nil, err
-	}
-	return &unversioned.Transactional{TransactionalVersioned: p}, nil
+func (t *TestDriver) NewKVS(string, driver.Config) (driver.UnversionedPersistence, error) {
+	return common2.NewPersistenceWithOpts(utils.GenerateUUIDOnlyLetters(), dbOpts(t.Name, t.TempDir), NewUnversionedPersistence)
 }
 
-func (t *TestDriver) NewBinding(dataSourceName string, config driver.Config) (driver.BindingPersistence, error) {
+func (t *TestDriver) NewBinding(string, driver.Config) (driver.BindingPersistence, error) {
 	return NewBindingPersistence(dbOpts(t.Name, t.TempDir), "test")
 }
 

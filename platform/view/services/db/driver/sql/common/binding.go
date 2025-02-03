@@ -35,14 +35,13 @@ type BindingPersistence struct {
 
 func (db *BindingPersistence) GetLongTerm(ephemeral view.Identity) (view.Identity, error) {
 	where, params := Where(db.ci.Cmp("ephemeral_hash", "=", ephemeral.UniqueID()))
-	result, err := QueryUnique[view.Identity](db.readDB,
-		fmt.Sprintf("SELECT long_term_id FROM %s %s", db.table, where),
-		params...,
-	)
+	query := fmt.Sprintf("SELECT long_term_id FROM %s %s", db.table, where)
+	logger.Info(query, params)
+	result, err := QueryUnique[view.Identity](db.readDB, query, params...)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed getting wallet id for identity [%v]", ephemeral)
 	}
-	logger.Debugf("found wallet id for identity [%v]: %v", ephemeral, result)
+	logger.Infof("found wallet id for identity [%v]: %v", ephemeral, result)
 	return result, nil
 }
 func (db *BindingPersistence) HaveSameBinding(this, that view.Identity) (bool, error) {
@@ -52,6 +51,7 @@ func (db *BindingPersistence) HaveSameBinding(this, that view.Identity) (bool, e
 	if err != nil {
 		return false, errors.Wrapf(err, "error querying db")
 	}
+	defer rows.Close()
 
 	longTermIds := make([]view.Identity, 0, 2)
 	for rows.Next() {
@@ -66,43 +66,6 @@ func (db *BindingPersistence) HaveSameBinding(this, that view.Identity) (bool, e
 	}
 
 	return longTermIds[0].Equal(longTermIds[1]), nil
-}
-func (db *BindingPersistence) PutBinding(ephemeral, longTerm view.Identity) error {
-	query := fmt.Sprintf(
-		"INSERT INTO %s (ephemeral_hash, long_term_id) "+
-			"SELECT '%s', long_term_id FROM %s WHERE ephemeral_hash=$1",
-		db.table, ephemeral.UniqueID(), db.table)
-
-	if result, err := db.writeDB.Exec(query, longTerm.UniqueID()); err != nil && errors.Is(db.errorWrapper.WrapError(err), driver.UniqueKeyViolation) {
-		logger.Warnf("Tuple [%s,%s] already in db. Skipping...", ephemeral, longTerm)
-		return nil
-	} else if err != nil {
-		return errors.Wrapf(err, "failed executing query [%s]", query)
-	} else if rowsAffected, err := result.RowsAffected(); err != nil {
-		return errors.Wrapf(err, "failed fetching affected rows for query: %s", query)
-	} else if rowsAffected > 1 {
-		panic("unexpected result")
-	} else if rowsAffected == 1 {
-		logger.Debugf("New binding registered [%s:%s]", ephemeral, longTerm)
-		return nil
-	}
-
-	logger.Debugf("Long term ID not seen before. Registering it as long term...")
-	// query = fmt.Sprintf("INSERT INTO %s (ephemeral_hash, long_term_id) VALUES ($1, $2), ($3, $4)", db.table)
-	// if _, err = db.writeDB.Exec(query, longTerm.UniqueID(), longTerm, ephemeral.UniqueID(), longTerm); err != nil {
-	//	return errors.Wrapf(err, "failed inserting long-term id and ephemeral id")
-	// }
-	query = fmt.Sprintf("INSERT INTO %s (ephemeral_hash, long_term_id) VALUES ($1, $2)", db.table)
-	if _, err := db.writeDB.Exec(query, longTerm.UniqueID(), longTerm); err != nil {
-		return errors.Wrapf(err, "failed inserting long-term id and ephemeral id")
-	}
-	query = fmt.Sprintf("INSERT INTO %s (ephemeral_hash, long_term_id) VALUES ($1, $2)", db.table)
-	if _, err := db.writeDB.Exec(query, ephemeral.UniqueID(), longTerm); err != nil {
-		return errors.Wrapf(err, "failed inserting long-term id and ephemeral id")
-	}
-	logger.Debugf("Long-term and ephemeral ids registered [%s,%s]", longTerm, ephemeral)
-	return nil
-
 }
 
 func (db *BindingPersistence) CreateSchema() error {

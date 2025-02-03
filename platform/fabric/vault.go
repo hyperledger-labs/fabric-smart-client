@@ -11,7 +11,6 @@ import (
 	"encoding/json"
 	"strings"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/pkg/errors"
@@ -90,12 +89,6 @@ func (r *RWSet) Equals(rws interface{}, nss ...string) error {
 	}
 }
 
-type (
-	Read            = vault.VersionedRead
-	ResultsIterator = vault.VersionedResultsIterator
-	ValidationCode  = fdriver.ValidationCode
-)
-
 type lastTxGetter interface {
 	GetLast(ctx context.Context) (*driver.TxStatus, error)
 }
@@ -125,7 +118,7 @@ func (c *Vault) NewQueryExecutor(ctx context.Context) (driver.QueryExecutor, err
 	return c.vault.NewQueryExecutor(ctx)
 }
 
-func (c *Vault) Status(ctx context.Context, id driver.TxID) (ValidationCode, string, error) {
+func (c *Vault) Status(ctx context.Context, id driver.TxID) (fdriver.ValidationCode, string, error) {
 	return c.vault.Status(ctx, id)
 }
 

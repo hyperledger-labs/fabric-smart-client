@@ -28,13 +28,11 @@ import (
 // This file exposes functions that db drivers can use for integration tests
 var Cases = []struct {
 	Name string
-	Fn   func(*testing.T, driver.TransactionalVersionedPersistence)
+	Fn   func(*testing.T, driver.UnversionedPersistence)
 }{
 	{"RangeQueries", TTestRangeQueries},
-	{"Meta", TTestMeta},
 	{"SimpleReadWrite", TTestSimpleReadWrite},
 	{"GetNonExistent", TTestGetNonExistent},
-	{"Metadata", TTestMetadata},
 	{"DB1", TTestDB1},
 	{"DB2", TTestDB2},
 	{"RangeQueries1", TTestRangeQueries1},
@@ -57,13 +55,6 @@ var UnversionedNotifierCases = []struct {
 	Fn   func(*testing.T, driver.UnversionedNotifier)
 }{
 	{"UnversionedNotifierSimple", TTestUnversionedNotifierSimple},
-}
-
-var VersionedNotifierCases = []struct {
-	Name string
-	Fn   func(*testing.T, driver.VersionedNotifier)
-}{
-	{"VersionedNotifierSimple", TTestVersionedNotifierSimple},
 }
 
 var ErrorCases = []struct {
@@ -92,7 +83,7 @@ func TTestDuplicate(t *testing.T, _ *sql.DB, writeDB *sql.DB, errorWrapper drive
 	assert.NoError(t, err, "should rollback")
 }
 
-func TTestRangeQueries(t *testing.T, db driver.TransactionalVersionedPersistence) {
+func TTestRangeQueries(t *testing.T, db driver.UnversionedPersistence) {
 	ns := "namespace"
 	populateForRangeQueries(t, db, ns)
 
@@ -101,21 +92,21 @@ func TTestRangeQueries(t *testing.T, db driver.TransactionalVersionedPersistence
 	res, err := collections.ReadAll(itr)
 	assert.NoError(t, err)
 	assert.Len(t, res, 4)
-	assert.Equal(t, []driver.VersionedRead{
-		{Key: "k1", Raw: []byte("k1_value"), Version: ToBytes(35, 3)},
-		{Key: "k111", Raw: []byte("k111_value"), Version: ToBytes(35, 4)},
-		{Key: "k2", Raw: []byte("k2_value"), Version: ToBytes(35, 1)},
-		{Key: "k3", Raw: []byte("k3_value"), Version: ToBytes(35, 2)},
+	assert.Equal(t, []driver.UnversionedRead{
+		{Key: "k1", Raw: []byte("k1_value")},
+		{Key: "k111", Raw: []byte("k111_value")},
+		{Key: "k2", Raw: []byte("k2_value")},
+		{Key: "k3", Raw: []byte("k3_value")},
 	}, res)
 
 	itr, err = db.GetStateRangeScanIterator(ns, "k1", "k3")
 	assert.NoError(t, err)
 	res, err = collections.ReadAll(itr)
 	assert.NoError(t, err)
-	expected := []driver.VersionedRead{
-		{Key: "k1", Raw: []byte("k1_value"), Version: ToBytes(35, 3)},
-		{Key: "k111", Raw: []byte("k111_value"), Version: ToBytes(35, 4)},
-		{Key: "k2", Raw: []byte("k2_value"), Version: ToBytes(35, 1)},
+	expected := []driver.UnversionedRead{
+		{Key: "k1", Raw: []byte("k1_value")},
+		{Key: "k111", Raw: []byte("k111_value")},
+		{Key: "k2", Raw: []byte("k2_value")},
 	}
 	assert.Len(t, res, 3)
 	assert.Equal(t, expected, res)
@@ -124,17 +115,17 @@ func TTestRangeQueries(t *testing.T, db driver.TransactionalVersionedPersistence
 	assert.NoError(t, err)
 	res, err = collections.ReadFirst(itr, 2)
 	assert.NoError(t, err)
-	expected = []driver.VersionedRead{
-		{Key: "k1", Raw: []byte("k1_value"), Version: ToBytes(35, 3)},
-		{Key: "k111", Raw: []byte("k111_value"), Version: ToBytes(35, 4)},
+	expected = []driver.UnversionedRead{
+		{Key: "k1", Raw: []byte("k1_value")},
+		{Key: "k111", Raw: []byte("k111_value")},
 	}
 	assert.Len(t, res, 2)
 	assert.Equal(t, expected, res)
 
-	expected = []driver.VersionedRead{
-		{Key: "k1", Raw: []byte("k1_value"), Version: ToBytes(35, 3)},
-		{Key: "k111", Raw: []byte("k111_value"), Version: ToBytes(35, 4)},
-		{Key: "k2", Raw: []byte("k2_value"), Version: ToBytes(35, 1)},
+	expected = []driver.UnversionedRead{
+		{Key: "k1", Raw: []byte("k1_value")},
+		{Key: "k111", Raw: []byte("k111_value")},
+		{Key: "k2", Raw: []byte("k2_value")},
 	}
 	itr, err = db.GetStateRangeScanIterator(ns, "k1", "k3")
 	assert.NoError(t, err)
@@ -143,9 +134,9 @@ func TTestRangeQueries(t *testing.T, db driver.TransactionalVersionedPersistence
 	assert.Len(t, res, 3)
 	assert.Equal(t, expected, res)
 
-	expected = []driver.VersionedRead{
-		{Key: "k1", Raw: []byte("k1_value"), Version: ToBytes(35, 3)},
-		{Key: "k3", Raw: []byte("k3_value"), Version: ToBytes(35, 2)},
+	expected = []driver.UnversionedRead{
+		{Key: "k1", Raw: []byte("k1_value")},
+		{Key: "k3", Raw: []byte("k3_value")},
 	}
 	itr, err = db.GetStateSetIterator(ns, "k1", "k3")
 	assert.NoError(t, err)
@@ -157,75 +148,19 @@ func TTestRangeQueries(t *testing.T, db driver.TransactionalVersionedPersistence
 	}
 }
 
-func TTestMeta(t *testing.T, db driver.TransactionalVersionedPersistence) {
-	ns := "ns"
-	key := "key"
-
-	err := db.BeginUpdate()
-	assert.NoError(t, err)
-
-	err = db.SetState(ns, key, driver.VersionedValue{Raw: []byte("val"), Version: ToBytes(35, 1)})
-	assert.NoError(t, err)
-
-	err = db.Commit()
-	assert.NoError(t, err)
-
-	vv, err := db.GetState(ns, key)
-	assert.NoError(t, err)
-	assert.Equal(t, driver.VersionedValue{Raw: []byte("val"), Version: ToBytes(35, 1)}, vv)
-
-	m, ver, err := db.GetStateMetadata(ns, key)
-	assert.NoError(t, err)
-	assert.Len(t, m, 0)
-	bn, tn, err := FromBytes(ver)
-	assert.NoError(t, err)
-	assert.Equal(t, uint64(35), bn)
-	assert.Equal(t, uint64(1), tn)
-
-	err = db.BeginUpdate()
-	assert.NoError(t, err)
-
-	err = db.SetStateMetadata(ns, key, map[string][]byte{"foo": []byte("bar")}, ToBytes(36, 2))
-	assert.NoError(t, err)
-
-	err = db.Commit()
-	assert.NoError(t, err)
-
-	vv, err = db.GetState(ns, key)
-	assert.NoError(t, err)
-	assert.Equal(t, driver.VersionedValue{Raw: []byte("val"), Version: ToBytes(36, 2)}, vv)
-
-	m, ver, err = db.GetStateMetadata(ns, key)
-	assert.NoError(t, err)
-	bn, tn, err = FromBytes(ver)
-	assert.NoError(t, err)
-	assert.Equal(t, map[string][]byte{"foo": []byte("bar")}, m)
-	assert.Equal(t, uint64(36), bn)
-	assert.Equal(t, uint64(2), tn)
-}
-
-func TTestSimpleReadWrite(t *testing.T, db driver.TransactionalVersionedPersistence) {
+func TTestSimpleReadWrite(t *testing.T, db driver.UnversionedPersistence) {
 	ns := "ns"
 	key := "key"
 
 	// empty state
 	vv, err := db.GetState(ns, key)
 	assert.NoError(t, err)
-	assert.Equal(t, driver.VersionedValue{}, vv)
-
-	// empty metadata
-	m, ver, err := db.GetStateMetadata(ns, key)
-	assert.NoError(t, err)
-	bn, tn, err := FromBytes(ver)
-	assert.NoError(t, err)
-	assert.Len(t, m, 0)
-	assert.Equal(t, uint64(0), bn)
-	assert.Equal(t, uint64(0), tn)
+	assert.Equal(t, driver.UnversionedValue{}, vv)
 
 	// add data
 	err = db.BeginUpdate()
 	assert.NoError(t, err)
-	err = db.SetState(ns, key, driver.VersionedValue{Raw: []byte("val"), Version: ToBytes(35, 1)})
+	err = db.SetState(ns, key, driver.UnversionedValue("val"))
 	assert.NoError(t, err)
 	err = db.Commit()
 	assert.NoError(t, err)
@@ -233,30 +168,30 @@ func TTestSimpleReadWrite(t *testing.T, db driver.TransactionalVersionedPersiste
 	// get data
 	vv, err = db.GetState(ns, key)
 	assert.NoError(t, err)
-	assert.Equal(t, driver.VersionedValue{Raw: []byte("val"), Version: ToBytes(35, 1)}, vv)
+	assert.Equal(t, driver.UnversionedValue("val"), vv)
 
 	// logging because this can cause a deadlock if maxOpenConnections is only 1
 	t.Logf("get state [%s] during set state tx", key)
 	err = db.BeginUpdate()
 	assert.NoError(t, err)
-	err = db.SetState(ns, key, driver.VersionedValue{Raw: []byte("val1"), Version: ToBytes(36, 2)})
+	err = db.SetState(ns, key, driver.UnversionedValue("val1"))
 	assert.NoError(t, err)
 
 	vv, err = db.GetState(ns, key)
 	assert.NoError(t, err)
-	assert.Equal(t, driver.VersionedValue{Raw: []byte("val"), Version: ToBytes(35, 1)}, vv)
+	assert.Equal(t, driver.UnversionedValue("val"), vv)
 	err = db.Commit()
 	assert.NoError(t, err)
 
 	t.Logf("get state after tx [%s]", key)
 	vv, err = db.GetState(ns, key)
 	assert.NoError(t, err)
-	assert.Equal(t, driver.VersionedValue{Raw: []byte("val1"), Version: ToBytes(36, 2)}, vv)
+	assert.Equal(t, driver.UnversionedValue("val1"), vv)
 
 	// Discard an update
 	err = db.BeginUpdate()
 	assert.NoError(t, err)
-	err = db.SetState(ns, key, driver.VersionedValue{Raw: []byte("val0"), Version: ToBytes(37, 3)})
+	err = db.SetState(ns, key, driver.UnversionedValue("val0"))
 	assert.NoError(t, err)
 	err = db.Discard()
 	assert.NoError(t, err)
@@ -264,7 +199,7 @@ func TTestSimpleReadWrite(t *testing.T, db driver.TransactionalVersionedPersiste
 	// Expect state to be same as before the rollback
 	vv, err = db.GetState(ns, key)
 	assert.NoError(t, err)
-	assert.Equal(t, driver.VersionedValue{Raw: []byte("val1"), Version: ToBytes(36, 2)}, vv)
+	assert.Equal(t, driver.UnversionedValue("val1"), vv)
 
 	// delete state
 	err = db.BeginUpdate()
@@ -277,17 +212,17 @@ func TTestSimpleReadWrite(t *testing.T, db driver.TransactionalVersionedPersiste
 	// expect state to be empty
 	vv, err = db.GetState(ns, key)
 	assert.NoError(t, err)
-	assert.Equal(t, driver.VersionedValue{}, vv)
+	assert.Equal(t, driver.UnversionedValue{}, vv)
 }
 
-func populateDB(t *testing.T, db driver.TransactionalVersionedPersistence, ns, key, keyWithSuffix string) {
+func populateDB(t *testing.T, db driver.UnversionedPersistence, ns, key, keyWithSuffix string) {
 	err := db.BeginUpdate()
 	assert.NoError(t, err)
 
-	err = db.SetState(ns, key, driver.VersionedValue{Raw: []byte("bar"), Version: ToBytes(1, 1)})
+	err = db.SetState(ns, key, driver.UnversionedValue("bar"))
 	assert.NoError(t, err)
 
-	err = db.SetState(ns, keyWithSuffix, driver.VersionedValue{Raw: []byte("bar1"), Version: ToBytes(1, 1)})
+	err = db.SetState(ns, keyWithSuffix, driver.UnversionedValue("bar1"))
 	assert.NoError(t, err)
 
 	err = db.Commit()
@@ -295,91 +230,48 @@ func populateDB(t *testing.T, db driver.TransactionalVersionedPersistence, ns, k
 
 	vv, err := db.GetState(ns, key)
 	assert.NoError(t, err)
-	assert.Equal(t, driver.VersionedValue{Raw: []byte("bar"), Version: ToBytes(1, 1)}, vv)
+	assert.Equal(t, driver.UnversionedValue("bar"), vv)
 
 	vv, err = db.GetState(ns, keyWithSuffix)
 	assert.NoError(t, err)
-	assert.Equal(t, driver.VersionedValue{Raw: []byte("bar1"), Version: ToBytes(1, 1)}, vv)
+	assert.Equal(t, driver.UnversionedValue("bar1"), vv)
 
 	vv, err = db.GetState(ns, "barf")
 	assert.NoError(t, err)
-	assert.Equal(t, driver.VersionedValue{}, vv)
+	assert.Equal(t, driver.UnversionedValue{}, vv)
 
 	vv, err = db.GetState("barf", "barf")
 	assert.NoError(t, err)
-	assert.Equal(t, driver.VersionedValue{}, vv)
+	assert.Equal(t, driver.UnversionedValue{}, vv)
 }
 
-func populateForRangeQueries(t *testing.T, db driver.TransactionalVersionedPersistence, ns string) {
+func populateForRangeQueries(t *testing.T, db driver.UnversionedPersistence, ns string) {
 	err := db.BeginUpdate()
 	assert.NoError(t, err)
 
-	err = db.SetState(ns, "k2", driver.VersionedValue{Raw: []byte("k2_value"), Version: ToBytes(35, 1)})
+	err = db.SetState(ns, "k2", driver.UnversionedValue("k2_value"))
 	assert.NoError(t, err)
-	err = db.SetState(ns, "k3", driver.VersionedValue{Raw: []byte("k3_value"), Version: ToBytes(35, 2)})
+	err = db.SetState(ns, "k3", driver.UnversionedValue("k3_value"))
 	assert.NoError(t, err)
-	err = db.SetState(ns, "k1", driver.VersionedValue{Raw: []byte("k1_value"), Version: ToBytes(35, 3)})
+	err = db.SetState(ns, "k1", driver.UnversionedValue("k1_value"))
 	assert.NoError(t, err)
-	err = db.SetState(ns, "k111", driver.VersionedValue{Raw: []byte("k111_value"), Version: ToBytes(35, 4)})
+	err = db.SetState(ns, "k111", driver.UnversionedValue("k111_value"))
 	assert.NoError(t, err)
 
 	err = db.Commit()
 	assert.NoError(t, err)
 }
 
-func TTestGetNonExistent(t *testing.T, db driver.TransactionalVersionedPersistence) {
+func TTestGetNonExistent(t *testing.T, db driver.UnversionedPersistence) {
 	ns := "namespace"
 	key := "foo"
 
 	vv, err := db.GetState(ns, key)
 	assert.NoError(t, err)
-	assert.Equal(t, driver.VersionedValue{}, vv)
+	assert.Equal(t, driver.UnversionedValue{}, vv)
 }
 
-func TTestMetadata(t *testing.T, db driver.TransactionalVersionedPersistence) {
-	ns := "namespace"
-	key := "foo"
-
-	md, ver, err := db.GetStateMetadata(ns, key)
-	assert.NoError(t, err)
-	assert.Nil(t, md)
-	bn, txn, err := FromBytes(ver)
-	assert.NoError(t, err)
-	assert.Equal(t, uint64(0x0), bn)
-	assert.Equal(t, uint64(0x0), txn)
-
-	err = db.BeginUpdate()
-	assert.NoError(t, err)
-	err = db.SetStateMetadata(ns, key, map[string][]byte{"foo": []byte("bar")}, ToBytes(35, 1))
-	assert.NoError(t, err)
-	err = db.Commit()
-	assert.NoError(t, err)
-
-	md, ver, err = db.GetStateMetadata(ns, key)
-	assert.NoError(t, err)
-	bn, txn, err = FromBytes(ver)
-	assert.NoError(t, err)
-	assert.Equal(t, map[string][]byte{"foo": []byte("bar")}, md)
-	assert.Equal(t, uint64(35), bn)
-	assert.Equal(t, uint64(1), txn)
-
-	err = db.BeginUpdate()
-	assert.NoError(t, err)
-	err = db.SetStateMetadata(ns, key, map[string][]byte{"foo1": []byte("bar1")}, ToBytes(36, 2))
-	assert.NoError(t, err)
-	err = db.Commit()
-	assert.NoError(t, err)
-
-	md, ver, err = db.GetStateMetadata(ns, key)
-	assert.NoError(t, err)
-	bn, txn, err = FromBytes(ver)
-	assert.NoError(t, err)
-	assert.Equal(t, map[string][]byte{"foo1": []byte("bar1")}, md)
-	assert.Equal(t, uint64(36), bn)
-	assert.Equal(t, uint64(2), txn)
-}
-
-func TTestDB1(t *testing.T, db driver.TransactionalVersionedPersistence) {
+func TTestDB1(t *testing.T, db driver.UnversionedPersistence) {
 	ns := "namespace"
 	key := "foo"
 	keyWithSuffix := key + "/suffix"
@@ -399,7 +291,7 @@ func TTestDB1(t *testing.T, db driver.TransactionalVersionedPersistence) {
 	assert.NoError(t, err)
 }
 
-func TTestDB2(t *testing.T, db driver.TransactionalVersionedPersistence) {
+func TTestDB2(t *testing.T, db driver.UnversionedPersistence) {
 	ns := "namespace"
 	key := "foo"
 	keyWithSuffix := key + "/suffix"
@@ -419,19 +311,19 @@ func TTestDB2(t *testing.T, db driver.TransactionalVersionedPersistence) {
 	assert.NoError(t, err)
 }
 
-func TTestRangeQueries1(t *testing.T, db driver.TransactionalVersionedPersistence) {
+func TTestRangeQueries1(t *testing.T, db driver.UnversionedPersistence) {
 	ns := "namespace"
 
 	err := db.BeginUpdate()
 	assert.NoError(t, err)
 
-	err = db.SetState(ns, "k2", driver.VersionedValue{Raw: []byte("k2_value"), Version: ToBytes(35, 1)})
+	err = db.SetState(ns, "k2", driver.UnversionedValue("k2_value"))
 	assert.NoError(t, err)
-	err = db.SetState(ns, "k3", driver.VersionedValue{Raw: []byte("k3_value"), Version: ToBytes(35, 2)})
+	err = db.SetState(ns, "k3", driver.UnversionedValue("k3_value"))
 	assert.NoError(t, err)
-	err = db.SetState(ns, "k1", driver.VersionedValue{Raw: []byte("k1_value"), Version: ToBytes(35, 3)})
+	err = db.SetState(ns, "k1", driver.UnversionedValue("k1_value"))
 	assert.NoError(t, err)
-	err = db.SetState(ns, "k111", driver.VersionedValue{Raw: []byte("k111_value"), Version: ToBytes(35, 4)})
+	err = db.SetState(ns, "k111", driver.UnversionedValue("k111_value"))
 	assert.NoError(t, err)
 
 	err = db.Commit()
@@ -442,11 +334,11 @@ func TTestRangeQueries1(t *testing.T, db driver.TransactionalVersionedPersistenc
 	res, err := collections.ReadAll(itr)
 	assert.NoError(t, err)
 	assert.Len(t, res, 4)
-	assert.Equal(t, []driver.VersionedRead{
-		{Key: "k1", Raw: []byte("k1_value"), Version: ToBytes(35, 3)},
-		{Key: "k111", Raw: []byte("k111_value"), Version: ToBytes(35, 4)},
-		{Key: "k2", Raw: []byte("k2_value"), Version: ToBytes(35, 1)},
-		{Key: "k3", Raw: []byte("k3_value"), Version: ToBytes(35, 2)},
+	assert.Equal(t, []driver.UnversionedRead{
+		{Key: "k1", Raw: []byte("k1_value")},
+		{Key: "k111", Raw: []byte("k111_value")},
+		{Key: "k2", Raw: []byte("k2_value")},
+		{Key: "k3", Raw: []byte("k3_value")},
 	}, res)
 
 	itr, err = db.GetStateRangeScanIterator(ns, "k1", "k3")
@@ -454,40 +346,40 @@ func TTestRangeQueries1(t *testing.T, db driver.TransactionalVersionedPersistenc
 	res, err = collections.ReadAll(itr)
 	assert.NoError(t, err)
 	assert.Len(t, res, 3)
-	assert.Equal(t, []driver.VersionedRead{
-		{Key: "k1", Raw: []byte("k1_value"), Version: ToBytes(35, 3)},
-		{Key: "k111", Raw: []byte("k111_value"), Version: ToBytes(35, 4)},
-		{Key: "k2", Raw: []byte("k2_value"), Version: ToBytes(35, 1)},
+	assert.Equal(t, []driver.UnversionedRead{
+		{Key: "k1", Raw: []byte("k1_value")},
+		{Key: "k111", Raw: []byte("k111_value")},
+		{Key: "k2", Raw: []byte("k2_value")},
 	}, res)
 }
 
-func TTestMultiWritesAndRangeQueries(t *testing.T, db driver.TransactionalVersionedPersistence) {
+func TTestMultiWritesAndRangeQueries(t *testing.T, db driver.UnversionedPersistence) {
 	ns := "namespace"
 	assert.NoError(t, db.BeginUpdate())
 
-	assert.NoError(t, db.SetState(ns, "k2", driver.VersionedValue{Raw: []byte("k2_value"), Version: ToBytes(35, 1)}))
-	assert.NoError(t, db.SetState(ns, "k3", driver.VersionedValue{Raw: []byte("k3_value"), Version: ToBytes(35, 2)}))
-	assert.NoError(t, db.SetState(ns, "k1", driver.VersionedValue{Raw: []byte("k1_value"), Version: ToBytes(35, 3)}))
-	assert.NoError(t, db.SetState(ns, "k111", driver.VersionedValue{Raw: []byte("k111_value"), Version: ToBytes(35, 4)}))
+	assert.NoError(t, db.SetState(ns, "k2", driver.UnversionedValue("k2_value")))
+	assert.NoError(t, db.SetState(ns, "k3", driver.UnversionedValue("k3_value")))
+	assert.NoError(t, db.SetState(ns, "k1", driver.UnversionedValue("k1_value")))
+	assert.NoError(t, db.SetState(ns, "k111", driver.UnversionedValue("k111_value")))
 
 	assert.NoError(t, db.Commit())
 
 	var wg sync.WaitGroup
 	wg.Add(4)
 	go func() {
-		write(t, db, ns, "k2", []byte("k2_value"), 35, 1)
+		write(t, db, ns, "k2", []byte("k2_value"))
 		wg.Done()
 	}()
 	go func() {
-		write(t, db, ns, "k3", []byte("k3_value"), 35, 2)
+		write(t, db, ns, "k3", []byte("k3_value"))
 		wg.Done()
 	}()
 	go func() {
-		write(t, db, ns, "k1", []byte("k1_value"), 35, 3)
+		write(t, db, ns, "k1", []byte("k1_value"))
 		wg.Done()
 	}()
 	go func() {
-		write(t, db, ns, "k111", []byte("k111_value"), 35, 4)
+		write(t, db, ns, "k111", []byte("k111_value"))
 		wg.Done()
 	}()
 	wg.Wait()
@@ -497,21 +389,21 @@ func TTestMultiWritesAndRangeQueries(t *testing.T, db driver.TransactionalVersio
 	res, err := collections.ReadAll(itr)
 	assert.NoError(t, err)
 	assert.Len(t, res, 4)
-	assert.Equal(t, []driver.VersionedRead{
-		{Key: "k1", Raw: []byte("k1_value"), Version: ToBytes(35, 3)},
-		{Key: "k111", Raw: []byte("k111_value"), Version: ToBytes(35, 4)},
-		{Key: "k2", Raw: []byte("k2_value"), Version: ToBytes(35, 1)},
-		{Key: "k3", Raw: []byte("k3_value"), Version: ToBytes(35, 2)},
+	assert.Equal(t, []driver.UnversionedRead{
+		{Key: "k1", Raw: []byte("k1_value")},
+		{Key: "k111", Raw: []byte("k111_value")},
+		{Key: "k2", Raw: []byte("k2_value")},
+		{Key: "k3", Raw: []byte("k3_value")},
 	}, res)
 
 	itr, err = db.GetStateRangeScanIterator(ns, "k1", "k3")
 	assert.NoError(t, err)
 	res, err = collections.ReadAll(itr)
 	assert.NoError(t, err)
-	expected := []driver.VersionedRead{
-		{Key: "k1", Raw: []byte("k1_value"), Version: ToBytes(35, 3)},
-		{Key: "k111", Raw: []byte("k111_value"), Version: ToBytes(35, 4)},
-		{Key: "k2", Raw: []byte("k2_value"), Version: ToBytes(35, 1)},
+	expected := []driver.UnversionedRead{
+		{Key: "k1", Raw: []byte("k1_value")},
+		{Key: "k111", Raw: []byte("k111_value")},
+		{Key: "k2", Raw: []byte("k2_value")},
 	}
 	assert.Len(t, res, 3)
 	assert.Equal(t, expected, res)
@@ -520,17 +412,17 @@ func TTestMultiWritesAndRangeQueries(t *testing.T, db driver.TransactionalVersio
 	assert.NoError(t, err)
 	res, err = collections.ReadFirst(itr, 2)
 	assert.NoError(t, err)
-	expected = []driver.VersionedRead{
-		{Key: "k1", Raw: []byte("k1_value"), Version: ToBytes(35, 3)},
-		{Key: "k111", Raw: []byte("k111_value"), Version: ToBytes(35, 4)},
+	expected = []driver.UnversionedRead{
+		{Key: "k1", Raw: []byte("k1_value")},
+		{Key: "k111", Raw: []byte("k111_value")},
 	}
 	assert.Len(t, res, 2)
 	assert.Equal(t, expected, res)
 
-	expected = []driver.VersionedRead{
-		{Key: "k1", Raw: []byte("k1_value"), Version: ToBytes(35, 3)},
-		{Key: "k111", Raw: []byte("k111_value"), Version: ToBytes(35, 4)},
-		{Key: "k2", Raw: []byte("k2_value"), Version: ToBytes(35, 1)},
+	expected = []driver.UnversionedRead{
+		{Key: "k1", Raw: []byte("k1_value")},
+		{Key: "k111", Raw: []byte("k111_value")},
+		{Key: "k2", Raw: []byte("k2_value")},
 	}
 	itr, err = db.GetStateRangeScanIterator(ns, "k1", "k3")
 	assert.NoError(t, err)
@@ -540,32 +432,24 @@ func TTestMultiWritesAndRangeQueries(t *testing.T, db driver.TransactionalVersio
 	assert.Equal(t, expected, res)
 }
 
-func TTestMultiWrites(t *testing.T, db driver.TransactionalVersionedPersistence) {
+func TTestMultiWrites(t *testing.T, db driver.UnversionedPersistence) {
 	ns := "namespace"
 	var wg sync.WaitGroup
 	n := 20
 	wg.Add(n)
 	for i := 0; i < n; i++ {
 		go func(i int) {
-			write(
-				t,
-				db,
-				ns,
-				fmt.Sprintf("TTestMultiWrites_key_%d", i),
-				[]byte(fmt.Sprintf("TTestMultiWrites_value_%d", i)),
-				35,
-				1,
-			)
+			write(t, db, ns, fmt.Sprintf("TTestMultiWrites_key_%d", i), []byte(fmt.Sprintf("TTestMultiWrites_value_%d", i)))
 			wg.Done()
 		}(i)
 	}
 	wg.Wait()
 }
 
-func write(t *testing.T, db driver.TransactionalVersionedPersistence, ns, key string, value []byte, block, txnum uint64) {
+func write(t *testing.T, db driver.UnversionedPersistence, ns, key string, value []byte) {
 	tx, err := db.NewWriteTransaction()
 	assert.NoError(t, err)
-	err = tx.SetState(ns, key, driver.VersionedValue{Raw: value, Version: ToBytes(block, txnum)})
+	err = tx.SetState(ns, key, value)
 	assert.NoError(t, err)
 	err = tx.Commit()
 	assert.NoError(t, err)
@@ -604,7 +488,7 @@ func createCompositeKey(objectType string, attributes []string) (string, error) 
 	return ck, nil
 }
 
-func TTestCompositeKeys(t *testing.T, db driver.TransactionalVersionedPersistence) {
+func TTestCompositeKeys(t *testing.T, db driver.UnversionedPersistence) {
 	ns := "namespace"
 	keyPrefix := "prefix"
 
@@ -619,7 +503,7 @@ func TTestCompositeKeys(t *testing.T, db driver.TransactionalVersionedPersistenc
 	} {
 		k, err := createCompositeKey(keyPrefix, comps)
 		assert.NoError(t, err)
-		err = db.SetState(ns, k, driver.VersionedValue{Raw: []byte(k), Version: ToBytes(35, 1)})
+		err = db.SetState(ns, k, driver.UnversionedValue(k))
 		assert.NoError(t, err)
 	}
 
@@ -635,17 +519,17 @@ func TTestCompositeKeys(t *testing.T, db driver.TransactionalVersionedPersistenc
 	assert.NoError(t, err)
 	defer itr.Close()
 
-	res := make([]driver.VersionedRead, 0, 4)
+	res := make([]driver.UnversionedRead, 0, 4)
 	for n, err := itr.Next(); n != nil; n, err = itr.Next() {
 		assert.NoError(t, err)
 		res = append(res, *n)
 	}
 	assert.Len(t, res, 4)
-	assert.Equal(t, []driver.VersionedRead{
-		{Key: "\x00prefix0a0b0", Raw: []uint8{0x0, 0x70, 0x72, 0x65, 0x66, 0x69, 0x78, 0x30, 0x61, 0x30, 0x62, 0x30}, Version: ToBytes(0x23, 1)},
-		{Key: "\x00prefix0a0b010", Raw: []uint8{0x0, 0x70, 0x72, 0x65, 0x66, 0x69, 0x78, 0x30, 0x61, 0x30, 0x62, 0x30, 0x31, 0x30}, Version: ToBytes(0x23, 1)},
-		{Key: "\x00prefix0a0b030", Raw: []uint8{0x0, 0x70, 0x72, 0x65, 0x66, 0x69, 0x78, 0x30, 0x61, 0x30, 0x62, 0x30, 0x33, 0x30}, Version: ToBytes(0x23, 1)},
-		{Key: "\x00prefix0a0d0", Raw: []uint8{0x0, 0x70, 0x72, 0x65, 0x66, 0x69, 0x78, 0x30, 0x61, 0x30, 0x64, 0x30}, Version: ToBytes(0x23, 1)},
+	assert.Equal(t, []driver.UnversionedRead{
+		{Key: "\x00prefix0a0b0", Raw: []uint8{0x0, 0x70, 0x72, 0x65, 0x66, 0x69, 0x78, 0x30, 0x61, 0x30, 0x62, 0x30}},
+		{Key: "\x00prefix0a0b010", Raw: []uint8{0x0, 0x70, 0x72, 0x65, 0x66, 0x69, 0x78, 0x30, 0x61, 0x30, 0x62, 0x30, 0x31, 0x30}},
+		{Key: "\x00prefix0a0b030", Raw: []uint8{0x0, 0x70, 0x72, 0x65, 0x66, 0x69, 0x78, 0x30, 0x61, 0x30, 0x62, 0x30, 0x33, 0x30}},
+		{Key: "\x00prefix0a0d0", Raw: []uint8{0x0, 0x70, 0x72, 0x65, 0x66, 0x69, 0x78, 0x30, 0x61, 0x30, 0x64, 0x30}},
 	}, res)
 
 	partialCompositeKey, err = createCompositeKey(keyPrefix, []string{"a", "b"})
@@ -657,16 +541,16 @@ func TTestCompositeKeys(t *testing.T, db driver.TransactionalVersionedPersistenc
 	assert.NoError(t, err)
 	defer itr.Close()
 
-	res = make([]driver.VersionedRead, 0, 2)
+	res = make([]driver.UnversionedRead, 0, 2)
 	for n, err := itr.Next(); n != nil; n, err = itr.Next() {
 		assert.NoError(t, err)
 		res = append(res, *n)
 	}
 	assert.Len(t, res, 3)
-	assert.Equal(t, []driver.VersionedRead{
-		{Key: "\x00prefix0a0b0", Raw: []uint8{0x0, 0x70, 0x72, 0x65, 0x66, 0x69, 0x78, 0x30, 0x61, 0x30, 0x62, 0x30}, Version: ToBytes(0x23, 1)},
-		{Key: "\x00prefix0a0b010", Raw: []uint8{0x0, 0x70, 0x72, 0x65, 0x66, 0x69, 0x78, 0x30, 0x61, 0x30, 0x62, 0x30, 0x31, 0x30}, Version: ToBytes(0x23, 1)},
-		{Key: "\x00prefix0a0b030", Raw: []uint8{0x0, 0x70, 0x72, 0x65, 0x66, 0x69, 0x78, 0x30, 0x61, 0x30, 0x62, 0x30, 0x33, 0x30}, Version: ToBytes(0x23, 1)},
+	assert.Equal(t, []driver.UnversionedRead{
+		{Key: "\x00prefix0a0b0", Raw: []uint8{0x0, 0x70, 0x72, 0x65, 0x66, 0x69, 0x78, 0x30, 0x61, 0x30, 0x62, 0x30}},
+		{Key: "\x00prefix0a0b010", Raw: []uint8{0x0, 0x70, 0x72, 0x65, 0x66, 0x69, 0x78, 0x30, 0x61, 0x30, 0x62, 0x30, 0x31, 0x30}},
+		{Key: "\x00prefix0a0b030", Raw: []uint8{0x0, 0x70, 0x72, 0x65, 0x66, 0x69, 0x78, 0x30, 0x61, 0x30, 0x62, 0x30, 0x33, 0x30}},
 	}, res)
 }
 
@@ -970,74 +854,6 @@ func TTestUnversionedNotifierSimple(t *testing.T, db driver.UnversionedNotifier)
 	v, err = db.GetState(ns, key)
 	assert.NoError(t, err)
 	assert.Equal(t, []byte(nil), v)
-
-	results, err := waitForResults(ch, 3, 1*time.Second)
-	assert.NoError(t, err)
-	assert.Equal(t, []notifyEvent{{upsert, "ns", "key"}, {upsert, "ns", "key"}, {delete, "ns", "key"}}, results)
-}
-
-func TTestVersionedNotifierSimple(t *testing.T, db driver.VersionedNotifier) {
-	ch, err := subscribe(db)
-	assert.NoError(t, err)
-
-	ns := "ns"
-	key := "key"
-
-	vv, err := db.GetState(ns, key)
-	assert.NoError(t, err)
-	assert.Equal(t, []byte(nil), vv.Raw)
-
-	err = db.BeginUpdate()
-	assert.NoError(t, err)
-	err = db.SetState(ns, key, driver.VersionedValue{Raw: []byte("val")})
-	assert.NoError(t, err)
-	err = db.Commit()
-	assert.NoError(t, err)
-
-	vv, err = db.GetState(ns, key)
-	assert.NoError(t, err)
-	assert.Equal(t, []byte("val"), vv.Raw)
-
-	err = db.BeginUpdate()
-	assert.NoError(t, err)
-
-	err = db.SetState(ns, key, driver.VersionedValue{Raw: []byte("val1")})
-	assert.NoError(t, err)
-
-	vv, err = db.GetState(ns, key)
-	assert.NoError(t, err)
-	assert.Equal(t, []byte("val"), vv.Raw)
-
-	err = db.Commit()
-	assert.NoError(t, err)
-
-	vv, err = db.GetState(ns, key)
-	assert.NoError(t, err)
-	assert.Equal(t, []byte("val1"), vv.Raw)
-
-	// Discard an update
-	err = db.BeginUpdate()
-	assert.NoError(t, err)
-	err = db.SetState(ns, key, driver.VersionedValue{Raw: []byte("val0")})
-	assert.NoError(t, err)
-	err = db.Discard()
-	assert.NoError(t, err)
-
-	// Expect state to be same as before the rollback
-	vv, err = db.GetState(ns, key)
-	assert.NoError(t, err)
-	assert.Equal(t, []byte("val1"), vv.Raw)
-
-	err = db.BeginUpdate()
-	assert.NoError(t, err)
-	err = db.DeleteState(ns, key)
-	assert.NoError(t, err)
-	err = db.Commit()
-	assert.NoError(t, err)
-
-	vv, err = db.GetState(ns, key)
-	assert.NoError(t, err)
-	assert.Equal(t, []byte(nil), vv.Raw)
 
 	results, err := waitForResults(ch, 3, 1*time.Second)
 	assert.NoError(t, err)

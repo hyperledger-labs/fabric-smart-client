@@ -11,7 +11,6 @@ import (
 	"encoding/binary"
 
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/pkg/errors"
 )
 
@@ -25,18 +24,18 @@ func (b *BlockTxIndexVersionComparator) Equal(a, c driver2.RawVersion) bool {
 
 type BlockTxIndexVersionBuilder struct{}
 
-func (b *BlockTxIndexVersionBuilder) VersionedValues(rws *ReadWriteSet, ns driver2.Namespace, writes NamespaceWrites, block driver2.BlockNum, indexInBloc driver2.TxNum) (map[driver2.PKey]VersionedValue, error) {
-	vals := make(map[driver2.PKey]driver.VersionedValue, len(writes))
+func (b *BlockTxIndexVersionBuilder) VersionedValues(_ *ReadWriteSet, _ driver2.Namespace, writes NamespaceWrites, block driver2.BlockNum, indexInBloc driver2.TxNum) (map[driver2.PKey]driver2.VaultValue, error) {
+	vals := make(map[driver2.PKey]driver2.VaultValue, len(writes))
 	for pkey, val := range writes {
-		vals[pkey] = driver.VersionedValue{Raw: val, Version: BlockTxIndexToBytes(block, indexInBloc)}
+		vals[pkey] = driver2.VaultValue{Raw: val, Version: BlockTxIndexToBytes(block, indexInBloc)}
 	}
 	return vals, nil
 }
 
-func (b *BlockTxIndexVersionBuilder) VersionedMetaValues(rws *ReadWriteSet, ns driver2.Namespace, writes KeyedMetaWrites, block driver2.BlockNum, indexInBloc driver2.TxNum) (map[driver2.PKey]driver2.VersionedMetadataValue, error) {
-	vals := make(map[driver2.PKey]driver2.VersionedMetadataValue, len(writes))
+func (b *BlockTxIndexVersionBuilder) VersionedMetaValues(rws *ReadWriteSet, ns driver2.Namespace, writes KeyedMetaWrites, block driver2.BlockNum, indexInBloc driver2.TxNum) (map[driver2.PKey]driver2.VaultMetadataValue, error) {
+	vals := make(map[driver2.PKey]driver2.VaultMetadataValue, len(writes))
 	for pkey, val := range writes {
-		vals[pkey] = driver2.VersionedMetadataValue{Metadata: val, Version: BlockTxIndexToBytes(block, indexInBloc)}
+		vals[pkey] = driver2.VaultMetadataValue{Metadata: val, Version: BlockTxIndexToBytes(block, indexInBloc)}
 	}
 	return vals, nil
 }

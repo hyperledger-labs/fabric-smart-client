@@ -16,7 +16,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/postgres"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/sqlite"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/unversioned"
 )
 
 const (
@@ -42,20 +41,9 @@ type dbObject interface {
 	CreateSchema() error
 }
 
-type persistenceConstructor[V dbObject] func(common.Opts, string) (V, error)
-
-type transactionalVersionedPersistence interface {
-	driver.TransactionalVersionedPersistence
+type unversionedPersistence interface {
+	driver.UnversionedPersistence
 	dbObject
-}
-
-var VersionedConstructors = map[common.SQLDriverType]persistenceConstructor[transactionalVersionedPersistence]{
-	Postgres: func(o common.Opts, t string) (transactionalVersionedPersistence, error) {
-		return postgres.NewVersioned(o, t)
-	},
-	SQLite: func(o common.Opts, t string) (transactionalVersionedPersistence, error) {
-		return sqlite.NewVersioned(o, t)
-	},
 }
 
 type bindingPersistence interface {
@@ -93,12 +81,21 @@ type vaultPersistence interface {
 	dbObject
 }
 
-var BindingConstructors = map[common.SQLDriverType]persistenceConstructor[bindingPersistence]{
+var UnversionedConstructors = map[common.SQLDriverType]common.PersistenceConstructor[unversionedPersistence]{
+	Postgres: func(o common.Opts, t string) (unversionedPersistence, error) {
+		return postgres.NewUnversionedPersistence(o, t)
+	},
+	SQLite: func(o common.Opts, t string) (unversionedPersistence, error) {
+		return sqlite.NewUnversionedPersistence(o, t)
+	},
+}
+
+var BindingConstructors = map[common.SQLDriverType]common.PersistenceConstructor[bindingPersistence]{
 	Postgres: func(o common.Opts, t string) (bindingPersistence, error) { return postgres.NewBindingPersistence(o, t) },
 	SQLite:   func(o common.Opts, t string) (bindingPersistence, error) { return sqlite.NewBindingPersistence(o, t) },
 }
 
-var SignerInfoConstructors = map[common.SQLDriverType]persistenceConstructor[signerInfoPersistence]{
+var SignerInfoConstructors = map[common.SQLDriverType]common.PersistenceConstructor[signerInfoPersistence]{
 	Postgres: func(o common.Opts, t string) (signerInfoPersistence, error) {
 		return postgres.NewSignerInfoPersistence(o, t)
 	},
@@ -107,7 +104,7 @@ var SignerInfoConstructors = map[common.SQLDriverType]persistenceConstructor[sig
 	},
 }
 
-var AuditInfoConstructors = map[common.SQLDriverType]persistenceConstructor[auditInfoPersistence]{
+var AuditInfoConstructors = map[common.SQLDriverType]common.PersistenceConstructor[auditInfoPersistence]{
 	Postgres: func(o common.Opts, t string) (auditInfoPersistence, error) {
 		return postgres.NewAuditInfoPersistence(o, t)
 	},
@@ -116,7 +113,7 @@ var AuditInfoConstructors = map[common.SQLDriverType]persistenceConstructor[audi
 	},
 }
 
-var EndorseTxConstructors = map[common.SQLDriverType]persistenceConstructor[endorseTxPersistence]{
+var EndorseTxConstructors = map[common.SQLDriverType]common.PersistenceConstructor[endorseTxPersistence]{
 	Postgres: func(o common.Opts, t string) (endorseTxPersistence, error) {
 		return postgres.NewEndorseTxPersistence(o, t)
 	},
@@ -125,7 +122,7 @@ var EndorseTxConstructors = map[common.SQLDriverType]persistenceConstructor[endo
 	},
 }
 
-var MetadataConstructors = map[common.SQLDriverType]persistenceConstructor[metadataPersistence]{
+var MetadataConstructors = map[common.SQLDriverType]common.PersistenceConstructor[metadataPersistence]{
 	Postgres: func(o common.Opts, t string) (metadataPersistence, error) {
 		return postgres.NewMetadataPersistence(o, t)
 	},
@@ -134,7 +131,7 @@ var MetadataConstructors = map[common.SQLDriverType]persistenceConstructor[metad
 	},
 }
 
-var EnvelopeConstructors = map[common.SQLDriverType]persistenceConstructor[envelopePersistence]{
+var EnvelopeConstructors = map[common.SQLDriverType]common.PersistenceConstructor[envelopePersistence]{
 	Postgres: func(o common.Opts, t string) (envelopePersistence, error) {
 		return postgres.NewEnvelopePersistence(o, t)
 	},
@@ -143,7 +140,7 @@ var EnvelopeConstructors = map[common.SQLDriverType]persistenceConstructor[envel
 	},
 }
 
-var VaultConstructors = map[common.SQLDriverType]persistenceConstructor[vaultPersistence]{
+var VaultConstructors = map[common.SQLDriverType]common.PersistenceConstructor[vaultPersistence]{
 	Postgres: func(o common.Opts, t string) (vaultPersistence, error) {
 		return postgres.NewVaultPersistence(o, t)
 	},
@@ -152,12 +149,8 @@ var VaultConstructors = map[common.SQLDriverType]persistenceConstructor[vaultPer
 	},
 }
 
-func (d *Driver) NewKVS(dataSourceName string, config driver.Config) (driver.TransactionalUnversionedPersistence, error) {
-	backend, err := newPersistence(dataSourceName, config, VersionedConstructors)
-	if err != nil {
-		return nil, err
-	}
-	return &unversioned.Transactional{TransactionalVersioned: backend}, nil
+func (d *Driver) NewKVS(dataSourceName string, config driver.Config) (driver.UnversionedPersistence, error) {
+	return newPersistence(dataSourceName, config, UnversionedConstructors)
 }
 
 func (d *Driver) NewBinding(dataSourceName string, config driver.Config) (driver.BindingPersistence, error) {
@@ -188,40 +181,18 @@ func (d *Driver) NewVault(dataSourceName string, config driver.Config) (driver.V
 	return newPersistence(dataSourceName, config, VaultConstructors)
 }
 
-func newPersistence[V dbObject](dataSourceName string, config driver.Config, constructors map[common.SQLDriverType]persistenceConstructor[V]) (V, error) {
+func newPersistence[V dbObject](dataSourceName string, config driver.Config, constructors map[common.SQLDriverType]common.PersistenceConstructor[V]) (V, error) {
 	logger.Infof("opening new transactional database %s", dataSourceName)
 	opts, err := getOps(config)
 	if err != nil {
 		return utils.Zero[V](), fmt.Errorf("failed getting options for datasource: %w", err)
 	}
 
-	return NewPersistenceWithOpts(dataSourceName, opts, constructors)
-}
-
-func NewPersistenceWithOpts[V dbObject](dataSourceName string, opts common.Opts, constructors map[common.SQLDriverType]persistenceConstructor[V]) (V, error) {
-	nc, err := common.NewTableNameCreator(opts.TablePrefix)
-	if err != nil {
-		return utils.Zero[V](), err
-	}
-
-	table, valid := nc.GetTableName(dataSourceName)
-	if !valid {
-		return utils.Zero[V](), fmt.Errorf("invalid table name [%s]: only letters and underscores allowed: %w", table, err)
-	}
 	c, ok := constructors[opts.Driver]
 	if !ok {
 		return utils.Zero[V](), fmt.Errorf("unknown driver: %s", opts.Driver)
 	}
-	p, err := c(opts, table)
-	if err != nil {
-		return utils.Zero[V](), err
-	}
-	if !opts.SkipCreateTable {
-		if err := p.CreateSchema(); err != nil {
-			return utils.Zero[V](), err
-		}
-	}
-	return p, nil
+	return common.NewPersistenceWithOpts[V](dataSourceName, opts, c)
 }
 
 func getOps(config driver.Config) (common.Opts, error) {

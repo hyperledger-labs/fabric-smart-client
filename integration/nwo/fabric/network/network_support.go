@@ -1468,8 +1468,12 @@ func (n *Network) nextColor() string {
 	return fmt.Sprintf("%dm", color)
 }
 
-func (n *Network) FSCNodeVaultDir(uniqueName string) string {
-	return filepath.Join(n.Context.RootDir(), "fsc", "nodes", uniqueName, n.Prefix, "vault")
+func (n *Network) FSCNodeStorages(uniqueName string) string {
+	return filepath.Join(n.Context.RootDir(), "fsc", "nodes", uniqueName, n.Prefix)
+}
+
+func (n *Network) FSCNodeStorageDir(uniqueName string, suffix string) string {
+	return filepath.Join(n.FSCNodeStorages(uniqueName), suffix)
 }
 
 func (n *Network) OrdererBootstrapFile() string {
@@ -1615,7 +1619,7 @@ func (n *Network) GenerateCoreConfig(p *topology.Peer) {
 				"PeerAddress":               func(o *topology.Peer, portName api.PortName) string { return n.PeerAddress(o, portName) },
 				"CACertsBundlePath":         func() string { return n.CACertsBundlePath() },
 				"VaultOpts": func() node.PersistenceOpts {
-					return fsc.PersistenceOpts(VaultPersistencePrefix, p.FSCNode.Options)
+					return fsc.PersistenceOpts(VaultPersistencePrefix, p.FSCNode.Options, n.FSCNodeStorageDir(uniqueName, "vault"))
 				},
 				"FabricName":     func() string { return n.topology.Name() },
 				"DefaultNetwork": func() bool { return defaultNetwork },

@@ -9,8 +9,6 @@ package db
 import (
 	"regexp"
 	"strings"
-
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 )
 
 // Config models the DB configuration
@@ -19,10 +17,6 @@ type Config interface {
 	IsSet(key string) bool
 	// UnmarshalKey takes a single key and unmarshals it into a Struct
 	UnmarshalKey(key string, rawVal interface{}) error
-}
-
-type TransactionalUnversionedPersistence struct {
-	driver.TransactionalUnversionedPersistence
 }
 
 var validName = regexp.MustCompile(`^[a-zA-Z_]+$`) // Thread safe

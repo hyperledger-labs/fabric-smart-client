@@ -40,10 +40,10 @@ func ValidateNs(ns string) error {
 
 type DummyVersionedIterator struct {
 	idx   int
-	Items []*driver.VersionedRead
+	Items []*driver.UnversionedRead
 }
 
-func (r *DummyVersionedIterator) Next() (*driver.VersionedRead, error) {
+func (r *DummyVersionedIterator) Next() (*driver.UnversionedRead, error) {
 	if r.Items == nil || r.idx == len(r.Items) {
 		return nil, nil
 	}

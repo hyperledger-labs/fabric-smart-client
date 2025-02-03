@@ -49,6 +49,7 @@ func (db *SignerInfoPersistence) FilterExistingSigners(ids ...view.Identity) ([]
 	if err != nil {
 		return nil, errors.Wrapf(err, "error querying db")
 	}
+	defer func() { _ = rows.Close() }()
 
 	existingSigners := make([]view.Identity, 0)
 	for rows.Next() {

@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/dbtest"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/unversioned"
 )
 
 func BenchmarkReadExistingPostgres(b *testing.B) {
@@ -20,7 +19,7 @@ func BenchmarkReadExistingPostgres(b *testing.B) {
 		b.Fatal(err)
 	}
 	defer terminate()
-	db, err := initPersistence(NewVersioned, pgConnStr, "benchmark", 50, 2, time.Minute)
+	db, err := initPersistence(NewUnversionedPersistence, pgConnStr, "benchmark", 50, 2, time.Minute)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -35,7 +34,7 @@ func BenchmarkReadNonExistingPostgres(b *testing.B) {
 		b.Fatal(err)
 	}
 	defer terminate()
-	db, err := initPersistence(NewVersioned, pgConnStr, "benchmark", 50, 2, time.Minute)
+	db, err := initPersistence(NewUnversionedPersistence, pgConnStr, "benchmark", 50, 2, time.Minute)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -50,7 +49,7 @@ func BenchmarkWriteOnePostgres(b *testing.B) {
 		b.Fatal(err)
 	}
 	defer terminate()
-	db, err := initPersistence(NewVersioned, pgConnStr, "benchmark", 50, 2, time.Minute)
+	db, err := initPersistence(NewUnversionedPersistence, pgConnStr, "benchmark", 50, 2, time.Minute)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -65,7 +64,7 @@ func BenchmarkWriteManyPostgres(b *testing.B) {
 		b.Fatal(err)
 	}
 	defer terminate()
-	db, err := initPersistence(NewVersioned, pgConnStr, "benchmark", 50, 2, time.Minute)
+	db, err := initPersistence(NewUnversionedPersistence, pgConnStr, "benchmark", 50, 2, time.Minute)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -80,11 +79,10 @@ func BenchmarkWriteManyPostgresWithIdle(b *testing.B) {
 		b.Fatal(err)
 	}
 	defer terminate()
-	p, err := initPersistence(NewVersioned, pgConnStr, "benchmark", 50, 50, time.Minute)
+	db, err := initPersistence(NewUnversionedPersistence, pgConnStr, "benchmark", 50, 50, time.Minute)
 	if err != nil {
 		b.Fatal(err)
 	}
-	db := &unversioned.Transactional{TransactionalVersioned: p}
 	defer db.Close()
 
 	dbtest.WriteParallel(b, db)

@@ -188,7 +188,7 @@ func (p *Platform) DeleteVault(id string) {
 	fscPeer := p.Network.FSCPeerByName(id)
 	Expect(fscPeer).ToNot(BeNil())
 	for _, uniqueName := range fscPeer.FSCNode.ReplicaUniqueNames() {
-		Expect(os.RemoveAll(p.Network.FSCNodeVaultDir(uniqueName))).ToNot(HaveOccurred())
+		Expect(os.RemoveAll(p.Network.FSCNodeStorageDir(uniqueName, "vault"))).ToNot(HaveOccurred())
 	}
 }
 

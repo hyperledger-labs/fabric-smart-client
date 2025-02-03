@@ -19,7 +19,8 @@ type UnversionedPersistence struct {
 	*common.UnversionedPersistence
 }
 
-func NewUnversioned(opts common.Opts, table string) (*UnversionedPersistence, error) {
+func NewUnversionedPersistence(opts common.Opts, table string) (*UnversionedPersistence, error) {
+	logger.Infof("Creating table... [%s]", table)
 	readDB, writeDB, err := openDB(opts.DataSource, opts.MaxOpenConns, opts.MaxIdleConns, opts.MaxIdleTime, opts.SkipPragmas)
 	if err != nil {
 		return nil, fmt.Errorf("error opening db: %w", err)
@@ -27,7 +28,7 @@ func NewUnversioned(opts common.Opts, table string) (*UnversionedPersistence, er
 	return newUnversioned(readDB, writeDB, table), nil
 }
 
-func NewUnversionedNotifier(opts common.Opts, table string) (*notifier.UnversionedPersistenceNotifier[*UnversionedPersistence], error) {
+func NewUnversionedNotifier(opts common.Opts, table string) (*notifier.UnversionedPersistenceNotifier, error) {
 	readDB, writeDB, err := openDB(opts.DataSource, opts.MaxOpenConns, opts.MaxIdleConns, opts.MaxIdleTime, opts.SkipPragmas)
 	if err != nil {
 		return nil, fmt.Errorf("error opening db: %w", err)
@@ -36,10 +37,8 @@ func NewUnversionedNotifier(opts common.Opts, table string) (*notifier.Unversion
 }
 
 func newUnversioned(readDB, writeDB *sql.DB, table string) *UnversionedPersistence {
-	base := &BasePersistence[driver.UnversionedValue, driver.UnversionedRead]{
-		BasePersistence: common.NewBasePersistence[driver.UnversionedValue, driver.UnversionedRead](writeDB, readDB, table, common.NewUnversionedReadScanner(), common.NewUnversionedValueScanner(), &errorMapper{}, NewInterpreter(), writeDB.Begin),
-	}
+	var wrapper driver.SQLErrorWrapper = &errorMapper{}
 	return &UnversionedPersistence{
-		UnversionedPersistence: common.NewUnversionedPersistence(base, writeDB, table),
+		UnversionedPersistence: common.NewUnversionedPersistence(writeDB, readDB, table, wrapper, NewInterpreter()),
 	}
 }
