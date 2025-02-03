@@ -13,8 +13,8 @@ import (
 )
 
 type VersionBuilder interface {
-	VersionedValues(rws *ReadWriteSet, ns driver.Namespace, writes NamespaceWrites, block driver.BlockNum, indexInBloc driver.TxNum) (map[driver.PKey]VersionedValue, error)
-	VersionedMetaValues(rws *ReadWriteSet, ns driver.Namespace, writes KeyedMetaWrites, block driver.BlockNum, indexInBloc driver.TxNum) (map[driver.PKey]driver.VersionedMetadataValue, error)
+	VersionedValues(rws *ReadWriteSet, ns driver.Namespace, writes NamespaceWrites, block driver.BlockNum, indexInBloc driver.TxNum) (map[driver.PKey]driver.VaultValue, error)
+	VersionedMetaValues(rws *ReadWriteSet, ns driver.Namespace, writes KeyedMetaWrites, block driver.BlockNum, indexInBloc driver.TxNum) (map[driver.PKey]driver.VaultMetadataValue, error)
 }
 
 type rwSetMapper struct {
@@ -31,7 +31,7 @@ func (m *rwSetMapper) mapTxIDs(inputs []commitInput) []driver.TxID {
 }
 
 func (m *rwSetMapper) mapWrites(inputs []commitInput) (driver.Writes, error) {
-	writes := make(map[driver.Namespace]map[driver.PKey]VersionedValue)
+	writes := make(map[driver.Namespace]map[driver.PKey]driver.VaultValue)
 	for i, input := range inputs {
 		m.logger.Debugf("input [%d] has [%d] writes", i, len(input.rws.Writes))
 		for ns, ws := range input.rws.Writes {
@@ -50,7 +50,7 @@ func (m *rwSetMapper) mapWrites(inputs []commitInput) (driver.Writes, error) {
 }
 
 func (m *rwSetMapper) mapMetaWrites(inputs []commitInput) (driver.MetaWrites, error) {
-	metaWrites := make(map[driver.Namespace]map[driver.PKey]driver.VersionedMetadataValue)
+	metaWrites := make(map[driver.Namespace]map[driver.PKey]driver.VaultMetadataValue)
 	for _, input := range inputs {
 		for ns, ws := range input.rws.MetaWrites {
 			vals, err := m.vb.VersionedMetaValues(input.rws, ns, ws, input.block, input.indexInBloc)

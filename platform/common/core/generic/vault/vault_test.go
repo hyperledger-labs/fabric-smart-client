@@ -156,7 +156,7 @@ func (m *marshaller) Append(destination *ReadWriteSet, raw []byte, nss ...string
 }
 
 func TestMemory(t *testing.T) {
-	RemoveNils = func(items []VersionedRead) []VersionedRead { return items }
+	RemoveNils = func(items []driver2.VaultRead) []driver2.VaultRead { return items }
 	artifactProvider := &testArtifactProvider{}
 	for _, c := range SingleDBCases {
 		ddb, err := vault.OpenMemoryVault()
@@ -182,8 +182,8 @@ func TestMemory(t *testing.T) {
 }
 
 func TestSqlite(t *testing.T) {
-	RemoveNils = func(items []VersionedRead) []VersionedRead {
-		return slices.DeleteFunc(items, func(e VersionedRead) bool { return e.Raw == nil })
+	RemoveNils = func(items []driver2.VaultRead) []driver2.VaultRead {
+		return slices.DeleteFunc(items, func(e driver2.VaultRead) bool { return e.Raw == nil })
 	}
 	artifactProvider := &testArtifactProvider{}
 
@@ -210,8 +210,8 @@ func TestSqlite(t *testing.T) {
 }
 
 func TestPostgres(t *testing.T) {
-	RemoveNils = func(items []VersionedRead) []VersionedRead {
-		return slices.DeleteFunc(items, func(e VersionedRead) bool { return e.Raw == nil })
+	RemoveNils = func(items []driver2.VaultRead) []driver2.VaultRead {
+		return slices.DeleteFunc(items, func(e driver2.VaultRead) bool { return e.Raw == nil })
 	}
 	artifactProvider := &testArtifactProvider{}
 

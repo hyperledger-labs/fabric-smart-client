@@ -17,21 +17,9 @@ import (
 type provider[V any] func(name string) (V, error)
 
 func TestCases(t *testing.T,
-	versionedProvider provider[driver.TransactionalVersionedPersistence],
 	unversionedProvider provider[driver.UnversionedPersistence],
 	unversionedNotifierProvider provider[driver.UnversionedNotifier],
-	versionedNotifierProvider provider[driver.VersionedNotifier],
-	baseUnpacker func(p driver.UnversionedPersistence) *BasePersistence[driver.UnversionedValue, driver.UnversionedRead]) {
-	for _, c := range dbtest.Cases {
-		db, err := versionedProvider(c.Name)
-		if err != nil {
-			t.Fatal(err)
-		}
-		t.Run(c.Name, func(xt *testing.T) {
-			defer db.Close()
-			c.Fn(xt, db)
-		})
-	}
+	baseUnpacker func(p driver.UnversionedPersistence) *UnversionedPersistence) {
 	for _, c := range dbtest.UnversionedCases {
 		un, err := unversionedProvider(c.Name)
 		if err != nil {
@@ -55,16 +43,6 @@ func TestCases(t *testing.T,
 	}
 	for _, c := range dbtest.UnversionedNotifierCases {
 		un, err := unversionedNotifierProvider(c.Name)
-		if err != nil {
-			t.Fatal(err)
-		}
-		t.Run(c.Name, func(xt *testing.T) {
-			defer un.Close()
-			c.Fn(xt, un)
-		})
-	}
-	for _, c := range dbtest.VersionedNotifierCases {
-		un, err := versionedNotifierProvider(c.Name)
 		if err != nil {
 			t.Fatal(err)
 		}

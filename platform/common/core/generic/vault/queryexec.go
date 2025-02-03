@@ -10,6 +10,7 @@ import (
 	"context"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/pkg/errors"
 )
 
@@ -52,10 +53,10 @@ func (i *queryExecutor) GetStateMetadata(ctx context.Context, namespace driver.N
 	return i.vaultStore.GetStateMetadata(ctx, namespace, key)
 }
 
-func (i *queryExecutor) GetState(ctx context.Context, namespace driver.Namespace, key driver.PKey) (*VersionedRead, error) {
+func (i *queryExecutor) GetState(ctx context.Context, namespace driver.Namespace, key driver.PKey) (*driver.VaultRead, error) {
 	return i.vaultStore.GetState(ctx, namespace, key)
 }
 
-func (i *queryExecutor) GetStateRangeScanIterator(ctx context.Context, namespace driver.Namespace, startKey, endKey driver.PKey) (VersionedResultsIterator, error) {
+func (i *queryExecutor) GetStateRangeScanIterator(ctx context.Context, namespace driver.Namespace, startKey, endKey driver.PKey) (collections.Iterator[*driver.VaultRead], error) {
 	return i.vaultStore.GetStateRange(ctx, namespace, startKey, endKey)
 }

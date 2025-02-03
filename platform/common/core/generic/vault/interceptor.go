@@ -17,7 +17,7 @@ import (
 
 type VersionedQueryExecutor interface {
 	GetStateMetadata(ctx context.Context, namespace, key string) (driver.Metadata, driver.RawVersion, error)
-	GetState(ctx context.Context, namespace, key string) (*VersionedRead, error)
+	GetState(ctx context.Context, namespace, key string) (*driver.VaultRead, error)
 	Done()
 }
 

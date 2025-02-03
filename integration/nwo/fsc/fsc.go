@@ -37,7 +37,6 @@ import (
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/view/cmd"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/web"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/crypto"
-	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/postgres"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
@@ -519,25 +518,25 @@ func (p *Platform) GenerateCoreConfig(peer *node2.Replica) {
 		"ToLower":    func(s string) string { return strings.ToLower(s) },
 		"ReplaceAll": func(s, old, new string) string { return strings.Replace(s, old, new, -1) },
 		"KVSOpts": func() node2.PersistenceOpts {
-			return PersistenceOpts(KvsPersistencePrefix, peer.Options)
+			return PersistenceOpts(KvsPersistencePrefix, peer.Options, p.NodeStorageDir(peer.UniqueName, "kvs"))
 		},
 		"BindingOpts": func() node2.PersistenceOpts {
-			return PersistenceOpts(BindingPersistencePrefix, peer.Options)
+			return PersistenceOpts(BindingPersistencePrefix, peer.Options, p.NodeStorageDir(peer.UniqueName, "bind"))
 		},
 		"SignerInfoOpts": func() node2.PersistenceOpts {
-			return PersistenceOpts(SignerInfoPersistencePrefix, peer.Options)
+			return PersistenceOpts(SignerInfoPersistencePrefix, peer.Options, p.NodeStorageDir(peer.UniqueName, "sig"))
 		},
 		"AuditInfoOpts": func() node2.PersistenceOpts {
-			return PersistenceOpts(AuditInfoPersistencePrefix, peer.Options)
+			return PersistenceOpts(AuditInfoPersistencePrefix, peer.Options, p.NodeStorageDir(peer.UniqueName, "aud"))
 		},
 		"EndorseTxOpts": func() node2.PersistenceOpts {
-			return PersistenceOpts(EndorseTxPersistencePrefix, peer.Options)
+			return PersistenceOpts(EndorseTxPersistencePrefix, peer.Options, p.NodeStorageDir(peer.UniqueName, "etx"))
 		},
 		"EnvelopeOpts": func() node2.PersistenceOpts {
-			return PersistenceOpts(EnvelopePersistencePrefix, peer.Options)
+			return PersistenceOpts(EnvelopePersistencePrefix, peer.Options, p.NodeStorageDir(peer.UniqueName, "env"))
 		},
 		"MetadataOpts": func() node2.PersistenceOpts {
-			return PersistenceOpts(MetadataPersistencePrefix, peer.Options)
+			return PersistenceOpts(MetadataPersistencePrefix, peer.Options, p.NodeStorageDir(peer.UniqueName, "mtd"))
 		},
 		"Resolvers":  func() []*Resolver { return resolvers },
 		"WebEnabled": func() bool { return p.Topology.WebEnabled },
@@ -552,14 +551,20 @@ func (p *Platform) GenerateCoreConfig(peer *node2.Replica) {
 
 }
 
-func PersistenceOpts(prefix string, o *node2.Options) node2.PersistenceOpts {
+func PersistenceOpts(prefix string, o *node2.Options, dir string) node2.PersistenceOpts {
 	if sqlOpts := o.GetPersistence(prefix); sqlOpts != nil {
 		return node2.PersistenceOpts{
 			Type: sql.SQLPersistence,
 			SQL:  sqlOpts,
 		}
 	}
-	return node2.PersistenceOpts{Type: mem.MemoryPersistence}
+	return node2.PersistenceOpts{
+		Type: sql.SQLPersistence,
+		SQL: &node2.SQLOpts{
+			DriverType:   sql.SQLite,
+			DataSource:   fmt.Sprintf("%s.sqlite", dir),
+			CreateSchema: true,
+		}}
 }
 
 func (p *Platform) BootstrapViewNodeGroupRunner() ifrit.Runner {
@@ -668,8 +673,12 @@ func (p *Platform) NodeClientConfigPath(peer *node2.Replica) string {
 	return filepath.Join(p.Context.RootDir(), "fsc", "nodes", peer.UniqueName, "client-config.yaml")
 }
 
+func (p *Platform) NodeStorages(uniqueName string) string {
+	return filepath.Join(p.Context.RootDir(), "fsc", "nodes", uniqueName)
+}
+
 func (p *Platform) NodeStorageDir(uniqueName string, dirName string) string {
-	return filepath.Join(p.Context.RootDir(), "fsc", "nodes", uniqueName, dirName)
+	return filepath.Join(p.NodeStorages(uniqueName), dirName)
 }
 
 func (p *Platform) NodeConfigPath(peer *node2.Replica) string {

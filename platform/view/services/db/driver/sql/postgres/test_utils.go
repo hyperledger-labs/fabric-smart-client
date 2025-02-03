@@ -24,7 +24,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/unversioned"
 	_ "modernc.org/sqlite"
 )
 
@@ -298,15 +297,11 @@ type TestDriver struct {
 	ConnStr string
 }
 
-func (t *TestDriver) NewKVS(dataSourceName string, config driver.Config) (driver.TransactionalUnversionedPersistence, error) {
-	p, err := initPersistence(NewVersioned, t.ConnStr, t.Name, 50, 10, time.Minute)
-	if err != nil {
-		return nil, err
-	}
-	return &unversioned.Transactional{TransactionalVersioned: p}, nil
+func (t *TestDriver) NewKVS(string, driver.Config) (driver.UnversionedPersistence, error) {
+	return initPersistence(NewUnversionedPersistence, t.ConnStr, t.Name, 50, 10, time.Minute)
 }
 
-func (t *TestDriver) NewBinding(dataSourceName string, config driver.Config) (driver.BindingPersistence, error) {
+func (t *TestDriver) NewBinding(string, driver.Config) (driver.BindingPersistence, error) {
 	return initPersistence(NewBindingPersistence, t.ConnStr, t.Name, 50, 10, time.Minute)
 }
 

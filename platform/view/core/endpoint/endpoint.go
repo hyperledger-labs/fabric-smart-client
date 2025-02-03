@@ -165,9 +165,7 @@ func (r *Service) matchesResolver(endpoint string, pkID []byte, resolver *Resolv
 }
 
 func (r *Service) AddResolver(name string, domain string, addresses map[string]string, aliases []string, id []byte) (view.Identity, error) {
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("adding resolver [%s,%s,%v,%v,%s]", name, domain, addresses, aliases, view.Identity(id).String())
-	}
+	logger.Infof("adding resolver [%s,%s,%v,%v,%s]", name, domain, addresses, aliases, view.Identity(id))
 
 	// is there a resolver with the same name or clashing aliases?
 	r.resolversMutex.RLock()
@@ -260,6 +258,7 @@ func (r *Service) rootEndpoint(party view.Identity) (*Resolver, error) {
 	defer r.resolversMutex.RUnlock()
 
 	for _, resolver := range r.resolvers {
+		logger.Infof("Compare [%s] [%s]", party.UniqueID(), view.Identity(resolver.Id).UniqueID())
 		if bytes.Equal(resolver.Id, party) {
 			return resolver, nil
 		}

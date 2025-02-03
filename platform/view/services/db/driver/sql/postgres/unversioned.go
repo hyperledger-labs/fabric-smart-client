@@ -10,50 +10,99 @@ import (
 	"database/sql"
 	"fmt"
 
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	errors2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
 )
 
 type UnversionedPersistence struct {
 	*common.UnversionedPersistence
+
+	table        string
+	ci           common.Interpreter
+	errorWrapper driver2.SQLErrorWrapper
 }
 
-func (p *UnversionedPersistence) SetState(namespace driver2.Namespace, key driver2.PKey, value driver.UnversionedValue) error {
-	return p.UnversionedPersistence.SetState(namespace, key, value)
+func (db *UnversionedPersistence) SetState(ns driver.Namespace, pkey driver.PKey, value driver.UnversionedValue) error {
+	return db.SetStateWithTx(db.Txn, ns, pkey, value)
 }
 
-func (p *UnversionedPersistence) SetStates(namespace driver2.Namespace, kvs map[driver2.PKey]driver.UnversionedValue) map[driver2.PKey]error {
-	return p.UnversionedPersistence.SetStates(namespace, kvs)
+func (db *UnversionedPersistence) SetStates(ns driver.Namespace, kvs map[driver.PKey]driver.UnversionedValue) map[driver.PKey]error {
+	return db.setStatesWithTx(db.Txn, ns, kvs)
 }
 
-func (p *UnversionedPersistence) GetState(namespace driver2.Namespace, key driver2.PKey) (driver.UnversionedValue, error) {
-	return p.UnversionedPersistence.GetState(namespace, key)
+func (db *UnversionedPersistence) SetStateWithTx(tx *sql.Tx, ns driver.Namespace, pkey driver.PKey, value driver.UnversionedValue) error {
+	if errs := db.setStatesWithTx(tx, ns, map[driver.PKey]driver.UnversionedValue{pkey: value}); errs != nil {
+		return errs[encode(pkey)]
+	}
+	return nil
 }
 
-func (p *UnversionedPersistence) DeleteState(namespace driver2.Namespace, key driver2.PKey) error {
-	return p.UnversionedPersistence.DeleteState(namespace, key)
+func (db *UnversionedPersistence) GetStateRangeScanIterator(ns driver.Namespace, startKey, endKey string) (collections.Iterator[*driver.UnversionedRead], error) {
+	return decodeUnversionedReadIterator(db.UnversionedPersistence.GetStateRangeScanIterator(ns, encode(startKey), encode(endKey)))
 }
 
-func (p *UnversionedPersistence) DeleteStates(namespace driver2.Namespace, keys ...driver2.PKey) map[driver2.PKey]error {
-	return p.UnversionedPersistence.DeleteStates(namespace, keys...)
+func (db *UnversionedPersistence) GetStateSetIterator(ns driver.Namespace, keys ...driver.PKey) (collections.Iterator[*driver.UnversionedRead], error) {
+	return decodeUnversionedReadIterator(db.UnversionedPersistence.GetStateSetIterator(ns, encodeSlice(keys)...))
 }
 
-func (p *UnversionedPersistence) GetStateRangeScanIterator(namespace driver2.Namespace, startKey, endKey driver2.PKey) (collections.Iterator[*driver.UnversionedRead], error) {
-	return decodeUnversionedReadIterator(p.UnversionedPersistence.GetStateRangeScanIterator(namespace, startKey, endKey))
+func (db *UnversionedPersistence) setStatesWithTx(tx *sql.Tx, ns driver.Namespace, kvs map[driver.PKey]driver.UnversionedValue) map[driver.PKey]error {
+	if tx == nil {
+		panic("programming error, writing without ongoing update")
+	}
+
+	upserted := make(map[driver.PKey]driver.UnversionedValue, len(kvs))
+	deleted := make([]driver.PKey, 0, len(kvs))
+	for pkey, val := range kvs {
+		// Get rawVal
+		if len(val) == 0 {
+			logger.Debugf("set key [%s:%s] to nil value, will be deleted instead", ns, pkey)
+			deleted = append(deleted, pkey)
+		} else {
+			logger.Debugf("set state [%s,%s]", ns, pkey)
+			// Overwrite rawVal
+			upserted[pkey] = append([]byte(nil), val...)
+		}
+	}
+
+	errs := make(map[driver.PKey]error)
+	if len(deleted) > 0 {
+		collections.CopyMap(errs, db.DeleteStatesWithTx(tx, ns, encodeSlice(deleted)...))
+	}
+	if len(upserted) > 0 {
+		collections.CopyMap(errs, db.upsertStatesWithTx(tx, ns, encodeMap(upserted)))
+	}
+	return errs
 }
 
-func (p *UnversionedPersistence) GetStateSetIterator(ns driver2.Namespace, keys ...driver2.PKey) (collections.Iterator[*driver.UnversionedRead], error) {
-	return decodeUnversionedReadIterator(p.UnversionedPersistence.GetStateSetIterator(ns, keys...))
+func (db *UnversionedPersistence) upsertStatesWithTx(tx *sql.Tx, ns driver.Namespace, vals map[driver.PKey]driver.UnversionedValue) map[driver.PKey]error {
+
+	query := fmt.Sprintf("INSERT INTO %s (ns, pkey, val) "+
+		"VALUES %s "+
+		"ON CONFLICT (ns, pkey) DO UPDATE "+
+		"SET val=excluded.val",
+		db.table,
+		common.CreateParamsMatrix(3, len(vals), 1))
+
+	args := make([]any, 0, 3*len(vals))
+	for pkey, val := range vals {
+		args = append(args, ns, pkey, val)
+	}
+	logger.Debug(query, args)
+	if _, err := tx.Exec(query, args...); err != nil {
+		return collections.RepeatValue(collections.Keys(vals), errors2.Wrapf(db.errorWrapper.WrapError(err), "could not upsert"))
+	}
+	return nil
 }
 
-func NewUnversioned(opts common.Opts, table string) (*UnversionedPersistence, error) {
+func NewUnversionedPersistence(opts common.Opts, table string) (*UnversionedPersistence, error) {
 	readWriteDB, err := OpenDB(opts.DataSource, opts.MaxOpenConns, opts.MaxIdleConns, opts.MaxIdleTime)
 	if err != nil {
 		return nil, fmt.Errorf("error opening db: %w", err)
 	}
-	return newUnversioned(readWriteDB, table), nil
+	return newUnversionedPersistence(readWriteDB, table), nil
 }
 
 type unversionedPersistenceNotifier struct {
@@ -62,7 +111,7 @@ type unversionedPersistenceNotifier struct {
 }
 
 func (db *unversionedPersistenceNotifier) CreateSchema() error {
-	if err := db.UnversionedPersistence.CreateSchema(); err != nil {
+	if err := db.UnversionedPersistence.UnversionedPersistence.CreateSchema(); err != nil {
 		return err
 	}
 	return db.Notifier.CreateSchema()
@@ -74,21 +123,18 @@ func NewUnversionedNotifier(opts common.Opts, table string) (*unversionedPersist
 		return nil, fmt.Errorf("error opening db: %w", err)
 	}
 	return &unversionedPersistenceNotifier{
-		UnversionedPersistence: newUnversioned(readWriteDB, table),
+		UnversionedPersistence: newUnversionedPersistence(readWriteDB, table),
 		Notifier:               NewNotifier(readWriteDB, table, opts.DataSource, AllOperations, primaryKey{"ns", identity}, primaryKey{"pkey", decode}),
 	}, nil
 }
 
-func newUnversioned(readWriteDB *sql.DB, table string) *UnversionedPersistence {
+func newUnversionedPersistence(readWriteDB *sql.DB, table string) *UnversionedPersistence {
 	ci := NewInterpreter()
-	em := &errorMapper{}
-	base := &BasePersistence[driver.UnversionedValue, driver.UnversionedRead]{
-		BasePersistence: common.NewBasePersistence[driver.UnversionedValue, driver.UnversionedRead](readWriteDB, readWriteDB, table, common.NewUnversionedReadScanner(), common.NewUnversionedValueScanner(), em, ci, readWriteDB.Begin),
-		table:           table,
-		ci:              ci,
-		errorWrapper:    em,
-	}
+	errorWrapper := &errorMapper{}
 	return &UnversionedPersistence{
-		UnversionedPersistence: common.NewUnversionedPersistence(base, readWriteDB, table),
+		UnversionedPersistence: common.NewUnversionedPersistence(readWriteDB, readWriteDB, table, errorWrapper, ci),
+		table:                  table,
+		ci:                     ci,
+		errorWrapper:           errorWrapper,
 	}
 }

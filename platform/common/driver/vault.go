@@ -20,18 +20,24 @@ type (
 	RawVersion = []byte
 )
 
-type VersionedRead struct {
+type VaultRead struct {
 	Key     PKey
 	Raw     RawValue
 	Version RawVersion
 }
 
-type VersionedValue struct {
+type UnversionedRead struct {
+	Key PKey
+	Raw RawValue
+}
+type UnversionedValue = RawValue
+
+type VaultValue struct {
 	Raw     RawValue
 	Version RawVersion
 }
 
-type VersionedMetadataValue struct {
+type VaultMetadataValue struct {
 	Version  RawVersion
 	Metadata Metadata
 }
@@ -52,12 +58,12 @@ type TxStatus struct {
 }
 
 type TxStatusIterator = collections.Iterator[*TxStatus]
-type TxStateIterator = collections.Iterator[*VersionedRead]
+type TxStateIterator = collections.Iterator[*VaultRead]
 
-type VersionedResultsIterator = collections.Iterator[*VersionedRead]
+type VersionedResultsIterator = collections.Iterator[*VaultRead]
 
 type QueryExecutor interface {
-	GetState(ctx context.Context, namespace Namespace, key PKey) (*VersionedRead, error)
+	GetState(ctx context.Context, namespace Namespace, key PKey) (*VaultRead, error)
 	GetStateMetadata(ctx context.Context, namespace Namespace, key PKey) (Metadata, RawVersion, error)
 	GetStateRangeScanIterator(ctx context.Context, namespace Namespace, startKey PKey, endKey PKey) (VersionedResultsIterator, error)
 	Done()
@@ -100,9 +106,9 @@ type Vault[V comparable] interface {
 	CommitTX(ctx context.Context, txID TxID, block BlockNum, index TxNum) error
 }
 
-type MetaWrites map[Namespace]map[PKey]VersionedMetadataValue
+type MetaWrites map[Namespace]map[PKey]VaultMetadataValue
 
-type Writes map[Namespace]map[PKey]VersionedValue
+type Writes map[Namespace]map[PKey]VaultValue
 
 // VaultLock represents a lock over a transaction or the whole vault
 type VaultLock interface {
@@ -128,7 +134,7 @@ type VaultStore interface {
 	GetStateMetadata(ctx context.Context, namespace Namespace, key PKey) (Metadata, RawVersion, error)
 
 	// GetState returns the state for the given specific namespace - key pair
-	GetState(ctx context.Context, namespace Namespace, key PKey) (*VersionedRead, error)
+	GetState(ctx context.Context, namespace Namespace, key PKey) (*VaultRead, error)
 
 	// GetStates returns the states for the given specific namespace - key pairs
 	GetStates(ctx context.Context, namespace Namespace, keys ...PKey) (TxStateIterator, error)

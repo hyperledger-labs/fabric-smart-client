@@ -48,15 +48,6 @@ type TxStatusStore interface {
 
 type NewInterceptorFunc[V driver.ValidationCode] func(logger Logger, ctx context.Context, rwSet ReadWriteSet, qe VersionedQueryExecutor, vaultStore TxStatusStore, txid driver.TxID) TxInterceptor
 
-type (
-	VersionedPersistence     = dbdriver.VersionedPersistence
-	VersionedValue           = dbdriver.VersionedValue
-	VersionedMetadataValue   = dbdriver.VersionedMetadataValue
-	VersionedRead            = dbdriver.VersionedRead
-	VersionedResultsIterator = dbdriver.VersionedResultsIterator
-	QueryExecutor            = dbdriver.QueryExecutor
-)
-
 type txCommitIndex struct {
 	ctx         context.Context
 	txID        driver.TxID
@@ -118,7 +109,7 @@ func New[V driver.ValidationCode](
 	return v
 }
 
-func (db *Vault[V]) NewQueryExecutor(ctx context.Context) (QueryExecutor, error) {
+func (db *Vault[V]) NewQueryExecutor(ctx context.Context) (dbdriver.QueryExecutor, error) {
 	return newGlobalLockQueryExecutor(ctx, db.vaultStore)
 }
 

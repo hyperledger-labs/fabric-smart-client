@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault"
+	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
@@ -36,7 +37,7 @@ func (p *artifactsProvider) NewMarshaller() vault.Marshaller {
 }
 
 func TestMemory(t *testing.T) {
-	vault.RemoveNils = func(items []vault.VersionedRead) []vault.VersionedRead { return items }
+	vault.RemoveNils = func(items []driver2.VaultRead) []driver2.VaultRead { return items }
 	ap := &artifactsProvider{}
 	for _, c := range vault.SingleDBCases {
 		ddb, err := dbhelper.OpenMemoryVault()
@@ -61,8 +62,8 @@ func TestMemory(t *testing.T) {
 }
 
 func TestSqlite(t *testing.T) {
-	vault.RemoveNils = func(items []vault.VersionedRead) []vault.VersionedRead {
-		return slices.DeleteFunc(items, func(e vault.VersionedRead) bool { return e.Raw == nil })
+	vault.RemoveNils = func(items []driver2.VaultRead) []driver2.VaultRead {
+		return slices.DeleteFunc(items, func(e driver2.VaultRead) bool { return e.Raw == nil })
 	}
 	ap := &artifactsProvider{}
 	for _, c := range vault.SingleDBCases {
@@ -88,8 +89,8 @@ func TestSqlite(t *testing.T) {
 }
 
 func TestPostgres(t *testing.T) {
-	vault.RemoveNils = func(items []vault.VersionedRead) []vault.VersionedRead {
-		return slices.DeleteFunc(items, func(e vault.VersionedRead) bool { return e.Raw == nil })
+	vault.RemoveNils = func(items []driver2.VaultRead) []driver2.VaultRead {
+		return slices.DeleteFunc(items, func(e driver2.VaultRead) bool { return e.Raw == nil })
 	}
 	ap := &artifactsProvider{}
 	for _, c := range vault.SingleDBCases {

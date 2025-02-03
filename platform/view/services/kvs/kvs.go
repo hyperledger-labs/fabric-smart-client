@@ -13,10 +13,10 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/cache/secondcache"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/db"
 	"go.uber.org/zap/zapcore"
 )
 
@@ -57,7 +57,7 @@ type Iterator interface {
 
 type KVS struct {
 	namespace string
-	store     driver.TransactionalUnversionedPersistence
+	store     driver.UnversionedPersistence
 
 	putMutex sync.RWMutex
 	cache    cache
@@ -65,11 +65,10 @@ type KVS struct {
 
 // NewWithConfig returns a new KVS instance for the passed namespace using the passed driver and config provider
 func NewWithConfig(dbDriver driver.Driver, namespace string, cp ConfigProvider) (*KVS, error) {
-	d, err := dbDriver.NewKVS(namespace, storage.NewPrefixConfig(cp, persistenceOptsConfigKey))
+	persistence, err := dbDriver.NewKVS(namespace, storage.NewPrefixConfig(cp, persistenceOptsConfigKey))
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed opening datasource [%s]", namespace)
 	}
-	persistence := &db.TransactionalUnversionedPersistence{TransactionalUnversionedPersistence: d}
 
 	cacheSize, err := cacheSizeFromConfig(cp)
 	if err != nil {
@@ -175,6 +174,7 @@ func (o *KVS) Put(id string, state interface{}) error {
 			}
 			return false, errors.Wrapf(err, "committing value for id [%s] failed", id)
 		}
+		logger.Infof("committed tx for id [%s]", id)
 		return true, nil
 	}); err != nil {
 		return err
@@ -275,7 +275,7 @@ func (o *KVS) Stop() {
 }
 
 type it struct {
-	ri   driver.UnversionedResultsIterator
+	ri   collections.Iterator[*driver.UnversionedRead]
 	next *driver.UnversionedRead
 }
 
