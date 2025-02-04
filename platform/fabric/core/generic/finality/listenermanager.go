@@ -18,7 +18,6 @@ import (
 	"github.com/hyperledger/fabric-protos-go/common"
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
-	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -43,6 +42,10 @@ type ListenerManager[T TxInfo] interface {
 	RemoveFinalityListener(txID string, e ListenerEntry[T]) error
 }
 
+type QueryByIDService[T TxInfo] interface {
+	QueryByID(ids ...driver2.TxID) (<-chan []T, error)
+}
+
 type TxInfoCallback[T TxInfo] func(T) error
 
 type DeliveryListenerManagerConfig struct {
@@ -53,15 +56,21 @@ type DeliveryListenerManagerConfig struct {
 	LRUBuffer               int
 }
 
-func NewListenerManager[T TxInfo](config DeliveryListenerManagerConfig, delivery *fabric.Delivery, tracer trace.Tracer, mapper TxInfoMapper[T]) (*listenerManager[T], error) {
+func NewListenerManager[T TxInfo](
+	config DeliveryListenerManagerConfig,
+	delivery *fabric.Delivery,
+	queryService QueryByIDService[T],
+	tracer trace.Tracer,
+	mapper TxInfoMapper[T],
+) (*listenerManager[T], error) {
 	var listeners cache.Map[driver2.TxID, []ListenerEntry[T]]
 	if config.ListenerTimeout > 0 {
 		listeners = cache.NewTimeoutCache[driver2.TxID, []ListenerEntry[T]](config.ListenerTimeout, func(evicted map[driver2.TxID][]ListenerEntry[T]) {
 			if len(evicted) == 0 {
 				return
 			}
-			logger.Debugf("Listeners for TXs [%v] timed out. Either the TX finality is too slow or it reached finality too long ago and were evicted from the txInfos cache. The IDs will be queried directly from ledger (when the batch is cut)...", collections.Keys(evicted))
-			fetchTxs(evicted, mapper, delivery)
+			logger.Warnf("Listeners for TXs [%v] timed out. Either the TX finality is too slow or it reached finality too long ago and were evicted from the txInfos cache. The IDs will be queried directly from ledger (when the batch is cut)...", collections.Keys(evicted))
+			fetchTxs(evicted, queryService)
 		})
 	} else {
 		listeners = cache.NewMapCache[driver2.TxID, []ListenerEntry[T]]()
@@ -90,32 +99,22 @@ func NewListenerManager[T TxInfo](config DeliveryListenerManagerConfig, delivery
 	return flm, nil
 }
 
-func fetchTxs[T TxInfo](evicted map[driver2.TxID][]ListenerEntry[T], mapper TxInfoMapper[T], delivery *fabric.Delivery) {
+func fetchTxs[T TxInfo](evicted map[driver2.TxID][]ListenerEntry[T], queryService QueryByIDService[T]) {
 	go func() {
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("Launching routine to scan for txs [%v]", collections.Keys(evicted))
+		keys := collections.Keys(evicted)
+		logger.Debugf("Launching routine to scan for txs [%v]", keys)
+
+		ch, err := queryService.QueryByID(keys...)
+		if err != nil {
+			logger.Errorf("Failed scanning: %v", err)
+			return
 		}
-		err := delivery.Scan(context.TODO(), "", func(tx *fabric.ProcessedTransaction) (bool, error) {
-			listeners, ok := evicted[tx.TxID()]
-			if !ok {
-				return false, nil
-			}
-			logger.Debugf("Received result for tx [%s, %v, %d]...", tx.TxID(), tx.ValidationCode(), len(tx.Results()))
-			infos, err := mapper.MapProcessedTx(tx)
-			if err != nil {
-				logger.Errorf("failed mapping tx [%s]: %v", tx.TxID(), err)
-				return true, err
-			}
+		for infos := range ch {
 			for _, info := range infos {
-				for _, listener := range listeners {
+				for _, listener := range evicted[info.TxID()] {
 					go listener.OnStatus(context.TODO(), info)
 				}
 			}
-			delete(evicted, tx.TxID())
-			return len(evicted) == 0, nil
-		})
-		if err != nil {
-			logger.Errorf("Failed scanning: %v", err)
 		}
 	}()
 }
