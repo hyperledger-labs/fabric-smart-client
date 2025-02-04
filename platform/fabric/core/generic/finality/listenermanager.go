@@ -9,6 +9,7 @@ package finality
 import (
 	"context"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
@@ -44,7 +45,7 @@ type ListenerManager[T TxInfo] interface {
 }
 
 type QueryByIDService[T TxInfo] interface {
-	QueryByID(evicted map[driver2.TxID][]ListenerEntry[T]) (<-chan []T, error)
+	QueryByID(lastBlock driver2.BlockNum, evicted map[driver2.TxID][]ListenerEntry[T]) (<-chan []T, error)
 }
 
 type TxInfoCallback[T TxInfo] func(T) error
@@ -64,19 +65,6 @@ func NewListenerManager[T TxInfo](
 	tracer trace.Tracer,
 	mapper TxInfoMapper[T],
 ) (*listenerManager[T], error) {
-	var listeners cache.Map[driver2.TxID, []ListenerEntry[T]]
-	if config.ListenerTimeout > 0 {
-		listeners = cache.NewTimeoutCache[driver2.TxID, []ListenerEntry[T]](config.ListenerTimeout, func(evicted map[driver2.TxID][]ListenerEntry[T]) {
-			if len(evicted) == 0 {
-				return
-			}
-			logger.Warnf("Listeners for TXs [%v] timed out. Either the TX finality is too slow or it reached finality too long ago and were evicted from the txInfos cache. The IDs will be queried directly from ledger (when the batch is cut)...", collections.Keys(evicted))
-			fetchTxs(evicted, queryService)
-		})
-	} else {
-		listeners = cache.NewMapCache[driver2.TxID, []ListenerEntry[T]]()
-	}
-
 	var txInfos cache.Map[driver2.TxID, T]
 	if config.LRUSize > 0 && config.LRUBuffer > 0 {
 		txInfos = cache.NewLRUCache[driver2.TxID, T](10, 2, func(evicted map[driver2.TxID]T) {
@@ -88,21 +76,39 @@ func NewListenerManager[T TxInfo](
 	flm := &listenerManager[T]{
 		mapper:                     &parallelBlockMapper[T]{cap: max(config.MapperParallelism, 1), mapper: mapper},
 		tracer:                     tracer,
-		listeners:                  listeners,
 		txInfos:                    txInfos,
 		ignoreBlockErrors:          true,
 		blockProcessingParallelism: config.BlockProcessParallelism,
 		delivery:                   delivery,
 	}
+	var listeners cache.Map[driver2.TxID, []ListenerEntry[T]]
+	if config.ListenerTimeout > 0 {
+		listeners = cache.NewTimeoutCache[driver2.TxID, []ListenerEntry[T]](config.ListenerTimeout, func(evicted map[driver2.TxID][]ListenerEntry[T]) {
+			if len(evicted) == 0 {
+				return
+			}
+			lastBlockNum := flm.lastBlockNum.Load()
+			logger.Warnf(
+				"Listeners for TXs [%v] timed out. Last Block Num [%d]. Either the TX finality is too slow or it reached finality too long ago and were evicted from the txInfos cache. The IDs will be queried directly from ledger (when the batch is cut)...",
+				collections.Keys(evicted),
+				lastBlockNum,
+			)
+			fetchTxs(lastBlockNum, evicted, queryService)
+		})
+	} else {
+		listeners = cache.NewMapCache[driver2.TxID, []ListenerEntry[T]]()
+	}
+	flm.listeners = listeners
+
 	logger.Infof("Starting delivery service...")
 	go flm.start()
 
 	return flm, nil
 }
 
-func fetchTxs[T TxInfo](evicted map[driver2.TxID][]ListenerEntry[T], queryService QueryByIDService[T]) {
+func fetchTxs[T TxInfo](lastBlock driver2.BlockNum, evicted map[driver2.TxID][]ListenerEntry[T], queryService QueryByIDService[T]) {
 	go func() {
-		ch, err := queryService.QueryByID(evicted)
+		ch, err := queryService.QueryByID(lastBlock, evicted)
 		if err != nil {
 			logger.Errorf("Failed scanning: %v", err)
 			return
@@ -147,6 +153,7 @@ type listenerManager[T TxInfo] struct {
 	tracer trace.Tracer
 	mapper *parallelBlockMapper[T]
 
+	lastBlockNum               atomic.Uint64
 	mu                         sync.RWMutex
 	listeners                  cache.Map[driver2.TxID, []ListenerEntry[T]]
 	txInfos                    cache.Map[driver2.TxID, T]
@@ -168,6 +175,8 @@ func (m *listenerManager[T]) onBlock(ctx context.Context, block *common.Block) e
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
+	m.lastBlockNum.Store(block.Header.Number)
 
 	for _, txInfos := range txs {
 		for ns, info := range txInfos {

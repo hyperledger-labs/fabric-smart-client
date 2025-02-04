@@ -23,8 +23,9 @@ import (
 
 type ValidationFlags []uint8
 
-type lastTxGetter interface {
+type lastGetter interface {
 	GetLast(ctx context.Context) (*driver2.TxStatus, error)
+	GetLastBlock(context.Context) (uint64, error)
 }
 
 type Service struct {
@@ -54,7 +55,7 @@ func NewService(
 	peerManager Services,
 	ledger driver.Ledger,
 	waitForEventTimeout time.Duration,
-	vault lastTxGetter,
+	vault lastGetter,
 	transactionManager driver.TransactionManager,
 	callback driver.BlockCallback,
 	tracerProvider trace.TracerProvider,
@@ -107,7 +108,7 @@ func (c *Service) Stop() {
 	c.deliveryService.Stop(nil)
 }
 
-func (c *Service) scanBlock(ctx context.Context, vault lastTxGetter, callback driver.BlockCallback) error {
+func (c *Service) scanBlock(ctx context.Context, vault lastGetter, callback driver.BlockCallback) error {
 	deliveryService, err := New(
 		c.NetworkName,
 		c.channelConfig,
@@ -178,6 +179,50 @@ func (c *Service) Scan(ctx context.Context, txID string, callback driver.Deliver
 		})
 }
 
+func (c *Service) ScanFromBlock(ctx context.Context, block uint64, callback driver.DeliveryCallback) error {
+	vault := &fakeVault{block: block}
+	return c.scanBlock(ctx, vault,
+		func(_ context.Context, block *common.Block) (bool, error) {
+			for i, tx := range block.Data.Data {
+				validationCode := ValidationFlags(block.Metadata.Metadata[common.BlockMetadataIndex_TRANSACTIONS_FILTER])[i]
+
+				// if pb.TxValidationCode(validationCode) != pb.TxValidationCode_VALID {
+				//	continue
+				// }
+				_, _, channelHeader, err := fabricutils.UnmarshalTx(tx)
+				if err != nil {
+					logger.Errorf("[%s] unmarshal tx failed: %s", c.channel, err)
+					return false, err
+				}
+
+				if !c.acceptedHeaderTypes.Contains(common.HeaderType(channelHeader.Type)) {
+					continue
+				}
+				ptx, err := c.transactionManager.NewProcessedTransactionFromEnvelopeRaw(tx)
+				if err != nil {
+					return false, err
+				}
+
+				stop, err := callback(&processedTransaction{
+					txID:    ptx.TxID(),
+					results: ptx.Results(),
+					vc:      int32(validationCode),
+					env:     ptx.Envelope(),
+				})
+				if err != nil {
+					// if an error occurred, stop processing
+					return false, err
+				}
+				if stop {
+					return true, nil
+				}
+				vault.txID = channelHeader.TxId
+				logger.Debugf("commit transaction [%s] in block [%d]", channelHeader.TxId, block.Header.Number)
+			}
+			return false, nil
+		})
+}
+
 type processedTransaction struct {
 	txID    driver2.TxID
 	results []byte
@@ -206,9 +251,14 @@ func (p *processedTransaction) ValidationCode() int32 {
 }
 
 type fakeVault struct {
-	txID string
+	txID  string
+	block uint64
 }
 
 func (f *fakeVault) GetLast(context.Context) (*driver2.TxStatus, error) {
 	return &driver2.TxStatus{TxID: f.txID}, nil
+}
+
+func (f *fakeVault) GetLastBlock(context.Context) (uint64, error) {
+	return f.block, nil
 }
