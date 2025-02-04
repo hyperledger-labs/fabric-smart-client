@@ -9,8 +9,8 @@ package sqlite
 import (
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/dbtest"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -19,7 +19,7 @@ func BenchmarkReadExistingSqlite(b *testing.B) {
 	assert.NoError(b, err)
 	defer db.Close()
 
-	dbtest.ReadExisting(b, db)
+	common.ReadExisting(b, db)
 }
 
 func BenchmarkReadNonExistingSqlite(b *testing.B) {
@@ -27,7 +27,7 @@ func BenchmarkReadNonExistingSqlite(b *testing.B) {
 	assert.NoError(b, err)
 	defer db.Close()
 
-	dbtest.ReadNonExisting(b, db)
+	common.ReadNonExisting(b, db)
 }
 
 func BenchmarkWriteOneSqlite(b *testing.B) {
@@ -35,7 +35,7 @@ func BenchmarkWriteOneSqlite(b *testing.B) {
 	assert.NoError(b, err)
 	defer db.Close()
 
-	dbtest.WriteOne(b, db)
+	common.WriteOne(b, db)
 }
 
 func BenchmarkWriteManySqlite(b *testing.B) {
@@ -43,7 +43,7 @@ func BenchmarkWriteManySqlite(b *testing.B) {
 	assert.NoError(b, err)
 	defer db.Close()
 
-	dbtest.WriteMany(b, db)
+	common.WriteMany(b, db)
 }
 
 func newVersionedPersistence(dir string) (driver.UnversionedPersistence, error) {

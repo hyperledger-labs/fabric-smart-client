@@ -17,6 +17,8 @@ var (
 	UniqueKeyViolation = errors.New("unique key violation")
 	// DeadlockDetected happens when two transactions are taking place at the same time and interact with the same rows
 	DeadlockDetected = errors.New("deadlock detected")
+	// SqlBusy happens when two transactions are trying to write at the same time. Can be avoided by opening the database in exclusive mode
+	SqlBusy = errors.New("sql is busy")
 )
 
 type SQLError = error

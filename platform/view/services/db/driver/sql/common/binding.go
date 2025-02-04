@@ -15,7 +15,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-func NewBindingPersistence(writeDB *sql.DB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, ci Interpreter) *BindingPersistence {
+func NewBindingPersistence(readDB *sql.DB, writeDB WriteDB, table string, errorWrapper driver.SQLErrorWrapper, ci Interpreter) *BindingPersistence {
 	return &BindingPersistence{
 		table:        table,
 		errorWrapper: errorWrapper,
@@ -29,7 +29,7 @@ type BindingPersistence struct {
 	table        string
 	errorWrapper driver.SQLErrorWrapper
 	readDB       *sql.DB
-	writeDB      *sql.DB
+	writeDB      WriteDB
 	ci           Interpreter
 }
 

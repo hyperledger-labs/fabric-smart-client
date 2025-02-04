@@ -25,6 +25,12 @@ const (
 	DefaultMaxIdleTime  = time.Minute
 )
 
+type WriteDB interface {
+	Begin() (*sql.Tx, error)
+	Exec(query string, args ...any) (sql.Result, error)
+	Close() error
+}
+
 type Sanitizer interface {
 	Encode(string) (string, error)
 	Decode(string) (string, error)
@@ -99,7 +105,7 @@ func (c *TableNameCreator) MustGetTableName(name string) string {
 	return fmt.Sprintf("%s%s", c.prefix, name)
 }
 
-func InitSchema(db *sql.DB, schemas ...string) (err error) {
+func InitSchema(db WriteDB, schemas ...string) (err error) {
 	logger.Info("creating tables")
 	tx, err := db.Begin()
 	if err != nil {

@@ -12,7 +12,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 )
 
-func NewEndorseTxPersistence(writeDB *sql.DB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, ci Interpreter) *EndorseTxPersistence {
+func NewEndorseTxPersistence(writeDB WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, ci Interpreter) *EndorseTxPersistence {
 	return &EndorseTxPersistence{p: newSimpleKeyDataPersistence(writeDB, readDB, table, errorWrapper, ci)}
 }
 

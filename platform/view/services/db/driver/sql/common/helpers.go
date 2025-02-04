@@ -4,7 +4,7 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package dbtest
+package common
 
 import (
 	"database/sql"
@@ -59,12 +59,12 @@ var UnversionedNotifierCases = []struct {
 
 var ErrorCases = []struct {
 	Name string
-	Fn   func(t *testing.T, readDB *sql.DB, writeDB *sql.DB, errorWrapper driver.SQLErrorWrapper, table string)
+	Fn   func(t *testing.T, readDB *sql.DB, writeDB WriteDB, errorWrapper driver.SQLErrorWrapper, table string)
 }{
 	{"Duplicate", TTestDuplicate},
 }
 
-func TTestDuplicate(t *testing.T, _ *sql.DB, writeDB *sql.DB, errorWrapper driver.SQLErrorWrapper, table string) {
+func TTestDuplicate(t *testing.T, _ *sql.DB, writeDB WriteDB, errorWrapper driver.SQLErrorWrapper, table string) {
 	ns := "namespace"
 
 	tx, err := writeDB.Begin()
@@ -201,7 +201,7 @@ func TTestSimpleReadWrite(t *testing.T, db driver.UnversionedPersistence) {
 	assert.NoError(t, err)
 	assert.Equal(t, driver.UnversionedValue("val1"), vv)
 
-	// delete state
+	// deleteOp state
 	err = db.BeginUpdate()
 	assert.NoError(t, err)
 	err = db.DeleteState(ns, key)
@@ -857,24 +857,24 @@ func TTestUnversionedNotifierSimple(t *testing.T, db driver.UnversionedNotifier)
 
 	results, err := waitForResults(ch, 3, 1*time.Second)
 	assert.NoError(t, err)
-	assert.Equal(t, []notifyEvent{{upsert, "ns", "key"}, {upsert, "ns", "key"}, {delete, "ns", "key"}}, results)
+	assert.Equal(t, []notifyEvent{{upsertOp, "ns", "key"}, {upsertOp, "ns", "key"}, {deleteOp, "ns", "key"}}, results)
 }
 
 type opType int
 
 const (
-	unknown opType = iota
-	delete
-	upsert
+	unknownOp opType = iota
+	deleteOp
+	upsertOp
 )
 
 // We treat update/inserts as the same, because we don't need the operation type.
 // Distinguishing the two cases for sqlite would require more logic.
 var opTypeMap = map[driver.Operation]opType{
-	driver.Unknown: unknown,
-	driver.Update:  upsert,
-	driver.Insert:  upsert,
-	driver.Delete:  delete,
+	driver.Unknown: unknownOp,
+	driver.Update:  upsertOp,
+	driver.Insert:  upsertOp,
+	driver.Delete:  deleteOp,
 }
 
 type notifier interface {

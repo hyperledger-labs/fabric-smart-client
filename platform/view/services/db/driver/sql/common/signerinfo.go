@@ -15,7 +15,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-func NewSignerInfoPersistence(writeDB *sql.DB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, ci Interpreter) *SignerInfoPersistence {
+func NewSignerInfoPersistence(writeDB WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, ci Interpreter) *SignerInfoPersistence {
 	return &SignerInfoPersistence{
 		table:        table,
 		errorWrapper: errorWrapper,
@@ -29,7 +29,7 @@ type SignerInfoPersistence struct {
 	table        string
 	errorWrapper driver.SQLErrorWrapper
 	readDB       *sql.DB
-	writeDB      *sql.DB
+	writeDB      WriteDB
 	ci           Interpreter
 }
 
@@ -49,7 +49,7 @@ func (db *SignerInfoPersistence) FilterExistingSigners(ids ...view.Identity) ([]
 	if err != nil {
 		return nil, errors.Wrapf(err, "error querying db")
 	}
-	defer func() { _ = rows.Close() }()
+	defer rows.Close()
 
 	existingSigners := make([]view.Identity, 0)
 	for rows.Next() {
@@ -67,15 +67,16 @@ func (db *SignerInfoPersistence) PutSigner(id view.Identity) error {
 	query := fmt.Sprintf("INSERT INTO %s (id) VALUES ($1)", db.table)
 	logger.Debug(query, id)
 	_, err := db.writeDB.Exec(query, id.UniqueID())
-	if err != nil && errors.Is(db.errorWrapper.WrapError(err), driver.UniqueKeyViolation) {
+	if err == nil {
+		logger.Debugf("Signer [%s] registered", id)
+		return nil
+	}
+	if errors.Is(db.errorWrapper.WrapError(err), driver.UniqueKeyViolation) {
 		logger.Warnf("Signer [%s] already in db. Skipping...", id)
 		return nil
 	}
-	if err != nil {
-		return errors.Wrapf(err, "failed executing query [%s]", query)
-	}
-	logger.Debugf("Signer [%s] registered", id)
-	return nil
+
+	return errors.Wrapf(err, "failed executing query [%s]", query)
 }
 
 func (db *SignerInfoPersistence) CreateSchema() error {

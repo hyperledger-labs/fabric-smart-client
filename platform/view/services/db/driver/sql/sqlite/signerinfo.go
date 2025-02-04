@@ -22,9 +22,9 @@ func NewSignerInfoPersistence(opts common.Opts, table string) (*SignerInfoPersis
 	if err != nil {
 		return nil, fmt.Errorf("error opening db: %w", err)
 	}
-	return newSignerInfoPersistence(readDB, writeDB, table), nil
+	return newSignerInfoPersistence(readDB, newRetryWriteDB(writeDB), table), nil
 }
 
-func newSignerInfoPersistence(readDB, writeDB *sql.DB, table string) *SignerInfoPersistence {
-	return &SignerInfoPersistence{SignerInfoPersistence: common.NewSignerInfoPersistence(readDB, writeDB, table, &errorMapper{}, NewInterpreter())}
+func newSignerInfoPersistence(readDB *sql.DB, writeDB common.WriteDB, table string) *SignerInfoPersistence {
+	return &SignerInfoPersistence{SignerInfoPersistence: common.NewSignerInfoPersistence(writeDB, readDB, table, &errorMapper{}, NewInterpreter())}
 }

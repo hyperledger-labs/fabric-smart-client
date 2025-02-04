@@ -24,7 +24,7 @@ var logger = logging.MustGetLogger("view-sdk.db.driver.sql")
 
 type UnversionedPersistence struct {
 	*common.BaseDB[*sql.Tx]
-	writeDB *sql.DB
+	writeDB WriteDB
 	readDB  *sql.DB
 	table   string
 
@@ -32,7 +32,7 @@ type UnversionedPersistence struct {
 	ci           Interpreter
 }
 
-func NewUnversionedPersistence(writeDB *sql.DB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, ci Interpreter) *UnversionedPersistence {
+func NewUnversionedPersistence(writeDB WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, ci Interpreter) *UnversionedPersistence {
 	return &UnversionedPersistence{
 		BaseDB:       common.NewBaseDB(func() (*sql.Tx, error) { return writeDB.Begin() }),
 		readDB:       readDB,
@@ -142,7 +142,7 @@ func (db *UnversionedPersistence) DeleteStatesWithTx(tx *sql.Tx, namespace drive
 	if err != nil {
 		errs := make(map[driver2.PKey]error)
 		for _, key := range keys {
-			errs[key] = errors.Wrapf(db.errorWrapper.WrapError(err), "could not delete val for key [%s]", key)
+			errs[key] = errors.Wrapf(db.errorWrapper.WrapError(err), "could not deleteOp val for key [%s]", key)
 		}
 		return errs
 	}
@@ -170,7 +170,7 @@ func (db *UnversionedPersistence) SetStateWithTx(tx *sql.Tx, ns driver2.Namespac
 
 	val = append([]byte(nil), val...)
 
-	// Portable upsert
+	// Portable upsertOp
 	exists, err := db.exists(tx, ns, pkey)
 	if err != nil {
 		return err

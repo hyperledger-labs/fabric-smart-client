@@ -12,7 +12,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 )
 
-func NewEnvelopePersistence(writeDB *sql.DB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, ci Interpreter) *EnvelopePersistence {
+func NewEnvelopePersistence(writeDB WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, ci Interpreter) *EnvelopePersistence {
 	return &EnvelopePersistence{p: newSimpleKeyDataPersistence(writeDB, readDB, table, errorWrapper, ci)}
 }
 
