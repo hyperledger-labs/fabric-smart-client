@@ -15,21 +15,21 @@ import (
 )
 
 type DeliveryScanQueryByID[T TxInfo] struct {
-	delivery *fabric.Delivery
-	mapper   TxInfoMapper[T]
+	Delivery *fabric.Delivery
+	Mapper   TxInfoMapper[T]
 }
 
 func (q *DeliveryScanQueryByID[T]) QueryByID(txIDs ...driver.TxID) (<-chan []T, error) {
 	evicted := collections.NewSet(txIDs...)
 	ch := make(chan []T, len(txIDs))
 
-	err := q.delivery.Scan(context.TODO(), "", func(tx *fabric.ProcessedTransaction) (bool, error) {
+	err := q.Delivery.Scan(context.TODO(), "", func(tx *fabric.ProcessedTransaction) (bool, error) {
 		if !evicted.Contains(tx.TxID()) {
 			return false, nil
 		}
 
 		logger.Debugf("Received result for tx [%s, %v, %d]...", tx.TxID(), tx.ValidationCode(), len(tx.Results()))
-		infos, err := q.mapper.MapProcessedTx(tx)
+		infos, err := q.Mapper.MapProcessedTx(tx)
 		if err != nil {
 			logger.Errorf("failed mapping tx [%s]: %v", tx.TxID(), err)
 			return true, err
