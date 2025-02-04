@@ -10,6 +10,7 @@ import (
 	"context"
 
 	"github.com/hyperledger-labs/fabric-smart-client/docs/fabric/fabricdev/core/fabricdev/ledger"
+	driver3 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/chaincode"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
@@ -178,7 +179,7 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 		peerService,
 		ledgerService,
 		channelConfig.CommitterWaitForEventTimeout(),
-		vaultStore,
+		&fakeVault{vaultStore: vaultStore},
 		nw.TransactionManager(),
 		func(ctx context.Context, block *common.Block) (bool, error) {
 			// commit the block, if an error occurs then retry
@@ -214,4 +215,16 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 		return nil, errors.WithMessagef(err, "failed initializing Channel [%s]", channelName)
 	}
 	return c, nil
+}
+
+type fakeVault struct {
+	vaultStore driver3.VaultStore
+}
+
+func (f *fakeVault) GetLast(ctx context.Context) (*driver3.TxStatus, error) {
+	return f.vaultStore.GetLast(ctx)
+}
+
+func (f *fakeVault) GetLastBlock(context.Context) (uint64, error) {
+	return 0, errors.New("not implemented")
 }

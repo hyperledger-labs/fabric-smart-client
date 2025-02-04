@@ -38,3 +38,13 @@ func (d *Delivery) Scan(ctx context.Context, txID string, callback DeliveryCallb
 		})
 	})
 }
+
+// ScanFromBlock iterates over all transactions in block starting from the block with the passed number.
+// On each transaction, the callback function is invoked.
+func (d *Delivery) ScanFromBlock(ctx context.Context, block uint64, callback DeliveryCallback) error {
+	return d.delivery.ScanFromBlock(ctx, block, func(tx driver.ProcessedTransaction) (bool, error) {
+		return callback(&ProcessedTransaction{
+			pt: tx,
+		})
+	})
+}

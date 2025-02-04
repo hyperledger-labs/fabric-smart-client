@@ -19,7 +19,7 @@ type DeliveryScanQueryByID[T TxInfo] struct {
 	Mapper   TxInfoMapper[T]
 }
 
-func (q *DeliveryScanQueryByID[T]) QueryByID(evicted map[driver.TxID][]ListenerEntry[T]) (<-chan []T, error) {
+func (q *DeliveryScanQueryByID[T]) QueryByID(lastBlock driver.BlockNum, evicted map[driver.TxID][]ListenerEntry[T]) (<-chan []T, error) {
 	txIDs := collections.Keys(evicted)
 	logger.Debugf("Launching routine to scan for txs [%v]", txIDs)
 

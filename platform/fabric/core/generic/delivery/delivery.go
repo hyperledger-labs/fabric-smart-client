@@ -75,7 +75,7 @@ type Delivery struct {
 	Ledger              driver.Ledger
 	waitForEventTimeout time.Duration
 	callback            driver.BlockCallback
-	vault               lastTxGetter
+	vault               lastGetter
 	client              services.PeerClient
 	tracer              trace.Tracer
 	lastBlockReceived   uint64
@@ -96,7 +96,7 @@ func New(
 	PeerManager Services,
 	Ledger driver.Ledger,
 	callback driver.BlockCallback,
-	vault lastTxGetter,
+	vault lastGetter,
 	waitForEventTimeout time.Duration,
 	bufferSize int,
 	tracerProvider trace.TracerProvider,
@@ -369,6 +369,12 @@ func (d *Delivery) GetStartPosition(ctx context.Context) *ab.SeekPosition {
 		logger.Debugf("no last block received set [%d], check last TxID in the vault", d.lastBlockReceived)
 	}
 
+	lastBlock, err := d.vault.GetLastBlock(ctx)
+	if err == nil {
+		return SeekPosition(lastBlock)
+	}
+
+	logger.Debugf("failed to get last block [%s], try with last tx", err)
 	lastTx, err := d.vault.GetLast(ctx)
 	if err != nil {
 		logger.Errorf("failed getting last transaction committed/discarded from the vault [%s], restarting from genesis", err)
@@ -386,16 +392,20 @@ func (d *Delivery) GetStartPosition(ctx context.Context) *ab.SeekPosition {
 			logger.Debugf("restarting from block [%d], tx [%s]", blockNumber, lastTx)
 		}
 
-		return &ab.SeekPosition{
-			Type: &ab.SeekPosition_Specified{
-				Specified: &ab.SeekSpecified{
-					Number: blockNumber,
-				},
-			},
-		}
+		return SeekPosition(blockNumber)
 	}
 
 	return StartGenesis
+}
+
+func SeekPosition(blockNumber uint64) *ab.SeekPosition {
+	return &ab.SeekPosition{
+		Type: &ab.SeekPosition_Specified{
+			Specified: &ab.SeekSpecified{
+				Number: blockNumber,
+			},
+		},
+	}
 }
 
 func (d *Delivery) cleanup() {
