@@ -19,7 +19,7 @@ import (
 type BindingPersistence struct {
 	*common.BindingPersistence
 	table        string
-	writeDB      *sql.DB
+	writeDB      common.WriteDB
 	errorWrapper driver.SQLErrorWrapper
 }
 
@@ -28,10 +28,10 @@ func NewBindingPersistence(opts common.Opts, table string) (*BindingPersistence,
 	if err != nil {
 		return nil, fmt.Errorf("error opening db: %w", err)
 	}
-	return newBindingPersistence(readDB, writeDB, table), nil
+	return newBindingPersistence(readDB, newRetryWriteDB(writeDB), table), nil
 }
 
-func newBindingPersistence(readDB, writeDB *sql.DB, table string) *BindingPersistence {
+func newBindingPersistence(readDB *sql.DB, writeDB common.WriteDB, table string) *BindingPersistence {
 	errorWrapper := &errorMapper{}
 	return &BindingPersistence{
 		BindingPersistence: common.NewBindingPersistence(readDB, writeDB, table, errorWrapper, NewInterpreter()),

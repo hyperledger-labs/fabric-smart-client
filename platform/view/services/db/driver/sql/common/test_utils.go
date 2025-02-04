@@ -9,7 +9,6 @@ package common
 import (
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/dbtest"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	_ "modernc.org/sqlite"
 )
@@ -20,7 +19,7 @@ func TestCases(t *testing.T,
 	unversionedProvider provider[driver.UnversionedPersistence],
 	unversionedNotifierProvider provider[driver.UnversionedNotifier],
 	baseUnpacker func(p driver.UnversionedPersistence) *UnversionedPersistence) {
-	for _, c := range dbtest.UnversionedCases {
+	for _, c := range UnversionedCases {
 		un, err := unversionedProvider(c.Name)
 		if err != nil {
 			t.Fatal(err)
@@ -30,7 +29,7 @@ func TestCases(t *testing.T,
 			c.Fn(xt, un)
 		})
 	}
-	for _, c := range dbtest.ErrorCases {
+	for _, c := range ErrorCases {
 		un, err := unversionedProvider(c.Name)
 		if err != nil {
 			t.Fatal(err)
@@ -41,7 +40,7 @@ func TestCases(t *testing.T,
 			c.Fn(xt, b.readDB, b.writeDB, b.errorWrapper, b.table)
 		})
 	}
-	for _, c := range dbtest.UnversionedNotifierCases {
+	for _, c := range UnversionedNotifierCases {
 		un, err := unversionedNotifierProvider(c.Name)
 		if err != nil {
 			t.Fatal(err)

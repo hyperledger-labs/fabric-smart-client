@@ -15,7 +15,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-func NewAuditInfoPersistence(writeDB *sql.DB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, ci Interpreter) *AuditInfoPersistence {
+func NewAuditInfoPersistence(writeDB WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, ci Interpreter) *AuditInfoPersistence {
 	return &AuditInfoPersistence{
 		table:        table,
 		errorWrapper: errorWrapper,
@@ -29,7 +29,7 @@ type AuditInfoPersistence struct {
 	table        string
 	errorWrapper driver.SQLErrorWrapper
 	readDB       *sql.DB
-	writeDB      *sql.DB
+	writeDB      WriteDB
 	ci           Interpreter
 }
 

@@ -36,7 +36,7 @@ func NewUnversionedNotifier(opts common.Opts, table string) (*notifier.Unversion
 	return notifier.NewUnversioned(newUnversioned(readDB, writeDB, table)), nil
 }
 
-func newUnversioned(readDB, writeDB *sql.DB, table string) *UnversionedPersistence {
+func newUnversioned(readDB *sql.DB, writeDB common.WriteDB, table string) *UnversionedPersistence {
 	var wrapper driver.SQLErrorWrapper = &errorMapper{}
 	return &UnversionedPersistence{
 		UnversionedPersistence: common.NewUnversionedPersistence(writeDB, readDB, table, wrapper, NewInterpreter()),

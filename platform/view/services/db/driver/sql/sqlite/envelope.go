@@ -22,9 +22,9 @@ func NewEnvelopePersistence(opts common.Opts, table string) (*EnvelopePersistenc
 	if err != nil {
 		return nil, fmt.Errorf("error opening db: %w", err)
 	}
-	return newEnvelopePersistence(readDB, writeDB, table), nil
+	return newEnvelopePersistence(readDB, newRetryWriteDB(writeDB), table), nil
 }
 
-func newEnvelopePersistence(readDB, writeDB *sql.DB, table string) *EnvelopePersistence {
-	return &EnvelopePersistence{EnvelopePersistence: common.NewEnvelopePersistence(readDB, writeDB, table, &errorMapper{}, NewInterpreter())}
+func newEnvelopePersistence(readDB *sql.DB, writeDB common.WriteDB, table string) *EnvelopePersistence {
+	return &EnvelopePersistence{EnvelopePersistence: common.NewEnvelopePersistence(writeDB, readDB, table, &errorMapper{}, NewInterpreter())}
 }

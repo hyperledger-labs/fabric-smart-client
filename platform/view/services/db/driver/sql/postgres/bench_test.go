@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/dbtest"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
 )
 
 func BenchmarkReadExistingPostgres(b *testing.B) {
@@ -25,7 +25,7 @@ func BenchmarkReadExistingPostgres(b *testing.B) {
 	}
 	defer db.Close()
 
-	dbtest.ReadExisting(b, db)
+	common.ReadExisting(b, db)
 }
 
 func BenchmarkReadNonExistingPostgres(b *testing.B) {
@@ -40,7 +40,7 @@ func BenchmarkReadNonExistingPostgres(b *testing.B) {
 	}
 	defer db.Close()
 
-	dbtest.ReadNonExisting(b, db)
+	common.ReadNonExisting(b, db)
 }
 
 func BenchmarkWriteOnePostgres(b *testing.B) {
@@ -55,7 +55,7 @@ func BenchmarkWriteOnePostgres(b *testing.B) {
 	}
 	defer db.Close()
 
-	dbtest.WriteOne(b, db)
+	common.WriteOne(b, db)
 }
 
 func BenchmarkWriteManyPostgres(b *testing.B) {
@@ -70,7 +70,7 @@ func BenchmarkWriteManyPostgres(b *testing.B) {
 	}
 	defer db.Close()
 
-	dbtest.WriteMany(b, db)
+	common.WriteMany(b, db)
 }
 
 func BenchmarkWriteManyPostgresWithIdle(b *testing.B) {
@@ -85,5 +85,5 @@ func BenchmarkWriteManyPostgresWithIdle(b *testing.B) {
 	}
 	defer db.Close()
 
-	dbtest.WriteParallel(b, db)
+	common.WriteParallel(b, db)
 }

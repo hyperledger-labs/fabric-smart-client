@@ -14,7 +14,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-func newSimpleKeyDataPersistence(writeDB *sql.DB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, ci Interpreter) *simpleKeyDataPersistence {
+func newSimpleKeyDataPersistence(writeDB WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, ci Interpreter) *simpleKeyDataPersistence {
 	return &simpleKeyDataPersistence{
 		table:        table,
 		errorWrapper: errorWrapper,
@@ -28,7 +28,7 @@ type simpleKeyDataPersistence struct {
 	table        string
 	errorWrapper driver.SQLErrorWrapper
 	readDB       *sql.DB
-	writeDB      *sql.DB
+	writeDB      WriteDB
 	ci           Interpreter
 }
 

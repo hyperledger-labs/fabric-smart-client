@@ -28,7 +28,7 @@ type VaultTables struct {
 
 type stateRow = [5]any
 
-func NewVaultPersistence(writeDB *sql.DB, readDB *sql.DB, tables VaultTables, errorWrapper driver2.SQLErrorWrapper, ci Interpreter, sanitizer Sanitizer) *VaultPersistence {
+func NewVaultPersistence(writeDB WriteDB, readDB *sql.DB, tables VaultTables, errorWrapper driver2.SQLErrorWrapper, ci Interpreter, sanitizer Sanitizer) *VaultPersistence {
 	return &VaultPersistence{
 		tables:       tables,
 		errorWrapper: errorWrapper,
@@ -44,7 +44,7 @@ type VaultPersistence struct {
 	tables       VaultTables
 	errorWrapper driver2.SQLErrorWrapper
 	readDB       *sql.DB
-	writeDB      *sql.DB
+	writeDB      WriteDB
 	ci           Interpreter
 	lockManager  *vaultLockManager
 	sanitizer    *sanitizer

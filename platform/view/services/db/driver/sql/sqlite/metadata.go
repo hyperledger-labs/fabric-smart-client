@@ -22,9 +22,9 @@ func NewMetadataPersistence(opts common.Opts, table string) (*MetadataPersistenc
 	if err != nil {
 		return nil, fmt.Errorf("error opening db: %w", err)
 	}
-	return newMetadataPersistence(readDB, writeDB, table), nil
+	return newMetadataPersistence(readDB, newRetryWriteDB(writeDB), table), nil
 }
 
-func newMetadataPersistence(readDB, writeDB *sql.DB, table string) *MetadataPersistence {
-	return &MetadataPersistence{MetadataPersistence: common.NewMetadataPersistence(readDB, writeDB, table, &errorMapper{}, NewInterpreter())}
+func newMetadataPersistence(readDB *sql.DB, writeDB common.WriteDB, table string) *MetadataPersistence {
+	return &MetadataPersistence{MetadataPersistence: common.NewMetadataPersistence(writeDB, readDB, table, &errorMapper{}, NewInterpreter())}
 }

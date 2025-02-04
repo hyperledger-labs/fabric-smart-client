@@ -23,7 +23,7 @@ type VaultPersistence struct {
 	*common.VaultPersistence
 
 	tables  common.VaultTables
-	writeDB *sql.DB
+	writeDB common.WriteDB
 
 	ci common.Interpreter
 }
@@ -33,16 +33,16 @@ func NewVaultPersistence(opts common.Opts, tablePrefix string) (*VaultPersistenc
 	if err != nil {
 		return nil, fmt.Errorf("error opening db: %w", err)
 	}
-	return newTxCodePersistence(readDB, writeDB, common.VaultTables{
+	return newTxCodePersistence(readDB, newRetryWriteDB(writeDB), common.VaultTables{
 		StateTable:  fmt.Sprintf("%s_state", tablePrefix),
 		StatusTable: fmt.Sprintf("%s_status", tablePrefix),
 	}), nil
 }
 
-func newTxCodePersistence(readDB, writeDB *sql.DB, tables common.VaultTables) *VaultPersistence {
+func newTxCodePersistence(readDB *sql.DB, writeDB common.WriteDB, tables common.VaultTables) *VaultPersistence {
 	ci := NewInterpreter()
 	return &VaultPersistence{
-		VaultPersistence: common.NewVaultPersistence(readDB, writeDB, tables, &errorMapper{}, ci, newSanitizer()),
+		VaultPersistence: common.NewVaultPersistence(writeDB, readDB, tables, &errorMapper{}, ci, newSanitizer()),
 		tables:           tables,
 		writeDB:          writeDB,
 		ci:               ci,
