@@ -44,7 +44,7 @@ type ListenerManager[T TxInfo] interface {
 }
 
 type QueryByIDService[T TxInfo] interface {
-	QueryByID(ids ...driver2.TxID) (<-chan []T, error)
+	QueryByID(evicted map[driver2.TxID][]ListenerEntry[T]) (<-chan []T, error)
 }
 
 type TxInfoCallback[T TxInfo] func(T) error
@@ -102,10 +102,7 @@ func NewListenerManager[T TxInfo](
 
 func fetchTxs[T TxInfo](evicted map[driver2.TxID][]ListenerEntry[T], queryService QueryByIDService[T]) {
 	go func() {
-		keys := collections.Keys(evicted)
-		logger.Debugf("Launching routine to scan for txs [%v]", keys)
-
-		ch, err := queryService.QueryByID(keys...)
+		ch, err := queryService.QueryByID(evicted)
 		if err != nil {
 			logger.Errorf("Failed scanning: %v", err)
 			return
