@@ -43,7 +43,10 @@ func (e *deliveryListenerEntry) Equals(other ListenerEntry[txInfo]) bool {
 }
 
 func NewDeliveryFLM(config DeliveryListenerManagerConfig, network string, ch *fabric.Channel) (*deliveryListenerManager, error) {
-	flm, err := NewListenerManager[txInfo](config, ch.Delivery(), &noop.Tracer{}, &txInfoMapper{network: network})
+	mapper := &txInfoMapper{network: network}
+	delivery := ch.Delivery()
+	queryService := &deliveryQueryByID[txInfo]{delivery: delivery, mapper: mapper}
+	flm, err := NewListenerManager[txInfo](config, delivery, queryService, &noop.Tracer{}, mapper)
 	if err != nil {
 		return nil, err
 	}
