@@ -14,12 +14,12 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 )
 
-type deliveryQueryByID[T TxInfo] struct {
+type DeliveryScanQueryByID[T TxInfo] struct {
 	delivery *fabric.Delivery
 	mapper   TxInfoMapper[T]
 }
 
-func (q *deliveryQueryByID[T]) QueryByID(txIDs ...driver.TxID) (<-chan []T, error) {
+func (q *DeliveryScanQueryByID[T]) QueryByID(txIDs ...driver.TxID) (<-chan []T, error) {
 	evicted := collections.NewSet(txIDs...)
 	ch := make(chan []T, len(txIDs))
 
