@@ -34,6 +34,10 @@ type deliveryListenerEntry struct {
 	l fabric.FinalityListener
 }
 
+func (e *deliveryListenerEntry) Namespace() driver2.Namespace {
+	return ""
+}
+
 func (e *deliveryListenerEntry) OnStatus(ctx context.Context, info txInfo) {
 	e.l.OnStatus(ctx, info.txID, info.status, info.message)
 }

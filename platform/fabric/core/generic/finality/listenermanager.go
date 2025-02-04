@@ -31,6 +31,7 @@ type TxInfoMapper[T TxInfo] interface {
 }
 
 type ListenerEntry[T TxInfo] interface {
+	Namespace() driver2.Namespace
 	// OnStatus is the callback for the transaction
 	OnStatus(ctx context.Context, info T)
 	// Equals compares a listener entry for the delition
