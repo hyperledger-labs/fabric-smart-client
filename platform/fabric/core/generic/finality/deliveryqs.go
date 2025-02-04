@@ -19,12 +19,15 @@ type DeliveryScanQueryByID[T TxInfo] struct {
 	Mapper   TxInfoMapper[T]
 }
 
-func (q *DeliveryScanQueryByID[T]) QueryByID(txIDs ...driver.TxID) (<-chan []T, error) {
-	evicted := collections.NewSet(txIDs...)
+func (q *DeliveryScanQueryByID[T]) QueryByID(evicted map[driver.TxID][]ListenerEntry[T]) (<-chan []T, error) {
+	txIDs := collections.Keys(evicted)
+	logger.Debugf("Launching routine to scan for txs [%v]", txIDs)
+
+	results := collections.NewSet(txIDs...)
 	ch := make(chan []T, len(txIDs))
 
 	err := q.Delivery.Scan(context.TODO(), "", func(tx *fabric.ProcessedTransaction) (bool, error) {
-		if !evicted.Contains(tx.TxID()) {
+		if !results.Contains(tx.TxID()) {
 			return false, nil
 		}
 
@@ -35,9 +38,9 @@ func (q *DeliveryScanQueryByID[T]) QueryByID(txIDs ...driver.TxID) (<-chan []T, 
 			return true, err
 		}
 		ch <- infos
-		evicted.Remove(tx.TxID())
+		results.Remove(tx.TxID())
 
-		return evicted.Length() == 0, nil
+		return results.Length() == 0, nil
 	})
 	if err != nil {
 		logger.Errorf("Failed scanning: %v", err)
