@@ -114,9 +114,9 @@ func fetchTxs[T TxInfo](lastBlock driver2.BlockNum, evicted map[driver2.TxID][]L
 			return
 		}
 		for infos := range ch {
-			logger.Debugf("Received [%d] tx infos: %v", len(infos))
+			logger.Debugf("received [%d] tx infos", len(infos))
 			for _, info := range infos {
-				logger.Debugf("evicted tx [%s] notify [%d] listeners", len(evicted[info.TxID()]))
+				logger.Debugf("evicted tx [%s], notify [%d] listeners", info.TxID(), len(evicted[info.TxID()]))
 				for i, listener := range evicted[info.TxID()] {
 					logger.Debugf("calling listener [%d], tx [%s]", i, info.TxID())
 					go listener.OnStatus(context.TODO(), info)
