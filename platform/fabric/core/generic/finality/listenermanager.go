@@ -46,7 +46,7 @@ type ListenerManager[T TxInfo] interface {
 }
 
 type QueryByIDService[T TxInfo] interface {
-	QueryByID(ctx context.Context, lastBlock driver2.BlockNum, evicted map[driver2.TxID][]ListenerEntry[T]) (<-chan []T, error)
+	QueryByID(ctx context.Context, startingBlock driver2.BlockNum, evicted map[driver2.TxID][]ListenerEntry[T]) (<-chan []T, error)
 }
 
 type TxInfoCallback[T TxInfo] func(T) error
