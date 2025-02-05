@@ -18,11 +18,11 @@ type EnvelopePersistence struct {
 }
 
 func NewEnvelopePersistence(opts common.Opts, table string) (*EnvelopePersistence, error) {
-	readDB, writeDB, err := openDB(opts.DataSource, opts.MaxOpenConns, opts.MaxIdleConns, opts.MaxIdleTime, opts.SkipPragmas)
+	readDB, writeDB, err := OpenRWDBs(opts.DataSource, opts.MaxOpenConns, opts.MaxIdleConns, opts.MaxIdleTime, opts.SkipPragmas)
 	if err != nil {
 		return nil, fmt.Errorf("error opening db: %w", err)
 	}
-	return newEnvelopePersistence(readDB, newRetryWriteDB(writeDB), table), nil
+	return newEnvelopePersistence(readDB, NewRetryWriteDB(writeDB), table), nil
 }
 
 func newEnvelopePersistence(readDB *sql.DB, writeDB common.WriteDB, table string) *EnvelopePersistence {

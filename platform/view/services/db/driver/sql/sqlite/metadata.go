@@ -18,11 +18,11 @@ type MetadataPersistence struct {
 }
 
 func NewMetadataPersistence(opts common.Opts, table string) (*MetadataPersistence, error) {
-	readDB, writeDB, err := openDB(opts.DataSource, opts.MaxOpenConns, opts.MaxIdleConns, opts.MaxIdleTime, opts.SkipPragmas)
+	readDB, writeDB, err := OpenRWDBs(opts.DataSource, opts.MaxOpenConns, opts.MaxIdleConns, opts.MaxIdleTime, opts.SkipPragmas)
 	if err != nil {
 		return nil, fmt.Errorf("error opening db: %w", err)
 	}
-	return newMetadataPersistence(readDB, newRetryWriteDB(writeDB), table), nil
+	return newMetadataPersistence(readDB, NewRetryWriteDB(writeDB), table), nil
 }
 
 func newMetadataPersistence(readDB *sql.DB, writeDB common.WriteDB, table string) *MetadataPersistence {

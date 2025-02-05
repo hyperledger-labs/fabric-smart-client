@@ -14,17 +14,17 @@ import (
 	"github.com/pkg/errors"
 )
 
-func newRetryWriteDB(db *sql.DB) *retryWriteDB {
-	return &retryWriteDB{
-		DB:           db,
-		errorWrapper: &errorMapper{},
-	}
-}
-
 type retryWriteDB struct {
 	*sql.DB
 
 	errorWrapper driver.SQLErrorWrapper
+}
+
+func NewRetryWriteDB(db *sql.DB) *retryWriteDB {
+	return &retryWriteDB{
+		DB:           db,
+		errorWrapper: &errorMapper{},
+	}
 }
 
 func (db *retryWriteDB) Exec(query string, args ...any) (sql.Result, error) {
