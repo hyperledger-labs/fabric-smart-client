@@ -120,7 +120,3 @@ func (db *UnversionedPersistenceNotifier) Subscribe(callback driver.TriggerCallb
 func (db *UnversionedPersistenceNotifier) UnsubscribeAll() error {
 	return db.Notifier.UnsubscribeAll()
 }
-func (db *UnversionedPersistenceNotifier) NewWriteTransaction() (driver.UnversionedWriteTransaction, error) {
-	// TODO: Fix notifier
-	return db.Persistence.NewWriteTransaction()
-}

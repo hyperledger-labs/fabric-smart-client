@@ -77,8 +77,6 @@ type UnversionedPersistence interface {
 	Discard() error
 	// Stats returns driver specific statistics of the datastore
 	Stats() any
-
-	NewWriteTransaction() (UnversionedWriteTransaction, error)
 }
 
 // VersionedPersistence models a versioned key-value storage place

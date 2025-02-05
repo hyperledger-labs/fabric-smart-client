@@ -158,11 +158,7 @@ func TTestSimpleReadWrite(t *testing.T, db driver.UnversionedPersistence) {
 	assert.Equal(t, driver.UnversionedValue{}, vv)
 
 	// add data
-	err = db.BeginUpdate()
-	assert.NoError(t, err)
 	err = db.SetState(ns, key, driver.UnversionedValue("val"))
-	assert.NoError(t, err)
-	err = db.Commit()
 	assert.NoError(t, err)
 
 	// get data
@@ -202,11 +198,7 @@ func TTestSimpleReadWrite(t *testing.T, db driver.UnversionedPersistence) {
 	assert.Equal(t, driver.UnversionedValue("val1"), vv)
 
 	// deleteOp state
-	err = db.BeginUpdate()
-	assert.NoError(t, err)
 	err = db.DeleteState(ns, key)
-	assert.NoError(t, err)
-	err = db.Commit()
 	assert.NoError(t, err)
 
 	// expect state to be empty
@@ -367,19 +359,19 @@ func TTestMultiWritesAndRangeQueries(t *testing.T, db driver.UnversionedPersiste
 	var wg sync.WaitGroup
 	wg.Add(4)
 	go func() {
-		write(t, db, ns, "k2", []byte("k2_value"))
+		assert.NoError(t, db.SetState(ns, key, []byte("k2_value")))
 		wg.Done()
 	}()
 	go func() {
-		write(t, db, ns, "k3", []byte("k3_value"))
+		assert.NoError(t, db.SetState(ns, key, []byte("k3_value")))
 		wg.Done()
 	}()
 	go func() {
-		write(t, db, ns, "k1", []byte("k1_value"))
+		assert.NoError(t, db.SetState(ns, key, []byte("k1_value")))
 		wg.Done()
 	}()
 	go func() {
-		write(t, db, ns, "k111", []byte("k111_value"))
+		assert.NoError(t, db.SetState(ns, key, []byte("k111_value")))
 		wg.Done()
 	}()
 	wg.Wait()
@@ -439,20 +431,11 @@ func TTestMultiWrites(t *testing.T, db driver.UnversionedPersistence) {
 	wg.Add(n)
 	for i := 0; i < n; i++ {
 		go func(i int) {
-			write(t, db, ns, fmt.Sprintf("TTestMultiWrites_key_%d", i), []byte(fmt.Sprintf("TTestMultiWrites_value_%d", i)))
+			assert.NoError(t, db.SetState(ns, key, []byte(fmt.Sprintf("TTestMultiWrites_value_%d", i))))
 			wg.Done()
 		}(i)
 	}
 	wg.Wait()
-}
-
-func write(t *testing.T, db driver.UnversionedPersistence, ns, key string, value []byte) {
-	tx, err := db.NewWriteTransaction()
-	assert.NoError(t, err)
-	err = tx.SetState(ns, key, value)
-	assert.NoError(t, err)
-	err = tx.Commit()
-	assert.NoError(t, err)
 }
 
 const (
