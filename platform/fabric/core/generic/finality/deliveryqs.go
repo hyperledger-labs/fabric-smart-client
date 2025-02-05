@@ -19,19 +19,19 @@ type DeliveryScanQueryByID[T TxInfo] struct {
 	Mapper   TxInfoMapper[T]
 }
 
-func (q *DeliveryScanQueryByID[T]) QueryByID(lastBlock driver.BlockNum, evicted map[driver.TxID][]ListenerEntry[T]) (<-chan []T, error) {
+func (q *DeliveryScanQueryByID[T]) QueryByID(ctx context.Context, lastBlock driver.BlockNum, evicted map[driver.TxID][]ListenerEntry[T]) (<-chan []T, error) {
 	txIDs := collections.Keys(evicted)
 	results := collections.NewSet(txIDs...)
 	ch := make(chan []T, len(txIDs))
-	go q.queryByID(results, ch, lastBlock)
+	go q.queryByID(ctx, results, ch, lastBlock)
 	return ch, nil
 }
 
-func (q *DeliveryScanQueryByID[T]) queryByID(results collections.Set[string], ch chan []T, lastBlock uint64) {
+func (q *DeliveryScanQueryByID[T]) queryByID(ctx context.Context, results collections.Set[string], ch chan []T, lastBlock uint64) {
 	defer close(ch)
 
 	startingBlock := MaxUint64(1, lastBlock-10)
-	err := q.Delivery.ScanFromBlock(context.TODO(), startingBlock, func(tx *fabric.ProcessedTransaction) (bool, error) {
+	err := q.Delivery.ScanFromBlock(ctx, startingBlock, func(tx *fabric.ProcessedTransaction) (bool, error) {
 		if !results.Contains(tx.TxID()) {
 			return false, nil
 		}
