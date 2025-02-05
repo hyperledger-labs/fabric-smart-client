@@ -22,6 +22,10 @@ import (
 
 var logger = logging.MustGetLogger("view-sdk.db.driver.sql")
 
+type dbTransaction interface {
+	Exec(query string, args ...any) (sql.Result, error)
+}
+
 type UnversionedPersistence struct {
 	*common.BaseDB[*sql.Tx]
 	writeDB WriteDB
@@ -67,20 +71,6 @@ func (db *UnversionedPersistence) GetState(namespace driver2.Namespace, key driv
 	return QueryUnique[driver.UnversionedValue](db.readDB, query, args...)
 }
 
-func (db *UnversionedPersistence) SetState(ns driver2.Namespace, pkey driver2.PKey, value driver.UnversionedValue) error {
-	return db.SetStateWithTx(db.Txn, ns, pkey, value)
-}
-
-func (db *UnversionedPersistence) SetStates(ns driver2.Namespace, kvs map[driver2.PKey]driver.UnversionedValue) map[driver2.PKey]error {
-	errs := make(map[driver2.PKey]error)
-	for pkey, value := range kvs {
-		if err := db.SetState(ns, pkey, value); err != nil {
-			errs[pkey] = err
-		}
-	}
-	return errs
-}
-
 func (db *UnversionedPersistence) GetStateSetIterator(ns driver2.Namespace, keys ...driver2.PKey) (collections.Iterator[*driver.UnversionedRead], error) {
 	if len(keys) == 0 {
 		return collections.NewEmptyIterator[*driver.UnversionedRead](), nil
@@ -117,7 +107,7 @@ func (db *UnversionedPersistence) DeleteState(ns driver2.Namespace, key driver2.
 	return db.DeleteStateWithTx(db.Txn, ns, key)
 }
 
-func (db *UnversionedPersistence) DeleteStateWithTx(tx *sql.Tx, ns driver2.Namespace, key driver2.PKey) error {
+func (db *UnversionedPersistence) DeleteStateWithTx(tx dbTransaction, ns driver2.Namespace, key driver2.PKey) error {
 	if errs := db.DeleteStatesWithTx(tx, ns, key); errs != nil {
 		return errs[key]
 	}
@@ -128,11 +118,13 @@ func (db *UnversionedPersistence) DeleteStates(namespace driver2.Namespace, keys
 	return db.DeleteStatesWithTx(db.Txn, namespace, keys...)
 }
 
-func (db *UnversionedPersistence) DeleteStatesWithTx(tx *sql.Tx, namespace driver2.Namespace, keys ...driver2.PKey) map[driver2.PKey]error {
-	if tx == nil {
-		panic("programming error, writing without ongoing update")
+func (db *UnversionedPersistence) DeleteStatesWithTx(tx dbTransaction, namespace driver2.Namespace, keys ...driver2.PKey) map[driver2.PKey]error {
+	if db.IsTxnNil() {
+		logger.Debugf("No ongoing transaction. Using db")
+		tx = db.writeDB
 	}
-	if namespace == "" {
+
+	if len(namespace) == 0 {
 		return collections.RepeatValue(keys, errors.New("ns or key is empty"))
 	}
 	where, args := Where(db.hasKeys(namespace, keys))
@@ -157,74 +149,72 @@ func (db *UnversionedPersistence) hasKeys(ns driver2.Namespace, pkeys []driver2.
 	)
 }
 
-func (db *UnversionedPersistence) SetStateWithTx(tx *sql.Tx, ns driver2.Namespace, pkey driver2.PKey, val driver.UnversionedValue) error {
-	if tx == nil {
-		panic("programming error, writing without ongoing update")
+func (db *UnversionedPersistence) SetState(ns driver2.Namespace, pkey driver2.PKey, value driver.UnversionedValue) error {
+	return db.SetStateWithTx(db.Txn, ns, pkey, value)
+}
+
+func (db *UnversionedPersistence) SetStates(ns driver2.Namespace, kvs map[driver2.PKey]driver.UnversionedValue) map[driver2.PKey]error {
+	return db.SetStatesWithTx(db.Txn, ns, kvs)
+}
+
+func (db *UnversionedPersistence) SetStateWithTx(tx dbTransaction, ns driver2.Namespace, pkey driver2.PKey, value driver.UnversionedValue) error {
+	if errs := db.SetStatesWithTx(tx, ns, map[driver2.PKey]driver.UnversionedValue{pkey: value}); errs != nil {
+		return errs[pkey]
 	}
-	if len(val) == 0 {
-		logger.Debugf("set key [%s:%s] to nil value, will be deleted instead", ns, pkey)
-		return db.DeleteState(ns, pkey)
+	return nil
+}
+
+func (db *UnversionedPersistence) SetStatesWithTx(tx dbTransaction, ns driver2.Namespace, kvs map[driver2.PKey]driver.UnversionedValue) map[driver2.PKey]error {
+	if db.IsTxnNil() {
+		logger.Info("No ongoing transaction. Using db")
+		tx = db.writeDB
 	}
 
-	logger.Debugf("set state [%s,%s]", ns, pkey)
-
-	val = append([]byte(nil), val...)
-
-	// Portable upsertOp
-	exists, err := db.exists(tx, ns, pkey)
-	if err != nil {
-		return err
-	}
-
-	if exists {
-
-		cond := db.hasKey(ns, pkey)
-		where, args := cond.ToString(CopyPtr(2)), cond.Params()
-		query := fmt.Sprintf("UPDATE %s SET val=$1 WHERE %s", db.table, where)
-		logger.Debug(query, val, args)
-
-		_, err := tx.Exec(query, append([]any{val}, args...)...)
-		if err != nil {
-			return errors2.Wrapf(db.errorWrapper.WrapError(err), "could not set val for key [%s]", pkey)
-		}
-	} else {
-		query := fmt.Sprintf("INSERT INTO %s (ns, pkey, val) VALUES %s", db.table, GenerateParamSet(1, 1, 3))
-		logger.Debug(query, ns, pkey, len(val))
-
-		_, err := tx.Exec(query, ns, pkey, val)
-		if err != nil {
-			return errors2.Wrapf(db.errorWrapper.WrapError(err), "could not insert [%s]", pkey)
+	upserted := make(map[driver2.PKey]driver.UnversionedValue, len(kvs))
+	deleted := make([]driver2.PKey, 0, len(kvs))
+	for pkey, val := range kvs {
+		// Get rawVal
+		if len(val) == 0 {
+			logger.Debugf("set key [%s:%s] to nil value, will be deleted instead", ns, pkey)
+			deleted = append(deleted, pkey)
+		} else {
+			logger.Debugf("set state [%s,%s]", ns, pkey)
+			// Overwrite rawVal
+			upserted[pkey] = append([]byte(nil), val...)
 		}
 	}
-	logger.Debugf("set state [%s,%s], done", ns, pkey)
 
+	errs := make(map[driver2.PKey]error)
+	if len(deleted) > 0 {
+		collections.CopyMap(errs, db.DeleteStatesWithTx(tx, ns, deleted...))
+	}
+	if len(upserted) > 0 {
+		collections.CopyMap(errs, db.upsertStatesWithTx(tx, ns, upserted))
+	}
+	return errs
+}
+
+func (db *UnversionedPersistence) upsertStatesWithTx(tx dbTransaction, ns driver2.Namespace, vals map[driver2.PKey]driver.UnversionedValue) map[driver2.PKey]error {
+	query := fmt.Sprintf("INSERT INTO %s (ns, pkey, val) "+
+		"VALUES %s "+
+		"ON CONFLICT (ns, pkey) DO UPDATE "+
+		"SET val=excluded.val",
+		db.table,
+		CreateParamsMatrix(3, len(vals), 1))
+
+	args := make([]any, 0, 3*len(vals))
+	for pkey, val := range vals {
+		args = append(args, ns, pkey, val)
+	}
+	logger.Debug(query, args)
+	if _, err := tx.Exec(query, args...); err != nil {
+		return collections.RepeatValue(collections.Keys(vals), errors2.Wrapf(db.errorWrapper.WrapError(err), "could not upsert"))
+	}
 	return nil
 }
 
 func (db *UnversionedPersistence) Exec(query string, args ...any) (sql.Result, error) {
 	return db.Txn.Exec(query, args...)
-}
-
-func (db *UnversionedPersistence) Exists(ns driver2.Namespace, key driver2.PKey) (bool, error) {
-	if db.Txn == nil {
-		panic("programming error, writing without ongoing update")
-	}
-	return db.exists(db.Txn, ns, key)
-}
-
-func (db *UnversionedPersistence) exists(tx *sql.Tx, ns driver2.Namespace, key driver2.PKey) (bool, error) {
-	var pkey driver2.PKey
-	where, args := Where(db.hasKey(ns, key))
-	query := fmt.Sprintf("SELECT pkey FROM %s %s", db.table, where)
-	logger.Debug(query, args)
-	err := tx.QueryRow(query, args...).Scan(&pkey)
-	if err == sql.ErrNoRows {
-		return false, nil
-	}
-	if err != nil {
-		return false, errors2.Wrapf(err, "cannot check if key exists: %s", key)
-	}
-	return true, nil
 }
 
 func (db *UnversionedPersistence) hasKey(ns driver2.Namespace, pkey string) Condition {
@@ -266,54 +256,6 @@ func (db *UnversionedPersistence) CreateSchema() error {
 		val BYTEA NOT NULL DEFAULT '',
 		PRIMARY KEY (pkey, ns)
 	);`, db.table))
-}
-
-func (db *UnversionedPersistence) NewWriteTransaction() (driver.UnversionedWriteTransaction, error) {
-	txn, err := db.writeDB.Begin()
-	if err != nil {
-		return nil, errors.WithMessagef(err, "failed to begin transaction")
-	}
-
-	return NewWriteTransaction(txn, db), nil
-}
-
-type versionedPersistence interface {
-	SetStateWithTx(tx *sql.Tx, ns driver2.Namespace, pkey string, value driver.UnversionedValue) error
-	DeleteStateWithTx(tx *sql.Tx, ns driver2.Namespace, key driver2.PKey) error
-}
-
-func NewWriteTransaction(txn *sql.Tx, db versionedPersistence) *WriteTransaction {
-	return &WriteTransaction{txn: txn, db: db}
-}
-
-type WriteTransaction struct {
-	txn *sql.Tx
-	db  versionedPersistence
-}
-
-func (w *WriteTransaction) SetState(namespace driver2.Namespace, key driver2.PKey, value driver.UnversionedValue) error {
-	return w.db.SetStateWithTx(w.txn, namespace, key, value)
-}
-
-func (w *WriteTransaction) DeleteState(ns driver2.Namespace, key driver2.PKey) error {
-	return w.db.DeleteStateWithTx(w.txn, ns, key)
-}
-
-func (w *WriteTransaction) Commit() error {
-	if err := w.txn.Commit(); err != nil {
-		return fmt.Errorf("could not commit transaction: %w", err)
-	}
-	w.txn = nil
-	return nil
-}
-
-func (w *WriteTransaction) Discard() error {
-	if err := w.txn.Rollback(); err != nil {
-		logger.Infof("error rolling back (ignoring): %s", err.Error())
-		return nil
-	}
-	w.txn = nil
-	return nil
 }
 
 type SQLDriverType string

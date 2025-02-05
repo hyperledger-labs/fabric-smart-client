@@ -10,7 +10,6 @@ import (
 	"database/sql"
 	"fmt"
 
-	errors2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
@@ -25,16 +24,25 @@ type UnversionedPersistence struct {
 	errorWrapper driver2.SQLErrorWrapper
 }
 
-func (db *UnversionedPersistence) SetState(ns driver.Namespace, pkey driver.PKey, value driver.UnversionedValue) error {
-	return db.SetStateWithTx(db.Txn, ns, pkey, value)
-}
-
 func (db *UnversionedPersistence) SetStates(ns driver.Namespace, kvs map[driver.PKey]driver.UnversionedValue) map[driver.PKey]error {
-	return db.setStatesWithTx(db.Txn, ns, kvs)
+	encoded := make(map[driver.PKey]driver.UnversionedValue, len(kvs))
+	decodeMap := make(map[driver.PKey]driver.PKey, len(kvs))
+	for k, v := range kvs {
+		enc := encode(k)
+		encoded[enc] = v
+		decodeMap[enc] = k
+	}
+
+	errs := db.UnversionedPersistence.SetStatesWithTx(db.Txn, ns, encoded)
+	decodedErrs := make(map[driver.PKey]error, len(errs))
+	for k, err := range errs {
+		decodedErrs[decodeMap[k]] = err
+	}
+	return decodedErrs
 }
 
 func (db *UnversionedPersistence) SetStateWithTx(tx *sql.Tx, ns driver.Namespace, pkey driver.PKey, value driver.UnversionedValue) error {
-	if errs := db.setStatesWithTx(tx, ns, map[driver.PKey]driver.UnversionedValue{pkey: value}); errs != nil {
+	if errs := db.UnversionedPersistence.SetStatesWithTx(tx, ns, map[driver.PKey]driver.UnversionedValue{encode(pkey): value}); errs != nil {
 		return errs[encode(pkey)]
 	}
 	return nil
@@ -45,56 +53,11 @@ func (db *UnversionedPersistence) GetStateRangeScanIterator(ns driver.Namespace,
 }
 
 func (db *UnversionedPersistence) GetStateSetIterator(ns driver.Namespace, keys ...driver.PKey) (collections.Iterator[*driver.UnversionedRead], error) {
-	return decodeUnversionedReadIterator(db.UnversionedPersistence.GetStateSetIterator(ns, encodeSlice(keys)...))
-}
-
-func (db *UnversionedPersistence) setStatesWithTx(tx *sql.Tx, ns driver.Namespace, kvs map[driver.PKey]driver.UnversionedValue) map[driver.PKey]error {
-	if tx == nil {
-		panic("programming error, writing without ongoing update")
+	encoded := make([]driver.PKey, len(keys))
+	for i, k := range keys {
+		encoded[i] = encode(k)
 	}
-
-	upserted := make(map[driver.PKey]driver.UnversionedValue, len(kvs))
-	deleted := make([]driver.PKey, 0, len(kvs))
-	for pkey, val := range kvs {
-		// Get rawVal
-		if len(val) == 0 {
-			logger.Debugf("set key [%s:%s] to nil value, will be deleted instead", ns, pkey)
-			deleted = append(deleted, pkey)
-		} else {
-			logger.Debugf("set state [%s,%s]", ns, pkey)
-			// Overwrite rawVal
-			upserted[pkey] = append([]byte(nil), val...)
-		}
-	}
-
-	errs := make(map[driver.PKey]error)
-	if len(deleted) > 0 {
-		collections.CopyMap(errs, db.DeleteStatesWithTx(tx, ns, encodeSlice(deleted)...))
-	}
-	if len(upserted) > 0 {
-		collections.CopyMap(errs, db.upsertStatesWithTx(tx, ns, encodeMap(upserted)))
-	}
-	return errs
-}
-
-func (db *UnversionedPersistence) upsertStatesWithTx(tx *sql.Tx, ns driver.Namespace, vals map[driver.PKey]driver.UnversionedValue) map[driver.PKey]error {
-
-	query := fmt.Sprintf("INSERT INTO %s (ns, pkey, val) "+
-		"VALUES %s "+
-		"ON CONFLICT (ns, pkey) DO UPDATE "+
-		"SET val=excluded.val",
-		db.table,
-		common.CreateParamsMatrix(3, len(vals), 1))
-
-	args := make([]any, 0, 3*len(vals))
-	for pkey, val := range vals {
-		args = append(args, ns, pkey, val)
-	}
-	logger.Debug(query, args)
-	if _, err := tx.Exec(query, args...); err != nil {
-		return collections.RepeatValue(collections.Keys(vals), errors2.Wrapf(db.errorWrapper.WrapError(err), "could not upsert"))
-	}
-	return nil
+	return decodeUnversionedReadIterator(db.UnversionedPersistence.GetStateSetIterator(ns, encoded...))
 }
 
 func NewUnversionedPersistence(opts common.Opts, table string) (*UnversionedPersistence, error) {
@@ -111,7 +74,7 @@ type unversionedPersistenceNotifier struct {
 }
 
 func (db *unversionedPersistenceNotifier) CreateSchema() error {
-	if err := db.UnversionedPersistence.UnversionedPersistence.CreateSchema(); err != nil {
+	if err := db.UnversionedPersistence.CreateSchema(); err != nil {
 		return err
 	}
 	return db.Notifier.CreateSchema()

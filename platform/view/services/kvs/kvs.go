@@ -17,7 +17,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/cache/secondcache"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage"
-	"go.uber.org/zap/zapcore"
 )
 
 var (
@@ -151,31 +150,8 @@ func (o *KVS) Put(id string, state interface{}) error {
 	}
 
 	if err := utils.NewProbabilisticRetryRunner(3, 200, true).RunWithErrors(func() (bool, error) {
-		tx, err := o.store.NewWriteTransaction()
-		if err != nil {
-			return true, errors.Wrapf(err, "begin update for id [%s] failed", id)
-		}
-		logger.Debugf("store [%d] bytes into key [%s:%s]", len(raw), o.namespace, id)
-
-		if err := tx.SetState(o.namespace, id, raw); err != nil {
-			if err1 := tx.Discard(); err1 != nil {
-				logger.Debugf("got error %v; discarding caused %v", err, err1)
-			}
-
-			if !errors.HasCause(err, driver.UniqueKeyViolation) {
-				return false, errors.Wrapf(err, "failed to commit value for id [%s]", id)
-			}
-			return true, nil
-		}
-
-		if err := tx.Commit(); err != nil {
-			if err1 := tx.Discard(); err1 != nil {
-				logger.Debugf("got error %v; discarding caused %v", err, err1)
-			}
-			return false, errors.Wrapf(err, "committing value for id [%s] failed", id)
-		}
-		logger.Infof("committed tx for id [%s]", id)
-		return true, nil
+		err := o.store.SetState(o.namespace, id, raw)
+		return err == nil, err
 	}); err != nil {
 		return err
 	}
@@ -199,9 +175,7 @@ func (o *KVS) Get(id string, state interface{}) error {
 	} else if !ok {
 		raw, err = o.store.GetState(o.namespace, id)
 		if err != nil {
-			if logger.IsEnabledFor(zapcore.DebugLevel) {
-				logger.Debugf("failed retrieving state [%s,%s]", o.namespace, id)
-			}
+			logger.Debugf("failed retrieving state [%s,%s]", o.namespace, id)
 			return errors.Wrapf(err, "failed retrieving state [%s,%s]", o.namespace, id)
 		}
 		if len(raw) == 0 {
@@ -210,39 +184,19 @@ func (o *KVS) Get(id string, state interface{}) error {
 	}
 
 	if err := json.Unmarshal(raw, state); err != nil {
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("failed retrieving state [%s,%s], cannot unmarshal state, error [%s]", o.namespace, id, err)
-		}
+		logger.Debugf("failed retrieving state [%s,%s], cannot unmarshal state, error [%s]", o.namespace, id, err)
 		return errors.Wrapf(err, "failed retrieving state [%s,%s], cannot unmarshal state", o.namespace, id)
 	}
 
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("got state [%s,%s] successfully", o.namespace, id)
-	}
+	logger.Debugf("got state [%s,%s] successfully", o.namespace, id)
 	return nil
 }
 
 func (o *KVS) Delete(id string) error {
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("delete state [%s,%s]", o.namespace, id)
-	}
+	logger.Debugf("delete state [%s,%s]", o.namespace, id)
 
-	tx, err := o.store.NewWriteTransaction()
-	if err != nil {
-		return errors.Wrapf(err, "begin update for id [%s] failed", id)
-	}
-	if err := tx.DeleteState(o.namespace, id); err != nil {
-		if err1 := tx.Discard(); err1 != nil {
-			logger.Debugf("got error %v; discarding caused %v", err, err1)
-		}
-
-		if !errors.HasCause(err, driver.UniqueKeyViolation) {
-			return errors.Wrapf(err, "failed to commit value for id [%s]", id)
-		}
-	} else {
-		if err := tx.Commit(); err != nil {
-			return errors.Wrapf(err, "committing value for id [%s] failed", id)
-		}
+	if err := o.store.DeleteState(o.namespace, id); err != nil {
+		return err
 	}
 
 	o.putMutex.Lock()

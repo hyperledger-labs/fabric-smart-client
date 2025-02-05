@@ -109,14 +109,7 @@ func WriteParallel(b *testing.B, db driver.UnversionedPersistence) {
 				b.Logf("    mid (%d): %+v", int(mid), db.Stats())
 			}
 
-			tx, err := db.NewWriteTransaction()
-			if err != nil {
-				b.Error(err)
-			}
-			if err := tx.SetState(namespace, k, payload); err != nil {
-				b.Error(err)
-			}
-			if err := tx.Commit(); err != nil {
+			if err := db.SetState(namespace, k, payload); err != nil {
 				b.Error(err)
 			}
 		}

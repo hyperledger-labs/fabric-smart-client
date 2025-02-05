@@ -9,7 +9,6 @@ package postgres
 import (
 	"encoding/hex"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 )
@@ -51,20 +50,4 @@ func decodeUnversionedRead(v *driver2.UnversionedRead) (*driver2.UnversionedRead
 
 func encode(s string) string {
 	return hex.EncodeToString([]byte(s))
-}
-
-func encodeSlice(keys []driver.PKey) []driver.PKey {
-	encoded := make([]driver.PKey, len(keys))
-	for i, k := range keys {
-		encoded[i] = encode(k)
-	}
-	return encoded
-}
-
-func encodeMap[V any](kvs map[driver.PKey]V) map[driver.PKey]V {
-	encoded := make(map[driver.PKey]V, len(kvs))
-	for k, v := range kvs {
-		encoded[encode(k)] = v
-	}
-	return encoded
 }

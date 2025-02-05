@@ -41,7 +41,7 @@ func (db *BaseDB[T]) BeginUpdate() error {
 	db.txnLock.Lock()
 	defer db.txnLock.Unlock()
 
-	if !db.isTxnNil() {
+	if !db.IsTxnNil() {
 		db.txLock.Unlock()
 		logger.Errorf("previous commit in progress, locked by [%s]", db.debugStack)
 		return errors.New("previous commit in progress")
@@ -64,7 +64,7 @@ func (db *BaseDB[T]) Commit() error {
 	db.txnLock.Lock()
 	defer db.txnLock.Unlock()
 
-	if db.isTxnNil() {
+	if db.IsTxnNil() {
 		return errors.New("no commit in progress")
 	}
 
@@ -78,7 +78,7 @@ func (db *BaseDB[T]) Commit() error {
 	return nil
 }
 
-func (db *BaseDB[T]) isTxnNil() bool {
+func (db *BaseDB[T]) IsTxnNil() bool {
 	return db.debugStack == nil
 }
 
@@ -87,7 +87,7 @@ func (db *BaseDB[T]) Discard() error {
 	db.txnLock.Lock()
 	defer db.txnLock.Unlock()
 
-	if db.isTxnNil() {
+	if db.IsTxnNil() {
 		return errors.New("no commit in progress")
 	}
 	defer db.txLock.Unlock()
