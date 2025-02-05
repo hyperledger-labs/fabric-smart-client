@@ -24,11 +24,11 @@ type BindingPersistence struct {
 }
 
 func NewBindingPersistence(opts common.Opts, table string) (*BindingPersistence, error) {
-	readDB, writeDB, err := openDB(opts.DataSource, opts.MaxOpenConns, opts.MaxIdleConns, opts.MaxIdleTime, opts.SkipPragmas)
+	readDB, writeDB, err := OpenRWDBs(opts.DataSource, opts.MaxOpenConns, opts.MaxIdleConns, opts.MaxIdleTime, opts.SkipPragmas)
 	if err != nil {
 		return nil, fmt.Errorf("error opening db: %w", err)
 	}
-	return newBindingPersistence(readDB, newRetryWriteDB(writeDB), table), nil
+	return newBindingPersistence(readDB, NewRetryWriteDB(writeDB), table), nil
 }
 
 func newBindingPersistence(readDB *sql.DB, writeDB common.WriteDB, table string) *BindingPersistence {

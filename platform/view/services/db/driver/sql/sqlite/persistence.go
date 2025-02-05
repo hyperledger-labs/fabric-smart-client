@@ -36,7 +36,7 @@ const driverName = "sqlite"
 
 var logger = logging.MustGetLogger("view-sdk.db.sqlite")
 
-func openDB(dataSourceName string, maxOpenConns int, maxIdleConns *int, maxIdleTime *time.Duration, skipPragmas bool) (*sql.DB, *sql.DB, error) {
+func OpenRWDBs(dataSourceName string, maxOpenConns int, maxIdleConns *int, maxIdleTime *time.Duration, skipPragmas bool) (*sql.DB, *sql.DB, error) {
 	logger.Infof("Opening read db [%v]", dataSourceName)
 	readDB, err := OpenDB(dataSourceName, maxOpenConns, maxIdleConns, maxIdleTime, skipPragmas)
 	if err != nil {
