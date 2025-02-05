@@ -370,7 +370,7 @@ func (d *Delivery) GetStartPosition(ctx context.Context) *ab.SeekPosition {
 	}
 
 	lastBlock, err := d.vault.GetLastBlock(ctx)
-	if err == nil {
+	if err == nil && lastBlock != 0 {
 		return SeekPosition(lastBlock)
 	}
 

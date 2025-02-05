@@ -32,6 +32,7 @@ type TxInfoMapper[T TxInfo] interface {
 }
 
 type ListenerEntry[T TxInfo] interface {
+	// Namespace returns the namespace this entry refers to. It can be empty.
 	Namespace() driver2.Namespace
 	// OnStatus is the callback for the transaction
 	OnStatus(ctx context.Context, info T)
@@ -45,7 +46,7 @@ type ListenerManager[T TxInfo] interface {
 }
 
 type QueryByIDService[T TxInfo] interface {
-	QueryByID(lastBlock driver2.BlockNum, evicted map[driver2.TxID][]ListenerEntry[T]) (<-chan []T, error)
+	QueryByID(ctx context.Context, lastBlock driver2.BlockNum, evicted map[driver2.TxID][]ListenerEntry[T]) (<-chan []T, error)
 }
 
 type TxInfoCallback[T TxInfo] func(T) error
@@ -93,7 +94,7 @@ func NewListenerManager[T TxInfo](
 				collections.Keys(evicted),
 				lastBlockNum,
 			)
-			fetchTxs(lastBlockNum, evicted, queryService)
+			fetchTxs(context.TODO(), lastBlockNum, evicted, queryService)
 		})
 	} else {
 		listeners = cache.NewMapCache[driver2.TxID, []ListenerEntry[T]]()
@@ -106,9 +107,9 @@ func NewListenerManager[T TxInfo](
 	return flm, nil
 }
 
-func fetchTxs[T TxInfo](lastBlock driver2.BlockNum, evicted map[driver2.TxID][]ListenerEntry[T], queryService QueryByIDService[T]) {
+func fetchTxs[T TxInfo](ctx context.Context, lastBlock driver2.BlockNum, evicted map[driver2.TxID][]ListenerEntry[T], queryService QueryByIDService[T]) {
 	go func() {
-		ch, err := queryService.QueryByID(lastBlock, evicted)
+		ch, err := queryService.QueryByID(ctx, lastBlock, evicted)
 		if err != nil {
 			logger.Errorf("Failed scanning: %v", err)
 			return
