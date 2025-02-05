@@ -7,9 +7,12 @@ SPDX-License-Identifier: Apache-2.0
 package logging
 
 import (
+	"fmt"
 	"net/http"
+	"strings"
 	"testing"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger/fabric-lib-go/common/flogging"
 	"github.com/hyperledger/fabric-lib-go/common/flogging/floggingtest"
 	"github.com/hyperledger/fabric-lib-go/common/flogging/httpadmin"
@@ -79,4 +82,14 @@ func (l *logger) Named(name string) Logger {
 
 func (l *logger) With(args ...interface{}) Logger {
 	return &logger{FabricLogger: l.FabricLogger.With(args...)}
+}
+
+func Keys[K comparable, V any](m map[K]V) fmt.Stringer {
+	return keys[K, V](m)
+}
+
+type keys[K comparable, V any] map[K]V
+
+func (k keys[K, V]) String() string {
+	return fmt.Sprintf(strings.Join(collections.Repeat("%v", len(k)), ", "), collections.Keys(k))
 }

@@ -13,7 +13,7 @@ import (
 	"strings"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
@@ -96,7 +96,7 @@ func (db *VaultPersistence) Store(ctx context.Context, txIDs []driver.TxID, writ
 
 	query := queryBuilder.String()
 
-	logger.Debug(query, txIDs, collections.Keys(writes))
+	logger.Debug(query, txIDs, logging.Keys(writes))
 	if _, err := db.writeDB.Exec(query, params...); err != nil {
 		return errors.Wrapf(err, "failed to store writes and metawrites for %d txs", len(txIDs))
 	}

@@ -13,7 +13,7 @@ import (
 	"encoding/json"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/fabricutils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -188,9 +188,7 @@ func (t *Transaction) SetFromBytes(raw []byte) error {
 	if err != nil {
 		return errors.Wrapf(err, "SetFromBytes: failed unmarshalling payload [%s]", string(raw))
 	}
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("set transient [%v]", collections.Keys(t.TTransient))
-	}
+	logger.Debugf("set transient [%s]", logging.Keys(t.TTransient))
 
 	if t.TSignedProposal != nil {
 		// TODO: check the current payload is compatible with the content of the signed proposal
@@ -398,9 +396,8 @@ func (t *Transaction) Bytes() ([]byte, error) {
 	if err := t.Done(); err != nil {
 		return nil, err
 	}
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("get transient [%v]", collections.Keys(t.TTransient))
-	}
+	logger.Debugf("get transient [%s]", logging.Keys(t.TTransient))
+
 	return json.Marshal(t)
 }
 
