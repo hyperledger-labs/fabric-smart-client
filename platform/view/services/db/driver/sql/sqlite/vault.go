@@ -29,11 +29,11 @@ type VaultPersistence struct {
 }
 
 func NewVaultPersistence(opts common.Opts, tablePrefix string) (*VaultPersistence, error) {
-	readDB, writeDB, err := openDB(opts.DataSource, opts.MaxOpenConns, opts.MaxIdleConns, opts.MaxIdleTime, opts.SkipPragmas)
+	readDB, writeDB, err := OpenRWDBs(opts.DataSource, opts.MaxOpenConns, opts.MaxIdleConns, opts.MaxIdleTime, opts.SkipPragmas)
 	if err != nil {
 		return nil, fmt.Errorf("error opening db: %w", err)
 	}
-	return newTxCodePersistence(readDB, newRetryWriteDB(writeDB), common.VaultTables{
+	return newTxCodePersistence(readDB, NewRetryWriteDB(writeDB), common.VaultTables{
 		StateTable:  fmt.Sprintf("%s_state", tablePrefix),
 		StatusTable: fmt.Sprintf("%s_status", tablePrefix),
 	}), nil
