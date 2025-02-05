@@ -251,8 +251,8 @@ func (p *processedTransaction) ValidationCode() int32 {
 }
 
 type fakeVault struct {
-	txID  string
-	block uint64
+	txID  driver2.TxID
+	block driver2.BlockNum
 }
 
 func (f *fakeVault) GetLast(context.Context) (*driver2.TxStatus, error) {
