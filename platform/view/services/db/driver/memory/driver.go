@@ -19,7 +19,7 @@ const (
 )
 
 var (
-	opts = common.Opts{
+	Opts = common.Opts{
 		Driver:          "sqlite",
 		DataSource:      "file::memory:?cache=shared",
 		TablePrefix:     "memory",
@@ -41,33 +41,33 @@ func NewDriver() driver.NamedDriver {
 }
 
 func (d *Driver) NewKVS(string, driver.Config) (driver.UnversionedPersistence, error) {
-	return common.NewPersistenceWithOpts(utils.GenerateUUIDOnlyLetters(), opts, sqlite.NewUnversionedPersistence)
+	return common.NewPersistenceWithOpts(utils.GenerateUUIDOnlyLetters(), Opts, sqlite.NewUnversionedPersistence)
 }
 
 func (d *Driver) NewBinding(string, driver.Config) (driver.BindingPersistence, error) {
-	return common.NewPersistenceWithOpts(utils.GenerateUUIDOnlyLetters(), opts, sqlite.NewBindingPersistence)
+	return common.NewPersistenceWithOpts(utils.GenerateUUIDOnlyLetters(), Opts, sqlite.NewBindingPersistence)
 }
 
 func (d *Driver) NewSignerInfo(string, driver.Config) (driver.SignerInfoPersistence, error) {
-	return common.NewPersistenceWithOpts(utils.GenerateUUIDOnlyLetters(), opts, sqlite.NewSignerInfoPersistence)
+	return common.NewPersistenceWithOpts(utils.GenerateUUIDOnlyLetters(), Opts, sqlite.NewSignerInfoPersistence)
 }
 
 func (d *Driver) NewAuditInfo(string, driver.Config) (driver.AuditInfoPersistence, error) {
-	return common.NewPersistenceWithOpts(utils.GenerateUUIDOnlyLetters(), opts, sqlite.NewAuditInfoPersistence)
+	return common.NewPersistenceWithOpts(utils.GenerateUUIDOnlyLetters(), Opts, sqlite.NewAuditInfoPersistence)
 }
 
 func (d *Driver) NewEndorseTx(string, driver.Config) (driver.EndorseTxPersistence, error) {
-	return common.NewPersistenceWithOpts(utils.GenerateUUIDOnlyLetters(), opts, sqlite.NewEndorseTxPersistence)
+	return common.NewPersistenceWithOpts(utils.GenerateUUIDOnlyLetters(), Opts, sqlite.NewEndorseTxPersistence)
 }
 
 func (d *Driver) NewMetadata(string, driver.Config) (driver.MetadataPersistence, error) {
-	return common.NewPersistenceWithOpts(utils.GenerateUUIDOnlyLetters(), opts, sqlite.NewMetadataPersistence)
+	return common.NewPersistenceWithOpts(utils.GenerateUUIDOnlyLetters(), Opts, sqlite.NewMetadataPersistence)
 }
 
 func (d *Driver) NewEnvelope(string, driver.Config) (driver.EnvelopePersistence, error) {
-	return common.NewPersistenceWithOpts(utils.GenerateUUIDOnlyLetters(), opts, sqlite.NewEnvelopePersistence)
+	return common.NewPersistenceWithOpts(utils.GenerateUUIDOnlyLetters(), Opts, sqlite.NewEnvelopePersistence)
 }
 
 func (d *Driver) NewVault(string, driver.Config) (driver.VaultPersistence, error) {
-	return common.NewPersistenceWithOpts(utils.GenerateUUIDOnlyLetters(), opts, sqlite.NewVaultPersistence)
+	return common.NewPersistenceWithOpts(utils.GenerateUUIDOnlyLetters(), Opts, sqlite.NewVaultPersistence)
 }
