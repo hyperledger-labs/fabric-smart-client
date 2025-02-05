@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package logging
 
 import (
+	"encoding/base64"
 	"fmt"
 	"net/http"
 	"strings"
@@ -92,4 +93,14 @@ type keys[K comparable, V any] map[K]V
 
 func (k keys[K, V]) String() string {
 	return fmt.Sprintf(strings.Join(collections.Repeat("%v", len(k)), ", "), collections.Keys(k))
+}
+
+func Base64(b []byte) base64Enc {
+	return b
+}
+
+type base64Enc []byte
+
+func (b base64Enc) String() string {
+	return base64.StdEncoding.EncodeToString(b)
 }
