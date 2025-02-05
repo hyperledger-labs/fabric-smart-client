@@ -17,6 +17,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	common2 "github.com/hyperledger/fabric-protos-go/common"
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/sync/semaphore"
 	"google.golang.org/grpc/status"
 )
@@ -45,6 +46,9 @@ func NewBFTBroadcaster(configService driver.ConfigService, cf Services, metrics 
 }
 
 func (o *BFTBroadcaster) Broadcast(context context.Context, env *common2.Envelope) error {
+	span := trace.SpanFromContext(context)
+	span.AddEvent("Start BFT Broadcast")
+	defer span.AddEvent("End BFT Broadcast")
 	// send the envelope for ordering
 	retries := o.ConfigService.BroadcastNumRetries()
 	retryInterval := o.ConfigService.BroadcastRetryInterval()
