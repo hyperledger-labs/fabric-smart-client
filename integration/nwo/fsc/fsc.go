@@ -223,7 +223,7 @@ func (p *Platform) PreRun() {
 			}
 		}
 	}
-	logger.Infof("Starting DBs for following data sources: [%v]...", collections.Keys(configs))
+	logger.Infof("Starting DBs for following data sources: [%s]...", logging.Keys(configs))
 	close, err := postgres.StartPostgresWithFmt(collections.Values(configs))
 	Expect(err).ToNot(HaveOccurred(), "failed to start dbs")
 	p.cleanDB = close

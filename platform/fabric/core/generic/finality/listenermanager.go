@@ -13,8 +13,8 @@ import (
 	"time"
 
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/cache"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger/fabric-protos-go/common"
 	"github.com/pkg/errors"
@@ -69,7 +69,7 @@ func NewListenerManager[T TxInfo](
 	var txInfos cache.Map[driver2.TxID, T]
 	if config.LRUSize > 0 && config.LRUBuffer > 0 {
 		txInfos = cache.NewLRUCache[driver2.TxID, T](10, 2, func(evicted map[driver2.TxID]T) {
-			logger.Debugf("Evicted keys [%v]. If they are looked up, they will be fetched directly from the ledger from now on...", collections.Keys(evicted))
+			logger.Debugf("Evicted keys [%s]. If they are looked up, they will be fetched directly from the ledger from now on...", logging.Keys(evicted))
 		})
 	} else {
 		txInfos = cache.NewMapCache[driver2.TxID, T]()
@@ -90,8 +90,8 @@ func NewListenerManager[T TxInfo](
 			}
 			lastBlockNum := flm.lastBlockNum.Load()
 			logger.Warnf(
-				"Listeners for TXs [%v] timed out. Last Block Num [%d]. Either the TX finality is too slow or it reached finality too long ago and were evicted from the txInfos cache. The IDs will be queried directly from ledger (when the batch is cut)...",
-				collections.Keys(evicted),
+				"Listeners for TXs [%s] timed out. Last Block Num [%d]. Either the TX finality is too slow or it reached finality too long ago and were evicted from the txInfos cache. The IDs will be queried directly from ledger (when the batch is cut)...",
+				logging.Keys(evicted),
 				lastBlockNum,
 			)
 			fetchTxs(context.TODO(), lastBlockNum, evicted, queryService)
