@@ -21,12 +21,17 @@ type DeliveryScanQueryByID[T TxInfo] struct {
 
 func (q *DeliveryScanQueryByID[T]) QueryByID(lastBlock driver.BlockNum, evicted map[driver.TxID][]ListenerEntry[T]) (<-chan []T, error) {
 	txIDs := collections.Keys(evicted)
-	logger.Debugf("Launching routine to scan for txs [%v]", txIDs)
-
 	results := collections.NewSet(txIDs...)
 	ch := make(chan []T, len(txIDs))
+	go q.queryByID(results, ch, lastBlock)
+	return ch, nil
+}
 
-	err := q.Delivery.Scan(context.TODO(), "", func(tx *fabric.ProcessedTransaction) (bool, error) {
+func (q *DeliveryScanQueryByID[T]) queryByID(results collections.Set[string], ch chan []T, lastBlock uint64) {
+	defer close(ch)
+
+	startingBlock := MaxUint64(1, lastBlock-10)
+	err := q.Delivery.ScanFromBlock(context.TODO(), startingBlock, func(tx *fabric.ProcessedTransaction) (bool, error) {
 		if !results.Contains(tx.TxID()) {
 			return false, nil
 		}
@@ -43,9 +48,13 @@ func (q *DeliveryScanQueryByID[T]) QueryByID(lastBlock driver.BlockNum, evicted 
 		return results.Length() == 0, nil
 	})
 	if err != nil {
-		logger.Errorf("Failed scanning: %v", err)
-		return nil, err
+		logger.Errorf("failed scanning: %v", err)
 	}
+}
 
-	return ch, nil
+func MaxUint64(a, b uint64) uint64 {
+	if a > b {
+		return a
+	}
+	return b
 }
