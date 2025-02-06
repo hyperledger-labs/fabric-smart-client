@@ -337,6 +337,10 @@ fabric:
         tlsClientSideAuth: true
         tlsDisabled: true
         tlsEnabled: false
+        # `usage` allows the developer to specify the function for which this peer should be used.
+        # The available functions are: delivery, discovery, finality, and query.
+        # The default value is the empty string that means that the peer can be used for the supported operations.
+        usage: 
 
   # List of channels and deployed chaincode
     channels:
