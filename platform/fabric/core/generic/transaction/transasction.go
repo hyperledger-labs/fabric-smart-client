@@ -315,7 +315,7 @@ func (t *Transaction) SetRWSet() error {
 		if err != nil {
 			return errors.WithMessagef(err, "failed to get rws from proposal response")
 		}
-		t.rwset, err = t.channel.Vault().GetRWSet(t.ctx, t.ID(), results)
+		t.rwset, err = t.channel.Vault().NewRWSetFromBytes(t.ctx, t.ID(), results)
 		if err != nil {
 			return errors.WithMessagef(err, "failed to populate rws from proposal response")
 		}
@@ -323,7 +323,7 @@ func (t *Transaction) SetRWSet() error {
 		span.AddEvent("from_rwset")
 		logger.Debugf("populate rws from rwset")
 		var err error
-		t.rwset, err = t.channel.Vault().GetRWSet(t.ctx, t.ID(), t.RWSet)
+		t.rwset, err = t.channel.Vault().NewRWSetFromBytes(t.ctx, t.ID(), t.RWSet)
 		if err != nil {
 			return errors.WithMessagef(err, "failed to populate rws from existing rws")
 		}

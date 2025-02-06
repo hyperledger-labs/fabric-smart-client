@@ -65,8 +65,8 @@ type VersionedResultsIterator = collections.Iterator[*VaultRead]
 type QueryExecutor interface {
 	GetState(ctx context.Context, namespace Namespace, key PKey) (*VaultRead, error)
 	GetStateMetadata(ctx context.Context, namespace Namespace, key PKey) (Metadata, RawVersion, error)
-	GetStateRangeScanIterator(ctx context.Context, namespace Namespace, startKey PKey, endKey PKey) (VersionedResultsIterator, error)
-	Done()
+	GetStateRange(ctx context.Context, namespace Namespace, startKey PKey, endKey PKey) (VersionedResultsIterator, error)
+	Done() error
 }
 
 type TxValidationStatus[V comparable] struct {
@@ -87,11 +87,13 @@ type Vault[V comparable] interface {
 	// by way of the supplied txid
 	NewRWSet(ctx context.Context, txID TxID) (RWSet, error)
 
-	// GetRWSet returns a RWSet for this ledger whose content is unmarshalled
+	// NewRWSetFromBytes creates a new RWSet in the vault for this ledger whose content is unmarshalled
 	// from the passed bytes.
 	// A client may obtain more than one such simulator; they are made unique
-	// by way of the supplied txid
-	GetRWSet(ctx context.Context, txID TxID, rwset []byte) (RWSet, error)
+	// by way of the supplied txid.
+	// Example: alice creates a new RWSet using NewRWSet and marshals and sends the serialized RW set to bob.
+	// Then bob creates an identical RWSet using GetRWSet using the marshaled RW set from alice
+	NewRWSetFromBytes(ctx context.Context, txID TxID, rwset []byte) (RWSet, error)
 
 	SetDiscarded(ctx context.Context, txID TxID, message string) error
 
@@ -110,26 +112,7 @@ type MetaWrites map[Namespace]map[PKey]VaultMetadataValue
 
 type Writes map[Namespace]map[PKey]VaultValue
 
-// VaultLock represents a lock over a transaction or the whole vault
-type VaultLock interface {
-	// Release releases the locked resources
-	Release() error
-}
-
-type VaultStore interface {
-	// AcquireTxIDRLock acquires a read lock on a specific transaction.
-	// While holding this lock, other routines:
-	// - cannot update the transaction states or statuses of the locked transactions
-	// - can read the locked transactions
-	AcquireTxIDRLock(ctx context.Context, txID TxID) (VaultLock, error)
-
-	// AcquireGlobalLock acquires a global exclusive read lock on the vault.
-	// While holding this lock, other routines:
-	// - cannot acquire this read lock (exclusive)
-	// - cannot update any transaction states or statuses
-	// - can read any transaction
-	AcquireGlobalLock(ctx context.Context) (VaultLock, error)
-
+type VaultReader interface {
 	// GetStateMetadata returns the metadata for the given specific namespace - key pair
 	GetStateMetadata(ctx context.Context, namespace Namespace, key PKey) (Metadata, RawVersion, error)
 
@@ -145,9 +128,6 @@ type VaultStore interface {
 	// GetAllStates returns all states for a given namespace. Only used for testing purposes.
 	GetAllStates(ctx context.Context, namespace Namespace) (TxStateIterator, error)
 
-	// Store stores atomically the transaction statuses, writes and metadata writes
-	Store(ctx context.Context, txIDs []TxID, writes Writes, metaWrites MetaWrites) error
-
 	// GetLast returns the status of the latest non-pending transaction
 	GetLast(ctx context.Context) (*TxStatus, error)
 
@@ -159,6 +139,46 @@ type VaultStore interface {
 
 	// GetAllTxStatuses returns the statuses of the all transactions in the vault
 	GetAllTxStatuses(ctx context.Context) (TxStatusIterator, error)
+}
+
+// LockedVaultReader is a VaultReader with a lock on some or all entries
+type LockedVaultReader interface {
+	VaultReader
+
+	// Done releases the lock on the locked resources
+	Done() error
+}
+
+type IsolationLevel int
+
+const (
+	LevelDefault IsolationLevel = iota
+	LevelReadUncommitted
+	LevelReadCommitted
+	LevelWriteCommitted
+	LevelRepeatableRead
+	LevelSnapshot
+	LevelSerializable
+	LevelLinearizable
+)
+
+type VaultStore interface {
+	VaultReader
+	// NewTxLockVaultReader acquires a read lock on a specific transaction.
+	// While holding this lock, other routines:
+	// - cannot update the transaction states of the locked transactions (based on the isolation level passed)
+	// - can read the locked states
+	NewTxLockVaultReader(ctx context.Context, txID TxID, isolationLevel IsolationLevel) (LockedVaultReader, error)
+
+	// NewGlobalLockVaultReader acquires a global exclusive read lock on the vault.
+	// While holding this lock, other routines:
+	// - cannot acquire this read lock (exclusive)
+	// - cannot update any transaction states or statuses
+	// - can read any transaction
+	NewGlobalLockVaultReader(ctx context.Context) (LockedVaultReader, error)
+
+	// Store stores atomically the transaction statuses, writes and metadata writes
+	Store(ctx context.Context, txIDs []TxID, writes Writes, metaWrites MetaWrites) error
 
 	// SetStatuses sets the status and message for the given transactions
 	SetStatuses(ctx context.Context, code TxStatusCode, message string, txIDs ...TxID) error

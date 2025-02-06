@@ -38,7 +38,7 @@ type Vault interface {
 	DiscardTx(ctx context.Context, txID driver2.TxID, message string) error
 	GetLastTxID(context.Context) (driver2.TxID, error)
 	NewRWSet(ctx context.Context, txID driver2.TxID) (*RWSet, error)
-	GetRWSet(ctx context.Context, txID driver2.TxID, results []byte) (*RWSet, error)
+	NewRWSetFromBytes(ctx context.Context, txID driver2.TxID, results []byte) (*RWSet, error)
 	CommitTX(ctx context.Context, txID driver2.TxID, block driver.BlockNum, indexInBloc driver.TxNum) error
 }
 
@@ -73,8 +73,8 @@ func (v *vault) NewRWSet(ctx context.Context, txid driver2.TxID) (*RWSet, error)
 
 }
 
-func (v *vault) GetRWSet(ctx context.Context, id driver2.TxID, results []byte) (*RWSet, error) {
-	rws, err := v.Vault.GetRWSet(ctx, id, results)
+func (v *vault) NewRWSetFromBytes(ctx context.Context, id driver2.TxID, results []byte) (*RWSet, error) {
+	rws, err := v.Vault.NewRWSetFromBytes(ctx, id, results)
 	if err != nil {
 		return nil, err
 	}

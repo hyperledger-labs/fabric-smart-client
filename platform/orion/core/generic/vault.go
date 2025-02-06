@@ -54,8 +54,8 @@ func (v *Vault) NewRWSet(ctx context.Context, txID driver3.TxID) (api2.RWSet, er
 	return v.Vault.NewRWSet(ctx, txID)
 }
 
-func (v *Vault) GetRWSet(ctx context.Context, id string, results []byte) (driver.RWSet, error) {
-	return v.Vault.GetRWSet(ctx, id, results)
+func (v *Vault) NewRWSetFromBytes(ctx context.Context, id string, results []byte) (driver.RWSet, error) {
+	return v.Vault.NewRWSetFromBytes(ctx, id, results)
 }
 
 func (v *Vault) Status(ctx context.Context, txID driver3.TxID) (driver.ValidationCode, string, error) {
@@ -131,7 +131,7 @@ func (v *Vault) extractStoredEnvelopeToVault(txID string) error {
 	if err := env.FromBytes(envRaw); err != nil {
 		return errors.Wrapf(err, "cannot unmarshal envelope [%s]", txID)
 	}
-	rws, err := v.GetRWSet(context.Background(), txID, env.Results())
+	rws, err := v.NewRWSetFromBytes(context.Background(), txID, env.Results())
 	if err != nil {
 		return errors.Wrapf(err, "cannot unmarshal envelope [%s]", txID)
 	}

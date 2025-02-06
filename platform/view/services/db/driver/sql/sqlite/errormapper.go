@@ -12,18 +12,23 @@ import (
 	"modernc.org/sqlite"
 )
 
+var errorMap = map[int]error{
+	1555: driver.UniqueKeyViolation,
+	2067: driver.UniqueKeyViolation,
+	5:    driver.SqlBusy,
+}
+
 type errorMapper struct{}
 
 func (m *errorMapper) WrapError(err error) error {
-	if err, ok := err.(*sqlite.Error); ok {
-		switch err.Code() {
-		case 1555:
-			return errors.Wrapf(driver.UniqueKeyViolation, "%s", err)
-		case 5:
-			return errors.Wrapf(driver.SqlBusy, "%s", err)
-		default:
-			logger.Warnf("Unmapped sqlite error with code [%d]", err.Code())
-		}
+	pgErr, ok := err.(*sqlite.Error)
+	if !ok {
+		return err
 	}
-	return err
+	mappedErr, ok := errorMap[pgErr.Code()]
+	if !ok {
+		logger.Warnf("Unmapped sqlite error with code [%d]", pgErr.Code())
+		return pgErr
+	}
+	return errors.Wrapf(mappedErr, "%s", err)
 }

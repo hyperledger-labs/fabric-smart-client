@@ -121,7 +121,7 @@ func (r *processorManager) getTxFromEvn(txid string) (driver.RWSet, driver.Proce
 	if err := env.FromBytes(rawEnv); err != nil {
 		return nil, nil, errors.Wrapf(err, "cannot unmarshal envelope [%s]", txid)
 	}
-	rws, err := r.network.Vault().GetRWSet(context.Background(), txid, env.Results())
+	rws, err := r.network.Vault().NewRWSetFromBytes(context.Background(), txid, env.Results())
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "cannot unmarshal envelope [%s]", txid)
 	}

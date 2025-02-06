@@ -7,10 +7,12 @@ SPDX-License-Identifier: Apache-2.0
 package common
 
 import (
+	"database/sql"
 	"fmt"
 	"strconv"
 	"strings"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"golang.org/x/exp/constraints"
 )
 
@@ -18,6 +20,10 @@ const (
 	NoStringLimit = ""
 	NoIntLimit    = -1
 )
+
+type IsolationLevelMapper interface {
+	Map(level driver.IsolationLevel) (sql.IsolationLevel, error)
+}
 
 type Interpreter interface {
 	Cmp(field FieldName, symbol string, value any) Condition

@@ -215,7 +215,7 @@ func TestPostgres(t *testing.T) {
 	}
 	artifactProvider := &testArtifactProvider{}
 
-	for _, c := range SingleDBCases {
+	for _, c := range append(SingleDBCases, ReadCommittedDBCases...) {
 		ddb, terminate, err := vault.OpenPostgresVault("common-sdk-node1")
 		assert.NoError(t, err)
 		t.Run(c.Name, func(xt *testing.T) {

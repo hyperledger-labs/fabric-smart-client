@@ -13,6 +13,7 @@ import (
 	"encoding/gob"
 	errors2 "errors"
 	"fmt"
+	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
@@ -28,148 +29,104 @@ type VaultTables struct {
 
 type stateRow = [5]any
 
-func NewVaultPersistence(writeDB WriteDB, readDB *sql.DB, tables VaultTables, errorWrapper driver2.SQLErrorWrapper, ci Interpreter, sanitizer Sanitizer) *VaultPersistence {
+func NewVaultPersistence(writeDB WriteDB, readDB *sql.DB, tables VaultTables, errorWrapper driver2.SQLErrorWrapper, ci Interpreter, sanitizer Sanitizer, il IsolationLevelMapper) *VaultPersistence {
+	vaultSanitizer := newSanitizer(sanitizer)
 	return &VaultPersistence{
+		vaultReader: &vaultReader{
+			readDB:    readDB,
+			ci:        ci,
+			sanitizer: vaultSanitizer,
+			tables:    tables,
+		},
 		tables:       tables,
 		errorWrapper: errorWrapper,
 		readDB:       readDB,
 		writeDB:      writeDB,
 		ci:           ci,
-		lockManager:  newLockManager(),
-		sanitizer:    newSanitizer(sanitizer),
+		sanitizer:    vaultSanitizer,
+		il:           il,
 	}
 }
 
 type VaultPersistence struct {
+	*vaultReader
 	tables       VaultTables
 	errorWrapper driver2.SQLErrorWrapper
 	readDB       *sql.DB
 	writeDB      WriteDB
 	ci           Interpreter
-	lockManager  *vaultLockManager
+	GlobalLock   sync.RWMutex
 	sanitizer    *sanitizer
+	il           IsolationLevelMapper
 }
 
-func (db *VaultPersistence) AcquireWLocks(txIDs ...driver.TxID) error {
-	return db.lockManager.AcquireWLocks(txIDs...)
-}
+func (db *VaultPersistence) NewTxLockVaultReader(ctx context.Context, txID driver.TxID, isolationLevel driver.IsolationLevel) (driver.LockedVaultReader, error) {
+	logger.Debugf("Acquire tx id lock for [%s]", txID)
+	span := trace.SpanFromContext(ctx)
+	span.AddEvent("Start acquire TxID read lock")
+	defer span.AddEvent("End acquire TxID read lock")
 
-func (db *VaultPersistence) ReleaseWLocks(txIDs ...driver.TxID) {
-	db.lockManager.ReleaseWLocks(txIDs...)
-}
-
-func (db *VaultPersistence) ReleaseRLocks(txIDs ...driver.TxID) {
-	db.lockManager.ReleaseRLocks(txIDs...)
-}
-
-func (db *VaultPersistence) AcquireTxIDRLock(ctx context.Context, txID driver.TxID) (driver.VaultLock, error) {
 	logger.Debugf("Attempt to acquire lock for [%s]", txID)
-	lock, err := db.lockManager.AcquireTxIDRLock(txID)
-	if err != nil {
-		return nil, err
-	}
-	query := fmt.Sprintf(`
-		INSERT INTO %s (tx_id, code)
-		VALUES ($1, $2)
-		ON CONFLICT DO NOTHING
-		`, db.tables.StatusTable)
+	// Ignore conflicts in case replicas create the same entry when receiving the envelope
+	query := fmt.Sprintf("INSERT INTO %s (tx_id, code) VALUES ($1, $2) ON CONFLICT DO NOTHING", db.tables.StatusTable)
 	logger.Debug(query, txID, driver.Busy)
 
 	if _, err := db.writeDB.Exec(query, txID, driver.Busy); err != nil {
-		if err1 := lock.Release(); err1 != nil {
-			return nil, errors2.Join(err, err1)
-		}
-		return nil, err
+		return nil, db.errorWrapper.WrapError(err)
 	}
-	logger.Debugf("Locked [%s] successfully", txID)
-	return lock, nil
+
+	return newTxVaultReader(func() (*vaultReader, releaseFunc, error) {
+		return db.newTxLockVaultReader(ctx, isolationLevel)
+	}), nil
 }
 
-func (db *VaultPersistence) AcquireGlobalLock(ctx context.Context) (driver.VaultLock, error) {
-	span := trace.SpanFromContext(ctx)
-	span.AddEvent("start_acquire_global_lock")
-	defer span.AddEvent("end_acquire_global_lock")
-	return db.lockManager.AcquireGlobalRLock()
-}
-
-func (db *VaultPersistence) GetStateMetadata(ctx context.Context, namespace driver.Namespace, key driver.PKey) (driver.Metadata, driver.RawVersion, error) {
-	span := trace.SpanFromContext(ctx)
-	span.AddEvent("start_get_state_metadata")
-	defer span.AddEvent("end_get_state_metadata")
-	namespace, err := db.sanitizer.Encode(namespace)
+func (db *VaultPersistence) newTxLockVaultReader(ctx context.Context, isolationLevel driver.IsolationLevel) (*vaultReader, releaseFunc, error) {
+	il, err := db.il.Map(isolationLevel)
 	if err != nil {
 		return nil, nil, err
 	}
-	key, err = db.sanitizer.Encode(key)
+	tx, err := db.readDB.BeginTx(ctx, &sql.TxOptions{
+		Isolation: il,
+		ReadOnly:  true,
+	})
 	if err != nil {
 		return nil, nil, err
 	}
-	where, args := Where(db.ci.And(db.ci.Cmp("ns", "=", namespace), db.ci.Cmp("pkey", "=", key)))
-	query := fmt.Sprintf("SELECT metadata, kversion FROM %s %s", db.tables.StateTable, where)
-	logger.Debug(query, args)
-
-	row := db.readDB.QueryRow(query, args...)
-	var m []byte
-	var kversion driver.RawVersion
-	err = row.Scan(&m, &kversion)
-	if err != nil && err == sql.ErrNoRows {
-		return nil, nil, nil
-	}
-	if err != nil {
-		return nil, nil, fmt.Errorf("error querying db: %w", err)
-	}
-	meta, err := unmarshalMetadata(m)
-	if err != nil {
-		return meta, nil, fmt.Errorf("error decoding metadata: %w", err)
-	}
-
-	return meta, kversion, err
+	return &vaultReader{
+		readDB:    tx,
+		ci:        db.ci,
+		sanitizer: db.sanitizer,
+		tables:    db.tables,
+	}, tx.Commit, nil
 }
-func (db *VaultPersistence) GetState(ctx context.Context, namespace driver.Namespace, key driver.PKey) (*driver.VaultRead, error) {
-	it, err := db.GetStates(ctx, namespace, key)
-	if err != nil {
-		return nil, err
-	}
-	return collections.GetUnique(it)
-}
-func (db *VaultPersistence) GetStates(ctx context.Context, namespace driver.Namespace, keys ...driver.PKey) (driver.TxStateIterator, error) {
+
+func (db *VaultPersistence) NewGlobalLockVaultReader(ctx context.Context) (driver.LockedVaultReader, error) {
 	span := trace.SpanFromContext(ctx)
-	span.AddEvent("start_get_states")
-	defer span.AddEvent("end_get_states")
-	return db.queryState(Where(db.ci.And(db.ci.Cmp("ns", "=", namespace), db.ci.InStrings("pkey", keys))))
-}
-func (db *VaultPersistence) GetStateRange(ctx context.Context, namespace driver.Namespace, startKey, endKey driver.PKey) (driver.TxStateIterator, error) {
-	span := trace.SpanFromContext(ctx)
-	span.AddEvent("start_get_state_range")
-	defer span.AddEvent("end_get_state_range")
-	return db.queryState(Where(db.ci.And(db.ci.Cmp("ns", "=", namespace), db.ci.BetweenStrings("pkey", startKey, endKey))))
-}
-func (db *VaultPersistence) GetAllStates(_ context.Context, namespace driver.Namespace) (driver.TxStateIterator, error) {
-	return db.queryState(Where(db.ci.Cmp("ns", "=", namespace)))
+	span.AddEvent("Start acquire global lock")
+	defer span.AddEvent("End acquire global lock")
+	return newTxVaultReader(db.newGlobalLockVaultReader), nil
 }
 
-func (db *VaultPersistence) queryState(where string, params []any) (driver.TxStateIterator, error) {
-	params, err := db.sanitizer.EncodeAll(params)
-	if err != nil {
-		return nil, err
+func (db *VaultPersistence) newGlobalLockVaultReader() (*vaultReader, releaseFunc, error) {
+	db.GlobalLock.Lock()
+	release := func() error {
+		db.GlobalLock.Unlock()
+		return nil
 	}
-	query := fmt.Sprintf("SELECT pkey, kversion, val FROM %s %s", db.tables.StateTable, where)
-	logger.Debug(query, params)
-	rows, err := db.readDB.Query(query, params...)
-	if err != nil {
-		return nil, err
-	}
-	return &TxStateIterator{rows: rows, decoder: db.sanitizer}, nil
+	return &vaultReader{
+		readDB:    db.readDB,
+		ci:        db.ci,
+		sanitizer: db.sanitizer,
+		tables:    db.tables,
+	}, release, nil
 }
 
 func (db *VaultPersistence) SetStatuses(ctx context.Context, code driver.TxStatusCode, message string, txIDs ...driver.TxID) error {
+	db.GlobalLock.RLock()
+	defer db.GlobalLock.RUnlock()
 	span := trace.SpanFromContext(ctx)
-	span.AddEvent("start_set_statuses")
-	defer span.AddEvent("end_set_statuses")
-	if err := db.AcquireWLocks(txIDs...); err != nil {
-		return err
-	}
-	defer db.ReleaseWLocks(txIDs...)
+	span.AddEvent("Start set statuses")
+	defer span.AddEvent("End set statuses")
 
 	params := make([]any, 0, len(txIDs)*3+2)
 	for _, txID := range txIDs {
@@ -308,7 +265,169 @@ func (db *VaultPersistence) convertStateRows(writes driver.Writes, metaWrites dr
 	return states, nil
 }
 
-func (db *VaultPersistence) GetLast(ctx context.Context) (*driver.TxStatus, error) {
+type dbReader interface {
+	Query(query string, args ...any) (*sql.Rows, error)
+	QueryRow(query string, args ...any) *sql.Row
+}
+
+func newTxVaultReader(newVaultReader func() (*vaultReader, releaseFunc, error)) *txVaultReader {
+	return &txVaultReader{newVaultReader: newVaultReader, release: func() error { return nil }}
+}
+
+type releaseFunc func() error
+
+type txVaultReader struct {
+	once           sync.Once
+	newVaultReader func() (*vaultReader, releaseFunc, error)
+	vr             *vaultReader
+	release        releaseFunc
+}
+
+func (db *txVaultReader) setVaultReader() error {
+	var err error
+	db.once.Do(func() { db.vr, db.release, err = db.newVaultReader() })
+	return err
+}
+
+func (db *txVaultReader) GetState(ctx context.Context, namespace driver.Namespace, key driver.PKey) (*driver.VaultRead, error) {
+	if err := db.setVaultReader(); err != nil {
+		return nil, err
+	}
+	return db.vr.GetState(ctx, namespace, key)
+}
+
+func (db *txVaultReader) GetStates(ctx context.Context, namespace driver.Namespace, keys ...driver.PKey) (driver.TxStateIterator, error) {
+	if err := db.setVaultReader(); err != nil {
+		return nil, err
+	}
+	return db.vr.GetStates(ctx, namespace, keys...)
+}
+func (db *txVaultReader) GetStateRange(ctx context.Context, namespace driver.Namespace, startKey, endKey driver.PKey) (driver.TxStateIterator, error) {
+	if err := db.setVaultReader(); err != nil {
+		return nil, err
+	}
+	return db.vr.GetStateRange(ctx, namespace, startKey, endKey)
+}
+func (db *txVaultReader) GetAllStates(ctx context.Context, namespace driver.Namespace) (driver.TxStateIterator, error) {
+	if err := db.setVaultReader(); err != nil {
+		return nil, err
+	}
+	return db.vr.GetAllStates(ctx, namespace)
+}
+func (db *txVaultReader) GetStateMetadata(ctx context.Context, namespace driver.Namespace, key driver.PKey) (driver.Metadata, driver.RawVersion, error) {
+	if err := db.setVaultReader(); err != nil {
+		return nil, nil, err
+	}
+	return db.vr.GetStateMetadata(ctx, namespace, key)
+}
+func (db *txVaultReader) GetLast(ctx context.Context) (*driver.TxStatus, error) {
+	if err := db.setVaultReader(); err != nil {
+		return nil, err
+	}
+	return db.vr.GetLast(ctx)
+}
+
+func (db *txVaultReader) GetTxStatus(ctx context.Context, txID driver.TxID) (*driver.TxStatus, error) {
+	if err := db.setVaultReader(); err != nil {
+		return nil, err
+	}
+	return db.vr.GetTxStatus(ctx, txID)
+}
+func (db *txVaultReader) GetTxStatuses(ctx context.Context, txIDs ...driver.TxID) (driver.TxStatusIterator, error) {
+	if err := db.setVaultReader(); err != nil {
+		return nil, err
+	}
+	return db.vr.GetTxStatuses(ctx, txIDs...)
+}
+func (db *txVaultReader) GetAllTxStatuses(ctx context.Context) (driver.TxStatusIterator, error) {
+	if err := db.setVaultReader(); err != nil {
+		return nil, err
+	}
+	return db.vr.GetAllTxStatuses(ctx)
+}
+func (db *txVaultReader) Done() error {
+	return db.release()
+}
+
+type vaultReader struct {
+	readDB    dbReader
+	ci        Interpreter
+	sanitizer *sanitizer
+	tables    VaultTables
+}
+
+func (db *vaultReader) GetState(ctx context.Context, namespace driver.Namespace, key driver.PKey) (*driver.VaultRead, error) {
+	it, err := db.GetStates(ctx, namespace, key)
+	if err != nil {
+		return nil, err
+	}
+	return collections.GetUnique(it)
+}
+
+func (db *vaultReader) GetStates(ctx context.Context, namespace driver.Namespace, keys ...driver.PKey) (driver.TxStateIterator, error) {
+	span := trace.SpanFromContext(ctx)
+	span.AddEvent("Start get states")
+	defer span.AddEvent("End get states")
+	return db.queryState(Where(db.ci.And(db.ci.Cmp("ns", "=", namespace), db.ci.InStrings("pkey", keys))))
+}
+func (db *vaultReader) GetStateRange(ctx context.Context, namespace driver.Namespace, startKey, endKey driver.PKey) (driver.TxStateIterator, error) {
+	span := trace.SpanFromContext(ctx)
+	span.AddEvent("Start get state range")
+	defer span.AddEvent("End get state range")
+	return db.queryState(Where(db.ci.And(db.ci.Cmp("ns", "=", namespace), db.ci.BetweenStrings("pkey", startKey, endKey))))
+}
+func (db *vaultReader) GetAllStates(_ context.Context, namespace driver.Namespace) (driver.TxStateIterator, error) {
+	return db.queryState(Where(db.ci.Cmp("ns", "=", namespace)))
+}
+func (db *vaultReader) queryState(where string, params []any) (driver.TxStateIterator, error) {
+	params, err := db.sanitizer.EncodeAll(params)
+	if err != nil {
+		return nil, err
+	}
+	query := fmt.Sprintf("SELECT pkey, kversion, val FROM %s %s", db.tables.StateTable, where)
+	logger.Debug(query, params)
+	rows, err := db.readDB.Query(query, params...)
+	if err != nil {
+		return nil, err
+	}
+	return &TxStateIterator{rows: rows, decoder: db.sanitizer}, nil
+}
+
+func (db *vaultReader) GetStateMetadata(ctx context.Context, namespace driver.Namespace, key driver.PKey) (driver.Metadata, driver.RawVersion, error) {
+	span := trace.SpanFromContext(ctx)
+	span.AddEvent("Start get state metadata")
+	defer span.AddEvent("End get state metadata")
+	namespace, err := db.sanitizer.Encode(namespace)
+	if err != nil {
+		return nil, nil, err
+	}
+	key, err = db.sanitizer.Encode(key)
+	if err != nil {
+		return nil, nil, err
+	}
+	where, args := Where(db.ci.And(db.ci.Cmp("ns", "=", namespace), db.ci.Cmp("pkey", "=", key)))
+	query := fmt.Sprintf("SELECT metadata, kversion FROM %s %s", db.tables.StateTable, where)
+	logger.Debug(query, args)
+
+	row := db.readDB.QueryRow(query, args...)
+	var m []byte
+	var kversion driver.RawVersion
+	err = row.Scan(&m, &kversion)
+	if err != nil && err == sql.ErrNoRows {
+		return nil, nil, nil
+	}
+	if err != nil {
+		return nil, nil, fmt.Errorf("error querying db: %w", err)
+	}
+	meta, err := unmarshalMetadata(m)
+	if err != nil {
+		return meta, nil, fmt.Errorf("error decoding metadata: %w", err)
+	}
+
+	return meta, kversion, err
+}
+
+func (db *vaultReader) GetLast(ctx context.Context) (*driver.TxStatus, error) {
 	span := trace.SpanFromContext(ctx)
 	span.AddEvent("start_get_last")
 	defer span.AddEvent("end_get_last")
@@ -318,7 +437,7 @@ func (db *VaultPersistence) GetLast(ctx context.Context) (*driver.TxStatus, erro
 	}
 	return collections.GetUnique(it)
 }
-func (db *VaultPersistence) GetTxStatus(ctx context.Context, txID driver.TxID) (*driver.TxStatus, error) {
+func (db *vaultReader) GetTxStatus(ctx context.Context, txID driver.TxID) (*driver.TxStatus, error) {
 	span := trace.SpanFromContext(ctx)
 	span.AddEvent("start_get_tx_status")
 	defer span.AddEvent("end_get_tx_status")
@@ -328,7 +447,7 @@ func (db *VaultPersistence) GetTxStatus(ctx context.Context, txID driver.TxID) (
 	}
 	return collections.GetUnique(it)
 }
-func (db *VaultPersistence) GetTxStatuses(ctx context.Context, txIDs ...driver.TxID) (driver.TxStatusIterator, error) {
+func (db *vaultReader) GetTxStatuses(ctx context.Context, txIDs ...driver.TxID) (driver.TxStatusIterator, error) {
 	span := trace.SpanFromContext(ctx)
 	span.AddEvent("start_get_tx_statuses")
 	defer span.AddEvent("end_get_tx_statuses")
@@ -337,15 +456,11 @@ func (db *VaultPersistence) GetTxStatuses(ctx context.Context, txIDs ...driver.T
 	}
 	return db.queryStatus(Where(db.ci.InStrings("tx_id", txIDs)))
 }
-func (db *VaultPersistence) GetAllTxStatuses(context.Context) (driver.TxStatusIterator, error) {
+func (db *vaultReader) GetAllTxStatuses(context.Context) (driver.TxStatusIterator, error) {
 	return db.queryStatus("", []any{})
 }
 
-func (db *VaultPersistence) Close() error {
-	return errors2.Join(db.writeDB.Close(), db.readDB.Close())
-}
-
-func (db *VaultPersistence) queryStatus(where string, params []any) (driver.TxStatusIterator, error) {
+func (db *vaultReader) queryStatus(where string, params []any) (driver.TxStatusIterator, error) {
 	query := fmt.Sprintf("SELECT tx_id, code, message FROM %s %s", db.tables.StatusTable, where)
 	logger.Debug(query, params)
 
@@ -354,6 +469,10 @@ func (db *VaultPersistence) queryStatus(where string, params []any) (driver.TxSt
 		return nil, err
 	}
 	return &TxCodeIterator{rows: rows}, nil
+}
+
+func (db *VaultPersistence) Close() error {
+	return errors2.Join(db.writeDB.Close(), db.readDB.Close())
 }
 
 type TxCodeIterator struct {
@@ -397,6 +516,8 @@ func (it *TxStateIterator) Next() (*driver.VaultRead, error) {
 	}
 	return &r, nil
 }
+
+// Data marshal/unmarshal
 
 func marshallMetadata(metadata map[string][]byte) (m []byte, err error) {
 	var buf bytes.Buffer

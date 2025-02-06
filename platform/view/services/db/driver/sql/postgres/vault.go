@@ -40,7 +40,7 @@ func NewVaultPersistence(opts common.Opts, tablePrefix string) (*VaultPersistenc
 func newVaultPersistence(readWriteDB *sql.DB, tables common.VaultTables) *VaultPersistence {
 	ci := NewInterpreter()
 	return &VaultPersistence{
-		VaultPersistence: common.NewVaultPersistence(readWriteDB, readWriteDB, tables, &errorMapper{}, ci, newSanitizer()),
+		VaultPersistence: common.NewVaultPersistence(readWriteDB, readWriteDB, tables, &errorMapper{}, ci, newSanitizer(), isolationLevels),
 		tables:           tables,
 		writeDB:          readWriteDB,
 		ci:               ci,
@@ -48,13 +48,12 @@ func newVaultPersistence(readWriteDB *sql.DB, tables common.VaultTables) *VaultP
 }
 
 func (db *VaultPersistence) Store(ctx context.Context, txIDs []driver.TxID, writes driver.Writes, metaWrites driver.MetaWrites) error {
+	db.GlobalLock.RLock()
+	defer db.GlobalLock.RUnlock()
+
 	span := trace.SpanFromContext(ctx)
-	span.AddEvent("start_store")
-	defer span.AddEvent("end_store")
-	if err := db.AcquireWLocks(txIDs...); err != nil {
-		return err
-	}
-	defer db.ReleaseWLocks(txIDs...)
+	span.AddEvent("Start store")
+	defer span.AddEvent("End store")
 
 	tx, err := db.writeDB.Begin()
 	if err != nil {

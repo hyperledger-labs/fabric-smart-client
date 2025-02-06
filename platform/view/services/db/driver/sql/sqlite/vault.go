@@ -42,7 +42,7 @@ func NewVaultPersistence(opts common.Opts, tablePrefix string) (*VaultPersistenc
 func newTxCodePersistence(readDB *sql.DB, writeDB common.WriteDB, tables common.VaultTables) *VaultPersistence {
 	ci := NewInterpreter()
 	return &VaultPersistence{
-		VaultPersistence: common.NewVaultPersistence(writeDB, readDB, tables, &errorMapper{}, ci, newSanitizer()),
+		VaultPersistence: common.NewVaultPersistence(writeDB, readDB, tables, &errorMapper{}, ci, newSanitizer(), isolationLevels),
 		tables:           tables,
 		writeDB:          writeDB,
 		ci:               ci,
@@ -51,17 +51,12 @@ func newTxCodePersistence(readDB *sql.DB, writeDB common.WriteDB, tables common.
 
 func (db *VaultPersistence) Store(ctx context.Context, txIDs []driver.TxID, writes driver.Writes, metaWrites driver.MetaWrites) error {
 	span := trace.SpanFromContext(ctx)
-	span.AddEvent("start_store")
-	defer span.AddEvent("end_store")
+	span.AddEvent("Start store")
+	defer span.AddEvent("End store")
 	if len(txIDs) == 0 && len(writes) == 0 && len(metaWrites) == 0 {
 		logger.Debugf("Nothing to write")
 		return nil
 	}
-
-	if err := db.AcquireWLocks(txIDs...); err != nil {
-		return err
-	}
-	defer db.ReleaseWLocks(txIDs...)
 
 	params := make([]any, 0)
 	queryBuilder := strings.Builder{}
@@ -97,6 +92,8 @@ func (db *VaultPersistence) Store(ctx context.Context, txIDs []driver.TxID, writ
 	query := queryBuilder.String()
 
 	logger.Debug(query, txIDs, logging.Keys(writes))
+	db.GlobalLock.RLock()
+	defer db.GlobalLock.RUnlock()
 	if _, err := db.writeDB.Exec(query, params...); err != nil {
 		return errors.Wrapf(err, "failed to store writes and metawrites for %d txs", len(txIDs))
 	}

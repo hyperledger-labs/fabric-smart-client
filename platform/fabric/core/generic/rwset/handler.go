@@ -33,7 +33,7 @@ func (h *endorserTransactionHandler) Load(payl *common.Payload, chdr *common.Cha
 
 	logger.Debugf("retrieve rws [%s,%s]", h.channel, chdr.TxId)
 
-	rws, err := h.v.GetRWSet(context.Background(), chdr.TxId, upe.Results)
+	rws, err := h.v.NewRWSetFromBytes(context.Background(), chdr.TxId, upe.Results)
 	if err != nil {
 		return nil, nil, err
 	}

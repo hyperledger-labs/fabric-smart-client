@@ -14,6 +14,11 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
+var errorMap = map[string]error{
+	"23505": driver.UniqueKeyViolation,
+	"40P01": driver.DeadlockDetected,
+}
+
 type errorMapper struct{}
 
 func (m *errorMapper) WrapError(err error) error {
@@ -22,14 +27,10 @@ func (m *errorMapper) WrapError(err error) error {
 		logger.Warnf("Error of type [%T] not pgError", err)
 		return err
 	}
-
-	switch pgErr.Code {
-	case "23505":
-		return errors.Wrapf(driver.UniqueKeyViolation, "%s", err)
-	case "40P01":
-		return errors.Wrapf(driver.DeadlockDetected, "%s", err)
-	default:
-		logger.Warnf("Unmapped postgres error with code [%s]", pgErr)
+	mappedErr, ok := errorMap[pgErr.Code]
+	if !ok {
+		logger.Warnf("Unmapped postgres error with code [%s]", pgErr.Code)
 		return pgErr
 	}
+	return errors.Wrapf(mappedErr, "%s", err)
 }
