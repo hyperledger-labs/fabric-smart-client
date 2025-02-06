@@ -11,6 +11,7 @@ import (
 	"encoding/binary"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
@@ -57,8 +58,13 @@ var SingleDBCases = []struct {
 	{"QueryExecutor", TTestQueryExecutor},
 	{"ShardLikeCommit", TTestShardLikeCommit},
 	{"VaultErr", TTestVaultErr},
-	//{"ParallelVaults", TTestParallelVaults},
-	//{"Deadlock", TTestDeadlock},
+}
+
+var ReadCommittedDBCases = []struct {
+	Name string
+	Fn   func(*testing.T, driver2.VaultPersistence, artifactsProvider)
+}{
+	{"InterceptorConcurrencyNoConsistency", TTestInterceptorConcurrencyNoConsistency},
 }
 
 var DoubleDBCases = []struct {
@@ -103,6 +109,7 @@ func TTestInterceptorErr(t *testing.T, ddb driver2.VaultPersistence, vp artifact
 	err = rws.AppendRWSet([]byte("foo"))
 	assert.EqualError(t, err, "this instance was closed")
 
+	rws.Done()
 	rws, err = vault1.NewRWSet(context.Background(), "validtxid")
 	assert.NoError(t, err)
 	rws.Done()
@@ -110,18 +117,47 @@ func TTestInterceptorErr(t *testing.T, ddb driver2.VaultPersistence, vp artifact
 	assert.NoError(t, err)
 	rws, err = vault1.NewRWSet(context.Background(), "validtxid")
 	assert.NoError(t, err)
-	err = rws.IsValid()
-	assert.EqualError(t, err, "duplicate txid validtxid")
+	rws.Done()
 }
 
 func TTestInterceptorConcurrency(t *testing.T, ddb driver2.VaultPersistence, vp artifactsProvider) {
+	ns := "namespace"
+	k := "key1"
+
+	vault1, err := vp.NewNonCachedVault(ddb)
+	assert.NoError(t, err)
+	rws, err := vault1.NewRWSet(context.Background(), "txid")
+	assert.NoError(t, err)
+
+	v, err := rws.GetState(ns, k)
+	assert.NoError(t, err)
+	assert.Nil(t, v)
+
+	go func() {
+		time.Sleep(2 * time.Second)
+		rws.Done()
+	}()
+
+	err = ddb.Store(context.Background(), nil, driver.Writes{
+		ns: map[driver.PKey]driver.VaultValue{
+			k: {Raw: []byte("val"), Version: versionBlockTxNumToBytes(35, 1)},
+		},
+	}, nil)
+	assert.NoError(t, err)
+
+	state, err := ddb.GetState(context.Background(), ns, k)
+	assert.NoError(t, err)
+	assert.Equal(t, []byte("val"), state.Raw)
+}
+
+func TTestInterceptorConcurrencyNoConsistency(t *testing.T, ddb driver2.VaultPersistence, vp artifactsProvider) {
 	ns := "namespace"
 	k := "key1"
 	mk := "meyakey1"
 
 	vault1, err := vp.NewNonCachedVault(ddb)
 	assert.NoError(t, err)
-	rws, err := vault1.NewRWSet(context.Background(), "txid")
+	rws, err := vault1.NewRWSetWithIsolationLevel(context.Background(), "txid", driver.LevelReadUncommitted)
 	assert.NoError(t, err)
 
 	v, err := rws.GetState(ns, k)
@@ -159,96 +195,6 @@ func TTestInterceptorConcurrency(t *testing.T, ddb driver2.VaultPersistence, vp 
 	assert.EqualError(t, err, "invalid metadata read: previous value returned at version [[]], current value at version [[0 0 0 36 0 0 0 1]]")
 }
 
-//func TTestParallelVaults(t *testing.T, ddb driver2.VaultPersistence, vp artifactsProvider) {
-//	ns := "namespace"
-//	k := "key1"
-//	mk := "meyakey1"
-//	txID := "txid"
-//
-//	vault1, err := vp.NewCachedVault(ddb)
-//	assert.NoError(t, err)
-//
-//	vault2, err := vp.NewCachedVault(&duplicateErrorPersistence{ddb})
-//	assert.NoError(t, err)
-//
-//	rws1, err := vault1.NewRWSet(txID)
-//	assert.NoError(t, err)
-//	assert.NoError(t, rws1.SetState(ns, k, []byte("val_v1")))
-//	assert.NoError(t, rws1.SetStateMetadata(ns, mk, map[string][]byte{"k1": []byte("mval1_v1")}))
-//	rws1.Done()
-//
-//	rws2, err := vault2.NewRWSet(txID)
-//	assert.NoError(t, err)
-//	assert.NoError(t, rws2.SetState(ns, k, []byte("val_v2")))
-//	assert.NoError(t, rws2.SetStateMetadata(ns, mk, map[string][]byte{"k1": []byte("mval1_v2"), "k2": []byte("mval2_v2")}))
-//	rws2.Done()
-//
-//	val, mval, txNum, blkNum, err := queryVault(vault1, ns, k, mk)
-//	assert.NoError(t, err)
-//	assert.Nil(t, val)
-//	assert.Nil(t, mval)
-//	assert.Zero(t, txNum)
-//	assert.Zero(t, blkNum)
-//
-//	val, mval, txNum, blkNum, err = queryVault(vault2, ns, k, mk)
-//	assert.NoError(t, err)
-//	assert.Nil(t, val)
-//	assert.Nil(t, mval)
-//	assert.Zero(t, txNum)
-//	assert.Zero(t, blkNum)
-//
-//	assert.NoError(t, vault1.CommitTX(context.TODO(), txID, 1, 2))
-//	assert.NoError(t, vault2.CommitTX(context.TODO(), txID, 1, 2))
-//
-//	val, mval, txNum, blkNum, err = queryVault(vault1, ns, k, mk)
-//	assert.NoError(t, err)
-//	assert.Equal(t, []byte("val_v1"), val)
-//	assert.Equal(t, map[string][]byte{"k1": []byte("mval1_v1")}, mval)
-//	assert.Equal(t, uint64(2), txNum)
-//	assert.Equal(t, uint64(1), blkNum)
-//
-//	val, mval, txNum, blkNum, err = queryVault(vault2, ns, k, mk)
-//	assert.NoError(t, err)
-//	assert.Equal(t, []byte("val_v1"), val)
-//	assert.Equal(t, map[string][]byte{"k1": []byte("mval1_v1")}, mval)
-//	assert.Equal(t, uint64(2), txNum)
-//	assert.Equal(t, uint64(1), blkNum)
-//}
-//
-//func TTestDeadlock(t *testing.T, ddb driver2.VaultPersistence, vp artifactsProvider) {
-//	ns := "namespace"
-//	k := "key1"
-//	mk := "meyakey1"
-//	txID := "txid"
-//	deadlockDB := &deadlockErrorPersistence{ddb, 3, k}
-//
-//	vault1, err := vp.NewCachedVault(deadlockDB)
-//	assert.NoError(t, err)
-//
-//	rws1, err := vault1.NewRWSet(txID)
-//	assert.NoError(t, err)
-//	assert.NoError(t, rws1.SetState(ns, k, []byte("val_v1")))
-//	assert.NoError(t, rws1.SetStateMetadata(ns, mk, map[string][]byte{"k1": []byte("mval1_v1")}))
-//	rws1.Done()
-//
-//	val, mval, txNum, blkNum, err := queryVault(vault1, ns, k, mk)
-//	assert.NoError(t, err)
-//	assert.Nil(t, val)
-//	assert.Nil(t, mval)
-//	assert.Zero(t, txNum)
-//	assert.Zero(t, blkNum)
-//
-//	assert.NoError(t, vault1.CommitTX(context.TODO(), txID, 1, 2))
-//	assert.Zero(t, deadlockDB.failures, "failed 3 times because of deadlock")
-//
-//	val, mval, txNum, blkNum, err = queryVault(vault1, ns, k, mk)
-//	assert.NoError(t, err)
-//	assert.Equal(t, []byte("val_v1"), val)
-//	assert.Equal(t, map[string][]byte{"k1": []byte("mval1_v1")}, mval)
-//	assert.Equal(t, uint64(2), txNum)
-//	assert.Equal(t, uint64(1), blkNum)
-//}
-
 func TTestQueryExecutor(t *testing.T, ddb driver2.VaultPersistence, vp artifactsProvider) {
 	ns := "namespace"
 
@@ -267,7 +213,6 @@ func TTestQueryExecutor(t *testing.T, ddb driver2.VaultPersistence, vp artifacts
 
 	qe, err := aVault.NewQueryExecutor(context.Background())
 	assert.NoError(t, err)
-	defer qe.Done()
 
 	v, err := qe.GetState(context.Background(), ns, "k1")
 	assert.NoError(t, err)
@@ -276,7 +221,7 @@ func TTestQueryExecutor(t *testing.T, ddb driver2.VaultPersistence, vp artifacts
 	assert.NoError(t, err)
 	assert.Nil(t, v)
 
-	itr, err := qe.GetStateRangeScanIterator(context.Background(), ns, "", "")
+	itr, err := qe.GetStateRange(context.Background(), ns, "", "")
 	assert.NoError(t, err)
 	res, err := collections.ReadAll(itr)
 	assert.NoError(t, err)
@@ -361,7 +306,7 @@ func TTestShardLikeCommit(t *testing.T, ddb driver2.VaultPersistence, vp artifac
 	assert.NoError(t, err)
 
 	// give it to the kvs and check whether it's valid - it won't be
-	rwset, err := aVault.GetRWSet(context.Background(), "txid-invalid", rwsBytes)
+	rwset, err := aVault.NewRWSetFromBytes(context.Background(), "txid-invalid", rwsBytes)
 	assert.NoError(t, err)
 	err = rwset.IsValid()
 	assert.EqualError(t, err, "invalid read: vault at version namespace:key2 [&{key2 [107 50 118 97 108] [0 0 0 37 0 0 0 3]}], read-write set at version [[0 0 0 37 0 0 0 2]]")
@@ -406,7 +351,7 @@ func TTestShardLikeCommit(t *testing.T, ddb driver2.VaultPersistence, vp artifac
 	assert.NoError(t, err)
 
 	// give it to the kvs and check whether it's valid - it will be
-	rwset, err = aVault.GetRWSet(context.Background(), "txid-valid", rwsBytes)
+	rwset, err = aVault.NewRWSetFromBytes(context.Background(), "txid-valid", rwsBytes)
 	assert.NoError(t, err)
 	err = rwset.IsValid()
 	assert.NoError(t, err)
@@ -465,9 +410,9 @@ func TTestVaultErr(t *testing.T, ddb driver2.VaultPersistence, vp artifactsProvi
 	ncrwset, err := vault1.NewRWSet(context.Background(), "not-closed")
 	assert.NoError(t, err)
 	_, err = vault1.NewRWSet(context.Background(), "not-closed")
-	assert.EqualError(t, err, "duplicate read-write set for txid not-closed")
-	_, err = vault1.GetRWSet(context.Background(), "not-closed", rwsBytes)
-	assert.EqualError(t, err, "programming error: previous read-write set for not-closed has not been closed")
+	assert.EqualError(t, err, "programming error: rwset already exists for [not-closed]")
+	_, err = vault1.NewRWSetFromBytes(context.Background(), "not-closed", rwsBytes)
+	assert.ErrorContains(t, err, "programming error: rwset already exists for [not-closed]")
 	err = vault1.CommitTX(context.TODO(), "not-closed", 0, 0)
 	assert.ErrorContains(t, err, "attempted to retrieve read-write set for not-closed when done has not been called")
 	err = vault1.DiscardTx(context.Background(), "not-closed", "")
@@ -482,7 +427,7 @@ func TTestVaultErr(t *testing.T, ddb driver2.VaultPersistence, vp artifactsProvi
 	assert.Equal(t, "pineapple", message)
 	assert.Equal(t, invalid, vc)
 
-	_, err = vault1.GetRWSet(context.Background(), "bogus", []byte("barf"))
+	_, err = vault1.NewRWSetFromBytes(context.Background(), "bogus", []byte("barf"))
 	assert.Contains(t, err.Error(), "provided invalid read-write set bytes")
 
 	code, _, err := vault1.Status(context.Background(), "unknown-txid")
@@ -509,8 +454,9 @@ func TTestMerge(t *testing.T, ddb driver2.VaultPersistence, vp artifactsProvider
 	}, nil)
 	assert.NoError(t, err)
 
-	rws, err := vault2.NewInspector(context.Background(), txid)
+	rws, err := vault2.NewRWSet(context.Background(), txid)
 	assert.NoError(t, err)
+	defer rws.Done()
 	v, err := rws.GetState(ns, k1)
 	assert.NoError(t, err)
 	assert.Equal(t, []byte("v1"), v)
@@ -543,6 +489,7 @@ func TTestMerge(t *testing.T, ddb driver2.VaultPersistence, vp artifactsProvider
 	rwsBytes, err := m.Marshal("pineapple", rwsb)
 	assert.NoError(t, err)
 
+	rw := rws.(*Interceptor[ValidationCode]).RWs()
 	err = rws.AppendRWSet(rwsBytes)
 	assert.NoError(t, err)
 	assert.Equal(t, NamespaceKeyedMetaWrites{
@@ -550,18 +497,18 @@ func TTestMerge(t *testing.T, ddb driver2.VaultPersistence, vp artifactsProvider
 			"key1": {"k1": []byte("v1")},
 			"key3": {"k3": []byte("v3")},
 		},
-	}, rws.RWs().MetaWrites)
+	}, rw.MetaWrites)
 	assert.Equal(t, Writes{"namespace": {
 		"key1": []byte("newv1"),
 		"key2": []byte("v2"),
-	}}, rws.RWs().Writes)
+	}}, rw.Writes)
 	assert.Equal(t, Reads{
 		"namespace": {
 			"key1":      versionBlockTxNumToBytes(35, 1),
 			"notexist1": nil,
 			"notexist2": nil,
 		},
-	}, rws.RWs().Reads)
+	}, rw.Reads)
 
 	rwsb = &ReadWriteSet{
 		ReadSet: ReadSet{
@@ -728,7 +675,7 @@ func TTestRun(t *testing.T, db1, db2 driver2.VaultPersistence, vp artifactsProvi
 	rws, err := vault1.NewRWSet(context.Background(), txid)
 	assert.NoError(t, err)
 
-	rws2, err := vault2.NewRWSet(context.Background(), txid)
+	rws2, err := vault2.NewRWSet(context.Background(), txid) // here 1
 	assert.NoError(t, err)
 	rws2.Done()
 
@@ -832,7 +779,7 @@ func TTestRun(t *testing.T, db1, db2 driver2.VaultPersistence, vp artifactsProvi
 	assert.Error(t, vault1.Match(context.Background(), txid, []byte("pineapple")))
 
 	// we open the read-write set fabric.From the other kvs
-	rws, err = vault2.GetRWSet(context.Background(), txid, rwsBytes)
+	rws, err = vault2.NewRWSetFromBytes(context.Background(), txid, rwsBytes)
 	assert.NoError(t, err)
 
 	assert.Equal(t, []string{ns}, rws.Namespaces())
@@ -934,7 +881,7 @@ func TTestRun(t *testing.T, db1, db2 driver2.VaultPersistence, vp artifactsProvi
 	assert.NotNil(t, rwsBytes)
 
 	// we open the read-write set fabric.From the first kvs again
-	rws, err = vault1.GetRWSet(context.Background(), txid, rwsBytes)
+	rws, err = vault1.NewRWSetFromBytes(context.Background(), txid, rwsBytes)
 	assert.NoError(t, err)
 
 	assert.Equal(t, []string{ns}, rws.Namespaces())
@@ -1099,112 +1046,6 @@ func compare(t *testing.T, ns string, db1, db2 driver2.VaultPersistence) {
 }
 
 func byKey(a, b driver.VaultRead) int { return strings.Compare(a.Key, b.Key) }
-
-//
-//func queryVault(v *Vault[Code], ns driver.Namespace, key driver.PKey, mkey driver.MKey) (driver.RawValue, driver.Metadata, driver.TxNum, driver.BlockNum, error) {
-//	qe, err := v.NewQueryExecutor()
-//	defer qe.Done()
-//	if err != nil {
-//		return nil, nil, 0, 0, err
-//	}
-//	val, err := qe.GetState(ns, key)
-//	if err != nil {
-//		return nil, nil, 0, 0, err
-//	}
-//	mval, kVersion, err := qe.GetStateMetadata(ns, mkey)
-//	if err != nil {
-//		return nil, nil, 0, 0, err
-//	}
-//	blkNum, txNum, err := BlockTxIndexVersionMarshaller{}.FromBytes(kVersion)
-//	if err != nil {
-//		return nil, nil, 0, 0, err
-//	}
-//	return val, mval, txNum, blkNum, nil
-//}
-//
-//type deadlockErrorPersistence struct {
-//	VersionedPersistence
-//	failures int
-//	key      string
-//}
-//
-//func (db *deadlockErrorPersistence) GetState(namespace driver.Namespace, key driver.PKey) (VaultValue, error) {
-//	return db.VersionedPersistence.GetState(namespace, key)
-//}
-//
-//func (db *deadlockErrorPersistence) GetStateRangeScanIterator(namespace driver.Namespace, startKey, endKey driver.PKey) (collections.Iterator[*driver.VaultRead], error) {
-//	return db.VersionedPersistence.GetStateRangeScanIterator(namespace, startKey, endKey)
-//}
-//
-//func (db *deadlockErrorPersistence) GetStateSetIterator(ns driver.Namespace, keys ...driver.PKey) (collections.Iterator[*driver.VaultRead], error) {
-//	return db.VersionedPersistence.GetStateSetIterator(ns, keys...)
-//}
-//
-//func (db *deadlockErrorPersistence) SetState(namespace driver.Namespace, key driver.PKey, value VaultValue) error {
-//	if key == db.key && db.failures > 0 {
-//		db.failures--
-//		return DeadlockDetected
-//	}
-//	return db.VersionedPersistence.SetState(namespace, key, value)
-//}
-//
-//func (db *deadlockErrorPersistence) SetStates(namespace driver.Namespace, kvs map[driver.PKey]VaultValue) map[driver.PKey]error {
-//	errs := make(map[driver.PKey]error)
-//	for k, v := range kvs {
-//		if err := db.SetState(namespace, k, v); err != nil {
-//			errs[k] = err
-//		}
-//	}
-//	return errs
-//}
-//
-//func (db *deadlockErrorPersistence) DeleteStates(namespace driver.Namespace, keys ...driver.PKey) map[driver.PKey]error {
-//	errs := make(map[driver.PKey]error)
-//	for _, key := range keys {
-//		if err := db.DeleteState(namespace, key); err != nil {
-//			errs[key] = err
-//		}
-//	}
-//	return errs
-//}
-//
-//type duplicateErrorPersistence struct {
-//	VersionedPersistence
-//}
-//
-//func (db *duplicateErrorPersistence) SetState(driver.Namespace, driver.PKey, VaultValue) error {
-//	return UniqueKeyViolation
-//}
-//
-//func (db *duplicateErrorPersistence) SetStates(_ driver.Namespace, kvs map[driver.PKey]VaultValue) map[driver.PKey]error {
-//	errs := make(map[driver.PKey]error, len(kvs))
-//	for k := range kvs {
-//		errs[k] = UniqueKeyViolation
-//	}
-//	return errs
-//}
-//
-//func (db *duplicateErrorPersistence) DeleteStates(namespace driver.Namespace, keys ...driver.PKey) map[driver.PKey]error {
-//	errs := make(map[driver.PKey]error)
-//	for _, key := range keys {
-//		if err := db.DeleteState(namespace, key); err != nil {
-//			errs[key] = err
-//		}
-//	}
-//	return errs
-//}
-//
-//func (db *duplicateErrorPersistence) GetState(namespace driver.Namespace, key driver.PKey) (VaultValue, error) {
-//	return db.VersionedPersistence.GetState(namespace, key)
-//}
-//
-//func (db *duplicateErrorPersistence) GetStateRangeScanIterator(namespace driver.Namespace, startKey, endKey driver.PKey) (collections.Iterator[*driver.VaultRead], error) {
-//	return db.VersionedPersistence.GetStateRangeScanIterator(namespace, startKey, endKey)
-//}
-//
-//func (db *duplicateErrorPersistence) GetStateSetIterator(ns driver.Namespace, keys ...driver.PKey) (collections.Iterator[*driver.VaultRead], error) {
-//	return db.VersionedPersistence.GetStateSetIterator(ns, keys...)
-//}
 
 func versionBlockTxNumToBytes(Block driver.BlockNum, TxNum driver.TxNum) []byte {
 	buf := make([]byte, 8)

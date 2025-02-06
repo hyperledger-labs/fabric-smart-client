@@ -141,12 +141,12 @@ func (c *Vault) NewRWSet(ctx context.Context, txID driver.TxID) (*RWSet, error) 
 	return &RWSet{RWSet: rws}, nil
 }
 
-// GetRWSet returns a RWSet for this ledger whose content is unmarshalled
+// NewRWSetFromBytes returns a RWSet for this ledger whose content is unmarshalled
 // from the passed bytes.
 // A client may obtain more than one such simulator; they are made unique
 // by way of the supplied txid
-func (c *Vault) GetRWSet(ctx context.Context, txid driver.TxID, rwset []byte) (*RWSet, error) {
-	rws, err := c.vault.GetRWSet(ctx, txid, rwset)
+func (c *Vault) NewRWSetFromBytes(ctx context.Context, txid driver.TxID, rwset []byte) (*RWSet, error) {
+	rws, err := c.vault.NewRWSetFromBytes(ctx, txid, rwset)
 	if err != nil {
 		return nil, err
 	}

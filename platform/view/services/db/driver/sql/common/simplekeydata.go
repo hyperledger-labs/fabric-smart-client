@@ -46,15 +46,15 @@ func (db *simpleKeyDataPersistence) ExistData(key string) (bool, error) {
 }
 
 func (db *simpleKeyDataPersistence) PutData(key string, etx []byte) error {
-	query := fmt.Sprintf("INSERT INTO %s (key, data) VALUES ($1, $2)", db.table)
-	logger.Debugf(query, key, len(etx))
-	_, err := db.writeDB.Exec(query, key, etx)
-	if err != nil && errors.Is(db.errorWrapper.WrapError(err), driver.UniqueKeyViolation) {
-		logger.Warnf("Data [%s] already in db. Skipping...", key)
-		return nil
-	}
+	query := fmt.Sprintf("INSERT INTO %s (key, data) VALUES ($1, $2) ON CONFLICT DO NOTHING", db.table)
+	logger.Debug(query, key, len(etx))
+	result, err := db.writeDB.Exec(query, key, etx)
 	if err != nil {
 		return errors.Wrapf(err, "failed executing query [%s]", query)
+	}
+
+	if rowsAffected, err := result.RowsAffected(); err == nil && rowsAffected == 0 {
+		logger.Debugf("Entry for key [%s] was already in the database. Skipped", key)
 	}
 	logger.Debugf("Data [%s] registered", key)
 	return nil

@@ -110,7 +110,7 @@ func New[V driver.ValidationCode](
 }
 
 func (db *Vault[V]) NewQueryExecutor(ctx context.Context) (dbdriver.QueryExecutor, error) {
-	return newGlobalLockQueryExecutor(ctx, db.vaultStore)
+	return db.vaultStore.NewGlobalLockVaultReader(ctx)
 }
 
 func (db *Vault[V]) Status(ctx context.Context, txID driver.TxID) (V, string, error) {
@@ -177,13 +177,13 @@ func (db *Vault[V]) CommitTX(ctx context.Context, txID driver.TxID, block driver
 func (db *Vault[V]) commitTXs(txs []txCommitIndex) []error {
 	ctx, span := db.tracer.Start(context.Background(), "batch_commit_txs")
 	defer span.End()
-	db.logger.Infof("Commit %d transactions", len(txs))
+	db.logger.Debugf("Commit %d transactions", len(txs))
 	start := time.Now()
 	txIDs := make([]driver.TxID, len(txs))
 	for i, tx := range txs {
 		txIDs[i] = tx.txID
 	}
-	db.logger.Infof("UnmapInterceptors [%v]", txIDs)
+	db.logger.Debugf("UnmapInterceptors [%v]", txIDs)
 	db.interceptorsLock.Lock()
 	interceptors, err := db.unmapInterceptors(txIDs...)
 	db.interceptorsLock.Unlock()
@@ -243,48 +243,45 @@ func (db *Vault[V]) SetDiscarded(ctx context.Context, txID driver.TxID, message 
 }
 
 func (db *Vault[V]) NewRWSet(ctx context.Context, txID driver.TxID) (api2.RWSet, error) {
-	return db.NewInspector(ctx, txID)
-}
-
-func (db *Vault[V]) NewInspector(ctx context.Context, txID driver.TxID) (TxInterceptor, error) {
-	newCtx, _ := db.tracer.Start(ctx, "inspector")
 	db.logger.Debugf("NewRWSet[%s]", txID)
-	qe, err := newTxLockQueryExecutor(ctx, db.vaultStore, txID)
-	if err != nil {
-		return nil, err
-	}
-	i := db.newInterceptor(db.logger, newCtx, EmptyRWSet(), qe, db.vaultStore, txID)
 
-	db.interceptorsLock.Lock()
-	defer db.interceptorsLock.Unlock()
-	if _, in := db.interceptors[txID]; in {
-		return nil, errors.Errorf("duplicate read-write set for txid %s", txID)
-	}
-	db.interceptors[txID] = i
-
-	return i, nil
+	return db.newRWSet(ctx, txID, EmptyRWSet(), driver.LevelDefault)
 }
 
-func (db *Vault[V]) GetRWSet(ctx context.Context, txID driver.TxID, rwsetBytes []byte) (driver.RWSet, error) {
-	span := trace.SpanFromContext(ctx)
-	span.AddEvent("start_get_rw_set")
-	defer span.AddEvent("end_get_rw_set")
-	db.logger.Debugf("GetRWSet[%s]", txID)
+func (db *Vault[V]) NewRWSetWithIsolationLevel(ctx context.Context, txID driver.TxID, isolationLevel driver.IsolationLevel) (api2.RWSet, error) {
+	db.logger.Debugf("NewRWSet[%s]", txID)
+
+	return db.newRWSet(ctx, txID, EmptyRWSet(), isolationLevel)
+}
+
+func (db *Vault[V]) NewRWSetFromBytes(ctx context.Context, txID driver.TxID, rwsetBytes []byte) (driver.RWSet, error) {
+	db.logger.Debugf("NewRWSetFromBytes[%s]", txID)
 	rwSet, err := db.populator.Populate(rwsetBytes)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed populating tx [%s]", txID)
 	}
 
-	qe, err := newTxLockQueryExecutor(ctx, db.vaultStore, txID)
+	return db.newRWSet(ctx, txID, rwSet, driver.LevelDefault)
+}
+
+func (db *Vault[V]) newRWSet(ctx context.Context, txID driver.TxID, rws ReadWriteSet, isolationLevel driver.IsolationLevel) (driver.RWSet, error) {
+	span := trace.SpanFromContext(ctx)
+	span.AddEvent("Start new RW set")
+	defer span.AddEvent("End new RW set")
+
+	qe, err := db.vaultStore.NewTxLockVaultReader(ctx, txID, isolationLevel)
 	if err != nil {
 		return nil, err
 	}
-	i := db.newInterceptor(db.logger, ctx, rwSet, qe, db.vaultStore, txID)
+	if err != nil {
+		return nil, err
+	}
+	i := db.newInterceptor(db.logger, ctx, rws, qe, db.vaultStore, txID)
 
 	db.interceptorsLock.Lock()
 	defer db.interceptorsLock.Unlock()
-	if i, in := db.interceptors[txID]; in && !i.IsClosed() {
-		return nil, errors.Errorf("programming error: previous read-write set for %s has not been closed", txID)
+	if interceptor, ok := db.interceptors[txID]; ok && !interceptor.IsClosed() {
+		return nil, errors.Errorf("programming error: rwset already exists for [%s]", txID)
 	}
 	db.interceptors[txID] = i
 
@@ -364,32 +361,6 @@ func (db *Vault[V]) Statuses(ctx context.Context, txIDs ...driver.TxID) ([]drive
 		})
 	}
 	return statuses, nil
-}
-
-func (db *Vault[V]) GetExistingRWSet(ctx context.Context, txID driver.TxID) (driver.RWSet, error) {
-	span := trace.SpanFromContext(ctx)
-	span.AddEvent("start_get_existing_rwset")
-	defer span.AddEvent("end_get_existing_rwset")
-	db.logger.Debugf("GetExistingRWSet[%s]", txID)
-
-	db.interceptorsLock.Lock()
-	defer db.interceptorsLock.Unlock()
-	interceptor, in := db.interceptors[txID]
-	if !in {
-		return nil, errors.Errorf("rws for [%s] not found", txID)
-	}
-	if !interceptor.IsClosed() {
-		return nil, errors.Errorf("programming error: previous read-write set for %s has not been closed", txID)
-	}
-	qe, err := newTxLockQueryExecutor(ctx, db.vaultStore, txID)
-	if err != nil {
-		return nil, err
-	}
-	if err := interceptor.Reopen(qe); err != nil {
-		return nil, errors.Errorf("failed to reopen rwset [%s]", txID)
-	}
-
-	return interceptor, nil
 }
 
 func (db *Vault[V]) SetStatus(ctx context.Context, txID driver.TxID, code V) error {

@@ -42,7 +42,8 @@ func (qe MockQE) GetState(_ context.Context, _ driver.Namespace, pkey driver.PKe
 	}, nil
 }
 
-func (qe MockQE) Done() {
+func (qe MockQE) Done() error {
+	return nil
 }
 
 type MockTxStatusStore struct {

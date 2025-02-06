@@ -18,7 +18,7 @@ import (
 type VersionedQueryExecutor interface {
 	GetStateMetadata(ctx context.Context, namespace, key string) (driver.Metadata, driver.RawVersion, error)
 	GetState(ctx context.Context, namespace, key string) (*driver.VaultRead, error)
-	Done()
+	Done() error
 }
 
 type VersionComparator interface {
@@ -82,15 +82,6 @@ func NewInterceptor[V driver.ValidationCode](
 }
 
 func (i *Interceptor[V]) IsValid() error {
-	tx, err := i.vaultStore.GetTxStatus(context.Background(), i.txID)
-	if err != nil {
-		return err
-	}
-	i.logger.Infof("found it at version [%v]", tx.Code)
-	if tx.Code == driver.Valid {
-		return errors.Errorf("duplicate txid %s", i.txID)
-	}
-
 	i.RLock()
 	defer i.RUnlock()
 	if i.qe == nil {
@@ -397,7 +388,7 @@ func (i *Interceptor[V]) Equals(other interface{}, nss ...string) error {
 }
 
 func (i *Interceptor[V]) Done() {
-	i.logger.Infof("Done with [%s], closed [%v]", i.txID, i.IsClosed())
+	i.logger.Debugf("Done with [%s], closed [%v]", i.txID, i.IsClosed())
 	i.Lock()
 	defer i.Unlock()
 	if !i.closed {

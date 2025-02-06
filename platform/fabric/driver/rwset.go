@@ -20,11 +20,8 @@ type (
 )
 
 type RWSetInspector interface {
-	GetRWSet(ctx context.Context, txID driver.TxID, rwset []byte) (RWSet, error)
+	NewRWSetFromBytes(ctx context.Context, txID driver.TxID, rwset []byte) (RWSet, error)
 	InspectRWSet(ctx context.Context, rwsetBytes []byte, namespaces ...driver.Namespace) (RWSet, error)
-	NewRWSet(ctx context.Context, txID driver.TxID) (RWSet, error)
-	RWSExists(ctx context.Context, txID driver.TxID) bool
-	GetExistingRWSet(ctx context.Context, txID driver.TxID) (driver.RWSet, error)
 }
 
 type RWSetPayloadHandler interface {

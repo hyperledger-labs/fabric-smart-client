@@ -120,7 +120,7 @@ func (db *UnversionedPersistence) DeleteStates(namespace driver2.Namespace, keys
 
 func (db *UnversionedPersistence) DeleteStatesWithTx(tx dbTransaction, namespace driver2.Namespace, keys ...driver2.PKey) map[driver2.PKey]error {
 	if db.IsTxnNil() {
-		logger.Debugf("No ongoing transaction. Using db")
+		logger.Debug("No ongoing transaction. Using db")
 		tx = db.writeDB
 	}
 
@@ -166,7 +166,7 @@ func (db *UnversionedPersistence) SetStateWithTx(tx dbTransaction, ns driver2.Na
 
 func (db *UnversionedPersistence) SetStatesWithTx(tx dbTransaction, ns driver2.Namespace, kvs map[driver2.PKey]driver.UnversionedValue) map[driver2.PKey]error {
 	if db.IsTxnNil() {
-		logger.Info("No ongoing transaction. Using db")
+		logger.Debug("No ongoing transaction. Using db")
 		tx = db.writeDB
 	}
 

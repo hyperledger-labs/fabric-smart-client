@@ -501,7 +501,11 @@ func (c *Committer) ReloadConfigTransactions() error {
 	if err != nil {
 		return errors.WithMessagef(err, "failed getting query executor")
 	}
-	defer qe.Done()
+	defer func() {
+		if err := qe.Done(); err != nil {
+			logger.Errorf("error closing query executor: %v", err)
+		}
+	}()
 
 	c.logger.Debugf("looking up the latest config block available")
 	var sequence uint64 = 0
