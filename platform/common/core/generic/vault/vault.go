@@ -349,18 +349,16 @@ func (db *Vault[V]) Statuses(ctx context.Context, txIDs ...driver.TxID) ([]drive
 	if err != nil {
 		return nil, err
 	}
-	statuses := make([]driver.TxValidationStatus[V], 0, len(txIDs))
-	for status, err := it.Next(); status != nil; status, err = it.Next() {
-		if err != nil {
-			return nil, err
+	return collections.ReadAll(collections.Map(it, func(status *driver.TxStatus) (*driver.TxValidationStatus[V], error) {
+		if status == nil {
+			return nil, nil
 		}
-		statuses = append(statuses, driver.TxValidationStatus[V]{
+		return &driver.TxValidationStatus[V]{
 			TxID:           status.TxID,
 			ValidationCode: db.vcProvider.FromInt32(status.Code),
 			Message:        status.Message,
-		})
-	}
-	return statuses, nil
+		}, nil
+	}))
 }
 
 func (db *Vault[V]) SetStatus(ctx context.Context, txID driver.TxID, code V) error {

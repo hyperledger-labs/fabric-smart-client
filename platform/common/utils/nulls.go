@@ -6,6 +6,8 @@ SPDX-License-Identifier: Apache-2.0
 
 package utils
 
+import "reflect"
+
 func Zero[A any]() A {
 	var a A
 	return a
@@ -53,4 +55,22 @@ func DefaultString(a interface{}, b string) string {
 		return s
 	}
 	return b
+}
+
+var nullableTypes = map[reflect.Kind]struct{}{
+	reflect.Ptr:       {},
+	reflect.Map:       {},
+	reflect.Chan:      {},
+	reflect.Func:      {},
+	reflect.Slice:     {},
+	reflect.Interface: {},
+}
+
+func isNullable(k reflect.Kind) bool {
+	_, ok := nullableTypes[k]
+	return ok
+}
+
+func IsNil(a any) bool {
+	return a == nil || isNullable(reflect.TypeOf(a).Kind()) && reflect.ValueOf(a).IsNil()
 }

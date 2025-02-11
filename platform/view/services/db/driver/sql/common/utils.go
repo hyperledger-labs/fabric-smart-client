@@ -16,6 +16,7 @@ import (
 
 	errors2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/pkg/errors"
 )
@@ -33,10 +34,6 @@ type WriteDB interface {
 
 type Sanitizer interface {
 	Encode(string) (string, error)
-	Decode(string) (string, error)
-}
-
-type decoder interface {
 	Decode(string) (string, error)
 }
 
@@ -149,6 +146,36 @@ func GetOpts(config driver.Config, optsKey string) (*Opts, error) {
 	}
 
 	return &opts, nil
+}
+
+func QueryIterator[T any](rows *sql.Rows, mapper iteratorMapper[*T]) collections.Iterator[*T] {
+	return &queryIterator[T]{rows: rows, mapper: mapper}
+}
+
+type RowScanner interface {
+	Scan(dest ...any) error
+}
+
+type iteratorMapper[T any] func(RowScanner, T) error
+
+type queryIterator[T any] struct {
+	mapper iteratorMapper[*T]
+	rows   *sql.Rows
+}
+
+func (it *queryIterator[T]) Close() {
+	_ = it.rows.Close()
+}
+
+func (it *queryIterator[T]) Next() (*T, error) {
+	if !it.rows.Next() {
+		return nil, nil
+	}
+	var v T
+	if err := it.mapper(it.rows, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
 }
 
 func QueryUnique[T any](db *sql.DB, query string, args ...any) (T, error) {

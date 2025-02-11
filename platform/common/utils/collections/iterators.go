@@ -10,6 +10,7 @@ import (
 	"math/rand"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/functions"
 )
 
 type baseIterator[k any] interface {
@@ -64,6 +65,18 @@ func ReadAll[T any](it Iterator[*T]) ([]T, error) {
 			return nil, err
 		}
 		items = append(items, *item)
+	}
+	return items, nil
+}
+
+func ToSlice[T any](it Iterator[*T]) ([]*T, error) {
+	defer it.Close()
+	items := make([]*T, 0)
+	for item, err := it.Next(); item != nil || err != nil; item, err = it.Next() {
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, item)
 	}
 	return items, nil
 }
@@ -123,13 +136,34 @@ func (it *permutationIterator[T]) Close() {
 	it.perm = nil
 }
 
-func Map[A any, B any](iterator Iterator[A], transformer func(A) (B, error)) Iterator[B] {
+func Filter[A any](iterator Iterator[A], filter functions.Filter[A]) Iterator[A] {
+	return &filteredIterator[A]{Iterator: iterator, filter: filter}
+}
+
+type filteredIterator[A any] struct {
+	Iterator[A]
+	filter func(A) bool
+}
+
+func (it *filteredIterator[A]) Next() (A, error) {
+	if next, err := it.Iterator.Next(); err != nil {
+		return next, err
+	} else if utils.IsNil(next) {
+		return utils.Zero[A](), nil
+	} else if !it.filter(next) {
+		return it.Next()
+	} else {
+		return next, nil
+	}
+}
+
+func Map[A any, B any](iterator Iterator[A], transformer functions.Mapper[A, B]) Iterator[B] {
 	return &mappedIterator[A, B]{Iterator: iterator, transformer: transformer}
 }
 
 type mappedIterator[A any, B any] struct {
 	Iterator[A]
-	transformer func(A) (B, error)
+	transformer functions.Mapper[A, B]
 }
 
 func (it *mappedIterator[A, B]) Next() (B, error) {

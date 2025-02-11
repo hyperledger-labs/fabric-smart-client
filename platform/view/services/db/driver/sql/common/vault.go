@@ -390,7 +390,20 @@ func (db *vaultReader) queryState(where string, params []any) (driver.TxStateIte
 	if err != nil {
 		return nil, err
 	}
-	return &TxStateIterator{rows: rows, decoder: db.sanitizer}, nil
+	it := QueryIterator(rows, func(r RowScanner, v *driver.VaultRead) error { return r.Scan(&v.Key, &v.Version, &v.Raw) })
+	return collections.Map(it, db.encodeVersionedRead), nil
+}
+
+func (db *vaultReader) encodeVersionedRead(r *driver.VaultRead) (*driver.VaultRead, error) {
+	if r == nil {
+		return nil, nil
+	}
+	k, err := db.sanitizer.Decode(r.Key)
+	if err != nil {
+		return nil, err
+	}
+	r.Key = k
+	return r, nil
 }
 
 func (db *vaultReader) GetStateMetadata(ctx context.Context, namespace driver.Namespace, key driver.PKey) (driver.Metadata, driver.RawVersion, error) {
@@ -426,7 +439,6 @@ func (db *vaultReader) GetStateMetadata(ctx context.Context, namespace driver.Na
 
 	return meta, kversion, err
 }
-
 func (db *vaultReader) GetLast(ctx context.Context) (*driver.TxStatus, error) {
 	span := trace.SpanFromContext(ctx)
 	span.AddEvent("start_get_last")
@@ -456,6 +468,7 @@ func (db *vaultReader) GetTxStatuses(ctx context.Context, txIDs ...driver.TxID) 
 	}
 	return db.queryStatus(Where(db.ci.InStrings("tx_id", txIDs)))
 }
+
 func (db *vaultReader) GetAllTxStatuses(context.Context) (driver.TxStatusIterator, error) {
 	return db.queryStatus("", []any{})
 }
@@ -468,53 +481,11 @@ func (db *vaultReader) queryStatus(where string, params []any) (driver.TxStatusI
 	if err != nil {
 		return nil, err
 	}
-	return &TxCodeIterator{rows: rows}, nil
+	return QueryIterator[driver.TxStatus](rows, func(r RowScanner, s *driver.TxStatus) error { return r.Scan(&s.TxID, &s.Code, &s.Message) }), nil
 }
 
 func (db *VaultPersistence) Close() error {
 	return errors2.Join(db.writeDB.Close(), db.readDB.Close())
-}
-
-type TxCodeIterator struct {
-	rows *sql.Rows
-}
-
-func (it *TxCodeIterator) Close() {
-	_ = it.rows.Close()
-}
-
-func (it *TxCodeIterator) Next() (*driver.TxStatus, error) {
-	var r driver.TxStatus
-	if !it.rows.Next() {
-		return nil, nil
-	}
-	err := it.rows.Scan(&r.TxID, &r.Code, &r.Message)
-	return &r, err
-}
-
-type TxStateIterator struct {
-	decoder decoder
-	rows    *sql.Rows
-}
-
-func (it *TxStateIterator) Close() {
-	_ = it.rows.Close()
-}
-
-func (it *TxStateIterator) Next() (*driver.VaultRead, error) {
-	var r driver.VaultRead
-	if !it.rows.Next() {
-		return nil, nil
-	}
-	err := it.rows.Scan(&r.Key, &r.Version, &r.Raw)
-	if err != nil {
-		return nil, err
-	}
-	r.Key, err = it.decoder.Decode(r.Key)
-	if err != nil {
-		return nil, err
-	}
-	return &r, nil
 }
 
 // Data marshal/unmarshal
