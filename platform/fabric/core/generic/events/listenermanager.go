@@ -48,7 +48,7 @@ type QueryByIDService[T EventInfo] interface {
 	QueryByID(ctx context.Context, startingBlock driver2.BlockNum, evicted map[EventID][]ListenerEntry[T]) (<-chan []T, error)
 }
 
-type TxInfoCallback[T EventInfo] func(T) error
+type EventInfoCallback[T EventInfo] func(T) error
 
 type DeliveryListenerManagerConfig struct {
 	MapperParallelism       int
