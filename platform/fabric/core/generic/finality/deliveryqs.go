@@ -12,14 +12,15 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/events"
 )
 
-type DeliveryScanQueryByID[T TxInfo] struct {
+type DeliveryScanQueryByID[T events.EventInfo] struct {
 	Delivery *fabric.Delivery
-	Mapper   TxInfoMapper[T]
+	Mapper   events.EventInfoMapper[T]
 }
 
-func (q *DeliveryScanQueryByID[T]) QueryByID(ctx context.Context, lastBlock driver.BlockNum, evicted map[driver.TxID][]ListenerEntry[T]) (<-chan []T, error) {
+func (q *DeliveryScanQueryByID[T]) QueryByID(ctx context.Context, lastBlock driver.BlockNum, evicted map[driver.TxID][]events.ListenerEntry[T]) (<-chan []T, error) {
 	txIDs := collections.Keys(evicted)
 	results := collections.NewSet(txIDs...)
 	ch := make(chan []T, len(txIDs))

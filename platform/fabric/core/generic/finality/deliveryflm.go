@@ -12,6 +12,7 @@ import (
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/fabricutils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/rwset"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
@@ -20,13 +21,18 @@ import (
 	"go.opentelemetry.io/otel/trace/noop"
 )
 
+type ListenerManager[T events.EventInfo] interface {
+	AddEventListener(txID string, e events.ListenerEntry[T]) error
+	RemoveEventListener(txID string, e events.ListenerEntry[T]) error
+}
+
 type txInfo struct {
 	txID    driver2.TxID
 	status  fdriver.ValidationCode
 	message string
 }
 
-func (i txInfo) TxID() driver2.TxID {
+func (i txInfo) ID() events.EventID {
 	return i.txID
 }
 
@@ -42,15 +48,15 @@ func (e *deliveryListenerEntry) OnStatus(ctx context.Context, info txInfo) {
 	e.l.OnStatus(ctx, info.txID, info.status, info.message)
 }
 
-func (e *deliveryListenerEntry) Equals(other ListenerEntry[txInfo]) bool {
+func (e *deliveryListenerEntry) Equals(other events.ListenerEntry[txInfo]) bool {
 	return other != nil && other.(*deliveryListenerEntry).l == e.l
 }
 
-func NewDeliveryFLM(config DeliveryListenerManagerConfig, network string, ch *fabric.Channel) (*deliveryListenerManager, error) {
+func NewDeliveryFLM(config events.DeliveryListenerManagerConfig, network string, ch *fabric.Channel) (*deliveryListenerManager, error) {
 	mapper := &txInfoMapper{network: network}
 	delivery := ch.Delivery()
 	queryService := &DeliveryScanQueryByID[txInfo]{Delivery: delivery, Mapper: mapper}
-	flm, err := NewListenerManager[txInfo](config, delivery, queryService, &noop.Tracer{}, mapper)
+	flm, err := events.NewListenerManager[txInfo](config, delivery, queryService, &noop.Tracer{}, mapper)
 	if err != nil {
 		return nil, err
 	}
@@ -58,15 +64,15 @@ func NewDeliveryFLM(config DeliveryListenerManagerConfig, network string, ch *fa
 }
 
 type deliveryListenerManager struct {
-	flm *listenerManager[txInfo]
+	flm ListenerManager[txInfo]
 }
 
 func (m *deliveryListenerManager) AddFinalityListener(txID string, listener fabric.FinalityListener) error {
-	return m.flm.AddFinalityListener(txID, &deliveryListenerEntry{listener})
+	return m.flm.AddEventListener(txID, &deliveryListenerEntry{listener})
 }
 
 func (m *deliveryListenerManager) RemoveFinalityListener(txID string, listener fabric.FinalityListener) error {
-	return m.flm.RemoveFinalityListener(txID, &deliveryListenerEntry{listener})
+	return m.flm.RemoveEventListener(txID, &deliveryListenerEntry{listener})
 }
 
 type txInfoMapper struct {
