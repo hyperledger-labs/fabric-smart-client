@@ -395,7 +395,7 @@ func (i *Interceptor[V]) Done() {
 		i.closed = true
 		if i.qe != nil {
 			if err := i.qe.Done(); err != nil {
-				i.logger.Warnf("failed to close qe: %v", err)
+				i.logger.Warnf("Failed to close qe: [%v]", err)
 			}
 		}
 	}
