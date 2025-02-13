@@ -12,7 +12,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/cache"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
@@ -31,13 +31,13 @@ type EventInfo interface {
 }
 
 type EventInfoMapper[T EventInfo] interface {
-	MapTxData(ctx context.Context, tx []byte, block *common.BlockMetadata, blockNum driver2.BlockNum, txNum driver2.TxNum) (map[driver2.Namespace]T, error)
+	MapTxData(ctx context.Context, tx []byte, block *common.BlockMetadata, blockNum driver.BlockNum, txNum driver.TxNum) (map[driver.Namespace]T, error)
 	MapProcessedTx(tx *fabric.ProcessedTransaction) ([]T, error)
 }
 
 type ListenerEntry[T EventInfo] interface {
 	// Namespace returns the namespace this entry refers to. It can be empty.
-	Namespace() driver2.Namespace
+	Namespace() driver.Namespace
 	// OnStatus is the callback for the transaction
 	OnStatus(ctx context.Context, info T)
 	// Equals compares a listener entry for the delition
@@ -45,7 +45,7 @@ type ListenerEntry[T EventInfo] interface {
 }
 
 type QueryByIDService[T EventInfo] interface {
-	QueryByID(ctx context.Context, startingBlock driver2.BlockNum, evicted map[EventID][]ListenerEntry[T]) (<-chan []T, error)
+	QueryByID(ctx context.Context, startingBlock driver.BlockNum, evicted map[EventID][]ListenerEntry[T]) (<-chan []T, error)
 }
 
 type EventInfoCallback[T EventInfo] func(T) error
@@ -156,7 +156,7 @@ func (m *ListenerManager[T]) onBlock(ctx context.Context, block *common.Block) e
 		return errors.Wrapf(err, "failed to process block [%d]", block.Header.Number)
 	}
 
-	invokedTxIDs := make([]EventID, 0)
+	invokedEventIDs := make([]EventID, 0)
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -171,7 +171,7 @@ func (m *ListenerManager[T]) onBlock(ctx context.Context, block *common.Block) e
 			// If more namespaces are expected, it is worth switching to a map.
 			listeners, ok := m.listeners.Get(event.ID())
 			if ok {
-				invokedTxIDs = append(invokedTxIDs, event.ID())
+				invokedEventIDs = append(invokedEventIDs, event.ID())
 			}
 			pListeners := m.permanentListeners[event.ID()]
 			listeners = append(listeners, pListeners...)
@@ -182,7 +182,7 @@ func (m *ListenerManager[T]) onBlock(ctx context.Context, block *common.Block) e
 			}
 		}
 	}
-	logger.Debugf("Invoked listeners for %d TxIDs: [%v]. Removing listeners...", len(invokedTxIDs), invokedTxIDs)
+	logger.Debugf("Invoked listeners for %d EventIDs: [%v]. Removing listeners...", len(invokedEventIDs), invokedEventIDs)
 
 	for _, events := range buckets {
 		for ns, event := range events {
@@ -192,37 +192,13 @@ func (m *ListenerManager[T]) onBlock(ctx context.Context, block *common.Block) e
 	}
 	logger.Debugf("Current size of cache: %d", m.events.Len())
 
-	m.listeners.Delete(invokedTxIDs...)
-	logger.Debugf("Removed listeners for %d invoked TxIDs: %v", len(invokedTxIDs), invokedTxIDs)
+	m.listeners.Delete(invokedEventIDs...)
+	logger.Debugf("Removed listeners for %d invoked EventIDs: %v", len(invokedEventIDs), invokedEventIDs)
 
 	return nil
 }
 
 func (m *ListenerManager[T]) AddEventListener(id EventID, e ListenerEntry[T]) error {
-	m.mu.RLock()
-	if event, ok := m.events.Get(id); ok {
-		defer m.mu.RUnlock()
-		logger.Debugf("Found event [%s]. Invoking listener directly", id)
-		go e.OnStatus(context.TODO(), event)
-		return nil
-	}
-	m.mu.RUnlock()
-	m.mu.Lock()
-	logger.Debugf("Checking if value has been added meanwhile for [%s]", id)
-	defer m.mu.Unlock()
-	if event, ok := m.events.Get(id); ok {
-		logger.Debugf("Found event [%s]! Invoking listener directly", id)
-		go e.OnStatus(context.TODO(), event)
-		return nil
-	}
-	logger.Debugf("Value not found. Appending listener for [%s]", id)
-	pListeners := m.permanentListeners[id]
-	pListeners = append(pListeners, e)
-	m.permanentListeners[id] = pListeners
-	return nil
-}
-
-func (m *ListenerManager[T]) AddPermanentEventListener(id EventID, e ListenerEntry[T]) error {
 	m.mu.RLock()
 	if event, ok := m.events.Get(id); ok {
 		defer m.mu.RUnlock()
@@ -246,6 +222,30 @@ func (m *ListenerManager[T]) AddPermanentEventListener(id EventID, e ListenerEnt
 	return nil
 }
 
+func (m *ListenerManager[T]) AddPermanentEventListener(id EventID, e ListenerEntry[T]) error {
+	m.mu.RLock()
+	if event, ok := m.events.Get(id); ok {
+		defer m.mu.RUnlock()
+		logger.Debugf("Found event [%s]. Invoking listener directly", id)
+		go e.OnStatus(context.TODO(), event)
+		return nil
+	}
+	m.mu.RUnlock()
+	m.mu.Lock()
+	logger.Debugf("Checking if value has been added meanwhile for [%s]", id)
+	defer m.mu.Unlock()
+	if event, ok := m.events.Get(id); ok {
+		logger.Debugf("Found event [%s]! Invoking listener directly", id)
+		go e.OnStatus(context.TODO(), event)
+		return nil
+	}
+	logger.Debugf("Value not found. Appending listener for [%s]", id)
+	pListeners := m.permanentListeners[id]
+	pListeners = append(pListeners, e)
+	m.permanentListeners[id] = pListeners
+	return nil
+}
+
 func (m *ListenerManager[T]) RemoveEventListener(id EventID, e ListenerEntry[T]) error {
 	logger.Debugf("Manually invoked listener removal for [%s]", id)
 	m.mu.Lock()
@@ -261,10 +261,10 @@ func (m *ListenerManager[T]) RemoveEventListener(id EventID, e ListenerEntry[T])
 	if ok {
 		return nil
 	}
-	return errors.Errorf("could not find listener [%v] in txid [%s]", e, id)
+	return errors.Errorf("could not find listener [%v] in eventID [%s]", e, id)
 }
 
-func fetchTxs[T EventInfo](ctx context.Context, lastBlock driver2.BlockNum, evicted map[EventID][]ListenerEntry[T], queryService QueryByIDService[T]) {
+func fetchTxs[T EventInfo](ctx context.Context, lastBlock driver.BlockNum, evicted map[EventID][]ListenerEntry[T], queryService QueryByIDService[T]) {
 	go func() {
 		ch, err := queryService.QueryByID(ctx, lastBlock, evicted)
 		if err != nil {
@@ -289,14 +289,14 @@ type parallelBlockMapper[T EventInfo] struct {
 	cap    int
 }
 
-func (m *parallelBlockMapper[T]) Map(ctx context.Context, block *common.Block) ([]map[driver2.Namespace]T, error) {
+func (m *parallelBlockMapper[T]) Map(ctx context.Context, block *common.Block) ([]map[driver.Namespace]T, error) {
 	logger.Debugf("Mapping block [%d]", block.Header.Number)
 	eg := errgroup.Group{}
 	eg.SetLimit(m.cap)
-	results := make([]map[driver2.Namespace]T, len(block.Data.Data))
+	results := make([]map[driver.Namespace]T, len(block.Data.Data))
 	for i, tx := range block.Data.Data {
 		eg.Go(func() error {
-			event, err := m.mapper.MapTxData(ctx, tx, block.Metadata, block.Header.Number, driver2.TxNum(i))
+			event, err := m.mapper.MapTxData(ctx, tx, block.Metadata, block.Header.Number, driver.TxNum(i))
 			if err != nil {
 				return err
 			}
