@@ -53,7 +53,7 @@ func (m *Manager) NewTransaction(ctx context.Context, transactionType driver.Tra
 }
 
 func (m *Manager) NewTransactionFromBytes(ctx context.Context, channel string, raw []byte) (driver.Transaction, error) {
-	//logger.Infof("new transaction from bytes [%s]", hash.Hashable(raw))
+	// logger.Debugf("new transaction from bytes [%s]", hash.Hashable(raw))
 	txRaw := &SerializedTransaction{}
 	if err := json.Unmarshal(raw, txRaw); err != nil {
 		return nil, err
@@ -155,7 +155,7 @@ type WrappedTransaction struct {
 }
 
 func (w *WrappedTransaction) Bytes() ([]byte, error) {
-	//return w.Transaction.Bytes()
+	// return w.Transaction.Bytes()
 	raw, err := w.Transaction.Bytes()
 	if err != nil {
 		return nil, err
@@ -164,7 +164,7 @@ func (w *WrappedTransaction) Bytes() ([]byte, error) {
 		Type: w.TransactionType,
 		Raw:  raw,
 	})
-	//logger.Infof("new transaction from bytes [%s]", hash.Hashable(out))
+	// logger.Debugf("new transaction from bytes [%s]", hash.Hashable(out))
 
 	return out, err
 }

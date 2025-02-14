@@ -166,7 +166,7 @@ func (s *Server) HandlerChain(h http.Handler, secure bool) http.Handler {
 // This method can be called either before or after Server.Start(). If the
 // pattern exists the method panics.
 func (s *Server) RegisterHandler(pattern string, handler http.Handler, secure bool) {
-	s.logger.Infof("register handler [%s][%v]", pattern, secure)
+	s.logger.Debugf("register handler [%s][%v]", pattern, secure)
 	s.mux.Handle(
 		pattern,
 		s.HandlerChain(

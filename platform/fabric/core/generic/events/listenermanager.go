@@ -22,8 +22,6 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-var logger = logging.MustGetLogger("fabric-sdk.core.events")
-
 type EventID = string
 
 type EventInfo interface {
@@ -59,6 +57,7 @@ type DeliveryListenerManagerConfig struct {
 }
 
 type ListenerManager[T EventInfo] struct {
+	logger logging.Logger
 	tracer trace.Tracer
 	mapper *parallelBlockMapper[T]
 
@@ -73,6 +72,7 @@ type ListenerManager[T EventInfo] struct {
 }
 
 func NewListenerManager[T EventInfo](
+	logger logging.Logger,
 	config DeliveryListenerManagerConfig,
 	delivery *fabric.Delivery,
 	queryService QueryByIDService[T],
@@ -82,13 +82,14 @@ func NewListenerManager[T EventInfo](
 	var events cache.Map[EventID, T]
 	if config.LRUSize > 0 && config.LRUBuffer > 0 {
 		events = cache.NewLRUCache[EventID, T](10, 2, func(evicted map[EventID]T) {
-			logger.Debugf("Evicted keys [%s]. If they are looked up, they will be fetched directly from the ledger from now on...", logging.Keys(evicted))
+			logger.Debugf("evicted keys [%s]. If they are looked up, they will be fetched directly from the ledger from now on...", logging.Keys(evicted))
 		})
 	} else {
 		events = cache.NewMapCache[EventID, T]()
 	}
 	flm := &ListenerManager[T]{
-		mapper:                     &parallelBlockMapper[T]{cap: max(config.MapperParallelism, 1), mapper: mapper},
+		logger:                     logger,
+		mapper:                     &parallelBlockMapper[T]{logger: logger, cap: max(config.MapperParallelism, 1), mapper: mapper},
 		tracer:                     tracer,
 		events:                     events,
 		ignoreBlockErrors:          true,
@@ -104,18 +105,18 @@ func NewListenerManager[T EventInfo](
 			}
 			lastBlockNum := flm.lastBlockNum.Load()
 			logger.Warnf(
-				"Listeners for TXs [%s] timed out. Last Block Num [%d]. Either the TX finality is too slow or it reached finality too long ago and were evicted from the events cache. The IDs will be queried directly from ledger (when the batch is cut)...",
+				"listeners for TXs [%s] timed out. Last Block Num [%d]. Either the TX finality is too slow or it reached finality too long ago and were evicted from the events cache. The IDs will be queried directly from ledger (when the batch is cut)...",
 				logging.Keys(evicted),
 				lastBlockNum,
 			)
-			fetchTxs(context.TODO(), lastBlockNum, evicted, queryService)
+			fetchTxs(logger, context.TODO(), lastBlockNum, evicted, queryService)
 		})
 	} else {
 		listeners = cache.NewMapCache[EventID, []ListenerEntry[T]]()
 	}
 	flm.listeners = listeners
 
-	logger.Infof("Starting delivery service...")
+	logger.Debugf("starting delivery service...")
 	go flm.start()
 
 	return flm, nil
@@ -124,7 +125,7 @@ func NewListenerManager[T EventInfo](
 func (m *ListenerManager[T]) start() {
 	// In case the delivery service fails, it will try to reconnect automatically.
 	err := m.delivery.ScanBlock(context.Background(), m.newBlockCallback())
-	logger.Errorf("failed running delivery: %v", err)
+	m.logger.Errorf("failed running delivery: %v", err)
 }
 
 func (m *ListenerManager[T]) newBlockCallback() fabric.BlockCallback {
@@ -139,7 +140,7 @@ func (m *ListenerManager[T]) newBlockCallback() fabric.BlockCallback {
 	return func(ctx context.Context, block *common.Block) (bool, error) {
 		eg.Go(func() error {
 			if err := m.onBlock(ctx, block); err != nil {
-				logger.Warnf("Mapping block [%d] errored: %v", block.Header.Number, err)
+				m.logger.Warnf("Mapping block [%d] errored: %v", block.Header.Number, err)
 			}
 			return nil
 		})
@@ -148,11 +149,11 @@ func (m *ListenerManager[T]) newBlockCallback() fabric.BlockCallback {
 }
 
 func (m *ListenerManager[T]) onBlock(ctx context.Context, block *common.Block) error {
-	logger.Debugf("New block with %d buckets detected [%d]", len(block.Data.Data), block.Header.Number)
+	m.logger.Debugf("new block with %d buckets detected [%d]", len(block.Data.Data), block.Header.Number)
 
 	buckets, err := m.mapper.Map(ctx, block)
 	if err != nil {
-		logger.Errorf("failed to process block [%d]: %v", block.Header.Number, err)
+		m.logger.Errorf("failed to process block [%d]: %v", block.Header.Number, err)
 		return errors.Wrapf(err, "failed to process block [%d]", block.Header.Number)
 	}
 
@@ -165,7 +166,7 @@ func (m *ListenerManager[T]) onBlock(ctx context.Context, block *common.Block) e
 
 	for _, events := range buckets {
 		for ns, event := range events {
-			logger.Debugf("Look for listeners of [%s:%s]", ns, event.ID())
+			m.logger.Debugf("look for listeners of [%s:%s]", ns, event.ID())
 			// We expect there to be only one namespace.
 			// The complexity is better with a deliveryListenerEntry slice (because of the write operations)
 			// If more namespaces are expected, it is worth switching to a map.
@@ -176,24 +177,24 @@ func (m *ListenerManager[T]) onBlock(ctx context.Context, block *common.Block) e
 			pListeners := m.permanentListeners[event.ID()]
 			listeners = append(listeners, pListeners...)
 
-			logger.Debugf("Invoking [%d] listeners and [%d] permanent listeners [%d] for [%s]", len(listeners), len(pListeners), event.ID())
+			m.logger.Debugf("invoking [%d] listeners and [%d] permanent listeners for [%s]", len(listeners), len(pListeners), event.ID())
 			for _, entry := range listeners {
 				go entry.OnStatus(ctx, event)
 			}
 		}
 	}
-	logger.Debugf("Invoked listeners for %d EventIDs: [%v]. Removing listeners...", len(invokedEventIDs), invokedEventIDs)
+	m.logger.Debugf("invoked listeners for %d EventIDs: [%v]. Removing listeners...", len(invokedEventIDs), invokedEventIDs)
 
 	for _, events := range buckets {
 		for ns, event := range events {
-			logger.Debugf("Mapping for ns [%s]", ns)
+			m.logger.Debugf("Mapping for ns [%s]", ns)
 			m.events.Put(event.ID(), event)
 		}
 	}
-	logger.Debugf("Current size of cache: %d", m.events.Len())
+	m.logger.Debugf("current size of cache: %d", m.events.Len())
 
 	m.listeners.Delete(invokedEventIDs...)
-	logger.Debugf("Removed listeners for %d invoked EventIDs: %v", len(invokedEventIDs), invokedEventIDs)
+	m.logger.Debugf("removed listeners for %d invoked EventIDs: %v", len(invokedEventIDs), invokedEventIDs)
 
 	return nil
 }
@@ -202,20 +203,20 @@ func (m *ListenerManager[T]) AddEventListener(id EventID, e ListenerEntry[T]) er
 	m.mu.RLock()
 	if event, ok := m.events.Get(id); ok {
 		defer m.mu.RUnlock()
-		logger.Debugf("Found event [%s]. Invoking listener directly", id)
+		m.logger.Debugf("found event [%s]. Invoking listener directly", id)
 		go e.OnStatus(context.TODO(), event)
 		return nil
 	}
 	m.mu.RUnlock()
 	m.mu.Lock()
-	logger.Debugf("Checking if value has been added meanwhile for [%s]", id)
+	m.logger.Debugf("checking if value has been added meanwhile for [%s]", id)
 	defer m.mu.Unlock()
 	if event, ok := m.events.Get(id); ok {
-		logger.Debugf("Found event [%s]! Invoking listener directly", id)
+		m.logger.Debugf("found event [%s]! Invoking listener directly", id)
 		go e.OnStatus(context.TODO(), event)
 		return nil
 	}
-	logger.Debugf("Value not found. Appending listener for [%s]", id)
+	m.logger.Debugf("value not found. Appending listener for [%s]", id)
 	m.listeners.Update(id, func(_ bool, listeners []ListenerEntry[T]) (bool, []ListenerEntry[T]) {
 		return true, append(listeners, e)
 	})
@@ -223,23 +224,14 @@ func (m *ListenerManager[T]) AddEventListener(id EventID, e ListenerEntry[T]) er
 }
 
 func (m *ListenerManager[T]) AddPermanentEventListener(id EventID, e ListenerEntry[T]) error {
-	m.mu.RLock()
-	if event, ok := m.events.Get(id); ok {
-		defer m.mu.RUnlock()
-		logger.Debugf("Found event [%s]. Invoking listener directly", id)
-		go e.OnStatus(context.TODO(), event)
-		return nil
-	}
-	m.mu.RUnlock()
 	m.mu.Lock()
-	logger.Debugf("Checking if value has been added meanwhile for [%s]", id)
+	m.logger.Debugf("checking if value has been added meanwhile for [%s]", id)
 	defer m.mu.Unlock()
 	if event, ok := m.events.Get(id); ok {
-		logger.Debugf("Found event [%s]! Invoking listener directly", id)
+		m.logger.Debugf("found event [%s]! Invoking listener directly", id)
 		go e.OnStatus(context.TODO(), event)
-		return nil
 	}
-	logger.Debugf("Value not found. Appending listener for [%s]", id)
+	m.logger.Debugf("appending permanent listener for [%s]", id)
 	pListeners := m.permanentListeners[id]
 	pListeners = append(pListeners, e)
 	m.permanentListeners[id] = pListeners
@@ -247,7 +239,7 @@ func (m *ListenerManager[T]) AddPermanentEventListener(id EventID, e ListenerEnt
 }
 
 func (m *ListenerManager[T]) RemoveEventListener(id EventID, e ListenerEntry[T]) error {
-	logger.Debugf("Manually invoked listener removal for [%s]", id)
+	m.logger.Debugf("manually invoked listener removal for [%s]", id)
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	ok := m.listeners.Update(id, func(_ bool, listeners []ListenerEntry[T]) (bool, []ListenerEntry[T]) {
@@ -264,11 +256,11 @@ func (m *ListenerManager[T]) RemoveEventListener(id EventID, e ListenerEntry[T])
 	return errors.Errorf("could not find listener [%v] in eventID [%s]", e, id)
 }
 
-func fetchTxs[T EventInfo](ctx context.Context, lastBlock driver.BlockNum, evicted map[EventID][]ListenerEntry[T], queryService QueryByIDService[T]) {
+func fetchTxs[T EventInfo](logger logging.Logger, ctx context.Context, lastBlock driver.BlockNum, evicted map[EventID][]ListenerEntry[T], queryService QueryByIDService[T]) {
 	go func() {
 		ch, err := queryService.QueryByID(ctx, lastBlock, evicted)
 		if err != nil {
-			logger.Errorf("Failed scanning: %v", err)
+			logger.Errorf("failed scanning: %v", err)
 			return
 		}
 		for events := range ch {
@@ -285,12 +277,13 @@ func fetchTxs[T EventInfo](ctx context.Context, lastBlock driver.BlockNum, evict
 }
 
 type parallelBlockMapper[T EventInfo] struct {
+	logger logging.Logger
 	mapper EventInfoMapper[T]
 	cap    int
 }
 
 func (m *parallelBlockMapper[T]) Map(ctx context.Context, block *common.Block) ([]map[driver.Namespace]T, error) {
-	logger.Debugf("Mapping block [%d]", block.Header.Number)
+	m.logger.Debugf("mapping block [%d]", block.Header.Number)
 	eg := errgroup.Group{}
 	eg.SetLimit(m.cap)
 	results := make([]map[driver.Namespace]T, len(block.Data.Data))

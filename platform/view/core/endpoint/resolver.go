@@ -88,14 +88,14 @@ func (r *ResolverService) LoadResolvers() error {
 
 	// Load entry
 	if r.config.IsSet("fsc.endpoint.resolvers") {
-		logger.Infof("loading resolvers")
+		logger.Debugf("loading resolvers")
 		var resolvers []*entry
 		err := r.config.UnmarshalKey("fsc.endpoint.resolvers", &resolvers)
 		if err != nil {
 			logger.Errorf("failed loading resolvers [%s]", err)
 			return errors.Wrapf(err, "failed loading resolvers")
 		}
-		logger.Infof("loaded resolvers successfully, number of entries found %d", len(resolvers))
+		logger.Debugf("loaded resolvers successfully, number of entries found %d", len(resolvers))
 
 		for _, resolver := range resolvers {
 			// Load identity
@@ -104,7 +104,7 @@ func (r *ResolverService) LoadResolvers() error {
 				return err
 			}
 			resolver.Id = raw
-			logger.Infof("resolver [%s,%s][%s] %s",
+			logger.Debugf("resolver [%s,%s][%s] %s",
 				resolver.Name, resolver.Domain, resolver.Addresses,
 				view.Identity(resolver.Id).UniqueID(),
 			)

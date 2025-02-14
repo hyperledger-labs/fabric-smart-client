@@ -41,7 +41,7 @@ func (db *BindingPersistence) GetLongTerm(ephemeral view.Identity) (view.Identit
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed getting wallet id for identity [%v]", ephemeral)
 	}
-	logger.Infof("found wallet id for identity [%v]: %v", ephemeral, result)
+	logger.Debugf("found wallet id for identity [%v]: %v", ephemeral, result)
 	return result, nil
 }
 func (db *BindingPersistence) HaveSameBinding(this, that view.Identity) (bool, error) {

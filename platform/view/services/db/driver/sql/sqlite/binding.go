@@ -48,7 +48,7 @@ func (db *BindingPersistence) PutBinding(ephemeral, longTerm view.Identity) erro
 		logger.Debugf("Replacing [%s] with long term [%s]", longTerm.UniqueID(), lt.UniqueID())
 		longTerm = lt
 	} else {
-		logger.Infof("Id [%s] is an unregistered long term ID", longTerm.UniqueID())
+		logger.Debugf("Id [%s] is an unregistered long term ID", longTerm.UniqueID())
 	}
 	query := fmt.Sprintf(`
 		BEGIN;

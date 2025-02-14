@@ -115,7 +115,7 @@ func (s *client) CallView(fid string, input []byte) (interface{}, error) {
 }
 
 func (s *client) CallViewWithContext(ctx context.Context, fid string, input []byte) (interface{}, error) {
-	logger.Infof("Calling view [%s] on input [%s]", fid, string(input))
+	logger.Debugf("Calling view [%s] on input [%s]", fid, string(input))
 	payload := &protos.Command_CallView{CallView: &protos.CallView{
 		Fid:   fid,
 		Input: input,
@@ -143,7 +143,7 @@ func (s *client) Initiate(fid string, in []byte) (string, error) {
 }
 
 func (s *client) StreamCallView(fid string, input []byte) (*Stream, error) {
-	logger.Infof("Streaming view call [%s] on input [%s]", fid, string(input))
+	logger.Debugf("Streaming view call [%s] on input [%s]", fid, string(input))
 	payload := &protos.Command_CallView{CallView: &protos.CallView{
 		Fid:   fid,
 		Input: input,

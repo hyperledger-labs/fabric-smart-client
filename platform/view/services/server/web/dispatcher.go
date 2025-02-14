@@ -23,7 +23,7 @@ type Dispatcher struct {
 }
 
 func (rd *Dispatcher) HandleRequest(context *ReqContext) (response interface{}, statusCode int) {
-	rd.Logger.Infof("Received request from %s", context.Req.Host)
+	rd.Logger.Debugf("Received request from %s", context.Req.Host)
 
 	if rd.vc == nil {
 		rd.Logger.Errorf("ViewCaller has not been initialized yet")

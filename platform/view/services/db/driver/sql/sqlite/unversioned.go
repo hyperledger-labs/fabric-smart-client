@@ -20,7 +20,7 @@ type UnversionedPersistence struct {
 }
 
 func NewUnversionedPersistence(opts common.Opts, table string) (*UnversionedPersistence, error) {
-	logger.Infof("Creating table... [%s]", table)
+	logger.Debugf("Creating table... [%s]", table)
 	readDB, writeDB, err := OpenRWDBs(opts.DataSource, opts.MaxOpenConns, opts.MaxIdleConns, opts.MaxIdleTime, opts.SkipPragmas)
 	if err != nil {
 		return nil, fmt.Errorf("error opening db: %w", err)

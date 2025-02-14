@@ -182,7 +182,7 @@ func (d *Driver) NewVault(dataSourceName string, config driver.Config) (driver.V
 }
 
 func newPersistence[V dbObject](dataSourceName string, config driver.Config, constructors map[common.SQLDriverType]common.PersistenceConstructor[V]) (V, error) {
-	logger.Infof("opening new transactional database %s", dataSourceName)
+	logger.Debugf("opening new transactional database %s", dataSourceName)
 	opts, err := getOps(config)
 	if err != nil {
 		return utils.Zero[V](), fmt.Errorf("failed getting options for datasource: %w", err)

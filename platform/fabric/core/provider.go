@@ -72,11 +72,11 @@ func (p *FSNProvider) Start(ctx context.Context) error {
 			if err != nil {
 				return errors.Wrapf(err, "failed to get channel [%s] for fabric network service [%s]", channelName, name)
 			}
-			logger.Infof("start fabric [%s:%s]'s commit service...", name, channelName)
+			logger.Debugf("start fabric [%s:%s]'s commit service...", name, channelName)
 			if err := ch.Committer().Start(ctx); err != nil {
 				return errors.WithMessagef(err, "failed to start committer on channel [%s] for fabric network service [%s]", channelName, name)
 			}
-			logger.Infof("start fabric [%s:%s]'s delivery service...", name, channelName)
+			logger.Debugf("start fabric [%s:%s]'s delivery service...", name, channelName)
 			if err := ch.Delivery().Start(ctx); err != nil {
 				return errors.WithMessagef(err, "failed to start delivery on channel [%s] for fabric network service [%s]", channelName, name)
 			}

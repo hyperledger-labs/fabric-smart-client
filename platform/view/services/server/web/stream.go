@@ -64,7 +64,7 @@ func (c *WSStream) Send(p any) error {
 
 func (c *WSStream) Read() ([]byte, error) {
 	_, message, err := c.ws.ReadMessage()
-	c.logger.Infof("Received message: %s", message)
+	c.logger.Debugf("Received message: %s", message)
 	if err != nil {
 		c.logger.Errorf("Error receiving message: %v", err)
 	}
@@ -72,7 +72,7 @@ func (c *WSStream) Read() ([]byte, error) {
 }
 
 func (c *WSStream) Write(message []byte) error {
-	c.logger.Infof("Sending message: %s", message)
+	c.logger.Debugf("Sending message: %s", message)
 	err := c.ws.WriteMessage(websocket.TextMessage, message)
 	if err != nil {
 		c.logger.Errorf("Error writing message: %v", err)
@@ -81,7 +81,7 @@ func (c *WSStream) Write(message []byte) error {
 }
 
 func (c *WSStream) Close() error {
-	c.logger.Infof("Closing web socket")
+	c.logger.Debugf("Closing web socket")
 	err := c.ws.Close()
 	if err != nil {
 		c.logger.Errorf("error closing web socket: %v", err)
