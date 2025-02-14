@@ -11,6 +11,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/docs/fabric/fabricdev/core/fabricdev/ledger"
 	driver3 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/chaincode"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
@@ -30,6 +31,8 @@ import (
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
 )
+
+var logger = logging.MustGetLogger("fabric-sdk.core")
 
 type provider struct {
 	envelopeKVS             driver.EnvelopeStore
@@ -108,6 +111,7 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 
 	// Fabric finality
 	fabricFinality, err := finality.NewFabricFinality(
+		logger,
 		channelName,
 		nw.ConfigService(),
 		peerService,

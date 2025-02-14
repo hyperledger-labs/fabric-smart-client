@@ -68,13 +68,13 @@ func NewResolverService(config Config, service Service) (*ResolverService, error
 // LoadResolvers loads the resolvers specified in the configuration file, if any
 func (r *ResolverService) LoadResolvers() error {
 	// Load Resolver
-	logger.Infof("loading resolvers")
+	logger.Debugf("loading resolvers")
 	cfgResolvers, err := r.config.Resolvers()
 	if err != nil {
 		logger.Errorf("failed loading resolvers [%s]", err)
 		return err
 	}
-	logger.Infof("loaded resolvers successfully, number of entries found %d", len(cfgResolvers))
+	logger.Debugf("loaded resolvers successfully, number of entries found %d", len(cfgResolvers))
 
 	var resolvers []*Resolver
 	for _, cfgResolver := range cfgResolvers {

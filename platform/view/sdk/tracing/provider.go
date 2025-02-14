@@ -76,24 +76,24 @@ func newTracerProviderFromConfig(c Config, serviceName string) (trace.TracerProv
 	var err error
 	switch c.Provider {
 	case Otpl:
-		logger.Infof("OPTL tracer provider selected")
+		logger.Debugf("OPTL tracer provider selected")
 		exporter, err = grpcExporter(&c.Otpl)
 	case File:
-		logger.Infof("File tracing provider selected")
+		logger.Debugf("File tracing provider selected")
 		exporter, err = fileExporter(&c.File)
 	case Console:
-		logger.Infof("Console tracing provider selected")
+		logger.Debugf("Console tracing provider selected")
 		exporter, err = stdouttrace.New(stdouttrace.WithPrettyPrint())
 	case None:
 	default:
-		logger.Infof("No provider or no-op provider type passed. Tracing disabled.")
+		logger.Debugf("No provider or no-op provider type passed. Tracing disabled.")
 		return noop.NewTracerProvider(), nil
 	}
 
 	if err != nil {
 		return nil, errors.WithMessagef(err, "failed to initialize span exporter")
 	}
-	logger.Infof("Initializing tracing provider with sampling: %v", c.Sampling)
+	logger.Debugf("Initializing tracing provider with sampling: %v", c.Sampling)
 	return providerWithExporter(context.Background(), exporter, c.Sampling, serviceName)
 }
 
@@ -112,7 +112,7 @@ func grpcExporter(c *OtplConfig) (sdktrace.SpanExporter, error) {
 	if c == nil || len(c.Address) == 0 {
 		return nil, errors.New("empty url")
 	}
-	logger.Infof("Tracing enabled: optl")
+	logger.Debugf("Tracing enabled: optl")
 	return otlptrace.New(context.Background(), otlptracegrpc.NewClient(otlptracegrpc.WithInsecure(), otlptracegrpc.WithEndpoint(c.Address)))
 }
 

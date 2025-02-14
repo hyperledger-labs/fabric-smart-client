@@ -152,6 +152,7 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 
 	// Fabric finality
 	fabricFinality, err := finality.NewFabricFinality(
+		logger,
 		channelName,
 		nw.ConfigService(),
 		peerService,

@@ -115,10 +115,10 @@ func (p *Provider) loadClientIdentities() error {
 			logger.Errorf("failed loading client cert at [%s]: [%s]", certPath, err)
 			continue
 		}
-		logger.Infof("loaded client cert at [%s]: [%s]", certPath, err)
+		logger.Debugf("loaded client cert at [%s]: [%s]", certPath, err)
 		clients = append(clients, client)
 	}
-	logger.Infof("loaded [%d] client identities", len(clients))
+	logger.Debugf("loaded [%d] client identities", len(clients))
 	p.clients = clients
 	return nil
 }

@@ -10,12 +10,14 @@ import (
 	"context"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/events"
 )
 
 type DeliveryScanQueryByID[T events.EventInfo] struct {
+	Logger   logging.Logger
 	Delivery *fabric.Delivery
 	Mapper   events.EventInfoMapper[T]
 }
@@ -37,10 +39,10 @@ func (q *DeliveryScanQueryByID[T]) queryByID(ctx context.Context, results collec
 			return false, nil
 		}
 
-		logger.Debugf("Received result for tx [%s, %v, %d]...", tx.TxID(), tx.ValidationCode(), len(tx.Results()))
+		q.Logger.Debugf("Received result for tx [%s, %v, %d]...", tx.TxID(), tx.ValidationCode(), len(tx.Results()))
 		infos, err := q.Mapper.MapProcessedTx(tx)
 		if err != nil {
-			logger.Errorf("failed mapping tx [%s]: %v", tx.TxID(), err)
+			q.Logger.Errorf("failed mapping tx [%s]: %v", tx.TxID(), err)
 			return true, err
 		}
 		ch <- infos
@@ -49,7 +51,7 @@ func (q *DeliveryScanQueryByID[T]) queryByID(ctx context.Context, results collec
 		return results.Length() == 0, nil
 	})
 	if err != nil {
-		logger.Errorf("failed scanning: %v", err)
+		q.Logger.Errorf("failed scanning: %v", err)
 	}
 }
 

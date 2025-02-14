@@ -10,6 +10,7 @@ import (
 	"context"
 
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/events"
@@ -52,11 +53,11 @@ func (e *deliveryListenerEntry) Equals(other events.ListenerEntry[txInfo]) bool 
 	return other != nil && other.(*deliveryListenerEntry).l == e.l
 }
 
-func NewDeliveryFLM(config events.DeliveryListenerManagerConfig, network string, ch *fabric.Channel) (*deliveryListenerManager, error) {
-	mapper := &txInfoMapper{network: network}
+func NewDeliveryFLM(logger logging.Logger, config events.DeliveryListenerManagerConfig, network string, ch *fabric.Channel) (*deliveryListenerManager, error) {
+	mapper := &txInfoMapper{logger: logger, network: network}
 	delivery := ch.Delivery()
-	queryService := &DeliveryScanQueryByID[txInfo]{Delivery: delivery, Mapper: mapper}
-	flm, err := events.NewListenerManager[txInfo](config, delivery, queryService, &noop.Tracer{}, mapper)
+	queryService := &DeliveryScanQueryByID[txInfo]{Logger: logger, Delivery: delivery, Mapper: mapper}
+	flm, err := events.NewListenerManager[txInfo](logger, config, delivery, queryService, &noop.Tracer{}, mapper)
 	if err != nil {
 		return nil, err
 	}
@@ -77,6 +78,7 @@ func (m *deliveryListenerManager) RemoveFinalityListener(txID string, listener f
 
 type txInfoMapper struct {
 	network string
+	logger  logging.Logger
 }
 
 func (m *txInfoMapper) MapTxData(ctx context.Context, tx []byte, block *common.BlockMetadata, blockNum driver2.BlockNum, txNum driver2.TxNum) (map[driver2.Namespace]txInfo, error) {
@@ -85,7 +87,7 @@ func (m *txInfoMapper) MapTxData(ctx context.Context, tx []byte, block *common.B
 		return nil, errors.Wrapf(err, "failed unmarshaling tx [%d:%d]", blockNum, txNum)
 	}
 	if common.HeaderType(chdr.Type) != common.HeaderType_ENDORSER_TRANSACTION {
-		logger.Warnf("Type of TX [%d:%d] is [%d]. Skipping...", blockNum, txNum, chdr.Type)
+		m.logger.Warnf("Type of TX [%d:%d] is [%d]. Skipping...", blockNum, txNum, chdr.Type)
 		return nil, nil
 	}
 	rwSet, err := rwset.NewEndorserTransactionReader(m.network).Read(payl, chdr)
@@ -98,9 +100,9 @@ func (m *txInfoMapper) MapTxData(ctx context.Context, tx []byte, block *common.B
 	}
 
 	txInfos := make(map[driver2.Namespace]txInfo, len(rwSet.WriteSet.Writes))
-	logger.Debugf("TX [%s] has %d namespaces", chdr.TxId, len(rwSet.WriteSet.Writes))
+	m.logger.Debugf("TX [%s] has %d namespaces", chdr.TxId, len(rwSet.WriteSet.Writes))
 	for ns, write := range rwSet.WriteSet.Writes {
-		logger.Debugf("TX [%s:%s] has %d writes", chdr.TxId, ns, len(write))
+		m.logger.Debugf("TX [%s:%s] has %d writes", chdr.TxId, ns, len(write))
 		txInfos[ns] = txInfo{
 			txID:    chdr.TxId,
 			status:  finalityEvent.ValidationCode,

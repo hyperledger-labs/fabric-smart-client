@@ -41,9 +41,9 @@ func OpenDB(dataSourceName string, maxOpenConns int, maxIdleConns *int, maxIdleT
 	if err = db.Ping(); err != nil {
 		return nil, err
 	}
-	logger.Infof("connected to [%s] for reads, max open connections: %d, max idle connections: %d, max idle time: %v", driverName, maxOpenConns, maxIdleConns, maxIdleTime)
+	logger.Debugf("connected to [%s] for reads, max open connections: %d, max idle connections: %d, max idle time: %v", driverName, maxOpenConns, maxIdleConns, maxIdleTime)
 
-	logger.Info("using same db for writes")
+	logger.Debug("using same db for writes")
 
 	return db, nil
 }

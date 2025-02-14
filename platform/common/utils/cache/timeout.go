@@ -49,7 +49,7 @@ func NewTimeoutEviction[K comparable](timeout time.Duration, evict func([]K)) *t
 }
 
 func (e *timeoutEviction[K]) cleanup(timeout time.Duration) {
-	logger.Infof("Launch cleanup function with eviction timeout [%v]", timeout)
+	logger.Debugf("Launch cleanup function with eviction timeout [%v]", timeout)
 	for range time.Tick(1 * time.Second) {
 		expiry := time.Now().Add(-timeout)
 		logger.Debugf("Cleanup invoked: evicting everything created after [%v]", expiry)

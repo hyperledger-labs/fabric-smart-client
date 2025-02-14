@@ -37,12 +37,12 @@ const driverName = "sqlite"
 var logger = logging.MustGetLogger("view-sdk.db.sqlite")
 
 func OpenRWDBs(dataSourceName string, maxOpenConns int, maxIdleConns *int, maxIdleTime *time.Duration, skipPragmas bool) (*sql.DB, *sql.DB, error) {
-	logger.Infof("Opening read db [%v]", dataSourceName)
+	logger.Debugf("Opening read db [%v]", dataSourceName)
 	readDB, err := OpenDB(dataSourceName, maxOpenConns, maxIdleConns, maxIdleTime, skipPragmas)
 	if err != nil {
 		return nil, nil, fmt.Errorf("can't open read %s database: %w", driverName, err)
 	}
-	logger.Infof("Opening write db [%v]", dataSourceName)
+	logger.Debugf("Opening write db [%v]", dataSourceName)
 	writeDB, err := OpenDB(dataSourceName, 1, common.CopyPtr(maxIdleConnsWrite), common.CopyPtr(maxIdleTimeWrite), skipPragmas)
 	if err != nil {
 		return nil, nil, fmt.Errorf("can't open write %s database: %w", driverName, err)
@@ -77,7 +77,7 @@ func OpenDB(dataSourceName string, maxOpenConns int, maxIdleConns *int, maxIdleT
 	} else if err != nil {
 		return nil, err
 	}
-	logger.Infof("connected to [%s], max open connections: %d", driverName, maxOpenConns)
+	logger.Debugf("connected to [%s], max open connections: %d", driverName, maxOpenConns)
 
 	// sqlite can handle concurrent reads in WAL mode if the writes are throttled in 1 connection
 	if skipPragmas {

@@ -30,7 +30,7 @@ func OpenWSClientConn(url string, config *tls.Config) (*websocket.Conn, error) {
 func NewWSStream(url string, config *tls.Config) (*WSStream, error) {
 	logger.Debugf("Connecting to %s", url)
 	ws, err := OpenWSClientConn(url, config)
-	logger.Infof("Successfully connected to websocket")
+	logger.Debugf("Successfully connected to websocket")
 	if err != nil {
 		logger.Errorf("Dial failed: %s\n", err.Error())
 		return nil, err

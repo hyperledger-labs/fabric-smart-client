@@ -106,7 +106,7 @@ func (c *TableNameCreator) MustGetTableName(name string) string {
 }
 
 func InitSchema(db WriteDB, schemas ...string) (err error) {
-	logger.Info("creating tables")
+	logger.Debug("creating tables")
 	tx, err := db.Begin()
 	if err != nil {
 		return err
@@ -119,7 +119,7 @@ func InitSchema(db WriteDB, schemas ...string) (err error) {
 		}
 	}()
 	for _, schema := range schemas {
-		logger.Info(schema)
+		logger.Debug(schema)
 		if _, err = tx.Exec(schema); err != nil {
 			return errors2.Wrapf(err, "error creating schema: %s", schema)
 		}

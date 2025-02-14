@@ -583,7 +583,7 @@ func (c *Committer) ReloadConfigTransactions() error {
 			c.logger.Debugf("config block at txID [%s] unavailable, stop loading", txID)
 			done = true
 		case driver.Busy:
-			c.logger.Infof("someone else is modifying it. retry...")
+			c.logger.Debugf("someone else is modifying it. retry...")
 			time.Sleep(1 * time.Second)
 			continue
 		default:

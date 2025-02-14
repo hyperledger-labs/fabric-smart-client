@@ -18,10 +18,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	ab "github.com/hyperledger/fabric-protos-go/orderer"
 	"github.com/pkg/errors"
-	"go.uber.org/zap/zapcore"
 )
-
-var logger = logging.MustGetLogger("fabric-sdk.core")
 
 type Services interface {
 	NewPeerClient(cc grpc.ConnectionConfig) (services.PeerClient, error)
@@ -32,6 +29,7 @@ type Hasher interface {
 }
 
 type FabricFinality struct {
+	Logger                 logging.Logger
 	Channel                string
 	ConfigService          driver.ConfigService
 	Services               Services
@@ -42,6 +40,7 @@ type FabricFinality struct {
 }
 
 func NewFabricFinality(
+	logger logging.Logger,
 	channel string,
 	ConfigService driver.ConfigService,
 	peerService Services,
@@ -55,6 +54,7 @@ func NewFabricFinality(
 	}
 
 	d := &FabricFinality{
+		Logger:                 logger,
 		Channel:                channel,
 		ConfigService:          ConfigService,
 		Services:               peerService,
@@ -68,9 +68,7 @@ func NewFabricFinality(
 }
 
 func (d *FabricFinality) IsFinal(txID string, address string) error {
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("remote checking if transaction [%s] is final in channel [%s]", txID, d.Channel)
-	}
+	d.Logger.Debugf("remote checking if transaction [%s] is final in channel [%s]", txID, d.Channel)
 	var eventCh chan delivery.TxEvent
 	var ctx context.Context
 	var cancelFunc context.CancelFunc

@@ -116,7 +116,7 @@ func (s *service) CacheSize() int {
 func (s *service) SetDefaultIdentity(id string, defaultIdentity view.Identity, defaultSigningIdentity driver.SigningIdentity) {
 	if id == s.defaultMSP {
 		if s.defaultIdentity == nil {
-			logger.Infof("setting default identity to [%s]", id)
+			logger.Debugf("setting default identity to [%s]", id)
 		}
 
 		// set default

@@ -113,7 +113,7 @@ func (c *MultiplexedProvider) NewClientStream(info host2.StreamInfo, ctx context
 		return nil, errors.Wrapf(err, "failed to open websocket")
 	}
 	conn = newClientConn(wsConn, c.tracer, c.m, func() {
-		logger.Infof("Closing websocket client for [%s@%s]...", src, info.RemotePeerAddress)
+		logger.Debugf("Closing websocket client for [%s@%s]...", src, info.RemotePeerAddress)
 		c.mu.Lock()
 		defer c.mu.Unlock()
 		delete(c.clients, url.String())
@@ -189,13 +189,13 @@ func (c *multiplexedClientConn) readIncoming() {
 			sc.reads <- streamEOF
 		}
 		err := c.Conn.Close()
-		logger.Infof("Client connection closed: %v", err)
+		logger.Debugf("Client connection closed: %v", err)
 	}()
 	var mm MultiplexedMessage
 	for {
-		//c.writeMu.Lock()
+		// c.writeMu.Lock()
 		err := c.ReadJSON(&mm)
-		//c.writeMu.Unlock()
+		// c.writeMu.Unlock()
 		if err != nil {
 			logger.Debugf("Client connection errored: %v", err)
 			return
@@ -237,13 +237,13 @@ func (c *multiplexedServerConn) readIncoming(newStreamCallback func(pStream host
 			sc.reads <- streamEOF
 		}
 		err := c.Conn.Close()
-		logger.Infof("Connection closed: %v", err)
+		logger.Debugf("Connection closed: %v", err)
 	}()
 	var mm MultiplexedMessage
 	for {
-		//c.writeMu.Lock()
+		// c.writeMu.Lock()
 		err := c.ReadJSON(&mm)
-		//c.writeMu.Unlock()
+		// c.writeMu.Unlock()
 		if err != nil {
 			logger.Debugf("Connection errored: %v", err)
 
@@ -371,7 +371,7 @@ func (c *multiplexedBaseConn) readOutgoing(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			logger.Infof("Closing all outgoing connections")
+			logger.Debugf("Closing all outgoing connections")
 			return
 		case msg := <-c.writes:
 			c.writeMu.Lock()

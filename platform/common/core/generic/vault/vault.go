@@ -207,7 +207,7 @@ func (db *Vault[V]) commitTXs(txs []txCommitIndex) []error {
 			// This should generate a panic
 			return collections.Repeat(err, len(txs))
 		}
-		db.logger.Infof("Deadlock detected. Retrying... [%v]", err)
+		db.logger.Debugf("Deadlock detected. Retrying... [%v]", err)
 	}
 }
 

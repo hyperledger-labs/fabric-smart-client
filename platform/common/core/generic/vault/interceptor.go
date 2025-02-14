@@ -252,7 +252,7 @@ func (i *Interceptor[V]) GetStateMetadata(namespace, key string, opts ...driver.
 		i.RUnlock()
 
 		version, in := i.rws.ReadSet.Get(namespace, key)
-		i.logger.Infof("got states: [%v] - [%v]", version, vaultVersion)
+		i.logger.Debugf("got states: [%v] - [%v]", version, vaultVersion)
 		if in {
 			if !i.versionComparator.Equal(version, vaultVersion) {
 				return nil, errors.Errorf("invalid metadata read: previous value returned at version [%v], current value at version [%v]", version, vaultVersion)
