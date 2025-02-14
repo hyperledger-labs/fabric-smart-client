@@ -6,6 +6,12 @@ SPDX-License-Identifier: Apache-2.0
 
 package driver
 
+type LedgerInfo struct {
+	Height            uint64
+	CurrentBlockHash  []byte
+	PreviousBlockHash []byte
+}
+
 // Block models a block of the ledger
 type Block interface {
 	// DataAt returns the data stored at the passed index
@@ -30,6 +36,9 @@ type ProcessedTransaction interface {
 
 // Ledger gives access to the remote ledger
 type Ledger interface {
+	// GetLedgerInfo returns the ledger info
+	GetLedgerInfo() (*LedgerInfo, error)
+
 	// GetTransactionByID retrieves a transaction by id
 	GetTransactionByID(txID string) (ProcessedTransaction, error)
 

@@ -17,6 +17,7 @@ import (
 const (
 	QuerySystemChaincode = "qscc"
 
+	GetChainInfo       string = "GetChainInfo"
 	GetBlockByNumber   string = "GetBlockByNumber"
 	GetTransactionByID string = "GetTransactionByID"
 	GetBlockByTxID     string = "GetBlockByTxID"
@@ -44,6 +45,22 @@ func New(
 		ConfigService:      configService,
 		TransactionManager: transactionManager,
 	}
+}
+
+func (c *Ledger) GetLedgerInfo() (*driver.LedgerInfo, error) {
+	raw, err := c.queryChaincode(GetChainInfo, nil)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed querying chain info")
+	}
+	bi := &common.BlockchainInfo{}
+	if err := proto.Unmarshal(raw, bi); err != nil {
+		return nil, errors.Wrap(err, "failed unmarshalling block info")
+	}
+	return &driver.LedgerInfo{
+		Height:            bi.Height,
+		CurrentBlockHash:  bi.CurrentBlockHash,
+		PreviousBlockHash: bi.PreviousBlockHash,
+	}, nil
 }
 
 func (c *Ledger) GetTransactionByID(txID string) (driver.ProcessedTransaction, error) {

@@ -17,6 +17,10 @@ func New() *Ledger {
 	return &Ledger{}
 }
 
+func (c *Ledger) GetLedgerInfo() (*driver.LedgerInfo, error) {
+	panic("implement me")
+}
+
 func (c *Ledger) GetTransactionByID(txID string) (driver.ProcessedTransaction, error) {
 	panic("implement me")
 }

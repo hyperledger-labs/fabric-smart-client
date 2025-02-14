@@ -10,6 +10,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
 
+type LedgerInfo = driver.LedgerInfo
+
 // Block models a Fabric block
 type Block struct {
 	b driver.Block
@@ -66,4 +68,8 @@ func (l *Ledger) GetBlockByNumber(number uint64) (*Block, error) {
 		return nil, err
 	}
 	return &Block{b: b}, nil
+}
+
+func (l *Ledger) GetLedgerInfo() (*LedgerInfo, error) {
+	return l.l.GetLedgerInfo()
 }
