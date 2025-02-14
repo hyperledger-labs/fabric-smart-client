@@ -46,6 +46,10 @@ type QueryByIDService[T EventInfo] interface {
 	QueryByID(ctx context.Context, startingBlock driver.BlockNum, evicted map[EventID][]ListenerEntry[T]) (<-chan []T, error)
 }
 
+type Delivery interface {
+	ScanBlock(background context.Context, callback fabric.BlockCallback) error
+}
+
 type EventInfoCallback[T EventInfo] func(T) error
 
 type DeliveryListenerManagerConfig struct {
@@ -66,7 +70,7 @@ type ListenerManager[T EventInfo] struct {
 	listeners                  cache.Map[EventID, []ListenerEntry[T]]
 	permanentListeners         map[EventID][]ListenerEntry[T]
 	events                     cache.Map[EventID, T]
-	delivery                   *fabric.Delivery
+	delivery                   Delivery
 	blockProcessingParallelism int
 	ignoreBlockErrors          bool
 }
@@ -74,7 +78,7 @@ type ListenerManager[T EventInfo] struct {
 func NewListenerManager[T EventInfo](
 	logger logging.Logger,
 	config DeliveryListenerManagerConfig,
-	delivery *fabric.Delivery,
+	delivery Delivery,
 	queryService QueryByIDService[T],
 	tracer trace.Tracer,
 	mapper EventInfoMapper[T],
