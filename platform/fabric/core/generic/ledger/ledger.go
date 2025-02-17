@@ -7,6 +7,10 @@ SPDX-License-Identifier: Apache-2.0
 package ledger
 
 import (
+	"fmt"
+	"strings"
+
+	errors2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger/fabric-protos-go/common"
@@ -22,6 +26,8 @@ const (
 	GetTransactionByID string = "GetTransactionByID"
 	GetBlockByTxID     string = "GetBlockByTxID"
 )
+
+var TxNotFound = errors.New("tx not found")
 
 type Ledger struct {
 	ChannelName        string
@@ -68,7 +74,16 @@ func (c *Ledger) GetTransactionByID(txID string) (driver.ProcessedTransaction, e
 	if err != nil {
 		return nil, err
 	}
-	return c.TransactionManager.NewProcessedTransaction(raw)
+	tx, err := c.TransactionManager.NewProcessedTransaction(raw)
+	if err == nil {
+		return tx, nil
+	}
+	errorMsg := err.Error()
+	if strings.Contains(errorMsg, fmt.Sprintf("TXID [%s] not available", txID)) ||
+		strings.Contains(errorMsg, fmt.Sprintf("no such transaction ID [%s]", txID)) {
+		return nil, errors2.Wrapf(TxNotFound, "tx [%s] not found", txID)
+	}
+	return nil, err
 }
 
 func (c *Ledger) GetBlockNumberByTxID(txID string) (uint64, error) {
