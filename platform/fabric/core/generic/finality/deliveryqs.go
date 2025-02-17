@@ -14,7 +14,10 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/events"
+	"github.com/pkg/errors"
 )
+
+var TxNotFound = errors.New("tx not found")
 
 type DeliveryScanQueryByID[T events.EventInfo] struct {
 	Logger   logging.Logger
