@@ -10,7 +10,6 @@ import (
 	"context"
 	"time"
 
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/fabricutils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
@@ -24,7 +23,7 @@ import (
 type ValidationFlags []uint8
 
 type lastGetter interface {
-	GetLast(ctx context.Context) (*driver2.TxStatus, error)
+	GetLast(ctx context.Context) (*driver.TxStatus, error)
 	GetLastBlock(context.Context) (uint64, error)
 }
 
@@ -135,6 +134,10 @@ func (c *Service) ScanBlock(ctx context.Context, callback driver.BlockCallback) 
 	return c.scanBlock(ctx, &fakeVault{}, callback)
 }
 
+func (c *Service) ScanBlockFrom(ctx context.Context, block driver.BlockNum, callback driver.BlockCallback) error {
+	return c.scanBlock(ctx, &fakeVault{block: block}, callback)
+}
+
 func (c *Service) Scan(ctx context.Context, txID string, callback driver.DeliveryCallback) error {
 	vault := &fakeVault{txID: txID}
 	return c.scanBlock(ctx, vault,
@@ -179,7 +182,7 @@ func (c *Service) Scan(ctx context.Context, txID string, callback driver.Deliver
 		})
 }
 
-func (c *Service) ScanFromBlock(ctx context.Context, block uint64, callback driver.DeliveryCallback) error {
+func (c *Service) ScanFromBlock(ctx context.Context, block driver.BlockNum, callback driver.DeliveryCallback) error {
 	vault := &fakeVault{block: block}
 	return c.scanBlock(ctx, vault,
 		func(_ context.Context, block *common.Block) (bool, error) {
@@ -224,7 +227,7 @@ func (c *Service) ScanFromBlock(ctx context.Context, block uint64, callback driv
 }
 
 type processedTransaction struct {
-	txID    driver2.TxID
+	txID    driver.TxID
 	results []byte
 	vc      int32
 	env     []byte
@@ -251,12 +254,12 @@ func (p *processedTransaction) ValidationCode() int32 {
 }
 
 type fakeVault struct {
-	txID  driver2.TxID
-	block driver2.BlockNum
+	txID  driver.TxID
+	block driver.BlockNum
 }
 
-func (f *fakeVault) GetLast(context.Context) (*driver2.TxStatus, error) {
-	return &driver2.TxStatus{TxID: f.txID}, nil
+func (f *fakeVault) GetLast(context.Context) (*driver.TxStatus, error) {
+	return &driver.TxStatus{TxID: f.txID}, nil
 }
 
 func (f *fakeVault) GetLastBlock(context.Context) (uint64, error) {

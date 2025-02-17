@@ -31,12 +31,16 @@ type Delivery interface {
 	// On each block, the callback function is invoked.
 	ScanBlock(ctx context.Context, callback BlockCallback) error
 
+	// ScanBlockFrom iterates over all blocks starting from the block with the passed number.
+	// On each block, the callback function is invoked.
+	ScanBlockFrom(ctx context.Context, block BlockNum, callback BlockCallback) error
+
 	// Scan iterates over all transactions in block starting from the block containing the passed transaction id.
 	// If txID is empty, the iterations starts from the first block.
 	// On each transaction, the callback function is invoked.
-	Scan(ctx context.Context, txID string, callback DeliveryCallback) error
+	Scan(ctx context.Context, txID TxID, callback DeliveryCallback) error
 
 	// ScanFromBlock iterates over all transactions in block starting from the block with the passed number.
 	// On each transaction, the callback function is invoked.
-	ScanFromBlock(ctx context.Context, block uint64, callback DeliveryCallback) error
+	ScanFromBlock(ctx context.Context, block BlockNum, callback DeliveryCallback) error
 }

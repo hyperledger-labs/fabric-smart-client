@@ -28,7 +28,7 @@ func NewManager() *Manager {
 	return &Manager{factories: map[driver.TransactionType]driver.TransactionFactory{}}
 }
 
-func (m *Manager) ComputeTxID(id *driver.TxID) string {
+func (m *Manager) ComputeTxID(id *driver.TxIDComponents) string {
 	return ComputeTxID(id)
 }
 

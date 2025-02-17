@@ -14,7 +14,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
-type TxID struct {
+type TxIDComponents struct {
 	Nonce   []byte
 	Creator []byte
 }
@@ -35,7 +35,7 @@ type ChaincodeInvocation interface {
 
 	WithSignerIdentity(id view.Identity) ChaincodeInvocation
 
-	WithTxID(id TxID) ChaincodeInvocation
+	WithTxID(id TxIDComponents) ChaincodeInvocation
 
 	WithEndorsersByConnConfig(ccs ...*grpc.ConnectionConfig) ChaincodeInvocation
 

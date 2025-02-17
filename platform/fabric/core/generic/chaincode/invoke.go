@@ -29,7 +29,7 @@ import (
 
 type Invoke struct {
 	Chaincode                      *Chaincode
-	TxID                           driver.TxID
+	TxID                           driver.TxIDComponents
 	SignerIdentity                 view.Identity
 	ChaincodePath                  string
 	ChaincodeName                  string
@@ -242,7 +242,7 @@ func (i *Invoke) WithImplicitCollections(mspIDs ...string) driver.ChaincodeInvoc
 	return i
 }
 
-func (i *Invoke) WithTxID(id driver.TxID) driver.ChaincodeInvocation {
+func (i *Invoke) WithTxID(id driver.TxIDComponents) driver.ChaincodeInvocation {
 	i.TxID = id
 	return i
 }
