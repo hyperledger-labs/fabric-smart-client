@@ -451,7 +451,7 @@ func (t *TransactionManager) NewTransactionFromEnvelopeBytes(raw []byte, opts ..
 }
 
 func (t *TransactionManager) ComputeTxID(id *TxID) string {
-	txID := &driver.TxID{
+	txID := &driver.TxIDComponents{
 		Nonce: id.Nonce, Creator: id.Creator,
 	}
 	res := t.fns.fns.TransactionManager().ComputeTxID(txID)

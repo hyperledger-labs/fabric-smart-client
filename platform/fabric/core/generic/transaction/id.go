@@ -15,7 +15,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
 
-func ComputeTxID(id *driver.TxID) string {
+func ComputeTxID(id *driver.TxIDComponents) string {
 	if len(id.Nonce) == 0 {
 		n, err := GetRandomNonce()
 		if err != nil {

@@ -22,8 +22,18 @@ type Delivery struct {
 	delivery driver.Delivery
 }
 
+// ScanBlock iterates over all blocks.
+// On each block, the callback function is invoked.
 func (d *Delivery) ScanBlock(ctx context.Context, callback BlockCallback) error {
 	return d.delivery.ScanBlock(ctx, func(ctx context.Context, block *common.Block) (bool, error) {
+		return callback(ctx, block)
+	})
+}
+
+// ScanBlockFrom iterates over all blocks starting from the block with the passed number.
+// On each block, the callback function is invoked.
+func (d *Delivery) ScanBlockFrom(ctx context.Context, block uint64, callback BlockCallback) error {
+	return d.delivery.ScanBlockFrom(ctx, block, func(ctx context.Context, block *common.Block) (bool, error) {
 		return callback(ctx, block)
 	})
 }

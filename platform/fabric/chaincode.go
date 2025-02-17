@@ -229,7 +229,7 @@ func (i *ChaincodeQuery) WithInvokerIdentity(id view.Identity) *ChaincodeQuery {
 }
 
 func (i *ChaincodeQuery) WithTxID(id TxID) *ChaincodeQuery {
-	i.ChaincodeInvocation.WithTxID(driver.TxID{
+	i.ChaincodeInvocation.WithTxID(driver.TxIDComponents{
 		Nonce:   id.Nonce,
 		Creator: id.Creator,
 	})
@@ -306,7 +306,7 @@ func (i *ChaincodeEndorse) WithInvokerIdentity(id view.Identity) *ChaincodeEndor
 }
 
 func (i *ChaincodeEndorse) WithTxID(id TxID) *ChaincodeEndorse {
-	i.ChaincodeInvocation.WithTxID(driver.TxID{
+	i.ChaincodeInvocation.WithTxID(driver.TxIDComponents{
 		Nonce:   id.Nonce,
 		Creator: id.Creator,
 	})

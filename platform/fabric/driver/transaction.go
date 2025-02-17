@@ -70,7 +70,7 @@ type TransactionFactory interface {
 }
 
 type TransactionManager interface {
-	ComputeTxID(id *TxID) string
+	ComputeTxID(id *TxIDComponents) string
 	NewEnvelope() Envelope
 	NewProposalResponseFromBytes(raw []byte) (ProposalResponse, error)
 	NewTransaction(ctx context.Context, transactionType TransactionType, creator view.Identity, nonce []byte, txid string, channel string, rawRequest []byte) (Transaction, error)
