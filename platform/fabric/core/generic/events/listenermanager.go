@@ -85,7 +85,7 @@ func NewListenerManager[T EventInfo](
 ) (*ListenerManager[T], error) {
 	var events cache.Map[EventID, T]
 	if config.LRUSize > 0 && config.LRUBuffer > 0 {
-		events = cache.NewLRUCache[EventID, T](10, 2, func(evicted map[EventID]T) {
+		events = cache.NewLRUCache[EventID, T](config.LRUSize, config.LRUBuffer, func(evicted map[EventID]T) {
 			logger.Debugf("evicted keys [%s]. If they are looked up, they will be fetched directly from the ledger from now on...", logging.Keys(evicted))
 		})
 	} else {
