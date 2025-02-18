@@ -81,7 +81,7 @@ func (c *Ledger) GetTransactionByID(txID string) (driver.ProcessedTransaction, e
 	errorMsg := err.Error()
 	if strings.Contains(errorMsg, fmt.Sprintf("TXID [%s] not available", txID)) ||
 		strings.Contains(errorMsg, fmt.Sprintf("no such transaction ID [%s]", txID)) {
-		return nil, errors2.Wrapf(TxNotFound, "tx [%s] not found", txID)
+		return nil, errors2.Wrapf(TxNotFound, "tx [%s] not found: %s", txID, errorMsg)
 	}
 	return nil, err
 }
