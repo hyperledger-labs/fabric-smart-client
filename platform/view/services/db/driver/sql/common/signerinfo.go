@@ -10,6 +10,7 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
@@ -35,11 +36,11 @@ type SignerInfoPersistence struct {
 
 func (db *SignerInfoPersistence) FilterExistingSigners(ids ...view.Identity) ([]view.Identity, error) {
 	idHashes := make([]string, len(ids))
-	inverseMap := make(map[string]view.Identity, len(ids))
+	inverseMap := make(map[string]*view.Identity, len(ids))
 	for i, id := range ids {
 		idHash := id.UniqueID()
 		idHashes[i] = idHash
-		inverseMap[idHash] = id
+		inverseMap[idHash] = &id
 	}
 	where, params := Where(db.ci.InStrings("id", idHashes))
 	query := fmt.Sprintf("SELECT id FROM %s %s", db.table, where)
@@ -51,13 +52,16 @@ func (db *SignerInfoPersistence) FilterExistingSigners(ids ...view.Identity) ([]
 	}
 	defer rows.Close()
 
-	existingSigners := make([]view.Identity, 0)
-	for rows.Next() {
-		var idHash string
-		if err := rows.Scan(&idHash); err != nil {
-			return nil, errors.Wrapf(err, "failed scanning row")
+	idHashItr := QueryIterator(rows, func(r RowScanner, h *string) error { return r.Scan(h) })
+	idItr := collections.Map(idHashItr, func(h *string) (*view.Identity, error) {
+		if h == nil {
+			return nil, nil
 		}
-		existingSigners = append(existingSigners, inverseMap[idHash])
+		return inverseMap[*h], nil
+	})
+	existingSigners, err := collections.ReadAll[view.Identity](idItr)
+	if err != nil {
+		return nil, err
 	}
 	logger.Debugf("Found %d out of %d signers", len(existingSigners), len(ids))
 	return existingSigners, nil

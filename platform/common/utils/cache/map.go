@@ -9,10 +9,11 @@ package cache
 // NewMapCache creates a dummy implementation of the Cache interface.
 // It is backed by a map with unlimited capacity.
 func NewMapCache[K comparable, V any]() *mapCache[K, V] {
-	return &mapCache[K, V]{
-		m: map[K]V{},
-		l: &noLock{},
-	}
+	return NewMapCacheWithLock[K, V](&noLock{})
+}
+
+func NewMapCacheWithLock[K comparable, V any](l rwLock) *mapCache[K, V] {
+	return &mapCache[K, V]{m: map[K]V{}, l: l}
 }
 
 type mapCache[K comparable, V any] struct {
