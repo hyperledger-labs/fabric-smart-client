@@ -60,7 +60,7 @@ func (db *UnversionedPersistence) GetStateRangeScanIterator(ns driver2.Namespace
 		return nil, errors2.Wrapf(err, "query error: %s", query)
 	}
 
-	return &readIterator{txs: rows}, nil
+	return QueryIterator(rows, func(r RowScanner, read *driver.UnversionedRead) error { return r.Scan(&read.Key, &read.Raw) }), nil
 }
 
 func (db *UnversionedPersistence) GetState(namespace driver2.Namespace, key driver2.PKey) (driver.UnversionedValue, error) {
@@ -87,7 +87,7 @@ func (db *UnversionedPersistence) GetStateSetIterator(ns driver2.Namespace, keys
 		return nil, errors2.Wrapf(err, "query error: %s", query)
 	}
 
-	return &readIterator{txs: rows}, nil
+	return QueryIterator(rows, func(r RowScanner, read *driver.UnversionedRead) error { return r.Scan(&read.Key, &read.Raw) }), nil
 }
 
 func (db *UnversionedPersistence) Close() error {
@@ -229,23 +229,6 @@ func (db *UnversionedPersistence) Stats() any {
 		return db.readDB.Stats()
 	}
 	return nil
-}
-
-type readIterator struct {
-	txs *sql.Rows
-}
-
-func (t *readIterator) Close() {
-	t.txs.Close()
-}
-
-func (t *readIterator) Next() (*driver.UnversionedRead, error) {
-	if !t.txs.Next() {
-		return nil, nil
-	}
-	var r driver.UnversionedRead
-	err := t.txs.Scan(&r.Key, &r.Raw)
-	return &r, err
 }
 
 func (db *UnversionedPersistence) CreateSchema() error {
