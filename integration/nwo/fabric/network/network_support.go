@@ -965,7 +965,7 @@ func (n *Network) PeerRunner(p *topology.Peer, env ...string) *runner2.Runner {
 		AnsiColorCode:     n.nextColor(),
 		Name:              n.Prefix + "-" + p.ID(),
 		Command:           cmd,
-		StartCheck:        `Started peer with ID=.*, address=`,
+		StartCheck:        `Started peer with ID=.*`,
 		StartCheckTimeout: 1 * time.Minute,
 	}
 	if n.Topology().LogPeersToFile {
