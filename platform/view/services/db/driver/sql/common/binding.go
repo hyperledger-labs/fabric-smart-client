@@ -36,7 +36,7 @@ type BindingPersistence struct {
 func (db *BindingPersistence) GetLongTerm(ephemeral view.Identity) (view.Identity, error) {
 	where, params := Where(db.ci.Cmp("ephemeral_hash", "=", ephemeral.UniqueID()))
 	query := fmt.Sprintf("SELECT long_term_id FROM %s %s", db.table, where)
-	logger.Info(query, params)
+	logger.Debug(query, params)
 	result, err := QueryUnique[view.Identity](db.readDB, query, params...)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed getting wallet id for identity [%v]", ephemeral)
@@ -47,6 +47,7 @@ func (db *BindingPersistence) GetLongTerm(ephemeral view.Identity) (view.Identit
 func (db *BindingPersistence) HaveSameBinding(this, that view.Identity) (bool, error) {
 	where, params := Where(db.ci.InStrings("ephemeral_hash", []string{this.UniqueID(), that.UniqueID()}))
 	query := fmt.Sprintf("SELECT long_term_id FROM %s %s", db.table, where)
+	logger.Debug(query, params)
 	rows, err := db.readDB.Query(query, params...)
 	if err != nil {
 		return false, errors.Wrapf(err, "error querying db")
