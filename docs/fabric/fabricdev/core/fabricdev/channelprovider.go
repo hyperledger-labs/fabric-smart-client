@@ -198,8 +198,6 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 	}
 
 	c := &generic.Channel{
-		ChannelConfig:            channelConfig,
-		ConfigService:            nw.ConfigService(),
 		ChannelName:              channelName,
 		FinalityService:          finalityService,
 		VaultService:             vault,
@@ -213,7 +211,6 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 		ChannelMembershipService: channelMembershipService,
 		ChaincodeManagerService:  chaincodeManagerService,
 		CommitterService:         committerService,
-		PeerService:              peerService,
 	}
 	if err := c.Init(); err != nil {
 		return nil, errors.WithMessagef(err, "failed initializing Channel [%s]", channelName)
