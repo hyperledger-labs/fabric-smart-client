@@ -399,7 +399,7 @@ func (c *Committer) commitTxs(ctx context.Context, parallelizableTxGroups Parall
 					c.metrics.HandlerDuration.With("status", "failure").Observe(time.Since(start).Seconds())
 					return errors.Wrapf(err, "failed calling handler for tx [%s]", tx.TxID)
 				} else if event == nil {
-					logger.Warnf("Ignore tx [%d:%d] [%s]", tx.BlkNum, tx.TxNum, tx.TxID)
+					logger.Debugf("Ignore tx [%d:%d] [%s]", tx.BlkNum, tx.TxNum, tx.TxID)
 				} else {
 					c.logger.Debugf("commit transaction [%s] in filteredBlock [%d]", event.TxID, tx.BlkNum)
 					span.AddEvent("call_finality_notifiers")
