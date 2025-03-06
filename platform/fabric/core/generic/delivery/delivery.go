@@ -75,7 +75,7 @@ type Delivery struct {
 	Ledger              driver.Ledger
 	waitForEventTimeout time.Duration
 	callback            driver.BlockCallback
-	vault               lastGetter
+	vault               LastGetter
 	client              services.PeerClient
 	tracer              trace.Tracer
 	lastBlockReceived   uint64
@@ -96,7 +96,7 @@ func New(
 	PeerManager Services,
 	Ledger driver.Ledger,
 	callback driver.BlockCallback,
-	vault lastGetter,
+	vault LastGetter,
 	waitForEventTimeout time.Duration,
 	bufferSize int,
 	tracerProvider trace.TracerProvider,

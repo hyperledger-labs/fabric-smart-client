@@ -8,6 +8,7 @@ package generic
 
 import (
 	"context"
+	"time"
 
 	driver3 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/chaincode"
@@ -36,11 +37,13 @@ type VaultConstructor = func(
 	metricsProvider metrics.Provider,
 	tracerProvider trace.TracerProvider,
 ) (*vault.Vault, error)
+
 type LedgerConstructor func(
 	channelName string,
 	nw driver.FabricNetworkService,
 	chaincodeManager driver.ChaincodeManager,
 ) (driver.Ledger, error)
+
 type RWSetLoaderConstructor func(
 	channel string,
 	nw driver.FabricNetworkService,
@@ -48,6 +51,7 @@ type RWSetLoaderConstructor func(
 	transactionService driver.EndorserTransactionService,
 	vault driver.RWSetInspector,
 ) (driver.RWSetLoader, error)
+
 type CommitterConstructor func(
 	nw driver.FabricNetworkService,
 	channelConfig driver.ChannelConfig,
@@ -64,6 +68,24 @@ type CommitterConstructor func(
 	tracerProvider trace.TracerProvider,
 	metricsProvider metrics.Provider,
 ) (CommitterService, error)
+
+type DeliveryConstructor func(
+	channel string,
+	channelConfig driver.ChannelConfig,
+	hasher hash.Hasher,
+	networkName string,
+	localMembership driver.LocalMembership,
+	configService driver.ConfigService,
+	peerManager delivery.Services,
+	ledger driver.Ledger,
+	waitForEventTimeout time.Duration,
+	vault delivery.LastGetter,
+	transactionManager driver.TransactionManager,
+	callback driver.BlockCallback,
+	tracerProvider trace.TracerProvider,
+	metricsProvider metrics.Provider,
+	acceptedHeaderTypes []common.HeaderType,
+) (DeliveryService, error)
 
 type ChannelProvider interface {
 	NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver.Channel, error)
@@ -85,6 +107,7 @@ type provider struct {
 	newLedger               LedgerConstructor
 	newRWSetLoader          RWSetLoaderConstructor
 	newCommitter            CommitterConstructor
+	newDelivery             DeliveryConstructor
 	useFilteredDelivery     bool
 	acceptedHeaderTypes     []common.HeaderType
 }
@@ -105,6 +128,7 @@ func NewChannelProvider(
 	newLedger LedgerConstructor,
 	newRWSetLoader RWSetLoaderConstructor,
 	newCommitter CommitterConstructor,
+	newDelivery DeliveryConstructor,
 	useFilteredDelivery bool,
 	acceptedHeaderTypes []common.HeaderType,
 ) *provider {
@@ -124,6 +148,7 @@ func NewChannelProvider(
 		newLedger:               newLedger,
 		newRWSetLoader:          newRWSetLoader,
 		newCommitter:            newCommitter,
+		newDelivery:             newDelivery,
 		useFilteredDelivery:     useFilteredDelivery,
 		acceptedHeaderTypes:     acceptedHeaderTypes,
 	}
@@ -228,7 +253,7 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 	chaincodeManagerService.Finality = finalityService
 
 	// Delivery
-	deliveryService, err := delivery.NewService(
+	deliveryService, err := p.newDelivery(
 		channelName,
 		channelConfig,
 		p.hasher,
