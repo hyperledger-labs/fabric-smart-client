@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/commands"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
@@ -202,6 +203,7 @@ func InitChaincode(n *Network, channel string, orderer *topology.Orderer, chainc
 		ClientAuth:    n.ClientAuthRequired,
 	})
 	Expect(err).NotTo(HaveOccurred())
+	time.Sleep(5 * time.Minute)
 	Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
 	for i := 0; i < len(peerAddresses); i++ {
 		Eventually(sess.Err, n.EventuallyTimeout).Should(gbytes.Say(`\Qcommitted with status (VALID)\E`))
