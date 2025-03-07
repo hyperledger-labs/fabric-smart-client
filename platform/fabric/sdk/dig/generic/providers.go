@@ -193,7 +193,7 @@ func NewChannelProvider(in struct {
 			peerManager delivery.Services,
 			ledger driver.Ledger,
 			waitForEventTimeout time.Duration,
-			vault delivery.LastGetter,
+			vault delivery.Vault,
 			transactionManager driver.TransactionManager,
 			callback driver.BlockCallback,
 			tracerProvider trace.TracerProvider,

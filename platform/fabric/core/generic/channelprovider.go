@@ -79,7 +79,7 @@ type DeliveryConstructor func(
 	peerManager delivery.Services,
 	ledger driver.Ledger,
 	waitForEventTimeout time.Duration,
-	vault delivery.LastGetter,
+	vault delivery.Vault,
 	transactionManager driver.TransactionManager,
 	callback driver.BlockCallback,
 	tracerProvider trace.TracerProvider,
@@ -263,7 +263,7 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 		peerService,
 		ledgerService,
 		channelConfig.CommitterWaitForEventTimeout(),
-		&fakeVault{vaultStore: vaultStore},
+		&vaultDeliveryWrapper{vaultStore: vaultStore},
 		nw.TransactionManager(),
 		func(ctx context.Context, block *common.Block) (bool, error) {
 			// commit the block, if an error occurs then retry
@@ -298,14 +298,23 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 	return c, nil
 }
 
-type fakeVault struct {
+type vaultDeliveryWrapper struct {
 	vaultStore driver3.VaultStore
 }
 
-func (f *fakeVault) GetLast(ctx context.Context) (*driver3.TxStatus, error) {
-	return f.vaultStore.GetLast(ctx)
+func (f *vaultDeliveryWrapper) GetLastTxID(ctx context.Context) (string, error) {
+	tx, err := f.vaultStore.GetLast(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	if tx == nil {
+		return "", nil
+	}
+
+	return tx.TxID, nil
 }
 
-func (f *fakeVault) GetLastBlock(context.Context) (uint64, error) {
+func (f *vaultDeliveryWrapper) GetLastBlock(context.Context) (uint64, error) {
 	return 0, errors.New("not implemented")
 }
