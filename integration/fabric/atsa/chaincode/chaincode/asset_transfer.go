@@ -17,11 +17,10 @@ import (
 	"log"
 	"time"
 
-	"github.com/pkg/errors"
-
 	"github.com/hyperledger/fabric-chaincode-go/pkg/statebased"
 	"github.com/hyperledger/fabric-chaincode-go/shim"
 	"github.com/hyperledger/fabric-contract-api-go/contractapi"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -202,7 +201,7 @@ func (s *SmartContract) VerifyAssetProperties(ctx contractapi.TransactionContext
 		return false, fmt.Errorf("error getting transient: %v", err)
 	}
 
-	/// Asset properties must be retrieved from the transient field as they are private
+	// / Asset properties must be retrieved from the transient field as they are private
 	immutablePropertiesJSON, ok := transMap["asset_properties"]
 	if !ok {
 		return false, fmt.Errorf("asset_properties key not found in the transient map")

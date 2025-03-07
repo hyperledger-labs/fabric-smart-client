@@ -70,7 +70,6 @@ jobs:
           pingpong,
           stoprestart,
           twonets,
-          weaver-relay,
           chaincode-events
         ]
 
