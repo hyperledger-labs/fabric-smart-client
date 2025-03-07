@@ -34,7 +34,6 @@ type Service struct {
 	HostProvider    host.GeneratorProvider
 	EndpointService EndpointService
 	ConfigService   ConfigService
-	DefaultIdentity view2.Identity
 
 	Node            *P2PNode
 	NodeSync        sync.RWMutex
@@ -42,12 +41,11 @@ type Service struct {
 	metricsProvider metrics.Provider
 }
 
-func NewService(hostProvider host.GeneratorProvider, endpointService EndpointService, configService ConfigService, defaultIdentity view2.Identity, tracerProvider trace.TracerProvider, metricsProvider metrics.Provider) (*Service, error) {
+func NewService(hostProvider host.GeneratorProvider, endpointService EndpointService, configService ConfigService, tracerProvider trace.TracerProvider, metricsProvider metrics.Provider) (*Service, error) {
 	s := &Service{
 		HostProvider:    hostProvider,
 		EndpointService: endpointService,
 		ConfigService:   configService,
-		DefaultIdentity: defaultIdentity,
 		tracerProvider:  tracerProvider,
 		metricsProvider: metricsProvider,
 	}

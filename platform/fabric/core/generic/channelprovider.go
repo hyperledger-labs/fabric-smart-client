@@ -8,6 +8,7 @@ package generic
 
 import (
 	"context"
+	"time"
 
 	driver3 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/chaincode"
@@ -36,11 +37,13 @@ type VaultConstructor = func(
 	metricsProvider metrics.Provider,
 	tracerProvider trace.TracerProvider,
 ) (*vault.Vault, error)
+
 type LedgerConstructor func(
 	channelName string,
 	nw driver.FabricNetworkService,
 	chaincodeManager driver.ChaincodeManager,
 ) (driver.Ledger, error)
+
 type RWSetLoaderConstructor func(
 	channel string,
 	nw driver.FabricNetworkService,
@@ -48,6 +51,7 @@ type RWSetLoaderConstructor func(
 	transactionService driver.EndorserTransactionService,
 	vault driver.RWSetInspector,
 ) (driver.RWSetLoader, error)
+
 type CommitterConstructor func(
 	nw driver.FabricNetworkService,
 	channelConfig driver.ChannelConfig,
@@ -64,6 +68,24 @@ type CommitterConstructor func(
 	tracerProvider trace.TracerProvider,
 	metricsProvider metrics.Provider,
 ) (CommitterService, error)
+
+type DeliveryConstructor func(
+	channel string,
+	channelConfig driver.ChannelConfig,
+	hasher hash.Hasher,
+	networkName string,
+	localMembership driver.LocalMembership,
+	configService driver.ConfigService,
+	peerManager delivery.Services,
+	ledger driver.Ledger,
+	waitForEventTimeout time.Duration,
+	vault delivery.Vault,
+	transactionManager driver.TransactionManager,
+	callback driver.BlockCallback,
+	tracerProvider trace.TracerProvider,
+	metricsProvider metrics.Provider,
+	acceptedHeaderTypes []common.HeaderType,
+) (DeliveryService, error)
 
 type ChannelProvider interface {
 	NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver.Channel, error)
@@ -85,6 +107,7 @@ type provider struct {
 	newLedger               LedgerConstructor
 	newRWSetLoader          RWSetLoaderConstructor
 	newCommitter            CommitterConstructor
+	newDelivery             DeliveryConstructor
 	useFilteredDelivery     bool
 	acceptedHeaderTypes     []common.HeaderType
 }
@@ -105,6 +128,7 @@ func NewChannelProvider(
 	newLedger LedgerConstructor,
 	newRWSetLoader RWSetLoaderConstructor,
 	newCommitter CommitterConstructor,
+	newDelivery DeliveryConstructor,
 	useFilteredDelivery bool,
 	acceptedHeaderTypes []common.HeaderType,
 ) *provider {
@@ -124,6 +148,7 @@ func NewChannelProvider(
 		newLedger:               newLedger,
 		newRWSetLoader:          newRWSetLoader,
 		newCommitter:            newCommitter,
+		newDelivery:             newDelivery,
 		useFilteredDelivery:     useFilteredDelivery,
 		acceptedHeaderTypes:     acceptedHeaderTypes,
 	}
@@ -228,7 +253,7 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 	chaincodeManagerService.Finality = finalityService
 
 	// Delivery
-	deliveryService, err := delivery.NewService(
+	deliveryService, err := p.newDelivery(
 		channelName,
 		channelConfig,
 		p.hasher,
@@ -238,7 +263,7 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 		peerService,
 		ledgerService,
 		channelConfig.CommitterWaitForEventTimeout(),
-		&fakeVault{vaultStore: vaultStore},
+		&vaultDeliveryWrapper{vaultStore: vaultStore},
 		nw.TransactionManager(),
 		func(ctx context.Context, block *common.Block) (bool, error) {
 			// commit the block, if an error occurs then retry
@@ -253,8 +278,6 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 	}
 
 	c := &Channel{
-		ChannelConfig:            channelConfig,
-		ConfigService:            nw.ConfigService(),
 		ChannelName:              channelName,
 		FinalityService:          finalityService,
 		VaultService:             vault,
@@ -268,7 +291,6 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 		ChannelMembershipService: channelMembershipService,
 		ChaincodeManagerService:  chaincodeManagerService,
 		CommitterService:         committerService,
-		PeerService:              peerService,
 	}
 	if err := c.Init(); err != nil {
 		return nil, errors.WithMessagef(err, "failed initializing Channel [%s]", channelName)
@@ -276,14 +298,23 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 	return c, nil
 }
 
-type fakeVault struct {
+type vaultDeliveryWrapper struct {
 	vaultStore driver3.VaultStore
 }
 
-func (f *fakeVault) GetLast(ctx context.Context) (*driver3.TxStatus, error) {
-	return f.vaultStore.GetLast(ctx)
+func (f *vaultDeliveryWrapper) GetLastTxID(ctx context.Context) (string, error) {
+	tx, err := f.vaultStore.GetLast(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	if tx == nil {
+		return "", nil
+	}
+
+	return tx.TxID, nil
 }
 
-func (f *fakeVault) GetLastBlock(context.Context) (uint64, error) {
+func (f *vaultDeliveryWrapper) GetLastBlock(context.Context) (uint64, error) {
 	return 0, errors.New("not implemented")
 }

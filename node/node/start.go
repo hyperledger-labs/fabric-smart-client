@@ -153,9 +153,8 @@ func serve() error {
 	callback(nil)
 
 	cs := node.ConfigService()
-	logger.Infof("Started peer with ID=[%s], address=[%s]",
+	logger.Infof("Started peer with ID=[%s]",
 		cs.GetString("fsc.id"),
-		cs.GetString("fsc.grpc.address"),
 	)
 	return <-serve
 }

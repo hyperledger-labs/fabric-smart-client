@@ -183,7 +183,7 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 		peerService,
 		ledgerService,
 		channelConfig.CommitterWaitForEventTimeout(),
-		&fakeVault{vaultStore: vaultStore},
+		&vaultDeliveryWrapper{vaultStore: vaultStore},
 		nw.TransactionManager(),
 		func(ctx context.Context, block *common.Block) (bool, error) {
 			// commit the block, if an error occurs then retry
@@ -198,8 +198,6 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 	}
 
 	c := &generic.Channel{
-		ChannelConfig:            channelConfig,
-		ConfigService:            nw.ConfigService(),
 		ChannelName:              channelName,
 		FinalityService:          finalityService,
 		VaultService:             vault,
@@ -213,7 +211,6 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 		ChannelMembershipService: channelMembershipService,
 		ChaincodeManagerService:  chaincodeManagerService,
 		CommitterService:         committerService,
-		PeerService:              peerService,
 	}
 	if err := c.Init(); err != nil {
 		return nil, errors.WithMessagef(err, "failed initializing Channel [%s]", channelName)
@@ -221,14 +218,23 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 	return c, nil
 }
 
-type fakeVault struct {
+type vaultDeliveryWrapper struct {
 	vaultStore driver3.VaultStore
 }
 
-func (f *fakeVault) GetLast(ctx context.Context) (*driver3.TxStatus, error) {
-	return f.vaultStore.GetLast(ctx)
+func (f *vaultDeliveryWrapper) GetLastTxID(ctx context.Context) (string, error) {
+	tx, err := f.vaultStore.GetLast(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	if tx == nil {
+		return "", nil
+	}
+
+	return tx.TxID, nil
 }
 
-func (f *fakeVault) GetLastBlock(context.Context) (uint64, error) {
+func (f *vaultDeliveryWrapper) GetLastBlock(context.Context) (uint64, error) {
 	return 0, errors.New("not implemented")
 }
