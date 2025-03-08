@@ -34,10 +34,7 @@ func TestArtifactsGen(t *testing.T) {
 	Expect(err).NotTo(HaveOccurred())
 	defer gexec.CleanupBuildArtifacts()
 
-	tmpDir, err := os.MkdirTemp("", t.Name())
-	Expect(err).NotTo(HaveOccurred())
-
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
 	topologyFolder := filepath.Join("testdata", "fabric_iou.yaml")
 	session, err := gexec.Start(exec.Command(cli, "artifactsgen", "gen", "-t", topologyFolder, "-o", tmpDir), GinkgoWriter, GinkgoWriter)
