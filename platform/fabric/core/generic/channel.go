@@ -9,9 +9,7 @@ package generic
 import (
 	"context"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/delivery"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/membership"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger/fabric-protos-go/common"
 	"github.com/pkg/errors"
@@ -24,14 +22,16 @@ type CommitterService interface {
 	Commit(ctx context.Context, block *common.Block) error
 }
 
-type Delivery interface {
-	Start(ctx context.Context)
+type DeliveryService interface {
+	driver.Delivery
+	StoppableService
+}
+
+type StoppableService interface {
 	Stop()
 }
 
 type Channel struct {
-	ChannelConfig            driver.ChannelConfig
-	ConfigService            driver.ConfigService
 	ChannelName              string
 	FinalityService          driver.Finality
 	VaultService             driver.Vault
@@ -39,13 +39,12 @@ type Channel struct {
 	ES                       driver.EnvelopeService
 	TS                       driver.EndorserTransactionService
 	MS                       driver.MetadataService
-	DeliveryService          *delivery.Service
+	DeliveryService          DeliveryService
 	RWSetLoaderService       driver.RWSetLoader
 	LedgerService            driver.Ledger
 	ChannelMembershipService *membership.Service
 	ChaincodeManagerService  driver.ChaincodeManager
 	CommitterService         CommitterService
-	PeerService              *services.ClientFactory
 }
 
 func (c *Channel) Init() error {

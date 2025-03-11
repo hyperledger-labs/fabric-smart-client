@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package generic
 
 import (
+	"time"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	committer2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/committer"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
@@ -15,6 +17,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
 	config2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/delivery"
 	gdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/identity"
@@ -178,6 +181,42 @@ func NewChannelProvider(in struct {
 				tracerProvider,
 				metricsProvider,
 			), nil
+		},
+		// delivery service constructor
+		func(
+			channel string,
+			channelConfig driver.ChannelConfig,
+			hasher hash.Hasher,
+			networkName string,
+			localMembership driver.LocalMembership,
+			configService driver.ConfigService,
+			peerManager delivery.Services,
+			ledger driver.Ledger,
+			waitForEventTimeout time.Duration,
+			vault delivery.Vault,
+			transactionManager driver.TransactionManager,
+			callback driver.BlockCallback,
+			tracerProvider trace.TracerProvider,
+			metricsProvider metrics.Provider,
+			acceptedHeaderTypes []common.HeaderType,
+		) (generic.DeliveryService, error) {
+			return delivery.NewService(
+				channel,
+				channelConfig,
+				hasher,
+				networkName,
+				localMembership,
+				configService,
+				peerManager,
+				ledger,
+				waitForEventTimeout,
+				vault,
+				transactionManager,
+				callback,
+				tracerProvider,
+				metricsProvider,
+				acceptedHeaderTypes,
+			)
 		},
 		true,
 		[]common.HeaderType{common.HeaderType_ENDORSER_TRANSACTION},

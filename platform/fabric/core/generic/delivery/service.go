@@ -22,11 +22,6 @@ import (
 
 type ValidationFlags []uint8
 
-type lastGetter interface {
-	GetLast(ctx context.Context) (*driver.TxStatus, error)
-	GetLastBlock(context.Context) (uint64, error)
-}
-
 type Service struct {
 	channel             string
 	channelConfig       driver.ChannelConfig
@@ -54,7 +49,7 @@ func NewService(
 	peerManager Services,
 	ledger driver.Ledger,
 	waitForEventTimeout time.Duration,
-	vault lastGetter,
+	vault Vault,
 	transactionManager driver.TransactionManager,
 	callback driver.BlockCallback,
 	tracerProvider trace.TracerProvider,
@@ -107,7 +102,7 @@ func (c *Service) Stop() {
 	c.deliveryService.Stop(nil)
 }
 
-func (c *Service) scanBlock(ctx context.Context, vault lastGetter, callback driver.BlockCallback) error {
+func (c *Service) scanBlock(ctx context.Context, vault Vault, callback driver.BlockCallback) error {
 	deliveryService, err := New(
 		c.NetworkName,
 		c.channelConfig,
@@ -258,8 +253,8 @@ type fakeVault struct {
 	block driver.BlockNum
 }
 
-func (f *fakeVault) GetLast(context.Context) (*driver.TxStatus, error) {
-	return &driver.TxStatus{TxID: f.txID}, nil
+func (f *fakeVault) GetLastTxID(context.Context) (string, error) {
+	return f.txID, nil
 }
 
 func (f *fakeVault) GetLastBlock(context.Context) (uint64, error) {

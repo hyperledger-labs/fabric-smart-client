@@ -58,6 +58,7 @@ const (
 type Vault interface {
 	// GetLastTxID returns the last transaction id committed
 	GetLastTxID(ctx context.Context) (string, error)
+	GetLastBlock(context.Context) (uint64, error)
 }
 
 type Services interface {
@@ -75,7 +76,7 @@ type Delivery struct {
 	Ledger              driver.Ledger
 	waitForEventTimeout time.Duration
 	callback            driver.BlockCallback
-	vault               lastGetter
+	vault               Vault
 	client              services.PeerClient
 	tracer              trace.Tracer
 	lastBlockReceived   uint64
@@ -96,7 +97,7 @@ func New(
 	PeerManager Services,
 	Ledger driver.Ledger,
 	callback driver.BlockCallback,
-	vault lastGetter,
+	vault Vault,
 	waitForEventTimeout time.Duration,
 	bufferSize int,
 	tracerProvider trace.TracerProvider,
@@ -375,21 +376,21 @@ func (d *Delivery) GetStartPosition(ctx context.Context) *ab.SeekPosition {
 	}
 
 	logger.Debugf("failed to get last block [%s], try with last tx", err)
-	lastTx, err := d.vault.GetLast(ctx)
+	lastTxID, err := d.vault.GetLastTxID(ctx)
 	if err != nil {
 		logger.Errorf("failed getting last transaction committed/discarded from the vault [%s], restarting from genesis", err)
 		return StartGenesis
 	}
 
-	if lastTx != nil && len(lastTx.TxID) != 0 && !strings.HasPrefix(lastTx.TxID, committer.ConfigTXPrefix) {
+	if len(lastTxID) != 0 && !strings.HasPrefix(lastTxID, committer.ConfigTXPrefix) {
 		// Retrieve block from Fabric
-		blockNumber, err := d.Ledger.GetBlockNumberByTxID(lastTx.TxID)
+		blockNumber, err := d.Ledger.GetBlockNumberByTxID(lastTxID)
 		if err != nil {
-			logger.Errorf("failed getting block number for transaction [%s], restart from genesis [%s]", lastTx, err)
+			logger.Errorf("failed getting block number for transaction [%s], restart from genesis: error: %v", lastTxID, err)
 			return StartGenesis
 		}
 		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("restarting from block [%d], tx [%s]", blockNumber, lastTx)
+			logger.Debugf("restarting from block [%d], tx [%s]", blockNumber, lastTxID)
 		}
 
 		return SeekPosition(blockNumber)
