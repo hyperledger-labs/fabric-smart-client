@@ -72,6 +72,7 @@ func NewSDKWithContainer(c *dig.Container, registry node.Registry) *SDK {
 		sdk.C.Provide(digutils.Identity[node.Registry](), dig.As(new(driver.ServiceProvider), new(node.Registry), new(view.ServiceProvider), new(finality.Registry))),
 		sdk.C.Provide(func() *view.ConfigService { return sdk.Config }),
 		sdk.C.Provide(digutils.Identity[*view.ConfigService](), dig.As(new(driver.ConfigService), new(id.ConfigProvider), new(endpoint.ConfigService))),
+		sdk.C.Provide(view.NewRegistry),
 	)
 	if err != nil {
 		panic(err)
