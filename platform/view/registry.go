@@ -31,6 +31,10 @@ type Registry struct {
 	registry driver.Registry
 }
 
+func NewRegistry(registry driver.Registry) *Registry {
+	return &Registry{registry: registry}
+}
+
 // GetIdentifier returns the identifier of the passed view
 func (r *Registry) GetIdentifier(f View) string {
 	return r.registry.GetIdentifier(f)
