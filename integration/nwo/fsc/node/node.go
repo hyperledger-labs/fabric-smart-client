@@ -262,6 +262,22 @@ func (n *Node) AddSDK(sdk api.SDK) *Node {
 	return n
 }
 
+func (n *Node) AddSDKWithBase(base api.SDK, sdk api.SDK) *Node {
+	baseType := reflect.Indirect(reflect.ValueOf(base)).Type()
+	sdkType := reflect.Indirect(reflect.ValueOf(sdk)).Type()
+
+	aliasBase := n.addImport(baseType.PkgPath())
+	aliasSDK := n.addImport(sdkType.PkgPath())
+	sdkStr := fmt.Sprintf(
+		"%s.NewFrom(%s)", aliasSDK,
+		fmt.Sprintf(
+			"%s.New%s(%s)", aliasBase, baseType.Name(), "n",
+		),
+	)
+	n.SDKs = append(n.SDKs, SDKEntry{Type: sdkStr})
+	return n
+}
+
 func (n *Node) RegisterViewFactory(id string, factory Factory) *Node {
 	isFactoryPtr := reflect.ValueOf(factory).Kind() == reflect.Ptr
 	factoryType := reflect.Indirect(reflect.ValueOf(factory)).Type()
