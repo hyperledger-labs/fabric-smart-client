@@ -187,6 +187,11 @@ type Synthesizer struct {
 	Responders []ResponderEntry `yaml:"Responders,omitempty"`
 }
 
+type SDKElement struct {
+	Type  reflect.Type
+	Alias string
+}
+
 type Node struct {
 	Synthesizer    `yaml:"Synthesizer,omitempty"`
 	Name           string   `yaml:"name,omitempty"`
@@ -210,15 +215,6 @@ func NewNode(name string) *Node {
 	}
 }
 
-func (n *Node) ReplicaUniqueNames() []string {
-	replicationFactor := n.Options.ReplicationFactor()
-	names := make([]string, replicationFactor)
-	for r := 0; r < replicationFactor; r++ {
-		names[r] = ReplicaUniqueName(n.Name, r)
-	}
-	return names
-}
-
 func NewNodeFromTemplate(name string, template *Node) *Node {
 	newNode := &Node{
 		Synthesizer: Synthesizer{},
@@ -230,6 +226,15 @@ func NewNodeFromTemplate(name string, template *Node) *Node {
 	newNode.Name = name
 	newNode.Options = cloneOptions(template.Options)
 	return newNode
+}
+
+func (n *Node) ReplicaUniqueNames() []string {
+	replicationFactor := n.Options.ReplicationFactor()
+	names := make([]string, replicationFactor)
+	for r := 0; r < replicationFactor; r++ {
+		names[r] = ReplicaUniqueName(n.Name, r)
+	}
+	return names
 }
 
 func (n *Node) ID() string {
@@ -262,19 +267,31 @@ func (n *Node) AddSDK(sdk api.SDK) *Node {
 	return n
 }
 
-func (n *Node) AddSDKWithBase(base api.SDK, sdk api.SDK) *Node {
-	baseType := reflect.Indirect(reflect.ValueOf(base)).Type()
-	sdkType := reflect.Indirect(reflect.ValueOf(sdk)).Type()
+func (n *Node) AddSDKWithBase(base api.SDK, sdks ...api.SDK) *Node {
+	elements := make([]SDKElement, len(sdks))
 
+	for idx, sdk := range sdks {
+		sdkType := reflect.Indirect(reflect.ValueOf(sdk)).Type()
+		alias := n.addImport(sdkType.PkgPath())
+
+		elements[idx] = SDKElement{
+			Type:  sdkType,
+			Alias: alias,
+		}
+	}
+
+	// assemble base
+	baseType := reflect.Indirect(reflect.ValueOf(base)).Type()
 	aliasBase := n.addImport(baseType.PkgPath())
-	aliasSDK := n.addImport(sdkType.PkgPath())
-	sdkStr := fmt.Sprintf(
-		"%s.NewFrom(%s)", aliasSDK,
-		fmt.Sprintf(
-			"%s.New%s(%s)", aliasBase, baseType.Name(), "n",
-		),
-	)
-	n.SDKs = append(n.SDKs, SDKEntry{Type: sdkStr})
+	baseConstruction := fmt.Sprintf("%s.New%s(%s)", aliasBase, baseType.Name(), "n")
+
+	// assemble the sdks recursively, starting from the last
+	current := baseConstruction
+	for i := len(sdks) - 1; i >= 0; i-- {
+		current = fmt.Sprintf("%s.NewFrom(%s)", elements[i].Alias, current)
+
+	}
+	n.SDKs = append(n.SDKs, SDKEntry{Type: current})
 	return n
 }
 
