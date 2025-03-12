@@ -50,33 +50,14 @@ var logger = logging.MustGetLogger("view-sdk")
 
 type SDK struct {
 	*dig2.BaseSDK
-	C      *dig.Container
-	Config *view.ConfigService
 }
 
-func (p *SDK) Container() *dig.Container { return p.C }
-
-func (p *SDK) ConfigService() driver.ConfigService { return p.Config }
-
 func NewSDK(registry node.Registry) *SDK {
-	return NewSDKWithContainer(dig.New(), registry)
+	return &SDK{BaseSDK: dig2.NewSDK(registry)}
 }
 
 func NewSDKWithContainer(c *dig.Container, registry node.Registry) *SDK {
-	sdk := &SDK{
-		C:      c,
-		Config: view.GetConfigService(registry),
-	}
-	err := errors.Join(
-		sdk.C.Provide(func() node.Registry { return registry }),
-		sdk.C.Provide(digutils.Identity[node.Registry](), dig.As(new(driver.ServiceProvider), new(node.Registry), new(view.ServiceProvider), new(finality.Registry))),
-		sdk.C.Provide(func() *view.ConfigService { return sdk.Config }),
-		sdk.C.Provide(digutils.Identity[*view.ConfigService](), dig.As(new(driver.ConfigService), new(id.ConfigProvider), new(endpoint.ConfigService))),
-	)
-	if err != nil {
-		panic(err)
-	}
-	return sdk
+	return &SDK{BaseSDK: dig2.NewSDKWithContainer(c, registry)}
 }
 
 type ViewManager interface {
@@ -86,6 +67,9 @@ type ViewManager interface {
 
 func (p *SDK) Install() error {
 	err := errors.Join(
+		p.C.Provide(digutils.Identity[node.Registry](), dig.As(new(driver.ServiceProvider), new(node.Registry), new(view.ServiceProvider), new(finality.Registry))),
+		p.C.Provide(func() *view.ConfigService { return p.Config }),
+		p.C.Provide(digutils.Identity[*view.ConfigService](), dig.As(new(driver.ConfigService), new(id.ConfigProvider), new(endpoint.ConfigService))),
 		p.C.Provide(crypto.NewProvider, dig.As(new(hash.Hasher))),
 		p.C.Provide(simple.NewEventBus, dig.As(new(events.EventSystem), new(events.Publisher), new(events.Subscriber))),
 		p.C.Provide(func(system events.EventSystem) *events.Service { return &events.Service{EventSystem: system} }),
