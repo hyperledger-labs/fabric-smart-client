@@ -8,6 +8,7 @@ package manager
 
 import (
 	"context"
+	"fmt"
 	"runtime/debug"
 	"sync"
 
@@ -269,6 +270,8 @@ func (ctx *ctx) GetSessionByID(id string, party view.Identity) (view.Session, er
 		}
 		ctx.sessions[key] = s
 	} else {
+		span := trace.SpanFromContext(ctx.context)
+		span.AddEvent(fmt.Sprintf("Reuse session to %s", string(party)))
 		if logger.IsEnabledFor(zapcore.DebugLevel) {
 			logger.Debugf("[%s] Reusing session with given id [id:%s][to:%s]", id, ctx.me, party)
 		}
@@ -319,29 +322,36 @@ func (ctx *ctx) Context() context.Context {
 }
 
 func (ctx *ctx) Dispose() {
+	span := trace.SpanFromContext(ctx.context)
+	span.AddEvent("Dispose sessions")
 	// dispose all sessions
 	ctx.sessionsLock.Lock()
 	defer ctx.sessionsLock.Unlock()
 
 	if ctx.session != nil {
+		span.AddEvent(fmt.Sprintf("Delete one session to %s", string(ctx.session.Info().Caller)))
 		ctx.sessionFactory.DeleteSessions(ctx.Context(), ctx.session.Info().ID)
 	}
 
 	for _, s := range ctx.sessions {
+		span.AddEvent(fmt.Sprintf("Delete session to %s", string(ctx.session.Info().Caller)))
 		ctx.sessionFactory.DeleteSessions(ctx.Context(), s.Info().ID)
 	}
 	ctx.sessions = map[string]view.Session{}
 }
 
 func (ctx *ctx) newSession(view view.View, contextID string, party view.Identity) (view.Session, error) {
+	span := trace.SpanFromContext(ctx.context)
 	resolver, pkid, err := ctx.resolver.Resolve(party)
 	if err != nil {
 		return nil, err
 	}
+	span.AddEvent(fmt.Sprintf("Open new session to %s", resolver.GetName()))
 	return ctx.sessionFactory.NewSession(getIdentifier(view), contextID, resolver.GetAddress(driver.P2PPort), pkid)
 }
 
 func (ctx *ctx) newSessionByID(sessionID, contextID string, party view.Identity) (view.Session, error) {
+	span := trace.SpanFromContext(ctx.context)
 	resolver, pkid, err := ctx.resolver.Resolve(party)
 	if err != nil {
 		return nil, err
@@ -350,6 +360,7 @@ func (ctx *ctx) newSessionByID(sessionID, contextID string, party view.Identity)
 	if resolver != nil {
 		endpoint = resolver.GetAddress(driver.P2PPort)
 	}
+	span.AddEvent(fmt.Sprintf("Open new session by id to %s", resolver.GetName()))
 	return ctx.sessionFactory.NewSessionWithID(sessionID, contextID, endpoint, pkid, nil, nil)
 }
 
