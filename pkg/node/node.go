@@ -206,7 +206,7 @@ func (n *node) getTracer() trace.Tracer {
 }
 
 func (n *node) CallView(fid string, in []byte) (interface{}, error) {
-	ctx, span := n.getTracer().Start(context.Background(), "call_view",
+	ctx, span := n.getTracer().Start(context.Background(), "CallView",
 		trace.WithSpanKind(trace.SpanKindClient),
 		tracing.WithAttributes(tracing.String(fidLabel, fid)))
 	defer span.End()

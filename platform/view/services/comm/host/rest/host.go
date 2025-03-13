@@ -63,8 +63,8 @@ func (h *host) Start(newStreamCallback func(stream host2.P2PStream)) error {
 
 func (h *host) NewStream(ctx context.Context, info host2.StreamInfo) (host2.P2PStream, error) {
 	span := trace.SpanFromContext(ctx)
-	span.AddEvent("start_new_stream")
-	defer span.AddEvent("end_new_stream")
+	span.AddEvent("Open new stream")
+	defer span.AddEvent("New stream opened")
 	// if len(address) == 0 { //TODO
 	logger.Debugf("No address passed for peer [%s]. Resolving...", info.RemotePeerID)
 	if info.RemotePeerAddress = h.routing.Lookup(info.RemotePeerID); len(info.RemotePeerAddress) == 0 {

@@ -64,23 +64,21 @@ func (s *viewHandler) initiateView(ctx context.Context, command *protos2.Command
 
 func (s *viewHandler) callView(ctx context.Context, command *protos2.Command) (interface{}, error) {
 	callView := command.Payload.(*protos2.Command_CallView).CallView
-	newCtx, span := s.tracer.Start(ctx, "call_view", tracing.WithAttributes(tracing.String(fidLabel, callView.Fid)), trace.WithSpanKind(trace.SpanKindInternal))
-	defer span.End()
-
+	span := trace.SpanFromContext(ctx)
+	//newCtx, span := s.tracer.Start(ctx, "call_view", tracing.WithAttributes(tracing.String(fidLabel, callView.Fid)), trace.WithSpanKind(trace.SpanKindInternal))
+	//defer span.End()
 	fid := callView.Fid
 	input := callView.Input
 	logger.Debugf("Call view [%s] on input [%v]", fid, string(input))
 
-	span.AddEvent("start_new_view")
+	span.AddEvent("Create new view")
 	f, err := s.viewManager.NewView(fid, input)
-	span.AddEvent("end_new_view")
 	if err != nil {
 		return nil, errors.Errorf("failed instantiating view [%s], err [%s]", fid, err)
 	}
-	span.AddEvent("start_initiate_view")
-	result, err := s.viewManager.InitiateView(f, newCtx)
-	span.AddEvent("end_initiate_view")
-	span.SetAttributes(tracing.Bool(successLabel, err == nil))
+	span.AddEvent("Initiate new view")
+	result, err := s.viewManager.InitiateView(f, ctx)
+
 	if err != nil {
 		return nil, errors.Errorf("failed running view [%s], err %s", fid, err)
 	}

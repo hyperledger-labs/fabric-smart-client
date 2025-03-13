@@ -81,8 +81,7 @@ func NewMultiplexedProvider(tracerProvider trace.TracerProvider, metricsProvider
 }
 
 func (c *MultiplexedProvider) NewClientStream(info host2.StreamInfo, ctx context.Context, src host2.PeerID, config *tls.Config) (s host2.P2PStream, err error) {
-	newCtx, span := c.tracer.Start(ctx, "client_stream",
-		tracing.WithAttributes(tracing.String(contextIDLabel, info.ContextID)))
+	span := trace.SpanFromContext(ctx)
 	defer func() {
 		if err != nil {
 			span.RecordError(err)
@@ -99,13 +98,13 @@ func (c *MultiplexedProvider) NewClientStream(info host2.StreamInfo, ctx context
 	conn, ok := c.clients[url.String()]
 	c.mu.RUnlock()
 	if ok {
-		return conn.newClientSubConn(newCtx, src, info)
+		return conn.newClientSubConn(ctx, src, info)
 	}
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if conn, ok = c.clients[url.String()]; ok {
-		return conn.newClientSubConn(newCtx, src, info)
+		return conn.newClientSubConn(ctx, src, info)
 	}
 
 	wsConn, err := web2.OpenWSClientConn(url.String(), config)
@@ -121,7 +120,7 @@ func (c *MultiplexedProvider) NewClientStream(info host2.StreamInfo, ctx context
 	c.clients[url.String()] = conn
 	c.m.OpenedWebsockets.With(sideLabel, clientSide).Add(1)
 
-	return conn.newClientSubConn(newCtx, src, info)
+	return conn.newClientSubConn(ctx, src, info)
 }
 
 func (c *MultiplexedProvider) NewServerStream(writer http.ResponseWriter, request *http.Request, newStreamCallback func(host2.P2PStream)) error {
