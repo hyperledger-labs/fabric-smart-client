@@ -110,7 +110,7 @@ func runViewOn(v view.View, opts []view.RunViewOption, ctx localContext) (res in
 		initiator = v
 	}
 
-	span := ctx.StartSpan(getName(v), tracing.WithAttributes(
+	newCtx, span := ctx.StartSpanFrom(ctx.Context(), getName(v), tracing.WithAttributes(
 		tracing.String(ViewLabel, getIdentifier(v)),
 		tracing.String(InitiatorViewLabel, getIdentifier(initiator)),
 	), trace.WithSpanKind(trace.SpanKindInternal))
@@ -118,10 +118,10 @@ func runViewOn(v view.View, opts []view.RunViewOption, ctx localContext) (res in
 
 	var cc localContext
 	if options.SameContext {
-		cc = ctx
+		cc = wrapContext(ctx, newCtx)
 	} else {
 		cc = &childContext{
-			ParentContext: ctx,
+			ParentContext: wrapContext(ctx, newCtx),
 			session:       options.Session,
 			initiator:     initiator,
 		}
@@ -159,6 +159,24 @@ func runViewOn(v view.View, opts []view.RunViewOption, ctx localContext) (res in
 		return nil, err
 	}
 	return res, err
+}
+
+func wrapContext(ctx localContext, newCtx context.Context) localContext {
+	return &tempCtx{
+		localContext: ctx,
+		newCtx:       newCtx,
+	}
+}
+
+type standardCtx = view.Context
+
+type tempCtx struct {
+	localContext
+	newCtx context.Context
+}
+
+func (c *tempCtx) Context() context.Context {
+	return c.newCtx
 }
 
 func (ctx *ctx) Me() view.Identity {

@@ -78,9 +78,6 @@ type MutableContext interface {
 type SpanStarter interface {
 	// StartSpanFrom creates a new child span from the passed context
 	StartSpanFrom(ctx context.Context, name string, opts ...trace.SpanStartOption) (context.Context, trace.Span)
-
-	// StartSpan creates a new child span from the current context
-	StartSpan(name string, opts ...trace.SpanStartOption) trace.Span
 }
 
 // Context gives a view information about the environment in which it is in execution

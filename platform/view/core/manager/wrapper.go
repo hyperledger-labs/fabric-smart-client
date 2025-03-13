@@ -31,10 +31,6 @@ func (w *childContext) StartSpanFrom(c context.Context, name string, opts ...tra
 	return w.ParentContext.StartSpanFrom(c, name, opts...)
 }
 
-func (w *childContext) StartSpan(name string, opts ...trace.SpanStartOption) trace.Span {
-	return w.ParentContext.StartSpan(name, opts...)
-}
-
 func (w *childContext) GetService(v interface{}) (interface{}, error) {
 	return w.ParentContext.GetService(v)
 }
