@@ -5,9 +5,9 @@ go 1.23.1
 toolchain go1.23.5
 
 require (
-	github.com/IBM/idemix v0.0.2-0.20241126135040-1607bca14bba
-	github.com/IBM/idemix/bccsp/types v0.0.0-20240913182345-72941a5f41cd
-	github.com/IBM/mathlib v0.0.3-0.20231011094432-44ee0eb539da
+	github.com/IBM/idemix v0.0.2-0.20250224151615-ebf95185165f
+	github.com/IBM/idemix/bccsp/types v0.0.0-20241220065751-dc7206770307
+	github.com/IBM/mathlib v0.0.3-0.20241219051532-81539b287cf5
 	github.com/docker/docker v27.2.0+incompatible
 	github.com/docker/go-connections v0.5.0
 	github.com/fsouza/go-dockerclient v1.12.0
@@ -27,7 +27,6 @@ require (
 	github.com/hyperledger/fabric-chaincode-go/v2 v2.0.0
 	github.com/hyperledger/fabric-contract-api-go v1.2.2
 	github.com/hyperledger/fabric-lib-go v1.1.3-0.20240523144151-25edd1eaf5f5
-	github.com/hyperledger/fabric-protos-go v0.3.3
 	github.com/hyperledger/fabric-protos-go-apiv2 v0.3.3
 	github.com/jackc/pgx/v5 v5.7.1
 	github.com/jackc/pgxlisten v0.0.0-20241106001234-1d6f6656415c
@@ -68,14 +67,15 @@ require (
 )
 
 require (
-	github.com/IBM/idemix/bccsp/schemes/aries v0.0.0-20240913182345-72941a5f41cd // indirect
-	github.com/IBM/idemix/bccsp/schemes/weak-bb v0.0.0-20240913182345-72941a5f41cd // indirect
+	github.com/IBM/idemix/bccsp/schemes/aries v0.0.0-20241220065751-dc7206770307 // indirect
+	github.com/IBM/idemix/bccsp/schemes/weak-bb v0.0.0-20241220065751-dc7206770307 // indirect
 	github.com/alecthomas/kingpin/v2 v2.4.0 // indirect
 	github.com/go-viper/mapstructure/v2 v2.0.0 // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/hyperledger-labs/SmartBFT v0.0.0-20240916013553-852e5be5889b // indirect
 	github.com/hyperledger/aries-bbs-go v0.0.0-20240528084656-761671ea73bc // indirect
 	github.com/hyperledger/fabric-chaincode-go v0.0.0-20230731094759-d626e9ab09b9 // indirect
+	github.com/hyperledger/fabric-protos-go v0.3.3 // indirect
 	github.com/libp2p/go-libp2p-routing-helpers v0.7.4 // indirect
 	github.com/pion/datachannel v1.5.9 // indirect
 	github.com/pion/dtls/v2 v2.2.12 // indirect
