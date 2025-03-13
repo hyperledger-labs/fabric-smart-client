@@ -285,7 +285,7 @@ func (c *multiplexedServerConn) newServerSubConn(newStreamCallback func(pStream 
 	if err != nil {
 		logger.Errorf("failed to unmarshal span context: %v", err)
 	}
-	ctx, span := c.tracer.Start(trace.ContextWithRemoteSpanContext(context.Background(), spanContext), "server_stream", tracing.WithAttributes(
+	ctx, span := c.tracer.Start(trace.ContextWithRemoteSpanContext(context.Background(), spanContext), "IncomingViewInvocation", tracing.WithAttributes(
 		tracing.String(contextIDLabel, meta.ContextID)))
 	defer span.End()
 	sc := c.newSubConn(mm.ID)

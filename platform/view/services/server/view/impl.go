@@ -58,11 +58,6 @@ func NewViewServiceServer(marshaller Marshaller, policyChecker PolicyChecker, me
 }
 
 func (s *Server) ProcessCommand(ctx context.Context, sc *protos2.SignedCommand) (cr *protos2.SignedCommandResponse, err error) {
-	//newCtx, span := s.tracer.Start(ctx, "InvokeRPC", trace.WithSpanKind(trace.SpanKindServer))
-	//defer func() {
-	//	span.SetAttributes(tracing.Bool(successLabel, err == nil))
-	//	span.End()
-	//}()
 	defer func() {
 		if r := recover(); r != nil {
 			logger.Errorf("ProcessCommand triggered panic: %s\n%s\n", r, debug.Stack())
