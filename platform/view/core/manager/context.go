@@ -334,7 +334,7 @@ func (ctx *ctx) Dispose() {
 	}
 
 	for _, s := range ctx.sessions {
-		span.AddEvent(fmt.Sprintf("Delete session to %s", string(ctx.session.Info().Caller)))
+		span.AddEvent(fmt.Sprintf("Delete session to %s", string(s.Info().Caller)))
 		ctx.sessionFactory.DeleteSessions(ctx.Context(), s.Info().ID)
 	}
 	ctx.sessions = map[string]view.Session{}
