@@ -24,7 +24,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/packager/ccmetadata"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/packager/replacer"
-	pb "github.com/hyperledger/fabric-protos-go/peer"
+	pb "github.com/hyperledger/fabric-protos-go-apiv2/peer"
 	"github.com/hyperledger/fabric/core/chaincode/platforms/util"
 	"github.com/pkg/errors"
 )

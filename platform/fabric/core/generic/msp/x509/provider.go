@@ -15,7 +15,7 @@ import (
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/driver"
 	driver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"github.com/hyperledger/fabric-protos-go/msp"
+	"github.com/hyperledger/fabric-protos-go-apiv2/msp"
 	"github.com/pkg/errors"
 )
 

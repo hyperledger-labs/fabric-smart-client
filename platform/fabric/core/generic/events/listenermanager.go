@@ -16,7 +16,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/cache"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
-	"github.com/hyperledger/fabric-protos-go/common"
+	"github.com/hyperledger/fabric-protos-go-apiv2/common"
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/sync/errgroup"

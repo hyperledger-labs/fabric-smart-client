@@ -16,8 +16,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
-	fabricLogging2 "github.com/hyperledger/fabric-lib-go/common/flogging"
-	fabricLogging "github.com/hyperledger/fabric/common/flogging"
+	fabricLogging "github.com/hyperledger/fabric-lib-go/common/flogging"
 	"github.com/pkg/errors"
 )
 
@@ -137,11 +136,6 @@ func (p *FSNProvider) FabricNetworkService(network string) (driver.FabricNetwork
 // using the FSC configuration.
 func (p *FSNProvider) InitFabricLogging() {
 	fabricLogging.Init(fabricLogging.Config{
-		Format:  p.configService.GetString("logging.format"),
-		Writer:  os.Stderr,
-		LogSpec: p.configService.GetString("logging.spec"),
-	})
-	fabricLogging2.Init(fabricLogging2.Config{
 		Format:  p.configService.GetString("logging.format"),
 		Writer:  os.Stderr,
 		LogSpec: p.configService.GetString("logging.spec"),
