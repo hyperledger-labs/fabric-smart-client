@@ -40,7 +40,7 @@ func NewVaultPersistence(opts common.Opts, tablePrefix string) (*VaultPersistenc
 func newVaultPersistence(readWriteDB *sql.DB, tables common.VaultTables) *VaultPersistence {
 	ci := NewInterpreter()
 	return &VaultPersistence{
-		VaultPersistence: common.NewVaultPersistence(readWriteDB, readWriteDB, tables, &errorMapper{}, ci, newSanitizer(), isolationLevels),
+		VaultPersistence: common.NewVaultPersistence(readWriteDB, readWriteDB, tables, &errorMapper{}, ci, NewSanitizer(), isolationLevels),
 		tables:           tables,
 		writeDB:          readWriteDB,
 		ci:               ci,
