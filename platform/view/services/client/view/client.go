@@ -125,7 +125,7 @@ func (s *client) CallViewWithContext(ctx context.Context, fid string, input []by
 		return nil, errors.Wrapf(err, "failed creating signed command for [%s,%s]", fid, string(input))
 	}
 
-	ctx, span := s.tracer.Start(ctx, "command", tracing.WithAttributes(tracing.String("fid", fid)), trace.WithSpanKind(trace.SpanKindInternal))
+	ctx, span := s.tracer.Start(ctx, "GrpcViewInvocation", tracing.WithAttributes(tracing.String("fid", fid)), trace.WithSpanKind(trace.SpanKindInternal))
 	defer span.End()
 	commandResp, err := s.processCommand(ctx, sc)
 	if err != nil {
@@ -163,8 +163,6 @@ func (s *client) StreamCallView(fid string, input []byte) (*Stream, error) {
 
 // processCommand calls view client to send grpc request and returns a CommandResponse
 func (s *client) processCommand(ctx context.Context, sc *protos.SignedCommand) (*protos.CommandResponse, error) {
-	newCtx, span := s.tracer.Start(ctx, "process_command", trace.WithSpanKind(trace.SpanKindClient))
-	defer span.End()
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("get view service client...")
 	}
@@ -186,7 +184,7 @@ func (s *client) processCommand(ctx context.Context, sc *protos.SignedCommand) (
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("process command [%s]", sc.String())
 	}
-	scr, err := client.ProcessCommand(newCtx, sc)
+	scr, err := client.ProcessCommand(ctx, sc)
 	if err != nil {
 		logger.Errorf("failed view client process command [%s]", err)
 		return nil, errors.Wrap(err, "failed view client process command")
