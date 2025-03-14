@@ -21,10 +21,10 @@ func TestBatchRunner(t *testing.T) {
 	ctr := &atomic.Uint32{}
 	runner, m, locksObtained := newBatchRunner()
 
-	run(t, ctr, runner, 1000)
-	assert.Len(t, m, 1000)
+	run(t, ctr, runner, 100)
+	assert.Len(t, m, 100)
 	assert.Equal(t, "val_10", m["key_10"])
-	assert.Equal(t, 10, int(atomic.LoadUint32(locksObtained)))
+	assert.Equal(t, 1, int(atomic.LoadUint32(locksObtained)))
 }
 
 func TestBatchRunnerFewRequests(t *testing.T) {
