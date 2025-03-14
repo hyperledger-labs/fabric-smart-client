@@ -168,8 +168,6 @@ func wrapContext(ctx localContext, newCtx context.Context) localContext {
 	}
 }
 
-type standardCtx = view.Context
-
 type tempCtx struct {
 	localContext
 	newCtx context.Context
