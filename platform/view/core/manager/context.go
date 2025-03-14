@@ -375,8 +375,9 @@ func (ctx *ctx) newSessionByID(sessionID, contextID string, party view.Identity)
 	var endpoint string
 	if resolver != nil {
 		endpoint = resolver.GetAddress(driver.P2PPort)
+		span.AddEvent(fmt.Sprintf("Open new session by id to %s", resolver.GetName()))
 	}
-	span.AddEvent(fmt.Sprintf("Open new session by id to %s", resolver.GetName()))
+	span.AddEvent(fmt.Sprintf("Open new session by id to %s", endpoint))
 	return ctx.sessionFactory.NewSessionWithID(sessionID, contextID, endpoint, pkid, nil, nil)
 }
 
