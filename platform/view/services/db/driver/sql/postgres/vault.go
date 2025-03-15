@@ -13,6 +13,7 @@ import (
 	"fmt"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
@@ -40,7 +41,7 @@ func NewVaultPersistence(opts common.Opts, tablePrefix string) (*VaultPersistenc
 func newVaultPersistence(readWriteDB *sql.DB, tables common.VaultTables) *VaultPersistence {
 	ci := NewInterpreter()
 	return &VaultPersistence{
-		VaultPersistence: common.NewVaultPersistence(readWriteDB, readWriteDB, tables, &errorMapper{}, ci, NewSanitizer(), isolationLevels),
+		VaultPersistence: common.NewVaultPersistence(readWriteDB, readWriteDB, tables, &errorMapper{}, ci, utils.NewSanitizer(), isolationLevels),
 		tables:           tables,
 		writeDB:          readWriteDB,
 		ci:               ci,
