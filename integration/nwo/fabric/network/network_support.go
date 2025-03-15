@@ -69,7 +69,7 @@ func (n *Network) AddOrg(o *topology.Organization, peers ...*topology.Peer) {
 	n.Consortiums[0].Organizations = append(n.Consortiums[0].Organizations, o.Name)
 }
 
-// ConfigTxPath returns the path to the generated configtxgen configuration
+// ConfigTxConfigPath returns the path to the generated configtxgen configuration
 // file.
 func (n *Network) ConfigTxConfigPath() string {
 	return filepath.Join(n.Context.RootDir(), n.Prefix, "configtx.yaml")
