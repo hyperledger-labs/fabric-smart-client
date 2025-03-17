@@ -14,15 +14,43 @@ import (
 	"go.uber.org/dig"
 )
 
+type (
+	ProvideOption  any
+	InvokeOption   = dig.InvokeOption
+	DecorateOption = dig.DecorateOption
+)
+
+type Container interface {
+	Provide(constructor interface{}, opts ...ProvideOption) error
+	Invoke(function interface{}, opts ...InvokeOption) error
+	Decorate(decorator interface{}, opts ...DecorateOption) error
+	Visualize() string
+}
+
 type SDK interface {
 	api.SDK
 	PostStart(ctx context.Context) error
 	Stop() error
-	Container() *dig.Container
+	Container() Container
 	ConfigService() driver.ConfigService
 }
 
-type BaseSDK struct{}
+func NewBaseSDK(c Container, cfg driver.ConfigService) *BaseSDK {
+	return &BaseSDK{c: c, cfg: cfg}
+}
+
+type BaseSDK struct {
+	c   Container
+	cfg driver.ConfigService
+}
+
+func (s *BaseSDK) Install() error { return nil }
+
+func (s *BaseSDK) Start(context.Context) error { return nil }
+
+func (s *BaseSDK) ConfigService() driver.ConfigService { return s.cfg }
+
+func (s *BaseSDK) Container() Container { return s.c }
 
 func (s *BaseSDK) PostStart(context.Context) error { return nil }
 
