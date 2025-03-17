@@ -48,6 +48,10 @@ func WithString(key, value string) Opt {
 // DryRunWiring instantiates an SDK and dry runs its lifecycle to detect possible problems with dependency injection,
 // i.e. missing dependencies, duplicate provisions, cyclic dependencies
 func DryRunWiring[S dig2.SDK](decorator func(sdk dig2.SDK) S, opts ...Opt) error {
+	return DryRunWiringWithContainer(decorator, NewContainer(dig.DryRun(true)), opts...)
+}
+
+func DryRunWiringWithContainer[S dig2.SDK](decorator func(sdk dig2.SDK) S, c dig2.Container, opts ...Opt) error {
 	config := &mockConfigService{
 		strings: make(map[string]string),
 		bools:   make(map[string]bool),
@@ -60,8 +64,7 @@ func DryRunWiring[S dig2.SDK](decorator func(sdk dig2.SDK) S, opts ...Opt) error
 	if err := provider.RegisterService(config); err != nil {
 		return err
 	}
-	container := dig.New(dig.DryRun(true))
-	viewSDK := NewSDKWithContainer(container, provider)
+	viewSDK := NewSDKFrom(dig2.NewBaseSDK(c, config), provider)
 	sdk := decorator(viewSDK)
 	if err := sdk.Install(); err != nil {
 		return err

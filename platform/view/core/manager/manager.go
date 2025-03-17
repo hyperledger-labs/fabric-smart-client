@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/registry"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
@@ -31,12 +32,6 @@ const (
 
 var logger = logging.MustGetLogger("view-sdk.manager")
 
-type viewEntry struct {
-	View      view.View
-	ID        view.Identity
-	Initiator bool
-}
-
 type manager struct {
 	sp driver.ServiceProvider
 
@@ -46,30 +41,25 @@ type manager struct {
 
 	ctx context.Context
 
-	factoriesSync sync.RWMutex
-	viewsSync     sync.RWMutex
-	contextsSync  sync.RWMutex
+	contextsSync sync.RWMutex
 
-	contexts   map[string]disposableContext
-	views      map[string][]*viewEntry
-	initiators map[string]string
-	factories  map[string]driver.Factory
+	contexts map[string]disposableContext
+
+	viewProvider *registry.ViewProvider
 
 	viewTracer trace.Tracer
 	m          *Metrics
 }
 
-func New(serviceProvider driver.ServiceProvider, commLayer CommLayer, endpointService driver.EndpointService, identityProvider driver.IdentityProvider, provider trace.TracerProvider, metricsProvider metrics.Provider) *manager {
+func New(serviceProvider driver.ServiceProvider, commLayer CommLayer, endpointService driver.EndpointService, identityProvider driver.IdentityProvider, viewProvider *registry.ViewProvider, provider trace.TracerProvider, metricsProvider metrics.Provider) *manager {
 	return &manager{
 		sp:               serviceProvider,
 		commLayer:        commLayer,
 		endpointService:  endpointService,
 		identityProvider: identityProvider,
 
-		contexts:   map[string]disposableContext{},
-		views:      map[string][]*viewEntry{},
-		initiators: map[string]string{},
-		factories:  map[string]driver.Factory{},
+		contexts:     map[string]disposableContext{},
+		viewProvider: viewProvider,
 
 		viewTracer: provider.Tracer("view", tracing.WithMetricsOpts(tracing.MetricsOpts{
 			Namespace:  "fsc",
@@ -84,110 +74,32 @@ func (cm *manager) GetService(typ reflect.Type) (interface{}, error) {
 }
 
 func (cm *manager) RegisterFactory(id string, factory driver.Factory) error {
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("Register View Factory [%s,%t]", id, factory)
-	}
-	cm.factoriesSync.Lock()
-	defer cm.factoriesSync.Unlock()
-	cm.factories[id] = factory
-	return nil
+	return cm.viewProvider.RegisterFactory(id, factory)
 }
 
 func (cm *manager) NewView(id string, in []byte) (f view.View, err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			logger.Errorf("new view triggered panic: %s\n%s\n", r, debug.Stack())
-			err = errors.Errorf("failed creating view [%s]", r)
-		}
-	}()
-
-	cm.factoriesSync.RLock()
-	factory, ok := cm.factories[id]
-	cm.factoriesSync.RUnlock()
-	if !ok {
-		return nil, errors.Errorf("no factory found for id [%s]", id)
-	}
-	return factory.NewView(in)
+	return cm.viewProvider.NewView(id, in)
 }
 
 func (cm *manager) RegisterResponder(responder view.View, initiatedBy interface{}) error {
-	return cm.RegisterResponderWithIdentity(responder, nil, initiatedBy)
+	return cm.viewProvider.RegisterResponder(responder, initiatedBy)
 }
 
 func (cm *manager) RegisterResponderWithIdentity(responder view.View, id view.Identity, initiatedBy interface{}) error {
-	switch t := initiatedBy.(type) {
-	case view.View:
-		cm.registerResponderWithIdentity(responder, id, cm.GetIdentifier(t))
-	case string:
-		cm.registerResponderWithIdentity(responder, id, t)
-	default:
-		return errors.Errorf("initiatedBy must be a view or a string")
-	}
-	return nil
+	return cm.viewProvider.RegisterResponderWithIdentity(responder, id, initiatedBy)
 }
 
 func (cm *manager) GetResponder(initiatedBy interface{}) (view.View, error) {
-	var initiatedByID string
-	switch t := initiatedBy.(type) {
-	case view.View:
-		initiatedByID = cm.GetIdentifier(t)
-	case string:
-		initiatedByID = t
-	default:
-		return nil, errors.Errorf("initiatedBy must be a view or a string")
-	}
-
-	cm.viewsSync.Lock()
-	defer cm.viewsSync.Unlock()
-
-	responderID, ok := cm.initiators[initiatedByID]
-	if !ok {
-		return nil, errors.Errorf("responder not found for [%s]", initiatedByID)
-	}
-
-	entries, ok := cm.views[responderID]
-	if !ok {
-		return nil, errors.Errorf("responder not found for [%s], initiator [%s]", responderID, initiatedByID)
-	}
-	if len(entries) == 0 {
-		return nil, errors.Errorf("responder not found for [%s], initiator [%s]", responderID, initiatedByID)
-	}
-	// Recall that a responder can be used to respond to multiple initiators.
-	// Therefore, all these entries are for the same responder.
-	// We return the first one.
-	return entries[0].View, nil
-}
-
-func (cm *manager) registerResponderWithIdentity(responder view.View, id view.Identity, initiatedByID string) {
-	cm.viewsSync.Lock()
-	defer cm.viewsSync.Unlock()
-
-	responderID := getIdentifier(responder)
-	logger.Debugf("registering responder [%s] for initiator [%s] with identity [%s]", responderID, initiatedByID, id)
-
-	cm.views[responderID] = append(cm.views[responderID], &viewEntry{View: responder, ID: id, Initiator: len(initiatedByID) == 0})
-	if len(initiatedByID) != 0 {
-		cm.initiators[initiatedByID] = responderID
-	}
+	return cm.viewProvider.GetResponder(initiatedBy)
 }
 
 func (cm *manager) Initiate(id string, ctx context.Context) (interface{}, error) {
-	// Lookup the initiator
-	cm.viewsSync.RLock()
-	responders := cm.views[id]
-	var res *viewEntry
-	for _, entry := range responders {
-		if entry.Initiator {
-			res = entry
-			break
-		}
-	}
-	cm.viewsSync.RUnlock()
-	if res == nil {
-		return nil, errors.Errorf("initiator not found for [%s]", id)
+	v, err := cm.viewProvider.GetView(id)
+	if err != nil {
+		return nil, err
 	}
 
-	return cm.InitiateViewWithIdentity(res.View, cm.me(), ctx)
+	return cm.InitiateViewWithIdentity(v, cm.me(), ctx)
 }
 
 func (cm *manager) InitiateView(view view.View, ctx context.Context) (interface{}, error) {
@@ -216,17 +128,17 @@ func (cm *manager) InitiateViewWithIdentity(view view.View, id view.Identity, c 
 	defer cm.deleteContext(id, childContext.ID())
 
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("[%s] InitiateView [view:%s], [ContextID:%s]", id, getIdentifier(view), childContext.ID())
+		logger.Debugf("[%s] InitiateView [view:%s], [ContextID:%s]", id, registry.GetIdentifier(view), childContext.ID())
 	}
 	res, err := childContext.RunView(view)
 	if err != nil {
 		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("[%s] InitiateView [view:%s], [ContextID:%s] failed [%s]", id, getIdentifier(view), childContext.ID(), err)
+			logger.Debugf("[%s] InitiateView [view:%s], [ContextID:%s] failed [%s]", id, registry.GetIdentifier(view), childContext.ID(), err)
 		}
 		return nil, err
 	}
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("[%s] InitiateView [view:%s], [ContextID:%s] terminated", id, getIdentifier(view), childContext.ID())
+		logger.Debugf("[%s] InitiateView [view:%s], [ContextID:%s] terminated", id, registry.GetIdentifier(view), childContext.ID())
 	}
 	return res, nil
 }
@@ -258,7 +170,7 @@ func (cm *manager) InitiateContextFrom(ctx context.Context, view view.View, id v
 	cm.contextsSync.Unlock()
 
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("[%s] InitiateContext [view:%s], [ContextID:%s]\n", id, getIdentifier(view), childContext.ID())
+		logger.Debugf("[%s] InitiateContext [view:%s], [ContextID:%s]\n", id, registry.GetIdentifier(view), childContext.ID())
 	}
 
 	return childContext, nil
@@ -308,30 +220,11 @@ func (cm *manager) ResolveIdentities(endpoints ...string) ([]view.Identity, erro
 }
 
 func (cm *manager) GetIdentifier(f view.View) string {
-	return getIdentifier(f)
+	return registry.GetIdentifier(f)
 }
 
 func (cm *manager) ExistResponderForCaller(caller string) (view.View, view.Identity, error) {
-	cm.viewsSync.RLock()
-	defer cm.viewsSync.RUnlock()
-
-	// Is there a responder
-	label, ok := cm.initiators[caller]
-	if !ok {
-		return nil, nil, errors.Errorf("no view found initiatable by [%s]", caller)
-	}
-	responders := cm.views[label]
-	var res *viewEntry
-	for _, entry := range responders {
-		if !entry.Initiator {
-			res = entry
-		}
-	}
-	if res == nil {
-		return nil, nil, errors.Errorf("responder not found for [%s]", label)
-	}
-
-	return res.View, res.ID, nil
+	return cm.viewProvider.ExistResponderForCaller(caller)
 }
 
 func (cm *manager) respond(responder view.View, id view.Identity, msg *view.Message) (ctx view.Context, res interface{}, err error) {
@@ -357,7 +250,7 @@ func (cm *manager) respond(responder view.View, id view.Identity, msg *view.Mess
 			msg.SessionID,
 			msg.ContextID,
 			isNew,
-			getIdentifier(responder),
+			registry.GetIdentifier(responder),
 		)
 	}
 
@@ -469,7 +362,7 @@ func (cm *manager) callView(msg *view.Message) {
 
 	ctx, _, err := cm.respond(responder, id, msg)
 	if err != nil {
-		logger.Errorf("failed responding [%v, %v], err: [%s]", getIdentifier(responder), msg.String(), err)
+		logger.Errorf("failed responding [%v, %v], err: [%s]", registry.GetIdentifier(responder), msg.String(), err)
 		if ctx == nil {
 			if logger.IsEnabledFor(zapcore.DebugLevel) {
 				logger.Debugf("no context set, returning")
@@ -490,26 +383,4 @@ func (cm *manager) callView(msg *view.Message) {
 
 func (cm *manager) me() view.Identity {
 	return cm.identityProvider.DefaultIdentity()
-}
-
-func getIdentifier(f view.View) string {
-	if f == nil {
-		return "<nil view>"
-	}
-	t := reflect.TypeOf(f)
-	for t.Kind() == reflect.Ptr {
-		t = t.Elem()
-	}
-	return t.PkgPath() + "/" + t.Name()
-}
-
-func getName(f view.View) string {
-	if f == nil {
-		return "<nil view>"
-	}
-	t := reflect.TypeOf(f)
-	for t.Kind() == reflect.Ptr {
-		t = t.Elem()
-	}
-	return t.Name()
 }

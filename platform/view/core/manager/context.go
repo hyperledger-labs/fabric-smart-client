@@ -13,6 +13,7 @@ import (
 	"sync"
 
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
+	registry2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/core/registry"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/registry"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
@@ -110,9 +111,9 @@ func runViewOn(v view.View, opts []view.RunViewOption, ctx localContext) (res in
 		initiator = v
 	}
 
-	newCtx, span := ctx.StartSpanFrom(ctx.Context(), getName(v), tracing.WithAttributes(
-		tracing.String(ViewLabel, getIdentifier(v)),
-		tracing.String(InitiatorViewLabel, getIdentifier(initiator)),
+	newCtx, span := ctx.StartSpanFrom(ctx.Context(), registry2.GetName(v), tracing.WithAttributes(
+		tracing.String(ViewLabel, registry2.GetIdentifier(v)),
+		tracing.String(InitiatorViewLabel, registry2.GetIdentifier(initiator)),
 	), trace.WithSpanKind(trace.SpanKindInternal))
 	defer span.End()
 
@@ -204,7 +205,7 @@ func (ctx *ctx) GetSession(f view.View, party view.Identity) (view.Session, erro
 	id := party
 
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("get session for [%s:%s]", id.UniqueID(), getIdentifier(f))
+		logger.Debugf("get session for [%s:%s]", id.UniqueID(), registry2.GetIdentifier(f))
 	}
 	s, ok := ctx.sessions[id.UniqueID()]
 	if !ok {
@@ -363,7 +364,7 @@ func (ctx *ctx) newSession(view view.View, contextID string, party view.Identity
 		return nil, err
 	}
 	span.AddEvent(fmt.Sprintf("Open new session to %s", resolver.GetName()))
-	return ctx.sessionFactory.NewSession(getIdentifier(view), contextID, resolver.GetAddress(driver.P2PPort), pkid)
+	return ctx.sessionFactory.NewSession(registry2.GetIdentifier(view), contextID, resolver.GetAddress(driver.P2PPort), pkid)
 }
 
 func (ctx *ctx) newSessionByID(sessionID, contextID string, party view.Identity) (view.Session, error) {

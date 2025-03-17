@@ -16,6 +16,10 @@ import (
 	"go.uber.org/dig"
 )
 
+type invoker interface {
+	Invoke(function interface{}, opts ...dig.InvokeOption) error
+}
+
 func Visualize(c *dig.Container) string {
 	var w bytes.Buffer
 	if err := dig.Visualize(c, &w); err != nil {
@@ -24,7 +28,7 @@ func Visualize(c *dig.Container) string {
 	return (&w).String()
 }
 
-func Register[T any](c *dig.Container) error {
+func Register[T any](c invoker) error {
 	//Temporary workaround for services that are imported still using the registry
 	err := c.Invoke(func(registry node.Registry, service T) error {
 		return registry.RegisterService(service)
