@@ -29,12 +29,13 @@ type VaultTables struct {
 
 type stateRow = [5]any
 
-func NewVaultPersistence(writeDB WriteDB, readDB *sql.DB, tables VaultTables, errorWrapper driver2.SQLErrorWrapper, ci Interpreter, sanitizer Sanitizer, il IsolationLevelMapper) *VaultPersistence {
+func NewVaultPersistence(writeDB WriteDB, readDB *sql.DB, tables VaultTables, errorWrapper driver2.SQLErrorWrapper, ci Interpreter, pi PaginationInterpreter, sanitizer Sanitizer, il IsolationLevelMapper) *VaultPersistence {
 	vaultSanitizer := newSanitizer(sanitizer)
 	return &VaultPersistence{
 		vaultReader: &vaultReader{
 			readDB:    readDB,
 			ci:        ci,
+			pi:        pi,
 			sanitizer: vaultSanitizer,
 			tables:    tables,
 		},
@@ -55,6 +56,7 @@ type VaultPersistence struct {
 	readDB       *sql.DB
 	writeDB      WriteDB
 	ci           Interpreter
+	pi           PaginationInterpreter
 	GlobalLock   sync.RWMutex
 	sanitizer    *sanitizer
 	il           IsolationLevelMapper
@@ -95,6 +97,7 @@ func (db *VaultPersistence) newTxLockVaultReader(ctx context.Context, isolationL
 	return &vaultReader{
 		readDB:    tx,
 		ci:        db.ci,
+		pi:        db.pi,
 		sanitizer: db.sanitizer,
 		tables:    db.tables,
 	}, tx.Commit, nil
@@ -116,6 +119,7 @@ func (db *VaultPersistence) newGlobalLockVaultReader() (*vaultReader, releaseFun
 	return &vaultReader{
 		readDB:    db.readDB,
 		ci:        db.ci,
+		pi:        db.pi,
 		sanitizer: db.sanitizer,
 		tables:    db.tables,
 	}, release, nil
@@ -339,12 +343,14 @@ func (db *txVaultReader) GetTxStatuses(ctx context.Context, txIDs ...driver.TxID
 	}
 	return db.vr.GetTxStatuses(ctx, txIDs...)
 }
-func (db *txVaultReader) GetAllTxStatuses(ctx context.Context) (driver.TxStatusIterator, error) {
+
+func (db *txVaultReader) GetAllTxStatuses(ctx context.Context, pagination driver.Pagination) (*driver.PageIterator[*driver.TxStatus], error) {
 	if err := db.setVaultReader(); err != nil {
 		return nil, err
 	}
-	return db.vr.GetAllTxStatuses(ctx)
+	return db.vr.GetAllTxStatuses(ctx, pagination)
 }
+
 func (db *txVaultReader) Done() error {
 	return db.release()
 }
@@ -352,6 +358,7 @@ func (db *txVaultReader) Done() error {
 type vaultReader struct {
 	readDB    dbReader
 	ci        Interpreter
+	pi        PaginationInterpreter
 	sanitizer *sanitizer
 	tables    VaultTables
 }
@@ -431,7 +438,7 @@ func (db *vaultReader) GetLast(ctx context.Context) (*driver.TxStatus, error) {
 	span := trace.SpanFromContext(ctx)
 	span.AddEvent("start_get_last")
 	defer span.AddEvent("end_get_last")
-	it, err := db.queryStatus(fmt.Sprintf("WHERE pos=(SELECT max(pos) FROM %s WHERE code!=$1)", db.tables.StatusTable), []any{driver.Busy})
+	it, err := db.queryStatus(fmt.Sprintf("WHERE pos=(SELECT max(pos) FROM %s WHERE code!=$1)", db.tables.StatusTable), []any{driver.Busy}, "")
 	if err != nil {
 		return nil, err
 	}
@@ -441,7 +448,8 @@ func (db *vaultReader) GetTxStatus(ctx context.Context, txID driver.TxID) (*driv
 	span := trace.SpanFromContext(ctx)
 	span.AddEvent("start_get_tx_status")
 	defer span.AddEvent("end_get_tx_status")
-	it, err := db.queryStatus(Where(db.ci.Cmp("tx_id", "=", txID)))
+	were, any := Where(db.ci.Cmp("tx_id", "=", txID))
+	it, err := db.queryStatus(were, any, "")
 	if err != nil {
 		return nil, err
 	}
@@ -454,14 +462,26 @@ func (db *vaultReader) GetTxStatuses(ctx context.Context, txIDs ...driver.TxID) 
 	if len(txIDs) == 0 {
 		return collections.NewEmptyIterator[*driver.TxStatus](), nil
 	}
-	return db.queryStatus(Where(db.ci.InStrings("tx_id", txIDs)))
+	were, any := Where(db.ci.InStrings("tx_id", txIDs))
+	return db.queryStatus(were, any, "")
 }
-func (db *vaultReader) GetAllTxStatuses(context.Context) (driver.TxStatusIterator, error) {
-	return db.queryStatus("", []any{})
+func (db *vaultReader) GetAllTxStatuses(ctx context.Context, pagination driver.Pagination) (*driver.PageIterator[*driver.TxStatus], error) {
+	if pagination == nil {
+		return nil, fmt.Errorf("invalid input pagination: %+v", pagination)
+	}
+	limit, err := db.pi.Interpret(pagination)
+	if err != nil {
+		return nil, err
+	}
+	txStatusIterator, err := db.queryStatus("", []any{}, limit)
+	if err != nil {
+		return nil, err
+	}
+	return (&driver.PageIterator[*driver.TxStatus]{Items: txStatusIterator, Pagination: pagination}), nil
 }
 
-func (db *vaultReader) queryStatus(where string, params []any) (driver.TxStatusIterator, error) {
-	query := fmt.Sprintf("SELECT tx_id, code, message FROM %s %s", db.tables.StatusTable, where)
+func (db *vaultReader) queryStatus(where string, params []any, limit string) (driver.TxStatusIterator, error) {
+	query := fmt.Sprintf("SELECT tx_id, code, message FROM %s %s %s", db.tables.StatusTable, where, limit)
 	logger.Debug(query, params)
 
 	rows, err := db.readDB.Query(query, params...)
