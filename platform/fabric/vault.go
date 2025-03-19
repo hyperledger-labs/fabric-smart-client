@@ -89,14 +89,10 @@ func (r *RWSet) Equals(rws interface{}, nss ...string) error {
 	}
 }
 
-type lastTxGetter interface {
-	GetLast(ctx context.Context) (*driver.TxStatus, error)
-}
-
 // Vault models a key-value store that can be updated by committing rwsets
 type Vault struct {
 	vault              fdriver.Vault
-	vaultStore         lastTxGetter
+	vaultStore         fdriver.VaultStore
 	committer          fdriver.Committer
 	transactionService fdriver.EndorserTransactionService
 	envelopeService    fdriver.EnvelopeService
@@ -112,6 +108,10 @@ func newVault(ch fdriver.Channel) *Vault {
 		metadataService:    ch.MetadataService(),
 		vaultStore:         ch.VaultStore(),
 	}
+}
+
+func (c *Vault) Store() fdriver.VaultStore {
+	return c.vaultStore
 }
 
 func (c *Vault) NewQueryExecutor(ctx context.Context) (driver.QueryExecutor, error) {

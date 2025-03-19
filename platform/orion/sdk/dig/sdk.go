@@ -85,15 +85,7 @@ func (p *SDK) Install() error {
 		return err
 	}
 
-	if err := p.SDK.Install(); err != nil {
-		return err
-	}
-
-	// Backward compatibility with SP
-	return errors.Join(
-		digutils.Register[*orion.NetworkServiceProvider](p.Container()),
-		digutils.Register[*core.ONSProvider](p.Container()),
-	)
+	return p.SDK.Install()
 }
 
 func (p *SDK) Start(ctx context.Context) error {
