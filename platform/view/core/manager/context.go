@@ -40,7 +40,9 @@ type ctx struct {
 	sessions           map[string]view.Session
 	errorCallbackFuncs []func()
 
-	tracer trace.Tracer
+	identityProvider driver.IdentityProvider
+	sigService       driver.SigService
+	tracer           trace.Tracer
 }
 
 func (ctx *ctx) StartSpan(name string, opts ...trace.SpanStartOption) trace.Span {
@@ -53,11 +55,11 @@ func (ctx *ctx) StartSpanFrom(c context.Context, name string, opts ...trace.Span
 	return ctx.tracer.Start(c, name, opts...)
 }
 
-func NewContextForInitiator(contextID string, context context.Context, sp driver.ServiceProvider, sessionFactory SessionFactory, resolver driver.EndpointService, party view.Identity, initiator view.View, tracer trace.Tracer) (*ctx, error) {
+func NewContextForInitiator(contextID string, context context.Context, sp driver.ServiceProvider, sessionFactory SessionFactory, resolver driver.EndpointService, identityProvider driver.IdentityProvider, sigService driver.SigService, party view.Identity, initiator view.View, tracer trace.Tracer) (*ctx, error) {
 	if len(contextID) == 0 {
 		contextID = GenerateUUID()
 	}
-	ctx, err := NewContext(context, sp, contextID, sessionFactory, resolver, party, nil, nil, tracer)
+	ctx, err := NewContext(context, sp, contextID, sessionFactory, resolver, identityProvider, sigService, party, nil, nil, tracer)
 	if err != nil {
 		return nil, err
 	}
@@ -66,7 +68,7 @@ func NewContextForInitiator(contextID string, context context.Context, sp driver
 	return ctx, nil
 }
 
-func NewContext(context context.Context, sp driver.ServiceProvider, contextID string, sessionFactory SessionFactory, resolver driver.EndpointService, party view.Identity, session view.Session, caller view.Identity, tracer trace.Tracer) (*ctx, error) {
+func NewContext(context context.Context, sp driver.ServiceProvider, contextID string, sessionFactory SessionFactory, resolver driver.EndpointService, identityProvider driver.IdentityProvider, sigService driver.SigService, party view.Identity, session view.Session, caller view.Identity, tracer trace.Tracer) (*ctx, error) {
 	ctx := &ctx{
 		context:        context,
 		id:             contextID,
@@ -79,7 +81,9 @@ func NewContext(context context.Context, sp driver.ServiceProvider, contextID st
 		sp:             sp,
 		localSP:        registry.New(),
 
-		tracer: tracer,
+		tracer:           tracer,
+		identityProvider: identityProvider,
+		sigService:       sigService,
 	}
 	if session != nil {
 		// Register default session
@@ -188,7 +192,7 @@ func (ctx *ctx) Identity(ref string) (view.Identity, error) {
 }
 
 func (ctx *ctx) IsMe(id view.Identity) bool {
-	return view2.GetSigService(ctx).IsMe(id)
+	return ctx.sigService.IsMe(id)
 }
 
 func (ctx *ctx) Caller() view.Identity {
@@ -213,7 +217,7 @@ func (ctx *ctx) GetSession(f view.View, party view.Identity) (view.Session, erro
 			logger.Debugf("session for [%s] does not exists, resolve", id.UniqueID())
 		}
 
-		id, _, _, err = view2.GetEndpointService(ctx).Resolve(party)
+		id, _, _, err = view2.NewEndpointService(ctx.resolver).Resolve(party)
 		if err == nil {
 			s, ok = ctx.sessions[id.UniqueID()]
 			if logger.IsEnabledFor(zapcore.DebugLevel) {
@@ -221,9 +225,9 @@ func (ctx *ctx) GetSession(f view.View, party view.Identity) (view.Session, erro
 			}
 		} else {
 			// give it a second chance, check if party can be resolved as an identity
-			partyIdentity := view2.GetIdentityProvider(ctx).Identity(string(party))
+			partyIdentity := ctx.identityProvider.Identity(string(party))
 			if !partyIdentity.IsNone() {
-				id, _, _, err = view2.GetEndpointService(ctx).Resolve(partyIdentity)
+				id, _, _, err = view2.NewEndpointService(ctx.resolver).Resolve(partyIdentity)
 				if err == nil {
 					s, ok = ctx.sessions[id.UniqueID()]
 					if logger.IsEnabledFor(zapcore.DebugLevel) {

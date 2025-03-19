@@ -8,7 +8,6 @@ package driver
 
 import (
 	"context"
-	"reflect"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -27,14 +26,4 @@ type ViewManager interface {
 	InitiateContextWithIdentityAndID(view view.View, id view.Identity, contextID string) (view.Context, error)
 	// InitiateContextFrom initiates a new context for the passed view, derived from the passed context
 	InitiateContextFrom(ctx context.Context, view view.View, id view.Identity, contextID string) (view.Context, error)
-}
-
-// GetViewManager returns an instance of the view manager.
-// It panics, if no instance is found.
-func GetViewManager(sp ServiceProvider) ViewManager {
-	s, err := sp.GetService(reflect.TypeOf((*ViewManager)(nil)))
-	if err != nil {
-		panic(err)
-	}
-	return s.(ViewManager)
 }

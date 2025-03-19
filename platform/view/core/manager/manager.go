@@ -38,6 +38,7 @@ type manager struct {
 	commLayer        CommLayer
 	endpointService  driver.EndpointService
 	identityProvider driver.IdentityProvider
+	sigService       driver.SigService
 
 	ctx context.Context
 
@@ -51,12 +52,13 @@ type manager struct {
 	m          *Metrics
 }
 
-func New(serviceProvider driver.ServiceProvider, commLayer CommLayer, endpointService driver.EndpointService, identityProvider driver.IdentityProvider, viewProvider *registry.ViewProvider, provider trace.TracerProvider, metricsProvider metrics.Provider) *manager {
+func New(serviceProvider driver.ServiceProvider, commLayer CommLayer, endpointService driver.EndpointService, identityProvider driver.IdentityProvider, sigService driver.SigService, viewProvider *registry.ViewProvider, provider trace.TracerProvider, metricsProvider metrics.Provider) *manager {
 	return &manager{
 		sp:               serviceProvider,
 		commLayer:        commLayer,
 		endpointService:  endpointService,
 		identityProvider: identityProvider,
+		sigService:       sigService,
 
 		contexts:     map[string]disposableContext{},
 		viewProvider: viewProvider,
@@ -116,7 +118,7 @@ func (cm *manager) InitiateViewWithIdentity(view view.View, id view.Identity, c 
 	}
 	ctx = trace.ContextWithSpanContext(ctx, trace.SpanContextFromContext(c))
 
-	viewContext, err := NewContextForInitiator("", ctx, cm.sp, cm.commLayer, cm.endpointService, id, view, cm.viewTracer)
+	viewContext, err := NewContextForInitiator("", ctx, cm.sp, cm.commLayer, cm.endpointService, cm.identityProvider, cm.sigService, id, view, cm.viewTracer)
 	if err != nil {
 		return nil, err
 	}
@@ -159,7 +161,7 @@ func (cm *manager) InitiateContextFrom(ctx context.Context, view view.View, id v
 	if id.IsNone() {
 		id = cm.me()
 	}
-	viewContext, err := NewContextForInitiator(contextID, ctx, cm.sp, cm.commLayer, cm.endpointService, id, view, cm.viewTracer)
+	viewContext, err := NewContextForInitiator(contextID, ctx, cm.sp, cm.commLayer, cm.endpointService, cm.identityProvider, cm.sigService, id, view, cm.viewTracer)
 	if err != nil {
 		return nil, err
 	}
@@ -316,7 +318,7 @@ func (cm *manager) newContext(id view.Identity, msg *view.Message) (view.Context
 		return nil, false, err
 	}
 	ctx := trace.ContextWithSpanContext(cm.ctx, trace.SpanContextFromContext(msg.Ctx))
-	newCtx, err := NewContext(ctx, cm.sp, contextID, cm.commLayer, cm.endpointService, id, backend, caller, cm.viewTracer)
+	newCtx, err := NewContext(ctx, cm.sp, contextID, cm.commLayer, cm.endpointService, cm.identityProvider, cm.sigService, id, backend, caller, cm.viewTracer)
 	if err != nil {
 		return nil, false, err
 	}

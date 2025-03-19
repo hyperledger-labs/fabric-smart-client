@@ -14,7 +14,8 @@ import (
 )
 
 func main() {
-	node := fscnode.New()
+	node := fscnode.NewEmpty("")
+	node.InstallSDK(pingpong.NewSDK(node))
 	node.Execute(func() error {
 		registry := view.GetRegistry(node)
 		initiatorID := registry.GetIdentifier(&pingpong.Initiator{})

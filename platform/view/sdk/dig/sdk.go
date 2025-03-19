@@ -147,17 +147,6 @@ func (p *SDK) Install() error {
 		return err
 	}
 
-	err = errors.Join(
-		digutils.Register[trace.TracerProvider](p.Container()),
-		digutils.Register[driver.EndpointService](p.Container()),
-		digutils.Register[view3.IdentityProvider](p.Container()),
-		digutils.Register[node.ViewManager](p.Container()), // Need to add it as a field in the node
-		digutils.Register[id.SigService](p.Container()),
-	)
-	if err != nil {
-		return err
-	}
-
 	if err := p.Container().Invoke(func(resolverService *endpoint.ResolverService) error { return resolverService.LoadResolvers() }); err != nil {
 		return err
 	}
