@@ -26,6 +26,8 @@ type VaultPersistence struct {
 	writeDB common.WriteDB
 
 	ci common.Interpreter
+
+	pi common.PaginationInterpreter
 }
 
 func NewVaultPersistence(opts common.Opts, tablePrefix string) (*VaultPersistence, error) {
@@ -41,11 +43,13 @@ func NewVaultPersistence(opts common.Opts, tablePrefix string) (*VaultPersistenc
 
 func newTxCodePersistence(readDB *sql.DB, writeDB common.WriteDB, tables common.VaultTables) *VaultPersistence {
 	ci := NewInterpreter()
+	pi := NewPaginatedInterpreter()
 	return &VaultPersistence{
-		VaultPersistence: common.NewVaultPersistence(writeDB, readDB, tables, &errorMapper{}, ci, newSanitizer(), isolationLevels),
+		VaultPersistence: common.NewVaultPersistence(writeDB, readDB, tables, &errorMapper{}, ci, pi, newSanitizer(), isolationLevels),
 		tables:           tables,
 		writeDB:          writeDB,
 		ci:               ci,
+		pi:               pi,
 	}
 }
 

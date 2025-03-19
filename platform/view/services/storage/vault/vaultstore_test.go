@@ -12,6 +12,8 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
+
 	"github.com/test-go/testify/assert"
 	"golang.org/x/exp/slices"
 )
@@ -99,11 +101,23 @@ func testOneMore(t *testing.T, store driver.VaultStore) {
 }
 
 func fetchAll(store driver.VaultStore) ([]driver.TxID, error) {
-	it, err := store.GetAllTxStatuses(context.Background())
+
+	p, err := store.GetAllTxStatuses(context.Background(), &common.OffsetPagination{Offset: 0, PageSize: 10})
+
+	p, err = store.GetAllTxStatuses(context.Background(), p.Pagination.Next())
+
+	// Loop whil p.next
+	//     it = p.next
+
+	// p, err := store.GetAllTxStatuses(context.Background(), p.Pagintion.Next())
+
+	// itieate on p.it
+
+	// P.GentNext
 	if err != nil {
 		return nil, err
 	}
-	txStatuses, err := collections.ReadAll(it)
+	txStatuses, err := collections.ReadAll(p.Items)
 	if err != nil {
 		return nil, err
 	}

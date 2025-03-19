@@ -138,7 +138,7 @@ type VaultReader interface {
 	GetTxStatuses(ctx context.Context, txIDs ...TxID) (TxStatusIterator, error)
 
 	// GetAllTxStatuses returns the statuses of the all transactions in the vault
-	GetAllTxStatuses(ctx context.Context) (TxStatusIterator, error)
+	GetAllTxStatuses(ctx context.Context, pagination Pagination) (*PaginatedResponse[*TxStatus], error)
 }
 
 // LockedVaultReader is a VaultReader with a lock on some or all entries
