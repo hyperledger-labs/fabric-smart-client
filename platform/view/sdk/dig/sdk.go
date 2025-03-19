@@ -53,6 +53,12 @@ type SDK struct {
 	dig2.SDK
 }
 
+type nodeRegistry interface {
+	node.Registry
+	RegisterViewManager(manager node.ViewManager)
+	RegisterViewRegistry(registry node.ViewRegistry)
+}
+
 func NewSDKFromContainer(c dig2.Container, registry node.Registry) *SDK {
 	configService := view.GetConfigService(registry)
 	return NewSDKFrom(dig2.NewBaseSDK(c, configService), registry)
@@ -65,7 +71,7 @@ func NewSDK(registry node.Registry) *SDK {
 func NewSDKFrom(baseSDK dig2.SDK, registry node.Registry) *SDK {
 	sdk := &SDK{SDK: baseSDK}
 	err := errors.Join(
-		sdk.Container().Provide(func() node.Registry { return registry }),
+		sdk.Container().Provide(func() (node.Registry, nodeRegistry) { return registry, registry.(nodeRegistry) }),
 		sdk.Container().Provide(digutils.Identity[node.Registry](), dig.As(new(driver.ServiceProvider), new(node.Registry), new(view.ServiceProvider), new(finality.Registry))),
 		sdk.Container().Provide(func() *view.ConfigService { return view.GetConfigService(registry) }),
 		sdk.Container().Provide(digutils.Identity[*view.ConfigService](), dig.As(new(driver.ConfigService), new(id.ConfigProvider), new(endpoint.ConfigService))),
@@ -148,17 +154,12 @@ func (p *SDK) Install() error {
 	}
 
 	err = errors.Join(
-		digutils.Register[trace.TracerProvider](p.Container()),
-		digutils.Register[driver.EndpointService](p.Container()),
-		digutils.Register[view3.IdentityProvider](p.Container()),
-		digutils.Register[node.ViewManager](p.Container()), // Need to add it as a field in the node
-		digutils.Register[id.SigService](p.Container()),
+		p.Container().Invoke(func(resolverService *endpoint.ResolverService) error { return resolverService.LoadResolvers() }),
+		p.Container().Invoke(func(r nodeRegistry, s driver.ViewManager) { r.RegisterViewManager(s) }),
+		p.Container().Invoke(func(r nodeRegistry, s *view.Registry) { r.RegisterViewRegistry(s) }),
 	)
-	if err != nil {
-		return err
-	}
 
-	if err := p.Container().Invoke(func(resolverService *endpoint.ResolverService) error { return resolverService.LoadResolvers() }); err != nil {
+	if err != nil {
 		return err
 	}
 	return nil

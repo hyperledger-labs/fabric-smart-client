@@ -51,15 +51,7 @@ type Namespace struct {
 }
 
 func NewNamespace(tx *endorser.Transaction, forceSBE bool) *Namespace {
-	return &Namespace{
-		tx:    tx,
-		codec: &JSONCodec{},
-		metaHandlers: []MetaHandler{
-			&sbeMetaHandler{forceSBE: forceSBE},
-			&contractMetaHandler{},
-		},
-		certifiedInputs: map[string][]byte{},
-	}
+	return NewNamespaceForName(tx, "", forceSBE)
 }
 
 func NewNamespaceForName(tx *endorser.Transaction, ns string, forceSBE bool) *Namespace {
@@ -456,10 +448,6 @@ func (n *Namespace) Inputs() *inputStream {
 // TODO: remove
 func (n *Namespace) RWSet() (*fabric.RWSet, error) {
 	return n.tx.RWSet()
-}
-
-func (n *Namespace) GetService(v interface{}) (interface{}, error) {
-	return n.tx.GetService(v)
 }
 
 func (n *Namespace) getStateID(s interface{}) (string, error) {
