@@ -15,15 +15,12 @@ require (
 	github.com/go-kit/log v0.2.1
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/protobuf v1.5.4
-	github.com/google/go-cmp v0.6.0
 	github.com/gorilla/mux v1.8.1
 	github.com/gorilla/websocket v1.5.3
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
 	github.com/hashicorp/consul/sdk v0.16.1
 	github.com/hyperledger-labs/orion-sdk-go v0.2.10
 	github.com/hyperledger-labs/orion-server v0.2.10
-	github.com/hyperledger-labs/weaver-dlt-interoperability/common/protos-go v1.2.3-alpha.1
-	github.com/hyperledger-labs/weaver-dlt-interoperability/sdks/fabric/go-sdk v1.2.3-alpha.1.0.20210812140206-37f430515b8c
 	github.com/hyperledger/fabric v1.4.0-rc1.0.20230405174026-695dd57e01c2
 	github.com/hyperledger/fabric-chaincode-go v0.0.0-20240704073638-9fb89180dc17
 	github.com/hyperledger/fabric-contract-api-go v1.2.2
@@ -69,6 +66,7 @@ require (
 
 require (
 	github.com/alecthomas/kingpin/v2 v2.4.0 // indirect
+	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/libp2p/go-libp2p-routing-helpers v0.7.4 // indirect
 	github.com/pion/datachannel v1.5.9 // indirect
 	github.com/pion/dtls/v2 v2.2.12 // indirect

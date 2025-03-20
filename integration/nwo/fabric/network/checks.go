@@ -148,19 +148,10 @@ func (n *Network) CheckTopologyFSCNodes() (users map[string]int, userSpecs map[s
 func (n *Network) CheckTopologyOrgs(users map[string]int, userSpecs map[string][]topology.UserSpec) {
 	for _, organization := range n.Organizations {
 		organization.Users += users[organization.Name]
-		if n.topology.Weaver {
-			organization.UserSpecs = append(userSpecs[organization.Name],
-				topology.UserSpec{Name: "User1"},
-				topology.UserSpec{Name: "User2"},
-				topology.UserSpec{Name: "Relay"},
-				topology.UserSpec{Name: "RelayAdmin"},
-			)
-		} else {
-			organization.UserSpecs = append(userSpecs[organization.Name],
-				topology.UserSpec{Name: "User1"},
-				topology.UserSpec{Name: "User2"},
-			)
-		}
+		organization.UserSpecs = append(userSpecs[organization.Name],
+			topology.UserSpec{Name: "User1"},
+			topology.UserSpec{Name: "User2"},
+		)
 	}
 }
 
