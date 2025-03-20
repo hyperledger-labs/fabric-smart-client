@@ -348,8 +348,7 @@ func (db *txVaultReader) GetAllTxStatuses(ctx context.Context, pagination driver
 	if err := db.setVaultReader(); err != nil {
 		return nil, err
 	}
-	txStatusIterator, err := db.vr.GetAllTxStatuses(ctx, pagination)
-	return (&driver.PaginatedResponse[*driver.TxStatus]{Items: txStatusIterator, Pagination: pagination}), err
+	return db.vr.GetAllTxStatuses(ctx, pagination)
 }
 
 func (db *txVaultReader) Done() error {
@@ -466,12 +465,19 @@ func (db *vaultReader) GetTxStatuses(ctx context.Context, txIDs ...driver.TxID) 
 	were, any := Where(db.ci.InStrings("tx_id", txIDs))
 	return db.queryStatus(were, any, "")
 }
-func (db *vaultReader) GetAllTxStatuses(ctx context.Context, pagination driver.Pagination) (driver.TxStatusIterator, error) {
+func (db *vaultReader) GetAllTxStatuses(ctx context.Context, pagination driver.Pagination) (*driver.PaginatedResponse[*driver.TxStatus], error) {
+	if pagination == nil {
+		return nil, fmt.Errorf("invalid input pagination: %+v", pagination)
+	}
 	limit, err := db.pi.Interpret(pagination)
 	if err != nil {
-		fmt.Errorf("error decoding metadata: %w", err)
+		return nil, err
 	}
-	return db.queryStatus("", []any{}, limit)
+	txStatusIterator, err := db.queryStatus("", []any{}, limit)
+	if err != nil {
+		return nil, err
+	}
+	return (&driver.PaginatedResponse[*driver.TxStatus]{Items: txStatusIterator, Pagination: pagination}), nil
 }
 
 func (db *vaultReader) queryStatus(where string, params []any, limit string) (driver.TxStatusIterator, error) {
