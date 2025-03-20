@@ -19,7 +19,6 @@ Fabric Smart Client has not been audited and is provided as-is, use at your own 
 
 - [`Documentation`](./docs/design.md): Discover the design principles of the Fabric Smart Client based on the
 `Hidden Gems` of Hyperledger Fabric.
-- [`Samples`](./samples/README.md): A collection of sample applications that demonstrate the use of the Fabric Smart Client.
 - `Feedback`: Your help is the key to the success of the Fabric Smart Client.
   - Submit your issues [`here`][`fabric-smart-client` Issues].
   - If you have any questions, queries or comments, find us on [GitHub discussions].
@@ -37,11 +36,9 @@ export FSC_PATH=$HOME/myprojects/fabric-smart-client
 git clone https://github.com/hyperledger-labs/fabric-smart-client.git $FSC_PATH
 ```
 
-You are ready to run the [`samples`](./samples/README.md) in `$FSC_PATH`.
-
 ### Further information
 
-Fabric Smart Client uses a system called `NWO` for its integration tests and samples to programmatically create a fabric network along with the fabric-smart-client nodes. The current version of fabric that is tested can be found in the project [Makefile](https://github.com/hyperledger-labs/fabric-smart-client/blob/main/Makefile) set in the `FABRIC_VERSION` variable.
+Fabric Smart Client uses a system called `NWO` for its integration tests to programmatically create a fabric network along with the fabric-smart-client nodes. The current version of fabric that is tested can be found in the project [Makefile](https://github.com/hyperledger-labs/fabric-smart-client/blob/main/Makefile) set in the `FABRIC_VERSION` variable.
 
 In order for a fabric network to be able to be created you need to ensure you have downloaded the appropriate version of the hyperledger fabric binaries from [Fabric Releaes](https://github.com/hyperledger/fabric/releases) and unpack the compressed file onto your file system. This will create a directory structure of /bin and /config. You will then need to set the environment variable `FAB_BINS` to the `bin` directory. For example if you unpacked the compressed file into `/home/name/fabric` then you would
 
@@ -49,9 +46,9 @@ In order for a fabric network to be able to be created you need to ensure you ha
 export FAB_BINS=/home/name/fabric/bin
 ```
 
-Do not store the fabric binaries within your fabric-smart-client cloned repo as this will cause problems running the samples and integration tests as they will not be able to install chaincode.
+Do not store the fabric binaries within your fabric-smart-client cloned repo as this will cause problems running the integration tests as they will not be able to install chaincode.
 
-Almost all the samples and integration tests require the fabric binaries to be downloaded and the environment variable `FAB_BINS` set to point to the directory where these binaries are stored. One way to ensure this is to execute the following in the root of the fabric-smart-client project
+Almost all the integration tests require the fabric binaries to be downloaded and the environment variable `FAB_BINS` set to point to the directory where these binaries are stored. One way to ensure this is to execute the following in the root of the fabric-smart-client project
 
 ```shell
 make download-fabric
@@ -102,7 +99,6 @@ But, this is not all. The Fabric Smart Client is a client-side component that ca
 - With TEE support as offered by [`Fabric Private Chaincode`](https://github.com/hyperledger/fabric-private-chaincode).
 - And more...
 
-Explore our [`Samples`](./samples/README.md) to see how you can use the Fabric Smart Client to develop your own applications.
 
 ## Testing Philosophy
 
