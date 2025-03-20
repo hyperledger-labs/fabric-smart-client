@@ -172,7 +172,6 @@ clean:
 	rm -rf ./integration/orion/cars/cmd
 	rm -rf ./integration/fscnodes
 	rm -rf ./cmd/fsccli/cmd
-	rm -rf ./samples/fabric/iou/cmd
 
 .PHONY: clean-fabric-peer-images
 clean-fabric-peer-images:
