@@ -134,6 +134,7 @@ func (n *Extension) startPrometheus() {
 		}
 	}()
 
+	logger.Infof("Prometheus running on http://localhost:%s", port)
 }
 
 func (n *Extension) startGrafana() {
@@ -162,7 +163,6 @@ func (n *Extension) startGrafana() {
 			nat.Port(port + "/tcp"): struct{}{},
 		},
 	}, &container.HostConfig{
-		Links: []string{n.platform.NetworkID() + "-prometheus"},
 		Mounts: []mount.Mount{
 			{
 				Type:   mount.TypeBind,
@@ -218,4 +218,5 @@ func (n *Extension) startGrafana() {
 			dockerLogger.Debugf("%s", scanner.Text())
 		}
 	}()
+	logger.Infof("Grafana running on http://localhost:%s with username: 'admin', password: 'admin'", port)
 }
