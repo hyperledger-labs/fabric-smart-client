@@ -27,7 +27,11 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-const PostgresImage = "postgres:latest"
+// postgres:latest will not work on Podman, because Podman automatically prefixes it with localhost/
+// docker.io/postgres:latest will not work on Docker, because Docker omits the default repo docker.io
+// itests will not be recognized as a domain, so Podman will still prefix it with localhost
+// Hence we use fsc.itests as domain
+const PostgresImage = "fsc.itests/postgres:latest"
 
 type Logger interface {
 	Log(...any)
