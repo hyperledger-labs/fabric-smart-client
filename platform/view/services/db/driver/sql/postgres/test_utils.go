@@ -27,6 +27,8 @@ import (
 	_ "modernc.org/sqlite"
 )
 
+const PostgresImage = "docker.io/postgres:latest"
+
 type Logger interface {
 	Log(...any)
 	Errorf(string, ...any)
@@ -75,8 +77,9 @@ func ReadDataSource(s string) (*ContainerConfig, error) {
 	if len(c.DBName) == 0 || c.Port == 0 || len(c.Pass) == 0 || len(c.User) == 0 {
 		return nil, fmt.Errorf("incomplete datasource: %s", s)
 	}
+
 	return &ContainerConfig{
-		Image:     "postgres:latest",
+		Image:     PostgresImage,
 		Container: fmt.Sprintf("fsc-postgres-%s", c.DBName),
 		Config:    c,
 	}, nil
@@ -101,7 +104,7 @@ func DefaultConfig(node string) *ContainerConfig {
 
 func defaultConfigWithPort(node string, port int) *ContainerConfig {
 	return &ContainerConfig{
-		Image:     "postgres:latest",
+		Image:     PostgresImage,
 		Container: fmt.Sprintf("fsc-postgres-%s", node),
 		Config: &Config{
 			DBName: node,
@@ -251,7 +254,7 @@ func StartPostgres(t Logger, printLogs bool) (func(), string, error) {
 	}
 
 	c := ContainerConfig{
-		Image:     getEnv("POSTGRES_IMAGE", "postgres:latest"),
+		Image:     getEnv("POSTGRES_IMAGE", PostgresImage),
 		Container: getEnv("POSTGRES_CONTAINER", "fsc-postgres"),
 		Config: &Config{
 			DBName: getEnv("POSTGRES_DB", "testdb"),
