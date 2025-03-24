@@ -27,7 +27,7 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-const PostgresImage = "docker.io/postgres:latest"
+const PostgresImage = "postgres:latest"
 
 type Logger interface {
 	Log(...any)
