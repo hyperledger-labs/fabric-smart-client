@@ -50,7 +50,10 @@ func NewTimeoutEviction[K comparable](timeout time.Duration, evict func([]K)) *t
 
 func (e *timeoutEviction[K]) cleanup(timeout time.Duration) {
 	logger.Debugf("Launch cleanup function with eviction timeout [%v]", timeout)
-	for range time.Tick(1 * time.Second) {
+	// TODO: the cleanup should be revisited
+	// when the cleanup is started we loop forever using the ticker; even if no items in the cache anymore
+	// this might even prevent the GC from removing the cache if not needed anymore
+	for range time.Tick(timeout) {
 		expiry := time.Now().Add(-timeout)
 		logger.Debugf("Cleanup invoked: evicting everything created after [%v]", expiry)
 		e.mu.RLock()
