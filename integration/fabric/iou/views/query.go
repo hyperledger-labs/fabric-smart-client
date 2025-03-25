@@ -10,7 +10,6 @@ import (
 	"encoding/json"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou/states"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -22,28 +21,20 @@ type Query struct {
 
 type QueryView struct {
 	Query
-
-	vaultService state.VaultService
 }
 
 func (q *QueryView) Call(context view.Context) (interface{}, error) {
 	iouState := &states.IOU{}
-	vault, err := q.vaultService.Vault(fabric.DefaultNetwork, fabric.DefaultChannel)
+	vault, err := state.GetVault(context)
 	assert.NoError(err)
 	assert.NoError(vault.GetState(context.Context(), "iou", q.LinearID, iouState))
 	return iouState.Amount, nil
 }
 
-func NewQueryViewFactory(vaultService state.VaultService) *QueryViewFactory {
-	return &QueryViewFactory{vaultService: vaultService}
-}
-
-type QueryViewFactory struct {
-	vaultService state.VaultService
-}
+type QueryViewFactory struct{}
 
 func (c *QueryViewFactory) NewView(in []byte) (view.View, error) {
-	f := &QueryView{vaultService: c.vaultService}
+	f := &QueryView{}
 	err := json.Unmarshal(in, &f.Query)
 	assert.NoError(err)
 	return f, nil

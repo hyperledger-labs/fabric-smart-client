@@ -9,7 +9,7 @@ package iou
 import (
 	"errors"
 
-	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou/views"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/newiou/views"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/node"
 	dig2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
 	sdk "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/dig"
