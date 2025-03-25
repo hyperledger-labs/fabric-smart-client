@@ -17,7 +17,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/config"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/registry"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -33,6 +32,12 @@ const (
 var logger = logging.MustGetLogger("fsc")
 
 type ExecuteCallbackFunc = func() error
+
+type ViewRegistry interface {
+	RegisterFactory(id string, factory view2.Factory) error
+	RegisterResponder(responder view2.View, initiatedBy interface{}) error
+	RegisterResponderWithIdentity(responder view2.View, id view.Identity, initiatedBy interface{}) error
+}
 
 type ViewManager interface {
 	NewView(id string, in []byte) (view.View, error)
@@ -66,9 +71,8 @@ type node struct {
 	cancel        context.CancelFunc
 	running       bool
 	tracer        trace.Tracer
-	resolver      *view2.EndpointService
-	viewManager   driver.ViewManager
-	viewRegistry  *view2.Registry
+	viewManager   ViewManager
+	viewRegistry  ViewRegistry
 }
 
 func NewEmpty(confPath string) *node {
@@ -97,15 +101,11 @@ func (n *node) RegisterTracerProvider(provider trace.TracerProvider) {
 	}))
 }
 
-func (n *node) RegisterEndpointService(service driver.EndpointService) {
-	n.resolver = view2.NewEndpointService(service)
-}
-
-func (n *node) RegisterViewManager(manager driver.ViewManager) {
+func (n *node) RegisterViewManager(manager ViewManager) {
 	n.viewManager = manager
 }
 
-func (n *node) RegisterViewRegistry(registry *view2.Registry) {
+func (n *node) RegisterViewRegistry(registry ViewRegistry) {
 	n.viewRegistry = registry
 }
 
@@ -207,19 +207,6 @@ func (n *node) Registry() Registry {
 	return n.registry
 }
 
-func (n *node) ResolveIdentities(endpoints ...string) ([]view.Identity, error) {
-	var ids []view.Identity
-	for _, e := range endpoints {
-		identity, err := n.resolver.GetIdentity(e, nil)
-		if err != nil {
-			return nil, errors.Wrapf(err, "cannot find the identity at %s", e)
-		}
-		ids = append(ids, identity)
-	}
-
-	return ids, nil
-}
-
 func (n *node) CallView(fid string, in []byte) (interface{}, error) {
 	ctx, span := n.tracer.Start(context.Background(), "CallView",
 		trace.WithSpanKind(trace.SpanKindClient),
@@ -263,7 +250,7 @@ func (n *node) InitiateContextFrom(ctx context.Context, view view.View) (view.Co
 }
 
 func (n *node) InitiateContextWithIdentity(view view.View, id view.Identity) (view.Context, error) {
-	return n.viewManager.InitiateContextWithIdentityAndID(view, id, "")
+	return n.viewManager.InitiateContextWithIdentity(view, id)
 }
 
 func (n *node) Context(contextID string) (view.Context, error) {

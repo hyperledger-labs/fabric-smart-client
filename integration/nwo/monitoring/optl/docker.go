@@ -19,6 +19,7 @@ import (
 
 const (
 	JaegerTracing       = "jaegertracing/all-in-one:latest"
+	Collector           = "otel/opentelemetry-collector:latest"
 	JaegerQueryPort     = 16685
 	JaegerCollectorPort = 4317
 	JaegerUIPort        = 16686
@@ -27,6 +28,7 @@ const (
 
 var RequiredImages = []string{
 	JaegerTracing,
+	Collector,
 }
 
 func (n *Extension) startContainer() {

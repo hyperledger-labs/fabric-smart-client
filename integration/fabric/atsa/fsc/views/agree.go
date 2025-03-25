@@ -10,7 +10,6 @@ import (
 	"encoding/json"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/fsc/states"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
@@ -29,7 +28,7 @@ type AgreeToSellView struct {
 
 func (a *AgreeToSellView) Call(context view.Context) (interface{}, error) {
 	// The asset owner creates a new transaction, and
-	tx, err := state.NewAnonymousTransaction(utils.MustGet(fabric.GetNetworkServiceProvider(context)), context)
+	tx, err := state.NewAnonymousTransaction(context)
 	assert.NoError(err, "failed creating transaction")
 
 	// Sets the namespace where the state should appear, and
@@ -95,7 +94,7 @@ type AgreeToBuyView struct {
 
 func (a *AgreeToBuyView) Call(context view.Context) (interface{}, error) {
 	// Prepare transaction
-	tx, err := state.NewAnonymousTransaction(utils.MustGet(fabric.GetNetworkServiceProvider(context)), context)
+	tx, err := state.NewAnonymousTransaction(context)
 	assert.NoError(err, "failed creating transaction")
 	tx.SetNamespace("asset_transfer")
 	fns, err := fabric.GetDefaultFNS(context)

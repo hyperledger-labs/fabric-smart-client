@@ -21,29 +21,34 @@ func GetVaultService(ctx view2.ServiceProvider) (VaultService, error) {
 	return s.(VaultService), nil
 }
 
-func GetVault(ctx view2.ServiceProvider, opts ...ServiceOption) (Vault, error) {
-	opt, err := CompileServiceOptions(opts...)
-	if err != nil {
-		return nil, err
-	}
+func GetVault(ctx view2.ServiceProvider) (Vault, error) {
 	vs, err := GetVaultService(ctx)
 	if err != nil {
 		return nil, err
 	}
-	if len(opt.Network) > 0 && len(opt.Channel) > 0 {
-		return vs.Vault(opt.Network, opt.Channel)
-	}
-	fns, err := fabric.GetFabricNetworkService(ctx, opt.Network)
+	fsc, ch, err := fabric.GetDefaultChannel(ctx)
 	if err != nil {
 		return nil, err
 	}
-	ch, err := fns.Channel(opt.Channel)
+	ws, err := vs.Vault(fsc.Name(), ch.Name())
 	if err != nil {
 		return nil, err
 	}
-	return vs.Vault(fns.Name(), ch.Name())
+	return ws, nil
 }
 
 func GetVaultForChannel(ctx view2.ServiceProvider, channel string) (Vault, error) {
-	return GetVault(ctx, WithChannel(channel))
+	vs, err := GetVaultService(ctx)
+	if err != nil {
+		return nil, err
+	}
+	fns, err := fabric.GetDefaultFNS(ctx)
+	if err != nil {
+		return nil, err
+	}
+	ws, err := vs.Vault(fns.Name(), channel)
+	if err != nil {
+		return nil, err
+	}
+	return ws, nil
 }
