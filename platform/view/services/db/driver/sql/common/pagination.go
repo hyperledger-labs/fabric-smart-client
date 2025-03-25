@@ -15,29 +15,34 @@ import (
 
 type Cursor string
 
+type EmptyPagination struct {
+}
+
+func NewEmptyPagination() *EmptyPagination {
+	return &EmptyPagination{}
+}
+
+func (p *EmptyPagination) Prev() (driver.Pagination, error) {
+	return p, nil
+}
+
+func (p *EmptyPagination) Next() (driver.Pagination, error) {
+	return &EmptyPagination{}, nil
+}
+
 type NoPagination struct {
-	pageInRange bool
 }
 
 func NewNoPagination() *NoPagination {
-	return &NoPagination{pageInRange: true}
+	return &NoPagination{}
 }
 
 func (p *NoPagination) Prev() (driver.Pagination, error) {
-	return &NoPagination{
-		pageInRange: false,
-	}, nil
+	return NewEmptyPagination(), nil
 }
 
 func (p *NoPagination) Next() (driver.Pagination, error) {
-	return &NoPagination{
-		pageInRange: false,
-	}, nil
-}
-func (p *NoPagination) First() (driver.Pagination, error) {
-	return &NoPagination{
-		pageInRange: true,
-	}, nil
+	return NewEmptyPagination(), nil
 }
 
 type OffsetPagination struct {
@@ -58,16 +63,11 @@ func NewOffsetPagination(offset int, pageSize int) (*OffsetPagination, error) {
 
 func (p *OffsetPagination) GoToOffset(offset int) (driver.Pagination, error) {
 	if offset < 0 {
-		return &OffsetPagination{
-			offset:      offset,
-			pageSize:    p.pageSize,
-			pageInRange: false,
-		}, nil
+		return NewEmptyPagination(), nil
 	}
 	return &OffsetPagination{
-		offset:      offset,
-		pageSize:    p.pageSize,
-		pageInRange: true,
+		offset:   offset,
+		pageSize: p.pageSize,
 	}, nil
 }
 
@@ -83,9 +83,8 @@ func (p *OffsetPagination) GoBack(numOfpages int) (driver.Pagination, error) {
 	return (p.GoForward(-1 * numOfpages))
 }
 
-func (p *OffsetPagination) Prev() (driver.Pagination, error)  { return p.GoBack(1) }
-func (p *OffsetPagination) Next() (driver.Pagination, error)  { return p.GoForward(1) }
-func (p *OffsetPagination) First() (driver.Pagination, error) { return p.GoToPage(0) }
+func (p *OffsetPagination) Prev() (driver.Pagination, error) { return p.GoBack(1) }
+func (p *OffsetPagination) Next() (driver.Pagination, error) { return p.GoForward(1) }
 
 func NewPaginationInterpreter() *paginationInterpreter {
 	return &paginationInterpreter{}
@@ -100,17 +99,11 @@ type paginationInterpreter struct{}
 func (i *paginationInterpreter) Interpret(p driver.Pagination) (string, error) {
 	switch pagination := p.(type) {
 	case *NoPagination:
-		if pagination.pageInRange {
-			return "", nil
-		} else {
-			return "LIMIT 0 OFFSET 0", nil
-		}
+		return "", nil
 	case *OffsetPagination:
-		if pagination.pageInRange {
-			return fmt.Sprintf("LIMIT %d OFFSET %d", pagination.pageSize, pagination.offset), nil
-		} else {
-			return "LIMIT 0 OFFSET 0", nil
-		}
+		return fmt.Sprintf("LIMIT %d OFFSET %d", pagination.pageSize, pagination.offset), nil
+	case *EmptyPagination:
+		return "LIMIT 0 OFFSET 0", nil
 	default:
 		return "", errors.Errorf("invalid pagination option %+v", pagination)
 	}
