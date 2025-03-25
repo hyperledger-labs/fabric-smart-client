@@ -10,7 +10,7 @@ import (
 	"fmt"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"github.com/test-go/testify/assert"
+	"github.com/stretchr/testify/assert"
 )
 
 type panickier struct {
