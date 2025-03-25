@@ -38,7 +38,6 @@ require (
 	github.com/multiformats/go-multiaddr v0.13.0
 	github.com/onsi/ginkgo/v2 v2.20.2
 	github.com/onsi/gomega v1.34.1
-	github.com/otiai10/copy v1.14.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.20.5
 	github.com/spf13/cobra v1.8.1
