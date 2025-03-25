@@ -10,7 +10,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/test-go/testify/assert"
+	"github.com/stretchr/testify/assert"
 )
 
 type A interface {
