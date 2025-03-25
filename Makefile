@@ -90,6 +90,7 @@ testing-docker-images:
 	docker tag postgres:16.2-alpine fsc.itests/postgres:latest
 
 INTEGRATION_TARGETS = integration-tests-iou
+INTEGRATION_TARGETS = integration-tests-newiou
 INTEGRATION_TARGETS += integration-tests-atsacc
 INTEGRATION_TARGETS += integration-tests-chaincode-events
 INTEGRATION_TARGETS += integration-tests-atsafsc
@@ -103,6 +104,10 @@ integration-tests: $(INTEGRATION_TARGETS)
 .PHONY: integration-tests-iou
 integration-tests-iou:
 	cd ./integration/fabric/iou; export FAB_BINS=$(FAB_BINS); ginkgo $(GINKGO_TEST_OPTS) .
+
+.PHONY: integration-tests-newiou
+integration-tests-newiou:
+	cd ./integration/fabric/newiou; export FAB_BINS=$(FAB_BINS); ginkgo $(GINKGO_TEST_OPTS) .
 
 .PHONY: integration-tests-iou-hsm
 integration-tests-iou-hsm:

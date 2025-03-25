@@ -66,6 +66,7 @@ jobs:
           atsafsc,
           iou,
           iou-hsm,
+          newiou,
           orioncars,
           pingpong,
           stoprestart,
