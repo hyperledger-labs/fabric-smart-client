@@ -7,13 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package fabric
 
 import (
-	"bytes"
-	"sort"
-
-	"github.com/google/go-cmp/cmp"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/keys"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger/fabric-protos-go/ledger/rwset"
 	"github.com/hyperledger/fabric/core/ledger/kvledger/txmgmt/rwsetutil"
 	"github.com/pkg/errors"
@@ -73,51 +68,7 @@ func (rws *readWriteSet) populate(rwsetBytes []byte, txid string) error {
 
 type metaWrites map[string][]byte
 
-func (r metaWrites) Equals(o metaWrites) error {
-	if len(r) != len(o) {
-		return errors.Errorf("number of meta writes do not match [%v]!=[%v]", len(r), len(o))
-	}
-
-	for k, v := range r {
-		v2, ok := o[k]
-		if !ok {
-			return errors.Errorf("read not found [%s]", k)
-		}
-		if !bytes.Equal(v, v2) {
-			return errors.Errorf("writes for [%s] do not match [%v]!=[%v]", k, hash.Hashable(v), hash.Hashable(v2))
-		}
-	}
-
-	return nil
-}
-
 type keyedMetaWrites map[string]metaWrites
-
-func (r keyedMetaWrites) Equals(o keyedMetaWrites) error {
-	rKeys := r.keys()
-	sort.Strings(rKeys)
-	oKeys := o.keys()
-	sort.Strings(oKeys)
-	if diff := cmp.Diff(rKeys, oKeys); len(diff) != 0 {
-		return errors.Errorf("namespaces do not match [%s]", diff)
-	}
-
-	for _, key := range rKeys {
-		if err := r[key].Equals(o[key]); err != nil {
-			return errors.Wrapf(err, "meta writes for key [%s] do not match", key)
-		}
-	}
-
-	return nil
-}
-
-func (r keyedMetaWrites) keys() []string {
-	var res []string
-	for k := range r {
-		res = append(res, k)
-	}
-	return res
-}
 
 type namespaceKeyedMetaWrites map[string]keyedMetaWrites
 
@@ -151,32 +102,6 @@ func (w *metaWriteSet) get(ns, key string) map[string][]byte {
 }
 
 type namespaceWrites map[string][]byte
-
-func (r namespaceWrites) Keys() []string {
-	var keys []string
-	for k := range r {
-		keys = append(keys, k)
-	}
-	return keys
-}
-
-func (r namespaceWrites) Equals(o namespaceWrites) error {
-	if len(r) != len(o) {
-		return errors.Errorf("number of writes do not match [%d]!=[%d], [%v]!=[%v]", len(r), len(o), r.Keys(), o.Keys())
-	}
-
-	for k, v := range r {
-		v2, ok := o[k]
-		if !ok {
-			return errors.Errorf("read not found [%s]", k)
-		}
-		if !bytes.Equal(v, v2) {
-			return errors.Errorf("writes for [%s] do not match [%v]!=[%v]", k, hash.Hashable(v), hash.Hashable(v2))
-		}
-	}
-
-	return nil
-}
 
 type writes map[string]namespaceWrites
 
@@ -220,24 +145,6 @@ func (w *writeSet) getAt(ns string, i int) (key string, in bool) {
 type namespaceReads map[string]struct {
 	block uint64
 	txnum uint64
-}
-
-func (r namespaceReads) Equals(o namespaceReads) error {
-	if len(r) != len(o) {
-		return errors.Errorf("number of reads do not match [%v]!=[%v]", len(r), len(o))
-	}
-
-	for k, v := range r {
-		v2, ok := o[k]
-		if !ok {
-			return errors.Errorf("read not found [%s]", k)
-		}
-		if v.block != v2.block || v.txnum != v2.txnum {
-			return errors.Errorf("reads for [%s] do not match [%d,%d]!=[%d,%d]", k, v.block, v.txnum, v2.block, v2.txnum)
-		}
-	}
-
-	return nil
 }
 
 type reads map[string]namespaceReads
