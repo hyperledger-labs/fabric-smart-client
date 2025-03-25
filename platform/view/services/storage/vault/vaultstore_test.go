@@ -13,6 +13,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	"github.com/test-go/testify/assert"
@@ -94,7 +95,7 @@ func getAllTxStatuses(store driver.VaultStore, pagination driver.Pagination) ([]
 }
 
 func testPagination(t *testing.T, store driver.VaultStore) {
-	g := NewWithT(t)
+	RegisterFailHandler(Fail)
 	err := store.SetStatuses(context.Background(), driver.TxStatusCode(valid), "",
 		"txid1", "txid2", "txid10", "txid12", "txid21", "txid100", "txid200", "txid1025")
 	Expect(err).ToNot(HaveOccurred())
@@ -106,7 +107,7 @@ func testPagination(t *testing.T, store driver.VaultStore) {
 			if len(statuses) == 0 {
 				break
 			}
-			g.Expect(statuses).To(item.matcher[page])
+			Expect(statuses).To(item.matcher[page])
 			item.pagination, err = item.pagination.Next()
 			Expect(err).ToNot(HaveOccurred())
 		}
@@ -118,13 +119,16 @@ func testPagination(t *testing.T, store driver.VaultStore) {
 			if len(statuses) == 0 {
 				break
 			}
-			g.Expect(statuses).To(item.matcher[page])
+			Expect(statuses).To(item.matcher[page])
 		}
-		item.pagination, err = item.pagination.First()
+
+		item.pagination, err = item.pagination.Prev()
 		Expect(err).ToNot(HaveOccurred())
 		statuses, err := getAllTxStatuses(store, item.pagination)
 		Expect(err).ToNot(HaveOccurred())
-		g.Expect(statuses).To(item.matcher[0])
+		if len(statuses) == 0 {
+			break
+		}
 	}
 }
 

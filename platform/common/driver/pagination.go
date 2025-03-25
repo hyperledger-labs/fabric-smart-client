@@ -11,7 +11,6 @@ import "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/co
 type Pagination interface {
 	Prev() (Pagination, error)
 	Next() (Pagination, error)
-	First() (Pagination, error)
 }
 
 type PageIterator[R comparable] struct {
