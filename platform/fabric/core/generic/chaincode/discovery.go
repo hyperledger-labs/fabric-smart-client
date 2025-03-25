@@ -9,8 +9,10 @@ package chaincode
 import (
 	"context"
 	"strings"
+	"sync"
 	"time"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/cache"
 	peer2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -21,6 +23,10 @@ import (
 	"github.com/pkg/errors"
 )
 
+const (
+	DiscoveryCacheTimeout = time.Minute
+)
+
 type Discovery struct {
 	chaincode *Chaincode
 
@@ -28,14 +34,23 @@ type Discovery struct {
 	ImplicitCollections []string
 	QueryForPeers       bool
 
-	DefaultTTL time.Duration
+	discoveryResultsCacheLock sync.RWMutex
+	discoveryResultsCache     cache.Map[string, discovery.Response]
 }
 
+// NewDiscovery create a discovery client that helps to fetch peer information.
+//
+// Discovery results are cached. The TTL of the cached results can be set via the `ChannelConfig.DiscoveryTimeout()`
+// of the chaincode parameter. If not set, the default `DiscoveryCacheTimeout` is used.
 func NewDiscovery(chaincode *Chaincode) *Discovery {
-	// set key to the concatenation of chaincode name and version
+	timeout := DiscoveryCacheTimeout
+	if chaincode != nil || chaincode.ChannelConfig != nil || chaincode.ChannelConfig.DiscoveryTimeout() > 0 {
+		timeout = chaincode.ChannelConfig.DiscoveryDefaultTTLS()
+	}
+
 	return &Discovery{
-		chaincode:  chaincode,
-		DefaultTTL: chaincode.ChannelConfig.DiscoveryDefaultTTLS(),
+		chaincode:             chaincode,
+		discoveryResultsCache: cache.NewTimeoutCache[string, discovery.Response](timeout, nil),
 	}
 }
 
@@ -130,25 +145,24 @@ func (d *Discovery) Response() (discovery.Response, error) {
 	}
 	key := sb.String()
 
-	var response discovery.Response
-
 	// Do we have a response already?
-	d.chaincode.discoveryResultsCacheLock.RLock()
-	responseBoxed, err := d.chaincode.discoveryResultsCache.Get(key)
-	d.chaincode.discoveryResultsCacheLock.RUnlock()
-	if responseBoxed != nil && err == nil {
-		return responseBoxed.(discovery.Response), nil
+	d.discoveryResultsCacheLock.RLock()
+	resp, ok := d.discoveryResultsCache.Get(key)
+	d.discoveryResultsCacheLock.RUnlock()
+	if ok {
+		return resp, nil
 	}
 
-	d.chaincode.discoveryResultsCacheLock.Lock()
-	defer d.chaincode.discoveryResultsCacheLock.Unlock()
+	d.discoveryResultsCacheLock.Lock()
+	defer d.discoveryResultsCacheLock.Unlock()
 
-	responseBoxed, err = d.chaincode.discoveryResultsCache.Get(key)
-	if responseBoxed != nil && err == nil {
-		return responseBoxed.(discovery.Response), nil
+	if resp, ok := d.discoveryResultsCache.Get(key); ok {
+		return resp, nil
 	}
 
 	// fetch the response
+	var response discovery.Response
+	var err error
 	if d.QueryForPeers {
 		response, err = d.queryPeers()
 	} else {
@@ -159,9 +173,7 @@ func (d *Discovery) Response() (discovery.Response, error) {
 	}
 
 	// cache response
-	if err := d.chaincode.discoveryResultsCache.SetWithTTL(key, response, d.DefaultTTL); err != nil {
-		logger.Warnf("failed to set discovery results in cache: %s", err)
-	}
+	d.discoveryResultsCache.Put(key, response)
 
 	// done
 	return response, nil
