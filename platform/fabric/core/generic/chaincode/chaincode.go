@@ -8,14 +8,12 @@ package chaincode
 
 import (
 	"context"
-	"sync"
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
-	"github.com/jellydator/ttlcache/v2"
 )
 
 var logger = logging.MustGetLogger("fabric-sdk.core.generic.chaincode")
@@ -52,9 +50,6 @@ type Chaincode struct {
 	Broadcaster     Broadcaster
 	Finality        driver.Finality
 	MSPProvider     MSPProvider
-
-	discoveryResultsCacheLock sync.RWMutex
-	discoveryResultsCache     ttlcache.SimpleCache
 }
 
 func NewChaincode(
@@ -69,21 +64,19 @@ func NewChaincode(
 	MSPProvider MSPProvider,
 ) *Chaincode {
 	return &Chaincode{
-		name:                      name,
-		NetworkID:                 networkConfig.NetworkName(),
-		ChannelID:                 channelConfig.ID(),
-		ConfigService:             networkConfig,
-		ChannelConfig:             channelConfig,
-		NumRetries:                channelConfig.GetNumRetries(),
-		RetrySleep:                channelConfig.GetRetrySleep(),
-		LocalMembership:           localMembership,
-		Services:                  peerManager,
-		SignerService:             signerService,
-		Broadcaster:               broadcaster,
-		Finality:                  finality,
-		MSPProvider:               MSPProvider,
-		discoveryResultsCacheLock: sync.RWMutex{},
-		discoveryResultsCache:     ttlcache.NewCache(),
+		name:            name,
+		NetworkID:       networkConfig.NetworkName(),
+		ChannelID:       channelConfig.ID(),
+		ConfigService:   networkConfig,
+		ChannelConfig:   channelConfig,
+		NumRetries:      channelConfig.GetNumRetries(),
+		RetrySleep:      channelConfig.GetRetrySleep(),
+		LocalMembership: localMembership,
+		Services:        peerManager,
+		SignerService:   signerService,
+		Broadcaster:     broadcaster,
+		Finality:        finality,
+		MSPProvider:     MSPProvider,
 	}
 }
 
