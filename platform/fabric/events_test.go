@@ -8,7 +8,6 @@ package fabric
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -16,6 +15,13 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/stretchr/testify/assert"
+)
+
+const (
+	publicationSnooze = time.Millisecond
+	timeout           = 75 * time.Millisecond
+	waitFor           = 4 * timeout
+	tick              = timeout / 10
 )
 
 type mockSubscriber struct {
@@ -46,46 +52,55 @@ func (m *mockSubscriber) Publish(chaincodeName string, event *committer.Chaincod
 func TestEventListener(t *testing.T) {
 	subscriber := &mockSubscriber{}
 	listener := newEventListener(subscriber, "testChaincode")
-	eventChannel := listener.ChaincodeEvents()
+	ch := listener.ChaincodeEvents()
+
+	done := make(chan bool)
 
 	var wg sync.WaitGroup
+	wg.Add(2)
 
 	// Publish events
-	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		for i := 0; i < 1000; i++ {
-			subscriber.Publish("testChaincode", &committer.ChaincodeEvent{Payload: []byte(fmt.Sprintf("event %d", i))})
-			time.Sleep(1 * time.Millisecond)
+		msg := []byte("some msg")
+		for {
+			select {
+			case <-done:
+				return
+			default:
+				subscriber.Publish("testChaincode", &committer.ChaincodeEvent{Payload: msg})
+				time.Sleep(publicationSnooze)
+			}
 		}
 	}()
 
-	wg.Add(1)
 	// Stop while the publisher is still publishing
-	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
+
 	go func() {
 		defer wg.Done()
 		for {
 			select {
-			case event := <-eventChannel:
+			case event := <-ch:
+				// we got a new event
 				assert.NotNil(t, event)
 			case <-ctx.Done():
+				// our timeout is fired
+				// this should close our channel
 				listener.CloseChaincodeEvents()
 				return
 			}
 		}
 	}()
-	wg.Wait()
-	time.Sleep(100 * time.Millisecond)
 
-	// Ensure the channel is closed
-	select {
-	case _, ok := <-eventChannel:
-		if ok {
-			t.Fatal("expected channel to be closed")
-		}
-	default:
-		t.Fatal("expected to read from closed channel")
-	}
+	assert.Eventually(t, func() bool {
+		// eventually our event should be closed
+		_, ok := <-ch
+		return !ok
+	}, waitFor, tick)
+
+	// now we let our consumer know that they can stop working
+	close(done)
+	wg.Wait()
 }
