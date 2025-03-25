@@ -70,7 +70,6 @@ monitoring-docker-images:
 	docker pull prom/prometheus:latest
 	docker pull grafana/grafana:latest
 	docker pull jaegertracing/all-in-one:latest
-	docker pull otel/opentelemetry-collector:latest
 
 .PHONY: orion-server-images
 orion-server-images:
