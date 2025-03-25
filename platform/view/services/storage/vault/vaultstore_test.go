@@ -12,6 +12,10 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
 	"github.com/test-go/testify/assert"
 	"golang.org/x/exp/slices"
 )
@@ -25,6 +29,133 @@ const (
 	busy
 	unknown
 )
+
+type matrixItem struct {
+	pagination driver.Pagination
+	matcher    []types.GomegaMatcher
+}
+
+var matrix = []matrixItem{
+	{
+		pagination: common.NewNoPagination(),
+		matcher: []types.GomegaMatcher{
+			ConsistOf(
+				HaveField("TxID", Equal("txid1")),
+				HaveField("TxID", Equal("txid2")),
+				HaveField("TxID", Equal("txid10")),
+				HaveField("TxID", Equal("txid12")),
+				HaveField("TxID", Equal("txid21")),
+				HaveField("TxID", Equal("txid100")),
+				HaveField("TxID", Equal("txid200")),
+				HaveField("TxID", Equal("txid1025")),
+			),
+		},
+	},
+	{
+		pagination: NewOffsetPagination(0, 2),
+		matcher: []types.GomegaMatcher{
+			ConsistOf(
+				HaveField("TxID", Equal("txid1")),
+				HaveField("TxID", Equal("txid2")),
+			),
+			ConsistOf(
+				HaveField("TxID", Equal("txid10")),
+				HaveField("TxID", Equal("txid12")),
+			),
+			ConsistOf(
+				HaveField("TxID", Equal("txid21")),
+				HaveField("TxID", Equal("txid100")),
+			),
+			ConsistOf(
+				HaveField("TxID", Equal("txid200")),
+				HaveField("TxID", Equal("txid1025")),
+			),
+		},
+	},
+}
+
+func NewOffsetPagination(offset int, pageSize int) *common.OffsetPagination {
+	offsetPagination, err := common.NewOffsetPagination(offset, pageSize)
+	if err != nil {
+		Expect(err).ToNot(HaveOccurred())
+	}
+	return offsetPagination
+}
+
+func getAllTxStatuses(store driver.VaultStore, pagination driver.Pagination) ([]driver.TxStatus, error) {
+	p, err := store.GetAllTxStatuses(context.Background(), pagination)
+	if err != nil {
+		return nil, err
+	}
+	statuses, err := collections.ReadAll(p.Items)
+	if err != nil {
+		return nil, err
+	}
+	return statuses, nil
+}
+
+func testPagination(t *testing.T, store driver.VaultStore) {
+	RegisterFailHandler(Fail)
+	err := store.SetStatuses(context.Background(), driver.TxStatusCode(valid), "",
+		"txid1", "txid2", "txid10", "txid12", "txid21", "txid100", "txid200", "txid1025")
+	Expect(err).ToNot(HaveOccurred())
+
+	for _, item := range matrix {
+		for page := 0; page < len(item.matcher); page++ {
+			statuses, err := getAllTxStatuses(store, item.pagination)
+			Expect(err).ToNot(HaveOccurred())
+			if len(statuses) == 0 {
+				break
+			}
+			Expect(statuses).To(item.matcher[page])
+			item.pagination, err = item.pagination.Next()
+			Expect(err).ToNot(HaveOccurred())
+		}
+		for page := len(item.matcher) - 1; 0 <= page; page-- {
+			item.pagination, err = item.pagination.Prev()
+			Expect(err).ToNot(HaveOccurred())
+			statuses, err := getAllTxStatuses(store, item.pagination)
+			Expect(err).ToNot(HaveOccurred())
+			if len(statuses) == 0 {
+				break
+			}
+			Expect(statuses).To(item.matcher[page])
+		}
+
+		item.pagination, err = item.pagination.Prev()
+		Expect(err).ToNot(HaveOccurred())
+		statuses, err := getAllTxStatuses(store, item.pagination)
+		Expect(err).ToNot(HaveOccurred())
+		if len(statuses) == 0 {
+			break
+		}
+	}
+}
+
+func TestPaginationStoreMem(t *testing.T) {
+	db, err := OpenMemoryVault()
+	assert.NoError(t, err)
+	assert.NotNil(t, db)
+
+	testPagination(t, db)
+}
+
+func TestPaginationStoreSqlite(t *testing.T) {
+	db, err := OpenSqliteVault("testdb", t.TempDir())
+	assert.NoError(t, err)
+	assert.NotNil(t, db)
+
+	testPagination(t, db)
+}
+
+func TestPaginationStoreSPostgres(t *testing.T) {
+	db, terminate, err := OpenPostgresVault("testdb")
+	assert.NoError(t, err)
+	assert.NotNil(t, db)
+	defer terminate()
+
+	testPagination(t, db)
+}
 
 func TestVaultStoreMem(t *testing.T) {
 	db, err := OpenMemoryVault()
@@ -99,11 +230,11 @@ func testOneMore(t *testing.T, store driver.VaultStore) {
 }
 
 func fetchAll(store driver.VaultStore) ([]driver.TxID, error) {
-	it, err := store.GetAllTxStatuses(context.Background())
+	pageIt, err := store.GetAllTxStatuses(context.Background(), common.NewNoPagination())
 	if err != nil {
 		return nil, err
 	}
-	txStatuses, err := collections.ReadAll(it)
+	txStatuses, err := collections.ReadAll(pageIt.Items)
 	if err != nil {
 		return nil, err
 	}
@@ -155,5 +286,4 @@ func testVaultStore(t *testing.T, store driver.VaultStore) {
 	}
 	assert.Contains(t, txids, "txid21")
 	assert.Contains(t, txids, "txid1025")
-
 }
