@@ -4,11 +4,12 @@ Copyright IBM Corp All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package iou_test
+package newiou_test
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou"
+	iou "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/newiou"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/postgres"
 	. "github.com/onsi/ginkgo/v2"
@@ -63,8 +64,8 @@ type TestSuite struct {
 
 func NewTestSuite(commType fsc.P2PCommunicationType, nodeOpts *integration.ReplicationOptions, tlsEnabled bool) *TestSuite {
 	return &TestSuite{TestSuite: integration.NewTestSuite(func() (*integration.Infrastructure, error) {
-		return integration.Generate(StartPort(), true, iou.Topology(&iou.Opts{
-			SDK:             &iou.SDK{},
+		return integration.Generate(StartPort(), true, newiou.Topology(&iou.Opts{
+			SDK:             &newiou.SDK{},
 			CommType:        commType,
 			ReplicationOpts: nodeOpts,
 			TLSEnabled:      tlsEnabled,

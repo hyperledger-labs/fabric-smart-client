@@ -4,7 +4,7 @@ Copyright IBM Corp All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package iou_test
+package newiou_test
 
 import (
 	"testing"
@@ -16,9 +16,9 @@ import (
 
 func TestEndToEnd(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "IOU Suite")
+	RunSpecs(t, "NewIOU Suite")
 }
 
 func StartPort() int {
-	return integration.IOUPort.StartPortForNode()
+	return integration.NewIOUPort.StartPortForNode()
 }

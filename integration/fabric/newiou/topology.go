@@ -4,26 +4,18 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package iou
+package newiou
 
 import (
-	"github.com/hyperledger-labs/fabric-smart-client/integration"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/monitoring"
-	api2 "github.com/hyperledger-labs/fabric-smart-client/pkg/api"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/tracing"
 )
 
-type Opts struct {
-	SDK             api2.SDK
-	CommType        fsc.P2PCommunicationType
-	ReplicationOpts *integration.ReplicationOptions
-	TLSEnabled      bool
-}
-
-func Topology(opts *Opts) []api.Topology {
+func Topology(opts *iou.Opts) []api.Topology {
 	// Define a Fabric topology with:
 	// 1. Three organization: Org1, Org2, and Org3
 	// 2. A namespace whose changes can be endorsed by Org1.
