@@ -12,9 +12,8 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
-	assert1 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
-	"github.com/onsi/gomega"
+	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	"github.com/test-go/testify/assert"
 	"golang.org/x/exp/slices"
@@ -39,36 +38,36 @@ var matrix = []matrixItem{
 	{
 		pagination: common.NewNoPagination(),
 		matcher: []types.GomegaMatcher{
-			gomega.ConsistOf(
-				gomega.HaveField("TxID", gomega.Equal("txid1")),
-				gomega.HaveField("TxID", gomega.Equal("txid2")),
-				gomega.HaveField("TxID", gomega.Equal("txid10")),
-				gomega.HaveField("TxID", gomega.Equal("txid12")),
-				gomega.HaveField("TxID", gomega.Equal("txid21")),
-				gomega.HaveField("TxID", gomega.Equal("txid100")),
-				gomega.HaveField("TxID", gomega.Equal("txid200")),
-				gomega.HaveField("TxID", gomega.Equal("txid1025")),
+			ConsistOf(
+				HaveField("TxID", Equal("txid1")),
+				HaveField("TxID", Equal("txid2")),
+				HaveField("TxID", Equal("txid10")),
+				HaveField("TxID", Equal("txid12")),
+				HaveField("TxID", Equal("txid21")),
+				HaveField("TxID", Equal("txid100")),
+				HaveField("TxID", Equal("txid200")),
+				HaveField("TxID", Equal("txid1025")),
 			),
 		},
 	},
 	{
 		pagination: NewOffsetPagination(0, 2),
 		matcher: []types.GomegaMatcher{
-			gomega.ConsistOf(
-				gomega.HaveField("TxID", gomega.Equal("txid1")),
-				gomega.HaveField("TxID", gomega.Equal("txid2")),
+			ConsistOf(
+				HaveField("TxID", Equal("txid1")),
+				HaveField("TxID", Equal("txid2")),
 			),
-			gomega.ConsistOf(
-				gomega.HaveField("TxID", gomega.Equal("txid10")),
-				gomega.HaveField("TxID", gomega.Equal("txid12")),
+			ConsistOf(
+				HaveField("TxID", Equal("txid10")),
+				HaveField("TxID", Equal("txid12")),
 			),
-			gomega.ConsistOf(
-				gomega.HaveField("TxID", gomega.Equal("txid21")),
-				gomega.HaveField("TxID", gomega.Equal("txid100")),
+			ConsistOf(
+				HaveField("TxID", Equal("txid21")),
+				HaveField("TxID", Equal("txid100")),
 			),
-			gomega.ConsistOf(
-				gomega.HaveField("TxID", gomega.Equal("txid200")),
-				gomega.HaveField("TxID", gomega.Equal("txid1025")),
+			ConsistOf(
+				HaveField("TxID", Equal("txid200")),
+				HaveField("TxID", Equal("txid1025")),
 			),
 		},
 	},
@@ -77,7 +76,7 @@ var matrix = []matrixItem{
 func NewOffsetPagination(offset int, pageSize int) *common.OffsetPagination {
 	offsetPagination, err := common.NewOffsetPagination(offset, pageSize)
 	if err != nil {
-		assert1.NoError(err)
+		Expect(err).ToNot(HaveOccurred())
 	}
 	return offsetPagination
 }
@@ -95,39 +94,36 @@ func getAllTxStatuses(store driver.VaultStore, pagination driver.Pagination) ([]
 }
 
 func testPagination(t *testing.T, store driver.VaultStore) {
-	g := gomega.NewWithT(t)
+	g := NewWithT(t)
 	err := store.SetStatuses(context.Background(), driver.TxStatusCode(valid), "",
 		"txid1", "txid2", "txid10", "txid12", "txid21", "txid100", "txid200", "txid1025")
-	assert.NoError(t, err)
+	Expect(err).ToNot(HaveOccurred())
 
 	for _, item := range matrix {
-		page := 0
-		for {
+		for page := 0; page < len(item.matcher); page++ {
 			statuses, err := getAllTxStatuses(store, item.pagination)
-			assert.NoError(t, err)
+			Expect(err).ToNot(HaveOccurred())
 			if len(statuses) == 0 {
 				break
 			}
 			g.Expect(statuses).To(item.matcher[page])
 			item.pagination, err = item.pagination.Next()
-			assert.NoError(t, err)
-			page++
+			Expect(err).ToNot(HaveOccurred())
 		}
-		for {
+		for page := len(item.matcher) - 1; 0 <= page; page-- {
 			item.pagination, err = item.pagination.Prev()
-			assert.NoError(t, err)
-			page--
+			Expect(err).ToNot(HaveOccurred())
 			statuses, err := getAllTxStatuses(store, item.pagination)
-			assert.NoError(t, err)
+			Expect(err).ToNot(HaveOccurred())
 			if len(statuses) == 0 {
 				break
 			}
 			g.Expect(statuses).To(item.matcher[page])
 		}
 		item.pagination, err = item.pagination.First()
-		assert.NoError(t, err)
+		Expect(err).ToNot(HaveOccurred())
 		statuses, err := getAllTxStatuses(store, item.pagination)
-		assert.NoError(t, err)
+		Expect(err).ToNot(HaveOccurred())
 		g.Expect(statuses).To(item.matcher[0])
 	}
 }
