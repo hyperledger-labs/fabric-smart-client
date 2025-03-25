@@ -8,8 +8,7 @@ package iouhsm
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
-	cviews "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/views"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou/views"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
@@ -36,30 +35,19 @@ func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType, replicationOpts *
 		// Therefore, the approver is an endorser of the Fabric namespace we defined above.
 		AddOptions(fabric.WithOrganization("Org1"), fabric.WithDefaultIdentityByHSM()).
 		AddOptions(replicationOpts.For("approver")...).
-		RegisterResponder(&views.ApproverView{}, &views.CreateIOUView{}).
-		RegisterResponder(&views.ApproverView{}, &views.UpdateIOUView{}).
-		RegisterViewFactory("finality", &cviews.FinalityViewFactory{})
+		AddSDK(&iou.ApproverSDK{})
 
 	// Add the borrower's FSC node
 	fscTopology.AddNodeByName("borrower").
 		AddOptions(fabric.WithOrganization("Org2"), fabric.WithDefaultIdentityByHSM(), fabric.WithX509IdentityByHSM("borrower-hsm-2")).
 		AddOptions(replicationOpts.For("borrower")...).
-		RegisterViewFactory("create", &views.CreateIOUViewFactory{}).
-		RegisterViewFactory("update", &views.UpdateIOUViewFactory{}).
-		RegisterViewFactory("query", &views.QueryViewFactory{}).
-		RegisterViewFactory("finality", &cviews.FinalityViewFactory{})
+		AddSDK(&iou.BorrowerSDK{})
 
 	// Add the lender's FSC node
 	fscTopology.AddNodeByName("lender").
 		AddOptions(fabric.WithOrganization("Org3"), fabric.WithDefaultIdentityWithLabel("lender")).
 		AddOptions(replicationOpts.For("lender")...).
-		RegisterResponder(&views.CreateIOUResponderView{}, &views.CreateIOUView{}).
-		RegisterResponder(&views.UpdateIOUResponderView{}, &views.UpdateIOUView{}).
-		RegisterViewFactory("query", &views.QueryViewFactory{}).
-		RegisterViewFactory("finality", &cviews.FinalityViewFactory{})
-
-	// Add Fabric SDK to FSC Nodes
-	fscTopology.AddSDK(sdk)
+		AddSDK(&iou.LenderSDK{})
 
 	return []api.Topology{fabricTopology, fscTopology}
 }

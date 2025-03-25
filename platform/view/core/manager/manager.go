@@ -37,8 +37,8 @@ type manager struct {
 
 	commLayer        CommLayer
 	endpointService  driver.EndpointService
-	identityProvider identityProvider
-	sigService       sigService
+	identityProvider driver.IdentityProvider
+	sigService       driver.SigService
 
 	ctx context.Context
 

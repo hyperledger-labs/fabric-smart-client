@@ -11,8 +11,9 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
@@ -26,6 +27,28 @@ type collectEndorsementsView struct {
 }
 
 func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error) {
+	return context.RunView(&CollectEndorsementsView{
+		tx:                c.tx,
+		parties:           c.parties,
+		deleteTransient:   c.deleteTransient,
+		verifierProviders: c.verifierProviders,
+
+		endpointService: driver.GetEndpointService(context),
+		fnsProvider:     utils.MustGet(fabric.GetNetworkServiceProvider(context)),
+	})
+}
+
+type CollectEndorsementsView struct {
+	tx                *Transaction
+	parties           []view.Identity
+	deleteTransient   bool
+	verifierProviders []fabric.VerifierProvider
+
+	endpointService driver.EndpointService
+	fnsProvider     *fabric.NetworkServiceProvider
+}
+
+func (c *CollectEndorsementsView) Call(context view.Context) (interface{}, error) {
 	span := trace.SpanFromContext(context.Context())
 	// Prepare verifiers
 	ch, err := c.tx.FabricNetworkService().Channel(c.tx.Channel())
@@ -123,7 +146,7 @@ func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error
 		}
 
 		found := true
-		fns, err := fabric.GetFabricNetworkService(context, c.tx.Network())
+		fns, err := c.fnsProvider.FabricNetworkService(c.tx.Network())
 		if err != nil {
 			return nil, errors.WithMessagef(err, "fabric network service [%s] not found", c.tx.Network())
 		}
@@ -139,7 +162,7 @@ func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error
 
 			// Check the validity of the response
 			span.AddEvent("Check response validity")
-			if view2.GetEndpointService(context).IsBoundTo(endorser, party) {
+			if c.endpointService.IsBoundTo(endorser, party) {
 				found = true
 			}
 
@@ -182,6 +205,30 @@ func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error
 	return c.tx, nil
 }
 
+func NewCollectEndorsementsViewFactory(
+	endpointService driver.EndpointService,
+	fnsProvider *fabric.NetworkServiceProvider,
+) *CollectEndorsementsViewFactory {
+	return &CollectEndorsementsViewFactory{
+		endpointService: endpointService,
+		fnsProvider:     fnsProvider,
+	}
+}
+
+type CollectEndorsementsViewFactory struct {
+	endpointService driver.EndpointService
+	fnsProvider     *fabric.NetworkServiceProvider
+}
+
+func (f *CollectEndorsementsViewFactory) New(tx *Transaction, parties ...view.Identity) *CollectEndorsementsView {
+	return &CollectEndorsementsView{
+		tx:              tx,
+		parties:         parties,
+		endpointService: f.endpointService,
+		fnsProvider:     f.fnsProvider,
+	}
+}
+
 func (c *collectEndorsementsView) SetVerifierProviders(p []fabric.VerifierProvider) *collectEndorsementsView {
 	c.verifierProviders = p
 	return c
@@ -201,8 +248,24 @@ type endorseView struct {
 }
 
 func (s *endorseView) Call(context view.Context) (interface{}, error) {
+	return context.RunView(&EndorseView{
+		tx:         s.tx,
+		identities: s.identities,
+
+		fnsProvider: utils.MustGet(fabric.GetNetworkServiceProvider(context)),
+	})
+}
+
+type EndorseView struct {
+	tx         *Transaction
+	identities []view.Identity
+
+	fnsProvider *fabric.NetworkServiceProvider
+}
+
+func (s *EndorseView) Call(context view.Context) (interface{}, error) {
 	if len(s.identities) == 0 {
-		fns, err := fabric.GetFabricNetworkService(context, s.tx.Network())
+		fns, err := s.fnsProvider.FabricNetworkService(s.tx.Network())
 		if err != nil {
 			return nil, errors.WithMessagef(err, "fabric network service [%s] not found", s.tx.Network())
 		}
@@ -227,7 +290,7 @@ func (s *endorseView) Call(context view.Context) (interface{}, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "failed marshalling tx")
 	}
-	fns, err := fabric.GetDefaultFNS(context)
+	fns, err := s.fnsProvider.FabricNetworkService(fabric.DefaultNetwork)
 	if err != nil {
 		return nil, errors.WithMessage(err, "failed getting default network")
 	}
@@ -252,6 +315,22 @@ func (s *endorseView) Call(context view.Context) (interface{}, error) {
 	}
 
 	return s.tx, nil
+}
+
+type EndorseViewFactory struct {
+	fnsProvider *fabric.NetworkServiceProvider
+}
+
+func NewEndorseViewFactory(fnsProvider *fabric.NetworkServiceProvider) *EndorseViewFactory {
+	return &EndorseViewFactory{fnsProvider: fnsProvider}
+}
+
+func (f *EndorseViewFactory) New(tx *Transaction, ids ...view.Identity) *EndorseView {
+	return &EndorseView{
+		tx:          tx,
+		identities:  ids,
+		fnsProvider: f.fnsProvider,
+	}
 }
 
 func NewEndorseView(tx *Transaction, ids ...view.Identity) *endorseView {

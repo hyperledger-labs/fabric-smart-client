@@ -55,14 +55,10 @@ func newTransaction(fnsProvider *fabric.NetworkServiceProvider, context view.Con
 	}, nil
 }
 
-func NewAnonymousTransaction(context view.Context) (*Transaction, error) {
-	return newAnonymousTransaction(utils.MustGet(fabric.GetNetworkServiceProvider(context)), context)
-}
-
 // NewAnonymousTransaction returns a new instance of a state-based transaction that embeds a single namespace and is signed
 // by an anonymous identity
-func newAnonymousTransaction(fnsProvider *fabric.NetworkServiceProvider, context view.Context) (*Transaction, error) {
-	fns, err := fnsProvider.FabricNetworkService("")
+func NewAnonymousTransaction(fnsProvider *fabric.NetworkServiceProvider, context view.Context) (*Transaction, error) {
+	fns, err := fnsProvider.FabricNetworkService(fabric.DefaultNetwork)
 	if err != nil {
 		return nil, err
 	}

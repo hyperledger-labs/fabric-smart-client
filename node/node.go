@@ -14,6 +14,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/api"
 	node3 "github.com/hyperledger-labs/fabric-smart-client/pkg/node"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
+	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	sdk "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/spf13/cobra"
@@ -34,12 +36,10 @@ type FabricSmartClient interface {
 	RegisterFactory(id string, factory api.Factory) error
 	RegisterResponder(responder view.View, initiatedBy interface{}) error
 	RegisterResponderWithIdentity(responder view.View, id view.Identity, initiatedBy view.View) error
-
-	// RegisterViewManager injects the ViewManager dependency
-	RegisterViewManager(manager node3.ViewManager)
-
-	// RegisterViewRegistry injects the ViewRegistry dependency
-	RegisterViewRegistry(registry node3.ViewRegistry)
+	ResolveIdentities(endpoints ...string) ([]view.Identity, error)
+	RegisterEndpointService(service driver.EndpointService)
+	RegisterViewManager(manager driver.ViewManager)
+	RegisterViewRegistry(registry *view2.Registry)
 }
 
 type node struct {

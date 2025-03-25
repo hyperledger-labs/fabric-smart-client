@@ -8,8 +8,6 @@ package iou
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
-	cviews "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/views"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
@@ -50,10 +48,7 @@ func Topology(opts *Opts) []api.Topology {
 		// Therefore, the approver is an endorser of the Fabric namespace we defined above.
 		AddOptions(fabric.WithOrganization("Org1")).
 		AddOptions(opts.ReplicationOpts.For("approver1")...).
-		RegisterResponder(&views.ApproverView{}, &views.CreateIOUView{}).
-		RegisterResponder(&views.ApproverView{}, &views.UpdateIOUView{}).
-		RegisterViewFactory("init", &views.ApproverInitViewFactory{}).
-		RegisterViewFactory("finality", &cviews.FinalityViewFactory{})
+		AddSDK(&ApproverSDK{})
 
 	// Add another approver as well
 	fscTopology.AddNodeByName("approver2").
@@ -61,36 +56,24 @@ func Topology(opts *Opts) []api.Topology {
 		// Therefore, the approver is an endorser of the Fabric namespace we defined above.
 		AddOptions(fabric.WithOrganization("Org1")).
 		AddOptions(opts.ReplicationOpts.For("approver2")...).
-		RegisterResponder(&views.ApproverView{}, &views.CreateIOUView{}).
-		RegisterResponder(&views.ApproverView{}, &views.UpdateIOUView{}).
-		RegisterViewFactory("init", &views.ApproverInitViewFactory{}).
-		RegisterViewFactory("finality", &cviews.FinalityViewFactory{})
+		AddSDK(&ApproverSDK{})
 
 	// Add the borrower's FSC node
 	fscTopology.AddNodeByName("borrower").
 		AddOptions(fabric.WithOrganization("Org2")).
 		AddOptions(opts.ReplicationOpts.For("borrower")...).
-		RegisterViewFactory("create", &views.CreateIOUViewFactory{}).
-		RegisterViewFactory("update", &views.UpdateIOUViewFactory{}).
-		RegisterViewFactory("query", &views.QueryViewFactory{}).
-		RegisterViewFactory("finality", &cviews.FinalityViewFactory{})
+		AddSDK(&BorrowerSDK{})
 
 	// Add the lender's FSC node
 	fscTopology.AddNodeByName("lender").
 		AddOptions(fabric.WithOrganization("Org3")).
 		AddOptions(opts.ReplicationOpts.For("lender")...).
-		RegisterResponder(&views.CreateIOUResponderView{}, &views.CreateIOUView{}).
-		RegisterResponder(&views.UpdateIOUResponderView{}, &views.UpdateIOUView{}).
-		RegisterViewFactory("query", &views.QueryViewFactory{}).
-		RegisterViewFactory("finality", &cviews.FinalityViewFactory{})
+		AddSDK(&LenderSDK{})
 
 	// Monitoring
 	monitoringTopology := monitoring.NewTopology()
 	monitoringTopology.EnablePrometheusGrafana()
 	monitoringTopology.EnableOPTL()
-
-	// Add Fabric SDK to FSC Nodes
-	fscTopology.AddSDK(opts.SDK)
 
 	return []api.Topology{
 		fabricTopology,

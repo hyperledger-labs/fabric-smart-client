@@ -17,16 +17,19 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
-type CreateIOUResponderView struct{}
+type CreateIOUResponderView struct {
+	stateView   *state.ViewFactory
+	fnsProvider *fabric.NetworkServiceProvider
+}
 
 func (i *CreateIOUResponderView) Call(context view.Context) (interface{}, error) {
 	// As a first step, the lender responds to the request to exchange recipient identities.
-	lender, borrower, err := state.RespondExchangeRecipientIdentities(context)
+	lender, borrower, err := i.stateView.RespondExchangeRecipientIdentities(context)
 	assert.NoError(err, "failed exchanging recipient identities")
 
 	// When the borrower runs the CollectEndorsementsView, at some point, the borrower sends the assembled transaction
 	// to the lender. Therefore, the lender waits to receive the transaction.
-	tx, err := state.ReceiveTransaction(context)
+	tx, err := i.stateView.ReceiveTransaction(context)
 	assert.NoError(err, "failed receiving transaction")
 
 	// The lender can now inspect the transaction to ensure it is as expected.
@@ -59,19 +62,41 @@ func (i *CreateIOUResponderView) Call(context view.Context) (interface{}, error)
 	}
 
 	// The lender is ready to send back the transaction signed
-	_, err = context.RunView(state.NewEndorseView(tx))
+	_, err = context.RunView(i.stateView.NewEndorseView(tx))
 	assert.NoError(err)
 
 	// Finally, the lender waits that the transaction completes its lifecycle
-	return context.RunView(state.NewFinalityWithTimeoutView(tx, 1*time.Minute))
+	return context.RunView(i.stateView.NewFinalityWithTimeoutView(tx, 1*time.Minute))
 }
 
-type UpdateIOUResponderView struct{}
+func NewCreateIOUResponderViewFactory(
+	stateView *state.ViewFactory,
+	fnsProvider *fabric.NetworkServiceProvider,
+) *CreateIOUResponderViewFactory {
+	return &CreateIOUResponderViewFactory{
+		stateView:   stateView,
+		fnsProvider: fnsProvider,
+	}
+}
+
+type CreateIOUResponderViewFactory struct {
+	stateView   *state.ViewFactory
+	fnsProvider *fabric.NetworkServiceProvider
+}
+
+func (c *CreateIOUResponderViewFactory) NewView([]byte) (view.View, error) {
+	return &CreateIOUResponderView{stateView: c.stateView, fnsProvider: c.fnsProvider}, nil
+}
+
+type UpdateIOUResponderView struct {
+	stateView   *state.ViewFactory
+	fnsProvider *fabric.NetworkServiceProvider
+}
 
 func (i *UpdateIOUResponderView) Call(context view.Context) (interface{}, error) {
 	// When the borrower runs the CollectEndorsementsView, at some point, the borrower sends the assembled transaction
 	// to the lender. Therefore, the lender waits to receive the transaction.
-	tx, err := state.ReceiveTransaction(context)
+	tx, err := i.stateView.ReceiveTransaction(context)
 	assert.NoError(err, "failed receiving transaction")
 
 	// The lender can now inspect the transaction to ensure it is as expected.
@@ -102,7 +127,7 @@ func (i *UpdateIOUResponderView) Call(context view.Context) (interface{}, error)
 		assert.True(inState.Owners().Match(outState.Owners()), "invalid owners, input and output should have the same owners")
 		assert.Equal(2, inState.Owners().Count(), "invalid state, expected 2 identities, was [%d]", inState.Owners().Count())
 		// Is the lender one of the owners?
-		fns, err := fabric.GetDefaultFNS(context)
+		fns, err := i.fnsProvider.FabricNetworkService(fabric.DefaultNetwork)
 		assert.NoError(err)
 		lenderFound := fns.LocalMembership().IsMe(inState.Owners()[0]) != fns.LocalMembership().IsMe(inState.Owners()[1])
 		assert.True(lenderFound, "lender identity not found")
@@ -116,9 +141,31 @@ func (i *UpdateIOUResponderView) Call(context view.Context) (interface{}, error)
 	}
 
 	// The lender is ready to send back the transaction signed
-	_, err = context.RunView(state.NewEndorseView(tx))
+	_, err = context.RunView(i.stateView.NewEndorseView(tx))
 	assert.NoError(err)
 
 	// Finally, the lender waits that the transaction completes its lifecycle
-	return context.RunView(state.NewFinalityWithTimeoutView(tx, 1*time.Minute))
+	return context.RunView(i.stateView.NewFinalityWithTimeoutView(tx, 1*time.Minute))
+}
+
+func NewUpdateIOUResponderViewFactory(
+	stateView *state.ViewFactory,
+	fnsProvider *fabric.NetworkServiceProvider,
+) *UpdateIOUResponderViewFactory {
+	return &UpdateIOUResponderViewFactory{
+		stateView:   stateView,
+		fnsProvider: fnsProvider,
+	}
+}
+
+type UpdateIOUResponderViewFactory struct {
+	stateView   *state.ViewFactory
+	fnsProvider *fabric.NetworkServiceProvider
+}
+
+func (c *UpdateIOUResponderViewFactory) NewView([]byte) (view.View, error) {
+	return &UpdateIOUResponderView{
+		stateView:   c.stateView,
+		fnsProvider: c.fnsProvider,
+	}, nil
 }

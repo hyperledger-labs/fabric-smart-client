@@ -24,18 +24,6 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-type sigService interface {
-	// IsMe returns true if a signer was ever registered for the passed identity
-	IsMe(identity view.Identity) bool
-}
-
-type identityProvider interface {
-	// DefaultIdentity returns the default identity known by this provider
-	DefaultIdentity() view.Identity
-	// Identity returns the identity bound to the passed label
-	Identity(label string) view.Identity
-}
-
 type ctx struct {
 	context        context.Context
 	sp             driver.ServiceProvider
@@ -52,8 +40,8 @@ type ctx struct {
 	sessions           map[string]view.Session
 	errorCallbackFuncs []func()
 
-	identityProvider identityProvider
-	sigService       sigService
+	identityProvider driver.IdentityProvider
+	sigService       driver.SigService
 	tracer           trace.Tracer
 }
 
@@ -67,7 +55,7 @@ func (ctx *ctx) StartSpanFrom(c context.Context, name string, opts ...trace.Span
 	return ctx.tracer.Start(c, name, opts...)
 }
 
-func NewContextForInitiator(contextID string, context context.Context, sp driver.ServiceProvider, sessionFactory SessionFactory, resolver driver.EndpointService, identityProvider identityProvider, sigService sigService, party view.Identity, initiator view.View, tracer trace.Tracer) (*ctx, error) {
+func NewContextForInitiator(contextID string, context context.Context, sp driver.ServiceProvider, sessionFactory SessionFactory, resolver driver.EndpointService, identityProvider driver.IdentityProvider, sigService driver.SigService, party view.Identity, initiator view.View, tracer trace.Tracer) (*ctx, error) {
 	if len(contextID) == 0 {
 		contextID = GenerateUUID()
 	}
@@ -80,7 +68,7 @@ func NewContextForInitiator(contextID string, context context.Context, sp driver
 	return ctx, nil
 }
 
-func NewContext(context context.Context, sp driver.ServiceProvider, contextID string, sessionFactory SessionFactory, resolver driver.EndpointService, identityProvider identityProvider, sigService sigService, party view.Identity, session view.Session, caller view.Identity, tracer trace.Tracer) (*ctx, error) {
+func NewContext(context context.Context, sp driver.ServiceProvider, contextID string, sessionFactory SessionFactory, resolver driver.EndpointService, identityProvider driver.IdentityProvider, sigService driver.SigService, party view.Identity, session view.Session, caller view.Identity, tracer trace.Tracer) (*ctx, error) {
 	ctx := &ctx{
 		context:        context,
 		id:             contextID,

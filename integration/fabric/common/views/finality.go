@@ -31,6 +31,10 @@ func (a *FinalityView) Call(context view.Context) (interface{}, error) {
 	return nil, err
 }
 
+func NewFinalityViewFactory() *FinalityViewFactory {
+	return &FinalityViewFactory{}
+}
+
 type FinalityViewFactory struct{}
 
 func (c *FinalityViewFactory) NewView(in []byte) (view.View, error) {

@@ -23,6 +23,9 @@ var (
 	logger                     = logging.MustGetLogger("fabric-sdk")
 )
 
+const DefaultNetwork = ""
+const DefaultChannel = ""
+
 // NetworkService models a Fabric Network
 type NetworkService struct {
 	subscriber events.Subscriber
@@ -186,7 +189,7 @@ func GetFabricNetworkService(sp view2.ServiceProvider, id string) (*NetworkServi
 
 // GetDefaultFNS returns the default Fabric Network Service
 func GetDefaultFNS(sp view2.ServiceProvider) (*NetworkService, error) {
-	return GetFabricNetworkService(sp, "")
+	return GetFabricNetworkService(sp, DefaultNetwork)
 }
 
 // GetDefaultChannel returns the default channel of the default fns

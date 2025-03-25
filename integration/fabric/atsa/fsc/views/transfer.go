@@ -9,6 +9,7 @@ package views
 import (
 	"encoding/json"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/pkg/errors"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/fsc/states"
@@ -35,7 +36,7 @@ func (f *TransferView) Call(context view.Context) (interface{}, error) {
 	assert.NoError(err, "failed getting recipient identity")
 
 	// Prepare transaction
-	tx, err := state.NewAnonymousTransaction(context)
+	tx, err := state.NewAnonymousTransaction(utils.MustGet(fabric.GetNetworkServiceProvider(context)), context)
 	assert.NoError(err, "failed creating transaction")
 	tx.SetNamespace("asset_transfer")
 

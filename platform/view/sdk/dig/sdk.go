@@ -55,8 +55,9 @@ type SDK struct {
 
 type nodeRegistry interface {
 	node.Registry
-	RegisterViewManager(manager node.ViewManager)
-	RegisterViewRegistry(registry node.ViewRegistry)
+	RegisterEndpointService(service driver.EndpointService)
+	RegisterViewManager(manager driver.ViewManager)
+	RegisterViewRegistry(registry *view.Registry)
 }
 
 func NewSDKFromContainer(c dig2.Container, registry node.Registry) *SDK {
@@ -155,6 +156,7 @@ func (p *SDK) Install() error {
 
 	err = errors.Join(
 		p.Container().Invoke(func(resolverService *endpoint.ResolverService) error { return resolverService.LoadResolvers() }),
+		p.Container().Invoke(func(r nodeRegistry, s driver.EndpointService) { r.RegisterEndpointService(s) }),
 		p.Container().Invoke(func(r nodeRegistry, s driver.ViewManager) { r.RegisterViewManager(s) }),
 		p.Container().Invoke(func(r nodeRegistry, s *view.Registry) { r.RegisterViewRegistry(s) }),
 	)

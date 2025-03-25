@@ -19,12 +19,15 @@ import (
 	"github.com/pkg/errors"
 )
 
-type ApproverView struct{}
+type ApproverView struct {
+	stateView   *state.ViewFactory
+	fnsProvider *fabric.NetworkServiceProvider
+}
 
 func (i *ApproverView) Call(context view.Context) (interface{}, error) {
 	// When the borrower runs the CollectEndorsementsView, at some point, the borrower sends the assembled transaction
 	// to the approver. Therefore, the approver waits to receive the transaction.
-	tx, err := state.ReceiveTransaction(context)
+	tx, err := i.stateView.ReceiveTransaction(context)
 	assert.NoError(err, "failed receiving transaction")
 
 	// The approver can now inspect the transaction to ensure it is as expected.
@@ -72,20 +75,22 @@ func (i *ApproverView) Call(context view.Context) (interface{}, error) {
 	}
 
 	// The approver is ready to send back the transaction signed
-	_, err = context.RunView(state.NewEndorseView(tx))
+	_, err = context.RunView(i.stateView.NewEndorseView(tx))
 	assert.NoError(err)
 
 	// Check committer events
 	var wg sync.WaitGroup
 	wg.Add(1)
-	_, ch, err := fabric.GetDefaultChannel(context)
+	fns, err := i.fnsProvider.FabricNetworkService(fabric.DefaultNetwork)
+	assert.NoError(err)
+	ch, err := fns.Channel(fabric.DefaultChannel)
 	assert.NoError(err)
 	committer := ch.Committer()
 	assert.NoError(err, committer.AddFinalityListener(tx.ID(), NewFinalityListener(tx.ID(), driver.Valid, &wg)), "failed to add committer listener")
 	assert.Error(committer.AddFinalityListener("", NewFinalityListener(tx.ID(), driver.Valid, &wg)), "must have failed")
 
 	// Finally, the approver waits that the transaction completes its lifecycle
-	_, err = context.RunView(state.NewFinalityWithTimeoutView(tx, 1*time.Minute))
+	_, err = context.RunView(i.stateView.NewFinalityWithTimeoutView(tx, 1*time.Minute))
 	assert.NoError(err, "failed to run finality view")
 	wg.Wait()
 
@@ -97,18 +102,49 @@ func (i *ApproverView) Call(context view.Context) (interface{}, error) {
 	return nil, nil
 }
 
-type ApproverInitView struct{}
+type ApproverViewFactory struct {
+	stateView   *state.ViewFactory
+	fnsProvider *fabric.NetworkServiceProvider
+}
 
-func (a *ApproverInitView) Call(context view.Context) (interface{}, error) {
-	_, ch, err := fabric.GetDefaultChannel(context)
+func NewApproverViewFactory(
+	stateView *state.ViewFactory,
+	fnsProvider *fabric.NetworkServiceProvider,
+) *ApproverViewFactory {
+	return &ApproverViewFactory{
+		stateView:   stateView,
+		fnsProvider: fnsProvider,
+	}
+}
+
+func (c *ApproverViewFactory) NewView([]byte) (view.View, error) {
+	return &ApproverView{
+		stateView:   c.stateView,
+		fnsProvider: c.fnsProvider,
+	}, nil
+}
+
+type ApproverInitView struct {
+	fnsProvider *fabric.NetworkServiceProvider
+}
+
+func (a *ApproverInitView) Call(view.Context) (interface{}, error) {
+	fns, err := a.fnsProvider.FabricNetworkService(fabric.DefaultNetwork)
+	assert.NoError(err)
+	ch, err := fns.Channel(fabric.DefaultChannel)
 	assert.NoError(err)
 	assert.NoError(ch.Committer().ProcessNamespace("iou"), "failed to setup namespace to process")
 	return nil, nil
 }
 
-type ApproverInitViewFactory struct{}
+func NewApproverInitViewFactory(fnsProvider *fabric.NetworkServiceProvider) *ApproverInitViewFactory {
+	return &ApproverInitViewFactory{fnsProvider: fnsProvider}
+}
 
-func (c *ApproverInitViewFactory) NewView(in []byte) (view.View, error) {
-	f := &ApproverInitView{}
-	return f, nil
+type ApproverInitViewFactory struct {
+	fnsProvider *fabric.NetworkServiceProvider
+}
+
+func (c *ApproverInitViewFactory) NewView([]byte) (view.View, error) {
+	return &ApproverInitView{fnsProvider: c.fnsProvider}, nil
 }

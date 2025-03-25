@@ -85,7 +85,7 @@ func (cm *ViewProvider) RegisterResponder(responder view.View, initiatedBy inter
 func (cm *ViewProvider) RegisterResponderWithIdentity(responder view.View, id view.Identity, initiatedBy interface{}) error {
 	switch t := initiatedBy.(type) {
 	case view.View:
-		cm.registerResponderWithIdentity(responder, id, GetIdentifier(t))
+		cm.registerResponderWithIdentity(responder, id, cm.GetIdentifier(t))
 	case string:
 		cm.registerResponderWithIdentity(responder, id, t)
 	default:
@@ -98,7 +98,7 @@ func (cm *ViewProvider) GetResponder(initiatedBy interface{}) (view.View, error)
 	var initiatedByID string
 	switch t := initiatedBy.(type) {
 	case view.View:
-		initiatedByID = GetIdentifier(t)
+		initiatedByID = cm.GetIdentifier(t)
 	case string:
 		initiatedByID = t
 	default:

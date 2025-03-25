@@ -35,6 +35,11 @@ func NewRegistry(registry driver.Registry) *Registry {
 	return &Registry{registry: registry}
 }
 
+// GetIdentifier returns the identifier of the passed view
+func (r *Registry) GetIdentifier(f View) string {
+	return r.registry.GetIdentifier(f)
+}
+
 // RegisterFactory binds an id to a View Factory
 func (r *Registry) RegisterFactory(id string, factory Factory) error {
 	return r.registry.RegisterFactory(id, factory)
