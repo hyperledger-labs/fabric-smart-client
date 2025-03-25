@@ -38,7 +38,6 @@ func (p *SDK) Install() error {
 		p.Container().Provide(state.NewExchangeRecipientIdentitiesViewFactory),
 		p.Container().Provide(endorser.NewOrderingAndFinalityViewFactory),
 		p.Container().Provide(state.NewReceiveTransactionViewFactory),
-		p.Container().Provide(state.NewViewFactory),
 	)
 	if err != nil {
 		return err
