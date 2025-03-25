@@ -13,6 +13,7 @@ require (
 	github.com/gin-gonic/gin v1.10.0
 	github.com/go-kit/kit v0.13.0
 	github.com/go-kit/log v0.2.1
+	github.com/go-viper/mapstructure/v2 v2.2.1
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/protobuf v1.5.4
 	github.com/gorilla/mux v1.8.1
@@ -33,7 +34,6 @@ require (
 	github.com/libp2p/go-libp2p-kad-dht v0.25.2
 	github.com/miekg/pkcs11 v1.1.1
 	github.com/miracl/conflate v1.3.4
-	github.com/mitchellh/mapstructure v1.5.0
 	github.com/multiformats/go-multiaddr v0.13.0
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/ginkgo/v2 v2.20.2
@@ -68,6 +68,7 @@ require (
 	github.com/alecthomas/kingpin/v2 v2.4.0 // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/libp2p/go-libp2p-routing-helpers v0.7.4 // indirect
+	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/pion/datachannel v1.5.9 // indirect
 	github.com/pion/dtls/v2 v2.2.12 // indirect
 	github.com/pion/ice/v2 v2.3.36 // indirect
