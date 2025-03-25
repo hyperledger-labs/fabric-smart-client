@@ -12,8 +12,10 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou/states"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou/views"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/endorser"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -35,18 +37,23 @@ type Create struct {
 type CreateIOUView struct {
 	Create
 
-	stateView   *state.ViewFactory
-	fnsProvider *fabric.NetworkServiceProvider
+	collectEndorsementsView         *endorser.CollectEndorsementsViewFactory
+	exchangeRecipientIdentitiesView *state.ExchangeRecipientIdentitiesViewFactory
+	orderingAndFinalityView         *endorser.OrderingAndFinalityViewFactory
+	fnsProvider                     *fabric.NetworkServiceProvider
 }
 
 func (i *CreateIOUView) Call(context view.Context) (interface{}, error) {
 	// As a first step operation, the borrower contacts the lender's FSC node
 	// to exchange the identities to use to assign ownership of the freshly created IOU state.
-	borrower, lender, err := i.stateView.ExchangeRecipientIdentities(context, i.Lender, state.WithIdentity(i.Identity))
+	v, err := i.exchangeRecipientIdentitiesView.New(i.Lender, state.WithIdentity(i.Identity))
+	assert.NoError(err)
+	ids, err := context.RunView(v)
 	assert.NoError(err, "failed exchanging recipient identity")
+	borrower, lender := ids.([]view.Identity)[0], ids.([]view.Identity)[1]
 
 	// The borrower creates a new transaction
-	tx, err := i.stateView.NewTransaction(context)
+	tx, err := state.NewTransactionWithFNSP(i.fnsProvider, context)
 	assert.NoError(err, "failed creating a new transaction")
 
 	// Sets the namespace where the state should be stored
@@ -68,7 +75,7 @@ func (i *CreateIOUView) Call(context view.Context) (interface{}, error) {
 	// The borrower is ready to collect all the required signatures.
 	// Namely from the borrower itself, the lender, and the approver. In this order.
 	// All signatures are required.
-	_, err = context.RunView(i.stateView.NewCollectEndorsementsView(tx, borrower, lender, i.Approver))
+	_, err = context.RunView(i.collectEndorsementsView.New(tx.Transaction, borrower, lender, i.Approver))
 	assert.NoError(err)
 
 	// Check committer events
@@ -79,10 +86,10 @@ func (i *CreateIOUView) Call(context view.Context) (interface{}, error) {
 	ch, err := fns.Channel(fabric.DefaultChannel)
 	assert.NoError(err)
 	committer := ch.Committer()
-	assert.NoError(err, committer.AddFinalityListener(tx.ID(), NewFinalityListener(tx.ID(), driver.Valid, &wg)), "failed to add committer listener")
+	assert.NoError(err, committer.AddFinalityListener(tx.ID(), views.NewFinalityListener(tx.ID(), driver.Valid, &wg)), "failed to add committer listener")
 
 	// At this point the borrower can send the transaction to the ordering service and wait for finality.
-	_, err = context.RunView(i.stateView.NewOrderingAndFinalityWithTimeoutView(tx, 1*time.Minute))
+	_, err = context.RunView(i.orderingAndFinalityView.NewWithTimeout(tx.Transaction, true, 1*time.Minute))
 	assert.NoError(err)
 
 	wg.Wait()
@@ -92,22 +99,33 @@ func (i *CreateIOUView) Call(context view.Context) (interface{}, error) {
 }
 
 func NewCreateIOUViewFactory(
-	stateView *state.ViewFactory,
+	collectEndorsementsView *endorser.CollectEndorsementsViewFactory,
+	exchangeRecipientIdentitiesView *state.ExchangeRecipientIdentitiesViewFactory,
+	orderingAndFinalityView *endorser.OrderingAndFinalityViewFactory,
 	fnsProvider *fabric.NetworkServiceProvider,
 ) *CreateIOUViewFactory {
 	return &CreateIOUViewFactory{
-		stateView:   stateView,
-		fnsProvider: fnsProvider,
+		collectEndorsementsView:         collectEndorsementsView,
+		exchangeRecipientIdentitiesView: exchangeRecipientIdentitiesView,
+		orderingAndFinalityView:         orderingAndFinalityView,
+		fnsProvider:                     fnsProvider,
 	}
 }
 
 type CreateIOUViewFactory struct {
-	stateView   *state.ViewFactory
-	fnsProvider *fabric.NetworkServiceProvider
+	collectEndorsementsView         *endorser.CollectEndorsementsViewFactory
+	exchangeRecipientIdentitiesView *state.ExchangeRecipientIdentitiesViewFactory
+	orderingAndFinalityView         *endorser.OrderingAndFinalityViewFactory
+	fnsProvider                     *fabric.NetworkServiceProvider
 }
 
 func (c *CreateIOUViewFactory) NewView(in []byte) (view.View, error) {
-	f := &CreateIOUView{stateView: c.stateView, fnsProvider: c.fnsProvider}
+	f := &CreateIOUView{
+		collectEndorsementsView:         c.collectEndorsementsView,
+		exchangeRecipientIdentitiesView: c.exchangeRecipientIdentitiesView,
+		orderingAndFinalityView:         c.orderingAndFinalityView,
+		fnsProvider:                     c.fnsProvider,
+	}
 	err := json.Unmarshal(in, &f.Create)
 	assert.NoError(err)
 	return f, nil
@@ -126,13 +144,15 @@ type Update struct {
 type UpdateIOUView struct {
 	Update
 
-	stateView   *state.ViewFactory
-	fnsProvider *fabric.NetworkServiceProvider
+	collectEndorsementsView         *endorser.CollectEndorsementsViewFactory
+	exchangeRecipientIdentitiesView *state.ExchangeRecipientIdentitiesViewFactory
+	orderingAndFinalityView         *endorser.OrderingAndFinalityViewFactory
+	fnsProvider                     *fabric.NetworkServiceProvider
 }
 
 func (u UpdateIOUView) Call(context view.Context) (interface{}, error) {
 	// The borrower starts by creating a new transaction to update the IOU state
-	tx, err := u.stateView.NewTransaction(context)
+	tx, err := state.NewTransactionWithFNSP(u.fnsProvider, context)
 	assert.NoError(err)
 
 	// Sets the namespace where the state is stored
@@ -154,7 +174,7 @@ func (u UpdateIOUView) Call(context view.Context) (interface{}, error) {
 	// The borrower is ready to collect all the required signatures.
 	// Namely from the borrower itself, the lender, and the approver. In this order.
 	// All signatures are required.
-	_, err = context.RunView(u.stateView.NewCollectEndorsementsView(tx, iouState.Owners()[0], iouState.Owners()[1], u.Approver))
+	_, err = context.RunView(u.collectEndorsementsView.New(tx.Transaction, iouState.Owners()[0], iouState.Owners()[1], u.Approver))
 	assert.NoError(err)
 
 	// Check committer events
@@ -165,37 +185,48 @@ func (u UpdateIOUView) Call(context view.Context) (interface{}, error) {
 	ch, err := fns.Channel(fabric.DefaultChannel)
 	assert.NoError(err)
 	committer := ch.Committer()
-	assert.NoError(err, committer.AddFinalityListener(tx.ID(), NewFinalityListener(tx.ID(), driver.Valid, &wg)), "failed to add committer listener")
+	assert.NoError(err, committer.AddFinalityListener(tx.ID(), views.NewFinalityListener(tx.ID(), driver.Valid, &wg)), "failed to add committer listener")
 
 	// At this point the borrower can send the transaction to the ordering service and wait for finality.
-	_, err = context.RunView(u.stateView.NewOrderingAndFinalityWithTimeoutView(tx, 1*time.Minute))
+	_, err = context.RunView(u.orderingAndFinalityView.NewWithTimeout(tx.Transaction, true, 1*time.Minute))
 	assert.NoError(err, "failed ordering and finalizing")
 	wg.Wait()
 
 	wg = sync.WaitGroup{}
 	wg.Add(1)
-	assert.NoError(err, committer.AddFinalityListener(tx.ID(), NewFinalityListener(tx.ID(), driver.Valid, &wg)), "failed to add committer listener")
+	assert.NoError(err, committer.AddFinalityListener(tx.ID(), views.NewFinalityListener(tx.ID(), driver.Valid, &wg)), "failed to add committer listener")
 	wg.Wait()
 
 	return tx.ID(), nil
 }
 
 func NewUpdateIOUViewFactory(
-	stateView *state.ViewFactory,
+	collectEndorsementsView *endorser.CollectEndorsementsViewFactory,
+	exchangeRecipientIdentitiesView *state.ExchangeRecipientIdentitiesViewFactory,
+	orderingAndFinalityView *endorser.OrderingAndFinalityViewFactory,
 	fnsProvider *fabric.NetworkServiceProvider) *UpdateIOUViewFactory {
 	return &UpdateIOUViewFactory{
-		stateView:   stateView,
-		fnsProvider: fnsProvider,
+		collectEndorsementsView:         collectEndorsementsView,
+		exchangeRecipientIdentitiesView: exchangeRecipientIdentitiesView,
+		orderingAndFinalityView:         orderingAndFinalityView,
+		fnsProvider:                     fnsProvider,
 	}
 }
 
 type UpdateIOUViewFactory struct {
-	stateView   *state.ViewFactory
-	fnsProvider *fabric.NetworkServiceProvider
+	collectEndorsementsView         *endorser.CollectEndorsementsViewFactory
+	exchangeRecipientIdentitiesView *state.ExchangeRecipientIdentitiesViewFactory
+	orderingAndFinalityView         *endorser.OrderingAndFinalityViewFactory
+	fnsProvider                     *fabric.NetworkServiceProvider
 }
 
 func (c *UpdateIOUViewFactory) NewView(in []byte) (view.View, error) {
-	f := &UpdateIOUView{stateView: c.stateView, fnsProvider: c.fnsProvider}
+	f := &UpdateIOUView{
+		collectEndorsementsView:         c.collectEndorsementsView,
+		exchangeRecipientIdentitiesView: c.exchangeRecipientIdentitiesView,
+		orderingAndFinalityView:         c.orderingAndFinalityView,
+		fnsProvider:                     c.fnsProvider,
+	}
 	err := json.Unmarshal(in, &f.Update)
 	assert.NoError(err)
 	return f, nil

@@ -11,8 +11,10 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou/states"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou/views"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/endorser"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -20,14 +22,21 @@ import (
 )
 
 type ApproverView struct {
-	stateView   *state.ViewFactory
-	fnsProvider *fabric.NetworkServiceProvider
+	receiveTransactionView *state.ReceiveTransactionViewFactory
+	endorseView            *endorser.EndorseViewFactory
+	finalityView           *endorser.FinalityViewFactory
+	fnsProvider            *fabric.NetworkServiceProvider
 }
 
 func (i *ApproverView) Call(context view.Context) (interface{}, error) {
 	// When the borrower runs the CollectEndorsementsView, at some point, the borrower sends the assembled transaction
 	// to the approver. Therefore, the approver waits to receive the transaction.
-	tx, err := i.stateView.ReceiveTransaction(context)
+	txBoxed, err := context.RunView(i.receiveTransactionView.New(nil), view.WithSameContext())
+	if err != nil {
+		return nil, err
+	}
+
+	tx := txBoxed.(*state.Transaction)
 	assert.NoError(err, "failed receiving transaction")
 
 	// The approver can now inspect the transaction to ensure it is as expected.
@@ -75,7 +84,7 @@ func (i *ApproverView) Call(context view.Context) (interface{}, error) {
 	}
 
 	// The approver is ready to send back the transaction signed
-	_, err = context.RunView(i.stateView.NewEndorseView(tx))
+	_, err = context.RunView(i.endorseView.New(tx.Transaction))
 	assert.NoError(err)
 
 	// Check committer events
@@ -86,41 +95,49 @@ func (i *ApproverView) Call(context view.Context) (interface{}, error) {
 	ch, err := fns.Channel(fabric.DefaultChannel)
 	assert.NoError(err)
 	committer := ch.Committer()
-	assert.NoError(err, committer.AddFinalityListener(tx.ID(), NewFinalityListener(tx.ID(), driver.Valid, &wg)), "failed to add committer listener")
-	assert.Error(committer.AddFinalityListener("", NewFinalityListener(tx.ID(), driver.Valid, &wg)), "must have failed")
+	assert.NoError(err, committer.AddFinalityListener(tx.ID(), views.NewFinalityListener(tx.ID(), driver.Valid, &wg)), "failed to add committer listener")
+	assert.Error(committer.AddFinalityListener("", views.NewFinalityListener(tx.ID(), driver.Valid, &wg)), "must have failed")
 
 	// Finally, the approver waits that the transaction completes its lifecycle
-	_, err = context.RunView(i.stateView.NewFinalityWithTimeoutView(tx, 1*time.Minute))
+	_, err = context.RunView(i.finalityView.NewWithTimeout(tx.Transaction, 1*time.Minute))
 	assert.NoError(err, "failed to run finality view")
 	wg.Wait()
 
 	wg = sync.WaitGroup{}
 	wg.Add(1)
-	assert.NoError(err, committer.AddFinalityListener(tx.ID(), NewFinalityListener(tx.ID(), driver.Valid, &wg)), "failed to add committer listener")
+	assert.NoError(err, committer.AddFinalityListener(tx.ID(), views.NewFinalityListener(tx.ID(), driver.Valid, &wg)), "failed to add committer listener")
 	wg.Wait()
 
 	return nil, nil
 }
 
 type ApproverViewFactory struct {
-	stateView   *state.ViewFactory
-	fnsProvider *fabric.NetworkServiceProvider
+	receiveTransactionView *state.ReceiveTransactionViewFactory
+	endorseView            *endorser.EndorseViewFactory
+	finalityView           *endorser.FinalityViewFactory
+	fnsProvider            *fabric.NetworkServiceProvider
 }
 
 func NewApproverViewFactory(
-	stateView *state.ViewFactory,
+	receiveTransactionView *state.ReceiveTransactionViewFactory,
+	endorseView *endorser.EndorseViewFactory,
+	finalityView *endorser.FinalityViewFactory,
 	fnsProvider *fabric.NetworkServiceProvider,
 ) *ApproverViewFactory {
 	return &ApproverViewFactory{
-		stateView:   stateView,
-		fnsProvider: fnsProvider,
+		receiveTransactionView: receiveTransactionView,
+		endorseView:            endorseView,
+		finalityView:           finalityView,
+		fnsProvider:            fnsProvider,
 	}
 }
 
 func (c *ApproverViewFactory) NewView([]byte) (view.View, error) {
 	return &ApproverView{
-		stateView:   c.stateView,
-		fnsProvider: c.fnsProvider,
+		receiveTransactionView: c.receiveTransactionView,
+		endorseView:            c.endorseView,
+		finalityView:           c.finalityView,
+		fnsProvider:            c.fnsProvider,
 	}, nil
 }
 

@@ -48,7 +48,7 @@ type ViewFactory struct {
 }
 
 func (f *ViewFactory) NewTransaction(context view.Context) (*Transaction, error) {
-	return newTransaction(f.fnsProvider, context)
+	return NewTransactionWithFNSP(f.fnsProvider, context)
 }
 
 func (f *ViewFactory) NewEndorseView(tx *Transaction, ids ...view.Identity) view.View {
