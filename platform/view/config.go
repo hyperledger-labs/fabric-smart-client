@@ -70,7 +70,9 @@ func (c *ConfigService) GetInt(path string) int {
 // GetConfigService returns an instance of the config service.
 // It panics, if no instance is found.
 func GetConfigService(sp ServiceProvider) *ConfigService {
-	return &ConfigService{
-		cp: driver.GetConfigService(sp),
-	}
+	return NewConfigService(driver.GetConfigService(sp))
+}
+
+func NewConfigService(cs driver.ConfigService) *ConfigService {
+	return &ConfigService{cp: cs}
 }

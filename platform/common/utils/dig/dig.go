@@ -13,8 +13,8 @@ import (
 	"reflect"
 	"runtime/debug"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/node"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/registry"
 	"go.uber.org/dig"
 )
 
@@ -34,7 +34,7 @@ func Visualize(c *dig.Container) string {
 
 func Register[T any](c invoker) error {
 	//Temporary workaround for services that are imported still using the registry
-	err := c.Invoke(func(registry node.Registry, service T) error {
+	err := c.Invoke(func(registry *registry.ServiceProvider, service T) error {
 		return registry.RegisterService(service)
 	})
 	if err != nil {
@@ -48,7 +48,7 @@ func RegisterOptional[T any](c invoker) error {
 	//Temporary workaround for services that are imported still using the registry
 	err := c.Invoke(func(in struct {
 		dig.In
-		Registry node.Registry
+		Registry *registry.ServiceProvider
 		Service  T `optional:"true"`
 	}) error {
 		if reflect.ValueOf(in.Service).IsNil() {

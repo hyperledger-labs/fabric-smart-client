@@ -79,7 +79,14 @@ func (p *SDK) Install() error {
 		return err
 	}
 
-	return p.SDK.Install()
+	if err := p.SDK.Install(); err != nil {
+		return err
+	}
+
+	// Backward compatibility with SP
+	return errors.Join(
+		digutils.Register[*fabric.NetworkServiceProvider](p.Container()), // GetFabricNetworkService is used by many components
+	)
 }
 
 func (p *SDK) Start(ctx context.Context) error {

@@ -8,6 +8,4 @@ package api
 
 type ServiceProvider interface {
 	GetService(v interface{}) (interface{}, error)
-
-	RegisterService(service interface{}) error
 }

@@ -10,14 +10,13 @@ import (
 	"context"
 	"encoding/json"
 	"log"
-	"reflect"
 	"runtime/debug"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/api"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/config"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/registry"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
@@ -49,14 +48,12 @@ type ViewManager interface {
 }
 
 type Registry interface {
-	GetService(v interface{}) (interface{}, error)
-
-	RegisterService(service interface{}) error
+	ConfigService() driver.ConfigService
+	RegisterViewManager(manager ViewManager)
+	RegisterViewRegistry(registry ViewRegistry)
 }
 
-type ConfigService interface {
-	GetString(key string) string
-}
+type ConfigService = driver.ConfigService
 
 // PostStart enables a platform to execute additional tasks after all platforms have started
 type PostStart interface {
@@ -64,7 +61,6 @@ type PostStart interface {
 }
 
 type node struct {
-	registry      Registry
 	configService ConfigService
 	sdks          []api.SDK
 	context       context.Context
@@ -80,14 +76,9 @@ func NewEmpty(confPath string) *node {
 	if err != nil {
 		panic(err)
 	}
-	registry := registry.New()
-	if err := registry.RegisterService(configService); err != nil {
-		panic(err)
-	}
 
 	return &node{
 		sdks:          []api.SDK{},
-		registry:      registry,
 		configService: configService,
 		tracer:        noop.NewTracerProvider().Tracer("noop"),
 	}
@@ -193,39 +184,20 @@ func (n *node) RegisterResponderWithIdentity(responder view.View, id view.Identi
 	return n.viewRegistry.RegisterResponderWithIdentity(responder, id, initiatedBy)
 }
 
-// RegisterService To be deprecated
-func (n *node) RegisterService(service interface{}) error {
-	return n.registry.RegisterService(service)
-}
-
-// GetService to be deprecated
-func (n *node) GetService(v interface{}) (interface{}, error) {
-	return n.registry.GetService(v)
-}
-
-func (n *node) Registry() Registry {
-	return n.registry
-}
-
 func (n *node) CallView(fid string, in []byte) (interface{}, error) {
 	ctx, span := n.tracer.Start(context.Background(), "CallView",
 		trace.WithSpanKind(trace.SpanKindClient),
 		tracing.WithAttributes(tracing.String(fidLabel, fid)))
 	defer span.End()
-	s, err := n.GetService(reflect.TypeOf((*ViewManager)(nil)))
-	if err != nil {
-		return nil, err
-	}
-	manager := s.(ViewManager)
 
 	span.AddEvent("start_new_view")
-	f, err := manager.NewView(fid, in)
+	f, err := n.viewManager.NewView(fid, in)
 	span.AddEvent("end_new_view")
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed instantiating view [%s]", fid)
 	}
 	span.AddEvent("start_initiate_view")
-	result, err := manager.InitiateView(f, ctx)
+	result, err := n.viewManager.InitiateView(f, ctx)
 	span.AddEvent("end_initiate_view")
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed running view [%s]", fid)
