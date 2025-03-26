@@ -36,10 +36,10 @@ func Wrap(tx *endorser.Transaction) (*Transaction, error) {
 
 // NewTransaction returns a new instance of a state-based transaction that embeds a single namespace.
 func NewTransaction(context view.Context) (*Transaction, error) {
-	return newTransaction(utils.MustGet(fabric.GetNetworkServiceProvider(context)), context)
+	return NewTransactionWithFNSP(utils.MustGet(fabric.GetNetworkServiceProvider(context)), context)
 }
 
-func newTransaction(fnsProvider *fabric.NetworkServiceProvider, context view.Context) (*Transaction, error) {
+func NewTransactionWithFNSP(fnsProvider *fabric.NetworkServiceProvider, context view.Context) (*Transaction, error) {
 	_, tx, err := endorser.NewTransaction(fnsProvider, context)
 	if err != nil {
 		return nil, err

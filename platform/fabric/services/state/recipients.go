@@ -10,8 +10,10 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	session2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/session"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
@@ -198,6 +200,9 @@ type ExchangeRecipientIdentitiesView struct {
 	Network       string
 	IdentityLabel string
 	Other         view.Identity
+
+	fnsProvider *fabric.NetworkServiceProvider
+	binder      driver.EndpointService
 }
 
 // ExchangeRecipientIdentities runs the ExchangeRecipientIdentitiesView against the passed receiver.
@@ -211,6 +216,9 @@ func ExchangeRecipientIdentities(context view.Context, recipient view.Identity, 
 		Network:       opt.Network,
 		Other:         recipient,
 		IdentityLabel: opt.Identity,
+
+		fnsProvider: utils.MustGet(fabric.GetNetworkServiceProvider(context)),
+		binder:      driver.GetEndpointService(context),
 	})
 	if err != nil {
 		return nil, nil, err
@@ -225,7 +233,7 @@ func (f *ExchangeRecipientIdentitiesView) Call(context view.Context) (interface{
 		return nil, err
 	}
 
-	fns, err := fabric.GetFabricNetworkService(context, f.Network)
+	fns, err := f.fnsProvider.FabricNetworkService(f.Network)
 	if err != nil {
 		return nil, err
 	}
@@ -270,14 +278,13 @@ func (f *ExchangeRecipientIdentitiesView) Call(context view.Context) (interface{
 
 	// Update the Endpoint Resolver
 	logger.Debugf("bind [%s] to other [%s]", recipientData.Identity, f.Other)
-	resolver := view2.GetEndpointService(context)
-	err = resolver.Bind(f.Other, recipientData.Identity)
+	err = f.binder.Bind(f.Other, recipientData.Identity)
 	if err != nil {
 		return nil, err
 	}
 
 	logger.Debugf("bind me [%s] to [%s]", me, context.Me())
-	err = resolver.Bind(context.Me(), me)
+	err = f.binder.Bind(context.Me(), me)
 	if err != nil {
 		return nil, err
 	}
@@ -285,10 +292,44 @@ func (f *ExchangeRecipientIdentitiesView) Call(context view.Context) (interface{
 	return []view.Identity{me, recipientData.Identity}, nil
 }
 
+type ExchangeRecipientIdentitiesViewFactory struct {
+	fnsProvider *fabric.NetworkServiceProvider
+	binder      driver.EndpointService
+}
+
+func NewExchangeRecipientIdentitiesViewFactory(
+	fnsProvider *fabric.NetworkServiceProvider,
+	binder driver.EndpointService,
+) *ExchangeRecipientIdentitiesViewFactory {
+	return &ExchangeRecipientIdentitiesViewFactory{
+		fnsProvider: fnsProvider,
+		binder:      binder,
+	}
+
+}
+
+func (f *ExchangeRecipientIdentitiesViewFactory) New(recipient view.Identity, opts ...ServiceOption) (view.View, error) {
+	opt, err := CompileServiceOptions(opts...)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to compile service options")
+	}
+	return &ExchangeRecipientIdentitiesView{
+		Network:       opt.Network,
+		Other:         recipient,
+		IdentityLabel: opt.Identity,
+
+		fnsProvider: f.fnsProvider,
+		binder:      f.binder,
+	}, nil
+}
+
 // RespondExchangeRecipientIdentitiesView models the view of the responder of an exchange of recipient identities.
 type RespondExchangeRecipientIdentitiesView struct {
 	Network       string
 	IdentityLabel string
+
+	fnsProvider *fabric.NetworkServiceProvider
+	binder      driver.EndpointService
 }
 
 // RespondExchangeRecipientIdentities runs the RespondExchangeRecipientIdentitiesView
@@ -300,6 +341,9 @@ func RespondExchangeRecipientIdentities(context view.Context, opts ...ServiceOpt
 	ids, err := context.RunView(&RespondExchangeRecipientIdentitiesView{
 		Network:       opt.Network,
 		IdentityLabel: opt.Identity,
+
+		fnsProvider: utils.MustGet(fabric.GetNetworkServiceProvider(context)),
+		binder:      driver.GetEndpointService(context),
 	})
 	if err != nil {
 		return nil, nil, err
@@ -320,7 +364,7 @@ func (s *RespondExchangeRecipientIdentitiesView) Call(context view.Context) (int
 		return nil, err
 	}
 
-	fns, err := fabric.GetFabricNetworkService(context, s.Network)
+	fns, err := s.fnsProvider.FabricNetworkService(s.Network)
 	if err != nil {
 		return nil, err
 	}
@@ -352,15 +396,43 @@ func (s *RespondExchangeRecipientIdentitiesView) Call(context view.Context) (int
 	}
 
 	// Update the Endpoint Resolver
-	resolver := view2.GetEndpointService(context)
-	err = resolver.Bind(context.Me(), me)
+	err = s.binder.Bind(context.Me(), me)
 	if err != nil {
 		return nil, err
 	}
-	err = resolver.Bind(session.Info().Caller, other)
+	err = s.binder.Bind(session.Info().Caller, other)
 	if err != nil {
 		return nil, err
 	}
 
 	return []view.Identity{me, other}, nil
+}
+
+type RespondExchangeRecipientIdentitiesViewFactory struct {
+	fnsProvider *fabric.NetworkServiceProvider
+	binder      driver.EndpointService
+}
+
+func NewRespondExchangeRecipientIdentitiesViewFactory(
+	fnsProvider *fabric.NetworkServiceProvider,
+	binder driver.EndpointService,
+) *RespondExchangeRecipientIdentitiesViewFactory {
+	return &RespondExchangeRecipientIdentitiesViewFactory{
+		fnsProvider: fnsProvider,
+		binder:      binder,
+	}
+}
+
+func (f *RespondExchangeRecipientIdentitiesViewFactory) New(opts ...ServiceOption) (*RespondExchangeRecipientIdentitiesView, error) {
+	opt, err := CompileServiceOptions(opts...)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to compile service options")
+	}
+	return &RespondExchangeRecipientIdentitiesView{
+		Network:       opt.Network,
+		IdentityLabel: opt.Identity,
+
+		fnsProvider: f.fnsProvider,
+		binder:      f.binder,
+	}, nil
 }
