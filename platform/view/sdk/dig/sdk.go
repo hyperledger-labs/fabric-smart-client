@@ -40,7 +40,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	metrics2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/operations"
-	registry2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/registry"
 	view3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view/protos"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
@@ -54,9 +53,15 @@ type SDK struct {
 	dig2.SDK
 }
 
-func NewSDKFromContainer(c dig2.Container, registry node.Registry) *SDK {
+type nodeRegistry interface {
+	node.Registry
+	RegisterViewManager(manager node.ViewManager)
+	RegisterViewRegistry(registry node.ViewRegistry)
+}
 
-	return NewSDKFrom(dig2.NewBaseSDK(c, registry.ConfigService()), registry)
+func NewSDKFromContainer(c dig2.Container, registry nodeRegistry) *SDK {
+	configService := view.GetConfigService(registry)
+	return NewSDKFrom(dig2.NewBaseSDK(c, configService), registry)
 }
 
 func NewSDK(registry node.Registry) *SDK {
@@ -67,9 +72,8 @@ func NewSDKFrom(baseSDK dig2.SDK, registry node.Registry) *SDK {
 	sdk := &SDK{SDK: baseSDK}
 	err := errors.Join(
 		sdk.Container().Provide(func() node.Registry { return registry }),
-		sdk.Container().Provide(registry2.New),
-		sdk.Container().Provide(digutils.Identity[*registry2.ServiceProvider](), dig.As(new(driver.ServiceProvider), new(view.ServiceProvider))),
-		sdk.Container().Provide(func() *view.ConfigService { return view.NewConfigService(registry.ConfigService()) }),
+		sdk.Container().Provide(digutils.Identity[node.Registry](), dig.As(new(driver.ServiceProvider), new(nodeRegistry), new(view.ServiceProvider))),
+		sdk.Container().Provide(func() *view.ConfigService { return view.GetConfigService(registry) }),
 		sdk.Container().Provide(digutils.Identity[*view.ConfigService](), dig.As(new(driver.ConfigService), new(id.ConfigProvider), new(endpoint.ConfigService))),
 		sdk.Container().Provide(view.NewRegistry),
 	)
@@ -160,16 +164,12 @@ func (p *SDK) Install() error {
 	if err != nil {
 		return err
 	}
-	err = errors.Join(
-		p.Container().Invoke(func(resolverService *endpoint.ResolverService) error { return resolverService.LoadResolvers() }),
-		p.Container().Invoke(func(r node.Registry, s driver.ViewManager) { r.RegisterViewManager(s) }),
-		p.Container().Invoke(func(r node.Registry, s *view.Registry) { r.RegisterViewRegistry(s) }),
-	)
 
-	if err != nil {
-		return err
-	}
-	return nil
+	return errors.Join(
+		p.Container().Invoke(func(resolverService *endpoint.ResolverService) error { return resolverService.LoadResolvers() }),
+		p.Container().Invoke(func(r nodeRegistry, s driver.ViewManager) { r.RegisterViewManager(s) }),
+		p.Container().Invoke(func(r nodeRegistry, s *view.Registry) { r.RegisterViewRegistry(s) }),
+	)
 }
 
 func (p *SDK) Start(ctx context.Context) error {

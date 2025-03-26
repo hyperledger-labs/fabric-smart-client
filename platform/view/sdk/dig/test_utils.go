@@ -13,6 +13,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/node"
 	dig2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/registry"
 	"go.uber.org/dig"
 )
 
@@ -61,7 +62,11 @@ func DryRunWiringWithContainer[S dig2.SDK](decorator func(sdk dig2.SDK) S, c dig
 		opt(config)
 	}
 
-	viewSDK := NewSDKFrom(dig2.NewBaseSDK(c, config), &mockNodeProvider{config})
+	provider := registry.New()
+	if err := provider.RegisterService(config); err != nil {
+		return err
+	}
+	viewSDK := NewSDKFrom(dig2.NewBaseSDK(c, config), &mockNodeProvider{config, provider})
 	sdk := decorator(viewSDK)
 	if err := sdk.Install(); err != nil {
 		return err
@@ -74,6 +79,7 @@ func DryRunWiringWithContainer[S dig2.SDK](decorator func(sdk dig2.SDK) S, c dig
 
 type mockNodeProvider struct {
 	configService driver.ConfigService
+	*registry.ServiceProvider
 }
 
 func (p *mockNodeProvider) ConfigService() driver.ConfigService    { return p.configService }

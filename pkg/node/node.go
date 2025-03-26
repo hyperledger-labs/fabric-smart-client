@@ -17,6 +17,7 @@ import (
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/registry"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
@@ -47,7 +48,14 @@ type ViewManager interface {
 	Context(contextID string) (view.Context, error)
 }
 
+type serviceRegistry interface {
+	GetService(v interface{}) (interface{}, error)
+
+	RegisterService(service interface{}) error
+}
+
 type Registry interface {
+	serviceRegistry
 	ConfigService() driver.ConfigService
 	RegisterViewManager(manager ViewManager)
 	RegisterViewRegistry(registry ViewRegistry)
@@ -61,6 +69,7 @@ type PostStart interface {
 }
 
 type node struct {
+	registry      serviceRegistry
 	configService ConfigService
 	sdks          []api.SDK
 	context       context.Context
@@ -76,8 +85,13 @@ func NewEmpty(confPath string) *node {
 	if err != nil {
 		panic(err)
 	}
+	registry := registry.New()
+	if err := registry.RegisterService(configService); err != nil {
+		panic(err)
+	}
 
 	return &node{
+		registry:      registry,
 		sdks:          []api.SDK{},
 		configService: configService,
 		tracer:        noop.NewTracerProvider().Tracer("noop"),
@@ -183,6 +197,16 @@ func (n *node) RegisterResponder(responder view.View, initiatedBy interface{}) e
 
 func (n *node) RegisterResponderWithIdentity(responder view.View, id view.Identity, initiatedBy view.View) error {
 	return n.viewRegistry.RegisterResponderWithIdentity(responder, id, initiatedBy)
+}
+
+// RegisterService To be deprecated
+func (n *node) RegisterService(service interface{}) error {
+	return n.registry.RegisterService(service)
+}
+
+// GetService to be deprecated
+func (n *node) GetService(v interface{}) (interface{}, error) {
+	return n.registry.GetService(v)
 }
 
 func (n *node) CallView(fid string, in []byte) (interface{}, error) {
