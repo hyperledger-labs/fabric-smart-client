@@ -154,6 +154,17 @@ func (p *SDK) Install() error {
 	}
 
 	err = errors.Join(
+		digutils.Register[trace.TracerProvider](p.Container()),
+		digutils.Register[driver.EndpointService](p.Container()),
+		digutils.Register[view3.IdentityProvider](p.Container()),
+		digutils.Register[node.ViewManager](p.Container()), // Need to add it as a field in the node
+		digutils.Register[id.SigService](p.Container()),
+	)
+	if err != nil {
+		return err
+	}
+
+	err = errors.Join(
 		p.Container().Invoke(func(resolverService *endpoint.ResolverService) error { return resolverService.LoadResolvers() }),
 		p.Container().Invoke(func(r nodeRegistry, s driver.ViewManager) { r.RegisterViewManager(s) }),
 		p.Container().Invoke(func(r nodeRegistry, s *view.Registry) { r.RegisterViewRegistry(s) }),

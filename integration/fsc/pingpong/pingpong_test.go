@@ -20,6 +20,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/api"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/node"
+	viewsdk "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/web"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -193,7 +194,7 @@ var _ = Describe("EndToEnd", func() {
 func newNode(conf string) api.FabricSmartClientNode {
 	n := node.NewEmpty(conf)
 	Expect(n).NotTo(BeNil())
-	n.AddSDK(pingpong.NewSDK(n))
+	n.AddSDK(viewsdk.NewSDK(n.Registry()))
 	return n
 }
 

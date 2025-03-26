@@ -15,10 +15,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	fabricsdk "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/weaver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/id"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
-	view3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view"
-	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/dig"
 )
 
@@ -46,11 +42,5 @@ func (p *SDK) Install() error {
 
 	return errors.Join(
 		digutils.Register[Provider](p.Container()),
-		digutils.Register[trace.TracerProvider](p.Container()),
-		digutils.Register[driver.EndpointService](p.Container()),
-		digutils.Register[view3.IdentityProvider](p.Container()),
-		digutils.Register[node.ViewManager](p.Container()), // Need to add it as a field in the node
-		digutils.Register[id.SigService](p.Container()),
-		digutils.Register[*fabric.NetworkServiceProvider](p.Container()), // GetFabricNetworkService is used by many components
 	)
 }
