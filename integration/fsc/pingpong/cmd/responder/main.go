@@ -10,19 +10,17 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fsc/pingpong"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fsc/pingpong/mock"
 	fscnode "github.com/hyperledger-labs/fabric-smart-client/node"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
-	registry2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/core/registry"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/registry"
 )
 
 func main() {
 	node := fscnode.New()
 	node.Execute(func() error {
-		registry := view.GetRegistry(node)
-		initiatorID := registry2.GetIdentifier(&pingpong.Initiator{})
-		if err := registry.RegisterResponder(&pingpong.Responder{}, initiatorID); err != nil {
+		initiatorID := registry.GetIdentifier(&pingpong.Initiator{})
+		if err := node.RegisterResponder(&pingpong.Responder{}, initiatorID); err != nil {
 			return err
 		}
-		if err := registry.RegisterResponder(&pingpong.Responder{}, &mock.Initiator{}); err != nil {
+		if err := node.RegisterResponder(&pingpong.Responder{}, &mock.Initiator{}); err != nil {
 			return err
 		}
 		return nil
