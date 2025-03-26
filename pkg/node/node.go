@@ -101,6 +101,7 @@ func (n *node) RegisterViewRegistry(registry ViewRegistry) {
 }
 
 func (n *node) AddSDK(sdk api.SDK) {
+	logger.Infof("Add SDK [%T]", sdk)
 	n.sdks = append(n.sdks, sdk)
 }
 
@@ -119,7 +120,7 @@ func (n *node) Start() (err error) {
 
 	n.running = true
 	// Install
-	logger.Infof("Installing sdks...")
+	logger.Infof("Installing %d sdks...", len(n.sdks))
 	for _, p := range n.sdks {
 		if err := p.Install(); err != nil {
 			logger.Errorf("Failed installing platform [%s]", err)
