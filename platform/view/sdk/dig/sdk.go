@@ -72,7 +72,7 @@ func NewSDKFrom(baseSDK dig2.SDK, registry node.Registry) *SDK {
 	sdk := &SDK{SDK: baseSDK}
 	err := errors.Join(
 		sdk.Container().Provide(func() node.Registry { return registry }),
-		sdk.Container().Provide(digutils.Identity[node.Registry](), dig.As(new(driver.ServiceProvider), new(nodeRegistry), new(view.ServiceProvider))),
+		sdk.Container().Provide(digutils.Identity[node.Registry](), dig.As(new(driver.ServiceProvider), new(nodeRegistry), new(view.ServiceProvider), new(node.ServiceRegisterer))),
 		sdk.Container().Provide(func() *view.ConfigService { return view.GetConfigService(registry) }),
 		sdk.Container().Provide(digutils.Identity[*view.ConfigService](), dig.As(new(driver.ConfigService), new(id.ConfigProvider), new(endpoint.ConfigService))),
 		sdk.Container().Provide(view.NewRegistry),

@@ -48,6 +48,10 @@ type ViewManager interface {
 	Context(contextID string) (view.Context, error)
 }
 
+type ServiceRegisterer interface {
+	RegisterService(service interface{}) error
+}
+
 type serviceRegistry interface {
 	GetService(v interface{}) (interface{}, error)
 
