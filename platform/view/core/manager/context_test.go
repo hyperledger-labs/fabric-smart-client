@@ -16,7 +16,6 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/manager"
 	mock2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/core/manager/mock"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver/mock"
 	registry2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/registry"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -33,21 +32,17 @@ func TestContext(t *testing.T) {
 	registry := registry2.New()
 	idProvider := &mock.IdentityProvider{}
 	idProvider.DefaultIdentityReturns([]byte("alice"))
-	assert.NoError(t, registry.RegisterService(idProvider))
+
 	assert.NoError(t, registry.RegisterService(&mock2.CommLayer{}))
 	resolver := &mock.EndpointService{}
 	resolver.GetIdentityReturns([]byte("bob"), nil)
-	assert.NoError(t, registry.RegisterService(resolver))
 	assert.NoError(t, registry.RegisterService(&mock2.SessionFactory{}))
 	session := &mock.Session{}
-	ctx, err := manager.NewContext(context.TODO(), registry, "pineapple", nil, driver.GetEndpointService(registry), []byte("charlie"), session, []byte("caller"), emptyTracer)
+	ctx, err := manager.NewContext(context.TODO(), registry, "pineapple", nil, resolver, idProvider, nil, []byte("charlie"), session, []byte("caller"), emptyTracer)
 	assert.NoError(t, err)
 
 	// Session
 	assert.Equal(t, session, ctx.Session())
-
-	// GetService
-	assert.NotNil(t, driver.GetEndpointService(ctx))
 
 	// Id
 	assert.Equal(t, "pineapple", ctx.ID())
@@ -68,11 +63,9 @@ func TestContextRace(t *testing.T) {
 	registry := registry2.New()
 	idProvider := &mock.IdentityProvider{}
 	idProvider.DefaultIdentityReturns([]byte("alice"))
-	assert.NoError(t, registry.RegisterService(idProvider))
 	assert.NoError(t, registry.RegisterService(&mock2.CommLayer{}))
 	resolver := &mock.EndpointService{}
 	resolver.GetIdentityReturns([]byte("bob"), nil)
-	assert.NoError(t, registry.RegisterService(resolver))
 	assert.NoError(t, registry.RegisterService(&mock2.SessionFactory{}))
 	defaultSession := &mock.Session{}
 	session := &mock.Session{}
@@ -87,7 +80,7 @@ func TestContextRace(t *testing.T) {
 	sessionFactory := &mock2.SessionFactory{}
 	sessionFactory.NewSessionReturns(session, nil)
 
-	ctx, err := manager.NewContext(context.TODO(), registry, "pineapple", sessionFactory, resolver, []byte("charlie"), defaultSession, []byte("caller"), emptyTracer)
+	ctx, err := manager.NewContext(context.TODO(), registry, "pineapple", sessionFactory, resolver, idProvider, nil, []byte("charlie"), defaultSession, []byte("caller"), emptyTracer)
 	assert.NoError(t, err)
 
 	wg := &sync.WaitGroup{}

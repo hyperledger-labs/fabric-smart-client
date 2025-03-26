@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package endorser
 
 import (
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/pkg/errors"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -20,7 +22,7 @@ func (r *receiveTransactionView) Call(context view.Context) (interface{}, error)
 		return nil, errors.Wrap(err, "failed receiving transaction content")
 	}
 
-	builder := NewBuilder(context)
+	builder := NewBuilder(utils.MustGet(fabric.GetNetworkServiceProvider(context)))
 	tx, err := builder.NewTransactionFromBytes(raw.([]byte))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed reconstructing transaction")

@@ -11,10 +11,9 @@ import (
 	"encoding/json"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/endorser"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
-	driver3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
 )
@@ -28,7 +27,7 @@ type localMembership interface {
 }
 
 type vault struct {
-	sp              driver3.ServiceProvider
+	fnsProvider     *fabric.NetworkServiceProvider
 	network         string
 	channel         string
 	vaultStore      vaultStore
@@ -61,7 +60,7 @@ func (f *vault) GetStateByPartialCompositeID(ctx context.Context, ns driver.Name
 }
 
 func (f *vault) GetStateCertification(ctx context.Context, namespace driver.Namespace, key driver.PKey) ([]byte, error) {
-	_, tx, err := endorser.NewTransactionWith(ctx, f.sp, f.network, f.channel, f.localMembership.DefaultIdentity())
+	_, tx, err := endorser.NewTransactionWith(f.fnsProvider, ctx, f.network, f.channel, f.localMembership.DefaultIdentity())
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed creating transaction [%s:%s]", namespace, key)
 	}
@@ -90,12 +89,11 @@ func (f *vault) GetStateCertification(ctx context.Context, namespace driver.Name
 }
 
 type service struct {
-	sp   driver3.ServiceProvider
-	fnsp driver2.FabricNetworkServiceProvider
+	fnsp *fabric.NetworkServiceProvider
 }
 
-func NewService(sp driver3.ServiceProvider, fnsp driver2.FabricNetworkServiceProvider) *service {
-	return &service{sp: sp, fnsp: fnsp}
+func NewService(fnsp *fabric.NetworkServiceProvider) *service {
+	return &service{fnsp: fnsp}
 }
 
 func (w *service) Vault(network string, channel string) (state.Vault, error) {
@@ -108,10 +106,10 @@ func (w *service) Vault(network string, channel string) (state.Vault, error) {
 		return nil, err
 	}
 	return &vault{
-		sp:              w.sp,
+		fnsProvider:     w.fnsp,
 		network:         fns.Name(),
 		channel:         ch.Name(),
-		vaultStore:      ch.VaultStore(),
+		vaultStore:      ch.Vault().Store(),
 		localMembership: fns.LocalMembership(),
 	}, nil
 }

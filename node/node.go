@@ -27,14 +27,18 @@ type FabricSmartClient interface {
 	Start() error
 	Stop()
 	InstallSDK(p api.SDK) error
-	ConfigService() node3.ConfigService
-	Registry() node3.Registry
 	GetService(v interface{}) (interface{}, error)
 	RegisterService(service interface{}) error
+	ConfigService() node3.ConfigService
 	RegisterFactory(id string, factory api.Factory) error
 	RegisterResponder(responder view.View, initiatedBy interface{}) error
 	RegisterResponderWithIdentity(responder view.View, id view.Identity, initiatedBy view.View) error
-	ResolveIdentities(endpoints ...string) ([]view.Identity, error)
+
+	// RegisterViewManager injects the ViewManager dependency
+	RegisterViewManager(manager node3.ViewManager)
+
+	// RegisterViewRegistry injects the ViewRegistry dependency
+	RegisterViewRegistry(registry node3.ViewRegistry)
 }
 
 type node struct {
@@ -51,7 +55,7 @@ func New() *node {
 
 func NewFromConfPath(confPath string) *node {
 	n := node3.NewEmpty(confPath)
-	n.AddSDK(sdk.NewSDK(n.Registry()))
+	n.AddSDK(sdk.NewSDK(n))
 	return newFromFsc(n)
 }
 
