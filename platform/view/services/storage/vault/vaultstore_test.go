@@ -12,7 +12,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
-	"github.com/test-go/testify/assert"
+	"github.com/stretchr/testify/assert"
 	"golang.org/x/exp/slices"
 )
 
