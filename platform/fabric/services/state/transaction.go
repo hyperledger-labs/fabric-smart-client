@@ -10,6 +10,7 @@ import (
 	"encoding/base64"
 	"time"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/endorser"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
@@ -35,7 +36,11 @@ func Wrap(tx *endorser.Transaction) (*Transaction, error) {
 
 // NewTransaction returns a new instance of a state-based transaction that embeds a single namespace.
 func NewTransaction(context view.Context) (*Transaction, error) {
-	_, tx, err := endorser.NewTransaction(context)
+	return newTransaction(utils.MustGet(fabric.GetNetworkServiceProvider(context)), context)
+}
+
+func newTransaction(fnsProvider *fabric.NetworkServiceProvider, context view.Context) (*Transaction, error) {
+	_, tx, err := endorser.NewTransaction(fnsProvider, context)
 	if err != nil {
 		return nil, err
 	}
@@ -50,10 +55,14 @@ func NewTransaction(context view.Context) (*Transaction, error) {
 	}, nil
 }
 
+func NewAnonymousTransaction(context view.Context) (*Transaction, error) {
+	return newAnonymousTransaction(utils.MustGet(fabric.GetNetworkServiceProvider(context)), context)
+}
+
 // NewAnonymousTransaction returns a new instance of a state-based transaction that embeds a single namespace and is signed
 // by an anonymous identity
-func NewAnonymousTransaction(context view.Context) (*Transaction, error) {
-	fns, err := fabric.GetDefaultFNS(context)
+func newAnonymousTransaction(fnsProvider *fabric.NetworkServiceProvider, context view.Context) (*Transaction, error) {
+	fns, err := fnsProvider.FabricNetworkService("")
 	if err != nil {
 		return nil, err
 	}
@@ -62,6 +71,7 @@ func NewAnonymousTransaction(context view.Context) (*Transaction, error) {
 		return nil, errors.WithMessagef(err, "failed getting anonymous identity")
 	}
 	_, tx, err := endorser.NewTransactionWithSigner(
+		fnsProvider,
 		context,
 		fns.Name(),
 		fns.ConfigService().DefaultChannel(),
@@ -81,8 +91,8 @@ func NewAnonymousTransaction(context view.Context) (*Transaction, error) {
 	}, nil
 }
 
-func NewTransactionFromBytes(context view.Context, raw []byte) (*Transaction, error) {
-	_, tx, err := endorser.NewTransactionFromBytes(context, raw)
+func NewTransactionFromBytes(fnsProvider *fabric.NetworkServiceProvider, context view.Context, raw []byte) (*Transaction, error) {
+	_, tx, err := endorser.NewTransactionFromBytes(fnsProvider, context, raw)
 	if err != nil {
 		return nil, err
 	}
@@ -95,6 +105,13 @@ func NewTransactionFromBytes(context view.Context, raw []byte) (*Transaction, er
 
 type receiveTransactionView struct {
 	party view.Identity
+}
+
+func (f *receiveTransactionView) Call(context view.Context) (interface{}, error) {
+	return context.RunView(&ReceiveTransactionView{
+		party:       f.party,
+		fnsProvider: utils.MustGet(fabric.GetNetworkServiceProvider(context)),
+	})
 }
 
 func NewReceiveTransactionView() *receiveTransactionView {
@@ -127,7 +144,13 @@ func ReceiveTransactionFrom(context view.Context, party view.Identity) (*Transac
 	return cctx, nil
 }
 
-func (f *receiveTransactionView) Call(context view.Context) (interface{}, error) {
+type ReceiveTransactionView struct {
+	party view.Identity
+
+	fnsProvider *fabric.NetworkServiceProvider
+}
+
+func (f *ReceiveTransactionView) Call(context view.Context) (interface{}, error) {
 	// Wait to receive a transaction back
 	var ch <-chan *view.Message
 	if f.party.IsNone() {
@@ -148,13 +171,28 @@ func (f *receiveTransactionView) Call(context view.Context) (interface{}, error)
 		if msg.Status == view.ERROR {
 			return nil, errors.New(string(msg.Payload))
 		}
-		tx, err := NewTransactionFromBytes(context, msg.Payload)
+		tx, err := NewTransactionFromBytes(f.fnsProvider, context, msg.Payload)
 		if err != nil {
 			return nil, err
 		}
 		return tx, nil
 	case <-timeout.C:
 		return nil, errors.New("timeout reached")
+	}
+}
+
+type ReceiveTransactionViewFactory struct {
+	fnsProvider *fabric.NetworkServiceProvider
+}
+
+func NewReceiveTransactionViewFactory(fnsProvider *fabric.NetworkServiceProvider) *ReceiveTransactionViewFactory {
+	return &ReceiveTransactionViewFactory{fnsProvider: fnsProvider}
+}
+
+func (f *ReceiveTransactionViewFactory) New(party view.Identity) *ReceiveTransactionView {
+	return &ReceiveTransactionView{
+		party:       party,
+		fnsProvider: f.fnsProvider,
 	}
 }
 
