@@ -49,8 +49,13 @@ type ViewManager interface {
 }
 
 type Registry interface {
-	GetService(v interface{}) (interface{}, error)
+	serviceRegistry
+	RegisterViewManager(manager ViewManager)
+	RegisterViewRegistry(registry ViewRegistry)
+}
 
+type serviceRegistry interface {
+	GetService(v interface{}) (interface{}, error)
 	RegisterService(service interface{}) error
 }
 
@@ -64,7 +69,7 @@ type PostStart interface {
 }
 
 type node struct {
-	registry      Registry
+	registry      serviceRegistry
 	configService ConfigService
 	sdks          []api.SDK
 	context       context.Context
@@ -201,10 +206,6 @@ func (n *node) RegisterService(service interface{}) error {
 // GetService to be deprecated
 func (n *node) GetService(v interface{}) (interface{}, error) {
 	return n.registry.GetService(v)
-}
-
-func (n *node) Registry() Registry {
-	return n.registry
 }
 
 func (n *node) CallView(fid string, in []byte) (interface{}, error) {
