@@ -29,13 +29,12 @@ func main() {
 	{{ end }}
 	n.Execute(func() error {
 		{{- if InstallView }}
-		registry := viewregistry.GetRegistry(n)
 		{{- range .Factories }}
-		if err := registry.RegisterFactory("{{ .Id }}", {{ .Type }}); err != nil {
+		if err := n.RegisterFactory("{{ .Id }}", {{ .Type }}); err != nil {
 			return err
 		}{{ end }}
 		{{- range .Responders }}
-		registry.RegisterResponder({{ .Responder }}, {{ .Initiator }}){{ end }}
+		n.RegisterResponder({{ .Responder }}, {{ .Initiator }}){{ end }}
 		{{ end }}
 		return nil
 	})
