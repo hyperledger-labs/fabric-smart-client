@@ -33,7 +33,7 @@ type ConfigService interface {
 type Service struct {
 	HostProvider    host.GeneratorProvider
 	EndpointService EndpointService
-	ConfigService   ConfigService
+	config          *Config
 
 	Node            *P2PNode
 	NodeSync        sync.RWMutex
@@ -41,15 +41,31 @@ type Service struct {
 	metricsProvider metrics.Provider
 }
 
+type Config struct {
+	ListenAddress string
+	BootstrapNode string
+	KeyFile       string
+	CertFile      string
+}
+
 func NewService(hostProvider host.GeneratorProvider, endpointService EndpointService, configService ConfigService, tracerProvider trace.TracerProvider, metricsProvider metrics.Provider) (*Service, error) {
-	s := &Service{
+	config := &Config{
+		ListenAddress: configService.GetString("fsc.p2p.listenAddress"),
+		BootstrapNode: configService.GetString("fsc.p2p.opts.bootstrapNode"),
+		KeyFile:       configService.GetPath("fsc.identity.key.file"),
+		CertFile:      configService.GetPath("fsc.identity.cert.file"),
+	}
+	return newService(hostProvider, endpointService, config, tracerProvider, metricsProvider), nil
+}
+
+func newService(hostProvider host.GeneratorProvider, endpointService EndpointService, config *Config, tracerProvider trace.TracerProvider, metricsProvider metrics.Provider) *Service {
+	return &Service{
 		HostProvider:    hostProvider,
 		EndpointService: endpointService,
-		ConfigService:   configService,
+		config:          config,
 		tracerProvider:  tracerProvider,
 		metricsProvider: metricsProvider,
 	}
-	return s, nil
 }
 
 func (s *Service) Start(ctx context.Context) {
@@ -123,10 +139,10 @@ func (s *Service) init() error {
 		return nil
 	}
 
-	p2pListenAddress := s.ConfigService.GetString("fsc.p2p.listenAddress")
-	p2pBootstrapNode := s.ConfigService.GetString("fsc.p2p.opts.bootstrapNode")
-	keyFile := s.ConfigService.GetPath("fsc.identity.key.file")
-	certFile := s.ConfigService.GetPath("fsc.identity.cert.file")
+	p2pListenAddress := s.config.ListenAddress
+	p2pBootstrapNode := s.config.BootstrapNode
+	keyFile := s.config.KeyFile
+	certFile := s.config.CertFile
 
 	if len(p2pBootstrapNode) == 0 {
 		// this is a bootstrap node
