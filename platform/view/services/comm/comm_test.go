@@ -16,14 +16,12 @@ import (
 
 	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/endpoint"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/rest"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/rest/routing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/rest/websocket"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	. "github.com/onsi/gomega"
 	"go.opentelemetry.io/otel/trace/noop"
 )
@@ -109,13 +107,4 @@ func newWebsocketCommService(addresses *routing.StaticIDRouter, config *Config) 
 	hostProvider := rest.NewEndpointBasedProvider(pkiExtractor, discovery, noop.NewTracerProvider(), websocket.NewMultiplexedProvider(noop.NewTracerProvider(), &disabled.Provider{}))
 
 	return newService(hostProvider, nil, config, noop.NewTracerProvider(), &disabled.Provider{})
-}
-
-type noopEndpointService struct{}
-
-func (s *noopEndpointService) Resolve(party view2.Identity) (view2.Identity, map[view.PortName]string, []byte, error) {
-	return nil, nil, nil, nil
-}
-func (s *noopEndpointService) GetIdentity(label string, pkID []byte) (view2.Identity, error) {
-	return nil, nil
 }
