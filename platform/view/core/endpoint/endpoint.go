@@ -9,7 +9,6 @@ package endpoint
 import (
 	"bytes"
 	"net"
-	"reflect"
 	"strings"
 	"sync"
 
@@ -19,7 +18,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
-	"go.uber.org/zap/zapcore"
 	"golang.org/x/exp/slices"
 )
 
@@ -69,17 +67,14 @@ type Service struct {
 	resolversMutex sync.RWMutex
 	bindingKVS     driver2.BindingStore
 
-	pkiExtractorsLock      sync.RWMutex
-	publicKeyExtractors    []driver.PublicKeyExtractor
-	publicKeyIDSynthesizer driver.PublicKeyIDSynthesizer
+	pkiExtractor *PKIExtractor
 }
 
 // NewService returns a new instance of the view-sdk endpoint service
 func NewService(bindingKVS driver2.BindingStore) (*Service, error) {
 	er := &Service{
-		bindingKVS:             bindingKVS,
-		publicKeyExtractors:    []driver.PublicKeyExtractor{},
-		publicKeyIDSynthesizer: DefaultPublicKeyIDSynthesizer{},
+		bindingKVS:   bindingKVS,
+		pkiExtractor: NewPKIExtractor(),
 	}
 	return er, nil
 }
@@ -89,7 +84,7 @@ func (r *Service) Resolve(party view.Identity) (driver.Resolver, []byte, error) 
 	if err != nil {
 		return nil, nil, err
 	}
-	return resolver, r.pkiResolve(resolver), nil
+	return resolver, r.pkiExtractor.PkiResolve(resolver), nil
 }
 
 func (r *Service) GetResolver(party view.Identity) (driver.Resolver, error) {
@@ -161,7 +156,7 @@ func (r *Service) matchesResolver(endpoint string, pkID []byte, resolver *Resolv
 	}
 
 	return len(pkID) > 0 && (bytes.Equal(pkID, resolver.Id) ||
-		bytes.Equal(pkID, r.pkiResolve(resolver)))
+		bytes.Equal(pkID, r.pkiExtractor.PkiResolve(resolver)))
 }
 
 func (r *Service) AddResolver(name string, domain string, addresses map[string]string, aliases []string, id []byte) (view.Identity, error) {
@@ -203,54 +198,15 @@ func (r *Service) AddResolver(name string, domain string, addresses map[string]s
 }
 
 func (r *Service) AddPublicKeyExtractor(publicKeyExtractor driver.PublicKeyExtractor) error {
-	r.pkiExtractorsLock.Lock()
-	defer r.pkiExtractorsLock.Unlock()
-
-	if publicKeyExtractor == nil {
-		return errors.New("pki resolver should not be nil")
-	}
-	r.publicKeyExtractors = append(r.publicKeyExtractors, publicKeyExtractor)
-	return nil
+	return r.pkiExtractor.AddPublicKeyExtractor(publicKeyExtractor)
 }
 
 func (r *Service) SetPublicKeyIDSynthesizer(publicKeyIDSynthesizer driver.PublicKeyIDSynthesizer) {
-	r.publicKeyIDSynthesizer = publicKeyIDSynthesizer
-}
-
-func (r *Service) pkiResolve(resolver *Resolver) []byte {
-	resolver.PKILock.RLock()
-	if len(resolver.PKI) != 0 {
-		resolver.PKILock.RUnlock()
-		return resolver.PKI
-	}
-	resolver.PKILock.RUnlock()
-
-	resolver.PKILock.Lock()
-	defer resolver.PKILock.Unlock()
-	if len(resolver.PKI) == 0 {
-		resolver.PKI = r.ExtractPKI(resolver.Id)
-	}
-	return resolver.PKI
+	r.pkiExtractor.SetPublicKeyIDSynthesizer(publicKeyIDSynthesizer)
 }
 
 func (r *Service) ExtractPKI(id []byte) []byte {
-	r.pkiExtractorsLock.RLock()
-	defer r.pkiExtractorsLock.RUnlock()
-
-	for _, extractor := range r.publicKeyExtractors {
-		if pk, err := extractor.ExtractPublicKey(id); pk != nil {
-			if logger.IsEnabledFor(zapcore.DebugLevel) {
-				logger.Debugf("pki resolved for [%s]", id)
-			}
-			return r.publicKeyIDSynthesizer.PublicKeyID(pk)
-		} else {
-			if logger.IsEnabledFor(zapcore.DebugLevel) {
-				logger.Debugf("pki not resolved by [%s] for [%s]: [%s]", getIdentifier(extractor), id, err)
-			}
-		}
-	}
-	logger.Warnf("cannot resolve pki for [%s]", id)
-	return nil
+	return r.pkiExtractor.ExtractPKI(id)
 }
 
 func (r *Service) rootEndpoint(party view.Identity) (*Resolver, error) {
@@ -295,15 +251,4 @@ func LookupIPv4(endpoint string) string {
 	}
 	port := s[1]
 	return net.JoinHostPort(addrS, port)
-}
-
-func getIdentifier(f any) string {
-	if f == nil {
-		return "<nil view>"
-	}
-	t := reflect.TypeOf(f)
-	for t.Kind() == reflect.Ptr {
-		t = t.Elem()
-	}
-	return t.PkgPath() + "/" + t.Name()
 }
