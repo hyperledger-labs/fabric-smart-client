@@ -9,7 +9,7 @@ package state
 import (
 	"testing"
 
-	"github.com/test-go/testify/assert"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
