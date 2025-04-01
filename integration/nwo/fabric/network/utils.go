@@ -47,7 +47,7 @@ func findCmdAtEnv(cmd string) string {
 	return cmdPath
 }
 
-// findCMD returns the full path of cmd. It first tries to find the cmd at the path specified via FabricBinsPathEnvKey;
+// findOrBuild returns the full path of cmd. It first tries to find the cmd at the path specified via FabricBinsPathEnvKey;
 // otherwise the builder function is used.
 func findOrBuild(cmd string, builder func() string) string {
 	cmdPath := findCmdAtEnv(cmd)
