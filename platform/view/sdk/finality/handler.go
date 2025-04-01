@@ -15,10 +15,6 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-type Registry interface {
-	RegisterService(service interface{}) error
-}
-
 type Server interface {
 	RegisterProcessor(typ reflect.Type, p view2.Processor)
 }
