@@ -46,9 +46,8 @@ func (p *NoPagination) Next() (driver.Pagination, error) {
 }
 
 type OffsetPagination struct {
-	offset      int
-	pageSize    int
-	pageInRange bool
+	offset   int
+	pageSize int
 }
 
 func NewOffsetPagination(offset int, pageSize int) (*OffsetPagination, error) {
@@ -58,7 +57,7 @@ func NewOffsetPagination(offset int, pageSize int) (*OffsetPagination, error) {
 	if pageSize < 0 {
 		return nil, fmt.Errorf("page size shoud be grater than zero. pageSize: %d", pageSize)
 	}
-	return &OffsetPagination{offset: offset, pageSize: pageSize, pageInRange: true}, nil
+	return &OffsetPagination{offset: offset, pageSize: pageSize}, nil
 }
 
 func (p *OffsetPagination) GoToOffset(offset int) (driver.Pagination, error) {
