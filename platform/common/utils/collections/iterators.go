@@ -72,7 +72,9 @@ func ReadFirst[T any](it Iterator[*T], limit int) ([]T, error) {
 
 func ReadLast[T any](it Iterator[*T]) (*T, error) {
 	var last *T
-	for item, err := it.Next(); item != nil || err != nil; item, err = it.Next() {
+	// create a copy of it so not to ruin it
+	it2 := it
+	for item, err := it2.Next(); item != nil || err != nil; item, err = it2.Next() {
 		if err != nil {
 			return nil, err
 		}
