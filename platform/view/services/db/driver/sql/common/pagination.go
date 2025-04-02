@@ -88,9 +88,8 @@ func (p *OffsetPagination) Prev() (driver.Pagination, error) { return p.GoBack(1
 func (p *OffsetPagination) Next() (driver.Pagination, error) { return p.GoForward(1) }
 
 type KeysetPagination struct {
-	offset      int
-	pageSize    int
-	pageInRange bool
+	offset   int
+	pageSize int
 	// name of the field in the database that is a unique id of the records
 	idFieldName string
 	// the last id value read and the offset in which it was read
@@ -108,7 +107,6 @@ func NewKeysetPagination(offset int, pageSize int, idFieldName string) (*KeysetP
 	return &KeysetPagination{
 		offset:      offset,
 		pageSize:    pageSize,
-		pageInRange: true,
 		idFieldName: idFieldName,
 		lastId:      "",
 		lastOffset:  -1,
@@ -122,7 +120,6 @@ func (p *KeysetPagination) GoToOffset(offset int) (driver.Pagination, error) {
 	return &KeysetPagination{
 		offset:      offset,
 		pageSize:    p.pageSize,
-		pageInRange: true,
 		idFieldName: p.idFieldName,
 		lastId:      p.lastId,
 		lastOffset:  p.lastOffset,
