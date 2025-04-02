@@ -8,8 +8,10 @@ package common
 
 import (
 	"fmt"
+	"reflect"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/pkg/errors"
 )
 
@@ -101,9 +103,42 @@ func (i *paginationInterpreter) Interpret(p driver.Pagination) (string, error) {
 		return "", nil
 	case *OffsetPagination:
 		return fmt.Sprintf("LIMIT %d OFFSET %d", pagination.pageSize, pagination.offset), nil
+	case *KeysetPagination:
+		// TODO: add OrderBy?
+		if (pagination.lastOffset != -1) && (pagination.offset == pagination.lastOffset+pagination.pageSize) {
+			return fmt.Sprintf("WHERE %s>%s LIMIT %d", pagination.idFieldName, pagination.lastId, pagination.pageSize), nil
+		}
+		return fmt.Sprintf("LIMIT %d OFFSET %d", pagination.pageSize, pagination.offset), nil
 	case *EmptyPagination:
 		return "LIMIT 0 OFFSET 0", nil
 	default:
 		return "", errors.Errorf("invalid pagination option %+v", pagination)
+	}
+}
+
+type PaginationUpdater[R comparable] interface {
+	Update(recs driver.PageIterator[R]) driver.PageIterator[R]
+}
+
+type paginationUpdater[R comparable] struct{}
+
+func NewPaginationUpdater[R comparable]() *paginationUpdater[R] {
+	return &paginationUpdater[R]{}
+}
+
+func (i *paginationUpdater[R]) Update(recs *driver.PageIterator[*R]) (*driver.PageIterator[*R], error) {
+	switch page := recs.Pagination.(type) {
+	case *KeysetPagination:
+		items := recs.Items
+		record, err := collections.ReadLast(items)
+		if record == nil || err != nil {
+			return nil, nil
+		}
+		refRec := reflect.ValueOf(*record)
+		id := refRec.FieldByName(page.idFieldName)
+		page.UpdateId(id.String())
+		return (&driver.PageIterator[*R]{Items: recs.Items, Pagination: page}), nil
+	default:
+		return (&driver.PageIterator[*R]{Items: recs.Items, Pagination: recs.Pagination}), nil
 	}
 }
