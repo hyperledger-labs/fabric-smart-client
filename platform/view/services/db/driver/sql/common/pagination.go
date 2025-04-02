@@ -35,17 +35,10 @@ func (p *EmptyPagination) Next() (driver.Pagination, error) {
 type NoPagination struct {
 }
 
-func NewNoPagination() *NoPagination {
-	return &NoPagination{}
-}
-
-func (p *NoPagination) Prev() (driver.Pagination, error) {
-	return NewEmptyPagination(), nil
-}
-
-func (p *NoPagination) Next() (driver.Pagination, error) {
-	return NewEmptyPagination(), nil
-}
+func (p *NoPagination) Prev() driver.Pagination  { return nil }
+func (p *NoPagination) Next() driver.Pagination  { return nil }
+func (p *NoPagination) Last() driver.Pagination  { return nil }
+func (p *NoPagination) First() driver.Pagination { return nil }
 
 type OffsetPagination struct {
 	offset   int
@@ -56,15 +49,24 @@ func NewOffsetPagination(offset int, pageSize int) (*OffsetPagination, error) {
 	if offset < 0 {
 		return nil, fmt.Errorf("offset shoud be grater than zero. Offset: %d", offset)
 	}
-	if pageSize < 0 {
-		return nil, fmt.Errorf("page size shoud be grater than zero. pageSize: %d", pageSize)
+}
+func (p *OffsetPagination) GoBack(numOfpages int) driver.Pagination {
+	if (p.Offset - p.PageSize) < 0 {
+		return nil // TBD will be addressed when we will add order by feature
+	}
+	return &OffsetPagination{
+		Offset:   p.Offset - p.PageSize,
+		PageSize: p.PageSize,
 	}
 	return &OffsetPagination{offset: offset, pageSize: pageSize}, nil
 }
 
-func (p *OffsetPagination) GoToOffset(offset int) (driver.Pagination, error) {
-	if offset < 0 {
-		return NewEmptyPagination(), nil
+func (p *OffsetPagination) GoForward(pages int) driver.Pagination {
+	// TBD we need to address the case when we go fowroward more than the table size,
+	// this case will be addressed when we will add order by feature
+	return &OffsetPagination{
+		Offset:   p.Offset + p.PageSize,
+		PageSize: p.PageSize,
 	}
 	return &OffsetPagination{
 		offset:   offset,
@@ -72,81 +74,11 @@ func (p *OffsetPagination) GoToOffset(offset int) (driver.Pagination, error) {
 	}, nil
 }
 
-func (p *OffsetPagination) GoToPage(pageNum int) (driver.Pagination, error) {
-	return p.GoToOffset(pageNum * p.pageSize)
-}
-
-func (p *OffsetPagination) GoForward(numOfpages int) (driver.Pagination, error) {
-	return p.GoToOffset(p.offset + (numOfpages * p.pageSize))
-}
-
-func (p *OffsetPagination) GoBack(numOfpages int) (driver.Pagination, error) {
-	return (p.GoForward(-1 * numOfpages))
-}
-
-func (p *OffsetPagination) Prev() (driver.Pagination, error) { return p.GoBack(1) }
-func (p *OffsetPagination) Next() (driver.Pagination, error) { return p.GoForward(1) }
-
-type KeysetPagination struct {
-	offset      int
-	pageSize    int
-	pageInRange bool
-	// name of the field in the database that is a unique id of the records
-	idFieldName string
-	// the last id value read and the offset in which it was read
-	lastId     string // TODO: should this be int?
-	lastOffset int
-}
-
-func NewKeysetPagination(offset int, pageSize int, idFieldName string) (*KeysetPagination, error) {
-	if offset < 0 {
-		return nil, fmt.Errorf("offset shoud be grater than zero. Offset: %d", offset)
-	}
-	if pageSize < 0 {
-		return nil, fmt.Errorf("page size shoud be grater than zero. pageSize: %d", pageSize)
-	}
-	return &KeysetPagination{
-		offset:      offset,
-		pageSize:    pageSize,
-		pageInRange: true,
-		idFieldName: idFieldName,
-		lastId:      "",
-		lastOffset:  -1,
-	}, nil
-}
-
-func (p *KeysetPagination) GoToOffset(offset int) (driver.Pagination, error) {
-	if offset < 0 {
-		return NewEmptyPagination(), nil
-	}
-	return &KeysetPagination{
-		offset:      offset,
-		pageSize:    p.pageSize,
-		pageInRange: true,
-		idFieldName: p.idFieldName,
-		lastId:      p.lastId,
-		lastOffset:  p.lastOffset,
-	}, nil
-}
-
-func (p *KeysetPagination) GoToPage(pageNum int) (driver.Pagination, error) {
-	return p.GoToOffset(pageNum * p.pageSize)
-}
-
-func (p *KeysetPagination) GoForward(numOfpages int) (driver.Pagination, error) {
-	return p.GoToOffset(p.offset + (numOfpages * p.pageSize))
-}
-
-func (p *KeysetPagination) GoBack(numOfpages int) (driver.Pagination, error) {
-	return (p.GoForward(-1 * numOfpages))
-}
-
-func (p *KeysetPagination) Prev() (driver.Pagination, error) { return p.GoBack(1) }
-func (p *KeysetPagination) Next() (driver.Pagination, error) { return p.GoForward(1) }
-func (p *KeysetPagination) UpdateId(id string) {
-	p.lastId = id
-	p.lastOffset = p.offset
-}
+/* TBD Last, Prev, and Next will be addressed when we will add order by feature*/
+func (p *OffsetPagination) Prev() driver.Pagination  { return p.GoBack(1) }
+func (p *OffsetPagination) Next() driver.Pagination  { return p.GoForward(1) }
+func (p *OffsetPagination) Last() driver.Pagination  { return nil }
+func (p *OffsetPagination) First() driver.Pagination { return p.GoToPage(0) }
 
 func NewPaginationInterpreter() *paginationInterpreter {
 	return &paginationInterpreter{}
@@ -163,7 +95,7 @@ func (i *paginationInterpreter) Interpret(p driver.Pagination) (string, error) {
 	case *NoPagination:
 		return "", nil
 	case *OffsetPagination:
-
+		// TBD need to add order by feature
 		return fmt.Sprintf("LIMIT %d OFFSET %d", pagination.pageSize, pagination.offset), nil
 	case *KeysetPagination:
 		// TODO: add OrderBy?

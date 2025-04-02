@@ -260,17 +260,34 @@ func testOneMore(t *testing.T, store driver.VaultStore) {
 }
 
 func fetchAll(store driver.VaultStore) ([]driver.TxID, error) {
-	pageIt, err := store.GetAllTxStatuses(context.Background(), common.NewNoPagination())
+	// p, err := store.GetAllTxStatuses(context.Background(), &common.NoPagination{})
+	p, err := store.GetAllTxStatuses(context.Background(), &common.OffsetPagination{Offset: 0, PageSize: 2})
 	if err != nil {
 		return nil, err
 	}
-	txStatuses, err := collections.ReadAll(pageIt.Items)
+
+	txStatuses, err := collections.ReadAll(p.Items)
 	if err != nil {
 		return nil, err
 	}
-	txids := make([]driver.TxID, len(txStatuses))
-	for i, txStatus := range txStatuses {
-		txids[i] = txStatus.TxID
+
+	txids := make([]driver.TxID, 0)
+
+	for len(txStatuses) != 0 {
+		if err != nil {
+			return nil, err
+		}
+		for _, txStatus := range txStatuses {
+			txids = append(txids, txStatus.TxID)
+		}
+		p, err = store.GetAllTxStatuses(context.Background(), p.Pagination.Next())
+		if err != nil {
+			return nil, err
+		}
+		txStatuses, err = collections.ReadAll(p.Items)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return txids, nil
 }
