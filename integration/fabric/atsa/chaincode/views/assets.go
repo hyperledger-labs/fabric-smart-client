@@ -60,9 +60,13 @@ type ReadAssetView struct {
 
 func (r *ReadAssetView) Call(context view.Context) (interface{}, error) {
 	res, err := context.RunView(
-		chaincode.NewQueryView(
-			"asset_transfer", "ReadAsset", r.ID,
-		).WithEndorsersFromMyOrg().WithNumRetries(2).WithRetrySleep(2 * time.Second).WithMatchEndorsementPolicy())
+		chaincode.NewQueryView("asset_transfer", "ReadAsset", r.ID).
+			WithEndorsersFromMyOrg().
+			WithNumRetries(2).
+			WithRetrySleep(2 * time.Second).
+			WithMatchEndorsementPolicy().
+			WithQueryPolicy(chaincode.QueryOne),
+	)
 	assert.NoError(err, "failed reading asset")
 	return res, nil
 }
