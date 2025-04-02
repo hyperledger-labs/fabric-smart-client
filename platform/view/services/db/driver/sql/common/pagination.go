@@ -87,6 +87,67 @@ func (p *OffsetPagination) GoBack(numOfpages int) (driver.Pagination, error) {
 func (p *OffsetPagination) Prev() (driver.Pagination, error) { return p.GoBack(1) }
 func (p *OffsetPagination) Next() (driver.Pagination, error) { return p.GoForward(1) }
 
+type KeysetPagination struct {
+	offset      int
+	pageSize    int
+	pageInRange bool
+	// name of the field in the database that is a unique id of the records
+	idFieldName string
+	// the last id value read and the offset in which it was read
+	lastId     string // TODO: should this be int?
+	lastOffset int
+}
+
+func NewKeysetPagination(offset int, pageSize int, idFieldName string) (*KeysetPagination, error) {
+	if offset < 0 {
+		return nil, fmt.Errorf("offset shoud be grater than zero. Offset: %d", offset)
+	}
+	if pageSize < 0 {
+		return nil, fmt.Errorf("page size shoud be grater than zero. pageSize: %d", pageSize)
+	}
+	return &KeysetPagination{
+		offset:      offset,
+		pageSize:    pageSize,
+		pageInRange: true,
+		idFieldName: idFieldName,
+		lastId:      "",
+		lastOffset:  -1,
+	}, nil
+}
+
+func (p *KeysetPagination) GoToOffset(offset int) (driver.Pagination, error) {
+	if offset < 0 {
+		return NewEmptyPagination(), nil
+	}
+	return &KeysetPagination{
+		offset:      offset,
+		pageSize:    p.pageSize,
+		pageInRange: true,
+		idFieldName: p.idFieldName,
+		lastId:      p.lastId,
+		lastOffset:  p.lastOffset,
+	}, nil
+}
+
+func (p *KeysetPagination) GoToPage(pageNum int) (driver.Pagination, error) {
+	return p.GoToOffset(pageNum * p.pageSize)
+}
+
+func (p *KeysetPagination) GoForward(numOfpages int) (driver.Pagination, error) {
+	return p.GoToOffset(p.offset + (numOfpages * p.pageSize))
+}
+
+func (p *KeysetPagination) GoBack(numOfpages int) (driver.Pagination, error) {
+	return (p.GoForward(-1 * numOfpages))
+}
+
+func (p *KeysetPagination) Prev() (driver.Pagination, error) { return p.GoBack(1) }
+func (p *KeysetPagination) Next() (driver.Pagination, error) { return p.GoForward(1) }
+func (p *KeysetPagination) UpdateId(id string) {
+	p.lastId = id
+	p.lastOffset = p.offset
+}
+
 func NewPaginationInterpreter() *paginationInterpreter {
 	return &paginationInterpreter{}
 }
