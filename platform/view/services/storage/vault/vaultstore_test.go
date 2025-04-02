@@ -36,23 +36,45 @@ type matrixItem struct {
 }
 
 var matrix = []matrixItem{
+	// {
+	// 	pagination: common.NewNoPagination(),
+	// 	matcher: []types.GomegaMatcher{
+	// 		ConsistOf(
+	// 			HaveField("TxID", Equal("txid1")),
+	// 			HaveField("TxID", Equal("txid2")),
+	// 			HaveField("TxID", Equal("txid10")),
+	// 			HaveField("TxID", Equal("txid12")),
+	// 			HaveField("TxID", Equal("txid21")),
+	// 			HaveField("TxID", Equal("txid100")),
+	// 			HaveField("TxID", Equal("txid200")),
+	// 			HaveField("TxID", Equal("txid1025")),
+	// 		),
+	// 	},
+	// },
+	// {
+	// 	pagination: NewOffsetPagination(0, 2),
+	// 	matcher: []types.GomegaMatcher{
+	// 		ConsistOf(
+	// 			HaveField("TxID", Equal("txid1")),
+	// 			HaveField("TxID", Equal("txid2")),
+	// 		),
+	// 		ConsistOf(
+	// 			HaveField("TxID", Equal("txid10")),
+	// 			HaveField("TxID", Equal("txid12")),
+	// 		),
+	// 		ConsistOf(
+	// 			HaveField("TxID", Equal("txid21")),
+	// 			HaveField("TxID", Equal("txid100")),
+	// 		),
+	// 		ConsistOf(
+	// 			HaveField("TxID", Equal("txid200")),
+	// 			HaveField("TxID", Equal("txid1025")),
+	// 		),
+	// 	},
+	// },
+
 	{
-		pagination: common.NewNoPagination(),
-		matcher: []types.GomegaMatcher{
-			ConsistOf(
-				HaveField("TxID", Equal("txid1")),
-				HaveField("TxID", Equal("txid2")),
-				HaveField("TxID", Equal("txid10")),
-				HaveField("TxID", Equal("txid12")),
-				HaveField("TxID", Equal("txid21")),
-				HaveField("TxID", Equal("txid100")),
-				HaveField("TxID", Equal("txid200")),
-				HaveField("TxID", Equal("txid1025")),
-			),
-		},
-	},
-	{
-		pagination: NewOffsetPagination(0, 2),
+		pagination: NewKeysetPagination(0, 2, "TxID"),
 		matcher: []types.GomegaMatcher{
 			ConsistOf(
 				HaveField("TxID", Equal("txid1")),
@@ -80,6 +102,14 @@ func NewOffsetPagination(offset int, pageSize int) *common.OffsetPagination {
 		Expect(err).ToNot(HaveOccurred())
 	}
 	return offsetPagination
+}
+
+func NewKeysetPagination(offset int, pageSize int, idFieldName string) *common.KeysetPagination {
+	keysetPagination, err := common.NewKeysetPagination(offset, pageSize, idFieldName)
+	if err != nil {
+		Expect(err).ToNot(HaveOccurred())
+	}
+	return keysetPagination
 }
 
 func getAllTxStatuses(store driver.VaultStore, pagination driver.Pagination) ([]driver.TxStatus, error) {

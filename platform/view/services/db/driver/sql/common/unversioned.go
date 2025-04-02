@@ -248,6 +248,22 @@ func (t *readIterator) Next() (*driver.UnversionedRead, error) {
 	return &r, err
 }
 
+// func (t *readIterator) Peek() (*driver.UnversionedRead, error) {
+// 	var r driver.UnversionedRead
+// 	err := t.txs.Scan(&r.Key, &r.Raw)
+// 	return &r, err
+// }
+
+// func (t *readIterator) PeekLast() (*driver.UnversionedRead, error) {
+// 	// TODO: verify that changing last does not change t
+// 	last := t.txs
+// 	for last.Next() {
+// 	}
+// 	var r driver.UnversionedRead
+// 	err := last.Scan(&r.Key, &r.Raw)
+// 	return &r, err
+// }
+
 func (db *UnversionedPersistence) CreateSchema() error {
 	return InitSchema(db.writeDB, fmt.Sprintf(`
 	CREATE TABLE IF NOT EXISTS %s (

@@ -16,6 +16,10 @@ type baseIterator[k any] interface {
 	// Next returns the next item in the result set. The `QueryResult` is expected to be nil when
 	// the iterator gets exhausted
 	Next() (k, error)
+	// // Peek returns the next item in the result set. It does not change the location of the iterator.
+	// Peek() (k, error)
+	// // Peek returns the last item in the result set. It does not change the location of the iterator.
+	// PeekLast() (k, error)
 }
 
 type Iterator[V any] interface {
@@ -44,6 +48,16 @@ func readAll[T any](it Iterator[*T]) []*T {
 	return items
 }
 
+// // Return the record the iterator points at. Does not change where the iterator points to
+// func Peek[T any](it Iterator[*T]) (*T, error) {
+// 	return it.Peek()
+// }
+
+// // Return the record the iterator points at. Does not change where the iterator points to
+// func PeekLast[T any](it Iterator[*T]) (*T, error) {
+// 	return it.PeekLast()
+// }
+
 func ReadFirst[T any](it Iterator[*T], limit int) ([]T, error) {
 	defer it.Close()
 	items := make([]T, 0)
@@ -54,6 +68,17 @@ func ReadFirst[T any](it Iterator[*T], limit int) ([]T, error) {
 		items = append(items, *item)
 	}
 	return items, nil
+}
+
+func ReadLast[T any](it Iterator[*T]) (*T, error) {
+	var last *T
+	for item, err := it.Next(); item != nil || err != nil; item, err = it.Next() {
+		if err != nil {
+			return nil, err
+		}
+		last = item
+	}
+	return last, nil
 }
 
 func ReadAll[T any](it Iterator[*T]) ([]T, error) {
@@ -88,6 +113,16 @@ func (it *sliceIterator[T]) Next() (T, error) {
 	return item, nil
 }
 
+// func (it *sliceIterator[T]) Peek() (T, error) {
+// 	item := it.items[it.i]
+// 	return item, nil
+// }
+
+// func (it *sliceIterator[T]) PeekLast() (T, error) {
+// 	item := it.items[len(it.items)-1]
+// 	return item, nil
+// }
+
 func (it *sliceIterator[K]) HasNext() bool { return it.i < len(it.items) }
 
 func (it *sliceIterator[T]) Close() {
@@ -116,6 +151,16 @@ func (it *permutationIterator[T]) Next() (T, error) {
 	return item, nil
 }
 
+// func (it *permutationIterator[T]) Peek() (T, error) {
+// 	item := it.items[it.perm[it.i]]
+// 	return item, nil
+// }
+
+// func (it *permutationIterator[T]) PeekLast() (T, error) {
+// 	item := it.items[it.perm[len(it.items)]]
+// 	return item, nil
+// }
+
 func (it *permutationIterator[T]) HasNext() bool { return it.i < len(it.items) }
 
 func (it *permutationIterator[T]) Close() {
@@ -140,6 +185,22 @@ func (it *mappedIterator[A, B]) Next() (B, error) {
 	}
 }
 
+// func (it *mappedIterator[A, B]) Peek() (B, error) {
+// 	if p, err := it.Iterator.Peek(); err != nil {
+// 		return utils.Zero[B](), err
+// 	} else {
+// 		return it.transformer(p)
+// 	}
+// }
+
+// func (it *mappedIterator[A, B]) PeekLast() (B, error) {
+// 	if p, err := it.Iterator.PeekLast(); err != nil {
+// 		return utils.Zero[B](), err
+// 	} else {
+// 		return it.transformer(p)
+// 	}
+// }
+
 func NewEmptyIterator[K any]() *emptyIterator[K] { return &emptyIterator[K]{zero: utils.Zero[K]()} }
 
 type emptyIterator[K any] struct{ zero K }
@@ -149,3 +210,7 @@ func (i *emptyIterator[K]) HasNext() bool { return false }
 func (i *emptyIterator[K]) Close() {}
 
 func (i *emptyIterator[K]) Next() (K, error) { return i.zero, nil }
+
+// func (i *emptyIterator[K]) Peek() (K, error) { return i.zero, nil }
+
+// func (i *emptyIterator[K]) PeekLast() (K, error) { return i.zero, nil }
