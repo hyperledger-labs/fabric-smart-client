@@ -8,7 +8,6 @@ package vault
 
 import (
 	"context"
-	"fmt"
 	"testing"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils"
@@ -88,39 +87,39 @@ var matrix = []matrixItem{
 		},
 	},
 	{
-		pagination: NewKeysetPagination(0, 2, "TxID"),
+		pagination: NewKeysetPagination(0, 2, "tx_id", "TxID"),
 		sqlForward: []string{
-			"LIMIT 2 OFFSET 0",
-			"WHERE TxID>txid2 LIMIT 2 OFFSET 2",
-			"WHERE TxID>txid12 LIMIT 2 OFFSET 4",
-			"WHERE TxID>tx100 LIMIT 2 OFFSET 6",
-			"WHERE TxID>tx1025 LIMIT 2 OFFSET 8",
+			"ORDER BY tx_id ASC LIMIT 2 OFFSET 0",
+			"WHERE tx_id>'txid10' ORDER BY tx_id ASC LIMIT 2",
+			"WHERE tx_id>'txid1025' ORDER BY tx_id ASC LIMIT 2",
+			"WHERE tx_id>'txid2' ORDER BY tx_id ASC LIMIT 2",
+			"WHERE tx_id>'txid21' ORDER BY tx_id ASC LIMIT 2",
 			"LIMIT 0 OFFSET 0",
 		},
 		sqlBackward: []string{
-			"LIMIT 2 OFFSET 0",
-			"LIMIT 2 OFFSET 2",
-			"LIMIT 2 OFFSET 4",
-			"LIMIT 2 OFFSET 6",
-			"LIMIT 2 OFFSET 8",
+			"ORDER BY tx_id ASC LIMIT 2 OFFSET 0",
+			"ORDER BY tx_id ASC LIMIT 2 OFFSET 2",
+			"ORDER BY tx_id ASC LIMIT 2 OFFSET 4",
+			"ORDER BY tx_id ASC LIMIT 2 OFFSET 6",
+			"ORDER BY tx_id ASC LIMIT 2 OFFSET 8",
 			"LIMIT 0 OFFSET 0",
 		},
 		matcher: []types.GomegaMatcher{
 			ConsistOf(
 				HaveField("TxID", Equal("txid1")),
+				HaveField("TxID", Equal("txid10")),
+			),
+			ConsistOf(
+				HaveField("TxID", Equal("txid100")),
+				HaveField("TxID", Equal("txid1025")),
+			),
+			ConsistOf(
+				HaveField("TxID", Equal("txid12")),
 				HaveField("TxID", Equal("txid2")),
 			),
 			ConsistOf(
-				HaveField("TxID", Equal("txid10")),
-				HaveField("TxID", Equal("txid12")),
-			),
-			ConsistOf(
-				HaveField("TxID", Equal("txid21")),
-				HaveField("TxID", Equal("txid100")),
-			),
-			ConsistOf(
 				HaveField("TxID", Equal("txid200")),
-				HaveField("TxID", Equal("txid1025")),
+				HaveField("TxID", Equal("txid21")),
 			),
 		},
 	},
@@ -134,8 +133,8 @@ func NewOffsetPagination(offset int, pageSize int) *common.OffsetPagination {
 	return offsetPagination
 }
 
-func NewKeysetPagination(offset int, pageSize int, idFieldName string) *common.KeysetPagination {
-	keysetPagination, err := common.NewKeysetPagination(offset, pageSize, idFieldName)
+func NewKeysetPagination(offset int, pageSize int, sqlIdName string, idFieldName string) *common.KeysetPagination {
+	keysetPagination, err := common.NewKeysetPagination(offset, pageSize, sqlIdName, idFieldName)
 	if err != nil {
 		Expect(err).ToNot(HaveOccurred())
 	}
@@ -162,26 +161,21 @@ func testPagination(t *testing.T, store driver.VaultStore) {
 
 	interpreter := common.NewPaginationInterpreter()
 
-	fmt.Print("Hello world\n")
 	for _, item := range matrix {
-		fmt.Print("another item in the matrix\n")
 		if len(item.sqlBackward) == 0 {
 			item.sqlBackward = item.sqlForward
 		}
 		pagination := item.pagination
 		page := 0
 		for ; true; page++ {
-			fmt.Printf("page = %d\n", page)
 			sql, err := interpreter.Interpret((pagination))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(sql).To(Equal(item.sqlForward[page]))
-			fmt.Printf("interpreter = %s\n", sql)
 			statuses, err := getAllTxStatuses(store, pagination)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(err).ToNot(HaveOccurred())
 			// Test we get 0 statuses when we reach the end
 			if len(statuses) == 0 {
-				fmt.Print("reached the end (forward)\n")
 				break
 			}
 			Expect(page).To(BeNumerically("<", len(item.matcher)))
@@ -199,11 +193,9 @@ func testPagination(t *testing.T, store driver.VaultStore) {
 			Expect(err).ToNot(HaveOccurred())
 		}
 		for page := len(item.matcher) - 1; page >= 0; page-- {
-			fmt.Printf("page = %d\n", page)
 			sql, err := interpreter.Interpret((pagination))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(sql).To(Equal(item.sqlBackward[page]))
-			fmt.Printf("interpreter = %s\n", sql)
 			statuses, err := getAllTxStatuses(store, pagination)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(statuses).To(item.matcher[page])

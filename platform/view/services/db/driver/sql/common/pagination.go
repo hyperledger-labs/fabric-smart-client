@@ -91,13 +91,15 @@ type KeysetPagination struct {
 	offset   int
 	pageSize int
 	// name of the field in the database that is a unique id of the records
+	sqlIdName string
+	// name of the field in the struct that is returned from the database
 	idFieldName string
 	// the last id value read and the offset in which it was read
 	lastId     string // TODO: should this be int?
 	lastOffset int
 }
 
-func NewKeysetPagination(offset int, pageSize int, idFieldName string) (*KeysetPagination, error) {
+func NewKeysetPagination(offset int, pageSize int, sqlIdName string, idFieldName string) (*KeysetPagination, error) {
 	if offset < 0 {
 		return nil, fmt.Errorf("offset shoud be grater than zero. Offset: %d", offset)
 	}
@@ -107,6 +109,7 @@ func NewKeysetPagination(offset int, pageSize int, idFieldName string) (*KeysetP
 	return &KeysetPagination{
 		offset:      offset,
 		pageSize:    pageSize,
+		sqlIdName:   sqlIdName,
 		idFieldName: idFieldName,
 		lastId:      "",
 		lastOffset:  -1,
@@ -120,6 +123,7 @@ func (p *KeysetPagination) GoToOffset(offset int) (driver.Pagination, error) {
 	return &KeysetPagination{
 		offset:      offset,
 		pageSize:    p.pageSize,
+		sqlIdName:   p.sqlIdName,
 		idFieldName: p.idFieldName,
 		lastId:      p.lastId,
 		lastOffset:  p.lastOffset,
@@ -164,9 +168,9 @@ func (i *paginationInterpreter) Interpret(p driver.Pagination) (string, error) {
 	case *KeysetPagination:
 		// TODO: add OrderBy?
 		if (pagination.lastOffset != -1) && (pagination.offset == pagination.lastOffset+pagination.pageSize) {
-			return fmt.Sprintf("WHERE %s>%s LIMIT %d", pagination.idFieldName, pagination.lastId, pagination.pageSize), nil
+			return fmt.Sprintf("WHERE %s>'%s' ORDER BY %s ASC LIMIT %d", pagination.sqlIdName, pagination.lastId, pagination.sqlIdName, pagination.pageSize), nil
 		}
-		return fmt.Sprintf("LIMIT %d OFFSET %d", pagination.pageSize, pagination.offset), nil
+		return fmt.Sprintf("ORDER BY %s ASC LIMIT %d OFFSET %d", pagination.sqlIdName, pagination.pageSize, pagination.offset), nil
 	case *EmptyPagination:
 		return "LIMIT 0 OFFSET 0", nil
 	default:
@@ -188,14 +192,16 @@ func (i *paginationUpdater[R]) Update(recs *driver.PageIterator[*R]) (*driver.Pa
 	switch page := recs.Pagination.(type) {
 	case *KeysetPagination:
 		items := recs.Items
-		record, err := collections.ReadLast(items)
-		if record == nil || err != nil {
-			return nil, nil
+		record, newIt, err := collections.ReadLast(items)
+		if err != nil {
+			return nil, err
 		}
-		refRec := reflect.ValueOf(*record)
-		id := refRec.FieldByName(page.idFieldName)
-		page.UpdateId(id.String())
-		return (&driver.PageIterator[*R]{Items: recs.Items, Pagination: page}), nil
+		if record != nil {
+			refRec := reflect.ValueOf(*record)
+			id := refRec.FieldByName(page.idFieldName)
+			page.UpdateId(id.String())
+		}
+		return (&driver.PageIterator[*R]{Items: newIt, Pagination: page}), nil
 	default:
 		return (&driver.PageIterator[*R]{Items: recs.Items, Pagination: recs.Pagination}), nil
 	}
