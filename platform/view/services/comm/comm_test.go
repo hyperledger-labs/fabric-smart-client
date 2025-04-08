@@ -87,6 +87,7 @@ func testExchange(aliceNode, bobNode Node) {
 		response := <-aliceSession.Receive()
 		Expect(response).ToNot(BeNil())
 		Expect(response).To(HaveField("Payload", Equal([]byte("msg3"))))
+		Expect(aliceSession.Send([]byte("msg4"))).To(Succeed())
 	}()
 
 	go func() {
@@ -103,6 +104,9 @@ func testExchange(aliceNode, bobNode Node) {
 		bobSession, err := bobNode.commService.NewSessionWithID(response.SessionID, "", response.FromEndpoint, response.FromPKID, nil, nil)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(bobSession.Send([]byte("msg3"))).To(Succeed())
+		response = <-bobSession.Receive()
+		Expect(response).ToNot(BeNil())
+		Expect(response.Payload).To(Equal([]byte("msg4")))
 	}()
 
 	wg.Wait()
