@@ -9,7 +9,6 @@ package comm
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"sync"
 	"testing"
 
@@ -19,115 +18,94 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-// type (
-const numOfConn int = 1
+const (
+	// 	numOfNodes    int = 2
+	numOfSessions int = 1
+	numOfMsgs     int = 2
+)
 
-// 	const numOfMsg int = 1
-// )
+// func setUpCommServices() {
 
+// }
 func BenchmarkTestWebsocketSession(b *testing.B) {
 	RegisterTestingT(b)
 
-	// senderNodes := []Node{}
-	// receiverNodes := []Node{}
+	senderConfig, receiverConfig := GetConfig("initiator"), GetConfig("responder")
 
-	for i := range numOfConn {
-
-		senderConfig, receiverConfig := GetConfig("initiator"), GetConfig("responder")
-
-		router := &routing.StaticIDRouter{
-			"sender" + strconv.Itoa(i):   []host.PeerIPAddress{rest.ConvertAddress(senderConfig.ListenAddress)},
-			"receiver" + strconv.Itoa(i): []host.PeerIPAddress{rest.ConvertAddress(receiverConfig.ListenAddress)},
-		}
-
-		// Need to move at the begining
-		sender := NewWebsocketCommService(router, senderConfig)
-		sender.Start(context.Background())
-		receiver := NewWebsocketCommService(router, receiverConfig)
-		receiver.Start(context.Background())
-
-		senderNode := Node{
-			commService: sender,
-			address:     senderConfig.ListenAddress,
-			pkID:        []byte("sender" + strconv.Itoa(i))}
-
-		receiverNode := Node{
-			commService: receiver,
-			address:     receiverConfig.ListenAddress,
-			pkID:        []byte("receiver" + strconv.Itoa(i))}
-
-		benchmarkTestExchange(senderNode, receiverNode)
+	router := &routing.StaticIDRouter{
+		"sender":   []host.PeerIPAddress{rest.ConvertAddress(senderConfig.ListenAddress)},
+		"receiver": []host.PeerIPAddress{rest.ConvertAddress(receiverConfig.ListenAddress)},
 	}
-}
+	sender := NewWebsocketCommService(router, senderConfig)
+	sender.Start(context.Background())
+	receiver := NewWebsocketCommService(router, receiverConfig)
+	receiver.Start(context.Background())
 
-func BenchmarkTestLibp2pSession(b *testing.B) {
-	RegisterTestingT(b)
-
-	for i := range numOfConn {
-		senderConfig, receiverConfig := GetConfig("initiator"), GetConfig("responder")
-		receiverConfig.BootstrapNode = "Sender" + strconv.Itoa(i)
-
-		sender, senderPkID := NewLibP2PCommService(senderConfig, nil)
-		sender.Start(context.Background())
-		receiver, receiverPkID := NewLibP2PCommService(receiverConfig, &BootstrapNodeResolver{nodeID: senderPkID, nodeAddress: senderConfig.ListenAddress})
-		receiver.Start(context.Background())
-
-		senderNode := Node{
-			commService: sender,
-			address:     senderConfig.ListenAddress,
-			pkID:        senderPkID,
-		}
-		receiverNode := Node{
-			commService: receiver,
-			address:     receiverConfig.ListenAddress,
-			pkID:        receiverPkID,
-		}
-
-		benchmarkTestExchange(senderNode, receiverNode)
+	senderNode := Node{
+		commService: sender,
+		address:     senderConfig.ListenAddress,
+		pkID:        []byte("sender"),
 	}
+	receiverNode := Node{
+		commService: receiver,
+		address:     senderConfig.ListenAddress,
+		pkID:        []byte("receiver"),
+	}
+	benchmarkTestExchange(senderNode, receiverNode)
 }
 
 func benchmarkTestExchange(senderNode, receiverNode Node) {
 	wg := sync.WaitGroup{}
-	wg.Add(2)
+	wg.Add(2 * numOfSessions)
 
-	//NewSessionWithID
-	senderSession, err := senderNode.commService.NewSession("", "", rest.ConvertAddress(receiverNode.address), receiverNode.pkID)
-	Expect(err).ToNot(HaveOccurred())
-	Expect(senderSession.Info().Endpoint).To(Equal(rest.ConvertAddress(receiverNode.address)))
-	Expect(senderSession.Info().EndpointPKID).To(Equal(receiverNode.pkID.Bytes()))
-	recevierSession, err := receiverNode.commService.MasterSession()
-	receiverNode, err := receiverNode.commService.NewSessionWithID(response.SessionID, "", response.FromEndpoint, response.FromPKID, nil, nil)
-		
-	Expect(err).ToNot(HaveOccurred())
-	go func() {
-		defer wg.Done()
-		for i := 1; i <= 1; i++ {
-			fmt.Print("---> Sender: sends request message\n")
-			Expect(senderSession.Send([]byte("request"))).To(Succeed())
+	for j := 1; j <= numOfSessions; j++ {
 
-			fmt.Print("---> Sender: receives response message\n")
-			response := <-senderSession.Receive()
-			Expect(response).ToNot(BeNil())
-			Expect(response).To(HaveField("Payload", Equal([]byte("response"))))
-			senderSession.Close()
-		}
-	}()
+		fmt.Printf("---> Create new session # %d \n", j)
 
-	go func() {
-		defer wg.Done()
-		for i := 1; i <= 1; i++ {
-			fmt.Print("---> Receiver: receive request message\n")
-			response := <-recevierSession.Receive()
-			Expect(response).ToNot(BeNil())
-			Expect(response.Payload).To(Equal([]byte("request")))
-			Expect(response.SessionID).To(Equal(senderSession.Info().ID))
+		go func(sessionNum int) {
+			defer wg.Done()
 
-			fmt.Print("---> Receiver: sends response message\n")
+			senderSession, err := senderNode.commService.NewSession("", "", rest.ConvertAddress(receiverNode.address), receiverNode.pkID)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(receiverNode.Send([]byte("response"))).To(Succeed())
-		}
-	}()
+			Expect(senderSession.Info().Endpoint).To(Equal(rest.ConvertAddress(receiverNode.address)))
+			Expect(senderSession.Info().EndpointPKID).To(Equal(receiverNode.pkID.Bytes()))
+			//defer senderSession.Close()
 
+			for i := 1; i <= numOfMsgs; i++ {
+				fmt.Printf("---> Sender: sends request message. Session #: %d, Msg #: %d \n", sessionNum, i)
+				Expect(senderSession.Send([]byte("request"))).To(Succeed())
+				//fmt.Printf("---> Sender: request message was sent successfully. Session #: %d, Msg #: %d \n", sessionNum, i)
+				
+				fmt.Printf("---> Sender: wait on receive response message. Session #: %d, Msg #: %d \n", sessionNum, i)
+				response := <-senderSession.Receive()
+				Expect(response).ToNot(BeNil())
+				Expect(response).To(HaveField("Payload", Equal([]byte("response"))))
+				//fmt.Printf("---> Sender: receives request message. Session #: %d, Msg #: %d \n", sessionNum, i)
+			}
+		}(j)
+
+		go func(sessionNum int) {
+			defer wg.Done()
+
+			recevierMasterSession, err := receiverNode.commService.MasterSession()
+			Expect(err).ToNot(HaveOccurred())
+			//defer recevierMasterSession.Close()
+
+			for i := 1; i <= numOfMsgs; i++ {
+				fmt.Printf("---> Receiver: wait on receive request message. Session #: %d, Msg #: %d \n", sessionNum, i)
+				response := <-recevierMasterSession.Receive()
+				Expect(response).ToNot(BeNil())
+				Expect(response.Payload).To(Equal([]byte("request")))
+				//Expect(response.SessionID).To(Equal(senderSession.Info().ID))
+				//fmt.Printf("---> Receiver: receives request message. Session #: %d, Msg #: %d \n", sessionNum, i)
+
+				fmt.Printf("---> Receiver: sends response message. Session #: %d, Msg #: %d \n", sessionNum, i)
+				receiverSession, err := receiverNode.commService.NewSessionWithID(response.SessionID, "", response.FromEndpoint, response.FromPKID, nil, nil)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(receiverSession.Send([]byte("response"))).To(Succeed())
+				//fmt.Printf("---> Receiver: response message was sent successfully. Session #: %d, Msg #: %d \n", sessionNum, i)
+			}
+		}(j)
+	}
 	wg.Wait()
 }
