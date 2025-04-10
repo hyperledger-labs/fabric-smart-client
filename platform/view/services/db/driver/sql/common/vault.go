@@ -13,6 +13,7 @@ import (
 	"encoding/gob"
 	errors2 "errors"
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
@@ -60,6 +61,60 @@ type VaultPersistence struct {
 	GlobalLock   sync.RWMutex
 	sanitizer    *sanitizer
 	il           IsolationLevelMapper
+}
+
+type SqlQuery struct {
+	table  string
+	fields []string
+	where  []string
+	limit  string
+	offset string
+	order  string
+	params []any
+}
+
+func (q *SqlQuery) AddWhere(p string) {
+	q.where = append(q.where, p)
+}
+
+func (q *SqlQuery) AddParam(p any) int {
+	q.params = append(q.params, p)
+	return len(q.params) - 1
+}
+
+func (q *SqlQuery) FormatQuery() string {
+	if q.table == "" {
+		return ""
+	}
+
+	// SELECT fields
+	fields := "*"
+	if len(q.fields) > 0 {
+		fields = strings.Join(q.fields, ", ")
+	}
+	query := fmt.Sprintf("SELECT %s FROM %s", fields, q.table)
+
+	// WHERE clause
+	if len(q.where) > 0 {
+		query += " WHERE " + strings.Join(q.where, " AND ")
+	}
+
+	// ORDER BY
+	if q.order != "" {
+		query += " ORDER BY " + q.order
+	}
+
+	// LIMIT
+	if q.limit != "" {
+		query += " LIMIT " + q.limit
+	}
+
+	// OFFSET
+	if q.offset != "" {
+		query += " OFFSET " + q.offset
+	}
+
+	return query
 }
 
 func (db *VaultPersistence) NewTxLockVaultReader(ctx context.Context, txID driver.TxID, isolationLevel driver.IsolationLevel) (driver.LockedVaultReader, error) {
@@ -439,11 +494,16 @@ func (db *vaultReader) GetLast(ctx context.Context) (*driver.TxStatus, error) {
 	span.AddEvent("start_get_last")
 	defer span.AddEvent("end_get_last")
 	it, err := db.queryStatus(fmt.Sprintf("WHERE pos=(SELECT max(pos) FROM %s WHERE code!=$1)", db.tables.StatusTable), []any{driver.Busy}, "")
+	// sql := SqlQuery{}
+	// driverBusy := sql.AddParam(driver.Busy)
+	// sql.AddWhere(fmt.Sprintf("WHERE pos=(SELECT max(pos) FROM %s WHERE code!=$%d)", db.tables.StatusTable, driverBusy))
+	// it, err := db.queryStatus(sql)
 	if err != nil {
 		return nil, err
 	}
 	return collections.GetUnique(it)
 }
+
 func (db *vaultReader) GetTxStatus(ctx context.Context, txID driver.TxID) (*driver.TxStatus, error) {
 	span := trace.SpanFromContext(ctx)
 	span.AddEvent("start_get_tx_status")
@@ -469,15 +529,19 @@ func (db *vaultReader) GetAllTxStatuses(ctx context.Context, pagination driver.P
 	if pagination == nil {
 		return nil, fmt.Errorf("invalid input pagination: %+v", pagination)
 	}
-	limit, err := db.pi.Interpret(pagination)
+	sql := SqlQuery{}
+	sql, err := db.pi.Interpret(pagination, sql)
 	if err != nil {
 		return nil, err
 	}
-	txStatusIterator, err := db.queryStatus("", []any{}, limit)
+	txStatusIterator, err := db.queryStatusWithPagination(sql)
 	if err != nil {
 		return nil, err
 	}
-	return (&driver.PageIterator[*driver.TxStatus]{Items: txStatusIterator, Pagination: pagination}), nil
+	pu := NewPaginationUpdater[driver.TxStatus]()
+	pageIt := &driver.PageIterator[*driver.TxStatus]{Items: txStatusIterator, Pagination: pagination}
+	pageIt, err = pu.Update(pageIt)
+	return pageIt, err
 }
 
 func (db *vaultReader) queryStatus(where string, params []any, limit string) (driver.TxStatusIterator, error) {
@@ -485,6 +549,18 @@ func (db *vaultReader) queryStatus(where string, params []any, limit string) (dr
 	logger.Debug(query, params)
 
 	rows, err := db.readDB.Query(query, params...)
+	if err != nil {
+		return nil, err
+	}
+	return &TxCodeIterator{rows: rows}, nil
+}
+
+func (db *vaultReader) queryStatusWithPagination(sql SqlQuery) (driver.TxStatusIterator, error) {
+	sql.table = db.tables.StatusTable
+	query := sql.FormatQuery()
+	logger.Debug(query, sql.params)
+
+	rows, err := db.readDB.Query(query, sql.params...)
 	if err != nil {
 		return nil, err
 	}
