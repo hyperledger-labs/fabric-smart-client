@@ -35,7 +35,7 @@ type benchmarkMetrics struct {
 }
 
 const (
-	numOfRoutes   int = 40
+	numOfRoutes   int = 2
 	numOfSessions int = 10
 	numOfMsgs     int = 10
 )
@@ -249,10 +249,10 @@ func displayMetrics(duration time.Duration, metricsMap map[string]benchmarkMetri
 	// Expect(senderSession.Info().EndpointPKID).To(Equal(receiverNode.pkID.Bytes()))
 
 	fmt.Printf("============================= %s Metrics =============================\n", protocol)
+	fmt.Printf("Number of routes: %d\n", numOfRoutes)
 	fmt.Printf("Number of nodes: %d\n", numOfRoutes*2)
 	fmt.Printf("Number of sessions per node: %d\n", numOfSessions)
 	fmt.Printf("Number of Msgs per session: %d\n", 2*numOfMsgs)
-	fmt.Printf("Number of Msgs per session: %d\n", numOfMsgs)
 	fmt.Printf("Average latency: %d (ms) \n", averageLatency)
 	fmt.Printf("Average throuput: %d (msg/ms) \n", averageThrouput)
 	fmt.Printf("Total run time: %d (ms) \n", duration)
