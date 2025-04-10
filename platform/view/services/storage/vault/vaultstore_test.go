@@ -8,6 +8,7 @@ package vault
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils"
@@ -168,9 +169,11 @@ func testPagination(t *testing.T, store driver.VaultStore) {
 		pagination := item.pagination
 		page := 0
 		for ; true; page++ {
-			sql, err := interpreter.Interpret((pagination))
+			sql := common.SqlQuery{}
+			sql, err := interpreter.Interpret(pagination, sql)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(sql).To(Equal(item.sqlForward[page]))
+			fmt.Printf("sql (forward) = %s\n", sql.FormatQuery())
+			Expect(sql.FormatQuery()).To(Equal(item.sqlForward[page]))
 			statuses, err := getAllTxStatuses(store, pagination)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(err).ToNot(HaveOccurred())
@@ -193,9 +196,11 @@ func testPagination(t *testing.T, store driver.VaultStore) {
 			Expect(err).ToNot(HaveOccurred())
 		}
 		for page := len(item.matcher) - 1; page >= 0; page-- {
-			sql, err := interpreter.Interpret((pagination))
+			sql := common.SqlQuery{}
+			sql, err := interpreter.Interpret(pagination, sql)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(sql).To(Equal(item.sqlBackward[page]))
+			fmt.Printf("sql (backward) = %s\n", sql.FormatQuery())
+			Expect(sql.FormatQuery()).To(Equal(item.sqlBackward[page]))
 			statuses, err := getAllTxStatuses(store, pagination)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(statuses).To(item.matcher[page])

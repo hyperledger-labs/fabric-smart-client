@@ -57,19 +57,23 @@ func ReadFirst[T any](it Iterator[*T], limit int) ([]T, error) {
 }
 
 func ReadLast[T any](it Iterator[*T]) (*T, *sliceIterator[*T], error) {
-	var items []*T
-	// create a copy of it so not to ruin it
-	for item, err := it.Next(); item != nil || err != nil; item, err = it.Next() {
-		if err != nil {
-			return nil, nil, err
-		}
-		items = append(items, item)
+	var items []T
+	var ptrItems []*T
+	var err error
+	items, err = ReadAll(it)
+
+	if err != nil {
+		return nil, nil, err
 	}
-	si := NewSliceIterator(items)
+	// convert from []T to []*T
+	for i := range items {
+		ptrItems = append(ptrItems, &items[i])
+	}
+	si := NewSliceIterator(ptrItems)
 	if len(items) == 0 {
 		return nil, si, nil
 	}
-	return items[len(items)-1], si, nil
+	return ptrItems[len(ptrItems)-1], si, nil
 }
 
 func ReadAll[T any](it Iterator[*T]) ([]T, error) {

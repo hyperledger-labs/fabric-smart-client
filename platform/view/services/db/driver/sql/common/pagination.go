@@ -154,27 +154,35 @@ func NewPaginationInterpreter() *paginationInterpreter {
 }
 
 type PaginationInterpreter interface {
-	Interpret(p driver.Pagination) (string, error)
+	Interpret(p driver.Pagination, sql SqlQuery) (SqlQuery, error)
 }
 
 type paginationInterpreter struct{}
 
-func (i *paginationInterpreter) Interpret(p driver.Pagination) (string, error) {
+func (i *paginationInterpreter) Interpret(p driver.Pagination, sql SqlQuery) (SqlQuery, error) {
 	switch pagination := p.(type) {
 	case *NoPagination:
-		return "", nil
+		return sql, nil
 	case *OffsetPagination:
-		return fmt.Sprintf("LIMIT %d OFFSET %d", pagination.pageSize, pagination.offset), nil
+		sql.limit = fmt.Sprintf("%d", pagination.pageSize)
+		sql.offset = fmt.Sprintf("%d", pagination.offset)
+		return sql, nil
 	case *KeysetPagination:
-		// TODO: add OrderBy?
+		sql.order = fmt.Sprintf("%s ASC", pagination.sqlIdName)
+		sql.limit = fmt.Sprintf("%d", pagination.pageSize)
 		if (pagination.lastOffset != -1) && (pagination.offset == pagination.lastOffset+pagination.pageSize) {
-			return fmt.Sprintf("WHERE %s>'%s' ORDER BY %s ASC LIMIT %d", pagination.sqlIdName, pagination.lastId, pagination.sqlIdName, pagination.pageSize), nil
+			lastId := sql.AddParam(fmt.Sprintf("%d", pagination.lastId))
+			sql.where = append(sql.where, fmt.Sprintf("%s>'$%d'", pagination.sqlIdName, lastId))
+		} else {
+			sql.offset = fmt.Sprintf("%d", pagination.offset)
 		}
-		return fmt.Sprintf("ORDER BY %s ASC LIMIT %d OFFSET %d", pagination.sqlIdName, pagination.pageSize, pagination.offset), nil
+		return sql, nil
 	case *EmptyPagination:
-		return "LIMIT 0 OFFSET 0", nil
+		sql.limit = "0"
+		sql.offset = "0"
+		return sql, nil
 	default:
-		return "", errors.Errorf("invalid pagination option %+v", pagination)
+		return sql, errors.Errorf("invalid pagination option %+v", pagination)
 	}
 }
 
