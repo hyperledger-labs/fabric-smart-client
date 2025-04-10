@@ -42,14 +42,14 @@ func (p *endpointServiceBasedProvider) NewBootstrapHost(listenAddress host2.Peer
 		return nil, errors.Wrapf(err, "failed to load identity in [%s]", certPath)
 	}
 	nodeID := string(p.pkiExtractor.ExtractPKI(raw))
-	return NewHost(nodeID, convertAddress(listenAddress), p.routing, p.tracerProvider, p.streamProvider, privateKeyPath, certPath, nil)
+	return NewHost(nodeID, ConvertAddress(listenAddress), p.routing, p.tracerProvider, p.streamProvider, privateKeyPath, certPath, nil)
 }
 
 func (p *endpointServiceBasedProvider) NewHost(listenAddress host2.PeerIPAddress, privateKeyPath, certPath string, _ host2.PeerIPAddress) (host2.P2PHost, error) {
 	return p.NewBootstrapHost(listenAddress, privateKeyPath, certPath)
 }
 
-func convertAddress(addr string) string {
+func ConvertAddress(addr string) string {
 	parts := strings.Split(addr, "/")
 	if len(parts) != 5 {
 		panic("unexpected address found: " + addr)
