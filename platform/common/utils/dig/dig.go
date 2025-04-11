@@ -10,11 +10,15 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"reflect"
 	"runtime/debug"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/node"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"go.uber.org/dig"
 )
+
+var logger = logging.MustGetLogger("dig-utils")
 
 type invoker interface {
 	Invoke(function interface{}, opts ...dig.InvokeOption) error
@@ -32,6 +36,26 @@ func Register[T any](c invoker) error {
 	//Temporary workaround for services that are imported still using the registry
 	err := c.Invoke(func(registry node.Registry, service T) error {
 		return registry.RegisterService(service)
+	})
+	if err != nil {
+		debug.PrintStack()
+		return fmt.Errorf("failed registering type %T: %+v", *new(T), err)
+	}
+	return nil
+}
+
+func RegisterOptional[T any](c invoker) error {
+	//Temporary workaround for services that are imported still using the registry
+	err := c.Invoke(func(in struct {
+		dig.In
+		Registry node.Registry
+		Service  T `optional:"true"`
+	}) error {
+		if reflect.ValueOf(in.Service).IsNil() {
+			logger.Warnf("Skipping registration of optional dependency [%T]", new(T))
+			return nil
+		}
+		return in.Registry.RegisterService(in.Service)
 	})
 	if err != nil {
 		debug.PrintStack()

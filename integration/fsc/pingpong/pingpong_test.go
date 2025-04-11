@@ -194,7 +194,7 @@ var _ = Describe("EndToEnd", func() {
 func newNode(conf string) api.FabricSmartClientNode {
 	n := node.NewEmpty(conf)
 	Expect(n).NotTo(BeNil())
-	n.AddSDK(viewsdk.NewSDK(n.Registry()))
+	n.AddSDK(viewsdk.NewSDK(n))
 	return n
 }
 
