@@ -7,8 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package db_test
 
 import (
-	"os"
-	"path"
 	"testing"
 
 	config2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/core/config"
@@ -32,8 +30,7 @@ var testMatrix = map[string]types.GomegaMatcher{
 func TestConfigProvider(t *testing.T) {
 	RegisterTestingT(t)
 
-	confPath := path.Join(os.Getenv("GOPATH"), "src", "github.com", "hyperledger-labs", "fabric-smart-client", "platform", "view", "services", "storage", "db")
-	provider, err := config2.NewProvider(confPath)
+	provider, err := config2.NewProvider("")
 	Expect(err).ToNot(HaveOccurred())
 	cp := db.NewConfigProvider(provider)
 	for configKey, matchCondition := range testMatrix {
