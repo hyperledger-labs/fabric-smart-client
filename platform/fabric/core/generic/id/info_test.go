@@ -19,6 +19,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs/mock"
 	registry2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/registry"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage"
 	msp2 "github.com/hyperledger/fabric/msp"
 	"github.com/stretchr/testify/assert"
 )
@@ -34,7 +35,10 @@ func newSignerInfo() driver.SignerInfoPersistence {
 func TestInfoIdemix(t *testing.T) {
 	registry := registry2.New()
 
-	kvss, err := kvs.NewWithConfig(&mem.Driver{}, "", &mock.ConfigProvider{})
+	c := storage.NewConstructor(&mock.ConfigProvider{}, mem.NewDriver())
+	persistence, err := c.NewKVS()
+	assert.NoError(t, err)
+	kvss, err := kvs.New(persistence, "", kvs.DefaultCacheSize)
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
 	sigService := sig.NewService(sig.NewMultiplexDeserializer(), newAuditInfo(), newSignerInfo())

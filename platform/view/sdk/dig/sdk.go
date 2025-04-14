@@ -42,6 +42,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/operations"
 	view3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view/protos"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/dig"
@@ -94,9 +95,10 @@ func (p *SDK) Install() error {
 		p.Container().Provide(sig2.NewDeserializer),
 		p.Container().Provide(sig2.NewService, dig.As(new(id.SigService), new(driver.SigService), new(driver.SigRegistry), new(driver.AuditRegistry))),
 		p.Container().Provide(view.NewSigService, dig.As(new(view3.VerifierProvider), new(view3.SignerProvider))),
-		p.Container().Provide(newBindingStore, dig.As(new(driver4.BindingStore))),
-		p.Container().Provide(newSignerInfoStore, dig.As(new(driver4.SignerInfoStore))),
-		p.Container().Provide(newAuditInfoStore, dig.As(new(driver4.AuditInfoStore))),
+		p.Container().Provide(func(c *storage.Constructor) (driver4.BindingStore, error) { return c.NewBinding("default") }),
+		p.Container().Provide(newStorageConstructor),
+		p.Container().Provide(func(c *storage.Constructor) (driver4.SignerInfoStore, error) { return c.NewSignerInfo("default") }),
+		p.Container().Provide(func(c *storage.Constructor) (driver4.AuditInfoStore, error) { return c.NewAuditInfo("default") }),
 		p.Container().Provide(endpoint.NewService),
 		p.Container().Provide(digutils.Identity[*endpoint.Service](), dig.As(new(driver.EndpointService))),
 		p.Container().Provide(view.NewEndpointService),

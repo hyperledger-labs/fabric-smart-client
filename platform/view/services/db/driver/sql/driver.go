@@ -7,11 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package sql
 
 import (
-	"fmt"
-
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/postgres"
@@ -25,8 +21,6 @@ const (
 	SQLPersistence driver2.PersistenceType = "sql"
 )
 
-var logger = logging.MustGetLogger("view-sdk.services.db.driver.sql")
-
 func NewDriver() driver.NamedDriver {
 	return driver.NamedDriver{
 		Name:   SQLPersistence,
@@ -34,180 +28,92 @@ func NewDriver() driver.NamedDriver {
 	}
 }
 
-type Driver struct {
-}
+type Driver struct{}
 
-type dbObject interface {
-	CreateSchema() error
-}
-
-type unversionedPersistence interface {
-	driver.UnversionedPersistence
-	dbObject
-}
-
-type bindingPersistence interface {
-	driver.BindingPersistence
-	dbObject
-}
-
-type signerInfoPersistence interface {
-	driver.SignerInfoPersistence
-	dbObject
-}
-
-type auditInfoPersistence interface {
-	driver.AuditInfoPersistence
-	dbObject
-}
-
-type endorseTxPersistence interface {
-	driver.EndorseTxPersistence
-	dbObject
-}
-
-type metadataPersistence interface {
-	driver.MetadataPersistence
-	dbObject
-}
-
-type envelopePersistence interface {
-	driver.EnvelopePersistence
-	dbObject
-}
-
-type vaultPersistence interface {
-	driver.VaultPersistence
-	dbObject
-}
-
-var UnversionedConstructors = map[common.SQLDriverType]common.PersistenceConstructor[unversionedPersistence]{
-	Postgres: func(o common.Opts, t string) (unversionedPersistence, error) {
-		return postgres.NewUnversionedPersistence(o, t)
-	},
-	SQLite: func(o common.Opts, t string) (unversionedPersistence, error) {
-		return sqlite.NewUnversionedPersistence(o, t)
-	},
-}
-
-var BindingConstructors = map[common.SQLDriverType]common.PersistenceConstructor[bindingPersistence]{
-	Postgres: func(o common.Opts, t string) (bindingPersistence, error) { return postgres.NewBindingPersistence(o, t) },
-	SQLite:   func(o common.Opts, t string) (bindingPersistence, error) { return sqlite.NewBindingPersistence(o, t) },
-}
-
-var SignerInfoConstructors = map[common.SQLDriverType]common.PersistenceConstructor[signerInfoPersistence]{
-	Postgres: func(o common.Opts, t string) (signerInfoPersistence, error) {
-		return postgres.NewSignerInfoPersistence(o, t)
-	},
-	SQLite: func(o common.Opts, t string) (signerInfoPersistence, error) {
-		return sqlite.NewSignerInfoPersistence(o, t)
-	},
-}
-
-var AuditInfoConstructors = map[common.SQLDriverType]common.PersistenceConstructor[auditInfoPersistence]{
-	Postgres: func(o common.Opts, t string) (auditInfoPersistence, error) {
-		return postgres.NewAuditInfoPersistence(o, t)
-	},
-	SQLite: func(o common.Opts, t string) (auditInfoPersistence, error) {
-		return sqlite.NewAuditInfoPersistence(o, t)
-	},
-}
-
-var EndorseTxConstructors = map[common.SQLDriverType]common.PersistenceConstructor[endorseTxPersistence]{
-	Postgres: func(o common.Opts, t string) (endorseTxPersistence, error) {
-		return postgres.NewEndorseTxPersistence(o, t)
-	},
-	SQLite: func(o common.Opts, t string) (endorseTxPersistence, error) {
-		return sqlite.NewEndorseTxPersistence(o, t)
-	},
-}
-
-var MetadataConstructors = map[common.SQLDriverType]common.PersistenceConstructor[metadataPersistence]{
-	Postgres: func(o common.Opts, t string) (metadataPersistence, error) {
-		return postgres.NewMetadataPersistence(o, t)
-	},
-	SQLite: func(o common.Opts, t string) (metadataPersistence, error) {
-		return sqlite.NewMetadataPersistence(o, t)
-	},
-}
-
-var EnvelopeConstructors = map[common.SQLDriverType]common.PersistenceConstructor[envelopePersistence]{
-	Postgres: func(o common.Opts, t string) (envelopePersistence, error) {
-		return postgres.NewEnvelopePersistence(o, t)
-	},
-	SQLite: func(o common.Opts, t string) (envelopePersistence, error) {
-		return sqlite.NewEnvelopePersistence(o, t)
-	},
-}
-
-var VaultConstructors = map[common.SQLDriverType]common.PersistenceConstructor[vaultPersistence]{
-	Postgres: func(o common.Opts, t string) (vaultPersistence, error) {
-		return postgres.NewVaultPersistence(o, t)
-	},
-	SQLite: func(o common.Opts, t string) (vaultPersistence, error) {
-		return sqlite.NewVaultPersistence(o, t)
-	},
-}
-
-func (d *Driver) NewKVS(dataSourceName string, config driver.Config) (driver.UnversionedPersistence, error) {
-	return newPersistence(dataSourceName, config, UnversionedConstructors)
-}
-
-func (d *Driver) NewBinding(dataSourceName string, config driver.Config) (driver.BindingPersistence, error) {
-	return newPersistence(dataSourceName, config, BindingConstructors)
-}
-
-func (d *Driver) NewSignerInfo(dataSourceName string, config driver.Config) (driver.SignerInfoPersistence, error) {
-	return newPersistence(dataSourceName, config, SignerInfoConstructors)
-}
-
-func (d *Driver) NewAuditInfo(dataSourceName string, config driver.Config) (driver.AuditInfoPersistence, error) {
-	return newPersistence(dataSourceName, config, AuditInfoConstructors)
-}
-
-func (d *Driver) NewEndorseTx(dataSourceName string, config driver.Config) (driver.EndorseTxPersistence, error) {
-	return newPersistence(dataSourceName, config, EndorseTxConstructors)
-}
-
-func (d *Driver) NewMetadata(dataSourceName string, config driver.Config) (driver.MetadataPersistence, error) {
-	return newPersistence(dataSourceName, config, MetadataConstructors)
-}
-
-func (d *Driver) NewEnvelope(dataSourceName string, config driver.Config) (driver.EnvelopePersistence, error) {
-	return newPersistence(dataSourceName, config, EnvelopeConstructors)
-}
-
-func (d *Driver) NewVault(dataSourceName string, config driver.Config) (driver.VaultPersistence, error) {
-	return newPersistence(dataSourceName, config, VaultConstructors)
-}
-
-func newPersistence[V dbObject](dataSourceName string, config driver.Config, constructors map[common.SQLDriverType]common.PersistenceConstructor[V]) (V, error) {
-	logger.Debugf("opening new transactional database %s", dataSourceName)
-	opts, err := getOps(config)
-	if err != nil {
-		return utils.Zero[V](), fmt.Errorf("failed getting options for datasource: %w", err)
+func (d *Driver) NewKVS(tableName string, opts driver.DbOpts) (driver.UnversionedPersistence, error) {
+	switch opts.Driver() {
+	case Postgres:
+		return common.NewPersistenceWithOpts[postgres.DbOpts](tableName, opts, postgres.NewUnversionedPersistence)
+	case SQLite:
+		return common.NewPersistenceWithOpts[sqlite.DbOpts](tableName, opts, sqlite.NewUnversionedPersistence)
+	default:
+		panic("unknown driver: " + opts.Driver())
 	}
-
-	c, ok := constructors[opts.Driver]
-	if !ok {
-		return utils.Zero[V](), fmt.Errorf("unknown driver: %s", opts.Driver)
-	}
-	return common.NewPersistenceWithOpts[V](dataSourceName, opts, c)
 }
 
-func getOps(config driver.Config) (common.Opts, error) {
-	opts, err := common.GetOpts(config, "")
-	if err != nil {
-		return common.Opts{}, err
+func (d *Driver) NewBinding(tableName string, opts driver.DbOpts) (driver.BindingPersistence, error) {
+	switch opts.Driver() {
+	case Postgres:
+		return common.NewPersistenceWithOpts[postgres.DbOpts](tableName, opts, postgres.NewBindingPersistence)
+	case SQLite:
+		return common.NewPersistenceWithOpts[sqlite.DbOpts](tableName, opts, sqlite.NewBindingPersistence)
+	default:
+		panic("unknown driver: " + opts.Driver())
 	}
-	if opts.TablePrefix == "" {
-		opts.TablePrefix = "fsc"
+}
+
+func (d *Driver) NewSignerInfo(tableName string, opts driver.DbOpts) (driver.SignerInfoPersistence, error) {
+	switch opts.Driver() {
+	case Postgres:
+		return common.NewPersistenceWithOpts[postgres.DbOpts](tableName, opts, postgres.NewSignerInfoPersistence)
+	case SQLite:
+		return common.NewPersistenceWithOpts[sqlite.DbOpts](tableName, opts, sqlite.NewSignerInfoPersistence)
+	default:
+		panic("unknown driver: " + opts.Driver())
 	}
-	if opts.MaxIdleTime == nil {
-		opts.MaxIdleTime = common.CopyPtr(common.DefaultMaxIdleTime)
+}
+
+func (d *Driver) NewAuditInfo(tableName string, opts driver.DbOpts) (driver.AuditInfoPersistence, error) {
+	switch opts.Driver() {
+	case Postgres:
+		return common.NewPersistenceWithOpts[postgres.DbOpts](tableName, opts, postgres.NewAuditInfoPersistence)
+	case SQLite:
+		return common.NewPersistenceWithOpts[sqlite.DbOpts](tableName, opts, sqlite.NewAuditInfoPersistence)
+	default:
+		panic("unknown driver: " + opts.Driver())
 	}
-	if opts.MaxIdleConns == nil {
-		opts.MaxIdleConns = common.CopyPtr(common.DefaultMaxIdleConns)
+}
+
+func (d *Driver) NewEndorseTx(tableName string, opts driver.DbOpts) (driver.EndorseTxPersistence, error) {
+	switch opts.Driver() {
+	case Postgres:
+		return common.NewPersistenceWithOpts[postgres.DbOpts](tableName, opts, postgres.NewEndorseTxPersistence)
+	case SQLite:
+		return common.NewPersistenceWithOpts[sqlite.DbOpts](tableName, opts, sqlite.NewEndorseTxPersistence)
+	default:
+		panic("unknown driver: " + opts.Driver())
 	}
-	return *opts, nil
+}
+
+func (d *Driver) NewMetadata(tableName string, opts driver.DbOpts) (driver.MetadataPersistence, error) {
+	switch opts.Driver() {
+	case Postgres:
+		return common.NewPersistenceWithOpts[postgres.DbOpts](tableName, opts, postgres.NewMetadataPersistence)
+	case SQLite:
+		return common.NewPersistenceWithOpts[sqlite.DbOpts](tableName, opts, sqlite.NewMetadataPersistence)
+	default:
+		panic("unknown driver: " + opts.Driver())
+	}
+}
+
+func (d *Driver) NewEnvelope(tableName string, opts driver.DbOpts) (driver.EnvelopePersistence, error) {
+	switch opts.Driver() {
+	case Postgres:
+		return common.NewPersistenceWithOpts[postgres.DbOpts](tableName, opts, postgres.NewEnvelopePersistence)
+	case SQLite:
+		return common.NewPersistenceWithOpts[sqlite.DbOpts](tableName, opts, sqlite.NewEnvelopePersistence)
+	default:
+		panic("unknown driver: " + opts.Driver())
+	}
+}
+
+func (d *Driver) NewVault(tableName string, opts driver.DbOpts) (driver.VaultPersistence, error) {
+	switch opts.Driver() {
+	case Postgres:
+		return common.NewPersistenceWithOpts[postgres.DbOpts](tableName, opts, postgres.NewVaultPersistence)
+	case SQLite:
+		return common.NewPersistenceWithOpts[sqlite.DbOpts](tableName, opts, sqlite.NewVaultPersistence)
+	default:
+		panic("unknown driver: " + opts.Driver())
+	}
 }

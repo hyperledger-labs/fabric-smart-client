@@ -19,7 +19,7 @@ func BenchmarkReadExistingPostgres(b *testing.B) {
 		b.Fatal(err)
 	}
 	defer terminate()
-	db, err := initPersistence(NewUnversionedPersistence, pgConnStr, "benchmark", 50, 2, time.Minute)
+	db, err := common.NewPersistenceWithOpts[DbOpts]("benchmark", newDbOpts(pgConnStr, 2), NewUnversionedPersistence)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -34,7 +34,7 @@ func BenchmarkReadNonExistingPostgres(b *testing.B) {
 		b.Fatal(err)
 	}
 	defer terminate()
-	db, err := initPersistence(NewUnversionedPersistence, pgConnStr, "benchmark", 50, 2, time.Minute)
+	db, err := common.NewPersistenceWithOpts[DbOpts]("benchmark", newDbOpts(pgConnStr, 2), NewUnversionedPersistence)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -49,7 +49,7 @@ func BenchmarkWriteOnePostgres(b *testing.B) {
 		b.Fatal(err)
 	}
 	defer terminate()
-	db, err := initPersistence(NewUnversionedPersistence, pgConnStr, "benchmark", 50, 2, time.Minute)
+	db, err := common.NewPersistenceWithOpts[DbOpts]("benchmark", newDbOpts(pgConnStr, 2), NewUnversionedPersistence)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -64,7 +64,7 @@ func BenchmarkWriteManyPostgres(b *testing.B) {
 		b.Fatal(err)
 	}
 	defer terminate()
-	db, err := initPersistence(NewUnversionedPersistence, pgConnStr, "benchmark", 50, 2, time.Minute)
+	db, err := common.NewPersistenceWithOpts[DbOpts]("benchmark", newDbOpts(pgConnStr, 2), NewUnversionedPersistence)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -79,11 +79,15 @@ func BenchmarkWriteManyPostgresWithIdle(b *testing.B) {
 		b.Fatal(err)
 	}
 	defer terminate()
-	db, err := initPersistence(NewUnversionedPersistence, pgConnStr, "benchmark", 50, 50, time.Minute)
+	db, err := common.NewPersistenceWithOpts[DbOpts]("benchmark", newDbOpts(pgConnStr, 50), NewUnversionedPersistence)
 	if err != nil {
 		b.Fatal(err)
 	}
 	defer db.Close()
 
 	common.WriteParallel(b, db)
+}
+
+func newDbOpts(pgConnStr string, maxIdleConns int) testOpts {
+	return testOpts{dataSource: pgConnStr, maxOpenConns: 50, maxIdleConns: maxIdleConns, maxIdleTime: time.Minute}
 }

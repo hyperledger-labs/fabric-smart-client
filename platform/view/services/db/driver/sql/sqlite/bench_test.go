@@ -47,7 +47,8 @@ func BenchmarkWriteManySqlite(b *testing.B) {
 }
 
 func newVersionedPersistence(dir string) (driver.UnversionedPersistence, error) {
-	p, err := NewUnversionedPersistence(dbOpts("benchmark", dir), "test")
+	var r DbOpts = opts{"benchmark", dir}
+	p, err := NewUnversionedPersistence(r, "test")
 	if err != nil {
 		return nil, err
 	}

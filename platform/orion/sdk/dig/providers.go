@@ -7,33 +7,33 @@ SPDX-License-Identifier: Apache-2.0
 package orion
 
 import (
-	driver3 "github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/services"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
-	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
-	"go.uber.org/dig"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/endorsetx"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/envelope"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/metadata"
 )
 
-func NewEndorseTxStore(in struct {
-	dig.In
-	Config  driver.ConfigService
-	Drivers []dbdriver.NamedDriver `group:"db-drivers"`
-}) (driver3.EndorseTxStore, error) {
-	return services.NewDBBasedEndorseTxStore(in.Drivers, in.Config, "default")
+func NewEndorseTxStore(c *storage.Constructor) (driver.EndorseTxStore, error) {
+	e, err := c.NewEndorseTx("default")
+	if err != nil {
+		return nil, err
+	}
+	return endorsetx.NewEndorseTxStore[driver.Key](e), nil
 }
 
-func NewMetadataStore(in struct {
-	dig.In
-	Config  driver.ConfigService
-	Drivers []dbdriver.NamedDriver `group:"db-drivers"`
-}) (driver3.MetadataStore, error) {
-	return services.NewDBBasedMetadataStore(in.Drivers, in.Config, "default")
+func NewMetadataStore(c *storage.Constructor) (driver.MetadataStore, error) {
+	m, err := c.NewMetadata("default")
+	if err != nil {
+		return nil, err
+	}
+	return metadata.NewMetadataStore[driver.Key, driver.TransientMap](m), nil
 }
 
-func NewEnvelopeStore(in struct {
-	dig.In
-	Config  driver.ConfigService
-	Drivers []dbdriver.NamedDriver `group:"db-drivers"`
-}) (driver3.EnvelopeStore, error) {
-	return services.NewDBBasedEnvelopeStore(in.Drivers, in.Config, "default")
+func NewEnvelopeStore(c *storage.Constructor) (driver.EnvelopeStore, error) {
+	e, err := c.NewEnvelope("default")
+	if err != nil {
+		return nil, err
+	}
+	return envelope.NewEnvelopeStore[driver.Key](e), nil
 }

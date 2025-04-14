@@ -27,7 +27,7 @@ const (
 	cacheSizeConfigKey       = "fsc.kvs.cache.size"
 	persistenceType          = "fsc.kvs.persistence.type"
 	persistenceOptsConfigKey = "fsc.kvs.persistence.opts"
-	defaultCacheSize         = 100
+	DefaultCacheSize         = 100
 )
 
 type cache interface {
@@ -63,8 +63,8 @@ type KVS struct {
 }
 
 // NewWithConfig returns a new KVS instance for the passed namespace using the passed driver and config provider
-func NewWithConfig(dbDriver driver.Driver, namespace string, cp ConfigProvider) (*KVS, error) {
-	persistence, err := dbDriver.NewKVS(namespace, storage.NewPrefixConfig(cp, persistenceOptsConfigKey))
+func NewWithConfig(c *storage.Constructor, namespace string, cp ConfigProvider) (*KVS, error) {
+	persistence, err := c.NewKVS(namespace)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed opening datasource [%s]", namespace)
 	}
@@ -75,7 +75,11 @@ func NewWithConfig(dbDriver driver.Driver, namespace string, cp ConfigProvider) 
 	}
 
 	logger.Debugf("opening kvs with namespace=`%s` and cacheSize=`%d`", namespace, cacheSize)
+	return New(persistence, namespace, cacheSize)
+}
 
+// New returns a new KVS instance for the passed namespace using the passed driver and config provider
+func New(persistence driver.UnversionedPersistence, namespace string, cacheSize int) (*KVS, error) {
 	return &KVS{
 		namespace: namespace,
 		store:     persistence,
@@ -254,17 +258,17 @@ func (i *it) Next(state interface{}) (string, error) {
 }
 
 // cacheSizeFromConfig returns the KVS cache size from current configuration.
-// Returns defaultCacheSize, if no configuration found.
-// Returns an error and defaultCacheSize, if the loaded value from configuration is invalid (must be >= 0).
+// Returns DefaultCacheSize, if no configuration found.
+// Returns an error and DefaultCacheSize, if the loaded value from configuration is invalid (must be >= 0).
 func cacheSizeFromConfig(cp ConfigProvider) (int, error) {
 	if !cp.IsSet(cacheSizeConfigKey) {
 		// no cache size configure, let's use default
-		return defaultCacheSize, nil
+		return DefaultCacheSize, nil
 	}
 
 	cacheSize := cp.GetInt(cacheSizeConfigKey)
 	if cacheSize < 0 {
-		return defaultCacheSize, errors.Errorf("invalid cache size configuration: expect value >= 0, actual %d", cacheSize)
+		return DefaultCacheSize, errors.Errorf("invalid cache size configuration: expect value >= 0, actual %d", cacheSize)
 	}
 	return cacheSize, nil
 }

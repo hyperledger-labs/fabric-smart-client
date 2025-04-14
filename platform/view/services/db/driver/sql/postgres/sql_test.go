@@ -31,10 +31,11 @@ func TestPostgres(t *testing.T) {
 	defer terminate()
 	t.Log("postgres ready")
 
+	o := testOpts{dataSource: pgConnStr, maxIdleConns: 2, maxIdleTime: 2 * time.Minute}
 	common2.TestCases(t, func(name string) (driver.UnversionedPersistence, error) {
-		return initPersistence(NewUnversionedPersistence, pgConnStr, name, 0, 2, time.Minute)
+		return common2.NewPersistenceWithOpts[DbOpts](name, o, NewUnversionedPersistence)
 	}, func(name string) (driver.UnversionedNotifier, error) {
-		return initPersistence(NewUnversionedNotifier, pgConnStr, name, 0, 2, time.Minute)
+		return common2.NewPersistenceWithOpts[DbOpts](name, o, NewUnversionedNotifier)
 	}, func(p driver.UnversionedPersistence) *common2.UnversionedPersistence {
 		return p.(*UnversionedPersistence).UnversionedPersistence
 	})

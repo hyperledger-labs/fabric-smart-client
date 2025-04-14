@@ -19,6 +19,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs/mock"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -27,8 +28,9 @@ type stuff struct {
 	I int    `json:"i"`
 }
 
-func testRound(t *testing.T, driver driver.Driver, cp kvs.ConfigProvider) {
-	kvstore, err := kvs.NewWithConfig(driver, "_default", cp)
+func testRound(t *testing.T, driver driver.NamedDriver, cp kvs.ConfigProvider) {
+	c := storage.NewConstructor(cp, driver)
+	kvstore, err := kvs.NewWithConfig(c, "_default", cp)
 	assert.NoError(t, err)
 	defer kvstore.Stop()
 
@@ -104,8 +106,9 @@ func testRound(t *testing.T, driver driver.Driver, cp kvs.ConfigProvider) {
 	assert.False(t, kvstore.Exists(k))
 }
 
-func testParallelWrites(t *testing.T, driver driver.Driver, cp kvs.ConfigProvider) {
-	kvstore, err := kvs.NewWithConfig(driver, "_default", cp)
+func testParallelWrites(t *testing.T, driver driver.NamedDriver, cp kvs.ConfigProvider) {
+	c := storage.NewConstructor(cp, driver)
+	kvstore, err := kvs.NewWithConfig(c, "_default", cp)
 	assert.NoError(t, err)
 	defer kvstore.Stop()
 
@@ -141,17 +144,14 @@ func testParallelWrites(t *testing.T, driver driver.Driver, cp kvs.ConfigProvide
 
 func TestMemoryKVS(t *testing.T) {
 	cp := &mock.ConfigProvider{}
-	d := &mem.Driver{}
+	d := mem.NewDriver()
 	testRound(t, d, cp)
 	testParallelWrites(t, d, cp)
 }
 
 func TestSQLiteKVS(t *testing.T) {
 	cp := &mock.ConfigProvider{}
-	d := &sqlite.TestDriver{
-		Name:    "sqlite_test",
-		TempDir: t.TempDir(),
-	}
+	d := sqlite.NewTestDriver("sqlite_test", t.TempDir())
 	testRound(t, d, cp)
 	testParallelWrites(t, d, cp)
 }
@@ -172,10 +172,7 @@ func TestPostgresKVS(t *testing.T) {
 	t.Log("postgres ready")
 
 	cp := &mock.ConfigProvider{}
-	d := &postgres.TestDriver{
-		Name:    "hw",
-		ConnStr: pgConnStr,
-	}
+	d := postgres.NewTestDriver("hw", pgConnStr)
 	testRound(t, d, cp)
 	testParallelWrites(t, d, cp)
 }

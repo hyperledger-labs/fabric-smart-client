@@ -7,39 +7,19 @@ SPDX-License-Identifier: Apache-2.0
 package vault
 
 import (
-	"fmt"
-
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
-	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/db"
 )
 
-const (
-	persistenceOptsConfigKey = "vault.persistence.opts"
-	persistenceTypeConfigKey = "vault.persistence.type"
-)
-
-func NewWithConfig(dbDrivers []driver.NamedDriver, cp db.Config, params ...string) (driver2.VaultStore, error) {
-	dbDriver, err := getDriver(dbDrivers, cp)
+func NewWithConfig(dbDrivers driver.NamedDrivers, cp driver.ConfigProvider, params ...string) (driver2.VaultStore, error) {
+	o, err := cp.GetConfig("vault.persistence", "txcode", params...)
 	if err != nil {
-		dbDriver = &mem.Driver{}
-	}
-
-	return dbDriver.NewVault(fmt.Sprintf("%s_txcode", db.EscapeForTableName(params...)), storage.NewPrefixConfig(cp, persistenceOptsConfigKey))
-}
-
-func getDriver(dbDrivers []driver.NamedDriver, cp db.Config) (driver.Driver, error) {
-	var driverName driver2.PersistenceType
-	if err := cp.UnmarshalKey(persistenceTypeConfigKey, &driverName); err != nil {
 		return nil, err
 	}
-	for _, d := range dbDrivers {
-		if d.Name == driverName {
-			return d.Driver, nil
-		}
+	dbDriver, err := dbDrivers.GetDriver(o.DriverType())
+	if err != nil {
+		return nil, err
 	}
-	return nil, errors.New("driver not found")
+
+	return dbDriver.NewVault(o.TableName(), o.DbOpts())
 }

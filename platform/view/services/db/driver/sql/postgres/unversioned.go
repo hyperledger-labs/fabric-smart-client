@@ -60,8 +60,8 @@ func (db *UnversionedPersistence) GetStateSetIterator(ns driver.Namespace, keys 
 	return decodeUnversionedReadIterator(db.UnversionedPersistence.GetStateSetIterator(ns, encoded...))
 }
 
-func NewUnversionedPersistence(opts common.Opts, table string) (*UnversionedPersistence, error) {
-	readWriteDB, err := OpenDB(opts.DataSource, opts.MaxOpenConns, opts.MaxIdleConns, opts.MaxIdleTime)
+func NewUnversionedPersistence(opts DbOpts, table string) (*UnversionedPersistence, error) {
+	readWriteDB, err := openDB(opts)
 	if err != nil {
 		return nil, fmt.Errorf("error opening db: %w", err)
 	}
@@ -80,14 +80,14 @@ func (db *unversionedPersistenceNotifier) CreateSchema() error {
 	return db.Notifier.CreateSchema()
 }
 
-func NewUnversionedNotifier(opts common.Opts, table string) (*unversionedPersistenceNotifier, error) {
-	readWriteDB, err := OpenDB(opts.DataSource, opts.MaxOpenConns, opts.MaxIdleConns, opts.MaxIdleTime)
+func NewUnversionedNotifier(opts DbOpts, table string) (*unversionedPersistenceNotifier, error) {
+	readWriteDB, err := openDB(opts)
 	if err != nil {
 		return nil, fmt.Errorf("error opening db: %w", err)
 	}
 	return &unversionedPersistenceNotifier{
 		UnversionedPersistence: newUnversionedPersistence(readWriteDB, table),
-		Notifier:               NewNotifier(readWriteDB, table, opts.DataSource, AllOperations, primaryKey{"ns", identity}, primaryKey{"pkey", decode}),
+		Notifier:               NewNotifier(readWriteDB, table, opts.DataSource(), AllOperations, primaryKey{"ns", identity}, primaryKey{"pkey", decode}),
 	}, nil
 }
 

@@ -23,7 +23,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/docker"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
-	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
 	_ "modernc.org/sqlite"
 )
 
@@ -32,6 +32,8 @@ import (
 // itests will not be recognized as a domain, so Podman will still prefix it with localhost
 // Hence we use fsc.itests as domain
 const PostgresImage = "fsc.itests/postgres:latest"
+
+const TestDriverName = "testpostgres"
 
 type Logger interface {
 	Log(...any)
@@ -94,6 +96,7 @@ type fmtLogger struct{}
 func (l *fmtLogger) Log(args ...any) {
 	fmt.Println(args...)
 }
+
 func (l *fmtLogger) Errorf(format string, args ...any) {
 	_ = fmt.Errorf(format, args...)
 }
@@ -282,56 +285,67 @@ func getEnv(key, fallback string) string {
 	return fallback
 }
 
-type dbObject interface {
-	CreateSchema() error
-}
-
-type persistenceConstructor[V dbObject] func(common2.Opts, string) (V, error)
-
-func initPersistence[V dbObject](constructor persistenceConstructor[V], pgConnStr, name string, maxOpenConns, maxIdleConns int, maxIdleTime time.Duration) (V, error) {
-	p, err := constructor(common2.Opts{DataSource: pgConnStr, MaxOpenConns: maxOpenConns, MaxIdleConns: &maxIdleConns, MaxIdleTime: &maxIdleTime}, name)
-	if err != nil {
-		return utils.Zero[V](), err
-	}
-	if err := p.CreateSchema(); err != nil {
-		return utils.Zero[V](), err
-	}
-	return p, nil
-}
-
 type TestDriver struct {
-	Name    string
-	ConnStr string
+	opts DbOpts
+	name string
 }
 
-func (t *TestDriver) NewKVS(string, driver.Config) (driver.UnversionedPersistence, error) {
-	return initPersistence(NewUnversionedPersistence, t.ConnStr, t.Name, 50, 10, time.Minute)
+func NewTestDriver(name, connStr string) driver.NamedDriver {
+	return driver.NamedDriver{
+		Name: TestDriverName,
+		Driver: &TestDriver{
+			opts: testOpts{
+				dataSource:   connStr,
+				maxOpenConns: 50,
+				maxIdleConns: 10,
+				maxIdleTime:  1 * time.Minute,
+			},
+			name: name,
+		},
+	}
 }
 
-func (t *TestDriver) NewBinding(string, driver.Config) (driver.BindingPersistence, error) {
-	return initPersistence(NewBindingPersistence, t.ConnStr, t.Name, 50, 10, time.Minute)
+func (t *TestDriver) NewKVS(string, driver.DbOpts) (driver.UnversionedPersistence, error) {
+	return common.NewPersistenceWithOpts[DbOpts](t.name, t.opts, NewUnversionedPersistence)
 }
 
-func (t *TestDriver) NewSignerInfo(string, driver.Config) (driver.SignerInfoPersistence, error) {
-	return initPersistence(NewSignerInfoPersistence, t.ConnStr, t.Name, 50, 10, time.Minute)
+func (t *TestDriver) NewBinding(string, driver.DbOpts) (driver.BindingPersistence, error) {
+	return common.NewPersistenceWithOpts[DbOpts](t.name, t.opts, NewBindingPersistence)
 }
 
-func (t *TestDriver) NewAuditInfo(string, driver.Config) (driver.AuditInfoPersistence, error) {
-	return initPersistence(NewAuditInfoPersistence, t.ConnStr, t.Name, 50, 10, time.Minute)
+func (t *TestDriver) NewSignerInfo(string, driver.DbOpts) (driver.SignerInfoPersistence, error) {
+	return common.NewPersistenceWithOpts[DbOpts](t.name, t.opts, NewSignerInfoPersistence)
 }
 
-func (t *TestDriver) NewEndorseTx(string, driver.Config) (driver.EndorseTxPersistence, error) {
-	return initPersistence(NewEndorseTxPersistence, t.ConnStr, t.Name, 50, 10, time.Minute)
+func (t *TestDriver) NewAuditInfo(string, driver.DbOpts) (driver.AuditInfoPersistence, error) {
+	return common.NewPersistenceWithOpts[DbOpts](t.name, t.opts, NewAuditInfoPersistence)
 }
 
-func (t *TestDriver) NewMetadata(string, driver.Config) (driver.MetadataPersistence, error) {
-	return initPersistence(NewMetadataPersistence, t.ConnStr, t.Name, 50, 10, time.Minute)
+func (t *TestDriver) NewEndorseTx(string, driver.DbOpts) (driver.EndorseTxPersistence, error) {
+	return common.NewPersistenceWithOpts[DbOpts](t.name, t.opts, NewEndorseTxPersistence)
 }
 
-func (t *TestDriver) NewEnvelope(string, driver.Config) (driver.EnvelopePersistence, error) {
-	return initPersistence(NewEnvelopePersistence, t.ConnStr, t.Name, 50, 10, time.Minute)
+func (t *TestDriver) NewMetadata(string, driver.DbOpts) (driver.MetadataPersistence, error) {
+	return common.NewPersistenceWithOpts[DbOpts](t.name, t.opts, NewMetadataPersistence)
 }
 
-func (t *TestDriver) NewVault(string, driver.Config) (driver.VaultPersistence, error) {
-	return initPersistence(NewVaultPersistence, t.ConnStr, t.Name, 50, 10, time.Minute)
+func (t *TestDriver) NewEnvelope(string, driver.DbOpts) (driver.EnvelopePersistence, error) {
+	return common.NewPersistenceWithOpts[DbOpts](t.name, t.opts, NewEnvelopePersistence)
 }
+
+func (t *TestDriver) NewVault(string, driver.DbOpts) (driver.VaultPersistence, error) {
+	return common.NewPersistenceWithOpts[DbOpts](t.name, t.opts, NewVaultPersistence)
+}
+
+type testOpts struct {
+	dataSource   string
+	maxOpenConns int
+	maxIdleConns int
+	maxIdleTime  time.Duration
+}
+
+func (o testOpts) DataSource() string         { return o.dataSource }
+func (o testOpts) SkipCreateTable() bool      { return false }
+func (o testOpts) MaxOpenConns() int          { return o.maxOpenConns }
+func (o testOpts) MaxIdleConns() int          { return o.maxIdleConns }
+func (o testOpts) MaxIdleTime() time.Duration { return o.maxIdleTime }

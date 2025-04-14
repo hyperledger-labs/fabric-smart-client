@@ -26,6 +26,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/db"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/vault"
 	"github.com/hyperledger/fabric-protos-go/common"
 	"github.com/pkg/errors"
@@ -95,7 +96,7 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 	}
 
 	// Vault
-	vaultStore, err := vault.NewWithConfig(p.drivers, nw.ConfigService(), nw.Name(), channelName)
+	vaultStore, err := vault.NewWithConfig(p.drivers, db.NewConfigProvider(nw.ConfigService()), nw.Name(), channelName)
 	if err != nil {
 		return nil, err
 	}

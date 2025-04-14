@@ -21,6 +21,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs/mock"
 	registry2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/registry"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage"
 	msp2 "github.com/hyperledger/fabric/msp"
 	"github.com/stretchr/testify/assert"
 )
@@ -36,7 +37,8 @@ func newSignerInfo() driver.SignerInfoPersistence {
 func TestProvider(t *testing.T) {
 	registry := registry2.New()
 
-	kvss, err := kvs.NewWithConfig(&mem.Driver{}, "", &mock.ConfigProvider{})
+	c := storage.NewConstructor(&mock.ConfigProvider{}, mem.NewDriver())
+	kvss, err := kvs.NewWithConfig(c, "", &mock.ConfigProvider{})
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
 	sigService := sig2.NewService(sig2.NewMultiplexDeserializer(), newAuditInfo(), newSignerInfo())
@@ -61,7 +63,9 @@ func TestProvider(t *testing.T) {
 func TestIdentityWithEidRhNymPolicy(t *testing.T) {
 	registry := registry2.New()
 
-	kvss, err := kvs.NewWithConfig(&mem.Driver{}, "", &mock.ConfigProvider{})
+	cp := &mock.ConfigProvider{}
+	c := storage.NewConstructor(cp, mem.NewDriver())
+	kvss, err := kvs.NewWithConfig(c, "", cp)
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
 	sigService := sig2.NewService(sig2.NewMultiplexDeserializer(), newAuditInfo(), newSignerInfo())
@@ -126,7 +130,9 @@ func TestIdentityWithEidRhNymPolicy(t *testing.T) {
 func TestIdentityStandard(t *testing.T) {
 	registry := registry2.New()
 
-	kvss, err := kvs.NewWithConfig(&mem.Driver{}, "", &mock.ConfigProvider{})
+	cp := &mock.ConfigProvider{}
+	c := storage.NewConstructor(cp, mem.NewDriver())
+	kvss, err := kvs.NewWithConfig(c, "", cp)
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
 	sigService := sig2.NewService(sig2.NewMultiplexDeserializer(), newAuditInfo(), newSignerInfo())
@@ -193,7 +199,9 @@ func TestIdentityStandard(t *testing.T) {
 func TestAuditWithEidRhNymPolicy(t *testing.T) {
 	registry := registry2.New()
 
-	kvss, err := kvs.NewWithConfig(&mem.Driver{}, "", &mock.ConfigProvider{})
+	cp := &mock.ConfigProvider{}
+	c := storage.NewConstructor(cp, mem.NewDriver())
+	kvss, err := kvs.NewWithConfig(c, "", cp)
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
 	sigService := sig2.NewService(sig2.NewMultiplexDeserializer(), newAuditInfo(), newSignerInfo())
@@ -235,7 +243,9 @@ func TestAuditWithEidRhNymPolicy(t *testing.T) {
 func TestProvider_DeserializeSigner(t *testing.T) {
 	registry := registry2.New()
 
-	kvss, err := kvs.NewWithConfig(&mem.Driver{}, "", &mock.ConfigProvider{})
+	cp := &mock.ConfigProvider{}
+	c := storage.NewConstructor(cp, mem.NewDriver())
+	kvss, err := kvs.NewWithConfig(c, "", cp)
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
 	sigService := sig2.NewService(sig2.NewMultiplexDeserializer(), newAuditInfo(), newSignerInfo())
@@ -291,7 +301,9 @@ func TestProvider_DeserializeSigner(t *testing.T) {
 func TestIdentityFromFabricCA(t *testing.T) {
 	registry := registry2.New()
 
-	kvss, err := kvs.NewWithConfig(&mem.Driver{}, "", &mock.ConfigProvider{})
+	cp := &mock.ConfigProvider{}
+	c := storage.NewConstructor(cp, mem.NewDriver())
+	kvss, err := kvs.NewWithConfig(c, "", cp)
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
 	sigService := sig2.NewService(sig2.NewMultiplexDeserializer(), newAuditInfo(), newSignerInfo())
@@ -358,7 +370,9 @@ func TestIdentityFromFabricCA(t *testing.T) {
 func TestIdentityFromFabricCAWithEidRhNymPolicy(t *testing.T) {
 	registry := registry2.New()
 
-	kvss, err := kvs.NewWithConfig(&mem.Driver{}, "", &mock.ConfigProvider{})
+	cp := &mock.ConfigProvider{}
+	c := storage.NewConstructor(cp, mem.NewDriver())
+	kvss, err := kvs.NewWithConfig(c, "", cp)
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
 	sigService := sig2.NewService(sig2.NewMultiplexDeserializer(), newAuditInfo(), newSignerInfo())

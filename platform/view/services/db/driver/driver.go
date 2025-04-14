@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package driver
 
 import (
+	"time"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/pkg/errors"
@@ -103,23 +105,34 @@ type Config interface {
 
 type NamedDriver = driver.NamedDriver[Driver]
 
+type NamedDrivers []NamedDriver
+
+func (d NamedDrivers) GetDriver(t driver.PersistenceType) (Driver, error) {
+	for _, dr := range d {
+		if dr.Name == t {
+			return dr.Driver, nil
+		}
+	}
+	return nil, errors.Errorf("driver %s not found", t)
+}
+
 type Driver interface {
 	// NewKVS returns a new UnversionedPersistence for the passed data source and config
-	NewKVS(dataSourceName string, config Config) (UnversionedPersistence, error)
+	NewKVS(string, DbOpts) (UnversionedPersistence, error)
 	// NewBinding returns a new BindingPersistence for the passed data source and config
-	NewBinding(dataSourceName string, config Config) (BindingPersistence, error)
+	NewBinding(string, DbOpts) (BindingPersistence, error)
 	// NewSignerInfo returns a new SignerInfoPersistence for the passed data source and config
-	NewSignerInfo(string, Config) (SignerInfoPersistence, error)
+	NewSignerInfo(string, DbOpts) (SignerInfoPersistence, error)
 	// NewAuditInfo returns a new AuditInfoPersistence for the passed data source and config
-	NewAuditInfo(string, Config) (AuditInfoPersistence, error)
+	NewAuditInfo(string, DbOpts) (AuditInfoPersistence, error)
 	// NewEndorseTx returns a new EndorseTxPersistence for the passed data source and config
-	NewEndorseTx(string, Config) (EndorseTxPersistence, error)
+	NewEndorseTx(string, DbOpts) (EndorseTxPersistence, error)
 	// NewMetadata returns a new MetadataPersistence for the passed data source and config
-	NewMetadata(string, Config) (MetadataPersistence, error)
+	NewMetadata(string, DbOpts) (MetadataPersistence, error)
 	// NewEnvelope returns a new EnvelopePersistence for the passed data source and config
-	NewEnvelope(string, Config) (EnvelopePersistence, error)
-	// NewTxCode returns a new VaultPersistence for the passed data source and config
-	NewVault(dataSourceName string, config Config) (driver.VaultStore, error)
+	NewEnvelope(string, DbOpts) (EnvelopePersistence, error)
+	// NewVault returns a new VaultPersistence for the passed data source and config
+	NewVault(string, DbOpts) (driver.VaultStore, error)
 }
 
 type (
@@ -145,4 +158,26 @@ type Notifier interface {
 type UnversionedNotifier interface {
 	UnversionedPersistence
 	Notifier
+}
+
+type SQLDriverType string
+
+type ConfigProvider interface {
+	GetConfig(configKey string, name string, params ...string) (TableOpts, error)
+}
+
+type TableOpts interface {
+	TableName() string
+	DriverType() driver.PersistenceType
+	DbOpts() DbOpts
+}
+
+type DbOpts interface {
+	Driver() SQLDriverType
+	DataSource() string
+	SkipCreateTable() bool
+	SkipPragmas() bool
+	MaxOpenConns() int
+	MaxIdleConns() int
+	MaxIdleTime() time.Duration
 }

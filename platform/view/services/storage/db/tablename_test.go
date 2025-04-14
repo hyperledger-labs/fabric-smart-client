@@ -25,7 +25,7 @@ func TestEscapeTableName(t *testing.T) {
 		{[]string{"alpha", "test-channel", "other.param"}, "alpha__test_dchannel__other_fparam"},
 	}
 	for _, c := range cases {
-		assert.Equal(t, c.expectedOutput, EscapeForTableName(c.input...))
+		assert.Equal(t, c.expectedOutput, escapeForTableName(c.input...))
 	}
 }
 
@@ -35,6 +35,6 @@ func TestEscapeTableNameError(t *testing.T) {
 		{"alpha", "test-#channel"},
 	}
 	for _, c := range cases {
-		assert.Panics(t, func() { EscapeForTableName(c...) })
+		assert.Panics(t, func() { escapeForTableName(c...) })
 	}
 }
