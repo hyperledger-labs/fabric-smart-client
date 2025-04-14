@@ -24,7 +24,7 @@ func newKVS(c *storage.Constructor, config driver.ConfigService) (*kvs.KVS, erro
 
 func newStorageConstructor(in struct {
 	dig.In
-	Config  driver2.Config
+	Config  driver.ConfigService
 	Drivers []driver2.NamedDriver `group:"db-drivers"`
 }) *storage.Constructor {
 	return storage.NewConstructor(in.Config, in.Drivers...)
