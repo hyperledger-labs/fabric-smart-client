@@ -4,11 +4,10 @@ import (
 	"fmt"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/lazy"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
 )
 
-type PersistenceName = driver.PersistenceName
+type PersistenceName string
 
 const DefaultPersistence PersistenceName = "default"
 
@@ -51,6 +50,5 @@ func getConfig(cp config, configKey string) (*Config, error) {
 	if cfg.Opts.MaxIdleTime == nil {
 		cfg.Opts.MaxIdleTime = defaultMaxIdleTime
 	}
-	logger.Infof("New config found: %v", cfg)
 	return &cfg, nil
 }

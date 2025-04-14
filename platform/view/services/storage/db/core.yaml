@@ -69,12 +69,11 @@ fsc:
         path: ./../../routing-config.yaml
   # The Key-Value Store is used to store various information related to the FSC node
   kvs:
-    persistence: memtest
+    persistence:
+      type: memory
     cache:
         # Sets the maximum number of cached items 
         size: 200
-  signer:
-    persistence:
   # HTML Server configuration for REST calls
   web:
     enabled: true

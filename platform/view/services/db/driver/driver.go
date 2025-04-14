@@ -162,10 +162,8 @@ type UnversionedNotifier interface {
 
 type SQLDriverType string
 
-type PersistenceName string
-
 type ConfigProvider interface {
-	GetConfig(persistenceName PersistenceName, name string, params ...string) (TableOpts, error)
+	GetConfig(configKey string, name string, params ...string) (TableOpts, error)
 }
 
 type TableOpts interface {

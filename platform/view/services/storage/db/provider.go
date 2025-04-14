@@ -27,15 +27,15 @@ type config interface {
 }
 
 func NewConfigProvider(config config) *configProvider {
-	return &configProvider{config: newPersistenceConfig(config)}
+	return &configProvider{config: config}
 }
 
 type configProvider struct {
-	config *persistenceConfig
+	config config
 }
 
-func (r *configProvider) GetConfig(persistenceName driver.PersistenceName, name string, params ...string) (driver.TableOpts, error) {
-	cfg, err := r.config.Get(persistenceName)
+func (r *configProvider) GetConfig(configKey string, name string, params ...string) (driver.TableOpts, error) {
+	cfg, err := r.getConfig(configKey)
 	if err != nil {
 		return nil, err
 	}
@@ -58,4 +58,29 @@ func (r *configProvider) GetConfig(persistenceName driver.PersistenceName, name 
 			maxIdleTime:     *cfg.Opts.MaxIdleTime,
 		},
 	}, nil
+}
+
+func (r *configProvider) getConfig(configKey string) (*Config, error) {
+	var cfg Config
+	if err := r.config.UnmarshalKey(configKey, &cfg); err != nil || !supportedStores.Contains(cfg.Type) || cfg.Type == mem.MemoryPersistence {
+		logger.Warnf("Persistence type [%s]. Supported: [%v]. Error: %v", cfg.Type, supportedStores, err)
+		return &Config{
+			Type: mem.MemoryPersistence,
+			Opts: memOpts,
+		}, nil
+	}
+
+	if len(cfg.Opts.Driver) == 0 {
+		return nil, notSetError("driver")
+	}
+	if len(cfg.Opts.DataSource) == 0 {
+		return nil, notSetError("dataSource")
+	}
+	if cfg.Opts.MaxIdleConns == nil {
+		cfg.Opts.MaxIdleConns = defaultMaxIdleConns
+	}
+	if cfg.Opts.MaxIdleTime == nil {
+		cfg.Opts.MaxIdleTime = defaultMaxIdleTime
+	}
+	return &cfg, nil
 }
