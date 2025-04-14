@@ -1,3 +1,9 @@
+/*
+Copyright IBM Corp. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
+
 package db_test
 
 import (
@@ -10,7 +16,18 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/db"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
 )
+
+var testMatrix = map[string]types.GomegaMatcher{
+	"fsc.kvs.persistence": And(
+		HaveField("DriverType()", mem.MemoryPersistence),
+		HaveField("TableName()", HaveLen(16)),
+		HaveField("DbOpts()", And(
+			HaveField("Driver()", sql.SQLite),
+		)),
+	),
+}
 
 func TestConfigProvider(t *testing.T) {
 	RegisterTestingT(t)
@@ -19,10 +36,10 @@ func TestConfigProvider(t *testing.T) {
 	provider, err := config2.NewProvider(confPath)
 	Expect(err).ToNot(HaveOccurred())
 	cp := db.NewConfigProvider(provider)
-	persistence := db.PersistenceName(provider.GetString("fsc.kvs.persistence"))
-	c, err := cp.GetConfig(persistence, "")
-	Expect(err).ToNot(HaveOccurred())
-	Expect(c.DriverType()).To(Equal(mem.MemoryPersistence))
-	Expect(c.TableName()).To(HaveLen(16))
-	Expect(c.DbOpts().Driver()).To(Equal(sql.SQLite))
+	for configKey, matchCondition := range testMatrix {
+		c, err := cp.GetConfig(configKey, "")
+
+		Expect(err).ToNot(HaveOccurred())
+		Expect(c).To(matchCondition)
+	}
 }

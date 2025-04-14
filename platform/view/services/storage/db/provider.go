@@ -27,11 +27,15 @@ type config interface {
 }
 
 func NewConfigProvider(config config) *configProvider {
-	return &configProvider{config: config}
+	return &configProvider{
+		config:           config,
+		tableNameCreator: newTableNameCreator(),
+	}
 }
 
 type configProvider struct {
-	config config
+	config           config
+	tableNameCreator *tableNameCreator
 }
 
 func (r *configProvider) GetConfig(configKey string, name string, params ...string) (driver.TableOpts, error) {
@@ -40,7 +44,7 @@ func (r *configProvider) GetConfig(configKey string, name string, params ...stri
 		return nil, err
 	}
 
-	tableName, err := getTableName(cfg.Type, cfg.Opts.TablePrefix, name, params...)
+	tableName, err := r.tableNameCreator.createTableName(cfg.Type, cfg.Opts.TablePrefix, name, params...)
 	if err != nil {
 		return nil, err
 	}

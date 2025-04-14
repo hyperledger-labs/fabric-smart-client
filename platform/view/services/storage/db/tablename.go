@@ -13,53 +13,48 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/lazy"
 	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
 	"github.com/pkg/errors"
 )
 
-type TableNameCreator struct {
-	prefix string
-	r      *regexp.Regexp
+type tableNameCreator struct {
+	formatterProvider lazy.Provider[string, *tableNameFormatter]
 }
 
-func NewTableNameCreator(prefix string) (*TableNameCreator, error) {
-	if len(prefix) > 100 {
-		return nil, errors.New("table prefix must be shorter than 100 characters")
-	}
-	r := regexp.MustCompile("^[a-zA-Z_]+$")
-	if len(prefix) == 0 {
-		return &TableNameCreator{r: r}, nil
-	}
+func newTableNameCreator() *tableNameCreator {
+	return &tableNameCreator{formatterProvider: lazy.NewProvider(func(prefix string) (*tableNameFormatter, error) {
+		if len(prefix) > 100 {
+			return nil, errors.New("table prefix must be shorter than 100 characters")
+		}
+		r := regexp.MustCompile("^[a-zA-Z_]+$")
+		if len(prefix) == 0 {
+			return &tableNameFormatter{r: r}, nil
+		}
 
-	if !r.MatchString(prefix) {
-		return nil, errors.New("illegal character in table prefix, only letters and underscores allowed")
-	}
-	return &TableNameCreator{
-		prefix: strings.ToLower(prefix) + "_",
-		r:      r,
-	}, nil
+		if !r.MatchString(prefix) {
+			return nil, errors.New("illegal character in table prefix, only letters and underscores allowed")
+		}
+		return &tableNameFormatter{
+			prefix: strings.ToLower(prefix) + "_",
+			r:      r,
+		}, nil
+	})}
 }
 
-func (c *TableNameCreator) GetTableName(name string) (string, bool) {
-	if !c.r.MatchString(name) {
-		return "", false
-	}
-	return fmt.Sprintf("%s%s", c.prefix, name), true
-}
-
-func getTableName(persistenceType driver.PersistenceType, tablePrefix string, name string, params ...string) (string, error) {
+func (c *tableNameCreator) createTableName(persistenceType driver.PersistenceType, tablePrefix string, name string, params ...string) (string, error) {
 	if persistenceType == mem.MemoryPersistence {
 		return utils.GenerateUUIDOnlyLetters(), nil
 	}
 	if tablePrefix == "" {
 		tablePrefix = "fsc"
 	}
-	nc, err := NewTableNameCreator(tablePrefix)
+	nc, err := c.formatterProvider.Get(tablePrefix)
 	if err != nil {
 		return "", err
 	}
 	escapedName := fmt.Sprintf("%s_%s", escapeForTableName(params...), name)
-	tableName, valid := nc.GetTableName(escapedName)
+	tableName, valid := nc.Format(escapedName)
 	if !valid {
 		return "", fmt.Errorf("invalid table name [%s]: only letters and underscores allowed", escapedName)
 	}
@@ -76,6 +71,18 @@ var replacers = []*replacer{
 type replacer struct {
 	regex *regexp.Regexp
 	repl  string
+}
+
+type tableNameFormatter struct {
+	prefix string
+	r      *regexp.Regexp
+}
+
+func (c *tableNameFormatter) Format(name string) (string, bool) {
+	if !c.r.MatchString(name) {
+		return "", false
+	}
+	return fmt.Sprintf("%s%s", c.prefix, name), true
 }
 
 func newReplacer(escaped, repl string) *replacer {

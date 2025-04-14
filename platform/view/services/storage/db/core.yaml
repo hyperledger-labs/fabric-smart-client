@@ -98,20 +98,6 @@ fsc:
     provider: none
     udp:
       address: 127.0.0.1:8125
-  persistences:
-    default:
-      type: sql
-      opts:
-        driver: sqlite
-        dataSource: file:/some/path/fsc.sqlite&_txlock=immediate
-        tablePrefix: fsc
-        skipCreateTable: true
-        skipPragmas: true
-        maxOpenConns: 20
-        maxIdleConns: 20
-        maxIdleTime: 30s
-    memtest:
-      type: memory
   metrics:
     # metrics provider is one of statsd, prometheus, or disabled
     provider: none
