@@ -28,6 +28,7 @@ func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType, replicationOpts *
 	// Define an FSC topology with 3 FCS nodes.
 	// One for the approver, one for the borrower, and one for the lender.
 	fscTopology := fsc.NewTopology()
+	fscTopology.SetLogging("debug", "")
 	fscTopology.P2PCommunicationType = commType
 
 	// Add the approver FSC node.
