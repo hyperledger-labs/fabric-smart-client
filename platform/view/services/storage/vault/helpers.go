@@ -16,10 +16,12 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/postgres"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/sqlite"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs/mock"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/db"
 )
 
 func OpenMemoryVault() (driver.VaultPersistence, error) {
-	return (&mem.Driver{}).NewVault("", nil)
+	return NewWithConfig(driver.NamedDrivers{mem.NewDriver()}, db.NewConfigProvider(&mock.ConfigProvider{}))
 }
 
 func OpenSqliteVault(key, tempDir string) (driver.VaultPersistence, error) {
