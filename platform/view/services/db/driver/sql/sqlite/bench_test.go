@@ -7,7 +7,10 @@ SPDX-License-Identifier: Apache-2.0
 package sqlite
 
 import (
+	"fmt"
+	"path"
 	"testing"
+	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
@@ -47,7 +50,12 @@ func BenchmarkWriteManySqlite(b *testing.B) {
 }
 
 func newVersionedPersistence(dir string) (driver.UnversionedPersistence, error) {
-	p, err := NewUnversionedPersistence(dbOpts("benchmark", dir), "test")
+	o := Opts{
+		DataSource:   fmt.Sprintf("file:%s.sqlite?_pragma=busy_timeout(1000)", path.Join(dir, "benchmark")),
+		MaxIdleConns: 2,
+		MaxIdleTime:  2 * time.Minute,
+	}
+	p, err := NewUnversionedPersistence(o, "test")
 	if err != nil {
 		return nil, err
 	}

@@ -17,8 +17,8 @@ type EnvelopePersistence struct {
 	*common.EnvelopePersistence
 }
 
-func NewEnvelopePersistence(opts common.Opts, table string) (*EnvelopePersistence, error) {
-	readWriteDB, err := OpenDB(opts.DataSource, opts.MaxOpenConns, opts.MaxIdleConns, opts.MaxIdleTime)
+func NewEnvelopePersistence(opts Opts, table string) (*EnvelopePersistence, error) {
+	readWriteDB, err := openDB(opts)
 	if err != nil {
 		return nil, fmt.Errorf("error opening db: %w", err)
 	}

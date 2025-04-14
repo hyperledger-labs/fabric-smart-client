@@ -27,8 +27,8 @@ type VaultPersistence struct {
 	pi      common.PaginationInterpreter
 }
 
-func NewVaultPersistence(opts common.Opts, tablePrefix string) (*VaultPersistence, error) {
-	readWriteDB, err := OpenDB(opts.DataSource, opts.MaxOpenConns, opts.MaxIdleConns, opts.MaxIdleTime)
+func NewVaultPersistence(opts Opts, tablePrefix string) (*VaultPersistence, error) {
+	readWriteDB, err := openDB(opts)
 	if err != nil {
 		return nil, fmt.Errorf("error opening db: %w", err)
 	}
@@ -42,7 +42,7 @@ func newVaultPersistence(readWriteDB *sql.DB, tables common.VaultTables) *VaultP
 	ci := NewInterpreter()
 	pi := NewPaginatedInterpreter()
 	return &VaultPersistence{
-		VaultPersistence: common.NewVaultPersistence(readWriteDB, readWriteDB, tables, &errorMapper{}, ci, pi, newSanitizer(), isolationLevels),
+		VaultPersistence: common.NewVaultPersistence(readWriteDB, readWriteDB, tables, &errorMapper{}, ci, pi, NewSanitizer(), isolationLevels),
 		tables:           tables,
 		writeDB:          readWriteDB,
 		ci:               ci,

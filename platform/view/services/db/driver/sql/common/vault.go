@@ -19,6 +19,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/common"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -199,7 +200,7 @@ func (db *VaultPersistence) SetStatusesValid(txIDs []driver.TxID, offset int) (s
 		WHERE %s;
 		`, db.tables.StatusTable,
 		offset,
-		db.ci.InStrings("tx_id", txIDs).ToString(CopyPtr(offset+1)))
+		db.ci.InStrings("tx_id", txIDs).ToString(common.CopyPtr(offset+1)))
 	return query, params
 }
 func (db *VaultPersistence) convertStateRows(writes driver.Writes, metaWrites driver.MetaWrites) ([]stateRow, error) {

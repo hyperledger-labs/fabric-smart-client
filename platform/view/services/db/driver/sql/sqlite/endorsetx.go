@@ -17,8 +17,8 @@ type EndorseTxPersistence struct {
 	*common.EndorseTxPersistence
 }
 
-func NewEndorseTxPersistence(opts common.Opts, table string) (*EndorseTxPersistence, error) {
-	readDB, writeDB, err := OpenRWDBs(opts.DataSource, opts.MaxOpenConns, opts.MaxIdleConns, opts.MaxIdleTime, opts.SkipPragmas)
+func NewEndorseTxPersistence(opts Opts, table string) (*EndorseTxPersistence, error) {
+	readDB, writeDB, err := openRWDBs(opts)
 	if err != nil {
 		return nil, fmt.Errorf("error opening db: %w", err)
 	}

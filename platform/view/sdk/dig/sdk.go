@@ -12,7 +12,6 @@ import (
 
 	"github.com/go-kit/log"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/node"
-	driver4 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	dig2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	sig2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/services/sig"
@@ -31,7 +30,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/provider"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/crypto"
 	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/postgres"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/sqlite"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events/simple"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
@@ -87,17 +87,18 @@ func (p *SDK) Install() error {
 		p.Container().Provide(crypto.NewProvider, dig.As(new(hash.Hasher))),
 		p.Container().Provide(simple.NewEventBus, dig.As(new(events.EventSystem), new(events.Publisher), new(events.Subscriber))),
 		p.Container().Provide(func(system events.EventSystem) *events.Service { return &events.Service{EventSystem: system} }),
-		p.Container().Provide(sql.NewDriver, dig.Group("db-drivers")),
+		p.Container().Provide(postgres.NewDriver, dig.Group("db-drivers")),
+		p.Container().Provide(sqlite.NewDriver, dig.Group("db-drivers")),
 		p.Container().Provide(mem.NewDriver, dig.Group("db-drivers")),
 		p.Container().Provide(file.NewDriver, dig.Group("kms-drivers")),
 		p.Container().Provide(newKVS),
 		p.Container().Provide(sig2.NewDeserializer),
 		p.Container().Provide(sig2.NewService, dig.As(new(id.SigService), new(driver.SigService), new(driver.SigRegistry), new(driver.AuditRegistry))),
 		p.Container().Provide(view.NewSigService, dig.As(new(view3.VerifierProvider), new(view3.SignerProvider))),
-		p.Container().Provide(newBindingStore, dig.As(new(driver4.BindingStore))),
-		p.Container().Provide(newSignerInfoStore, dig.As(new(driver4.SignerInfoStore))),
-		p.Container().Provide(newAuditInfoStore, dig.As(new(driver4.AuditInfoStore))),
 		p.Container().Provide(endpoint.NewService),
+		p.Container().Provide(newBindingStore),
+		p.Container().Provide(newSignerInfoStore),
+		p.Container().Provide(newAuditInfoStore),
 		p.Container().Provide(digutils.Identity[*endpoint.Service](), dig.As(new(driver.EndpointService))),
 		p.Container().Provide(view.NewEndpointService),
 		p.Container().Provide(digutils.Identity[*view.EndpointService](), dig.As(new(comm.EndpointService), new(id.EndpointService), new(endpoint.Backend))),

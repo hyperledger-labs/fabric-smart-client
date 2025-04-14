@@ -95,7 +95,7 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 	}
 
 	// Vault
-	vaultStore, err := vault.NewWithConfig(p.drivers, nw.ConfigService(), nw.Name(), channelName)
+	vaultStore, err := vault.NewStore(nw.ConfigService(), p.drivers, nw.Name(), channelName)
 	if err != nil {
 		return nil, err
 	}

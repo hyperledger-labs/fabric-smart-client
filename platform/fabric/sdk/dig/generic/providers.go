@@ -26,13 +26,15 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/rwset"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services"
 	vdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/endorsetx"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/envelope"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/metadata"
 	vault2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/vault"
 	"github.com/hyperledger/fabric-protos-go/common"
 	"go.opentelemetry.io/otel/trace"
@@ -228,7 +230,7 @@ func NewEndorseTxStore(in struct {
 	Config  vdriver.ConfigService
 	Drivers []dbdriver.NamedDriver `group:"db-drivers"`
 }) (driver.EndorseTxStore, error) {
-	return services.NewDBBasedEndorseTxStore(in.Drivers, in.Config, "default")
+	return endorsetx.NewStore[driver.Key](in.Config, in.Drivers, "default")
 }
 
 func NewMetadataStore(in struct {
@@ -236,7 +238,7 @@ func NewMetadataStore(in struct {
 	Config  vdriver.ConfigService
 	Drivers []dbdriver.NamedDriver `group:"db-drivers"`
 }) (driver.MetadataStore, error) {
-	return services.NewDBBasedMetadataStore(in.Drivers, in.Config, "default")
+	return metadata.NewStore[driver.Key, driver.TransientMap](in.Config, in.Drivers, "default")
 }
 
 func NewEnvelopeStore(in struct {
@@ -244,5 +246,5 @@ func NewEnvelopeStore(in struct {
 	Config  vdriver.ConfigService
 	Drivers []dbdriver.NamedDriver `group:"db-drivers"`
 }) (driver.EnvelopeStore, error) {
-	return services.NewDBBasedEnvelopeStore(in.Drivers, in.Config, "default")
+	return envelope.NewStore[driver.Key](in.Config, in.Drivers, "default")
 }

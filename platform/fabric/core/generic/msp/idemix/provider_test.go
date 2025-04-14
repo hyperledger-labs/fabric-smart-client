@@ -18,25 +18,21 @@ import (
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/multiplexed"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs/mock"
 	registry2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/registry"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/auditinfo"
+	kvs2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/kvs"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/signerinfo"
 	msp2 "github.com/hyperledger/fabric/msp"
 	"github.com/stretchr/testify/assert"
 )
 
-func newAuditInfo() driver.AuditInfoPersistence {
-	return utils.MustGet((&mem.Driver{}).NewAuditInfo("", nil))
-}
-
-func newSignerInfo() driver.SignerInfoPersistence {
-	return utils.MustGet((&mem.Driver{}).NewSignerInfo("", nil))
-}
-
 func TestProvider(t *testing.T) {
 	registry := registry2.New()
 
-	kvss, err := kvs.NewWithConfig(&mem.Driver{}, "", &mock.ConfigProvider{})
+	kvss, err := kvs.New(newKVS(), "", kvs.DefaultCacheSize)
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
 	sigService := sig2.NewService(sig2.NewMultiplexDeserializer(), newAuditInfo(), newSignerInfo())
@@ -58,10 +54,23 @@ func TestProvider(t *testing.T) {
 	assert.NotNil(t, p)
 }
 
+func newSignerInfo() driver.SignerInfoPersistence {
+	return utils.MustGet(signerinfo.NewStore(&mock.ConfigProvider{}, multiplexed.Driver{mem.NewDriver()}))
+}
+
+func newAuditInfo() driver.AuditInfoPersistence {
+
+	return utils.MustGet(auditinfo.NewStore(&mock.ConfigProvider{}, multiplexed.Driver{mem.NewDriver()}))
+}
+
+func newKVS() driver.UnversionedPersistence {
+	return utils.MustGet(kvs2.NewStore(&mock.ConfigProvider{}, multiplexed.Driver{mem.NewDriver()}))
+}
+
 func TestIdentityWithEidRhNymPolicy(t *testing.T) {
 	registry := registry2.New()
 
-	kvss, err := kvs.NewWithConfig(&mem.Driver{}, "", &mock.ConfigProvider{})
+	kvss, err := kvs.New(newKVS(), "", kvs.DefaultCacheSize)
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
 	sigService := sig2.NewService(sig2.NewMultiplexDeserializer(), newAuditInfo(), newSignerInfo())
@@ -126,7 +135,7 @@ func TestIdentityWithEidRhNymPolicy(t *testing.T) {
 func TestIdentityStandard(t *testing.T) {
 	registry := registry2.New()
 
-	kvss, err := kvs.NewWithConfig(&mem.Driver{}, "", &mock.ConfigProvider{})
+	kvss, err := kvs.New(newKVS(), "", kvs.DefaultCacheSize)
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
 	sigService := sig2.NewService(sig2.NewMultiplexDeserializer(), newAuditInfo(), newSignerInfo())
@@ -193,7 +202,7 @@ func TestIdentityStandard(t *testing.T) {
 func TestAuditWithEidRhNymPolicy(t *testing.T) {
 	registry := registry2.New()
 
-	kvss, err := kvs.NewWithConfig(&mem.Driver{}, "", &mock.ConfigProvider{})
+	kvss, err := kvs.New(newKVS(), "", kvs.DefaultCacheSize)
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
 	sigService := sig2.NewService(sig2.NewMultiplexDeserializer(), newAuditInfo(), newSignerInfo())
@@ -235,7 +244,7 @@ func TestAuditWithEidRhNymPolicy(t *testing.T) {
 func TestProvider_DeserializeSigner(t *testing.T) {
 	registry := registry2.New()
 
-	kvss, err := kvs.NewWithConfig(&mem.Driver{}, "", &mock.ConfigProvider{})
+	kvss, err := kvs.New(newKVS(), "", kvs.DefaultCacheSize)
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
 	sigService := sig2.NewService(sig2.NewMultiplexDeserializer(), newAuditInfo(), newSignerInfo())
@@ -291,7 +300,7 @@ func TestProvider_DeserializeSigner(t *testing.T) {
 func TestIdentityFromFabricCA(t *testing.T) {
 	registry := registry2.New()
 
-	kvss, err := kvs.NewWithConfig(&mem.Driver{}, "", &mock.ConfigProvider{})
+	kvss, err := kvs.New(newKVS(), "", kvs.DefaultCacheSize)
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
 	sigService := sig2.NewService(sig2.NewMultiplexDeserializer(), newAuditInfo(), newSignerInfo())
@@ -358,7 +367,7 @@ func TestIdentityFromFabricCA(t *testing.T) {
 func TestIdentityFromFabricCAWithEidRhNymPolicy(t *testing.T) {
 	registry := registry2.New()
 
-	kvss, err := kvs.NewWithConfig(&mem.Driver{}, "", &mock.ConfigProvider{})
+	kvss, err := kvs.New(newKVS(), "", kvs.DefaultCacheSize)
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
 	sigService := sig2.NewService(sig2.NewMultiplexDeserializer(), newAuditInfo(), newSignerInfo())

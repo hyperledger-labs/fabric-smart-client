@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package driver
 
 import (
+	"time"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/pkg/errors"
@@ -105,9 +107,9 @@ type NamedDriver = driver.NamedDriver[Driver]
 
 type Driver interface {
 	// NewKVS returns a new UnversionedPersistence for the passed data source and config
-	NewKVS(dataSourceName string, config Config) (UnversionedPersistence, error)
+	NewKVS(string, Config) (UnversionedPersistence, error)
 	// NewBinding returns a new BindingPersistence for the passed data source and config
-	NewBinding(dataSourceName string, config Config) (BindingPersistence, error)
+	NewBinding(string, Config) (BindingPersistence, error)
 	// NewSignerInfo returns a new SignerInfoPersistence for the passed data source and config
 	NewSignerInfo(string, Config) (SignerInfoPersistence, error)
 	// NewAuditInfo returns a new AuditInfoPersistence for the passed data source and config
@@ -118,8 +120,8 @@ type Driver interface {
 	NewMetadata(string, Config) (MetadataPersistence, error)
 	// NewEnvelope returns a new EnvelopePersistence for the passed data source and config
 	NewEnvelope(string, Config) (EnvelopePersistence, error)
-	// NewTxCode returns a new VaultPersistence for the passed data source and config
-	NewVault(dataSourceName string, config Config) (driver.VaultStore, error)
+	// NewVault returns a new VaultPersistence for the passed data source and config
+	NewVault(string, Config) (driver.VaultStore, error)
 }
 
 type (
@@ -145,4 +147,26 @@ type Notifier interface {
 type UnversionedNotifier interface {
 	UnversionedPersistence
 	Notifier
+}
+
+type SQLDriverType string
+
+type ConfigProvider interface {
+	GetConfig(configKey string, name string, params ...string) (TableOpts, error)
+}
+
+type TableOpts interface {
+	TableName() string
+	DriverType() driver.PersistenceType
+	DbOpts() DbOpts
+}
+
+type DbOpts interface {
+	Driver() SQLDriverType
+	DataSource() string
+	SkipCreateTable() bool
+	SkipPragmas() bool
+	MaxOpenConns() int
+	MaxIdleConns() int
+	MaxIdleTime() time.Duration
 }

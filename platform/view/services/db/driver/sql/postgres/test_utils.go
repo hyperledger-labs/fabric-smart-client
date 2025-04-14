@@ -22,8 +22,6 @@ import (
 	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/docker"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
-	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
 	_ "modernc.org/sqlite"
 )
 
@@ -45,10 +43,10 @@ type DataSourceProvider interface {
 type ContainerConfig struct {
 	Image     string
 	Container string
-	*Config
+	*DbConfig
 }
 
-type Config struct {
+type DbConfig struct {
 	DBName string
 	User   string
 	Pass   string
@@ -56,7 +54,7 @@ type Config struct {
 	Port   int
 }
 
-func (c *Config) DataSource() string {
+func (c *DbConfig) DataSource() string {
 	return fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", c.Host, c.Port, c.User, c.Pass, c.DBName)
 }
 
@@ -71,7 +69,7 @@ func ReadDataSource(s string) (*ContainerConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	c := &Config{
+	c := &DbConfig{
 		DBName: config["dbname"],
 		User:   config["user"],
 		Pass:   config["password"],
@@ -85,7 +83,7 @@ func ReadDataSource(s string) (*ContainerConfig, error) {
 	return &ContainerConfig{
 		Image:     PostgresImage,
 		Container: fmt.Sprintf("fsc-postgres-%s", c.DBName),
-		Config:    c,
+		DbConfig:  c,
 	}, nil
 }
 
@@ -94,6 +92,7 @@ type fmtLogger struct{}
 func (l *fmtLogger) Log(args ...any) {
 	fmt.Println(args...)
 }
+
 func (l *fmtLogger) Errorf(format string, args ...any) {
 	_ = fmt.Errorf(format, args...)
 }
@@ -110,7 +109,7 @@ func defaultConfigWithPort(node string, port int) *ContainerConfig {
 	return &ContainerConfig{
 		Image:     PostgresImage,
 		Container: fmt.Sprintf("fsc-postgres-%s", node),
-		Config: &Config{
+		DbConfig: &DbConfig{
 			DBName: node,
 			User:   "pgx_md5",
 			Pass:   "example",
@@ -260,7 +259,7 @@ func StartPostgres(t Logger, printLogs bool) (func(), string, error) {
 	c := ContainerConfig{
 		Image:     getEnv("POSTGRES_IMAGE", PostgresImage),
 		Container: getEnv("POSTGRES_CONTAINER", "fsc-postgres"),
-		Config: &Config{
+		DbConfig: &DbConfig{
 			DBName: getEnv("POSTGRES_DB", "testdb"),
 			User:   getEnv("POSTGRES_USER", "pgx_md5"),
 			Pass:   getEnv("POSTGRES_PASSWORD", "example"),
@@ -280,58 +279,4 @@ func getEnv(key, fallback string) string {
 		return value
 	}
 	return fallback
-}
-
-type dbObject interface {
-	CreateSchema() error
-}
-
-type persistenceConstructor[V dbObject] func(common2.Opts, string) (V, error)
-
-func initPersistence[V dbObject](constructor persistenceConstructor[V], pgConnStr, name string, maxOpenConns, maxIdleConns int, maxIdleTime time.Duration) (V, error) {
-	p, err := constructor(common2.Opts{DataSource: pgConnStr, MaxOpenConns: maxOpenConns, MaxIdleConns: &maxIdleConns, MaxIdleTime: &maxIdleTime}, name)
-	if err != nil {
-		return utils.Zero[V](), err
-	}
-	if err := p.CreateSchema(); err != nil {
-		return utils.Zero[V](), err
-	}
-	return p, nil
-}
-
-type TestDriver struct {
-	Name    string
-	ConnStr string
-}
-
-func (t *TestDriver) NewKVS(string, driver.Config) (driver.UnversionedPersistence, error) {
-	return initPersistence(NewUnversionedPersistence, t.ConnStr, t.Name, 50, 10, time.Minute)
-}
-
-func (t *TestDriver) NewBinding(string, driver.Config) (driver.BindingPersistence, error) {
-	return initPersistence(NewBindingPersistence, t.ConnStr, t.Name, 50, 10, time.Minute)
-}
-
-func (t *TestDriver) NewSignerInfo(string, driver.Config) (driver.SignerInfoPersistence, error) {
-	return initPersistence(NewSignerInfoPersistence, t.ConnStr, t.Name, 50, 10, time.Minute)
-}
-
-func (t *TestDriver) NewAuditInfo(string, driver.Config) (driver.AuditInfoPersistence, error) {
-	return initPersistence(NewAuditInfoPersistence, t.ConnStr, t.Name, 50, 10, time.Minute)
-}
-
-func (t *TestDriver) NewEndorseTx(string, driver.Config) (driver.EndorseTxPersistence, error) {
-	return initPersistence(NewEndorseTxPersistence, t.ConnStr, t.Name, 50, 10, time.Minute)
-}
-
-func (t *TestDriver) NewMetadata(string, driver.Config) (driver.MetadataPersistence, error) {
-	return initPersistence(NewMetadataPersistence, t.ConnStr, t.Name, 50, 10, time.Minute)
-}
-
-func (t *TestDriver) NewEnvelope(string, driver.Config) (driver.EnvelopePersistence, error) {
-	return initPersistence(NewEnvelopePersistence, t.ConnStr, t.Name, 50, 10, time.Minute)
-}
-
-func (t *TestDriver) NewVault(string, driver.Config) (driver.VaultPersistence, error) {
-	return initPersistence(NewVaultPersistence, t.ConnStr, t.Name, 50, 10, time.Minute)
 }
