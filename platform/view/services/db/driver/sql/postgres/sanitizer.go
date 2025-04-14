@@ -14,7 +14,7 @@ import (
 	"golang.org/x/text/encoding/unicode"
 )
 
-func newSanitizer() *stringSanitizer {
+func NewSanitizer() *stringSanitizer {
 	return &stringSanitizer{
 		encoder: unicode.UTF8.NewEncoder(),
 		decoder: unicode.UTF8.NewDecoder(),

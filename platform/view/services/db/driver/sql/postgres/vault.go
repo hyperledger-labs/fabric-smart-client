@@ -42,7 +42,7 @@ func newVaultPersistence(readWriteDB *sql.DB, tables common.VaultTables) *VaultP
 	ci := NewInterpreter()
 	pi := NewPaginatedInterpreter()
 	return &VaultPersistence{
-		VaultPersistence: common.NewVaultPersistence(readWriteDB, readWriteDB, tables, &errorMapper{}, ci, pi, newSanitizer(), isolationLevels),
+		VaultPersistence: common.NewVaultPersistence(readWriteDB, readWriteDB, tables, &errorMapper{}, ci, pi, NewSanitizer(), isolationLevels),
 		tables:           tables,
 		writeDB:          readWriteDB,
 		ci:               ci,
