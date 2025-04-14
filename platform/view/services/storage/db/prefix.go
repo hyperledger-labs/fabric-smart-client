@@ -4,20 +4,24 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package storage
+package db
 
-import (
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/db"
-)
+// config models the DB configuration
+type config interface {
+	// IsSet checks to see if the key has been set in any of the data locations
+	IsSet(key string) bool
+	// UnmarshalKey takes a single key and unmarshals it into a Struct
+	UnmarshalKey(key string, rawVal interface{}) error
+}
 
 // PrefixConfig extends Config by adding a given prefix to any passed key
 type PrefixConfig struct {
-	config db.Config
+	config config
 	prefix string
 }
 
 // NewPrefixConfig returns a ner PrefixConfig instance for the passed prefix
-func NewPrefixConfig(config db.Config, prefix string) *PrefixConfig {
+func NewPrefixConfig(config config, prefix string) *PrefixConfig {
 	return &PrefixConfig{config: config, prefix: prefix}
 }
 

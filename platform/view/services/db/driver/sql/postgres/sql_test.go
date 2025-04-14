@@ -9,9 +9,9 @@ package postgres
 import (
 	"os"
 	"testing"
-	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/common"
 	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
 	_ "modernc.org/sqlite"
 )
@@ -31,10 +31,13 @@ func TestPostgres(t *testing.T) {
 	defer terminate()
 	t.Log("postgres ready")
 
+	cp := common.MockConfig(Config{
+		DataSource: pgConnStr,
+	})
 	common2.TestCases(t, func(name string) (driver.UnversionedPersistence, error) {
-		return initPersistence(NewUnversionedPersistence, pgConnStr, name, 0, 2, time.Minute)
+		return NewPersistenceWithOpts(name, cp, NewUnversionedPersistence)
 	}, func(name string) (driver.UnversionedNotifier, error) {
-		return initPersistence(NewUnversionedNotifier, pgConnStr, name, 0, 2, time.Minute)
+		return NewPersistenceWithOpts(name, cp, NewUnversionedNotifier)
 	}, func(p driver.UnversionedPersistence) *common2.UnversionedPersistence {
 		return p.(*UnversionedPersistence).UnversionedPersistence
 	})

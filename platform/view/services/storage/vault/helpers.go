@@ -11,52 +11,39 @@ import (
 	"path"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/common"
 	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
+	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/multiplexed"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/postgres"
-	"github.com/pkg/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/sqlite"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs/mock"
 )
 
 func OpenMemoryVault() (driver.VaultPersistence, error) {
-	return (&mem.Driver{}).NewVault("", nil)
+	return NewStore(&mock.ConfigProvider{}, common2.Driver{mem.NewDriver()}, []string{}...)
 }
 
 func OpenSqliteVault(key, tempDir string) (driver.VaultPersistence, error) {
-	return (&sql.Driver{}).NewVault("test_table", &dbConfig{
-		Driver:       sql.SQLite,
-		DataSource:   fmt.Sprintf("%s.sqlite", path.Join(tempDir, key)),
-		MaxOpenConns: 0,
-		SkipPragmas:  false,
+	cp := common.MockConfig(sqlite.Config{
+		DataSource: fmt.Sprintf("%s.sqlite", path.Join(tempDir, key)),
 	})
+	return sqlite.NewPersistenceWithOpts("test_table", cp, sqlite.NewVaultPersistence)
 }
 
 func OpenPostgresVault(name string) (driver.VaultPersistence, func(), error) {
 	postgresConfig := postgres.DefaultConfig(fmt.Sprintf("%s-db", name))
-	conf := &dbConfig{
-		Driver:       sql.Postgres,
-		DataSource:   postgresConfig.DataSource(),
-		MaxOpenConns: 50,
-		SkipPragmas:  false,
-	}
 	terminate, err := postgres.StartPostgresWithFmt([]*postgres.ContainerConfig{postgresConfig})
 	if err != nil {
 		return nil, nil, err
 	}
-	persistence, err := (&sql.Driver{}).NewVault("test_table", conf)
-	return persistence, terminate, err
-}
 
-type dbConfig common.Opts
-
-func (c *dbConfig) IsSet(string) bool { return false }
-func (c *dbConfig) UnmarshalKey(key string, rawVal interface{}) error {
-	if len(key) > 0 {
-		return errors.New("invalid key")
+	cp := common.MockConfig(postgres.Config{
+		DataSource:   postgresConfig.DataSource(),
+		MaxOpenConns: 50,
+	})
+	persistence, err := postgres.NewPersistenceWithOpts("test_table", cp, postgres.NewVaultPersistence)
+	if err != nil {
+		return nil, nil, err
 	}
-	if val, ok := rawVal.(*common.Opts); ok {
-		*val = common.Opts(*c)
-		return nil
-	}
-	return errors.New("invalid pointer type")
+	return persistence, terminate, nil
 }

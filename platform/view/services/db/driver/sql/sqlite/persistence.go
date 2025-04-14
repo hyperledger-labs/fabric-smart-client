@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
 )
 
 const (
@@ -36,32 +35,38 @@ const driverName = "sqlite"
 
 var logger = logging.MustGetLogger("view-sdk.db.sqlite")
 
-func OpenRWDBs(dataSourceName string, maxOpenConns int, maxIdleConns *int, maxIdleTime *time.Duration, skipPragmas bool) (*sql.DB, *sql.DB, error) {
+type Opts struct {
+	DataSource   string
+	SkipPragmas  bool
+	MaxOpenConns int
+	MaxIdleConns int
+	MaxIdleTime  time.Duration
+}
+
+func openRWDBs(opts Opts) (*sql.DB, *sql.DB, error) {
+	readDB, writeDB, err := OpenRWDBs(opts.DataSource, opts.MaxOpenConns, opts.MaxIdleConns, opts.MaxIdleTime, opts.SkipPragmas)
+	return readDB, writeDB, err
+}
+
+func OpenRWDBs(dataSourceName string, maxOpenConns int, maxIdleConns int, maxIdleTime time.Duration, skipPragmas bool) (*sql.DB, *sql.DB, error) {
 	logger.Debugf("Opening read db [%v]", dataSourceName)
 	readDB, err := OpenDB(dataSourceName, maxOpenConns, maxIdleConns, maxIdleTime, skipPragmas)
 	if err != nil {
 		return nil, nil, fmt.Errorf("can't open read %s database: %w", driverName, err)
 	}
 	logger.Debugf("Opening write db [%v]", dataSourceName)
-	writeDB, err := OpenDB(dataSourceName, 1, common.CopyPtr(maxIdleConnsWrite), common.CopyPtr(maxIdleTimeWrite), skipPragmas)
+	writeDB, err := OpenDB(dataSourceName, 1, maxIdleConnsWrite, maxIdleTimeWrite, skipPragmas)
 	if err != nil {
 		return nil, nil, fmt.Errorf("can't open write %s database: %w", driverName, err)
 	}
 	return readDB, writeDB, nil
 }
 
-func OpenDB(dataSourceName string, maxOpenConns int, maxIdleConns *int, maxIdleTime *time.Duration, skipPragmas bool) (*sql.DB, error) {
+func OpenDB(dataSourceName string, maxOpenConns int, maxIdleConns int, maxIdleTime time.Duration, skipPragmas bool) (*sql.DB, error) {
 	// Create directories if they do not exist to avoid error "out of memory (14)", see below
 	path := getDir(dataSourceName)
 	if err := os.MkdirAll(path, 0777); err != nil {
 		logger.Warnf("failed creating dir [%s]: %s", path, err)
-	}
-
-	if maxIdleConns == nil {
-		maxIdleConns = common.CopyPtr(common.DefaultMaxIdleConns)
-	}
-	if maxIdleTime == nil {
-		maxIdleTime = common.CopyPtr(common.DefaultMaxIdleTime)
 	}
 
 	db, err := sql.Open(driverName, dataSourceName)
@@ -69,8 +74,8 @@ func OpenDB(dataSourceName string, maxOpenConns int, maxIdleConns *int, maxIdleT
 		return nil, fmt.Errorf("can't open %s database: %w", driverName, err)
 	}
 	db.SetMaxOpenConns(maxOpenConns)
-	db.SetMaxIdleConns(*maxIdleConns)
-	db.SetConnMaxIdleTime(*maxIdleTime)
+	db.SetMaxIdleConns(maxIdleConns)
+	db.SetConnMaxIdleTime(maxIdleTime)
 
 	if err = db.Ping(); err != nil && strings.Contains(err.Error(), "out of memory (14)") {
 		return nil, fmt.Errorf("can't open %s database, does the folder exist?", driverName)

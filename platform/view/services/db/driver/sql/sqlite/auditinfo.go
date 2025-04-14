@@ -17,8 +17,8 @@ type AuditInfoPersistence struct {
 	*common.AuditInfoPersistence
 }
 
-func NewAuditInfoPersistence(opts common.Opts, table string) (*AuditInfoPersistence, error) {
-	readDB, writeDB, err := OpenRWDBs(opts.DataSource, opts.MaxOpenConns, opts.MaxIdleConns, opts.MaxIdleTime, opts.SkipPragmas)
+func NewAuditInfoPersistence(opts Opts, table string) (*AuditInfoPersistence, error) {
+	readDB, writeDB, err := openRWDBs(opts)
 	if err != nil {
 		return nil, fmt.Errorf("error opening db: %w", err)
 	}

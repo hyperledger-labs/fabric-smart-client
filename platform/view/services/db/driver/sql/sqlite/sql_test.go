@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package sqlite
 
 import (
+	"fmt"
+	"path"
 	"testing"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
@@ -17,13 +19,16 @@ import (
 
 func TestSqlite(t *testing.T) {
 	tempDir := t.TempDir()
+	o := Opts{
+		DataSource: fmt.Sprintf("file:%s.sqlite?_pragma=busy_timeout(1000)", path.Join(tempDir, "benchmark")),
+	}
 	common2.TestCases(t, func(name string) (driver.UnversionedPersistence, error) {
-		p, err := NewUnversionedPersistence(dbOpts(name, tempDir), "test")
+		p, err := NewUnversionedPersistence(o, "test")
 		assert.NoError(t, err)
 		assert.NoError(t, p.CreateSchema())
 		return p, nil
 	}, func(name string) (driver.UnversionedNotifier, error) {
-		p, err := NewUnversionedNotifier(dbOpts(name, tempDir), "test")
+		p, err := NewUnversionedNotifier(o, "test")
 		assert.NoError(t, err)
 		assert.NoError(t, p.Persistence.(*UnversionedPersistence).CreateSchema())
 		return p, nil
@@ -41,6 +46,9 @@ func TestGetSqliteDir(t *testing.T) {
 }
 
 func TestFolderDoesNotExistError(t *testing.T) {
-	_, err := NewUnversionedPersistence(dbOpts("folder-does-not-exist", "/this/folder/does/not/exist"), "test")
+	o := Opts{
+		DataSource: fmt.Sprintf("file:%s.sqlite?_pragma=busy_timeout(1000)", path.Join("/this/folder/does/not/exist", "folder-does-not-exist")),
+	}
+	_, err := NewUnversionedPersistence(o, "test")
 	assert.Error(t, err, "error opening db: can't open sqlite database, does the folder exist?")
 }

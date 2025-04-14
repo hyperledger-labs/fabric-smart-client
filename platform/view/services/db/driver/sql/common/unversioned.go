@@ -9,7 +9,6 @@ package common
 import (
 	"database/sql"
 	"fmt"
-	"time"
 
 	errors2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
@@ -258,15 +257,4 @@ func (db *UnversionedPersistence) CreateSchema() error {
 	);`, db.table))
 }
 
-type SQLDriverType string
-
-type Opts struct {
-	Driver          SQLDriverType
-	DataSource      string
-	TablePrefix     string
-	SkipCreateTable bool
-	SkipPragmas     bool
-	MaxOpenConns    int
-	MaxIdleConns    *int
-	MaxIdleTime     *time.Duration
-}
+type SQLDriverType = driver.SQLDriverType

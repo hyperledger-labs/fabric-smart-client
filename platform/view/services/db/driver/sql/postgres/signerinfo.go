@@ -17,8 +17,8 @@ type SignerInfoPersistence struct {
 	*common.SignerInfoPersistence
 }
 
-func NewSignerInfoPersistence(opts common.Opts, table string) (*SignerInfoPersistence, error) {
-	readWriteDB, err := OpenDB(opts.DataSource, opts.MaxOpenConns, opts.MaxIdleConns, opts.MaxIdleTime)
+func NewSignerInfoPersistence(opts Opts, table string) (*SignerInfoPersistence, error) {
+	readWriteDB, err := openDB(opts)
 	if err != nil {
 		return nil, fmt.Errorf("error opening db: %w", err)
 	}
