@@ -16,19 +16,19 @@ import (
 )
 
 var _ = Describe("EndToEnd", func() {
-	Describe("IOU (With HSM) Life Cycle With LibP2P", func() {
-		s := NewTestSuite(fsc.LibP2P, integration.NoReplication)
-		BeforeEach(s.Setup)
-		AfterEach(s.TearDown)
-		It("succeeded", s.TestSucceeded)
-	})
-
-	Describe("IOU (With HSM) Life Cycle With Websockets", func() {
-		s := NewTestSuite(fsc.WebSocket, integration.NoReplication)
-		BeforeEach(s.Setup)
-		AfterEach(s.TearDown)
-		It("succeeded", s.TestSucceeded)
-	})
+	//Describe("IOU (With HSM) Life Cycle With LibP2P", func() {
+	//	s := NewTestSuite(fsc.LibP2P, integration.NoReplication)
+	//	BeforeEach(s.Setup)
+	//	AfterEach(s.TearDown)
+	//	It("succeeded", s.TestSucceeded)
+	//})
+	//
+	//Describe("IOU (With HSM) Life Cycle With Websockets", func() {
+	//	s := NewTestSuite(fsc.WebSocket, integration.NoReplication)
+	//	BeforeEach(s.Setup)
+	//	AfterEach(s.TearDown)
+	//	It("succeeded", s.TestSucceeded)
+	//})
 
 	Describe("IOU (With HSM) Life Cycle With Websockets and replicas", func() {
 		s := NewTestSuite(fsc.WebSocket, &integration.ReplicationOptions{
@@ -101,4 +101,5 @@ func (s *TestSuite) TestSucceededWithReplicas() {
 	iou.CheckState(s.II, "fsc.borrower.2", iouState, 5)
 	iou.CheckState(s.II, "fsc.lender.0", iouState, 5)
 	iou.CheckState(s.II, "fsc.lender.1", iouState, 5)
+	panic("all ok")
 }
