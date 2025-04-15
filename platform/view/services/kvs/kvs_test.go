@@ -14,16 +14,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/multiplexed"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/postgres"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/sqlite"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs/mock"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/db"
+	kvs2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/kvs"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -35,8 +36,7 @@ type stuff struct {
 }
 
 func testRound(t *testing.T, driver driver.NamedDriver, cp kvs.ConfigProvider) {
-	c := storage.NewConstructor(cp, driver)
-	kvstore, err := kvs.NewWithConfig(c, "_default", cp)
+	kvstore, err := kvs.New(utils.MustGet(kvs2.NewStore(cp, multiplexed.Driver{driver})), "_default", kvs.DefaultCacheSize)
 	assert.NoError(t, err)
 	defer kvstore.Stop()
 
@@ -122,8 +122,7 @@ func createCompositeKey(objectType string, attributes []string) (string, error) 
 }
 
 func testParallelWrites(t *testing.T, driver driver.NamedDriver, cp kvs.ConfigProvider) {
-	c := storage.NewConstructor(cp, driver)
-	kvstore, err := kvs.NewWithConfig(c, "_default", cp)
+	kvstore, err := kvs.New(utils.MustGet(kvs2.NewStore(cp, multiplexed.Driver{driver})), "_default", kvs.DefaultCacheSize)
 	assert.NoError(t, err)
 	defer kvstore.Stop()
 
@@ -158,30 +157,23 @@ func testParallelWrites(t *testing.T, driver driver.NamedDriver, cp kvs.ConfigPr
 }
 
 func TestMemoryKVS(t *testing.T) {
-	cp := mockConfig(db.Config{
-		Type: mem.MemoryPersistence,
-		Opts: db.Opts{},
-	})
+	cp := &mock.ConfigProvider{}
 	d := mem.NewDriver()
 	testRound(t, d, cp)
 	testParallelWrites(t, d, cp)
 }
 
 func TestSQLiteKVS(t *testing.T) {
-	cp := mockConfig(db.Config{
-		Type: sql.SQLPersistence,
-		Opts: db.Opts{
-			Driver:          sql.SQLite,
-			DataSource:      fmt.Sprintf("file:%s.sqlite?_pragma=busy_timeout(1000)", path.Join(t.TempDir(), "sqlite_test")),
-			TablePrefix:     "",
-			SkipCreateTable: false,
-			SkipPragmas:     false,
-			MaxOpenConns:    0,
-			MaxIdleConns:    common.CopyPtr(2),
-			MaxIdleTime:     common.CopyPtr(time.Minute),
-		},
+	cp := mockConfig(sqlite.Config{
+		DataSource:      fmt.Sprintf("file:%s.sqlite?_pragma=busy_timeout(1000)", path.Join(t.TempDir(), "sqlite_test")),
+		TablePrefix:     "",
+		SkipCreateTable: false,
+		SkipPragmas:     false,
+		MaxOpenConns:    0,
+		MaxIdleConns:    common.CopyPtr(2),
+		MaxIdleTime:     common.CopyPtr(time.Minute),
 	})
-	d := sql.NewDriver()
+	d := sqlite.NewDriver()
 	testRound(t, d, cp)
 	testParallelWrites(t, d, cp)
 }
@@ -201,29 +193,25 @@ func TestPostgresKVS(t *testing.T) {
 	defer terminate()
 	t.Log("postgres ready")
 
-	cp := mockConfig(db.Config{
-		Type: sql.SQLPersistence,
-		Opts: db.Opts{
-			Driver:          sql.Postgres,
-			DataSource:      pgConnStr,
-			TablePrefix:     "",
-			SkipCreateTable: false,
-			SkipPragmas:     false,
-			MaxOpenConns:    50,
-			MaxIdleConns:    common.CopyPtr(10),
-			MaxIdleTime:     common.CopyPtr(time.Minute),
-		},
+	cp := mockConfig(postgres.Config{
+		DataSource:      pgConnStr,
+		TablePrefix:     "",
+		SkipCreateTable: false,
+
+		MaxOpenConns: 50,
+		MaxIdleConns: common.CopyPtr(10),
+		MaxIdleTime:  common.CopyPtr(time.Minute),
 	})
 	//d := postgres.NewTestDriver("hw", pgConnStr)
-	d := sql.NewDriver()
+	d := postgres.NewDriver()
 	testRound(t, d, cp)
 	testParallelWrites(t, d, cp)
 }
 
-func mockConfig(config db.Config) *mock.ConfigProvider {
+func mockConfig[T any](config T) *mock.ConfigProvider {
 	cp := &mock.ConfigProvider{}
 	cp.UnmarshalKeyCalls(func(s string, i interface{}) error {
-		*i.(*db.Config) = config
+		*i.(*T) = config
 		return nil
 	})
 	return cp

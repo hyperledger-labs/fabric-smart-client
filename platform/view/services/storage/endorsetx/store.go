@@ -8,14 +8,20 @@ package endorsetx
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/multiplexed"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/db"
 )
 
 type identifier interface {
 	UniqueKey() string
 }
 
-func NewEndorseTxStore[K identifier](e driver.EndorseTxPersistence) *endorseTxStore[K] {
-	return &endorseTxStore[K]{e: e}
+func NewEndorseTx[K identifier](cp driver.Config, d multiplexed.Driver, params ...string) (*endorseTxStore[K], error) {
+	e, err := d.NewEndorseTx(db.CreateTableName("etx", params...), db.NewPrefixConfig(cp, "fsc.endorsetx.persistence"))
+	if err != nil {
+		return nil, err
+	}
+	return &endorseTxStore[K]{e: e}, nil
 }
 
 type endorseTxStore[K identifier] struct {

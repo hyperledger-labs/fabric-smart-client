@@ -15,13 +15,13 @@ import (
 	config2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	msp2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/driver/mock"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/multiplexed"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	registry2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/registry"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage"
+	kvs2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/kvs"
 	"github.com/otiai10/copy"
 	"github.com/stretchr/testify/assert"
 )
@@ -40,10 +40,7 @@ func TestRegisterIdemixLocalMSP(t *testing.T) {
 	cp := &mock.ConfigProvider{}
 	cp.IsSetReturns(false)
 	assert.NoError(t, registry.RegisterService(cp))
-	var sp view.ServiceProvider = registry
-
-	c := storage.NewConstructor(view.GetConfigService(sp), mem.NewDriver())
-	kvss, err := kvs.NewWithConfig(c, "", cp)
+	kvss, err := kvs.New(utils.MustGet(kvs2.NewStore(cp, multiplexed.Driver{mem.NewDriver()})), "", kvs.DefaultCacheSize)
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
 	des := sig.NewMultiplexDeserializer()
@@ -73,9 +70,7 @@ func TestIdemixTypeFolder(t *testing.T) {
 	cp, err := config.NewProvider("./testdata/idemixtypefolder")
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(cp))
-	var sp view.ServiceProvider = registry
-	c := storage.NewConstructor(cp, mem.NewDriver())
-	kvss, err := kvs.NewWithConfig(c, "", view.GetConfigService(sp))
+	kvss, err := kvs.New(utils.MustGet(kvs2.NewStore(cp, multiplexed.Driver{mem.NewDriver()})), "", kvs.DefaultCacheSize)
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
 	des := sig.NewMultiplexDeserializer()
@@ -101,9 +96,8 @@ func TestRegisterX509LocalMSP(t *testing.T) {
 	cp := &mock.ConfigProvider{}
 	cp.IsSetReturns(false)
 	assert.NoError(t, registry.RegisterService(cp))
-	var sp view.ServiceProvider = registry
-	c := storage.NewConstructor(cp, mem.NewDriver())
-	kvss, err := kvs.NewWithConfig(c, "", view.GetConfigService(sp))
+
+	kvss, err := kvs.New(utils.MustGet(kvs2.NewStore(cp, multiplexed.Driver{mem.NewDriver()})), "", kvs.DefaultCacheSize)
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
 	des := sig.NewMultiplexDeserializer()
@@ -132,9 +126,8 @@ func TestX509TypeFolder(t *testing.T) {
 	cp, err := config.NewProvider("./testdata/x509typefolder")
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(cp))
-	var sp view.ServiceProvider = registry
-	c := storage.NewConstructor(cp, mem.NewDriver())
-	kvss, err := kvs.NewWithConfig(c, "", view.GetConfigService(sp))
+
+	kvss, err := kvs.New(utils.MustGet(kvs2.NewStore(cp, multiplexed.Driver{mem.NewDriver()})), "", kvs.DefaultCacheSize)
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
 	des := sig.NewMultiplexDeserializer()
@@ -160,9 +153,8 @@ func TestRefresh(t *testing.T) {
 	cp, err := config.NewProvider("./testdata/x509typefolder")
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(cp))
-	var sp view.ServiceProvider = registry
-	c := storage.NewConstructor(cp, mem.NewDriver())
-	kvss, err := kvs.NewWithConfig(c, "", view.GetConfigService(sp))
+
+	kvss, err := kvs.New(utils.MustGet(kvs2.NewStore(cp, multiplexed.Driver{mem.NewDriver()})), "", kvs.DefaultCacheSize)
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
 	des := sig.NewMultiplexDeserializer()

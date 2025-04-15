@@ -11,19 +11,16 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/lazy"
-	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
 	"github.com/pkg/errors"
 )
 
-type tableNameCreator struct {
+type TableNameCreator struct {
 	formatterProvider lazy.Provider[string, *tableNameFormatter]
 }
 
-func newTableNameCreator() *tableNameCreator {
-	return &tableNameCreator{formatterProvider: lazy.NewProvider(func(prefix string) (*tableNameFormatter, error) {
+func NewTableNameCreator() *TableNameCreator {
+	return &TableNameCreator{formatterProvider: lazy.NewProvider(func(prefix string) (*tableNameFormatter, error) {
 		if len(prefix) > 100 {
 			return nil, errors.New("table prefix must be shorter than 100 characters")
 		}
@@ -42,10 +39,7 @@ func newTableNameCreator() *tableNameCreator {
 	})}
 }
 
-func (c *tableNameCreator) createTableName(persistenceType driver.PersistenceType, tablePrefix string, name string, params ...string) (string, error) {
-	if persistenceType == mem.MemoryPersistence {
-		return utils.GenerateUUIDOnlyLetters(), nil
-	}
+func (c *TableNameCreator) CreateTableName(tablePrefix string, escapedName string) (string, error) {
 	if tablePrefix == "" {
 		tablePrefix = "fsc"
 	}
@@ -53,12 +47,16 @@ func (c *tableNameCreator) createTableName(persistenceType driver.PersistenceTyp
 	if err != nil {
 		return "", err
 	}
-	escapedName := fmt.Sprintf("%s_%s", escapeForTableName(params...), name)
+
 	tableName, valid := nc.Format(escapedName)
 	if !valid {
 		return "", fmt.Errorf("invalid table name [%s]: only letters and underscores allowed", escapedName)
 	}
 	return tableName, nil
+}
+
+func CreateTableName(name string, params ...string) string {
+	return fmt.Sprintf("%s_%s", escapeForTableName(params...), name)
 }
 
 var validName = regexp.MustCompile(`^[a-zA-Z_]+$`) // Thread safe

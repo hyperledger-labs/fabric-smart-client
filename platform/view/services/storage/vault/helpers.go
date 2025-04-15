@@ -9,26 +9,24 @@ package vault
 import (
 	"fmt"
 	"path"
-	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
+	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/multiplexed"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/postgres"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/sqlite"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs/mock"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/db"
 )
 
 func OpenMemoryVault() (driver.VaultPersistence, error) {
-	return NewWithConfig(driver.NamedDrivers{mem.NewDriver()}, db.NewConfigProvider(&mock.ConfigProvider{}))
+	return NewStore(&mock.ConfigProvider{}, common2.Driver{mem.NewDriver()}, []string{}...)
 }
 
 func OpenSqliteVault(key, tempDir string) (driver.VaultPersistence, error) {
-	o := opts{
-		dataSource: fmt.Sprintf("%s.sqlite", path.Join(tempDir, key)),
-	}
-	return common.NewPersistenceWithOpts[sqlite.DbOpts]("test_table", o, sqlite.NewVaultPersistence)
+	cp := mockConfig(sqlite.Config{
+		DataSource: fmt.Sprintf("%s.sqlite", path.Join(tempDir, key)),
+	})
+	return sqlite.NewPersistenceWithOpts("test_table", cp, sqlite.NewVaultPersistence)
 }
 
 func OpenPostgresVault(name string) (driver.VaultPersistence, func(), error) {
@@ -38,25 +36,22 @@ func OpenPostgresVault(name string) (driver.VaultPersistence, func(), error) {
 		return nil, nil, err
 	}
 
-	o := opts{
-		dataSource:   postgresConfig.DataSource(),
-		maxOpenConns: 50,
-	}
-	persistence, err := common.NewPersistenceWithOpts[postgres.DbOpts]("test_table", o, postgres.NewVaultPersistence)
+	cp := mockConfig(postgres.Config{
+		DataSource:   postgresConfig.DataSource(),
+		MaxOpenConns: 50,
+	})
+	persistence, err := postgres.NewPersistenceWithOpts("test_table", cp, postgres.NewVaultPersistence)
 	if err != nil {
 		return nil, nil, err
 	}
 	return persistence, terminate, nil
 }
 
-type opts struct {
-	dataSource   string
-	maxOpenConns int
+func mockConfig[T any](config T) *mock.ConfigProvider {
+	cp := &mock.ConfigProvider{}
+	cp.UnmarshalKeyCalls(func(s string, i interface{}) error {
+		*i.(*T) = config
+		return nil
+	})
+	return cp
 }
-
-func (o opts) DataSource() string         { return o.dataSource }
-func (o opts) SkipPragmas() bool          { return false }
-func (o opts) SkipCreateTable() bool      { return false }
-func (o opts) MaxOpenConns() int          { return o.maxOpenConns }
-func (o opts) MaxIdleConns() int          { return common.DefaultMaxIdleConns }
-func (o opts) MaxIdleTime() time.Duration { return common.DefaultMaxIdleTime }

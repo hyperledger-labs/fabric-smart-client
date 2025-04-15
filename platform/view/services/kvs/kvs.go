@@ -16,7 +16,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/cache/secondcache"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage"
 )
 
 var (
@@ -60,22 +59,6 @@ type KVS struct {
 
 	putMutex sync.RWMutex
 	cache    cache
-}
-
-// NewWithConfig returns a new KVS instance for the passed namespace using the passed driver and config provider
-func NewWithConfig(c *storage.Constructor, namespace string, cp ConfigProvider) (*KVS, error) {
-	persistence, err := c.NewKVS(namespace)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed opening datasource [%s]", namespace)
-	}
-
-	cacheSize, err := cacheSizeFromConfig(cp)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed loading cache size from configuration")
-	}
-
-	logger.Debugf("opening kvs with namespace=`%s` and cacheSize=`%d`", namespace, cacheSize)
-	return New(persistence, namespace, cacheSize)
 }
 
 // New returns a new KVS instance for the passed namespace using the passed driver and config provider
@@ -257,10 +240,10 @@ func (i *it) Next(state interface{}) (string, error) {
 	return i.next.Key, json.Unmarshal(i.next.Raw, state)
 }
 
-// cacheSizeFromConfig returns the KVS cache size from current configuration.
+// CacheSizeFromConfig returns the KVS cache size from current configuration.
 // Returns DefaultCacheSize, if no configuration found.
 // Returns an error and DefaultCacheSize, if the loaded value from configuration is invalid (must be >= 0).
-func cacheSizeFromConfig(cp ConfigProvider) (int, error) {
+func CacheSizeFromConfig(cp ConfigProvider) (int, error) {
 	if !cp.IsSet(cacheSizeConfigKey) {
 		// no cache size configure, let's use default
 		return DefaultCacheSize, nil

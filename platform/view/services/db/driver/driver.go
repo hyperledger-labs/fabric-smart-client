@@ -105,34 +105,23 @@ type Config interface {
 
 type NamedDriver = driver.NamedDriver[Driver]
 
-type NamedDrivers []NamedDriver
-
-func (d NamedDrivers) GetDriver(t driver.PersistenceType) (Driver, error) {
-	for _, dr := range d {
-		if dr.Name == t {
-			return dr.Driver, nil
-		}
-	}
-	return nil, errors.Errorf("driver %s not found", t)
-}
-
 type Driver interface {
 	// NewKVS returns a new UnversionedPersistence for the passed data source and config
-	NewKVS(string, DbOpts) (UnversionedPersistence, error)
+	NewKVS(string, Config) (UnversionedPersistence, error)
 	// NewBinding returns a new BindingPersistence for the passed data source and config
-	NewBinding(string, DbOpts) (BindingPersistence, error)
+	NewBinding(string, Config) (BindingPersistence, error)
 	// NewSignerInfo returns a new SignerInfoPersistence for the passed data source and config
-	NewSignerInfo(string, DbOpts) (SignerInfoPersistence, error)
+	NewSignerInfo(string, Config) (SignerInfoPersistence, error)
 	// NewAuditInfo returns a new AuditInfoPersistence for the passed data source and config
-	NewAuditInfo(string, DbOpts) (AuditInfoPersistence, error)
+	NewAuditInfo(string, Config) (AuditInfoPersistence, error)
 	// NewEndorseTx returns a new EndorseTxPersistence for the passed data source and config
-	NewEndorseTx(string, DbOpts) (EndorseTxPersistence, error)
+	NewEndorseTx(string, Config) (EndorseTxPersistence, error)
 	// NewMetadata returns a new MetadataPersistence for the passed data source and config
-	NewMetadata(string, DbOpts) (MetadataPersistence, error)
+	NewMetadata(string, Config) (MetadataPersistence, error)
 	// NewEnvelope returns a new EnvelopePersistence for the passed data source and config
-	NewEnvelope(string, DbOpts) (EnvelopePersistence, error)
+	NewEnvelope(string, Config) (EnvelopePersistence, error)
 	// NewVault returns a new VaultPersistence for the passed data source and config
-	NewVault(string, DbOpts) (driver.VaultStore, error)
+	NewVault(string, Config) (driver.VaultStore, error)
 }
 
 type (

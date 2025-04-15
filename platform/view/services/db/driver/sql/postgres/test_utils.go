@@ -43,10 +43,10 @@ type DataSourceProvider interface {
 type ContainerConfig struct {
 	Image     string
 	Container string
-	*Config
+	*DbConfig
 }
 
-type Config struct {
+type DbConfig struct {
 	DBName string
 	User   string
 	Pass   string
@@ -54,7 +54,7 @@ type Config struct {
 	Port   int
 }
 
-func (c *Config) DataSource() string {
+func (c *DbConfig) DataSource() string {
 	return fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", c.Host, c.Port, c.User, c.Pass, c.DBName)
 }
 
@@ -69,7 +69,7 @@ func ReadDataSource(s string) (*ContainerConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	c := &Config{
+	c := &DbConfig{
 		DBName: config["dbname"],
 		User:   config["user"],
 		Pass:   config["password"],
@@ -83,7 +83,7 @@ func ReadDataSource(s string) (*ContainerConfig, error) {
 	return &ContainerConfig{
 		Image:     PostgresImage,
 		Container: fmt.Sprintf("fsc-postgres-%s", c.DBName),
-		Config:    c,
+		DbConfig:  c,
 	}, nil
 }
 
@@ -109,7 +109,7 @@ func defaultConfigWithPort(node string, port int) *ContainerConfig {
 	return &ContainerConfig{
 		Image:     PostgresImage,
 		Container: fmt.Sprintf("fsc-postgres-%s", node),
-		Config: &Config{
+		DbConfig: &DbConfig{
 			DBName: node,
 			User:   "pgx_md5",
 			Pass:   "example",
@@ -259,7 +259,7 @@ func StartPostgres(t Logger, printLogs bool) (func(), string, error) {
 	c := ContainerConfig{
 		Image:     getEnv("POSTGRES_IMAGE", PostgresImage),
 		Container: getEnv("POSTGRES_CONTAINER", "fsc-postgres"),
-		Config: &Config{
+		DbConfig: &DbConfig{
 			DBName: getEnv("POSTGRES_DB", "testdb"),
 			User:   getEnv("POSTGRES_USER", "pgx_md5"),
 			Pass:   getEnv("POSTGRES_PASSWORD", "example"),
@@ -280,16 +280,3 @@ func getEnv(key, fallback string) string {
 	}
 	return fallback
 }
-
-type TestOpts struct {
-	dataSource   string
-	maxOpenConns int
-	maxIdleConns int
-	maxIdleTime  time.Duration
-}
-
-func (o TestOpts) DataSource() string         { return o.dataSource }
-func (o TestOpts) SkipCreateTable() bool      { return false }
-func (o TestOpts) MaxOpenConns() int          { return o.maxOpenConns }
-func (o TestOpts) MaxIdleConns() int          { return o.maxIdleConns }
-func (o TestOpts) MaxIdleTime() time.Duration { return o.maxIdleTime }

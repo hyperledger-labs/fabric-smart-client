@@ -30,7 +30,7 @@ type VaultPersistence struct {
 	pi common.PaginationInterpreter
 }
 
-func NewVaultPersistence(opts DbOpts, tablePrefix string) (*VaultPersistence, error) {
+func NewVaultPersistence(opts Opts, tablePrefix string) (*VaultPersistence, error) {
 	readDB, writeDB, err := openRWDBs(opts)
 	if err != nil {
 		return nil, fmt.Errorf("error opening db: %w", err)

@@ -19,6 +19,13 @@ var logger = logging.MustGetLogger("view-sdk.db.postgres")
 
 const driverName = "pgx"
 
+type Opts struct {
+	DataSource   string
+	MaxOpenConns int
+	MaxIdleConns int
+	MaxIdleTime  time.Duration
+}
+
 type DbOpts interface {
 	DataSource() string
 	SkipCreateTable() bool
@@ -27,8 +34,8 @@ type DbOpts interface {
 	MaxIdleTime() time.Duration
 }
 
-func openDB(opts DbOpts) (*sql.DB, error) {
-	return OpenDB(opts.DataSource(), opts.MaxOpenConns(), opts.MaxIdleConns(), opts.MaxIdleTime())
+func openDB(opts Opts) (*sql.DB, error) {
+	return OpenDB(opts.DataSource, opts.MaxOpenConns, opts.MaxIdleConns, opts.MaxIdleTime)
 }
 
 func OpenDB(dataSourceName string, maxOpenConns int, maxIdleConns int, maxIdleTime time.Duration) (*sql.DB, error) {

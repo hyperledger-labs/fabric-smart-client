@@ -17,7 +17,7 @@ type MetadataPersistence struct {
 	*common.MetadataPersistence
 }
 
-func NewMetadataPersistence(opts DbOpts, table string) (*MetadataPersistence, error) {
+func NewMetadataPersistence(opts Opts, table string) (*MetadataPersistence, error) {
 	readWriteDB, err := openDB(opts)
 	if err != nil {
 		return nil, fmt.Errorf("error opening db: %w", err)

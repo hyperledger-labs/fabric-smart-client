@@ -35,17 +35,16 @@ const driverName = "sqlite"
 
 var logger = logging.MustGetLogger("view-sdk.db.sqlite")
 
-type DbOpts interface {
-	DataSource() string
-	SkipPragmas() bool
-	SkipCreateTable() bool
-	MaxOpenConns() int
-	MaxIdleConns() int
-	MaxIdleTime() time.Duration
+type Opts struct {
+	DataSource   string
+	SkipPragmas  bool
+	MaxOpenConns int
+	MaxIdleConns int
+	MaxIdleTime  time.Duration
 }
 
-func openRWDBs(opts DbOpts) (*sql.DB, *sql.DB, error) {
-	readDB, writeDB, err := OpenRWDBs(opts.DataSource(), opts.MaxOpenConns(), opts.MaxIdleConns(), opts.MaxIdleTime(), opts.SkipPragmas())
+func openRWDBs(opts Opts) (*sql.DB, *sql.DB, error) {
+	readDB, writeDB, err := OpenRWDBs(opts.DataSource, opts.MaxOpenConns, opts.MaxIdleConns, opts.MaxIdleTime, opts.SkipPragmas)
 	return readDB, writeDB, err
 }
 

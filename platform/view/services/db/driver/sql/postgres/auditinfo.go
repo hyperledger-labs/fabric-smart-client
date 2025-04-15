@@ -17,7 +17,7 @@ type AuditInfoPersistence struct {
 	*common.AuditInfoPersistence
 }
 
-func NewAuditInfoPersistence(opts DbOpts, table string) (*AuditInfoPersistence, error) {
+func NewAuditInfoPersistence(opts Opts, table string) (*AuditInfoPersistence, error) {
 	readWriteDB, err := openDB(opts)
 	if err != nil {
 		return nil, fmt.Errorf("error opening db: %w", err)

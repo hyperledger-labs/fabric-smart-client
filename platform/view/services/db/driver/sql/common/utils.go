@@ -136,7 +136,7 @@ type dbOpts interface {
 	SkipCreateTable() bool
 }
 
-type PersistenceConstructor[O dbOpts, V dbObject] func(O, string) (V, error)
+type PersistenceConstructor[O any, V dbObject] func(O, string) (V, error)
 
 func NewPersistenceWithOpts[O dbOpts, V dbObject](table string, opts O, constructor PersistenceConstructor[O, V]) (V, error) {
 	p, err := constructor(opts, table)

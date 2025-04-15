@@ -8,14 +8,20 @@ package envelope
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/multiplexed"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/db"
 )
 
 type identifier interface {
 	UniqueKey() string
 }
 
-func NewEnvelopeStore[K identifier](e driver.EnvelopePersistence) *envelopeStore[K] {
-	return &envelopeStore[K]{e: e}
+func NewEnvelope[K identifier](cp driver.Config, d multiplexed.Driver, params ...string) (*envelopeStore[K], error) {
+	e, err := d.NewEnvelope(db.CreateTableName("env", params...), db.NewPrefixConfig(cp, "fsc.envelope.persistence"))
+	if err != nil {
+		return nil, err
+	}
+	return &envelopeStore[K]{e: e}, nil
 }
 
 type envelopeStore[K identifier] struct {

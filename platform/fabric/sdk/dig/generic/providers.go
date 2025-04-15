@@ -28,11 +28,11 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	vdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/multiplexed"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/endorsetx"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/envelope"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/metadata"
@@ -226,26 +226,14 @@ func NewChannelProvider(in struct {
 	)
 }
 
-func NewEndorseTxStore(c *storage.Constructor) (driver.EndorseTxStore, error) {
-	e, err := c.NewEndorseTx("default")
-	if err != nil {
-		return nil, err
-	}
-	return endorsetx.NewEndorseTxStore[driver.Key](e), nil
+func NewEndorseTxStore(config dbdriver.Config, drivers common2.Driver) (driver.EndorseTxStore, error) {
+	return endorsetx.NewEndorseTx[driver.Key](config, drivers, "default")
 }
 
-func NewMetadataStore(c *storage.Constructor) (driver.MetadataStore, error) {
-	m, err := c.NewMetadata("default")
-	if err != nil {
-		return nil, err
-	}
-	return metadata.NewMetadataStore[driver.Key, driver.TransientMap](m), nil
+func NewMetadataStore(config dbdriver.Config, drivers common2.Driver) (driver.MetadataStore, error) {
+	return metadata.NewStore[driver.Key, driver.TransientMap](config, drivers, "default")
 }
 
-func NewEnvelopeStore(c *storage.Constructor) (driver.EnvelopeStore, error) {
-	e, err := c.NewEnvelope("default")
-	if err != nil {
-		return nil, err
-	}
-	return envelope.NewEnvelopeStore[driver.Key](e), nil
+func NewEnvelopeStore(config dbdriver.Config, drivers common2.Driver) (driver.EnvelopeStore, error) {
+	return envelope.NewEnvelope[driver.Key](config, drivers, "default")
 }

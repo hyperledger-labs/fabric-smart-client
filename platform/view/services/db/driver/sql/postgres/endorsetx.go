@@ -17,7 +17,7 @@ type EndorseTxPersistence struct {
 	*common.EndorseTxPersistence
 }
 
-func NewEndorseTxPersistence(opts DbOpts, table string) (*EndorseTxPersistence, error) {
+func NewEndorseTxPersistence(opts Opts, table string) (*EndorseTxPersistence, error) {
 	readWriteDB, err := openDB(opts)
 	if err != nil {
 		return nil, fmt.Errorf("error opening db: %w", err)

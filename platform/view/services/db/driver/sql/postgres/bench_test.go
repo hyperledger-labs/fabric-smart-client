@@ -8,18 +8,30 @@ package postgres
 
 import (
 	"testing"
-	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs/mock"
 )
 
+func mockConfig[T any](config T) *mock.ConfigProvider {
+	cp := &mock.ConfigProvider{}
+	cp.UnmarshalKeyCalls(func(s string, i interface{}) error {
+		*i.(*T) = config
+		return nil
+	})
+	return cp
+}
 func BenchmarkReadExistingPostgres(b *testing.B) {
 	terminate, pgConnStr, err := StartPostgres(b, false)
 	if err != nil {
 		b.Fatal(err)
 	}
 	defer terminate()
-	db, err := common.NewPersistenceWithOpts[DbOpts]("benchmark", newDbOpts(pgConnStr, 2), NewUnversionedPersistence)
+	cp := mockConfig(Config{
+		DataSource:   pgConnStr,
+		MaxOpenConns: 50,
+	})
+	db, err := NewPersistenceWithOpts("benchmark", cp, NewUnversionedPersistence)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -34,7 +46,12 @@ func BenchmarkReadNonExistingPostgres(b *testing.B) {
 		b.Fatal(err)
 	}
 	defer terminate()
-	db, err := common.NewPersistenceWithOpts[DbOpts]("benchmark", newDbOpts(pgConnStr, 2), NewUnversionedPersistence)
+
+	cp := mockConfig(Config{
+		DataSource:   pgConnStr,
+		MaxOpenConns: 50,
+	})
+	db, err := NewPersistenceWithOpts("benchmark", cp, NewUnversionedPersistence)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -49,7 +66,12 @@ func BenchmarkWriteOnePostgres(b *testing.B) {
 		b.Fatal(err)
 	}
 	defer terminate()
-	db, err := common.NewPersistenceWithOpts[DbOpts]("benchmark", newDbOpts(pgConnStr, 2), NewUnversionedPersistence)
+
+	cp := mockConfig(Config{
+		DataSource:   pgConnStr,
+		MaxOpenConns: 50,
+	})
+	db, err := NewPersistenceWithOpts("benchmark", cp, NewUnversionedPersistence)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -64,7 +86,11 @@ func BenchmarkWriteManyPostgres(b *testing.B) {
 		b.Fatal(err)
 	}
 	defer terminate()
-	db, err := common.NewPersistenceWithOpts[DbOpts]("benchmark", newDbOpts(pgConnStr, 2), NewUnversionedPersistence)
+	cp := mockConfig(Config{
+		DataSource:   pgConnStr,
+		MaxOpenConns: 50,
+	})
+	db, err := NewPersistenceWithOpts("benchmark", cp, NewUnversionedPersistence)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -79,15 +105,16 @@ func BenchmarkWriteManyPostgresWithIdle(b *testing.B) {
 		b.Fatal(err)
 	}
 	defer terminate()
-	db, err := common.NewPersistenceWithOpts[DbOpts]("benchmark", newDbOpts(pgConnStr, 50), NewUnversionedPersistence)
+	cp := mockConfig(Config{
+		DataSource:   pgConnStr,
+		MaxOpenConns: 50,
+		MaxIdleConns: common.CopyPtr(50),
+	})
+	db, err := NewPersistenceWithOpts("benchmark", cp, NewUnversionedPersistence)
 	if err != nil {
 		b.Fatal(err)
 	}
 	defer db.Close()
 
 	common.WriteParallel(b, db)
-}
-
-func newDbOpts(pgConnStr string, maxIdleConns int) TestOpts {
-	return TestOpts{dataSource: pgConnStr, maxOpenConns: 50, maxIdleConns: maxIdleConns, maxIdleTime: time.Minute}
 }
