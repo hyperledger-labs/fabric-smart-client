@@ -88,6 +88,6 @@ func BenchmarkWriteManyPostgresWithIdle(b *testing.B) {
 	common.WriteParallel(b, db)
 }
 
-func newDbOpts(pgConnStr string, maxIdleConns int) testOpts {
-	return testOpts{dataSource: pgConnStr, maxOpenConns: 50, maxIdleConns: maxIdleConns, maxIdleTime: time.Minute}
+func newDbOpts(pgConnStr string, maxIdleConns int) TestOpts {
+	return TestOpts{dataSource: pgConnStr, maxOpenConns: 50, maxIdleConns: maxIdleConns, maxIdleTime: time.Minute}
 }

@@ -18,14 +18,12 @@ import (
 func TestSqlite(t *testing.T) {
 	tempDir := t.TempDir()
 	common2.TestCases(t, func(name string) (driver.UnversionedPersistence, error) {
-		var r DbOpts = opts{name, tempDir}
-		p, err := NewUnversionedPersistence(r, "test")
+		p, err := NewUnversionedPersistence(TestOpts{name, tempDir}, "test")
 		assert.NoError(t, err)
 		assert.NoError(t, p.CreateSchema())
 		return p, nil
 	}, func(name string) (driver.UnversionedNotifier, error) {
-		var r DbOpts = opts{name, tempDir}
-		p, err := NewUnversionedNotifier(r, "test")
+		p, err := NewUnversionedNotifier(TestOpts{name, tempDir}, "test")
 		assert.NoError(t, err)
 		assert.NoError(t, p.Persistence.(*UnversionedPersistence).CreateSchema())
 		return p, nil
@@ -43,7 +41,6 @@ func TestGetSqliteDir(t *testing.T) {
 }
 
 func TestFolderDoesNotExistError(t *testing.T) {
-	var r DbOpts = opts{"folder-does-not-exist", "/this/folder/does/not/exist"}
-	_, err := NewUnversionedPersistence(r, "test")
+	_, err := NewUnversionedPersistence(TestOpts{"folder-does-not-exist", "/this/folder/does/not/exist"}, "test")
 	assert.Error(t, err, "error opening db: can't open sqlite database, does the folder exist?")
 }

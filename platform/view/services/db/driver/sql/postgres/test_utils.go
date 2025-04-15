@@ -22,8 +22,6 @@ import (
 	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/docker"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
 	_ "modernc.org/sqlite"
 )
 
@@ -32,8 +30,6 @@ import (
 // itests will not be recognized as a domain, so Podman will still prefix it with localhost
 // Hence we use fsc.itests as domain
 const PostgresImage = "fsc.itests/postgres:latest"
-
-const TestDriverName = "testpostgres"
 
 type Logger interface {
 	Log(...any)
@@ -285,67 +281,15 @@ func getEnv(key, fallback string) string {
 	return fallback
 }
 
-type TestDriver struct {
-	opts DbOpts
-	name string
-}
-
-func NewTestDriver(name, connStr string) driver.NamedDriver {
-	return driver.NamedDriver{
-		Name: TestDriverName,
-		Driver: &TestDriver{
-			opts: testOpts{
-				dataSource:   connStr,
-				maxOpenConns: 50,
-				maxIdleConns: 10,
-				maxIdleTime:  1 * time.Minute,
-			},
-			name: name,
-		},
-	}
-}
-
-func (t *TestDriver) NewKVS(string, driver.DbOpts) (driver.UnversionedPersistence, error) {
-	return common.NewPersistenceWithOpts[DbOpts](t.name, t.opts, NewUnversionedPersistence)
-}
-
-func (t *TestDriver) NewBinding(string, driver.DbOpts) (driver.BindingPersistence, error) {
-	return common.NewPersistenceWithOpts[DbOpts](t.name, t.opts, NewBindingPersistence)
-}
-
-func (t *TestDriver) NewSignerInfo(string, driver.DbOpts) (driver.SignerInfoPersistence, error) {
-	return common.NewPersistenceWithOpts[DbOpts](t.name, t.opts, NewSignerInfoPersistence)
-}
-
-func (t *TestDriver) NewAuditInfo(string, driver.DbOpts) (driver.AuditInfoPersistence, error) {
-	return common.NewPersistenceWithOpts[DbOpts](t.name, t.opts, NewAuditInfoPersistence)
-}
-
-func (t *TestDriver) NewEndorseTx(string, driver.DbOpts) (driver.EndorseTxPersistence, error) {
-	return common.NewPersistenceWithOpts[DbOpts](t.name, t.opts, NewEndorseTxPersistence)
-}
-
-func (t *TestDriver) NewMetadata(string, driver.DbOpts) (driver.MetadataPersistence, error) {
-	return common.NewPersistenceWithOpts[DbOpts](t.name, t.opts, NewMetadataPersistence)
-}
-
-func (t *TestDriver) NewEnvelope(string, driver.DbOpts) (driver.EnvelopePersistence, error) {
-	return common.NewPersistenceWithOpts[DbOpts](t.name, t.opts, NewEnvelopePersistence)
-}
-
-func (t *TestDriver) NewVault(string, driver.DbOpts) (driver.VaultPersistence, error) {
-	return common.NewPersistenceWithOpts[DbOpts](t.name, t.opts, NewVaultPersistence)
-}
-
-type testOpts struct {
+type TestOpts struct {
 	dataSource   string
 	maxOpenConns int
 	maxIdleConns int
 	maxIdleTime  time.Duration
 }
 
-func (o testOpts) DataSource() string         { return o.dataSource }
-func (o testOpts) SkipCreateTable() bool      { return false }
-func (o testOpts) MaxOpenConns() int          { return o.maxOpenConns }
-func (o testOpts) MaxIdleConns() int          { return o.maxIdleConns }
-func (o testOpts) MaxIdleTime() time.Duration { return o.maxIdleTime }
+func (o TestOpts) DataSource() string         { return o.dataSource }
+func (o TestOpts) SkipCreateTable() bool      { return false }
+func (o TestOpts) MaxOpenConns() int          { return o.maxOpenConns }
+func (o TestOpts) MaxIdleConns() int          { return o.maxIdleConns }
+func (o TestOpts) MaxIdleTime() time.Duration { return o.maxIdleTime }
