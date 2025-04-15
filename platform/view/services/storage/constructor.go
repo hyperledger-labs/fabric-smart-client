@@ -72,7 +72,7 @@ func (c *Constructor) NewMetadata(params ...string) (driver.MetadataPersistence,
 }
 
 func (c *Constructor) NewSignerInfo(params ...string) (driver.SignerInfoPersistence, error) {
-	opts, err := c.cp.GetConfig("fsc.signerinfo.persistence", "signerinfo", params...)
+	opts, err := c.cp.GetConfig("fsc.signerinfo.persistence", "sign", params...)
 	if err != nil {
 		return nil, err
 	}
@@ -84,7 +84,7 @@ func (c *Constructor) NewSignerInfo(params ...string) (driver.SignerInfoPersiste
 }
 
 func (c *Constructor) NewEnvelope(params ...string) (driver.EnvelopePersistence, error) {
-	opts, err := c.cp.GetConfig("fsc.envelope.persistence", "etx", params...)
+	opts, err := c.cp.GetConfig("fsc.envelope.persistence", "env", params...)
 	if err != nil {
 		return nil, err
 	}
