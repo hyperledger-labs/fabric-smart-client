@@ -130,8 +130,8 @@ func testNodesExchange(nodes []Nodes, protocol string) {
 	mainwg := sync.WaitGroup{}
 	startTime := time.Now()
 
+	mainwg.Add(len(nodes))
 	for _, exchangeNodes := range nodes {
-		mainwg.Add(1)
 		go testExchangeMsgs(exchangeNodes.senderNode, exchangeNodes.receiverNode, metricsMap, &mainwg)
 	}
 	mainwg.Wait()
@@ -247,7 +247,7 @@ func receiverExchangeMsgs(receiverNode Node, sessions *[]view.Session, mu *sync.
 		*sessions = append(*sessions, session)
 		mu.Unlock()
 
-		receiverSessionExchangeMsgs(sessId, session, wg)
+		go receiverSessionExchangeMsgs(sessId, session, wg)
 	}
 }
 
