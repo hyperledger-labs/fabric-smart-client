@@ -16,7 +16,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	idemix2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/idemix"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs/mock"
@@ -26,14 +25,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func newAuditInfo() driver.AuditInfoPersistence {
-	return utils.MustGet((&mem.Driver{}).NewAuditInfo("", nil))
-}
-
-func newSignerInfo() driver.SignerInfoPersistence {
-	return utils.MustGet((&mem.Driver{}).NewSignerInfo("", nil))
-}
-
 func TestProvider(t *testing.T) {
 	registry := registry2.New()
 
@@ -41,7 +32,7 @@ func TestProvider(t *testing.T) {
 	kvss, err := kvs.NewWithConfig(c, "", &mock.ConfigProvider{})
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
-	sigService := sig2.NewService(sig2.NewMultiplexDeserializer(), newAuditInfo(), newSignerInfo())
+	sigService := sig2.NewService(sig2.NewMultiplexDeserializer(), utils.MustGet(c.NewAuditInfo()), utils.MustGet(c.NewSignerInfo()))
 	assert.NoError(t, registry.RegisterService(sigService))
 
 	config, err := msp2.GetLocalMspConfigWithType("./testdata/idemix", nil, "idemix", "idemix")
@@ -68,7 +59,7 @@ func TestIdentityWithEidRhNymPolicy(t *testing.T) {
 	kvss, err := kvs.NewWithConfig(c, "", cp)
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
-	sigService := sig2.NewService(sig2.NewMultiplexDeserializer(), newAuditInfo(), newSignerInfo())
+	sigService := sig2.NewService(sig2.NewMultiplexDeserializer(), utils.MustGet(c.NewAuditInfo()), utils.MustGet(c.NewSignerInfo()))
 	assert.NoError(t, registry.RegisterService(sigService))
 
 	config, err := msp2.GetLocalMspConfigWithType("./testdata/idemix", nil, "idemix", "idemix")
@@ -135,7 +126,7 @@ func TestIdentityStandard(t *testing.T) {
 	kvss, err := kvs.NewWithConfig(c, "", cp)
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
-	sigService := sig2.NewService(sig2.NewMultiplexDeserializer(), newAuditInfo(), newSignerInfo())
+	sigService := sig2.NewService(sig2.NewMultiplexDeserializer(), utils.MustGet(c.NewAuditInfo()), utils.MustGet(c.NewSignerInfo()))
 	assert.NoError(t, registry.RegisterService(sigService))
 
 	config, err := msp2.GetLocalMspConfigWithType("./testdata/idemix", nil, "idemix", "idemix")
@@ -204,7 +195,7 @@ func TestAuditWithEidRhNymPolicy(t *testing.T) {
 	kvss, err := kvs.NewWithConfig(c, "", cp)
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
-	sigService := sig2.NewService(sig2.NewMultiplexDeserializer(), newAuditInfo(), newSignerInfo())
+	sigService := sig2.NewService(sig2.NewMultiplexDeserializer(), utils.MustGet(c.NewAuditInfo()), utils.MustGet(c.NewSignerInfo()))
 	assert.NoError(t, registry.RegisterService(sigService))
 
 	config, err := msp2.GetLocalMspConfigWithType("./testdata/idemix", nil, "idemix", "idemix")
@@ -248,7 +239,7 @@ func TestProvider_DeserializeSigner(t *testing.T) {
 	kvss, err := kvs.NewWithConfig(c, "", cp)
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
-	sigService := sig2.NewService(sig2.NewMultiplexDeserializer(), newAuditInfo(), newSignerInfo())
+	sigService := sig2.NewService(sig2.NewMultiplexDeserializer(), utils.MustGet(c.NewAuditInfo()), utils.MustGet(c.NewSignerInfo()))
 	assert.NoError(t, registry.RegisterService(sigService))
 
 	config, err := msp2.GetLocalMspConfigWithType("./testdata/sameissuer/idemix", nil, "idemix", "idemix")
@@ -306,7 +297,7 @@ func TestIdentityFromFabricCA(t *testing.T) {
 	kvss, err := kvs.NewWithConfig(c, "", cp)
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
-	sigService := sig2.NewService(sig2.NewMultiplexDeserializer(), newAuditInfo(), newSignerInfo())
+	sigService := sig2.NewService(sig2.NewMultiplexDeserializer(), utils.MustGet(c.NewAuditInfo()), utils.MustGet(c.NewSignerInfo()))
 	assert.NoError(t, registry.RegisterService(sigService))
 
 	config, err := idemix2.GetLocalMspConfigWithType("./testdata/charlie.ExtraId2", "charlie.ExtraId2")
@@ -375,7 +366,7 @@ func TestIdentityFromFabricCAWithEidRhNymPolicy(t *testing.T) {
 	kvss, err := kvs.NewWithConfig(c, "", cp)
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
-	sigService := sig2.NewService(sig2.NewMultiplexDeserializer(), newAuditInfo(), newSignerInfo())
+	sigService := sig2.NewService(sig2.NewMultiplexDeserializer(), utils.MustGet(c.NewAuditInfo()), utils.MustGet(c.NewSignerInfo()))
 	assert.NoError(t, registry.RegisterService(sigService))
 
 	config, err := idemix2.GetLocalMspConfigWithType("./testdata/charlie.ExtraId2", "charlie.ExtraId2")
